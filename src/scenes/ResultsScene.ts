@@ -19,7 +19,10 @@ export class ResultsScene extends BaseScene {
   private counter!: Phaser.GameObjects.BitmapText;
   private lootY = 0;
   private lootH = 0;
-  private bars: { o: HeroOutcome; meter: Meter; x: number; y: number; w: number; level: number; t: number; shown: number; lvlText: Phaser.GameObjects.BitmapText }[] = [];
+  private bars: { o: HeroOutcome; meter: Meter; x: number; y: number; w: number; level: number; t: number; shown: number; lvlText: Phaser.GameObjects.BitmapText; flash: number }[] = [];
+  private bigPop: Phaser.GameObjects.BitmapText | null = null;
+  private xpPanelY = 0;
+  private xpTitle: Phaser.GameObjects.BitmapText | null = null;
   private confetti: { r: Phaser.GameObjects.Rectangle; x: number; y: number; vx: number; vy: number; life: number }[] = [];
   private animStart = 0;
 
@@ -152,7 +155,8 @@ export class ResultsScene extends BaseScene {
     const rows = Math.ceil(shown.length / 2);
     const h = 13 + rows * 13;
     this.ui.add(addPanel(this, 4, y, VW - 8, h, 'parch'));
-    this.ui.add(addText(this, VW / 2, y + 4, alive.length > 8 ? `Experience (+${alive.length - 8} more)` : 'Experience', 'red', 0.5));
+    this.xpTitle = addText(this, VW / 2, y + 4, alive.length > 8 ? `Experience (+${alive.length - 8} more)` : 'Experience', 'red', 0.5);
+    this.ui.add(this.xpTitle);
     const colW = Math.floor((VW - 16) / 2);
     shown.forEach((ho, i) => {
       const x = 8 + (i % 2) * colW;
@@ -165,9 +169,11 @@ export class ResultsScene extends BaseScene {
       this.ui.add(meter);
       const lb = ho.levelBefore ?? 1;
       meter.setValue(ho.xpBefore ?? 0, xpToNext(lb));
-      this.bars.push({ o: ho, meter, x: x + 44, y: ry, w: colW - 66, level: lb, t: 0, shown: ho.xpBefore ?? 0, lvlText });
+      this.bars.push({ o: ho, meter, x: x + 44, y: ry, w: colW - 66, level: lb, t: 0, shown: ho.xpBefore ?? 0, lvlText, flash: 0 });
     });
     this.animStart = this.time.now + 400;
+    this.bigPop = null;
+    this.xpPanelY = y;
     return y + h + 3;
   }
 
@@ -180,8 +186,8 @@ export class ResultsScene extends BaseScene {
       if (cur >= target) continue;
       const step = Math.max(1, (b.o.xp / 1.2) * (delta / 1000));
       let total = Math.min(target, cur + step);
-      // convert back to level + xp
-      let lvl = b.o.levelBefore ?? 1;
+      // convert the cumulative total back to level + xp
+      let lvl = 1;
       while (lvl < 10 && total >= xpToNext(lvl)) {
         total -= xpToNext(lvl);
         lvl++;
@@ -189,7 +195,7 @@ export class ResultsScene extends BaseScene {
       if (lvl > b.level) this.levelUp(b, lvl);
       b.level = lvl;
       b.shown = total;
-      b.meter.setValue(total, xpToNext(lvl), b.meter.color);
+      b.meter.setValue(total, xpToNext(lvl), b.flash > time ? 0xffffff : P.gold);
     }
     const dt = delta / 1000;
     for (const c of this.confetti) {
@@ -213,18 +219,23 @@ export class ResultsScene extends BaseScene {
 
   private levelUp(b: (typeof this.bars)[number], lvl: number): void {
     hapticNotify('success');
-    b.lvlText.setText(`${lvl}`);
-    b.lvlText.setFont('font_gold');
-    // flash: the bar turns white for a beat, in steps
-    b.meter.color = 0xffffff;
-    this.time.delayedCall(90, () => (b.meter.color = P.cream));
-    this.time.delayedCall(180, () => (b.meter.color = P.gold));
-    const pop = addText(this, b.x + b.w / 2, b.y - 9, 'Level up!', 'gold', 0.5);
-    this.ui.add(pop);
-    pop.setScale(2);
-    this.time.delayedCall(70, () => pop.setScale(1.5));
-    this.time.delayedCall(140, () => pop.setScale(1));
-    this.tweens.add({ targets: pop, y: b.y - 18, duration: 900, delay: 300, ease: 'Stepped', easeParams: [6], onComplete: () => pop.destroy() });
+    // the row: level number turns gold and pops, the bar flashes white
+    b.lvlText.setText(`${lvl}`).setFont('font_gold');
+    b.lvlText.setScale(2);
+    this.time.delayedCall(80, () => b.lvlText.setScale(1.5));
+    this.time.delayedCall(160, () => b.lvlText.setScale(1));
+    b.flash = this.time.now + 180;
+    // one big "Level up!" over the panel for the whole screen
+    if (!this.bigPop) {
+      const { VW } = this.m;
+      this.xpTitle?.setVisible(false);
+      const pop = addText(this, VW / 2, this.xpPanelY - 3, 'Level up!', 'gold', 0.5);
+      this.ui.add(pop);
+      this.bigPop = pop;
+      pop.setScale(3);
+      this.time.delayedCall(70, () => pop.setScale(2.5));
+      this.time.delayedCall(140, () => pop.setScale(2));
+    }
     const colors = [P.gold, P.red, 0x6fae5a, 0x6d8fae, P.cream];
     for (let i = 0; i < 26 && this.confetti.length < 140; i++) {
       const r = this.add.rectangle(0, 0, i % 3 ? 1 : 2, i % 4 ? 1 : 2, colors[i % colors.length]).setOrigin(0, 0);

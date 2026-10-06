@@ -52,7 +52,7 @@ export class SettlementScene extends BaseScene {
     this.addGrassBackdrop(def.id + 30);
     const key = `wm_setbig_${def.kind}_${def.id % 2}_${def.coastal ? 1 : 0}`;
     if (!this.textures.exists(key)) this.textures.addCanvas(key, renderSettlement(def.kind, def.id, def.coastal).toCanvas());
-    this.ui.add(this.add.image(VW / 2, 92, key).setScale(def.kind === 'town' ? 3 : 3).setOrigin(0.5, 1));
+    this.ui.add(this.add.image(VW / 2, 92, key).setScale(def.kind === 'town' ? 2 : 3).setOrigin(0.5, 1));
 
     addScroll(this, this.ui, 8, 6, VW - 16, 34);
     const title = addText(this, VW / 2, 12, def.name, 'red', 0.5);
@@ -70,7 +70,7 @@ export class SettlementScene extends BaseScene {
     this.ui.add(this.armyText);
 
     // tabs
-    const tabs: [Tab, string, string][] = [['recruits', 'Recruit', 'plus']];
+    const tabs: [Tab, string, string][] = [['recruits', 'Hire', 'plus']];
     if (def.kind === 'town') tabs.push(['market', 'Buy', 'coin'], ['sell', 'Sell', 'shield']);
     tabs.push(['rest', 'Rest', 'tent']);
     const tw = Math.floor((VW - 8 - (tabs.length - 1) * 3) / tabs.length);
