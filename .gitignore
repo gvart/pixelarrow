@@ -6,3 +6,6 @@ test-results
 /wrangler.deploy.json
 .wrangler
 .dev.vars
+
+# Agent worktrees (local only)
+.claude/worktrees/
