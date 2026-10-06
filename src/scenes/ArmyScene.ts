@@ -5,7 +5,8 @@ import { dollFrame, ensureDoll, ensureItemIcon } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
 import { itemDef, itemValue, RARITY_LABEL, SLOTS, type Item, type Rarity, type Slot } from '../data/items';
-import { MAX_ARMY, RECRUIT_COST, xpToNext, GROUP_NAMES, type Hero } from '../data/units';
+import { MAX_ARMY, xpToNext, GROUP_NAMES, type Hero } from '../data/units';
+import { perkSlots } from '../data/perks';
 import { TRAITS } from '../data/traits';
 import { computeStats, type CombatStats } from '../sim/stats';
 import { P } from '../art/palette';
@@ -18,6 +19,9 @@ const ROMAN = ['I', 'II', 'III', 'IV'];
 
 interface ArmyData {
   heroId?: string;
+  /** Scene to return to ('World' by default, or 'Settlement' with its id). */
+  from?: string;
+  id?: number;
 }
 
 export class ArmyScene extends BaseScene {
@@ -30,7 +34,8 @@ export class ArmyScene extends BaseScene {
   private listParent!: Phaser.GameObjects.Container;
   private tabButtons: Button[] = [];
   private goldText!: Phaser.GameObjects.BitmapText;
-  private recruitBtn!: Button;
+  private skillsBtn!: Button;
+  private back: ArmyData = {};
   private preview: Phaser.GameObjects.Sprite | null = null;
   private dismissArmed = false;
   private ghost: Phaser.GameObjects.Image | null = null;
@@ -48,13 +53,14 @@ export class ArmyScene extends BaseScene {
     this.selSlot = null;
     this.tab = 'roster';
     this.listArea = null;
-    this.telegramBack(() => this.scene.start('Menu'));
+    this.back = { from: data?.from ?? 'World', id: data?.id };
+    this.telegramBack(() => this.goBack());
     const { VW, VH } = this.m;
 
     this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
     // top bar
     this.ui.add(addPanel(this, 0, 0, VW, 24, 'parch'));
-    this.ui.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.scene.start('Menu') }));
+    this.ui.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.goBack() }));
     this.ui.add(addText(this, VW / 2, 8, 'Army', 'red', 0.5));
     this.ui.add(addIcon(this, VW - 52, 6, 'coin'));
     this.goldText = addText(this, VW - 37, 8, '', 'ink');
@@ -77,9 +83,10 @@ export class ArmyScene extends BaseScene {
     // bottom bar
     const by = VH - 30;
     this.ui.add(addPanel(this, 0, by - 3, VW, 33, 'parch'));
-    this.recruitBtn = new Button(this, 4, by, Math.floor(VW / 2) - 6, 26, { label: `Recruit ${RECRUIT_COST}`, icon: 'plus', onClick: () => this.recruit() });
-    this.ui.add(this.recruitBtn);
-    this.ui.add(new Button(this, Math.floor(VW / 2) + 2, by, Math.floor(VW / 2) - 6, 26, { label: 'To battle', icon: 'swords', style: 'buttonSel', onClick: () => this.scene.start('Battle', { fresh: true }) }));
+    this.skillsBtn = new Button(this, 4, by, Math.floor(VW / 2) - 6, 26, { label: 'Skills', icon: 'star', onClick: () => this.openHero() });
+    this.ui.add(this.skillsBtn);
+    const backLabel = this.back.from === 'Settlement' ? 'Town' : 'Map';
+    this.ui.add(new Button(this, Math.floor(VW / 2) + 2, by, Math.floor(VW / 2) - 6, 26, { label: backLabel, icon: 'map', style: 'buttonSel', onClick: () => this.goBack() }));
 
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       if (this.ghost) this.ghost.setPosition(p.x / this.m.S, p.y / this.m.S);
@@ -106,23 +113,22 @@ export class ArmyScene extends BaseScene {
     void state.save();
   }
 
-  private recruit(): void {
-    const h = state.campaign.recruit();
-    if (!h) {
-      hapticNotify('error');
-      return;
-    }
-    hapticNotify('success');
-    this.heroId = h.id;
-    this.tab = 'roster';
-    this.persist();
-    this.refresh();
+  private goBack(): void {
+    void state.save();
+    if (this.back.from === 'Settlement') this.scene.start('Settlement', { id: this.back.id });
+    else this.scene.start(this.back.from ?? 'World');
+  }
+
+  private openHero(): void {
+    this.scene.start('Hero', { heroId: this.heroId, back: { from: this.back.from, id: this.back.id } });
   }
 
   refresh(): void {
     const c = state.campaign.data;
     this.goldText.setText(`${c.gold}`);
-    this.recruitBtn.setEnabled(state.campaign.canRecruit());
+    const h = this.hero();
+    const pend = h ? h.points > 0 || h.perks.length < perkSlots(h.level) : false;
+    this.skillsBtn.setLabel(pend ? 'Skills !' : 'Skills').setSelected(pend);
     this.tabButtons[0].setSelected(this.tab === 'roster').setLabel(`Roster ${c.heroes.length}/${MAX_ARMY}`);
     this.tabButtons[1].setSelected(this.tab === 'stash').setLabel(`Stash ${c.stash.length}`);
     this.buildHeroPanel();
@@ -164,7 +170,7 @@ export class ArmyScene extends BaseScene {
     const xpM = new Meter(this, tx + 30, y0 + 19, w - 70 - 36, 5, P.gold).setValue(h.xp, xpToNext(h.level));
     L.add(xpM);
     const traits = h.traits.map((t) => TRAITS[t].name).join(', ') || 'No traits';
-    L.add(addText(this, tx, y0 + 28, traits, 'dim', 0, w - 74));
+    L.add(addText(this, tx, y0 + 28, h.wound > 0 ? `Wounded: ${Math.ceil(h.wound)}h rest` : traits, h.wound > 0 ? 'red' : 'dim', 0, w - 74));
 
     // stats with preview deltas
     const base = computeStats(h);
@@ -236,8 +242,7 @@ export class ArmyScene extends BaseScene {
       const bx = x0 + w - 60;
       if (this.selItem) {
         L.add(new Button(this, bx, iy + 9, 56, 18, { label: 'Equip', icon: 'check', style: 'buttonSel', onClick: () => this.equipSelected() }));
-        const val = itemValue(this.selItem);
-        L.add(new Button(this, bx, iy + 29, 56, 16, { label: `Sell ${val}`, onClick: () => this.sellSelected(val) }));
+        L.add(addText(this, bx + 28, iy + 31, `worth ${itemValue(this.selItem)}`, 'dim', 0.5));
       } else if (this.selSlot) {
         L.add(new Button(this, bx, iy + 9, 56, 18, { label: 'Remove', onClick: () => this.unequip() }));
         const cost = state.campaign.repairCost(info);
@@ -278,15 +283,6 @@ export class ArmyScene extends BaseScene {
       this.selSlot = null;
       this.persist();
     }
-    this.refresh();
-  }
-
-  private sellSelected(val: number): void {
-    if (!this.selItem) return;
-    state.campaign.sell(this.selItem.uid, val);
-    hapticNotify('success');
-    this.selItem = null;
-    this.persist();
     this.refresh();
   }
 
@@ -377,7 +373,9 @@ export class ArmyScene extends BaseScene {
     parent.add(img);
     const font: FontKey = sel ? 'light' : 'ink';
     parent.add(addText(this, 34, y + 4, hero.name, font));
-    parent.add(addText(this, 34, y + 13, `Lv${hero.level} ${hero.traits.map((t) => TRAITS[t].name).join(' ')}`, sel ? 'light' : 'dim'));
+    const pend = hero.points > 0 || hero.perks.length < perkSlots(hero.level);
+    const sub = hero.wound > 0 ? `Lv${hero.level} wounded ${Math.ceil(hero.wound)}h` : `Lv${hero.level}${pend ? ' (!)' : ''} ${hero.traits.map((t) => TRAITS[t].name).join(' ')}`;
+    parent.add(addText(this, 34, y + 13, sub, sel ? 'light' : hero.wound > 0 ? 'red' : 'dim'));
     parent.add(addText(this, w - 6, y + 4, ROMAN[hero.group] ?? '', sel ? 'light' : 'red', 1));
     const wpn = hero.equip.weapon ? itemDef(hero.equip.weapon.def).name : 'Unarmed';
     parent.add(addText(this, w - 6, y + 13, wpn, sel ? 'light' : 'dim', 1));

@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, ScrollArea, addIcon, addPanel, addScroll, addText, tappable } from '../ui/kit';
+import { Button, Meter, ScrollArea, addIcon, addPanel, addScroll, addText, tappable } from '../ui/kit';
+import { xpToNext } from '../data/units';
+import type { HeroOutcome } from '../game/loot';
 import { ensureItemIcon } from '../ui/sprites';
 import { state } from '../state';
 import { itemDef, RARITY_LABEL } from '../data/items';
@@ -15,6 +17,11 @@ export class ResultsScene extends BaseScene {
   private lootLayer!: Phaser.GameObjects.Container;
   private area: ScrollArea | null = null;
   private counter!: Phaser.GameObjects.BitmapText;
+  private lootY = 0;
+  private lootH = 0;
+  private bars: { o: HeroOutcome; meter: Meter; x: number; y: number; w: number; level: number; t: number; shown: number; lvlText: Phaser.GameObjects.BitmapText }[] = [];
+  private confetti: { r: Phaser.GameObjects.Rectangle; x: number; y: number; vx: number; vy: number; life: number }[] = [];
+  private animStart = 0;
 
   constructor() {
     super('Results');
@@ -41,21 +48,22 @@ export class ResultsScene extends BaseScene {
     this.ui.add(addText(this, VW / 2, 38, `vs ${CULTURE_LABEL[last.enemy.culture]}`, 'dim', 0.5));
 
     // summary
-    let y = 62;
-    this.ui.add(addPanel(this, 4, y, VW - 8, 86, 'parch'));
-    const line = (icon: string, text: string, yy: number, font: 'ink' | 'red' = 'ink') => {
-      this.ui.add(addIcon(this, 10, yy - 2, icon));
-      this.ui.add(addText(this, 26, yy, text, font, 0, VW - 40));
+    let y = 60;
+    this.ui.add(addPanel(this, 4, y, VW - 8, 46, 'parch'));
+    const line = (icon: string, text: string, xx: number, yy: number, font: 'ink' | 'red' = 'ink') => {
+      this.ui.add(addIcon(this, xx, yy - 2, icon));
+      this.ui.add(addText(this, xx + 15, yy, text, font, 0, VW - 40));
     };
-    line('swords', `Enemies slain ${o.enemyKilled}/${o.enemyTotal}`, y + 7);
-    line('skull', `Your fallen ${o.lost}`, y + 21, o.lost > 0 ? 'red' : 'ink');
-    line('coin', `Gold +${o.gold}`, y + 35);
-    const ups = o.heroes.filter((h) => h.levelsGained > 0).map((h) => h.name);
-    line('star', ups.length ? `Level up: ${ups.join(', ')}` : `XP to ${o.heroes.filter((h) => !h.died).length} survivors`, y + 49);
+    line('swords', `Slain ${o.enemyKilled}/${o.enemyTotal}`, 9, y + 6);
+    line('coin', `Gold +${o.gold}`, VW / 2 + 4, y + 6);
+    const wounded = o.heroes.filter((h) => h.wounded).length;
+    line('skull', `Fallen ${o.lost}`, 9, y + 19, o.lost > 0 ? 'red' : 'ink');
+    line('cross', `Wounded ${wounded}`, VW / 2 + 4, y + 19, wounded > 0 ? 'red' : 'ink');
     const fallen = last.fallen.map((h) => h.name);
-    if (fallen.length) line('skull', `RIP ${fallen.slice(0, 5).join(', ')}${fallen.length > 5 ? ` +${fallen.length - 5}` : ''}`, y + 63, 'red');
-    else line('heart', 'No heroes lost', y + 63);
-    y += 92;
+    if (fallen.length) line('skull', `RIP ${fallen.slice(0, 4).join(', ')}${fallen.length > 4 ? ` +${fallen.length - 4}` : ''}`, 9, y + 32, 'red');
+    else line('heart', 'No heroes lost', 9, y + 32);
+    y += 49;
+    y = this.buildXp(y);
 
     // loot
     this.ui.add(addPanel(this, 4, y, VW - 8, VH - y - 36, 'parch'));
@@ -63,7 +71,9 @@ export class ResultsScene extends BaseScene {
     this.ui.add(this.counter);
     this.lootLayer = this.add.container(0, 0);
     this.ui.add(this.lootLayer);
-    this.buildLoot(y + 18, VH - y - 36 - 22);
+    this.lootY = y + 18;
+    this.lootH = VH - y - 36 - 22;
+    this.buildLoot(this.lootY, this.lootH);
 
     const label = o.picks > 0 ? 'Take spoils' : 'Return';
     this.ui.add(new Button(this, VW / 2 - 60, VH - 32, 120, 26, { label, icon: 'check', style: 'buttonSel', onClick: () => this.finish() }));
@@ -114,9 +124,7 @@ export class ResultsScene extends BaseScene {
     }
     hapticSelect();
     const scroll = this.area?.scrollY ?? 0;
-    const { VH } = this.m;
-    const y = 62 + 92 + 18;
-    this.buildLoot(y, VH - (62 + 92) - 36 - 22);
+    this.buildLoot(this.lootY, this.lootH);
     this.area?.setScroll(scroll);
   }
 
@@ -129,6 +137,101 @@ export class ResultsScene extends BaseScene {
       void state.save();
     }
     this.chosen.clear();
-    this.scene.start('Army');
+    if (last?.partyId !== undefined) this.scene.start('World');
+    else this.scene.start('Army', { from: 'World' });
+  }
+
+  /** Survivors' XP bars (two columns), animated from their old XP; level-ups flash and throw confetti. */
+  private buildXp(y: number): number {
+    const o = state.last!.outcome;
+    const { VW } = this.m;
+    const alive = o.heroes.filter((h) => !h.died).sort((a, b) => b.levelsGained - a.levelsGained);
+    this.bars = [];
+    if (alive.length === 0) return y;
+    const shown = alive.slice(0, 8);
+    const rows = Math.ceil(shown.length / 2);
+    const h = 13 + rows * 13;
+    this.ui.add(addPanel(this, 4, y, VW - 8, h, 'parch'));
+    this.ui.add(addText(this, VW / 2, y + 4, alive.length > 8 ? `Experience (+${alive.length - 8} more)` : 'Experience', 'red', 0.5));
+    const colW = Math.floor((VW - 16) / 2);
+    shown.forEach((ho, i) => {
+      const x = 8 + (i % 2) * colW;
+      const ry = y + 14 + Math.floor(i / 2) * 13;
+      const name = ho.name.length > 8 ? ho.name.slice(0, 7) + '.' : ho.name;
+      this.ui.add(addText(this, x, ry, name, ho.wounded ? 'red' : 'ink'));
+      const lvlText = addText(this, x + colW - 6, ry, `${ho.levelBefore ?? '?'}`, 'dim', 1);
+      this.ui.add(lvlText);
+      const meter = new Meter(this, x + 44, ry + 1, colW - 66, 5, P.gold);
+      this.ui.add(meter);
+      const lb = ho.levelBefore ?? 1;
+      meter.setValue(ho.xpBefore ?? 0, xpToNext(lb));
+      this.bars.push({ o: ho, meter, x: x + 44, y: ry, w: colW - 66, level: lb, t: 0, shown: ho.xpBefore ?? 0, lvlText });
+    });
+    this.animStart = this.time.now + 400;
+    return y + h + 3;
+  }
+
+  update(time: number, delta: number): void {
+    // XP bars fill at a steady rate; crossing a level flashes the bar and pops the text
+    for (const b of this.bars) {
+      if (time < this.animStart) break;
+      const target = this.totalXp(b.o.levelBefore ?? 1, b.o.xpBefore ?? 0) + b.o.xp;
+      const cur = this.totalXp(b.level, b.shown);
+      if (cur >= target) continue;
+      const step = Math.max(1, (b.o.xp / 1.2) * (delta / 1000));
+      let total = Math.min(target, cur + step);
+      // convert back to level + xp
+      let lvl = b.o.levelBefore ?? 1;
+      while (lvl < 10 && total >= xpToNext(lvl)) {
+        total -= xpToNext(lvl);
+        lvl++;
+      }
+      if (lvl > b.level) this.levelUp(b, lvl);
+      b.level = lvl;
+      b.shown = total;
+      b.meter.setValue(total, xpToNext(lvl), b.meter.color);
+    }
+    const dt = delta / 1000;
+    for (const c of this.confetti) {
+      c.life -= dt;
+      c.vy += 120 * dt;
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+      c.r.setPosition(Math.round(c.x), Math.round(c.y)).setVisible(c.life > 0);
+    }
+    if (this.confetti.length && this.confetti.every((c) => c.life <= 0)) {
+      for (const c of this.confetti) c.r.destroy();
+      this.confetti = [];
+    }
+  }
+
+  private totalXp(level: number, xp: number): number {
+    let t = xp;
+    for (let l = 1; l < level; l++) t += xpToNext(l);
+    return t;
+  }
+
+  private levelUp(b: (typeof this.bars)[number], lvl: number): void {
+    hapticNotify('success');
+    b.lvlText.setText(`${lvl}`);
+    b.lvlText.setFont('font_gold');
+    // flash: the bar turns white for a beat, in steps
+    b.meter.color = 0xffffff;
+    this.time.delayedCall(90, () => (b.meter.color = P.cream));
+    this.time.delayedCall(180, () => (b.meter.color = P.gold));
+    const pop = addText(this, b.x + b.w / 2, b.y - 9, 'Level up!', 'gold', 0.5);
+    this.ui.add(pop);
+    pop.setScale(2);
+    this.time.delayedCall(70, () => pop.setScale(1.5));
+    this.time.delayedCall(140, () => pop.setScale(1));
+    this.tweens.add({ targets: pop, y: b.y - 18, duration: 900, delay: 300, ease: 'Stepped', easeParams: [6], onComplete: () => pop.destroy() });
+    const colors = [P.gold, P.red, 0x6fae5a, 0x6d8fae, P.cream];
+    for (let i = 0; i < 26 && this.confetti.length < 140; i++) {
+      const r = this.add.rectangle(0, 0, i % 3 ? 1 : 2, i % 4 ? 1 : 2, colors[i % colors.length]).setOrigin(0, 0);
+      this.ui.add(r);
+      const a = Math.random() * Math.PI * 2;
+      const v = 20 + Math.random() * 45;
+      this.confetti.push({ r, x: b.x + b.w / 2, y: b.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 50, life: 1 + Math.random() * 0.8 });
+    }
   }
 }

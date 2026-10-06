@@ -4,6 +4,9 @@ import { MenuScene } from './scenes/MenuScene';
 import { ArmyScene } from './scenes/ArmyScene';
 import { BattleScene } from './scenes/BattleScene';
 import { ResultsScene } from './scenes/ResultsScene';
+import { WorldScene } from './scenes/WorldScene';
+import { SettlementScene } from './scenes/SettlementScene';
+import { HeroScene } from './scenes/HeroScene';
 import { state } from './state';
 
 const game = new Phaser.Game({
@@ -19,7 +22,7 @@ const game = new Phaser.Game({
     height: window.innerHeight,
   },
   input: { activePointers: 3 },
-  scene: [BootScene, MenuScene, ArmyScene, BattleScene, ResultsScene],
+  scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene],
 });
 
 // Debug handles (used by the screenshot script).

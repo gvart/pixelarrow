@@ -29,6 +29,8 @@ class GameState {
   pending: PendingBattle | null = null;
   last: LastBattle | null = null;
   cloud = false;
+  /** A campaign was loaded from storage (the menu offers Continue). */
+  hasSave = false;
   private saving: Promise<void> = Promise.resolve();
   private dirty = false;
 
@@ -37,6 +39,7 @@ class GameState {
     this.cloud = kv.cloud;
     let data: SaveData | null = await readSave(kv.primary);
     if (!data && kv.mirror) data = await readSave(kv.mirror);
+    this.hasSave = !!data;
     this.campaign = data ? new Campaign(data) : Campaign.fresh(randomSeed());
     setHaptics(this.campaign.data.settings.haptics);
     if (!data) await this.save();
@@ -63,6 +66,7 @@ class GameState {
     this.campaign = Campaign.fresh(randomSeed());
     this.pending = null;
     this.last = null;
+    this.hasSave = true;
     await this.save();
   }
 }
