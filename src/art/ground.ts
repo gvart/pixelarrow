@@ -1,48 +1,73 @@
-/** Procedural isometric grass ground with dithered texture, tufts, flowers and dirt. */
+/** Procedural isometric grass ground: diamond tiles, dithered texture, tufts, flowers and dirt. */
 import { P, mix } from './palette';
 import { BAYER4, Pix, hash2, valueNoise } from './pixels';
+import { ISO_HH, ISO_HW } from './iso';
 
 export interface GroundOpts {
-  /** playable field in pixels (relative to the ground origin) */
-  fieldX: number;
-  fieldY: number;
+  /** world-pixel position of the image's top-left corner */
+  originX: number;
+  originY: number;
+  /** playable field size in field units (one unit = one diamond tile) */
   fieldW: number;
   fieldH: number;
   seed: number;
 }
 
+/**
+ * Renders a w x h pixel image of the isometric plain. Every pixel is mapped back
+ * through the inverse projection to field coordinates, so tiles are exact 2:1
+ * diamonds aligned with the simulation grid.
+ */
 export function renderGround(w: number, h: number, o: GroundOpts): Pix {
   const px = new Pix(w, h);
   const g = P.grass;
   for (let y = 0; y < h; y++) {
+    const wy = o.originY + y;
     for (let x = 0; x < w; x++) {
-      // Iso-stretched noise (ground plane is squashed 2:1 vertically).
-      const n1 = valueNoise(x, y * 2, 64, o.seed);
-      const n2 = valueNoise(x, y * 2, 18, o.seed + 7);
-      const n3 = valueNoise(x, y * 2, 6, o.seed + 13);
-      let n = n1 * 0.55 + n2 * 0.3 + n3 * 0.15;
-      // subtle isometric tile checker (32x16 diamonds)
-      const u = Math.floor(x / 32 + y / 16);
-      const v = Math.floor(y / 16 - x / 32);
-      if ((u + v) % 2 === 0) n += 0.035;
-      const inField = x >= o.fieldX && y >= o.fieldY && x < o.fieldX + o.fieldW && y < o.fieldY + o.fieldH;
-      if (!inField) n -= 0.12;
+      const wx = o.originX + x;
+      // inverse projection: field coordinates of this pixel
+      const a = wx / ISO_HW;
+      const b = wy / ISO_HH;
+      const fx = (a + b) / 2;
+      const fy = (b - a) / 2;
+      const tx = Math.floor(fx);
+      const ty = Math.floor(fy);
+      const u = fx - tx;
+      const v = fy - ty;
+      // large-scale meadow variation (screen space, de-squashed)
+      const n1 = valueNoise(wx + 4000, wy * 2 + 4000, 70, o.seed);
+      const n2 = valueNoise(wx + 4000, wy * 2 + 4000, 20, o.seed + 7);
+      const n3 = valueNoise(wx + 4000, wy * 2 + 4000, 6, o.seed + 13);
+      let n = 0.5 + (n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.3 + (n3 - 0.5) * 0.25;
+      // per-tile tone: each diamond is a touch lighter or darker, plus a faint checker
+      n += (hash2(tx, ty, o.seed + 3) - 0.5) * 0.16 + ((tx + ty) & 1 ? 0.03 : -0.03);
+      // tile seams: a 1px groove along the lower edges, a lit lip along the upper ones
+      const seam = 1 - u < 0.045 || 1 - v < 0.045 ? -1 : u < 0.045 || v < 0.045 ? 1 : 0;
+      // soft shading toward the far corner gives each tile a slight bevel
+      n += (0.5 - (u + v) / 2) * 0.06;
+      const inField = fx >= 0 && fy >= 0 && fx < o.fieldW && fy < o.fieldH;
+      if (!inField) n -= 0.1;
       const t = BAYER4[y & 3][x & 3];
       const idx = Math.max(0, Math.min(4, Math.floor((1 - n) * 4.2 + (t - 0.5) * 0.9)));
       let c = g[idx];
-      // dirt patches
-      const d = valueNoise(x, y * 2, 90, o.seed + 31);
-      if (d > 0.74) {
-        const dd = (d - 0.74) / 0.26;
+      // dirt patches (trampled ground)
+      const d = valueNoise(wx + 4000, wy * 2 + 4000, 96, o.seed + 31);
+      if (d > 0.75) {
+        const dd = (d - 0.75) / 0.25;
         if (dd + (t - 0.5) * 0.5 > 0.25) c = P.dirt[Math.max(0, Math.min(2, Math.floor(n3 * 3 + (t - 0.5))))];
       }
-      if (!inField) c = mix(c, 0x3d4a2a, 0.18);
+      // seams are drawn as colour, not noise, so the dither cannot wash them out;
+      // every other seam pixel is skipped for a soft, hand-dithered edge
+      if (seam < 0 && ((x + y) & 1) === 0) c = mix(c, 0x3a4a26, 0.42);
+      else if (seam < 0) c = mix(c, 0x3a4a26, 0.24);
+      else if (seam > 0 && ((x + y) & 1) === 0) c = mix(c, 0xc8d68a, 0.16);
+      if (!inField) c = mix(c, 0x3d4a2a, 0.22);
       px.set(x, y, c);
     }
   }
   // tufts, flowers and stones
   const area = w * h;
-  for (let i = 0; i < area / 55; i++) {
+  for (let i = 0; i < area / 110; i++) {
     const x = Math.floor(hash2(i, 1, o.seed) * w);
     const y = Math.floor(hash2(i, 2, o.seed) * h);
     const r = hash2(i, 3, o.seed);

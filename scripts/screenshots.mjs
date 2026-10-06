@@ -86,7 +86,7 @@ for (let i = 0; i < 8; i++) {
   await wait(500);
   if (await call('Battle', `return s.paused;`)) await call('Battle', `s.setPaused(false); s.hideBanner(); return 1;`);
 }
-await call('Battle', `s.cameras.main.setZoom(3); const u = s.sim.units.find(u=>u.side===0 && u.state==='ready'); if (u) s.cameras.main.centerOn(u.x*24, u.y*12 - 10); return 1;`);
+await call('Battle', `s.cameras.main.setZoom(3); const u = s.sim.units.find(u=>u.side===0 && u.state==='ready'); if (u) { const p = s.project(u.x, u.y); s.cameras.main.centerOn(p.x, p.y - 10); } return 1;`);
 await wait(300);
 await shot('07-battle-melee-zoom');
 await call('Battle', `s.cameras.main.setZoom(2); return 1;`);

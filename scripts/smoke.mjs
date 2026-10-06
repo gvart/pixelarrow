@@ -54,7 +54,7 @@ const before = await ev(() => ({ ...window.__game.scene.getScene('Battle').sim.g
 const pt = await ev(() => {
   const s = window.__game.scene.getScene('Battle');
   const cam = s.cameras.main;
-  const toScreen = (x, y) => [(x * 24 - cam.worldView.x) * cam.zoom, (y * 12 - cam.worldView.y) * cam.zoom];
+  const toScreen = (x, y) => { const p = s.project(x, y); return [(p.x - cam.worldView.x) * cam.zoom, (p.y - cam.worldView.y) * cam.zoom]; };
   return { a: toScreen(9.5, 26), b: toScreen(14.5, 26) };
 });
 await drag(pt.a[0], pt.a[1], pt.b[0], pt.b[1]);
@@ -100,7 +100,7 @@ await ev(() => {
   s.setPaused(true);
   const u = s.sim.units.find((u) => u.side === 0 && u.group === 0 && u.state === 'ready');
   s.cameras.main.setZoom(2);
-  s.cameras.main.centerOn(u.x * 24, u.y * 12 - 40);
+  const p = s.project(u.x, u.y); s.cameras.main.centerOn(p.x, p.y - 40);
 });
 await wait(200);
 const unitPt = await ev(() => {

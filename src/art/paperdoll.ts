@@ -6,8 +6,10 @@
  *   - 13 columns (frames): idle0 idle1 walk0..walk3 atk0 atk1 atk2 hit die0 die1 die2.
  *   - 2 rows (directions): row 0 = facing down-right (3/4 front), row 1 = facing up-right (3/4 back).
  *     Left-facing directions are produced by mirroring horizontally at render time.
- *   - Layers are composited back-to-front: [back-view shield] legs, tunic, body armour,
- *     head/hair/beard, helmet, arm, [front-view shield], then a 1px outline, then the weapon.
+ *   - Layers are composited back-to-front: legs, tunic, body armour, head/hair/beard, helmet,
+ *     [back view: side-carried shield, painted face out], arm, [front view: shield], then a
+ *     1px outline, then the weapon. In the iso battle view row 0 + mirror gives the two
+ *     downward diagonal facings and row 1 + mirror the two upward ones.
  *   - Each layer is keyed by an `art` id from src/data/items.ts (e.g. 'hoplon', 'corinthian',
  *     'linothorax', 'spear'). To use hand-drawn art, provide a PNG per layer in this same
  *     13x2 frame grid and composite them in the same order instead of calling the draw* functions.
@@ -110,11 +112,13 @@ export function renderFrame(d: DollSpec, frameIdx: number, dir: number): Pix {
   const back = dir === 1;
   const bow = d.weapon === 'bow';
 
-  if (back && d.shield) drawShieldBack(px, d.shield, ux, uy - pose.shieldUp);
   drawLegs(px, d, pose, back);
   drawTorso(px, d, ux, uy, back);
   drawHead(px, d.look, ux, uy, back);
   if (d.helmet) drawHelmet(px, d.helmet, ux, uy, back);
+  // Seen from behind, the shield is carried on the left side, angled out, so
+  // its painted face (and emblem) stays visible to the viewer.
+  if (back && d.shield) drawShieldSide(px, d.shield, ux, uy - pose.shieldUp);
   const armAfterShield = pose.arm === 'raise' || pose.arm === 'strike';
   const hand = handPos(d.weapon, pose.arm, back, ux, uy);
   if (!armAfterShield || back) drawArm(px, d.look, hand, ux, uy, back);
@@ -535,27 +539,35 @@ export function drawShieldFront(px: Pix, s: { art: string; paint?: ItemPaint }, 
     if (em) px.bitmap(bx + 2, by + 3, em, { '#': col.ink });
     else px.rect(bx + 4, by + 5, 3, 3, P.bronze[1]);
   } else if (s.art === 'oval') {
-    const bx = 15 + ux;
+    const em = s.paint?.emblem ? EMBLEM_BITMAPS[s.paint.emblem] : undefined;
+    const bx = (em ? 14 : 15) + ux;
     const by = ty - 3;
-    const w = 8;
+    const w = em ? 9 : 8;
     const h = 16;
     px.ellipse(bx, by, w, h, (_x, _y, edge, u, v) => {
       if (edge) return u + v < 0 ? col.fieldLight : darken(col.field, 0.35);
       return u < -0.4 ? col.fieldLight : u > 0.5 ? col.fieldShade : col.field;
     });
-    // spina and boss
-    px.vline(bx + 4, by + 2, by + h - 3, P.wood[1]);
-    px.rect(bx + 3, by + 6, 3, 4, P.iron[1]);
-    px.set(bx + 3, by + 6, P.iron[0]);
-    px.set(bx + 5, by + 9, P.iron[2]);
-    // painted bands from the emblem colour
-    const ink = col.ink;
-    px.set(bx + 2, by + 3, ink);
-    px.set(bx + 2, by + 4, ink);
-    px.set(bx + 2, by + 11, ink);
-    px.set(bx + 2, by + 12, ink);
-    px.set(bx + 6, by + 3, ink);
-    px.set(bx + 6, by + 12, ink);
+    if (em) {
+      // spina above and below a painted emblem
+      px.vline(bx + 4, by + 2, by + 3, P.wood[1]);
+      px.vline(bx + 4, by + 12, by + 13, P.wood[1]);
+      emblemClipped(px, em, bx + 1, by + 5, col.ink, bx, by, w, h);
+    } else {
+      // spina and boss
+      px.vline(bx + 4, by + 2, by + h - 3, P.wood[1]);
+      px.rect(bx + 3, by + 6, 3, 4, P.iron[1]);
+      px.set(bx + 3, by + 6, P.iron[0]);
+      px.set(bx + 5, by + 9, P.iron[2]);
+      // painted bands from the emblem colour
+      const ink = col.ink;
+      px.set(bx + 2, by + 3, ink);
+      px.set(bx + 2, by + 4, ink);
+      px.set(bx + 2, by + 11, ink);
+      px.set(bx + 2, by + 12, ink);
+      px.set(bx + 6, by + 3, ink);
+      px.set(bx + 6, by + 12, ink);
+    }
   } else if (s.art === 'buckler') {
     const bx = 17 + ux;
     const by = ty + 1;
@@ -565,27 +577,72 @@ export function drawShieldFront(px: Pix, s: { art: string; paint?: ItemPaint }, 
   }
 }
 
-function drawShieldBack(px: Pix, s: { art: string; paint?: ItemPaint }, ux: number, uy: number): void {
+/** Paint an emblem, keeping only the pixels well inside the shield's ellipse (w x h at sx, sy). */
+function emblemClipped(px: Pix, em: string[], ex: number, ey: number, ink: number, sx: number, sy: number, w: number, h: number): void {
+  const cx = sx + (w - 1) / 2;
+  const cy = sy + (h - 1) / 2;
+  for (let j = 0; j < em.length; j++) {
+    for (let i = 0; i < em[j].length; i++) {
+      if (em[j][i] !== '#') continue;
+      const x = ex + i;
+      const y = ey + j;
+      if (((x - cx) / (w / 2 - 1)) ** 2 + ((y - cy) / (h / 2 - 1)) ** 2 > 1) continue;
+      px.set(x, y, ink);
+    }
+  }
+}
+
+/**
+ * Back view (3/4 from behind): the shield hangs on the soldier's left side, the
+ * one turned toward the viewer, angled outwards so its painted face shows. It is
+ * a little narrower than the front view (foreshortened) and lit from the left.
+ */
+function drawShieldSide(px: Pix, s: { art: string; paint?: ItemPaint }, ux: number, uy: number): void {
   const ty = AY - 15 + uy;
   const col = shieldColors(s.paint);
+  const em = s.paint?.emblem ? EMBLEM_BITMAPS[s.paint.emblem] : undefined;
   if (s.art === 'hoplon') {
-    const bx = 6 + ux;
+    const bx = 5 + ux;
     const by = ty - 2;
-    px.ellipse(bx, by, 11, 13, (_x, _y, edge, u) => {
-      if (edge) return u < -0.3 ? col.fieldShade : P.bronze[1];
-      return u < -0.55 ? col.field : u < 0 ? P.wood[1] : P.wood[2];
+    const w = 10;
+    const h = 13;
+    px.ellipse(bx, by, w, h, (_x, _y, edge, u, v) => {
+      if (edge) return u < -0.3 ? P.bronze[0] : u + v > 0.5 ? P.bronze[3] : P.bronze[1];
+      if (u < -0.35 && v < -0.2) return col.fieldLight;
+      if (u > 0.5 || v > 0.6) return col.fieldShade;
+      return col.field;
     });
-    // porpax band and grip
-    px.hline(bx + 3, bx + 8, by + 6, P.leather[2]);
-    px.set(bx + 5, by + 5, P.leather[1]);
-    px.set(bx + 6, by + 5, P.leather[1]);
+    // the rim's thickness shows on the far (right) edge
+    px.ellipse(bx + 1, by, w - 1, h, (_x, _y, edge, u) => (edge && u > 0.55 ? P.bronze[2] : null));
+    if (em) emblemClipped(px, em, bx + 1, by + 3, col.ink, bx, by, w, h);
+    else px.rect(bx + 4, by + 5, 2, 3, P.bronze[1]);
   } else if (s.art === 'oval') {
-    const bx = 8 + ux;
+    const bx = 5 + ux;
     const by = ty - 3;
-    px.ellipse(bx, by, 7, 16, (_x, _y, edge, u) => (edge ? (u < -0.3 ? col.fieldShade : P.wood[1]) : u < -0.5 ? col.field : P.wood[2]));
-    px.vline(bx + 3, by + 4, by + 11, P.leather[2]);
+    const w = 9;
+    const h = 16;
+    px.ellipse(bx, by, w, h, (_x, _y, edge, u, v) => {
+      if (edge) return u + v < 0 ? col.fieldLight : darken(col.field, 0.35);
+      return u < -0.4 ? col.fieldLight : u > 0.5 ? col.fieldShade : col.field;
+    });
+    if (em) {
+      px.vline(bx + 4, by + 2, by + 3, P.wood[1]);
+      px.vline(bx + 4, by + 12, by + 13, P.wood[1]);
+      emblemClipped(px, em, bx + 1, by + 5, col.ink, bx, by, w, h);
+    } else {
+      px.vline(bx + 4, by + 2, by + h - 3, P.wood[1]);
+      px.rect(bx + 3, by + 6, 3, 4, P.iron[1]);
+      px.set(bx + 3, by + 6, P.iron[0]);
+      px.set(bx + 2, by + 3, col.ink);
+      px.set(bx + 2, by + 12, col.ink);
+      px.set(bx + 6, by + 3, col.ink);
+      px.set(bx + 6, by + 12, col.ink);
+    }
   } else if (s.art === 'buckler') {
-    px.ellipse(9 + ux, ty + 2, 6, 6, (_x, _y, edge) => (edge ? P.bronze[2] : P.wood[2]));
+    const bx = 8 + ux;
+    const by = ty + 1;
+    px.ellipse(bx, by, 7, 7, (_x, _y, edge, u, v) => (edge ? (u + v < 0 ? P.bronze[0] : P.bronze[2]) : u + v < -0.4 ? col.fieldLight : col.field));
+    px.set(bx + 3, by + 3, P.bronze[0]);
   }
 }
 

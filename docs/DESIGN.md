@@ -138,29 +138,47 @@ Everything is generated at boot from code; there are no image files.
 - `paperdoll.ts` — layered soldier generator. Sheet format: 32×40 frames,
   feet at y = 37; 13 columns (`idle0 idle1 walk0-3 atk0-2 hit die0-2`) by
   2 rows (row 0 facing down-right, row 1 facing up-right; left-facing is a
-  horizontal mirror). Layers, back to front: back-view shield, legs, tunic,
-  body armour, head/hair/beard, helmet, arm, front-view shield, 1px outline,
-  weapon. Each layer is keyed by the item's `art` id, so a hand-drawn sheet per
+  horizontal mirror), i.e. the four isometric diagonals. Layers, back to front:
+  legs, tunic, body armour, head/hair/beard, helmet, back-view shield (carried
+  on the left side, angled out so its painted face shows), arm, front-view
+  shield, 1px outline, weapon. Each layer is keyed by the item's `art` id, so a hand-drawn sheet per
   layer in the same grid can replace a draw function later.
-- `emblems.ts` — 7×7 shield emblems (lambda, owl, horse, trident, sun wheel,
+- `emblems.ts` — 7×7 shield emblems, painted on round (hoplon) and oval shields (lambda, owl, horse, trident, sun wheel,
   lion, eye, scorpion, boar, Tanit, club, star).
-- `ground.ts` — dithered isometric grass (value noise + Bayer 4×4), tufts,
-  flowers, dirt; blood decals; shadows; selection rings.
+- `ground.ts` — isometric grass plain made of 2:1 diamond tiles: each pixel is
+  mapped back to field coordinates, tiles get their own tone, a dithered seam
+  (dark lower edges, lit upper edges) and value noise + Bayer 4×4 dithering;
+  tufts, flowers, dirt; blood decals; shadows; selection rings.
+- `iso.ts` — the projection (see below).
 - `font.ts`, `icons.ts`, `uiTextures.ts` — pixel font, dark-red pictograms
   and parchment panels / scroll rolls.
 - `/preview.html` on the dev server shows sample sprite sheets.
 
-The ground is an isometric plane: field coordinates (x lateral, y depth) map to
-the screen as `(x·24, y·12)`, which is exactly an isometric projection of a
-45°-rotated grid. Sprites are drawn upright and depth-sorted by y.
+### Isometric projection (`src/art/iso.ts`)
+
+The simulation keeps its own flat field coordinates (x lateral, y depth,
+24 × 36 units); only the renderer projects. One field unit is one 24×12 px
+diamond tile:
+
+    screen.x = (x − y) · 12        screen.y = (x + y) · 6
+
+so field +x runs down-right and field +y down-left. The battle line (field x)
+therefore runs diagonally across the screen: your army stands bottom-left
+facing up-right (seen from behind), the enemy top-right facing down-left.
+`screenToIso` is the exact inverse and is used for every touch: tap-to-move,
+drag-to-draw formation lines and the deployment zone. Placement boxes are the
+slot footprints projected, i.e. dashed iso diamonds; the deployment zone is a
+projected band. Sprites are upright, anchored at the feet and depth-sorted by
+screen y; the facing row/mirror is picked from the projected facing vector
+(with hysteresis). The default camera picks the largest whole zoom at which
+both armies fit between the HUD bars — on a 390×844 phone that is 1×, with
+pinch/wheel zoom to 2–4×.
 
 ## Known gaps (milestone 1)
 
 - Balance is a first pass. Bot-vs-bot battles last 20–90 s; a passive stand-off
   ends at the 5-minute limit as a stalemate. There is no "retreat" button yet.
 - No sound or music, no tutorial beyond the in-battle hint strip.
-- Shield emblems are painted on round shields; oval shields get bands and a
-  boss. Seen from behind (your own line facing up) shields show their inside.
 - Determinism relies on IEEE doubles and `Math.sqrt` (correctly rounded), so
   replays match on the same engine; cross-platform lockstep PvP should add
   periodic `hash()` desync checks or move to fixed-point maths.

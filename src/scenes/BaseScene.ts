@@ -37,7 +37,7 @@ export abstract class BaseScene extends Phaser.Scene {
     const { VW, VH } = this.m;
     const key = `grass_${VW}x${VH}_${seed}`;
     if (!this.textures.exists(key)) {
-      const pix = renderGround(VW, VH, { fieldX: 0, fieldY: 0, fieldW: VW, fieldH: VH, seed });
+      const pix = renderGround(VW, VH, { originX: 0, originY: VW, fieldW: 1e6, fieldH: 1e6, seed });
       this.textures.addCanvas(key, pix.toCanvas());
     }
     const img = this.add.image(0, 0, key).setOrigin(0, 0);

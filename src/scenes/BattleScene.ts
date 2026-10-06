@@ -4,6 +4,7 @@ import { Button, Meter, ScrollArea, addPanel, addText, tappable } from '../ui/ki
 import { dollFrame, ensureDoll } from '../ui/sprites';
 import { dollFromHero, ANIM_FRAMES } from '../art/paperdoll';
 import { renderGround } from '../art/ground';
+import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
 import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
@@ -19,10 +20,9 @@ import { itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
 
-const K = 24; // world px per field unit (x)
-const KY = 12; // world px per field unit (y) - 2:1 isometric squash
-const MARGIN_X = 192;
-const MARGIN_Y = 120;
+// World pixels come from the 2:1 isometric projection in src/art/iso.ts.
+const MARGIN_X = 200; // grass beyond the field's screen bounds
+const MARGIN_Y = 300; // generous: a portrait viewport at zoom 1 is taller than the field
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 interface UnitView {
@@ -35,6 +35,7 @@ interface UnitView {
   px: number;
   py: number;
   flip: boolean;
+  back: boolean;
   deathTick: number;
 }
 
@@ -117,15 +118,16 @@ export class BattleScene extends BaseScene {
 
     // ---- world
     this.world = this.add.layer();
-    const fieldW = this.sim.width * K;
-    const fieldH = this.sim.height * KY;
-    const gw = fieldW + MARGIN_X * 2;
-    const gh = fieldH + MARGIN_Y * 2;
-    const gkey = `battleground_${gw}x${gh}`;
+    const fb = isoFieldBounds(this.sim.width, this.sim.height);
+    const gx = fb.x0 - MARGIN_X;
+    const gy = fb.y0 - MARGIN_Y;
+    const gw = fb.x1 - fb.x0 + MARGIN_X * 2;
+    const gh = fb.y1 - fb.y0 + MARGIN_Y * 2;
+    const gkey = `isoground_${this.sim.width}x${this.sim.height}`;
     if (!this.textures.exists(gkey)) {
-      this.textures.addCanvas(gkey, renderGround(gw, gh, { fieldX: MARGIN_X, fieldY: MARGIN_Y, fieldW, fieldH, seed: 21 }).toCanvas());
+      this.textures.addCanvas(gkey, renderGround(gw, gh, { originX: gx, originY: gy, fieldW: this.sim.width, fieldH: this.sim.height, seed: 21 }).toCanvas());
     }
-    this.world.add(this.add.image(-MARGIN_X, -MARGIN_Y, gkey).setOrigin(0, 0).setDepth(-100000));
+    this.world.add(this.add.image(gx, gy, gkey).setOrigin(0, 0).setDepth(-100000));
     this.boxes = this.add.graphics().setDepth(-80000);
     this.world.add(this.boxes);
     this.projG = this.add.graphics().setDepth(100000);
@@ -141,15 +143,14 @@ export class BattleScene extends BaseScene {
       const spr = this.add.sprite(0, 0, key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
       this.world.add([shadow, ring, spr, flag]);
-      this.views.push({ u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: u.fx < 0, deathTick: -1 });
+      const f = isoFacing(u.fx, u.fy);
+      this.views.push({ u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1 });
     }
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
 
     // ---- cameras
     const cam = this.cameras.main;
-    cam.setZoom(2);
-    cam.setBounds(-MARGIN_X, -MARGIN_Y, gw, gh);
-    cam.centerOn(fieldW / 2, this.sim.height * 0.62 * KY);
+    cam.setBounds(gx, gy, gw, gh);
     cam.setBackgroundColor(P.bg);
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.uiCam.ignore(this.world);
@@ -161,6 +162,7 @@ export class BattleScene extends BaseScene {
     this.ui.add(this.hud);
     this.selGroup = this.firstPlayerGroup();
     this.buildHud();
+    this.frameArmies();
 
     this.input.on('pointerdown', this.onDown, this);
     this.input.on('pointermove', this.onMove, this);
@@ -174,6 +176,53 @@ export class BattleScene extends BaseScene {
       else this.togglePause();
     });
     this.showBanner(`Deploy vs ${CULTURE_LABEL[pending.enemy.culture]}`, 3000);
+  }
+
+  /** Field coordinates -> world pixels (also used by the screenshot/smoke scripts). */
+  project(x: number, y: number): { x: number; y: number } {
+    return isoToScreen(x, y);
+  }
+
+  /** World pixels -> field coordinates. */
+  unproject(wx: number, wy: number): { x: number; y: number } {
+    return screenToIso(wx, wy);
+  }
+
+  /** Visible battlefield in screen pixels: between the top bar and the bottom panel. */
+  private fieldViewport(): { top: number; bottom: number } {
+    const { S, VH } = this.m;
+    const deploy = this.sim.phase === 'deploy';
+    const panel = deploy ? 2 * 26 + 22 + 14 : 3 * 26 + 18 + 6;
+    return { top: 26 * S, bottom: (VH - panel - 16) * S };
+  }
+
+  /**
+   * Default camera: the largest whole zoom at which both armies fit between the
+   * HUD bars, centred on them (the armies meet along the screen diagonal).
+   */
+  private frameArmies(): void {
+    const cam = this.cameras.main;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const u of this.sim.units) {
+      if (u.state === 'fled' || u.state === 'dead') continue;
+      const p = isoToScreen(u.x, u.y);
+      x0 = Math.min(x0, p.x - 10);
+      x1 = Math.max(x1, p.x + 10);
+      y0 = Math.min(y0, p.y - 36);
+      y1 = Math.max(y1, p.y + 4);
+    }
+    if (!isFinite(x0)) return;
+    const vp = this.fieldViewport();
+    const availW = this.scale.width;
+    const availH = vp.bottom - vp.top;
+    const z = Phaser.Math.Clamp(Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0))), 1, 4);
+    cam.setZoom(z);
+    // centre the armies in the visible band, not in the whole canvas
+    const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / z;
+    cam.centerOn((x0 + x1) / 2, (y0 + y1) / 2 + offY);
   }
 
   protected onResized(): void {
@@ -223,18 +272,19 @@ export class BattleScene extends BaseScene {
         v.flag.setVisible(false);
         continue;
       }
-      const x = Phaser.Math.Linear(v.px, u.x, alpha) * K;
-      const y = Phaser.Math.Linear(v.py, u.y, alpha) * KY;
-      const rx = Math.round(x);
-      const ry = Math.round(y);
+      const sp = isoToScreen(Phaser.Math.Linear(v.px, u.x, alpha), Phaser.Math.Linear(v.py, u.y, alpha));
+      const rx = Math.round(sp.x);
+      const ry = Math.round(sp.y);
       v.spr.setPosition(rx, ry);
       v.shadow.setPosition(rx, ry - 1);
       v.ring.setPosition(rx, ry - 1);
-      // facing -> direction row and mirroring (with hysteresis)
-      const sy = u.fy * 0.5;
-      const dir = sy < -0.05 ? 1 : 0;
-      if (u.fx < -0.2) v.flip = true;
-      else if (u.fx > 0.2) v.flip = false;
+      // facing -> one of the four iso diagonals: row (front/back) + mirror, with hysteresis
+      const fc = isoFacing(u.fx, u.fy);
+      if (fc.sy < -2) v.back = true;
+      else if (fc.sy > 2) v.back = false;
+      if (fc.sx < -4) v.flip = true;
+      else if (fc.sx > 4) v.flip = false;
+      const dir = v.back ? 1 : 0;
       v.spr.setFlipX(v.flip);
       let frame: number;
       if (u.state === 'dead') {
@@ -282,10 +332,12 @@ export class BattleScene extends BaseScene {
     const now = this.sim.tick + alpha;
     for (const p of this.sim.projectiles) {
       const t = (now - p.t0) / p.dur;
-      const sx = p.sx * K;
-      const sy = p.sy * KY;
-      const tx = p.tx * K;
-      const ty = p.ty * KY;
+      const s0 = isoToScreen(p.sx, p.sy);
+      const t0 = isoToScreen(p.tx, p.ty);
+      const sx = s0.x;
+      const sy = s0.y;
+      const tx = t0.x;
+      const ty = t0.y;
       const dist = Math.sqrt((tx - sx) ** 2 + ((ty - sy) * 2) ** 2);
       const arcH = p.kind === 'stone' ? dist * 0.12 : dist * 0.22;
       if (p.done) {
@@ -327,13 +379,18 @@ export class BattleScene extends BaseScene {
     g.clear();
     if (this.sim.phase === 'deploy') {
       const z = this.sim.deployZone(0);
-      const x0 = 0;
-      const y0 = Math.round(z.y0 * KY);
-      const w = this.sim.width * K;
-      const h = Math.round((z.y1 - z.y0) * KY);
+      const quad = [
+        [0, z.y0],
+        [this.sim.width, z.y0],
+        [this.sim.width, z.y1],
+        [0, z.y1],
+      ].map(([x, y]) => {
+        const p = isoToScreen(x, y);
+        return [Math.round(p.x), Math.round(p.y)] as [number, number];
+      });
       g.fillStyle(0x4a6b8a, 0.12);
-      g.fillRect(x0, y0, w, h);
-      this.dashRect(g, [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]], 0xf6ecd8, 0.6, 4, 3);
+      g.fillPoints(quad.map(([x, y]) => new Phaser.Math.Vector2(x, y)), true);
+      this.dashRect(g, quad, 0xf6ecd8, 0.6, 4, 3);
     }
     const drawSlots = (slots: { x: number; y: number }[], fx: number, fy: number, color: number, a: number) => {
       const r = rightOf(fx, fy);
@@ -345,7 +402,10 @@ export class BattleScene extends BaseScene {
           [s.x + r.x * hw + fx * hd, s.y + r.y * hw + fy * hd],
           [s.x + r.x * hw - fx * hd, s.y + r.y * hw - fy * hd],
           [s.x - r.x * hw - fx * hd, s.y - r.y * hw - fy * hd],
-        ].map(([x, y]) => [x * K, y * KY] as [number, number]);
+        ].map(([x, y]) => {
+          const p = isoToScreen(x, y);
+          return [Math.round(p.x), Math.round(p.y)] as [number, number];
+        });
         this.dashRect(g, corners, color, a, 2, 2);
       }
     };
@@ -354,10 +414,10 @@ export class BattleScene extends BaseScene {
       const slots = formationSlots({ type: d.type, cx: d.cx, cy: d.cy, fx: d.fx, fy: d.fy, frontage: d.frontage }, d.n);
       drawSlots(slots, d.fx, d.fy, 0xfff4c0, 0.95);
       // facing arrow
-      const ax = d.cx * K;
-      const ay = d.cy * KY;
+      const a0 = isoToScreen(d.cx, d.cy);
+      const a1 = isoToScreen(d.cx + d.fx * 1.6, d.cy + d.fy * 1.6);
       g.lineStyle(1, 0xfff4c0, 0.9);
-      g.lineBetween(ax, ay, ax + d.fx * 22, ay + d.fy * 11);
+      g.lineBetween(a0.x, a0.y, a1.x, a1.y);
       return;
     }
     if (this.selGroup >= 0) {
@@ -443,8 +503,9 @@ export class BattleScene extends BaseScene {
     const n = big ? 2 : 1;
     for (let i = 0; i < n; i++) {
       const v = Math.floor(Math.random() * 4);
+      const p = isoToScreen(x, y);
       const img = this.add
-        .image(Math.round(x * K + (Math.random() - 0.5) * 10), Math.round(y * KY + (Math.random() - 0.5) * 4), `blood${v}`)
+        .image(Math.round(p.x + (Math.random() - 0.5) * 10), Math.round(p.y + (Math.random() - 0.5) * 4), `blood${v}`)
         .setDepth(-90000)
         .setAlpha(0.85)
         .setFlipX(Math.random() < 0.5);
@@ -455,7 +516,8 @@ export class BattleScene extends BaseScene {
   }
 
   private spark(x: number, y: number): void {
-    const s = this.add.image(Math.round(x * K + 4), Math.round(y * KY - 14), 'spark').setDepth(95000);
+    const p = isoToScreen(x, y);
+    const s = this.add.image(Math.round(p.x + 4), Math.round(p.y - 14), 'spark').setDepth(95000);
     this.world.add(s);
     this.tweens.add({ targets: s, alpha: 0, duration: 180, onComplete: () => s.destroy() });
   }
@@ -547,7 +609,9 @@ export class BattleScene extends BaseScene {
       cam.scrollY -= (p.y - g.ly) / cam.zoom;
     } else if (g.mode === 'formation') {
       const w = cam.getWorldPoint(p.x, p.y);
-      this.updateDragPreview(g.wx0 / K, g.wy0 / KY, w.x / K, w.y / KY);
+      const a = screenToIso(g.wx0, g.wy0);
+      const b = screenToIso(w.x, w.y);
+      this.updateDragPreview(a.x, a.y, b.x, b.y);
     }
     g.lx = p.x;
     g.ly = p.y;
@@ -669,7 +733,8 @@ export class BattleScene extends BaseScene {
     if (this.selGroup >= 0 && this.canCommand()) {
       const grp = this.sim.groups[this.selGroup];
       const f = grp.formation;
-      this.command({ kind: 'form', group: -1, cx: w.x / K, cy: w.y / KY, fx: f.fx, fy: f.fy, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
+      const fp = screenToIso(w.x, w.y);
+      this.command({ kind: 'form', group: -1, cx: fp.x, cy: fp.y, fx: f.fx, fy: f.fy, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
     }
   }
 
@@ -983,10 +1048,11 @@ export class BattleScene extends BaseScene {
       }
       cx /= mem.length;
       cy /= mem.length;
-      let top = cy;
-      for (const u of mem) if (Math.abs(u.x - cx) < 3 && Math.abs(u.y - cy) < 3) top = Math.min(top, u.y);
-      const sx = (cx * K - cam.worldView.x) * cam.zoom;
-      const sy = (top * KY - 34 - cam.worldView.y) * cam.zoom;
+      const c = isoToScreen(cx, cy);
+      let top = c.y;
+      for (const u of mem) if (Math.abs(u.x - cx) < 3 && Math.abs(u.y - cy) < 3) top = Math.min(top, isoToScreen(u.x, u.y).y);
+      const sx = (c.x - cam.worldView.x) * cam.zoom;
+      const sy = (top - 34 - cam.worldView.y) * cam.zoom;
       let tag = this.tagMap.get(g.id);
       if (!tag || tag.getData('label') !== label || tag.getData('sel') !== (this.selGroup === g.id)) {
         tag?.destroy();
