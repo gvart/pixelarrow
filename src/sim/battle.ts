@@ -44,9 +44,10 @@ export const RULES = {
   shieldWallSpeed: 0.5,
   missileBlockFactor: 1.25,
   armorK: 12,
-  moraleFromDamage: 0.45,
-  routThreshold: 10,
-  rallyThreshold: 38,
+  moraleFromDamage: 0.7,
+  /** Rout below this fraction of max morale; rally above rallyFraction. */
+  routFraction: 0.25,
+  rallyFraction: 0.55,
   allyDeathMorale: 6,
   allyRoutMorale: 5,
   enemyDeathMorale: 3,
@@ -684,7 +685,7 @@ export class Battle {
       u.engaged = false;
       return;
     }
-    if (u.morale >= RULES.rallyThreshold && nearD > 5) {
+    if (u.morale >= u.stats.morale * RULES.rallyFraction && nearD > 5) {
       u.state = 'ready';
       u.momentum = 0;
       this.events.push({ type: 'rally', tick: this.tick, unit: u.id });
@@ -710,7 +711,7 @@ export class Battle {
       if (enemies > allies + 1) u.morale -= 0.5 * (enemies - allies) * u.stats.moraleLoss;
     }
     if (u.stamina <= 0 && u.engaged && this.tick % 20 === 0) u.morale -= 1 * u.stats.moraleLoss;
-    if (u.morale < RULES.routThreshold && u.state === 'ready') this.rout(u);
+    if (u.morale < u.stats.morale * RULES.routFraction && u.state === 'ready') this.rout(u);
   }
 
   private rout(u: SimUnit): void {

@@ -21,11 +21,11 @@ export interface Vec {
 }
 
 export const SPACING: Record<FormationType, { file: number; rank: number }> = {
-  line: { file: 0.9, rank: 1.0 },
-  column: { file: 0.9, rank: 0.95 },
-  wedge: { file: 0.85, rank: 0.9 },
-  skirmish: { file: 1.8, rank: 1.6 },
-  shieldwall: { file: 0.72, rank: 0.88 },
+  line: { file: 1.0, rank: 1.35 },
+  column: { file: 1.0, rank: 1.2 },
+  wedge: { file: 1.0, rank: 1.2 },
+  skirmish: { file: 1.9, rank: 1.8 },
+  shieldwall: { file: 0.8, rank: 1.15 },
 };
 
 /** Default frontage for a preset applied to n soldiers. */

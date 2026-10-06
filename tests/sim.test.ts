@@ -182,6 +182,6 @@ describe('formations', () => {
     ], slots);
     expect(map.get(1)!.y).toBe(10);
     expect(map.get(2)!.y).toBe(10);
-    expect(map.get(0)!.y).toBe(11);
+    expect(map.get(0)!.y).toBeGreaterThan(10);
   });
 });

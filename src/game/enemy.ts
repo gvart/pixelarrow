@@ -20,7 +20,7 @@ export function generateEnemyArmy(rng: Rng, ids: IdSource, player: Hero[], battl
   const culture = rng.pick<Culture>(['greek', 'phoenician', 'celtic']);
   const playerPower = armyPower(player);
   const ramp = Math.min(0.3, battlesWon * 0.035);
-  const targetPower = playerPower * (0.88 + ramp + rng.range(-0.04, 0.06));
+  const targetPower = playerPower * (0.95 + ramp + rng.range(-0.04, 0.06));
   const count = Math.max(4, Math.min(20, player.length + rng.int(-1, 1)));
   const avgLevel = player.reduce((a, h) => a + h.level, 0) / Math.max(1, player.length);
   const tier = Math.max(1, Math.min(3, 1 + Math.floor((avgLevel - 1) / 2.5) + (battlesWon >= 5 ? 1 : 0)));

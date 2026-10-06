@@ -33,8 +33,8 @@ export const MAX_LEVEL = 10;
 export const RECRUIT_COST = 40;
 
 export const BASE = {
-  hp: 30,
-  hpPerLevel: 3,
+  hp: 40,
+  hpPerLevel: 4,
   dmg: 2,
   dmgPerLevel: 0.4,
   morale: 60,

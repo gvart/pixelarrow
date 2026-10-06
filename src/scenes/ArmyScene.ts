@@ -1,0 +1,456 @@
+import Phaser from 'phaser';
+import { BaseScene } from './BaseScene';
+import { Button, Meter, ScrollArea, addIcon, addPanel, addText, tappable, type FontKey } from '../ui/kit';
+import { dollFrame, ensureDoll, ensureItemIcon } from '../ui/sprites';
+import { dollFromHero } from '../art/paperdoll';
+import { state } from '../state';
+import { itemDef, itemValue, RARITY_LABEL, SLOTS, type Item, type Rarity, type Slot } from '../data/items';
+import { MAX_ARMY, RECRUIT_COST, xpToNext, GROUP_NAMES, type Hero } from '../data/units';
+import { TRAITS } from '../data/traits';
+import { computeStats, type CombatStats } from '../sim/stats';
+import { P } from '../art/palette';
+import { haptic, hapticNotify } from '../platform/telegram';
+import { EMBLEM_NAMES } from '../art/emblems';
+
+const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
+export const RARITY_COLOR: Record<Rarity, number> = { common: 0x9a8a7a, fine: 0x5f8a45, rare: 0x4a6b9a, heroic: 0xd8a840 };
+const ROMAN = ['I', 'II', 'III', 'IV'];
+
+interface ArmyData {
+  heroId?: string;
+}
+
+export class ArmyScene extends BaseScene {
+  private heroId = '';
+  private tab: 'roster' | 'stash' = 'roster';
+  private selItem: Item | null = null; // stash item under consideration
+  private selSlot: Slot | null = null; // equipped slot selected
+  private heroLayer!: Phaser.GameObjects.Container;
+  private listArea: ScrollArea | null = null;
+  private listParent!: Phaser.GameObjects.Container;
+  private tabButtons: Button[] = [];
+  private goldText!: Phaser.GameObjects.BitmapText;
+  private recruitBtn!: Button;
+  private preview: Phaser.GameObjects.Sprite | null = null;
+  private dismissArmed = false;
+  private ghost: Phaser.GameObjects.Image | null = null;
+  private heroPanelRect = { x: 0, y: 0, w: 0, h: 0 };
+
+  constructor() {
+    super('Army');
+  }
+
+  create(data: ArmyData): void {
+    this.initUi();
+    const c = state.campaign;
+    this.heroId = data?.heroId && c.hero(data.heroId) ? data.heroId : c.data.heroes[0]?.id ?? '';
+    this.selItem = null;
+    this.selSlot = null;
+    this.tab = 'roster';
+    this.listArea = null;
+    this.telegramBack(() => this.scene.start('Menu'));
+    const { VW, VH } = this.m;
+
+    this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
+    // top bar
+    this.ui.add(addPanel(this, 0, 0, VW, 24, 'parch'));
+    this.ui.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.scene.start('Menu') }));
+    this.ui.add(addText(this, VW / 2, 8, 'Army', 'red', 0.5));
+    this.ui.add(addIcon(this, VW - 52, 6, 'coin'));
+    this.goldText = addText(this, VW - 37, 8, '', 'ink');
+    this.ui.add(this.goldText);
+
+    this.heroLayer = this.add.container(0, 0);
+    this.ui.add(this.heroLayer);
+
+    const tabY = 208;
+    const tw = Math.floor((VW - 12) / 2);
+    this.tabButtons = [
+      new Button(this, 4, tabY, tw, 20, { label: 'Roster', icon: 'people', onClick: () => this.setTab('roster') }),
+      new Button(this, 8 + tw, tabY, tw, 20, { label: 'Stash', icon: 'shield', onClick: () => this.setTab('stash') }),
+    ];
+    this.tabButtons.forEach((b) => this.ui.add(b));
+
+    this.listParent = this.add.container(0, 0);
+    this.ui.add(this.listParent);
+
+    // bottom bar
+    const by = VH - 30;
+    this.ui.add(addPanel(this, 0, by - 3, VW, 33, 'parch'));
+    this.recruitBtn = new Button(this, 4, by, Math.floor(VW / 2) - 6, 26, { label: `Recruit ${RECRUIT_COST}`, icon: 'plus', onClick: () => this.recruit() });
+    this.ui.add(this.recruitBtn);
+    this.ui.add(new Button(this, Math.floor(VW / 2) + 2, by, Math.floor(VW / 2) - 6, 26, { label: 'To battle', icon: 'swords', style: 'buttonSel', onClick: () => this.scene.start('Battle', { fresh: true }) }));
+
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (this.ghost) this.ghost.setPosition(p.x / this.m.S, p.y / this.m.S);
+    });
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.endDrag(p));
+    this.refresh();
+  }
+
+  update(time: number): void {
+    if (this.preview) this.preview.setFrame(dollFrame(0, Math.floor(time / 600) % 2));
+  }
+
+  private hero(): Hero | undefined {
+    return state.campaign.hero(this.heroId);
+  }
+
+  private setTab(t: 'roster' | 'stash'): void {
+    this.tab = t;
+    if (t === 'roster') this.selItem = null;
+    this.refresh();
+  }
+
+  private persist(): void {
+    void state.save();
+  }
+
+  private recruit(): void {
+    const h = state.campaign.recruit();
+    if (!h) {
+      hapticNotify('error');
+      return;
+    }
+    hapticNotify('success');
+    this.heroId = h.id;
+    this.tab = 'roster';
+    this.persist();
+    this.refresh();
+  }
+
+  refresh(): void {
+    const c = state.campaign.data;
+    this.goldText.setText(`${c.gold}`);
+    this.recruitBtn.setEnabled(state.campaign.canRecruit());
+    this.tabButtons[0].setSelected(this.tab === 'roster').setLabel(`Roster ${c.heroes.length}/${MAX_ARMY}`);
+    this.tabButtons[1].setSelected(this.tab === 'stash').setLabel(`Stash ${c.stash.length}`);
+    this.buildHeroPanel();
+    this.buildList();
+  }
+
+  // ------------------------------------------------------------ hero panel
+
+  private buildHeroPanel(): void {
+    this.heroLayer.removeAll(true);
+    this.preview = null;
+    const L = this.heroLayer;
+    const { VW } = this.m;
+    const h = this.hero();
+    const x0 = 4;
+    const y0 = 28;
+    const w = VW - 8;
+    const hp = 176;
+    this.heroPanelRect = { x: x0, y: y0, w, h: hp };
+    L.add(addPanel(this, x0, y0, w, hp, 'parch'));
+    if (!h) {
+      L.add(addText(this, VW / 2, y0 + 60, 'No heroes left', 'ink', 0.5));
+      return;
+    }
+    // portrait
+    L.add(addPanel(this, x0 + 5, y0 + 5, 60, 86, 'inset'));
+    const grass = this.add.rectangle(x0 + 7, y0 + 60, 56, 29, P.grass[1]).setOrigin(0, 0);
+    L.add(grass);
+    const key = ensureDoll(this, dollFromHero(h));
+    L.add(this.add.image(x0 + 35, y0 + 86, 'shadow').setScale(2).setAlpha(0.35));
+    this.preview = this.add.sprite(x0 + 35, y0 + 88, key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40).setScale(2);
+    L.add(this.preview);
+
+    // name + level
+    const tx = x0 + 70;
+    L.add(addText(this, tx, y0 + 7, h.name, 'red'));
+    L.add(addText(this, x0 + w - 6, y0 + 7, `${GROUP_NAMES[h.group] ?? ''}`, 'dim', 1));
+    L.add(addText(this, tx, y0 + 18, `Lv ${h.level}`, 'ink'));
+    const xpM = new Meter(this, tx + 30, y0 + 19, w - 70 - 36, 5, P.gold).setValue(h.xp, xpToNext(h.level));
+    L.add(xpM);
+    const traits = h.traits.map((t) => TRAITS[t].name).join(', ') || 'No traits';
+    L.add(addText(this, tx, y0 + 28, traits, 'dim', 0, w - 74));
+
+    // stats with preview deltas
+    const base = computeStats(h);
+    let cmp: CombatStats | null = null;
+    if (this.selItem) cmp = computeStats(previewEquip(h, this.selItem));
+    else if (this.selSlot && h.equip[this.selSlot]) {
+      const clone: Hero = { ...h, equip: { ...h.equip } };
+      delete clone.equip[this.selSlot];
+      cmp = computeStats(clone);
+    }
+    const rows: [string, (s: CombatStats) => number, number][] = [
+      ['HP', (s) => s.maxHp, 0],
+      ['Dmg', (s) => s.dmg, 1],
+      ['Arm', (s) => s.armor, 1],
+      ['Blk', (s) => Math.round(s.block * 100), 0],
+      ['Mor', (s) => s.morale, 0],
+      ['Sta', (s) => s.stamina, 0],
+      ['Spd', (s) => s.speed, 2],
+      [base.range > 0 ? 'Rng' : 'Rch', (s) => (base.range > 0 ? s.range : s.reach), 1],
+    ];
+    rows.forEach(([label, f, dp], i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const sx = tx + col * 58;
+      const sy = y0 + 42 + row * 11;
+      const v = f(base);
+      L.add(addText(this, sx, sy, label, 'dim'));
+      L.add(addText(this, sx + 22, sy, fmt(v, dp), 'ink'));
+      if (cmp) {
+        const d = f(cmp) - v;
+        if (Math.abs(d) > 0.004) L.add(addText(this, sx + 52, sy, `${d > 0 ? '+' : ''}${fmt(d, dp)}`, d > 0 ? 'gold' : 'red', 1).setX(sx + 56).setOrigin(1, 0));
+      }
+    });
+    if (base.ammo > 0) L.add(addText(this, tx, y0 + 86, `Ammo ${base.ammo}  ${base.role}`, 'dim'));
+    else L.add(addText(this, tx, y0 + 86, `${base.weapon === 'none' ? 'unarmed' : base.weapon}${base.canShieldWall ? ' - shield wall' : ''}`, 'dim'));
+
+    // equipment slots
+    const slotY = y0 + 96;
+    const sw = 26;
+    const gap = Math.floor((w - 10 - sw * 5) / 4);
+    SLOTS.forEach((slot, i) => {
+      const sx = x0 + 5 + i * (sw + gap);
+      const it = h.equip[slot];
+      const sel = this.selSlot === slot || (!!this.selItem && itemDef(this.selItem.def).slot === slot);
+      const bg = addPanel(this, sx, slotY, sw, sw, sel ? 'slotSel' : 'slot');
+      bg.setInteractive();
+      tappable(bg, null, () => this.selectSlot(slot));
+      L.add(bg);
+      if (it) {
+        L.add(this.add.image(sx + 5, slotY + 4, ensureItemIcon(this, it)).setOrigin(0, 0));
+        const cm = new Meter(this, sx + 3, slotY + sw - 5, sw - 6, 3, condColor(it.cond)).setValue(it.cond, 100);
+        L.add(cm);
+        L.add(this.add.rectangle(sx + 2, slotY + 2, 3, 3, RARITY_COLOR[it.rarity]).setOrigin(0, 0));
+      } else {
+        L.add(addIcon(this, sx + 7, slotY + 7, SLOT_ICON[slot], 'D'));
+      }
+    });
+
+    // info + actions
+    const iy = slotY + sw + 4;
+    const info = this.selItem ?? (this.selSlot ? h.equip[this.selSlot] : undefined);
+    if (info) {
+      const def = itemDef(info.def);
+      L.add(this.add.rectangle(x0 + 6, iy + 2, 4, 4, RARITY_COLOR[info.rarity]).setOrigin(0, 0));
+      L.add(addText(this, x0 + 13, iy, `${def.name}`, 'red'));
+      L.add(addText(this, x0 + w - 6, iy, `${RARITY_LABEL[info.rarity]} ${Math.round(info.cond)}%`, 'dim', 1));
+      const extra = info.paint?.emblem ? ` ${EMBLEM_NAMES[info.paint.emblem] ?? ''} emblem.` : '';
+      L.add(addText(this, x0 + 6, iy + 10, def.desc + extra, 'ink', 0, w - 70));
+      const bx = x0 + w - 60;
+      if (this.selItem) {
+        L.add(new Button(this, bx, iy + 9, 56, 18, { label: 'Equip', icon: 'check', style: 'buttonSel', onClick: () => this.equipSelected() }));
+        const val = itemValue(this.selItem);
+        L.add(new Button(this, bx, iy + 29, 56, 16, { label: `Sell ${val}`, onClick: () => this.sellSelected(val) }));
+      } else if (this.selSlot) {
+        L.add(new Button(this, bx, iy + 9, 56, 18, { label: 'Remove', onClick: () => this.unequip() }));
+        const cost = state.campaign.repairCost(info);
+        if (cost > 0) {
+          const rb = new Button(this, bx, iy + 29, 56, 16, { label: `Fix ${cost}`, icon: 'repair', onClick: () => this.repair(info) });
+          rb.setEnabled(state.campaign.data.gold >= cost);
+          L.add(rb);
+        }
+      }
+    } else {
+      L.add(addText(this, x0 + 6, iy + 1, 'Tap a slot or pick gear from the stash', 'dim', 0, w - 12));
+      L.add(addText(this, x0 + 6, iy + 24, `Battles ${h.battles}  Kills ${h.kills}`, 'ink'));
+      const db = new Button(this, x0 + w - 62, iy + 16, 58, 18, {
+        label: this.dismissArmed ? 'Sure?' : 'Dismiss',
+        icon: 'skull',
+        style: this.dismissArmed ? 'buttonSel' : 'button',
+        onClick: () => this.dismiss(),
+      });
+      db.setEnabled(state.campaign.data.heroes.length > 1);
+      L.add(db);
+    }
+  }
+
+  private selectSlot(slot: Slot): void {
+    this.selSlot = this.selSlot === slot ? null : slot;
+    this.selItem = null;
+    this.dismissArmed = false;
+    if (this.selSlot) this.tab = 'stash';
+    this.refresh();
+  }
+
+  private equipSelected(): void {
+    if (!this.selItem) return;
+    const ok = state.campaign.equip(this.heroId, this.selItem.uid);
+    if (ok) {
+      haptic('medium');
+      this.selItem = null;
+      this.selSlot = null;
+      this.persist();
+    }
+    this.refresh();
+  }
+
+  private sellSelected(val: number): void {
+    if (!this.selItem) return;
+    state.campaign.sell(this.selItem.uid, val);
+    hapticNotify('success');
+    this.selItem = null;
+    this.persist();
+    this.refresh();
+  }
+
+  private unequip(): void {
+    if (!this.selSlot) return;
+    state.campaign.unequip(this.heroId, this.selSlot);
+    haptic('light');
+    this.persist();
+    this.refresh();
+  }
+
+  private repair(it: Item): void {
+    if (state.campaign.repair(it)) {
+      hapticNotify('success');
+      this.persist();
+    }
+    this.refresh();
+  }
+
+  private dismiss(): void {
+    if (!this.dismissArmed) {
+      this.dismissArmed = true;
+      this.buildHeroPanel();
+      return;
+    }
+    this.dismissArmed = false;
+    state.campaign.dismiss(this.heroId);
+    this.heroId = state.campaign.data.heroes[0]?.id ?? '';
+    this.persist();
+    this.refresh();
+  }
+
+  // ------------------------------------------------------------ lists
+
+  private buildList(): void {
+    const keepScroll = this.listArea && this.listParent.getData('tab') === this.tab ? this.listArea.scrollY : 0;
+    this.listParent.removeAll(true);
+    this.listArea?.destroy();
+    const { VW, VH, S } = this.m;
+    const y = 232;
+    const h = VH - 34 - y;
+    this.listParent.add(addPanel(this, 4, y - 1, VW - 8, h + 2, 'inset'));
+    const area = new ScrollArea(this, this.listParent, 6, y + 1, VW - 12, h - 2, S);
+    this.listArea = area;
+    this.listParent.setData('tab', this.tab);
+    const content = area.content;
+    let cy = 0;
+    if (this.tab === 'roster') {
+      for (const hero of state.campaign.data.heroes) {
+        this.rosterRow(content, area, hero, cy, VW - 12);
+        cy += 26;
+      }
+    } else {
+      const filter = this.selSlot;
+      const items = state.campaign.data.stash
+        .filter((i) => !filter || itemDef(i.def).slot === filter)
+        .slice()
+        .sort((a, b) => SLOTS.indexOf(itemDef(a.def).slot) - SLOTS.indexOf(itemDef(b.def).slot) || itemDef(b.def).tier - itemDef(a.def).tier);
+      if (filter) {
+        const t = addText(this, 4, cy + 3, `Showing ${filter} - tap slot again for all`, 'dim');
+        content.add(t);
+        cy += 14;
+      }
+      if (items.length === 0) content.add(addText(this, (VW - 12) / 2, cy + 10, 'Nothing here. Win battles for loot.', 'dim', 0.5));
+      for (const it of items) {
+        this.stashRow(content, area, it, cy, VW - 12);
+        cy += 24;
+      }
+    }
+    area.setContentHeight(cy + 2);
+    area.setScroll(keepScroll);
+  }
+
+  private rosterRow(parent: Phaser.GameObjects.Container, area: ScrollArea, hero: Hero, y: number, w: number): void {
+    const sel = hero.id === this.heroId;
+    const bg = addPanel(this, 0, y, w, 24, sel ? 'buttonSel' : 'button').setInteractive();
+    parent.add(bg);
+    tappable(bg, area, () => {
+      this.heroId = hero.id;
+      this.selItem = null;
+      this.selSlot = null;
+      this.dismissArmed = false;
+      this.refresh();
+    });
+    const key = ensureDoll(this, dollFromHero(hero));
+    const img = this.add.image(4, y - 9, key, dollFrame(0, 0)).setOrigin(0, 0);
+    img.setCrop(4, 10, 26, 23);
+    parent.add(img);
+    const font: FontKey = sel ? 'light' : 'ink';
+    parent.add(addText(this, 34, y + 4, hero.name, font));
+    parent.add(addText(this, 34, y + 13, `Lv${hero.level} ${hero.traits.map((t) => TRAITS[t].name).join(' ')}`, sel ? 'light' : 'dim'));
+    parent.add(addText(this, w - 6, y + 4, ROMAN[hero.group] ?? '', sel ? 'light' : 'red', 1));
+    const wpn = hero.equip.weapon ? itemDef(hero.equip.weapon.def).name : 'Unarmed';
+    parent.add(addText(this, w - 6, y + 13, wpn, sel ? 'light' : 'dim', 1));
+  }
+
+  private stashRow(parent: Phaser.GameObjects.Container, area: ScrollArea, it: Item, y: number, w: number): void {
+    const def = itemDef(it.def);
+    const sel = this.selItem?.uid === it.uid;
+    const bg = addPanel(this, 0, y, w, 22, sel ? 'buttonSel' : 'button').setInteractive();
+    parent.add(bg);
+    tappable(bg, area, () => {
+      this.selItem = sel ? null : it;
+      this.dismissArmed = false;
+      this.buildHeroPanel();
+      this.buildList();
+    });
+    // long-press to drag onto the hero
+    let timer: Phaser.Time.TimerEvent | null = null;
+    bg.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      timer = this.time.delayedCall(320, () => {
+        if (!p.isDown || area.moved) return;
+        this.startDrag(it, p);
+      });
+    });
+    bg.on('pointerup', () => timer?.remove());
+    parent.add(this.add.image(4, y + 3, ensureItemIcon(this, it)).setOrigin(0, 0));
+    parent.add(this.add.rectangle(23, y + 4, 3, 3, RARITY_COLOR[it.rarity]).setOrigin(0, 0));
+    parent.add(addText(this, 29, y + 3, def.name, sel ? 'light' : 'ink'));
+    parent.add(addText(this, 29, y + 12, `${def.slot} ${summary(it)}`, sel ? 'light' : 'dim'));
+    parent.add(addText(this, w - 5, y + 7, `${Math.round(it.cond)}%`, sel ? 'light' : it.cond < 40 ? 'red' : 'dim', 1));
+  }
+
+  private startDrag(it: Item, p: Phaser.Input.Pointer): void {
+    this.selItem = it;
+    this.buildHeroPanel();
+    haptic('light');
+    this.ghost = this.add.image(p.x / this.m.S, p.y / this.m.S, ensureItemIcon(this, it)).setScale(2).setAlpha(0.9);
+    this.ui.add(this.ghost);
+  }
+
+  private endDrag(p: Phaser.Input.Pointer): void {
+    if (!this.ghost) return;
+    this.ghost.destroy();
+    this.ghost = null;
+    const x = p.x / this.m.S;
+    const y = p.y / this.m.S;
+    const r = this.heroPanelRect;
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) this.equipSelected();
+  }
+}
+
+function previewEquip(h: Hero, it: Item): Hero {
+  const def = itemDef(it.def);
+  const clone: Hero = { ...h, equip: { ...h.equip } };
+  clone.equip[def.slot] = it;
+  if (def.slot === 'weapon' && def.twoHanded) delete clone.equip.shield;
+  if (def.slot === 'shield' && clone.equip.weapon && itemDef(clone.equip.weapon.def).twoHanded) delete clone.equip.weapon;
+  return clone;
+}
+
+function fmt(v: number, dp: number): string {
+  return dp === 0 ? `${Math.round(v)}` : v.toFixed(dp).replace(/\.?0+$/, '') || '0';
+}
+
+function condColor(c: number): number {
+  return c > 66 ? P.good : c > 33 ? P.gold : P.bad;
+}
+
+function summary(it: Item): string {
+  const d = itemDef(it.def);
+  const m = d.mods;
+  if (d.slot === 'weapon') return m.range ? `rng ${m.range}` : `dmg ${m.dmg}`;
+  if (d.slot === 'shield') return `blk ${Math.round((m.block ?? 0) * 100)}`;
+  if (d.slot === 'trinket') return '';
+  return `arm ${m.armor}`;
+}
