@@ -65,6 +65,10 @@ node scripts/screenshots.mjs http://localhost:5173/ docs/screenshots   # tour of
 node scripts/smoke.mjs http://localhost:5173/                         # real taps through the campaign loop
 ```
 
+`node scripts/store-images.mjs` (starts its own Vite server) renders the
+Telegram store art in `docs/store/` (640x360 BotFather cover, 640x640 bot
+avatar) from the game's own generators via `store.html` / `src/dev/store.ts`.
+
 ## Project layout
 
 ```

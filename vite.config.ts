@@ -9,8 +9,9 @@ export default defineConfig({
     target: 'es2020',
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      // preview.html (procedural sprite sheets) is shipped too, for art review.
-      input: { main: 'index.html', preview: 'preview.html' },
+      // preview.html (procedural sprite sheets) and store.html (Telegram store
+      // art, see scripts/store-images.mjs) are shipped too, for art review.
+      input: { main: 'index.html', preview: 'preview.html', store: 'store.html' },
     },
   },
   server: { host: true },
