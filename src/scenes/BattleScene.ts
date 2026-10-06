@@ -55,7 +55,6 @@ export class BattleScene extends BaseScene {
   private acc = 0;
   private selGroup = -1;
   private selUnit = -1;
-  private queuedDetaches = 0;
   private gesture: Gesture = null;
   private pinch: { d0: number; z0: number; cx: number; cy: number } | null = null;
   private dragPreview: { cx: number; cy: number; fx: number; fy: number; frontage: number; type: FormationType; n: number } | null = null;
@@ -72,7 +71,7 @@ export class BattleScene extends BaseScene {
   private speedBtn: Button | null = null;
   private clock: Phaser.GameObjects.BitmapText | null = null;
   private strength: [Meter, Meter] | null = null;
-  private groupTabs: { gid: number; btn: Button; meter: Meter }[] = [];
+  private groupTabs: { gid: number; btn: Button; meter: Meter; label: string; prefix: string }[] = [];
   private orderBtns = new Map<string, Button>();
   private presetBtns = new Map<FormationType, Button>();
   private heroInfo: Phaser.GameObjects.Container | null = null;
@@ -80,6 +79,7 @@ export class BattleScene extends BaseScene {
   private bannerTimer: Phaser.Time.TimerEvent | null = null;
   private overlay: Phaser.GameObjects.Container | null = null;
   private hudDirty = true;
+  private statusText: Phaser.GameObjects.BitmapText | null = null;
   private groupArea: ScrollArea | null = null;
   private groupScroll = 0;
 
@@ -195,7 +195,6 @@ export class BattleScene extends BaseScene {
           v.py = v.u.y;
         }
         this.sim.step();
-        this.queuedDetaches = 0;
         this.handleEvents(this.sim.drainEvents());
         this.acc -= DT;
         steps++;
@@ -714,17 +713,9 @@ export class BattleScene extends BaseScene {
     if (this.selUnit >= 0) {
       const u = this.sim.units[this.selUnit];
       const g = this.sim.groups[u.group];
-      if (!g.individual) {
-        if (this.sim.phase === 'deploy') {
-          this.sim.issue(0, { kind: 'detach', unit: u.id });
-          gid = u.group;
-        } else {
-          gid = this.sim.groups.length + this.queuedDetaches;
-          this.queuedDetaches++;
-          this.sim.issue(0, { kind: 'detach', unit: u.id });
-        }
-        this.selGroup = gid;
-      } else gid = g.id;
+      if (!g.individual) this.sim.issue(0, { kind: 'detach', unit: u.id });
+      gid = u.group;
+      this.selGroup = gid;
     }
     const withGroup = { ...o, group: gid } as Order;
     this.sim.issue(0, withGroup);
@@ -779,6 +770,7 @@ export class BattleScene extends BaseScene {
     this.orderBtns.clear();
     this.presetBtns.clear();
     this.heroInfo = null;
+    this.statusText = null;
     const { VW, VH } = this.m;
     const H = this.hud;
     const deploy = this.sim.phase === 'deploy';
@@ -834,7 +826,7 @@ export class BattleScene extends BaseScene {
       H.add(btn);
       const meter = new Meter(this, 4 + i * (tw + 3) + 4, y + 16, tw - 8, 3, P.gold);
       H.add(meter);
-      this.groupTabs.push({ gid: g.id, btn, meter });
+      this.groupTabs.push({ gid: g.id, btn, meter, label, prefix: g.individual ? '' : ROMAN[i] ?? `${i + 1}` });
     });
     y += 25;
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
@@ -887,8 +879,13 @@ export class BattleScene extends BaseScene {
     if (!sel) {
       for (const b of [...this.orderBtns.values(), ...this.presetBtns.values()]) b.setEnabled(false);
     }
-    // hero info
+    // hero info, or a one-line status of the selected group
     if (u) this.buildHeroInfo(u, by - 34);
+    else {
+      const strip = addPanel(this, 4, by - 15, VW - 8, 14, 'parch');
+      this.statusText = addText(this, VW / 2, by - 12, '', 'ink', 0.5);
+      H.add([strip, this.statusText]);
+    }
     this.hudDirty = true;
     this.refreshHud();
   }
@@ -915,6 +912,18 @@ export class BattleScene extends BaseScene {
 
   private refreshHud(): void {
     this.hudDirty = false;
+    if (this.statusText && this.statusText.active) {
+      const g = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
+      let txt = this.sim.phase === 'deploy' ? 'Tap a group, drag on the ground to place it' : 'Tap a group tag or soldier to select';
+      if (g) {
+        const n = this.sim.activeMembers(g.id).length;
+        const parts = [g.name, `${n} men`, this.sim.phase === 'deploy' ? 'drag to place' : g.order, g.formation.type];
+        if (g.shieldWall) parts.push('wall');
+        if (g.routed) parts.push('ROUTED');
+        txt = parts.join(' - ');
+      }
+      this.statusText.setText(txt.toUpperCase());
+    }
     if (this.clock) {
       const s = Math.floor(this.sim.tick / TICK_RATE);
       this.clock.setText(`${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
@@ -925,6 +934,13 @@ export class BattleScene extends BaseScene {
     }
     for (const t of this.groupTabs) {
       const mem = this.sim.activeMembers(t.gid);
+      if (t.prefix) {
+        const label = `${t.prefix} ${mem.length}`;
+        if (label !== t.label) {
+          t.label = label;
+          t.btn.setLabel(label);
+        }
+      }
       const m = mem.reduce((a, u) => a + u.morale / Math.max(1, u.stats.morale), 0) / Math.max(1, mem.length);
       t.meter.setValue(m, 1, m > 0.6 ? P.good : m > 0.35 ? P.gold : P.bad);
     }

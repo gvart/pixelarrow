@@ -28,6 +28,20 @@ const call = (key, fn) => page.evaluate(([k, f]) => {
   return new Function('s', f)(s);
 }, [key, fn]);
 
+// Procedural sprite sheets (dev server only: /preview.html is not part of the build)
+try {
+  await page.setViewportSize({ width: 1260, height: 1300 });
+  await page.goto(base + 'preview.html?s=3');
+  await wait(1200);
+  if ((await page.locator('canvas').count()) > 0) {
+    await page.screenshot({ path: `${out}/00-sprite-sheets.png`, fullPage: true });
+    console.log('saved', `${out}/00-sprite-sheets.png`);
+  }
+} catch {
+  /* not available on a production preview */
+}
+await page.setViewportSize({ width: 390, height: 844 });
+
 // fresh campaign for reproducible shots
 await page.goto(base);
 await page.evaluate(() => localStorage.clear());
@@ -77,13 +91,24 @@ await wait(300);
 await shot('07-battle-melee-zoom');
 await call('Battle', `s.cameras.main.setZoom(2); return 1;`);
 
-// Fast-forward to the end
-await call('Battle', `s.paused = false; for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`);
+// Fast-forward to the end. For a representative victory screen the enemy is
+// weakened first (screenshot staging only; real battles are untouched).
+await call('Battle', `s.sim.units.filter(u => u.side === 1 && u.state === 'ready').forEach(u => { u.hp = Math.min(u.hp, 6); u.morale = Math.min(u.morale, u.stats.morale * 0.4); }); s.paused = false; for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`);
 await wait(3000);
 await shot('08-results');
-await call('Results', `const o = window.__state.last.outcome; o.loot.slice(0, o.picks).forEach(it => s.chosen.add(it.uid)); s.toggle('none'); return 1;`).catch(() => {});
+await call('Results', `const o = window.__state.last.outcome; const ids = o.loot.slice(0, o.picks).map(i => i.uid); ids.slice(0, -1).forEach(id => s.chosen.add(id)); if (ids.length) s.toggle(ids[ids.length - 1]); return 1;`);
 await wait(300);
 await shot('09-results-picked');
+await call('Results', `s.finish(); return 1;`);
+await wait(800);
+await call('Army', `s.setTab('stash'); return 1;`);
+await wait(300);
+await shot('10-army-after-loot');
+await scene('Menu');
+await wait(600);
+await call('Menu', `s.openSettings(); return 1;`);
+await wait(300);
+await shot('11-settings');
 
 console.log(problems.length ? problems.join('\n') : 'no console errors');
 await browser.close();

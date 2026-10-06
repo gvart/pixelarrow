@@ -185,3 +185,16 @@ describe('formations', () => {
     expect(map.get(0)!.y).toBeGreaterThan(10);
   });
 });
+
+describe('order scheduling', () => {
+  it('scheduled orders apply at the start of the next step', () => {
+    const { setup } = standardSetup(21, false);
+    const b = new Battle(setup);
+    b.startBattle();
+    b.schedule(0, { kind: 'order', group: 0, order: 'advance' });
+    expect(b.groups[0].order).toBe('hold');
+    b.step();
+    expect(b.groups[0].order).toBe('advance');
+    expect(b.orderLog.some((o) => o.side === 0 && o.tick === 0)).toBe(true);
+  });
+});

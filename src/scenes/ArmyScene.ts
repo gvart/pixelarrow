@@ -248,7 +248,7 @@ export class ArmyScene extends BaseScene {
         }
       }
     } else {
-      L.add(addText(this, x0 + 6, iy + 1, 'Tap a slot or pick gear from the stash', 'dim', 0, w - 12));
+      L.add(addText(this, x0 + 6, iy + 1, 'Tap a slot or a stash item', 'dim', 0, w - 12));
       L.add(addText(this, x0 + 6, iy + 24, `Battles ${h.battles}  Kills ${h.kills}`, 'ink'));
       const db = new Button(this, x0 + w - 62, iy + 16, 58, 18, {
         label: this.dismissArmed ? 'Sure?' : 'Dismiss',

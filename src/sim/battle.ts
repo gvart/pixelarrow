@@ -154,7 +154,7 @@ export class Battle {
         const mem = this.members(g.id);
         const hybrids = mem.filter((u) => u.stats.role === 'hybrid').length;
         const ranged = mem.filter((u) => u.stats.role === 'ranged').length;
-        g.fireAtWill = ranged >= hybrids;
+        g.fireAtWill = g.role === 'skirmish' || ranged >= hybrids;
       }
       this.autoDeploy(side);
       if (army.bot) {
@@ -206,14 +206,21 @@ export class Battle {
 
   // ------------------------------------------------------------------- orders
 
-  /** Queue an order. Applied at the start of the next step (or immediately in deployment). */
+  /**
+   * Apply an order now, between steps (or during a bot's think inside a step).
+   * Orders are logged with the current tick; replaying the same orders at the
+   * same ticks reproduces the battle exactly. A networked (lockstep) version
+   * would use `schedule()` to apply both players' orders at an agreed future tick.
+   */
   issue(side: Side, order: Order): void {
     if (this.phase === 'ended') return;
-    if (this.phase === 'deploy') {
-      this.orderLog.push({ tick: this.tick, side, order });
-      this.applyOrder(side, order);
-      return;
-    }
+    this.orderLog.push({ tick: this.tick, side, order });
+    this.applyOrder(side, order);
+  }
+
+  /** Schedule an order for the start of a future step (lockstep-friendly). */
+  schedule(side: Side, order: Order): void {
+    if (this.phase === 'ended') return;
     this.queue.push({ side, order });
   }
 
