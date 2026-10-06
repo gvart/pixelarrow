@@ -27,15 +27,48 @@ jobs:
           # vitest 5 needs Node >= 22.12 (vite 8 alone would run on 20.19+).
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      # ---- client (static game in dist/)
       - run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
       - run: npx tsc --noEmit
       - run: npx vitest run
       - run: npm run build
-      - uses: cloudflare/wrangler-action@v3
+
+      # ---- server (Worker API in server/, bundles ../src/sim)
+      - run: npm ci
+        working-directory: server
+      - run: npx tsc --noEmit
+        working-directory: server
+      - run: npx vitest run
+        working-directory: server
+
+      # wrangler.deploy.json = wrangler.jsonc with the D1 id filled in from the
+      # D1_DATABASE_ID Actions variable (or secret), or without the D1 binding
+      # when it is unset (the API then answers 503 "database not configured").
+      - id: config
+        run: node server/scripts/deploy-config.mjs wrangler.jsonc
+        env:
+          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID || secrets.D1_DATABASE_ID }}
+
+      - name: Apply D1 migrations
+        if: steps.config.outputs.d1 == 'true'
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '4'
-          command: deploy
+          # Uses the wrangler pinned in server/package-lock.json.
+          workingDirectory: server
+          command: d1 migrations apply pixelarrow --remote --config ../wrangler.deploy.json
+
+      - name: Deploy assets + Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: server
+          command: deploy --config ../wrangler.deploy.json

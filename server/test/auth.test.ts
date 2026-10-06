@@ -1,5 +1,7 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import type { Env } from '../src/env';
+import { db, secret } from '../src/middleware';
 import { signSession, verifySession } from '../src/session';
 import { signInitData, validateInitData } from '../src/telegramAuth';
 import { api, BOT_TOKEN, devLogin } from './helpers';
@@ -113,6 +115,14 @@ describe('health', () => {
     const res = await api('/api/nope');
     expect(res.status).toBe(404);
     expect(await res.json()).toMatchObject({ error: { code: 'not_found' } });
+  });
+});
+
+describe('missing configuration', () => {
+  it('answers 503 when D1 or a secret is not configured', () => {
+    const empty = {} as Env;
+    expect(() => db(empty)).toThrow(expect.objectContaining({ status: 503, code: 'not_configured', message: 'database not configured' }));
+    expect(() => secret(empty, 'SESSION_SECRET')).toThrow(expect.objectContaining({ status: 503, message: 'SESSION_SECRET not configured' }));
   });
 });
 
