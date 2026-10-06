@@ -404,10 +404,10 @@ export class Battle {
     const groups = this.sideGroups(side);
     const dir = side === 0 ? -1 : 1; // forward along y
     const z = this.deployZone(side);
-    const front = side === 0 ? z.y0 + 2 : z.y1 - 2; // main line anchor
+    const front = side === 0 ? z.y0 + 3.5 : z.y1 - 3.5; // main line anchor (skirmishers screen ahead)
     const cx = this.width / 2;
     const roleOffset: Record<GroupRole, { dx: number; dy: number }> = {
-      skirmish: { dx: 0, dy: 1.6 },
+      skirmish: { dx: 0, dy: 3.5 },
       main: { dx: 0, dy: 0 },
       reserve: { dx: 0, dy: -4.2 },
       flank: { dx: 7.5, dy: -1.2 },

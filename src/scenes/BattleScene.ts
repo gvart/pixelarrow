@@ -974,15 +974,19 @@ export class BattleScene extends BaseScene {
       if (!g.individual) idx++;
       if (mem.length === 0) continue;
       seen.add(g.id);
+      // Tag floats above the group's centre (mean position), clear of the front rank.
       let cx = 0;
-      let minY = Infinity;
+      let cy = 0;
       for (const u of mem) {
         cx += u.x;
-        minY = Math.min(minY, u.y);
+        cy += u.y;
       }
       cx /= mem.length;
+      cy /= mem.length;
+      let top = cy;
+      for (const u of mem) if (Math.abs(u.x - cx) < 3 && Math.abs(u.y - cy) < 3) top = Math.min(top, u.y);
       const sx = (cx * K - cam.worldView.x) * cam.zoom;
-      const sy = (minY * KY - 34 - cam.worldView.y) * cam.zoom;
+      const sy = (top * KY - 34 - cam.worldView.y) * cam.zoom;
       let tag = this.tagMap.get(g.id);
       if (!tag || tag.getData('label') !== label || tag.getData('sel') !== (this.selGroup === g.id)) {
         tag?.destroy();

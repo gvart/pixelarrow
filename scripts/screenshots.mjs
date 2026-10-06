@@ -73,7 +73,7 @@ await shot('05-deploy-groups');
 await call('Battle', `s.overlay.destroy(); s.overlay = null; s.groupArea && s.groupArea.destroy(); s.buildHud(); return 1;`);
 
 // Start the fight, advance the phalanx, loose the skirmishers
-await call('Battle', `s.startFight(); s.selGroup = 0; s.command({kind:'order', group:-1, order:'advance'}); s.selGroup = 1; s.command({kind:'loose', group:-1, on:true}); s.selGroup = 0; s.speed = 2; return 1;`);
+await call('Battle', `s.startFight(); s.selGroup = 0; s.command({kind:'order', group:-1, order:'advance'}); s.selGroup = 1; s.command({kind:'loose', group:-1, on:true}); s.selGroup = 0; s.buildHud(); s.speed = 2; return 1;`);
 // let it run until contact (auto-pause) or a few seconds
 for (let i = 0; i < 20; i++) {
   await wait(500);

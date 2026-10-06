@@ -32,33 +32,40 @@ export class MenuScene extends BaseScene {
     this.ui.add(title);
     this.ui.add(addText(this, VW / 2, 50, 'Shields of the Middle Sea', 'ink', 0.5));
 
-    // Soldiers standing in line on the plain
-    this.dolls = [];
-    const heroes = c.heroes.slice(0, 9);
-    const base = Math.round(VH * 0.37);
-    const rowY = [base, base + 26];
-    heroes.forEach((h, i) => {
-      const key = ensureDoll(this, dollFromHero(h));
-      const row = i < 5 ? 0 : 1;
-      const col = row === 0 ? i : i - 5;
-      const n = row === 0 ? Math.min(5, heroes.length) : heroes.length - 5;
-      const x = Math.round(VW / 2 - ((n - 1) / 2) * 34 + col * 34 + (row ? 6 : 0));
-      const sh = this.add.image(x, rowY[row] - 2, 'shadow').setAlpha(0.35).setScale(2);
-      const s = this.add.sprite(x, rowY[row], key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40).setScale(2);
-      this.ui.add(sh);
-      this.ui.add(s);
-      this.dolls.push({ s, phase: i * 0.37 });
-    });
-    // sort by y so the back row is behind
-    this.ui.sort('y');
-
-    // Menu panel
+    // Menu panel anchored above the footer; soldiers fill the space between.
     const pw = Math.min(VW - 24, 150);
     const px = Math.round((VW - pw) / 2);
-    const py = Math.round(VH * 0.55);
     const bh = 24;
     const gap = 5;
-    this.ui.add(addPanel(this, px - 6, py - 6, pw + 12, bh * 4 + gap * 3 + 12, 'parch'));
+    const panelH = bh * 4 + gap * 3 + 12;
+    const py = Math.min(Math.round(VH * 0.55), VH - 30 - 16 - panelH + 6);
+    const top = 74;
+    const room = py - 6 - top;
+
+    // Soldiers standing in line on the plain
+    this.dolls = [];
+    const scale = room >= 70 ? 2 : 1;
+    const rows = room >= 104 ? 2 : 1;
+    const perRow = scale === 2 ? 5 : 8;
+    const heroes = c.heroes.slice(0, perRow * rows);
+    const step = scale === 2 ? 34 : 20;
+    const rowGap = scale === 2 ? 26 : 13;
+    const base = Math.round(top + (room - (rows - 1) * rowGap) / 2 + 38 * scale * 0.5);
+    heroes.forEach((h, i) => {
+      const key = ensureDoll(this, dollFromHero(h));
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const n = Math.min(perRow, heroes.length - row * perRow);
+      const x = Math.round(VW / 2 - ((n - 1) / 2) * step + col * step + (row ? 6 : 0));
+      const y = base + row * rowGap;
+      const sh = this.add.image(x, y - 2, 'shadow').setAlpha(0.35).setScale(scale);
+      const sp = this.add.sprite(x, y, key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40).setScale(scale);
+      this.ui.add(sh);
+      this.ui.add(sp);
+      this.dolls.push({ s: sp, phase: i * 0.37 });
+    });
+
+    this.ui.add(addPanel(this, px - 6, py - 6, pw + 12, panelH, 'parch'));
     const mk = (i: number, label: string, icon: string, cb: () => void) =>
       this.ui.add(new Button(this, px, py + i * (bh + gap), pw, bh, { label, icon, onClick: cb }));
     mk(0, 'To battle', 'swords', () => this.scene.start('Battle', { fresh: true }));
