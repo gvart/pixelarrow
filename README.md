@@ -66,13 +66,14 @@ src/
   sim/        pure TS battle simulation (no Phaser): battle.ts, ai.ts, formation.ts, stats.ts, rng.ts, types.ts
   data/       items.ts (all gear), traits.ts, units.ts (hero model, base stats), names.ts
   game/       campaign.ts, heroes.ts (factories), enemy.ts (bot army), loot.ts, save.ts, armySpec.ts
-  art/        procedural pixel art: paperdoll.ts, emblems.ts, ground.ts, font.ts, icons.ts, itemIcons.ts, uiTextures.ts
+  art/        procedural pixel art: paperdoll.ts, emblems.ts, ground.ts (iso tiles), iso.ts (projection), font.ts, icons.ts, itemIcons.ts, uiTextures.ts
   ui/         Phaser UI kit (buttons, panels, meters, scroll lists) and texture registration
   scenes/     Boot, Menu, Army, Battle (deployment + battle), Results
   platform/   telegram.ts (WebApp SDK wrapper), storage.ts (CloudStorage / localStorage)
+  dev/        preview.ts (sprite sheet page), balance.ts (headless balance harness for `npm run balance`)
   state.ts    shared campaign state and persistence
 tests/        vitest suites
-scripts/      screenshot tour and touch smoke test (Playwright)
+scripts/      screenshot tour and touch smoke test (Playwright), balance runner
 docs/         DESIGN.md and screenshots
 ```
 

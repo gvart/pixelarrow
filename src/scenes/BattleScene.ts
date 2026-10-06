@@ -558,7 +558,7 @@ export class BattleScene extends BaseScene {
     camp.data.fought++;
     if (outcome.victory) camp.data.won++;
     if (survivors.length === 0) {
-      for (let i = 0; i < 4; i++) camp.data.heroes.push(makeHero(camp.random(), camp.data, 'greek', 'raw', 1, 1, i < 3 ? 0 : 1));
+      for (let i = 0; i < 4; i++) camp.data.heroes.push(makeHero(camp.random(), camp.data, 'greek', 'raw', 1, 1, i < 3 ? 0 : 1, camp.data.heroes));
     }
     state.last = { outcome, enemy: state.pending!.enemy, fallen };
     state.pending = null;

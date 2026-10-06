@@ -3,6 +3,7 @@ import { itemDef, type Item, type Slot } from '../data/items';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
 import { Rng } from '../sim/rng';
 import { makeHero, makeItem, starterArmy } from './heroes';
+import { dedupeNames } from '../data/names';
 import { DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
 
 export class Campaign {
@@ -12,6 +13,8 @@ export class Campaign {
   constructor(data: SaveData) {
     this.data = data;
     this.rng = new Rng(data.rng);
+    // Older saves could hold two heroes with the same name.
+    dedupeNames(this.data.heroes);
   }
 
   static fresh(seed: number): Campaign {
@@ -60,7 +63,7 @@ export class Campaign {
     if (!this.canRecruit()) return null;
     this.data.gold -= RECRUIT_COST;
     const culture = this.rng.pick(['greek', 'greek', 'phoenician', 'celtic'] as const);
-    const h = makeHero(this.rng, this.data, culture, 'raw', 1, 1, 2);
+    const h = makeHero(this.rng, this.data, culture, 'raw', 1, 1, 2, this.data.heroes);
     this.data.heroes.push(h);
     this.sync();
     return h;

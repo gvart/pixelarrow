@@ -8,6 +8,8 @@ import { Rng } from '../src/sim/rng';
 import { Battle } from '../src/sim/battle';
 import type { BattleResult } from '../src/sim/types';
 import { runToEnd, standardSetup } from './helpers';
+import { generateEnemyArmy } from '../src/game/enemy';
+import { NAMES, freeName } from '../src/data/names';
 
 function memoryKV(limit = 4096): KV & { store: Map<string, string> } {
   const store = new Map<string, string>();
@@ -133,5 +135,30 @@ describe('save', () => {
     expect([...kv.store.keys()].filter((k) => k.startsWith('px_part_')).length).toBe(chunk(serialize(small.data)).length);
     await clearSave(kv);
     expect(kv.store.size).toBe(0);
+  });
+});
+
+describe('hero names', () => {
+  it('are unique within a roster: starter army, recruits and bot armies', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const camp = Campaign.fresh(seed);
+      camp.data.gold = 100000;
+      while (camp.canRecruit()) camp.recruit();
+      const names = camp.data.heroes.map((h) => h.name);
+      expect(names.length).toBe(20);
+      expect(new Set(names).size).toBe(names.length);
+      const enemy = generateEnemyArmy(new Rng(seed), camp.data, camp.data.heroes, 3).heroes.map((h) => h.name);
+      expect(new Set(enemy).size).toBe(enemy.length);
+    }
+  });
+
+  it('falls back to numbered names when a culture runs out, and fixes old saves', () => {
+    const taken = new Set(NAMES.celtic);
+    expect(freeName('celtic', 0, taken)).toBe(`${NAMES.celtic[0]} II`);
+    const camp = Campaign.fresh(5);
+    camp.data.heroes[1].name = camp.data.heroes[0].name;
+    const loaded = new Campaign(JSON.parse(JSON.stringify(camp.data)));
+    const names = loaded.data.heroes.map((h) => h.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 });

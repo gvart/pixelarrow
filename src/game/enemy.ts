@@ -42,7 +42,8 @@ export function generateEnemyArmy(rng: Rng, ids: IdSource, player: Hero[], battl
   for (let i = 0; i < nFlank; i++) slots.push({ arch: shockArch, group: 3 });
 
   const baseLevel = Math.max(1, Math.round(avgLevel));
-  const heroes = slots.map((s) => makeHero(rng, ids, culture, s.arch, Math.max(1, baseLevel + rng.int(-1, 0)), tier, s.group));
+  const heroes: Hero[] = [];
+  for (const s of slots) heroes.push(makeHero(rng, ids, culture, s.arch, Math.max(1, baseLevel + rng.int(-1, 0)), tier, s.group, heroes));
 
   // Nudge levels / gear until we are within ~10% of the target power.
   let power = armyPower(heroes);

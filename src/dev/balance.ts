@@ -61,7 +61,7 @@ export function runMatched(seed: number, passive = false): MatchedResult {
 
 function squad(rng: Rng, ids: { nextId: number }, arch: Archetype, n: number, group: number, level = 2): Hero[] {
   const out: Hero[] = [];
-  for (let i = 0; i < n; i++) out.push(makeHero(rng, ids, 'greek', arch, level, 1, group));
+  for (let i = 0; i < n; i++) out.push(makeHero(rng, ids, 'greek', arch, level, 1, group, out));
   return out;
 }
 

@@ -1,6 +1,6 @@
 /** Hero and item factories (campaign layer, deterministic given an Rng). */
 import { itemDef, type Item, type ItemPaint, type Rarity, type Slot } from '../data/items';
-import { NAMES, type Culture } from '../data/names';
+import { NAMES, freeName, type Culture } from '../data/names';
 import { POSITIVE_TRAITS, type TraitId } from '../data/traits';
 import { MAX_LEVEL, TUNIC_COLORS, xpToNext, type Hero, type Look } from '../data/units';
 import { Rng } from '../sim/rng';
@@ -100,8 +100,12 @@ export function rollRarity(rng: Rng, tier: number): Rarity {
   return rng.weighted(table[t - 1]);
 }
 
-export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: Archetype, level: number, tier: number, group = 0): Hero {
-  const name = rng.pick(NAMES[culture]);
+/**
+ * Create a hero. `roster` lists heroes already in the same army: the new hero's
+ * name will differ from all of theirs.
+ */
+export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: Archetype, level: number, tier: number, group = 0, roster: readonly { name: string }[] = []): Hero {
+  const name = freeName(culture, rng.int(0, NAMES[culture].length - 1), new Set(roster.map((h) => h.name)));
   const traits: TraitId[] = [];
   const tCount = archetype === 'raw' ? (rng.chance(0.5) ? 1 : 0) : rng.chance(0.35) ? 2 : 1;
   while (traits.length < tCount) {
@@ -163,10 +167,10 @@ export function grantXp(hero: Hero, xp: number, rng: Rng): number {
 
 export function starterArmy(rng: Rng, ids: IdSource): Hero[] {
   const heroes: Hero[] = [];
-  for (let i = 0; i < 6; i++) heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0));
-  heroes.push(makeHero(rng, ids, 'greek', 'swordsman', 1, 1, 0));
-  for (let i = 0; i < 2; i++) heroes.push(makeHero(rng, ids, 'greek', 'peltast', 1, 1, 1));
-  heroes.push(makeHero(rng, ids, 'phoenician', 'slinger', 1, 1, 1));
+  for (let i = 0; i < 6; i++) heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0, heroes));
+  heroes.push(makeHero(rng, ids, 'greek', 'swordsman', 1, 1, 0, heroes));
+  for (let i = 0; i < 2; i++) heroes.push(makeHero(rng, ids, 'greek', 'peltast', 1, 1, 1, heroes));
+  heroes.push(makeHero(rng, ids, 'phoenician', 'slinger', 1, 1, 1, heroes));
   // Give the starting phalanx a shared emblem: the lambda of the old city.
   const field = rng.pick(['bronze', 'cream', 'red']);
   for (const h of heroes) {
