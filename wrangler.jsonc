@@ -1,14 +1,44 @@
-// Serves the built game (dist/) as static assets on a Cloudflare Worker,
-// attached to the pixelarrow.app custom domain. Deployed by
+// One Cloudflare Worker serves the built game (dist/) as static assets on the
+// pixelarrow.app custom domain AND the backend API (server/, see
+// server/README.md). Only /api/* and /ws/* reach the Worker code; everything
+// else is plain static hosting with the SPA fallback. Deployed by
 // .github/workflows/deploy.yml after tests pass.
+//
+// The D1 database id below is a placeholder: CI generates wrangler.deploy.json
+// from this file (server/scripts/deploy-config.mjs), filling in the
+// D1_DATABASE_ID GitHub Actions variable, or dropping the D1 binding when the
+// variable is not set (the API then answers 503 "database not configured").
 {
   "name": "pixelarrow",
+  "main": "server/src/index.ts",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/ws/*"]
   },
   "routes": [
     { "pattern": "pixelarrow.app", "custom_domain": true }
-  ]
+  ],
+  "vars": {
+    "GAME_URL": "https://pixelarrow.app"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pixelarrow",
+      "database_id": "REPLACE_WITH_D1_ID",
+      "migrations_dir": "server/migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "REGION", "class_name": "RegionDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RegionDO"] }
+  ],
+  "observability": { "enabled": true }
 }
