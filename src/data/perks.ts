@@ -79,7 +79,7 @@ export interface AbilityDef {
 export const ABILITIES: Record<AbilityId, AbilityDef> = {
   bash: {
     id: 'bash', name: 'Shield Bash', short: 'Bash', icon: 'bash', cooldown: 12, color: 0xf6ecd8, groupMode: 'all',
-    desc: 'Slam the shield into the man in front: stunned 1.5 s, then dazed (no block, +20% damage taken) for 3 s.',
+    desc: 'Slam the shield into the man in front: stunned 1.5 s, then dazed (no block, +20% damage taken) for 2 s.',
   },
   volley: {
     id: 'volley', name: 'Volley', short: 'Volley', icon: 'volley', cooldown: 20, color: 0x9ad0e8, groupMode: 'one',
@@ -100,10 +100,10 @@ export const ABILITY_RULES = {
   bashRange: 1.25,
   bashStun: 30, // ticks
   /** After a bash the man is dazed: he cannot block and takes extra damage. */
-  bashDaze: 60,
+  bashDaze: 40,
   dazeDamage: 1.2,
   bashDamage: 3,
-  bashMorale: 9,
+  bashMorale: 6,
   volleyRadius: 6,
   volleyShots: 2,
   volleyDamage: 1.3,
