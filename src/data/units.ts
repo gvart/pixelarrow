@@ -1,6 +1,7 @@
 import type { Item, Slot } from './items';
 import type { TraitId } from './traits';
 import type { Culture } from './names';
+import type { Attrs, PerkId } from './perks';
 
 /** Visual body variant: indexes into palette tables in src/art/palette.ts. */
 export interface Look {
@@ -26,6 +27,16 @@ export interface Hero {
   battles: number;
   /** Preferred battle group index (0..3). */
   group: number;
+  /** Base attributes (see src/data/perks.ts). */
+  attrs: Attrs;
+  /** Unspent attribute points. */
+  points: number;
+  /** Perks taken, in order. */
+  perks: PerkId[];
+  /** Hours of rest still needed to recover from a wound (0 = fit). Wounded heroes sit out battles. */
+  wound: number;
+  /** Archetype the hero was raised as (recruit pools, bot development). */
+  arch?: string;
 }
 
 export const MAX_ARMY = 20;

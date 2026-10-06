@@ -8,6 +8,7 @@ import type { Battle } from './battle';
 import { Rng } from './rng';
 import { presetFrontage, rightOf } from './formation';
 import type { Side, SimGroup, SimUnit } from './types';
+import { rallyRadius } from './stats';
 
 /** Seconds without any combat before the bot commits everything to an attack. */
 export const PRESS_IDLE_S = 8;
@@ -57,6 +58,7 @@ export class BotAI {
     if ((b.tick + this.side * 5) % 10 !== 0) return;
     const enemies = b.units.filter((u) => u.side !== this.side && u.state === 'ready');
     if (enemies.length === 0) return;
+    this.thinkAbilities(b);
     const t = b.tick / 20;
     const myGroups = b.sideGroups(this.side);
     const main = myGroups.find((g) => g.role === 'main' && b.activeMembers(g.id).length > 0);
@@ -103,6 +105,49 @@ export class BotAI {
         case 'reserve':
           this.thinkReserve(b, g, mem, near, main, m, t, enemyRouted);
           break;
+      }
+    }
+  }
+
+  /**
+   * Heroes use their abilities through the same logged orders a player issues:
+   * bash the man in front, fury when the fight is on, a shout when friends
+   * waver, a volley when several missile-men have targets.
+   */
+  private thinkAbilities(b: Battle): void {
+    for (const u of b.units) {
+      if (u.side !== this.side || u.state !== 'ready' || u.abil.length === 0) continue;
+      for (const id of u.abil) {
+        if (!b.abilityReady(u, id)) continue;
+        let use = false;
+        switch (id) {
+          case 'bash':
+            use = u.engaged && this.rng.chance(0.5);
+            break;
+          case 'berserk': {
+            // Fury when locked in a frontal fight (not while being flanked).
+            const t = b.units[u.targetId];
+            const front = !!t && t.state === 'ready' && b.hitDirection(u, t.x, t.y) === 'front';
+            use = u.engaged && front && (u.morale < u.stats.morale * 0.8 || this.rng.chance(0.35));
+            break;
+          }
+          case 'volley':
+            use = b.volleyShooters(u).length >= 2 || this.rng.chance(0.1);
+            break;
+          case 'rally': {
+            const r2 = rallyRadius(u.stats) ** 2;
+            let shaken = 0;
+            for (const a of b.units) {
+              if (a.side !== u.side || !b.isAlive(a)) continue;
+              if ((a.x - u.x) ** 2 + (a.y - u.y) ** 2 > r2) continue;
+              if (a.state === 'routing' || a.morale < a.stats.morale * 0.5) shaken += 2;
+              else if (a.morale < a.stats.morale * 0.7) shaken++;
+            }
+            use = shaken >= 3;
+            break;
+          }
+        }
+        if (use) b.issue(this.side, { kind: 'ability', unit: u.id, ability: id });
       }
     }
   }

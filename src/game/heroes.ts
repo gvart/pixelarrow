@@ -3,6 +3,10 @@ import { itemDef, type Item, type ItemPaint, type Rarity, type Slot } from '../d
 import { NAMES, freeName, type Culture } from '../data/names';
 import { POSITIVE_TRAITS, type TraitId } from '../data/traits';
 import { MAX_LEVEL, TUNIC_COLORS, xpToNext, type Hero, type Look } from '../data/units';
+import {
+  ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, perkBlocker, perkSlots, treePerks,
+  type AttrId, type Attrs, type TreeId,
+} from '../data/perks';
 import { Rng } from '../sim/rng';
 
 export interface IdSource {
@@ -64,6 +68,84 @@ export function randomLook(rng: Rng, culture: Culture): Look {
 
 export type Archetype = 'hoplite' | 'swordsman' | 'axeman' | 'peltast' | 'slinger' | 'archer' | 'raw';
 
+/** Starting attributes by archetype (sum 20; 5 is neutral). */
+const ARCH_ATTRS: Record<Archetype, Attrs> = {
+  hoplite: { str: 5, agi: 4, end: 6, wil: 5 },
+  swordsman: { str: 6, agi: 5, end: 5, wil: 4 },
+  axeman: { str: 7, agi: 4, end: 5, wil: 4 },
+  peltast: { str: 4, agi: 6, end: 5, wil: 5 },
+  slinger: { str: 4, agi: 7, end: 4, wil: 5 },
+  archer: { str: 4, agi: 7, end: 4, wil: 5 },
+  raw: { str: 5, agi: 5, end: 5, wil: 5 },
+};
+
+/** Where an archetype spends its level-up points (cycled), and which perk tree it follows. */
+const ARCH_GROWTH: Record<Archetype, { order: AttrId[]; tree: TreeId }> = {
+  hoplite: { order: ['end', 'str', 'wil', 'end', 'str', 'agi'], tree: 'hoplite' },
+  swordsman: { order: ['str', 'agi', 'end', 'str', 'wil', 'agi'], tree: 'warrior' },
+  axeman: { order: ['str', 'end', 'str', 'agi', 'wil', 'str'], tree: 'warrior' },
+  peltast: { order: ['agi', 'end', 'str', 'agi', 'wil', 'end'], tree: 'skirmisher' },
+  slinger: { order: ['agi', 'wil', 'agi', 'end', 'agi', 'str'], tree: 'skirmisher' },
+  archer: { order: ['agi', 'wil', 'agi', 'end', 'agi', 'str'], tree: 'skirmisher' },
+  raw: { order: ['end', 'str', 'agi', 'wil'], tree: 'hoplite' },
+};
+
+function asArchetype(a: string | undefined): Archetype {
+  return a && a in ARCH_ATTRS ? (a as Archetype) : 'raw';
+}
+
+/** Rolled starting attributes: the archetype's spread with a little personal variation. */
+export function rollAttrs(rng: Rng, arch: Archetype): Attrs {
+  const a = { ...ARCH_ATTRS[arch] };
+  for (let i = 0; i < 2; i++) {
+    const up = rng.pick(ATTR_IDS);
+    const down = rng.pick(ATTR_IDS);
+    if (up === down || a[down] <= 3 || a[up] >= 8) continue;
+    a[up]++;
+    a[down]--;
+  }
+  return a;
+}
+
+/** Spend unspent points and free perk slots the way the hero's archetype would. */
+export function autoDevelop(h: Hero): void {
+  const g = ARCH_GROWTH[asArchetype(h.arch)];
+  let i = ATTR_IDS.reduce((acc, k) => acc + h.attrs[k], 0);
+  let guard = 0;
+  while (h.points > 0 && guard++ < 200) {
+    const k = g.order[i++ % g.order.length];
+    if (h.attrs[k] >= ATTR_MAX) continue;
+    h.attrs[k]++;
+    h.points--;
+  }
+  pickPerks(h, g.tree);
+}
+
+function pickPerks(h: Hero, tree: TreeId): void {
+  const trees: TreeId[] = [tree, ...(['hoplite', 'skirmisher', 'warrior'] as TreeId[]).filter((t) => t !== tree)];
+  while (h.perks.length < perkSlots(h.level)) {
+    let took = false;
+    for (const t of trees) {
+      const next = treePerks(t).find((p) => !h.perks.includes(p.id));
+      if (next && perkBlocker(h, next.id) === null) {
+        h.perks.push(next.id);
+        took = true;
+        break;
+      }
+    }
+    if (!took) break;
+  }
+}
+
+/** Bot heroes: attributes and perks follow from archetype and level alone. */
+export function setBotLevel(h: Hero, level: number): void {
+  h.level = Math.max(1, Math.min(MAX_LEVEL, level));
+  h.attrs = { ...ARCH_ATTRS[asArchetype(h.arch)] };
+  h.points = (h.level - 1) * POINTS_PER_LEVEL;
+  h.perks = [];
+  autoDevelop(h);
+}
+
 /** Item choices per culture/archetype/tier. Each entry: [slot, candidate def ids by tier]. */
 const KITS: Record<Culture, Partial<Record<Archetype, Partial<Record<Slot, string[][]>>>>> = {
   greek: {
@@ -124,7 +206,14 @@ export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: A
     kills: 0,
     battles: 0,
     group,
+    attrs: rollAttrs(rng, archetype),
+    points: 0,
+    perks: [],
+    wound: 0,
+    arch: archetype,
   };
+  hero.points = (hero.level - 1) * POINTS_PER_LEVEL;
+  if (hero.level > 1) autoDevelop(hero);
   const t = Math.max(1, Math.min(3, tier));
   if (archetype === 'raw') {
     hero.equip.weapon = makeItem(rng, ids, rng.pick(['dory', 'club', 'javelins', 'sling']), 'common', rng.range(45, 80), culture);
@@ -151,6 +240,7 @@ export function grantXp(hero: Hero, xp: number, rng: Rng): number {
   while (hero.level < MAX_LEVEL && hero.xp >= xpToNext(hero.level)) {
     hero.xp -= xpToNext(hero.level);
     hero.level++;
+    hero.points = (hero.points ?? 0) + POINTS_PER_LEVEL;
     gained++;
     if ([3, 5, 8].includes(hero.level)) {
       const i = hero.traits.indexOf('skittish');
@@ -165,20 +255,43 @@ export function grantXp(hero: Hero, xp: number, rng: Rng): number {
   return gained;
 }
 
-export function starterArmy(rng: Rng, ids: IdSource): Hero[] {
+/**
+ * The ten-man army of the first milestone: six hoplites, a swordsman, two
+ * peltasts and a slinger. Used as the balance harness's reference army and for
+ * skirmish tests; a new campaign starts with `starterParty` instead.
+ */
+export function standardArmy(rng: Rng, ids: IdSource): Hero[] {
   const heroes: Hero[] = [];
   for (let i = 0; i < 6; i++) heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0, heroes));
   heroes.push(makeHero(rng, ids, 'greek', 'swordsman', 1, 1, 0, heroes));
   for (let i = 0; i < 2; i++) heroes.push(makeHero(rng, ids, 'greek', 'peltast', 1, 1, 1, heroes));
   heroes.push(makeHero(rng, ids, 'phoenician', 'slinger', 1, 1, 1, heroes));
-  // Give the starting phalanx a shared emblem: the lambda of the old city.
+  paintPhalanx(rng, heroes);
+  heroes[0].traits = ['veteran'];
+  heroes[0].level = 2;
+  heroes[0].points = 2;
+  return heroes;
+}
+
+/** A new campaign: a veteran hoplite, a young hoplite and a peltast. */
+export function starterParty(rng: Rng, ids: IdSource): Hero[] {
+  const heroes: Hero[] = [];
+  heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0, heroes));
+  heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0, heroes));
+  heroes.push(makeHero(rng, ids, 'greek', 'peltast', 1, 1, 1, heroes));
+  paintPhalanx(rng, heroes);
+  heroes[0].traits = ['veteran'];
+  heroes[0].level = 2;
+  heroes[0].points = 2;
+  return heroes;
+}
+
+/** Give the phalanx a shared emblem: the lambda of the old city. */
+function paintPhalanx(rng: Rng, heroes: Hero[]): void {
   const field = rng.pick(['bronze', 'cream', 'red']);
   for (const h of heroes) {
     if (h.equip.shield && itemDef(h.equip.shield.def).shieldKind === 'hoplon') {
       h.equip.shield.paint = shieldPaint(rng, 'greek', rng.chance(0.7) ? 'lambda' : undefined, field);
     }
   }
-  heroes[0].traits = ['veteran'];
-  heroes[0].level = 2;
-  return heroes;
 }

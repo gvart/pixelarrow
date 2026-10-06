@@ -1,6 +1,10 @@
 import { itemDef, itemMods, SLOTS, type StatMods, type WeaponKind, type ShieldKind } from '../data/items';
 import { TRAITS } from '../data/traits';
 import { BASE, type Hero } from '../data/units';
+import {
+  ABILITY_RULES, ATTR_BASE, ATTR_EFFECT, KO_BASE, PERKS, RALLY_WILL, defaultAttrs,
+  type AbilityId, type AuraId,
+} from '../data/perks';
 
 /** Fully derived stats used by the battle simulation. */
 export interface CombatStats {
@@ -27,6 +31,28 @@ export interface CombatStats {
   shield: ShieldKind | 'none';
   canShieldWall: boolean;
   role: 'melee' | 'ranged' | 'hybrid';
+  /** Active abilities (from perks, or Will for Rally Cry). */
+  abilities: AbilityId[];
+  /** Auras this hero projects. */
+  auras: AuraId[];
+  /** Chance a mortal blow only knocks him out. */
+  koChance: number;
+  /** Will attribute (scales shout and aura radius). */
+  will: number;
+  /** Ability cooldown multiplier (Will). */
+  cdMult: number;
+  /** Kills restore morale and stamina. */
+  bloodlust: boolean;
+}
+
+/** Radius bonus from Will for auras and shouts. */
+export function willRadius(s: { will: number }): number {
+  return (s.will - ATTR_BASE) * ATTR_EFFECT.wilRadius;
+}
+
+/** Shout radius for Rally Cry. */
+export function rallyRadius(s: { will: number }): number {
+  return ABILITY_RULES.rallyRadius + willRadius(s);
 }
 
 export function collectMods(hero: Hero): StatMods[] {
@@ -70,6 +96,12 @@ export function computeStats(hero: Hero): CombatStats {
     shield: shieldUsable ? (shieldDef!.shieldKind as ShieldKind) : 'none',
     canShieldWall: shieldUsable && !!shieldDef!.shieldWall,
     role: 'melee',
+    abilities: [],
+    auras: [],
+    koChance: KO_BASE,
+    will: ATTR_BASE,
+    cdMult: 1,
+    bloodlust: false,
   };
 
   let speedMod = 0;
@@ -95,7 +127,52 @@ export function computeStats(hero: Hero): CombatStats {
     speedMod += def.mods.speed ?? 0;
     if (def.moraleLoss) s.moraleLoss *= def.moraleLoss;
   }
-  if (s.rangedDmg > 0) s.rangedDmg += (lvl - 1) * 0.3;
+  // Perks: stat mods like traits, plus abilities, auras and hooks.
+  let ammoMult = 1;
+  for (const id of hero.perks ?? []) {
+    const p = PERKS[id];
+    if (!p) continue;
+    if (p.mods) {
+      addCommon(s, p.mods);
+      s.dmg += p.mods.dmg ?? 0;
+      s.reach += p.mods.reach ?? 0;
+      speedMod += p.mods.speed ?? 0;
+    }
+    if (p.moraleLoss) s.moraleLoss *= p.moraleLoss;
+    if (p.ko) s.koChance += p.ko;
+    if (p.ammoMult) ammoMult *= p.ammoMult;
+    if (p.ability && !s.abilities.includes(p.ability)) s.abilities.push(p.ability);
+    if (p.aura && !s.auras.includes(p.aura)) s.auras.push(p.aura);
+    if (p.bloodlust) s.bloodlust = true;
+  }
+  // Attributes: each point away from ATTR_BASE shifts the derived stats.
+  const a = hero.attrs ?? defaultAttrs();
+  const E = ATTR_EFFECT;
+  const str = a.str - ATTR_BASE;
+  const agi = a.agi - ATTR_BASE;
+  const end = a.end - ATTR_BASE;
+  const wil = a.wil - ATTR_BASE;
+  s.dmg += str * E.strDmg;
+  s.maxHp += str * E.strHp + end * E.endHp;
+  s.chargeBonus += str * E.strCharge;
+  speedMod += agi * E.agiSpeed;
+  s.accuracy += agi * E.agiAccuracy;
+  const tempo = Math.max(0.6, 1 - agi * E.agiTempo);
+  s.atkTime *= tempo;
+  s.shotTime *= tempo;
+  s.stamina += end * E.endStamina;
+  s.koChance += end * E.endKo;
+  s.morale += wil * E.wilMorale;
+  s.moraleLoss *= Math.max(0.5, 1 - wil * E.wilSteady);
+  s.will = a.wil;
+  s.cdMult = Math.max(0.6, 1 - wil * E.wilCooldown);
+  if (a.wil >= RALLY_WILL && !s.abilities.includes('rally')) s.abilities.push('rally');
+  if (s.ammo > 0) s.ammo = Math.round(s.ammo * ammoMult);
+
+  if (s.rangedDmg > 0) s.rangedDmg += (lvl - 1) * 0.3 + agi * E.agiRanged;
+  // Abilities that need gear: a bash needs a shield.
+  if (s.shield === 'none') s.abilities = s.abilities.filter((x) => x !== 'bash');
+  s.koChance = Math.max(0, Math.min(0.85, s.koChance));
   s.speed = BASE.speed * (1 + speedMod);
   s.block = Math.min(0.8, s.block);
   s.accuracy = Math.max(0.2, Math.min(0.95, s.accuracy));
@@ -126,5 +203,7 @@ export function heroPower(hero: Hero): number {
   const melee = (s.dmg / s.atkTime) * (1 + (s.reach - 1) * 0.35);
   const ranged = s.range > 0 ? (s.rangedDmg * Math.min(s.ammo, 12)) / 12 : 0;
   const ehp = s.maxHp * (1 + s.armor / 12) / (1 - s.block * 0.8);
-  return Math.sqrt(ehp * (melee + ranged * 0.8 + 1)) * (0.7 + s.morale / 160);
+  // Abilities and auras are worth a little on paper (tuned with `npm run balance`).
+  const extra = 1 + 0.04 * s.abilities.length + 0.05 * s.auras.length;
+  return Math.sqrt(ehp * (melee + ranged * 0.8 + 1)) * (0.7 + s.morale / 160) * extra;
 }

@@ -28,10 +28,10 @@ describe('loot', () => {
       winner: 0,
       ticks: 100,
       units: [
-        ...player.map((h) => ({ heroId: h.id, side: 0 as const, state: 'ready' as const, kills: 0, killedBy: -1, hp: 10, maxHp: 30, wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 } })),
-        { heroId: enemy[0].id, side: 1, state: 'dead', kills: 0, killedBy: 0, hp: 0, maxHp: 30, wear: { weapon: 1, shield: 10, helmet: 2, armor: 3 } },
-        { heroId: enemy[1].id, side: 1, state: 'fled', kills: 0, killedBy: -1, hp: 5, maxHp: 30, wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 } },
-        { heroId: enemy[2].id, side: 1, state: 'dead', kills: 0, killedBy: 1, hp: 0, maxHp: 30, wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 } },
+        ...player.map((h) => ({ heroId: h.id, side: 0 as const, state: 'ready' as const, kills: 0, killedBy: -1, ko: false, hp: 10, maxHp: 30, wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 } })),
+        { heroId: enemy[0].id, side: 1, state: 'dead', kills: 0, killedBy: 0, ko: false, hp: 0, maxHp: 30, wear: { weapon: 1, shield: 10, helmet: 2, armor: 3 } },
+        { heroId: enemy[1].id, side: 1, state: 'fled', kills: 0, killedBy: -1, ko: false, hp: 5, maxHp: 30, wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 } },
+        { heroId: enemy[2].id, side: 1, state: 'dead', kills: 0, killedBy: 1, ko: false, hp: 0, maxHp: 30, wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 } },
       ],
     };
     const pool = lootPool(result, enemy);
@@ -56,7 +56,7 @@ describe('loot', () => {
     runToEnd(b);
     const res = b.result();
     const before = player.length;
-    const deadIds = res.units.filter((u) => u.side === 0 && u.state === 'dead').map((u) => u.heroId);
+    const deadIds = res.units.filter((u) => u.side === 0 && u.state === 'dead' && !u.ko).map((u) => u.heroId);
     const { outcome, survivors } = resolveBattle(res, player, enemy, new Rng(1));
     expect(survivors.length).toBe(before - deadIds.length);
     expect(survivors.some((h) => deadIds.includes(h.id))).toBe(false);

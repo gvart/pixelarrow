@@ -35,7 +35,8 @@ describe('retreat', () => {
     expect(outcome.victory).toBe(false);
     expect(outcome.picks).toBe(0);
     expect(outcome.loot.length).toBe(0);
-    expect(survivors.length).toBe(mine.filter((u) => u.state === 'fled').length);
+    // Survivors: everyone who got away plus the knocked-out (wounded, not killed).
+    expect(survivors.length).toBe(mine.filter((u) => u.state === 'fled' || u.ko).length);
   });
 
   it('nobody is caught when retreating before contact', () => {

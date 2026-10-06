@@ -14,7 +14,15 @@ export interface HeroOutcome {
   kills: number;
   xp: number;
   levelsGained: number;
+  /** Knocked out: survived, but wounded. */
+  wounded?: boolean;
+  /** Level and XP before this battle (for the results screen's XP bar animation). */
+  levelBefore?: number;
+  xpBefore?: number;
 }
+
+/** Hours of rest a knocked-out hero needs (see src/world for healing rates). */
+export const WOUND_HOURS = 36;
 
 export interface Outcome {
   victory: boolean;
@@ -93,7 +101,7 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
       survivors.push(h);
       continue;
     }
-    const died = u.state === 'dead';
+    const died = u.state === 'dead' && !u.ko;
     if (died) {
       lost++;
       outcomes.push({ heroId: h.id, name: h.name, died: true, fled: false, kills: u.kills, xp: 0, levelsGained: 0 });
@@ -105,11 +113,15 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
     }
     const xpBonus = (h.equip.trinket ? itemDef(h.equip.trinket.def).mods.xpBonus ?? 0 : 0) + h.traits.reduce((a, t) => a + (TRAITS[t].mods.xpBonus ?? 0), 0);
     // Men who ran off the field lose a little XP; an ordered retreat is no disgrace.
-    const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' && !retreated ? -6 : 0)) * (1 + xpBonus));
+    const wounded = u.state === 'dead' && u.ko;
+    const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' && !retreated ? -6 : 0)) * (1 + xpBonus) * (wounded ? 0.5 : 1));
     h.kills += u.kills;
     h.battles++;
+    const levelBefore = h.level;
+    const xpBefore = h.xp;
     const levels = grantXp(h, xp, rng);
-    outcomes.push({ heroId: h.id, name: h.name, died: false, fled: u.state === 'fled', kills: u.kills, xp, levelsGained: levels });
+    if (wounded) h.wound = Math.max(h.wound ?? 0, WOUND_HOURS);
+    outcomes.push({ heroId: h.id, name: h.name, died: false, fled: u.state === 'fled', kills: u.kills, xp, levelsGained: levels, wounded, levelBefore, xpBefore });
     survivors.push(h);
   }
   // A retreat earns only the bounty for enemies already slain: no field to strip.

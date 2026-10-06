@@ -1,5 +1,6 @@
 import type { CombatStats } from './stats';
 import type { Formation, FormationType } from './formation';
+import type { AbilityId } from '../data/perks';
 
 export type Side = 0 | 1;
 export type UnitState = 'ready' | 'routing' | 'dead' | 'fled';
@@ -79,6 +80,17 @@ export interface SimUnit {
   dmgDealt: number;
   killedBy: number; // -1 = not killed, else side that killed
   wear: Wear;
+  /** Struck down but only knocked out (state stays 'dead' for the battle). */
+  ko: boolean;
+  /** Abilities and their remaining cooldown in ticks (parallel arrays). */
+  abil: AbilityId[];
+  abilCd: number[];
+  /** Ticks of berserk fury left. */
+  berserk: number;
+  /** Ticks dazed by a shield bash (cannot block, takes extra damage). */
+  daze: number;
+  /** Bitmask of auras currently affecting this unit (AURAS[id].bit). */
+  aura: number;
 }
 
 export interface SimGroup {
@@ -130,6 +142,8 @@ export type SimEvent =
   | { type: 'impact'; tick: number; unit: number; by: number }
   | { type: 'land'; tick: number; proj: number; hit: boolean }
   | { type: 'retreat'; tick: number; side: Side; caught: number; pursuit: number }
+  /** An ability was used; targets = units affected (stunned, shooters, rallied...). */
+  | { type: 'ability'; tick: number; unit: number; ability: AbilityId; targets: number[] }
   | { type: 'end'; tick: number; winner: Side | -1 };
 
 export type Order =
@@ -141,6 +155,8 @@ export type Order =
   | { kind: 'detach'; unit: number }
   | { kind: 'rejoin'; unit: number }
   | { kind: 'assign'; unit: number; group: number }
+  /** A hero uses an active ability (validated: ready, off cooldown, a target if it needs one). */
+  | { kind: 'ability'; unit: number; ability: AbilityId }
   /** The whole side quits the field: the battle ends as its defeat (see Battle.retreat). */
   | { kind: 'retreat' };
 
@@ -156,6 +172,8 @@ export interface UnitResult {
   state: UnitState;
   kills: number;
   killedBy: number;
+  /** Struck down but survived, wounded. */
+  ko: boolean;
   hp: number;
   maxHp: number;
   wear: Wear;

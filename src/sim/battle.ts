@@ -30,6 +30,8 @@ import type {
   SimUnit,
 } from './types';
 import { BotAI } from './ai';
+import { ABILITIES, ABILITY_RULES, AURAS, AURA_IDS, AURA_RULES, type AbilityId } from '../data/perks';
+import { rallyRadius, willRadius } from './stats';
 
 export const TICK_RATE = 20;
 export const DT = 1 / TICK_RATE;
@@ -162,6 +164,12 @@ export class Battle {
           dmgDealt: 0,
           killedBy: -1,
           wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 },
+          ko: false,
+          abil: [...(s.abilities ?? [])],
+          abilCd: (s.abilities ?? []).map(() => 0),
+          berserk: 0,
+          daze: 0,
+          aura: 0,
         });
       });
       // Javelin groups keep their throws until ordered; pure missile groups loose at will.
@@ -363,6 +371,15 @@ export class Battle {
       case 'retreat':
         this.retreat(side);
         return;
+      case 'ability': {
+        const u = this.units[o.unit];
+        if (!u || u.side !== side) return;
+        const i = u.abil.indexOf(o.ability);
+        if (i < 0 || !this.abilityReady(u, o.ability)) return;
+        if (!this.useAbility(u, o.ability)) return;
+        u.abilCd[i] = Math.round(ABILITIES[o.ability].cooldown * TICK_RATE * u.stats.cdMult);
+        return;
+      }
       case 'assign': {
         if (this.phase !== 'deploy') return;
         const u = this.units[o.unit];
@@ -380,6 +397,164 @@ export class Battle {
         return;
       }
     }
+  }
+
+  // ---------------------------------------------------------------- abilities
+
+  /** Remaining cooldown of an ability in ticks (-1 if the unit does not have it). */
+  abilityCooldown(u: SimUnit, id: AbilityId): number {
+    const i = u.abil.indexOf(id);
+    return i < 0 ? -1 : u.abilCd[i];
+  }
+
+  /** Whether the ability can be used right now (off cooldown, able, and with a target if it needs one). */
+  abilityReady(u: SimUnit, id: AbilityId): boolean {
+    if (this.phase !== 'battle' || u.state !== 'ready' || u.stun > 0) return false;
+    const i = u.abil.indexOf(id);
+    if (i < 0 || u.abilCd[i] > 0) return false;
+    switch (id) {
+      case 'bash':
+        return u.stats.shield !== 'none' && this.bashTarget(u) !== null;
+      case 'volley':
+        return this.volleyShooters(u).length > 0;
+      case 'berserk':
+        return u.berserk <= 0;
+      case 'rally':
+        return true;
+    }
+  }
+
+  /** The enemy a shield bash would hit: a ready man close in front. */
+  bashTarget(u: SimUnit): SimUnit | null {
+    const range = ABILITY_RULES.bashRange + UNIT_RADIUS * 2;
+    let best: SimUnit | null = null;
+    let bestScore = -Infinity;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      const d = Math.sqrt((e.x - u.x) ** 2 + (e.y - u.y) ** 2);
+      if (d > range) continue;
+      const front = this.facingDot(u, e);
+      if (front < 0.3) continue;
+      const score = front - d + (e.id === u.targetId ? 0.5 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /** Missile-men who would loose in a volley called by u, each with a target in range. */
+  volleyShooters(u: SimUnit): { s: SimUnit; t: SimUnit }[] {
+    const out: { s: SimUnit; t: SimUnit }[] = [];
+    const r2 = ABILITY_RULES.volleyRadius ** 2;
+    for (const s of this.units) {
+      if (s.side !== u.side || s.state !== 'ready' || s.ammo <= 0 || s.stats.range <= 0 || s.stun > 0) continue;
+      if ((s.x - u.x) ** 2 + (s.y - u.y) ** 2 > r2) continue;
+      let t: SimUnit | null = null;
+      let td = Infinity;
+      for (const e of this.units) {
+        if (e.side === s.side || e.state !== 'ready') continue;
+        const d = Math.sqrt((e.x - s.x) ** 2 + (e.y - s.y) ** 2);
+        if (d <= s.stats.range && d > 1.4 && d < td) {
+          td = d;
+          t = e;
+        }
+      }
+      if (t) out.push({ s, t });
+    }
+    return out;
+  }
+
+  private useAbility(u: SimUnit, id: AbilityId): boolean {
+    const R = ABILITY_RULES;
+    const targets: number[] = [];
+    switch (id) {
+      case 'bash': {
+        const t = this.bashTarget(u);
+        if (!t) return false;
+        const dir = this.hitDirection(t, u.x, u.y);
+        u.stamina = Math.max(0, u.stamina - 6);
+        u.lastAttackTick = this.tick;
+        u.cooldown = Math.max(u.cooldown, 10);
+        t.stun = Math.max(t.stun, R.bashStun);
+        t.daze = Math.max(t.daze, R.bashDaze);
+        t.momentum = 0;
+        t.morale -= R.bashMorale * this.ml(t);
+        // shove him back half a pace
+        const dx = t.x - u.x;
+        const dy = t.y - u.y;
+        const l = Math.sqrt(dx * dx + dy * dy) || 1;
+        t.x = clamp(t.x + (dx / l) * 0.5, UNIT_RADIUS, this.width - UNIT_RADIUS);
+        t.y = clamp(t.y + (dy / l) * 0.5, UNIT_RADIUS, this.height - UNIT_RADIUS);
+        targets.push(t.id);
+        this.events.push({ type: 'ability', tick: this.tick, unit: u.id, ability: id, targets });
+        this.contactEvent(this.groups[u.group]);
+        this.applyDamage(t, u, R.bashDamage + u.stats.dmg * 0.4, dir, false, 1.5);
+        return true;
+      }
+      case 'volley': {
+        const shooters = this.volleyShooters(u);
+        if (shooters.length === 0) return false;
+        for (const { s, t } of shooters) {
+          for (let k = 0; k < R.volleyShots; k++) {
+            this.shoot(s, t, R.volleyDamage, R.volleyAccuracy);
+            s.ammo++; // the volley comes from a reserve sheaf: no ammunition spent
+          }
+          targets.push(s.id);
+        }
+        break;
+      }
+      case 'berserk':
+        if (u.berserk > 0) return false;
+        u.berserk = R.berserkTicks;
+        u.morale = Math.max(u.morale, u.stats.morale * 0.6);
+        targets.push(u.id);
+        break;
+      case 'rally': {
+        const r2 = rallyRadius(u.stats) ** 2;
+        for (const a of this.units) {
+          if (a.side !== u.side || !this.isAlive(a)) continue;
+          if ((a.x - u.x) ** 2 + (a.y - u.y) ** 2 > r2) continue;
+          if (a.state === 'routing') {
+            a.state = 'ready';
+            a.momentum = 0;
+            a.morale = Math.max(a.morale, a.stats.morale * (RULES.rallyFraction + 0.1));
+            this.events.push({ type: 'rally', tick: this.tick, unit: a.id });
+            this.reassign(a.group);
+          } else {
+            a.morale = Math.min(a.stats.morale + 10, a.morale + a.stats.morale * R.rallyMorale);
+          }
+          a.stamina = Math.min(a.stats.stamina, a.stamina + 8);
+          targets.push(a.id);
+        }
+        break;
+      }
+    }
+    this.events.push({ type: 'ability', tick: this.tick, unit: u.id, ability: id, targets });
+    return true;
+  }
+
+  /** Recompute which auras touch which units (every half second). */
+  private updateAuras(): void {
+    for (const u of this.units) u.aura = 0;
+    for (const src of this.units) {
+      if (src.state !== 'ready' || src.stats.auras.length === 0) continue;
+      for (const id of AURA_IDS) {
+        if (!src.stats.auras.includes(id)) continue;
+        const def = AURAS[id];
+        const r2 = (def.radius + willRadius(src.stats)) ** 2;
+        for (const a of this.units) {
+          if (a.side !== src.side || a.state !== 'ready') continue;
+          if ((a.x - src.x) ** 2 + (a.y - src.y) ** 2 <= r2) a.aura |= def.bit;
+        }
+      }
+    }
+  }
+
+  /** Morale damage multiplier for a unit (traits, perks, Will, Steady Presence). */
+  private ml(u: SimUnit): number {
+    return u.stats.moraleLoss * (u.aura & AURAS.steady.bit ? AURA_RULES.steadyMoraleLoss : 1);
   }
 
   /**
@@ -532,6 +707,7 @@ export class Battle {
     this.tick++;
 
     for (const bot of this.bots) bot.think(this);
+    if (this.tick % 10 === 1) this.updateAuras();
 
     if (this.tick % 40 === 0) {
       for (const g of this.groups) if (!g.disbanded && !g.individual) this.reassign(g.id);
@@ -590,6 +766,7 @@ export class Battle {
   private walkSpeed(u: SimUnit, g: SimGroup): number {
     let s = u.stats.speed * this.fatigue(u);
     if (g.shieldWall && u.stats.canShieldWall) s *= RULES.shieldWallSpeed;
+    if (u.berserk > 0) s *= 1.1;
     return s;
   }
 
@@ -599,6 +776,12 @@ export class Battle {
     if (!this.isAlive(u)) return;
     const g = this.groups[u.group];
     if (u.cooldown > 0) u.cooldown--;
+    for (let i = 0; i < u.abilCd.length; i++) if (u.abilCd[i] > 0) u.abilCd[i]--;
+    if (u.daze > 0) u.daze--;
+    if (u.berserk > 0) {
+      u.berserk--;
+      if (u.berserk === 0) u.stamina = Math.max(0, u.stamina - ABILITY_RULES.berserkWinded);
+    }
     if (u.stun > 0) {
       u.stun--;
       u.engaged = false;
@@ -795,6 +978,9 @@ export class Battle {
     if (!u.engaged && nearestEnemy > 4 && u.morale < u.stats.morale) {
       u.morale = Math.min(u.stats.morale, u.morale + 1.5 * DT);
     }
+    if (u.aura & AURAS.steady.bit && u.morale < u.stats.morale) {
+      u.morale = Math.min(u.stats.morale, u.morale + AURA_RULES.steadyRegen * DT);
+    }
     if (u.engaged && this.tick % 10 === 0) {
       let allies = 0;
       let enemies = 0;
@@ -805,9 +991,14 @@ export class Battle {
         if (o.side === u.side) allies++;
         else enemies++;
       }
-      if (enemies > allies + 1) u.morale -= 0.5 * (enemies - allies) * u.stats.moraleLoss;
+      if (enemies > allies + 1) u.morale -= 0.5 * (enemies - allies) * this.ml(u);
     }
-    if (u.stamina <= 0 && u.engaged && this.tick % 20 === 0) u.morale -= 1 * u.stats.moraleLoss;
+    if (u.stamina <= 0 && u.engaged && this.tick % 20 === 0) u.morale -= 1 * this.ml(u);
+    if (u.berserk > 0) {
+      // Fury: he cannot break while it lasts.
+      u.morale = Math.max(u.morale, u.stats.morale * RULES.routFraction + 1);
+      return;
+    }
     if (u.morale < u.stats.morale * RULES.routFraction && u.state === 'ready') this.rout(u);
   }
 
@@ -819,7 +1010,7 @@ export class Battle {
     for (const a of this.units) {
       if (a.side !== u.side || a.state !== 'ready' || a === u) continue;
       if ((a.x - u.x) ** 2 + (a.y - u.y) ** 2 <= RULES.cascadeRadius ** 2) {
-        a.morale -= RULES.allyRoutMorale * a.stats.moraleLoss;
+        a.morale -= RULES.allyRoutMorale * this.ml(a);
       }
     }
   }
@@ -865,7 +1056,7 @@ export class Battle {
 
   /** Probability that target t blocks an attack from the given direction. */
   blockChance(t: SimUnit, dir: HitDir, pierce: number, missile: boolean): number {
-    if (t.stats.shield === 'none' || t.state !== 'ready' || dir === 'rear') return 0;
+    if (t.stats.shield === 'none' || t.state !== 'ready' || dir === 'rear' || t.daze > 0) return 0;
     const g = this.groups[t.group];
     let b = t.stats.block;
     if (dir === 'side') b *= RULES.sideBlockFactor;
@@ -873,6 +1064,7 @@ export class Battle {
     if (wall) b += RULES.shieldWallBlock;
     if (missile) b *= RULES.missileBlockFactor;
     b *= this.fatigue(t);
+    if (t.berserk > 0) b *= ABILITY_RULES.berserkBlock;
     b -= pierce;
     return clamp(b, 0, 0.85);
   }
@@ -881,7 +1073,8 @@ export class Battle {
     const g = this.groups[u.group];
     const tg = this.groups[t.group];
     const wall = g.shieldWall && u.stats.canShieldWall;
-    u.cooldown = Math.round(u.stats.atkTime * TICK_RATE * (wall ? 1.2 : 1) / this.fatigue(u));
+    const fury = u.berserk > 0;
+    u.cooldown = Math.round(u.stats.atkTime * TICK_RATE * (wall ? 1.2 : 1) * (fury ? ABILITY_RULES.berserkTempo : 1) / this.fatigue(u));
     u.lastAttackTick = this.tick;
     u.stamina = Math.max(0, u.stamina - 3);
     u.wear.weapon += 0.12;
@@ -899,13 +1092,13 @@ export class Battle {
       // The charge breaks on a braced wall: the attacker is checked and winded.
       u.stun = RULES.bracedBounceStun;
       u.stamina = Math.max(0, u.stamina - 8);
-      u.morale -= 3 * u.stats.moraleLoss;
+      u.morale -= 3 * this.ml(u);
     }
     if (this.rng.chance(this.blockChance(t, dir, u.stats.blockPierce, false))) {
       t.stamina = Math.max(0, t.stamina - (impact ? 10 : 3));
       t.lastBlockTick = this.tick;
       t.wear.shield += impact ? 1.5 : 0.6;
-      t.morale -= (impact ? 4 : 0.4) * t.stats.moraleLoss;
+      t.morale -= (impact ? 4 : 0.4) * this.ml(t);
       if (impact) {
         u.momentum = 0;
         this.events.push({ type: 'impact', tick: this.tick, unit: t.id, by: u.id });
@@ -914,7 +1107,10 @@ export class Battle {
       return;
     }
     let dmg = u.stats.dmg * this.rng.range(0.8, 1.2) * RULES.dirDamage[dir];
-    let moraleMult = 1 + u.stats.moraleShock;
+    if (fury) dmg *= ABILITY_RULES.berserkDamage;
+    if (u.aura & AURAS.warlord.bit) dmg *= AURA_RULES.warlordDamage;
+    if (t.daze > 0) dmg *= ABILITY_RULES.dazeDamage;
+    let moraleMult = 1 + u.stats.moraleShock + (fury ? ABILITY_RULES.berserkShock : 0);
     if (impact) {
       dmg *= RULES.chargeImpact + u.stats.chargeBonus * 0.5;
       moraleMult += 0.8;
@@ -943,13 +1139,14 @@ export class Battle {
   }
 
   private applyDamage(t: SimUnit, by: SimUnit, raw: number, dir: HitDir, ranged: boolean, moraleMult: number): void {
-    const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + t.stats.armor));
+    const armor = t.berserk > 0 ? Math.max(0, t.stats.armor - ABILITY_RULES.berserkArmor) : t.stats.armor;
+    const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + armor));
     t.hp -= dmg;
     t.lastHitTick = this.tick;
     t.wear.armor += 0.5;
     t.wear.helmet += 0.3;
     by.dmgDealt += dmg;
-    t.morale -= dmg * RULES.moraleFromDamage * RULES.dirMorale[dir] * t.stats.moraleLoss * moraleMult * (ranged ? 0.8 : 1);
+    t.morale -= dmg * RULES.moraleFromDamage * RULES.dirMorale[dir] * this.ml(t) * moraleMult * (ranged ? 0.8 : 1);
     this.events.push({ type: 'hit', tick: this.tick, unit: t.id, by: by.id, dmg, dir, ranged });
     if (dir !== 'front' && t.state === 'ready') {
       const g = this.groups[t.group];
@@ -966,18 +1163,24 @@ export class Battle {
     t.state = 'dead';
     t.engaged = false;
     t.killedBy = by.side;
+    // A mortal blow may only knock him senseless: he lives, wounded.
+    t.ko = this.rng.chance(t.stats.koChance);
     by.kills++;
+    if (by.stats.bloodlust && by.state === 'ready') {
+      by.morale = Math.min(by.stats.morale + 10, by.morale + 8);
+      by.stamina = Math.min(by.stats.stamina, by.stamina + 10);
+    }
     this.events.push({ type: 'death', tick: this.tick, unit: t.id, by: by.id });
     const r2 = RULES.cascadeRadius ** 2;
     for (const o of this.units) {
       if (o.state !== 'ready') continue;
       if ((o.x - t.x) ** 2 + (o.y - t.y) ** 2 > r2) continue;
-      if (o.side === t.side) o.morale -= RULES.allyDeathMorale * o.stats.moraleLoss;
+      if (o.side === t.side) o.morale -= RULES.allyDeathMorale * this.ml(o);
       else o.morale = Math.min(o.stats.morale + 10, o.morale + RULES.enemyDeathMorale);
     }
   }
 
-  private shoot(u: SimUnit, t: SimUnit): void {
+  private shoot(u: SimUnit, t: SimUnit, dmgMult = 1, accBonus = 0): void {
     const kind: ProjectileKind = u.stats.weapon === 'bow' ? 'arrow' : u.stats.weapon === 'sling' ? 'stone' : 'javelin';
     const speed = kind === 'arrow' ? 20 : kind === 'stone' ? 18 : 13;
     const dx = t.x - u.x;
@@ -986,7 +1189,9 @@ export class Battle {
     const dur = Math.max(6, Math.round((d / speed) * TICK_RATE));
     // Lead the target a little, then scatter by inaccuracy.
     const lead = dur * 0.6;
-    const spread = (1 - u.stats.accuracy) * (0.35 + d * 0.09);
+    const eagle = (u.aura & AURAS.eagle.bit) !== 0;
+    const acc = Math.min(0.97, u.stats.accuracy + accBonus + (eagle ? AURA_RULES.eagleAccuracy : 0));
+    const spread = (1 - acc) * (0.35 + d * 0.09);
     const tx = t.x + t.vx * lead + this.rng.range(-spread, spread);
     const ty = t.y + t.vy * lead + this.rng.range(-spread, spread);
     u.cooldown = Math.round(u.stats.shotTime * TICK_RATE / this.fatigue(u));
@@ -1004,7 +1209,7 @@ export class Battle {
       ty,
       t0: this.tick,
       dur,
-      dmg: u.stats.rangedDmg,
+      dmg: u.stats.rangedDmg * dmgMult * (eagle ? AURA_RULES.eagleDamage : 1),
       done: false,
       hitId: -1,
     };
@@ -1037,7 +1242,7 @@ export class Battle {
       if (this.rng.chance(this.blockChance(best, dir, pierce, true))) {
         best.lastBlockTick = this.tick;
         best.wear.shield += 0.5;
-        best.morale -= 0.6 * best.stats.moraleLoss;
+        best.morale -= 0.6 * this.ml(best);
         this.events.push({ type: 'block', tick: this.tick, unit: best.id, by: shooter.id });
         this.events.push({ type: 'land', tick: this.tick, proj: p.id, hit: true });
         continue;
@@ -1153,6 +1358,7 @@ export class Battle {
         state: u.state,
         kills: u.kills,
         killedBy: u.killedBy,
+        ko: u.ko,
         hp: Math.max(0, u.hp),
         maxHp: u.stats.maxHp,
         wear: { ...u.wear },
@@ -1182,6 +1388,10 @@ export class Battle {
       mix(u.stamina);
       mix(u.ammo);
       mix(u.state.length);
+      mix(u.stun);
+      mix(u.berserk);
+      mix(u.daze);
+      for (const c of u.abilCd) mix(c);
     }
     for (const p of this.projectiles) {
       mix(p.tx);

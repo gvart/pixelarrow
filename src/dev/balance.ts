@@ -9,10 +9,10 @@
  *  - flank:   6 v 6 hoplite lines fighting head-on; the attacker has 3 more
  *    swordsmen who either join the front ('front') or hit the enemy's rear ('rear').
  */
-import { Campaign } from '../game/campaign';
 import { generateEnemyArmy } from '../game/enemy';
 import { armySpec } from '../game/armySpec';
-import { makeHero, type Archetype } from '../game/heroes';
+import { makeHero, setBotLevel, standardArmy, type Archetype } from '../game/heroes';
+import { PERKS, type PerkId } from '../data/perks';
 import { Battle, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import type { Hero } from '../data/units';
@@ -42,9 +42,9 @@ function track(b: Battle, maxTicks: number): { contact: number; firstRout: [numb
 
 /** passive = the player's side never gives an order (holds its deployment). */
 export function runMatched(seed: number, passive = false): MatchedResult {
-  const camp = Campaign.fresh(seed);
-  const heroes = camp.data.heroes;
-  const enemy = generateEnemyArmy(new Rng(seed ^ 0xa5a5a5a5), camp.data, heroes, 0).heroes;
+  const ids = { nextId: 1 };
+  const heroes = standardArmy(new Rng(seed), ids);
+  const enemy = generateEnemyArmy(new Rng(seed ^ 0xa5a5a5a5), ids, heroes, 0).heroes;
   const b = new Battle({ seed, armies: [armySpec(heroes, !passive), armySpec(enemy, true)] });
   b.startBattle();
   const t = track(b, b.timeLimitTicks + 10);
@@ -157,6 +157,76 @@ export function runFlank(seed: number, mode: 'front' | 'rear', seconds = 120): F
   return { defenderRout: rout, attackerWon: b.winner === 0, seconds: b.tick / TICK_RATE };
 }
 
+// ------------------------------------------------------------------ progression
+
+/** Who receives a perk in the mirror test. */
+const PERK_HOLDERS: Record<string, (h: Hero, i: number) => boolean> = {
+  one: (_h, i) => i === 0,
+  oneSkirm: (h) => h.group === 1,
+  melee: (h) => h.group === 0,
+};
+
+export const PERK_TESTS: { label: string; perks: PerkId[]; who: keyof typeof PERK_HOLDERS; firstOnly?: boolean }[] = [
+  { label: 'Shield Bash (all line men)', perks: ['shield_bash'], who: 'melee' },
+  { label: 'Berserk (all line men)', perks: ['berserk'], who: 'melee' },
+  { label: 'Volley (one skirmisher)', perks: ['volley'], who: 'oneSkirm', firstOnly: true },
+  { label: 'Rally Cry (one hero)', perks: ['rally_cry'], who: 'one' },
+  { label: 'Steady Presence aura (one)', perks: ['steady_presence'], who: 'one' },
+  { label: 'Eagle Eye aura (one skirmisher)', perks: ['eagle_eye'], who: 'oneSkirm', firstOnly: true },
+  { label: 'Warlord aura (one)', perks: ['warlord'], who: 'one' },
+];
+
+/** A level-4 ten-man army, attributes developed but no perks (identical on both sides). */
+function mirrorArmy(seed: number): Hero[] {
+  const heroes = standardArmy(new Rng(seed), { nextId: 1 });
+  for (const h of heroes) {
+    setBotLevel(h, 4);
+    h.perks = [];
+  }
+  return heroes;
+}
+
+/**
+ * Mirror battle: two identical armies (both bot-driven); side 0 additionally
+ * has `perks` on the chosen heroes. Returns the winner.
+ */
+export function runMirror(seed: number, perks: PerkId[], who: keyof typeof PERK_HOLDERS, firstOnly = false): Side | -1 {
+  const a = mirrorArmy(seed);
+  const b: Hero[] = JSON.parse(JSON.stringify(a));
+  b.forEach((h, i) => (h.id = `m${i}`));
+  let given = 0;
+  a.forEach((h, i) => {
+    if (!PERK_HOLDERS[who](h, i) || (firstOnly && given > 0)) return;
+    for (const p of perks) if (PERKS[p] && !h.perks.includes(p)) h.perks.push(p);
+    given++;
+  });
+  // Alternate sides between seeds so map side does not bias the result.
+  const flip = seed % 2 === 1;
+  const armies = flip ? [armySpec(b, true), armySpec(a, true)] : [armySpec(a, true), armySpec(b, true)];
+  const battle = new Battle({ seed, armies: armies as [ReturnType<typeof armySpec>, ReturnType<typeof armySpec>] });
+  battle.startBattle();
+  for (let i = 0; i < battle.timeLimitTicks + 10 && battle.phase !== 'ended'; i++) battle.step();
+  const w = battle.winner ?? -1;
+  if (w === -1) return -1;
+  return (flip ? (w === 0 ? 1 : 0) : w) as Side;
+}
+
+export function perkImpact(n: number): { label: string; win: number; loss: number }[] {
+  const out: { label: string; win: number; loss: number }[] = [];
+  const tests: { label: string; perks: PerkId[]; who: keyof typeof PERK_HOLDERS; firstOnly?: boolean }[] = [{ label: 'Baseline (no perks)', perks: [], who: 'one' }, ...PERK_TESTS];
+  for (const t of tests) {
+    let win = 0;
+    let loss = 0;
+    for (let i = 0; i < n; i++) {
+      const r = runMirror(7000 + i, t.perks, t.who, t.firstOnly);
+      if (r === 0) win++;
+      else if (r === 1) loss++;
+    }
+    out.push({ label: t.label, win: win / n, loss: loss / n });
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ report
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
@@ -205,5 +275,8 @@ export function balanceReport(n = 200): string {
     lines.push(`Flank test (${mode === 'rear' ? '3 extra men hit the REAR' : '3 extra men join the FRONT'}), ${k} seeds`);
     lines.push(`  attacker wins ${pct(fl.filter((x) => x.attackerWon).length, k)}; defender line routs in ${pct(r.length, k)}, median at ${f1(median(r))} s; battle median ${f1(median(fl.map((x) => x.seconds)))} s`);
   }
+  const pk = Math.max(40, Math.round(n * 0.8));
+  lines.push(`Abilities and auras: mirror battles, level-4 ten-man armies, only one side has the perk, ${pk} seeds each`);
+  for (const r of perkImpact(pk)) lines.push(`  ${r.label.padEnd(34)} win ${pct(Math.round(r.win * pk), pk).padStart(4)}  loss ${pct(Math.round(r.loss * pk), pk).padStart(4)}`);
   return lines.join('\n');
 }
