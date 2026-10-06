@@ -21,6 +21,12 @@ getting there, so that today's single-player code keeps the doors open.
 
 ## Agreed architecture
 
+A first backend has already landed in `server/` (see
+[server/README.md](../server/README.md)): one Worker serves the static game
+and the API (Hono, zod, D1, a hibernating `RegionDO`, Telegram `initData`
+auth, Stars payments, and battle verification that replays `src/sim`). The
+table below is the target the phases build towards.
+
 | Concern | Choice |
 | --- | --- |
 | Static game files | Already served by a Cloudflare Worker (static assets) on **https://pixelarrow.app** (`wrangler.jsonc`, `.github/workflows/deploy.yml`). The API lives on the same domain (e.g. `/api/*`, `/ws`), so no CORS and one origin for Telegram. |
@@ -71,7 +77,7 @@ These hold today and must keep holding; they are what make the plan above possib
 1. **Now: offline campaign (done).** Overland map, bands, settlements, wounds,
    hero attributes/perks/abilities/auras, real-time battles, saves in Telegram
    CloudStorage.
-2. **Accounts and cloud profile.** Worker + D1, Telegram `initData` login,
+2. **Accounts and cloud profile** (started: `server/` v1). Worker + D1, Telegram `initData` login,
    server-side save of the campaign profile (heroes, items, gold) with the
    client save as a cache. Keep offline play.
 3. **Server-validated battles.** Battle DO replays seed + order log; PvE

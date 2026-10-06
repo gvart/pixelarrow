@@ -31,7 +31,7 @@ import type {
 } from './types';
 import { BotAI } from './ai';
 import { ABILITIES, ABILITY_RULES, AURAS, AURA_IDS, AURA_RULES, type AbilityId } from '../data/perks';
-import { rallyRadius, willRadius } from './stats';
+import { rallyRadius, willRadius, type CombatStats } from './stats';
 
 export const TICK_RATE = 20;
 export const DT = 1 / TICK_RATE;
@@ -128,7 +128,16 @@ export class Battle {
       });
       army.units.forEach((spec) => {
         const g = base + Math.max(0, Math.min(army.groups.length - 1, spec.group));
-        const s = spec.stats;
+        // Setups from older clients (or the server) may lack the progression fields.
+        const s: CombatStats = {
+          ...spec.stats,
+          abilities: spec.stats.abilities ?? [],
+          auras: spec.stats.auras ?? [],
+          koChance: spec.stats.koChance ?? 0,
+          will: spec.stats.will ?? 5,
+          cdMult: spec.stats.cdMult ?? 1,
+          bloodlust: spec.stats.bloodlust ?? false,
+        };
         this.units.push({
           id: this.units.length,
           heroId: spec.heroId,
@@ -165,8 +174,8 @@ export class Battle {
           killedBy: -1,
           wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 },
           ko: false,
-          abil: [...(s.abilities ?? [])],
-          abilCd: (s.abilities ?? []).map(() => 0),
+          abil: [...s.abilities],
+          abilCd: s.abilities.map(() => 0),
           berserk: 0,
           daze: 0,
           aura: 0,
