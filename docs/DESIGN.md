@@ -66,12 +66,19 @@ A pure TypeScript, real-time simulation with no Phaser imports:
 - **Shields:** block chance applies to frontal hits (only 35% of it from the
   side, never from behind) and is improved against missiles. Shield wall:
   +15% frontal block, harder to push, but half speed and slower attacks.
-  Charges into a braced wall lose 30% of their impact and do not stun.
+- **Braced spears:** a charge that lands on the front of a braced shield wall
+  does only 35% of its impact damage, does not stun, and *bounces*: the
+  attacker is checked (0.5 s stun), winded and shaken. Braced spearmen also get
+  a free thrust at a man still running onto their points, with a ×(1 + 6 ×
+  charge bonus) brace bonus (×3.4 for a dory). Costly for the attacker, but not
+  an instant rout.
 - **Reach:** a weapon's reach decides who strikes first and lets the second
   rank of spearmen fight.
 - **Charges:** units running for 0.8 s build momentum; the first blow lands
   with ×1.4+ damage, extra morale damage and a short stun. Spearmen holding
   their ground punish chargers with a brace bonus.
+- **Pace:** 55% base hit chance, a global damage scale of 0.34 and morale loss
+  of 0.5 per point of damage (`RULES` in `src/sim/battle.ts`).
 - **Missiles:** slings, bows and javelins fire projectiles with travel time,
   lead and scatter; they hit whatever stands at the landing point. Ammo is
   limited. Javelin groups keep their throws until ordered (or when charging).
@@ -86,6 +93,15 @@ A pure TypeScript, real-time simulation with no Phaser imports:
   walls are harder to shove.
 - **End:** a side with nobody left standing (dead, routing or fled) loses.
   After 5 minutes the stronger side wins, or it is a stalemate.
+- **Retreat** (`{ kind: 'retreat' }`, the flag button in battle, with a
+  confirmation): the whole army leaves the field and the battle ends at once
+  as a defeat. Every man who is routing (60%) or locked in melee (35%) may be
+  cut down, +15% if badly wounded, all multiplied by the enemy's **pursuit**:
+  its men still fighting (weighted by stamina) divided by the retreating army's
+  size plus its men free to cover the withdrawal (0.5 for two equal fresh
+  armies, 1 for a broken army). Everyone else survives. No loot, gold only
+  for enemies already slain, and survivors keep their full XP. It is a logged
+  order like any other, so replays reproduce it.
 
 ### Bot AI (`src/sim/ai.ts`)
 
@@ -96,9 +112,36 @@ threatened or out of ammo. Flankers swing wide around the enemy's largest
 group and charge its side. The reserve follows the line and is committed when
 the line wavers, the enemy breaks or time runs on.
 
+If nothing has happened for 8 s (no blow, block or missile on either side)
+after the first 25 s, the bot commits every group that can still fight to an
+attack, so battles do not drift into a stand-off.
+
 The enemy army (`src/game/enemy.ts`) is generated from a random culture with
-matching kit, sized to the player's army, and tuned until its combat power is
-about 95% of the player's (rising slowly with victories).
+matching kit, sized to the player's army, and tuned until its `heroPower` is
+about 120% of the player's (`ENEMY_POWER`, rising slowly with victories). The
+power formula underrates a disciplined hoplite phalanx, so 120% on paper is an
+even fight on the field.
+
+### Balance (`npm run balance`)
+
+`scripts/balance.mjs` runs the harness in `src/dev/balance.ts` headless (via
+Vite's module runner): 200 seeded matched battles (starting army vs its bot
+army, both sides bot-driven), 100 battles against a passive player, and
+targeted rule tests. Current numbers (before → after this tuning pass):
+
+| Metric | Before | After |
+| --- | --- | --- |
+| Starting army win rate vs matched bot | 69% | 54% |
+| Battle duration mean / median | 45 s / 40 s | 86 s / 75 s |
+| Battles lasting 60–150 s | 3% | 70% |
+| First group rout after contact (median) | 11–12 s | 34–38 s |
+| Passive player: 5-minute limit reached | 37% | 1% |
+| Swordsmen charging braced hoplites: attacker routs within 15 s | 34% | 0% |
+| ... HP lost in the clash (first 5 s), attacker vs defender | even | 23 vs 16 |
+| ... attacker wins (equal numbers) | 52% | 26% |
+| 3 extra men hit the rear vs join the front: enemy line routs at | 3 s vs 17 s | 9.5 s vs 63 s |
+
+`tests/balance.test.ts` checks the same targets on smaller samples.
 
 ## Controls
 
@@ -176,8 +219,10 @@ pinch/wheel zoom to 2–4×.
 
 ## Known gaps (milestone 1)
 
-- Balance is a first pass. Bot-vs-bot battles last 20–90 s; a passive stand-off
-  ends at the 5-minute limit as a stalemate. There is no "retreat" button yet.
+- Balance is tuned for the starting army; later-campaign armies (bigger, better
+  kit, Celtic shock troops) have not been tuned separately.
+- The player's own side has no retreat preview of exactly who will be caught;
+  the dialog shows how many men are at risk and the pursuit strength.
 - No sound or music, no tutorial beyond the in-battle hint strip.
 - Determinism relies on IEEE doubles and `Math.sqrt` (correctly rounded), so
   replays match on the same engine; cross-platform lockstep PvP should add

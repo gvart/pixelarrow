@@ -28,7 +28,8 @@ npm install
 npm run dev        # dev server on http://localhost:5173 (also on your LAN)
 npm run build      # type-check + production build into dist/
 npm run preview    # serve dist/ on http://localhost:4173
-npm test           # vitest: simulation determinism, combat rules, loot, saves
+npm test           # vitest: simulation determinism, combat rules, retreat, balance targets, loot, saves
+npm run balance    # headless: 200 seeded bot-vs-bot battles + rule scenarios (win rate, duration, routs)
 npx tsc --noEmit   # type-check only
 ```
 

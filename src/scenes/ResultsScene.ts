@@ -35,7 +35,7 @@ export class ResultsScene extends BaseScene {
     this.telegramBack(() => this.finish());
 
     addScroll(this, this.ui, 8, 8, VW - 16, 48);
-    const title = addText(this, VW / 2, 18, o.victory ? 'Victory' : o.draw ? 'Stalemate' : 'Defeat', 'red', 0.5);
+    const title = addText(this, VW / 2, 18, o.victory ? 'Victory' : o.draw ? 'Stalemate' : o.retreated ? 'Retreat' : 'Defeat', 'red', 0.5);
     title.setFontSize(14);
     this.ui.add(title);
     this.ui.add(addText(this, VW / 2, 38, `vs ${CULTURE_LABEL[last.enemy.culture]}`, 'dim', 0.5));
@@ -75,7 +75,7 @@ export class ResultsScene extends BaseScene {
     this.area?.destroy();
     const { VW, S } = this.m;
     if (o.picks === 0) {
-      this.counter.setText(o.victory ? 'No spoils to take' : 'No spoils in defeat');
+      this.counter.setText(o.victory ? 'No spoils to take' : o.retreated ? 'No spoils in retreat' : 'No spoils in defeat');
       this.lootLayer.add(addText(this, VW / 2, y + 20, o.victory ? 'Kill foes to strip their gear.' : 'Survivors retreat to camp.', 'dim', 0.5));
       return;
     }

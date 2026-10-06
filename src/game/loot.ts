@@ -19,6 +19,8 @@ export interface HeroOutcome {
 export interface Outcome {
   victory: boolean;
   draw: boolean;
+  /** The player ordered a retreat: a defeat, survivors saved, no loot. */
+  retreated?: boolean;
   gold: number;
   picks: number;
   loot: Item[];
@@ -81,6 +83,7 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
   const enemyKilled = enemyUnits.filter((u) => u.state === 'dead' && u.killedBy === 0).length;
   const victory = result.winner === 0;
   const draw = result.winner === -1;
+  const retreated = result.retreated === 0;
   const outcomes: HeroOutcome[] = [];
   const survivors: Hero[] = [];
   let lost = 0;
@@ -101,18 +104,20 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
       if (it) applyWear(it, slot, u.wear);
     }
     const xpBonus = (h.equip.trinket ? itemDef(h.equip.trinket.def).mods.xpBonus ?? 0 : 0) + h.traits.reduce((a, t) => a + (TRAITS[t].mods.xpBonus ?? 0), 0);
-    const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' ? -6 : 0)) * (1 + xpBonus));
+    // Men who ran off the field lose a little XP; an ordered retreat is no disgrace.
+    const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' && !retreated ? -6 : 0)) * (1 + xpBonus));
     h.kills += u.kills;
     h.battles++;
     const levels = grantXp(h, xp, rng);
     outcomes.push({ heroId: h.id, name: h.name, died: false, fled: u.state === 'fled', kills: u.kills, xp, levelsGained: levels });
     survivors.push(h);
   }
-  const gold = 20 + enemyKilled * 12 + (victory ? 60 : draw ? 20 : 0);
-  const picks = lootPicks(result.winner, player.length, lost);
+  // A retreat earns only the bounty for enemies already slain: no field to strip.
+  const gold = (retreated ? 0 : 20) + enemyKilled * 12 + (victory ? 60 : draw ? 20 : 0);
+  const picks = retreated ? 0 : lootPicks(result.winner, player.length, lost);
   const loot = picks > 0 ? lootPool(result, enemies) : [];
   return {
-    outcome: { victory, draw, gold, picks: Math.min(picks, loot.length), loot, heroes: outcomes, enemyKilled, enemyTotal: enemyUnits.length, lost },
+    outcome: { victory, draw, retreated, gold, picks: Math.min(picks, loot.length), loot, heroes: outcomes, enemyKilled, enemyTotal: enemyUnits.length, lost },
     survivors,
   };
 }

@@ -129,6 +129,7 @@ export type SimEvent =
   | { type: 'shot'; tick: number; unit: number; proj: number }
   | { type: 'impact'; tick: number; unit: number; by: number }
   | { type: 'land'; tick: number; proj: number; hit: boolean }
+  | { type: 'retreat'; tick: number; side: Side; caught: number; pursuit: number }
   | { type: 'end'; tick: number; winner: Side | -1 };
 
 export type Order =
@@ -139,7 +140,9 @@ export type Order =
   | { kind: 'loose'; group: number; on?: boolean }
   | { kind: 'detach'; unit: number }
   | { kind: 'rejoin'; unit: number }
-  | { kind: 'assign'; unit: number; group: number };
+  | { kind: 'assign'; unit: number; group: number }
+  /** The whole side quits the field: the battle ends as its defeat (see Battle.retreat). */
+  | { kind: 'retreat' };
 
 export interface LoggedOrder {
   tick: number;
@@ -160,6 +163,8 @@ export interface UnitResult {
 
 export interface BattleResult {
   winner: Side | -1;
+  /** The side that ordered a retreat, if the battle ended that way. */
+  retreated?: Side | null;
   ticks: number;
   units: UnitResult[];
 }

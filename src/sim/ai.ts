@@ -9,6 +9,9 @@ import { Rng } from './rng';
 import { presetFrontage, rightOf } from './formation';
 import type { Side, SimGroup, SimUnit } from './types';
 
+/** Seconds without any combat before the bot commits everything to an attack. */
+export const PRESS_IDLE_S = 8;
+
 interface GroupMemo {
   stage: number;
   flankSign: number;
@@ -59,6 +62,27 @@ export class BotAI {
     const main = myGroups.find((g) => g.role === 'main' && b.activeMembers(g.id).length > 0);
     const enemyRouted = b.groups.some((g) => g.side !== this.side && g.routed);
     const ec = centroid(enemies);
+
+    // Nothing happening (no blow, block or missile on either side for a while)?
+    // Press the attack with everything that can still fight, so battles do not
+    // drift into a stand-off until the time limit.
+    let lastAction = 0;
+    for (const u of b.units) lastAction = Math.max(lastAction, u.lastAttackTick, u.lastShotTick, u.lastHitTick, u.lastBlockTick);
+    const idle = (b.tick - lastAction) / 20;
+    if (t > 25 && idle > PRESS_IDLE_S) {
+      for (const g of myGroups) {
+        const mem = b.activeMembers(g.id);
+        if (mem.length === 0 || g.routed) continue;
+        const c = centroid(mem);
+        const near = nearest(enemies, c.x, c.y);
+        this.mem(g).stage = 9; // committed: the role logic below just keeps charging
+        if (g.order !== 'charge') {
+          this.face(b, g, near.u.x, near.u.y);
+          b.issue(this.side, { kind: 'order', group: g.id, order: near.d < 9 ? 'charge' : 'advance' });
+        }
+      }
+      return;
+    }
 
     for (const g of myGroups) {
       const mem = b.activeMembers(g.id);

@@ -36,7 +36,7 @@ export const DT = 1 / TICK_RATE;
 export const UNIT_RADIUS = 0.3;
 
 export const RULES = {
-  meleeHit: 0.68,
+  meleeHit: 0.55,
   dirDamage: { front: 1, side: 1.3, rear: 1.6 } as Record<HitDir, number>,
   dirMorale: { front: 1, side: 1.8, rear: 2.8 } as Record<HitDir, number>,
   sideBlockFactor: 0.35,
@@ -44,7 +44,7 @@ export const RULES = {
   shieldWallSpeed: 0.5,
   missileBlockFactor: 1.25,
   armorK: 12,
-  moraleFromDamage: 0.7,
+  moraleFromDamage: 0.5,
   /** Rout below this fraction of max morale; rally above rallyFraction. */
   routFraction: 0.25,
   rallyFraction: 0.55,
@@ -56,6 +56,21 @@ export const RULES = {
   chargeImpact: 1.4,
   routingDamage: 1.4,
   lowStamina: 30,
+  /** Global damage multiplier (melee and missiles): sets the pace of battles. */
+  damageScale: 0.34,
+  /** A charge that lands on a braced, frontal shield wall: damage factor, attacker stun (ticks). */
+  bracedImpact: 0.35,
+  bracedBounceStun: 10,
+  /** Extra damage factor for braced spearmen hitting a man who is still charging. */
+  braceSpearBonus: 6,
+  /**
+   * Retreat: chance that a man is cut down while the army leaves the field,
+   * multiplied by the enemy's pursuit (0..1). Routing men and men locked in
+   * melee are the ones caught; the rest get away.
+   */
+  retreatRoutDeath: 0.6,
+  retreatContactDeath: 0.35,
+  retreatWoundedExtra: 0.15,
 };
 
 export type Phase = 'deploy' | 'battle' | 'ended';
@@ -74,6 +89,7 @@ export class Battle {
   events: SimEvent[] = [];
   orderLog: LoggedOrder[] = [];
   winner: Side | -1 | null = null;
+  retreated: Side | null = null;
   private queue: { side: Side; order: Order }[] = [];
   private nextProjId = 1;
   private bots: BotAI[] = [];
@@ -344,6 +360,9 @@ export class Battle {
         this.reassign(u.group);
         return;
       }
+      case 'retreat':
+        this.retreat(side);
+        return;
       case 'assign': {
         if (this.phase !== 'deploy') return;
         const u = this.units[o.unit];
@@ -361,6 +380,74 @@ export class Battle {
         return;
       }
     }
+  }
+
+  /**
+   * Enemy pursuit strength against a retreating side, 0..1: the enemy's men
+   * still in the fight (weighted by stamina: tired men pursue badly) against
+   * the size of the retreating army plus its men free to cover the withdrawal.
+   * Equal fresh armies, nobody engaged: 0.5. A broken army before a fresh one: 1.
+   */
+  pursuit(side: Side): number {
+    let chase = 0;
+    let alive = 0;
+    let cover = 0;
+    for (const u of this.units) {
+      if (u.side !== side) {
+        if (u.state === 'ready') chase += 0.5 + 0.5 * (u.stamina / Math.max(1, u.stats.stamina));
+        continue;
+      }
+      if (!this.isAlive(u)) continue;
+      alive++;
+      if (u.state === 'ready' && !u.engaged) cover++;
+    }
+    return alive === 0 ? 0 : clamp(chase / (alive + cover), 0, 1);
+  }
+
+  /** Whether a soldier is locked in melee: engaged, or a ready enemy within arm's reach. */
+  private inContact(u: SimUnit): boolean {
+    if (u.engaged) return true;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      if ((e.x - u.x) ** 2 + (e.y - u.y) ** 2 <= (e.stats.reach + UNIT_RADIUS * 2) ** 2) return true;
+    }
+    return false;
+  }
+
+  /**
+   * The whole side withdraws. The battle ends at once as that side's defeat.
+   * Each routing or engaged man is cut down with a chance scaled by the enemy's
+   * pursuit (wounded men more often); everyone else leaves the field alive.
+   * Nobody is credited with these kills, so they drop no loot.
+   */
+  private retreat(side: Side): void {
+    if (this.phase !== 'battle') return;
+    const other: Side = side === 0 ? 1 : 0;
+    const pursuit = this.pursuit(side);
+    let caught = 0;
+    for (const u of this.units) {
+      if (u.side !== side || !this.isAlive(u)) continue;
+      let p = 0;
+      if (u.state === 'routing') p = RULES.retreatRoutDeath;
+      else if (this.inContact(u)) p = RULES.retreatContactDeath;
+      if (p > 0 && u.hp < u.stats.maxHp * 0.3) p += RULES.retreatWoundedExtra;
+      p = clamp(p * pursuit, 0, 0.9);
+      if (p > 0 && this.rng.chance(p)) {
+        u.hp = 0;
+        u.state = 'dead';
+        u.killedBy = other;
+        caught++;
+        this.events.push({ type: 'death', tick: this.tick, unit: u.id, by: -1 });
+      } else {
+        u.state = 'fled';
+      }
+      u.engaged = false;
+    }
+    this.retreated = side;
+    this.winner = other;
+    this.phase = 'ended';
+    this.events.push({ type: 'retreat', tick: this.tick, side, caught, pursuit });
+    this.events.push({ type: 'end', tick: this.tick, winner: other });
   }
 
   private clampFormationToDeploy(g: SimGroup): void {
@@ -569,7 +656,10 @@ export class Battle {
         moveY = faceY;
         speed *= 0.5;
       }
-      if (u.cooldown <= 0 && this.facingDot(u, melee) > 0.3) this.meleeAttack(u, melee);
+      // Braced spearmen get a free thrust at a man still running onto their points.
+      const setSpear =
+        shielded && u.stats.weapon === 'spear' && melee.momentum >= RULES.chargeMomentumTicks && this.tick - u.lastAttackTick > 10;
+      if ((u.cooldown <= 0 || setSpear) && this.facingDot(u, melee) > 0.3) this.meleeAttack(u, melee);
       u.stamina = Math.max(0, u.stamina + 0.5 * DT);
     } else {
       const canShoot = u.ammo > 0 && u.stats.range > 0 && g.fireAtWill;
@@ -804,6 +894,13 @@ export class Battle {
       u.momentum = 0;
       return;
     }
+    const braced = tg.shieldWall && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3;
+    if (impact && braced) {
+      // The charge breaks on a braced wall: the attacker is checked and winded.
+      u.stun = RULES.bracedBounceStun;
+      u.stamina = Math.max(0, u.stamina - 8);
+      u.morale -= 3 * u.stats.moraleLoss;
+    }
     if (this.rng.chance(this.blockChance(t, dir, u.stats.blockPierce, false))) {
       t.stamina = Math.max(0, t.stamina - (impact ? 10 : 3));
       t.lastBlockTick = this.tick;
@@ -819,17 +916,18 @@ export class Battle {
     let dmg = u.stats.dmg * this.rng.range(0.8, 1.2) * RULES.dirDamage[dir];
     let moraleMult = 1 + u.stats.moraleShock;
     if (impact) {
-      const braced = tg.shieldWall && t.stats.canShieldWall && dir === 'front';
       dmg *= RULES.chargeImpact + u.stats.chargeBonus * 0.5;
       moraleMult += 0.8;
-      if (braced) dmg *= 0.7;
-      else t.stun = 8;
+      if (braced) {
+        dmg *= RULES.bracedImpact;
+        moraleMult -= 0.6;
+      } else t.stun = 8;
       u.momentum = 0;
       this.events.push({ type: 'impact', tick: this.tick, unit: t.id, by: u.id });
     }
     // Spearmen standing their ground punish an enemy charging onto their points.
     if (u.stats.weapon === 'spear' && t.momentum >= RULES.chargeMomentumTicks && g.order !== 'charge') {
-      dmg *= 1 + u.stats.chargeBonus * 1.5;
+      dmg *= 1 + u.stats.chargeBonus * (wall ? RULES.braceSpearBonus : 1.5);
       t.momentum = 0;
     }
     if (t.state === 'routing') dmg *= RULES.routingDamage;
@@ -845,7 +943,7 @@ export class Battle {
   }
 
   private applyDamage(t: SimUnit, by: SimUnit, raw: number, dir: HitDir, ranged: boolean, moraleMult: number): void {
-    const dmg = Math.max(0.5, (raw * RULES.armorK) / (RULES.armorK + t.stats.armor));
+    const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + t.stats.armor));
     t.hp -= dmg;
     t.lastHitTick = this.tick;
     t.wear.armor += 0.5;
@@ -1047,6 +1145,7 @@ export class Battle {
   result(): BattleResult {
     return {
       winner: this.winner ?? -1,
+      retreated: this.retreated,
       ticks: this.tick,
       units: this.units.map((u) => ({
         heroId: u.heroId,

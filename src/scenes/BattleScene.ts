@@ -64,6 +64,7 @@ export class BattleScene extends BaseScene {
   private enemyHeroes: Hero[] = [];
   private initialStrength: [number, number] = [1, 1];
   private ending = false;
+  private retreatMsg: string | null = null;
   // HUD
   private hud!: Phaser.GameObjects.Container;
   private tags!: Phaser.GameObjects.Container;
@@ -101,6 +102,7 @@ export class BattleScene extends BaseScene {
     this.pinch = null;
     this.dragPreview = null;
     this.ending = false;
+    this.retreatMsg = null;
     this.overlay = null;
     this.banner = null;
     this.initUi();
@@ -485,6 +487,9 @@ export class BattleScene extends BaseScene {
             else this.showBanner(`${this.groupLabel(e.group)} is routing!`, 2500);
           } else this.showBanner(`Enemy ${this.sim.groups[e.group].name} breaks!`, 2500);
           break;
+        case 'retreat':
+          if (e.side === 0) this.retreatMsg = e.caught > 0 ? `Retreat! ${e.caught} cut down` : 'Retreat! All got away';
+          break;
         case 'end':
           this.onEnd(e.winner);
           break;
@@ -535,7 +540,7 @@ export class BattleScene extends BaseScene {
   private onEnd(winner: number): void {
     if (this.ending) return;
     this.ending = true;
-    const msg = winner === 0 ? 'Victory!' : winner === 1 ? 'Defeat' : 'Stalemate';
+    const msg = this.retreatMsg ?? (winner === 0 ? 'Victory!' : winner === 1 ? 'Defeat' : 'Stalemate');
     this.showBanner(msg, 0);
     hapticNotify(winner === 0 ? 'success' : 'error');
     this.time.delayedCall(1800, () => this.finish());
@@ -852,12 +857,14 @@ export class BattleScene extends BaseScene {
     } else {
       this.pauseBtn = new Button(this, 3, 2, 26, 20, { icon: this.paused ? 'play' : 'pause', style: this.paused ? 'buttonSel' : 'button', onClick: () => this.togglePause() });
       this.speedBtn = new Button(this, 31, 2, 26, 20, { label: `${this.speed}x`, onClick: () => this.toggleSpeed() });
-      H.add([this.pauseBtn, this.speedBtn]);
-      this.clock = addText(this, 62, 8, '', 'ink');
+      const retreatBtn = new Button(this, 59, 2, 22, 20, { icon: 'flag', onClick: () => this.openRetreat() });
+      retreatBtn.setEnabled(this.sim.phase === 'battle');
+      H.add([this.pauseBtn, this.speedBtn, retreatBtn]);
+      this.clock = addText(this, 85, 8, '', 'ink');
       H.add(this.clock);
     }
     if (!deploy) {
-      const mw = Math.min(64, VW - 120);
+      const mw = Math.max(30, Math.min(64, VW - 140));
       const mx = VW - mw - 6;
       H.add(addText(this, mx - 3, 3, 'You', 'dim', 1));
       H.add(addText(this, mx - 3, 13, 'Foe', 'dim', 1));
@@ -1122,6 +1129,66 @@ export class BattleScene extends BaseScene {
       v.py = v.u.y;
     }
     this.buildHud();
+  }
+
+  // ---- retreat confirmation
+
+  /** Ask before retreating: the battle is lost, men in contact or routing may be caught. */
+  private openRetreat(): void {
+    if (this.sim.phase !== 'battle' || this.overlay) return;
+    const wasPaused = this.paused;
+    this.setPaused(true);
+    this.hideBanner();
+    const { VW, VH } = this.m;
+    const c = this.add.container(0, 0);
+    this.ui.add(c);
+    this.overlay = c;
+    c.add(this.add.rectangle(0, 0, VW, VH, 0x000000, 0.55).setOrigin(0, 0).setInteractive());
+    const w = VW - 24;
+    const h = 112;
+    const x = 12;
+    const y = Math.round(VH / 2 - h / 2 - 20);
+    c.add(addPanel(this, x, y, w, h, 'parch'));
+    c.add(addText(this, VW / 2, y + 8, 'Sound the retreat?', 'red', 0.5));
+    const sim = this.sim;
+    const mine = sim.units.filter((u) => u.side === 0 && sim.isAlive(u));
+    const atRisk = mine.filter((u) => u.state === 'routing' || u.engaged).length;
+    const pursuit = Math.round(sim.pursuit(0) * 100);
+    const lines = [
+      'The battle is lost, but the',
+      'army lives to fight again.',
+      `${atRisk} of ${mine.length} men are routing or in`,
+      `the fight: some may be caught.`,
+      `Enemy pursuit ${pursuit}%. No spoils.`,
+    ];
+    lines.forEach((t, i) => c.add(addText(this, VW / 2, y + 22 + i * 10, t, i >= 2 ? 'ink' : 'dim', 0.5, w - 10)));
+    const bw = Math.floor((w - 18) / 2);
+    c.add(
+      new Button(this, x + 6, y + h - 30, bw, 24, {
+        label: 'Stay',
+        icon: 'swords',
+        onClick: () => {
+          c.destroy();
+          this.overlay = null;
+          this.setPaused(wasPaused);
+        },
+      }),
+    );
+    c.add(
+      new Button(this, x + 12 + bw, y + h - 30, bw, 24, {
+        label: 'Retreat',
+        icon: 'flag',
+        style: 'buttonSel',
+        onClick: () => {
+          c.destroy();
+          this.overlay = null;
+          this.setPaused(false);
+          this.sim.issue(0, { kind: 'retreat' });
+          this.handleEvents(this.sim.drainEvents());
+          this.buildHud();
+        },
+      }),
+    );
   }
 
   // ---- group assignment overlay (deployment)
