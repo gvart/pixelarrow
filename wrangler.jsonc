@@ -1,0 +1,14 @@
+// Serves the built game (dist/) as static assets on a Cloudflare Worker,
+// attached to the pixelarrow.app custom domain. Deployed by
+// .github/workflows/deploy.yml after tests pass.
+{
+  "name": "pixelarrow",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    { "pattern": "pixelarrow.app", "custom_domain": true }
+  ]
+}
