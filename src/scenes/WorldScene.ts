@@ -6,6 +6,7 @@ import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { CULTURE_LABEL } from '../data/names';
+import { addSyncBadge, playerPartyTexture } from '../ui/online';
 import { perkSlots } from '../data/perks';
 import { dangerAt, regionName, type SettlementDef } from '../world/map';
 import { THREAT_COLOR, THREAT_LABEL, WORLD_RULES, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
@@ -93,7 +94,7 @@ export class WorldScene extends BaseScene {
     this.marker = this.add.image(0, 0, 'wm_marker').setVisible(false).setDepth(-40000);
     this.layer.add(this.marker);
     this.partyShadow = this.add.ellipse(0, 0, 10, 4, 0x1d140f, 0.35);
-    this.party = this.add.sprite(0, 0, 'wm_band_player', 0).setOrigin(0.4, 1);
+    this.party = this.add.sprite(0, 0, playerPartyTexture(this), 0).setOrigin(0.4, 1);
     this.layer.add([this.partyShadow, this.party]);
 
     // ---- cameras
@@ -281,6 +282,7 @@ export class WorldScene extends BaseScene {
     H.add(addPanel(this, 0, by - 16, VW, VH - by + 16, 'parch'));
     this.hintText = addText(this, VW / 2, by - 12, '', 'ink', 0.5);
     H.add(this.hintText);
+    addSyncBadge(this, H, VW - 15, 29);
     const bw = Math.floor((VW - 14) / 3);
     const camp = state.campaign;
     const pending = camp.data.heroes.some((h) => h.points > 0 || h.perks.length < perkSlots(h.level));

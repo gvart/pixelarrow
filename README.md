@@ -65,6 +65,31 @@ node scripts/screenshots.mjs http://localhost:5173/ docs/screenshots   # tour of
 node scripts/smoke.mjs http://localhost:5173/                         # real taps through the campaign loop
 ```
 
+`node scripts/online-smoke.mjs http://localhost:4173/` fakes Telegram and the
+API (no backend needed): checks the game stays playable with the API down
+(503 / unreachable), walks the Stars purchase flow and saves
+`docs/screenshots/20-shop.png`.
+
+### Online features (cloud save, shop) locally
+
+The client talks to the Worker in `server/` on the same origin (`/api/*`,
+`/ws/*`); everything online is optional and the game is fully playable
+without it (offline, plain browser, or while the API answers 503). To run
+both locally:
+
+```bash
+npm run build                          # wrangler serves dist/ too
+cd server && npm ci && cp .dev.vars.example ../.dev.vars && npm run migrate:local
+npm run dev                            # wrangler dev on http://localhost:8787 (game + API)
+cd .. && VITE_DEV_AUTH=1 npm run dev   # vite on :5173, proxies /api and /ws to :8787
+```
+
+`VITE_DEV_AUTH=1` (dev server only) signs a plain browser in as the
+`DEV_AUTH` test user so cloud sync and battle verification can be tried
+without Telegram; Stars purchases need Telegram. `API_PROXY=http://host:port`
+changes the proxy target, `VITE_API_BASE` the API base at build time. See
+[docs/DESIGN.md](docs/DESIGN.md#online-client-srcplatform) for how sync works.
+
 `node scripts/store-images.mjs` (starts its own Vite server) renders the
 Telegram store art in `docs/store/` (640x360 BotFather cover, 640x640 bot
 avatar) from the game's own generators via `store.html` / `src/dev/store.ts`.
@@ -80,7 +105,8 @@ src/
   art/        procedural pixel art: paperdoll.ts, emblems.ts, ground.ts (iso tiles), iso.ts (projection), worldArt.ts (map, towns, bands), fx.ts (aura rings, stars, pips), font.ts, icons.ts, itemIcons.ts, uiTextures.ts
   ui/         Phaser UI kit (buttons, panels, meters, scroll lists), battleFx.ts (pooled battle effects), texture registration
   scenes/     Boot, Menu, World (map + encounters), Settlement, Army, Hero (skills), Battle (deployment + battle), Results
-  platform/   telegram.ts (WebApp SDK wrapper), storage.ts (CloudStorage / localStorage)
+  platform/   telegram.ts (WebApp SDK wrapper), storage.ts (CloudStorage / localStorage), api.ts (typed API client),
+              online.ts + saveSync.ts (sign-in, cloud save sync, shop, entitlements), cloud.ts (instance), verify.ts (battle replay check)
   dev/        preview.ts (sprite sheet page), balance.ts (headless balance harness for `npm run balance`)
   state.ts    shared campaign state and persistence
 tests/        vitest suites

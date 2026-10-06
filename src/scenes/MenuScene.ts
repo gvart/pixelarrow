@@ -7,6 +7,7 @@ import { state } from '../state';
 import { haptic, inTelegram, setHaptics, telegramUserName } from '../platform/telegram';
 import type { Settings } from '../game/save';
 import { MAX_ARMY } from '../data/units';
+import { addSyncBadge, openShop } from '../ui/online';
 
 export class MenuScene extends BaseScene {
   private dolls: { s: Phaser.GameObjects.Sprite; phase: number }[] = [];
@@ -37,7 +38,7 @@ export class MenuScene extends BaseScene {
     const px = Math.round((VW - pw) / 2);
     const bh = 24;
     const gap = 5;
-    const panelH = bh * 3 + gap * 2 + 12;
+    const panelH = bh * 4 + gap * 3 + 12;
     const py = Math.min(Math.round(VH * 0.55), VH - 30 - 16 - panelH + 6);
     const top = 74;
     const room = py - 6 - top;
@@ -75,7 +76,8 @@ export class MenuScene extends BaseScene {
     cont.setSelected(state.hasSave);
     cont.setEnabled(state.hasSave);
     mk(1, 'New campaign', 'flag', () => (state.hasSave ? this.confirmReset() : this.newCampaign()));
-    mk(2, 'Settings', 'gear', () => this.openSettings());
+    mk(2, 'Shop', 'coin', () => this.openShop());
+    mk(3, 'Settings', 'gear', () => this.openSettings());
 
     // Footer status
     const fy = VH - 30;
@@ -86,6 +88,7 @@ export class MenuScene extends BaseScene {
     this.ui.add(addText(this, 77, fy + 7, `${c.heroes.length}/${MAX_ARMY}`, 'ink'));
     this.ui.add(addIcon(this, 116, fy + 5, 'star'));
     this.ui.add(addText(this, 131, fy + 7, state.hasSave ? `Day ${Math.floor(c.world.time / 24) + 1}` : `${c.won}/${c.fought}`, 'ink'));
+    addSyncBadge(this, this.ui, VW - 26, fy + 8);
     const who = telegramUserName();
     this.ui.add(addText(this, VW / 2, fy - 11, inTelegram() ? `Cloud save${who ? ' - ' + who : ''}` : 'Local save', 'light', 0.5));
   }
@@ -116,6 +119,14 @@ export class MenuScene extends BaseScene {
     c.add(addText(this, VW / 2, y + 12, title, 'red', 0.5));
     this.overlay = c;
     return { c, x, y, w };
+  }
+
+  private openShop(): void {
+    openShop(this, {
+      modal: (h, title) => this.modal(h, title),
+      close: () => this.closeOverlay(),
+      isOpen: (c) => this.overlay === c,
+    });
   }
 
   private openSettings(): void {

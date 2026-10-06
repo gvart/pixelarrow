@@ -40,6 +40,13 @@ export interface SaveData {
   settings: Settings;
   /** Overland campaign: map seed, party position, roaming bands, settlement stock, time. */
   world: WorldSave;
+  /**
+   * Cloud sync bookkeeping (optional, no version bump): `seq` grows by one on
+   * every save and is carried over when a save is adopted from the server, so
+   * the higher `seq` is the more-played copy; `savedAt` (ms) breaks ties.
+   */
+  seq?: number;
+  savedAt?: number;
 }
 
 type Migration = (d: Record<string, unknown>) => Record<string, unknown>;
@@ -104,6 +111,8 @@ function validate(d: Record<string, unknown>): boolean {
   d.settings = { ...DEFAULT_SETTINGS, ...((d.settings as object) ?? {}) };
   d.won = typeof d.won === 'number' ? d.won : 0;
   d.fought = typeof d.fought === 'number' ? d.fought : 0;
+  if (typeof d.seq !== 'number' || !Number.isFinite(d.seq)) delete d.seq;
+  if (typeof d.savedAt !== 'number' || !Number.isFinite(d.savedAt)) delete d.savedAt;
   return true;
 }
 

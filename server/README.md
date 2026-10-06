@@ -210,7 +210,11 @@ typecheck, tests, build → `server/` `npm ci`, typecheck, tests →
 6. In @BotFather point the Mini App / menu button URL at `https://pixelarrow.app`.
    Stars payments need no provider setup.
 
-## Client integration (follow-up, not done here)
+## Client integration
+
+Steps 1–4 are implemented in the game (`src/platform/api.ts`, `online.ts`,
+`saveSync.ts`, `verify.ts`; see docs/DESIGN.md "Online client"); presence (5)
+is not used yet.
 
 1. **Boot:** if `Telegram.WebApp.initData` is non-empty,
    `POST /api/auth/telegram { initData }` → keep `token` in memory (re-auth on

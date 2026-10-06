@@ -77,7 +77,7 @@ These hold today and must keep holding; they are what make the plan above possib
 1. **Now: offline campaign (done).** Overland map, bands, settlements, wounds,
    hero attributes/perks/abilities/auras, real-time battles, saves in Telegram
    CloudStorage.
-2. **Accounts and cloud profile** (started: `server/` v1). Worker + D1, Telegram `initData` login,
+2. **Accounts and cloud profile** (started: `server/` v1; the client signs in, syncs the save, verifies battles and has the Stars shop). Worker + D1, Telegram `initData` login,
    server-side save of the campaign profile (heroes, items, gold) with the
    client save as a cache. Keep offline play.
 3. **Server-validated battles.** Battle DO replays seed + order log; PvE

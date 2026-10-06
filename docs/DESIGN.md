@@ -323,6 +323,36 @@ and the army sets out on a new map. The JSON is split into ≤3800-character chu
 Inside Telegram (Bot API 6.9+) the save goes to CloudStorage and is mirrored to
 localStorage; in a normal browser localStorage is used.
 
+## Online client (`src/platform`)
+
+The backend (`server/`, see server/README.md) is optional at runtime: every
+online call resolves, failures only flip the sync badge to offline and are
+retried with backoff. Outside Telegram (no `initData`) nothing is requested.
+
+- **Sign-in:** at boot `POST /api/auth/telegram {initData}`; the session token
+  lives in memory only and is renewed on a 401.
+- **Cloud save:** every save gets `seq` (+1 per save, carried across devices)
+  and `savedAt`. Local storage is written first, then a debounced (4 s)
+  `PUT /api/save {revision, data}`; pending data is flushed when the app is
+  backgrounded. `px_sync` (next to the save) remembers the server revision and
+  the `seq` last agreed on. Boot waits at most 6 s for `GET /api/save`: the
+  server copy is adopted when it moved past our revision and we have no
+  unsynced progress; if both changed, the higher `seq` wins
+  (`src/platform/saveSync.ts`, pure and unit-tested). A 409 refetches, keeps
+  the more-played copy and retries once; a newer copy from another device
+  replaces the campaign only outside battle and returns to the menu. A new
+  campaign keeps counting `seq`, so it outranks the old one.
+- **Status badge:** a small cloud (synced / syncing / offline) in the menu
+  footer, the army header and under the world-map top bar.
+- **Shop:** Menu → Shop lists `GET /api/shop/products`; Buy → invoice →
+  `Telegram.WebApp.openInvoice`; on `paid` the client polls
+  `/api/entitlements` (the grant comes from the bot webhook). Entitlements are
+  cached locally so cosmetics show offline. `supporter_banner` gives the
+  world-map party a golden standard and the army header golden trim.
+- **Battle verify:** after each battle the setup (snapshot at creation), order
+  log, `deployOrders` and claim (winner, ticks, retreated, hash) go to
+  `POST /api/battle/verify`, fire-and-forget; mismatches are only logged (v1).
+
 ## Art pipeline (`src/art`)
 
 Everything is generated at boot from code; there are no image files.

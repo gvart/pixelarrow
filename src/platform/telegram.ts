@@ -7,6 +7,7 @@
 
 type Haptic = 'light' | 'medium' | 'heavy' | 'rigid' | 'soft';
 type Notify = 'error' | 'success' | 'warning';
+export type InvoiceStatus = 'paid' | 'cancelled' | 'failed' | 'pending';
 
 interface TgWebApp {
   ready(): void;
@@ -27,7 +28,9 @@ interface TgWebApp {
     setItem(key: string, value: string, cb?: (err: string | null, ok?: boolean) => void): void;
     removeItem(key: string, cb?: (err: string | null, ok?: boolean) => void): void;
   };
+  initData?: string;
   initDataUnsafe?: { user?: { first_name?: string; username?: string } };
+  openInvoice?(url: string, cb?: (status: InvoiceStatus) => void): void;
   onEvent?(ev: string, cb: () => void): void;
 }
 
@@ -142,4 +145,22 @@ export function setBackButton(cb: (() => void) | null): void {
 export function cloudStorage(): TgWebApp['CloudStorage'] | undefined {
   if (!app || !app.isVersionAtLeast?.('6.9')) return undefined;
   return app.CloudStorage;
+}
+
+/** Signed launch data for POST /api/auth/telegram, or null outside Telegram. */
+export function telegramInitData(): string | null {
+  const d = app?.initData;
+  return typeof d === 'string' && d.length > 0 ? d : null;
+}
+
+/** Opens a Telegram Stars invoice link; resolves with Telegram's final status. */
+export function openInvoice(link: string): Promise<InvoiceStatus> {
+  return new Promise((resolve) => {
+    if (!app?.openInvoice || !app.isVersionAtLeast?.('6.1')) return resolve('failed');
+    try {
+      app.openInvoice(link, (status) => resolve(status));
+    } catch {
+      resolve('failed');
+    }
+  });
 }

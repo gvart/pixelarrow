@@ -10,7 +10,8 @@ import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import { formationSlots, frontageForWidth, rightOf, type FormationType } from '../sim/formation';
-import type { Order, SimEvent, SimGroup, SimUnit } from '../sim/types';
+import type { BattleSetup, Order, SimEvent, SimGroup, SimUnit } from '../sim/types';
+import { reportBattle, snapshotSetup } from '../platform/verify';
 import { generateEnemyArmy } from '../game/enemy';
 import { armySpec } from '../game/armySpec';
 import { resolveBattle } from '../game/loot';
@@ -48,6 +49,9 @@ type Gesture =
 
 export class BattleScene extends BaseScene {
   private sim!: Battle;
+  /** For the server replay check (platform/verify). */
+  private verifySetup: BattleSetup | null = null;
+  private deployOrders: number | undefined;
   private views: UnitView[] = [];
   private world!: Phaser.GameObjects.Layer;
   private boxes!: Phaser.GameObjects.Graphics;
@@ -128,7 +132,10 @@ export class BattleScene extends BaseScene {
     this.enemyHeroes = pending.enemy.heroes;
     // Wounded heroes sit this one out.
     const heroes = camp.fitHeroes();
-    this.sim = new Battle({ seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)] });
+    const setup: BattleSetup = { seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)] };
+    this.verifySetup = snapshotSetup(setup);
+    this.deployOrders = undefined;
+    this.sim = new Battle(setup);
 
     // ---- world
     this.world = this.add.layer();
@@ -663,6 +670,7 @@ export class BattleScene extends BaseScene {
   private finish(): void {
     const camp = state.campaign;
     const res = this.sim.result();
+    reportBattle(this.verifySetup, this.sim, this.deployOrders);
     const heroes = camp.data.heroes;
     const pending = state.pending!;
     const { outcome, survivors } = resolveBattle(res, heroes, this.enemyHeroes, camp.random());
@@ -1369,6 +1377,7 @@ export class BattleScene extends BaseScene {
   }
 
   private startFight(): void {
+    this.deployOrders = this.sim.orderLog.length;
     this.sim.startBattle();
     this.setFollow(true);
     hapticNotify('success');

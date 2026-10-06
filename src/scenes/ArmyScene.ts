@@ -12,6 +12,7 @@ import { computeStats, type CombatStats } from '../sim/stats';
 import { P } from '../art/palette';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { EMBLEM_NAMES } from '../art/emblems';
+import { addSupporterTrim, addSyncBadge } from '../ui/online';
 
 const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
 export const RARITY_COLOR: Record<Rarity, number> = { common: 0x9a8a7a, fine: 0x5f8a45, rare: 0x4a6b9a, heroic: 0xd8a840 };
@@ -61,7 +62,10 @@ export class ArmyScene extends BaseScene {
     // top bar
     this.ui.add(addPanel(this, 0, 0, VW, 24, 'parch'));
     this.ui.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.goBack() }));
-    this.ui.add(addText(this, VW / 2, 8, 'Army', 'red', 0.5));
+    const title = addText(this, VW / 2, 8, 'Army', 'red', 0.5);
+    this.ui.add(title);
+    addSupporterTrim(this, this.ui, VW, 24, VW / 2, title.width);
+    addSyncBadge(this, this.ui, 34, 9);
     this.ui.add(addIcon(this, VW - 52, 6, 'coin'));
     this.goldText = addText(this, VW - 37, 8, '', 'ink');
     this.ui.add(this.goldText);
