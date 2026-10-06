@@ -10,12 +10,18 @@ import { setHaptics } from './platform/telegram';
 export interface PendingBattle {
   enemy: EnemyArmy;
   seed: number;
+  /** World band being fought (absent for a skirmish). */
+  partyId?: number;
+  /** Who the enemy is ("Bandits", "Galatae raiders"...). */
+  label?: string;
 }
 
 export interface LastBattle {
   outcome: Outcome;
   enemy: EnemyArmy;
   fallen: Hero[];
+  partyId?: number;
+  label?: string;
 }
 
 class GameState {

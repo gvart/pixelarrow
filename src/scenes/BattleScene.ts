@@ -19,6 +19,9 @@ import { GROUP_NAMES, type Hero } from '../data/units';
 import { itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
+import { BattleFx } from '../ui/battleFx';
+import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
+import { rallyRadius } from '../sim/stats';
 
 // World pixels come from the 2:1 isometric projection in src/art/iso.ts.
 const MARGIN_X = 200; // grass beyond the field's screen bounds
@@ -84,6 +87,12 @@ export class BattleScene extends BaseScene {
   private statusText: Phaser.GameObjects.BitmapText | null = null;
   private groupArea: ScrollArea | null = null;
   private groupScroll = 0;
+  private fx!: BattleFx;
+  /** Camera follows the fighting until the player pans or pinches. */
+  private follow = true;
+  private followBtn: Button | null = null;
+  private abilityBtns: { id: AbilityId; btn: Button; g: Phaser.GameObjects.Graphics; count: Phaser.GameObjects.BitmapText; w: number; h: number }[] = [];
+  private lastSparkle = 0;
 
   constructor() {
     super('Battle');
@@ -105,6 +114,8 @@ export class BattleScene extends BaseScene {
     this.retreatMsg = null;
     this.overlay = null;
     this.banner = null;
+    this.follow = true;
+    this.abilityBtns = [];
     this.initUi();
 
     const camp = state.campaign;
@@ -115,7 +126,8 @@ export class BattleScene extends BaseScene {
     }
     const pending = state.pending!;
     this.enemyHeroes = pending.enemy.heroes;
-    const heroes = camp.data.heroes;
+    // Wounded heroes sit this one out.
+    const heroes = camp.fitHeroes();
     this.sim = new Battle({ seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)] });
 
     // ---- world
@@ -134,6 +146,8 @@ export class BattleScene extends BaseScene {
     this.world.add(this.boxes);
     this.projG = this.add.graphics().setDepth(100000);
     this.world.add(this.projG);
+    this.fx = new BattleFx(this, this.world);
+    this.fx.showNumbers = camp.data.settings.dmgNumbers;
 
     const heroById = new Map<string, Hero>();
     for (const h of [...heroes, ...this.enemyHeroes]) heroById.set(h.id, h);
@@ -174,10 +188,10 @@ export class BattleScene extends BaseScene {
       this.setZoom(Math.round(cam.zoom) + (dy > 0 ? -1 : 1));
     });
     this.telegramBack(() => {
-      if (this.sim.phase === 'deploy') this.scene.start('Army');
+      if (this.sim.phase === 'deploy') this.leaveDeploy();
       else this.togglePause();
     });
-    this.showBanner(`Deploy vs ${CULTURE_LABEL[pending.enemy.culture]}`, 3000);
+    this.showBanner(`Deploy vs ${pending.label ?? CULTURE_LABEL[pending.enemy.culture]}`, 3000);
   }
 
   /** Field coordinates -> world pixels (also used by the screenshot/smoke scripts). */
@@ -199,8 +213,8 @@ export class BattleScene extends BaseScene {
   }
 
   /**
-   * Default camera: the largest whole zoom at which both armies fit between the
-   * HUD bars, centred on them (the armies meet along the screen diagonal).
+   * Default camera: a readable zoom (at least 2x; more if both armies fit),
+   * centred on the player's army, nudged toward the enemy.
    */
   private frameArmies(): void {
     const cam = this.cameras.main;
@@ -220,11 +234,89 @@ export class BattleScene extends BaseScene {
     const vp = this.fieldViewport();
     const availW = this.scale.width;
     const availH = vp.bottom - vp.top;
-    const z = Phaser.Math.Clamp(Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0))), 1, 4);
+    const fit = Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0)));
+    const z = Phaser.Math.Clamp(Math.max(2, fit), 2, 4);
     cam.setZoom(z);
-    // centre the armies in the visible band, not in the whole canvas
-    const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / z;
-    cam.centerOn((x0 + x1) / 2, (y0 + y1) / 2 + offY);
+    const t = this.focusPoint();
+    this.centerCam(t.x, t.y);
+  }
+
+  /** Centre the camera on a world point inside the visible band between the HUD bars. */
+  private centerCam(x: number, y: number): void {
+    const cam = this.cameras.main;
+    const vp = this.fieldViewport();
+    const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
+    cam.centerOn(x, y + offY);
+  }
+
+  /**
+   * Where the camera should look: the melee if there is one (men engaged on
+   * both sides), otherwise the player's army, a little toward the enemy.
+   */
+  private focusPoint(): { x: number; y: number } {
+    let ex = 0;
+    let ey = 0;
+    let en = 0;
+    let px = 0;
+    let py = 0;
+    let pn = 0;
+    let fx = 0;
+    let fy = 0;
+    let fn = 0;
+    for (const u of this.sim.units) {
+      if (u.state !== 'ready') continue;
+      if (u.engaged) {
+        ex += u.x;
+        ey += u.y;
+        en++;
+      }
+      if (u.side === 0) {
+        px += u.x;
+        py += u.y;
+        pn++;
+      } else {
+        fx += u.x;
+        fy += u.y;
+        fn++;
+      }
+    }
+    let cx: number;
+    let cy: number;
+    if (en >= 2) {
+      cx = ex / en;
+      cy = ey / en;
+    } else if (pn > 0) {
+      cx = px / pn;
+      cy = py / pn;
+      if (fn > 0) {
+        const pull = this.sim.phase === 'deploy' ? 0.1 : 0.3;
+        cx += (fx / fn - cx) * pull;
+        cy += (fy / fn - cy) * pull;
+      }
+    } else {
+      cx = this.sim.width / 2;
+      cy = this.sim.height / 2;
+    }
+    const p = isoToScreen(cx, cy);
+    return { x: p.x, y: p.y - 14 };
+  }
+
+  private setFollow(on: boolean): void {
+    if (this.follow === on) return;
+    this.follow = on;
+    this.followBtn?.setSelected(on);
+  }
+
+  /** Smoothly track the fighting while following. */
+  private updateCamera(delta: number): void {
+    if (!this.follow || this.sim.phase !== 'battle' || this.pinch) return;
+    const cam = this.cameras.main;
+    const t = this.focusPoint();
+    const vp = this.fieldViewport();
+    const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
+    const cur = { x: cam.midPoint.x, y: cam.midPoint.y - offY };
+    const k = 1 - Math.exp((-delta / 1000) * 2.2);
+    this.centerCam(cur.x + (t.x - cur.x) * k, cur.y + (t.y - cur.y) * k);
   }
 
   protected onResized(): void {
@@ -255,6 +347,8 @@ export class BattleScene extends BaseScene {
       this.handleEvents(this.sim.drainEvents());
     }
     const alpha = this.sim.phase === 'battle' && !this.paused ? Math.min(1, this.acc / DT) : 1;
+    this.updateCamera(delta);
+    this.fx.update(this.paused ? 0 : delta);
     this.renderUnits(alpha);
     this.renderProjectiles(alpha);
     this.renderBoxes();
@@ -272,6 +366,7 @@ export class BattleScene extends BaseScene {
         v.shadow.setVisible(false);
         v.ring.setVisible(false);
         v.flag.setVisible(false);
+        this.fx.unit(u, 0, 0, 0, false);
         continue;
       }
       const sp = isoToScreen(Phaser.Math.Linear(v.px, u.x, alpha), Phaser.Math.Linear(v.py, u.y, alpha));
@@ -299,6 +394,7 @@ export class BattleScene extends BaseScene {
         v.flag.setVisible(false);
         v.spr.clearTint();
         v.spr.setFrame(dollFrame(dir, frame));
+        this.fx.unit(u, rx, ry, this.time.now, false);
         continue;
       }
       const moving = Math.abs(u.vx) + Math.abs(u.vy) > 0.004;
@@ -318,8 +414,19 @@ export class BattleScene extends BaseScene {
       v.spr.setDepth(ry);
       v.shadow.setVisible(true);
       if (sinceHit >= 0 && sinceHit < 0.12) v.spr.setTint(0xff9a8a);
+      else if (u.berserk > 0) {
+        // fury: blood-red, flickering, shaking
+        v.spr.setTint(Math.floor(this.time.now / 90) % 2 ? 0xff6050 : 0xe83828);
+        if (!this.paused) v.spr.setX(rx + (Math.floor(this.time.now / 45) % 2 ? 1 : -1));
+      } else if (u.daze > 0 && u.stun <= 0) v.spr.setTint(0xd8d0f0);
       else if (u.state === 'routing') v.spr.setTint(0xd8c8b8);
       else v.spr.clearTint();
+      this.fx.unit(u, rx, ry, this.time.now, true);
+      // a steady aura visibly lifts spirits now and then
+      if (u.aura & AURAS.steady.bit && u.morale < u.stats.morale && !this.paused && this.time.now - this.lastSparkle > 140 && (u.id * 7 + Math.floor(this.time.now / 140)) % 9 === 0) {
+        this.lastSparkle = this.time.now;
+        this.fx.sparkle(rx, ry - 20, AURAS.steady.color, 2);
+      }
       const selected = u.side === 0 && (u.group === this.selGroup || u.id === this.selUnit);
       v.ring.setVisible(selected);
       if (selected) v.ring.setTexture(u.id === this.selUnit ? 'ring_one' : 'ring_sel');
@@ -454,6 +561,10 @@ export class BattleScene extends BaseScene {
         case 'hit': {
           const u = this.sim.units[e.unit];
           if (e.dmg > 2 || Math.random() < 0.5) this.addBlood(u.x, u.y, false);
+          if (this.fx.showNumbers) {
+            const p = isoToScreen(u.x, u.y);
+            this.fx.floatText(p.x, p.y - 30, `${Math.max(1, Math.round(e.dmg))}`, u.side === 0 ? 0xff8070 : 0xfff4d8);
+          }
           if (u.side === 0 && this.time.now - this.lastHaptic > 120) {
             this.lastHaptic = this.time.now;
             haptic(e.dir === 'front' ? 'light' : 'medium');
@@ -486,6 +597,9 @@ export class BattleScene extends BaseScene {
             if (st.pauseRout) this.autoPause(`${this.groupLabel(e.group)} is routing!`);
             else this.showBanner(`${this.groupLabel(e.group)} is routing!`, 2500);
           } else this.showBanner(`Enemy ${this.sim.groups[e.group].name} breaks!`, 2500);
+          break;
+        case 'ability':
+          this.abilityFx(e.unit, e.ability, e.targets);
           break;
         case 'retreat':
           if (e.side === 0) this.retreatMsg = e.caught > 0 ? `Retreat! ${e.caught} cut down` : 'Retreat! All got away';
@@ -550,6 +664,7 @@ export class BattleScene extends BaseScene {
     const camp = state.campaign;
     const res = this.sim.result();
     const heroes = camp.data.heroes;
+    const pending = state.pending!;
     const { outcome, survivors } = resolveBattle(res, heroes, this.enemyHeroes, camp.random());
     const alive = new Set(survivors.map((h) => h.id));
     const fallen = heroes.filter((h) => !alive.has(h.id));
@@ -557,13 +672,55 @@ export class BattleScene extends BaseScene {
     camp.data.gold += outcome.gold;
     camp.data.fought++;
     if (outcome.victory) camp.data.won++;
-    if (survivors.length === 0) {
-      for (let i = 0; i < 4; i++) camp.data.heroes.push(makeHero(camp.random(), camp.data, 'greek', 'raw', 1, 1, i < 3 ? 0 : 1, camp.data.heroes));
+    if (pending.partyId !== undefined) camp.afterPartyBattle(pending.partyId, outcome);
+    else if (survivors.length === 0) {
+      for (let i = 0; i < 3; i++) camp.data.heroes.push(makeHero(camp.random(), camp.data, 'greek', 'raw', 1, 1, i < 2 ? 0 : 1, camp.data.heroes));
     }
-    state.last = { outcome, enemy: state.pending!.enemy, fallen };
+    state.last = { outcome, enemy: pending.enemy, fallen, partyId: pending.partyId, label: pending.label };
     state.pending = null;
     void state.save();
     this.scene.start('Results');
+  }
+
+  /** Leave the deployment screen without fighting (back to the map or the army). */
+  private leaveDeploy(): void {
+    const p = state.pending;
+    if (p && p.partyId !== undefined) this.scene.start('World', { encounter: p.partyId });
+    else this.scene.start('Army');
+  }
+
+  /** Visuals for an ability: icon popping above the user, bursts, waves, sparkles. */
+  private abilityFx(unit: number, id: AbilityId, targets: number[]): void {
+    const u = this.sim.units[unit];
+    const p = isoToScreen(u.x, u.y);
+    const def = ABILITIES[id];
+    this.fx.floatIcon(p.x, p.y - 44, `fxicon_${id}`);
+    if (u.side === 0) haptic('heavy');
+    switch (id) {
+      case 'bash':
+        for (const t of targets) {
+          const q = isoToScreen(this.sim.units[t].x, this.sim.units[t].y);
+          this.fx.burst((p.x + q.x) / 2, (p.y + q.y) / 2 - 14, def.color, 10, { speed: 50, up: 25, life: 0.4 });
+        }
+        break;
+      case 'berserk':
+        this.fx.burst(p.x, p.y - 16, def.color, 18, { speed: 45, up: 30, life: 0.6, big: true });
+        break;
+      case 'volley':
+        for (const t of targets) {
+          const q = isoToScreen(this.sim.units[t].x, this.sim.units[t].y);
+          this.fx.burst(q.x, q.y - 16, def.color, 4, { speed: 20, up: 20, life: 0.4 });
+        }
+        break;
+      case 'rally':
+        this.fx.wave(p.x, p.y, 'steady', rallyRadius(u.stats));
+        for (const t of targets) {
+          const q = isoToScreen(this.sim.units[t].x, this.sim.units[t].y);
+          this.fx.sparkle(q.x, q.y - 22, def.color, 4);
+        }
+        break;
+    }
+    if (u.side === 0) this.showBanner(`${u.name}: ${def.name}!`, 1100);
   }
 
   // ===================================================================== input
@@ -576,6 +733,7 @@ export class BattleScene extends BaseScene {
       this.dragPreview = null;
       const [a, b] = down;
       this.pinch = { d0: Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y), z0: this.cameras.main.zoom, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+      this.setFollow(false);
       return;
     }
     if (over.length > 0 || this.overlay) {
@@ -610,6 +768,7 @@ export class BattleScene extends BaseScene {
       g.mode = this.selGroup >= 0 && this.canCommand() ? 'formation' : 'pan';
     }
     if (g.mode === 'pan') {
+      this.setFollow(false);
       cam.scrollX -= (p.x - g.lx) / cam.zoom;
       cam.scrollY -= (p.y - g.ly) / cam.zoom;
     } else if (g.mode === 'formation') {
@@ -646,6 +805,7 @@ export class BattleScene extends BaseScene {
   private setZoom(z: number): void {
     const cam = this.cameras.main;
     const target = Phaser.Math.Clamp(z, 1, 4);
+    if (target !== cam.zoom) this.setFollow(false);
     this.tweens.add({ targets: cam, zoom: target, duration: 120 });
   }
 
@@ -837,6 +997,8 @@ export class BattleScene extends BaseScene {
   private buildHud(): void {
     this.hud.removeAll(true);
     this.groupTabs = [];
+    this.abilityBtns = [];
+    this.followBtn = null;
     this.orderBtns.clear();
     this.presetBtns.clear();
     this.heroInfo = null;
@@ -848,9 +1010,9 @@ export class BattleScene extends BaseScene {
     // ---- top bar
     H.add(addPanel(this, 0, 0, VW, 24, 'parch'));
     if (deploy) {
-      H.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.scene.start('Army') }));
+      H.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.leaveDeploy() }));
       H.add(addText(this, 34, 4, 'Deployment', 'red'));
-      H.add(addText(this, 34, 13, `vs ${CULTURE_LABEL[state.pending!.enemy.culture]} (${this.enemyHeroes.length})`, 'dim'));
+      H.add(addText(this, 34, 13, `vs ${state.pending!.label ?? CULTURE_LABEL[state.pending!.enemy.culture]} (${this.enemyHeroes.length})`, 'dim'));
       this.pauseBtn = null;
       this.speedBtn = null;
       this.clock = null;
@@ -958,6 +1120,11 @@ export class BattleScene extends BaseScene {
       this.statusText = addText(this, VW / 2, by - 12, '', 'ink', 0.5);
       H.add([strip, this.statusText]);
     }
+    if (!deploy) {
+      this.buildAbilityBar((u ? by - 34 : by - 15) - 27);
+      this.followBtn = new Button(this, VW - 27, 27, 24, 20, { icon: 'eye', style: this.follow ? 'buttonSel' : 'button', onClick: () => this.toggleFollow() });
+      H.add(this.followBtn);
+    }
     this.hudDirty = true;
     this.refreshHud();
   }
@@ -1024,6 +1191,7 @@ export class BattleScene extends BaseScene {
       this.orderBtns.get('loose')?.setSelected(sel.fireAtWill && mem.some((u) => u.ammo > 0)).setEnabled(mem.some((u) => u.ammo > 0));
       for (const [type, b] of this.presetBtns) b.setSelected(sel.formation.type === type);
     }
+    this.refreshAbilities();
     if (this.heroInfo) {
       const u = this.sim.units[this.heroInfo.getData('unit') as number];
       const [hp, mo, st] = this.heroInfo.getData('meters') as Meter[];
@@ -1090,6 +1258,92 @@ export class BattleScene extends BaseScene {
     }
   }
 
+  private toggleFollow(): void {
+    this.setFollow(!this.follow);
+    if (this.follow) haptic('light');
+  }
+
+  /** Units the current selection commands (one hero or the group's active members). */
+  private selectedUnits(): SimUnit[] {
+    if (this.selUnit >= 0) return [this.sim.units[this.selUnit]].filter((u) => u.state === 'ready');
+    if (this.selGroup < 0) return [];
+    return this.sim.activeMembers(this.selGroup);
+  }
+
+  /** Ability buttons for the selection, right-aligned above the info strip. */
+  private buildAbilityBar(y: number): void {
+    const { VW } = this.m;
+    const ids: AbilityId[] = [];
+    for (const u of this.selectedUnits()) for (const id of u.abil) if (!ids.includes(id)) ids.push(id);
+    const w = 28;
+    const h = 25;
+    ids.slice(0, 5).forEach((id, i) => {
+      const x = VW - 4 - (ids.length - i) * (w + 2);
+      const btn = new Button(this, x, y, w, h, { icon: ABILITIES[id].icon, onClick: () => this.useAbility(id) });
+      const g = this.add.graphics({ x, y });
+      const count = addText(this, x + w - 3, y + h - 10, '', 'gold', 1);
+      this.hud.add([btn, g, count]);
+      this.abilityBtns.push({ id, btn, g, count, w, h });
+    });
+  }
+
+  /** Cooldown sweeps: a dark wedge shrinking clockwise in 16 steps; dimmed when unusable. */
+  private refreshAbilities(): void {
+    if (this.abilityBtns.length === 0) return;
+    const units = this.selectedUnits();
+    for (const a of this.abilityBtns) {
+      const holders = units.filter((u) => u.abil.includes(a.id));
+      const ready = holders.filter((u) => this.sim.abilityReady(u, a.id));
+      let frac = 0;
+      if (ready.length === 0 && holders.length > 0) {
+        const max = ABILITIES[a.id].cooldown * TICK_RATE;
+        const cd = Math.min(...holders.map((u) => this.sim.abilityCooldown(u, a.id)));
+        frac = Math.min(1, cd / Math.max(1, max * holders[0].stats.cdMult));
+      }
+      a.g.clear();
+      if (ready.length === 0) {
+        if (frac > 0) {
+          const steps = Math.ceil(frac * 16) / 16;
+          a.g.fillStyle(0x2a1a16, 0.55);
+          a.g.slice(a.w / 2, a.h / 2 - 1, Math.min(a.w, a.h) / 2 - 2, -Math.PI / 2, -Math.PI / 2 + steps * Math.PI * 2, false);
+          a.g.fillPath();
+        } else {
+          a.g.fillStyle(0x2a1a16, 0.3);
+          a.g.fillRect(2, 2, a.w - 4, a.h - 4);
+        }
+      }
+      a.count.setText(ready.length > 1 ? `${ready.length}` : '');
+    }
+  }
+
+  private useAbility(id: AbilityId): void {
+    const units = this.selectedUnits().filter((u) => u.abil.includes(id));
+    const ready = units.filter((u) => this.sim.abilityReady(u, id));
+    if (ready.length === 0) {
+      hapticNotify('error');
+      const why = units.some((u) => this.sim.abilityCooldown(u, id) > 0) ? 'recovering' : id === 'bash' ? 'no enemy in front' : id === 'volley' ? 'no missile-men with a target' : 'not ready';
+      this.showBanner(`${ABILITIES[id].name}: ${why}`, 1200);
+      return;
+    }
+    let users = ready;
+    if (ABILITIES[id].groupMode === 'one') {
+      // the best-placed holder: for a volley the one with most shooters, else the most central
+      let cx = 0;
+      let cy = 0;
+      for (const u of units) {
+        cx += u.x;
+        cy += u.y;
+      }
+      cx /= units.length;
+      cy /= units.length;
+      const score = (u: SimUnit) => (id === 'volley' ? this.sim.volleyShooters(u).length * 10 : 0) - Math.hypot(u.x - cx, u.y - cy);
+      users = [ready.slice().sort((a, b) => score(b) - score(a))[0]];
+    }
+    for (const u of users) this.sim.issue(0, { kind: 'ability', unit: u.id, ability: id });
+    this.handleEvents(this.sim.drainEvents());
+    this.hudDirty = true;
+  }
+
   private toggleSpeed(): void {
     this.speed = this.speed === 1 ? 2 : this.speed === 2 ? 3 : 1;
     this.speedBtn?.setLabel(`${this.speed}x`);
@@ -1116,6 +1370,7 @@ export class BattleScene extends BaseScene {
 
   private startFight(): void {
     this.sim.startBattle();
+    this.setFollow(true);
     hapticNotify('success');
     this.hideBanner();
     this.showBanner('Battle begins!', 1500);

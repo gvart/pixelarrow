@@ -33,7 +33,7 @@ export function presetFrontage(type: FormationType, n: number): number {
   switch (type) {
     case 'line':
       // Small bands stand in a single rank: a clear diagonal line on the iso field.
-      return n <= 5 ? Math.max(1, n) : Math.ceil(n / 2);
+      return n <= 8 ? Math.max(1, n) : Math.ceil(n / 2);
     case 'column':
       return Math.max(1, Math.min(n, Math.max(2, Math.round(n / 4))));
     case 'wedge':
