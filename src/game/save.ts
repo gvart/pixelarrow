@@ -4,8 +4,10 @@
  */
 import { ITEMS, RARITIES, type Item } from '../data/items';
 import type { Hero } from '../data/units';
+import { defaultAttrs, PERKS, POINTS_PER_LEVEL } from '../data/perks';
+import { World, type WorldSave } from '../world/world';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface Settings {
   pauseContact: boolean;
@@ -13,6 +15,8 @@ export interface Settings {
   pauseRout: boolean;
   pauseDeath: boolean;
   haptics: boolean;
+  /** Floating damage numbers in battle. */
+  dmgNumbers: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -21,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pauseRout: true,
   pauseDeath: false,
   haptics: true,
+  dmgNumbers: true,
 };
 
 export interface SaveData {
@@ -33,6 +38,8 @@ export interface SaveData {
   won: number;
   fought: number;
   settings: Settings;
+  /** Overland campaign: map seed, party position, roaming bands, settlement stock, time. */
+  world: WorldSave;
 }
 
 type Migration = (d: Record<string, unknown>) => Record<string, unknown>;
@@ -41,6 +48,20 @@ type Migration = (d: Record<string, unknown>) => Record<string, unknown>;
 const migrations: Record<number, Migration> = {
   // v1 had no settings block and stored battle groups only implicitly.
   1: (d) => ({ ...d, v: 2, settings: { ...DEFAULT_SETTINGS }, heroes: ((d.heroes as Hero[]) ?? []).map((h) => ({ ...h, group: h.group ?? 0 })) }),
+  // v2 had no attributes, perks, wounds or world map: heroes get neutral attributes and
+  // the points they would have earned; the army sets out on a freshly generated map.
+  2: (d) => ({
+    ...d,
+    v: 3,
+    heroes: ((d.heroes as Hero[]) ?? []).map((h) => ({
+      ...h,
+      attrs: defaultAttrs(),
+      points: Math.max(0, ((h.level ?? 1) - 1) * POINTS_PER_LEVEL),
+      perks: [],
+      wound: 0,
+    })),
+    world: World.fresh(((d.rng as number) ^ 0x7f4a7c15) >>> 0 || 1),
+  }),
 };
 
 export function migrate(raw: unknown): SaveData | null {
@@ -69,6 +90,15 @@ function validate(d: Record<string, unknown>): boolean {
   for (const h of d.heroes as Hero[]) {
     if (!h || typeof h.id !== 'string' || typeof h.level !== 'number' || !h.equip || !h.look) return false;
     for (const it of Object.values(h.equip)) if (it && !validItem(it)) return false;
+    // Tolerate partial progression data rather than losing the save.
+    if (!h.attrs || typeof h.attrs.str !== 'number') h.attrs = defaultAttrs();
+    if (typeof h.points !== 'number') h.points = 0;
+    h.perks = Array.isArray(h.perks) ? h.perks.filter((p) => p in PERKS) : [];
+    if (typeof h.wound !== 'number') h.wound = 0;
+  }
+  const w = d.world as WorldSave | undefined;
+  if (!w || typeof w.seed !== 'number' || typeof w.time !== 'number' || !Array.isArray(w.parties) || !Array.isArray(w.places)) {
+    d.world = World.fresh(((d.rng as number) ^ 0x7f4a7c15) >>> 0 || 1);
   }
   for (const it of d.stash as unknown[]) if (!validItem(it)) return false;
   d.settings = { ...DEFAULT_SETTINGS, ...((d.settings as object) ?? {}) };
