@@ -1,0 +1,92 @@
+# Pixelarrow roadmap
+
+This records where the game is meant to go and the architecture agreed for
+getting there, so that today's single-player code keeps the doors open.
+
+## Vision
+
+- **Online multiplayer over WebSockets.** Players share one persistent world
+  map of the ancient Mediterranean. They occupy and hold territories (towns,
+  villages, passes, harbours), fight each other's armies and the roaming bands,
+  and expand.
+- **Clans.** Players band together, share territory and treasuries, call each
+  other to battle, and wage clan wars over regions.
+- **Paid features through Telegram Stars.** Cosmetic and convenience purchases
+  (banners, shield paints, extra hero slots, faster healing, campaign
+  boosters) sold for Stars inside the Telegram Mini App. Entitlements are
+  granted and checked on the server only.
+- The current offline campaign (overland map, bands, settlements, heroes,
+  perks, real-time formation battles) is the single-player core that the
+  online game grows from.
+
+## Agreed architecture
+
+| Concern | Choice |
+| --- | --- |
+| Static game files | Already served by a Cloudflare Worker (static assets) on **https://pixelarrow.app** (`wrangler.jsonc`, `.github/workflows/deploy.yml`). The API lives on the same domain (e.g. `/api/*`, `/ws`), so no CORS and one origin for Telegram. |
+| Real-time server | **Cloudflare Workers + Durable Objects**: one DO per **region** of the world map (bands, territory, presence), one per **clan** (members, treasury, chat), one per **battle** (lockstep order relay and validation). WebSockets use the **hibernation API** so idle connections cost nothing. |
+| Persistence | **D1 (SQLite)**: accounts, heroes, items, territories, clans, purchases, battle records. DOs hold hot state and flush to D1. |
+| Shared game logic | **TypeScript shared with the client**: `src/sim` (battle), `src/world` (map generation, travel, bands), `src/game` (heroes, loot, enemy generation) run unchanged in the Worker. The server **re-runs every battle from its seed and order log** and only accepts the result it computes itself. |
+| Auth | **Telegram `initData`** sent on connect; the Worker validates its **HMAC-SHA256** signature with the bot token (secret key = HMAC("WebAppData", bot token)), checks `auth_date` freshness, and binds the session to the Telegram user id. No passwords. |
+| Payments | **Telegram Stars** via the Bot API: the Worker calls `createInvoiceLink` with currency **`XTR`**; the client opens it with `WebApp.openInvoice`. A Worker **webhook** answers `pre_checkout_query` (validate the payload, stock and price) and records the **`successful_payment`** (with `telegram_payment_charge_id`) in D1, then grants the entitlement. The client never decides what was bought. Refunds via `refundStarPayment` revoke it. |
+| Cost | The **Workers paid plan (~$5/month)** is expected at launch: server-side battle replays need more CPU time per request than the free tier allows, and Durable Objects require it. |
+
+### Battle flow online
+
+1. Both players (or a player and the server bot) join the battle DO over a WebSocket.
+2. The DO fixes the seed and both armies (from D1, not from the clients).
+3. Clients send orders; the DO stamps each with the tick it applies at
+   (`Battle.schedule()` style lockstep) and relays them. Bots run in the DO.
+4. Clients send periodic `Battle.hash()` values; a mismatch triggers a resync.
+5. At the end the DO replays seed + order log with `src/sim`, writes the
+   result, loot, XP and wounds to D1 and pushes them to both sides.
+
+## Invariants the code must keep
+
+These hold today and must keep holding; they are what make the plan above possible.
+
+1. **Simulation purity.** `src/sim` (and the pure parts of `src/world`,
+   `src/game`, `src/data`) import no Phaser, DOM, `Math.random`, clocks or
+   storage. They run in Node, a Worker and the browser alike.
+2. **Determinism.** Fixed 20 Hz tick, seeded `Rng` (mulberry32), units updated
+   in id order, no iteration over unordered sets, no trigonometry in the sim.
+   Same seed + same logged orders at the same ticks = the same battle
+   (`tests/sim.test.ts`, `tests/abilities.test.ts` replay tests). Cross-engine
+   lockstep must add hash checks or move to fixed point (see DESIGN.md).
+3. **Serializable state.** Everything that matters is plain JSON: `SaveData`,
+   `WorldSave`, heroes, items, orders, battle results. Maps are regenerated
+   from seeds, never stored. Saves are versioned with migrations.
+4. **Orders as data.** Every player action in battle (moves, formations,
+   stances, retreats, **abilities**) is an `Order` object logged with its tick.
+   The UI never mutates sim state directly.
+5. **No client-trusted economy in online mode.** Gold, loot, XP, recruits,
+   market purchases and Stars entitlements are computed by the server from
+   validated inputs. The client may predict them for display only. (Offline,
+   the client owns its save; that save is never uploaded as truth.)
+6. **Data-driven content.** Items, traits, perks, abilities and auras live in
+   `src/data` so client and server always agree on the rules.
+
+## Phased plan
+
+1. **Now: offline campaign (done).** Overland map, bands, settlements, wounds,
+   hero attributes/perks/abilities/auras, real-time battles, saves in Telegram
+   CloudStorage.
+2. **Accounts and cloud profile.** Worker + D1, Telegram `initData` login,
+   server-side save of the campaign profile (heroes, items, gold) with the
+   client save as a cache. Keep offline play.
+3. **Server-validated battles.** Battle DO replays seed + order log; PvE
+   results (vs bands) are accepted only from the replay. Ship hash desync
+   checks in the client.
+4. **Async PvP.** Attack another player's garrison army (bot-controlled by the
+   server); results validated as in phase 3.
+5. **Shared world.** Region DOs hold the world map, territories and roaming
+   bands for everyone; presence and movement over hibernating WebSockets.
+6. **Clans.** Clan DOs, shared treasury, territory ownership, clan wars,
+   chat.
+7. **Live PvP battles.** Lockstep battles between two online players through
+   a battle DO, with reconnect and timeouts.
+8. **Telegram Stars.** Invoice links (XTR), pre-checkout and payment webhooks,
+   D1 entitlements, a small store. Cosmetics and conveniences only; no paid
+   power in PvP.
+9. **Scale and polish.** Sharding regions, anti-cheat telemetry, seasonal
+   maps, sound and music.

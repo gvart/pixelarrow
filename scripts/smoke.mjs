@@ -161,6 +161,7 @@ check('battle started', (await ev(() => window.__game.scene.getScene('Battle').s
 await ev(() => {
   const s = window.__game.scene.getScene('Battle');
   s.sim.units.filter((u) => u.side === 1).forEach((u) => { u.hp = 1; u.morale = Math.min(u.morale, u.stats.morale * 0.3); });
+  s.sim.units.filter((u) => u.side === 0).forEach((u) => { u.hp = u.stats.maxHp * 5; });
   for (let i = 0; i < 20 * 300 && s.sim.phase === 'battle'; i++) s.sim.step();
 });
 check('results screen', await until(() => active('Results'), 8000));
@@ -204,6 +205,7 @@ await ev(() => {
   const h = window.__state.campaign.data.heroes[0];
   h.level = 4;
   h.points += 4;
+  h.wound = 0; // make sure he fights in the next battle
 });
 await tapBtn('Settlement', { label: 'Party' });
 check('army screen', await until(() => active('Army'), 3000));

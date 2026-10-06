@@ -374,7 +374,13 @@ export class ArmyScene extends BaseScene {
     const font: FontKey = sel ? 'light' : 'ink';
     parent.add(addText(this, 34, y + 4, hero.name, font));
     const pend = hero.points > 0 || hero.perks.length < perkSlots(hero.level);
-    const sub = hero.wound > 0 ? `Lv${hero.level} wounded ${Math.ceil(hero.wound)}h` : `Lv${hero.level}${pend ? ' (!)' : ''} ${hero.traits.map((t) => TRAITS[t].name).join(' ')}`;
+    const traits = hero.traits.map((t) => TRAITS[t].name);
+    const wpnLen = (hero.equip.weapon ? itemDef(hero.equip.weapon.def).name : 'Unarmed').length;
+    // keep the line clear of the weapon name on the right
+    let tr = traits.join(' ');
+    if (tr.length + wpnLen > 22) tr = traits[0] ?? '';
+    if (tr.length + wpnLen > 22) tr = '';
+    const sub = hero.wound > 0 ? `Lv${hero.level} wounded ${Math.ceil(hero.wound)}h` : `Lv${hero.level}${pend ? ' !' : ''} ${tr}`;
     parent.add(addText(this, 34, y + 13, sub, sel ? 'light' : hero.wound > 0 ? 'red' : 'dim'));
     parent.add(addText(this, w - 6, y + 4, ROMAN[hero.group] ?? '', sel ? 'light' : 'red', 1));
     const wpn = hero.equip.weapon ? itemDef(hero.equip.weapon.def).name : 'Unarmed';
