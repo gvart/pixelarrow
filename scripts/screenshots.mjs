@@ -91,6 +91,12 @@ await wait(300);
 await shot('07-battle-melee-zoom');
 await call('Battle', `s.cameras.main.setZoom(2); return 1;`);
 
+// Retreat confirmation (then stay and fight on)
+await call('Battle', `s.frameArmies(); s.openRetreat(); return 1;`);
+await wait(300);
+await shot('12-retreat-confirm');
+await call('Battle', `s.overlay.list.find((o) => o.opts && o.opts.label === 'Stay').opts.onClick(); return 1;`);
+
 // Fast-forward to the end. For a representative victory screen the enemy is
 // weakened first (screenshot staging only; real battles are untouched).
 await call('Battle', `s.sim.units.filter(u => u.side === 1 && u.state === 'ready').forEach(u => { u.hp = Math.min(u.hp, 6); u.morale = Math.min(u.morale, u.stats.morale * 0.4); }); s.paused = false; for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`);

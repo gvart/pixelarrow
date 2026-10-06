@@ -16,6 +16,7 @@ procedurally in code at startup.
 | --- | --- | --- |
 | ![Menu](docs/screenshots/01-menu.png) | ![Army](docs/screenshots/03-army-stash-compare.png) | ![Deployment](docs/screenshots/04-deploy.png) |
 | ![Battle](docs/screenshots/06-battle-contact.png) | ![Melee](docs/screenshots/07-battle-melee-zoom.png) | ![Loot](docs/screenshots/09-results-picked.png) |
+| ![Groups](docs/screenshots/05-deploy-groups.png) | ![Retreat](docs/screenshots/12-retreat-confirm.png) | ![Settings](docs/screenshots/11-settings.png) |
 
 Game design and mechanics: [docs/DESIGN.md](docs/DESIGN.md).
 

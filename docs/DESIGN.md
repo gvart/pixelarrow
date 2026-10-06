@@ -9,7 +9,8 @@ Sailing and camp are out of scope for now.
 
 ## Heroes and the army
 
-- 1 hero = 1 soldier. Up to 20 heroes. Each hero has a level (1–10), XP,
+- 1 hero = 1 soldier. Up to 20 heroes, each with a name unique within the
+  roster (36–48 names per culture, then numbered: "Hanno II"). Each hero has a level (1–10), XP,
   1–2 traits, a look (skin, hair, beard, tunic colour) and five equipment slots.
 - HP, morale and stamina are derived from level, traits and gear
   (`src/sim/stats.ts`). Heroes heal fully between battles.
