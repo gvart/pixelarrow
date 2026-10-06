@@ -6,6 +6,9 @@ threats and lines that break when morale breaks. Built with Phaser 3,
 TypeScript and Vite, and designed to run as a **Telegram Mini App**
 (it also runs in any browser).
 
+**Play:** https://gvart.github.io/pixelarrow/ (sprite sheets:
+https://gvart.github.io/pixelarrow/preview.html)
+
 All art (soldiers, shields and emblems, grass, UI, font, icons) is generated
 procedurally in code at startup.
 
@@ -18,7 +21,7 @@ Game design and mechanics: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Run, build, test
 
-Requires Node 20+.
+Requires Node 22+ (vitest 5 needs 22.12+).
 
 ```bash
 npm install
@@ -31,7 +34,19 @@ npx tsc --noEmit   # type-check only
 
 Open the dev server on a phone (same Wi-Fi) or use the browser's device
 toolbar in portrait mode. `http://localhost:5173/preview.html` shows the
-procedural sprite sheets.
+procedural sprite sheets (it is also part of the production build).
+
+### Deployment (GitHub Pages)
+
+`.github/workflows/deploy.yml` runs on every push to `main` (and manually via
+*Run workflow*): `npm ci`, type-check, tests, `npm run build`, then publishes
+`dist/` to https://gvart.github.io/pixelarrow/. The build uses a relative
+`base` (`./`), so it works under that sub-path, at a domain root and inside
+Telegram alike.
+
+**One-time step:** in the GitHub repository open
+**Settings → Pages → Build and deployment → Source** and choose
+**GitHub Actions**. After that every push to `main` deploys.
 
 ### Screenshots and smoke test
 
@@ -62,18 +77,20 @@ docs/         DESIGN.md and screenshots
 
 ## Telegram Mini App setup
 
-1. **Deploy the build** somewhere with HTTPS: run `npm run build` and upload
-   `dist/` to any static host (GitHub Pages, Netlify, Cloudflare Pages, Vercel,
-   an S3 bucket...). The build uses relative paths, so a sub-folder works.
-   For local testing you can expose the dev server with a tunnel
-   (e.g. `cloudflared tunnel --url http://localhost:5173` or `ngrok http 5173`).
+1. **Deploy the build.** The GitHub Pages workflow above publishes it to
+   **https://gvart.github.io/pixelarrow/** — that is the URL to give BotFather.
+   (Any other HTTPS static host works too: upload `dist/`; the build uses
+   relative paths, so a sub-folder is fine. For local testing expose the dev
+   server with a tunnel, e.g. `cloudflared tunnel --url http://localhost:5173`.)
 2. **Create a bot** with [@BotFather](https://t.me/BotFather): `/newbot`,
    choose a name and username, keep the token.
 3. **Create the Mini App:** in BotFather send `/newapp`, pick your bot, give a
-   title, description and a 640×360 image, then enter your HTTPS URL. BotFather
+   title, description and a 640×360 image, then enter the URL
+   `https://gvart.github.io/pixelarrow/`. BotFather
    returns a direct link like `https://t.me/<bot>/<app>`.
 4. Optionally set the bot's **menu button** to open the game:
-   `/mybots` → your bot → *Bot Settings* → *Menu Button* → set the same URL.
+   `/mybots` → your bot → *Bot Settings* → *Menu Button* →
+   `https://gvart.github.io/pixelarrow/`.
 5. Open the link in Telegram (mobile recommended).
 
 What the game does inside Telegram (all optional, no-ops in a browser):

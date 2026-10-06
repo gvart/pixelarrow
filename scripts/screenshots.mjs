@@ -28,7 +28,7 @@ const call = (key, fn) => page.evaluate(([k, f]) => {
   return new Function('s', f)(s);
 }, [key, fn]);
 
-// Procedural sprite sheets (dev server only: /preview.html is not part of the build)
+// Procedural sprite sheets (/preview.html, served by the dev server and the build)
 try {
   await page.setViewportSize({ width: 1260, height: 1300 });
   await page.goto(base + 'preview.html?s=3');
