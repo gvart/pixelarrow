@@ -101,7 +101,86 @@ const SCREENS = [
   { id: 'kit-controls', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 0 }), wait(p, 1500)) },
   { id: 'kit-items', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 1 }), wait(p, 700)) },
   { id: 'kit-lists', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 2 }), wait(p, 700)) },
-  { id: 'menu-shop', owner: 'B', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openShop(); return 1;'), wait(p, 900)) },
+  // the shop with the API down (503): the "closed" state
+  { id: 'menu-shop', owner: 'B', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openShop(); return 1;'), wait(p, 1200)) },
+  // economy screens on the in-memory demo economy (src/ui/econ/demo.ts)
+  ...['shop', 'pass', 'wallet'].map((tab) => ({ id: `shop-${tab}`, owner: 'B', run: async (p) => (await start(p, 'Shop', { demo: true, tab }), wait(p, 900)) })),
+  {
+    id: 'shop-cosmetic',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Shop', { demo: true, tab: 'shop' });
+      await wait(p, 800);
+      await call(p, 'Shop', `s.openCosmetic(s.loaded.cat.cosmetics[2]); return 1;`);
+      return wait(p, 400);
+    },
+  },
+  // the online army: API down (503), then a demo profile (roster, stash, recruit, garrison)
+  { id: 'online-army-closed', owner: 'B', run: async (p) => (await start(p, 'OnlineArmy', {}), wait(p, 1200)) },
+  ...[
+    ['online-army', 'roster', ''],
+    ['online-army-stash', 'stash', ''],
+    ['online-army-recruit', 'roster', 's.openRecruit(s.profile);'],
+    ['online-army-garrison', 'roster', ''],
+  ].map(([id, tab, after]) => ({
+    id,
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'OnlineArmy', id === 'online-army-garrison' ? { garrison: { q: 1, r: 0 } } : { tab });
+      await wait(p, 600);
+      await call(
+        p,
+        'OnlineArmy',
+        `const c = window.__state.campaign.data; const now = Date.now();
+         const heroes = c.heroes.slice(0, 8).map((h, i) => ({ hero: h, garrison: i === 3 ? { q: 1, r: 0 } : null, woundedUntil: i === 5 ? now + 3600e3 : 0, busy: i === 6 }));
+         s.fetchData({ season: { id: 3, startedAt: now, endsAt: now + 864e5 }, shard: { id: 1, radius: 34 }, now, resources: { gold: 1240, food: 380, wood: 210, bronze: 95, recruits: 3 }, energy: 72, energyMax: 100, home: { q: 0, r: 0 }, army: { q: 0, r: 0, marching: false, dest: null, arriveAt: null }, formations: [], heroes, stash: c.stash, clan: null, battles: 4, wins: 3, income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, hexes: 3 } });
+         ${after} return 1;`,
+      );
+      return wait(p, 600);
+    },
+  })),
+  {
+    // the one-per-battle consumable picker of attacks and duels (src/ui/econ/consumablePicker.ts)
+    id: 'consumable-picker',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Shop', { demo: true, tab: 'shop' });
+      await wait(p, 800);
+      await call(p, 'Shop', `s.previewPicker(); return 1;`);
+      return wait(p, 400);
+    },
+  },
+  ...['browse', 'mine', 'sell'].map((tab) => ({ id: `market-${tab}`, owner: 'B', run: async (p) => (await start(p, 'Market', { demo: true, tab }), wait(p, 1000)) })),
+  {
+    id: 'market-detail',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'browse' });
+      await wait(p, 900);
+      await call(p, 'Market', `s.openListing(s.base, s.listings[0]); return 1;`);
+      return wait(p, 400);
+    },
+  },
+  {
+    id: 'market-goods',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'browse' });
+      await wait(p, 900);
+      await call(p, 'Market', `s.openListing(s.base, s.listings.find((l) => l.kind !== 'item')); return 1;`);
+      return wait(p, 400);
+    },
+  },
+  {
+    id: 'market-sell-form',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'sell' });
+      await wait(p, 1000);
+      await call(p, 'Market', `s.openSellForm(s.base, { kind: 'item', item: s.base.profile.stash[0] }); return 1;`);
+      return wait(p, 400);
+    },
+  },
   { id: 'world', owner: 'C', run: async (p) => (await start(p, 'World'), wait(p, 1500)) },
   {
     id: 'world-encounter',

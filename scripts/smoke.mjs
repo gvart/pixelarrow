@@ -1,7 +1,7 @@
 // End-to-end smoke test with real touch events (CDP) in a portrait phone viewport.
 // Covers the campaign loop: new campaign -> march on the map -> encounter ->
 // battle -> back to the map -> recruit in a village -> spend a stat point and
-// take perks -> use an ability in battle; plus the touch controls (pan vs order, slingshot formation, tap to move) and pinch zoom.
+// take perks -> equip from the stash -> use an ability in battle; plus the touch controls (pan vs order, slingshot formation, tap to move) and pinch zoom.
 // Usage: node scripts/smoke.mjs [baseUrl]
 import { chromium } from 'playwright';
 
@@ -344,23 +344,40 @@ await ev(() => {
   h.points += 4;
   h.wound = 0; // make sure he fights in the next battle
 });
-await tapBtn('Settlement', { label: 'Party' });
+await tapBtn('Settlement', { label: 'Army' });
 check('army screen', await until(() => active('Army'), 3000));
-await tapBtn('Army', { label: 'Skills' });
+await tapBtn('Army', { label: 'Sheet' });
 check('hero screen', await until(() => active('Hero'), 3000));
 const hero0 = await ev(() => { const h = window.__state.campaign.data.heroes[0]; return { str: h.attrs.str, id: h.id }; });
 await tapBtn('Hero', { label: '+', index: 0 });
 await tapBtn('Hero', { label: 'Confirm' });
-async function takePerk(id) {
-  const icon = id === 'shield_bash' ? 'bash' : 'star';
-  await tapBtn('Hero', { icon, index: 0 });
-  await tapBtn('Hero', { label: 'Take perk' });
+// perks: the Perks tab, a node of the tree, its card's Learn, then the confirmation
+await tapBtn('Hero', { label: 'Perks' });
+async function takePerk(name) {
+  await tapBtn('Hero', { label: name });
+  await until(() => btn('Hero', { label: 'Learn' }), 3000, 100);
+  await tapBtn('Hero', { label: 'Learn' });
+  await wait(200);
+  await tapBtn('Hero', { label: 'Learn' });
+  await wait(300);
 }
-await takePerk('shield_drill');
-await takePerk('shield_bash');
+await takePerk('Shield Drill');
+await takePerk('Shield Bash');
 const hero1 = await ev(() => { const h = window.__state.campaign.data.heroes[0]; return { str: h.attrs.str, perks: h.perks }; });
 check('spent a stat point', hero1.str === hero0.str + 1, `${hero0.str} -> ${hero1.str}`);
 check('took perks Shield Drill and Shield Bash', hero1.perks.includes('shield_drill') && hero1.perks.includes('shield_bash'), JSON.stringify(hero1.perks));
+
+// ---- equip from the stash: the Gear tab, a stash item's compare card, Equip
+await ev(() => window.__state.campaign.data.stash.push({ uid: 'smoke_helm', def: 'chalcidian', rarity: 'epic', cond: 100 }));
+await tapBtn('Hero', { label: 'Gear' });
+await ev(() => {
+  const s = window.__game.scene.getScene('Hero');
+  s.openStashItem(window.__state.campaign.data.stash.find((i) => i.uid === 'smoke_helm'));
+});
+await wait(300);
+await tapBtn('Hero', { label: 'Equip' });
+const helm = await ev(() => ({ on: window.__state.campaign.data.heroes[0].equip.helmet?.uid, inStash: window.__state.campaign.data.stash.some((i) => i.uid === 'smoke_helm') }));
+check('equipped a helmet from the stash', helm.on === 'smoke_helm' && !helm.inStash, JSON.stringify(helm));
 
 // ---- use the ability in battle
 await ev(() => window.__game.scene.getScene('Hero').back());

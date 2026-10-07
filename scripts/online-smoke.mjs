@@ -1,7 +1,7 @@
 // Online features without a real backend or Telegram: a fake Telegram.WebApp and
 // mocked /api/* routes. Checks that the game stays playable when the API is down
-// (503 / unreachable), then walks the shop purchase flow and saves
-// docs/screenshots/20-shop.png.
+// (503 / unreachable), then walks the Stars purchase flow, buys a consumable in
+// the shop against mocked economy routes and saves docs/screenshots/20-shop.png.
 // Usage: node scripts/online-smoke.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -87,8 +87,11 @@ for (const mode of ['503', 'abort']) {
   check(`[${mode}] menu reached`, await active(page, 'Menu'));
   check(`[${mode}] sync status offline`, (await ev(page, () => window.__online.status)) === 'offline');
   await ev(page, () => window.__game.scene.getScene('Menu').openShop());
-  await page.waitForTimeout(800);
-  check(`[${mode}] shop shows closed`, (await sceneText(page, 'Menu')).includes('SHOP IS CLOSED'));
+  await page.waitForTimeout(1200);
+  const shopText = await sceneText(page, 'Shop');
+  check(`[${mode}] shop says closed / unreachable`, (await active(page, 'Shop')) && (mode === '503' ? shopText.includes('THE MARKET IS CLOSED') : shopText.includes('CANNOT REACH THE SERVER')), shopText.slice(0, 80));
+  await ev(page, () => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Menu')));
+  await page.waitForTimeout(600);
   await ev(page, () => window.__game.scene.getScene('Menu').continueCampaign());
   await page.waitForTimeout(1500);
   check(`[${mode}] world map playable`, await active(page, 'World'));
@@ -105,9 +108,31 @@ for (const mode of ['503', 'abort']) {
   await s.browser.close();
 }
 
-// ---- 2. Working API: sync + shop purchase
+// ---- 2. Working API: sync + legacy Stars entitlement + a consumable bought in the shop
 let owned = false;
 let saveRev = 0;
+const buys = [];
+const econ = {
+  drachmae: 120,
+  inventory: { morale_wine: 1 },
+  bought: 0,
+  gold: 500,
+};
+const consumable = (id, name, use, gold, drachmae, dailyCap) => ({ id, name, desc: `${name} for the smoke test.`, use, gold, drachmae, dailyCap, effect: {} });
+const catalog = {
+  packs: [{ id: 'drachmae_100', stars: 100, drachmae: 100 }],
+  cosmetics: [{ id: 'emblem_owl', slot: 'emblem', name: 'Owl of Athena', drachmae: 60 }],
+  slots: ['emblem'],
+  consumables: [consumable('morale_wine', 'Morale wine', 'battle', 80, 15, 3), consumable('healing_salve', 'Healing salve', 'heal', 60, 10, 3)],
+  pass: { premiumDrachmae: 500, xpPerTier: 100, xp: {}, tiers: [{ tier: 1, xp: 100, free: { kind: 'gold', amount: 45 }, premium: { kind: 'drachmae', amount: 15 } }] },
+  market: { feeRate: 0.1, listingHours: 48, maxOpenListings: 20, priceBounds: { gold: { default: [2, 100000] }, drachmae: { default: [2, 10000] } }, resources: ['food', 'wood', 'bronze'] },
+};
+const profile = () => ({
+  season: { id: 1, startedAt: 0, endsAt: Date.now() + 864e5 }, shard: { id: 1, radius: 34 }, now: Date.now(),
+  resources: { gold: econ.gold, food: 100, wood: 50, bronze: 20, recruits: 2 }, energy: 80, energyMax: 100, home: { q: 0, r: 0 },
+  army: { q: 0, r: 0, marching: false, dest: null, arriveAt: null }, formations: [], heroes: [], stash: [], clan: null, battles: 0, wins: 0,
+  income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, hexes: 0 },
+});
 const s = await session('ok', async (route) => {
   const req = route.request();
   const url = new URL(req.url());
@@ -128,6 +153,25 @@ const s = await session('ok', async (route) => {
       return json(200, { link: 'https://t.me/$invoice-test', productId: 'supporter_banner', stars: 5 });
     case 'GET /api/entitlements':
       return json(200, { entitlements: owned ? [{ productId: 'supporter_banner', grantedAt: Date.now() }] : [], purchases: [] });
+    case 'GET /api/economy/catalog':
+      return json(200, catalog);
+    case 'GET /api/economy/wallet':
+      return json(200, { drachmae: econ.drachmae, canSpend: true, ledger: [], cosmetics: [], loadout: {} });
+    case 'GET /api/economy/pass':
+      return json(200, { season: { id: 1, endsAt: Date.now() + 864e5 }, xp: 120, tier: 1, premium: false, premiumDrachmae: 500, xpPerTier: 100, claimed: [], tiers: catalog.pass.tiers });
+    case 'GET /api/online/consumables':
+      return json(200, { inventory: econ.inventory, day: '2026-10-07', caps: { morale_wine: { cap: 3, bought: econ.bought }, healing_salve: { cap: 3, bought: 0 } } });
+    case 'GET /api/online/profile':
+      return json(200, profile());
+    case 'POST /api/economy/buy': {
+      const body = JSON.parse(req.postData() ?? '{}');
+      buys.push(body);
+      if (body.item !== 'morale_wine' || body.currency !== 'gold') return json(409, { error: { code: 'insufficient_funds', message: 'no' } });
+      econ.gold -= 80;
+      econ.bought++;
+      econ.inventory.morale_wine = (econ.inventory.morale_wine ?? 0) + 1;
+      return json(200, { order: { requestId: body.requestId, item: body.item, qty: 1, currency: 'gold', price: 80, season: 1, at: Date.now() }, replayed: false, drachmae: econ.drachmae });
+    }
     default:
       return json(404, { error: { code: 'not_found', message: 'no route' } });
   }
@@ -137,9 +181,17 @@ await page.waitForTimeout(4500);
 check('[ok] signed in and synced', (await ev(page, () => [window.__online.signedIn, window.__online.status].join())) === 'true,synced');
 check('[ok] save uploaded', saveRev >= 1, `rev ${saveRev}`);
 await ev(page, () => window.__game.scene.getScene('Menu').openShop());
-await page.waitForTimeout(1000);
+await page.waitForTimeout(1500);
+check('[ok] shop open with the catalogue', (await active(page, 'Shop')) && (await sceneText(page, 'Shop')).includes('MORALE WINE'));
 await page.screenshot({ path: `${out}/20-shop.png` });
 console.log('saved', `${out}/20-shop.png`);
+// buy a consumable with gold: the request carries an idempotency key; the shop redraws from the server
+const okBuy = await ev(page, () => window.__game.scene.getScene('Shop').buy('morale_wine', 'Morale wine', 'gold'));
+await page.waitForTimeout(800);
+check('[ok] consumable bought against the API', okBuy === true && buys.length === 1 && buys[0].item === 'morale_wine' && buys[0].currency === 'gold' && /^[A-Za-z0-9_-]{8,64}$/.test(buys[0].requestId), JSON.stringify(buys));
+check('[ok] shop shows the new count and gold', (await sceneText(page, 'Shop')).includes('YOU HAVE 2') && (await sceneText(page, 'Shop')).includes('420'));
+await ev(page, () => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Menu')));
+await page.waitForTimeout(600);
 const buy = await ev(page, () => window.__online.buy('supporter_banner'));
 check('[ok] purchase granted', buy === 'granted', buy);
 await ev(page, () => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Army', { from: 'World' })));

@@ -220,33 +220,59 @@ await call('Battle', `const source = { setup: s.verifySetup, heroes: s.views.map
 await wait(4200);
 await shot('31-online-deploy-countdown');
 
-// Army: roster, stash with a comparison, after loot
+// Army: roster, the stash grid, a stash item compared with what the hero carries
+await page.evaluate(() => (window.__state.campaign.data.settings.seenHints = ['*'])); // no first-visit hints over the shots
 await scene('Army', { from: 'World' });
-await wait(800);
+await wait(900);
 await shot('02-army-roster');
-await page.evaluate(() => {
-  const s = window.__game.scene.getScene('Army');
-  const st = window.__state;
-  s.selItem = st.campaign.data.stash[0];
-  s.tab = 'stash';
-  s.refresh();
-});
-await wait(400);
+await scene('Army', { from: 'World', tab: 'stash' });
+await wait(800);
+await call('Army', `s.openStashItem(window.__state.campaign.data.stash[0]); return 1;`);
+await wait(500);
 await shot('03-army-stash-compare');
-await call('Army', `s.selItem = null; s.setTab('stash'); return 1;`);
-await wait(300);
+await scene('Army', { from: 'World', tab: 'stash' });
+await wait(900);
 await shot('10-army-after-loot');
 
-// Hero skills: points to spend, perks taken and one selected
+// Hero: the character sheet (points pending, previewed), the perk tree, the stash grid and the compare popup
 await page.evaluate(() => {
-  const h = window.__state.campaign.data.heroes[0];
+  const c = window.__state.campaign.data;
+  const h = c.heroes[0];
   h.points = Math.max(h.points, 3);
-  window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Hero', { heroId: h.id, back: { from: 'World' } }));
+  h.level = Math.max(h.level, 4);
+  h.xp = 90;
+  h.kills = Math.max(h.kills, 7);
+  h.battles = Math.max(h.battles, 3);
+  if (!h.perks.length) h.perks.push('shield_drill');
+  // a varied stash to show rarities
+  const defs = [['falcata', 'legendary'], ['aspis', 'epic'], ['corinthian', 'rare'], ['scale', 'uncommon'], ['laurel', 'epic'], ['cretan_bow', 'rare'], ['chalcidian', 'legendary'], ['mail', 'epic'], ['owl_amulet', 'uncommon'], ['kopis', 'common']];
+  defs.forEach(([def, rarity], i) => c.stash.push({ uid: `shot${i}`, def, rarity, cond: 100 - ((i * 23) % 50) }));
+  window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Hero', { heroId: h.id, back: { from: 'World' }, tab: 'stats' }));
 });
-await wait(800);
-await call('Hero', `s.addPoint('str'); s.addPoint('wil'); s.selectPerk('steady_presence'); return 1;`);
+await wait(900);
+await call('Hero', `s.addPoint('str'); s.addPoint('end'); return 1;`);
 await wait(300);
+await shot('33-hero-sheet');
+await call('Hero', `s.tabs.select(2); return 1;`);
+await wait(400);
 await shot('17-hero-perks');
+await call('Hero', `s.tabs.select(1); return 1;`);
+await wait(500);
+await shot('34-stash-grid');
+await call('Hero', `s.openStashItem(window.__state.campaign.data.stash.find((i) => i.uid === 'shot1')); return 1;`);
+await wait(500);
+await shot('35-item-compare');
+
+// Economy screens (the in-memory demo economy, as in the layout check)
+await scene('Shop', { demo: true, tab: 'shop' });
+await wait(1000);
+await shot('36-shop');
+await scene('Shop', { demo: true, tab: 'pass' });
+await wait(1000);
+await shot('37-season-pass');
+await scene('Market', { demo: true, tab: 'browse' });
+await wait(1000);
+await shot('38-marketplace');
 
 // Village and town (market)
 await page.evaluate(() => {
