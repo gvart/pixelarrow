@@ -1,68 +1,101 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, addPanel, addText, fitText } from '../ui/kit';
-import { dollFrame, dollGeomOf, dollOrigin, ensureDoll, ensurePortrait } from '../ui/sprites';
-import { ROLE_LABEL } from '../data/classes';
-import { dollFromHero } from '../art/paperdoll';
+import { Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
+import { StatBar, Tabs, addEmptyState, addScrollHint, confirmDialog, firstTimeHint, openModal, showTooltip, toast } from '../ui/widgets';
+import { uiId } from '../ui/layout';
+import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
+import { SIZE, COLOR, CATEGORY_COLOR } from '../ui/theme';
+import { ensureFonts } from '../ui/fonts';
+import {
+  DragDrop, Stage, StashGrid, addChip, addTabBadge, frameScrollTexts, addMountTile, addSlotTile, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
+  uiBoundsOf, type StashState,
+} from '../ui/sheet';
 import { P } from '../art/palette';
 import { state } from '../state';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { xpToNext, type Hero } from '../data/units';
 import { TRAITS } from '../data/traits';
+import { itemDef, type Item, type Slot } from '../data/items';
 import {
-  ABILITIES, ATTRS, ATTR_IDS, ATTR_MAX, AURAS, PERK_LEVELS, PERKS, TREES,
-  heroTree, perkBlocker, perkSlots, type AttrId, type PerkDef, type PerkId,
+  ABILITIES, ATTR_IDS, ATTR_MAX, AURAS, PERK_LEVELS, PERKS, RALLY_WILL, TREES, heroTree, perkBlocker, perkSlots,
+  type AbilityId, type AttrId, type AuraId, type PerkDef, type PerkId,
 } from '../data/perks';
-import { computeStats, heroClass, type CombatStats } from '../sim/stats';
+import { computeStats, heroClass } from '../sim/stats';
+import { STATS, fmtStat, heroStars, powerRating, previewAttrs, sheetStats } from '../game/gear';
+import { t, tOr, type TKey } from '../i18n';
 
-/** Hero detail: spend attribute points (with a preview of every derived stat) and pick perks. */
+type Tab = 'stats' | 'gear' | 'perks' | 'skills';
+const TABS: Tab[] = ['stats', 'gear', 'perks', 'skills'];
+
+interface HeroData {
+  heroId?: string;
+  back?: Record<string, unknown>;
+  tab?: Tab;
+}
+
+/**
+ * The hero's character sheet (docs/DESIGN_V2.md "Army and hero screen"): the
+ * animated figure in his actual gear on a lit stage with the equipment slots
+ * around it, class, role, rank stars, level and power; then four tabs:
+ * Stats (attribute points with a live preview of every stat), Gear (the stash
+ * with compare and drag and drop), Perks (the class tree) and Skills
+ * (abilities and auras with cooldowns).
+ */
 export class HeroScene extends BaseScene {
   private heroId = '';
   private from: Record<string, unknown> = {};
   private pending: Record<AttrId, number> = { str: 0, agi: 0, end: 0, wil: 0 };
-  private selPerk: PerkId | null = null;
-  /** On short screens the attributes and the perk tree are two tabs. */
-  private tab: 'stats' | 'perks' = 'stats';
-  private layer!: Phaser.GameObjects.Container;
-  private doll: Phaser.GameObjects.Sprite | null = null;
+  private tab: Tab = 'stats';
+  private head!: Phaser.GameObjects.Container;
+  private page!: Phaser.GameObjects.Container;
+  private tabs: Tabs | null = null;
+  private areas: { destroy(): void }[] = [];
+  private stash: StashGrid | null = null;
+  private stashState: StashState = defaultStashState();
+  private drag!: DragDrop;
+  private slotRects = new Map<Slot, Phaser.GameObjects.GameObject>();
+  private pageTop = 0;
 
   constructor() {
     super('Hero');
   }
 
-  create(data: { heroId?: string; back?: Record<string, unknown> }): void {
+  create(data: HeroData): void {
     this.initUi();
+    ensureFonts(this);
     const camp = state.campaign;
     this.heroId = data?.heroId && camp.hero(data.heroId) ? data.heroId : camp.data.heroes[0]?.id ?? '';
     this.from = data?.back ?? {};
+    this.tab = data?.tab && TABS.includes(data.tab) ? data.tab : this.tab;
     this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
-    this.selPerk = null;
+    this.areas = [];
+    this.stash = null;
+    this.tabs = null;
     this.screen({ back: () => this.back() });
     const { VW, VH } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
-    this.layer = this.add.container(0, 0);
-    this.ui.add(this.layer);
+    this.head = this.add.container(0, 0);
+    this.page = this.add.container(0, 0);
+    this.ui.add([this.head, this.page]);
+    this.drag = new DragDrop(this);
+    this.events.once('shutdown', () => this.clearPage());
     this.build();
-  }
-
-  update(time: number): void {
-    this.doll?.setFrame(dollFrame(2, Math.floor(time / 600) % 2));
+    firstTimeHint(this, 'hero', t('hero.gearHint'));
   }
 
   private hero(): Hero | undefined {
     return state.campaign.hero(this.heroId);
   }
 
-  private back(): void {
+  back(): void {
     this.scene.start('Army', { ...this.from, heroId: this.heroId });
   }
 
-  private cycle(d: number): void {
+  private cycleHero(d: number): void {
     const hs = state.campaign.data.heroes;
     const i = hs.findIndex((h) => h.id === this.heroId);
     this.heroId = hs[(i + d + hs.length) % hs.length].id;
     this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
-    this.selPerk = null;
     haptic('light');
     this.build();
   }
@@ -71,197 +104,529 @@ export class HeroScene extends BaseScene {
     return ATTR_IDS.reduce((a, k) => a + this.pending[k], 0);
   }
 
+  private get compact(): boolean {
+    return this.m.VH < 300;
+  }
+
+  // ------------------------------------------------------------------ header: stage, slots, identity
+
   private build(): void {
-    this.layer.removeAll(true);
-    this.doll = null;
-    const L = this.layer;
+    this.head.removeAll(true);
+    this.slotRects.clear();
+    const L = this.head;
     const h = this.hero();
     const { VW, VH } = this.m;
-    // top bar
-    L.add(addPanel(this, 0, 0, VW, 24, 'parch'));
-    if (this.inGameBack) L.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.back() }));
-    L.add(addText(this, VW / 2, 8, 'Hero', 'red', 0.5));
-    if (state.campaign.data.heroes.length > 1) {
-      L.add(new Button(this, VW - 54, 2, 24, 20, { label: '<', onClick: () => this.cycle(-1) }));
-      L.add(new Button(this, VW - 28, 2, 24, 20, { label: '>', onClick: () => this.cycle(1) }));
+    // top bar: back, the hero's name, previous / next hero
+    L.add(addPanel(this, 0, 0, VW, 26, 'parch'));
+    let left = 4;
+    if (this.inGameBack) {
+      L.add(new Button(this, 3, 2, 26, 22, { icon: 'back', onClick: () => this.back() }));
+      left = 32;
     }
-    if (!h) return;
-
-    // header
-    let y = 27;
-    L.add(addPanel(this, 4, y, VW - 8, 46, 'parch'));
-    L.add(addPanel(this, 8, y + 4, 30, 38, 'inset'));
-    const spec = dollFromHero(h);
-    const key = ensureDoll(this, spec, [2]);
-    if (dollGeomOf(key).fw > 48) L.add(this.add.image(11, y + 11, ensurePortrait(this, spec)).setOrigin(0, 0));
-    else {
-      this.doll = this.add.sprite(23, y + 41, key, dollFrame(2, 0)).setOrigin(...dollOrigin(key));
-      this.doll.setCrop(9, 13, 30, 37); // the inset box: 30 x 38, feet on its floor
-      L.add(this.doll);
+    const many = state.campaign.data.heroes.length > 1;
+    const right = many ? VW - 4 - 2 * 24 - SIZE.gap : VW - 4;
+    if (many) {
+      L.add(new Button(this, VW - 4 - 2 * 24 - SIZE.gap, 2, 24, 22, { label: '<', tip: t('hero.prev'), id: 'hero.prev', onClick: () => this.cycleHero(-1) }));
+      L.add(new Button(this, VW - 4 - 24, 2, 24, 22, { label: '>', tip: t('hero.next'), id: 'hero.next', onClick: () => this.cycleHero(1) }));
     }
-    const cls = heroClass(h);
-    L.add(addText(this, 43, y + 4, h.name, 'red'));
-    L.add(fitText(addText(this, 43, y + 13, `Lv ${h.level} ${cls.name}`, 'ink'), VW - 100));
-    L.add(new Meter(this, 43, y + 23, VW - 56, 5, P.gold).setValue(h.xp, xpToNext(h.level)));
-    const traits = h.traits.map((t) => TRAITS[t].name).join(', ');
-    const free = h.points - this.spent();
-    const perkFree = perkSlots(h.level) - h.perks.length;
-    L.add(fitText(addText(this, 43, y + 31, `${ROLE_LABEL[cls.role]}${traits ? ' - ' + traits : ''}`, 'dim'), VW - 100));
-    L.add(addText(this, VW - 10, y + 4, free > 0 ? `${free} pt` : '', 'gold', 1));
-    L.add(addText(this, VW - 10, y + 13, perkFree > 0 ? `${perkFree} perk` : '', 'gold', 1));
-    if (h.wound > 0) L.add(addText(this, VW - 10, y + 31, `wounded ${Math.ceil(h.wound)}h`, 'red', 1));
-
-    // short screens: attributes and perks are tabs (full height: both)
-    y += 49;
-    const compact = VH < 400;
-    if (compact) {
-      const tw = Math.floor((VW - 12) / 2);
-      const tabs: ['stats' | 'perks', string, string][] = [['stats', free > 0 ? `Stats (${free})` : 'Stats', 'plus'], ['perks', perkFree > 0 ? `Perks (${perkFree})` : 'Perks', 'star']];
-      tabs.forEach(([id, label, icon], i) =>
-        L.add(new Button(this, 4 + i * (tw + 4), y, tw, 22, { label, icon, style: this.tab === id ? 'buttonSel' : 'button', onClick: () => this.setTab(id) })),
-      );
-      y += 25;
-    }
-    if (!compact || this.tab === 'stats') this.buildStats(L, h, y, free);
-    if (compact && this.tab === 'stats') return;
-    if (!compact) y += 4 * 13 + 2 * 11 + 22 + 3;
-    this.buildPerks(L, h, y, perkFree, compact);
-  }
-
-  private setTab(t: 'stats' | 'perks'): void {
-    this.tab = t;
-    this.selPerk = null;
-    this.build();
-  }
-
-  /** Attributes (with what they do), then every derived stat with its change. */
-  private buildStats(L: Phaser.GameObjects.Container, h: Hero, y: number, free: number): void {
-    const { VW } = this.m;
-    const ah = 4 * 13 + 2 * 11 + 22;
-    L.add(addPanel(this, 4, y, VW - 8, ah, 'parch'));
-    const next: Hero = { ...h, attrs: { ...h.attrs } };
-    for (const k of ATTR_IDS) next.attrs[k] += this.pending[k];
-    const cur = computeStats(h);
-    const prev = computeStats(next);
-    const HINT: Record<AttrId, string> = { str: 'dmg, hp, charge', agi: 'speed, aim, tempo', end: 'hp, stamina, survive', wil: 'morale, auras, shouts' };
-    ATTR_IDS.forEach((k, i) => {
-      const ry = y + 4 + i * 13;
-      L.add(addText(this, 9, ry + 2, ATTRS[k].short, 'dim'));
-      L.add(addText(this, 30, ry + 2, `${h.attrs[k] + this.pending[k]}`, this.pending[k] ? 'gold' : 'ink'));
-      const can = free > 0 && h.attrs[k] + this.pending[k] < ATTR_MAX;
-      L.add(new Button(this, 44, ry, 16, 12, { label: '+', style: can ? 'button' : 'buttonOff', onClick: () => this.addPoint(k) }));
-      if (this.pending[k] > 0) L.add(new Button(this, 62, ry, 16, 12, { label: '-', onClick: () => this.removePoint(k) }));
-      L.add(fitText(addText(this, 82, ry + 2, HINT[k], 'dim'), VW - 90));
-    });
-    const rows: [string, (s: CombatStats) => number, number][] = [
-      ['HP', (s) => s.maxHp, 0],
-      ['Dmg', (s) => s.dmg, 1],
-      ['Mor', (s) => s.morale, 0],
-      ['Sta', (s) => s.stamina, 0],
-      ['Spd', (s) => s.speed, 2],
-      ['Acc', (s) => s.accuracy * 100, 0],
-      ['Atk', (s) => s.atkTime, 2],
-      ['KO', (s) => s.koChance * 100, 0],
-    ];
-    const gy = y + 4 + 4 * 13 + 2;
-    L.add(this.add.rectangle(8, gy - 2, VW - 16, 1, P.parchDark).setOrigin(0, 0));
-    const cw = Math.floor((VW - 14) / 4);
-    rows.forEach(([label, f, dp], i) => {
-      const sx = 9 + (i % 4) * cw;
-      const sy = gy + 1 + Math.floor(i / 4) * 11;
-      const d = f(prev) - f(cur);
-      const changed = Math.abs(d) > 0.004;
-      L.add(addText(this, sx, sy, label, 'dim'));
-      L.add(addText(this, sx + cw - (cw < 40 ? 2 : 8), sy, fmt(f(prev), dp), changed ? ((label === 'Atk' ? d < 0 : d > 0) ? 'gold' : 'red') : 'ink', 1));
-    });
-    if (this.spent() > 0) {
-      L.add(new Button(this, 9, y + ah - 17, 34, 14, { label: 'Undo', onClick: () => this.resetPoints() }));
-      L.add(addText(this, 50, y + ah - 14, 'gold: new', 'dim'));
-      L.add(new Button(this, VW - 64, y + ah - 17, 55, 14, { label: 'Confirm', icon: 'check', style: 'buttonSel', onClick: () => this.confirmPoints() }));
-    } else {
-      const abil = cur.abilities.map((a) => ABILITIES[a].short).concat(cur.auras.map((a) => AURAS[a].name.split(' ')[0]));
-      L.add(addText(this, 9, y + ah - 14, abil.length ? `Has: ${abil.join(', ')}` : free > 0 ? 'Tap + to raise an attribute' : 'Points come with each level', 'dim', 0, VW - 20));
-    }
-
-  }
-
-  /** The class perk tree (five perks, one per perk level, top to bottom) and the selected perk. */
-  private buildPerks(L: Phaser.GameObjects.Container, h: Hero, y: number, perkFree: number, compact: boolean): void {
-    const { VH } = this.m;
-    const cls = heroClass(h);
-    const tree = heroTree({ cls: cls.id });
-    const sel = this.selPerk ? PERKS[this.selPerk] : null;
-    // short screens: a selected perk's card takes the tree's place
-    if (!(compact && sel)) y = this.buildTree(L, h, y, tree, cls.name) + 3;
-    const dh = VH - y - 4;
-    if (dh < 60 && !sel) return;
-    this.buildPerkCard(L, h, y, dh, sel, tree, perkFree, compact);
-  }
-
-  private buildTree(L: Phaser.GameObjects.Container, h: Hero, y: number, tree: readonly PerkId[], clsName: string): number {
-    const { VW } = this.m;
-    const ph = 5 * 24 + 15;
-    L.add(addPanel(this, 4, y, VW - 8, ph, 'parch'));
-    L.add(addText(this, VW / 2, y + 4, `${clsName} perks`, 'red', 0.5));
-    const g = this.add.graphics();
-    L.add(g);
-    tree.forEach((id, ri) => {
-      const p = PERKS[id];
-      const ny = y + 14 + ri * 24;
-      const nx = 22;
-      if (ri > 0) {
-        g.fillStyle(h.perks.includes(id) ? P.red : P.parchDark, 1);
-        g.fillRect(nx + 11, ny - 4, 2, 4);
-      }
-      this.perkNode(p, nx, ny, h);
-      const known = h.perks.includes(id);
-      L.add(addText(this, nx + 30, ny + 2, p.name, known ? 'red' : 'ink'));
-      // one line here; the full text is in the panel below when selected
-      L.add(fitText(addText(this, nx + 30, ny + 11, p.desc, 'dim'), VW - nx - 44));
-    });
-    PERK_LEVELS.forEach((lvl, ri) => L.add(addText(this, 8, y + 20 + ri * 24, `${lvl}`, h.level >= lvl ? 'ink' : 'dim')));
-
-    return y + ph;
-  }
-
-  private buildPerkCard(L: Phaser.GameObjects.Container, h: Hero, y: number, dh: number, sel: PerkDef | null, tree: readonly PerkId[], perkFree: number, compact: boolean): void {
-    const { VW } = this.m;
-    L.add(addPanel(this, 4, y, VW - 8, dh, 'parch'));
-    if (!sel) {
-      L.add(addText(this, VW / 2, y + 8, perkFree > 0 ? 'Tap a perk to read it' : `Next perk at Lv ${PERK_LEVELS.find((l) => l > h.level) ?? '-'}`, 'dim', 0.5));
-      L.add(addText(this, 9, y + 22, 'Each class has its own tree; perks unlock in order. Abilities are used from the battle bar; auras work on their own.', 'dim', 0, VW - 18));
+    if (!h) {
+      L.add(addText(this, VW / 2, 9, t('hero.title'), 'red', 0.5));
       return;
     }
-    L.add(addText(this, 9, y + 5, sel.name, 'red'));
-    const tier = Math.max(0, tree.indexOf(sel.id));
-    L.add(addText(this, VW - 9, y + 5, `${TREES[sel.tree].name} - Lv ${PERK_LEVELS[tier]}`, 'dim', 1));
-    const extra = sel.ability ? ` ${ABILITIES[sel.ability].desc} Cooldown ${ABILITIES[sel.ability].cooldown}s.` : sel.aura ? ` ${AURAS[sel.aura].desc}` : '';
-    L.add(addText(this, 9, y + 16, sel.desc + extra, 'ink', 0, VW - 18));
-    const blocker = perkBlocker(h, sel.id);
-    if (h.perks.includes(sel.id)) L.add(addText(this, compact ? VW - 9 : VW / 2, y + dh - 18, 'Known', 'gold', compact ? 1 : 0.5));
-    else if (blocker) L.add(addText(this, compact ? VW - 9 : VW / 2, y + dh - 18, blocker, 'dim', compact ? 1 : 0.5));
-    else L.add(new Button(this, compact ? VW - 89 : VW / 2 - 40, y + dh - 26, 80, 22, { label: 'Take perk', icon: 'star', style: 'buttonSel', onClick: () => this.takePerk(sel.id) }));
-    if (compact) L.add(new Button(this, 9, y + dh - 26, 50, 22, { label: 'Tree', icon: 'back', onClick: () => this.selectPerk(sel.id) }));
-  }
+    L.add(addText(this, Math.round((left + right) / 2), 9, ellipsize(h.name.toUpperCase(), right - left - 6), 'red', 0.5));
 
-  private perkNode(p: PerkDef, x: number, y: number, h: Hero): void {
-    const known = h.perks.includes(p.id);
-    const open = !known && perkBlocker(h, p.id) === null;
-    const icon = p.ability ? ABILITIES[p.ability].icon : p.aura ? 'aura' : 'star';
-    const b = new Button(this, x, y, 24, 21, { icon, style: known ? 'buttonSel' : open ? 'button' : 'buttonOff', onClick: () => this.selectPerk(p.id) });
-    this.layer.add(b);
-    if (open) {
-      const r = this.add.rectangle(x - 1, y - 1, 26, 23).setOrigin(0, 0).setStrokeStyle(1, P.gold);
-      this.layer.add(r);
-      this.tweens.add({ targets: r, alpha: { from: 1, to: 0.3 }, duration: 500, yoyo: true, repeat: -1, ease: 'Stepped', easeParams: [3] });
+    // dark header: the stage with the slots, identity, XP (a parchment page below)
+    const compact = this.compact;
+    const cls = heroClass(h);
+    const y0 = 29;
+    const headBg = this.add.container(0, 0);
+    L.add(headBg);
+    let y: number;
+    if (!compact) {
+      // the stage between two columns of slots
+      const ss = 28;
+      const stageH = VH >= 400 ? 124 : 112;
+      const sgap = Math.floor((stageH - 3 * ss) / 2);
+      const sx0 = 4 + ss + 4;
+      const sw = VW - 2 * sx0;
+      L.add(new Stage(this, sx0, y0, sw, stageH, h, { scale: 2 }));
+      (['helmet', 'armor', 'trinket'] as Slot[]).forEach((s, i) => this.slot(L, 4, y0 + i * (ss + sgap), s, h, ss));
+      (['weapon', 'shield'] as Slot[]).forEach((s, i) => this.slot(L, VW - 4 - ss, y0 + i * (ss + sgap), s, h, ss));
+      addMountTile(this, L, VW - 4 - ss, y0 + 2 * (ss + sgap), h, ss);
+      addChip(this, L, sx0 + 3, y0 + 3, t('hero.level', { n: h.level }), 0x8c2f25);
+      addStars(this, L, sx0 + sw - 3 - 39, y0 + 5, heroStars(h));
+      if (h.wound > 0) this.woundChip(L, sx0 + 3, y0 + stageH - 16, sw - 6);
+      y = y0 + stageH + 4;
+      // class and power
+      const pwW = this.power(L, VW - 5, y, h);
+      L.add(addText(this, 5, y + 1, ellipsize(className(h).toUpperCase(), VW - 14 - pwW - 4), 'gold'));
+      y += 12;
+      const chipW = addChip(this, L, 5, y, roleName(cls.role), roleColor(cls.role), Math.floor(VW / 2));
+      const traits = h.traits.map((k) => tOr(`trait.${k}.name`, TRAITS[k].name)).join(', ');
+      if (traits) L.add(addText(this, 5 + chipW + 4, y + 2, ellipsize(traits.toUpperCase(), VW - 14 - chipW - 4), 'title'));
+      y += 14;
+      const need = xpToNext(h.level);
+      const xpT = addText(this, VW - 5, y, t('hero.xp', { xp: Math.floor(h.xp), need }), 'title', 1);
+      L.add(xpT);
+      L.add(new Meter(this, 5, y + 2, VW - 10 - xpT.width - 4, 5, COLOR.xp).setValue(h.xp, need));
+      y += 12;
+    } else {
+      // short screens: a small stage beside the identity, the slots in one row below
+      const sw = 50;
+      const stageH = 60;
+      L.add(new Stage(this, 4, y0, sw, stageH, h, { scale: 1 }));
+      if (h.wound > 0) this.woundChip(L, 6, y0 + stageH - 15, sw - 4);
+      const tx = 4 + sw + 5;
+      const tw = VW - tx - 5;
+      L.add(addText(this, tx, y0 + 1, ellipsize(className(h).toUpperCase(), tw), 'gold'));
+      addChip(this, L, tx, y0 + 12, roleName(cls.role), roleColor(cls.role), tw);
+      const lvW = addChip(this, L, tx, y0 + 26, t('hero.level', { n: h.level }), 0x8c2f25, 40);
+      addStars(this, L, tx + lvW + 4, y0 + 28, heroStars(h));
+      const need = xpToNext(h.level);
+      L.add(new Meter(this, tx, y0 + 40, tw, 4, COLOR.xp).setValue(h.xp, need));
+      L.add(addText(this, VW - 5, y0 + 48, ellipsize(t('hero.power', { n: powerRating(h) }).toUpperCase(), tw), 'title', 1));
+      y = y0 + stageH + 3;
+      const slots: Slot[] = ['weapon', 'shield', 'helmet', 'armor', 'trinket'];
+      const n = slots.length + (cls.mount ? 1 : 0);
+      const ss = Math.min(24, Math.floor((VW - 8 - (n - 1) * SIZE.gap) / n));
+      const step = Math.floor((VW - 8 - ss) / (n - 1));
+      slots.forEach((s, i) => this.slot(L, 4 + i * step, y, s, h, ss));
+      if (cls.mount) addMountTile(this, L, 4 + slots.length * step, y, h, ss);
+      y += ss + 4;
     }
-    if (this.selPerk === p.id) this.layer.add(this.add.rectangle(x - 2, y - 2, 28, 25).setOrigin(0, 0).setStrokeStyle(1, P.ink));
+    headBg.add(addPanel(this, 0, 26, VW, y - 26 + 1, 'dark'));
+    y += 2;
+    // the page under the tabs is parchment
+    headBg.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, VH - y - SIZE.tabH + 2, 'parch'));
+
+    // tabs with badges for what there is to spend
+    const free = h.points - this.spent();
+    const perkFree = Math.max(0, perkSlots(h.level) - h.perks.length);
+    this.tabs = new Tabs(this, 4, y, VW - 8, TABS.map((k) => t(`hero.tab.${k}` as TKey)), {
+      selected: TABS.indexOf(this.tab),
+      ids: TABS.map((k) => `hero.tab.${k}`),
+      icons: compact ? ['plus', 'shield', 'star', 'bash'] : undefined,
+      onChange: (i) => this.setTab(TABS[i]),
+    });
+    L.add(this.tabs);
+    if (h.points > 0) addTabBadge(this, L, 4, y, VW - 8, TABS.length, 0, h.points);
+    if (perkFree > 0) addTabBadge(this, L, 4, y, VW - 8, TABS.length, 2, perkFree);
+    void free;
+    this.pageTop = y + SIZE.tabH + 4;
+    this.buildPage();
   }
 
-  private selectPerk(id: PerkId): void {
-    this.selPerk = this.selPerk === id ? null : id;
+  /** "Power N" (tap: what it means), right-aligned at x; returns its width. */
+  private power(L: Phaser.GameObjects.Container, x: number, y: number, h: Hero): number {
+    const txt = addText(this, x, y + 1, t('hero.power', { n: powerRating(h) }), 'title', 1);
+    const z = this.add.zone(x - txt.width - 2, y - 5, txt.width + 4, 22).setOrigin(0, 0).setInteractive();
+    uiId(z, 'hero.power');
+    z.on('pointerup', () => showTooltip(this, t('hero.powerTip'), z));
+    L.add([z, txt]);
+    return txt.width;
+  }
+
+  private woundChip(L: Phaser.GameObjects.Container, x: number, y: number, w: number): void {
+    const h = this.hero()!;
+    const z = this.add.zone(x - 1, y - 5, w + 2, 22).setOrigin(0, 0).setInteractive();
+    uiId(z, 'hero.wound');
+    z.on('pointerup', () => showTooltip(this, t('hero.woundedTip', { h: Math.ceil(h.wound) }), z));
+    L.add(z);
+    addChip(this, L, x, y, t('hero.wounded', { h: Math.ceil(h.wound) }), COLOR.bad, w);
+  }
+
+  private slot(L: Phaser.GameObjects.Container, x: number, y: number, slot: Slot, h: Hero, size: number): void {
+    const o = addSlotTile(this, L, x, y, slot, h.equip[slot], { size, onTap: () => this.tapSlot(slot) });
+    this.slotRects.set(slot, o);
+  }
+
+  private setTab(tab: Tab): void {
+    this.tab = tab;
+    this.buildPage();
+  }
+
+  private clearPage(): void {
+    for (const a of this.areas) a.destroy();
+    this.areas = [];
+    this.stash = null;
+    this.drag.targets = [];
+    this.drag.cancel();
+    this.page.removeAll(true);
+  }
+
+  private buildPage(): void {
+    this.clearPage();
+    const h = this.hero();
+    if (!h) return;
+    if (this.tab === 'stats') this.buildStats(h);
+    else if (this.tab === 'gear') this.buildGear(h);
+    else if (this.tab === 'perks') this.buildPerks(h);
+    else this.buildSkills(h);
+  }
+
+  private scrollArea(y: number, h: number): ScrollArea {
+    const { VW, S } = this.m;
+    const a = new ScrollArea(this, this.page, 4, y, VW - 8, h, S);
+    this.areas.push(a);
+    addScrollHint(this, this.page, a);
+    return a;
+  }
+
+  // ------------------------------------------------------------------ stats: attributes with a live preview
+
+  private buildStats(h: Hero): void {
+    const { VW, VH } = this.m;
+    const pend = this.spent() > 0;
+    const free = h.points - this.spent();
+    const barH = pend ? SIZE.btnH + 6 : 0;
+    const top = this.pageTop;
+    const area = this.scrollArea(top, VH - top - 4 - barH);
+    const c = area.content;
+    const w = VW - 8 - 3;
+    let y = 0;
+    // points header
+    c.add(addText(this, 0, y + 1, free > 0 ? t('hero.points', { n: free }).toUpperCase() : (h.points > 0 ? t('hero.preview') : t('hero.noPoints')).toUpperCase(), free > 0 ? 'gold' : 'dim', 0, w));
+    y += 12;
+    const next = previewAttrs(h, this.pending);
+    ATTR_IDS.forEach((k) => {
+      c.add(addPanel(this, 0, y, w, 25, this.pending[k] ? 'parch' : 'inset'));
+      c.add(addText(this, 5, y + 4, t(`attr.${k}.short` as TKey), 'red'));
+      const val = h.attrs[k] + this.pending[k];
+      c.add(addText(this, 40, y + 4, `${val}`, this.pending[k] ? 'good' : 'ink', 1));
+      const descW = w - 46 - 2 * 24 - SIZE.gap - 6;
+      c.add(addText(this, 45, y + 4, ellipsize(t(`attr.${k}` as TKey).toUpperCase(), descW), 'ink'));
+      c.add(addText(this, 45, y + 14, ellipsize(t(`attr.${k}.desc` as TKey).toUpperCase(), descW), 'dim'));
+      const minus = new Button(this, w - 2 * 24 - SIZE.gap - 1, y + 2, 24, 22, { label: '-', tip: t('hero.lower'), id: `attr.${k}.minus`, onClick: () => this.removePoint(k) });
+      minus.setEnabled(this.pending[k] > 0, t('hero.noPoints'));
+      const plus = new Button(this, w - 24 - 1, y + 2, 24, 22, { label: '+', tip: t('hero.raise'), id: `attr.${k}.plus`, variant: free > 0 && val < ATTR_MAX ? 'primary' : 'secondary', onClick: () => this.addPoint(k) });
+      plus.setEnabled(free > 0 && val < ATTR_MAX, free > 0 ? `${ATTR_MAX}` : t('hero.noPoints'));
+      c.add([minus, plus]);
+      y += 25 + SIZE.gap;
+    });
+    y += 4;
+    // every derived stat, previewing the pending points
+    const cur = computeStats(h);
+    const nxt = computeStats(next);
+    for (const id of sheetStats(cur)) {
+      const d = STATS[id];
+      const sb = new StatBar(this, 0, y, w, { label: t(`stat.${id}` as TKey), max: d.max, color: barColor(id), tip: t(`stat.${id}.tip` as TKey), format: (v) => fmtStat(id, v), lowerIsBetter: d.lowerIsBetter });
+      sb.set(d.get(cur), pend ? d.get(nxt) : undefined);
+      c.add(sb);
+      y += 22 + SIZE.gap;
+    }
+    // record and traits
+    y += 4;
+    c.add(addText(this, 0, y, t('hero.record').toUpperCase(), 'red'));
+    y += 11;
+    const rec = `${t('hero.kills')} ${h.kills}   ${t('hero.battles')} ${h.battles}`;
+    c.add(addText(this, 0, y, ellipsize(rec.toUpperCase(), w), 'ink'));
+    y += 11;
+    c.add(addText(this, 0, y, (h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : t('hero.fit')).toUpperCase(), h.wound > 0 ? 'red' : 'good'));
+    y += 13;
+    c.add(addText(this, 0, y, t('hero.traits').toUpperCase(), 'red'));
+    y += 11;
+    if (!h.traits.length) {
+      c.add(addText(this, 0, y, t('hero.noTraits').toUpperCase(), 'dim'));
+      y += 11;
+    }
+    for (const k of h.traits) {
+      const tr = TRAITS[k];
+      c.add(addText(this, 0, y, ellipsize(tOr(`trait.${k}.name`, tr.name).toUpperCase(), w), tr.negative ? 'red' : 'ink'));
+      const wr = wrapText(tOr(`trait.${k}.desc`, tr.desc), w - 6, 2);
+      c.add(addText(this, 6, y + 10, wr.lines.join('\n'), 'dim'));
+      y += 10 + wr.lines.length * LINE_H + 3;
+    }
+    area.setContentHeight(y + 4);
+    frameScrollTexts(area, VW - 8);
+    if (pend) {
+      const by = VH - 4 - SIZE.btnH;
+      const bw = Math.floor((VW - 8 - SIZE.gap) / 3);
+      this.page.add(addPanel(this, 0, by - 4, VW, SIZE.btnH + 8, 'parch'));
+      this.page.add(new Button(this, 4, by, bw, SIZE.btnH, { label: t('hero.undo'), icon: 'back', onClick: () => this.resetPoints() }));
+      this.page.add(new Button(this, 4 + bw + SIZE.gap, by, VW - 8 - bw - SIZE.gap, SIZE.btnH, { label: t('hero.confirmPoints'), icon: 'check', variant: 'primary', id: 'hero.confirm', onClick: () => this.confirmPoints() }));
+    }
+  }
+
+  // ------------------------------------------------------------------ gear: the stash for this hero
+
+  private buildGear(h: Hero): void {
+    const { VW, VH } = this.m;
+    const top = this.pageTop;
+    this.stash = new StashGrid(this, this.page, 4, top, VW - 8, VH - top - 4, {
+      items: () => state.campaign.data.stash,
+      state: this.stashState,
+      hero: () => this.hero(),
+      drag: this.drag,
+      onTap: (it) => this.openStashItem(it),
+    });
+    this.areas.push(this.stash);
+    // drop targets: the slots around the stage
+    for (const [slot, o] of this.slotRects) {
+      this.drag.targets.push({
+        rect: () => uiBoundsOf(this, o as unknown as Phaser.GameObjects.Components.Transform & { w?: number; h?: number; width?: number; height?: number }),
+        accepts: (it) => itemDef(it.def).slot === slot,
+        drop: (it) => this.equip(it),
+      });
+    }
+    void h;
+  }
+
+  private tapSlot(slot: Slot): void {
+    const h = this.hero();
+    if (!h) return;
+    const it = h.equip[slot];
+    if (this.tab !== 'gear' || this.stashState.slot !== slot) {
+      this.stashState.slot = slot;
+      this.tab = 'gear';
+      this.tabs?.select(TABS.indexOf('gear'), false);
+      this.buildPage();
+    }
+    if (it) this.openEquipped(h, slot, it);
+  }
+
+  private openEquipped(h: Hero, slot: Slot, it: Item): void {
+    const camp = state.campaign;
+    const cost = camp.repairCost(it);
+    openItemCard(this, {
+      item: it,
+      hero: h,
+      equipped: true,
+      notes: [{ text: t('stash.equippedBy', { name: h.name }) }],
+      actions: [
+        { label: t('stash.unequip'), icon: 'back', id: 'stash.unequip', onClick: () => this.unequip(slot) },
+        cost > 0
+          ? { label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', variant: 'primary', disabled: camp.data.gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) }
+          : { label: t('stash.full'), icon: 'check', id: 'stash.full', disabled: t('stash.full'), onClick: () => {} },
+      ],
+    });
+  }
+
+  private openStashItem(it: Item): void {
+    const h = this.hero();
+    const camp = state.campaign;
+    const cost = camp.repairCost(it);
+    openItemCard(this, {
+      item: it,
+      hero: h,
+      actions: [
+        ...(cost > 0 ? [{ label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', disabled: camp.data.gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) }] : []),
+        { label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', onClick: () => this.equip(it) },
+      ],
+    });
+  }
+
+  equip(it: Item): void {
+    if (!state.campaign.equip(this.heroId, it.uid)) {
+      hapticNotify('error');
+      return;
+    }
+    hapticNotify('success');
+    toast(this, t('army.equipped', { name: itemName(it) }), 'good');
+    void state.save();
+    const scroll = this.stash?.scroll ?? 0;
+    this.build();
+    if (this.stash) this.stash.rebuild(false);
+    void scroll;
+  }
+
+  private unequip(slot: Slot): void {
+    state.campaign.unequip(this.heroId, slot);
+    haptic('light');
+    void state.save();
     this.build();
   }
+
+  private repair(it: Item): void {
+    if (!state.campaign.repair(it)) {
+      hapticNotify('error');
+      toast(this, t('stash.noGold'), 'bad');
+      return;
+    }
+    hapticNotify('success');
+    toast(this, t('stash.repaired'), 'good');
+    void state.save();
+    this.build();
+  }
+
+  // ------------------------------------------------------------------ perks: the class tree
+
+  private buildPerks(h: Hero): void {
+    const { VW, VH } = this.m;
+    const top = this.pageTop;
+    const tree = heroTree({ cls: heroClass(h).id });
+    const area = this.scrollArea(top, VH - top - 4);
+    const c = area.content;
+    const w = VW - 8 - 3;
+    const free = Math.max(0, perkSlots(h.level) - h.perks.length);
+    let y = 0;
+    const nextLvl = PERK_LEVELS.find((l) => l > h.level);
+    const head = free > 0 ? t('hero.perk.free', { n: free }) : nextLvl ? t('hero.perk.nextAt', { n: nextLvl }) : t('hero.perkTree', { cls: className(h) });
+    c.add(addText(this, w / 2, y + 1, ellipsize(head.toUpperCase(), w), free > 0 ? 'gold' : 'dim', 0.5));
+    y += 13;
+    const rowH = 34;
+    const g = this.add.graphics();
+    c.add(g);
+    tree.forEach((id, i) => {
+      const p = PERKS[id];
+      const known = h.perks.includes(id);
+      const blocker = perkBlocker(h, id);
+      const open = !known && blocker === null;
+      const ry = y + i * (rowH + SIZE.gap);
+      // the trunk joining the nodes
+      if (i > 0) {
+        g.fillStyle(known ? P.red : 0x8a7a6a, 1);
+        g.fillRect(28 + 11, ry - SIZE.gap - 6, 3, SIZE.gap + 8);
+      }
+      c.add(addPanel(this, 0, ry, w, rowH, known ? 'parch' : open ? 'parch' : 'inset'));
+      // level requirement on the left
+      c.add(addText(this, 8, ry + 13, `${PERK_LEVELS[i]}`, h.level >= PERK_LEVELS[i] ? 'ink' : 'dim', 0.5));
+      // node button with the perk icon
+      const node = new Button(this, 26, ry + 5, 26, 24, {
+        icon: perkIcon(p),
+        style: known ? 'buttonSel' : open ? 'button' : 'buttonOff',
+        id: `perk:${id}`,
+        tip: tOr(`perk.${id}.name`, p.name),
+        onClick: () => this.openPerk(h, p, tree),
+      });
+      c.add(node);
+      if (open) {
+        const ring = this.add.rectangle(25, ry + 4, 28, 26).setOrigin(0, 0).setStrokeStyle(2, P.gold);
+        c.add(ring);
+        this.tweens.add({ targets: ring, alpha: { from: 1, to: 0.25 }, duration: 520, yoyo: true, repeat: -1 });
+      }
+      // tree colour pip
+      const pip = this.add.graphics();
+      pip.fillStyle(TREES[p.tree].color, 1);
+      pip.fillRect(17, ry + 4, 3, rowH - 8);
+      c.add(pip);
+      const tx = 57;
+      const tw = w - tx - 4;
+      const status = known ? t('hero.perk.learned') : open ? t('hero.perk.available') : blocker ? blockerText(blocker, tree, i) : '';
+      const st = addText(this, w - 4, ry + 4, ellipsize(status.toUpperCase(), Math.floor(tw / 2)), known ? 'good' : open ? 'gold' : 'dim', 1);
+      c.add(st);
+      c.add(addText(this, tx, ry + 4, ellipsize(tOr(`perk.${id}.name`, p.name).toUpperCase(), tw - st.width - 4), known ? 'red' : 'ink'));
+      const wr = wrapText(tOr(`perk.${id}.desc`, p.desc), tw, 2);
+      c.add(addText(this, tx, ry + 14, wr.lines.join('\n'), 'dim'));
+      // the whole row opens the perk too (beside the node)
+      const z = this.add.zone(tx - 2, ry, w - tx + 2, rowH).setOrigin(0, 0).setInteractive();
+      uiId(z, `perkrow:${id}`);
+      z.on('pointerup', () => !area.moved && this.openPerk(h, p, tree));
+      c.add(z);
+    });
+    y += tree.length * (rowH + SIZE.gap) + 4;
+    const note = wrapText(t('hero.abilityUse'), w, 2);
+    c.add(addText(this, 0, y, note.lines.join('\n'), 'dim'));
+    y += note.lines.length * LINE_H;
+    area.setContentHeight(y + 4);
+    frameScrollTexts(area, VW - 8);
+  }
+
+  private openPerk(h: Hero, p: PerkDef, tree: readonly PerkId[]): void {
+    const { VW } = this.m;
+    const known = h.perks.includes(p.id);
+    const blocker = perkBlocker(h, p.id);
+    const name = tOr(`perk.${p.id}.name`, p.name);
+    const extra = p.ability ? abilityText(p.ability, computeStats(h).cdMult) : p.aura ? `${t('hero.aura')}: ${tOr(`aura.${p.aura}.desc`, AURAS[p.aura].desc)}` : '';
+    const w = Math.min(VW - 16, 200);
+    const body = wrapText(tOr(`perk.${p.id}.desc`, p.desc) + (extra ? `\n${extra}` : ''), w - 20, 9);
+    const tier = Math.max(0, tree.indexOf(p.id));
+    const m = openModal(this, { title: name, w, h: 26 + 16 + body.lines.length * LINE_H + 12 + SIZE.btnH + 12 });
+    const { c, x, y } = m;
+    c.add(addIcon(this, x + 10, y + 24, perkIcon(p)));
+    c.add(addText(this, x + 26, y + 26, ellipsize(`${tOr(`tree.${p.tree}`, TREES[p.tree].name)} · ${t('hero.level', { n: PERK_LEVELS[tier] })}`.toUpperCase(), w - 36), 'dim'));
+    c.add(addText(this, x + 10, y + 40, body.lines.join('\n'), 'ink'));
+    const by = m.y + m.h - 9 - SIZE.btnH;
+    const bw = Math.floor((w - 12 - 6 - SIZE.gap) / 2);
+    c.add(new Button(this, x + 6, by, bw, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
+    const learn = new Button(this, x + w - 6 - bw, by, bw, SIZE.btnH, {
+      label: known ? t('hero.perk.learned') : t('hero.perk.learn'),
+      icon: known ? 'check' : 'star',
+      variant: 'primary',
+      id: 'hero.perk.learn',
+      onClick: () => {
+        m.close();
+        confirmDialog(this, { title: t('hero.perk.learnTitle', { name }), body: t('hero.perk.learnBody'), ok: t('hero.perk.learn'), cancel: t('common.cancel'), okIcon: 'star', onOk: () => this.takePerk(p.id) });
+      },
+    });
+    if (known || blocker) learn.setEnabled(false, known ? t('hero.perk.learned') : blockerText(blocker!, tree, tier));
+    c.add(learn);
+  }
+
+  takePerk(id: PerkId): void {
+    if (!state.campaign.takePerk(this.heroId, id)) {
+      hapticNotify('error');
+      return;
+    }
+    hapticNotify('success');
+    toast(this, t('hero.perk.learnedToast', { name: tOr(`perk.${id}.name`, PERKS[id].name) }), 'good');
+    void state.save();
+    this.build();
+  }
+
+  // ------------------------------------------------------------------ skills: abilities and auras
+
+  private buildSkills(h: Hero): void {
+    const { VW, VH } = this.m;
+    const top = this.pageTop;
+    const s = computeStats(h);
+    const tree = heroTree({ cls: heroClass(h).id });
+    type Row = { kind: 'ability' | 'aura'; id: AbilityId | AuraId; has: boolean; source: string };
+    const rows: Row[] = [];
+    for (const a of s.abilities) {
+      const perk = tree.map((id) => PERKS[id]).find((p) => p.ability === a && h.perks.includes(p.id));
+      rows.push({ kind: 'ability', id: a, has: true, source: perk ? t('hero.fromPerk', { name: tOr(`perk.${perk.id}.name`, perk.name) }) : t('hero.fromWill', { n: RALLY_WILL }) });
+    }
+    for (const a of s.auras) rows.push({ kind: 'aura', id: a, has: true, source: '' });
+    // what the tree still holds
+    tree.forEach((id, i) => {
+      const p = PERKS[id];
+      if (h.perks.includes(id)) return;
+      if (p.ability && !s.abilities.includes(p.ability)) rows.push({ kind: 'ability', id: p.ability, has: false, source: `${tOr(`perk.${id}.name`, p.name)} · ${t('hero.level', { n: PERK_LEVELS[i] })}` });
+      if (p.aura && !s.auras.includes(p.aura)) rows.push({ kind: 'aura', id: p.aura, has: false, source: `${tOr(`perk.${id}.name`, p.name)} · ${t('hero.level', { n: PERK_LEVELS[i] })}` });
+    });
+    if (!rows.length) {
+      this.page.add(addEmptyState(this, 4, top, VW - 8, VH - top - 4, { icon: 'bash', title: t('hero.noAbilities'), hint: t('hero.noAbilitiesHint'), action: { label: t('hero.tab.perks'), icon: 'star', onClick: () => this.tabs?.select(2) } }));
+      return;
+    }
+    const area = this.scrollArea(top, VH - top - 4);
+    const c = area.content;
+    const w = VW - 8 - 3;
+    let y = 0;
+    for (const r of rows) {
+      const isAb = r.kind === 'ability';
+      const def = isAb ? ABILITIES[r.id as AbilityId] : AURAS[r.id as AuraId];
+      const name = isAb ? tOr(`ability.${r.id}.name`, def.name) : tOr(`aura.${r.id}.name`, def.name);
+      const desc = isAb ? tOr(`ability.${r.id}.desc`, def.desc) : tOr(`aura.${r.id}.desc`, def.desc);
+      const wr = wrapText(desc, w - 34, 4);
+      const hh = Math.max(36, 26 + wr.lines.length * LINE_H + 2);
+      c.add(addPanel(this, 0, y, w, hh, r.has ? 'parch' : 'inset'));
+      // gold ability tile (the battle panel's abilities colour)
+      const tile = this.add.graphics();
+      tile.fillStyle(0x1d140f, 1);
+      tile.fillRect(4, y + 4, 24, 24);
+      tile.fillStyle(r.has ? CATEGORY_COLOR.abilities : 0x8a7a6a, 1);
+      tile.fillRect(5, y + 5, 22, 22);
+      c.add(tile);
+      c.add(addIcon(this, 10, y + 10, isAb ? (def as (typeof ABILITIES)[AbilityId]).icon : 'aura', r.has ? '' : 'D'));
+      let right = w - 4;
+      if (isAb) {
+        const cd = Math.round((def as (typeof ABILITIES)[AbilityId]).cooldown * s.cdMult);
+        const cw = addChip(this, c, w - 4, y + 4, t('hero.cooldownShort', { n: cd }), 0x5a4232, 60, true);
+        right = w - 4 - cw - 4;
+      }
+      c.add(addText(this, 32, y + 5, ellipsize(name.toUpperCase(), right - 32), r.has ? 'red' : 'dim'));
+      c.add(addText(this, 32, y + 15, ellipsize(`${isAb ? t('hero.ability') : t('hero.aura')}${r.source ? ' · ' + r.source : ''}`.toUpperCase(), w - 36), r.has ? 'gold' : 'dim'));
+      c.add(addText(this, 32, y + 26, wr.lines.join('\n'), r.has ? 'ink' : 'dim'));
+      y += hh + SIZE.gap;
+    }
+    const note = wrapText(`${t('hero.abilityUse')} ${t('hero.auraUse')}`, w, 3);
+    c.add(addText(this, 0, y + 2, note.lines.join('\n'), 'dim'));
+    y += 2 + note.lines.length * LINE_H;
+    area.setContentHeight(y + 4);
+    frameScrollTexts(area, VW - 8);
+  }
+
+  // ------------------------------------------------------------------ attribute points
 
   private addPoint(k: AttrId): void {
     const h = this.hero();
@@ -271,13 +636,21 @@ export class HeroScene extends BaseScene {
     }
     this.pending[k]++;
     haptic('light');
-    this.build();
+    this.rebuildKeepScroll();
   }
 
   private removePoint(k: AttrId): void {
     if (this.pending[k] <= 0) return;
     this.pending[k]--;
+    this.rebuildKeepScroll();
+  }
+
+  private rebuildKeepScroll(): void {
+    const a = this.areas[0] as ScrollArea | undefined;
+    const s = a instanceof ScrollArea ? a.scrollY : 0;
     this.build();
+    const b = this.areas[0];
+    if (b instanceof ScrollArea) b.setScroll(s);
   }
 
   private resetPoints(): void {
@@ -285,26 +658,54 @@ export class HeroScene extends BaseScene {
     this.build();
   }
 
-  private confirmPoints(): void {
+  confirmPoints(): void {
     const camp = state.campaign;
     for (const k of ATTR_IDS) for (let i = 0; i < this.pending[k]; i++) camp.spendPoint(this.heroId, k);
     this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
     hapticNotify('success');
-    void state.save();
-    this.build();
-  }
-
-  private takePerk(id: PerkId): void {
-    if (!state.campaign.takePerk(this.heroId, id)) {
-      hapticNotify('error');
-      return;
-    }
-    hapticNotify('success');
+    toast(this, t('hero.pointsSaved'), 'good');
     void state.save();
     this.build();
   }
 }
 
-function fmt(v: number, dp: number): string {
-  return dp === 0 ? `${Math.round(v)}` : v.toFixed(dp).replace(/\.?0+$/, '') || '0';
+function perkIcon(p: PerkDef): string {
+  if (p.ability) return ABILITIES[p.ability].icon;
+  if (p.aura) return 'aura';
+  return p.tree === 'hoplite' ? 'shield' : p.tree === 'skirmisher' ? 'spear' : p.tree === 'rider' ? 'advance' : 'swords';
 }
+
+function blockerText(b: string, tree: readonly PerkId[], tier: number): string {
+  if (b === 'Known') return t('hero.perk.learned');
+  if (b === 'No perk point') return t('hero.perk.noPoint');
+  if (b.startsWith('Needs Lv')) return t('hero.perk.needsLevel', { n: PERK_LEVELS[tier] });
+  if (b.startsWith('Needs ')) {
+    const prev = tree[tier - 1];
+    return t('hero.perk.needs', { name: prev ? tOr(`perk.${prev}.name`, PERKS[prev].name) : '' });
+  }
+  return t('hero.perk.locked');
+}
+
+function abilityText(a: AbilityId, cdMult: number): string {
+  const d = ABILITIES[a];
+  return `${t('hero.ability')}: ${tOr(`ability.${a}.desc`, d.desc)} ${t('hero.cooldown', { n: Math.round(d.cooldown * cdMult) })}.`;
+}
+
+function barColor(id: string): number {
+  switch (id) {
+    case 'hp':
+    case 'ko':
+      return COLOR.hp;
+    case 'morale':
+      return COLOR.morale;
+    case 'stamina':
+    case 'speed':
+      return COLOR.stamina;
+    case 'armor':
+    case 'block':
+      return 0x8f9496;
+    default:
+      return COLOR.xp;
+  }
+}
+

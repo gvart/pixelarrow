@@ -9,6 +9,7 @@
  *   `menu.*`, `settings.*`, ... Add a screen's keys under its own prefix.
  */
 import { BATTLE_EN } from './battle.en';
+import { EN_ARMY } from './en.army';
 
 export const EN = {
   // ---- shared words
@@ -247,4 +248,6 @@ export const EN = {
 
   // ---- battle screens and the post-battle report (battle.en.ts)
   ...BATTLE_EN,
+  // ---- army, hero, stash, settlements, online army, economy (en.army.ts)
+  ...EN_ARMY,
 } as const;

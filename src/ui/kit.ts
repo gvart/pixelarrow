@@ -543,6 +543,12 @@ export class ScrollArea {
     this.vel = 0;
   }
 
+  /** Stop following the finger (a drag-and-drop took over the gesture). */
+  cancelDrag(): void {
+    this.dragging = false;
+    this.vel = 0;
+  }
+
   private listeners: ((scroll: number, max: number) => void)[] = [];
   private contentH = 0;
 

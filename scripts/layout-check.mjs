@@ -127,31 +127,65 @@ const SCREENS = [
     },
   },
   { id: 'army', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World' }), wait(p, 900)) },
+  { id: 'army-stash', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World', tab: 'stash' }), wait(p, 900)) },
   {
-    id: 'army-stash',
+    // the stash in a town: compare with sell, repair and equip
+    id: 'army-town-item',
     owner: 'B',
     run: async (p) => {
-      await start(p, 'Army', { from: 'World' });
-      await wait(p, 700);
       await ev(p, () => {
-        const s = window.__game.scene.getScene('Army');
-        s.selItem = window.__state.campaign.data.stash[0] ?? null;
-        s.tab = 'stash';
-        s.refresh();
+        const w = window.__state.campaign.world;
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Army', { from: 'Settlement', id: w.map.start, tab: 'stash' }));
       });
+      await wait(p, 800);
+      await call(p, 'Army', `s.openStashItem(window.__state.campaign.data.stash[2]); return 1;`);
       return wait(p, 500);
     },
   },
+  ...[
+    ['hero', 'stats'],
+    ['hero-gear', 'gear'],
+    ['hero-perks', 'perks'],
+    ['hero-skills', 'skills'],
+  ].map(([id, tab]) => ({
+    id,
+    owner: 'B',
+    run: async (p) => {
+      await ev(p, (tb) => {
+        const h = window.__state.campaign.data.heroes[0];
+        h.points = Math.max(h.points, 3);
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Hero', { heroId: h.id, back: { from: 'World' }, tab: tb }));
+      }, tab);
+      return wait(p, 900);
+    },
+  })),
   {
-    id: 'hero',
+    // a stash item compared with what the hero carries (the compare popup)
+    id: 'stash-compare',
     owner: 'B',
     run: async (p) => {
       await ev(p, () => {
         const h = window.__state.campaign.data.heroes[0];
-        h.points = Math.max(h.points, 3);
-        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Hero', { heroId: h.id, back: { from: 'World' } }));
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Hero', { heroId: h.id, back: { from: 'World' }, tab: 'gear' }));
       });
-      return wait(p, 900);
+      await wait(p, 700);
+      await call(p, 'Hero', `const st = window.__state.campaign.data.stash; s.openStashItem(st[0]); return 1;`);
+      return wait(p, 500);
+    },
+  },
+  {
+    // an equipped item's card (take off, repair)
+    id: 'stash-detail',
+    owner: 'B',
+    run: async (p) => {
+      await ev(p, () => {
+        const h = window.__state.campaign.data.heroes[0];
+        if (h.equip.armor) h.equip.armor.cond = 55;
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Hero', { heroId: h.id, back: { from: 'World' }, tab: 'gear' }));
+      });
+      await wait(p, 700);
+      await call(p, 'Hero', `s.tapSlot(window.__state.campaign.data.heroes[0].equip.armor ? 'armor' : 'weapon'); return 1;`);
+      return wait(p, 500);
     },
   },
   {
@@ -175,6 +209,32 @@ const SCREENS = [
         window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Settlement', { id: w.map.start, tab: 'market' }));
       });
       return wait(p, 900);
+    },
+  },
+  ...['recruits', 'sell', 'rest'].map((tab) => ({
+    id: `town-${tab}`,
+    owner: 'B',
+    run: async (p) => {
+      await ev(p, (tb) => {
+        const c = window.__state.campaign;
+        if (tb === 'rest') c.data.heroes.slice(2, 6).forEach((h, i) => (h.wound = 3 + i * 5));
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Settlement', { id: c.world.map.start, tab: tb }));
+      }, tab);
+      return wait(p, 900);
+    },
+  })),
+  {
+    // a volunteer's class card
+    id: 'town-recruit-card',
+    owner: 'B',
+    run: async (p) => {
+      await ev(p, () => {
+        const c = window.__state.campaign;
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Settlement', { id: c.world.map.start, tab: 'recruits' }));
+      });
+      await wait(p, 800);
+      await call(p, 'Settlement', `const c = window.__state.campaign; const r = c.world.recruits(s.id, c.data.heroes)[0]; if (r) s.openRecruit(r.index); return 1;`);
+      return wait(p, 500);
     },
   },
   // ---- battle (owner A): deployment, the command panel, group assignment, retreat, online rules, the report
@@ -377,6 +437,10 @@ async function runConfig(browser, cfg, screens) {
       h.level = i < 4 ? 6 : 2;
     });
     c.data.gold = 240;
+    // a stash with every slot and rarity (stash, compare, market screens)
+    const defs = ['bronze_dory', 'falcata', 'cretan_bow', 'aspis', 'celtic_shield', 'corinthian', 'chalcidian', 'scale', 'mail', 'laurel', 'owl_amulet', 'xiphos', 'pilos', 'leather'];
+    const rar = ['legendary', 'epic', 'rare', 'uncommon', 'common'];
+    c.data.stash = defs.map((def, i) => ({ uid: `lc${i}`, def, rarity: rar[i % 5], cond: 100 - ((i * 17) % 60) }));
     await st.save();
   });
   const results = [];

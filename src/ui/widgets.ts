@@ -147,7 +147,8 @@ export const hintStore: { seen: () => string[]; mark: (id: string) => void } = {
 
 /** Show `text` once per screen id (first visit), as a longer toast. Returns whether it showed. */
 export function firstTimeHint(scene: Phaser.Scene, id: string, text: string): boolean {
-  if (hintStore.seen().includes(id)) return false;
+  const seen = hintStore.seen();
+  if (seen.includes(id) || seen.includes('*')) return false;
   hintStore.mark(id);
   toast(scene, text, 'info', 4500);
   return true;
