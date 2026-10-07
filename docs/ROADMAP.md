@@ -173,3 +173,19 @@ English/Russian and the online battle rules → tutorial battle → mythical bea
 - **Ranked duels** with matchmaking.
 - **Assault time or post-battle rest** if attacks feel too cheap (see "Online
   battle rules" in DESIGN_V2.md).
+
+## Next session: polish backlog
+
+Left over from the 2026-10-07 polish pass (smoke fix, parallel CI, narrator
+column + `text-column` layout rule and the battle group cards are done):
+
+- Rally / ability cooldown number overlaps its icon: move the badge clear of the icon (`src/ui/battlePanel.ts` `PanelButton` badge + `setCooldown`, `BattleScene.buildCommands`).
+- Battle report Summary tab: fill the empty area below the MVP card (casualty bars per side, mini per-hero list or a timeline) (`src/scenes/ResultsScene.ts`, `src/game/battleReport.ts`).
+- Hero Gear filter shows "ANY RARITY" and "RARITY" side by side: one rarity filter plus a labelled Sort control (`src/ui/sheet.ts` `StashGrid`, i18n `stash.*`).
+- Consumable picker in the online flows: hex panel Attack → `pickBattleConsumable` → `attackStart(hex, id)`, duel challenge / accept, lair attacks, world-boss raids; 1 per battle, daily caps, the chosen consumable in the deployment HUD (`src/ui/econ/consumablePicker.ts`, `src/scenes/online/OnlineScene.ts`, `src/ui/duelInvites.ts`, `BattleScene` deploy HUD).
+- Premium season pass (500 Dr) should return ~600 Dr over its tiers: rebalance the premium reward table, client display and tests (`server/src/economy/catalog.ts`, `server/test/economy*.test.ts`, `src/game/economy.ts`).
+- `supporter_banner`: from a Stars product to a Drachmae cosmetic; keep existing entitlements, webhook honours old in-flight invoices (`src/products.ts`, `server/src/economy/catalog.ts`, `server/src/telegram*.ts`, tests, server/README.md "Economy").
+- Beast trial with practice copies of the heroes (no permadeath, no wounds, no loot, fixed small XP or none; labelled "Practice") (`src/scenes/BeastTrialScene.ts`).
+- Beast trophies (`trophy_<beast>` entitlements) shown with procedural icons on the hero sheet / profile or an Army "Trophies" tab, EN/RU (`src/scenes/ArmyScene.ts`, `src/art/icons.ts`, `src/i18n/beasts.*.ts`).
+- `scripts/online-smoke.mjs` fails on unmocked `POST /api/telemetry/*` once telemetry lands (404 console errors): mock those routes there.
+- CI: the run for 22dd235 finished all gates green but showed no deploy job (conclusion failure, no logs reachable from the sandbox); check the run page and the `production` environment rules.
