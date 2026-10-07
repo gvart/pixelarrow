@@ -15,6 +15,7 @@ export const online = new Online({
   devAuth: env.DEV === true && env.VITE_DEV_AUTH === '1',
   devUser: devUser(),
   openInvoice,
+  timeZoneOffset: () => -new Date().getTimezoneOffset(),
 });
 
 /** `?devuser=<n>` picks another DEV_AUTH test user (dev builds only). */

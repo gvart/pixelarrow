@@ -70,6 +70,10 @@ export interface OnlineSceneData {
   duel?: DuelOutcome;
   /** Centre the map on this hex. */
   focus?: Axial;
+  /** Also select the focused hex (a bot notification's deep link). */
+  select?: boolean;
+  /** Open the duel lobby (deep link). */
+  lobby?: boolean;
   /** A local demo shard instead of the server (nothing is sent). */
   preview?: PreviewKind;
   /** Show this coach mark (layout check, screenshots). */
@@ -360,6 +364,8 @@ export class OnlineScene extends BaseScene {
     const d = this.data0;
     if (d.attack) this.showAttackResult(d.attack);
     else if (d.duel) this.showDuelResult(d.duel);
+    else if (d.select && d.focus) this.select(d.focus);
+    else if (d.lobby) this.openLobby();
     this.stagePreview();
     if (d.coach || (!d.preview && coachDue())) this.coach = new OnlineCoach(this.coachHost(), this.ui, d.coach);
     else if (!d.preview) firstTimeHint(this, 'online-map', t('online.hint'));

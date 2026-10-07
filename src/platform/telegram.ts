@@ -337,3 +337,16 @@ export function openTelegramLink(url: string): boolean {
     return false;
   }
 }
+
+/** Opens a web page (Telegram's in-app browser inside Telegram, a new tab elsewhere). Returns false if nothing opened. */
+export function openExternalLink(url: string): boolean {
+  try {
+    if (app?.openLink) {
+      app.openLink(url);
+      return true;
+    }
+    return !!window.open(url, '_blank', 'noopener');
+  } catch {
+    return false;
+  }
+}

@@ -15,10 +15,11 @@ import { capLeft, claimableCount, econState, focusTier, passProgress, tierState,
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
 import { P } from '../art/palette';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify, openExternalLink } from '../platform/telegram';
+import { legalUrl } from '../ui/legal';
 import { uiCoin } from '../audio/hooks';
 import { state } from '../state';
-import { t, tOr, type TKey } from '../i18n';
+import { lang, t, tOr, type TKey } from '../i18n';
 
 type Tab = 'shop' | 'pass' | 'wallet';
 const TABS: Tab[] = ['shop', 'pass', 'wallet'];
@@ -594,6 +595,14 @@ export class ShopScene extends BaseScene {
       c.add(new Button(this, px + 4, py + ph - SIZE.btnH - 4, pw - 8, SIZE.btnH, { label: `${pk.stars}`, icon: 'star', variant: 'primary', id: `wallet.pack.${pk.id}`, tip: t('econ.stars', { n: pk.stars }), onClick: () => this.askPack(pk) }));
     });
     y += Math.ceil(d.cat.packs.length / cols) * (ph + SIZE.gap) + 4;
+    // what Stars buy, and the legal pages (Telegram's payment rules)
+    const legal = wrapText(t('wallet.legal'), w, 3);
+    c.add(addText(this, 0, y, legal.lines.join('\n'), 'dim'));
+    y += legal.lines.length * LINE_H + 3;
+    const lw = Math.floor((w - SIZE.gap) / 2);
+    c.add(new Button(this, 0, y, lw, SIZE.btnH, { label: t('wallet.terms'), id: 'wallet.terms', onClick: () => openExternalLink(legalUrl('terms', lang())) }));
+    c.add(new Button(this, lw + SIZE.gap, y, lw, SIZE.btnH, { label: t('wallet.refunds'), id: 'wallet.refunds', onClick: () => openExternalLink(legalUrl('refunds', lang())) }));
+    y += SIZE.btnH + 8;
     // history
     c.add(addText(this, 0, y, t('wallet.history').toUpperCase(), 'red'));
     y += 11;

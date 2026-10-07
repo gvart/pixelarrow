@@ -154,6 +154,9 @@ const s = await session('ok', async (route) => {
       return json(200, { link: 'https://t.me/$invoice-test', productId: 'supporter_banner', stars: 5 });
     case 'GET /api/entitlements':
       return json(200, { entitlements: owned ? [{ productId: 'supporter_banner', grantedAt: Date.now() }] : [], purchases: [] });
+    case 'GET /api/notify/settings':
+    case 'PUT /api/notify/settings': // the time zone report after sign-in (bot quiet hours)
+      return json(200, { types: [], quiet: true, tzOffset: 0, blocked: false });
     case 'GET /api/economy/catalog':
       return json(200, catalog);
     case 'GET /api/economy/wallet':

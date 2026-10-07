@@ -29,6 +29,8 @@ export interface OnlineDeps {
   /** Which DEV_AUTH test user (`?devuser=2` in dev builds, to try two players side by side). */
   devUser?: { id: number; name: string };
   openInvoice?: (link: string) => Promise<InvoiceStatus>;
+  /** The device's offset from UTC in minutes (east positive), reported after sign-in for the bot's quiet hours. */
+  timeZoneOffset?: () => number | null;
   debounceMs?: number;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
@@ -117,6 +119,7 @@ export class Online {
         this.playerId = typeof r.player?.id === 'number' ? r.player.id : null;
         this.authFails = 0;
         void this.refreshEntitlements();
+        void this.reportTimeZone();
         return true;
       } catch {
         this.authFails++;
@@ -128,6 +131,17 @@ export class Online {
       }
     })();
     return this.authing;
+  }
+
+  /** Tells the server the device's time zone (bot notifications keep quiet at night). Fire and forget. */
+  private async reportTimeZone(): Promise<void> {
+    try {
+      const tz = this.d.timeZoneOffset?.();
+      if (typeof tz !== 'number' || !Number.isFinite(tz)) return;
+      await this.d.api.saveNotifySettings({ tzOffset: Math.max(-840, Math.min(840, Math.round(tz))) });
+    } catch {
+      /* a nicety: never matters to play */
+    }
   }
 
   private async reauth(): Promise<string | null> {

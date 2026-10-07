@@ -46,6 +46,20 @@ export interface Product {
   legacy?: boolean;
 }
 
+// ---------------------------------------------------------------- bot notifications (server/README.md "Bot notifications")
+
+export const NOTIFY_TYPES = ['attack', 'march', 'income', 'duel', 'clan', 'boss', 'season', 'market'] as const;
+export type NotifyType = (typeof NOTIFY_TYPES)[number];
+
+export interface NotifySettings {
+  types: { type: NotifyType; on: boolean }[];
+  /** Quiet hours 23:00-08:00 local (needs tzOffset). */
+  quiet: boolean;
+  tzOffset: number | null;
+  /** The bot cannot reach the player (blocked or never started): nothing is sent until /start. */
+  blocked: boolean;
+}
+
 // ---------------------------------------------------------------- economy (server/README.md "Economy")
 
 export type Currency = 'gold' | 'drachmae';
@@ -382,6 +396,18 @@ export class ApiClient {
 
   verifyBattle(body: VerifyRequest): Promise<VerifyResponse> {
     return this.request<VerifyResponse>('POST', '/api/battle/verify', { auth: true, body, timeoutMs: 20000 });
+  }
+
+  // ---------------------------------------------------------------- bot notifications
+
+  /** Per-type switches of the bot notifications (server/src/notify). */
+  notifySettings(): Promise<NotifySettings> {
+    return this.request<NotifySettings>('GET', '/api/notify/settings', { auth: true });
+  }
+
+  /** Changes some switches, quiet hours or the time zone offset (minutes east of UTC). */
+  saveNotifySettings(change: { on?: Partial<Record<NotifyType, boolean>>; quiet?: boolean; tzOffset?: number | null }): Promise<NotifySettings> {
+    return this.request<NotifySettings>('PUT', '/api/notify/settings', { auth: true, body: change });
   }
 
   // ---------------------------------------------------------------- economy

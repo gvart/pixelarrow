@@ -15,10 +15,16 @@ import { audio } from '../audio';
 import { t, type LangSetting, type TKey } from '../i18n';
 import { refreshLang } from './lang';
 import { canResume, progressOf } from '../game/tutorial';
+import { openAbout, openNotifySettings } from './notifySettings';
 
 type Toggle = { [K in keyof Settings]-?: Settings[K] extends boolean ? K : never }[keyof Settings];
 type Volume = 'musicVol' | 'sfxVol';
-type Row = { kind: 'toggle'; key: Toggle; label: TKey } | { kind: 'volume'; key: Volume; label: TKey } | { kind: 'lang'; label: TKey } | { kind: 'tutorial'; label: TKey };
+type Row =
+  | { kind: 'toggle'; key: Toggle; label: TKey }
+  | { kind: 'volume'; key: Volume; label: TKey }
+  | { kind: 'lang'; label: TKey }
+  | { kind: 'tutorial'; label: TKey }
+  | { kind: 'open'; what: 'notify' | 'about'; label: TKey };
 
 interface UiScene extends Phaser.Scene {
   ui: Phaser.GameObjects.Container;
@@ -37,6 +43,8 @@ const ROWS: Row[] = [
   { kind: 'toggle', key: 'pauseRout', label: 'settings.pauseRout' },
   { kind: 'toggle', key: 'pauseDeath', label: 'settings.pauseDeath' },
   { kind: 'tutorial', label: 'settings.tutorial' },
+  { kind: 'open', what: 'notify', label: 'settings.notifications' },
+  { kind: 'open', what: 'about', label: 'settings.about' },
 ];
 const LANG_CYCLE: LangSetting[] = ['auto', 'en', 'ru'];
 /** Scenes that may be rebuilt when the language changes (never a running battle). */
@@ -62,7 +70,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
     rowH,
     render: (i, row, rw) => {
       const r = ROWS[i];
-      const right = r.kind === 'volume' ? 70 : r.kind === 'lang' || r.kind === 'tutorial' ? 66 : 42;
+      const right = r.kind === 'volume' ? 70 : r.kind === 'lang' || r.kind === 'tutorial' || r.kind === 'open' ? 66 : 42;
       row.add(addText(scene, 0, 8, ellipsize(t(r.label).toUpperCase(), rw - right - 4), 'ink'));
       if (r.kind === 'toggle') {
         const k = r.key;
@@ -101,6 +109,15 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
           scene.scene.start('Battle', { tutorial: { replay: !resume } });
         });
         row.add(b);
+      } else if (r.kind === 'open') {
+        const what = r.what;
+        row.add(
+          new Button(scene, rw - 64, 1, 64, 22, {
+            label: t('settings.open'),
+            id: `settings.open.${what}`,
+            onClick: () => (what === 'notify' ? openNotifySettings(scene) : openAbout(scene)),
+          }),
+        );
       } else {
         const b = new Button(scene, rw - 64, 1, 64, 22, { label: t(`settings.lang.${s.lang ?? 'auto'}`), id: 'settings.lang' });
         b.setOnClick(() => {

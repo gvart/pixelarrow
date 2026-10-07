@@ -131,11 +131,18 @@ English/Russian and the online battle rules → tutorial battle → mythical bea
 
 ### Launch blockers (queued next, after the beasts)
 
-1. **Bot notifications** through the Telegram bot: your hex is attacked, a
-   march has arrived, income is full, a duel challenge, the season is ending.
-   Opt-out per type in settings, rate-limited, sent from the Worker.
-2. **Payment compliance:** `/paysupport` and `/terms` bot commands, a refund
-   flow, and privacy policy and terms pages on pixelarrow.app.
+1. **Bot notifications** (done): attacks on your land, captures and held
+   garrisons, march arrivals, a full treasury, duel challenges while
+   offline, clan news, world boss loot, the season ending in 3 days / 1 day,
+   marketplace sales. Opt-out per type (Settings → Notifications, bot
+   `/settings`), quiet hours, 4 messages an hour, coalescing, deep links into
+   the right screen. See server/README.md "Bot notifications".
+2. **Payment compliance** (done, legal texts await the operator's review):
+   `/paysupport`, `/terms`, `/delete_my_data`, the command menu in English
+   and Russian, and the terms, privacy and refund pages at
+   pixelarrow.app/terms, /privacy, /refunds (and /ru/...), linked from
+   Settings → About and the wallet. See server/README.md "Payment support
+   and legal pages".
 3. **Error monitoring and analytics:** client crash reports, plus funnel and
    retention events (tutorial completed, first battle, first purchase, day-1
    and day-7 return), in Cloudflare Analytics Engine or a similar low-cost

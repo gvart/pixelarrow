@@ -6,6 +6,7 @@ import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
 import { inTelegram, telegramUserName } from '../platform/telegram';
 import { openSettings } from '../ui/settings';
+import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
 import { MAX_ARMY } from '../data/units';
 import { addSyncBadge } from '../ui/online';
 import { confirmDialog } from '../ui/widgets';
@@ -21,7 +22,7 @@ export class MenuScene extends BaseScene {
     super('Menu');
   }
 
-  create(): void {
+  create(data?: { settings?: 'notify' }): void {
     this.initUi();
     this.screen({ back: null }); // root: Telegram shows Close
     const { VW, VH } = this.m;
@@ -117,6 +118,20 @@ export class MenuScene extends BaseScene {
     const who = telegramUserName();
     const saveLabel = inTelegram() ? (who ? t('menu.cloudSaveOf', { name: who }) : t('menu.cloudSave')) : t('menu.localSave');
     this.ui.add(addText(this, VW / 2, fy - 11, ellipsize(saveLabel.toUpperCase(), VW - 16, true), 'light', 0.5));
+    // Opened from a bot message's "Open in the game" (startapp=settings).
+    if (data?.settings === 'notify') this.openNotifications();
+  }
+
+  /** Settings with the notification switches on top (`demo`: in-memory switches, for the layout check). */
+  openNotifications(demo = false): void {
+    this.openSettings();
+    openNotifySettings(this, demo ? { source: demoNotifySource() } : {});
+  }
+
+  /** Settings → About (terms, privacy, refunds). */
+  openAboutPage(): void {
+    this.openSettings();
+    openAbout(this);
   }
 
   update(time: number): void {

@@ -29,6 +29,11 @@ server/
                       attack.ts (tickets, verified attacks), clans.ts, duel.ts (lobby, lockstep relay),
                       store.ts (seasons, shards, homes, D1 access), income.ts, context.ts,
                       consumables.ts (season inventory, use), market.ts (town marketplace)
+    notify/           bot notifications: outbox.ts (enqueue, delivery rules, flush), templates.ts (EN/RU
+                      texts, coalescing, deep links), jobs.ts (cron: season/income notices, bot setup),
+                      routes.ts (/api/notify/settings)
+    bot/              commands.ts (command menu EN/RU), handlers.ts (/settings, /paysupport, /terms,
+                      /delete_my_data, settings buttons)
     economy/          routes.ts (/api/economy: catalog, wallet, buy, cosmetics, season pass),
                       catalog.ts (cosmetics, pass tiers, market limits: all prices), wallet.ts (Drachmae
                       ledger helpers), pass.ts (pass XP)
@@ -44,7 +49,9 @@ server/
   migrations/0003_economy.sql wallets, Drachmae ledger, shop orders, cosmetic loadout, consumables
                              (season inventory, daily caps), battle_tickets.consumable, season pass,
                              market listings and audit
+  migrations/0005_notifications.sql notification settings, outbox and log, support_requests, bot state
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
+  scripts/bot-setup.mjs      one-off: setMyCommands (EN/RU) and setWebhook with the allowed updates
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
 ```
 
@@ -70,6 +77,7 @@ Authenticated routes take `Authorization: Bearer <token>`.
 | … | `/api/economy/*` | ✓ (catalog –) | Drachmae, shop, cosmetics, season pass: see "Economy" |
 | GET | `/api/entitlements` | ✓ | `{ entitlements: [{productId, grantedAt}], purchases: [...] }` |
 | POST | `/api/telegram/webhook` | secret header | bot updates (see below) |
+| GET / PUT | `/api/notify/settings` | ✓ | bot notification switches, see "Bot notifications" |
 | GET (WS) | `/ws/region/:id` | token | presence WebSocket (see below) |
 | … | `/api/online/*` | ✓ | online mode, see "Online mode" |
 | GET (WS) | `/ws/online` | token | the player's shard: presence, duel lobby, lockstep relay |
@@ -135,7 +143,11 @@ update it if `BattleSetup`/`Order` change.
 TELEGRAM_WEBHOOK_SECRET` (constant-time compare), otherwise 401.
 
 - `/start` → replies with an inline **web_app** button opening `GAME_URL`
-  (https://pixelarrow.app).
+  (https://pixelarrow.app); it also re-enables notifications for a player
+  whose bot was blocked.
+- `/settings`, `/paysupport`, `/terms`, `/delete_my_data` and the `/settings`
+  buttons (`callback_query`): see "Bot notifications" and "Payment support
+  and legal pages".
 - `pre_checkout_query` → checks the payload (`v1:<product>:<playerId>:<nonce>`),
   that the product exists, currency `XTR` and amount match `products.ts`, the
   payer is the player the invoice was made for and does not already own it,
@@ -201,7 +213,8 @@ player's or their clan's land and armies; anything else is 404 `fogged`.
 
 **Lazy time.** Income (`accrued_at`, capped at 24 h), energy (`energy_at`),
 marches (arrival time per hex), wounds, ticket expiry, hex locks and neutral
-respawns are all computed on read from server time. No alarms or polling.
+respawns are all computed on read from server time. No alarms or polling
+(the only scheduled work is bot notifications, see "Bot notifications").
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -431,6 +444,118 @@ the reward in one batch; claiming again grants nothing.
   nothing is refunded.
 - Every list, buy, cancel and expiry is in `market_audit` (actor, price, fee).
 
+## Bot notifications
+
+Code: `src/notify/` (delivery), `src/bot/` (commands), shared deep links in
+`../src/online/deeplink.ts`. Tests: `test/notify.test.ts`.
+
+| Type (opt-out) | Events | Trigger | Button opens |
+| --- | --- | --- | --- |
+| `attack` | under attack / captured / garrison held | `attack/start` (garrison or militia defends), `attack/submit` (to the previous owner) | `hex_<q>_<r>` |
+| `march` | march arrived | the shard object's alarm at the arrival time (marches of 5 min or more; a halt or capture cancels it) | `hex_<q>_<r>` |
+| `income` | treasury full (24 h cap) | cron, hourly: the oldest uncollected hex reached `incomeCapHours`; once per accrual clock | `income` |
+| `duel` | challenged while offline | a `challenge` to a player of the shard without an open socket (the challenger still gets `unavailable`) | `duel` |
+| `clan` | invite accepted (to the inviter), rank changed, kicked | `/clans/join`, `/clans/promote`, `/clans/kick` | `myclan` |
+| `boss` | a boss you damaged was slain: your share and items | the killing `boss/submit` (everyone with a loot share but the killer) | `boss_<q>_<r>` |
+| `season` | the season ends in 3 days / 1 day | cron, once per season and step (`bot_meta`) | `season` |
+| `market` | listing sold | `/market/buy` (to the seller) | `market` |
+
+**Flow.** Hooks never send: after the response is decided they hand events
+to `notify()` through `ctx.waitUntil` (`later()`; the DO awaits it in its
+alarm / `waitUntil`), so a slow or failing Telegram never delays or breaks a
+game request. Events with a `shard` are dropped for players who have the war
+table open in that shard right now. `notify()` writes `notify_outbox` rows,
+unique per `(player, dedupe key)` (a ticket id, listing id, accrual clock...),
+then tries to deliver the player's pending rows:
+
+1. **opt-outs** per type (`notify_settings.disabled`) → `skipped`;
+2. **blocked bot**: a 403 (or 400 "chat not found" / "bot can't initiate
+   conversation", i.e. the player never started the bot) sets `blocked_at`
+   and skips everything pending; nothing is sent until the player messages
+   the bot (`/start`) again;
+3. **stale** events (per-type TTL, 1–24 h) → `skipped`;
+4. **quiet hours** 23:00–08:00 local, only when the Mini App reported the
+   device's UTC offset (after sign-in; Telegram does not tell bots a time
+   zone) and the player left them on → wait;
+5. **rate limit**: at most `NOTIFY_RULES.maxPerHour` = 4 messages per player
+   per rolling hour (`notify_log`) → wait;
+6. **coalescing**: after a message of a type, newer events of that type wait
+   for the type's window (attacks and duels 15 min, market 20 min, clan
+   10 min, march 5 min), then go out as **one** message: "3 attacks on your
+   land in the last hour. Hexes lost: 1, attacks held: 1", "2 of your
+   listings sold: +81 gold, +18 Drachmae", ...
+
+Rows are claimed (`pending → sending`) before the send, so two concurrent
+flushes never double-send; a 429, 5xx or network error puts them back for
+the next run. Messages are EN or RU by the player's Telegram `language_code`,
+end with "Turn these off: /settings" and carry one inline **web_app** button
+`https://pixelarrow.app/?startapp=<route>`; `BootScene` routes it
+(`parseStartParam` / `sceneForRoute` in `src/online/deeplink.ts`): `hex_q_r`
+and `boss_q_r` centre the war table on the hex and select it, `duel` opens the
+lobby, `market` the marketplace, `myclan` the clan, `settings` the menu with
+Settings → Notifications, `wallet` the shop's wallet; `clan_<code>` is still
+a clan invite.
+
+**Cron** (`wrangler.jsonc` `triggers.crons`, every 5 minutes,
+`src/notify/jobs.ts`): registers the command menu once per `COMMANDS_VERSION`
+(and adds `callback_query` to the webhook's allowed updates if a restricted
+list lacks it), enqueues the season notices and (hourly) the treasury
+notices, delivers whatever waited and deletes outbox rows older than 3 days
+and logs older than 2 days.
+
+**Settings.** `GET /api/notify/settings` → `{ types: [{type, on}], quiet,
+tzOffset, blocked }`; `PUT` with `{ on?: {type: bool}, quiet?: bool,
+tzOffset?: minutes east of UTC }`. In the game: Settings → Notifications; in
+the bot: `/settings` (a button per type, toggled with `callback_query`
+`ns:<type>` / `ns:quiet`, plus "Open in the game"). No row means everything
+on.
+
+**Cost.** Sending is plain `fetch` to the Bot API inside `waitUntil`
+(no extra Worker invocations). The cron is 288 runs a day, each a handful of
+D1 queries; the hooks add 1–3 D1 writes per event. That stays far inside the
+free plan (100k requests and 100k D1 writes / 5M reads a day). Cloudflare
+Queues would need the paid Workers plan ($5/month) and buy nothing here: the
+outbox plus the cron already give retries and batching. Telegram allows about
+30 messages a second per bot; a cron run flushes at most 200 players.
+
+## Payment support and legal pages
+
+Bot commands (registered with `setMyCommands` in English and Russian by the
+cron, or by hand: `TELEGRAM_BOT_TOKEN=... [TELEGRAM_WEBHOOK_SECRET=...] node
+server/scripts/bot-setup.mjs`, which also sets the webhook with
+`allowed_updates: message, pre_checkout_query, callback_query`):
+
+- `/paysupport` explains how help works and waits 30 min for a description
+  (or takes it inline: `/paysupport <text>`). The text (≤ 2000 chars) goes to
+  **`support_requests`** (`kind = 'payment'`, Telegram id and username,
+  player id, language, the player's last 5 Stars purchases as JSON, `status
+  = 'open'`); the user gets "request #N logged". At most 5 requests per user
+  per day.
+- `/delete_my_data` logs `kind = 'deletion'` the same way and acknowledges.
+  Deletion itself is done by the operator (admin panel or SQL).
+- `/terms` links the terms, privacy and refund pages (Russian ones for
+  Russian-speaking users).
+- `/settings`: notification switches (above).
+
+Open requests: `npx wrangler d1 execute pixelarrow --remote --config
+../wrangler.jsonc --command "SELECT id, kind, telegram_id, username, text,
+purchases, created_at FROM support_requests WHERE status = 'open' ORDER BY
+id"`; mark one done with `UPDATE support_requests SET status = 'closed',
+resolved_at = <ms>, note = '...' WHERE id = N`. Refund a Stars payment with
+the Bot API's `refundStarPayment(user_id, telegram_payment_charge_id)`: the
+`refunded_payment` update then revokes the Drachmae through the webhook.
+
+**Legal pages** are static files in the root `public/` (copied into `dist/`
+by vite, served by the Worker's assets): `/terms`, `/privacy`, `/refunds` and
+`/ru/terms`, `/ru/privacy`, `/ru/refunds`, styled by `/legal.css`. They are
+linked from Settings → About, the shop's wallet tab and `/terms`.
+
+> **Operator: review these texts and fill in the placeholders**
+> (`[OPERATOR NAME]`, `[OPERATOR ADDRESS / COUNTRY]`, `[CONTACT EMAIL]`,
+> `[EFFECTIVE DATE]`, `[JURISDICTION]`, retention periods and `[N]` days)
+> before launch. They describe what the game actually collects and does, but
+> they are not legal advice. `grep -rn '\[[A-Z]' public/` lists what is left.
+
 ## Local development
 
 ```bash
@@ -486,7 +611,7 @@ typecheck, tests, build → `server/` `npm ci`, typecheck, tests →
      -H 'content-type: application/json' \
      -d "{\"url\":\"https://pixelarrow.app/api/telegram/webhook\",
           \"secret_token\":\"$TELEGRAM_WEBHOOK_SECRET\",
-          \"allowed_updates\":[\"message\",\"pre_checkout_query\"],
+          \"allowed_updates\":[\"message\",\"pre_checkout_query\",\"callback_query\"],
           \"drop_pending_updates\":true}"
    curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
    ```
