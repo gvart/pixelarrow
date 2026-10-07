@@ -231,3 +231,42 @@ with DESIGN.md or ROADMAP.md, this document wins.
 - **Possible later tuning:** if attacks feel too cheap, a won hex takes a few
   minutes to occupy (the army is exposed during that time), or armies get a
   longer rest after each battle.
+
+## UX principles (hard requirements for every screen)
+
+- **Everything fits.** No overlapping, clipped, cut-off or collapsing
+  elements, and no text running outside its box. This must hold on small and
+  large phones and inside Telegram's safe area.
+- **Long content** uses one clear pattern per screen:
+  - tabs for separate sections (for example Hero: Stats | Gear | Perks);
+  - vertical scrolling lists with momentum and a visible scroll hint for long
+    collections (roster, inventory, marketplace);
+  - compact cards that expand on tap for details.
+
+  Never shrink text or buttons to make content fit.
+- **Readable:** pixel text at its native integer scale; at least about 8 px
+  base font times the UI scale. Text that might not fit gets a short form,
+  wraps to a fixed number of lines, or ends in "…" with the full text on tap.
+  It never overflows.
+- **Touch targets:** at least about 44 × 44 pt, with at least 4 pt of spacing.
+  The most important actions are reachable by thumb at the bottom of the
+  screen.
+- **Clear hierarchy:** one primary action per screen (filled, red); secondary
+  actions are outlined; destructive actions ask for confirmation. Use
+  consistent icons and colour meanings everywhere (rarity colours, the battle
+  panel's category colours).
+- **Feedback:** every tap gives an immediate visual press state, a sound and a
+  haptic. Loading and disabled states are visible, and a disabled button says
+  why on tap. Empty states explain what to do next.
+- **Discoverable:** a long-press on any icon or button shows a tooltip. Show a
+  first-time hint once per screen.
+- **Automated checks:** every screen is tested in Playwright at 320 × 568
+  (small), 375 × 667, 390 × 844, 430 × 932 and 360 × 780 (Android), with and
+  without the Telegram safe-area insets. A layout check fails CI when:
+  - interactive elements overlap;
+  - text overflows its container or is clipped;
+  - an element falls outside the safe area;
+  - a touch target is below the minimum size.
+
+  Each scene exposes its UI element bounds for the check, for example through a
+  debug registry. Screenshots of every screen and size are saved for review.
