@@ -373,6 +373,22 @@ const SCREENS = [
       return wait(p, 3500);
     },
   },
+  // ---- mythical beasts (owner A): the Beast trial list, a beast's info panel, a beast battle with the boss bar
+  { id: 'trial', owner: 'A', run: async (p) => (await start(p, 'BeastTrial'), wait(p, 900)) },
+  { id: 'trial-info', owner: 'A', run: async (p) => (await start(p, 'BeastTrial'), await wait(p, 700), await call(p, 'BeastTrial', `s.open('hydra'); return 1;`), wait(p, 500)) },
+  {
+    id: 'battle-beast',
+    owner: 'A',
+    run: async (p) => {
+      await start(p, 'BeastTrial');
+      await wait(p, 600);
+      await call(p, 'BeastTrial', `s.fight('cyclops'); return 1;`);
+      await until(p, activeIs('Battle'));
+      await wait(p, 700);
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 6 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); s.buildHud(); return 1;`);
+      return wait(p, 600);
+    },
+  },
   { id: 'online', owner: 'C', run: async (p) => (await start(p, 'Online'), wait(p, 1800)) },
   // The war-table hex map on the local demo shard (src/online/demoShard.ts): HUD, hex panel states, dialogs.
   ...[

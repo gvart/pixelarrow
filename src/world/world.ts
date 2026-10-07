@@ -6,6 +6,7 @@
  *
  * Only `WorldSave` is persisted; the map itself is regenerated from the seed.
  */
+import { bandBeast, beastEnemy } from '../game/beasts';
 import { Rng, hashString } from '../sim/rng';
 import type { Culture } from '../data/names';
 import { ITEM_LIST, itemValue, type Item } from '../data/items';
@@ -604,5 +605,8 @@ function makeRecruit(def: SettlementDef, key: string, ids: IdSource, roster: rea
 
 /** The band's army, generated from its seed (identical at every call). */
 export function partyArmy(p: PartyState, ids: IdSource): EnemyArmy {
+  // Now and then a lair's band is a mythical beast (src/game/beasts.ts): a rare encounter.
+  const beast = p.kind !== 'mercs' ? bandBeast(p.seed) : null;
+  if (beast) return beastEnemy(beast, Math.max(2, p.level + 1), p.seed, ids);
   return buildArmy(new Rng(p.seed), ids, { culture: p.culture, count: p.size, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false });
 }

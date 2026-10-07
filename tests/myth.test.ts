@@ -403,3 +403,29 @@ describe('world bosses carry their wounds', () => {
     expect(arm.state).toBe('dead');
   });
 });
+
+describe('beast hoards', () => {
+  it('a slain beast drops its hoard: rare or better gear, the only regular Legendary source', async () => {
+    const { beastArmy, bandBeast } = await import('../src/game/beasts');
+    const { lootPool } = await import('../src/game/loot');
+    const rarities = new Set<string>();
+    for (let s = 1; s <= 60; s++) {
+      const heroes = beastArmy('cyclops', 4, new Rng(s), { nextId: 1 }, 2);
+      const items = Object.values(heroes[0].equip).filter(Boolean);
+      expect(items).toHaveLength(2);
+      for (const it of items) {
+        expect(['rare', 'epic', 'legendary']).toContain(it!.rarity);
+        rarities.add(it!.rarity);
+      }
+    }
+    expect(rarities.has('legendary')).toBe(true);
+    // the hoard is in the loot of a battle in which the beast was slain
+    const heroes = beastArmy('minotaur', 4, new Rng(3), { nextId: 1 }, 2);
+    const pool = lootPool({ winner: 0, ticks: 1, units: [{ heroId: heroes[0].id, side: 1, state: 'dead', kills: 0, killedBy: 0, ko: false, hp: 0, maxHp: 1, wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 } }] }, heroes);
+    expect(pool).toHaveLength(2);
+    // a few of the overland bands are beasts
+    const n = Array.from({ length: 1400 }, (_, i) => bandBeast(i)).filter(Boolean).length;
+    expect(n).toBeGreaterThan(60);
+    expect(n).toBeLessThan(160);
+  });
+});

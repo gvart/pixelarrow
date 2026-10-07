@@ -37,6 +37,8 @@ import type { Look } from '../data/units';
 import { itemDef, type Item, type ItemPaint } from '../data/items';
 import type { Hero } from '../data/units';
 import { CLASSES, classOfHero, type BeastId, type MountId } from '../data/classes';
+import { isMythId } from '../data/beasts';
+import { MYTH_GEOM, buildMyth, mythBasis } from './beastArt';
 
 export const FRAME_NAMES = ['idle0', 'idle1', 'walk0', 'walk1', 'walk2', 'walk3', 'atk0', 'atk1', 'atk2', 'hit', 'die0', 'die1', 'die2'] as const;
 export const NFRAMES = FRAME_NAMES.length;
@@ -86,6 +88,8 @@ export interface DollSpec {
   coat?: number;
   /** Variation seed (wear, dirt). */
   seed?: number;
+  /** Mythical beasts: 'sp' = the sheet of signature moves (src/art/beastArt.ts). */
+  pose?: 'sp';
 }
 
 export function dollFromHero(h: Pick<Hero, 'look' | 'equip' | 'cls' | 'arch' | 'culture' | 'id'>): DollSpec {
@@ -123,11 +127,12 @@ function hashId(s: string): number {
 export function dollKey(d: DollSpec): string {
   const l = d.look;
   const p = (x?: ItemPaint) => (x ? `${x.emblem ?? ''}.${x.field ?? ''}.${x.ink ?? ''}` : '');
-  if (d.beast) return `beast_${d.beast}`;
+  if (d.beast) return `beast_${d.beast}${d.pose ?? ''}${d.beast === 'hydra_head' || d.beast === 'kraken_arm' ? `_${(d.seed ?? 0) % 3}` : ''}`;
   return `doll2_${l.skin}${l.hair}${l.hairStyle}${l.beard}${l.tunic}_${d.weapon ?? '-'}_${d.shield?.art ?? '-'}${p(d.shield?.paint)}_${d.helmet?.art ?? '-'}${p(d.helmet?.paint)}_${d.armor ?? '-'}_${d.cloak ?? ''}${d.trousers ?? ''}${d.bare ? 'b' : ''}_${d.mount ?? ''}${d.coat ?? ''}_${(d.seed ?? 0) % 4}`;
 }
 
 export function dollGeom(d: DollSpec): SheetGeom {
+  if (isMythId(d.beast)) return MYTH_GEOM[d.beast];
   if (d.beast === 'bear') return GEOM.bear;
   if (d.beast) return GEOM.small;
   if (d.mount === 'chariot') return GEOM.chariot;
@@ -150,7 +155,8 @@ export function renderFrame(d: DollSpec, frame: number, dir: number): Pix {
   const sc = new Scene();
   const [fx, fy] = DIRS[dir];
   const B = basis(fx, fy);
-  if (d.beast) buildBeast(sc, d.beast, frame, B, d.seed ?? 0);
+  if (isMythId(d.beast)) buildMyth(sc, d.beast, frame, mythBasis(fx, fy), d.pose === 'sp', (d.seed ?? 0) % 3);
+  else if (d.beast) buildBeast(sc, d.beast, frame, B, d.seed ?? 0);
   else if (d.mount === 'chariot') buildChariot(sc, d, frame, B, dir);
   else if (d.mount) buildRider(sc, d, frame, B, dir);
   else buildMan(sc, d, frame, B, dir, manPose(d, frame));

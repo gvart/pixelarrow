@@ -178,6 +178,13 @@ export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly S
       case 'retreat':
         if (e.side === me) sfx.play('hornLow');
         break;
+      case 'myth':
+        heat += 0.12;
+        beastAudio(e, at);
+        break;
+      case 'horn':
+        sfx.play('horn', { pri: 3, vol: e.side === me ? 1 : 0.7 });
+        break;
       case 'end':
         if (!st.ended) {
           st.ended = true;
@@ -195,4 +202,20 @@ export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly S
   st.last = now;
   st.heat = Math.min(1.2, st.heat * Math.exp(-dt / 5) + heat);
   if (sim.phase === 'battle') music.heat(Math.min(1, st.heat));
+}
+
+// ------------------------------------------------------------------ mythical beasts
+
+const MYTH_SFX: Partial<Record<string, SfxId>> = {
+  hurl: 'hurl', boulder: 'boulder', stomp: 'stomp', quake: 'stomp', sever: 'sever', regrow: 'hiss', seal: 'hiss', grab: 'impact',
+  dive: 'screech', strike: 'screech', pounce: 'roar', land: 'impact', charge: 'roar', trample: 'impact', balk: 'bash',
+  enrage: 'roar', breath: 'fire', goat: 'bleat', tail: 'hiss', roar: 'roar', immune: 'block',
+};
+
+/** A beast's signature move -> its sound (one line per act above). */
+function beastAudio(e: Extract<SimEvent, { type: 'myth' }>, at: (x: number, y: number, extra?: PlayOpts) => PlayOpts): void {
+  const id = MYTH_SFX[e.act];
+  if (!id) return;
+  const big = e.act === 'boulder' || e.act === 'quake' || e.act === 'enrage' || e.act === 'charge';
+  sfx.play(id, at(e.act === 'boulder' ? e.tx : e.x, e.act === 'boulder' ? e.ty : e.y, big ? { pri: 2 } : undefined));
 }

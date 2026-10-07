@@ -92,7 +92,10 @@ export class MenuScene extends BaseScene {
     cont.setEnabled(state.hasSave, t('menu.noSave'));
     mk(1, t('menu.newCampaign'), 'flag', () => (state.hasSave ? this.confirmReset() : this.newCampaign()));
     mk(2, t('menu.online'), 'swords', () => this.scene.start('Online', {}));
-    mk(3, t('menu.shop'), 'coin', () => this.openShop());
+    // the shop and the Beast trial share a row
+    const half = Math.floor((pw - SIZE.gap) / 2);
+    this.ui.add(new Button(this, px, py + 3 * (bh + gap), half, bh, { label: t('menu.shop'), icon: 'coin', onClick: () => this.openShop() }));
+    this.ui.add(new Button(this, px + half + SIZE.gap, py + 3 * (bh + gap), pw - half - SIZE.gap, bh, { label: t('menu.trial'), icon: 'beast', onClick: () => this.openTrial() }));
     mk(4, t('menu.settings'), 'gear', () => this.openSettings());
 
     // Footer status
@@ -132,6 +135,12 @@ export class MenuScene extends BaseScene {
   openShop(): void {
     this.closeOverlay();
     this.scene.start('Shop', { back: { scene: 'Menu' } });
+  }
+
+  /** The Beast trial: fight any mythical beast offline. */
+  openTrial(): void {
+    this.closeOverlay();
+    this.scene.start('BeastTrial');
   }
 
   private openSettings(): void {

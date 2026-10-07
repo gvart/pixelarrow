@@ -366,6 +366,80 @@ export const RECIPES = {
     osc(c, out, t, { f: 120, f1: 60, dur: 0.08, gain: 0.3 });
     return 0.22;
   },
+  // ---- mythical beasts (src/sim/myth.ts events, src/audio/hooks.ts beastAudio)
+  /** A giant's roar: a deep distorted growl swelling and breaking off. */
+  roar: (c, out, t, r) => {
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(260, t);
+    lp.frequency.linearRampToValueAtTime(900, t + 0.35);
+    lp.frequency.exponentialRampToValueAtTime(180, t + 1.3);
+    lp.Q.value = 3;
+    lp.connect(out);
+    const g = grit(c, lp, 8);
+    osc(c, g, t, { type: 'sawtooth', f: r.jit(46, 0.08), f1: r.jit(38, 0.08), dur: 1.25, gain: 0.45, a: 0.15, vib: [7, 60] });
+    osc(c, g, t, { type: 'sawtooth', f: r.jit(69, 0.08), f1: 52, dur: 1.1, gain: 0.3, a: 0.2 });
+    noise(c, out, t, { dur: 1.2, gain: 0.35, f: r.jit(420, 0.15), f1: 220, q: 3, a: 0.12, rate: 0.5 });
+    return 1.4;
+  },
+  /** Harpies: shrill, wavering shrieks. */
+  screech: (c, out, t, r) => {
+    const g = grit(c, out, 3);
+    osc(c, g, t, { type: 'sawtooth', f: r.jit(1250, 0.15), f1: r.jit(820, 0.1), dur: 0.55, gain: 0.14, a: 0.03, vib: [23, 140] });
+    osc(c, g, t + 0.05, { type: 'square', f: r.jit(1700, 0.1), f1: r.jit(1150, 0.1), dur: 0.45, gain: 0.07, a: 0.04, vib: [17, 90] });
+    noise(c, out, t, { dur: 0.5, gain: 0.25, f: r.jit(3100, 0.2), f1: 1800, q: 6, a: 0.03 });
+    return 0.65;
+  },
+  /** A boulder lands: a huge earthy boom, cracking stone, gravel. */
+  boulder: (c, out, t, r) => {
+    const g = grit(c, out, 4);
+    osc(c, g, t, { f: r.jit(48, 0.08), f1: 24, dur: 0.6, gain: 0.85 });
+    noise(c, g, t, { dur: 0.55, gain: 0.7, f: 240, type: 'lowpass', brown: true });
+    noise(c, out, t, { dur: 0.06, gain: 0.45, f: r.jit(1900, 0.2), q: 1.5 });
+    for (let i = 0; i < 7; i++) noise(c, out, t + 0.05 + r.range(0, 0.45), { dur: 0.03, gain: 0.12, f: r.jit(2600, 0.3), q: 3 });
+    return 0.9;
+  },
+  /** A boulder leaves the giant's hands: a grunt and a heavy whoosh. */
+  hurl: (c, out, t, r) => {
+    grunt(c, out, t, r, 0.3, 0.45, 0.6);
+    noise(c, out, t + 0.1, { dur: 0.5, gain: 0.35, f: 300, f1: 900, q: 1.5, a: 0.15 });
+    return 0.65;
+  },
+  /** Stomp / quake: a ground-shaking thud and rumble. */
+  stomp: (c, out, t, r) => {
+    const g = grit(c, out, 3);
+    osc(c, g, t, { f: r.jit(40, 0.05), f1: 22, dur: 0.8, gain: 0.9 });
+    noise(c, g, t, { dur: 0.9, gain: 0.6, f: 160, type: 'lowpass', brown: true, a: 0.01 });
+    clatter(c, out, t + 0.05, r, 5, 0.5, 0.04);
+    return 1.0;
+  },
+  /** Fire breath: a roaring whoosh of flame with crackle. */
+  fire: (c, out, t, r) => {
+    noise(c, out, t, { dur: 1.0, gain: 0.55, f: 380, f1: 1400, q: 0.8, a: 0.12, brown: true });
+    noise(c, out, t + 0.05, { dur: 0.9, gain: 0.3, f: 2400, f1: 900, q: 1.2, a: 0.1 });
+    for (let i = 0; i < 9; i++) noise(c, out, t + r.range(0.1, 1.0), { dur: 0.015, gain: 0.18, f: r.jit(3500, 0.3), q: 2 });
+    return 1.15;
+  },
+  /** A serpent's hiss (the hydra, the chimera's tail). */
+  hiss: (c, out, t, r) => {
+    noise(c, out, t, { dur: r.range(0.45, 0.65), gain: 0.35, f: r.jit(5200, 0.15), f1: 3800, q: 1.5, a: 0.05, type: 'highpass' });
+    return 0.7;
+  },
+  /** A severed head or arm: a wet chop and a shriek. */
+  sever: (c, out, t, r) => {
+    const g = grit(c, out, 3);
+    noise(c, g, t, { dur: 0.1, gain: 0.6, f: r.jit(600, 0.2), type: 'lowpass' });
+    osc(c, g, t, { f: r.jit(140, 0.1), f1: 60, dur: 0.12, gain: 0.4 });
+    osc(c, out, t + 0.06, { type: 'sawtooth', f: r.jit(420, 0.1), f1: 180, dur: 0.5, gain: 0.08, vib: [12, 80] });
+    return 0.6;
+  },
+  /** The goat head bleats: a cracked, distorted bleat. */
+  bleat: (c, out, t, r) => {
+    const g = grit(c, out, 4);
+    osc(c, g, t, { type: 'sawtooth', f: r.jit(310, 0.08), f1: 260, dur: 0.6, gain: 0.12, vib: [9, 120], a: 0.03 });
+    noise(c, out, t, { dur: 0.55, gain: 0.25, f: 900, q: 6, a: 0.03 });
+    return 0.7;
+  },
 } satisfies Record<string, Recipe>;
 
 export type SfxId = keyof typeof RECIPES;
@@ -402,6 +476,15 @@ export const PRIORITY: Record<SfxId, number> = {
   back: 10,
   error: 10,
   warning: 10,
+  roar: 9,
+  screech: 6,
+  boulder: 8,
+  hurl: 6,
+  stomp: 8,
+  fire: 8,
+  hiss: 4,
+  sever: 7,
+  bleat: 6,
 };
 
 /** Base loudness per sound before spatial attenuation and the SFX bus. */

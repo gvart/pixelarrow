@@ -31,6 +31,7 @@ import { itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { BattleFx } from '../ui/battleFx';
+import { BeastView } from '../ui/beastView';
 import { openSettings } from '../ui/settings';
 import { battleAudio, uiError } from '../audio/hooks';
 import { sfx } from '../audio';
@@ -161,6 +162,8 @@ export class BattleScene extends BaseScene {
   private hudDirty = true;
   private groupList: ScrollList | null = null;
   private fx!: BattleFx;
+  /** Mythical beasts on screen (src/ui/beastView.ts); null without beasts. */
+  private beasts: BeastView | null = null;
   /** Camera follows the fighting until the player pans or pinches. */
   private follow = true;
   private followBtn: Button | null = null;
@@ -309,6 +312,7 @@ export class BattleScene extends BaseScene {
       this.views.push({ u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big });
     }
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
+    this.beasts = BeastView.create(this, this.sim, this.views, this.world, this.ui, this.me, this.m.VW, TOP);
 
     // ---- cameras
     const cam = this.cameras.main;
@@ -529,6 +533,7 @@ export class BattleScene extends BaseScene {
     this.fx.update(this.paused ? 0 : delta);
     pumpDolls(this.sim.phase === 'battle' && !this.paused ? 4 : 8);
     this.renderUnits(alpha);
+    this.beasts?.update(alpha, !!this.banner);
     this.renderProjectiles(alpha);
     this.renderBoxes();
     this.updateProps();
@@ -758,6 +763,7 @@ export class BattleScene extends BaseScene {
   private handleEvents(events: SimEvent[]): void {
     const st = state.campaign.data.settings;
     battleAudio(this, this.sim, events, this.me);
+    this.beasts?.events(events);
     for (const e of events) {
       switch (e.type) {
         case 'hit': {
@@ -1785,9 +1791,20 @@ export class BattleScene extends BaseScene {
       case 'abilities': {
         const ids: AbilityId[] = [];
         for (const u of this.selectedUnits()) for (const id of u.abil) if (!ids.includes(id)) ids.push(id);
-        return ids.slice(0, 5).map((id) => ({ key: id, icon: ABILITIES[id].icon, label: abilityShort(id), tip: `${abilityName(id)}: ${tOr(`ability.${id}.desc`, ABILITIES[id].desc)}`, run: () => this.useAbility(id), ability: id }));
+        const cmds: ReturnType<BattleScene['commandsFor']> = ids.slice(0, 5).map((id) => ({ key: id, icon: ABILITIES[id].icon, label: abilityShort(id), tip: `${abilityName(id)}: ${tOr(`ability.${id}.desc`, ABILITIES[id].desc)}`, run: () => this.useAbility(id), ability: id }));
+        // the war horn (a battle consumable): one army-wide rally
+        if (this.sim.horns[this.me] > 0 && this.sim.phase === 'battle') cmds.unshift({ key: 'horn', icon: 'horn', label: t('battle.horn'), tip: t('battle.horn.tip'), run: () => this.blowHorn() });
+        return cmds.slice(0, 5);
       }
     }
+  }
+
+  private blowHorn(): void {
+    this.order({ kind: 'horn' });
+    haptic('heavy');
+    this.showBanner(t('battle.banner.horn'), 1400);
+    this.hudDirty = true;
+    this.buildHud();
   }
 
   /** Throw / loose at will: toggles; says so when nobody is in range yet. */

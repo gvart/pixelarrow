@@ -144,7 +144,7 @@ export const MYTHS: Record<MythId, MythDef> = {
   hydra_head: D({
     id: 'hydra_head', name: 'Hydra head', desc: 'Strikes on a long neck. Finish it fast, then strike the body.', partOf: 'hydra',
     radius: 0.42, hp: 72, dmg: 13, atkTime: 1.7, reach: 1.35, armor: 2, morale: 400, speed: 0, missile: 0.5,
-    terror: 0.0, terrorRadius: 0, weight: 0, tall: 44,
+    terror: 0.0, terrorRadius: 0, weight: 0, tall: 66,
     sp: {},
   }),
   cyclops: D({
@@ -228,7 +228,7 @@ export interface EncounterDef {
 }
 
 export const ENCOUNTERS: Record<EncounterId, EncounterDef> = {
-  hydra: { id: 'hydra', body: 'hydra', parts: { id: 'hydra_head', count: 5 }, levels: [3, 4, 5, 6, 8], armySize: 12, hints: 3, terrain: ['forest', 'plains', 'farmland'], color: 0x4f7a3a },
+  hydra: { id: 'hydra', body: 'hydra', parts: { id: 'hydra_head', count: 5 }, levels: [3, 4, 5, 6, 8], armySize: 12, hints: 3, terrain: ['forest', 'plains', 'farmland'], color: 0x3a6a66 },
   cyclops: { id: 'cyclops', body: 'cyclops', levels: [3, 4, 5, 6, 8], armySize: 12, hints: 3, terrain: ['hills', 'mine'], color: 0x8a6a4a },
   harpies: { id: 'harpies', body: 'harpy', flock: 6, levels: [2, 3, 4, 5, 7], armySize: 10, hints: 3, terrain: ['hills', 'ruins'], color: 0x6a5a7a },
   nemean_lion: { id: 'nemean_lion', body: 'nemean_lion', levels: [3, 4, 5, 6, 8], armySize: 10, hints: 3, terrain: ['hills', 'plains'], color: 0xc8962e },

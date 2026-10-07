@@ -1,3 +1,5 @@
+import { encounterOf } from '../data/beasts';
+import { encounterName } from '../ui/beastInfo';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addIcon, addPanel, addText } from '../ui/kit';
@@ -586,7 +588,8 @@ export class WorldScene extends BaseScene {
     const p = this.w.party(partyId);
     const enemy = camp.partyEnemy(partyId);
     if (!p || !enemy) return;
-    state.pending = { enemy, seed: randomSeed(), partyId, label: p.name, site: siteAt(this.w.map, this.w.s.x, this.w.s.y) };
+    const beast = encounterOf(enemy.heroes);
+    state.pending = { enemy, seed: randomSeed(), partyId, label: beast ? encounterName(beast) : p.name, site: siteAt(this.w.map, this.w.s.x, this.w.s.y) };
     void state.save();
     this.scene.start('Battle');
   }
