@@ -109,10 +109,56 @@ with DESIGN.md or ROADMAP.md, this document wins.
 
 ## Controls
 
-- **Formation drag faces the way you pull:** touch where the group should go,
-  then pull. The soldiers face the direction the finger moves and the line is
-  laid across that direction. A short pull mainly turns the group; a longer pull
-  also deepens the block.
+- **Formation slingshot (supersedes "face the way you pull"):** press on or next
+  to the selected group (or its placement marker), drag to where it should
+  stand, then pull BACK. The soldiers face away from the finger, like aiming a
+  slingshot. Without lifting, pushing the finger sideways or forward stretches
+  or narrows the line (width versus depth), with a live preview of placement
+  boxes and a facing arrow.
+- **Pan versus order:** a one-finger drag on empty ground always pans the
+  camera. A formation drag only starts on or next to the selected group or its
+  marker. A tap on the ground moves the group there. Two fingers zoom.
+
+## UI
+
+- **Battle command panel:** a grouped, colour-coded bar with fewer buttons
+  visible at once:
+  - Movement: bronze.
+  - Attack: red.
+  - Formation: blue.
+  - Abilities: gold, with cooldowns.
+
+  Icons are big and labels short; a long-press on any button explains it.
+  Group cards show unit portraits, health and morale.
+- **Items:** a distinct pixel icon for every item. Five rarity tiers: Common
+  (grey), Uncommon (green), Rare (blue), Epic (purple), Legendary (gold). Each
+  item has a coloured frame. Rare and above get a soft pulsing glow, and
+  Legendary items add sparkles and also glow on the soldier in battle. Tap any
+  item to see its stats.
+- **Army and hero screen:** an RPG character sheet.
+  - A big animated portrait wearing the hero's gear, with the equipment slots
+    around it.
+  - Stat bars with tooltips.
+  - The class perk tree and abilities with icons.
+  - Stars or rank, kills and battles.
+- **Stash:** a grid inventory with item icons, rarity frames and glow.
+  - Equip by tap or drag and drop.
+  - A compare popup shows green and red stat changes.
+  - Filters and sorting.
+- **Post-battle report:**
+  - An animated VICTORY or DEFEAT banner.
+  - Icon tiles that count up: duration, kills, losses, gold and XP.
+  - The hero of the battle (MVP), plus a row for each hero with XP bars,
+    level-ups and wounds.
+  - Loot revealed as cards opening one by one with their rarity glow; tap to
+    inspect before picking.
+- **Hex map: a map on a war table.**
+  - A painted terrain board on a wooden table.
+  - Raised hex tiles with thickness and shadows.
+  - Miniature-style trees, mountains, towns, forts and armies.
+  - Banners in clan colours.
+  - Fog of war as drifting clouds or parchment.
+  - Candle-light vignette, animated water, and smoke rising from towns.
 
 ## Invariants (unchanged)
 
