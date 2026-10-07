@@ -18,7 +18,6 @@ starting points to tune.
   (Menu → Duels), the hero sheet on the duel army (`src/duel/heroSource.ts`),
   and an in-memory demo (`DemoDuelSource`) for the layout check and
   `scripts/duel-smoke.mjs`.
-<<<<<<< HEAD
 - **Slice 3 landed (live ranked and unranked):** the global `MatchmakerDO`
   (`/ws/duel`), one `DuelDO` per match (`/ws/duel/<id>`) on the lockstep relay
   now shared with friendly duels (`server/src/online/relay.ts`), settlement in
@@ -30,16 +29,51 @@ starting points to tune.
   the cooldown, Rejoin), the live battle through `src/duel/match.ts` (a
   lockstep driver that reconnects and fast-forwards), and the report via
   ResultsScene. API in server/README.md "Ranked duels".
-- Next: slice 4 (async ladder, seasons, leaderboards), slice 5 (map merchants).
+- **Slice 5 landed (map merchants):** every town (capitals included) and the
+  seeded trading posts sell consumables and gear; the menu shop no longer
+  sells consumables (`POST /api/economy/buy` answers 410 `merchant_only`) and
+  keeps the wallet, the pass and cosmetics. Shared rules
+  `src/online/merchants.ts` (`MERCHANT`), server
+  `server/src/online/merchant.ts` (`/api/online/merchant`), migration
+  `0009_merchants.sql`, client `src/scenes/online/MerchantScene.ts` (hex
+  panel → Merchant; a small stall marks trading posts on the map). Numbers:
+  - trading posts: one per 300 hexes (12 on a full shard of radius 34), half
+    harbours (passable coast) and half crossroads (plains or farmland on a
+    river, land all around), 7+ apart, 5+ from a capital, never on towns,
+    forts, lairs, world bosses or homes; visible like any other hex (fog
+    hides them until seen);
+  - regions by the nearest capital (Attic, Thessalian, Thracian, Cretan,
+    Gallic, Phoenician, Scythian goods: e.g. Cretan bows, rhomphaia and falx,
+    xyston lances and Boeotian helms);
+  - stock per (seed, hex, UTC day): the five consumables (their usual gold
+    and Drachmae prices and caps), 3 basic common pieces, 2 specialties at
+    uncommon and 1 rare in towns; every specialty plus harbour or crossroads
+    goods at rare and 1 epic at trading posts. Gear: item value × 2/3/5/8
+    gold by rarity, never for Drachmae; daily gear caps 2 (basic) and 1
+    (regional, rare) per player across all merchants;
+  - holder and clan discount 10%; the holder earns 5% of the list gold price
+    (rounded down) of every sale to someone else, paid by the merchant.
+  - Recruiting stays on the online army screen (not sold by merchants).
+- **Slice 4 landed (async ladder, seasons, leaderboards):** saved team
+  loadouts, the async defence ladder ("Raids") with its raid log and
+  replays, monthly ranked seasons with rewards by peak league, and the
+  leaderboards. Server: `server/src/duel/async.ts` (raids, seasons, boards
+  routes), `server/src/duel/season.ts` (lazy rollover, leaderboards),
+  `server/src/duel/verify.ts` (the replay check shared with the ladder),
+  migration `0010_duel_async_seasons.sql`. Shared rules `src/duel/season.ts`
+  (`SEASON`, `ASYNC`). Client: the Team tab's loadout bar and "Uses", the
+  Arena tab's season line and its Live / Raids / Top pages, the season
+  reward popup. API in server/README.md "Raids, seasons and leaderboards".
+- **All duel slices are done** (2, 3, 4, 5).
 
 The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
-`RANKED`).
+`RANKED`, `SEASON`, `ASYNC`, `MERCHANT`).
 
 ### Slice 3 numbers and decisions
 
 - **Glicko-2:** start 1500 / RD 350 / volatility 0.06, τ = 0.5, RD floor 40,
-  one rating period per match (no RD growth with inactivity yet). The rating
-  is season independent (`duel_ratings.ladder = 'live'`; `'async'` is
+  one rating period per match (slice 4 adds RD growth with inactivity). The rating
+  was season independent until slice 4 (`duel_ratings.ladder = 'live'`; `'async'` is
   reserved for slice 4); `peak` is kept for season rewards.
 - **Leagues** (rating floors, 200 wide, 3 divisions III → I of ~67 points):
   Bronze < 1200, Silver 1200, Gold 1400, Hoplite 1600, Strategos 1800,
@@ -71,38 +105,58 @@ The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
   icons on narrow screens); the ranked team is the one duel team (saved
   loadouts come with slice 4); the relay now refuses an `end` whose replay
   runs past the sealed turns (also for friendly duels).
-=======
-- **Slice 5 landed (map merchants):** every town (capitals included) and the
-  seeded trading posts sell consumables and gear; the menu shop no longer
-  sells consumables (`POST /api/economy/buy` answers 410 `merchant_only`) and
-  keeps the wallet, the pass and cosmetics. Shared rules
-  `src/online/merchants.ts` (`MERCHANT`), server
-  `server/src/online/merchant.ts` (`/api/online/merchant`), migration
-  `0009_merchants.sql`, client `src/scenes/online/MerchantScene.ts` (hex
-  panel → Merchant; a small stall marks trading posts on the map). Numbers:
-  - trading posts: one per 300 hexes (12 on a full shard of radius 34), half
-    harbours (passable coast) and half crossroads (plains or farmland on a
-    river, land all around), 7+ apart, 5+ from a capital, never on towns,
-    forts, lairs, world bosses or homes; visible like any other hex (fog
-    hides them until seen);
-  - regions by the nearest capital (Attic, Thessalian, Thracian, Cretan,
-    Gallic, Phoenician, Scythian goods: e.g. Cretan bows, rhomphaia and falx,
-    xyston lances and Boeotian helms);
-  - stock per (seed, hex, UTC day): the five consumables (their usual gold
-    and Drachmae prices and caps), 3 basic common pieces, 2 specialties at
-    uncommon and 1 rare in towns; every specialty plus harbour or crossroads
-    goods at rare and 1 epic at trading posts. Gear: item value × 2/3/5/8
-    gold by rarity, never for Drachmae; daily gear caps 2 (basic) and 1
-    (regional, rare) per player across all merchants;
-  - holder and clan discount 10%; the holder earns 5% of the list gold price
-    (rounded down) of every sale to someone else, paid by the merchant.
-  - Recruiting stays on the online army screen (not sold by merchants).
-- Next: slice 3 (matchmaker, live ranked, leagues), slice 4 (async ladder,
-  seasons, leaderboards).
+### Slice 4 numbers and decisions
 
-The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
-`MERCHANT`).
->>>>>>> origin/main
+- **Loadouts:** 3 saved teams per player (`duel_loadouts`); the old team
+  became loadout 1. Each of Ladder, Arena (live matches and raids) and
+  Defence uses one of them (all loadout 1 by default); the Team tab edits
+  one at a time. Battle groups belong to the hero, so they are shared by
+  every loadout.
+- **Defence:** a snapshot of the defence loadout (perfect gear), taken when
+  it is set and refreshed on every change to the army while it fits the
+  150-point budget (a defence that goes over keeps its last snapshot). A
+  player is in the raid pool once they set a defence; attacking for the
+  first time sets the arena team as the defence automatically.
+- **Raids:** unlock at duel level 5 (as ranked); 10 rated raids a UTC day
+  (every raid started counts, abandoned or not); the same defender not again
+  within 24 h. The server offers 3 candidates out of the 12 defenders nearest
+  to the attacker's async rating (one below, the closest, one above), fixed
+  by (player, day, raids so far), so there is no rerolling; the client picks
+  one. A raid is a ticket like a ladder floor (10 minutes, server replay).
+- **Async rating:** its own Glicko-2 (`duel_ratings.ladder = 'async'`), the
+  same leagues and 10 placements (placements come from your own raids).
+  Defenders move at **50% both ways** (gains and losses) and their RD and
+  volatility update fully; defences do not count as games.
+- **Raid pay:** attacker win 20 Glory / draw 12 / loss 6, account XP
+  30 / 20 / 10, hero XP as on the ladder. Defender: 5 Glory per held
+  defence, 2 per draw, at most 50 a UTC day.
+- **Seasons:** UTC calendar months (`seasonId`: months since January 1970).
+  No cron: the first access in a new month (the hub, the queue, a
+  settlement, a raid, the boards) rolls a rating row over once, guarded by a
+  nonce: rating `1500 + (r − 1500) × 0.5` per season passed, RD at least 150,
+  peak cleared. Rewards by the season's **peak league** per ladder (placed
+  players with a rated game that season): Glory Bronze 50, Silver 100,
+  Gold 180, Hoplite 280, Strategos 400, Legend 600 (raids pay half), an
+  account cosmetic per league (Bronze/Silver/Gold duellist shield emblems;
+  Hoplite/Strategos/Legend league banners; not for sale, source
+  `duel_season`), and a **title**: the best peak league of the last
+  rewarded season, shown on the Top page and in the popup. The popup shows
+  once, then `POST /season/seen`.
+- **Inactivity:** one Glicko-2 rating period per idle UTC day: RD grows by
+  the volatility (√(φ² + n·σ²)) before the next rated game, up to 350.
+- **Leaderboards:** the running season's placed players (rows rolled into
+  it), top 50: live, raids, and Legend (live, exact ratings); ratings are
+  shown only in Legend; your own rank below the list.
+- **Notifications:** `duel_defence` (type `duel`, so the existing duel
+  opt-out covers it): "your defence held / was broken", folded into one
+  message per 15 minutes.
+- **Deviations:** no friends board (there is no friends list yet); no
+  replay viewer (the raid row keeps the setup and the order log and
+  `GET /api/duel/async/replay/:id` serves them to any signed-in player);
+  the Arena tab has no foot bar (its pages need the height at 320x568); the
+  season line sits on top of the Arena; players who have not opened the
+  duels in a new month are not on its boards until they do.
+
 
 ## Summary
 
@@ -137,8 +191,8 @@ The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
   groups and formations. The duel hub's Team tab picks the team; a tap opens
   the regular hero sheet on the duel army (stats, gear, perks, skills,
   respec). A dismissed hero leaves for good (gear to the stash, no refund).
-- **Loadouts:** one team for now. Saved teams (a ranked team, an async
-  defence team) come with slices 3 and 4.
+- **Loadouts:** three saved teams; each of the ladder, the arena and the
+  defence uses one (slice 4).
 - **Starter roster:** 6 level-1 heroes (2 hoplites, 2 archers, a peltast, a
   slinger) with common gear, all in the team (42 points), and 200 Glory.
 - Hero level cap stays `MAX_LEVEL` (10). XP comes from ladder battles,
@@ -227,7 +281,8 @@ win.
 - **Ranked seasons:** monthly, on a UTC calendar. At the end, rating moves
   part way to the mean (soft reset), and rewards are paid by **peak league**:
   Glory, an exclusive banner or shield emblem per league, and a profile title.
-- **Leaderboards:** top live and top async, global, plus friends.
+- **Leaderboards:** top live and top async, global, plus the Legend board
+  (friends boards wait for a friends list).
 
 ## Glory and the duel shop
 
@@ -282,17 +337,14 @@ and `/paysupport` compliance). Cosmetics apply in both modes.
 - **D1:** `0007_duels.sql` (landed) has `duel_profiles` (Glory, account XP,
   ladder progress, the daily farm counter, the team), `duel_heroes`,
   `duel_items`, `duel_tickets` (ladder battles) and `duel_orders` (Glory
-<<<<<<< HEAD
   spends by request id). `0008_duel_ranked.sql` (landed): `duel_ratings`,
-  `duel_queue_state` (abandons, cooldown) and `duel_matches`. Seasons and
-  rewards come in a later migration; `merchant_purchases` with the map
-  merchants.
-=======
-  spends by request id). Ratings, leagues, matches, seasons and rewards come
-  in later migrations. `0009_merchants.sql` (landed) has `merchant_orders`
-  (every sale by request id, with the holder's cut) and `merchant_daily`
-  (gear counters; consumables count in `consumable_daily`).
->>>>>>> origin/main
+  `duel_queue_state` (abandons, cooldown) and `duel_matches`.
+  `0009_merchants.sql` (landed) has `merchant_orders` (every sale by request
+  id, with the holder's cut) and `merchant_daily` (gear counters;
+  consumables count in `consumable_daily`). `0010_duel_async_seasons.sql`
+  (landed): `duel_loadouts`, `duel_defences`, `duel_attacks` (raids and the
+  raid log), `duel_season_rewards`, and the season columns of
+  `duel_ratings`.
 - **Durable Objects:** `MatchmakerDO` (queue, pairing, live presence) and
   `DuelDO` (one per live match: lockstep relay, reconnect, replay,
   result). The shard `RegionDO` keeps friendly duels for now and can hand

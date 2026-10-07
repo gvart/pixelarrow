@@ -12,6 +12,7 @@ import { Lockstep } from '../../src/online/lockstep';
 import type { DuelStart, ServerMsg } from '../../src/online/protocol';
 import { DUEL_RULES } from '../../src/duel/rules';
 import { RANKED, matchWindow } from '../../src/duel/rating';
+import { seasonId } from '../../src/duel/season';
 import type { MatchReport } from '../../src/duel/protocol';
 import type { DuelDO } from '../src/duel/duelDO';
 import type { MatchmakerDO } from '../src/duel/matchmaker';
@@ -35,8 +36,8 @@ async function duellist(tg: number, opts: { level5?: boolean; rating?: number } 
   if (opts.level5) await DB().prepare('UPDATE duel_profiles SET xp = 500 WHERE player_id = ?1').bind(playerId).run();
   if (opts.rating !== undefined) {
     await DB()
-      .prepare("INSERT INTO duel_ratings (player_id, ladder, rating, rd, vol, games, updated_at) VALUES (?1, 'live', ?2, 80, 0.06, 20, 0)")
-      .bind(playerId, opts.rating)
+      .prepare("INSERT INTO duel_ratings (player_id, ladder, rating, rd, vol, games, updated_at, season, played_at) VALUES (?1, 'live', ?2, 80, 0.06, 20, 0, ?3, ?4)")
+      .bind(playerId, opts.rating, seasonId(Date.now()), Date.now())
       .run();
   }
   return { token, pid: playerId };

@@ -69,9 +69,9 @@ export interface CosmeticInfo {
   id: string;
   slot: 'emblem' | 'banner' | 'cloak' | 'clan_flag' | 'army_skin' | 'table_theme';
   name: string;
-  /** Drachmae price; null = not for sale (legacy or a pass reward). */
+  /** Drachmae price; null = not for sale (legacy, a pass reward or a duel season reward). */
   drachmae: number | null;
-  source?: 'legacy_stars' | 'season_pass';
+  source?: 'legacy_stars' | 'season_pass' | 'duel_season';
 }
 
 export type PassReward =

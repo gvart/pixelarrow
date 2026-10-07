@@ -16,8 +16,8 @@ export interface Cosmetic {
   name: string;
   /** Price in Drachmae; null = not for sale (legacy Stars item or pass reward). */
   drachmae: number | null;
-  /** Where else it comes from. */
-  source?: 'legacy_stars' | 'season_pass';
+  /** Where else it comes from (duel_season: a ranked duel season's reward by peak league, src/duel/season.ts). */
+  source?: 'legacy_stars' | 'season_pass' | 'duel_season';
 }
 
 const C = (id: string, slot: CosmeticSlot, name: string, drachmae: number | null, source?: Cosmetic['source']): Cosmetic => ({ id, slot, name, drachmae, ...(source ? { source } : {}) });
@@ -42,6 +42,12 @@ export const COSMETICS: Record<string, Cosmetic> = Object.fromEntries(
     C('emblem_pass_s', 'emblem', 'Season victor emblem', null, 'season_pass'),
     C('cloak_pass_s', 'cloak', 'Season victor cloak', null, 'season_pass'),
     C('banner_pass_s', 'banner', 'Season victor banner', null, 'season_pass'),
+    C('duel_emblem_bronze', 'emblem', 'Bronze duellist shield', null, 'duel_season'),
+    C('duel_emblem_silver', 'emblem', 'Silver duellist shield', null, 'duel_season'),
+    C('duel_emblem_gold', 'emblem', 'Gold duellist shield', null, 'duel_season'),
+    C('duel_banner_hoplite', 'banner', 'Hoplite league banner', null, 'duel_season'),
+    C('duel_banner_strategos', 'banner', 'Strategos league banner', null, 'duel_season'),
+    C('duel_banner_legend', 'banner', 'Legend league banner', null, 'duel_season'),
   ].map((c) => [c.id, c]),
 );
 

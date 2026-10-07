@@ -519,16 +519,17 @@ changes the army includes the new `profile`.
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
 | POST | `/api/duel/profile` | – | opens the mode (idempotent): starter roster of 6 (2 hoplites, 2 archers, a peltast, a slinger), all in the team, 200 Glory |
-| GET | `/api/duel/profile` | – | `{ now, day, glory, xp, level, ladder: {cleared, farmLeft, farmCap}, team, formations, heroes, stash, battles, wins, bought }`; **409** `no_duel_profile` before the first POST |
+| GET | `/api/duel/profile` | – | `{ now, day, glory, xp, level, ladder: {cleared, farmLeft, farmCap}, team, formations, heroes, stash, battles, wins, bought, loadouts: [{slot, name, team, formations}], loadout, use: {ladder, arena, defence}, defence: {points, heroes, updatedAt} \| null }` (`team`/`formations`: the edited loadout's); **409** `no_duel_profile` before the first POST |
 | POST | `/api/duel/recruit` | `{ cls, requestId }` | a level-1 hero of an unlocked class for its recruitment price in Glory (`locked`, `not_recruitable`, `roster_full` at 30, `cannot_afford`) |
 | POST | `/api/duel/dismiss` | `{ heroId }` | the hero leaves (gear to the stash, no refund); the last hero stays |
 | POST | `/api/duel/equip` | `{ heroId, slot, itemUid \| null }` | stash ⇄ hero; two-handed weapons and shields exclude each other |
 | POST | `/api/duel/develop` | `{ heroId, attrs?: {str,agi,end,wil}, perks?: [] }` | spends attribute points and takes perks, checked against points, `ATTR_MAX` and the class tree (`no_points`, `attr_max`, `bad_perk`) |
 | POST | `/api/duel/respec` | `{ heroId, requestId }` | 20 Glory × level: recruit attributes back, all points back, no perks |
-| POST | `/api/duel/team` | `{ heroIds?, formations?, groups? }` | the team (≤ 10, any order), formations and battle groups; the budget is checked when a battle starts |
+| POST | `/api/duel/team` | `{ heroIds?, formations?, groups?, loadout? }` | a saved team (default: the edited one): heroes (≤ 10, any order), formations, and battle groups (per hero, shared by every loadout); the budget is checked when a battle starts |
+| POST | `/api/duel/loadout` | `{ slot: 1..3, edit?, name?, use?: ('ladder' \| 'arena' \| 'defence')[] }` | picks the loadout the Team tab edits, names it (≤ 16) and assigns where it fights; a slot never saved starts as a copy of the edited one; `defence` must fit the 150-point budget (`over_budget`, `too_many`, `no_team`) and snapshots it for the raid bot |
 | POST | `/api/duel/shop/buy` | `{ offer, requestId }` | a catalogue offer (`<item>:<common\|uncommon\|rare>`) or one of today's (`day<N>:<item>:<rarity>`, once per player and UTC day: `sold_out`) |
 | POST | `/api/duel/shop/sell` | `{ uid, requestId }` | a stash item back for a quarter of its shop price |
-| POST | `/api/duel/ladder/start` | `{ floor }` | the next floor or any cleared one (`floor_locked`); the team must fit the floor's budget (`no_team`, `team_too_big`, `over_budget`). An open ticket of the same floor is resumed (same seed); one of another floor is abandoned. → `{ ticket, floor, boss, expiresAt, setup, team, enemies }` |
+| POST | `/api/duel/ladder/start` | `{ floor }` | the next floor or any cleared one (`floor_locked`); the ladder loadout must fit the floor's budget (`no_team`, `team_too_big`, `over_budget`). An open ticket of the same floor is resumed (same seed); one of another floor is abandoned. → `{ ticket, floor, boss, expiresAt, setup, team, enemies }` |
 | POST | `/api/duel/ladder/submit` | `{ ticket, orders, deployOrders, claim }` | replayed like an attack (`replay_mismatch`, `sim_rejected`, `ticket_expired` after 10 min); pays hero XP always, and on a win Glory (first clear, or farm Glory under the 300-a-day cap), account XP and maybe an item. Only progression is written to the heroes (gear changed meanwhile stays). A repeat of the same claim returns the stored result. |
 | POST | `/api/duel/ladder/abandon` | `{ ticket }` | gives an open ticket up (nothing is lost) |
 
@@ -588,6 +589,43 @@ account XP (`duel_profiles`, rev + 1), hero progression, and an abandon in
 at most 4 h). A repeat returns the stored reports. The relay state and log
 live in the DuelDO's storage (log in chunks of 500) so it can hibernate.
 
+### Raids, seasons and leaderboards (duels slice 4)
+
+Design: docs/DUELS.md "Ranked async" and "Slice 4 numbers". Shared rules
+`src/duel/season.ts` (`SEASON`, `ASYNC`), code `server/src/duel/async.ts`
+(routes), `server/src/duel/season.ts` (rollover, boards),
+`server/src/duel/verify.ts` (the replay check shared with the ladder),
+migration `0010_duel_async_seasons.sql`.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/duel/async` | the raid card: `{ unlocked, level, unlockLevel, league \| null, rating (Legend only), games, wins, losses, draws, defences, defenceWins, placements, attacks: {used, cap, left}, defence, candidates: [{pid, name, league, rating, points, heroes, classes}], open }` |
+| POST | `/api/duel/async/start` | `{ defender }`: one of the offered candidates (`not_offered`), duel level 5 (`locked`), 10 a UTC day (`attack_cap`), not the same defender within 24 h (`attacked_recently`), the arena loadout within the budget. An open raid on the same defender is resumed (same seed), one on another is abandoned. → `{ ticket, defender, expiresAt, setup, team, enemies }` |
+| POST | `/api/duel/async/submit` | `{ ticket, orders, deployOrders, claim }`: replayed like a ladder floor (`replay_mismatch`, `sim_rejected`, `ticket_expired` after 10 min) → `{ report: AsyncReport, profile }`; a repeat returns the stored report (`replayed`) |
+| POST | `/api/duel/async/abandon` | `{ ticket }` |
+| GET | `/api/duel/async/log` | the last 30 raids by or on the player: `{ entries: [{id, at, role: attack \| defence, pid, name, score, delta, glory}] }` |
+| GET | `/api/duel/async/replay/:id` | a finished raid for any signed-in player (shareable): `{ names, setup, orders, deployOrders, winner, ticks, at }` |
+| GET | `/api/duel/season` | `{ season: {id, start, end}, live/async: {league, peak}, title, rewards (not seen yet), table }` |
+| POST | `/api/duel/season/seen` | the reward popup was shown |
+| GET | `/api/duel/leaderboard?board=live\|async\|legend` | top 50 placed players of the running season and `me` (rank, league; the exact rating only in Legend) |
+
+**Raid settlement** follows the ticket convention: the first statement moves
+`duel_attacks.status` from `open` with a fresh `apply_nonce` and stores the
+order log, both rating changes and Glory; the rest is guarded by the nonce:
+the attacker's async rating (Glicko-2 after the idle-day RD growth), the
+defender's at half rate (`defences` + 1, not a game), Glory and account XP
+(rev + 1), hero progression, and the defender's defence Glory (5 a held
+defence, at most 50 a day). Then a `duel_defence` notification (type `duel`).
+
+**Season rollover** (`rollRatings`, no cron): on the first access in a new
+UTC month (the season card, the ranked card, the raid card, the queue, a
+settlement, a board) each rating row of an earlier season is reset (half way
+to 1500 per season passed, RD ≥ 150, peak cleared) by an UPDATE guarded by
+its old `season`, which sets a fresh `roll_nonce`; the reward row
+(`duel_season_rewards`), its Glory and the league cosmetic
+(`entitlements`, account-wide, not for sale) are guarded by that nonce, so
+each season pays exactly once.
+
 ## Bot notifications
 
 Code: `src/notify/` (delivery), `src/bot/` (commands), shared deep links in
@@ -598,7 +636,7 @@ Code: `src/notify/` (delivery), `src/bot/` (commands), shared deep links in
 | `attack` | under attack / captured / garrison held | `attack/start` (garrison or militia defends), `attack/submit` (to the previous owner) | `hex_<q>_<r>` |
 | `march` | march arrived | the shard object's alarm at the arrival time (marches of 5 min or more; a halt or capture cancels it) | `hex_<q>_<r>` |
 | `income` | treasury full (24 h cap) | cron, hourly: the oldest uncollected hex reached `incomeCapHours`; once per accrual clock | `income` |
-| `duel` | challenged while offline | a `challenge` to a player of the shard without an open socket (the challenger still gets `unavailable`) | `duel` |
+| `duel` | challenged while offline; a raid on your duel defence (held or broken) | a `challenge` to a player of the shard without an open socket (the challenger still gets `unavailable`); `duel/async/submit` (to the defender) | `duel` |
 | `clan` | invite accepted (to the inviter), rank changed, kicked | `/clans/join`, `/clans/promote`, `/clans/kick` | `myclan` |
 | `boss` | a boss you damaged was slain: your share and items | the killing `boss/submit` (everyone with a loot share but the killer) | `boss_<q>_<r>` |
 | `season` | the season ends in 3 days / 1 day | cron, once per season and step (`bot_meta`) | `season` |

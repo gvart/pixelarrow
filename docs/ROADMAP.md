@@ -170,7 +170,7 @@ English/Russian and the online battle rules → tutorial battle → mythical bea
 - **Clan chat and clan wars:** scheduled sieges of capitals.
 - **Season events and themes**, e.g. "Season of the Kraken" with a special
   boss and cosmetics.
-- ~~**Ranked duels** with matchmaking.~~ Promoted: see "Duels" below.
+- ~~**Ranked duels** with matchmaking.~~ Done: see "Duels" below.
 - **Assault time or post-battle rest** if attacks feel too cheap (see "Online
   battle rules" in DESIGN_V2.md).
 
@@ -183,21 +183,21 @@ ladder and unranked queue for farming, a global matchmaker with live ranked
 The war-map shop moves onto town and trading-post hexes. Slices, in order:
 duel roster and economy → live ranked → async and seasons → map merchants.
 
-Done: duel roster and economy (profile, team, budget, Glory, shop, hero
-<<<<<<< HEAD
-development, ladder with verified battles; Menu → Duels); live ranked and
-unranked (the global `MatchmakerDO` queue, a `DuelDO` per match on the shared
-lockstep relay with 30 s reconnects, Glicko-2, leagues and placements, the
-abandon cooldown; the duel hub's Arena tab; migration `0008_duel_ranked.sql`).
-Next: async ladder and monthly seasons (soft reset by peak league,
-leaderboards), then map merchants.
-=======
-development, ladder with verified battles; Menu → Duels); map merchants
-(every town and ~12 seeded trading posts per shard, stock per seed/hex/UTC
-day with regional specialties and a daily rare slot, holder discount 10% and
-cut 5%; consumables left the menu shop; hex panel → Merchant). Next: live
-ranked.
->>>>>>> origin/main
+**Done (all slices).** Duel roster and economy (profile, team, budget,
+Glory, shop, hero development, ladder with verified battles; Menu → Duels);
+live ranked and unranked (the global `MatchmakerDO` queue, a `DuelDO` per
+match on the shared lockstep relay with 30 s reconnects, Glicko-2, leagues
+and placements, the abandon cooldown; the duel hub's Arena tab; migration
+`0008_duel_ranked.sql`); map merchants (every town and ~12 seeded trading
+posts per shard, stock per seed/hex/UTC day with regional specialties and a
+daily rare slot, holder discount 10% and cut 5%; consumables left the menu
+shop; hex panel → Merchant); async ladder and seasons (3 saved team
+loadouts, raids on defence teams played by the server bot with a separate
+Glicko-2 rating and a raid log, 10 raids a day, monthly UTC seasons with a
+lazy soft reset and rewards by peak league: Glory, a league cosmetic and a
+title; live, raid and Legend leaderboards; migration
+`0010_duel_async_seasons.sql`). Open: a raid replay viewer and friends
+boards (no friends list yet).
 
 ## Next session: polish backlog
 

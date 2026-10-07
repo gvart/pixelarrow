@@ -86,6 +86,15 @@ describe('notification texts and deep links', () => {
     expect(ru.button).toBe('🪙 Рынок');
   });
 
+  it('folds raids on a duel defence into one message (held / broken)', () => {
+    const raid = (by: string, held: boolean) => ({ event: 'duel_defence' as const, data: { by, held } });
+    expect(render('en', 'duel', [raid('Kleon', true)]).text).toContain('held against Kleon');
+    expect(render('ru', 'duel', [raid('Kleon', false)]).text).toContain('Kleon прорвал');
+    const many = render('en', 'duel', [raid('A', true), raid('B', false), raid('C', true)]);
+    expect(many.text).toContain('3 raids on your defence team. Held: 2, lost: 1.');
+    expect(many.route).toEqual({ kind: 'duel' });
+  });
+
   it('every button opens the game with a startapp the client understands', () => {
     const cases: [Parameters<typeof render>[1], Parameters<typeof render>[2][number], string][] = [
       ['attack', { event: 'attack_start', data: { q: -5, r: 7, by: 'X', ticket: 't' } }, 'hex_-5_7'],

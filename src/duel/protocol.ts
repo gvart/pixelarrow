@@ -61,3 +61,19 @@ export type DuelLiveServerMsg =
   | ServerMsg
   | { type: 'peer'; duel: string; side: 0 | 1; online: boolean; until: number | null }
   | { type: 'match_result'; duel: string; report: MatchReport };
+
+/** A verified async attack as the attacker sees it (POST /api/duel/async/submit). */
+export interface AsyncReport {
+  attack: string;
+  defender: { pid: number; name: string };
+  winner: 0 | 1 | -1;
+  ticks: number;
+  verified: boolean;
+  glory: number;
+  accountXp: number;
+  /** The attacker's async rating before and after (the client shows only the change unless Legend). */
+  rating: { before: number; after: number };
+  league: { before: League | null; after: League | null };
+  placements: { played: number; of: number };
+  xp: HeroXp[];
+}
