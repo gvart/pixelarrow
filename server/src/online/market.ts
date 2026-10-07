@@ -31,6 +31,7 @@ import { balanceSql, ensureWallet, walletMove } from '../economy/wallet';
 import { addConsumable } from '../economy/routes';
 import { limit, player, type PlayerCtx } from './context';
 import { armyState, hexRow, playerNames, randomToken, revBatch, revGuard, staticHex, type Shard } from './store';
+import { ev, later, notify } from '../notify/outbox';
 
 export const market = new Hono<AppEnv>();
 market.use('*', requireAuth);
@@ -59,6 +60,19 @@ export interface ListingRow {
   created_at: number;
   expires_at: number;
   closed_at: number | null;
+}
+
+/** A short name of the goods for the seller's notification. */
+function goodsName(l: ListingRow): string {
+  let name = l.ref;
+  if (l.kind === 'item' && l.item) {
+    try {
+      name = String((JSON.parse(l.item) as { name?: string }).name ?? l.ref);
+    } catch {
+      // keep the ref
+    }
+  } else if (l.kind === 'consumable') name = CONSUMABLES[l.ref as ConsumableId]?.name ?? l.ref;
+  return (l.qty > 1 ? `${l.qty}× ${name}` : name).slice(0, 60);
 }
 
 function listingView(l: ListingRow, pid: number, names: Map<number, string>, now: number) {
@@ -398,6 +412,7 @@ market.post('/buy', async (c) => {
     throw new ApiError(409, 'insufficient_funds', l.currency === 'drachmae' ? 'Not enough Drachmae' : 'Not enough gold', { price: l.price, currency: l.currency });
   }
   const names = await playerNames(pc.db, [l.seller_id]);
+  later(c, notify(c.env, [ev(l.seller_id, 'market_sold', `sold:${l.id}`, { what: goodsName(l), price: l.price, currency: l.currency, gets: l.price - fee })], { shard: pc.shard }));
   return c.json({ listing: listingView({ ...l, status: 'sold', buyer_id: pc.pid, fee, closed_at: pc.now }, pc.pid, names, pc.now), paid: l.price, fee, sellerGets: l.price - fee });
 });
 

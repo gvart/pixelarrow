@@ -78,10 +78,17 @@ export function liveMessages(
   return { out, arrival };
 }
 
+/** Marches at least this long notify their owner on arrival (when offline then). */
+export const MARCH_NOTICE_MIN_MS = 5 * 60_000;
+
 /** Pushes an army move to everyone online in the shard who can see it. Never throws. */
 export async function pushArmyMove(pc: PlayerCtx, move: ArmyMove): Promise<void> {
   try {
     const stub = shardStub(pc.env, pc.shard);
+    // The owner's arrival notification (a halt or a capture cancels it).
+    const end = move.kind === 'march' ? move.at[move.at.length - 1] : 0;
+    const last = move.kind === 'march' ? move.path[move.path.length - 1] : null;
+    await stub.marchNotice(pc.pid, last && end - pc.now >= MARCH_NOTICE_MIN_MS ? { at: end, q: last.q, r: last.r } : null);
     const online = await stub.livePlayers();
     if (!online.length) {
       await stub.liveMove(pc.pid, [], null);

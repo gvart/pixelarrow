@@ -40,5 +40,9 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["RegionDO"] }
   ],
+  // Bot notifications that wait (rate limits, coalescing, quiet hours), the
+  // season-ending and full-treasury notices, bot command setup:
+  // server/src/notify/jobs.ts. Cron triggers are free.
+  "triggers": { "crons": ["*/5 * * * *"] },
   "observability": { "enabled": true }
 }

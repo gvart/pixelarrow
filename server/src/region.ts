@@ -29,6 +29,14 @@ import type { ConsumableId } from '../../src/data/consumables';
 import { PASS } from './economy/catalog';
 import { passXpStmt } from './economy/pass';
 import type { LiveArrival, LiveOut } from './online/live';
+import { ev, notify } from './notify/outbox';
+
+/** A march whose owner gets a bot notification on arrival if they are not online then. */
+export interface MarchNotice {
+  at: number;
+  q: number;
+  r: number;
+}
 
 export interface PresenceInfo {
   id: number;
@@ -153,11 +161,20 @@ export class RegionDO extends DurableObject<Env> {
     await this.scheduleAlarm();
   }
 
-  /** One alarm for both jobs: the next march arrival or timed duel deployment, whichever comes first. */
+  /** Remembers (or with null forgets) when a player's march arrives, for the arrival notification. */
+  async marchNotice(pid: number, notice: MarchNotice | null): Promise<void> {
+    if (notice) await this.ctx.storage.put(`notice:${pid}`, notice);
+    else await this.ctx.storage.delete(`notice:${pid}`);
+    await this.scheduleAlarm();
+  }
+
+  /** One alarm for all jobs: the next march arrival (live push or notification) or timed duel deployment, whichever comes first. */
   private async scheduleAlarm(): Promise<void> {
     const all = await this.ctx.storage.list<LiveArrival>({ prefix: 'arrive:' });
+    const notices = await this.ctx.storage.list<MarchNotice>({ prefix: 'notice:' });
     let next = this.hub.nextDeadline() ?? Infinity;
     for (const a of all.values()) next = Math.min(next, a.at);
+    for (const a of notices.values()) next = Math.min(next, a.at);
     if (Number.isFinite(next)) await this.ctx.storage.setAlarm(next);
     else await this.ctx.storage.deleteAlarm();
   }
@@ -178,7 +195,34 @@ export class RegionDO extends DurableObject<Env> {
     }
     if (done.length) await this.ctx.storage.delete(done);
     this.deliver(out);
+    await this.marchNotices(now);
     await this.scheduleAlarm();
+  }
+
+  /** A challenge to a player of this shard who is not online: they get a bot notification instead (the challenge itself fails as before). */
+  async offlineChallenge(me: PresenceInfo, to: number, now = Date.now()): Promise<void> {
+    try {
+      if (!Number.isSafeInteger(to) || to <= 0 || to === me.id || this.lookup(to)) return;
+      const m = await this.shardMeta();
+      if (!m || !this.env.DB) return;
+      const p = await getProfile(this.env.DB, m.season, to);
+      if (!p || p.shard_id !== m.shard) return;
+      const hour = Math.floor(now / 3_600_000);
+      await notify(this.env, [ev(to, 'duel_challenge', `duel:${me.id}:${hour}`, { by: me.name })], { now });
+    } catch (e) {
+      console.warn('offline challenge notice failed', e);
+    }
+  }
+
+  /** Arrived marches of players who are not online here: a bot notification (server/src/notify). */
+  private async marchNotices(now: number): Promise<void> {
+    const notices = await this.ctx.storage.list<MarchNotice>({ prefix: 'notice:' });
+    const due: [number, MarchNotice][] = [];
+    for (const [k, n] of notices) if (n.at <= now) due.push([Number(k.slice('notice:'.length)), n]);
+    if (!due.length) return;
+    await this.ctx.storage.delete(due.map(([pid]) => `notice:${pid}`));
+    const away = due.filter(([pid]) => !this.ctx.getWebSockets(`p:${pid}`).some((w) => w.deserializeAttachment() !== null));
+    if (away.length) await notify(this.env, away.map(([pid, n]) => ev(pid, 'march_arrived', `march:${n.at}:${n.q}_${n.r}`, { q: n.q, r: n.r })), { now });
   }
 
   // ------------------------------------------------------------------ duels
@@ -320,6 +364,7 @@ export class RegionDO extends DurableObject<Env> {
       case 'reach':
       case 'end':
       case 'leave_duel': {
+        if (msg.type === 'challenge') this.ctx.waitUntil(this.offlineChallenge(me, Number(msg.to)));
         const before = new Set([...this.hub.duels.values()].flatMap((d) => d.players));
         const out = await this.hub.handle({ id: me.id, name: me.name }, msg, (pid) => this.lookup(pid));
         this.deliver(out);

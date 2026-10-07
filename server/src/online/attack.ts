@@ -30,6 +30,7 @@ import { attackXp, passXpStmt } from '../economy/pass';
 import { pendingIncome } from './income';
 import { pushArmyMove } from './live';
 import { BEAST_RULES, bossAt, lairAt, lairBeasts, type Lair } from '../../../src/online/lairs';
+import { ev, later, notify } from '../notify/outbox';
 import { trophyId } from '../../../src/data/beasts';
 import {
   armyState,
@@ -259,6 +260,10 @@ attack.post('/start', async (c) => {
     throw new ApiError(409, 'heroes_busy', 'Some heroes are already in a battle (or the consumable is gone)');
   }
   const t = (await pc.db.prepare('SELECT * FROM battle_tickets WHERE id = ?1').bind(id).first<TicketRow>())!;
+  // The owner hears about it (unless they are on the war table right now).
+  if (row?.owner_id && (kind === 'garrison' || kind === 'militia')) {
+    later(c, notify(c.env, [ev(row.owner_id, 'attack_start', `atk:${id}:start`, { q: target.q, r: target.r, by: pc.name, ticket: id })], { shard: pc.shard }));
+  }
   return c.json(ticketView(t, info));
 });
 
@@ -326,6 +331,15 @@ attack.post('/submit', async (c) => {
 
   const result = await applyAttack(pc, t, out.result, s, claimJson);
   await shardStub(pc.env, { season: t.season_id, id: t.shard_id }).unlockHex(hexKey(t.q, t.r), t.id);
+  // The defender: hex lost, or the garrison held.
+  const owner = t.defender_id;
+  if (owner && owner !== pc.pid && !('replayed' in result && result.replayed)) {
+    const held = !result.won && (t.defender_kind === 'garrison' || t.defender_kind === 'militia');
+    if (result.captured || held) {
+      const data = { q: t.q, r: t.r, by: pc.name, ticket: t.id };
+      later(c, notify(c.env, [result.captured ? ev(owner, 'attack_captured', `atk:${t.id}:end`, data) : ev(owner, 'attack_held', `atk:${t.id}:end`, data)], { shard: { season: t.season_id, id: t.shard_id } }));
+    }
+  }
   return c.json(result);
 });
 

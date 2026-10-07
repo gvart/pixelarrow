@@ -17,6 +17,8 @@ import { WS_PROTOCOL } from './region';
 import { online } from './online/routes';
 import { economy } from './economy/routes';
 import { currentSeason, requireProfile, shardDoName } from './online/store';
+import { notifyRoutes } from './notify/routes';
+import { runScheduled } from './notify/jobs';
 
 // Only handlers and Durable Object classes may be exported from the entry module.
 export { RegionDO } from './region';
@@ -76,6 +78,7 @@ app.route('/api/telegram', webhook);
 
 app.route('/api/online', online);
 app.route('/api/economy', economy);
+app.route('/api/notify', notifyRoutes);
 
 app.post('/api/battle/verify', requireAuth, async (c) => {
   const req = await readJson(c, VerifyBody, LIMITS.maxBodyBytes);
@@ -138,4 +141,10 @@ app.onError((err, c) => {
   return c.json(errorBody('internal', 'Internal error'), 500);
 });
 
-export default app satisfies ExportedHandler<AppEnv['Bindings']>;
+export default {
+  fetch: app.fetch,
+  /** Cron (wrangler.jsonc triggers): bot notifications that wait, season and income notices, bot setup. */
+  scheduled(controller, env, ctx) {
+    ctx.waitUntil(runScheduled(env, controller.scheduledTime));
+  },
+} satisfies ExportedHandler<AppEnv['Bindings']>;

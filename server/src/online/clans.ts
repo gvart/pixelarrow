@@ -15,6 +15,7 @@ import { callBot } from '../telegramApi';
 import { canInvite, canKick, canPromote, clanInviteLink, ONLINE_RULES, type ClanRole } from '../../../src/online/rules';
 import { base, limit, player, type PlayerCtx } from './context';
 import { ensureProfile, getProfile, membership, playerNames, randomCode } from './store';
+import { ev, later, notify } from '../notify/outbox';
 
 export const clans = new Hono<AppEnv>();
 clans.use('*', requireAuth);
@@ -145,6 +146,7 @@ clans.post('/invite', async (c) => {
 interface InviteRow {
   code: string;
   clan_id: number;
+  created_by: number;
   expires_at: number;
   max_uses: number;
   uses: number;
@@ -197,8 +199,16 @@ clans.post('/join', async (c) => {
       .bind(b.season.id, b.pid, inv.clan_id),
   ]);
   if (res[0].meta.changes !== 1) throw new ApiError(409, 'clan_full', 'The clan is full or you already joined one');
+  if (inv.created_by !== b.pid) {
+    later(c, notify(c.env, [ev(inv.created_by, 'clan_joined', `clan_join:${inv.clan_id}:${b.pid}`, { name: b.name, clan: `[${inv.clan.tag}] ${inv.clan.name}` })], { shard: { season: b.season.id, id: inv.clan.shard_id } }));
+  }
   return c.json({ clan: await clanView(b, inv.clan_id), role: 'member' });
 });
+
+async function clanName(d: D1Database, id: number): Promise<string> {
+  const r = await d.prepare('SELECT name, tag FROM clans WHERE id = ?1').bind(id).first<{ name: string; tag: string }>();
+  return r ? `[${r.tag}] ${r.name}` : '?';
+}
 
 async function target(pc: PlayerCtx, playerId: number) {
   if (!pc.clan) throw new ApiError(409, 'no_clan', 'You are not in a clan');
@@ -217,6 +227,8 @@ clans.post('/kick', async (c) => {
     pc.db.prepare('DELETE FROM clan_members WHERE season_id = ?1 AND player_id = ?2 AND clan_id = ?3').bind(pc.season.id, body.playerId, me.clanId),
     ...landStatements(pc.db, pc.season.id, body.playerId, null),
   ]);
+  const name = await clanName(pc.db, me.clanId);
+  later(c, notify(c.env, [ev(body.playerId, 'clan_kicked', `clan_kick:${me.clanId}:${body.playerId}:${pc.now}`, { clan: name })], { shard: pc.shard }));
   return c.json({ clan: await clanView(pc, me.clanId), role: me.role });
 });
 
@@ -232,6 +244,10 @@ clans.post('/promote', async (c) => {
   // Handing over leadership: the old leader becomes an officer.
   if (body.role === 'leader') stmts.push(pc.db.prepare("UPDATE clan_members SET role = 'officer' WHERE season_id = ?1 AND player_id = ?2").bind(pc.season.id, pc.pid));
   await pc.db.batch(stmts);
+  if (body.role !== them.role) {
+    const name = await clanName(pc.db, me.clanId);
+    later(c, notify(c.env, [ev(body.playerId, 'clan_role', `clan_role:${me.clanId}:${body.playerId}:${pc.now}`, { clan: name, role: body.role })], { shard: pc.shard }));
+  }
   return c.json({ clan: await clanView(pc, me.clanId), role: body.role === 'leader' ? 'officer' : me.role });
 });
 

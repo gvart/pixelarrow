@@ -33,6 +33,7 @@ import { DEFAULT_FORMATIONS, ONLINE_RULES } from '../../../src/online/rules';
 import { onlineBattleSetup, resolveAttack } from '../../../src/online/battle';
 import { CONSUMABLES } from '../../../src/data/consumables';
 import { limit, player, type PlayerCtx } from './context';
+import { ev, later, notify, type NotifyEvent } from '../notify/outbox';
 import { pickConsumable, withConsumables } from './attack';
 import { armyState, clanTags, energyNow, fieldReady, formationsOf, heroPrefix, loadHeroes, playerNames, randomToken, randomU32, staticHex, type OwnedHero } from './store';
 
@@ -316,8 +317,31 @@ bosses.post('/submit', async (c) => {
     await closeTicket(pc, t, 'rejected', { claim: claimJson, result: JSON.stringify({ mismatches }) });
     throw new ApiError(422, 'replay_mismatch', 'The raid did not replay as reported; it is void', { mismatches });
   }
-  return c.json(await applyRaid(pc, t, out.result, s, setup, claimJson));
+  const res = await applyRaid(pc, t, out.result, s, setup, claimJson);
+  if (res.killedNow) later(c, (async () => notify(c.env, await slainEvents(pc, t), { shard: pc.shard }))());
+  return c.json(res);
 });
+
+/** "The boss you damaged was slain": everyone with a loot share except the killer (who sees it on screen). */
+async function slainEvents(pc: PlayerCtx, t: TicketRow): Promise<NotifyEvent[]> {
+  const site = worldBossSites(pc.shard.seed, pc.shard.radius).find((b) => b.q === t.q && b.r === t.r);
+  if (!site) return [];
+  const rows = await pc.db
+    .prepare('SELECT player_id, share, items FROM world_boss_loot WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3')
+    .bind(t.season_id, t.shard_id, site.boss)
+    .all<{ player_id: number; share: number; items: string }>();
+  return rows.results
+    .filter((r) => r.player_id !== pc.pid)
+    .map((r) => {
+      let items = 0;
+      try {
+        items = (JSON.parse(r.items) as unknown[]).length;
+      } catch {
+        // none
+      }
+      return ev(r.player_id, 'boss_slain', `boss:${t.season_id}:${t.shard_id}:${site.boss}`, { boss: site.boss, q: site.q, r: site.r, share: r.share, items });
+    });
+}
 
 bosses.post('/abandon', async (c) => {
   const pc = await player(c);
