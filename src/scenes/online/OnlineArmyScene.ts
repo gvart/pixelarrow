@@ -198,7 +198,6 @@ export class OnlineArmyScene extends BaseScene {
       return 58;
     }
     const h = oh.hero;
-    const cls = heroClass(h);
     const compact = this.compact;
     let slotY: number;
     let ss: number;
@@ -254,7 +253,6 @@ export class OnlineArmyScene extends BaseScene {
     SLOTS.forEach((s, i) => this.slotObjs.set(s, addSlotTile(this, L, x0 + i * step, slotY, s, h.equip[s], { size: ss, onTap: () => this.tapSlot(s) })));
     const bottom = slotY + ss + 5;
     L.addAt(addPanel(this, 0, 26, VW, bottom - 26 - 1, 'dark'), 0);
-    void cls;
     return bottom;
   }
 

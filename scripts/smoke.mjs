@@ -313,7 +313,7 @@ const village = await ev(() => {
   const w = s.w;
   w.stop();
   w.s.safeUntil = w.s.time + 1000;
-  window.__state.campaign.data.gold = 200;
+  window.__state.campaign.data.gold = 600; // enough for any volunteer
   const v = w.map.settlements.find((x) => x.kind === 'village');
   const t = w.nearestPassable(v.x + 2, v.y, 3);
   w.s.x = t.x + 0.5;
@@ -332,6 +332,7 @@ const vpos = await ev((id) => {
 }, village.id);
 await tap(vpos[0], vpos[1]);
 check('entered the village', await until(() => active('Settlement'), 12000));
+await wait(400);
 const before = await ev(() => ({ n: window.__state.campaign.data.heroes.length, gold: window.__state.campaign.data.gold }));
 await tapBtn('Settlement', { icon: 'coin', index: 0 });
 const hired = await ev(() => ({ n: window.__state.campaign.data.heroes.length, gold: window.__state.campaign.data.gold }));

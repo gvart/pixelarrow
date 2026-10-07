@@ -485,7 +485,10 @@ Steps 1–4 are implemented in the game (`src/platform/api.ts`, `online.ts`,
 mode (`src/online/`, `src/scenes/online/`) uses `/api/online/*` and
 `/ws/online`.
 
-Economy screens (to be built by the UI overhaul) use the typed methods in
+The economy screens (`src/scenes/ShopScene.ts`: shop, season pass, wallet;
+`src/scenes/MarketScene.ts`: the town marketplace; the battle consumable
+picker `src/ui/econ/consumablePicker.ts`) go through `src/ui/econ/source.ts`,
+which uses the typed methods in
 `src/platform/api.ts`: `economyCatalog`, `wallet`, `buy` (makes a request id;
 pass the same one when retrying), `equipCosmetic`, `seasonPass`, `claimPass`,
 `consumables`, `useConsumable`, `marketSearch`, `marketMine`, `marketTowns`,

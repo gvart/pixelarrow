@@ -44,6 +44,30 @@ Older helpers (`addPanel`, `addScroll`, `addText`, `fitText`, `Meter`,
 `ScrollArea`, `confirmModal`) still work; `ScrollArea` + `addScrollHint` is the
 non-virtualised list for mixed content.
 
+### Army, hero and economy pieces
+
+Built on the kit, shared by the army, hero, settlement, online army, shop and
+market screens:
+
+| Piece | Where | Use for |
+| --- | --- | --- |
+| `Stage` | `src/ui/sheet.ts` | the hero's figure in his actual gear on a lit stage (idles, swings now and then). |
+| `addSlotTile`, `addMountTile` | `src/ui/sheet.ts` | equipment slots (item in its rarity frame with a condition pip, or the empty slot icon). |
+| `openItemCard` | `src/ui/sheet.ts` | the item card; with `hero` it is the compare popup (green / red stat deltas, power change). |
+| `StashGrid` | `src/ui/sheet.ts` | stash grid with slot / rarity filters, sort, upgrade arrows, empty states. |
+| `DragDrop` | `src/ui/sheet.ts` | long-press a stash cell and drop it on a slot (`targets`). |
+| `openClassCard` | `src/ui/sheet.ts` | a recruit's class: figure, role, strong / weak, stats, hire action. |
+| `addChip`, `addStars`, `addGroupBadge`, `addTabBadge` | `src/ui/sheet.ts` | pills, rank stars, group badges, a count on a tab's top edge. |
+| `rarityFont(r)` | `src/ui/fonts.ts` | item names in their rarity colour. |
+| `addPurse`, `addEconState` | `src/ui/econ/widgets.ts` | Drachmae / gold in a top bar; the outside-Telegram / offline / closed states. |
+| `pickBattleConsumable(scene)` | `src/ui/econ/consumablePicker.ts` | **the one-per-battle consumable picker for attacks and duels**: resolves an id, `null` (none) or `undefined` (closed); pass the id to `onlineApi.attackStart(hex, id)` or a duel challenge. |
+
+The pure logic behind them is unit-tested: `src/game/gear.ts` (stats, compare
+deltas, stash and roster queries) and `src/game/economy.ts` (pass states, fee
+math, caps, availability). The shop and market scenes take `{ demo: true }` to
+run on the in-memory economy of `src/ui/econ/demo.ts` (layout check,
+screenshots).
+
 ## Patterns: which one when
 
 One clear pattern per screen for long content (never shrink text or buttons

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, addIcon, addPanel, addText } from '../ui/kit';
+import { Button, addPanel, addText } from '../ui/kit';
 import { Grid, ItemIcon, ScrollList, Tabs, addEmptyState, confirmDialog, openModal, showTooltip, subjectName, toast, type IconSubject } from '../ui/widgets';
 import { uiId } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
@@ -183,7 +183,7 @@ export class MarketScene extends BaseScene {
     }
     const b = this.base;
     const purseW = addPurse(this, H, VW - 6, 7, { drachmae: b?.wallet.drachmae ?? null, gold: b?.profile?.resources.gold ?? null }, VW - left - 50);
-    const pz = this.add.zone(VW - 4 - purseW, 2, purseW, 22).setOrigin(0, 0).setInteractive();
+    const pz = this.add.zone(VW - 4 - Math.max(24, purseW), 2, Math.max(24, purseW), 22).setOrigin(0, 0).setInteractive();
     uiId(pz, 'market.purse');
     pz.on('pointerup', () => showTooltip(this, t('econ.purseTip'), pz));
     H.add(pz);
@@ -348,7 +348,7 @@ export class MarketScene extends BaseScene {
     const { VW } = this.m;
     const w = Math.min(VW - 12, 200);
     const inner = w - 16;
-    const desc = 'consumable' in s ? wrapText(tOr(`consumable.${s.consumable}.desc`, CONSUMABLES[s.consumable as ConsumableId]?.desc ?? ''), inner, 3) : { lines: [] as string[] };
+    const desc = 'consumable' in s ? wrapText(tOr(`consumable.${s.consumable}.desc`, CONSUMABLES[s.consumable as ConsumableId]?.desc ?? ''), inner - 4, 3) : { lines: [] as string[] };
     const h = 26 + 30 + desc.lines.length * LINE_H + notes.length * LINE_H + 8 + (actions.length ? SIZE.btnH + 8 : 0) + 6;
     const m = openModal(this, { title: name, w, h });
     const { c, x, y } = m;
@@ -669,7 +669,6 @@ export class MarketScene extends BaseScene {
     });
     if (!tn) list.setEnabled(false, t('market.noTownHint'));
     c.add(list);
-    void cy;
   }
 
   async list(s: Sellable, qty: number, currency: Currency, price: number, town: { q: number; r: number }): Promise<boolean> {
@@ -693,4 +692,3 @@ export class MarketScene extends BaseScene {
   }
 }
 
-void addIcon;

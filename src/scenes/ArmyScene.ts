@@ -438,10 +438,7 @@ export class ArmyScene extends BaseScene {
     hapticNotify('success');
     toast(this, t('army.equipped', { name: itemName(it) }), 'good');
     void state.save();
-    const s = this.stash?.scroll ?? 0;
     this.refresh();
-    this.stash?.rebuild(false);
-    void s;
   }
 
   private unequip(slot: Slot): void {

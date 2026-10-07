@@ -52,7 +52,7 @@ function openPicker(scene: UiScene, held: ConsumableId[], inv: Partial<Record<st
   const { VW, VH } = scene.m;
   const w = Math.min(VW - 12, 210);
   const inner = w - 16;
-  const hint = wrapText(t('cons.hint'), inner, 2);
+  const hint = wrapText(t('cons.hint'), inner - 4, 2);
   const rowH = 40;
   const listH = held.length ? held.length * (rowH + SIZE.gap) : 44;
   let done = false;
@@ -74,7 +74,7 @@ function openPicker(scene: UiScene, held: ConsumableId[], inv: Partial<Record<st
     rows.length = 0;
     if (!held.length) {
       const r = scene.add.container(0, 0);
-      const e = wrapText(t('cons.emptyHint'), inner, 2);
+      const e = wrapText(t('cons.emptyHint'), inner - 4, 2);
       r.add(addText(scene, x + 8 + inner / 2, y, ellipsize(t('cons.empty').toUpperCase(), inner), 'red', 0.5));
       r.add(addText(scene, x + 8 + inner / 2, y + 12, e.lines.join('\n'), 'dim', 0.5).setCenterAlign());
       c.add(r);

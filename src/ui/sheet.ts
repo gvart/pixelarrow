@@ -329,7 +329,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   const cmp = o.hero && !o.equipped ? compareItem(o.hero, it) : null;
   const changed = cmp ? cmp.deltas.filter((d) => d.better !== null) : [];
   const mods = itemModLines(it);
-  const desc = wrapText(tOr(`item.${def.id}.desc`, def.desc), inner, 3);
+  const desc = wrapText(tOr(`item.${def.id}.desc`, def.desc), inner - 4, 3);
   const notes = o.notes ?? [];
   const headH = 40;
   const cmpH = cmp ? 30 + Math.max(1, changed.length) * 11 + (cmp.displaced.length ? 10 : 0) + 4 : 0;
@@ -638,7 +638,7 @@ export function frameScrollTexts(area: ScrollArea, w: number): void {
   const walk = (list: Phaser.GameObjects.GameObject[], ox: number, oy: number) => {
     for (const o of list) {
       const any = o as unknown as { __uiFrame?: unknown; list?: Phaser.GameObjects.GameObject[]; x: number; y: number; texture?: { key: string }; width: number; height: number };
-      if (o instanceof Phaser.GameObjects.Image && any.texture?.key.startsWith('panel_')) panels.push({ x: ox + any.x, y: oy + any.y, w: any.width, h: any.height });
+      if (o instanceof Phaser.GameObjects.Image && !o.input && any.texture?.key.startsWith('panel_')) panels.push({ x: ox + any.x, y: oy + any.y, w: any.width, h: any.height });
       if (o instanceof Phaser.GameObjects.BitmapText && !any.__uiFrame) {
         texts.push({ o, x: ox + o.x - o.originX * o.width, y: oy + o.y - o.originY * o.height + o.height / 2 });
       }
@@ -680,7 +680,7 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
   const cls = heroClass(h);
   const w = Math.min(VW - 12, 210);
   const inner = w - 16;
-  const desc = wrapText(tOr(`class.${cls.id}.desc`, cls.desc), inner, 4);
+  const desc = wrapText(tOr(`class.${cls.id}.desc`, cls.desc), inner - 4, 4);
   const rt = roleTraits(cls.role);
   const s = computeStats(h);
   const stats: StatId[] = ['hp', shoots(s) ? 'ranged' : 'dmg', 'armor', 'speed', 'morale'];
@@ -715,7 +715,7 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
   }
   if (o.price) {
     by += 3;
-    const pr = wrapText(o.price, inner, 2);
+    const pr = wrapText(o.price, inner - 4, 2);
     b.add(addText(scene, 0, by, pr.lines.join("\n"), "red"));
     by += (pr.lines.length - 1) * LINE_H;
     by += 10;

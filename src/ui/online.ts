@@ -7,11 +7,8 @@ import Phaser from 'phaser';
 import { Pix } from '../art/pixels';
 import { P } from '../art/palette';
 import { BAND_COLORS, renderPartyFigure } from '../art/worldArt';
-
 import { online } from '../platform/cloud';
 import { SUPPORTER_BANNER, type SyncStatus } from '../platform/online';
-
-
 
 const GOLD = P.gold;
 const GOLD_DARK = P.goldDark;

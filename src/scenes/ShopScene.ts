@@ -129,7 +129,7 @@ export class ShopScene extends BaseScene {
     }
     const d = this.loaded;
     const purseW = addPurse(this, H, VW - 6, 7, { drachmae: d?.wallet.drachmae ?? null, gold: d?.profile?.resources.gold ?? null }, VW - left - 50);
-    const pz = this.add.zone(VW - 4 - purseW, 2, purseW, 22).setOrigin(0, 0).setInteractive();
+    const pz = this.add.zone(VW - 4 - Math.max(24, purseW), 2, Math.max(24, purseW), 22).setOrigin(0, 0).setInteractive();
     uiId(pz, 'shop.purse');
     pz.on('pointerup', () => showTooltip(this, t('econ.purseTip'), pz));
     H.add(pz);
@@ -255,7 +255,8 @@ export class ShopScene extends BaseScene {
   private cosmeticTile(c: Phaser.GameObjects.Container, area: ScrollArea, x: number, y: number, w: number, h: number, cm: CosmeticInfo, d: Loaded): void {
     const owned = d.wallet.cosmetics.includes(cm.id);
     const equipped = d.wallet.loadout[cm.slot] === cm.id;
-    const bg = addPanel(this, x, y, w, h, equipped ? 'buttonSel' : 'button').setInteractive();
+    c.add(addPanel(this, x, y, w, h, equipped ? 'buttonSel' : 'button'));
+    const bg = this.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     uiId(bg, `cosmetic:${cm.id}`);
     bg.on('pointerup', () => !area.moved && this.openCosmetic(cm));
     c.add(bg);
@@ -267,14 +268,14 @@ export class ShopScene extends BaseScene {
     c.add(g);
     c.add(this.add.image(x + Math.round((w - 28) / 2), y + 5, cosmeticTexture(this, cm.id, cm.slot)).setOrigin(0, 0));
     const light = equipped;
-    c.add(addText(this, x + w / 2, y + 38, ellipsize(cosmeticName(cm).toUpperCase(), w - 6), light ? 'light' : 'ink', 0.5));
+    c.add(addText(this, x + w / 2, y + 38, ellipsize(cosmeticName(cm).toUpperCase(), w - 10), light ? 'light' : 'ink', 0.5));
     let status: string;
     let font: 'light' | 'good' | 'dim' | 'ink' = 'ink';
     if (equipped) (status = t('shop.equipped')), (font = 'light');
     else if (owned) (status = t('econ.owned')), (font = 'good');
     else if (cm.drachmae === null) (status = cm.source === 'season_pass' ? t('shop.passOnly') : t('shop.notForSale')), (font = 'dim');
     else status = t('econ.dr', { n: cm.drachmae });
-    c.add(addText(this, x + w / 2, y + 49, ellipsize(status.toUpperCase(), w - 6), font, 0.5));
+    c.add(addText(this, x + w / 2, y + 49, ellipsize(status.toUpperCase(), w - 10), font, 0.5));
   }
 
   openCosmetic(cm: CosmeticInfo): void {

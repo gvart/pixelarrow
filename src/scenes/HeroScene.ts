@@ -200,7 +200,6 @@ export class HeroScene extends BaseScene {
     headBg.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, VH - y - SIZE.tabH + 2, 'parch'));
 
     // tabs with badges for what there is to spend
-    const free = h.points - this.spent();
     const perkFree = Math.max(0, perkSlots(h.level) - h.perks.length);
     this.tabs = new Tabs(this, 4, y, VW - 8, TABS.map((k) => t(`hero.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),
@@ -211,7 +210,6 @@ export class HeroScene extends BaseScene {
     L.add(this.tabs);
     if (h.points > 0) addTabBadge(this, L, 4, y, VW - 8, TABS.length, 0, h.points);
     if (perkFree > 0) addTabBadge(this, L, 4, y, VW - 8, TABS.length, 2, perkFree);
-    void free;
     this.pageTop = y + SIZE.tabH + 4;
     this.buildPage();
   }
@@ -259,7 +257,7 @@ export class HeroScene extends BaseScene {
     const h = this.hero();
     if (!h) return;
     if (this.tab === 'stats') this.buildStats(h);
-    else if (this.tab === 'gear') this.buildGear(h);
+    else if (this.tab === 'gear') this.buildGear();
     else if (this.tab === 'perks') this.buildPerks(h);
     else this.buildSkills(h);
   }
@@ -349,7 +347,7 @@ export class HeroScene extends BaseScene {
 
   // ------------------------------------------------------------------ gear: the stash for this hero
 
-  private buildGear(h: Hero): void {
+  private buildGear(): void {
     const { VW, VH } = this.m;
     const top = this.pageTop;
     this.stash = new StashGrid(this, this.page, 4, top, VW - 8, VH - top - 4, {
@@ -368,7 +366,6 @@ export class HeroScene extends BaseScene {
         drop: (it) => this.equip(it),
       });
     }
-    void h;
   }
 
   private tapSlot(slot: Slot): void {
@@ -423,10 +420,7 @@ export class HeroScene extends BaseScene {
     hapticNotify('success');
     toast(this, t('army.equipped', { name: itemName(it) }), 'good');
     void state.save();
-    const scroll = this.stash?.scroll ?? 0;
     this.build();
-    if (this.stash) this.stash.rebuild(false);
-    void scroll;
   }
 
   private unequip(slot: Slot): void {
