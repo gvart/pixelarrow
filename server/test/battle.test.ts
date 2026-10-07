@@ -1,5 +1,7 @@
 import { describe, expect, inject, it } from 'vitest';
-import { replayBattle } from '../src/battle';
+import { VerifyBody, replayBattle } from '../src/battle';
+import { Battle } from '../../src/sim/battle';
+import { generateBattlefield } from '../../src/world/battlefield';
 import { api, devLogin } from './helpers';
 
 const fx = inject('battleFixture');
@@ -15,6 +17,19 @@ describe('battle verification', () => {
     expect(out.summary).toMatchObject({ winner: fx.winner, ticks: fx.ticks, hash: fx.hash });
     // Deterministic across runs in the same isolate too.
     expect(replayBattle(fx.setup, fx.orders, fx.deployOrders).summary.hash).toBe(fx.hash);
+  });
+
+  it('keeps the terrain grid through validation and replays a battle on it', () => {
+    const setup = { ...fx.setup, terrain: generateBattlefield(9, { base: 'hills', river: true, coast: false, rocky: true, woods: 0.3 }) };
+    const b = new Battle(JSON.parse(JSON.stringify(setup)));
+    b.startBattle();
+    for (let t = 0; t < 20 * 400 && b.phase !== 'ended'; t++) b.step();
+    const parsed = VerifyBody.parse({ setup, orders: [], claim: { winner: b.winner ?? -1, ticks: b.tick } });
+    expect(parsed.setup.terrain?.cells).toBe(setup.terrain.cells);
+    const out = replayBattle(parsed.setup as unknown as typeof fx.setup, []);
+    expect(out.summary).toMatchObject({ ticks: b.tick, hash: b.hash() });
+    // without the grid it is a different battle
+    expect(replayBattle(fx.setup, []).summary.hash).not.toBe(b.hash());
   });
 
   it('POST /api/battle/verify accepts the honest claim', async () => {

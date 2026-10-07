@@ -87,6 +87,16 @@ const Setup = z.object({
   width: z.number().min(8).max(200).optional(),
   height: z.number().min(8).max(200).optional(),
   timeLimit: z.number().min(1).max(LIMITS.maxTimeLimit).optional(),
+  /** Battlefield terrain grid (src/sim/terrain.ts); absent = open, flat plain. */
+  terrain: z
+    .object({
+      w: z.number().int().min(1).max(200),
+      h: z.number().int().min(1).max(200),
+      cells: z.string().max(40_000),
+      height: z.string().max(40_000).optional(),
+      name: z.string().max(64).optional(),
+    })
+    .optional(),
 });
 
 const Order = z.discriminatedUnion('kind', [
