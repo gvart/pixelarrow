@@ -271,14 +271,15 @@ describe('event triggers', () => {
     await runDurableObjectAlarm(stub);
     const row = await waitForEvent(a.playerId, 'march_arrived');
     expect(JSON.parse(row.data)).toEqual({ q: 4, r: -3 });
-    expect(sends(calls, 77201)).toHaveLength(1);
+    // (the alarm, due at once, may already have run by itself: wait for its send)
+    await vi.waitFor(() => expect(sends(calls, 77201)).toHaveLength(1));
     // online on the war table: no message
     const ws = await wsOnline(a.token);
     await ws.next('welcome');
     await stub.marchNotice(a.playerId, { at: Date.now() - 1000, q: 5, r: -3 });
     await runDurableObjectAlarm(stub);
+    await vi.waitFor(async () => expect(await runInDurableObject(stub, (_i: RegionDO, state) => state.storage.get(`notice:${a.playerId}`))).toBeUndefined());
     expect((await outbox(a.playerId)).filter((r) => r.event === 'march_arrived')).toHaveLength(1);
-    expect(await runInDurableObject(stub, (_i: RegionDO, state) => state.storage.get(`notice:${a.playerId}`))).toBeUndefined();
     ws.ws.close(1000);
     // a long march registers its notice; a halt clears it
     await stub.marchNotice(a.playerId, null);
