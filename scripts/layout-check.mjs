@@ -403,13 +403,22 @@ const SCREENS = [
     ['online-challenge', 'challenge'],
     ['online-result', 'result'],
     ['online-join', 'join'],
+    ['online-lair', 'lair'],
+    ['online-lair-info', 'lairInfo'],
+    ['online-boss', 'boss'],
+    ['online-boss-info', 'bossInfo'],
   ].map(([id, preview]) => ({
     id,
     owner: 'C',
     run: async (p) => {
       await start(p, 'Online', { preview });
       await until(p, new Function(`const s = window.__game.scene.getScene('Online'); return ${preview === 'join' ? "s.sys.isActive()" : '!!s.map'};`), 8000);
-      if (['neutral', 'far', 'own', 'rival', 'town'].includes(preview)) await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
+      if (['neutral', 'far', 'own', 'rival', 'town', 'lair', 'lairInfo', 'boss', 'bossInfo'].includes(preview)) await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
+      if (preview === 'lairInfo' || preview === 'bossInfo') {
+        // the info panel opens once the hex detail is in
+        await wait(p, 300);
+        await call(p, 'Online', `if (!s.modal && s.selected) s.openBeast(s.selected); return 1;`);
+      }
       if (preview === 'march') {
         // the march answer shows a toast over the top bar: let it fade
         await until(p, () => !!window.__game.scene.getScene('Online').profile?.army.marching, 6000);

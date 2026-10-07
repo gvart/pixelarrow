@@ -290,6 +290,11 @@ export function encounterOf(heroes: readonly Pick<Hero, 'cls'>[]): EncounterId |
   return null;
 }
 
+/** The cosmetic trophy (an entitlement product id) for slaying a beast or world boss. */
+export function trophyId(enc: EncounterId): string {
+  return `trophy_${enc}`;
+}
+
 // ------------------------------------------------------------------ the sim's rules
 
 export const MYTH_RULES = {

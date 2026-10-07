@@ -56,7 +56,8 @@ export async function freeNeighbour(p: Player, seedFilter?: (h: Axial) => boolea
   for (const n of neighbours(pos)) {
     if (seedFilter && !seedFilter(n)) continue;
     const r = await getJson<{ hex: { occupant: string; owner: number | null; type: string }; canAttack: boolean }>(`/api/online/hex/${n.q}/${n.r}`, p.token);
-    if (r.status === 200 && r.body.canAttack && r.body.hex.owner === null) return n;
+    // (beast lairs are not plain neutrals: weakenNeutrals cannot touch them)
+    if (r.status === 200 && r.body.canAttack && r.body.hex.owner === null && r.body.hex.occupant !== 'beast') return n;
   }
   throw new Error('no attackable neighbour');
 }

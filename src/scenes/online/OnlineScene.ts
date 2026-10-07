@@ -27,6 +27,7 @@ import {
   shardSocket,
   type AttackResult,
   type AttackTicket,
+  type BossView,
   type HexDetail,
   type MapView,
   type ProfileView,
@@ -47,6 +48,9 @@ import { t, tOr, type TKey } from '../../i18n';
 import { attackReport, duelReport } from '../../online/report';
 import { attackSubmission } from '../../online/battle';
 import { showReport } from '../ResultsScene';
+import { openBossInfo, openLairInfo, raidSource } from './beastPanel';
+import { encounterName } from '../../ui/beastInfo';
+import type { EncounterId } from '../../data/beasts';
 
 /** Layout (UI pixels). */
 const TOP_H = 44;
@@ -56,7 +60,7 @@ const CHIP_H = 28;
 type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string } | { kind: 'join' } | { kind: 'map' };
 
 /** Staged states of the preview map (layout check, screenshots). */
-export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result';
+export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result' | 'lair' | 'lairInfo' | 'boss' | 'bossInfo';
 
 export interface OnlineSceneData {
   /** Show the outcome of an attack that just came back from the battle scene. */
@@ -79,6 +83,8 @@ interface Source {
   march(h: Axial): Promise<{ path: [number, number][]; at: number[]; energy: number; arriveAt: number }>;
   stopMarch(): Promise<Axial>;
   collect(): Promise<{ collected: Resources }>;
+  /** World bosses of the shard (shared HP, damage tally). */
+  bosses(): Promise<BossView[]>;
 }
 
 const liveSource: Source = {
@@ -91,6 +97,7 @@ const liveSource: Source = {
   march: (h) => onlineApi.march(h),
   stopMarch: () => onlineApi.stopMarch(),
   collect: () => onlineApi.collect(),
+  bosses: () => onlineApi.bosses().then((r) => r.bosses),
 };
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -121,6 +128,7 @@ function previewSource(d: DemoShard): Source {
       d.profile.army = { ...d.profile.army, marching: false, dest: null, arriveAt: null, path: null, at: null };
       return { q: d.profile.army.q, r: d.profile.army.r };
     },
+    bosses: async () => clone(d.bosses),
     collect: async () => {
       const got = clone(d.profile.income.pending);
       for (const k of RESOURCE_KEYS) {
@@ -186,6 +194,8 @@ export class OnlineScene extends BaseScene {
   private duelBadge: Badge | null = null;
   private lobbyOpen = false;
   private boardBuilt = false;
+  /** World bosses of the shard (HP bars on the map, the raid panel). */
+  bosses: BossView[] = [];
 
   constructor() {
     super('Online');
@@ -324,6 +334,9 @@ export class OnlineScene extends BaseScene {
     this.board.build(map, own);
     this.boardBuilt = true;
     this.board.setRoute(own ? own.path.map(([q, r]) => ({ q, r })) : null, true);
+    this.bosses = await this.src.bosses().catch(() => [] as BossView[]);
+    if (!this.sys.isActive()) return;
+    this.board.setBossBars(this.bosses.map((b) => ({ q: b.q, r: b.r, f: b.maxHp > 0 ? b.hp / b.maxHp : 0, dead: b.status === 'dead' })));
     this.render();
     if (this.selected) void this.loadDetail(this.selected);
     // Marches resolve on the server's clock: refresh when the army arrives.
@@ -346,8 +359,9 @@ export class OnlineScene extends BaseScene {
     const demo = this.demo;
     const k = this.data0.preview;
     if (!demo || !k) return;
-    const spot = k === 'own' ? demo.spots.own : k === 'neutral' ? demo.spots.neutralNext : k === 'far' ? demo.spots.neutralFar : k === 'rival' ? demo.spots.rival : k === 'town' ? demo.spots.town : null;
+    const spot = k === 'own' ? demo.spots.own : k === 'neutral' ? demo.spots.neutralNext : k === 'far' ? demo.spots.neutralFar : k === 'rival' ? demo.spots.rival : k === 'town' ? demo.spots.town : k === 'lair' || k === 'lairInfo' ? demo.spots.lair : k === 'boss' || k === 'bossInfo' ? demo.spots.boss : null;
     if (spot) this.select(spot);
+    if ((k === 'lairInfo' || k === 'bossInfo') && spot) this.openBeast(spot);
     if (k === 'lobby') this.openLobby();
     if (k === 'challenge') showChallenge(this.game, 'preview', { id: 102, name: 'Brasidas' });
     if (k === 'march') void this.march(demo.spots.neutralFar);
@@ -593,9 +607,11 @@ export class OnlineScene extends BaseScene {
     }
   }
 
-  private hexName(h: { type: keyof typeof HEX_KEYS; capital?: boolean; fort?: boolean; occupant?: string }): string {
+  private hexName(h: { type: keyof typeof HEX_KEYS; capital?: boolean; fort?: boolean; occupant?: string; lair?: string; boss?: string }): string {
     if (h.capital) return t('hex.capital');
     if (h.fort) return t('hex.fort');
+    if (h.boss) return encounterLabel(h.boss);
+    if (h.lair) return encounterLabel(h.lair);
     if (h.occupant === 'beast') return t('hex.lair');
     return t(HEX_KEYS[h.type]);
   }
@@ -628,6 +644,9 @@ export class OnlineScene extends BaseScene {
         });
       }
       if (d.siege && d.siege.needed > 1) rows.push({ text: t('hex.siege', { wins: d.siege.wins, needed: d.siege.needed }), font: 'ink', kind: 'siege' });
+      const boss = this.bossAt(h);
+      if (boss) rows.push({ text: `${encounterLabel(boss.boss)} · ${t('boss.status', { pct: Math.ceil((100 * boss.hp) / Math.max(1, boss.maxHp)) })}`, font: boss.status === 'dead' ? 'dim' : 'red' });
+      if (d.lair && !d.lair.home && d.lair.returnsAt) rows.push({ text: t('hex.lairBack', { t: fmtTime(d.lair.returnsAt - Date.now()) }), font: 'dim' });
       if (d.garrison) rows.push({ text: d.garrison.length ? t('hex.garrison', { names: d.garrison.map((g) => g.hero.name).join(', ') }) : t('hex.noGarrison'), font: 'ink' });
       if (d.income) rows.push({ text: t('hex.waiting', { res: resLine(d.income) }), font: 'good' });
     }
@@ -682,9 +701,11 @@ export class OnlineScene extends BaseScene {
     uiId(zone, 'online.hexInfo');
     tappable(zone, null, () => showTooltip(this, full, { x: x + 6, y: infoTop, w: tw, h: infoH }), full);
     c.addAt(zone, 1);
-    if (!acts.length) return;
+    // a lair or a world boss: its info panel (how it fights, the raid) on one more button
+    const beastBtn = !!d && (!!d.lair || !!this.bossAt(h));
+    if (!acts.length && !beastBtn) return;
     const by = infoTop + infoH + SIZE.gap + 1;
-    const n = acts.length;
+    const n = acts.length + (beastBtn ? 1 : 0);
     const bw = Math.floor((W - 12 - (n - 1) * SIZE.gap) / n);
     acts.forEach((a, i) => {
       const spec = this.actSpec(a, h);
@@ -700,6 +721,44 @@ export class OnlineScene extends BaseScene {
       if (!a.enabled) b.setEnabled(false);
       c.add(b);
     });
+    if (beastBtn) {
+      const i = acts.length;
+      c.add(new Button(this, x + 6 + i * (bw + SIZE.gap), by, W - 12 - i * (bw + SIZE.gap), SIZE.btnH, { label: t('hex.act.beast'), icon: 'beast', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' }));
+    }
+  }
+
+  private bossAt(h: Axial): BossView | null {
+    return this.bosses.find((b) => b.q === h.q && b.r === h.r) ?? null;
+  }
+
+  /** The beast info panel of a lair or a world boss (with Attack / Raid). */
+  openBeast(h: Axial): void {
+    const d = this.detail;
+    const p = this.profile;
+    if (!p) return;
+    this.closeModal();
+    const boss = this.bossAt(h);
+    if (boss) {
+      const why = boss.status === 'dead' ? t('boss.why.dead') : hexDistance(p.army, h) > 1 || p.army.marching ? t('boss.why.far') : undefined;
+      this.modal = openBossInfo(this, boss, { raid: () => void this.raid(boss), disabled: why });
+      return;
+    }
+    if (!d?.lair) return;
+    const lair = d.lair;
+    this.modal = openLairInfo(this, lair.enc as EncounterId, lair.level, {
+      returnsIn: !lair.home && lair.returnsAt ? fmtTime(lair.returnsAt - Date.now()) : undefined,
+      attack: lair.home ? { run: () => void this.attack(h), disabled: d.canAttack ? undefined : t('boss.why.far') } : undefined,
+    });
+  }
+
+  private async raid(b: BossView): Promise<void> {
+    if (this.demo) {
+      toast(this, t('online.preview'));
+      return;
+    }
+    const tk = await this.act(() => onlineApi.raidStart(b.boss));
+    if (!tk || !this.sys.isActive()) return;
+    this.scene.start('Battle', { source: raidSource(this.game, tk) });
   }
 
   private actSpec(a: Act, h: Axial): { label: string; icon: string; tip?: string; onClick: () => void } {
@@ -1102,6 +1161,10 @@ const HEX_KEYS = {
 function resLine(r: Resources, plus = true): string {
   const out = RESOURCE_KEYS.filter((k) => r[k] >= (k === 'recruits' ? 0.1 : 1)).map((k) => `${t(`res.${k}` as TKey)} ${plus ? '+' : ''}${k === 'recruits' ? Math.floor(r[k] * 10) / 10 : Math.floor(r[k])}`);
   return out.join(', ') || '0';
+}
+
+function encounterLabel(id: string): string {
+  return encounterName(id as EncounterId);
 }
 
 /** Stops whatever runs and opens the online map (from the battle scene's callbacks). */

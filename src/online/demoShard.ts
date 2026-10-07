@@ -10,7 +10,9 @@ import { capitals, hexDistance, hexId, hexInfo, hexesWithin, MARCH_MINUTES, neig
 import { defenderFor, neutralDefenders, WINS_TO_CLAIM } from './defenders';
 import { hexIncome, ONLINE_RULES, starterOnlineArmy, type Resources } from './rules';
 import { heroPower } from '../sim/stats';
-import type { HexDetail, HexView, MapView, ProfileView } from './client';
+import type { BossView, HexDetail, HexView, MapView, ProfileView } from './client';
+import { ENCOUNTERS, MYTHS, lairLevel, mythHeroes, type EncounterId } from '../data/beasts';
+import { bossMaxHp } from './lairs';
 
 export const DEMO = { seed: 42, radius: SHARD_RADIUS, me: 101, mate: 102, rival: 201, raider: 202, clan: 7, rivalClan: 9 };
 
@@ -60,7 +62,9 @@ export interface DemoShard {
   owners: Map<string, { owner: number; clan: number | null; home: boolean; garrison?: number }>;
   hex(h: Axial): HexDetail;
   /** Interesting hexes to stage the panel on. */
-  spots: { own: Axial; neutralNext: Axial; neutralFar: Axial; rival: Axial; town: Axial | null };
+  spots: { own: Axial; neutralNext: Axial; neutralFar: Axial; rival: Axial; town: Axial | null; lair: Axial | null; boss: Axial | null };
+  /** The world boss in sight (GET /boss). */
+  bosses: BossView[];
 }
 
 export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
@@ -105,11 +109,25 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
     if (!o && s.passable) v.def = defenderFor(DEMO.seed, s).id;
     return v;
   });
-  // A beast lair on a ruin or hill in sight, for the art.
-  const lair = hexes.find((h) => h.owner === null && (h.type === 'ruins' || h.type === 'hills') && hexDistance(h, me) >= 2);
-  if (lair) {
-    lair.occupant = 'beast';
-    delete lair.def;
+  // Beast lairs in sight (a few of every kind, for the art) and a world boss on the coast.
+  const free = hexes.filter((h) => h.owner === null && h.occupant === 'npc' && !h.fort && !h.capital && h.type !== 'town' && hexDistance(h, me) >= 2).sort((a, b) => hexDistance(a, me) - hexDistance(b, me) || a.q - b.q || a.r - b.r);
+  const bossHex = free.find((h) => h.coast) ?? free[free.length - 1];
+  const lairs: Axial[] = [];
+  const kinds: EncounterId[] = ['hydra', 'cyclops', 'minotaur', 'chimera', 'harpies', 'nemean_lion'];
+  for (const h of free) {
+    if (lairs.length >= kinds.length) break;
+    if (h === bossHex || lairs.some((l) => hexDistance(l, h) < 2) || hexDistance(h, bossHex) < 2) continue;
+    const enc = kinds[lairs.length];
+    h.occupant = 'beast';
+    h.lair = enc;
+    h.lairLevel = lairLevel(enc, Math.min(5, h.tier + 1));
+    delete h.def;
+    lairs.push(h);
+  }
+  if (bossHex) {
+    bossHex.occupant = 'beast';
+    bossHex.boss = bossHex.coast ? 'kraken' : 'titan';
+    delete bossHex.def;
   }
 
   const known = (h: Axial) => visible.has(hexId(h.q, h.r));
@@ -163,6 +181,41 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
     clans: { [DEMO.clan]: { name: 'Kites of Pella', tag: 'KIT' }, [DEMO.rivalClan]: { name: 'Sons of Argos', tag: 'ARG' } },
   };
 
+  // the world boss some raids into the season: wounded, an arm cut, a leaderboard
+  const bosses: BossView[] = bossHex
+    ? [
+        (() => {
+          const boss = bossHex.boss as EncounterId;
+          const level = ENCOUNTERS[boss].levels[0];
+          const max = bossMaxHp(boss, level);
+          return {
+            boss,
+            q: bossHex.q,
+            r: bossHex.r,
+            level,
+            hp: Math.round(max.body * 0.62),
+            maxHp: max.body,
+            parts: Array.from({ length: max.parts }, (_, i) => (i === 2 ? 0 : max.part)),
+            partMax: max.part,
+            status: 'active' as const,
+            killedAt: null,
+            segment: ENCOUNTERS[boss].segment ?? 120,
+            top: [
+              { player: DEMO.mate, name: 'Brasidas', clan: 'KIT', damage: 2140, raids: 6 },
+              { player: DEMO.rival, name: 'Kleon', clan: 'ARG', damage: 1630, raids: 5 },
+              { player: DEMO.me, name: 'Ana', clan: 'KIT', damage: 980, raids: 3 },
+              { player: DEMO.raider, name: 'Phormion', clan: null, damage: 410, raids: 2 },
+            ],
+            clans: [
+              { clan: DEMO.clan, tag: 'KIT', name: 'Kites of Pella', damage: 3120 },
+              { clan: DEMO.rivalClan, tag: 'ARG', name: 'Sons of Argos', damage: 1630 },
+            ],
+            you: { damage: 980, raids: 3, loot: null },
+          };
+        })(),
+      ]
+    : [];
+
   const hex = (h: Axial): HexDetail => {
     const s = info(h);
     const view = hexes.find((x) => x.q === h.q && x.r === h.r) ?? { q: h.q, r: h.r, type: s.type, tier: s.tier, fort: s.fort, capital: s.capital, coast: s.coast, site: siteLabel(s.site), occupant: 'npc', owner: null, clan: null, home: false };
@@ -171,7 +224,13 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
     const adjacent = hexDistance(me, h) === 1;
     let defenders: HexDetail['defenders'] = null;
     let siege: HexDetail['siege'] = null;
-    if (!o && s.passable) {
+    if (view.lair) {
+      const enc = view.lair as EncounterId;
+      defenders = { count: mythHeroes(enc, view.lairLevel ?? 3).length, power: 0, kind: 'beast' };
+      siege = { wins: 0, needed: 1, label: MYTHS[ENCOUNTERS[enc].body].name };
+    } else if (view.boss) {
+      defenders = null;
+    } else if (!o && s.passable) {
       const npc = neutralDefenders(DEMO.seed, s, 0, DEMO.radius);
       defenders = { count: npc.length, power: Math.round(npc.reduce((a, x) => a + heroPower(x), 0)), kind: 'npc' };
       const needed = WINS_TO_CLAIM[s.tier] ?? 1;
@@ -191,8 +250,10 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
       defenders,
       siege,
       income: o?.owner === DEMO.me ? R(12, 6, 4, 0, 0.1) : null,
-      canAttack: s.passable && !ours && !o?.home && adjacent,
+      canAttack: s.passable && !ours && !o?.home && adjacent && !view.boss,
       canGarrison: ours && me.q === h.q && me.r === h.r,
+      lair: view.lair ? { enc: view.lair, level: view.lairLevel ?? 3, tier: Math.min(5, s.tier + 1), home: true, returnsAt: null } : null,
+      boss: view.boss ?? null,
     };
   };
 
@@ -200,5 +261,5 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
   const neutralFar = hexes.find((x) => x.owner === null && x.occupant === 'npc' && hexDistance(x, me) === 3) ?? neutralNext;
   const town = hexes.find((x) => (x.type === 'town' || x.fort) && x.owner === null) ?? null;
   const rivalSeen = hexes.filter((x) => x.owner === DEMO.rival).sort((a, b) => hexDistance(a, me) - hexDistance(b, me))[0];
-  return { now, profile, map, owners, hex, spots: { own: mine[1] ?? me, neutralNext, neutralFar, rival: rivalSeen ?? rivals[0], town } };
+  return { now, profile, map, owners, hex, bosses, spots: { own: mine[1] ?? me, neutralNext, neutralFar, rival: rivalSeen ?? rivals[0], town, lair: lairs[0] ?? null, boss: bossHex ?? null } };
 }

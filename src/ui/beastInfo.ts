@@ -88,6 +88,8 @@ export interface BeastInfoOpts {
   level?: number;
   /** Extra lines under the title (raid status, respawn). */
   extra?: string[];
+  /** World bosses: the shared HP bar (and arms alive). */
+  hp?: { v: number; max: number; pips?: boolean[] };
   /** Primary action ("Fight it", "Raid it"); none = info only. */
   action?: { label: string; icon?: string; run: () => void; disabled?: string };
   onClose?: () => void;
@@ -108,6 +110,24 @@ export function openBeastInfo(scene: UiScene, enc: EncounterId, o: BeastInfoOpts
   const sub = `${world ? t('myth.info.worldBoss') : t('myth.info.lair')}${o.level ? ` - ${t('myth.info.level', { n: o.level })}` : ''}`;
   c.add(addText(scene, 0, y, ellipsize(sub.toUpperCase(), w), 'dim'));
   y += 11;
+  if (o.hp) {
+    const g = scene.add.graphics();
+    const f = o.hp.max > 0 ? Math.max(0, Math.min(1, o.hp.v / o.hp.max)) : 0;
+    const pips = o.hp.pips ?? [];
+    const bw = w - (pips.length ? pips.length * 6 + 4 : 0);
+    g.fillStyle(0x2a1a16, 1);
+    g.fillRect(0, y, bw, 6);
+    g.fillStyle(0xa83a2c, 1);
+    g.fillRect(0, y, Math.round(bw * f), 6);
+    g.fillStyle(0xffffff, 0.25);
+    g.fillRect(0, y, Math.round(bw * f), 1);
+    pips.forEach((alive, i) => {
+      g.fillStyle(alive ? 0x7a3a46 : 0x3a2a22, 1);
+      g.fillRect(bw + 4 + i * 6, y, 5, 6);
+    });
+    c.add(g);
+    y += 10;
+  }
   for (const line of o.extra ?? []) {
     const l = new Label(scene, 0, y, line, { maxW: w, maxLines: 2, font: 'ink', area });
     c.add(l);

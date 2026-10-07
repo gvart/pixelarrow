@@ -24,7 +24,10 @@ import {
 import { heroPower } from '../../../src/sim/stats';
 import { defenderFor, WINS_TO_CLAIM } from '../../../src/online/defenders';
 import type { Archetype } from '../../../src/game/heroes';
-import { attack, currentNeutrals, siegeWins } from './attack';
+import { attack, currentNeutrals, lairBeast, siegeWins } from './attack';
+import { BEAST_RULES, bossAt, lairAt } from '../../../src/online/lairs';
+import { ENCOUNTERS, MYTHS } from '../../../src/data/beasts';
+import { bosses } from './bosses';
 import { pendingIncome } from './income';
 import { clans } from './clans';
 import { consumableInventory, consumables } from './consumables';
@@ -116,6 +119,11 @@ interface HexView {
   garrison?: number;
   /** Who holds a neutral hex (src/online/defenders.ts id): the map shows them as miniatures. */
   def?: string;
+  /** A mythical beast's lair (src/online/lairs.ts): which beast and its level. */
+  lair?: string;
+  lairLevel?: number;
+  /** A world boss stands here. */
+  boss?: string;
 }
 
 /**
@@ -148,9 +156,11 @@ export async function visibility(c: PlayerCtx): Promise<{ visible: Map<string, A
   return { visible, armies: armies.filter((a) => visible.has(hexId(a.pos.q, a.pos.r))).map(({ clan: _c, ...a }) => a) };
 }
 
-function hexView(shard: Shard, h: Axial, row: HexRow | undefined): HexView {
+function hexView(shard: Shard, h: Axial, row: HexRow | undefined, now = Date.now()): HexView {
   const s = staticHex(shard, h);
-  const occupant = row?.occupant ?? (s.passable ? 'npc' : 'none');
+  const boss = bossAt(shard.seed, h, shard.radius);
+  const lair = !row?.owner_id ? lairBeast(shard, s, row, now) : null;
+  const occupant = boss || lair ? 'beast' : row?.occupant ?? (s.passable ? 'npc' : 'none');
   const v: HexView = {
     q: h.q,
     r: h.r,
@@ -166,6 +176,11 @@ function hexView(shard: Shard, h: Axial, row: HexRow | undefined): HexView {
     home: row?.home === 1,
   };
   if (occupant === 'npc' && !row?.owner_id) v.def = defenderFor(shard.seed, s).id;
+  if (lair) {
+    v.lair = lair.enc;
+    v.lairLevel = lair.level;
+  }
+  if (boss) v.boss = boss.boss;
   return v;
 }
 
@@ -206,7 +221,7 @@ online.get('/map', async (c) => {
     ? await hexRowsIn(pc.db, pc.shard, Math.min(...all.map((h) => h.q)), Math.max(...all.map((h) => h.q)), Math.min(...all.map((h) => h.r)), Math.max(...all.map((h) => h.r)))
     : [];
   const byId = new Map(rows.map((r) => [hexId(r.q, r.r), r]));
-  const hexes = all.map((h) => hexView(pc.shard, h, byId.get(hexId(h.q, h.r))));
+  const hexes = all.map((h) => hexView(pc.shard, h, byId.get(hexId(h.q, h.r)), pc.now));
   // Garrison sizes of own and clan hexes only.
   const counts = await pc.db
     .prepare(
@@ -250,7 +265,7 @@ online.get('/hex/:q/:r', async (c) => {
   const { visible } = await visibility(pc);
   if (!visible.has(hexId(h.q, h.r))) throw new ApiError(404, 'fogged', 'That hex is hidden by the fog of war');
   const row = (await hexRow(pc.db, pc.shard, h)) ?? undefined;
-  const view = hexView(pc.shard, h, row);
+  const view = hexView(pc.shard, h, row, pc.now);
   const s = staticHex(pc.shard, h);
   const mine = row?.owner_id === pc.pid;
   const ours = mine || (pc.clan !== null && row?.clan_id === pc.clan.clanId);
@@ -267,8 +282,15 @@ online.get('/hex/:q/:r', async (c) => {
   } else if (s.passable) {
     const npc = currentNeutrals(pc.shard, s, row, pc.now);
     defenders = { count: npc.length, power: Math.round(npc.reduce((a, x) => a + heroPower(x), 0)), kind: 'npc' };
-    siege = { wins: siegeWins(row, pc.pid, pc.now), needed: WINS_TO_CLAIM[s.tier] ?? 1, label: defenderFor(pc.shard.seed, s).label };
+    const lair = lairBeast(pc.shard, s, row, pc.now);
+    if (lair) {
+      defenders.kind = 'beast';
+      siege = { wins: 0, needed: 1, label: MYTHS[ENCOUNTERS[lair.enc].body].name };
+    } else siege = { wins: siegeWins(row, pc.pid, pc.now), needed: WINS_TO_CLAIM[s.tier] ?? 1, label: defenderFor(pc.shard.seed, s).label };
   }
+  const isBoss = !!bossAt(pc.shard.seed, h, pc.shard.radius);
+  const slain = row?.beast_slain_at ?? null;
+  const lairInfo = lairAt(pc.shard.seed, s, pc.shard.radius);
   let income: Resources | null = null;
   if (mine) {
     const inc = await pendingIncome(pc.db, pc.shard, pc.pid, pc.clan?.clanId ?? null, pc.now);
@@ -291,7 +313,10 @@ online.get('/hex/:q/:r', async (c) => {
     formations: ours ? formationsOf(row?.formations ?? null) : null,
     defenders,
     income,
-    canAttack: s.passable && !ours && !(row?.home === 1) && adjacent && !army.marching,
+    canAttack: s.passable && !ours && !(row?.home === 1) && adjacent && !army.marching && !isBoss,
+    /** A lair: its beast, level, and when it returns if slain. World boss hexes: raid them (GET /boss). */
+    lair: lairInfo ? { enc: lairInfo.enc, level: lairInfo.level, tier: lairInfo.tier, home: !!lairBeast(pc.shard, s, row, pc.now), returnsAt: slain !== null && pc.now - slain < BEAST_RULES.respawnMs ? slain + BEAST_RULES.respawnMs : null } : null,
+    boss: isBoss ? bossAt(pc.shard.seed, h, pc.shard.radius)!.boss : null,
     canGarrison: ours && !army.marching && army.pos.q === h.q && army.pos.r === h.r,
   });
 });
@@ -549,4 +574,5 @@ online.route('/attack', attack);
 online.route('/clans', clans);
 online.route('/consumables', consumables);
 online.route('/market', market);
+online.route('/boss', bosses);
 

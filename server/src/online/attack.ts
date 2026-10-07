@@ -29,6 +29,8 @@ import { applyBattleConsumable, BATTLE_CONSUMABLES, CONSUMABLES, type Consumable
 import { attackXp, passXpStmt } from '../economy/pass';
 import { pendingIncome } from './income';
 import { pushArmyMove } from './live';
+import { BEAST_RULES, bossAt, lairAt, lairBeasts, type Lair } from '../../../src/online/lairs';
+import { trophyId } from '../../../src/data/beasts';
 import {
   armyState,
   energyNow,
@@ -49,8 +51,19 @@ import {
 export const attack = new Hono<AppEnv>();
 attack.use('*', requireAuth);
 
-/** The neutrals holding a hex right now (persisted losses, or a fresh wave). */
-export function currentNeutrals(shard: Shard, info: HexInfo, row: HexRow | null | undefined, now: number): Hero[] {
+/** The beast of a lair hex if it is at home (never slain, or back after BEAST_RULES.respawnMs). */
+export function lairBeast(shard: Shard, info: HexInfo, row: Pick<HexRow, 'beast_slain_at'> | null | undefined, now: number): Lair | null {
+  const lair = lairAt(shard.seed, info, shard.radius);
+  if (!lair) return null;
+  const slain = row?.beast_slain_at ?? null;
+  return slain === null || now - slain >= BEAST_RULES.respawnMs ? lair : null;
+}
+
+/** The neutrals holding a hex right now (a lair's beast, persisted losses, or a fresh wave). */
+export function currentNeutrals(shard: Shard, info: HexInfo, row: HexRow | null | undefined, now: number, slain?: Pick<HexRow, 'beast_slain_at'> | null): Hero[] {
+  const lair = lairBeast(shard, info, slain !== undefined ? slain : row, now);
+  // A beast heals between fights: always the whole beast and its hoard.
+  if (lair) return lairBeasts(shard.seed, info, lair, row?.npc_gen ?? 0);
   if (row?.npc && row.npc_at && now - row.npc_at < RESPAWN_MS) return JSON.parse(row.npc) as Hero[];
   return neutralDefenders(shard.seed, info, row?.npc_gen ?? 0, shard.radius);
 }
@@ -77,7 +90,7 @@ interface TicketRow {
   setup: string;
   attackers: string;
   defenders: string;
-  defender_kind: 'npc' | 'militia' | 'garrison';
+  defender_kind: 'npc' | 'militia' | 'garrison' | 'beast' | 'boss';
   defender_id: number | null;
   hex_version: number;
   status: 'open' | 'used' | 'rejected' | 'abandoned';
@@ -155,6 +168,7 @@ attack.post('/start', async (c) => {
   }
 
   if (!info.passable) throw badRequest('Nobody can fight there');
+  if (bossAt(pc.shard.seed, target, pc.shard.radius)) throw new ApiError(409, 'world_boss', 'A world boss: raid it instead (POST /api/online/boss/start)');
   const army = armyState(pc.profile, now);
   if (army.marching) throw new ApiError(409, 'marching', 'Your army is on the march');
   if (hexDistance(army.pos, target) !== 1) throw new ApiError(409, 'not_adjacent', 'Your army must stand next to the hex');
@@ -187,7 +201,8 @@ attack.post('/start', async (c) => {
   if (row?.owner_id) {
     const garrison = (await loadGarrison(pc.db, pc.shard, target)).filter((g) => g.woundedUntil <= now && g.busyUntil <= now);
     if (abandoned(row, garrison.length, now)) {
-      defenders = currentNeutrals(pc.shard, info, null, now);
+      defenders = currentNeutrals(pc.shard, info, null, now, row);
+      if (lairBeast(pc.shard, info, row, now)) kind = 'beast';
     } else if (garrison.length > 0) {
       kind = 'garrison';
       defenders = garrison.map((g) => g.hero);
@@ -199,6 +214,7 @@ attack.post('/start', async (c) => {
     }
   } else {
     defenders = currentNeutrals(pc.shard, info, row, now);
+    if (lairBeast(pc.shard, info, row, now)) kind = 'beast';
   }
 
   const id = randomToken(16);
@@ -338,6 +354,7 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
 
   // Siege progress against neutrals: several wins in a row for strong hexes.
   const needed = t.defender_kind === 'npc' ? WINS_TO_CLAIM[info.tier] ?? 1 : 1;
+  const beast = t.defender_kind === 'beast' ? lairAt(shard.seed, info, shard.radius) : null;
   const prior = t.defender_kind === 'npc' ? siegeWins(row, pc.pid, now) : 0;
   const wins = won ? prior + 1 : 0;
   const captured = won && wins >= needed;
@@ -403,13 +420,18 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
       d
         .prepare(
           `UPDATE online_hexes SET occupant = 'player', owner_id = ?1, clan_id = ?2, home = 0, captured_at = ?3, accrued_at = ?3, formations = NULL,
-             npc = NULL, npc_at = NULL, npc_gen = npc_gen + 1, siege_by = NULL, siege_wins = 0, siege_at = NULL, version = version + 1
+             npc = NULL, npc_at = NULL, npc_gen = npc_gen + 1, siege_by = NULL, siege_wins = 0, siege_at = NULL, version = version + 1,
+             beast_slain_at = CASE WHEN ?5 THEN ?3 ELSE beast_slain_at END
            WHERE ${hexWhere} AND version = ?4 AND ${G}`,
         )
-        .bind(pc.pid, clanId, now, t.hex_version),
+        .bind(pc.pid, clanId, now, t.hex_version, beast ? 1 : 0),
     );
+    // A slain beast leaves a trophy (a cosmetic entitlement, kept across seasons).
+    if (beast) stmts.push(d.prepare(`INSERT OR IGNORE INTO entitlements (player_id, product_id, purchase_id, granted_at) SELECT ?1, ?2, NULL, ?3 WHERE ${G}`).bind(pc.pid, trophyId(beast.enc), now));
     // The army moves into the conquered hex.
     stmts.push(d.prepare(`UPDATE online_profiles SET army_q = ?3, army_r = ?4, march = NULL WHERE season_id = ?1 AND player_id = ?2 AND ${G}`).bind(t.season_id, pc.pid, hex.q, hex.r));
+  } else if (t.defender_kind === 'beast') {
+    // The beast licks its wounds (it heals between fights): only the hex row exists.
   } else if (t.defender_kind === 'npc') {
     // Neutrals keep their losses until they respawn; a won round of a siege brings the next wave.
     const survivors = won ? null : JSON.stringify(res.defender.survivors);
@@ -429,6 +451,7 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
     won,
     captured,
     siege: t.defender_kind === 'npc' ? { wins, needed } : null,
+    beast: beast ? { enc: beast.enc, level: beast.level, trophy: captured ? trophyId(beast.enc) : null } : null,
     winner: summary.winner,
     ticks: summary.ticks,
     hash: summary.hash,

@@ -16,6 +16,8 @@ import { BAYER4, Pix, hash2, valueNoise } from './pixels';
 import { Scene, ramp, type Material, type V3 } from './model3d';
 import { BRONZE, CLOTH, DARK_WOOD, IRON, IVORY, LEATHER, LINEN, SKIN, WOOD, BEAST } from './materials';
 import { ELEV, TILE_H, TILE_W, inTopFace } from '../online/board';
+import { ENCOUNTERS, type EncounterId } from '../data/beasts';
+import { buildMyth, mythBasis } from './beastArt';
 import type { HexType } from '../online/hex';
 
 export interface Sprite {
@@ -543,15 +545,8 @@ export function renderProp(kind: PropKind, variant = 0): Sprite {
         s.limb([0, 0, 0.02], [0, 0, 0.07], 0.02, 0.016, M.gold);
       }, 56, true, 1.9);
     case 'lair':
-      return shoot((s) => {
-        s.group();
-        s.ellipsoid([-0.03, -0.05, 0.0], [0.16, 0, 0], [0, 0.13, 0], [0, 0, 0.13], M.darkRock);
-        s.group();
-        s.ellipsoid([0.07, 0.04, 0.04], [0.012, 0.012, 0], [0.035, -0.035, 0], [0, 0, 0.045], M.dark);
-        for (let i = 0; i < 3; i++) s.line(G(2 + i * 2, 4 + (i % 2), 0.005), G(4 + i * 2, 5, 0.005), IVORY);
-        s.group();
-        s.sphere(G(-5, 3, 0.015), 0.018, IVORY);
-      }, 64, true, 1.8);
+      // the variant is the beast (LAIR_PROPS): each lair is dressed for its beast
+      return shoot((s) => lairProp(s, LAIR_PROPS[variant] ?? 'hydra'), 72, true, 1.8);
     case 'camp':
       return shoot((s) => {
         s.group();
@@ -560,6 +555,140 @@ export function renderProp(kind: PropKind, variant = 0): Sprite {
         s.line([0.09, 0, 0], [0.09, 0, 0.22], M.pole);
       }, 48, true, 1.6);
   }
+}
+
+// ------------------------------------------------------------------ beast lairs
+
+/** Lair dressing per beast; the order is the prop variant (warTableView.propsFor). */
+export const LAIR_PROPS: EncounterId[] = ['hydra', 'cyclops', 'harpies', 'nemean_lion', 'minotaur', 'chimera', 'kraken', 'titan'];
+
+const LM = {
+  swamp: mat(0x3a5a4e, { contrast: 0.7 }),
+  reed: mat(0x7a7a3a),
+  ember: { ramp: [0xfff0a0, 0xffc040, 0xe07020, 0xa03a10, 0x601c08] } as Material,
+  scorch: mat(0x3a302a, { grit: 0.6 }),
+  sea: { ramp: [0x8ab8c0, 0x5a8a98, 0x3a6474, 0x24485a, 0x163040], contrast: 0.6 } as Material,
+  kraken: mat(0x7a3a46, { grit: 0.4 }),
+  sticks: mat(0x5a4028, { grit: 0.5 }),
+  gold: mat(0xd7a440, { grit: 0.3 }),
+};
+
+function cave(s: Scene, k = 1, m = M.darkRock): void {
+  s.group();
+  s.ellipsoid([-0.03 * k, -0.05 * k, 0.0], [0.16 * k, 0, 0], [0, 0.13 * k, 0], [0, 0, 0.13 * k], m);
+  s.group();
+  s.ellipsoid([0.07 * k, 0.04 * k, 0.04 * k], [0.012 * k, 0.012 * k, 0], [0.035 * k, -0.035 * k, 0], [0, 0, 0.045 * k], M.dark);
+}
+
+function bones(s: Scene, n: number, x0: number, y0: number): void {
+  for (let i = 0; i < n; i++) s.line(G(x0 + i * 2, y0 + (i % 2), 0.005), G(x0 + 2 + i * 2, y0 + 1, 0.005), IVORY);
+  s.group();
+  s.sphere(G(x0 - 3, y0 - 1, 0.015), 0.018, IVORY);
+}
+
+function lairProp(s: Scene, enc: EncounterId): void {
+  switch (enc) {
+    case 'hydra':
+      // a black-green swamp pool with reeds round a sunken cave
+      s.group();
+      s.ellipsoid(G(2, 3, 0.004), [0.17, 0, 0], [0, 0.13, 0], [0, 0, 0.008], LM.swamp, (l) => ((Math.floor((l[0] + 1) * 5) + Math.floor((l[1] + 1) * 4)) % 4 === 0 ? { shade: -1 } : null));
+      cave(s, 0.8);
+      for (let i = 0; i < 7; i++) s.line(G(-8 + i * 3, 6 + (i % 3), 0), G(-8 + i * 3 + (i % 2), 6 + (i % 3), 0.07 + (i % 2) * 0.03), LM.reed);
+      bones(s, 2, 4, 4);
+      return;
+    case 'cyclops':
+      // a giant's cave mouth and a heap of throwing boulders
+      cave(s, 1.15);
+      for (const [x, y, k] of [[8, 4, 0.9], [11, 2, 0.7], [6, 7, 0.6], [12, 6, 0.5]] as [number, number, number][]) rock(s, G(x, y), k);
+      bones(s, 3, -6, 6);
+      return;
+    case 'harpies':
+      // a crag spire crowned with a nest of sticks
+      s.group();
+      s.limb([0, 0, 0], [0.01, -0.01, 0.42], 0.13, 0.05, M.darkRock);
+      s.group();
+      s.ellipsoid([0.01, -0.01, 0.43], [0.08, 0, 0], [0, 0.08, 0], [0, 0, 0.03], LM.sticks, (l) => ((Math.floor((l[0] + 1) * 9) + Math.floor((l[1] + 1) * 7)) & 1 ? { shade: 0.8 } : null));
+      for (const [x, y] of [[6, 4], [-6, 5]] as [number, number][]) rock(s, G(x, y), 0.5);
+      bones(s, 2, -2, 6);
+      return;
+    case 'nemean_lion':
+      // a cave with tufts of golden hair and gnawed bones
+      cave(s, 1);
+      s.group();
+      for (const [x, y] of [[5, 5], [-4, 6]] as [number, number][]) s.sphere(G(x, y, 0.01), 0.02, LM.gold);
+      bones(s, 4, 1, 5);
+      return;
+    case 'minotaur':
+      // the walls of a labyrinth
+      s.group();
+      for (const [x0, y0, x1, y1] of [[-12, -4, 4, -4], [-12, -4, -12, 6], [-8, 0, 2, 0], [2, 0, 2, 6], [-4, 4, -4, 8], [8, -2, 8, 7]] as [number, number, number, number][]) {
+        const a = G(x0, y0, 0.04);
+        const b = G(x1, y1, 0.04);
+        const c: V3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.04];
+        const d: V3 = [(b[0] - a[0]) / 2, (b[1] - a[1]) / 2, 0];
+        const n = Math.sqrt(d[0] * d[0] + d[1] * d[1]) || 1;
+        s.box(c, d, [(-d[1] / n) * 0.014, (d[0] / n) * 0.014, 0], [0, 0, 0.04], M.stone);
+      }
+      bones(s, 2, -6, 2);
+      return;
+    case 'chimera':
+      // scorched rocks with embers still glowing
+      cave(s, 1, LM.scorch);
+      s.group();
+      for (const [x, y] of [[6, 5], [-5, 6], [9, 2]] as [number, number][]) s.sphere(G(x, y, 0.008), 0.016, LM.ember);
+      rock(s, G(-9, 3), 0.6, LM.scorch);
+      return;
+    case 'kraken':
+      // a sea rock in the surf, arms curling out of the water
+      s.group();
+      s.ellipsoid([0, 0, 0.004], [0.2, 0, 0], [0, 0.16, 0], [0, 0, 0.008], LM.sea, (l) => (Math.sqrt(l[0] * l[0] + l[1] * l[1]) > 0.85 ? { ramp: [0xd8ecee, 0xb0d0d6, 0x88b0b8] } : null));
+      rock(s, G(-3, -2), 0.9, M.darkRock);
+      for (let i = 0; i < 4; i++) {
+        const a = G(-6 + i * 5, 3 + (i % 2) * 2, 0);
+        s.group();
+        s.limb(a, [a[0] + 0.01, a[1] - 0.01, 0.12 + (i % 2) * 0.05], 0.028, 0.01, LM.kraken);
+      }
+      return;
+    case 'titan':
+      // a colossal broken throne of the old gods
+      s.group();
+      s.box([0, 0, 0.04], [0.12, 0, 0], [0, 0.1, 0], [0, 0, 0.04], M.marble);
+      s.box([-0.08, 0.02, 0.16], [0.03, 0, 0], [0, 0.1, 0], [0, 0, 0.1], M.marble);
+      column(s, G(10, 3, 0.0), 0.2, true);
+      column(s, G(-10, 6, 0.0), 0.12, true);
+      rock(s, G(6, 7), 0.6);
+      return;
+    default:
+      cave(s);
+  }
+}
+
+/** A beast as a painted miniature: its battle model (src/art/beastArt.ts) shrunk onto a base. */
+function beastMini(s: Scene, enc: EncounterId): void {
+  const e = ENCOUNTERS[enc];
+  const B = mythBasis(Math.SQRT1_2, Math.SQRT1_2);
+  const k = { hydra: 0.11, cyclops: 0.14, harpies: 0.2, nemean_lion: 0.17, minotaur: 0.15, chimera: 0.14, kraken: 0.085, titan: 0.11 }[enc];
+  const part = new Scene();
+  buildMyth(part, e.body, 0, B, false);
+  if (e.parts && enc === 'hydra') {
+    for (const [f, r, v] of [[1.5, -1, 1], [1.7, 0, 0], [1.5, 1, 2]] as [number, number, number][]) {
+      const h = new Scene();
+      buildMyth(h, e.parts.id, 0, B, false, v);
+      h.translate([B.F[0] * f + B.R[0] * r, B.F[1] * f + B.R[1] * r, 0]);
+      part.prims.push(...h.prims);
+      part.lines.push(...h.lines);
+    }
+  }
+  if (enc === 'harpies') {
+    const h2 = new Scene();
+    buildMyth(h2, 'harpy', 1, B, true);
+    h2.translate([0.5, -0.6, 0.6]);
+    part.prims.push(...h2.prims);
+    part.lines.push(...h2.lines);
+  }
+  part.scale(k);
+  s.prims.push(...part.prims);
+  s.lines.push(...part.lines);
 }
 
 // ------------------------------------------------------------------ figures
@@ -666,7 +795,7 @@ function hydra(s: Scene, at: V3, k = 1): void {
   }
 }
 
-export type MiniKind = 'army' | 'militia' | 'beasts' | 'outlaws' | 'tribes' | 'pirates' | 'deserters' | 'city' | 'cultists' | 'beast';
+export type MiniKind = 'army' | 'militia' | 'beasts' | 'outlaws' | 'tribes' | 'pirates' | 'deserters' | 'city' | 'cultists' | 'beast' | `beast_${EncounterId}`;
 
 const STRAW = mat(0xc8a858, { grit: 0.4 });
 const HOOD_GREEN = mat(0x4e6a34, { grit: 0.4 });
@@ -674,7 +803,7 @@ const PURPLE = mat(0x5a2a5a, { grit: 0.3 });
 const RED_CREST = mat(0x9a2a1e, { contrast: 0.8 });
 const STRIPE = mat(0xd8d0bc, { grit: 0.3 });
 
-const LOOKS: Record<Exclude<MiniKind, 'army' | 'beasts' | 'beast'>, FigLook[]> = {
+const LOOKS: Record<Exclude<MiniKind, 'army' | 'beasts' | 'beast' | `beast_${EncounterId}`>, FigLook[]> = {
   militia: [{ body: CLOTH.tunicWhite, fork: true, cap: STRAW, brim: true }, { body: CLOTH.tunicOchre, legs: CLOTH.trouserBrown, spear: true }],
   outlaws: [{ body: CLOTH.tunicGreen, hood: HOOD_GREEN, bow: true }, { body: CLOTH.cloakBrown, hood: HOOD_GREEN, bow: true }],
   tribes: [{ body: CLOTH.checkRed, legs: CLOTH.checkGreen, sling: true, skin: SKIN[0] }, { body: CLOTH.checkGreen, legs: CLOTH.trouserBrown, spear: true, skin: SKIN[0], shield: mat(0x6a5038) }],
@@ -715,8 +844,16 @@ export function renderMini(kind: MiniKind): Sprite {
       s.scale(1.5);
       return;
     }
+    if (kind.startsWith('beast_')) {
+      const enc = kind.slice(6) as EncounterId;
+      const big = enc === 'kraken' || enc === 'titan';
+      mini(s, big ? 0.17 : 0.14, big ? 0.17 : 0.14);
+      beastMini(s, enc);
+      s.scale(big ? 1.9 : 1.5);
+      return;
+    }
     mini(s, 0.1, 0.1);
-    const [a, b] = LOOKS[kind];
+    const [a, b] = LOOKS[kind as keyof typeof LOOKS];
     figure(s, [-0.035, 0.035, 0], a, 0.85);
     figure(s, [0.035, -0.035, 0], b, 0.85);
     s.scale(1.2);

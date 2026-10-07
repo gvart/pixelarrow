@@ -14,6 +14,7 @@ import { normalizeEquip, normalizeItem, type Item } from '../../../src/data/item
 import type { FormationType } from '../../../src/sim/formation';
 import { hashString } from '../../../src/sim/rng';
 import { capitals, hexDistance, hexesWithin, hexInfo, SHARD_RADIUS, type Axial, type HexInfo } from '../../../src/online/hex';
+import { beastHex } from '../../../src/online/lairs';
 import { DEFAULT_FORMATIONS, energyAt, hexScore, ONLINE_RULES, starterOnlineArmy } from '../../../src/online/rules';
 import { bytesToHex } from '../crypto';
 import { ApiError } from '../errors';
@@ -296,6 +297,8 @@ export function pickHome(shard: Shard, taken: Axial[], start: number): Axial | n
     for (const h of cands) {
       const info = hexInfo(shard.seed, h.q, h.r, shard.radius);
       if (!info.passable || info.fort || info.capital || info.type === 'town') continue;
+      // beast lairs and world bosses are nobody's home
+      if (beastHex(shard.seed, info, shard.radius)) continue;
       if (hexDistance(h, { q: 0, r: 0 }) > shard.radius - 2) continue;
       if (caps.some((c) => hexDistance(c, h) <= 4)) continue;
       if (near(h, ONLINE_RULES.homeSpacing)) continue;
@@ -482,6 +485,8 @@ export interface HexRow {
   siege_wins: number;
   siege_at: number | null;
   version: number;
+  /** Lair hexes: when the beast was last slain (migration 0004). */
+  beast_slain_at?: number | null;
 }
 
 export async function hexRow(db: D1Database, shard: Shard, h: Axial): Promise<HexRow | null> {

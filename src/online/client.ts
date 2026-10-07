@@ -67,6 +67,11 @@ export interface HexView extends Axial {
   garrison?: number;
   /** Neutral holders (src/online/defenders.ts id), for the map's miniatures. */
   def?: string;
+  /** A beast's lair (src/online/lairs.ts): the beast and its level. */
+  lair?: string;
+  lairLevel?: number;
+  /** A world boss stands here. */
+  boss?: string;
 }
 
 export interface MapView {
@@ -96,13 +101,61 @@ export interface HexDetail {
   income: Resources | null;
   canAttack: boolean;
   canGarrison: boolean;
+  /** A beast lair: the beast, its level, whether it is home and when it returns if slain. */
+  lair?: { enc: string; level: number; tier: number; home: boolean; returnsAt: number | null } | null;
+  /** A world boss stands here (raid it: onlineApi.raidStart). */
+  boss?: string | null;
+}
+
+/** A world boss of the shard with its shared HP and the damage tally (GET /boss). */
+export interface BossView extends Axial {
+  boss: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  parts: number[];
+  partMax: number;
+  status: 'active' | 'dead';
+  killedAt: number | null;
+  segment: number;
+  top: { player: number; name: string; clan: string | null; damage: number; raids: number }[];
+  clans: { clan: number; tag: string; name: string; damage: number }[];
+  you: { damage: number; raids: number; loot: { share: number; items: Item[] } | null };
+}
+
+export interface RaidTicket {
+  ticket: string;
+  expiresAt: number;
+  boss: string;
+  hex: Axial;
+  defenderKind: 'boss';
+  setup: BattleSetup;
+  attackers: Hero[];
+  defenders: Hero[];
+  resumed?: boolean;
+}
+
+export interface RaidResult {
+  boss: string;
+  dealt: number;
+  bodyDealt: number;
+  winner: number;
+  ticks: number;
+  hash: string;
+  hex: Axial;
+  gold: number;
+  attacker: AttackResult['attacker'];
+  killed: boolean;
+  killedNow: boolean;
+  bossView: BossView;
+  replayed?: boolean;
 }
 
 export interface AttackTicket {
   ticket: string;
   expiresAt: number;
   hex: Axial & { type: HexType; tier: number };
-  defenderKind: 'npc' | 'militia' | 'garrison';
+  defenderKind: 'npc' | 'militia' | 'garrison' | 'beast';
   setup: BattleSetup;
   attackers: Hero[];
   defenders: Hero[];
@@ -123,6 +176,8 @@ export interface AttackResult {
   loot: Item[];
   attacker: { dead: string[]; wounded: string[]; heroes: { name: string; died: boolean; xp: number; levelsGained: number; wounded?: boolean }[] };
   defender: { dead: number; total: number };
+  /** A lair's beast was fought: which, and the trophy if it was slain. */
+  beast?: { enc: string; level: number; trophy: string | null } | null;
   replayed?: boolean;
 }
 
@@ -166,6 +221,11 @@ export const onlineApi = {
   attackSubmit: (ticket: string, orders: LoggedOrder[], deployOrders: number, claim: { winner: number; ticks: number; hash: string }) =>
     req<AttackResult>('POST', '/attack/submit', { ticket, orders, deployOrders, claim }, 30_000),
   attackAbandon: (ticket: string) => req<{ ok: true }>('POST', '/attack/abandon', { ticket }),
+  bosses: () => req<{ now: number; bosses: BossView[] }>('GET', '/boss'),
+  raidStart: (boss: string, consumable?: string) => req<RaidTicket>('POST', '/boss/start', consumable ? { boss, consumable } : { boss }),
+  raidSubmit: (ticket: string, orders: LoggedOrder[], deployOrders: number, claim: { winner: number; ticks: number; hash: string }) =>
+    req<RaidResult>('POST', '/boss/submit', { ticket, orders, deployOrders, claim }, 30_000),
+  raidAbandon: (ticket: string) => req<{ ok: true }>('POST', '/boss/abandon', { ticket }),
   clanMine: () => req<{ clan: ClanView | null; role: ClanMember['role'] | null }>('GET', '/clans/mine'),
   clanCreate: (name: string, tag: string) => req<{ clan: ClanView; role: string }>('POST', '/clans', { name, tag }),
   clanInvite: () => req<{ code: string; link: string; expiresAt: number }>('POST', '/clans/invite', {}),

@@ -17,6 +17,7 @@ import { HEX_DIRS, hexDistance, hexId, type Axial, type HexType } from '../../on
 import type { HexView, MapView } from '../../online/client';
 import { LiveArmies, type ArmyPose } from '../../online/liveArmies';
 import {
+  LAIR_PROPS,
   renderCloud,
   renderDoodle,
   renderFlag,
@@ -37,6 +38,7 @@ import {
 } from '../../art/warTable';
 import { hash2, Pix } from '../../art/pixels';
 import { mix } from '../../art/palette';
+import type { EncounterId } from '../../data/beasts';
 
 const CHUNK = 1152;
 const VARIANTS = 4;
@@ -90,14 +92,14 @@ export interface PropPlace {
 }
 
 /** Deterministic dressing of a hex: which miniatures stand where on its top. */
-export function propsFor(h: Pick<HexView, 'q' | 'r' | 'type' | 'fort' | 'capital' | 'occupant' | 'home'>): PropPlace[] {
+export function propsFor(h: Pick<HexView, 'q' | 'r' | 'type' | 'fort' | 'capital' | 'occupant' | 'home' | 'lair' | 'boss'>): PropPlace[] {
   const rnd = (i: number) => hash2(h.q * 7 + i, h.r * 13 - i, 4242);
   const v = (k: PropKind, i: number) => Math.floor(rnd(i) * (PROP_VARIANTS[k] ?? 1));
   const out: PropPlace[] = [];
   const add = (kind: PropKind, dx: number, dy: number, i = out.length) => out.push({ kind, v: v(kind, i + 20), dx, dy });
   if (h.capital) add('capital', 0, 4);
   else if (h.fort) add('fort', 0, 3);
-  else if (h.occupant === 'beast') add('lair', -1, 2);
+  else if (h.occupant === 'beast') out.push({ kind: 'lair', v: Math.max(0, LAIR_PROPS.indexOf((h.boss ?? h.lair ?? 'hydra') as EncounterId)), dx: -1, dy: 2 });
   else
     switch (h.type) {
       case 'forest': {
@@ -141,9 +143,9 @@ export function propsFor(h: Pick<HexView, 'q' | 'r' | 'type' | 'fort' | 'capital
 }
 
 /** Neutral garrison miniature for a hex. */
-export function miniFor(h: Pick<HexView, 'owner' | 'occupant' | 'def' | 'type'>): MiniKind | null {
+export function miniFor(h: Pick<HexView, 'owner' | 'occupant' | 'def' | 'type' | 'lair' | 'boss'>): MiniKind | null {
   if (h.owner !== null) return null;
-  if (h.occupant === 'beast') return 'beast';
+  if (h.occupant === 'beast') return h.boss || h.lair ? (`beast_${h.boss ?? h.lair}` as MiniKind) : 'beast';
   if (h.occupant !== 'npc' || !h.def) return null;
   return (['militia', 'beasts', 'outlaws', 'tribes', 'pirates', 'deserters', 'city', 'cultists'] as const).find((k) => k === h.def) ?? 'militia';
 }
@@ -330,7 +332,7 @@ export class WarTableView {
     }
     for (const p of propsFor(h)) stamp(this.propKey(p.kind, p.v), c.x + p.dx, c.y + p.dy);
     const m = miniFor(h);
-    const show = m && (this.frontier.has(hexId(h.q, h.r)) || h.tier >= 3 || m === 'beast' || hash2(h.q, h.r, 55) < 0.3);
+    const show = m && (this.frontier.has(hexId(h.q, h.r)) || h.tier >= 3 || m.startsWith('beast') || hash2(h.q, h.r, 55) < 0.3);
     if (m && show) stamp(this.miniKey(m), c.x + 7, c.y + 5);
     if (col !== null) stamp(ensure(this.scene, `wt_pin_${col}`, () => renderPin(col)), c.x + (h.home ? -3 : 8), c.y + (h.home ? -2 : -1));
   }
@@ -393,6 +395,35 @@ export class WarTableView {
       const c = hexTop(h.q, h.r, ELEV[h.type]);
       const n = h.capital ? 3 : h.type === 'town' ? 2 : 1;
       for (let i = 0; i < n; i++) this.smokeSources.push({ x: c.x - 6 + i * 6 + (h.home ? -6 : 0), y: c.y - 6 - (h.fort ? 8 : 0), next: hash2(h.q, h.r, i) * 1500 });
+    }
+  }
+
+  // ------------------------------------------------------------------ world bosses
+
+  private bossG: Phaser.GameObjects.Graphics | null = null;
+
+  /** HP bars over the world bosses in sight (f = HP fraction; dead bosses show an empty bar). */
+  setBossBars(bars: { q: number; r: number; f: number; dead: boolean }[]): void {
+    this.bossG?.destroy();
+    this.bossG = null;
+    const g = this.scene.add.graphics().setDepth(1e6);
+    this.layer.add(g);
+    this.bossG = g;
+    for (const b of bars) {
+      const h = this.hexes.get(hexId(b.q, b.r));
+      if (!h) continue;
+      const c = hexTop(b.q, b.r, ELEV[h.type]);
+      const w = 26;
+      const x = Math.round(c.x + 7 - w / 2);
+      const y = Math.round(c.y - 34);
+      g.fillStyle(0x1d140f, 0.9);
+      g.fillRect(x - 1, y - 1, w + 2, 6);
+      g.fillStyle(0x3a2a22, 1);
+      g.fillRect(x, y, w, 4);
+      g.fillStyle(b.dead ? 0x5a4a40 : 0xc0402c, 1);
+      g.fillRect(x, y, Math.max(b.dead ? 0 : 1, Math.round(w * b.f)), 4);
+      g.fillStyle(0xffffff, 0.3);
+      g.fillRect(x, y, Math.round(w * b.f), 1);
     }
   }
 
