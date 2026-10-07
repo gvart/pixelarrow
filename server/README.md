@@ -270,11 +270,16 @@ in `src/online/protocol.ts`:
   `challenge_closed {id, reason}` (declined, cancelled, expired after 30 s,
   unavailable).
 - `duel_start {duel, side, setup, heroes, names, turnTicks, delayTurns,
-  hashEvery}`: both players' field armies from D1, seed from the server;
-  friendly (no stakes) in this phase.
-- deployment: `d_order {order}` is echoed to both with a sequence number and
-  both apply it in server order; `d_ready` from both → `go` plus sealed turns
-  0 and 1.
+  hashEvery, deployMs}`: both players' field armies from D1, seed from the
+  server; friendly (no stakes) in this phase.
+- deployment (timed, `deployMs` = 15 s, no pause in any online battle):
+  `d_order {order}` is echoed to both with a sequence number and both apply
+  it in server order; `d_ready` is echoed to both (the client shows "ready");
+  `d_ready` from both → `go` plus sealed turns 0 and 1. Clients send
+  `d_ready` themselves when their countdown ends; the server starts the duel
+  anyway 3 s after the deployment time (`DuelHub.tick`, run by the RegionDO's
+  alarm and on every message). Deployment orders all come before `go`, so the
+  replay check sees them before the start.
 - battle (**lockstep**): turns of 2 ticks. `cmd {order}` queues an order for
   the next sealed turn; clients send `reach {n, hash?}` as they start turn n;
   once both reached n the server seals turn n+2 and sends `turn {n, tick,

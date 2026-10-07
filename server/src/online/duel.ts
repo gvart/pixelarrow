@@ -6,9 +6,11 @@
  * - Challenges: challenge -> challenged / challenge_sent; reply accept ->
  *   both armies are loaded from D1 (server-owned), the server fixes the seed
  *   and sends duel_start to both.
- * - Deployment: d_order messages are echoed to both players in server order
- *   (both apply them in that order); when both sent d_ready the server sends
- *   go and pre-seals turns 0..DELAY_TURNS-1.
+ * - Deployment (timed, DEPLOY_MS): d_order messages are echoed to both
+ *   players in server order (both apply them in that order); when both sent
+ *   d_ready, or the deployment time plus DEPLOY_GRACE_MS is over (tick(),
+ *   driven by the RegionDO's alarm, and checked on every message), the server
+ *   sends go and pre-seals turns 0..DELAY_TURNS-1.
  * - Battle: cmd orders queue for the next sealed turn; turn n + DELAY_TURNS is
  *   sealed when both players reported reaching turn n. Every order is logged
  *   with tick = turn * TURN_TICKS, exactly as the clients apply it.
@@ -23,6 +25,8 @@ import type { BattleSetup, LoggedOrder, Order, Side } from '../../../src/sim/typ
 import {
   CHALLENGE_TTL_MS,
   DELAY_TURNS,
+  DEPLOY_GRACE_MS,
+  DEPLOY_MS,
   HASH_EVERY,
   MAX_DUEL_ORDERS,
   MAX_ORDERS_PER_TURN,
@@ -70,6 +74,8 @@ export interface DuelState {
   pendingBySide: [number, number];
   hashes: Map<number, [string | undefined, string | undefined]>;
   createdAt: number;
+  /** The battle starts by itself at this time (deployment time plus grace). */
+  deployUntil: number;
   result: Extract<ServerMsg, { type: 'duel_result' }> | null;
 }
 
@@ -117,9 +123,33 @@ export class DuelHub {
     return out;
   }
 
+  /** Starts every duel whose deployment time is over (call from an alarm; messages call it too). */
+  tick(): Out[] {
+    const out: Out[] = [];
+    const now = this.deps.now();
+    for (const d of this.duels.values()) if (d.phase === 'deploy' && now >= d.deployUntil) out.push(...this.start(d));
+    return out;
+  }
+
+  /** When tick() next has work to do (the earliest deployment deadline), or null. */
+  nextDeadline(): number | null {
+    let t: number | null = null;
+    for (const d of this.duels.values()) if (d.phase === 'deploy' && (t === null || d.deployUntil < t)) t = d.deployUntil;
+    return t;
+  }
+
+  /** Deployment over: go, and the first DELAY_TURNS turns sealed empty. */
+  private start(d: DuelState): Out[] {
+    d.phase = 'battle';
+    d.deployOrders = d.log.length;
+    const out = this.both(d, { type: 'go', duel: d.id });
+    for (let i = 0; i < DELAY_TURNS; i++) out.push(...this.seal(d));
+    return out;
+  }
+
   /** Handles one client message. `me` is the authenticated sender. */
   async handle(me: PresencePlayer, msg: ClientMsg, lookup: (pid: number) => PresencePlayer | null): Promise<Out[]> {
-    const out = this.expire();
+    const out = [...this.expire(), ...this.tick()];
     const err = (message: string, code = 'bad_request') => [...out, { to: me.id, msg: { type: 'error', message, code } as ServerMsg }];
     switch (msg.type) {
       case 'challenge': {
@@ -183,6 +213,7 @@ export class DuelHub {
           pendingBySide: [0, 0],
           hashes: new Map(),
           createdAt: this.deps.now(),
+          deployUntil: this.deps.now() + DEPLOY_MS + DEPLOY_GRACE_MS,
           result: null,
         };
         this.duels.set(d.id, d);
@@ -191,7 +222,7 @@ export class DuelHub {
         for (const side of [0, 1] as Side[]) {
           out.push({
             to: d.players[side],
-            msg: { type: 'duel_start', duel: d.id, side, setup: d.setup, heroes: built.heroes, names: d.names, turnTicks: TURN_TICKS, delayTurns: DELAY_TURNS, hashEvery: HASH_EVERY },
+            msg: { type: 'duel_start', duel: d.id, side, setup: d.setup, heroes: built.heroes, names: d.names, turnTicks: TURN_TICKS, delayTurns: DELAY_TURNS, hashEvery: HASH_EVERY, deployMs: DEPLOY_MS },
           });
         }
         return out;
@@ -252,11 +283,7 @@ export class DuelHub {
         if (d.phase !== 'deploy') return [];
         d.ready[side] = true;
         const out = this.both(d, { type: 'd_ready', duel: d.id, side });
-        if (d.ready[0] && d.ready[1]) {
-          d.phase = 'battle';
-          out.push(...this.both(d, { type: 'go', duel: d.id }));
-          for (let i = 0; i < DELAY_TURNS; i++) out.push(...this.seal(d));
-        }
+        if (d.ready[0] && d.ready[1]) out.push(...this.start(d));
         return out;
       }
       case 'cmd': {

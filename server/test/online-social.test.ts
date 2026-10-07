@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Battle } from '../../src/sim/battle';
 import { Lockstep } from '../../src/online/lockstep';
-import type { DuelStart, ServerMsg } from '../../src/online/protocol';
+import { DEPLOY_GRACE_MS, DEPLOY_MS, type DuelStart, type ServerMsg } from '../../src/online/protocol';
 import { DuelHub, type Out } from '../src/online/duel';
 import { onlineBattleSetup } from '../../src/online/battle';
 import { starterOnlineArmy, DEFAULT_FORMATIONS } from '../../src/online/rules';
@@ -92,12 +92,12 @@ describe('clans', () => {
 
 // ------------------------------------------------------------------ duel hub (unit)
 
-function hub() {
+function hub(clock: { now: number } = { now: 1000 }) {
   let n = 0;
   const p0 = starterOnlineArmy(1, { nextId: 1 }, 'a_');
   const p1 = starterOnlineArmy(2, { nextId: 1 }, 'b_');
   return new DuelHub({
-    now: () => 1000,
+    now: () => clock.now,
     randomId: () => `id${n++}`,
     randomSeed: () => 4242,
     online: () => true,
@@ -151,6 +151,49 @@ describe('duel relay (DuelHub)', () => {
     const state = h.duels.get(duel)!;
     expect(state.log.slice(-2).map((o) => o.tick)).toEqual([4, 4]);
     expect(state.deployOrders).toBe(2);
+  });
+
+  it('timed deployment: the duel starts by itself when the time is up, with the deploy orders logged before it', async () => {
+    const clock = { now: 1000 };
+    const h = hub(clock);
+    const ch = await h.handle(A, { type: 'challenge', to: 2 }, lookup);
+    const id = (msgsTo(ch, 2, 'challenged')[0] as { id: string }).id;
+    const acc = await h.handle(B, { type: 'challenge_reply', id, accept: true }, lookup);
+    const start = msgsTo(acc, 1, 'duel_start')[0] as DuelStart;
+    expect(start.deployMs).toBe(DEPLOY_MS);
+    const duel = start.duel;
+    expect(h.nextDeadline()).toBe(1000 + DEPLOY_MS + DEPLOY_GRACE_MS);
+    await h.handle(A, { type: 'd_order', duel, order: { kind: 'preset', group: 0, type: 'wedge' } }, lookup);
+    // one side ready is not enough before the time is up
+    const ra = await h.handle(A, { type: 'd_ready', duel }, lookup);
+    expect(msgsTo(ra, 2, 'd_ready')[0]).toMatchObject({ side: 0 });
+    expect(msgsTo(ra, 1, 'go')).toHaveLength(0);
+    clock.now += DEPLOY_MS;
+    expect(h.tick()).toHaveLength(0); // the grace period still runs
+    clock.now += DEPLOY_GRACE_MS;
+    const out = h.tick();
+    expect(msgsTo(out, 1, 'go')).toHaveLength(1);
+    expect(msgsTo(out, 2, 'go')).toHaveLength(1);
+    expect(msgsTo(out, 2, 'turn').map((t) => (t as { n: number }).n)).toEqual([0, 1]);
+    const d = h.duels.get(duel)!;
+    expect(d.phase).toBe('battle');
+    expect(d.deployOrders).toBe(1);
+    expect(h.nextDeadline()).toBeNull();
+    // late deployment orders and a second go are refused
+    expect(await h.handle(B, { type: 'd_order', duel, order: { kind: 'preset', group: 4, type: 'line' } }, lookup)).toHaveLength(0);
+    expect(msgsTo(await h.handle(B, { type: 'd_ready', duel }, lookup), 1, 'go')).toHaveLength(0);
+    expect(h.tick()).toHaveLength(0);
+  });
+
+  it('timed deployment: any message after the deadline starts the duel too (no alarm needed)', async () => {
+    const clock = { now: 5000 };
+    const h = hub(clock);
+    const duel = await startedDuel(h);
+    clock.now += DEPLOY_MS + DEPLOY_GRACE_MS + 1;
+    const out = await h.handle(A, { type: 'cmd', duel, order: { kind: 'order', group: 0, order: 'advance' } }, lookup);
+    expect(msgsTo(out, 1, 'go')).toHaveLength(1);
+    expect(msgsTo(out, 1, 'error')).toHaveLength(0);
+    expect(h.duels.get(duel)!.pending).toHaveLength(1);
   });
 
   it('detects a desync from differing state hashes', async () => {

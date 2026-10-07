@@ -185,6 +185,19 @@ export class RegionDO extends DurableObject<Env> {
     }
   }
 
+  /** Timed duel deployments: wake up when the next one is over (DuelHub.tick starts it). */
+  private async scheduleDeploy(): Promise<void> {
+    const t = this.hub.nextDeadline();
+    if (t === null) return;
+    const cur = await this.ctx.storage.getAlarm();
+    if (cur === null || cur > t) await this.ctx.storage.setAlarm(t);
+  }
+
+  async alarm(): Promise<void> {
+    this.deliver(this.hub.tick());
+    await this.scheduleDeploy();
+  }
+
   // ------------------------------------------------------------------ sockets
 
   async fetch(request: Request): Promise<Response> {
@@ -251,6 +264,7 @@ export class RegionDO extends DurableObject<Env> {
         const before = new Set([...this.hub.duels.values()].flatMap((d) => d.players));
         const out = await this.hub.handle({ id: me.id, name: me.name }, msg, (pid) => this.lookup(pid));
         this.deliver(out);
+        await this.scheduleDeploy();
         const after = new Set([...this.hub.duels.values()].flatMap((d) => d.players));
         if (before.size !== after.size || [...after].some((p) => !before.has(p))) this.broadcast({ type: 'presence', players: this.online() });
         return;

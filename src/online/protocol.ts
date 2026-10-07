@@ -2,6 +2,11 @@
  * WebSocket protocol of the online world (presence, duel lobby, lockstep
  * relay), shared by the client and the RegionDO. See server/README.md.
  *
+ * Deployment: duel_start opens a DEPLOY_MS deployment (both clients count
+ * down). d_order messages are echoed in server order; when both sides sent
+ * d_ready, or the time plus DEPLOY_GRACE_MS ran out, the server sends go.
+ * Clients send d_ready by themselves when their countdown reaches zero.
+ *
  * Lockstep: the battle is cut into turns of TURN_TICKS sim ticks. The server
  * seals turn n (the orders both players sent since the last seal, in arrival
  * order, stamped with tick n * TURN_TICKS) once both clients reported reaching
@@ -22,6 +27,14 @@ export const CHALLENGE_TTL_MS = 30_000;
 /** Most orders one side may put into a single turn (anti-flood). */
 export const MAX_ORDERS_PER_TURN = 16;
 export const MAX_DUEL_ORDERS = 6000;
+/** Timed deployment of every online battle (src/online/deployClock.ts). */
+export { DEPLOY_MS } from './deployClock';
+/**
+ * The server starts a duel this long after the deployment time is up even if
+ * a client never said ready (its clock is behind, or it went quiet): the
+ * clients send d_ready themselves when their countdown ends.
+ */
+export const DEPLOY_GRACE_MS = 3000;
 
 export interface PresencePlayer {
   id: number;
@@ -62,6 +75,8 @@ export interface DuelStart {
   turnTicks: number;
   delayTurns: number;
   hashEvery: number;
+  /** Deployment length: both clients show this countdown; ready from both (or the time) starts the battle. */
+  deployMs?: number;
 }
 
 export type ServerMsg =
