@@ -16,7 +16,13 @@ export const PRESS_IDLE_S = 8;
 interface GroupMemo {
   stage: number;
   flankSign: number;
+  /** Main line: tick until which it waits on its own bank rather than ford under fire. */
+  fordWait: number;
 }
+
+/** Seconds a bot line will hold a hill (or wait at a contested ford) before it gives up and attacks. */
+export const HOLD_HILL_S = 50;
+export const FORD_WAIT_S = 55;
 
 export class BotAI {
   readonly side: Side;
@@ -31,7 +37,7 @@ export class BotAI {
   private mem(g: SimGroup): GroupMemo {
     let m = this.memo.get(g.id);
     if (!m) {
-      m = { stage: 0, flankSign: this.rng.chance(0.5) ? 1 : -1 };
+      m = { stage: 0, flankSign: this.rng.chance(0.5) ? 1 : -1, fordWait: 0 };
       this.memo.set(g.id, m);
     }
     return m;
@@ -52,6 +58,96 @@ export class BotAI {
         b.issue(this.side, { kind: 'preset', group: g.id, type: 'line' });
       }
     }
+    if (b.terrain) this.deployOnTerrain(b);
+  }
+
+  /**
+   * Use the ground: the main line takes the highest ground in the deployment
+   * zone (if it is clearly higher than where it stands), skirmishers form up
+   * in the nearest wood toward the enemy.
+   */
+  private deployOnTerrain(b: Battle): void {
+    const t = b.terrain!;
+    const z = b.deployZone(this.side);
+    const groups = b.sideGroups(this.side);
+    const main = groups.find((g) => g.role === 'main' && b.activeMembers(g.id).length > 0);
+    if (main) {
+      const f = main.formation;
+      const half = Math.max(1, (f.frontage - 1) / 2);
+      const lineHeight = (cx: number, cy: number): number => {
+        let sum = 0;
+        let k = 0;
+        for (let dx = -half; dx <= half + 1e-9; dx += 1) {
+          const x = cx + dx;
+          if (x < 0.5 || x > b.width - 0.5 || t.blocked(x, cy) || t.isWater(x, cy)) return -1;
+          sum += t.heightAt(x, cy);
+          k++;
+        }
+        return k ? sum / k : 0;
+      };
+      const here = lineHeight(f.cx, f.cy);
+      let best = { x: f.cx, y: f.cy, s: here };
+      for (let cy = Math.ceil(z.y0) + 0.5; cy < z.y1 - 1; cy += 1) {
+        for (let cx = half + 1; cx < b.width - half - 1; cx += 1) {
+          const hgt = lineHeight(cx, cy);
+          if (hgt < 0) continue;
+          // prefer the high ground, then staying near the centre and the front
+          const s = hgt - Math.abs(cx - b.width / 2) * 0.03 - Math.abs(cy - f.cy) * 0.02;
+          if (s > best.s + 0.01) best = { x: cx, y: cy, s };
+        }
+      }
+      if (best.s >= 0.9 && best.s > here + 0.6) {
+        b.issue(this.side, { kind: 'form', group: main.id, cx: best.x, cy: best.y, fx: f.fx, fy: f.fy, frontage: f.frontage });
+      }
+    }
+    for (const g of groups) {
+      if (g.role !== 'skirmish' || b.activeMembers(g.id).length === 0) continue;
+      const f = g.formation;
+      const spot = this.forestSpot(b, f.cx, f.cy, 7, (_x, y) => y >= z.y0 && y <= z.y1);
+      if (spot) b.issue(this.side, { kind: 'form', group: g.id, cx: spot.x, cy: spot.y, fx: f.fx, fy: f.fy, frontage: f.frontage });
+    }
+  }
+
+  /**
+   * A spot in a wood near (x, y) within r that passes the filter: close by,
+   * and deep enough in the trees that the whole group (its ranks extend
+   * backwards, away from the enemy) stands in cover.
+   */
+  private forestSpot(b: Battle, x: number, y: number, r: number, ok: (x: number, y: number) => boolean): { x: number; y: number } | null {
+    const t = b.terrain;
+    if (!t) return null;
+    const back = this.side === 0 ? 1 : -1;
+    const wood = (px: number, py: number) => (px > 0 && py > 0 && px < b.width && py < b.height && t.at(px, py).kind === 'forest' ? 1 : 0);
+    let best: { x: number; y: number } | null = null;
+    let bs = Infinity;
+    for (let i = 0; i < t.cells; i++) {
+      if (t.cellDef(i).kind !== 'forest') continue;
+      const c = t.cellCenter(i);
+      const d = Math.sqrt((c.x - x) ** 2 + (c.y - y) ** 2);
+      if (d > r || !ok(c.x, c.y)) continue;
+      let dense = 0;
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, back], [-1, back], [1, back], [0, back * 2]]) dense += wood(c.x + dx, c.y + dy);
+      const score = d * 0.5 - dense;
+      if (score < bs) {
+        bs = score;
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  /** Average height level under a group's men. */
+  private groupHeight(b: Battle, mem: SimUnit[]): number {
+    let s = 0;
+    for (const u of mem) s += b.heightAt(u.x, u.y);
+    return mem.length ? s / mem.length : 0;
+  }
+
+  /** The line stands on high ground the enemy would have to climb. */
+  private holdsHill(b: Battle, mem: SimUnit[], ec: { x: number; y: number }): boolean {
+    if (!b.terrain) return false;
+    const mine = this.groupHeight(b, mem);
+    return mine >= 0.75 && mine >= b.heightAt(ec.x, ec.y) + 0.75;
   }
 
   think(b: Battle): void {
@@ -77,6 +173,7 @@ export class BotAI {
         if (mem.length === 0 || g.routed) continue;
         const c = centroid(mem);
         const near = nearest(enemies, c.x, c.y);
+        if (g.role === 'main' && g.order === 'hold' && t < HOLD_HILL_S && near.d < 12 && this.holdsHill(b, mem, ec)) continue;
         this.mem(g).stage = 9; // committed: the role logic below just keeps charging
         if (g.order !== 'charge') {
           this.face(b, g, near.u.x, near.u.y);
@@ -94,7 +191,7 @@ export class BotAI {
       const m = this.mem(g);
       switch (g.role) {
         case 'main':
-          this.thinkMain(b, g, mem, near, ec, t);
+          this.thinkMain(b, g, mem, near, ec, t, m);
           break;
         case 'skirmish':
           this.thinkSkirmish(b, g, mem, near, main, m);
@@ -165,19 +262,54 @@ export class BotAI {
     }
   }
 
-  private thinkMain(b: Battle, g: SimGroup, mem: SimUnit[], near: Near, ec: { x: number; y: number }, t: number): void {
+  private thinkMain(b: Battle, g: SimGroup, mem: SimUnit[], near: Near, ec: { x: number; y: number }, t: number, m: GroupMemo): void {
     if (g.routed) return;
     const recentMissiles = mem.some((u) => b.tick - u.lastHitTick < 40 || b.tick - u.lastBlockTick < 40);
+    const wall = () => {
+      if (recentMissiles && !g.shieldWall && mem.some((u) => u.stats.canShieldWall)) b.issue(this.side, { kind: 'shieldwall', group: g.id, on: true });
+    };
     if (g.order === 'hold' && !g.contact) {
+      // Hold the high ground and let the enemy climb, unless he will not come
+      // (shooting at us from below) or it has gone on too long.
+      const hill = this.holdsHill(b, mem, ec) || (near.d < 4 && this.groupHeight(b, mem) >= 0.75 && b.heightAt(near.u.x, near.u.y) < this.groupHeight(b, mem));
+      if (t >= 5 && hill && t < HOLD_HILL_S && !(recentMissiles && t > 22 && near.d > 6)) {
+        wall();
+        return;
+      }
+      // Waiting on our bank: the crossing is held or under fire.
+      if (b.tick < m.fordWait) {
+        wall();
+        return;
+      }
       if (t >= 5) {
         this.face(b, g, ec.x, ec.y);
         b.issue(this.side, { kind: 'order', group: g.id, order: 'advance' });
-      } else if (recentMissiles && !g.shieldWall && mem.some((u) => u.stats.canShieldWall)) {
-        b.issue(this.side, { kind: 'shieldwall', group: g.id, on: true });
-      }
+      } else wall();
       return;
     }
     if (g.order === 'advance') {
+      const terr = b.terrain;
+      const f = g.formation;
+      if (!g.contact && terr && terr.ford && terr.riverBetween(f.cy, near.u.y) && !terr.isWater(f.cx, f.cy)) {
+        // A river in the way: do not wade into the enemy's missiles or onto his
+        // spears at the far bank; otherwise make for the ford.
+        const ford = terr.ford;
+        const bankDist = Math.abs(f.cy - ford.y);
+        let held = recentMissiles;
+        for (const e of b.units) {
+          if (e.side === this.side || e.state !== 'ready') continue;
+          if ((e.y - ford.y) * (f.cy - ford.y) < 0 && Math.abs(e.y - ford.y) < 6 && Math.abs(e.x - ford.x) < 8) held = true;
+        }
+        if (held && bankDist < 6 && t < FORD_WAIT_S && m.fordWait >= 0) {
+          m.fordWait = b.tick + 20 * 6;
+          b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
+          return;
+        }
+        if (Math.abs(f.cx - ford.x) > 1) {
+          this.face(b, g, ford.x, ford.y, 'advance');
+          return;
+        }
+      }
       if (!g.contact) this.face(b, g, near.u.x, near.u.y, 'advance');
       if (near.d < 3.2 && !g.shieldWall) b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
       else if (near.d < 3.2 && g.shieldWall && near.d < 2.2) b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
@@ -220,7 +352,15 @@ export class BotAI {
         dx /= l;
         dy /= l;
         const stepLen = Math.min(3, near.d - (range - 1.5));
-        b.issue(this.side, { kind: 'form', group: g.id, cx: f.cx + dx * stepLen, cy: f.cy + dy * stepLen, fx: dx, fy: dy, frontage: f.frontage });
+        let tx = f.cx + dx * stepLen;
+        let ty = f.cy + dy * stepLen;
+        // Shoot from the trees when there is a wood within range.
+        const wood = this.forestSpot(b, tx, ty, 3, (x, y) => Math.sqrt((near.u.x - x) ** 2 + (near.u.y - y) ** 2) <= range - 0.5);
+        if (wood) {
+          tx = wood.x;
+          ty = wood.y;
+        }
+        b.issue(this.side, { kind: 'form', group: g.id, cx: tx, cy: ty, fx: dx, fy: dy, frontage: f.frontage });
       }
       if (!g.fireAtWill) b.issue(this.side, { kind: 'loose', group: g.id, on: true });
       return;

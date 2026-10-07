@@ -1,6 +1,7 @@
 import type { CombatStats } from './stats';
 import type { Formation, FormationType } from './formation';
 import type { AbilityId } from '../data/perks';
+import type { TerrainGrid } from './terrain';
 
 export type Side = 0 | 1;
 export type UnitState = 'ready' | 'routing' | 'dead' | 'fled';
@@ -36,6 +37,8 @@ export interface BattleSetup {
   height?: number;
   /** Battle time limit in seconds. */
   timeLimit?: number;
+  /** Battlefield terrain (seeded from the world map). Missing = an open, flat plain. */
+  terrain?: TerrainGrid;
 }
 
 export interface Wear {

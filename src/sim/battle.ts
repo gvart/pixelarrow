@@ -32,6 +32,8 @@ import type {
 import { BotAI } from './ai';
 import { ABILITIES, ABILITY_RULES, AURAS, AURA_IDS, AURA_RULES, type AbilityId } from '../data/perks';
 import { rallyRadius, willRadius, type CombatStats } from './stats';
+import { Terrain, cellHash } from './terrain';
+import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
 
 export const TICK_RATE = 20;
 export const DT = 1 / TICK_RATE;
@@ -82,6 +84,8 @@ export class Battle {
   readonly height: number;
   readonly timeLimitTicks: number;
   readonly seed: number;
+  /** Battlefield terrain; null = an open, flat plain (setups from before terrain existed). */
+  readonly terrain: Terrain | null;
   rng: Rng;
   tick = 0;
   phase: Phase = 'deploy';
@@ -103,6 +107,7 @@ export class Battle {
     this.width = setup.width ?? 24;
     this.height = setup.height ?? 36;
     this.timeLimitTicks = (setup.timeLimit ?? 300) * TICK_RATE;
+    this.terrain = setup.terrain && typeof setup.terrain.cells === 'string' ? new Terrain(setup.terrain, this.width, this.height) : null;
 
     setup.armies.forEach((army, sideIdx) => {
       const side = sideIdx as Side;
@@ -216,6 +221,95 @@ export class Battle {
     return u.state === 'ready' || u.state === 'routing';
   }
 
+  // ------------------------------------------------------------------ terrain
+
+  /** Terrain under a field position (open ground without a terrain grid). */
+  ground(x: number, y: number): TerrainDef {
+    return this.terrain ? this.terrain.at(x, y) : TERRAIN.open;
+  }
+
+  /** Height level under a field position (0 without a terrain grid). */
+  heightAt(x: number, y: number): number {
+    return this.terrain ? this.terrain.heightAt(x, y) : 0;
+  }
+
+  /** Height advantage of a over b in levels, capped at HEIGHT_RULES.maxDiff either way. */
+  heightDiff(ax: number, ay: number, bx: number, by: number): number {
+    if (!this.terrain) return 0;
+    const d = this.terrain.heightAt(ax, ay) - this.terrain.heightAt(bx, by);
+    return clamp(d, -HEIGHT_RULES.maxDiff, HEIGHT_RULES.maxDiff);
+  }
+
+  /** Movement multiplier of the ground a unit stands on. */
+  private groundSpeed(u: SimUnit): number {
+    if (!this.terrain) return 1;
+    const d = this.terrain.at(u.x, u.y);
+    return d.blocked ? 1 : d.speed;
+  }
+
+  /** Whether a shield wall holds together where this unit stands. */
+  private wallGround(u: SimUnit): boolean {
+    return !this.terrain || !this.terrain.at(u.x, u.y).noWall;
+  }
+
+  /** Extra missile range against a target below the shooter ("better sight"). */
+  rangeBonus(s: SimUnit, t: SimUnit): number {
+    if (!this.terrain) return 0;
+    const d = this.heightDiff(s.x, s.y, t.x, t.y);
+    return d > 0 ? d * HEIGHT_RULES.rangeDown : 0;
+  }
+
+  /** Nearest free point to (x, y) outside blocked cells (deterministic search). */
+  freePoint(x: number, y: number): { x: number; y: number } {
+    const t = this.terrain;
+    if (!t || !t.blocked(x, y)) return { x, y };
+    for (let r = 0.5; r <= 4; r += 0.5) {
+      for (const [dx, dy] of DIRS8) {
+        const nx = clamp(x + dx * r, UNIT_RADIUS, this.width - UNIT_RADIUS);
+        const ny = clamp(y + dy * r, UNIT_RADIUS, this.height - UNIT_RADIUS);
+        if (!t.blocked(nx, ny)) return { x: nx, y: ny };
+      }
+    }
+    return { x, y };
+  }
+
+  /**
+   * Move a unit by (dx, dy), sliding along rocks and the shoreline: if the
+   * step would end in a blocked cell, try each axis alone, then the step
+   * turned 60 degrees either way (preferring a side by unit id).
+   */
+  private moveUnit(u: SimUnit, dx: number, dy: number): void {
+    const t = this.terrain;
+    if (!t) {
+      u.x += dx;
+      u.y += dy;
+      return;
+    }
+    const tryAt = (mx: number, my: number): boolean => {
+      if (mx === 0 && my === 0) return false;
+      if (t.blocked(u.x + mx, u.y + my)) return false;
+      u.x += mx;
+      u.y += my;
+      u.vx = mx;
+      u.vy = my;
+      return true;
+    };
+    if (tryAt(dx, dy)) return;
+    const l = Math.sqrt(dx * dx + dy * dy);
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (tryAt(dx >= 0 ? l : -l, 0) || tryAt(0, dy >= 0 ? l * 0.5 : -l * 0.5)) return;
+    } else if (tryAt(0, dy >= 0 ? l : -l) || tryAt(dx >= 0 ? l * 0.5 : -l * 0.5, 0)) return;
+    const s = u.id % 2 === 0 ? 1 : -1;
+    for (const k of [s, -s]) {
+      // rotate by +-60 degrees (cos 0.5, sin 0.866) without trigonometry
+      const rx = dx * 0.5 - dy * SIN60 * k;
+      const ry = dx * SIN60 * k + dy * 0.5;
+      if (tryAt(rx, ry)) return;
+    }
+    u.vx = 0;
+    u.vy = 0;
+  }
+
   deployZone(side: Side): { y0: number; y1: number } {
     return side === 0 ? { y0: this.height * 0.62, y1: this.height - 0.8 } : { y0: 0.8, y1: this.height * 0.38 };
   }
@@ -223,7 +317,20 @@ export class Battle {
   slotPos(u: SimUnit): { x: number; y: number } {
     const f = this.groups[u.group].formation;
     const r = rightOf(f.fx, f.fy);
-    return { x: f.cx + r.x * u.slotLat - f.fx * u.slotDep, y: f.cy + r.y * u.slotLat - f.fy * u.slotDep };
+    let x = f.cx + r.x * u.slotLat - f.fx * u.slotDep;
+    let y = f.cy + r.y * u.slotLat - f.fy * u.slotDep;
+    const t = this.terrain;
+    if (t) {
+      // Trees, water and stones break up the ranks: each man finds his own footing.
+      const i = t.index(x, y);
+      const d = t.cellDef(i);
+      if (d.scatter > 0) {
+        x += (cellHash(u.id, i) - 0.5) * 2 * d.scatter;
+        y += (cellHash(i, u.id + 7919) - 0.5) * 2 * d.scatter;
+      }
+      if (t.blocked(x, y)) return this.freePoint(x, y);
+    }
+    return { x, y };
   }
 
   /** Slot positions of a group, for drawing placement boxes. */
@@ -465,7 +572,7 @@ export class Battle {
       for (const e of this.units) {
         if (e.side === s.side || e.state !== 'ready') continue;
         const d = Math.sqrt((e.x - s.x) ** 2 + (e.y - s.y) ** 2);
-        if (d <= s.stats.range && d > 1.4 && d < td) {
+        if (d <= s.stats.range + this.rangeBonus(s, e) && d > 1.4 && d < td) {
           td = d;
           t = e;
         }
@@ -494,8 +601,12 @@ export class Battle {
         const dx = t.x - u.x;
         const dy = t.y - u.y;
         const l = Math.sqrt(dx * dx + dy * dy) || 1;
-        t.x = clamp(t.x + (dx / l) * 0.5, UNIT_RADIUS, this.width - UNIT_RADIUS);
-        t.y = clamp(t.y + (dy / l) * 0.5, UNIT_RADIUS, this.height - UNIT_RADIUS);
+        const sx = clamp(t.x + (dx / l) * 0.5, UNIT_RADIUS, this.width - UNIT_RADIUS);
+        const sy = clamp(t.y + (dy / l) * 0.5, UNIT_RADIUS, this.height - UNIT_RADIUS);
+        if (!this.terrain || !this.terrain.blocked(sx, sy)) {
+          t.x = sx;
+          t.y = sy;
+        }
         targets.push(t.id);
         this.events.push({ type: 'ability', tick: this.tick, unit: u.id, ability: id, targets });
         this.contactEvent(this.groups[u.group]);
@@ -776,6 +887,7 @@ export class Battle {
     let s = u.stats.speed * this.fatigue(u);
     if (g.shieldWall && u.stats.canShieldWall) s *= RULES.shieldWallSpeed;
     if (u.berserk > 0) s *= 1.1;
+    if (this.terrain) s *= this.groundSpeed(u);
     return s;
   }
 
@@ -826,7 +938,7 @@ export class Battle {
         }
       }
     }
-    const shielded = g.shieldWall && u.stats.canShieldWall;
+    const shielded = g.shieldWall && u.stats.canShieldWall && this.wallGround(u);
     u.engaged = !!melee;
 
     const slot = this.slotPos(u);
@@ -860,7 +972,7 @@ export class Battle {
       const slotD = Math.sqrt(slotDx * slotDx + slotDy * slotDy);
       let shootTarget: SimUnit | null = null;
       if (canShoot && nearest && g.order !== 'fallback' && (slotD < 0.8 || g.role === 'skirmish' || g.order === 'charge')) {
-        const range = u.stats.range;
+        const range = u.stats.range + (this.terrain ? this.rangeBonus(u, nearest) : 0);
         if (nearestD <= range && nearestD > 1.4) shootTarget = nearest;
       }
       if (shootTarget) {
@@ -874,6 +986,7 @@ export class Battle {
         faceX = moveX;
         faceY = moveY;
         speed = u.stats.speed * this.fatigue(u) * 1.75;
+        if (this.terrain) speed *= this.groundSpeed(u);
         running = true;
         u.targetId = nearest.id;
       } else if (g.order === 'advance' && nearest && nearestD < 2.4) {
@@ -895,6 +1008,7 @@ export class Battle {
           speed *= 0.6; // walk backwards, keep facing
         } else if (slotD > 2.5 && g.order !== 'hold') {
           speed = u.stats.speed * this.fatigue(u) * 1.4;
+          if (this.terrain) speed *= this.groundSpeed(u);
           running = true;
         } else if (slotD > 1.5) {
           speed *= 1.25;
@@ -921,12 +1035,22 @@ export class Battle {
     // ---- movement
     const ml = Math.sqrt(moveX * moveX + moveY * moveY);
     if (ml > 1e-6) {
+      let climb = false;
+      if (this.terrain) {
+        // Climbing to higher ground is slow and tiring.
+        const ax = u.x + moveX / ml;
+        const ay = u.y + moveY / ml;
+        if (this.terrain.heightAt(ax, ay) > this.terrain.heightAt(u.x, u.y)) {
+          speed *= HEIGHT_RULES.uphillSpeed;
+          climb = true;
+        }
+      }
       const step = Math.min(speed * DT, ml);
       u.vx = (moveX / ml) * step;
       u.vy = (moveY / ml) * step;
-      u.x += u.vx;
-      u.y += u.vy;
+      this.moveUnit(u, u.vx, u.vy);
       u.stamina = Math.max(0, u.stamina - (running ? 5 : shielded ? 1.2 : 0.4) * DT);
+      if (climb) u.stamina = Math.max(0, u.stamina - HEIGHT_RULES.climbStamina * DT);
     }
     if (running && ml > 0.3) u.momentum++;
     else if (!u.engaged) u.momentum = Math.max(0, u.momentum - 2);
@@ -961,11 +1085,17 @@ export class Battle {
       my += ey / l;
     }
     const l = Math.sqrt(mx * mx + my * my) || 1;
-    const speed = u.stats.speed * 1.6 * (u.stamina > 10 ? 1 : 0.7);
+    let speed = u.stats.speed * 1.6 * (u.stamina > 10 ? 1 : 0.7);
+    if (this.terrain) speed *= this.groundSpeed(u);
     u.vx = (mx / l) * speed * DT;
     u.vy = (my / l) * speed * DT;
-    u.x = clamp(u.x + u.vx, UNIT_RADIUS, this.width - UNIT_RADIUS);
-    u.y += u.vy;
+    if (this.terrain) {
+      this.moveUnit(u, u.vx, u.vy);
+      u.x = clamp(u.x, UNIT_RADIUS, this.width - UNIT_RADIUS);
+    } else {
+      u.x = clamp(u.x + u.vx, UNIT_RADIUS, this.width - UNIT_RADIUS);
+      u.y += u.vy;
+    }
     u.stamina = Math.max(0, u.stamina - 3 * DT);
     this.turnToward(u, mx, my, 8);
     if (nearD > 6) u.morale = Math.min(u.stats.morale, u.morale + 3.5 * DT);
@@ -1069,7 +1199,12 @@ export class Battle {
     const g = this.groups[t.group];
     let b = t.stats.block;
     if (dir === 'side') b *= RULES.sideBlockFactor;
-    const wall = g.shieldWall && t.stats.canShieldWall && dir === 'front';
+    let wall = g.shieldWall && t.stats.canShieldWall && dir === 'front';
+    if (this.terrain) {
+      const d = this.terrain.at(t.x, t.y);
+      b *= d.blockMult;
+      if (d.noWall) wall = false;
+    }
     if (wall) b += RULES.shieldWallBlock;
     if (missile) b *= RULES.missileBlockFactor;
     b *= this.fatigue(t);
@@ -1081,7 +1216,7 @@ export class Battle {
   private meleeAttack(u: SimUnit, t: SimUnit): void {
     const g = this.groups[u.group];
     const tg = this.groups[t.group];
-    const wall = g.shieldWall && u.stats.canShieldWall;
+    const wall = g.shieldWall && u.stats.canShieldWall && this.wallGround(u);
     const fury = u.berserk > 0;
     u.cooldown = Math.round(u.stats.atkTime * TICK_RATE * (wall ? 1.2 : 1) * (fury ? ABILITY_RULES.berserkTempo : 1) / this.fatigue(u));
     u.lastAttackTick = this.tick;
@@ -1096,7 +1231,9 @@ export class Battle {
       u.momentum = 0;
       return;
     }
-    const braced = tg.shieldWall && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3;
+    // Trees and water break up a braced wall: its men cannot set their spears together.
+    const tGround = this.terrain ? this.terrain.at(t.x, t.y) : TERRAIN.open;
+    const braced = tg.shieldWall && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3 && !tGround.noWall && tGround.braceMult >= 0.5;
     if (impact && braced) {
       // The charge breaks on a braced wall: the attacker is checked and winded.
       u.stun = RULES.bracedBounceStun;
@@ -1119,9 +1256,14 @@ export class Battle {
     if (fury) dmg *= ABILITY_RULES.berserkDamage;
     if (u.aura & AURAS.warlord.bit) dmg *= AURA_RULES.warlordDamage;
     if (t.daze > 0) dmg *= ABILITY_RULES.dazeDamage;
+    // High ground: blows from above land harder, blows from below weaker.
+    const hd = this.terrain ? this.heightDiff(u.x, u.y, t.x, t.y) : 0;
+    if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.meleeDown;
+    else if (hd < 0) dmg *= 1 + hd * HEIGHT_RULES.meleeUp;
     let moraleMult = 1 + u.stats.moraleShock + (fury ? ABILITY_RULES.berserkShock : 0);
     if (impact) {
       dmg *= RULES.chargeImpact + u.stats.chargeBonus * 0.5;
+      if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.chargeDown;
       moraleMult += 0.8;
       if (braced) {
         dmg *= RULES.bracedImpact;
@@ -1132,7 +1274,8 @@ export class Battle {
     }
     // Spearmen standing their ground punish an enemy charging onto their points.
     if (u.stats.weapon === 'spear' && t.momentum >= RULES.chargeMomentumTicks && g.order !== 'charge') {
-      dmg *= 1 + u.stats.chargeBonus * (wall ? RULES.braceSpearBonus : 1.5);
+      if (this.terrain) dmg *= 1 + u.stats.chargeBonus * (wall ? RULES.braceSpearBonus : 1.5) * this.terrain.at(u.x, u.y).braceMult;
+      else dmg *= 1 + u.stats.chargeBonus * (wall ? RULES.braceSpearBonus : 1.5);
       t.momentum = 0;
     }
     if (t.state === 'routing') dmg *= RULES.routingDamage;
@@ -1245,6 +1388,12 @@ export class Battle {
         this.events.push({ type: 'land', tick: this.tick, proj: p.id, hit: false });
         continue;
       }
+      // Trees (and scrub) catch some missiles meant for men standing among them.
+      const cover = this.terrain ? this.terrain.at(best.x, best.y).cover : 0;
+      if (cover > 0 && this.rng.chance(cover)) {
+        this.events.push({ type: 'land', tick: this.tick, proj: p.id, hit: false });
+        continue;
+      }
       p.hitId = best.id;
       const dir = this.hitDirection(best, p.sx, p.sy);
       const pierce = p.kind === 'javelin' ? shooter.stats.blockPierce + 0.05 : 0;
@@ -1257,7 +1406,11 @@ export class Battle {
         continue;
       }
       const dirMult = dir === 'front' ? 1 : dir === 'side' ? 1.15 : 1.3;
-      const dmg = p.dmg * this.rng.range(0.8, 1.2) * dirMult;
+      let dmg = p.dmg * this.rng.range(0.8, 1.2) * dirMult;
+      if (this.terrain) {
+        const hd = this.heightDiff(p.sx, p.sy, best.x, best.y);
+        if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.missileDown;
+      }
       this.events.push({ type: 'land', tick: this.tick, proj: p.id, hit: true });
       this.applyDamage(best, shooter, dmg, dir, true, 1);
     }
@@ -1295,8 +1448,8 @@ export class Battle {
         }
         const push = (min - d) * 0.5 * 0.8;
         // Braced shield walls are harder to shove.
-        const wa = this.groups[a.group].shieldWall && a.stats.canShieldWall ? 0.4 : 1;
-        const wb = this.groups[b.group].shieldWall && b.stats.canShieldWall ? 0.4 : 1;
+        const wa = this.groups[a.group].shieldWall && a.stats.canShieldWall && this.wallGround(a) ? 0.4 : 1;
+        const wb = this.groups[b.group].shieldWall && b.stats.canShieldWall && this.wallGround(b) ? 0.4 : 1;
         const tot = wa + wb;
         a.x -= nx * push * (2 * wa) / tot;
         a.y -= ny * push * (2 * wa) / tot;
@@ -1308,6 +1461,15 @@ export class Battle {
       if (u.state !== 'ready') continue;
       u.x = clamp(u.x, UNIT_RADIUS, this.width - UNIT_RADIUS);
       u.y = clamp(u.y, UNIT_RADIUS, this.height - UNIT_RADIUS);
+    }
+    if (this.terrain) {
+      // Shoved into rocks or the sea: step back out onto open ground.
+      for (const u of this.units) {
+        if (!this.isAlive(u) || !this.terrain.blocked(u.x, u.y)) continue;
+        const p = this.freePoint(u.x, u.y);
+        u.x = p.x;
+        u.y = p.y;
+      }
     }
   }
 
@@ -1409,6 +1571,11 @@ export class Battle {
     return (h >>> 0).toString(16);
   }
 }
+
+const SIN60 = 0.8660254037844386;
+const DIAG = Math.SQRT1_2;
+/** Search directions for freePoint, in a fixed order (deterministic). */
+const DIRS8: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0], [DIAG, DIAG], [-DIAG, DIAG], [DIAG, -DIAG], [-DIAG, -DIAG]];
 
 export function slotPriority(u: SimUnit): number {
   if (u.stats.role === 'ranged') return 3;
