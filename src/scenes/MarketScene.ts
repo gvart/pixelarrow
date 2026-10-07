@@ -1,0 +1,696 @@
+import Phaser from 'phaser';
+import { BaseScene } from './BaseScene';
+import { Button, addIcon, addPanel, addText } from '../ui/kit';
+import { Grid, ItemIcon, ScrollList, Tabs, addEmptyState, confirmDialog, openModal, showTooltip, subjectName, toast, type IconSubject } from '../ui/widgets';
+import { uiId } from '../ui/layout';
+import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
+import { SIZE, COLOR } from '../ui/theme';
+import { ensureFonts, rarityFont } from '../ui/fonts';
+import { addChip, bigItemIcon, itemName, openItemCard } from '../ui/sheet';
+import { econ, setEconSource, type ConsumableInfo } from '../ui/econ/source';
+import { DemoEconSource } from '../ui/econ/demo';
+import { addEconState, addPurse, currencyIcon, ensureEconIcons, priceText } from '../ui/econ/widgets';
+import {
+  clampPrice, canAfford, econState, listingAction, marketFee, priceBounds, priceStep, sellerGets, suggestPrice, timeLeft, type EconState,
+} from '../game/economy';
+import { cycle } from '../game/gear';
+import { isApiError, type Currency, type EconomyCatalog, type MarketListing, type MarketQuery, type WalletInfo } from '../platform/api';
+import type { ProfileView } from '../online/client';
+import { ITEM_LIST, itemValue, normalizeItem, type Item } from '../data/items';
+import { CONSUMABLES, CONSUMABLE_IDS, type ConsumableId } from '../data/consumables';
+import { P } from '../art/palette';
+import { hapticNotify } from '../platform/telegram';
+import { uiCoin } from '../audio/hooks';
+import { state } from '../state';
+import { t, tOr, type TKey } from '../i18n';
+
+type Tab = 'browse' | 'mine' | 'sell';
+const TABS: Tab[] = ['browse', 'mine', 'sell'];
+type KindF = 'all' | MarketListing['kind'];
+const KINDS: KindF[] = ['all', 'item', 'resource', 'consumable'];
+type CurF = 'all' | Currency;
+const CURS: CurF[] = ['all', 'gold', 'drachmae'];
+type SortF = NonNullable<MarketQuery['sort']>;
+const SORTS: SortF[] = ['newest', 'price_asc', 'price_desc', 'ending'];
+const RESOURCES = ['food', 'wood', 'bronze'] as const;
+const RES_VALUE: Record<string, number> = { food: 1, wood: 1, bronze: 3 };
+
+interface MarketData {
+  tab?: Tab;
+  demo?: boolean;
+  back?: { scene: string; data?: Record<string, unknown> };
+}
+
+interface Base {
+  cat: EconomyCatalog;
+  wallet: WalletInfo;
+  profile: ProfileView | null;
+  cons: ConsumableInfo | null;
+}
+
+/** What can be listed: a stash item, a resource or a consumable. */
+type Sellable = { kind: 'item'; item: Item } | { kind: 'resource'; id: string; have: number } | { kind: 'consumable'; id: ConsumableId; have: number };
+
+/**
+ * The town marketplace of the shard (server/README.md "Town marketplace"):
+ * browse listings (filter by kind, currency, one item; sort; pages), your
+ * listings (withdraw), and selling from the stash, resources and supplies in
+ * gold or Drachmae with the 10% fee shown before listing.
+ */
+export class MarketScene extends BaseScene {
+  private tab: Tab = 'browse';
+  private base: Base | null = null;
+  private st: EconState | 'loading' | 'ready' = 'loading';
+  private head!: Phaser.GameObjects.Container;
+  private page!: Phaser.GameObjects.Container;
+  private areas: { destroy(): void }[] = [];
+  private backTo: MarketData['back'];
+  private q: { kind: KindF; cur: CurF; sort: SortF; ref: string | null } = { kind: 'all', cur: 'all', sort: 'newest', ref: null };
+  private listings: MarketListing[] = [];
+  private next: number | null = null;
+  private listLoaded = false;
+  private mine: { listings: MarketListing[]; open: number; maxOpen: number } | null = null;
+  private towns: { q: number; r: number }[] | null = null;
+  private busy = false;
+  private pageTop = 0;
+  private gen = 0;
+
+  constructor() {
+    super('Market');
+  }
+
+  create(data: MarketData): void {
+    this.initUi();
+    ensureFonts(this);
+    ensureEconIcons(this);
+    setEconSource(data?.demo ? new DemoEconSource({ heroes: state.campaign.data.heroes.slice(0, 5), stash: state.campaign.data.stash }) : null);
+    this.tab = data?.tab && TABS.includes(data.tab) ? data.tab : 'browse';
+    this.backTo = data?.back;
+    this.base = null;
+    this.st = 'loading';
+    this.listings = [];
+    this.next = null;
+    this.listLoaded = false;
+    this.mine = null;
+    this.towns = null;
+    this.areas = [];
+    this.busy = false;
+    this.screen({ back: () => this.leave() });
+    const { VW, VH } = this.m;
+    this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
+    this.head = this.add.container(0, 0);
+    this.page = this.add.container(0, 0);
+    this.ui.add([this.head, this.page]);
+    this.events.once('shutdown', () => this.clearPage());
+    this.render();
+    void this.fetchAll();
+  }
+
+  private leave(): void {
+    const b = this.backTo;
+    this.scene.start(b?.scene ?? 'Online', b?.data ?? {});
+  }
+
+  async fetchAll(): Promise<void> {
+    const gen = ++this.gen;
+    this.st = 'loading';
+    this.render();
+    const src = econ();
+    try {
+      if (!src.available()) throw Object.assign(new Error('outside'), { code: 'outside' });
+      const cat = await src.catalog();
+      const [wallet, profile, cons] = await Promise.all([
+        src.wallet(),
+        src.profile().catch(() => null),
+        src.consumables().catch((e) => (isApiError(e) && !e.offline ? null : Promise.reject(e))),
+      ]);
+      if (gen !== this.gen || !this.sys.isActive()) return;
+      this.base = { cat, wallet, profile, cons };
+      this.st = 'ready';
+      await this.loadTab();
+    } catch (e) {
+      if (gen !== this.gen || !this.sys.isActive()) return;
+      this.st = (e as { code?: string })?.code === 'outside' ? 'outside' : econState(e, src.available());
+    }
+    this.render();
+  }
+
+  private async loadTab(): Promise<void> {
+    const src = econ();
+    if (this.tab === 'browse' && !this.listLoaded) await this.search(false);
+    if (this.tab === 'mine' && !this.mine) this.mine = await src.marketMine();
+    if (this.tab === 'sell' && !this.towns) this.towns = (await src.marketTowns().catch(() => ({ towns: [] }))).towns;
+  }
+
+  private query(cursor?: number): MarketQuery {
+    return {
+      kind: this.q.kind === 'all' ? undefined : this.q.kind,
+      currency: this.q.cur === 'all' ? undefined : this.q.cur,
+      ref: this.q.ref ?? undefined,
+      sort: this.q.sort,
+      cursor,
+      limit: 20,
+    };
+  }
+
+  private async search(more: boolean): Promise<void> {
+    const r = await econ().marketSearch(this.query(more ? this.next ?? undefined : undefined));
+    this.listings = more ? [...this.listings, ...r.listings] : r.listings;
+    this.next = r.next;
+    this.listLoaded = true;
+  }
+
+  private async refreshTab(): Promise<void> {
+    try {
+      await this.loadTab();
+    } catch (e) {
+      this.fail(e);
+    }
+    if (this.sys.isActive()) this.render();
+  }
+
+  // ------------------------------------------------------------------ frame
+
+  private render(): void {
+    this.head.removeAll(true);
+    const { VW, VH } = this.m;
+    const H = this.head;
+    H.add(addPanel(this, 0, 0, VW, 26, 'parch'));
+    let left = 6;
+    if (this.inGameBack) {
+      H.add(new Button(this, 3, 2, 26, 22, { icon: 'back', onClick: () => this.leave() }));
+      left = 33;
+    }
+    const b = this.base;
+    const purseW = addPurse(this, H, VW - 6, 7, { drachmae: b?.wallet.drachmae ?? null, gold: b?.profile?.resources.gold ?? null }, VW - left - 50);
+    const pz = this.add.zone(VW - 4 - purseW, 2, purseW, 22).setOrigin(0, 0).setInteractive();
+    uiId(pz, 'market.purse');
+    pz.on('pointerup', () => showTooltip(this, t('econ.purseTip'), pz));
+    H.add(pz);
+    H.add(addText(this, left, 9, ellipsize(t('market.title').toUpperCase(), VW - left - purseW - 12), 'red'));
+    const ty = 29;
+    const tabs = new Tabs(this, 4, ty, VW - 8, TABS.map((k) => t(`market.tab.${k}` as TKey)), {
+      selected: TABS.indexOf(this.tab),
+      ids: TABS.map((k) => `market.tab.${k}`),
+      icons: VW >= 170 ? ['eye', 'flag', 'coin'] : undefined,
+      onChange: (i) => {
+        this.tab = TABS[i];
+        this.render();
+        if (this.st === 'ready') void this.refreshTab();
+      },
+    });
+    H.add(addPanel(this, 0, ty + SIZE.tabH - 2, VW, VH - ty - SIZE.tabH + 2, 'parch'));
+    H.add(tabs);
+    this.pageTop = ty + SIZE.tabH + 4;
+    this.buildPage();
+  }
+
+  private clearPage(): void {
+    for (const a of this.areas) a.destroy();
+    this.areas = [];
+    this.page.removeAll(true);
+  }
+
+  private buildPage(): void {
+    this.clearPage();
+    const { VW, VH } = this.m;
+    const top = this.pageTop;
+    if (this.st !== 'ready' || !this.base) {
+      addEconState(this, this.page, 4, top, VW - 8, VH - top - 4, this.st as EconState | 'loading', () => void this.fetchAll());
+      return;
+    }
+    if (this.tab === 'browse') this.buildBrowse(this.base);
+    else if (this.tab === 'mine') this.buildMine(this.base);
+    else this.buildSell(this.base);
+  }
+
+  // ------------------------------------------------------------------ browse
+
+  private buildBrowse(b: Base): void {
+    const { VW, VH } = this.m;
+    const w = VW - 8;
+    let y = this.pageTop;
+    const n = 3;
+    const bw = Math.floor((w - (n - 1) * SIZE.gap) / n);
+    const set = (patch: Partial<typeof this.q>) => {
+      Object.assign(this.q, patch);
+      this.listLoaded = false;
+      this.listings = [];
+      this.render();
+      void this.refreshTab();
+    };
+    this.page.add(new Button(this, 4, y, bw, SIZE.btnH, { label: t(`market.kind.${this.q.kind}` as TKey), id: 'market.kind', tip: t('market.kindTip'), onClick: () => set({ kind: cycle(KINDS, this.q.kind) }) }));
+    this.page.add(new Button(this, 4 + bw + SIZE.gap, y, bw, SIZE.btnH, { label: this.q.cur === 'all' ? t('market.cur.all') : t(`market.cur.${this.q.cur}` as TKey), icon: this.q.cur === 'all' ? undefined : currencyIcon(this.q.cur), id: 'market.cur', tip: t('market.curTip'), onClick: () => set({ cur: cycle(CURS, this.q.cur) }) }));
+    this.page.add(new Button(this, 4 + 2 * (bw + SIZE.gap), y, w - 2 * (bw + SIZE.gap), SIZE.btnH, { label: t(`market.sort.${this.q.sort}` as TKey), id: 'market.sort', tip: t('market.sortTip'), onClick: () => set({ sort: cycle(SORTS, this.q.sort) }) }));
+    y += SIZE.btnH + SIZE.gap;
+    const refName = this.q.ref ? this.refLabel(this.q.ref) : t('market.anyItem');
+    const findW = this.q.ref ? w - 26 - SIZE.gap : w;
+    this.page.add(new Button(this, 4, y, findW, SIZE.btnH, { label: this.q.ref ? refName : t('market.find'), icon: 'eye', id: 'market.find', tip: t('market.findTip'), onClick: () => this.openFind((ref) => set({ ref })) }));
+    if (this.q.ref) this.page.add(new Button(this, 4 + findW + SIZE.gap, y, 26, SIZE.btnH, { icon: 'close', label: t('market.anyItem'), iconOnly: true, id: 'market.clearRef', onClick: () => set({ ref: null }) }));
+    y += SIZE.btnH + SIZE.gap;
+    const h = VH - y - 4;
+    if (!this.listLoaded) {
+      addEconState(this, this.page, 4, y, w, h, 'loading', () => {});
+      return;
+    }
+    if (!this.listings.length) {
+      this.page.add(addPanel(this, 4, y, w, h, 'inset'));
+      this.page.add(addEmptyState(this, 6, y + 2, w - 4, h - 4, { icon: 'coin', title: t('market.empty'), hint: t('market.emptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
+      return;
+    }
+    const rows = this.listings.length + (this.next !== null ? 1 : 0);
+    const list = new ScrollList(this, this.page, 4, y, w, h, {
+      count: rows,
+      rowH: 32,
+      render: (i, row, rw, rh, area) => {
+        if (i === this.listings.length) {
+          row.add(new Button(this, 0, 4, rw, SIZE.btnH, { label: t('market.more'), icon: 'plus', id: 'market.more', onClick: () => void this.more() }));
+          return;
+        }
+        this.listingRow(b, this.listings[i], row, rw, rh, area);
+      },
+    });
+    this.areas.push(list);
+  }
+
+  private async more(): Promise<void> {
+    if (this.busy) return;
+    this.busy = true;
+    try {
+      const s = (this.areas[0] as ScrollList | undefined)?.area.scrollY ?? 0;
+      await this.search(true);
+      if (!this.sys.isActive()) return;
+      this.render();
+      (this.areas[0] as ScrollList | undefined)?.area.setScroll(s);
+    } catch (e) {
+      this.fail(e);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private subject(l: MarketListing): IconSubject {
+    if (l.kind === 'item' && l.item) return { item: normalizeItem(l.item as unknown as Item) };
+    if (l.kind === 'consumable') return { consumable: l.ref };
+    return { resource: l.ref };
+  }
+
+  private listingName(l: MarketListing): string {
+    const s = this.subject(l);
+    return 'item' in s ? itemName(s.item) : subjectName(s);
+  }
+
+  private listingRow(b: Base, l: MarketListing, row: Phaser.GameObjects.Container, rw: number, rh: number, area: import('../ui/kit').ScrollArea): void {
+    const now = Date.now();
+    row.add(addPanel(this, 0, 0, rw, rh, l.mine ? 'inset' : 'button'));
+    row.add(new ItemIcon(this, 4, 4, this.subject(l), { size: 24, area, qty: l.qty, rarity: l.kind === 'item' ? undefined : 'common', onTap: () => this.openListing(b, l) }));
+    const can = canAfford(l, { gold: b.profile?.resources.gold ?? null, drachmae: b.wallet.drachmae });
+    const act = listingAction(l, now);
+    const bw = 52;
+    const pb = new Button(this, rw - bw - 3, 4, bw, SIZE.btnH, { label: `${l.price}`, icon: currencyIcon(l.currency), id: 'market.price', variant: act === 'buy' && can ? 'secondary' : 'secondary', onClick: () => this.openListing(b, l) });
+    if (act === 'buy' && !can) pb.setEnabled(false, t('econ.noFunds'));
+    row.add(pb);
+    const tx = 33;
+    const tw = rw - tx - bw - 8;
+    const font = l.kind === 'item' ? rarityFont(l.rarity) : 'ink';
+    row.add(addText(this, tx, 5, ellipsize(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`.toUpperCase(), tw), font));
+    const left = timeLeft(l.expiresAt, now);
+    const sub = `${l.seller.name ?? '?'} · ${left.ms ? left.text : t('market.expired')}`;
+    row.add(addText(this, tx, 17, ellipsize(sub.toUpperCase(), tw), 'dim'));
+  }
+
+  openListing(b: Base, l: MarketListing): void {
+    const now = Date.now();
+    const act = listingAction(l, now);
+    const s = this.subject(l);
+    const left = timeLeft(l.expiresAt, now);
+    const notes = [
+      { text: `${priceText(l.price, l.currency)} · ${t('market.by', { name: l.seller.name ?? '?' })}`, font: 'red' as const },
+      { text: `${t('market.town', { q: l.town.q, r: l.town.r })} · ${left.ms ? t('market.left', { t: left.text }) : t('market.expired')}` },
+      { text: t('market.feeNote', { gets: sellerGets(l.price, b.cat.market.feeRate), fee: marketFee(l.price, b.cat.market.feeRate) }) },
+    ];
+    const can = canAfford(l, { gold: b.profile?.resources.gold ?? null, drachmae: b.wallet.drachmae });
+    const actions =
+      act === 'buy'
+        ? [{ label: `${l.price}`, icon: currencyIcon(l.currency), variant: 'primary' as const, id: 'market.buy', disabled: can ? undefined : l.currency === 'gold' && !b.profile ? t('econ.noProfile') : t('econ.noFunds'), onClick: () => this.askBuy(b, l) }]
+        : act === 'cancel'
+          ? [{ label: t('market.cancel'), icon: 'close', variant: 'destructive' as const, id: 'market.cancel', onClick: () => this.askCancel(l) }]
+          : [];
+    if ('item' in s) {
+      openItemCard(this, { item: s.item, hero: b.profile?.heroes[0]?.hero, title: this.listingName(l), notes, actions });
+      return;
+    }
+    this.goodsCard(s, l.qty, this.listingName(l), notes, actions);
+  }
+
+  /** A card for goods (resources, consumables): icon, name, description, notes, actions. */
+  private goodsCard(s: IconSubject, qty: number, name: string, notes: { text: string; font?: 'red' | 'dim' }[], actions: { label: string; icon?: string; variant?: 'primary' | 'secondary' | 'destructive'; id?: string; disabled?: string; onClick: () => void }[]): void {
+    const { VW } = this.m;
+    const w = Math.min(VW - 12, 200);
+    const inner = w - 16;
+    const desc = 'consumable' in s ? wrapText(tOr(`consumable.${s.consumable}.desc`, CONSUMABLES[s.consumable as ConsumableId]?.desc ?? ''), inner, 3) : { lines: [] as string[] };
+    const h = 26 + 30 + desc.lines.length * LINE_H + notes.length * LINE_H + 8 + (actions.length ? SIZE.btnH + 8 : 0) + 6;
+    const m = openModal(this, { title: name, w, h });
+    const { c, x, y } = m;
+    c.add(new ItemIcon(this, x + 8, y + 24, s, { size: 26, qty, tip: false }));
+    c.add(addText(this, x + 40, y + 31, ellipsize(`${qty}x ${name}`.toUpperCase(), inner - 34), 'ink'));
+    let cy = y + 56;
+    if (desc.lines.length) {
+      c.add(addText(this, x + 8, cy, desc.lines.join('\n'), 'ink'));
+      cy += desc.lines.length * LINE_H + 2;
+    }
+    for (const n of notes) {
+      c.add(addText(this, x + 8, cy, ellipsize(n.text.toUpperCase(), inner), n.font ?? 'dim'));
+      cy += LINE_H;
+    }
+    const by = m.y + m.h - 8 - SIZE.btnH;
+    const bw = Math.floor((inner - SIZE.gap) / 2);
+    c.add(new Button(this, x + 8, by, actions.length ? bw : inner, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
+    for (const a of actions.slice(0, 1)) {
+      const btn = new Button(this, x + 8 + bw + SIZE.gap, by, inner - bw - SIZE.gap, SIZE.btnH, { label: a.label, icon: a.icon, variant: a.variant ?? 'primary', id: a.id, onClick: () => (m.close(), a.onClick()) });
+      if (a.disabled) btn.setEnabled(false, a.disabled);
+      c.add(btn);
+    }
+  }
+
+  private askBuy(b: Base, l: MarketListing): void {
+    const name = this.listingName(l);
+    confirmDialog(this, {
+      title: t('market.buyTitle', { name }),
+      body: t('market.buyBody', { price: priceText(l.price, l.currency), gets: sellerGets(l.price, b.cat.market.feeRate) }),
+      ok: `${l.price}`,
+      okIcon: currencyIcon(l.currency),
+      cancel: t('common.cancel'),
+      onOk: () => void this.buy(l),
+    });
+  }
+
+  async buy(l: MarketListing): Promise<boolean> {
+    if (this.busy) return false;
+    this.busy = true;
+    try {
+      await econ().marketBuy(l.id);
+      if (!this.sys.isActive()) return true;
+      hapticNotify('success');
+      uiCoin();
+      toast(this, t('market.boughtToast', { name: this.listingName(l) }), 'good');
+      this.listLoaded = false;
+      await this.fetchAll();
+      return true;
+    } catch (e) {
+      this.fail(e);
+      if (isApiError(e) && (e.code === 'sold' || e.code === 'gone' || e.status === 410)) {
+        this.listLoaded = false;
+        void this.refreshTab();
+      }
+      return false;
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private fail(e: unknown): void {
+    if (!this.sys.isActive()) return;
+    hapticNotify('error');
+    const code = isApiError(e) ? e.code : '';
+    const msg: Record<string, string> = {
+      insufficient_funds: t('econ.noFunds'),
+      cannot_afford: t('econ.noFunds'),
+      sold: t('market.sold'),
+      gone: t('market.gone'),
+      expired: t('market.expired'),
+      self_buy: t('market.selfBuy'),
+      listing_cap: t('market.cap', { n: this.base?.cat.market.maxOpenListings ?? 20 }),
+      town_unreachable: t('market.noTown'),
+      no_profile: t('econ.noProfile'),
+    };
+    toast(this, msg[code] ?? (isApiError(e) && e.offline ? t('econ.offline') : t('econ.error')), 'bad');
+  }
+
+  // ------------------------------------------------------------------ the item finder
+
+  private refLabel(ref: string): string {
+    const def = ITEM_LIST.find((d) => d.id === ref);
+    if (def) return tOr(`item.${def.id}.name`, def.name);
+    if ((CONSUMABLE_IDS as string[]).includes(ref)) return subjectName({ consumable: ref });
+    return subjectName({ resource: ref });
+  }
+
+  /** Pick one item, resource or consumable to look for (the server's `ref` filter). */
+  private openFind(onPick: (ref: string) => void): void {
+    const { VW, VH } = this.m;
+    const w = Math.min(VW - 12, 210);
+    const m = openModal(this, { title: t('market.findTitle'), w, h: VH - 24 });
+    const subjects: { s: IconSubject; ref: string }[] = [
+      ...RESOURCES.map((r) => ({ s: { resource: r } as IconSubject, ref: r })),
+      ...CONSUMABLE_IDS.map((id) => ({ s: { consumable: id } as IconSubject, ref: id })),
+      ...ITEM_LIST.map((d) => ({ s: { item: { uid: `f_${d.id}`, def: d.id, rarity: 'common' as const, cond: 100 } } as IconSubject, ref: d.id })),
+    ];
+    const by = m.y + m.h - 8 - SIZE.btnH;
+    const grid = new Grid(this, m.c, m.body.x, m.body.y, m.body.w, by - 4 - m.body.y, {
+      count: subjects.length,
+      cell: 26,
+      render: (i, cc, size, area) => {
+        const sj = subjects[i];
+        cc.add(new ItemIcon(this, 0, 0, sj.s, { size, area, glow: false, tip: this.refLabel(sj.ref), onTap: () => (m.close(), onPick(sj.ref)) }));
+      },
+    });
+    m.c.once('destroy', () => grid.destroy());
+    m.c.add(new Button(this, m.body.x, by, m.body.w, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
+  }
+
+  // ------------------------------------------------------------------ my listings
+
+  private buildMine(b: Base): void {
+    const { VW, VH } = this.m;
+    const w = VW - 8;
+    const top = this.pageTop;
+    const mine = this.mine;
+    if (!mine) {
+      addEconState(this, this.page, 4, top, w, VH - top - 4, 'loading', () => {});
+      return;
+    }
+    this.page.add(addText(this, VW / 2, top + 1, ellipsize(t('market.mineHead', { n: mine.open, max: mine.maxOpen }).toUpperCase(), w), 'red', 0.5));
+    const y = top + 13;
+    const h = VH - y - 4;
+    if (!mine.listings.length) {
+      this.page.add(addPanel(this, 4, y, w, h, 'inset'));
+      this.page.add(addEmptyState(this, 6, y + 2, w - 4, h - 4, { icon: 'flag', title: t('market.mineEmpty'), hint: t('market.mineEmptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
+      return;
+    }
+    const now = Date.now();
+    const list = new ScrollList(this, this.page, 4, y, w, h, {
+      count: mine.listings.length,
+      rowH: 32,
+      render: (i, row, rw, rh, area) => {
+        const l = mine.listings[i];
+        const status = l.status === 'open' && l.expiresAt <= now ? 'expired' : l.status;
+        row.add(addPanel(this, 0, 0, rw, rh, status === 'open' ? 'button' : 'inset'));
+        row.add(new ItemIcon(this, 4, 4, this.subject(l), { size: 24, area, qty: l.qty, onTap: () => this.openListing(b, l) }));
+        const colors: Record<string, number> = { open: COLOR.good, sold: 0xd8a840, cancelled: 0x8a7a6a, expired: COLOR.bad };
+        const tx = 33;
+        const act = listingAction(l, now);
+        const bw = act === 'cancel' ? 26 : 0;
+        if (act === 'cancel') row.add(new Button(this, rw - bw - 3, 4, bw, SIZE.btnH, { icon: 'close', label: t('market.cancel'), iconOnly: true, variant: 'destructive', id: 'market.cancelRow', onClick: () => this.askCancel(l) }));
+        const right = rw - bw - (bw ? 7 : 4);
+        const cw = addChip(this, row, right, 4, t(`market.status.${status}` as TKey), colors[status] ?? 0x8a7a6a, 60, true);
+        row.add(addText(this, tx, 5, ellipsize(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`.toUpperCase(), right - cw - 4 - tx), l.kind === 'item' ? rarityFont(l.rarity) : 'ink'));
+        const sub = `${priceText(l.price, l.currency)} · ${t('market.youGet', { n: sellerGets(l.price, b.cat.market.feeRate) })}`;
+        row.add(addText(this, tx, 18, ellipsize(sub.toUpperCase(), right - tx), 'dim'));
+      },
+    });
+    this.areas.push(list);
+  }
+
+  private askCancel(l: MarketListing): void {
+    confirmDialog(this, {
+      title: t('market.cancelTitle'),
+      body: t('market.cancelBody'),
+      ok: t('market.cancel'),
+      cancel: t('common.cancel'),
+      destructive: true,
+      onOk: () => void this.cancelListing(l),
+    });
+  }
+
+  private async cancelListing(l: MarketListing): Promise<void> {
+    try {
+      await econ().marketCancel(l.id);
+      if (!this.sys.isActive()) return;
+      hapticNotify('success');
+      toast(this, t('market.cancelled'), 'good');
+      this.mine = null;
+      this.listLoaded = false;
+      await this.fetchAll();
+    } catch (e) {
+      this.fail(e);
+    }
+  }
+
+  // ------------------------------------------------------------------ sell
+
+  private sellables(b: Base): Sellable[] {
+    const out: Sellable[] = [];
+    for (const it of b.profile?.stash ?? []) out.push({ kind: 'item', item: normalizeItem(it) });
+    for (const r of RESOURCES) {
+      const have = Math.floor(b.profile?.resources[r] ?? 0);
+      if (have > 0) out.push({ kind: 'resource', id: r, have });
+    }
+    for (const id of CONSUMABLE_IDS) {
+      const have = b.cons?.inventory[id] ?? 0;
+      if (have > 0) out.push({ kind: 'consumable', id, have });
+    }
+    return out;
+  }
+
+  private buildSell(b: Base): void {
+    const { VW, VH } = this.m;
+    const w = VW - 8;
+    const top = this.pageTop;
+    const list = this.sellables(b);
+    if (!list.length) {
+      this.page.add(addPanel(this, 4, top, w, VH - top - 4, 'inset'));
+      this.page.add(addEmptyState(this, 6, top + 2, w - 4, VH - top - 8, { icon: 'coin', title: t('market.sellEmpty'), hint: t('market.sellEmptyHint') }));
+      return;
+    }
+    const hint = wrapText(t('market.sellHint'), w, 1);
+    this.page.add(addText(this, VW / 2, top + 1, hint.lines.join(''), 'dim', 0.5));
+    const y = top + 12;
+    this.page.add(addPanel(this, 4, y, w, VH - y - 4, 'inset'));
+    const grid = new Grid(this, this.page, 7, y + 3, w - 6, VH - y - 10, {
+      count: list.length,
+      cell: 28,
+      render: (i, cc, size, area) => {
+        const s = list[i];
+        const subj: IconSubject = s.kind === 'item' ? { item: s.item } : s.kind === 'resource' ? { resource: s.id } : { consumable: s.id };
+        cc.add(new ItemIcon(this, 0, 0, subj, { size, area, qty: s.kind === 'item' ? undefined : s.have, tip: false, onTap: () => this.openSellForm(b, s) }));
+      },
+    });
+    this.areas.push(grid);
+  }
+
+  /** The listing form: quantity, currency, price with the fee and what you get, the town. */
+  openSellForm(b: Base, s: Sellable, init?: { qty: number; currency: Currency; price: number; town: number }): void {
+    const { VW, VH } = this.m;
+    const towns = this.towns ?? [];
+    const rarity = s.kind === 'item' ? s.item.rarity : 'common';
+    const have = s.kind === 'item' ? 1 : s.have;
+    const maxQty = s.kind === 'consumable' ? Math.min(have, 20) : have;
+    let qty = init?.qty ?? (s.kind === 'item' ? 1 : Math.min(maxQty, s.kind === 'resource' ? 50 : 1));
+    let currency: Currency = init?.currency ?? 'gold';
+    const unitValue = s.kind === 'item' ? itemValue(s.item) : s.kind === 'resource' ? RES_VALUE[s.id] ?? 1 : CONSUMABLES[s.id].gold ?? 50;
+    let bounds = priceBounds(b.cat, currency, rarity);
+    let price = init?.price ?? suggestPrice(unitValue * qty, currency, bounds);
+    let town = init?.town ?? 0;
+    const name = s.kind === 'item' ? itemName(s.item) : subjectName(s.kind === 'resource' ? { resource: s.id } : { consumable: s.id });
+    const w = Math.min(VW - 12, 210);
+    const inner = w - 16;
+    const rowsH = (s.kind === 'item' ? 0 : 1) * (SIZE.btnH + 12) + 3 * (SIZE.btnH + 12) + 34;
+    const m = openModal(this, { title: t('market.listTitle', { name }), w, h: Math.min(VH - 12, 26 + 30 + rowsH + SIZE.btnH + 14) });
+    const { c, x } = m;
+    let cy = m.y + 24;
+    const subj: IconSubject = s.kind === 'item' ? { item: s.item } : s.kind === 'resource' ? { resource: s.id } : { consumable: s.id };
+    c.add(s.kind === 'item' ? bigItemIcon(this, x + 8, cy, s.item, 26) : new ItemIcon(this, x + 8, cy, subj, { size: 26, qty: have, tip: false }));
+    c.add(addText(this, x + 40, cy + 3, ellipsize(name.toUpperCase(), inner - 34), s.kind === 'item' ? rarityFont(rarity) : 'ink'));
+    c.add(addText(this, x + 40, cy + 14, ellipsize(t('stash.worth', { n: unitValue * qty }).toUpperCase(), inner - 34), 'dim'));
+    cy += 32;
+    const reopen = () => {
+      m.close();
+      this.openSellForm(b, s, { qty, currency, price, town });
+    };
+    const stepper = (label: string, value: string, onMinus: () => void, onPlus: () => void, id: string) => {
+      c.add(addText(this, x + 8, cy, ellipsize(label.toUpperCase(), inner), 'dim'));
+      cy += 10;
+      c.add(new Button(this, x + 8, cy, 26, SIZE.btnH, { label: '-', tip: t('market.less'), id: `${id}.minus`, onClick: onMinus }));
+      c.add(new Button(this, x + 8 + inner - 26, cy, 26, SIZE.btnH, { label: '+', tip: t('market.moreBtn'), id: `${id}.plus`, onClick: onPlus }));
+      c.add(addPanel(this, x + 8 + 26 + SIZE.gap, cy, inner - 52 - 2 * SIZE.gap, SIZE.btnH, 'inset'));
+      c.add(addText(this, x + 8 + inner / 2, cy + 8, ellipsize(value.toUpperCase(), inner - 60), 'ink', 0.5));
+      cy += SIZE.btnH + 2;
+    };
+    if (s.kind !== 'item') {
+      const qs = s.kind === 'resource' ? 10 : 1;
+      stepper(t('market.qty'), `${qty}`, () => ((qty = Math.max(1, qty - qs)), reopen()), () => ((qty = Math.min(maxQty, qty + qs)), reopen()), 'market.qty');
+    }
+    // currency toggle
+    c.add(addText(this, x + 8, cy, t('market.currency').toUpperCase(), 'dim'));
+    cy += 10;
+    const hw = Math.floor((inner - SIZE.gap) / 2);
+    (['gold', 'drachmae'] as Currency[]).forEach((cur, i) =>
+      c.add(
+        new Button(this, x + 8 + i * (hw + SIZE.gap), cy, i ? inner - hw - SIZE.gap : hw, SIZE.btnH, {
+          label: t(`market.cur.${cur}` as TKey),
+          icon: currencyIcon(cur),
+          style: currency === cur ? 'buttonSel' : 'button',
+          id: `market.cur.${cur}`,
+          onClick: () => {
+            if (currency === cur) return;
+            currency = cur;
+            bounds = priceBounds(b.cat, currency, rarity);
+            price = suggestPrice(unitValue * qty, currency, bounds);
+            reopen();
+          },
+        }),
+      ),
+    );
+    cy += SIZE.btnH + 2;
+    stepper(`${t('market.price')} · ${t('market.bounds', { min: bounds[0], max: bounds[1] })}`, priceText(price, currency), () => ((price = clampPrice(price - priceStep(price - 1), bounds)), reopen()), () => ((price = clampPrice(price + priceStep(price), bounds)), reopen()), 'market.price');
+    // fee and what the seller gets
+    const fee = marketFee(price, b.cat.market.feeRate);
+    c.add(addText(this, x + 8, cy, ellipsize(t('market.fee', { fee }).toUpperCase(), inner), 'dim'));
+    c.add(addText(this, x + 8 + inner, cy, ellipsize(t('market.gets', { n: sellerGets(price, b.cat.market.feeRate) }).toUpperCase(), inner / 2), 'good', 1));
+    cy += 12;
+    // town
+    const tn = towns[town];
+    c.add(new Button(this, x + 8, cy, inner, SIZE.btnH, {
+      label: tn ? t('market.town', { q: tn.q, r: tn.r }) : t('market.noTown'),
+      icon: 'flag',
+      id: 'market.town',
+      tip: t('market.noTownHint'),
+      onClick: () => {
+        if (towns.length > 1) {
+          town = (town + 1) % towns.length;
+          reopen();
+        } else showTooltip(this, t('market.noTownHint'), c);
+      },
+    }));
+    cy += SIZE.btnH + 2;
+    const by = m.y + m.h - 8 - SIZE.btnH;
+    const bw = Math.floor((inner - SIZE.gap) / 2);
+    c.add(new Button(this, x + 8, by, bw, SIZE.btnH, { label: t('common.cancel'), onClick: () => m.close() }));
+    const list = new Button(this, x + 8 + bw + SIZE.gap, by, inner - bw - SIZE.gap, SIZE.btnH, {
+      label: t('market.list'),
+      icon: currencyIcon(currency),
+      variant: 'primary',
+      id: 'market.list',
+      onClick: () => {
+        m.close();
+        void this.list(s, qty, currency, price, towns[town]);
+      },
+    });
+    if (!tn) list.setEnabled(false, t('market.noTownHint'));
+    c.add(list);
+    void cy;
+  }
+
+  async list(s: Sellable, qty: number, currency: Currency, price: number, town: { q: number; r: number }): Promise<boolean> {
+    if (this.busy) return false;
+    this.busy = true;
+    try {
+      await econ().marketList({ town, kind: s.kind, ref: s.kind === 'item' ? s.item.uid : s.id, qty: s.kind === 'item' ? 1 : qty, currency, price });
+      if (!this.sys.isActive()) return true;
+      hapticNotify('success');
+      uiCoin();
+      toast(this, t('market.listed', { price: priceText(price, currency) }), 'good');
+      this.mine = null;
+      await this.fetchAll();
+      return true;
+    } catch (e) {
+      this.fail(e);
+      return false;
+    } finally {
+      this.busy = false;
+    }
+  }
+}
+
+void addIcon;

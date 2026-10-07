@@ -7,7 +7,7 @@ import { state } from '../state';
 import { inTelegram, telegramUserName } from '../platform/telegram';
 import { openSettings } from '../ui/settings';
 import { MAX_ARMY } from '../data/units';
-import { addSyncBadge, openShop } from '../ui/online';
+import { addSyncBadge } from '../ui/online';
 import { confirmDialog } from '../ui/widgets';
 import { ellipsize } from '../ui/textfit';
 import { SIZE } from '../ui/theme';
@@ -128,32 +128,10 @@ export class MenuScene extends BaseScene {
     this.overlay = null;
   }
 
-  private modal(h: number, title: string): { c: Phaser.GameObjects.Container; x: number; y: number; w: number } {
-    // Replace the open modal after the new one is up: closing it first would
-    // hide Telegram's Back button for a moment (Close/Back flicker).
-    const prev = this.overlay;
-    const { VW, VH } = this.m;
-    const c = this.add.container(0, 0);
-    this.ui.add(c);
-    const shade = this.add.rectangle(0, 0, VW, VH, 0x000000, 0.55).setOrigin(0, 0).setInteractive();
-    c.add(shade);
-    const w = Math.min(VW - 16, 180);
-    const x = Math.round((VW - w) / 2);
-    const y = Math.round((VH - h) / 2);
-    addScroll(this, c, x, y, w, h);
-    c.add(addText(this, VW / 2, y + 12, title, 'red', 0.5));
-    this.overlay = c;
-    this.modalLayer(c, () => this.closeOverlay());
-    prev?.destroy();
-    return { c, x, y, w };
-  }
-
-  private openShop(): void {
-    openShop(this, {
-      modal: (h, title) => this.modal(h, title),
-      close: () => this.closeOverlay(),
-      isOpen: (c) => this.overlay === c,
-    });
+  /** The shop scene (wallet, cosmetics, consumables, season pass). */
+  openShop(): void {
+    this.closeOverlay();
+    this.scene.start('Shop', { back: { scene: 'Menu' } });
   }
 
   private openSettings(): void {
