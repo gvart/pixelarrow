@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, addPanel, addText } from '../ui/kit';
-import { dollFrame, ensureDoll } from '../ui/sprites';
+import { Button, Meter, addPanel, addText, fitText } from '../ui/kit';
+import { dollFrame, dollGeomOf, dollOrigin, ensureDoll, ensurePortrait } from '../ui/sprites';
+import { ROLE_LABEL } from '../data/classes';
 import { dollFromHero } from '../art/paperdoll';
 import { P } from '../art/palette';
 import { state } from '../state';
@@ -9,12 +10,10 @@ import { haptic, hapticNotify } from '../platform/telegram';
 import { xpToNext, type Hero } from '../data/units';
 import { TRAITS } from '../data/traits';
 import {
-  ABILITIES, ATTRS, ATTR_IDS, ATTR_MAX, AURAS, PERK_LEVELS, PERKS, TREES, TREE_IDS,
-  perkBlocker, perkSlots, treePerks, type AttrId, type PerkDef, type PerkId,
+  ABILITIES, ATTRS, ATTR_IDS, ATTR_MAX, AURAS, PERK_LEVELS, PERKS, TREES,
+  heroTree, perkBlocker, perkSlots, type AttrId, type PerkDef, type PerkId,
 } from '../data/perks';
-import { computeStats, type CombatStats } from '../sim/stats';
-
-const ARCH_LABEL: Record<string, string> = { raw: 'Levy', hoplite: 'Hoplite', swordsman: 'Swordsman', axeman: 'Axeman', peltast: 'Peltast', slinger: 'Slinger', archer: 'Archer' };
+import { computeStats, heroClass, type CombatStats } from '../sim/stats';
 
 /** Hero detail: spend attribute points (with a preview of every derived stat) and pick perks. */
 export class HeroScene extends BaseScene {
@@ -45,7 +44,7 @@ export class HeroScene extends BaseScene {
   }
 
   update(time: number): void {
-    this.doll?.setFrame(dollFrame(0, Math.floor(time / 600) % 2));
+    this.doll?.setFrame(dollFrame(2, Math.floor(time / 600) % 2));
   }
 
   private hero(): Hero | undefined {
@@ -90,16 +89,22 @@ export class HeroScene extends BaseScene {
     let y = 27;
     L.add(addPanel(this, 4, y, VW - 8, 46, 'parch'));
     L.add(addPanel(this, 8, y + 4, 30, 38, 'inset'));
-    const key = ensureDoll(this, dollFromHero(h));
-    this.doll = this.add.sprite(23, y + 42, key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40);
-    L.add(this.doll);
+    const spec = dollFromHero(h);
+    const key = ensureDoll(this, spec, [2]);
+    if (dollGeomOf(key).fw > 48) L.add(this.add.image(11, y + 11, ensurePortrait(this, spec)).setOrigin(0, 0));
+    else {
+      this.doll = this.add.sprite(23, y + 41, key, dollFrame(2, 0)).setOrigin(...dollOrigin(key));
+      this.doll.setCrop(9, 13, 30, 37); // the inset box: 30 x 38, feet on its floor
+      L.add(this.doll);
+    }
+    const cls = heroClass(h);
     L.add(addText(this, 43, y + 4, h.name, 'red'));
-    L.add(addText(this, 43, y + 13, `Lv ${h.level} ${ARCH_LABEL[h.arch ?? 'raw'] ?? ''}`, 'ink'));
+    L.add(fitText(addText(this, 43, y + 13, `Lv ${h.level} ${cls.name}`, 'ink'), VW - 100));
     L.add(new Meter(this, 43, y + 23, VW - 56, 5, P.gold).setValue(h.xp, xpToNext(h.level)));
     const traits = h.traits.map((t) => TRAITS[t].name).join(', ');
     const free = h.points - this.spent();
     const perkFree = perkSlots(h.level) - h.perks.length;
-    L.add(addText(this, 43, y + 31, `${traits ? traits + '  ' : ''}`, 'dim'));
+    L.add(fitText(addText(this, 43, y + 31, `${ROLE_LABEL[cls.role]}${traits ? ' - ' + traits : ''}`, 'dim'), VW - 100));
     L.add(addText(this, VW - 10, y + 4, free > 0 ? `${free} pt` : '', 'gold', 1));
     L.add(addText(this, VW - 10, y + 13, perkFree > 0 ? `${perkFree} perk` : '', 'gold', 1));
     if (h.wound > 0) L.add(addText(this, VW - 10, y + 31, `wounded ${Math.ceil(h.wound)}h`, 'red', 1));
@@ -152,25 +157,27 @@ export class HeroScene extends BaseScene {
       L.add(addText(this, 9, y + ah - 14, abil.length ? `Has: ${abil.join(', ')}` : free > 0 ? 'Tap + to raise an attribute' : 'Points come with each level', 'dim', 0, VW - 20));
     }
 
-    // perk trees
+    // the class perk tree: five perks, one per perk level, top to bottom
     y += ah + 3;
+    const tree = heroTree({ cls: cls.id });
     const ph = 5 * 24 + 15;
     L.add(addPanel(this, 4, y, VW - 8, ph, 'parch'));
-    const colW = Math.floor((VW - 26) / 3);
+    L.add(addText(this, VW / 2, y + 4, `${cls.name} perks`, 'red', 0.5));
     const g = this.add.graphics();
     L.add(g);
-    TREE_IDS.forEach((tree, ci) => {
-      const cx = 20 + ci * colW + colW / 2;
-      L.add(addText(this, cx, y + 4, TREES[tree].name, 'red', 0.5));
-      const perks = treePerks(tree);
-      perks.forEach((p, ri) => {
-        const ny = y + 14 + ri * 24;
-        if (ri > 0) {
-          g.fillStyle(h.perks.includes(p.id) ? P.red : P.parchDark, 1);
-          g.fillRect(Math.round(cx) - 1, ny - 4, 2, 4);
-        }
-        this.perkNode(p, Math.round(cx - 12), ny, h);
-      });
+    tree.forEach((id, ri) => {
+      const p = PERKS[id];
+      const ny = y + 14 + ri * 24;
+      const nx = 22;
+      if (ri > 0) {
+        g.fillStyle(h.perks.includes(id) ? P.red : P.parchDark, 1);
+        g.fillRect(nx + 11, ny - 4, 2, 4);
+      }
+      this.perkNode(p, nx, ny, h);
+      const known = h.perks.includes(id);
+      L.add(addText(this, nx + 30, ny + 2, p.name, known ? 'red' : 'ink'));
+      // one line here; the full text is in the panel below when selected
+      L.add(fitText(addText(this, nx + 30, ny + 11, p.desc, 'dim'), VW - nx - 44));
     });
     PERK_LEVELS.forEach((lvl, ri) => L.add(addText(this, 8, y + 20 + ri * 24, `${lvl}`, h.level >= lvl ? 'ink' : 'dim')));
 
@@ -181,11 +188,12 @@ export class HeroScene extends BaseScene {
     const sel = this.selPerk ? PERKS[this.selPerk] : null;
     if (!sel) {
       L.add(addText(this, VW / 2, y + 8, perkFree > 0 ? 'Tap a perk to read it' : `Next perk at Lv ${PERK_LEVELS.find((l) => l > h.level) ?? '-'}`, 'dim', 0.5));
-      L.add(addText(this, 9, y + 22, 'Perks unlock in order down each tree. Abilities are used from the battle bar; auras work on their own.', 'dim', 0, VW - 18));
+      L.add(addText(this, 9, y + 22, 'Each class has its own tree; perks unlock in order. Abilities are used from the battle bar; auras work on their own.', 'dim', 0, VW - 18));
       return;
     }
     L.add(addText(this, 9, y + 5, sel.name, 'red'));
-    L.add(addText(this, VW - 9, y + 5, `${TREES[sel.tree].name} - Lv ${PERK_LEVELS[sel.tier]}`, 'dim', 1));
+    const tier = Math.max(0, tree.indexOf(sel.id));
+    L.add(addText(this, VW - 9, y + 5, `${TREES[sel.tree].name} - Lv ${PERK_LEVELS[tier]}`, 'dim', 1));
     const extra = sel.ability ? ` ${ABILITIES[sel.ability].desc} Cooldown ${ABILITIES[sel.ability].cooldown}s.` : sel.aura ? ` ${AURAS[sel.aura].desc}` : '';
     L.add(addText(this, 9, y + 16, sel.desc + extra, 'ink', 0, VW - 18));
     const blocker = perkBlocker(h, sel.id);

@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, ScrollArea, addIcon, addPanel, addText, tappable, type FontKey } from '../ui/kit';
-import { dollFrame, ensureDoll, ensureItemIcon } from '../ui/sprites';
+import { Button, Meter, ScrollArea, addIcon, addPanel, addText, fitText, tappable, type FontKey } from '../ui/kit';
+import { dollFrame, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, ensurePortrait } from '../ui/sprites';
+import { heroClass } from '../sim/stats';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
 import { itemDef, itemValue, RARITY_LABEL, SLOTS, type Item, type Rarity, type Slot } from '../data/items';
@@ -161,9 +162,13 @@ export class ArmyScene extends BaseScene {
     L.add(addPanel(this, x0 + 5, y0 + 5, 60, 86, 'inset'));
     const grass = this.add.rectangle(x0 + 7, y0 + 60, 56, 29, P.grass[1]).setOrigin(0, 0);
     L.add(grass);
-    const key = ensureDoll(this, dollFromHero(h));
-    L.add(this.add.image(x0 + 35, y0 + 86, 'shadow').setScale(2).setAlpha(0.35));
-    this.preview = this.add.sprite(x0 + 35, y0 + 88, key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40).setScale(2);
+    const key = ensureDoll(this, dollFromHero(h), [0]);
+    const big = dollGeomOf(key).fw > 48;
+    L.add(this.add.image(x0 + 35, y0 + 86, big ? 'shadow_big' : 'shadow').setScale(big ? 1 : 2).setAlpha(0.35));
+    this.preview = this.add.sprite(x0 + 35, y0 + 87, key, dollFrame(0, 0)).setOrigin(...dollOrigin(key)).setScale(big ? 1 : 2);
+    // framed by the portrait box (60 x 86 on screen)
+    if (big) this.preview.setCrop(18, 0, 60, 84);
+    else this.preview.setCrop(9, 9, 30, 41);
     L.add(this.preview);
 
     // name + level
@@ -173,8 +178,11 @@ export class ArmyScene extends BaseScene {
     L.add(addText(this, tx, y0 + 18, `Lv ${h.level}`, 'ink'));
     const xpM = new Meter(this, tx + 30, y0 + 19, w - 70 - 36, 5, P.gold).setValue(h.xp, xpToNext(h.level));
     L.add(xpM);
+    // class: its portrait icon, name and role
+    const cls = heroClass(h);
+    L.add(this.add.image(tx - 1, y0 + 26, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0).setScale(0.5));
+    L.add(fitText(addText(this, tx + 14, y0 + 28, `${cls.name}`, 'ink'), w - 88));
     const traits = h.traits.map((t) => TRAITS[t].name).join(', ') || 'No traits';
-    L.add(addText(this, tx, y0 + 28, h.wound > 0 ? `Wounded: ${Math.ceil(h.wound)}h rest` : traits, h.wound > 0 ? 'red' : 'dim', 0, w - 74));
 
     // stats with preview deltas
     const base = computeStats(h);
@@ -199,7 +207,7 @@ export class ArmyScene extends BaseScene {
       const col = i % 2;
       const row = Math.floor(i / 2);
       const sx = tx + col * 58;
-      const sy = y0 + 42 + row * 11;
+      const sy = y0 + 40 + row * 11;
       const v = f(base);
       L.add(addText(this, sx, sy, label, 'dim'));
       L.add(addText(this, sx + 22, sy, fmt(v, dp), 'ink'));
@@ -208,8 +216,8 @@ export class ArmyScene extends BaseScene {
         if (Math.abs(d) > 0.004) L.add(addText(this, sx + 52, sy, `${d > 0 ? '+' : ''}${fmt(d, dp)}`, d > 0 ? 'gold' : 'red', 1).setX(sx + 56).setOrigin(1, 0));
       }
     });
-    if (base.ammo > 0) L.add(addText(this, tx, y0 + 86, `Ammo ${base.ammo}  ${base.role}`, 'dim'));
-    else L.add(addText(this, tx, y0 + 86, `${base.weapon === 'none' ? 'unarmed' : base.weapon}${base.canShieldWall ? ' - shield wall' : ''}`, 'dim'));
+    const kit = base.ammo > 0 ? `ammo ${base.ammo}` : base.canShieldWall ? 'shield wall' : base.mount ? (base.mount === 'chariot' ? 'chariot' : 'mounted') : '';
+    L.add(addText(this, tx, y0 + 85, h.wound > 0 ? `Wounded: ${Math.ceil(h.wound)}h rest` : `${traits}${kit ? ' - ' + kit : ''}`, h.wound > 0 ? 'red' : 'dim', 0, w - 74));
 
     // equipment slots
     const slotY = y0 + 96;
@@ -371,9 +379,7 @@ export class ArmyScene extends BaseScene {
       this.dismissArmed = false;
       this.refresh();
     });
-    const key = ensureDoll(this, dollFromHero(hero));
-    const img = this.add.image(4, y - 9, key, dollFrame(0, 0)).setOrigin(0, 0);
-    img.setCrop(4, 10, 26, 23);
+    const img = this.add.image(5, y, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0);
     parent.add(img);
     const font: FontKey = sel ? 'light' : 'ink';
     parent.add(addText(this, 34, y + 4, hero.name, font));
@@ -382,9 +388,9 @@ export class ArmyScene extends BaseScene {
     const wpnLen = (hero.equip.weapon ? itemDef(hero.equip.weapon.def).name : 'Unarmed').length;
     // keep the line clear of the weapon name on the right
     let tr = traits.join(' ');
-    if (tr.length + wpnLen > 22) tr = traits[0] ?? '';
-    if (tr.length + wpnLen > 22) tr = '';
-    const sub = hero.wound > 0 ? `Lv${hero.level} wounded ${Math.ceil(hero.wound)}h` : `Lv${hero.level}${pend ? ' !' : ''} ${tr}`;
+    if (tr.length + wpnLen > 16) tr = traits[0] ?? '';
+    if (tr.length + wpnLen > 16) tr = '';
+    const sub = hero.wound > 0 ? `Lv${hero.level} wounded ${Math.ceil(hero.wound)}h` : `Lv${hero.level}${pend ? ' !' : ''} ${heroClass(hero).short} ${tr}`;
     parent.add(addText(this, 34, y + 13, sub, sel ? 'light' : hero.wound > 0 ? 'red' : 'dim'));
     parent.add(addText(this, w - 6, y + 4, ROMAN[hero.group] ?? '', sel ? 'light' : 'red', 1));
     const wpn = hero.equip.weapon ? itemDef(hero.equip.weapon.def).name : 'Unarmed';

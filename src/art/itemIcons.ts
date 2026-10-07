@@ -1,8 +1,8 @@
-/** 16x16 item icons, reusing the paper-doll layers where possible. */
+/** 16x16 item icons: weapons and trinkets drawn by hand, gear rendered with the soldiers' own 3D layers. */
 import { itemDef, type Item } from '../data/items';
 import { P } from './palette';
 import { Pix } from './pixels';
-import { drawHelmet, drawShieldFront, drawTorso } from './paperdoll';
+import { renderGearIcon } from './paperdoll';
 
 const SZ = 16;
 
@@ -32,6 +32,8 @@ function weaponIcon(art: string): Pix {
   const px = new Pix(SZ, SZ);
   switch (art) {
     case 'spear':
+    case 'spear_short':
+    case 'lance':
       px.line(1, 14, 10, 5, wood);
       px.set(11, 4, P.bronze[1]);
       px.set(12, 3, P.bronze[0]);
@@ -82,6 +84,7 @@ function weaponIcon(art: string): Pix {
       px.set(12, 1, P.leather[2]);
       break;
     case 'bow':
+    case 'bow_short':
       for (let y = 1; y <= 14; y++) {
         const t = (y - 1) / 13;
         px.set(4 + Math.round(5 * Math.sin(t * Math.PI)), y, P.wood[1]);
@@ -91,6 +94,24 @@ function weaponIcon(art: string): Pix {
       px.set(14, 7, P.iron[0]);
       px.set(14, 9, P.iron[0]);
       break;
+    case 'falx':
+    case 'rhomphaia': {
+      // a long haft and a curved (falx) or straight (rhomphaia) blade
+      px.line(1, 15, 7, 9, P.wood[2]);
+      px.line(2, 15, 8, 9, P.wood[1]);
+      if (art === 'falx') {
+        for (let i = 0; i < 6; i++) px.set(8 + i, 8 - i + (i > 3 ? (i - 3) : 0), P.iron[i === 5 ? 0 : 1]);
+        px.set(14, 5, P.iron[1]);
+        px.set(14, 6, P.iron[2]);
+      } else {
+        for (let i = 0; i < 7; i++) {
+          px.set(8 + i, 8 - i, P.iron[1]);
+          px.set(9 + i, 8 - i, P.iron[2]);
+        }
+        px.set(15, 1, P.iron[0]);
+      }
+      break;
+    }
     case 'javelins':
       for (const o of [0, 3]) {
         px.line(1 + o, 14, 11 + o, 4, wood);
@@ -153,14 +174,9 @@ export function renderItemIcon(item: Item): Pix {
   if (def.slot === 'weapon') px = weaponIcon(def.art);
   else if (def.slot === 'trinket') px = trinketIcon(def.id);
   else {
-    const big = new Pix(40, 48);
-    if (def.slot === 'shield') drawShieldFront(big, { art: def.art, paint: item.paint }, 0, 0);
-    else if (def.slot === 'helmet') {
-      drawHelmet(big, { art: def.art, paint: item.paint }, 0, 0, false);
-    } else if (def.slot === 'armor') {
-      drawTorso(big, { look: { skin: 1, hair: 0, hairStyle: 0, beard: 0, tunic: 'tunicWhite' }, armor: def.art }, 0, 0, false);
-    }
-    px = centerInto(big);
+    const paint = item.def === 'argyraspis' ? { ...(item.paint ?? {}), field: 'silver' } : item.paint;
+    px = centerInto(renderGearIcon(def.slot as 'helmet' | 'shield' | 'armor', def.art, paint));
+    return px;
   }
   px.outline(P.outline);
   return px;

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, Meter, ScrollArea, addPanel, addText, tappable } from '../ui/kit';
-import { dollFrame, ensureDoll } from '../ui/sprites';
+import { dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, pumpDolls, queueDollRows } from '../ui/sprites';
 import { dollFromHero, ANIM_FRAMES } from '../art/paperdoll';
 import { renderGround } from '../art/ground';
 import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
@@ -29,7 +29,7 @@ import { battleAudio, uiError } from '../audio/hooks';
 import { confirmModal } from '../ui/confirm';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { rallyRadius } from '../sim/stats';
-import { renderBoulder, renderGlint, renderTree } from '../art/terrainArt';
+import { BOULDER_GEOM, TREE_GEOM, renderBoulder, renderGlint, renderTree } from '../art/terrainArt';
 import { generateBattlefield, randomSite } from '../world/battlefield';
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
@@ -51,6 +51,12 @@ interface UnitView {
   flip: boolean;
   back: boolean;
   deathTick: number;
+  /** Sheet row on show (0..3, see src/art/paperdoll.ts DIRS). */
+  dir: number;
+  key: string;
+  /** Figure height in pixels (tags, flags, numbers, touch). */
+  tall: number;
+  big: boolean;
 }
 
 type Gesture = {
@@ -237,14 +243,21 @@ export class BattleScene extends BaseScene {
     for (const h of [...heroes, ...this.enemyHeroes]) heroById.set(h.id, h);
     for (const u of this.sim.units) {
       const hero = heroById.get(u.heroId)!;
-      const key = ensureDoll(this, dollFromHero(hero));
-      const shadow = this.add.image(0, 0, 'shadow').setAlpha(0.3).setDepth(-60000);
-      const ring = this.add.image(0, 0, u.side === this.me ? 'ring_sel' : 'ring_enemy').setDepth(-70000).setVisible(false);
-      const spr = this.add.sprite(0, 0, key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40);
+      const f = isoFacing(u.fx, u.fy);
+      const dir = facingRow(f.back, f.left);
+      // only the row he faces now is drawn up front; the rest in idle time
+      const key = ensureDoll(this, dollFromHero(hero), [dir]);
+      queueDollRows(this, key);
+      const big = !!u.stats.mount || u.rad > 0.45;
+      const shadow = this.add.image(0, 0, big ? 'shadow_big' : 'shadow').setAlpha(0.3).setDepth(-60000);
+      const ring = this.add.image(0, 0, u.side === this.me ? (big ? 'ring_sel_big' : 'ring_sel') : 'ring_enemy').setDepth(-70000).setVisible(false);
+      if (big && u.side !== this.me) ring.setScale(1.6);
+      const [ox, oy] = dollOrigin(key);
+      const spr = this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
       this.world.add([shadow, ring, spr, flag]);
-      const f = isoFacing(u.fx, u.fy);
-      this.views.push({ u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1 });
+      const tall = u.stats.mount ? 52 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 18) : 38;
+      this.views.push({ u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big });
     }
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
 
@@ -317,7 +330,7 @@ export class BattleScene extends BaseScene {
       const p = isoToScreen(u.x, u.y);
       x0 = Math.min(x0, p.x - 10);
       x1 = Math.max(x1, p.x + 10);
-      y0 = Math.min(y0, p.y - 36);
+      y0 = Math.min(y0, p.y - 44);
       y1 = Math.max(y1, p.y + 4);
     }
     if (!isFinite(x0)) return;
@@ -325,7 +338,8 @@ export class BattleScene extends BaseScene {
     const availW = this.scale.width;
     const availH = vp.bottom - vp.top;
     const fit = Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0)));
-    const z = Phaser.Math.Clamp(Math.max(2, fit), 2, 4);
+    // 1x shows a man ~34 px tall on a 390-wide phone; closer if both armies fit
+    const z = Phaser.Math.Clamp(Math.max(1, fit), 1, 2);
     cam.setZoom(z);
     const t = this.focusPoint();
     this.centerCam(t.x, t.y);
@@ -388,7 +402,7 @@ export class BattleScene extends BaseScene {
       cy = this.sim.height / 2;
     }
     const p = isoToScreen(cx, cy);
-    return { x: p.x, y: p.y - 14 };
+    return { x: p.x, y: p.y - 20 };
   }
 
   private setFollow(on: boolean): void {
@@ -448,6 +462,7 @@ export class BattleScene extends BaseScene {
     this.checkDwell(delta);
     this.updateCamera(delta);
     this.fx.update(this.paused ? 0 : delta);
+    pumpDolls(this.sim.phase === 'battle' && !this.paused ? 4 : 8);
     this.renderUnits(alpha);
     this.renderProjectiles(alpha);
     this.renderBoxes();
@@ -473,16 +488,19 @@ export class BattleScene extends BaseScene {
       const rx = Math.round(sp.x);
       const ry = Math.round(sp.y);
       v.spr.setPosition(rx, ry);
-      v.shadow.setPosition(rx, ry - 1);
-      v.ring.setPosition(rx, ry - 1);
+      v.shadow.setPosition(rx, ry);
+      v.ring.setPosition(rx, ry);
       // facing -> one of the four iso diagonals: row (front/back) + mirror, with hysteresis
       const fc = isoFacing(u.fx, u.fy);
-      if (fc.sy < -2) v.back = true;
-      else if (fc.sy > 2) v.back = false;
-      if (fc.sx < -4) v.flip = true;
-      else if (fc.sx > 4) v.flip = false;
-      const dir = v.back ? 1 : 0;
-      v.spr.setFlipX(v.flip);
+      if (fc.sy < -3) v.back = true;
+      else if (fc.sy > 3) v.back = false;
+      if (fc.sx < -6) v.flip = true;
+      else if (fc.sx > 6) v.flip = false;
+      const dir = facingRow(v.back, v.flip);
+      if (dir !== v.dir) {
+        ensureDollRow(this, v.key, dir);
+        v.dir = dir;
+      }
       let frame: number;
       if (u.state === 'dead') {
         if (v.deathTick < 0) v.deathTick = tick;
@@ -525,13 +543,13 @@ export class BattleScene extends BaseScene {
       // a steady aura visibly lifts spirits now and then
       if (u.aura & AURAS.steady.bit && u.morale < u.stats.morale && !this.paused && this.time.now - this.lastSparkle > 140 && (u.id * 7 + Math.floor(this.time.now / 140)) % 9 === 0) {
         this.lastSparkle = this.time.now;
-        this.fx.sparkle(rx, ry - 20, AURAS.steady.color, 2);
+        this.fx.sparkle(rx, ry - v.tall * 0.6, AURAS.steady.color, 2);
       }
       const selected = u.side === this.me && (u.group === this.selGroup || u.id === this.selUnit);
       v.ring.setVisible(selected);
       if (selected) v.ring.setTexture(u.id === this.selUnit ? 'ring_one' : 'ring_sel');
       v.flag.setVisible(u.state === 'routing');
-      if (u.state === 'routing') v.flag.setPosition(rx + 3, ry - 26);
+      if (u.state === 'routing') v.flag.setPosition(rx + 3, ry - v.tall);
     }
   }
 
@@ -554,11 +572,11 @@ export class BattleScene extends BaseScene {
         // stuck in the ground
         const dx = Math.sign(tx - sx) || 1;
         g.lineStyle(1, p.kind === 'javelin' ? P.wood[1] : P.wood[0], 1);
-        g.lineBetween(Math.round(tx), Math.round(ty), Math.round(tx - dx * 3), Math.round(ty - 5));
+        g.lineBetween(Math.round(tx), Math.round(ty), Math.round(tx - dx * 4), Math.round(ty - 8));
         continue;
       }
       if (t < 0 || t > 1) continue;
-      const height = Math.sin(Math.PI * t) * arcH + 16 * (1 - t) + 4 * t;
+      const height = Math.sin(Math.PI * t) * arcH + 24 * (1 - t) + 6 * t;
       const x = sx + (tx - sx) * t;
       const y = sy + (ty - sy) * t - height;
       if (p.kind === 'stone') {
@@ -568,13 +586,13 @@ export class BattleScene extends BaseScene {
       }
       // orientation from the derivative of the arc
       const t2 = Math.min(1, t + 0.02);
-      const h2 = Math.sin(Math.PI * t2) * arcH + 16 * (1 - t2) + 4 * t2;
+      const h2 = Math.sin(Math.PI * t2) * arcH + 24 * (1 - t2) + 6 * t2;
       let vx = (tx - sx) * 0.02;
       let vy = (ty - sy) * 0.02 - (h2 - height);
       const l = Math.sqrt(vx * vx + vy * vy) || 1;
       vx /= l;
       vy /= l;
-      const len = p.kind === 'javelin' ? 8 : 5;
+      const len = p.kind === 'javelin' ? 13 : 8;
       g.lineStyle(1, p.kind === 'javelin' ? P.wood[1] : P.wood[0], 1);
       g.lineBetween(Math.round(x - vx * len), Math.round(y - vy * len), Math.round(x), Math.round(y));
       g.fillStyle(P.iron[0], 1);
@@ -671,7 +689,7 @@ export class BattleScene extends BaseScene {
           if (e.dmg > 2 || Math.random() < 0.5) this.addBlood(u.x, u.y, false);
           if (this.fx.showNumbers) {
             const p = isoToScreen(u.x, u.y);
-            this.fx.floatText(p.x, p.y - 30, `${Math.max(1, Math.round(e.dmg))}`, u.side === this.me ? 0xff8070 : 0xfff4d8);
+            this.fx.floatText(p.x, p.y - this.views[e.unit].tall - 6, `${Math.max(1, Math.round(e.dmg))}`, u.side === this.me ? 0xff8070 : 0xfff4d8);
           }
           if (u.side === this.me && this.time.now - this.lastHaptic > 120) {
             this.lastHaptic = this.time.now;
@@ -744,7 +762,7 @@ export class BattleScene extends BaseScene {
 
   private spark(x: number, y: number): void {
     const p = isoToScreen(x, y);
-    const s = this.add.image(Math.round(p.x + 4), Math.round(p.y - 14), 'spark').setDepth(95000);
+    const s = this.add.image(Math.round(p.x + 5), Math.round(p.y - 20), 'spark').setDepth(95000);
     this.world.add(s);
     this.tweens.add({ targets: s, alpha: 0, duration: 180, onComplete: () => s.destroy() });
   }
@@ -907,7 +925,7 @@ export class BattleScene extends BaseScene {
       const d = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
       const cx = (a.x + b.x) / 2;
       const cy = (a.y + b.y) / 2;
-      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), 1, 4);
+      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), 1, 3);
       cam.setZoom(z);
       cam.scrollX -= (cx - this.pinch.cx) / z;
       cam.scrollY -= (cy - this.pinch.cy) / z;
@@ -974,7 +992,7 @@ export class BattleScene extends BaseScene {
 
   private setZoom(z: number): void {
     const cam = this.cameras.main;
-    const target = Phaser.Math.Clamp(z, 1, 4);
+    const target = Phaser.Math.Clamp(z, 1, 3);
     if (target !== cam.zoom) this.setFollow(false);
     this.tweens.add({ targets: cam, zoom: target, duration: 120 });
   }
@@ -1124,7 +1142,7 @@ export class BattleScene extends BaseScene {
     const h = (a: number, b: number) => ((Math.imul(a + 1, 73856093) ^ Math.imul(b + 7, 19349663) ^ seed) >>> 0) % 1000 / 1000;
     const place = (key: string, fx: number, fy: number, tree: boolean) => {
       const p = isoToScreen(fx, fy);
-      const img = this.add.image(Math.round(p.x), Math.round(p.y), key).setOrigin(0.5, tree ? 25 / 28 : 10 / 13).setDepth(p.y);
+      const img = this.add.image(Math.round(p.x), Math.round(p.y), key).setOrigin(0.5, tree ? TREE_GEOM.footY / TREE_GEOM.h : BOULDER_GEOM.footY / BOULDER_GEOM.h).setDepth(p.y);
       this.world.add(img);
       this.props.push({ img, x: p.x, y: p.y, tree });
     };
@@ -1132,7 +1150,8 @@ export class BattleScene extends BaseScene {
       const d = t.cellDef(i);
       const c = t.cellCenter(i);
       if (d.kind === 'forest') {
-        const n = h(i, 1) < 0.35 ? 2 : 1;
+        // trees are big now: about two in three forest cells hold one, a few hold two
+        const n = h(i, 1) < 0.12 ? 2 : h(i, 1) < 0.66 ? 1 : 0;
         for (let k = 0; k < n; k++) {
           const v = h(i, 10 + k) < 0.2 ? 2 : h(i, 20 + k) < 0.35 ? 1 : 0;
           place(`tree_${v}`, c.x + (h(i, 2 + k) - 0.5) * 0.7, c.y + (h(i, 4 + k) - 0.5) * 0.7, true);
@@ -1163,12 +1182,12 @@ export class BattleScene extends BaseScene {
         if (v.u.state === 'dead' || v.u.state === 'fled') continue;
         const dx = v.spr.x - pr.x;
         const dy = v.spr.y - pr.y;
-        if (dy < 0 && dy > -22 && dx > -10 && dx < 10) {
+        if (dy < 10 && dy > -72 && dx > -26 && dx < 26) {
           hidden = true;
           break;
         }
       }
-      pr.img.setAlpha(hidden ? 0.5 : 1);
+      pr.img.setAlpha(hidden ? 0.4 : 1);
     }
   }
 
@@ -1210,12 +1229,21 @@ export class BattleScene extends BaseScene {
     const w = cam.getWorldPoint(p.x, p.y);
     // nearest unit in screen space
     let best: SimUnit | null = null;
-    let bestD = 26;
+    let bestD = 30;
     for (const v of this.views) {
       const u = v.u;
       if (u.state === 'dead' || u.state === 'fled') continue;
       const sx = (v.spr.x - cam.worldView.x) * cam.zoom;
-      const sy = (v.spr.y - 12 - cam.worldView.y) * cam.zoom;
+      const sy = (v.spr.y - v.tall * 0.45 - cam.worldView.y) * cam.zoom;
+      if (v.big) {
+        // a horse is a long target: accept a touch anywhere on its body
+        const dd = Math.sqrt((sx - p.x) ** 2 + ((sy - p.y) * 1.6) ** 2) * 0.7;
+        if (dd < bestD) {
+          bestD = dd;
+          best = u;
+        }
+        continue;
+      }
       const d = Math.sqrt((sx - p.x) ** 2 + (sy - p.y) ** 2);
       if (d < bestD) {
         bestD = d;
@@ -1615,7 +1643,7 @@ export class BattleScene extends BaseScene {
       let top = c.y;
       for (const u of mem) if (Math.abs(u.x - cx) < 3 && Math.abs(u.y - cy) < 3) top = Math.min(top, isoToScreen(u.x, u.y).y);
       const sx = (c.x - cam.worldView.x) * cam.zoom;
-      const sy = (top - 34 - cam.worldView.y) * cam.zoom;
+      const sy = (top - 46 - cam.worldView.y) * cam.zoom;
       let tag = this.tagMap.get(g.id);
       if (!tag || tag.getData('label') !== label || tag.getData('sel') !== (this.selGroup === g.id)) {
         tag?.destroy();
@@ -1918,8 +1946,7 @@ export class BattleScene extends BaseScene {
       const hero = this.views[u.id].hero;
       const row = this.add.container(0, cy);
       row.add(addPanel(this, 0, 0, rowW, 24, 'inset'));
-      const img = this.add.image(2, -9, ensureDoll(this, dollFromHero(hero)), dollFrame(0, 0)).setOrigin(0, 0);
-      img.setCrop(4, 10, 26, 23);
+      const img = this.add.image(3, 0, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0);
       row.add(img);
       row.add(addText(this, 30, 4, hero.name, 'ink'));
       const wpn = hero.equip.weapon ? itemDef(hero.equip.weapon.def).name : 'Unarmed';
@@ -1973,3 +2000,8 @@ function uiMetricsOf(scene: Phaser.Scene): { S: number; VW: number; VH: number }
 }
 
 export type { SimGroup };
+
+/** Sheet row for a facing: 0 down-right, 1 up-right, 2 down-left, 3 up-left. */
+function facingRow(back: boolean, left: boolean): number {
+  return back ? (left ? 3 : 1) : left ? 2 : 0;
+}

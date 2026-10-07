@@ -5,7 +5,7 @@
  * at a small base resolution and scaled up with nearest-neighbour.
  * Captured by scripts/store-images.mjs into docs/store/.
  */
-import { renderFrame, renderSheet, FW, FH, type DollSpec } from '../art/paperdoll';
+import { renderFrame, dollGeom, type DollSpec } from '../art/paperdoll';
 import { renderGround, renderBlood, renderShadow } from '../art/ground';
 import { renderAuraRing, renderStar, renderPip } from '../art/fx';
 import { renderPanel, renderScrollRoll } from '../art/uiTextures';
@@ -108,19 +108,16 @@ function vignette(px: Pix, strength: number, color = 0x1d140f): void {
   }
 }
 
-/** One sprite frame; the lying corpse (frame 12) only exists on the full sheet. */
+/** One sprite frame. */
 function dollFrame(spec: DollSpec, frame: number, dir: number): Pix {
-  if (frame !== 12) return renderFrame(spec, frame, dir);
-  const out = new Pix(FW, FH);
-  out.blit(renderSheet(spec), 0, 0, false, frame * FW, dir * FH, FW, FH);
-  return out;
+  return renderFrame(spec, frame, dir);
 }
 
 // ---------------------------------------------------------------- soldiers
 
 const HOPLITES: DollSpec[] = [
-  { look: { skin: 1, hair: 0, hairStyle: 0, beard: 1, tunic: 'tunicBlue' }, weapon: 'spear', shield: { art: 'hoplon', paint: { emblem: 'lambda', field: 'red', ink: 'cream' } }, helmet: { art: 'corinthian', paint: { field: 'red' } }, armor: 'linothorax' },
-  { look: { skin: 2, hair: 1, hairStyle: 1, beard: 2, tunic: 'tunicBlue' }, weapon: 'spear', shield: { art: 'hoplon', paint: { emblem: 'owl', field: 'red', ink: 'cream' } }, helmet: { art: 'corinthian', paint: { field: 'cream' } }, armor: 'cuirass' },
+  { look: { skin: 1, hair: 0, hairStyle: 0, beard: 1, tunic: 'tunicBlue' }, weapon: 'spear', shield: { art: 'hoplon', paint: { emblem: 'lambda', field: 'red', ink: 'cream' } }, helmet: { art: 'corinthian', paint: { field: 'red' } }, armor: 'linothorax', cloak: 'cloakRed' },
+  { look: { skin: 2, hair: 1, hairStyle: 1, beard: 2, tunic: 'tunicBlue' }, weapon: 'spear', shield: { art: 'hoplon', paint: { emblem: 'owl', field: 'red', ink: 'cream' } }, helmet: { art: 'corinthian', paint: { field: 'cream' } }, armor: 'cuirass', cloak: 'cloakRed' },
   { look: { skin: 0, hair: 2, hairStyle: 0, beard: 1, tunic: 'tunicWhite' }, weapon: 'spear', shield: { art: 'hoplon', paint: { emblem: 'lambda', field: 'red', ink: 'cream' } }, helmet: { art: 'chalcidian', paint: { field: 'red' } }, armor: 'linothorax' },
   { look: { skin: 1, hair: 1, hairStyle: 0, beard: 2, tunic: 'tunicBlue' }, weapon: 'spear', shield: { art: 'hoplon', paint: { emblem: 'trident', field: 'red', ink: 'ink' } }, helmet: { art: 'pilos' }, armor: 'linothorax' },
   { look: { skin: 3, hair: 0, hairStyle: 2, beard: 1, tunic: 'tunicWhite' }, weapon: 'spear', shield: { art: 'hoplon', paint: { emblem: 'sunwheel', field: 'bronze', ink: 'red' } }, helmet: { art: 'corinthian', paint: { field: 'ink' } }, armor: 'cuirass' },
@@ -151,20 +148,20 @@ interface Placed {
 // ---------------------------------------------------------------- cover
 
 function renderCover(): Pix {
-  const W = 214; // 214 x 120 at 3x = 642 x 360, cropped 1px each side to 640
-  const H = 120;
+  const W = 320; // 320 x 180 at 2x = 640 x 360
+  const H = 180;
   const px = renderGround(W, H, { originX: -100, originY: 200, fieldW: 300, fieldH: 300, seed: 20261006 });
 
   // battle line through (cx, cy), running along field x (down-right on screen)
-  const cx = 128;
-  const cy = 76;
+  const cx = 196;
+  const cy = 116;
   const at = (k: number, rank: number): { x: number; y: number } => {
     const a = isoToScreen(k, rank);
     return { x: Math.round(cx + a.x), y: Math.round(cy + a.y) };
   };
   // the title scroll covers the top-left corner; keep heads out from under it
-  const TITLE = { x0: 0, y0: 0, x1: 134, y1: 52 };
-  const underTitle = (x: number, y: number) => x - 10 < TITLE.x1 && y - 30 < TITLE.y1;
+  const TITLE = { x0: 0, y0: 0, x1: 150, y1: 60 };
+  const underTitle = (x: number, y: number) => x - 14 < TITLE.x1 && y - 40 < TITLE.y1;
 
   // trampled, bloody contact zone
   for (let k = -6; k <= 7; k++) {
@@ -208,16 +205,16 @@ function renderCover(): Pix {
       if (underTitle(p.x, p.y)) continue;
       const spec = FOES[(k + 30 + rank * 2) % FOES.length];
       const fr = rank === 0 ? [7, 9, 6, 8, 7, 9][(k + 12) % 6] : rank === 1 ? [6, 0, 1][(k + 11) % 3] : (k + rank + 21) % 2;
-      units.push({ spec, frame: fr, dir: 0, flip: true, x: p.x + jit(k, rank, 3), y: p.y + jit(k, rank, 4) });
+      units.push({ spec, frame: fr, dir: 2, flip: false, x: p.x + jit(k, rank, 3), y: p.y + jit(k, rank, 4) });
     }
   }
   for (const k of [0.5, 3.5]) {
     const p = at(k * STEP, -5.6);
-    if (!underTitle(p.x, p.y)) units.push({ spec: ARCHER, frame: 7, dir: 0, flip: true, x: p.x, y: p.y });
+    if (!underTitle(p.x, p.y)) units.push({ spec: ARCHER, frame: 7, dir: 2, flip: false, x: p.x, y: p.y });
   }
   // the fallen, lying in the gap
   const fallen: Placed[] = [
-    { spec: FOES[0], frame: 12, dir: 0, flip: true, ...at(-1.9, 0.05) },
+    { spec: FOES[0], frame: 12, dir: 2, flip: false, ...at(-1.9, 0.05) },
     { spec: HOPLITES[3], frame: 12, dir: 1, flip: false, ...at(4.5, 0.2) },
   ];
   for (const f of fallen) {
@@ -229,7 +226,7 @@ function renderCover(): Pix {
   const all = [...fallen.map((f) => ({ ...f, y: f.y - 6 })), ...units].sort((a, b) => a.y - b.y || a.x - b.x);
   for (const u of all) {
     if (u.frame !== 12) {
-      for (let y = 0; y < shadow.h; y++) for (let x = 0; x < shadow.w; x++) if (shadow.alpha(x, y)) px.set(u.x - 7 + x, u.y - 3 + y, 0x1d140f, 80);
+      for (let y = 0; y < shadow.h; y++) for (let x = 0; x < shadow.w; x++) if (shadow.alpha(x, y)) px.set(u.x - 9 + x, u.y - 3 + y, 0x1d140f, 80);
     }
     const fr = dollFrame(u.spec, u.frame, u.dir);
     if (u.tint !== undefined) {
@@ -240,7 +237,8 @@ function renderCover(): Pix {
         fr.data[i + 2] = (fr.data[i + 2] * (u.tint & 255)) / 255;
       }
     }
-    px.blit(fr, u.x - 16, u.y - 38 + (u.frame === 12 ? 6 : 0), u.flip);
+    const g = dollGeom(u.spec);
+    px.blit(fr, u.x - g.fw / 2, u.y - g.footY + (u.frame === 12 ? 6 : 0), u.flip);
   }
 
   // clash sparks along the line
@@ -249,15 +247,15 @@ function renderCover(): Pix {
   spark.set(2, 2, 0xffffff);
   for (const k of [-3, -1, 1, 3]) {
     const p = at(k * STEP + 0.5, 0);
-    px.blit(spark, p.x - 2, p.y - 22 + (k & 1) * 3);
+    px.blit(spark, p.x - 2, p.y - 30 + (k & 1) * 3);
   }
   // a stunned foe and a rallied hoplite
   const st = at(1 * STEP - 0.2, -0.6);
-  px.blit(renderStar(), st.x - 6, st.y - 34);
-  px.blit(renderStar(), st.x + 1, st.y - 37);
+  px.blit(renderStar(), st.x - 6, st.y - 44);
+  px.blit(renderStar(), st.x + 1, st.y - 47);
   for (const k of [-1, 0]) {
     const p = at(k * STEP + 0.5, 2.15);
-    px.blit(renderPip('up', 0xe0b860), p.x - 3, p.y - 41);
+    px.blit(renderPip('up', 0xe0b860), p.x - 3, p.y - 52);
   }
 
   // missiles in flight: javelins up-right from the skirmishers, arrows down-left from the archers
@@ -280,10 +278,10 @@ function renderCover(): Pix {
   vignette(px, 1.4);
 
   // ---- title scroll (top-left, over the empty field behind the foe)
-  const title = scalePix(textPix(makeFont(P.inkRed, P.parchDark), 'PIXELARROW'), 2);
+  const title = scalePix(textPix(makeFont(P.inkRed, P.parchDark), 'PIXELARROW'), 3);
   const tag = textPix(makeFont(P.ink), 'COMMAND THE LINE');
   const bw = title.w + 16;
-  const bh = 44;
+  const bh = 52;
   const bx = 7;
   const by = 6;
   // drop shadow
@@ -294,9 +292,9 @@ function renderCover(): Pix {
   px.blit(roll, bx - 4, by + bh - 6);
   px.blit(title, bx + Math.round((bw - title.w) / 2), by + 8);
   // red divider between title and tagline
-  const dy = by + 26;
+  const dy = by + 32;
   for (let x = bx + 10; x < bx + bw - 10; x++) if ((x & 1) === 0) px.set(x, dy, P.parchDark);
-  px.blit(tag, bx + Math.round((bw - tag.w) / 2), by + 29);
+  px.blit(tag, bx + Math.round((bw - tag.w) / 2), by + 35);
 
   return px;
 }
@@ -304,12 +302,12 @@ function renderCover(): Pix {
 // ---------------------------------------------------------------- botpic
 
 function renderBotpic(frame: number): Pix {
-  const S = 40; // 40 x 40 at 16x = 640 x 640
+  const S = 64; // 64 x 64 at 10x = 640 x 640
   const px = new Pix(S, S);
   const c = (S - 1) / 2;
   // Mediterranean-blue backdrop in concentric steps; a checker dither softens each step.
   const ramp = [0x8fb0c8, P.tunicBlue[0], P.tunicBlue[1], P.tunicBlue[2], 0x24364a];
-  const edges = [7, 11.5, 15.5, 19];
+  const edges = [11, 18, 25, 30];
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       const d = Math.hypot(x - c, y - c - 1);
@@ -321,10 +319,10 @@ function renderBotpic(frame: number): Pix {
     }
   }
   // ground shadow
-  px.ellipse(11, 32, 16, 4, () => P.tunicBlue[2]);
+  px.ellipse(20, 52, 24, 6, () => P.tunicBlue[2]);
   const fr = renderFrame(HOPLITES[0], frame, 0);
   // centre the figure (spear raised overhand, shield forward)
-  px.blit(fr, 3, -3);
+  px.blit(fr, 8, 4);
   return px;
 }
 
@@ -353,6 +351,6 @@ function show(px: Pix, scale: number, cropX: number, outW: number, outH: number)
 }
 
 const which = new URLSearchParams(location.search).get('img') ?? 'cover';
-if (which === 'botpic') show(renderBotpic(Number(new URLSearchParams(location.search).get('f') ?? 6)), 16, 0, 640, 640);
-else show(renderCover(), 3, 1, 640, 360);
+if (which === 'botpic') show(renderBotpic(Number(new URLSearchParams(location.search).get('f') ?? 6)), 10, 0, 640, 640);
+else show(renderCover(), 2, 0, 640, 360);
 document.body.dataset.ready = '1';

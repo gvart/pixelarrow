@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, ScrollArea, addIcon, addPanel, addScroll, addText } from '../ui/kit';
-import { dollFrame, ensureDoll, ensureItemIcon } from '../ui/sprites';
+import { Button, ScrollArea, addIcon, addPanel, addScroll, addText, fitText } from '../ui/kit';
+import { ensureItemIcon, ensurePortrait } from '../ui/sprites';
+import { ROLE_LABEL } from '../data/classes';
+import { heroClass } from '../sim/stats';
 import { dollFromHero } from '../art/paperdoll';
 import { renderSettlement } from '../art/worldArt';
 import { state } from '../state';
@@ -16,7 +18,6 @@ import { uiCoin, uiError } from '../audio/hooks';
 
 type Tab = 'recruits' | 'market' | 'sell' | 'rest';
 
-const ARCH_LABEL: Record<string, string> = { raw: 'Levy', hoplite: 'Hoplite', swordsman: 'Swordsman', axeman: 'Axeman', peltast: 'Peltast', slinger: 'Slinger', archer: 'Archer' };
 
 /** Village / town screen: hire volunteers, trade at the market, rest and heal. */
 export class SettlementScene extends BaseScene {
@@ -138,16 +139,18 @@ export class SettlementScene extends BaseScene {
       for (const r of pool) {
         const row = this.add.container(0, cy);
         row.add(addPanel(this, 0, 0, rw, 40, 'button'));
-        const img = this.add.image(4, -6, ensureDoll(this, dollFromHero(r.hero)), dollFrame(0, 0)).setOrigin(0, 0);
-        img.setCrop(4, 8, 26, 30);
-        row.add(img);
-        row.add(addText(this, 34, 4, r.hero.name, 'ink'));
+        // the class icon: a portrait in the class's helmet, shield and colours
+        row.add(this.add.image(5, 8, ensurePortrait(this, dollFromHero(r.hero))).setOrigin(0, 0));
+        const cls = heroClass(r.hero);
+        // text stops short of the price button
+        const tw = rw - 54 - 36;
+        row.add(fitText(addText(this, 34, 4, `${r.hero.name} Lv${r.hero.level}`, 'ink'), tw));
+        row.add(fitText(addText(this, 34, 13, cls.name, 'red'), tw));
         const traits = r.hero.traits.map((t) => TRAITS[t].name).join(' ');
-        row.add(addText(this, 34, 13, `Lv${r.hero.level} ${ARCH_LABEL[r.hero.arch ?? 'raw'] ?? ''} ${traits}`, 'dim'));
+        row.add(fitText(addText(this, 34, 22, `${ROLE_LABEL[cls.role]} ${traits}`, 'dim'), tw));
         const wpn = r.hero.equip.weapon ? itemDef(r.hero.equip.weapon.def).name : 'Unarmed';
         const a = r.hero.attrs;
-        row.add(addText(this, 34, 23, `${wpn}`, 'dim'));
-        row.add(addText(this, 34, 31, `S${a.str} A${a.agi} E${a.end} W${a.wil}`, 'dim'));
+        row.add(fitText(addText(this, 34, 31, `S${a.str} A${a.agi} E${a.end} W${a.wil} ${wpn}`, 'dim'), tw));
         const can = camp.data.gold >= r.price && camp.data.heroes.length < MAX_ARMY;
         const b = new Button(this, rw - 54, 9, 50, 22, { label: `${r.price}`, icon: 'coin', style: can ? 'buttonSel' : 'buttonOff', onClick: () => this.hire(r.index) });
         row.add(b);

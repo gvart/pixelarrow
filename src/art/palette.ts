@@ -27,10 +27,11 @@ export const P = {
   crest: { red: 0xa83224, ink: 0x2b1d1a, cream: 0xe8e0cc },
   shieldField: { bronze: 0xc89a48, cream: 0xe6d8b8, red: 0x9e3426, ink: 0x2e2220, blue: 0x46607a } as Record<string, number>,
   shieldInk: { bronze: 0xb8863b, cream: 0xeee4cc, red: 0xa83224, ink: 0x241815 } as Record<string, number>,
-  blood: [0x8a1c1c, 0x6a1414, 0x4a0e0e],
+  blood: [0x6e1a14, 0x56140f, 0x3e0e0a],
 
-  grass: [0x8b9f5a, 0x7e9450, 0x718748, 0x637a40, 0x566b38],
-  dirt: [0xb09a68, 0x9a845a, 0x7e6a48],
+  // muted, sun-dried Mediterranean grass and dusty soil
+  grass: [0x8e9160, 0x7f8655, 0x71794b, 0x636c42, 0x555d39],
+  dirt: [0xa08c66, 0x8a7656, 0x6e5e46],
 
   // parchment UI
   parch: 0xecd8c8,

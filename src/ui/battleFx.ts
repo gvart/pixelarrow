@@ -201,8 +201,11 @@ export class BattleFx {
         img.setAlpha([0.55, 0.7, 0.85, 0.7][Math.floor(timeMs / 260 + u.id) % 4]);
       }
     }
+    // height of the head above the feet (riders sit high, animals are low)
+    const head = u.stats.mount ? 54 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 16) : 37;
     // stun stars
-    const stunned = u.stun > 0 && u.state === 'ready';
+    // only a real daze (a bash, a balked charge, a bear's blow), not the brief check of a charge
+    const stunned = u.stun > 16 && u.state === 'ready';
     if (stunned || (o && o.stars.length)) {
       const ov = this.overlay(u.id);
       const n = stunned ? 3 : 0;
@@ -214,7 +217,7 @@ export class BattleFx {
       while (ov.stars.length > n) ov.stars.pop()!.destroy();
       ov.stars.forEach((s, i) => {
         const a = timeMs / 160 + (i * Math.PI * 2) / 3;
-        s.setPosition(Math.round(rx + Math.cos(a) * 6), Math.round(ry - 34 + Math.sin(a) * 2));
+        s.setPosition(Math.round(rx + Math.cos(a) * 6), Math.round(ry - head + Math.sin(a) * 2));
         s.setDepth(Math.sin(a) > 0 ? DEPTH_FX : ry - 1);
       });
     }
@@ -236,7 +239,7 @@ export class BattleFx {
       }
       while (ov.pips.length > pips.length) ov.pips.pop()!.destroy();
       const x0 = Math.round(rx - (pips.length - 1) * 3.5);
-      ov.pips.forEach((p, i) => p.setTexture(pips[i]).setPosition(x0 + i * 7, Math.round(ry - 41)));
+      ov.pips.forEach((p, i) => p.setTexture(pips[i]).setPosition(x0 + i * 7, Math.round(ry - head - 8)));
     }
   }
 

@@ -39,26 +39,30 @@ export function renderGround(w: number, h: number, o: GroundOpts): Pix {
       const u = fx - tx;
       const v = fy - ty;
       // large-scale meadow variation (screen space, de-squashed)
-      const n1 = valueNoise(wx + 4000, wy * 2 + 4000, 70, o.seed);
-      const n2 = valueNoise(wx + 4000, wy * 2 + 4000, 20, o.seed + 7);
-      const n3 = valueNoise(wx + 4000, wy * 2 + 4000, 6, o.seed + 13);
-      let n = 0.5 + (n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.3 + (n3 - 0.5) * 0.25;
-      // per-tile tone: each diamond is a touch lighter or darker, plus a faint checker
-      n += (hash2(tx, ty, o.seed + 3) - 0.5) * 0.16 + ((tx + ty) & 1 ? 0.03 : -0.03);
-      // tile seams: a 1px groove along the lower edges, a lit lip along the upper ones
-      const seam = 1 - u < 0.045 || 1 - v < 0.045 ? -1 : u < 0.045 || v < 0.045 ? 1 : 0;
-      // soft shading toward the far corner gives each tile a slight bevel
-      n += (0.5 - (u + v) / 2) * 0.06;
+      // a natural meadow: broad patches, clumps and fine grain; no tile grid
+      const n1 = valueNoise(wx + 4000, wy * 2 + 4000, 110, o.seed);
+      const n2 = valueNoise(wx + 4000, wy * 2 + 4000, 30, o.seed + 7);
+      const n3 = valueNoise(wx + 4000, wy * 2 + 4000, 7, o.seed + 13);
+      const n4 = hash2(x >> 1, y, o.seed + 5);
+      let n = 0.5 + (n1 - 0.5) * 0.55 + (n2 - 0.5) * 0.35 + (n3 - 0.5) * 0.3 + (n4 - 0.5) * 0.12;
+      void tx;
+      void ty;
+      void u;
+      void v;
+      const seam = 0;
       const inField = fx >= 0 && fy >= 0 && fx < o.fieldW && fy < o.fieldH;
       if (!inField) n -= 0.1;
       const t = BAYER4[y & 3][x & 3];
       const idx = Math.max(0, Math.min(4, Math.floor((1 - n) * 4.2 + (t - 0.5) * 0.9)));
       let c = g[idx];
+      // sun-dried straw-coloured patches
+      const dry = valueNoise(wx + 9000, wy * 2 + 4000, 60, o.seed + 41);
+      if (dry > 0.62) c = mix(c, 0xa89a64, Math.min(0.55, (dry - 0.62) * 2.2) * (0.7 + t * 0.6));
       // dirt patches (trampled ground)
       const d = valueNoise(wx + 4000, wy * 2 + 4000, 96, o.seed + 31);
-      if (d > 0.75) {
-        const dd = (d - 0.75) / 0.25;
-        if (dd + (t - 0.5) * 0.5 > 0.25) c = P.dirt[Math.max(0, Math.min(2, Math.floor(n3 * 3 + (t - 0.5))))];
+      if (d > 0.72) {
+        const dd = (d - 0.72) / 0.28;
+        if (dd + (t - 0.5) * 0.5 > 0.2) c = P.dirt[Math.max(0, Math.min(2, Math.floor(n3 * 3 + (t - 0.5))))];
       }
       const tk = inField && o.terrain ? o.terrain.at(fx, fy).kind : 'open';
       if (inField && o.terrain) c = terrainPixel(o.terrain, fx, fy, c, n, x, y);
@@ -114,27 +118,31 @@ export function renderGround(w: number, h: number, o: GroundOpts): Pix {
   return px;
 }
 
-/** Small blood splat decals. */
+/** Blood splat decals: a dark pool with droplets, irregular and dithered. */
 export function renderBlood(variant: number): Pix {
-  const px = new Pix(12, 7);
-  const n = 7 + variant * 2;
-  px.ellipse(2, 1, 8, 4, (x, y) => (hash2(x, y, variant) > 0.25 ? (hash2(x, y, variant + 9) > 0.7 ? P.blood[1] : P.blood[0]) : null));
+  const px = new Pix(18, 9);
+  const n = 9 + variant * 3;
+  px.ellipse(3, 2, 11, 5, (x, y, edge) => (hash2(x, y, variant) > (edge ? 0.55 : 0.12) ? (hash2(x, y, variant + 9) > 0.65 ? P.blood[1] : P.blood[0]) : null));
   for (let i = 0; i < n; i++) {
-    const x = Math.floor(hash2(i, variant, 77) * 12);
-    const y = Math.floor(hash2(i, variant, 78) * 7);
-    px.set(x, y, i % 3 ? P.blood[0] : P.blood[2]);
+    const x = Math.floor(hash2(i, variant, 77) * 18);
+    const y = Math.floor(hash2(i, variant, 78) * 9);
+    px.set(x, y, i % 3 ? P.blood[1] : P.blood[2]);
   }
   return px;
 }
 
-export function renderShadow(): Pix {
-  const px = new Pix(14, 5);
-  px.ellipse(0, 0, 14, 5, () => 0x1d140f);
+/** A soft ground shadow: dithered, darker in the middle. */
+export function renderShadow(w = 18, h = 7): Pix {
+  const px = new Pix(w, h);
+  px.ellipse(0, 0, w, h, (x, y, _e, u, v) => {
+    const r = u * u + v * v;
+    return r < 0.45 || BAYER4[y & 3][x & 3] > (r - 0.45) * 1.6 ? 0x1d140f : null;
+  });
   return px;
 }
 
-export function renderRing(color: number): Pix {
-  const px = new Pix(18, 8);
-  px.ellipse(0, 0, 18, 8, (_x, _y, edge) => (edge ? color : null));
+export function renderRing(color: number, w = 26, h = 12): Pix {
+  const px = new Pix(w, h);
+  px.ellipse(0, 0, w, h, (_x, _y, edge) => (edge ? color : null));
   return px;
 }

@@ -7,16 +7,17 @@
  */
 import { mix } from './palette';
 import { BAYER4, Pix, hash2 } from './pixels';
+import { Scene, ramp, type Material } from './model3d';
 import type { Terrain } from '../sim/terrain';
 
 const RAMP = {
-  forestFloor: [0x6a8248, 0x5d7540, 0x506838, 0x445a30, 0x3a4e2a],
-  scrub: [0xa8a868, 0x98985c, 0x888a52, 0x787c48, 0x6a6e40],
-  sand: [0xe6d4a0, 0xdcc892, 0xd0ba84, 0xc2ab76, 0xb39c6a],
-  rough: [0xa89a78, 0x988a6a, 0x887a5e, 0x786a52, 0x685c48],
-  water: [0x6a9cc0, 0x5a8cb4, 0x4c7ea6, 0x426f96, 0x385f84],
-  ford: [0x8ab4c8, 0x7aa6be, 0x6c98b2, 0x5e8aa4, 0x527c96],
-  sea: [0x46769e, 0x3e6b94, 0x37628a, 0x30587e, 0x2a4e72],
+  forestFloor: [0x5e6a40, 0x535e3a, 0x485233, 0x3e472d, 0x343c27],
+  scrub: [0x9a9662, 0x8a8758, 0x7b794f, 0x6c6c46, 0x5e5f3e],
+  sand: [0xd2c294, 0xc6b586, 0xb8a679, 0xa8966c, 0x998862],
+  rough: [0x9a8e72, 0x8a7f66, 0x7b705a, 0x6c624f, 0x5d5446],
+  water: [0x5e8292, 0x527686, 0x476a7a, 0x3e5e6e, 0x355262],
+  ford: [0x7c98a0, 0x6e8c94, 0x618088, 0x55747c, 0x4a6870],
+  sea: [0x426272, 0x3b5a6a, 0x355262, 0x2f4a58, 0x29424f],
 };
 
 /**
@@ -93,70 +94,58 @@ export function terrainPixel(t: Terrain, fx: number, fy: number, grass: number, 
   return c;
 }
 
-/** A tree: trunk, layered dithered canopy, 1px outline. Variants: 0 oak, 1 pine, 2 olive. */
+/** Tree and boulder sprite sizes (feet / base line at footY, centred). */
+export const TREE_GEOM = { w: 64, h: 84, footY: 78 };
+export const BOULDER_GEOM = { w: 48, h: 36, footY: 28 };
+
+/**
+ * A tree built and lit like the soldiers (src/art/model3d.ts): a trunk and
+ * clustered, grainy foliage. Variants: 0 oak, 1 pine, 2 olive.
+ */
 export function renderTree(variant: number): Pix {
-  const W = 20;
-  const H = 28;
-  const px = new Pix(W, H);
-  const leaf =
-    variant === 1 ? [0x5c7a48, 0x46663a, 0x34522e, 0x26402a] : variant === 2 ? [0x9aa868, 0x7e8e52, 0x657444, 0x4c5a36] : [0x6e9048, 0x587a3a, 0x44622e, 0x324c26];
-  const trunk = [0x7a5532, 0x5e4026, 0x45301c];
-  // trunk
-  for (let y = 16; y < 26; y++) {
-    px.set(9, y, trunk[0]);
-    px.set(10, y, trunk[1]);
-    if (y > 22) px.set(11, y, trunk[2]);
-    if (y > 23) px.set(8, y, trunk[1]);
-  }
-  const blob = (x0: number, y0: number, w: number, h: number) =>
-    px.ellipse(x0, y0, w, h, (x, y, edge, u, v) => {
-      const lit = -u * 0.6 - v * 0.8;
-      const b = BAYER4[y & 3][x & 3] - 0.5;
-      const k = lit + b * 0.5;
-      if (edge && v > 0.2) return leaf[3];
-      return k > 0.55 ? leaf[0] : k > -0.1 ? leaf[1] : k > -0.6 ? leaf[2] : leaf[3];
-    });
+  const sc = new Scene();
+  const leaf: Material =
+    variant === 1 ? { ramp: ramp(0x4a5a3a), grit: 0.9, contrast: 1.1 } : variant === 2 ? { ramp: ramp(0x7a8058), grit: 0.9, contrast: 1.05 } : { ramp: ramp(0x56663a), grit: 0.9, contrast: 1.1 };
+  const bark: Material = { ramp: ramp(0x5e4630), grit: 0.6 };
+  const rnd = (i: number) => hash2(variant * 31 + i, 7, 3);
   if (variant === 1) {
-    // pine: stacked tiers
-    for (let i = 0; i < 4; i++) {
-      const w = 6 + i * 3;
-      blob(10 - w / 2, 2 + i * 5, w, 7);
+    sc.limb([0, 0, 0], [0, 0, 4.2], 0.18, 0.06, bark);
+    sc.group();
+    for (let k = 0; k < 5; k++) {
+      const z = 1.6 + k * 0.55;
+      const r = 1.05 - k * 0.18;
+      sc.ellipsoid([0, 0, z], [r, 0, 0], [0, r, 0], [0, 0, 0.42], leaf);
     }
-  } else if (variant === 2) {
-    blob(2, 6, 10, 9);
-    blob(8, 4, 11, 10);
-    blob(5, 10, 11, 8);
   } else {
-    blob(3, 3, 14, 13);
-    blob(1, 8, 9, 8);
-    blob(10, 7, 9, 9);
+    const h = variant === 2 ? 1.5 : 2.2;
+    sc.limb([0, 0, 0], [0.1, -0.05, h], variant === 2 ? 0.2 : 0.16, 0.12, bark);
+    sc.limb([0.1, -0.05, h], [0.6, 0.2, h + 0.7], 0.1, 0.05, bark);
+    sc.limb([0.1, -0.05, h], [-0.5, -0.3, h + 0.6], 0.1, 0.05, bark);
+    sc.group();
+    const n = variant === 2 ? 9 : 12;
+    for (let k = 0; k < n; k++) {
+      const a = rnd(k) * Math.PI * 2;
+      const rr = 0.4 + rnd(k + 20) * 0.9;
+      const z = h + 0.4 + rnd(k + 40) * (variant === 2 ? 0.9 : 1.6);
+      const r = 0.55 + rnd(k + 60) * 0.45;
+      sc.sphere([Math.cos(a) * rr, Math.sin(a) * rr, z], r * (variant === 2 ? 0.85 : 1), leaf);
+    }
   }
-  px.outline(0x2a1a16);
-  return px;
+  return sc.render(TREE_GEOM.w, TREE_GEOM.h, TREE_GEOM.w / 2, TREE_GEOM.footY);
 }
 
-/** A boulder cluster: lit top-left, shaded right, outlined. */
+/** A boulder cluster, lit like everything else. */
 export function renderBoulder(variant: number): Pix {
-  const px = new Pix(18, 13);
-  const stone = [0xc4bcaa, 0xa49a86, 0x847a68, 0x625a4c];
-  const rock = (x0: number, y0: number, w: number, h: number) =>
-    px.ellipse(x0, y0, w, h, (x, y, _e, u, v) => {
-      const k = -u * 0.7 - v * 0.9 + (BAYER4[y & 3][x & 3] - 0.5) * 0.4;
-      return k > 0.6 ? stone[0] : k > 0 ? stone[1] : k > -0.6 ? stone[2] : stone[3];
-    });
-  if (variant % 2 === 0) {
-    rock(2, 2, 11, 10);
-    rock(10, 6, 7, 6);
-  } else {
-    rock(5, 1, 10, 11);
-    rock(1, 6, 7, 6);
-  }
-  // a crack and a moss spot
-  px.set(7, 6, stone[3]);
-  px.set(8, 7, stone[3]);
-  px.set(5, 4, 0x6a7a48);
-  px.outline(0x2a1a16);
-  return px;
+  const sc = new Scene();
+  const stone: Material = { ramp: ramp(0x8a8272), grit: 0.8, contrast: 1.2 };
+  const moss: Material = { ramp: ramp(0x5e6a42), grit: 0.8 };
+  const k = variant % 2;
+  sc.ellipsoid([0, 0, 0.35], [0.75, 0.2, 0], [-0.15, 0.6, 0], [0, 0, 0.55], stone);
+  sc.group();
+  sc.ellipsoid([k ? 0.6 : -0.5, k ? -0.4 : 0.45, 0.2], [0.42, 0, 0], [0, 0.38, 0], [0, 0, 0.32], stone);
+  sc.group();
+  sc.ellipsoid([0.1, 0.05, 0.75], [0.3, 0, 0], [0, 0.3, 0], [0, 0, 0.12], moss);
+  return sc.render(BOULDER_GEOM.w, BOULDER_GEOM.h, BOULDER_GEOM.w / 2, BOULDER_GEOM.footY);
 }
 
 /** A short light glint for water shimmer. */

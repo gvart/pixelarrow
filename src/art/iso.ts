@@ -13,8 +13,8 @@
  * facing down-left. Pure maths, no Phaser: the ground generator, the scene and
  * tests share it.
  */
-export const ISO_HW = 12;
-export const ISO_HH = 6;
+export const ISO_HW = 18;
+export const ISO_HH = 9;
 export const ISO_TW = ISO_HW * 2;
 export const ISO_TH = ISO_HH * 2;
 

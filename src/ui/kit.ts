@@ -110,6 +110,16 @@ export function addText(
   return t;
 }
 
+/** Trims a one-line text until it fits the width, ending it with a dot. */
+export function fitText(t: Phaser.GameObjects.BitmapText, w: number): Phaser.GameObjects.BitmapText {
+  let str = t.text;
+  while (str.length > 1 && t.width > w) {
+    str = str.slice(0, -1).trimEnd();
+    t.setText(str + '.');
+  }
+  return t;
+}
+
 export function addIcon(scene: Phaser.Scene, x: number, y: number, name: string, variant: '' | 'L' | 'D' = ''): Phaser.GameObjects.Image {
   return scene.add.image(Math.round(x), Math.round(y), `icon${variant}_${name}`).setOrigin(0, 0);
 }

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addScroll, addText, addIcon } from '../ui/kit';
-import { ensureDoll, dollFrame } from '../ui/sprites';
+import { ensureDoll, dollFrame, dollOrigin } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
 import { inTelegram, telegramUserName } from '../platform/telegram';
@@ -45,22 +45,23 @@ export class MenuScene extends BaseScene {
 
     // Soldiers standing in line on the plain
     this.dolls = [];
-    const scale = room >= 70 ? 2 : 1;
-    const rows = room >= 104 ? 2 : 1;
-    const perRow = scale === 2 ? 5 : 8;
+    // the figures are drawn at their true size (a man is ~34 px): no upscaling
+    const scale = 1;
+    const rows = room >= 80 ? 2 : 1;
+    const perRow = 7;
     const heroes = c.heroes.slice(0, perRow * rows);
-    const step = scale === 2 ? 34 : 20;
-    const rowGap = scale === 2 ? 26 : 13;
-    const base = Math.round(top + (room - (rows - 1) * rowGap) / 2 + 38 * scale * 0.5);
+    const step = 22;
+    const rowGap = 18;
+    const base = Math.round(top + (room - (rows - 1) * rowGap) / 2 + 17);
     heroes.forEach((h, i) => {
-      const key = ensureDoll(this, dollFromHero(h));
+      const key = ensureDoll(this, dollFromHero(h), [0]);
       const row = Math.floor(i / perRow);
       const col = i % perRow;
       const n = Math.min(perRow, heroes.length - row * perRow);
       const x = Math.round(VW / 2 - ((n - 1) / 2) * step + col * step + (row ? 6 : 0));
       const y = base + row * rowGap;
-      const sh = this.add.image(x, y - 2, 'shadow').setAlpha(0.35).setScale(scale);
-      const sp = this.add.sprite(x, y, key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40).setScale(scale);
+      const sh = this.add.image(x, y, 'shadow').setAlpha(0.35).setScale(scale);
+      const sp = this.add.sprite(x, y, key, dollFrame(0, 0)).setOrigin(...dollOrigin(key)).setScale(scale);
       this.ui.add(sh);
       this.ui.add(sp);
       this.dolls.push({ s: sp, phase: i * 0.37 });
