@@ -17,6 +17,7 @@ import { nav } from './platform/nav';
 import { installAudio } from './audio';
 import { KitScene } from './scenes/KitScene';
 import { installWidgets } from './ui/widgets';
+import { installDuelInvites } from './ui/duelInvites';
 import { checkUi, collectUi } from './ui/layout';
 import { scrollAllAreas } from './ui/kit';
 import { refreshLang } from './ui/lang';
@@ -53,6 +54,8 @@ trackSafeArea(() => {
   game.scale.refresh();
 });
 installAudio(game, () => state.campaign?.data.settings);
+// Duel challenges pop up on every online screen (map, army, clan).
+installDuelInvites(game);
 // Ask before closing while a save is still uploading.
 online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
 

@@ -65,6 +65,8 @@ export interface HexView extends Axial {
   clan: number | null;
   home: boolean;
   garrison?: number;
+  /** Neutral holders (src/online/defenders.ts id), for the map's miniatures. */
+  def?: string;
 }
 
 export interface MapView {
@@ -73,7 +75,7 @@ export interface MapView {
   now: number;
   you: { id: number; clan: number | null; home: Axial; army: ArmyView };
   hexes: HexView[];
-  armies: { player: number; q: number; r: number; dest: Axial | null; arriveAt: number | null; path: [number, number][] | null }[];
+  armies: { player: number; q: number; r: number; dest: Axial | null; arriveAt: number | null; path: [number, number][] | null; at?: number[] | null }[];
   players: Record<string, string>;
   clans: Record<string, { name: string; tag: string }>;
 }

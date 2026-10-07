@@ -1,16 +1,23 @@
 /**
- * Online mode hub: the seasonal hex map of the player's shard (fog of war,
- * owned / clan / rival land, armies and marches), the hex panel (march,
- * attack, garrison), income, the duel lobby, and entry points to the online
- * army and clan screens. Everything comes from the server; this scene only
- * displays it and sends intents.
+ * Online mode hub: the seasonal hex map of the player's shard as a war
+ * table (src/scenes/online/warTableView.ts: raised painted tiles, miniature
+ * props and armies, clan borders, parchment fog under clouds), the hex panel
+ * (march with ETA and energy, attack, garrison, collect; disabled buttons say
+ * why), the HUD (season, resources, energy), live army movement from the
+ * shard socket, income, the duel lobby, and entry points to the online army
+ * and clan screens. Everything comes from the server; this scene only
+ * displays it and sends intents. Started with `{ preview }` it shows a local
+ * demo shard instead (src/online/demoShard.ts: layout check, screenshots).
  */
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { Button, addPanel, addText } from '../../ui/kit';
-import { P } from '../../art/palette';
+import { Button, Meter, addIcon, addPanel, addScroll, addText, tappable } from '../../ui/kit';
+import { Badge, Label, ScrollList, firstTimeHint, openModal, showTooltip, toast, type Modal } from '../../ui/widgets';
+import { SIZE, COLOR } from '../../ui/theme';
+import { LINE_H, measureText, wrapText } from '../../ui/textfit';
+import { uiId } from '../../ui/layout';
 import { haptic, hapticNotify } from '../../platform/telegram';
-import { hexToPixel, pixelToHex, type Axial } from '../../online/hex';
+import { hexDistance, hexId, type Axial } from '../../online/hex';
 import {
   checkOnline,
   errorText,
@@ -21,22 +28,34 @@ import {
   type AttackResult,
   type AttackTicket,
   type HexDetail,
-  type HexView,
   type MapView,
   type ProfileView,
 } from '../../online/client';
-import { duelSource, type DuelOutcome } from '../../online/duelDriver';
+import type { DuelOutcome } from '../../online/duelDriver';
 import type { BattleSource } from '../../online/battleSource';
-import type { ServerMsg, DuelStart, PresencePlayer } from '../../online/protocol';
+import type { LiveArmyMsg, PresencePlayer, ServerMsg } from '../../online/protocol';
 import type { Battle } from '../../sim/battle';
-import { t as tr } from '../../i18n';
+import { ONLINE_RULES, RESOURCE_KEYS, type Resources } from '../../online/rules';
+import { planMarch, type MarchPlan, type PlanHex } from '../../online/marchPlan';
+import { hexActions, type Act } from '../../online/hexActions';
+import { clampCenter, zoomLimits } from '../../online/board';
+import { demoShard, type DemoShard } from '../../online/demoShard';
+import { WarTableView } from './warTableView';
+import { renderVignette } from '../../art/warTable';
+import { duelReturn, showChallenge } from '../../ui/duelInvites';
+import { t, tOr, type TKey } from '../../i18n';
 import { attackReport, duelReport } from '../../online/report';
 import { showReport } from '../ResultsScene';
-import { CLAN_COLOR, HEX_COLORS, HEX_NAMES, MINE_COLOR, addResourceBar, button, fmtDuration, lines, openModal, ownerColor, resourceLine, type Modal } from './common';
 
-const HEX = 12; // hex radius in world pixels
+/** Layout (UI pixels). */
+const TOP_H = 44;
+const BAR_H = 34;
+const CHIP_H = 28;
 
 type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string } | { kind: 'join' } | { kind: 'map' };
+
+/** Staged states of the preview map (layout check, screenshots). */
+export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result';
 
 export interface OnlineSceneData {
   /** Show the outcome of an attack that just came back from the battle scene. */
@@ -44,31 +63,127 @@ export interface OnlineSceneData {
   duel?: DuelOutcome;
   /** Centre the map on this hex. */
   focus?: Axial;
+  /** A local demo shard instead of the server (nothing is sent). */
+  preview?: PreviewKind;
+}
+
+/** Where the data comes from: the server, or the demo shard. */
+interface Source {
+  preview: boolean;
+  status(): Promise<{ joined: boolean }>;
+  join(): Promise<unknown>;
+  profile(): Promise<ProfileView>;
+  map(): Promise<MapView>;
+  hex(h: Axial): Promise<HexDetail>;
+  march(h: Axial): Promise<{ path: [number, number][]; at: number[]; energy: number; arriveAt: number }>;
+  stopMarch(): Promise<Axial>;
+  collect(): Promise<{ collected: Resources }>;
+}
+
+const liveSource: Source = {
+  preview: false,
+  status: () => onlineApi.status(),
+  join: () => onlineApi.join(),
+  profile: () => onlineApi.profile(),
+  map: () => onlineApi.map(),
+  hex: (h) => onlineApi.hex(h),
+  march: (h) => onlineApi.march(h),
+  stopMarch: () => onlineApi.stopMarch(),
+  collect: () => onlineApi.collect(),
+};
+
+const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/** The demo shard as a source: answers locally, marches and collects only change the local copy. */
+function previewSource(d: DemoShard): Source {
+  const skew = () => d.now - Date.now();
+  return {
+    preview: true,
+    status: async () => ({ joined: true }),
+    join: async () => ({}),
+    profile: async () => clone({ ...d.profile, now: Date.now() + skew() }),
+    map: async () => clone({ ...d.map, now: Date.now() + skew() }),
+    hex: async (h) => clone(d.hex(h)),
+    march: async (h) => {
+      const known = new Map<string, PlanHex>(d.map.hexes.map((x) => [hexId(x.q, x.r), { q: x.q, r: x.r, type: x.type, rival: x.owner !== null && x.clan !== d.map.you.clan }]));
+      const p = planMarch(known, d.profile.army, h);
+      if (!p.ok) throw new Error(t('hex.why.noPath'));
+      const now = Date.now() + skew();
+      const at = [now];
+      for (let i = 1; i < p.path.length; i++) at.push(at[i - 1] + (p.minutes / (p.path.length - 1)) * 60_000);
+      const path = p.path.map((x) => [x.q, x.r] as [number, number]);
+      d.profile.army = { ...d.profile.army, marching: true, dest: h, arriveAt: at[at.length - 1], path, at };
+      d.profile.energy -= p.energy;
+      return { path, at, energy: d.profile.energy, arriveAt: at[at.length - 1] };
+    },
+    stopMarch: async () => {
+      d.profile.army = { ...d.profile.army, marching: false, dest: null, arriveAt: null, path: null, at: null };
+      return { q: d.profile.army.q, r: d.profile.army.r };
+    },
+    collect: async () => {
+      const got = clone(d.profile.income.pending);
+      for (const k of RESOURCE_KEYS) {
+        d.profile.resources[k] += got[k];
+        d.profile.income.pending[k] = 0;
+      }
+      return { collected: got };
+    },
+  };
 }
 
 type Gesture = { mode: 'pending' | 'pan'; id: number; sx: number; sy: number; lx: number; ly: number } | null;
 
+/** "12m 30s", "2h 05m" (localized). */
+export function fmtTime(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return t('online.time.s', { s });
+  const m = Math.floor(s / 60);
+  if (m < 60) return s % 60 && m < 10 ? t('online.time.ms', { m, s: s % 60 }) : t('online.time.m', { m });
+  const h = Math.floor(m / 60);
+  if (h < 48) return t('online.time.hm', { h, m: m % 60 });
+  return t('online.time.d', { d: Math.floor(h / 24), h: h % 24 });
+}
+
+/** 999, 1.2K, 12K. */
+export function fmtNum(n: number): string {
+  const v = Math.floor(n);
+  if (v < 1000) return `${v}`;
+  if (v < 10_000) return `${(Math.floor(v / 100) / 10).toString()}K`;
+  return `${Math.floor(v / 1000)}K`;
+}
+
+const RES_ICON: Record<keyof Resources, string> = { gold: 'coin', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
+
 export class OnlineScene extends BaseScene {
-  private view: View = { kind: 'loading', msg: 'Reaching the realm...' };
+  private view: View = { kind: 'loading', msg: '' };
   profile: ProfileView | null = null;
   map: MapView | null = null;
   private layer!: Phaser.GameObjects.Layer;
-  private hexG!: Phaser.GameObjects.Graphics;
-  private overG!: Phaser.GameObjects.Graphics;
-  private labels: Phaser.GameObjects.GameObject[] = [];
+  board!: WarTableView;
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Container;
-  private modal: Modal | null = null;
   private panel: Phaser.GameObjects.Container | null = null;
+  private panelTop = 0;
+  private modal: Modal | null = null;
   selected: Axial | null = null;
   detail: HexDetail | null = null;
+  private plan: MarchPlan | null = null;
   private gesture: Gesture = null;
-  private pinch: { d0: number; z0: number } | null = null;
+  private pinch: { d0: number; z0: number; wx: number; wy: number } | null = null;
   private offSocket: (() => void) | null = null;
   private challenge: { id: string; to: PresencePlayer } | null = null;
   private busy = false;
   private refreshTimer: Phaser.Time.TimerEvent | null = null;
   private data0: OnlineSceneData = {};
+  private src: Source = liveSource;
+  private demo: DemoShard | null = null;
+  private cameraPlaced = false;
+  private backdrop: Phaser.GameObjects.Image | null = null;
+  private candle: Phaser.GameObjects.Image | null = null;
+  private chipText: Phaser.GameObjects.BitmapText | null = null;
+  private duelBadge: Badge | null = null;
+  private lobbyOpen = false;
+  private boardBuilt = false;
 
   constructor() {
     super('Online');
@@ -78,37 +193,52 @@ export class OnlineScene extends BaseScene {
     this.data0 = data ?? {};
     this.selected = null;
     this.detail = null;
+    this.plan = null;
     this.cameraPlaced = false;
     this.backdrop = null;
     this.modal = null;
     this.panel = null;
-    this.labels = [];
     this.gesture = null;
     this.pinch = null;
     this.challenge = null;
     this.busy = false;
+    this.lobbyOpen = false;
+    this.boardBuilt = false;
+    this.chipText = null;
+    this.duelBadge = null;
+    this.demo = this.data0.preview ? demoShard() : null;
+    this.src = this.demo ? previewSource(this.demo) : liveSource;
+    this.view = { kind: 'loading', msg: t('online.reaching') };
     this.initUi();
     this.screen({ back: () => this.back() });
-    this.cameras.main.setBackgroundColor(0x1d1612);
+    this.cameras.main.setBackgroundColor(0x1d1410);
     this.layer = this.add.layer();
-    this.hexG = this.add.graphics();
-    this.overG = this.add.graphics();
-    this.layer.add([this.hexG, this.overG]);
+    this.board = new WarTableView(this, this.layer, 0);
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.uiCam.ignore(this.layer);
     this.cameras.main.ignore(this.ui);
+    this.addAtmosphere();
     this.hud = this.add.container(0, 0);
     this.ui.add(this.hud);
     this.input.on('pointerdown', this.onDown, this);
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
-    this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => this.zoomBy(dy > 0 ? 0.8 : 1.25));
-    this.offSocket = shardSocket.on((m) => this.onSocket(m));
-    Object.assign(window, { __shard: shardSocket }); // debug handle (e2e script)
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown[], _dx: number, dy: number) => this.zoomAt(dy > 0 ? 0.8 : 1.25, p.x, p.y));
+    if (!this.demo) {
+      this.offSocket = shardSocket.on((m) => this.onSocket(m));
+      Object.assign(window, { __shard: shardSocket }); // debug handle (e2e script)
+    }
+    duelReturn.to = (game, outcome) => {
+      // a finished duel gets the battle report; an aborted one the map's message
+      const report = outcome ? duelReport(outcome) : null;
+      if (report) showReport(game, report, () => backToOnline(game, {}));
+      else backToOnline(game, outcome ? { duel: outcome } : {});
+    };
     this.events.once('shutdown', () => {
       this.offSocket?.();
       this.offSocket = null;
       this.refreshTimer?.remove();
+      this.board.destroy();
     });
     this.render();
     void this.boot();
@@ -116,30 +246,49 @@ export class OnlineScene extends BaseScene {
 
   protected onResized(): void {
     this.uiCam.setSize(this.scale.width, this.scale.height);
-    this.scene.restart({ focus: this.map ? this.cameraHex() : undefined });
+    this.scene.restart({ focus: this.map ? this.cameraHex() : undefined, preview: this.data0.preview });
   }
 
   private back(): void {
     if (this.modal) return this.closeModal();
     if (this.selected) return this.select(null);
-    shardSocket.close();
+    if (!this.demo) shardSocket.close();
     this.scene.start('Menu');
+  }
+
+  // ------------------------------------------------------------------ atmosphere
+
+  /** Candle-light vignette over the table (under the HUD). */
+  private addAtmosphere(): void {
+    const { VW, VH } = this.m;
+    const vk = `wt_vignette_${VW}x${VH}`;
+    if (!this.textures.exists(vk)) this.textures.addCanvas(vk, renderVignette(VW, VH).toCanvas());
+    // one full-screen overlay (cheap on phones): dark warm corners, a faint candle warmth, flickering
+    this.candle = this.add.image(0, 0, vk).setOrigin(0, 0);
+    this.ui.add(this.candle);
+  }
+
+  update(time: number, delta: number): void {
+    if (this.view.kind === 'map' && this.boardBuilt) this.board.update(time, delta);
+    if (this.candle) this.candle.setAlpha(0.9 + Math.sin(time / 170) * 0.05 + Math.sin(time / 53) * 0.04);
   }
 
   // ------------------------------------------------------------------ data
 
   private async boot(): Promise<void> {
-    const ok = await checkOnline();
-    if (!this.sys.isActive()) return;
-    if (!ok.ok) {
-      this.view = { kind: 'unavailable', msg: 'Online unavailable', detail: ok.message };
-      return this.render();
+    if (!this.demo) {
+      const ok = await checkOnline();
+      if (!this.sys.isActive()) return;
+      if (!ok.ok) {
+        this.view = { kind: 'unavailable', msg: t('online.unavailable'), detail: ok.message };
+        return this.render();
+      }
     }
     try {
-      const st = await onlineApi.status();
+      const st = await this.src.status();
       if (!this.sys.isActive()) return;
-      if (!st.joined) {
-        if (peekPendingInvite()) {
+      if (!st.joined || this.data0.preview === 'join') {
+        if (!this.demo && peekPendingInvite()) {
           // A clan invite: join the clan (that also places the newcomer in its shard).
           this.scene.start('OnlineClan', {});
           return;
@@ -148,8 +297,8 @@ export class OnlineScene extends BaseScene {
         return this.render();
       }
       await this.reload();
-      shardSocket.open();
-      if (peekPendingInvite()) this.scene.start('OnlineClan', {});
+      if (!this.demo) shardSocket.open();
+      if (!this.demo && peekPendingInvite()) this.scene.start('OnlineClan', {});
       else this.afterReturn();
     } catch (e) {
       this.fail(e);
@@ -159,16 +308,20 @@ export class OnlineScene extends BaseScene {
   private fail(e: unknown): void {
     if (!this.sys.isActive()) return;
     const x = explain(e);
-    this.view = { kind: 'unavailable', msg: 'Online unavailable', detail: x.message };
+    this.view = { kind: 'unavailable', msg: t('online.unavailable'), detail: x.message };
     this.render();
   }
 
   async reload(): Promise<void> {
-    const [profile, map] = await Promise.all([onlineApi.profile(), onlineApi.map()]);
+    const [profile, map] = await Promise.all([this.src.profile(), this.src.map()]);
     if (!this.sys.isActive()) return;
     this.profile = profile;
     this.map = map;
     this.view = { kind: 'map' };
+    const own = profile.army.marching && profile.army.path && profile.army.at ? { path: profile.army.path, at: profile.army.at } : null;
+    this.board.build(map, own);
+    this.boardBuilt = true;
+    this.board.setRoute(own ? own.path.map(([q, r]) => ({ q, r })) : null, true);
     this.render();
     if (this.selected) void this.loadDetail(this.selected);
     // Marches resolve on the server's clock: refresh when the army arrives.
@@ -181,18 +334,48 @@ export class OnlineScene extends BaseScene {
     const d = this.data0;
     if (d.attack) this.showAttackResult(d.attack);
     else if (d.duel) this.showDuelResult(d.duel);
-    this.data0 = {};
+    this.stagePreview();
+    if (!d.preview) firstTimeHint(this, 'online-map', t('online.hint'));
+    this.data0 = { preview: d.preview };
+  }
+
+  /** Preview staging: select a hex, open the lobby, a challenge... */
+  private stagePreview(): void {
+    const demo = this.demo;
+    const k = this.data0.preview;
+    if (!demo || !k) return;
+    const spot = k === 'own' ? demo.spots.own : k === 'neutral' ? demo.spots.neutralNext : k === 'far' ? demo.spots.neutralFar : k === 'rival' ? demo.spots.rival : k === 'town' ? demo.spots.town : null;
+    if (spot) this.select(spot);
+    if (k === 'lobby') this.openLobby();
+    if (k === 'challenge') showChallenge(this.game, 'preview', { id: 102, name: 'Brasidas' });
+    if (k === 'march') void this.march(demo.spots.neutralFar);
+    if (k === 'result')
+      this.showAttackResult({
+        won: true,
+        captured: false,
+        siege: { wins: 1, needed: 2 },
+        winner: 0,
+        ticks: 2400,
+        hash: '',
+        hex: demo.spots.neutralNext,
+        defenderKind: 'npc',
+        gold: 38,
+        plunder: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 },
+        loot: [],
+        attacker: { dead: [], wounded: [], heroes: [{ name: 'Leonidas', died: false, xp: 30, levelsGained: 1, wounded: true }] },
+        defender: { dead: 7, total: 9 },
+      });
   }
 
   private async joinSeason(): Promise<void> {
     if (this.busy) return;
     this.busy = true;
-    this.view = { kind: 'loading', msg: 'Raising your army...' };
+    this.view = { kind: 'loading', msg: t('online.raising') };
     this.render();
     try {
-      await onlineApi.join();
+      await this.src.join();
       await this.reload();
-      shardSocket.open();
+      if (!this.demo) shardSocket.open();
       hapticNotify('success');
     } catch (e) {
       this.fail(e);
@@ -205,192 +388,169 @@ export class OnlineScene extends BaseScene {
 
   private render(): void {
     this.hud.removeAll(true);
-    // Dialogs (a challenge, the lobby, a result) survive a map refresh.
-    if (this.view.kind !== 'map') this.closeModal();
     this.panel = null;
-    const { VW } = this.m;
+    this.chipText = null;
+    this.duelBadge = null;
     if (this.view.kind !== 'map' || !this.profile || !this.map) {
-      this.hexG.clear();
-      this.overG.clear();
-      this.clearLabels();
-      if (!this.backdrop) this.backdrop = this.addGrassBackdrop(17).setAlpha(0.5);
-      this.ui.sendToBack(this.backdrop);
-      const v = this.view;
-      const H = this.hud;
-      if (v.kind === 'loading') {
-        const md = this.openModalIn(H, 70, 'Online');
-        lines(this, md.c, VW / 2, md.y + 32, [v.msg], 'ink');
-        button(this, md.c, VW / 2 - 35, md.y + 44, 70, 20, 'Back', () => this.back(), { icon: 'back' });
-      } else if (v.kind === 'unavailable') {
-        const md = this.openModalIn(H, 112, v.msg);
-        const y = lines(this, md.c, VW / 2, md.y + 30, [v.detail, '', 'The campaign is still yours', 'to play offline.'], 'ink', md.w - 16);
-        button(this, md.c, VW / 2 - 50, y + 4, 100, 22, 'Back to menu', () => this.back(), { icon: 'back' });
-      } else if (v.kind === 'join') {
-        const md = this.openModalIn(H, 170, 'Season war');
-        const y = lines(this, md.c, VW / 2, md.y + 28, ['A shared map of hexes.', 'Every hex is held by locals', 'or beasts: beat them to claim it.', 'Hold farms, forests, mines and', 'towns; join a clan; take forts', 'and capitals before the season', 'ends. Your online army is new', 'and separate from the campaign.'], 'ink', md.w - 12);
-        button(this, md.c, md.x + 10, y + 6, md.w / 2 - 15, 24, 'Back', () => this.back(), { icon: 'back' });
-        button(this, md.c, md.x + md.w / 2 + 5, y + 6, md.w / 2 - 15, 24, 'Join', () => void this.joinSeason(), { icon: 'flag', sel: true });
-      }
+      this.closeModal();
+      this.renderState();
       return;
     }
     this.backdrop?.destroy();
     this.backdrop = null;
-    this.drawMap();
     this.buildHud();
-    if (this.data0.focus) this.centerOn(this.data0.focus);
-    else if (!this.cameraPlaced) this.centerOn(this.profile.army);
-    this.cameraPlaced = true;
+    if (!this.cameraPlaced) {
+      const lim = zoomLimits(this.m.S);
+      this.cameras.main.setZoom(lim.start);
+      this.centerOn(this.data0.focus ?? this.profile.army);
+      this.cameraPlaced = true;
+    }
   }
 
-  private cameraPlaced = false;
-  private backdrop: Phaser.GameObjects.Image | null = null;
-
-  private openModalIn(_parent: Phaser.GameObjects.Container, h: number, title: string): Modal {
-    const md = openModal(this, this.hud, this.m.VW, this.m.VH, h, title);
-    return md;
-  }
-
-  private clearLabels(): void {
-    for (const l of this.labels) l.destroy();
-    this.labels = [];
-  }
-
-  private hexCorners(c: { x: number; y: number }, r = HEX - 0.6): Phaser.Math.Vector2[] {
-    const out: Phaser.Math.Vector2[] = [];
-    for (let i = 0; i < 6; i++) {
-      const a = (Math.PI / 180) * (60 * i - 30);
-      out.push(new Phaser.Math.Vector2(c.x + r * Math.cos(a), c.y + r * Math.sin(a)));
+  /** Loading / unavailable / join: a parchment card over the grass. */
+  private renderState(): void {
+    const { VW, VH } = this.m;
+    if (!this.backdrop) {
+      this.backdrop = this.addGrassBackdrop(17).setAlpha(0.5);
+      this.ui.sendToBack(this.backdrop);
     }
-    return out;
-  }
-
-  private ownerTint(h: HexView): number | null {
-    const map = this.map!;
-    if (h.owner === null) return null;
-    if (h.owner === map.you.id) return MINE_COLOR;
-    if (map.you.clan !== null && h.clan === map.you.clan) return CLAN_COLOR;
-    return ownerColor(h.clan ?? h.owner);
-  }
-
-  private drawMap(): void {
-    const g = this.hexG;
-    const o = this.overG;
-    g.clear();
-    o.clear();
-    this.clearLabels();
-    const map = this.map!;
-    for (const h of map.hexes) {
-      const c = hexToPixel(h, HEX);
-      const pts = this.hexCorners(c);
-      g.fillStyle(HEX_COLORS[h.type], 1);
-      g.fillPoints(pts, true);
-      // texture dots: trees, hill ridges, furrows
-      g.fillStyle(0x000000, 0.13);
-      if (h.type === 'forest') for (const [dx, dy] of [[-4, -2], [3, -4], [0, 3], [-3, 5], [5, 2]]) g.fillCircle(c.x + dx, c.y + dy, 2);
-      if (h.type === 'hills' || h.type === 'mine') g.fillTriangle(c.x - 5, c.y + 3, c.x, c.y - 4, c.x + 5, c.y + 3);
-      if (h.type === 'farmland') for (let k = -4; k <= 4; k += 4) g.fillRect(c.x - 6, c.y + k, 12, 1);
-      if (h.type === 'mountain') g.fillTriangle(c.x - 7, c.y + 5, c.x, c.y - 7, c.x + 7, c.y + 5);
-      g.lineStyle(1, 0x000000, 0.18);
-      g.strokePoints(pts, true);
-      const tint = this.ownerTint(h);
-      if (tint !== null) {
-        o.fillStyle(tint, 0.28);
-        o.fillPoints(pts, true);
-        o.lineStyle(2, tint, 0.95);
-        o.strokePoints(this.hexCorners(c, HEX - 1.6), true);
-      }
-      if (h.type === 'town' || h.capital) {
-        o.fillStyle(0xf0e0c8, 1);
-        o.fillRect(c.x - 4, c.y - 2, 3, 4);
-        o.fillRect(c.x + 1, c.y - 3, 3, 5);
-        o.fillStyle(0x8a3a2a, 1);
-        o.fillRect(c.x - 4, c.y - 3, 3, 1);
-        o.fillRect(c.x + 1, c.y - 4, 3, 1);
-      }
-      if (h.fort) {
-        o.fillStyle(0x5a4a40, 1);
-        o.fillRect(c.x - 4, c.y - 4, 8, 7);
-        o.fillStyle(0x3a2a24, 1);
-        for (let k = -4; k <= 2; k += 3) o.fillRect(c.x + k, c.y - 6, 2, 2);
-      }
-      if (h.capital) {
-        o.fillStyle(P.gold, 1);
-        o.fillCircle(c.x, c.y - 7, 2.5);
-      }
-      if (h.type === 'ruins') {
-        o.fillStyle(0xe8e0d0, 1);
-        for (const dx of [-4, -1, 2]) o.fillRect(c.x + dx, c.y - 3, 2, 6);
-      }
-      if (h.home) {
-        o.fillStyle(0xf6e8dc, 1);
-        o.fillTriangle(c.x - 4, c.y + 1, c.x, c.y - 4, c.x + 4, c.y + 1);
-        o.fillRect(c.x - 3, c.y + 1, 6, 4);
-      }
-      if (h.garrison) {
-        const t = addText(this, c.x + 3, c.y + 3, `${h.garrison}`, 'light').setScale(0.75);
-        this.layer.add(t);
-        this.labels.push(t);
-      }
+    const v = this.view;
+    const H = this.hud;
+    const w = Math.min(VW - 16, 200);
+    const x = Math.round((VW - w) / 2);
+    let lines: string[] = [];
+    let title = t('online.title');
+    const buttons: { label: string; icon: string; primary?: boolean; onClick: () => void }[] = [];
+    if (v.kind === 'loading') {
+      lines = wrapText(v.msg, w - 20, 3).lines;
+      buttons.push({ label: t('common.back'), icon: 'back', onClick: () => this.back() });
+    } else if (v.kind === 'unavailable') {
+      title = v.msg;
+      lines = wrapText(`${v.detail} ${t('online.offlineStill')}`, w - 20, 6).lines;
+      buttons.push({ label: t('online.backToMenu'), icon: 'back', primary: true, onClick: () => this.back() });
+    } else if (v.kind === 'join') {
+      const room = Math.max(3, Math.floor((VH - 16 - 26 - SIZE.btnH - 18) / LINE_H));
+      lines = wrapText(t('online.joinBody'), w - 20, room).lines;
+      buttons.push({ label: t('common.back'), icon: 'back', onClick: () => this.back() });
+      buttons.push({ label: t('online.join'), icon: 'flag', primary: true, onClick: () => void this.joinSeason() });
     }
-    // armies and the marching route
-    const you = map.you.army;
-    const mine = map.armies.find((a) => a.player === map.you.id);
-    if (mine?.path && you.marching) {
-      o.lineStyle(2, 0xfff4d8, 0.9);
-      const pts = mine.path.map(([q, r]) => hexToPixel({ q, r }, HEX));
-      for (let i = 1; i < pts.length; i++) o.lineBetween(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
-      const end = pts[pts.length - 1];
-      o.fillStyle(0xfff4d8, 1);
-      o.fillCircle(end.x, end.y, 3);
+    const h = Math.min(VH - 16, 26 + lines.length * LINE_H + 10 + SIZE.btnH + 12);
+    const y = Math.round((VH - h) / 2);
+    addScroll(this, H, x, y, w, h);
+    H.add(addText(this, VW / 2, y + 12, title.toUpperCase(), 'red', 0.5));
+    if (lines.length) {
+      const body = addText(this, VW / 2, y + 28, lines.join('\n'), 'ink', 0.5);
+      body.setCenterAlign();
+      H.add(body);
     }
-    for (const a of map.armies) {
-      const c = hexToPixel(a, HEX);
-      const own = a.player === map.you.id;
-      o.fillStyle(0x000000, 0.35);
-      o.fillEllipse(c.x, c.y + 6, 9, 3);
-      o.fillStyle(own ? MINE_COLOR : 0xb03a2a, 1);
-      o.fillRect(c.x - 1, c.y - 9, 1, 14);
-      o.fillTriangle(c.x, c.y - 9, c.x + 7, c.y - 6, c.x, c.y - 3);
-      o.lineStyle(1, 0x1d140f, 1);
-      o.strokeTriangle(c.x, c.y - 9, c.x + 7, c.y - 6, c.x, c.y - 3);
-    }
-    if (this.selected) {
-      const c = hexToPixel(this.selected, HEX);
-      o.lineStyle(2, 0xffffff, 1);
-      o.strokePoints(this.hexCorners(c, HEX - 0.5), true);
-    }
+    const bw = buttons.length > 1 ? Math.floor((w - 12 - SIZE.gap) / 2) : Math.min(w - 12, 110);
+    buttons.forEach((b, i) => {
+      const bx = buttons.length > 1 ? x + 6 + i * (bw + SIZE.gap) : Math.round((VW - bw) / 2);
+      H.add(new Button(this, bx, y + h - SIZE.btnH - 9, bw, SIZE.btnH, { label: b.label, icon: b.icon, variant: b.primary ? 'primary' : 'secondary', onClick: b.onClick }));
+    });
   }
 
   private buildHud(): void {
     const { VW, VH } = this.m;
     const H = this.hud;
     const p = this.profile!;
-    H.add(addPanel(this, 0, 0, VW, 40, 'parch'));
-    if (this.inGameBack) H.add(new Button(this, 3, 2, 24, 20, { icon: 'back', onClick: () => this.back() }));
-    H.add(addText(this, 31, 4, `Season ${p.season.id} - shard ${p.shard.id}`, 'red'));
-    const left = Math.max(0, p.season.endsAt - p.now);
-    H.add(addText(this, 31, 13, `${Math.floor(left / 86_400_000)}d left - ${p.clan ? `[${p.clan.tag}] ` : ''}${p.wins}/${p.battles} won`, 'dim'));
-    H.add(new Button(this, VW - 27, 2, 24, 20, { icon: 'map', onClick: () => this.centerOn(this.profile!.army) }));
-    addResourceBar(this, H, 3, 24, VW - 6, p.resources, p.energy, p.energyMax);
-    // army status line
-    const status = p.army.marching && p.army.arriveAt ? `Marching - arrives in ${fmtDuration(p.army.arriveAt - p.now)}` : `Army at ${p.army.q},${p.army.r} - ${p.heroes.filter((h) => !h.garrison).length} men`;
-    H.add(addPanel(this, 3, 42, VW - 6, 12, 'inset'));
-    H.add(addText(this, VW / 2, 44, status, 'ink', 0.5));
-    // bottom bar
-    const by = VH - 30;
-    H.add(addPanel(this, 0, by - 2, VW, 32, 'parch'));
+    // ---- top: season, energy, centre-on-army; resources below
+    H.add(addPanel(this, 0, 0, VW, TOP_H, 'parch'));
+    let x0 = 4;
+    if (this.inGameBack) {
+      H.add(new Button(this, 3, 2, SIZE.btnMinW, SIZE.btnH, { icon: 'back', onClick: () => this.back(), id: 'online.back' }));
+      x0 = 30;
+    }
+    H.add(new Button(this, VW - 27, 2, SIZE.btnMinW, SIZE.btnH, { icon: 'map', iconOnly: true, label: t('online.centre'), onClick: () => this.centerOn(this.profile!.army, true), id: 'online.centre' }));
+    const energy = Math.floor(p.energy);
+    const ew = 12 + 3 + measureText(`${energy}`) + 10;
+    const energyBtn = new Button(this, VW - 27 - SIZE.gap - ew, 2, ew, SIZE.btnH, {
+      icon: 'bolt',
+      label: `${energy}`,
+      font: energy < ONLINE_RULES.energyPerAttack ? 'red' : 'ink',
+      tip: t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }),
+      onClick: () => showTooltip(this, t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }), energyBtn),
+      id: 'online.energy',
+    });
+    H.add(energyBtn);
+    const days = Math.max(0, Math.ceil((p.season.endsAt - p.now) / 86_400_000));
+    const titleW = VW - 27 - SIZE.gap - ew - 4 - x0;
+    const long = t('online.season', { n: p.season.id, d: days });
+    const title = measureText(long.toUpperCase()) <= titleW ? long : t('online.seasonShort', { n: p.season.id, d: days });
+    H.add(new Label(this, x0, 10, title, { maxW: titleW, font: 'red', expandable: false }));
+    // resources: an inset strip (tap: full numbers)
+    const ry = TOP_H - 17;
+    H.add(addPanel(this, 3, ry, VW - 6, 15, 'inset'));
+    const keys = (VW >= 200 ? RESOURCE_KEYS : RESOURCE_KEYS.filter((k) => k !== 'recruits')) as (keyof Resources)[];
+    const cell = Math.floor((VW - 10) / keys.length);
+    keys.forEach((k, i) => {
+      const cx = 6 + i * cell;
+      H.add(addIcon(this, cx, ry + 1, RES_ICON[k]));
+      H.add(addText(this, cx + 14, ry + 4, k === 'recruits' ? `${Math.floor(p.resources[k])}` : fmtNum(p.resources[k]), 'ink'));
+    });
+    const resTip = t('online.resTip', { gold: Math.floor(p.resources.gold), food: Math.floor(p.resources.food), wood: Math.floor(p.resources.wood), bronze: Math.floor(p.resources.bronze), recruits: Math.floor(p.resources.recruits) });
+    // ---- marching chip
+    if (p.army.marching && p.army.arriveAt) {
+      const cy = TOP_H + 2;
+      H.add(addPanel(this, 3, cy, VW - 6, CHIP_H - 2, 'inset'));
+      const hw = Math.max(44, measureText(t('online.halt').toUpperCase()) + 12);
+      H.add(new Button(this, VW - 4 - hw - 1, cy + 1, hw, SIZE.btnH, { label: t('online.halt'), tip: t('online.haltTip'), onClick: () => void this.halt(), id: 'online.halt' }));
+      H.add(addIcon(this, 7, cy + 7, 'clock'));
+      this.chipText = addText(this, 22, cy + 9, '', 'ink');
+      H.add(this.chipText);
+      const upd = () => {
+        if (!this.chipText?.scene || !this.profile?.army.arriveAt) return;
+        const left = this.profile.army.arriveAt - this.board.armies.serverTime(Date.now());
+        const s = t('online.marching', { t: fmtTime(left) }).toUpperCase();
+        this.chipText.setText(s.length && measureText(s) > VW - hw - 34 ? fmtTime(left).toUpperCase() : s);
+      };
+      upd();
+      this.time.addEvent({ delay: 1000, loop: true, callback: upd });
+    }
+    // ---- bottom bar: Army, Clan, Duels, Collect
+    const by = VH - BAR_H;
+    H.add(addPanel(this, 0, by, VW, BAR_H, 'parch'));
     const n = 4;
-    const bw = Math.floor((VW - 8 - (n - 1) * 3) / n);
+    const bw = Math.floor((VW - 8 - (n - 1) * SIZE.gap) / n);
     const pend = p.income.pending;
-    const online = shardSocket.players.filter((x) => x.id !== shardSocket.me?.id).length;
-    const items: [string, string, () => void, boolean?][] = [
-      ['Army', 'people', () => this.scene.start('OnlineArmy', {})],
-      ['Clan', 'flag', () => this.scene.start('OnlineClan', {})],
-      [`Duel ${online}`, 'swords', () => this.openLobby()],
-      [`+${Math.floor(pend.gold)}`, 'coin', () => void this.collect(), pend.gold + pend.food + pend.wood + pend.bronze >= 1],
+    const pendSum = RESOURCE_KEYS.reduce((a, k) => a + pend[k], 0);
+    const online = this.demo ? 3 : shardSocket.players.filter((x) => x.id !== shardSocket.me?.id).length;
+    const items: { label: string; icon: string; tip: string; onClick: () => void; primary?: boolean; disabled?: string; badge?: number | string }[] = [
+      { label: t('online.bar.army'), icon: 'people', tip: t('online.bar.armyTip'), onClick: () => !this.demo && this.scene.start('OnlineArmy', {}) },
+      { label: t('online.bar.clan'), icon: 'flag', tip: t('online.bar.clanTip'), onClick: () => !this.demo && this.scene.start('OnlineClan', {}) },
+      { label: t('online.bar.duels'), icon: 'swords', tip: t('online.bar.duelsTip'), onClick: () => this.openLobby(), badge: online },
+      {
+        label: t('online.bar.collect'),
+        icon: 'coin',
+        tip: `${t('online.bar.collectTip')}: ${resLine(pend)}`,
+        onClick: () => void this.collect(),
+        primary: pendSum >= 1 && !this.selected,
+        disabled: pendSum >= 1 ? undefined : t('online.collectNone'),
+        badge: pendSum >= 1 ? '!' : 0,
+      },
     ];
-    items.forEach(([label, icon, cb, sel], i) => H.add(new Button(this, 4 + i * (bw + 3), by + 2, bw, 26, { label, icon, onClick: cb, style: sel ? 'buttonSel' : 'button' })));
+    items.forEach((it, i) => {
+      const bx = 4 + i * (bw + SIZE.gap);
+      // narrow screens: icons only (the label becomes the long-press tip) rather than "AR…"
+      const iconOnly = measureText(it.label.toUpperCase(), it.primary) > bw - 6;
+      const b = new Button(this, bx, by + 3, bw, 28, { label: it.label, icon: it.icon, iconOnly, tip: iconOnly ? `${it.label}: ${it.tip}` : it.tip, variant: it.primary ? 'primary' : 'secondary', onClick: it.onClick, disabledReason: it.disabled });
+      if (it.disabled) b.setEnabled(false, it.disabled);
+      H.add(b);
+      if (it.badge !== undefined) {
+        const badge = new Badge(this, bx + bw - 5, by + 7, it.badge);
+        H.add(badge);
+        if (i === 2) this.duelBadge = badge;
+      }
+    });
+    void resTip;
     if (this.selected) this.buildPanel();
+  }
+
+  /** Free map area between the top HUD (and the march chip) and the panel / bottom bar, in UI px. */
+  private mapArea(): { top: number; bottom: number } {
+    const top = TOP_H + (this.profile?.army.marching ? CHIP_H : 0);
+    const bottom = this.panel ? this.panelTop : this.m.VH - BAR_H;
+    return { top, bottom };
   }
 
   // ------------------------------------------------------------------ hex panel
@@ -398,197 +558,301 @@ export class OnlineScene extends BaseScene {
   select(h: Axial | null): void {
     this.selected = h;
     this.detail = null;
+    this.plan = null;
+    this.board.setSelected(h);
     if (this.view.kind !== 'map') return;
-    this.drawMap();
+    if (h && this.profile && this.map) {
+      const known = new Map<string, PlanHex>(this.map.hexes.map((x) => [hexId(x.q, x.r), { q: x.q, r: x.r, type: x.type, rival: x.owner !== null && x.owner !== this.map!.you.id && (this.map!.you.clan === null || x.clan !== this.map!.you.clan) }]));
+      this.plan = planMarch(known, this.profile.army, h);
+    }
+    const own = this.profile?.army.marching && this.profile.army.path ? this.profile.army.path.map(([q, r]) => ({ q, r })) : null;
+    if (own) this.board.setRoute(own, true);
+    else this.board.setRoute(this.plan && this.plan.ok ? this.plan.path : null, false);
     this.hud.removeAll(true);
+    this.panel = null;
     this.buildHud();
-    if (h) void this.loadDetail(h);
+    if (h) {
+      this.ensureVisible(h);
+      void this.loadDetail(h);
+    }
   }
 
   private async loadDetail(h: Axial): Promise<void> {
     try {
-      const d = await onlineApi.hex(h);
+      const d = await this.src.hex(h);
       if (!this.sys.isActive() || !this.selected || this.selected.q !== h.q || this.selected.r !== h.r) return;
       this.detail = d;
       this.hud.removeAll(true);
+      this.panel = null;
       this.buildHud();
+      this.ensureVisible(h);
     } catch (e) {
       if (!this.sys.isActive()) return;
-      this.toast(errorText(e));
+      toast(this, errorText(e), 'bad');
     }
+  }
+
+  private hexName(h: { type: keyof typeof HEX_KEYS; capital?: boolean; fort?: boolean; occupant?: string }): string {
+    if (h.capital) return t('hex.capital');
+    if (h.fort) return t('hex.fort');
+    if (h.occupant === 'beast') return t('hex.lair');
+    return t(HEX_KEYS[h.type]);
   }
 
   private buildPanel(): void {
     const { VW, VH } = this.m;
     const h = this.selected!;
     const d = this.detail;
-    const ph = 112;
-    const py = VH - 34 - ph;
+    const p = this.profile!;
+    const map = this.map!;
+    const view = d?.hex ?? this.board.known(h);
+    if (!view) return;
+    const x = 4;
+    const W = VW - 8;
+    const tw = W - 12;
+    // ---- the lines of the panel (text, font)
+    const rows: { text: string; font: 'ink' | 'dim' | 'red' | 'good'; kind?: 'yields' | 'siege' }[] = [];
+    const owner = view.owner === null ? (view.occupant === 'none' ? t('hex.impassable') : t('hex.neutral')) : view.owner === map.you.id ? (view.home ? t('hex.yourHome') : t('hex.yours')) : `${d?.ownerName ?? map.players[String(view.owner)] ?? '?'}${(d?.clan?.tag ?? (view.clan !== null ? map.clans[String(view.clan)]?.tag : undefined)) ? ` [${d?.clan?.tag ?? map.clans[String(view.clan)]?.tag}]` : ''}`;
+    const ownerLine = view.owner !== null && view.owner !== map.you.id && view.home ? t('hex.home', { name: owner }) : owner;
+    rows.push({ text: d?.locked ? `${ownerLine} · ${t('hex.underAttack')}` : ownerLine, font: d?.locked ? 'red' : 'dim' });
+    if (!d) rows.push({ text: t('hex.scouting'), font: 'dim' });
+    else {
+      if (view.occupant !== 'none') rows.push({ text: '', font: 'ink', kind: 'yields' });
+      if (d.defenders) {
+        const def = view.occupant === 'beast' ? 'beast' : view.def;
+        const label = d.defenders.kind === 'garrison' ? null : def ? tOr(`def.${def}`, d.siege?.label ?? def) : d.siege?.label ?? null;
+        rows.push({
+          text: d.defenders.kind === 'militia' ? t('hex.militiaFoe') : label ? t('hex.defenders', { label, n: d.defenders.count, p: d.defenders.power }) : t('hex.garrisonFoe', { n: d.defenders.count, p: d.defenders.power }),
+          font: 'ink',
+        });
+      }
+      if (d.siege && d.siege.needed > 1) rows.push({ text: t('hex.siege', { wins: d.siege.wins, needed: d.siege.needed }), font: 'ink', kind: 'siege' });
+      if (d.garrison) rows.push({ text: d.garrison.length ? t('hex.garrison', { names: d.garrison.map((g) => g.hero.name).join(', ') }) : t('hex.noGarrison'), font: 'ink' });
+      if (d.income) rows.push({ text: t('hex.waiting', { res: resLine(d.income) }), font: 'good' });
+    }
+    // ---- actions
+    const acts: Act[] = d
+      ? hexActions({
+          owner: view.owner,
+          ours: d.ours,
+          mine: d.mine,
+          home: view.home,
+          passable: view.occupant !== 'none',
+          locked: d.locked,
+          canAttack: d.canAttack,
+          canGarrison: d.canGarrison,
+          waiting: d.income ? RESOURCE_KEYS.reduce((a, k) => a + d.income![k], 0) : 0,
+          here: p.army.q === h.q && p.army.r === h.r && !p.army.marching,
+          adjacent: hexDistance(p.army, h) === 1,
+          marching: p.army.marching,
+          energy: p.energy,
+          plan: this.plan ?? { ok: false, reason: 'unknown' },
+        })
+      : [];
+    const rowH = 11;
+    // the info rows sit in one tap area (full text on long-press) at least a touch target tall
+    const infoH = Math.max(SIZE.btnH, rows.length * rowH + 2);
+    const ph = 8 + 11 + infoH + (acts.length ? SIZE.gap + 1 + SIZE.btnH : 0) + 8;
+    const py = VH - BAR_H - ph - 1;
+    this.panelTop = py;
     const c = this.add.container(0, 0);
     this.hud.add(c);
     this.panel = c;
-    c.add(addPanel(this, 3, py, VW - 6, ph, 'parch'));
-    c.add(new Button(this, VW - 24, py + 3, 18, 16, { icon: 'close', onClick: () => this.select(null) }));
-    if (!d) {
-      c.add(addText(this, 10, py + 8, `Hex ${h.q},${h.r}...`, 'dim'));
+    c.add(addPanel(this, x, py, W, ph, 'parch'));
+    // a tap-catcher behind the content: taps on the panel never reach the map; long-press: the full text
+    const full = [`${this.hexName(view)} · ${view.tier}`, ...rows.map((r) => (r.kind === 'yields' && d ? `${t('hex.perHour')}: ${resLine(d.yields, true)}` : r.text))].join('\n');
+    const titleText = t('hex.title', { name: this.hexName(view), tier: view.tier });
+    c.add(new Label(this, x + 6, py + 7, titleText, { maxW: tw - 26, font: 'red', expandable: false }));
+    c.add(new Button(this, x + W - 27, py + 3, SIZE.btnMinW, SIZE.btnH, { icon: 'close', iconOnly: true, label: t('common.close'), onClick: () => this.select(null), id: 'online.closePanel' }));
+    let y = py + 8 + 13;
+    for (const r of rows) {
+      if (r.kind === 'yields' && d) this.yieldsRow(c, x + 6, y, tw, d.yields);
+      else if (r.kind === 'siege' && d?.siege) {
+        const txt = addText(this, x + 6, y, r.text.toUpperCase(), 'ink');
+        c.add(txt);
+        const mw = Math.min(60, tw - txt.width - 8);
+        if (mw > 12) c.add(new Meter(this, x + 6 + txt.width + 5, y + 1, mw, 5, COLOR.xp).setValue(d.siege.wins, d.siege.needed));
+      } else c.add(new Label(this, x + 6, y, r.text, { maxW: tw, font: r.font, expandable: false }));
+      y += rowH;
+    }
+    const infoTop = py + 8 + 11;
+    // left of the close button's column, so the two never touch
+    const zone = this.add.zone(x + 2, infoTop, W - 4 - SIZE.btnMinW - SIZE.gap - 3, infoH).setOrigin(0, 0).setInteractive();
+    uiId(zone, 'online.hexInfo');
+    tappable(zone, null, () => showTooltip(this, full, { x: x + 6, y: infoTop, w: tw, h: infoH }), full);
+    c.addAt(zone, 1);
+    if (!acts.length) return;
+    const by = infoTop + infoH + SIZE.gap + 1;
+    const n = acts.length;
+    const bw = Math.floor((W - 12 - (n - 1) * SIZE.gap) / n);
+    acts.forEach((a, i) => {
+      const spec = this.actSpec(a, h);
+      const b = new Button(this, x + 6 + i * (bw + SIZE.gap), by, bw, SIZE.btnH, {
+        label: spec.label,
+        icon: spec.icon,
+        variant: a.primary ? 'primary' : 'secondary',
+        tip: spec.tip,
+        onClick: spec.onClick,
+        disabledReason: a.reason ? t(`hex.why.${a.reason}` as TKey, a.params) : undefined,
+        id: `online.act.${a.id}`,
+      });
+      if (!a.enabled) b.setEnabled(false);
+      c.add(b);
+    });
+  }
+
+  private actSpec(a: Act, h: Axial): { label: string; icon: string; tip?: string; onClick: () => void } {
+    switch (a.id) {
+      case 'march': {
+        const pl = this.plan && this.plan.ok ? this.plan : null;
+        return {
+          label: pl ? t('hex.act.marchEta', { t: fmtTime(pl.minutes * 60_000) }) : t('hex.act.march'),
+          icon: 'advance',
+          tip: pl ? t('hex.marchTip', { t: fmtTime(pl.minutes * 60_000), e: pl.energy }) : undefined,
+          onClick: () => void this.march(h),
+        };
+      }
+      case 'attack':
+        return { label: t('hex.act.attack'), icon: 'swords', tip: t('hex.attackTip', { e: ONLINE_RULES.energyPerAttack }), onClick: () => void this.attack(h) };
+      case 'garrison':
+        return { label: t('hex.act.garrison'), icon: 'helmet', tip: t('hex.garrisonTip'), onClick: () => !this.demo && this.scene.start('OnlineArmy', { garrison: h }) };
+      case 'collect':
+        return { label: t('hex.act.collect'), icon: 'coin', tip: t('online.bar.collectTip'), onClick: () => void this.collect() };
+    }
+  }
+
+  /** "PER HOUR [icon]+6 [icon]+2": only what the hex yields, as far as it fits. */
+  private yieldsRow(c: Phaser.GameObjects.Container, x: number, y: number, w: number, r: Resources): void {
+    const head = t('hex.perHour').toUpperCase();
+    const items = RESOURCE_KEYS.filter((k) => r[k] > 0);
+    if (!items.length) {
+      c.add(addText(this, x, y, t('hex.noIncome').toUpperCase(), 'dim'));
       return;
     }
-    const hx = d.hex;
-    const title = `${hx.capital ? 'Capital - ' : hx.fort ? 'Fort - ' : ''}${HEX_NAMES[hx.type]} (tier ${hx.tier})`;
-    c.add(addText(this, 9, py + 6, title, 'red'));
-    const owner = hx.owner === null ? (hx.occupant === 'none' ? 'Impassable' : 'Neutral') : d.mine ? 'Yours' : `${d.ownerName ?? '?'}${d.clan?.tag ? ` [${d.clan.tag}]` : ''}`;
-    c.add(addText(this, 9, py + 16, `${owner}${hx.home ? ' - home' : ''} - ${hx.site}`, 'ink', 0, VW - 40));
-    const yl = resourceLine(d.yields, true).split(' ').filter((x) => !/[+]0$/.test(x)).join(' ');
-    c.add(addText(this, 9, py + 26, `Per hour: ${yl || 'nothing'} - march ${Number.isFinite(d.marchMinutes) ? `${d.marchMinutes}m` : '-'}`, 'dim', 0, VW - 20));
-    let y = py + 36;
-    if (d.defenders) {
-      const who = d.siege?.label ?? (d.defenders.kind === 'garrison' ? 'Garrison' : d.defenders.kind === 'militia' ? 'Militia' : 'Defenders');
-      c.add(addText(this, 9, y, `${who}: ${d.defenders.count} men, power ${d.defenders.power}`, 'ink', 0, VW - 20));
-      y += 10;
+    c.add(addText(this, x, y, head, 'dim'));
+    let cx = x + measureText(head) + 5;
+    for (const k of items) {
+      const v = k === 'recruits' ? `+${Math.round(r[k] * 10) / 10}` : `+${Math.floor(r[k])}`;
+      const need = 13 + measureText(v) + 4;
+      if (cx + need > x + w) break;
+      c.add(addIcon(this, cx, y - 3, RES_ICON[k]));
+      c.add(addText(this, cx + 13, y, v, 'good'));
+      cx += need;
     }
-    if (d.siege && d.siege.needed > 1) {
-      c.add(addText(this, 9, y, `Siege: ${d.siege.wins}/${d.siege.needed} victories in a row`, 'ink'));
-      y += 10;
-    }
-    if (d.garrison) {
-      c.add(addText(this, 9, y, `Garrison: ${d.garrison.length ? d.garrison.map((g) => g.hero.name).join(', ') : 'none (militia defends)'}`, 'ink', 0, VW - 20));
-      y += 10;
-    }
-    if (d.income) {
-      c.add(addText(this, 9, y, `Waiting: ${resourceLine(d.income)}`, 'dim'));
-      y += 10;
-    }
-    if (d.locked) c.add(addText(this, VW - 10, py + 6, 'Under attack!', 'red', 1));
-    // actions
-    const p = this.profile!;
-    const here = p.army.q === h.q && p.army.r === h.r && !p.army.marching;
-    const acts: [string, string, () => void, boolean][] = [];
-    if (d.canAttack) acts.push(['Attack', 'swords', () => void this.attack(h), true]);
-    if (d.canGarrison) acts.push(['Garrison', 'shield', () => this.scene.start('OnlineArmy', { garrison: h }), false]);
-    const rival = hx.owner !== null && !d.ours;
-    if (!here && hx.occupant !== 'none' && !rival && (d.ours || hx.owner === null)) acts.push(['March', 'advance', () => void this.march(h), false]);
-    if (p.army.marching) acts.push(['Halt', 'hold', () => void this.halt(), false]);
-    const bw = Math.floor((VW - 14 - (Math.max(1, acts.length) - 1) * 3) / Math.max(1, acts.length));
-    acts.forEach(([label, icon, cb, sel], i) => c.add(new Button(this, 7 + i * (bw + 3), py + ph - 28, bw, 24, { label, icon, onClick: cb, style: sel ? 'buttonSel' : 'button' })));
-    if (acts.length === 0) c.add(addText(this, VW / 2, py + ph - 20, hx.occupant === 'none' ? 'Nobody can go there' : 'Stand next to a hex to attack it', 'dim', 0.5));
   }
 
   // ------------------------------------------------------------------ actions
 
-  private toast(msg: string, ms = 2200): void {
-    const { VW } = this.m;
-    const c = this.add.container(0, 0);
-    const t = addText(this, VW / 2, 62, msg, 'red', 0.5, VW - 30);
-    const w = Math.min(VW - 10, Math.max(80, t.width + 16));
-    c.add(addPanel(this, Math.round((VW - w) / 2), 57, w, t.height + 10, 'parch'));
-    c.add(t);
-    this.ui.add(c);
-    this.time.delayedCall(ms, () => c.destroy());
-  }
-
-  private async act<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
+  private async act<T>(fn: () => Promise<T>): Promise<T | null> {
     if (this.busy) return null;
     this.busy = true;
     try {
       return await fn();
     } catch (e) {
       if (this.sys.isActive()) {
-        this.toast(errorText(e));
+        toast(this, errorText(e), 'bad');
         hapticNotify('error');
       }
       return null;
     } finally {
       this.busy = false;
-      void label;
     }
   }
 
   private async march(h: Axial): Promise<void> {
-    const r = await this.act('march', () => onlineApi.march(h));
+    const r = await this.act(() => this.src.march(h));
     if (!r || !this.sys.isActive()) return;
     haptic('medium');
-    this.toast(`On the march: ${r.path.length - 1} hexes, ${fmtDuration(r.arriveAt - Date.now())}`);
+    toast(this, t('online.onMarch', { n: r.path.length - 1, t: fmtTime(r.arriveAt - this.board.armies.serverTime(Date.now())) }), 'good');
+    this.board.armies.ownMarch(r.path, r.at);
     await this.reload().catch((e) => this.fail(e));
   }
 
   private async halt(): Promise<void> {
-    const r = await this.act('halt', () => onlineApi.stopMarch());
+    const r = await this.act(() => this.src.stopMarch());
     if (!r) return;
     await this.reload().catch((e) => this.fail(e));
   }
 
   private async collect(): Promise<void> {
-    const r = await this.act('collect', () => onlineApi.collect());
+    const r = await this.act(() => this.src.collect());
     if (!r || !this.sys.isActive()) return;
     hapticNotify('success');
-    this.toast(`Collected ${resourceLine(r.collected, true)}`);
+    toast(this, t('online.collected', { res: resLine(r.collected, true) }), 'good');
     await this.reload().catch((e) => this.fail(e));
   }
 
   private async attack(h: Axial): Promise<void> {
-    const t = await this.act('attack', () => onlineApi.attackStart(h));
-    if (!t || !this.sys.isActive()) return;
-    this.scene.start('Battle', { source: attackSource(this.game, t, this.detail?.siege?.label ?? (t.defenderKind === 'garrison' ? 'the garrison' : 'the defenders')) });
+    if (this.demo) {
+      toast(this, t('online.preview'));
+      return;
+    }
+    const tk = await this.act(() => onlineApi.attackStart(h));
+    if (!tk || !this.sys.isActive()) return;
+    this.scene.start('Battle', { source: attackSource(this.game, tk, this.detail?.siege?.label ?? (tk.defenderKind === 'garrison' ? t('online.theGarrison') : t('online.theDefenders'))) });
   }
 
   // ------------------------------------------------------------------ results
 
-  /** A parchment modal that Back (Telegram's or ours) closes. */
-  private openM(h: number, title: string): Modal {
-    const md = openModal(this, this.ui, this.m.VW, this.m.VH, h, title);
-    this.modalLayer(md.c, () => this.closeModal());
-    return md;
+  private closeModal(): void {
+    const m = this.modal;
+    this.modal = null;
+    this.lobbyOpen = false;
+    m?.close();
   }
 
-  private closeModal(): void {
-    this.modal?.c.destroy();
-    this.modal = null;
+  /** A modal with centred lines of text and a Close button. */
+  private infoModal(title: string, lines: string[]): void {
+    const { VW } = this.m;
+    this.closeModal();
+    const w = Math.min(VW - 16, 200);
+    const wrapped = lines.flatMap((l) => wrapText(l, w - 20, 3).lines);
+    const h = 26 + wrapped.length * LINE_H + 10 + SIZE.btnH + 12;
+    const md = openModal(this, { title, w, h, onClose: () => this.modal === md && (this.modal = null) });
+    this.modal = md;
+    const body = addText(this, VW / 2, md.y + 28, wrapped.join('\n'), 'ink', 0.5);
+    body.setCenterAlign();
+    md.c.add(body);
+    const bw = Math.min(w - 12, 90);
+    md.c.add(new Button(this, Math.round((VW - bw) / 2), md.y + md.h - SIZE.btnH - 9, bw, SIZE.btnH, { label: t('common.close'), icon: 'check', variant: 'primary', onClick: () => this.closeModal() }));
   }
 
   private showAttackResult(r: AttackResult | { error: string }): void {
-    const { VW } = this.m;
     if ('error' in r) {
-      this.modal = this.openM(96, 'Battle not counted');
-      const y = lines(this, this.modal.c, VW / 2, this.modal.y + 30, [r.error], 'ink', this.modal.w - 16);
-      button(this, this.modal.c, VW / 2 - 35, y + 6, 70, 22, 'Close', () => this.closeModal(), { icon: 'check' });
+      this.infoModal(t('result.notCounted'), [r.error]);
       return;
     }
-    const title = r.captured ? 'Hex taken!' : r.won ? 'Victory' : 'Defeat';
+    const title = r.captured ? t('result.taken') : r.won ? t('result.victory') : t('result.defeat');
     const out: string[] = [];
-    if (r.siege && r.won && !r.captured) out.push(`Siege ${r.siege.wins}/${r.siege.needed}: they send another wave`);
-    out.push(`Enemies slain: ${r.defender.dead}/${r.defender.total}`);
-    out.push(`Gold +${r.gold}${r.plunder.gold ? ` (plunder ${r.plunder.gold})` : ''}`);
-    if (r.loot.length) out.push(`Loot: ${r.loot.length} items to your stash`);
+    if (r.siege && r.won && !r.captured) out.push(t('result.wave', { wins: r.siege.wins, needed: r.siege.needed }));
+    out.push(t('result.slain', { dead: r.defender.dead, total: r.defender.total }));
+    out.push(r.plunder.gold ? t('result.goldPlunder', { n: r.gold, p: r.plunder.gold }) : t('result.gold', { n: r.gold }));
+    if (r.loot.length) out.push(t('result.loot', { n: r.loot.length }));
     const fallen = r.attacker.heroes.filter((h) => h.died).map((h) => h.name);
-    if (fallen.length) out.push(`Fallen: ${fallen.join(', ')}`);
+    if (fallen.length) out.push(t('result.fallen', { names: fallen.join(', ') }));
     const wounded = r.attacker.heroes.filter((h) => h.wounded).length;
-    if (wounded) out.push(`${wounded} wounded (rest 2h)`);
+    if (wounded) out.push(t('result.wounded', { n: wounded }));
     const lv = r.attacker.heroes.filter((h) => h.levelsGained > 0).map((h) => h.name);
-    if (lv.length) out.push(`Level up: ${lv.join(', ')}`);
-    out.push('Verified by the server');
-    this.modal = this.openM(44 + out.length * 11 + 30, title);
-    const y = lines(this, this.modal.c, VW / 2, this.modal.y + 28, out, 'ink', this.modal.w - 14);
-    button(this, this.modal.c, VW / 2 - 35, y + 4, 70, 22, 'Close', () => this.closeModal(), { icon: 'check' });
+    if (lv.length) out.push(t('result.levelUp', { names: lv.join(', ') }));
+    out.push(t('result.verified'));
+    this.infoModal(title, out);
     hapticNotify(r.won ? 'success' : 'error');
   }
 
   private showDuelResult(o: DuelOutcome): void {
-    const { VW } = this.m;
     const opp = o.names[o.side === 0 ? 1 : 0];
-    let title = 'Duel over';
+    let title = t('duel.over');
     const out: string[] = [];
-    if (o.desync) out.push('The two battles went out of sync.', 'The duel does not count.');
-    else if (o.aborted && !o.result) out.push(o.aborted === 'opponent_left' || o.aborted === 'left' ? `${opp} left the duel.` : 'The duel was cancelled.');
+    if (o.desync) out.push(t('duel.desync'));
+    else if (o.aborted && !o.result) out.push(o.aborted === 'opponent_left' || o.aborted === 'left' ? t('duel.left', { name: opp }) : t('duel.cancelled'));
     else if (o.result) {
-      title = o.result.winner === o.side ? 'Duel won!' : o.result.winner === -1 ? 'Duel drawn' : 'Duel lost';
-      out.push(`vs ${opp}`, o.result.verified ? 'Verified by the server' : 'Server replay differs!', 'Friendly duel: no losses.');
-    } else out.push('No answer from the server.');
-    this.modal = this.openM(44 + out.length * 11 + 30, title);
-    const y = lines(this, this.modal.c, VW / 2, this.modal.y + 28, out, 'ink', this.modal.w - 14);
-    button(this, this.modal.c, VW / 2 - 35, y + 4, 70, 22, 'Close', () => this.closeModal(), { icon: 'check' });
+      title = o.result.winner === o.side ? t('duel.won') : o.result.winner === -1 ? t('duel.drawn') : t('duel.lost');
+      out.push(t('duel.vs', { name: opp }), o.result.verified ? t('result.verified') : t('duel.differs'), t('duel.friendly'));
+    } else out.push(t('duel.noAnswer'));
+    this.infoModal(title, out);
   }
 
-  // ------------------------------------------------------------------ duels
+  // ------------------------------------------------------------------ socket: presence, live armies, lobby
 
   private onSocket(m: ServerMsg): void {
     if (!this.sys.isActive()) return;
@@ -597,134 +861,165 @@ export class OnlineScene extends BaseScene {
       case 'presence':
       case 'join':
       case 'leave':
-        if (this.view.kind === 'map' && !this.modal) {
-          this.hud.removeAll(true);
-          this.buildHud();
-        } else if (this.lobbyOpen) this.openLobby();
+        this.duelBadge?.setCount(shardSocket.players.filter((x) => x.id !== shardSocket.me?.id).length);
+        if (this.lobbyOpen) this.openLobby();
         return;
-      case 'challenged':
-        this.showChallenge(m.id, m.from);
+      case 'army_march':
+      case 'army_pos':
+      case 'army_arrive':
+      case 'army_hide':
+        this.onLiveArmy(m);
         return;
       case 'challenge_sent':
         this.challenge = { id: m.id, to: m.to };
         if (this.lobbyOpen) this.openLobby();
         return;
       case 'challenge_closed':
-        if (this.challenge?.id === m.id) this.challenge = null;
-        if (m.reason !== 'cancelled') this.toast(`Challenge ${m.reason}`);
+        if (this.challenge?.id === m.id) {
+          this.challenge = null;
+          if (m.reason !== 'cancelled') toast(this, t(`duel.closed.${m.reason}`), 'bad');
+        }
         if (this.lobbyOpen) this.openLobby();
-        else if (this.modal && this.incoming === m.id) this.closeModal();
-        return;
-      case 'duel_start':
-        this.startDuel(m);
         return;
       case 'error':
-        this.toast(m.message);
+        toast(this, m.message, 'bad');
         return;
       default:
         return;
     }
   }
 
-  private lobbyOpen = false;
-  private incoming: string | null = null;
+  /** Another army moved in sight (or yours, from another device): the board animates it. */
+  private onLiveArmy(m: LiveArmyMsg): void {
+    if (this.view.kind !== 'map' || !this.boardBuilt) return;
+    this.board.armies.apply(m, Date.now());
+    if (m.player === this.map?.you.id && m.type !== 'army_march') void this.reload().catch(() => undefined);
+  }
+
+  /** The lobby players (the demo invents a few). */
+  private lobbyPlayers(): PresencePlayer[] {
+    if (this.demo) return [{ id: 102, name: 'Brasidas' }, { id: 201, name: 'Kleon', busy: true }, { id: 203, name: 'Myrto' }];
+    return shardSocket.players.filter((p) => p.id !== shardSocket.me?.id);
+  }
 
   openLobby(): void {
-    const { VW } = this.m;
+    const { VW, VH } = this.m;
     this.closeModal();
-    const others = shardSocket.players.filter((p) => p.id !== shardSocket.me?.id).slice(0, 8);
+    const others = this.lobbyPlayers();
     const rows = Math.max(1, others.length);
-    this.modal = this.openM(60 + rows * 24 + 30, 'Players online');
+    const w = Math.min(VW - 16, 200);
+    const listH = Math.min(rows * (SIZE.rowH + SIZE.gap), Math.max(SIZE.rowH, VH - 16 - 26 - 18 - SIZE.btnH - 20));
+    const noteL = wrapText(t('duel.lobbyNote'), w - 20, 2).lines;
+    const h = 26 + listH + 6 + noteL.length * LINE_H + 8 + SIZE.btnH + 10;
+    const md = openModal(this, { title: t('duel.lobby'), w, h, onClose: () => {
+      if (this.modal === md) this.modal = null;
+      this.lobbyOpen = false;
+    } });
+    this.modal = md;
     this.lobbyOpen = true;
-    const md = this.modal;
-    if (!shardSocket.connected) lines(this, md.c, VW / 2, md.y + 30, ['Connecting...'], 'dim');
-    else if (others.length === 0) lines(this, md.c, VW / 2, md.y + 30, ['Nobody else is here now.', 'Invite your clan!'], 'dim');
-    others.forEach((p, i) => {
-      const ry = md.y + 26 + i * 24;
-      md.c.add(addPanel(this, md.x + 6, ry, md.w - 12, 22, 'inset'));
-      md.c.add(addText(this, md.x + 12, ry + 7, p.name, 'ink'));
-      const pending = this.challenge?.to.id === p.id;
-      const b = new Button(this, md.x + md.w - 70, ry + 2, 60, 18, {
-        label: p.busy ? 'Busy' : pending ? 'Cancel' : 'Challenge',
-        style: p.busy ? 'buttonOff' : pending ? 'buttonSel' : 'button',
-        onClick: () => {
-          if (p.busy) return;
-          if (pending && this.challenge) shardSocket.send({ type: 'challenge_cancel', id: this.challenge.id });
-          else shardSocket.send({ type: 'challenge', to: p.id });
+    const connected = this.demo ? true : shardSocket.connected;
+    if (!connected || !others.length) {
+      const msg = !connected ? t('duel.connecting') : t('duel.nobody');
+      const wr = wrapText(msg, w - 20, 2);
+      const tx = addText(this, VW / 2, md.y + 30, wr.lines.join('\n'), 'dim', 0.5);
+      tx.setCenterAlign();
+      md.c.add(tx);
+    } else {
+      new ScrollList(this, md.c, md.x + 6, md.y + 26, w - 12, listH, {
+        count: others.length,
+        rowH: SIZE.rowH,
+        render: (i, row, rw, rh) => {
+          const pl = others[i];
+          row.add(addPanel(this, 0, 0, rw, rh, 'inset'));
+          const pending = this.challenge?.to.id === pl.id;
+          const label = pl.busy ? t('duel.busy') : pending ? t('duel.cancel') : t('duel.challenge');
+          const bw = Math.min(rw - 50, Math.max(56, measureText(label.toUpperCase()) + 14));
+          row.add(new Label(this, 6, 9, pl.name, { maxW: rw - bw - 14, expandable: false }));
+          const b = new Button(this, rw - bw - 1, 1, bw, SIZE.btnH, {
+            label,
+            variant: pending ? 'primary' : 'secondary',
+            onClick: () => {
+              if (this.demo) {
+                toast(this, t('online.preview'));
+                return;
+              }
+              if (pending && this.challenge) shardSocket.send({ type: 'challenge_cancel', id: this.challenge.id });
+              else shardSocket.send({ type: 'challenge', to: pl.id });
+            },
+          });
+          if (pl.busy) b.setEnabled(false, t('duel.busy'));
+          row.add(b);
         },
       });
-      md.c.add(b);
-    });
-    lines(this, md.c, VW / 2, md.y + 30 + rows * 24, ['Friendly duels: nothing is lost.'], 'dim');
-    button(this, md.c, VW / 2 - 35, md.y + md.h - 30, 70, 22, 'Close', () => {
-      this.lobbyOpen = false;
-      this.closeModal();
-    }, { icon: 'check' });
-  }
-
-  private showChallenge(id: string, from: PresencePlayer): void {
-    const { VW } = this.m;
-    this.closeModal();
-    this.lobbyOpen = false;
-    this.incoming = id;
-    this.modal = this.openM(96, 'A challenge!');
-    const md = this.modal;
-    lines(this, md.c, VW / 2, md.y + 30, [`${from.name} challenges you`, 'to a friendly duel.'], 'ink');
-    button(this, md.c, md.x + 10, md.y + 58, md.w / 2 - 15, 24, 'Decline', () => {
-      shardSocket.send({ type: 'challenge_reply', id, accept: false });
-      this.closeModal();
-    }, { icon: 'close' });
-    button(this, md.c, md.x + md.w / 2 + 5, md.y + 58, md.w / 2 - 15, 24, 'Fight', () => {
-      shardSocket.send({ type: 'challenge_reply', id, accept: true });
-      this.closeModal();
-      this.toast('Preparing the field...');
-    }, { icon: 'swords', sel: true });
-    hapticNotify('warning');
-  }
-
-  private startDuel(m: DuelStart): void {
-    const game = this.game;
-    this.challenge = null;
-    this.lobbyOpen = false;
-    const source = duelSource(
-      m,
-      (outcome) => {
-        // a finished duel gets the battle report; an aborted one the map's message
-        const report = duelReport(outcome);
-        if (report) showReport(game, report, () => backToOnline(game, {}));
-        else backToOnline(game, { duel: outcome });
-      },
-      () => backToOnline(game, {}),
-    );
-    this.scene.start('Battle', { source });
+    }
+    const note = addText(this, VW / 2, md.y + 26 + listH + 6, noteL.join('\n'), 'dim', 0.5);
+    note.setCenterAlign();
+    md.c.add(note);
+    const bw = Math.min(w - 12, 90);
+    md.c.add(new Button(this, Math.round((VW - bw) / 2), md.y + h - SIZE.btnH - 9, bw, SIZE.btnH, { label: t('common.close'), icon: 'check', onClick: () => this.closeModal() }));
   }
 
   // ------------------------------------------------------------------ camera & input
 
   private cameraHex(): Axial {
     const cam = this.cameras.main;
-    return pixelToHex(cam.midPoint.x, cam.midPoint.y, HEX);
+    return this.board.pick(cam.midPoint.x, cam.midPoint.y) ?? { q: 0, r: 0 };
   }
 
-  centerOn(h: Axial): void {
+  /** Centre a hex in the free map area (between the HUD and the panel). */
+  centerOn(h: Axial, smooth = false): void {
     const cam = this.cameras.main;
-    if (cam.zoom < 1.5) cam.setZoom(Math.max(2, this.m.S));
-    const c = hexToPixel(h, HEX);
-    cam.centerOn(c.x, c.y);
+    const S = this.m.S;
+    const c = this.board.top(h);
+    const { top, bottom } = this.mapArea();
+    const wantY = ((top + bottom) / 2) * S;
+    const dy = (this.scale.height / 2 - wantY) / cam.zoom;
+    const target = this.clampPoint(c.x, c.y + dy);
+    if (smooth) cam.pan(target.x, target.y, 260, 'Sine.easeInOut');
+    else cam.centerOn(target.x, target.y);
   }
 
-  private zoomBy(f: number): void {
+  /** Pan so a selected hex is not hidden under the panel. */
+  private ensureVisible(h: Axial): void {
     const cam = this.cameras.main;
-    cam.setZoom(Phaser.Math.Clamp(cam.zoom * f, 1, 6));
+    const S = this.m.S;
+    const c = this.board.top(h);
+    const sy = (c.y - cam.worldView.y) * cam.zoom;
+    const { top, bottom } = this.mapArea();
+    if (sy < top * S + 12 || sy > bottom * S - 12) this.centerOn(h, true);
+  }
+
+  private clampPoint(x: number, y: number): { x: number; y: number } {
+    return clampCenter(x, y, this.board.bounds());
+  }
+
+  private clampCamera(): void {
+    const cam = this.cameras.main;
+    const mid = { x: cam.scrollX + cam.width / 2, y: cam.scrollY + cam.height / 2 };
+    const c = this.clampPoint(mid.x, mid.y);
+    if (c.x !== mid.x || c.y !== mid.y) cam.centerOn(c.x, c.y);
+  }
+
+  /** Zoom keeping the world point under (sx, sy) in place. */
+  private zoomAt(f: number, sx: number, sy: number): void {
+    if (this.view.kind !== 'map') return;
+    const cam = this.cameras.main;
+    const lim = zoomLimits(this.m.S);
+    const before = cam.getWorldPoint(sx, sy);
+    cam.setZoom(Phaser.Math.Clamp(cam.zoom * f, lim.min, lim.max));
+    cam.preRender();
+    const after = cam.getWorldPoint(sx, sy);
+    cam.scrollX += before.x - after.x;
+    cam.scrollY += before.y - after.y;
+    this.clampCamera();
   }
 
   private overUi(p: Phaser.Input.Pointer): boolean {
-    const { S, VH } = this.m;
+    const { S } = this.m;
     const y = p.y / S;
-    if (y < 56 || y > VH - 32) return true;
     if (this.modal) return true;
-    if (this.panel && this.selected && y > VH - 34 - 112) return true;
-    return false;
+    const { top, bottom } = this.mapArea();
+    return y < top || y > bottom;
   }
 
   private onDown(p: Phaser.Input.Pointer): void {
@@ -733,7 +1028,10 @@ export class OnlineScene extends BaseScene {
     const b = this.input.pointer2;
     if (a.isDown && b.isDown) {
       this.gesture = null;
-      this.pinch = { d0: Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y), z0: this.cameras.main.zoom };
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const w = this.cameras.main.getWorldPoint(mx, my);
+      this.pinch = { d0: Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y), z0: this.cameras.main.zoom, wx: w.x, wy: w.y };
       return;
     }
     if (this.overUi(p)) return;
@@ -745,8 +1043,16 @@ export class OnlineScene extends BaseScene {
       const a = this.input.pointer1;
       const b = this.input.pointer2;
       if (!a.isDown || !b.isDown) return;
+      const cam = this.cameras.main;
+      const lim = zoomLimits(this.m.S);
       const d = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
-      this.cameras.main.setZoom(Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), 1, 6));
+      cam.setZoom(Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), lim.min, lim.max));
+      cam.preRender();
+      // keep the pinched point under the fingers' midpoint
+      const w = cam.getWorldPoint((a.x + b.x) / 2, (a.y + b.y) / 2);
+      cam.scrollX += this.pinch.wx - w.x;
+      cam.scrollY += this.pinch.wy - w.y;
+      this.clampCamera();
       return;
     }
     const g = this.gesture;
@@ -756,6 +1062,7 @@ export class OnlineScene extends BaseScene {
       const cam = this.cameras.main;
       cam.scrollX -= (p.x - g.lx) / cam.zoom;
       cam.scrollY -= (p.y - g.ly) / cam.zoom;
+      this.clampCamera();
     }
     g.lx = p.x;
     g.ly = p.y;
@@ -771,12 +1078,29 @@ export class OnlineScene extends BaseScene {
     this.gesture = null;
     if (!g || g.id !== p.id || g.mode !== 'pending' || !this.map) return;
     const w = this.cameras.main.getWorldPoint(p.x, p.y);
-    const h = pixelToHex(w.x, w.y, HEX);
-    const known = this.map.hexes.find((x) => x.q === h.q && x.r === h.r);
-    if (!known) return this.select(null);
+    const h = this.board.pick(w.x, w.y);
+    if (!h || !this.board.known(h)) return this.select(null);
     haptic('light');
     this.select(this.selected && this.selected.q === h.q && this.selected.r === h.r ? null : h);
   }
+}
+
+const HEX_KEYS = {
+  plains: 'hex.plains',
+  farmland: 'hex.farmland',
+  forest: 'hex.forest',
+  hills: 'hex.hills',
+  mine: 'hex.mine',
+  town: 'hex.town',
+  ruins: 'hex.ruins',
+  water: 'hex.water',
+  mountain: 'hex.mountain',
+} as const satisfies Record<string, TKey>;
+
+/** "G+12 F+6 W+4" (only non-zero, localized initials are not needed: icons carry the meaning elsewhere). */
+function resLine(r: Resources, plus = true): string {
+  const out = RESOURCE_KEYS.filter((k) => r[k] >= (k === 'recruits' ? 0.1 : 1)).map((k) => `${t(`res.${k}` as TKey)} ${plus ? '+' : ''}${k === 'recruits' ? Math.floor(r[k] * 10) / 10 : Math.floor(r[k])}`);
+  return out.join(', ') || '0';
 }
 
 /** Stops whatever runs and opens the online map (from the battle scene's callbacks). */
@@ -786,25 +1110,25 @@ export function backToOnline(game: Phaser.Game, data: OnlineSceneData): void {
 }
 
 /** The battle scene's source for an attack: submit the order log, then back to the map with the verdict. */
-export function attackSource(game: Phaser.Game, t: AttackTicket, label: string): BattleSource {
+export function attackSource(game: Phaser.Game, tk: AttackTicket, label: string): BattleSource {
   return {
-    setup: t.setup,
-    heroes: [...t.attackers, ...t.defenders],
+    setup: tk.setup,
+    heroes: [...tk.attackers, ...tk.defenders],
     side: 0,
-    label: tr('battle.vs', { name: label }),
+    label: t('battle.vs', { name: label }),
     onFinish(sim: Battle, deployOrders: number) {
       // Only the player's orders are sent (the bot's come back from the seed); count the player's deployment orders.
       const orders = sim.orderLog.filter((o) => o.side === 0).map((o) => ({ tick: o.tick, side: o.side, order: o.order }));
       const deployed = sim.orderLog.slice(0, deployOrders).filter((o) => o.side === 0).length;
       onlineApi
-        .attackSubmit(t.ticket, orders, deployed, { winner: sim.winner ?? -1, ticks: sim.tick, hash: sim.hash() })
-        .then((r) => showReport(game, attackReport(r, this.label), () => backToOnline(game, { focus: t.hex })))
-        .catch((e) => backToOnline(game, { attack: { error: errorText(e) }, focus: t.hex }));
+        .attackSubmit(tk.ticket, orders, deployed, { winner: sim.winner ?? -1, ticks: sim.tick, hash: sim.hash() })
+        .then((r) => showReport(game, attackReport(r, this.label), () => backToOnline(game, { focus: tk.hex })))
+        .catch((e) => backToOnline(game, { attack: { error: errorText(e) }, focus: tk.hex }));
     },
     onLeave() {
       // Leaving deployment gives the attack up (no losses; a short cooldown on this hex).
-      void onlineApi.attackAbandon(t.ticket).catch(() => undefined);
-      backToOnline(game, { focus: t.hex });
+      void onlineApi.attackAbandon(tk.ticket).catch(() => undefined);
+      backToOnline(game, { focus: tk.hex });
     },
   };
 }
