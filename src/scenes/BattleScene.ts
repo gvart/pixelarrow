@@ -1042,7 +1042,6 @@ export class BattleScene extends BaseScene {
       cam.scrollY -= (cy - this.pinch.cy) / z;
       this.pinch.cx = cx;
       this.pinch.cy = cy;
-      this.tutorialEvent({ kind: 'zoom' });
       return;
     }
     const g = this.gesture;
@@ -1081,8 +1080,10 @@ export class BattleScene extends BaseScene {
     if (this.pinch) {
       const down = this.input.manager.pointers.filter((q) => q.isDown);
       if (down.length < 2) {
+        const z0 = this.pinch.z0;
         this.pinch = null;
         this.setZoom(Math.round(this.cameras.main.zoom));
+        if (Math.abs(this.cameras.main.zoom - z0) > 0.05) this.tutorialEvent({ kind: 'zoom' });
       }
       this.gesture = null;
       return;

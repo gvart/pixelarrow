@@ -196,10 +196,12 @@ export class BattleTutorial {
     const h = this.host;
     const sim = () => h.sim;
     const field = (): Target => 'field';
-    const ahead = (paces: number): Pt | null => {
+    /** A point ahead of the hoplites, `left` paces to their left (clear of the slingers in front). */
+    const ahead = (paces: number, left = 0): Pt | null => {
       const g = sim().groups[G.hop];
       const f = g.formation;
-      return { x: f.cx + f.fx * paces, y: f.cy + f.fy * paces };
+      // right of the facing (fx, fy) is (-fy, fx)
+      return { x: f.cx + f.fx * paces + f.fy * left, y: f.cy + f.fy * paces - f.fx * left };
     };
     return {
       intro: { at: 'bottom', text: 'tut.step.intro' },
@@ -215,7 +217,7 @@ export class BattleTutorial {
           h.frameArmies();
           // after a pinch the zoom may still be settling: frame again
           this.scene.time.delayedCall(250, () => h.frameArmies());
-          this.flag = ahead(2.5);
+          this.flag = ahead(3.3, 2);
         },
         marker: () => this.flag,
         ghost: () => this.slingDemo(),
@@ -227,7 +229,7 @@ export class BattleTutorial {
         target: field,
         enter: () => {
           if (h.selGroup !== G.hop) h.select(G.hop);
-          this.flag = ahead(3);
+          this.flag = ahead(4.5);
         },
         marker: () => this.flag,
         ghost: () => (this.flag ? { kind: 'tap', at: h.toUi(this.flag.x, this.flag.y) } : null),

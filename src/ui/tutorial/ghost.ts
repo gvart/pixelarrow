@@ -54,7 +54,7 @@ export class GhostHand {
     this.c = scene.add.container(0, 0);
     this.trail = scene.add.graphics();
     this.rings = [0, 1].map(() => scene.add.image(0, 0, 'ghost_ring').setVisible(false));
-    this.hands = [0, 1].map(() => scene.add.image(0, 0, 'ghost_hand').setOrigin(HAND_TIP.x / 14, HAND_TIP.y / 18).setVisible(false));
+    this.hands = [0, 1].map(() => scene.add.image(0, 0, 'ghost_hand').setOrigin(HAND_TIP.x / 14, HAND_TIP.y / 18).setScale(2).setVisible(false));
     this.c.add([this.trail, ...this.rings, ...this.hands]);
     parent.add(this.c);
     this.c.setVisible(false);
@@ -102,6 +102,12 @@ export class GhostHand {
   update(time: number): void {
     if (!this.source) return;
     if (this.start < 0 || time - this.start > this.len) this.plan(time);
+    // follow the camera and the men: the same timing, today's positions
+    const live = this.source();
+    if (live && this.script && live.kind === this.script.kind) {
+      if (live.kind === 'drag' && this.script.kind === 'drag' && live.pts.length === this.script.pts.length) this.segs.forEach((sg, i) => ((sg.a = live.pts[i]), (sg.b = live.pts[i + 1])));
+      this.script = { ...live, ...(live.kind === 'drag' && this.script.kind === 'drag' ? { rest: this.script.rest } : {}) } as GhostScript;
+    }
     const s = this.script;
     const g = this.trail;
     g.clear();
@@ -120,7 +126,7 @@ export class GhostHand {
       h.setOrigin(flip ? 1 - HAND_TIP.x / 14 : HAND_TIP.x / 14, HAND_TIP.y / 18);
       const r = this.rings[i];
       const pressed = t >= PRESS * 0.6 && !lifting;
-      r.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(pressed).setAlpha(0.7 * fade).setScale(pressed ? 1 : 1.3);
+      r.setPosition(Math.round(p.x), Math.round(p.y)).setVisible(pressed).setAlpha(0.7 * fade).setScale(pressed ? 2 : 2.6);
     };
     if (s.kind === 'tap') {
       showHand(0, s.at);
@@ -141,11 +147,15 @@ export class GhostHand {
       const k = Phaser.Math.Clamp((t - sg.t0) / (sg.t1 - sg.t0), 0, 1);
       const e = k * k * (3 - 2 * k);
       p = { x: sg.a.x + (sg.b.x - sg.a.x) * e, y: sg.a.y + (sg.b.y - sg.a.y) * e };
-      g.fillStyle(0xfaf4e8, 0.75 * fade);
       const n = Math.floor(Math.hypot(p.x - sg.a.x, p.y - sg.a.y) / 4);
       for (let i = 0; i <= n; i++) {
         const q = n ? i / n : 0;
-        g.fillRect(Math.round(sg.a.x + (p.x - sg.a.x) * q), Math.round(sg.a.y + (p.y - sg.a.y) * q), 1, 1);
+        const x = Math.round(sg.a.x + (p.x - sg.a.x) * q);
+        const y = Math.round(sg.a.y + (p.y - sg.a.y) * q);
+        g.fillStyle(0x2a1a16, 0.5 * fade);
+        g.fillRect(x - 1, y - 1, 3, 3);
+        g.fillStyle(0xfaf4e8, 0.9 * fade);
+        g.fillRect(x, y, 1, 1);
       }
     }
     showHand(0, p);
