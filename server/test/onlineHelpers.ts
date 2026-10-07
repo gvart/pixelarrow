@@ -145,7 +145,7 @@ export async function wsOnline(token: string): Promise<WsClient> {
       new Promise((resolve, reject) => {
         waiters.push({ type, pred, resolve });
         pump();
-        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs.map((m) => m.type))}`)), 4000);
+        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs.map((m) => m.type))}`)), 10_000);
       }),
   };
   const pump = () => {

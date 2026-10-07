@@ -30,5 +30,8 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // The suite is seeded simulation: results never depend on time, but whole battles take
+    // seconds on a loaded CPU (parallel workers, CI), so the default 5 s timeout is too tight.
+    testTimeout: 30_000,
   },
 } as any);

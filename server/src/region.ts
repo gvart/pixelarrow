@@ -138,19 +138,18 @@ export class RegionDO extends DurableObject<Env> {
    * vision by server/src/online/live.ts) and keeps the march's arrival to
    * announce later (alarm). A move replacing an unfinished march hides the
    * army from those who saw the old march but get nothing about the new move.
+   * An arrival that is already due when it gets here (the caller's clock or
+   * the RPC lagged) is announced at once rather than dropped.
    */
   async liveMove(pid: number, out: LiveOut[], arrival: LiveArrival | null, now = Date.now()): Promise<void> {
     const key = `arrive:${pid}`;
     const prev = await this.ctx.storage.get<LiveArrival>(key);
     const sent = new Set(out.map((o) => o.to));
     const hides: Out[] = prev && prev.at > now ? prev.told.filter((v) => !sent.has(v)).map((v) => ({ to: v, msg: { type: 'army_hide', player: pid, now } })) : [];
-    this.deliver([...out, ...hides] as Out[]);
+    const due = arrival && arrival.told.length && arrival.at <= now ? arrival.to.map((v) => ({ to: v, msg: { type: 'army_arrive', player: pid, q: arrival.q, r: arrival.r, now } })) : [];
+    this.deliver([...out, ...hides, ...due] as Out[]);
     if (arrival && arrival.told.length && arrival.at > now) await this.ctx.storage.put(key, arrival);
     else if (prev) await this.ctx.storage.delete(key);
-    await this.scheduleArrivals();
-  }
-
-  private async scheduleArrivals(): Promise<void> {
     await this.scheduleAlarm();
   }
 
@@ -179,7 +178,7 @@ export class RegionDO extends DurableObject<Env> {
     }
     if (done.length) await this.ctx.storage.delete(done);
     this.deliver(out);
-    await this.scheduleArrivals();
+    await this.scheduleAlarm();
   }
 
   // ------------------------------------------------------------------ duels

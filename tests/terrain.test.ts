@@ -371,7 +371,9 @@ describe('the bot uses the ground', () => {
     expect(sk.every((u) => b.ground(u.x, u.y).kind === 'forest')).toBe(true);
   });
 
-  it('defending a ridge beats attacking it more often than not', () => {
+  // Pure seeded simulation (no clock, no randomness): the outcome never varies, only the run
+  // time (~2 s for 40 battles), so it gets a timeout that survives a loaded CPU.
+  it('defending a ridge beats attacking it more often than not', { timeout: 60_000 }, () => {
     let win = 0;
     for (let i = 0; i < 40; i++) if (runTerrainMirror(9000 + i, (h: Side) => hillGrid(h)).win) win++;
     expect(win).toBeGreaterThanOrEqual(23);
