@@ -16,6 +16,22 @@ formation tactics game set in the ancient Mediterranean.
   check shards, smoke scripts), then deploys to Cloudflare and applies D1
   migrations.
 
+## FIRST TASK: the deploy job never runs
+
+The new parallel CI pipeline (`.github/workflows/deploy.yml`, commit 42d6c3f
+and later) runs all 17 gate jobs green, but the `deploy` job never appears and
+the run ends as "failure" (see run 37641709767). Production is still on
+e3163b7, the notifications release from 13:47 UTC on 2026-10-07. Everything
+after it (ops: monitoring, analytics, admin and backups with migration 0006;
+the polish fixes) is on `main` but not deployed.
+
+- Open the run page in GitHub and look for an annotation on the deploy job,
+  for example an environment protection rule on `production` or a job-level
+  error.
+- Fix it, then trigger a run with "Run workflow" (`workflow_dispatch`).
+- Check that migration 0006 applies and that https://pixelarrow.app/api/health
+  responds.
+
 ## Read first
 
 | Doc | What it covers |
