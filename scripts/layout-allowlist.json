@@ -55,14 +55,5 @@
     "village|text-overflow|S# A# E# W#…",
     "village|text-overflow|S# A#…"
   ],
-  "C": [
-    "world-encounter|outside-safe-area|GALATAE, ABOUT LV #",
-    "world-encounter|text-overflow|GALATAE, ABOUT LV #",
-    "world-encounter|text-overflow|STRONG - # MEN",
-    "world-encounter|text-overlap|A HARD FIGHT. CONSIDER FLEEING …|THEY BAR YOUR WAY, WEAPONS DRAW…",
-    "world-encounter|text-overlap|THEY BAR YOUR WAY, WEAPONS DRAW…|YOUR ARMY: # FIT",
-    "world|outside-safe-area|TAP THE MAP TO MARCH, A TOWN TO…",
-    "world|touch-size|icon:back",
-    "world|touch-size|icon:eye"
-  ]
+  "C": []
 }

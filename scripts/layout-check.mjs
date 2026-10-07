@@ -235,6 +235,44 @@ const SCREENS = [
     },
   },
   { id: 'online', owner: 'C', run: async (p) => (await start(p, 'Online'), wait(p, 1800)) },
+  // The war-table hex map on the local demo shard (src/online/demoShard.ts): HUD, hex panel states, dialogs.
+  ...[
+    ['online-map', 'map'],
+    ['online-hex-neutral', 'neutral'],
+    ['online-hex-far', 'far'],
+    ['online-hex-own', 'own'],
+    ['online-hex-rival', 'rival'],
+    ['online-hex-town', 'town'],
+    ['online-march', 'march'],
+    ['online-lobby', 'lobby'],
+    ['online-challenge', 'challenge'],
+    ['online-result', 'result'],
+    ['online-join', 'join'],
+  ].map(([id, preview]) => ({
+    id,
+    owner: 'C',
+    run: async (p) => {
+      await start(p, 'Online', { preview });
+      await until(p, new Function(`const s = window.__game.scene.getScene('Online'); return ${preview === 'join' ? "s.sys.isActive()" : '!!s.map'};`), 8000);
+      if (['neutral', 'far', 'own', 'rival', 'town'].includes(preview)) await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
+      if (preview === 'march') {
+        // the march answer shows a toast over the top bar: let it fade
+        await until(p, () => !!window.__game.scene.getScene('Online').profile?.army.marching, 6000);
+        await until(
+          p,
+          () => {
+            const texts = [];
+            const walk = (list) => list.forEach((o) => (o.text !== undefined && texts.push(o.text), o.list && walk(o.list)));
+            walk(window.__game.scene.getScene('Online').children.list);
+            return !texts.some((x) => /:.*\d+.*,/.test(x) && x.length > 18);
+          },
+          15000,
+        );
+        return wait(p, 400);
+      }
+      return wait(p, 900);
+    },
+  })),
 ];
 
 // ------------------------------------------------------------------ page setup

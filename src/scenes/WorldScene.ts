@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addIcon, addPanel, addText } from '../ui/kit';
+import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import { BAND_COLORS, WTILE, renderMarker, renderPartyFigure, renderSettlement, renderWorldMap } from '../art/worldArt';
 import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
@@ -266,25 +267,25 @@ export class WorldScene extends BaseScene {
     const H = this.hud;
     H.removeAll(true);
     const { VW, VH } = this.m;
-    H.add(addPanel(this, 0, 0, VW, 26, 'parch'));
-    if (this.inGameBack) H.add(new Button(this, 3, 3, 24, 20, { icon: 'back', onClick: () => this.leaveToMenu() }));
+    H.add(addPanel(this, 0, 0, VW, 30, 'parch'));
+    if (this.inGameBack) H.add(new Button(this, 3, 3, 24, 24, { icon: 'back', onClick: () => this.leaveToMenu() }));
     const tx = this.inGameBack ? 31 : 6;
-    this.clockText = addText(this, tx, 4, '', 'red');
-    this.regionText = addText(this, tx, 14, '', 'dim');
+    this.clockText = addText(this, tx, 5, '', 'red');
+    this.regionText = addText(this, tx, 16, '', 'dim');
     H.add([this.clockText, this.regionText]);
-    H.add(addIcon(this, VW - 72, 2, 'coin'));
-    this.goldText = addText(this, VW - 58, 4, '', 'ink');
-    H.add(addIcon(this, VW - 72, 13, 'people'));
-    this.armyText = addText(this, VW - 58, 15, '', 'ink');
+    H.add(addIcon(this, VW - 72, 3, 'coin'));
+    this.goldText = addText(this, VW - 58, 5, '', 'ink');
+    H.add(addIcon(this, VW - 72, 15, 'people'));
+    this.armyText = addText(this, VW - 58, 17, '', 'ink');
     H.add([this.goldText, this.armyText]);
-    this.followBtn = new Button(this, VW - 28, 3, 25, 20, { icon: 'eye', style: this.follow ? 'buttonSel' : 'button', onClick: () => this.toggleFollow() });
+    this.followBtn = new Button(this, VW - 28, 3, 25, 24, { icon: 'eye', style: this.follow ? 'buttonSel' : 'button', onClick: () => this.toggleFollow() });
     H.add(this.followBtn);
 
     const by = VH - 34;
     H.add(addPanel(this, 0, by - 16, VW, VH - by + 16, 'parch'));
     this.hintText = addText(this, VW / 2, by - 12, '', 'ink', 0.5);
     H.add(this.hintText);
-    addSyncBadge(this, H, VW - 15, 29);
+    addSyncBadge(this, H, VW - 15, 33);
     const bw = Math.floor((VW - 14) / 3);
     const camp = state.campaign;
     const pending = camp.data.heroes.some((h) => h.points > 0 || h.perks.length < perkSlots(h.level));
@@ -300,9 +301,10 @@ export class WorldScene extends BaseScene {
     const s = this.w.s;
     const day = Math.floor(s.time / 24) + 1;
     const h = Math.floor(s.time % 24);
-    this.clockText.setText(`Day ${day}  ${String(h).padStart(2, '0')}:00${h >= 21 || h < 5 ? ' night' : ''}`.toUpperCase());
+    const room = this.m.VW - 76 - this.clockText.x;
+    this.clockText.setText(ellipsize(`Day ${day}  ${String(h).padStart(2, '0')}:00${h >= 21 || h < 5 ? ' night' : ''}`.toUpperCase(), room));
     const d = dangerAt(this.w.map, s.x, s.y);
-    this.regionText.setText(`${regionName(this.w.map, s.x, s.y)} - ${d < 0.3 ? 'safe' : d < 0.6 ? 'risky' : 'wild'}`.toUpperCase());
+    this.regionText.setText(ellipsize(`${regionName(this.w.map, s.x, s.y)} - ${d < 0.3 ? 'safe' : d < 0.6 ? 'risky' : 'wild'}`.toUpperCase(), room));
     this.goldText.setText(`${camp.data.gold}`);
     const wounded = camp.wounded().length;
     this.armyText.setText(`${camp.data.heroes.length - wounded}/${camp.data.heroes.length}`);
@@ -313,7 +315,7 @@ export class WorldScene extends BaseScene {
       hint = p ? `Pursuing ${p.name}` : hint;
     } else if (s.destSettlement >= 0) hint = `Marching to ${this.w.settlement(s.destSettlement)?.name ?? ''}`;
     else if (this.w.moving) hint = 'On the march';
-    this.hintText.setText(hint.toUpperCase());
+    this.hintText.setText(ellipsize(hint.toUpperCase(), this.m.VW - 10));
   }
 
   private setWaiting(on: boolean): void {
@@ -338,9 +340,9 @@ export class WorldScene extends BaseScene {
     this.banner?.destroy();
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    const t = addText(this, VW / 2, 33, msg, 'red', 0.5);
-    const wdt = Math.max(80, t.width + 20);
-    c.add(addPanel(this, Math.round((VW - wdt) / 2), 28, wdt, 18, 'parch'));
+    const t = addText(this, VW / 2, 37, ellipsize(msg.toUpperCase(), VW - 30), 'red', 0.5);
+    const wdt = Math.min(VW - 8, Math.max(80, t.width + 20));
+    c.add(addPanel(this, Math.round((VW - wdt) / 2), 32, wdt, 18, 'parch'));
     c.add(t);
     this.ui.add(c);
     this.banner = c;
@@ -493,19 +495,9 @@ export class WorldScene extends BaseScene {
     this.dialog = c;
     c.add(this.add.rectangle(0, 0, VW, VH, 0x000000, 0.5).setOrigin(0, 0).setInteractive());
     const w = VW - 20;
-    const h = 150;
     const x = 10;
-    const y = Math.round(VH / 2 - h / 2 - 10);
-    c.add(addPanel(this, x, y, w, h, 'parch'));
     const ratio = p.power / Math.max(1, this.info.power);
     const lvl = threatLevel(ratio);
-    c.add(addText(this, VW / 2, y + 7, p.name, 'red', 0.5));
-    // the band's standard, large
-    const tex = p.name === 'Pirates' ? 'wm_band_pirates' : `wm_band_${p.kind}`;
-    c.add(this.add.image(x + 26, y + 58, tex, 0).setScale(3).setOrigin(0.5, 1));
-    c.add(this.add.rectangle(x + 50, y + 22, 8, 8, THREAT_COLOR[lvl]).setOrigin(0, 0).setStrokeStyle(1, P.outline));
-    c.add(addText(this, x + 62, y + 22, `${THREAT_LABEL[lvl]} - ${p.size} men`, 'ink'));
-    c.add(addText(this, x + 50, y + 33, `${CULTURE_LABEL[p.culture]}, about Lv ${p.level}`, 'dim'));
     const mood = failedFlee
       ? 'They cut off your escape!'
       : byPlayer
@@ -513,10 +505,29 @@ export class WorldScene extends BaseScene {
           ? 'Cornered, they throw down their arms.'
           : 'You have caught up with them.'
         : 'They bar your way, weapons drawn!';
-    c.add(addText(this, x + 50, y + 46, mood, 'ink', 0, w - 56));
+    const advice = ratio > 1.15 ? 'A hard fight. Consider fleeing or resting.' : ratio < 0.85 ? 'You should win this one.' : 'An even match.';
+    // Lay the text out first (wrapped and fitted), then size the dialog around it.
+    const moodL = wrapText(mood.toUpperCase(), w - 56, 2).lines;
+    const adviceL = wrapText(advice.toUpperCase(), w - 12, 2).lines;
+    const armyY = Math.max(64, 46 + moodL.length * LINE_H + 4);
+    const adviceY = armyY + 14;
+    const h = adviceY + adviceL.length * LINE_H + 8 + 34;
+    const y = Math.max(4, Math.round(VH / 2 - h / 2 - 10));
+    c.add(addPanel(this, x, y, w, h, 'parch'));
+    c.add(addText(this, VW / 2, y + 7, ellipsize(p.name.toUpperCase(), w - 12), 'red', 0.5));
+    // the band's standard, large
+    const tex = p.name === 'Pirates' ? 'wm_band_pirates' : `wm_band_${p.kind}`;
+    c.add(this.add.image(x + 26, y + 58, tex, 0).setScale(3).setOrigin(0.5, 1));
+    c.add(this.add.rectangle(x + 50, y + 22, 8, 8, THREAT_COLOR[lvl]).setOrigin(0, 0).setStrokeStyle(1, P.outline));
+    c.add(addText(this, x + 62, y + 22, ellipsize(`${THREAT_LABEL[lvl]} - ${p.size} men`.toUpperCase(), w - 68), 'ink'));
+    c.add(addText(this, x + 50, y + 33, ellipsize(`${CULTURE_LABEL[p.culture]}, about Lv ${p.level}`.toUpperCase(), w - 56), 'dim'));
+    c.add(addText(this, x + 50, y + 46, moodL.join('\n'), 'ink'));
     const fit = camp.fitHeroes().length;
     const wounded = camp.wounded().length;
-    c.add(addText(this, x + 8, y + 68, `Your army: ${fit} fit${wounded ? `, ${wounded} wounded` : ''}`, 'dim'));
+    c.add(addText(this, x + 8, y + armyY, ellipsize(`Your army: ${fit} fit${wounded ? `, ${wounded} wounded` : ''}`.toUpperCase(), w - 16), 'dim'));
+    const adviceT = addText(this, VW / 2, y + adviceY, adviceL.join('\n'), ratio > 1.15 ? 'red' : 'ink', 0.5);
+    adviceT.setCenterAlign();
+    c.add(adviceT);
     const buttons: { label: string; icon: string; sel?: boolean; cb: () => void }[] = [];
     buttons.push({ label: 'Attack', icon: 'swords', sel: true, cb: () => this.attack(p.id) });
     if (camp.canSurrender(p.id) && !failedFlee) {
@@ -568,7 +579,6 @@ export class WorldScene extends BaseScene {
     this.modalLayer(c, () => (out ? out.cb() : (hapticNotify('warning'), false)));
     const bw = Math.floor((w - 12 - (buttons.length - 1) * 4) / buttons.length);
     buttons.forEach((b, i) => c.add(new Button(this, x + 6 + i * (bw + 4), y + h - 34, bw, 28, { label: b.label, icon: b.icon, style: b.sel ? 'buttonSel' : 'button', onClick: b.cb })));
-    c.add(addText(this, VW / 2, y + 84, ratio > 1.15 ? 'A hard fight. Consider fleeing or resting.' : ratio < 0.85 ? 'You should win this one.' : 'An even match.', ratio > 1.15 ? 'red' : 'ink', 0.5, w - 12));
   }
 
   private attack(partyId: number): void {
