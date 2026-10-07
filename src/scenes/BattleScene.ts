@@ -9,7 +9,8 @@ import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
-import { formationSlots, frontageForWidth, rightOf, type FormationType } from '../sim/formation';
+import { formationSlots, rightOf, type FormationType } from '../sim/formation';
+import { dragFormation } from '../ui/dragFormation';
 import type { BattleSetup, Order, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import { reportBattle, snapshotSetup } from '../platform/verify';
 import { generateEnemyArmy } from '../game/enemy';
@@ -850,46 +851,20 @@ export class BattleScene extends BaseScene {
     this.tweens.add({ targets: cam, zoom: target, duration: 120 });
   }
 
+  /**
+   * Formation drag: the touch point is where the group goes (the centre of its
+   * front rank); the soldiers face the way the finger pulls (the pull vector
+   * in field space, through the inverse iso projection) and the line is laid
+   * across it. A short pull only turns the group; a longer one adds ranks.
+   */
   private updateDragPreview(ax: number, ay: number, bx: number, by: number): void {
     const grp = this.sim.groups[this.selGroup];
     if (!grp) return;
     const n = this.selUnit >= 0 && !grp.individual ? 1 : this.sim.activeMembers(grp.id).length;
     if (n === 0) return;
-    let dx = bx - ax;
-    let dy = by - ay;
-    const len = Math.sqrt(dx * dx + dy * dy);
+    const p = dragFormation(ax, ay, bx, by, n, grp.formation.frontage, grp.formation.fx, grp.formation.fy);
     const type = this.selUnit >= 0 ? 'line' : grp.formation.type;
-    if (len < 0.6) {
-      this.dragPreview = { cx: bx, cy: by, fx: grp.formation.fx, fy: grp.formation.fy, frontage: grp.formation.frontage, type, n };
-      return;
-    }
-    dx /= len;
-    dy /= len;
-    // facing: perpendicular to the drawn line, toward the enemy
-    let fx = dy;
-    let fy = -dx;
-    const ec = this.enemyCentroid();
-    const mx = (ax + bx) / 2;
-    const my = (ay + by) / 2;
-    if ((ec.x - mx) * fx + (ec.y - my) * fy < 0) {
-      fx = -fx;
-      fy = -fy;
-    }
-    const frontage = frontageForWidth(type, len, n);
-    this.dragPreview = { cx: mx, cy: my, fx, fy, frontage, type, n };
-  }
-
-  private enemyCentroid(): { x: number; y: number } {
-    let x = 0;
-    let y = 0;
-    let n = 0;
-    for (const u of this.sim.units) {
-      if (u.side !== 1 || u.state !== 'ready') continue;
-      x += u.x;
-      y += u.y;
-      n++;
-    }
-    return n ? { x: x / n, y: y / n } : { x: this.sim.width / 2, y: 0 };
+    this.dragPreview = { ...p, type, n };
   }
 
   // ===================================================================== terrain
@@ -1290,10 +1265,10 @@ export class BattleScene extends BaseScene {
     this.hudDirty = false;
     if (this.statusText && this.statusText.active) {
       const g = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
-      let txt = this.sim.phase === 'deploy' ? 'Tap a group, drag on the ground to place it' : 'Tap a group tag or soldier to select';
+      let txt = this.sim.phase === 'deploy' ? 'Tap a group, touch the ground and pull: they face the pull' : 'Tap a group tag or soldier to select';
       if (g) {
         const n = this.sim.activeMembers(g.id).length;
-        const parts = [g.name, `${n} men`, this.sim.phase === 'deploy' ? 'drag to place' : g.order, g.formation.type];
+        const parts = [g.name, `${n} men`, this.sim.phase === 'deploy' ? 'pull to face' : g.order, g.formation.type];
         if (g.shieldWall) parts.push('wall');
         if (g.routed) parts.push('ROUTED');
         txt = parts.join(' - ');

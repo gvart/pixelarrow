@@ -136,11 +136,20 @@ const pt = await ev(() => {
   const cam = s.cameras.main;
   const g = s.sim.groups[0];
   const toScreen = (x, y) => { const p = s.project(x, y); return [(p.x - cam.worldView.x) * cam.zoom, (p.y - cam.worldView.y) * cam.zoom]; };
-  return { a: toScreen(g.formation.cx - 1.5, 27), b: toScreen(g.formation.cx + 1.5, 27), zoom: cam.zoom };
+  const cx = g.formation.cx;
+  // touch at (cx, 27) and pull: sideways (+x), then toward the enemy (-y), then a long pull (more ranks)
+  return { a: toScreen(cx, 27), side: toScreen(cx + 2, 27), fwd: toScreen(cx, 25), far: toScreen(cx, 21), zoom: cam.zoom, frontage: g.formation.frontage };
 });
 check('readable default zoom', pt.zoom >= 2, `zoom ${pt.zoom}`);
-await drag(pt.a[0], pt.a[1], pt.b[0], pt.b[1]);
-const after = await ev(() => ({ ...window.__game.scene.getScene('Battle').sim.groups[0].formation }));
+const form0 = () => ev(() => ({ ...window.__game.scene.getScene('Battle').sim.groups[0].formation }));
+await drag(pt.a[0], pt.a[1], pt.side[0], pt.side[1]);
+const turned = await form0();
+check('formation drag: soldiers face the pull (sideways)', Math.abs(turned.cy - 27) < 0.3 && turned.fx > 0.9, JSON.stringify([turned.cx.toFixed(2), turned.cy.toFixed(2), turned.fx.toFixed(2), turned.fy.toFixed(2)]));
+await drag(pt.a[0], pt.a[1], pt.far[0], pt.far[1]);
+const deep = await form0();
+check('formation drag: a long pull adds ranks', deep.fy < -0.9 && deep.frontage < pt.frontage, `${pt.frontage} -> ${deep.frontage}`);
+await drag(pt.a[0], pt.a[1], pt.fwd[0], pt.fwd[1]);
+const after = await form0();
 check('formation drag moved group', Math.abs(after.cy - 27) < 1.2 && after.fy < -0.9, JSON.stringify([after.cx.toFixed(2), after.cy.toFixed(2), after.frontage]));
 
 // pinch to zoom in
