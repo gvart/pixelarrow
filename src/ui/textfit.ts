@@ -4,7 +4,7 @@
  * strings are measured the same way the bitmap text renders them.
  *
  * Widths are in UI pixels at the base size (7 px cap height); pass `size` for
- * scaled titles. Text is upper-cased like `addText` does.
+ * scaled titles. Text renders in the case it is given (the font has lower case).
  */
 import { glyphWidth } from '../art/font';
 
@@ -15,7 +15,7 @@ export const ELLIPSIS = '…';
 export function measureText(str: string, shadow = false, size = BASE_FONT_SIZE): number {
   let w = 0;
   let n = 0;
-  for (const ch of str.toUpperCase()) {
+  for (const ch of str) {
     const g = glyphWidth(ch);
     if (g < 0) continue;
     w += g + 1;
@@ -28,7 +28,7 @@ export function measureText(str: string, shadow = false, size = BASE_FONT_SIZE):
 /** Characters the pixel font cannot draw (they would silently vanish). */
 export function missingGlyphs(str: string): string[] {
   const out = new Set<string>();
-  for (const ch of str.toUpperCase()) if (ch !== '\n' && glyphWidth(ch) < 0) out.add(ch);
+  for (const ch of str) if (ch !== '\n' && glyphWidth(ch) < 0) out.add(ch);
   return [...out];
 }
 

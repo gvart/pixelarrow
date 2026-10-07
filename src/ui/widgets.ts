@@ -260,15 +260,15 @@ export class StatBar extends Phaser.GameObjects.Container {
       g.fillStyle(better ? COLOR.good : COLOR.bad, 1);
       g.fillRect(1 + fw, by + 1, Math.max(1, hi - fw), 4);
       this.pre.setFont(better ? 'font_good' : 'font_red');
-      this.pre.setText(fmt(preview!).toUpperCase());
-      this.val.setText(`${fmt(value)} >`.toUpperCase());
+      this.pre.setText(fmt(preview!));
+      this.val.setText(`${fmt(value)} >`);
       this.val.x = this.w - this.pre.width - 3;
     } else {
       this.pre.setText('');
-      this.val.setText(fmt(value).toUpperCase());
+      this.val.setText(fmt(value));
       this.val.x = this.w;
     }
-    this.lab.setText(ellipsize(this.o.label.toUpperCase(), Math.max(10, this.val.x - this.val.width - 4)));
+    this.lab.setText(ellipsize(this.o.label, Math.max(10, this.val.x - this.val.width - 4)));
     return this;
   }
 }
@@ -313,7 +313,7 @@ export class CountUp extends Phaser.GameObjects.Container {
     if (this.big) this.num.setFontSize(14);
     uiFrame(this.num, this, this.w, this.h);
     this.add(this.num);
-    const lab = addText(scene, this.w / 2, this.h - 10, ellipsize(o.label.toUpperCase(), this.w - 4), 'dim', 0.5);
+    const lab = addText(scene, this.w / 2, this.h - 10, ellipsize(o.label, this.w - 4), 'dim', 0.5);
     uiFrame(lab, this, this.w, this.h);
     this.add(lab);
     uiId(this, `countup:${o.label}`);
@@ -332,7 +332,7 @@ export class CountUp extends Phaser.GameObjects.Container {
       ease: 'Cubic.easeOut',
       onUpdate: (tw) => {
         const v = Math.round(tw.getValue() ?? 0);
-        this.num.setText(`${o.prefix ?? ''}${v}${o.suffix ?? ''}`.toUpperCase());
+        this.num.setText(`${o.prefix ?? ''}${v}${o.suffix ?? ''}`);
         const now = this.scene?.time.now ?? 0;
         if (o.sound !== false && now - lastTick > 70 && v > 0) {
           lastTick = now;
@@ -340,7 +340,7 @@ export class CountUp extends Phaser.GameObjects.Container {
         }
       },
       onComplete: () => {
-        this.num.setText(`${o.prefix ?? ''}${o.value}${o.suffix ?? ''}`.toUpperCase());
+        this.num.setText(`${o.prefix ?? ''}${o.value}${o.suffix ?? ''}`);
         if (o.value > 0) haptic('light');
       },
     });
@@ -839,8 +839,8 @@ export class Card extends Phaser.GameObjects.Container {
       this.add(r);
     }
     const tw = this.w - tx - chevW - 6 - rightW;
-    this.add(addText(scene, tx, o.subtitle ? 5 : 10, ellipsize(o.title.toUpperCase(), tw), 'red'));
-    if (o.subtitle) this.add(addText(scene, tx, 16, ellipsize(o.subtitle.toUpperCase(), tw), 'dim'));
+    this.add(addText(scene, tx, o.subtitle ? 5 : 10, ellipsize(o.title, tw), 'red'));
+    if (o.subtitle) this.add(addText(scene, tx, 16, ellipsize(o.subtitle, tw), 'dim'));
     this.add(addText(scene, this.w - 9, 10, this.expanded ? '-' : '+', 'ink', 0));
     if (this.expanded) this.add(body);
     else body.destroy();
@@ -957,7 +957,7 @@ export function openModal(scene: UiScene, o: ModalOpts): Modal {
   addScroll(scene, c, x, y, w, h);
   let top = y + 8;
   if (o.title) {
-    c.add(addText(scene, VW / 2, y + 12, ellipsize(o.title.toUpperCase(), w - 16), 'red', 0.5));
+    c.add(addText(scene, VW / 2, y + 12, ellipsize(o.title, w - 16), 'red', 0.5));
     top = y + 26;
   }
   let closed = false;
@@ -1055,7 +1055,7 @@ export function addEmptyState(scene: Phaser.Scene, x: number, y: number, w: numb
     c.add(ic);
     cy += 28;
   }
-  c.add(addText(scene, w / 2, cy, ellipsize((o.title ?? t('kit.empty.title')).toUpperCase(), w - 8), 'red', 0.5));
+  c.add(addText(scene, w / 2, cy, ellipsize((o.title ?? t('kit.empty.title')), w - 8), 'red', 0.5));
   cy += titleH;
   const hint = addText(scene, w / 2, cy, wr.lines.join('\n'), 'dim', 0.5);
   hint.setCenterAlign();

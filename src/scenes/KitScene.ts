@@ -83,7 +83,7 @@ export class KitScene extends BaseScene {
     const cw = Math.floor((w - 3 * SIZE.gap) / 4);
     cats.forEach((k, i) => {
       c.add(this.add.rectangle(i * (cw + SIZE.gap), y, cw, 10, CATEGORY_COLOR[k]).setOrigin(0, 0));
-      c.add(addText(this, i * (cw + SIZE.gap) + cw / 2, y + 12, ellipsize(t(`battle.cat.${k}`).toUpperCase(), cw - 2), 'dim', 0.5));
+      c.add(addText(this, i * (cw + SIZE.gap) + cw / 2, y + 12, ellipsize(t(`battle.cat.${k}`), cw - 2), 'dim', 0.5));
     });
     y += 26;
     const sb1 = new StatBar(this, 0, y, w, { label: 'Armour', max: 10, tip: 'Armour: damage taken is reduced by this much' });
@@ -141,7 +141,7 @@ export class KitScene extends BaseScene {
       rowH: SIZE.rowH,
       render: (i, row, w, rh) => {
         row.add(addPanel(this, 0, 0, w, rh, i % 2 ? 'inset' : 'parch'));
-        row.add(addText(this, 6, 9, ellipsize(`Row ${i + 1} of 500 (virtualised)`.toUpperCase(), w - 12), 'ink'));
+        row.add(addText(this, 6, 9, ellipsize(`Row ${i + 1} of 500 (virtualised)`, w - 12), 'ink'));
       },
       onTap: (i) => toast(this, `Row ${i + 1}`),
       tip: (i) => `Long-press on row ${i + 1}`,

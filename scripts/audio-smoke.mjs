@@ -87,7 +87,7 @@ async function run(label, { noAudio }) {
     const btns = [];
     const walk = (list) => {
       for (const o of list) {
-        if (o.text === 'SOUND') lab = o;
+        if (o.text?.toUpperCase() === 'SOUND') lab = o;
         if (o.opts && (o.opts.label === 'On' || o.opts.label === 'Off')) btns.push(o);
         if (o.list) walk(o.list);
       }

@@ -74,11 +74,11 @@ export function registerUiAssets(scene: Phaser.Scene): void {
         v1: (g.y + h) / th,
       };
     }
-    // Lowercase letters render with the uppercase glyphs.
+    // Letters without a lower-case glyph fall back to the upper-case one.
     for (let cc = 97; cc <= 122; cc++) if (!chars[cc] && chars[cc - 32]) chars[cc] = chars[cc - 32];
     // ... and so do Cyrillic ones (а..я -> А..Я, ё -> Ё).
     for (let cc = 0x430; cc <= 0x44f; cc++) if (!chars[cc] && chars[cc - 0x20]) chars[cc] = chars[cc - 0x20];
-    if (chars[0x401]) chars[0x451] = chars[0x401];
+    if (!chars[0x451] && chars[0x401]) chars[0x451] = chars[0x401];
     const data = { retroFont: true, font: tkey, size: 7, lineHeight: h + 1, chars };
     scene.cache.bitmapFont.add(tkey, { data, texture: tkey, frame: null });
   }
@@ -118,7 +118,7 @@ export function addText(
   align: 0 | 0.5 | 1 = 0,
   maxWidth = 0,
 ): Phaser.GameObjects.BitmapText {
-  const txt = scene.add.bitmapText(Math.round(x), Math.round(y), `font_${font}`, str.toUpperCase(), 7);
+  const txt = scene.add.bitmapText(Math.round(x), Math.round(y), `font_${font}`, str, 7);
   if (maxWidth > 0) {
     txt.setMaxWidth(maxWidth);
     uiMaxWidth(txt, maxWidth);
@@ -344,7 +344,7 @@ export class Button extends Phaser.GameObjects.Container {
     const hasLabel = !!this.opts.label;
     this.truncated = false;
     const fit = (maxW: number) => {
-      const full = this.opts.label!.toUpperCase();
+      const full = this.opts.label!;
       const out = ellipsize(full, maxW, shadow);
       this.truncated = out !== full;
       return out;

@@ -75,7 +75,7 @@ function openPicker(scene: UiScene, held: ConsumableId[], inv: Partial<Record<st
     if (!held.length) {
       const r = scene.add.container(0, 0);
       const e = wrapText(t('cons.emptyHint'), inner - 4, 2);
-      r.add(addText(scene, x + 8 + inner / 2, y, ellipsize(t('cons.empty').toUpperCase(), inner), 'red', 0.5));
+      r.add(addText(scene, x + 8 + inner / 2, y, ellipsize(t('cons.empty'), inner), 'red', 0.5));
       r.add(addText(scene, x + 8 + inner / 2, y + 12, e.lines.join('\n'), 'dim', 0.5).setCenterAlign());
       c.add(r);
       rows.push(r);
@@ -89,7 +89,7 @@ function openPicker(scene: UiScene, held: ConsumableId[], inv: Partial<Record<st
       r.add(addPanel(scene, x + 8, ry, inner, rowH, on ? 'buttonSel' : 'button'));
       r.add(new ItemIcon(scene, x + 12, ry + 8, { consumable: id }, { size: 24, tip: false, qty: inv[id], rarity: 'rare' }));
       const desc = wrapText(tOr(`consumable.${id}.desc`, d.desc), inner - 44, 2);
-      r.add(addText(scene, x + 42, ry + 4, ellipsize(tOr(`consumable.${id}.name`, d.name).toUpperCase(), inner - 40), on ? 'light' : 'red'));
+      r.add(addText(scene, x + 42, ry + 4, ellipsize(tOr(`consumable.${id}.name`, d.name), inner - 40), on ? 'light' : 'red'));
       r.add(addText(scene, x + 42, ry + 15, desc.lines.join('\n'), on ? 'light' : 'dim'));
       const z = scene.add.zone(x + 8, ry, inner, rowH).setOrigin(0, 0).setInteractive();
       uiId(z, `cons:${id}`);

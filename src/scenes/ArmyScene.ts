@@ -193,9 +193,9 @@ export class ArmyScene extends BaseScene {
       const tx = 4 + sw + 5;
       const tw = VW - tx - 5;
       // name and stars, class, level, role and power
-      L.add(addText(this, tx, y0 + 1, ellipsize(h.name.toUpperCase(), tw - 44), 'title'));
+      L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 44), 'title'));
       addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
-      L.add(addText(this, tx, y0 + 11, ellipsize(className(h).toUpperCase(), tw), 'gold'));
+      L.add(addText(this, tx, y0 + 11, ellipsize(className(h), tw), 'gold'));
       const lvW = addChip(this, L, tx, y0 + 21, t('hero.level', { n: h.level }), 0x8c2f25, 40);
       const pw = addText(this, VW - 5, y0 + 23, t('hero.power', { n: powerRating(h) }), 'title', 1);
       L.add(pw);
@@ -206,7 +206,7 @@ export class ArmyScene extends BaseScene {
       const gw = Math.max(22, Math.min(30, Math.floor((tw - 3 * SIZE.gap) / 4)));
       ROMAN.forEach((_r, g) => L.add(this.groupButton(tx + g * (gw + SIZE.gap), gy, gw, g, h)));
       const gx = tx + 4 * (gw + SIZE.gap);
-      if (VW - 5 - gx > 30) L.add(addText(this, gx + 2, gy + 7, ellipsize(groupName(h.group).toUpperCase(), VW - 5 - gx - 2), 'title'));
+      if (VW - 5 - gx > 30) L.add(addText(this, gx + 2, gy + 7, ellipsize(groupName(h.group), VW - 5 - gx - 2), 'title'));
       ss = 26;
       slotY = y0 + sh + 4;
     } else {
@@ -214,13 +214,13 @@ export class ArmyScene extends BaseScene {
       L.add(this.add.image(4, y0, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
       const tx = 31;
       const tw = VW - tx - 5;
-      L.add(addText(this, tx, y0 + 1, ellipsize(h.name.toUpperCase(), tw - 42), 'title'));
+      L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 42), 'title'));
       addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
       const lvW = addChip(this, L, tx, y0 + 12, t('hero.level', { n: h.level }), 0x8c2f25, 40);
       const pw = addText(this, VW - 5, y0 + 14, `${powerRating(h)}`, 'title', 1);
       L.add(pw);
       const sub = h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : className(h);
-      L.add(addText(this, tx + lvW + 3, y0 + 14, ellipsize(sub.toUpperCase(), VW - 5 - pw.width - 4 - (tx + lvW + 3)), h.wound > 0 ? FONT_RED_LIGHT : 'gold'));
+      L.add(addText(this, tx + lvW + 3, y0 + 14, ellipsize(sub, VW - 5 - pw.width - 4 - (tx + lvW + 3)), h.wound > 0 ? FONT_RED_LIGHT : 'gold'));
       ss = 22;
       slotY = y0 + 27;
     }
@@ -373,11 +373,11 @@ export class ArmyScene extends BaseScene {
     row.add(pw);
     const pend = hasPending(h, perkSlots);
     const nameW = right - 16 - x - (pend ? 12 : 0);
-    const name = addText(this, x, 4, ellipsize(h.name.toUpperCase(), nameW), light ? 'light' : 'ink');
+    const name = addText(this, x, 4, ellipsize(h.name, nameW), light ? 'light' : 'ink');
     row.add(name);
     if (pend) addChip(this, row, x + name.width + 3, 3, '!', 0xd8a840);
     const sub = h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : `${t('hero.level', { n: h.level })} ${cls.short}`;
-    const subT = addText(this, x, 17, ellipsize(sub.toUpperCase(), right - pw.width - 4 - x - 42), light ? 'light' : h.wound > 0 ? 'red' : 'dim');
+    const subT = addText(this, x, 17, ellipsize(sub, right - pw.width - 4 - x - 42), light ? 'light' : h.wound > 0 ? 'red' : 'dim');
     row.add(subT);
     if (h.wound <= 0) addStars(this, row, Math.min(x + subT.width + 4, right - pw.width - 4 - 39), 19, heroStars(h));
     uiId(name, 'roster.name');

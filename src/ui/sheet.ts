@@ -65,7 +65,7 @@ export function addGroupBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Co
 
 /** A coloured pill with light text (role, status). Returns its width. */
 export function addChip(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, text: string, color: number, maxW = 200, alignRight = false): number {
-  const s = ellipsize(text.toUpperCase(), maxW - 6, true);
+  const s = ellipsize(text, maxW - 6, true);
   const w = measureText(s, true) + 6;
   if (alignRight) x -= w;
   const g = scene.add.graphics();
@@ -345,12 +345,12 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   c.add(bigItemIcon(scene, bx, cy + 1, it, 34));
   const tx = bx + 38;
   const tw = inner - 38;
-  c.add(addText(scene, tx, cy, ellipsize(itemName(it).toUpperCase(), tw), rarityFont(rarity)));
-  c.add(addText(scene, tx, cy + 10, ellipsize(`${t(`rarity.${rarity}` as TKey)} · ${t(`slot.${def.slot}` as TKey)}${def.twoHanded ? ` · ${t('stash.twoHanded')}` : ''}`.toUpperCase(), tw), 'dim'));
+  c.add(addText(scene, tx, cy, ellipsize(itemName(it), tw), rarityFont(rarity)));
+  c.add(addText(scene, tx, cy + 10, ellipsize(`${t(`rarity.${rarity}` as TKey)} · ${t(`slot.${def.slot}` as TKey)}${def.twoHanded ? ` · ${t('stash.twoHanded')}` : ''}`, tw), 'dim'));
   c.add(new Meter(scene, tx, cy + 22, Math.max(20, tw - 46), 4, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100));
   c.add(addText(scene, tx + Math.max(20, tw - 46) + 3, cy + 20, `${Math.round(it.cond)}%`, it.cond < 34 ? 'red' : 'ink'));
   c.add(addIcon(scene, tx - 1, cy + 28, 'coin').setScale(0.75));
-  c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }).toUpperCase(), tw - 10), 'dim'));
+  c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }), tw - 10), 'dim'));
   cy += headH;
   // ---- scrolling body (compare, stats, description, notes)
   const viewH = y + h - 8 - footH - cy;
@@ -360,28 +360,28 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   if (cmp && o.hero) {
     b.add(addPanel(scene, 0, by, inner, cmpH - 4, 'inset'));
     const eq = cmp.equipped;
-    b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }).toUpperCase(), inner - 8), 'dim'));
+    b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }), inner - 8), 'dim'));
     if (eq) {
       b.add(new ItemIcon(scene, 4, by + 12, { item: eq }, { size: 16, tip: false, glow: false }));
-      b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq).toUpperCase(), inner - 27 - 70), rarityFont(eq.rarity)));
-    } else b.add(addText(scene, 4, by + 16, t('stash.emptySlot').toUpperCase(), 'dim'));
+      b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq), inner - 27 - 70), rarityFont(eq.rarity)));
+    } else b.add(addText(scene, 4, by + 16, t('stash.emptySlot'), 'dim'));
     const dp = cmp.power[1] - cmp.power[0];
-    b.add(addText(scene, inner - 4, by + 16, t('hero.power', { n: `${dp > 0 ? '+' : ''}${dp}` }).toUpperCase(), dp > 0 ? 'good' : dp < 0 ? 'red' : 'dim', 1));
+    b.add(addText(scene, inner - 4, by + 16, t('hero.power', { n: `${dp > 0 ? '+' : ''}${dp}` }), dp > 0 ? 'good' : dp < 0 ? 'red' : 'dim', 1));
     let ry = by + 30;
     if (!changed.length) {
-      b.add(addText(scene, 4, ry, t('stash.noChange').toUpperCase(), 'dim'));
+      b.add(addText(scene, 4, ry, t('stash.noChange'), 'dim'));
       ry += 11;
     }
     for (const d of changed) {
-      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey).toUpperCase(), inner - 90), 'ink'));
+      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 90), 'ink'));
       b.add(addText(scene, inner - 44, ry, `${fmtStat(d.id, d.cur)}>${fmtStat(d.id, d.next)}`, 'dim', 1));
       b.add(addText(scene, inner - 4, ry, deltaText(d), d.better ? 'good' : 'red', 1));
       ry += 11;
     }
-    if (cmp.displaced.length) b.add(addText(scene, 4, ry, ellipsize(t('stash.alsoRemoves', { name: cmp.displaced.map(itemName).join(', ') }).toUpperCase(), inner - 8), 'red'));
+    if (cmp.displaced.length) b.add(addText(scene, 4, ry, ellipsize(t('stash.alsoRemoves', { name: cmp.displaced.map(itemName).join(', ') }), inner - 8), 'red'));
     by += cmpH;
   }
-  b.add(addText(scene, 0, by, t('stash.stats').toUpperCase(), 'red'));
+  b.add(addText(scene, 0, by, t('stash.stats'), 'red'));
   by += 12;
   const colW = Math.floor(inner / 2);
   mods.forEach((ml, i) => {
@@ -389,7 +389,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     const my = by + Math.floor(i / 2) * 10;
     const val = addText(scene, mx + colW - 4, my, ml.text, ml.good ? 'ink' : 'red', 1);
     b.add(val);
-    b.add(addText(scene, mx, my, ellipsize(tOr(`mod.${ml.key}`, ml.key).toUpperCase(), colW - val.width - 8), 'dim'));
+    b.add(addText(scene, mx, my, ellipsize(tOr(`mod.${ml.key}`, ml.key), colW - val.width - 8), 'dim'));
   });
   by += Math.ceil(mods.length / 2) * 10 + 4;
   if (desc.lines.length) {
@@ -397,7 +397,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     by += desc.lines.length * LINE_H + 4;
   }
   for (const n of notes) {
-    b.add(addText(scene, 0, by, ellipsize(n.text.toUpperCase(), inner - 3), n.font ?? "dim"));
+    b.add(addText(scene, 0, by, ellipsize(n.text, inner - 3), n.font ?? "dim"));
     by += LINE_H;
   }
   area.setContentHeight(by);
@@ -702,13 +702,13 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
   by += 15;
   b.add(addText(scene, 0, by, desc.lines.join('\n'), 'ink'));
   by += desc.lines.length * LINE_H + 3;
-  if (rt.good) b.add(addText(scene, 0, by, ellipsize(`+ ${rt.good}`.toUpperCase(), inner), 'good'));
-  if (rt.bad) b.add(addText(scene, 0, by + 10, ellipsize(`- ${rt.bad}`.toUpperCase(), inner), 'red'));
+  if (rt.good) b.add(addText(scene, 0, by, ellipsize(`+ ${rt.good}`, inner), 'good'));
+  if (rt.bad) b.add(addText(scene, 0, by + 10, ellipsize(`- ${rt.bad}`, inner), 'red'));
   by += 23;
   for (const id of stats) {
     const d = STATS[id];
     const v = d.get(s);
-    b.add(addText(scene, 0, by, ellipsize(t(`stat.${id}` as TKey).toUpperCase(), 64), 'dim'));
+    b.add(addText(scene, 0, by, ellipsize(t(`stat.${id}` as TKey), 64), 'dim'));
     b.add(new Meter(scene, 66, by + 2, inner - 66 - 30, 4, COLOR.xp).setValue(v, d.max));
     b.add(addText(scene, inner, by, fmtStat(id, v), 'ink', 1));
     by += 12;

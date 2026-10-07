@@ -141,7 +141,7 @@ const sceneText = (p, k) =>
     const outT = [];
     const walk = (list) => list.forEach((o) => (o.text !== undefined && outT.push(o.text), o.list && walk(o.list)));
     walk(window.__game.scene.getScene(key).children.list);
-    return outT.join(' ');
+    return outT.join(' ').toUpperCase();
   }, k);
 
 // ---------------------------------------------------------------- join

@@ -1204,7 +1204,7 @@ export class BattleScene extends BaseScene {
     const w = isoToScreen(d.cx + d.fx * 2.6, d.cy + d.fy * 2.6);
     const sx = (w.x - cam.worldView.x) * cam.zoom;
     const sy = (w.y - cam.worldView.y) * cam.zoom;
-    this.dragLabel.setText(d.label.toUpperCase()).setVisible(true);
+    this.dragLabel.setText(d.label).setVisible(true);
     this.dragLabel.setPosition(Math.round(sx / S), Math.round(sy / S) - 8);
   }
 
@@ -1234,7 +1234,7 @@ export class BattleScene extends BaseScene {
       c.add(addText(this, x + 7, ty, lines.join('\n'), 'ink'));
       ty += lines.length * LINE_H + 4;
     }
-    c.add(addText(this, VW / 2, y + h - 11, ellipsize(t('battle.hint.dismiss').toUpperCase(), w - 8), 'dim', 0.5));
+    c.add(addText(this, VW / 2, y + h - 11, ellipsize(t('battle.hint.dismiss'), w - 8), 'dim', 0.5));
     this.ui.add(c);
     this.hint = c;
     const dismiss = () => {
@@ -1597,8 +1597,8 @@ export class BattleScene extends BaseScene {
         right = VW - 6 - measureText('00', false, 14) - 6;
       }
       const room = right - tx;
-      H.add(addText(this, tx, 4, ellipsize(t(this.online ? 'battle.deploy.titleOnline' : 'battle.deploy.title').toUpperCase(), room), 'red'));
-      H.add(addText(this, tx, 14, ellipsize(`${this.vsLabel()} (${this.enemyHeroes.length})`.toUpperCase(), room), 'dim'));
+      H.add(addText(this, tx, 4, ellipsize(t(this.online ? 'battle.deploy.titleOnline' : 'battle.deploy.title'), room), 'red'));
+      H.add(addText(this, tx, 14, ellipsize(`${this.vsLabel()} (${this.enemyHeroes.length})`, room), 'dim'));
       this.updateCountdown();
       return;
     }
@@ -1620,8 +1620,8 @@ export class BattleScene extends BaseScene {
     if (this.online) H.add(addText(this, x, 14, t('battle.live'), 'red'));
     const left = x + Math.max(measureText('00:00'), this.online ? measureText(t('battle.live')) : 0) + 6;
     // strength of both armies (yours blue, the enemy's red), with a tip
-    const you = t('battle.you').toUpperCase();
-    const foe = t('battle.foe').toUpperCase();
+    const you = t('battle.you');
+    const foe = t('battle.foe');
     const lw = Math.max(measureText(you), measureText(foe));
     const avail = VW - 4 - left;
     const labels = avail >= lw + 3 + 28;
@@ -1724,7 +1724,7 @@ export class BattleScene extends BaseScene {
     const n = CATS.length;
     const tw = Math.floor((w - SIZE.gap * (n - 1)) / n);
     // one look for the row: icon and label if every label fits beside its icon, else labels alone, else icons alone
-    const short = CATS.map((c) => t(`battle.catShort.${c}` as TKey).toUpperCase());
+    const short = CATS.map((c) => t(`battle.catShort.${c}` as TKey));
     const widest = Math.max(...short.map((l) => measureText(l)));
     const mode = widest + 14 <= tw - 6 ? 'both' : widest <= tw - 6 ? 'label' : 'icon';
     CATS.forEach((cat, i) => {
@@ -1788,7 +1788,7 @@ export class BattleScene extends BaseScene {
       x0 = Math.round(x + (w - (bw * n + SIZE.gap * (n - 1))) / 2);
     }
     // one look for the whole row: labels only when every label fits
-    const widest = Math.max(...defs.map((d) => measureText(d.label.toUpperCase())));
+    const widest = Math.max(...defs.map((d) => measureText(d.label)));
     const show = h >= 28 ? (widest <= bw - 4 ? 'both' : 'icon') : widest + 14 <= bw - 6 ? 'both' : 'icon';
     defs.forEach((d, i) => {
       const b = new PanelButton(this, x0 + i * (bw + SIZE.gap), y, bw, h, { icon: d.icon, label: d.label, cat, tip: d.tip, id: `battle.cmd.${d.key}`, show, onClick: d.run });
@@ -1918,8 +1918,8 @@ export class BattleScene extends BaseScene {
     const colW = Math.max(18, ...(['hp', 'mor', 'sta'] as const).map((k) => measureText(t(`battle.stat.${k}`)) + 2));
     const mx = x + w - 4 - 3 * colW - 4;
     const textW = mx - 4 - (x + 22);
-    c.add(addText(this, x + 22, y + 3, ellipsize(`${u.name} ${t('battle.lv', { n: u.level })}`.toUpperCase(), textW), 'red'));
-    c.add(addText(this, x + 22, y + 13, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')).toUpperCase(), textW), 'dim'));
+    c.add(addText(this, x + 22, y + 3, ellipsize(`${u.name} ${t('battle.lv', { n: u.level })}`, textW), 'red'));
+    c.add(addText(this, x + 22, y + 13, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), textW), 'dim'));
     const colors = [P.bad, P.blue, P.good];
     const meters = (['hp', 'mor', 'sta'] as const).map((k, i) => {
       const cx = mx + i * (colW + 2);
@@ -2330,8 +2330,8 @@ export class BattleScene extends BaseScene {
         row.add(addPanel(this, 0, 0, rw, rowH, 'inset'));
         row.add(this.add.image(3, 2, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0));
         const tw = rw - 32;
-        row.add(addText(this, 29, 4, ellipsize(hero.name.toUpperCase(), tw), 'red'));
-        row.add(addText(this, 29, 14, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')).toUpperCase(), tw), 'dim'));
+        row.add(addText(this, 29, 4, ellipsize(hero.name, tw), 'red'));
+        row.add(addText(this, 29, 14, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), tw), 'dim'));
         const n = sideGroups.length;
         const cw = Math.floor((rw - 4 - SIZE.gap * (n - 1)) / n);
         sideGroups.forEach((g, gi) => {

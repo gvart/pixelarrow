@@ -134,7 +134,7 @@ export class ShopScene extends BaseScene {
     uiId(pz, 'shop.purse');
     pz.on('pointerup', () => showTooltip(this, t('econ.purseTip'), pz));
     H.add(pz);
-    H.add(addText(this, left, 9, ellipsize(t('shop.title').toUpperCase(), VW - left - purseW - 12), 'red'));
+    H.add(addText(this, left, 9, ellipsize(t('shop.title'), VW - left - purseW - 12), 'red'));
     const ty = 29;
     const tabs = new Tabs(this, 4, ty, VW - 8, TABS.map((k) => t(`shop.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),
@@ -191,7 +191,7 @@ export class ShopScene extends BaseScene {
     const c = area.content;
     const w = VW - 8 - 4;
     let y = 0;
-    c.add(addText(this, 0, y, t('shop.consumables').toUpperCase(), 'red'));
+    c.add(addText(this, 0, y, t('shop.consumables'), 'red'));
     y += 11;
     const hint = wrapText(t('shop.consumablesHint'), w, 2);
     c.add(addText(this, 0, y, hint.lines.join('\n'), 'dim'));
@@ -205,9 +205,9 @@ export class ShopScene extends BaseScene {
       c.add(addPanel(this, 0, y, w, rowH, 'button'));
       c.add(new ItemIcon(this, 4, 4, { consumable: cd.id }, { qty: held, rarity: cd.use === 'battle' ? 'rare' : 'uncommon' }).setY(y + 4));
       const tx = 32;
-      c.add(addText(this, tx, y + 4, ellipsize(tOr(`consumable.${cd.id}.name`, cd.name).toUpperCase(), w - tx - 4), 'red'));
+      c.add(addText(this, tx, y + 4, ellipsize(tOr(`consumable.${cd.id}.name`, cd.name), w - tx - 4), 'red'));
       const sub = `${t('shop.today', { n: cap - (left ?? cap), cap })} · ${t('shop.held', { n: held })}`;
-      c.add(addText(this, tx, y + 15, ellipsize(sub.toUpperCase(), w - tx - 4), left === 0 ? 'red' : 'gold'));
+      c.add(addText(this, tx, y + 15, ellipsize(sub, w - tx - 4), left === 0 ? 'red' : 'gold'));
       c.add(addText(this, tx, y + 27, desc.lines.join('\n'), 'dim'));
       const by = y + rowH - SIZE.btnH - 4;
       const prices: [Currency, number | null][] = [['gold', cd.gold], ['drachmae', cd.drachmae]];
@@ -229,7 +229,7 @@ export class ShopScene extends BaseScene {
     }
     // cosmetics by slot: preview tiles
     y += 6;
-    c.add(addText(this, 0, y, t('shop.cosmetics').toUpperCase(), 'red'));
+    c.add(addText(this, 0, y, t('shop.cosmetics'), 'red'));
     y += 11;
     const ch = wrapText(t('shop.cosmeticsHint'), w, 2);
     c.add(addText(this, 0, y, ch.lines.join('\n'), 'dim'));
@@ -240,7 +240,7 @@ export class ShopScene extends BaseScene {
     for (const slot of d.cat.slots) {
       const list = d.cat.cosmetics.filter((x) => x.slot === slot);
       if (!list.length) continue;
-      c.add(addText(this, 0, y + 1, ellipsize(tOr(`shop.slot.${slot}`, slot).toUpperCase(), w), 'ink'));
+      c.add(addText(this, 0, y + 1, ellipsize(tOr(`shop.slot.${slot}`, slot), w), 'ink'));
       y += 11;
       list.forEach((cm, i) => {
         const tx = (i % cols) * (tw + SIZE.gap);
@@ -269,14 +269,14 @@ export class ShopScene extends BaseScene {
     c.add(g);
     c.add(this.add.image(x + Math.round((w - 28) / 2), y + 5, cosmeticTexture(this, cm.id, cm.slot)).setOrigin(0, 0));
     const light = equipped;
-    c.add(addText(this, x + w / 2, y + 38, ellipsize(cosmeticName(cm).toUpperCase(), w - 10), light ? 'light' : 'ink', 0.5));
+    c.add(addText(this, x + w / 2, y + 38, ellipsize(cosmeticName(cm), w - 10), light ? 'light' : 'ink', 0.5));
     let status: string;
     let font: 'light' | 'good' | 'dim' | 'ink' = 'ink';
     if (equipped) (status = t('shop.equipped')), (font = 'light');
     else if (owned) (status = t('econ.owned')), (font = 'good');
     else if (cm.drachmae === null) (status = cm.source === 'season_pass' ? t('shop.passOnly') : t('shop.notForSale')), (font = 'dim');
     else status = t('econ.dr', { n: cm.drachmae });
-    c.add(addText(this, x + w / 2, y + 49, ellipsize(status.toUpperCase(), w - 10), font, 0.5));
+    c.add(addText(this, x + w / 2, y + 49, ellipsize(status, w - 10), font, 0.5));
   }
 
   openCosmetic(cm: CosmeticInfo): void {
@@ -296,8 +296,8 @@ export class ShopScene extends BaseScene {
     c.add(g);
     c.add(this.add.image(Math.round(x + w / 2 - 28), y + 27, cosmeticTexture(this, cm.id, cm.slot)).setOrigin(0, 0).setScale(2));
     const line = `${tOr(`shop.slot.${cm.slot}`, cm.slot)}${cm.drachmae !== null && !owned ? ' · ' + t('econ.dr', { n: cm.drachmae }) : ''}`;
-    c.add(addText(this, x + w / 2, y + 92, ellipsize(line.toUpperCase(), w - 16), 'dim', 0.5));
-    if (cm.source === 'season_pass' && !owned) c.add(addText(this, x + w / 2, y + 103, ellipsize(t('shop.passOnly').toUpperCase(), w - 16), 'red', 0.5));
+    c.add(addText(this, x + w / 2, y + 92, ellipsize(line, w - 16), 'dim', 0.5));
+    if (cm.source === 'season_pass' && !owned) c.add(addText(this, x + w / 2, y + 103, ellipsize(t('shop.passOnly'), w - 16), 'red', 0.5));
     const by = m.y + m.h - 9 - SIZE.btnH;
     const bw = Math.floor((w - 12 - 6 - SIZE.gap) / 2);
     c.add(new Button(this, x + 6, by, bw, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
@@ -412,10 +412,10 @@ export class ShopScene extends BaseScene {
     // header: season, tier, XP, premium / claim all
     const hh = 64;
     this.page.add(addPanel(this, 4, top, w, hh, 'dark'));
-    const ends = addText(this, 4 + w - 5, top + 5, t('pass.endsIn', { d: days }).toUpperCase(), 'title', 1);
+    const ends = addText(this, 4 + w - 5, top + 5, t('pass.endsIn', { d: days }), 'title', 1);
     this.page.add(ends);
-    this.page.add(addText(this, 9, top + 5, ellipsize(`${t('pass.season', { n: p.season.id })} · ${t('pass.tierOf', { n: p.tier, max: p.tiers.length })}`.toUpperCase(), w - 14 - ends.width), 'gold'));
-    const xpT = addText(this, 4 + w - 5, top + 16, prog.maxed ? t('pass.maxed').toUpperCase() : t('pass.xp', { into: prog.into, need: prog.need }).toUpperCase(), 'title', 1);
+    this.page.add(addText(this, 9, top + 5, ellipsize(`${t('pass.season', { n: p.season.id })} · ${t('pass.tierOf', { n: p.tier, max: p.tiers.length })}`, w - 14 - ends.width), 'gold'));
+    const xpT = addText(this, 4 + w - 5, top + 16, prog.maxed ? t('pass.maxed') : t('pass.xp', { into: prog.into, need: prog.need }), 'title', 1);
     this.page.add(xpT);
     this.page.add(new Meter(this, 9, top + 18, Math.max(20, w - 14 - xpT.width - 4), 5, COLOR.xp).setValue(prog.frac, 1));
     const by = top + hh - SIZE.btnH - 6;
@@ -436,8 +436,8 @@ export class ShopScene extends BaseScene {
     // column titles and the tiers
     const ly = top + hh + 3;
     const cellW = Math.floor((w - 26 - 2 * SIZE.gap) / 2);
-    this.page.add(addText(this, 4 + 26 + cellW / 2, ly, t('pass.free').toUpperCase(), 'red', 0.5));
-    this.page.add(addText(this, 4 + 26 + SIZE.gap + cellW + cellW / 2, ly, t('pass.premium').toUpperCase(), FONT_EPIC, 0.5));
+    this.page.add(addText(this, 4 + 26 + cellW / 2, ly, t('pass.free'), 'red', 0.5));
+    this.page.add(addText(this, 4 + 26 + SIZE.gap + cellW + cellW / 2, ly, t('pass.premium'), FONT_EPIC, 0.5));
     const list = new ScrollList(this, this.page, 4, ly + 11, w, VH - ly - 11 - 4, {
       count: p.tiers.length,
       rowH: 34,
@@ -487,9 +487,9 @@ export class ShopScene extends BaseScene {
     const tw = w - 36;
     const amount = r.kind === 'gold' || r.kind === 'drachmae' ? `${r.amount}` : r.kind === 'consumable' ? `${r.qty}x` : '';
     const label = r.kind === 'cosmetic' ? rewardName(r, d.cat) : r.kind === 'consumable' ? tOr(`consumable.${r.id}.name`, r.id) : t(r.kind === 'gold' ? 'common.gold' : 'econ.drachmae');
-    row.add(addText(this, tx, 6, ellipsize(`${amount} ${label}`.trim().toUpperCase(), tw), light ? 'light' : st === 'claimed' ? 'dim' : 'ink'));
+    row.add(addText(this, tx, 6, ellipsize(`${amount} ${label}`.trim(), tw), light ? 'light' : st === 'claimed' ? 'dim' : 'ink'));
     const stText = st === 'claimable' ? t('pass.claim') : st === 'claimed' ? t('pass.claimed') : st === 'premium' ? t('pass.premium') : t('pass.tier', { n: tier });
-    row.add(addText(this, tx, 18, ellipsize(stText.toUpperCase(), tw), light ? 'gold' : st === 'claimed' ? 'good' : 'dim'));
+    row.add(addText(this, tx, 18, ellipsize(stText, tw), light ? 'gold' : st === 'claimed' ? 'good' : 'dim'));
     if (st === 'claimed') row.add(addIcon(this, x + w - 15, h - 15, 'check'));
     if (st === 'premium') row.add(addIcon(this, x + w - 15, h - 15, 'close', 'D'));
     if (st === 'claimable') {
@@ -565,8 +565,8 @@ export class ShopScene extends BaseScene {
     const bal = addText(this, 38, y + 7, `${d.wallet.drachmae}`, 'title');
     bal.setFontSize(14);
     c.add(bal);
-    c.add(addText(this, 38 + bal.width + 5, y + 14, ellipsize(t('econ.drachmae').toUpperCase(), w - 46 - bal.width), 'gold'));
-    c.add(addText(this, 38, y + 28, ellipsize(t('wallet.balance').toUpperCase(), w - 42), 'title'));
+    c.add(addText(this, 38 + bal.width + 5, y + 14, ellipsize(t('econ.drachmae'), w - 46 - bal.width), 'gold'));
+    c.add(addText(this, 38, y + 28, ellipsize(t('wallet.balance'), w - 42), 'title'));
     y += 44;
     if (!d.wallet.canSpend) {
       const ws = wrapText(t('wallet.cannotSpend'), w, 2);
@@ -577,7 +577,7 @@ export class ShopScene extends BaseScene {
     c.add(addText(this, 0, y, note.lines.join('\n'), 'dim'));
     y += note.lines.length * LINE_H + 5;
     // packs
-    c.add(addText(this, 0, y, t('wallet.packs').toUpperCase(), 'red'));
+    c.add(addText(this, 0, y, t('wallet.packs'), 'red'));
     y += 11;
     const cols = 2;
     const pw = Math.floor((w - SIZE.gap) / cols);
@@ -591,7 +591,7 @@ export class ShopScene extends BaseScene {
       c.add(amt);
       const bonus = Math.round((pk.drachmae / pk.stars - 1) * 100);
       if (bonus > 0) addChip(this, c, px + pw - 4, py + 4, t('wallet.bonus', { n: bonus }), COLOR.good, pw - 30 - amt.width, true);
-      c.add(addText(this, px + 24, py + 16, ellipsize(t('econ.drachmae').toUpperCase(), pw - 28), 'dim'));
+      c.add(addText(this, px + 24, py + 16, ellipsize(t('econ.drachmae'), pw - 28), 'dim'));
       c.add(new Button(this, px + 4, py + ph - SIZE.btnH - 4, pw - 8, SIZE.btnH, { label: `${pk.stars}`, icon: 'star', variant: 'primary', id: `wallet.pack.${pk.id}`, tip: t('econ.stars', { n: pk.stars }), onClick: () => this.askPack(pk) }));
     });
     y += Math.ceil(d.cat.packs.length / cols) * (ph + SIZE.gap) + 4;
@@ -604,10 +604,10 @@ export class ShopScene extends BaseScene {
     c.add(new Button(this, lw + SIZE.gap, y, lw, SIZE.btnH, { label: t('wallet.refunds'), id: 'wallet.refunds', onClick: () => openExternalLink(legalUrl('refunds', lang())) }));
     y += SIZE.btnH + 8;
     // history
-    c.add(addText(this, 0, y, t('wallet.history').toUpperCase(), 'red'));
+    c.add(addText(this, 0, y, t('wallet.history'), 'red'));
     y += 11;
     if (!d.wallet.ledger.length) {
-      c.add(addText(this, 0, y, t('wallet.noHistory').toUpperCase(), 'dim'));
+      c.add(addText(this, 0, y, t('wallet.noHistory'), 'dim'));
       y += 11;
     }
     const now = Date.now();
@@ -615,9 +615,9 @@ export class ShopScene extends BaseScene {
       c.add(addPanel(this, 0, y, w, 22, 'inset'));
       const delta = addText(this, w - 5, y + 7, `${l.delta > 0 ? '+' : ''}${l.delta}`, l.delta >= 0 ? 'good' : 'red', 1);
       c.add(delta);
-      const when = addText(this, w - 10 - delta.width, y + 7, ago(l.at, now).toUpperCase(), 'dim', 1);
+      const when = addText(this, w - 10 - delta.width, y + 7, ago(l.at, now), 'dim', 1);
       c.add(when);
-      c.add(addText(this, 5, y + 7, ellipsize(tOr(`wallet.kind.${l.kind}`, l.kind).toUpperCase(), w - 20 - delta.width - when.width), 'ink'));
+      c.add(addText(this, 5, y + 7, ellipsize(tOr(`wallet.kind.${l.kind}`, l.kind), w - 20 - delta.width - when.width), 'ink'));
       y += 22 + 2;
     }
     area.setContentHeight(y + 4);

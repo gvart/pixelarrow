@@ -69,8 +69,8 @@ export class SettlementScene extends BaseScene {
 
     addScroll(this, this.ui, 8, 4, VW - 16, compact ? 28 : 34);
     const people = tOr(`culture.${def.culture}`, CULTURE_LABEL[def.culture]);
-    this.ui.add(addText(this, VW / 2, compact ? 9 : 11, ellipsize(def.name.toUpperCase(), VW - 32), 'red', 0.5));
-    this.ui.add(addText(this, VW / 2, compact ? 19 : 23, ellipsize(t(def.kind === 'town' ? 'town.town' : 'town.village', { people }).toUpperCase(), VW - 32), 'dim', 0.5));
+    this.ui.add(addText(this, VW / 2, compact ? 9 : 11, ellipsize(def.name, VW - 32), 'red', 0.5));
+    this.ui.add(addText(this, VW / 2, compact ? 19 : 23, ellipsize(t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), VW - 32), 'dim', 0.5));
 
     // status strip: gold, army, wounded
     const sy = artH + 2;
@@ -123,7 +123,7 @@ export class SettlementScene extends BaseScene {
     const camp = state.campaign;
     this.goldText.setText(`${camp.data.gold}`);
     const wounded = camp.wounded().length;
-    this.armyText.setText(ellipsize(`${camp.data.heroes.length}/${MAX_ARMY}${wounded ? ` ${t('town.hurt', { n: wounded })}` : ''}`.toUpperCase(), this.m.VW - 8 - this.armyText.x));
+    this.armyText.setText(ellipsize(`${camp.data.heroes.length}/${MAX_ARMY}${wounded ? ` ${t('town.hurt', { n: wounded })}` : ''}`, this.m.VW - 8 - this.armyText.x));
     this.buildBody();
   }
 
@@ -167,7 +167,7 @@ export class SettlementScene extends BaseScene {
       rowH,
       render: (i, row, rw) => {
         if (i === pool.length) {
-          row.add(addText(this, rw / 2, 8, ellipsize(t('town.newVolunteers', { h: refresh }).toUpperCase(), rw), 'dim', 0.5));
+          row.add(addText(this, rw / 2, 8, ellipsize(t('town.newVolunteers', { h: refresh }), rw), 'dim', 0.5));
           return;
         }
         const r = pool[i];
@@ -199,11 +199,11 @@ export class SettlementScene extends BaseScene {
         row.add(b);
         const tx = 38;
         const tw = rw - tx - bw - 8;
-        row.add(addText(this, tx, 3, ellipsize(`${hero.name} · ${t('hero.level', { n: hero.level })}`.toUpperCase(), tw), 'ink'));
-        row.add(addText(this, tx, 13, ellipsize(className(hero).toUpperCase(), tw), 'red'));
+        row.add(addText(this, tx, 3, ellipsize(`${hero.name} · ${t('hero.level', { n: hero.level })}`, tw), 'ink'));
+        row.add(addText(this, tx, 13, ellipsize(className(hero), tw), 'red'));
         const rt = roleTraits(cls.role);
         addChip(this, row, tx, 24, roleName(cls.role), roleColor(cls.role), tw);
-        row.add(addText(this, tx, 38, ellipsize(`+${rt.good}`.toUpperCase(), tw), 'good'));
+        row.add(addText(this, tx, 38, ellipsize(`+${rt.good}`, tw), 'good'));
       },
     });
   }
@@ -253,7 +253,7 @@ export class SettlementScene extends BaseScene {
       rowH,
       render: (i, row, rw, rh, area) => {
         if (i === wares.length) {
-          row.add(addText(this, rw / 2, 8, ellipsize(t('town.newWares', { h: refresh }).toUpperCase(), rw), 'dim', 0.5));
+          row.add(addText(this, rw / 2, 8, ellipsize(t('town.newWares', { h: refresh }), rw), 'dim', 0.5));
           return;
         }
         const ware = wares[i];
@@ -266,10 +266,10 @@ export class SettlementScene extends BaseScene {
         b.setEnabled(can, t('stash.noGold'));
         row.add(b);
         const tw = rw - 32 - bw - 6;
-        row.add(addText(this, 31, 5, ellipsize(itemName(it).toUpperCase(), tw), rarityFont(it.rarity)));
+        row.add(addText(this, 31, 5, ellipsize(itemName(it), tw), rarityFont(it.rarity)));
         const def = itemDef(it.def);
         const ml = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${m.text}`).join(' ');
-        row.add(addText(this, 31, 16, ellipsize(`${t(`slot.${def.slot}` as TKey)} · ${ml}`.toUpperCase(), tw), 'dim'));
+        row.add(addText(this, 31, 16, ellipsize(`${t(`slot.${def.slot}` as TKey)} · ${ml}`, tw), 'dim'));
       },
     });
   }
@@ -352,7 +352,7 @@ export class SettlementScene extends BaseScene {
     const actionsH = (SIZE.btnH + SIZE.gap) * (town ? 2 : 1) + 4;
     let cy = y;
     const head = wounded.length ? `${t('town.wounded')}: ${wounded.length}` : t('town.allFit');
-    this.body.add(addText(this, VW / 2, cy + 1, ellipsize(head.toUpperCase(), w), wounded.length ? 'red' : 'good', 0.5));
+    this.body.add(addText(this, VW / 2, cy + 1, ellipsize(head, w), wounded.length ? 'red' : 'good', 0.5));
     cy += 12;
     // the wounded list, the healing rate under it when there is room
     const room = y + h - actionsH - cy;
@@ -367,9 +367,9 @@ export class SettlementScene extends BaseScene {
           const hero = wounded[i];
           row.add(addPanel(this, 0, 0, rw, rh, 'inset'));
           row.add(this.add.image(2, 1, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0));
-          const hrs = addText(this, rw - 4, 9, t('town.restHours', { h: Math.ceil(hero.wound) }).toUpperCase(), 'red', 1);
+          const hrs = addText(this, rw - 4, 9, t('town.restHours', { h: Math.ceil(hero.wound) }), 'red', 1);
           row.add(hrs);
-          row.add(addText(this, 29, 9, ellipsize(hero.name.toUpperCase(), rw - 33 - hrs.width - 4), 'ink'));
+          row.add(addText(this, 29, 9, ellipsize(hero.name, rw - 33 - hrs.width - 4), 'ink'));
         },
       });
       cy += listH + 3;

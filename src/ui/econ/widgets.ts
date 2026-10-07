@@ -89,7 +89,7 @@ export function addPurse(scene: Phaser.Scene, parent: Phaser.GameObjects.Contain
 export function addEconState(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, s: EconState | 'loading', onRetry: () => void): void {
   if (s === 'loading') {
     parent.add(addPanel(scene, x, y, w, h, 'inset'));
-    const tx = addText(scene, x + w / 2, y + h / 2 - 4, ellipsize(t('econ.loading').toUpperCase(), w - 8), 'dim', 0.5);
+    const tx = addText(scene, x + w / 2, y + h / 2 - 4, ellipsize(t('econ.loading'), w - 8), 'dim', 0.5);
     parent.add(tx);
     scene.tweens.add({ targets: tx, alpha: { from: 1, to: 0.35 }, duration: 500, yoyo: true, repeat: -1 });
     return;

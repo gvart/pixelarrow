@@ -188,7 +188,7 @@ export class ResultsScene extends BaseScene {
     c.add(title);
     const sub: string[] = [r.vs];
     if (r.verified !== null) sub.push(t(r.verified ? 'results.verified' : 'results.unverified'));
-    const subT = addText(this, 0, h / 2 - 12, ellipsize(sub.join(' · ').toUpperCase(), w - 10), win ? 'light' : 'dim', 0.5);
+    const subT = addText(this, 0, h / 2 - 12, ellipsize(sub.join(' · '), w - 10), win ? 'light' : 'dim', 0.5);
     uiFrame(subT, c, w, h, -w / 2, -h / 2);
     c.add(subT);
     if (!this.seen.has('summary')) {
@@ -369,11 +369,11 @@ export class ResultsScene extends BaseScene {
     const tw = w - tx - 6;
     const ty = y + Math.max(4, Math.round((h - 41) / 2));
     c.add(addIcon(this, tx, ty - 2, 'star'));
-    c.add(addText(this, tx + 14, ty, ellipsize(t('results.mvp').toUpperCase(), tw - 14), 'red'));
+    c.add(addText(this, tx + 14, ty, ellipsize(t('results.mvp'), tw - 14), 'red'));
     const cls = mvp.hero ? heroClass(mvp.hero) : null;
-    c.add(addText(this, tx, ty + 11, ellipsize(mvp.name.toUpperCase(), tw), 'ink'));
-    if (cls) c.add(addText(this, tx, ty + 21, ellipsize(tOr(`class.${cls.id}.name`, cls.name).toUpperCase(), tw), 'dim'));
-    c.add(addText(this, tx, ty + (cls ? 31 : 21), ellipsize(t('results.mvpLine', { kills: t('results.kills', { n: mvp.kills }), dmg: mvp.dmg }).toUpperCase(), tw), 'good'));
+    c.add(addText(this, tx, ty + 11, ellipsize(mvp.name, tw), 'ink'));
+    if (cls) c.add(addText(this, tx, ty + 21, ellipsize(tOr(`class.${cls.id}.name`, cls.name), tw), 'dim'));
+    c.add(addText(this, tx, ty + (cls ? 31 : 21), ellipsize(t('results.mvpLine', { kills: t('results.kills', { n: mvp.kills }), dmg: mvp.dmg }), tw), 'good'));
     return y + h + 5;
   }
 
@@ -408,13 +408,13 @@ export class ResultsScene extends BaseScene {
     const tx = 23;
     const tw = w - tx - right - 4;
     const lvNow = this.levelOf(h);
-    row.add(addText(this, tx, 4, ellipsize(h.name.toUpperCase(), tw - 24), h.died ? 'dim' : 'red'));
+    row.add(addText(this, tx, 4, ellipsize(h.name, tw - 24), h.died ? 'dim' : 'red'));
     const lv = addText(this, tx + tw, 4, t('battle.lv', { n: lvNow.level }), 'dim', 1);
     row.add(lv);
     const rx = w - 4;
     if (h.died) {
       row.add(addIcon(this, tx, 14, 'skull', 'D'));
-      row.add(addText(this, tx + 15, 16, ellipsize(t('results.kills', { n: h.kills }).toUpperCase(), tw - 15), 'dim'));
+      row.add(addText(this, tx + 15, 16, ellipsize(t('results.kills', { n: h.kills }), tw - 15), 'dim'));
       row.add(addText(this, rx, 10, t('results.fallen'), 'red', 1));
       return;
     }
@@ -427,7 +427,7 @@ export class ResultsScene extends BaseScene {
     this.drawXp(h.heroId);
     row.add(addText(this, rx, 4, t('results.xp', { n: h.xp }), 'good', 1));
     const status = h.levelsGained > 0 ? { s: t('results.lvUp', { n: h.levelBefore + h.levelsGained }), f: 'gold' as const } : h.wounded ? { s: t('results.wounded'), f: 'red' as const } : { s: t('results.kills', { n: h.kills }), f: 'dim' as const };
-    row.add(addText(this, rx, 15, ellipsize(status.s.toUpperCase(), right - 2, status.f === 'gold'), status.f, 1));
+    row.add(addText(this, rx, 15, ellipsize(status.s, right - 2, status.f === 'gold'), status.f, 1));
     if (h.wounded) row.add(addIcon(this, rx - measureText(status.s) - 14, 13, 'cross'));
   }
 
@@ -468,7 +468,7 @@ export class ResultsScene extends BaseScene {
       g.fillStyle(0xffffff, 0.3);
       g.fillRect(x + 1, y + 1, fw, 1);
     }
-    r.lv.setText(t('battle.lv', { n: level }).toUpperCase());
+    r.lv.setText(t('battle.lv', { n: level }));
   }
 
   // ---- spoils
@@ -508,7 +508,7 @@ export class ResultsScene extends BaseScene {
     const r = this.report;
     if (!this.counter) return;
     const s = r.lootInStash ? t('results.inStash') : r.picks > 0 ? t('results.pick', { n: this.chosen.size, max: r.picks }) : '';
-    this.counter.setText(ellipsize(s.toUpperCase(), this.m.VW - 16, true));
+    this.counter.setText(ellipsize(s, this.m.VW - 16, true));
   }
 
   /** Turn the next hidden card over every 0.35 s. */
@@ -571,12 +571,12 @@ export class ResultsScene extends BaseScene {
     c.add(addPanel(this, 0, 0, w, h, sel ? 'buttonSel' : 'button'));
     c.add(this.add.rectangle(2, 2, w - 4, 2, RARITY_COLOR[rar]).setOrigin(0, 0));
     c.add(new ItemIcon(this, Math.round((w - 24) / 2), 6, { item: it }, { tip: false }));
-    const lines = wrapText(subjectName({ item: it }).toUpperCase(), w - 6, 2, sel).lines;
+    const lines = wrapText(subjectName({ item: it }), w - 6, 2, sel).lines;
     const name = addText(this, w / 2, lines.length > 1 ? 32 : 37, lines.join('\n'), sel ? 'light' : 'ink', 0.5);
     name.setCenterAlign();
     uiFrame(name, c, w, h);
     c.add(name);
-    const sub = addText(this, w / 2, 52, ellipsize(`${t(`rarity.${rar}` as TKey)} ${Math.round(it.cond)}%`.toUpperCase(), w - 6, sel), sel ? 'light' : 'dim', 0.5);
+    const sub = addText(this, w / 2, 52, ellipsize(`${t(`rarity.${rar}` as TKey)} ${Math.round(it.cond)}%`, w - 6, sel), sel ? 'light' : 'dim', 0.5);
     uiFrame(sub, c, w, h);
     c.add(sub);
     if (sel) c.add(addIcon(this, w - 14, 4, 'check', 'L'));
@@ -618,8 +618,8 @@ export class ResultsScene extends BaseScene {
     const { x, y, w } = md.body;
     md.c.add(new ItemIcon(this, x, y, { item: it }));
     const tw = w - 30;
-    md.c.add(addText(this, x + 30, y + 2, ellipsize(`${t(`rarity.${rar}` as TKey)} ${t(`slot.${def.slot}` as TKey)}`.toUpperCase(), tw), 'ink'));
-    md.c.add(addText(this, x + 30, y + 13, ellipsize(t('results.inspect.cond', { n: Math.round(it.cond) }).toUpperCase(), tw), 'dim'));
+    md.c.add(addText(this, x + 30, y + 2, ellipsize(`${t(`rarity.${rar}` as TKey)} ${t(`slot.${def.slot}` as TKey)}`, tw), 'ink'));
+    md.c.add(addText(this, x + 30, y + 13, ellipsize(t('results.inspect.cond', { n: Math.round(it.cond) }), tw), 'dim'));
     let cy = y + 28;
     // compare with the best item in that slot among the army
     const mine = this.bestEquipped(def.slot);

@@ -73,7 +73,7 @@ const sceneText = (page, k) =>
     const out = [];
     const walk = (list) => list.forEach((o) => (o.text !== undefined && out.push(o.text), o.list && walk(o.list)));
     walk(window.__game.scene.getScene(key).children.list);
-    return out.join(' ');
+    return out.join(' ').toUpperCase();
   }, k);
 const active = (page, k) => ev(page, (key) => window.__game.scene.isActive(key), k);
 

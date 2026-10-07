@@ -148,8 +148,10 @@ Fonts (`FontKey`): `ink` (body), `red` (titles), `dim` (secondary), `light`
 - The language: `?lang=ru` in the URL, else the player's setting
   (Settings → Language: Auto / English / Русский), else Telegram's
   `language_code`, else the browser. Changing it rebuilds the screen.
-- The font has Latin, digits, punctuation, Cyrillic (А-Я, Ё; lower case maps
-  to upper case) and `… — – « » × № · &`.
+- The font has Latin and Cyrillic in upper and lower case (5 px x-height,
+  descenders inside the 9 px line), digits, punctuation and
+  `… — – « » × № · &`. Text renders in the case it is given: write strings in
+  sentence case and do not upper-case them for display.
 
 ## Layout check
 

@@ -187,7 +187,7 @@ export class MarketScene extends BaseScene {
     uiId(pz, 'market.purse');
     pz.on('pointerup', () => showTooltip(this, t('econ.purseTip'), pz));
     H.add(pz);
-    H.add(addText(this, left, 9, ellipsize(t('market.title').toUpperCase(), VW - left - purseW - 12), 'red'));
+    H.add(addText(this, left, 9, ellipsize(t('market.title'), VW - left - purseW - 12), 'red'));
     const ty = 29;
     const tabs = new Tabs(this, 4, ty, VW - 8, TABS.map((k) => t(`market.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),
@@ -313,10 +313,10 @@ export class MarketScene extends BaseScene {
     const tx = 33;
     const tw = rw - tx - bw - 8;
     const font = l.kind === 'item' ? rarityFont(l.rarity) : 'ink';
-    row.add(addText(this, tx, 5, ellipsize(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`.toUpperCase(), tw), font));
+    row.add(addText(this, tx, 5, ellipsize(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, tw), font));
     const left = timeLeft(l.expiresAt, now);
     const sub = `${l.seller.name ?? '?'} · ${left.ms ? left.text : t('market.expired')}`;
-    row.add(addText(this, tx, 17, ellipsize(sub.toUpperCase(), tw), 'dim'));
+    row.add(addText(this, tx, 17, ellipsize(sub, tw), 'dim'));
   }
 
   openListing(b: Base, l: MarketListing): void {
@@ -353,14 +353,14 @@ export class MarketScene extends BaseScene {
     const m = openModal(this, { title: name, w, h });
     const { c, x, y } = m;
     c.add(new ItemIcon(this, x + 8, y + 24, s, { size: 26, qty, tip: false }));
-    c.add(addText(this, x + 40, y + 31, ellipsize(`${qty}x ${name}`.toUpperCase(), inner - 34), 'ink'));
+    c.add(addText(this, x + 40, y + 31, ellipsize(`${qty}x ${name}`, inner - 34), 'ink'));
     let cy = y + 56;
     if (desc.lines.length) {
       c.add(addText(this, x + 8, cy, desc.lines.join('\n'), 'ink'));
       cy += desc.lines.length * LINE_H + 2;
     }
     for (const n of notes) {
-      c.add(addText(this, x + 8, cy, ellipsize(n.text.toUpperCase(), inner), n.font ?? 'dim'));
+      c.add(addText(this, x + 8, cy, ellipsize(n.text, inner), n.font ?? 'dim'));
       cy += LINE_H;
     }
     const by = m.y + m.h - 8 - SIZE.btnH;
@@ -470,7 +470,7 @@ export class MarketScene extends BaseScene {
       addEconState(this, this.page, 4, top, w, VH - top - 4, 'loading', () => {});
       return;
     }
-    this.page.add(addText(this, VW / 2, top + 1, ellipsize(t('market.mineHead', { n: mine.open, max: mine.maxOpen }).toUpperCase(), w), 'red', 0.5));
+    this.page.add(addText(this, VW / 2, top + 1, ellipsize(t('market.mineHead', { n: mine.open, max: mine.maxOpen }), w), 'red', 0.5));
     const y = top + 13;
     const h = VH - y - 4;
     if (!mine.listings.length) {
@@ -494,9 +494,9 @@ export class MarketScene extends BaseScene {
         if (act === 'cancel') row.add(new Button(this, rw - bw - 3, 4, bw, SIZE.btnH, { icon: 'close', label: t('market.cancel'), iconOnly: true, variant: 'destructive', id: 'market.cancelRow', onClick: () => this.askCancel(l) }));
         const right = rw - bw - (bw ? 7 : 4);
         const cw = addChip(this, row, right, 4, t(`market.status.${status}` as TKey), colors[status] ?? 0x8a7a6a, 60, true);
-        row.add(addText(this, tx, 5, ellipsize(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`.toUpperCase(), right - cw - 4 - tx), l.kind === 'item' ? rarityFont(l.rarity) : 'ink'));
+        row.add(addText(this, tx, 5, ellipsize(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, right - cw - 4 - tx), l.kind === 'item' ? rarityFont(l.rarity) : 'ink'));
         const sub = `${priceText(l.price, l.currency)} · ${t('market.youGet', { n: sellerGets(l.price, b.cat.market.feeRate) })}`;
-        row.add(addText(this, tx, 18, ellipsize(sub.toUpperCase(), right - tx), 'dim'));
+        row.add(addText(this, tx, 18, ellipsize(sub, right - tx), 'dim'));
       },
     });
     this.areas.push(list);
@@ -591,20 +591,20 @@ export class MarketScene extends BaseScene {
     let cy = m.y + 24;
     const subj: IconSubject = s.kind === 'item' ? { item: s.item } : s.kind === 'resource' ? { resource: s.id } : { consumable: s.id };
     c.add(s.kind === 'item' ? bigItemIcon(this, x + 8, cy, s.item, 26) : new ItemIcon(this, x + 8, cy, subj, { size: 26, qty: have, tip: false }));
-    c.add(addText(this, x + 40, cy + 3, ellipsize(name.toUpperCase(), inner - 34), s.kind === 'item' ? rarityFont(rarity) : 'ink'));
-    c.add(addText(this, x + 40, cy + 14, ellipsize(t('stash.worth', { n: unitValue * qty }).toUpperCase(), inner - 34), 'dim'));
+    c.add(addText(this, x + 40, cy + 3, ellipsize(name, inner - 34), s.kind === 'item' ? rarityFont(rarity) : 'ink'));
+    c.add(addText(this, x + 40, cy + 14, ellipsize(t('stash.worth', { n: unitValue * qty }), inner - 34), 'dim'));
     cy += 32;
     const reopen = () => {
       m.close();
       this.openSellForm(b, s, { qty, currency, price, town });
     };
     const stepper = (label: string, value: string, onMinus: () => void, onPlus: () => void, id: string) => {
-      c.add(addText(this, x + 8, cy, ellipsize(label.toUpperCase(), inner), 'dim'));
+      c.add(addText(this, x + 8, cy, ellipsize(label, inner), 'dim'));
       cy += 10;
       c.add(new Button(this, x + 8, cy, 26, SIZE.btnH, { label: '-', tip: t('market.less'), id: `${id}.minus`, onClick: onMinus }));
       c.add(new Button(this, x + 8 + inner - 26, cy, 26, SIZE.btnH, { label: '+', tip: t('market.moreBtn'), id: `${id}.plus`, onClick: onPlus }));
       c.add(addPanel(this, x + 8 + 26 + SIZE.gap, cy, inner - 52 - 2 * SIZE.gap, SIZE.btnH, 'inset'));
-      c.add(addText(this, x + 8 + inner / 2, cy + 8, ellipsize(value.toUpperCase(), inner - 60), 'ink', 0.5));
+      c.add(addText(this, x + 8 + inner / 2, cy + 8, ellipsize(value, inner - 60), 'ink', 0.5));
       cy += SIZE.btnH + 2;
     };
     if (s.kind !== 'item') {
@@ -612,7 +612,7 @@ export class MarketScene extends BaseScene {
       stepper(t('market.qty'), `${qty}`, () => ((qty = Math.max(1, qty - qs)), reopen()), () => ((qty = Math.min(maxQty, qty + qs)), reopen()), 'market.qty');
     }
     // currency toggle
-    c.add(addText(this, x + 8, cy, t('market.currency').toUpperCase(), 'dim'));
+    c.add(addText(this, x + 8, cy, t('market.currency'), 'dim'));
     cy += 10;
     const hw = Math.floor((inner - SIZE.gap) / 2);
     (['gold', 'drachmae'] as Currency[]).forEach((cur, i) =>
@@ -636,8 +636,8 @@ export class MarketScene extends BaseScene {
     stepper(`${t('market.price')} · ${t('market.bounds', { min: bounds[0], max: bounds[1] })}`, priceText(price, currency), () => ((price = clampPrice(price - priceStep(price - 1), bounds)), reopen()), () => ((price = clampPrice(price + priceStep(price), bounds)), reopen()), 'market.price');
     // fee and what the seller gets
     const fee = marketFee(price, b.cat.market.feeRate);
-    c.add(addText(this, x + 8, cy, ellipsize(t('market.fee', { fee }).toUpperCase(), inner), 'dim'));
-    c.add(addText(this, x + 8 + inner, cy, ellipsize(t('market.gets', { n: sellerGets(price, b.cat.market.feeRate) }).toUpperCase(), inner / 2), 'good', 1));
+    c.add(addText(this, x + 8, cy, ellipsize(t('market.fee', { fee }), inner), 'dim'));
+    c.add(addText(this, x + 8 + inner, cy, ellipsize(t('market.gets', { n: sellerGets(price, b.cat.market.feeRate) }), inner / 2), 'good', 1));
     cy += 12;
     // town
     const tn = towns[town];

@@ -161,7 +161,7 @@ export class OnlineArmyScene extends BaseScene {
         rx -= tx.width + 18;
       }
     }
-    H.add(addText(this, left, 9, ellipsize((this.garrisonHex ? t('oarmy.garrison') : t('oarmy.title')).toUpperCase(), rx - left - 4), 'red'));
+    H.add(addText(this, left, 9, ellipsize((this.garrisonHex ? t('oarmy.garrison') : t('oarmy.title')), rx - left - 4), 'red'));
     if (this.st !== 'ready' || !p) {
       this.clearBody();
       addEconState(this, this.body, 4, 30, VW - 8, VH - 34, this.st as EconState | 'loading', () => {
@@ -182,9 +182,9 @@ export class OnlineArmyScene extends BaseScene {
     const d = this.hexDetail;
     const others = (d?.garrison ?? []).filter((x) => !p.heroes.some((h) => h.hero.id === x.hero.id)).length;
     this.head.add(addPanel(this, 0, 26, VW, 26, 'dark'));
-    this.head.add(addText(this, 6, 31, ellipsize(t('oarmy.garrisonHint', { q: g.q, r: g.r }).toUpperCase(), VW - 12), 'gold'));
+    this.head.add(addText(this, 6, 31, ellipsize(t('oarmy.garrisonHint', { q: g.q, r: g.r }), VW - 12), 'gold'));
     const line = `${t('oarmy.stationed', { n: this.garrisonPick.size + others, max: ONLINE_RULES.maxGarrison })}${others ? ` · ${t('oarmy.clanMates', { n: others })}` : ''}`;
-    this.head.add(addText(this, 6, 41, ellipsize(line.toUpperCase(), VW - 12), 'title'));
+    this.head.add(addText(this, 6, 41, ellipsize(line, VW - 12), 'title'));
     return 54;
   }
 
@@ -207,9 +207,9 @@ export class OnlineArmyScene extends BaseScene {
       L.add(new Stage(this, 4, y0, sw, sh, h, { scale: 1 }));
       const tx = 4 + sw + 5;
       const tw = VW - tx - 5;
-      L.add(addText(this, tx, y0 + 1, ellipsize(h.name.toUpperCase(), tw - 44), 'title'));
+      L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 44), 'title'));
       addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
-      L.add(addText(this, tx, y0 + 11, ellipsize(className(h).toUpperCase(), tw), 'gold'));
+      L.add(addText(this, tx, y0 + 11, ellipsize(className(h), tw), 'gold'));
       const lvW = addChip(this, L, tx, y0 + 21, t('hero.level', { n: h.level }), 0x8c2f25, 40);
       const pw = addText(this, VW - 5, y0 + 23, t('hero.power', { n: powerRating(h) }), 'title', 1);
       L.add(pw);
@@ -229,20 +229,20 @@ export class OnlineArmyScene extends BaseScene {
         ),
       );
       const gx = tx + 4 * (gw + SIZE.gap);
-      if (VW - 5 - gx > 30) L.add(addText(this, gx + 2, gy + 7, ellipsize(groupName(h.group).toUpperCase(), VW - 5 - gx - 2), 'title'));
+      if (VW - 5 - gx > 30) L.add(addText(this, gx + 2, gy + 7, ellipsize(groupName(h.group), VW - 5 - gx - 2), 'title'));
       ss = 26;
       slotY = y0 + sh + 4;
     } else {
       L.add(this.add.image(4, y0, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
       const tx = 31;
       const tw = VW - tx - 5;
-      L.add(addText(this, tx, y0 + 1, ellipsize(h.name.toUpperCase(), tw - 42), 'title'));
+      L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 42), 'title'));
       addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
       const lvW = addChip(this, L, tx, y0 + 12, t('hero.level', { n: h.level }), 0x8c2f25, 40);
       const pw = addText(this, VW - 5, y0 + 14, `${powerRating(h)}`, 'title', 1);
       L.add(pw);
       const st = this.status(oh, p.now);
-      L.add(addText(this, tx + lvW + 3, y0 + 14, ellipsize((st?.text ?? className(h)).toUpperCase(), VW - 5 - pw.width - 4 - (tx + lvW + 3)), st ? FONT_RED_LIGHT : 'gold'));
+      L.add(addText(this, tx + lvW + 3, y0 + 14, ellipsize((st?.text ?? className(h)), VW - 5 - pw.width - 4 - (tx + lvW + 3)), st ? FONT_RED_LIGHT : 'gold'));
       ss = 22;
       slotY = y0 + 27;
     }
@@ -336,9 +336,9 @@ export class OnlineArmyScene extends BaseScene {
     addGroupBadge(this, row, right - 12, 3, h.group);
     const pw = addText(this, right, 18, `${powerRating(h)}`, sel ? 'light' : 'ink', 1);
     row.add(pw);
-    row.add(addText(this, x, 4, ellipsize(h.name.toUpperCase(), right - 16 - x), sel ? 'light' : 'ink'));
+    row.add(addText(this, x, 4, ellipsize(h.name, right - 16 - x), sel ? 'light' : 'ink'));
     const sub = st ? st.text : `${t('hero.level', { n: h.level })} ${cls.short}`;
-    const subT = addText(this, x, 17, ellipsize(sub.toUpperCase(), right - pw.width - 4 - x - (st ? 0 : 42)), sel ? 'light' : st ? 'red' : 'dim');
+    const subT = addText(this, x, 17, ellipsize(sub, right - pw.width - 4 - x - (st ? 0 : 42)), sel ? 'light' : st ? 'red' : 'dim');
     row.add(subT);
     if (!st) addStars(this, row, Math.min(x + subT.width + 4, right - pw.width - 4 - 39), 19, heroStars(h));
     if (oh.woundedUntil > now) row.add(addIcon(this, 9, 9, 'cross', 'L'));
@@ -446,8 +446,8 @@ export class OnlineArmyScene extends BaseScene {
     const rowH = 44;
     const m = openModal(this, { title: t('oarmy.recruitTitle'), w, h: Math.min(VH - 12, 26 + 22 + RECRUIT_ARCHETYPES.length * (rowH + SIZE.gap) + SIZE.btnH + 14) });
     const { c, x } = m;
-    c.add(addText(this, x + 8, m.y + 22, ellipsize(t('oarmy.recruitCost', { gold: cost.gold, food: cost.food }).toUpperCase(), inner), 'red'));
-    c.add(addText(this, x + 8, m.y + 32, ellipsize(t('oarmy.youHave', { gold: Math.floor(p.resources.gold), food: Math.floor(p.resources.food), rec: Math.floor(p.resources.recruits) }).toUpperCase(), inner), 'dim'));
+    c.add(addText(this, x + 8, m.y + 22, ellipsize(t('oarmy.recruitCost', { gold: cost.gold, food: cost.food }), inner), 'red'));
+    c.add(addText(this, x + 8, m.y + 32, ellipsize(t('oarmy.youHave', { gold: Math.floor(p.resources.gold), food: Math.floor(p.resources.food), rec: Math.floor(p.resources.recruits) }), inner), 'dim'));
     const can = p.resources.gold >= cost.gold && p.resources.food >= cost.food && p.resources.recruits >= 1 && p.heroes.length < ONLINE_RULES.maxArmy;
     const why = p.heroes.length >= ONLINE_RULES.maxArmy ? t('town.armyFull') : t('econ.noFunds');
     const by = m.y + m.h - 8 - SIZE.btnH;
@@ -476,9 +476,9 @@ export class OnlineArmyScene extends BaseScene {
         row.add(b);
         const tx = 38;
         const tw = rw - tx - bw - 8;
-        row.add(addText(this, tx, 4, ellipsize(className(hero).toUpperCase(), tw), 'red'));
+        row.add(addText(this, tx, 4, ellipsize(className(hero), tw), 'red'));
         addChip(this, row, tx, 15, roleName(cls.role), roleColor(cls.role), tw);
-        row.add(addText(this, tx, 30, ellipsize(`+${roleTraits(cls.role).good}`.toUpperCase(), tw), 'good'));
+        row.add(addText(this, tx, 30, ellipsize(`+${roleTraits(cls.role).good}`, tw), 'good'));
       },
     });
     c.once('destroy', () => list.destroy());

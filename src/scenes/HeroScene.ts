@@ -133,7 +133,7 @@ export class HeroScene extends BaseScene {
       L.add(addText(this, VW / 2, 9, t('hero.title'), 'red', 0.5));
       return;
     }
-    L.add(addText(this, Math.round((left + right) / 2), 9, ellipsize(h.name.toUpperCase(), right - left - 6), 'red', 0.5));
+    L.add(addText(this, Math.round((left + right) / 2), 9, ellipsize(h.name, right - left - 6), 'red', 0.5));
 
     // dark header: the stage with the slots, identity, XP (a parchment page below)
     const compact = this.compact;
@@ -159,11 +159,11 @@ export class HeroScene extends BaseScene {
       y = y0 + stageH + 4;
       // class and power
       const pwW = this.power(L, VW - 5, y, h);
-      L.add(addText(this, 5, y + 1, ellipsize(className(h).toUpperCase(), VW - 14 - pwW - 4), 'gold'));
+      L.add(addText(this, 5, y + 1, ellipsize(className(h), VW - 14 - pwW - 4), 'gold'));
       y += 12;
       const chipW = addChip(this, L, 5, y, roleName(cls.role), roleColor(cls.role), Math.floor(VW / 2));
       const traits = h.traits.map((k) => tOr(`trait.${k}.name`, TRAITS[k].name)).join(', ');
-      if (traits) L.add(addText(this, 5 + chipW + 4, y + 2, ellipsize(traits.toUpperCase(), VW - 14 - chipW - 4), 'title'));
+      if (traits) L.add(addText(this, 5 + chipW + 4, y + 2, ellipsize(traits, VW - 14 - chipW - 4), 'title'));
       y += 14;
       const need = xpToNext(h.level);
       const xpT = addText(this, VW - 5, y, t('hero.xp', { xp: Math.floor(h.xp), need }), 'title', 1);
@@ -178,13 +178,13 @@ export class HeroScene extends BaseScene {
       if (h.wound > 0) this.woundChip(L, 6, y0 + stageH - 15, sw - 4);
       const tx = 4 + sw + 5;
       const tw = VW - tx - 5;
-      L.add(addText(this, tx, y0 + 1, ellipsize(className(h).toUpperCase(), tw), 'gold'));
+      L.add(addText(this, tx, y0 + 1, ellipsize(className(h), tw), 'gold'));
       addChip(this, L, tx, y0 + 12, roleName(cls.role), roleColor(cls.role), tw);
       const lvW = addChip(this, L, tx, y0 + 26, t('hero.level', { n: h.level }), 0x8c2f25, 40);
       addStars(this, L, tx + lvW + 4, y0 + 28, heroStars(h));
       const need = xpToNext(h.level);
       L.add(new Meter(this, tx, y0 + 40, tw, 4, COLOR.xp).setValue(h.xp, need));
-      L.add(addText(this, VW - 5, y0 + 48, ellipsize(t('hero.power', { n: powerRating(h) }).toUpperCase(), tw), 'title', 1));
+      L.add(addText(this, VW - 5, y0 + 48, ellipsize(t('hero.power', { n: powerRating(h) }), tw), 'title', 1));
       y = y0 + stageH + 3;
       const slots: Slot[] = ['weapon', 'shield', 'helmet', 'armor', 'trinket'];
       const n = slots.length + (cls.mount ? 1 : 0);
@@ -283,7 +283,7 @@ export class HeroScene extends BaseScene {
     const w = VW - 8 - 3;
     let y = 0;
     // points header
-    c.add(addText(this, 0, y + 1, free > 0 ? t('hero.points', { n: free }).toUpperCase() : (h.points > 0 ? t('hero.preview') : t('hero.noPoints')).toUpperCase(), free > 0 ? 'gold' : 'dim', 0, w));
+    c.add(addText(this, 0, y + 1, free > 0 ? t('hero.points', { n: free }) : (h.points > 0 ? t('hero.preview') : t('hero.noPoints')), free > 0 ? 'gold' : 'dim', 0, w));
     y += 12;
     const next = previewAttrs(h, this.pending);
     ATTR_IDS.forEach((k) => {
@@ -292,8 +292,8 @@ export class HeroScene extends BaseScene {
       const val = h.attrs[k] + this.pending[k];
       c.add(addText(this, 40, y + 4, `${val}`, this.pending[k] ? 'good' : 'ink', 1));
       const descW = w - 46 - 2 * 24 - SIZE.gap - 6;
-      c.add(addText(this, 45, y + 4, ellipsize(t(`attr.${k}` as TKey).toUpperCase(), descW), 'ink'));
-      c.add(addText(this, 45, y + 14, ellipsize(t(`attr.${k}.desc` as TKey).toUpperCase(), descW), 'dim'));
+      c.add(addText(this, 45, y + 4, ellipsize(t(`attr.${k}` as TKey), descW), 'ink'));
+      c.add(addText(this, 45, y + 14, ellipsize(t(`attr.${k}.desc` as TKey), descW), 'dim'));
       const minus = new Button(this, w - 2 * 24 - SIZE.gap - 1, y + 2, 24, 22, { label: '-', tip: t('hero.lower'), id: `attr.${k}.minus`, onClick: () => this.removePoint(k) });
       minus.setEnabled(this.pending[k] > 0, t('hero.noPoints'));
       const plus = new Button(this, w - 24 - 1, y + 2, 24, 22, { label: '+', tip: t('hero.raise'), id: `attr.${k}.plus`, variant: free > 0 && val < ATTR_MAX ? 'primary' : 'secondary', onClick: () => this.addPoint(k) });
@@ -314,22 +314,22 @@ export class HeroScene extends BaseScene {
     }
     // record and traits
     y += 4;
-    c.add(addText(this, 0, y, t('hero.record').toUpperCase(), 'red'));
+    c.add(addText(this, 0, y, t('hero.record'), 'red'));
     y += 11;
     const rec = `${t('hero.kills')} ${h.kills}   ${t('hero.battles')} ${h.battles}`;
-    c.add(addText(this, 0, y, ellipsize(rec.toUpperCase(), w), 'ink'));
+    c.add(addText(this, 0, y, ellipsize(rec, w), 'ink'));
     y += 11;
-    c.add(addText(this, 0, y, (h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : t('hero.fit')).toUpperCase(), h.wound > 0 ? 'red' : 'good'));
+    c.add(addText(this, 0, y, (h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : t('hero.fit')), h.wound > 0 ? 'red' : 'good'));
     y += 13;
-    c.add(addText(this, 0, y, t('hero.traits').toUpperCase(), 'red'));
+    c.add(addText(this, 0, y, t('hero.traits'), 'red'));
     y += 11;
     if (!h.traits.length) {
-      c.add(addText(this, 0, y, t('hero.noTraits').toUpperCase(), 'dim'));
+      c.add(addText(this, 0, y, t('hero.noTraits'), 'dim'));
       y += 11;
     }
     for (const k of h.traits) {
       const tr = TRAITS[k];
-      c.add(addText(this, 0, y, ellipsize(tOr(`trait.${k}.name`, tr.name).toUpperCase(), w), tr.negative ? 'red' : 'ink'));
+      c.add(addText(this, 0, y, ellipsize(tOr(`trait.${k}.name`, tr.name), w), tr.negative ? 'red' : 'ink'));
       const wr = wrapText(tOr(`trait.${k}.desc`, tr.desc), w - 6, 2);
       c.add(addText(this, 6, y + 10, wr.lines.join('\n'), 'dim'));
       y += 10 + wr.lines.length * LINE_H + 3;
@@ -455,7 +455,7 @@ export class HeroScene extends BaseScene {
     let y = 0;
     const nextLvl = PERK_LEVELS.find((l) => l > h.level);
     const head = free > 0 ? t('hero.perk.free', { n: free }) : nextLvl ? t('hero.perk.nextAt', { n: nextLvl }) : t('hero.perkTree', { cls: className(h) });
-    c.add(addText(this, w / 2, y + 1, ellipsize(head.toUpperCase(), w), free > 0 ? 'gold' : 'dim', 0.5));
+    c.add(addText(this, w / 2, y + 1, ellipsize(head, w), free > 0 ? 'gold' : 'dim', 0.5));
     y += 13;
     const rowH = 34;
     const g = this.add.graphics();
@@ -502,9 +502,9 @@ export class HeroScene extends BaseScene {
       const tx = 57;
       const tw = w - tx - 4;
       const status = known ? t('hero.perk.learned') : open ? t('hero.perk.available') : blocker ? blockerText(blocker, tree, i) : '';
-      const st = addText(this, w - 4, ry + 4, ellipsize(status.toUpperCase(), Math.floor(tw / 2)), known ? 'good' : open ? 'gold' : 'dim', 1);
+      const st = addText(this, w - 4, ry + 4, ellipsize(status, Math.floor(tw / 2)), known ? 'good' : open ? 'gold' : 'dim', 1);
       c.add(st);
-      c.add(addText(this, tx, ry + 4, ellipsize(tOr(`perk.${id}.name`, p.name).toUpperCase(), tw - st.width - 4), known ? 'red' : 'ink'));
+      c.add(addText(this, tx, ry + 4, ellipsize(tOr(`perk.${id}.name`, p.name), tw - st.width - 4), known ? 'red' : 'ink'));
       const wr = wrapText(tOr(`perk.${id}.desc`, p.desc), tw, 2);
       c.add(addText(this, tx, ry + 14, wr.lines.join('\n'), 'dim'));
       // the whole row opens the perk too (beside the node)
@@ -533,7 +533,7 @@ export class HeroScene extends BaseScene {
     const m = openModal(this, { title: name, w, h: 26 + 16 + body.lines.length * LINE_H + 12 + SIZE.btnH + 12 });
     const { c, x, y } = m;
     c.add(addIcon(this, x + 10, y + 24, perkIcon(p)));
-    c.add(addText(this, x + 26, y + 26, ellipsize(`${tOr(`tree.${p.tree}`, TREES[p.tree].name)} · ${t('hero.level', { n: PERK_LEVELS[tier] })}`.toUpperCase(), w - 36), 'dim'));
+    c.add(addText(this, x + 26, y + 26, ellipsize(`${tOr(`tree.${p.tree}`, TREES[p.tree].name)} · ${t('hero.level', { n: PERK_LEVELS[tier] })}`, w - 36), 'dim'));
     c.add(addText(this, x + 10, y + 40, body.lines.join('\n'), 'ink'));
     const by = m.y + m.h - 9 - SIZE.btnH;
     const bw = Math.floor((w - 12 - 6 - SIZE.gap) / 2);
@@ -614,8 +614,8 @@ export class HeroScene extends BaseScene {
         const cw = addChip(this, c, w - 4, y + 4, t('hero.cooldownShort', { n: cd }), 0x5a4232, 60, true);
         right = w - 4 - cw - 4;
       }
-      c.add(addText(this, 32, y + 5, ellipsize(name.toUpperCase(), right - 32), r.has ? 'red' : 'dim'));
-      c.add(addText(this, 32, y + 15, ellipsize(`${isAb ? t('hero.ability') : t('hero.aura')}${r.source ? ' · ' + r.source : ''}`.toUpperCase(), w - 36), r.has ? 'gold' : 'dim'));
+      c.add(addText(this, 32, y + 5, ellipsize(name, right - 32), r.has ? 'red' : 'dim'));
+      c.add(addText(this, 32, y + 15, ellipsize(`${isAb ? t('hero.ability') : t('hero.aura')}${r.source ? ' · ' + r.source : ''}`, w - 36), r.has ? 'gold' : 'dim'));
       c.add(addText(this, 32, y + 26, wr.lines.join('\n'), r.has ? 'ink' : 'dim'));
       y += hh + SIZE.gap;
     }
