@@ -47,6 +47,32 @@ table below is the target the phases build towards.
 5. At the end the DO replays seed + order log with `src/sim`, writes the
    result, loot, XP and wounds to D1 and pushes them to both sides.
 
+## Online mode, phase 1 (landed)
+
+The seasonal hex war of [DESIGN_V2.md](DESIGN_V2.md) has its server
+foundations and a first client (see DESIGN.md "Online mode" and
+server/README.md "Online mode"):
+
+- Seasons (90 days, full reset, titles kept) and shards of ~500 players on a
+  seeded hex disc (~3.5k hexes) with resources, forts, capitals and
+  battlefield terrain; static hex data is never stored, only changed hexes.
+- Server-owned armies, gear and resources; every change is an endpoint that
+  validates it (D1 batches guarded by a profile revision).
+- Fog of war computed on the server; lazy income, energy, marches, wounds and
+  respawns (no alarms, no polling).
+- Neutral defenders on every unclaimed hex, sieges for strong hexes.
+- Async attacks with tickets: server seed and armies, a per-hex lock in the
+  shard Durable Object, replay verification before anything is applied.
+- Garrisons, clans with roles and Telegram invite links, shared clan land.
+- Presence and friendly live duels: lockstep relay through the shard DO with
+  hash desync checks and a verified result.
+
+Next for online: march-based attacks on distant hexes and scouting, player
+garrison battles that wake the defender (notifications), clan wars and
+treasuries, beasts and world bosses (the hex `occupant` column already allows
+`beast`), the town marketplace, live duels with stakes, season rewards in the
+shop, D1 clean-up of ended seasons, a rate limiter shared across isolates.
+
 ## Invariants the code must keep
 
 These hold today and must keep holding; they are what make the plan above possible.
@@ -85,7 +111,7 @@ These hold today and must keep holding; they are what make the plan above possib
    checks in the client.
 4. **Async PvP.** Attack another player's garrison army (bot-controlled by the
    server); results validated as in phase 3.
-5. **Shared world.** Region DOs hold the world map, territories and roaming
+5. **Shared world** (phase 1 landed as the seasonal hex shards above). Region DOs hold the world map, territories and roaming
    bands for everyone; presence and movement over hibernating WebSockets.
 6. **Clans.** Clan DOs, shared treasury, territory ownership, clan wars,
    chat.

@@ -26,6 +26,8 @@ export interface OnlineDeps {
   initData: () => string | null;
   /** Sign in with the DEV_AUTH test user (local `wrangler dev` only). */
   devAuth?: boolean;
+  /** Which DEV_AUTH test user (`?devuser=2` in dev builds, to try two players side by side). */
+  devUser?: { id: number; name: string };
   openInvoice?: (link: string) => Promise<InvoiceStatus>;
   debounceMs?: number;
   now?: () => number;
@@ -38,6 +40,7 @@ export type BuyResult = 'granted' | 'pending' | 'cancelled' | 'failed' | 'owned'
 export class Online {
   status: SyncStatus = 'local';
   playerName: string | null = null;
+  playerId: number | null = null;
   entitlements = new Set<string>();
   /** Whether replacing the running campaign is safe right now (not mid-battle). */
   canAdopt: () => boolean = () => true;
@@ -109,8 +112,9 @@ export class Online {
     this.authing = (async () => {
       try {
         const init = this.d.initData();
-        const r = init ? await this.d.api.authTelegram(init) : await this.d.api.authDev();
+        const r = init ? await this.d.api.authTelegram(init) : await this.d.api.authDev(this.d.devUser?.id, this.d.devUser?.name);
         this.playerName = r.player?.firstName ?? r.player?.username ?? null;
+        this.playerId = typeof r.player?.id === 'number' ? r.player.id : null;
         this.authFails = 0;
         void this.refreshEntitlements();
         return true;

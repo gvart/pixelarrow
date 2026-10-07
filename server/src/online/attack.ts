@@ -308,7 +308,7 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
   const stmts: D1PreparedStatement[] = [
     d
       .prepare("UPDATE battle_tickets SET status = 'used', apply_nonce = ?2, claim = ?3, finished_at = ?4, won = ?5 WHERE id = ?1 AND status = 'open'")
-      .bind(t.id, nonce, claimJson, now, captured ? 1 : 0),
+      .bind(t.id, nonce, claimJson, now, won ? 1 : 0),
     d
       .prepare(
         `UPDATE online_profiles SET gold = gold + ?3, food = food + ?4, wood = wood + ?5, bronze = bronze + ?6, recruits = recruits + ?7,

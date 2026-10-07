@@ -37,7 +37,9 @@ export interface TgWebApp {
     removeItem(key: string, cb?: (err: string | null, ok?: boolean) => void): void;
   };
   initData?: string;
-  initDataUnsafe?: { user?: { first_name?: string; username?: string } };
+  initDataUnsafe?: { user?: { first_name?: string; username?: string }; start_param?: string };
+  openTelegramLink?(url: string): void;
+  openLink?(url: string): void;
   openInvoice?(url: string, cb?: (status: InvoiceStatus) => void): void;
   onEvent?(ev: string, cb: (arg?: any) => void): void;
   offEvent?(ev: string, cb: (arg?: any) => void): void;
@@ -291,4 +293,32 @@ export function openInvoice(link: string): Promise<InvoiceStatus> {
       resolve('failed');
     }
   });
+}
+
+/**
+ * The Mini App launch parameter (t.me/<bot>/<app>?startapp=<param>), or the
+ * `startapp` query parameter of the page URL (bot /start buttons, browsers).
+ */
+export function startParam(): string | null {
+  const p = app?.initDataUnsafe?.start_param;
+  if (typeof p === 'string' && p) return p;
+  try {
+    const q = new URLSearchParams(location.search).get('startapp') ?? new URLSearchParams(location.search).get('tgWebAppStartParam');
+    return q || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Opens a t.me link inside Telegram (e.g. the share sheet); in a browser, a new tab. Returns false if nothing opened. */
+export function openTelegramLink(url: string): boolean {
+  try {
+    if (app?.openTelegramLink && app.isVersionAtLeast?.('6.1')) {
+      app.openTelegramLink(url);
+      return true;
+    }
+    return !!window.open(url, '_blank');
+  } catch {
+    return false;
+  }
 }

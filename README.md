@@ -74,6 +74,15 @@ API (no backend needed): checks the game stays playable with the API down
 (503 / unreachable), walks the Stars purchase flow and saves
 `docs/screenshots/20-shop.png`.
 
+### Online mode end to end
+
+`node scripts/online-e2e.mjs http://localhost:5173/` (with `wrangler dev` and
+`VITE_DEV_AUTH=1 npm run dev` running as below) drives two fake players
+(`?devuser=<n>` picks the DEV_AUTH test user) through joining the season, a
+server-verified attack, a clan formed through an invite link and a live
+lockstep duel, and saves `docs/screenshots/23-online-map.png`, `24-clan.png`
+and `25-duel.png`.
+
 ### Online features (cloud save, shop) locally
 
 The client talks to the Worker in `server/` on the same origin (`/api/*`,

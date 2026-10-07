@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { registerUiAssets, addText, uiMetrics } from '../ui/kit';
 import { registerMisc } from '../ui/sprites';
-import { initTelegram } from '../platform/telegram';
+import { initTelegram, startParam } from '../platform/telegram';
+import { inviteCodeFrom } from '../online/rules';
+import { setPendingInvite } from '../online/client';
 import { state } from '../state';
 
 export class BootScene extends Phaser.Scene {
@@ -18,7 +20,10 @@ export class BootScene extends Phaser.Scene {
     void (async () => {
       await initTelegram();
       await state.load();
-      this.scene.start('Menu');
+      // Opened through a clan invite link (startapp=clan_<code>): straight to the online mode.
+      const invite = inviteCodeFrom(startParam());
+      if (invite) setPendingInvite(invite);
+      this.scene.start(invite ? 'Online' : 'Menu', {});
     })();
   }
 }

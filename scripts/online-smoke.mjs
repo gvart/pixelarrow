@@ -92,6 +92,11 @@ for (const mode of ['503', 'abort']) {
   await ev(page, () => window.__game.scene.getScene('Menu').continueCampaign());
   await page.waitForTimeout(1500);
   check(`[${mode}] world map playable`, await active(page, 'World'));
+  await ev(page, () => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Online', {})));
+  await page.waitForTimeout(1500);
+  check(`[${mode}] online mode says unavailable`, (await sceneText(page, 'Online')).includes('ONLINE UNAVAILABLE'), (await sceneText(page, 'Online')).slice(0, 80));
+  await ev(page, () => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Menu')));
+  await page.waitForTimeout(800);
   await ev(page, () => window.__state.save());
   await page.waitForTimeout(500);
   check(`[${mode}] saved locally (CloudStorage)`, (await ev(page, () => window.__state.campaign.data.seq ?? 0)) >= 1);

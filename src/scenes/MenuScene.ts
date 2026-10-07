@@ -38,7 +38,7 @@ export class MenuScene extends BaseScene {
     const px = Math.round((VW - pw) / 2);
     const bh = 24;
     const gap = 5;
-    const panelH = bh * 4 + gap * 3 + 12;
+    const panelH = bh * 5 + gap * 4 + 12;
     const py = Math.min(Math.round(VH * 0.55), VH - 30 - 16 - panelH + 6);
     const top = 74;
     const room = py - 6 - top;
@@ -76,8 +76,9 @@ export class MenuScene extends BaseScene {
     cont.setSelected(state.hasSave);
     cont.setEnabled(state.hasSave);
     mk(1, 'New campaign', 'flag', () => (state.hasSave ? this.confirmReset() : this.newCampaign()));
-    mk(2, 'Shop', 'coin', () => this.openShop());
-    mk(3, 'Settings', 'gear', () => this.openSettings());
+    mk(2, 'Online', 'swords', () => this.scene.start('Online', {}));
+    mk(3, 'Shop', 'coin', () => this.openShop());
+    mk(4, 'Settings', 'gear', () => this.openSettings());
 
     // Footer status
     const fy = VH - 30;

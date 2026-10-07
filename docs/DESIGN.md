@@ -422,6 +422,87 @@ retried with backoff. Outside Telegram (no `initData`) nothing is requested.
   log, `deployOrders` and claim (winner, ticks, retreated, hash) go to
   `POST /api/battle/verify`, fire-and-forget; mismatches are only logged (v1).
 
+## Online mode: seasonal hex war (`src/online`, `src/scenes/online`, `server/src/online`)
+
+The main game of [DESIGN_V2.md](DESIGN_V2.md), phase 1. It sits next to the
+offline campaign (menu → **Online**) and shares nothing with it: the online
+army, its heroes, gear and resources live on the server (D1) and change only
+through validated endpoints (protocol: [server/README.md](../server/README.md#online-mode-seasonal-hex-war)).
+Offline progress does not transfer. Without Telegram, or when the API is down
+or not configured (503), the Online screen says **Online unavailable** and the
+campaign is untouched.
+
+**World.** A season (90 days) has shards of ~500 players; a shard is a hex
+disc of radius 34 (~3.5k hexes, axial q/r) generated from the shard seed
+(`src/online/hex.ts`): sea toward the rim, highlands inland, plains,
+farmland, forest, hills, mines, towns, rare ruins, ~1–2% forts, and seven
+capitals (the centre and six around it). Each hex has a battlefield site that
+becomes the battle's terrain grid. Yields per hour: farmland food, forest wood,
+mines bronze, towns gold and recruits, forts and capitals a large bonus on
+top; +10% per adjacent hex held by the same clan (or player), up to +50%.
+Income accrues lazily from server time (capped at 24 h) and is collected with
+one tap. Season points: hex 1, fort 10, capital 100; at the season's end every
+shard is ranked into `season_rewards` (titles Archon for the best clan,
+Basileus, Strategos, Polemarch, Veteran) and the next season starts from
+nothing.
+
+**Neutral defenders** (`src/online/defenders.ts`): no hex is free. Farmland
+and plains: militia and brigands; forest: wolf packs and boars, or outlaw
+archers; hills: hill tribes (slingers, javelins, a bear); coast: pirates;
+mines and forts: deserter mercenaries; towns and capitals: city garrisons;
+ruins: cultists. Size and level grow with hex tier and with depth into the
+shard (homes are on the outer rings). Animals are placeholder soldiers
+(`arch: 'animal:wolf'`, unarmed, beefy attributes) until the classes pass
+gives them bodies. Losses persist until a respawn (6 h); towns, forts and
+capitals need 2/3/4 victories in a row (a siege that decays after 6 h). An
+owned hex nobody guards whose income was ignored for 72 h falls back to the
+neutrals.
+
+**Army, energy, marches.** A new player gets a home hex (protected), five
+heroes and a small purse. The field army stands on a hex; it marches through
+land not held by rivals along an A* path (6–12 min per hex by terrain, 1
+energy per hex; energy 100, +12/h). It attacks hexes next to it (10 energy);
+a capture moves it in. Heroes left in an owned (or clan) hex are its garrison
+(up to 12, the army must stand there); without one a small militia defends.
+Recruiting costs gold, food and a recruit point; gear moves between the
+stash and heroes on the server. Knocked-out heroes rest 2 h of real time;
+the dead are gone.
+
+**Fog of war.** The server only sends hexes within 3 of the player's and
+clan's land and armies; foreign garrisons are only sized from next door.
+
+**Attacks** are async: the server fixes the seed and both armies in a ticket
+(and locks the hex in the shard Durable Object), the client fights the battle
+in the normal battle scene against the bot AI and submits its order log; the
+server replays the stored setup with `src/sim` and only applies a matching
+result (both sides' casualties, XP, loot from enemies the attacker killed,
+siege progress or capture, plunder of uncollected income).
+
+**Clans**: one shard and season; leader, officers and members; invite links
+`t.me/<bot>/<app>?startapp=clan_<code>` shared through Telegram's share sheet
+(the game reads `start_param`, and the bot's `/start clan_<code>` opens the
+game with it). A newcomer joining by invite is placed in the clan's shard.
+Clan land is shared: members garrison each other's hexes and get the
+adjacency bonus.
+
+**Live duels**: friendly in this phase. Players online in the shard are listed
+in the duel lobby; a challenge accepted starts the same battle on both phones.
+The battle scene runs with a lockstep driver (`src/online/lockstep.ts`):
+deployment orders are echoed by the server in one order, battle orders are
+sealed into 2-tick turns two turns ahead (≈200–300 ms input delay), nobody
+simulates an unsealed turn, hashes are compared every 10 turns and the server
+replays the whole log at the end. No pause or speed-up in duels; the
+accepting player commands side 1 (their army deploys at the top).
+
+**Client** (`src/scenes/online`): `OnlineScene` (hex map with pan/pinch,
+owned / clan / rival colours, homes, forts, capitals, armies and the march
+route; hex panel with yields, defenders, siege, garrison and March / Attack /
+Garrison / Halt; income; duel lobby and challenges; results),
+`OnlineArmyScene` (heroes, groups, gear, stash, recruiting, choosing a
+garrison), `ClanScene`. The battle scene takes a `BattleSource`
+(`src/online/battleSource.ts`) instead of the campaign's pending battle, so
+everything the sim adds to `BattleSetup` (terrain today) flows through.
+
 ## Art pipeline (`src/art`)
 
 Everything is generated at boot from code; there are no image files.

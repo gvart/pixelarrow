@@ -11,7 +11,9 @@ import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import { formationSlots, rightOf, type FormationType } from '../sim/formation';
 import { dragFormation } from '../ui/dragFormation';
-import type { BattleSetup, Order, SimEvent, SimGroup, SimUnit } from '../sim/types';
+import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
+import type { TerrainGrid } from '../sim/terrain';
+import type { BattleSource } from '../online/battleSource';
 import { reportBattle, snapshotSetup } from '../platform/verify';
 import { generateEnemyArmy } from '../game/enemy';
 import { armySpec } from '../game/armySpec';
@@ -110,12 +112,22 @@ export class BattleScene extends BaseScene {
   private infoTip: Phaser.GameObjects.Container | null = null;
   private holdTimer: Phaser.Time.TimerEvent | null = null;
   private propTick = 0;
+  /** Online battle (attack or live duel) instead of the offline campaign's; see src/online/battleSource.ts. */
+  private src: BattleSource | null = null;
+  /** The side the local player commands (1 for the accepting player of a duel). */
+  private me: Side = 0;
+  private stallMs = 0;
+  private netBanner = false;
+
+  private get foe(): Side {
+    return this.me === 0 ? 1 : 0;
+  }
 
   constructor() {
     super('Battle');
   }
 
-  create(data: { fresh?: boolean }): void {
+  create(data: { fresh?: boolean; source?: BattleSource }): void {
     this.views = [];
     this.decals = [];
     this.tagMap = new Map();
@@ -136,25 +148,41 @@ export class BattleScene extends BaseScene {
     this.infoTip = null;
     this.holdTimer = null;
     this.propTick = 0;
+    this.stallMs = 0;
+    this.netBanner = false;
+    this.src = data?.source ?? null;
+    this.me = this.src?.side ?? 0;
     this.initUi();
 
     const camp = state.campaign;
-    if (data?.fresh || !state.pending) {
-      const seed = randomSeed();
-      const enemy = generateEnemyArmy(new Rng(seed ^ 0xa5a5a5a5), camp.data, camp.data.heroes, camp.data.won);
-      state.pending = { enemy, seed };
+    let heroes: Hero[];
+    let setup: BattleSetup;
+    if (this.src) {
+      // Online: the server fixed seed, armies and field; both sides' heroes come with it.
+      setup = JSON.parse(JSON.stringify(this.src.setup)) as BattleSetup;
+      const byId = new Map(this.src.heroes.map((h) => [h.id, h]));
+      heroes = setup.armies[this.me].units.map((u) => byId.get(u.heroId)!).filter(Boolean);
+      this.enemyHeroes = setup.armies[this.foe].units.map((u) => byId.get(u.heroId)!).filter(Boolean);
+    } else {
+      if (data?.fresh || !state.pending) {
+        const seed = randomSeed();
+        const enemy = generateEnemyArmy(new Rng(seed ^ 0xa5a5a5a5), camp.data, camp.data.heroes, camp.data.won);
+        state.pending = { enemy, seed };
+      }
+      const pending = state.pending!;
+      this.enemyHeroes = pending.enemy.heroes;
+      // Wounded heroes sit this one out.
+      heroes = camp.fitHeroes();
+      // The battlefield comes from the place on the map where the armies met.
+      const site = pending.site ?? randomSite(new Rng(pending.seed ^ 0x51735c1));
+      const terrain = generateBattlefield(pending.seed, site);
+      setup = { seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)], terrain };
     }
-    const pending = state.pending!;
-    this.enemyHeroes = pending.enemy.heroes;
-    // Wounded heroes sit this one out.
-    const heroes = camp.fitHeroes();
-    // The battlefield comes from the place on the map where the armies met.
-    const site = pending.site ?? randomSite(new Rng(pending.seed ^ 0x51735c1));
-    const terrain = generateBattlefield(pending.seed, site);
-    const setup: BattleSetup = { seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)], terrain };
-    this.verifySetup = snapshotSetup(setup);
+    const terrain: TerrainGrid = setup.terrain ?? { w: 0, h: 0, cells: 'flat' };
+    this.verifySetup = this.src ? null : snapshotSetup(setup);
     this.deployOrders = undefined;
     this.sim = new Battle(setup);
+    this.src?.lockstep?.attach(this.sim);
 
     // ---- world
     this.world = this.add.layer();
@@ -184,7 +212,7 @@ export class BattleScene extends BaseScene {
       const hero = heroById.get(u.heroId)!;
       const key = ensureDoll(this, dollFromHero(hero));
       const shadow = this.add.image(0, 0, 'shadow').setAlpha(0.3).setDepth(-60000);
-      const ring = this.add.image(0, 0, u.side === 0 ? 'ring_sel' : 'ring_enemy').setDepth(-70000).setVisible(false);
+      const ring = this.add.image(0, 0, u.side === this.me ? 'ring_sel' : 'ring_enemy').setDepth(-70000).setVisible(false);
       const spr = this.add.sprite(0, 0, key, dollFrame(0, 0)).setOrigin(0.5, 38 / 40);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
       this.world.add([shadow, ring, spr, flag]);
@@ -225,7 +253,7 @@ export class BattleScene extends BaseScene {
         openSettings(this);
       },
     });
-    this.showBanner(`Deploy vs ${pending.label ?? CULTURE_LABEL[pending.enemy.culture]} - ${terrain.name ?? ''}`, 3000);
+    this.showBanner(`Deploy ${this.vsLabel()}${terrain.name ? ` - ${terrain.name}` : ''}`, 3000);
   }
 
   /** Field coordinates -> world pixels (also used by the screenshot/smoke scripts). */
@@ -304,7 +332,7 @@ export class BattleScene extends BaseScene {
         ey += u.y;
         en++;
       }
-      if (u.side === 0) {
+      if (u.side === this.me) {
         px += u.x;
         py += u.y;
         pn++;
@@ -363,14 +391,22 @@ export class BattleScene extends BaseScene {
   // ===================================================================== loop
 
   update(_time: number, delta: number): void {
+    const ls = this.src?.lockstep;
+    if (ls) this.updateNet(ls, delta);
     if (this.sim.phase === 'battle' && !this.paused) {
       this.acc += Math.min(0.25, delta / 1000) * this.speed;
       let steps = 0;
       while (this.acc >= DT && steps < 10 && this.sim.phase === 'battle') {
+        // Live duel: never run ahead of the turns the server sealed.
+        if (ls && !ls.canStep()) {
+          this.acc = Math.min(this.acc, DT);
+          break;
+        }
         for (const v of this.views) {
           v.px = v.u.x;
           v.py = v.u.y;
         }
+        ls?.beforeStep();
         this.sim.step();
         this.handleEvents(this.sim.drainEvents());
         this.acc -= DT;
@@ -462,7 +498,7 @@ export class BattleScene extends BaseScene {
         this.lastSparkle = this.time.now;
         this.fx.sparkle(rx, ry - 20, AURAS.steady.color, 2);
       }
-      const selected = u.side === 0 && (u.group === this.selGroup || u.id === this.selUnit);
+      const selected = u.side === this.me && (u.group === this.selGroup || u.id === this.selUnit);
       v.ring.setVisible(selected);
       if (selected) v.ring.setTexture(u.id === this.selUnit ? 'ring_one' : 'ring_sel');
       v.flag.setVisible(u.state === 'routing');
@@ -522,7 +558,7 @@ export class BattleScene extends BaseScene {
     const g = this.boxes;
     g.clear();
     if (this.sim.phase === 'deploy') {
-      const z = this.sim.deployZone(0);
+      const z = this.sim.deployZone(this.me);
       const quad = [
         [0, z.y0],
         [this.sim.width, z.y0],
@@ -598,9 +634,9 @@ export class BattleScene extends BaseScene {
           if (e.dmg > 2 || Math.random() < 0.5) this.addBlood(u.x, u.y, false);
           if (this.fx.showNumbers) {
             const p = isoToScreen(u.x, u.y);
-            this.fx.floatText(p.x, p.y - 30, `${Math.max(1, Math.round(e.dmg))}`, u.side === 0 ? 0xff8070 : 0xfff4d8);
+            this.fx.floatText(p.x, p.y - 30, `${Math.max(1, Math.round(e.dmg))}`, u.side === this.me ? 0xff8070 : 0xfff4d8);
           }
-          if (u.side === 0 && this.time.now - this.lastHaptic > 120) {
+          if (u.side === this.me && this.time.now - this.lastHaptic > 120) {
             this.lastHaptic = this.time.now;
             haptic(e.dir === 'front' ? 'light' : 'medium');
           }
@@ -614,20 +650,20 @@ export class BattleScene extends BaseScene {
         case 'death': {
           const u = this.sim.units[e.unit];
           this.addBlood(u.x, u.y, true);
-          if (u.side === 0) {
+          if (u.side === this.me) {
             hapticNotify('warning');
             if (st.pauseDeath) this.autoPause(`${u.name} has fallen`);
           }
           break;
         }
         case 'contact':
-          if (e.side === 0 && st.pauseContact) this.autoPause('First contact!', true);
+          if (e.side === this.me && st.pauseContact) this.autoPause('First contact!', true);
           break;
         case 'flanked':
-          if (e.side === 0 && st.pauseFlank) this.autoPause(`${this.groupLabel(e.group)} flanked!`);
+          if (e.side === this.me && st.pauseFlank) this.autoPause(`${this.groupLabel(e.group)} flanked!`);
           break;
         case 'rout':
-          if (e.side === 0) {
+          if (e.side === this.me) {
             hapticNotify('error');
             if (st.pauseRout) this.autoPause(`${this.groupLabel(e.group)} is routing!`);
             else this.showBanner(`${this.groupLabel(e.group)} is routing!`, 2500);
@@ -637,7 +673,7 @@ export class BattleScene extends BaseScene {
           this.abilityFx(e.unit, e.ability, e.targets);
           break;
         case 'retreat':
-          if (e.side === 0) this.retreatMsg = e.caught > 0 ? `Retreat! ${e.caught} cut down` : 'Retreat! All got away';
+          if (e.side === this.me) this.retreatMsg = e.caught > 0 ? `Retreat! ${e.caught} cut down` : 'Retreat! All got away';
           break;
         case 'end':
           this.onEnd(e.winner);
@@ -677,6 +713,10 @@ export class BattleScene extends BaseScene {
   }
 
   private autoPause(msg: string, always = false): void {
+    if (this.src?.lockstep) {
+      this.showBanner(msg, 2200);
+      return;
+    }
     if (!always && this.time.now - this.lastAutoPause < 4000) {
       this.showBanner(msg, 2200);
       return;
@@ -689,13 +729,17 @@ export class BattleScene extends BaseScene {
   private onEnd(winner: number): void {
     if (this.ending) return;
     this.ending = true;
-    const msg = this.retreatMsg ?? (winner === 0 ? 'Victory!' : winner === 1 ? 'Defeat' : 'Stalemate');
+    const msg = this.retreatMsg ?? (winner === this.me ? 'Victory!' : winner === this.foe ? 'Defeat' : 'Stalemate');
     this.showBanner(msg, 0);
-    hapticNotify(winner === 0 ? 'success' : 'error');
+    hapticNotify(winner === this.me ? 'success' : 'error');
     this.time.delayedCall(1800, () => this.finish());
   }
 
   private finish(): void {
+    if (this.src) {
+      this.src.onFinish(this.sim, this.deployOrders ?? 0);
+      return;
+    }
     const camp = state.campaign;
     const res = this.sim.result();
     reportBattle(this.verifySetup, this.sim, this.deployOrders);
@@ -733,6 +777,10 @@ export class BattleScene extends BaseScene {
 
   /** Leave the deployment screen without fighting (back to the map or the army). */
   private leaveDeploy(): void {
+    if (this.src) {
+      this.src.onLeave();
+      return;
+    }
     const p = state.pending;
     if (p && p.partyId !== undefined) this.scene.start('World', { encounter: p.partyId });
     else this.scene.start('Army');
@@ -744,7 +792,7 @@ export class BattleScene extends BaseScene {
     const p = isoToScreen(u.x, u.y);
     const def = ABILITIES[id];
     this.fx.floatIcon(p.x, p.y - 44, `fxicon_${id}`);
-    if (u.side === 0) haptic('heavy');
+    if (u.side === this.me) haptic('heavy');
     switch (id) {
       case 'bash':
         for (const t of targets) {
@@ -769,7 +817,7 @@ export class BattleScene extends BaseScene {
         }
         break;
     }
-    if (u.side === 0) this.showBanner(`${u.name}: ${def.name}!`, 1100);
+    if (u.side === this.me) this.showBanner(`${u.name}: ${def.name}!`, 1100);
   }
 
   // ===================================================================== input
@@ -1000,7 +1048,7 @@ export class BattleScene extends BaseScene {
         best = u;
       }
     }
-    if (best && best.side === 0) {
+    if (best && best.side === this.me) {
       const g = this.sim.groups[best.group];
       if (g.individual) {
         this.selGroup = g.id;
@@ -1017,7 +1065,7 @@ export class BattleScene extends BaseScene {
       this.buildHud();
       return;
     }
-    if (best && best.side === 1) {
+    if (best && best.side === this.foe) {
       if (this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
         this.attackUnit(best);
       } else {
@@ -1075,19 +1123,20 @@ export class BattleScene extends BaseScene {
     if (this.selUnit >= 0) {
       const u = this.sim.units[this.selUnit];
       const g = this.sim.groups[u.group];
-      if (!g.individual) this.sim.issue(0, { kind: 'detach', unit: u.id });
+      // (A duel cannot know the new group's id before the relay applies the detach: command the group.)
+      if (!g.individual && !this.src?.lockstep) this.order({ kind: 'detach', unit: u.id });
       gid = u.group;
       this.selGroup = gid;
     }
     const withGroup = { ...o, group: gid } as Order;
-    this.sim.issue(0, withGroup);
+    this.order(withGroup);
     haptic('medium');
     this.hudDirty = true;
     this.buildHud();
   }
 
   private firstPlayerGroup(): number {
-    const g = this.sim.groups.find((x) => x.side === 0 && !x.disbanded && this.sim.activeMembers(x.id).length > 0);
+    const g = this.sim.groups.find((x) => x.side === this.me && !x.disbanded && this.sim.activeMembers(x.id).length > 0);
     return g ? g.id : -1;
   }
 
@@ -1101,7 +1150,7 @@ export class BattleScene extends BaseScene {
   }
 
   private togglePause(): void {
-    if (this.sim.phase !== 'battle') return;
+    if (this.sim.phase !== 'battle' || this.src?.lockstep) return;
     this.setPaused(!this.paused);
   }
 
@@ -1145,16 +1194,24 @@ export class BattleScene extends BaseScene {
       if (this.inGameBack) H.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.confirmLeaveDeploy() }));
       const tx = this.inGameBack ? 34 : 6;
       H.add(addText(this, tx, 4, 'Deployment', 'red'));
-      H.add(addText(this, tx, 13, `vs ${state.pending!.label ?? CULTURE_LABEL[state.pending!.enemy.culture]} (${this.enemyHeroes.length})`, 'dim'));
+      H.add(addText(this, tx, 13, `${this.vsLabel()} (${this.enemyHeroes.length})`, 'dim'));
       this.pauseBtn = null;
       this.speedBtn = null;
       this.clock = null;
     } else {
-      this.pauseBtn = new Button(this, 3, 2, 26, 20, { icon: this.paused ? 'play' : 'pause', style: this.paused ? 'buttonSel' : 'button', onClick: () => this.togglePause() });
-      this.speedBtn = new Button(this, 31, 2, 26, 20, { label: `${this.speed}x`, onClick: () => this.toggleSpeed() });
       const retreatBtn = new Button(this, 59, 2, 22, 20, { icon: 'flag', onClick: () => this.openRetreat() });
       retreatBtn.setEnabled(this.sim.phase === 'battle');
-      H.add([this.pauseBtn, this.speedBtn, retreatBtn]);
+      if (this.src?.lockstep) {
+        // Live duel: real time for both players, no pause or speed-up.
+        this.pauseBtn = null;
+        this.speedBtn = null;
+        H.add(addText(this, 6, 8, 'Duel', 'red'));
+        H.add(retreatBtn);
+      } else {
+        this.pauseBtn = new Button(this, 3, 2, 26, 20, { icon: this.paused ? 'play' : 'pause', style: this.paused ? 'buttonSel' : 'button', onClick: () => this.togglePause() });
+        this.speedBtn = new Button(this, 31, 2, 26, 20, { label: `${this.speed}x`, onClick: () => this.toggleSpeed() });
+        H.add([this.pauseBtn, this.speedBtn, retreatBtn]);
+      }
       this.clock = addText(this, 85, 8, '', 'ink');
       H.add(this.clock);
     }
@@ -1173,8 +1230,8 @@ export class BattleScene extends BaseScene {
     H.add(addPanel(this, 0, by, VW, VH - by, 'parch'));
     let y = by + 4;
     // group tabs
-    const groups = this.sim.groups.filter((g) => g.side === 0 && !g.disbanded && (this.sim.members(g.id).length > 0 || deploy) && !g.individual);
-    const indiv = this.sim.groups.filter((g) => g.side === 0 && g.individual && !g.disbanded);
+    const groups = this.sim.groups.filter((g) => g.side === this.me && !g.disbanded && (this.sim.members(g.id).length > 0 || deploy) && !g.individual);
+    const indiv = this.sim.groups.filter((g) => g.side === this.me && g.individual && !g.disbanded);
     const tabsAll = [...groups, ...indiv].slice(0, 6);
     const tw = Math.floor((VW - 8 - (tabsAll.length - 1) * 3) / Math.max(1, tabsAll.length));
     tabsAll.forEach((g, i) => {
@@ -1301,8 +1358,8 @@ export class BattleScene extends BaseScene {
       this.clock.setText(`${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
     }
     if (this.strength) {
-      this.strength[0].setValue(this.sim.sideStrength(0), this.initialStrength[0]);
-      this.strength[1].setValue(this.sim.sideStrength(1), this.initialStrength[1]);
+      this.strength[0].setValue(this.sim.sideStrength(this.me), this.initialStrength[this.me]);
+      this.strength[1].setValue(this.sim.sideStrength(this.foe), this.initialStrength[this.foe]);
     }
     for (const t of this.groupTabs) {
       const mem = this.sim.activeMembers(t.gid);
@@ -1341,7 +1398,7 @@ export class BattleScene extends BaseScene {
     const seen = new Set<number>();
     let idx = 0;
     for (const g of this.sim.groups) {
-      if (g.side !== 0 || g.disbanded) continue;
+      if (g.side !== this.me || g.disbanded) continue;
       const mem = this.sim.activeMembers(g.id);
       const label = g.individual ? '*' : ROMAN[idx] ?? '?';
       if (!g.individual) idx++;
@@ -1472,12 +1529,13 @@ export class BattleScene extends BaseScene {
       const score = (u: SimUnit) => (id === 'volley' ? this.sim.volleyShooters(u).length * 10 : 0) - Math.hypot(u.x - cx, u.y - cy);
       users = [ready.slice().sort((a, b) => score(b) - score(a))[0]];
     }
-    for (const u of users) this.sim.issue(0, { kind: 'ability', unit: u.id, ability: id });
+    for (const u of users) this.order({ kind: 'ability', unit: u.id, ability: id });
     this.handleEvents(this.sim.drainEvents());
     this.hudDirty = true;
   }
 
   private toggleSpeed(): void {
+    if (this.src?.lockstep) return;
     this.speed = this.speed === 1 ? 2 : this.speed === 2 ? 3 : 1;
     this.speedBtn?.setLabel(`${this.speed}x`);
   }
@@ -1495,15 +1553,27 @@ export class BattleScene extends BaseScene {
 
   private rejoin(u: SimUnit): void {
     const home = u.homeGroup;
-    this.sim.issue(0, { kind: 'rejoin', unit: u.id });
+    this.order({ kind: 'rejoin', unit: u.id });
     this.selGroup = home;
     this.selUnit = -1;
     this.buildHud();
   }
 
   private startFight(): void {
+    const ls = this.src?.lockstep;
+    if (ls) {
+      // The duel starts when both players are ready (the relay sends go).
+      ls.ready();
+      this.showBanner('Ready - waiting for your opponent', 0);
+      this.netBanner = true;
+      return;
+    }
     this.deployOrders = this.sim.orderLog.length;
-    this.sim.startBattle();
+    this.onBattleStarted();
+  }
+
+  private onBattleStarted(): void {
+    if (this.sim.phase === 'deploy') this.sim.startBattle();
     this.setFollow(true);
     hapticNotify('success');
     this.hideBanner();
@@ -1512,7 +1582,12 @@ export class BattleScene extends BaseScene {
   }
 
   private resetDeploy(): void {
-    this.sim.autoDeploy(0);
+    if (this.src) {
+      // Online battles replay from the order log; an unlogged re-deploy would not.
+      this.showBanner('Drag the groups to redeploy', 1500);
+      return;
+    }
+    this.sim.autoDeploy(this.me);
     for (const v of this.views) {
       v.px = v.u.x;
       v.py = v.u.y;
@@ -1540,9 +1615,9 @@ export class BattleScene extends BaseScene {
     c.add(addPanel(this, x, y, w, h, 'parch'));
     c.add(addText(this, VW / 2, y + 8, 'Sound the retreat?', 'red', 0.5));
     const sim = this.sim;
-    const mine = sim.units.filter((u) => u.side === 0 && sim.isAlive(u));
+    const mine = sim.units.filter((u) => u.side === this.me && sim.isAlive(u));
     const atRisk = mine.filter((u) => u.state === 'routing' || u.engaged).length;
-    const pursuit = Math.round(sim.pursuit(0) * 100);
+    const pursuit = Math.round(sim.pursuit(this.me) * 100);
     const lines = [
       'The battle is lost, but the',
       'army lives to fight again.',
@@ -1568,12 +1643,52 @@ export class BattleScene extends BaseScene {
           c.destroy();
           this.overlay = null;
           this.setPaused(false);
-          this.sim.issue(0, { kind: 'retreat' });
+          this.order({ kind: 'retreat' });
           this.handleEvents(this.sim.drainEvents());
           this.buildHud();
         },
       }),
     );
+  }
+
+  // ---- online battles
+
+  /** Every local order goes through here (a live duel routes it via the relay). */
+  private order(o: Order): void {
+    if (this.src?.lockstep) this.src.lockstep.issue(o);
+    else this.sim.issue(this.me, o);
+  }
+
+  private vsLabel(): string {
+    if (this.src) return this.src.label;
+    const p = state.pending!;
+    return `vs ${p.label ?? CULTURE_LABEL[p.enemy.culture]}`;
+  }
+
+  /** Live duel: start on go, show stalls, end on desync / opponent gone. */
+  private updateNet(ls: NonNullable<BattleSource['lockstep']>, delta: number): void {
+    if (this.sim.phase === 'battle' && this.deployOrders === undefined) {
+      this.deployOrders = this.sim.orderLog.length;
+      this.netBanner = false;
+      this.onBattleStarted();
+    }
+    const gone = ls.aborted();
+    if (gone && !this.ending) {
+      this.ending = true;
+      this.showBanner(gone, 0);
+      this.time.delayedCall(2200, () => this.finish());
+      return;
+    }
+    if (this.sim.phase !== 'battle') return;
+    if (!ls.canStep()) this.stallMs += delta;
+    else this.stallMs = 0;
+    if (this.stallMs > 700 && !this.netBanner && !this.ending) {
+      this.showBanner(ls.status() ?? 'Waiting for your opponent...', 0);
+      this.netBanner = true;
+    } else if (this.stallMs === 0 && this.netBanner) {
+      this.hideBanner();
+      this.netBanner = false;
+    }
   }
 
   // ---- group assignment overlay (deployment)
@@ -1596,8 +1711,8 @@ export class BattleScene extends BaseScene {
     c.add(addText(this, VW / 2, y + 24, GROUP_NAMES.slice(2).map((n, i) => `${ROMAN[i + 2]} ${n}`).join('   '), 'dim', 0.5));
     const area = new ScrollArea(this, c, x + 4, y + 36, w - 8, h - 68, S);
     this.groupArea = area;
-    const units = this.sim.units.filter((u) => u.side === 0);
-    const sideGroups = this.sim.groups.filter((g) => g.side === 0 && !g.individual);
+    const units = this.sim.units.filter((u) => u.side === this.me);
+    const sideGroups = this.sim.groups.filter((g) => g.side === this.me && !g.individual);
     let cy = 0;
     const rowW = w - 8;
     for (const u of units) {
@@ -1618,9 +1733,11 @@ export class BattleScene extends BaseScene {
           style: on ? 'buttonSel' : 'button',
           onClick: () => {
             if (area.moved) return;
-            this.sim.issue(0, { kind: 'assign', unit: u.id, group: g.id });
-            hero.group = gi;
-            void state.save();
+            this.order({ kind: 'assign', unit: u.id, group: g.id });
+            if (!this.src) {
+              hero.group = gi;
+              void state.save();
+            }
             for (const v of this.views) {
               v.px = v.u.x;
               v.py = v.u.y;

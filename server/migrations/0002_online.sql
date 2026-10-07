@@ -168,7 +168,7 @@ CREATE TABLE battle_tickets (
   claim         TEXT,
   result        TEXT,
   apply_nonce   TEXT,
-  won           INTEGER,
+  won           INTEGER,                          -- 1 when the attacker won (a capture or a siege round)
   created_at    INTEGER NOT NULL,
   expires_at    INTEGER NOT NULL,
   finished_at   INTEGER
