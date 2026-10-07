@@ -474,7 +474,7 @@ const SCREENS = [
   ...[
     ['merchant-town', { demo: 'held', spot: 'market' }, ''],
     ['merchant-post', { demo: 'far', spot: 'post' }, ''],
-    ['merchant-buy', { demo: 'held', spot: 'market' }, "const o = s.view.offers[1]; s.askBuy(o, 'Morale wine', o.price.gold, 'gold');"],
+    ['merchant-buy', { demo: 'held', spot: 'market' }, "const o = s.view.offers[1]; s.askBuy(o, s.offerName(o), o.price.gold, 'gold');"],
     ['merchant-item', { demo: 'far', spot: 'post' }, "s.showOffer(s.view.offers.find((o) => o.slot === 'rare'));"],
   ].map(([id, data, after]) => ({
     id,

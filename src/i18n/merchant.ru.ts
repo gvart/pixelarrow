@@ -31,7 +31,7 @@ export const MERCHANT_RU: Record<keyof typeof MERCHANT_EN, string> = {
   'merchant.why.reach': 'Далеко: владейте клеткой или встаньте на неё или рядом',
   'merchant.why.gold': 'Не хватает золота',
   'merchant.why.dr': 'Не хватает драхм',
-  'merchant.gearTip': 'Снаряжение только за золото: за драхмы силу не купить.',
+  'merchant.gearTip': 'Только за золото.',
   'merchant.toStash': '{name} теперь в обозе',
   'shop.mapMerchants': 'Припасы продают торговцы на карте войны, в каждом городе и в факториях: откройте город и нажмите «Торговец».',
   'wallet.kind.merchant': 'Торговец',

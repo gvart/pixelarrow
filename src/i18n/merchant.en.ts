@@ -33,7 +33,7 @@ export const MERCHANT_EN = {
   'merchant.why.reach': 'Out of reach: hold the hex, or stand on it or next to it',
   'merchant.why.gold': 'Not enough gold',
   'merchant.why.dr': 'Not enough Drachmae',
-  'merchant.gearTip': 'Gear is sold for gold only: no power for Drachmae.',
+  'merchant.gearTip': 'Sold for gold only.',
   'merchant.toStash': '{name} is in your stash',
   'shop.mapMerchants': 'Consumables are sold by merchants on the war map, in every town and at trading posts: open a town and tap Merchant.',
   'wallet.kind.merchant': 'Merchant',
