@@ -170,9 +170,21 @@ English/Russian and the online battle rules → tutorial battle → mythical bea
 - **Clan chat and clan wars:** scheduled sieges of capitals.
 - **Season events and themes**, e.g. "Season of the Kraken" with a special
   boss and cosmetics.
-- **Ranked duels** with matchmaking.
+- ~~**Ranked duels** with matchmaking.~~ Promoted: see "Duels" below.
 - **Assault time or post-battle rest** if attacks feel too cheap (see "Online
   battle rules" in DESIGN_V2.md).
+
+## Duels: ranked PvP, duel army, two shops (designed 2026-10-07)
+
+Spec: [DUELS.md](DUELS.md). A separate, persistent duel army (10 heroes
+under a power budget, levels raise cost), Glory and a duel shop, a PvE
+ladder and unranked queue for farming, a global matchmaker with live ranked
+(Glicko-2, leagues, monthly seasons) and a separate async defence ladder.
+The war-map shop moves onto town and trading-post hexes. Slices, in order:
+duel roster and economy → live ranked → async and seasons → map merchants.
+
+Done: duel roster and economy (profile, team, budget, Glory, shop, hero
+development, ladder with verified battles; Menu → Duels). Next: live ranked.
 
 ## Next session: polish backlog
 

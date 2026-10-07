@@ -203,6 +203,7 @@ export const BATTLE_EN = {
   'results.tile.kills': 'Kills',
   'results.tile.losses': 'Losses',
   'results.tile.gold': 'Gold',
+  'results.tile.glory': 'Glory',
   'results.tile.xp': 'XP',
   'results.mvp': 'Hero of the battle',
   'results.mvpLine': '{kills} · {dmg} damage',
@@ -238,6 +239,7 @@ export const BATTLE_EN = {
   'results.tip.kills': 'Enemies your army slew',
   'results.tip.losses': 'Heroes who died for good',
   'results.tip.gold': 'Gold earned',
+  'results.tip.glory': 'Glory earned: the duel currency',
   'results.tip.xp': 'Experience shared by the survivors',
   'results.tip.card': 'Tap to inspect, compare and pick',
 

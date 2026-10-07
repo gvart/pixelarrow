@@ -64,6 +64,8 @@ export interface BattleReport {
   enemyTotal: number;
   losses: number;
   gold: number;
+  /** Duels: Glory earned (shown instead of gold). */
+  glory?: number;
   xp: number;
   mvp: HeroLine | null;
   heroes: HeroLine[];
@@ -119,6 +121,8 @@ export interface ReportInput {
   /** What the rules applied to them (absent for a friendly duel). */
   outcomes?: readonly HeroResult[];
   gold?: number;
+  /** Duels pay Glory instead of gold: the report shows a Glory tile. */
+  glory?: number;
   loot?: Item[];
   picks?: number;
   lootInStash?: boolean;
@@ -168,6 +172,7 @@ export function buildReport(i: ReportInput): BattleReport {
     enemyTotal: foes.length,
     losses,
     gold: i.gold ?? 0,
+    ...(i.glory !== undefined ? { glory: i.glory } : {}),
     xp: heroes.reduce((a, h) => a + h.xp, 0),
     mvp: pickMvp(heroes),
     heroes,

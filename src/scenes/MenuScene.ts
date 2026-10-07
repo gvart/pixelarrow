@@ -92,9 +92,10 @@ export class MenuScene extends BaseScene {
     cont.setSelected(state.hasSave);
     cont.setEnabled(state.hasSave, t('menu.noSave'));
     mk(1, t('menu.newCampaign'), 'flag', () => (state.hasSave ? this.confirmReset() : this.newCampaign()));
-    mk(2, t('menu.online'), 'swords', () => this.scene.start('Online', {}));
-    // the shop and the Beast trial share a row
+    // the online war and the duels share a row, as do the shop and the Beast trial
     const half = Math.floor((pw - SIZE.gap) / 2);
+    this.ui.add(new Button(this, px, py + 2 * (bh + gap), half, bh, { label: t('menu.online'), icon: 'swords', onClick: () => this.scene.start('Online', {}) }));
+    this.ui.add(new Button(this, px + half + SIZE.gap, py + 2 * (bh + gap), pw - half - SIZE.gap, bh, { label: t('menu.duels'), icon: 'shield', id: 'menu.duels', onClick: () => this.openDuels() }));
     this.ui.add(new Button(this, px, py + 3 * (bh + gap), half, bh, { label: t('menu.shop'), icon: 'coin', onClick: () => this.openShop() }));
     this.ui.add(new Button(this, px + half + SIZE.gap, py + 3 * (bh + gap), pw - half - SIZE.gap, bh, { label: t('menu.trial'), icon: 'beast', onClick: () => this.openTrial() }));
     mk(4, t('menu.settings'), 'gear', () => this.openSettings());
@@ -150,6 +151,12 @@ export class MenuScene extends BaseScene {
   openShop(): void {
     this.closeOverlay();
     this.scene.start('Shop', { back: { scene: 'Menu' } });
+  }
+
+  /** The duel hub: the persistent duel army, the ladder and the duel shop. */
+  openDuels(): void {
+    this.closeOverlay();
+    this.scene.start('Duel', {});
   }
 
   /** The Beast trial: fight any mythical beast offline. */

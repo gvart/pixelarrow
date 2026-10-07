@@ -157,6 +157,29 @@ const SCREENS = [
       return wait(p, 400);
     },
   },
+  // the duel hub (src/scenes/duel/DuelScene.ts): API down (503), then the demo duel army
+  { id: 'duel-closed', owner: 'B', run: async (p) => (await start(p, 'Duel', { preview: false }), wait(p, 1200)) },
+  ...[
+    ['duel-ladder', { tab: 'ladder' }, ''],
+    ['duel-floor', { tab: 'ladder' }, 's.openFloor(s.profile, 5);'],
+    ['duel-team', { tab: 'team' }, ''],
+    ['duel-recruit', { tab: 'team' }, 's.openRecruit();'],
+    ['duel-dismiss', { tab: 'team' }, 's.openDismiss();'],
+    ['duel-shop-offers', { tab: 'shop', shop: 'offers' }, ''],
+    ['duel-shop-gear', { tab: 'shop', shop: 'gear' }, ''],
+    ['duel-shop-sell', { tab: 'shop', shop: 'sell' }, ''],
+    ['duel-hero', { tab: 'team' }, 's.openHero(s.profile.heroes[6].id);'],
+  ].map(([id, data, after]) => ({
+    id,
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Duel', { ...data, preview: true });
+      await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
+      await wait(p, 300);
+      if (after) await call(p, 'Duel', `${after} return 1;`);
+      return wait(p, 600);
+    },
+  })),
   ...['browse', 'mine', 'sell'].map((tab) => ({ id: `market-${tab}`, owner: 'B', run: async (p) => (await start(p, 'Market', { demo: true, tab }), wait(p, 1000)) })),
   {
     id: 'market-detail',
