@@ -18,6 +18,7 @@ import { WS_PROTOCOL } from './region';
 import { online } from './online/routes';
 import { economy } from './economy/routes';
 import { duel } from './duel/routes';
+import { requireDuelProfile } from './duel/store';
 import { currentSeason, requireProfile, shardDoName } from './online/store';
 import { notifyRoutes } from './notify/routes';
 import { runScheduled } from './notify/jobs';
@@ -28,6 +29,8 @@ import { adminPage } from './admin/page';
 
 // Only handlers and Durable Object classes may be exported from the entry module.
 export { RegionDO } from './region';
+export { MatchmakerDO } from './duel/matchmaker';
+export { DuelDO } from './duel/duelDO';
 
 const app = new Hono<AppEnv>();
 
@@ -139,6 +142,23 @@ app.get('/ws/online', async (c) => {
   headers.set('x-season', String(season.id));
   headers.set('x-shard', String(profile.shard_id));
   const stub = c.env.REGION.get(c.env.REGION.idFromName(room));
+  return stub.fetch(new Request(c.req.url, { headers }));
+});
+
+/** The global duel queue (ranked and unranked): needs a duel profile. */
+app.get('/ws/duel', async (c) => {
+  const { session, headers } = await wsSession(c);
+  await requireDuelProfile(db(c.env), session.pid);
+  const stub = c.env.MATCHMAKER.get(c.env.MATCHMAKER.idFromName('global'));
+  return stub.fetch(new Request(c.req.url, { headers }));
+});
+
+/** One live match (its DuelDO checks that the player is in it). */
+app.get('/ws/duel/:match', async (c) => {
+  const match = c.req.param('match');
+  if (!/^[0-9a-f]{32}$/.test(match)) throw new ApiError(400, 'bad_request', 'Bad match id');
+  const { headers } = await wsSession(c);
+  const stub = c.env.DUEL.get(c.env.DUEL.idFromName(match));
   return stub.fetch(new Request(c.req.url, { headers }));
 });
 

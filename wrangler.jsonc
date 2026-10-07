@@ -34,11 +34,15 @@
   ],
   "durable_objects": {
     "bindings": [
-      { "name": "REGION", "class_name": "RegionDO" }
+      { "name": "REGION", "class_name": "RegionDO" },
+      { "name": "MATCHMAKER", "class_name": "MatchmakerDO" },
+      { "name": "DUEL", "class_name": "DuelDO" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["RegionDO"] }
+    { "tag": "v1", "new_sqlite_classes": ["RegionDO"] },
+    // live ranked and unranked duels (docs/DUELS.md): the global queue and one object per match
+    { "tag": "v2", "new_sqlite_classes": ["MatchmakerDO", "DuelDO"] }
   ],
   // Analytics Engine (docs/OPS.md "Analytics"): product events and client
   // error counts. deploy-config.mjs can drop these (ANALYTICS_ENGINE=off);

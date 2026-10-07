@@ -1,4 +1,6 @@
 import type { RegionDO } from './region';
+import type { MatchmakerDO } from './duel/matchmaker';
+import type { DuelDO } from './duel/duelDO';
 import type { Session } from './session';
 
 /** Worker bindings, vars and secrets (see wrangler.jsonc and server/.dev.vars.example). */
@@ -6,6 +8,10 @@ export interface Env {
   /** D1 database. Absent when D1_DATABASE_ID was not configured at deploy time. */
   DB?: D1Database;
   REGION: DurableObjectNamespace<RegionDO>;
+  /** The global duel queue (one object, 'global'). */
+  MATCHMAKER: DurableObjectNamespace<MatchmakerDO>;
+  /** One object per live ranked or unranked match (named by the match id). */
+  DUEL: DurableObjectNamespace<DuelDO>;
   ASSETS?: Fetcher;
   GAME_URL?: string;
   /** Bot username for clan invite links (t.me/<bot>/<app>); looked up with getMe when unset. */

@@ -4,6 +4,11 @@
  * only applied when they come back (deployment) or inside a sealed turn
  * (battle), so both clients apply identical orders at identical ticks.
  * See src/online/protocol.ts.
+ *
+ * Resume: after a reconnect the server sends the deployment, go and every
+ * sealed turn again (ranked matches, src/duel/match.ts). What this client
+ * already applied is skipped; the rest is buffered and the scene steps
+ * through the backlog() fast to catch up.
  */
 import type { Battle } from '../sim/battle';
 import type { Order, Side } from '../sim/types';
@@ -21,6 +26,8 @@ export class Lockstep {
   readonly delayTurns: number;
   private sealed = new Map<number, SealedOrder[]>();
   private reported = -1;
+  /** Deployment orders applied, by their server sequence number (a resume sends them again). */
+  private seen = new Set<number>();
   /** Deployment orders applied before the start (for the server's replay bookkeeping). */
   deployOrders = 0;
   ready = false;
@@ -61,7 +68,8 @@ export class Lockstep {
     if (!('duel' in m) || m.duel !== this.duel) return false;
     switch (m.type) {
       case 'd_order':
-        if (this.sim.phase === 'deploy') {
+        if (this.sim.phase === 'deploy' && !this.seen.has(m.seq)) {
+          this.seen.add(m.seq);
           this.sim.issue(m.side, m.order);
           this.deployOrders = this.sim.orderLog.length;
           this.onApplied(m.side, m.order);
@@ -71,11 +79,13 @@ export class Lockstep {
         if (m.side !== this.side) this.opponentReady = true;
         return true;
       case 'go':
+        if (this.sim.phase !== 'deploy') return true;
         this.deployOrders = this.sim.orderLog.length;
         this.sim.startBattle();
         return true;
       case 'turn':
-        this.sealed.set(m.n, m.orders);
+        // a turn this client already ran (sent again after a reconnect) is skipped
+        if (m.n > this.reported) this.sealed.set(m.n, m.orders);
         return true;
       case 'desync':
         this.desync = { n: m.n, hashes: m.hashes };
@@ -140,6 +150,11 @@ export class Lockstep {
       n++;
     }
     return n;
+  }
+
+  /** Sealed turns waiting to be simulated (more than a few: catching up after a reconnect). */
+  backlog(): number {
+    return this.sealed.size;
   }
 
   /** Waiting for the opponent (the next turn is not sealed yet). */

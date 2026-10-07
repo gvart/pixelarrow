@@ -150,12 +150,12 @@ export interface LadderPayout {
   drop: Item | null;
 }
 
-/** XP of each hero of side 0 for a duel battle: like the campaign, without wounds, deaths or wear. */
-export function duelHeroXp(result: BattleResult, team: Hero[], won: boolean, rng: Rng): { heroes: Hero[]; xp: HeroXp[] } {
+/** XP of each hero of `side` (0 on the ladder) for a duel battle: like the campaign, without wounds, deaths or wear. */
+export function duelHeroXp(result: Pick<BattleResult, 'units'>, team: Hero[], won: boolean, rng: Rng, side = 0): { heroes: Hero[]; xp: HeroXp[] } {
   const heroes = JSON.parse(JSON.stringify(team)) as Hero[];
   const xp: HeroXp[] = [];
   for (const h of heroes) {
-    const u = result.units.find((x) => x.heroId === h.id && x.side === 0);
+    const u = result.units.find((x) => x.heroId === h.id && x.side === side);
     const kills = u?.kills ?? 0;
     const bonus = (h.equip.trinket ? itemDef(h.equip.trinket.def).mods.xpBonus ?? 0 : 0) + h.traits.reduce((a, t) => a + (TRAITS[t].mods.xpBonus ?? 0), 0);
     const gain = Math.round((12 + kills * 10 + (won ? 12 : 0)) * (1 + bonus));

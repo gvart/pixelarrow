@@ -26,6 +26,8 @@ export interface LockstepDriver {
   aborted(): string | null;
   /** The opponent pressed Ready during deployment. */
   opponentReady?(): boolean;
+  /** Sealed turns not simulated yet: after a reconnect the scene runs through them fast. */
+  backlog?(): number;
 }
 
 export interface BattleSource {

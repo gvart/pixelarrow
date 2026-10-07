@@ -6,47 +6,22 @@
  * - Challenges: challenge -> challenged / challenge_sent; reply accept ->
  *   both armies are loaded from D1 (server-owned), the server fixes the seed
  *   and sends duel_start to both.
- * - Deployment (timed, DEPLOY_MS): a d_order is echoed to its sender only;
- *   the opponent's deployment stays secret until go. When both sent d_ready,
- *   or the deployment time plus DEPLOY_GRACE_MS is over (tick(), driven by
- *   the RegionDO's alarm, and checked on every message), each player gets the
- *   other side's deployment orders (as d_order, still in the deploy phase),
- *   then go, then turns 0..DELAY_TURNS-1 pre-sealed. Deployment orders only
- *   touch their own side (DEPLOY_KINDS), so applying "mine, then theirs" on
- *   both clients and the log's order on the server give the same state.
- * - Battle: cmd orders queue for the next sealed turn; turn n + DELAY_TURNS is
- *   sealed when both players reported reaching turn n. Every order is logged
- *   with tick = turn * TURN_TICKS, exactly as the clients apply it.
- * - Hashes ride on reach messages every HASH_EVERY turns; differing hashes for
- *   the same turn end the duel with `desync`.
- * - end: the server replays the log (src/sim) and sends duel_result to both.
+ * - Deployment, lockstep turns, hash checks and the final replay are the
+ *   shared relay (server/src/online/relay.ts, also used by the ranked DuelDO);
+ *   tick() (driven by the RegionDO's alarm, and checked on every message)
+ *   starts deployments whose time is over.
+ * - A player leaving or disconnecting ends a friendly duel at once.
  */
-import { OrderSchema, replayBattle } from '../battle';
 import { BATTLE_CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import type { Hero } from '../../../src/data/units';
-import type { BattleSetup, LoggedOrder, Order, Side } from '../../../src/sim/types';
-import {
-  CHALLENGE_TTL_MS,
-  DELAY_TURNS,
-  DEPLOY_GRACE_MS,
-  DEPLOY_MS,
-  HASH_EVERY,
-  MAX_DUEL_ORDERS,
-  MAX_ORDERS_PER_TURN,
-  TURN_TICKS,
-  type ClientMsg,
-  type PresencePlayer,
-  type SealedOrder,
-  type ServerMsg,
-} from '../../../src/online/protocol';
+import type { BattleSetup, Side } from '../../../src/sim/types';
+import { CHALLENGE_TTL_MS, type ClientMsg, type PresencePlayer, type ServerMsg } from '../../../src/online/protocol';
+import { newRelay, relayMessage, relayTick, startMsg, type DuelState, type Out } from './relay';
+
+export { DEPLOY_KINDS, type DuelState, type Out } from './relay';
 
 /** Storage key prefix of the hub's persisted challenges and deployments (DuelHub.persistence). */
 export const HUB_PREFIX = 'hub:';
-
-export interface Out {
-  to: number;
-  msg: ServerMsg;
-}
 
 export interface DuelArmy {
   heroes: Hero[];
@@ -61,28 +36,6 @@ export interface Challenge {
   accepting?: boolean;
   /** The challenger's battle consumable. */
   consumable?: ConsumableId | null;
-}
-
-export interface DuelState {
-  id: string;
-  players: [number, number];
-  names: [string, string];
-  setup: BattleSetup;
-  phase: 'deploy' | 'battle' | 'ended';
-  log: LoggedOrder[];
-  deployOrders: number;
-  ready: [boolean, boolean];
-  seq: number;
-  /** Next turn to seal. */
-  next: number;
-  reached: [number, number];
-  pending: SealedOrder[];
-  pendingBySide: [number, number];
-  hashes: Map<number, [string | undefined, string | undefined]>;
-  createdAt: number;
-  /** The battle starts by itself at this time (deployment time plus grace). */
-  deployUntil: number;
-  result: Extract<ServerMsg, { type: 'duel_result' }> | null;
 }
 
 export interface DuelDeps {
@@ -175,7 +128,7 @@ export class DuelHub {
   tick(): Out[] {
     const out: Out[] = [];
     const now = this.deps.now();
-    for (const d of this.duels.values()) if (d.phase === 'deploy' && now >= d.deployUntil) out.push(...this.start(d));
+    for (const d of this.duels.values()) out.push(...relayTick(d, now));
     return out;
   }
 
@@ -184,25 +137,6 @@ export class DuelHub {
     let t: number | null = null;
     for (const d of this.duels.values()) if (d.phase === 'deploy' && (t === null || d.deployUntil < t)) t = d.deployUntil;
     return t;
-  }
-
-  /**
-   * Deployment over: each player now gets the opponent's (withheld)
-   * deployment orders, then go, and the first DELAY_TURNS turns sealed empty.
-   */
-  private start(d: DuelState): Out[] {
-    d.phase = 'battle';
-    d.deployOrders = d.log.length;
-    const out: Out[] = [];
-    for (const side of [0, 1] as Side[]) {
-      const other = d.players[1 - side];
-      d.log.forEach((o, seq) => {
-        if (o.side === side) out.push({ to: other, msg: { type: 'd_order', duel: d.id, seq, side, order: o.order } });
-      });
-    }
-    out.push(...this.both(d, { type: 'go', duel: d.id }));
-    for (let i = 0; i < DELAY_TURNS; i++) out.push(...this.seal(d));
-    return out;
   }
 
   /** Handles one client message. `me` is the authenticated sender. */
@@ -255,33 +189,12 @@ export class DuelHub {
           out.push({ to: me.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } }, { to: c.from.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } });
           return out;
         }
-        const d: DuelState = {
-          id: this.deps.randomId(),
-          players: [c.from.id, c.to.id],
-          names: [c.from.name, c.to.name],
-          setup: built.setup,
-          phase: 'deploy',
-          log: [],
-          deployOrders: 0,
-          ready: [false, false],
-          seq: 0,
-          next: 0,
-          reached: [-1, -1],
-          pending: [],
-          pendingBySide: [0, 0],
-          hashes: new Map(),
-          createdAt: this.deps.now(),
-          deployUntil: this.deps.now() + DEPLOY_MS + DEPLOY_GRACE_MS,
-          result: null,
-        };
+        const d = newRelay(this.deps.randomId(), [c.from.id, c.to.id], [c.from.name, c.to.name], built.setup, this.deps.now());
         this.duels.set(d.id, d);
         this.byPlayer.set(d.players[0], d.id);
         this.byPlayer.set(d.players[1], d.id);
         for (const side of [0, 1] as Side[]) {
-          out.push({
-            to: d.players[side],
-            msg: { type: 'duel_start', duel: d.id, side, setup: d.setup, heroes: built.heroes, names: d.names, turnTicks: TURN_TICKS, delayTurns: DELAY_TURNS, hashEvery: HASH_EVERY, deployMs: DEPLOY_MS },
-          });
+          out.push({ to: d.players[side], msg: startMsg(d, side, built.heroes, this.deps.now()) });
         }
         return out;
       }
@@ -297,25 +210,11 @@ export class DuelHub {
     }
   }
 
-  private both(d: DuelState, msg: ServerMsg): Out[] {
-    return [{ to: d.players[0], msg }, { to: d.players[1], msg }];
-  }
-
   private finish(d: DuelState): void {
     d.phase = 'ended';
     this.byPlayer.delete(d.players[0]);
     this.byPlayer.delete(d.players[1]);
     this.duels.delete(d.id);
-  }
-
-  private seal(d: DuelState): Out[] {
-    const n = d.next++;
-    const tick = n * TURN_TICKS;
-    const orders = d.pending;
-    d.pending = [];
-    d.pendingBySide = [0, 0];
-    for (const o of orders) d.log.push({ tick, side: o.side, order: o.order });
-    return this.both(d, { type: 'turn', duel: d.id, n, tick, orders });
   }
 
   private async duelMsg(me: PresencePlayer, msg: Extract<ClientMsg, { duel: string }>): Promise<Out[]> {
@@ -329,64 +228,13 @@ export class DuelHub {
         this.finish(d);
         return [{ to: other, msg: { type: 'duel_abort', duel: d.id, reason: 'left' } }, { to: me.id, msg: { type: 'duel_abort', duel: d.id, reason: 'left' } }];
       }
-      case 'd_order': {
-        if (d.phase !== 'deploy') return [];
-        const o = parseOrder(msg.order);
-        if (!o || !DEPLOY_KINDS.has(o.kind) || d.log.length >= MAX_DUEL_ORDERS) return [{ to: me.id, msg: { type: 'error', message: 'Bad order', code: 'bad_order' } }];
-        const seq = d.log.length;
-        d.log.push({ tick: 0, side, order: o });
-        d.deployOrders = d.log.length;
-        d.seq = d.log.length;
-        // Only the sender sees it now; the opponent gets it at go (start()).
-        return [{ to: me.id, msg: { type: 'd_order', duel: d.id, seq, side, order: o } }];
-      }
-      case 'd_ready': {
-        if (d.phase !== 'deploy') return [];
-        d.ready[side] = true;
-        const out = this.both(d, { type: 'd_ready', duel: d.id, side });
-        if (d.ready[0] && d.ready[1]) out.push(...this.start(d));
-        return out;
-      }
-      case 'cmd': {
-        if (d.phase !== 'battle') return [{ to: me.id, msg: { type: 'error', message: 'The battle has not started', code: 'bad_order' } }];
-        const o = parseOrder(msg.order);
-        if (!o || d.pendingBySide[side] >= MAX_ORDERS_PER_TURN || d.log.length >= MAX_DUEL_ORDERS) return [{ to: me.id, msg: { type: 'error', message: 'Bad or too many orders', code: 'bad_order' } }];
-        d.pending.push({ side, order: o });
-        d.pendingBySide[side]++;
-        return [];
-      }
-      case 'reach': {
-        if (d.phase !== 'battle') return [];
-        const n = Math.floor(Number(msg.n));
-        if (!Number.isFinite(n) || n < 0 || n >= d.next) return [];
-        d.reached[side] = Math.max(d.reached[side], n);
-        if (typeof msg.hash === 'string') {
-          const h = d.hashes.get(n) ?? [undefined, undefined];
-          h[side] = msg.hash.slice(0, 16);
-          if (h[0] !== undefined && h[1] !== undefined) {
-            d.hashes.delete(n);
-            if (h[0] !== h[1]) {
-              this.finish(d);
-              return this.both(d, { type: 'desync', duel: d.id, n, hashes: [h[0], h[1]] });
-            }
-          } else d.hashes.set(n, h);
+      default: {
+        const step = relayMessage(d, side, msg);
+        if (step.ended) {
+          this.finish(d);
+          if (step.ended === 'result') await this.deps.record?.(d, d.result!);
         }
-        const out: Out[] = [];
-        while (Math.min(d.reached[0], d.reached[1]) + DELAY_TURNS >= d.next) out.push(...this.seal(d));
-        return out;
-      }
-      case 'end': {
-        if (d.phase !== 'battle') return [];
-        const r = replayBattle(d.setup, d.log, d.deployOrders).summary;
-        const mismatches: string[] = [];
-        if (msg.winner !== r.winner) mismatches.push(`winner: claimed ${msg.winner}, server ${r.winner}`);
-        if (msg.ticks !== r.ticks) mismatches.push(`ticks: claimed ${msg.ticks}, server ${r.ticks}`);
-        if (msg.hash !== r.hash) mismatches.push(`hash: claimed ${msg.hash}, server ${r.hash}`);
-        const result: Extract<ServerMsg, { type: 'duel_result' }> = { type: 'duel_result', duel: d.id, winner: r.winner, ticks: r.ticks, hash: r.hash, verified: mismatches.length === 0, mismatches };
-        d.result = result;
-        this.finish(d);
-        await this.deps.record?.(d, result);
-        return this.both(d, result);
+        return step.out;
       }
     }
   }
@@ -411,20 +259,8 @@ export class DuelHub {
   }
 }
 
-/**
- * Orders allowed during a duel's deployment: each changes only its own side's
- * groups and men (no new groups, no randomness), so the two sides' deployment
- * orders commute and can be revealed at go without changing the outcome.
- */
-export const DEPLOY_KINDS: ReadonlySet<Order['kind']> = new Set(['form', 'preset', 'order', 'shieldwall', 'loose', 'assign']);
-
 /** A duel message's consumable: null for none, undefined when invalid (not ONE battle consumable id). */
 export function duelConsumable(v: unknown): ConsumableId | null | undefined {
   if (v === undefined || v === null) return null;
   return typeof v === 'string' && (BATTLE_CONSUMABLES as string[]).includes(v) ? (v as ConsumableId) : undefined;
-}
-
-function parseOrder(o: unknown): Order | null {
-  const r = OrderSchema.safeParse(o);
-  return r.success ? (r.data as Order) : null;
 }

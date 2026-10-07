@@ -49,6 +49,9 @@ import { tutorialBattle } from '../game/tutorial';
 const MARGIN_X = 200; // grass beyond the field's screen bounds
 const MARGIN_Y = 300; // generous: a portrait viewport at zoom 1 is taller than the field
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+/** A live duel more than this many sealed turns behind catches up, at most CATCH_UP_STEPS sim steps a frame. */
+const CATCH_UP_TURNS = 4;
+const CATCH_UP_STEPS = 120;
 
 // HUD geometry (UI pixels). Top bar, then the field, then the command panel.
 const TOP = 26;
@@ -526,7 +529,11 @@ export class BattleScene extends BaseScene {
     if (this.sim.phase === 'battle' && !this.paused) {
       this.acc += Math.min(0.25, delta / 1000) * this.speed;
       let steps = 0;
-      while (this.acc >= DT && steps < 10 && this.sim.phase === 'battle') {
+      // Live duel back from a reconnect: run through the sealed backlog (up to CATCH_UP steps a frame) to rejoin the opponent.
+      const catchUp = (ls?.backlog?.() ?? 0) > CATCH_UP_TURNS;
+      if (catchUp) this.acc = Math.max(this.acc, DT * CATCH_UP_STEPS);
+      const maxSteps = catchUp ? CATCH_UP_STEPS : 10;
+      while (this.acc >= DT && steps < maxSteps && this.sim.phase === 'battle') {
         // Live duel: never run ahead of the turns the server sealed.
         if (ls && !ls.canStep()) {
           this.acc = Math.min(this.acc, DT);
@@ -542,6 +549,7 @@ export class BattleScene extends BaseScene {
         this.acc -= DT;
         steps++;
       }
+      if (catchUp) this.acc = Math.min(this.acc, DT);
       this.hudDirty = true;
     } else if (this.sim.phase === 'ended') {
       this.handleEvents(this.sim.drainEvents());

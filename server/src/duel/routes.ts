@@ -31,8 +31,10 @@ import {
   sellPrice, shopItem, teamProblem, utcDay,
 } from '../../../src/duel/rules';
 import { canFight, ladderFloor, ladderPayout, ladderSetup } from '../../../src/duel/ladder';
+import { RANKED } from '../../../src/duel/rating';
+import { getQueueState, getRating, liveMatchOf, matchReport, rowLeague } from './live';
 import {
-  bumpRev, duelBatch, duelFormations, duelPrefix, duelProfileView, duelRevGuard, ensureDuelProfile, farmLeft, loadDuelHeroes, loadDuelItems,
+  bumpRev, duelBatch, duelFormations, duelPrefix, duelProfileView, duelRevGuard, ensureDuelProfile, farmLeft, heroProgressStmts, loadDuelHeroes, loadDuelItems,
   requireDuelProfile, reserveDuelIds, teamOf, type DuelProfileRow,
 } from './store';
 
@@ -476,12 +478,7 @@ duel.post('/ladder/submit', async (c) => {
       )
       .bind(x.pid, pay.glory, pay.accountXp, pay.won ? floor.floor : 0, day, farm, pay.won ? 1 : 0, x.now),
   ];
-  for (const h of pay.heroes) {
-    const cur = current.get(h.id);
-    if (!cur) continue;
-    const next: Hero = { ...cur, level: h.level, xp: h.xp, points: cur.points + (h.points - (team.find((y) => y.id === h.id)?.points ?? h.points)), traits: h.traits, battles: h.battles, kills: h.kills };
-    stmts.push(x.db.prepare(`UPDATE duel_heroes SET data = ?3, updated_at = ?4 WHERE id = ?1 AND player_id = ?2 AND ${G}`).bind(h.id, x.pid, JSON.stringify(next), x.now));
-  }
+  stmts.push(...heroProgressStmts(x.db, x.pid, team, pay.heroes, current, G, x.now));
   if (pay.drop) stmts.push(itemInsert(x.db, x.pid, pay.drop, G, x.now));
   const res = await x.db.batch(stmts);
   if (res[0].meta.changes !== 1) {
@@ -500,4 +497,41 @@ duel.post('/ladder/abandon', async (c) => {
   if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This battle was ${t.status}`);
   await closeTicket(x, t, 'abandoned');
   return c.json({ ok: true });
+});
+
+// ------------------------------------------------------------------ live ranked and unranked (docs/DUELS.md "Ranked live")
+
+/** The ranked card: league, placements, the level gate, the queue cooldown and a live match to rejoin. */
+duel.get('/ranked', async (c) => {
+  const x = await ctx(c);
+  const [r, q, match] = await Promise.all([getRating(x.db, x.pid), getQueueState(x.db, x.pid), liveMatchOf(x.db, x.pid, x.now)]);
+  const league = rowLeague(r);
+  const level = accountLevel(x.p.xp);
+  return c.json({
+    now: x.now,
+    level,
+    unlockLevel: DUEL_RULES.rankedLevel,
+    unlocked: level >= DUEL_RULES.rankedLevel,
+    league,
+    // the rating stays hidden below Legend
+    rating: league?.id === 'legend' ? Math.round(r.rating) : null,
+    games: r.games,
+    wins: r.wins,
+    losses: r.losses,
+    draws: r.draws,
+    placements: { played: Math.min(r.games, RANKED.placements), of: RANKED.placements },
+    cooldownUntil: q.cooldownUntil > x.now ? q.cooldownUntil : 0,
+    match,
+  });
+});
+
+/** A settled match's report for this player (a reconnect after the end); 409 while it is live. */
+duel.get('/match/:id', async (c) => {
+  const x = await ctx(c);
+  const id = c.req.param('id');
+  if (!/^[0-9a-f]{32}$/.test(id)) throw badRequest('Bad match id');
+  const r = await matchReport(x.db, id, x.pid);
+  if (!r) throw new ApiError(404, 'not_found', 'No such match');
+  if (r === 'live') throw new ApiError(409, 'match_live', 'The match is still being fought');
+  return c.json({ report: r, profile: await view(x) });
 });

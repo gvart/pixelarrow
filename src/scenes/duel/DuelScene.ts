@@ -1,8 +1,10 @@
 /**
  * The duel hub (docs/DUELS.md): the persistent duel army, its Glory and
- * account level, and three tabs: Ladder (the PvE floors: farm Glory, XP and
- * gear), Team (who fights, inside the point budget; a tap opens the hero
- * sheet; recruiting) and Shop (daily offers, the gear catalogue, selling).
+ * account level, and four tabs: Ladder (the PvE floors: farm Glory, XP and
+ * gear), Ranked (league and placements, the ranked and unranked queues, live
+ * matches through src/duel/match.ts), Team (who fights, inside the point
+ * budget; a tap opens the hero sheet; recruiting) and Shop (daily offers, the
+ * gear catalogue, selling).
  * Every change is a request to the duel source; the screen redraws from the
  * answer. Started with `{ preview: true }` it runs on the in-memory demo.
  */
@@ -10,7 +12,7 @@ import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { Button, addIcon, addPanel, addText, Meter } from '../../ui/kit';
 import { ItemIcon, ScrollList, Tabs, addEmptyState, confirmDialog, openModal, toast } from '../../ui/widgets';
-import { ellipsize } from '../../ui/textfit';
+import { ellipsize, measureText } from '../../ui/textfit';
 import { uiId } from '../../ui/layout';
 import { SIZE, COLOR } from '../../ui/theme';
 import { ensureFonts } from '../../ui/fonts';
@@ -38,14 +40,18 @@ import {
   DUEL_CLASSES, DUEL_RULES, catalogue, classPoints, dailyOffers, duelRecruit, heroPoints, levelProgress, recruitPrice, sellPrice, teamPoints, teamProblem, type ShopOffer,
 } from '../../duel/rules';
 import { LADDER, floorBudget, isBoss, ladderFloor } from '../../duel/ladder';
-import { duelSource, type DuelProfileView, type DuelSource, type LadderReport, type LadderTicket } from '../../duel/client';
+import { DemoDuelSource, duelSource, type DemoMatch, type DuelProfileView, type DuelSource, type LadderReport, type LadderTicket, type QueueEvent, type RankedView } from '../../duel/client';
+import { RANKED, divisionRoman, leagueRank, type DuelMode, type League } from '../../duel/rating';
+import type { MatchReport } from '../../duel/protocol';
+import { MatchLink, matchSource, type MatchOutcome } from '../../duel/match';
+import { LINE_H, wrapText } from '../../ui/textfit';
 import { DuelHeroSource } from '../../duel/heroSource';
 import { showReport } from '../ResultsScene';
 import { makeItem } from '../../game/heroes';
 import { Rng } from '../../sim/rng';
 import { t, tOr, type TKey } from '../../i18n';
 
-export type DuelTab = 'ladder' | 'team' | 'shop';
+export type DuelTab = 'ladder' | 'ranked' | 'team' | 'shop';
 type ShopTab = 'offers' | 'gear' | 'sell';
 
 export interface DuelSceneData {
@@ -55,9 +61,27 @@ export interface DuelSceneData {
   preview?: boolean;
   /** A message to show on arrival (a failed battle report...). */
   error?: string;
+  /** Previews: the demo account's duel XP (0: below the ranked gate). */
+  demoXp?: number;
 }
 
-const TABS: DuelTab[] = ['ladder', 'team', 'shop'];
+const TABS: DuelTab[] = ['ladder', 'ranked', 'team', 'shop'];
+const TAB_ICONS = ['flag', 'swords', 'people', 'star'];
+
+/** Badge colour of each league (placements: the plain frame). */
+const LEAGUE_COLOR: Record<League['id'], number> = { bronze: 0x8a5a2b, silver: 0x8f9aa3, gold: 0xc89a30, hoplite: 0x8c2f25, strategos: 0x4a3a8c, legend: 0x2a7a6a };
+
+/** "Gold II", "Legend". */
+export function leagueName(l: League): string {
+  const name = t(`duels.league.${l.id}` as TKey);
+  return l.division ? t('duels.leagueDiv', { league: name, div: divisionRoman(l.division) }) : name;
+}
+
+/** "0:42" from milliseconds. */
+function clockText(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
 const SHOP_TABS: ShopTab[] = ['offers', 'gear', 'sell'];
 
 export class DuelScene extends BaseScene {
@@ -75,6 +99,15 @@ export class DuelScene extends BaseScene {
   private stashState: StashState = defaultStashState();
   private drag!: DragDrop;
   private bodyTop = 0;
+  /** The ranked card (loaded with the profile). */
+  ranked: RankedView | null = null;
+  /** A queue search in progress. */
+  private search: { mode: DuelMode; since: number; cancel: () => void } | null = null;
+  /** The opponent the queue found (shown for foundHoldMs before the battle). */
+  private found: { match: string; mode: DuelMode; name: string; league: League | null } | null = null;
+  /** How long the "opponent found" card stays before the battle (previews keep it). */
+  foundHoldMs = 1600;
+  private searchText: Phaser.GameObjects.BitmapText | null = null;
 
   constructor() {
     super('Duel');
@@ -84,6 +117,7 @@ export class DuelScene extends BaseScene {
     // the demo stays on while the screens it opened (hero sheet, battle) come back here
     const prev = this.src;
     this.src = duelSource(data.preview);
+    if (data.demoXp !== undefined && this.src instanceof DemoDuelSource) this.src.setXp(data.demoXp);
     // the last profile shows at once while it reloads (not another source's)
     if (prev !== this.src) this.profile = null;
     this.tab = data.tab ?? this.tab;
@@ -100,7 +134,14 @@ export class DuelScene extends BaseScene {
     this.body = this.add.container(0, 0);
     this.ui.add([this.head, this.body]);
     this.drag = new DragDrop(this);
-    this.events.once('shutdown', () => this.clearBody());
+    this.search = null;
+    this.found = null;
+    this.events.once('shutdown', () => {
+      this.clearBody();
+      this.search?.cancel();
+      this.search = null;
+    });
+    this.time.addEvent({ delay: 1000, loop: true, callback: () => this.tickSearch() });
     this.render();
     void this.fetchData();
     if (data.error) toast(this, data.error, 'bad', 3500);
@@ -116,6 +157,7 @@ export class DuelScene extends BaseScene {
       const p = given ?? (await this.src.profile());
       if (!this.sys.isActive()) return;
       this.setProfile(p);
+      void this.loadRanked();
       this.st = 'ready';
     } catch (e) {
       if (!this.sys.isActive()) return;
@@ -230,7 +272,13 @@ export class DuelScene extends BaseScene {
     const p = this.profile!;
     const { VW, VH } = this.m;
     let y = this.bodyTop;
-    const tabs = new Tabs(this, 4, y, VW - 8, TABS.map((k) => t(`duels.tab.${k}` as TKey)), {
+    const labels = TABS.map((k) => t(`duels.tab.${k}` as TKey));
+    // four tabs on a narrow screen: icons (the labels become tips)
+    const tabW = (VW - 8 - SIZE.gap * (TABS.length - 1)) / TABS.length;
+    const narrow = labels.some((l) => measureText(l) + 10 > tabW);
+    const tabs = new Tabs(this, 4, y, VW - 8, labels, {
+      icons: narrow ? TAB_ICONS : undefined,
+      iconOnly: narrow,
       selected: TABS.indexOf(this.tab),
       ids: TABS.map((k) => `duel.tab.${k}`),
       onChange: (i) => {
@@ -243,7 +291,9 @@ export class DuelScene extends BaseScene {
     this.body.add(tabs);
     y += SIZE.tabH + 4;
     const h = footY - 3 - y;
+    this.searchText = null;
     if (this.tab === 'ladder') this.buildLadder(p, y, h, keep);
+    else if (this.tab === 'ranked') this.buildRanked(p, y);
     else if (this.tab === 'team') this.buildTeam(p, y, h, keep);
     else this.buildShop(p, y, h);
     this.buildFoot(p, footY);
@@ -383,6 +433,205 @@ export class DuelScene extends BaseScene {
     } finally {
       this.busy = false;
     }
+  }
+
+  // ------------------------------------------------------------------ ranked
+
+  private async loadRanked(): Promise<void> {
+    try {
+      const r = await this.src.ranked();
+      if (!this.sys.isActive()) return;
+      this.ranked = r;
+      if (this.tab === 'ranked' && this.profile && this.st === 'ready') this.buildBody();
+    } catch {
+      // the card keeps what it had (the profile loaded, so this is a passing failure)
+    }
+  }
+
+  private buildRanked(p: DuelProfileView, y: number): void {
+    const { VW } = this.m;
+    const r = this.ranked;
+    const x = 4;
+    const w = VW - 8;
+    const B = this.body;
+    // a search or a found opponent take the whole page (small screens have little room)
+    if (this.found) return this.buildFound(this.found, x, y, w);
+    if (this.search) return this.buildSearch(this.search, x, y, w);
+    // the league card: badge, league (or placements) and record
+    const ch = 38;
+    B.add(addPanel(this, x, y, w, ch, 'inset'));
+    const league = r?.league ?? null;
+    const g = this.add.graphics();
+    g.fillStyle(0x1d140f, 1);
+    g.fillRect(x + 4, y + 4, 30, 30);
+    g.fillStyle(league ? LEAGUE_COLOR[league.id] : 0x5a4232, 1);
+    g.fillRect(x + 5, y + 5, 28, 28);
+    B.add(g);
+    B.add(addIcon(this, x + 12, y + 7, league?.id === 'legend' ? 'star' : 'shield', 'L'));
+    if (league?.division) B.add(addText(this, x + 19, y + 23, divisionRoman(league.division), 'light', 0.5));
+    const tx = x + 39;
+    const tw = w - (tx - x) - 5;
+    const title = !r ? '...' : league ? (league.id === 'legend' && r.rating !== null ? t('duels.legendRating', { n: r.rating }) : leagueName(league)) : t('duels.placements', { n: r.placements.played, max: r.placements.of });
+    B.add(addText(this, tx, y + 5, ellipsize(title, tw), 'red'));
+    if (r) {
+      B.add(addText(this, tx, y + 16, ellipsize(t('duels.wl', { w: r.wins, l: r.losses }), tw), 'ink'));
+      if (!league) B.add(new Meter(this, tx, y + 29, tw, 4, COLOR.xp).setValue(r.placements.played, r.placements.of));
+      else B.add(addText(this, tx, y + 26, ellipsize(t('duels.payRanked', { w: RANKED.glory.ranked.win, l: RANKED.glory.ranked.loss }), tw), 'dim'));
+    }
+    y += ch + 4;
+    const now = Date.now();
+    const bh = 30;
+    if (r?.match) {
+      const m = r.match;
+      B.add(new Button(this, x, y, w, bh, { label: t('duels.rejoin'), icon: 'swords', variant: 'primary', id: 'duel.rejoin', onClick: () => this.enterMatch(m.id, m.mode) }));
+      this.hint(t('duels.rejoinHint'), x, y + bh + 3, w, 'dim', 2);
+      return;
+    }
+    const cooldown = r && r.cooldownUntil > now ? r.cooldownUntil : 0;
+    const locked = !!r && !r.unlocked;
+    const problem = teamProblem(this.teamHeroes(p), DUEL_RULES.budget);
+    const why = cooldown ? t('duels.unq.cooldown') : problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : !r ? t('duels.unq.error') : undefined;
+    // ranked (wide, primary) and unranked side by side
+    const uw = Math.max(54, Math.floor(w * 0.4));
+    const rw = w - uw - SIZE.gap;
+    const ranked = new Button(this, x, y, rw, bh, { label: t('duels.findMatch'), icon: 'swords', variant: 'primary', id: 'duel.findRanked', onClick: () => this.findMatch('ranked') });
+    ranked.setEnabled(!why && !locked, why ?? (locked && r ? t('duels.rankedLocked', { n: r.unlockLevel }) : undefined));
+    B.add(ranked);
+    const un = new Button(this, x + rw + SIZE.gap, y, uw, bh, { label: t('duels.unranked'), id: 'duel.findUnranked', onClick: () => this.findMatch('unranked') });
+    un.setEnabled(!why, why);
+    B.add(un);
+    y += bh + 4;
+    if (cooldown) {
+      y = this.hint(t('duels.cooldown', { t: clockText(cooldown - now) }), x, y, w, 'red', 1);
+      this.hint(t('duels.cooldownHint'), x, y, w, 'dim', 1);
+    } else if (locked && r) {
+      y = this.hint(t('duels.rankedLocked', { n: r.unlockLevel }), x, y, w, 'red', 1);
+      this.hint(t('duels.rankedLockedHint'), x, y, w, 'dim', 1);
+    } else {
+      this.hint(t('duels.payUnranked', { w: RANKED.glory.unranked.win, l: RANKED.glory.unranked.loss }), x, y, w, 'dim', 2);
+    }
+  }
+
+  /** Wrapped lines of text; returns the y below them. */
+  private hint(text: string, x: number, y: number, w: number, font: 'dim' | 'red' | 'ink', lines: number): number {
+    const wr = wrapText(text, w - 4, lines);
+    this.body.add(addText(this, x + 2, y, wr.lines.join('\n'), font));
+    return y + wr.lines.length * LINE_H + 2;
+  }
+
+  private buildSearch(s: { mode: DuelMode; since: number }, x: number, y: number, w: number): void {
+    const B = this.body;
+    const wr = wrapText(t('duels.searchHint'), w - 12, 2);
+    const ph = 34 + wr.lines.length * LINE_H + 3;
+    B.add(addPanel(this, x, y, w, ph, 'button'));
+    B.add(addIcon(this, x + 5, y + 4, 'hourglass'));
+    B.add(addText(this, x + 20, y + 6, ellipsize(t(`duels.searchMode.${s.mode}` as TKey), w - 25), 'red'));
+    this.searchText = addText(this, x + w / 2, y + 20, t('duels.searching', { t: clockText(Date.now() - s.since) }), 'ink', 0.5);
+    B.add(this.searchText);
+    B.add(addText(this, x + 6, y + 33, wr.lines.join('\n'), 'dim'));
+    B.add(new Button(this, x, y + ph + 4, w, 30, { label: t('common.cancel'), icon: 'close', id: 'duel.cancelSearch', onClick: () => this.cancelSearch() }));
+  }
+
+  private buildFound(f: { name: string; league: League | null }, x: number, y: number, w: number): void {
+    const B = this.body;
+    B.add(addPanel(this, x, y, w, 66, 'buttonSel'));
+    B.add(addIcon(this, x + 5, y + 4, 'swords', 'L'));
+    B.add(addText(this, x + 20, y + 6, ellipsize(t('duels.found'), w - 25), 'light'));
+    B.add(addText(this, x + w / 2, y + 21, ellipsize(t('battle.vs', { name: f.name }), w - 12), 'light', 0.5));
+    if (f.league) {
+      const label = leagueName(f.league);
+      const cw = Math.min(w - 12, 96);
+      addChip(this, B, x + w / 2 - cw / 2, y + 35, label, LEAGUE_COLOR[f.league.id], cw);
+    }
+    B.add(addText(this, x + w / 2, y + 52, ellipsize(t('duel.preparing'), w - 12), 'light', 0.5));
+  }
+
+  private tickSearch(): void {
+    if (this.search && this.searchText?.active) this.searchText.setText(t('duels.searching', { t: clockText(Date.now() - this.search.since) }));
+    // a running cooldown counts down on the card
+    if (!this.search && !this.found && this.tab === 'ranked' && this.ranked?.cooldownUntil && this.profile && this.st === 'ready') {
+      if (this.ranked.cooldownUntil <= Date.now()) this.ranked.cooldownUntil = 0;
+      this.buildBody();
+    }
+  }
+
+  /** Joins a queue: the card shows the search until a match is found or the server refuses. */
+  findMatch(mode: DuelMode): void {
+    if (this.search || this.found) return;
+    const since = Date.now();
+    this.search = { mode, since, cancel: () => undefined };
+    this.search.cancel = this.src.queue(mode, (e) => this.onQueue(e));
+    this.tab = 'ranked';
+    if (this.profile && this.st === 'ready') this.buildBody();
+  }
+
+  cancelSearch(): void {
+    this.search?.cancel();
+    this.search = null;
+    if (this.sys.isActive()) this.buildBody();
+  }
+
+  private onQueue(e: QueueEvent): void {
+    if (!this.sys.isActive() || !this.search) return;
+    if (e.type === 'match_found') {
+      this.search = null;
+      if (!e.opponent.name) return this.enterMatch(e.match, e.mode); // a live match to rejoin
+      this.found = { match: e.match, mode: e.mode, name: e.opponent.name, league: e.opponent.league };
+      hapticNotify('success');
+      this.buildBody();
+      this.time.delayedCall(this.foundHoldMs, () => this.found && this.enterMatch(e.match, e.mode));
+    } else if (e.type === 'unqueued' || e.type === 'error') {
+      this.search = null;
+      if (e.type === 'error' || e.reason !== 'cancelled') {
+        hapticNotify('error');
+        toast(this, e.type === 'error' ? e.message : t(`duels.unq.${e.reason}` as TKey), 'bad', 3000);
+      }
+      this.buildBody();
+      void this.loadRanked();
+    }
+  }
+
+  /** Into the match's battle: the live socket, or the demo's local battle against the bot. */
+  enterMatch(id: string, mode: DuelMode): void {
+    this.found = null;
+    if (this.src instanceof DemoDuelSource) {
+      const m = this.src.demoMatch(id);
+      if (!m) return this.buildBody();
+      this.scene.start('Battle', { source: demoMatchSource(this.game, this.src, m) });
+      return;
+    }
+    void playLiveMatch(this.game, this.src, id, mode);
+  }
+
+  /** Previews (layout check): the report of a won ranked match that was promoted. */
+  previewMatchResult(): void {
+    const p = this.profile;
+    if (!p) return;
+    const team = this.teamHeroes(p);
+    lastBattle.heroes = team.map((h) => JSON.parse(JSON.stringify(h)) as Hero);
+    lastBattle.side = 0;
+    lastBattle.stats = [
+      ...team.map((h, i) => ({ heroId: h.id, side: 0 as const, kills: i % 3, dmg: 20 + i * 9, dead: false, ko: i === 4, killedBy: -1 })),
+      ...[0, 1, 2, 3, 4].map((i) => ({ heroId: `foe${i}`, side: 1 as const, kills: 0, dmg: 10, dead: i < 4, ko: false, killedBy: i < 4 ? 0 : -1 })),
+    ];
+    const report: MatchReport = {
+      match: 'preview',
+      mode: 'ranked',
+      side: 0,
+      names: ['You', 'Hektor'],
+      winner: 0,
+      end: 'battle',
+      verified: true,
+      ticks: 20 * 94,
+      abandoned: false,
+      glory: RANKED.glory.ranked.win,
+      accountXp: RANKED.accountXp.win,
+      rating: { before: 1388, after: 1406 },
+      league: { before: { id: 'silver', division: 1 }, after: { id: 'gold', division: 3 } },
+      placements: { played: 10, of: 10 },
+      xp: team.map((h, i) => ({ heroId: h.id, name: h.name, kills: i % 3, xp: 24 + (i % 3) * 10, levelsGained: i === 0 ? 1 : 0, levelBefore: h.level, xpBefore: h.xp })),
+    };
+    showReport(this.game, rankedReport(report, t('battle.vs', { name: 'Hektor' }), this.src.demo), () => backToDuel(this.game, { tab: 'ranked', preview: this.src.demo }));
   }
 
   // ------------------------------------------------------------------ team
@@ -748,6 +997,90 @@ export function ladderReport(r: LadderReport, label: string, demo = false): Batt
     lootInStash: !!r.drop,
     verified: demo ? null : true,
     online: 'attack',
+    notes,
+  });
+}
+
+// ------------------------------------------------------------------ live matches
+
+/** Opens the match socket and starts the battle (or shows the report of a match already over). */
+export async function playLiveMatch(game: Phaser.Game, src: DuelSource, id: string, _mode: DuelMode): Promise<void> {
+  const link = new MatchLink(id);
+  try {
+    const first = await link.open();
+    if (!('type' in first)) {
+      link.close();
+      showReport(game, rankedReport(first, t('battle.vs', { name: first.names[1 - first.side] })), () => backToDuel(game, { tab: 'ranked' }));
+      return;
+    }
+    for (const sc of game.scene.getScenes(true)) if (sc.scene.key !== 'Battle') game.scene.stop(sc.scene.key);
+    game.scene.start('Battle', { source: matchSource(link, first, (o) => finishMatch(game, src, id, o)) });
+  } catch {
+    link.close();
+    backToDuel(game, { tab: 'ranked', error: t('duels.live.unreachable') });
+  }
+}
+
+/** The battle is over: the settled report (asked for again if the socket missed it), then back to the Ranked tab. */
+function finishMatch(game: Phaser.Game, src: DuelSource, id: string, o: MatchOutcome): void {
+  const label = t('battle.vs', { name: o.names[1 - o.side] });
+  if (o.report) return showReport(game, rankedReport(o.report, label), () => backToDuel(game, { tab: 'ranked' }));
+  src
+    .matchReport(id)
+    .then((r) => showReport(game, rankedReport(r.report, label), () => backToDuel(game, { tab: 'ranked' })))
+    .catch((e) => backToDuel(game, { tab: 'ranked', error: errorText(e) }));
+}
+
+/** The demo's live match: the same screens, a local battle against the bot, settled by the demo source. */
+export function demoMatchSource(game: Phaser.Game, src: DemoDuelSource, m: DemoMatch): BattleSource {
+  return {
+    setup: m.setup,
+    heroes: [...m.heroes[0], ...m.heroes[1]],
+    side: 0,
+    label: t('battle.vs', { name: m.names[1] }),
+    opponent: m.names[1],
+    onFinish(sim: Battle) {
+      const r = src.demoSettle(m.id, sim.result());
+      showReport(game, rankedReport(r, this.label, true), () => backToDuel(game, { tab: 'ranked', preview: true }));
+    },
+    onLeave() {
+      backToDuel(game, { tab: 'ranked', preview: true });
+    },
+  };
+}
+
+/** The post-battle report of a live match: rating change, league, placements, Glory and XP (no deaths in duels). */
+export function rankedReport(r: MatchReport, label: string, demo = false): BattleReport {
+  const notes: string[] = [];
+  const foe = r.names[1 - r.side];
+  if (r.end === 'void') notes.push(t('duels.note.void'));
+  else if (r.abandoned) notes.push(t('duels.note.abandoned'));
+  else if (r.end === 'forfeit' && r.winner === r.side) notes.push(t('duels.note.forfeitWin', { name: foe }));
+  if (r.rating && r.league) {
+    const d = r.rating.after - r.rating.before;
+    const ds = d >= 0 ? `+${d}` : `-${-d}`;
+    const { before, after } = r.league;
+    notes.push(after?.id === 'legend' ? t('duels.note.ratingLegend', { n: r.rating.after, d: ds }) : t('duels.note.rating', { d: ds }));
+    if (r.placements && r.placements.played < r.placements.of) notes.push(t('duels.note.placement', { n: r.placements.played, max: r.placements.of }));
+    else if (after && !before) notes.push(t('duels.note.placed', { league: leagueName(after) }));
+    else if (after && before && leagueRank(after) > leagueRank(before)) notes.push(t('duels.note.leagueUp', { league: leagueName(after) }));
+    else if (after && before && leagueRank(after) < leagueRank(before)) notes.push(t('duels.note.leagueDown', { league: leagueName(after) }));
+    else if (after) notes.push(t('duels.note.league', { league: leagueName(after) }));
+  } else if (r.mode === 'unranked' && r.end !== 'void') notes.push(t('duels.note.unranked'));
+  if (r.accountXp) notes.push(t('duels.note.xp', { n: r.accountXp }));
+  if (demo) notes.push(t('duels.note.demo'));
+  return buildReport({
+    result: r.end === 'void' ? 'draw' : resultFor(r.winner, r.side),
+    vs: label,
+    ticks: r.ticks,
+    side: r.side,
+    stats: lastBattle.stats,
+    heroes: lastBattle.heroes,
+    outcomes: r.xp.map((x) => ({ heroId: x.heroId, name: x.name, died: false, wounded: false, xp: x.xp, levelsGained: x.levelsGained, levelBefore: x.levelBefore, xpBefore: x.xpBefore })),
+    gold: 0,
+    glory: r.glory,
+    verified: demo ? null : r.verified,
+    online: 'duel',
     notes,
   });
 }
