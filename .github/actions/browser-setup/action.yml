@@ -1,0 +1,42 @@
+name: Browser check setup
+description: >
+  Node + client deps, the built dist/ from the build job, a cached Playwright
+  Chromium (headless shell) and `vite preview` serving dist/ on :4173.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: package-lock.json
+    - run: npm ci
+      shell: bash
+      env:
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    - uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist
+    - id: pw
+      shell: bash
+      run: echo "version=$(node -p "require('./node_modules/playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+    - id: pw-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-shell-${{ runner.os }}-${{ steps.pw.outputs.version }}
+    - name: Install Chromium
+      if: steps.pw-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps --only-shell chromium
+    - name: Chromium system libraries
+      if: steps.pw-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps chromium
+    - name: Serve dist/
+      shell: bash
+      run: |
+        npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &
+        for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && exit 0; sleep 1; done
+        cat /tmp/preview.log; exit 1

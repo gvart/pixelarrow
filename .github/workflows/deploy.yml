@@ -14,8 +14,90 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
+# Gates run in parallel; every one of them must pass before the deploy job:
+#   build (types, unit tests, dist/ as an artifact) -> layout (10 shards) + smoke (5 scripts)
+#   server (types, tests)
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # vitest 5 needs Node >= 22.12 (vite 8 alone would run on 20.19+).
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      # vite build only: the type-check above is what `npm run build` adds
+      - run: npx vite build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 3
+
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      # server/ (Worker API, bundles ../src/sim)
+      - run: npm ci
+        working-directory: server
+      - run: npx tsc --noEmit
+        working-directory: server
+      - run: npx vitest run
+        working-directory: server
+
+  # ---- layout check (docs/UI_KIT.md "Layout check"): every screen at five
+  # phone sizes, with and without Telegram's safe-area insets, in English and
+  # Russian: 20 configurations, two per shard, each split in two contexts.
+  # Known violations are allowlisted with an owner in
+  # scripts/layout-allowlist.json; anything else fails the deploy.
+  layout:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/browser-setup
+      - name: Layout check (shard ${{ matrix.shard }}/10)
+        run: node scripts/layout-check.mjs http://localhost:4173/ --shard ${{ matrix.shard }}/10 --split 2 --jobs 4
+      - name: Upload layout screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-screenshots-${{ matrix.shard }}
+          path: docs/screenshots/layout
+          retention-days: 14
+
+  # ---- touch smoke tests (README "Screenshots and smoke test")
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        script: [smoke, online-smoke, fullscreen-smoke, audio-smoke, tutorial-smoke]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/browser-setup
+      - run: node scripts/${{ matrix.script }}.mjs http://localhost:4173/
+
   deploy:
+    needs: [build, server, layout, smoke]
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -24,46 +106,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          # vitest 5 needs Node >= 22.12 (vite 8 alone would run on 20.19+).
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/package-lock.json
-
-      # ---- client (static game in dist/)
-      - run: npm ci
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-      - run: npx tsc --noEmit
-      - run: npx vitest run
-      - run: npm run build
-
-      # ---- layout check (docs/UI_KIT.md "Layout check"): every screen at five
-      # phone sizes, with and without Telegram's safe-area insets, in English
-      # and Russian. Known violations are allowlisted with an owner in
-      # scripts/layout-allowlist.json; anything else fails the deploy.
-      - name: Install Chromium for the layout check
-        run: npx playwright install --with-deps chromium
-      - name: Layout check
-        run: |
-          npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
-          node scripts/layout-check.mjs http://localhost:4173/ --jobs 4
-      - name: Upload layout screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
+          cache-dependency-path: server/package-lock.json
+      - uses: actions/download-artifact@v4
         with:
-          name: layout-screenshots
-          path: docs/screenshots/layout
-          retention-days: 14
-
-      # ---- server (Worker API in server/, bundles ../src/sim)
+          name: dist
+          path: dist
       - run: npm ci
-        working-directory: server
-      - run: npx tsc --noEmit
-        working-directory: server
-      - run: npx vitest run
         working-directory: server
 
       # wrangler.deploy.json = wrangler.jsonc with the D1 id filled in from the

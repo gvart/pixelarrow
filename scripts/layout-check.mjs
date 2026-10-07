@@ -18,6 +18,8 @@
 //   --screens a,b        only these screens          --sizes 390x844,320x568   only these sizes
 //   --langs en           only these languages        --insets plain|tg          only one safe-area variant
 //   --jobs 4             parallel browser contexts   --no-shots                 skip screenshots
+//   --shard 3/10         only every 10th configuration, starting with the 3rd (CI runs 10 shards in parallel)
+//   --split 2            split each configuration's screens into 2 contiguous runs (each in its own context, in parallel)
 //   --verbose            print every violation with its detail
 //   --no-retry           do not re-run screens with new violations (by default a new violation must show twice)
 import { chromium } from 'playwright';
@@ -40,6 +42,8 @@ const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780').split(',')
 const LANGS = opt('langs', 'en,ru').split(',');
 const INSETS = opt('insets', 'plain,tg').split(',');
 const JOBS = Number(opt('jobs', '4'));
+const [SHARD, SHARDS] = opt('shard', '1/1').split('/').map(Number);
+const SPLIT = Math.max(1, Number(opt('split', '1')));
 const TG = { safeTop: 59, contentTop: 46, safeBottom: 34 };
 
 // ------------------------------------------------------------------ screens
@@ -661,19 +665,25 @@ const onlyScreens = opt('screens', '');
 const screens = onlyScreens ? SCREENS.filter((s) => onlyScreens.split(',').includes(s.id)) : SCREENS;
 const configs = [];
 for (const lang of LANGS) for (const insets of INSETS) for (const size of SIZES) configs.push({ lang, insets, size });
+const allConfigs = configs.length;
+if (SHARDS > 1) configs.splice(0, configs.length, ...configs.filter((_, k) => k % SHARDS === SHARD - 1));
+// work units: a configuration and a contiguous run of screens (each unit is a fresh context)
+const units = [];
+const per = Math.ceil(screens.length / SPLIT);
+for (const cfg of configs) for (let c = 0; c < SPLIT; c++) if (c * per < screens.length) units.push({ cfg, screens: screens.slice(c * per, (c + 1) * per), part: c });
 
 const browser = await chromium.launch();
 const runs = [];
 let next = 0;
 const t0 = Date.now();
 await Promise.all(
-  Array.from({ length: Math.min(JOBS, configs.length) }, async () => {
-    while (next < configs.length) {
-      const cfg = configs[next++];
-      const r = await runConfig(browser, cfg, screens);
+  Array.from({ length: Math.min(JOBS, units.length) }, async () => {
+    while (next < units.length) {
+      const u = units[next++];
+      const r = await runConfig(browser, u.cfg, u.screens);
       runs.push(r);
       const n = r.results.reduce((a, x) => a + x.violations.length, 0);
-      console.log(`${cfg.lang} ${cfg.insets} ${cfg.size.join('x')}: ${n} violations${r.errors.length ? `, ${r.errors.length} page errors` : ''}`);
+      console.log(`${u.cfg.lang} ${u.cfg.insets} ${u.cfg.size.join('x')}${SPLIT > 1 ? ` part ${u.part + 1}/${SPLIT}` : ''}: ${n} violations${r.errors.length ? `, ${r.errors.length} page errors` : ''}`);
     }
   }),
 );
@@ -723,7 +733,7 @@ if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   flaky.push(...fresh.filter((k) => !again.has(k)));
   fresh = fresh.filter((k) => again.has(k));
 }
-const partial = configs.length < SIZES.length * LANGS.length * INSETS.length || screens.length < SCREENS.length;
+const partial = configs.length < allConfigs || allConfigs < 20 || screens.length < SCREENS.length;
 const stale = [...allowed.keys()].filter((k) => !found.has(k) && screens.some((s) => k.startsWith(s.id + '|'))).sort();
 
 if (flag('update-allowlist')) {
@@ -808,7 +818,7 @@ if (failNew) {
   console.log(`\nNEW layout violations (not in the allowlist): ${fresh.length}`);
   for (const k of fresh) console.log(show(k));
 }
-console.log(`\n${configs.length} configs x ${screens.length} screens in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new.`);
+console.log(`\n${configs.length} configs${SHARDS > 1 ? ` (shard ${SHARD}/${SHARDS})` : ''} x ${screens.length} screens in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new.`);
 const failed = failNew || pageErrors.length > 0 || screenErrors.length > 0;
 console.log(failed ? 'LAYOUT CHECK FAILED' : 'LAYOUT CHECK PASSED');
 process.exit(failed ? 1 : 0);

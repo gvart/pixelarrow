@@ -79,8 +79,14 @@ procedural sprite sheets (it is also part of the production build).
 ### Deployment (Cloudflare)
 
 `.github/workflows/deploy.yml` runs on every push to `main` (and manually via
-*Run workflow*): `npm ci`, type-check, tests, `npm run build`, then
-`wrangler deploy` publishes `dist/` as static assets of a Cloudflare Worker
+*Run workflow*). Gates run as parallel jobs: **build** (type-check, unit
+tests, `vite build`; `dist/` is shared with the other jobs as an artifact),
+**server** (type-check, tests), **layout** (the layout check in 10 shards,
+`--shard i/10 --split 2`) and **smoke** (`smoke`, `online-smoke`,
+`fullscreen-smoke`, `audio-smoke`, `tutorial-smoke`, one job each; Chromium
+is cached, `.github/actions/browser-setup`). Only when all of them pass does
+the **deploy** job apply the D1 migrations and
+`wrangler deploy` publish `dist/` as static assets of a Cloudflare Worker
 (`wrangler.jsonc`) on the custom domain https://pixelarrow.app. It needs the
 repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The
 build uses a relative `base` (`./`), so it also works under a sub-path and

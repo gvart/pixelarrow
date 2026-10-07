@@ -169,7 +169,9 @@ list to its end and checks again. It fails on:
 Screenshots: `docs/screenshots/layout/<lang>-<plain|tg>/<W>x<H>/<screen>.png`
 (git-ignored; CI uploads them as the `layout-screenshots` artifact), summary
 in `docs/screenshots/layout/index.md`. Options: `--screens`, `--sizes`,
-`--langs`, `--insets`, `--verbose`, `--update-allowlist`.
+`--langs`, `--insets`, `--verbose`, `--update-allowlist`, `--shard i/n` (every
+n-th configuration; CI runs 10 shards in parallel) and `--split k` (each
+configuration's screens in k contexts, run in parallel by `--jobs`).
 
 **Registering:** nothing to do for kit components and plain Phaser objects:
 the registry walks the display list (interactive objects and bitmap texts;
