@@ -1953,7 +1953,9 @@ export class BattleScene extends BaseScene {
         morale: mem.length ? mo : 0,
         orderIcon: g.routed ? 'flag' : g.shieldWall ? 'wall' : g.order,
         name: g.individual ? this.sim.members(c.gid)[0]?.name : groupName(g.name),
+        shortName: g.individual ? undefined : groupName(g.name, true),
         orderWord: g.routed ? t('battle.order.routed') : this.sim.phase === 'deploy' ? t(`battle.formation.${g.formation.type}` as TKey) : t(`battle.order.${g.order}` as TKey),
+        orderShort: g.routed ? t('battle.orderShort.routed') : this.sim.phase === 'deploy' ? t(`battle.formationShort.${g.formation.type}` as TKey) : t(`battle.orderShort.${g.order}` as TKey),
         portrait: this.portraitOf(c.gid),
         selected: this.selGroup === c.gid,
         routed: g.routed,
@@ -2449,9 +2451,9 @@ function fmtClock(s: number): string {
 }
 
 /** A sim group's name (Phalanx, Skirmish...) in the current language. */
-function groupName(name: string): string {
+function groupName(name: string, short = false): string {
   const i = GROUP_NAMES.indexOf(name);
-  return i >= 0 ? t(`battle.groupName.${i}` as TKey) : name;
+  return i >= 0 ? t(`battle.${short ? 'groupShort' : 'groupName'}.${i}` as TKey) : name;
 }
 
 function abilityName(id: AbilityId): string {

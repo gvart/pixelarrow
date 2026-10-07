@@ -323,6 +323,12 @@ export class PanelButton extends Phaser.GameObjects.Container {
 
 // ================================================================== group card
 
+/** The first candidate (upper-cased) whose width fits `maxW`; else the last one. */
+export function firstFit(cands: (string | undefined | false | null)[], maxW: number, shadow = false): string {
+  const list = cands.filter((c): c is string => !!c).map((c) => c.toUpperCase());
+  return list.find((c) => measureText(c, shadow) <= maxW) ?? list[list.length - 1] ?? '';
+}
+
 export interface GroupCardInfo {
   /** "I", "II"... or "*" for a detached hero. */
   numeral: string;
@@ -333,9 +339,11 @@ export interface GroupCardInfo {
   morale: number;
   /** Icon of the current order (hold, advance, charge, fallback, wall, throw). */
   orderIcon: string;
-  /** Wide cards: the group's name and its order in words. */
+  /** Wide cards: the group's name and its order in words, with short forms for narrow cards. */
   name?: string;
+  shortName?: string;
   orderWord?: string;
+  orderShort?: string;
   /** Portrait texture key of the group's leading class. */
   portrait: string | null;
   selected: boolean;
@@ -398,7 +406,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
 
   setInfo(i: GroupCardInfo): this {
     this.info = i;
-    const key = [i.numeral, i.men, i.orderIcon, i.portrait, i.selected, i.routed, i.name, i.orderWord].join('|');
+    const key = [i.numeral, i.men, i.orderIcon, i.portrait, i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort].join('|');
     if (key !== this.key) {
       this.key = key;
       this.rebuild();
@@ -439,11 +447,14 @@ export class GroupCard extends Phaser.GameObjects.Container {
       x += 19;
     }
     const room = this.w - x - 3;
-    if (room >= 34 && i.name) {
-      // wide: "II SKIRMISH" over "7 · ADVANCING"
-      text(x, 2, `${i.numeral} ${i.name}`, fontA, 0, room);
-      text(x, 11, `${i.men} ${i.orderWord ?? ''}`.trim(), fontB, 0, room);
-      if (i.orderIcon && room >= 48) this.add(addIcon(s, this.w - 15, 7, i.orderIcon, light ? 'L' : 'D').setAlpha(0.9));
+    if (room >= 30 && i.name) {
+      // wide: the order icon in the top right corner; beside it "II SKIRMISH"
+      // over "7 ADVANCING", each line the longest form that fits whole
+      // ("II SKIRM." / "7 ADV" / "II" / "7"): never an ellipsis
+      const tw = room - (i.orderIcon ? 13 : 0);
+      if (i.orderIcon) this.add(addIcon(s, this.w - 14, 1, i.orderIcon, light ? 'L' : i.routed || i.men === 0 ? 'D' : ''));
+      text(x, 2, firstFit([`${i.numeral} ${i.name}`, i.shortName && `${i.numeral} ${i.shortName}`, i.numeral], tw, SHADOW_FONTS.has(fontA)), fontA, 0, tw);
+      text(x, 11, firstFit([i.orderWord && `${i.men} ${i.orderWord}`, i.orderShort && `${i.men} ${i.orderShort}`, `${i.men}`], tw, SHADOW_FONTS.has(fontB)), fontB, 0, tw);
     } else if (x > 3) {
       // narrow: the numeral over the portrait's corner, the order icon and the men beside it
       text(3, ph - 6, i.numeral, fontA, 0, 18);
