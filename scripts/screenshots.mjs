@@ -246,5 +246,22 @@ await page.evaluate(() => {
 await wait(1000);
 await shot('16-town-market');
 
+// Battle terrain: a river ford in wooded hills, with the long-press terrain tooltip
+await page.evaluate(() => {
+  const st = window.__state;
+  st.pending = null;
+  window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { fresh: true }));
+});
+await wait(800);
+await page.evaluate(() => {
+  const st = window.__state;
+  st.pending = { ...st.pending, seed: 11, site: { base: 'hills', river: true, coast: true, rocky: true, woods: 0.4 } };
+  window.__game.scene.getScene('Battle').scene.restart({});
+});
+await wait(2500);
+await call('Battle', `s.hideBanner(); s.cameras.main.setZoom(1); s.centerCam(s.project(12, 18).x, s.project(12, 18).y); const u = s.sim.units.find((x) => x.side === 0); const p = s.project(u.x - 1, u.y + 1); const cam = s.cameras.main; const sx = (p.x - cam.worldView.x) * cam.zoom, sy = (p.y - cam.worldView.y) * cam.zoom; s.showTerrainInfo(p.x, p.y, sx, sy); return 1;`);
+await wait(300);
+await shot('21-battle-terrain');
+
 console.log(problems.length ? problems.join('\n') : 'no console errors');
 await browser.close();

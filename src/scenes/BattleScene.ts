@@ -961,8 +961,9 @@ export class BattleScene extends BaseScene {
     if (f.x < 0 || f.y < 0 || f.x > this.sim.width || f.y > this.sim.height) return;
     const d = this.sim.ground(f.x, f.y);
     const hgt = this.sim.heightAt(f.x, f.y);
-    const lines = [hgt > 0 ? `${d.name}, high ground ${hgt}` : d.name, d.desc];
-    if (hgt > 0) lines.push(`+${Math.round(HEIGHT_RULES.meleeDown * 100)}% blows per level downhill; climbing is slow`);
+    const lines = hgt > 0 ? [`${d.kind === 'open' ? 'High ground' : d.name + ', high ground'} (level ${hgt})`] : [d.name];
+    if (hgt === 0 || d.kind !== 'open') lines.push(d.desc);
+    if (hgt > 0) lines.push(`Blows downhill +${Math.round(HEIGHT_RULES.meleeDown * 100)}% per level, missiles reach further; climbing is slow and tiring.`);
     const { S, VW } = this.m;
     const c = this.add.container(0, 0);
     const w = Math.min(VW - 12, 200);
