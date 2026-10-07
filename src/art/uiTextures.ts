@@ -2,7 +2,23 @@
 import { P } from './palette';
 import { Pix, hash2 } from './pixels';
 
-export type PanelStyle = 'parch' | 'inset' | 'button' | 'buttonDown' | 'buttonSel' | 'buttonOff' | 'scroll' | 'dark' | 'slot' | 'slotSel';
+export type PanelStyle =
+  | 'parch'
+  | 'inset'
+  | 'button'
+  | 'buttonDown'
+  | 'buttonSel'
+  | 'buttonSelDown'
+  | 'buttonDanger'
+  | 'buttonDangerDown'
+  | 'buttonOff'
+  | 'scroll'
+  | 'dark'
+  | 'slot'
+  | 'slotSel'
+  | 'tab'
+  | 'tabSel'
+  | 'tooltip';
 
 export function renderPanel(w: number, h: number, style: PanelStyle): Pix {
   const px = new Pix(w, h);
@@ -15,11 +31,26 @@ export function renderPanel(w: number, h: number, style: PanelStyle): Pix {
     fill = P.parchShade;
     light = P.parch;
     shade = P.parchDark;
-  } else if (style === 'buttonSel' || style === 'slotSel') {
+  } else if (style === 'buttonSel' || style === 'slotSel' || style === 'buttonSelDown' || style === 'tabSel') {
     fill = P.red;
     light = 0xc4604c;
     shade = P.redDark;
     border = P.redDark;
+  } else if (style === 'buttonDanger' || style === 'buttonDangerDown') {
+    // destructive: dark wine with a red rim (cream label)
+    fill = 0x4e1c16;
+    light = 0x7a2e22;
+    shade = 0x2e100c;
+    border = P.red;
+  } else if (style === 'tab') {
+    fill = P.parchShade;
+    light = P.parch;
+    shade = P.parchDark;
+  } else if (style === 'tooltip') {
+    fill = 0x2e211c;
+    light = 0x4a3830;
+    shade = 0x1d140f;
+    border = P.gold;
   } else if (style === 'buttonOff') {
     fill = 0xcdb8a8;
     light = 0xd8c6b8;
@@ -43,7 +74,7 @@ export function renderPanel(w: number, h: number, style: PanelStyle): Pix {
     }
   }
   // bevel
-  const down = style === 'buttonDown';
+  const down = style === 'buttonDown' || style === 'buttonSelDown' || style === 'buttonDangerDown';
   px.hline(1, w - 2, 1, down ? shade : light);
   px.vline(1, 1, h - 2, down ? shade : light);
   px.hline(1, w - 2, h - 2, down ? light : shade);
@@ -100,5 +131,39 @@ export function renderBar(w: number, h: number, color: number, back: number): Pi
   const px = new Pix(w, h);
   px.rect(0, 0, w, h, back);
   px.rect(1, 1, w - 2, h - 2, color);
+  return px;
+}
+
+/**
+ * Item slot frame: a dark well with a 1 px rarity-coloured border and a
+ * brighter inner corner highlight. `size` x `size`.
+ */
+export function renderRarityFrame(size: number, color: number, glow: number): Pix {
+  const px = new Pix(size, size);
+  px.rect(1, 1, size - 2, size - 2, 0x3a2a24);
+  px.rect(2, 2, size - 4, size - 4, 0x4a362c);
+  px.hline(1, size - 2, 0, color);
+  px.hline(1, size - 2, size - 1, color);
+  px.vline(0, 1, size - 2, color);
+  px.vline(size - 1, 1, size - 2, color);
+  px.hline(2, size - 3, 1, glow);
+  px.vline(1, 2, size - 3, glow);
+  px.set(1, 1, glow);
+  return px;
+}
+
+/** Soft square glow (alpha falls off outside a size x size box), for Rare+ items. */
+export function renderGlow(size: number, color: number, spread = 4): Pix {
+  const n = size + spread * 2;
+  const px = new Pix(n, n);
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const dx = Math.max(0, spread - x, x - (n - 1 - spread));
+      const dy = Math.max(0, spread - y, y - (n - 1 - spread));
+      const d = Math.hypot(dx, dy);
+      if (d > spread) continue;
+      const a = Math.round(200 * (1 - d / (spread + 0.5)) ** 1.6);
+      if (a > 0) px.set(x, y, color, a);
+    }
   return px;
 }

@@ -248,7 +248,7 @@ shield wall, no shield bash from the saddle).
 
 All items are data in `src/data/items.ts`. Slots: weapon, shield, helmet,
 body armour, trinket (passive, not drawn). Each owned item has a
-**rarity** (common / fine / rare / heroic, scaling its positive stats),
+**rarity** (five tiers: common, uncommon, rare, epic, legendary, scaling its positive stats; saves before v4 used common / fine / rare / heroic, mapped to common / uncommon / rare / epic),
 a **condition** 0–100 (low condition weakens it; repairs cost gold) and
 optional **paint** (shield emblem and colours, helmet crest colour).
 

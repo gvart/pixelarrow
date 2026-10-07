@@ -4,6 +4,7 @@
  * the marketplace limits. Change prices here; nothing else hard-codes them.
  * Stars products (Drachmae packs) live in ../products.ts.
  */
+import { LEGACY_RARITY, normalizeRarity, RARITIES } from '../../../src/data/items';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 
 export type CosmeticSlot = 'emblem' | 'banner' | 'cloak' | 'clan_flag' | 'army_skin' | 'table_theme';
@@ -112,10 +113,14 @@ export const MARKET = {
   feeRate: 0.1,
   listingHours: 48,
   maxOpenListings: 20,
-  /** Total listing price bounds per rarity and currency (unknown rarities use `default`). */
+  /**
+   * Total listing price bounds per rarity (five tiers, src/data/items.ts) and
+   * currency. Legacy names (fine, heroic) map to their new tier; unknown
+   * rarities use `default`.
+   */
   priceBounds: {
-    gold: { common: [2, 5_000], fine: [5, 10_000], rare: [20, 20_000], heroic: [50, 50_000], default: [2, 50_000] },
-    drachmae: { common: [2, 500], fine: [2, 1_000], rare: [5, 2_000], heroic: [10, 5_000], default: [2, 5_000] },
+    gold: { common: [2, 5_000], uncommon: [5, 10_000], rare: [20, 20_000], epic: [50, 50_000], legendary: [200, 100_000], default: [2, 100_000] },
+    drachmae: { common: [2, 500], uncommon: [2, 1_000], rare: [5, 2_000], epic: [10, 5_000], legendary: [40, 10_000], default: [2, 10_000] },
   } as Record<'gold' | 'drachmae', Record<string, [number, number]>>,
   /** Resources that can be listed (gold is a currency, recruits are people). */
   resources: ['food', 'wood', 'bronze'] as const,
@@ -130,7 +135,8 @@ export function marketFee(price: number): number {
 
 export function priceBounds(currency: 'gold' | 'drachmae', rarity: string): [number, number] {
   const t = MARKET.priceBounds[currency];
-  return t[rarity] ?? t.default;
+  const known = (RARITIES as string[]).includes(rarity) || rarity in LEGACY_RARITY;
+  return (known ? t[normalizeRarity(rarity)] : undefined) ?? t.default;
 }
 
 /** Public catalogue for GET /api/economy/catalog. */

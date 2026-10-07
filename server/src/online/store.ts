@@ -10,7 +10,7 @@
  * never apply half an operation or spend the same gold twice.
  */
 import type { Hero } from '../../../src/data/units';
-import type { Item } from '../../../src/data/items';
+import { normalizeEquip, normalizeItem, type Item } from '../../../src/data/items';
 import type { FormationType } from '../../../src/sim/formation';
 import { hashString } from '../../../src/sim/rng';
 import { capitals, hexDistance, hexesWithin, hexInfo, SHARD_RADIUS, type Axial, type HexInfo } from '../../../src/online/hex';
@@ -409,7 +409,7 @@ export interface OwnedHero {
 
 export function heroOf(r: HeroRow): OwnedHero {
   return {
-    hero: JSON.parse(r.data) as Hero,
+    hero: normalizeEquip(JSON.parse(r.data) as Hero),
     playerId: r.player_id,
     garrison: r.gq === null || r.gq === undefined ? null : { q: r.gq, r: r.gr! },
     woundedUntil: r.wounded_until,
@@ -443,7 +443,7 @@ export async function loadGarrison(db: D1Database, shard: Shard, h: Axial): Prom
 
 export async function loadItems(db: D1Database, season: number, pid: number): Promise<Item[]> {
   const r = await db.prepare('SELECT data FROM online_items WHERE season_id = ?1 AND player_id = ?2 ORDER BY created_at, uid').bind(season, pid).all<{ data: string }>();
-  return r.results.map((x) => JSON.parse(x.data) as Item);
+  return r.results.map((x) => normalizeItem(JSON.parse(x.data) as Item));
 }
 
 /** Field army heroes that can fight now: not garrisoned, not wounded, not in another battle. */

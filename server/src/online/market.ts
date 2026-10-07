@@ -23,7 +23,7 @@ import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
-import type { Item } from '../../../src/data/items';
+import { LEGACY_RARITY, normalizeItem, normalizeRarity, type Item } from '../../../src/data/items';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import { hexDistance, inShard, type Axial } from '../../../src/online/hex';
 import { MARKET, marketFee, priceBounds } from '../economy/catalog';
@@ -68,9 +68,9 @@ function listingView(l: ListingRow, pid: number, names: Map<number, string>, now
     town: { q: l.town_q, r: l.town_r },
     kind: l.kind,
     ref: l.ref,
-    item: l.item ? (JSON.parse(l.item) as Item) : null,
+    item: l.item ? normalizeItem(JSON.parse(l.item) as Item) : null,
     qty: l.qty,
-    rarity: l.rarity,
+    rarity: l.kind === 'item' ? normalizeRarity(l.rarity) : l.rarity,
     currency: l.currency,
     price: l.price,
     fee: l.fee ?? marketFee(l.price),
@@ -177,7 +177,13 @@ market.get('/', async (c) => {
   };
   if (f.kind) add('kind = ?', f.kind);
   if (f.ref) add('ref = ?', f.ref);
-  if (f.rarity) add('rarity = ?', f.rarity);
+  if (f.rarity) {
+    // Listings made before the five tiers carry the old names (fine, heroic).
+    const r = normalizeRarity(f.rarity);
+    const names = [r, ...Object.keys(LEGACY_RARITY).filter((k) => LEGACY_RARITY[k] === r)];
+    for (const n of names) binds.push(n);
+    where.push(`rarity IN (${names.map((_, i) => `?${binds.length - names.length + 1 + i}`).join(', ')})`);
+  }
   if (f.currency) add('currency = ?', f.currency);
   if (f.minPrice !== undefined) add('price >= ?', f.minPrice);
   if (f.maxPrice !== undefined) add('price <= ?', f.maxPrice);
@@ -265,7 +271,7 @@ market.post('/list', async (c) => {
     item = JSON.parse(r.data) as Item;
     ref = item.def;
     qty = 1;
-    rarity = item.rarity ?? 'common';
+    rarity = normalizeRarity(item.rarity);
     conds.push('EXISTS (SELECT 1 FROM online_items WHERE uid = ?5 AND season_id = ?1 AND player_id = ?2)');
   } else if (body.kind === 'resource') {
     if (!(MARKET.resources as readonly string[]).includes(body.ref)) throw badRequest(`Only ${MARKET.resources.join(', ')} can be sold`);

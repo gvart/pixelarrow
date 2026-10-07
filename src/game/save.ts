@@ -2,12 +2,13 @@
  * Versioned save schema, migrations and chunking for key/value backends with
  * small value limits (Telegram CloudStorage allows 4096 chars per key).
  */
-import { ITEMS, RARITIES, type Item } from '../data/items';
+import { ITEMS, normalizeRarity, RARITIES, type Item } from '../data/items';
+import type { LangSetting } from '../i18n';
 import type { Hero } from '../data/units';
 import { defaultAttrs, PERKS, POINTS_PER_LEVEL } from '../data/perks';
 import { World, type WorldSave } from '../world/world';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface Settings {
   pauseContact: boolean;
@@ -23,6 +24,10 @@ export interface Settings {
   sfxVol: number;
   /** The one-time touch-controls hint was shown (battle deployment). */
   seenGestureHint: boolean;
+  /** UI language: 'auto' follows Telegram / the browser (src/i18n). */
+  lang: LangSetting;
+  /** First-time hints already shown, by screen id (src/ui/widgets.ts firstTimeHint). */
+  seenHints?: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -36,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   musicVol: 6,
   sfxVol: 7,
   seenGestureHint: false,
+  lang: 'auto',
 };
 
 export interface SaveData {
@@ -79,6 +85,15 @@ const migrations: Record<number, Migration> = {
     })),
     world: World.fresh(((d.rng as number) ^ 0x7f4a7c15) >>> 0 || 1),
   }),
+  // v3 had four rarity tiers: fine -> uncommon, heroic -> epic (same stat multipliers).
+  3: (d) => {
+    const fix = (it: unknown) => {
+      if (it && typeof it === 'object' && 'rarity' in it) (it as { rarity: unknown }).rarity = normalizeRarity((it as { rarity: unknown }).rarity);
+    };
+    for (const h of (d.heroes as Hero[]) ?? []) for (const it of Object.values(h?.equip ?? {})) fix(it);
+    for (const it of (d.stash as unknown[]) ?? []) fix(it);
+    return { ...d, v: 4 };
+  },
 };
 
 export function migrate(raw: unknown): SaveData | null {
@@ -98,6 +113,8 @@ export function migrate(raw: unknown): SaveData | null {
 function validItem(i: unknown): i is Item {
   if (!i || typeof i !== 'object') return false;
   const it = i as Item;
+  // Legacy tier names (synced from an older client or server) are mapped, not rejected.
+  if (typeof it.rarity === 'string' && !RARITIES.includes(it.rarity)) it.rarity = normalizeRarity(it.rarity);
   return typeof it.uid === 'string' && typeof it.def === 'string' && !!ITEMS[it.def] && RARITIES.includes(it.rarity) && typeof it.cond === 'number';
 }
 

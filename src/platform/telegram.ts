@@ -37,7 +37,7 @@ export interface TgWebApp {
     removeItem(key: string, cb?: (err: string | null, ok?: boolean) => void): void;
   };
   initData?: string;
-  initDataUnsafe?: { user?: { first_name?: string; username?: string }; start_param?: string };
+  initDataUnsafe?: { user?: { first_name?: string; username?: string; language_code?: string }; start_param?: string };
   openTelegramLink?(url: string): void;
   openLink?(url: string): void;
   openInvoice?(url: string, cb?: (status: InvoiceStatus) => void): void;
@@ -223,6 +223,11 @@ export function inTelegram(): boolean {
 
 export function telegramUserName(): string | undefined {
   return app?.initDataUnsafe?.user?.first_name;
+}
+
+/** The Telegram user's IETF language tag (e.g. "ru", "en-US"), if known. */
+export function telegramLanguage(): string | undefined {
+  return app?.initDataUnsafe?.user?.language_code;
 }
 
 export function themeColor(name: string): string | undefined {

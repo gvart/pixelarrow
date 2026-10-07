@@ -131,11 +131,16 @@ export function setBotLevel(h: Hero, level: number): void {
 export function rollRarity(rng: Rng, tier: number): Rarity {
   const t = Math.max(1, Math.min(3, tier));
   const table: [Rarity, number][][] = [
-    [['common', 85], ['fine', 14], ['rare', 1]],
-    [['common', 55], ['fine', 35], ['rare', 9], ['heroic', 1]],
-    [['common', 30], ['fine', 40], ['rare', 25], ['heroic', 5]],
+    [['common', 85], ['uncommon', 14], ['rare', 1]],
+    [['common', 55], ['uncommon', 35], ['rare', 9], ['epic', 1]],
+    [['common', 30], ['uncommon', 40], ['rare', 25], ['epic', 5]],
   ];
   return rng.weighted(table[t - 1]);
+}
+
+/** Loot of mythical beasts and world bosses: the only regular source of Legendary gear. */
+export function rollBeastRarity(rng: Rng): Rarity {
+  return rng.weighted<Rarity>([['rare', 50], ['epic', 35], ['legendary', 15]]);
 }
 
 /**

@@ -39,6 +39,25 @@ jobs:
       - run: npx vitest run
       - run: npm run build
 
+      # ---- layout check (docs/UI_KIT.md "Layout check"): every screen at five
+      # phone sizes, with and without Telegram's safe-area insets, in English
+      # and Russian. Known violations are allowlisted with an owner in
+      # scripts/layout-allowlist.json; anything else fails the deploy.
+      - name: Install Chromium for the layout check
+        run: npx playwright install --with-deps chromium
+      - name: Layout check
+        run: |
+          npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
+          node scripts/layout-check.mjs http://localhost:4173/ --jobs 4
+      - name: Upload layout screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-screenshots
+          path: docs/screenshots/layout
+          retention-days: 14
+
       # ---- server (Worker API in server/, bundles ../src/sim)
       - run: npm ci
         working-directory: server

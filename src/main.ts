@@ -15,6 +15,14 @@ import { online } from './platform/cloud';
 import { trackSafeArea } from './platform/safeArea';
 import { nav } from './platform/nav';
 import { installAudio } from './audio';
+import { KitScene } from './scenes/KitScene';
+import { installWidgets } from './ui/widgets';
+import { checkUi, collectUi } from './ui/layout';
+import { scrollAllAreas } from './ui/kit';
+import { refreshLang } from './ui/lang';
+import { lang, setLang, type Lang } from './i18n';
+
+installWidgets();
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -30,17 +38,19 @@ const game = new Phaser.Game({
   },
   input: { activePointers: 3 },
   audio: { noAudio: true }, // all sound is our own Web Audio (src/audio)
-  scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, OnlineScene, OnlineArmyScene, ClanScene],
+  scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, OnlineScene, OnlineArmyScene, ClanScene, KitScene],
 });
 
 // Telegram full screen: keep the canvas inside the safe area (status bar,
 // notch, Telegram's floating buttons, home indicator) and re-layout on change.
-// Measure #game first: refresh() alone sizes the canvas from the previously
-// measured parent (and then records the new size, so Phaser's own polling
-// never catches up). A move without a resize still needs fresh input bounds.
+// Measure #game first, then always refresh: refresh() alone sizes the canvas
+// from the previously measured parent, and Phaser's own polling may already
+// have recorded the new parent size without resizing (insets reported at
+// start-up, e.g. when Telegram opens straight in full screen). BaseScene
+// ignores refreshes that do not change the game size.
 trackSafeArea(() => {
-  if (game.scale.getParentBounds()) game.scale.refresh();
-  else game.scale.updateBounds();
+  game.scale.getParentBounds();
+  game.scale.refresh();
 });
 installAudio(game, () => state.campaign?.data.settings);
 // Ask before closing while a save is still uploading.
@@ -52,6 +62,7 @@ online.canAdopt = () =>
   !state.pending && !game.scene.isActive('Battle') && !game.scene.isActive('Results') && !game.scene.isActive('Boot') && !['Online', 'OnlineArmy', 'OnlineClan'].some((k) => game.scene.isActive(k));
 online.onAdopt = async (data) => {
   await state.adoptRemote(data);
+  refreshLang();
   game.scene.getScenes(true).forEach((s) => s.scene.start('Menu'));
 };
 // Upload right away when the app is backgrounded or closed.
@@ -61,3 +72,13 @@ document.addEventListener('visibilitychange', () => {
 
 // Debug handles (used by the screenshot script).
 Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav });
+// Layout check (scripts/layout-check.mjs): UI element bounds and rule violations of the current screen.
+Object.assign(window, {
+  __layout: {
+    collect: () => collectUi(game),
+    check: () => checkUi(game),
+    scrollAll: (v: number) => scrollAllAreas(v),
+    lang: () => lang(),
+    setLang: (l: Lang) => setLang(l),
+  },
+});

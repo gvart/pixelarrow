@@ -366,7 +366,7 @@ the reward in one batch; claiming again grants nothing.
   where your army stands on or next to. Goods go into escrow in the listing
   batch (stash item removed, resource or consumables subtracted). Prices in
   gold or Drachmae; total price bounds per rarity and currency
-  (`MARKET.priceBounds`; resources and consumables count as common). At most
+  (`MARKET.priceBounds`, five tiers; legacy fine / heroic map to uncommon / epic; resources and consumables count as common). At most
   20 open listings per player; rate limits of 20 lists, 30 buys, 30 cancels
   and 60 searches a minute per player (per isolate).
 - Buying (any player of the same season and shard): one batch flips the

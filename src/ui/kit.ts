@@ -1,13 +1,22 @@
-/** Tiny pixel UI toolkit on top of Phaser: fonts, panels, buttons, meters, scroll lists. */
+/**
+ * Tiny pixel UI toolkit on top of Phaser: fonts, panels, buttons, meters,
+ * scroll areas. Higher-level components (tabs, lists, cards, item icons,
+ * tooltips, toasts, dialogs...) are in widgets.ts; the rules for using them in
+ * docs/UI_KIT.md. Everything here registers with the layout check
+ * (src/ui/layout.ts) automatically.
+ */
 import Phaser from 'phaser';
 import { renderFontAtlas, FONT_LINE_HEIGHT } from '../art/font';
 import { ICONS } from '../art/icons';
 import { P } from '../art/palette';
 import { renderIcon, renderPanel, renderScrollRoll, type PanelStyle } from '../art/uiTextures';
-import { hapticSelect } from '../platform/telegram';
-import { uiButton } from '../audio/hooks';
+import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
+import { uiButton, uiError } from '../audio/hooks';
+import { t } from '../i18n';
+import { ellipsize, measureText } from './textfit';
+import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
 
-export type FontKey = 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title';
+export type FontKey = 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good';
 
 export interface UIMetrics {
   S: number;
@@ -29,6 +38,7 @@ const FONT_COLORS: Record<FontKey, [number, number | undefined]> = {
   gold: [P.gold, 0x3a2410],
   dim: [0x8a6a5c, undefined],
   title: [P.cream, P.ink],
+  good: [0x3f7a2e, undefined],
 };
 
 /** Register fonts and icon textures once per game. */
@@ -65,6 +75,9 @@ export function registerUiAssets(scene: Phaser.Scene): void {
     }
     // Lowercase letters render with the uppercase glyphs.
     for (let cc = 97; cc <= 122; cc++) if (!chars[cc] && chars[cc - 32]) chars[cc] = chars[cc - 32];
+    // ... and so do Cyrillic ones (а..я -> А..Я, ё -> Ё).
+    for (let cc = 0x430; cc <= 0x44f; cc++) if (!chars[cc] && chars[cc - 0x20]) chars[cc] = chars[cc - 0x20];
+    if (chars[0x401]) chars[0x451] = chars[0x401];
     const data = { retroFont: true, font: tkey, size: 7, lineHeight: h + 1, chars };
     scene.cache.bitmapFont.add(tkey, { data, texture: tkey, frame: null });
   }
@@ -104,37 +117,76 @@ export function addText(
   align: 0 | 0.5 | 1 = 0,
   maxWidth = 0,
 ): Phaser.GameObjects.BitmapText {
-  const t = scene.add.bitmapText(Math.round(x), Math.round(y), `font_${font}`, str.toUpperCase(), 7);
-  if (maxWidth > 0) t.setMaxWidth(maxWidth);
-  t.setOrigin(align, 0);
-  return t;
+  const txt = scene.add.bitmapText(Math.round(x), Math.round(y), `font_${font}`, str.toUpperCase(), 7);
+  if (maxWidth > 0) {
+    txt.setMaxWidth(maxWidth);
+    uiMaxWidth(txt, maxWidth);
+  }
+  txt.setOrigin(align, 0);
+  return txt;
 }
 
-/** Trims a one-line text until it fits the width, ending it with a dot. */
-export function fitText(t: Phaser.GameObjects.BitmapText, w: number): Phaser.GameObjects.BitmapText {
-  let str = t.text;
-  while (str.length > 1 && t.width > w) {
+/** Fonts drawn with a 1 px drop shadow (one pixel wider). */
+export const SHADOW_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['light', 'gold', 'title']);
+
+/**
+ * Shortens a one-line text until it fits the width, ending it with "…". The
+ * full text stays in the object's data (`fullText`) for a tooltip.
+ */
+export function fitText(txt: Phaser.GameObjects.BitmapText, w: number): Phaser.GameObjects.BitmapText {
+  if (txt.width <= w) return txt;
+  txt.setData('fullText', txt.text);
+  let str = txt.text;
+  while (str.length > 1 && txt.width > w) {
     str = str.slice(0, -1).trimEnd();
-    t.setText(str + '.');
+    txt.setText(str + '…');
   }
-  return t;
+  return txt;
 }
 
 export function addIcon(scene: Phaser.Scene, x: number, y: number, name: string, variant: '' | 'L' | 'D' = ''): Phaser.GameObjects.Image {
   return scene.add.image(Math.round(x), Math.round(y), `icon${variant}_${name}`).setOrigin(0, 0);
 }
 
+export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
+
 export interface ButtonOpts {
   label?: string;
   icon?: string;
+  /** Legacy look: 'buttonSel' = selected / primary, 'buttonOff' = disabled. */
   style?: 'button' | 'buttonSel' | 'buttonOff';
+  /**
+   * One primary action per screen (filled red); secondary actions are
+   * outlined parchment (the default); destructive actions are dark wine and
+   * confirm first (see `confirmDialog` in widgets.ts).
+   */
+  variant?: ButtonVariant;
   onClick?: () => void;
   font?: FontKey;
   small?: boolean;
   iconOnly?: boolean;
+  /** Long-press text. Defaults to the full label when it was shortened, or to the disabled reason. */
+  tip?: string;
+  /** Why the button is disabled: shown on tap (a disabled button always says why). */
+  disabledReason?: string;
+  /** Element id for the layout check (defaults to the label's i18n key / icon). */
+  id?: string;
 }
 
-/** Parchment button. Coordinates are in UI pixels inside the scaled UI root. */
+/** Long-press and feedback hooks; widgets.ts installs the tooltip and toast. */
+export const longPress = {
+  ms: 450,
+  show: null as null | ((scene: Phaser.Scene, text: string, anchor: Phaser.GameObjects.GameObject) => void),
+  toast: null as null | ((scene: Phaser.Scene, text: string) => void),
+};
+
+/**
+ * Parchment button. Coordinates are in UI pixels inside the scaled UI root.
+ * Press state, click sound and haptic on every tap; long-press shows the tip;
+ * a disabled button explains why on tap. Labels that do not fit end in "…"
+ * (the full label becomes the long-press tip). `opts.label` keeps the full,
+ * unshortened label (scripts find buttons by it).
+ */
 export class Button extends Phaser.GameObjects.Container {
   w: number;
   h: number;
@@ -146,76 +198,161 @@ export class Button extends Phaser.GameObjects.Container {
   private selected = false;
   private enabled = true;
   private downAt: { x: number; y: number } | null = null;
+  private pressTimer: Phaser.Time.TimerEvent | null = null;
+  private longPressed = false;
+  private truncated = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, opts: ButtonOpts) {
     super(scene, Math.round(x), Math.round(y));
     this.w = Math.round(w);
     this.h = Math.round(h);
     this.opts = opts;
-    this.bg = scene.add.image(0, 0, panelTexture(scene, this.w, this.h, opts.style ?? 'button')).setOrigin(0, 0);
+    this.selected = opts.style === 'buttonSel';
+    this.enabled = opts.style !== 'buttonOff';
+    this.bg = scene.add.image(0, 0, panelTexture(scene, this.w, this.h, this.baseStyle())).setOrigin(0, 0);
     this.add(this.bg);
     this.content = scene.add.container(0, 0);
     this.add(this.content);
-    this.selected = opts.style === 'buttonSel';
-    this.enabled = opts.style !== 'buttonOff';
     this.build();
     this.setSize(this.w, this.h);
     this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+    if (opts.id) (this as unknown as { __uiId?: string }).__uiId = opts.id;
     this.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (!this.enabled) return;
       this.downAt = { x: p.x, y: p.y };
-      this.bg.setTexture(panelTexture(scene, this.w, this.h, 'buttonDown'));
+      this.longPressed = false;
+      this.pressTimer?.remove();
+      this.pressTimer = scene.time.delayedCall(longPress.ms, () => {
+        this.pressTimer = null;
+        if (!this.downAt || !this.scene) return;
+        const tip = this.tipText();
+        if (!tip || !longPress.show) return;
+        this.longPressed = true;
+        haptic('light');
+        longPress.show(scene, tip, this);
+        this.release(true);
+      });
+      if (!this.enabled) return;
+      this.bg.setTexture(panelTexture(scene, this.w, this.h, this.downStyle()));
       this.content.y = 1;
     });
-    const release = () => {
-      this.downAt = null;
-      this.refreshBg();
-      this.content.y = 0;
-    };
-    this.on('pointerout', release);
+    this.on('pointerout', () => this.release());
+    this.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (this.downAt && p.isDown && Math.abs(p.x - this.downAt.x) + Math.abs(p.y - this.downAt.y) > 14) this.release();
+    });
     this.on('pointerup', (p: Phaser.Input.Pointer) => {
       const d = this.downAt;
-      release();
-      if (!d || !this.enabled) return;
+      const long = this.longPressed;
+      this.release();
+      if (!d || long) return;
       if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14) return;
+      if (!this.enabled) {
+        uiError();
+        hapticNotify('warning');
+        longPress.toast?.(scene, this.opts.disabledReason ?? t('kit.disabled'));
+        return;
+      }
       hapticSelect();
       uiButton(this.opts.icon);
       this.opts.onClick?.();
     });
+    this.once('destroy', () => this.pressTimer?.remove());
     scene.add.existing(this);
+  }
+
+  private release(keepLong = false): void {
+    this.downAt = null;
+    this.pressTimer?.remove();
+    this.pressTimer = null;
+    if (!keepLong) this.longPressed = false;
+    if (!this.scene) return;
+    this.refreshBg();
+    this.content.y = 0;
+  }
+
+  private tipText(): string | undefined {
+    if (this.opts.tip) return this.opts.tip;
+    if (!this.enabled && this.opts.disabledReason) return this.opts.disabledReason;
+    if (this.opts.label && (this.truncated || this.opts.iconOnly)) return this.opts.label;
+    return undefined;
+  }
+
+  private baseStyle(): PanelStyle {
+    if (!this.enabled) return 'buttonOff';
+    if (this.selected || this.opts.variant === 'primary') return 'buttonSel';
+    if (this.opts.variant === 'destructive') return 'buttonDanger';
+    return 'button';
+  }
+
+  private downStyle(): PanelStyle {
+    const b = this.baseStyle();
+    return b === 'buttonSel' ? 'buttonSelDown' : b === 'buttonDanger' ? 'buttonDangerDown' : 'buttonDown';
+  }
+
+  private isLight(): boolean {
+    const b = this.baseStyle();
+    return b === 'buttonSel' || b === 'buttonDanger';
   }
 
   private build(): void {
     this.content.removeAll(true);
+    this.labelText = undefined;
+    this.iconImg = undefined;
     const scene = this.scene;
-    const variant = this.selected ? 'L' : this.enabled ? '' : 'D';
-    const font: FontKey = this.selected ? 'light' : this.enabled ? this.opts.font ?? 'ink' : 'dim';
+    const light = this.isLight();
+    const variant = light ? 'L' : this.enabled ? '' : 'D';
+    const font: FontKey = !this.enabled ? 'dim' : light ? 'light' : this.opts.font ?? 'ink';
+    const shadow = SHADOW_FONTS.has(font);
     const hasIcon = !!this.opts.icon;
     const hasLabel = !!this.opts.label;
-    if (hasIcon && (!hasLabel || this.opts.iconOnly)) {
+    this.truncated = false;
+    const fit = (maxW: number) => {
+      const full = this.opts.label!.toUpperCase();
+      const out = ellipsize(full, maxW, shadow);
+      this.truncated = out !== full;
+      return out;
+    };
+    const iconCentered = () => {
       this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
       this.content.add(this.iconImg);
+    };
+    if (hasIcon && (!hasLabel || this.opts.iconOnly)) {
+      iconCentered();
     } else if (hasIcon && hasLabel && this.h >= 26) {
       // icon above label
       this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);
-      this.labelText = addText(scene, this.w / 2, this.h - 11, this.opts.label!, font, 0.5);
+      this.labelText = addText(scene, this.w / 2, this.h - 11, fit(this.w - 6), font, 0.5);
       this.content.add([this.iconImg, this.labelText]);
     } else if (hasIcon && hasLabel) {
-      this.labelText = addText(scene, 0, 0, this.opts.label!, font, 0);
-      const total = 12 + 3 + this.labelText.width;
-      const x0 = Math.round((this.w - total) / 2);
-      this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
-      this.labelText.setPosition(x0 + 15, Math.round((this.h - 8) / 2) - 1);
-      this.content.add([this.iconImg, this.labelText]);
+      const room = this.w - 6 - 15;
+      const label = fit(room);
+      if (this.truncated && room < 20) {
+        // no room for words: icon only, the label becomes the long-press tip
+        iconCentered();
+      } else {
+        this.labelText = addText(scene, 0, 0, label, font, 0);
+        const total = 12 + 3 + measureText(label, shadow);
+        const x0 = Math.round((this.w - total) / 2);
+        this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
+        this.labelText.setPosition(x0 + 15, Math.round((this.h - 8) / 2) - 1);
+        this.content.add([this.iconImg, this.labelText]);
+      }
     } else if (hasLabel) {
-      this.labelText = addText(scene, this.w / 2, Math.round((this.h - 8) / 2) - 1, this.opts.label!, font, 0.5);
+      this.labelText = addText(scene, this.w / 2, Math.round((this.h - 8) / 2) - 1, fit(this.w - 6), font, 0.5);
       this.content.add(this.labelText);
     }
+    if (this.labelText) uiFrame(this.labelText, this, this.w, this.h);
   }
 
   private refreshBg(): void {
-    const style = !this.enabled ? 'buttonOff' : this.selected ? 'buttonSel' : 'button';
-    this.bg.setTexture(panelTexture(this.scene, this.w, this.h, style));
+    this.bg.setTexture(panelTexture(this.scene, this.w, this.h, this.baseStyle()));
+  }
+
+  get isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  get label(): string | undefined {
+    return this.opts.label;
   }
 
   setSelected(on: boolean): this {
@@ -226,7 +363,9 @@ export class Button extends Phaser.GameObjects.Container {
     return this;
   }
 
-  setEnabled(on: boolean): this {
+  /** Enable or disable; `reason` is what a tap on the disabled button says. */
+  setEnabled(on: boolean, reason?: string): this {
+    if (reason !== undefined) this.opts.disabledReason = reason;
     if (on === this.enabled) return this;
     this.enabled = on;
     this.refreshBg();
@@ -243,6 +382,16 @@ export class Button extends Phaser.GameObjects.Container {
   setIcon(icon: string): this {
     this.opts.icon = icon;
     this.build();
+    return this;
+  }
+
+  setTip(tip: string | undefined): this {
+    this.opts.tip = tip;
+    return this;
+  }
+
+  setOnClick(cb: () => void): this {
+    this.opts.onClick = cb;
     return this;
   }
 }
@@ -284,6 +433,20 @@ export class Meter extends Phaser.GameObjects.Graphics {
  * Vertically scrolling list region. Children are added to `content`. Uses a
  * geometry mask in screen space; drag to scroll with a little inertia.
  */
+/** Live scroll areas (the layout check scrolls them to the end to check the rest). */
+const liveAreas = new Set<ScrollArea>();
+
+/** Scroll every live scroll area of active scenes to `v` (clamped); returns how many can scroll. */
+export function scrollAllAreas(v: number): number {
+  let n = 0;
+  for (const a of liveAreas) {
+    if (!a.isActive()) continue;
+    if (a.maxScrollY > 0) n++;
+    a.setScroll(v);
+  }
+  return n;
+}
+
 export class ScrollArea {
   readonly content: Phaser.GameObjects.Container;
   private maskG: Phaser.GameObjects.Graphics;
@@ -313,6 +476,9 @@ export class ScrollArea {
     this.content.setMask(this.maskG.createGeometryMask());
     this.zone = scene.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     parent.addAt(this.zone, 0);
+    // The layout check clips rows to the viewport and ignores the drag zone itself.
+    uiClip(this.content, this.zone);
+    uiIgnore(this.zone);
     this.zone.on('pointerdown', (p: Phaser.Input.Pointer) => this.begin(p));
     const onDown = (p: Phaser.Input.Pointer) => {
       const lx = p.x / S;
@@ -343,6 +509,7 @@ export class ScrollArea {
     scene.input.on('wheel', onWheel);
     scene.events.on('update', onUpdate);
     this.cleanup = () => {
+      liveAreas.delete(this);
       scene.input.off('pointerdown', onDown);
       scene.input.off('pointermove', onMove);
       scene.input.off('pointerup', onUp);
@@ -350,9 +517,22 @@ export class ScrollArea {
       scene.events.off('update', onUpdate);
     };
     scene.events.once('shutdown', () => this.cleanup());
+    liveAreas.add(this);
   }
 
   private cleanup: () => void = () => {};
+
+  /** Still on screen (its scene runs and its content is visible). */
+  isActive(): boolean {
+    const s = this.content.scene;
+    if (!s || !s.sys.isActive()) return false;
+    let o: Phaser.GameObjects.Container | null = this.content;
+    while (o) {
+      if (!o.visible) return false;
+      o = o.parentContainer;
+    }
+    return true;
+  }
 
   private begin(p: Phaser.Input.Pointer): void {
     if (this.dragging) return;
@@ -363,14 +543,38 @@ export class ScrollArea {
     this.vel = 0;
   }
 
-  setContentHeight(ch: number): void {
-    this.maxScroll = Math.max(0, ch - this.h);
-    this.setScroll(this.scroll);
+  private listeners: ((scroll: number, max: number) => void)[] = [];
+  private contentH = 0;
+
+  /** Called after every scroll change (and content height change). */
+  onScroll(cb: (scroll: number, max: number) => void): void {
+    this.listeners.push(cb);
   }
 
-  setScroll(v: number): void {
-    this.scroll = Math.max(0, Math.min(this.maxScroll, v));
+  setContentHeight(ch: number): void {
+    this.contentH = ch;
+    this.maxScroll = Math.max(0, ch - this.h);
+    this.setScroll(this.scroll, true);
+  }
+
+  get contentHeight(): number {
+    return this.contentH;
+  }
+
+  get maxScrollY(): number {
+    return this.maxScroll;
+  }
+
+  get viewHeight(): number {
+    return this.h;
+  }
+
+  setScroll(v: number, force = false): void {
+    const next = Math.max(0, Math.min(this.maxScroll, v));
+    if (next === this.scroll && !force) return;
+    this.scroll = next;
     this.content.y = Math.round(this.y - this.scroll);
+    for (const cb of this.listeners) cb(this.scroll, this.maxScroll);
   }
 
   get scrollY(): number {
@@ -382,21 +586,52 @@ export class ScrollArea {
   }
 
   destroy(): void {
+    liveAreas.delete(this);
     this.cleanup();
     this.maskG.destroy();
   }
 }
 
-/** A list row that only fires on taps (not drags) inside a ScrollArea. */
-export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | null, onTap: () => void): void {
+/**
+ * A list row that only fires on taps (not drags) inside a ScrollArea, with
+ * the click sound and a haptic. `tip`: long-press text (tooltip).
+ */
+export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | null, onTap: () => void, tip?: string | (() => string | undefined)): void {
   let down: { x: number; y: number } | null = null;
-  obj.on('pointerdown', (p: Phaser.Input.Pointer) => (down = { x: p.x, y: p.y }));
+  let timer: Phaser.Time.TimerEvent | null = null;
+  let long = false;
+  const scene = obj.scene;
+  const stop = () => {
+    timer?.remove();
+    timer = null;
+  };
+  obj.on('pointerdown', (p: Phaser.Input.Pointer) => {
+    down = { x: p.x, y: p.y };
+    long = false;
+    stop();
+    if (tip && longPress.show)
+      timer = scene.time.delayedCall(longPress.ms, () => {
+        timer = null;
+        const text = typeof tip === 'function' ? tip() : tip;
+        if (!down || (area && area.moved) || !text || !obj.scene) return;
+        long = true;
+        haptic('light');
+        longPress.show!(scene, text, obj);
+      });
+  });
+  obj.on('pointermove', (p: Phaser.Input.Pointer) => {
+    if (down && Math.abs(p.x - down.x) + Math.abs(p.y - down.y) > 14) stop();
+  });
+  obj.on('pointerout', stop);
   obj.on('pointerup', (p: Phaser.Input.Pointer) => {
-    if (!down) return;
+    stop();
+    if (!down || long) return;
     const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
     down = null;
     if (d > 14 || (area && area.moved)) return;
     hapticSelect();
+    uiButton();
     onTap();
   });
+  obj.once('destroy', stop);
 }

@@ -9,8 +9,41 @@ export const SLOTS: Slot[] = ['weapon', 'shield', 'helmet', 'armor', 'trinket'];
 
 export type WeaponKind = 'spear' | 'sword' | 'axe' | 'club' | 'sling' | 'bow' | 'javelins' | 'polearm' | 'lance';
 export type ShieldKind = 'hoplon' | 'oval' | 'buckler';
-export type Rarity = 'common' | 'fine' | 'rare' | 'heroic';
-export const RARITIES: Rarity[] = ['common', 'fine', 'rare', 'heroic'];
+/**
+ * Five rarity tiers (docs/DESIGN_V2.md "Items"): Common (grey), Uncommon
+ * (green), Rare (blue), Epic (purple), Legendary (gold). Colours live in
+ * src/ui/theme.ts. Saves and server data from before v4 used four tiers
+ * ('fine', 'heroic'): `normalizeRarity` maps them (fine -> uncommon,
+ * heroic -> epic, keeping their stat multipliers).
+ */
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+export const RARITIES: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+/** Old four-tier names -> new tiers. */
+export const LEGACY_RARITY: Readonly<Record<string, Rarity>> = { fine: 'uncommon', heroic: 'epic' };
+
+/** Any stored rarity (current, legacy or junk) as a current tier; unknown values become common. */
+export function normalizeRarity(r: unknown): Rarity {
+  if (typeof r !== 'string') return 'common';
+  if ((RARITIES as string[]).includes(r)) return r as Rarity;
+  return LEGACY_RARITY[r] ?? 'common';
+}
+
+/** Map a stored item's legacy rarity in place (server rows, old saves). Returns the item. */
+export function normalizeItem<T extends { rarity: Rarity } | null | undefined>(it: T): T {
+  if (it && (it.rarity as string) !== normalizeRarity(it.rarity)) it.rarity = normalizeRarity(it.rarity);
+  return it;
+}
+
+/** Normalise every equipped item of a hero-like object in place. */
+export function normalizeEquip<T extends { equip?: Partial<Record<string, { rarity: Rarity } | null | undefined>> }>(h: T): T {
+  for (const it of Object.values(h?.equip ?? {})) normalizeItem(it);
+  return h;
+}
+
+/** 0 (common) .. 4 (legendary). */
+export function rarityRank(r: Rarity | string): number {
+  return RARITIES.indexOf(normalizeRarity(r));
+}
 
 /** Additive stat modifiers. All optional. */
 export interface StatMods {
@@ -164,8 +197,9 @@ export interface Item {
   paint?: ItemPaint;
 }
 
-export const RARITY_MULT: Record<Rarity, number> = { common: 1, fine: 1.12, rare: 1.25, heroic: 1.4 };
-export const RARITY_LABEL: Record<Rarity, string> = { common: 'Common', fine: 'Fine', rare: 'Rare', heroic: 'Heroic' };
+export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.12, rare: 1.25, epic: 1.4, legendary: 1.6 };
+/** English labels; UI code should use t(`rarity.${r}`) (src/i18n). */
+export const RARITY_LABEL: Record<Rarity, string> = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
 
 /** Stats that improve with rarity and degrade with condition. */
 const SCALED: (keyof StatMods)[] = ['hp', 'dmg', 'rangedDmg', 'block', 'armor', 'morale', 'chargeBonus', 'blockPierce', 'xpBonus'];
@@ -173,7 +207,7 @@ const SCALED: (keyof StatMods)[] = ['hp', 'dmg', 'rangedDmg', 'block', 'armor', 
 /** Effective modifiers for an item instance, applying rarity and condition. */
 export function itemMods(item: Item): StatMods {
   const def = itemDef(item.def);
-  const r = RARITY_MULT[item.rarity] ?? 1;
+  const r = RARITY_MULT[normalizeRarity(item.rarity)];
   const c = 0.6 + 0.4 * Math.max(0, Math.min(100, item.cond)) / 100;
   const out: StatMods = {};
   for (const k of Object.keys(def.mods) as (keyof StatMods)[]) {
@@ -185,13 +219,13 @@ export function itemMods(item: Item): StatMods {
     }
   }
   // Rare+ ranged gear carries extra ammunition.
-  if (out.ammo && item.rarity !== 'common') out.ammo = Math.round(out.ammo * (r + 0.05));
+  if (out.ammo && normalizeRarity(item.rarity) !== 'common') out.ammo = Math.round(out.ammo * (r + 0.05));
   return out;
 }
 
 export function itemValue(item: Item): number {
   const def = itemDef(item.def);
-  return Math.round(def.value * RARITY_MULT[item.rarity] * (0.5 + 0.5 * item.cond / 100));
+  return Math.round(def.value * RARITY_MULT[normalizeRarity(item.rarity)] * (0.5 + 0.5 * item.cond / 100));
 }
 
 function round2(v: number): number {

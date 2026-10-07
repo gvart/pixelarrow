@@ -1,19 +1,44 @@
-/** The settings modal: opened from the menu and from Telegram's ⋯ → Settings on any screen. */
+/**
+ * The settings modal: opened from the menu and from Telegram's ⋯ → Settings
+ * on any screen. One scrolling list (sound first, then language, then battle
+ * pauses), so it fits the smallest phones in both languages.
+ */
 import Phaser from 'phaser';
-import { Button, addScroll, addText, type UIMetrics } from './kit';
+import { Button, addText, type UIMetrics } from './kit';
+import { ScrollList, openModal } from './widgets';
+import { ellipsize } from './textfit';
+import { SIZE } from './theme';
 import { state } from '../state';
 import { haptic, setHaptics } from '../platform/telegram';
-import { navLayer } from '../platform/nav';
 import type { Settings } from '../game/save';
 import { audio } from '../audio';
+import { t, type LangSetting, type TKey } from '../i18n';
+import { refreshLang } from './lang';
 
-type Toggle = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
+type Toggle = { [K in keyof Settings]-?: Settings[K] extends boolean ? K : never }[keyof Settings];
 type Volume = 'musicVol' | 'sfxVol';
+type Row = { kind: 'toggle'; key: Toggle; label: TKey } | { kind: 'volume'; key: Volume; label: TKey } | { kind: 'lang'; label: TKey };
 
 interface UiScene extends Phaser.Scene {
   ui: Phaser.GameObjects.Container;
   m: UIMetrics;
 }
+
+const ROWS: Row[] = [
+  { kind: 'toggle', key: 'sound', label: 'settings.sound' },
+  { kind: 'volume', key: 'musicVol', label: 'settings.music' },
+  { kind: 'volume', key: 'sfxVol', label: 'settings.effects' },
+  { kind: 'lang', label: 'settings.language' },
+  { kind: 'toggle', key: 'haptics', label: 'settings.haptics' },
+  { kind: 'toggle', key: 'dmgNumbers', label: 'settings.dmgNumbers' },
+  { kind: 'toggle', key: 'pauseContact', label: 'settings.pauseContact' },
+  { kind: 'toggle', key: 'pauseFlank', label: 'settings.pauseFlank' },
+  { kind: 'toggle', key: 'pauseRout', label: 'settings.pauseRout' },
+  { kind: 'toggle', key: 'pauseDeath', label: 'settings.pauseDeath' },
+];
+const LANG_CYCLE: LangSetting[] = ['auto', 'en', 'ru'];
+/** Scenes that may be rebuilt when the language changes (never a running battle). */
+const REBUILD_ON_LANG = new Set(['Menu', 'World', 'Settlement', 'Army', 'Hero', 'Online', 'OnlineArmy', 'OnlineClan', 'Kit']);
 
 const open = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
 
@@ -21,67 +46,73 @@ const open = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
 export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameObjects.Container {
   open.get(scene)?.destroy();
   const s = state.campaign.data.settings;
-  const rows: [Toggle, string][] = [
-    ['pauseContact', 'Pause on first contact'],
-    ['pauseFlank', 'Pause when flanked'],
-    ['pauseRout', 'Pause when a group routs'],
-    ['pauseDeath', 'Pause on hero death'],
-    ['haptics', 'Haptic feedback'],
-    ['dmgNumbers', 'Damage numbers'],
-    ['sound', 'Sound'],
-  ];
-  const vols: [Volume, string][] = [
-    ['musicVol', 'Music'],
-    ['sfxVol', 'Effects'],
-  ];
-  const n = rows.length + vols.length;
   const { VW, VH } = scene.m;
-  const h = 30 + n * 26 + 36;
-  const c = scene.add.container(0, 0);
-  scene.ui.add(c);
-  c.add(scene.add.rectangle(0, 0, VW, VH, 0x000000, 0.55).setOrigin(0, 0).setInteractive());
-  const w = Math.min(VW - 16, 180);
-  const x = Math.round((VW - w) / 2);
-  const y = Math.round((VH - h) / 2);
-  addScroll(scene, c, x, y, w, h);
-  c.add(addText(scene, VW / 2, y + 12, 'Settings', 'red', 0.5));
-  rows.forEach(([k, label], i) => {
-    const by = y + 28 + i * 26;
-    c.add(addText(scene, x + 10, by + 7, label, 'ink', 0, w - 60));
-    const b = new Button(scene, x + w - 44, by, 34, 22, { label: s[k] ? 'On' : 'Off', style: s[k] ? 'buttonSel' : 'button' });
-    b.on('pointerup', () => {
-      s[k] = !s[k];
-      b.setLabel(s[k] ? 'On' : 'Off');
-      b.setSelected(s[k]);
-      if (k === 'haptics') setHaptics(s.haptics);
-      if (k === 'sound') audio.refresh();
-      haptic('light');
-      void state.save();
-    });
-    c.add(b);
+  const rowH = SIZE.btnH;
+  const step = rowH + SIZE.gap;
+  const w = Math.min(VW - 16, 200);
+  const want = 26 + ROWS.length * step + 8 + SIZE.btnH + 12;
+  const m = openModal(scene, { title: t('settings.title'), w, h: Math.min(want, VH - 16), onClose });
+  const { c, x, y, h } = m;
+  const listH = h - 26 - SIZE.btnH - 18;
+  let list: ScrollList | null = null;
+  list = new ScrollList(scene, c, x + 8, y + 26, w - 16, listH, {
+    count: ROWS.length,
+    rowH,
+    render: (i, row, rw) => {
+      const r = ROWS[i];
+      const right = r.kind === 'volume' ? 70 : r.kind === 'lang' ? 66 : 42;
+      row.add(addText(scene, 0, 8, ellipsize(t(r.label).toUpperCase(), rw - right - 4), 'ink'));
+      if (r.kind === 'toggle') {
+        const k = r.key;
+        const b = new Button(scene, rw - 40, 1, 40, 22, { label: s[k] ? t('common.on') : t('common.off'), style: s[k] ? 'buttonSel' : 'button', id: `settings.toggle.${k}` });
+        b.setOnClick(() => {
+          s[k] = !s[k];
+          b.setLabel(s[k] ? t('common.on') : t('common.off'));
+          b.setSelected(s[k]);
+          if (k === 'haptics') setHaptics(s.haptics);
+          if (k === 'sound') audio.refresh();
+          haptic('light');
+          void state.save();
+        });
+        row.add(b);
+      } else if (r.kind === 'volume') {
+        const k = r.key;
+        const val = addText(scene, rw - 34, 8, `${s[k]}`, 'ink', 0.5);
+        const stepVol = (d: number) => {
+          s[k] = Math.max(0, Math.min(10, Math.round(s[k] + d)));
+          val.setText(`${s[k]}`);
+          audio.refresh();
+          if (k === 'sfxVol') audio.play('block');
+          void state.save();
+        };
+        row.add(val);
+        row.add(new Button(scene, rw - 68, 1, 22, 22, { label: '-', tip: t('settings.volumeDown'), id: `settings.${k}.down`, onClick: () => stepVol(-1) }));
+        row.add(new Button(scene, rw - 22, 1, 22, 22, { label: '+', tip: t('settings.volumeUp'), id: `settings.${k}.up`, onClick: () => stepVol(1) }));
+      } else {
+        const b = new Button(scene, rw - 64, 1, 64, 22, { label: t(`settings.lang.${s.lang ?? 'auto'}`), id: 'settings.lang' });
+        b.setOnClick(() => {
+          s.lang = LANG_CYCLE[(LANG_CYCLE.indexOf(s.lang ?? 'auto') + 1) % LANG_CYCLE.length];
+          void state.save();
+          if (refreshLang()) {
+            // Rebuild the screen in the new language and bring the settings back.
+            m.close();
+            if (REBUILD_ON_LANG.has(scene.sys.settings.key)) {
+              scene.events.once('create', () => openSettings(scene, onClose));
+              scene.scene.restart(scene.sys.settings.data);
+            } else openSettings(scene, onClose);
+          } else b.setLabel(t(`settings.lang.${s.lang}`));
+        });
+        row.add(b);
+      }
+    },
   });
-  vols.forEach(([k, label], j) => {
-    const by = y + 28 + (rows.length + j) * 26;
-    c.add(addText(scene, x + 10, by + 7, label, 'ink', 0, w - 90));
-    const val = addText(scene, x + w - 41, by + 7, `${s[k]}`, 'ink', 0.5);
-    const step = (d: number) => {
-      s[k] = Math.max(0, Math.min(10, Math.round(s[k] + d)));
-      val.setText(`${s[k]}`);
-      audio.refresh();
-      if (k === 'sfxVol') audio.play('block');
-      void state.save();
-    };
-    c.add(val);
-    c.add(new Button(scene, x + w - 76, by, 22, 22, { label: '-', onClick: () => step(-1) }));
-    c.add(new Button(scene, x + w - 28, by, 22, 22, { label: '+', onClick: () => step(1) }));
-  });
-  const close = () => c.destroy();
-  c.add(new Button(scene, x + w / 2 - 35, y + 30 + n * 26, 70, 22, { label: 'Close', icon: 'check', onClick: close }));
+  const bw = Math.min(110, w - 40);
+  c.add(new Button(scene, x + (w - bw) / 2, y + h - SIZE.btnH - 9, bw, SIZE.btnH, { label: t('common.close'), icon: 'check', onClick: () => m.close() }));
   open.set(scene, c);
   c.once('destroy', () => {
     if (open.get(scene) === c) open.delete(scene);
-    onClose?.();
+    list?.destroy();
+    list = null;
   });
-  navLayer(c, close, scene);
   return c;
 }

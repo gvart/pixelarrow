@@ -5,7 +5,8 @@ import { dollFrame, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, ensurePo
 import { heroClass } from '../sim/stats';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
-import { itemDef, itemValue, RARITY_LABEL, SLOTS, type Item, type Rarity, type Slot } from '../data/items';
+import { itemDef, itemValue, RARITY_LABEL, SLOTS, type Item, type Slot } from '../data/items';
+import { RARITY_COLOR } from '../ui/theme';
 import { MAX_ARMY, xpToNext, GROUP_NAMES, type Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
 import { TRAITS } from '../data/traits';
@@ -16,7 +17,7 @@ import { EMBLEM_NAMES } from '../art/emblems';
 import { addSupporterTrim, addSyncBadge } from '../ui/online';
 
 const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
-export const RARITY_COLOR: Record<Rarity, number> = { common: 0x9a8a7a, fine: 0x5f8a45, rare: 0x4a6b9a, heroic: 0xd8a840 };
+export { RARITY_COLOR } from '../ui/theme';
 const ROMAN = ['I', 'II', 'III', 'IV'];
 
 interface ArmyData {

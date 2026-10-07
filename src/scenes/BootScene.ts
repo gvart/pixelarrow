@@ -5,6 +5,8 @@ import { initTelegram, startParam } from '../platform/telegram';
 import { inviteCodeFrom } from '../online/rules';
 import { setPendingInvite } from '../online/client';
 import { state } from '../state';
+import { refreshLang } from '../ui/lang';
+import { hintStore } from '../ui/widgets';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -20,10 +22,19 @@ export class BootScene extends Phaser.Scene {
     void (async () => {
       await initTelegram();
       await state.load();
+      refreshLang();
+      hintStore.seen = () => state.campaign.data.settings.seenHints ?? [];
+      hintStore.mark = (id) => {
+        const st = state.campaign.data.settings;
+        st.seenHints = [...(st.seenHints ?? []), id];
+        void state.save();
+      };
       // Opened through a clan invite link (startapp=clan_<code>): straight to the online mode.
       const invite = inviteCodeFrom(startParam());
       if (invite) setPendingInvite(invite);
-      this.scene.start(invite ? 'Online' : 'Menu', {});
+      // Debug: ?scene=Kit opens the UI kit gallery.
+      const debugScene = new URLSearchParams(location.search).get('scene') === 'Kit' ? 'Kit' : null;
+      this.scene.start(invite ? 'Online' : debugScene ?? 'Menu', {});
     })();
   }
 }

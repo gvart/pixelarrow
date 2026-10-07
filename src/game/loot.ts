@@ -1,5 +1,5 @@
 /** Post-battle outcome: loot from enemies you actually killed, gold, XP, permadeath. */
-import { itemDef, SLOTS, type Item, type Slot } from '../data/items';
+import { itemDef, rarityRank, SLOTS, type Item, type Slot } from '../data/items';
 import { TRAITS } from '../data/traits';
 import type { Hero } from '../data/units';
 import { Rng } from '../sim/rng';
@@ -75,8 +75,7 @@ export function lootPool(result: BattleResult, enemies: Hero[]): Item[] {
     }
   }
   // Best items first (tier, rarity), stable by uid.
-  const rank = { common: 0, fine: 1, rare: 2, heroic: 3 } as const;
-  pool.sort((a, b) => itemDef(b.def).tier + rank[b.rarity] - (itemDef(a.def).tier + rank[a.rarity]) || (a.uid < b.uid ? -1 : 1));
+  pool.sort((a, b) => itemDef(b.def).tier + rarityRank(b.rarity) - (itemDef(a.def).tier + rarityRank(a.rarity)) || (a.uid < b.uid ? -1 : 1));
   return pool;
 }
 

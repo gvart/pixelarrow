@@ -63,7 +63,14 @@ With a dev or preview server running and Playwright's Chromium available
 ```bash
 node scripts/screenshots.mjs http://localhost:5173/ docs/screenshots   # tour of every screen
 node scripts/smoke.mjs http://localhost:5173/                         # real taps through the campaign loop
+node scripts/layout-check.mjs http://localhost:4173/                  # layout rules on every screen, 5 sizes, EN/RU
 ```
+
+`scripts/layout-check.mjs` is also a CI gate before every deploy: it fails on
+overlapping or too-small touch targets, overflowing text and anything outside
+the safe area, except the known violations in `scripts/layout-allowlist.json`.
+How screens are built (UI kit components, colours, touch rules, i18n) and how
+the check works: [docs/UI_KIT.md](docs/UI_KIT.md).
 
 `node scripts/fullscreen-smoke.mjs http://localhost:4173/` fakes a full-screen
 Telegram on an iPhone and checks safe areas and Back navigation (see the
