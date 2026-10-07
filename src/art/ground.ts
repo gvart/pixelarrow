@@ -2,7 +2,7 @@
 import { P, mix } from './palette';
 import { BAYER4, Pix, hash2, valueNoise } from './pixels';
 import { ISO_HH, ISO_HW } from './iso';
-import { terrainPixel } from './terrainArt';
+import { terrainPixel, warpedField } from './terrainArt';
 import type { Terrain } from '../sim/terrain';
 
 export interface GroundOpts {
@@ -61,8 +61,12 @@ export function renderGround(w: number, h: number, o: GroundOpts): Pix {
       idx += (0.5 - broad) * 1.0;
       let c = G[Math.max(1, Math.min(G.length - 2, Math.round(idx)))];
       const inField = fx >= 0 && fy >= 0 && fx < o.fieldW && fy < o.fieldH;
-      const tk = inField && o.terrain ? o.terrain.at(fx, fy).kind : 'open';
-      if (inField && o.terrain) c = terrainPixel(o.terrain, fx, fy, c, 1 - (idx - 1) / 7, x, y);
+      let tk = 'open';
+      if (inField && o.terrain) {
+        const [wx, wy] = warpedField(o.terrain, fx, fy, x, y);
+        tk = o.terrain.at(wx, wy).kind;
+        c = terrainPixel(o.terrain, fx, fy, c, 1 - (idx - 1) / 7, x, y, wx, wy);
+      }
       const wet = tk === 'water' || tk === 'sea' || tk === 'ford';
       grassy[i] = tk === 'open' || tk === 'scrub' ? 1 : 0;
       // the faint diamond grid: two pixels wide per row, one step darker than the grass
@@ -226,5 +230,175 @@ export function renderPlateRing(color: number, w = 20): Pix {
       if (edge) px.set(x, y, color);
       else if (on) px.set(x, y, color, 70);
     }
+  return px;
+}
+
+/** Facing steps for the joined formation plates (a rectangle is symmetric, so 8 cover all 16). */
+export const STRIP_STEPS = 8;
+/** Lateral and depth size (field units) of one man's plate inside a formation strip. */
+export const STRIP_LAT = 1.04;
+export const STRIP_DEP = 0.5;
+
+/** Plate tones when selected (cyan, docs/ART_STYLE.md §9) and when singled out (gold). */
+const PLATE_SEL = [0xc0dcc8, 0x9cbcae, 0x7a9e96, 0x5e807c, 0x4a6666];
+const PLATE_ONE = [0xf6e4a0, 0xdcc070, 0xb09048, 0x8a7038, 0x6a5428];
+
+export interface StripPlate {
+  /** Side + shadow layer (drawn under every top so a strip has no seams). */
+  side: Pix;
+  /** Top faces: plain, selected (cyan), singled out (gold). */
+  top: Pix;
+  sel: Pix;
+  one: Pix;
+  /** Texture origin (0..1) of the top-face centre. */
+  ox: number;
+  oy: number;
+}
+
+/**
+ * One soldier's piece of a joined formation base: the field-space rectangle
+ * STRIP_LAT x STRIP_DEP turned to the formation's facing (step k of
+ * STRIP_STEPS half-turns), projected to the iso view. Neighbours in a rank
+ * overlap a little, and the lateral ends carry no rim, so a rank of men stands
+ * on one continuous strip like a tabletop movement tray; the front and back
+ * edges keep the light / dark rim and the 2 px side.
+ */
+export function renderStripPlate(k: number): StripPlate {
+  const ang = (k / STRIP_STEPS) * Math.PI; // facing angle in field space
+  const fx = Math.cos(ang);
+  const fy = Math.sin(ang);
+  const rx = -fy; // the facing's right-hand vector (any perpendicular works: the plate is symmetric)
+  const ry = fx;
+  const hl = STRIP_LAT / 2;
+  const hd = STRIP_DEP / 2;
+  // bounding box of the projected corners
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (const [a, b] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    const px = rx * hl * a + fx * hd * b;
+    const py = ry * hl * a + fy * hd * b;
+    const sx = (px - py) * ISO_HW;
+    const sy = (px + py) * ISO_HH;
+    x0 = Math.min(x0, sx);
+    x1 = Math.max(x1, sx);
+    y0 = Math.min(y0, sy);
+    y1 = Math.max(y1, sy);
+  }
+  const cx = Math.ceil(-x0) + 1;
+  const cy = Math.ceil(-y0) + 1;
+  const w = Math.ceil(x1 - x0) + 6;
+  const h = Math.ceil(y1 - y0) + 6;
+  const side = new Pix(w, h);
+  const tops = [new Pix(w, h), new Pix(w, h), new Pix(w, h)];
+  // field-space test: lateral and depth coordinates of a texture pixel
+  const lat = (x: number, y: number) => {
+    const a = (x - cx + 0.5) / ISO_HW;
+    const b = (y - cy + 0.5) / ISO_HH;
+    const px = (a + b) / 2;
+    const py = (b - a) / 2;
+    return [px * rx + py * ry, px * fx + py * fy];
+  };
+  const inTop = (x: number, y: number) => {
+    const [l, d] = lat(x, y);
+    return Math.abs(l) <= hl && Math.abs(d) <= hd;
+  };
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (inTop(x, y)) continue;
+      // soft shadow to the lower right, then the 2 px side under the front edges
+      if (inTop(x - 2, y - 2)) side.set(x, y, 0x3a2e1c, 80);
+      for (let t = 1; t <= 2; t++)
+        if (inTop(x, y - t)) {
+          side.set(x, y, t === 2 ? PLATE[4] : PLATE[3]);
+          break;
+        }
+    }
+  const ramps = [PLATE, PLATE_SEL, PLATE_ONE];
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (!inTop(x, y)) continue;
+      const [l] = lat(x, y);
+      // rim only where the neighbour pixel leaves the plate through a front/back edge
+      const out = (xx: number, yy: number) => {
+        if (inTop(xx, yy)) return false;
+        const [l2] = lat(xx, yy);
+        return Math.abs(l2) <= hl;
+      };
+      const lit = out(x - 1, y) || out(x, y - 1);
+      const dark = out(x + 1, y) || out(x, y + 1);
+      for (let r = 0; r < 3; r++) {
+        const R = ramps[r];
+        let c = R[1];
+        if (dark) c = R[2];
+        else if (lit) c = R[0];
+        else if (hash2(x, y, 5 + k) > 0.88 && Math.abs(l) < hl - 0.05) c = R[2];
+        tops[r].set(x, y, c);
+      }
+    }
+  return { side, top: tops[0], sel: tops[1], one: tops[2], ox: cx / w, oy: cy / h };
+}
+
+/** The strip step (0..STRIP_STEPS-1) nearest a field facing. */
+export function stripStep(fx: number, fy: number): number {
+  const a = Math.atan2(fy, fx);
+  return ((Math.round((a / Math.PI) * STRIP_STEPS) % STRIP_STEPS) + STRIP_STEPS) % STRIP_STEPS;
+}
+
+/** A standard: team-coloured disc with an emblem on a pole, streamers that wave (4 frames side by side). */
+export const STANDARD_W = 13;
+export const STANDARD_H = 44;
+export const STANDARD_FRAMES = 4;
+export function renderStandard(ramp: number[]): Pix {
+  const W = STANDARD_W;
+  const H = STANDARD_H;
+  const px = new Pix(W * STANDARD_FRAMES, H);
+  const WOOD = [0xa8845a, 0x7a5a3c, 0x523a28];
+  for (let f = 0; f < STANDARD_FRAMES; f++) {
+    const o = f * W;
+    const pole = o + 6;
+    // pole with a lit left edge
+    for (let y = 9; y < H; y++) px.set(pole, y, y % 5 === 0 ? WOOD[2] : WOOD[1]);
+    px.set(pole, H - 1, WOOD[2]);
+    // cross-bar under the disc, with two streamers that wave
+    px.set(pole - 3, 14, WOOD[1]);
+    px.set(pole - 2, 14, WOOD[1]);
+    px.set(pole - 1, 14, WOOD[0]);
+    px.set(pole + 1, 14, WOOD[1]);
+    px.set(pole + 2, 14, WOOD[1]);
+    px.set(pole + 3, 14, WOOD[2]);
+    // the wind takes the streamer tails to the right, more or less each frame
+    const tail = [
+      [0, 0, 1, 1, 1, 2],
+      [0, 1, 1, 2, 2, 3],
+      [0, 0, 1, 1, 2, 2],
+      [0, 0, 0, 1, 1, 1],
+    ][f];
+    for (const sx of [-3, 3]) {
+      for (let t = 0; t < 6; t++) {
+        const dx = tail[t];
+        const c = t === 5 ? ramp[3] : t % 2 ? ramp[2] : ramp[1];
+        px.set(pole + sx + dx, 15 + t, c);
+      }
+    }
+    // the disc: 9 px, light rim upper left, dark rim lower right, cream emblem
+    const dc = { x: pole, y: 5 };
+    for (let y = 0; y < 11; y++)
+      for (let x = pole - 5; x <= pole + 5; x++) {
+        const dx = x - dc.x;
+        const dy = y - dc.y;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        if (r > 4.6) continue;
+        let c = ramp[1];
+        if (r > 3.6) c = dx + dy < 0 ? 0xe8dcc6 : ramp[3];
+        else if (dx + dy > 2.5) c = ramp[2];
+        // emblem: a small cream diamond with a dark eye (original, not a copied device)
+        if (Math.abs(dx) + Math.abs(dy) <= 2 && r <= 3.6) c = Math.abs(dx) + Math.abs(dy) === 0 ? ramp[3] : 0xe8dcc6;
+        px.set(x, y, c);
+      }
+    // finial on top
+    px.set(pole, 0, 0xd2b68e);
+  }
   return px;
 }

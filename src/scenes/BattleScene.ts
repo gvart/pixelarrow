@@ -8,13 +8,13 @@ import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { PLATE_W, PLATE_W_BIG, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, pumpDolls, queueDollRows } from '../ui/sprites';
 import { dollFromHero, ANIM_FRAMES, BATTLE_SCALE } from '../art/paperdoll';
-import { plateOrigin, renderGround } from '../art/ground';
+import { STANDARD_FRAMES, STANDARD_H, STANDARD_W, STRIP_STEPS, plateOrigin, renderGround, renderStandard, renderStripPlate, stripStep } from '../art/ground';
 import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
 import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
-import { formationSlots, rightOf, type FormationType } from '../sim/formation';
+import { SPACING, formationSlots, rightOf, type FormationType } from '../sim/formation';
 import { KNOB_PACES, dragMove, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import type { TerrainGrid } from '../sim/terrain';
@@ -37,7 +37,7 @@ import { battleAudio, uiError } from '../audio/hooks';
 import { sfx } from '../audio';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { rallyRadius } from '../sim/stats';
-import { BOULDER_GEOM, TREE_GEOM, renderBoulder, renderGlint, renderTree } from '../art/terrainArt';
+import { BOULDER_GEOM, TREE_GEOM, renderBoulder, renderGlint, renderSparkle, renderTree } from '../art/terrainArt';
 import { generateBattlefield, randomSite } from '../world/battlefield';
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
@@ -91,7 +91,25 @@ interface UnitView {
   /** Figure height in pixels (tags, flags, numbers, touch). */
   tall: number;
   big: boolean;
+  /** A man on foot (six-phase walk, four-step fall); riders and animals use the shorter sets. */
+  man: boolean;
+  /** Stands on a base plate (men and riders; animals only cast a shadow). */
+  plated: boolean;
+  /** Top face of his piece of a joined formation base (the side layer is `shadow`). */
+  plateTop: Phaser.GameObjects.Image;
+  /** Strip step on show (-1: his own small plate). */
+  strip: number;
+  /** Texture key on plateTop (plain / selected / singled out). */
+  topKey: string;
 }
+
+/** Texture origins of the joined formation plates, per strip step. */
+const STRIP_ORIGIN: [number, number][] = [];
+/** Team colours of the standards: the viewer's side, the other side (cool slate vs madder red, as the HUD bars). */
+const STANDARD_RAMP = [
+  [0x8ea2b8, 0x4f6c8c, 0x3d5a78, 0x2e3e56],
+  [0xcc7677, 0xb83d4a, 0xa12735, 0x5e2427],
+];
 
 type Gesture = {
   mode: 'pending' | 'pan' | 'formation' | 'info';
@@ -175,7 +193,13 @@ export class BattleScene extends BaseScene {
   private lastSparkle = 0;
   /** Trees and boulders standing on the field (depth-sorted with the men). */
   private props: { img: Phaser.GameObjects.Image; x: number; y: number; tree: boolean }[] = [];
-  private glints: { img: Phaser.GameObjects.Image; phase: number }[] = [];
+  /** Water shimmer: sparkles and streaks that blink on and off at random spots on the water. */
+  private glints: { img: Phaser.GameObjects.Image; t0: number; life: number }[] = [];
+  /** Water cells the shimmer picks its spots from. */
+  private waterCells: number[] = [];
+  /** One standard per formation, carried by a man near the centre-front. */
+  private standards: { img: Phaser.GameObjects.Sprite; group: number; bearer: UnitView | null; picked: number }[] = [];
+  private viewById = new Map<number, UnitView>();
   private infoTip: Phaser.GameObjects.Container | null = null;
   private holdTimer: HoldTimer | null = null;
   private propTick = 0;
@@ -307,6 +331,8 @@ export class BattleScene extends BaseScene {
 
     const heroById = new Map<string, Hero>();
     for (const h of [...heroes, ...this.enemyHeroes]) heroById.set(h.id, h);
+    this.ensureFormationArt();
+    this.viewById.clear();
     for (const u of this.sim.units) {
       const hero = heroById.get(u.heroId)!;
       const f = isoFacing(u.fx, u.fy);
@@ -327,10 +353,15 @@ export class BattleScene extends BaseScene {
       const [ox, oy] = dollOrigin(key);
       const spr = this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
-      this.world.add([shadow, ring, spr, flag]);
+      const plateTop = this.add.image(0, 0, 'strip_top_0').setDepth(-59900).setVisible(false);
+      this.world.add([shadow, plateTop, ring, spr, flag]);
       const tall = Math.round((u.stats.mount ? 52 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 18) : 38) * BATTLE_SCALE);
-      this.views.push({ u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big });
+      const spec = dollFromHero(hero);
+      const view: UnitView = { u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big, man: !spec.beast && !spec.mount, plated, plateTop, strip: -1, topKey: '' };
+      this.views.push(view);
+      this.viewById.set(u.id, view);
     }
+    this.createStandards();
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
     this.beasts = BeastView.create(this, this.sim, this.views, this.world, this.ui, this.me, this.m.VW, TOP);
 
@@ -587,13 +618,16 @@ export class BattleScene extends BaseScene {
       if (u.state === 'fled' || (hide && u.side === this.foe)) {
         v.spr.setVisible(false);
         v.shadow.setVisible(false);
+        v.plateTop.setVisible(false);
         v.ring.setVisible(false);
         v.flag.setVisible(false);
         this.fx.unit(u, 0, 0, 0, false);
         continue;
       }
       v.spr.setVisible(true);
-      const sp = isoToScreen(Phaser.Math.Linear(v.px, u.x, alpha), Phaser.Math.Linear(v.py, u.y, alpha));
+      const ix = Phaser.Math.Linear(v.px, u.x, alpha);
+      const iy = Phaser.Math.Linear(v.py, u.y, alpha);
+      const sp = isoToScreen(ix, iy);
       const rx = Math.round(sp.x);
       const ry = Math.round(sp.y);
       v.spr.setPosition(rx, ry);
@@ -614,9 +648,12 @@ export class BattleScene extends BaseScene {
       if (u.state === 'dead') {
         if (v.deathTick < 0) v.deathTick = tick;
         const tt = (now - v.deathTick) / TICK_RATE;
-        frame = tt < 0.1 ? ANIM_FRAMES.die[0] : tt < 0.22 ? ANIM_FRAMES.die[1] : ANIM_FRAMES.die[2];
+        // a man falls in four steps (stagger, topple, hit the ground, lie still); riders and beasts in three
+        const die = v.man ? ANIM_FRAMES.die : ANIM_FRAMES.fall;
+        frame = die[Math.min(die.length - 1, Math.floor(tt / (v.man ? 0.08 : 0.11)))];
         v.spr.setDepth(-50000 + ry);
         v.shadow.setVisible(false);
+        v.plateTop.setVisible(false);
         v.ring.setVisible(false);
         v.flag.setVisible(false);
         v.spr.clearTint();
@@ -633,8 +670,10 @@ export class BattleScene extends BaseScene {
       } else if (sinceHit >= 0 && sinceHit < 0.18) {
         frame = ANIM_FRAMES.hit[0];
       } else if (moving || u.state === 'routing') {
-        const rate = u.state === 'routing' ? 12 : 8;
-        frame = ANIM_FRAMES.walk[Math.floor((now / TICK_RATE) * rate + u.id) % 4];
+        // men: six phases at ~10 fps; riders and animals: the four-phase gallop at 8
+        const seq = v.man ? ANIM_FRAMES.walk : ANIM_FRAMES.gallop;
+        const rate = (u.state === 'routing' ? 1.5 : 1) * (v.man ? 10 : 8);
+        frame = seq[Math.floor((now / TICK_RATE) * rate + u.id) % seq.length];
       } else {
         frame = ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + ((u.id * 0.618) % 1) * 2) % 2]; // random phase per man
       }
@@ -656,14 +695,125 @@ export class BattleScene extends BaseScene {
         this.fx.sparkle(rx, ry - v.tall * 0.6, AURAS.steady.color, 2);
       }
       const selected = u.side === this.me && (u.group === this.selGroup || u.id === this.selUnit);
-      v.ring.setVisible(selected);
-      if (selected) {
-        const one = u.id === this.selUnit;
+      const one = u.id === this.selUnit;
+      // men standing in their formation slots share one joined base (a strip per rank)
+      const k = this.stripOf(v);
+      if (k !== v.strip) {
+        v.strip = k;
+        if (k >= 0) v.shadow.setTexture(`strip_side_${k}`).setOrigin(...STRIP_ORIGIN[k]);
+        else if (v.plated) v.shadow.setTexture(v.big ? 'base_plate_big' : 'base_plate').setOrigin(...plateOrigin(v.big ? PLATE_W_BIG : PLATE_W));
+        v.plateTop.setVisible(k >= 0);
+        v.topKey = '';
+      }
+      if (k >= 0) {
+        // the plate sits on his slot (shifted by the same interpolation lag as the man), not under his feet
+        const g = this.sim.groups[u.group].formation;
+        const r = rightOf(g.fx, g.fy);
+        const pp = isoToScreen(g.cx + r.x * u.slotLat - g.fx * u.slotDep + (ix - u.x), g.cy + r.y * u.slotLat - g.fy * u.slotDep + (iy - u.y));
+        const px = Math.round(pp.x);
+        const py = Math.round(pp.y);
+        v.shadow.setPosition(px, py);
+        const tk = `${selected ? (one ? 'strip_one' : 'strip_sel') : 'strip_top'}_${k}`;
+        if (tk !== v.topKey) {
+          v.topKey = tk;
+          v.plateTop.setTexture(tk).setOrigin(...STRIP_ORIGIN[k]);
+        }
+        v.plateTop.setPosition(px, py).setVisible(true);
+      }
+      v.ring.setVisible(selected && k < 0);
+      if (selected && k < 0) {
         if (v.u.stats.kind !== 'animal') v.ring.setTexture(`${one ? 'plate_one' : 'plate_sel'}${v.big ? '_big' : ''}`);
         else v.ring.setTexture(one ? 'ring_one' : 'ring_sel');
       }
       v.flag.setVisible(u.state === 'routing');
       if (u.state === 'routing') v.flag.setPosition(rx + 3, ry - v.tall);
+    }
+    this.updateStandards();
+  }
+
+  // ===================================================================== formation art
+
+  /** Joined-plate textures (side, plain / selected / singled-out tops) per facing step, and the standards. */
+  private ensureFormationArt(): void {
+    for (let k = 0; k < STRIP_STEPS; k++) {
+      if (!STRIP_ORIGIN[k] || !this.textures.exists(`strip_top_${k}`)) {
+        const sp = renderStripPlate(k);
+        STRIP_ORIGIN[k] = [sp.ox, sp.oy];
+        if (this.textures.exists(`strip_top_${k}`)) continue;
+        this.textures.addCanvas(`strip_side_${k}`, sp.side.toCanvas());
+        this.textures.addCanvas(`strip_top_${k}`, sp.top.toCanvas());
+        this.textures.addCanvas(`strip_sel_${k}`, sp.sel.toCanvas());
+        this.textures.addCanvas(`strip_one_${k}`, sp.one.toCanvas());
+      }
+    }
+    for (let i = 0; i < 2; i++) {
+      const key = `standard_${i}`;
+      if (this.textures.exists(key)) continue;
+      const tex = this.textures.addCanvas(key, renderStandard(STANDARD_RAMP[i]).toCanvas())!;
+      for (let f = 0; f < STANDARD_FRAMES; f++) tex.add(f, 0, f * STANDARD_W, 0, STANDARD_W, STANDARD_H);
+    }
+  }
+
+  /**
+   * The strip step a man's plate joins at, or -1 for his own small plate: he
+   * stands (within a step) on his slot in a close-order formation that is
+   * holding together. Hysteresis keeps plates from flickering as men shuffle.
+   */
+  private stripOf(v: UnitView): number {
+    const u = v.u;
+    if (!v.plated || v.big || u.state !== 'ready') return -1;
+    const g = this.sim.groups[u.group];
+    if (!g || g.routed || g.individual || g.disbanded || SPACING[g.formation.type].file > 1.05) return -1;
+    const f = g.formation;
+    const r = rightOf(f.fx, f.fy);
+    const dx = f.cx + r.x * u.slotLat - f.fx * u.slotDep - u.x;
+    const dy = f.cy + r.y * u.slotLat - f.fy * u.slotDep - u.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > (v.strip >= 0 ? 0.36 * 0.36 : 0.22 * 0.22)) return -1;
+    return stripStep(f.fx, f.fy);
+  }
+
+  /** One standard per formation of men (two or more on foot), coloured by side as seen by this player. */
+  private createStandards(): void {
+    this.standards = [];
+    for (const g of this.sim.groups) {
+      const men = this.views.filter((v) => v.u.group === g.id && v.man);
+      if (men.length < 2) continue;
+      const img = this.add.sprite(0, 0, `standard_${g.side === this.me ? 0 : 1}`, 0).setOrigin(6.5 / STANDARD_W, 1).setVisible(false);
+      this.world.add(img);
+      this.standards.push({ img, group: g.id, bearer: null, picked: 0 });
+    }
+  }
+
+  /** Keep each standard with a living man near the centre-front of his formation; wave it at 4 fps. */
+  private updateStandards(): void {
+    const now = this.time.now;
+    for (const st of this.standards) {
+      const g = this.sim.groups[st.group];
+      let b = st.bearer;
+      const ok = (v: UnitView | null) => !!v && v.u.state === 'ready' && v.spr.visible;
+      if (!ok(b) || now - st.picked > 4000) {
+        // the man nearest the centre of the second rank (or the front, if there is only one)
+        let best: UnitView | null = null;
+        let bs = Infinity;
+        for (const v of this.views) {
+          if (v.u.group !== st.group || !v.man || !ok(v)) continue;
+          const sc = Math.abs(v.u.slotLat) + Math.abs(v.u.slotDep - 1.3) * 0.6 + (v === b ? -0.3 : 0);
+          if (sc < bs) {
+            bs = sc;
+            best = v;
+          }
+        }
+        b = st.bearer = best;
+        st.picked = now;
+      }
+      if (!b || !g || g.routed || g.disbanded) {
+        st.img.setVisible(false);
+        continue;
+      }
+      const x = b.spr.x + (b.flip ? -4 : 4);
+      st.img.setPosition(Math.round(x), b.spr.y - 1).setDepth(b.spr.depth + 0.5).setVisible(true);
+      st.img.setFrame(Math.floor(now / 250 + st.group * 1.7) % STANDARD_FRAMES);
     }
   }
 
@@ -767,6 +917,7 @@ export class BattleScene extends BaseScene {
       return;
     }
     this.placeDragLabel(null);
+    if (this.sim.phase === 'battle') this.drawMoveOrders(g);
     if (this.selGroup >= 0) {
       const grp = this.sim.groups[this.selGroup];
       if (!grp || grp.disbanded) return;
@@ -775,6 +926,54 @@ export class BattleScene extends BaseScene {
       // the facing arrow and its knob: drag the knob to turn the group
       const fr = this.canCommand() && this.sim.phase !== 'ended' ? this.selectedFrame() : null;
       if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85);
+    }
+  }
+
+  /**
+   * Move orders as in the reference (docs/ART_STYLE.md §9): every man of ours
+   * still walking to a distant slot gets a hollow order marker there (a
+   * dotted dark diamond) and a thin dotted line back to him. The selected
+   * group's lines are stronger.
+   */
+  private drawMoveOrders(g: Phaser.GameObjects.Graphics): void {
+    let budget = 2400; // dots per frame, a ceiling for big armies on phones
+    for (const grp of this.sim.groups) {
+      if (grp.side !== this.me || grp.disbanded || grp.routed) continue;
+      const sel = grp.id === this.selGroup;
+      const r = rightOf(grp.formation.fx, grp.formation.fy);
+      const { fx, fy } = grp.formation;
+      for (const u of this.sim.activeMembers(grp.id)) {
+        const v = this.viewById.get(u.id);
+        if (!v || u.state !== 'ready') continue;
+        const s = this.sim.slotPos(u);
+        const ddx = s.x - u.x;
+        const ddy = s.y - u.y;
+        if (ddx * ddx + ddy * ddy < 0.8 * 0.8) continue;
+        const t = isoToScreen(s.x, s.y);
+        const tx = Math.round(t.x);
+        const ty = Math.round(t.y);
+        // the dotted line, from his feet to the marker
+        const x0 = v.spr.x;
+        const y0 = v.spr.y;
+        const len = Math.max(Math.abs(tx - x0), Math.abs(ty - y0));
+        const step = sel ? 2 : 3;
+        g.fillStyle(0x9fc8c8, sel ? 0.8 : 0.45);
+        for (let k = 4; k < len - 4 && budget > 0; k += step, budget--) g.fillRect(Math.round(x0 + ((tx - x0) * k) / len), Math.round(y0 + ((ty - y0) * k) / len), 1, 1);
+        // the hollow marker: one cell, dotted dark outline
+        const hw = 0.36;
+        const hd = 0.4;
+        const corners = [
+          [s.x - r.x * hw + fx * hd, s.y - r.y * hw + fy * hd],
+          [s.x + r.x * hw + fx * hd, s.y + r.y * hw + fy * hd],
+          [s.x + r.x * hw - fx * hd, s.y + r.y * hw - fy * hd],
+          [s.x - r.x * hw - fx * hd, s.y - r.y * hw - fy * hd],
+        ].map(([x, y]) => {
+          const p = isoToScreen(x, y);
+          return [Math.round(p.x), Math.round(p.y)] as [number, number];
+        });
+        this.dashRect(g, corners, 0x2a2620, sel ? 0.7 : 0.45, 1, 1);
+        budget -= 30;
+      }
     }
   }
 
@@ -1308,11 +1507,13 @@ export class BattleScene extends BaseScene {
   private addTerrainProps(): void {
     this.props = [];
     this.glints = [];
+    this.waterCells = [];
     const tr = this.sim.terrain;
     if (!tr) return;
     for (let v = 0; v < 3; v++) if (!this.textures.exists(`tree_${v}`)) this.textures.addCanvas(`tree_${v}`, renderTree(v).toCanvas());
     for (let v = 0; v < 2; v++) if (!this.textures.exists(`boulder_${v}`)) this.textures.addCanvas(`boulder_${v}`, renderBoulder(v).toCanvas());
     if (!this.textures.exists('glint')) this.textures.addCanvas('glint', renderGlint().toCanvas());
+    if (!this.textures.exists('sparkle')) this.textures.addCanvas('sparkle', renderSparkle().toCanvas());
     const seed = this.sim.seed;
     const h = (a: number, b: number) => ((Math.imul(a + 1, 73856093) ^ Math.imul(b + 7, 19349663) ^ seed) >>> 0) % 1000 / 1000;
     const place = (key: string, fx: number, fy: number, tree: boolean) => {
@@ -1333,21 +1534,54 @@ export class BattleScene extends BaseScene {
         }
       } else if (d.kind === 'rocks') {
         place(`boulder_${i % 2}`, c.x + (h(i, 6) - 0.5) * 0.3, c.y + (h(i, 7) - 0.5) * 0.3, false);
-      } else if ((d.kind === 'water' || d.kind === 'sea') && h(i, 8) < 0.3) {
-        const p = isoToScreen(c.x + (h(i, 9) - 0.5) * 0.6, c.y);
-        const img = this.add.image(Math.round(p.x), Math.round(p.y), 'glint').setDepth(-99000).setAlpha(0);
-        this.world.add(img);
-        this.glints.push({ img, phase: Math.floor(h(i, 3) * 8) });
+      } else if (d.kind === 'water' || d.kind === 'sea') {
+        this.waterCells.push(i);
       }
     }
+    // a pool of shimmer sprites that hop between random spots on the water (docs/ART_STYLE.md §10)
+    const n = Math.min(70, Math.ceil(this.waterCells.length * 0.8));
+    for (let k = 0; k < n; k++) {
+      const img = this.add.image(0, 0, k % 3 === 0 ? 'glint' : 'sparkle').setDepth(-99000).setAlpha(0);
+      this.world.add(img);
+      const g = { img, t0: 0, life: 0 };
+      this.placeGlint(g, Math.random() * 900);
+      this.glints.push(g);
+    }
+  }
+
+  /** Move a shimmer sprite to a random spot on the water, starting after `delay` ms. */
+  private placeGlint(g: { img: Phaser.GameObjects.Image; t0: number; life: number }, delay: number): void {
+    const tr = this.sim.terrain;
+    if (!tr || this.waterCells.length === 0) return;
+    const cw = this.sim.width / tr.w;
+    const ch = this.sim.height / tr.h;
+    for (let tries = 0; tries < 4; tries++) {
+      const i = this.waterCells[Math.floor(Math.random() * this.waterCells.length)];
+      const c = tr.cellCenter(i);
+      const x = c.x + (Math.random() - 0.5) * cw;
+      const y = c.y + (Math.random() - 0.5) * ch;
+      // keep off the shore: all four neighbours a little way out are water too
+      const wet = (px: number, py: number) => {
+        const k = tr.at(px, py).kind;
+        return k === 'water' || k === 'sea';
+      };
+      if (![[0.35, 0], [-0.35, 0], [0, 0.35], [0, -0.35]].every(([dx, dy]) => wet(x + dx, y + dy))) continue;
+      const p = isoToScreen(x, y);
+      g.img.setPosition(Math.round(p.x), Math.round(p.y));
+      break;
+    }
+    g.t0 = this.time.now + delay;
+    g.life = 300 + Math.random() * 500;
   }
 
   /** Water shimmer (stepped), and trees fade when a soldier stands behind them. */
   private updateProps(): void {
-    const step = Math.floor(this.time.now / 180);
+    const now = this.time.now;
     for (const g of this.glints) {
-      const f = (step + g.phase) % 8;
-      g.img.setAlpha(f === 0 ? 0.9 : f === 1 ? 0.5 : 0);
+      const a = (now - g.t0) / g.life;
+      if (a > 1) this.placeGlint(g, Math.random() * 700);
+      // stepped, never a smooth fade: half on, on, half on
+      g.img.setAlpha(a < 0 || a > 1 ? 0 : a < 0.25 || a > 0.75 ? 0.5 : 0.95);
     }
     if (this.props.length === 0 || this.propTick++ % 4 !== 0) return;
     for (const pr of this.props) {

@@ -18,20 +18,23 @@ export const SKIN: Material[] = [
 /** Hair colours (Look.hair 0..3): black, brown, auburn, fair. */
 export const HAIR: Material[] = [m(0x2c241e), m(0x4e3524), m(0x6e3a20), m(0xa08350)];
 
-/** Tunic colours by palette key. */
+/**
+ * Tunic and cloak colours by palette key. Kept muted on purpose: team colour
+ * lives on shields, crests and standards (docs/ART_STYLE.md §9), bodies stay neutral.
+ */
 export const CLOTH: Record<string, Material> = {
-  tunicBlue: m(0x4f6378, { grit: 0.4, contrast: 0.85 }),
+  tunicBlue: m(0x5a6470, { grit: 0.4, contrast: 0.85 }),
   tunicGreen: m(0x5e6b45, { grit: 0.4, contrast: 0.85 }),
   tunicWhite: m(0xb6aa8e, { grit: 0.5, contrast: 0.85 }),
-  tunicRed: m(0x8a3428, { grit: 0.4, contrast: 0.85 }),
+  tunicRed: m(0x8a5444, { grit: 0.4, contrast: 0.85 }),
   tunicOchre: m(0x9c7a44, { grit: 0.45, contrast: 0.85 }),
-  cloakRed: m(0x8c2a22, { grit: 0.35, contrast: 0.95 }),
-  cloakPurple: m(0x5c3048, { grit: 0.3, contrast: 0.95 }),
-  cloakBlue: m(0x3e5068, { grit: 0.3, contrast: 0.95 }),
+  cloakRed: m(0x744036, { grit: 0.35, contrast: 0.95 }),
+  cloakPurple: m(0x5e4650, { grit: 0.3, contrast: 0.95 }),
+  cloakBlue: m(0x4c5866, { grit: 0.3, contrast: 0.95 }),
   cloakBrown: m(0x6a5038, { grit: 0.4, contrast: 0.95 }),
   cloakBlack: m(0x302a2a, { grit: 0.3, contrast: 0.95 }),
   checkGreen: m(0x5a6440, { grit: 0.5 }),
-  checkRed: m(0x7a3c2c, { grit: 0.5 }),
+  checkRed: m(0x7a4a3a, { grit: 0.5 }),
   trouserBrown: m(0x6a5440, { grit: 0.5 }),
 };
 

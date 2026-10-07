@@ -8,8 +8,11 @@
  * left, and every facing is a true view rather than a mirror image.
  *
  * SHEET FORMAT (what a hand-drawn replacement must follow):
- *   - One sheet per figure: 13 columns x 4 rows of frames.
- *   - Columns (FRAME_NAMES): idle0 idle1 walk0..walk3 atk0 atk1 atk2 hit die0 die1 die2.
+ *   - One sheet per figure: 16 columns x 4 rows of frames.
+ *   - Columns (FRAME_NAMES): idle0 idle1 walk0..walk3 atk0 atk1 atk2 hit die0 die1 die2,
+ *     then walk4 walk5 die1b (appended so older indices stay put). A man walks
+ *     walk0..walk5 (six phases) and falls die0 die1 die1b die2; other figures use
+ *     four walk phases and three death frames (ANIM_FRAMES).
  *     Riders: walk = gallop, hit = the horse rears, die = horse and rider fall.
  *     Animals: walk = trot/lope, atk = lunge and bite (the bear rears and swipes).
  *   - Rows (DIRS): 0 facing field +x (screen down-right), 1 facing field -y (up-right,
@@ -40,18 +43,31 @@ import { CLASSES, classOfHero, type BeastId, type MountId } from '../data/classe
 import { isMythId } from '../data/beasts';
 import { MYTH_GEOM, buildMyth, mythBasis } from './beastArt';
 
-export const FRAME_NAMES = ['idle0', 'idle1', 'walk0', 'walk1', 'walk2', 'walk3', 'atk0', 'atk1', 'atk2', 'hit', 'die0', 'die1', 'die2'] as const;
+export const FRAME_NAMES = ['idle0', 'idle1', 'walk0', 'walk1', 'walk2', 'walk3', 'atk0', 'atk1', 'atk2', 'hit', 'die0', 'die1', 'die2', 'walk4', 'walk5', 'die1b'] as const;
 export const NFRAMES = FRAME_NAMES.length;
 /** Rows: facings in field coordinates. */
 export const DIRS: [number, number][] = [[1, 0], [0, -1], [0, 1], [-1, 0]];
 export const NDIRS = DIRS.length;
+/**
+ * Frame sequences, in play order. Men walk on six phases and fall in four steps;
+ * riders, chariots and animals keep the original four-phase gallop and three-step
+ * fall (their builders see the extra columns as copies, see legacyFrame).
+ * The extra columns were appended after die2 so every older index stays valid.
+ */
 export const ANIM_FRAMES = {
   idle: [0, 1],
-  walk: [2, 3, 4, 5],
+  walk: [2, 3, 4, 5, 13, 14],
+  gallop: [2, 3, 4, 5],
   attack: [6, 7, 8],
   hit: [9],
-  die: [10, 11, 12],
+  die: [10, 11, 15, 12],
+  fall: [10, 11, 12],
 } as const;
+
+/** The frame a four-phase builder (rider, chariot, animal, myth) draws for a column. */
+export function legacyFrame(frame: number): number {
+  return frame === 13 ? 2 : frame === 14 ? 4 : frame === 15 ? 11 : frame;
+}
 
 export interface SheetGeom {
   fw: number;
@@ -168,10 +184,11 @@ export function renderFrame(d: DollSpec, frame: number, dir: number): Pix {
   const sc = new Scene();
   const [fx, fy] = DIRS[dir];
   const B = basis(fx, fy);
-  if (isMythId(d.beast)) buildMyth(sc, d.beast, frame, mythBasis(fx, fy), d.pose === 'sp', (d.seed ?? 0) % 3);
-  else if (d.beast) buildBeast(sc, d.beast, frame, B, d.seed ?? 0);
-  else if (d.mount === 'chariot') buildChariot(sc, d, frame, B, dir);
-  else if (d.mount) buildRider(sc, d, frame, B, dir);
+  const lf = legacyFrame(frame);
+  if (isMythId(d.beast)) buildMyth(sc, d.beast, d.pose === 'sp' ? frame : lf, mythBasis(fx, fy), d.pose === 'sp', (d.seed ?? 0) % 3);
+  else if (d.beast) buildBeast(sc, d.beast, lf, B, d.seed ?? 0);
+  else if (d.mount === 'chariot') buildChariot(sc, d, lf, B, dir);
+  else if (d.mount) buildRider(sc, d, lf, B, dir);
   else buildMan(sc, d, frame, B, dir, manPose(d, frame));
   if (d.scale && d.scale !== 1 && !isMythId(d.beast)) sc.scale(d.scale);
   return sc.render(g.fw, g.fh, Math.floor(g.fw / 2), g.footY);
@@ -265,9 +282,12 @@ function manPose(d: DollSpec, frame: number): ManPose {
     case 'walk0':
     case 'walk1':
     case 'walk2':
-    case 'walk3': {
-      const k = frame - 2;
-      const ph = (k * Math.PI) / 2;
+    case 'walk3':
+    case 'walk4':
+    case 'walk5': {
+      // six phases, 60 degrees apart
+      const k = Number(FRAME_NAMES[frame].slice(4));
+      const ph = (k * Math.PI) / 3;
       p.phase = k;
       p.footL = [0.24 * Math.cos(ph), -0.12, Math.max(0, Math.sin(ph)) * 0.14];
       p.footR = [-0.24 * Math.cos(ph), 0.12, Math.max(0, -Math.sin(ph)) * 0.14];
@@ -317,6 +337,15 @@ function manPose(d: DollSpec, frame: number): ManPose {
       p.dead = true;
       p.footL = [0.3, -0.15, 0];
       p.footR = [0.12, 0.18, 0];
+      break;
+    case 'die1b':
+      // between falling and flat: the body hits the ground
+      p.arm = 'fall';
+      p.hip = 0.57;
+      p.fall = 1.15;
+      p.dead = true;
+      p.footL = [0.31, -0.15, 0];
+      p.footR = [0.16, 0.19, 0];
       break;
     case 'die2':
       p.arm = 'fall';
@@ -459,11 +488,12 @@ function buildMan(sc: Scene, d: DollSpec, _frame: number, B: Basis, dir: number,
   if (d.cloak && !p.seated) {
     const cm = CLOTH[d.cloak] ?? CLOTH.cloakRed;
     sc.group();
-    const sway = p.phase ? (p.phase % 2 ? 0.04 : -0.02) : 0;
+    const sway = p.phase ? Math.sin((p.phase * Math.PI) / 3) * 0.035 : 0;
     const top = add(add(k.shL, k.shR), [0, 0, 0]).map((v) => v / 2) as V3;
-    const bottom = B.at(k.pelvis, -0.26 - sway - p.lean * 0.3, 0, -0.42);
+    // a short chlamys over the shoulders, not a full-length sheet of colour
+    const bottom = B.at(k.pelvis, -0.22 - sway - p.lean * 0.3, 0, -0.2);
     const mid = mul(add(top, bottom), 0.5);
-    sc.ellipsoid(add(mid, mul(B.F, -0.08)), mul(B.F, 0.07), mul(B.R, 0.24), mul(norm(sub(top, bottom)), len(sub(top, bottom)) / 2 + 0.06), cm, (l) => (l[2] < -0.85 ? { shade: 0.8 } : null));
+    sc.ellipsoid(add(mid, mul(B.F, -0.08)), mul(B.F, 0.06), mul(B.R, 0.19), mul(norm(sub(top, bottom)), len(sub(top, bottom)) / 2 + 0.05), cm, (l) => (l[2] < -0.8 ? { shade: 0.8 } : null));
   } else if (d.cloak && p.seated) {
     const cm = CLOTH[d.cloak] ?? CLOTH.cloakRed;
     sc.group();
