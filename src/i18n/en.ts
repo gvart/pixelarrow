@@ -8,6 +8,7 @@
  * - Keys are grouped by screen: `common.*` (shared), `kit.*` (UI kit),
  *   `menu.*`, `settings.*`, ... Add a screen's keys under its own prefix.
  */
+import { TUTORIAL_EN } from './tutorial.en';
 import { BATTLE_EN } from './battle.en';
 import { EN_ARMY } from './en.army';
 import { BEASTS_EN } from './beasts.en';
@@ -249,6 +250,7 @@ export const EN = {
 
   // ---- battle screens and the post-battle report (battle.en.ts)
   ...BATTLE_EN,
+  ...TUTORIAL_EN,
   // ---- army, hero, stash, settlements, online army, economy (en.army.ts)
   ...EN_ARMY,
   // ---- mythical beasts, the Beast trial, world bosses (beasts.en.ts)

@@ -42,6 +42,8 @@ import { generateBattlefield, randomSite } from '../world/battlefield';
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
 import { t, tOr, type TKey } from '../i18n';
+import { BattleTutorial, type TutorialEvent, type TutorialHost, type TutorialStart } from '../ui/tutorial/battleTutorial';
+import { tutorialBattle } from '../game/tutorial';
 
 // World pixels come from the 2:1 isometric projection in src/art/iso.ts.
 const MARGIN_X = 200; // grass beyond the field's screen bounds
@@ -188,6 +190,9 @@ export class BattleScene extends BaseScene {
   private dclock: DeployClock | null = null;
   private countdown: { text: Phaser.GameObjects.BitmapText; bar: Phaser.GameObjects.Graphics; shown: number } | null = null;
   private lastTickSound = -1;
+  /** The guided tutorial battle (src/ui/tutorial/battleTutorial.ts): set from the scene data, the controller after the HUD. */
+  private tutorialData: TutorialStart | null = null;
+  tutorial: BattleTutorial | null = null;
 
   private get foe(): Side {
     return this.me === 0 ? 1 : 0;
@@ -202,7 +207,7 @@ export class BattleScene extends BaseScene {
     super('Battle');
   }
 
-  create(data: { fresh?: boolean; source?: BattleSource }): void {
+  create(data: { fresh?: boolean; source?: BattleSource; tutorial?: TutorialStart }): void {
     this.views = [];
     this.decals = [];
     this.tagMap = new Map();
@@ -233,6 +238,8 @@ export class BattleScene extends BaseScene {
     this.countdown = null;
     this.lastTickSound = -1;
     this.src = data?.source ?? null;
+    this.tutorialData = !this.src && data?.tutorial ? data.tutorial : null;
+    this.tutorial = null;
     this.me = this.src?.side ?? 0;
     this.dclock = this.src ? createDeployClock(this.src.lockstep ? 'duel' : 'attack') : null;
     this.initUi();
@@ -246,6 +253,12 @@ export class BattleScene extends BaseScene {
       const byId = new Map(this.src.heroes.map((h) => [h.id, h]));
       heroes = setup.armies[this.me].units.map((u) => byId.get(u.heroId)!).filter(Boolean);
       this.enemyHeroes = setup.armies[this.foe].units.map((u) => byId.get(u.heroId)!).filter(Boolean);
+    } else if (this.tutorialData) {
+      // The tutorial: a fixed scenario with its own men (the campaign's army is not touched).
+      const tb = tutorialBattle();
+      setup = tb.setup;
+      heroes = tb.heroes;
+      this.enemyHeroes = tb.enemyHeroes;
     } else {
       if (data?.fresh || !state.pending) {
         const seed = randomSeed();
@@ -262,7 +275,7 @@ export class BattleScene extends BaseScene {
       setup = { seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)], terrain };
     }
     const terrain: TerrainGrid = setup.terrain ?? { w: 0, h: 0, cells: 'flat' };
-    this.verifySetup = this.src ? null : snapshotSetup(setup);
+    this.verifySetup = this.src || this.tutorialData ? null : snapshotSetup(setup);
     this.deployOrders = undefined;
     this.sim = new Battle(setup);
     this.src?.lockstep?.attach(this.sim);
@@ -338,16 +351,21 @@ export class BattleScene extends BaseScene {
     this.input.on('pointerupoutside', this.onUp, this);
     this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => {
       this.setZoom(Math.round(cam.zoom) + (dy > 0 ? -1 : 1));
+      this.tutorialEvent({ kind: 'zoom' });
     });
     // Back never leaves silently: deployment asks first, in battle it offers the retreat (pausing offline).
     this.screen({
-      back: () => (this.sim.phase === 'deploy' ? this.confirmLeaveDeploy() : this.openRetreat()),
+      back: () => (this.tutorial ? this.tutorial.askSkip() : this.sim.phase === 'deploy' ? this.confirmLeaveDeploy() : this.openRetreat()),
       confirmClose: true,
       settings: () => {
         if (this.sim.phase === 'battle' && !this.paused && !this.online) this.setPaused(true);
         openSettings(this);
       },
     });
+    if (this.tutorialData) {
+      this.tutorial = new BattleTutorial(this.tutorialHost(), this.tutorialData);
+      return;
+    }
     const where = terrain.name ? ` - ${terrain.name}` : '';
     this.showBanner(`${t('battle.banner.deploy', { vs: this.vsLabel() })}${where}`, 3000);
     this.showGestureHint();
@@ -854,6 +872,7 @@ export class BattleScene extends BaseScene {
 
   /** Offline only: stop the battle so the player can react. Online the message just shows. */
   private autoPause(msg: string, always = false): void {
+    if (this.tutorialData) return; // the tutorial pauses for itself
     if (this.online) {
       this.showBanner(msg, 2200);
       return;
@@ -877,6 +896,7 @@ export class BattleScene extends BaseScene {
   }
 
   private finish(): void {
+    if (this.tutorialData) return; // the tutorial ends with its own reward screen
     lastBattle.stats = unitStats(this.sim);
     lastBattle.ticks = this.sim.tick;
     lastBattle.side = this.me;
@@ -907,6 +927,7 @@ export class BattleScene extends BaseScene {
   }
 
   private confirmLeaveDeploy(): void {
+    if (this.tutorial) return this.tutorial.askSkip();
     if (this.overlay) return;
     const c = confirmDialog(this, {
       title: t('battle.leave.title'),
@@ -1021,6 +1042,7 @@ export class BattleScene extends BaseScene {
       cam.scrollY -= (cy - this.pinch.cy) / z;
       this.pinch.cx = cx;
       this.pinch.cy = cy;
+      this.tutorialEvent({ kind: 'zoom' });
       return;
     }
     const g = this.gesture;
@@ -1044,6 +1066,7 @@ export class BattleScene extends BaseScene {
       this.setFollow(false);
       cam.scrollX -= (p.x - g.lx) / cam.zoom;
       cam.scrollY -= (p.y - g.ly) / cam.zoom;
+      this.tutorialEvent({ kind: 'pan', px: Math.hypot(p.x - g.lx, p.y - g.ly) });
     } else if (g.mode === 'formation' && g.sling) {
       const w = cam.getWorldPoint(p.x, p.y);
       const f = screenToIso(w.x, w.y);
@@ -1076,7 +1099,10 @@ export class BattleScene extends BaseScene {
     } else if (g.mode === 'formation' && g.sling) {
       const plan = slingPlan(g.sling);
       this.dragPreview = null;
-      if (plan) this.command({ kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage });
+      if (plan) {
+        this.command({ kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage });
+        this.tutorialEvent({ kind: 'sling', carried: g.sling.carried, aimed: plan.aimed, fx: plan.fx, fy: plan.fy, group: this.selGroup });
+      }
     }
   }
 
@@ -1390,6 +1416,7 @@ export class BattleScene extends BaseScene {
       const fp = screenToIso(w.x, w.y);
       const face = this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy };
       this.command({ kind: 'form', group: -1, cx: fp.x, cy: fp.y, fx: face.x, fy: face.y, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
+      this.tutorialEvent({ kind: 'tapmove' });
     }
   }
 
@@ -1540,6 +1567,7 @@ export class BattleScene extends BaseScene {
     this.buildPanel();
     this.hudDirty = true;
     this.refreshHud();
+    this.tutorialEvent({ kind: 'hud' });
   }
 
   // ---- top bar
@@ -2112,6 +2140,7 @@ export class BattleScene extends BaseScene {
     for (const u of users) this.order({ kind: 'ability', unit: u.id, ability: id });
     this.handleEvents(this.sim.drainEvents());
     this.hudDirty = true;
+    this.tutorialEvent({ kind: 'ability' });
   }
 
   private toggleSpeed(): void {
@@ -2194,6 +2223,7 @@ export class BattleScene extends BaseScene {
 
   /** Ask before retreating: the battle is lost, men in contact or routing may be caught. Offline it pauses meanwhile. */
   openRetreat(): void {
+    if (this.tutorial) return this.tutorial.askSkip();
     if (this.sim.phase !== 'battle' || this.overlay) return;
     const wasPaused = this.paused;
     if (!this.online) this.setPaused(true);
@@ -2235,6 +2265,7 @@ export class BattleScene extends BaseScene {
 
   private vsLabel(): string {
     if (this.src) return this.src.label;
+    if (this.tutorialData) return t('battle.vs', { name: t('tut.vs') });
     const p = state.pending!;
     return t('battle.vs', { name: p.label ?? CULTURE_LABEL[p.enemy.culture] });
   }
@@ -2336,6 +2367,71 @@ export class BattleScene extends BaseScene {
     this.overlay = null;
     if (o && o.active) o.destroy();
     if (rebuild) this.buildHud();
+  }
+
+  // ---- the tutorial (src/ui/tutorial/battleTutorial.ts): what it observes and drives
+
+  private tutorialEvent(e: TutorialEvent): void {
+    if (this.tutorialData) this.events.emit('tutorial', e);
+  }
+
+  private tutorialHost(): TutorialHost {
+    const s = this;
+    return {
+      scene: this,
+      get sim() {
+        return s.sim;
+      },
+      get selGroup() {
+        return s.selGroup;
+      },
+      select: (gid: number) => {
+        s.selGroup = gid;
+        s.selUnit = -1;
+        s.buildHud();
+      },
+      get cat() {
+        return s.cat;
+      },
+      get catOpen() {
+        return s.catOpen;
+      },
+      get compact() {
+        return s.compact;
+      },
+      get cards() {
+        return s.cards;
+      },
+      get cmdBtns() {
+        return s.cmdBtns;
+      },
+      get tabBtns() {
+        return s.tabBtns;
+      },
+      get hud() {
+        return s.hud;
+      },
+      get followBtn() {
+        return s.followBtn;
+      },
+      get paused() {
+        return s.paused;
+      },
+      setPaused: (p: boolean) => s.setPaused(p),
+      hideBanner: () => s.hideBanner(),
+      fieldTop: () => TOP,
+      panelTop: () => s.m.VH - s.panelHeight(),
+      toUi: (x: number, y: number) => {
+        const cam = s.cameras.main;
+        const w = isoToScreen(x, y);
+        return { x: ((w.x - cam.worldView.x) * cam.zoom) / s.m.S, y: ((w.y - cam.worldView.y) * cam.zoom) / s.m.S };
+      },
+      paceUi: () => (18 * s.cameras.main.zoom) / s.m.S,
+      frameArmies: () => {
+        s.tweens.killTweensOf(s.cameras.main);
+        s.frameArmies();
+      },
+    };
   }
 }
 

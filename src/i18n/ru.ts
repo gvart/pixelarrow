@@ -1,4 +1,5 @@
 /** Russian strings. Same keys and parameters as en.ts; plurals use one / few / many / other. */
+import { TUTORIAL_RU } from './tutorial.ru';
 import type { Table } from './index';
 import { BATTLE_RU } from './battle.ru';
 import { RU_ARMY } from './ru.army';
@@ -231,6 +232,7 @@ export const RU: Table = {
   'settings.volumeUp': 'Громче',
 
   ...BATTLE_RU,
+  ...TUTORIAL_RU,
   ...RU_ARMY,
   // ---- mythical beasts, the Beast trial, world bosses (beasts.ru.ts)
   ...BEASTS_RU,

@@ -14,10 +14,11 @@ import type { Settings } from '../game/save';
 import { audio } from '../audio';
 import { t, type LangSetting, type TKey } from '../i18n';
 import { refreshLang } from './lang';
+import { canResume, progressOf } from '../game/tutorial';
 
 type Toggle = { [K in keyof Settings]-?: Settings[K] extends boolean ? K : never }[keyof Settings];
 type Volume = 'musicVol' | 'sfxVol';
-type Row = { kind: 'toggle'; key: Toggle; label: TKey } | { kind: 'volume'; key: Volume; label: TKey } | { kind: 'lang'; label: TKey };
+type Row = { kind: 'toggle'; key: Toggle; label: TKey } | { kind: 'volume'; key: Volume; label: TKey } | { kind: 'lang'; label: TKey } | { kind: 'tutorial'; label: TKey };
 
 interface UiScene extends Phaser.Scene {
   ui: Phaser.GameObjects.Container;
@@ -35,6 +36,7 @@ const ROWS: Row[] = [
   { kind: 'toggle', key: 'pauseFlank', label: 'settings.pauseFlank' },
   { kind: 'toggle', key: 'pauseRout', label: 'settings.pauseRout' },
   { kind: 'toggle', key: 'pauseDeath', label: 'settings.pauseDeath' },
+  { kind: 'tutorial', label: 'settings.tutorial' },
 ];
 const LANG_CYCLE: LangSetting[] = ['auto', 'en', 'ru'];
 /** Scenes that may be rebuilt when the language changes (never a running battle). */
@@ -60,7 +62,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
     rowH,
     render: (i, row, rw) => {
       const r = ROWS[i];
-      const right = r.kind === 'volume' ? 70 : r.kind === 'lang' ? 66 : 42;
+      const right = r.kind === 'volume' ? 70 : r.kind === 'lang' || r.kind === 'tutorial' ? 66 : 42;
       row.add(addText(scene, 0, 8, ellipsize(t(r.label).toUpperCase(), rw - right - 4), 'ink'));
       if (r.kind === 'toggle') {
         const k = r.key;
@@ -88,6 +90,17 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         row.add(val);
         row.add(new Button(scene, rw - 68, 1, 22, 22, { label: '-', tip: t('settings.volumeDown'), id: `settings.${k}.down`, onClick: () => stepVol(-1) }));
         row.add(new Button(scene, rw - 22, 1, 22, 22, { label: '+', tip: t('settings.volumeUp'), id: `settings.${k}.up`, onClick: () => stepVol(1) }));
+      } else if (r.kind === 'tutorial') {
+        // Replay the guided battle (or resume an interrupted one); never from inside a battle.
+        const resume = canResume(progressOf(s));
+        const b = new Button(scene, rw - 64, 1, 64, 22, { label: t(resume ? 'settings.tutorialResume' : 'settings.tutorialReplay'), icon: 'play', tip: t('settings.tutorialTip'), id: 'settings.tutorial' });
+        const busy = ['Battle', 'Results'].includes(scene.sys.settings.key);
+        if (busy) b.setEnabled(false, t('settings.tutorialBusy'));
+        b.setOnClick(() => {
+          m.close();
+          scene.scene.start('Battle', { tutorial: { replay: !resume } });
+        });
+        row.add(b);
       } else {
         const b = new Button(scene, rw - 64, 1, 64, 22, { label: t(`settings.lang.${s.lang ?? 'auto'}`), id: 'settings.lang' });
         b.setOnClick(() => {

@@ -38,6 +38,20 @@ export function uiLevelUp(): void {
   sfx.play('levelUp');
 }
 
+// ------------------------------------------------------------------ tutorial
+
+/** The narrator's typewriter: a quill tick per letter, a murmured syllable every few letters. */
+export function narratorType(i: number, ch: string): void {
+  if (ch === ' ') return;
+  if (i % 3 === 0) sfx.play('narrate');
+  else sfx.play('quill');
+}
+
+/** A tutorial step done. */
+export function tutorialStep(): void {
+  sfx.play('chime');
+}
+
 // ------------------------------------------------------------------ battle
 
 interface BattleState {

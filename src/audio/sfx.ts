@@ -343,6 +343,30 @@ export const RECIPES = {
     osc(c, out, t + 0.06, { f: 500, f1: 340, dur: 0.035, gain: 0.22 });
     return 0.12;
   },
+  /** Tutorial narrator: a murmured syllable (a breathy voice through two formants), one per few letters. */
+  narrate: (c, out, t, r) => {
+    const f0 = r.range(118, 168);
+    const lp = c.createBiquadFilter();
+    lp.type = 'bandpass';
+    lp.Q.value = 3;
+    lp.frequency.value = r.pick([520, 640, 760, 900]);
+    lp.connect(out);
+    osc(c, lp, t, { type: 'sawtooth', f: f0, f1: f0 * r.range(0.9, 1.08), dur: 0.055, gain: 0.32, a: 0.008 });
+    noise(c, out, t, { dur: 0.03, gain: 0.05, f: r.jit(1500, 0.2), q: 2 });
+    return 0.07;
+  },
+  /** Tutorial: a quill tick of the typewriter text. */
+  quill: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.008, gain: 0.18, f: r.jit(4200, 0.15), q: 4 });
+    return 0.02;
+  },
+  /** Tutorial: a step done — two rising lyre notes and a small bronze bell. */
+  chime: (c, out, t, r) => {
+    pluck(c, out, t, midiHz(69), 0.26, 1.0, 0.75);
+    pluck(c, out, t + 0.09, midiHz(76), 0.26, 1.1, 0.75);
+    metal(c, out, t + 0.16, r.jit(2093, 0.01), [1, 2.76, 5.4], 0.7, 0.05);
+    return 1.1;
+  },
   /** UI: refused — a dull double buzz. */
   error: (c, out, t) => {
     const lp = c.createBiquadFilter();
@@ -485,7 +509,10 @@ export const PRIORITY: Record<SfxId, number> = {
   hiss: 4,
   sever: 7,
   bleat: 6,
+  narrate: 10,
+  quill: 4,
+  chime: 10,
 };
 
 /** Base loudness per sound before spatial attenuation and the SFX bus. */
-export const LEVEL: Partial<Record<SfxId, number>> = { hit: 0.8, land: 0.6, arrow: 0.8, tap: 0.7, march: 0.8 };
+export const LEVEL: Partial<Record<SfxId, number>> = { hit: 0.8, land: 0.6, arrow: 0.8, tap: 0.7, march: 0.8, quill: 0.6 };

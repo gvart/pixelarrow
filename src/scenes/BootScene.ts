@@ -7,6 +7,7 @@ import { setPendingInvite } from '../online/client';
 import { state } from '../state';
 import { refreshLang } from '../ui/lang';
 import { hintStore } from '../ui/widgets';
+import { canResume, progressOf } from '../game/tutorial';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -34,7 +35,12 @@ export class BootScene extends Phaser.Scene {
       if (invite) setPendingInvite(invite);
       // Debug: ?scene=Kit opens the UI kit gallery.
       const debugScene = new URLSearchParams(location.search).get('scene') === 'Kit' ? 'Kit' : null;
-      this.scene.start(invite ? 'Online' : debugScene ?? 'Menu', {});
+      // First launch: the tutorial is offered; an interrupted one can be resumed (src/scenes/FirstRunScene.ts).
+      // Test scripts that drive the menu set window.__noFirstRun.
+      const tut = progressOf(state.campaign.data.settings);
+      const first = !invite && !debugScene && !(window as { __noFirstRun?: boolean }).__noFirstRun ? (tut.status === 'offer' ? 'offer' : canResume(tut) ? 'resume' : null) : null;
+      if (first) this.scene.start('FirstRun', { mode: first });
+      else this.scene.start(invite ? 'Online' : debugScene ?? 'Menu', {});
     })();
   }
 }
