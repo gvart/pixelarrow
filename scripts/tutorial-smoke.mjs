@@ -1,7 +1,7 @@
 // Tutorial smoke test with real touch events (CDP) in a portrait phone viewport.
 // A first launch offers the tutorial; the whole guided battle is played as old
-// Nikias asks (select, pan, pinch zoom, the slingshot carry + pull, Fight, tap to
-// move, shield wall, slingers loose, charge, Shield Bash, turning the line to a
+// Nikias asks (select, pan, pinch zoom, drag to move, Fight, tap to
+// move, shield wall, slingers loose, charge, Shield Bash, turning the line by its knob to a
 // flank), then the reward (gold + a common item) and the modes screen. Also:
 // an interrupted tutorial is offered again (resume), skip asks first and sticks,
 // and a finished tutorial is not offered again.
@@ -163,8 +163,8 @@ await touch('touchEnd', []);
 await wait(400);
 check('pinch done', await doneWith('zoom'));
 
-// the slingshot: carry to the flag, pull back
-check('slingshot step', await talkingAt('sling', 8000));
+// the formation drag: carry the hoplites to the flag
+check('move-drag step', await talkingAt('sling', 8000));
 await ev(() => window.__game.scene.getScene('Battle').tutorial.narrator.finishTyping()); // the whole line in the screenshot
 // the ghost hand half-way through its demonstration
 await until(() => ev(() => { const g = window.__game.scene.getScene('Battle').tutorial.ghost; const t = window.__game.loop.time - g.start; return g.hands[0].visible && g.segs.length > 1 && t > g.segs[1].t0 + 150 && t < g.segs[1].t1; }), 12000, 50);
@@ -172,8 +172,8 @@ await page.screenshot({ path: `${shots}/43-tutorial-gesture.png` });
 const sling = await ghostPts('slingDemo');
 const o0 = await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
 await swipe(sling, 10);
-check('slingshot done (carried and aimed)', await doneWith('sling'), JSON.stringify(await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.slice(-1))));
-check('the slingshot gave a formation order', (await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length)) > o0);
+check('drag done (carried to the flag)', await doneWith('sling'), JSON.stringify(await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.slice(-1))));
+check('the drag gave a formation order', (await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length)) > o0);
 
 // Fight!
 check('fight step', await talkingAt('fight', 8000));
@@ -200,7 +200,7 @@ for (const id of ['wall', 'loose', 'charge']) {
 check('ability step (in melee)', await talkingAt('ability', 40000));
 check('Shield Bash used', await tapSpot('ability', 8));
 
-// the flank: grab the hoplites and pull away from the wave
+// the flank: swing the facing knob toward the wave
 check('flank step', await talkingAt('flank', 70000));
 const turn = await ghostPts('turnDemo');
 await swipe(turn, 10);

@@ -109,12 +109,11 @@ with DESIGN.md or ROADMAP.md, this document wins.
 
 ## Controls
 
-- **Formation slingshot (supersedes "face the way you pull"):** press on or next
-  to the selected group (or its placement marker), drag to where it should
-  stand, then pull BACK. The soldiers face away from the finger, like aiming a
-  slingshot. Without lifting, pushing the finger sideways or forward stretches
-  or narrows the line (width versus depth), with a live preview of placement
-  boxes and a facing arrow.
+- **Formation drags (supersede the slingshot):** drag the selected group to
+  move it (facing and shape kept); drag the bronze knob at the tip of its
+  facing arrow to turn it in place toward the finger (snaps to the eight
+  field directions). The formation shape comes only from the Formation
+  buttons. Live preview of placement boxes and the facing arrow.
 - **Pan versus order:** a one-finger drag on empty ground always pans the
   camera. A formation drag only starts on or next to the selected group or its
   marker. A tap on the ground moves the group there. Two fingers zoom.
@@ -214,7 +213,7 @@ with DESIGN.md or ROADMAP.md, this document wins.
   - A few looping ancient-style music tracks (lyre and drums).
   - Volume and mute in settings; muted while Telegram is in the background.
 - **Onboarding:** a skippable guided tutorial battle of 3–4 minutes with a
-  narrator (select, slingshot formation, charge, shield wall, abilities),
+  narrator (select, drag to move, turn knob, charge, shield wall, abilities),
   followed by a guided first hex capture online.
 
 ## Online battle rules

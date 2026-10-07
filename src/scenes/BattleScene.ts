@@ -15,7 +15,7 @@ import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import { formationSlots, rightOf, type FormationType } from '../sim/formation';
-import { slingDwell, slingMove, slingPlan, slingStart, type SlingEvents, type SlingState } from '../ui/dragFormation';
+import { KNOB_PACES, dragMove, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import type { TerrainGrid } from '../sim/terrain';
 import type { BattleSource } from '../online/battleSource';
@@ -99,19 +99,15 @@ type Gesture = {
   ly: number;
   wx0: number;
   wy0: number;
-  /** Pressed on or near the selected group or its placement marker: a drag is a formation order. */
-  onGroup: boolean;
-  /** Slingshot state (on-group gestures), created on the first drag or rest. */
-  sling: SlingState | null;
-  /** Where and when the finger last came to rest (for the slingshot's dwell lock). */
-  restX: number;
-  restY: number;
-  restT: number;
+  /** Pressed on the selected group or its marker (move) or on its facing knob (turn): a drag is a formation order. */
+  grab: DragKind | null;
+  /** Formation drag state, created on the first drag. */
+  drag: DragState | null;
 } | null;
 
 /** Finger travel (screen px) before a press becomes a drag: below it a lift is a tap. */
 const DRAG_PX = 10;
-/** Grab radius (screen px) around the selected group's soldiers and placement marker. */
+/** Grab radius (screen px) around the selected group's soldiers, placement marker and facing knob. */
 const GRAB_PX = 30;
 /** Tap radius (screen px) of a floating group tag (a 44 pt target). */
 const TAG_PX = 20;
@@ -124,6 +120,8 @@ export class BattleScene extends BaseScene {
   private views: UnitView[] = [];
   private world!: Phaser.GameObjects.Layer;
   private boxes!: Phaser.GameObjects.Graphics;
+  /** The facing arrow and turn knob, drawn over the soldiers so it can always be seen and grabbed. */
+  private knobG!: Phaser.GameObjects.Graphics;
   private projG!: Phaser.GameObjects.Graphics;
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
   private decals: Phaser.GameObjects.Image[] = [];
@@ -137,8 +135,6 @@ export class BattleScene extends BaseScene {
   private dragPreview: { cx: number; cy: number; fx: number; fy: number; frontage: number; type: FormationType; n: number; label: string } | null = null;
   private dragLabel: Phaser.GameObjects.BitmapText | null = null;
   private hint: Phaser.GameObjects.Container | null = null;
-  /** A finger resting this long (ms) while carrying the group locks the slingshot anchor (scripts may raise it). */
-  dwellMs = 350;
   private lastAutoPause = -9999;
   private lastHaptic = 0;
   private enemyHeroes: Hero[] = [];
@@ -299,6 +295,8 @@ export class BattleScene extends BaseScene {
     this.addTerrainProps();
     this.boxes = this.add.graphics().setDepth(-80000);
     this.world.add(this.boxes);
+    this.knobG = this.add.graphics().setDepth(92000);
+    this.world.add(this.knobG);
     this.projG = this.add.graphics().setDepth(100000);
     this.world.add(this.projG);
     this.fx = new BattleFx(this, this.world);
@@ -549,7 +547,6 @@ export class BattleScene extends BaseScene {
       this.handleEvents(this.sim.drainEvents());
     }
     const alpha = this.sim.phase === 'battle' && !this.paused ? Math.min(1, this.acc / DT) : 1;
-    this.checkDwell(delta);
     this.updateCamera(delta);
     this.fx.update(this.paused ? 0 : delta);
     pumpDolls(this.sim.phase === 'battle' && !this.paused ? 4 : 8);
@@ -702,6 +699,7 @@ export class BattleScene extends BaseScene {
   private renderBoxes(): void {
     const g = this.boxes;
     g.clear();
+    this.knobG.clear();
     if (this.sim.phase === 'deploy') {
       const zone = (side: Side, color: number, fill: number, a: number) => {
         const z = this.sim.deployZone(side);
@@ -742,16 +740,7 @@ export class BattleScene extends BaseScene {
       const d = this.dragPreview;
       const slots = formationSlots({ type: d.type, cx: d.cx, cy: d.cy, fx: d.fx, fy: d.fy, frontage: d.frontage }, d.n);
       drawSlots(slots, d.fx, d.fy, 0xfff4c0, 0.95);
-      // facing arrow with a head
-      const a0 = isoToScreen(d.cx, d.cy);
-      const a1 = isoToScreen(d.cx + d.fx * 2, d.cy + d.fy * 2);
-      const r = rightOf(d.fx, d.fy);
-      const h1 = isoToScreen(d.cx + d.fx * 1.5 + r.x * 0.4, d.cy + d.fy * 1.5 + r.y * 0.4);
-      const h2 = isoToScreen(d.cx + d.fx * 1.5 - r.x * 0.4, d.cy + d.fy * 1.5 - r.y * 0.4);
-      g.lineStyle(1, 0xfff4c0, 0.95);
-      g.lineBetween(a0.x, a0.y, a1.x, a1.y);
-      g.lineBetween(h1.x, h1.y, a1.x, a1.y);
-      g.lineBetween(h2.x, h2.y, a1.x, a1.y);
+      this.drawFacingKnob(this.knobG, d.cx, d.cy, d.fx, d.fy, 0xfff4c0, 0.95);
       this.placeDragLabel(d);
       return;
     }
@@ -761,7 +750,41 @@ export class BattleScene extends BaseScene {
       if (!grp || grp.disbanded) return;
       const slots = this.sim.groupSlots(grp.id);
       drawSlots(slots, grp.formation.fx, grp.formation.fy, 0xf6ecd8, 0.75);
+      // the facing arrow and its knob: drag the knob to turn the group
+      const fr = this.canCommand() && this.sim.phase !== 'ended' ? this.selectedFrame() : null;
+      if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85);
     }
+  }
+
+  /** A facing arrow from the front-rank centre to a round knob KNOB_PACES ahead (the turn handle). */
+  private drawFacingKnob(g: Phaser.GameObjects.Graphics, cx: number, cy: number, fx: number, fy: number, color: number, a: number): void {
+    const P = (along: number, side = 0) => {
+      const r = rightOf(fx, fy);
+      const p = isoToScreen(cx + fx * along + r.x * side, cy + fy * along + r.y * side);
+      return { x: Math.round(p.x), y: Math.round(p.y) };
+    };
+    const a0 = P(0.7);
+    const a1 = P(KNOB_PACES - 0.45);
+    const k = P(KNOB_PACES);
+    const h1 = P(KNOB_PACES - 1, 0.4);
+    const h2 = P(KNOB_PACES - 1, -0.4);
+    // a dark under-stroke keeps the arrow readable on light ground
+    for (const [w, c, al] of [
+      [3, 0x2a1d14, 0.6 * a],
+      [1, color, a],
+    ] as const) {
+      g.lineStyle(w, c, al);
+      g.lineBetween(a0.x, a0.y, a1.x, a1.y);
+      g.lineBetween(h1.x, h1.y, a1.x, a1.y);
+      g.lineBetween(h2.x, h2.y, a1.x, a1.y);
+    }
+    // the knob: a bronze disc in a dark rim, big enough to read as "grab me"
+    g.fillStyle(0x2a1d14, 0.8 * a);
+    g.fillCircle(k.x, k.y, 8);
+    g.fillStyle(0xd9a441, a);
+    g.fillCircle(k.x, k.y, 6);
+    g.fillStyle(0xfff4c0, a);
+    g.fillCircle(k.x - 1, k.y - 2, 2);
   }
 
   private dashRect(g: Phaser.GameObjects.Graphics, pts: [number, number][], color: number, alpha: number, on: number, off: number): void {
@@ -993,8 +1016,10 @@ export class BattleScene extends BaseScene {
    * - one finger on empty ground: a drag pans the camera (always, even with a
    *   group selected); a tap moves the selected group there (see tap());
    *   a long press in deployment explains the terrain;
-   * - one finger on or near the selected group or its placement marker: the
-   *   slingshot formation gesture (src/ui/dragFormation.ts), a tap selects;
+   * - one finger on or near the selected group or its placement marker: a drag
+   *   moves it (facing and shape kept); on the facing knob ahead of it: a drag
+   *   turns it in place (src/ui/dragFormation.ts); a tap selects. The shape
+   *   comes only from the formation buttons;
    * - two fingers: pinch zoom and pan, never an order (cancels a pending one).
    */
   private onDown(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]): void {
@@ -1012,12 +1037,12 @@ export class BattleScene extends BaseScene {
       return;
     }
     const w = this.cameras.main.getWorldPoint(p.x, p.y);
-    const onGroup = this.nearSelectedGroup(p.x, p.y);
-    const g: NonNullable<Gesture> = { mode: 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y, wx0: w.x, wy0: w.y, onGroup, sling: null, restX: p.x, restY: p.y, restT: this.time.now };
+    const grab = this.grabAt(p.x, p.y);
+    const g: NonNullable<Gesture> = { mode: 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y, wx0: w.x, wy0: w.y, grab, drag: null };
     this.gesture = g;
     this.holdTimer?.remove();
     this.holdTimer = null;
-    if (this.sim.phase === 'deploy' && !onGroup) {
+    if (this.sim.phase === 'deploy' && !grab) {
       // long press on the ground in deployment: what is this terrain?
       this.holdTimer = holdTimer(this, longPress.ms, () => {
         if (this.gesture !== g || g.mode !== 'pending') return;
@@ -1046,17 +1071,12 @@ export class BattleScene extends BaseScene {
     }
     const g = this.gesture;
     if (!g || p.id !== g.id || !p.isDown) return;
-    if (Math.abs(p.x - g.restX) + Math.abs(p.y - g.restY) > 6) {
-      g.restX = p.x;
-      g.restY = p.y;
-      g.restT = this.time.now;
-    }
     const moved = Math.abs(p.x - g.sx) + Math.abs(p.y - g.sy);
     if (g.mode === 'pending' && moved > DRAG_PX) {
-      if (g.onGroup && this.selGroup >= 0 && this.canCommand()) {
+      if (g.grab && this.selGroup >= 0 && this.canCommand()) {
         g.mode = 'formation';
         this.setFollow(false); // the field must stay put under the finger
-        g.sling ??= this.startSling(g);
+        g.drag ??= this.startDrag(g, g.grab);
       } else {
         g.mode = 'pan';
       }
@@ -1066,11 +1086,11 @@ export class BattleScene extends BaseScene {
       cam.scrollX -= (p.x - g.lx) / cam.zoom;
       cam.scrollY -= (p.y - g.ly) / cam.zoom;
       this.tutorialEvent({ kind: 'pan', px: Math.hypot(p.x - g.lx, p.y - g.ly) });
-    } else if (g.mode === 'formation' && g.sling) {
+    } else if (g.mode === 'formation' && g.drag) {
       const w = cam.getWorldPoint(p.x, p.y);
       const f = screenToIso(w.x, w.y);
-      this.slingFeedback(slingMove(g.sling, f.x, f.y));
-      this.updateDragPreview(g.sling);
+      this.dragFeedback(dragMove(g.drag, f.x, f.y));
+      this.updateDragPreview(g.drag);
     }
     g.lx = p.x;
     g.ly = p.y;
@@ -1097,12 +1117,12 @@ export class BattleScene extends BaseScene {
     if (g.mode === 'pending') {
       this.dragPreview = null;
       this.tap(p);
-    } else if (g.mode === 'formation' && g.sling) {
-      const plan = slingPlan(g.sling);
+    } else if (g.mode === 'formation' && g.drag) {
+      const plan = dragPlan(g.drag);
       this.dragPreview = null;
       if (plan) {
         this.command({ kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage });
-        this.tutorialEvent({ kind: 'sling', carried: g.sling.carried, aimed: plan.aimed, fx: plan.fx, fy: plan.fy, group: this.selGroup });
+        this.tutorialEvent({ kind: 'sling', carried: plan.kind === 'move', aimed: plan.kind === 'turn', fx: plan.fx, fy: plan.fy, group: this.selGroup });
       }
     }
   }
@@ -1123,63 +1143,76 @@ export class BattleScene extends BaseScene {
     this.hideTerrainInfo();
   }
 
-  /** Is a screen point on or near the selected group's soldiers or its placement marker? */
-  private nearSelectedGroup(px: number, py: number): boolean {
-    if (this.selGroup < 0 || this.sim.phase === 'ended') return false;
+  /**
+   * What a press at this screen point grabs: the facing knob of the selected
+   * group (turn), its soldiers or placement marker (move), or nothing. When
+   * both are in reach, the closer one wins.
+   */
+  private grabAt(px: number, py: number): DragKind | null {
+    if (this.selGroup < 0 || this.sim.phase === 'ended' || !this.canCommand()) return null;
     const grp = this.sim.groups[this.selGroup];
-    if (!grp || grp.disbanded) return false;
+    if (!grp || grp.disbanded) return null;
     const cam = this.cameras.main;
-    const r2 = GRAB_PX * GRAB_PX;
-    const near = (wx: number, wy: number) => ((wx - cam.worldView.x) * cam.zoom - px) ** 2 + ((wy - cam.worldView.y) * cam.zoom - py) ** 2 < r2;
+    const d2 = (wx: number, wy: number) => ((wx - cam.worldView.x) * cam.zoom - px) ** 2 + ((wy - cam.worldView.y) * cam.zoom - py) ** 2;
     const solo = this.selUnit >= 0 && !grp.individual;
     const members = solo ? [this.sim.units[this.selUnit]] : this.sim.activeMembers(grp.id);
     const ids = new Set(members.map((u) => u.id));
-    for (const v of this.views) if (ids.has(v.u.id) && (near(v.spr.x, v.spr.y - v.tall / 2) || near(v.spr.x, v.spr.y))) return true;
-    if (solo) return false;
-    for (const s of [...this.sim.groupSlots(grp.id), { x: grp.formation.cx, y: grp.formation.cy }]) {
-      const w = isoToScreen(s.x, s.y);
-      if (near(w.x, w.y)) return true;
+    let body = Infinity;
+    for (const v of this.views) if (ids.has(v.u.id)) body = Math.min(body, d2(v.spr.x, v.spr.y - v.tall / 2), d2(v.spr.x, v.spr.y));
+    if (!solo) {
+      for (const s of [...this.sim.groupSlots(grp.id), { x: grp.formation.cx, y: grp.formation.cy }]) {
+        const w = isoToScreen(s.x, s.y);
+        body = Math.min(body, d2(w.x, w.y));
+      }
     }
-    return false;
+    const k = this.knobOf();
+    const kw = k ? isoToScreen(k.x, k.y) : null;
+    const knob = kw ? d2(kw.x, kw.y) : Infinity;
+    const r2 = GRAB_PX * GRAB_PX;
+    if (knob < r2 && knob <= body) return 'turn';
+    return body < r2 ? 'move' : null;
   }
 
-  private startSling(g: NonNullable<Gesture>): SlingState {
-    const grp = this.sim.groups[this.selGroup];
+  /** The selected group's (or soldier's) anchor and facing, its centre and its facing knob, in field coordinates. */
+  private selectedFrame(): { cx: number; cy: number; fx: number; fy: number; px: number; py: number; frontage: number; n: number } | null {
+    const grp = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
+    if (!grp || grp.disbanded) return null;
     const f = grp.formation;
-    const solo = this.selUnit >= 0 && !grp.individual;
-    const n = solo ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
-    const u = solo ? this.sim.units[this.selUnit] : null;
+    if (this.selUnit >= 0 && !grp.individual) {
+      const u = this.sim.units[this.selUnit];
+      return { cx: u.x, cy: u.y, fx: f.fx, fy: f.fy, px: u.x, py: u.y, frontage: 1, n: 1 };
+    }
+    const slots = this.sim.groupSlots(grp.id);
+    if (slots.length === 0) return null;
+    const px = slots.reduce((a, q) => a + q.x, 0) / slots.length;
+    const py = slots.reduce((a, q) => a + q.y, 0) / slots.length;
+    return { cx: f.cx, cy: f.cy, fx: f.fx, fy: f.fy, px, py, frontage: f.frontage, n: slots.length };
+  }
+
+  /** Where the facing knob of the selected group stands (field), or null. */
+  private knobOf(): { x: number; y: number } | null {
+    const fr = this.selectedFrame();
+    return fr ? { x: fr.cx + fr.fx * KNOB_PACES, y: fr.cy + fr.fy * KNOB_PACES } : null;
+  }
+
+  private startDrag(g: NonNullable<Gesture>, kind: DragKind): DragState {
+    const fr = this.selectedFrame()!;
     const press = screenToIso(g.wx0, g.wy0);
     // thresholds are in paces at the default zoom (1: a pace is 36 px across a tile) and scale with zoom
     const k = 1 / this.cameras.main.zoom;
-    return slingStart({ cx: u ? u.x : f.cx, cy: u ? u.y : f.cy, fx: f.fx, fy: f.fy, frontage: solo ? 1 : f.frontage, n }, press.x, press.y, k);
+    haptic('light');
+    return dragStart(kind, fr, press.x, press.y, k);
   }
 
-  /**
-   * Called every frame: a finger resting while it carries the group locks the
-   * anchor there (then the pull aims). A long frame (the page stalled) is not a rest.
-   */
-  private checkDwell(delta: number): void {
-    const g = this.gesture;
-    if (!g || g.mode !== 'formation' || g.sling?.phase !== 'carry' || this.pinch) return;
-    if (delta > 100) {
-      g.restT = this.time.now;
-      return;
-    }
-    if (this.time.now - g.restT < this.dwellMs) return;
-    this.slingFeedback(slingDwell(g.sling));
-    this.updateDragPreview(g.sling);
-  }
-
-  /** Light haptic tick when the anchor or the facing locks and when the rank count changes. */
-  private slingFeedback(e: SlingEvents): void {
-    if (e.anchored || e.locked || e.ranks) haptic('light');
+  /** Light haptic tick when the facing snaps to a straight field direction. */
+  private dragFeedback(e: DragEvents): void {
+    if (e.snapped) haptic('light');
   }
 
   /** Live preview of what lifting the finger would order (nothing = cancel). */
-  private updateDragPreview(s: SlingState): void {
+  private updateDragPreview(s: DragState): void {
     const grp = this.sim.groups[this.selGroup];
-    const plan = slingPlan(s);
+    const plan = dragPlan(s);
     if (!grp || !plan) {
       this.dragPreview = null;
       return;
@@ -1201,7 +1234,7 @@ export class BattleScene extends BaseScene {
     }
     const cam = this.cameras.main;
     const S = this.m.S;
-    const w = isoToScreen(d.cx + d.fx * 2.6, d.cy + d.fy * 2.6);
+    const w = isoToScreen(d.cx + d.fx * (KNOB_PACES + 1.2), d.cy + d.fy * (KNOB_PACES + 1.2));
     const sx = (w.x - cam.worldView.x) * cam.zoom;
     const sy = (w.y - cam.worldView.y) * cam.zoom;
     this.dragLabel.setText(d.label.toUpperCase()).setVisible(true);
@@ -1424,7 +1457,7 @@ export class BattleScene extends BaseScene {
   /**
    * Tap-to-move keeps the group's shape and turns it toward the nearest enemy
    * group as seen from the destination, so a move never leaves a flank or the
-   * back to the enemy (the slingshot sets any other facing). Null: no enemy.
+   * back to the enemy (the turn knob sets any other facing). Null: no enemy.
    */
   private faceEnemyFrom(x: number, y: number): { x: number; y: number } | null {
     if (this.hideFoes()) {

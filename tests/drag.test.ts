@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CANCEL, LOCK, MAX_RANKS, MIN_PULL, STEP, shapeFor, slingDwell, slingMove, slingPath, slingPlan, slingStart, type SlingGroup } from '../src/ui/dragFormation';
+import { CANCEL, MIN_TURN, dragMove, dragPath, dragStart, type DragGroup } from '../src/ui/dragFormation';
 import { isoToScreen, screenToIso } from '../src/art/iso';
 
-// 8 men in one rank at (10, 27) facing the enemy (-y)
-const G: SlingGroup = { cx: 10, cy: 27, fx: 0, fy: -1, frontage: 8, n: 8 };
+// 8 men in 4x2 at (10, 27) facing the enemy (-y); the block's centre is 0.675 paces behind the front
+const G: DragGroup = { cx: 10, cy: 27, fx: 0, fy: -1, frontage: 4, n: 8, px: 10, py: 27.675 };
 /** A finger path from a to b in small steps. */
 function line(a: [number, number], b: [number, number], n = 10): [number, number][] {
   const out: [number, number][] = [];
@@ -11,114 +11,84 @@ function line(a: [number, number], b: [number, number], n = 10): [number, number
   return out;
 }
 
-describe('slingshot formation gesture', () => {
-  it('grab and pull back: aims where it stands, facing AWAY from the finger', () => {
-    const p = slingPath(G, [[10, 27], ...line([10, 27], [10, 29])])!;
-    expect([p.cx, p.cy]).toEqual([10, 27]);
-    expect(p.fx).toBeCloseTo(0);
-    expect(p.fy).toBeCloseTo(-1); // pulled toward own side -> faces the enemy
-    const side = slingPath(G, [[10, 27], ...line([10, 27], [9, 28.6])])!;
-    // pulled back and to the left -> faces forward and to the right
-    expect(side.fx).toBeGreaterThan(0.4);
-    expect(side.fy).toBeLessThan(-0.7);
-  });
-
-  it('carry, then pull back: the group stands where it was carried and faces away from the pull', () => {
-    const path: [number, number][] = [[10, 27], ...line([10, 27], [14, 24]), ...line([14, 24], [12, 24])];
-    const p = slingPath(G, path)!;
-    expect(p.cx).toBeCloseTo(14);
-    expect(p.cy).toBeCloseTo(24);
-    expect(p.fx).toBeCloseTo(1); // pulled toward -x -> faces +x
-    expect(p.fy).toBeCloseTo(0);
-    expect(p.aimed).toBe(true);
-  });
-
-  it('keeps the grab offset while carrying', () => {
-    const p = slingPath(G, [[11, 27.5], ...line([11, 27.5], [13, 25])])!;
+describe('formation move drag', () => {
+  it('the group follows the finger with the grab offset, keeping facing and shape', () => {
+    const p = dragPath('move', G, [[11, 27.5], ...line([11, 27.5], [13, 25])])!;
     expect(p.cx).toBeCloseTo(12);
     expect(p.cy).toBeCloseTo(24.5);
-    expect([p.fx, p.fy]).toEqual([0, -1]); // carry only: facing and shape kept
-    expect(p.frontage).toBe(8);
-    expect(p.aimed).toBe(false);
+    expect([p.fx, p.fy]).toEqual([0, -1]);
+    expect(p).toMatchObject({ frontage: 4, files: 4, ranks: 2, kind: 'move' });
   });
 
-  it('a rest locks the anchor, then the pull aims', () => {
-    const s = slingStart(G, 10, 27);
-    for (const [x, y] of line([10, 27], [10, 23])) slingMove(s, x, y);
-    expect(s.phase).toBe('carry');
-    expect(slingDwell(s).anchored).toBe(true);
-    for (const [x, y] of line([10, 23], [12, 23])) slingMove(s, x, y);
-    const p = slingPlan(s)!;
-    expect([p.cx, p.cy]).toEqual([10, 23]);
-    expect(p.fx).toBeCloseTo(-1);
+  it('moving backwards never turns the men around', () => {
+    const p = dragPath('move', G, [[10, 27], ...line([10, 27], [10, 31])])!;
+    expect(p.cy).toBeCloseTo(31);
+    expect(p.fy).toBe(-1);
   });
 
-  it('cancel: back on the start point, or a tiny pull without a carry', () => {
-    expect(slingPath(G, [[10, 27], ...line([10, 27], [13, 24]), ...line([13, 24], [10, 27])])).toBeNull();
-    expect(slingPath(G, [[10, 27], [10, 27 + MIN_PULL * 0.9]])).toBeNull();
-    const s = slingStart(G, 10, 27);
-    slingDwell(s);
-    slingMove(s, 10.2, 27.2);
-    expect(slingPlan(s)).toBeNull();
-    expect(CANCEL).toBeGreaterThan(0);
+  it('lifted back on the start point: no order', () => {
+    expect(dragPath('move', G, [[10, 27], ...line([10, 27], [13, 24]), ...line([13, 24], [10, 27])])).toBeNull();
+    expect(dragPath('move', G, [[10, 27], [10, 27 + CANCEL * 0.9]])).toBeNull();
   });
 
-  it('facing locks once, with an event; ranks change events come in whole ranks', () => {
-    const s = slingStart(G, 10, 27);
-    const evs = [...line([10, 27], [10, 27 + LOCK + 0.2])].map(([x, y]) => slingMove(s, x, y));
-    expect(evs.filter((e) => e.locked).length).toBe(1);
-    expect(s.locked).toBe(true);
-    // pull further back by 1 step: one more rank (8 -> 4x2)
-    const ly = s.ly;
-    const e1 = slingMove(s, 10, ly + STEP + 0.05);
-    expect(e1.ranks).toBe(true);
-    expect(slingPlan(s)!.ranks).toBe(2);
-    expect(slingPlan(s)!.files).toBe(4);
-    expect(slingMove(s, 10, ly + STEP + 0.1).ranks).toBeUndefined();
+  it('scales with zoom: at k = 2 the same short drag is still a cancel', () => {
+    expect(dragPath('move', G, [[10, 27], ...line([10, 27], [10, 27.8])], 1)).not.toBeNull();
+    expect(dragPath('move', G, [[10, 27], ...line([10, 27], [10, 27.8])], 2)).toBeNull();
+  });
+});
+
+describe('formation turn drag', () => {
+  it('faces TOWARD the finger and turns in place around the centre', () => {
+    // knob ahead of the front, dragged round to the right (+x)
+    const p = dragPath('turn', G, [[10, 25], ...line([10, 25], [13, 26.2])])!;
+    const d = Math.hypot(3, 26.2 - 27.675);
+    expect(p.fx).toBeCloseTo(3 / d);
+    expect(p.fy).toBeCloseTo((26.2 - 27.675) / d);
+    // the front stays the same distance from the centre, now on the new facing
+    expect(p.cx - 10).toBeCloseTo(p.fx * 0.675);
+    expect(p.cy - 27.675).toBeCloseTo(p.fy * 0.675);
+    expect(p).toMatchObject({ frontage: 4, files: 4, ranks: 2, kind: 'turn' });
   });
 
-  it('sideways widens, further back deepens; clamped and snapped to whole ranks', () => {
-    const deep: SlingGroup = { ...G, frontage: 4 }; // 4x2
-    const s = slingStart(deep, 10, 27);
-    for (const [x, y] of line([10, 27], [10, 28.5])) slingMove(s, x, y);
-    expect(s.locked).toBe(true);
-    expect(slingPlan(s)!.ranks).toBe(2);
-    slingMove(s, 10 + 1.1, s.ly); // one step sideways (right)
-    expect(slingPlan(s)).toMatchObject({ files: 8, ranks: 1 });
-    slingMove(s, 10 - 5, s.ly); // far sideways (left): clamped at one rank
-    expect(slingPlan(s)).toMatchObject({ files: 8, ranks: 1 });
-    slingMove(s, 10, s.ly + 2.2); // pull back two steps: 4 ranks of 2
-    expect(slingPlan(s)).toMatchObject({ files: 2, ranks: 4 });
-    slingMove(s, 10, s.ly + 30); // very deep: clamped at n
-    expect(slingPlan(s)!.ranks).toBe(Math.min(8, MAX_RANKS));
-    // facing stays locked whatever the shape
-    expect(slingPlan(s)!.fy).toBeCloseTo(-1);
+  it('snaps to the eight field directions with one tick', () => {
+    const s = dragStart('turn', G, 10, 25);
+    dragMove(s, 12, 26.4); // between north-east and east: free
+    expect(s.snapped).toBe(false);
+    // close to east: snaps, and ticks once while it stays snapped
+    const evs = line([12.9, 27.4], [13.1, 27.7], 5).map(([x, y]) => dragMove(s, x, y));
+    expect(s.fx).toBe(1);
+    expect(s.fy).toBe(0);
+    expect(evs.filter((e) => e.snapped).length).toBe(1);
+    // a diagonal snaps as well
+    dragMove(s, 13, 24.6);
+    expect(s.fx).toBeCloseTo(Math.SQRT1_2);
+    expect(s.fy).toBeCloseTo(-Math.SQRT1_2);
   });
 
-  it('shapeFor snaps to whole ranks', () => {
-    expect(shapeFor(10, 3)).toEqual({ files: 4, ranks: 3 });
-    expect(shapeFor(10, 4)).toEqual({ files: 3, ranks: 4 });
-    expect(shapeFor(7, 0)).toEqual({ files: 7, ranks: 1 });
-    expect(shapeFor(1, 5)).toEqual({ files: 1, ranks: 1 });
-    expect(shapeFor(40, 20).ranks).toBe(MAX_RANKS);
+  it('a turn back to the old facing, or a finger on the centre, is no order', () => {
+    expect(dragPath('turn', G, [[10, 25], ...line([10, 25], [12, 26]), ...line([12, 26], [10.05, 24])])).toBeNull();
+    const s = dragStart('turn', G, 10, 25);
+    dragMove(s, 10 + MIN_TURN * 0.5, 27.675);
+    expect([s.fx, s.fy]).toEqual([0, -1]);
   });
 
-  it('scales with zoom: at k = 2 the same short pull is still a cancel', () => {
-    expect(slingPath(G, [[10, 27], ...line([10, 27], [10, 27.8])], 1)).not.toBeNull();
-    expect(slingPath(G, [[10, 27], ...line([10, 27], [10, 27.8])], 2)).toBeNull();
+  it('turns all the way round: dragged behind, the men face their own side', () => {
+    const p = dragPath('turn', G, [[10, 25], ...line([10, 25], [13, 27.675]), ...line([13, 27.675], [10, 31])])!;
+    expect([p.fx, p.fy]).toEqual([0, 1]);
+    expect(p.cy).toBeCloseTo(27.675 + 0.675);
   });
 
-  it('works through the iso projection: pulling down the screen faces up the screen', () => {
-    const a = isoToScreen(10, 27);
-    const fa = screenToIso(a.x, a.y);
-    const path: [number, number][] = [[fa.x, fa.y]];
-    for (let i = 1; i <= 10; i++) {
-      const f = screenToIso(a.x, a.y + i * 4);
+  it('works through the iso projection: dragging up the screen faces up the screen', () => {
+    const c = isoToScreen(G.px!, G.py!);
+    const path: [number, number][] = [];
+    for (let i = 0; i <= 10; i++) {
+      const f = screenToIso(c.x, c.y - 20 - i * 4);
       path.push([f.x, f.y]);
     }
-    const p = slingPath(G, path)!;
+    const p = dragPath('turn', G, path)!;
     const s = isoToScreen(10 + p.fx, 27 + p.fy);
-    expect(s.y - a.y).toBeLessThan(0);
-    expect(Math.abs(s.x - a.x)).toBeLessThan(1e-9);
+    const o = isoToScreen(10, 27);
+    expect(s.y - o.y).toBeLessThan(0);
+    expect(Math.abs(s.x - o.x)).toBeLessThan(1e-6);
   });
 });

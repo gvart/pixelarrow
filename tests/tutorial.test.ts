@@ -65,10 +65,10 @@ describe('tutorial steps', () => {
     expect(checkStep('pan', obs({ panPx: PAN_PX - 1 }))).toBe(false);
     expect(checkStep('pan', obs({ panPx: PAN_PX }))).toBe(true);
     expect(checkStep('zoom', obs({ zoomed: true }))).toBe(true);
-    // the slingshot: carried AND aimed (a plain carry or a plain pull is not enough)
-    expect(checkStep('sling', obs({ lastSling: { carried: true, aimed: false, fx: 0, fy: -1, group: 0 } }))).toBe(false);
+    // the formation drag: the hoplites carried somewhere (a turn alone, or another group, is not enough)
     expect(checkStep('sling', obs({ lastSling: { carried: false, aimed: true, fx: 0, fy: -1, group: 0 } }))).toBe(false);
-    expect(checkStep('sling', obs({ lastSling: { carried: true, aimed: true, fx: 0, fy: -1, group: 0 } }))).toBe(true);
+    expect(checkStep('sling', obs({ lastSling: { carried: true, aimed: false, fx: 0, fy: -1, group: 1 } }))).toBe(false);
+    expect(checkStep('sling', obs({ lastSling: { carried: true, aimed: false, fx: 0, fy: -1, group: 0 } }))).toBe(true);
     expect(checkStep('fight', obs())).toBe(false);
     expect(checkStep('fight', obs({ phase: 'battle' }))).toBe(true);
     expect(checkStep('move', obs({ tapMoves: 1 }))).toBe(true);

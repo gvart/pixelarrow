@@ -2,7 +2,7 @@
  * The tutorial battle's controller (docs/DESIGN_V2.md "Onboarding"). It
  * observes and scripts the battle scene through a small host interface
  * (BattleScene.tutorialHost) and the scene's 'tutorial' events (pan, zoom,
- * slingshot, tap-to-move, ability), so the scene itself stays almost
+ * formation drag, turn knob, tap-to-move, ability), so the scene itself stays almost
  * untouched:
  *
  * - steps come from src/game/tutorial.ts (order, completion conditions,
@@ -26,6 +26,7 @@ import { measureText } from '../textfit';
 import { Narrator } from './narrator';
 import { Spotlight, type Rect } from './spotlight';
 import { GhostHand, type GhostScript, type Pt } from './ghost';
+import { KNOB_PACES } from '../dragFormation';
 import { state } from '../../state';
 import {
   TUT_GROUPS,
@@ -606,7 +607,7 @@ export class BattleTutorial {
     return { kind: 'pinch', at: { x: this.scene.m.VW / 2, y: Math.round((top + bottom) / 2) }, d0: 14, d1: 64 };
   }
 
-  /** Carry the hoplites to the flag, then pull back: the slingshot. */
+  /** Press on the hoplites and drag them to the flag. */
   private slingDemo(): GhostScript | null {
     const h = this.host;
     const c = groupCentre(h.sim, G.hop);
@@ -616,24 +617,31 @@ export class BattleTutorial {
     const dy = this.flag.y - f.cy;
     const a = h.toUi(c.x, c.y - 0.2);
     const b = h.toUi(c.x + dx, c.y + dy - 0.2);
-    const pull = h.toUi(c.x + dx - f.fx * 1.8, c.y + dy - f.fy * 1.8 - 0.2);
-    return { kind: 'drag', pts: [a, b, pull], rest: [0, 380, 450] };
+    return { kind: 'drag', pts: [a, b], rest: [0, 450] };
   }
 
-  /** Grab the hoplites and pull away from the wave: they turn to face it. */
+  /** Press on the facing knob ahead of the hoplites and swing it round toward the wave. */
   private turnDemo(): GhostScript | null {
     const h = this.host;
     const c = groupCentre(h.sim, G.hop);
     const d = flankDir(h.sim);
     if (!c || !d) return null;
     const f = h.sim.groups[G.hop].formation;
-    // first a little back (the gesture aims straight away), then straight away from the foe
-    const bx = -f.fx - d.x;
-    const by = -f.fy - d.y;
-    const bl = Math.hypot(bx, by) || 1;
-    const a = h.toUi(c.x, c.y);
-    const m = h.toUi(c.x + (bx / bl) * 0.45, c.y + (by / bl) * 0.45);
-    const e = h.toUi(c.x - d.x * 2.4, c.y - d.y * 2.4);
+    const r = KNOB_PACES + 0.6;
+    // round the arc from the knob to the wave's side, through the middle direction
+    let mx = f.fx + d.x;
+    let my = f.fy + d.y;
+    const ml = Math.hypot(mx, my);
+    if (ml > 1e-3) {
+      mx /= ml;
+      my /= ml;
+    } else {
+      mx = -f.fy;
+      my = f.fx;
+    }
+    const a = h.toUi(f.cx + f.fx * KNOB_PACES, f.cy + f.fy * KNOB_PACES);
+    const m = h.toUi(c.x + mx * r, c.y + my * r);
+    const e = h.toUi(c.x + d.x * r, c.y + d.y * r);
     return { kind: 'drag', pts: [a, m, e], rest: [0, 0, 450] };
   }
 

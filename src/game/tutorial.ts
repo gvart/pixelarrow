@@ -71,7 +71,7 @@ export interface TutObs {
   panPx: number;
   /** The camera was zoomed (pinch or wheel). */
   zoomed: boolean;
-  /** The last slingshot order: carried somewhere, aimed by a pull, its facing and group. */
+  /** The last formation drag: carried somewhere (a move) or aimed (a turn by the knob), its facing and group. */
   lastSling: { carried: boolean; aimed: boolean; fx: number; fy: number; group: number } | null;
   /** Tap-to-move orders. */
   tapMoves: number;
@@ -98,7 +98,7 @@ export function checkStep(id: TutStepId, o: TutObs): boolean {
     case 'zoom':
       return o.zoomed;
     case 'sling':
-      return !!o.lastSling && o.lastSling.carried && o.lastSling.aimed;
+      return !!o.lastSling && o.lastSling.carried && o.lastSling.group === o.hop;
     case 'fight':
       return o.phase !== 'deploy';
     case 'move':
