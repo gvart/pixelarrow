@@ -36,7 +36,7 @@ export class HeroScene extends BaseScene {
     this.from = data?.back ?? {};
     this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
     this.selPerk = null;
-    this.telegramBack(() => this.back());
+    this.screen({ back: () => this.back() });
     const { VW, VH } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
     this.layer = this.add.container(0, 0);
@@ -78,7 +78,7 @@ export class HeroScene extends BaseScene {
     const { VW, VH } = this.m;
     // top bar
     L.add(addPanel(this, 0, 0, VW, 24, 'parch'));
-    L.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.back() }));
+    if (this.inGameBack) L.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.back() }));
     L.add(addText(this, VW / 2, 8, 'Hero', 'red', 0.5));
     if (state.campaign.data.heroes.length > 1) {
       L.add(new Button(this, VW - 54, 2, 24, 20, { label: '<', onClick: () => this.cycle(-1) }));

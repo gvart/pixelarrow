@@ -45,7 +45,7 @@ export class SettlementScene extends BaseScene {
     this.tab = data?.tab ?? 'recruits';
     this.area = null;
     this.tabBtns = new Map();
-    this.telegramBack(() => this.leave());
+    this.screen({ back: () => this.leave() });
     const { VW, VH } = this.m;
 
     // backdrop: plain + the settlement drawn large

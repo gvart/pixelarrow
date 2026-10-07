@@ -9,7 +9,7 @@ type Haptic = 'light' | 'medium' | 'heavy' | 'rigid' | 'soft';
 type Notify = 'error' | 'success' | 'warning';
 export type InvoiceStatus = 'paid' | 'cancelled' | 'failed' | 'pending';
 
-interface TgWebApp {
+export interface TgWebApp {
   ready(): void;
   expand(): void;
   version: string;
@@ -21,6 +21,14 @@ interface TgWebApp {
   setBackgroundColor?(c: string): void;
   disableVerticalSwipes?(): void;
   enableClosingConfirmation?(): void;
+  disableClosingConfirmation?(): void;
+  /** Bot API 8.0+: full screen, orientation lock and safe areas. */
+  requestFullscreen?(): void;
+  isFullscreen?: boolean;
+  lockOrientation?(): void;
+  safeAreaInset?: Partial<Insets>;
+  contentSafeAreaInset?: Partial<Insets>;
+  SettingsButton?: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
   HapticFeedback?: { impactOccurred(s: Haptic): void; notificationOccurred(t: Notify): void; selectionChanged(): void };
   BackButton?: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
   CloudStorage?: {
@@ -31,12 +39,24 @@ interface TgWebApp {
   initData?: string;
   initDataUnsafe?: { user?: { first_name?: string; username?: string } };
   openInvoice?(url: string, cb?: (status: InvoiceStatus) => void): void;
-  onEvent?(ev: string, cb: () => void): void;
+  onEvent?(ev: string, cb: (arg?: any) => void): void;
+  offEvent?(ev: string, cb: (arg?: any) => void): void;
+}
+
+/** Insets in CSS pixels. */
+export interface Insets {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
 }
 
 let app: TgWebApp | null = null;
 let hapticsEnabled = true;
 let backHandler: (() => void) | null = null;
+let settingsHandler: (() => void) | null = null;
+let closingConfirm: boolean | null = null;
+const MOBILE = new Set(['ios', 'android', 'android_x']);
 
 function launchedFromTelegram(): boolean {
   const w = window as any;
@@ -68,19 +88,121 @@ export async function initTelegram(): Promise<boolean> {
   }
   const wa: TgWebApp | undefined = w.Telegram?.WebApp;
   if (!wa || !launchedFromTelegram()) return false;
+  attachWebApp(wa);
+  return true;
+}
+
+/**
+ * Set up an already-loaded WebApp: ready, expand, full screen on phones
+ * (Bot API 8.0+), portrait lock, no vertical swipe-to-close, colours and the
+ * safe-area insets. Exported for tests.
+ */
+export function attachWebApp(wa: TgWebApp): void {
   app = wa;
-  try {
-    wa.ready();
-    wa.expand();
+  backHandler = null;
+  settingsHandler = null;
+  closingConfirm = null;
+  const safe = (f: () => void) => {
+    try {
+      f();
+    } catch {
+      /* older clients */
+    }
+  };
+  safe(() => wa.ready());
+  safe(() => wa.expand());
+  safe(() => {
     if (wa.isVersionAtLeast?.('7.7')) wa.disableVerticalSwipes?.();
+  });
+  safe(() => {
     if (wa.isVersionAtLeast?.('6.1')) {
       wa.setHeaderColor?.('#2b1d1a');
       wa.setBackgroundColor?.('#2b1d1a');
     }
-  } catch {
-    /* older clients */
+  });
+  const v8 = !!wa.isVersionAtLeast?.('8.0');
+  // Full screen only on phones: on desktop it would take over the whole monitor.
+  if (v8 && MOBILE.has(wa.platform) && typeof wa.requestFullscreen === 'function' && !wa.isFullscreen) {
+    safe(() => wa.requestFullscreen!());
   }
-  return true;
+  if (v8 && typeof wa.lockOrientation === 'function' && window.innerHeight >= window.innerWidth) safe(() => wa.lockOrientation!());
+  const relayout = () => emitInsets();
+  for (const ev of ['safeAreaChanged', 'contentSafeAreaChanged', 'viewportChanged', 'fullscreenChanged']) safe(() => wa.onEvent?.(ev, relayout));
+  // Not supported or refused: expand() above already gave us the tallest normal view.
+  safe(() => wa.onEvent?.('fullscreenFailed', () => (safe(() => wa.expand()), relayout())));
+  window.addEventListener('resize', relayout);
+  window.addEventListener('orientationchange', relayout);
+  emitInsets();
+}
+
+// ---- safe areas
+
+const insetListeners = new Set<(device: Insets, content: Insets) => void>();
+
+function readInsets(src: Partial<Insets> | undefined): Insets {
+  const n = (v: unknown) => (typeof v === 'number' && isFinite(v) && v > 0 ? v : 0);
+  return { top: n(src?.top), bottom: n(src?.bottom), left: n(src?.left), right: n(src?.right) };
+}
+
+/** Device safe area (notch, status bar, home indicator) as Telegram reports it; zero outside Telegram. */
+export function deviceInsets(): Insets {
+  return readInsets(app?.safeAreaInset);
+}
+
+/** Area covered by Telegram's own floating controls (full screen Close/Back and the menu pills). */
+export function contentInsets(): Insets {
+  return readInsets(app?.contentSafeAreaInset);
+}
+
+/** Called with the new insets whenever Telegram reports a change (and once on attach). */
+export function onInsetsChanged(cb: (device: Insets, content: Insets) => void): () => void {
+  insetListeners.add(cb);
+  return () => insetListeners.delete(cb);
+}
+
+function emitInsets(): void {
+  const d = deviceInsets();
+  const c = contentInsets();
+  for (const cb of insetListeners) {
+    try {
+      cb(d, c);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function isFullscreen(): boolean {
+  return !!app?.isFullscreen;
+}
+
+/** The ⋯ menu's "Settings" item (Bot API 7.0+); null hides it. */
+export function setSettingsButton(cb: (() => void) | null): void {
+  const sb = app?.SettingsButton;
+  if (!sb || !app?.isVersionAtLeast?.('7.0')) return;
+  if (cb === settingsHandler && cb) return;
+  try {
+    if (settingsHandler) sb.offClick(settingsHandler);
+    settingsHandler = cb;
+    if (cb) {
+      sb.onClick(cb);
+      sb.show();
+    } else sb.hide();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Ask before closing the Mini App (Bot API 6.2+). Only calls Telegram when the value changes. */
+export function setClosingConfirmation(on: boolean): void {
+  if (!app || closingConfirm === on || !app.isVersionAtLeast?.('6.2')) return;
+  closingConfirm = on;
+  try {
+    if (on) app.enableClosingConfirmation?.();
+    else app.disableClosingConfirmation?.();
+  } catch {
+    /* ignore */
+  }
 }
 
 export function inTelegram(): boolean {
@@ -126,10 +248,16 @@ export function hapticSelect(): void {
   }
 }
 
+/** Telegram's header BackButton is available (Bot API 6.1+). */
+export function hasNativeBack(): boolean {
+  return !!app?.BackButton && !!app.isVersionAtLeast?.('6.1');
+}
+
 /** Show Telegram's native back button with a handler, or hide it when cb is null. */
 export function setBackButton(cb: (() => void) | null): void {
   const bb = app?.BackButton;
-  if (!bb) return;
+  if (!bb || !app?.isVersionAtLeast?.('6.1')) return;
+  if (cb === backHandler && cb) return;
   try {
     if (backHandler) bb.offClick(backHandler);
     backHandler = cb;

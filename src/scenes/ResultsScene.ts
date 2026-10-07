@@ -42,7 +42,7 @@ export class ResultsScene extends BaseScene {
       return;
     }
     const o = last.outcome;
-    this.telegramBack(() => this.finish());
+    this.screen({ back: () => this.finish() });
 
     addScroll(this, this.ui, 8, 8, VW - 16, 48);
     const title = addText(this, VW / 2, 18, o.victory ? 'Victory' : o.draw ? 'Stalemate' : o.retreated ? 'Retreat' : 'Defeat', 'red', 0.5);

@@ -9,6 +9,8 @@ import { SettlementScene } from './scenes/SettlementScene';
 import { HeroScene } from './scenes/HeroScene';
 import { state } from './state';
 import { online } from './platform/cloud';
+import { trackSafeArea } from './platform/safeArea';
+import { nav } from './platform/nav';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -26,6 +28,12 @@ const game = new Phaser.Game({
   scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene],
 });
 
+// Telegram full screen: keep the canvas inside the safe area (status bar,
+// notch, Telegram's floating buttons, home indicator) and re-layout on change.
+trackSafeArea(() => game.scale.refresh());
+// Ask before closing while a save is still uploading.
+online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
+
 // Cloud sync: a newer save from another device replaces the campaign only
 // outside battle, then the game returns to the menu.
 online.canAdopt = () => !state.pending && !game.scene.isActive('Battle') && !game.scene.isActive('Results') && !game.scene.isActive('Boot');
@@ -39,4 +47,4 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Debug handles (used by the screenshot script).
-Object.assign(window, { __game: game, __state: state, __online: online });
+Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav });

@@ -22,6 +22,8 @@ import { itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { BattleFx } from '../ui/battleFx';
+import { openSettings } from '../ui/settings';
+import { confirmModal } from '../ui/confirm';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { rallyRadius } from '../sim/stats';
 import { renderBoulder, renderGlint, renderTree } from '../art/terrainArt';
@@ -214,9 +216,14 @@ export class BattleScene extends BaseScene {
     this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => {
       this.setZoom(Math.round(cam.zoom) + (dy > 0 ? -1 : 1));
     });
-    this.telegramBack(() => {
-      if (this.sim.phase === 'deploy') this.leaveDeploy();
-      else this.togglePause();
+    // Back never leaves silently: deployment asks first, in battle it pauses and offers the retreat.
+    this.screen({
+      back: () => (this.sim.phase === 'deploy' ? this.confirmLeaveDeploy() : this.openRetreat()),
+      confirmClose: true,
+      settings: () => {
+        if (this.sim.phase === 'battle' && !this.paused) this.setPaused(true);
+        openSettings(this);
+      },
     });
     this.showBanner(`Deploy vs ${pending.label ?? CULTURE_LABEL[pending.enemy.culture]} - ${terrain.name ?? ''}`, 3000);
   }
@@ -711,6 +718,19 @@ export class BattleScene extends BaseScene {
     this.scene.start('Results');
   }
 
+  private confirmLeaveDeploy(): void {
+    if (this.overlay) return;
+    const c = confirmModal(this, {
+      title: 'Leave the field?',
+      lines: state.pending?.partyId !== undefined ? ['The enemy is still waiting', 'for you on the road.'] : ['No battle will be fought.'],
+      ok: 'Leave',
+      okIcon: 'back',
+      onOk: () => this.leaveDeploy(),
+    });
+    this.overlay = c;
+    c.once('destroy', () => this.overlay === c && (this.overlay = null));
+  }
+
   /** Leave the deployment screen without fighting (back to the map or the army). */
   private leaveDeploy(): void {
     const p = state.pending;
@@ -1122,9 +1142,10 @@ export class BattleScene extends BaseScene {
     // ---- top bar
     H.add(addPanel(this, 0, 0, VW, 24, 'parch'));
     if (deploy) {
-      H.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.leaveDeploy() }));
-      H.add(addText(this, 34, 4, 'Deployment', 'red'));
-      H.add(addText(this, 34, 13, `vs ${state.pending!.label ?? CULTURE_LABEL[state.pending!.enemy.culture]} (${this.enemyHeroes.length})`, 'dim'));
+      if (this.inGameBack) H.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.confirmLeaveDeploy() }));
+      const tx = this.inGameBack ? 34 : 6;
+      H.add(addText(this, tx, 4, 'Deployment', 'red'));
+      H.add(addText(this, tx, 13, `vs ${state.pending!.label ?? CULTURE_LABEL[state.pending!.enemy.culture]} (${this.enemyHeroes.length})`, 'dim'));
       this.pauseBtn = null;
       this.speedBtn = null;
       this.clock = null;
@@ -1531,17 +1552,13 @@ export class BattleScene extends BaseScene {
     ];
     lines.forEach((t, i) => c.add(addText(this, VW / 2, y + 22 + i * 10, t, i >= 2 ? 'ink' : 'dim', 0.5, w - 10)));
     const bw = Math.floor((w - 18) / 2);
-    c.add(
-      new Button(this, x + 6, y + h - 30, bw, 24, {
-        label: 'Stay',
-        icon: 'swords',
-        onClick: () => {
-          c.destroy();
-          this.overlay = null;
-          this.setPaused(wasPaused);
-        },
-      }),
-    );
+    const stay = () => {
+      c.destroy();
+      this.overlay = null;
+      this.setPaused(wasPaused);
+    };
+    this.modalLayer(c, stay);
+    c.add(new Button(this, x + 6, y + h - 30, bw, 24, { label: 'Stay', icon: 'swords', onClick: stay }));
     c.add(
       new Button(this, x + 12 + bw, y + h - 30, bw, 24, {
         label: 'Retreat',
@@ -1619,20 +1636,16 @@ export class BattleScene extends BaseScene {
     }
     area.setContentHeight(cy);
     area.setScroll(this.groupScroll);
-    c.add(
-      new Button(this, VW / 2 - 40, y + h - 28, 80, 22, {
-        label: 'Done',
-        icon: 'check',
-        onClick: () => {
-          this.groupArea?.destroy();
-          this.groupArea = null;
-          this.groupScroll = 0;
-          c.destroy();
-          this.overlay = null;
-          this.buildHud();
-        },
-      }),
-    );
+    const done = () => {
+      this.groupArea?.destroy();
+      this.groupArea = null;
+      this.groupScroll = 0;
+      c.destroy();
+      this.overlay = null;
+      this.buildHud();
+    };
+    this.modalLayer(c, done);
+    c.add(new Button(this, VW / 2 - 40, y + h - 28, 80, 22, { label: 'Done', icon: 'check', onClick: done }));
   }
 }
 

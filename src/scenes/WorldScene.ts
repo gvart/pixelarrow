@@ -119,7 +119,7 @@ export class WorldScene extends BaseScene {
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
     this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => this.setZoom(Math.round(cam.zoom) + (dy > 0 ? -1 : 1)));
-    this.telegramBack(() => (this.dialog ? undefined : this.leaveToMenu()));
+    this.screen({ back: () => this.leaveToMenu() });
     this.events.once('shutdown', () => void state.save());
 
     this.renderWorld(0);
@@ -267,9 +267,10 @@ export class WorldScene extends BaseScene {
     H.removeAll(true);
     const { VW, VH } = this.m;
     H.add(addPanel(this, 0, 0, VW, 26, 'parch'));
-    H.add(new Button(this, 3, 3, 24, 20, { icon: 'back', onClick: () => this.leaveToMenu() }));
-    this.clockText = addText(this, 31, 4, '', 'red');
-    this.regionText = addText(this, 31, 14, '', 'dim');
+    if (this.inGameBack) H.add(new Button(this, 3, 3, 24, 20, { icon: 'back', onClick: () => this.leaveToMenu() }));
+    const tx = this.inGameBack ? 31 : 6;
+    this.clockText = addText(this, tx, 4, '', 'red');
+    this.regionText = addText(this, tx, 14, '', 'dim');
     H.add([this.clockText, this.regionText]);
     H.add(addIcon(this, VW - 72, 2, 'coin'));
     this.goldText = addText(this, VW - 58, 4, '', 'ink');
@@ -562,6 +563,9 @@ export class WorldScene extends BaseScene {
         });
       }
     }
+    // Back may only take the peaceful way out ("Let them go"); a band barring the road can't be dodged by it.
+    const out = buttons.find((b) => b.icon === 'back');
+    this.modalLayer(c, () => (out ? out.cb() : (hapticNotify('warning'), false)));
     const bw = Math.floor((w - 12 - (buttons.length - 1) * 4) / buttons.length);
     buttons.forEach((b, i) => c.add(new Button(this, x + 6 + i * (bw + 4), y + h - 34, bw, 28, { label: b.label, icon: b.icon, style: b.sel ? 'buttonSel' : 'button', onClick: b.cb })));
     c.add(addText(this, VW / 2, y + 84, ratio > 1.15 ? 'A hard fight. Consider fleeing or resting.' : ratio < 0.85 ? 'You should win this one.' : 'An even match.', ratio > 1.15 ? 'red' : 'ink', 0.5, w - 12));

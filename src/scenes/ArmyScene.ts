@@ -55,13 +55,13 @@ export class ArmyScene extends BaseScene {
     this.tab = 'roster';
     this.listArea = null;
     this.back = { from: data?.from ?? 'World', id: data?.id };
-    this.telegramBack(() => this.goBack());
+    this.screen({ back: () => this.goBack() });
     const { VW, VH } = this.m;
 
     this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
     // top bar
     this.ui.add(addPanel(this, 0, 0, VW, 24, 'parch'));
-    this.ui.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.goBack() }));
+    if (this.inGameBack) this.ui.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: () => this.goBack() }));
     const title = addText(this, VW / 2, 8, 'Army', 'red', 0.5);
     this.ui.add(title);
     addSupporterTrim(this, this.ui, VW, 24, VW / 2, title.width);

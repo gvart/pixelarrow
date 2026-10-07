@@ -4,8 +4,8 @@ import { Button, addPanel, addScroll, addText, addIcon } from '../ui/kit';
 import { ensureDoll, dollFrame } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
-import { haptic, inTelegram, setHaptics, telegramUserName } from '../platform/telegram';
-import type { Settings } from '../game/save';
+import { inTelegram, telegramUserName } from '../platform/telegram';
+import { openSettings } from '../ui/settings';
 import { MAX_ARMY } from '../data/units';
 import { addSyncBadge, openShop } from '../ui/online';
 
@@ -19,7 +19,7 @@ export class MenuScene extends BaseScene {
 
   create(): void {
     this.initUi();
-    this.telegramBack(null);
+    this.screen({ back: null }); // root: Telegram shows Close
     const { VW, VH } = this.m;
     const c = state.campaign.data;
     this.addGrassBackdrop(11);
@@ -118,6 +118,7 @@ export class MenuScene extends BaseScene {
     addScroll(this, c, x, y, w, h);
     c.add(addText(this, VW / 2, y + 12, title, 'red', 0.5));
     this.overlay = c;
+    this.modalLayer(c, () => this.closeOverlay());
     return { c, x, y, w };
   }
 
@@ -130,31 +131,8 @@ export class MenuScene extends BaseScene {
   }
 
   private openSettings(): void {
-    const s = state.campaign.data.settings;
-    const rows: [keyof Settings, string][] = [
-      ['pauseContact', 'Pause on first contact'],
-      ['pauseFlank', 'Pause when flanked'],
-      ['pauseRout', 'Pause when a group routs'],
-      ['pauseDeath', 'Pause on hero death'],
-      ['haptics', 'Haptic feedback'],
-      ['dmgNumbers', 'Damage numbers'],
-    ];
-    const { c, x, y, w } = this.modal(30 + rows.length * 26 + 36, 'Settings');
-    rows.forEach(([k, label], i) => {
-      const by = y + 28 + i * 26;
-      c.add(addText(this, x + 10, by + 7, label, 'ink', 0, w - 60));
-      const b = new Button(this, x + w - 44, by, 34, 22, { label: s[k] ? 'On' : 'Off', style: s[k] ? 'buttonSel' : 'button' });
-      b.on('pointerup', () => {
-        s[k] = !s[k];
-        b.setLabel(s[k] ? 'On' : 'Off');
-        b.setSelected(s[k]);
-        if (k === 'haptics') setHaptics(s.haptics);
-        haptic('light');
-        void state.save();
-      });
-      c.add(b);
-    });
-    c.add(new Button(this, x + w / 2 - 35, y + 30 + rows.length * 26, 70, 22, { label: 'Close', icon: 'check', onClick: () => this.closeOverlay() }));
+    this.closeOverlay();
+    openSettings(this);
   }
 
   private continueCampaign(): void {

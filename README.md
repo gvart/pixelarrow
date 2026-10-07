@@ -65,6 +65,10 @@ node scripts/screenshots.mjs http://localhost:5173/ docs/screenshots   # tour of
 node scripts/smoke.mjs http://localhost:5173/                         # real taps through the campaign loop
 ```
 
+`node scripts/fullscreen-smoke.mjs http://localhost:4173/` fakes a full-screen
+Telegram on an iPhone and checks safe areas and Back navigation (see the
+Telegram section).
+
 `node scripts/online-smoke.mjs http://localhost:4173/` fakes Telegram and the
 API (no backend needed): checks the game stays playable with the API down
 (503 / unreachable), walks the Stars purchase flow and saves
@@ -105,7 +109,7 @@ src/
   art/        procedural pixel art: paperdoll.ts, emblems.ts, ground.ts (iso tiles), iso.ts (projection), worldArt.ts (map, towns, bands), fx.ts (aura rings, stars, pips), font.ts, icons.ts, itemIcons.ts, uiTextures.ts
   ui/         Phaser UI kit (buttons, panels, meters, scroll lists), battleFx.ts (pooled battle effects), texture registration
   scenes/     Boot, Menu, World (map + encounters), Settlement, Army, Hero (skills), Battle (deployment + battle), Results
-  platform/   telegram.ts (WebApp SDK wrapper), storage.ts (CloudStorage / localStorage), api.ts (typed API client),
+  platform/   telegram.ts (WebApp SDK wrapper), nav.ts (back navigation stack), safeArea.ts (full-screen insets), storage.ts (CloudStorage / localStorage), api.ts (typed API client),
               online.ts + saveSync.ts (sign-in, cloud save sync, shop, entitlements), cloud.ts (instance), verify.ts (battle replay check)
   dev/        preview.ts (sprite sheet page), balance.ts (headless balance harness for `npm run balance`)
   state.ts    shared campaign state and persistence
@@ -137,11 +141,55 @@ What the game does inside Telegram (all optional, no-ops in a browser):
 - Loads `telegram-web-app.js` only when launched from Telegram, then calls
   `ready()`, `expand()`, `disableVerticalSwipes()` (so drags don't close the
   app) and sets the header/background colour.
+- **Full screen** on phones with Bot API 8.0+ (`requestFullscreen()`, plus
+  `lockOrientation()` in portrait). Older clients, desktop and a refused
+  request (`fullscreenFailed`) keep the expanded view.
+- **Safe areas:** the `#game` element is inset by the device safe area
+  (`safeAreaInset`, or `env(safe-area-inset-*)` if larger) plus Telegram's
+  content safe area (`contentSafeAreaInset`: the floating Close/Back and ⋯
+  pills), see `src/platform/safeArea.ts` and `index.html`. Phaser's RESIZE
+  mode sizes the canvas to that rect, so every scene's top and bottom bars stay
+  clear of the notch, Telegram's buttons and the home indicator without
+  per-scene code; `safeAreaChanged`, `contentSafeAreaChanged`,
+  `viewportChanged` and `fullscreenChanged` re-layout. Outside Telegram the
+  Telegram insets are 0.
 - Saves to **Telegram CloudStorage** (synced across the user's devices,
   chunked under the 4 KB value limit) and mirrors to localStorage.
 - **Haptics** on orders, hits, deaths and routs (toggle in Settings).
-- The native **BackButton** navigates back (Army → map or town, Hero → Army,
-  map → Menu, deployment → map) and pauses/resumes during battle.
+- **Native back navigation** (`src/platform/nav.ts`): Telegram's header Back
+  button is the game's back button; the in-game back arrows are hidden inside
+  Telegram. The menu is the root (Back hidden, Telegram shows Close). Back
+  closes the top dialog first, then goes back one level (Hero → Army → map or
+  town, town → map, map → menu, deployment → asks, then back to where the
+  battle came from). In battle Back pauses and opens the Retreat confirm; it
+  never leaves silently, and a band barring the road can't be dodged with it.
+  The ⋯ menu's **Settings** opens the settings modal on any screen.
+  **Closing confirmation** is on during battles and while a save uploads.
+
+### Back navigation in new scenes
+
+Every screen registers itself once in `create()`; nothing else is needed:
+
+```ts
+// a BaseScene subclass
+this.screen({ back: () => this.scene.start('Menu') }); // back one level
+this.screen({ back: null });                           // root screen (Telegram shows Close)
+this.screen({ back, confirmClose: true });             // ask before Telegram closes the app
+// any Phaser scene: registerScreen(scene, { back }) from src/platform/nav.ts
+
+// each modal / dialog: Back closes it first (the layer goes away with the container)
+this.modalLayer(container, () => container.destroy());
+// return false from the close callback to keep a dialog that Back must not dismiss
+
+// draw your own back arrow only outside Telegram
+if (this.inGameBack) this.ui.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: back }));
+```
+
+The registration is removed when the scene shuts down; a scene launched on
+top of another stacks above it. Exactly one BackButton handler is registered
+with Telegram at a time. `node scripts/fullscreen-smoke.mjs <url>` checks all
+of this with a fake full-screen iPhone Telegram (status bar 59, Telegram pills
+46, home indicator 34) and saves `docs/screenshots/29-fullscreen-safe-area.png`.
 
 ## Status
 

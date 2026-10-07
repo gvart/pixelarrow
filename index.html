@@ -7,7 +7,15 @@
     <title>Pixelarrow</title>
     <style>
       html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #2b1d1a; overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-      #game { position: fixed; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100vw, 64vh); }
+      /* Safe area: device insets (max of env() and Telegram's safeAreaInset, set by src/platform/safeArea.ts,
+         falling back to Telegram's own CSS vars) plus Telegram's content insets (full-screen Close/Back and menu pills). */
+      :root {
+        --pa-t: calc(max(env(safe-area-inset-top, 0px), var(--pa-safe-top, var(--tg-safe-area-inset-top, 0px))) + var(--pa-content-top, var(--tg-content-safe-area-inset-top, 0px)));
+        --pa-b: calc(max(env(safe-area-inset-bottom, 0px), var(--pa-safe-bottom, var(--tg-safe-area-inset-bottom, 0px))) + var(--pa-content-bottom, var(--tg-content-safe-area-inset-bottom, 0px)));
+        --pa-l: calc(max(env(safe-area-inset-left, 0px), var(--pa-safe-left, var(--tg-safe-area-inset-left, 0px))) + var(--pa-content-left, var(--tg-content-safe-area-inset-left, 0px)));
+        --pa-r: calc(max(env(safe-area-inset-right, 0px), var(--pa-safe-right, var(--tg-safe-area-inset-right, 0px))) + var(--pa-content-right, var(--tg-content-safe-area-inset-right, 0px)));
+      }
+      #game { position: fixed; top: var(--pa-t); bottom: var(--pa-b); left: calc(50% + (var(--pa-l) - var(--pa-r)) / 2); transform: translateX(-50%); width: min(calc(100vw - var(--pa-l) - var(--pa-r)), calc((100vh - var(--pa-t) - var(--pa-b)) * 0.64)); }
       #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
     </style>
   </head>

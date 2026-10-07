@@ -1,9 +1,13 @@
 import Phaser from 'phaser';
 import { uiMetrics, type UIMetrics } from '../ui/kit';
-import { setBackButton } from '../platform/telegram';
+import { registerScreen, navLayer, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
+import { openSettings } from '../ui/settings';
 import { renderGround } from '../art/ground';
 
-/** Common scaffolding: a UI root container scaled to integer pixels, resize handling, back button. */
+/**
+ * Common scaffolding: a UI root container scaled to integer pixels, resize
+ * handling and back navigation (Telegram's header Back button, see nav.ts).
+ */
 export abstract class BaseScene extends Phaser.Scene {
   ui!: Phaser.GameObjects.Container;
   m!: UIMetrics;
@@ -19,7 +23,6 @@ export abstract class BaseScene extends Phaser.Scene {
     this.scale.on('resize', onResize);
     this.events.once('shutdown', () => {
       this.scale.off('resize', onResize);
-      setBackButton(null);
     });
   }
 
@@ -28,8 +31,28 @@ export abstract class BaseScene extends Phaser.Scene {
     this.scene.restart(this.sys.settings.data);
   }
 
+  /**
+   * Register this scene as a navigation screen. `back` goes back one level
+   * (omit / null on a root screen: Telegram then shows Close). Telegram's ⋯ →
+   * Settings opens the settings modal unless `settings` overrides it.
+   */
+  protected screen(opts: ScreenOpts): void {
+    registerScreen(this, { settings: () => openSettings(this), ...opts });
+  }
+
+  /** @deprecated use screen({ back }). */
   protected telegramBack(cb: (() => void) | null): void {
-    setBackButton(cb);
+    this.screen({ back: cb });
+  }
+
+  /** Make a modal closable with Back; the layer goes away when `container` is destroyed. */
+  protected modalLayer(container: Phaser.GameObjects.Container, close: LayerClose): void {
+    navLayer(container, close, this);
+  }
+
+  /** Draw an in-game back arrow? Not inside Telegram, whose header Back button does it. */
+  protected get inGameBack(): boolean {
+    return showInGameBack();
   }
 
   /** Grass backdrop at UI scale. */
