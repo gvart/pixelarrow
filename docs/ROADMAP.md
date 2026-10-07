@@ -122,3 +122,46 @@ These hold today and must keep holding; they are what make the plan above possib
    power in PvP.
 9. **Scale and polish.** Sharding regions, anti-cheat telemetry, seasonal
    maps, sound and music.
+
+## Queue after the current work (2026-10-07)
+
+In progress or queued, in order: classes/art overhaul, slingshot controls,
+server economy (Drachmae, shop, pass, marketplace), audio → UI overhaul with
+English/Russian and the online battle rules → tutorial battle → mythical beasts.
+
+### Launch blockers (queued next, after the beasts)
+
+1. **Bot notifications** through the Telegram bot: your hex is attacked, a
+   march has arrived, income is full, a duel challenge, the season is ending.
+   Opt-out per type in settings, rate-limited, sent from the Worker.
+2. **Payment compliance:** `/paysupport` and `/terms` bot commands, a refund
+   flow, and privacy policy and terms pages on pixelarrow.app.
+3. **Error monitoring and analytics:** client crash reports, plus funnel and
+   retention events (tutorial completed, first battle, first purchase, day-1
+   and day-7 return), in Cloudflare Analytics Engine or a similar low-cost
+   store.
+4. **Backups and an admin panel:** a tested D1 point-in-time restore runbook.
+   A protected admin page to view players, refund, ban, adjust balances, and
+   end or start a season by hand.
+
+### Later (backlog)
+
+- **Daily login rewards and daily quests** that feed season pass XP.
+- **Leaderboards:** players and clans per shard and globally; season titles on
+  profiles.
+- **Referrals:** "invite a friend, both get Drachmae when they reach level 5",
+  through Telegram deep links.
+- **Shareable battle replays:** seed plus order log, viewable from a link
+  shared in a chat.
+- **Multi-account and abuse protection:** trading limits for new accounts,
+  cooldowns on gifting Drachmae, flags for suspicious marketplace activity.
+- **Low-end phone performance:** 30 fps on a budget Android in a 40-soldier
+  battle; an automatic low-effects mode.
+- **Staging environment:** deploy each push to staging; promote to production
+  by hand once real players arrive.
+- **Clan chat and clan wars:** scheduled sieges of capitals.
+- **Season events and themes**, e.g. "Season of the Kraken" with a special
+  boss and cosmetics.
+- **Ranked duels** with matchmaking.
+- **Assault time or post-battle rest** if attacks feel too cheap (see "Online
+  battle rules" in DESIGN_V2.md).
