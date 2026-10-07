@@ -32,8 +32,8 @@ Sizes: 320x568, 375x667, 390x844, 430x932, 360x780. Telegram insets: top 59 + 46
 | market-detail | B | 0 | 0 | 0 | 0 |
 | market-goods | B | 0 | 0 | 0 | 0 |
 | market-sell-form | B | 0 | 0 | 0 | 0 |
-| world | C | 11 | 7 | 11 | 7 |
-| world-encounter | C | 1 | 5 | 1 | 5 |
+| world | C | 0 | 0 | 0 | 0 |
+| world-encounter | C | 0 | 0 | 0 | 0 |
 | army | B | 0 | 0 | 0 | 0 |
 | army-stash | B | 0 | 0 | 0 | 0 |
 | army-town-item | B | 0 | 0 | 0 | 0 |
@@ -67,5 +67,16 @@ Sizes: 320x568, 375x667, 390x844, 430x932, 360x780. Telegram insets: top 59 + 46
 | results-inspect | A | 0 | 0 | 0 | 0 |
 | results-online | A | 0 | 0 | 0 | 0 |
 | online | C | 0 | 0 | 0 | 0 |
+| online-map | C | 0 | 0 | 0 | 0 |
+| online-hex-neutral | C | 0 | 0 | 0 | 0 |
+| online-hex-far | C | 0 | 0 | 0 | 0 |
+| online-hex-own | C | 0 | 0 | 0 | 0 |
+| online-hex-rival | C | 0 | 0 | 0 | 0 |
+| online-hex-town | C | 0 | 0 | 0 | 0 |
+| online-march | C | 0 | 0 | 0 | 0 |
+| online-lobby | C | 0 | 0 | 0 | 0 |
+| online-challenge | C | 0 | 0 | 0 | 0 |
+| online-result | C | 0 | 0 | 0 | 0 |
+| online-join | C | 0 | 0 | 0 | 0 |
 
-Distinct violations: 8 (allowlisted 8, new 0).
+Distinct violations: 0 (allowlisted 0, new 0).
