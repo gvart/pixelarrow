@@ -25,6 +25,23 @@ font, icons, effects) is generated procedurally in code at startup.
 | ![War-table hex map](docs/screenshots/39-war-table-map.png) | ![Hex panel](docs/screenshots/40-hex-panel.png) | ![Fog and armies](docs/screenshots/41-fog-and-armies.png) |
 
 | ![Battle panel](docs/screenshots/30-battle-panel.png) | ![Online deployment](docs/screenshots/31-online-deploy-countdown.png) | ![Battle report](docs/screenshots/32-battle-report.png) |
+| ![Tutorial narrator](docs/screenshots/42-tutorial-narrator.png) | ![Slingshot demonstration](docs/screenshots/43-tutorial-gesture.png) | ![First run](docs/screenshots/44-first-run.png) |
+| ![Online coach marks](docs/screenshots/45-online-coach.png) | | |
+
+**Onboarding.** A first launch offers a guided tutorial battle (about three
+minutes, skippable at any time, resumable if the app closes): old Nikias the
+strategos explains each control in a typewriter speech panel and waits until
+the player really does it, with the element to use lit (the rest dimmed and
+blocked) or the gesture shown by a ghost hand: select a group, pan, pinch,
+the slingshot (carry, then pull back), Fight, tap to move, the shield wall,
+slingers loosing, charge, Shield Bash, and turning the line to a flank. The
+battle pauses while he talks. A reward (gold and a common helmet) and a
+short screen on the two modes (Campaign offline, the Online war) follow.
+Settings → Tutorial replays it. The first visit to the online map shows coach
+marks (home hex, a neighbour and its defenders, March, Attack with its 15 s
+deployment, Collect, Clan), kept per account in the settings. Code:
+`src/game/tutorial.ts` (steps, conditions, progress, scenario),
+`src/ui/tutorial/`, `src/scenes/FirstRunScene.ts`.
 
 The battle command panel groups orders by colour (Movement bronze, Attack red,
 Formation blue, Abilities gold, with cooldown sweeps); group cards show the
@@ -89,6 +106,12 @@ the check works: [docs/UI_KIT.md](docs/UI_KIT.md).
 `node scripts/fullscreen-smoke.mjs http://localhost:4173/` fakes a full-screen
 Telegram on an iPhone and checks safe areas and Back navigation (see the
 Telegram section).
+
+`node scripts/tutorial-smoke.mjs http://localhost:4173/` plays the whole
+tutorial on a first launch with real touch events (the slingshot included),
+checks the reward, resume and skip, and saves `docs/screenshots/42-45`.
+Other scripts set `window.__noFirstRun` so the onboarding never gets in
+their way.
 
 `node scripts/online-smoke.mjs http://localhost:4173/` fakes Telegram and the
 API (no backend needed): checks the game stays playable with the API down

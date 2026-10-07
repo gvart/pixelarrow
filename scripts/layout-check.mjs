@@ -437,6 +437,72 @@ const SCREENS = [
       return wait(p, 900);
     },
   })),
+  // ---- onboarding (owner F): first-run screens, the tutorial battle's narrator and spotlight, the online coach marks
+  ...['offer', 'resume', 'modes'].map((mode) => ({ id: `first-run-${mode}`, owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode }), wait(p, 700)) })),
+  {
+    id: 'first-run-reward',
+    owner: 'F',
+    run: async (p) => (await start(p, 'FirstRun', { mode: 'reward', item: { uid: 'tr1', def: 'chalcidian', rarity: 'common', cond: 100 } }), wait(p, 1600)),
+  },
+  { id: 'first-run-skip', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'resume' }), await wait(p, 500), await call(p, 'FirstRun', 's.confirmSkip(); return 1;'), wait(p, 400)) },
+  // tutorial steps: [screen, steps already learned (a resumed run starts at the first one not learned), start the battle]
+  ...[
+    ['tutorial-intro', [], false],
+    ['tutorial-select', ['intro'], false],
+    ['tutorial-pan', ['intro', 'select'], false],
+    ['tutorial-sling', ['intro', 'select', 'pan', 'zoom'], false],
+    ['tutorial-fight', ['intro', 'select', 'pan', 'zoom', 'sling'], false],
+    ['tutorial-move', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight'], true],
+    ['tutorial-wall', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight', 'move'], true],
+    ['tutorial-loose', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight', 'move', 'wall'], true],
+  ].map(([id, done, fight]) => ({
+    id,
+    owner: 'F',
+    run: async (p) => {
+      await ev(p, (d) => {
+        window.__state.campaign.data.settings.tutorial = { status: d.length ? 'active' : 'offer', done: d };
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { tutorial: {} }));
+      }, done);
+      await until(p, () => !!window.__game.scene.getScene('Battle')?.tutorial?.talking, 8000);
+      if (fight) {
+        await call(p, 'Battle', 's.startFight(); return 1;');
+        await until(p, () => { const t = window.__game.scene.getScene('Battle').tutorial; return t.talking && t.step !== 'fight'; }, 15000);
+      }
+      await call(p, 'Battle', 's.tutorial.narrator.finishTyping(); return 1;');
+      return wait(p, 600);
+    },
+  })),
+  {
+    id: 'tutorial-skip',
+    owner: 'F',
+    run: async (p) => {
+      await ev(p, () => {
+        window.__state.campaign.data.settings.tutorial = { status: 'active', done: ['intro'] };
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { tutorial: {} }));
+      });
+      await until(p, () => !!window.__game.scene.getScene('Battle')?.tutorial?.talking, 8000);
+      await call(p, 'Battle', 's.tutorial.narrator.finishTyping(); s.tutorial.askSkip(); return 1;');
+      return wait(p, 500);
+    },
+  },
+  ...[
+    ['home', 'map'],
+    ['neighbour', 'map'],
+    ['defenders', 'neutral'],
+    ['march', 'neutral'],
+    ['attack', 'neutral'],
+    ['collect', 'map'],
+    ['clan', 'map'],
+  ].map(([coach, preview]) => ({
+    id: `online-coach-${coach}`,
+    owner: 'F',
+    run: async (p) => {
+      await start(p, 'Online', { preview, coach });
+      await until(p, () => !!window.__game.scene.getScene('Online').map, 8000);
+      if (preview === 'neutral') await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
+      return wait(p, 900);
+    },
+  })),
 ];
 
 // ------------------------------------------------------------------ page setup
@@ -514,6 +580,7 @@ function fakeTelegram(ins) {
 async function runConfig(browser, cfg, screens) {
   const [W, H] = cfg.size;
   const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
   await ctx.addInitScript(seededRandom);
   if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, TG);
   const page = await ctx.newPage();

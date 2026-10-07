@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 const [url, out, w = '390', h = '844', wait = '1500', dsf = '2'] = process.argv.slice(2);
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined });
 const ctx = await browser.newContext({ viewport: { width: +w, height: +h }, deviceScaleFactor: +dsf, hasTouch: true, isMobile: true });
+await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
 const page = await ctx.newPage();
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));

@@ -16,6 +16,7 @@ const check = (name, ok, detail = '') => {
 
 async function run(label, { noAudio }) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
   if (noAudio) {
     await ctx.addInitScript(() => {
       delete window.AudioContext;

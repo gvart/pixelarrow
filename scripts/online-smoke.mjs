@@ -48,6 +48,7 @@ function fakeTelegram() {
 async function session(name, routeApi) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
   const page = await ctx.newPage();
   const errors = [];
   const netErrors = [];

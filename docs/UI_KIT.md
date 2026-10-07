@@ -40,6 +40,20 @@ pixels; 44 pt is 22 UI pixels at `S = 2`, the smallest scale.
 | `PanelButton` | `new PanelButton(scene, x, y, w, h, { icon, label, cat, selected, primary, tip, disabledReason, show, onClick })`, `.setCooldown(f)`, `.setBadge(s)` | battle panel commands and category tabs (`src/ui/battlePanel.ts`): tinted by battle category (`cat`), filled when selected, icon above the label from 28 tall, `show: 'icon'` for a row whose labels do not fit. Behaves like `Button`. |
 | `GroupCard` | `new GroupCard(scene, x, y, w, h, onTap, tip)`, `.setInfo({ numeral, men, hp, morale, orderIcon, portrait, name, orderWord, selected, routed })` | a group in the battle panel: class portrait, numeral, men, order, health and morale bars; narrow and wide layouts. |
 
+### Onboarding pieces
+
+| Piece | Where | Use for |
+| --- | --- | --- |
+| `Narrator` | `src/ui/tutorial/narrator.ts` | the tutorial narrator: portrait (talks, blinks), name, typewriter text with sound, skip button, tap-to-go-on arrow; swallows taps and covers what is under it for the layout check. |
+| `Spotlight` | `src/ui/tutorial/spotlight.ts` | dims everything but a hole, a pulsing ring round the element, blocks taps outside the hole (or everywhere, with a tap handler). |
+| `GhostHand` | `src/ui/tutorial/ghost.ts` | a pale hand demonstrating a gesture on a loop: tap, drag along a path with rests, pinch. |
+| `OnlineCoach` | `src/ui/tutorial/onlineCoach.ts` | anchored coach marks (dark bubble, arrow, ring, Next, "2 / 7"): the first-time-hint style for a guided sequence; progress in `settings.onlineCoach`. |
+
+The flow: `src/game/tutorial.ts` (steps, completion checks, progress,
+scenario), `src/ui/tutorial/battleTutorial.ts` (drives the battle scene through
+`BattleScene.tutorialHost()` and its `'tutorial'` events),
+`src/scenes/FirstRunScene.ts` (offer, resume, reward, modes).
+
 Older helpers (`addPanel`, `addScroll`, `addText`, `fitText`, `Meter`,
 `ScrollArea`, `confirmModal`) still work; `ScrollArea` + `addScrollHint` is the
 non-virtualised list for mixed content.
