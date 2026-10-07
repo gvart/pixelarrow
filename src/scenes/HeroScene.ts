@@ -21,6 +21,8 @@ export class HeroScene extends BaseScene {
   private from: Record<string, unknown> = {};
   private pending: Record<AttrId, number> = { str: 0, agi: 0, end: 0, wil: 0 };
   private selPerk: PerkId | null = null;
+  /** On short screens the attributes and the perk tree are two tabs. */
+  private tab: 'stats' | 'perks' = 'stats';
   private layer!: Phaser.GameObjects.Container;
   private doll: Phaser.GameObjects.Sprite | null = null;
 
@@ -109,8 +111,32 @@ export class HeroScene extends BaseScene {
     L.add(addText(this, VW - 10, y + 13, perkFree > 0 ? `${perkFree} perk` : '', 'gold', 1));
     if (h.wound > 0) L.add(addText(this, VW - 10, y + 31, `wounded ${Math.ceil(h.wound)}h`, 'red', 1));
 
-    // attributes (with what they do), then every derived stat with its change
+    // short screens: attributes and perks are tabs (full height: both)
     y += 49;
+    const compact = VH < 400;
+    if (compact) {
+      const tw = Math.floor((VW - 12) / 2);
+      const tabs: ['stats' | 'perks', string, string][] = [['stats', free > 0 ? `Stats (${free})` : 'Stats', 'plus'], ['perks', perkFree > 0 ? `Perks (${perkFree})` : 'Perks', 'star']];
+      tabs.forEach(([id, label, icon], i) =>
+        L.add(new Button(this, 4 + i * (tw + 4), y, tw, 22, { label, icon, style: this.tab === id ? 'buttonSel' : 'button', onClick: () => this.setTab(id) })),
+      );
+      y += 25;
+    }
+    if (!compact || this.tab === 'stats') this.buildStats(L, h, y, free);
+    if (compact && this.tab === 'stats') return;
+    if (!compact) y += 4 * 13 + 2 * 11 + 22 + 3;
+    this.buildPerks(L, h, y, perkFree, compact);
+  }
+
+  private setTab(t: 'stats' | 'perks'): void {
+    this.tab = t;
+    this.selPerk = null;
+    this.build();
+  }
+
+  /** Attributes (with what they do), then every derived stat with its change. */
+  private buildStats(L: Phaser.GameObjects.Container, h: Hero, y: number, free: number): void {
+    const { VW } = this.m;
     const ah = 4 * 13 + 2 * 11 + 22;
     L.add(addPanel(this, 4, y, VW - 8, ah, 'parch'));
     const next: Hero = { ...h, attrs: { ...h.attrs } };
@@ -125,7 +151,7 @@ export class HeroScene extends BaseScene {
       const can = free > 0 && h.attrs[k] + this.pending[k] < ATTR_MAX;
       L.add(new Button(this, 44, ry, 16, 12, { label: '+', style: can ? 'button' : 'buttonOff', onClick: () => this.addPoint(k) }));
       if (this.pending[k] > 0) L.add(new Button(this, 62, ry, 16, 12, { label: '-', onClick: () => this.removePoint(k) }));
-      L.add(addText(this, 82, ry + 2, HINT[k], 'dim'));
+      L.add(fitText(addText(this, 82, ry + 2, HINT[k], 'dim'), VW - 90));
     });
     const rows: [string, (s: CombatStats) => number, number][] = [
       ['HP', (s) => s.maxHp, 0],
@@ -146,7 +172,7 @@ export class HeroScene extends BaseScene {
       const d = f(prev) - f(cur);
       const changed = Math.abs(d) > 0.004;
       L.add(addText(this, sx, sy, label, 'dim'));
-      L.add(addText(this, sx + cw - 8, sy, fmt(f(prev), dp), changed ? ((label === 'Atk' ? d < 0 : d > 0) ? 'gold' : 'red') : 'ink', 1));
+      L.add(addText(this, sx + cw - (cw < 40 ? 2 : 8), sy, fmt(f(prev), dp), changed ? ((label === 'Atk' ? d < 0 : d > 0) ? 'gold' : 'red') : 'ink', 1));
     });
     if (this.spent() > 0) {
       L.add(new Button(this, 9, y + ah - 17, 34, 14, { label: 'Undo', onClick: () => this.resetPoints() }));
@@ -157,12 +183,26 @@ export class HeroScene extends BaseScene {
       L.add(addText(this, 9, y + ah - 14, abil.length ? `Has: ${abil.join(', ')}` : free > 0 ? 'Tap + to raise an attribute' : 'Points come with each level', 'dim', 0, VW - 20));
     }
 
-    // the class perk tree: five perks, one per perk level, top to bottom
-    y += ah + 3;
+  }
+
+  /** The class perk tree (five perks, one per perk level, top to bottom) and the selected perk. */
+  private buildPerks(L: Phaser.GameObjects.Container, h: Hero, y: number, perkFree: number, compact: boolean): void {
+    const { VH } = this.m;
+    const cls = heroClass(h);
     const tree = heroTree({ cls: cls.id });
+    const sel = this.selPerk ? PERKS[this.selPerk] : null;
+    // short screens: a selected perk's card takes the tree's place
+    if (!(compact && sel)) y = this.buildTree(L, h, y, tree, cls.name) + 3;
+    const dh = VH - y - 4;
+    if (dh < 60 && !sel) return;
+    this.buildPerkCard(L, h, y, dh, sel, tree, perkFree, compact);
+  }
+
+  private buildTree(L: Phaser.GameObjects.Container, h: Hero, y: number, tree: readonly PerkId[], clsName: string): number {
+    const { VW } = this.m;
     const ph = 5 * 24 + 15;
     L.add(addPanel(this, 4, y, VW - 8, ph, 'parch'));
-    L.add(addText(this, VW / 2, y + 4, `${cls.name} perks`, 'red', 0.5));
+    L.add(addText(this, VW / 2, y + 4, `${clsName} perks`, 'red', 0.5));
     const g = this.add.graphics();
     L.add(g);
     tree.forEach((id, ri) => {
@@ -181,11 +221,12 @@ export class HeroScene extends BaseScene {
     });
     PERK_LEVELS.forEach((lvl, ri) => L.add(addText(this, 8, y + 20 + ri * 24, `${lvl}`, h.level >= lvl ? 'ink' : 'dim')));
 
-    // perk detail
-    y += ph + 3;
-    const dh = VH - y - 4;
+    return y + ph;
+  }
+
+  private buildPerkCard(L: Phaser.GameObjects.Container, h: Hero, y: number, dh: number, sel: PerkDef | null, tree: readonly PerkId[], perkFree: number, compact: boolean): void {
+    const { VW } = this.m;
     L.add(addPanel(this, 4, y, VW - 8, dh, 'parch'));
-    const sel = this.selPerk ? PERKS[this.selPerk] : null;
     if (!sel) {
       L.add(addText(this, VW / 2, y + 8, perkFree > 0 ? 'Tap a perk to read it' : `Next perk at Lv ${PERK_LEVELS.find((l) => l > h.level) ?? '-'}`, 'dim', 0.5));
       L.add(addText(this, 9, y + 22, 'Each class has its own tree; perks unlock in order. Abilities are used from the battle bar; auras work on their own.', 'dim', 0, VW - 18));
@@ -197,9 +238,10 @@ export class HeroScene extends BaseScene {
     const extra = sel.ability ? ` ${ABILITIES[sel.ability].desc} Cooldown ${ABILITIES[sel.ability].cooldown}s.` : sel.aura ? ` ${AURAS[sel.aura].desc}` : '';
     L.add(addText(this, 9, y + 16, sel.desc + extra, 'ink', 0, VW - 18));
     const blocker = perkBlocker(h, sel.id);
-    if (h.perks.includes(sel.id)) L.add(addText(this, VW / 2, y + dh - 14, 'Known', 'gold', 0.5));
-    else if (blocker) L.add(addText(this, VW / 2, y + dh - 14, blocker, 'dim', 0.5));
-    else L.add(new Button(this, VW / 2 - 40, y + dh - 22, 80, 18, { label: 'Take perk', icon: 'star', style: 'buttonSel', onClick: () => this.takePerk(sel.id) }));
+    if (h.perks.includes(sel.id)) L.add(addText(this, compact ? VW - 9 : VW / 2, y + dh - 18, 'Known', 'gold', compact ? 1 : 0.5));
+    else if (blocker) L.add(addText(this, compact ? VW - 9 : VW / 2, y + dh - 18, blocker, 'dim', compact ? 1 : 0.5));
+    else L.add(new Button(this, compact ? VW - 89 : VW / 2 - 40, y + dh - 26, 80, 22, { label: 'Take perk', icon: 'star', style: 'buttonSel', onClick: () => this.takePerk(sel.id) }));
+    if (compact) L.add(new Button(this, 9, y + dh - 26, 50, 22, { label: 'Tree', icon: 'back', onClick: () => this.selectPerk(sel.id) }));
   }
 
   private perkNode(p: PerkDef, x: number, y: number, h: Hero): void {

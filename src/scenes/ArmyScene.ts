@@ -159,29 +159,34 @@ export class ArmyScene extends BaseScene {
       return;
     }
     // portrait
-    L.add(addPanel(this, x0 + 5, y0 + 5, 60, 86, 'inset'));
-    const grass = this.add.rectangle(x0 + 7, y0 + 60, 56, 29, P.grass[1]).setOrigin(0, 0);
+    // a narrower portrait on small phones leaves the stats room
+    const pw = w < 200 ? 40 : 60;
+    const pcx = x0 + 5 + pw / 2;
+    L.add(addPanel(this, x0 + 5, y0 + 5, pw, 86, 'inset'));
+    const grass = this.add.rectangle(x0 + 7, y0 + 60, pw - 4, 29, P.grass[1]).setOrigin(0, 0);
     L.add(grass);
     const key = ensureDoll(this, dollFromHero(h), [0]);
     const big = dollGeomOf(key).fw > 48;
-    L.add(this.add.image(x0 + 35, y0 + 86, big ? 'shadow_big' : 'shadow').setScale(big ? 1 : 2).setAlpha(0.35));
-    this.preview = this.add.sprite(x0 + 35, y0 + 87, key, dollFrame(0, 0)).setOrigin(...dollOrigin(key)).setScale(big ? 1 : 2);
+    L.add(this.add.image(pcx, y0 + 83, big ? 'shadow_big' : 'shadow').setScale(big ? 1 : 2).setAlpha(0.35));
+    this.preview = this.add.sprite(pcx, y0 + 87, key, dollFrame(0, 0)).setOrigin(...dollOrigin(key)).setScale(big ? 1 : 2);
     // framed by the portrait box (60 x 86 on screen)
-    if (big) this.preview.setCrop(18, 0, 60, 84);
-    else this.preview.setCrop(9, 9, 30, 41);
+    if (big) this.preview.setCrop(48 - pw / 2, 0, pw, 84);
+    else this.preview.setCrop(24 - pw / 4, 11, pw / 2, 39);
     L.add(this.preview);
 
     // name + level
-    const tx = x0 + 70;
-    L.add(addText(this, tx, y0 + 7, h.name, 'red'));
-    L.add(addText(this, x0 + w - 6, y0 + 7, `${GROUP_NAMES[h.group] ?? ''}`, 'dim', 1));
+    const tx = x0 + pw + 10;
+    const right = x0 + w - 5;
+    const grp = addText(this, right, y0 + 7, `${GROUP_NAMES[h.group] ?? ''}`, 'dim', 1);
+    L.add(grp);
+    L.add(fitText(addText(this, tx, y0 + 7, h.name, 'red'), right - tx - grp.width - 4));
     L.add(addText(this, tx, y0 + 18, `Lv ${h.level}`, 'ink'));
-    const xpM = new Meter(this, tx + 30, y0 + 19, w - 70 - 36, 5, P.gold).setValue(h.xp, xpToNext(h.level));
+    const xpM = new Meter(this, tx + 30, y0 + 19, right - tx - 30, 5, P.gold).setValue(h.xp, xpToNext(h.level));
     L.add(xpM);
     // class: its portrait icon, name and role
     const cls = heroClass(h);
     L.add(this.add.image(tx - 1, y0 + 26, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0).setScale(0.5));
-    L.add(fitText(addText(this, tx + 14, y0 + 28, `${cls.name}`, 'ink'), w - 88));
+    L.add(fitText(addText(this, tx + 14, y0 + 28, `${cls.name}`, 'ink'), right - tx - 14));
     const traits = h.traits.map((t) => TRAITS[t].name).join(', ') || 'No traits';
 
     // stats with preview deltas
@@ -203,21 +208,23 @@ export class ArmyScene extends BaseScene {
       ['Spd', (s) => s.speed, 2],
       [base.range > 0 ? 'Rng' : 'Rch', (s) => (base.range > 0 ? s.range : s.reach), 1],
     ];
+    const colW = Math.min(58, Math.floor((right - tx) / 2));
+    const valX = colW < 56 ? 19 : 22;
     rows.forEach(([label, f, dp], i) => {
       const col = i % 2;
       const row = Math.floor(i / 2);
-      const sx = tx + col * 58;
+      const sx = tx + col * colW;
       const sy = y0 + 40 + row * 11;
       const v = f(base);
       L.add(addText(this, sx, sy, label, 'dim'));
-      L.add(addText(this, sx + 22, sy, fmt(v, dp), 'ink'));
+      L.add(addText(this, sx + valX, sy, fmt(v, dp), 'ink'));
       if (cmp) {
         const d = f(cmp) - v;
-        if (Math.abs(d) > 0.004) L.add(addText(this, sx + 52, sy, `${d > 0 ? '+' : ''}${fmt(d, dp)}`, d > 0 ? 'gold' : 'red', 1).setX(sx + 56).setOrigin(1, 0));
+        if (Math.abs(d) > 0.004) L.add(addText(this, sx + 52, sy, `${d > 0 ? '+' : ''}${fmt(d, dp)}`, d > 0 ? 'gold' : 'red', 1).setX(sx + colW - 2).setOrigin(1, 0));
       }
     });
     const kit = base.ammo > 0 ? `ammo ${base.ammo}` : base.canShieldWall ? 'shield wall' : base.mount ? (base.mount === 'chariot' ? 'chariot' : 'mounted') : '';
-    L.add(addText(this, tx, y0 + 85, h.wound > 0 ? `Wounded: ${Math.ceil(h.wound)}h rest` : `${traits}${kit ? ' - ' + kit : ''}`, h.wound > 0 ? 'red' : 'dim', 0, w - 74));
+    L.add(fitText(addText(this, tx, y0 + 85, h.wound > 0 ? `Wounded: ${Math.ceil(h.wound)}h rest` : `${traits}${kit ? ' - ' + kit : ''}`, h.wound > 0 ? 'red' : 'dim'), right - tx));
 
     // equipment slots
     const slotY = y0 + 96;

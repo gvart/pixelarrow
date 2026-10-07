@@ -104,7 +104,7 @@ export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly S
   }
   st.phase = sim.phase;
 
-  // Charges: a group switching to the charge order sounds the horn and the rush of feet.
+  // Charges: a group switching to the charge order sounds the horn and the rush of feet (or hooves).
   for (const g of sim.groups) {
     if (g.disbanded) continue;
     const prev = st.orders.get(g.id);
@@ -114,7 +114,9 @@ export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly S
     if (!c) continue;
     const mine = g.side === me;
     if (mine) sfx.play('horn', { vol: 0.9 });
-    sfx.play('march', at(c.x, c.y, mine ? undefined : { vol: 0.7 }));
+    // riders and chariots: hooves instead of running feet
+    const mounted = sim.units.some((u) => u.group === g.id && !!u.stats.mount && sim.isAlive(u));
+    sfx.play(mounted ? 'hooves' : 'march', at(c.x, c.y, mine ? undefined : { vol: 0.7 }));
   }
 
   let heat = 0;
@@ -127,7 +129,7 @@ export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly S
           break;
         }
         const w = sim.units[e.by]?.stats.weapon;
-        sfx.play(w === 'spear' ? 'clashSpear' : w === 'axe' || w === 'club' ? 'clashHeavy' : 'clash', unitAt(e.unit));
+        sfx.play(w === 'spear' || w === 'lance' ? 'clashSpear' : w === 'axe' || w === 'club' ? 'clashHeavy' : 'clash', unitAt(e.unit));
         if (e.dmg > 3 || Math.random() < 0.35) sfx.play('hit', unitAt(e.unit, { vol: 0.8 }));
         break;
       }

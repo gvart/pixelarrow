@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, ScrollArea, addPanel, addText, tappable } from '../ui/kit';
+import { Button, Meter, ScrollArea, addPanel, addText, fitText, tappable } from '../ui/kit';
 import { dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, pumpDolls, queueDollRows } from '../ui/sprites';
 import { dollFromHero, ANIM_FRAMES } from '../art/paperdoll';
 import { renderGround } from '../art/ground';
@@ -1569,15 +1569,17 @@ export class BattleScene extends BaseScene {
     this.hudDirty = false;
     if (this.statusText && this.statusText.active) {
       const g = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
-      let txt = this.sim.phase === 'deploy' ? 'Tap a group, then drag it and pull back to aim' : 'Tap a group tag or soldier to select';
+      const narrow = this.m.VW < 180;
+      let txt = this.sim.phase === 'deploy' ? (narrow ? 'Tap a group, drag, pull back' : 'Tap a group, then drag it and pull back to aim') : narrow ? 'Tap a tag or a soldier' : 'Tap a group tag or soldier to select';
       if (g) {
         const n = this.sim.activeMembers(g.id).length;
-        const parts = [g.name, `${n} men`, this.sim.phase === 'deploy' ? 'drag, pull back' : g.order, g.formation.type];
+        const parts = [g.name, `${n} men`, this.sim.phase === 'deploy' ? (narrow ? 'drag' : 'drag, pull back') : g.order, g.formation.type];
         if (g.shieldWall) parts.push('wall');
         if (g.routed) parts.push('ROUTED');
         txt = parts.join(' - ');
       }
       this.statusText.setText(txt.toUpperCase());
+      fitText(this.statusText, this.m.VW - 14);
     }
     if (this.clock) {
       const s = Math.floor(this.sim.tick / TICK_RATE);
