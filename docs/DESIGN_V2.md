@@ -270,3 +270,17 @@ with DESIGN.md or ROADMAP.md, this document wins.
 
   Each scene exposes its UI element bounds for the check, for example through a
   debug registry. Screenshots of every screen and size are saved for review.
+
+## Economy decisions (2026-10-07)
+
+- At most one consumable per battle in **all** online battles: PvP, neutrals,
+  beasts and world bosses.
+- The premium season pass (500 Dr) returns about **600 Dr** over its tiers, so
+  a full season pays for the next pass.
+- `supporter_banner` is no longer a Stars product. It becomes a normal
+  cosmetic priced in Drachmae; players who already bought it keep it.
+- Unchanged:
+  - daily caps count shop purchases only;
+  - no marketplace listing fee, only the 10% sale fee;
+  - buyers can buy anywhere in their shard, but listing an item needs a
+    reachable town.
