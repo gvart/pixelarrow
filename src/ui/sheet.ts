@@ -19,7 +19,7 @@ import { itemDef, itemValue, normalizeRarity, SLOTS, type Item, type Slot } from
 import type { Hero } from '../data/units';
 import { computeStats, heroClass } from '../sim/stats';
 import {
-  compareItem, cycle, fmtStat, isUpgrade, itemModLines, queryStash, RARITY_FILTERS, SLOT_FILTERS, STASH_SORTS, STATS,
+  compareItem, cycle, fmtStat, isUpgrade, itemModLines, queryStash, RARITY_FILTERS, SLOT_FILTERS, STASH_SORTS, STATS, shoots,
   type RarityFilter, type SlotFilter, type StashSort, type StatDelta, type StatId,
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
@@ -85,7 +85,7 @@ export const roleColor = (role: string): number => ROLE_COLOR[role] ?? 0x8a7a6a;
 // ------------------------------------------------------------------ portrait stage
 
 export interface StageOpts {
-  /** Facing row: 2 = towards the viewer. */
+  /** Facing row (default 0: three-quarter view, weapon side). */
   dir?: number;
   /** Doll scale (1 or 2). */
   scale?: number;
@@ -106,7 +106,7 @@ export class Stage extends Phaser.GameObjects.Container {
     const cls = heroClass(hero);
     const accent = o.accent ?? roleColor(cls.role);
     this.add(scene.add.image(0, 0, stageTexture(scene, w, h, accent)).setOrigin(0, 0));
-    const dir = o.dir ?? 2;
+    const dir = o.dir ?? 0;
     const key = ensureDoll(scene, dollFromHero(hero), [dir]);
     const g = dollGeomOf(key);
     // pick the largest integer scale that fits (riders are big)
@@ -363,10 +363,10 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }).toUpperCase(), inner - 8), 'dim'));
     if (eq) {
       b.add(new ItemIcon(scene, 4, by + 12, { item: eq }, { size: 16, tip: false, glow: false }));
-      b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq).toUpperCase(), inner - 27 - 40), rarityFont(eq.rarity)));
+      b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq).toUpperCase(), inner - 27 - 70), rarityFont(eq.rarity)));
     } else b.add(addText(scene, 4, by + 16, t('stash.emptySlot').toUpperCase(), 'dim'));
     const dp = cmp.power[1] - cmp.power[0];
-    b.add(addText(scene, inner - 4, by + 16, `${dp > 0 ? '+' : ''}${dp}`, dp > 0 ? 'good' : dp < 0 ? 'red' : 'dim', 1));
+    b.add(addText(scene, inner - 4, by + 16, t('hero.power', { n: `${dp > 0 ? '+' : ''}${dp}` }).toUpperCase(), dp > 0 ? 'good' : dp < 0 ? 'red' : 'dim', 1));
     let ry = by + 30;
     if (!changed.length) {
       b.add(addText(scene, 4, ry, t('stash.noChange').toUpperCase(), 'dim'));
@@ -397,7 +397,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     by += desc.lines.length * LINE_H + 4;
   }
   for (const n of notes) {
-    b.add(addText(scene, 0, by, ellipsize(n.text.toUpperCase(), inner), n.font ?? 'dim'));
+    b.add(addText(scene, 0, by, ellipsize(n.text.toUpperCase(), inner - 3), n.font ?? "dim"));
     by += LINE_H;
   }
   area.setContentHeight(by);
@@ -683,7 +683,7 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
   const desc = wrapText(tOr(`class.${cls.id}.desc`, cls.desc), inner, 4);
   const rt = roleTraits(cls.role);
   const s = computeStats(h);
-  const stats: StatId[] = ['hp', s.range > 0 ? 'ranged' : 'dmg', 'armor', 'speed', 'morale'];
+  const stats: StatId[] = ['hp', shoots(s) ? 'ranged' : 'dmg', 'armor', 'speed', 'morale'];
   const stageH = VH < 300 ? 0 : VH >= 400 ? 116 : 70;
   const want = 26 + stageH + 26 + desc.lines.length * LINE_H + 26 + stats.length * 12 + 6 + (o.price ? 12 : 0) + (o.action ? SIZE.btnH + 10 : 0) + 8;
   const m = openModal(scene, { title: o.title ?? className(h), w, h: Math.min(want, VH - 12) });

@@ -16,6 +16,7 @@
  */
 import { EN } from './en';
 import { RU } from './ru';
+import { DATA_RU } from './data.ru';
 
 export type Lang = 'en' | 'ru';
 export const LANGS: readonly Lang[] = ['en', 'ru'];
@@ -71,9 +72,21 @@ export function t(key: TKey, params?: Params): string {
   return resolve(current, key, params) ?? resolve('en', key, params) ?? key;
 }
 
+/**
+ * Names and descriptions of game data per language (data.ru.ts); English
+ * uses the data itself (the `fallback` of tOr).
+ */
+const DATA: Partial<Record<Lang, Record<string, string>>> = { ru: DATA_RU };
+
 /** Translate a dynamic key (e.g. built from a data id), with an explicit fallback. */
 export function tOr(key: string, fallback: string, params?: Params): string {
-  return resolve(current, key, params) ?? resolve('en', key, params) ?? format(fallback, params);
+  const d = DATA[current]?.[key];
+  return resolve(current, key, params) ?? (d !== undefined ? format(d, params) : undefined) ?? resolve('en', key, params) ?? format(fallback, params);
+}
+
+/** The data translation table of a language (tests). */
+export function dataTable(l: Lang): Record<string, string> {
+  return DATA[l] ?? {};
 }
 
 /** Does a dynamic key exist (in English, the source table)? */

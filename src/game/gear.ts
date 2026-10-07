@@ -41,11 +41,14 @@ export const STATS: Record<StatId, StatDef> = {
   ko: { id: 'ko', get: (s) => s.koChance * 100, dp: 0, max: 100, pct: true },
 };
 
+/** Carries missiles (a trait's +range alone does not make a shooter). */
+export const shoots = (s: CombatStats): boolean => s.range > 0 && s.ammo > 0 && s.rangedDmg > 0;
+
 /** The stats a hero's sheet lists (ranged ones only for missile troops). */
 export function sheetStats(s: CombatStats): StatId[] {
   const out: StatId[] = ['hp', 'dmg'];
-  if (s.range > 0) out.push('ranged');
-  out.push('armor', 'block', 'morale', 'stamina', 'speed', 'accuracy', s.range > 0 ? 'range' : 'reach', 'atkTime', 'ko');
+  if (shoots(s)) out.push('ranged');
+  out.push('armor', 'block', 'morale', 'stamina', 'speed', 'accuracy', shoots(s) ? 'range' : 'reach', 'atkTime', 'ko');
   return out;
 }
 

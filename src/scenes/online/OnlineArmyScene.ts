@@ -1,23 +1,37 @@
 /**
  * The online army (server-owned): heroes with their gear and battle group,
  * the stash, recruiting, and (opened from a hex) choosing a garrison. Every
- * change is a request; the screen redraws from the server's answer.
+ * change is a request; the screen redraws from the server's answer. Same
+ * kit and pieces as the campaign army (src/ui/sheet.ts).
  */
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { Button, ScrollArea, addPanel, addText, tappable } from '../../ui/kit';
-import { dollFrame, ensureDoll } from '../../ui/sprites';
+import { Button, addIcon, addPanel, addText } from '../../ui/kit';
+import { ScrollList, Tabs, addEmptyState, openModal, toast } from '../../ui/widgets';
+import { uiId } from '../../ui/layout';
+import { ellipsize } from '../../ui/textfit';
+import { SIZE, COLOR } from '../../ui/theme';
+import { ensureFonts, FONT_RED_LIGHT } from '../../ui/fonts';
+import {
+  DragDrop, ROMAN, Stage, StashGrid, addChip, addGroupBadge, addSlotTile, addStars, className, defaultStashState, groupName, itemName,
+  openClassCard, openItemCard, roleColor, roleName, roleTraits, uiBoundsOf, type StashState,
+} from '../../ui/sheet';
+import { addEconState } from '../../ui/econ/widgets';
+import { ensurePortrait } from '../../ui/sprites';
 import { dollFromHero } from '../../art/paperdoll';
+import { P } from '../../art/palette';
 import { hapticNotify } from '../../platform/telegram';
-import { itemDef, RARITY_LABEL, SLOTS, type Item, type Slot } from '../../data/items';
-import { GROUP_NAMES } from '../../data/units';
-import { heroPower } from '../../sim/stats';
+import { itemDef, normalizeEquip, normalizeItem, SLOTS, type Item, type Slot } from '../../data/items';
+import type { Hero } from '../../data/units';
+import { heroClass } from '../../sim/stats';
+import { Rng } from '../../sim/rng';
 import { ONLINE_RULES, RECRUIT_ARCHETYPES } from '../../online/rules';
 import { errorText, onlineApi, type Axial, type HexDetail, type OwnedHeroView, type ProfileView } from '../../online/client';
-import type { Archetype } from '../../game/heroes';
-import { addResourceBar, button, fmtDuration, lines, openModal, type Modal } from './common';
-
-const ROMAN = ['I', 'II', 'III', 'IV'];
+import { makeHero, type Archetype } from '../../game/heroes';
+import { econState, type EconState } from '../../game/economy';
+import { heroStars, powerRating } from '../../game/gear';
+import { fmtDuration } from './common';
+import { t } from '../../i18n';
 
 export class OnlineArmyScene extends BaseScene {
   private profile: ProfileView | null = null;
@@ -25,50 +39,69 @@ export class OnlineArmyScene extends BaseScene {
   private garrisonHex: Axial | null = null;
   private garrisonPick = new Set<string>();
   private hexDetail: HexDetail | null = null;
-  private area: ScrollArea | null = null;
-  private modal: Modal | null = null;
-  private msg = 'Loading...';
+  private st: EconState | 'loading' | 'ready' = 'loading';
   private busy = false;
+  private tab: 'roster' | 'stash' = 'roster';
+  private head!: Phaser.GameObjects.Container;
+  private body!: Phaser.GameObjects.Container;
+  private list: ScrollList | null = null;
+  private stash: StashGrid | null = null;
+  private stashState: StashState = defaultStashState();
+  private drag!: DragDrop;
+  private slotObjs = new Map<Slot, Phaser.GameObjects.GameObject>();
+  private bodyTop = 0;
 
   constructor() {
     super('OnlineArmy');
   }
 
-  create(data: { garrison?: Axial }): void {
+  create(data: { garrison?: Axial; tab?: 'roster' | 'stash' }): void {
     this.garrisonHex = data?.garrison ?? null;
     this.garrisonPick = new Set();
     this.profile = null;
     this.sel = null;
-    this.modal = null;
-    this.area = null;
+    this.st = 'loading';
+    this.tab = data?.tab ?? 'roster';
+    this.list = null;
+    this.stash = null;
     this.initUi();
+    ensureFonts(this);
     this.screen({ back: () => this.back() });
+    const { VW, VH } = this.m;
+    this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
+    this.head = this.add.container(0, 0);
+    this.body = this.add.container(0, 0);
+    this.ui.add([this.head, this.body]);
+    this.drag = new DragDrop(this);
+    this.events.once('shutdown', () => this.clearBody());
     this.render();
     void this.fetchData();
   }
 
   private back(): void {
-    if (this.modal) return this.closeModal();
     this.scene.start('Online', this.garrisonHex ? { focus: this.garrisonHex } : {});
   }
 
-  private async fetchData(): Promise<void> {
+  /** Load from the API, or show a given profile (tests, layout check). */
+  async fetchData(given?: ProfileView): Promise<void> {
     try {
-      const [p, d] = await Promise.all([onlineApi.profile(), this.garrisonHex ? onlineApi.hex(this.garrisonHex) : Promise.resolve(null)]);
+      const [p, d] = given ? [given, null] : await Promise.all([onlineApi.profile(), this.garrisonHex ? onlineApi.hex(this.garrisonHex) : Promise.resolve(null)]);
       if (!this.sys.isActive()) return;
+      for (const oh of p.heroes) normalizeEquip(oh.hero);
+      p.stash.forEach((it) => normalizeItem(it));
       this.profile = p;
       this.hexDetail = d;
+      this.st = 'ready';
       if (this.garrisonHex) {
         const g = this.garrisonHex;
         this.garrisonPick = new Set(p.heroes.filter((h) => h.garrison && h.garrison.q === g.q && h.garrison.r === g.r).map((h) => h.hero.id));
       }
       if (!this.sel || !p.heroes.some((h) => h.hero.id === this.sel)) this.sel = p.heroes[0]?.hero.id ?? null;
-      this.render();
     } catch (e) {
       if (!this.sys.isActive()) return;
-      this.msg = errorText(e);
-      this.render();
+      this.st = econState(e);
     }
+    this.render();
   }
 
   private async act(fn: () => Promise<unknown>, ok?: string): Promise<void> {
@@ -76,200 +109,387 @@ export class OnlineArmyScene extends BaseScene {
     this.busy = true;
     try {
       await fn();
-      if (ok) hapticNotify('success');
+      if (ok) {
+        hapticNotify('success');
+        toast(this, ok, 'good');
+      }
       await this.fetchData();
     } catch (e) {
       if (!this.sys.isActive()) return;
       hapticNotify('error');
-      this.flash(errorText(e));
+      toast(this, errorText(e), 'bad');
     } finally {
       this.busy = false;
     }
   }
 
-  private flash(text: string): void {
-    const { VW } = this.m;
-    const c = this.add.container(0, 0);
-    const t = addText(this, VW / 2, 46, text, 'red', 0.5, VW - 30);
-    c.add(addPanel(this, 8, 41, VW - 16, t.height + 10, 'parch'));
-    c.add(t);
-    this.ui.add(c);
-    this.time.delayedCall(2200, () => c.destroy());
+  private selected(): OwnedHeroView | undefined {
+    return this.profile?.heroes.find((x) => x.hero.id === this.sel);
   }
 
-  /** A parchment modal that Back (Telegram's or ours) closes. */
-  private openM(h: number, title: string): Modal {
-    const md = openModal(this, this.ui, this.m.VW, this.m.VH, h, title);
-    this.modalLayer(md.c, () => this.closeModal());
-    return md;
+  private get compact(): boolean {
+    return this.m.VH < 300;
   }
 
-  private closeModal(): void {
-    this.modal?.c.destroy();
-    this.modal = null;
-  }
+  // ------------------------------------------------------------------ layout
 
   private render(): void {
-    this.area?.destroy();
-    this.area = null;
-    this.ui.removeAll(true);
-    this.modal = null;
-    const { VW, VH, S } = this.m;
-    this.addGrassBackdrop(5).setAlpha(0.6);
+    this.head.removeAll(true);
+    this.slotObjs.clear();
+    const { VW, VH } = this.m;
+    const H = this.head;
     const p = this.profile;
-    this.ui.add(addPanel(this, 0, 0, VW, 24, 'parch'));
-    if (this.inGameBack) this.ui.add(new Button(this, 3, 2, 24, 20, { icon: 'back', onClick: () => this.back() }));
-    this.ui.add(addText(this, 32, 4, this.garrisonHex ? 'Garrison' : 'Online army', 'red'));
-    if (!p) {
-      this.ui.add(addText(this, VW / 2, 60, this.msg, 'ink', 0.5, VW - 20));
+    H.add(addPanel(this, 0, 0, VW, 26, 'parch'));
+    let left = 6;
+    if (this.inGameBack) {
+      H.add(new Button(this, 3, 2, 26, 22, { icon: 'back', onClick: () => this.back() }));
+      left = 33;
+    }
+    // resources: gold, food, energy
+    let rx = VW - 6;
+    if (p) {
+      const parts: [string, string, boolean][] = [
+        ['stamina', `${Math.floor(p.energy)}`, p.energy < 10],
+        ['heart', `${Math.floor(p.resources.food)}`, false],
+        ['coin', `${Math.floor(p.resources.gold)}`, false],
+      ];
+      for (const [icon, txt, low] of parts) {
+        if (rx - left < 80) break;
+        const tx = addText(this, rx, 9, txt, low ? 'red' : 'ink', 1);
+        H.add(tx);
+        H.add(addIcon(this, rx - tx.width - 13, 7, icon));
+        rx -= tx.width + 18;
+      }
+    }
+    H.add(addText(this, left, 9, ellipsize((this.garrisonHex ? t('oarmy.garrison') : t('oarmy.title')).toUpperCase(), rx - left - 4), 'red'));
+    if (this.st !== 'ready' || !p) {
+      this.clearBody();
+      addEconState(this, this.body, 4, 30, VW - 8, VH - 34, this.st as EconState | 'loading', () => {
+        this.st = 'loading';
+        this.render();
+        void this.fetchData();
+      });
       return;
     }
-    const field = p.heroes.filter((h) => !h.garrison).length;
-    this.ui.add(addText(this, 32, 13, this.garrisonHex ? `Hex ${this.garrisonHex.q},${this.garrisonHex.r} - tap heroes to station` : `${p.heroes.length}/${ONLINE_RULES.maxArmy} heroes - ${field} in the field`, 'dim'));
-    addResourceBar(this, this.ui, 3, 26, VW - 6, p.resources, p.energy, p.energyMax);
-    const now = Date.now() - (Date.now() - p.now);
-    // hero list
-    const listY = 42;
-    const detailH = this.garrisonHex ? 0 : 118;
-    const listH = VH - listY - detailH - 32;
-    const area = new ScrollArea(this, this.ui, 3, listY, VW - 6, listH, S);
-    this.area = area;
-    let y = 0;
-    const heroes = this.garrisonHex ? p.heroes.filter((h) => !h.garrison || (h.garrison.q === this.garrisonHex!.q && h.garrison.r === this.garrisonHex!.r)) : p.heroes;
-    for (const oh of heroes) {
-      area.content.add(this.heroRow(oh, y, VW - 6, now));
-      y += 27;
-    }
-    area.setContentHeight(y);
-    // bottom
-    const by = VH - 30;
-    this.ui.add(addPanel(this, 0, by - 2, VW, 32, 'parch'));
-    if (this.garrisonHex) {
-      const d = this.hexDetail;
-      const others = (d?.garrison ?? []).filter((g) => !p.heroes.some((h) => h.hero.id === g.hero.id)).length;
-      this.ui.add(addText(this, 8, by + 4, `${this.garrisonPick.size + others}/${ONLINE_RULES.maxGarrison} stationed`, 'ink'));
-      if (others) this.ui.add(addText(this, 8, by + 14, `${others} from clan mates`, 'dim'));
-      this.ui.add(new Button(this, VW - 84, by + 2, 80, 26, { label: 'Station', icon: 'check', style: 'buttonSel', onClick: () => void this.saveGarrison() }));
-      return;
-    }
-    this.buildDetail(VH - 30 - detailH, detailH);
-    const n = 3;
-    const bw = Math.floor((VW - 8 - (n - 1) * 3) / n);
-    this.ui.add(new Button(this, 4, by + 2, bw, 26, { label: 'Recruit', icon: 'plus', onClick: () => this.openRecruit() }));
-    this.ui.add(new Button(this, 7 + bw, by + 2, bw, 26, { label: `Stash ${p.stash.length}`, icon: 'helmet', onClick: () => this.openStash(null) }));
-    this.ui.add(new Button(this, 10 + 2 * bw, by + 2, bw, 26, { label: 'Map', icon: 'map', onClick: () => this.back() }));
+    if (this.garrisonHex) this.bodyTop = this.buildGarrisonHead(p);
+    else this.bodyTop = this.buildHeroHead(p);
+    this.buildBody();
   }
 
-  private heroRow(oh: OwnedHeroView, y: number, w: number, now: number): Phaser.GameObjects.Container {
+  private buildGarrisonHead(p: ProfileView): number {
+    const { VW } = this.m;
+    const g = this.garrisonHex!;
+    const d = this.hexDetail;
+    const others = (d?.garrison ?? []).filter((x) => !p.heroes.some((h) => h.hero.id === x.hero.id)).length;
+    this.head.add(addPanel(this, 0, 26, VW, 26, 'dark'));
+    this.head.add(addText(this, 6, 31, ellipsize(t('oarmy.garrisonHint', { q: g.q, r: g.r }).toUpperCase(), VW - 12), 'gold'));
+    const line = `${t('oarmy.stationed', { n: this.garrisonPick.size + others, max: ONLINE_RULES.maxGarrison })}${others ? ` · ${t('oarmy.clanMates', { n: others })}` : ''}`;
+    this.head.add(addText(this, 6, 41, ellipsize(line.toUpperCase(), VW - 12), 'title'));
+    return 54;
+  }
+
+  private buildHeroHead(p: ProfileView): number {
+    const L = this.head;
+    const { VW } = this.m;
+    const oh = this.selected();
+    const y0 = 28;
+    if (!oh) {
+      L.add(addPanel(this, 0, 26, VW, 30, 'dark'));
+      return 58;
+    }
     const h = oh.hero;
-    const row = this.add.container(0, y);
+    const cls = heroClass(h);
+    const compact = this.compact;
+    let slotY: number;
+    let ss: number;
+    if (!compact) {
+      const sw = 58;
+      const sh = 80;
+      L.add(new Stage(this, 4, y0, sw, sh, h, { scale: 1 }));
+      const tx = 4 + sw + 5;
+      const tw = VW - tx - 5;
+      L.add(addText(this, tx, y0 + 1, ellipsize(h.name.toUpperCase(), tw - 44), 'title'));
+      addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
+      L.add(addText(this, tx, y0 + 11, ellipsize(className(h).toUpperCase(), tw), 'gold'));
+      const lvW = addChip(this, L, tx, y0 + 21, t('hero.level', { n: h.level }), 0x8c2f25, 40);
+      const pw = addText(this, VW - 5, y0 + 23, t('hero.power', { n: powerRating(h) }), 'title', 1);
+      L.add(pw);
+      const status = this.status(oh, p.now);
+      if (status) addChip(this, L, tx + lvW + 3, y0 + 21, status.text, status.color, VW - 5 - pw.width - 4 - (tx + lvW + 3));
+      const gy = y0 + 36;
+      const gw = Math.max(22, Math.min(30, Math.floor((tw - 3 * SIZE.gap) / 4)));
+      ROMAN.forEach((r, g) =>
+        L.add(
+          new Button(this, tx + g * (gw + SIZE.gap), gy, gw, 22, {
+            label: r,
+            style: h.group === g ? 'buttonSel' : 'button',
+            tip: `${t('army.group')} ${r}: ${groupName(g)}. ${t('army.groupTip')}`,
+            id: `oarmy.group.${g}`,
+            onClick: () => h.group !== g && void this.act(() => onlineApi.army({ [h.id]: g }), t('army.groupSet', { name: h.name, group: groupName(g) })),
+          }),
+        ),
+      );
+      const gx = tx + 4 * (gw + SIZE.gap);
+      if (VW - 5 - gx > 30) L.add(addText(this, gx + 2, gy + 7, ellipsize(groupName(h.group).toUpperCase(), VW - 5 - gx - 2), 'title'));
+      ss = 26;
+      slotY = y0 + sh + 4;
+    } else {
+      L.add(this.add.image(4, y0, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
+      const tx = 31;
+      const tw = VW - tx - 5;
+      L.add(addText(this, tx, y0 + 1, ellipsize(h.name.toUpperCase(), tw - 42), 'title'));
+      addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
+      const lvW = addChip(this, L, tx, y0 + 12, t('hero.level', { n: h.level }), 0x8c2f25, 40);
+      const pw = addText(this, VW - 5, y0 + 14, `${powerRating(h)}`, 'title', 1);
+      L.add(pw);
+      const st = this.status(oh, p.now);
+      L.add(addText(this, tx + lvW + 3, y0 + 14, ellipsize((st?.text ?? className(h)).toUpperCase(), VW - 5 - pw.width - 4 - (tx + lvW + 3)), st ? FONT_RED_LIGHT : 'gold'));
+      ss = 22;
+      slotY = y0 + 27;
+    }
+    const n = SLOTS.length;
+    ss = Math.min(ss, Math.floor((VW - 8 - (n - 1) * SIZE.gap) / n));
+    const step = Math.min(ss + 8, Math.floor((VW - 8 - ss) / (n - 1)));
+    const x0 = Math.round((VW - (ss + step * (n - 1))) / 2);
+    SLOTS.forEach((s, i) => this.slotObjs.set(s, addSlotTile(this, L, x0 + i * step, slotY, s, h.equip[s], { size: ss, onTap: () => this.tapSlot(s) })));
+    const bottom = slotY + ss + 5;
+    L.addAt(addPanel(this, 0, 26, VW, bottom - 26 - 1, 'dark'), 0);
+    void cls;
+    return bottom;
+  }
+
+  private status(oh: OwnedHeroView, now: number): { text: string; color: number } | null {
+    if (oh.busy) return { text: t('oarmy.inBattle'), color: 0xd8a840 };
+    if (oh.woundedUntil > now) return { text: t('oarmy.wounded', { t: fmtDuration(oh.woundedUntil - now) }), color: COLOR.bad };
+    if (oh.garrison) return { text: t('oarmy.holds', { q: oh.garrison.q, r: oh.garrison.r }), color: 0x4a6b9a };
+    return null;
+  }
+
+  private clearBody(): void {
+    this.list?.destroy();
+    this.list = null;
+    this.stash?.destroy();
+    this.stash = null;
+    this.drag.targets = [];
+    this.drag.cancel();
+    this.body.removeAll(true);
+  }
+
+  private buildBody(): void {
+    const keep = this.list?.area.scrollY ?? 0;
+    this.clearBody();
+    const p = this.profile!;
+    const { VW, VH } = this.m;
+    let y = this.bodyTop;
+    const footY = VH - 36;
+    if (!this.garrisonHex) {
+      const tabs = new Tabs(this, 4, y, VW - 8, [t('army.roster', { n: p.heroes.length, max: ONLINE_RULES.maxArmy }), t('army.stash', { n: p.stash.length })], {
+        selected: this.tab === 'roster' ? 0 : 1,
+        ids: ['oarmy.tab.roster', 'oarmy.tab.stash'],
+        onChange: (i) => ((this.tab = i ? 'stash' : 'roster'), this.buildBody()),
+      });
+      this.body.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, footY - (y + SIZE.tabH - 2), 'parch'));
+      this.body.add(tabs);
+      y += SIZE.tabH + 4;
+    } else this.body.add(addPanel(this, 0, y - 2, VW, footY - y + 2, 'parch'));
+    const h = footY - 3 - y;
+    if (this.tab === 'stash' && !this.garrisonHex) this.buildStash(p, y, h);
+    else this.buildRoster(p, y, h, keep);
+    this.buildFoot(p, footY);
+  }
+
+  private rosterHeroes(p: ProfileView): OwnedHeroView[] {
+    const g = this.garrisonHex;
+    return g ? p.heroes.filter((h) => !h.garrison || (h.garrison.q === g.q && h.garrison.r === g.r)) : p.heroes;
+  }
+
+  private buildRoster(p: ProfileView, y: number, h: number, keep: number): void {
+    const { VW } = this.m;
+    const heroes = this.rosterHeroes(p);
+    if (!heroes.length) {
+      this.body.add(addEmptyState(this, 4, y, VW - 8, h, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint') }));
+      return;
+    }
+    this.list = new ScrollList(this, this.body, 4, y, VW - 8, h, {
+      count: heroes.length,
+      rowH: 30,
+      render: (i, row, rw, rh) => this.heroRow(heroes[i], p.now, row, rw, rh),
+      onTap: (i) => this.tapHero(heroes[i]),
+      id: (i) => `oroster:${i}`,
+    });
+    this.list.area.setScroll(keep);
+  }
+
+  private heroRow(oh: OwnedHeroView, now: number, row: Phaser.GameObjects.Container, w: number, rh: number): void {
+    const h = oh.hero;
     const sel = this.garrisonHex ? this.garrisonPick.has(h.id) : this.sel === h.id;
-    const bg = addPanel(this, 0, 0, w, 25, sel ? 'buttonSel' : 'inset').setInteractive();
-    row.add(bg);
-    const img = this.add.image(2, -8, ensureDoll(this, dollFromHero(h)), dollFrame(0, 0)).setOrigin(0, 0);
-    img.setCrop(4, 10, 26, 23);
-    row.add(img);
-    const font = sel ? 'light' : 'ink';
-    row.add(addText(this, 30, 4, `${h.name} - lv ${h.level}`, font));
-    const wpn = h.equip.weapon ? itemDef(h.equip.weapon.def).name : 'Unarmed';
-    const state = oh.busy ? 'in battle' : oh.woundedUntil > now ? `wounded ${fmtDuration(oh.woundedUntil - now)}` : oh.garrison ? `holds ${oh.garrison.q},${oh.garrison.r}` : `group ${ROMAN[h.group] ?? 'I'}`;
-    row.add(addText(this, 30, 14, `${wpn} - ${state}`, sel ? 'light' : 'dim'));
-    row.add(addText(this, w - 6, 4, `${Math.round(heroPower(h))}`, font, 1));
-    tappable(bg, this.area, () => {
-      if (this.garrisonHex) {
-        if (oh.busy) return;
-        if (this.garrisonPick.has(h.id)) this.garrisonPick.delete(h.id);
-        else this.garrisonPick.add(h.id);
-      } else this.sel = h.id;
-      const scroll = this.area?.scrollY ?? 0;
-      this.render();
-      this.area?.setScroll(scroll);
-    });
-    return row;
+    row.add(addPanel(this, 0, 0, w, rh, sel ? 'buttonSel' : 'button'));
+    const cls = heroClass(h);
+    const fr = this.add.graphics();
+    fr.fillStyle(0x1d140f, 1);
+    fr.fillRect(3, 3, 24, 24);
+    fr.fillStyle(roleColor(cls.role), 1);
+    fr.fillRect(4, 4, 22, 22);
+    row.add(fr);
+    row.add(this.add.image(3, 3, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
+    const st = this.status(oh, now);
+    const x = 31;
+    const right = w - 4;
+    addGroupBadge(this, row, right - 12, 3, h.group);
+    const pw = addText(this, right, 18, `${powerRating(h)}`, sel ? 'light' : 'ink', 1);
+    row.add(pw);
+    row.add(addText(this, x, 4, ellipsize(h.name.toUpperCase(), right - 16 - x), sel ? 'light' : 'ink'));
+    const sub = st ? st.text : `${t('hero.level', { n: h.level })} ${cls.short}`;
+    const subT = addText(this, x, 17, ellipsize(sub.toUpperCase(), right - pw.width - 4 - x - (st ? 0 : 42)), sel ? 'light' : st ? 'red' : 'dim');
+    row.add(subT);
+    if (!st) addStars(this, row, Math.min(x + subT.width + 4, right - pw.width - 4 - 39), 19, heroStars(h));
+    if (oh.woundedUntil > now) row.add(addIcon(this, 9, 9, 'cross', 'L'));
   }
 
-  private buildDetail(y: number, h: number): void {
+  private tapHero(oh: OwnedHeroView): void {
+    const id = oh.hero.id;
+    if (this.garrisonHex) {
+      if (oh.busy) return;
+      if (this.garrisonPick.has(id)) this.garrisonPick.delete(id);
+      else this.garrisonPick.add(id);
+    } else this.sel = id;
+    const s = this.list?.area.scrollY ?? 0;
+    this.render();
+    this.list?.area.setScroll(s);
+  }
+
+  private buildFoot(p: ProfileView, by: number): void {
     const { VW } = this.m;
-    const p = this.profile!;
-    const oh = p.heroes.find((x) => x.hero.id === this.sel);
-    this.ui.add(addPanel(this, 3, y, VW - 6, h - 2, 'parch'));
+    this.body.add(addPanel(this, 0, by - 2, VW, 38, "parch"));
+    const y = by + 3;
+    if (this.garrisonHex) {
+      this.body.add(new Button(this, 4, y, VW - 8, SIZE.btnH, { label: t('oarmy.station'), icon: 'check', variant: 'primary', id: 'oarmy.station', onClick: () => void this.saveGarrison() }));
+      return;
+    }
+    const n = 3;
+    const mapW = 26;
+    const bw = Math.floor((VW - 8 - mapW - n * SIZE.gap) / n);
+    this.body.add(new Button(this, 4, y, bw, 30, { label: t('army.recruit'), icon: 'plus', id: 'oarmy.recruit', onClick: () => this.openRecruit(p) }));
+    this.body.add(new Button(this, 4 + bw + SIZE.gap, y, bw, 30, { label: t('oarmy.market'), icon: 'coin', id: 'oarmy.market', onClick: () => this.scene.start('Market', { back: { scene: 'OnlineArmy' } }) }));
+    this.body.add(new Button(this, 4 + 2 * (bw + SIZE.gap), y, bw, 30, { label: t('shop.title'), icon: 'star', id: 'oarmy.shop', onClick: () => this.scene.start('Shop', { back: { scene: 'OnlineArmy' } }) }));
+    this.body.add(new Button(this, VW - 4 - mapW, y, mapW, 30, { icon: 'map', label: t('army.map'), iconOnly: true, variant: 'primary', id: 'oarmy.map', onClick: () => this.back() }));
+  }
+
+  // ------------------------------------------------------------------ gear
+
+  private tapSlot(slot: Slot): void {
+    const oh = this.selected();
     if (!oh) return;
-    const hero = oh.hero;
-    this.ui.add(addText(this, 9, y + 5, hero.name, 'red'));
-    // battle group
-    ROMAN.forEach((r, i) => {
-      const b = new Button(this, VW - 6 - (4 - i) * 21, y + 3, 19, 16, {
-        label: r,
-        style: hero.group === i ? 'buttonSel' : 'button',
-        onClick: () => void this.act(() => onlineApi.army({ [hero.id]: i })),
-      });
-      this.ui.add(b);
-    });
-    this.ui.add(addText(this, 9, y + 14, `${GROUP_NAMES[hero.group] ?? ''} - ${hero.kills} kills - ${hero.battles} battles`, 'dim'));
-    SLOTS.forEach((slot, i) => {
-      const sy = y + 25 + i * 17;
-      const it = hero.equip[slot];
-      const label = it ? `${itemDef(it.def).name}${it.rarity !== 'common' ? ` (${RARITY_LABEL[it.rarity]})` : ''} ${it.cond}%` : '-';
-      this.ui.add(addText(this, 9, sy + 4, slot, 'dim'));
-      const b = new Button(this, 52, sy, VW - 62, 15, { label, onClick: () => this.openStash(slot) });
-      this.ui.add(b);
+    if (this.tab !== 'stash' || this.stashState.slot !== slot) {
+      this.stashState.slot = slot;
+      this.tab = 'stash';
+      this.buildBody();
+    }
+    const it = oh.hero.equip[slot];
+    if (!it) return;
+    openItemCard(this, {
+      item: it,
+      hero: oh.hero,
+      equipped: true,
+      notes: [{ text: t('stash.equippedBy', { name: oh.hero.name }) }],
+      actions: [{ label: t('stash.unequip'), icon: 'back', id: 'stash.unequip', onClick: () => void this.act(() => onlineApi.equip(oh.hero.id, slot, null)) }],
     });
   }
 
-  /** Stash picker: for a slot of the selected hero (or just browsing). */
-  private openStash(slot: Slot | null): void {
+  private buildStash(p: ProfileView, y: number, h: number): void {
     const { VW } = this.m;
-    const p = this.profile!;
-    const hero = p.heroes.find((x) => x.hero.id === this.sel)?.hero;
-    const items = p.stash.filter((it) => !slot || itemDef(it.def).slot === slot).slice(0, 8);
-    const worn = slot && hero ? hero.equip[slot] : undefined;
-    const rows = items.length + (worn ? 1 : 0);
-    this.modal = this.openM(56 + Math.max(1, rows) * 20 + 10, slot ? `${slot} for ${hero?.name ?? ''}` : 'Stash');
-    const md = this.modal;
-    let y = md.y + 26;
-    if (items.length === 0 && !worn) lines(this, md.c, VW / 2, y + 4, ['Nothing here. Win battles for loot.'], 'dim');
-    if (worn && hero) {
-      button(this, md.c, md.x + 8, y, md.w - 16, 18, `Take off ${itemDef(worn.def).name}`, () => {
-        this.closeModal();
-        void this.act(() => onlineApi.equip(hero.id, slot!, null));
+    this.stash = new StashGrid(this, this.body, 4, y, VW - 8, h, {
+      items: () => p.stash,
+      state: this.stashState,
+      hero: () => this.selected()?.hero,
+      drag: this.drag,
+      onTap: (it) => this.openStashItem(it),
+      empty: { title: t('stash.emptyTitle'), hint: t('market.sellEmptyHint') },
+    });
+    for (const [slot, o] of this.slotObjs) {
+      this.drag.targets.push({
+        rect: () => uiBoundsOf(this, o as unknown as Phaser.GameObjects.Components.Transform & { w?: number; h?: number; width?: number; height?: number }),
+        accepts: (it) => itemDef(it.def).slot === slot,
+        drop: (it) => this.equip(it),
       });
-      y += 20;
     }
-    for (const it of items) {
-      const def = itemDef(it.def);
-      const txt = `${def.name}${it.rarity !== 'common' ? ` (${RARITY_LABEL[it.rarity]})` : ''} ${it.cond}%`;
-      button(this, md.c, md.x + 8, y, md.w - 16, 18, slot ? txt : `${def.slot}: ${txt}`, () => {
-        if (!hero) return;
-        this.closeModal();
-        void this.act(() => onlineApi.equip(hero.id, def.slot, (it as Item).uid), 'ok');
-      });
-      y += 20;
-    }
-    button(this, md.c, VW / 2 - 35, md.y + md.h - 30, 70, 22, 'Close', () => this.closeModal(), { icon: 'check' });
   }
 
-  private openRecruit(): void {
-    const { VW } = this.m;
-    const p = this.profile!;
+  openStashItem(it: Item): void {
+    const oh = this.selected();
+    openItemCard(this, {
+      item: it,
+      hero: oh?.hero,
+      actions: [
+        { label: t('oarmy.market'), icon: 'coin', id: 'oarmy.sell', onClick: () => this.scene.start('Market', { tab: 'sell', back: { scene: 'OnlineArmy' } }) },
+        ...(oh ? [{ label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', onClick: () => this.equip(it) }] : []),
+      ],
+    });
+  }
+
+  private equip(it: Item): void {
+    const oh = this.selected();
+    if (!oh) return;
+    void this.act(() => onlineApi.equip(oh.hero.id, itemDef(it.def).slot, it.uid), t('army.equipped', { name: itemName(it) }));
+  }
+
+  // ------------------------------------------------------------------ recruit: class cards
+
+  private sample(a: Archetype): Hero {
+    const h = makeHero(new Rng(7 + RECRUIT_ARCHETYPES.indexOf(a)), { nextId: 1 }, 'greek', a, 1, 0);
+    return h;
+  }
+
+  openRecruit(p: ProfileView): void {
+    const { VW, VH } = this.m;
     const cost = ONLINE_RULES.recruitCost;
-    this.modal = this.openM(60 + Math.ceil(RECRUIT_ARCHETYPES.length / 2) * 26 + 30, 'Recruit');
-    const md = this.modal;
-    lines(this, md.c, VW / 2, md.y + 26, [`${cost.gold} gold, ${cost.food} food, 1 recruit each`, `You have ${p.resources.gold}g ${p.resources.food}f ${Math.floor(p.resources.recruits)}r`], 'dim');
-    const bw = Math.floor((md.w - 22) / 2);
-    RECRUIT_ARCHETYPES.forEach((a, i) => {
-      const bx = md.x + 8 + (i % 2) * (bw + 6);
-      const by = md.y + 50 + Math.floor(i / 2) * 26;
-      button(this, md.c, bx, by, bw, 22, a, () => {
-        this.closeModal();
-        void this.act(() => onlineApi.recruit(a as Archetype), 'ok');
-      });
+    const w = Math.min(VW - 12, 210);
+    const inner = w - 16;
+    const rowH = 44;
+    const m = openModal(this, { title: t('oarmy.recruitTitle'), w, h: Math.min(VH - 12, 26 + 22 + RECRUIT_ARCHETYPES.length * (rowH + SIZE.gap) + SIZE.btnH + 14) });
+    const { c, x } = m;
+    c.add(addText(this, x + 8, m.y + 22, ellipsize(t('oarmy.recruitCost', { gold: cost.gold, food: cost.food }).toUpperCase(), inner), 'red'));
+    c.add(addText(this, x + 8, m.y + 32, ellipsize(t('oarmy.youHave', { gold: Math.floor(p.resources.gold), food: Math.floor(p.resources.food), rec: Math.floor(p.resources.recruits) }).toUpperCase(), inner), 'dim'));
+    const can = p.resources.gold >= cost.gold && p.resources.food >= cost.food && p.resources.recruits >= 1 && p.heroes.length < ONLINE_RULES.maxArmy;
+    const why = p.heroes.length >= ONLINE_RULES.maxArmy ? t('town.armyFull') : t('econ.noFunds');
+    const by = m.y + m.h - 8 - SIZE.btnH;
+    const top = m.y + 44;
+    const list = new ScrollList(this, c, x + 8, top, inner, by - 4 - top, {
+      count: RECRUIT_ARCHETYPES.length,
+      rowH,
+      render: (i, row, rw, rh) => {
+        const a = RECRUIT_ARCHETYPES[i];
+        const hero = this.sample(a);
+        const cls = heroClass(hero);
+        row.add(addPanel(this, 0, 0, rw, rh, 'button'));
+        const pf = this.add.graphics();
+        pf.fillStyle(0x1d140f, 1);
+        pf.fillRect(3, 3, 30, 30);
+        pf.fillStyle(roleColor(cls.role), 1);
+        pf.fillRect(4, 4, 28, 28);
+        row.add(pf);
+        const img = this.add.image(6, 6, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0).setInteractive();
+        uiId(img, 'recruit.card');
+        img.on('pointerup', () => !list.area.moved && openClassCard(this, { hero, title: className(hero), action: { label: t('town.hire'), icon: 'plus', id: 'oarmy.recruitCard', disabled: can ? undefined : why, onClick: () => (m.close(), void this.act(() => onlineApi.recruit(a), t('town.hired', { name: className(hero) }))) } }));
+        row.add(img);
+        const bw = 40;
+        const b = new Button(this, rw - bw - 3, 10, bw, SIZE.btnH, { icon: 'plus', label: t('town.hire'), iconOnly: true, variant: can ? 'primary' : 'secondary', id: 'oarmy.hire', onClick: () => (m.close(), void this.act(() => onlineApi.recruit(a), t('town.hired', { name: className(hero) }))) });
+        b.setEnabled(can, why);
+        row.add(b);
+        const tx = 38;
+        const tw = rw - tx - bw - 8;
+        row.add(addText(this, tx, 4, ellipsize(className(hero).toUpperCase(), tw), 'red'));
+        addChip(this, row, tx, 15, roleName(cls.role), roleColor(cls.role), tw);
+        row.add(addText(this, tx, 30, ellipsize(`+${roleTraits(cls.role).good}`.toUpperCase(), tw), 'good'));
+      },
     });
-    button(this, md.c, VW / 2 - 35, md.y + md.h - 30, 70, 22, 'Close', () => this.closeModal(), { icon: 'close' });
+    c.once('destroy', () => list.destroy());
+    c.add(new Button(this, x + 8, by, inner, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
   }
 
   private async saveGarrison(): Promise<void> {
     const h = this.garrisonHex!;
-    await this.act(() => onlineApi.garrison(h, [...this.garrisonPick]), 'ok');
+    await this.act(() => onlineApi.garrison(h, [...this.garrisonPick]), t('oarmy.station'));
     if (this.sys.isActive() && !this.busy) this.scene.start('Online', { focus: h });
   }
 }

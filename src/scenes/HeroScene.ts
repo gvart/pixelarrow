@@ -289,7 +289,7 @@ export class HeroScene extends BaseScene {
     y += 12;
     const next = previewAttrs(h, this.pending);
     ATTR_IDS.forEach((k) => {
-      c.add(addPanel(this, 0, y, w, 25, this.pending[k] ? 'parch' : 'inset'));
+      c.add(addPanel(this, 0, y, w, 25, 'inset'));
       c.add(addText(this, 5, y + 4, t(`attr.${k}.short` as TKey), 'red'));
       const val = h.attrs[k] + this.pending[k];
       c.add(addText(this, 40, y + 4, `${val}`, this.pending[k] ? 'good' : 'ink', 1));
@@ -483,11 +483,17 @@ export class HeroScene extends BaseScene {
       // node button with the perk icon
       const node = new Button(this, 26, ry + 5, 26, 24, {
         icon: perkIcon(p),
-        style: known ? 'buttonSel' : open ? 'button' : 'buttonOff',
+        label: tOr(`perk.${id}.name`, p.name),
+        iconOnly: true,
+        style: known ? 'buttonSel' : 'button',
         id: `perk:${id}`,
-        tip: tOr(`perk.${id}.name`, p.name),
         onClick: () => this.openPerk(h, p, tree),
       });
+      if (!known && !open) {
+        // locked: dimmed, still opens the perk's card
+        const dim = this.add.rectangle(27, ry + 6, 24, 21, 0x6e5a44, 0.45).setOrigin(0, 0);
+        node.add(dim.setPosition(1, 1));
+      }
       c.add(node);
       if (open) {
         const ring = this.add.rectangle(25, ry + 4, 28, 26).setOrigin(0, 0).setStrokeStyle(2, P.gold);
