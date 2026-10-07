@@ -147,7 +147,7 @@ await shot('04-deploy');
 await call('Battle', `s.openGroups(); return 1;`);
 await wait(400);
 await shot('05-deploy-groups');
-await call('Battle', `s.overlay.destroy(); s.overlay = null; s.groupArea && s.groupArea.destroy(); s.buildHud(); return 1;`);
+await call('Battle', `s.closeGroups(true); return 1;`);
 
 // Fight: advance, skirmishers loose; run until contact (auto-pause) or a few seconds
 await call('Battle', `s.startFight(); s.selGroup = 0; s.command({kind:'order', group:-1, order:'advance'}); s.selGroup = 1; s.command({kind:'loose', group:-1, on:true}); s.selGroup = 0; s.buildHud(); s.speed = 2; return 1;`);
@@ -165,10 +165,14 @@ for (let i = 0; i < 10; i++) {
   const n = await call('Battle', `return s.sim.units.filter(u => u.side === 0 && u.engaged).length;`);
   if (n >= 3) break;
 }
-await call('Battle', `s.selGroup = 0; s.selUnit = -1; s.buildHud(); s.useAbility('berserk'); s.useAbility('bash'); return 1;`);
+await call('Battle', `s.selGroup = 0; s.selUnit = -1; s.cat = 'abilities'; s.buildHud(); s.useAbility('berserk'); s.useAbility('bash'); return 1;`);
 await wait(350);
 await call('Battle', `s.useAbility('rally'); return 1;`);
 await wait(250);
+// the command panel: group cards, colour-coded categories, abilities with cooldown sweeps
+await call('Battle', `s.setPaused(true); s.hideBanner(); s.setFollow(false); s.cameras.main.setZoom(2); const f = s.focusPoint(); s.centerCam(f.x, f.y); s.buildHud(); return 1;`);
+await wait(300);
+await shot('30-battle-panel');
 await call('Battle', `s.setPaused(true); const u = s.sim.units.find(u => u.side === 0 && u.berserk > 0) || s.sim.units.find(u => u.side === 0 && u.state === 'ready'); s.setFollow(false); s.cameras.main.setZoom(3); const p = s.project(u.x, u.y); s.centerCam(p.x, p.y - 14); return 1;`);
 await wait(200);
 await shot('18-battle-abilities');
@@ -192,15 +196,29 @@ await call('Battle', `s.overlay.list.find((o) => o.opts && o.opts.label === 'Sta
 // weakened first and the heroes are close to a level (staging only).
 await call('Battle', `window.__state.campaign.data.heroes.forEach((h, i) => { if (i >= 4) h.xp = 60; }); s.sim.units.filter(u => u.side === 1 && u.state === 'ready').forEach(u => { u.hp = Math.min(u.hp, 4); u.morale = Math.min(u.morale, u.stats.morale * 0.4); }); s.paused = false; for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`);
 for (let i = 0; i < 20 && !(await active('Results')); i++) await wait(250);
-await wait(900);
+await wait(2200);
+await shot('32-battle-report');
+await call('Results', `s.showPage('heroes'); return 1;`);
+await wait(1600);
 await shot('19-level-up');
-await wait(2000);
+await call('Results', `s.showPage('spoils'); return 1;`);
+await wait(900);
 await shot('08-results');
-await call('Results', `const o = window.__state.last.outcome; const ids = o.loot.slice(0, o.picks).map(i => i.uid); ids.slice(0, -1).forEach(id => s.chosen.add(id)); if (ids.length) s.toggle(ids[ids.length - 1]); return 1;`);
+await wait(3000);
+await call('Results', `const r = s.report; r.loot.slice(0, r.picks).forEach((it) => s.toggle(it.uid)); return 1;`);
 await wait(300);
 await shot('09-results-picked');
 await call('Results', `s.finish(); return 1;`);
 await wait(1500);
+
+// Online deployment: 15 s countdown, the enemy's zone (not its men), Ready (a duel whose opponent is ready)
+await page.evaluate(() => (window.__state.pending = null));
+await scene('Battle', { fresh: true });
+for (let i = 0; i < 20 && !(await active('Battle')); i++) await wait(250);
+await wait(800);
+await call('Battle', `const source = { setup: s.verifySetup, heroes: s.views.map((v) => v.hero), side: 0, label: 'vs Hektor', opponent: 'Hektor', onFinish() {}, onLeave() {}, lockstep: { attach() {}, issue() {}, ready() {}, canStep: () => false, beforeStep() {}, status: () => null, aborted: () => null, opponentReady: () => true } }; s.scene.restart({ source }); return 1;`);
+await wait(4200);
+await shot('31-online-deploy-countdown');
 
 // Army: roster, stash with a comparison, after loot
 await scene('Army', { from: 'World' });

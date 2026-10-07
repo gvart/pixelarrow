@@ -29,6 +29,9 @@ import { duelSource, type DuelOutcome } from '../../online/duelDriver';
 import type { BattleSource } from '../../online/battleSource';
 import type { ServerMsg, DuelStart, PresencePlayer } from '../../online/protocol';
 import type { Battle } from '../../sim/battle';
+import { t as tr } from '../../i18n';
+import { attackReport, duelReport } from '../../online/report';
+import { showReport } from '../ResultsScene';
 import { CLAN_COLOR, HEX_COLORS, HEX_NAMES, MINE_COLOR, addResourceBar, button, fmtDuration, lines, openModal, ownerColor, resourceLine, type Modal } from './common';
 
 const HEX = 12; // hex radius in world pixels
@@ -685,7 +688,12 @@ export class OnlineScene extends BaseScene {
     this.lobbyOpen = false;
     const source = duelSource(
       m,
-      (outcome) => backToOnline(game, { duel: outcome }),
+      (outcome) => {
+        // a finished duel gets the battle report; an aborted one the map's message
+        const report = duelReport(outcome);
+        if (report) showReport(game, report, () => backToOnline(game, {}));
+        else backToOnline(game, { duel: outcome });
+      },
       () => backToOnline(game, {}),
     );
     this.scene.start('Battle', { source });
@@ -783,14 +791,14 @@ export function attackSource(game: Phaser.Game, t: AttackTicket, label: string):
     setup: t.setup,
     heroes: [...t.attackers, ...t.defenders],
     side: 0,
-    label: `vs ${label}`,
+    label: tr('battle.vs', { name: label }),
     onFinish(sim: Battle, deployOrders: number) {
       // Only the player's orders are sent (the bot's come back from the seed); count the player's deployment orders.
       const orders = sim.orderLog.filter((o) => o.side === 0).map((o) => ({ tick: o.tick, side: o.side, order: o.order }));
       const deployed = sim.orderLog.slice(0, deployOrders).filter((o) => o.side === 0).length;
       onlineApi
         .attackSubmit(t.ticket, orders, deployed, { winner: sim.winner ?? -1, ticks: sim.tick, hash: sim.hash() })
-        .then((r) => backToOnline(game, { attack: r, focus: t.hex }))
+        .then((r) => showReport(game, attackReport(r, this.label), () => backToOnline(game, { focus: t.hex })))
         .catch((e) => backToOnline(game, { attack: { error: errorText(e) }, focus: t.hex }));
     },
     onLeave() {

@@ -58,6 +58,42 @@ const until = async (page, fn, ms = 8000) => {
 };
 const activeIs = (k) => new Function(`return window.__game.scene.isActive(${JSON.stringify(k)})`);
 
+/**
+ * A fresh skirmish in deployment. online = 'attack' | 'duel' restarts it as an
+ * online battle (the same setup through a BattleSource; a duel with a stub
+ * lockstep driver whose opponent is ready).
+ */
+async function battle(p, online) {
+  await ev(p, () => {
+    window.__state.pending = null;
+    window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { fresh: true }));
+  });
+  await until(p, activeIs('Battle'));
+  await wait(p, 600);
+  if (!online) return;
+  await ev(p, (mode) => {
+    const s = window.__game.scene.getScene('Battle');
+    const source = { setup: s.verifySetup, heroes: s.views.map((v) => v.hero), side: 0, label: 'vs Brigands', opponent: 'Hektor', onFinish() {}, onLeave() {} };
+    if (mode === 'duel')
+      source.lockstep = { attach() {}, issue() {}, ready() {}, canStep: () => false, beforeStep() {}, status: () => null, aborted: () => null, opponentReady: () => true };
+    s.scene.restart({ source });
+  }, online);
+  await wait(p, 600);
+}
+
+/** A won skirmish, run to the end: the report. */
+async function results(p) {
+  await battle(p);
+  await call(
+    p,
+    'Battle',
+    `s.startFight(); for (const g of s.sim.groups) if (g.side === 0) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' }); s.sim.units.filter(u => u.side === 1 && u.state === 'ready').forEach(u => { u.hp = Math.min(u.hp, 1); }); s.paused = false; for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`,
+  );
+  // slow machines: the battle ends 1.8 s after the last blow, then the report animates in
+  await until(p, () => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 20000);
+  return wait(p, 3000);
+}
+
 const SCREENS = [
   { id: 'menu', owner: 'F', run: async (p) => (await start(p, 'Menu'), wait(p, 700)) },
   { id: 'menu-settings', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openSettings(); return 1;'), wait(p, 400)) },
@@ -141,76 +177,60 @@ const SCREENS = [
       return wait(p, 900);
     },
   },
+  // ---- battle (owner A): deployment, the command panel, group assignment, retreat, online rules, the report
+  { id: 'battle-deploy', owner: 'A', run: async (p) => (await battle(p), wait(p, 700)) },
   {
-    id: 'battle-deploy',
+    id: 'battle-deploy-formation',
     owner: 'A',
-    run: async (p) => {
-      await ev(p, () => {
-        window.__state.pending = null;
-        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { fresh: true }));
-      });
-      await until(p, activeIs('Battle'));
-      return wait(p, 1200);
-    },
+    // the compact panel opens the formation commands in its row
+    run: async (p) => (await battle(p), await call(p, 'Battle', `s.openCategory('formation'); return 1;`), wait(p, 400)),
   },
-  {
-    id: 'battle-groups',
-    owner: 'A',
-    run: async (p) => {
-      await ev(p, () => {
-        window.__state.pending = null;
-        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { fresh: true }));
-      });
-      await until(p, activeIs('Battle'));
-      await wait(p, 900);
-      await call(p, 'Battle', 's.openGroups(); return 1;');
-      return wait(p, 500);
-    },
-  },
+  { id: 'battle-groups', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', 's.openGroups(); return 1;'), wait(p, 500)) },
   {
     id: 'battle-fight',
     owner: 'A',
     run: async (p) => {
-      await ev(p, () => {
-        window.__state.pending = null;
-        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { fresh: true }));
-      });
-      await until(p, activeIs('Battle'));
-      await wait(p, 900);
+      await battle(p);
       await call(p, 'Battle', `s.startFight(); s.command({kind:'order', group:-1, order:'advance'}); for (let i = 0; i < 20 * 6 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); s.buildHud(); return 1;`);
       return wait(p, 700);
     },
   },
-  {
-    id: 'battle-retreat',
+  ...['movement', 'attack', 'formation', 'abilities'].map((cat) => ({
+    id: `battle-cmd-${cat}`,
     owner: 'A',
     run: async (p) => {
-      await ev(p, () => {
-        window.__state.pending = null;
-        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { fresh: true }));
-      });
-      await until(p, activeIs('Battle'));
-      await wait(p, 900);
-      await call(p, 'Battle', `s.startFight(); s.openRetreat(); return 1;`);
+      await battle(p);
+      // a hero with abilities is selected (his strip shows over the panel), the category open
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 2; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); const u = s.sim.units.find((x) => x.side === 0 && x.abil.length > 0) || s.sim.units.find((x) => x.side === 0); s.selGroup = u.group; s.selUnit = ${cat === 'movement' ? 'u.id' : '-1'}; s.cat = '${cat}'; s.catOpen = true; s.buildHud(); return 1;`);
+      return wait(p, 500);
+    },
+  })),
+  { id: 'battle-retreat', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.startFight(); s.openRetreat(); return 1;`), wait(p, 500)) },
+  { id: 'battle-online-deploy', owner: 'A', run: async (p) => (await battle(p, 'attack'), wait(p, 900)) },
+  { id: 'battle-duel-deploy', owner: 'A', run: async (p) => (await battle(p, 'duel'), await call(p, 'Battle', 's.startFight(); return 1;'), wait(p, 900)) },
+  {
+    id: 'battle-online-fight',
+    owner: 'A',
+    run: async (p) => {
+      await battle(p, 'attack');
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 4 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.hideBanner(); s.buildHud(); return 1;`);
       return wait(p, 500);
     },
   },
+  { id: 'results', owner: 'A', run: async (p) => (await results(p), wait(p, 300)) },
+  { id: 'results-heroes', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('heroes'); return 1;`), wait(p, 2500)) },
+  { id: 'results-spoils', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('spoils'); return 1;`), wait(p, 3500)) },
   {
-    id: 'results',
+    id: 'results-inspect',
+    owner: 'A',
+    run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('spoils'); return 1;`), await wait(p, 600), await call(p, 'Results', `s.report.loot.forEach((_, i) => s.revealed.add(i)); s.showPage('spoils'); s.inspect(0); return 1;`), wait(p, 500)),
+  },
+  {
+    id: 'results-online',
     owner: 'A',
     run: async (p) => {
-      await ev(p, () => {
-        window.__state.pending = null;
-        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { fresh: true }));
-      });
-      await until(p, activeIs('Battle'));
-      await wait(p, 900);
-      await call(
-        p,
-        'Battle',
-        `s.startFight(); for (const g of s.sim.groups) if (g.side === 0) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' }); s.sim.units.filter(u => u.side === 1 && u.state === 'ready').forEach(u => { u.hp = Math.min(u.hp, 1); }); s.paused = false; for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`,
-      );
-      await until(p, activeIs('Results'), 10000);
+      await results(p);
+      await call(p, 'Results', `const r = { ...s.report, online: 'attack', verified: true, picks: 0, lootInStash: true, notes: ['Hex taken!'] }; s.scene.restart({ report: r, done: () => {} }); return 1;`);
       return wait(p, 3500);
     },
   },
@@ -301,7 +321,8 @@ async function runConfig(browser, cfg, screens) {
   await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"code":"not_configured","message":"down"}}' }));
   await page.route('**/telegram.org/**', (r) => r.abort());
   const url = `${base}${base.includes('?') ? '&' : '?'}lang=${cfg.lang}${cfg.insets === 'tg' ? '#tgWebAppVersion=8.0&tgWebAppPlatform=ios' : ''}`;
-  await page.goto(url);
+  // a busy machine can be slow to serve the first load: one more try
+  await page.goto(url, { timeout: 60000 }).catch(() => page.goto(url, { timeout: 60000 }));
   await until(page, () => !!window.__game && window.__game.scene.isActive('Menu'), 15000);
   // A fixed campaign, staged like the screenshot tour: more heroes, gold, perks; no one-time hints.
   await ev(page, async () => {

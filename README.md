@@ -23,6 +23,19 @@ font, icons, effects) is generated procedurally in code at startup.
 | ![Deployment](docs/screenshots/04-deploy.png) | ![Battle](docs/screenshots/06-battle-contact.png) | ![Village](docs/screenshots/15-village.png) |
 | ![Menu](docs/screenshots/01-menu.png) | ![Army](docs/screenshots/03-army-stash-compare.png) | ![Retreat](docs/screenshots/12-retreat-confirm.png) |
 
+| ![Battle panel](docs/screenshots/30-battle-panel.png) | ![Online deployment](docs/screenshots/31-online-deploy-countdown.png) | ![Battle report](docs/screenshots/32-battle-report.png) |
+
+The battle command panel groups orders by colour (Movement bronze, Attack red,
+Formation blue, Abilities gold, with cooldown sweeps); group cards show the
+class portrait, men, health, morale and the current order; long-press any
+button for an explanation, and a greyed-out button says why on tap. On small
+phones the panel folds into two rows. Online battles (attacks and duels) have
+no pause and no speed-up and open with a 15-second deployment: a countdown,
+the enemy's zone but not its men, and Ready (a duel starts when both are ready
+or the time is up). Every battle ends with the same report: a VICTORY or
+DEFEAT banner, count-up tiles, the hero of the battle, XP bars per hero and
+loot cards that turn over one by one (tap to inspect and compare, then pick).
+
 Game design and mechanics: [docs/DESIGN.md](docs/DESIGN.md). Where it is
 going (online multiplayer, clans, Telegram Stars) and the invariants the code
 keeps for that: [docs/ROADMAP.md](docs/ROADMAP.md).

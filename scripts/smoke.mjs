@@ -250,7 +250,9 @@ for (const d of [3, 4, 5, 6]) {
     const cam = s.cameras.main;
     // not on a soldier (a tap there selects him) nor on a tag
     const clear = s.views.every((v) => v.u.state === 'dead' || Math.hypot((v.spr.x - cam.worldView.x) * cam.zoom - x, (v.spr.y - v.tall * 0.45 - cam.worldView.y) * cam.zoom - y) > 34);
-    return clear && s.input.hitTestPointer({ x, y, camera: null }).length === 0;
+    // group tags are map markers: a tap near one selects its group
+    const offTags = [...s.tagPos.values()].every((t) => Math.hypot(t.x * s.m.S - x, t.y * s.m.S - y) > 26);
+    return clear && offTags && s.input.hitTestPointer({ x, y, camera: null }).length === 0;
   }, q.pts[0]);
   if (free || d === 6) {
     dest = c;
@@ -293,6 +295,13 @@ const ff = await ev(() => {
 });
 check('results screen', await until(() => active('Results'), 8000), JSON.stringify(ff));
 await wait(1500);
+check('report: victory banner and count-up tiles', await ev(() => { const s = window.__game.scene.getScene('Results'); return s.report.result === 'victory' && s.report.kills > 0; }));
+// the bottom button leads to the spoils first (cards turn over), then takes them
+if (await btn('Results', { icon: 'coin' })) {
+  await tapBtn('Results', { icon: 'coin' });
+  await wait(1200);
+  check('report: spoils page with loot cards', await ev(() => { const s = window.__game.scene.getScene('Results'); return s.page === 'spoils' && s.revealed.size > 0; }));
+}
 await tapBtn('Results', { icon: 'check' });
 check('back on the map after the battle', await until(() => active('World'), 5000));
 const gone = await ev((id) => ({ gone: !window.__state.campaign.world.party(id), victory: window.__state.last?.outcome?.victory, parties: window.__state.campaign.world.s.parties.map((p) => p.id) }), bandId);
@@ -378,6 +387,7 @@ const ready = await ev((hid) => {
   s.setPaused(true);
   s.selGroup = u.group;
   s.selUnit = u.id;
+  s.cat = 'abilities';
   s.buildHud();
   return s.sim.abilityReady(u, 'bash');
 }, hero0.id);
