@@ -51,7 +51,7 @@ async function beastBattle(enc, file, moment, opts = {}) {
     const t = window.__game.scene.getScene('BeastTrial');
     const st = window.__state;
     const enemy = G.beastEnemy(enc, t.level(enc), seed, st.campaign.data);
-    st.pending = { enemy, seed, label: enc, site: { base: 'plain', river: false, coast: false, rocky: false, woods: 0 } };
+    st.pending = { enemy, seed, label: enc, site: { base: enc === 'kraken' ? 'beach' : 'plain', river: false, coast: enc === 'kraken', rocky: false, woods: 0 } };
     t.scene.start('Battle');
   }, [enc, opts.seed ?? 4]);
   await until(() => window.__game.scene.isActive('Battle') && !!window.__game.scene.getScene('Battle').sim);
@@ -109,6 +109,31 @@ if (!only || only === 'harpies')
     const hs = s.sim.units.filter((u) => u.stats.boss === 'harpy' && u.state === 'ready');
     return hs.some((u) => s.sim.myth.get(u).mode === 1 && s.sim.myth.get(u).alt > 0.3) && hs.some((u) => s.sim.myth.get(u).mode === 2);
   }, { speed: 1 });
+if (!only || only === 'kraken')
+  await beastBattle('kraken', '49-world-boss.png', () => {
+    const s = window.__game.scene.getScene('Battle');
+    const arms = s.sim.units.filter((u) => u.stats.boss === 'kraken_arm');
+    return s.sim.tick > 20 * 8 && arms.filter((u) => u.engaged).length >= 2;
+  }, { speed: 1, zoom: 1.5 });
+
+/** The war-table map with beast lairs (and the world boss's HP bar), the lair panel open. */
+async function lairMap(file, preview) {
+  await page.evaluate((pv) => window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Online', { preview: pv })), preview);
+  await until(() => !!window.__game.scene.getScene('Online').detail, 15000);
+  await wait(600);
+  await page.evaluate(() => {
+    const s = window.__game.scene.getScene('Online');
+    const h = s.selected;
+    const p = s.board.top(h);
+    const cam = s.cameras.main;
+    cam.setZoom(Math.min(3, cam.zoom * 1.6));
+    cam.centerOn(p.x, p.y + 30);
+  });
+  await wait(700);
+  await page.screenshot({ path: `${out}/${file}` });
+  console.log('saved', `${out}/${file}`);
+}
+if (!only || only === 'map') await lairMap('50-beast-lair-map.png', 'lair');
 void myth;
 console.log(problems.length ? problems.join('\n') : 'no console errors');
 await browser.close();
