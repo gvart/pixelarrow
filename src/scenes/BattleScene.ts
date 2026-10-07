@@ -23,6 +23,10 @@ import { haptic, hapticNotify } from '../platform/telegram';
 import { BattleFx } from '../ui/battleFx';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { rallyRadius } from '../sim/stats';
+import { renderBoulder, renderGlint, renderTree } from '../art/terrainArt';
+import { generateBattlefield, randomSite } from '../world/battlefield';
+import { HEIGHT_RULES } from '../data/terrain';
+import { hashString } from '../sim/rng';
 
 // World pixels come from the 2:1 isometric projection in src/art/iso.ts.
 const MARGIN_X = 200; // grass beyond the field's screen bounds
@@ -44,7 +48,7 @@ interface UnitView {
 }
 
 type Gesture =
-  | { mode: 'pending' | 'pan' | 'formation'; id: number; sx: number; sy: number; lx: number; ly: number; wx0: number; wy0: number }
+  | { mode: 'pending' | 'pan' | 'formation' | 'info'; id: number; sx: number; sy: number; lx: number; ly: number; wx0: number; wy0: number }
   | null;
 
 export class BattleScene extends BaseScene {
@@ -97,6 +101,12 @@ export class BattleScene extends BaseScene {
   private followBtn: Button | null = null;
   private abilityBtns: { id: AbilityId; btn: Button; g: Phaser.GameObjects.Graphics; count: Phaser.GameObjects.BitmapText; w: number; h: number }[] = [];
   private lastSparkle = 0;
+  /** Trees and boulders standing on the field (depth-sorted with the men). */
+  private props: { img: Phaser.GameObjects.Image; x: number; y: number; tree: boolean }[] = [];
+  private glints: { img: Phaser.GameObjects.Image; phase: number }[] = [];
+  private infoTip: Phaser.GameObjects.Container | null = null;
+  private holdTimer: Phaser.Time.TimerEvent | null = null;
+  private propTick = 0;
 
   constructor() {
     super('Battle');
@@ -120,6 +130,9 @@ export class BattleScene extends BaseScene {
     this.banner = null;
     this.follow = true;
     this.abilityBtns = [];
+    this.infoTip = null;
+    this.holdTimer = null;
+    this.propTick = 0;
     this.initUi();
 
     const camp = state.campaign;
@@ -132,7 +145,10 @@ export class BattleScene extends BaseScene {
     this.enemyHeroes = pending.enemy.heroes;
     // Wounded heroes sit this one out.
     const heroes = camp.fitHeroes();
-    const setup: BattleSetup = { seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)] };
+    // The battlefield comes from the place on the map where the armies met.
+    const site = pending.site ?? randomSite(new Rng(pending.seed ^ 0x51735c1));
+    const terrain = generateBattlefield(pending.seed, site);
+    const setup: BattleSetup = { seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)], terrain };
     this.verifySetup = snapshotSetup(setup);
     this.deployOrders = undefined;
     this.sim = new Battle(setup);
@@ -144,11 +160,14 @@ export class BattleScene extends BaseScene {
     const gy = fb.y0 - MARGIN_Y;
     const gw = fb.x1 - fb.x0 + MARGIN_X * 2;
     const gh = fb.y1 - fb.y0 + MARGIN_Y * 2;
-    const gkey = `isoground_${this.sim.width}x${this.sim.height}`;
+    const gkey = `isoground_${this.sim.width}x${this.sim.height}_${hashString(terrain.cells + (terrain.height ?? '')).toString(36)}`;
     if (!this.textures.exists(gkey)) {
-      this.textures.addCanvas(gkey, renderGround(gw, gh, { originX: gx, originY: gy, fieldW: this.sim.width, fieldH: this.sim.height, seed: 21 }).toCanvas());
+      // one battlefield texture at a time: drop the previous one
+      for (const k of this.textures.getTextureKeys()) if (k.startsWith('isoground_')) this.textures.remove(k);
+      this.textures.addCanvas(gkey, renderGround(gw, gh, { originX: gx, originY: gy, fieldW: this.sim.width, fieldH: this.sim.height, seed: 21, terrain: this.sim.terrain }).toCanvas());
     }
     this.world.add(this.add.image(gx, gy, gkey).setOrigin(0, 0).setDepth(-100000));
+    this.addTerrainProps();
     this.boxes = this.add.graphics().setDepth(-80000);
     this.world.add(this.boxes);
     this.projG = this.add.graphics().setDepth(100000);
@@ -198,7 +217,7 @@ export class BattleScene extends BaseScene {
       if (this.sim.phase === 'deploy') this.leaveDeploy();
       else this.togglePause();
     });
-    this.showBanner(`Deploy vs ${pending.label ?? CULTURE_LABEL[pending.enemy.culture]}`, 3000);
+    this.showBanner(`Deploy vs ${pending.label ?? CULTURE_LABEL[pending.enemy.culture]} - ${terrain.name ?? ''}`, 3000);
   }
 
   /** Field coordinates -> world pixels (also used by the screenshot/smoke scripts). */
@@ -359,6 +378,7 @@ export class BattleScene extends BaseScene {
     this.renderUnits(alpha);
     this.renderProjectiles(alpha);
     this.renderBoxes();
+    this.updateProps();
     this.updateTags();
     if (this.hudDirty) this.refreshHud();
   }
@@ -750,6 +770,16 @@ export class BattleScene extends BaseScene {
     }
     const w = this.cameras.main.getWorldPoint(p.x, p.y);
     this.gesture = { mode: 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y, wx0: w.x, wy0: w.y };
+    this.holdTimer?.remove();
+    if (this.sim.phase === 'deploy') {
+      // long press on the ground in deployment: what is this terrain?
+      const g = this.gesture;
+      this.holdTimer = this.time.delayedCall(450, () => {
+        if (this.gesture !== g || g.mode !== 'pending') return;
+        g.mode = 'info';
+        this.showTerrainInfo(g.wx0, g.wy0, g.sx, g.sy);
+      });
+    }
   }
 
   private onMove(p: Phaser.Input.Pointer): void {
@@ -801,6 +831,9 @@ export class BattleScene extends BaseScene {
     }
     const g = this.gesture;
     this.gesture = null;
+    this.holdTimer?.remove();
+    this.holdTimer = null;
+    this.hideTerrainInfo();
     if (!g || p.id !== g.id) return;
     if (g.mode === 'pending') this.tap(p);
     else if (g.mode === 'formation' && this.dragPreview) {
@@ -857,6 +890,101 @@ export class BattleScene extends BaseScene {
       n++;
     }
     return n ? { x: x / n, y: y / n } : { x: this.sim.width / 2, y: 0 };
+  }
+
+  // ===================================================================== terrain
+
+  /** Trees on wooded cells, boulders on rocks, glints on water: upright sprites sorted with the men. */
+  private addTerrainProps(): void {
+    this.props = [];
+    this.glints = [];
+    const t = this.sim.terrain;
+    if (!t) return;
+    for (let v = 0; v < 3; v++) if (!this.textures.exists(`tree_${v}`)) this.textures.addCanvas(`tree_${v}`, renderTree(v).toCanvas());
+    for (let v = 0; v < 2; v++) if (!this.textures.exists(`boulder_${v}`)) this.textures.addCanvas(`boulder_${v}`, renderBoulder(v).toCanvas());
+    if (!this.textures.exists('glint')) this.textures.addCanvas('glint', renderGlint().toCanvas());
+    const seed = this.sim.seed;
+    const h = (a: number, b: number) => ((Math.imul(a + 1, 73856093) ^ Math.imul(b + 7, 19349663) ^ seed) >>> 0) % 1000 / 1000;
+    const place = (key: string, fx: number, fy: number, tree: boolean) => {
+      const p = isoToScreen(fx, fy);
+      const img = this.add.image(Math.round(p.x), Math.round(p.y), key).setOrigin(0.5, tree ? 25 / 28 : 10 / 13).setDepth(p.y);
+      this.world.add(img);
+      this.props.push({ img, x: p.x, y: p.y, tree });
+    };
+    for (let i = 0; i < t.cells; i++) {
+      const d = t.cellDef(i);
+      const c = t.cellCenter(i);
+      if (d.kind === 'forest') {
+        const n = h(i, 1) < 0.35 ? 2 : 1;
+        for (let k = 0; k < n; k++) {
+          const v = h(i, 10 + k) < 0.2 ? 2 : h(i, 20 + k) < 0.35 ? 1 : 0;
+          place(`tree_${v}`, c.x + (h(i, 2 + k) - 0.5) * 0.7, c.y + (h(i, 4 + k) - 0.5) * 0.7, true);
+        }
+      } else if (d.kind === 'rocks') {
+        place(`boulder_${i % 2}`, c.x + (h(i, 6) - 0.5) * 0.3, c.y + (h(i, 7) - 0.5) * 0.3, false);
+      } else if ((d.kind === 'water' || d.kind === 'sea') && h(i, 8) < 0.3) {
+        const p = isoToScreen(c.x + (h(i, 9) - 0.5) * 0.6, c.y);
+        const img = this.add.image(Math.round(p.x), Math.round(p.y), 'glint').setDepth(-99000).setAlpha(0);
+        this.world.add(img);
+        this.glints.push({ img, phase: Math.floor(h(i, 3) * 8) });
+      }
+    }
+  }
+
+  /** Water shimmer (stepped), and trees fade when a soldier stands behind them. */
+  private updateProps(): void {
+    const step = Math.floor(this.time.now / 180);
+    for (const g of this.glints) {
+      const f = (step + g.phase) % 8;
+      g.img.setAlpha(f === 0 ? 0.9 : f === 1 ? 0.5 : 0);
+    }
+    if (this.props.length === 0 || this.propTick++ % 4 !== 0) return;
+    for (const pr of this.props) {
+      if (!pr.tree) continue;
+      let hidden = false;
+      for (const v of this.views) {
+        if (v.u.state === 'dead' || v.u.state === 'fled') continue;
+        const dx = v.spr.x - pr.x;
+        const dy = v.spr.y - pr.y;
+        if (dy < 0 && dy > -22 && dx > -10 && dx < 10) {
+          hidden = true;
+          break;
+        }
+      }
+      pr.img.setAlpha(hidden ? 0.5 : 1);
+    }
+  }
+
+  private showTerrainInfo(wx: number, wy: number, sx: number, sy: number): void {
+    this.hideTerrainInfo();
+    const f = screenToIso(wx, wy);
+    if (f.x < 0 || f.y < 0 || f.x > this.sim.width || f.y > this.sim.height) return;
+    const d = this.sim.ground(f.x, f.y);
+    const hgt = this.sim.heightAt(f.x, f.y);
+    const lines = [hgt > 0 ? `${d.name}, high ground ${hgt}` : d.name, d.desc];
+    if (hgt > 0) lines.push(`+${Math.round(HEIGHT_RULES.meleeDown * 100)}% blows per level downhill; climbing is slow`);
+    const { S, VW } = this.m;
+    const c = this.add.container(0, 0);
+    const w = Math.min(VW - 12, 200);
+    const texts = lines.map((l, i) => addText(this, 0, 0, l, i === 0 ? 'red' : 'ink', 0, w - 12));
+    const h = texts.reduce((a, t) => a + t.height + 3, 8);
+    const x = Phaser.Math.Clamp(Math.round(sx / S - w / 2), 6, VW - w - 6);
+    const y = Math.max(30, Math.round(sy / S - h - 18));
+    c.add(addPanel(this, x, y, w, h, 'parch'));
+    let ty = y + 5;
+    for (const t of texts) {
+      t.setPosition(x + 6, ty);
+      ty += t.height + 3;
+      c.add(t);
+    }
+    this.ui.add(c);
+    this.infoTip = c;
+    haptic('light');
+  }
+
+  private hideTerrainInfo(): void {
+    this.infoTip?.destroy();
+    this.infoTip = null;
   }
 
   private tap(p: Phaser.Input.Pointer): void {

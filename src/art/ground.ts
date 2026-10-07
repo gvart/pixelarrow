@@ -2,6 +2,8 @@
 import { P, mix } from './palette';
 import { BAYER4, Pix, hash2, valueNoise } from './pixels';
 import { ISO_HH, ISO_HW } from './iso';
+import { terrainPixel } from './terrainArt';
+import type { Terrain } from '../sim/terrain';
 
 export interface GroundOpts {
   /** world-pixel position of the image's top-left corner */
@@ -11,6 +13,8 @@ export interface GroundOpts {
   fieldW: number;
   fieldH: number;
   seed: number;
+  /** Battlefield terrain painted over the plain (forest floor, water, sand, heights...). */
+  terrain?: Terrain | null;
 }
 
 /**
@@ -56,9 +60,14 @@ export function renderGround(w: number, h: number, o: GroundOpts): Pix {
         const dd = (d - 0.75) / 0.25;
         if (dd + (t - 0.5) * 0.5 > 0.25) c = P.dirt[Math.max(0, Math.min(2, Math.floor(n3 * 3 + (t - 0.5))))];
       }
+      const tk = inField && o.terrain ? o.terrain.at(fx, fy).kind : 'open';
+      if (inField && o.terrain) c = terrainPixel(o.terrain, fx, fy, c, n, x, y);
+      const wet = tk === 'water' || tk === 'sea' || tk === 'ford';
       // seams are drawn as colour, not noise, so the dither cannot wash them out;
       // every other seam pixel is skipped for a soft, hand-dithered edge
-      if (seam < 0 && ((x + y) & 1) === 0) c = mix(c, 0x3a4a26, 0.42);
+      if (wet) {
+        /* no tile seams on water */
+      } else if (seam < 0 && ((x + y) & 1) === 0) c = mix(c, 0x3a4a26, 0.42);
       else if (seam < 0) c = mix(c, 0x3a4a26, 0.24);
       else if (seam > 0 && ((x + y) & 1) === 0) c = mix(c, 0xc8d68a, 0.16);
       if (!inField) c = mix(c, 0x3d4a2a, 0.22);
@@ -71,6 +80,13 @@ export function renderGround(w: number, h: number, o: GroundOpts): Pix {
     const x = Math.floor(hash2(i, 1, o.seed) * w);
     const y = Math.floor(hash2(i, 2, o.seed) * h);
     const r = hash2(i, 3, o.seed);
+    if (o.terrain) {
+      // tufts and flowers only on open ground and scrub
+      const a = (o.originX + x) / ISO_HW;
+      const bb = (o.originY + y) / ISO_HH;
+      const k = o.terrain.at((a + bb) / 2, (bb - a) / 2).kind;
+      if (k !== 'open' && k !== 'scrub' && k !== 'forest') continue;
+    }
     const base = px.get(Math.min(w - 1, x), Math.min(h - 1, y));
     const dark = mix(base, 0x2e3d1e, 0.35);
     const light = mix(base, 0xc8d68a, 0.35);

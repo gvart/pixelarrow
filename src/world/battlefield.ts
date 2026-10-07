@@ -202,7 +202,8 @@ export function generateBattlefield(seed: number, site: BattleSite, w = 24, h = 
     const fordW = rng.int(3, 4);
     const fordX = rng.int(3, w - 3 - fordW);
     for (let x = 0; x < w; x++) {
-      const yc = ry + (valueNoise2(x, 0, 6, s1 + 77) - 0.5) * 5;
+      // meander, but stay out of both deployment zones
+      const yc = Math.max(h * 0.38 + 1.2, Math.min(h * 0.62 - 1.2 - width, ry + (valueNoise2(x, 0, 6, s1 + 77) - 0.5) * 5));
       const y0 = Math.round(yc - width / 2);
       for (let y = y0; y < y0 + width; y++) {
         if (y < 0 || y >= h) continue;

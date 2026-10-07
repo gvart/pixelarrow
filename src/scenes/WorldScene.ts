@@ -9,6 +9,7 @@ import { CULTURE_LABEL } from '../data/names';
 import { addSyncBadge, playerPartyTexture } from '../ui/online';
 import { perkSlots } from '../data/perks';
 import { dangerAt, regionName, type SettlementDef } from '../world/map';
+import { siteAt } from '../world/battlefield';
 import { THREAT_COLOR, THREAT_LABEL, WORLD_RULES, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
 
 /** Game hours per real second while travelling / waiting. */
@@ -571,7 +572,7 @@ export class WorldScene extends BaseScene {
     const p = this.w.party(partyId);
     const enemy = camp.partyEnemy(partyId);
     if (!p || !enemy) return;
-    state.pending = { enemy, seed: randomSeed(), partyId, label: p.name };
+    state.pending = { enemy, seed: randomSeed(), partyId, label: p.name, site: siteAt(this.w.map, this.w.s.x, this.w.s.y) };
     void state.save();
     this.scene.start('Battle');
   }

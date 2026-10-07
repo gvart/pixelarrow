@@ -4,6 +4,7 @@ import { readSave, writeSave, clearSave, type SaveData } from './game/save';
 import type { Outcome } from './game/loot';
 import type { EnemyArmy } from './game/enemy';
 import type { Hero } from './data/units';
+import type { BattleSite } from './world/battlefield';
 import { gameKV } from './platform/storage';
 import { setHaptics } from './platform/telegram';
 import { online } from './platform/cloud';
@@ -18,6 +19,8 @@ export interface PendingBattle {
   partyId?: number;
   /** Who the enemy is ("Bandits", "Galatae raiders"...). */
   label?: string;
+  /** Where on the map the battle happens (sets the battlefield terrain). */
+  site?: BattleSite;
 }
 
 export interface LastBattle {
