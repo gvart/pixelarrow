@@ -9,6 +9,7 @@ import type { BattleSite } from './world/battlefield';
 import { gameKV } from './platform/storage';
 import { setHaptics } from './platform/telegram';
 import { online } from './platform/cloud';
+import { newProgress } from './game/tutorial';
 
 /** Longest the boot screen waits for the cloud save before starting with the local one. */
 const PULL_WAIT_MS = 6000;
@@ -61,6 +62,8 @@ class GameState {
     }
     this.hasSave = !!data;
     this.campaign = data ? new Campaign(data) : Campaign.fresh(randomSeed());
+    // A first launch: the guided tutorial is offered (src/scenes/FirstRunScene.ts).
+    if (!data) this.campaign.data.settings.tutorial = newProgress();
     setHaptics(this.campaign.data.settings.haptics);
     if (!data) await this.save();
   }
@@ -100,9 +103,13 @@ class GameState {
   async reset(): Promise<void> {
     const kv = gameKV();
     const seq = this.campaign?.data.seq ?? 0;
+    const prev = this.campaign?.data.settings;
     await clearSave(kv.primary);
     if (kv.mirror) await clearSave(kv.mirror);
     this.campaign = Campaign.fresh(randomSeed());
+    // The tutorial and the online coach marks belong to the player, not to the campaign.
+    if (prev?.tutorial) this.campaign.data.settings.tutorial = prev.tutorial;
+    if (prev?.onlineCoach !== undefined) this.campaign.data.settings.onlineCoach = prev.onlineCoach;
     // Keep counting so the new campaign outranks the old one in cloud sync.
     this.campaign.data.seq = seq;
     this.pending = null;

@@ -7,6 +7,7 @@ import type { LangSetting } from '../i18n';
 import type { Hero } from '../data/units';
 import { defaultAttrs, PERKS, POINTS_PER_LEVEL } from '../data/perks';
 import { World, type WorldSave } from '../world/world';
+import type { TutorialProgress } from './tutorial';
 
 export const SAVE_VERSION = 4;
 
@@ -28,6 +29,10 @@ export interface Settings {
   lang: LangSetting;
   /** First-time hints already shown, by screen id (src/ui/widgets.ts firstTimeHint). */
   seenHints?: string[];
+  /** The guided tutorial (src/game/tutorial.ts): offered, active, done or skipped. Missing on saves from before it. */
+  tutorial?: TutorialProgress;
+  /** Online coach marks already shown (count, src/game/tutorial.ts ONLINE_COACH). */
+  onlineCoach?: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
