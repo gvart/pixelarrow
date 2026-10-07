@@ -194,6 +194,11 @@ export class BotAI {
     const enemies = b.units.filter((u) => u.side !== this.side && u.state === 'ready');
     if (enemies.length === 0) return;
     this.thinkAbilities(b);
+    // A mythical beast across the field: fight it as a hunt, not a battle line (src/sim/myth.ts).
+    if (b.myth && enemies.some((e) => e.stats.boss !== undefined)) {
+      this.thinkHunt(b, enemies);
+      return;
+    }
     const t = b.tick / 20;
     const myGroups = b.sideGroups(this.side);
     const main = myGroups.find((g) => g.role === 'main' && b.activeMembers(g.id).length > 0);
@@ -269,6 +274,19 @@ export class BotAI {
    * waver, a volley when several missile-men have targets.
    */
   private thinkAbilities(b: Battle): void {
+    if (b.horns[this.side] > 0) {
+      // The war horn: sounded once, when the army is breaking (several men running or nerve failing all round).
+      let routing = 0;
+      let alive = 0;
+      let nerve = 0;
+      for (const u of b.units) {
+        if (u.side !== this.side || !b.isAlive(u)) continue;
+        alive++;
+        if (u.state === 'routing') routing++;
+        else nerve += u.morale / Math.max(1, u.stats.morale);
+      }
+      if (alive > 0 && (routing >= Math.max(2, alive * 0.25) || nerve / Math.max(1, alive - routing) < 0.42)) b.issue(this.side, { kind: 'horn' });
+    }
     for (const u of b.units) {
       if (u.side !== this.side || u.state !== 'ready' || u.abil.length === 0) continue;
       for (const id of u.abil) {
@@ -302,6 +320,109 @@ export class BotAI {
           }
         }
         if (use) b.issue(this.side, { kind: 'ability', unit: u.id, ability: id });
+      }
+    }
+  }
+
+  /**
+   * Against a beast: missile-men keep their distance and shoot, the main line
+   * closes in (spearmen facing a charger stand braced and let it come), the
+   * flank and reserve work round to the beast's side and rear.
+   */
+  private thinkHunt(b: Battle, enemies: SimUnit[]): void {
+    const myth = b.myth!;
+    const bodies = enemies.filter((e) => myth.isBody(e) && b.isAlive(e));
+    const target = bodies[0] ?? enemies[0];
+    const flyers = target.stats.boss === 'harpy';
+    const charger = target.stats.boss === 'minotaur';
+    const ranged = b.sideGroups(this.side).filter((g) => {
+      const mem = b.activeMembers(g.id);
+      return mem.length > 0 && mem.filter((u) => u.stats.role !== 'melee' && u.ammo > 0).length * 2 > mem.length;
+    });
+    const rc = ranged.length ? centroid(ranged.flatMap((g) => b.activeMembers(g.id))) : null;
+    for (const g of b.sideGroups(this.side)) {
+      const mem = b.activeMembers(g.id);
+      if (mem.length === 0 || g.routed || g.individual) continue;
+      const c = centroid(mem);
+      const m = this.mem(g);
+      const tx = target.x;
+      const ty = target.y;
+      const d = Math.sqrt((tx - c.x) ** 2 + (ty - c.y) ** 2) - target.rad;
+      if (ranged.includes(g)) {
+        if (!g.fireAtWill) b.issue(this.side, { kind: 'loose', group: g.id, on: true });
+        const range = Math.max(...mem.map((u) => u.stats.range));
+        // keep out of reach of anything that walks; shoot from range
+        if (!flyers && b.tick % 20 === 0) {
+          let dx = c.x - tx;
+          let dy = c.y - ty;
+          const l = Math.sqrt(dx * dx + dy * dy) || 1;
+          dx /= l;
+          dy /= l;
+          const want = Math.max(3.5, range - 1.5);
+          if (Math.abs(d - want) > 1.5) {
+            const nx = clamp(tx + dx * (want + target.rad), 1, b.width - 1);
+            const ny = clamp(ty + dy * (want + target.rad), 1, b.height - 1);
+            b.issue(this.side, { kind: 'form', group: g.id, cx: nx, cy: ny, fx: -dx, fy: -dy, frontage: g.formation.frontage });
+          }
+        }
+        continue;
+      }
+      if (flyers) {
+        // stand by the archers: the harpies come to us, and are cut down when they land
+        if (rc && b.tick % 40 === 0) {
+          const f = g.formation;
+          if ((f.cx - rc.x) ** 2 + (f.cy - rc.y) ** 2 > 9) b.issue(this.side, { kind: 'form', group: g.id, cx: rc.x, cy: rc.y + (this.side === 0 ? -1.5 : 1.5), fx: 0, fy: this.side === 0 ? -1 : 1, frontage: f.frontage });
+        }
+        continue;
+      }
+      if (g.role === 'main' || bodies.length === 0) {
+        const braced = charger && g.shieldWall && mem.filter((u) => u.stats.weapon === 'spear').length * 2 >= mem.length;
+        if (braced) {
+          // a hedge of spears turned to the bull: let it come
+          // keep facing it and step towards it slowly (the wall moves with the bull)
+          const f = g.formation;
+          if (b.tick % 40 === 0 && d > 3) {
+            let dx = tx - f.cx;
+            let dy = ty - f.cy;
+            const l = Math.sqrt(dx * dx + dy * dy) || 1;
+            dx /= l;
+            dy /= l;
+            b.issue(this.side, { kind: 'form', group: g.id, cx: f.cx + dx * Math.min(2, d - 2.5), cy: f.cy + dy * Math.min(2, d - 2.5), fx: dx, fy: dy, frontage: f.frontage });
+          } else this.face(b, g, tx, ty);
+          if (g.order !== 'hold') b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
+          continue;
+        }
+        if (g.order !== 'charge' && d < 5) {
+          this.face(b, g, tx, ty);
+          b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
+        } else if (g.order === 'hold' && d >= 5) {
+          this.face(b, g, tx, ty, 'advance');
+          if (g.order === 'hold') b.issue(this.side, { kind: 'order', group: g.id, order: 'advance' });
+        }
+        continue;
+      }
+      // flank and reserve: round to the beast's side, then in
+      if (m.stage < 2) {
+        const side = (m.flankSign || 1) * (g.role === 'reserve' ? -1 : 1);
+        const ax = clamp(tx - target.fy * side * (target.rad + 2) - target.fx * (target.rad + 0.5), 1, b.width - 1);
+        const ay = clamp(ty + target.fx * side * (target.rad + 2) - target.fy * (target.rad + 0.5), 1, b.height - 1);
+        const da = Math.sqrt((ax - c.x) ** 2 + (ay - c.y) ** 2);
+        if (da < 2.2 || d < 2) {
+          m.stage = 2;
+        } else if (b.tick % 20 === 0) {
+          let fx = ax - c.x;
+          let fy = ay - c.y;
+          const l = Math.sqrt(fx * fx + fy * fy) || 1;
+          fx /= l;
+          fy /= l;
+          const step = Math.min(l, 5);
+          b.issue(this.side, { kind: 'form', group: g.id, cx: c.x + fx * step, cy: c.y + fy * step, fx, fy, frontage: g.formation.frontage });
+          continue;
+        } else continue;
+      }
+      if (g.order !== 'charge') {
+        this.face(b, g, tx, ty);
+        b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
       }
     }
   }

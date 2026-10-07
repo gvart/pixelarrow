@@ -23,6 +23,7 @@ import { flatGrid, type TerrainGrid } from '../sim/terrain';
 import { TERRAIN } from '../data/terrain';
 import { SITE_BASES, generateBattlefield, type BattleSite } from '../world/battlefield';
 import { classReport } from './classBalance';
+import { beastReport } from './beastBalance';
 
 export interface MatchedResult {
   winner: Side | -1;
@@ -367,5 +368,6 @@ export function balanceReport(n = 200): string {
   lines.push(`Terrain: mirror battles of identical level-4 armies (both bot-driven), ${tk} seeds each; win/loss for the side named`);
   for (const r of terrainImpact(tk)) lines.push(`  ${r.label.padEnd(36)} win ${pct(Math.round(r.win * tk), tk).padStart(4)}  loss ${pct(Math.round(r.loss * tk), tk).padStart(4)}  median ${f1(r.seconds)} s`);
   lines.push(classReport(Math.max(8, Math.round(n / 16))));
+  lines.push(beastReport(Math.max(20, Math.round(n / 5))));
   return lines.join('\n');
 }

@@ -1,6 +1,7 @@
 import { itemDef, itemMods, SLOTS, type StatMods, type WeaponKind, type ShieldKind } from '../data/items';
 import { TRAITS } from '../data/traits';
 import { BASE, type Hero } from '../data/units';
+import { isMythId } from '../data/beasts';
 import { CLASSES, MOUNTS, classOfHero, type BeastId, type ClassDef, type MountId } from '../data/classes';
 import {
   ABILITY_RULES, ATTR_BASE, ATTR_EFFECT, KO_BASE, PERKS, RALLY_WILL, defaultAttrs,
@@ -62,6 +63,8 @@ export interface CombatStats {
   scythe?: number;
   /** Missiles: fraction of the target's armour ignored. */
   armorPierce?: number;
+  /** A mythical beast or a part of one (src/data/beasts.ts MythId): src/sim/myth.ts runs it. */
+  boss?: string;
 }
 
 /** Radius bonus from Will for auras and shouts. */
@@ -93,7 +96,7 @@ export function heroClass(hero: Hero): ClassDef {
 function beastStats(hero: Hero, cls: ClassDef): CombatStats {
   const b = cls.beastStats!;
   const k = 1 + 0.08 * (hero.level - 1);
-  return {
+  const s: CombatStats = {
     maxHp: Math.round(b.hp * k),
     dmg: b.dmg * k,
     reach: b.reach,
@@ -129,6 +132,8 @@ function beastStats(hero: Hero, cls: ClassDef): CombatStats {
     radius: b.radius,
     routAt: b.routAt,
   };
+  if (isMythId(cls.beast)) s.boss = cls.beast;
+  return s;
 }
 
 export function computeStats(hero: Hero): CombatStats {

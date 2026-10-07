@@ -69,6 +69,8 @@ const CombatStats = z.looseObject({
   pursuit: num.min(0).max(5).optional(),
   scythe: num.min(0).max(5).optional(),
   armorPierce: num.min(0).max(1).optional(),
+  // Mythical beasts and world bosses (src/data/beasts.ts): src/sim/myth.ts runs them.
+  boss: z.string().max(16).optional(),
 });
 
 const Army = z.object({
@@ -80,6 +82,8 @@ const Army = z.object({
         level: z.number().int().min(0).max(1000),
         group: z.number().int().min(0).max(LIMITS.maxGroupsPerSide),
         stats: CombatStats,
+        /** World bosses carry their wounds between clan attacks (absent = full HP). */
+        hp0: num.min(0).optional(),
       }),
     )
     .min(1)
@@ -89,6 +93,8 @@ const Army = z.object({
     .min(1)
     .max(LIMITS.maxGroupsPerSide),
   bot: z.boolean(),
+  /** War horns carried (a battle consumable): each is one army-wide rally (the `horn` order). */
+  horn: z.number().int().min(0).max(3).optional(),
 });
 
 const Setup = z.object({
@@ -120,6 +126,7 @@ export const OrderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('assign'), unit: int, group: int }),
   z.object({ kind: z.literal('ability'), unit: int, ability: z.string().max(32) }),
   z.object({ kind: z.literal('retreat') }),
+  z.object({ kind: z.literal('horn') }),
 ]);
 
 export const LoggedOrderSchema = z.object({

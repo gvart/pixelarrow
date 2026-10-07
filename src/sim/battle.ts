@@ -35,6 +35,8 @@ import { rallyRadius, willRadius, type CombatStats } from './stats';
 import { Terrain, cellHash } from './terrain';
 import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
 import { MOUNTS, type MountDef } from '../data/classes';
+import { MythSystem, hasMyth } from './myth';
+import { HORN_RULES } from '../data/beasts';
 
 export const TICK_RATE = 20;
 /** Running speed of a man (charging), as a multiple of his walk. */
@@ -155,6 +157,11 @@ export class Battle {
   readonly big: boolean;
   /** Riders or animals take part (the bot then uses its cavalry / beast tactics). */
   readonly special: boolean;
+  /** Mythical beasts on the field (src/sim/myth.ts); null in every battle without them. */
+  readonly myth: MythSystem | null = null;
+  /** War horns left per side (a battle consumable); [0, 0] for setups without. */
+  horns: [number, number] = [0, 0];
+  private readonly hornSetup: boolean;
 
   constructor(setup: BattleSetup) {
     this.seed = setup.seed >>> 0;
@@ -165,7 +172,10 @@ export class Battle {
     this.terrain = setup.terrain && typeof setup.terrain.cells === 'string' ? new Terrain(setup.terrain, this.width, this.height) : null;
     const allStats = setup.armies.flatMap((a) => a.units.map((u) => u.stats));
     this.special = allStats.some((st) => (st.mount !== undefined && st.mount in MOUNTS) || st.kind === 'animal');
-    this.big = allStats.some((st) => typeof st.radius === 'number' && st.radius !== UNIT_RADIUS && st.radius > 0.05 && st.radius < 2);
+    const mythic = hasMyth(allStats);
+    this.big = mythic || allStats.some((st) => typeof st.radius === 'number' && st.radius !== UNIT_RADIUS && st.radius > 0.05 && st.radius < 2);
+    this.horns = [Math.max(0, Math.min(3, setup.armies[0].horn ?? 0)) | 0, Math.max(0, Math.min(3, setup.armies[1].horn ?? 0)) | 0];
+    this.hornSetup = setup.armies[0].horn !== undefined || setup.armies[1].horn !== undefined;
 
     setup.armies.forEach((army, sideIdx) => {
       const side = sideIdx as Side;
@@ -219,7 +229,7 @@ export class Battle {
           vy: 0,
           fx: 0,
           fy: side === 0 ? -1 : 1,
-          hp: s.maxHp,
+          hp: typeof spec.hp0 === 'number' && spec.hp0 >= 0 && spec.hp0 < s.maxHp ? spec.hp0 : s.maxHp,
           morale: s.morale,
           stamina: s.stamina,
           ammo: s.ammo,
@@ -262,6 +272,7 @@ export class Battle {
         for (const g of this.groups) if (g.side === side) this.spaceFor(g);
       }
       this.autoDeploy(side);
+      if (mythic && sideIdx === 1 && !this.myth) (this as { myth: MythSystem | null }).myth = new MythSystem(this);
       if (army.bot) {
         const bot = new BotAI(side, this.seed ^ (0x5bd1e995 * (side + 1)));
         this.bots.push(bot);
@@ -380,7 +391,7 @@ export class Battle {
    * step would end in a blocked cell, try each axis alone, then the step
    * turned 60 degrees either way (preferring a side by unit id).
    */
-  private moveUnit(u: SimUnit, dx: number, dy: number): void {
+  moveUnit(u: SimUnit, dx: number, dy: number): void {
     const t = this.terrain;
     if (!t) {
       u.x += dx;
@@ -594,6 +605,9 @@ export class Battle {
       case 'retreat':
         this.retreat(side);
         return;
+      case 'horn':
+        this.soundHorn(side);
+        return;
       case 'ability': {
         const u = this.units[o.unit];
         if (!u || u.side !== side) return;
@@ -620,6 +634,28 @@ export class Battle {
         return;
       }
     }
+  }
+
+  // ---------------------------------------------------------------- the war horn
+
+  /** The war horn: once per horn carried, every man of the side rallies at once (routing men turn back). */
+  private soundHorn(side: Side): void {
+    if (this.phase !== 'battle' || this.horns[side] <= 0) return;
+    this.horns[side]--;
+    const targets: number[] = [];
+    for (const a of this.units) {
+      if (a.side !== side || !this.isAlive(a)) continue;
+      if (a.state === 'routing') {
+        a.state = 'ready';
+        a.momentum = 0;
+        a.morale = Math.max(a.morale, a.stats.morale * HORN_RULES.rallyTo);
+        this.events.push({ type: 'rally', tick: this.tick, unit: a.id });
+      } else a.morale = Math.min(a.stats.morale + 15, a.morale + a.stats.morale * HORN_RULES.morale);
+      a.stamina = Math.min(a.stats.stamina, a.stamina + HORN_RULES.stamina);
+      targets.push(a.id);
+    }
+    for (const g of this.groups) if (g.side === side && !g.disbanded) this.reassign(g.id);
+    this.events.push({ type: 'horn', tick: this.tick, side, targets });
   }
 
   // ---------------------------------------------------------------- abilities
@@ -780,7 +816,7 @@ export class Battle {
   }
 
   /** Morale damage multiplier for a unit (traits, perks, Will, Steady Presence). */
-  private ml(u: SimUnit): number {
+  ml(u: SimUnit): number {
     return u.stats.moraleLoss * (u.aura & AURAS.steady.bit ? AURA_RULES.steadyMoraleLoss : 1);
   }
 
@@ -886,6 +922,7 @@ export class Battle {
       u.fx = g.formation.fx;
       u.fy = g.formation.fy;
     }
+    this.myth?.arrange();
   }
 
   /** Default placement by group role. Used for both sides; the bot then adjusts. */
@@ -947,6 +984,7 @@ export class Battle {
     this.updateGroups();
     for (const u of this.units) this.updateUnit(u);
     this.separate();
+    this.myth?.afterMove();
     this.updateProjectiles();
     this.updateGroupStates();
     this.checkEnd();
@@ -1015,6 +1053,10 @@ export class Battle {
       u.berserk--;
       if (u.berserk === 0) u.stamina = Math.max(0, u.stamina - ABILITY_RULES.berserkWinded);
     }
+    if (this.myth && u.stats.boss !== undefined && this.myth.get(u)) {
+      this.myth.update(u);
+      return;
+    }
     if (u.stun > 0) {
       u.stun--;
       u.engaged = false;
@@ -1031,8 +1073,12 @@ export class Battle {
     let melee: SimUnit | null = null;
     let meleeScore = -Infinity;
     const reach0 = u.stats.reach + UNIT_RADIUS * 2;
+    const myth = this.myth;
     for (const e of this.units) {
       if (e.side === u.side || !this.isAlive(e)) continue;
+      // Beasts: harpies high in the air cannot be reached, diving ones only by missiles.
+      const vis = myth ? myth.vis(e) : 2;
+      if (vis === 0) continue;
       const dx = e.x - u.x;
       const dy = e.y - u.y;
       const d = Math.sqrt(dx * dx + dy * dy);
@@ -1040,10 +1086,11 @@ export class Battle {
         nearestD = d;
         nearest = e;
       }
-      if (d <= (this.big ? u.stats.reach + u.rad + e.rad : reach0)) {
+      if (vis === 2 && d <= (this.big ? u.stats.reach + u.rad + e.rad : reach0)) {
         // Prefer enemies in front of us, then the closest; ready over routing.
         const front = d > 1e-6 ? (dx * u.fx + dy * u.fy) / d : 1;
-        const score = front * 2 - d + (e.state === 'ready' ? 1 : 0) + (e.id === u.targetId ? 0.5 : 0);
+        let score = front * 2 - d + (e.state === 'ready' ? 1 : 0) + (e.id === u.targetId ? 0.5 : 0);
+        if (myth && e.stats.boss !== undefined && (g.role === 'flank' || g.role === 'reserve') && myth.isBody(e)) score += 3;
         if (score > meleeScore) {
           meleeScore = score;
           melee = e;
@@ -1112,7 +1159,9 @@ export class Battle {
         u.stamina = Math.min(u.stats.stamina, u.stamina + 2 * DT);
       } else if (g.order === 'charge' && nearest && nearestD < (mount ? 16 : 9)) {
         // Riders go for the routing men first: they cannot escape a horse.
-        const prey = mount ? this.preyFor(u, nearest, nearestD) : nearest;
+        let prey = mount ? this.preyFor(u, nearest, nearestD) : nearest;
+        // Flank and reserve groups go for a many-headed beast's body, past its heads.
+        if (this.myth && (g.role === 'flank' || g.role === 'reserve')) prey = this.myth.bodyOf(prey, u);
         moveX = prey.x - u.x;
         moveY = prey.y - u.y;
         faceX = moveX;
@@ -1292,7 +1341,7 @@ export class Battle {
   }
 
   /** Push t away from u (a horse knocking a man aside), unless rocks are in the way. */
-  private shove(t: SimUnit, u: SimUnit, dist: number): void {
+  shove(t: SimUnit, u: SimUnit, dist: number): void {
     const dx = t.x - u.x;
     const dy = t.y - u.y;
     const l = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1440,7 +1489,7 @@ export class Battle {
     this.updateMorale(u, nearestD);
   }
 
-  private updateRouting(u: SimUnit): void {
+  updateRouting(u: SimUnit): void {
     u.engaged = false;
     // Flee towards own edge, away from the nearest enemy.
     let ex = 0;
@@ -1495,7 +1544,7 @@ export class Battle {
     }
   }
 
-  private updateMorale(u: SimUnit, nearestEnemy: number): void {
+  updateMorale(u: SimUnit, nearestEnemy: number): void {
     // Recover when out of danger; erode when locally outnumbered.
     if (!u.engaged && nearestEnemy > 4 && u.morale < u.stats.morale) {
       u.morale = Math.min(u.stats.morale, u.morale + 1.5 * DT);
@@ -1511,7 +1560,7 @@ export class Battle {
         const d2 = (o.x - u.x) ** 2 + (o.y - u.y) ** 2;
         if (d2 > 9) continue;
         // Big bodies (horses, bears) count for more than one man.
-        const w = this.big ? o.rad / UNIT_RADIUS : 1;
+        const w = this.big ? (this.myth && o.stats.boss !== undefined ? 1.5 : o.rad / UNIT_RADIUS) : 1;
         if (o.side === u.side) allies += w;
         else enemies += w;
       }
@@ -1556,7 +1605,7 @@ export class Battle {
     }
   }
 
-  private turnToward(u: SimUnit, dx: number, dy: number, rate: number): void {
+  turnToward(u: SimUnit, dx: number, dy: number, rate: number): void {
     const l = Math.sqrt(dx * dx + dy * dy);
     if (l < 1e-6) return;
     let tx = dx / l;
@@ -1577,7 +1626,7 @@ export class Battle {
     u.fy = ny;
   }
 
-  private facingDot(u: SimUnit, t: SimUnit): number {
+  facingDot(u: SimUnit, t: SimUnit): number {
     const dx = t.x - u.x;
     const dy = t.y - u.y;
     const d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1740,7 +1789,7 @@ export class Battle {
     this.applyDamage(t, u, dmg, dir, false, moraleMult);
   }
 
-  private contactEvent(g: SimGroup): void {
+  contactEvent(g: SimGroup): void {
     g.contact = true;
     if (!this.firstContact[g.side]) {
       this.firstContact[g.side] = true;
@@ -1748,7 +1797,15 @@ export class Battle {
     }
   }
 
-  private applyDamage(t: SimUnit, by: SimUnit, raw: number, dir: HitDir, ranged: boolean, moraleMult: number, ap?: number): void {
+  /** @internal also used by src/sim/myth.ts */
+  applyDamage(t: SimUnit, by: SimUnit, raw: number, dir: HitDir, ranged: boolean, moraleMult: number, ap?: number): void {
+    if (this.myth) {
+      raw = this.myth.onDamage(t, by, raw, ranged);
+      if (raw <= 0) {
+        this.events.push({ type: 'block', tick: this.tick, unit: t.id, by: by.id });
+        return;
+      }
+    }
     let armor = t.berserk > 0 ? Math.max(0, t.stats.armor - ABILITY_RULES.berserkArmor) : t.stats.armor;
     if (ap) armor *= 1 - ap;
     const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + armor));
@@ -1770,6 +1827,7 @@ export class Battle {
   }
 
   private kill(t: SimUnit, by: SimUnit): void {
+    if (this.myth && t.state === 'dead') return;
     t.hp = 0;
     t.state = 'dead';
     t.engaged = false;
@@ -1789,6 +1847,7 @@ export class Battle {
       if (o.side === t.side) o.morale -= RULES.allyDeathMorale * this.ml(o);
       else o.morale = Math.min(o.stats.morale + 10, o.morale + RULES.enemyDeathMorale);
     }
+    if (this.myth && t.stats.boss !== undefined) this.myth.onKill(t);
   }
 
   private shoot(u: SimUnit, t: SimUnit, dmgMult = 1, accBonus = 0): void {
@@ -1840,6 +1899,7 @@ export class Battle {
       let bestD = 0.5;
       for (const e of this.units) {
         if (e.side === p.side || !this.isAlive(e)) continue;
+        if (this.myth && this.myth.vis(e) === 0) continue;
         let d = Math.sqrt((e.x - p.tx) ** 2 + (e.y - p.ty) ** 2);
         if (this.big) d -= e.rad - UNIT_RADIUS;
         if (d < bestD) {
@@ -1919,6 +1979,13 @@ export class Battle {
           if (a.stats.mount) wa = a.stats.mount === 'chariot' ? MOUNTED_RULES.chariotWeight : MOUNTED_RULES.riderWeight;
           if (b.stats.mount) wb = b.stats.mount === 'chariot' ? MOUNTED_RULES.chariotWeight : MOUNTED_RULES.riderWeight;
           if (a.stats.mount && b.stats.mount) wa = wb = 1;
+        }
+        if (this.myth) {
+          // Beasts: flyers and leapers pass over, parts of one beast never push, huge bodies are not shoved.
+          if (this.myth.ghost(a) || this.myth.ghost(b) || this.myth.linked(a, b)) continue;
+          wa = this.myth.weight(a, wa);
+          wb = this.myth.weight(b, wb);
+          if (wa + wb <= 0) continue;
         }
         const tot = wa + wb;
         a.x -= nx * push * (2 * wa) / tot;
@@ -2035,6 +2102,11 @@ export class Battle {
       for (const c of u.abilCd) mix(c);
       if (u.stats.mount) mix(u.spd);
     }
+    if (this.hornSetup) {
+      mix(this.horns[0]);
+      mix(this.horns[1]);
+    }
+    this.myth?.hash(mix);
     for (const p of this.projectiles) {
       mix(p.tx);
       mix(p.ty);

@@ -20,8 +20,8 @@ export interface ConsumableEffect {
   dmgMult?: number;
   /** Added to every unit's morale stat (battle). */
   morale?: number;
-  /** Grants the Rally Cry ability to the side's highest-level hero (battle). */
-  rally?: boolean;
+  /** A war horn: one army-wide rally the commander sounds once, when he chooses (battle; the `horn` order). */
+  horn?: number;
   /** Wounds of every hero are shortened by this many ms (heal). */
   healMs?: number;
   /** Remaining march time is multiplied by this (march). */
@@ -66,12 +66,12 @@ export const CONSUMABLES: Record<ConsumableId, ConsumableDef> = {
   war_horn: {
     id: 'war_horn',
     name: 'War horn',
-    desc: 'Your best hero can sound a rally once the lines waver.',
+    desc: 'Sound it once in battle: the whole army rallies at once, even men already running.',
     use: 'battle',
     gold: 120,
     drachmae: 20,
     dailyCap: 2,
-    effect: { rally: true },
+    effect: { horn: 1 },
   },
   sharpening_stone: {
     id: 'sharpening_stone',
@@ -104,15 +104,15 @@ export function isConsumableId(v: unknown): v is ConsumableId {
 
 /** Structural view of a sim ArmySpec (kept import-free so this file stays self-contained). */
 export interface ConsumableArmy {
+  horn?: number;
   units: { level: number; stats: { dmg: number; rangedDmg: number; morale: number; abilities: string[] } }[];
 }
 
 /**
  * Bakes a battle consumable into one side of a BattleSetup (mutates `army`).
- * Deterministic and pure; the server calls it while building the setup.
- *
- * TODO(sim): the war horn reuses the Rally Cry ability (45 s cooldown) of the
- * side's best hero; a true one-shot, army-wide horn rally needs a sim feature.
+ * Deterministic and pure; the server calls it while building the setup. The
+ * war horn becomes `army.horn` (src/sim/battle.ts: the `horn` order rallies
+ * every man of the side once).
  */
 export function applyBattleConsumable(army: ConsumableArmy, id: ConsumableId): void {
   const def = CONSUMABLES[id];
@@ -125,8 +125,5 @@ export function applyBattleConsumable(army: ConsumableArmy, id: ConsumableId): v
     }
     if (e.morale) u.stats.morale += e.morale;
   }
-  if (e.rally) {
-    const best = army.units.filter((u) => !u.stats.abilities.includes('rally')).sort((a, b) => b.level - a.level)[0];
-    if (best) best.stats.abilities = [...best.stats.abilities, 'rally'];
-  }
+  if (e.horn) army.horn = (army.horn ?? 0) + e.horn;
 }

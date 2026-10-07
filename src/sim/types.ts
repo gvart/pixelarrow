@@ -16,6 +16,8 @@ export interface UnitSpec {
   level: number;
   group: number; // index into the side's group list
   stats: CombatStats;
+  /** Starting HP when not full (world bosses carry their wounds between clan attacks; 0 = a severed head). Missing = full. */
+  hp0?: number;
 }
 
 export interface GroupSpec {
@@ -28,6 +30,8 @@ export interface ArmySpec {
   units: UnitSpec[];
   groups: GroupSpec[];
   bot: boolean;
+  /** War horns (a battle consumable): each sounds one army-wide rally. Missing = none. */
+  horn?: number;
 }
 
 export interface BattleSetup {
@@ -140,6 +144,15 @@ export interface Projectile {
   ap?: number;
 }
 
+export type MythAct =
+  | 'hurl' | 'boulder' | 'stomp' | 'quake'
+  | 'sever' | 'regrow' | 'seal' | 'grab'
+  | 'dive' | 'strike' | 'climb'
+  | 'pounce' | 'land' | 'immune'
+  | 'charge' | 'trample' | 'balk' | 'enrage'
+  | 'breath' | 'goat' | 'tail'
+  | 'roar';
+
 export type SimEvent =
   | { type: 'contact'; tick: number; side: Side; group: number }
   | { type: 'flanked'; tick: number; side: Side; group: number }
@@ -155,6 +168,10 @@ export type SimEvent =
   | { type: 'retreat'; tick: number; side: Side; caught: number; pursuit: number }
   /** An ability was used; targets = units affected (stunned, shooters, rallied...). */
   | { type: 'ability'; tick: number; unit: number; ability: AbilityId; targets: number[] }
+  /** A mythical beast's signature move (src/sim/myth.ts); (x, y) where, (tx, ty) towards, dur in ticks for things in flight. */
+  | { type: 'myth'; tick: number; unit: number; act: MythAct; x: number; y: number; tx: number; ty: number; dur: number; targets: number[] }
+  /** The war horn: the whole army rallies. */
+  | { type: 'horn'; tick: number; side: Side; targets: number[] }
   | { type: 'end'; tick: number; winner: Side | -1 };
 
 export type Order =
@@ -169,7 +186,9 @@ export type Order =
   /** A hero uses an active ability (validated: ready, off cooldown, a target if it needs one). */
   | { kind: 'ability'; unit: number; ability: AbilityId }
   /** The whole side quits the field: the battle ends as its defeat (see Battle.retreat). */
-  | { kind: 'retreat' };
+  | { kind: 'retreat' }
+  /** Sound the war horn (if the army carries one): every man rallies at once. */
+  | { kind: 'horn' };
 
 export interface LoggedOrder {
   tick: number;

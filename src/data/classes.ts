@@ -25,6 +25,7 @@
 import type { StatMods } from './items';
 import { registerClassTree, type Attrs, type AttrId, type PerkId } from './perks';
 import type { Culture } from './names';
+import { MYTHS, MYTH_IDS, type MythId } from './beasts';
 
 export type ClassId =
   | 'militia'
@@ -32,11 +33,13 @@ export type ClassId =
   | 'archer' | 'slinger' | 'javelineer' | 'horse_archer'
   | 'peltast' | 'falx' | 'gallic' | 'fanatic'
   | 'companion' | 'thessalian' | 'chariot' | 'royal_guard' | 'sacred_band'
-  | 'wolf' | 'boar' | 'bear';
+  | 'wolf' | 'boar' | 'bear'
+  | MythId;
 
 export type ClassRole = 'levy' | 'heavy' | 'ranged' | 'light' | 'cavalry' | 'elite' | 'beast';
 export type MountId = 'horse' | 'chariot';
-export type BeastId = 'wolf' | 'boar' | 'bear';
+/** Animals and mythical beasts (src/data/beasts.ts). */
+export type BeastId = 'wolf' | 'boar' | 'bear' | MythId;
 
 export const ROLE_LABEL: Record<ClassRole, string> = {
   levy: 'Levy',
@@ -323,6 +326,15 @@ const defs: ClassDef[] = [
     beastStats: { hp: 150, dmg: 32, atkTime: 1.3, reach: 0.9, armor: 4, morale: 80, speed: 1.05, chargeBonus: 0.5, moraleShock: 0.7, radius: 0.55, routAt: 0.25, pack: false },
     mods: {}, attrs: A(9, 4, 8, 6), growth: [], tree: [], kit: {}, cultures: [], art: { coat: 'bear' },
   },
+  // ------------------------------------------------------------- mythical beasts (src/data/beasts.ts)
+  ...MYTH_IDS.map((id): ClassDef => {
+    const m = MYTHS[id];
+    return {
+      id, name: m.name, short: m.name.slice(0, 6), role: 'beast', cost: 1000, group: 0, kind: 'animal', beast: id, desc: m.desc,
+      beastStats: { hp: m.hp, dmg: m.dmg, atkTime: m.atkTime, reach: m.reach, armor: m.armor, morale: m.morale, speed: m.speed, chargeBonus: 0.5, moraleShock: 0, radius: Math.min(1.95, m.radius), routAt: id === 'harpy' ? 0.3 : 0, pack: false },
+      mods: {}, attrs: A(9, 5, 9, 9), growth: [], tree: [], kit: {}, cultures: [], art: { coat: id },
+    };
+  }),
 ];
 
 export const CLASSES: Record<ClassId, ClassDef> = Object.fromEntries(defs.map((d) => [d.id, d])) as Record<ClassId, ClassDef>;
