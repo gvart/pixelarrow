@@ -8,6 +8,8 @@
  * - Keys are grouped by screen: `common.*` (shared), `kit.*` (UI kit),
  *   `menu.*`, `settings.*`, ... Add a screen's keys under its own prefix.
  */
+import { BATTLE_EN } from './battle.en';
+
 export const EN = {
   // ---- shared words
   'common.ok': 'OK',
@@ -104,4 +106,7 @@ export const EN = {
   'settings.tab.language': 'Language',
   'settings.volumeDown': 'Quieter',
   'settings.volumeUp': 'Louder',
+
+  // ---- battle screens and the post-battle report (battle.en.ts)
+  ...BATTLE_EN,
 } as const;

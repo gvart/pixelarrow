@@ -24,6 +24,8 @@ export interface LockstepDriver {
   status(): string | null;
   /** Ended from outside (desync, opponent left): message to show, else null. */
   aborted(): string | null;
+  /** The opponent pressed Ready during deployment. */
+  opponentReady?(): boolean;
 }
 
 export interface BattleSource {
@@ -34,7 +36,9 @@ export interface BattleSource {
   side: Side;
   /** "vs Brigands", "vs Hektor". */
   label: string;
-  /** Live duel: no pause, no speed-up, orders through the relay. */
+  /** Live duel: the other player's name. */
+  opponent?: string;
+  /** Live duel: orders through the relay. (Every online battle has no pause and no speed-up.) */
   lockstep?: LockstepDriver;
   /** The battle ended (or was aborted): the source takes over (submit, show the result...). */
   onFinish(sim: Battle, deployOrders: number): void;

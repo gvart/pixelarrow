@@ -1,5 +1,6 @@
 /** Russian strings. Same keys and parameters as en.ts; plurals use one / few / many / other. */
 import type { Table } from './index';
+import { BATTLE_RU } from './battle.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -90,4 +91,6 @@ export const RU: Table = {
   'settings.tab.language': 'Язык',
   'settings.volumeDown': 'Тише',
   'settings.volumeUp': 'Громче',
+
+  ...BATTLE_RU,
 };

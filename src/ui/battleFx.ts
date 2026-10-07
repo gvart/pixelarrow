@@ -4,6 +4,7 @@
  * stun stars, buff pips above heads and floating damage numbers.
  * Reads simulation state only; never touches the sim.
  */
+import { uiIgnore } from './layout';
 import Phaser from 'phaser';
 import { renderAuraRing, renderDot, renderFxIcon, renderPip, renderStar, isoEllipse } from '../art/fx';
 import { ICONS } from '../art/icons';
@@ -139,6 +140,8 @@ export class BattleFx {
       if (this.numbers.length >= MAX_NUMBERS) f = this.numbers.reduce((a, b) => (a.t / a.dur > b.t / b.dur ? a : b));
       else {
         const t = this.scene.add.bitmapText(0, 0, 'font_title', '', 7).setOrigin(0.5, 1).setDepth(DEPTH_FX + 1);
+        // damage numbers are battle effects, not UI text (the layout check skips them)
+        uiIgnore(t);
         this.layer.add(t);
         f = { obj: t, x: 0, y: 0, t: 0, dur: 1, rise: 10, live: false };
         this.numbers.push(f);

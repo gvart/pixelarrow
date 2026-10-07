@@ -37,6 +37,8 @@ pixels; 44 pt is 22 UI pixels at `S = 2`, the smallest scale.
 | `confirmDialog` | `confirmDialog(scene, { title, body, ok, cancel, destructive, onOk, onCancel })` | yes/no questions. Cancel left (secondary), OK right (primary or destructive). Every destructive action goes through it. |
 | `addEmptyState` | `addEmptyState(scene, x, y, w, h, { icon, title, hint, action })` | empty lists: say what to do next, optionally with a primary action. Shrinks itself to fit. |
 | `tappable` | `tappable(obj, area, onTap, tip?)` | custom tap targets (rows, zones): ignores drags inside a scroll area, plays the click and haptic, long-press tip. |
+| `PanelButton` | `new PanelButton(scene, x, y, w, h, { icon, label, cat, selected, primary, tip, disabledReason, show, onClick })`, `.setCooldown(f)`, `.setBadge(s)` | battle panel commands and category tabs (`src/ui/battlePanel.ts`): tinted by battle category (`cat`), filled when selected, icon above the label from 28 tall, `show: 'icon'` for a row whose labels do not fit. Behaves like `Button`. |
+| `GroupCard` | `new GroupCard(scene, x, y, w, h, onTap, tip)`, `.setInfo({ numeral, men, hp, morale, orderIcon, portrait, name, orderWord, selected, routed })` | a group in the battle panel: class portrait, numeral, men, order, health and morale bars; narrow and wide layouts. |
 
 Older helpers (`addPanel`, `addScroll`, `addText`, `fitText`, `Meter`,
 `ScrollArea`, `confirmModal`) still work; `ScrollArea` + `addScrollHint` is the

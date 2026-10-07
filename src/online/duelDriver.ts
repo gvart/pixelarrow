@@ -9,6 +9,7 @@ import type { BattleSource, LockstepDriver } from './battleSource';
 import { Lockstep } from './lockstep';
 import type { DuelStart, ServerMsg } from './protocol';
 import { shardSocket } from './client';
+import { t } from '../i18n';
 
 export interface DuelOutcome {
   result: Extract<ServerMsg, { type: 'duel_result' }> | null;
@@ -54,12 +55,15 @@ export function duelSource(start: DuelStart, done: (o: DuelOutcome) => void, lea
       ls?.beforeStep();
     },
     status() {
-      return `Waiting for ${opponent}...`;
+      return t('battle.banner.waitingFoe', { name: opponent });
+    },
+    opponentReady() {
+      return !!ls?.opponentReady;
     },
     aborted() {
       if (!ls) return null;
-      if (ls.desync) return 'Out of sync - duel void';
-      if (ls.aborted) return ls.aborted === 'opponent_left' || ls.aborted === 'left' ? `${opponent} left the duel` : 'Duel cancelled';
+      if (ls.desync) return t('battle.duel.desync');
+      if (ls.aborted) return ls.aborted === 'opponent_left' || ls.aborted === 'left' ? t('battle.duel.left', { name: opponent }) : t('battle.duel.cancelled');
       return null;
     },
   };
@@ -67,7 +71,8 @@ export function duelSource(start: DuelStart, done: (o: DuelOutcome) => void, lea
     setup: start.setup,
     heroes: [...start.heroes[0], ...start.heroes[1]],
     side: start.side,
-    label: `vs ${opponent}`,
+    label: t('battle.vs', { name: opponent }),
+    opponent,
     lockstep: driver,
     onFinish() {
       finished = true;

@@ -2,6 +2,7 @@
 import { Campaign } from './game/campaign';
 import { readSave, writeSave, clearSave, type SaveData } from './game/save';
 import type { Outcome } from './game/loot';
+import type { UnitStat } from './game/report';
 import type { EnemyArmy } from './game/enemy';
 import type { Hero } from './data/units';
 import type { BattleSite } from './world/battlefield';
@@ -29,6 +30,10 @@ export interface LastBattle {
   fallen: Hero[];
   partyId?: number;
   label?: string;
+  /** For the battle report: length in ticks, per-unit kills and damage, the heroes as they went in. */
+  ticks?: number;
+  stats?: UnitStat[];
+  before?: Hero[];
 }
 
 class GameState {
