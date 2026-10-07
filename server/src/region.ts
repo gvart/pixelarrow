@@ -28,6 +28,7 @@ import { withConsumables } from './online/attack';
 import type { ConsumableId } from '../../src/data/consumables';
 import { PASS } from './economy/catalog';
 import { passXpStmt } from './economy/pass';
+import type { LiveArrival, LiveOut } from './online/live';
 
 export interface PresenceInfo {
   id: number;
@@ -112,6 +113,55 @@ export class RegionDO extends DurableObject<Env> {
       return null;
     }
     return cur;
+  }
+
+  // ------------------------------------------------------------------ live armies (RPC)
+
+  /** Players with an open socket here (live army updates go to them). */
+  async livePlayers(): Promise<number[]> {
+    return this.online().map((p) => p.id);
+  }
+
+  /**
+   * Delivers a player's army move (messages already cut to each receiver's
+   * vision by server/src/online/live.ts) and keeps the march's arrival to
+   * announce later (alarm). A move replacing an unfinished march hides the
+   * army from those who saw the old march but get nothing about the new move.
+   */
+  async liveMove(pid: number, out: LiveOut[], arrival: LiveArrival | null, now = Date.now()): Promise<void> {
+    const key = `arrive:${pid}`;
+    const prev = await this.ctx.storage.get<LiveArrival>(key);
+    const sent = new Set(out.map((o) => o.to));
+    const hides: Out[] = prev && prev.at > now ? prev.told.filter((v) => !sent.has(v)).map((v) => ({ to: v, msg: { type: 'army_hide', player: pid, now } })) : [];
+    this.deliver([...out, ...hides] as Out[]);
+    if (arrival && arrival.told.length && arrival.at > now) await this.ctx.storage.put(key, arrival);
+    else if (prev) await this.ctx.storage.delete(key);
+    await this.scheduleArrivals();
+  }
+
+  private async scheduleArrivals(): Promise<void> {
+    const all = await this.ctx.storage.list<LiveArrival>({ prefix: 'arrive:' });
+    let next = Infinity;
+    for (const a of all.values()) next = Math.min(next, a.at);
+    if (Number.isFinite(next)) await this.ctx.storage.setAlarm(next);
+    else await this.ctx.storage.deleteAlarm();
+  }
+
+  /** Announces the marches that arrived. */
+  async alarm(): Promise<void> {
+    const now = Date.now();
+    const all = await this.ctx.storage.list<LiveArrival>({ prefix: 'arrive:' });
+    const out: Out[] = [];
+    const done: string[] = [];
+    for (const [k, a] of all) {
+      if (a.at > now) continue;
+      const pid = Number(k.slice('arrive:'.length));
+      for (const v of a.to) out.push({ to: v, msg: { type: 'army_arrive', player: pid, q: a.q, r: a.r, now } } as Out);
+      done.push(k);
+    }
+    if (done.length) await this.ctx.storage.delete(done);
+    this.deliver(out);
+    await this.scheduleArrivals();
   }
 
   // ------------------------------------------------------------------ duels

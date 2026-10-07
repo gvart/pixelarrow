@@ -28,6 +28,7 @@ import { hexKey, limit, player, shardStub, type PlayerCtx } from './context';
 import { applyBattleConsumable, BATTLE_CONSUMABLES, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import { attackXp, passXpStmt } from '../economy/pass';
 import { pendingIncome } from './income';
+import { pushArmyMove } from './live';
 import {
   armyState,
   energyNow,
@@ -458,5 +459,7 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
     if (again.status === 'used' && again.result && again.claim === claimJson) return { ...JSON.parse(again.result), replayed: true };
     throw new ApiError(409, 'ticket_used', 'This battle was already reported');
   }
+  // The army moved into the conquered hex: show it there to everyone who can see it.
+  if (captured) await pushArmyMove(pc, { kind: 'pos', pos: { q: hex.q, r: hex.r } });
   return summaryOut;
 }

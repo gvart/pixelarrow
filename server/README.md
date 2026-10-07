@@ -24,8 +24,8 @@ server/
     routes/shop.ts    GET /api/shop/products, POST /api/shop/invoice, GET /api/entitlements
     routes/webhook.ts POST /api/telegram/webhook
     battle.ts         sim adapter for POST /api/battle/verify (the only file that knows the sim API)
-    region.ts         RegionDO (presence; per online shard also hex attack locks and the duel relay)
-    online/           online mode: routes.ts (profile, map, hex, march, garrison, collect, recruit, equip, army),
+    region.ts         RegionDO (presence; per online shard also hex attack locks, the duel relay and live army pushes)
+    online/           online mode: routes.ts (profile, map, hex, march, garrison, collect, recruit, equip, army), live.ts (live army movement, fog-filtered),
                       attack.ts (tickets, verified attacks), clans.ts, duel.ts (lobby, lockstep relay),
                       store.ts (seasons, shards, homes, D1 access), income.ts, context.ts,
                       consumables.ts (season inventory, use), market.ts (town marketplace)
@@ -209,7 +209,7 @@ respawns are all computed on read from server time. No alarms or polling.
 | POST | `/api/online/profile` | join the season (idempotent): shard, home hex, 5 heroes, purse → profile |
 | GET | `/api/online/profile` | resources, energy, home, army (position/march), heroes (garrison, wounds, busy), stash, clan, pending income |
 | GET | `/api/online/season` | season dates and your titles from past seasons |
-| GET | `/api/online/map` | visible hexes `{q,r,type,tier,fort,capital,coast,site,occupant,owner,clan,home,garrison?}`, visible armies, player names, clan tags |
+| GET | `/api/online/map` | visible hexes `{q,r,type,tier,fort,capital,coast,site,occupant,owner,clan,home,garrison?,def?}` (`def`: the neutral holders, a `src/online/defenders.ts` id), visible armies, player names, clan tags |
 | GET | `/api/online/hex/:q/:r` | yields, march minutes, owner, garrison (own/clan only), defenders estimate, siege `{wins, needed, label}`, `locked`, `canAttack`, `canGarrison`, pending income |
 | POST | `/api/online/march` | `{q,r}` → A* path over land not held by rivals, arrival times `at[]`; 1 energy per hex, at most 40 hexes |
 | POST | `/api/online/march/stop` | halt on the last hex reached |
@@ -289,6 +289,27 @@ in `src/online/protocol.ts`:
 - `end {winner, ticks, hash}` → the DO replays the log with `src/sim`, sends
   `duel_result {winner, ticks, hash, verified, mismatches}` to both and writes
   battle_log. A player leaving → `duel_abort`.
+- **live armies** (server → client only; `server/src/online/live.ts`, shared
+  helpers in `src/online/liveArmies.ts`): when an army sets out (`POST
+  /march`), halts (`/march/stop`) or moves into a conquered hex (attack
+  submit), the Worker asks the shard who is online (`livePlayers()` RPC),
+  works out each one's vision exactly like `/map` (their and their clan's
+  land and armies, `ONLINE_RULES.sight`) and hands the cut messages to the DO
+  (`liveMove()` RPC), which delivers them:
+  - `army_march {player, name, clan, path, at, until, now}`: only the path
+    hexes the receiver can see, with the time the army enters (`at`) and
+    leaves (`until`, null for the last hex) each one. A gap means the army is
+    out of sight in between; nothing outside the fog ever leaves the server.
+    The receiver's own and clan mates' armies come whole.
+  - `army_pos {player, name, clan, q, r, now}`: it stands on a hex the
+    receiver sees (halt, capture).
+  - `army_arrive {player, q, r, now}`: pushed by a DO alarm at the arrival
+    time to those who see the last hex (arrivals are kept in DO storage).
+  - `army_hide {player, now}`: a halt or a new march the receiver can no
+    longer see replaces a march they were shown.
+
+  Pushing never fails the action that moved the army. Clients interpolate
+  between `at` and `until` (`LiveArmies` in `src/online/liveArmies.ts`).
 
 Duel and challenge state is kept in DO memory (a live duel keeps the object
 awake); hex locks are in DO storage.

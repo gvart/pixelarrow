@@ -29,6 +29,7 @@ import { pendingIncome } from './income';
 import { clans } from './clans';
 import { consumableInventory, consumables } from './consumables';
 import { market, resolveExpired } from './market';
+import { pushArmyMove } from './live';
 import { base, hexKey, limit, player, shardStub, type PlayerCtx } from './context';
 import {
   armyState,
@@ -113,6 +114,8 @@ interface HexView {
   clan: number | null;
   home: boolean;
   garrison?: number;
+  /** Who holds a neutral hex (src/online/defenders.ts id): the map shows them as miniatures. */
+  def?: string;
 }
 
 /**
@@ -147,7 +150,8 @@ export async function visibility(c: PlayerCtx): Promise<{ visible: Map<string, A
 
 function hexView(shard: Shard, h: Axial, row: HexRow | undefined): HexView {
   const s = staticHex(shard, h);
-  return {
+  const occupant = row?.occupant ?? (s.passable ? 'npc' : 'none');
+  const v: HexView = {
     q: h.q,
     r: h.r,
     type: s.type,
@@ -156,11 +160,13 @@ function hexView(shard: Shard, h: Axial, row: HexRow | undefined): HexView {
     capital: s.capital,
     coast: s.coast,
     site: siteLabel(s.site),
-    occupant: row?.occupant ?? (s.passable ? 'npc' : 'none'),
+    occupant,
     owner: row?.owner_id ?? null,
     clan: row?.clan_id ?? null,
     home: row?.home === 1,
   };
+  if (occupant === 'npc' && !row?.owner_id) v.def = defenderFor(shard.seed, s).id;
+  return v;
 }
 
 // ------------------------------------------------------------------ season & profile
@@ -334,6 +340,7 @@ online.post('/march', async (c) => {
       )
       .bind(pc.season.id, pc.pid, army.pos.q, army.pos.r, march, energy - cost, pc.now, pc.profile.rev),
   ]);
+  await pushArmyMove(pc, path.length > 1 ? { kind: 'march', path, at } : { kind: 'pos', pos: army.pos });
   return c.json({ path: path.map((h) => [h.q, h.r]), at, energy: energy - cost, arriveAt: at[at.length - 1] });
 });
 
@@ -346,6 +353,7 @@ online.post('/march/stop', async (c) => {
       .prepare('UPDATE online_profiles SET army_q = ?3, army_r = ?4, march = NULL, rev = rev + 1, updated_at = ?5 WHERE season_id = ?1 AND player_id = ?2 AND rev = ?6')
       .bind(pc.season.id, pc.pid, army.pos.q, army.pos.r, pc.now, pc.profile.rev),
   ]);
+  if (army.marching) await pushArmyMove(pc, { kind: 'pos', pos: army.pos });
   return c.json({ q: army.pos.q, r: army.pos.r });
 });
 

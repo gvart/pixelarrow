@@ -79,7 +79,29 @@ export interface DuelStart {
   deployMs?: number;
 }
 
+/**
+ * Live army movement on the hex map (docs/DESIGN_V2.md "Online battle
+ * rules"). The server only tells a player about armies inside their fog of
+ * war: a march's path holds just the hexes the receiver can see (with their
+ * arrival times; a gap between two entries means the army is out of sight in
+ * between), except for the receiver's own and clan mates' armies, which are
+ * always shown whole.
+ */
+export type LiveArmyMsg =
+  /**
+   * An army set out: it enters path[i] at at[i] and leaves it at until[i]
+   * (null: it stops there). Times are ms on the server clock; now = server time.
+   */
+  | { type: 'army_march'; player: number; name: string; clan: number | null; path: [number, number][]; at: number[]; until: (number | null)[]; now: number }
+  /** An army stands on a hex (halted, moved into a conquered hex, or a march ended in sight). */
+  | { type: 'army_pos'; player: number; name: string; clan: number | null; q: number; r: number; now: number }
+  /** A march reached its last hex (pushed by the shard at the arrival time). */
+  | { type: 'army_arrive'; player: number; q: number; r: number; now: number }
+  /** The army went out of the receiver's sight. */
+  | { type: 'army_hide'; player: number; now: number };
+
 export type ServerMsg =
+  | LiveArmyMsg
   | { type: 'welcome'; region: string; you: PresencePlayer; players: PresencePlayer[] }
   | { type: 'join'; player: PresencePlayer }
   | { type: 'leave'; player: PresencePlayer }
