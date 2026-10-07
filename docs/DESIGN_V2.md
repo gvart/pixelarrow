@@ -180,3 +180,38 @@ with DESIGN.md or ROADMAP.md, this document wins.
 6. Beasts: lairs, boss battle mechanics, clan world bosses.
 7. Town marketplace.
 8. Offline tutorial and skirmish mode replacing the overland campaign.
+
+## Monetization and economy
+
+- **Telegram Stars buy:**
+  - cosmetics: shield emblems, banners, cloaks, clan flags, army skins and
+    map-table themes;
+  - a seasonal pass with a free and a paid track;
+  - Drachmae (premium currency);
+  - consumables, as a shortcut.
+
+  No direct power purchases: no gear or heroes for Stars.
+- **Drachmae:** bought with Stars and tradeable between players. Marketplace
+  listings can be priced in gold or Drachmae, and the game takes a 10% fee on
+  every sale, which is removed from the economy. Drachmae never convert back
+  to Stars, so there are no payouts to players. Check Telegram's current rules
+  for Stars and digital goods before launch.
+- **Consumables:** healing salves, morale wine, a war horn (a one-time rally),
+  sharpening stones (+damage for one battle) and march rations (faster
+  marches).
+  - Bought with gold, or with Stars or Drachmae as a shortcut.
+  - Daily cap per player.
+  - At most one consumable per battle in PvP attacks and duels.
+
+## Localization, audio and onboarding
+
+- **Languages:** English and Russian, picked from the Telegram user's language
+  and switchable in settings. All UI text goes through a translation table.
+- **Audio:**
+  - Procedural retro sound effects: clashes, shield hits, javelins, horns and
+    UI clicks.
+  - A few looping ancient-style music tracks (lyre and drums).
+  - Volume and mute in settings; muted while Telegram is in the background.
+- **Onboarding:** a skippable guided tutorial battle of 3–4 minutes with a
+  narrator (select, slingshot formation, charge, shield wall, abilities),
+  followed by a guided first hex capture online.
