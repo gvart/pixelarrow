@@ -50,6 +50,7 @@ server/
                              (season inventory, daily caps), battle_tickets.consumable, season pass,
                              market listings and audit
   migrations/0005_notifications.sql notification settings, outbox and log, support_requests, bot state
+  migrations/0006_ops.sql           bans, analytics opt-out and milestones, client_errors, admin_audit (docs/OPS.md)
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   scripts/bot-setup.mjs      one-off: setMyCommands (EN/RU) and setWebhook with the allowed updates
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)

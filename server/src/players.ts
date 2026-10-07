@@ -9,7 +9,7 @@ export interface PlayerRow {
   is_premium: number;
   created_at: number;
   last_seen_at: number;
-  /** Migration 0005: admin ban and the analytics opt-out. */
+  /** Migration 0006: admin ban and the analytics opt-out. */
   banned_at?: number | null;
   ban_reason?: string | null;
   analytics_opt_out?: number;

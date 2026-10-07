@@ -4,7 +4,7 @@ How to watch the production game at https://pixelarrow.app, read its funnel
 and retention numbers, restore the database, and run the admin panel. Code:
 `server/src/telemetry/`, `server/src/admin/`, `server/src/ban.ts`,
 `src/platform/{telemetry,analytics,analyticsSchema,monitoring}.ts`,
-`server/migrations/0005_ops.sql`, `.github/workflows/backup.yml`,
+`server/migrations/0006_ops.sql`, `.github/workflows/backup.yml`,
 `server/scripts/d1-restore.mjs`.
 
 Everything uses Cloudflare built-ins already on the account (Workers Logs,
@@ -58,7 +58,7 @@ Run from `server/` with a logged-in wrangler (`npx wrangler login`) or with
    Add an R2 lifecycle rule (dashboard → R2 → bucket → Settings → Object
    lifecycle rules: delete after N days) to cap storage.
 
-Nothing else is needed: the D1 tables come from migration `0005_ops.sql`
+Nothing else is needed: the D1 tables come from migration `0006_ops.sql`
 (applied by CI), the cron trigger and the dataset bindings from
 `wrangler.jsonc`.
 
