@@ -6,9 +6,9 @@ import { GroupCard, PanelButton, type PanelButtonOpts } from '../ui/battlePanel'
 import { CATEGORY_COLOR, SIZE, type BattleCategory } from '../ui/theme';
 import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
-import { dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, pumpDolls, queueDollRows } from '../ui/sprites';
-import { dollFromHero, ANIM_FRAMES } from '../art/paperdoll';
-import { renderGround } from '../art/ground';
+import { PLATE_W, PLATE_W_BIG, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, pumpDolls, queueDollRows } from '../ui/sprites';
+import { dollFromHero, ANIM_FRAMES, BATTLE_SCALE } from '../art/paperdoll';
+import { plateOrigin, renderGround } from '../art/ground';
 import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
 import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
@@ -312,17 +312,23 @@ export class BattleScene extends BaseScene {
       const f = isoFacing(u.fx, u.fy);
       const dir = facingRow(f.back, f.left);
       // only the row he faces now is drawn up front; the rest in idle time
-      const key = ensureDoll(this, dollFromHero(hero), [dir]);
+      const key = ensureDoll(this, { ...dollFromHero(hero), scale: BATTLE_SCALE }, [dir]);
       queueDollRows(this, key);
       const big = !!u.stats.mount || u.rad > 0.45;
-      const shadow = this.add.image(0, 0, big ? 'shadow_big' : 'shadow').setAlpha(0.3).setDepth(-60000);
-      const ring = this.add.image(0, 0, u.side === this.me ? (big ? 'ring_sel_big' : 'ring_sel') : 'ring_enemy').setDepth(-70000).setVisible(false);
-      if (big && u.side !== this.me) ring.setScale(1.6);
+      // every man and rider stands on a miniature's base plate; animals only cast a shadow
+      const plated = u.stats.kind !== 'animal';
+      const shadow = plated
+        ? this.add.image(0, 0, big ? 'base_plate_big' : 'base_plate').setOrigin(...plateOrigin(big ? PLATE_W_BIG : PLATE_W)).setDepth(-60000)
+        : this.add.image(0, 0, big ? 'shadow_big' : 'shadow').setAlpha(0.3).setDepth(-60000);
+      const ring = plated
+        ? this.add.image(0, 0, big ? 'plate_sel_big' : 'plate_sel').setOrigin(...plateOrigin(big ? PLATE_W_BIG : PLATE_W)).setDepth(-59000).setVisible(false)
+        : this.add.image(0, 0, u.side === this.me ? (big ? 'ring_sel_big' : 'ring_sel') : 'ring_enemy').setDepth(-70000).setVisible(false);
+      if (!plated && big && u.side !== this.me) ring.setScale(1.6);
       const [ox, oy] = dollOrigin(key);
       const spr = this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
       this.world.add([shadow, ring, spr, flag]);
-      const tall = u.stats.mount ? 52 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 18) : 38;
+      const tall = Math.round((u.stats.mount ? 52 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 18) : 38) * BATTLE_SCALE);
       this.views.push({ u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big });
     }
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
@@ -422,7 +428,7 @@ export class BattleScene extends BaseScene {
     const availW = this.scale.width;
     const availH = vp.bottom - vp.top;
     const fit = Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0)));
-    // 1x shows a man ~34 px tall on a 390-wide phone; closer if both armies fit
+    // 1x shows a man ~25 px tall on a 390-wide phone; closer if both armies fit
     const z = Phaser.Math.Clamp(Math.max(1, fit), 1, 2);
     cam.setZoom(z);
     const t0 = this.focusPoint();
@@ -608,7 +614,7 @@ export class BattleScene extends BaseScene {
       if (u.state === 'dead') {
         if (v.deathTick < 0) v.deathTick = tick;
         const tt = (now - v.deathTick) / TICK_RATE;
-        frame = tt < 0.12 ? ANIM_FRAMES.die[0] : tt < 0.28 ? ANIM_FRAMES.die[1] : ANIM_FRAMES.die[2];
+        frame = tt < 0.1 ? ANIM_FRAMES.die[0] : tt < 0.22 ? ANIM_FRAMES.die[1] : ANIM_FRAMES.die[2];
         v.spr.setDepth(-50000 + ry);
         v.shadow.setVisible(false);
         v.ring.setVisible(false);
@@ -622,14 +628,15 @@ export class BattleScene extends BaseScene {
       const sinceAtk = (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE;
       const sinceHit = (now - u.lastHitTick) / TICK_RATE;
       if (sinceAtk >= 0 && sinceAtk < 0.42) {
-        frame = sinceAtk < 0.1 ? ANIM_FRAMES.attack[0] : sinceAtk < 0.26 ? ANIM_FRAMES.attack[1] : ANIM_FRAMES.attack[2];
+        // windup held ~120 ms, a quick thrust, then recover (docs/ART_STYLE.md §10)
+        frame = sinceAtk < 0.12 ? ANIM_FRAMES.attack[0] : sinceAtk < 0.24 ? ANIM_FRAMES.attack[1] : ANIM_FRAMES.attack[2];
       } else if (sinceHit >= 0 && sinceHit < 0.18) {
         frame = ANIM_FRAMES.hit[0];
       } else if (moving || u.state === 'routing') {
         const rate = u.state === 'routing' ? 12 : 8;
         frame = ANIM_FRAMES.walk[Math.floor((now / TICK_RATE) * rate + u.id) % 4];
       } else {
-        frame = ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + u.id * 0.37) % 2];
+        frame = ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + ((u.id * 0.618) % 1) * 2) % 2]; // random phase per man
       }
       v.spr.setFrame(dollFrame(dir, frame));
       v.spr.setDepth(ry);
@@ -650,7 +657,11 @@ export class BattleScene extends BaseScene {
       }
       const selected = u.side === this.me && (u.group === this.selGroup || u.id === this.selUnit);
       v.ring.setVisible(selected);
-      if (selected) v.ring.setTexture(u.id === this.selUnit ? 'ring_one' : 'ring_sel');
+      if (selected) {
+        const one = u.id === this.selUnit;
+        if (v.u.stats.kind !== 'animal') v.ring.setTexture(`${one ? 'plate_one' : 'plate_sel'}${v.big ? '_big' : ''}`);
+        else v.ring.setTexture(one ? 'ring_one' : 'ring_sel');
+      }
       v.flag.setVisible(u.state === 'routing');
       if (u.state === 'routing') v.flag.setPosition(rx + 3, ry - v.tall);
     }
@@ -741,13 +752,16 @@ export class BattleScene extends BaseScene {
           const p = isoToScreen(x, y);
           return [Math.round(p.x), Math.round(p.y)] as [number, number];
         });
-        this.dashRect(g, corners, color, a, 2, 2);
+        // a translucent cyan-grey cell per soldier: together they read as the formation's lattice
+        g.fillStyle(color, a * 0.3);
+        g.fillPoints(corners.map(([x, y]) => new Phaser.Math.Vector2(x, y)), true);
+        this.dashRect(g, corners, color, a, 1, 0);
       }
     };
     if (this.dragPreview) {
       const d = this.dragPreview;
       const slots = formationSlots({ type: d.type, cx: d.cx, cy: d.cy, fx: d.fx, fy: d.fy, frontage: d.frontage }, d.n);
-      drawSlots(slots, d.fx, d.fy, 0xfff4c0, 0.95);
+      drawSlots(slots, d.fx, d.fy, 0x9fd8dc, 0.85);
       this.drawFacingKnob(this.knobG, d.cx, d.cy, d.fx, d.fy, 0xfff4c0, 0.95);
       this.placeDragLabel(d);
       return;
@@ -757,7 +771,7 @@ export class BattleScene extends BaseScene {
       const grp = this.sim.groups[this.selGroup];
       if (!grp || grp.disbanded) return;
       const slots = this.sim.groupSlots(grp.id);
-      drawSlots(slots, grp.formation.fx, grp.formation.fy, 0xf6ecd8, 0.75);
+      drawSlots(slots, grp.formation.fx, grp.formation.fy, 0x7fa9a8, 0.6);
       // the facing arrow and its knob: drag the knob to turn the group
       const fr = this.canCommand() && this.sim.phase !== 'ended' ? this.selectedFrame() : null;
       if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85);

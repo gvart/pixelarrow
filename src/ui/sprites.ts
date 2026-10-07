@@ -9,7 +9,7 @@
 import Phaser from 'phaser';
 import { NDIRS, NFRAMES, dollGeom, dollKey, renderFrame, type DollSpec, type SheetGeom } from '../art/paperdoll';
 import { itemIconKey, renderItemIcon } from '../art/itemIcons';
-import { renderBlood, renderRing, renderShadow } from '../art/ground';
+import { renderBasePlate, renderBlood, renderPlateRing, renderRing, renderShadow } from '../art/ground';
 import { Pix } from '../art/pixels';
 import { P } from '../art/palette';
 import type { Item } from '../data/items';
@@ -139,6 +139,10 @@ export function ensureItemIcon(scene: Phaser.Scene, item: Item): string {
   return key;
 }
 
+/** Base plate widths (px) for a man and for a rider / chariot. */
+export const PLATE_W = 20;
+export const PLATE_W_BIG = 36;
+
 export function registerMisc(scene: Phaser.Scene): void {
   if (scene.textures.exists('shadow')) return;
   scene.textures.addCanvas('shadow', renderShadow(18, 7).toCanvas());
@@ -149,6 +153,13 @@ export function registerMisc(scene: Phaser.Scene): void {
   scene.textures.addCanvas('ring_enemy', renderRing(0xc04a3a).toCanvas());
   scene.textures.addCanvas('ring_sel_big', renderRing(0xf6ecd8, 40, 18).toCanvas());
   scene.textures.addCanvas('ring_one_big', renderRing(P.gold, 40, 18).toCanvas());
+  // miniature-style base plates and the selection outlines that hug them
+  scene.textures.addCanvas('base_plate', renderBasePlate(PLATE_W).toCanvas());
+  scene.textures.addCanvas('base_plate_big', renderBasePlate(PLATE_W_BIG).toCanvas());
+  scene.textures.addCanvas('plate_sel', renderPlateRing(0x7fd0e0, PLATE_W).toCanvas());
+  scene.textures.addCanvas('plate_one', renderPlateRing(0xf0d070, PLATE_W).toCanvas());
+  scene.textures.addCanvas('plate_sel_big', renderPlateRing(0x7fd0e0, PLATE_W_BIG).toCanvas());
+  scene.textures.addCanvas('plate_one_big', renderPlateRing(0xf0d070, PLATE_W_BIG).toCanvas());
   // routing flag
   const flag = new Pix(5, 7);
   flag.vline(0, 0, 6, P.wood[2]);

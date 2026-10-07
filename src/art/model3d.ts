@@ -7,8 +7,8 @@
  * module ray-casts them one pixel at a time, shades every hit against a
  * fixed light (upper left of the screen), quantises the result to a
  * material's colour ramp with ordered dithering, darkens creases where depth
- * jumps, and adds a soft outline (a darker shade of the edge colour, never
- * black). Pure: no Phaser, no DOM, deterministic.
+ * jumps, and adds a selective outline (a dark, red-shifted shade of the edge
+ * colour, never black) plus a lighter upper-left silhouette edge. Pure: no Phaser, no DOM, deterministic.
  *
  * World axes: X = field x (down-right on screen), Y = field y (down-left),
  * Z = up. 1 unit = 1 metre; a man is about 1.75 m (~34 px).
@@ -45,6 +45,8 @@ export const CAM: V3 = [-VIEW[0], -VIEW[1], -VIEW[2]];
 /** Light: from the upper left of the screen and a little towards the camera. */
 export const LIGHT: V3 = norm(add(add(mul(RIGHT, -0.55), mul(UP, 0.75)), mul(CAM, 0.45)));
 const HALF: V3 = norm(add(LIGHT, CAM));
+/** Ordered-dither amplitude in ramp steps: small, so tones form clean bands rather than noisy gradients. */
+const DITHER = 0.2;
 
 /** Screen position (relative to the sprite origin) of a world point. */
 export function project(p: V3): { x: number; y: number } {
@@ -399,6 +401,8 @@ export class Scene {
         if (color[i] < 0) continue;
         let lv = tone[i];
         if ((x > 0 && crease(i, i - 1)) || (x < w - 1 && crease(i, i + 1)) || (y > 0 && crease(i, i - w)) || (y < h - 1 && crease(i, i + w))) lv += 1;
+        // upper-left light: the silhouette's top / left edge catches a lighter tone
+        else if ((y > 0 && color[i - w] < 0) || (x > 0 && color[i - 1] < 0)) lv -= 0.75;
         const ramp = rampOf[i]!;
         const c = ramp[Math.max(0, Math.min(ramp.length - 1, Math.round(lv)))];
         const o = i * 4;
@@ -420,7 +424,8 @@ export class Scene {
     // 0 = brightest, 1 = darkest
     let dark = 1 - (0.18 + 0.72 * diff + 0.1 * facing);
     dark = 0.5 + (dark - 0.5) * c;
-    let lv = dark * (nr - 1) + (BAYER4[py & 3][px & 3] - 0.5) * 0.55;
+    // a whisper of ordered dither only, so tones form clean bands (no noisy gradients)
+    let lv = dark * (nr - 1) + (BAYER4[py & 3][px & 3] - 0.5) * DITHER;
     if (m.metal) {
       const spec = Math.pow(Math.max(0, nx * HALF[0] + ny * HALF[1] + nz * HALF[2]), 24);
       if (spec > 0.45) lv = 0;
@@ -451,13 +456,25 @@ export function softOutline(px: Pix): void {
     }
   }
   for (let k = 0; k < marks.length; k += 2) {
-    const c = shadeOf(marks[k + 1], 0.42);
+    const c = selOut(marks[k + 1]);
     const o = marks[k] * 4;
     data[o] = (c >> 16) & 255;
     data[o + 1] = (c >> 8) & 255;
     data[o + 2] = c & 255;
-    data[o + 3] = 235;
+    data[o + 3] = 255;
   }
+}
+
+/**
+ * Selective outline colour: a dark version of the local colour, shifted
+ * towards red-purple (dark brown under skin, oxblood under red, slate under
+ * blue), never black.
+ */
+export function selOut(c: number): number {
+  const r = (c >> 16) & 255;
+  const g = (c >> 8) & 255;
+  const b = c & 255;
+  return (Math.round(r * 0.36 + 26) << 16) | (Math.round(g * 0.3 + 14) << 8) | Math.round(b * 0.36 + 18);
 }
 
 /** A darker, slightly cooler version of a colour. */

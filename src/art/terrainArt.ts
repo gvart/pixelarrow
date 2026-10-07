@@ -11,10 +11,10 @@ import { Scene, ramp, type Material } from './model3d';
 import type { Terrain } from '../sim/terrain';
 
 const RAMP = {
-  forestFloor: [0x5e6a40, 0x535e3a, 0x485233, 0x3e472d, 0x343c27],
-  scrub: [0x9a9662, 0x8a8758, 0x7b794f, 0x6c6c46, 0x5e5f3e],
-  sand: [0xd2c294, 0xc6b586, 0xb8a679, 0xa8966c, 0x998862],
-  rough: [0x9a8e72, 0x8a7f66, 0x7b705a, 0x6c624f, 0x5d5446],
+  forestFloor: [0x7d7a3e, 0x6e6c38, 0x605c32, 0x534c2c, 0x463e27],
+  scrub: [0xa8a058, 0x968f4c, 0x857e44, 0x746c3c, 0x635a35],
+  sand: [0xe2cfa0, 0xd6c190, 0xc8b182, 0xb8a074, 0xa68e66],
+  rough: [0xaa9a78, 0x988868, 0x86765c, 0x746452, 0x625446],
   water: [0x5e8292, 0x527686, 0x476a7a, 0x3e5e6e, 0x355262],
   ford: [0x7c98a0, 0x6e8c94, 0x618088, 0x55747c, 0x4a6870],
   sea: [0x426272, 0x3b5a6a, 0x355262, 0x2f4a58, 0x29424f],
@@ -32,18 +32,19 @@ export function terrainPixel(t: Terrain, fx: number, fy: number, grass: number, 
   let c = grass;
   switch (d.kind) {
     case 'forest':
-      c = pick(RAMP.forestFloor);
+      // shaded floor under the canopy, blended into the grass so the cells do not read as tiles
+      c = mix(grass, pick(RAMP.forestFloor), 0.6);
       break;
     case 'scrub':
       c = (hash2(x >> 1, y, 5) > 0.55 ? pick(RAMP.scrub, -0.5) : mix(grass, RAMP.scrub[2], 0.45));
-      if (hash2(x >> 2, y >> 1, 9) > 0.93) c = 0x5a6236;
+      if (hash2(x >> 2, y >> 1, 9) > 0.93) c = 0x5b4a2c;
       break;
     case 'sand':
       c = pick(RAMP.sand);
       break;
     case 'rough':
     case 'rocks':
-      c = hash2(x, y, 3) > 0.82 ? mix(pick(RAMP.rough), 0x504838, 0.4) : hash2(x >> 1, y, 4) > 0.5 ? pick(RAMP.rough) : mix(grass, RAMP.rough[2], 0.5);
+      c = hash2(x, y, 3) > 0.82 ? mix(pick(RAMP.rough), 0x5b4433, 0.4) : hash2(x >> 1, y, 4) > 0.5 ? pick(RAMP.rough) : mix(grass, RAMP.rough[2], 0.5);
       break;
     case 'water': {
       c = pick(RAMP.water);
@@ -84,12 +85,12 @@ export function terrainPixel(t: Terrain, fx: number, fy: number, grass: number, 
   // viewer (+x / +y), a lit lip along the top of a rise seen from below.
   const e = 0.13;
   const drop = Math.max(h - t.heightAt(fx + e, fy), h - t.heightAt(fx, fy + e));
-  if (drop > 0) c = mix(c, 0x2a3018, 0.5 + (x & 1) * 0.1);
+  if (drop > 0) c = mix(c, 0x4a3022, 0.5 + (x & 1) * 0.1);
   else if (h > t.heightAt(fx - e, fy) || h > t.heightAt(fx, fy - e)) c = mix(c, 0xf4ecc0, 0.3);
   else if (drop === 0) {
     // a softer shade band just below a step on the lower side
     const e2 = 0.32;
-    if (t.heightAt(fx - e2, fy) > h || t.heightAt(fx, fy - e2) > h) c = mix(c, 0x2e3420, ((x + y) & 1) ? 0.16 : 0.08);
+    if (t.heightAt(fx - e2, fy) > h || t.heightAt(fx, fy - e2) > h) c = mix(c, 0x4a3426, ((x + y) & 1) ? 0.16 : 0.08);
   }
   return c;
 }
@@ -105,7 +106,7 @@ export const BOULDER_GEOM = { w: 48, h: 36, footY: 28 };
 export function renderTree(variant: number): Pix {
   const sc = new Scene();
   const leaf: Material =
-    variant === 1 ? { ramp: ramp(0x4a5a3a), grit: 0.9, contrast: 1.1 } : variant === 2 ? { ramp: ramp(0x7a8058), grit: 0.9, contrast: 1.05 } : { ramp: ramp(0x56663a), grit: 0.9, contrast: 1.1 };
+    variant === 1 ? { ramp: ramp(0x66703e), grit: 0.6, contrast: 1.1 } : variant === 2 ? { ramp: ramp(0x8c8e58), grit: 0.6, contrast: 1.05 } : { ramp: ramp(0x7a8442), grit: 0.6, contrast: 1.1 };
   const bark: Material = { ramp: ramp(0x5e4630), grit: 0.6 };
   const rnd = (i: number) => hash2(variant * 31 + i, 7, 3);
   if (variant === 1) {
@@ -137,8 +138,8 @@ export function renderTree(variant: number): Pix {
 /** A boulder cluster, lit like everything else. */
 export function renderBoulder(variant: number): Pix {
   const sc = new Scene();
-  const stone: Material = { ramp: ramp(0x8a8272), grit: 0.8, contrast: 1.2 };
-  const moss: Material = { ramp: ramp(0x5e6a42), grit: 0.8 };
+  const stone: Material = { ramp: ramp(0x938078), grit: 0.6, contrast: 1.2 };
+  const moss: Material = { ramp: ramp(0x8a8a4a), grit: 0.6 };
   const k = variant % 2;
   sc.ellipsoid([0, 0, 0.35], [0.75, 0.2, 0], [-0.15, 0.6, 0], [0, 0, 0.55], stone);
   sc.group();

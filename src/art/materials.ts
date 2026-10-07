@@ -9,7 +9,12 @@ import { ramp, type Material } from './model3d';
 const m = (base: number, extra: Partial<Material> = {}, n = 5): Material => ({ ramp: ramp(base, n), ...extra });
 
 /** Skin tones (Look.skin 0..3): fair, olive, tanned, dark. */
-export const SKIN: Material[] = [m(0xc89878, { contrast: 0.9 }), m(0xb07e58, { contrast: 0.9 }), m(0x9a6a46, { contrast: 0.9 }), m(0x6e4a32, { contrast: 0.9 })];
+export const SKIN: Material[] = [
+  { ramp: [0xf8d5c2, 0xdbac99, 0xbe8f83, 0xa87464, 0x7b503d], contrast: 0.9 },
+  { ramp: [0xf0c8a6, 0xd6a282, 0xb47e64, 0x8e5c48, 0x64402e], contrast: 0.9 },
+  { ramp: [0xe2b08c, 0xc28a68, 0xa06a50, 0x7c4e3a, 0x56342a], contrast: 0.9 },
+  { ramp: [0xb88660, 0x966448, 0x744a36, 0x563428, 0x3c2220], contrast: 0.9 },
+];
 /** Hair colours (Look.hair 0..3): black, brown, auburn, fair. */
 export const HAIR: Material[] = [m(0x2c241e), m(0x4e3524), m(0x6e3a20), m(0xa08350)];
 
@@ -50,20 +55,27 @@ export const CREST: Record<string, Material> = {
 };
 
 /** Shield face fields and emblem inks by paint key. */
+const TEAM_RED = [0xcc7677, 0xb83d4a, 0xa12735, 0x7e2430, 0x5e2427];
+const TEAM_BLUE = [0x7a8eaa, 0x4f6c8c, 0x3d5a78, 0x2e3e56, 0x232c40];
+const CREAM = [0xf2ecdf, 0xdfd9cd, 0xc8bca8, 0xa89a86, 0x7e6e60];
+const SLATE = [0x4e5e7c, 0x3d4c68, 0x2e3e56, 0x26304a, 0x1e2438];
 export const FIELD: Record<string, number[]> = {
   bronze: BRONZE.ramp,
-  cream: ramp(0xc4b48e),
-  red: ramp(0x8e2e24),
-  ink: ramp(0x2e2622),
-  blue: ramp(0x3c5068),
+  cream: CREAM,
+  red: TEAM_RED,
+  ink: SLATE,
+  blue: TEAM_BLUE,
   silver: SILVER.ramp,
 };
+/** Emblem paints: saturated team colours that read against the field (no black). */
 export const INK: Record<string, number[]> = {
-  bronze: ramp(0xb08840),
-  cream: ramp(0xd2c6a6),
-  red: ramp(0x9a3024),
-  ink: ramp(0x241c1a),
+  bronze: [0xe9cf8a, 0xd2b68e, 0xb08a3a, 0x8a6a2c, 0x5e4420],
+  cream: CREAM,
+  red: TEAM_RED,
+  ink: SLATE,
 };
+/** A shield's light rim on its lit (upper-left) side. */
+export const RIM_LIGHT = [0xf6f0e2, 0xe6dfd0, 0xdfd9cd, 0xd2b8a7, 0xb39a88];
 
 /** Horse coats. */
 export const COATS: Material[] = [

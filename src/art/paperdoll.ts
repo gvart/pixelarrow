@@ -29,7 +29,7 @@
 import { Scene, add, cross, mul, norm, sub, len, CAM, project, type Material, type V3, type Hit } from './model3d';
 import {
   BLOOD, BRONZE, BEAST, CLOTH, COATS, CREST, DARK_LEATHER, DARK_WOOD, EYE, FELT, FIELD, HAIR, HOOF, INK, IRON, IVORY,
-  LEATHER, LINEN, MANE, SKIN, STRING, WOOD,
+  LEATHER, LINEN, MANE, RIM_LIGHT, SKIN, STRING, WOOD,
 } from './materials';
 import { EMBLEM_BITMAPS } from './emblems';
 import { Pix, hash2 } from './pixels';
@@ -90,7 +90,15 @@ export interface DollSpec {
   seed?: number;
   /** Mythical beasts: 'sp' = the sheet of signature moves (src/art/beastArt.ts). */
   pose?: 'sp';
+  /**
+   * Model scale (default 1). The battlefield draws its figures at BATTLE_SCALE
+   * (a man ~25 px tall on a 36 px tile); portraits and screens use 1.
+   */
+  scale?: number;
 }
+
+/** Scale of the battlefield's figures: small, chunky miniatures on 36 x 18 tiles. */
+export const BATTLE_SCALE = 0.74;
 
 export function dollFromHero(h: Pick<Hero, 'look' | 'equip' | 'cls' | 'arch' | 'culture' | 'id'>): DollSpec {
   const cls = CLASSES[classOfHero({ cls: h.cls, arch: h.arch, culture: h.culture, weaponDef: h.equip.weapon?.def })];
@@ -127,12 +135,17 @@ function hashId(s: string): number {
 export function dollKey(d: DollSpec): string {
   const l = d.look;
   const p = (x?: ItemPaint) => (x ? `${x.emblem ?? ''}.${x.field ?? ''}.${x.ink ?? ''}` : '');
+  if (d.scale && d.scale !== 1 && !isMythId(d.beast)) return `${dollKey({ ...d, scale: undefined })}@${d.scale}`;
   if (d.beast) return `beast_${d.beast}${d.pose ?? ''}${d.beast === 'hydra_head' || d.beast === 'kraken_arm' ? `_${(d.seed ?? 0) % 3}` : ''}`;
   return `doll2_${l.skin}${l.hair}${l.hairStyle}${l.beard}${l.tunic}_${d.weapon ?? '-'}_${d.shield?.art ?? '-'}${p(d.shield?.paint)}_${d.helmet?.art ?? '-'}${p(d.helmet?.paint)}_${d.armor ?? '-'}_${d.cloak ?? ''}${d.trousers ?? ''}${d.bare ? 'b' : ''}_${d.mount ?? ''}${d.coat ?? ''}_${(d.seed ?? 0) % 4}`;
 }
 
 export function dollGeom(d: DollSpec): SheetGeom {
   if (isMythId(d.beast)) return MYTH_GEOM[d.beast];
+  if (d.scale && d.scale !== 1) {
+    const g = dollGeom({ ...d, scale: undefined });
+    return { fw: Math.ceil((g.fw * d.scale) / 2) * 2, fh: Math.ceil(g.fh * d.scale), footY: Math.round(g.footY * d.scale) };
+  }
   if (d.beast === 'bear') return GEOM.bear;
   if (d.beast) return GEOM.small;
   if (d.mount === 'chariot') return GEOM.chariot;
@@ -160,6 +173,7 @@ export function renderFrame(d: DollSpec, frame: number, dir: number): Pix {
   else if (d.mount === 'chariot') buildChariot(sc, d, frame, B, dir);
   else if (d.mount) buildRider(sc, d, frame, B, dir);
   else buildMan(sc, d, frame, B, dir, manPose(d, frame));
+  if (d.scale && d.scale !== 1 && !isMythId(d.beast)) sc.scale(d.scale);
   return sc.render(g.fw, g.fh, Math.floor(g.fw / 2), g.footY);
 }
 
@@ -244,8 +258,9 @@ function manPose(d: DollSpec, frame: number): ManPose {
   }
   switch (FRAME_NAMES[frame]) {
     case 'idle1':
-      p.hip -= 0.012;
-      p.lean += 0.01;
+      // breathing: settle a little and sway forward (the spear tip follows)
+      p.hip -= 0.03;
+      p.lean += 0.03;
       break;
     case 'walk0':
     case 'walk1':
@@ -256,7 +271,8 @@ function manPose(d: DollSpec, frame: number): ManPose {
       p.phase = k;
       p.footL = [0.24 * Math.cos(ph), -0.12, Math.max(0, Math.sin(ph)) * 0.14];
       p.footR = [-0.24 * Math.cos(ph), 0.12, Math.max(0, -Math.sin(ph)) * 0.14];
-      p.hip = 0.94 - Math.abs(Math.cos(ph)) * 0.035;
+      // a clear 1 px bob: lowest on the contact frames (feet apart), highest when passing
+      p.hip = 0.95 - Math.abs(Math.cos(ph)) * 0.06;
       p.lean = 0.05;
       p.swing = -0.14 * Math.cos(ph);
       break;
@@ -702,6 +718,11 @@ function shield(sc: Scene, sh: { art: string; paint?: ItemPaint }, k: Skeleton, 
   const { s, v } = shieldFrame(n);
   // face-on: the face is the side towards n; emblem grid 7x7 over the centre
   const flipX = project(s).x < 0 ? -1 : 1;
+  // which side of the rim faces the light: the upper left on screen
+  const litRim = (u: number, w: number): boolean => {
+    const q = project(add(mul(s, u), mul(v, w)));
+    return -q.x * 0.8 - q.y > 0;
+  };
   const emblemAt = (u: number, w: number, spread: number): boolean => {
     if (!em) return false;
     const gx = Math.floor(((u * flipX) / spread + 0.5) * 7);
@@ -714,7 +735,7 @@ function shield(sc: Scene, sh: { art: string; paint?: ItemPaint }, k: Skeleton, 
       sc.ellipsoid(c, mul(n, 0.06), mul(s, R), mul(v, R), { ramp: field, metal: paint.field === 'bronze' || paint.field === 'silver', grit: 0.5, contrast: 1.05 }, (l) => {
         if (l[0] < 0) return { ramp: LEATHER.ramp };
         const r = Math.sqrt(l[1] * l[1] + l[2] * l[2]);
-        if (r > 0.88) return { ramp: BRONZE.ramp };
+        if (r > 0.88) return litRim(l[1], l[2]) ? { ramp: paint.field === 'bronze' ? BRONZE.ramp : RIM_LIGHT, shade: -0.6 } : { ramp: BRONZE.ramp, shade: 0.9 };
         if (r > 0.83) return { shade: 0.8 };
         if (emblemAt(l[1], l[2], 1.3)) return { ramp: ink };
         return null;
@@ -727,7 +748,7 @@ function shield(sc: Scene, sh: { art: string; paint?: ItemPaint }, k: Skeleton, 
         if (Math.abs(l[1]) < 0.09 && Math.abs(l[2]) > 0.25) return { ramp: WOOD.ramp }; // spina
         if (Math.abs(l[1]) < 0.22 && Math.abs(l[2]) < 0.2) return { ramp: IRON.ramp }; // boss
         const r = Math.sqrt(l[1] * l[1] + l[2] * l[2]);
-        if (r > 0.9) return { shade: 0.9 };
+        if (r > 0.9) return litRim(l[1], l[2]) ? { ramp: RIM_LIGHT, shade: -0.3 } : { shade: 1.1 };
         if (emblemAt(l[1] * 0.55, l[2], 1.0) && Math.abs(l[2]) > 0.25) return { ramp: ink };
         return null;
       });
