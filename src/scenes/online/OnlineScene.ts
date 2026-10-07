@@ -15,7 +15,7 @@ import { Button, Meter, addIcon, addPanel, addScroll, addText, tappable } from '
 import { Badge, Label, ScrollList, firstTimeHint, openModal, showTooltip, toast, type Modal } from '../../ui/widgets';
 import { SIZE, COLOR } from '../../ui/theme';
 import { LINE_H, measureText, wrapText } from '../../ui/textfit';
-import { uiId } from '../../ui/layout';
+import { uiId, worldRect } from '../../ui/layout';
 import { haptic, hapticNotify } from '../../platform/telegram';
 import { hexDistance, hexId, type Axial } from '../../online/hex';
 import {
@@ -51,6 +51,8 @@ import { showReport } from '../ResultsScene';
 import { openBossInfo, openLairInfo, raidSource } from './beastPanel';
 import { encounterName } from '../../ui/beastInfo';
 import type { EncounterId } from '../../data/beasts';
+import { OnlineCoach, coachDue, type CoachHost } from '../../ui/tutorial/onlineCoach';
+import type { CoachId } from '../../game/tutorial';
 
 /** Layout (UI pixels). */
 const TOP_H = 44;
@@ -70,6 +72,8 @@ export interface OnlineSceneData {
   focus?: Axial;
   /** A local demo shard instead of the server (nothing is sent). */
   preview?: PreviewKind;
+  /** Show this coach mark (layout check, screenshots). */
+  coach?: CoachId;
 }
 
 /** Where the data comes from: the server, or the demo shard. */
@@ -196,6 +200,8 @@ export class OnlineScene extends BaseScene {
   private boardBuilt = false;
   /** World bosses of the shard (HP bars on the map, the raid panel). */
   bosses: BossView[] = [];
+  /** First visit: the coach marks (src/ui/tutorial/onlineCoach.ts). */
+  coach: OnlineCoach | null = null;
 
   constructor() {
     super('Online');
@@ -216,6 +222,7 @@ export class OnlineScene extends BaseScene {
     this.busy = false;
     this.lobbyOpen = false;
     this.boardBuilt = false;
+    this.coach = null;
     this.chipText = null;
     this.duelBadge = null;
     this.demo = this.data0.preview ? demoShard() : null;
@@ -282,6 +289,10 @@ export class OnlineScene extends BaseScene {
 
   update(time: number, delta: number): void {
     if (this.view.kind === 'map' && this.boardBuilt) this.board.update(time, delta);
+    if (this.coach) {
+      this.coach.refresh();
+      this.coach.update(time);
+    }
     if (this.candle) this.candle.setAlpha(0.9 + Math.sin(time / 170) * 0.05 + Math.sin(time / 53) * 0.04);
   }
 
@@ -350,7 +361,8 @@ export class OnlineScene extends BaseScene {
     if (d.attack) this.showAttackResult(d.attack);
     else if (d.duel) this.showDuelResult(d.duel);
     this.stagePreview();
-    if (!d.preview) firstTimeHint(this, 'online-map', t('online.hint'));
+    if (d.coach || (!d.preview && coachDue())) this.coach = new OnlineCoach(this.coachHost(), this.ui, d.coach);
+    else if (!d.preview) firstTimeHint(this, 'online-map', t('online.hint'));
     this.data0 = { preview: d.preview };
   }
 
@@ -559,6 +571,7 @@ export class OnlineScene extends BaseScene {
       }
     });
     if (this.selected) this.buildPanel();
+    this.coach?.refresh();
   }
 
   /** Free map area between the top HUD (and the march chip) and the panel / bottom bar, in UI px. */
@@ -1019,6 +1032,56 @@ export class OnlineScene extends BaseScene {
     md.c.add(new Button(this, Math.round((VW - bw) / 2), md.y + h - SIZE.btnH - 9, bw, SIZE.btnH, { label: t('common.close'), icon: 'check', onClick: () => this.closeModal() }));
   }
 
+  // ------------------------------------------------------------------ coach marks
+
+  /** What the first-visit coach marks point at. */
+  private coachHost(): CoachHost {
+    const neighbour = (): Axial | null => {
+      const p = this.profile;
+      const m = this.map;
+      if (!p || !m) return null;
+      const free = m.hexes.filter((x) => hexDistance(p.army, x) === 1 && x.occupant !== 'none' && x.owner === null);
+      return free[0] ?? null;
+    };
+    const find = (id: string): Phaser.GameObjects.GameObject | null => {
+      let hit: Phaser.GameObjects.GameObject | null = null;
+      const walk = (list: Phaser.GameObjects.GameObject[]) => {
+        for (const o of list) {
+          if (hit) return;
+          const any = o as unknown as { __uiId?: string; opts?: { label?: string }; visible?: boolean; list?: Phaser.GameObjects.GameObject[] };
+          if (any.visible === false) continue;
+          if (any.__uiId === id || any.opts?.label === id) hit = o;
+          else if (any.list) walk(any.list);
+        }
+      };
+      walk(this.hud.list);
+      return hit;
+    };
+    return {
+      scene: this,
+      homeRect: () => (this.map ? hexRect(this, this.map.you.home) : null),
+      neighbourRect: () => {
+        const n = neighbour();
+        return n ? hexRect(this, n) : null;
+      },
+      mapRect: () => {
+        const a = this.mapArea();
+        return { x: 0, y: a.top, w: this.m.VW, h: a.bottom - a.top };
+      },
+      neighbourOpen: () => !!this.selected && !!this.profile && !!this.detail && hexDistance(this.profile.army, this.selected) === 1,
+      element: (id: string) => {
+        const o = find(id) as (Phaser.GameObjects.GameObject & { w?: number; h?: number; getBounds?: () => Phaser.Geom.Rectangle }) | null;
+        if (!o || !o.getBounds) return null;
+        const S = this.m.S;
+        const b = o.getBounds();
+        const zone = o instanceof Phaser.GameObjects.Zone;
+        const r = typeof o.w === 'number' && typeof o.h === 'number' && !zone ? worldRect(o as unknown as Phaser.GameObjects.Components.Transform, 0, 0, o.w, o.h) : { x: b.x, y: b.y, w: b.width, h: b.height };
+        return { x: Math.round(r.x / S), y: Math.round(r.y / S), w: Math.round(r.w / S), h: Math.round(r.h / S) };
+      },
+      busy: () => !!this.modal || this.view.kind !== 'map',
+    };
+  }
+
   // ------------------------------------------------------------------ camera & input
 
   private cameraHex(): Axial {
@@ -1143,6 +1206,18 @@ export class OnlineScene extends BaseScene {
     haptic('light');
     this.select(this.selected && this.selected.q === h.q && this.selected.r === h.r ? null : h);
   }
+}
+
+/** A hex's top face on screen (UI px). */
+function hexRect(scene: OnlineScene, h: Axial): { x: number; y: number; w: number; h: number } {
+  const cam = scene.cameras.main;
+  const S = scene.m.S;
+  const c = scene.board.top(h);
+  const x = ((c.x - cam.worldView.x) * cam.zoom) / S;
+  const y = ((c.y - cam.worldView.y) * cam.zoom) / S;
+  const w = (26 * cam.zoom) / S;
+  const hh = (15 * cam.zoom) / S;
+  return { x: Math.round(x - w / 2), y: Math.round(y - hh / 2), w: Math.round(w), h: Math.round(hh) };
 }
 
 const HEX_KEYS = {
