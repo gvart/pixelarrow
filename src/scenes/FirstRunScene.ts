@@ -18,6 +18,7 @@ import { ensureNarratorTextures } from '../ui/tutorial/narrator';
 import { NARRATOR_SIZE } from '../art/narrator';
 import { state } from '../state';
 import { progressOf, skipTutorial, TUTORIAL_REWARD } from '../game/tutorial';
+import { track } from '../platform/analytics';
 import { itemDef, type Item } from '../data/items';
 import { uiLevelUp } from '../audio/hooks';
 import { hapticNotify } from '../platform/telegram';
@@ -136,6 +137,7 @@ export class FirstRunScene extends BaseScene {
   private skip(): void {
     const st = state.campaign.data.settings;
     st.tutorial = skipTutorial(progressOf(st));
+    track('tutorial_skip', { id: 'first_run', step: 0 });
     void state.save();
     this.scene.start('FirstRun', { mode: 'modes' });
   }

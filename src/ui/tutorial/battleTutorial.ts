@@ -46,11 +46,17 @@ import {
   waveClose,
   type TutObs,
   type TutStepId,
+  TUT_STEPS,
   type TutorialProgress,
 } from '../../game/tutorial';
 import { tutorialStep } from '../../audio/hooks';
+import { track } from '../../platform/analytics';
 import { haptic, hapticNotify } from '../../platform/telegram';
 import { t, type TKey } from '../../i18n';
+
+/** Analytics (docs/OPS.md): when this tutorial run began, and a step's stable number. */
+let tutorialStartedAt = 0;
+const tutStepNo = (id: TutStepId) => TUT_STEPS.findIndex((d) => d.id === id);
 
 /** What the controller needs from the battle scene. */
 export interface TutorialHost {
@@ -149,6 +155,7 @@ export class BattleTutorial {
     const st = state.campaign.data.settings;
     const prev = progressOf(st);
     this.progress = beginTutorial(opts.replay || prev.status !== 'active' ? { ...prev, done: [] } : prev, !!opts.replay);
+    tutorialStartedAt = Date.now();
     st.tutorial = this.progress;
     void state.save();
     this.plan = planSteps(this.progress);
@@ -343,6 +350,7 @@ export class BattleTutorial {
     const def = stepDef(id);
     const spec = this.specs[id];
     this.progress = markStep(this.progress, id);
+    track('tutorial_step', { id, step: tutStepNo(id) });
     state.campaign.data.settings.tutorial = this.progress;
     void state.save();
     if (def.kind === 'action') {
@@ -668,6 +676,7 @@ export class BattleTutorial {
       onOk: () => {
         this.dialog = null;
         state.campaign.data.settings.tutorial = skipTutorial(this.progress);
+        track('tutorial_skip', { id: this.step ?? 'none', step: this.step ? tutStepNo(this.step) : 0 });
         void state.save();
         this.scene.scene.start('FirstRun', { mode: 'modes' });
       },
@@ -690,6 +699,7 @@ export class BattleTutorial {
     this.clearUi();
     const data = state.campaign.data;
     const f = finishTutorial(this.progress);
+    track('tutorial_complete', { ms: tutorialStartedAt ? Date.now() - tutorialStartedAt : 0 });
     data.settings.tutorial = f.progress;
     let reward = null;
     if (f.reward) reward = grantReward(data, state.campaign.random());
