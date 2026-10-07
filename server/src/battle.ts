@@ -59,6 +59,16 @@ const CombatStats = z.looseObject({
   role: z.enum(['melee', 'ranged', 'hybrid']),
   abilities: z.array(z.string().max(32)).max(8).optional(),
   auras: z.array(z.string().max(32)).max(8).optional(),
+  // Unit classes (src/data/classes.ts): riders, chariots and animals. Optional; absent = a man on foot.
+  cls: z.string().max(32).optional(),
+  mount: z.enum(['horse', 'chariot']).optional(),
+  kind: z.enum(['animal']).optional(),
+  beast: z.string().max(16).optional(),
+  radius: num.min(0.05).max(2).optional(),
+  routAt: num.min(0).max(1).optional(),
+  pursuit: num.min(0).max(5).optional(),
+  scythe: num.min(0).max(5).optional(),
+  armorPierce: num.min(0).max(1).optional(),
 });
 
 const Army = z.object({

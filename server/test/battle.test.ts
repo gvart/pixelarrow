@@ -32,6 +32,25 @@ describe('battle verification', () => {
     expect(replayBattle(fx.setup, []).summary.hash).not.toBe(b.hash());
   });
 
+  it('accepts riders, chariots and animals (class fields) and replays them', () => {
+    const units = fx.setup.armies[0].units;
+    const stats = (i: number) => units[i % units.length].stats;
+    const setup = JSON.parse(JSON.stringify(fx.setup)) as typeof fx.setup;
+    const s0 = setup.armies[0].units[0].stats as unknown as Record<string, unknown>;
+    Object.assign(s0, { ...stats(0), cls: 'companion', mount: 'horse', radius: 0.48, speed: 3.2, pursuit: 0.5 });
+    const s1 = setup.armies[1].units[0].stats as unknown as Record<string, unknown>;
+    Object.assign(s1, { cls: 'wolf', kind: 'animal', beast: 'wolf', radius: 0.3, routAt: 0.33, shield: 'none', canShieldWall: false });
+    const b = new Battle(JSON.parse(JSON.stringify(setup)));
+    b.startBattle();
+    for (let t = 0; t < 20 * 400 && b.phase !== 'ended'; t++) b.step();
+    const parsed = VerifyBody.parse({ setup, orders: [], claim: { winner: b.winner ?? -1, ticks: b.tick } });
+    expect((parsed.setup.armies[0].units[0].stats as Record<string, unknown>).mount).toBe('horse');
+    expect(replayBattle(parsed.setup as unknown as typeof fx.setup, []).summary).toMatchObject({ ticks: b.tick, hash: b.hash() });
+    const bad = JSON.parse(JSON.stringify(setup));
+    bad.armies[0].units[0].stats.radius = 9;
+    expect(VerifyBody.safeParse({ setup: bad, orders: [], claim: { winner: 0, ticks: 1 } }).success).toBe(false);
+  });
+
   it('POST /api/battle/verify accepts the honest claim', async () => {
     const { token } = await devLogin(4001);
     const res = await api('/api/battle/verify', {

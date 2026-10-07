@@ -35,8 +35,10 @@ export interface Hero {
   perks: PerkId[];
   /** Hours of rest still needed to recover from a wound (0 = fit). Wounded heroes sit out battles. */
   wound: number;
-  /** Archetype the hero was raised as (recruit pools, bot development). */
+  /** Archetype the hero was raised as (heroes from before classes). */
   arch?: string;
+  /** Unit class (src/data/classes.ts). Missing on old saves: derived by classOfHero. */
+  cls?: string;
 }
 
 export const MAX_ARMY = 20;

@@ -151,18 +151,29 @@ export const AURA_RULES = {
 
 // ---------------------------------------------------------------- perks
 
-export type TreeId = 'hoplite' | 'skirmisher' | 'warrior';
+/**
+ * Perk categories. Before unit classes there were three shared trees (the
+ * first three); every class now has its own five-perk tree (CLASSES[id].tree
+ * in src/data/classes.ts) drawn from the perks below. The category only
+ * colours a perk and orders the legacy trees.
+ */
+export type TreeId = 'hoplite' | 'skirmisher' | 'warrior' | 'rider';
+/** The three legacy trees (heroes without a class still follow them). */
 export const TREE_IDS: TreeId[] = ['hoplite', 'skirmisher', 'warrior'];
 export const TREES: Record<TreeId, { name: string; desc: string; color: number }> = {
   hoplite: { name: 'Hoplite', desc: 'Shield wall and spear', color: 0x4a6b8a },
   skirmisher: { name: 'Skirmisher', desc: 'Missiles and speed', color: 0x5f7a45 },
   warrior: { name: 'Warrior', desc: 'Shock and fury', color: 0x9a3b2f },
+  rider: { name: 'Rider', desc: 'Horse and charge', color: 0x8a6a3a },
 };
 
 export type PerkId =
   | 'shield_drill' | 'shield_bash' | 'phalangite' | 'steady_presence' | 'unbreakable'
   | 'fleet' | 'volley' | 'deep_quiver' | 'eagle_eye' | 'skirmish_master'
-  | 'brawler' | 'berserk' | 'bloodlust' | 'rally_cry' | 'warlord';
+  | 'brawler' | 'berserk' | 'bloodlust' | 'rally_cry' | 'warlord'
+  // class perks (only in class trees)
+  | 'drilled' | 'iron_discipline' | 'shield_breaker' | 'reaping_blow' | 'longshot' | 'lead_bullets'
+  | 'zealot' | 'horsemanship' | 'parthian_shot' | 'lance_charge' | 'ride_down' | 'scythe_master';
 
 export interface PerkDef {
   id: PerkId;
@@ -182,6 +193,12 @@ export interface PerkDef {
   aura?: AuraId;
   /** Special hooks implemented in the simulation. */
   bloodlust?: boolean;
+  /** Extra damage fraction against routing men (riding down the beaten). */
+  pursuit?: number;
+  /** Extra scythe damage fraction (chariots). */
+  scythe?: number;
+  /** Only found in class trees (not part of the three legacy trees). */
+  classOnly?: boolean;
 }
 
 const perkList: PerkDef[] = [
@@ -203,13 +220,44 @@ const perkList: PerkDef[] = [
   { id: 'bloodlust', tree: 'warrior', tier: 2, name: 'Bloodlust', desc: 'Each kill restores 8 morale and 10 stamina. +6 HP.', mods: { hp: 6 }, bloodlust: true },
   { id: 'rally_cry', tree: 'warrior', tier: 3, name: 'Rally Cry', desc: 'Ability: a shout that steadies and rallies.', ability: 'rally' },
   { id: 'warlord', tree: 'warrior', tier: 4, name: 'Warlord', desc: 'Aura: nearby allies strike harder.', aura: 'warlord' },
+  // Class perks (their tier is the usual one; the class tree decides the order)
+  { id: 'drilled', tree: 'hoplite', tier: 0, classOnly: true, name: 'Drilled', desc: '+5 morale, +4% block.', mods: { morale: 5, block: 0.04 } },
+  { id: 'iron_discipline', tree: 'hoplite', tier: 2, classOnly: true, name: 'Iron Discipline', desc: '+6 morale, 20% less morale damage.', mods: { morale: 6 }, moraleLoss: 0.8 },
+  { id: 'shield_breaker', tree: 'warrior', tier: 0, classOnly: true, name: 'Shield Breaker', desc: '+10% shield pierce, +1 damage.', mods: { blockPierce: 0.1, dmg: 1 } },
+  { id: 'reaping_blow', tree: 'warrior', tier: 2, classOnly: true, name: 'Reaping Blow', desc: '+2.5 damage, +0.15 morale shock.', mods: { dmg: 2.5, moraleShock: 0.15 } },
+  { id: 'longshot', tree: 'skirmisher', tier: 0, classOnly: true, name: 'Longshot', desc: '+1.5 range, +4% accuracy.', mods: { range: 1.5, accuracy: 0.04 } },
+  { id: 'lead_bullets', tree: 'skirmisher', tier: 0, classOnly: true, name: 'Lead Bullets', desc: '+1.5 missile damage.', mods: { rangedDmg: 1.5 } },
+  { id: 'zealot', tree: 'warrior', tier: 0, classOnly: true, name: 'Zealot', desc: '+5 morale, 30% less morale damage.', mods: { morale: 5 }, moraleLoss: 0.7 },
+  { id: 'horsemanship', tree: 'rider', tier: 0, classOnly: true, name: 'Horsemanship', desc: '+6% speed, +10 stamina, +6 HP.', mods: { speed: 0.06, stamina: 10, hp: 6 } },
+  { id: 'parthian_shot', tree: 'rider', tier: 2, classOnly: true, name: 'Parthian Shot', desc: '+8% accuracy, +25% arrows.', mods: { accuracy: 0.08 }, ammoMult: 1.25 },
+  { id: 'lance_charge', tree: 'rider', tier: 1, classOnly: true, name: 'Lance Charge', desc: '+0.3 charge impact, +1.5 damage.', mods: { chargeBonus: 0.3, dmg: 1.5 } },
+  { id: 'ride_down', tree: 'rider', tier: 2, classOnly: true, name: 'Ride Down', desc: '+50% damage to routing men, +0.2 morale shock.', mods: { moraleShock: 0.2 }, pursuit: 0.5 },
+  { id: 'scythe_master', tree: 'rider', tier: 2, classOnly: true, name: 'Scythe Master', desc: 'Scythed wheels cut 40% deeper.', scythe: 0.4 },
 ];
 
 export const PERKS: Record<PerkId, PerkDef> = Object.fromEntries(perkList.map((p) => [p.id, p])) as Record<PerkId, PerkDef>;
 export const PERK_LIST: readonly PerkDef[] = perkList;
 
+/** A legacy tree (heroes without a class): its five perks in tier order. */
 export function treePerks(tree: TreeId): PerkDef[] {
-  return perkList.filter((p) => p.tree === tree).sort((a, b) => a.tier - b.tier);
+  return perkList.filter((p) => p.tree === tree && !p.classOnly).sort((a, b) => a.tier - b.tier);
+}
+
+/**
+ * Class trees are registered by src/data/classes.ts (kept out of this module
+ * to avoid an import cycle): class id -> five perk ids, tier 0..4.
+ */
+const classTrees = new Map<string, readonly PerkId[]>();
+export function registerClassTree(cls: string, tree: readonly PerkId[]): void {
+  classTrees.set(cls, tree);
+}
+
+/** The perk tree a hero follows: his class tree, or the perk's legacy tree. */
+export function heroTree(h: { cls?: string }, id?: PerkId): readonly PerkId[] {
+  const t = h.cls ? classTrees.get(h.cls) : undefined;
+  if (t) return t;
+  const p = id ? PERKS[id] : undefined;
+  return p ? treePerks(p.tree).map((q) => q.id) : [];
 }
 
 /** Perk points a hero of this level has earned in total. */
@@ -218,14 +266,13 @@ export function perkSlots(level: number): number {
 }
 
 /** Why a hero cannot take a perk, or null if he can. */
-export function perkBlocker(h: { level: number; perks: readonly PerkId[] }, id: PerkId): string | null {
-  const p = PERKS[id];
+export function perkBlocker(h: { level: number; perks: readonly PerkId[]; cls?: string }, id: PerkId): string | null {
   if (h.perks.includes(id)) return 'Known';
+  const tree = heroTree(h, id);
+  const tier = tree.indexOf(id);
+  if (tier < 0) return 'Another class';
   if (h.perks.length >= perkSlots(h.level)) return 'No perk point';
-  if (h.level < PERK_LEVELS[p.tier]) return `Needs Lv ${PERK_LEVELS[p.tier]}`;
-  if (p.tier > 0) {
-    const prev = perkList.find((q) => q.tree === p.tree && q.tier === p.tier - 1)!;
-    if (!h.perks.includes(prev.id)) return `Needs ${prev.name}`;
-  }
+  if (h.level < PERK_LEVELS[tier]) return `Needs Lv ${PERK_LEVELS[tier]}`;
+  if (tier > 0 && !h.perks.includes(tree[tier - 1])) return `Needs ${PERKS[tree[tier - 1]].name}`;
   return null;
 }

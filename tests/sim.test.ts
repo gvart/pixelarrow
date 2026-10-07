@@ -149,7 +149,7 @@ describe('combat rules', () => {
     u.morale = 5;
     b.step();
     expect(u.state).toBe('routing');
-    u.morale = 37;
+    u.morale = u.stats.morale * 0.6;
     let rallied = false;
     for (let i = 0; i < 40; i++) {
       b.step();

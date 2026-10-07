@@ -94,6 +94,12 @@ export interface SimUnit {
   daze: number;
   /** Bitmask of auras currently affecting this unit (AURAS[id].bit). */
   aura: number;
+  /** Body radius in field units (0.3 for a man; horses, chariots and bears are bigger). */
+  rad: number;
+  /** Riders: current speed along the facing, field units / s (a horse cannot stop at once). */
+  spd: number;
+  /** Tick this unit was last cut by chariot scythes. */
+  lastScytheTick: number;
 }
 
 export interface SimGroup {
@@ -130,6 +136,8 @@ export interface Projectile {
   dmg: number;
   done: boolean;
   hitId: number;
+  /** Fraction of the target's armour this missile ignores (missing = none). */
+  ap?: number;
 }
 
 export type SimEvent =

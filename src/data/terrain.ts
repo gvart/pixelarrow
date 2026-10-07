@@ -32,18 +32,24 @@ export interface TerrainDef {
   noWall: boolean;
   /** Multiplier on the braced-spear bonus against chargers. */
   braceMult: number;
+  /** Horses: speed and charge impact multipliers (trees, water and stones break a charge). */
+  cavSpeed: number;
+  cavCharge: number;
+  /** Chariots: speed multiplier, and damage per second while driven fast over it (wheels and axles break). */
+  chariotSpeed: number;
+  chariotDamage: number;
 }
 
 const defs: TerrainDef[] = [
-  { kind: 'open', code: '.', name: 'Open ground', desc: 'No effect.', speed: 1, blocked: false, cover: 0, scatter: 0, blockMult: 1, noWall: false, braceMult: 1 },
-  { kind: 'scrub', code: ',', name: 'Scrub', desc: 'A little slower, light cover.', speed: 0.88, blocked: false, cover: 0.1, scatter: 0.15, blockMult: 1, noWall: false, braceMult: 1 },
-  { kind: 'forest', code: 'f', name: 'Forest', desc: 'Slow, ranks break up, cover from missiles, no spear wall.', speed: 0.62, blocked: false, cover: 0.38, scatter: 0.45, blockMult: 0.85, noWall: false, braceMult: 0.35 },
-  { kind: 'water', code: 'w', name: 'River', desc: 'Very slow wading, disordered, no shield wall.', speed: 0.32, blocked: false, cover: 0, scatter: 0.3, blockMult: 0.55, noWall: true, braceMult: 0 },
-  { kind: 'ford', code: 'o', name: 'Ford', desc: 'Slow, disordered, no shield wall.', speed: 0.55, blocked: false, cover: 0, scatter: 0.15, blockMult: 0.7, noWall: true, braceMult: 0 },
-  { kind: 'rough', code: 'r', name: 'Rough ground', desc: 'Stony: slower, worse footing.', speed: 0.78, blocked: false, cover: 0.05, scatter: 0.2, blockMult: 0.92, noWall: false, braceMult: 0.8 },
-  { kind: 'rocks', code: 'R', name: 'Rocks', desc: 'Impassable.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0 },
-  { kind: 'sand', code: 's', name: 'Beach', desc: 'Soft sand: a little slower.', speed: 0.85, blocked: false, cover: 0, scatter: 0, blockMult: 1, noWall: false, braceMult: 1 },
-  { kind: 'sea', code: '~', name: 'Sea', desc: 'Impassable.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0 },
+  { kind: 'open', code: '.', name: 'Open ground', desc: 'No effect.', speed: 1, blocked: false, cover: 0, scatter: 0, blockMult: 1, noWall: false, braceMult: 1, cavSpeed: 1, cavCharge: 1, chariotSpeed: 1, chariotDamage: 0 },
+  { kind: 'scrub', code: ',', name: 'Scrub', desc: 'A little slower, light cover.', speed: 0.88, blocked: false, cover: 0.1, scatter: 0.15, blockMult: 1, noWall: false, braceMult: 1, cavSpeed: 0.85, cavCharge: 0.85, chariotSpeed: 0.7, chariotDamage: 0.6 },
+  { kind: 'forest', code: 'f', name: 'Forest', desc: 'Slow, ranks break up, cover from missiles, no spear wall. Horses slowed, chariots wreck.', speed: 0.62, blocked: false, cover: 0.38, scatter: 0.45, blockMult: 0.85, noWall: false, braceMult: 0.35, cavSpeed: 0.42, cavCharge: 0.35, chariotSpeed: 0.25, chariotDamage: 7 },
+  { kind: 'water', code: 'w', name: 'River', desc: 'Very slow wading, disordered, no shield wall.', speed: 0.32, blocked: false, cover: 0, scatter: 0.3, blockMult: 0.55, noWall: true, braceMult: 0, cavSpeed: 0.3, cavCharge: 0.3, chariotSpeed: 0.2, chariotDamage: 5 },
+  { kind: 'ford', code: 'o', name: 'Ford', desc: 'Slow, disordered, no shield wall.', speed: 0.55, blocked: false, cover: 0, scatter: 0.15, blockMult: 0.7, noWall: true, braceMult: 0, cavSpeed: 0.5, cavCharge: 0.5, chariotSpeed: 0.4, chariotDamage: 2 },
+  { kind: 'rough', code: 'r', name: 'Rough ground', desc: 'Stony: slower, worse footing. Bad for horses and chariots.', speed: 0.78, blocked: false, cover: 0.05, scatter: 0.2, blockMult: 0.92, noWall: false, braceMult: 0.8, cavSpeed: 0.6, cavCharge: 0.6, chariotSpeed: 0.4, chariotDamage: 4.5 },
+  { kind: 'rocks', code: 'R', name: 'Rocks', desc: 'Impassable.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
+  { kind: 'sand', code: 's', name: 'Beach', desc: 'Soft sand: a little slower.', speed: 0.85, blocked: false, cover: 0, scatter: 0, blockMult: 1, noWall: false, braceMult: 1, cavSpeed: 0.8, cavCharge: 0.85, chariotSpeed: 0.7, chariotDamage: 0 },
+  { kind: 'sea', code: '~', name: 'Sea', desc: 'Impassable.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
 ];
 
 export const TERRAIN: Record<TerrainKind, TerrainDef> = Object.fromEntries(defs.map((d) => [d.kind, d])) as Record<TerrainKind, TerrainDef>;

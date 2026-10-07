@@ -1,6 +1,7 @@
 import { itemDef, itemMods, SLOTS, type StatMods, type WeaponKind, type ShieldKind } from '../data/items';
 import { TRAITS } from '../data/traits';
 import { BASE, type Hero } from '../data/units';
+import { CLASSES, MOUNTS, classOfHero, type BeastId, type ClassDef, type MountId } from '../data/classes';
 import {
   ABILITY_RULES, ATTR_BASE, ATTR_EFFECT, KO_BASE, PERKS, RALLY_WILL, defaultAttrs,
   type AbilityId, type AuraId,
@@ -43,6 +44,24 @@ export interface CombatStats {
   cdMult: number;
   /** Kills restore morale and stamina. */
   bloodlust: boolean;
+  // ---- optional fields (unit classes). Missing = a man on foot with the old rules.
+  /** Unit class id (drawing, bot tactics). */
+  cls?: string;
+  /** Rides a horse or a chariot (src/data/classes.ts MOUNTS). */
+  mount?: MountId;
+  /** An animal (no gear, no formation, pack behaviour). */
+  kind?: 'animal';
+  beast?: BeastId;
+  /** Body radius in field units (0.3 for a man). */
+  radius?: number;
+  /** Routs below this fraction of max morale (default RULES.routFraction). */
+  routAt?: number;
+  /** Extra damage fraction against routing men. */
+  pursuit?: number;
+  /** Extra scythe damage fraction (chariots). */
+  scythe?: number;
+  /** Missiles: fraction of the target's armour ignored. */
+  armorPierce?: number;
 }
 
 /** Radius bonus from Will for auras and shouts. */
@@ -65,7 +84,56 @@ export function collectMods(hero: Hero): StatMods[] {
   return mods;
 }
 
+/** The class definition of a hero (derived for heroes from before classes). */
+export function heroClass(hero: Hero): ClassDef {
+  return CLASSES[classOfHero({ cls: hero.cls, arch: hero.arch, culture: hero.culture, weaponDef: hero.equip.weapon?.def })];
+}
+
+/** An animal's stats: from its class numbers and level, no gear. */
+function beastStats(hero: Hero, cls: ClassDef): CombatStats {
+  const b = cls.beastStats!;
+  const k = 1 + 0.08 * (hero.level - 1);
+  return {
+    maxHp: Math.round(b.hp * k),
+    dmg: b.dmg * k,
+    reach: b.reach,
+    atkTime: b.atkTime,
+    rangedDmg: 0,
+    range: 0,
+    ammo: 0,
+    shotTime: 2,
+    accuracy: 0.6,
+    block: 0,
+    blockPierce: 0.1,
+    armor: b.armor,
+    morale: Math.round(b.morale * (1 + 0.04 * (hero.level - 1))),
+    stamina: 120,
+    speed: BASE.speed * b.speed,
+    chargeBonus: b.chargeBonus,
+    moraleShock: b.moraleShock,
+    moraleLoss: 1,
+    xpBonus: 0,
+    weapon: 'none',
+    shield: 'none',
+    canShieldWall: false,
+    role: 'melee',
+    abilities: [],
+    auras: [],
+    koChance: 0,
+    will: ATTR_BASE,
+    cdMult: 1,
+    bloodlust: false,
+    cls: cls.id,
+    kind: 'animal',
+    beast: cls.beast,
+    radius: b.radius,
+    routAt: b.routAt,
+  };
+}
+
 export function computeStats(hero: Hero): CombatStats {
+  const cls = heroClass(hero);
+  if (cls.kind === 'animal' && cls.beastStats) return beastStats(hero, cls);
   const lvl = hero.level;
   const weapon = hero.equip.weapon ? itemDef(hero.equip.weapon.def) : undefined;
   const shieldItem = hero.equip.shield;
@@ -119,6 +187,7 @@ export function computeStats(hero: Hero): CombatStats {
     s.dmg += m.dmg ?? 0;
     addCommon(s, m);
     speedMod += m.speed ?? 0;
+    if (slot === 'weapon' && m.armorPierce) s.armorPierce = m.armorPierce;
   }
   for (const t of hero.traits) {
     const def = TRAITS[t];
@@ -127,6 +196,15 @@ export function computeStats(hero: Hero): CombatStats {
     speedMod += def.mods.speed ?? 0;
     if (def.moraleLoss) s.moraleLoss *= def.moraleLoss;
   }
+  // Class traits: like a trait, on top of the gear.
+  addCommon(s, cls.mods);
+  s.dmg += cls.mods.dmg ?? 0;
+  speedMod += cls.mods.speed ?? 0;
+  if (cls.moraleLoss) s.moraleLoss *= cls.moraleLoss;
+  s.cls = cls.id;
+  if (cls.routAt !== undefined) s.routAt = cls.routAt;
+  let pursuit = 0;
+  let scythe = 0;
   // Perks: stat mods like traits, plus abilities, auras and hooks.
   let ammoMult = 1;
   for (const id of hero.perks ?? []) {
@@ -144,7 +222,11 @@ export function computeStats(hero: Hero): CombatStats {
     if (p.ability && !s.abilities.includes(p.ability)) s.abilities.push(p.ability);
     if (p.aura && !s.auras.includes(p.aura)) s.auras.push(p.aura);
     if (p.bloodlust) s.bloodlust = true;
+    if (p.pursuit) pursuit += p.pursuit;
+    if (p.scythe) scythe += p.scythe;
   }
+  if (pursuit) s.pursuit = pursuit;
+  if (scythe) s.scythe = scythe;
   // Attributes: each point away from ATTR_BASE shifts the derived stats.
   const a = hero.attrs ?? defaultAttrs();
   const E = ATTR_EFFECT;
@@ -174,6 +256,18 @@ export function computeStats(hero: Hero): CombatStats {
   if (s.shield === 'none') s.abilities = s.abilities.filter((x) => x !== 'bash');
   s.koChance = Math.max(0, Math.min(0.85, s.koChance));
   s.speed = BASE.speed * (1 + speedMod);
+  if (cls.mount) {
+    // The animal carries him: its speed, wind and weight; his gear and legs count for less.
+    const m = MOUNTS[cls.mount];
+    s.mount = m.id;
+    s.radius = m.radius;
+    s.maxHp += m.hp;
+    s.stamina += m.stamina;
+    s.chargeBonus += m.chargeBonus;
+    s.speed = BASE.speed * m.speed * (1 + speedMod * 0.35);
+    s.canShieldWall = false;
+    s.abilities = s.abilities.filter((x) => x !== 'bash');
+  }
   s.block = Math.min(0.8, s.block);
   s.accuracy = Math.max(0.2, Math.min(0.95, s.accuracy));
   s.role = s.range > 0 ? (s.weapon === 'javelins' ? 'hybrid' : 'ranged') : 'melee';
@@ -205,5 +299,5 @@ export function heroPower(hero: Hero): number {
   const ehp = s.maxHp * (1 + s.armor / 12) / (1 - s.block * 0.8);
   // Abilities and auras are worth a little on paper (tuned with `npm run balance`).
   const extra = 1 + 0.04 * s.abilities.length + 0.05 * s.auras.length;
-  return Math.sqrt(ehp * (melee + ranged * 0.8 + 1)) * (0.7 + s.morale / 160) * extra;
+  return Math.sqrt(ehp * (melee + ranged * 0.8 + 1)) * (0.7 + s.morale / 160) * extra * (heroClass(hero).power ?? 1);
 }

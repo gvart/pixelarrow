@@ -34,8 +34,11 @@ import { ABILITIES, ABILITY_RULES, AURAS, AURA_IDS, AURA_RULES, type AbilityId }
 import { rallyRadius, willRadius, type CombatStats } from './stats';
 import { Terrain, cellHash } from './terrain';
 import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
+import { MOUNTS, type MountDef } from '../data/classes';
 
 export const TICK_RATE = 20;
+/** Running speed of a man (charging), as a multiple of his walk. */
+const BASE_RUN = 1.75;
 export const DT = 1 / TICK_RATE;
 export const UNIT_RADIUS = 0.3;
 
@@ -77,6 +80,54 @@ export const RULES = {
   retreatWoundedExtra: 0.15,
 };
 
+/**
+ * Riders, chariots and animals (unit classes). Only units with a `mount` or
+ * `kind: 'animal'` in their stats use these, so battles without them play
+ * exactly as before.
+ */
+export const MOUNTED_RULES = {
+  /** A rider delivers a charge impact at or above this fraction of his gallop. */
+  chargeSpeed: 0.55,
+  /** Speed kept after a charge impact (the rest is spent on the man struck). */
+  impactKeep: 0.4,
+  /** Extra damage and morale shock of a mounted charge on a flank / the rear. */
+  flankImpact: 1.3,
+  flankShock: 1.0,
+  /** Stun and shove of a man struck by a charging horse. */
+  impactStun: 14,
+  impactShove: 0.5,
+  /** A charge into braced spears: the horse balks and the rider takes the spear. */
+  balkStun: 32,
+  balkMorale: 10,
+  balkCounter: 2.2,
+  bracedImpact: 0.25,
+  /** Morale lost by a man ridden into (and 40% of it by those around him). */
+  terror: 8,
+  /** Morale per half second lost by a man on foot with each horse within 2.5 paces (x2 for missile-men; spear walls are immune). */
+  horseDread: 0.5,
+  /** Charge impact on a man with no shield. */
+  unshielded: 1.4,
+  /** Melee damage from the saddle against men on foot. */
+  saddle: 1.2,
+  /** Spearmen thrusting at a horse (a big target) do this much more. */
+  spearVsHorse: 1.35,
+  /** A rider striking at a braced spear wall from the front: hit chance lost (the horse shies). */
+  shyHit: 0.2,
+  /** Riders cut down routing men: damage multiplier (plus the Ride Down perk). */
+  rideDown: 1.5,
+  /** Horse archers: scatter multiplier when shooting at speed. */
+  movingScatter: 1.3,
+  /** Animals: hunt anything within this range (or once the pack is fighting). */
+  aggro: 9,
+  /** Wounds shake an animal less than a man (pain makes it fight harder, until it bolts). */
+  beastPain: 0.6,
+  /** Bears knock men down. */
+  bearStun: 10,
+  /** Shove weights: how much a rider / chariot gives way to a man on foot. */
+  riderWeight: 0.3,
+  chariotWeight: 0.15,
+};
+
 export type Phase = 'deploy' | 'battle' | 'ended';
 
 export class Battle {
@@ -100,6 +151,10 @@ export class Battle {
   private nextProjId = 1;
   private bots: BotAI[] = [];
   private firstContact: [boolean, boolean] = [false, false];
+  /** Some unit is not a man-sized disc (riders, chariots, bears): per-unit radii apply. */
+  readonly big: boolean;
+  /** Riders or animals take part (the bot then uses its cavalry / beast tactics). */
+  readonly special: boolean;
 
   constructor(setup: BattleSetup) {
     this.seed = setup.seed >>> 0;
@@ -108,6 +163,9 @@ export class Battle {
     this.height = setup.height ?? 36;
     this.timeLimitTicks = (setup.timeLimit ?? 300) * TICK_RATE;
     this.terrain = setup.terrain && typeof setup.terrain.cells === 'string' ? new Terrain(setup.terrain, this.width, this.height) : null;
+    const allStats = setup.armies.flatMap((a) => a.units.map((u) => u.stats));
+    this.special = allStats.some((st) => (st.mount !== undefined && st.mount in MOUNTS) || st.kind === 'animal');
+    this.big = allStats.some((st) => typeof st.radius === 'number' && st.radius !== UNIT_RADIUS && st.radius > 0.05 && st.radius < 2);
 
     setup.armies.forEach((army, sideIdx) => {
       const side = sideIdx as Side;
@@ -143,6 +201,9 @@ export class Battle {
           cdMult: spec.stats.cdMult ?? 1,
           bloodlust: spec.stats.bloodlust ?? false,
         };
+        // Unknown mounts or animal kinds (newer clients) fall back to a man on foot.
+        if (s.mount !== undefined && !(s.mount in MOUNTS)) delete s.mount;
+        if (s.kind !== undefined && s.kind !== 'animal') delete s.kind;
         this.units.push({
           id: this.units.length,
           heroId: spec.heroId,
@@ -184,6 +245,9 @@ export class Battle {
           berserk: 0,
           daze: 0,
           aura: 0,
+          rad: typeof s.radius === 'number' && s.radius > 0.05 && s.radius < 2 ? s.radius : UNIT_RADIUS,
+          spd: 0,
+          lastScytheTick: -1000,
         });
       });
       // Javelin groups keep their throws until ordered; pure missile groups loose at will.
@@ -193,6 +257,9 @@ export class Battle {
         const hybrids = mem.filter((u) => u.stats.role === 'hybrid').length;
         const ranged = mem.filter((u) => u.stats.role === 'ranged').length;
         g.fireAtWill = g.role === 'skirmish' || ranged >= hybrids;
+      }
+      if (this.units.some((u) => u.side === side && (u.stats.mount || u.stats.kind))) {
+        for (const g of this.groups) if (g.side === side) this.spaceFor(g);
       }
       this.autoDeploy(side);
       if (army.bot) {
@@ -240,11 +307,46 @@ export class Battle {
     return clamp(d, -HEIGHT_RULES.maxDiff, HEIGHT_RULES.maxDiff);
   }
 
-  /** Movement multiplier of the ground a unit stands on. */
+  /** Movement multiplier of the ground a unit stands on (horses and chariots suffer more in rough ground). */
   private groundSpeed(u: SimUnit): number {
     if (!this.terrain) return 1;
     const d = this.terrain.at(u.x, u.y);
-    return d.blocked ? 1 : d.speed;
+    if (d.blocked) return 1;
+    if (u.stats.mount) return u.stats.mount === 'chariot' ? d.chariotSpeed : d.cavSpeed;
+    return d.speed;
+  }
+
+  /** Riders and animals need more room between files and ranks than men on foot. */
+  spaceFor(g: SimGroup): void {
+    const mem = this.units.filter((u) => u.group === g.id);
+    let fs = 1;
+    let rs = 1;
+    for (const u of mem) {
+      if (u.stats.mount === 'chariot') {
+        fs = Math.max(fs, 2.1);
+        rs = Math.max(rs, 3.0);
+      } else if (u.stats.mount) {
+        fs = Math.max(fs, 1.45);
+        rs = Math.max(rs, 2.0);
+      } else if (u.stats.kind === 'animal') {
+        fs = Math.max(fs, u.rad > 0.45 ? 1.8 : 1.2);
+        rs = Math.max(rs, u.rad > 0.45 ? 1.8 : 1.3);
+      }
+    }
+    if (fs === 1 && rs === 1) return;
+    g.formation.fs = fs;
+    g.formation.rs = rs;
+  }
+
+  /** Whether a unit rides (horse or chariot). */
+  mountOf(u: SimUnit): MountDef | null {
+    return u.stats.mount ? MOUNTS[u.stats.mount] : null;
+  }
+
+  /** A rider's top speed (galloping) on the ground he is on. */
+  gallopSpeed(u: SimUnit): number {
+    const m = this.mountOf(u);
+    return m ? u.stats.speed * m.gallop : u.stats.speed * BASE_RUN;
   }
 
   /** Whether a shield wall holds together where this unit stands. */
@@ -388,6 +490,7 @@ export class Battle {
         }
         const type = o.type ?? g.formation.type;
         const n = Math.max(1, this.activeMembers(g.id).length);
+        const prevF = g.formation;
         g.formation = {
           type,
           cx: clamp(o.cx, 0.5, this.width - 0.5),
@@ -396,6 +499,10 @@ export class Battle {
           fy,
           frontage: Math.max(1, Math.min(n, Math.round(o.frontage))),
         };
+        if (prevF.fs !== undefined) {
+          g.formation.fs = prevF.fs;
+          g.formation.rs = prevF.rs;
+        }
         if (o.type) g.shieldWall = o.type === 'shieldwall';
         if (this.phase === 'deploy') {
           const z = this.deployZone(side);
@@ -802,6 +909,7 @@ export class Battle {
       let dx = off.dx;
       if (g.role === 'flank') dx = flankCount++ % 2 === 0 ? off.dx : -off.dx;
       const type: FormationType = g.formation.type;
+      const prevF = g.formation;
       g.formation = {
         type,
         cx: cx + dx,
@@ -810,6 +918,10 @@ export class Battle {
         fy: dir,
         frontage: presetFrontage(type, mem.length),
       };
+      if (prevF.fs !== undefined) {
+        g.formation.fs = prevF.fs;
+        g.formation.rs = prevF.rs;
+      }
       this.reassign(g.id);
       this.snapToSlots(g.id);
     }
@@ -918,7 +1030,7 @@ export class Battle {
     let nearestD = Infinity;
     let melee: SimUnit | null = null;
     let meleeScore = -Infinity;
-    const reach = u.stats.reach + UNIT_RADIUS * 2;
+    const reach0 = u.stats.reach + UNIT_RADIUS * 2;
     for (const e of this.units) {
       if (e.side === u.side || !this.isAlive(e)) continue;
       const dx = e.x - u.x;
@@ -928,7 +1040,7 @@ export class Battle {
         nearestD = d;
         nearest = e;
       }
-      if (d <= reach) {
+      if (d <= (this.big ? u.stats.reach + u.rad + e.rad : reach0)) {
         // Prefer enemies in front of us, then the closest; ready over routing.
         const front = d > 1e-6 ? (dx * u.fx + dy * u.fy) / d : 1;
         const score = front * 2 - d + (e.state === 'ready' ? 1 : 0) + (e.id === u.targetId ? 0.5 : 0);
@@ -940,6 +1052,12 @@ export class Battle {
     }
     const shielded = g.shieldWall && u.stats.canShieldWall && this.wallGround(u);
     u.engaged = !!melee;
+    const reach = this.big && melee ? u.stats.reach + u.rad + melee.rad : this.big && nearest ? u.stats.reach + u.rad + nearest.rad : reach0;
+    if (u.stats.kind === 'animal') {
+      this.updateBeast(u, g, melee, nearest, nearestD, reach);
+      return;
+    }
+    const mount = this.mountOf(u);
 
     const slot = this.slotPos(u);
     let moveX = 0;
@@ -949,7 +1067,12 @@ export class Battle {
     let faceY = g.formation.fy;
     let running = false;
 
-    if (melee && g.order !== 'fallback') {
+    // A chariot at speed does not stop to fight: it drives on through (scythes, a blow in passing).
+    // So does a rider at the gallop among men with no shield wall to stop him: he rides them down and wheels back.
+    const driveThrough =
+      mount !== null && g.order === 'charge' && (mount.id === 'chariot' || u.spd > 1.5) && (mount.id === 'chariot' || (melee !== null && melee.stats.kind !== 'animal' && !melee.stats.mount && (melee.stats.shield === 'none' || melee.stats.role !== 'melee')));
+    if (driveThrough && melee && u.cooldown <= 0 && this.facingDot(u, melee) > -0.2) this.meleeAttack(u, melee);
+    if (melee && g.order !== 'fallback' && !driveThrough) {
       u.targetId = melee.id;
       faceX = melee.x - u.x;
       faceY = melee.y - u.y;
@@ -971,24 +1094,33 @@ export class Battle {
       const slotDy = slot.y - u.y;
       const slotD = Math.sqrt(slotDx * slotDx + slotDy * slotDy);
       let shootTarget: SimUnit | null = null;
-      if (canShoot && nearest && g.order !== 'fallback' && (slotD < 0.8 || g.role === 'skirmish' || g.order === 'charge')) {
+      // Riders shoot (or throw) on the move, and even while falling back.
+      const mobile = mount !== null && u.stats.range > 0;
+      if (canShoot && nearest && (g.order !== 'fallback' || mobile) && (slotD < 0.8 || g.role === 'skirmish' || g.order === 'charge' || mobile)) {
         const range = u.stats.range + (this.terrain ? this.rangeBonus(u, nearest) : 0);
         if (nearestD <= range && nearestD > 1.4) shootTarget = nearest;
+      }
+      if (shootTarget && mobile) {
+        // A Parthian shot: no need to face the target or to stop.
+        if (u.cooldown <= 0) this.shoot(u, shootTarget);
+        shootTarget = null;
       }
       if (shootTarget) {
         faceX = shootTarget.x - u.x;
         faceY = shootTarget.y - u.y;
         if (u.cooldown <= 0 && this.facingDot(u, shootTarget) > 0.7) this.shoot(u, shootTarget);
         u.stamina = Math.min(u.stats.stamina, u.stamina + 2 * DT);
-      } else if (g.order === 'charge' && nearest && nearestD < 9) {
-        moveX = nearest.x - u.x;
-        moveY = nearest.y - u.y;
+      } else if (g.order === 'charge' && nearest && nearestD < (mount ? 16 : 9)) {
+        // Riders go for the routing men first: they cannot escape a horse.
+        const prey = mount ? this.preyFor(u, nearest, nearestD) : nearest;
+        moveX = prey.x - u.x;
+        moveY = prey.y - u.y;
         faceX = moveX;
         faceY = moveY;
         speed = u.stats.speed * this.fatigue(u) * 1.75;
         if (this.terrain) speed *= this.groundSpeed(u);
         running = true;
-        u.targetId = nearest.id;
+        u.targetId = prey.id;
       } else if (g.order === 'advance' && nearest && nearestD < 2.4) {
         moveX = nearest.x - u.x;
         moveY = nearest.y - u.y;
@@ -1032,6 +1164,12 @@ export class Battle {
       }
     }
 
+    if (mount) {
+      this.ride(u, mount, moveX, moveY, speed, running, faceX, faceY, !!melee);
+      this.updateMorale(u, nearestD);
+      return;
+    }
+
     // ---- movement
     const ml = Math.sqrt(moveX * moveX + moveY * moveY);
     if (ml > 1e-6) {
@@ -1061,6 +1199,247 @@ export class Battle {
     this.updateMorale(u, nearestD);
   }
 
+  // ------------------------------------------------------------ riders & beasts
+
+  /**
+   * A rider moves along his facing with momentum: he accelerates and brakes at
+   * the horse's rate, turns slower the faster he goes, and so overruns, wheels
+   * wide and cannot stop at once. Close to his spot he steps about slowly.
+   */
+  private ride(u: SimUnit, m: MountDef, moveX: number, moveY: number, speed: number, running: boolean, faceX: number, faceY: number, fighting: boolean): void {
+    const ground = this.terrain ? this.groundSpeed(u) : 1;
+    const topOpen = u.stats.speed * m.gallop;
+    const top = topOpen * this.fatigue(u) * ground;
+    const ml = Math.sqrt(moveX * moveX + moveY * moveY);
+    let want = 0;
+    if (ml > 1e-6) {
+      want = running ? top : Math.min(speed, top);
+      // Arrive: brake in time to stop on the spot. A charge does not brake.
+      if (!running) want = Math.min(want, Math.sqrt(2 * m.brake * ml) * 0.9);
+    }
+    const sr = clamp(u.spd / Math.max(0.1, topOpen), 0, 1);
+    if (ml > 1e-6 && ml < 1.6 && u.spd < 1.2 && !running) {
+      // Shuffle into place: a horse can side-step and back up a little.
+      const step = Math.min(0.9 * DT * Math.max(0.3, ground), ml);
+      u.spd = Math.max(0, u.spd - m.brake * DT);
+      this.moveUnit(u, (moveX / ml) * step, (moveY / ml) * step);
+      u.vx = (moveX / ml) * step;
+      u.vy = (moveY / ml) * step;
+      this.turnToward(u, faceX, faceY, m.turnSlow);
+    } else {
+      if (ml > 1e-6) {
+        const dx = moveX / ml;
+        const dy = moveY / ml;
+        this.turnToward(u, dx, dy, m.turnSlow + (m.turnFast - m.turnSlow) * sr);
+        const align = dx * u.fx + dy * u.fy;
+        if (align < 0.7) want *= Math.max(0.25, align); // swing round before speeding up again
+      } else if (u.spd < 0.5 || fighting) this.turnToward(u, faceX, faceY, m.turnSlow);
+      const dv = want - u.spd;
+      u.spd += dv > 0 ? Math.min(dv, m.accel * DT) : Math.max(dv, -m.brake * DT);
+      if (u.spd < 0.03) u.spd = 0;
+      const step = u.spd * DT;
+      u.vx = u.fx * step;
+      u.vy = u.fy * step;
+      if (step > 0) this.moveUnit(u, u.vx, u.vy);
+    }
+    // Fast enough to strike with the weight of the horse behind the blow.
+    u.momentum = u.spd >= topOpen * MOUNTED_RULES.chargeSpeed ? RULES.chargeMomentumTicks : 0;
+    if (u.spd > topOpen * 0.6) u.stamina = Math.max(0, u.stamina - 3 * DT);
+    else if (u.spd < 0.3 && !fighting) u.stamina = Math.min(u.stats.stamina, u.stamina + 4 * DT);
+    u.x = clamp(u.x, u.rad, this.width - u.rad);
+    u.y = clamp(u.y, u.rad, this.height - u.rad);
+    if (m.scythe > 0 && u.spd > 2) this.scythes(u, m, topOpen);
+    if (m.id === 'chariot' && this.terrain && u.spd > 1) {
+      // Woods, stones and water wreck wheels and axles.
+      const dmg = this.terrain.at(u.x, u.y).chariotDamage;
+      if (dmg > 0) {
+        u.hp -= dmg * DT * (u.spd / topOpen);
+        u.lastHitTick = this.tick;
+        if (u.hp <= 0) this.crash(u);
+      }
+    }
+  }
+
+  /** Scythed wheels cut every enemy the chariot drives past. */
+  private scythes(u: SimUnit, m: MountDef, topOpen: number): void {
+    for (const e of this.units) {
+      if (e.side === u.side || !this.isAlive(e) || this.tick - e.lastScytheTick < 12) continue;
+      const r = u.rad + e.rad + 0.3;
+      const dx = e.x - u.x;
+      const dy = e.y - u.y;
+      if (dx * dx + dy * dy > r * r) continue;
+      e.lastScytheTick = this.tick;
+      const dmg = m.scythe * (u.spd / topOpen) * (1 + (u.stats.scythe ?? 0)) * this.rng.range(0.8, 1.2);
+      if (e.state === 'ready') e.stun = Math.max(e.stun, 6);
+      this.contactEvent(this.groups[u.group]);
+      this.applyDamage(e, u, dmg, this.hitDirection(e, u.x, u.y), false, 1.4);
+    }
+  }
+
+  /** A wrecked chariot: crew and horses lost, nobody credited. */
+  private crash(u: SimUnit): void {
+    u.hp = 0;
+    u.state = 'dead';
+    u.engaged = false;
+    u.spd = 0;
+    u.killedBy = u.side === 0 ? 1 : 0;
+    u.ko = this.rng.chance(u.stats.koChance);
+    this.events.push({ type: 'death', tick: this.tick, unit: u.id, by: -1 });
+    for (const o of this.units) {
+      if (o.state !== 'ready' || o.side !== u.side) continue;
+      if ((o.x - u.x) ** 2 + (o.y - u.y) ** 2 <= RULES.cascadeRadius ** 2) o.morale -= RULES.allyDeathMorale * this.ml(o);
+    }
+  }
+
+  /** Push t away from u (a horse knocking a man aside), unless rocks are in the way. */
+  private shove(t: SimUnit, u: SimUnit, dist: number): void {
+    const dx = t.x - u.x;
+    const dy = t.y - u.y;
+    const l = Math.sqrt(dx * dx + dy * dy) || 1;
+    const sx = clamp(t.x + (dx / l) * dist, t.rad, this.width - t.rad);
+    const sy = clamp(t.y + (dy / l) * dist, t.rad, this.height - t.rad);
+    if (!this.terrain || !this.terrain.blocked(sx, sy)) {
+      t.x = sx;
+      t.y = sy;
+    }
+  }
+
+  /** Riders charging: a routing man close by is the easiest prey. */
+  private preyFor(u: SimUnit, nearest: SimUnit, nearestD: number): SimUnit {
+    let best = nearest;
+    let bd = nearestD + 4;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'routing') continue;
+      const d = Math.sqrt((e.x - u.x) ** 2 + (e.y - u.y) ** 2);
+      if (d < bd && d < 12) {
+        bd = d;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /** Whether any of a beast's pack nearby is fighting or was hurt lately. */
+  private packAlert(u: SimUnit): boolean {
+    for (const a of this.units) {
+      if (a.side !== u.side || a.state !== 'ready' || a.stats.kind !== 'animal') continue;
+      if ((a.x - u.x) ** 2 + (a.y - u.y) ** 2 > 144) continue;
+      if (a.engaged || this.tick - a.lastHitTick < 60) return true;
+    }
+    return false;
+  }
+
+  /** Wolves pick the weak: men standing alone, the wounded, archers. */
+  private huntTarget(u: SimUnit, nearest: SimUnit): SimUnit {
+    let best = nearest;
+    let bs = -Infinity;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      const d = Math.sqrt((e.x - u.x) ** 2 + (e.y - u.y) ** 2);
+      if (d > 12) continue;
+      let friends = 0;
+      for (const f of this.units) if (f !== e && f.side === e.side && f.state === 'ready' && (f.x - e.x) ** 2 + (f.y - e.y) ** 2 < 2.6) friends++;
+      const score = -d + (friends === 0 ? 3 : friends === 1 ? 1 : 0) + 2 * (1 - e.hp / e.stats.maxHp) + (e.stats.role !== 'melee' ? 1.5 : 0) + (e.id === u.targetId ? 1 : 0);
+      if (score > bs) {
+        bs = score;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Animals: no formation and no shields. They keep to their lair until
+   * something comes close (or the pack is fighting, or they are ordered in),
+   * then hunt: wolves circle to a flank or the rear of the weakest man, boars
+   * charge straight in, bears lumber up and swipe.
+   */
+  private updateBeast(u: SimUnit, g: SimGroup, melee: SimUnit | null, nearest: SimUnit | null, nearestD: number, reach: number): void {
+    let moveX = 0;
+    let moveY = 0;
+    let faceX = g.formation.fx;
+    let faceY = g.formation.fy;
+    let speed = this.walkSpeed(u, g);
+    let running = false;
+    if (melee) {
+      u.targetId = melee.id;
+      faceX = melee.x - u.x;
+      faceY = melee.y - u.y;
+      const d = Math.sqrt(faceX * faceX + faceY * faceY);
+      if (d > reach * 0.85) {
+        moveX = faceX;
+        moveY = faceY;
+        speed *= 0.6;
+      }
+      if (u.cooldown <= 0 && this.facingDot(u, melee) > 0.3) {
+        this.meleeAttack(u, melee);
+        if (u.stats.beast === 'bear') {
+          // A bear's swipe sweeps through two men.
+          for (const e of this.units) {
+            if (e === melee || e.side === u.side || e.state !== 'ready') continue;
+            if ((e.x - u.x) ** 2 + (e.y - u.y) ** 2 <= reach * reach && this.facingDot(u, e) > 0) {
+              this.meleeAttack(u, e);
+              break;
+            }
+          }
+        }
+      }
+    } else if (nearest && (nearestD < MOUNTED_RULES.aggro || g.order === 'charge' || g.order === 'advance' || this.packAlert(u))) {
+      const pack = u.stats.beast === 'wolf';
+      const prey = pack ? this.huntTarget(u, nearest) : nearest;
+      let tx = prey.x;
+      let ty = prey.y;
+      const dPrey = Math.sqrt((prey.x - u.x) ** 2 + (prey.y - u.y) ** 2);
+      if (pack && dPrey > 1.1) {
+        // Circle to his flank or rear (alternate sides through the pack).
+        const side = u.id % 2 === 0 ? 1 : -1;
+        const r = rightOf(prey.fx, prey.fy);
+        const ax = prey.x - prey.fx * 0.9 + r.x * side * 1.1;
+        const ay = prey.y - prey.fy * 0.9 + r.y * side * 1.1;
+        if ((ax - u.x) ** 2 + (ay - u.y) ** 2 > 0.4) {
+          tx = ax;
+          ty = ay;
+        }
+      }
+      moveX = tx - u.x;
+      moveY = ty - u.y;
+      faceX = prey.x - u.x;
+      faceY = prey.y - u.y;
+      u.targetId = prey.id;
+      running = u.stats.beast === 'bear' ? dPrey < 4 : dPrey < 9;
+      speed = u.stats.speed * this.fatigue(u) * (running ? 1.6 : 1);
+      if (this.terrain) speed *= this.groundSpeed(u);
+    } else {
+      const slot = this.slotPos(u);
+      const sdx = slot.x - u.x;
+      const sdy = slot.y - u.y;
+      if (sdx * sdx + sdy * sdy > 0.04) {
+        moveX = sdx;
+        moveY = sdy;
+        faceX = sdx;
+        faceY = sdy;
+      } else if (nearest) {
+        faceX = nearest.x - u.x;
+        faceY = nearest.y - u.y;
+      }
+      u.stamina = Math.min(u.stats.stamina, u.stamina + 4 * DT);
+    }
+    const ml = Math.sqrt(moveX * moveX + moveY * moveY);
+    if (ml > 1e-6) {
+      const step = Math.min(speed * DT, ml);
+      u.vx = (moveX / ml) * step;
+      u.vy = (moveY / ml) * step;
+      this.moveUnit(u, u.vx, u.vy);
+      u.stamina = Math.max(0, u.stamina - (running ? 3 : 0.3) * DT);
+    }
+    if (running && ml > 0.3) u.momentum++;
+    else if (!u.engaged) u.momentum = Math.max(0, u.momentum - 2);
+    u.x = clamp(u.x, u.rad, this.width - u.rad);
+    u.y = clamp(u.y, u.rad, this.height - u.rad);
+    this.turnToward(u, faceX, faceY, 7);
+    this.updateMorale(u, nearestD);
+  }
+
   private updateRouting(u: SimUnit): void {
     u.engaged = false;
     // Flee towards own edge, away from the nearest enemy.
@@ -1087,6 +1466,10 @@ export class Battle {
     const l = Math.sqrt(mx * mx + my * my) || 1;
     let speed = u.stats.speed * 1.6 * (u.stamina > 10 ? 1 : 0.7);
     if (this.terrain) speed *= this.groundSpeed(u);
+    if (u.stats.mount) {
+      speed = this.gallopSpeed(u) * 0.85 * (u.stamina > 10 ? 1 : 0.7) * (this.terrain ? this.groundSpeed(u) : 1);
+      u.spd = speed;
+    }
     u.vx = (mx / l) * speed * DT;
     u.vy = (my / l) * speed * DT;
     if (this.terrain) {
@@ -1104,7 +1487,7 @@ export class Battle {
       u.engaged = false;
       return;
     }
-    if (u.morale >= u.stats.morale * RULES.rallyFraction && nearD > 5) {
+    if (u.morale >= u.stats.morale * RULES.rallyFraction && nearD > 5 && u.stats.kind !== 'animal') {
       u.state = 'ready';
       u.momentum = 0;
       this.events.push({ type: 'rally', tick: this.tick, unit: u.id });
@@ -1127,24 +1510,43 @@ export class Battle {
         if (o.state !== 'ready') continue;
         const d2 = (o.x - u.x) ** 2 + (o.y - u.y) ** 2;
         if (d2 > 9) continue;
-        if (o.side === u.side) allies++;
-        else enemies++;
+        // Big bodies (horses, bears) count for more than one man.
+        const w = this.big ? o.rad / UNIT_RADIUS : 1;
+        if (o.side === u.side) allies += w;
+        else enemies += w;
       }
-      if (enemies > allies + 1) u.morale -= 0.5 * (enemies - allies) * this.ml(u);
+      // Animals do not count heads the way men do.
+      if (enemies > allies + 1) u.morale -= 0.5 * (enemies - allies) * this.ml(u) * (u.stats.kind === 'animal' ? 0.35 : u.stats.mount ? 0.5 : 1);
     }
     if (u.stamina <= 0 && u.engaged && this.tick % 20 === 0) u.morale -= 1 * this.ml(u);
+    if (this.special && this.tick % 10 === 0 && u.stats.kind !== 'animal' && !u.stats.mount) {
+      // Men on foot dread horses close by, unless they stand in a wall of spears.
+      const g = this.groups[u.group];
+      if (!(g.shieldWall && u.stats.weapon === 'spear' && u.stats.canShieldWall)) {
+        let horses = 0;
+        for (const e of this.units) {
+          if (e.side === u.side || e.state !== 'ready' || !e.stats.mount) continue;
+          if ((e.x - u.x) ** 2 + (e.y - u.y) ** 2 < 6.25) horses++;
+        }
+        if (horses > 0) u.morale -= MOUNTED_RULES.horseDread * Math.min(3, horses) * (u.stats.role === 'melee' ? 1 : 3) * this.ml(u);
+      }
+    }
     if (u.berserk > 0) {
       // Fury: he cannot break while it lasts.
-      u.morale = Math.max(u.morale, u.stats.morale * RULES.routFraction + 1);
+      u.morale = Math.max(u.morale, u.stats.morale * (u.stats.routAt ?? RULES.routFraction) + 1);
       return;
     }
-    if (u.morale < u.stats.morale * RULES.routFraction && u.state === 'ready') this.rout(u);
+    if (u.morale < u.stats.morale * (u.stats.routAt ?? RULES.routFraction) && u.state === 'ready') this.rout(u);
   }
 
   private rout(u: SimUnit): void {
     u.state = 'routing';
     u.engaged = false;
     u.momentum = 0;
+    if (u.stats.kind === 'animal' && this.special) {
+      // A pack bolts together: the others lose heart.
+      for (const a of this.units) if (a !== u && a.side === u.side && a.state === 'ready' && a.stats.kind === 'animal' && (a.x - u.x) ** 2 + (a.y - u.y) ** 2 < 64) a.morale -= 2;
+    }
     this.events.push({ type: 'unitRout', tick: this.tick, unit: u.id });
     for (const a of this.units) {
       if (a.side !== u.side || a.state !== 'ready' || a === u) continue;
@@ -1227,18 +1629,35 @@ export class Battle {
     this.contactEvent(tg);
 
     const impact = u.momentum >= RULES.chargeMomentumTicks;
-    if (!this.rng.chance(RULES.meleeHit + (t.stamina < RULES.lowStamina ? 0.08 : 0))) {
+    const rider = u.stats.mount ? MOUNTS[u.stats.mount] : null;
+    // A horse shies from the points of a braced spear wall in front of it.
+    const shy = rider !== null && !impact && t.stats.weapon === 'spear' && tg.shieldWall && t.stats.canShieldWall && dir === 'front';
+    if (!this.rng.chance(RULES.meleeHit + (t.stamina < RULES.lowStamina ? 0.08 : 0) + (rider && impact ? 0.15 : 0) - (shy ? MOUNTED_RULES.shyHit : 0))) {
       u.momentum = 0;
+      if (rider) u.spd *= MOUNTED_RULES.impactKeep + 0.3;
       return;
     }
     // Trees and water break up a braced wall: its men cannot set their spears together.
     const tGround = this.terrain ? this.terrain.at(t.x, t.y) : TERRAIN.open;
-    const braced = tg.shieldWall && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3 && !tGround.noWall && tGround.braceMult >= 0.5;
-    if (impact && braced) {
+    const braced = tg.shieldWall && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3 && !tGround.noWall && tGround.braceMult >= 0.5;    if (impact && braced) {
       // The charge breaks on a braced wall: the attacker is checked and winded.
       u.stun = RULES.bracedBounceStun;
       u.stamina = Math.max(0, u.stamina - 8);
       u.morale -= 3 * this.ml(u);
+      if (rider && t.stats.weapon === 'spear') {
+        // A horse will not run onto a hedge of spears: it balks, rears, and the
+        // rider takes a spear point. Riders must never charge braced spears head on.
+        u.stun = MOUNTED_RULES.balkStun;
+        u.spd = 0;
+        u.momentum = 0;
+        u.morale -= MOUNTED_RULES.balkMorale * this.ml(u);
+        u.stamina = Math.max(0, u.stamina - 10);
+        const counter = t.stats.dmg * (1 + t.stats.chargeBonus * MOUNTED_RULES.balkCounter) * this.rng.range(0.8, 1.2);
+        t.lastAttackTick = this.tick;
+        this.events.push({ type: 'impact', tick: this.tick, unit: u.id, by: t.id });
+        this.applyDamage(u, t, counter, 'front', false, 1.6);
+        if (u.state !== 'ready') return;
+      }
     }
     if (this.rng.chance(this.blockChance(t, dir, u.stats.blockPierce, false))) {
       t.stamina = Math.max(0, t.stamina - (impact ? 10 : 3));
@@ -1261,7 +1680,37 @@ export class Battle {
     if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.meleeDown;
     else if (hd < 0) dmg *= 1 + hd * HEIGHT_RULES.meleeUp;
     let moraleMult = 1 + u.stats.moraleShock + (fury ? ABILITY_RULES.berserkShock : 0);
-    if (impact) {
+    if (impact && rider) {
+      // A mounted charge: the faster the horse, the harder the blow.
+      const sr = clamp(u.spd / Math.max(0.1, this.gallopSpeed(u)), 0.4, 1.15);
+      dmg *= RULES.chargeImpact + u.stats.chargeBonus * 0.6 * sr;
+      if (this.terrain) dmg *= this.terrain.at(u.x, u.y).cavCharge;
+      if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.chargeDown;
+      moraleMult += 0.8;
+      if (dir !== 'front') {
+        dmg *= MOUNTED_RULES.flankImpact;
+        moraleMult += MOUNTED_RULES.flankShock;
+      }
+      // Men without a shield to set against the horse are simply ridden down.
+      if (t.stats.shield === 'none' && !t.stats.mount) dmg *= MOUNTED_RULES.unshielded;
+      if (braced) {
+        dmg *= MOUNTED_RULES.bracedImpact;
+        moraleMult -= 0.6;
+      } else {
+        t.stun = Math.max(t.stun, MOUNTED_RULES.impactStun);
+        t.momentum = 0;
+        this.shove(t, u, MOUNTED_RULES.impactShove * sr);
+        // Terror of the horse: the man struck and those around him lose heart.
+        t.morale -= MOUNTED_RULES.terror * this.ml(t);
+        for (const o of this.units) {
+          if (o === t || o.side !== t.side || o.state !== 'ready') continue;
+          if ((o.x - t.x) ** 2 + (o.y - t.y) ** 2 < 3.2) o.morale -= MOUNTED_RULES.terror * 0.4 * this.ml(o);
+        }
+      }
+      u.momentum = 0;
+      u.spd *= MOUNTED_RULES.impactKeep;
+      this.events.push({ type: 'impact', tick: this.tick, unit: t.id, by: u.id });
+    } else if (impact) {
       dmg *= RULES.chargeImpact + u.stats.chargeBonus * 0.5;
       if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.chargeDown;
       moraleMult += 0.8;
@@ -1278,7 +1727,16 @@ export class Battle {
       else dmg *= 1 + u.stats.chargeBonus * (wall ? RULES.braceSpearBonus : 1.5);
       t.momentum = 0;
     }
-    if (t.state === 'routing') dmg *= RULES.routingDamage;
+    // Spear points reach a horse (a big target) before its rider reaches the spearman.
+    if (t.stats.mount && (u.stats.weapon === 'spear' || u.stats.weapon === 'lance')) dmg *= MOUNTED_RULES.spearVsHorse;
+    if (t.state === 'routing') {
+      dmg *= RULES.routingDamage;
+      if (rider) dmg *= MOUNTED_RULES.rideDown;
+      if (u.stats.pursuit) dmg *= 1 + u.stats.pursuit;
+    }
+    if (u.stats.beast === 'bear' && t.state === 'ready') t.stun = Math.max(t.stun, MOUNTED_RULES.bearStun);
+    // A rider strikes down from the saddle at men on foot.
+    if (rider && !impact && !t.stats.mount && !shy) dmg *= MOUNTED_RULES.saddle;
     this.applyDamage(t, u, dmg, dir, false, moraleMult);
   }
 
@@ -1290,15 +1748,16 @@ export class Battle {
     }
   }
 
-  private applyDamage(t: SimUnit, by: SimUnit, raw: number, dir: HitDir, ranged: boolean, moraleMult: number): void {
-    const armor = t.berserk > 0 ? Math.max(0, t.stats.armor - ABILITY_RULES.berserkArmor) : t.stats.armor;
+  private applyDamage(t: SimUnit, by: SimUnit, raw: number, dir: HitDir, ranged: boolean, moraleMult: number, ap?: number): void {
+    let armor = t.berserk > 0 ? Math.max(0, t.stats.armor - ABILITY_RULES.berserkArmor) : t.stats.armor;
+    if (ap) armor *= 1 - ap;
     const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + armor));
     t.hp -= dmg;
     t.lastHitTick = this.tick;
     t.wear.armor += 0.5;
     t.wear.helmet += 0.3;
     by.dmgDealt += dmg;
-    t.morale -= dmg * RULES.moraleFromDamage * RULES.dirMorale[dir] * this.ml(t) * moraleMult * (ranged ? 0.8 : 1);
+    t.morale -= dmg * RULES.moraleFromDamage * RULES.dirMorale[dir] * this.ml(t) * moraleMult * (ranged ? 0.8 : 1) * (t.stats.kind === 'animal' ? MOUNTED_RULES.beastPain : 1);
     this.events.push({ type: 'hit', tick: this.tick, unit: t.id, by: by.id, dmg, dir, ranged });
     if (dir !== 'front' && t.state === 'ready') {
       const g = this.groups[t.group];
@@ -1343,7 +1802,9 @@ export class Battle {
     const lead = dur * 0.6;
     const eagle = (u.aura & AURAS.eagle.bit) !== 0;
     const acc = Math.min(0.97, u.stats.accuracy + accBonus + (eagle ? AURA_RULES.eagleAccuracy : 0));
-    const spread = (1 - acc) * (0.35 + d * 0.09);
+    let spread = (1 - acc) * (0.35 + d * 0.09);
+    if (u.stats.mount && u.spd > 1) spread *= MOUNTED_RULES.movingScatter;
+    if (t.stats.mount && t.spd > 2) spread *= MOUNTED_RULES.movingScatter;
     const tx = t.x + t.vx * lead + this.rng.range(-spread, spread);
     const ty = t.y + t.vy * lead + this.rng.range(-spread, spread);
     u.cooldown = Math.round(u.stats.shotTime * TICK_RATE / this.fatigue(u));
@@ -1365,6 +1826,7 @@ export class Battle {
       done: false,
       hitId: -1,
     };
+    if (u.stats.armorPierce) p.ap = u.stats.armorPierce;
     this.projectiles.push(p);
     this.events.push({ type: 'shot', tick: this.tick, unit: u.id, proj: p.id });
   }
@@ -1378,7 +1840,8 @@ export class Battle {
       let bestD = 0.5;
       for (const e of this.units) {
         if (e.side === p.side || !this.isAlive(e)) continue;
-        const d = Math.sqrt((e.x - p.tx) ** 2 + (e.y - p.ty) ** 2);
+        let d = Math.sqrt((e.x - p.tx) ** 2 + (e.y - p.ty) ** 2);
+        if (this.big) d -= e.rad - UNIT_RADIUS;
         if (d < bestD) {
           bestD = d;
           best = e;
@@ -1412,7 +1875,7 @@ export class Battle {
         if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.missileDown;
       }
       this.events.push({ type: 'land', tick: this.tick, proj: p.id, hit: true });
-      this.applyDamage(best, shooter, dmg, dir, true, 1);
+      this.applyDamage(best, shooter, dmg, dir, true, 1, p.ap);
     }
     // Keep finished projectiles briefly for rendering (stuck javelins), then drop.
     if (this.tick % 20 === 0) {
@@ -1422,7 +1885,7 @@ export class Battle {
 
   private separate(): void {
     const n = this.units.length;
-    const min = UNIT_RADIUS * 2;
+    const min0 = UNIT_RADIUS * 2;
     for (let i = 0; i < n; i++) {
       const a = this.units[i];
       if (a.state !== 'ready' && a.state !== 'routing') continue;
@@ -1431,6 +1894,7 @@ export class Battle {
         if (b.state !== 'ready' && b.state !== 'routing') continue;
         const dx = b.x - a.x;
         const dy = b.y - a.y;
+        const min = this.big ? a.rad + b.rad : min0;
         if (dx > min || dx < -min || dy > min || dy < -min) continue;
         const d2 = dx * dx + dy * dy;
         if (d2 >= min * min) continue;
@@ -1448,8 +1912,14 @@ export class Battle {
         }
         const push = (min - d) * 0.5 * 0.8;
         // Braced shield walls are harder to shove.
-        const wa = this.groups[a.group].shieldWall && a.stats.canShieldWall && this.wallGround(a) ? 0.4 : 1;
-        const wb = this.groups[b.group].shieldWall && b.stats.canShieldWall && this.wallGround(b) ? 0.4 : 1;
+        let wa = this.groups[a.group].shieldWall && a.stats.canShieldWall && this.wallGround(a) ? 0.4 : 1;
+        let wb = this.groups[b.group].shieldWall && b.stats.canShieldWall && this.wallGround(b) ? 0.4 : 1;
+        if (this.special) {
+          // Horses and chariots shoulder men aside.
+          if (a.stats.mount) wa = a.stats.mount === 'chariot' ? MOUNTED_RULES.chariotWeight : MOUNTED_RULES.riderWeight;
+          if (b.stats.mount) wb = b.stats.mount === 'chariot' ? MOUNTED_RULES.chariotWeight : MOUNTED_RULES.riderWeight;
+          if (a.stats.mount && b.stats.mount) wa = wb = 1;
+        }
         const tot = wa + wb;
         a.x -= nx * push * (2 * wa) / tot;
         a.y -= ny * push * (2 * wa) / tot;
@@ -1563,6 +2033,7 @@ export class Battle {
       mix(u.berserk);
       mix(u.daze);
       for (const c of u.abilCd) mix(c);
+      if (u.stats.mount) mix(u.spd);
     }
     for (const p of this.projectiles) {
       mix(p.tx);

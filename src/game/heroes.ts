@@ -1,12 +1,13 @@
 /** Hero and item factories (campaign layer, deterministic given an Rng). */
-import { itemDef, type Item, type ItemPaint, type Rarity, type Slot } from '../data/items';
+import { itemDef, type Item, type ItemPaint, type Rarity } from '../data/items';
 import { NAMES, freeName, type Culture } from '../data/names';
 import { POSITIVE_TRAITS, type TraitId } from '../data/traits';
 import { MAX_LEVEL, TUNIC_COLORS, xpToNext, type Hero, type Look } from '../data/units';
 import {
-  ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, perkBlocker, perkSlots, treePerks,
-  type AttrId, type Attrs, type TreeId,
+  ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, heroTree, perkBlocker, perkSlots,
+  type AttrId, type Attrs,
 } from '../data/perks';
+import { CLASSES, LEGACY_ARCH, classOfHero, isClassId, type ClassDef, type ClassId } from '../data/classes';
 import { Rng } from '../sim/rng';
 
 export interface IdSource {
@@ -66,37 +67,24 @@ export function randomLook(rng: Rng, culture: Culture): Look {
   };
 }
 
-export type Archetype = 'hoplite' | 'swordsman' | 'axeman' | 'peltast' | 'slinger' | 'archer' | 'raw';
+/**
+ * What a hero is raised as: a unit class (src/data/classes.ts), or one of the
+ * archetype names from before classes (mapped through LEGACY_ARCH).
+ */
+export type Archetype = ClassId | 'swordsman' | 'axeman' | 'raw';
 
-/** Starting attributes by archetype (sum 20; 5 is neutral). */
-const ARCH_ATTRS: Record<Archetype, Attrs> = {
-  hoplite: { str: 5, agi: 4, end: 6, wil: 5 },
-  swordsman: { str: 6, agi: 5, end: 5, wil: 4 },
-  axeman: { str: 7, agi: 4, end: 5, wil: 4 },
-  peltast: { str: 4, agi: 6, end: 5, wil: 5 },
-  slinger: { str: 4, agi: 7, end: 4, wil: 5 },
-  archer: { str: 4, agi: 7, end: 4, wil: 5 },
-  raw: { str: 5, agi: 5, end: 5, wil: 5 },
-};
-
-/** Where an archetype spends its level-up points (cycled), and which perk tree it follows. */
-const ARCH_GROWTH: Record<Archetype, { order: AttrId[]; tree: TreeId }> = {
-  hoplite: { order: ['end', 'str', 'wil', 'end', 'str', 'agi'], tree: 'hoplite' },
-  swordsman: { order: ['str', 'agi', 'end', 'str', 'wil', 'agi'], tree: 'warrior' },
-  axeman: { order: ['str', 'end', 'str', 'agi', 'wil', 'str'], tree: 'warrior' },
-  peltast: { order: ['agi', 'end', 'str', 'agi', 'wil', 'end'], tree: 'skirmisher' },
-  slinger: { order: ['agi', 'wil', 'agi', 'end', 'agi', 'str'], tree: 'skirmisher' },
-  archer: { order: ['agi', 'wil', 'agi', 'end', 'agi', 'str'], tree: 'skirmisher' },
-  raw: { order: ['end', 'str', 'agi', 'wil'], tree: 'hoplite' },
-};
-
-function asArchetype(a: string | undefined): Archetype {
-  return a && a in ARCH_ATTRS ? (a as Archetype) : 'raw';
+export function toClass(a: string | undefined): ClassId {
+  if (isClassId(a)) return a;
+  return LEGACY_ARCH[a ?? 'raw'] ?? 'militia';
 }
 
-/** Rolled starting attributes: the archetype's spread with a little personal variation. */
+function heroCls(h: Hero): ClassDef {
+  return CLASSES[classOfHero({ cls: h.cls, arch: h.arch, culture: h.culture, weaponDef: h.equip.weapon?.def })];
+}
+
+/** Rolled starting attributes: the class spread with a little personal variation. */
 export function rollAttrs(rng: Rng, arch: Archetype): Attrs {
-  const a = { ...ARCH_ATTRS[arch] };
+  const a = { ...CLASSES[toClass(arch)].attrs };
   for (let i = 0; i < 2; i++) {
     const up = rng.pick(ATTR_IDS);
     const down = rng.pick(ATTR_IDS);
@@ -107,70 +95,38 @@ export function rollAttrs(rng: Rng, arch: Archetype): Attrs {
   return a;
 }
 
-/** Spend unspent points and free perk slots the way the hero's archetype would. */
+/** Spend unspent points and free perk slots the way the hero's class would. */
 export function autoDevelop(h: Hero): void {
-  const g = ARCH_GROWTH[asArchetype(h.arch)];
+  const c = heroCls(h);
+  const order: AttrId[] = c.growth.length ? c.growth : ['end', 'str', 'agi', 'wil'];
   let i = ATTR_IDS.reduce((acc, k) => acc + h.attrs[k], 0);
   let guard = 0;
   while (h.points > 0 && guard++ < 200) {
-    const k = g.order[i++ % g.order.length];
+    const k = order[i++ % order.length];
     if (h.attrs[k] >= ATTR_MAX) continue;
     h.attrs[k]++;
     h.points--;
   }
-  pickPerks(h, g.tree);
+  pickPerks(h);
 }
 
-function pickPerks(h: Hero, tree: TreeId): void {
-  const trees: TreeId[] = [tree, ...(['hoplite', 'skirmisher', 'warrior'] as TreeId[]).filter((t) => t !== tree)];
-  while (h.perks.length < perkSlots(h.level)) {
-    let took = false;
-    for (const t of trees) {
-      const next = treePerks(t).find((p) => !h.perks.includes(p.id));
-      if (next && perkBlocker(h, next.id) === null) {
-        h.perks.push(next.id);
-        took = true;
-        break;
-      }
-    }
-    if (!took) break;
+/** Take the next perks down the hero's class tree. */
+function pickPerks(h: Hero): void {
+  const cls = heroCls(h).id;
+  for (const id of heroTree({ cls })) {
+    if (h.perks.length >= perkSlots(h.level)) break;
+    if (perkBlocker({ level: h.level, perks: h.perks, cls }, id) === null) h.perks.push(id);
   }
 }
 
-/** Bot heroes: attributes and perks follow from archetype and level alone. */
+/** Bot heroes: attributes and perks follow from class and level alone. */
 export function setBotLevel(h: Hero, level: number): void {
   h.level = Math.max(1, Math.min(MAX_LEVEL, level));
-  h.attrs = { ...ARCH_ATTRS[asArchetype(h.arch)] };
+  h.attrs = { ...heroCls(h).attrs };
   h.points = (h.level - 1) * POINTS_PER_LEVEL;
   h.perks = [];
   autoDevelop(h);
 }
-
-/** Item choices per culture/archetype/tier. Each entry: [slot, candidate def ids by tier]. */
-const KITS: Record<Culture, Partial<Record<Archetype, Partial<Record<Slot, string[][]>>>>> = {
-  greek: {
-    hoplite: { weapon: [['dory'], ['dory', 'bronze_dory'], ['bronze_dory']], shield: [['hoplon'], ['hoplon'], ['hoplon', 'aspis']], helmet: [['cap', 'pilos'], ['pilos', 'chalcidian'], ['chalcidian', 'corinthian']], armor: [['leather', 'linothorax'], ['linothorax'], ['linothorax', 'cuirass']] },
-    swordsman: { weapon: [['xiphos'], ['xiphos', 'kopis'], ['kopis']], shield: [['thureos'], ['hoplon', 'thureos'], ['hoplon']], helmet: [['pilos'], ['chalcidian'], ['corinthian']], armor: [['leather'], ['linothorax'], ['cuirass']] },
-    peltast: { weapon: [['javelins'], ['javelins'], ['saunion']], shield: [['buckler'], ['buckler', 'thureos'], ['thureos']], helmet: [[], ['cap', 'pilos'], ['pilos']], armor: [[], ['leather'], ['leather']] },
-    slinger: { weapon: [['sling'], ['sling'], ['balearic_sling']], helmet: [[], [], ['cap']] },
-    archer: { weapon: [['bow'], ['bow'], ['bow']], helmet: [[], ['cap'], ['pilos']], armor: [[], [], ['leather']] },
-  },
-  phoenician: {
-    hoplite: { weapon: [['dory'], ['dory', 'bronze_dory'], ['bronze_dory']], shield: [['thureos', 'hoplon'], ['hoplon'], ['aspis', 'hoplon']], helmet: [['pilos'], ['montefortino', 'pilos'], ['chalcidian']], armor: [['linothorax'], ['linothorax', 'scale'], ['scale']] },
-    swordsman: { weapon: [['kopis', 'xiphos'], ['kopis', 'falcata'], ['falcata']], shield: [['thureos'], ['thureos'], ['celtic_shield']], helmet: [['cap'], ['montefortino'], ['montefortino']], armor: [['leather'], ['linothorax'], ['scale', 'mail']] },
-    peltast: { weapon: [['javelins'], ['javelins', 'saunion'], ['saunion']], shield: [['buckler'], ['thureos'], ['thureos']], helmet: [[], ['cap'], ['montefortino']], armor: [[], ['leather'], ['leather']] },
-    slinger: { weapon: [['sling'], ['balearic_sling'], ['balearic_sling']], helmet: [[], [], ['cap']] },
-    archer: { weapon: [['bow'], ['bow'], ['bow']], helmet: [[], ['cap'], ['cap']], armor: [[], ['leather'], ['linothorax']] },
-  },
-  celtic: {
-    hoplite: { weapon: [['dory'], ['dory'], ['bronze_dory']], shield: [['thureos'], ['celtic_shield'], ['celtic_shield']], helmet: [[], ['montefortino'], ['montefortino']], armor: [[], ['leather'], ['mail']] },
-    swordsman: { weapon: [['longsword', 'xiphos'], ['longsword'], ['longsword', 'falcata']], shield: [['thureos'], ['celtic_shield'], ['celtic_shield']], helmet: [['cap'], ['montefortino'], ['montefortino']], armor: [[], ['leather', 'mail'], ['mail']] },
-    axeman: { weapon: [['axe', 'club'], ['axe'], ['axe']], shield: [['buckler', 'thureos'], ['thureos'], ['celtic_shield']], helmet: [[], ['cap'], ['montefortino']], armor: [[], ['leather'], ['mail']] },
-    peltast: { weapon: [['javelins'], ['saunion'], ['saunion']], shield: [['thureos'], ['celtic_shield'], ['celtic_shield']], helmet: [[], [], ['montefortino']], armor: [[], [], ['leather']] },
-    slinger: { weapon: [['sling'], ['sling'], ['balearic_sling']] },
-    archer: { weapon: [['bow'], ['bow'], ['bow']] },
-  },
-};
 
 export function rollRarity(rng: Rng, tier: number): Rarity {
   const t = Math.max(1, Math.min(3, tier));
@@ -183,17 +139,28 @@ export function rollRarity(rng: Rng, tier: number): Rarity {
 }
 
 /**
- * Create a hero. `roster` lists heroes already in the same army: the new hero's
- * name will differ from all of theirs.
+ * Create a hero of a class (or legacy archetype). `roster` lists heroes
+ * already in the same army: the new hero's name will differ from all of
+ * theirs. `group` defaults to the class's battle group.
  */
-export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: Archetype, level: number, tier: number, group = 0, roster: readonly { name: string }[] = []): Hero {
-  const name = freeName(culture, rng.int(0, NAMES[culture].length - 1), new Set(roster.map((h) => h.name)));
+export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: Archetype, level: number, tier: number, group?: number, roster: readonly { name: string }[] = []): Hero {
+  const clsId = toClass(archetype);
+  const cls = CLASSES[clsId];
+  const beast = cls.kind === 'animal';
+  const taken = new Set(roster.map((h) => h.name));
+  let name: string;
+  if (beast) {
+    name = cls.name;
+    for (let k = 2; taken.has(name); k++) name = `${cls.name} ${k}`;
+  } else name = freeName(culture, rng.int(0, NAMES[culture].length - 1), taken);
   const traits: TraitId[] = [];
-  const tCount = archetype === 'raw' ? (rng.chance(0.5) ? 1 : 0) : rng.chance(0.35) ? 2 : 1;
+  const tCount = beast ? 0 : clsId === 'militia' ? (rng.chance(0.5) ? 1 : 0) : rng.chance(0.35) ? 2 : 1;
   while (traits.length < tCount) {
     const t = rng.chance(0.12) ? 'skittish' : rng.pick(POSITIVE_TRAITS);
     if (!traits.includes(t)) traits.push(t);
   }
+  const look = randomLook(rng, culture);
+  if (cls.art.tunics?.length) look.tunic = rng.pick(cls.art.tunics);
   const hero: Hero = {
     id: newId(ids, 'h'),
     name,
@@ -201,33 +168,32 @@ export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: A
     level: Math.max(1, Math.min(MAX_LEVEL, level)),
     xp: 0,
     traits,
-    look: randomLook(rng, culture),
+    look,
     equip: {},
     kills: 0,
     battles: 0,
-    group,
-    attrs: rollAttrs(rng, archetype),
+    group: group ?? cls.group,
+    attrs: rollAttrs(rng, clsId),
     points: 0,
     perks: [],
     wound: 0,
-    arch: archetype,
+    cls: clsId,
   };
   hero.points = (hero.level - 1) * POINTS_PER_LEVEL;
   if (hero.level > 1) autoDevelop(hero);
+  if (beast) return hero;
   const t = Math.max(1, Math.min(3, tier));
-  if (archetype === 'raw') {
-    hero.equip.weapon = makeItem(rng, ids, rng.pick(['dory', 'club', 'javelins', 'sling']), 'common', rng.range(45, 80), culture);
-    if (hero.equip.weapon.def === 'dory' && rng.chance(0.5)) hero.equip.shield = makeItem(rng, ids, 'thureos', 'common', rng.range(40, 70), culture);
-    return hero;
-  }
-  const kit = KITS[culture][archetype] ?? KITS[culture].hoplite!;
-  for (const slot of ['weapon', 'shield', 'helmet', 'armor'] as Slot[]) {
-    const options = kit[slot]?.[t - 1];
+  const levy = clsId === 'militia';
+  for (const slot of ['weapon', 'shield', 'helmet', 'armor'] as const) {
+    const options = cls.kit[slot]?.[t - 1];
     if (!options || options.length === 0) continue;
     const defId = rng.pick(options);
-    hero.equip[slot] = makeItem(rng, ids, defId, rollRarity(rng, t), rng.range(55, 100), culture);
+    if (!defId) continue;
+    // a shield only with a one-handed weapon
+    if (slot === 'shield' && hero.equip.weapon && itemDef(hero.equip.weapon.def).twoHanded) continue;
+    hero.equip[slot] = makeItem(rng, ids, defId, levy ? 'common' : rollRarity(rng, t), levy ? rng.range(45, 80) : rng.range(55, 100), culture);
   }
-  if (t >= 2 && rng.chance(0.15 * t)) {
+  if (!levy && t >= 2 && rng.chance(0.15 * t)) {
     hero.equip.trinket = makeItem(rng, ids, rng.pick(['owl_amulet', 'herakles_knot', 'scarab', 'laurel', 'tanit_eye', 'boar_tusk']), rollRarity(rng, t - 1), 100, culture);
   }
   return hero;

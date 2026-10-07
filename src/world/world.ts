@@ -11,7 +11,8 @@ import type { Culture } from '../data/names';
 import { ITEM_LIST, itemValue, type Item } from '../data/items';
 import { RECRUIT_COST, type Hero } from '../data/units';
 import { buildArmy, type ArmyMix, type EnemyArmy } from '../game/enemy';
-import { makeHero, makeItem, rollRarity, type Archetype, type IdSource } from '../game/heroes';
+import { makeHero, makeItem, rollRarity, type IdSource } from '../game/heroes';
+import { CLASSES, townClasses, type ClassId } from '../data/classes';
 import {
   MIN_TRAVEL_COST, dangerAt, generateMap, passable, travelCost,
   type BandKind, type SettlementDef, type WorldMap,
@@ -587,16 +588,18 @@ function hashFrac(s: string): number {
 function makeRecruit(def: SettlementDef, key: string, ids: IdSource, roster: readonly Hero[]): { hero: Hero; price: number } {
   const rng = new Rng(hashString(key));
   if (def.kind === 'village') {
-    const hero = makeHero(rng, ids, def.culture, 'raw', 1, 1, 0, roster);
-    return { hero, price: RECRUIT_COST };
+    // Villages: farm levies, now and then a local slinger or javelin-man.
+    const cls = rng.weighted<ClassId>([['militia', 8], ['slinger', 1], ['javelineer', 1]]);
+    const hero = makeHero(rng, ids, def.culture, cls, 1, 1, undefined, roster);
+    return { hero, price: cls === 'militia' ? RECRUIT_COST : CLASSES[cls].cost - 20 };
   }
-  const archs: Archetype[] = def.culture === 'phoenician' ? ['hoplite', 'swordsman', 'slinger', 'archer', 'peltast'] : ['hoplite', 'hoplite', 'swordsman', 'peltast', 'slinger', 'archer'];
-  const arch = rng.pick(archs);
+  // Towns: the classes of their culture (cavalry and elites are rare and dear).
+  const cls = rng.weighted(townClasses(def.culture));
   const level = rng.weighted([[1, 4], [2, 4], [3, 2]] as [number, number][]);
-  const hero = makeHero(rng, ids, def.culture, arch, level, rng.chance(0.3) ? 2 : 1, arch === 'peltast' || arch === 'slinger' || arch === 'archer' ? 1 : 0, roster);
+  const hero = makeHero(rng, ids, def.culture, cls, level, rng.chance(0.3) ? 2 : 1, undefined, roster);
   let gear = 0;
   for (const it of Object.values(hero.equip)) if (it) gear += itemValue(it);
-  return { hero, price: 60 + 35 * (level - 1) + Math.round(gear / 3) };
+  return { hero, price: CLASSES[cls].cost - 40 + 35 * (level - 1) + Math.round(gear / 3) };
 }
 
 /** The band's army, generated from its seed (identical at every call). */

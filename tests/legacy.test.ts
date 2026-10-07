@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import fixture from './fixtures/legacy-battles.json';
 import { Battle } from '../src/sim/battle';
 import type { BattleSetup, LoggedOrder } from '../src/sim/types';
 
@@ -19,7 +19,7 @@ interface Recorded {
   winner: number;
 }
 
-const recorded = JSON.parse(readFileSync(new URL('./fixtures/legacy-battles.json', import.meta.url), 'utf8')) as Recorded[];
+const recorded = fixture as unknown as Recorded[];
 
 function replay(r: Recorded): { b: Battle; mid: string } {
   const b = new Battle(JSON.parse(JSON.stringify(r.setup)));

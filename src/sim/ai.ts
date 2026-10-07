@@ -18,7 +18,35 @@ interface GroupMemo {
   flankSign: number;
   /** Main line: tick until which it waits on its own bank rather than ford under fire. */
   fordWait: number;
+  /** Riders: tick the current stage began (charge, regroup). */
+  since?: number;
+  /** Riders: id of the enemy group they are working round. */
+  target?: number;
 }
+
+/** What a group is made of, for the tactics the bot uses with it. */
+export type GroupKind = 'foot' | 'cavalry' | 'horse_archers' | 'beasts';
+
+export function groupKind(mem: SimUnit[]): GroupKind {
+  let riders = 0;
+  let shooters = 0;
+  let beasts = 0;
+  for (const u of mem) {
+    if (u.stats.kind === 'animal') beasts++;
+    else if (u.stats.mount) {
+      riders++;
+      if (u.stats.role === 'ranged' && u.ammo > 0) shooters++;
+    }
+  }
+  if (beasts * 2 > mem.length) return 'beasts';
+  if (riders * 2 > mem.length) return shooters * 2 > riders ? 'horse_archers' : 'cavalry';
+  return 'foot';
+}
+
+/** Riders stop and pull back after this long locked in a melee they are not winning. */
+export const CAV_MELEE_S = 4;
+/** ... and regroup this long before the next charge. */
+export const CAV_REGROUP_S = 3;
 
 /** Seconds a bot line will hold a hill (or wait at a contested ford) before it gives up and attacks. */
 export const HOLD_HILL_S = 50;
@@ -47,6 +75,17 @@ export class BotAI {
     for (const g of b.sideGroups(this.side)) {
       const n = b.activeMembers(g.id).length;
       if (n === 0) continue;
+      if (b.special) {
+        const kind = groupKind(b.activeMembers(g.id));
+        if (kind === 'cavalry') {
+          b.issue(this.side, { kind: 'preset', group: g.id, type: n >= 5 && this.rng.chance(0.5) ? 'wedge' : 'line' });
+          continue;
+        }
+        if (kind === 'horse_archers' || kind === 'beasts') {
+          b.issue(this.side, { kind: 'preset', group: g.id, type: 'skirmish' });
+          continue;
+        }
+      }
       const shields = b.activeMembers(g.id).filter((u) => u.stats.canShieldWall).length;
       if (g.role === 'main' && shields >= n * 0.7 && this.rng.chance(0.5)) {
         b.issue(this.side, { kind: 'preset', group: g.id, type: 'shieldwall' });
@@ -171,6 +210,8 @@ export class BotAI {
       for (const g of myGroups) {
         const mem = b.activeMembers(g.id);
         if (mem.length === 0 || g.routed) continue;
+        // Horse archers never close in: they keep shooting or keep away.
+        if (b.special && groupKind(mem) === 'horse_archers') continue;
         const c = centroid(mem);
         const near = nearest(enemies, c.x, c.y);
         if (g.role === 'main' && g.order === 'hold' && t < HOLD_HILL_S && near.d < 12 && this.holdsHill(b, mem, ec)) continue;
@@ -189,6 +230,22 @@ export class BotAI {
       const c = centroid(mem);
       const near = nearest(enemies, c.x, c.y);
       const m = this.mem(g);
+      if (b.special) {
+        const kind = groupKind(mem);
+        if (kind === 'cavalry') {
+          this.thinkCavalry(b, g, mem, near, enemies, main, m, t);
+          continue;
+        }
+        if (kind === 'horse_archers') {
+          this.thinkHorseArchers(b, g, mem, enemies, m, t);
+          continue;
+        }
+        if (kind === 'beasts') {
+          this.thinkBeasts(b, g, mem, near, t);
+          continue;
+        }
+        if (g.role === 'main' || g.role === 'reserve') this.braceForHorse(b, g, mem, c, enemies);
+      }
       switch (g.role) {
         case 'main':
           this.thinkMain(b, g, mem, near, ec, t, m);
@@ -321,7 +378,7 @@ export class BotAI {
 
   private thinkSkirmish(b: Battle, g: SimGroup, mem: SimUnit[], near: Near, main: SimGroup | undefined, m: GroupMemo): void {
     const ammo = mem.reduce((a, u) => a + u.ammo, 0);
-    const meleeThreat = near.u.stats.role !== 'ranged' && near.d < 5;
+    const meleeThreat = near.u.stats.role !== 'ranged' && near.d < (b.special && near.u.stats.mount ? 9 : 5);
     if (m.stage === 0 && (ammo === 0 || meleeThreat)) {
       m.stage = 1;
       if (main) {
@@ -370,6 +427,268 @@ export class BotAI {
       m.stage = 2;
       b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
     }
+  }
+
+  /**
+   * Spearmen see horsemen coming: the line closes up into a braced shield
+   * wall and stops to receive them (riders balk at a hedge of spears).
+   */
+  private braceForHorse(b: Battle, g: SimGroup, mem: SimUnit[], c: { x: number; y: number }, enemies: SimUnit[]): void {
+    if (g.routed || g.order === 'charge' && g.contact) return;
+    let spears = 0;
+    for (const u of mem) if (u.stats.weapon === 'spear' && u.stats.canShieldWall) spears++;
+    if (spears * 2 < mem.length) return;
+    let threat: SimUnit | null = null;
+    let td = Infinity;
+    for (const e of enemies) {
+      if (!e.stats.mount || e.stats.role === 'ranged') continue;
+      const d = Math.sqrt((e.x - c.x) ** 2 + (e.y - c.y) ** 2);
+      if (d < td) {
+        td = d;
+        threat = e;
+      }
+    }
+    if (!threat || td > 9) return;
+    // Only if they come at the front: a wall cannot turn to face a flank charge in time.
+    const f = g.formation;
+    const dx = threat.x - c.x;
+    const dy = threat.y - c.y;
+    if ((dx * f.fx + dy * f.fy) / (td || 1) < 0.2) return;
+    if (!g.shieldWall) b.issue(this.side, { kind: 'shieldwall', group: g.id, on: true });
+    if (g.order === 'advance' && !g.contact) b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
+  }
+
+  /**
+   * Cavalry: wait for the lines to meet, then ride wide round the enemy and
+   * charge a flank or the rear (or his missile-men, or anyone running away),
+   * never braced spears head on. Locked in a melee they are not winning, they
+   * pull out, regroup and charge again.
+   */
+  private thinkCavalry(b: Battle, g: SimGroup, mem: SimUnit[], near: Near, enemies: SimUnit[], main: SimGroup | undefined, m: GroupMemo, t: number): void {
+    if (g.routed) return;
+    if (m.stage === 9) m.stage = 2; // committed by the idle press
+    const c = centroid(mem);
+    const routers = b.units.filter((u) => u.side !== this.side && u.state === 'routing');
+    if (m.stage === 0) {
+      const enemyEngaged = b.groups.some((eg) => eg.side !== this.side && eg.contact);
+      const shotAt = mem.some((u) => b.tick - u.lastHitTick < 40);
+      const shooters = enemies.some((e) => e.stats.role !== 'melee');
+      if (t > 10 || (main && main.contact) || enemyEngaged || near.d < 7 || shotAt || (shooters && t > 3)) {
+        m.stage = 1;
+        m.since = b.tick;
+      } else return;
+    }
+    if (m.stage === 3) {
+      // Regrouping after pulling out of a melee.
+      if ((b.tick - (m.since ?? 0)) / 20 < CAV_REGROUP_S) return;
+      m.stage = 1;
+      m.since = b.tick;
+    }
+    if (m.stage === 2) {
+      const engaged = mem.filter((u) => u.engaged).length;
+      const morale = mem.reduce((a, u) => a + u.morale / u.stats.morale, 0) / mem.length;
+      const stuck = (b.tick - (m.since ?? 0)) / 20 > CAV_MELEE_S && engaged * 2 >= mem.length;
+      // The foe in front is not breaking: pull out and charge again (a horse standing still is just a big target).
+      const foes = enemies.filter((e) => (e.x - c.x) ** 2 + (e.y - c.y) ** 2 < 9);
+      const breaking = foes.length > 0 && foes.reduce((a, e) => a + e.morale / e.stats.morale, 0) / foes.length < 0.4;
+      if (stuck && !breaking && morale > 0.3) {
+        // Pull out the way we came and regroup for another charge.
+        const ex = near.u.x;
+        const ey = near.u.y;
+        let dx = c.x - ex;
+        let dy = c.y - ey;
+        const l = Math.sqrt(dx * dx + dy * dy) || 1;
+        dx /= l;
+        dy /= l;
+        const cx = clamp(c.x + dx * 7, 1, b.width - 1);
+        const cy = clamp(c.y + dy * 7, 1, b.height - 1);
+        b.issue(this.side, { kind: 'form', group: g.id, cx, cy, fx: -dx, fy: -dy, frontage: g.formation.frontage });
+        b.issue(this.side, { kind: 'order', group: g.id, order: 'fallback' });
+        m.stage = 3;
+        m.since = b.tick;
+        return;
+      }
+      if (!g.contact && g.order !== 'charge') b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
+      // The charge went through and nothing is close: pick the next target.
+      if (!g.contact && near.d > 6 && (b.tick - (m.since ?? 0)) / 20 > 3) {
+        m.stage = 1;
+        m.since = b.tick;
+      }
+      return;
+    }
+    // Chariots do not manoeuvre: they are pointed at the enemy and driven through him.
+    if (mem.some((u) => u.stats.mount === 'chariot')) {
+      if (g.order !== 'charge') {
+        this.face(b, g, near.u.x, near.u.y);
+        b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
+      }
+      return;
+    }
+    // Stage 1: choose a victim and ride round to its flank or rear.
+    if (routers.length > 0 && (routers.length >= 2 || !b.groups.some((eg) => eg.side !== this.side && eg.contact && !eg.routed))) {
+      this.face(b, g, routers[0].x, routers[0].y);
+      b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
+      m.stage = 2;
+      m.since = b.tick;
+      return;
+    }
+    const target = this.cavalryTarget(b, enemies, c);
+    if (!target) return;
+    const tf = target.formation;
+    const tm = b.activeMembers(target.id);
+    const tc = centroid(tm);
+    const r = rightOf(tf.fx, tf.fy);
+    const depth = Math.ceil(tm.length / Math.max(1, tf.frontage)) * 1.3;
+    const half = (Math.min(tm.length, tf.frontage) * 0.9) / 2 + 2.5;
+    // Which side to come round: the one we are already on.
+    const side = (c.x - tc.x) * r.x + (c.y - tc.y) * r.y >= 0 ? 1 : -1;
+    const braced = target.shieldWall || tm.filter((u) => u.stats.weapon === 'spear').length * 2 > tm.length;
+    // Missile-men and loose groups can be hit from anywhere; spearmen only from behind.
+    const behind = braced ? depth + 2.5 : depth * 0.5;
+    const ax = clamp(tc.x + r.x * side * half - tf.fx * behind, 1, b.width - 1);
+    const ay = clamp(tc.y + r.y * side * half - tf.fy * behind, 1, b.height - 1);
+    const da = Math.sqrt((ax - c.x) ** 2 + (ay - c.y) ** 2);
+    // Already off his front (to the side or behind him)?
+    const rel = ((c.x - tc.x) * tf.fx + (c.y - tc.y) * tf.fy) / (Math.sqrt((c.x - tc.x) ** 2 + (c.y - tc.y) ** 2) || 1);
+    const offFront = braced ? rel < -0.2 : rel < 0.55;
+    const f0 = g.formation;
+    const arrived = (f0.cx - c.x) ** 2 + (f0.cy - c.y) ** 2 < 2.5 && mem.every((u) => u.spd < 0.8);
+    if (da < 3 || offFront || (arrived && (b.tick - (m.since ?? 0)) / 20 > 3) || (!braced && Math.sqrt((tc.x - c.x) ** 2 + (tc.y - c.y) ** 2) < 7) || (b.tick - (m.since ?? 0)) / 20 > 25) {
+      m.stage = 2;
+      m.since = b.tick;
+      m.target = target.id;
+      this.face(b, g, tc.x, tc.y);
+      b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
+      return;
+    }
+    // Ride wide: never through the front of a spear wall.
+    let wx = ax;
+    let wy = ay;
+    if (braced) {
+      const front = ((c.x - tc.x) * tf.fx + (c.y - tc.y) * tf.fy) > 0;
+      if (front) {
+        wx = clamp(tc.x + r.x * side * (half + 3) + tf.fx * 2, 1, b.width - 1);
+        wy = clamp(tc.y + r.y * side * (half + 3) + tf.fy * 2, 1, b.height - 1);
+      }
+    }
+    let fx = wx - c.x;
+    let fy = wy - c.y;
+    const l = Math.sqrt(fx * fx + fy * fy) || 1;
+    fx /= l;
+    fy /= l;
+    const step = Math.min(l, 6);
+    const f = g.formation;
+    if ((f.cx - (c.x + fx * step)) ** 2 + (f.cy - (c.y + fy * step)) ** 2 > 2 || g.order !== 'hold') {
+      b.issue(this.side, { kind: 'form', group: g.id, cx: c.x + fx * step, cy: c.y + fy * step, fx, fy, frontage: f.frontage });
+    }
+  }
+
+  /** The enemy group most worth a cavalry charge: archers, the engaged line's flank, the weakest. */
+  private cavalryTarget(b: Battle, enemies: SimUnit[], c: { x: number; y: number }): SimGroup | null {
+    let best: SimGroup | null = null;
+    let bs = -Infinity;
+    for (const eg of b.groups) {
+      if (eg.side === this.side || eg.disbanded || eg.routed) continue;
+      const mem = enemies.filter((u) => u.group === eg.id);
+      if (mem.length === 0) continue;
+      const ec = centroid(mem);
+      const d = Math.sqrt((ec.x - c.x) ** 2 + (ec.y - c.y) ** 2);
+      const ranged = mem.filter((u) => u.stats.role !== 'melee').length / mem.length;
+      const spears = mem.filter((u) => u.stats.weapon === 'spear').length / mem.length;
+      const riders = mem.filter((u) => u.stats.mount).length / mem.length;
+      let score = -d * 0.25 + ranged * 4 + (eg.contact ? 3 : 0) - (eg.shieldWall && !eg.contact ? 3 : 0) - spears * (eg.contact ? 0.5 : 2) - riders * 1.5 + mem.length * 0.2;
+      if (mem.some((u) => u.stats.kind === 'animal')) score += 1;
+      if (score > bs) {
+        bs = score;
+        best = eg;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Horse archers skirmish: ride to just inside bow range and shoot on the
+   * move; anyone who comes for them is kept at arm's length (they ride away
+   * and keep shooting). Out of arrows they become light cavalry.
+   */
+  private thinkHorseArchers(b: Battle, g: SimGroup, mem: SimUnit[], enemies: SimUnit[], m: GroupMemo, t: number): void {
+    if (g.routed) return;
+    if (!g.fireAtWill) b.issue(this.side, { kind: 'loose', group: g.id, on: true });
+    if (b.tick % 20 !== 0) return;
+    const c = centroid(mem);
+    const range = Math.max(...mem.map((u) => u.stats.range));
+    // The nearest man who could hurt us in melee, and the nearest target at all.
+    let threat: Near | null = null;
+    for (const e of enemies) {
+      if (e.stats.role === 'ranged' && !e.stats.mount) continue;
+      const d = Math.sqrt((e.x - c.x) ** 2 + (e.y - c.y) ** 2);
+      if (!threat || d < threat.d) threat = { u: e, d };
+    }
+    const near = nearest(enemies, c.x, c.y);
+    // Circle the enemy at bow range (the Cantabrian circle), working round to
+    // his flank where shields do not cover; turn about at the field's edge.
+    const ec = centroid(enemies);
+    let rx = c.x - ec.x;
+    let ry = c.y - ec.y;
+    const rl = Math.sqrt(rx * rx + ry * ry) || 1;
+    rx /= rl;
+    ry /= rl;
+    const out = mem.every((u) => u.ammo === 0);
+    // Out of arrows: keep out of reach (they are no match for men on foot in a melee).
+    let R = Math.max(4, out ? 9 : range - 1.5);
+    const orbit = (sgn: number) => {
+      const tx = -ry * sgn;
+      const ty = rx * sgn;
+      let px = rx + tx * 0.7;
+      let py = ry + ty * 0.7;
+      const pl = Math.sqrt(px * px + py * py) || 1;
+      px /= pl;
+      py /= pl;
+      return { x: ec.x + px * R, y: ec.y + py * R };
+    };
+    const margin = 2.5 + (g.formation.frontage - 1) * 1.4;
+    const inside = (p: { x: number; y: number }) => p.x > margin && p.x < b.width - margin && p.y > 2.5 && p.y < b.height - 2.5;
+    let p = orbit(m.flankSign);
+    // Tighten the circle where the field is narrow before turning about.
+    for (let k = 0; k < 3 && !inside(p); k++) {
+      R *= 0.8;
+      p = orbit(m.flankSign);
+    }
+    if (!inside(p)) {
+      m.flankSign = -m.flankSign;
+      p = orbit(m.flankSign);
+    }
+    let ax = p.x;
+    let ay = p.y;
+    if (threat && threat.d < 3.5) {
+      // Someone is about to catch us: break away from him first.
+      let dx = c.x - threat.u.x;
+      let dy = c.y - threat.u.y;
+      const l = Math.sqrt(dx * dx + dy * dy) || 1;
+      ax = (ax + c.x + (dx / l) * 5) / 2;
+      ay = (ay + c.y + (dy / l) * 5) / 2;
+    }
+    ax = clamp(ax, Math.min(margin, b.width / 2), Math.max(b.width - margin, b.width / 2));
+    ay = clamp(ay, 2.5, b.height - 2.5);
+    let fx = near.u.x - ax;
+    let fy = near.u.y - ay;
+    const fl = Math.sqrt(fx * fx + fy * fy) || 1;
+    fx /= fl;
+    fy /= fl;
+    b.issue(this.side, { kind: 'form', group: g.id, cx: ax, cy: ay, fx, fy, frontage: Math.min(2, mem.length) });
+    // Out of arrows, they still ride down anyone running away.
+    if (out && b.units.some((u) => u.side !== this.side && u.state === 'routing')) b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
+    void t;
+  }
+
+  /**
+   * Animals hold their lair until something comes close, the pack is hurt,
+   * or they are shot at; then they all go for it.
+   */
+  private thinkBeasts(b: Battle, g: SimGroup, mem: SimUnit[], near: Near, t: number): void {
+    if (g.order === 'charge') return;
+    const hurt = mem.some((u) => b.tick - u.lastHitTick < 40);
+    if (hurt || near.d < 11 || t > 45) b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
   }
 
   private thinkFlank(b: Battle, g: SimGroup, near: Near, ec: { x: number; y: number }, main: SimGroup | undefined, m: GroupMemo, t: number, enemies: SimUnit[]): void {

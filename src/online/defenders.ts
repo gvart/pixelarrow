@@ -4,10 +4,9 @@
  * deterministically from the shard seed, the hex id and the respawn epoch,
  * so the server can always rebuild them.
  *
- * Animals (wolves, boars, bears) are placeholder soldiers for now: unarmed
- * heroes flagged with `arch: 'animal:<kind>'` and beefier attributes. The
- * classes/art pass gives them their own sprites and behaviour later; keep
- * every defender definition in this file.
+ * Animals (wolves, boars, bears) are the animal classes of
+ * src/data/classes.ts (`cls: 'wolf'`...), still flagged with
+ * `arch: 'animal:<kind>'`; keep every defender definition in this file.
  */
 import type { Culture } from '../data/names';
 import type { Hero } from '../data/units';
@@ -110,10 +109,10 @@ export function defenderStrength(hex: Pick<HexInfo, 'q' | 'r' | 'tier'>, radius 
   return { count: [t.min + extra, t.max + extra], level: Math.min(10, t.level + Math.round(depth * 3)), gear: Math.min(3, t.gear + (depth > 0.6 ? 1 : 0)) };
 }
 
-const ANIMAL: Record<AnimalKind, { name: string; attrs: Hero['attrs'] }> = {
-  wolf: { name: 'Wolf', attrs: { str: 5, agi: 9, end: 5, wil: 3 } },
-  boar: { name: 'Boar', attrs: { str: 8, agi: 5, end: 8, wil: 6 } },
-  bear: { name: 'Bear', attrs: { str: 12, agi: 4, end: 11, wil: 7 } },
+const ANIMAL: Record<AnimalKind, { name: string }> = {
+  wolf: { name: 'Wolf' },
+  boar: { name: 'Boar' },
+  bear: { name: 'Bear' },
 };
 
 /** The neutral defenders of a hex for a respawn epoch (deterministic). */
@@ -129,15 +128,11 @@ export function neutralDefenders(seed: number, hex: Pick<HexInfo, 'id' | 'q' | '
   for (let i = 0; i < count; i++) {
     const u = rng.weighted(def.units.map((x) => [x, x.weight] as const));
     if (u.arch.startsWith('animal:')) {
+      // Real animals (src/data/classes.ts): their own stats, sprites and pack behaviour.
       const kind = u.arch.slice(7) as AnimalKind;
-      const h = makeHero(rng, ids, culture, 'raw', 1, 1, u.group, heroes);
-      h.equip = {};
+      const h = makeHero(rng, ids, culture, kind, Math.max(1, str.level), 1, u.group, heroes);
       h.name = `${ANIMAL[kind].name} ${heroes.filter((x) => x.arch === u.arch).length + 1}`;
       h.arch = u.arch;
-      h.traits = [];
-      h.level = Math.max(1, str.level);
-      h.attrs = { ...ANIMAL[kind].attrs };
-      h.points = 0;
       heroes.push(h);
       continue;
     }

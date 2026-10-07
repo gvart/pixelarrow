@@ -13,6 +13,9 @@ export interface Formation {
   fx: number;
   fy: number;
   frontage: number;
+  /** Spacing multipliers between files and ranks (riders need room). Missing = 1. */
+  fs?: number;
+  rs?: number;
 }
 
 export interface Vec {
@@ -72,8 +75,8 @@ export function formationSlots(f: Formation, n: number): Vec[] {
     while (placed < n) {
       const inRow = Math.min(row + 1, n - placed);
       for (let i = 0; i < inRow; i++) {
-        const lat = (i - (inRow - 1) / 2) * sp.file;
-        push(lat, row * sp.rank);
+        const lat = (i - (inRow - 1) / 2) * (f.fs === undefined ? sp.file : sp.file * f.fs);
+        push(lat, row * (f.rs === undefined ? sp.rank : sp.rank * f.rs));
       }
       placed += inRow;
       row++;
@@ -82,14 +85,16 @@ export function formationSlots(f: Formation, n: number): Vec[] {
     return out;
   }
   const files = Math.max(1, Math.min(n, Math.round(f.frontage)));
+  const fileSp = f.fs === undefined ? sp.file : sp.file * f.fs;
+  const rankSp = f.rs === undefined ? sp.rank : sp.rank * f.rs;
   const ranks = Math.ceil(n / files);
   let placed = 0;
   for (let k = 0; k < ranks; k++) {
     const inRank = Math.min(files, n - placed);
-    const stagger = f.type === 'skirmish' && k % 2 === 1 ? sp.file / 2 : 0;
+    const stagger = f.type === 'skirmish' && k % 2 === 1 ? fileSp / 2 : 0;
     for (let i = 0; i < inRank; i++) {
-      const lat = (i - (inRank - 1) / 2) * sp.file + stagger;
-      push(lat, k * sp.rank);
+      const lat = (i - (inRank - 1) / 2) * fileSp + stagger;
+      push(lat, k * rankSp);
     }
     placed += inRank;
   }

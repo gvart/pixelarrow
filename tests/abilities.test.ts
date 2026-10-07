@@ -64,7 +64,7 @@ describe('progression data', () => {
     const noShield = { ...h, perks: ['shield_drill', 'shield_bash'] as PerkId[], equip: { ...h.equip } };
     delete noShield.equip.shield;
     expect(computeStats(noShield).abilities).not.toContain('bash');
-    expect(Object.keys(PERKS).length).toBe(15);
+    expect(Object.values(PERKS).filter((p) => !p.classOnly).length).toBe(15);
   });
 });
 
