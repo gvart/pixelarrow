@@ -216,3 +216,18 @@ with DESIGN.md or ROADMAP.md, this document wins.
 - **Onboarding:** a skippable guided tutorial battle of 3–4 minutes with a
   narrator (select, slingshot formation, charge, shield wall, abilities),
   followed by a guided first hex capture online.
+
+## Online battle rules
+
+- **No pause online.** There is no pause, no auto-pause and no speed-up in any
+  online battle (attacks on garrisons and neutrals, live duels). Offline
+  battles (campaign, skirmish, tutorial) keep pause and auto-pause.
+- **Timed preparation:** every online battle starts with a 15-second
+  deployment phase with a visible countdown. Players see the enemy's deployment
+  zone but not its final positions. The battle starts automatically when the
+  timer ends; "Ready" from both sides starts it early.
+- **Live movement on the hex map:** other armies inside your vision move live
+  through the shard WebSocket, instead of only updating on refresh.
+- **Possible later tuning:** if attacks feel too cheap, a won hex takes a few
+  minutes to occupy (the army is exposed during that time), or armies get a
+  longer rest after each battle.
