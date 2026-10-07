@@ -140,15 +140,21 @@ export class RegionDO extends DurableObject<Env> {
   }
 
   private async scheduleArrivals(): Promise<void> {
+    await this.scheduleAlarm();
+  }
+
+  /** One alarm for both jobs: the next march arrival or timed duel deployment, whichever comes first. */
+  private async scheduleAlarm(): Promise<void> {
     const all = await this.ctx.storage.list<LiveArrival>({ prefix: 'arrive:' });
-    let next = Infinity;
+    let next = this.hub.nextDeadline() ?? Infinity;
     for (const a of all.values()) next = Math.min(next, a.at);
     if (Number.isFinite(next)) await this.ctx.storage.setAlarm(next);
     else await this.ctx.storage.deleteAlarm();
   }
 
-  /** Announces the marches that arrived. */
+  /** Starts timed duel deployments that are over and announces the marches that arrived. */
   async alarm(): Promise<void> {
+    this.deliver(this.hub.tick());
     const now = Date.now();
     const all = await this.ctx.storage.list<LiveArrival>({ prefix: 'arrive:' });
     const out: Out[] = [];
@@ -237,15 +243,7 @@ export class RegionDO extends DurableObject<Env> {
 
   /** Timed duel deployments: wake up when the next one is over (DuelHub.tick starts it). */
   private async scheduleDeploy(): Promise<void> {
-    const t = this.hub.nextDeadline();
-    if (t === null) return;
-    const cur = await this.ctx.storage.getAlarm();
-    if (cur === null || cur > t) await this.ctx.storage.setAlarm(t);
-  }
-
-  async alarm(): Promise<void> {
-    this.deliver(this.hub.tick());
-    await this.scheduleDeploy();
+    await this.scheduleAlarm();
   }
 
   // ------------------------------------------------------------------ sockets
