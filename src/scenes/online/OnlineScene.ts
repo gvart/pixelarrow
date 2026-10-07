@@ -62,7 +62,7 @@ const CHIP_H = 28;
 type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string } | { kind: 'join' } | { kind: 'map' };
 
 /** Staged states of the preview map (layout check, screenshots). */
-export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result' | 'lair' | 'lairInfo' | 'boss' | 'bossInfo';
+export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result' | 'lair' | 'lairInfo' | 'boss' | 'bossInfo' | 'market' | 'post';
 
 export interface OnlineSceneData {
   /** Show the outcome of an attack that just came back from the battle scene. */
@@ -377,7 +377,7 @@ export class OnlineScene extends BaseScene {
     const demo = this.demo;
     const k = this.data0.preview;
     if (!demo || !k) return;
-    const spot = k === 'own' ? demo.spots.own : k === 'neutral' ? demo.spots.neutralNext : k === 'far' ? demo.spots.neutralFar : k === 'rival' ? demo.spots.rival : k === 'town' ? demo.spots.town : k === 'lair' || k === 'lairInfo' ? demo.spots.lair : k === 'boss' || k === 'bossInfo' ? demo.spots.boss : null;
+    const spot = k === 'own' ? demo.spots.own : k === 'neutral' ? demo.spots.neutralNext : k === 'far' ? demo.spots.neutralFar : k === 'rival' ? demo.spots.rival : k === 'town' ? demo.spots.town : k === 'lair' || k === 'lairInfo' ? demo.spots.lair : k === 'boss' || k === 'bossInfo' ? demo.spots.boss : k === 'market' ? demo.spots.market : k === 'post' ? demo.spots.post : null;
     if (spot) this.select(spot);
     if ((k === 'lairInfo' || k === 'bossInfo') && spot) this.openBeast(spot);
     if (k === 'lobby') this.openLobby();
@@ -668,6 +668,7 @@ export class OnlineScene extends BaseScene {
       if (d.lair && !d.lair.home && d.lair.returnsAt) rows.push({ text: t('hex.lairBack', { t: fmtTime(d.lair.returnsAt - Date.now()) }), font: 'dim' });
       if (d.garrison) rows.push({ text: d.garrison.length ? t('hex.garrison', { names: d.garrison.map((g) => g.hero.name).join(', ') }) : t('hex.noGarrison'), font: 'ink' });
       if (d.income) rows.push({ text: t('hex.waiting', { res: resLine(d.income) }), font: 'good' });
+      if (view.post) rows.push({ text: t(`merchant.kind.${view.post}` as TKey), font: 'good' });
     }
     // ---- actions
     const acts: Act[] = d
@@ -722,13 +723,24 @@ export class OnlineScene extends BaseScene {
     c.addAt(zone, 1);
     // a lair or a world boss: its info panel (how it fights, the raid) on one more button
     const beastBtn = !!d && (!!d.lair || !!this.bossAt(h));
-    if (!acts.length && !beastBtn) return;
+    // a town or a trading post: its merchant (docs/DUELS.md "War-map shops on the map")
+    const merchantBtn = !!d?.merchant;
+    if (!acts.length && !beastBtn && !merchantBtn) return;
     const by = infoTop + infoH + SIZE.gap + 1;
-    const n = acts.length + (beastBtn ? 1 : 0);
+    const n = acts.length + (beastBtn ? 1 : 0) + (merchantBtn ? 1 : 0);
     const bw = Math.floor((W - 12 - (n - 1) * SIZE.gap) / n);
+    // slot i of n; the last one takes the rounding remainder
+    const slot = (i: number) => ({ bx: x + 6 + i * (bw + SIZE.gap), bw: i === n - 1 ? W - 12 - i * (bw + SIZE.gap) : bw });
+    // the merchant first (left): the primary action stays at the right, under the thumb
+    const first = merchantBtn ? 1 : 0;
+    if (merchantBtn) {
+      const sl = slot(0);
+      c.add(new Button(this, sl.bx, by, sl.bw, SIZE.btnH, { label: t('hex.act.merchant'), icon: 'amphora', tip: t('hex.merchantTip'), onClick: () => this.openMerchant(h), id: 'online.act.merchant' }));
+    }
     acts.forEach((a, i) => {
       const spec = this.actSpec(a, h);
-      const b = new Button(this, x + 6 + i * (bw + SIZE.gap), by, bw, SIZE.btnH, {
+      const sl = slot(first + i);
+      const b = new Button(this, sl.bx, by, sl.bw, SIZE.btnH, {
         label: spec.label,
         icon: spec.icon,
         variant: a.primary ? 'primary' : 'secondary',
@@ -741,9 +753,14 @@ export class OnlineScene extends BaseScene {
       c.add(b);
     });
     if (beastBtn) {
-      const i = acts.length;
-      c.add(new Button(this, x + 6 + i * (bw + SIZE.gap), by, W - 12 - i * (bw + SIZE.gap), SIZE.btnH, { label: t('hex.act.beast'), icon: 'beast', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' }));
+      const sl = slot(n - 1);
+      c.add(new Button(this, sl.bx, by, sl.bw, SIZE.btnH, { label: t('hex.act.beast'), icon: 'beast', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' }));
     }
+  }
+
+  /** The merchant screen of a town or a trading post (Back returns to this hex, selected). */
+  openMerchant(h: Axial): void {
+    this.scene.start('Merchant', { hex: h, demo: !!this.demo, back: { scene: 'Online', data: { focus: h, select: true, preview: this.demo ? 'map' : undefined } } });
   }
 
   private bossAt(h: Axial): BossView | null {

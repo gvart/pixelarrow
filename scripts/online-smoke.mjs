@@ -1,7 +1,8 @@
 // Online features without a real backend or Telegram: a fake Telegram.WebApp and
 // mocked /api/* routes. Checks that the game stays playable when the API is down
-// (503 / unreachable), then walks the Stars purchase flow, buys a consumable in
-// the shop against mocked economy routes and saves docs/screenshots/20-shop.png.
+// (503 / unreachable), then walks the Stars purchase flow, opens the shop (saves
+// docs/screenshots/20-shop.png) and buys a consumable from a map merchant against
+// mocked routes.
 // Usage: node scripts/online-smoke.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -109,7 +110,7 @@ for (const mode of ['503', 'abort']) {
   await s.browser.close();
 }
 
-// ---- 2. Working API: sync + legacy Stars entitlement + a consumable bought in the shop
+// ---- 2. Working API: sync + legacy Stars entitlement + a consumable bought from a map merchant
 let owned = false;
 let saveRev = 0;
 const buys = [];
@@ -128,6 +129,13 @@ const catalog = {
   pass: { premiumDrachmae: 500, xpPerTier: 100, xp: {}, tiers: [{ tier: 1, xp: 100, free: { kind: 'gold', amount: 45 }, premium: { kind: 'drachmae', amount: 15 } }] },
   market: { feeRate: 0.1, listingHours: 48, maxOpenListings: 20, priceBounds: { gold: { default: [2, 100000] }, drachmae: { default: [2, 10000] } }, resources: ['food', 'wood', 'bronze'] },
 };
+const offer = (id, kind, ref, rarity, slot, gold, drachmae, dailyCap, bought) => ({ id, kind, ref, rarity, slot, gold, drachmae, dailyCap, price: { gold, drachmae }, bought });
+const merchantView = () => ({
+  hex: { q: 3, r: 4 }, kind: 'town', region: 'crete', day: '2026-10-07', now: Date.now(), resetsAt: Date.now() + 3 * 3600e3,
+  reach: true, discount: false, discountRate: 0.1, holderCutRate: 0.05, holder: { id: 9, name: 'Kleon', you: false }, earned: 0,
+  gold: econ.gold, drachmae: econ.drachmae,
+  offers: [offer('c:morale_wine', 'consumable', 'morale_wine', 'rare', 'base', 80, 15, 3, econ.bought), offer('i:cretan_bow:uncommon', 'item', 'cretan_bow', 'uncommon', 'region', 225, null, 1, 0)],
+});
 const profile = () => ({
   season: { id: 1, startedAt: 0, endsAt: Date.now() + 864e5 }, shard: { id: 1, radius: 34 }, now: Date.now(),
   resources: { gold: econ.gold, food: 100, wood: 50, bronze: 20, recruits: 2 }, energy: 80, energyMax: 100, home: { q: 0, r: 0 },
@@ -167,14 +175,16 @@ const s = await session('ok', async (route) => {
       return json(200, { inventory: econ.inventory, day: '2026-10-07', caps: { morale_wine: { cap: 3, bought: econ.bought }, healing_salve: { cap: 3, bought: 0 } } });
     case 'GET /api/online/profile':
       return json(200, profile());
-    case 'POST /api/economy/buy': {
+    case 'GET /api/online/merchant/3/4':
+      return json(200, merchantView());
+    case 'POST /api/online/merchant/buy': {
       const body = JSON.parse(req.postData() ?? '{}');
       buys.push(body);
-      if (body.item !== 'morale_wine' || body.currency !== 'gold') return json(409, { error: { code: 'insufficient_funds', message: 'no' } });
+      if (body.offer !== 'c:morale_wine' || body.currency !== 'gold' || body.q !== 3 || body.r !== 4) return json(409, { error: { code: 'insufficient_funds', message: 'no' } });
       econ.gold -= 80;
       econ.bought++;
       econ.inventory.morale_wine = (econ.inventory.morale_wine ?? 0) + 1;
-      return json(200, { order: { requestId: body.requestId, item: body.item, qty: 1, currency: 'gold', price: 80, season: 1, at: Date.now() }, replayed: false, drachmae: econ.drachmae });
+      return json(200, { order: { requestId: body.requestId, offer: body.offer, currency: 'gold', price: 80, discount: false, holderCut: 4, itemUid: null }, replayed: false, gold: econ.gold, drachmae: econ.drachmae });
     }
     case 'POST /api/telemetry/events':
       return json(200, { accepted: JSON.parse(req.postData() ?? '{}').events?.length ?? 0, rejected: [] });
@@ -193,14 +203,20 @@ check('[ok] signed in and synced', (await ev(page, () => [window.__online.signed
 check('[ok] save uploaded', saveRev >= 1, `rev ${saveRev}`);
 await ev(page, () => window.__game.scene.getScene('Menu').openShop());
 await page.waitForTimeout(1500);
-check('[ok] shop open with the catalogue', (await active(page, 'Shop')) && (await sceneText(page, 'Shop')).includes('MORALE WINE'));
+check('[ok] shop open with the catalogue, consumables point to the map merchants', (await active(page, 'Shop')) && (await sceneText(page, 'Shop')).includes('OWL OF ATH') && (await sceneText(page, 'Shop')).includes('MERCHANTS'));
 await page.screenshot({ path: `${out}/20-shop.png` });
 console.log('saved', `${out}/20-shop.png`);
-// buy a consumable with gold: the request carries an idempotency key; the shop redraws from the server
-const okBuy = await ev(page, () => window.__game.scene.getScene('Shop').buy('morale_wine', 'Morale wine', 'gold'));
+// a town merchant on the war map: buy a consumable with gold; the request carries an idempotency key and the screen redraws from the server
+await ev(page, () => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Merchant', { hex: { q: 3, r: 4 }, back: { scene: 'Menu' } })));
+await page.waitForTimeout(1200);
+check('[ok] merchant open with its stock', (await active(page, 'Merchant')) && (await sceneText(page, 'Merchant')).includes('MORALE WINE') && (await sceneText(page, 'Merchant')).includes('CRETAN BOW'));
+const okBuy = await ev(page, () => {
+  const m = window.__game.scene.getScene('Merchant');
+  return m.buy(m.view.offers[0], 'Morale wine', 'gold');
+});
 await page.waitForTimeout(800);
-check('[ok] consumable bought against the API', okBuy === true && buys.length === 1 && buys[0].item === 'morale_wine' && buys[0].currency === 'gold' && /^[A-Za-z0-9_-]{8,64}$/.test(buys[0].requestId), JSON.stringify(buys));
-check('[ok] shop shows the new count and gold', (await sceneText(page, 'Shop')).includes('YOU HAVE 2') && (await sceneText(page, 'Shop')).includes('420'));
+check('[ok] consumable bought against the API', okBuy === true && buys.length === 1 && buys[0].offer === 'c:morale_wine' && buys[0].currency === 'gold' && /^[A-Za-z0-9_-]{8,64}$/.test(buys[0].requestId), JSON.stringify(buys));
+check('[ok] merchant shows the new count and gold', (await sceneText(page, 'Merchant')).includes('TODAY 1/3') && (await sceneText(page, 'Merchant')).includes('420'));
 await ev(page, () => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Menu')));
 await page.waitForTimeout(600);
 const buy = await ev(page, () => window.__online.buy('supporter_banner'));

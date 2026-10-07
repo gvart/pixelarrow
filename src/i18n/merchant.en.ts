@@ -1,0 +1,40 @@
+/**
+ * English strings of the map merchants (docs/DUELS.md "War-map shops on the
+ * map"): the hex panel's Merchant button, the merchant screen and the menu
+ * shop's pointer to them. Spread into en.ts; ru.ts spreads merchant.ru.ts.
+ */
+export const MERCHANT_EN = {
+  'hex.act.merchant': 'Merchant',
+  'hex.merchantTip': 'Supplies and gear for gold (supplies for Drachmae too)',
+  'merchant.title.town': 'Merchant',
+  'merchant.title.harbour': 'Harbour',
+  'merchant.title.crossroads': 'Crossroads',
+  'merchant.kind.town': 'Town merchant',
+  'merchant.kind.harbour': 'Trading post: harbour',
+  'merchant.kind.crossroads': 'Trading post: crossroads',
+  'merchant.region.attica': 'Attic goods',
+  'merchant.region.thessaly': 'Thessalian goods',
+  'merchant.region.thrace': 'Thracian goods',
+  'merchant.region.crete': 'Cretan goods',
+  'merchant.region.gaul': 'Gallic goods',
+  'merchant.region.phoenicia': 'Phoenician goods',
+  'merchant.region.scythia': 'Scythian goods',
+  'merchant.reach': 'In reach: you can buy here.',
+  'merchant.far': 'Out of reach: hold this hex, or stand on it or next to it.',
+  'merchant.discount': '{pct}% off: your clan holds this hex.',
+  'merchant.yours': 'Yours: {pct}% off, and {cut}% of what others buy is paid to you ({n} gold so far).',
+  'merchant.held': 'Held by {name}: the merchant pays them {cut}% of each sale.',
+  'merchant.free': 'Nobody holds it. Its holder gets {pct}% off and {cut}% of each sale.',
+  'merchant.reset': 'New stock in {t}. Daily limits count all merchants together.',
+  'merchant.sec.base': 'Supplies and basic gear',
+  'merchant.sec.region': 'Regional goods',
+  'merchant.sec.rare': 'Rare today',
+  'merchant.today': 'Today {n}/{cap}',
+  'merchant.why.reach': 'Out of reach: hold the hex, or stand on it or next to it',
+  'merchant.why.gold': 'Not enough gold',
+  'merchant.why.dr': 'Not enough Drachmae',
+  'merchant.gearTip': 'Sold for gold only.',
+  'merchant.toStash': '{name} is in your stash',
+  'shop.mapMerchants': 'Consumables are sold by merchants on the war map, in every town and at trading posts: open a town and tap Merchant.',
+  'wallet.kind.merchant': 'Merchant',
+};

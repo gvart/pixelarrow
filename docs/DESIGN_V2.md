@@ -199,8 +199,10 @@ with DESIGN.md or ROADMAP.md, this document wins.
 - **Consumables:** healing salves, morale wine, a war horn (a one-time rally),
   sharpening stones (+damage for one battle) and march rations (faster
   marches).
-  - Bought with gold, or with Drachmae as a shortcut.
-  - Daily cap per player.
+  - Bought with gold, or with Drachmae as a shortcut, from the merchants on
+    the war map (towns and trading posts, docs/DUELS.md "War-map shops on the
+    map"); the menu shop keeps only the wallet, the pass and cosmetics.
+  - Daily cap per player (all merchants together).
   - At most one consumable per battle in PvP attacks and duels.
 
 ## Localization, audio and onboarding
@@ -280,7 +282,8 @@ with DESIGN.md or ROADMAP.md, this document wins.
 - `supporter_banner` is no longer a Stars product. It becomes a normal
   cosmetic priced in Drachmae; players who already bought it keep it.
 - Unchanged:
-  - daily caps count shop purchases only;
+  - daily caps count shop purchases only (the map merchants' since slice 5 of
+    docs/DUELS.md);
   - no marketplace listing fee, only the 10% sale fee;
   - buyers can buy anywhere in their shard, but listing an item needs a
     reachable town.

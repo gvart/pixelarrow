@@ -29,7 +29,8 @@ server/
                       attack.ts (tickets, verified attacks), clans.ts, duel.ts (friendly duel lobby),
                       relay.ts (the lockstep relay of one duel, shared with ranked matches),
                       store.ts (seasons, shards, homes, D1 access), income.ts, context.ts,
-                      consumables.ts (season inventory, use), market.ts (town marketplace)
+                      consumables.ts (season inventory, use), market.ts (town marketplace),
+                      merchant.ts (map merchants: town and trading-post shops)
     notify/           bot notifications: outbox.ts (enqueue, delivery rules, flush), templates.ts (EN/RU
                       texts, coalescing, deep links), jobs.ts (cron: season/income notices, bot setup),
                       routes.ts (/api/notify/settings)
@@ -57,6 +58,7 @@ server/
   migrations/0006_ops.sql           bans, analytics opt-out and milestones, client_errors, admin_audit (docs/OPS.md)
   migrations/0007_duels.sql         duel profiles, heroes, items, ladder tickets, Glory orders
   migrations/0008_duel_ranked.sql   duel ratings (Glicko-2, leagues), abandons and queue cooldown, live matches
+  migrations/0009_merchants.sql     map merchants: per-player daily gear counters, merchant orders (holder cut)
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   scripts/bot-setup.mjs      one-off: setMyCommands (EN/RU) and setWebhook with the allowed updates
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
@@ -373,7 +375,8 @@ market limits in `src/economy/catalog.ts`, consumables in the shared
 
 **Drachmae** (`wallets`, `drachmae_ledger`): account-wide, survive seasons.
 Every movement is a ledger row unique per `(player, kind, ref)` (`pack`,
-`refund`, `spend`, `pass`, `market_buy`, `market_sale`), written in the same
+`refund`, `spend`, `pass`, `market_buy`, `market_sale`, `merchant` + request
+id), written in the same
 batch as the balance change and guarded by the operation's own key row, so
 retries never double-apply. Spending needs `balance >= price`; only a refund
 can make it negative, which blocks spending until topped up. Things already
@@ -392,7 +395,7 @@ stored order with `replayed: true`; the same id for another item is 409
 | --- | --- | --- |
 | GET | `/api/economy/catalog` | public: `packs`, `cosmetics` (+`slots`), `consumables`, `pass` (price, XP rules, tiers), `market` (fee, hours, cap, price bounds) |
 | GET | `/api/economy/wallet` | `{ drachmae, canSpend, ledger (last 50), cosmetics (owned ids), loadout {slot: id} }` |
-| POST | `/api/economy/buy` | `{requestId, item, currency = 'drachmae', qty = 1}` → `{ order, replayed, drachmae }`. Items: a cosmetic id, `season_pass`, a consumable id (gold or Drachmae, needs a season profile). 409 `insufficient_funds` / `already_owned` / `daily_cap` / `no_profile` / `request_reused`; 404 `unknown_item` |
+| POST | `/api/economy/buy` | `{requestId, item, currency = 'drachmae'}` → `{ order, replayed, drachmae }`. Items: a cosmetic id or `season_pass` (Drachmae). 409 `insufficient_funds` / `already_owned` / `request_reused`; 404 `unknown_item`; a consumable id → 410 `merchant_only` (consumables are sold by the map merchants) |
 | POST | `/api/economy/cosmetics/equip` | `{slot, id or null}` → `{ loadout }`; 403 `not_owned` |
 | GET | `/api/economy/pass` | `{ season, xp, tier, premium, premiumDrachmae, xpPerTier, claimed: [{tier, track}], tiers }` |
 | POST | `/api/economy/pass/claim` | `{tier, track: free or premium}` → `{ reward, replayed }`; 409 `locked` (tier not reached / premium not unlocked), `no_profile` (gold and consumable rewards go to the season profile) |
@@ -404,11 +407,14 @@ stored order with `replayed: true`; the same id for another item is 409
 | POST | `/api/online/market/list` | `{town: {q,r}, kind: item/resource/consumable, ref (item uid, food/wood/bronze, or consumable id), qty, currency: gold/drachmae, price}` → `{ listing }`; 403 `town_unreachable`, 400 `price_out_of_bounds`, 409 `listing_cap` / `cannot_afford` / `none_left` |
 | POST | `/api/online/market/buy` | `{listingId}` → `{ listing, paid, fee, sellerGets }`; 403 `self_buy`, 409 `insufficient_funds` / `sold` / `gone`, 410 `expired` |
 | POST | `/api/online/market/cancel` | `{listingId}` (seller) → goods back |
+| GET | `/api/online/merchant/:q/:r` | a visible town or trading post: `{ hex, kind (town/harbour/crossroads), region, day, now, resetsAt, reach, discount, discountRate, holderCutRate, holder, earned, gold, drachmae, offers: [{id, kind, ref, rarity, slot, gold, drachmae, dailyCap, price: {gold, drachmae}, bought}] }`; 404 `no_merchant` / `fogged` |
+| POST | `/api/online/merchant/buy` | `{q, r, offer, currency, requestId}` → `{ order, replayed, item?, gold, drachmae }`; 403 `out_of_reach`, 404 `no_offer`, 400 (gear for Drachmae), 409 `daily_cap` / `insufficient_funds` / `request_reused` / `conflict` |
 
 **Consumables** (`src/data/consumables.ts`): healing salve, morale wine, war
-horn, sharpening stone, march rations. Bought with season gold or Drachmae;
-the daily cap counts shop purchases per player per UTC day (server time),
-gold and Drachmae together (pass rewards and marketplace buys do not count).
+horn, sharpening stone, march rations. Bought from the map merchants (below)
+with season gold or Drachmae; the daily cap counts merchant purchases per
+player per UTC day (server time) across all merchants, gold and Drachmae
+together (pass rewards and marketplace buys do not count).
 They are held per season (`online_consumables`) and vanish with it.
 
 - **At most one consumable per battle**, PvP attacks and duels alike (also
@@ -426,6 +432,39 @@ They are held per season (`online_consumables`) and vanish with it.
   [side0, side1]` records the ids, so both clients and the server replay
   simulate the same battle. TODO(sim): a true one-shot, army-wide war-horn
   rally needs a sim feature; until then the horn uses the Rally Cry ability.
+
+**Map merchants** (`src/online/merchants.ts` shared, `server/src/online/merchant.ts`,
+`merchant_orders`, `merchant_daily`; docs/DUELS.md "War-map shops on the map"):
+
+- Every town hex (capitals included) has a merchant; so do the shard's
+  **trading posts**: one per 300 hexes (12 on a full shard), half harbours
+  (passable coast), half crossroads (plains or farmland on a river with land
+  all around), at least 7 apart, never on towns, forts, capitals, lairs or
+  world bosses, at least 5 from a capital, and never chosen as a home. Their
+  places are a pure function of the shard seed; `GET /map` marks them with
+  `post` and `GET /hex` answers `merchant`.
+- **Stock** is generated from `(shard seed, hex, UTC day)` and never stored:
+  every consumable (gold or Drachmae, their usual prices and caps), 3 basic
+  common pieces of gear, the specialties of the hex's region (the region of
+  its nearest capital: Attic, Thessalian, Thracian, Cretan, Gallic,
+  Phoenician, Scythian goods) and a daily rotating rare slot. Towns: 2
+  specialties at uncommon and a rare; trading posts: every specialty plus
+  their harbour or crossroads goods at rare and an epic. Gear costs item
+  value × 2 / 3 / 5 / 8 gold (common / uncommon / rare / epic) and is never
+  sold for Drachmae; gear caps per player per day: basic 2, regional 1, rare 1
+  (`merchant_daily`, keyed by item and rarity).
+- **Reach** is the marketplace rule: you or your clan hold the hex, or your
+  army stands on or next to it. The holder and their clan pay **10% less**
+  (rounded); the holder earns **5% of the list gold price** (rounded down) of
+  every sale to anyone else, paid by the merchant (credited to their season
+  gold in the buyer's batch; the buyer pays only the price).
+- **Buying** mirrors `/api/economy/buy`: the `merchant_orders` row (primary
+  key player + request id) is inserted only while the buyer's profile `rev`
+  is the one read, funds suffice and the cap allows; the payment (gold and a
+  rev bump, or a `merchant` ledger row), the goods (consumable or a stash item
+  with uid `s<season>p<player>_m<requestId>`), the daily counter and the
+  holder's cut are guarded by that row. A retry answers the stored order
+  (`replayed: true`).
 
 **Season pass** (`pass_progress`, `pass_claims`, per online season): 30 tiers,
 100 XP each. XP is written by verified server events inside their own guarded
@@ -742,15 +781,17 @@ Steps 1–4 are implemented in the game (`src/platform/api.ts`, `online.ts`,
 mode (`src/online/`, `src/scenes/online/`) uses `/api/online/*` and
 `/ws/online`.
 
-The economy screens (`src/scenes/ShopScene.ts`: shop, season pass, wallet;
-`src/scenes/MarketScene.ts`: the town marketplace; the battle consumable
+The economy screens (`src/scenes/ShopScene.ts`: cosmetics, season pass,
+wallet; `src/scenes/MarketScene.ts`: the town marketplace; the battle consumable
 picker `src/ui/econ/consumablePicker.ts`) go through `src/ui/econ/source.ts`,
 which uses the typed methods in
 `src/platform/api.ts`: `economyCatalog`, `wallet`, `buy` (makes a request id;
 pass the same one when retrying), `equipCosmetic`, `seasonPass`, `claimPass`,
 `consumables`, `useConsumable`, `marketSearch`, `marketMine`, `marketTowns`,
 `marketList`, `marketBuy`, `marketCancel`. Drachmae packs still go through
-`invoice(productId)` + `openInvoice`, then poll `wallet()`.
+`invoice(productId)` + `openInvoice`, then poll `wallet()`. The map merchants
+(`src/scenes/online/MerchantScene.ts`, opened from the hex panel) use
+`onlineApi.merchant` and `onlineApi.merchantBuy` (`src/online/client.ts`).
 
 1. **Boot:** if `Telegram.WebApp.initData` is non-empty,
    `POST /api/auth/telegram { initData }` → keep `token` in memory (re-auth on

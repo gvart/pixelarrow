@@ -31,7 +31,7 @@ import { MARKET, marketFee, priceBounds } from '../economy/catalog';
 import { balanceSql, ensureWallet, walletMove } from '../economy/wallet';
 import { addConsumable } from '../economy/routes';
 import { limit, player, type PlayerCtx } from './context';
-import { armyState, hexRow, playerNames, randomToken, revBatch, revGuard, staticHex, type Shard } from './store';
+import { armyState, hexRow, playerNames, randomToken, revBatch, revGuard, staticHex, type HexRow, type Shard } from './store';
 import { ev, later, notify } from '../notify/outbox';
 
 export const market = new Hono<AppEnv>();
@@ -103,13 +103,22 @@ function isTown(shard: Shard, h: Axial): boolean {
   return s.type === 'town' || s.capital;
 }
 
-/** Can this player trade in this town: it is theirs or their clan's, or their army stands on or next to it. */
-async function canReachTown(pc: PlayerCtx, h: Axial): Promise<boolean> {
-  if (!inShard(h, pc.shard.radius) || !isTown(pc.shard, h)) return false;
+/**
+ * The "reachable place" rule of towns and merchants: the hex is the player's
+ * or their clan's, or their army stands on or next to it. `row` may be passed
+ * when already loaded.
+ */
+export async function canReachHex(pc: PlayerCtx, h: Axial, row?: HexRow | null): Promise<boolean> {
+  if (!inShard(h, pc.shard.radius)) return false;
   const army = armyState(pc.profile, pc.now);
   if (hexDistance(army.pos, h) <= 1) return true;
-  const row = await hexRow(pc.db, pc.shard, h);
-  return !!row && (row.owner_id === pc.pid || (pc.clan !== null && row.clan_id === pc.clan.clanId));
+  const r = row === undefined ? await hexRow(pc.db, pc.shard, h) : row;
+  return !!r && (r.owner_id === pc.pid || (pc.clan !== null && r.clan_id === pc.clan.clanId));
+}
+
+/** Can this player trade in this town (see canReachHex)? */
+async function canReachTown(pc: PlayerCtx, h: Axial): Promise<boolean> {
+  return inShard(h, pc.shard.radius) && isTown(pc.shard, h) && canReachHex(pc, h);
 }
 
 // ------------------------------------------------------------------ escrow return

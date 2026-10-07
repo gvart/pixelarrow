@@ -5,6 +5,7 @@ import { BATTLE_RU } from './battle.ru';
 import { RU_ARMY } from './ru.army';
 import { BEASTS_RU } from './beasts.ru';
 import { DUELS_RU } from './duels.ru';
+import { MERCHANT_RU } from './merchant.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -261,4 +262,5 @@ export const RU: Table = {
   // ---- mythical beasts, the Beast trial, world bosses (beasts.ru.ts)
   ...BEASTS_RU,
   ...DUELS_RU,
+  ...MERCHANT_RU,
 };

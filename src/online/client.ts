@@ -14,6 +14,7 @@ import type { HexType } from './hex';
 import type { Resources } from './rules';
 import type { ClientMsg, PresencePlayer, ServerMsg } from './protocol';
 import type { BattleSite } from '../world/battlefield';
+import type { MerchantKind, Offer, PostKind, Region } from './merchants';
 
 export interface Axial {
   q: number;
@@ -72,6 +73,8 @@ export interface HexView extends Axial {
   lairLevel?: number;
   /** A world boss stands here. */
   boss?: string;
+  /** A trading post (src/online/merchants.ts). */
+  post?: PostKind;
 }
 
 export interface MapView {
@@ -105,6 +108,44 @@ export interface HexDetail {
   lair?: { enc: string; level: number; tier: number; home: boolean; returnsAt: number | null } | null;
   /** A world boss stands here (raid it: onlineApi.raidStart). */
   boss?: string | null;
+  /** A town or a trading post: its merchant (onlineApi.merchant). */
+  merchant?: MerchantKind | null;
+}
+
+/** A merchant's offer as GET /merchant answers it: list prices, this player's prices and today's count. */
+export interface MerchantOffer extends Offer {
+  price: { gold: number | null; drachmae: number | null };
+  bought: number;
+}
+
+/** GET /api/online/merchant/:q/:r (server/src/online/merchant.ts). */
+export interface MerchantView {
+  hex: Axial;
+  kind: MerchantKind;
+  region: Region;
+  day: string;
+  /** Server time of the answer, and when today's stock and caps end. */
+  now: number;
+  resetsAt: number;
+  /** In reach: the hex is yours or your clan's, or your army stands on or next to it. */
+  reach: boolean;
+  /** The holder discount applies to you. */
+  discount: boolean;
+  discountRate: number;
+  holderCutRate: number;
+  holder: { id: number; name: string | null; you: boolean } | null;
+  earned: number;
+  gold: number;
+  drachmae: number;
+  offers: MerchantOffer[];
+}
+
+export interface MerchantBuyResult {
+  order: { requestId: string; offer: string; currency: 'gold' | 'drachmae'; price: number; discount: boolean; holderCut: number; itemUid: string | null };
+  replayed: boolean;
+  item?: Item | null;
+  gold: number;
+  drachmae: number;
 }
 
 /** A world boss of the shard with its shared HP and the damage tally (GET /boss). */
@@ -234,6 +275,9 @@ export const onlineApi = {
   clanKick: (playerId: number) => req<{ clan: ClanView }>('POST', '/clans/kick', { playerId }),
   clanPromote: (playerId: number, role: ClanMember['role']) => req<{ clan: ClanView }>('POST', '/clans/promote', { playerId, role }),
   clanLeave: () => req<{ clan: null }>('POST', '/clans/leave', {}),
+  merchant: (h: Axial) => req<MerchantView>('GET', `/merchant/${h.q}/${h.r}`),
+  /** requestId: keep it while retrying the same purchase (never charged twice). */
+  merchantBuy: (h: Axial, offer: string, currency: 'gold' | 'drachmae', requestId: string) => req<MerchantBuyResult>('POST', '/merchant/buy', { q: h.q, r: h.r, offer, currency, requestId }),
 };
 
 /** Can the online mode be used right now? Signs in if needed. */

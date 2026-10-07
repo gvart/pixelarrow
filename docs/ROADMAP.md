@@ -184,12 +184,20 @@ The war-map shop moves onto town and trading-post hexes. Slices, in order:
 duel roster and economy → live ranked → async and seasons → map merchants.
 
 Done: duel roster and economy (profile, team, budget, Glory, shop, hero
+<<<<<<< HEAD
 development, ladder with verified battles; Menu → Duels); live ranked and
 unranked (the global `MatchmakerDO` queue, a `DuelDO` per match on the shared
 lockstep relay with 30 s reconnects, Glicko-2, leagues and placements, the
 abandon cooldown; the duel hub's Arena tab; migration `0008_duel_ranked.sql`).
 Next: async ladder and monthly seasons (soft reset by peak league,
 leaderboards), then map merchants.
+=======
+development, ladder with verified battles; Menu → Duels); map merchants
+(every town and ~12 seeded trading posts per shard, stock per seed/hex/UTC
+day with regional specialties and a daily rare slot, holder discount 10% and
+cut 5%; consumables left the menu shop; hex panel → Merchant). Next: live
+ranked.
+>>>>>>> origin/main
 
 ## Next session: polish backlog
 

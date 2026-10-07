@@ -15,6 +15,7 @@ import type { FormationType } from '../../../src/sim/formation';
 import { hashString } from '../../../src/sim/rng';
 import { capitals, hexDistance, hexesWithin, hexInfo, SHARD_RADIUS, type Axial, type HexInfo } from '../../../src/online/hex';
 import { beastHex } from '../../../src/online/lairs';
+import { tradingPostAt } from '../../../src/online/merchants';
 import { DEFAULT_FORMATIONS, energyAt, hexScore, ONLINE_RULES, starterOnlineArmy } from '../../../src/online/rules';
 import { bytesToHex } from '../crypto';
 import { ApiError } from '../errors';
@@ -299,6 +300,8 @@ export function pickHome(shard: Shard, taken: Axial[], start: number): Axial | n
       if (!info.passable || info.fort || info.capital || info.type === 'town') continue;
       // beast lairs and world bosses are nobody's home
       if (beastHex(shard.seed, info, shard.radius)) continue;
+      // nor are the trading posts (src/online/merchants.ts)
+      if (tradingPostAt(shard.seed, h, shard.radius)) continue;
       if (hexDistance(h, { q: 0, r: 0 }) > shard.radius - 2) continue;
       if (caps.some((c) => hexDistance(c, h) <= 4)) continue;
       if (near(h, ONLINE_RULES.homeSpacing)) continue;

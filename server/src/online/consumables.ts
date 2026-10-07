@@ -3,7 +3,7 @@
  * out-of-battle ones (healing salve, march rations). Battle consumables are
  * picked with `consumable` on POST /api/online/attack/start or on a duel
  * challenge / challenge_reply (at most one per battle) and spent there.
- * Buying them: POST /api/economy/buy.
+ * Buying them: the map merchants (POST /api/online/merchant/buy).
  */
 import { Hono } from 'hono';
 import { z } from 'zod';
