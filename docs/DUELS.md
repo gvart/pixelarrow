@@ -18,10 +18,36 @@ starting points to tune.
   (Menu → Duels), the hero sheet on the duel army (`src/duel/heroSource.ts`),
   and an in-memory demo (`DemoDuelSource`) for the layout check and
   `scripts/duel-smoke.mjs`.
+- **Slice 5 landed (map merchants):** every town (capitals included) and the
+  seeded trading posts sell consumables and gear; the menu shop no longer
+  sells consumables (`POST /api/economy/buy` answers 410 `merchant_only`) and
+  keeps the wallet, the pass and cosmetics. Shared rules
+  `src/online/merchants.ts` (`MERCHANT`), server
+  `server/src/online/merchant.ts` (`/api/online/merchant`), migration
+  `0009_merchants.sql`, client `src/scenes/online/MerchantScene.ts` (hex
+  panel → Merchant; a small stall marks trading posts on the map). Numbers:
+  - trading posts: one per 300 hexes (12 on a full shard of radius 34), half
+    harbours (passable coast) and half crossroads (plains or farmland on a
+    river, land all around), 7+ apart, 5+ from a capital, never on towns,
+    forts, lairs, world bosses or homes; visible like any other hex (fog
+    hides them until seen);
+  - regions by the nearest capital (Attic, Thessalian, Thracian, Cretan,
+    Gallic, Phoenician, Scythian goods: e.g. Cretan bows, rhomphaia and falx,
+    xyston lances and Boeotian helms);
+  - stock per (seed, hex, UTC day): the five consumables (their usual gold
+    and Drachmae prices and caps), 3 basic common pieces, 2 specialties at
+    uncommon and 1 rare in towns; every specialty plus harbour or crossroads
+    goods at rare and 1 epic at trading posts. Gear: item value × 2/3/5/8
+    gold by rarity, never for Drachmae; daily gear caps 2 (basic) and 1
+    (regional, rare) per player across all merchants;
+  - holder and clan discount 10%; the holder earns 5% of the list gold price
+    (rounded down) of every sale to someone else, paid by the merchant.
+  - Recruiting stays on the online army screen (not sold by merchants).
 - Next: slice 3 (matchmaker, live ranked, leagues), slice 4 (async ladder,
-  seasons, leaderboards), slice 5 (map merchants).
+  seasons, leaderboards).
 
-The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`).
+The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
+`MERCHANT`).
 
 ## Summary
 
@@ -202,7 +228,9 @@ and `/paysupport` compliance). Cosmetics apply in both modes.
   ladder progress, the daily farm counter, the team), `duel_heroes`,
   `duel_items`, `duel_tickets` (ladder battles) and `duel_orders` (Glory
   spends by request id). Ratings, leagues, matches, seasons and rewards come
-  in later migrations; `merchant_purchases` with the map merchants.
+  in later migrations. `0009_merchants.sql` (landed) has `merchant_orders`
+  (every sale by request id, with the holder's cut) and `merchant_daily`
+  (gear counters; consumables count in `consumable_daily`).
 - **Durable Objects:** `MatchmakerDO` (queue, pairing, live presence) and
   `DuelDO` (one per live match: lockstep relay, reconnect, replay,
   result). The shard `RegionDO` keeps friendly duels for now and can hand
@@ -241,4 +269,3 @@ and `/paysupport` compliance). Cosmetics apply in both modes.
   war-map army? *(Default: yes, choose one before challenging.)*
 - Anti-smurf beyond the level-5 gate (e.g. a minimum Telegram account age for
   ranked rewards).
-- Trading-post count per shard and whether they appear on fog-hidden hexes.

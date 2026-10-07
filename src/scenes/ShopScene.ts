@@ -11,7 +11,7 @@ import { econ, newRequestId, setEconSource, type ConsumableInfo } from '../ui/ec
 import { DemoEconSource } from '../ui/econ/demo';
 import { pickBattleConsumable } from '../ui/econ/consumablePicker';
 import { addEconState, addPurse, ago, cosmeticName, cosmeticTexture, currencyIcon, ensureEconIcons, goodsTexture, priceText, rewardName } from '../ui/econ/widgets';
-import { capLeft, claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
+import { claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
 import { P } from '../art/palette';
@@ -41,10 +41,11 @@ interface Loaded {
 }
 
 /**
- * The shop (docs/DESIGN_V2.md "Monetization and economy"): consumables for
- * gold or Drachmae with daily caps, cosmetics with previews and the loadout;
- * the season pass (free and premium tracks); the wallet (Drachmae packs for
- * Telegram Stars, history). All server-owned; outside Telegram or offline it
+ * The shop (docs/DESIGN_V2.md "Monetization and economy"): cosmetics with
+ * previews and the loadout; the season pass (free and premium tracks); the
+ * wallet (Drachmae packs for Telegram Stars, history). Consumables are sold
+ * by the merchants on the war map (MerchantScene, docs/DUELS.md); the shop
+ * only points there. All server-owned; outside Telegram or offline it
  * explains why and offers a retry.
  */
 export class ShopScene extends BaseScene {
@@ -191,42 +192,15 @@ export class ShopScene extends BaseScene {
     const c = area.content;
     const w = VW - 8 - 4;
     let y = 0;
+    // consumables moved onto the war map: the merchants of towns and trading posts (docs/DUELS.md)
     c.add(addText(this, 0, y, t('shop.consumables'), 'red'));
     y += 11;
-    const hint = wrapText(t('shop.consumablesHint'), w, 2);
-    c.add(addText(this, 0, y, hint.lines.join('\n'), 'dim'));
-    y += hint.lines.length * LINE_H + 3;
-    for (const cd of d.cat.consumables) {
-      const held = d.cons?.inventory[cd.id] ?? 0;
-      const left = capLeft(d.cons?.caps, cd.id, cd.dailyCap);
-      const cap = d.cons?.caps[cd.id]?.cap ?? cd.dailyCap;
-      const desc = wrapText(tOr(`consumable.${cd.id}.desc`, cd.desc), w - 36, 2);
-      const rowH = 58 + desc.lines.length * LINE_H;
-      c.add(addPanel(this, 0, y, w, rowH, 'button'));
-      c.add(new ItemIcon(this, 4, 4, { consumable: cd.id }, { qty: held, rarity: cd.use === 'battle' ? 'rare' : 'uncommon' }).setY(y + 4));
-      const tx = 32;
-      c.add(addText(this, tx, y + 4, ellipsize(tOr(`consumable.${cd.id}.name`, cd.name), w - tx - 4), 'red'));
-      const sub = `${t('shop.today', { n: cap - (left ?? cap), cap })} · ${t('shop.held', { n: held })}`;
-      c.add(addText(this, tx, y + 15, ellipsize(sub, w - tx - 4), left === 0 ? 'red' : 'gold'));
-      c.add(addText(this, tx, y + 27, desc.lines.join('\n'), 'dim'));
-      const by = y + rowH - SIZE.btnH - 4;
-      const prices: [Currency, number | null][] = [['gold', cd.gold], ['drachmae', cd.drachmae]];
-      const bw = Math.floor((w - 8 - SIZE.gap) / 2);
-      prices.forEach(([cur, price], i) => {
-        if (price === null) return;
-        const b = new Button(this, 4 + i * (bw + SIZE.gap), by, bw, SIZE.btnH, {
-          label: `${price}`,
-          icon: currencyIcon(cur),
-          id: `shop.buy.${cd.id}.${cur}`,
-          tip: `${tOr(`consumable.${cd.id}.desc`, cd.desc)} ${cur === 'gold' ? t('shop.goldTip') : t('shop.drTip')}`,
-          onClick: () => this.askBuy(cd.id, tOr(`consumable.${cd.id}.name`, cd.name), price, cur),
-        });
-        const why = left === 0 ? t('econ.dailyCap') : cur === 'gold' && !d.profile ? t('econ.noProfile') : !d.profile ? t('econ.noProfile') : undefined;
-        if (why) b.setEnabled(false, why);
-        c.add(b);
-      });
-      y += rowH + SIZE.gap;
-    }
+    const mm = wrapText(t('shop.mapMerchants'), w - 36, 6);
+    const mh = Math.max(32, mm.lines.length * LINE_H + 10);
+    c.add(addPanel(this, 0, y, w, mh, 'inset'));
+    c.add(new ItemIcon(this, 4, y + Math.round((mh - 24) / 2), { consumable: 'morale_wine' }, { rarity: 'rare', tip: false }));
+    c.add(addText(this, 32, y + 5, mm.lines.join('\n'), 'ink'));
+    y += mh + SIZE.gap;
     // cosmetics by slot: preview tiles
     y += 6;
     c.add(addText(this, 0, y, t('shop.cosmetics'), 'red'));

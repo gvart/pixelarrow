@@ -33,6 +33,8 @@ import { pendingIncome } from './income';
 import { clans } from './clans';
 import { consumableInventory, consumables } from './consumables';
 import { market, resolveExpired } from './market';
+import { merchant } from './merchant';
+import { merchantAt, tradingPostAt, type PostKind } from '../../../src/online/merchants';
 import { pushArmyMove } from './live';
 import { base, hexKey, limit, player, shardStub, type PlayerCtx } from './context';
 import {
@@ -125,6 +127,8 @@ interface HexView {
   lairLevel?: number;
   /** A world boss stands here. */
   boss?: string;
+  /** A trading post (src/online/merchants.ts): a merchant with rarer stock. */
+  post?: PostKind;
 }
 
 /**
@@ -182,6 +186,8 @@ function hexView(shard: Shard, h: Axial, row: HexRow | undefined, now = Date.now
     v.lairLevel = lair.level;
   }
   if (boss) v.boss = boss.boss;
+  const post = tradingPostAt(shard.seed, h, shard.radius);
+  if (post) v.post = post;
   return v;
 }
 
@@ -321,6 +327,8 @@ online.get('/hex/:q/:r', async (c) => {
     lair: lairInfo ? { enc: lairInfo.enc, level: lairInfo.level, tier: lairInfo.tier, home: !!lairBeast(pc.shard, s, row, pc.now), returnsAt: slain !== null && pc.now - slain < BEAST_RULES.respawnMs ? slain + BEAST_RULES.respawnMs : null } : null,
     boss: isBoss ? bossAt(pc.shard.seed, h, pc.shard.radius)!.boss : null,
     canGarrison: ours && !army.marching && army.pos.q === h.q && army.pos.r === h.r,
+    /** A town or a trading post: its merchant (GET /merchant/:q/:r). */
+    merchant: merchantAt(pc.shard.seed, s, pc.shard.radius),
   });
 });
 
@@ -577,5 +585,6 @@ online.route('/attack', attack);
 online.route('/clans', clans);
 online.route('/consumables', consumables);
 online.route('/market', market);
+online.route('/merchant', merchant);
 online.route('/boss', bosses);
 

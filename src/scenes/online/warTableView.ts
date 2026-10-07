@@ -25,6 +25,7 @@ import {
   renderHexFill,
   renderMini,
   renderPin,
+  renderPostMark,
   renderProp,
   renderSmoke,
   renderTableWood,
@@ -335,6 +336,8 @@ export class WarTableView {
     const show = m && (this.frontier.has(hexId(h.q, h.r)) || h.tier >= 3 || m.startsWith('beast') || hash2(h.q, h.r, 55) < 0.3);
     if (m && show) stamp(this.miniKey(m), c.x + 7, c.y + 5);
     if (col !== null) stamp(ensure(this.scene, `wt_pin_${col}`, () => renderPin(col)), c.x + (h.home ? -3 : 8), c.y + (h.home ? -2 : -1));
+    // a trading post: a small stall at the back left of the tile
+    if (h.post) stamp(ensure(this.scene, `wt_post_${h.post}`, () => renderPostMark(h.post === 'harbour')), c.x - 7, c.y - 1);
   }
 
   private buildGlints(known: HexView[]): void {

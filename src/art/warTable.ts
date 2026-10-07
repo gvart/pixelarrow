@@ -889,6 +889,26 @@ export function renderPin(color: number): Sprite {
   return { pix: px, ax: 1, ay: 9 };
 }
 
+/**
+ * The small market stall of a trading post (src/online/merchants.ts): a
+ * striped awning over amphorae; blue for a harbour, red for a crossroads.
+ */
+export function renderPostMark(harbour: boolean): Sprite {
+  const px = new Pix(9, 9);
+  px.bitmap(0, 0, [
+    '.acacaca.',
+    'acacacaca',
+    '.ddddddd.',
+    '.d.....d.',
+    '.d.oo..d.',
+    '.d.oo.od.',
+    '.dbbbbbd.',
+    '.d.....d.',
+  ], { a: harbour ? 0x3a6ea8 : 0xb03a2e, c: 0xf0e2c0, d: 0x4a3420, o: 0xc0703a, b: 0x7a5530 });
+  px.outline(0x1d140f);
+  return { pix: px, ax: 4, ay: 8 };
+}
+
 // ------------------------------------------------------------------ ambient
 
 /** A drifting cloud puff of the fog of war (soft, dithered edge). */

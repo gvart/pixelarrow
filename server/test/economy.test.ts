@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hexInfo, neighbours } from '../../src/online/hex';
-import { CONSUMABLES } from '../../src/data/consumables';
 import { computeStats } from '../../src/sim/stats';
 import type { Hero } from '../../src/data/units';
 import { PASS, PASS_TIERS } from '../src/economy/catalog';
@@ -45,11 +44,6 @@ async function buyPack(tgId: number, token: string, productId: string, charge: s
 
 async function giveDrachmae(pid: number, n: number) {
   await DB().prepare('INSERT INTO wallets (player_id, drachmae, updated_at) VALUES (?1, ?2, 0) ON CONFLICT (player_id) DO UPDATE SET drachmae = excluded.drachmae').bind(pid, n).run();
-}
-
-async function setGold(pid: number, gold: number) {
-  const s = await currentSeason(DB());
-  await DB().prepare('UPDATE online_profiles SET gold = ?1 WHERE season_id = ?2 AND player_id = ?3').bind(gold, s.id, pid).run();
 }
 
 async function inventory(token: string) {
@@ -198,29 +192,15 @@ describe('shop: cosmetics and the season pass with Drachmae', () => {
 });
 
 describe('consumables', () => {
-  it('daily caps per UTC day across gold and Drachmae; gold is spent from the season purse', async () => {
+  it('the menu shop sells no consumables: they moved to the map merchants (server/test/merchant.test.ts)', async () => {
     const p = await join(950301);
-    await setGold(p.playerId, 1000);
     await giveDrachmae(p.playerId, 100);
-    const cap = CONSUMABLES.sharpening_stone.dailyCap; // 3
-    expect((await post('/api/economy/buy', p.token, { requestId: reqId(), item: 'sharpening_stone', currency: 'gold', qty: 2 })).status).toBe(200);
-    expect((await post('/api/economy/buy', p.token, { requestId: reqId(), item: 'sharpening_stone', currency: 'drachmae', qty: 1 })).status).toBe(200);
-    const over = await post<{ error: { code: string } }>('/api/economy/buy', p.token, { requestId: reqId(), item: 'sharpening_stone', currency: 'gold' });
-    expect(over.status).toBe(409);
-    expect(over.body.error.code).toBe('daily_cap');
-    const inv = await inventory(p.token);
-    expect(inv.inventory.sharpening_stone).toBe(cap);
-    expect(inv.caps.sharpening_stone).toEqual({ cap, bought: cap });
-    const prof = (await getJson<{ resources: { gold: number }; consumables: Record<string, number> }>('/api/online/profile', p.token)).body;
-    expect(prof.resources.gold).toBe(1000 - 2 * CONSUMABLES.sharpening_stone.gold!);
-    expect(prof.consumables.sharpening_stone).toBe(cap);
-    expect((await wallet(p.token)).drachmae).toBe(100 - CONSUMABLES.sharpening_stone.drachmae!);
-    // Yesterday's purchases do not count today.
-    await DB().prepare("UPDATE consumable_daily SET day = '2000-01-01' WHERE player_id = ?1").bind(p.playerId).run();
-    expect((await post('/api/economy/buy', p.token, { requestId: reqId(), item: 'sharpening_stone', currency: 'gold' })).status).toBe(200);
-    // Without a season profile consumables cannot be bought.
-    const { token } = await devLogin(950302);
-    expect((await post('/api/economy/buy', token, { requestId: reqId(), item: 'morale_wine' })).status).toBe(409);
+    for (const currency of ['gold', 'drachmae']) {
+      const r = await post<{ error: { code: string } }>('/api/economy/buy', p.token, { requestId: reqId(), item: 'sharpening_stone', currency });
+      expect(r.status).toBe(410);
+      expect(r.body.error.code).toBe('merchant_only');
+    }
+    expect((await wallet(p.token)).drachmae).toBe(100);
   });
 
   it('a healing salve shortens wounds', async () => {

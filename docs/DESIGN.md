@@ -682,7 +682,7 @@ garrison), `ClanScene`. The battle scene takes a `BattleSource`
 (`src/online/battleSource.ts`) instead of the campaign's pending battle, so
 everything the sim adds to `BattleSetup` (terrain today) flows through.
 
-## Economy (`server/src/economy`, `server/src/online/market.ts`, `src/data/consumables.ts`)
+## Economy (`server/src/economy`, `server/src/online/market.ts`, `server/src/online/merchant.ts`, `src/data/consumables.ts`)
 
 Server-owned; endpoints and exact rules in server/README.md "Economy".
 
@@ -694,13 +694,21 @@ Server-owned; endpoints and exact rules in server/README.md "Economy".
 - **Cosmetics** (emblems, banners, cloaks, clan flags, army skins, table
   themes) are account-wide entitlements with a per-slot loadout. Prices live
   in `server/src/economy/catalog.ts`.
-- **Consumables** (`src/data/consumables.ts`): bought with season gold or
-  Drachmae, daily caps per UTC day, held per season. At most one per battle
+- **Consumables** (`src/data/consumables.ts`): bought from the map merchants
+  (towns and trading posts, `src/online/merchants.ts`; no longer in the menu
+  shop) with season gold or Drachmae, daily caps per UTC day across all
+  merchants, held per season. At most one per battle
   (attacks and duels); battle consumables are baked into the server-built
   `BattleSetup` (unit stats; `setup.consumables` records the ids), so clients
   and the replay agree. The war horn is a true one-shot rally: it becomes
   `ArmySpec.horn` and the `horn` order rallies the whole side at once (routing
   men turn back), once per horn; the bot sounds it when its army breaks.
+- **Map merchants** (docs/DUELS.md "War-map shops on the map"): every town
+  and ~12 seeded trading posts per shard sell consumables and gear from a
+  stock generated per (shard seed, hex, UTC day): basic gear, regional
+  specialties, a daily rare slot. Reach as for the marketplace; the holder
+  and clan pay 10% less, the holder earns 5% of each sale to others. Gear is
+  gold only. The hex panel's Merchant button opens `MerchantScene`.
 - **Season pass**: 30 tiers × 100 XP from verified attacks and duels; free
   track for everyone, premium track for 500 Dr per season; idempotent claims.
 - **Town marketplace**: list stash items, food/wood/bronze or consumables in a

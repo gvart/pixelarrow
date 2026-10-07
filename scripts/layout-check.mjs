@@ -437,13 +437,15 @@ const SCREENS = [
     ['online-lair-info', 'lairInfo'],
     ['online-boss', 'boss'],
     ['online-boss-info', 'bossInfo'],
+    ['online-hex-market', 'market'],
+    ['online-hex-post', 'post'],
   ].map(([id, preview]) => ({
     id,
     owner: 'C',
     run: async (p) => {
       await start(p, 'Online', { preview });
       await until(p, new Function(`const s = window.__game.scene.getScene('Online'); return ${preview === 'join' ? "s.sys.isActive()" : '!!s.map'};`), 8000);
-      if (['neutral', 'far', 'own', 'rival', 'town', 'lair', 'lairInfo', 'boss', 'bossInfo'].includes(preview)) await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
+      if (['neutral', 'far', 'own', 'rival', 'town', 'lair', 'lairInfo', 'boss', 'bossInfo', 'market', 'post'].includes(preview)) await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
       if (preview === 'lairInfo' || preview === 'bossInfo') {
         // the info panel opens once the hex detail is in
         await wait(p, 300);
@@ -465,6 +467,24 @@ const SCREENS = [
         return wait(p, 400);
       }
       return wait(p, 900);
+    },
+  })),
+  // Map merchants (src/scenes/online/MerchantScene.ts) on the demo shard: a town in reach with the clan's
+  // discount, a trading post out of reach, the buy dialog and a piece of gear's card.
+  ...[
+    ['merchant-town', { demo: 'held', spot: 'market' }, ''],
+    ['merchant-post', { demo: 'far', spot: 'post' }, ''],
+    ['merchant-buy', { demo: 'held', spot: 'market' }, "const o = s.view.offers[1]; s.askBuy(o, s.offerName(o), o.price.gold, 'gold');"],
+    ['merchant-item', { demo: 'far', spot: 'post' }, "s.showOffer(s.view.offers.find((o) => o.slot === 'rare'));"],
+  ].map(([id, data, after]) => ({
+    id,
+    owner: 'C',
+    run: async (p) => {
+      await start(p, 'Merchant', data);
+      await until(p, () => !!window.__game.scene.getScene('Merchant').view, 4000);
+      await wait(p, 300);
+      if (after) await call(p, 'Merchant', `${after} return 1;`);
+      return wait(p, 500);
     },
   })),
   // ---- onboarding (owner F): first-run screens, the tutorial battle's narrator and spotlight, the online coach marks
