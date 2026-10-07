@@ -462,6 +462,14 @@ describe('bot commands', () => {
     expect(calls.find((c) => c.method === 'setWebhook')!.params).toMatchObject({ allowed_updates: ['message', 'pre_checkout_query', 'callback_query'], secret_token: env.TELEGRAM_WEBHOOK_SECRET });
   });
 
+  it('the legal pages are served as static assets in both languages', async () => {
+    for (const [path, text] of [['/terms', 'Terms of Service'], ['/privacy', 'Privacy Policy'], ['/refunds', 'Refund Policy'], ['/ru/terms', 'Условия использования'], ['/ru/refunds', 'Политика возвратов']]) {
+      const res = await api(path);
+      expect(res.status, path).toBe(200);
+      expect(await res.text()).toContain(text);
+    }
+  });
+
   it('enqueue is idempotent per dedupe key', async () => {
     const p = await join(77805);
     await enqueue(DB(), [ev(p.playerId, 'income_full', 'k', {}), ev(p.playerId, 'income_full', 'k', {})], Date.now());

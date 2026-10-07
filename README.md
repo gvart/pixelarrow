@@ -212,6 +212,27 @@ scripts/      screenshot tour and touch smoke test (Playwright), balance runner
 docs/         DESIGN.md, ROADMAP.md and screenshots
 ```
 
+## Legal pages: operator action required
+
+`public/terms.html`, `public/privacy.html`, `public/refunds.html` and their
+Russian versions in `public/ru/` are served at https://pixelarrow.app/terms,
+/privacy, /refunds (and /ru/...). They are **drafts written for the game's
+features, not legal advice**. Before relying on them, the operator must:
+
+- **review every text** (ideally with a lawyer for the countries you sell in);
+- **fill in every placeholder** (highlighted on the pages):
+  `[OPERATOR NAME]`, `[OPERATOR ADDRESS / COUNTRY]`, `[CONTACT EMAIL]`,
+  `[EFFECTIVE DATE]`, `[JURISDICTION]`, `[RETENTION PERIOD, e.g. N years]`
+  and the `[N]` days / months (refund window, support answer time, log and
+  support retention);
+- make sure the promises match how you operate: deletion within 30 days of a
+  `/delete_my_data` request, refunds through `/paysupport`, answers in
+  Telegram.
+
+`grep -rn '\[[A-Z]' public/` lists what is left. Requests sent with
+`/paysupport` and `/delete_my_data` land in the D1 table `support_requests`
+(see server/README.md "Payment support and legal pages").
+
 ## Telegram Mini App setup
 
 1. **Deploy the build.** The Cloudflare workflow above publishes it to
