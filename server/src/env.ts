@@ -8,6 +8,10 @@ export interface Env {
   REGION: DurableObjectNamespace<RegionDO>;
   ASSETS?: Fetcher;
   GAME_URL?: string;
+  /** Bot username for clan invite links (t.me/<bot>/<app>); looked up with getMe when unset. */
+  TELEGRAM_BOT_USERNAME?: string;
+  /** Mini App short name in BotFather (default "play"). */
+  TELEGRAM_APP_NAME?: string;
   // Secrets (wrangler secret put ...). Missing ones make the routes that need them answer 503.
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;

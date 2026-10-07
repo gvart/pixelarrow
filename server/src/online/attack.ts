@@ -1,0 +1,413 @@
+/**
+ * Async attacks on hexes (POST /api/online/attack/*).
+ *
+ * start:   the server checks the attack is legal (army next to the hex, energy,
+ *          cooldown), takes the hex lock in the shard's Durable Object, fixes
+ *          the seed and both armies and stores a ticket (10 min).
+ * submit:  the client sends the order log of the battle it played; the server
+ *          replays the ticket's setup with it (src/sim) and, only if the claim
+ *          matches, applies the result in one D1 batch: casualties, wounds and
+ *          XP on both sides, loot for the attacker, siege progress / capture.
+ *          Submitting the same ticket again returns the stored result.
+ * abandon: gives up an open ticket (no casualties, re-attack cooldown).
+ */
+import { Hono } from 'hono';
+import { z } from 'zod';
+import { LIMITS, LoggedOrderSchema, replayBattle } from '../battle';
+import { readJson } from '../body';
+import type { AppEnv } from '../env';
+import { ApiError, badRequest } from '../errors';
+import { requireAuth } from '../middleware';
+import type { Hero } from '../../../src/data/units';
+import type { BattleSetup, LoggedOrder } from '../../../src/sim/types';
+import { hexDistance, hexId, inShard, type Axial, type HexInfo } from '../../../src/online/hex';
+import { ABANDON_MS, neutralDefenders, RESPAWN_MS, SIEGE_DECAY_MS, WINS_TO_CLAIM } from '../../../src/online/defenders';
+import { militia, ONLINE_RULES, DEFAULT_FORMATIONS } from '../../../src/online/rules';
+import { onlineBattleSetup, resolveAttack } from '../../../src/online/battle';
+import { hexKey, limit, player, shardStub, type PlayerCtx } from './context';
+import { pendingIncome } from './income';
+import {
+  armyState,
+  energyNow,
+  fieldReady,
+  formationsOf,
+  heroPrefix,
+  hexRow,
+  loadGarrison,
+  loadHeroes,
+  randomToken,
+  randomU32,
+  staticHex,
+  type HexRow,
+  type OwnedHero,
+  type Shard,
+} from './store';
+
+export const attack = new Hono<AppEnv>();
+attack.use('*', requireAuth);
+
+/** The neutrals holding a hex right now (persisted losses, or a fresh wave). */
+export function currentNeutrals(shard: Shard, info: HexInfo, row: HexRow | null | undefined, now: number): Hero[] {
+  if (row?.npc && row.npc_at && now - row.npc_at < RESPAWN_MS) return JSON.parse(row.npc) as Hero[];
+  return neutralDefenders(shard.seed, info, row?.npc_gen ?? 0, shard.radius);
+}
+
+/** An owned hex nobody guards and whose income was left alone for ABANDON_MS falls back to the neutrals. */
+export function abandoned(row: HexRow | null | undefined, garrison: number, now: number): boolean {
+  return !!row?.owner_id && row.home !== 1 && garrison === 0 && now - (row.accrued_at ?? now) > ABANDON_MS;
+}
+
+/** Victories in a row this player already has against the neutrals of a hex. */
+export function siegeWins(row: HexRow | null | undefined, pid: number, now: number): number {
+  if (!row || row.siege_by !== pid || !row.siege_at || now - row.siege_at > SIEGE_DECAY_MS) return 0;
+  return row.siege_wins;
+}
+
+interface TicketRow {
+  id: string;
+  season_id: number;
+  shard_id: number;
+  player_id: number;
+  q: number;
+  r: number;
+  seed: number;
+  setup: string;
+  attackers: string;
+  defenders: string;
+  defender_kind: 'npc' | 'militia' | 'garrison';
+  defender_id: number | null;
+  hex_version: number;
+  status: 'open' | 'used' | 'rejected' | 'abandoned';
+  claim: string | null;
+  result: string | null;
+  apply_nonce: string | null;
+  won: number | null;
+  created_at: number;
+  expires_at: number;
+  finished_at: number | null;
+}
+
+function ticketView(t: TicketRow, info: HexInfo, extra: Record<string, unknown> = {}) {
+  return {
+    ticket: t.id,
+    expiresAt: t.expires_at,
+    hex: { q: t.q, r: t.r, type: info.type, tier: info.tier },
+    defenderKind: t.defender_kind,
+    setup: JSON.parse(t.setup) as BattleSetup,
+    attackers: JSON.parse(t.attackers) as Hero[],
+    defenders: JSON.parse(t.defenders) as Hero[],
+    ...extra,
+  };
+}
+
+const StartBody = z.object({ q: z.number().int().min(-200).max(200), r: z.number().int().min(-200).max(200), heroIds: z.array(z.string().max(80)).max(ONLINE_RULES.maxArmy).optional() });
+
+attack.post('/start', async (c) => {
+  limit(c, 'attack', 12);
+  const pc = await player(c);
+  const body = await readJson(c, StartBody, 8 * 1024);
+  const target: Axial = { q: body.q, r: body.r };
+  if (!inShard(target, pc.shard.radius)) throw badRequest('Outside the map');
+  const info = staticHex(pc.shard, target);
+  const now = pc.now;
+
+  // An open ticket on this hex is resumed (same seed, same armies): no seed fishing by restarting.
+  const last = await pc.db
+    .prepare('SELECT * FROM battle_tickets WHERE player_id = ?1 AND season_id = ?2 AND shard_id = ?3 AND q = ?4 AND r = ?5 ORDER BY created_at DESC LIMIT 1')
+    .bind(pc.pid, pc.season.id, pc.shard.id, target.q, target.r)
+    .first<TicketRow>();
+  if (last && last.status === 'open' && last.expires_at > now) return c.json(ticketView(last, info, { resumed: true }));
+  if (last && now - (last.finished_at ?? last.expires_at) < ONLINE_RULES.reattackCooldownMs && last.won !== 1) {
+    throw new ApiError(429, 'cooldown', 'Your men need a moment before trying this hex again', { retryAt: (last.finished_at ?? last.expires_at) + ONLINE_RULES.reattackCooldownMs });
+  }
+
+  if (!info.passable) throw badRequest('Nobody can fight there');
+  const army = armyState(pc.profile, now);
+  if (army.marching) throw new ApiError(409, 'marching', 'Your army is on the march');
+  if (hexDistance(army.pos, target) !== 1) throw new ApiError(409, 'not_adjacent', 'Your army must stand next to the hex');
+  const energy = energyNow(pc.profile, now);
+  if (energy < ONLINE_RULES.energyPerAttack) throw new ApiError(409, 'no_energy', 'Not enough energy');
+  const row = await hexRow(pc.db, pc.shard, target);
+  if (row?.owner_id === pc.pid || (row?.clan_id && pc.clan && row.clan_id === pc.clan.clanId)) throw new ApiError(409, 'own_hex', 'That hex is yours already');
+  if (row?.home === 1) throw new ApiError(409, 'protected', 'Home hexes cannot be attacked');
+
+  const mine = await loadHeroes(pc.db, pc.season.id, pc.pid);
+  let attackers: OwnedHero[] = fieldReady(mine, now);
+  if (body.heroIds) {
+    const want = new Set(body.heroIds);
+    attackers = attackers.filter((h) => want.has(h.hero.id));
+    if (attackers.length !== want.size) throw new ApiError(409, 'heroes_unavailable', 'Some of those heroes cannot fight now');
+  }
+  if (attackers.length === 0) throw new ApiError(409, 'no_army', 'No hero of your field army can fight');
+
+  let kind: TicketRow['defender_kind'] = 'npc';
+  let defenders: Hero[];
+  let defenderIds: string[] = [];
+  let defFormations = [...DEFAULT_FORMATIONS];
+  if (row?.owner_id) {
+    const garrison = (await loadGarrison(pc.db, pc.shard, target)).filter((g) => g.woundedUntil <= now && g.busyUntil <= now);
+    if (abandoned(row, garrison.length, now)) {
+      defenders = currentNeutrals(pc.shard, info, null, now);
+    } else if (garrison.length > 0) {
+      kind = 'garrison';
+      defenders = garrison.map((g) => g.hero);
+      defenderIds = defenders.map((h) => h.id);
+      defFormations = formationsOf(row.formations);
+    } else {
+      kind = 'militia';
+      defenders = militia(pc.shard.seed, info, row.version);
+    }
+  } else {
+    defenders = currentNeutrals(pc.shard, info, row, now);
+  }
+
+  const id = randomToken(16);
+  const seed = randomU32();
+  const expiresAt = now + ONLINE_RULES.ticketTtlMs;
+  const setup = onlineBattleSetup(
+    seed,
+    { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false },
+    { heroes: defenders, formations: defFormations, bot: true },
+    info.site,
+  );
+
+  const stub = shardStub(pc.env, pc.shard);
+  const lock = await stub.lockHex(hexKey(target.q, target.r), id, pc.pid, expiresAt, now);
+  if (!lock.ok) throw new ApiError(409, 'hex_locked', 'Someone is already attacking this hex', { until: lock.until });
+
+  const busy = [...attackers.map((a) => a.hero.id), ...defenderIds];
+  const ph = busy.map((_, i) => `?${i + 3}`).join(',');
+  const g = `EXISTS (SELECT 1 FROM battle_tickets WHERE id = '${id}')`;
+  const res = await pc.db.batch([
+    pc.db
+      .prepare(
+        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, q, r, seed, setup, attackers, defenders, defender_kind, defender_id, hex_version, created_at, expires_at)
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
+         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 16}`).join(',')}) AND busy_until > ?14)`,
+      )
+      .bind(id, pc.season.id, pc.shard.id, pc.pid, target.q, target.r, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), kind, row?.owner_id ?? null, row?.version ?? 0, now, expiresAt, ...busy),
+    pc.db.prepare(`UPDATE online_heroes SET busy_ticket = ?1, busy_until = ?2 WHERE id IN (${ph}) AND ${g}`).bind(id, expiresAt, ...busy),
+    pc.db
+      .prepare(`UPDATE online_profiles SET energy = ?3, energy_at = ?4, rev = rev + 1 WHERE season_id = ?1 AND player_id = ?2 AND ${g}`)
+      .bind(pc.season.id, pc.pid, energy - ONLINE_RULES.energyPerAttack, now),
+  ]);
+  if (res[0].meta.changes !== 1) {
+    await stub.unlockHex(hexKey(target.q, target.r), id);
+    throw new ApiError(409, 'heroes_busy', 'Some heroes are already in a battle');
+  }
+  const t = (await pc.db.prepare('SELECT * FROM battle_tickets WHERE id = ?1').bind(id).first<TicketRow>())!;
+  return c.json(ticketView(t, info));
+});
+
+const SubmitBody = z.object({
+  ticket: z.string().regex(/^[0-9a-f]{32}$/),
+  orders: z.array(LoggedOrderSchema).max(LIMITS.maxOrders),
+  deployOrders: z.number().int().min(0).max(LIMITS.maxOrders).optional(),
+  claim: z.object({
+    winner: z.union([z.literal(0), z.literal(1), z.literal(-1)]),
+    ticks: z.number().int().min(0),
+    hash: z.string().max(16),
+  }),
+});
+
+async function loadTicket(pc: PlayerCtx, id: string): Promise<TicketRow> {
+  const t = await pc.db.prepare('SELECT * FROM battle_tickets WHERE id = ?1 AND player_id = ?2').bind(id, pc.pid).first<TicketRow>();
+  if (!t) throw new ApiError(404, 'not_found', 'No such ticket');
+  return t;
+}
+
+async function closeTicket(pc: PlayerCtx, t: TicketRow, status: 'rejected' | 'abandoned', extra: { claim?: string; result?: string } = {}): Promise<void> {
+  await pc.db.batch([
+    pc.db
+      .prepare("UPDATE battle_tickets SET status = ?2, finished_at = ?3, claim = COALESCE(?4, claim), result = COALESCE(?5, result), won = 0 WHERE id = ?1 AND status = 'open'")
+      .bind(t.id, status, pc.now, extra.claim ?? null, extra.result ?? null),
+    pc.db.prepare('UPDATE online_heroes SET busy_ticket = NULL, busy_until = 0 WHERE busy_ticket = ?1').bind(t.id),
+  ]);
+  await shardStub(pc.env, { season: t.season_id, id: t.shard_id }).unlockHex(hexKey(t.q, t.r), t.id);
+}
+
+attack.post('/submit', async (c) => {
+  limit(c, 'submit', 20);
+  const pc = await player(c);
+  const body = await readJson(c, SubmitBody, LIMITS.maxBodyBytes);
+  const t = await loadTicket(pc, body.ticket);
+  const claimJson = JSON.stringify(body.claim);
+  if (t.status === 'used') {
+    if (t.claim === claimJson && t.result) return c.json({ ...JSON.parse(t.result), replayed: true });
+    throw new ApiError(409, 'ticket_used', 'This battle was already reported');
+  }
+  if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This attack was ${t.status}`);
+  if (t.expires_at < pc.now) {
+    await closeTicket(pc, t, 'abandoned');
+    throw new ApiError(410, 'ticket_expired', 'Too late: the attack ticket expired');
+  }
+
+  // The server's own replay of the ticket's setup is the only truth.
+  const setup = JSON.parse(t.setup) as BattleSetup;
+  let out;
+  try {
+    out = replayBattle(setup, body.orders as LoggedOrder[], body.deployOrders);
+  } catch (e) {
+    await closeTicket(pc, t, 'rejected', { claim: claimJson });
+    throw new ApiError(422, 'sim_rejected', `The simulation rejected this battle: ${(e as Error).message}`);
+  }
+  const s = out.summary;
+  const mismatches: string[] = [];
+  if (s.winner !== body.claim.winner) mismatches.push(`winner: claimed ${body.claim.winner}, server ${s.winner}`);
+  if (s.ticks !== body.claim.ticks) mismatches.push(`ticks: claimed ${body.claim.ticks}, server ${s.ticks}`);
+  if (s.hash !== body.claim.hash) mismatches.push(`hash: claimed ${body.claim.hash}, server ${s.hash}`);
+  if (mismatches.length) {
+    await closeTicket(pc, t, 'rejected', { claim: claimJson, result: JSON.stringify({ mismatches }) });
+    throw new ApiError(422, 'replay_mismatch', 'The battle did not replay as reported; the attack is void', { mismatches });
+  }
+
+  const result = await applyAttack(pc, t, out.result, s, claimJson);
+  await shardStub(pc.env, { season: t.season_id, id: t.shard_id }).unlockHex(hexKey(t.q, t.r), t.id);
+  return c.json(result);
+});
+
+attack.post('/abandon', async (c) => {
+  const pc = await player(c);
+  const body = await readJson(c, z.object({ ticket: z.string().regex(/^[0-9a-f]{32}$/) }), 1024);
+  const t = await loadTicket(pc, body.ticket);
+  if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This attack was ${t.status}`);
+  await closeTicket(pc, t, 'abandoned');
+  return c.json({ ok: true });
+});
+
+/** Applies a verified attack atomically (guarded by the ticket's apply nonce). */
+async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeof replayBattle>['result'], summary: ReturnType<typeof replayBattle>['summary'], claimJson: string) {
+  const { db: d, now } = pc;
+  const shard = { season: t.season_id, id: t.shard_id, seed: pc.shard.seed, radius: pc.shard.radius };
+  const hex: Axial = { q: t.q, r: t.r };
+  const info = staticHex(shard, hex);
+  const attackers = JSON.parse(t.attackers) as Hero[];
+  const defenders = JSON.parse(t.defenders) as Hero[];
+  const res = resolveAttack(result, attackers, defenders, t.seed);
+  const won = result.winner === 0;
+  const row = await hexRow(d, shard, hex);
+  const nonce = randomToken(8);
+  const G = `EXISTS (SELECT 1 FROM battle_tickets WHERE id = '${t.id}' AND apply_nonce = '${nonce}')`;
+
+  // Siege progress against neutrals: several wins in a row for strong hexes.
+  const needed = t.defender_kind === 'npc' ? WINS_TO_CLAIM[info.tier] ?? 1 : 1;
+  const prior = t.defender_kind === 'npc' ? siegeWins(row, pc.pid, now) : 0;
+  const wins = won ? prior + 1 : 0;
+  const captured = won && wins >= needed;
+
+  // Plunder: the previous owner's uncollected income goes to the conqueror.
+  let plunder = { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 };
+  if (captured && row?.owner_id) {
+    const inc = await pendingIncome(d, shard, row.owner_id, row.clan_id, now);
+    plunder = inc.hexes.find((x) => x.q === hex.q && x.r === hex.r)?.income ?? plunder;
+  }
+  const gold = res.attacker.outcome.gold + plunder.gold;
+  const prefix = heroPrefix(t.season_id, pc.pid);
+  const loot = res.loot.map((it, i) => ({ ...it, uid: `${prefix}l${t.id.slice(0, 8)}_${i}` }));
+
+  const stmts: D1PreparedStatement[] = [
+    d
+      .prepare("UPDATE battle_tickets SET status = 'used', apply_nonce = ?2, claim = ?3, finished_at = ?4, won = ?5 WHERE id = ?1 AND status = 'open'")
+      .bind(t.id, nonce, claimJson, now, captured ? 1 : 0),
+    d
+      .prepare(
+        `UPDATE online_profiles SET gold = gold + ?3, food = food + ?4, wood = wood + ?5, bronze = bronze + ?6, recruits = recruits + ?7,
+           battles = battles + 1, wins = wins + ?8, rev = rev + 1, updated_at = ?9 WHERE season_id = ?1 AND player_id = ?2 AND ${G}`,
+      )
+      .bind(t.season_id, pc.pid, gold, plunder.food, plunder.wood, plunder.bronze, plunder.recruits, won ? 1 : 0, now),
+  ];
+  const heroStmts = (side: typeof res.attacker, owned: boolean) => {
+    for (const id of side.dead) stmts.push(d.prepare(`DELETE FROM online_heroes WHERE id = ?1 AND busy_ticket = ?2 AND ${G}`).bind(id, t.id));
+    if (!owned) return;
+    for (const h of side.survivors) {
+      const wounded = side.wounded.includes(h.id) ? now + ONLINE_RULES.woundMs : 0;
+      stmts.push(
+        d
+          .prepare(`UPDATE online_heroes SET data = ?2, wounded_until = MAX(wounded_until, ?3), busy_ticket = NULL, busy_until = 0, updated_at = ?4 WHERE id = ?1 AND busy_ticket = ?5 AND ${G}`)
+          .bind(h.id, JSON.stringify(h), wounded, now, t.id),
+      );
+    }
+  };
+  heroStmts(res.attacker, true);
+  for (const it of loot) {
+    stmts.push(d.prepare(`INSERT INTO online_items (uid, season_id, player_id, data, created_at) SELECT ?1, ?2, ?3, ?4, ?5 WHERE ${G}`).bind(it.uid, t.season_id, pc.pid, JSON.stringify(it), now));
+  }
+
+  if (t.defender_kind === 'garrison') {
+    heroStmts(res.defender, true);
+    if (captured) {
+      // Surviving defenders fall back to their owners' field armies.
+      stmts.push(d.prepare(`DELETE FROM online_garrisons WHERE season_id = ?1 AND shard_id = ?2 AND q = ?3 AND r = ?4 AND ${G}`).bind(t.season_id, t.shard_id, hex.q, hex.r));
+    }
+    if (t.defender_id) {
+      stmts.push(
+        d
+          .prepare(`UPDATE online_profiles SET gold = gold + ?3, battles = battles + 1, wins = wins + ?4, rev = rev + 1 WHERE season_id = ?1 AND player_id = ?2 AND ${G}`)
+          .bind(t.season_id, t.defender_id, res.defender.outcome.gold, won ? 0 : 1),
+      );
+    }
+  }
+
+  const clanId = pc.clan?.clanId ?? null;
+  const hexWhere = `season_id = ${t.season_id | 0} AND shard_id = ${t.shard_id | 0} AND q = ${hex.q | 0} AND r = ${hex.r | 0}`;
+  stmts.push(d.prepare(`INSERT OR IGNORE INTO online_hexes (season_id, shard_id, q, r) SELECT ?1, ?2, ?3, ?4 WHERE ${G}`).bind(t.season_id, t.shard_id, hex.q, hex.r));
+  if (captured) {
+    stmts.push(
+      d
+        .prepare(
+          `UPDATE online_hexes SET occupant = 'player', owner_id = ?1, clan_id = ?2, home = 0, captured_at = ?3, accrued_at = ?3, formations = NULL,
+             npc = NULL, npc_at = NULL, npc_gen = npc_gen + 1, siege_by = NULL, siege_wins = 0, siege_at = NULL, version = version + 1
+           WHERE ${hexWhere} AND version = ?4 AND ${G}`,
+        )
+        .bind(pc.pid, clanId, now, t.hex_version),
+    );
+    // The army moves into the conquered hex.
+    stmts.push(d.prepare(`UPDATE online_profiles SET army_q = ?3, army_r = ?4, march = NULL WHERE season_id = ?1 AND player_id = ?2 AND ${G}`).bind(t.season_id, pc.pid, hex.q, hex.r));
+  } else if (t.defender_kind === 'npc') {
+    // Neutrals keep their losses until they respawn; a won round of a siege brings the next wave.
+    const survivors = won ? null : JSON.stringify(res.defender.survivors);
+    stmts.push(
+      d
+        .prepare(
+          `UPDATE online_hexes SET npc = ?1, npc_at = ?2, npc_gen = npc_gen + ?3, siege_by = ?4, siege_wins = ?5, siege_at = ?6,
+             owner_id = CASE WHEN ?7 THEN NULL ELSE owner_id END, clan_id = CASE WHEN ?7 THEN NULL ELSE clan_id END,
+             occupant = CASE WHEN ?7 THEN 'npc' ELSE occupant END, version = version + 1
+           WHERE ${hexWhere} AND ${G}`,
+        )
+        .bind(survivors, now, won ? 1 : 0, won ? pc.pid : null, wins, won ? now : null, row?.owner_id ? 1 : 0),
+    );
+  }
+
+  const summaryOut = {
+    won,
+    captured,
+    siege: t.defender_kind === 'npc' ? { wins, needed } : null,
+    winner: summary.winner,
+    ticks: summary.ticks,
+    hash: summary.hash,
+    hex: { q: hex.q, r: hex.r, id: hexId(hex.q, hex.r) },
+    defenderKind: t.defender_kind,
+    gold,
+    plunder,
+    loot,
+    attacker: { dead: res.attacker.dead, wounded: res.attacker.wounded, heroes: res.attacker.outcome.heroes },
+    defender: { dead: res.defender.dead.length, total: defenders.length },
+  };
+  stmts.push(d.prepare(`UPDATE battle_tickets SET result = ?2 WHERE id = ?1 AND ${G}`).bind(t.id, JSON.stringify(summaryOut)));
+  stmts.push(
+    d
+      .prepare(
+        `INSERT INTO battle_log (season_id, shard_id, kind, ref, attacker_id, defender_id, q, r, winner, ticks, hash, verified, summary, created_at)
+         SELECT ?1, ?2, 'attack', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12 WHERE ${G}`,
+      )
+      .bind(t.season_id, t.shard_id, t.id, pc.pid, t.defender_id, hex.q, hex.r, summary.winner, summary.ticks, summary.hash, JSON.stringify({ captured, gold, loot: loot.length }), now),
+  );
+  const out = await d.batch(stmts);
+  if (out[0].meta.changes !== 1) {
+    // Someone (a retry of this very request) applied it first: answer with what was stored.
+    const again = await loadTicket(pc, t.id);
+    if (again.status === 'used' && again.result && again.claim === claimJson) return { ...JSON.parse(again.result), replayed: true };
+    throw new ApiError(409, 'ticket_used', 'This battle was already reported');
+  }
+  return summaryOut;
+}

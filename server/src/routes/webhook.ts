@@ -16,6 +16,7 @@ import { db, secret } from '../middleware';
 import { checkPreCheckout, recordPayment, recordRefund, type PreCheckoutQuery, type RefundedPayment, type SuccessfulPayment } from '../payments';
 import { callBot } from '../telegramApi';
 import type { TelegramUser } from '../telegramAuth';
+import { CLAN_INVITE_PREFIX, inviteCodeFrom } from '../../../src/online/rules';
 
 interface Message {
   message_id: number;
@@ -64,11 +65,15 @@ webhook.post('/webhook', async (c) => {
     await recordRefund(db(c.env), msg.refunded_payment);
     return c.json({ ok: true });
   }
-  if (msg?.text && /^\/start(?:@\w+)?(?:\s|$)/.test(msg.text)) {
+  const start = msg?.text ? /^\/start(?:@\w+)?(?:\s+(\S+))?\s*$/.exec(msg.text) : null;
+  if (msg && start) {
+    // `/start clan_<code>` (a clan invite opened through the bot): carry the code into the game URL.
+    const code = inviteCodeFrom(start[1]);
+    const url = code ? `${gameUrl}${gameUrl.includes('?') ? '&' : '?'}startapp=${CLAN_INVITE_PREFIX}${code}` : gameUrl;
     await callBot(botToken, 'sendMessage', {
       chat_id: msg.chat.id,
-      text: 'Hail, commander! Your phalanx awaits. Tap below to take the field.',
-      reply_markup: { inline_keyboard: [[{ text: '⚔ Play Pixelarrow', web_app: { url: gameUrl } }]] },
+      text: code ? 'You were invited to a clan! Tap below to join it in the game.' : 'Hail, commander! Your phalanx awaits. Tap below to take the field.',
+      reply_markup: { inline_keyboard: [[{ text: code ? '⚔ Join the clan' : '⚔ Play Pixelarrow', web_app: { url } }]] },
     });
   }
   return c.json({ ok: true });

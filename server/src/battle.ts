@@ -99,7 +99,7 @@ const Setup = z.object({
     .optional(),
 });
 
-const Order = z.discriminatedUnion('kind', [
+export const OrderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('form'), group: int, cx: num, cy: num, fx: num, fy: num, frontage: num, type: formationType.optional() }),
   z.object({ kind: z.literal('preset'), group: int, type: formationType }),
   z.object({ kind: z.literal('order'), group: int, order: z.enum(['hold', 'advance', 'charge', 'fallback']) }),
@@ -112,10 +112,10 @@ const Order = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('retreat') }),
 ]);
 
-const LoggedOrderSchema = z.object({
+export const LoggedOrderSchema = z.object({
   tick: z.number().int().min(0).max(LIMITS.maxTimeLimit * TICK_RATE),
   side: z.union([z.literal(0), z.literal(1)]),
-  order: Order,
+  order: OrderSchema,
 });
 
 export const VerifyBody = z.object({

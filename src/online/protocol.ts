@@ -1,0 +1,83 @@
+/**
+ * WebSocket protocol of the online world (presence, duel lobby, lockstep
+ * relay), shared by the client and the RegionDO. See server/README.md.
+ *
+ * Lockstep: the battle is cut into turns of TURN_TICKS sim ticks. The server
+ * seals turn n (the orders both players sent since the last seal, in arrival
+ * order, stamped with tick n * TURN_TICKS) once both clients reported reaching
+ * turn n - DELAY_TURNS. A client may only simulate turn n after it holds the
+ * sealed turn n, so both run the same orders at the same ticks. At 20 Hz,
+ * TURN_TICKS 2 and DELAY_TURNS 2 give an input delay of ~200-300 ms and leave
+ * ~200 ms of round trip before anyone stalls.
+ */
+import type { BattleSetup, Order, Side } from '../sim/types';
+import type { Hero } from '../data/units';
+
+export const TURN_TICKS = 2;
+export const DELAY_TURNS = 2;
+/** Clients attach Battle.hash() to every HASH_EVERY-th turn report. */
+export const HASH_EVERY = 10;
+/** A challenge nobody answered lapses after this long. */
+export const CHALLENGE_TTL_MS = 30_000;
+/** Most orders one side may put into a single turn (anti-flood). */
+export const MAX_ORDERS_PER_TURN = 16;
+export const MAX_DUEL_ORDERS = 6000;
+
+export interface PresencePlayer {
+  id: number;
+  name: string;
+  /** In a duel right now (cannot be challenged). */
+  busy?: boolean;
+}
+
+export interface SealedOrder {
+  side: Side;
+  order: Order;
+}
+
+export type ClientMsg =
+  | { type: 'ping'; t?: unknown }
+  | { type: 'who' }
+  | { type: 'challenge'; to: number }
+  | { type: 'challenge_cancel'; id: string }
+  | { type: 'challenge_reply'; id: string; accept: boolean }
+  /** Deployment order (applied by both clients in the order the server echoes them). */
+  | { type: 'd_order'; duel: string; order: Order }
+  | { type: 'd_ready'; duel: string }
+  /** Battle order: goes into the next sealed turn. */
+  | { type: 'cmd'; duel: string; order: Order }
+  /** "I am about to simulate turn n"; hash = Battle.hash() at that point on hash turns. */
+  | { type: 'reach'; duel: string; n: number; hash?: string }
+  | { type: 'end'; duel: string; winner: Side | -1; ticks: number; hash: string }
+  | { type: 'leave_duel'; duel: string };
+
+export interface DuelStart {
+  type: 'duel_start';
+  duel: string;
+  side: Side;
+  setup: BattleSetup;
+  heroes: [Hero[], Hero[]];
+  names: [string, string];
+  turnTicks: number;
+  delayTurns: number;
+  hashEvery: number;
+}
+
+export type ServerMsg =
+  | { type: 'welcome'; region: string; you: PresencePlayer; players: PresencePlayer[] }
+  | { type: 'join'; player: PresencePlayer }
+  | { type: 'leave'; player: PresencePlayer }
+  | { type: 'presence'; players: PresencePlayer[] }
+  | { type: 'pong'; t: unknown; now: number }
+  | { type: 'error'; message: string; code?: string }
+  | { type: 'challenge_sent'; id: string; to: PresencePlayer }
+  | { type: 'challenged'; id: string; from: PresencePlayer }
+  | { type: 'challenge_closed'; id: string; reason: 'declined' | 'cancelled' | 'expired' | 'unavailable' }
+  | DuelStart
+  | { type: 'd_order'; duel: string; seq: number; side: Side; order: Order }
+  | { type: 'd_ready'; duel: string; side: Side }
+  | { type: 'go'; duel: string }
+  | { type: 'turn'; duel: string; n: number; tick: number; orders: SealedOrder[] }
+  | { type: 'desync'; duel: string; n: number; hashes: [string, string] }
+  | { type: 'duel_result'; duel: string; winner: Side | -1; ticks: number; hash: string; verified: boolean; mismatches: string[] }
+  | { type: 'duel_abort'; duel: string; reason: string };

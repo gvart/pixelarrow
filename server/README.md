@@ -24,7 +24,10 @@ server/
     routes/shop.ts    GET /api/shop/products, POST /api/shop/invoice, GET /api/entitlements
     routes/webhook.ts POST /api/telegram/webhook
     battle.ts         sim adapter for POST /api/battle/verify (the only file that knows the sim API)
-    region.ts         RegionDO (presence, ping)
+    region.ts         RegionDO (presence; per online shard also hex attack locks and the duel relay)
+    online/           online mode: routes.ts (profile, map, hex, march, garrison, collect, recruit, equip, army),
+                      attack.ts (tickets, verified attacks), clans.ts, duel.ts (lobby, lockstep relay),
+                      store.ts (seasons, shards, homes, D1 access), income.ts, context.ts
     telegramAuth.ts   initData validation (HMAC-SHA256, constant-time, 24 h max age)
     session.ts        stateless signed session tokens
     payments.ts       pre-checkout checks, idempotent payment/refund recording
@@ -32,6 +35,8 @@ server/
     middleware.ts     requireAuth, db()/secret() -> 503 when not configured
     crypto.ts, body.ts, errors.ts, players.ts, rateLimit.ts, telegramApi.ts
   migrations/0001_init.sql   D1 schema (players, saves, purchases, entitlements)
+  migrations/0002_online.sql online mode (seasons, shards, profiles, heroes, items, hexes, garrisons,
+                             clans, invites, battle tickets, battle log, season rewards)
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
 ```
@@ -58,6 +63,8 @@ Authenticated routes take `Authorization: Bearer <token>`.
 | GET | `/api/entitlements` | ✓ | `{ entitlements: [{productId, grantedAt}], purchases: [...] }` |
 | POST | `/api/telegram/webhook` | secret header | bot updates (see below) |
 | GET (WS) | `/ws/region/:id` | token | presence WebSocket (see below) |
+| … | `/api/online/*` | ✓ | online mode, see "Online mode" |
+| GET (WS) | `/ws/online` | token | the player's shard: presence, duel lobby, lockstep relay |
 
 Missing configuration fails loudly: no D1 binding → 503 `database not
 configured`; a missing secret → 503 `<NAME> not configured`.
@@ -148,6 +155,125 @@ the flow). Invoices are created with `createInvoiceLink`, currency `XTR`, empty
 The user id/name live in each socket's attachment (`serializeAttachment`), so
 presence survives hibernation. This is the skeleton for territories and clans.
 
+## Online mode (seasonal hex war)
+
+Design: [docs/DESIGN_V2.md](../docs/DESIGN_V2.md) and "Online mode" in
+[docs/DESIGN.md](../docs/DESIGN.md). Shared rules live in `src/online/`
+(`hex.ts` world generation and paths, `defenders.ts` neutral defenders,
+`rules.ts` economy and clan permissions, `battle.ts` setups and result
+application, `protocol.ts` socket messages, `lockstep.ts` the client adapter);
+the server imports them read-only like the sim.
+
+**Everything economic is server-owned.** Armies, heroes, gear, resources and
+territory live in D1; the client only sends intents (march here, attack that,
+equip this item), never amounts. Each operation is one D1 batch: the first
+statement bumps the profile's `rev` from the value read and every other
+statement is guarded by `EXISTS (… rev = new)`, so concurrent requests can
+never half-apply or double-spend (409 `conflict` → retry).
+
+**Seasons and shards.** `online_seasons` last 90 days; the first request
+after the end ranks every shard into `season_rewards` (kept forever: rank,
+score, title) and starts season n+1. That is the full reset: every army and
+world table is keyed by `season_id`. Players join the newest shard with room
+(500 players; a radius-34 hex disc, about 3.5k hexes; seed in
+`online_shards`). Static hex data (type, resources, fort/capital,
+battlefield, neutral defenders) is a pure function of the shard seed and is
+never stored; `online_hexes` only holds hexes whose state changed (owner,
+clan, home, income clock, neutral losses, siege progress, `occupant`
+npc|player|beast). The seed never leaves the server.
+
+**Fog of war.** `/map` and `/hex` only answer for hexes within 3 of the
+player's or their clan's land and armies; anything else is 404 `fogged`.
+
+**Lazy time.** Income (`accrued_at`, capped at 24 h), energy (`energy_at`),
+marches (arrival time per hex), wounds, ticket expiry, hex locks and neutral
+respawns are all computed on read from server time. No alarms or polling.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/online/status` | `{ season, joined, shard }` |
+| POST | `/api/online/profile` | join the season (idempotent): shard, home hex, 5 heroes, purse → profile |
+| GET | `/api/online/profile` | resources, energy, home, army (position/march), heroes (garrison, wounds, busy), stash, clan, pending income |
+| GET | `/api/online/season` | season dates and your titles from past seasons |
+| GET | `/api/online/map` | visible hexes `{q,r,type,tier,fort,capital,coast,site,occupant,owner,clan,home,garrison?}`, visible armies, player names, clan tags |
+| GET | `/api/online/hex/:q/:r` | yields, march minutes, owner, garrison (own/clan only), defenders estimate, siege `{wins, needed, label}`, `locked`, `canAttack`, `canGarrison`, pending income |
+| POST | `/api/online/march` | `{q,r}` → A* path over land not held by rivals, arrival times `at[]`; 1 energy per hex, at most 40 hexes |
+| POST | `/api/online/march/stop` | halt on the last hex reached |
+| POST | `/api/online/hex/:q/:r/garrison` | `{heroIds, formations?}`: which of YOUR heroes hold the hex (own or clan hex; the army must stand on it; refused while under attack) |
+| POST | `/api/online/collect` | collect the income of all held hexes |
+| POST | `/api/online/recruit` | `{archetype}`: 40 gold, 10 food, 1 recruit |
+| POST | `/api/online/equip` | `{heroId, slot, itemUid \| null}`: stash ↔ hero |
+| POST | `/api/online/army` | `{groups?: {heroId: 0..3}, formations?: FormationType[4]}` |
+| POST | `/api/online/attack/start` | `{q,r,heroIds?}` → `{ticket, expiresAt, setup, attackers, defenders, defenderKind}` |
+| POST | `/api/online/attack/submit` | `{ticket, orders, deployOrders?, claim: {winner, ticks, hash}}` → result |
+| POST | `/api/online/attack/abandon` | `{ticket}` |
+| POST | `/api/online/clans` | `{name, tag}`: create (you lead it) |
+| GET | `/api/online/clans/mine` | clan, members with roles and hex counts |
+| POST | `/api/online/clans/invite` | leader/officer → `{code, link}`, link `https://t.me/<bot>/<app>?startapp=clan_<code>` |
+| GET | `/api/online/clans/invite/:code` | invite preview |
+| POST | `/api/online/clans/join` | `{code}`; a player new to the season is placed in the clan's shard |
+| POST | `/api/online/clans/kick`, `/promote`, `/leave` | `{playerId}`, `{playerId, role}`, – |
+
+Rate limits are per player and per isolate (e.g. 12 attack starts and 30
+marches a minute).
+
+### Attacks: tickets and verification
+
+1. `attack/start` checks that the army stands next to the hex (not marching),
+   10 energy, no rival home hex, no cooldown; takes the **hex lock** in the
+   shard DO (`lockHex`, expires with the ticket: one attack per hex at a time,
+   else 409 `hex_locked`); picks the defenders: the owner's garrison (bot AI),
+   a militia if the owner left none, or the **neutral defenders**
+   (`src/online/defenders.ts`: by hex type and depth into the shard, losses
+   persist until a respawn); fixes a crypto-random **seed**, builds the setup
+   (`src/online/battle.ts`, with the hex's battlefield terrain) and stores the
+   ticket (10 min). Heroes on both sides are marked busy. An open ticket for
+   the same hex is **resumed** with the same seed, so restarting cannot fish
+   for seeds.
+2. The client plays the battle locally and submits the order log.
+3. `attack/submit` replays the **stored** setup (the client's copy is never
+   used). Any mismatch (winner, ticks, `Battle.hash()`) voids the ticket (422
+   `replay_mismatch`, no rewards, 3 min cooldown); expired → 410. Otherwise
+   one guarded batch applies permadeath, wounds (2 h), XP and wear on both
+   sides, loot (the best `picks` items of the enemies the attacker killed) and
+   gold, a battle_log row, and either **siege progress** (forts, towns and
+   capitals need 2–4 wins in a row; progress decays after 6 h) or the
+   **capture**: owner, clan, income clock, plunder of the previous owner's
+   uncollected income, the army moves in, surviving garrison heroes go home.
+   Submitting a used ticket again with the same claim returns the stored
+   result.
+
+### Shard socket (`/ws/online`)
+
+`new WebSocket('/ws/online', ['pixelarrow.v1', token])` joins the room
+`shard-<season>-<shard>` (needs a season profile, else 409). Messages are typed
+in `src/online/protocol.ts`:
+
+- presence: `welcome`, `join`, `leave`, `presence` (players carry `busy` while
+  in a duel), `who`, `ping` / `pong`.
+- lobby: `challenge {to}` → `challenge_sent` / `challenged {id, from}`;
+  `challenge_reply {id, accept}`; `challenge_cancel {id}`;
+  `challenge_closed {id, reason}` (declined, cancelled, expired after 30 s,
+  unavailable).
+- `duel_start {duel, side, setup, heroes, names, turnTicks, delayTurns,
+  hashEvery}`: both players' field armies from D1, seed from the server;
+  friendly (no stakes) in this phase.
+- deployment: `d_order {order}` is echoed to both with a sequence number and
+  both apply it in server order; `d_ready` from both → `go` plus sealed turns
+  0 and 1.
+- battle (**lockstep**): turns of 2 ticks. `cmd {order}` queues an order for
+  the next sealed turn; clients send `reach {n, hash?}` as they start turn n;
+  once both reached n the server seals turn n+2 and sends `turn {n, tick,
+  orders}` (both players' orders in arrival order, applied at tick n·2). Input
+  delay ≈ 200–300 ms; a client never simulates an unsealed turn. Every 10th
+  `reach` carries `Battle.hash()`; differing hashes → `desync`, the duel ends.
+- `end {winner, ticks, hash}` → the DO replays the log with `src/sim`, sends
+  `duel_result {winner, ticks, hash, verified, mismatches}` to both and writes
+  battle_log. A player leaving → `duel_abort`.
+
+Duel and challenge state is kept in DO memory (a live duel keeps the object
+awake); hex locks are in DO storage.
+
 ## Local development
 
 ```bash
@@ -209,12 +335,18 @@ typecheck, tests, build → `server/` `npm ci`, typecheck, tests →
    ```
 6. In @BotFather point the Mini App / menu button URL at `https://pixelarrow.app`.
    Stars payments need no provider setup.
+7. Clan invite links are `https://t.me/<bot>/<app>?startapp=clan_<code>`. The
+   bot username comes from `getMe` (or set the var `TELEGRAM_BOT_USERNAME`);
+   the Mini App short name defaults to `play` (var `TELEGRAM_APP_NAME` if yours
+   differs). The online tables (`0002_online.sql`) are created by the CI
+   migration step once `D1_DATABASE_ID` is set.
 
 ## Client integration
 
 Steps 1–4 are implemented in the game (`src/platform/api.ts`, `online.ts`,
-`saveSync.ts`, `verify.ts`; see docs/DESIGN.md "Online client"); presence (5)
-is not used yet.
+`saveSync.ts`, `verify.ts`; see docs/DESIGN.md "Online client"); the online
+mode (`src/online/`, `src/scenes/online/`) uses `/api/online/*` and
+`/ws/online`.
 
 1. **Boot:** if `Telegram.WebApp.initData` is non-empty,
    `POST /api/auth/telegram { initData }` → keep `token` in memory (re-auth on

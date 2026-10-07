@@ -1,25 +1,29 @@
 /**
- * RegionDO: one Durable Object per map region (`/ws/region/:id`), the skeleton
- * for future territories and clans. Uses the WebSocket Hibernation API, so an
- * idle region costs nothing while sockets stay open.
+ * RegionDO: one Durable Object per room. Online shards use the room
+ * `shard-<season>-<shard>` (via /ws/online); `/ws/region/:id` opens any other
+ * room for plain presence. Uses the WebSocket Hibernation API, so idle
+ * connections cost nothing; presence lives in socket attachments and survives
+ * hibernation.
  *
  * The Worker authenticates the session and forwards the upgrade with
- * X-Player-Id / X-Player-Name headers; the DO trusts those (it is not
- * reachable from the internet directly).
+ * X-Player-Id / X-Player-Name (and X-Season / X-Shard for shards); the DO
+ * trusts those (it is not reachable from the internet directly).
  *
- * Client -> server (JSON text frames):
- *   { "type": "ping", "t"?: any }   -> { "type": "pong", "t": <echo>, "now": <ms> }
- *   { "type": "who" }               -> { "type": "presence", "players": [...] }
- * The bare text frame "ping" is answered "pong" without waking the object.
- *
- * Server -> client:
- *   { "type": "welcome", "region", "you", "players": [...] }   on connect
- *   { "type": "join",  "player": {...} }                        someone came online
- *   { "type": "leave", "player": {...} }                        their last socket closed
- *   { "type": "error", "message" }
+ * Besides presence it hosts, per shard:
+ *  - hex attack locks (RPC lockHex / unlockHex / hexLock): one attack per hex
+ *    at a time, expiring with the attack ticket (lazily; no alarms needed);
+ *  - the live duel lobby and lockstep relay (server/src/online/duel.ts).
+ * Protocol: src/online/protocol.ts and server/README.md.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './env';
+import { DuelHub, type Out } from './online/duel';
+import type { ClientMsg, PresencePlayer } from '../../src/online/protocol';
+import type { Hero } from '../../src/data/units';
+import { onlineBattleSetup } from '../../src/online/battle';
+import { randomSite } from '../../src/world/battlefield';
+import { Rng } from '../../src/sim/rng';
+import { fieldReady, formationsOf, getProfile, loadHeroes, randomToken, randomU32 } from './online/store';
 
 export interface PresenceInfo {
   id: number;
@@ -30,16 +34,113 @@ interface Attachment extends PresenceInfo {
   joinedAt: number;
 }
 
-const MAX_MESSAGE = 4096;
+interface ShardMeta {
+  season: number;
+  shard: number;
+}
+
+export interface HexLock {
+  ticket: string;
+  player: number;
+  until: number;
+}
+
+const MAX_MESSAGE = 16 * 1024;
 
 /** WebSocket subprotocol; the session token may ride along as a second protocol entry. */
 export const WS_PROTOCOL = 'pixelarrow.v1';
 
 export class RegionDO extends DurableObject<Env> {
+  private hub: DuelHub;
+  private meta: ShardMeta | null = null;
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+    this.hub = new DuelHub({
+      now: () => Date.now(),
+      randomId: () => randomToken(8),
+      randomSeed: () => randomU32(),
+      online: (pid) => this.ctx.getWebSockets(`p:${pid}`).some((w) => w.deserializeAttachment() !== null),
+      buildDuel: (a, b, seed) => this.buildDuel(a, b, seed),
+      record: async (d, r) => {
+        const m = await this.shardMeta();
+        if (!this.env.DB || !m) return;
+        await this.env.DB.prepare(
+          `INSERT INTO battle_log (season_id, shard_id, kind, ref, attacker_id, defender_id, winner, ticks, hash, verified, summary, created_at)
+           VALUES (?1, ?2, 'duel', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
+        )
+          .bind(m.season, m.shard, d.id, d.players[0], d.players[1], r.winner, r.ticks, r.hash, r.verified ? 1 : 0, JSON.stringify({ orders: d.log.length, mismatches: r.mismatches }), Date.now())
+          .run();
+      },
+    });
   }
+
+  // ------------------------------------------------------------------ hex locks (RPC)
+
+  /** Takes the attack lock of a hex unless someone else holds a live one. */
+  async lockHex(key: string, ticket: string, player: number, until: number, now = Date.now()): Promise<{ ok: boolean; until?: number }> {
+    const cur = await this.ctx.storage.get<HexLock>(`lock:${key}`);
+    if (cur && cur.until > now && cur.ticket !== ticket) return { ok: false, until: cur.until };
+    await this.ctx.storage.put(`lock:${key}`, { ticket, player, until } satisfies HexLock);
+    return { ok: true };
+  }
+
+  async unlockHex(key: string, ticket: string): Promise<void> {
+    const cur = await this.ctx.storage.get<HexLock>(`lock:${key}`);
+    if (cur && cur.ticket === ticket) await this.ctx.storage.delete(`lock:${key}`);
+  }
+
+  /** The live lock of a hex, if any (expired locks are dropped lazily). */
+  async hexLock(key: string, now = Date.now()): Promise<HexLock | null> {
+    const cur = await this.ctx.storage.get<HexLock>(`lock:${key}`);
+    if (!cur) return null;
+    if (cur.until <= now) {
+      await this.ctx.storage.delete(`lock:${key}`);
+      return null;
+    }
+    return cur;
+  }
+
+  // ------------------------------------------------------------------ duels
+
+  private async shardMeta(): Promise<ShardMeta | null> {
+    if (!this.meta) this.meta = (await this.ctx.storage.get<ShardMeta>('meta')) ?? null;
+    return this.meta;
+  }
+
+  private async buildDuel(a: PresencePlayer, b: PresencePlayer, seed: number) {
+    const m = await this.shardMeta();
+    const db = this.env.DB;
+    if (!m || !db) return null;
+    const now = Date.now();
+    const sides = await Promise.all(
+      [a, b].map(async (p) => {
+        const [profile, heroes] = await Promise.all([getProfile(db, m.season, p.id), loadHeroes(db, m.season, p.id)]);
+        const ready = fieldReady(heroes, now).map((h) => h.hero);
+        return profile && ready.length ? { heroes: ready, formations: formationsOf(profile.formations), bot: false } : null;
+      }),
+    );
+    if (!sides[0] || !sides[1]) return null;
+    const setup = onlineBattleSetup(seed, sides[0], sides[1], randomSite(new Rng(seed ^ 0x2f6b9e1d)));
+    return { setup, heroes: [sides[0].heroes, sides[1].heroes] as [Hero[], Hero[]] };
+  }
+
+  private deliver(out: Out[]): void {
+    for (const o of out) {
+      const text = JSON.stringify(o.msg);
+      for (const ws of this.ctx.getWebSockets(`p:${o.to}`)) {
+        if (ws.deserializeAttachment() === null) continue;
+        try {
+          ws.send(text);
+        } catch {
+          // closing; webSocketClose cleans up
+        }
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ sockets
 
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
@@ -49,6 +150,12 @@ export class RegionDO extends DurableObject<Env> {
     const name = (request.headers.get('x-player-name') ?? '').slice(0, 64);
     const region = request.headers.get('x-region-id') ?? '';
     if (!Number.isSafeInteger(id) || id <= 0) return new Response('Missing player', { status: 400 });
+    const season = Number(request.headers.get('x-season'));
+    const shard = Number(request.headers.get('x-shard'));
+    if (Number.isSafeInteger(season) && season > 0 && Number.isSafeInteger(shard) && shard > 0 && !(await this.shardMeta())) {
+      this.meta = { season, shard };
+      await this.ctx.storage.put('meta', this.meta);
+    }
 
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
@@ -71,13 +178,15 @@ export class RegionDO extends DurableObject<Env> {
       ws.send(JSON.stringify({ type: 'error', message: 'Expected a JSON text frame' }));
       return;
     }
-    let msg: { type?: unknown; t?: unknown };
+    let msg: ClientMsg;
     try {
-      msg = JSON.parse(message);
+      msg = JSON.parse(message) as ClientMsg;
     } catch {
       ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }));
       return;
     }
+    const me = ws.deserializeAttachment() as Attachment | null;
+    if (!me || !msg || typeof msg !== 'object') return;
     switch (msg.type) {
       case 'ping':
         ws.send(JSON.stringify({ type: 'pong', t: msg.t ?? null, now: Date.now() }));
@@ -85,6 +194,22 @@ export class RegionDO extends DurableObject<Env> {
       case 'who':
         ws.send(JSON.stringify({ type: 'presence', players: this.online() }));
         return;
+      case 'challenge':
+      case 'challenge_cancel':
+      case 'challenge_reply':
+      case 'd_order':
+      case 'd_ready':
+      case 'cmd':
+      case 'reach':
+      case 'end':
+      case 'leave_duel': {
+        const before = new Set([...this.hub.duels.values()].flatMap((d) => d.players));
+        const out = await this.hub.handle({ id: me.id, name: me.name }, msg, (pid) => this.lookup(pid));
+        this.deliver(out);
+        const after = new Set([...this.hub.duels.values()].flatMap((d) => d.players));
+        if (before.size !== after.size || [...after].some((p) => !before.has(p))) this.broadcast({ type: 'presence', players: this.online() });
+        return;
+      }
       default:
         ws.send(JSON.stringify({ type: 'error', message: `Unknown message type` }));
     }
@@ -103,13 +228,21 @@ export class RegionDO extends DurableObject<Env> {
     this.leave(ws);
   }
 
+  private lookup(pid: number): PresencePlayer | null {
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) {
+      const a = ws.deserializeAttachment() as Attachment | null;
+      if (a) return { id: a.id, name: a.name };
+    }
+    return null;
+  }
+
   /** Unique online players (a player may have several sockets/tabs). */
-  online(exclude?: WebSocket): PresenceInfo[] {
-    const seen = new Map<number, PresenceInfo>();
+  online(exclude?: WebSocket): PresencePlayer[] {
+    const seen = new Map<number, PresencePlayer>();
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === exclude) continue;
       const a = ws.deserializeAttachment() as Attachment | null;
-      if (a && !seen.has(a.id)) seen.set(a.id, { id: a.id, name: a.name });
+      if (a && !seen.has(a.id)) seen.set(a.id, this.hub.busy(a.id) ? { id: a.id, name: a.name, busy: true } : { id: a.id, name: a.name });
     }
     return [...seen.values()].sort((a, b) => a.id - b.id);
   }
@@ -119,7 +252,10 @@ export class RegionDO extends DurableObject<Env> {
     if (!a) return;
     ws.serializeAttachment(null);
     const stillHere = this.ctx.getWebSockets(`p:${a.id}`).some((o) => o !== ws && o.deserializeAttachment() !== null);
-    if (!stillHere) this.broadcast({ type: 'leave', player: { id: a.id, name: a.name } }, ws);
+    if (!stillHere) {
+      this.deliver(this.hub.disconnect(a.id));
+      this.broadcast({ type: 'leave', player: { id: a.id, name: a.name } }, ws);
+    }
   }
 
   private broadcast(msg: unknown, except?: WebSocket): void {
