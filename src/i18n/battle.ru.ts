@@ -94,7 +94,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'battle.why.noneInRange': 'Враг пока далеко: начнут метать, когда подойдёт',
   'battle.why.noShields': 'Мало щитов для стены',
   'battle.why.pickSoldier': 'Сначала нажмите на бойца отряда',
-  'battle.why.recovering': 'Перезарядка: {n} с',
+  'battle.why.recovering': 'перезарядка, {n} с',
   'battle.why.noFoeFront': 'Прямо впереди нет врага',
   'battle.why.noVolley': 'Нет стрелков с целью в досягаемости',
   'battle.why.raging': 'Уже в ярости',

@@ -156,6 +156,10 @@ for (let i = 0; i < 24; i++) {
   if (await call('Battle', `return s.paused;`)) break;
 }
 await shot('06-battle-contact');
+// the command panel: group cards, colour-coded categories, abilities (a rally cry recovering: its sweep)
+await call('Battle', `s.selGroup = 0; s.selUnit = -1; s.cat = 'abilities'; s.useAbility('rally'); for (let i = 0; i < 20 * 4 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); s.buildHud(); return 1;`);
+await wait(300);
+await shot('30-battle-panel');
 
 // Abilities and auras: fury, bashes and a rally cry in the melee
 await call('Battle', `s.setPaused(false); s.hideBanner(); s.speed = 1; s.command({kind:'order', group:-1, order:'charge'}); return 1;`);
@@ -169,10 +173,6 @@ await call('Battle', `s.selGroup = 0; s.selUnit = -1; s.cat = 'abilities'; s.bui
 await wait(350);
 await call('Battle', `s.useAbility('rally'); return 1;`);
 await wait(250);
-// the command panel: group cards, colour-coded categories, abilities with cooldown sweeps
-await call('Battle', `s.setPaused(true); s.hideBanner(); s.setFollow(false); s.cameras.main.setZoom(2); const f = s.focusPoint(); s.centerCam(f.x, f.y); s.buildHud(); return 1;`);
-await wait(300);
-await shot('30-battle-panel');
 await call('Battle', `s.setPaused(true); const u = s.sim.units.find(u => u.side === 0 && u.berserk > 0) || s.sim.units.find(u => u.side === 0 && u.state === 'ready'); s.setFollow(false); s.cameras.main.setZoom(3); const p = s.project(u.x, u.y); s.centerCam(p.x, p.y - 14); return 1;`);
 await wait(200);
 await shot('18-battle-abilities');

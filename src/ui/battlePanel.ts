@@ -105,7 +105,8 @@ export class PanelButton extends Phaser.GameObjects.Container {
     this.bg = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0);
     this.content = scene.add.container(0, 0);
     this.sweep = scene.add.graphics();
-    this.badgeText = addText(scene, this.w - 3, this.h - 10, '', 'gold', 1);
+    // top right, clear of the label (bottom or centre) and the icon
+    this.badgeText = addText(scene, this.w - 3, 2, '', 'gold', 1);
     this.add([this.bg, this.content, this.sweep, this.badgeText]);
     uiFrame(this.badgeText, this, this.w, this.h);
     this.setSize(this.w, this.h);
@@ -208,6 +209,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
       this.content.add(s.add.rectangle(2, 2, this.w - 4, 2, CATEGORY_COLOR[cat]).setOrigin(0, 0));
     }
     const font: FontKey = !this.enabled ? 'dim' : filled ? 'light' : 'ink';
+    this.badgeText.setFont(filled ? 'font_light' : 'font_gold');
     const shadow = SHADOW_FONTS.has(font);
     const icon = (x: number, y: number) => {
       if (!this.o.icon) return;

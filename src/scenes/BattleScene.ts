@@ -1781,7 +1781,7 @@ export class BattleScene extends BaseScene {
           { key: 'loose', icon: 'throw', label: t('battle.cmd.throw'), tip: t('battle.tip.throw'), run: () => this.toggleThrow() },
         ];
       case 'formation':
-        return PRESETS.map(([type, key, icon]) => ({ key, icon, label: t(`battle.cmd.${key}` as TKey), tip: t(`battle.tip.${key}` as TKey), run: () => this.command({ kind: 'preset', group: -1, type }) }));
+        return PRESETS.map(([type, key, icon]) => ({ key: `form_${type}`, icon, label: t(`battle.cmd.${key}` as TKey), tip: t(`battle.tip.${key}` as TKey), run: () => this.command({ kind: 'preset', group: -1, type }) }));
       case 'abilities': {
         const ids: AbilityId[] = [];
         for (const u of this.selectedUnits()) for (const id of u.abil) if (!ids.includes(id)) ids.push(id);
@@ -1941,7 +1941,7 @@ export class BattleScene extends BaseScene {
           b.setEnabled(true);
           break;
         default: {
-          const preset = PRESETS.find((p) => p[1] === key);
+          const preset = PRESETS.find((p) => `form_${p[0]}` === key);
           if (preset) {
             if (preset[0] === 'shieldwall' && !mem.some((u) => u.stats.canShieldWall)) b.setEnabled(false, t('battle.why.noShields'));
             else b.setEnabled(true);

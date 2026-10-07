@@ -100,7 +100,7 @@ export const BATTLE_EN = {
   'battle.why.noneInRange': 'No enemy in range yet: they throw when one comes close',
   'battle.why.noShields': 'Too few shields to lock a wall',
   'battle.why.pickSoldier': 'Tap one soldier of the group first',
-  'battle.why.recovering': 'Recovering: {n} s',
+  'battle.why.recovering': 'recovering, {n} s',
   'battle.why.noFoeFront': 'No enemy right in front',
   'battle.why.noVolley': 'No missile-men with a target in range',
   'battle.why.raging': 'Already raging',
