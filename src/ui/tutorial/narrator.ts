@@ -113,7 +113,7 @@ export class Narrator {
     this.c.add(addPanel(s, x + 3, y + 3, PORTRAIT + 2, PORTRAIT + 2, 'inset'));
     this.portrait = s.add.image(x + 4, y + 4, 'narrator_0').setOrigin(0, 0);
     this.c.add(this.portrait);
-    const name = addText(s, tx, y + 5, ellipsize(t('tut.narrator').toUpperCase(), x + w - 6 - tx - skipW), 'red');
+    const name = addText(s, tx, y + 5, ellipsize(t('tut.narrator'), x + w - 6 - tx - skipW), 'red');
     this.c.add(name);
     const skip = new Button(s, x + w - 3 - SIZE.btnMinW, y + 3, SIZE.btnMinW, SIZE.btnH - 2, { icon: 'close', iconOnly: true, label: t('tut.skip'), tip: t('tut.skip'), id: 'tut.skip', onClick: () => this.onSkip() });
     this.c.add(skip);

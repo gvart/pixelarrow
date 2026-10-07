@@ -87,7 +87,7 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
     render: (i, row, rw) => {
       const r = ROWS[i];
       const label: TKey = r.kind === 'quiet' ? 'notify.quiet' : (`notify.type.${r.type}` as TKey);
-      row.add(addText(scene, 0, 8, ellipsize(t(label).toUpperCase(), rw - 46), 'ink'));
+      row.add(addText(scene, 0, 8, ellipsize(t(label), rw - 46), 'ink'));
       const on = isOn(r);
       const id = r.kind === 'quiet' ? 'notify.quiet' : `notify.${r.type}`;
       const b = new Button(scene, rw - 40, 1, 40, 22, { label: on ? t('common.on') : t('common.off'), style: on ? 'buttonSel' : 'button', id });

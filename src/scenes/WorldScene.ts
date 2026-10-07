@@ -304,9 +304,9 @@ export class WorldScene extends BaseScene {
     const day = Math.floor(s.time / 24) + 1;
     const h = Math.floor(s.time % 24);
     const room = this.m.VW - 76 - this.clockText.x;
-    this.clockText.setText(ellipsize(`Day ${day}  ${String(h).padStart(2, '0')}:00${h >= 21 || h < 5 ? ' night' : ''}`.toUpperCase(), room));
+    this.clockText.setText(ellipsize(`Day ${day}  ${String(h).padStart(2, '0')}:00${h >= 21 || h < 5 ? ' night' : ''}`, room));
     const d = dangerAt(this.w.map, s.x, s.y);
-    this.regionText.setText(ellipsize(`${regionName(this.w.map, s.x, s.y)} - ${d < 0.3 ? 'safe' : d < 0.6 ? 'risky' : 'wild'}`.toUpperCase(), room));
+    this.regionText.setText(ellipsize(`${regionName(this.w.map, s.x, s.y)} - ${d < 0.3 ? 'safe' : d < 0.6 ? 'risky' : 'wild'}`, room));
     this.goldText.setText(`${camp.data.gold}`);
     const wounded = camp.wounded().length;
     this.armyText.setText(`${camp.data.heroes.length - wounded}/${camp.data.heroes.length}`);
@@ -317,7 +317,7 @@ export class WorldScene extends BaseScene {
       hint = p ? `Pursuing ${p.name}` : hint;
     } else if (s.destSettlement >= 0) hint = `Marching to ${this.w.settlement(s.destSettlement)?.name ?? ''}`;
     else if (this.w.moving) hint = 'On the march';
-    this.hintText.setText(ellipsize(hint.toUpperCase(), this.m.VW - 10));
+    this.hintText.setText(ellipsize(hint, this.m.VW - 10));
   }
 
   private setWaiting(on: boolean): void {
@@ -342,7 +342,7 @@ export class WorldScene extends BaseScene {
     this.banner?.destroy();
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    const t = addText(this, VW / 2, 37, ellipsize(msg.toUpperCase(), VW - 30), 'red', 0.5);
+    const t = addText(this, VW / 2, 37, ellipsize(msg, VW - 30), 'red', 0.5);
     const wdt = Math.min(VW - 8, Math.max(80, t.width + 20));
     c.add(addPanel(this, Math.round((VW - wdt) / 2), 32, wdt, 18, 'parch'));
     c.add(t);
@@ -509,24 +509,24 @@ export class WorldScene extends BaseScene {
         : 'They bar your way, weapons drawn!';
     const advice = ratio > 1.15 ? 'A hard fight. Consider fleeing or resting.' : ratio < 0.85 ? 'You should win this one.' : 'An even match.';
     // Lay the text out first (wrapped and fitted), then size the dialog around it.
-    const moodL = wrapText(mood.toUpperCase(), w - 56, 2).lines;
-    const adviceL = wrapText(advice.toUpperCase(), w - 12, 2).lines;
+    const moodL = wrapText(mood, w - 56, 2).lines;
+    const adviceL = wrapText(advice, w - 12, 2).lines;
     const armyY = Math.max(64, 46 + moodL.length * LINE_H + 4);
     const adviceY = armyY + 14;
     const h = adviceY + adviceL.length * LINE_H + 8 + 34;
     const y = Math.max(4, Math.round(VH / 2 - h / 2 - 10));
     c.add(addPanel(this, x, y, w, h, 'parch'));
-    c.add(addText(this, VW / 2, y + 7, ellipsize(p.name.toUpperCase(), w - 12), 'red', 0.5));
+    c.add(addText(this, VW / 2, y + 7, ellipsize(p.name, w - 12), 'red', 0.5));
     // the band's standard, large
     const tex = p.name === 'Pirates' ? 'wm_band_pirates' : `wm_band_${p.kind}`;
     c.add(this.add.image(x + 26, y + 58, tex, 0).setScale(3).setOrigin(0.5, 1));
     c.add(this.add.rectangle(x + 50, y + 22, 8, 8, THREAT_COLOR[lvl]).setOrigin(0, 0).setStrokeStyle(1, P.outline));
-    c.add(addText(this, x + 62, y + 22, ellipsize(`${THREAT_LABEL[lvl]} - ${p.size} men`.toUpperCase(), w - 68), 'ink'));
-    c.add(addText(this, x + 50, y + 33, ellipsize(`${CULTURE_LABEL[p.culture]}, about Lv ${p.level}`.toUpperCase(), w - 56), 'dim'));
+    c.add(addText(this, x + 62, y + 22, ellipsize(`${THREAT_LABEL[lvl]} - ${p.size} men`, w - 68), 'ink'));
+    c.add(addText(this, x + 50, y + 33, ellipsize(`${CULTURE_LABEL[p.culture]}, about Lv ${p.level}`, w - 56), 'dim'));
     c.add(addText(this, x + 50, y + 46, moodL.join('\n'), 'ink'));
     const fit = camp.fitHeroes().length;
     const wounded = camp.wounded().length;
-    c.add(addText(this, x + 8, y + armyY, ellipsize(`Your army: ${fit} fit${wounded ? `, ${wounded} wounded` : ''}`.toUpperCase(), w - 16), 'dim'));
+    c.add(addText(this, x + 8, y + armyY, ellipsize(`Your army: ${fit} fit${wounded ? `, ${wounded} wounded` : ''}`, w - 16), 'dim'));
     const adviceT = addText(this, VW / 2, y + adviceY, adviceL.join('\n'), ratio > 1.15 ? 'red' : 'ink', 0.5);
     adviceT.setCenterAlign();
     c.add(adviceT);

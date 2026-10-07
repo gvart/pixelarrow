@@ -471,7 +471,7 @@ export class OnlineScene extends BaseScene {
     const h = Math.min(VH - 16, 26 + lines.length * LINE_H + 10 + SIZE.btnH + 12);
     const y = Math.round((VH - h) / 2);
     addScroll(this, H, x, y, w, h);
-    H.add(addText(this, VW / 2, y + 12, title.toUpperCase(), 'red', 0.5));
+    H.add(addText(this, VW / 2, y + 12, title, 'red', 0.5));
     if (lines.length) {
       const body = addText(this, VW / 2, y + 28, lines.join('\n'), 'ink', 0.5);
       body.setCenterAlign();
@@ -510,7 +510,7 @@ export class OnlineScene extends BaseScene {
     const days = Math.max(0, Math.ceil((p.season.endsAt - p.now) / 86_400_000));
     const titleW = VW - 27 - SIZE.gap - ew - 4 - x0;
     const long = t('online.season', { n: p.season.id, d: days });
-    const title = measureText(long.toUpperCase()) <= titleW ? long : t('online.seasonShort', { n: p.season.id, d: days });
+    const title = measureText(long) <= titleW ? long : t('online.seasonShort', { n: p.season.id, d: days });
     H.add(new Label(this, x0, 10, title, { maxW: titleW, font: 'red', expandable: false }));
     // resources: an inset strip (tap: full numbers)
     const ry = TOP_H - 17;
@@ -526,7 +526,7 @@ export class OnlineScene extends BaseScene {
     if (p.army.marching && p.army.arriveAt) {
       const cy = TOP_H + 2;
       H.add(addPanel(this, 3, cy, VW - 6, CHIP_H - 2, 'inset'));
-      const hw = Math.max(44, measureText(t('online.halt').toUpperCase()) + 12);
+      const hw = Math.max(44, measureText(t('online.halt')) + 12);
       H.add(new Button(this, VW - 4 - hw - 1, cy + 1, hw, SIZE.btnH, { label: t('online.halt'), tip: t('online.haltTip'), onClick: () => void this.halt(), id: 'online.halt' }));
       H.add(addIcon(this, 7, cy + 7, 'clock'));
       this.chipText = addText(this, 22, cy + 9, '', 'ink');
@@ -534,8 +534,8 @@ export class OnlineScene extends BaseScene {
       const upd = () => {
         if (!this.chipText?.scene || !this.profile?.army.arriveAt) return;
         const left = this.profile.army.arriveAt - this.board.armies.serverTime(Date.now());
-        const s = t('online.marching', { t: fmtTime(left) }).toUpperCase();
-        this.chipText.setText(s.length && measureText(s) > VW - hw - 34 ? fmtTime(left).toUpperCase() : s);
+        const s = t('online.marching', { t: fmtTime(left) });
+        this.chipText.setText(s.length && measureText(s) > VW - hw - 34 ? fmtTime(left) : s);
       };
       upd();
       this.chipTimer?.remove();
@@ -566,7 +566,7 @@ export class OnlineScene extends BaseScene {
     items.forEach((it, i) => {
       const bx = 4 + i * (bw + SIZE.gap);
       // narrow screens: icons only (the label becomes the long-press tip) rather than "AR…"
-      const iconOnly = measureText(it.label.toUpperCase(), it.primary) > bw - 6;
+      const iconOnly = measureText(it.label, it.primary) > bw - 6;
       const b = new Button(this, bx, by + 3, bw, 28, { label: it.label, icon: it.icon, iconOnly, tip: iconOnly ? `${it.label}: ${it.tip}` : it.tip, variant: it.primary ? 'primary' : 'secondary', onClick: it.onClick, disabledReason: it.disabled });
       if (it.disabled) b.setEnabled(false, it.disabled);
       H.add(b);
@@ -707,7 +707,7 @@ export class OnlineScene extends BaseScene {
     for (const r of rows) {
       if (r.kind === 'yields' && d) this.yieldsRow(c, x + 6, y, tw, d.yields);
       else if (r.kind === 'siege' && d?.siege) {
-        const txt = addText(this, x + 6, y, r.text.toUpperCase(), 'ink');
+        const txt = addText(this, x + 6, y, r.text, 'ink');
         c.add(txt);
         const mw = Math.min(60, tw - txt.width - 8);
         if (mw > 12) c.add(new Meter(this, x + 6 + txt.width + 5, y + 1, mw, 5, COLOR.xp).setValue(d.siege.wins, d.siege.needed));
@@ -802,10 +802,10 @@ export class OnlineScene extends BaseScene {
 
   /** "PER HOUR [icon]+6 [icon]+2": only what the hex yields, as far as it fits. */
   private yieldsRow(c: Phaser.GameObjects.Container, x: number, y: number, w: number, r: Resources): void {
-    const head = t('hex.perHour').toUpperCase();
+    const head = t('hex.perHour');
     const items = RESOURCE_KEYS.filter((k) => r[k] > 0);
     if (!items.length) {
-      c.add(addText(this, x, y, t('hex.noIncome').toUpperCase(), 'dim'));
+      c.add(addText(this, x, y, t('hex.noIncome'), 'dim'));
       return;
     }
     c.add(addText(this, x, y, head, 'dim'));
@@ -1012,7 +1012,7 @@ export class OnlineScene extends BaseScene {
           row.add(addPanel(this, 0, 0, rw, rh, 'inset'));
           const pending = this.challenge?.to.id === pl.id;
           const label = pl.busy ? t('duel.busy') : pending ? t('duel.cancel') : t('duel.challenge');
-          const bw = Math.min(rw - 50, Math.max(56, measureText(label.toUpperCase()) + 14));
+          const bw = Math.min(rw - 50, Math.max(56, measureText(label) + 14));
           row.add(new Label(this, 6, 9, pl.name, { maxW: rw - bw - 14, expandable: false }));
           const b = new Button(this, rw - bw - 1, 1, bw, SIZE.btnH, {
             label,

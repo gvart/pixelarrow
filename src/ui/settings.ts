@@ -73,7 +73,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
     render: (i, row, rw) => {
       const r = ROWS[i];
       const right = r.kind === 'volume' ? 70 : r.kind === 'lang' || r.kind === 'tutorial' || r.kind === 'open' ? 66 : 42;
-      row.add(addText(scene, 0, 8, ellipsize(t(r.label).toUpperCase(), rw - right - 4), 'ink'));
+      row.add(addText(scene, 0, 8, ellipsize(t(r.label), rw - right - 4), 'ink'));
       if (r.kind === 'toggle') {
         const k = r.key;
         const b = new Button(scene, rw - 40, 1, 40, 22, { label: s[k] ? t('common.on') : t('common.off'), style: s[k] ? 'buttonSel' : 'button', id: `settings.toggle.${k}` });

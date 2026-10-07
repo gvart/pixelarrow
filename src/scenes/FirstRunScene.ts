@@ -68,7 +68,7 @@ export class FirstRunScene extends BaseScene {
     const tw = Math.min(VW - 16, 176);
     const tx = Math.round((VW - tw) / 2);
     addScroll(this, this.ui, tx, 8, tw, 30);
-    this.ui.add(addText(this, VW / 2, 18, ellipsize(text.toUpperCase(), tw - 16), 'red', 0.5));
+    this.ui.add(addText(this, VW / 2, 18, ellipsize(text, tw - 16), 'red', 0.5));
     return 8 + 30 + 4;
   }
 
@@ -89,7 +89,7 @@ export class FirstRunScene extends BaseScene {
       const lines = wrapText(text, w - 16, 6).lines;
       const h = 14 + lines.length * LINE_H + 6;
       this.ui.add(addPanel(this, x, y, w, h, 'parch'));
-      this.ui.add(addText(this, VW / 2, y + 5, t('tut.narrator').toUpperCase(), 'red', 0.5));
+      this.ui.add(addText(this, VW / 2, y + 5, t('tut.narrator'), 'red', 0.5));
       const body = addText(this, VW / 2, y + 16, lines.join('\n'), 'ink', 0.5).setCenterAlign();
       this.ui.add(body);
       return y + h + 4;
@@ -101,7 +101,7 @@ export class FirstRunScene extends BaseScene {
     this.ui.add(addPanel(this, x + 4, y + 4, ps, ps, 'inset'));
     this.portrait = this.add.image(x + 6, y + 6, 'narrator_0').setOrigin(0, 0);
     this.ui.add(this.portrait);
-    this.ui.add(addText(this, tx, y + 5, ellipsize(t('tut.narrator').toUpperCase(), x + w - 6 - tx), 'red'));
+    this.ui.add(addText(this, tx, y + 5, ellipsize(t('tut.narrator'), x + w - 6 - tx), 'red'));
     this.ui.add(addText(this, tx, y + 17, lines.join('\n'), 'ink'));
     return y + h + 4;
   }
@@ -176,13 +176,13 @@ export class FirstRunScene extends BaseScene {
     const icon = new ItemIcon(this, ix + 8, iy + 8, { item }, { size: SIZE.cell });
     this.ui.add(icon);
     const nx = ix + 8 + SIZE.cell + 6;
-    const name = tOr(`item.${item.def}.name`, itemDef(item.def).name).toUpperCase();
+    const name = tOr(`item.${item.def}.name`, itemDef(item.def).name);
     const nw = ix + iw - 5 - nx;
     const nameLines = wrapText(name, nw, 2).lines;
     const nameText = addText(this, nx, iy + (nameLines.length > 1 ? 9 : 12), nameLines.join('\n'), rarityFont(item.rarity));
     uiFrame(nameText, this.ui as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, iw, rowH, ix, iy);
     this.ui.add(nameText);
-    if (nameLines.length < 2) this.ui.add(addText(this, nx, iy + 23, ellipsize(tOr(`rarity.${item.rarity}`, item.rarity).toUpperCase(), nw), 'dim'));
+    if (nameLines.length < 2) this.ui.add(addText(this, nx, iy + 23, ellipsize(tOr(`rarity.${item.rarity}`, item.rarity), nw), 'dim'));
     uiLevelUp();
     hapticNotify('success');
   }
@@ -211,7 +211,7 @@ export class FirstRunScene extends BaseScene {
       const h = Math.min(each, 20 + lines.length * LINE_H + 4);
       this.ui.add(addPanel(this, x, y, w, h, 'parch'));
       this.ui.add(addIcon(this, x + 5, y + 4, icon));
-      this.ui.add(addText(this, x + 21, y + 6, ellipsize(title.toUpperCase(), w - 27), 'red'));
+      this.ui.add(addText(this, x + 21, y + 6, ellipsize(title, w - 27), 'red'));
       this.ui.add(addText(this, x + 6, y + 19, lines.join('\n'), 'ink'));
       y += h + SIZE.gap + 2;
     }

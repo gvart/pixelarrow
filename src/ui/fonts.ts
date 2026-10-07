@@ -53,7 +53,7 @@ function register(scene: Phaser.Scene, name: string, color: number, shadow?: num
   }
   for (let cc = 97; cc <= 122; cc++) if (!chars[cc] && chars[cc - 32]) chars[cc] = chars[cc - 32];
   for (let cc = 0x430; cc <= 0x44f; cc++) if (!chars[cc] && chars[cc - 0x20]) chars[cc] = chars[cc - 0x20];
-  if (chars[0x401]) chars[0x451] = chars[0x401];
+  if (!chars[0x451] && chars[0x401]) chars[0x451] = chars[0x401];
   scene.cache.bitmapFont.add(tkey, { data: { retroFont: true, font: tkey, size: 7, lineHeight: h + 1, chars }, texture: tkey, frame: null });
   if (shadow !== undefined) (SHADOW_FONTS as Set<FontKey>).add(name as FontKey);
 }

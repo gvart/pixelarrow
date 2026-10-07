@@ -53,7 +53,7 @@ export class MenuScene extends BaseScene {
       const title = addText(this, VW / 2, 27, 'Pixelarrow', 'red', 0.5);
       title.setFontSize(14);
       this.ui.add(title);
-      this.ui.add(addText(this, VW / 2, 50, ellipsize(t('menu.subtitle').toUpperCase(), tw - 16), 'ink', 0.5));
+      this.ui.add(addText(this, VW / 2, 50, ellipsize(t('menu.subtitle'), tw - 16), 'ink', 0.5));
     }
     const top = 74;
     const room = compact ? 0 : py - 6 - top;
@@ -112,12 +112,12 @@ export class MenuScene extends BaseScene {
     stats.forEach(([icon, text], i) => {
       const sx = 13 + i * cellW;
       this.ui.add(addIcon(this, sx, fy + 5, icon));
-      this.ui.add(addText(this, sx + 15, fy + 7, ellipsize(text.toUpperCase(), cellW - 18), 'ink'));
+      this.ui.add(addText(this, sx + 15, fy + 7, ellipsize(text, cellW - 18), 'ink'));
     });
     addSyncBadge(this, this.ui, VW - 26, fy + 8);
     const who = telegramUserName();
     const saveLabel = inTelegram() ? (who ? t('menu.cloudSaveOf', { name: who }) : t('menu.cloudSave')) : t('menu.localSave');
-    this.ui.add(addText(this, VW / 2, fy - 11, ellipsize(saveLabel.toUpperCase(), VW - 16, true), 'light', 0.5));
+    this.ui.add(addText(this, VW / 2, fy - 11, ellipsize(saveLabel, VW - 16, true), 'light', 0.5));
     // Opened from a bot message's "Open in the game" (startapp=settings).
     if (data?.settings === 'notify') this.openNotifications();
   }

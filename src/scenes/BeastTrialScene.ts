@@ -35,8 +35,8 @@ export class BeastTrialScene extends BaseScene {
       this.ui.add(new Button(this, 3, 5, SIZE.btnMinW, SIZE.btnH, { icon: 'back', tip: t('common.back'), onClick: () => this.scene.start('Menu') }));
       tx = 3 + SIZE.btnMinW + 5;
     }
-    this.ui.add(addText(this, tx, 7, ellipsize(t('trial.title').toUpperCase(), VW - tx - 6), 'red'));
-    this.ui.add(addText(this, tx, 18, ellipsize(t('trial.sub').toUpperCase(), VW - tx - 6), 'dim'));
+    this.ui.add(addText(this, tx, 7, ellipsize(t('trial.title'), VW - tx - 6), 'red'));
+    this.ui.add(addText(this, tx, 18, ellipsize(t('trial.sub'), VW - tx - 6), 'dim'));
     const x = 6;
     const w = VW - 12;
     const y = top + 6;
@@ -54,9 +54,9 @@ export class BeastTrialScene extends BaseScene {
         row.add(this.add.image(3, 3, beastThumb(this, enc, 34)).setOrigin(0, 0));
         const lv = t('myth.info.level', { n: this.level(enc) });
         const lw = 52;
-        row.add(addText(this, 42, 8, ellipsize(encounterName(enc).toUpperCase(), rw - 42 - lw - 4), 'red'));
-        row.add(addText(this, 42, 22, ellipsize(t(`myth.${enc}.hint1` as TKey).toUpperCase(), rw - 46), 'dim'));
-        row.add(addText(this, rw - 4, 8, ellipsize((WORLD_BOSSES.includes(enc) ? t('myth.info.worldBoss') : lv).toUpperCase(), lw), 'ink', 1));
+        row.add(addText(this, 42, 8, ellipsize(encounterName(enc), rw - 42 - lw - 4), 'red'));
+        row.add(addText(this, 42, 22, ellipsize(t(`myth.${enc}.hint1` as TKey), rw - 46), 'dim'));
+        row.add(addText(this, rw - 4, 8, ellipsize((WORLD_BOSSES.includes(enc) ? t('myth.info.worldBoss') : lv), lw), 'ink', 1));
       },
     });
     this.events.once('shutdown', () => this.list?.destroy());

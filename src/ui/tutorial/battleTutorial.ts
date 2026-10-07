@@ -373,12 +373,12 @@ export class BattleTutorial {
   /** A short word of praise over the field (clear of the top bar and the banners), rising and fading. */
   private praise(word: string): void {
     const s = this.scene;
-    const w = measureText(word.toUpperCase()) + 14;
+    const w = measureText(word) + 14;
     const x = Math.round((s.m.VW - w) / 2);
     this.praiseC?.destroy();
     const c = s.add.container(0, this.host.fieldTop() + 34);
     c.add(addPanel(s, x, 0, w, 15, 'parch'));
-    c.add(addText(s, s.m.VW / 2, 4, word.toUpperCase(), 'good', 0.5));
+    c.add(addText(s, s.m.VW / 2, 4, word, 'good', 0.5));
     this.layer.add(c);
     this.praiseC = c;
     s.tweens.add({ targets: c, alpha: 0, delay: 700, duration: 400, onComplete: () => c.destroy() });

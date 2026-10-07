@@ -225,7 +225,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
     };
     this.shortened = false;
     const show = this.o.show ?? 'both';
-    const label = this.o.label && show !== 'icon' ? this.o.label.toUpperCase() : '';
+    const label = this.o.label && show !== 'icon' ? this.o.label : '';
     const hasIcon = !!this.o.icon && show !== 'label';
     if (show === 'icon') this.shortened = !!this.o.label;
     const tall = this.h >= 28;
@@ -316,7 +316,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
 
   /** A short gold mark in the corner (e.g. how many men can use an ability). */
   setBadge(text: string): this {
-    this.badgeText.setText(text.toUpperCase());
+    this.badgeText.setText(text);
     return this;
   }
 }
@@ -325,7 +325,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
 
 /** The first candidate (upper-cased) whose width fits `maxW`; else the last one. */
 export function firstFit(cands: (string | undefined | false | null)[], maxW: number, shadow = false): string {
-  const list = cands.filter((c): c is string => !!c).map((c) => c.toUpperCase());
+  const list = cands.filter((c): c is string => !!c).map((c) => c);
   return list.find((c) => measureText(c, shadow) <= maxW) ?? list[list.length - 1] ?? '';
 }
 
@@ -434,7 +434,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const fontB: FontKey = light ? 'light' : i.men === 0 ? 'dim' : 'ink';
     const ph = this.h - 11;
     const text = (x: number, y: number, str: string, font: FontKey, align: 0 | 0.5 | 1, maxW: number) => {
-      const tx = addText(s, x, y, ellipsize(str.toUpperCase(), maxW, SHADOW_FONTS.has(font)), font, align);
+      const tx = addText(s, x, y, ellipsize(str, maxW, SHADOW_FONTS.has(font)), font, align);
       uiFrame(tx, this, this.w, this.h);
       this.add(tx);
       return tx;

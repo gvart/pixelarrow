@@ -433,7 +433,7 @@ export class BeastView {
     c.add(addPanel(this.scene, x, y, w, 20, 'parch'));
     const id = bodies[0].stats.boss as MythId;
     const name = bodies.length > 1 ? tOr(`myth.flock.${id}`, `${MYTHS[id].name} flock`) : tOr(`class.${id}.name`, MYTHS[id].name);
-    c.add(addText(this.scene, x + 4, y + 3, ellipsize(name.toUpperCase(), w - 50), 'red'));
+    c.add(addText(this.scene, x + 4, y + 3, ellipsize(name, w - 50), 'red'));
     const g = this.scene.add.graphics();
     c.add(g);
     this.barG = g;
