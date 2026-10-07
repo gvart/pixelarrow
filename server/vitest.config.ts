@@ -17,6 +17,7 @@ export default defineConfig({
           TELEGRAM_WEBHOOK_SECRET: 'test-webhook-secret',
           SESSION_SECRET: 'test-session-secret-0123456789abcdef',
           DEV_AUTH: '1',
+          ADMIN_TOKEN: 'ops:test-admin-token-0123456789abcdef0123456789, short:tooshort',
           TEST_MIGRATIONS: await readD1Migrations('./migrations'),
         },
       },

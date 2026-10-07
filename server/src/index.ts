@@ -1,6 +1,7 @@
 /**
  * Pixelarrow Worker entry. Static assets (dist/) are served by the assets
- * layer; only /api/* and /ws/* run this code (assets.run_worker_first).
+ * layer; only /api/*, /ws/* and /admin run this code (assets.run_worker_first).
+ * A daily cron (wrangler.jsonc triggers) prunes old client error reports.
  */
 import { Hono, type Context } from 'hono';
 import { readJson } from './body';
@@ -19,6 +20,10 @@ import { economy } from './economy/routes';
 import { currentSeason, requireProfile, shardDoName } from './online/store';
 import { notifyRoutes } from './notify/routes';
 import { runScheduled } from './notify/jobs';
+import { pruneClientErrors, telemetry } from './telemetry/routes';
+import { logError, log } from './telemetry/log';
+import { admin } from './admin/routes';
+import { adminPage } from './admin/page';
 
 // Only handlers and Durable Object classes may be exported from the entry module.
 export { RegionDO } from './region';
@@ -35,7 +40,7 @@ app.use('/api/*', async (c, next) => {
       headers: {
         'access-control-allow-origin': origin,
         'access-control-allow-methods': 'GET, POST, PUT, OPTIONS',
-        'access-control-allow-headers': 'authorization, content-type',
+        'access-control-allow-headers': 'authorization, content-type, x-pa-analytics, x-pa-platform, x-pa-version',
         'access-control-max-age': '86400',
         vary: 'origin',
       },
@@ -59,7 +64,9 @@ app.get('/api/health', (c) =>
       telegramBotToken: !!c.env.TELEGRAM_BOT_TOKEN,
       telegramWebhookSecret: !!c.env.TELEGRAM_WEBHOOK_SECRET,
       sessionSecret: !!c.env.SESSION_SECRET,
+      adminToken: !!c.env.ADMIN_TOKEN,
     },
+    analyticsEngine: !!c.env.ANALYTICS,
   }),
 );
 
@@ -75,6 +82,11 @@ app.route('/api/save', save);
 app.route('/api/shop', shop);
 app.route('/api/entitlements', entitlements);
 app.route('/api/telegram', webhook);
+
+app.route('/api/telemetry', telemetry);
+app.route('/api/admin', admin);
+app.route('/admin', adminPage);
+app.get('/admin/', (c) => c.redirect('/admin', 301));
 
 app.route('/api/online', online);
 app.route('/api/economy', economy);
@@ -136,15 +148,41 @@ app.all('/api/*', () => {
 app.all('*', async (c) => (c.env.ASSETS ? c.env.ASSETS.fetch(c.req.raw) : c.json(errorBody('not_found', 'Not found'), 404)));
 
 app.onError((err, c) => {
-  if (err instanceof ApiError) return c.json(errorBody(err.code, err.message, err.extra), err.status as 400);
-  console.error('unhandled', err);
+  if (err instanceof ApiError) {
+    if (err.status >= 500) log('warn', 'api_error', { status: err.status, code: err.code, method: c.req.method, path: c.req.routePath, message: err.message });
+    return c.json(errorBody(err.code, err.message, err.extra), err.status as 400);
+  }
+  let pid: number | null = null;
+  try {
+    pid = c.get('session')?.pid ?? null;
+  } catch {
+    // no session
+  }
+  logError('http', err, { method: c.req.method, path: c.req.routePath, url: new URL(c.req.url).pathname.slice(0, 200), pid, ray: c.req.header('cf-ray') ?? null });
   return c.json(errorBody('internal', 'Internal error'), 500);
 });
 
+/** Daily housekeeping (cron HOUSEKEEPING_CRON): client error reports past their retention. */
+const HOUSEKEEPING_CRON = '17 3 * * *';
+async function housekeeping(env: AppEnv['Bindings']): Promise<void> {
+  if (!env.DB) return;
+  try {
+    const pruned = await pruneClientErrors(env.DB);
+    log('info', 'cron_pruned', { table: 'client_errors', rows: pruned });
+  } catch (e) {
+    logError('cron', e);
+    throw e;
+  }
+}
+
 export default {
   fetch: app.fetch,
-  /** Cron (wrangler.jsonc triggers): bot notifications that wait, season and income notices, bot setup. */
+  /**
+   * Cron (wrangler.jsonc triggers): every 5 minutes bot notifications that
+   * wait, season and income notices, bot setup; daily housekeeping.
+   */
   scheduled(controller, env, ctx) {
-    ctx.waitUntil(runScheduled(env, controller.scheduledTime));
+    if (controller.cron === HOUSEKEEPING_CRON) ctx.waitUntil(housekeeping(env));
+    else ctx.waitUntil(runScheduled(env, controller.scheduledTime));
   },
 } satisfies ExportedHandler<AppEnv['Bindings']>;

@@ -18,6 +18,9 @@ import { ApiError, badRequest } from '../errors';
 import { db, secret } from '../middleware';
 import { checkPreCheckout, recordPayment, recordRefund, type PreCheckoutQuery, type RefundedPayment, type SuccessfulPayment } from '../payments';
 import { callBot } from '../telegramApi';
+import { getPlayerByTelegramId } from '../players';
+import { getProduct, parsePayload } from '../products';
+import { emitForPlayer } from '../telemetry/analytics';
 import type { TelegramUser } from '../telegramAuth';
 import { CLAN_INVITE_PREFIX, inviteCodeFrom } from '../../../src/online/rules';
 import { handleCallback, handleCommand, type BotMessage, type CallbackQuery } from '../bot/handlers';
@@ -61,7 +64,13 @@ webhook.post('/webhook', async (c) => {
 
   const msg = update.message;
   if (msg?.successful_payment && msg.from) {
-    await recordPayment(db(c.env), msg.from, msg.successful_payment);
+    const pay = msg.successful_payment;
+    if (await recordPayment(db(c.env), msg.from, pay)) {
+      const pl = await getPlayerByTelegramId(db(c.env), msg.from.id);
+      const pack = parsePayload(pay.invoice_payload)?.productId ?? 'unknown';
+      const props = { pack: /^[a-z0-9_.-]{1,40}$/.test(pack) ? pack : 'unknown', drachmae: getProduct(pack)?.drachmae ?? 0, stars: pay.total_amount };
+      if (pl) await emitForPlayer(c.env, pl.id, 'purchase', props, { name: 'first_purchase', props: { pack: props.pack } });
+    }
     return c.json({ ok: true });
   }
   if (msg?.refunded_payment) {

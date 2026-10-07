@@ -11,6 +11,7 @@
  *          Submitting the same ticket again returns the stored result.
  * abandon: gives up an open ticket (no casualties, re-attack cooldown).
  */
+import { emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { LIMITS, LoggedOrderSchema, replayBattle } from '../battle';
@@ -339,6 +340,11 @@ attack.post('/submit', async (c) => {
       const data = { q: t.q, r: t.r, by: pc.name, ticket: t.id };
       later(c, notify(c.env, [result.captured ? ev(owner, 'attack_captured', `atk:${t.id}:end`, data) : ev(owner, 'attack_held', `atk:${t.id}:end`, data)], { shard: { season: t.season_id, id: t.shard_id } }));
     }
+  }
+  if (!(result as { replayed?: boolean }).replayed) {
+    const mode = t.defender_kind === 'beast' ? 'beast' : 'online';
+    await emitWithFirst(c, 'battle_result', { mode, result: outcomeOf(s.winner), ticks: s.ticks }, 'first_battle', { mode });
+    if ((result as { captured?: boolean }).captured) await emitWithFirst(c, null, {}, 'first_capture', {});
   }
   return c.json(result);
 });

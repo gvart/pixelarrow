@@ -5,6 +5,7 @@
  * everything here is a server-side debit of Drachmae (or season gold for
  * consumables), atomic in one D1 batch and idempotent per client request id.
  */
+import { emit } from '../telemetry/analytics';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
@@ -293,5 +294,6 @@ economy.post('/pass/claim', async (c) => {
     if (done) return c.json({ tier: body.tier, track: body.track, reward, replayed: true });
     throw new ApiError(409, 'locked', body.track === 'premium' ? 'Reach this tier with the premium track unlocked first' : 'Reach this tier first');
   }
+  emit(c, 'pass_claim', { track: body.track, tier: body.tier });
   return c.json({ tier: body.tier, track: body.track, reward, replayed: false, drachmae: await balance(d, pid) });
 });

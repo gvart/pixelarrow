@@ -16,6 +16,7 @@ import { t, type LangSetting, type TKey } from '../i18n';
 import { refreshLang } from './lang';
 import { canResume, progressOf } from '../game/tutorial';
 import { openAbout, openNotifySettings } from './notifySettings';
+import { analyticsToggled } from '../platform/monitoring';
 
 type Toggle = { [K in keyof Settings]-?: Settings[K] extends boolean ? K : never }[keyof Settings];
 type Volume = 'musicVol' | 'sfxVol';
@@ -45,6 +46,7 @@ const ROWS: Row[] = [
   { kind: 'tutorial', label: 'settings.tutorial' },
   { kind: 'open', what: 'notify', label: 'settings.notifications' },
   { kind: 'open', what: 'about', label: 'settings.about' },
+  { kind: 'toggle', key: 'analytics', label: 'settings.analytics' },
 ];
 const LANG_CYCLE: LangSetting[] = ['auto', 'en', 'ru'];
 /** Scenes that may be rebuilt when the language changes (never a running battle). */
@@ -81,6 +83,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
           b.setSelected(s[k]);
           if (k === 'haptics') setHaptics(s.haptics);
           if (k === 'sound') audio.refresh();
+          if (k === 'analytics') analyticsToggled();
           haptic('light');
           void state.save();
         });

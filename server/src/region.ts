@@ -15,6 +15,8 @@
  *  - the live duel lobby and lockstep relay (server/src/online/duel.ts).
  * Protocol: src/online/protocol.ts and server/README.md.
  */
+import { emitForPlayer } from './telemetry/analytics';
+import { logError } from './telemetry/log';
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './env';
 import { DuelHub, HUB_PREFIX, type Out } from './online/duel';
@@ -93,6 +95,13 @@ export class RegionDO extends DurableObject<Env> {
         )
           .bind(m.season, m.shard, d.id, d.players[0], d.players[1], r.winner, r.ticks, r.hash, r.verified ? 1 : 0, JSON.stringify({ orders: d.log.length, mismatches: r.mismatches }), Date.now())
           .run();
+        if (r.verified) {
+          await Promise.all(
+            d.players.map((pid, side) =>
+              emitForPlayer(this.env, pid, 'battle_result', { mode: 'duel', result: r.winner === side ? 'win' : r.winner === -1 ? 'draw' : 'loss', ticks: r.ticks }, { name: 'first_battle', props: { mode: 'duel' } }),
+            ),
+          );
+        }
       },
     });
     // Challenges and deployments survive hibernation (DuelHub.persistence).
@@ -181,6 +190,15 @@ export class RegionDO extends DurableObject<Env> {
 
   /** Starts timed duel deployments that are over and announces the marches that arrived. */
   async alarm(): Promise<void> {
+    try {
+      await this.onAlarm();
+    } catch (e) {
+      logError('do.region', e, { op: 'alarm', room: this.ctx.id.name ?? null });
+      throw e; // let the runtime retry the alarm
+    }
+  }
+
+  private async onAlarm(): Promise<void> {
     this.deliver(this.hub.tick());
     await this.saveHub();
     const now = Date.now();
@@ -335,6 +353,19 @@ export class RegionDO extends DurableObject<Env> {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    try {
+      await this.onMessage(ws, message);
+    } catch (e) {
+      logError('do.region', e, { op: 'message', room: this.ctx.id.name ?? null });
+      try {
+        ws.send(JSON.stringify({ type: 'error', message: 'Internal error' }));
+      } catch {
+        // socket closing
+      }
+    }
+  }
+
+  private async onMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     if (typeof message !== 'string' || message.length > MAX_MESSAGE) {
       ws.send(JSON.stringify({ type: 'error', message: 'Expected a JSON text frame' }));
       return;

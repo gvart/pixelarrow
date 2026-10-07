@@ -16,6 +16,7 @@
  *                it, and its hoard is split by damage share (idempotent).
  * POST /abandon  gives an open raid up.
  */
+import { emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { LIMITS, LoggedOrderSchema, replayBattle } from '../battle';
@@ -319,6 +320,7 @@ bosses.post('/submit', async (c) => {
   }
   const res = await applyRaid(pc, t, out.result, s, setup, claimJson);
   if (res.killedNow) later(c, (async () => notify(c.env, await slainEvents(pc, t), { shard: pc.shard }))());
+  if (!(res as { replayed?: boolean }).replayed) await emitWithFirst(c, 'battle_result', { mode: 'boss', result: outcomeOf(s.winner), ticks: s.ticks }, 'first_battle', { mode: 'boss' });
   return c.json(res);
 });
 

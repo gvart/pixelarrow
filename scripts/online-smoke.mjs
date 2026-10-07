@@ -176,6 +176,12 @@ const s = await session('ok', async (route) => {
       econ.inventory.morale_wine = (econ.inventory.morale_wine ?? 0) + 1;
       return json(200, { order: { requestId: body.requestId, item: body.item, qty: 1, currency: 'gold', price: 80, season: 1, at: Date.now() }, replayed: false, drachmae: econ.drachmae });
     }
+    case 'POST /api/telemetry/events':
+      return json(200, { accepted: JSON.parse(req.postData() ?? '{}').events?.length ?? 0, rejected: [] });
+    case 'POST /api/telemetry/errors':
+      return json(200, { ok: true, stored: 0, dropped: 0 });
+    case 'POST /api/telemetry/consent':
+      return json(200, { analytics: JSON.parse(req.postData() ?? '{}').analytics });
     default:
       console.log('  unmocked', req.method(), url.pathname);
       return json(404, { error: { code: 'not_found', message: 'no route' } });

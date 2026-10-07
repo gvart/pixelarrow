@@ -4,6 +4,7 @@
  * live in attack.ts, clans in clans.ts. Every economy change happens here,
  * validated against server state; the client never sends amounts.
  */
+import { emit } from '../telemetry/analytics';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
@@ -196,7 +197,9 @@ online.get('/status', async (c) => {
 online.post('/profile', async (c) => {
   limit(c, 'profile', 10);
   const b = await base(c);
-  await ensureProfile(b.db, b.season, b.pid, b.now);
+  const had = await getProfile(b.db, b.season.id, b.pid);
+  const prof = had ?? (await ensureProfile(b.db, b.season, b.pid, b.now));
+  if (!had) emit(c, 'online_join', { shard: prof.shard_id, season: b.season.id });
   return c.json(await profileView(await player(c)));
 });
 

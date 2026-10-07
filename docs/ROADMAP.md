@@ -143,13 +143,14 @@ English/Russian and the online battle rules → tutorial battle → mythical bea
    pixelarrow.app/terms, /privacy, /refunds (and /ru/...), linked from
    Settings → About and the wallet. See server/README.md "Payment support
    and legal pages".
-3. **Error monitoring and analytics:** client crash reports, plus funnel and
+3. ~~**Error monitoring and analytics:** client crash reports, plus funnel and
    retention events (tutorial completed, first battle, first purchase, day-1
    and day-7 return), in Cloudflare Analytics Engine or a similar low-cost
-   store.
-4. **Backups and an admin panel:** a tested D1 point-in-time restore runbook.
+   store.~~ Done: docs/OPS.md "Monitoring" and "Analytics".
+4. ~~**Backups and an admin panel:** a tested D1 point-in-time restore runbook.
    A protected admin page to view players, refund, ban, adjust balances, and
-   end or start a season by hand.
+   end or start a season by hand.~~ Done: docs/OPS.md "Backups", "Restore
+   runbook" and "Admin panel".
 
 ### Later (backlog)
 

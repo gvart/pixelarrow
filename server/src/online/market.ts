@@ -17,6 +17,7 @@
  * simply left behind with the rest of the season (goods vanish with it; gold
  * dies with the season; Drachmae already paid to a seller stay theirs).
  */
+import { emit } from '../telemetry/analytics';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
@@ -351,6 +352,7 @@ market.post('/list', async (c) => {
     if (body.kind === 'consumable') throw new ApiError(409, 'none_left', `You do not have ${qty} ${CONSUMABLES[body.ref as ConsumableId].name.toLowerCase()}`);
     throw e;
   }
+  emit(c, 'market_list', { kind: body.kind, currency: body.currency, price: body.price });
   const names = await playerNames(pc.db, [pc.pid]);
   return c.json({ listing: listingView(listing, pc.pid, names, pc.now) });
 });
@@ -411,6 +413,7 @@ market.post('/buy', async (c) => {
     if (now.status !== 'open' || now.expires_at <= pc.now) throw closedError(now, pc.now);
     throw new ApiError(409, 'insufficient_funds', l.currency === 'drachmae' ? 'Not enough Drachmae' : 'Not enough gold', { price: l.price, currency: l.currency });
   }
+  emit(c, 'market_buy', { kind: l.kind as 'item' | 'resource' | 'consumable', currency: l.currency as 'gold' | 'drachmae', price: l.price });
   const names = await playerNames(pc.db, [l.seller_id]);
   later(c, notify(c.env, [ev(l.seller_id, 'market_sold', `sold:${l.id}`, { what: goodsName(l), price: l.price, currency: l.currency, gets: l.price - fee })], { shard: pc.shard }));
   return c.json({ listing: listingView({ ...l, status: 'sold', buyer_id: pc.pid, fee, closed_at: pc.now }, pc.pid, names, pc.now), paid: l.price, fee, sellerGets: l.price - fee });

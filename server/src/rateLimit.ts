@@ -18,6 +18,12 @@ export function rateLimit(key: string, limit: number, windowMs: number, now = Da
   return w.count <= limit;
 }
 
+/** True while `key` is over `limit` in its current window (does not count a hit). */
+export function overLimit(key: string, limit: number, windowMs: number, now = Date.now()): boolean {
+  const w = windows.get(key);
+  return !!w && now - w.start < windowMs && w.count >= limit;
+}
+
 export function resetRateLimits(): void {
   windows.clear();
 }

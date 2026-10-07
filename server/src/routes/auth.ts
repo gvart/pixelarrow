@@ -3,7 +3,9 @@ import { z } from 'zod';
 import type { AppEnv, Env } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { db, secret } from '../middleware';
-import { displayName, publicPlayer, upsertPlayer } from '../players';
+import { bannedError } from '../ban';
+import { displayName, getPlayerByTelegramId, publicPlayer, upsertPlayer, type PlayerRow } from '../players';
+import { optedOut, requestCtx, writeEvent } from '../telemetry/analytics';
 import { rateLimit } from '../rateLimit';
 import { signSession } from '../session';
 import { validateInitData, type TelegramUser } from '../telegramAuth';
@@ -75,7 +77,30 @@ auth.post('/telegram', async (c) => {
     user = result.user;
   }
 
-  const player = await upsertPlayer(db(c.env), user);
+  const d = db(c.env);
+  const prev = await getPlayerByTelegramId(d, user.id);
+  if (prev?.banned_at) throw bannedError();
+  const now = Date.now();
+  const player = await upsertPlayer(d, user, now);
+  if (!optedOut(c) && !prev?.analytics_opt_out) {
+    for (const event of retentionEvents(prev, now)) writeEvent(c.env, requestCtx(c, player.id, 'server', daysSince(player.created_at, now)), event, {});
+  }
   const { token, session } = await signSession({ pid: player.id, tg: player.telegram_id, name: displayName(player) }, sessionSecret);
   return c.json({ token, expiresAt: session.exp, player: publicPlayer(player) });
 });
+
+const DAY_MS = 86_400_000;
+const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
+export const daysSince = (createdAt: number, now: number) => utcDay(now) - utcDay(createdAt);
+
+/**
+ * Retention markers from the player row as it was before this sign-in:
+ * "install" for a new player; "return_d1" / "return_d7" on the first sign-in
+ * of UTC calendar day 1 / 7 after the install day.
+ */
+export function retentionEvents(prev: Pick<PlayerRow, 'created_at' | 'last_seen_at'> | null, now: number): ('install' | 'return_d1' | 'return_d7')[] {
+  if (!prev) return ['install'];
+  if (utcDay(now) <= utcDay(prev.last_seen_at)) return [];
+  const d = daysSince(prev.created_at, now);
+  return d === 1 ? ['return_d1'] : d === 7 ? ['return_d7'] : [];
+}

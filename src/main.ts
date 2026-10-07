@@ -26,6 +26,8 @@ import { checkUi, collectUi } from './ui/layout';
 import { scrollAllAreas } from './ui/kit';
 import { refreshLang } from './ui/lang';
 import { lang, setLang, type Lang } from './i18n';
+import { installMonitoring } from './platform/monitoring';
+import type { GameLike } from './platform/telemetry';
 
 installWidgets();
 
@@ -45,6 +47,9 @@ const game = new Phaser.Game({
   audio: { noAudio: true }, // all sound is our own Web Audio (src/audio)
   scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, OnlineScene, OnlineArmyScene, ClanScene, KitScene, ShopScene, MarketScene, BeastTrialScene, FirstRunScene],
 });
+
+// Crash reports and product analytics (docs/OPS.md); analytics honours the Settings toggle.
+installMonitoring(game as unknown as GameLike, { analyticsEnabled: () => state.campaign?.data.settings.analytics !== false, lang: () => lang() });
 
 // Telegram full screen: keep the canvas inside the safe area (status bar,
 // notch, Telegram's floating buttons, home indicator) and re-layout on change.

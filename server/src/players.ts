@@ -9,6 +9,10 @@ export interface PlayerRow {
   is_premium: number;
   created_at: number;
   last_seen_at: number;
+  /** Migration 0005: admin ban and the analytics opt-out. */
+  banned_at?: number | null;
+  ban_reason?: string | null;
+  analytics_opt_out?: number;
 }
 
 const clip = (s: unknown, n: number): string | null => (typeof s === 'string' && s.length > 0 ? s.slice(0, n) : null);

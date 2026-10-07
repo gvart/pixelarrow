@@ -1,5 +1,6 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AppEnv, Env } from './env';
+import { assertNotBanned } from './ban';
 import { notConfigured, unauthorized } from './errors';
 import { verifySession, type Session } from './session';
 
@@ -30,6 +31,7 @@ export async function sessionFromToken(env: Env, token: string | null): Promise<
   if (!token) throw unauthorized();
   const s = await verifySession(token, sessionSecret);
   if (!s) throw unauthorized();
+  await assertNotBanned(env.DB, s.pid);
   return s;
 }
 

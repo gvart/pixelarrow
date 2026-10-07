@@ -5,6 +5,7 @@
 import type { Battle } from '../sim/battle';
 import type { BattleSetup } from '../sim/types';
 import { online } from './cloud';
+import { track } from './analytics';
 
 /** Deep copy of the setup as it was when the battle was created (the sim may mutate nested objects). */
 export function snapshotSetup(setup: BattleSetup): BattleSetup {
@@ -12,6 +13,8 @@ export function snapshotSetup(setup: BattleSetup): BattleSetup {
 }
 
 export function reportBattle(setup: BattleSetup | null, sim: Battle, deployOrders: number | undefined): void {
+  // Offline battles: the player is side 0. (Online results are recorded by the server.)
+  track('battle_result', { mode: 'offline', result: sim.winner === 0 ? 'win' : sim.winner === 1 ? 'loss' : 'draw', ticks: sim.tick });
   if (!setup || !online.signedIn) return;
   try {
     online.verifyBattle({

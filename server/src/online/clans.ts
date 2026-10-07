@@ -5,6 +5,7 @@
  * promotes, demotes or hands over leadership. Members' hexes are clan land:
  * any member can garrison them.
  */
+import { emit } from '../telemetry/analytics';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
@@ -118,6 +119,7 @@ clans.post('/', async (c) => {
     await pc.db.prepare('DELETE FROM clans WHERE id = ?1').bind(id).run();
     throw new ApiError(409, 'in_clan', 'Leave your clan first');
   }
+  emit(c, 'clan_join', { how: 'create' });
   return c.json({ clan: await clanView(pc, id), role: 'leader' });
 });
 
@@ -202,6 +204,7 @@ clans.post('/join', async (c) => {
   if (inv.created_by !== b.pid) {
     later(c, notify(c.env, [ev(inv.created_by, 'clan_joined', `clan_join:${inv.clan_id}:${b.pid}`, { name: b.name, clan: `[${inv.clan.tag}] ${inv.clan.name}` })], { shard: { season: b.season.id, id: inv.clan.shard_id } }));
   }
+  emit(c, 'clan_join', { how: 'invite' });
   return c.json({ clan: await clanView(b, inv.clan_id), role: 'member' });
 });
 

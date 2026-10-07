@@ -33,6 +33,8 @@ export interface Settings {
   tutorial?: TutorialProgress;
   /** Online coach marks already shown (count, src/game/tutorial.ts ONLINE_COACH). */
   onlineCoach?: number;
+  /** Anonymous product analytics (src/platform/analytics.ts); off = nothing is sent. */
+  analytics: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,6 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sfxVol: 7,
   seenGestureHint: false,
   lang: 'auto',
+  analytics: true,
 };
 
 export interface SaveData {

@@ -12,6 +12,7 @@ import { P } from '../art/palette';
 import { renderIcon, renderPanel, renderScrollRoll, type PanelStyle } from '../art/uiTextures';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
+import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
 import { ellipsize, measureText } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
@@ -288,6 +289,8 @@ export class Button extends Phaser.GameObjects.Container {
       }
       hapticSelect();
       uiButton(this.opts.icon);
+      // Crash-report breadcrumb: the button's id or icon only (labels may hold player names).
+      breadcrumb('ui', `tap ${this.opts.id ?? this.opts.icon ?? '?'}`);
       this.opts.onClick?.();
     });
     this.once('destroy', () => this.pressTimer?.remove());

@@ -5,6 +5,12 @@
  *   - D1_DATABASE_ID set   -> the D1 binding gets that id
  *   - D1_DATABASE_ID empty -> the D1 binding is dropped; the API answers 503
  *                             "database not configured" on DB routes
+ *   - ANALYTICS_ENGINE=off -> the Analytics Engine datasets are dropped
+ *                             (product analytics and error counts are then
+ *                             skipped; crash reports still go to D1)
+ * Also writes wrangler.deploy.noae.json, the same config without Analytics
+ * Engine: the deploy step falls back to it if the account cannot create the
+ * datasets yet (docs/OPS.md "Analytics").
  * Prints "d1=true|false" (also to $GITHUB_OUTPUT when present).
  *
  * Usage: node server/scripts/deploy-config.mjs [path/to/wrangler.jsonc]
@@ -66,8 +72,18 @@ if (id) {
   console.warn('D1_DATABASE_ID is not set: deploying without D1 (DB routes answer 503).');
 }
 
+const noAe = { ...config };
+delete noAe.analytics_engine_datasets;
+if ((process.env.ANALYTICS_ENGINE ?? '').trim().toLowerCase() === 'off') {
+  delete config.analytics_engine_datasets;
+  console.warn('ANALYTICS_ENGINE=off: deploying without Analytics Engine datasets.');
+}
+
 const outPath = join(dirname(configPath), 'wrangler.deploy.json');
 writeFileSync(outPath, JSON.stringify(config, null, 2) + '\n');
 console.log(`wrote ${outPath}`);
+const noAePath = join(dirname(configPath), 'wrangler.deploy.noae.json');
+writeFileSync(noAePath, JSON.stringify(noAe, null, 2) + '\n');
+console.log(`wrote ${noAePath}`);
 console.log(`d1=${d1}`);
 if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `d1=${d1}\n`);

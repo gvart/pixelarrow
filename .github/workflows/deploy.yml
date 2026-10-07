@@ -133,6 +133,8 @@ jobs:
         run: node server/scripts/deploy-config.mjs wrangler.jsonc
         env:
           D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID || secrets.D1_DATABASE_ID }}
+          # "off" deploys without the Analytics Engine datasets (docs/OPS.md).
+          ANALYTICS_ENGINE: ${{ vars.ANALYTICS_ENGINE }}
 
       - name: Apply D1 migrations
         if: steps.config.outputs.d1 == 'true'
@@ -144,10 +146,22 @@ jobs:
           workingDirectory: server
           command: d1 migrations apply pixelarrow --remote --config ../wrangler.deploy.json
 
+      # If the account cannot bind Analytics Engine yet (it must be enabled
+      # once in the dashboard on some accounts), deploy without it rather than
+      # not at all: product analytics are then skipped until the next deploy
+      # (docs/OPS.md "Analytics"). Uses the wrangler pinned in server/.
       - name: Deploy assets + Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: server
-          command: deploy --config ../wrangler.deploy.json
+        working-directory: server
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! npx wrangler deploy --config ../wrangler.deploy.json 2>&1 | tee /tmp/deploy.log; then
+            if grep -qi "analytics" /tmp/deploy.log; then
+              echo "::warning::Deploy with Analytics Engine failed; deploying without it. Enable Analytics Engine in the Cloudflare dashboard (docs/OPS.md)."
+              npx wrangler deploy --config ../wrangler.deploy.noae.json
+            else
+              exit 1
+            fi
+          fi

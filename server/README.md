@@ -81,6 +81,13 @@ Authenticated routes take `Authorization: Bearer <token>`.
 | GET (WS) | `/ws/region/:id` | token | presence WebSocket (see below) |
 | … | `/api/online/*` | ✓ | online mode, see "Online mode" |
 | GET (WS) | `/ws/online` | token | the player's shard: presence, duel lobby, lockstep relay |
+| POST | `/api/telemetry/errors` | optional (header or body `token`) | client crash reports, deduplicated into D1 `client_errors` (docs/OPS.md "Monitoring") |
+| POST | `/api/telemetry/events` | ✓ (header or body `token`) | allowlisted product analytics events → Analytics Engine (docs/OPS.md "Analytics") |
+| POST | `/api/telemetry/consent` | ✓ | body `{ analytics: boolean }`: the Settings opt-out |
+| … | `/api/admin/*` | `ADMIN_TOKEN` | admin panel API; the page is `/admin` (docs/OPS.md "Admin panel") |
+
+A banned player (admin panel) gets **403** `banned` from sign-in and from every
+authenticated route and socket (existing sessions within a minute).
 
 Missing configuration fails loudly: no D1 binding → 503 `database not
 configured`; a missing secret → 503 `<NAME> not configured`.
@@ -586,6 +593,12 @@ typecheck, tests, build → `server/` `npm ci`, typecheck, tests →
 - not set → the D1 binding is dropped and the deploy still succeeds; DB routes
   answer 503 `database not configured`.
 
+It also writes `wrangler.deploy.noae.json` (no Analytics Engine datasets): the
+deploy falls back to it if the account cannot bind Analytics Engine yet. The
+Actions variable `ANALYTICS_ENGINE=off` drops the datasets on purpose.
+`.github/workflows/backup.yml` exports the database daily (docs/OPS.md
+"Backups"); `server/scripts/d1-restore.mjs` is the point-in-time restore.
+
 ## One-time setup checklist
 
 1. **Create the database:** `cd server && npx wrangler d1 create pixelarrow`
@@ -604,6 +617,7 @@ typecheck, tests, build → `server/` `npm ci`, typecheck, tests →
    openssl rand -hex 32 | npx wrangler secret put SESSION_SECRET --config ../wrangler.jsonc
    ```
    Keep the webhook secret value handy for step 5 (or set it from a variable).
+   For the admin panel also set `ADMIN_TOKEN` (docs/OPS.md "Operator setup").
    Check with `curl https://pixelarrow.app/api/health`.
 5. **Register the webhook** (also enables payment updates):
    ```bash

@@ -218,6 +218,7 @@ export const RU: Table = {
   'settings.pauseDeath': 'Пауза при гибели героя',
   'settings.haptics': 'Вибрация',
   'settings.dmgNumbers': 'Числа урона',
+  'settings.analytics': 'Статистика игры',
   'settings.sound': 'Звук',
   'settings.music': 'Музыка',
   'settings.effects': 'Эффекты',

@@ -235,6 +235,7 @@ export const EN = {
   'settings.pauseDeath': 'Pause on hero death',
   'settings.haptics': 'Haptic feedback',
   'settings.dmgNumbers': 'Damage numbers',
+  'settings.analytics': 'Usage statistics',
   'settings.sound': 'Sound',
   'settings.music': 'Music',
   'settings.effects': 'Effects',

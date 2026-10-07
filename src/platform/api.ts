@@ -272,6 +272,8 @@ export class ApiClient {
   private readonly fetchFn: FetchLike;
   private readonly timeoutMs: number;
   reauth?: () => Promise<string | null>;
+  /** Extra headers on every request (src/platform/monitoring.ts: app version, platform, analytics opt-out). */
+  extraHeaders?: () => Record<string, string>;
 
   constructor(opts: ApiOptions = {}) {
     this.base = opts.base ?? defaultApiBase();
@@ -298,6 +300,11 @@ export class ApiClient {
 
   private async once<T>(method: string, path: string, opts: RequestOpts): Promise<T> {
     const headers: Record<string, string> = { accept: 'application/json' };
+    try {
+      if (this.extraHeaders) Object.assign(headers, this.extraHeaders());
+    } catch {
+      /* headers are best effort */
+    }
     if (opts.body !== undefined) headers['content-type'] = 'application/json';
     if (opts.auth) {
       if (!this.token) throw new ApiError(401, 'unauthorized', 'Not signed in');

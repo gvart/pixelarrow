@@ -221,6 +221,11 @@ export function inTelegram(): boolean {
   return app !== null;
 }
 
+/** Telegram client platform ("ios", "android", "tdesktop", "weba", ...) and Bot API version, or "web" outside Telegram. */
+export function telegramClient(): { platform: string; version?: string } {
+  return app ? { platform: app.platform || 'unknown', version: app.version } : { platform: 'web' };
+}
+
 export function telegramUserName(): string | undefined {
   return app?.initDataUnsafe?.user?.first_name;
 }

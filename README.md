@@ -92,6 +92,9 @@ repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The
 build uses a relative `base` (`./`), so it also works under a sub-path and
 inside Telegram.
 
+Monitoring, analytics queries, backups and the restore runbook, and the
+admin panel at https://pixelarrow.app/admin: [docs/OPS.md](docs/OPS.md).
+
 ### Screenshots and smoke test
 
 With a dev or preview server running and Playwright's Chromium available
