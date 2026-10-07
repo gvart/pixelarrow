@@ -248,7 +248,7 @@ export class ShopScene extends BaseScene {
     let font: 'light' | 'good' | 'dim' | 'ink' = 'ink';
     if (equipped) (status = t('shop.equipped')), (font = 'light');
     else if (owned) (status = t('econ.owned')), (font = 'good');
-    else if (cm.drachmae === null) (status = cm.source === 'season_pass' ? t('shop.passOnly') : t('shop.notForSale')), (font = 'dim');
+    else if (cm.drachmae === null) (status = cm.source === 'season_pass' ? t('shop.passOnly') : cm.source === 'duel_season' ? t('shop.duelSeason') : t('shop.notForSale')), (font = 'dim');
     else status = t('econ.dr', { n: cm.drachmae });
     c.add(addText(this, x + w / 2, y + 49, ellipsize(status, w - 10), font, 0.5));
   }
@@ -286,7 +286,7 @@ export class ShopScene extends BaseScene {
       });
     else {
       act = new Button(this, x + w - 6 - bw, by, bw, SIZE.btnH, { label: `${cm.drachmae ?? '-'}`, icon: 'drachma', variant: 'primary', id: 'shop.buyCosmetic', onClick: () => (m.close(), this.askBuy(cm.id, cosmeticName(cm), cm.drachmae ?? 0, 'drachmae')) });
-      if (cm.drachmae === null) act.setEnabled(false, cm.source === 'season_pass' ? t('shop.passOnly') : t('shop.notForSale'));
+      if (cm.drachmae === null) act.setEnabled(false, cm.source === 'season_pass' ? t('shop.passOnly') : cm.source === 'duel_season' ? t('shop.duelSeason') : t('shop.notForSale'));
     }
     c.add(act);
   }

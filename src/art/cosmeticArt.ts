@@ -29,6 +29,13 @@ const LOOKS: Record<string, Look> = {
   banner_laurel: { main: 0x5f8a45, dark: 0x3e5a2c, light: 0x9ad87a, motif: 'sunwheel', ink: 0xe0b040 },
   supporter_banner: { main: 0xe0b040, dark: 0x8a6a28, light: 0xfff0a0, motif: 'star', ink: 0x8c2f25 },
   banner_pass_s: { main: 0x9a58c0, dark: 0x5e3478, light: 0xd09aff, motif: 'star', ink: 0xe0b040 },
+  // duel season rewards by peak league (src/duel/season.ts SEASON.rewards)
+  duel_emblem_bronze: { main: 0x8a5a2b, dark: 0x5a3a1b, light: 0xb8834a, motif: 'lambda', ink: 0xeee4cc },
+  duel_emblem_silver: { main: 0x8f9aa3, dark: 0x5e6870, light: 0xc8d0d8, motif: 'lambda', ink: 0x2e2220 },
+  duel_emblem_gold: { main: 0xc89a30, dark: 0x8a6a28, light: 0xf0d070, motif: 'star', ink: 0x6e2219 },
+  duel_banner_hoplite: { main: 0x8c2f25, dark: 0x5e1e17, light: 0xc0503f, motif: 'lambda', ink: 0xe0b040 },
+  duel_banner_strategos: { main: 0x4a3a8c, dark: 0x2e2460, light: 0x7a68c0, motif: 'star', ink: 0xe0b040 },
+  duel_banner_legend: { main: 0x2a7a6a, dark: 0x1a5046, light: 0x5ab0a0, motif: 'sunwheel', ink: 0xfff0a0 },
   cloak_crimson: { main: 0xa83224, dark: 0x6e2219, light: 0xd06048 },
   cloak_purple: { main: 0x7a3a9a, dark: 0x4a2260, light: 0xa868c8 },
   cloak_pass_s: { main: 0xe0b040, dark: 0x8a6a28, light: 0xfff0a0 },

@@ -15,14 +15,17 @@ import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../../../src/
 import { Rng } from '../../../src/sim/rng';
 import { onlineBattleSetup } from '../../../src/online/battle';
 import { randomSite } from '../../../src/world/battlefield';
-import { DUEL_RULES, accountLevel, freshGear, teamProblem } from '../../../src/duel/rules';
+import { DUEL_RULES, accountLevel, teamProblem } from '../../../src/duel/rules';
+import { idleRating, seasonId, type Ladder } from '../../../src/duel/season';
+import { rollRatings } from './season';
 import { duelHeroXp } from '../../../src/duel/ladder';
 import {
   RANKED, glicko2, leagueOf, matchPay, placed, recordAbandon, scoreOf, type AbandonState, type DuelMode, type League, type LeagueId, type Rating,
 } from '../../../src/duel/rating';
 import type { LiveMatchRef, MatchEnd, MatchReport } from '../../../src/duel/protocol';
 import { randomToken } from '../online/store';
-import { duelFormations, getDuelProfile, heroProgressStmts, loadDuelHeroes, teamOf, type DuelProfileRow } from './store';
+import { getDuelProfile, heroProgressStmts, loadDuelHeroes, loadoutFor, loadoutHeroes, type DuelProfileRow } from './store';
+import type { FormationType } from '../../../src/sim/formation';
 
 /** A live match row older than this is dead (its DuelDO is gone): it no longer blocks the queue. */
 export const MATCH_STALE_MS = 15 * 60_000;
@@ -38,11 +41,17 @@ export interface RatingRow {
   draws: number;
   league: string | null;
   peak: number | null;
+  /** The season the row belongs to (rolled over on first access in a later one: server/src/duel/season.ts). */
+  season: number;
+  played_at: number;
+  defences: number;
+  defence_wins: number;
 }
 
-export async function getRating(db: D1Database, pid: number): Promise<RatingRow> {
-  const r = await db.prepare("SELECT * FROM duel_ratings WHERE player_id = ?1 AND ladder = 'live'").bind(pid).first<RatingRow>();
-  return r ?? { player_id: pid, ...RANKED.start, games: 0, wins: 0, losses: 0, draws: 0, league: null, peak: null };
+/** A player's rating on a ladder (the start values before the first rated game). Roll the season first (rollRatings) where it matters. */
+export async function getRating(db: D1Database, pid: number, ladder: Ladder = 'live', now = Date.now()): Promise<RatingRow> {
+  const r = await db.prepare('SELECT * FROM duel_ratings WHERE player_id = ?1 AND ladder = ?2').bind(pid, ladder).first<RatingRow>();
+  return r ?? { player_id: pid, ...RANKED.start, games: 0, wins: 0, losses: 0, draws: 0, league: null, peak: null, season: seasonId(now), played_at: now, defences: 0, defence_wins: 0 };
 }
 
 /** The league a rating row shows (null during placements). */
@@ -50,7 +59,7 @@ export function rowLeague(r: Pick<RatingRow, 'rating' | 'games'>): League | null
   return placed(r.games) ? leagueOf(r.rating) : null;
 }
 
-function leagueText(l: League | null): string | null {
+export function leagueText(l: League | null): string | null {
   return l ? `${l.id}:${l.division ?? 0}` : null;
 }
 
@@ -90,18 +99,18 @@ export async function liveMatchOf(db: D1Database, pid: number, now: number): Pro
 
 export interface DuelTeam {
   heroes: Hero[];
-  formations: ReturnType<typeof duelFormations>;
+  formations: FormationType[];
 }
 
-/** The player's duel team as it would fight now (perfect gear), or why it cannot. */
+/** The player's arena team (live matches and async attacks) as it would fight now (perfect gear), or why it cannot. */
 export async function loadTeam(db: D1Database, pid: number, p?: DuelProfileRow | null): Promise<DuelTeam | { problem: 'no_team' | 'too_many' | 'over_budget' }> {
   const prof = p ?? (await getDuelProfile(db, pid));
   if (!prof) return { problem: 'no_team' };
-  const byId = new Map((await loadDuelHeroes(db, pid)).map((h) => [h.hero.id, h.hero]));
-  const heroes = teamOf(prof).map((id) => byId.get(id)).filter((h): h is Hero => !!h).map(freshGear);
+  const l = await loadoutFor(db, prof, 'arena');
+  const heroes = loadoutHeroes(l, await loadDuelHeroes(db, pid));
   const problem = teamProblem(heroes, DUEL_RULES.budget);
   if (problem) return { problem: problem === 'empty' ? 'no_team' : problem };
-  return { heroes, formations: duelFormations(prof) };
+  return { heroes, formations: l.formations };
 }
 
 export type QueueRefusal = 'cooldown' | 'locked' | 'no_team' | 'over_budget' | 'too_many' | 'busy';
@@ -110,6 +119,7 @@ export type QueueRefusal = 'cooldown' | 'locked' | 'no_team' | 'over_budget' | '
 export async function queueCheck(db: D1Database, pid: number, mode: DuelMode, now: number): Promise<{ ok: true; rating: RatingRow } | { ok: false; reason: QueueRefusal; until?: number }> {
   const p = await getDuelProfile(db, pid);
   if (!p) return { ok: false, reason: 'no_team' };
+  await rollRatings(db, pid, now);
   const [q, live, team, rating] = await Promise.all([getQueueState(db, pid), liveMatchOf(db, pid, now), loadTeam(db, pid, p), getRating(db, pid)]);
   if (q.cooldownUntil > now) return { ok: false, reason: 'cooldown', until: q.cooldownUntil };
   if (live) return { ok: false, reason: 'busy' };
@@ -171,6 +181,7 @@ export async function settleMatch(db: D1Database, m: MatchInit, o: MatchOutcome,
   const row = await db.prepare('SELECT status, result FROM duel_matches WHERE id = ?1').bind(m.id).first<{ status: string; result: string | null }>();
   if (row && row.status !== 'live' && row.result) return JSON.parse(row.result) as [MatchReport, MatchReport];
   const sides = [0, 1] as Side[];
+  if (m.mode === 'ranked') for (const p of m.players) await rollRatings(db, p, now);
   const [ratings, current] = await Promise.all([Promise.all(m.players.map((p) => getRating(db, p))), Promise.all(m.players.map((p) => loadDuelHeroes(db, p)))]);
   const queue = await Promise.all(m.players.map((p) => getQueueState(db, p)));
   const rated = m.mode === 'ranked' && o.end !== 'void';
@@ -203,7 +214,8 @@ export async function settleMatch(db: D1Database, m: MatchInit, o: MatchOutcome,
     let placements: MatchReport['placements'] = null;
     if (rated && score !== null) {
       const me = ratings[side];
-      const next: Rating = glicko2(me, ratings[other], score);
+      // a rating period per idle day widens the RD first (Glicko-2 inactivity)
+      const next: Rating = glicko2(idleRating(me, me.played_at, now), idleRating(ratings[other], ratings[other].played_at, now), score);
       const games = me.games + 1;
       const before = rowLeague(me);
       const after = rowLeague({ rating: next.rating, games });
@@ -215,13 +227,13 @@ export async function settleMatch(db: D1Database, m: MatchInit, o: MatchOutcome,
       stmts.push(
         db
           .prepare(
-            `INSERT INTO duel_ratings (player_id, ladder, rating, rd, vol, games, wins, losses, draws, league, peak, last_match, updated_at)
-             SELECT ?1, 'live', ?2, ?3, ?4, 1, ?5, ?6, ?7, ?8, ?9, ?10, ?11 WHERE ${G}
+            `INSERT INTO duel_ratings (player_id, ladder, rating, rd, vol, games, wins, losses, draws, league, peak, last_match, updated_at, season, played_at)
+             SELECT ?1, 'live', ?2, ?3, ?4, 1, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?11 WHERE ${G}
              ON CONFLICT (player_id, ladder) DO UPDATE SET rating = excluded.rating, rd = excluded.rd, vol = excluded.vol, games = games + 1,
                wins = wins + excluded.wins, losses = losses + excluded.losses, draws = draws + excluded.draws, league = excluded.league,
-               peak = excluded.peak, last_match = excluded.last_match, updated_at = excluded.updated_at`,
+               peak = excluded.peak, last_match = excluded.last_match, updated_at = excluded.updated_at, season = excluded.season, played_at = excluded.played_at`,
           )
-          .bind(pid, next.rating, next.rd, next.vol, score === 1 ? 1 : 0, score === 0 ? 1 : 0, score === 0.5 ? 1 : 0, leagueText(after), peak, m.id, now),
+          .bind(pid, next.rating, next.rd, next.vol, score === 1 ? 1 : 0, score === 0 ? 1 : 0, score === 0.5 ? 1 : 0, leagueText(after), peak, m.id, now, seasonId(now)),
       );
     }
     if (abandoned) {

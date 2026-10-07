@@ -328,6 +328,7 @@ export const EN_ARMY = {
   'shop.equipped': 'Equipped',
   'shop.passOnly': 'Season pass',
   'shop.notForSale': 'Not for sale',
+  'shop.duelSeason': 'Duel season reward',
   'shop.buyTitle': 'Buy {name}?',
   'shop.buyBody': 'Costs {price}.',
   'shop.buy': 'Buy',

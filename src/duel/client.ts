@@ -17,11 +17,12 @@ import { Rng } from '../sim/rng';
 import { DEFAULT_FORMATIONS } from '../online/rules';
 import {
   DUEL_RULES, accountLevel, classUnlockLevel, developHero, duelRecruit, findOffer, recruitPrice, respecHero, respecPrice, sellPrice, shopItem,
-  starterDuelRoster, teamProblem, utcDay,
+  starterDuelRoster, teamPoints, teamProblem, utcDay,
 } from './rules';
 import { canFight, duelHeroXp, ladderFloor, ladderPayout, ladderSetup, type HeroXp } from './ladder';
-import { RANKED, glicko2, leagueOf, matchPay, placed, scoreOf, type DuelMode, type League, type Rating } from './rating';
-import type { LiveMatchRef, MatchReport, MatchmakerClientMsg, MatchmakerServerMsg } from './protocol';
+import { RANKED, glicko2, leagueOf, matchPay, placed, scoreOf, type DuelMode, type League, type LeagueId, type Rating, type Score } from './rating';
+import type { AsyncReport, LiveMatchRef, MatchReport, MatchmakerClientMsg, MatchmakerServerMsg } from './protocol';
+import { ASYNC, SEASON, asyncSetup, attackPay, defenceRating, pickCandidates, seasonEnd, seasonId, seasonStart, type Ladder } from './season';
 import { ShardSocket } from '../online/client';
 import { onlineBattleSetup } from '../online/battle';
 import { randomSite } from '../world/battlefield';
@@ -40,6 +41,113 @@ export interface DuelProfileView {
   battles: number;
   wins: number;
   bought: string[];
+  /** The saved teams; `team` and `formations` above are the edited one's (`loadout`). */
+  loadouts: Loadout[];
+  loadout: number;
+  /** Which loadout fights where. */
+  use: Record<LoadoutUse, number>;
+  /** The defence the bot plays in raids (null: none set yet). */
+  defence: { points: number; heroes: number; updatedAt: number } | null;
+}
+
+export type LoadoutUse = 'ladder' | 'arena' | 'defence';
+export const LOADOUT_USES: LoadoutUse[] = ['ladder', 'arena', 'defence'];
+
+export interface Loadout {
+  slot: number;
+  name: string | null;
+  team: string[];
+  formations: FormationType[];
+}
+
+/** A defender offered for a raid (GET /api/duel/async). */
+export interface AsyncCandidate {
+  pid: number;
+  name: string;
+  league: League | null;
+  rating: number | null;
+  points: number;
+  heroes: number;
+  classes: string[];
+}
+
+/** The raid card (GET /api/duel/async). */
+export interface AsyncView {
+  now: number;
+  level: number;
+  unlockLevel: number;
+  unlocked: boolean;
+  league: League | null;
+  rating: number | null;
+  games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  defences: number;
+  defenceWins: number;
+  placements: { played: number; of: number };
+  attacks: { used: number; cap: number; left: number };
+  defence: { points: number; heroes: number; updatedAt: number } | null;
+  candidates: AsyncCandidate[];
+  open: { ticket: string; defender: number } | null;
+}
+
+export interface AsyncTicket {
+  ticket: string;
+  defender: { pid: number; name: string; league: League | null };
+  expiresAt: number;
+  setup: BattleSetup;
+  team: Hero[];
+  enemies: Hero[];
+  resumed?: boolean;
+}
+
+export interface AsyncLogEntry {
+  id: string;
+  at: number;
+  role: 'attack' | 'defence';
+  pid: number;
+  name: string;
+  score: Score;
+  delta: number;
+  glory: number;
+}
+
+export interface SeasonRewardView {
+  season: number;
+  ladder: Ladder;
+  league: LeagueId;
+  glory: number;
+  cosmetic: string;
+}
+
+/** The running ranked season (GET /api/duel/season). */
+export interface SeasonView {
+  now: number;
+  season: { id: number; start: number; end: number };
+  live: { league: League | null; peak: League | null };
+  async: { league: League | null; peak: League | null };
+  title: { league: LeagueId; season: number } | null;
+  rewards: SeasonRewardView[];
+  table: { league: LeagueId; glory: number; asyncGlory: number; cosmetic: string }[];
+}
+
+export type Board = 'live' | 'async' | 'legend';
+
+export interface BoardRow {
+  rank: number;
+  pid: number;
+  name: string;
+  league: League;
+  rating: number | null;
+  games: number;
+}
+
+export interface LeaderboardView {
+  board: Board;
+  season: { id: number; end: number };
+  rows: BoardRow[];
+  me: BoardRow | null;
 }
 
 export interface LadderTicket {
@@ -122,6 +230,16 @@ export interface DuelSource {
   queue(mode: DuelMode, on: (e: QueueEvent) => void): () => void;
   /** A settled match's report (after a reconnect that came too late for match_result). */
   matchReport(id: string): Promise<WithProfile<{ report: MatchReport }>>;
+  /** Picks, names and assigns a saved team (a slot never saved starts as a copy of the edited one). */
+  loadout(body: { slot: number; edit?: boolean; name?: string | null; use?: LoadoutUse[] }): Promise<WithProfile>;
+  asyncView(): Promise<AsyncView>;
+  asyncStart(defender: number): Promise<AsyncTicket>;
+  asyncSubmit(ticket: string, sub: LadderSubmission, result: BattleResult): Promise<WithProfile<{ report: AsyncReport; replayed?: boolean }>>;
+  asyncAbandon(ticket: string): Promise<unknown>;
+  asyncLog(): Promise<{ now: number; entries: AsyncLogEntry[] }>;
+  season(): Promise<SeasonView>;
+  seasonSeen(): Promise<unknown>;
+  leaderboard(board: Board): Promise<LeaderboardView>;
 }
 
 const outside = () => new ApiError(0, 'outside', 'Available in Telegram');
@@ -177,6 +295,33 @@ export class ApiDuelSource implements DuelSource {
   }
   matchReport(id: string) {
     return this.req<WithProfile<{ report: MatchReport }>>('GET', `/match/${id}`);
+  }
+  loadout(body: { slot: number; edit?: boolean; name?: string | null; use?: LoadoutUse[] }) {
+    return this.req<WithProfile>('POST', '/loadout', body);
+  }
+  asyncView() {
+    return this.req<AsyncView>('GET', '/async');
+  }
+  asyncStart(defender: number) {
+    return this.req<AsyncTicket>('POST', '/async/start', { defender });
+  }
+  asyncSubmit(ticket: string, sub: LadderSubmission) {
+    return this.req<WithProfile<{ report: AsyncReport; replayed?: boolean }>>('POST', '/async/submit', { ticket, ...sub });
+  }
+  asyncAbandon(ticket: string) {
+    return this.req('POST', '/async/abandon', { ticket });
+  }
+  asyncLog() {
+    return this.req<{ now: number; entries: AsyncLogEntry[] }>('GET', '/async/log');
+  }
+  season() {
+    return this.req<SeasonView>('GET', '/season');
+  }
+  seasonSeen() {
+    return this.req('POST', '/season/seen', {});
+  }
+  leaderboard(board: Board) {
+    return this.req<LeaderboardView>('GET', `/leaderboard?board=${board}`);
   }
 
   /**
@@ -255,12 +400,38 @@ export class DemoDuelSource implements DuelSource {
       battles: opts.fresh ? 0 : 6,
       wins: opts.fresh ? 0 : 4,
       bought: [],
+      loadouts: [
+        { slot: 1, name: null, team: heroes.slice(0, 6).map((h) => h.id), formations: [...DEFAULT_FORMATIONS] },
+        { slot: 2, name: opts.fresh ? null : 'Wall', team: opts.fresh ? [] : [heroes[0].id, heroes[1].id, heroes[6]?.id ?? heroes[2].id], formations: [...DEFAULT_FORMATIONS] },
+        { slot: 3, name: null, team: [], formations: [...DEFAULT_FORMATIONS] },
+      ],
+      loadout: 1,
+      use: { ladder: 1, arena: 1, defence: opts.fresh ? 1 : 2 },
+      defence: null,
     };
     this.p.level = accountLevel(this.p.xp);
+    if (!opts.fresh) this.snapDefence();
+  }
+
+  private loadoutTeam(use: LoadoutUse): Hero[] {
+    const l = this.p.loadouts[this.p.use[use] - 1];
+    return l.team.map((id) => this.p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+  }
+
+  /** The defence snapshot (what the bot plays): kept while the defence loadout fits the budget. */
+  private snapDefence(): void {
+    const team = this.loadoutTeam('defence');
+    if (teamProblem(team, DUEL_RULES.budget)) return;
+    this.p.defence = { points: teamPoints(team), heroes: team.length, updatedAt: this.clock() };
   }
 
   private view(): DuelProfileView {
     const now = this.clock();
+    const ids = new Set(this.p.heroes.map((h) => h.id));
+    for (const l of this.p.loadouts) l.team = l.team.filter((id) => ids.has(id));
+    const edited = this.p.loadouts[this.p.loadout - 1];
+    this.p.team = edited.team;
+    this.p.formations = edited.formations;
     this.p.now = now;
     this.p.day = utcDay(now);
     this.p.level = accountLevel(this.p.xp);
@@ -298,7 +469,7 @@ export class DemoDuelSource implements DuelSource {
     const h = this.hero(heroId);
     if (this.p.heroes.length <= 1) throw err('last_hero', 'Keep at least one hero');
     this.p.heroes = this.p.heroes.filter((x) => x.id !== heroId);
-    this.p.team = this.p.team.filter((x) => x !== heroId);
+    for (const l of this.p.loadouts) l.team = l.team.filter((x) => x !== heroId);
     for (const it of Object.values(h.equip)) if (it) this.p.stash.push(it);
     return { profile: this.view() };
   }
@@ -344,14 +515,36 @@ export class DemoDuelSource implements DuelSource {
     return { hero: h, profile: this.view() };
   }
 
-  async team(body: { heroIds?: string[]; formations?: FormationType[]; groups?: Record<string, number> }) {
+  async team(body: { heroIds?: string[]; formations?: FormationType[]; groups?: Record<string, number>; loadout?: number }) {
+    const l = this.p.loadouts[(body.loadout ?? this.p.loadout) - 1];
     if (body.heroIds) {
       if (body.heroIds.length > DUEL_RULES.teamMax) throw new ApiError(400, 'bad_request', 'Team too big');
       for (const id of body.heroIds) this.hero(id);
-      this.p.team = [...new Set(body.heroIds)];
+      l.team = [...new Set(body.heroIds)];
     }
-    if (body.formations) this.p.formations = body.formations;
+    if (body.formations) l.formations = body.formations;
     for (const [id, g] of Object.entries(body.groups ?? {})) this.hero(id).group = g;
+    if (this.p.defence) this.snapDefence();
+    return { profile: this.view() };
+  }
+
+  async loadout(body: { slot: number; edit?: boolean; name?: string | null; use?: LoadoutUse[] }) {
+    const l = this.p.loadouts[body.slot - 1];
+    if (!l) throw new ApiError(400, 'bad_request', 'No such loadout');
+    if (!l.team.length && body.slot !== this.p.loadout) {
+      const from = this.p.loadouts[this.p.loadout - 1];
+      l.team = [...from.team];
+      l.formations = [...from.formations];
+    }
+    if (body.name !== undefined) l.name = body.name || null;
+    if (body.use?.includes('defence')) {
+      const team = l.team.map((id) => this.p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+      const problem = teamProblem(team, DUEL_RULES.budget);
+      if (problem) throw err(problem === 'empty' ? 'no_team' : problem, `A defence must fit the ${DUEL_RULES.budget}-point budget`);
+    }
+    for (const u of body.use ?? []) this.p.use[u] = body.slot;
+    if (body.edit) this.p.loadout = body.slot;
+    if (body.use?.includes('defence') || this.p.defence) this.snapDefence();
     return { profile: this.view() };
   }
 
@@ -379,7 +572,7 @@ export class DemoDuelSource implements DuelSource {
   async ladderStart(floorNo: number) {
     if (!canFight(floorNo, this.p.ladder.cleared)) throw err('floor_locked', 'Clear the floors below first');
     const floor = ladderFloor(floorNo);
-    const team = this.p.team.map((id) => this.p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+    const team = this.loadoutTeam('ladder');
     const problem = teamProblem(team, floor.budget);
     if (problem === 'empty') throw err('no_team', 'Pick your team first');
     if (problem === 'over_budget') throw err('over_budget', `Your team is over this floor's ${floor.budget}-point budget`);
@@ -390,7 +583,7 @@ export class DemoDuelSource implements DuelSource {
       floor: floor.floor,
       boss: floor.boss,
       expiresAt: this.clock() + DUEL_RULES.ticketTtlMs,
-      setup: ladderSetup(seed, JSON.parse(JSON.stringify(team)) as Hero[], this.p.formations, floor),
+      setup: ladderSetup(seed, JSON.parse(JSON.stringify(team)) as Hero[], this.p.loadouts[this.p.use.ladder - 1].formations, floor),
       team: JSON.parse(JSON.stringify(team)) as Hero[],
       enemies: floor.heroes,
     };
@@ -472,7 +665,7 @@ export class DemoDuelSource implements DuelSource {
 
   queue(mode: DuelMode, on: (e: QueueEvent) => void): () => void {
     const timers: ReturnType<typeof setTimeout>[] = [];
-    const team = this.p.team.map((id) => this.p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+    const team = this.loadoutTeam('arena');
     const problem = teamProblem(team, DUEL_RULES.budget);
     const since = this.clock();
     timers.push(
@@ -495,11 +688,170 @@ export class DemoDuelSource implements DuelSource {
     throw new ApiError(404, 'not_found', 'No such match');
   }
 
+  // ------------------------------------------------------------------ raids, seasons and leaderboards (demo)
+
+  private as: DemoAsync | null = null;
+  /** The demo's async state (previews set `rewards` for the season popup). */
+  get async(): DemoAsync {
+    return (this.as ??= new DemoAsync(this.clock()));
+  }
+
+  private candidates(): (AsyncCandidate & { rating: number })[] {
+    const a = this.async;
+    const now = this.clock();
+    const pool = a.defenders.filter((d) => !(now - (a.attacked.get(d.pid) ?? -Infinity) < ASYNC.repeatMs));
+    return pickCandidates(a.rating.rating, pool, a.used * 7 + 1).map((d, i) => {
+      const league = placed(d.games) ? leagueOf(d.rating) : null;
+      return { pid: d.pid, name: d.name, league, rating: d.rating, points: 96 + ((d.pid * 13) % 50), heroes: 5 + (i % 4), classes: [] };
+    });
+  }
+
+  async asyncView(): Promise<AsyncView> {
+    const level = accountLevel(this.p.xp);
+    const a = this.async;
+    const r = a.rating;
+    const league = placed(r.games) ? leagueOf(r.rating) : null;
+    const unlocked = level >= DUEL_RULES.rankedLevel;
+    return {
+      now: this.clock(),
+      level,
+      unlockLevel: DUEL_RULES.rankedLevel,
+      unlocked,
+      league,
+      rating: league?.id === 'legend' ? Math.round(r.rating) : null,
+      games: r.games,
+      wins: r.wins,
+      losses: r.losses,
+      draws: r.draws,
+      defences: r.defences,
+      defenceWins: r.defenceWins,
+      placements: { played: Math.min(r.games, RANKED.placements), of: RANKED.placements },
+      attacks: { used: a.used, cap: ASYNC.attacksPerDay, left: Math.max(0, ASYNC.attacksPerDay - a.used) },
+      defence: this.p.defence,
+      candidates: unlocked && a.used < ASYNC.attacksPerDay ? this.candidates().map((c) => ({ ...c, rating: c.league?.id === 'legend' ? c.rating : null })) : [],
+      open: null,
+    };
+  }
+
+  async asyncStart(defender: number): Promise<AsyncTicket> {
+    const a = this.async;
+    if (accountLevel(this.p.xp) < DUEL_RULES.rankedLevel) throw err('locked', `Raids unlock at duel level ${DUEL_RULES.rankedLevel}`);
+    if (a.used >= ASYNC.attacksPerDay) throw err('attack_cap', `At most ${ASYNC.attacksPerDay} raids a day`);
+    const c = this.candidates().find((x) => x.pid === defender);
+    if (!c) throw err('not_offered', 'That defender is not among your opponents now');
+    const team = this.loadoutTeam('arena');
+    const problem = teamProblem(team, DUEL_RULES.budget);
+    if (problem) throw err(problem === 'empty' ? 'no_team' : problem, 'Your arena team cannot fight');
+    const seed = this.rng.int(1, 0x7fffffff);
+    const foes = starterDuelRoster(defender * 31, { nextId: 1 }, `demo_d${defender}_`);
+    const mine = JSON.parse(JSON.stringify(team)) as Hero[];
+    a.used++;
+    a.attacked.set(defender, this.clock());
+    const tk: AsyncTicket = {
+      ticket: `demo${seed.toString(16).padStart(28, '0')}`,
+      defender: { pid: defender, name: c.name, league: c.league },
+      expiresAt: this.clock() + ASYNC.ticketTtlMs,
+      setup: asyncSetup(seed, mine, this.p.loadouts[this.p.use.arena - 1].formations, foes, [...DEFAULT_FORMATIONS]),
+      team: mine,
+      enemies: foes,
+    };
+    a.tickets.set(tk.ticket, tk);
+    return tk;
+  }
+
+  async asyncSubmit(ticket: string, _sub: LadderSubmission, result: BattleResult) {
+    const a = this.async;
+    const tk = a.tickets.get(ticket);
+    if (!tk) throw new ApiError(404, 'not_found', 'No such raid');
+    a.tickets.delete(ticket);
+    const score = scoreOf(result.winner, 0);
+    const pay = attackPay(score);
+    const r = a.rating;
+    const d = a.defenders.find((x) => x.pid === tk.defender.pid)!;
+    const before = placed(r.games) ? leagueOf(r.rating) : null;
+    const next = glicko2(r, { rating: d.rating, rd: 80, vol: 0.06 }, score);
+    const dn = defenceRating({ rating: d.rating, rd: 80, vol: 0.06 }, r, (1 - score) as Score);
+    const out: AsyncReport = {
+      attack: ticket,
+      defender: { pid: d.pid, name: d.name },
+      winner: result.winner,
+      ticks: result.ticks,
+      verified: false,
+      glory: pay.glory,
+      accountXp: pay.accountXp,
+      rating: { before: Math.round(r.rating), after: Math.round(next.rating) },
+      league: { before, after: null },
+      placements: { played: 0, of: RANKED.placements },
+      xp: [],
+    };
+    Object.assign(r, next, { games: r.games + 1, wins: r.wins + (score === 1 ? 1 : 0), losses: r.losses + (score === 0 ? 1 : 0), draws: r.draws + (score === 0.5 ? 1 : 0) });
+    d.rating = dn.rating;
+    out.league.after = placed(r.games) ? leagueOf(r.rating) : null;
+    out.placements = { played: Math.min(r.games, RANKED.placements), of: RANKED.placements };
+    const { heroes, xp } = duelHeroXp(result, tk.team, score === 1, new Rng(tk.setup.seed), 0);
+    out.xp = xp;
+    for (const h of heroes) {
+      const cur = this.p.heroes.find((x) => x.id === h.id);
+      if (cur) Object.assign(cur, { level: h.level, xp: h.xp, points: h.points, traits: h.traits, battles: h.battles, kills: h.kills });
+    }
+    this.p.glory += pay.glory;
+    this.p.xp += pay.accountXp;
+    this.p.battles++;
+    if (score === 1) this.p.wins++;
+    a.log.unshift({ id: ticket, at: this.clock(), role: 'attack', pid: d.pid, name: d.name, score, delta: out.rating.after - out.rating.before, glory: pay.glory });
+    return { report: out, profile: this.view() };
+  }
+
+  async asyncAbandon(ticket: string) {
+    this.async.tickets.delete(ticket);
+    return { ok: true };
+  }
+
+  async asyncLog() {
+    return { now: this.clock(), entries: this.async.log.map((e) => ({ ...e })) };
+  }
+
+  async season(): Promise<SeasonView> {
+    const now = this.clock();
+    const id = seasonId(now);
+    const live = placed(this.rating.games) ? leagueOf(this.rating.rating) : null;
+    const asy = placed(this.async.rating.games) ? leagueOf(this.async.rating.rating) : null;
+    return {
+      now,
+      season: { id, start: seasonStart(id), end: seasonEnd(id) },
+      live: { league: live, peak: live ? leagueOf(this.rating.rating + 30) : null },
+      async: { league: asy, peak: asy },
+      title: { league: this.async.rewards.reduce<LeagueId>((b, r) => (RANKED.leagues.findIndex((l) => l.id === r.league) > RANKED.leagues.findIndex((l) => l.id === b) ? r.league : b), 'gold'), season: id - 1 },
+      rewards: this.async.rewards.map((r) => ({ ...r })),
+      table: RANKED.leagues.map((l) => ({ league: l.id, glory: SEASON.rewards[l.id].glory, asyncGlory: Math.round(SEASON.rewards[l.id].glory * SEASON.asyncShare), cosmetic: SEASON.rewards[l.id].cosmetic })),
+    };
+  }
+
+  async seasonSeen() {
+    this.async.rewards = [];
+    return { ok: true };
+  }
+
+  async leaderboard(board: Board): Promise<LeaderboardView> {
+    const id = seasonId(this.clock());
+    const base = board === 'legend' ? 2420 : board === 'async' ? 1980 : 2310;
+    const n = board === 'legend' ? 6 : 24;
+    const rows: BoardRow[] = Array.from({ length: n }, (_, i) => {
+      const rating = base - i * (board === 'legend' ? 60 : 38);
+      const league = leagueOf(rating);
+      return { rank: i + 1, pid: 1000 + i, name: DEMO_NAMES[i % DEMO_NAMES.length] + (i >= DEMO_NAMES.length ? ` ${Math.floor(i / DEMO_NAMES.length) + 1}` : ''), league, rating: league.id === 'legend' ? rating : null, games: 30 + i };
+    });
+    const mine = board === 'async' ? this.async.rating : this.rating;
+    const league = leagueOf(mine.rating);
+    const me: BoardRow | null = board === 'legend' && league.id !== 'legend' ? null : { rank: board === 'async' ? 61 : 143, pid: 1, name: 'You', league, rating: league.id === 'legend' ? Math.round(mine.rating) : null, games: mine.games };
+    return { board, season: { id, end: seasonEnd(id) }, rows, me };
+  }
+
   private makeMatch(mode: DuelMode, team: Hero[]): DemoMatch {
     const seed = this.rng.int(1, 0x7fffffff);
     const foes = starterDuelRoster(seed, { nextId: 1 }, 'demo_foe_');
     const mine = JSON.parse(JSON.stringify(team)) as Hero[];
-    const setup = onlineBattleSetup(seed, { heroes: mine, formations: this.p.formations, bot: false }, { heroes: foes, formations: [...DEFAULT_FORMATIONS], bot: true }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
+    const setup = onlineBattleSetup(seed, { heroes: mine, formations: this.p.loadouts[this.p.use.arena - 1].formations, bot: false }, { heroes: foes, formations: [...DEFAULT_FORMATIONS], bot: true }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
     const m: DemoMatch = { id: `demo${seed.toString(16)}`, mode, seed, setup, heroes: [mine, foes], names: ['You', 'Hektor'] };
     this.matches.set(m.id, m);
     return m;
@@ -539,6 +891,29 @@ export class DemoDuelSource implements DuelSource {
       placements = { played: Math.min(r.games, RANKED.placements), of: RANKED.placements };
     }
     return { match: id, mode: m.mode, side: 0, names: m.names, winner: result.winner, end: 'battle', verified: false, ticks: result.ticks, abandoned: false, glory: pay.glory, accountXp: pay.accountXp, rating, league, placements, xp };
+  }
+}
+
+const DEMO_NAMES = ['Brasidas', 'Lysander', 'Phormio', 'Kleon', 'Myronides', 'Iphicrates', 'Demosthenes', 'Chabrias', 'Pelopidas', 'Xanthippos', 'Agesilaos', 'Timoleon'];
+
+/** The demo's async opponents, seasons and leaderboards (DemoDuelSource keeps one). */
+class DemoAsync {
+  rating: Rating & { games: number; wins: number; losses: number; draws: number; defences: number; defenceWins: number } = { rating: 1460, rd: 80, vol: 0.06, games: 12, wins: 7, losses: 5, draws: 0, defences: 9, defenceWins: 5 };
+  used = 2;
+  attacked = new Map<number, number>();
+  tickets = new Map<string, AsyncTicket>();
+  log: AsyncLogEntry[] = [];
+  /** Previews: an unseen season reward (the popup). */
+  rewards: SeasonRewardView[] = [];
+  defenders = DEMO_NAMES.slice(0, 8).map((name, i) => ({ pid: 900 + i, name, rating: 1300 + i * 45, games: i === 0 ? 4 : 20 }));
+
+  constructor(now: number) {
+    const H = 3_600_000;
+    this.log = [
+      { id: 'd'.repeat(32), at: now - 2 * H, role: 'defence', pid: 901, name: 'Lysander', score: 1, delta: 4, glory: ASYNC.defence.glory.win },
+      { id: 'e'.repeat(32), at: now - 5 * H, role: 'attack', pid: 903, name: 'Kleon', score: 1, delta: 14, glory: ASYNC.glory.win },
+      { id: 'f'.repeat(32), at: now - 26 * H, role: 'defence', pid: 905, name: 'Iphicrates', score: 0, delta: -6, glory: 0 },
+    ];
   }
 }
 

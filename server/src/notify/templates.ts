@@ -20,6 +20,8 @@ export interface EventData {
   march_arrived: { q: number; r: number };
   income_full: Record<string, never>;
   duel_challenge: { by: string };
+  /** An async attack on the player's defence team was fought (held: the defence won). */
+  duel_defence: { by: string; held: boolean };
   clan_joined: { name: string; clan: string };
   clan_role: { clan: string; role: 'leader' | 'officer' | 'member' };
   clan_kicked: { clan: string };
@@ -36,6 +38,7 @@ export const EVENT_TYPE: Record<EventId, NotifyType> = {
   march_arrived: 'march',
   income_full: 'income',
   duel_challenge: 'duel',
+  duel_defence: 'duel',
   clan_joined: 'clan',
   clan_role: 'clan',
   clan_kicked: 'clan',
@@ -103,6 +106,11 @@ function line(lang: Lang, e: PendingEvent): string {
     case 'duel_challenge': {
       const x = e.data as unknown as EventData['duel_challenge'];
       return ru ? `⚔ ${x.by} вызывает вас на дуэль! Зайдите в игру, чтобы принять вызов.` : `⚔ ${x.by} challenges you to a duel! Come online to accept.`;
+    }
+    case 'duel_defence': {
+      const x = e.data as unknown as EventData['duel_defence'];
+      if (ru) return x.held ? `🛡 Ваша оборона отбила набег: ${x.by} отступил!` : `⚔ ${x.by} прорвал вашу оборону в дуэлях.`;
+      return x.held ? `🛡 Your defence team held against ${x.by}'s raid!` : `⚔ ${x.by} broke through your duel defence.`;
     }
     case 'clan_joined': {
       const x = e.data as unknown as EventData['clan_joined'];
@@ -186,7 +194,12 @@ export function render(lang: Lang, type: NotifyType, events: readonly PendingEve
         ? `⚔ Атак на ваши земли за последний час: ${n}. Потеряно гексов: ${lost}, отбито атак: ${held}.`
         : `⚔ ${n} attacks on your land in the last hour. Hexes lost: ${lost}, attacks held: ${held}.`;
     }
-  } else if (type === 'duel') {
+  } else if (type === 'duel' && events.every((e) => e.event === 'duel_defence')) {
+    const held = events.filter((e) => e.data.held).length;
+    text = ru
+      ? `🛡 Набегов на вашу оборону: ${events.length}. Отбито: ${held}, проиграно: ${events.length - held}.`
+      : `🛡 ${events.length} raids on your defence team. Held: ${held}, lost: ${events.length - held}.`;
+  } else if (type === 'duel' && events.every((e) => e.event === 'duel_challenge')) {
     const by = [...new Set(events.map((e) => String(e.data.by)))];
     text = by.length === 1 ? line(lang, last) : ru ? `⚔ Пока вас не было, вас вызывали на дуэль: ${by.slice(0, 3).join(', ')}${by.length > 3 ? ` и ещё ${by.length - 3}` : ''}.` : `⚔ While you were away, ${by.length} commanders challenged you to duels: ${by.slice(0, 3).join(', ')}${by.length > 3 ? ` and ${by.length - 3} more` : ''}.`;
   } else if (type === 'market') {

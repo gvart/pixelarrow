@@ -2,7 +2,8 @@
 // the hub opens from the menu, a recruit joins, the team changes, the shop
 // sells gear, the hero sheet equips it on a duel hero (not the campaign's),
 // and a ladder floor is fought through the real battle scene to the report
-// and back to the ladder with its Glory, XP and a cleared floor. Also checks
+// and back to the ladder with its Glory, XP and a cleared floor, a ranked
+// match and a raid on a defence team (the async ladder). Also checks
 // that the hub shows "available in Telegram" when the API cannot be used.
 // Usage: node scripts/duel-smoke.mjs [baseUrl]   (needs a running dev/preview server)
 import { chromium } from 'playwright';
@@ -116,6 +117,29 @@ await call('Results', 's.finish(); return 1;');
 check('[arena] back to the Arena', await until(() => window.__game.scene.isActive('Duel') && !!window.__game.scene.getScene('Duel').ranked, 8000));
 const rk1 = await call('Duel', 'return { tab: s.tab, games: s.ranked.games, glory: s.profile.glory };');
 check('[arena] one more rated match, Glory paid', rk1.tab === 'ranked' && rk1.games === rk0.games + 1 && rk1.glory === rk0.glory + 30, JSON.stringify(rk1));
+
+// Raids: an async attack on a demo defence team (candidates -> the battle -> the report with the raid rating -> back to Raids).
+await call('Duel', "s.openArena('raid'); return 1;");
+check('[raid] the raid page loads', await until(() => { const s = window.__game.scene.getScene('Duel'); return !!s.asyncView && s.arenaTab === 'raid'; }));
+const av0 = await call('Duel', 'const a = s.asyncView; return { left: a.attacks.left, n: a.candidates.length, glory: s.profile.glory, defence: !!a.defence };');
+check('[raid] three candidates, raids left, a defence set', av0.n === 3 && av0.left > 0 && av0.defence, JSON.stringify(av0));
+await call('Duel', 'void s.raid(s.asyncView.candidates[0].pid); return 1;');
+check('[raid] the battle starts', await until(() => window.__game.scene.isActive('Battle') && !!window.__game.scene.getScene('Battle').sim, 10000));
+await page.waitForTimeout(600);
+await call(
+  'Battle',
+  `s.startFight(); for (const g of s.sim.groups) if (g.side === 0) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' }); s.sim.units.filter(u => u.side === 1 && u.state === 'ready').forEach(u => { u.hp = Math.min(u.hp, 1); }); for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`,
+);
+check('[raid] the report', await until(() => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 20000));
+const arep = await call('Results', 'const r = s.report; return { result: r.result, glory: r.glory, notes: r.notes };');
+check('[raid] a won raid: Glory and a raid rating change', arep.result === 'victory' && arep.glory === 20 && arep.notes.some((n) => /\+\d+/.test(n)), JSON.stringify(arep));
+await call('Results', 's.finish(); return 1;');
+check('[raid] back to Raids', await until(() => { const s = window.__game.scene.isActive('Duel') && window.__game.scene.getScene('Duel'); return !!s && !!s.asyncView && s.arenaTab === 'raid'; }, 8000));
+await page.waitForTimeout(400);
+const av1 = await call('Duel', 'return { left: s.asyncView.attacks.left, glory: s.profile.glory };');
+check('[raid] one raid used, Glory paid', av1.left === av0.left - 1 && av1.glory === av0.glory + 20, JSON.stringify(av1));
+const log = await call('Duel', 'return s.src.asyncLog().then((l) => ({ n: l.entries.length, first: l.entries[0].role }));');
+check('[raid] the raid log has it', log.first === 'attack' && log.n >= 4, JSON.stringify(log));
 
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

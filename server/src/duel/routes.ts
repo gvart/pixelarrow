@@ -16,7 +16,8 @@ import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { db, requireAuth } from '../middleware';
-import { LIMITS, LoggedOrderSchema, replayBattle } from '../battle';
+import { LIMITS } from '../battle';
+import { SubmitBody, verifyBattle } from './verify';
 import { emit, emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { limit } from '../online/context';
 import { randomToken, randomU32 } from '../online/store';
@@ -25,7 +26,7 @@ import { ATTR_IDS } from '../../../src/data/perks';
 import { isClassId, type ClassId } from '../../../src/data/classes';
 import type { Hero } from '../../../src/data/units';
 import { FORMATION_TYPES, type FormationType } from '../../../src/sim/formation';
-import type { BattleSetup, LoggedOrder } from '../../../src/sim/types';
+import type { BattleSetup } from '../../../src/sim/types';
 import {
   DUEL_RULES, accountLevel, classUnlockLevel, developHero, duelRecruit, findOffer, freshGear, recruitPrice, respecHero, respecPrice,
   sellPrice, shopItem, teamProblem, utcDay,
@@ -34,12 +35,16 @@ import { canFight, ladderFloor, ladderPayout, ladderSetup } from '../../../src/d
 import { RANKED } from '../../../src/duel/rating';
 import { getQueueState, getRating, liveMatchOf, matchReport, rowLeague } from './live';
 import {
-  bumpRev, duelBatch, duelFormations, duelPrefix, duelProfileView, duelRevGuard, ensureDuelProfile, farmLeft, heroProgressStmts, loadDuelHeroes, loadDuelItems,
-  requireDuelProfile, reserveDuelIds, teamOf, type DuelProfileRow,
+  LOADOUT_SLOTS, LOADOUT_USES, bumpRev, duelBatch, duelPrefix, duelProfileView, duelRevGuard, ensureDuelProfile, farmLeft, heroProgressStmts, loadDuelHeroes, loadDuelItems,
+  loadLoadouts, loadoutFor, loadoutHeroes, loadoutStmt, requireDuelProfile, reserveDuelIds, syncDefence, useSlot, type DuelProfileRow, type Loadout, type LoadoutUse,
 } from './store';
+import { rollRatings } from './season';
+import { duelSeason } from './async';
 
 export const duel = new Hono<AppEnv>();
 duel.use('*', requireAuth);
+// async attacks, the defence log, seasons and leaderboards (server/src/duel/async.ts)
+duel.route('/', duelSeason);
 
 const HeroId = z.string().min(1).max(80);
 const RequestId = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/);
@@ -170,12 +175,14 @@ duel.post('/dismiss', async (c) => {
   const { all, h } = await findHero(x, body.heroId);
   if (all.length <= 1) throw new ApiError(409, 'last_hero', 'Keep at least one hero');
   const G = duelRevGuard(x.pid, x.p.rev + 1);
-  const team = teamOf(x.p).filter((id) => id !== h.hero.id);
+  const loadouts = (await loadLoadouts(x.db, x.p)).filter((l) => l.team.includes(h.hero.id));
   await duelBatch(x.db, [
-    x.db.prepare('UPDATE duel_profiles SET team = ?2, rev = rev + 1, updated_at = ?3 WHERE player_id = ?1 AND rev = ?4').bind(x.pid, JSON.stringify(team), x.now, x.p.rev),
+    bumpRev(x.db, x.p, x.now),
+    ...loadouts.map((l) => loadoutStmt(x.db, x.pid, { ...l, team: l.team.filter((id) => id !== h.hero.id) }, G, x.now)),
     x.db.prepare(`DELETE FROM duel_heroes WHERE id = ?1 AND player_id = ?2 AND ${G}`).bind(h.hero.id, x.pid),
     ...Object.values(h.hero.equip).filter((it): it is Item => !!it).map((it) => itemInsert(x.db, x.pid, it, G, x.now)),
   ]);
+  await syncDefence(x.db, x.pid, x.now);
   return c.json({ profile: await view(x) });
 });
 
@@ -220,6 +227,7 @@ duel.post('/equip', async (c) => {
     ...(taken ? [x.db.prepare(`DELETE FROM duel_items WHERE uid = ?1 AND player_id = ?2 AND ${G}`).bind(taken.uid, x.pid)] : []),
     ...toStash.map((it) => itemInsert(x.db, x.pid, it, G, x.now)),
   ]);
+  await syncDefence(x.db, x.pid, x.now);
   return c.json({ profile: await view(x) });
 });
 
@@ -241,6 +249,7 @@ duel.post('/develop', async (c) => {
   if (out === 'bad_perk') throw new ApiError(409, 'bad_perk', 'That perk cannot be taken now');
   const G = duelRevGuard(x.pid, x.p.rev + 1);
   await duelBatch(x.db, [bumpRev(x.db, x.p, x.now), heroStmt(x.db, x.pid, out, G, x.now)]);
+  await syncDefence(x.db, x.pid, x.now);
   return c.json({ hero: out, profile: await view(x) });
 });
 
@@ -252,6 +261,7 @@ duel.post('/respec', async (c) => {
   const { h } = await findHero(x, body.heroId);
   const out = respecHero(h.hero, h.base);
   const r = await gloryOrder(x, body.requestId, 'respec', h.hero.id, -respecPrice(h.hero), (G) => [heroStmt(x.db, x.pid, out, G, x.now)], { hero: out });
+  if (!r.replayed) await syncDefence(x.db, x.pid, x.now);
   return c.json({ ...r.result, replayed: r.replayed, profile: await view(x) });
 });
 
@@ -259,23 +269,28 @@ const TeamBody = z.object({
   heroIds: z.array(HeroId).max(DUEL_RULES.teamMax).optional(),
   formations: Formations.optional(),
   groups: z.record(HeroId, z.number().int().min(0).max(3)).optional(),
+  /** The saved team to change (default: the one the Team tab edits). */
+  loadout: z.number().int().min(1).max(LOADOUT_SLOTS).optional(),
 });
 
-/** The team (who fights), its formations and the heroes' battle groups. The budget is checked when a battle starts. */
+/**
+ * A saved team: who fights, its formations, and the heroes' battle groups
+ * (groups belong to the hero, so they are the same in every loadout). The
+ * budget is checked when a battle starts; the defence snapshot follows its
+ * loadout while it fits the budget.
+ */
 duel.post('/team', async (c) => {
   limit(c, 'duel_team', 60);
   const x = await ctx(c);
   const body = await readJson(c, TeamBody, 8 * 1024);
   const heroes = await loadDuelHeroes(x.db, x.pid);
   const byId = new Map(heroes.map((h) => [h.hero.id, h.hero]));
-  const team = body.heroIds ? [...new Set(body.heroIds)] : teamOf(x.p);
+  const loadouts = await loadLoadouts(x.db, x.p);
+  const l = loadouts[(body.loadout ?? editedSlot(x.p)) - 1];
+  const team = body.heroIds ? [...new Set(body.heroIds)] : l.team;
   for (const id of team) if (!byId.has(id)) throw new ApiError(404, 'not_found', `No hero ${id}`);
   const G = duelRevGuard(x.pid, x.p.rev + 1);
-  const stmts = [
-    x.db
-      .prepare('UPDATE duel_profiles SET team = ?2, formations = ?3, rev = rev + 1, updated_at = ?4 WHERE player_id = ?1 AND rev = ?5')
-      .bind(x.pid, JSON.stringify(team), JSON.stringify((body.formations as FormationType[] | undefined) ?? duelFormations(x.p)), x.now, x.p.rev),
-  ];
+  const stmts = [bumpRev(x.db, x.p, x.now), loadoutStmt(x.db, x.pid, { ...l, team, formations: (body.formations as FormationType[] | undefined) ?? l.formations }, G, x.now)];
   for (const [id, group] of Object.entries(body.groups ?? {})) {
     const h = byId.get(id);
     if (!h) throw new ApiError(404, 'not_found', `No hero ${id}`);
@@ -284,6 +299,52 @@ duel.post('/team', async (c) => {
     stmts.push(heroStmt(x.db, x.pid, h, G, x.now));
   }
   await duelBatch(x.db, stmts);
+  await syncDefence(x.db, x.pid, x.now);
+  return c.json({ profile: await view(x) });
+});
+
+function editedSlot(p: DuelProfileRow): number {
+  return p.loadout >= 1 && p.loadout <= LOADOUT_SLOTS ? p.loadout : 1;
+}
+
+const LoadoutBody = z.object({
+  slot: z.number().int().min(1).max(LOADOUT_SLOTS),
+  /** Edit this loadout in the Team tab. */
+  edit: z.boolean().optional(),
+  name: z.string().trim().max(16).nullable().optional(),
+  /** Fight with this loadout there (the others keep theirs). */
+  use: z.array(z.enum(LOADOUT_USES as [LoadoutUse, ...LoadoutUse[]])).max(3).optional(),
+});
+
+/**
+ * Picks, names and assigns a saved team. A slot never saved starts as a copy
+ * of the edited one. Making it the defence needs it to fit the ranked budget
+ * (it is snapshot for the async bot at once).
+ */
+duel.post('/loadout', async (c) => {
+  limit(c, 'duel_loadout', 60);
+  const x = await ctx(c);
+  const body = await readJson(c, LoadoutBody, 1024);
+  const loadouts = await loadLoadouts(x.db, x.p);
+  const saved = await x.db.prepare('SELECT 1 FROM duel_loadouts WHERE player_id = ?1 AND slot = ?2').bind(x.pid, body.slot).first();
+  const edited = loadouts[editedSlot(x.p) - 1];
+  const l: Loadout = saved ? loadouts[body.slot - 1] : { ...edited, slot: body.slot, name: null };
+  if (body.name !== undefined) l.name = body.name ? body.name : null;
+  const use = new Set(body.use ?? []);
+  if (use.has('defence')) {
+    const problem = teamProblem(loadoutHeroes(l, await loadDuelHeroes(x.db, x.pid)), DUEL_RULES.budget);
+    if (problem === 'empty') throw new ApiError(409, 'no_team', 'That team is empty');
+    if (problem) throw new ApiError(409, problem, `A defence must fit the ${DUEL_RULES.budget}-point budget`, { budget: DUEL_RULES.budget });
+  }
+  const slotOf = (u: LoadoutUse) => (use.has(u) ? body.slot : useSlot(x.p, u));
+  const G = duelRevGuard(x.pid, x.p.rev + 1);
+  await duelBatch(x.db, [
+    x.db
+      .prepare('UPDATE duel_profiles SET loadout = ?2, lo_ladder = ?3, lo_arena = ?4, lo_defence = ?5, rev = rev + 1, updated_at = ?6 WHERE player_id = ?1 AND rev = ?7')
+      .bind(x.pid, body.edit ? body.slot : editedSlot(x.p), slotOf('ladder'), slotOf('arena'), slotOf('defence'), x.now, x.p.rev),
+    loadoutStmt(x.db, x.pid, l, G, x.now),
+  ]);
+  await syncDefence(x.db, x.pid, x.now, use.has('defence'));
   return c.json({ profile: await view(x) });
 });
 
@@ -367,29 +428,21 @@ duel.post('/ladder/start', async (c) => {
   if (open && open.floor === body.floor) return c.json(ticketView(open, { resumed: true }));
   if (open) await x.db.prepare("UPDATE duel_tickets SET status = 'abandoned', finished_at = ?2 WHERE id = ?1 AND status = 'open'").bind(open.id, x.now).run();
   const floor = ladderFloor(body.floor);
-  const heroes = await loadDuelHeroes(x.db, x.pid);
-  const byId = new Map(heroes.map((h) => [h.hero.id, h.hero]));
-  const team = teamOf(x.p).map((id) => byId.get(id)).filter((h): h is Hero => !!h).map(freshGear);
+  const l = await loadoutFor(x.db, x.p, 'ladder');
+  const team = loadoutHeroes(l, await loadDuelHeroes(x.db, x.pid));
   const problem = teamProblem(team, floor.budget);
   if (problem === 'empty') throw new ApiError(409, 'no_team', 'Pick your team first');
   if (problem === 'too_many') throw new ApiError(409, 'team_too_big', `At most ${DUEL_RULES.teamMax} heroes`);
   if (problem === 'over_budget') throw new ApiError(409, 'over_budget', `Your team is over this floor's ${floor.budget}-point budget`, { budget: floor.budget });
   const id = randomToken(16);
   const seed = randomU32();
-  const setup = ladderSetup(seed, team, duelFormations(x.p), floor);
+  const setup = ladderSetup(seed, team, l.formations, floor);
   await x.db
     .prepare('INSERT INTO duel_tickets (id, player_id, kind, floor, seed, setup, team, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)')
     .bind(id, x.pid, 'ladder', floor.floor, seed, JSON.stringify(setup), JSON.stringify(team), x.now, x.now + DUEL_RULES.ticketTtlMs)
     .run();
   const t = (await x.db.prepare('SELECT * FROM duel_tickets WHERE id = ?1').bind(id).first<TicketRow>())!;
   return c.json(ticketView(t));
-});
-
-const SubmitBody = z.object({
-  ticket: z.string().regex(/^[0-9a-f]{32}$/),
-  orders: z.array(LoggedOrderSchema).max(LIMITS.maxOrders),
-  deployOrders: z.number().int().min(0).max(LIMITS.maxOrders).optional(),
-  claim: z.object({ winner: z.union([z.literal(0), z.literal(1), z.literal(-1)]), ticks: z.number().int().min(0), hash: z.string().max(16) }),
 });
 
 async function loadTicket(x: Ctx, id: string): Promise<TicketRow> {
@@ -421,23 +474,8 @@ duel.post('/ladder/submit', async (c) => {
     await closeTicket(x, t, 'abandoned');
     throw new ApiError(410, 'ticket_expired', 'Too late: the battle ticket expired');
   }
-  const setup = JSON.parse(t.setup) as BattleSetup;
-  let out;
-  try {
-    out = replayBattle(setup, body.orders as LoggedOrder[], body.deployOrders);
-  } catch (e) {
-    await closeTicket(x, t, 'rejected', claimJson);
-    throw new ApiError(422, 'sim_rejected', `The simulation rejected this battle: ${(e as Error).message}`);
-  }
+  const out = await verifyBattle(JSON.parse(t.setup) as BattleSetup, body, (claim, result) => closeTicket(x, t, 'rejected', claim, result));
   const s = out.summary;
-  const mismatches: string[] = [];
-  if (s.winner !== body.claim.winner) mismatches.push(`winner: claimed ${body.claim.winner}, server ${s.winner}`);
-  if (s.ticks !== body.claim.ticks) mismatches.push(`ticks: claimed ${body.claim.ticks}, server ${s.ticks}`);
-  if (s.hash !== body.claim.hash) mismatches.push(`hash: claimed ${body.claim.hash}, server ${s.hash}`);
-  if (mismatches.length) {
-    await closeTicket(x, t, 'rejected', claimJson, JSON.stringify({ mismatches }));
-    throw new ApiError(422, 'replay_mismatch', 'The battle did not replay as reported; it does not count', { mismatches });
-  }
 
   const floor = ladderFloor(t.floor);
   const team = JSON.parse(t.team) as Hero[];
@@ -504,7 +542,8 @@ duel.post('/ladder/abandon', async (c) => {
 /** The ranked card: league, placements, the level gate, the queue cooldown and a live match to rejoin. */
 duel.get('/ranked', async (c) => {
   const x = await ctx(c);
-  const [r, q, match] = await Promise.all([getRating(x.db, x.pid), getQueueState(x.db, x.pid), liveMatchOf(x.db, x.pid, x.now)]);
+  await rollRatings(x.db, x.pid, x.now);
+  const [r, q, match] = await Promise.all([getRating(x.db, x.pid, 'live', x.now), getQueueState(x.db, x.pid), liveMatchOf(x.db, x.pid, x.now)]);
   const league = rowLeague(r);
   const level = accountLevel(x.p.xp);
   return c.json({

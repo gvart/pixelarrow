@@ -316,6 +316,7 @@ export const RU_ARMY: Record<keyof typeof EN_ARMY, Entry> = {
   'shop.equipped': 'Надето',
   'shop.passOnly': 'Пропуск сезона',
   'shop.notForSale': 'Не продаётся',
+  'shop.duelSeason': 'Награда сезона дуэлей',
   'shop.buyTitle': 'Купить {name}?',
   'shop.buyBody': 'Цена: {price}.',
   'shop.buy': 'Купить',

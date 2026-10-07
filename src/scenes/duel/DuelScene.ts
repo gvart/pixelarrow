@@ -1,10 +1,13 @@
 /**
  * The duel hub (docs/DUELS.md): the persistent duel army, its Glory and
  * account level, and four tabs: Ladder (the PvE floors: farm Glory, XP and
- * gear), Ranked (league and placements, the ranked and unranked queues, live
- * matches through src/duel/match.ts), Team (who fights, inside the point
- * budget; a tap opens the hero sheet; recruiting) and Shop (daily offers, the
- * gear catalogue, selling).
+ * gear), Arena (the season line, then Live: league and placements, the ranked
+ * and unranked queues, live matches through src/duel/match.ts; Raids: async
+ * attacks on other players' defence teams, the defence and the raid log; Top:
+ * the leaderboards), Team (three saved teams and which one fights where; who
+ * fights, inside the point budget; a tap opens the hero sheet; recruiting)
+ * and Shop (daily offers, the gear catalogue, selling). A season's rewards
+ * show in a popup on the first visit after it ended.
  * Every change is a request to the duel source; the screen redraws from the
  * answer. Started with `{ preview: true }` it runs on the in-memory demo.
  */
@@ -40,9 +43,14 @@ import {
   DUEL_CLASSES, DUEL_RULES, catalogue, classPoints, dailyOffers, duelRecruit, heroPoints, levelProgress, recruitPrice, sellPrice, teamPoints, teamProblem, type ShopOffer,
 } from '../../duel/rules';
 import { LADDER, floorBudget, isBoss, ladderFloor } from '../../duel/ladder';
-import { DemoDuelSource, duelSource, type DemoMatch, type DuelProfileView, type DuelSource, type LadderReport, type LadderTicket, type QueueEvent, type RankedView } from '../../duel/client';
-import { RANKED, divisionRoman, leagueRank, type DuelMode, type League } from '../../duel/rating';
-import type { MatchReport } from '../../duel/protocol';
+import {
+  DemoDuelSource, LOADOUT_USES, duelSource, type AsyncTicket, type AsyncView, type AsyncLogEntry, type Board, type DemoMatch, type DuelProfileView, type DuelSource,
+  type LadderReport, type LadderTicket, type LeaderboardView, type LoadoutUse, type QueueEvent, type RankedView, type SeasonView,
+} from '../../duel/client';
+import { RANKED, divisionRoman, leagueRank, type DuelMode, type League, type LeagueId } from '../../duel/rating';
+import type { AsyncReport, MatchReport } from '../../duel/protocol';
+import { ASYNC, seasonMonth } from '../../duel/season';
+import { cosmeticTexture } from '../../ui/econ/widgets';
 import { MatchLink, matchSource, type MatchOutcome } from '../../duel/match';
 import { LINE_H, wrapText } from '../../ui/textfit';
 import { DuelHeroSource } from '../../duel/heroSource';
@@ -53,6 +61,10 @@ import { t, tOr, type TKey } from '../../i18n';
 
 export type DuelTab = 'ladder' | 'ranked' | 'team' | 'shop';
 type ShopTab = 'offers' | 'gear' | 'sell';
+/** The Arena tab's pages: live matches, async raids, leaderboards. */
+export type ArenaTab = 'live' | 'raid' | 'top';
+const ARENA_TABS: ArenaTab[] = ['live', 'raid', 'top'];
+const BOARDS: Board[] = ['live', 'async', 'legend'];
 
 export interface DuelSceneData {
   tab?: DuelTab;
@@ -63,6 +75,7 @@ export interface DuelSceneData {
   error?: string;
   /** Previews: the demo account's duel XP (0: below the ranked gate). */
   demoXp?: number;
+  arena?: ArenaTab;
 }
 
 const TABS: DuelTab[] = ['ladder', 'ranked', 'team', 'shop'];
@@ -75,6 +88,35 @@ const LEAGUE_COLOR: Record<League['id'], number> = { bronze: 0x8a5a2b, silver: 0
 export function leagueName(l: League): string {
   const name = t(`duels.league.${l.id}` as TKey);
   return l.division ? t('duels.leagueDiv', { league: name, div: divisionRoman(l.division) }) : name;
+}
+
+/** "Gold II" of a league id alone (titles, rewards: the league, no division). */
+export function leagueTitle(id: LeagueId): string {
+  return t(`duels.league.${id}` as TKey);
+}
+
+/** "October 2026" of a season id. */
+export function seasonName(id: number): string {
+  const { year, month } = seasonMonth(id);
+  return t('duels.seasonName', { month: t(`duels.month.${month}` as TKey), year });
+}
+
+/** "12d 5h" / "5h 20m" / "20m" until a time. */
+export function leftText(ms: number): string {
+  const m = Math.max(0, Math.floor(ms / 60_000));
+  const d = Math.floor(m / 1440);
+  const h = Math.floor((m % 1440) / 60);
+  if (d > 0) return t('duels.timeDH', { d, h });
+  if (h > 0) return t('duels.timeHM', { h, m: m % 60 });
+  return t('duels.timeM', { m });
+}
+
+/** "3h ago" of a past time. */
+function agoText(ms: number): string {
+  const m = Math.max(1, Math.floor(ms / 60_000));
+  if (m < 60) return t('duels.ago.m', { n: m });
+  if (m < 1440) return t('duels.ago.h', { n: Math.floor(m / 60) });
+  return t('duels.ago.d', { n: Math.floor(m / 1440) });
 }
 
 /** "0:42" from milliseconds. */
@@ -108,6 +150,16 @@ export class DuelScene extends BaseScene {
   /** How long the "opponent found" card stays before the battle (previews keep it). */
   foundHoldMs = 1600;
   private searchText: Phaser.GameObjects.BitmapText | null = null;
+  private arenaTab: ArenaTab = 'live';
+  /** The raid card, the season and the open leaderboard (loaded with the Arena). */
+  asyncView: AsyncView | null = null;
+  season: SeasonView | null = null;
+  board: Board = 'live';
+  boardView: LeaderboardView | null = null;
+  /** Hints stop above this y (the Arena page's bottom). */
+  private pageBottom = Infinity;
+  /** The season reward popup was shown in this visit. */
+  private rewardShown = false;
 
   constructor() {
     super('Duel');
@@ -122,6 +174,8 @@ export class DuelScene extends BaseScene {
     if (prev !== this.src) this.profile = null;
     this.tab = data.tab ?? this.tab;
     this.shopTab = data.shop ?? this.shopTab;
+    this.arenaTab = data.arena ?? this.arenaTab;
+    if (prev !== this.src) (this.asyncView = null), (this.season = null), (this.boardView = null), (this.rewardShown = false);
     this.st = this.profile ? 'ready' : 'loading';
     this.list = null;
     this.stash = null;
@@ -158,6 +212,9 @@ export class DuelScene extends BaseScene {
       if (!this.sys.isActive()) return;
       this.setProfile(p);
       void this.loadRanked();
+      void this.loadSeason();
+      if (this.tab === 'ranked' && this.arenaTab === 'raid') void this.loadAsync();
+      if (this.tab === 'ranked' && this.arenaTab === 'top') void this.loadBoard();
       this.st = 'ready';
     } catch (e) {
       if (!this.sys.isActive()) return;
@@ -196,8 +253,15 @@ export class DuelScene extends BaseScene {
     }
   }
 
-  private teamHeroes(p: DuelProfileView): Hero[] {
-    return p.team.map((id) => p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+  /** The heroes of the edited team, or of the team used for something (ladder, arena, defence). */
+  private teamHeroes(p: DuelProfileView, use?: LoadoutUse): Hero[] {
+    const ids = use ? (p.loadouts?.[p.use[use] - 1]?.team ?? p.team) : p.team;
+    return ids.map((id) => p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+  }
+
+  /** "Team 2" or the name a loadout was given. */
+  private loadoutName(p: DuelProfileView, slot: number): string {
+    return p.loadouts?.[slot - 1]?.name || t('duels.loadout', { n: slot });
   }
 
   /**
@@ -286,17 +350,19 @@ export class DuelScene extends BaseScene {
         this.buildBody();
       },
     });
-    const footY = VH - 36;
+    // the Arena has no foot (its pages need the height on small screens)
+    const foot = this.tab !== 'ranked';
+    const footY = foot ? VH - 36 : VH;
     this.body.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, footY - (y + SIZE.tabH - 2), 'parch'));
     this.body.add(tabs);
     y += SIZE.tabH + 4;
     const h = footY - 3 - y;
     this.searchText = null;
     if (this.tab === 'ladder') this.buildLadder(p, y, h, keep);
-    else if (this.tab === 'ranked') this.buildRanked(p, y);
+    else if (this.tab === 'ranked') this.buildRanked(p, y, h);
     else if (this.tab === 'team') this.buildTeam(p, y, h, keep);
     else this.buildShop(p, y, h);
-    this.buildFoot(p, footY);
+    if (foot) this.buildFoot(p, footY);
   }
 
   private buildFoot(p: DuelProfileView, by: number): void {
@@ -310,9 +376,12 @@ export class DuelScene extends BaseScene {
       this.body.add(new Button(this, 4 + bw + SIZE.gap, y, VW - 8 - bw - SIZE.gap, 30, { label: t('duels.dismiss'), icon: 'close', id: 'duel.dismiss', onClick: () => this.openDismiss() }));
       return;
     }
-    // ladder and shop: the team at a glance
-    const pts = teamPoints(team);
-    const line = t('duels.teamLine', { n: team.length, max: DUEL_RULES.teamMax, pts });
+    // ladder and shop: the team that fights there at a glance
+    const use: LoadoutUse | undefined = this.tab === 'ladder' ? 'ladder' : undefined;
+    const fighting = use ? this.teamHeroes(p, use) : team;
+    const pts = teamPoints(fighting);
+    const slot = use ? p.use[use] : p.loadout;
+    const line = `${this.loadoutName(p, slot)} · ${t('duels.teamLine', { n: fighting.length, max: DUEL_RULES.teamMax, pts })}`;
     const bw = VW < 180 ? 30 : 66;
     this.body.add(addIcon(this, 6, y + 8, 'people'));
     this.body.add(addText(this, 21, y + 10, ellipsize(line, VW - 21 - 8 - bw), 'ink'));
@@ -331,7 +400,7 @@ export class DuelScene extends BaseScene {
     h -= 13;
     const top = Math.min(LADDER.floors, p.ladder.cleared + 1);
     const floors = Array.from({ length: top }, (_, i) => top - i);
-    const team = this.teamHeroes(p);
+    const team = this.teamHeroes(p, 'ladder');
     this.list = new ScrollList(this, this.body, 4, y, VW - 8, h, {
       count: floors.length,
       rowH: 34,
@@ -412,7 +481,7 @@ export class DuelScene extends BaseScene {
     c.once('destroy', () => list.destroy());
     const half = Math.floor((inner - SIZE.gap) / 2);
     c.add(new Button(this, x + 8, by, half, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
-    const problem = teamProblem(this.teamHeroes(p), f.budget);
+    const problem = teamProblem(this.teamHeroes(p, 'ladder'), f.budget);
     const b = new Button(this, x + 8 + half + SIZE.gap, by, inner - half - SIZE.gap, SIZE.btnH, { label: t('duels.fight'), icon: 'swords', variant: 'primary', id: 'duel.floorFight', onClick: () => (m.close(), void this.fight(n)) });
     b.setEnabled(!problem, problem ? t(`duels.why.${problem}` as TKey, { n: f.budget }) : undefined);
     c.add(b);
@@ -442,21 +511,103 @@ export class DuelScene extends BaseScene {
       const r = await this.src.ranked();
       if (!this.sys.isActive()) return;
       this.ranked = r;
-      if (this.tab === 'ranked' && this.profile && this.st === 'ready') this.buildBody();
+      if (this.tab === 'ranked' && this.arenaTab === 'live' && this.profile && this.st === 'ready') this.buildBody();
     } catch {
       // the card keeps what it had (the profile loaded, so this is a passing failure)
     }
   }
 
-  private buildRanked(p: DuelProfileView, y: number): void {
+  private async loadAsync(): Promise<void> {
+    try {
+      const v = await this.src.asyncView();
+      if (!this.sys.isActive()) return;
+      this.asyncView = v;
+      if (this.tab === 'ranked' && this.arenaTab === 'raid' && this.profile && this.st === 'ready' && !this.search && !this.found) this.buildBody();
+    } catch {
+      // keeps what it had
+    }
+  }
+
+  private async loadBoard(): Promise<void> {
+    const board = this.board;
+    try {
+      const v = await this.src.leaderboard(board);
+      if (!this.sys.isActive() || board !== this.board) return;
+      this.boardView = v;
+      if (this.tab === 'ranked' && this.arenaTab === 'top' && this.profile && this.st === 'ready' && !this.search && !this.found) this.buildBody();
+    } catch {
+      // keeps what it had
+    }
+  }
+
+  /** The season (and, once per visit, the popup of rewards not seen yet). */
+  private async loadSeason(): Promise<void> {
+    try {
+      const v = await this.src.season();
+      if (!this.sys.isActive()) return;
+      this.season = v;
+      if (this.tab === 'ranked' && this.profile && this.st === 'ready' && !this.search && !this.found) this.buildBody();
+      if (v.rewards.length && !this.rewardShown) this.openSeasonRewards(v);
+    } catch {
+      // the season line waits for the next load
+    }
+  }
+
+  private buildRanked(p: DuelProfileView, y: number, h: number): void {
     const { VW } = this.m;
-    const r = this.ranked;
     const x = 4;
     const w = VW - 8;
-    const B = this.body;
     // a search or a found opponent take the whole page (small screens have little room)
     if (this.found) return this.buildFound(this.found, x, y, w);
     if (this.search) return this.buildSearch(this.search, x, y, w);
+    const top = y;
+    this.pageBottom = y + h;
+    y = this.buildSeasonLine(x, y, w);
+    const tabs = new Tabs(this, x, y, w, ARENA_TABS.map((k) => t(`duels.arena.${k}` as TKey)), {
+      selected: ARENA_TABS.indexOf(this.arenaTab),
+      ids: ARENA_TABS.map((k) => `duel.arena.${k}`),
+      onChange: (i) => this.openArena(ARENA_TABS[i]),
+    });
+    this.body.add(tabs);
+    y += SIZE.tabH + 4;
+    const left = h - (y - top);
+    if (this.arenaTab === 'raid') this.buildRaid(p, x, y, w, left);
+    else if (this.arenaTab === 'top') this.buildTop(x, y, w, left);
+    else this.buildLive(p, x, y, w);
+  }
+
+  /** Switches the Arena page (and loads what it shows). */
+  openArena(tab: ArenaTab): void {
+    this.arenaTab = tab;
+    this.tab = 'ranked';
+    if (tab === 'raid') void this.loadAsync();
+    if (tab === 'top') void this.loadBoard();
+    if (tab === 'live') void this.loadRanked();
+    if (this.profile && this.st === 'ready') this.buildBody();
+  }
+
+  /** "October 2026 · 24d 5h left" and the best league of the season; returns the y below. */
+  private buildSeasonLine(x: number, y: number, w: number): number {
+    const s = this.season;
+    this.body.add(addIcon(this, x, y - 1, 'clock'));
+    if (!s) {
+      this.body.add(addText(this, x + 14, y + 1, '...', 'dim'));
+      return y + 13;
+    }
+    const peak = this.arenaTab === 'raid' ? s.async.peak : s.live.peak;
+    const left = t('duels.seasonLeft', { name: t(`duels.month.${seasonMonth(s.season.id).month}` as TKey), t: leftText(s.season.end - Date.now()) });
+    // the peak only when both fit whole (the time left matters more)
+    const right = peak ? t('duels.seasonPeak', { league: leagueName(peak) }) : '';
+    const fits = right && measureText(left) + measureText(right) + 20 <= w;
+    const rt = fits ? addText(this, x + w, y + 1, right, 'ink', 1) : null;
+    if (rt) this.body.add(rt);
+    this.body.add(addText(this, x + 14, y + 1, ellipsize(left, w - 14 - (rt ? rt.width + 6 : 0)), 'red'));
+    return y + 13;
+  }
+
+  private buildLive(p: DuelProfileView, x: number, y: number, w: number): void {
+    const r = this.ranked;
+    const B = this.body;
     // the league card: badge, league (or placements) and record
     const ch = 38;
     B.add(addPanel(this, x, y, w, ch, 'inset'));
@@ -489,7 +640,7 @@ export class DuelScene extends BaseScene {
     }
     const cooldown = r && r.cooldownUntil > now ? r.cooldownUntil : 0;
     const locked = !!r && !r.unlocked;
-    const problem = teamProblem(this.teamHeroes(p), DUEL_RULES.budget);
+    const problem = teamProblem(this.teamHeroes(p, 'arena'), DUEL_RULES.budget);
     const why = cooldown ? t('duels.unq.cooldown') : problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : !r ? t('duels.unq.error') : undefined;
     // ranked (wide, primary) and unranked side by side
     const uw = Math.max(54, Math.floor(w * 0.4));
@@ -508,12 +659,18 @@ export class DuelScene extends BaseScene {
       y = this.hint(t('duels.rankedLocked', { n: r.unlockLevel }), x, y, w, 'red', 1);
       this.hint(t('duels.rankedLockedHint'), x, y, w, 'dim', 1);
     } else {
-      this.hint(t('duels.payUnranked', { w: RANKED.glory.unranked.win, l: RANKED.glory.unranked.loss }), x, y, w, 'dim', 2);
+      // the arena team (which saved team fights here), then what unranked pays
+      const team = this.teamHeroes(p, 'arena');
+      y = this.hint(`${this.loadoutName(p, p.use.arena)} · ${t('duels.teamLine', { n: team.length, max: DUEL_RULES.teamMax, pts: teamPoints(team) })}`, x, y, w, 'ink', 1);
+      this.hint(t('duels.payUnranked', { w: RANKED.glory.unranked.win, l: RANKED.glory.unranked.loss }), x, y, w, 'dim', 1);
     }
   }
 
   /** Wrapped lines of text; returns the y below them. */
   private hint(text: string, x: number, y: number, w: number, font: 'dim' | 'red' | 'ink', lines: number): number {
+    // only the lines that fit above the page's bottom (short screens drop the last hints)
+    lines = Math.min(lines, Math.floor((this.pageBottom - y) / LINE_H));
+    if (lines <= 0) return y;
     const wr = wrapText(text, w - 4, lines);
     this.body.add(addText(this, x + 2, y, wr.lines.join('\n'), font));
     return y + wr.lines.length * LINE_H + 2;
@@ -562,6 +719,7 @@ export class DuelScene extends BaseScene {
     this.search = { mode, since, cancel: () => undefined };
     this.search.cancel = this.src.queue(mode, (e) => this.onQueue(e));
     this.tab = 'ranked';
+    this.arenaTab = 'live';
     if (this.profile && this.st === 'ready') this.buildBody();
   }
 
@@ -634,6 +792,337 @@ export class DuelScene extends BaseScene {
     showReport(this.game, rankedReport(report, t('battle.vs', { name: 'Hektor' }), this.src.demo), () => backToDuel(this.game, { tab: 'ranked', preview: this.src.demo }));
   }
 
+  /** Previews (layout check): the report of a won raid. */
+  previewRaidResult(): void {
+    const p = this.profile;
+    if (!p) return;
+    const team = this.teamHeroes(p, 'arena');
+    lastBattle.heroes = team.map((h) => JSON.parse(JSON.stringify(h)) as Hero);
+    lastBattle.side = 0;
+    lastBattle.stats = [
+      ...team.map((h, i) => ({ heroId: h.id, side: 0 as const, kills: i % 2, dmg: 18 + i * 7, dead: false, ko: false, killedBy: -1 })),
+      ...[0, 1, 2, 3, 4, 5].map((i) => ({ heroId: `foe${i}`, side: 1 as const, kills: 0, dmg: 8, dead: true, ko: false, killedBy: 0 })),
+    ];
+    const report: AsyncReport = {
+      attack: 'preview',
+      defender: { pid: 901, name: 'Lysander' },
+      winner: 0,
+      ticks: 20 * 71,
+      verified: true,
+      glory: ASYNC.glory.win,
+      accountXp: ASYNC.accountXp.win,
+      rating: { before: 1452, after: 1468 },
+      league: { before: { id: 'gold', division: 3 }, after: { id: 'gold', division: 3 } },
+      placements: { played: 10, of: 10 },
+      xp: team.map((h, i) => ({ heroId: h.id, name: h.name, kills: i % 2, xp: 24 + (i % 2) * 10, levelsGained: 0, levelBefore: h.level, xpBefore: h.xp })),
+    };
+    showReport(this.game, raidReport(report, this.src.demo), () => backToDuel(this.game, { tab: 'ranked', arena: 'raid', preview: this.src.demo }));
+  }
+
+  // ------------------------------------------------------------------ raids (async defence ladder)
+
+  private buildRaid(p: DuelProfileView, x: number, y: number, w: number, h: number): void {
+    const B = this.body;
+    const a = this.asyncView;
+    const bottom = y + h;
+    // the raid card: league (or placements), record, and raids left today
+    const ch = 24;
+    B.add(addPanel(this, x, y, w, ch, 'inset'));
+    const league = a?.league ?? null;
+    const g = this.add.graphics();
+    g.fillStyle(0x1d140f, 1);
+    g.fillRect(x + 3, y + 3, 18, 18);
+    g.fillStyle(league ? LEAGUE_COLOR[league.id] : 0x5a4232, 1);
+    g.fillRect(x + 4, y + 4, 16, 16);
+    B.add(g);
+    B.add(addIcon(this, x + 5, y + 5, 'flag', 'L'));
+    const tx = x + 25;
+    if (!a) {
+      B.add(addText(this, tx, y + 8, '...', 'ink'));
+      return;
+    }
+    // the defence and the log: icon buttons in the card on narrow screens, a row of their own otherwise
+    const narrow = w < 180;
+    const defLabel = a.defence ? t('duels.raid.defence', { team: this.loadoutName(p, p.use.defence) }) : t('duels.raid.noDefence');
+    const defOpts = { label: defLabel, icon: 'shield', variant: (a.defence ? 'secondary' : 'primary') as 'secondary' | 'primary', id: 'duel.raid.defence', onClick: () => this.openDefence() };
+    const logOpts = { label: t('duels.raid.log'), icon: 'eye', id: 'duel.raid.log', onClick: () => void this.openRaidLog() };
+    let right = x + w - 4;
+    if (narrow) {
+      B.add(new Button(this, x + w - 22, y + 1, 22, 22, { ...logOpts, iconOnly: true }));
+      B.add(new Button(this, x + w - 22 - SIZE.gap - 22, y + 1, 22, 22, { ...defOpts, iconOnly: true }));
+      right = x + w - 2 * 22 - SIZE.gap - 4;
+    }
+    const left = t('duels.raid.left', { n: a.attacks.left, max: a.attacks.cap });
+    const title = league ? (league.id === 'legend' && a.rating !== null ? t('duels.legendRating', { n: a.rating }) : leagueName(league)) : t('duels.placements', { n: a.placements.played, max: a.placements.of });
+    const record = `${t('duels.wl', { w: a.wins, l: a.losses })} · ${t('duels.raid.held', { w: a.defenceWins, n: a.defences })}`;
+    if (narrow) {
+      // league above, raids left below (the record is on the wider layout and in the log)
+      B.add(addText(this, tx, y + 3, ellipsize(title, right - tx), 'red'));
+      B.add(addText(this, tx, y + 13, ellipsize(left, right - tx), a.attacks.left > 0 ? 'ink' : 'red'));
+    } else {
+      const lt = addText(this, right, y + 3, left, a.attacks.left > 0 ? 'ink' : 'red', 1);
+      B.add(lt);
+      B.add(addText(this, tx, y + 3, ellipsize(title, right - tx - lt.width - 4), 'red'));
+      B.add(addText(this, tx, y + 13, ellipsize(record, right - tx), 'dim'));
+    }
+    y += ch + 4;
+    if (!narrow) {
+      const bw = Math.floor((w - SIZE.gap) / 2);
+      B.add(new Button(this, x, y, bw, SIZE.btnH, defOpts));
+      B.add(new Button(this, x + bw + SIZE.gap, y, w - bw - SIZE.gap, SIZE.btnH, logOpts));
+      y += SIZE.btnH + 4;
+    }
+    if (!a.unlocked) {
+      y = this.hint(t('duels.raid.locked', { n: a.unlockLevel }), x, y, w, 'red', 1);
+      this.hint(t('duels.raid.lockedHint'), x, y, w, 'dim', 2);
+      return;
+    }
+    if (a.attacks.left <= 0) {
+      y = this.hint(t('duels.raid.capped'), x, y, w, 'red', 1);
+      this.hint(t('duels.raid.cappedHint'), x, y, w, 'dim', 2);
+      return;
+    }
+    if (!a.candidates.length) {
+      y = this.hint(t('duels.raid.none'), x, y, w, 'ink', 1);
+      this.hint(t('duels.raid.noneHint'), x, y, w, 'dim', 2);
+      return;
+    }
+    const team = this.teamHeroes(p, 'arena');
+    const problem = teamProblem(team, DUEL_RULES.budget);
+    const list = a.candidates;
+    this.list = new ScrollList(this, this.body, x, y, w, Math.max(30, bottom - y), {
+      count: list.length,
+      rowH: 30,
+      render: (i, row, rw, rh) => {
+        const c = list[i];
+        row.add(addPanel(this, 0, 0, rw, rh, 'button'));
+        const narrow = rw < 180;
+        const bw2 = narrow ? 28 : 50;
+        const b = new Button(this, rw - bw2 - 3, 4, bw2, 22, {
+          label: t('duels.raid.attack'),
+          icon: 'swords',
+          iconOnly: narrow,
+          variant: 'primary',
+          id: 'duel.raid.attack',
+          onClick: () => void this.raid(c.pid),
+        });
+        b.setEnabled(!problem, problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : undefined);
+        row.add(b);
+        const right = rw - bw2 - 8;
+        let chipW = 0;
+        if (c.league) {
+          const label = c.league.id === 'legend' && c.rating !== null ? `${c.rating}` : leagueName(c.league);
+          chipW = addChip(this, row, right, 3, label, LEAGUE_COLOR[c.league.id], Math.floor(right * 0.5), true);
+        }
+        row.add(addText(this, 5, 4, ellipsize(c.name, right - 5 - chipW - 4), 'ink'));
+        row.add(addText(this, 5, 17, ellipsize(t('duels.raid.foe', { n: c.heroes, pts: c.points }), right - 5), 'dim'));
+      },
+    });
+  }
+
+  /** Starts a raid on a defender: the battle scene, then the report and back to Raids. */
+  async raid(defender: number): Promise<void> {
+    if (this.busy) return;
+    this.busy = true;
+    try {
+      const tk = await this.src.asyncStart(defender);
+      if (!this.sys.isActive()) return;
+      this.scene.start('Battle', { source: raidSource(this.game, this.src, tk) });
+    } catch (e) {
+      if (this.sys.isActive()) {
+        hapticNotify('error');
+        toast(this, errorText(e), 'bad');
+        void this.loadAsync();
+      }
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /** Which saved team defends (the bot plays it when others raid you). */
+  openDefence(): void {
+    const p = this.profile;
+    if (!p) return;
+    const { VW, VH } = this.m;
+    const w = Math.min(VW - 12, 210);
+    const inner = w - 16;
+    const rowH = 28;
+    const wr = wrapText(t('duels.def.hint', { n: DUEL_RULES.budget }), inner, 3);
+    const m = openModal(this, { title: t('duels.def.title'), w, h: Math.min(VH - 12, 26 + wr.lines.length * LINE_H + 6 + 3 * (rowH + SIZE.gap) + SIZE.btnH + 14) });
+    const { c, x } = m;
+    let y = m.y + 24;
+    c.add(addText(this, x + 8, y, wr.lines.join('\n'), 'dim'));
+    y += wr.lines.length * LINE_H + 6;
+    for (const l of p.loadouts) {
+      const heroes = l.team.map((id) => p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+      const pts = teamPoints(heroes);
+      const problem = teamProblem(heroes, DUEL_RULES.budget);
+      const on = p.use.defence === l.slot && !!p.defence;
+      const b = new Button(this, x + 8, y, inner, rowH - 2, {
+        label: `${this.loadoutName(p, l.slot)} · ${t('duels.teamLine', { n: heroes.length, max: DUEL_RULES.teamMax, pts })}`,
+        icon: on ? 'check' : 'shield',
+        style: on ? 'buttonSel' : 'button',
+        id: `duel.def.${l.slot}`,
+        onClick: () => (m.close(), void this.act(() => this.src.loadout({ slot: l.slot, use: ['defence'] }), () => t('duels.def.set', { team: this.loadoutName(p, l.slot) })).then(() => this.loadAsync())),
+      });
+      b.setEnabled(!problem, problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : undefined);
+      c.add(b);
+      y += rowH + SIZE.gap;
+    }
+    c.add(new Button(this, x + 8, m.y + m.h - 8 - SIZE.btnH, inner, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
+  }
+
+  /** The raid log: your raids and the raids on your defence. */
+  async openRaidLog(given?: AsyncLogEntry[]): Promise<void> {
+    let entries = given;
+    if (!entries) {
+      try {
+        entries = (await this.src.asyncLog()).entries;
+      } catch (e) {
+        if (this.sys.isActive()) toast(this, errorText(e), 'bad');
+        return;
+      }
+    }
+    if (!this.sys.isActive()) return;
+    const { VW, VH } = this.m;
+    const w = Math.min(VW - 12, 220);
+    const inner = w - 16;
+    const rowH = 30;
+    const m = openModal(this, { title: t('duels.log.title'), w, h: Math.min(VH - 12, 26 + Math.max(1, entries.length) * rowH + SIZE.btnH + 18) });
+    const { c, x } = m;
+    const top = m.y + 24;
+    const by = m.y + m.h - 8 - SIZE.btnH;
+    const now = Date.now();
+    const list = entries;
+    if (!list.length) c.add(addText(this, x + w / 2, top + 8, ellipsize(t('duels.log.empty'), inner), 'ink', 0.5));
+    else {
+      const sl = new ScrollList(this, c, x + 8, top, inner, by - 4 - top, {
+        count: list.length,
+        rowH,
+        render: (i, row, rw, rh) => {
+          const e = list[i];
+          row.add(addPanel(this, 0, 0, rw, rh - 2, e.role === 'defence' ? 'inset' : 'button'));
+          row.add(addIcon(this, 3, 3, e.role === 'defence' ? 'shield' : 'swords'));
+          const res = e.score === 1 ? t('duels.log.won') : e.score === 0.5 ? t('duels.log.draw') : t('duels.log.lost');
+          const d = e.delta >= 0 ? `+${e.delta}` : `${e.delta}`;
+          const rt = addText(this, rw - 4, 3, `${res} ${d}`, e.score === 1 ? 'good' : e.score === 0 ? 'red' : 'ink', 1);
+          row.add(rt);
+          const who = e.role === 'defence' ? t('duels.log.defence', { name: e.name }) : t('duels.log.attack', { name: e.name });
+          row.add(addText(this, 17, 3, ellipsize(who, rw - 17 - rt.width - 8), 'ink'));
+          const sub = e.glory ? `${agoText(now - e.at)} · ${t('duels.note.glory', { n: e.glory })}` : agoText(now - e.at);
+          row.add(addText(this, 17, 15, ellipsize(sub, rw - 21), 'dim'));
+        },
+      });
+      c.once('destroy', () => sl.destroy());
+    }
+    c.add(new Button(this, x + 8, by, inner, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
+  }
+
+  // ------------------------------------------------------------------ leaderboards
+
+  private buildTop(x: number, y: number, w: number, h: number): void {
+    const B = this.body;
+    const bottom = y + h;
+    const bw = Math.floor((w - 2 * SIZE.gap) / 3);
+    BOARDS.forEach((b, i) =>
+      B.add(
+        new Button(this, x + i * (bw + SIZE.gap), y, i === 2 ? w - 2 * (bw + SIZE.gap) : bw, 22, {
+          label: t(`duels.board.${b}` as TKey),
+          style: this.board === b ? 'buttonSel' : 'button',
+          id: `duel.board.${b}`,
+          onClick: () => {
+            this.board = b;
+            this.boardView = null;
+            void this.loadBoard();
+            this.buildBody();
+          },
+        }),
+      ),
+    );
+    y += 26;
+    const v = this.boardView && this.boardView.board === this.board ? this.boardView : null;
+    const title = this.season?.title;
+    // the title line only when at least five rows still fit
+    if (title && bottom - y - 12 - 24 >= 5 * 20) {
+      this.body.add(addText(this, x + 2, y, ellipsize(t('duels.titleLine', { title: t('duels.titleOf', { league: leagueTitle(title.league), season: seasonName(title.season) }) }), w - 4), 'dim'));
+      y += 12;
+    }
+    if (!v) {
+      B.add(addText(this, x + w / 2, y + 8, '...', 'ink', 0.5));
+      return;
+    }
+    const rowH = 20;
+    const meH = v.me || this.board !== 'legend' ? rowH + 4 : 0;
+    if (!v.rows.length) {
+      this.hint(t('duels.board.empty'), x, y + 4, w, 'ink', 2);
+    } else {
+      this.list = new ScrollList(this, this.body, x, y, w, Math.max(rowH, bottom - meH - y), {
+        count: v.rows.length,
+        rowH,
+        render: (i, row, rw, rh) => this.boardRow(v.rows[i], row, rw, rh, false),
+      });
+    }
+    if (meH) {
+      const row = this.add.container(x, bottom - rowH);
+      B.add(row);
+      if (v.me) this.boardRow(v.me, row, w, rowH, true);
+      else {
+        row.add(addPanel(this, 0, 0, w, rowH - 2, 'inset'));
+        row.add(addText(this, 5, 4, ellipsize(t('duels.board.notPlaced', { n: RANKED.placements }), w - 10), 'dim'));
+      }
+    }
+  }
+
+  private boardRow(r: LeaderboardView['rows'][number], row: Phaser.GameObjects.Container, w: number, rh: number, me: boolean): void {
+    row.add(addPanel(this, 0, 0, w, rh - 2, me ? 'buttonSel' : r.rank <= 3 ? 'button' : 'inset'));
+    const rank = addText(this, 4, 4, `#${r.rank}`, me ? 'light' : r.rank <= 3 ? 'red' : 'ink');
+    row.add(rank);
+    const label = r.rating !== null ? `${r.rating}` : leagueName(r.league);
+    const chipW = addChip(this, row, w - 3, 3, label, LEAGUE_COLOR[r.league.id], Math.floor(w * 0.45), true);
+    const nx = Math.max(26, rank.width + 8);
+    row.add(addText(this, nx, 4, ellipsize(me ? t('duels.board.you') : r.name, w - nx - chipW - 8), me ? 'light' : 'ink'));
+  }
+
+  // ------------------------------------------------------------------ season rewards
+
+  /** The popup after a season ended: what each ladder's peak league paid (already in the purse and the wallet). */
+  openSeasonRewards(v: SeasonView): void {
+    this.rewardShown = true;
+    const { VW, VH } = this.m;
+    const w = Math.min(VW - 12, 220);
+    const inner = w - 16;
+    const rowH = 42;
+    const best = v.title;
+    const m = openModal(this, {
+      title: t('duels.reward.title'),
+      w,
+      h: Math.min(VH - 12, 26 + 14 + v.rewards.length * (rowH + SIZE.gap) + (best ? 14 : 0) + SIZE.btnH + 16),
+      onClose: () => void this.src.seasonSeen().catch(() => undefined),
+    });
+    const { c, x } = m;
+    let y = m.y + 24;
+    c.add(addText(this, x + w / 2, y, ellipsize(seasonName(v.rewards[0].season), inner), 'ink', 0.5));
+    y += 14;
+    for (const r of v.rewards) {
+      c.add(addPanel(this, x + 8, y, inner, rowH, 'button'));
+      const pf = this.add.graphics();
+      pf.fillStyle(0x1d140f, 1);
+      pf.fillRect(x + 11, y + 7, 28, 28);
+      pf.fillStyle(LEAGUE_COLOR[r.league], 1);
+      pf.fillRect(x + 12, y + 8, 26, 26);
+      c.add(pf);
+      c.add(this.add.image(x + 12, y + 8, cosmeticTexture(this, r.cosmetic, r.cosmetic.startsWith('duel_banner') ? 'banner' : 'emblem')).setOrigin(0, 0).setDisplaySize(26, 26));
+      const tx = x + 43;
+      const tw = x + 8 + inner - tx - 4;
+      c.add(addText(this, tx, y + 4, ellipsize(t('duels.reward.line', { ladder: t(`duels.board.${r.ladder}` as TKey), league: leagueTitle(r.league) }), tw), 'red'));
+      c.add(addText(this, tx, y + 16, ellipsize(t('duels.note.glory', { n: r.glory }), tw), 'ink'));
+      c.add(addText(this, tx, y + 28, ellipsize(tOr(`cosmetic.${r.cosmetic}`, r.cosmetic), tw), 'dim'));
+      y += rowH + SIZE.gap;
+    }
+    if (best) c.add(addText(this, x + w / 2, y + 2, ellipsize(t('duels.titleLine', { title: t('duels.titleOf', { league: leagueTitle(best.league), season: seasonName(best.season) }) }), inner), 'dim', 0.5));
+    c.add(new Button(this, x + 8, m.y + m.h - 8 - SIZE.btnH, inner, SIZE.btnH, { label: t('duels.reward.ok'), variant: 'primary', id: 'duel.reward.ok', onClick: () => m.close() }));
+  }
+
   // ------------------------------------------------------------------ team
 
   private buildTeam(p: DuelProfileView, y: number, h: number, keep: number): void {
@@ -641,8 +1130,31 @@ export class DuelScene extends BaseScene {
     const team = this.teamHeroes(p);
     const pts = teamPoints(team);
     const over = pts > DUEL_RULES.budget;
-    this.body.add(addText(this, 6, y + 1, ellipsize(t('duels.teamCount', { n: team.length, max: DUEL_RULES.teamMax }), Math.floor((VW - 12) / 2)), 'red'));
-    this.body.add(addText(this, VW - 6, y + 1, ellipsize(t('duels.points', { n: pts, max: DUEL_RULES.budget }), Math.floor((VW - 12) / 2)), over ? 'red' : 'ink', 1));
+    // the saved teams (the selected one is edited below) and which one fights where
+    const slots = p.loadouts?.length ?? 1;
+    const uw = VW < 180 ? 30 : 56;
+    const sw = Math.floor((VW - 8 - uw - slots * SIZE.gap) / slots);
+    for (let i = 0; i < slots; i++) {
+      const slot = i + 1;
+      this.body.add(
+        new Button(this, 4 + i * (sw + SIZE.gap), y, sw, 22, {
+          label: VW < 180 ? String(slot) : this.loadoutName(p, slot),
+          tip: this.loadoutName(p, slot),
+          style: p.loadout === slot ? 'buttonSel' : 'button',
+          id: `duel.loadout.${slot}`,
+          onClick: () => p.loadout !== slot && void this.act(() => this.src.loadout({ slot, edit: true })),
+        }),
+      );
+    }
+    this.body.add(new Button(this, VW - 4 - uw, y, uw, 22, { label: t('duels.uses'), icon: 'flag', iconOnly: VW < 180, id: 'duel.loadoutUses', onClick: () => this.openUses() }));
+    y += 25;
+    h -= 25;
+    // the edited team's size and where it fights, then its points
+    const uses = LOADOUT_USES.filter((u) => p.use?.[u] === p.loadout).map((u) => t(`duels.use.${u}` as TKey));
+    const ptsT = addText(this, VW - 6, y + 1, t('duels.points', { n: pts, max: DUEL_RULES.budget }), over ? 'red' : 'ink', 1);
+    this.body.add(ptsT);
+    const count = `${t('duels.teamCount', { n: team.length, max: DUEL_RULES.teamMax })}${uses.length ? ` · ${uses.join(', ')}` : ''}`;
+    this.body.add(addText(this, 6, y + 1, ellipsize(count, VW - 12 - ptsT.width - 6), 'red'));
     y += 13;
     h -= 13;
     // team first (in team order), then the bench
@@ -692,6 +1204,41 @@ export class DuelScene extends BaseScene {
     const subT = addText(this, x, 17, ellipsize(sub, right - pts.width - 4 - x - 42), inTeam ? 'light' : h.points > 0 ? 'gold' : 'dim');
     row.add(subT);
     addStars(this, row, Math.min(x + subT.width + 4, right - pts.width - 4 - 39), 19, heroStars(h));
+  }
+
+  /** Which saved team fights on the ladder, in the arena (live and raids) and defends. */
+  openUses(): void {
+    const p = this.profile;
+    if (!p?.loadouts) return;
+    const { VW, VH } = this.m;
+    const w = Math.min(VW - 12, 210);
+    const inner = w - 16;
+    const rowH = 38;
+    const m = openModal(this, { title: t('duels.usesTitle'), w, h: Math.min(VH - 12, 26 + LOADOUT_USES.length * rowH + SIZE.btnH + 16) });
+    const { c, x } = m;
+    let y = m.y + 24;
+    const n = p.loadouts.length;
+    const bw = Math.floor((inner - (n - 1) * SIZE.gap) / n);
+    for (const u of LOADOUT_USES) {
+      c.add(addText(this, x + 8, y, ellipsize(t(`duels.use.${u}` as TKey), inner), 'red'));
+      p.loadouts.forEach((l, i) => {
+        const on = p.use[u] === l.slot;
+        const heroes = l.team.map((id) => p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+        const problem = u === 'defence' ? teamProblem(heroes, DUEL_RULES.budget) : heroes.length ? null : 'empty';
+        const b = new Button(this, x + 8 + i * (bw + SIZE.gap), y + 11, i === n - 1 ? inner - (n - 1) * (bw + SIZE.gap) : bw, 22, {
+          label: VW < 180 ? String(l.slot) : this.loadoutName(p, l.slot),
+          tip: this.loadoutName(p, l.slot),
+          icon: on ? 'check' : undefined,
+          style: on ? 'buttonSel' : 'button',
+          id: `duel.use.${u}.${l.slot}`,
+          onClick: () => (m.close(), void this.act(() => this.src.loadout({ slot: l.slot, use: [u] }), () => t('duels.useSet', { team: this.loadoutName(p, l.slot), use: t(`duels.use.${u}` as TKey) }))),
+        });
+        b.setEnabled(on || !problem, problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : undefined);
+        c.add(b);
+      });
+      y += rowH;
+    }
+    c.add(new Button(this, x + 8, m.y + m.h - 8 - SIZE.btnH, inner, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
   }
 
   private toggleTeam(p: DuelProfileView, h: Hero): void {
@@ -1047,6 +1594,57 @@ export function demoMatchSource(game: Phaser.Game, src: DemoDuelSource, m: DemoM
       backToDuel(game, { tab: 'ranked', preview: true });
     },
   };
+}
+
+/** The battle scene's source for a raid: submit the order log, then the report and back to Raids. */
+export function raidSource(game: Phaser.Game, src: DuelSource, tk: AsyncTicket): BattleSource {
+  return {
+    setup: tk.setup,
+    heroes: [...tk.team, ...tk.enemies],
+    side: 0,
+    label: t('battle.vs', { name: tk.defender.name }),
+    opponent: tk.defender.name,
+    onFinish(sim: Battle, deployOrders: number) {
+      const sub = attackSubmission(sim, deployOrders);
+      src
+        .asyncSubmit(tk.ticket, sub, sim.result())
+        .then((r) => showReport(game, raidReport(r.report, src.demo), () => backToDuel(game, { tab: 'ranked', arena: 'raid', preview: src.demo })))
+        .catch((e) => backToDuel(game, { tab: 'ranked', arena: 'raid', preview: src.demo, error: errorText(e) }));
+    },
+    onLeave() {
+      void src.asyncAbandon(tk.ticket).catch(() => undefined);
+      backToDuel(game, { tab: 'ranked', arena: 'raid', preview: src.demo });
+    },
+  };
+}
+
+/** The post-battle report of a raid: the raid rating change, league, Glory and XP (no deaths in duels). */
+export function raidReport(r: AsyncReport, demo = false): BattleReport {
+  const notes: string[] = [];
+  const d = r.rating.after - r.rating.before;
+  const ds = d >= 0 ? `+${d}` : `-${-d}`;
+  const { before, after } = r.league;
+  notes.push(after?.id === 'legend' ? t('duels.note.raidLegend', { n: r.rating.after, d: ds }) : t('duels.note.raidRating', { d: ds }));
+  if (r.placements.played < r.placements.of) notes.push(t('duels.note.placement', { n: r.placements.played, max: r.placements.of }));
+  else if (after && !before) notes.push(t('duels.note.placed', { league: leagueName(after) }));
+  else if (after && before && leagueRank(after) > leagueRank(before)) notes.push(t('duels.note.leagueUp', { league: leagueName(after) }));
+  else if (after && before && leagueRank(after) < leagueRank(before)) notes.push(t('duels.note.leagueDown', { league: leagueName(after) }));
+  if (r.accountXp) notes.push(t('duels.note.xp', { n: r.accountXp }));
+  if (demo) notes.push(t('duels.note.demo'));
+  return buildReport({
+    result: resultFor(r.winner, 0),
+    vs: t('battle.vs', { name: r.defender.name }),
+    ticks: r.ticks,
+    side: 0,
+    stats: lastBattle.stats,
+    heroes: lastBattle.heroes,
+    outcomes: r.xp.map((x) => ({ heroId: x.heroId, name: x.name, died: false, wounded: false, xp: x.xp, levelsGained: x.levelsGained, levelBefore: x.levelBefore, xpBefore: x.xpBefore })),
+    gold: 0,
+    glory: r.glory,
+    verified: demo ? null : r.verified,
+    online: 'duel',
+    notes,
+  });
 }
 
 /** The post-battle report of a live match: rating change, league, placements, Glory and XP (no deaths in duels). */

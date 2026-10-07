@@ -170,16 +170,31 @@ const SCREENS = [
     ['duel-shop-sell', { tab: 'shop', shop: 'sell' }, ''],
     ['duel-hero', { tab: 'team' }, 's.openHero(s.profile.heroes[6].id);'],
     // live ranked (slice 3): the league card, the level gate, the search and the opponent found
-    ['duel-ranked', { tab: 'ranked' }, ''],
-    ['duel-ranked-locked', { tab: 'ranked', demoXp: 0 }, ''],
-    ['duel-searching', { tab: 'ranked' }, "s.src.findDelayMs = 1e8; s.findMatch('ranked');"],
-    ['duel-found', { tab: 'ranked' }, "s.src.findDelayMs = 0; s.foundHoldMs = 1e8; s.findMatch('ranked');"],
+    ['duel-ranked', { tab: 'ranked', arena: 'live' }, ''],
+    ['duel-ranked-locked', { tab: 'ranked', arena: 'live', demoXp: 0 }, ''],
+    ['duel-searching', { tab: 'ranked', arena: 'live' }, "s.src.findDelayMs = 1e8; s.findMatch('ranked');"],
+    ['duel-found', { tab: 'ranked', arena: 'live' }, "s.src.findDelayMs = 0; s.foundHoldMs = 1e8; s.findMatch('ranked');"],
+    // slice 4: saved teams, raids (the async defence ladder), leaderboards and the season reward popup
+    ['duel-uses', { tab: 'team' }, 's.openUses();'],
+    ['duel-raid', { tab: 'ranked', arena: 'raid' }, ''],
+    ['duel-raid-locked', { tab: 'ranked', arena: 'raid', demoXp: 0 }, ''],
+    ['duel-defence', { tab: 'ranked', arena: 'raid' }, 's.openDefence();'],
+    ['duel-raid-log', { tab: 'ranked', arena: 'raid' }, 'void s.openRaidLog();'],
+    ['duel-top', { tab: 'ranked', arena: 'top' }, "s.board = 'live'; s.openArena('top');"],
+    ['duel-top-legend', { tab: 'ranked', arena: 'top' }, "s.board = 'legend'; s.openArena('top');"],
+    [
+      'duel-season-reward',
+      { tab: 'ranked', arena: 'live' },
+      "const id = s.season.season.id - 1; s.src.async.rewards = [{ season: id, ladder: 'live', league: 'strategos', glory: 400, cosmetic: 'duel_banner_strategos' }, { season: id, ladder: 'async', league: 'gold', glory: 90, cosmetic: 'duel_emblem_gold' }]; void s.src.season().then((v) => s.openSeasonRewards(v));",
+    ],
   ].map(([id, data, after]) => ({
     id,
     owner: 'B',
     run: async (p) => {
       await start(p, 'Duel', { demoXp: 560, ...data, preview: true });
-      if (data.tab === 'ranked') await until(p, () => !!window.__game.scene.getScene('Duel').ranked, 4000);
+      if (data.tab === 'ranked') await until(p, () => !!window.__game.scene.getScene('Duel').ranked && !!window.__game.scene.getScene('Duel').season, 4000);
+      if (data.arena === 'raid') await until(p, () => !!window.__game.scene.getScene('Duel').asyncView, 4000);
+      if (data.arena === 'top') await until(p, () => !!window.__game.scene.getScene('Duel').boardView, 4000);
       await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
       await wait(p, 300);
       if (after) await call(p, 'Duel', `${after} return 1;`);
@@ -187,11 +202,24 @@ const SCREENS = [
     },
   })),
   {
+    // the report of a won raid on the demo
+    id: 'duel-raid-result',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Duel', { tab: 'ranked', arena: 'raid', preview: true, demoXp: 560 });
+      await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
+      await wait(p, 600);
+      await call(p, 'Duel', 's.previewRaidResult(); return 1;');
+      await until(p, () => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 8000);
+      return wait(p, 3000);
+    },
+  },
+  {
     // the report of a ranked match (rating change, promotion) on the demo
     id: 'duel-ranked-result',
     owner: 'B',
     run: async (p) => {
-      await start(p, 'Duel', { tab: 'ranked', preview: true, demoXp: 560 });
+      await start(p, 'Duel', { tab: 'ranked', arena: 'live', preview: true, demoXp: 560 });
       await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
       await wait(p, 600); // (the scene object keeps its last profile while it restarts)
       await call(p, 'Duel', 's.previewMatchResult(); return 1;');

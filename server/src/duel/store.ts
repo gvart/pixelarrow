@@ -11,7 +11,7 @@ import type { Attrs } from '../../../src/data/perks';
 import type { FormationType } from '../../../src/sim/formation';
 import { hashString } from '../../../src/sim/rng';
 import { DEFAULT_FORMATIONS } from '../../../src/online/rules';
-import { DUEL_RULES, accountLevel, starterDuelRoster, utcDay } from '../../../src/duel/rules';
+import { DUEL_RULES, accountLevel, freshGear, starterDuelRoster, teamPoints, teamProblem, utcDay } from '../../../src/duel/rules';
 import { ApiError } from '../errors';
 
 export interface DuelProfileRow {
@@ -29,6 +29,22 @@ export interface DuelProfileRow {
   rev: number;
   created_at: number;
   updated_at: number;
+  /** The loadout the Team tab edits, and the ones that fight on the ladder, in the arena and defend (1..3). */
+  loadout: number;
+  lo_ladder: number;
+  lo_arena: number;
+  lo_defence: number;
+}
+
+export type LoadoutUse = 'ladder' | 'arena' | 'defence';
+export const LOADOUT_USES: LoadoutUse[] = ['ladder', 'arena', 'defence'];
+export const LOADOUT_SLOTS = 3;
+
+export interface Loadout {
+  slot: number;
+  name: string | null;
+  team: string[];
+  formations: FormationType[];
 }
 
 export interface DuelHero {
@@ -62,6 +78,9 @@ export async function ensureDuelProfile(db: D1Database, pid: number, now: number
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)`,
       )
       .bind(pid, DUEL_RULES.startGlory, ids.nextId, JSON.stringify(heroes.map((h) => h.id)), JSON.stringify(DEFAULT_FORMATIONS), now),
+    db
+      .prepare('INSERT OR IGNORE INTO duel_loadouts (player_id, slot, name, team, formations, updated_at) VALUES (?1, 1, NULL, ?2, ?3, ?4)')
+      .bind(pid, JSON.stringify(heroes.map((h) => h.id)), JSON.stringify(DEFAULT_FORMATIONS), now),
     // The starter roster is a pure function of the player id: a racing second create inserts nothing new.
     ...heroes.map((h) =>
       db
@@ -105,22 +124,96 @@ export async function loadDuelItems(db: D1Database, pid: number): Promise<Item[]
   return rows.results.map((r) => normalizeItem(JSON.parse(r.data) as Item));
 }
 
-export function teamOf(p: Pick<DuelProfileRow, 'team'>): string[] {
+function idList(json: string): string[] {
   try {
-    const v = JSON.parse(p.team) as unknown;
+    const v = JSON.parse(json) as unknown;
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
   } catch {
     return [];
   }
 }
 
-export function duelFormations(p: Pick<DuelProfileRow, 'formations'>): FormationType[] {
+function formationList(json: string): FormationType[] {
   try {
-    const v = JSON.parse(p.formations) as FormationType[];
+    const v = JSON.parse(json) as FormationType[];
     return Array.isArray(v) && v.length === 4 ? v : [...DEFAULT_FORMATIONS];
   } catch {
     return [...DEFAULT_FORMATIONS];
   }
+}
+
+/** The legacy team of a profile row (0007; loadout 1 since 0010). */
+export function teamOf(p: Pick<DuelProfileRow, 'team'>): string[] {
+  return idList(p.team);
+}
+
+export function duelFormations(p: Pick<DuelProfileRow, 'formations'>): FormationType[] {
+  return formationList(p.formations);
+}
+
+/** The player's saved teams, slots 1..LOADOUT_SLOTS (a slot never saved is empty). */
+export async function loadLoadouts(db: D1Database, p: DuelProfileRow): Promise<Loadout[]> {
+  const rows = await db.prepare('SELECT slot, name, team, formations FROM duel_loadouts WHERE player_id = ?1').bind(p.player_id).all<{ slot: number; name: string | null; team: string; formations: string }>();
+  const out: Loadout[] = [];
+  for (let slot = 1; slot <= LOADOUT_SLOTS; slot++) {
+    const r = rows.results.find((x) => x.slot === slot);
+    if (r) out.push({ slot, name: r.name, team: idList(r.team), formations: formationList(r.formations) });
+    // a profile from before 0010 that the migration did not see keeps its team in slot 1
+    else out.push({ slot, name: null, team: slot === 1 ? teamOf(p) : [], formations: slot === 1 ? duelFormations(p) : [...DEFAULT_FORMATIONS] });
+  }
+  return out;
+}
+
+/** The slot a profile uses for something (1..3). */
+export function useSlot(p: Pick<DuelProfileRow, 'lo_ladder' | 'lo_arena' | 'lo_defence'>, use: LoadoutUse): number {
+  const v = use === 'ladder' ? p.lo_ladder : use === 'arena' ? p.lo_arena : p.lo_defence;
+  return v >= 1 && v <= LOADOUT_SLOTS ? v : 1;
+}
+
+/** The loadout a profile uses for something. */
+export async function loadoutFor(db: D1Database, p: DuelProfileRow, use: LoadoutUse): Promise<Loadout> {
+  const all = await loadLoadouts(db, p);
+  return all[useSlot(p, use) - 1];
+}
+
+/** Writes a loadout (guarded by `G`). */
+export function loadoutStmt(db: D1Database, pid: number, l: Loadout, G: string, now: number): D1PreparedStatement {
+  return db
+    .prepare(
+      `INSERT INTO duel_loadouts (player_id, slot, name, team, formations, updated_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE ${G}
+       ON CONFLICT (player_id, slot) DO UPDATE SET name = excluded.name, team = excluded.team, formations = excluded.formations, updated_at = excluded.updated_at`,
+    )
+    .bind(pid, l.slot, l.name, JSON.stringify(l.team), JSON.stringify(l.formations), now);
+}
+
+/** The heroes of a loadout as they would fight now (perfect gear, no wear in duels). */
+export function loadoutHeroes(l: Loadout, heroes: readonly DuelHero[]): Hero[] {
+  const byId = new Map(heroes.map((h) => [h.hero.id, h.hero]));
+  return l.team.map((id) => byId.get(id)).filter((h): h is Hero => !!h).map(freshGear);
+}
+
+/**
+ * Refreshes the defence snapshot (what the async bot plays) from the defence
+ * loadout when it fits the ranked budget; a defence over budget keeps its last
+ * snapshot. Only for players who already set a defence, unless `create`.
+ * Returns why the loadout cannot defend, or null.
+ */
+export async function syncDefence(db: D1Database, pid: number, now: number, create = false): Promise<'none' | 'empty' | 'too_many' | 'over_budget' | null> {
+  const p = await getDuelProfile(db, pid);
+  if (!p) return 'none';
+  if (!create && !(await db.prepare('SELECT 1 FROM duel_defences WHERE player_id = ?1').bind(pid).first())) return 'none';
+  const l = await loadoutFor(db, p, 'defence');
+  const heroes = loadoutHeroes(l, await loadDuelHeroes(db, pid));
+  const problem = teamProblem(heroes, DUEL_RULES.budget);
+  if (problem) return problem;
+  await db
+    .prepare(
+      `INSERT INTO duel_defences (player_id, heroes, formations, points, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)
+       ON CONFLICT (player_id) DO UPDATE SET heroes = excluded.heroes, formations = excluded.formations, points = excluded.points, updated_at = excluded.updated_at`,
+    )
+    .bind(pid, JSON.stringify(heroes), JSON.stringify(l.formations), teamPoints(heroes), now)
+    .run();
+  return null;
 }
 
 /** Farm Glory still allowed today. */
@@ -143,17 +236,28 @@ export interface DuelProfileView {
   wins: number;
   /** Daily offers this player already bought today. */
   bought: string[];
+  /** The saved teams; `team` and `formations` above are the edited one's (`loadout`). */
+  loadouts: Loadout[];
+  loadout: number;
+  /** Which loadout fights where. */
+  use: Record<LoadoutUse, number>;
+  /** The defence the bot plays in async attacks (null: none set yet). */
+  defence: { points: number; heroes: number; updatedAt: number } | null;
 }
 
 export async function duelProfileView(db: D1Database, pid: number, now: number, row?: DuelProfileRow): Promise<DuelProfileView> {
   const p = row ?? (await requireDuelProfile(db, pid));
   const day = utcDay(now);
-  const [heroes, stash, bought] = await Promise.all([
+  const [heroes, stash, bought, loadouts, defence] = await Promise.all([
     loadDuelHeroes(db, pid),
     loadDuelItems(db, pid),
     db.prepare("SELECT ref FROM duel_orders WHERE player_id = ?1 AND kind = 'buy' AND ref LIKE ?2").bind(pid, `day${day}:%`).all<{ ref: string }>(),
+    loadLoadouts(db, p),
+    db.prepare('SELECT heroes, points, updated_at FROM duel_defences WHERE player_id = ?1').bind(pid).first<{ heroes: string; points: number; updated_at: number }>(),
   ]);
   const ids = new Set(heroes.map((h) => h.hero.id));
+  for (const l of loadouts) l.team = l.team.filter((id) => ids.has(id));
+  const edited = loadouts[Math.min(LOADOUT_SLOTS, Math.max(1, p.loadout || 1)) - 1];
   return {
     now,
     day,
@@ -161,13 +265,17 @@ export async function duelProfileView(db: D1Database, pid: number, now: number, 
     xp: p.xp,
     level: accountLevel(p.xp),
     ladder: { cleared: p.ladder_cleared, farmLeft: farmLeft(p, now), farmCap: DUEL_RULES.farmGloryPerDay },
-    team: teamOf(p).filter((id) => ids.has(id)),
-    formations: duelFormations(p),
+    team: edited.team,
+    formations: edited.formations,
     heroes: heroes.map((h) => h.hero),
     stash,
     battles: p.battles,
     wins: p.wins,
     bought: bought.results.map((r) => r.ref),
+    loadouts,
+    loadout: edited.slot,
+    use: { ladder: useSlot(p, 'ladder'), arena: useSlot(p, 'arena'), defence: useSlot(p, 'defence') },
+    defence: defence ? { points: defence.points, heroes: (JSON.parse(defence.heroes) as unknown[]).length, updatedAt: defence.updated_at } : null,
   };
 }
 
