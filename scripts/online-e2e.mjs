@@ -203,8 +203,8 @@ await until(async () => (await sceneText(A, 'OnlineArmy')).includes('RECRUIT'), 
 const before = await ev(A, () => window.__game.scene.getScene('OnlineArmy').profile.heroes.length);
 await tapBtn(A, 'OnlineArmy', 'Recruit');
 await A.page.waitForTimeout(400);
-await tapBtn(A, 'OnlineArmy', 'hoplite');
-check('recruited a hoplite on the server', await until(() => ev(A, (n) => window.__game.scene.getScene('OnlineArmy').profile?.heroes.length === n + 1, before), 8000));
+await tapBtn(A, 'OnlineArmy', 'Hire'); // the recruit sheet: one Hire button per class
+check('recruited a hero on the server', await until(() => ev(A, (n) => window.__game.scene.getScene('OnlineArmy').profile?.heroes.length === n + 1, before), 8000));
 
 // ---------------------------------------------------------------- clan via invite link
 await ev(A, () => window.__game.scene.getScene('Online').scene.start('OnlineClan', {}));
