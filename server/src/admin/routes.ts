@@ -260,8 +260,8 @@ admin.get('/season', async (c) => {
     ? (
         await d
           .prepare(
-            `SELECT s.id, s.players, s.radius, s.created_at,
-               (SELECT COUNT(*) FROM online_hexes h WHERE h.season_id = s.season_id AND h.shard_id = s.id AND h.owner_id IS NOT NULL) AS owned_hexes,
+            `SELECT s.id, s.players, s.map_id, s.created_at,
+               (SELECT COUNT(*) FROM online_regions h WHERE h.season_id = s.season_id AND h.shard_id = s.id AND h.owner_id IS NOT NULL) AS owned_regions,
                (SELECT COUNT(*) FROM clans k WHERE k.season_id = s.season_id AND k.shard_id = s.id) AS clans,
                (SELECT COUNT(*) FROM market_listings m WHERE m.season_id = s.season_id AND m.shard_id = s.id AND m.status = 'open') AS open_listings,
                (SELECT group_concat(b.boss || ':' || b.status || ':' || b.hp || '/' || b.max_hp, ' ') FROM world_bosses b WHERE b.season_id = s.season_id AND b.shard_id = s.id) AS bosses

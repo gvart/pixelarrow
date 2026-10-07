@@ -120,20 +120,20 @@ export class DemoEconSource implements EconSource {
     const heroes = (o.heroes ?? []).map((h) => ({ hero: h, garrison: null, woundedUntil: 0, busy: false }));
     this.prof = {
       season: { id: 3, startedAt: this.now - 86_400_000 * 49, endsAt: this.now + 86_400_000 * 41 },
-      shard: { id: 1, radius: 34 },
+      shard: { id: 1, map: 'test30' },
       now: this.now,
       resources: { gold: 1240, food: 380, wood: 210, bronze: 95, recruits: 3 },
       energy: 72,
       energyMax: 100,
-      home: { q: 0, r: 0 },
-      army: { q: 0, r: 0, marching: false, dest: null, arriveAt: null },
+      home: 1,
+      army: { loc: 1, marching: false, dest: null, arriveAt: null },
       formations: [],
       heroes,
       stash: (o.stash ?? []).map((it) => ({ ...it })),
       clan: null,
       battles: 14,
       wins: 9,
-      income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, hexes: 6 },
+      income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, regions: 6 },
     };
     // market: a spread of items, goods and consumables from other players, two of mine
     const items = ITEM_LIST.filter((_, i) => i % 3 === 0);
@@ -161,7 +161,7 @@ export class DemoEconSource implements EconSource {
     return {
       id: `l${i}`,
       seller: { id: 100 + i, name: NAMES[i % NAMES.length] },
-      town: { q: (i % 3) * 2 - 2, r: 1 - (i % 2) },
+      town: [{ loc: 7, name: 'Oppidum Vetus' }, { loc: 17, name: 'Emporium' }, { loc: 9, name: 'Urbs Media' }][i % 3],
       ...x,
       fee: marketFee(x.price),
       status: 'open',
@@ -267,7 +267,7 @@ export class DemoEconSource implements EconSource {
     return this.ok({ listings: l, open: l.filter((x) => x.status === 'open').length, maxOpen: 20 });
   }
   marketTowns() {
-    return this.ok({ towns: [{ q: 2, r: -1 }, { q: -3, r: 2 }] });
+    return this.ok({ towns: [{ loc: 7, name: 'Oppidum Vetus' }, { loc: 17, name: 'Emporium' }] });
   }
   marketList(b: MarketListRequest) {
     let item: Record<string, unknown> | null = null;

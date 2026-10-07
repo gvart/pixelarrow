@@ -3,14 +3,14 @@
  * DOM, clocks or Math.random). The server is the authority; the client uses
  * the same numbers only to display predictions.
  *
- * The world itself (hex shards) lives in ./hex.ts.
+ * The world itself (hand-authored region maps) lives in ./world.ts.
  */
 import { Rng, hashString } from '../sim/rng';
 import type { FormationType } from '../sim/formation';
 import { makeHero, starterParty, type Archetype, type IdSource } from '../game/heroes';
 import type { Hero } from '../data/units';
 import type { Culture } from '../data/names';
-import { neighbours, type Axial, type HexInfo, type HexType } from './hex';
+import type { RegionInfo, WorldGraph } from './world';
 
 // ------------------------------------------------------------------ economy
 
@@ -25,33 +25,35 @@ export const RESOURCE_KEYS: (keyof Resources)[] = ['gold', 'food', 'wood', 'bron
 
 const R = (gold = 0, food = 0, wood = 0, bronze = 0, recruits = 0): Resources => ({ gold, food, wood, bronze, recruits });
 
-/** Hourly yield of a held hex by type: farmland feeds, forests give wood, mines bronze, towns gold and men. */
-export const HEX_INCOME: Record<HexType, Resources> = {
-  plains: R(1, 1),
-  farmland: R(1, 6),
-  forest: R(0, 1, 5),
-  hills: R(1, 0, 1, 1),
-  mine: R(1, 0, 0, 4),
-  town: R(10, 1, 0, 0, 0.2),
-  ruins: R(3, 0, 0, 2),
-  water: R(),
-  mountain: R(),
+/** Hourly yield of a held plot by its ground: fields feed, forests give wood, hills bronze, scrub and coast a little of everything. */
+export const PLOT_INCOME: Record<RegionInfo['site']['base'], Resources> = {
+  plain: R(2, 6),
+  forest: R(1, 1, 6),
+  hills: R(2, 0, 1, 4),
+  scrub: R(3, 2, 1, 1),
+  beach: R(4, 3),
 };
-/** Forts and capitals pay on top of their hex type. */
-export const FORT_INCOME = R(8, 2, 2, 2, 0.1);
-export const CAPITAL_INCOME = R(30, 10, 5, 5, 0.5);
+/** What the other kinds of region pay (forts and capitals on top of their ground). */
+export const KIND_INCOME: Record<Exclude<RegionInfo['kind'], 'plot'>, Resources> = {
+  town: R(12, 2, 0, 0, 0.3),
+  fort: R(8, 2, 2, 2, 0.1),
+  capital: R(35, 10, 5, 5, 0.6),
+  post: R(8, 1, 0, 1),
+  lair: R(4, 0, 0, 3),
+  sea: R(),
+};
 
-/** Season ranking points per held hex. */
-export const SCORE = { hex: 1, fort: 10, capital: 100 } as const;
+/** Season ranking points per held region. */
+export const SCORE = { region: 1, town: 3, fort: 10, capital: 100 } as const;
 
-export function hexScore(h: Pick<HexInfo, 'fort' | 'capital'>): number {
-  return h.capital ? SCORE.capital : h.fort ? SCORE.fort : SCORE.hex;
+export function regionScore(r: Pick<RegionInfo, 'kind'>): number {
+  return r.kind === 'capital' ? SCORE.capital : r.kind === 'fort' ? SCORE.fort : r.kind === 'town' ? SCORE.town : SCORE.region;
 }
 
 export const ONLINE_RULES = {
   /** Income piles up for at most this many hours before it must be collected. */
   incomeCapHours: 24,
-  /** +10% per adjacent hex held by the same clan (or the same player), at most +50%. */
+  /** +10% per adjacent region held by the same clan (or the same player), at most +50%. */
   adjacencyBonus: 0.1,
   adjacencyBonusMax: 0.5,
   start: R(120, 40, 20, 10, 2),
@@ -61,19 +63,21 @@ export const ONLINE_RULES = {
   /** Energy: marches and attacks spend it, it refills over time. */
   energyMax: 100,
   energyPerHour: 12,
-  energyPerHex: 1,
+  /** Energy per route a march crosses. */
+  energyPerStep: 2,
   energyPerAttack: 10,
-  /** Hexes visible around your territory, your clan's and your army. */
-  sight: 3,
-  /** New homes keep this far from anyone else's land. */
-  homeSpacing: 3,
-  /** Most hexes one march may cross. */
-  maxMarch: 40,
-  shardCapacity: 500,
+  /** Routes (hops) visible around your territory, your clan's and your army. */
+  sight: 2,
+  /** New homes keep this many routes from anyone else's land (when a spawn plot allows it). */
+  homeSpacing: 2,
+  /** Most routes one march may cross. */
+  maxMarch: 12,
+  /** Players per shard (fewer when the map has fewer spawn plots). */
+  shardCapacity: 150,
   seasonDays: 90,
   /** An attack ticket must be submitted within this time. */
   ticketTtlMs: 10 * 60_000,
-  /** After an abandoned, expired, rejected or lost attack the same hex cannot be attacked again by that player for a while. */
+  /** After an abandoned, expired, rejected or lost attack the same region cannot be attacked again by that player for a while. */
   reattackCooldownMs: 3 * 60_000,
   /** Knocked-out heroes rest for this long (real time) before they can fight again. */
   woundMs: 2 * 60 * 60_000,
@@ -90,23 +94,25 @@ export function energyAt(stored: number, storedAt: number, now: number): number 
   return Math.min(ONLINE_RULES.energyMax, stored + (Math.max(0, now - storedAt) / 3_600_000) * ONLINE_RULES.energyPerHour);
 }
 
-export function hexIncome(h: Pick<HexInfo, 'type' | 'fort' | 'capital'>): Resources {
-  const base = { ...HEX_INCOME[h.type] };
-  const extra = h.capital ? CAPITAL_INCOME : h.fort ? FORT_INCOME : null;
-  if (extra) for (const k of RESOURCE_KEYS) base[k] += extra[k];
+export function regionIncome(r: Pick<RegionInfo, 'kind' | 'site'>): Resources {
+  if (r.kind === 'plot') return { ...PLOT_INCOME[r.site.base] };
+  const base = r.kind === 'fort' || r.kind === 'capital' ? { ...PLOT_INCOME[r.site.base] } : R();
+  const extra = KIND_INCOME[r.kind];
+  for (const k of RESOURCE_KEYS) base[k] += extra[k];
   return base;
 }
 
-/** Hexes adjacent to `h` that share its holder (clan, or the player when clanless). */
+/** Regions next to `loc` that share its holder (clan, or the player when clanless). */
 export function friendlyNeighbours(
-  h: Axial,
-  holderOf: (q: number, r: number) => { ownerId: number | null; clanId: number | null } | undefined,
+  world: WorldGraph,
+  loc: number,
+  holderOf: (loc: number) => { ownerId: number | null; clanId: number | null } | undefined,
   owner: { ownerId: number | null; clanId: number | null },
 ): number {
   if (owner.ownerId === null) return 0;
   let n = 0;
-  for (const d of neighbours(h)) {
-    const x = holderOf(d.q, d.r);
+  for (const d of world.neighbours(loc)) {
+    const x = holderOf(d);
     if (!x || x.ownerId === null) continue;
     if (owner.clanId !== null ? x.clanId === owner.clanId : x.ownerId === owner.ownerId) n++;
   }
@@ -118,7 +124,7 @@ export function adjacencyBonus(friendly: number): number {
 }
 
 /**
- * Income accrued since `accruedAt` (ms, server time) by a hex, with the
+ * Income accrued since `accruedAt` (ms, server time) by a region, with the
  * adjacency bonus, capped at incomeCapHours. Whole numbers except recruits.
  */
 export function accruedIncome(rate: Resources, accruedAt: number, now: number, bonus: number): Resources {
@@ -198,12 +204,12 @@ export function recruitHero(seed: number, ids: IdSource, prefix: string, arch: A
   return scopeHero(makeHero(rng, ids, culture, arch, 1, 1, group, roster), prefix);
 }
 
-/** A held hex whose owner left no garrison is defended by a little militia. */
-export function militia(shardSeed: number, hex: Pick<HexInfo, 'id' | 'q' | 'r' | 'tier'>, salt: number): Hero[] {
-  const rng = new Rng((shardSeed ^ hashString(`${hex.id}:militia`) ^ salt) >>> 0 || 1);
-  const culture: Culture = (['greek', 'phoenician', 'celtic'] as const)[hashString(`${shardSeed}:${hex.id}`) % 3];
+/** A held region whose owner left no garrison is defended by a little militia. */
+export function militia(shardSeed: number, region: Pick<RegionInfo, 'id' | 'tier'>, salt: number): Hero[] {
+  const rng = new Rng((shardSeed ^ hashString(`${region.id}:militia`) ^ salt) >>> 0 || 1);
+  const culture: Culture = (['greek', 'phoenician', 'celtic'] as const)[hashString(`${shardSeed}:${region.id}`) % 3];
   const ids: IdSource = { nextId: 1 };
   const heroes: Hero[] = [];
-  for (let i = 0; i < Math.min(4, hex.tier); i++) heroes.push(makeHero(rng, ids, culture, 'raw', 1, 1, i === 0 ? 0 : 1, heroes));
-  return heroes.map((h) => scopeHero(h, `mil${hex.id}_`));
+  for (let i = 0; i < Math.min(4, region.tier); i++) heroes.push(makeHero(rng, ids, culture, 'raw', 1, 1, i === 0 ? 0 : 1, heroes));
+  return heroes.map((h) => scopeHero(h, `mil${region.id}_`));
 }

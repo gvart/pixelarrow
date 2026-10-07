@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { hexInfo, hexesWithin } from '../../src/online/hex';
 import { marketFee } from '../src/economy/catalog';
 import { currentSeason, getShard } from '../src/online/store';
 import { resetRateLimits } from '../src/rateLimit';
-import { DB, fresh, getJson, join, post, type Player } from './onlineHelpers';
+import { DB, fresh, getJson, join, placeArmy, post, sameShard, type Player } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -19,12 +18,12 @@ interface Listing {
   item: { uid: string } | null;
 }
 
-/** Puts the player's army on a town hex of their shard (so they can list there). */
-async function toTown(p: Player): Promise<{ q: number; r: number }> {
+/** Puts the player's army in a town of their shard (so they can list there). */
+async function toTown(p: Player): Promise<number> {
   const season = await currentSeason(DB());
   const shard = await getShard(DB(), season.id, p.profile.shard.id);
-  const town = hexesWithin({ q: 0, r: 0 }, shard.radius, shard.radius).find((h) => hexInfo(shard.seed, h.q, h.r, shard.radius).type === 'town')!;
-  await DB().prepare('UPDATE online_profiles SET army_q = ?1, army_r = ?2, march = NULL WHERE season_id = ?3 AND player_id = ?4').bind(town.q, town.r, season.id, p.playerId).run();
+  const town = shard.world.all().find((r) => r.kind === 'town')!.id;
+  await placeArmy(p, town);
   return town;
 }
 
@@ -64,10 +63,11 @@ describe('town marketplace', () => {
   it('lists an item into escrow, sells it for gold with a 10% fee burned, and the buyer gets it', async () => {
     const s = await join(960001, 'Seller');
     const b = await join(960002, 'Buyer');
+    await sameShard(s, b);
     const town = await toTown(s);
     const uid = await stashItem(s);
     // Not in a reachable town: refused.
-    const far = await post<{ error: { code: string } }>('/api/online/market/list', s.token, { town: { q: s.profile.home.q, r: s.profile.home.r }, kind: 'item', ref: uid, currency: 'gold', price: 100 });
+    const far = await post<{ error: { code: string } }>('/api/online/market/list', s.token, { town: s.profile.home, kind: 'item', ref: uid, currency: 'gold', price: 100 });
     expect(far.status).toBe(403);
     // Price bounds per rarity.
     expect((await post<{ error: { code: string } }>('/api/online/market/list', s.token, { town, kind: 'item', ref: uid, currency: 'gold', price: 1 })).body.error.code).toBe('price_out_of_bounds');
@@ -112,6 +112,7 @@ describe('town marketplace', () => {
     const s = await join(960101);
     const b1 = await join(960102);
     const b2 = await join(960103);
+    await sameShard(s, b1, b2);
     const town = await toTown(s);
     await setPurse(s, 0, 500);
     const l = await post<{ listing: Listing }>('/api/online/market/list', s.token, { town, kind: 'resource', ref: 'wood', qty: 200, currency: 'drachmae', price: 50 });
@@ -136,6 +137,7 @@ describe('town marketplace', () => {
   it('cancel returns the goods; expiry returns them lazily; listing cap; resources and consumables escrow', async () => {
     const s = await join(960201);
     const b = await join(960202);
+    await sameShard(s, b);
     const town = await toTown(s);
     const season = await currentSeason(DB());
     await DB().prepare("INSERT INTO online_consumables (season_id, player_id, consumable_id, qty) VALUES (?1, ?2, 'morale_wine', 3)").bind(season.id, s.playerId).run();

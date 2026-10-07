@@ -41,9 +41,10 @@ export function limit(c: Context<AppEnv>, bucket: string, n: number, windowMs = 
   if (!rateLimit(`online:${bucket}:${pid}`, n, windowMs)) throw new ApiError(429, 'rate_limited', 'Too many requests, slow down');
 }
 
-/** The shard's Durable Object (presence, duels, hex attack locks). */
+/** The shard's Durable Object (presence, duels, region attack locks). */
 export function shardStub(env: Env, shard: { season: number; id: number }) {
   return env.REGION.get(env.REGION.idFromName(shardDoName(shard)));
 }
 
-export const hexKey = (q: number, r: number) => `${q}_${r}`;
+/** Key of a region's attack lock in the shard's Durable Object. */
+export const regionKey = (loc: number) => `r${loc}`;

@@ -6,7 +6,7 @@ import { DuelHub, type Out } from '../src/online/duel';
 import { onlineBattleSetup } from '../../src/online/battle';
 import { starterOnlineArmy, DEFAULT_FORMATIONS } from '../../src/online/rules';
 import { api, mockTelegram, webhook } from './helpers';
-import { DB, fresh, getJson, join, post, wsOnline, type Profile } from './onlineHelpers';
+import { DB, fresh, getJson, join, post, sameShard, wsOnline, type Profile } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -22,13 +22,14 @@ describe('clans', () => {
     const a = await join(8001, 'Leonidas');
     const b = await join(8002, 'Brasidas');
     const c = await join(8003, 'Cleon');
+    await sameShard(a, b, c);
 
     const made = await post<ClanResp>('/api/online/clans', a.token, { name: 'Lambda Band', tag: 'lmb' });
     expect(made.status).toBe(200);
     expect(made.body).toMatchObject({ role: 'leader', clan: { name: 'Lambda Band', tag: 'LMB' } });
     expect((await post('/api/online/clans', b.token, { name: 'lambda band', tag: 'XX' })).status).toBe(409); // name taken
     // A's land is clan land now.
-    const home = await DB().prepare('SELECT clan_id FROM online_hexes WHERE owner_id = ?1').bind(a.playerId).first<{ clan_id: number }>();
+    const home = await DB().prepare('SELECT clan_id FROM online_regions WHERE owner_id = ?1').bind(a.playerId).first<{ clan_id: number }>();
     expect(home?.clan_id).toBe(made.body.clan!.id);
 
     const inv = await post<{ code: string; link: string }>('/api/online/clans/invite', a.token);
@@ -309,6 +310,7 @@ describe('live duel over WebSocket', () => {
   it('two players: presence, challenge, lockstep battle on both clients, verified result', async () => {
     const a = await join(8101, 'Achilles');
     const b = await join(8102, 'Hektor');
+    await sameShard(a, b);
     const ca = await wsOnline(a.token);
     const cb = await wsOnline(b.token);
     await ca.next('welcome');

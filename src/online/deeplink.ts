@@ -1,14 +1,14 @@
 /**
  * Launch deep links: the `startapp` parameter of a bot notification button
- * (`https://pixelarrow.app/?startapp=hex_3_-2`) or of a t.me link
+ * (`https://pixelarrow.app/?startapp=loc_42`) or of a t.me link
  * (`https://t.me/<bot>/<app>?startapp=duel`). Shared by the Worker (which
  * builds them, server/src/notify) and the client (BootScene routes them).
  *
  * Telegram allows [A-Za-z0-9_-] and at most 64 characters.
  *
  *   clan_<code>   a clan invite (src/online/rules.ts inviteCodeFrom)
- *   hex_<q>_<r>   the war table centred on a hex, the hex selected
- *   boss_<q>_<r>  the same for a world boss site
+ *   loc_<id>      the war table centred on a region (src/online/world.ts), selected
+ *   boss_<id>     the same for a world boss site
  *   duel          the war table with the duel lobby open
  *   market        the town marketplace
  *   myclan        your clan
@@ -21,8 +21,8 @@ import { inviteCodeFrom } from './rules';
 
 export type StartRoute =
   | { kind: 'invite'; code: string }
-  | { kind: 'hex'; q: number; r: number }
-  | { kind: 'boss'; q: number; r: number }
+  | { kind: 'loc'; loc: number }
+  | { kind: 'boss'; loc: number }
   | { kind: 'duel' }
   | { kind: 'market' }
   | { kind: 'clan' }
@@ -34,16 +34,14 @@ export type StartRoute =
 const SIMPLE = { duel: 'duel', market: 'market', myclan: 'clan', income: 'income', season: 'season', settings: 'settings', wallet: 'wallet' } as const;
 const SIMPLE_PARAM: Record<string, string> = Object.fromEntries(Object.entries(SIMPLE).map(([k, v]) => [v, k]));
 
-const int = (s: string) => (/^-?\d{1,4}$/.test(s) ? Number(s) : null);
-
 /** The startapp parameter for a route (always within Telegram's alphabet and length). */
 export function startParamOf(route: StartRoute): string {
   switch (route.kind) {
     case 'invite':
       return `clan_${route.code}`;
-    case 'hex':
+    case 'loc':
     case 'boss':
-      return `${route.kind}_${route.q | 0}_${route.r | 0}`;
+      return `${route.kind}_${Math.max(0, route.loc | 0)}`;
     default:
       return SIMPLE_PARAM[route.kind];
   }
@@ -56,12 +54,8 @@ export function parseStartParam(param: string | null | undefined): StartRoute | 
   if (!p || p.length > 64 || !/^[A-Za-z0-9_-]+$/.test(p)) return null;
   const code = inviteCodeFrom(p);
   if (code) return { kind: 'invite', code };
-  const m = /^(hex|boss)_(-?\d+)_(-?\d+)$/.exec(p);
-  if (m) {
-    const q = int(m[2]);
-    const r = int(m[3]);
-    return q === null || r === null ? null : { kind: m[1] as 'hex' | 'boss', q, r };
-  }
+  const m = /^(loc|boss)_(\d{1,6})$/.exec(p);
+  if (m) return { kind: m[1] as 'loc' | 'boss', loc: Number(m[2]) };
   const kind = (SIMPLE as Record<string, StartRoute['kind']>)[p];
   return kind ? ({ kind } as StartRoute) : null;
 }
@@ -72,9 +66,9 @@ export function sceneForRoute(route: StartRoute | null): { scene: string; data: 
   switch (route.kind) {
     case 'invite':
       return { scene: 'Online', data: {} };
-    case 'hex':
+    case 'loc':
     case 'boss':
-      return { scene: 'Online', data: { focus: { q: route.q, r: route.r }, select: true } };
+      return { scene: 'Online', data: { focus: route.loc, select: true } };
     case 'duel':
       return { scene: 'Online', data: { lobby: true } };
     case 'market':

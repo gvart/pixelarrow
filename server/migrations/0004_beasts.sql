@@ -1,10 +1,9 @@
 -- Mythical beasts: lair kills (the beast returns after a long timer) and the
 -- shard's world bosses with shared HP, the damage tally per player / clan and
--- the loot split by damage share. Lairs and boss sites themselves are a pure
--- function of the shard seed (src/online/lairs.ts): nothing static is stored.
-
--- When the beast of a lair hex was last slain (NULL: never; it lairs there).
-ALTER TABLE online_hexes ADD COLUMN beast_slain_at INTEGER;
+-- the loot split by damage share. Lairs (map regions of kind 'lair') and boss
+-- sites are a pure function of the map and the shard seed (src/online/lairs.ts):
+-- nothing static is stored. When a lair's beast was slain lives in
+-- online_regions.beast_slain_at (0002_online.sql).
 
 -- One row per world boss of a shard, created on first sight. hp is the body's
 -- HP; parts the HP of each arm (JSON number[]). Raids subtract relatively, so
@@ -13,8 +12,7 @@ CREATE TABLE world_bosses (
   season_id   INTEGER NOT NULL,
   shard_id    INTEGER NOT NULL,
   boss        TEXT NOT NULL,                      -- kraken | titan
-  q           INTEGER NOT NULL,
-  r           INTEGER NOT NULL,
+  loc         INTEGER NOT NULL,                   -- the region it stands in
   level       INTEGER NOT NULL,
   hp          INTEGER NOT NULL,
   max_hp      INTEGER NOT NULL,

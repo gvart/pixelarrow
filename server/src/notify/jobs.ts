@@ -73,8 +73,8 @@ export async function seasonNotices(db: D1Database, now = Date.now()): Promise<n
 }
 
 /**
- * "Your treasury is full": players whose oldest uncollected hex has reached
- * the income cap. Keyed by that hex's accrual clock, so it is sent once per
+ * "Your treasury is full": players whose oldest uncollected region has reached
+ * the income cap. Keyed by that region's accrual clock, so it is sent once per
  * full treasury (collecting resets the clock).
  */
 export async function incomeNotices(db: D1Database, now = Date.now()): Promise<number> {
@@ -84,7 +84,7 @@ export async function incomeNotices(db: D1Database, now = Date.now()): Promise<n
     .prepare(
       `INSERT OR IGNORE INTO notify_outbox (player_id, type, event, dedupe, data, created_at)
        SELECT owner_id, 'income', 'income_full', 'income:' || ?1 || ':' || MIN(accrued_at), '{}', ?3
-       FROM online_hexes WHERE season_id = ?1 AND owner_id IS NOT NULL AND accrued_at IS NOT NULL
+       FROM online_regions WHERE season_id = ?1 AND owner_id IS NOT NULL AND accrued_at IS NOT NULL
        GROUP BY owner_id HAVING MIN(accrued_at) <= ?2`,
     )
     .bind(s.id, now - ONLINE_RULES.incomeCapHours * 3_600_000, now)

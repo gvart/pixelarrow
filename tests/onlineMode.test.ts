@@ -1,68 +1,55 @@
 import { describe, expect, it } from 'vitest';
 import { Battle } from '../src/sim/battle';
-import { capitals, findHexPath, hexDistance, hexInfo, hexesWithin, hexRound, hexToPixel, pixelToHex, SHARD_RADIUS } from '../src/online/hex';
-import { defenderFor, neutralDefenders, isAnimal } from '../src/online/defenders';
-import { accruedIncome, adjacencyBonus, canKick, canPromote, clanInviteLink, energyAt, hexIncome, inviteCodeFrom, starterOnlineArmy, DEFAULT_FORMATIONS } from '../src/online/rules';
+import { getMap } from '../src/online/world';
+import { defenderFor, defenderStrength, neutralDefenders, isAnimal } from '../src/online/defenders';
+import { accruedIncome, adjacencyBonus, canKick, canPromote, clanInviteLink, energyAt, friendlyNeighbours, regionIncome, regionScore, inviteCodeFrom, starterOnlineArmy, DEFAULT_FORMATIONS } from '../src/online/rules';
 import { flipResult, onlineBattleSetup, resolveAttack } from '../src/online/battle';
 import { Lockstep } from '../src/online/lockstep';
 import type { ClientMsg, ServerMsg } from '../src/online/protocol';
 import type { Order, Side } from '../src/sim/types';
 
-describe('hex shard world', () => {
-  it('is deterministic per seed and has every kind of land', () => {
-    const all = hexesWithin({ q: 0, r: 0 }, SHARD_RADIUS);
-    expect(all.length).toBe(3 * SHARD_RADIUS * (SHARD_RADIUS + 1) + 1);
-    const types = new Set(all.map((h) => hexInfo(7, h.q, h.r).type));
-    for (const t of ['plains', 'farmland', 'forest', 'town', 'water']) expect(types.has(t as never)).toBe(true);
-    expect(hexInfo(7, 3, -5)).toEqual(hexInfo(7, 3, -5));
-    expect(all.filter((h) => hexInfo(7, h.q, h.r).fort).length).toBeGreaterThan(5);
-    for (const c of capitals()) expect(hexInfo(7, c.q, c.r)).toMatchObject({ capital: true, type: 'town', tier: 5, passable: true });
-  });
-
-  it('round-trips pixel <-> hex and finds paths around water', () => {
-    for (const h of [{ q: 0, r: 0 }, { q: 3, r: -2 }, { q: -5, r: 7 }]) expect(pixelToHex(hexToPixel(h, 10).x, hexToPixel(h, 10).y, 10)).toEqual(h);
-    expect(hexRound(0.4, 0.4)).toEqual({ q: 0, r: 1 });
-    const start = hexesWithin({ q: 0, r: 0 }, 6).find((h) => hexInfo(7, h.q, h.r).passable)!;
-    const end = hexesWithin({ q: 0, r: 0 }, 6).reverse().find((h) => hexInfo(7, h.q, h.r).passable)!;
-    const path = findHexPath(7, start, end, () => true);
-    expect(path).not.toBeNull();
-    for (let i = 1; i < path!.length; i++) {
-      expect(hexDistance(path![i - 1], path![i])).toBe(1);
-      expect(hexInfo(7, path![i].q, path![i].r).passable).toBe(true);
-    }
-  });
-});
-
 describe('neutral defenders', () => {
-  it('depend on the hex type, are deterministic and get stronger toward the centre', () => {
+  it('depend on the region, are deterministic and get stronger away from the spawns', () => {
     const seed = 99;
-    const all = hexesWithin({ q: 0, r: 0 }, SHARD_RADIUS).map((h) => hexInfo(seed, h.q, h.r)).filter((h) => h.passable);
-    const forest = all.find((h) => h.type === 'forest')!;
+    const w = getMap('test30');
+    const land = w.all().filter((r) => r.passable);
+    const forest = land.find((r) => r.kind === 'plot' && r.site.base === 'forest')!;
     expect(['beasts', 'outlaws']).toContain(defenderFor(seed, forest).id);
-    const town = all.find((h) => h.type === 'town')!;
+    const town = land.find((r) => r.kind === 'town')!;
     expect(defenderFor(seed, town).id).toBe('city');
+    expect(defenderFor(seed, land.find((r) => r.kind === 'fort')!).id).toBe('deserters');
     const a = neutralDefenders(seed, forest, 0);
     expect(neutralDefenders(seed, forest, 0)).toEqual(a);
     expect(neutralDefenders(seed, forest, 1)).not.toEqual(a);
-    const beastHex = all.find((h) => defenderFor(seed, h).id === 'beasts');
-    if (beastHex) expect(neutralDefenders(seed, beastHex, 0).some(isAnimal)).toBe(true);
-    const rim = all.find((h) => h.type === 'plains' && hexDistance(h, { q: 0, r: 0 }) > 28 && !h.coast)!;
-    const inner = all.find((h) => h.type === 'plains' && hexDistance(h, { q: 0, r: 0 }) < 6 && !h.coast)!;
-    expect(neutralDefenders(seed, inner, 0).length).toBeGreaterThanOrEqual(neutralDefenders(seed, rim, 0).length);
-    const cap = capitals()[0];
-    expect(neutralDefenders(seed, hexInfo(seed, cap.q, cap.r), 0).length).toBeGreaterThanOrEqual(14);
+    const beastRegion = land.find((r) => defenderFor(seed, r).id === 'beasts');
+    if (beastRegion) expect(neutralDefenders(seed, beastRegion, 0).some(isAnimal)).toBe(true);
+    expect(defenderStrength({ tier: 1, depth: 1 }).count[0]).toBeGreaterThan(defenderStrength({ tier: 1, depth: 0 }).count[0]);
+    const cap = land.find((r) => r.capital)!;
+    expect(neutralDefenders(seed, cap, 0).length).toBeGreaterThanOrEqual(14);
   });
 });
 
 describe('economy and clan rules', () => {
   it('accrues income lazily with an adjacency bonus and a cap', () => {
-    const rate = hexIncome({ type: 'farmland', fort: false, capital: false });
+    const rate = regionIncome({ kind: 'plot', site: { base: 'plain', river: false, coast: false, rocky: false, woods: 0 } });
     expect(accruedIncome(rate, 0, 3_600_000, 0).food).toBe(6);
     expect(accruedIncome(rate, 0, 3_600_000, adjacencyBonus(3)).food).toBe(7);
     expect(adjacencyBonus(9)).toBe(0.5);
     expect(accruedIncome(rate, 0, 100 * 3_600_000, 0)).toEqual(accruedIncome(rate, 0, 24 * 3_600_000, 0));
     expect(energyAt(0, 0, 3_600_000)).toBe(12);
     expect(energyAt(95, 0, 10 * 3_600_000)).toBe(100);
+    // forts and capitals pay on top of their ground, and score more
+    const ground = { base: 'hills', river: false, coast: false, rocky: true, woods: 0 } as const;
+    expect(regionIncome({ kind: 'fort', site: ground }).gold).toBeGreaterThan(regionIncome({ kind: 'plot', site: ground }).gold);
+    expect(regionIncome({ kind: 'sea', site: ground })).toEqual({ gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 });
+    expect(regionScore({ kind: 'capital' })).toBeGreaterThan(regionScore({ kind: 'fort' }));
+    // adjacency: friendly neighbours along the map's routes
+    const w = getMap('test30');
+    const loc = w.spawns()[0];
+    const [n1, n2] = w.neighbours(loc);
+    const holders = new Map([[n1, { ownerId: 5, clanId: 3 }], [n2, { ownerId: 6, clanId: 3 }]]);
+    expect(friendlyNeighbours(w, loc, (l) => holders.get(l), { ownerId: 5, clanId: 3 })).toBe(2);
+    expect(friendlyNeighbours(w, loc, (l) => holders.get(l), { ownerId: 5, clanId: null })).toBe(1);
   });
 
   it('clan permissions and invite links', () => {

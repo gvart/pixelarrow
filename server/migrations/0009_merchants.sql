@@ -1,6 +1,6 @@
 -- Map merchants (docs/DUELS.md "War-map shops on the map"): every town and a
--- few seeded trading posts sell consumables and gear. The stock is generated
--- from (shard seed, hex, UTC day) by src/online/merchants.ts and never stored;
+-- the map's trading posts sell consumables and gear. The stock is generated
+-- from (shard seed, region, UTC day) by src/online/merchants.ts and never stored;
 -- only purchases and per-player daily counters are written here.
 --
 -- Consumable purchases count against consumable_daily (0003_economy.sql), the
@@ -17,14 +17,13 @@ CREATE TABLE merchant_daily (
 
 -- Every merchant sale, keyed by the buyer's client request id (a retry with the
 -- same id is answered from here, never charged twice). holder_id/holder_cut:
--- who held the hex and the gold the merchant paid them (in the same batch).
+-- who held the region and the gold the merchant paid them (in the same batch).
 CREATE TABLE merchant_orders (
   player_id   INTEGER NOT NULL REFERENCES players(id),
   request_id  TEXT NOT NULL,
   season_id   INTEGER NOT NULL,
   shard_id    INTEGER NOT NULL,
-  q           INTEGER NOT NULL,
-  r           INTEGER NOT NULL,
+  loc         INTEGER NOT NULL,                    -- the merchant's region
   day         TEXT NOT NULL,
   offer       TEXT NOT NULL,                       -- offer id (c:<consumable> | i:<item>:<rarity>)
   currency    TEXT NOT NULL,                       -- gold | drachmae
@@ -37,4 +36,4 @@ CREATE TABLE merchant_orders (
   created_at  INTEGER NOT NULL,
   PRIMARY KEY (player_id, request_id)
 );
-CREATE INDEX idx_merchant_orders_holder ON merchant_orders(season_id, holder_id, q, r);
+CREATE INDEX idx_merchant_orders_holder ON merchant_orders(season_id, holder_id, loc);

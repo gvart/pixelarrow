@@ -14,10 +14,11 @@ export const langOf = (code: string | null | undefined): Lang => (code && /^(ru|
 
 /** Template parameters of each event. */
 export interface EventData {
-  attack_start: { q: number; r: number; by: string; ticket: string };
-  attack_captured: { q: number; r: number; by: string; ticket: string };
-  attack_held: { q: number; r: number; by: string; ticket: string };
-  march_arrived: { q: number; r: number };
+  /** loc: the region (src/online/world.ts); place: its name on the map. */
+  attack_start: { loc: number; place: string; by: string; ticket: string };
+  attack_captured: { loc: number; place: string; by: string; ticket: string };
+  attack_held: { loc: number; place: string; by: string; ticket: string };
+  march_arrived: { loc: number; place: string };
   income_full: Record<string, never>;
   duel_challenge: { by: string };
   /** An async attack on the player's defence team was fought (held: the defence won). */
@@ -25,7 +26,7 @@ export interface EventData {
   clan_joined: { name: string; clan: string };
   clan_role: { clan: string; role: 'leader' | 'officer' | 'member' };
   clan_kicked: { clan: string };
-  boss_slain: { boss: string; q: number; r: number; share: number; items: number };
+  boss_slain: { boss: string; loc: number; share: number; items: number };
   season_ending: { days: number };
   market_sold: { what: string; price: number; currency: 'gold' | 'drachmae'; gets: number };
 }
@@ -58,7 +59,7 @@ export interface Rendered {
   route: StartRoute;
 }
 
-const hex = (d: { q: number; r: number }) => `(${d.q}, ${d.r})`;
+const place = (d: { place?: string; loc?: number }) => d.place || `#${d.loc ?? '?'}`;
 const cur = (lang: Lang, c: string) => (c === 'drachmae' ? (lang === 'ru' ? 'драхм' : 'Drachmae') : lang === 'ru' ? 'золота' : 'gold');
 const ROLE: Record<Lang, Record<string, string>> = {
   en: { leader: 'Leader', officer: 'Officer', member: 'Member' },
@@ -85,19 +86,19 @@ function line(lang: Lang, e: PendingEvent): string {
   switch (e.event) {
     case 'attack_start': {
       const x = e.data as unknown as EventData['attack_start'];
-      return ru ? `⚔ ${x.by} атакует ваш гекс ${hex(x)}!` : `⚔ ${x.by} is attacking your hex ${hex(x)}!`;
+      return ru ? `⚔ ${x.by} атакует ваши земли: ${place(x)}!` : `⚔ ${x.by} is attacking ${place(x)}!`;
     }
     case 'attack_captured': {
       const x = e.data as unknown as EventData['attack_captured'];
-      return ru ? `🔥 ${x.by} захватил ваш гекс ${hex(x)}.` : `🔥 ${x.by} captured your hex ${hex(x)}.`;
+      return ru ? `🔥 ${x.by} захватил ваши земли: ${place(x)}.` : `🔥 ${x.by} captured ${place(x)}.`;
     }
     case 'attack_held': {
       const x = e.data as unknown as EventData['attack_held'];
-      return ru ? `🛡 Ваш гарнизон на ${hex(x)} отбил атаку: ${x.by} отступил!` : `🛡 Your garrison at ${hex(x)} held against ${x.by}!`;
+      return ru ? `🛡 Ваш гарнизон (${place(x)}) отбил атаку: ${x.by} отступил!` : `🛡 Your garrison at ${place(x)} held against ${x.by}!`;
     }
     case 'march_arrived': {
       const x = e.data as unknown as EventData['march_arrived'];
-      return ru ? `🏁 Ваше войско прибыло на ${hex(x)}.` : `🏁 Your army has arrived at ${hex(x)}.`;
+      return ru ? `🏁 Ваше войско прибыло: ${place(x)}.` : `🏁 Your army has arrived at ${place(x)}.`;
     }
     case 'income_full':
       return ru
@@ -149,13 +150,13 @@ function line(lang: Lang, e: PendingEvent): string {
 
 /** Where the button of a message goes: the newest event decides. */
 function routeOf(type: NotifyType, last: PendingEvent): StartRoute {
-  const d = last.data as { q?: number; r?: number };
+  const d = last.data as { loc?: number };
   switch (type) {
     case 'attack':
     case 'march':
-      return typeof d.q === 'number' && typeof d.r === 'number' ? { kind: 'hex', q: d.q, r: d.r } : { kind: 'income' };
+      return typeof d.loc === 'number' ? { kind: 'loc', loc: d.loc } : { kind: 'income' };
     case 'boss':
-      return typeof d.q === 'number' && typeof d.r === 'number' ? { kind: 'boss', q: d.q, r: d.r } : { kind: 'income' };
+      return typeof d.loc === 'number' ? { kind: 'boss', loc: d.loc } : { kind: 'income' };
     case 'income':
       return { kind: 'income' };
     case 'duel':
@@ -191,8 +192,8 @@ export function render(lang: Lang, type: NotifyType, events: readonly PendingEve
         else if (evs.includes('attack_held')) held++;
       }
       text = ru
-        ? `⚔ Атак на ваши земли за последний час: ${n}. Потеряно гексов: ${lost}, отбито атак: ${held}.`
-        : `⚔ ${n} attacks on your land in the last hour. Hexes lost: ${lost}, attacks held: ${held}.`;
+        ? `⚔ Атак на ваши земли за последний час: ${n}. Потеряно земель: ${lost}, отбито атак: ${held}.`
+        : `⚔ ${n} attacks on your land in the last hour. Regions lost: ${lost}, attacks held: ${held}.`;
     }
   } else if (type === 'duel' && events.every((e) => e.event === 'duel_defence')) {
     const held = events.filter((e) => e.data.held).length;

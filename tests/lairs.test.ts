@@ -1,57 +1,58 @@
 import { describe, expect, it } from 'vitest';
-import { hexInfo, hexesWithin, hexDistance } from '../src/online/hex';
-import { applyBossState, bossDefenders, bossMaxHp, lairAt, lairBeasts, segmentOutcome, worldBossSites, bossLoot } from '../src/online/lairs';
+import { getMap } from '../src/online/world';
+import { applyBossState, beastLoc, bossDefenders, bossMaxHp, lairAt, lairBeasts, segmentOutcome, worldBossSites, bossLoot } from '../src/online/lairs';
 import { onlineBattleSetup } from '../src/online/battle';
 import { starterOnlineArmy, DEFAULT_FORMATIONS } from '../src/online/rules';
 import { Battle } from '../src/sim/battle';
 import { encounterOf } from '../src/data/beasts';
 
-const R = 34;
+const W = getMap('test30');
 
-describe('beast lairs on the shard', () => {
-  it('are placed deterministically from the seed: a few dozen, often near forts, never on towns or capitals', () => {
-    for (const seed of [12345, 777]) {
-      let n = 0;
-      let nearFort = 0;
-      const kinds = new Set<string>();
-      for (const h of hexesWithin({ q: 0, r: 0 }, R, R)) {
-        const info = hexInfo(seed, h.q, h.r, R);
-        const l = lairAt(seed, info, R);
-        expect(lairAt(seed, info, R)).toEqual(l);
+describe('beast lairs on the map', () => {
+  it("every region of kind 'lair' holds a beast picked from the seed; nothing else does", () => {
+    const kinds = new Set<string>();
+    for (const seed of [12345, 777, 1, 2, 3, 4, 5, 6]) {
+      for (const r of W.all()) {
+        const l = lairAt(W, seed, r.id);
+        expect(lairAt(W, seed, r.id)).toEqual(l);
+        expect(!!l).toBe(r.kind === 'lair');
         if (!l) continue;
-        n++;
         kinds.add(l.enc);
-        expect(info.passable && !info.fort && !info.capital && info.type !== 'town').toBe(true);
-        expect(l.tier).toBeGreaterThanOrEqual(info.tier);
-        if (hexesWithin(h, 2, R).some((x) => hexInfo(seed, x.q, x.r, R).fort)) nearFort++;
+        expect(l.tier).toBeGreaterThanOrEqual(r.tier);
+        expect(beastLoc(W, seed, r.id)).toBe(true);
       }
-      expect(n).toBeGreaterThan(20);
-      expect(n).toBeLessThan(90);
-      expect(nearFort / n).toBeGreaterThan(0.4);
-      expect(kinds.size).toBeGreaterThanOrEqual(4);
     }
+    expect(kinds.size).toBeGreaterThanOrEqual(3);
   });
 
   it("a lair's beast carries its hoard; the same epoch gives the same beast", () => {
     const seed = 4242;
-    const h = hexesWithin({ q: 0, r: 0 }, R, R).map((x) => hexInfo(seed, x.q, x.r, R)).find((x) => lairAt(seed, x, R))!;
-    const l = lairAt(seed, h, R)!;
-    const a = lairBeasts(seed, h, l, 0);
-    expect(lairBeasts(seed, h, l, 0)).toEqual(a);
+    const r = W.all().find((x) => x.kind === 'lair')!;
+    const l = lairAt(W, seed, r.id)!;
+    const a = lairBeasts(seed, r, l, 0);
+    expect(lairBeasts(seed, r, l, 0)).toEqual(a);
     expect(encounterOf(a)).toBe(l.enc);
     expect(a.flatMap((x) => Object.values(x.equip)).length).toBeGreaterThan(0);
   });
 });
 
 describe('world bosses', () => {
-  it('a Kraken on a coast hex and a Titan inland', () => {
+  it('a Kraken on a coastal plot and a Titan in the hills, away from the spawns', () => {
+    const spawns = new Set(W.spawns());
     for (const seed of [12345, 777, 4242]) {
-      const sites = worldBossSites(seed, R);
-      const kr = sites.find((s) => s.boss === 'kraken');
+      const sites = worldBossSites(W, seed);
+      expect(worldBossSites(W, seed)).toEqual(sites);
+      const kr = sites.find((s) => s.boss === 'kraken')!;
       const ti = sites.find((s) => s.boss === 'titan')!;
-      expect(ti).toBeTruthy();
-      expect(hexDistance(ti, { q: 0, r: 0 })).toBeLessThan(R * 0.55);
-      if (kr) expect(hexInfo(seed, kr.q, kr.r, R).coast).toBe(true);
+      expect(kr && ti).toBeTruthy();
+      expect(kr.loc).not.toBe(ti.loc);
+      expect(W.info(kr.loc).coast).toBe(true);
+      expect(W.info(ti.loc).site.base).toBe('hills');
+      for (const s of sites) {
+        expect(W.info(s.loc).kind).toBe('plot');
+        expect(spawns.has(s.loc)).toBe(false);
+        expect(beastLoc(W, seed, s.loc)).toBe(true);
+      }
     }
   });
 

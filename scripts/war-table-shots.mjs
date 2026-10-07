@@ -1,4 +1,4 @@
-// Screenshots of the war-table hex map on the local demo shard (src/online/demoShard.ts;
+// Screenshots of the war map on the local demo shard (src/online/demoShard.ts;
 // no backend needed): docs/screenshots/39-war-table-map.png, 40-hex-panel.png and
 // 41-fog-and-armies.png. (23-online-map.png comes from scripts/online-e2e.mjs, on a real server.)
 // Usage: node scripts/war-table-shots.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
@@ -49,7 +49,7 @@ await shot('41-fog-and-armies.png', 'map', () => {
   const cam = s.cameras.main;
   cam.setZoom(Math.max(1, cam.zoom - 1));
   const raider = s.map.armies.find((a) => a.path && a.player !== s.map.you.id);
-  s.centerOn(raider ?? s.profile.army);
+  s.centerOn(raider ? raider.loc : s.profile.army.loc);
 });
 
 await browser.close();

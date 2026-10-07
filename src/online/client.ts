@@ -10,40 +10,38 @@ import type { Item, Slot } from '../data/items';
 import type { FormationType } from '../sim/formation';
 import type { BattleSetup, LoggedOrder } from '../sim/types';
 import type { Archetype } from '../game/heroes';
-import type { HexType } from './hex';
+import type { RegionKind } from './mapSchema';
 import type { Resources } from './rules';
 import type { ClientMsg, PresencePlayer, ServerMsg } from './protocol';
 import type { BattleSite } from '../world/battlefield';
 import type { MerchantKind, Offer, PostKind, Region } from './merchants';
 
-export interface Axial {
-  q: number;
-  r: number;
-}
-
-export interface ArmyView extends Axial {
+export interface ArmyView {
+  /** Region the army stands in (or last passed). */
+  loc: number;
   marching: boolean;
-  dest: Axial | null;
+  dest: number | null;
   arriveAt: number | null;
-  path?: [number, number][] | null;
+  path?: number[] | null;
   at?: number[] | null;
 }
 
 export interface OwnedHeroView {
   hero: Hero;
-  garrison: Axial | null;
+  /** Region it garrisons, or null in the field army. */
+  garrison: number | null;
   woundedUntil: number;
   busy: boolean;
 }
 
 export interface ProfileView {
   season: { id: number; startedAt: number; endsAt: number };
-  shard: { id: number; radius: number };
+  shard: { id: number; map: string };
   now: number;
   resources: Resources;
   energy: number;
   energyMax: number;
-  home: Axial;
+  home: number;
   army: ArmyView;
   formations: FormationType[];
   heroes: OwnedHeroView[];
@@ -51,14 +49,14 @@ export interface ProfileView {
   clan: { id: number; name: string; tag: string; role: 'leader' | 'officer' | 'member' } | null;
   battles: number;
   wins: number;
-  income: { pending: Resources; hexes: number };
+  income: { pending: Resources; regions: number };
 }
 
-export interface HexView extends Axial {
-  type: HexType;
+/** A region as the map shows it (static facts also come from the map JSON: getMap(shard.map)). */
+export interface RegionView {
+  loc: number;
+  kind: RegionKind;
   tier: number;
-  fort: boolean;
-  capital: boolean;
   coast: boolean;
   site: string;
   occupant: string;
@@ -79,17 +77,18 @@ export interface HexView extends Axial {
 
 export interface MapView {
   season: { id: number; endsAt: number };
-  shard: { id: number; radius: number };
+  shard: { id: number; map: string };
   now: number;
-  you: { id: number; clan: number | null; home: Axial; army: ArmyView };
-  hexes: HexView[];
-  armies: { player: number; q: number; r: number; dest: Axial | null; arriveAt: number | null; path: [number, number][] | null; at?: number[] | null }[];
+  you: { id: number; clan: number | null; home: number; army: ArmyView };
+  /** The regions in sight (fog of war: nothing else is sent). */
+  regions: RegionView[];
+  armies: { player: number; loc: number; dest: number | null; arriveAt: number | null; path: number[] | null; at?: number[] | null }[];
   players: Record<string, string>;
   clans: Record<string, { name: string; tag: string }>;
 }
 
-export interface HexDetail {
-  hex: HexView;
+export interface RegionDetail {
+  region: RegionView;
   ownerName: string | null;
   clan: { id: number; name?: string; tag?: string } | null;
   yields: Resources;
@@ -118,16 +117,16 @@ export interface MerchantOffer extends Offer {
   bought: number;
 }
 
-/** GET /api/online/merchant/:q/:r (server/src/online/merchant.ts). */
+/** GET /api/online/merchant/:loc (server/src/online/merchant.ts). */
 export interface MerchantView {
-  hex: Axial;
+  loc: number;
   kind: MerchantKind;
   region: Region;
   day: string;
   /** Server time of the answer, and when today's stock and caps end. */
   now: number;
   resetsAt: number;
-  /** In reach: the hex is yours or your clan's, or your army stands on or next to it. */
+  /** In reach: the region is yours or your clan's, or your army stands in or next to it. */
   reach: boolean;
   /** The holder discount applies to you. */
   discount: boolean;
@@ -149,7 +148,8 @@ export interface MerchantBuyResult {
 }
 
 /** A world boss of the shard with its shared HP and the damage tally (GET /boss). */
-export interface BossView extends Axial {
+export interface BossView {
+  loc: number;
   boss: string;
   level: number;
   hp: number;
@@ -168,7 +168,7 @@ export interface RaidTicket {
   ticket: string;
   expiresAt: number;
   boss: string;
-  hex: Axial;
+  loc: number;
   defenderKind: 'boss';
   setup: BattleSetup;
   attackers: Hero[];
@@ -183,7 +183,7 @@ export interface RaidResult {
   winner: number;
   ticks: number;
   hash: string;
-  hex: Axial;
+  loc: number;
   gold: number;
   attacker: AttackResult['attacker'];
   killed: boolean;
@@ -195,7 +195,7 @@ export interface RaidResult {
 export interface AttackTicket {
   ticket: string;
   expiresAt: number;
-  hex: Axial & { type: HexType; tier: number };
+  region: { loc: number; kind: RegionKind; tier: number };
   defenderKind: 'npc' | 'militia' | 'garrison' | 'beast';
   setup: BattleSetup;
   attackers: Hero[];
@@ -210,7 +210,7 @@ export interface AttackResult {
   winner: number;
   ticks: number;
   hash: string;
-  hex: Axial;
+  loc: number;
   defenderKind: string;
   gold: number;
   plunder: Resources;
@@ -227,7 +227,7 @@ export interface ClanMember {
   name: string;
   role: 'leader' | 'officer' | 'member';
   joinedAt: number;
-  hexes: number;
+  regions: number;
 }
 
 export interface ClanView {
@@ -235,7 +235,7 @@ export interface ClanView {
   name: string;
   tag: string;
   shard: number;
-  hexes: number;
+  regions: number;
   members: ClanMember[];
 }
 
@@ -249,16 +249,16 @@ export const onlineApi = {
   profile: () => req<ProfileView>('GET', '/profile'),
   season: () => req<{ season: { id: number; endsAt: number }; rewards: { season: number; rank: number; score: number; title: string; clan: string | null }[] }>('GET', '/season'),
   map: () => req<MapView>('GET', '/map'),
-  hex: (h: Axial) => req<HexDetail>('GET', `/hex/${h.q}/${h.r}`),
-  march: (h: Axial) => req<{ path: [number, number][]; at: number[]; energy: number; arriveAt: number }>('POST', '/march', h),
-  stopMarch: () => req<Axial>('POST', '/march/stop', {}),
-  garrison: (h: Axial, heroIds: string[], formations?: FormationType[]) => req<{ garrison: { hero: Hero; playerId: number }[] }>('POST', `/hex/${h.q}/${h.r}/garrison`, { heroIds, formations }),
-  collect: () => req<{ collected: Resources; hexes: number; resources: Resources }>('POST', '/collect', {}),
+  region: (loc: number) => req<RegionDetail>('GET', `/region/${loc}`),
+  march: (loc: number) => req<{ path: number[]; at: number[]; energy: number; arriveAt: number }>('POST', '/march', { loc }),
+  stopMarch: () => req<{ loc: number }>('POST', '/march/stop', {}),
+  garrison: (loc: number, heroIds: string[], formations?: FormationType[]) => req<{ garrison: { hero: Hero; playerId: number }[] }>('POST', `/region/${loc}/garrison`, { heroIds, formations }),
+  collect: () => req<{ collected: Resources; regions: number; resources: Resources }>('POST', '/collect', {}),
   recruit: (archetype: Archetype) => req<{ hero: Hero }>('POST', '/recruit', { archetype }),
   equip: (heroId: string, slot: Slot, itemUid: string | null) => req<{ hero: Hero; stash: Item[] }>('POST', '/equip', { heroId, slot, itemUid }),
   army: (groups: Record<string, number>, formations?: FormationType[]) => req<{ ok: true }>('POST', '/army', { groups, formations }),
   /** consumable: at most one battle consumable (src/data/consumables.ts), spent when the ticket is created. */
-  attackStart: (h: Axial, consumable?: string) => req<AttackTicket>('POST', '/attack/start', consumable ? { q: h.q, r: h.r, consumable } : h),
+  attackStart: (loc: number, consumable?: string) => req<AttackTicket>('POST', '/attack/start', consumable ? { loc, consumable } : { loc }),
   attackSubmit: (ticket: string, orders: LoggedOrder[], deployOrders: number, claim: { winner: number; ticks: number; hash: string }) =>
     req<AttackResult>('POST', '/attack/submit', { ticket, orders, deployOrders, claim }, 30_000),
   attackAbandon: (ticket: string) => req<{ ok: true }>('POST', '/attack/abandon', { ticket }),
@@ -270,14 +270,14 @@ export const onlineApi = {
   clanMine: () => req<{ clan: ClanView | null; role: ClanMember['role'] | null }>('GET', '/clans/mine'),
   clanCreate: (name: string, tag: string) => req<{ clan: ClanView; role: string }>('POST', '/clans', { name, tag }),
   clanInvite: () => req<{ code: string; link: string; expiresAt: number }>('POST', '/clans/invite', {}),
-  clanPreview: (code: string) => req<{ clan: { id: number; name: string; tag: string; members: number; hexes: number } | null; current: number | null }>('GET', `/clans/invite/${encodeURIComponent(code)}`),
+  clanPreview: (code: string) => req<{ clan: { id: number; name: string; tag: string; members: number; regions: number } | null; current: number | null }>('GET', `/clans/invite/${encodeURIComponent(code)}`),
   clanJoin: (code: string) => req<{ clan: ClanView; role: string }>('POST', '/clans/join', { code }),
   clanKick: (playerId: number) => req<{ clan: ClanView }>('POST', '/clans/kick', { playerId }),
   clanPromote: (playerId: number, role: ClanMember['role']) => req<{ clan: ClanView }>('POST', '/clans/promote', { playerId, role }),
   clanLeave: () => req<{ clan: null }>('POST', '/clans/leave', {}),
-  merchant: (h: Axial) => req<MerchantView>('GET', `/merchant/${h.q}/${h.r}`),
+  merchant: (loc: number) => req<MerchantView>('GET', `/merchant/${loc}`),
   /** requestId: keep it while retrying the same purchase (never charged twice). */
-  merchantBuy: (h: Axial, offer: string, currency: 'gold' | 'drachmae', requestId: string) => req<MerchantBuyResult>('POST', '/merchant/buy', { q: h.q, r: h.r, offer, currency, requestId }),
+  merchantBuy: (loc: number, offer: string, currency: 'gold' | 'drachmae', requestId: string) => req<MerchantBuyResult>('POST', '/merchant/buy', { loc, offer, currency, requestId }),
 };
 
 /** Can the online mode be used right now? Signs in if needed. */

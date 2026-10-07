@@ -129,7 +129,8 @@ export interface SeasonPassInfo {
 export interface MarketListing {
   id: string;
   seller: { id: number; name: string | null };
-  town: { q: number; r: number };
+  /** The town (region) it is listed in. */
+  town: { loc: number; name: string };
   kind: 'item' | 'resource' | 'consumable';
   /** Item def id, resource key or consumable id. */
   ref: string;
@@ -154,8 +155,8 @@ export interface MarketQuery {
   currency?: Currency;
   minPrice?: number;
   maxPrice?: number;
-  townQ?: number;
-  townR?: number;
+  /** Only listings in this town (loc). */
+  town?: number;
   sort?: 'price_asc' | 'price_desc' | 'newest' | 'ending';
   /** `next` from the previous page. */
   cursor?: number;
@@ -163,7 +164,8 @@ export interface MarketQuery {
 }
 
 export interface MarketListRequest {
-  town: { q: number; r: number };
+  /** The town (loc) to list in. */
+  town: number;
   kind: MarketListing['kind'];
   /** Item uid (kind item), 'food' | 'wood' | 'bronze' (resource) or a consumable id. */
   ref: string;
@@ -474,7 +476,7 @@ export class ApiClient {
     return this.request('GET', '/api/online/market/mine', { auth: true });
   }
 
-  marketTowns(): Promise<{ towns: { q: number; r: number }[] }> {
+  marketTowns(): Promise<{ towns: { loc: number; name: string }[] }> {
     return this.request('GET', '/api/online/market/towns', { auth: true });
   }
 

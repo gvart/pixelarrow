@@ -1,8 +1,8 @@
 /**
- * Neutral defenders (data-driven, pure): no hex is free to claim. Every
- * unclaimed hex is held by neutrals chosen by its type and region, generated
- * deterministically from the shard seed, the hex id and the respawn epoch,
- * so the server can always rebuild them.
+ * Neutral defenders (data-driven, pure): no region is free to claim. Every
+ * unclaimed region is held by neutrals chosen by its kind and ground,
+ * generated deterministically from the shard seed, the region id and the
+ * respawn epoch, so the server can always rebuild them.
  *
  * Animals (wolves, boars, bears) are the animal classes of
  * src/data/classes.ts (`cls: 'wolf'`...), still flagged with
@@ -12,7 +12,7 @@ import type { Culture } from '../data/names';
 import type { Hero } from '../data/units';
 import { makeHero, setBotLevel, rollRarity, type Archetype, type IdSource } from '../game/heroes';
 import { Rng, hashString } from '../sim/rng';
-import { hexDistance, SHARD_RADIUS, type HexInfo } from './hex';
+import type { RegionInfo } from './world';
 
 export type AnimalKind = 'wolf' | 'boar' | 'bear';
 
@@ -60,26 +60,26 @@ export const DEFENDERS: Record<string, DefenderDef> = {
   ] },
 };
 
-/** Which neutrals hold a hex. */
-export function defenderFor(seed: number, hex: Pick<HexInfo, 'id' | 'type' | 'coast' | 'fort' | 'capital'>): DefenderDef {
-  if (hex.capital || hex.type === 'town') return DEFENDERS.city;
-  if (hex.fort) return DEFENDERS.deserters;
-  const roll = (hashString(`${seed}:${hex.id}:def`) % 1000) / 1000;
-  switch (hex.type) {
+/** Which neutrals hold a region. */
+export function defenderFor(seed: number, r: Pick<RegionInfo, 'id' | 'kind' | 'site' | 'coast'>): DefenderDef {
+  if (r.kind === 'capital' || r.kind === 'town') return DEFENDERS.city;
+  if (r.kind === 'fort') return DEFENDERS.deserters;
+  if (r.kind === 'lair') return DEFENDERS.cultists;
+  if (r.kind === 'post') return r.coast ? DEFENDERS.pirates : DEFENDERS.outlaws;
+  const roll = (hashString(`${seed}:${r.id}:def`) % 1000) / 1000;
+  switch (r.site.base) {
     case 'forest':
       return roll < 0.55 ? DEFENDERS.beasts : DEFENDERS.outlaws;
     case 'hills':
-      return DEFENDERS.tribes;
-    case 'mine':
-      return DEFENDERS.deserters;
-    case 'ruins':
-      return DEFENDERS.cultists;
+      return r.site.rocky && roll < 0.35 ? DEFENDERS.deserters : DEFENDERS.tribes;
+    case 'scrub':
+      return roll < 0.25 ? DEFENDERS.cultists : DEFENDERS.militia;
     default:
-      return hex.coast ? DEFENDERS.pirates : DEFENDERS.militia;
+      return r.coast ? DEFENDERS.pirates : DEFENDERS.militia;
   }
 }
 
-/** Size and level by hex tier (1 plain .. 5 capital); see defenderStrength for the region scaling. */
+/** Size and level by region tier (1 plain .. 5 capital); see defenderStrength for the depth scaling. */
 export const NPC_TIERS: Record<number, { min: number; max: number; level: number; gear: number }> = {
   1: { min: 2, max: 3, level: 1, gear: 1 },
   2: { min: 3, max: 5, level: 2, gear: 1 },
@@ -88,23 +88,23 @@ export const NPC_TIERS: Record<number, { min: number; max: number; level: number
   5: { min: 14, max: 16, level: 6, gear: 3 },
 };
 
-/** Victories in a row needed to claim a hex of each tier (progress decays, see SIEGE_DECAY_MS). */
+/** Victories in a row needed to claim a region of each tier (progress decays, see SIEGE_DECAY_MS). */
 export const WINS_TO_CLAIM: Record<number, number> = { 1: 1, 2: 1, 3: 2, 4: 3, 5: 4 };
 /** A siege with no new victory for this long starts over. */
 export const SIEGE_DECAY_MS = 6 * 3_600_000;
 /** Neutrals re-raise their losses after this long (the respawn epoch advances). */
 export const RESPAWN_MS = 6 * 3_600_000;
-/** An owned hex with no garrison whose income was not collected for this long falls back to the neutrals. */
+/** An owned region with no garrison whose income was not collected for this long falls back to the neutrals. */
 export const ABANDON_MS = 72 * 3_600_000;
 
 /**
- * How dangerous the neutrals of a hex are: hex tier plus depth into the
- * shard. Homes are placed on the outer rings and the capitals sit inside, so
- * land gets harder the further one pushes from the starting areas.
+ * How dangerous the neutrals of a region are: its tier plus its depth (routes
+ * from the nearest spawn plot, RegionInfo.depth). Land gets harder the
+ * further one pushes from the starting areas.
  */
-export function defenderStrength(hex: Pick<HexInfo, 'q' | 'r' | 'tier'>, radius = SHARD_RADIUS): { count: [number, number]; level: number; gear: number } {
-  const t = NPC_TIERS[hex.tier] ?? NPC_TIERS[1];
-  const depth = Math.max(0, 1 - hexDistance(hex, { q: 0, r: 0 }) / Math.max(1, radius * 0.75));
+export function defenderStrength(r: Pick<RegionInfo, 'tier' | 'depth'>): { count: [number, number]; level: number; gear: number } {
+  const t = NPC_TIERS[r.tier] ?? NPC_TIERS[1];
+  const depth = Math.max(0, Math.min(1, r.depth));
   const extra = Math.round(depth * 2);
   return { count: [t.min + extra, t.max + extra], level: Math.min(10, t.level + Math.round(depth * 3)), gear: Math.min(3, t.gear + (depth > 0.6 ? 1 : 0)) };
 }
@@ -115,11 +115,11 @@ const ANIMAL: Record<AnimalKind, { name: string }> = {
   bear: { name: 'Bear' },
 };
 
-/** The neutral defenders of a hex for a respawn epoch (deterministic). */
-export function neutralDefenders(seed: number, hex: Pick<HexInfo, 'id' | 'q' | 'r' | 'tier' | 'type' | 'coast' | 'fort' | 'capital'>, epoch: number, radius = SHARD_RADIUS): Hero[] {
-  const rng = new Rng((seed ^ hashString(hex.id) ^ Math.imul(epoch + 1, 0x9e3779b1)) >>> 0 || 1);
-  const def = defenderFor(seed, hex);
-  const str = defenderStrength(hex, radius);
+/** The neutral defenders of a region for a respawn epoch (deterministic). */
+export function neutralDefenders(seed: number, region: Pick<RegionInfo, 'id' | 'tier' | 'depth' | 'kind' | 'site' | 'coast'>, epoch: number): Hero[] {
+  const rng = new Rng((seed ^ hashString(`r${region.id}`) ^ Math.imul(epoch + 1, 0x9e3779b1)) >>> 0 || 1);
+  const def = defenderFor(seed, region);
+  const str = defenderStrength(region);
   const culture: Culture = def.culture === 'local' ? rng.weighted<Culture>([['greek', 5], ['phoenician', 3], ['celtic', 2]]) : def.culture;
   const count = rng.int(str.count[0], str.count[1]);
   const ids: IdSource = { nextId: 1 };
@@ -142,8 +142,8 @@ export function neutralDefenders(seed: number, hex: Pick<HexInfo, 'id' | 'q' | '
     heroes.push(h);
   }
   return heroes.map((h) => {
-    h.id = `n${hex.id}e${epoch}_${h.id}`;
-    for (const it of Object.values(h.equip)) if (it) it.uid = `n${hex.id}e${epoch}_${it.uid}`;
+    h.id = `n${region.id}e${epoch}_${h.id}`;
+    for (const it of Object.values(h.equip)) if (it) it.uid = `n${region.id}e${epoch}_${it.uid}`;
     return h;
   });
 }

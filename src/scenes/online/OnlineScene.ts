@@ -1,7 +1,7 @@
 /**
- * Online mode hub: the seasonal hex map of the player's shard as a war
- * table (src/scenes/online/warTableView.ts: raised painted tiles, miniature
- * props and armies, clan borders, parchment fog under clouds), the hex panel
+ * Online mode hub: the season map of the player's shard (regions and routes,
+ * src/online/world.ts) drawn through a WorldMapView
+ * (src/scenes/online/regionMapView.ts), the region panel
  * (march with ETA and energy, attack, garrison, collect; disabled buttons say
  * why), the HUD (season, resources, energy), live army movement from the
  * shard socket, income, the duel lobby, and entry points to the online army
@@ -17,7 +17,7 @@ import { SIZE, COLOR } from '../../ui/theme';
 import { LINE_H, measureText, wrapText } from '../../ui/textfit';
 import { uiId, worldRect } from '../../ui/layout';
 import { haptic, hapticNotify } from '../../platform/telegram';
-import { hexDistance, hexId, type Axial } from '../../online/hex';
+import { getMap, hasMap, type WorldGraph } from '../../online/world';
 import {
   checkOnline,
   errorText,
@@ -28,20 +28,20 @@ import {
   type AttackResult,
   type AttackTicket,
   type BossView,
-  type HexDetail,
   type MapView,
   type ProfileView,
+  type RegionDetail,
+  type RegionView,
 } from '../../online/client';
 import type { DuelOutcome } from '../../online/duelDriver';
 import type { BattleSource } from '../../online/battleSource';
 import type { LiveArmyMsg, PresencePlayer, ServerMsg } from '../../online/protocol';
 import type { Battle } from '../../sim/battle';
 import { ONLINE_RULES, RESOURCE_KEYS, type Resources } from '../../online/rules';
-import { planMarch, type MarchPlan, type PlanHex } from '../../online/marchPlan';
-import { hexActions, type Act } from '../../online/hexActions';
-import { clampCenter, zoomLimits } from '../../online/board';
+import { planMarch, type MarchPlan } from '../../online/marchPlan';
+import { regionActions, type Act } from '../../online/regionActions';
 import { demoShard, type DemoShard } from '../../online/demoShard';
-import { WarTableView } from './warTableView';
+import { MarkerMapView, clampCenter, zoomLimits, type WorldMapView } from './regionMapView';
 import { renderVignette } from '../../art/warTable';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
@@ -68,9 +68,9 @@ export interface OnlineSceneData {
   /** Show the outcome of an attack that just came back from the battle scene. */
   attack?: AttackResult | { error: string };
   duel?: DuelOutcome;
-  /** Centre the map on this hex. */
-  focus?: Axial;
-  /** Also select the focused hex (a bot notification's deep link). */
+  /** Centre the map on this region (loc). */
+  focus?: number;
+  /** Also select the focused region (a bot notification's deep link). */
   select?: boolean;
   /** Open the duel lobby (deep link). */
   lobby?: boolean;
@@ -87,9 +87,9 @@ interface Source {
   join(): Promise<unknown>;
   profile(): Promise<ProfileView>;
   map(): Promise<MapView>;
-  hex(h: Axial): Promise<HexDetail>;
-  march(h: Axial): Promise<{ path: [number, number][]; at: number[]; energy: number; arriveAt: number }>;
-  stopMarch(): Promise<Axial>;
+  region(loc: number): Promise<RegionDetail>;
+  march(loc: number): Promise<{ path: number[]; at: number[]; energy: number; arriveAt: number }>;
+  stopMarch(): Promise<{ loc: number }>;
   collect(): Promise<{ collected: Resources }>;
   /** World bosses of the shard (shared HP, damage tally). */
   bosses(): Promise<BossView[]>;
@@ -101,7 +101,7 @@ const liveSource: Source = {
   join: () => onlineApi.join(),
   profile: () => onlineApi.profile(),
   map: () => onlineApi.map(),
-  hex: (h) => onlineApi.hex(h),
+  region: (loc) => onlineApi.region(loc),
   march: (h) => onlineApi.march(h),
   stopMarch: () => onlineApi.stopMarch(),
   collect: () => onlineApi.collect(),
@@ -119,22 +119,22 @@ function previewSource(d: DemoShard): Source {
     join: async () => ({}),
     profile: async () => clone({ ...d.profile, now: Date.now() + skew() }),
     map: async () => clone({ ...d.map, now: Date.now() + skew() }),
-    hex: async (h) => clone(d.hex(h)),
+    region: async (loc) => clone(d.region(loc)),
     march: async (h) => {
-      const known = new Map<string, PlanHex>(d.map.hexes.map((x) => [hexId(x.q, x.r), { q: x.q, r: x.r, type: x.type, rival: x.owner !== null && x.clan !== d.map.you.clan }]));
-      const p = planMarch(known, d.profile.army, h);
+      const rival = new Set(d.map.regions.filter((x) => x.owner !== null && x.clan !== d.map.you.clan).map((x) => x.loc));
+      const p = planMarch(d.world, (l) => rival.has(l), d.profile.army.loc, h);
       if (!p.ok) throw new Error(t('hex.why.noPath'));
       const now = Date.now() + skew();
       const at = [now];
-      for (let i = 1; i < p.path.length; i++) at.push(at[i - 1] + (p.minutes / (p.path.length - 1)) * 60_000);
-      const path = p.path.map((x) => [x.q, x.r] as [number, number]);
+      for (let i = 1; i < p.path.length; i++) at.push(at[i - 1] + d.world.minutes(p.path[i - 1], p.path[i]) * 60_000);
+      const path = p.path;
       d.profile.army = { ...d.profile.army, marching: true, dest: h, arriveAt: at[at.length - 1], path, at };
       d.profile.energy -= p.energy;
       return { path, at, energy: d.profile.energy, arriveAt: at[at.length - 1] };
     },
     stopMarch: async () => {
       d.profile.army = { ...d.profile.army, marching: false, dest: null, arriveAt: null, path: null, at: null };
-      return { q: d.profile.army.q, r: d.profile.army.r };
+      return { loc: d.profile.army.loc };
     },
     bosses: async () => clone(d.bosses),
     collect: async () => {
@@ -176,14 +176,14 @@ export class OnlineScene extends BaseScene {
   profile: ProfileView | null = null;
   map: MapView | null = null;
   private layer!: Phaser.GameObjects.Layer;
-  board!: WarTableView;
+  board!: WorldMapView;
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Container;
   private panel: Phaser.GameObjects.Container | null = null;
   private panelTop = 0;
   private modal: Modal | null = null;
-  selected: Axial | null = null;
-  detail: HexDetail | null = null;
+  selected: number | null = null;
+  detail: RegionDetail | null = null;
   private plan: MarchPlan | null = null;
   private gesture: Gesture = null;
   private pinch: { d0: number; z0: number; wx: number; wy: number } | null = null;
@@ -236,7 +236,7 @@ export class OnlineScene extends BaseScene {
     this.screen({ back: () => this.back() });
     this.cameras.main.setBackgroundColor(0x1d1410);
     this.layer = this.add.layer();
-    this.board = new WarTableView(this, this.layer, 0);
+    this.board = new MarkerMapView(this, this.layer, 0);
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.uiCam.ignore(this.layer);
     this.cameras.main.ignore(this.ui);
@@ -348,12 +348,12 @@ export class OnlineScene extends BaseScene {
     const own = profile.army.marching && profile.army.path && profile.army.at ? { path: profile.army.path, at: profile.army.at } : null;
     this.board.build(map, own);
     this.boardBuilt = true;
-    this.board.setRoute(own ? own.path.map(([q, r]) => ({ q, r })) : null, true);
+    this.board.setRoute(own ? own.path : null, true);
     this.bosses = await this.src.bosses().catch(() => [] as BossView[]);
     if (!this.sys.isActive()) return;
-    this.board.setBossBars(this.bosses.map((b) => ({ q: b.q, r: b.r, f: b.maxHp > 0 ? b.hp / b.maxHp : 0, dead: b.status === 'dead' })));
+    this.board.setBossBars(this.bosses.map((b) => ({ loc: b.loc, f: b.maxHp > 0 ? b.hp / b.maxHp : 0, dead: b.status === 'dead' })));
     this.render();
-    if (this.selected) void this.loadDetail(this.selected);
+    if (this.selected !== null) void this.loadDetail(this.selected);
     // Marches resolve on the server's clock: refresh when the army arrives.
     this.refreshTimer?.remove();
     const arrive = profile.army.marching && profile.army.arriveAt ? profile.army.arriveAt - profile.now : 0;
@@ -364,7 +364,7 @@ export class OnlineScene extends BaseScene {
     const d = this.data0;
     if (d.attack) this.showAttackResult(d.attack);
     else if (d.duel) this.showDuelResult(d.duel);
-    else if (d.select && d.focus) this.select(d.focus);
+    else if (d.select && d.focus !== undefined) this.select(d.focus);
     else if (d.lobby) this.openLobby();
     this.stagePreview();
     if (d.coach || (!d.preview && coachDue())) this.coach = new OnlineCoach(this.coachHost(), this.ui, d.coach);
@@ -378,8 +378,8 @@ export class OnlineScene extends BaseScene {
     const k = this.data0.preview;
     if (!demo || !k) return;
     const spot = k === 'own' ? demo.spots.own : k === 'neutral' ? demo.spots.neutralNext : k === 'far' ? demo.spots.neutralFar : k === 'rival' ? demo.spots.rival : k === 'town' ? demo.spots.town : k === 'lair' || k === 'lairInfo' ? demo.spots.lair : k === 'boss' || k === 'bossInfo' ? demo.spots.boss : k === 'market' ? demo.spots.market : k === 'post' ? demo.spots.post : null;
-    if (spot) this.select(spot);
-    if ((k === 'lairInfo' || k === 'bossInfo') && spot) this.openBeast(spot);
+    if (spot !== null) this.select(spot);
+    if ((k === 'lairInfo' || k === 'bossInfo') && spot !== null) this.openBeast(spot);
     if (k === 'lobby') this.openLobby();
     if (k === 'challenge') showChallenge(this.game, 'preview', { id: 102, name: 'Brasidas' });
     if (k === 'march') void this.march(demo.spots.neutralFar);
@@ -391,7 +391,7 @@ export class OnlineScene extends BaseScene {
         winner: 0,
         ticks: 2400,
         hash: '',
-        hex: demo.spots.neutralNext,
+        loc: demo.spots.neutralNext,
         defenderKind: 'npc',
         gold: 38,
         plunder: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 },
@@ -436,7 +436,7 @@ export class OnlineScene extends BaseScene {
     if (!this.cameraPlaced) {
       const lim = zoomLimits(this.m.S);
       this.cameras.main.setZoom(lim.start);
-      this.centerOn(this.data0.focus ?? this.profile.army);
+      this.centerOn(this.data0.focus ?? this.profile.army.loc);
       this.cameraPlaced = true;
     }
   }
@@ -495,7 +495,7 @@ export class OnlineScene extends BaseScene {
       H.add(new Button(this, 3, 2, SIZE.btnMinW, SIZE.btnH, { icon: 'back', onClick: () => this.back(), id: 'online.back' }));
       x0 = 30;
     }
-    H.add(new Button(this, VW - 27, 2, SIZE.btnMinW, SIZE.btnH, { icon: 'map', iconOnly: true, label: t('online.centre'), onClick: () => this.centerOn(this.profile!.army, true), id: 'online.centre' }));
+    H.add(new Button(this, VW - 27, 2, SIZE.btnMinW, SIZE.btnH, { icon: 'map', iconOnly: true, label: t('online.centre'), onClick: () => this.centerOn(this.profile!.army.loc, true), id: 'online.centre' }));
     const energy = Math.floor(p.energy);
     const ew = 12 + 3 + measureText(`${energy}`) + 10;
     const energyBtn = new Button(this, VW - 27 - SIZE.gap - ew, 2, ew, SIZE.btnH, {
@@ -589,32 +589,39 @@ export class OnlineScene extends BaseScene {
 
   // ------------------------------------------------------------------ hex panel
 
-  select(h: Axial | null): void {
+  /** The world graph of this shard's map. */
+  get world(): WorldGraph {
+    const id = this.map?.shard.map ?? this.profile?.shard.map;
+    return id && hasMap(id) ? getMap(id) : getMap();
+  }
+
+  select(h: number | null): void {
     this.selected = h;
     this.detail = null;
     this.plan = null;
     this.board.setSelected(h);
     if (this.view.kind !== 'map') return;
-    if (h && this.profile && this.map) {
-      const known = new Map<string, PlanHex>(this.map.hexes.map((x) => [hexId(x.q, x.r), { q: x.q, r: x.r, type: x.type, rival: x.owner !== null && x.owner !== this.map!.you.id && (this.map!.you.clan === null || x.clan !== this.map!.you.clan) }]));
-      this.plan = planMarch(known, this.profile.army, h);
+    if (h !== null && this.profile && this.map) {
+      const you = this.map.you;
+      const rival = new Set(this.map.regions.filter((x) => x.owner !== null && x.owner !== you.id && (you.clan === null || x.clan !== you.clan)).map((x) => x.loc));
+      this.plan = planMarch(this.world, (l) => rival.has(l), this.profile.army.loc, h);
     }
-    const own = this.profile?.army.marching && this.profile.army.path ? this.profile.army.path.map(([q, r]) => ({ q, r })) : null;
+    const own = this.profile?.army.marching && this.profile.army.path ? this.profile.army.path : null;
     if (own) this.board.setRoute(own, true);
     else this.board.setRoute(this.plan && this.plan.ok ? this.plan.path : null, false);
     this.hud.removeAll(true);
     this.panel = null;
     this.buildHud();
-    if (h) {
+    if (h !== null) {
       this.ensureVisible(h);
       void this.loadDetail(h);
     }
   }
 
-  private async loadDetail(h: Axial): Promise<void> {
+  private async loadDetail(h: number): Promise<void> {
     try {
-      const d = await this.src.hex(h);
-      if (!this.sys.isActive() || !this.selected || this.selected.q !== h.q || this.selected.r !== h.r) return;
+      const d = await this.src.region(h);
+      if (!this.sys.isActive() || this.selected !== h) return;
       this.detail = d;
       this.hud.removeAll(true);
       this.panel = null;
@@ -626,13 +633,11 @@ export class OnlineScene extends BaseScene {
     }
   }
 
-  private hexName(h: { type: keyof typeof HEX_KEYS; capital?: boolean; fort?: boolean; occupant?: string; lair?: string; boss?: string }): string {
-    if (h.capital) return t('hex.capital');
-    if (h.fort) return t('hex.fort');
+  private hexName(h: Pick<RegionView, 'loc' | 'occupant' | 'lair' | 'boss'>): string {
     if (h.boss) return encounterLabel(h.boss);
-    if (h.lair) return encounterLabel(h.lair);
-    if (h.occupant === 'beast') return t('hex.lair');
-    return t(HEX_KEYS[h.type]);
+    const name = this.world.has(h.loc) ? this.world.info(h.loc).name : t('hex.neutral');
+    if (h.lair) return `${name} · ${encounterLabel(h.lair)}`;
+    return name;
   }
 
   private buildPanel(): void {
@@ -641,7 +646,7 @@ export class OnlineScene extends BaseScene {
     const d = this.detail;
     const p = this.profile!;
     const map = this.map!;
-    const view = d?.hex ?? this.board.known(h);
+    const view = d?.region ?? this.board.known(h);
     if (!view) return;
     const x = 4;
     const W = VW - 8;
@@ -672,7 +677,7 @@ export class OnlineScene extends BaseScene {
     }
     // ---- actions
     const acts: Act[] = d
-      ? hexActions({
+      ? regionActions({
           owner: view.owner,
           ours: d.ours,
           mine: d.mine,
@@ -682,8 +687,8 @@ export class OnlineScene extends BaseScene {
           canAttack: d.canAttack,
           canGarrison: d.canGarrison,
           waiting: d.income ? RESOURCE_KEYS.reduce((a, k) => a + d.income![k], 0) : 0,
-          here: p.army.q === h.q && p.army.r === h.r && !p.army.marching,
-          adjacent: hexDistance(p.army, h) === 1,
+          here: p.army.loc === h && !p.army.marching,
+          adjacent: this.world.adjacent(p.army.loc, h),
           marching: p.army.marching,
           energy: p.energy,
           plan: this.plan ?? { ok: false, reason: 'unknown' },
@@ -759,23 +764,23 @@ export class OnlineScene extends BaseScene {
   }
 
   /** The merchant screen of a town or a trading post (Back returns to this hex, selected). */
-  openMerchant(h: Axial): void {
-    this.scene.start('Merchant', { hex: h, demo: !!this.demo, back: { scene: 'Online', data: { focus: h, select: true, preview: this.demo ? 'map' : undefined } } });
+  openMerchant(h: number): void {
+    this.scene.start('Merchant', { loc: h, demo: !!this.demo, back: { scene: 'Online', data: { focus: h, select: true, preview: this.demo ? 'map' : undefined } } });
   }
 
-  private bossAt(h: Axial): BossView | null {
-    return this.bosses.find((b) => b.q === h.q && b.r === h.r) ?? null;
+  private bossAt(h: number): BossView | null {
+    return this.bosses.find((b) => b.loc === h) ?? null;
   }
 
   /** The beast info panel of a lair or a world boss (with Attack / Raid). */
-  openBeast(h: Axial): void {
+  openBeast(h: number): void {
     const d = this.detail;
     const p = this.profile;
     if (!p) return;
     this.closeModal();
     const boss = this.bossAt(h);
     if (boss) {
-      const why = boss.status === 'dead' ? t('boss.why.dead') : hexDistance(p.army, h) > 1 || p.army.marching ? t('boss.why.far') : undefined;
+      const why = boss.status === 'dead' ? t('boss.why.dead') : (p.army.loc !== h && !this.world.adjacent(p.army.loc, h)) || p.army.marching ? t('boss.why.far') : undefined;
       this.modal = openBossInfo(this, boss, { raid: () => void this.raid(boss), disabled: why });
       return;
     }
@@ -797,7 +802,7 @@ export class OnlineScene extends BaseScene {
     this.scene.start('Battle', { source: raidSource(this.game, tk) });
   }
 
-  private actSpec(a: Act, h: Axial): { label: string; icon: string; tip?: string; onClick: () => void } {
+  private actSpec(a: Act, h: number): { label: string; icon: string; tip?: string; onClick: () => void } {
     switch (a.id) {
       case 'march': {
         const pl = this.plan && this.plan.ok ? this.plan : null;
@@ -855,7 +860,7 @@ export class OnlineScene extends BaseScene {
     }
   }
 
-  private async march(h: Axial): Promise<void> {
+  private async march(h: number): Promise<void> {
     const r = await this.act(() => this.src.march(h));
     if (!r || !this.sys.isActive()) return;
     haptic('medium');
@@ -878,7 +883,7 @@ export class OnlineScene extends BaseScene {
     await this.reload().catch((e) => this.fail(e));
   }
 
-  private async attack(h: Axial): Promise<void> {
+  private async attack(h: number): Promise<void> {
     if (this.demo) {
       toast(this, t('online.preview'));
       return;
@@ -1059,12 +1064,12 @@ export class OnlineScene extends BaseScene {
 
   /** What the first-visit coach marks point at. */
   private coachHost(): CoachHost {
-    const neighbour = (): Axial | null => {
+    const neighbour = (): number | null => {
       const p = this.profile;
       const m = this.map;
       if (!p || !m) return null;
-      const free = m.hexes.filter((x) => hexDistance(p.army, x) === 1 && x.occupant !== 'none' && x.owner === null);
-      return free[0] ?? null;
+      const free = m.regions.filter((x) => this.world.adjacent(p.army.loc, x.loc) && x.occupant !== 'none' && x.owner === null);
+      return free[0]?.loc ?? null;
     };
     const find = (id: string): Phaser.GameObjects.GameObject | null => {
       let hit: Phaser.GameObjects.GameObject | null = null;
@@ -1085,13 +1090,13 @@ export class OnlineScene extends BaseScene {
       homeRect: () => (this.map ? hexRect(this, this.map.you.home) : null),
       neighbourRect: () => {
         const n = neighbour();
-        return n ? hexRect(this, n) : null;
+        return n !== null ? hexRect(this, n) : null;
       },
       mapRect: () => {
         const a = this.mapArea();
         return { x: 0, y: a.top, w: this.m.VW, h: a.bottom - a.top };
       },
-      neighbourOpen: () => !!this.selected && !!this.profile && !!this.detail && hexDistance(this.profile.army, this.selected) === 1,
+      neighbourOpen: () => this.selected !== null && !!this.profile && !!this.detail && this.world.adjacent(this.profile.army.loc, this.selected),
       element: (id: string) => {
         const o = find(id) as (Phaser.GameObjects.GameObject & { w?: number; h?: number; getBounds?: () => Phaser.Geom.Rectangle }) | null;
         if (!o || !o.getBounds) return null;
@@ -1107,16 +1112,16 @@ export class OnlineScene extends BaseScene {
 
   // ------------------------------------------------------------------ camera & input
 
-  private cameraHex(): Axial {
+  private cameraHex(): number | undefined {
     const cam = this.cameras.main;
-    return this.board.pick(cam.midPoint.x, cam.midPoint.y) ?? { q: 0, r: 0 };
+    return this.board.pick(cam.midPoint.x, cam.midPoint.y) ?? this.profile?.army.loc;
   }
 
-  /** Centre a hex in the free map area (between the HUD and the panel). */
-  centerOn(h: Axial, smooth = false): void {
+  /** Centre a region in the free map area (between the HUD and the panel). */
+  centerOn(h: number, smooth = false): void {
     const cam = this.cameras.main;
     const S = this.m.S;
-    const c = this.board.top(h);
+    const c = this.board.anchor(h);
     const { top, bottom } = this.mapArea();
     const wantY = ((top + bottom) / 2) * S;
     const dy = (this.scale.height / 2 - wantY) / cam.zoom;
@@ -1126,10 +1131,10 @@ export class OnlineScene extends BaseScene {
   }
 
   /** Pan so a selected hex is not hidden under the panel. */
-  private ensureVisible(h: Axial): void {
+  private ensureVisible(h: number): void {
     const cam = this.cameras.main;
     const S = this.m.S;
-    const c = this.board.top(h);
+    const c = this.board.anchor(h);
     const sy = (c.y - cam.worldView.y) * cam.zoom;
     const { top, bottom } = this.mapArea();
     if (sy < top * S + 12 || sy > bottom * S - 12) this.centerOn(h, true);
@@ -1225,35 +1230,23 @@ export class OnlineScene extends BaseScene {
     if (!g || g.id !== p.id || g.mode !== 'pending' || !this.map) return;
     const w = this.cameras.main.getWorldPoint(p.x, p.y);
     const h = this.board.pick(w.x, w.y);
-    if (!h || !this.board.known(h)) return this.select(null);
+    if (h === null || !this.board.known(h)) return this.select(null);
     haptic('light');
-    this.select(this.selected && this.selected.q === h.q && this.selected.r === h.r ? null : h);
+    this.select(this.selected === h ? null : h);
   }
 }
 
-/** A hex's top face on screen (UI px). */
-function hexRect(scene: OnlineScene, h: Axial): { x: number; y: number; w: number; h: number } {
+/** A region's marker on screen (UI px). */
+function hexRect(scene: OnlineScene, h: number): { x: number; y: number; w: number; h: number } {
   const cam = scene.cameras.main;
   const S = scene.m.S;
-  const c = scene.board.top(h);
+  const c = scene.board.anchor(h);
   const x = ((c.x - cam.worldView.x) * cam.zoom) / S;
   const y = ((c.y - cam.worldView.y) * cam.zoom) / S;
-  const w = (26 * cam.zoom) / S;
-  const hh = (15 * cam.zoom) / S;
+  const w = (20 * cam.zoom) / S;
+  const hh = (20 * cam.zoom) / S;
   return { x: Math.round(x - w / 2), y: Math.round(y - hh / 2), w: Math.round(w), h: Math.round(hh) };
 }
-
-const HEX_KEYS = {
-  plains: 'hex.plains',
-  farmland: 'hex.farmland',
-  forest: 'hex.forest',
-  hills: 'hex.hills',
-  mine: 'hex.mine',
-  town: 'hex.town',
-  ruins: 'hex.ruins',
-  water: 'hex.water',
-  mountain: 'hex.mountain',
-} as const satisfies Record<string, TKey>;
 
 /** "G+12 F+6 W+4" (only non-zero, localized initials are not needed: icons carry the meaning elsewhere). */
 function resLine(r: Resources, plus = true): string {
@@ -1282,13 +1275,13 @@ export function attackSource(game: Phaser.Game, tk: AttackTicket, label: string)
       const sub = attackSubmission(sim, deployOrders);
       onlineApi
         .attackSubmit(tk.ticket, sub.orders, sub.deployOrders, sub.claim)
-        .then((r) => showReport(game, attackReport(r, this.label), () => backToOnline(game, { focus: tk.hex })))
-        .catch((e) => backToOnline(game, { attack: { error: errorText(e) }, focus: tk.hex }));
+        .then((r) => showReport(game, attackReport(r, this.label), () => backToOnline(game, { focus: tk.region.loc })))
+        .catch((e) => backToOnline(game, { attack: { error: errorText(e) }, focus: tk.region.loc }));
     },
     onLeave() {
       // Leaving deployment gives the attack up (no losses; a short cooldown on this hex).
       void onlineApi.attackAbandon(tk.ticket).catch(() => undefined);
-      backToOnline(game, { focus: tk.hex });
+      backToOnline(game, { focus: tk.region.loc });
     },
   };
 }

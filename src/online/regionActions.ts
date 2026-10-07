@@ -1,5 +1,5 @@
 /**
- * What the hex panel offers for a hex (march, attack, garrison, collect), and
+ * What the region panel offers for a region (march, attack, garrison, collect), and
  * why a button is disabled. Mirrors the server's checks (the server decides;
  * this only explains up front). Pure, unit-tested.
  */
@@ -21,7 +21,7 @@ export interface Act {
 }
 
 export interface ActInput {
-  /** The hex as the panel knows it. */
+  /** The region as the panel knows it. */
   owner: number | null;
   ours: boolean;
   mine: boolean;
@@ -30,18 +30,18 @@ export interface ActInput {
   locked: boolean;
   canAttack: boolean;
   canGarrison: boolean;
-  /** Income waiting on this hex (sum of resources), when it is yours. */
+  /** Income waiting on this region (sum of resources), when it is yours. */
   waiting: number;
-  /** Your army stands on this hex (not marching). */
+  /** Your army stands in this region (not marching). */
   here: boolean;
-  /** Your army is next to it (distance 1). */
+  /** Your army is next to it (one route away). */
   adjacent: boolean;
   marching: boolean;
   energy: number;
   plan: MarchPlan;
 }
 
-export function hexActions(i: ActInput): Act[] {
+export function regionActions(i: ActInput): Act[] {
   const out: Act[] = [];
   const marchAct = (): Act => {
     if (!i.passable) return { id: 'march', enabled: false, reason: 'impassable' };

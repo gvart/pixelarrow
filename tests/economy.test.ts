@@ -121,7 +121,7 @@ describe('shop and availability', () => {
     const r = await d.claimPass(5, 'free');
     expect(r.reward.kind).toBe('consumable');
     await expect(d.claimPass(5, 'premium')).rejects.toMatchObject({ code: 'locked' });
-    const l = await d.marketList({ town: { q: 2, r: -1 }, kind: 'item', ref: 's1', currency: 'gold', price: 300 });
+    const l = await d.marketList({ town: 7, kind: 'item', ref: 's1', currency: 'gold', price: 300 });
     expect(l.listing.fee).toBe(30);
     expect((await d.profile())!.stash.length).toBe(0);
     const page = await d.marketSearch({ sort: 'price_asc', limit: 3 });

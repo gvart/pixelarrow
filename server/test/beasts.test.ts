@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { hexInfo, hexesWithin, neighbours, type Axial } from '../../src/online/hex';
 import { lairAt, worldBossSites, bossMaxHp } from '../../src/online/lairs';
 import { currentSeason, getShard } from '../src/online/store';
 import type { BattleSetup } from '../../src/sim/types';
-import { DB, fresh, getJson, join, play, post, type Player, type Ticket } from './onlineHelpers';
+import { DB, fresh, getJson, join, placeArmy, play, post, type Player, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -12,10 +11,10 @@ async function shardOf(p: Player) {
   return getShard(DB(), season.id, p.profile.shard.id);
 }
 
-/** Puts a player's army next to a hex (test shortcut for a march). */
-async function standBeside(p: Player, h: Axial, seed: number, radius: number): Promise<Axial> {
-  const spot = neighbours(h, radius).find((n) => hexInfo(seed, n.q, n.r, radius).passable)!;
-  await DB().prepare('UPDATE online_profiles SET army_q = ?1, army_r = ?2, march = NULL WHERE player_id = ?3').bind(spot.q, spot.r, p.playerId).run();
+/** Puts a player's army next to a region of a shard (test shortcut for a march). */
+async function standBeside(p: Player, loc: number, shard: { id: number; world: { neighbours(l: number): readonly number[]; info(l: number): { passable: boolean } } }): Promise<number> {
+  const spot = shard.world.neighbours(loc).find((n) => shard.world.info(n).passable)!;
+  await placeArmy(p, spot, shard.id);
   return spot;
 }
 
@@ -34,8 +33,7 @@ async function weakenTicket(ticket: string): Promise<BattleSetup> {
 
 interface BossInfo {
   boss: string;
-  q: number;
-  r: number;
+  loc: number;
   hp: number;
   maxHp: number;
   parts: number[];
@@ -45,27 +43,20 @@ interface BossInfo {
 }
 
 describe('beast lairs', () => {
-  it('a lair hex shows its beast; a slain beast gives the hex, its hoard and a trophy', async () => {
+  it('a lair region shows its beast; a slain beast gives the region, its hoard and a trophy', async () => {
     const p = await join(8801, 'Herakles');
     const shard = await shardOf(p);
     // the nearest lair to home
-    let lair: Axial | null = null;
-    for (const h of hexesWithin(p.profile.home, 12, shard.radius)) {
-      const info = hexInfo(shard.seed, h.q, h.r, shard.radius);
-      if (lairAt(shard.seed, info, shard.radius)) {
-        lair = h;
-        break;
-      }
-    }
-    expect(lair).not.toBeNull();
-    const at = await standBeside(p, lair!, shard.seed, shard.radius);
+    const lair = shard.world.within(p.profile.home, 99).find((l) => lairAt(shard.world, shard.seed, l));
+    expect(lair).toBeDefined();
+    const at = await standBeside(p, lair!, shard);
     expect(at).toBeTruthy();
-    const view = await getJson<{ hex: { occupant: string; lair?: string }; lair: { enc: string; home: boolean } | null; defenders: { kind: string } }>(`/api/online/hex/${lair!.q}/${lair!.r}`, p.token);
+    const view = await getJson<{ region: { occupant: string; lair?: string }; lair: { enc: string; home: boolean } | null; defenders: { kind: string } }>(`/api/online/region/${lair}`, p.token);
     expect(view.status).toBe(200);
-    expect(view.body.hex.occupant).toBe('beast');
+    expect(view.body.region.occupant).toBe('beast');
     expect(view.body.lair?.home).toBe(true);
     expect(view.body.defenders.kind).toBe('beast');
-    const t = await post<Ticket>('/api/online/attack/start', p.token, lair);
+    const t = await post<Ticket>('/api/online/attack/start', p.token, { loc: lair });
     expect(t.status).toBe(200);
     expect(t.body.defenderKind).toBe('beast');
     const setup = await weakenTicket(t.body.ticket);
@@ -77,7 +68,7 @@ describe('beast lairs', () => {
     expect(sub.body.beast.trophy).toMatch(/^trophy_/);
     expect(sub.body.loot.length).toBeGreaterThan(0);
     for (const it of sub.body.loot) expect(['rare', 'epic', 'legendary']).toContain(it.rarity);
-    const row = await DB().prepare('SELECT owner_id, beast_slain_at FROM online_hexes WHERE q = ?1 AND r = ?2').bind(lair!.q, lair!.r).first<{ owner_id: number; beast_slain_at: number }>();
+    const row = await DB().prepare('SELECT owner_id, beast_slain_at FROM online_regions WHERE shard_id = ?1 AND loc = ?2').bind(shard.id, lair).first<{ owner_id: number; beast_slain_at: number }>();
     expect(row?.owner_id).toBe(p.playerId);
     expect(row?.beast_slain_at).toBeGreaterThan(0);
     const ent = await DB().prepare("SELECT product_id FROM entitlements WHERE player_id = ?1 AND product_id LIKE 'trophy_%'").bind(p.playerId).first<{ product_id: string }>();
@@ -90,9 +81,9 @@ describe('world bosses', () => {
     const players = [];
     for (const id of ids) players.push(await join(id));
     const shard = await shardOf(players[0]);
-    const site = worldBossSites(shard.seed, shard.radius)[0];
+    const site = worldBossSites(shard.world, shard.seed)[0];
     expect(site).toBeTruthy();
-    for (const p of players) await standBeside(p, site, shard.seed, shard.radius);
+    for (const p of players) await standBeside(p, site.loc, shard);
     return { players, shard, site };
   }
 
@@ -189,9 +180,9 @@ describe('world bosses', () => {
     expect((await post<{ error: { code: string } }>('/api/online/boss/start', b.token, { boss: site.boss })).body.error.code).toBe('boss_dead');
   });
 
-  it('a world boss hex cannot be attacked like a neutral hex', async () => {
+  it('a world boss region cannot be attacked like a neutral region', async () => {
     const { players, site } = await setupBoss([8931]);
-    const r = await post<{ error: { code: string } }>('/api/online/attack/start', players[0].token, { q: site.q, r: site.r });
+    const r = await post<{ error: { code: string } }>('/api/online/attack/start', players[0].token, { loc: site.loc });
     expect(r.status).toBe(409);
     expect(r.body.error.code).toBe('world_boss');
   });

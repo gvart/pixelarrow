@@ -1,19 +1,19 @@
 /**
- * Beast lairs and world bosses on the hex shard (pure and deterministic, used
- * by the Worker and the client's demo shard).
+ * Beast lairs and world bosses on the season map (pure and deterministic,
+ * used by the Worker and the client's demo shard).
  *
- * - Lairs: mythical beasts hold some valuable hexes, mostly near forts, picked
- *   from the shard seed and the hex (no storage). A lair hex fights with its
- *   beast instead of the usual neutrals until the beast is slain; then it can
- *   be claimed like any hex, and the beast comes back after BEAST_RULES.respawnMs
- *   if the hex is left to the neutrals.
- * - World bosses: a Kraken on a coast hex and a Titan inland per shard, with
+ * - Lairs: every region of kind 'lair' (src/online/maps) is held by a mythical
+ *   beast picked from the shard seed and the region (no storage). A lair
+ *   fights with its beast instead of the usual neutrals until the beast is
+ *   slain; then it can be claimed like any region, and the beast comes back
+ *   after BEAST_RULES.respawnMs if the region is left to the neutrals.
+ * - World bosses: a Kraken on a coastal plot and a Titan in the hills per shard, with
  *   shared HP stored by the server (server/src/online/bosses.ts): every raid is
  *   a verified battle segment against the boss's current wounds.
  */
 import { ENCOUNTERS, LAIR_BEASTS, MYTHS, lairLevel, type EncounterId } from '../data/beasts';
 import { hash3 } from '../world/noise';
-import { capitals, hexDistance, hexId, hexInfo, hexesWithin, SHARD_RADIUS, type Axial, type HexInfo } from './hex';
+import type { RegionInfo, WorldGraph } from './world';
 import { Rng, hashString } from '../sim/rng';
 import { beastArmy } from '../game/beasts';
 import type { Hero } from '../data/units';
@@ -23,7 +23,7 @@ import { makeItem, rollBeastRarity } from '../game/heroes';
 import { ITEM_LIST } from '../data/items';
 
 export const BEAST_RULES = {
-  /** A slain lair beast returns after this long (if the hex fell back to the neutrals). */
+  /** A slain lair beast returns after this long (if the region fell back to the neutrals). */
   respawnMs: 48 * 3_600_000,
   /** Pieces of hoard by lair tier (index = tier 1..5). */
   hoard: [0, 1, 2, 2, 3, 4],
@@ -43,44 +43,45 @@ export interface Lair {
 
 const lairCache = new Map<string, Lair | null>();
 
-/** Is there a fort within `d` of h (cheap: the fort roll first)? */
-function fortNear(seed: number, h: Axial, d: number, radius: number): boolean {
-  for (const n of hexesWithin(h, d, radius)) {
-    if (n.q === h.q && n.r === h.r) continue;
-    if (hash3(n.q, n.r, seed + 11) >= 0.014) continue;
-    if (hexInfo(seed, n.q, n.r, radius).fort) return true;
+/** The landscape a beast may favour (ENCOUNTERS[...].terrain) for a region's ground. */
+export function landTag(r: Pick<RegionInfo, 'site'>): EncounterTerrain {
+  switch (r.site.base) {
+    case 'forest':
+      return 'forest';
+    case 'hills':
+      return r.site.rocky ? 'mine' : 'hills';
+    case 'scrub':
+      return 'ruins';
+    case 'beach':
+      return 'water';
+    default:
+      return r.site.river ? 'farmland' : 'plains';
   }
-  return false;
 }
+type EncounterTerrain = (typeof ENCOUNTERS)[EncounterId]['terrain'][number];
 
-/** The beast whose lair a hex is, or null (deterministic per shard seed). */
-export function lairAt(seed: number, h: Pick<HexInfo, 'q' | 'r' | 'type' | 'passable' | 'fort' | 'capital' | 'tier'>, radius = SHARD_RADIUS): Lair | null {
-  const key = `${seed}:${radius}:${h.q}_${h.r}`;
+/** The beast of a lair region, or null for any other region (deterministic per shard seed). */
+export function lairAt(world: WorldGraph, seed: number, loc: number): Lair | null {
+  const key = `${world.id}:${seed}:${loc}`;
   const c = lairCache.get(key);
   if (c !== undefined) return c;
   let out: Lair | null = null;
-  const roll = hash3(h.q, h.r, seed + 31);
-  if (h.passable && !h.fort && !h.capital && h.type !== 'town' && roll < 0.14) {
-    const fromCentre = hexDistance(h, { q: 0, r: 0 });
-    const caps = capitals(radius);
-    if (fromCentre <= radius - 3 && !caps.some((cp) => hexDistance(cp, h) <= 3)) {
-      const nearFort = roll < 0.07 && fortNear(seed, h, 2, radius);
-      if (nearFort || roll < 0.003 + 0.0015 * h.tier) {
-        // every beast can lair anywhere; its favourite ground is three times as likely
-        const w = LAIR_BEASTS.map((e) => ((ENCOUNTERS[e].terrain as string[]).includes(h.type) ? 3 : 1));
-        let pick = hash3(h.q, h.r, seed + 37) * w.reduce((a, x) => a + x, 0);
-        let enc = LAIR_BEASTS[0];
-        for (let i = 0; i < w.length; i++) {
-          pick -= w[i];
-          if (pick < 0) {
-            enc = LAIR_BEASTS[i];
-            break;
-          }
-        }
-        const tier = Math.min(5, h.tier + (nearFort ? 1 : 0) + (fromCentre < radius * 0.4 ? 1 : 0));
-        out = { enc, tier, level: lairLevel(enc, tier) };
+  const r = world.has(loc) ? world.info(loc) : null;
+  if (r && r.kind === 'lair') {
+    // every beast can lair anywhere; its favourite ground is three times as likely
+    const tag = landTag(r);
+    const w = LAIR_BEASTS.map((e) => ((ENCOUNTERS[e].terrain as string[]).includes(tag) ? 3 : 1));
+    let pick = hash3(loc, 0, seed + 37) * w.reduce((a, x) => a + x, 0);
+    let enc = LAIR_BEASTS[0];
+    for (let i = 0; i < w.length; i++) {
+      pick -= w[i];
+      if (pick < 0) {
+        enc = LAIR_BEASTS[i];
+        break;
       }
     }
+    const tier = Math.min(5, r.tier + (r.depth > 0.6 ? 1 : 0));
+    out = { enc, tier, level: lairLevel(enc, tier) };
   }
   if (lairCache.size > 50_000) lairCache.clear();
   lairCache.set(key, out);
@@ -88,7 +89,7 @@ export function lairAt(seed: number, h: Pick<HexInfo, 'q' | 'r' | 'type' | 'pass
 }
 
 /** The beast army of a lair for a respawn epoch: the beast and its hoard. */
-export function lairBeasts(seed: number, h: Pick<HexInfo, 'id'>, lair: Lair, epoch: number): Hero[] {
+export function lairBeasts(seed: number, h: Pick<RegionInfo, 'id'>, lair: Lair, epoch: number): Hero[] {
   const rng = new Rng((seed ^ hashString(`${h.id}:lair`) ^ Math.imul(epoch + 1, 0x9e3779b1)) >>> 0 || 1);
   const heroes = beastArmy(lair.enc, lair.level, rng, { nextId: 1 }, BEAST_RULES.hoard[lair.tier] ?? 2, `b${h.id}e${epoch}_`);
   for (const hero of heroes) for (const it of Object.values(hero.equip)) if (it) it.uid = `b${h.id}e${epoch}_${it.uid}`;
@@ -97,47 +98,55 @@ export function lairBeasts(seed: number, h: Pick<HexInfo, 'id'>, lair: Lair, epo
 
 // ------------------------------------------------------------------ world bosses
 
-export interface BossSite extends Axial {
+export interface BossSite {
+  loc: number;
   boss: EncounterId;
   level: number;
 }
 
 const bossCache = new Map<string, BossSite[]>();
 
-/** The shard's world bosses: a Kraken on the coast, a Titan in the hills inland. */
-export function worldBossSites(seed: number, radius = SHARD_RADIUS): BossSite[] {
-  const key = `${seed}:${radius}`;
+/**
+ * The shard's world bosses: a Kraken on a coastal plot and a Titan on a hill
+ * plot, away from the spawn plots and their neighbours (when the map allows),
+ * picked by the shard seed.
+ */
+export function worldBossSites(world: WorldGraph, seed: number): BossSite[] {
+  const key = `${world.id}:${seed}`;
   const c = bossCache.get(key);
   if (c) return c;
-  const caps = capitals(radius);
-  let kraken: { h: Axial; s: number } | null = null;
-  let titan: { h: Axial; s: number } | null = null;
-  for (const h of hexesWithin({ q: 0, r: 0 }, radius, radius)) {
-    const d = hexDistance(h, { q: 0, r: 0 }) / radius;
-    if (caps.some((cp) => hexDistance(cp, h) <= 3)) continue;
-    const want = (d >= 0.4 && d <= 0.92) || (d >= 0.18 && d <= 0.5);
-    if (!want) continue;
-    const s = hash3(h.q, h.r, seed + 41);
-    if (kraken && titan && s > kraken.s && s > titan.s) continue;
-    const info = hexInfo(seed, h.q, h.r, radius);
-    if (!info.passable || info.fort || info.type === 'town') continue;
-    if (d >= 0.4 && d <= 0.92 && info.coast && info.type !== 'mine' && (!kraken || s < kraken.s)) kraken = { h, s };
-    if (d >= 0.18 && d <= 0.5 && (info.type === 'hills' || info.type === 'mine') && (!titan || s < titan.s)) titan = { h, s };
-  }
+  const nearSpawn = new Set<number>();
+  for (const s of world.spawns()) for (const n of world.within(s, 1)) nearSpawn.add(n);
+  const plots = world.all().filter((r) => r.kind === 'plot' && !r.spawn);
+  const far = plots.filter((r) => !nearSpawn.has(r.id));
+  const best = (list: RegionInfo[], salt: number, not?: number) => {
+    let out: RegionInfo | null = null;
+    let bs = Infinity;
+    for (const r of list) {
+      if (r.id === not) continue;
+      const s = hash3(r.id, salt, seed + 41);
+      if (s < bs) (bs = s), (out = r);
+    }
+    return out;
+  };
+  const pick = (want: (r: RegionInfo) => boolean, salt: number, not?: number) =>
+    best(far.filter(want), salt, not) ?? best(plots.filter(want), salt, not) ?? best(far, salt, not) ?? best(plots, salt, not);
   const out: BossSite[] = [];
-  if (kraken) out.push({ ...kraken.h, boss: 'kraken', level: ENCOUNTERS.kraken.levels[0] });
-  if (titan) out.push({ ...titan.h, boss: 'titan', level: ENCOUNTERS.titan.levels[0] });
+  const kraken = pick((r) => r.coast, 1);
+  if (kraken) out.push({ loc: kraken.id, boss: 'kraken', level: ENCOUNTERS.kraken.levels[0] });
+  const titan = pick((r) => r.site.base === 'hills' && !r.coast, 2, kraken?.id) ?? null;
+  if (titan && titan.id !== kraken?.id) out.push({ loc: titan.id, boss: 'titan', level: ENCOUNTERS.titan.levels[0] });
   bossCache.set(key, out);
   return out;
 }
 
-export function bossAt(seed: number, h: Axial, radius = SHARD_RADIUS): BossSite | null {
-  return worldBossSites(seed, radius).find((b) => b.q === h.q && b.r === h.r) ?? null;
+export function bossAt(world: WorldGraph, seed: number, loc: number): BossSite | null {
+  return worldBossSites(world, seed).find((b) => b.loc === loc) ?? null;
 }
 
-/** Is a hex reserved for a lair or a world boss (no homes there)? */
-export function beastHex(seed: number, info: HexInfo, radius = SHARD_RADIUS): boolean {
-  return !!bossAt(seed, info, radius) || !!lairAt(seed, info, radius);
+/** Is a region reserved for a lair or a world boss (no homes there)? */
+export function beastLoc(world: WorldGraph, seed: number, loc: number): boolean {
+  return !!bossAt(world, seed, loc) || !!lairAt(world, seed, loc);
 }
 
 /** Full HP of a world boss's body and of each of its parts at its level. */
@@ -210,4 +219,3 @@ export function bossLoot(boss: EncounterId, shardKey: string, pid: number, share
   return out;
 }
 
-export { hexId };

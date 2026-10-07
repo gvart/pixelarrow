@@ -1,6 +1,6 @@
 /**
  * A map merchant (docs/DUELS.md "War-map shops on the map"): the stock of a
- * town or a trading post, opened from the hex panel. Shows whether the hex is
+ * town or a trading post, opened from the region panel. Shows whether the region is
  * in reach, the holder discount and cut, today's daily caps, and buy buttons
  * for gold (and Drachmae for supplies) that say why they are disabled (out of
  * reach, daily limit, not enough gold). Everything is decided by the server
@@ -22,7 +22,6 @@ import { isApiError, newRequestId, type Currency } from '../../platform/api';
 import { onlineApi, type MerchantBuyResult, type MerchantOffer, type MerchantView } from '../../online/client';
 import { demoShard } from '../../online/demoShard';
 import { capKey } from '../../online/merchants';
-import type { Axial } from '../../online/hex';
 import { CONSUMABLES, type ConsumableId } from '../../data/consumables';
 import { ITEMS, type Item } from '../../data/items';
 import { P } from '../../art/palette';
@@ -32,10 +31,11 @@ import { t, tOr, type TKey } from '../../i18n';
 import { fmtTime } from './OnlineScene';
 
 export interface MerchantData {
-  hex: Axial;
+  /** The merchant's region. */
+  loc: number;
   /** The demo shard's merchant; 'held' / 'far' stage it in reach with the discount, or out of reach. */
   demo?: boolean | 'held' | 'far';
-  /** With demo: take the hex from the demo shard's spots (the town or the trading post in sight). */
+  /** With demo: take the region from the demo shard's spots (the town or the trading post in sight). */
   spot?: 'market' | 'post';
   back?: { scene: string; data?: Record<string, unknown> };
 }
@@ -45,12 +45,12 @@ interface Source {
   buy(offer: string, currency: Currency, requestId: string): Promise<MerchantBuyResult>;
 }
 
-function liveSource(h: Axial): Source {
+function liveSource(h: number): Source {
   return { load: () => onlineApi.merchant(h), buy: (offer, currency, requestId) => onlineApi.merchantBuy(h, offer, currency, requestId) };
 }
 
 /** The demo merchant: purchases change only the local copy. */
-function demoSource(h: Axial, stage?: 'held' | 'far'): Source {
+function demoSource(h: number, stage?: 'held' | 'far'): Source {
   const v = demoShard().merchant(h, stage);
   return {
     load: async () => {
@@ -73,7 +73,7 @@ type Section = MerchantOffer['slot'];
 const SECTIONS: Section[] = ['base', 'region', 'rare'];
 
 export class MerchantScene extends BaseScene {
-  private hex: Axial = { q: 0, r: 0 };
+  private loc = 0;
   private src!: Source;
   private view: MerchantView | null = null;
   private st: EconState | 'loading' | 'ready' = 'loading';
@@ -93,8 +93,8 @@ export class MerchantScene extends BaseScene {
     this.initUi();
     ensureFonts(this);
     ensureEconIcons(this);
-    this.hex = (data?.demo && data.spot ? demoShard().spots[data.spot] : null) ?? data?.hex ?? { q: 0, r: 0 };
-    this.src = data?.demo ? demoSource(this.hex, data.demo === true ? undefined : data.demo) : liveSource(this.hex);
+    this.loc = (data?.demo && data.spot ? demoShard().spots[data.spot] : null) ?? data?.loc ?? 0;
+    this.src = data?.demo ? demoSource(this.loc, data.demo === true ? undefined : data.demo) : liveSource(this.loc);
     this.backTo = data?.back;
     this.view = null;
     this.st = 'loading';

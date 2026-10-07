@@ -1,10 +1,11 @@
--- Online mode: seasonal hex shards, server-owned armies, garrisons, clans,
--- attack tickets, the battle log and season rewards.
+-- Online mode: seasonal shards on a hand-authored region map, server-owned
+-- armies, garrisons, clans, attack tickets, the battle log and season rewards.
 --
 -- Everything world- or army-scoped carries season_id (a season ends with a
--- full reset: a new season id starts from nothing). Static hex data is never
--- stored: it is a pure function of the shard seed (src/online/hex.ts); only
--- hexes whose state changed get a row in online_hexes.
+-- full reset: a new season id starts from nothing). Locations are region ids
+-- (`loc`) of the shard's map (src/online/maps/<map_id>.json, read through
+-- src/online/world.ts). Static region data is never stored; only regions
+-- whose state changed get a row in online_regions, keyed by (season, shard, loc).
 
 CREATE TABLE online_seasons (
   id          INTEGER PRIMARY KEY,
@@ -14,12 +15,12 @@ CREATE TABLE online_seasons (
   ended_at    INTEGER
 );
 
--- About 500 players per shard; a new shard opens when the last one is full.
+-- About 150 players per shard; a new shard opens when the last one is full.
 CREATE TABLE online_shards (
   season_id   INTEGER NOT NULL,
   id          INTEGER NOT NULL,
-  seed        INTEGER NOT NULL,
-  radius      INTEGER NOT NULL,
+  map_id      TEXT NOT NULL,                      -- src/online/maps/<map_id>.json
+  seed        INTEGER NOT NULL,                   -- neutrals, lair beasts, boss sites
   players     INTEGER NOT NULL DEFAULT 0,
   created_at  INTEGER NOT NULL,
   PRIMARY KEY (season_id, id)
@@ -40,11 +41,9 @@ CREATE TABLE online_profiles (
   energy_at   INTEGER NOT NULL,                   -- energy refills lazily from here
   next_id     INTEGER NOT NULL,                   -- id counter for heroes/items
   formations  TEXT NOT NULL,                      -- JSON FormationType[4] of the field army
-  home_q      INTEGER NOT NULL,
-  home_r      INTEGER NOT NULL,
-  army_q      INTEGER NOT NULL,                   -- where the army stands (or last stood)
-  army_r      INTEGER NOT NULL,
-  march       TEXT,                               -- JSON { path: [[q,r]...], at: [arrival ms...] }
+  home_loc    INTEGER NOT NULL,                   -- home region
+  army_loc    INTEGER NOT NULL,                   -- where the army stands (or last stood)
+  march       TEXT,                               -- JSON { path: [loc...], at: [arrival ms...] }
   battles     INTEGER NOT NULL DEFAULT 0,
   wins        INTEGER NOT NULL DEFAULT 0,
   rev         INTEGER NOT NULL DEFAULT 0,
@@ -52,7 +51,7 @@ CREATE TABLE online_profiles (
   updated_at  INTEGER NOT NULL,
   PRIMARY KEY (season_id, player_id)
 );
-CREATE INDEX idx_profiles_army ON online_profiles(season_id, shard_id, army_q, army_r);
+CREATE INDEX idx_profiles_army ON online_profiles(season_id, shard_id, army_loc);
 
 -- Heroes (JSON Hero with its equipment). busy_* marks heroes in an open attack.
 CREATE TABLE online_heroes (
@@ -78,16 +77,15 @@ CREATE TABLE online_items (
 );
 CREATE INDEX idx_items_player ON online_items(season_id, player_id);
 
--- Hexes whose state differs from the generated default.
-CREATE TABLE online_hexes (
+-- Regions whose state differs from the map's default.
+CREATE TABLE online_regions (
   season_id   INTEGER NOT NULL,
   shard_id    INTEGER NOT NULL,
-  q           INTEGER NOT NULL,
-  r           INTEGER NOT NULL,
-  occupant    TEXT NOT NULL DEFAULT 'npc',        -- npc | player | beast (later)
+  loc         INTEGER NOT NULL,                   -- region id on the shard's map
+  occupant    TEXT NOT NULL DEFAULT 'npc',        -- npc | player | beast
   owner_id    INTEGER REFERENCES players(id),
   clan_id     INTEGER,
-  home        INTEGER NOT NULL DEFAULT 0,         -- a player's home hex (cannot be attacked)
+  home        INTEGER NOT NULL DEFAULT 0,         -- a player's home region (cannot be attacked)
   captured_at INTEGER,
   accrued_at  INTEGER,                            -- income accrues lazily from here
   formations  TEXT,                               -- JSON FormationType[4] of the garrison
@@ -98,22 +96,22 @@ CREATE TABLE online_hexes (
   siege_wins  INTEGER NOT NULL DEFAULT 0,
   siege_at    INTEGER,
   version     INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (season_id, shard_id, q, r)
+  beast_slain_at INTEGER,                         -- lair regions: when the beast was last slain (NULL: never)
+  PRIMARY KEY (season_id, shard_id, loc)
 );
-CREATE INDEX idx_hexes_owner ON online_hexes(season_id, owner_id);
-CREATE INDEX idx_hexes_clan ON online_hexes(season_id, clan_id);
+CREATE INDEX idx_regions_owner ON online_regions(season_id, owner_id);
+CREATE INDEX idx_regions_clan ON online_regions(season_id, clan_id);
 
--- Which heroes hold which hex. A hero not listed here marches with the field army.
+-- Which heroes hold which region. A hero not listed here marches with the field army.
 CREATE TABLE online_garrisons (
   hero_id     TEXT PRIMARY KEY REFERENCES online_heroes(id) ON DELETE CASCADE,
   season_id   INTEGER NOT NULL,
   shard_id    INTEGER NOT NULL,
-  q           INTEGER NOT NULL,
-  r           INTEGER NOT NULL,
+  loc         INTEGER NOT NULL,
   player_id   INTEGER NOT NULL,
   placed_at   INTEGER NOT NULL
 );
-CREATE INDEX idx_garrisons_hex ON online_garrisons(season_id, shard_id, q, r);
+CREATE INDEX idx_garrisons_loc ON online_garrisons(season_id, shard_id, loc);
 
 -- Clans live in one shard for one season.
 CREATE TABLE clans (
@@ -155,15 +153,14 @@ CREATE TABLE battle_tickets (
   season_id     INTEGER NOT NULL,
   shard_id      INTEGER NOT NULL,
   player_id     INTEGER NOT NULL REFERENCES players(id),
-  q             INTEGER NOT NULL,
-  r             INTEGER NOT NULL,
+  loc           INTEGER NOT NULL,                 -- the region attacked
   seed          INTEGER NOT NULL,
   setup         TEXT NOT NULL,                    -- JSON BattleSetup
   attackers     TEXT NOT NULL,                    -- JSON Hero[] snapshot
   defenders     TEXT NOT NULL,                    -- JSON Hero[] snapshot
   defender_kind TEXT NOT NULL,                    -- npc | militia | garrison
-  defender_id   INTEGER,                          -- hex owner when it was a player's
-  hex_version   INTEGER NOT NULL,
+  defender_id   INTEGER,                          -- region owner when it was a player's
+  region_version INTEGER NOT NULL,
   status        TEXT NOT NULL DEFAULT 'open',     -- open | used | rejected | abandoned
   claim         TEXT,
   result        TEXT,
@@ -173,7 +170,7 @@ CREATE TABLE battle_tickets (
   expires_at    INTEGER NOT NULL,
   finished_at   INTEGER
 );
-CREATE INDEX idx_tickets_player ON battle_tickets(player_id, q, r, created_at);
+CREATE INDEX idx_tickets_player ON battle_tickets(player_id, loc, created_at);
 
 CREATE TABLE battle_log (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,8 +180,7 @@ CREATE TABLE battle_log (
   ref         TEXT,                               -- ticket id / duel id
   attacker_id INTEGER,
   defender_id INTEGER,
-  q           INTEGER,
-  r           INTEGER,
+  loc         INTEGER,
   winner      INTEGER NOT NULL,
   ticks       INTEGER NOT NULL,
   hash        TEXT,

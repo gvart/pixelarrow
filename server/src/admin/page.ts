@@ -204,7 +204,7 @@ const JS = `'use strict';
         table(r.purchases.map((x) => Object.assign({}, x)), ['created_at', 'product_id', 'stars_amount', 'refunded', 'refunded_at', 'telegram_payment_charge_id']),
         r.purchases.filter((x) => !x.refunded).map((x) => actionForm('Refund ' + x.product_id + ' (' + x.stars_amount + ' Stars, ' + fmtTime(x.created_at) + ')', [], (reason, requestId) => api('POST', '/purchases/' + encodeURIComponent(x.telegram_payment_charge_id) + '/refund', { requestId, reason }), true)),
         h('h2', {}, 'Entitlements'), table(r.entitlements),
-        h('h2', {}, 'Online season #' + r.season), r.online ? table([r.online], ['shard_id', 'gold', 'food', 'wood', 'bronze', 'recruits', 'energy', 'battles', 'wins', 'home_q', 'home_r', 'updated_at']) : h('p', { class: 'muted' }, 'Not joined.'),
+        h('h2', {}, 'Online season #' + r.season), r.online ? table([r.online], ['shard_id', 'gold', 'food', 'wood', 'bronze', 'recruits', 'energy', 'battles', 'wins', 'home_loc', 'army_loc', 'updated_at']) : h('p', { class: 'muted' }, 'Not joined.'),
         h('p', {}, 'Clan: ', r.clan ? r.clan.name + ' [' + r.clan.tag + '] (' + r.clan.role + ')' : 'none', ' / pass: ', r.pass ? r.pass.xp + ' XP' + (r.pass.premium ? ', premium' : '') : 'none'),
         h('h2', {}, 'Army (' + r.heroes.length + ' heroes)'), table(r.heroes),
         h('h2', {}, 'Stash (' + r.stash.length + ' items)'), table(r.stash),

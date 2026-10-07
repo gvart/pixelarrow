@@ -26,7 +26,8 @@ import type { Hero } from '../../data/units';
 import { heroClass } from '../../sim/stats';
 import { Rng } from '../../sim/rng';
 import { ONLINE_RULES, RECRUIT_ARCHETYPES } from '../../online/rules';
-import { errorText, onlineApi, type Axial, type HexDetail, type OwnedHeroView, type ProfileView } from '../../online/client';
+import { errorText, onlineApi, type OwnedHeroView, type ProfileView, type RegionDetail } from '../../online/client';
+import { getMap, hasMap } from '../../online/world';
 import { makeHero, type Archetype } from '../../game/heroes';
 import { econState, type EconState } from '../../game/economy';
 import { heroStars, powerRating } from '../../game/gear';
@@ -36,9 +37,9 @@ import { t } from '../../i18n';
 export class OnlineArmyScene extends BaseScene {
   private profile: ProfileView | null = null;
   private sel: string | null = null;
-  private garrisonHex: Axial | null = null;
+  private garrisonHex: number | null = null;
   private garrisonPick = new Set<string>();
-  private hexDetail: HexDetail | null = null;
+  private hexDetail: RegionDetail | null = null;
   private st: EconState | 'loading' | 'ready' = 'loading';
   private busy = false;
   private tab: 'roster' | 'stash' = 'roster';
@@ -55,7 +56,7 @@ export class OnlineArmyScene extends BaseScene {
     super('OnlineArmy');
   }
 
-  create(data: { garrison?: Axial; tab?: 'roster' | 'stash' }): void {
+  create(data: { garrison?: number; tab?: 'roster' | 'stash' }): void {
     this.garrisonHex = data?.garrison ?? null;
     this.garrisonPick = new Set();
     this.profile = null;
@@ -79,22 +80,22 @@ export class OnlineArmyScene extends BaseScene {
   }
 
   private back(): void {
-    this.scene.start('Online', this.garrisonHex ? { focus: this.garrisonHex } : {});
+    this.scene.start('Online', this.garrisonHex !== null ? { focus: this.garrisonHex } : {});
   }
 
   /** Load from the API, or show a given profile (tests, layout check). */
   async fetchData(given?: ProfileView): Promise<void> {
     try {
-      const [p, d] = given ? [given, null] : await Promise.all([onlineApi.profile(), this.garrisonHex ? onlineApi.hex(this.garrisonHex) : Promise.resolve(null)]);
+      const [p, d] = given ? [given, null] : await Promise.all([onlineApi.profile(), this.garrisonHex !== null ? onlineApi.region(this.garrisonHex) : Promise.resolve(null)]);
       if (!this.sys.isActive()) return;
       for (const oh of p.heroes) normalizeEquip(oh.hero);
       p.stash.forEach((it) => normalizeItem(it));
       this.profile = p;
       this.hexDetail = d;
       this.st = 'ready';
-      if (this.garrisonHex) {
+      if (this.garrisonHex !== null) {
         const g = this.garrisonHex;
-        this.garrisonPick = new Set(p.heroes.filter((h) => h.garrison && h.garrison.q === g.q && h.garrison.r === g.r).map((h) => h.hero.id));
+        this.garrisonPick = new Set(p.heroes.filter((h) => h.garrison === g).map((h) => h.hero.id));
       }
       if (!this.sel || !p.heroes.some((h) => h.hero.id === this.sel)) this.sel = p.heroes[0]?.hero.id ?? null;
     } catch (e) {
@@ -182,7 +183,7 @@ export class OnlineArmyScene extends BaseScene {
     const d = this.hexDetail;
     const others = (d?.garrison ?? []).filter((x) => !p.heroes.some((h) => h.hero.id === x.hero.id)).length;
     this.head.add(addPanel(this, 0, 26, VW, 26, 'dark'));
-    this.head.add(addText(this, 6, 31, ellipsize(t('oarmy.garrisonHint', { q: g.q, r: g.r }), VW - 12), 'gold'));
+    this.head.add(addText(this, 6, 31, ellipsize(t('oarmy.garrisonHint', { name: this.regionName(g) }), VW - 12), 'gold'));
     const line = `${t('oarmy.stationed', { n: this.garrisonPick.size + others, max: ONLINE_RULES.maxGarrison })}${others ? ` · ${t('oarmy.clanMates', { n: others })}` : ''}`;
     this.head.add(addText(this, 6, 41, ellipsize(line, VW - 12), 'title'));
     return 54;
@@ -259,7 +260,7 @@ export class OnlineArmyScene extends BaseScene {
   private status(oh: OwnedHeroView, now: number): { text: string; color: number } | null {
     if (oh.busy) return { text: t('oarmy.inBattle'), color: 0xd8a840 };
     if (oh.woundedUntil > now) return { text: t('oarmy.wounded', { t: fmtDuration(oh.woundedUntil - now) }), color: COLOR.bad };
-    if (oh.garrison) return { text: t('oarmy.holds', { q: oh.garrison.q, r: oh.garrison.r }), color: 0x4a6b9a };
+    if (oh.garrison !== null) return { text: t('oarmy.holds', { name: this.regionName(oh.garrison) }), color: 0x4a6b9a };
     return null;
   }
 
@@ -298,7 +299,7 @@ export class OnlineArmyScene extends BaseScene {
 
   private rosterHeroes(p: ProfileView): OwnedHeroView[] {
     const g = this.garrisonHex;
-    return g ? p.heroes.filter((h) => !h.garrison || (h.garrison.q === g.q && h.garrison.r === g.r)) : p.heroes;
+    return g !== null ? p.heroes.filter((h) => h.garrison === null || h.garrison === g) : p.heroes;
   }
 
   private buildRoster(p: ProfileView, y: number, h: number, keep: number): void {
@@ -483,6 +484,12 @@ export class OnlineArmyScene extends BaseScene {
     });
     c.once('destroy', () => list.destroy());
     c.add(new Button(this, x + 8, by, inner, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
+  }
+
+  /** A region's name on this season's map. */
+  private regionName(loc: number): string {
+    const id = this.profile?.shard.map;
+    return id && hasMap(id) && getMap(id).has(loc) ? getMap(id).info(loc).name : `#${loc}`;
   }
 
   private async saveGarrison(): Promise<void> {
