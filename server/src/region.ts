@@ -17,7 +17,7 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './env';
-import { DuelHub, type Out } from './online/duel';
+import { DuelHub, HUB_PREFIX, type Out } from './online/duel';
 import type { ClientMsg, PresencePlayer } from '../../src/online/protocol';
 import type { Hero } from '../../src/data/units';
 import { onlineBattleSetup } from '../../src/online/battle';
@@ -87,6 +87,17 @@ export class RegionDO extends DurableObject<Env> {
           .run();
       },
     });
+    // Challenges and deployments survive hibernation (DuelHub.persistence).
+    void this.ctx.blockConcurrencyWhile(async () => {
+      this.hub.restore(await this.ctx.storage.list({ prefix: HUB_PREFIX }));
+    });
+  }
+
+  /** Writes the hub's changed challenges and deployments to storage (after every hub call). */
+  private async saveHub(): Promise<void> {
+    const { put, del } = this.hub.persistence();
+    if (Object.keys(put).length) await this.ctx.storage.put(put);
+    if (del.length) await this.ctx.storage.delete(del);
   }
 
   // ------------------------------------------------------------------ hex locks (RPC)
@@ -155,6 +166,7 @@ export class RegionDO extends DurableObject<Env> {
   /** Starts timed duel deployments that are over and announces the marches that arrived. */
   async alarm(): Promise<void> {
     this.deliver(this.hub.tick());
+    await this.saveHub();
     const now = Date.now();
     const all = await this.ctx.storage.list<LiveArrival>({ prefix: 'arrive:' });
     const out: Out[] = [];
@@ -312,6 +324,7 @@ export class RegionDO extends DurableObject<Env> {
         const before = new Set([...this.hub.duels.values()].flatMap((d) => d.players));
         const out = await this.hub.handle({ id: me.id, name: me.name }, msg, (pid) => this.lookup(pid));
         this.deliver(out);
+        await this.saveHub();
         await this.scheduleDeploy();
         const after = new Set([...this.hub.duels.values()].flatMap((d) => d.players));
         if (before.size !== after.size || [...after].some((p) => !before.has(p))) this.broadcast({ type: 'presence', players: this.online() });
@@ -361,6 +374,7 @@ export class RegionDO extends DurableObject<Env> {
     const stillHere = this.ctx.getWebSockets(`p:${a.id}`).some((o) => o !== ws && o.deserializeAttachment() !== null);
     if (!stillHere) {
       this.deliver(this.hub.disconnect(a.id));
+      void this.saveHub();
       this.broadcast({ type: 'leave', player: { id: a.id, name: a.name } }, ws);
     }
   }

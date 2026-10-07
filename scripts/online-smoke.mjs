@@ -198,6 +198,51 @@ await ev(page, () => window.__game.scene.getScenes(true).forEach((sc) => sc.scen
 await page.waitForTimeout(1200);
 check('[ok] supporter cosmetics', await ev(page, () => window.__game.textures.exists('supporter_banner') && window.__online.has('supporter_banner')));
 check('[ok] no console/page errors', s.errors.length === 0 && s.netErrors.length === 0, [...s.errors, ...s.netErrors].join(' | '));
+
+// ---- 3. A live duel that ends from outside (opponent left / desync) while a group is selected:
+// the battle's own timer hands over to the next scene in the middle of a frame.
+await ev(page, () => {
+  const g = window.__game;
+  for (const sc of g.scene.getScenes(true)) g.scene.stop(sc.scene.key);
+  g.scene.start('Battle', { fresh: true });
+});
+await page.waitForTimeout(1500);
+await ev(page, () => {
+  const g = window.__game;
+  const b = g.scene.getScene('Battle');
+  let gone = null;
+  window.__duelGone = () => (gone = 'opponent_left');
+  const source = {
+    setup: JSON.parse(JSON.stringify(b.verifySetup)),
+    heroes: [...window.__state.campaign.data.heroes, ...b.enemyHeroes],
+    side: 0,
+    label: 'vs Test',
+    opponent: 'Test',
+    lockstep: { attach() {}, issue() {}, ready() {}, canStep: () => true, beforeStep() {}, status: () => null, aborted: () => gone, opponentReady: () => false },
+    onFinish() {
+      for (const sc of g.scene.getScenes(true)) g.scene.stop(sc.scene.key);
+      g.scene.start('Menu');
+    },
+    onLeave() {},
+  };
+  for (const sc of g.scene.getScenes(true)) g.scene.stop(sc.scene.key);
+  g.scene.start('Battle', { source });
+});
+await page.waitForTimeout(1500);
+await ev(page, () => {
+  const b = window.__game.scene.getScene('Battle');
+  b.selGroup = b.sim.groups.find((x) => x.side === b.me).id;
+  window.__duelGone();
+});
+check('[duel] aborted duel leaves the battle', await (async () => {
+  for (let i = 0; i < 20; i++) {
+    if (await active(page, 'Menu')) return true;
+    await page.waitForTimeout(250);
+  }
+  return false;
+})());
+await page.waitForTimeout(500);
+check('[duel] no page errors after the hand-over', s.errors.length === 0, s.errors.join(' | '));
 await s.browser.close();
 
 console.log(failures ? `${failures} FAILED` : 'ALL PASS');

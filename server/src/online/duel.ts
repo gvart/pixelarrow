@@ -6,11 +6,14 @@
  * - Challenges: challenge -> challenged / challenge_sent; reply accept ->
  *   both armies are loaded from D1 (server-owned), the server fixes the seed
  *   and sends duel_start to both.
- * - Deployment (timed, DEPLOY_MS): d_order messages are echoed to both
- *   players in server order (both apply them in that order); when both sent
- *   d_ready, or the deployment time plus DEPLOY_GRACE_MS is over (tick(),
- *   driven by the RegionDO's alarm, and checked on every message), the server
- *   sends go and pre-seals turns 0..DELAY_TURNS-1.
+ * - Deployment (timed, DEPLOY_MS): a d_order is echoed to its sender only;
+ *   the opponent's deployment stays secret until go. When both sent d_ready,
+ *   or the deployment time plus DEPLOY_GRACE_MS is over (tick(), driven by
+ *   the RegionDO's alarm, and checked on every message), each player gets the
+ *   other side's deployment orders (as d_order, still in the deploy phase),
+ *   then go, then turns 0..DELAY_TURNS-1 pre-sealed. Deployment orders only
+ *   touch their own side (DEPLOY_KINDS), so applying "mine, then theirs" on
+ *   both clients and the log's order on the server give the same state.
  * - Battle: cmd orders queue for the next sealed turn; turn n + DELAY_TURNS is
  *   sealed when both players reported reaching turn n. Every order is logged
  *   with tick = turn * TURN_TICKS, exactly as the clients apply it.
@@ -36,6 +39,9 @@ import {
   type SealedOrder,
   type ServerMsg,
 } from '../../../src/online/protocol';
+
+/** Storage key prefix of the hub's persisted challenges and deployments (DuelHub.persistence). */
+export const HUB_PREFIX = 'hub:';
 
 export interface Out {
   to: number;
@@ -102,6 +108,48 @@ export class DuelHub {
 
   constructor(private readonly deps: DuelDeps) {}
 
+  /** JSON of each storage record as last saved (persistence()). */
+  private saved = new Map<string, string>();
+
+  /**
+   * Storage changes since the last call, for the RegionDO to write (keys
+   * under HUB_PREFIX). A Durable Object using WebSocket hibernation is
+   * evicted after ~10 s without events, and memory goes with it: an open
+   * challenge or a 15 s deployment is often that quiet. Both are kept in
+   * storage until the battle starts; from go on, lockstep traffic arrives
+   * every few ticks and keeps the object awake (a battle both players left
+   * silent ends as "gone", like a disconnect).
+   */
+  persistence(): { put: Record<string, unknown>; del: string[] } {
+    const cur = new Map<string, string>();
+    for (const c of this.challenges.values()) if (!c.accepting) cur.set(`${HUB_PREFIX}c:${c.id}`, JSON.stringify(c));
+    for (const d of this.duels.values()) if (d.phase === 'deploy') cur.set(`${HUB_PREFIX}d:${d.id}`, JSON.stringify({ ...d, hashes: [] }));
+    const put: Record<string, unknown> = {};
+    for (const [k, v] of cur) if (this.saved.get(k) !== v) put[k] = JSON.parse(v);
+    const del = [...this.saved.keys()].filter((k) => !cur.has(k));
+    this.saved = cur;
+    return { put, del };
+  }
+
+  /** Brings back what persistence() saved (a Durable Object woken from hibernation). */
+  restore(records: Map<string, unknown>): void {
+    for (const [k, v] of records) {
+      if (k.startsWith(`${HUB_PREFIX}c:`)) {
+        const c = v as Challenge;
+        this.challenges.set(c.id, c);
+      } else if (k.startsWith(`${HUB_PREFIX}d:`)) {
+        const d = { ...(v as DuelState), hashes: new Map() } as DuelState;
+        // (a stale record is remembered as saved, so the next persistence() deletes it)
+        if (d.phase === 'deploy' && !this.byPlayer.has(d.players[0]) && !this.byPlayer.has(d.players[1])) {
+          this.duels.set(d.id, d);
+          this.byPlayer.set(d.players[0], d.id);
+          this.byPlayer.set(d.players[1], d.id);
+        }
+      } else continue;
+      this.saved.set(k, JSON.stringify(v));
+    }
+  }
+
   busy(pid: number): boolean {
     return this.byPlayer.has(pid);
   }
@@ -138,11 +186,21 @@ export class DuelHub {
     return t;
   }
 
-  /** Deployment over: go, and the first DELAY_TURNS turns sealed empty. */
+  /**
+   * Deployment over: each player now gets the opponent's (withheld)
+   * deployment orders, then go, and the first DELAY_TURNS turns sealed empty.
+   */
   private start(d: DuelState): Out[] {
     d.phase = 'battle';
     d.deployOrders = d.log.length;
-    const out = this.both(d, { type: 'go', duel: d.id });
+    const out: Out[] = [];
+    for (const side of [0, 1] as Side[]) {
+      const other = d.players[1 - side];
+      d.log.forEach((o, seq) => {
+        if (o.side === side) out.push({ to: other, msg: { type: 'd_order', duel: d.id, seq, side, order: o.order } });
+      });
+    }
+    out.push(...this.both(d, { type: 'go', duel: d.id }));
     for (let i = 0; i < DELAY_TURNS; i++) out.push(...this.seal(d));
     return out;
   }
@@ -274,10 +332,13 @@ export class DuelHub {
       case 'd_order': {
         if (d.phase !== 'deploy') return [];
         const o = parseOrder(msg.order);
-        if (!o || o.kind === 'retreat' || d.log.length >= MAX_DUEL_ORDERS) return [{ to: me.id, msg: { type: 'error', message: 'Bad order', code: 'bad_order' } }];
+        if (!o || !DEPLOY_KINDS.has(o.kind) || d.log.length >= MAX_DUEL_ORDERS) return [{ to: me.id, msg: { type: 'error', message: 'Bad order', code: 'bad_order' } }];
+        const seq = d.log.length;
         d.log.push({ tick: 0, side, order: o });
         d.deployOrders = d.log.length;
-        return this.both(d, { type: 'd_order', duel: d.id, seq: d.seq++, side, order: o });
+        d.seq = d.log.length;
+        // Only the sender sees it now; the opponent gets it at go (start()).
+        return [{ to: me.id, msg: { type: 'd_order', duel: d.id, seq, side, order: o } }];
       }
       case 'd_ready': {
         if (d.phase !== 'deploy') return [];
@@ -349,6 +410,13 @@ export class DuelHub {
     return out;
   }
 }
+
+/**
+ * Orders allowed during a duel's deployment: each changes only its own side's
+ * groups and men (no new groups, no randomness), so the two sides' deployment
+ * orders commute and can be revealed at go without changing the outcome.
+ */
+export const DEPLOY_KINDS: ReadonlySet<Order['kind']> = new Set(['form', 'preset', 'order', 'shieldwall', 'loose', 'assign']);
 
 /** A duel message's consumable: null for none, undefined when invalid (not ONE battle consumable id). */
 export function duelConsumable(v: unknown): ConsumableId | null | undefined {

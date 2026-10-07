@@ -498,6 +498,9 @@ export class BattleScene extends BaseScene {
   // ===================================================================== loop
 
   update(_time: number, delta: number): void {
+    // A timer of this scene (finish -> the online source) may have left it for another
+    // scene earlier in this same step: its objects are gone, so draw nothing.
+    if (this.sys.settings.status !== Phaser.Scenes.RUNNING) return;
     const ls = this.src?.lockstep;
     if (ls) this.updateNet(ls, delta);
     if (this.dclock && this.sim.phase === 'deploy' && !this.ending) {

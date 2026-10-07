@@ -3,9 +3,13 @@
  * relay), shared by the client and the RegionDO. See server/README.md.
  *
  * Deployment: duel_start opens a DEPLOY_MS deployment (both clients count
- * down). d_order messages are echoed in server order; when both sides sent
- * d_ready, or the time plus DEPLOY_GRACE_MS ran out, the server sends go.
- * Clients send d_ready by themselves when their countdown reaches zero.
+ * down). A d_order is echoed to its sender only (applied when it comes back);
+ * the opponent's deployment stays on the server. When both sides sent
+ * d_ready, or the time plus DEPLOY_GRACE_MS ran out, each client gets the
+ * other side's deployment orders as d_order (still before the start), then
+ * go. Deployment orders only touch their own side, so "mine, then theirs"
+ * gives both clients and the server's replay the same state. Clients send
+ * d_ready by themselves when their countdown reaches zero.
  *
  * Lockstep: the battle is cut into turns of TURN_TICKS sim ticks. The server
  * seals turn n (the orders both players sent since the last seal, in arrival
@@ -55,7 +59,7 @@ export type ClientMsg =
   | { type: 'challenge'; to: number; consumable?: string | null }
   | { type: 'challenge_cancel'; id: string }
   | { type: 'challenge_reply'; id: string; accept: boolean; consumable?: string | null }
-  /** Deployment order (applied by both clients in the order the server echoes them). */
+  /** Deployment order (form, preset, order, shieldwall, loose, assign): echoed to the sender, revealed to the opponent at go. */
   | { type: 'd_order'; duel: string; order: Order }
   | { type: 'd_ready'; duel: string }
   /** Battle order: goes into the next sealed turn. */

@@ -45,6 +45,7 @@ import { renderVignette } from '../../art/warTable';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
 import { attackReport, duelReport } from '../../online/report';
+import { attackSubmission } from '../../online/battle';
 import { showReport } from '../ResultsScene';
 
 /** Layout (UI pixels). */
@@ -1117,11 +1118,9 @@ export function attackSource(game: Phaser.Game, tk: AttackTicket, label: string)
     side: 0,
     label: t('battle.vs', { name: label }),
     onFinish(sim: Battle, deployOrders: number) {
-      // Only the player's orders are sent (the bot's come back from the seed); count the player's deployment orders.
-      const orders = sim.orderLog.filter((o) => o.side === 0).map((o) => ({ tick: o.tick, side: o.side, order: o.order }));
-      const deployed = sim.orderLog.slice(0, deployOrders).filter((o) => o.side === 0).length;
+      const sub = attackSubmission(sim, deployOrders);
       onlineApi
-        .attackSubmit(tk.ticket, orders, deployed, { winner: sim.winner ?? -1, ticks: sim.tick, hash: sim.hash() })
+        .attackSubmit(tk.ticket, sub.orders, sub.deployOrders, sub.claim)
         .then((r) => showReport(game, attackReport(r, this.label), () => backToOnline(game, { focus: tk.hex })))
         .catch((e) => backToOnline(game, { attack: { error: errorText(e) }, focus: tk.hex }));
     },

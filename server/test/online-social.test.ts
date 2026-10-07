@@ -124,19 +124,30 @@ async function startedDuel(h: DuelHub): Promise<string> {
 }
 
 describe('duel relay (DuelHub)', () => {
-  it('echoes deployment orders in one order, seals turns with both players’ orders stamped with ticks', async () => {
+  it('echoes deployment orders to their sender only, seals turns with both players’ orders stamped with ticks', async () => {
     const h = hub();
     const duel = await startedDuel(h);
     const d1 = await h.handle(A, { type: 'd_order', duel, order: { kind: 'preset', group: 0, type: 'shieldwall' } }, lookup);
     const d2 = await h.handle(B, { type: 'd_order', duel, order: { kind: 'preset', group: 4, type: 'wedge' } }, lookup);
-    expect(msgsTo(d1, 2, 'd_order')[0]).toMatchObject({ seq: 0, side: 0 });
-    expect(msgsTo(d2, 1, 'd_order')[0]).toMatchObject({ seq: 1, side: 1 });
+    expect(msgsTo(d1, 1, 'd_order')[0]).toMatchObject({ seq: 0, side: 0 });
+    expect(msgsTo(d2, 2, 'd_order')[0]).toMatchObject({ seq: 1, side: 1 });
+    // the opponent's deployment stays secret until go
+    expect(msgsTo(d1, 2, 'd_order')).toHaveLength(0);
+    expect(msgsTo(d2, 1, 'd_order')).toHaveLength(0);
     // Orders before the start are refused; deployment ends when both are ready.
     expect(msgsTo(await h.handle(A, { type: 'cmd', duel, order: { kind: 'order', group: 0, order: 'charge' } }, lookup), 1, 'error')).toHaveLength(1);
     await h.handle(A, { type: 'd_ready', duel }, lookup);
     const go = await h.handle(B, { type: 'd_ready', duel }, lookup);
     expect(msgsTo(go, 1, 'go')).toHaveLength(1);
     expect(msgsTo(go, 2, 'turn').map((t) => (t as { n: number }).n)).toEqual([0, 1]);
+    // at go each side gets the other's deployment, before go and before the first turn
+    expect(msgsTo(go, 1, 'd_order')).toEqual([{ type: 'd_order', duel, seq: 1, side: 1, order: { kind: 'preset', group: 4, type: 'wedge' } }]);
+    expect(msgsTo(go, 2, 'd_order')).toEqual([{ type: 'd_order', duel, seq: 0, side: 0, order: { kind: 'preset', group: 0, type: 'shieldwall' } }]);
+    for (const to of [1, 2]) {
+      const types = go.filter((o) => o.to === to).map((o) => o.msg.type);
+      expect(types.indexOf('d_order')).toBeLessThan(types.indexOf('go'));
+      expect(types.indexOf('go')).toBeLessThan(types.indexOf('turn'));
+    }
 
     await h.handle(B, { type: 'cmd', duel, order: { kind: 'order', group: 4, order: 'advance' } }, lookup);
     await h.handle(A, { type: 'cmd', duel, order: { kind: 'order', group: 0, order: 'charge' } }, lookup);
@@ -175,6 +186,9 @@ describe('duel relay (DuelHub)', () => {
     expect(msgsTo(out, 1, 'go')).toHaveLength(1);
     expect(msgsTo(out, 2, 'go')).toHaveLength(1);
     expect(msgsTo(out, 2, 'turn').map((t) => (t as { n: number }).n)).toEqual([0, 1]);
+    // the alarm's go reveals A's withheld deployment order to B
+    expect(msgsTo(out, 2, 'd_order')).toEqual([{ type: 'd_order', duel, seq: 0, side: 0, order: { kind: 'preset', group: 0, type: 'wedge' } }]);
+    expect(msgsTo(out, 1, 'd_order')).toHaveLength(0);
     const d = h.duels.get(duel)!;
     expect(d.phase).toBe('battle');
     expect(d.deployOrders).toBe(1);
@@ -194,6 +208,75 @@ describe('duel relay (DuelHub)', () => {
     expect(msgsTo(out, 1, 'go')).toHaveLength(1);
     expect(msgsTo(out, 1, 'error')).toHaveLength(0);
     expect(h.duels.get(duel)!.pending).toHaveLength(1);
+  });
+
+  it('refuses deployment orders that are not side-local (they could not be revealed later)', async () => {
+    const h = hub();
+    const duel = await startedDuel(h);
+    for (const order of [{ kind: 'detach', unit: 0 }, { kind: 'rejoin', unit: 0 }, { kind: 'retreat' }, { kind: 'ability', unit: 0, ability: 'rally' }] as const) {
+      const out = await h.handle(A, { type: 'd_order', duel, order }, lookup);
+      expect(msgsTo(out, 1, 'error')).toHaveLength(1);
+      expect(msgsTo(out, 2, 'd_order')).toHaveLength(0);
+    }
+    expect(h.duels.get(duel)!.log).toHaveLength(0);
+    for (const order of [{ kind: 'form', group: 0, cx: 10, cy: 30, fx: 0, fy: -1, frontage: 4 }, { kind: 'order', group: 0, order: 'advance' }, { kind: 'shieldwall', group: 0, on: true }, { kind: 'loose', group: 0 }, { kind: 'assign', unit: 0, group: 1 }] as const) {
+      expect(msgsTo(await h.handle(A, { type: 'd_order', duel, order }, lookup), 1, 'd_order')).toHaveLength(1);
+    }
+  });
+
+  it('challenges and deployments survive the Durable Object being evicted (hibernation) until go', async () => {
+    const clock = { now: 1000 };
+    const store = new Map<string, unknown>();
+    const save = (h: DuelHub) => {
+      const { put, del } = h.persistence();
+      for (const [k, v] of Object.entries(put)) store.set(k, JSON.parse(JSON.stringify(v)));
+      for (const k of del) store.delete(k);
+    };
+    const wake = () => {
+      const h = hub(clock);
+      h.restore(new Map(store));
+      return h;
+    };
+    // an open challenge outlives an eviction
+    let h = hub(clock);
+    const ch = await h.handle(A, { type: 'challenge', to: 2 }, lookup);
+    save(h);
+    const id = (msgsTo(ch, 2, 'challenged')[0] as { id: string }).id;
+    h = wake();
+    const acc = await h.handle(B, { type: 'challenge_reply', id, accept: true }, lookup);
+    const duel = (msgsTo(acc, 1, 'duel_start')[0] as DuelStart).duel;
+    save(h);
+    expect([...store.keys()]).toEqual([`hub:d:${duel}`]);
+    // a quiet deployment: orders, one Ready, evicted between every message
+    await h.handle(A, { type: 'd_order', duel, order: { kind: 'preset', group: 0, type: 'wedge' } }, lookup);
+    save(h);
+    h = wake();
+    expect(h.busy(1) && h.busy(2)).toBe(true);
+    await h.handle(B, { type: 'd_order', duel, order: { kind: 'preset', group: 4, type: 'column' } }, lookup);
+    await h.handle(A, { type: 'd_ready', duel }, lookup);
+    save(h);
+    h = wake();
+    expect(h.nextDeadline()).toBe(1000 + DEPLOY_MS + DEPLOY_GRACE_MS);
+    const go = await h.handle(B, { type: 'd_ready', duel }, lookup);
+    expect(msgsTo(go, 1, 'go')).toHaveLength(1);
+    expect(msgsTo(go, 1, 'd_order')).toMatchObject([{ seq: 1, side: 1 }]);
+    expect(msgsTo(go, 2, 'd_order')).toMatchObject([{ seq: 0, side: 0 }]);
+    expect(h.duels.get(duel)!.deployOrders).toBe(2);
+    save(h);
+    expect(store.size).toBe(0); // from go on the battle lives in memory only
+
+    // the alarm after an eviction starts a deployment nobody readied
+    const ch2 = await h.handle(A, { type: 'leave_duel', duel }, lookup);
+    expect(msgsTo(ch2, 2, 'duel_abort')).toHaveLength(1);
+    const c2 = await h.handle(A, { type: 'challenge', to: 2 }, lookup);
+    const acc2 = await h.handle(B, { type: 'challenge_reply', id: (msgsTo(c2, 2, 'challenged')[0] as { id: string }).id, accept: true }, lookup);
+    const duel2 = (msgsTo(acc2, 1, 'duel_start')[0] as DuelStart).duel;
+    save(h);
+    h = wake();
+    clock.now += DEPLOY_MS + DEPLOY_GRACE_MS;
+    expect(msgsTo(h.tick(), 2, 'go')).toEqual([{ type: 'go', duel: duel2 }]);
+    save(h);
+    expect(store.size).toBe(0);
   });
 
   it('detects a desync from differing state hashes', async () => {
@@ -252,12 +335,16 @@ describe('live duel over WebSocket', () => {
     const lb = mk(sb, cb);
     la.issue({ kind: 'preset', group: 0, type: 'shieldwall' });
     lb.issue({ kind: 'preset', group: 4, type: 'wedge' });
-    await ca.next('d_order', (m) => m.side === 1);
-    await cb.next('d_order', (m) => m.side === 0);
+    // own deployment orders come back at once; the opponent's only with go
+    await ca.next('d_order', (m) => m.side === 0);
+    await cb.next('d_order', (m) => m.side === 1);
     la.markReady();
     lb.markReady();
     await ca.next('go');
     await cb.next('go');
+    await ca.next('d_order', (m) => m.side === 1);
+    await cb.next('d_order', (m) => m.side === 0);
+    expect(la.sim.hash()).toBe(lb.sim.hash());
     let ordered = false;
     let retreated = false;
     for (let guard = 0; guard < 4000 && !(la.sim.phase === 'ended' && lb.sim.phase === 'ended'); guard++) {

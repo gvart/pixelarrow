@@ -11,7 +11,8 @@ import { resolveBattle, type Outcome } from '../game/loot';
 import type { Hero } from '../data/units';
 import { Rng } from '../sim/rng';
 import type { FormationType } from '../sim/formation';
-import type { BattleResult, BattleSetup, Side } from '../sim/types';
+import type { Battle } from '../sim/battle';
+import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../sim/types';
 import { generateBattlefield, siteName, type BattleSite } from '../world/battlefield';
 import { ONLINE_RULES } from './rules';
 
@@ -34,6 +35,25 @@ export function onlineBattleSetup(seed: number, a: SideArmy, b: SideArmy, site: 
     setup.terrain = grid;
   }
   return setup;
+}
+
+/** What an attack's client submits for the server's replay (POST /api/online/attack/submit). */
+export interface AttackSubmission {
+  orders: LoggedOrder[];
+  /** How many of `orders` were issued during deployment (before startBattle). */
+  deployOrders: number;
+  claim: { winner: Side | -1; ticks: number; hash: string };
+}
+
+/**
+ * The order log and claim of a finished attack. Only the player's (side 0)
+ * orders are sent: the bot's come back from the seed. `deployOrders` is the
+ * length of the sim's whole order log when the battle started.
+ */
+export function attackSubmission(sim: Battle, deployOrders: number): AttackSubmission {
+  const orders = sim.orderLog.filter((o) => o.side === 0).map((o) => ({ tick: o.tick, side: o.side, order: o.order }));
+  const deployed = sim.orderLog.slice(0, deployOrders).filter((o) => o.side === 0).length;
+  return { orders, deployOrders: deployed, claim: { winner: sim.winner ?? -1, ticks: sim.tick, hash: sim.hash() } };
 }
 
 /** The same battle seen from side 1 (resolveBattle always treats side 0 as "the player"). */

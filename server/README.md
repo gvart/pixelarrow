@@ -273,13 +273,18 @@ in `src/online/protocol.ts`:
   hashEvery, deployMs}`: both players' field armies from D1, seed from the
   server; friendly (no stakes) in this phase.
 - deployment (timed, `deployMs` = 15 s, no pause in any online battle):
-  `d_order {order}` is echoed to both with a sequence number and both apply
-  it in server order; `d_ready` is echoed to both (the client shows "ready");
-  `d_ready` from both → `go` plus sealed turns 0 and 1. Clients send
-  `d_ready` themselves when their countdown ends; the server starts the duel
-  anyway 3 s after the deployment time (`DuelHub.tick`, run by the RegionDO's
-  alarm and on every message). Deployment orders all come before `go`, so the
-  replay check sees them before the start.
+  `d_order {order}` (only `form`, `preset`, `order`, `shieldwall`, `loose`,
+  `assign`: each touches only its own side) is echoed to the sender alone
+  with a sequence number; the opponent's deployment stays secret. `d_ready`
+  is echoed to both (the client shows "ready"); `d_ready` from both → each
+  player gets the other side's deployment orders as `d_order`, then `go`, then
+  sealed turns 0 and 1. Clients send `d_ready` themselves when their
+  countdown ends; the server starts the duel anyway 3 s after the deployment
+  time (`DuelHub.tick`, run by the RegionDO's alarm and on every message).
+  Deployment orders all come before `go`, so the replay check sees them
+  before the start. Open challenges and deployments are kept in the DO's
+  storage (`hub:*` keys) until `go`: a hibernating DO is evicted after ~10 s
+  without messages, which a quiet 15 s deployment easily is.
 - battle (**lockstep**): turns of 2 ticks. `cmd {order}` queues an order for
   the next sealed turn; clients send `reach {n, hash?}` as they start turn n;
   once both reached n the server seals turn n+2 and sends `turn {n, tick,

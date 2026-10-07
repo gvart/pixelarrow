@@ -100,9 +100,14 @@ API (no backend needed): checks the game stays playable with the API down
 `node scripts/online-e2e.mjs http://localhost:5173/` (with `wrangler dev` and
 `VITE_DEV_AUTH=1 npm run dev` running as below) drives two fake players
 (`?devuser=<n>` picks the DEV_AUTH test user) through joining the season, a
-server-verified attack, a clan formed through an invite link and a live
-lockstep duel, and saves `docs/screenshots/23-online-map.png`, `24-clan.png`
-and `25-duel.png`.
+server-verified attack (timed deployment, Ready, battle report), a clan formed
+through an invite link and a live lockstep duel (deployment withheld from the
+opponent until go, one side readied by its countdown, verified reports on
+both), and saves `docs/screenshots/23-online-map.png`, `24-clan.png` and
+`25-duel.png`. `E2E_DEBUG=1` logs the duel's socket traffic. The same flows
+run without a browser in `server/test/online-flow.test.ts` (the client's
+Battle, deployment clock and Lockstep driven frame by frame against the
+Worker and the shard Durable Object).
 
 `node scripts/war-table-shots.mjs http://localhost:5173/` needs no backend: it
 opens the war-table hex map on a local demo shard (`src/online/demoShard.ts`,

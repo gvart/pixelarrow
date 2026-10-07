@@ -224,7 +224,8 @@ with DESIGN.md or ROADMAP.md, this document wins.
   battles (campaign, skirmish, tutorial) keep pause and auto-pause.
 - **Timed preparation:** every online battle starts with a 15-second
   deployment phase with a visible countdown. Players see the enemy's deployment
-  zone but not its final positions. The battle starts automatically when the
+  zone but not its final positions (in a duel the server holds back the
+  opponent's deployment orders until the battle starts). The battle starts automatically when the
   timer ends; "Ready" from both sides starts it early.
 - **Live movement on the hex map:** other armies inside your vision move live
   through the shard WebSocket, instead of only updating on refresh.
