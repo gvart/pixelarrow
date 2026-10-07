@@ -501,41 +501,38 @@ and replay determinism with abilities in the order log.
 
 - Tap a group tag, tab or soldier to select a group. Tap the same soldier again
   to select that hero alone; any order then detaches him (Solo / Join).
-- **Formation slingshot** (deployment and battle, also online raids and live
-  duels; `src/ui/dragFormation.ts`): press on or near the selected group (any
-  of its soldiers or its dashed placement marker, 30 px grab radius), drag it
-  to where it should stand, then pull back. The soldiers face AWAY from the
-  finger, like aiming a slingshot.
-  - The anchor (centre of the front rank) follows the finger, keeping the grab
-    offset, until the finger turns back on itself (a reversal of 0.6 pace), or
-    rests for 350 ms while carrying. Grabbing the group and pulling straight
-    back (first motion within 60 degrees of its rear) re-aims it where it
-    stands.
-  - The facing locks once the pull reaches 1.2 paces (light haptic tick); back
-    within 0.6 pace of the grab point it is free again.
-  - Shape, without lifting, in the locked facing frame: ranks = current ranks
-    + whole steps of (further back - sideways), one rank per pace. Pull further
-    back for more ranks (deeper, narrower); push sideways (either side) or
-    forward for a wider line. Clamped to 1..min(men, 8) ranks, snapped so
-    frontage = ceil(men / ranks). Each change of rank count ticks.
-  - Live preview: dashed iso placement boxes, a facing arrow and a
+- **Formation drags** (deployment and battle, also online raids and live
+  duels; `src/ui/dragFormation.ts`). Two plain direct-manipulation gestures;
+  the **shape** (Line, Column, Wedge, Loose, Shield wall and its files x
+  ranks) comes **only from the Formation buttons**, so no drag ever reshapes
+  a group.
+  - **Move:** press on or near the selected group (any of its soldiers or its
+    dashed placement marker, 30 px grab radius) and drag. The group follows
+    the finger, keeping the grab offset, its facing and its shape.
+  - **Turn:** the selected group shows a facing arrow ending in a bronze
+    **knob** 3 paces ahead of its front rank (drawn above the soldiers). Drag
+    the knob: the group turns in place around its centre to face TOWARD the
+    finger. Within 8 degrees of one of the eight field directions the facing
+    snaps to it (a light haptic tick), so straight lines are easy. Within 0.6
+    pace of the centre the facing does not change. When the knob and a
+    soldier are both in reach, the closer one wins.
+  - Live preview: dashed iso placement boxes, the arrow and knob, and a
     "files x ranks" label (e.g. 8X2).
-  - Lift to commit. Cancel (no order): lift back on the start point, or after
-    a tiny pull (< 0.5 pace) from a group that was not carried. A carried
-    group lifted without a pull moves there keeping its facing and shape.
-  - Distances are in paces at the default 1x zoom (36 px tiles) and scale with the zoom, so the gesture
-    feels the same on screen at any zoom.
+  - Lift to commit. Cancel (no order): a move lifted back within 0.5 pace of
+    its start, or a turn of less than 4 degrees.
+  - Distances are in paces at the default 1x zoom (36 px tiles) and scale with the zoom, so the gestures
+    feel the same on screen at any zoom.
 - **Long-press the ground in deployment** for a tooltip: the terrain there,
   its height and what it does.
 - Tap the ground to move the selected group there keeping its shape; it turns
   to face the nearest enemy group as seen from the destination (so a move
-  never shows a flank; the slingshot sets any other facing). Tap an enemy to
+  never shows a flank; the knob sets any other facing). Tap an enemy to
   attack him.
 - Orders: Hold, Advance, Charge, Throw/Loose, Shield wall, Fall back.
   Formations: Line, Column, Wedge, Loose (skirmish), Shield wall.
 - **Pan versus order:** a one-finger drag on empty ground always pans, even
-  with a group selected; only a press on or near the selected group starts a
-  formation drag. A press needs 10 px of travel before it counts as a drag
+  with a group selected; only a press on or near the selected group or its
+  knob starts a formation drag. A press needs 10 px of travel before it counts as a drag
   (less is a tap). Two fingers pinch-zoom and pan, never order; a second
   finger cancels a half-done formation drag (zoom snaps to whole multiples so
   pixels stay crisp). Mouse wheel zooms.
@@ -782,7 +779,7 @@ so field +x runs down-right and field +y down-left. The battle line (field x)
 therefore runs diagonally across the screen: your army stands bottom-left
 facing up-right (seen from behind), the enemy top-right facing down-left.
 `screenToIso` is the exact inverse and is used for every touch: tap-to-move,
-the slingshot formation drag and the deployment zone. Placement boxes are the
+the formation drags (move and the turn knob) and the deployment zone. Placement boxes are the
 slot footprints projected, i.e. dashed iso diamonds; the deployment zone is a
 projected band. Sprites are upright, anchored at the feet and depth-sorted by
 screen y; the facing row (one of four) is picked from the projected facing

@@ -399,19 +399,20 @@ const bgeo = (pts) =>
       for (let x = 40; !empty && x < c.width - 40; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90)) empty = [x, y];
     return { f: { ...f }, scroll: [cam.scrollX, cam.scrollY], empty, orders: s.sim.orderLog.length, pts: pts.map(([a, b]) => toPage([f.cx - f.fy * a - f.fx * b, f.cy + f.fx * a - f.fy * b])) };
   }, pts);
-// scripted touch events can stall under load; a stall must not read as the finger resting
-await ev(() => { window.__game.scene.getScene('Battle').dwellMs = 5000; });
 const b0 = await bgeo([]);
 await swipe([b0.empty, [b0.empty[0] + 50, b0.empty[1] - 40]]);
 let b1 = await bgeo([]);
 check('battle: drag on empty ground pans (group selected), no order', Math.hypot(b1.scroll[0] - b0.scroll[0], b1.scroll[1] - b0.scroll[1]) > 15 && b1.orders === b0.orders, JSON.stringify([b0.scroll, b1.scroll]));
-b1 = await bgeo([[0, 0], [0, -2], [-1.5, -0.5]]);
+b1 = await bgeo([[0, 0], [0, -2]]);
 await swipe(b1.pts);
 const b2 = await bgeo([]);
-// carried 2 paces forward, then pulled back and to the left -> faces forward and to the right
-const want = [-b1.f.fy * 1.5 + b1.f.fx * 1.5, b1.f.fx * 1.5 + b1.f.fy * 1.5].map((v) => v / Math.hypot(1.5, 1.5));
-check('battle: slingshot from the group faces away from the pull', b2.f.fx * want[0] + b2.f.fy * want[1] > 0.97 && b2.orders > b1.orders, JSON.stringify([b2.f.fx.toFixed(2), b2.f.fy.toFixed(2), want.map((v) => v.toFixed(2))]));
-check('battle: slingshot carries the group forward', Math.hypot(b2.f.cx - (b1.f.cx + b1.f.fx * 2), b2.f.cy - (b1.f.cy + b1.f.fy * 2)) < 0.5, JSON.stringify([b2.f.cx.toFixed(2), b2.f.cy.toFixed(2)]));
+check('battle: dragging the group moves it forward', Math.hypot(b2.f.cx - (b1.f.cx + b1.f.fx * 2), b2.f.cy - (b1.f.cy + b1.f.fy * 2)) < 0.5 && b2.orders > b1.orders, JSON.stringify([b2.f.cx.toFixed(2), b2.f.cy.toFixed(2)]));
+check('battle: the move keeps facing and shape', b2.f.fx === b1.f.fx && b2.f.fy === b1.f.fy && b2.f.frontage === b1.f.frontage);
+// the facing knob is KNOB_PACES ahead of the front: swing it to the group's right
+const bk = await bgeo([[0, -3], [1.8, -2], [3.2, 0.3]]);
+await swipe(bk.pts);
+const b2t = await bgeo([]);
+check('battle: the facing knob turns the group toward the finger', b2t.f.fx * -bk.f.fy + b2t.f.fy * bk.f.fx > 0.9 && b2t.f.frontage === bk.f.frontage, JSON.stringify([b2t.f.fx.toFixed(2), b2t.f.fy.toFixed(2)]));
 await call('Battle', 's.frameArmies(); return 1;');
 await wait(200);
 const b3 = await bgeo([[0, -3]]);

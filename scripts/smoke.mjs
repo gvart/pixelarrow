@@ -1,7 +1,7 @@
 // End-to-end smoke test with real touch events (CDP) in a portrait phone viewport.
 // Covers the campaign loop: new campaign -> march on the map -> encounter ->
 // battle -> back to the map -> recruit in a village -> spend a stat point and
-// take perks -> equip from the stash -> use an ability in battle; plus the touch controls (pan vs order, slingshot formation, tap to move) and pinch zoom.
+// take perks -> equip from the stash -> use an ability in battle; plus the touch controls (pan vs order, drag to move, the facing knob to turn, tap to move) and pinch zoom.
 // Usage: node scripts/smoke.mjs [baseUrl]
 import { chromium } from 'playwright';
 
@@ -186,8 +186,6 @@ async function swipe(points, steps = 8) {
   await wait(250);
 }
 const orders = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
-// scripted touch events can stall under load; a stall must not read as the finger resting
-await ev(() => { window.__game.scene.getScene('Battle').dwellMs = 5000; });
 let G0 = await geo([]);
 check('a group is selected in deployment', G0.sel >= 0);
 // sprites are drawn at native size: a man is ~34 px tall at zoom 1
@@ -210,34 +208,30 @@ let G1 = await geo([]);
 check('drag on empty ground pans the camera with a group selected', Math.hypot(G1.scroll[0] - G0.scroll[0], G1.scroll[1] - G0.scroll[1]) > 20 && (await orders()) === o0, JSON.stringify([G0.scroll, G1.scroll]));
 check('pan gave no order', G1.f.cx === G0.f.cx && G1.f.cy === G0.f.cy && G1.f.fx === G0.f.fx);
 
-// 2) slingshot: press on the group, carry it 2 paces forward, pull back to the right: faces away (forward-left)
+// 2) drag the group: it moves 2 paces forward, facing and shape kept
 const cy0 = G1.f.cy;
-let g = await geo([[0, 0], [0, -2], [1.5, -0.5]]);
+let g = await geo([[0, 0], [0, -2]]);
 await swipe(g.pts);
 let F = (await geo([])).f;
-check('slingshot: the group stands where it was carried', Math.abs(F.cx - G1.f.cx) < 0.4 && Math.abs(F.cy - (cy0 - 2)) < 0.4, JSON.stringify([F.cx.toFixed(2), F.cy.toFixed(2)]));
-check('slingshot: soldiers face AWAY from the pull', F.fx < -0.6 && F.fy < -0.6, JSON.stringify([F.fx.toFixed(2), F.fy.toFixed(2)]));
+check('drag: the group stands where it was dragged', Math.abs(F.cx - G1.f.cx) < 0.4 && Math.abs(F.cy - (cy0 - 2)) < 0.4, JSON.stringify([F.cx.toFixed(2), F.cy.toFixed(2)]));
+check('drag: facing and shape kept', F.fx === G1.f.fx && F.fy === G1.f.fy && F.frontage === G1.f.frontage, JSON.stringify([F.fx, F.fy, F.frontage]));
 
-// 3) grab and pull back (and a little right): re-aims in place, facing opposite to the pull
-g = await geo([[0, 0], [0.6, 1.5]]);
-await swipe(g.pts);
+// 3) drag the facing knob (ahead of the front) round to the right: the men face TOWARD the finger, in place
+const knob = await ev(() => window.__game.scene.getScene('Battle').knobOf());
+g = await geo([[0, 0]]);
+const kn = await geo([[knob.x - g.f.cx, knob.y - g.f.cy]], false);
+const side = await geo([[1.6, -1.6], [3, 0.3]]);
+await swipe([kn.pts[0], ...side.pts]);
 let F2 = (await geo([])).f;
-// expected: -(0.6 right + 1.5 back) = 1.5 forward - 0.6 right
-const ex = [1.5 * F.fx - 0.6 * -F.fy, 1.5 * F.fy - 0.6 * F.fx];
-const el = Math.hypot(ex[0], ex[1]);
-check('pull back from the group: aims in place, facing opposite to the pull', Math.abs(F2.cx - F.cx) < 0.3 && Math.abs(F2.cy - F.cy) < 0.3 && (F2.fx * ex[0] + F2.fy * ex[1]) / el > 0.97, JSON.stringify([F2.cx.toFixed(2), F2.cy.toFixed(2), F2.fx.toFixed(2), F2.fy.toFixed(2)]));
+const right = [-F.fy, F.fx];
+check('knob: the group turns to face the finger (to its right)', F2.fx * right[0] + F2.fy * right[1] > 0.9, JSON.stringify([F2.fx.toFixed(2), F2.fy.toFixed(2)]));
+check('knob: the turn keeps the shape', F2.frontage === F.frontage, `${F.frontage} -> ${F2.frontage}`);
 
-// 4) keep pulling further back: more ranks (a narrower, deeper block)
-g = await geo([[0, 0], [0, 1.4], [0, 3.8]]);
-const fr0 = g.f.frontage;
-await swipe(g.pts);
-let F3 = (await geo([])).f;
-check('pulling further back adds ranks (facing kept)', F3.frontage < fr0 && F3.fx * F2.fx + F3.fy * F2.fy > 0.97, `${fr0} -> ${F3.frontage}`);
-// ...and sideways widens the line again
+// 4) the shape comes from the Formation buttons only: a drag never changes it
 g = await geo([[0, 0], [0, 1.4], [2.6, 1.4]]);
 await swipe(g.pts);
-let F4 = (await geo([])).f;
-check('pushing sideways widens the line', F4.frontage > F3.frontage, `${F3.frontage} -> ${F4.frontage}`);
+let F3 = (await geo([])).f;
+check('a drag never reshapes the group', F3.frontage === F2.frontage && F3.fx === F2.fx && F3.fy === F2.fy, `${F2.frontage} -> ${F3.frontage}`);
 
 // 5) drag back onto the start point cancels
 const o1 = await orders();

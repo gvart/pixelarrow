@@ -145,8 +145,8 @@ export const BATTLE_EN = {
 
   // ---- one-time controls hint
   'battle.hint.title': 'Orders by touch',
-  'battle.hint.sling': 'Press on your group, drag it where it should stand, then pull back: the men face away from your finger.',
-  'battle.hint.shape': 'Keep holding: sideways = a wider line, further back = more ranks. Lift to order.',
+  'battle.hint.sling': 'Drag your group to move it. Drag the round knob in front of it to turn it: the men face the knob.',
+  'battle.hint.shape': 'Pick the formation (line, column, wedge, loose, wall) with the Formation buttons.',
   'battle.hint.pan': 'Drag empty ground to look around, tap ground to move there, two fingers to zoom.',
   'battle.hint.dismiss': 'Tap anywhere to continue',
 
