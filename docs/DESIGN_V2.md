@@ -177,7 +177,7 @@ with DESIGN.md or ROADMAP.md, this document wins.
    attacks, garrisons, clans, duels, all scoped by `season_id`.
 5. Hex shard world: hex generation, resources, marches, fog of war, forts and
    capitals, season lifecycle.
-6. Beasts: lairs, boss battle mechanics, clan world bosses.
+6. Beasts: lairs, boss battle mechanics, clan world bosses (done; see DESIGN.md "Mythical beasts").
 7. Town marketplace.
 8. Offline tutorial and skirmish mode replacing the overland campaign.
 

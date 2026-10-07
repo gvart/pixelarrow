@@ -66,6 +66,9 @@ Sizes: 320x568, 375x667, 390x844, 430x932, 360x780. Telegram insets: top 59 + 46
 | results-spoils | A | 0 | 0 | 0 | 0 |
 | results-inspect | A | 0 | 0 | 0 | 0 |
 | results-online | A | 0 | 0 | 0 | 0 |
+| trial | A | 0 | 0 | 0 | 0 |
+| trial-info | A | 0 | 0 | 0 | 0 |
+| battle-beast | A | 0 | 0 | 0 | 0 |
 | online | C | 0 | 0 | 0 | 0 |
 | online-map | C | 0 | 0 | 0 | 0 |
 | online-hex-neutral | C | 0 | 0 | 0 | 0 |
@@ -78,5 +81,9 @@ Sizes: 320x568, 375x667, 390x844, 430x932, 360x780. Telegram insets: top 59 + 46
 | online-challenge | C | 0 | 0 | 0 | 0 |
 | online-result | C | 0 | 0 | 0 | 0 |
 | online-join | C | 0 | 0 | 0 | 0 |
+| online-lair | C | 0 | 0 | 0 | 0 |
+| online-lair-info | C | 0 | 0 | 0 | 0 |
+| online-boss | C | 0 | 0 | 0 | 0 |
+| online-boss-info | C | 0 | 0 | 0 | 0 |
 
 Distinct violations: 0 (allowlisted 0, new 0).

@@ -221,6 +221,10 @@ respawns are all computed on read from server time. No alarms or polling.
 | POST | `/api/online/attack/start` | `{q,r,heroIds?}` → `{ticket, expiresAt, setup, attackers, defenders, defenderKind}` |
 | POST | `/api/online/attack/submit` | `{ticket, orders, deployOrders?, claim: {winner, ticks, hash}}` → result |
 | POST | `/api/online/attack/abandon` | `{ticket}` |
+| GET | `/api/online/boss` | the shard's world bosses: shared HP, arms, status, top damage (players, clans), your tally and loot |
+| POST | `/api/online/boss/start` | `{boss, heroIds?, consumable?}` → a raid ticket (a 120 s segment against the boss's current wounds; no hex lock) |
+| POST | `/api/online/boss/submit` | `{ticket, orders, deployOrders?, claim}` → damage dealt, HP lowered relatively; the killing raid splits the hoard by damage share |
+| POST | `/api/online/boss/abandon` | `{ticket}` |
 | POST | `/api/online/clans` | `{name, tag}`: create (you lead it) |
 | GET | `/api/online/clans/mine` | clan, members with roles and hex counts |
 | POST | `/api/online/clans/invite` | leader/officer → `{code, link}`, link `https://t.me/<bot>/<app>?startapp=clan_<code>` |
@@ -230,6 +234,17 @@ respawns are all computed on read from server time. No alarms or polling.
 
 Rate limits are per player and per isolate (e.g. 12 attack starts and 30
 marches a minute).
+
+### Beast lairs and world bosses
+
+Lairs and world boss sites are a pure function of the shard seed
+(`src/online/lairs.ts`). A lair hex fights with its beast (`defenderKind:
+'beast'`) until it is slain: the win captures the hex at once, the loot is the
+beast's hoard (rare / epic / legendary) and a `trophy_<beast>` entitlement is
+granted; `online_hexes.beast_slain_at` brings the beast back after 48 h if the
+hex falls back to the neutrals. World bosses live in `world_bosses` (HP and
+arms), `world_boss_damage` (tally) and `world_boss_loot` (the split, one row
+per player, idempotent). See migration 0004.
 
 ### Attacks: tickets and verification
 

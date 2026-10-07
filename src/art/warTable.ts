@@ -849,7 +849,7 @@ export function renderMini(kind: MiniKind): Sprite {
       const big = enc === 'kraken' || enc === 'titan';
       mini(s, big ? 0.17 : 0.14, big ? 0.17 : 0.14);
       beastMini(s, enc);
-      s.scale(big ? 1.9 : 1.5);
+      s.scale(big ? 2.6 : 2.2);
       return;
     }
     mini(s, 0.1, 0.1);
@@ -857,7 +857,7 @@ export function renderMini(kind: MiniKind): Sprite {
     figure(s, [-0.035, 0.035, 0], a, 0.85);
     figure(s, [0.035, -0.035, 0], b, 0.85);
     s.scale(1.2);
-  }, 64);
+  }, kind.startsWith('beast_') ? 128 : 64);
 }
 
 /** The army's banner: a small pennant in a clan colour; frame 0..2 (it waves). */

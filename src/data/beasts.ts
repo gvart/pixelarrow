@@ -149,7 +149,7 @@ export const MYTHS: Record<MythId, MythDef> = {
   }),
   cyclops: D({
     id: 'cyclops', name: 'Cyclops', desc: 'A one-eyed giant. Hurls boulders that scatter tight ranks and stamps on those who crowd him.',
-    radius: 0.85, hp: 780, dmg: 38, atkTime: 1.9, reach: 1.25, armor: 3, morale: 400, speed: 0.62, missile: 1,
+    radius: 0.85, hp: 800, dmg: 38, atkTime: 1.9, reach: 1.25, armor: 3, morale: 400, speed: 0.62, missile: 1,
     terror: 0.35, terrorRadius: 4, weight: 0.03, tall: 60,
     sp: { hurlCd: 8, hurlMin: 4, hurlMax: 15, hurlDmg: 30, hurlRadius: 1.9, hurlShove: 1.4, hurlShock: 14, hurlCount: 1, stompCd: 7, stompRadius: 2.1, stompDmg: 16, stompMin: 3 },
   }),
@@ -181,7 +181,7 @@ export const MYTHS: Record<MythId, MythDef> = {
     id: 'kraken', name: 'Kraken', desc: 'A world boss from the deep: rooted at the shore, its arms sweep the beach. Cut the arms, then the head.',
     radius: 1.9, hp: 9000, dmg: 0, atkTime: 3, reach: 0.4, armor: 6, morale: 1000, speed: 0, missile: 0.7,
     terror: 0.42, terrorRadius: 6, weight: 0, tall: 70,
-    sp: { regrow: 18, neck: 2.3, spread: 2.0, healDelay: 8, healRate: 0.05 },
+    sp: { regrow: 18, neck: 3.3, spread: 2.7, healDelay: 8, healRate: 0.05 },
   }),
   kraken_arm: D({
     id: 'kraken_arm', name: 'Kraken arm', desc: 'A sucker-lined arm that slams and drags men into the surf.', partOf: 'kraken',

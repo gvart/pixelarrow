@@ -226,7 +226,8 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
     let siege: HexDetail['siege'] = null;
     if (view.lair) {
       const enc = view.lair as EncounterId;
-      defenders = { count: mythHeroes(enc, view.lairLevel ?? 3).length, power: 0, kind: 'beast' };
+      const beasts = mythHeroes(enc, view.lairLevel ?? 3);
+      defenders = { count: beasts.length, power: Math.round(beasts.reduce((x, b) => x + heroPower(b), 0)), kind: 'beast' };
       siege = { wins: 0, needed: 1, label: MYTHS[ENCOUNTERS[enc].body].name };
     } else if (view.boss) {
       defenders = null;

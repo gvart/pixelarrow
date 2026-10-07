@@ -701,8 +701,9 @@ Server-owned; endpoints and exact rules in server/README.md "Economy".
   Drachmae, daily caps per UTC day, held per season. At most one per battle
   (attacks and duels); battle consumables are baked into the server-built
   `BattleSetup` (unit stats; `setup.consumables` records the ids), so clients
-  and the replay agree. TODO(sim): the war horn reuses Rally Cry on the best
-  hero; a true one-shot army rally needs a sim feature.
+  and the replay agree. The war horn is a true one-shot rally: it becomes
+  `ArmySpec.horn` and the `horn` order rallies the whole side at once (routing
+  men turn back), once per horn; the bot sounds it when its army breaks.
 - **Season pass**: 30 tiers × 100 XP from verified attacks and duels; free
   track for everyone, premium track for 500 Dr per season; idempotent claims.
 - **Town marketplace**: list stash items, food/wood/bronze or consumables in a
@@ -790,6 +791,61 @@ camera is 1× (a man is ~34 px tall, a rider ~60 px on a 390-wide phone) and
 follows the fighting; pinch/wheel zoom 1–3×. Touch targets cover a figure's
 full height (and a horse's body); trees fade when a soldier stands behind
 them.
+
+## Mythical beasts and world bosses (`src/data/beasts.ts`, `src/sim/myth.ts`, `src/online/lairs.ts`)
+
+- **Data**: every beast in one table (`MYTHS`): footprint, HP / damage per
+  level (+8% per level), armour, speed, the damage it takes from missiles,
+  its terror aura and its signature numbers (`sp`). `ENCOUNTERS` groups the
+  units of a fight (the hydra is a body and five heads, the kraken a body and
+  six arms, harpies a flock of six). Beasts are animal classes whose stats
+  carry `boss`; a setup without `boss` plays exactly as before
+  (tests/legacy.test.ts).
+- **Sim** (`MythSystem`, created only when a beast is on the field; hooks in
+  the battle: `update`, `afterMove`, `vis`, `onDamage`, `onKill`, collisions):
+  - Hydra: heads are separate targets anchored round the body; a wounded head
+    heals when left alone; a severed head grows back after 6 s unless a blade
+    strikes the body first (sealed); its scaled body takes 30% from missiles.
+  - Cyclops (and the Titan): hurls boulders at the tightest knot of men in
+    range (area damage, knockback, stun, morale shock), stamps on men who
+    crowd him; the Titan throws two and shakes the earth.
+  - Harpies: circle out of reach (untargetable), dive on missile-men and the
+    rear over the front line, claw a few seconds and climb again; while
+    diving or on the ground missiles hit them 1.7x.
+  - Nemean lion: immune to arrows, javelins and stones; pounces on men alone.
+  - Minotaur: charges through lines (trample, toss, stun); a braced spear
+    wall facing it stops it dead (stunned, counter-thrust); enrages at 35%.
+  - Chimera: fire cone (damage, burning, morale; half on a shield wall facing
+    it), goat-head fury, serpent-tail strikes at anyone behind it.
+  - Kraken: rooted at the shore; arms slam and drag men in, regrow unless the
+    head is struck. Terror: men near a beast lose morale, less with Will and
+    a Steady Presence aura.
+  - Bot AI per beast; the player-side bot hunts beasts (missile-men keep
+    their distance, spears brace against the minotaur, flank and reserve go
+    round to the body).
+- **Balance** (`npm run balance`, src/dev/beastBalance.ts): tier-3 lair, army
+  one level below the beast, 40 seeds, both sides bot-driven:
+
+  | Beast | Sensible army | Win | Naive army | Win |
+  | --- | --- | --- | --- | --- |
+  | Hydra | 4 hoplites (wall), 3 archers, 3 rhomphaia + 2 falx on the flank | 55% | 12 archers and slingers | 0% |
+  | Cyclops | javelins, archers, peltasts in loose order | 60% | 12 hoplites in a shield wall | 0% |
+  | Harpies | 7 archers and slingers, 3 hoplites guarding them | 55% | Gallic warband, militia, 2 archers | 5% |
+  | Nemean lion | 10 blades in close order | 53% | 10 archers, slingers, javelins | 0% |
+  | Minotaur | 6 hoplites (braced wall), 2 falx, 2 archers | 45% | archers, peltasts, Gauls | 8% |
+  | Chimera | hoplite wall, javelins, archers, peltasts spread out | 48% | 12 militia and Gauls in a column | 0% |
+
+- **Online**: lairs (`lairAt`) hold about 40 hexes per shard, mostly near
+  forts, tier-scaled; the beast fights instead of the neutrals until slain,
+  drops its hoard (`rollBeastRarity`: rare / epic / legendary) and a trophy
+  entitlement, the hex can be claimed, and the beast returns 48 h later if
+  the hex falls back to the neutrals. World bosses (`worldBossSites`: a
+  Kraken on the coast, a Titan inland) keep HP server-side (migration 0004);
+  raids are verified 120 s segments against the current wounds; damage is
+  tallied per player and clan; the killing raid splits the hoard by damage
+  share (idempotent). Endpoints: server/src/online/bosses.ts.
+- **Offline**: about one overland band in fourteen is a beast; the Beast
+  trial (menu: Beasts) fights any beast or world boss with the campaign army.
 
 ## Known gaps (milestone 2)
 
