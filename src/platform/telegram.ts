@@ -134,7 +134,17 @@ export function attachWebApp(wa: TgWebApp): void {
   safe(() => wa.onEvent?.('fullscreenFailed', () => (safe(() => wa.expand()), relayout())));
   window.addEventListener('resize', relayout);
   window.addEventListener('orientationchange', relayout);
+  // Mini App minimised / restored (Bot API 8.0+): audio suspends and resumes.
+  for (const ev of ['activated', 'deactivated']) safe(() => wa.onEvent?.(ev, () => activeListeners.forEach((cb) => cb(ev === 'activated'))));
   emitInsets();
+}
+
+const activeListeners = new Set<(active: boolean) => void>();
+
+/** Called when Telegram reports the Mini App went to the background (false) or came back (true). */
+export function onAppActive(cb: (active: boolean) => void): () => void {
+  activeListeners.add(cb);
+  return () => activeListeners.delete(cb);
 }
 
 // ---- safe areas

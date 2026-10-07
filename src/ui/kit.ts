@@ -5,6 +5,7 @@ import { ICONS } from '../art/icons';
 import { P } from '../art/palette';
 import { renderIcon, renderPanel, renderScrollRoll, type PanelStyle } from '../art/uiTextures';
 import { hapticSelect } from '../platform/telegram';
+import { uiButton } from '../audio/hooks';
 
 export type FontKey = 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title';
 
@@ -168,6 +169,7 @@ export class Button extends Phaser.GameObjects.Container {
       if (!d || !this.enabled) return;
       if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14) return;
       hapticSelect();
+      uiButton(this.opts.icon);
       this.opts.onClick?.();
     });
     scene.add.existing(this);

@@ -17,6 +17,10 @@ export interface Settings {
   haptics: boolean;
   /** Floating damage numbers in battle. */
   dmgNumbers: boolean;
+  /** Sound on/off, music and effects volume 0..10 (src/audio). */
+  sound: boolean;
+  musicVol: number;
+  sfxVol: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +30,9 @@ export const DEFAULT_SETTINGS: Settings = {
   pauseDeath: false,
   haptics: true,
   dmgNumbers: true,
+  sound: true,
+  musicVol: 6,
+  sfxVol: 7,
 };
 
 export interface SaveData {

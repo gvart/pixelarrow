@@ -14,6 +14,7 @@ import { state } from './state';
 import { online } from './platform/cloud';
 import { trackSafeArea } from './platform/safeArea';
 import { nav } from './platform/nav';
+import { installAudio } from './audio';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -28,6 +29,7 @@ const game = new Phaser.Game({
     height: window.innerHeight,
   },
   input: { activePointers: 3 },
+  audio: { noAudio: true }, // all sound is our own Web Audio (src/audio)
   scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, OnlineScene, OnlineArmyScene, ClanScene],
 });
 
@@ -40,6 +42,7 @@ trackSafeArea(() => {
   if (game.scale.getParentBounds()) game.scale.refresh();
   else game.scale.updateBounds();
 });
+installAudio(game, () => state.campaign?.data.settings);
 // Ask before closing while a save is still uploading.
 online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
 

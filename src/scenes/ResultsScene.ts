@@ -11,6 +11,7 @@ import { P } from '../art/palette';
 import { RARITY_COLOR } from './ArmyScene';
 import { hapticNotify, hapticSelect } from '../platform/telegram';
 import { CULTURE_LABEL } from '../data/names';
+import { uiCoin, uiLevelUp } from '../audio/hooks';
 
 export class ResultsScene extends BaseScene {
   private chosen = new Set<string>();
@@ -59,6 +60,7 @@ export class ResultsScene extends BaseScene {
     };
     line('swords', `Slain ${o.enemyKilled}/${o.enemyTotal}`, 9, y + 6);
     line('coin', `Gold +${o.gold}`, VW / 2 + 4, y + 6);
+    if (o.gold > 0) this.time.delayedCall(400, uiCoin);
     const wounded = o.heroes.filter((h) => h.wounded).length;
     line('skull', `Fallen ${o.lost}`, 9, y + 19, o.lost > 0 ? 'red' : 'ink');
     line('cross', `Wounded ${wounded}`, VW / 2 + 4, y + 19, wounded > 0 ? 'red' : 'ink');
@@ -219,6 +221,7 @@ export class ResultsScene extends BaseScene {
 
   private levelUp(b: (typeof this.bars)[number], lvl: number): void {
     hapticNotify('success');
+    uiLevelUp();
     // the row: level number turns gold and pops, the bar flashes white
     b.lvlText.setText(`${lvl}`).setFont('font_gold');
     b.lvlText.setScale(2);

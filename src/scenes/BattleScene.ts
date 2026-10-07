@@ -25,6 +25,7 @@ import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { BattleFx } from '../ui/battleFx';
 import { openSettings } from '../ui/settings';
+import { battleAudio, uiError } from '../audio/hooks';
 import { confirmModal } from '../ui/confirm';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { rallyRadius } from '../sim/stats';
@@ -627,6 +628,7 @@ export class BattleScene extends BaseScene {
 
   private handleEvents(events: SimEvent[]): void {
     const st = state.campaign.data.settings;
+    battleAudio(this, this.sim, events, this.me);
     for (const e of events) {
       switch (e.type) {
         case 'hit': {
@@ -1511,6 +1513,7 @@ export class BattleScene extends BaseScene {
     const ready = units.filter((u) => this.sim.abilityReady(u, id));
     if (ready.length === 0) {
       hapticNotify('error');
+      uiError();
       const why = units.some((u) => this.sim.abilityCooldown(u, id) > 0) ? 'recovering' : id === 'bash' ? 'no enemy in front' : id === 'volley' ? 'no missile-men with a target' : 'not ready';
       this.showBanner(`${ABILITIES[id].name}: ${why}`, 1200);
       return;

@@ -107,6 +107,35 @@ changes the proxy target, `VITE_API_BASE` the API base at build time. See
 Telegram store art in `docs/store/` (640x360 BotFather cover, 640x640 bot
 avatar) from the game's own generators via `store.html` / `src/dev/store.ts`.
 
+## Audio
+
+All sound is synthesised at run time with the Web Audio API (`src/audio/`,
+no audio files, no dependencies): gritty procedural effects (sword, spear and
+axe clashes, shield blocks, arrows, javelins, sling stones, charge rumble and
+hooves, war horns, battle cries, routs, noise-based grunts, ability stingers,
+level-up, coins, UI clicks) and looping modal music (Karplus-Strong lyre,
+frame drums, drone, aulos) for the map/menus, deployment and battle (layers
+come in as the fighting heats up), with victory/defeat stingers.
+
+- `engine.ts`: lazy AudioContext created on the first tap (iOS / Telegram
+  requirement), master limiter + SFX and music buses, suspended while the page
+  or Telegram is in the background or sound is off. Without Web Audio every
+  call is a no-op.
+- `voices.ts`: voice limiter (12 voices, 3 per sound, same-tick dedupe,
+  priority stealing) so a big melee neither clips nor burns a phone's CPU;
+  sounds are panned by screen x and attenuated by distance and camera zoom.
+- `hooks.ts`: **the one file mapping game events to sounds** (battle sim
+  events, scene music, UI). Scenes only call one-liners from it.
+- Settings: Sound on/off, Music and Effects volume (0-10), saved with the
+  other settings. A phone's hardware silent switch can't be detected from a web
+  page (Web Audio plays through it on iOS), so players use the in-game toggle.
+
+`/audio.html` plays every effect and track. `node scripts/audio-samples.mjs`
+renders sample WAVs offline into [docs/audio-samples/](docs/audio-samples/)
+(clash, shield block, javelin, war horn, level-up and 20 s of battle music);
+`node scripts/audio-smoke.mjs <url>` checks the game with and without Web
+Audio (unlock, mute, background, battle sounds under the voice cap, no console errors).
+
 ## Project layout
 
 ```
@@ -116,6 +145,7 @@ src/
   data/       items.ts (all gear), traits.ts, perks.ts (attributes, perk trees, abilities, auras), units.ts (hero model), names.ts
   game/       campaign.ts, heroes.ts (factories, development), enemy.ts (bot and band armies), loot.ts, save.ts, armySpec.ts
   art/        procedural pixel art: paperdoll.ts, emblems.ts, ground.ts (iso tiles), iso.ts (projection), worldArt.ts (map, towns, bands), fx.ts (aura rings, stars, pips), font.ts, icons.ts, itemIcons.ts, uiTextures.ts
+  audio/      procedural Web Audio: engine.ts (mixer, unlock, suspend), voices.ts (voice limiter), sfx.ts (effect recipes), music.ts (sequencer + tracks), synth.ts, hooks.ts (event -> sound mapping)
   ui/         Phaser UI kit (buttons, panels, meters, scroll lists), battleFx.ts (pooled battle effects), texture registration
   scenes/     Boot, Menu, World (map + encounters), Settlement, Army, Hero (skills), Battle (deployment + battle), Results
   platform/   telegram.ts (WebApp SDK wrapper), nav.ts (back navigation stack), safeArea.ts (full-screen insets), storage.ts (CloudStorage / localStorage), api.ts (typed API client),

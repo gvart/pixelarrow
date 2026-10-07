@@ -13,8 +13,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       // preview.html (procedural sprite sheets) and store.html (Telegram store
-      // art, see scripts/store-images.mjs) are shipped too, for art review.
-      input: { main: 'index.html', preview: 'preview.html', store: 'store.html' },
+      // art, see scripts/store-images.mjs) are shipped too, for art review;
+      // audio.html plays every procedural sound and track (src/dev/audio.ts).
+      input: { main: 'index.html', preview: 'preview.html', store: 'store.html', audio: 'audio.html' },
     },
   },
   // /api and /ws go to a local `wrangler dev` (see README, "Online features");

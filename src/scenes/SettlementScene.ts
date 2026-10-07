@@ -12,6 +12,7 @@ import { TRAITS } from '../data/traits';
 import { CULTURE_LABEL } from '../data/names';
 import { RARITY_COLOR } from './ArmyScene';
 import { WORLD_RULES } from '../world/world';
+import { uiCoin, uiError } from '../audio/hooks';
 
 type Tab = 'recruits' | 'market' | 'sell' | 'rest';
 
@@ -238,9 +239,11 @@ export class SettlementScene extends BaseScene {
   private buy(index: number): void {
     if (!state.campaign.buy(this.id, index)) {
       hapticNotify('error');
+      uiError();
       return;
     }
     haptic('medium');
+    uiCoin();
     void state.save();
     this.refresh();
   }
@@ -248,6 +251,7 @@ export class SettlementScene extends BaseScene {
   private sell(uid: string, val: number): void {
     state.campaign.sell(uid, val);
     haptic('medium');
+    uiCoin();
     void state.save();
     this.refresh();
   }
