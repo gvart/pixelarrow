@@ -16,21 +16,21 @@ formation tactics game set in the ancient Mediterranean.
   check shards, smoke scripts), then deploys to Cloudflare and applies D1
   migrations.
 
-## FIRST TASK: the deploy job never runs
+## Deploy status (resolved 2026-10-07)
 
-The new parallel CI pipeline (`.github/workflows/deploy.yml`, commit 42d6c3f
-and later) runs all 17 gate jobs green, but the `deploy` job never appears and
-the run ends as "failure" (see run 37641709767). Production is still on
-e3163b7, the notifications release from 13:47 UTC on 2026-10-07. Everything
-after it (ops: monitoring, analytics, admin and backups with migration 0006;
-the polish fixes) is on `main` but not deployed.
+Production runs `main` at f6d9635 (run 37643252688, deploy job 15:38 UTC,
+Worker version f32ec118). Migration `0006_ops.sql` applied in that job.
 
-- Open the run page in GitHub and look for an annotation on the deploy job,
-  for example an environment protection rule on `production` or a job-level
-  error.
-- Fix it, then trigger a run with "Run workflow" (`workflow_dispatch`).
-- Check that migration 0006 applies and that https://pixelarrow.app/api/health
-  responds.
+The missing deploy job in run 37641709767 (22dd235) happened only once. All
+17 gates passed, but GitHub never created the `deploy` job and no `production`
+deployment record exists for that commit. The next two pushes ran the same
+`deploy` job definition (fe70e66 at 15:24, f6d9635 at 15:38), and both deployed.
+No workflow change was needed. If it happens again, re-run the failed run, or
+use "Run workflow" (`workflow_dispatch`), and check the run page's annotations
+and the `production` environment's protection rules.
+
+Still to check by hand: https://pixelarrow.app/api/health (the cloud agent
+sandbox cannot reach the domain).
 
 ## Read first
 
