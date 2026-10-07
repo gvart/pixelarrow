@@ -30,7 +30,13 @@ const game = new Phaser.Game({
 
 // Telegram full screen: keep the canvas inside the safe area (status bar,
 // notch, Telegram's floating buttons, home indicator) and re-layout on change.
-trackSafeArea(() => game.scale.refresh());
+// Measure #game first: refresh() alone sizes the canvas from the previously
+// measured parent (and then records the new size, so Phaser's own polling
+// never catches up). A move without a resize still needs fresh input bounds.
+trackSafeArea(() => {
+  if (game.scale.getParentBounds()) game.scale.refresh();
+  else game.scale.updateBounds();
+});
 // Ask before closing while a save is still uploading.
 online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
 

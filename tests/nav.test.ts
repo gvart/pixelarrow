@@ -6,6 +6,7 @@ const win = { innerWidth: 390, innerHeight: 844, addEventListener: () => {} };
 
 const { NavStack, nav, registerScreen, navLayer, showInGameBack } = await import('../src/platform/nav');
 const tg = await import('../src/platform/telegram');
+const { trackSafeArea } = await import('../src/platform/safeArea');
 
 /** A fake Telegram.WebApp that records what the game does with it. */
 function fakeWebApp(version = '8.0', platform = 'ios') {
@@ -34,8 +35,9 @@ function fakeWebApp(version = '8.0', platform = 'ios') {
     HapticFeedback: { impactOccurred: vi.fn(), notificationOccurred: vi.fn(), selectionChanged: vi.fn() },
     BackButton: {
       visible: false,
-      show() { this.visible = true; },
-      hide() { this.visible = false; },
+      toggles: 0,
+      show() { this.visible = true; this.toggles++; },
+      hide() { this.visible = false; this.toggles++; },
       onClick: (cb: () => void) => back.add(cb),
       offClick: (cb: () => void) => back.delete(cb),
     },
@@ -232,12 +234,13 @@ describe('Telegram wiring', () => {
     expect(tg.deviceInsets()).toEqual({ top: 47, bottom: 34, left: 0, right: 0 });
   });
 
-  it('keeps exactly one BackButton handler through screens and dialogs', () => {
+  it('keeps exactly one BackButton handler through screens and dialogs', async () => {
     const menu = new FakeScene();
     registerScreen(menu, { back: null });
     expect(wa.BackButton.visible).toBe(false);
     expect(wa.back.size).toBe(0);
     menu.shutdown();
+    await Promise.resolve();
 
     const army = new FakeScene();
     const toMap = vi.fn();
@@ -256,12 +259,13 @@ describe('Telegram wiring', () => {
     wa.pressBack();
     expect(toMap).toHaveBeenCalledOnce();
     army.shutdown();
+    await Promise.resolve();
     expect(nav.depth()).toBe(0);
     expect(wa.BackButton.visible).toBe(false);
     expect(wa.back.size).toBe(0);
   });
 
-  it('wires the Settings item and closing confirmation', () => {
+  it('wires the Settings item and closing confirmation', async () => {
     const battle = new FakeScene();
     const settings = vi.fn();
     registerScreen(battle, { back: () => {}, confirmClose: true, settings });
@@ -271,11 +275,65 @@ describe('Telegram wiring', () => {
     wa.pressSettings();
     expect(settings).toHaveBeenCalledOnce();
     battle.shutdown();
+    await Promise.resolve();
     expect(wa.disableClosingConfirmation).toHaveBeenCalledOnce();
     expect(wa.SettingsButton.visible).toBe(false);
   });
 
   it('hides in-game back arrows when the native button exists', () => {
     expect(showInGameBack()).toBe(false);
+  });
+
+  it('re-lays out only when the insets really change, not on every Telegram event', () => {
+    const g = globalThis as Record<string, unknown>;
+    const vars = new Map<string, string>();
+    g.document = { documentElement: { style: { setProperty: (k: string, v: string) => vars.set(k, v) } } };
+    g.requestAnimationFrame = (f: () => void) => f();
+    const relayout = vi.fn();
+    const off = trackSafeArea(relayout);
+    // Showing / hiding the BackButton, expanding, full screen: Telegram fires
+    // viewportChanged and friends again and again with the same insets.
+    for (let i = 0; i < 5; i++) {
+      wa.emit('viewportChanged', { isStateStable: true });
+      wa.emit('contentSafeAreaChanged');
+      wa.emit('safeAreaChanged');
+    }
+    expect(relayout).toHaveBeenCalledTimes(1);
+    expect(vars.get('--pa-content-top')).toBe('46px');
+    wa.contentSafeAreaInset = { top: 0, bottom: 0, left: 0, right: 0 };
+    wa.emit('contentSafeAreaChanged');
+    wa.emit('viewportChanged');
+    expect(relayout).toHaveBeenCalledTimes(2);
+    expect(vars.get('--pa-content-top')).toBe('0px');
+    off();
+  });
+
+  it('restarting or switching scenes flips the BackButton at most once', async () => {
+    const before = new FakeScene();
+    registerScreen(before, { back: null });
+    before.shutdown();
+    await Promise.resolve();
+    wa.BackButton.toggles = 0;
+    // Continue: menu (root) -> map in one Phaser step
+    const menu = new FakeScene();
+    registerScreen(menu, { back: null });
+    expect(wa.BackButton.toggles).toBe(0);
+    menu.shutdown();
+    const map = new FakeScene();
+    registerScreen(map, { back: () => {} });
+    await Promise.resolve();
+    expect(wa.BackButton.visible).toBe(true);
+    expect(wa.BackButton.toggles).toBe(1);
+    // the map restarts (same scene object shuts down and registers again)
+    map.shutdown();
+    registerScreen(map, { back: () => {} });
+    await Promise.resolve();
+    expect(nav.depth()).toBe(1);
+    expect(wa.BackButton.visible).toBe(true);
+    expect(wa.BackButton.toggles).toBe(1);
+    expect(wa.back.size).toBe(1);
+    map.shutdown();
+    await Promise.resolve();
+    expect(nav.depth()).toBe(0);
   });
 });

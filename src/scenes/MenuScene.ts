@@ -106,7 +106,9 @@ export class MenuScene extends BaseScene {
   }
 
   private modal(h: number, title: string): { c: Phaser.GameObjects.Container; x: number; y: number; w: number } {
-    this.closeOverlay();
+    // Replace the open modal after the new one is up: closing it first would
+    // hide Telegram's Back button for a moment (Close/Back flicker).
+    const prev = this.overlay;
     const { VW, VH } = this.m;
     const c = this.add.container(0, 0);
     this.ui.add(c);
@@ -119,6 +121,7 @@ export class MenuScene extends BaseScene {
     c.add(addText(this, VW / 2, y + 12, title, 'red', 0.5));
     this.overlay = c;
     this.modalLayer(c, () => this.closeOverlay());
+    prev?.destroy();
     return { c, x, y, w };
   }
 

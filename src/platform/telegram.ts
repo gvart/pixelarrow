@@ -180,7 +180,7 @@ export function isFullscreen(): boolean {
 export function setSettingsButton(cb: (() => void) | null): void {
   const sb = app?.SettingsButton;
   if (!sb || !app?.isVersionAtLeast?.('7.0')) return;
-  if (cb === settingsHandler && cb) return;
+  if (cb === settingsHandler) return; // unchanged: no show()/hide() churn
   try {
     if (settingsHandler) sb.offClick(settingsHandler);
     settingsHandler = cb;
@@ -257,7 +257,7 @@ export function hasNativeBack(): boolean {
 export function setBackButton(cb: (() => void) | null): void {
   const bb = app?.BackButton;
   if (!bb || !app?.isVersionAtLeast?.('6.1')) return;
-  if (cb === backHandler && cb) return;
+  if (cb === backHandler) return; // unchanged: no show()/hide() churn
   try {
     if (backHandler) bb.offClick(backHandler);
     backHandler = cb;

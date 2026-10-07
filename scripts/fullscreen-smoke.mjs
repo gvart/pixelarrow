@@ -25,22 +25,75 @@ const check = (name, ok, detail = '') => {
 
 function fakeTelegram(ins) {
   const store = new Map();
-  const events = new Map();
-  const back = new Set();
-  const settings = new Set();
   const log = [];
+  // One event bus for everything, like telegram-web-app.js: BackButton.onClick
+  // is onEvent('backButtonClicked'), SettingsButton.onClick is
+  // onEvent('settingsButtonClicked'); handlers run in a live loop.
+  const handlers = new Map();
+  const on = (ev, cb) => {
+    if (!handlers.has(ev)) handlers.set(ev, []);
+    const a = handlers.get(ev);
+    if (!a.includes(cb)) a.push(cb);
+  };
+  const off = (ev, cb) => {
+    const a = handlers.get(ev) || [];
+    const i = a.indexOf(cb);
+    if (i >= 0) a.splice(i, 1);
+  };
+  const emit = (ev, arg) => {
+    const a = handlers.get(ev) || [];
+    for (let i = 0; i < a.length; i++) {
+      try {
+        a[i].call(wa, arg);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+  // Telegram re-reports the viewport and the safe areas whenever its header
+  // changes (Close <-> Back, the ⋯ menu): several times, asynchronously and
+  // with unchanged values; the window gets a resize event too.
+  const relayoutBurst = () => {
+    for (const ms of [16, 60, 150, 300]) {
+      setTimeout(() => {
+        emit('viewportChanged', { isStateStable: ms >= 150 });
+        emit('contentSafeAreaChanged');
+        emit('safeAreaChanged');
+        if (ms === 60) dispatchEvent(new Event('resize'));
+      }, ms);
+    }
+  };
   // Telegram's left pill reads "Back" while the BackButton is shown, else "Close".
   const pill = () => {
     const el = document.getElementById('tg-pill');
     if (el) el.textContent = wa.BackButton.isVisible ? '‹ Back' : '✕ Close';
   };
-  const emit = (ev, arg) => (events.get(ev) || []).forEach((cb) => cb(arg));
-  const btn = (set, name) => ({
+  const btn = (ev, name) => ({
     isVisible: false,
-    show() { this.isVisible = true; log.push(name + '.show'); pill(); },
-    hide() { this.isVisible = false; log.push(name + '.hide'); pill(); },
-    onClick: (cb) => set.add(cb),
-    offClick: (cb) => set.delete(cb),
+    show() {
+      const was = this.isVisible;
+      this.isVisible = true;
+      log.push(name + '.show');
+      pill();
+      if (!was) relayoutBurst();
+      return this;
+    },
+    hide() {
+      const was = this.isVisible;
+      this.isVisible = false;
+      log.push(name + '.hide');
+      pill();
+      if (was) relayoutBurst();
+      return this;
+    },
+    onClick(cb) {
+      on(ev, cb);
+      return this;
+    },
+    offClick(cb) {
+      off(ev, cb);
+      return this;
+    },
   });
   const wa = {
     initData: 'query_id=AA&user=%7B%22id%22%3A1%2C%22first_name%22%3A%22Ana%22%7D&auth_date=1&hash=00',
@@ -50,12 +103,13 @@ function fakeTelegram(ins) {
     colorScheme: 'dark',
     themeParams: {},
     isFullscreen: false,
+    isExpanded: false,
     isClosingConfirmationEnabled: false,
     safeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
     contentSafeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
     isVersionAtLeast: (v) => parseFloat(v) <= 8.0,
     ready() { log.push('ready'); },
-    expand() { log.push('expand'); },
+    expand() { log.push('expand'); wa.isExpanded = true; },
     setHeaderColor() {},
     setBackgroundColor() {},
     disableVerticalSwipes() { log.push('disableVerticalSwipes'); },
@@ -64,26 +118,32 @@ function fakeTelegram(ins) {
     disableClosingConfirmation() { wa.isClosingConfirmationEnabled = false; },
     requestFullscreen() {
       log.push('requestFullscreen');
-      // Like a phone: full screen first, the insets a moment later.
+      // Like a phone: full screen first, the insets a moment later and in
+      // pieces (device safe area, then Telegram's controls), with viewport
+      // events in between and repeated afterwards.
       setTimeout(() => {
         wa.isFullscreen = true;
+        wa.isExpanded = true;
         emit('fullscreenChanged');
+        emit('viewportChanged', { isStateStable: false });
       }, 50);
       setTimeout(() => {
         wa.safeAreaInset = { top: ins.safeTop, bottom: ins.safeBottom, left: 0, right: 0 };
         emit('safeAreaChanged');
+        emit('viewportChanged', { isStateStable: false });
+      }, 250);
+      setTimeout(() => {
         wa.contentSafeAreaInset = { top: ins.contentTop, bottom: 0, left: 0, right: 0 };
         emit('contentSafeAreaChanged');
+        emit('viewportChanged', { isStateStable: true });
       }, 400);
+      setTimeout(relayoutBurst, 700);
     },
-    onEvent(ev, cb) {
-      if (!events.has(ev)) events.set(ev, []);
-      events.get(ev).push(cb);
-    },
-    offEvent() {},
+    onEvent: on,
+    offEvent: off,
     HapticFeedback: { impactOccurred() {}, notificationOccurred() {}, selectionChanged() { log.push('selection'); } },
-    BackButton: btn(back, 'back'),
-    SettingsButton: btn(settings, 'settings'),
+    BackButton: btn('backButtonClicked', 'back'),
+    SettingsButton: btn('settingsButtonClicked', 'settings'),
     CloudStorage: {
       getItem: (k, cb) => setTimeout(() => cb(null, store.get(k) ?? '')),
       setItem: (k, v, cb) => setTimeout(() => (store.set(k, v), cb?.(null, true))),
@@ -93,9 +153,10 @@ function fakeTelegram(ins) {
   window.Telegram = { WebApp: wa };
   window.__tg = {
     log,
-    pressBack: () => [...back].forEach((cb) => cb()),
-    pressSettings: () => [...settings].forEach((cb) => cb()),
-    backHandlers: () => back.size,
+    pressBack: () => emit('backButtonClicked'),
+    pressSettings: () => emit('settingsButtonClicked'),
+    backHandlers: () => (handlers.get('backButtonClicked') || []).length,
+    relayoutBurst,
   };
   // Draw what Telegram and iOS put over the webview, on top of everything.
   addEventListener('DOMContentLoaded', () => {
@@ -185,6 +246,74 @@ await ev(async () => {
   st.hasSave = true;
   await st.save();
 });
+
+// ---- regression: menu buttons tapped with a finger must stay open while
+// Telegram fires its header / viewport events (the BackButton appearing used
+// to trigger scale refresh -> 'resize' -> scene restart, closing every modal).
+await start('Menu');
+await wait(1500);
+/** Finger tap (touchstart/touchend at one point) on a kit Button by label. */
+const tapButton = async (key, label) => {
+  const p = await ev(
+    ([k, l]) => {
+      const s = window.__game.scene.getScene(k);
+      let b = null;
+      const walk = (list) => list.forEach((o) => (o.opts && o.opts.label === l && o.visible && (b = o), o.list && walk(o.list)));
+      walk(s.children.list);
+      if (!b) return null;
+      const m = b.getWorldTransformMatrix();
+      const c = document.querySelector('#game canvas').getBoundingClientRect();
+      const k2 = c.width / window.__game.scale.width;
+      return { x: c.left + (m.tx + (b.w * m.scaleX) / 2) * k2, y: c.top + (m.ty + (b.h * m.scaleY) / 2) * k2 };
+    },
+    [key, label],
+  );
+  if (!p) throw new Error(`no button ${label} in ${key}`);
+  await page.touchscreen.tap(p.x, p.y);
+};
+/** Mark the scene's current UI root; a restart replaces it. */
+const probe = (key) => ev((k) => ((window.__game.scene.getScene(k).ui.__probe = 1), 1), key);
+/** The scene stays active, unrestarted, with `layers` dialogs open for `ms` while Telegram fires events. */
+const stays = async (key, layers, ms = 2200) => {
+  const t0 = Date.now();
+  let burst = false;
+  while (Date.now() - t0 < ms) {
+    if (!burst && Date.now() - t0 > 700) {
+      burst = true;
+      await ev(() => window.__tg.relayoutBurst());
+    }
+    const ok = await ev(([k, n]) => window.__game.scene.isActive(k) && window.__game.scene.getScene(k).ui.__probe === 1 && window.__nav.layers() === n, [key, layers]);
+    if (!ok) return `left after ${Date.now() - t0} ms: ${await ev(() => window.__game.scene.getScenes(true).map((s) => s.scene.key).join(',') + ' layers=' + window.__nav.layers())}`;
+    await wait(200);
+  }
+  return '';
+};
+const backFlips = async (from) => (await ev(() => window.__tg.log)).slice(from).filter((x) => /^back\./.test(x)).length;
+const logLen = async () => (await ev(() => window.__tg.log)).length;
+for (const label of ['Settings', 'Shop', 'New campaign']) {
+  const n0 = await logLen();
+  await tapButton('Menu', label);
+  await wait(150);
+  await probe('Menu');
+  const r = await stays('Menu', 1);
+  check(`tap ${label}: its modal stays open (no auto back)`, r === '', r);
+  const f = await backFlips(n0);
+  check(`tap ${label}: BackButton shown once, no Close/Back flicker`, f === 1, `flips=${f}`);
+  await pressBack();
+  check(`tap ${label}: Back closes it`, (await active('Menu')) && (await tg()).layers === 0);
+}
+const n1 = await logLen();
+await tapButton('Menu', 'Continue');
+await wait(400);
+await probe('World');
+const rc = await stays('World', 0);
+check('tap Continue: the map stays (no auto back to the menu)', rc === '', rc);
+const fc = await backFlips(n1);
+check('tap Continue: BackButton shown once, no Close/Back flicker', fc === 1, `flips=${fc}`);
+await pressBack();
+check('map: Back -> menu', await active('Menu'));
+await wait(500);
+
 await start('World');
 await wait(2500);
 await checkLayout('map');

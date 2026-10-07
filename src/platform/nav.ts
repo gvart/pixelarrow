@@ -56,12 +56,19 @@ export class NavStack {
 
   constructor(private readonly host: NavHost) {}
 
-  /** Push (or replace) the screen owned by `owner`. */
-  register(owner: object, opts: ScreenOpts): void {
+  /** Push (or replace) the screen owned by `owner`. Returns a token for `release`. */
+  register(owner: object, opts: ScreenOpts): object {
     const i = this.entries.findIndex((e) => e.owner === owner);
     if (i >= 0) this.entries.splice(i, 1);
-    this.entries.push({ owner, opts: { ...opts }, layers: [] });
+    const entry: Entry = { owner, opts: { ...opts }, layers: [] };
+    this.entries.push(entry);
     this.sync();
+    return entry;
+  }
+
+  /** Remove `owner`'s screen unless it has registered again since `token` (a restart). */
+  release(owner: object, token: object): void {
+    if (this.entries.some((e) => e === token)) this.unregister(owner);
   }
 
   /** Change some options of a registered screen (e.g. deployment -> battle). */
@@ -153,10 +160,16 @@ interface SceneLike {
   events: { once(ev: string, fn: () => void): unknown };
 }
 
-/** Register a scene as a screen; removed again when the scene shuts down. */
+/**
+ * Register a scene as a screen; removed again when the scene shuts down.
+ * The removal waits for a microtask: a scene switch or restart shuts the old
+ * scene down and creates the next in the same step, so the stack goes straight
+ * to the new state instead of flashing Close in between (each Telegram header
+ * change makes it re-report the viewport and safe areas).
+ */
 export function registerScreen(scene: SceneLike, opts: ScreenOpts): void {
-  nav.register(scene, opts);
-  scene.events.once('shutdown', () => nav.unregister(scene));
+  const token = nav.register(scene, opts);
+  scene.events.once('shutdown', () => queueMicrotask(() => nav.release(scene, token)));
 }
 
 /**

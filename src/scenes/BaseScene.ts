@@ -16,9 +16,23 @@ export abstract class BaseScene extends Phaser.Scene {
   protected initUi(): void {
     this.m = uiMetrics(this);
     this.ui = this.add.container(0, 0).setScale(this.m.S);
+    // Phaser emits 'resize' on every scale.refresh(), even when nothing changed,
+    // and Telegram triggers refreshes constantly (viewportChanged / safe-area
+    // events, e.g. whenever its header Back button is shown or hidden).
+    // Rebuilding the scene then would close every modal and restart the
+    // screen just opened, so only react to a real change of the game size.
+    let laidOut = { w: this.scale.width, h: this.scale.height };
+    const changed = () => this.scale.width !== laidOut.w || this.scale.height !== laidOut.h;
     const onResize = () => {
       this.resizeTimer?.remove();
-      this.resizeTimer = this.time.delayedCall(150, () => this.onResized());
+      this.resizeTimer = null;
+      if (!changed()) return;
+      this.resizeTimer = this.time.delayedCall(150, () => {
+        this.resizeTimer = null;
+        if (!changed()) return;
+        laidOut = { w: this.scale.width, h: this.scale.height };
+        this.onResized();
+      });
     };
     this.scale.on('resize', onResize);
     this.events.once('shutdown', () => {

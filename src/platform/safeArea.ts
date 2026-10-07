@@ -33,8 +33,14 @@ export function gameInsets(): Insets {
 }
 
 /** Track Telegram's insets; `relayout` runs after each change (e.g. game.scale.refresh()). */
-export function trackSafeArea(relayout: () => void): void {
-  onInsetsChanged((d, c) => {
+export function trackSafeArea(relayout: () => void): () => void {
+  let last = '';
+  return onInsetsChanged((d, c) => {
+    // Telegram reports the same insets over and over (every viewportChanged);
+    // only an actual change needs a re-layout.
+    const key = JSON.stringify([d, c]);
+    if (key === last) return;
+    last = key;
     applyInsetVars(d, c);
     // Let the style apply before Phaser measures the parent.
     requestAnimationFrame(() => relayout());
