@@ -19,7 +19,12 @@ import {
   DUEL_RULES, accountLevel, classUnlockLevel, developHero, duelRecruit, findOffer, recruitPrice, respecHero, respecPrice, sellPrice, shopItem,
   starterDuelRoster, teamProblem, utcDay,
 } from './rules';
-import { canFight, ladderFloor, ladderPayout, ladderSetup, type HeroXp } from './ladder';
+import { canFight, duelHeroXp, ladderFloor, ladderPayout, ladderSetup, type HeroXp } from './ladder';
+import { RANKED, glicko2, leagueOf, matchPay, placed, scoreOf, type DuelMode, type League, type Rating } from './rating';
+import type { LiveMatchRef, MatchReport, MatchmakerClientMsg, MatchmakerServerMsg } from './protocol';
+import { ShardSocket } from '../online/client';
+import { onlineBattleSetup } from '../online/battle';
+import { randomSite } from '../world/battlefield';
 
 export interface DuelProfileView {
   now: number;
@@ -73,6 +78,29 @@ export interface LadderReport {
 
 type WithProfile<T = object> = T & { profile: DuelProfileView };
 
+/** The ranked card (GET /api/duel/ranked). */
+export interface RankedView {
+  now: number;
+  level: number;
+  unlockLevel: number;
+  unlocked: boolean;
+  /** Null during placements. */
+  league: League | null;
+  /** Only in Legend (hidden below it). */
+  rating: number | null;
+  games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  placements: { played: number; of: number };
+  /** Queue cooldown after abandons (0: none). */
+  cooldownUntil: number;
+  /** A live match to rejoin. */
+  match: LiveMatchRef | null;
+}
+
+export type QueueEvent = MatchmakerServerMsg;
+
 export interface DuelSource {
   readonly demo: boolean;
   /** Opens the duel mode (idempotent) and returns the profile. */
@@ -89,6 +117,11 @@ export interface DuelSource {
   /** `result`: the battle as the client simulated it (only the demo uses it; the server replays the log). */
   ladderSubmit(ticket: string, sub: LadderSubmission, result: BattleResult): Promise<LadderReport>;
   ladderAbandon(ticket: string): Promise<unknown>;
+  ranked(): Promise<RankedView>;
+  /** Joins the ranked or unranked queue; `on` gets its events until a match is found or refused. Returns cancel. */
+  queue(mode: DuelMode, on: (e: QueueEvent) => void): () => void;
+  /** A settled match's report (after a reconnect that came too late for match_result). */
+  matchReport(id: string): Promise<WithProfile<{ report: MatchReport }>>;
 }
 
 const outside = () => new ApiError(0, 'outside', 'Available in Telegram');
@@ -139,6 +172,50 @@ export class ApiDuelSource implements DuelSource {
   ladderAbandon(ticket: string) {
     return this.req('POST', '/ladder/abandon', { ticket });
   }
+  ranked() {
+    return this.req<RankedView>('GET', '/ranked');
+  }
+  matchReport(id: string) {
+    return this.req<WithProfile<{ report: MatchReport }>>('GET', `/match/${id}`);
+  }
+
+  /**
+   * The queue over `/ws/duel`: (re)connecting sends `queue` again (a dropped
+   * socket leaves the server's queue), until a match is found, the server
+   * refuses, or cancel.
+   */
+  queue(mode: DuelMode, on: (e: QueueEvent) => void): () => void {
+    const sock = new ShardSocket<MatchmakerServerMsg, MatchmakerClientMsg>('/ws/duel', 4000);
+    let over = false;
+    const stop = () => {
+      over = true;
+      off();
+      setTimeout(() => sock.close(), 300);
+    };
+    const off = sock.on((m) => {
+      if (over) return;
+      if (m.type === 'mm_welcome') {
+        if (m.match) {
+          // already in a match: rejoin it instead
+          on({ type: 'match_found', match: m.match.id, mode: m.match.mode, side: 0, opponent: { name: '', league: null } });
+          return stop();
+        }
+        sock.send({ type: 'queue', mode });
+      }
+      on(m);
+      if (m.type === 'match_found' || (m.type === 'unqueued' && m.reason !== 'cancelled')) stop();
+    });
+    void (async () => {
+      if (!online.available) return on({ type: 'error', message: 'Available in Telegram', code: 'outside' });
+      if (!(await online.signIn())) return on({ type: 'error', message: 'The server is unreachable', code: 'network' });
+      if (!over) sock.open();
+    })();
+    return () => {
+      if (over) return;
+      sock.send({ type: 'cancel' });
+      stop();
+    };
+  }
 }
 
 const err = (code: string, message: string) => new ApiError(409, code, message);
@@ -168,7 +245,7 @@ export class DemoDuelSource implements DuelSource {
       now,
       day: utcDay(now),
       glory: opts.fresh ? DUEL_RULES.startGlory : 640,
-      xp: opts.fresh ? 0 : 180,
+      xp: opts.fresh ? 0 : 560,
       level: 1,
       ladder: { cleared: opts.fresh ? 0 : 4, farmLeft: opts.fresh ? DUEL_RULES.farmGloryPerDay : 260, farmCap: DUEL_RULES.farmGloryPerDay },
       team: heroes.slice(0, 6).map((h) => h.id),
@@ -359,6 +436,119 @@ export class DemoDuelSource implements DuelSource {
     this.tickets.delete(ticket);
     return { ok: true };
   }
+
+  // ------------------------------------------------------------------ live matches (demo: a local battle against the bot)
+
+  /** How long the demo queue takes to find an opponent (previews set it high to show the search, or 0). */
+  findDelayMs = 3000;
+  private rating: Rating & { games: number; wins: number; losses: number; draws: number } = { rating: 1385, rd: 90, vol: 0.06, games: 14, wins: 8, losses: 6, draws: 0 };
+  private matches = new Map<string, DemoMatch>();
+
+  /** Previews: another duel account XP (the ranked gate at level 5). */
+  setXp(xp: number): void {
+    this.p.xp = xp;
+  }
+
+  async ranked(): Promise<RankedView> {
+    const level = accountLevel(this.p.xp);
+    const r = this.rating;
+    const league = placed(r.games) ? leagueOf(r.rating) : null;
+    return {
+      now: this.clock(),
+      level,
+      unlockLevel: DUEL_RULES.rankedLevel,
+      unlocked: level >= DUEL_RULES.rankedLevel,
+      league,
+      rating: league?.id === 'legend' ? Math.round(r.rating) : null,
+      games: r.games,
+      wins: r.wins,
+      losses: r.losses,
+      draws: r.draws,
+      placements: { played: Math.min(r.games, RANKED.placements), of: RANKED.placements },
+      cooldownUntil: 0,
+      match: null,
+    };
+  }
+
+  queue(mode: DuelMode, on: (e: QueueEvent) => void): () => void {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const team = this.p.team.map((id) => this.p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
+    const problem = teamProblem(team, DUEL_RULES.budget);
+    const since = this.clock();
+    timers.push(
+      setTimeout(() => {
+        if (mode === 'ranked' && accountLevel(this.p.xp) < DUEL_RULES.rankedLevel) return on({ type: 'unqueued', reason: 'locked' });
+        if (problem) return on({ type: 'unqueued', reason: problem === 'empty' ? 'no_team' : problem });
+        on({ type: 'queued', mode, since, now: this.clock() });
+        timers.push(
+          setTimeout(() => {
+            const m = this.makeMatch(mode, team);
+            on({ type: 'match_found', match: m.id, mode, side: 0, opponent: { name: m.names[1], league: leagueOf(this.rating.rating + 40) } });
+          }, this.findDelayMs),
+        );
+      }, 0),
+    );
+    return () => timers.forEach(clearTimeout);
+  }
+
+  async matchReport(): Promise<WithProfile<{ report: MatchReport }>> {
+    throw new ApiError(404, 'not_found', 'No such match');
+  }
+
+  private makeMatch(mode: DuelMode, team: Hero[]): DemoMatch {
+    const seed = this.rng.int(1, 0x7fffffff);
+    const foes = starterDuelRoster(seed, { nextId: 1 }, 'demo_foe_');
+    const mine = JSON.parse(JSON.stringify(team)) as Hero[];
+    const setup = onlineBattleSetup(seed, { heroes: mine, formations: this.p.formations, bot: false }, { heroes: foes, formations: [...DEFAULT_FORMATIONS], bot: true }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
+    const m: DemoMatch = { id: `demo${seed.toString(16)}`, mode, seed, setup, heroes: [mine, foes], names: ['You', 'Hektor'] };
+    this.matches.set(m.id, m);
+    return m;
+  }
+
+  /** The demo match a queue found (setup, both armies). */
+  demoMatch(id: string): DemoMatch | null {
+    return this.matches.get(id) ?? null;
+  }
+
+  /** Settles a demo match like the server would (rating, Glory, XP), from the battle the client ran. */
+  demoSettle(id: string, result: Pick<BattleResult, 'winner' | 'ticks' | 'units'>): MatchReport {
+    const m = this.matches.get(id);
+    if (!m) throw new ApiError(404, 'not_found', 'No such match');
+    this.matches.delete(id);
+    const score = scoreOf(result.winner, 0);
+    const pay = matchPay(m.mode, score);
+    const r = this.rating;
+    const { heroes, xp } = duelHeroXp(result, m.heroes[0], score === 1, new Rng(m.seed), 0);
+    for (const h of heroes) {
+      const cur = this.p.heroes.find((x) => x.id === h.id);
+      if (cur) Object.assign(cur, { level: h.level, xp: h.xp, points: h.points, traits: h.traits, battles: h.battles, kills: h.kills });
+    }
+    this.p.glory += pay.glory;
+    this.p.xp += pay.accountXp;
+    this.p.battles++;
+    if (score === 1) this.p.wins++;
+    let rating: MatchReport['rating'] = null;
+    let league: MatchReport['league'] = null;
+    let placements: MatchReport['placements'] = null;
+    if (m.mode === 'ranked') {
+      const before = placed(r.games) ? leagueOf(r.rating) : null;
+      const next = glicko2(r, { rating: r.rating + 40, rd: 80, vol: 0.06 }, score);
+      rating = { before: Math.round(r.rating), after: Math.round(next.rating) };
+      Object.assign(r, next, { games: r.games + 1, wins: r.wins + (score === 1 ? 1 : 0), losses: r.losses + (score === 0 ? 1 : 0), draws: r.draws + (score === 0.5 ? 1 : 0) });
+      league = { before, after: placed(r.games) ? leagueOf(r.rating) : null };
+      placements = { played: Math.min(r.games, RANKED.placements), of: RANKED.placements };
+    }
+    return { match: id, mode: m.mode, side: 0, names: m.names, winner: result.winner, end: 'battle', verified: false, ticks: result.ticks, abandoned: false, glory: pay.glory, accountXp: pay.accountXp, rating, league, placements, xp };
+  }
+}
+
+export interface DemoMatch {
+  id: string;
+  mode: DuelMode;
+  seed: number;
+  setup: BattleSetup;
+  heroes: [Hero[], Hero[]];
+  names: [string, string];
 }
 
 /** Total attribute points a pending spend uses. */

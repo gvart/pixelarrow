@@ -81,6 +81,10 @@ export interface DuelStart {
   hashEvery: number;
   /** Deployment length: both clients show this countdown; ready from both (or the time) starts the battle. */
   deployMs?: number;
+  /** Ranked and unranked matches (src/duel/protocol.ts); absent for a friendly duel. */
+  mode?: 'ranked' | 'unranked';
+  /** Sent again to a player who reconnected: the sealed turns follow, the client fast-forwards. */
+  resume?: boolean;
 }
 
 /**

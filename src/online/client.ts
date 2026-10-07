@@ -267,15 +267,17 @@ export type { PresencePlayer, BattleSite };
 
 // ------------------------------------------------------------------ shard socket
 
-type Listener = (m: ServerMsg) => void;
+type Listener<S> = (m: S) => void;
 
 /**
  * The shard socket with reconnect (backoff) while the online mode is open.
- * One instance for the whole game; scenes subscribe and unsubscribe.
+ * One instance for the whole game; scenes subscribe and unsubscribe. The duel
+ * queue and a ranked match use the same class on their own paths
+ * (src/duel/match.ts).
  */
-export class ShardSocket {
+export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> {
   private ws: WebSocket | null = null;
-  private listeners = new Set<Listener>();
+  private listeners = new Set<Listener<S>>();
   private retry = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private wanted = false;
@@ -283,13 +285,19 @@ export class ShardSocket {
   me: PresencePlayer | null = null;
   connected = false;
 
+  /** `path`: the socket's endpoint; `maxBackoffMs`: the longest wait between reconnects (a live match retries fast). */
+  constructor(
+    readonly path = '/ws/online',
+    private readonly maxBackoffMs = 30_000,
+  ) {}
+
   open(): void {
     this.wanted = true;
     if (this.ws) return;
     const token = online.api.token;
     if (!token) return;
     const base = online.api.base || location.origin;
-    const url = base.replace(/^http/, 'ws') + '/ws/online';
+    const url = base.replace(/^http/, 'ws') + this.path;
     let ws: WebSocket;
     try {
       ws = new WebSocket(url, ['pixelarrow.v1', token]);
@@ -303,12 +311,13 @@ export class ShardSocket {
       this.retry = 0;
     };
     ws.onmessage = (e) => {
-      let m: ServerMsg;
+      let msg: S;
       try {
-        m = JSON.parse(String(e.data)) as ServerMsg;
+        msg = JSON.parse(String(e.data)) as S;
       } catch {
         return;
       }
+      const m = msg as unknown as ServerMsg;
       if (m.type === 'welcome') {
         this.me = m.you;
         this.players = m.players;
@@ -317,7 +326,7 @@ export class ShardSocket {
       else if (m.type === 'leave') this.players = this.players.filter((p) => p.id !== m.player.id);
       for (const l of [...this.listeners]) {
         try {
-          l(m);
+          l(msg);
         } catch (err) {
           console.warn('[online] listener failed', err);
         }
@@ -335,7 +344,7 @@ export class ShardSocket {
 
   private schedule(): void {
     if (this.timer || !this.wanted) return;
-    const ms = Math.min(30_000, 1000 * 2 ** Math.min(5, this.retry++));
+    const ms = Math.min(this.maxBackoffMs, 1000 * 2 ** Math.min(5, this.retry++));
     this.timer = setTimeout(() => {
       this.timer = null;
       this.open();
@@ -351,13 +360,13 @@ export class ShardSocket {
     this.connected = false;
   }
 
-  send(m: ClientMsg): boolean {
+  send(m: C): boolean {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
     this.ws.send(JSON.stringify(m));
     return true;
   }
 
-  on(l: Listener): () => void {
+  on(l: Listener<S>): () => void {
     this.listeners.add(l);
     return () => this.listeners.delete(l);
   }

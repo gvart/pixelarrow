@@ -60,6 +60,9 @@ export function duelSource(start: DuelStart, done: (o: DuelOutcome) => void, lea
     opponentReady() {
       return !!ls?.opponentReady;
     },
+    backlog() {
+      return ls?.backlog() ?? 0;
+    },
     aborted() {
       if (!ls) return null;
       if (ls.desync) return t('battle.duel.desync');

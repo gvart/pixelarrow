@@ -170,3 +170,21 @@ export async function duelProfileView(db: D1Database, pid: number, now: number, 
     bought: bought.results.map((r) => r.ref),
   };
 }
+
+/**
+ * Statements writing what a duel battle taught the heroes (level, XP, points,
+ * traits, tallies) and nothing else: gear or perks changed since the battle
+ * started are kept. `before`: the team as it went in; `after`: the same heroes
+ * after duelHeroXp; `current`: the heroes in D1 now. Each is guarded by `G`.
+ */
+export function heroProgressStmts(db: D1Database, pid: number, before: readonly Hero[], after: readonly Hero[], current: Map<string, Hero>, G: string, now: number): D1PreparedStatement[] {
+  const out: D1PreparedStatement[] = [];
+  for (const h of after) {
+    const cur = current.get(h.id);
+    if (!cur) continue;
+    const gained = h.points - (before.find((y) => y.id === h.id)?.points ?? h.points);
+    const next: Hero = { ...cur, level: h.level, xp: h.xp, points: cur.points + gained, traits: h.traits, battles: h.battles, kills: h.kills };
+    out.push(db.prepare(`UPDATE duel_heroes SET data = ?3, updated_at = ?4 WHERE id = ?1 AND player_id = ?2 AND ${G}`).bind(h.id, pid, JSON.stringify(next), now));
+  }
+  return out;
+}

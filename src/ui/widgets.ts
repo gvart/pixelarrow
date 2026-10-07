@@ -353,6 +353,8 @@ export interface TabsOpts {
   selected?: number;
   onChange?: (i: number) => void;
   icons?: (string | undefined)[];
+  /** Show only the icons (the label becomes the tip): many tabs on a narrow screen. */
+  iconOnly?: boolean;
   /** Ids for the layout check (default: the labels). */
   ids?: string[];
 }
@@ -379,6 +381,7 @@ export class Tabs extends Phaser.GameObjects.Container {
       const b = new Button(scene, i * (tw + gap), 0, i === n - 1 ? this.w - i * (tw + gap) : tw, this.h, {
         label,
         icon: o.icons?.[i],
+        iconOnly: !!o.iconOnly && !!o.icons?.[i],
         style: i === this.sel ? 'buttonSel' : 'button',
         id: o.ids?.[i],
         onClick: () => this.select(i),

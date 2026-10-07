@@ -129,6 +129,6 @@ describe('missing configuration', () => {
 describe('entry module', () => {
   it('exports only handlers and Durable Object classes (workerd rejects anything else)', async () => {
     const mod = await import('../src/index');
-    expect(Object.keys(mod).sort()).toEqual(['RegionDO', 'default']);
+    expect(Object.keys(mod).sort()).toEqual(['DuelDO', 'MatchmakerDO', 'RegionDO', 'default']);
   });
 });

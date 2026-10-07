@@ -17,7 +17,7 @@ fallback, exactly as before.
 ```
 server/
   src/
-    index.ts          Worker entry: Hono app, CORS, error handler, /ws upgrade; exports RegionDO
+    index.ts          Worker entry: Hono app, CORS, error handler, /ws upgrades; exports RegionDO, MatchmakerDO, DuelDO
     env.ts            bindings / secrets types
     routes/auth.ts    POST /api/auth/telegram
     routes/save.ts    GET/PUT /api/save
@@ -26,7 +26,8 @@ server/
     battle.ts         sim adapter for POST /api/battle/verify (the only file that knows the sim API)
     region.ts         RegionDO (presence; per online shard also hex attack locks, the duel relay and live army pushes)
     online/           online mode: routes.ts (profile, map, hex, march, garrison, collect, recruit, equip, army), live.ts (live army movement, fog-filtered),
-                      attack.ts (tickets, verified attacks), clans.ts, duel.ts (lobby, lockstep relay),
+                      attack.ts (tickets, verified attacks), clans.ts, duel.ts (friendly duel lobby),
+                      relay.ts (the lockstep relay of one duel, shared with ranked matches),
                       store.ts (seasons, shards, homes, D1 access), income.ts, context.ts,
                       consumables.ts (season inventory, use), market.ts (town marketplace)
     notify/           bot notifications: outbox.ts (enqueue, delivery rules, flush), templates.ts (EN/RU
@@ -37,7 +38,9 @@ server/
     economy/          routes.ts (/api/economy: catalog, wallet, buy, cosmetics, season pass),
                       catalog.ts (cosmetics, pass tiers, market limits: all prices), wallet.ts (Drachmae
                       ledger helpers), pass.ts (pass XP)
-    duel/             routes.ts (/api/duel: duel profile, roster, develop, team, shop, ladder tickets), store.ts (D1 access)
+    duel/             routes.ts (/api/duel: duel profile, roster, develop, team, shop, ladder tickets, ranked card,
+                      match reports), store.ts (D1 access), live.ts (queue checks, match armies, settlement),
+                      matchmaker.ts (MatchmakerDO: the global queue), duelDO.ts (DuelDO: one live match)
     telegramAuth.ts   initData validation (HMAC-SHA256, constant-time, 24 h max age)
     session.ts        stateless signed session tokens
     payments.ts       pre-checkout checks, idempotent payment/refund recording
@@ -52,6 +55,8 @@ server/
                              market listings and audit
   migrations/0005_notifications.sql notification settings, outbox and log, support_requests, bot state
   migrations/0006_ops.sql           bans, analytics opt-out and milestones, client_errors, admin_audit (docs/OPS.md)
+  migrations/0007_duels.sql         duel profiles, heroes, items, ladder tickets, Glory orders
+  migrations/0008_duel_ranked.sql   duel ratings (Glicko-2, leagues), abandons and queue cooldown, live matches
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   scripts/bot-setup.mjs      one-off: setMyCommands (EN/RU) and setWebhook with the allowed updates
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
@@ -355,7 +360,9 @@ in `src/online/protocol.ts`:
   between `at` and `until` (`LiveArmies` in `src/online/liveArmies.ts`).
 
 Duel and challenge state is kept in DO memory (a live duel keeps the object
-awake); hex locks are in DO storage.
+awake); hex locks are in DO storage. The relay itself (deployment, turns,
+hashes, replay) is `server/src/online/relay.ts`, shared with the ranked
+`DuelDO` ("Ranked duels").
 
 ## Economy
 
@@ -487,7 +494,60 @@ changes the army includes the new `profile`.
 | POST | `/api/duel/ladder/abandon` | `{ ticket }` | gives an open ticket up (nothing is lost) |
 
 No deaths, wounds or wear in duels. Analytics: `duel_join` once per player,
-`battle_result` / `first_battle` with mode `ladder`.
+`battle_result` / `first_battle` with mode `ladder`, `ranked` or `unranked`.
+
+### Ranked duels (live ranked and unranked)
+
+Design: docs/DUELS.md "Ranked live" and "Slice 3 numbers". Shared rules
+`src/duel/rating.ts` (`RANKED`: Glicko-2, leagues, windows, payouts,
+cooldown), protocol `src/duel/protocol.ts`, migration `0008_duel_ranked.sql`.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/duel/ranked` | `{ now, level, unlockLevel, unlocked, league \| null, rating \| null (Legend only), games, wins, losses, draws, placements: {played, of}, cooldownUntil, match \| null }` (`match`: a live match to rejoin) |
+| GET | `/api/duel/match/:id` | `{ report, profile }` of a settled match of yours; **409** `match_live` while it is fought |
+| WS | `/ws/duel` | the global queue (`MatchmakerDO`, one object `global`); needs a duel profile (else 409) |
+| WS | `/ws/duel/:match` | one match (`DuelDO`, named by the match id); only its two players (else 403) |
+
+**Queue** (`/ws/duel`): on connect `mm_welcome {now, match, cooldownUntil}`.
+`queue {mode: 'ranked' | 'unranked'}` → `queued {mode, since}` or `unqueued
+{reason}` (`locked` below duel level 5 for ranked, `no_team`, `over_budget`
+(150 points), `too_many`, `cooldown`, `busy`: already in a live match).
+`cancel` → `unqueued {reason: 'cancelled'}`. The last socket closing leaves the
+queue; the queue is in DO storage and re-paired by an alarm every 2 s
+(`pairQueue`: the longest wait first, the closest rating inside both players'
+windows). A pair → both armies built from D1 (the duel team, perfect gear, no
+consumables), a `duel_matches` row (`live`), `DuelDO.init` (RPC), then
+`match_found {match, mode, side, opponent: {name, league}}` to both.
+
+**Match** (`/ws/duel/:match`): the friendly duel protocol of "Shard socket"
+(duel_start with `mode`, d_order, d_ready, go, turn, reach, end, desync) on
+the same relay (`server/src/online/relay.ts`): deployment 15 s (+5 s to
+connect), 2-tick sealed turns, hashes every 10 turns, an `end` replayed with
+`src/sim` (refused with `too_early` if the replay runs past the sealed
+turns). Plus:
+- `peer {side, online, until}`: the opponent's socket dropped (until when
+  they may come back) or came back.
+- Reconnect: a new socket within 30 s gets `duel_start {resume: true}`, then
+  the deployment orders, `go` and every sealed turn (`relayResume`).
+- `leave_duel`: a surrender (a loss, not an abandon).
+- The alarm (deployment deadline, reconnect deadlines, a snapshot every 5 s)
+  ends the match when a side has been gone 30 s, never joined, or stopped
+  reporting turns for 30 s while the other waits (forfeit: an abandon), or
+  both (void), or after 12 minutes (void).
+- `match_result {report}`: the settled `MatchReport` per player (winner,
+  end `battle | forfeit | void`, verified, Glory, account XP, hero XP, rating
+  before/after, league before/after, placements). Re-sent to a socket opened
+  after the end.
+
+**Settlement** (`settleMatch`) runs once: the first statement moves
+`duel_matches.status` from `live` (to `done` or `void`) with a fresh
+`apply_nonce` and stores the order log, deltas and both reports; everything
+else is guarded by that nonce: Glicko-2 for both (ranked, not void), Glory and
+account XP (`duel_profiles`, rev + 1), hero progression, and an abandon in
+`duel_queue_state` (3 in 24 h → a 15-minute cooldown, doubling on repeats,
+at most 4 h). A repeat returns the stored reports. The relay state and log
+live in the DuelDO's storage (log in chunks of 500) so it can hibernate.
 
 ## Bot notifications
 

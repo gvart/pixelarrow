@@ -96,6 +96,27 @@ check('[ladder] back to the ladder', await until(() => window.__game.scene.isAct
 const after = await call('Duel', 'const p = s.profile; return { tab: s.tab, cleared: p.ladder.cleared, glory: p.glory, xp: p.xp, battles: p.battles };');
 check('[ladder] floor cleared, Glory and XP paid', after.tab === 'ladder' && after.cleared === floor && after.glory > bought.glory, JSON.stringify(after));
 
+// The Arena: a ranked match on the demo (search -> opponent found -> the battle -> the report with the rating change -> back).
+await call('Duel', "s.src.findDelayMs = 400; s.foundHoldMs = 400; s.tab = 'ranked'; s.buildBody(); void s.fetchData(); return 1;");
+await until(() => !!window.__game.scene.getScene('Duel').ranked);
+const rk0 = await call('Duel', 'return { games: s.ranked.games, unlocked: s.ranked.unlocked, glory: s.profile.glory };');
+check('[arena] ranked is open at duel level 5', rk0.unlocked, JSON.stringify(rk0));
+await call('Duel', "s.findMatch('ranked'); return 1;");
+check('[arena] searching', await call('Duel', 'return !!s.search;'));
+check('[arena] opponent found, the battle starts', await until(() => window.__game.scene.isActive('Battle') && !!window.__game.scene.getScene('Battle').sim, 10000));
+await page.waitForTimeout(600);
+await call(
+  'Battle',
+  `s.startFight(); for (const g of s.sim.groups) if (g.side === 0) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' }); s.sim.units.filter(u => u.side === 1 && u.state === 'ready').forEach(u => { u.hp = Math.min(u.hp, 1); }); for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`,
+);
+check('[arena] the report', await until(() => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 20000));
+const rrep = await call('Results', 'const r = s.report; return { result: r.result, glory: r.glory, notes: r.notes };');
+check('[arena] a won match: Glory and a rating change', rrep.result === 'victory' && rrep.glory === 30 && rrep.notes.some((n) => /\+\d+/.test(n)), JSON.stringify(rrep));
+await call('Results', 's.finish(); return 1;');
+check('[arena] back to the Arena', await until(() => window.__game.scene.isActive('Duel') && !!window.__game.scene.getScene('Duel').ranked, 8000));
+const rk1 = await call('Duel', 'return { tab: s.tab, games: s.ranked.games, glory: s.profile.glory };');
+check('[arena] one more rated match, Glory paid', rk1.tab === 'ranked' && rk1.games === rk0.games + 1 && rk1.glory === rk0.glory + 30, JSON.stringify(rk1));
+
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 console.log(failures ? `${failures} FAILED` : 'ALL PASS');

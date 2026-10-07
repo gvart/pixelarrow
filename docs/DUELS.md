@@ -18,10 +18,58 @@ starting points to tune.
   (Menu → Duels), the hero sheet on the duel army (`src/duel/heroSource.ts`),
   and an in-memory demo (`DemoDuelSource`) for the layout check and
   `scripts/duel-smoke.mjs`.
-- Next: slice 3 (matchmaker, live ranked, leagues), slice 4 (async ladder,
-  seasons, leaderboards), slice 5 (map merchants).
+- **Slice 3 landed (live ranked and unranked):** the global `MatchmakerDO`
+  (`/ws/duel`), one `DuelDO` per match (`/ws/duel/<id>`) on the lockstep relay
+  now shared with friendly duels (`server/src/online/relay.ts`), settlement in
+  `server/src/duel/live.ts`, migration `0008_duel_ranked.sql`
+  (`duel_ratings`, `duel_queue_state`, `duel_matches`). Shared rules:
+  `src/duel/rating.ts` (`RANKED`), protocol `src/duel/protocol.ts`. Client:
+  the hub's **Arena** tab (league card, placements, Find match / Unranked,
+  the search with its timer and Cancel, the found opponent, the level-5 lock,
+  the cooldown, Rejoin), the live battle through `src/duel/match.ts` (a
+  lockstep driver that reconnects and fast-forwards), and the report via
+  ResultsScene. API in server/README.md "Ranked duels".
+- Next: slice 4 (async ladder, seasons, leaderboards), slice 5 (map merchants).
 
-The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`).
+The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
+`RANKED`).
+
+### Slice 3 numbers and decisions
+
+- **Glicko-2:** start 1500 / RD 350 / volatility 0.06, τ = 0.5, RD floor 40,
+  one rating period per match (no RD growth with inactivity yet). The rating
+  is season independent (`duel_ratings.ladder = 'live'`; `'async'` is
+  reserved for slice 4); `peak` is kept for season rewards.
+- **Leagues** (rating floors, 200 wide, 3 divisions III → I of ~67 points):
+  Bronze < 1200, Silver 1200, Gold 1400, Hoplite 1600, Strategos 1800,
+  Legend 2000+ (the exact rating shows; the leaderboard rank comes with
+  slice 4). No league during the **10 placement matches**; the rating stays
+  hidden below Legend.
+- **Matchmaking window** (rating gap both players accept, by wait): ranked
+  100 + 10/s up to 400, anyone after 90 s; unranked 250 + 25/s up to 800,
+  anyone after 30 s. Greedy: the longest wait first, the closest rating that
+  fits both windows. Re-paired every 2 s while anyone waits. Side 0 is picked
+  by the seed.
+- **Per match:** ranked win 30 Glory, draw 20, loss 10; unranked half (15 /
+  10 / 5). Duel account XP 40 / 25 / 15 in both. Hero XP as on the ladder
+  (`duelHeroXp`), win or lose. Only progression is written to the heroes.
+- **Entry:** the duel team must fit the 150-point budget; ranked from duel
+  level 5. **No consumables** in either queue (unranked consumables are still
+  not built). The field is `randomSite` by the server seed (the "map pool").
+- **Disconnects:** 30 s to come back (the DO re-sends the deployment, go and
+  every sealed turn; the client skips what it ran and runs through the rest
+  at up to 120 steps a frame). Not joining within 30 s of the match start,
+  or staying connected but not reporting turns for 30 s while the opponent
+  waits, counts the same. A player gone is an **abandon** and loses; both
+  gone, a desync, or a match still running after 12 minutes is **void** (no
+  rating change, nothing paid). Back during the deployment (`leave_duel`) is
+  a surrender: a loss, not an abandon.
+- **Abandons:** 3 in 24 h → a 15-minute queue cooldown for both queues,
+  doubling for each repeat within 24 h, at most 4 h.
+- **Deviations:** the hub tab is called "Arena" (the four tabs switch to
+  icons on narrow screens); the ranked team is the one duel team (saved
+  loadouts come with slice 4); the relay now refuses an `end` whose replay
+  runs past the sealed turns (also for friendly duels).
 
 ## Summary
 
@@ -201,8 +249,10 @@ and `/paysupport` compliance). Cosmetics apply in both modes.
 - **D1:** `0007_duels.sql` (landed) has `duel_profiles` (Glory, account XP,
   ladder progress, the daily farm counter, the team), `duel_heroes`,
   `duel_items`, `duel_tickets` (ladder battles) and `duel_orders` (Glory
-  spends by request id). Ratings, leagues, matches, seasons and rewards come
-  in later migrations; `merchant_purchases` with the map merchants.
+  spends by request id). `0008_duel_ranked.sql` (landed): `duel_ratings`,
+  `duel_queue_state` (abandons, cooldown) and `duel_matches`. Seasons and
+  rewards come in a later migration; `merchant_purchases` with the map
+  merchants.
 - **Durable Objects:** `MatchmakerDO` (queue, pairing, live presence) and
   `DuelDO` (one per live match: lockstep relay, reconnect, replay,
   result). The shard `RegionDO` keeps friendly duels for now and can hand

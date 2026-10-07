@@ -169,17 +169,36 @@ const SCREENS = [
     ['duel-shop-gear', { tab: 'shop', shop: 'gear' }, ''],
     ['duel-shop-sell', { tab: 'shop', shop: 'sell' }, ''],
     ['duel-hero', { tab: 'team' }, 's.openHero(s.profile.heroes[6].id);'],
+    // live ranked (slice 3): the league card, the level gate, the search and the opponent found
+    ['duel-ranked', { tab: 'ranked' }, ''],
+    ['duel-ranked-locked', { tab: 'ranked', demoXp: 0 }, ''],
+    ['duel-searching', { tab: 'ranked' }, "s.src.findDelayMs = 1e8; s.findMatch('ranked');"],
+    ['duel-found', { tab: 'ranked' }, "s.src.findDelayMs = 0; s.foundHoldMs = 1e8; s.findMatch('ranked');"],
   ].map(([id, data, after]) => ({
     id,
     owner: 'B',
     run: async (p) => {
-      await start(p, 'Duel', { ...data, preview: true });
+      await start(p, 'Duel', { demoXp: 560, ...data, preview: true });
+      if (data.tab === 'ranked') await until(p, () => !!window.__game.scene.getScene('Duel').ranked, 4000);
       await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
       await wait(p, 300);
       if (after) await call(p, 'Duel', `${after} return 1;`);
       return wait(p, 600);
     },
   })),
+  {
+    // the report of a ranked match (rating change, promotion) on the demo
+    id: 'duel-ranked-result',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Duel', { tab: 'ranked', preview: true, demoXp: 560 });
+      await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
+      await wait(p, 600); // (the scene object keeps its last profile while it restarts)
+      await call(p, 'Duel', 's.previewMatchResult(); return 1;');
+      await until(p, () => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 8000);
+      return wait(p, 3000);
+    },
+  },
   ...['browse', 'mine', 'sell'].map((tab) => ({ id: `market-${tab}`, owner: 'B', run: async (p) => (await start(p, 'Market', { demo: true, tab }), wait(p, 1000)) })),
   {
     id: 'market-detail',

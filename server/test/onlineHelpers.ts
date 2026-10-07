@@ -130,8 +130,13 @@ export interface WsClient {
   onMessage?: (m: Record<string, unknown>) => void;
 }
 
-export async function wsOnline(token: string): Promise<WsClient> {
-  const res = await SELF.fetch(`${BASE}/ws/online`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${token}` } });
+export function wsOnline(token: string): Promise<WsClient> {
+  return wsPath(token, '/ws/online');
+}
+
+/** A socket on any /ws/* path (the shard, the duel queue, a duel match). */
+export async function wsPath(token: string, path: string): Promise<WsClient> {
+  const res = await SELF.fetch(`${BASE}${path}`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${token}` } });
   expect(res.status).toBe(101);
   const ws = res.webSocket!;
   const msgs: Record<string, unknown>[] = [];

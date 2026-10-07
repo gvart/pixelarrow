@@ -34,7 +34,7 @@ export interface EventSpec {
 const int = (min: number, max: number): PropSpec => ({ kind: 'int', min, max });
 const en = (...values: string[]): PropSpec => ({ kind: 'enum', values });
 
-export const BATTLE_MODES = ['offline', 'trial', 'online', 'beast', 'boss', 'duel', 'ladder'] as const;
+export const BATTLE_MODES = ['offline', 'trial', 'online', 'beast', 'boss', 'duel', 'ladder', 'ranked', 'unranked'] as const;
 export const BATTLE_RESULTS = ['win', 'loss', 'draw'] as const;
 
 export const ANALYTICS_EVENTS = {
