@@ -183,15 +183,16 @@ with DESIGN.md or ROADMAP.md, this document wins.
 
 ## Monetization and economy
 
-- **Telegram Stars buy:**
+- **Stars buy only Drachmae.** Drachmae are the game's single premium
+  currency, sold in Stars packs. Everything premium is priced in Drachmae, never
+  directly in Stars:
   - cosmetics: shield emblems, banners, cloaks, clan flags, army skins and
     map-table themes;
-  - a seasonal pass with a free and a paid track;
-  - Drachmae (premium currency);
-  - consumables, as a shortcut.
+  - the seasonal pass (free and paid tracks);
+  - consumables, as a shortcut to gold.
 
-  No direct power purchases: no gear or heroes for Stars.
-- **Drachmae:** bought with Stars and tradeable between players. Marketplace
+  No direct power purchases: no gear or heroes for Drachmae.
+- **Drachmae** are account-wide and tradeable between players. Marketplace
   listings can be priced in gold or Drachmae, and the game takes a 10% fee on
   every sale, which is removed from the economy. Drachmae never convert back
   to Stars, so there are no payouts to players. Check Telegram's current rules
@@ -199,7 +200,7 @@ with DESIGN.md or ROADMAP.md, this document wins.
 - **Consumables:** healing salves, morale wine, a war horn (a one-time rally),
   sharpening stones (+damage for one battle) and march rations (faster
   marches).
-  - Bought with gold, or with Stars or Drachmae as a shortcut.
+  - Bought with gold, or with Drachmae as a shortcut.
   - Daily cap per player.
   - At most one consumable per battle in PvP attacks and duels.
 
