@@ -89,8 +89,8 @@ the code keeps for it are in [ROADMAP.md](ROADMAP.md).
 - **Abilities** are `{ kind: 'ability', unit, ability }` orders, validated and
   logged by the sim like any order, so replays stay exact:
   - *Shield Bash* (12 s, needs a shield and an enemy close in front): stuns him
-    1.5 s, then **dazed** 3 s (cannot block, takes +20% damage), shoved back
-    half a pace, small hit and −9 morale.
+    1.5 s, then **dazed** 2 s (cannot block, takes +20% damage), shoved back
+    half a pace, small hit and −6 morale.
   - *Volley* (20 s): every missile-man within 6 paces with a target looses two
     free shots at once (+30% damage, +10% accuracy).
   - *Berserk* (40 s): 8 s of fury: +50% damage, 25% faster blows, +0.5 morale
@@ -206,6 +206,58 @@ A pure TypeScript, real-time simulation with no Phaser imports:
   for enemies already slain, and survivors keep their full XP. It is a logged
   order like any other, so replays reproduce it.
 
+### Battle terrain (`src/data/terrain.ts`, `src/sim/terrain.ts`, `src/world/battlefield.ts`)
+
+Every battle is fought on a seeded **terrain grid**, one cell per field unit
+(24 × 36), with a terrain kind and a height level 0–3 per cell. The grid is
+part of `BattleSetup` (`terrain: { w, h, cells, height, name }`, plain strings),
+so a battle replays, and the server verifies it, without regenerating
+anything. A setup **without** `terrain` (older clients, old logs) is an open
+flat plain and plays exactly as before; so does an all-open flat grid
+(`tests/terrain.test.ts` checks both).
+
+- **Generation** (`generateBattlefield(seed, site)`): the site comes from the
+  overland tile where the armies meet (`siteAt`: the tile's terrain, forest
+  share around it, a river within a tile, the sea within two, mountains near
+  → rocks); skirmishes get a random site. Plains, scrub, woodland, hills and
+  beaches each have a profile: elliptical hills with stepped heights, forest
+  and scrub patches by thresholded noise, rock clusters ringed by rough
+  ground, a meandering river with a 3–4 cell ford between the deployment
+  zones, the sea and a beach along one flank. The centre of each deployment
+  front is never blocked.
+- **Effects** (all data in `TERRAIN` / `HEIGHT_RULES`):
+
+| Terrain | Speed | Other |
+| --- | --- | --- |
+| Open ground | ×1 | — |
+| Scrub | ×0.88 | 10% missile cover, slight scatter |
+| Forest | ×0.62 | 38% missile cover, ranks scatter (±0.45), block ×0.85, no braced spear wall (brace bonus ×0.35) |
+| River | ×0.32 | no shield wall, block ×0.55, scatter |
+| Ford | ×0.55 | no shield wall, block ×0.7 |
+| Rough ground | ×0.78 | block ×0.92, brace ×0.8 |
+| Beach sand | ×0.85 | — |
+| Rocks, sea | impassable | men slide along them; slots on them move to free ground |
+
+  **High ground:** melee blows +25% per level above the target (−20% per
+  level below, capped at two levels), a charge downhill +15% impact per level,
+  missiles +12% damage and +0.8 range per level shot downhill ("better
+  sight"); climbing to a higher level is ×0.7 speed and costs extra stamina.
+  Missile cover is rolled in the sim's seeded RNG only when the target stands
+  in cover, so open-field battles consume the same random numbers as before.
+- **Bot:** at deployment the main line moves onto the highest ground in its
+  zone (if clearly higher) and skirmishers form up deep in the nearest wood;
+  a line on a hill **holds** it while the enemy climbs (up to 50 s, or until
+  it is shot at from below); facing a river it makes for the ford, and waits
+  on its bank rather than wade across under fire or onto men holding the far
+  bank (up to 55 s); advancing skirmishers prefer a wood within range.
+- **Rendering:** the iso ground texture is painted per pixel from the grid
+  (forest floor, scrub, sand, stony ground, water with ripples and foam,
+  ford stepping stones, lighter ground per height level with a dark face and
+  lit lip on every contour step). Trees and boulders are upright sprites,
+  depth-sorted with the soldiers by screen y; a tree fades while a soldier
+  stands behind it. Water glints shimmer in stepped frames. One battlefield
+  texture is kept at a time. The deployment banner names the site.
+
 ### Bot AI (`src/sim/ai.ts`)
 
 Uses the same orders as the player. The main line waits briefly (shield wall
@@ -261,7 +313,7 @@ still never rout a charging line within 15 s, rear attack routs the line at
 | Perk given to | Win rate |
 | --- | --- |
 | nobody (baseline) | 49% |
-| Shield Bash, all line men | 66% |
+| Shield Bash, all line men | 59% (was 66%: daze 3 s → 2 s, morale hit 9 → 6) |
 | Berserk, all line men | 57% |
 | Volley, one skirmisher | 54% |
 | Rally Cry, one hero | 54% |
@@ -269,10 +321,21 @@ still never rout a charging line within 15 s, rear attack routs the line at
 | Eagle Eye aura, one skirmisher | 52% |
 | Warlord aura, one hero | 56% |
 
-Every one helps; none decides a battle alone. Bash on a whole line is the
-strongest, as it should be for a group-wide tier-2 perk; Eagle Eye matters
+Every one helps; none decides a battle alone. Bash on a whole line is among
+the strongest, as it should be for a group-wide tier-2 perk; Eagle Eye matters
 little with only three missile-men in the army (it shines in archer-heavy
 bands).
+
+**Terrain** — the same mirror armies (120 seeds each, both bot-driven);
+win/loss for the named side. Defending a ridge is the clear advantage it
+should be; symmetric fields stay even, and broken ground makes battles longer:
+
+| Field | Win / loss | Median length |
+| --- | --- | --- |
+| flat open plain (control) | 46% / 54% | 94 s |
+| defending a ridge vs attacking it | **63% / 38%** | 143 s |
+| river across the middle, ford in the centre | 49% / 51% | 103 s |
+| generated plain / scrub / forest / hills / beach | 45–54% | 96–141 s |
 
 `tests/balance.test.ts` checks the matched targets on smaller samples;
 `tests/abilities.test.ts` covers each ability, auras, cooldowns, knock-outs
@@ -282,9 +345,15 @@ and replay determinism with abilities in the order log.
 
 - Tap a group tag, tab or soldier to select a group. Tap the same soldier again
   to select that hero alone; any order then detaches him (Solo / Join).
-- Drag on the ground with a group selected to draw its front line: the length
-  sets the frontage (files) and therefore depth, the facing is perpendicular to
-  the line towards the enemy. Dashed placement boxes show every target slot.
+- **Formation drag faces the pull** (deployment and battle): with a group
+  selected, touch where it should stand and pull. The soldiers face the
+  direction the finger moves (the pull vector taken through the inverse iso
+  projection), the front rank is laid across it centred on the touch point. A
+  short pull only turns the group; every 1.5 paces of pull beyond 2.5 adds a
+  rank (`src/ui/dragFormation.ts`). Dashed placement boxes and a facing arrow
+  preview the result live.
+- **Long-press the ground in deployment** for a tooltip: the terrain there,
+  its height and what it does.
 - Tap the ground to move a group keeping its shape; tap an enemy to attack him.
 - Orders: Hold, Advance, Charge, Throw/Loose, Shield wall, Fall back.
   Formations: Line, Column, Wedge, Loose (skirmish), Shield wall.
@@ -414,8 +483,10 @@ zoom 1–4×.
 
 - No food or wages yet: the economy runs on loot, recruits, gear, repairs
   and healing. Bands do not fight each other or besiege settlements.
-- Terrain on the world map does not carry into battle (every battle is on the
-  open grass plain); no sieges, sailing or cavalry.
+- Battle terrain is read from the overland tile (the overland map itself is
+  slated to become a hex map, see DESIGN_V2.md); no sieges, sailing or cavalry.
+  Units are not raised on hills in the iso view: height is shown by shading
+  and contour steps only.
 - Defeat on the map does not capture the commander; the band simply keeps
   its survivors and both sides break off.
 - Ability and aura balance was tuned in mirror battles of level-4 armies;
