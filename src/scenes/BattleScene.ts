@@ -1017,7 +1017,7 @@ export class BattleScene extends BaseScene {
     const solo = this.selUnit >= 0 && !grp.individual;
     const members = solo ? [this.sim.units[this.selUnit]] : this.sim.activeMembers(grp.id);
     const ids = new Set(members.map((u) => u.id));
-    for (const v of this.views) if (ids.has(v.u.id) && (near(v.spr.x, v.spr.y - 10) || near(v.spr.x, v.spr.y))) return true;
+    for (const v of this.views) if (ids.has(v.u.id) && (near(v.spr.x, v.spr.y - v.tall / 2) || near(v.spr.x, v.spr.y))) return true;
     if (solo) return false;
     for (const s of [...this.sim.groupSlots(grp.id), { x: grp.formation.cx, y: grp.formation.cy }]) {
       const w = isoToScreen(s.x, s.y);
@@ -1033,7 +1033,8 @@ export class BattleScene extends BaseScene {
     const n = solo ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
     const u = solo ? this.sim.units[this.selUnit] : null;
     const press = screenToIso(g.wx0, g.wy0);
-    const k = 2 / this.cameras.main.zoom;
+    // thresholds are in paces at the default zoom (1: a pace is 36 px across a tile) and scale with zoom
+    const k = 1 / this.cameras.main.zoom;
     return slingStart({ cx: u ? u.x : f.cx, cy: u ? u.y : f.cy, fx: f.fx, fy: f.fy, frontage: solo ? 1 : f.frontage, n }, press.x, press.y, k);
   }
 

@@ -239,9 +239,25 @@ check('pinch start cancels the pending formation order', (await orders()) === o1
 await ev(() => { const s = window.__game.scene.getScene('Battle'); s.frameArmies(); });
 await wait(200);
 g = await geo([]);
-// three paces in front of the group (clear of its men), inside the deployment zone
-const dest = [g.f.cx + g.f.fx * 3, Math.min(g.z.y1 - 0.5, Math.max(g.z.y0 + 0.5, g.f.cy + g.f.fy * 3))];
-const dpt = await geo([[dest[0] - g.f.cx, dest[1] - g.f.cy]], false);
+// three to six paces in front of the group (clear of its men and of the group tags), inside the deployment zone
+let dest = null;
+let dpt = null;
+for (const d of [3, 4, 5, 6]) {
+  const c = [g.f.cx + g.f.fx * d, Math.min(g.z.y1 - 0.5, Math.max(g.z.y0 + 0.5, g.f.cy + g.f.fy * d))];
+  const q = await geo([[c[0] - g.f.cx, c[1] - g.f.cy]], false);
+  const free = await ev(([x, y]) => {
+    const s = window.__game.scene.getScene('Battle');
+    const cam = s.cameras.main;
+    // not on a soldier (a tap there selects him) nor on a tag
+    const clear = s.views.every((v) => v.u.state === 'dead' || Math.hypot((v.spr.x - cam.worldView.x) * cam.zoom - x, (v.spr.y - v.tall * 0.45 - cam.worldView.y) * cam.zoom - y) > 34);
+    return clear && s.input.hitTestPointer({ x, y, camera: null }).length === 0;
+  }, q.pts[0]);
+  if (free || d === 6) {
+    dest = c;
+    dpt = q;
+    if (free) break;
+  }
+}
 await tap(dpt.pts[0][0], dpt.pts[0][1]);
 F = (await geo([])).f;
 check('tap on the ground moves the selected group there', Math.abs(F.cx - dest[0]) < 0.3 && Math.abs(F.cy - dest[1]) < 0.3 && F.frontage === g.f.frontage, JSON.stringify([F.cx.toFixed(2), F.cy.toFixed(2), dest]));

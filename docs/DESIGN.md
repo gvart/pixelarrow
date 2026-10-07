@@ -523,7 +523,7 @@ and replay determinism with abilities in the order log.
   - Lift to commit. Cancel (no order): lift back on the start point, or after
     a tiny pull (< 0.5 pace) from a group that was not carried. A carried
     group lifted without a pull moves there keeping its facing and shape.
-  - Distances are in paces at 2x zoom and scale with the zoom, so the gesture
+  - Distances are in paces at the default 1x zoom (36 px tiles) and scale with the zoom, so the gesture
     feels the same on screen at any zoom.
 - **Long-press the ground in deployment** for a tooltip: the terrain there,
   its height and what it does.
@@ -545,7 +545,7 @@ and replay determinism with abilities in the order log.
   buttons above the info strip with a stepped cooldown sweep and a count of
   ready holders. Shouts and volleys use the best-placed holder; bashes and
   fury fire for every ready holder. Tapping an unusable one says why.
-- **Camera:** opens at 2× (more if both armies fit) centred on the player's
+- **Camera:** opens at 1× (sprites are drawn at native size; more if both armies fit) centred on the player's
   army; once the fight starts it smoothly follows the melee (or the army)
   until the player pans or pinches; the eye button resumes following.
 - Pause any time; orders can be given while paused. Auto-pause (settings):
