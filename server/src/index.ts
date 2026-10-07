@@ -17,6 +17,7 @@ import { webhook } from './routes/webhook';
 import { WS_PROTOCOL } from './region';
 import { online } from './online/routes';
 import { economy } from './economy/routes';
+import { duel } from './duel/routes';
 import { currentSeason, requireProfile, shardDoName } from './online/store';
 import { notifyRoutes } from './notify/routes';
 import { runScheduled } from './notify/jobs';
@@ -90,6 +91,7 @@ app.get('/admin/', (c) => c.redirect('/admin', 301));
 
 app.route('/api/online', online);
 app.route('/api/economy', economy);
+app.route('/api/duel', duel);
 app.route('/api/notify', notifyRoutes);
 
 app.post('/api/battle/verify', requireAuth, async (c) => {

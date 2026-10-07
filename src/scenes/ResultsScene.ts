@@ -284,7 +284,7 @@ export class ResultsScene extends BaseScene {
       { icon: 'hourglass', key: 'time', value: r.duration, text: formatDuration(r.duration) },
       { icon: 'swords', key: 'kills', value: r.kills },
       { icon: 'skull', key: 'losses', value: r.losses, font: r.losses > 0 ? 'red' : 'ink' },
-      { icon: 'coin', key: 'gold', value: r.gold, prefix: '+', font: 'good' },
+      r.glory !== undefined ? { icon: 'star', key: 'glory', value: r.glory, prefix: '+', font: 'good' } : { icon: 'coin', key: 'gold', value: r.gold, prefix: '+', font: 'good' },
       { icon: 'star', key: 'xp', value: r.xp, prefix: '+', font: 'good' },
     ];
     tiles.forEach((tl, i) => {

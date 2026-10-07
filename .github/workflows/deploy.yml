@@ -99,7 +99,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        script: [smoke, online-smoke, fullscreen-smoke, audio-smoke, tutorial-smoke]
+        script: [smoke, online-smoke, fullscreen-smoke, audio-smoke, tutorial-smoke, duel-smoke]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

@@ -37,6 +37,7 @@ server/
     economy/          routes.ts (/api/economy: catalog, wallet, buy, cosmetics, season pass),
                       catalog.ts (cosmetics, pass tiers, market limits: all prices), wallet.ts (Drachmae
                       ledger helpers), pass.ts (pass XP)
+    duel/             routes.ts (/api/duel: duel profile, roster, develop, team, shop, ladder tickets), store.ts (D1 access)
     telegramAuth.ts   initData validation (HMAC-SHA256, constant-time, 24 h max age)
     session.ts        stateless signed session tokens
     payments.ts       pre-checkout checks, idempotent payment/refund recording
@@ -82,6 +83,7 @@ Authenticated routes take `Authorization: Bearer <token>`.
 | GET (WS) | `/ws/region/:id` | token | presence WebSocket (see below) |
 | … | `/api/online/*` | ✓ | online mode, see "Online mode" |
 | GET (WS) | `/ws/online` | token | the player's shard: presence, duel lobby, lockstep relay |
+| … | `/api/duel/*` | ✓ | the persistent duel army, Glory, the duel shop and the PvE ladder, see "Duels" |
 | POST | `/api/telemetry/errors` | optional (header or body `token`) | client crash reports, deduplicated into D1 `client_errors` (docs/OPS.md "Monitoring") |
 | POST | `/api/telemetry/events` | ✓ (header or body `token`) | allowlisted product analytics events → Analytics Engine (docs/OPS.md "Analytics") |
 | POST | `/api/telemetry/consent` | ✓ | body `{ analytics: boolean }`: the Settings opt-out |
@@ -451,6 +453,41 @@ the reward in one batch; claiming again grants nothing.
   paid to sellers stay theirs (account-wide). There is no listing fee, so
   nothing is refunded.
 - Every list, buy, cancel and expiry is in `market_audit` (actor, price, fee).
+
+## Duels
+
+Design: [docs/DUELS.md](../docs/DUELS.md). Code: `server/src/duel/` (routes,
+store), shared rules in `src/duel/` (`rules.ts` costs, budget, shop;
+`ladder.ts` floors and payouts), migration `0007_duels.sql`.
+
+The duel army is a second roster per account: persistent (no `season_id`,
+never reset), separate from the war-map army, with its own stash and the
+duel-only currency **Glory**. Every write follows the online convention: the
+first statement of a D1 batch bumps `duel_profiles.rev`, the rest is guarded
+by it. Glory spends and gains (`recruit`, `shop/buy`, `shop/sell`, `respec`)
+carry a client `requestId` (8–64 chars `[A-Za-z0-9_-]`) recorded in
+`duel_orders`: a retry answers with the stored result (`replayed: true`); the
+same id for something else is **409** `request_reused`. Every answer that
+changes the army includes the new `profile`.
+
+| Method | Path | Body | Notes |
+| --- | --- | --- | --- |
+| POST | `/api/duel/profile` | – | opens the mode (idempotent): starter roster of 6 (2 hoplites, 2 archers, a peltast, a slinger), all in the team, 200 Glory |
+| GET | `/api/duel/profile` | – | `{ now, day, glory, xp, level, ladder: {cleared, farmLeft, farmCap}, team, formations, heroes, stash, battles, wins, bought }`; **409** `no_duel_profile` before the first POST |
+| POST | `/api/duel/recruit` | `{ cls, requestId }` | a level-1 hero of an unlocked class for its recruitment price in Glory (`locked`, `not_recruitable`, `roster_full` at 30, `cannot_afford`) |
+| POST | `/api/duel/dismiss` | `{ heroId }` | the hero leaves (gear to the stash, no refund); the last hero stays |
+| POST | `/api/duel/equip` | `{ heroId, slot, itemUid \| null }` | stash ⇄ hero; two-handed weapons and shields exclude each other |
+| POST | `/api/duel/develop` | `{ heroId, attrs?: {str,agi,end,wil}, perks?: [] }` | spends attribute points and takes perks, checked against points, `ATTR_MAX` and the class tree (`no_points`, `attr_max`, `bad_perk`) |
+| POST | `/api/duel/respec` | `{ heroId, requestId }` | 20 Glory × level: recruit attributes back, all points back, no perks |
+| POST | `/api/duel/team` | `{ heroIds?, formations?, groups? }` | the team (≤ 10, any order), formations and battle groups; the budget is checked when a battle starts |
+| POST | `/api/duel/shop/buy` | `{ offer, requestId }` | a catalogue offer (`<item>:<common\|uncommon\|rare>`) or one of today's (`day<N>:<item>:<rarity>`, once per player and UTC day: `sold_out`) |
+| POST | `/api/duel/shop/sell` | `{ uid, requestId }` | a stash item back for a quarter of its shop price |
+| POST | `/api/duel/ladder/start` | `{ floor }` | the next floor or any cleared one (`floor_locked`); the team must fit the floor's budget (`no_team`, `team_too_big`, `over_budget`). An open ticket of the same floor is resumed (same seed); one of another floor is abandoned. → `{ ticket, floor, boss, expiresAt, setup, team, enemies }` |
+| POST | `/api/duel/ladder/submit` | `{ ticket, orders, deployOrders, claim }` | replayed like an attack (`replay_mismatch`, `sim_rejected`, `ticket_expired` after 10 min); pays hero XP always, and on a win Glory (first clear, or farm Glory under the 300-a-day cap), account XP and maybe an item. Only progression is written to the heroes (gear changed meanwhile stays). A repeat of the same claim returns the stored result. |
+| POST | `/api/duel/ladder/abandon` | `{ ticket }` | gives an open ticket up (nothing is lost) |
+
+No deaths, wounds or wear in duels. Analytics: `duel_join` once per player,
+`battle_result` / `first_battle` with mode `ladder`.
 
 ## Bot notifications
 

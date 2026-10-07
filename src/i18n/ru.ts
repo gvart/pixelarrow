@@ -4,6 +4,7 @@ import type { Table } from './index';
 import { BATTLE_RU } from './battle.ru';
 import { RU_ARMY } from './ru.army';
 import { BEASTS_RU } from './beasts.ru';
+import { DUELS_RU } from './duels.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -259,4 +260,5 @@ export const RU: Table = {
   ...RU_ARMY,
   // ---- mythical beasts, the Beast trial, world bosses (beasts.ru.ts)
   ...BEASTS_RU,
+  ...DUELS_RU,
 };

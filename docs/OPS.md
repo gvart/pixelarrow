@@ -180,9 +180,10 @@ data point in `pixelarrow_events`:
 | `tutorial_step` | client (`track('tutorial_step', { id, step })`) | step id | step number |
 | `tutorial_complete` | client | – | duration ms |
 | `tutorial_skip` | client | step id | step number |
-| `battle_result` | client for offline battles; server for `online`, `beast` (lair), `boss` (raid), `duel` | mode, result (`win`/`loss`/`draw`) | ticks |
+| `battle_result` | client for offline battles; server for `online`, `beast` (lair), `boss` (raid), `duel`, `ladder` (duel PvE ladder) | mode, result (`win`/`loss`/`draw`) | ticks |
 | `first_battle` | server, once per player (D1 `analytics_milestones`) | mode | – |
 | `online_join` | server, joining a season | – | shard, season |
+| `duel_join` | server, opening the duel mode the first time | – | – |
 | `first_capture` | server, once per player | – | – |
 | `clan_join` | server | `create` / `invite` | – |
 | `purchase` | server, Stars payment webhook | pack id | Drachmae, Stars |

@@ -11,7 +11,7 @@ import {
   uiBoundsOf, type StashState,
 } from '../ui/sheet';
 import { P } from '../art/palette';
-import { state } from '../state';
+import { campaignHeroes, type HeroSource } from './heroSource';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { xpToNext, type Hero } from '../data/units';
 import { TRAITS } from '../data/traits';
@@ -31,6 +31,8 @@ interface HeroData {
   heroId?: string;
   back?: Record<string, unknown>;
   tab?: Tab;
+  /** Whose heroes (default: the offline campaign's). */
+  source?: HeroSource;
 }
 
 /**
@@ -43,6 +45,7 @@ interface HeroData {
  */
 export class HeroScene extends BaseScene {
   private heroId = '';
+  private src: HeroSource = campaignHeroes;
   private from: Record<string, unknown> = {};
   private pending: Record<AttrId, number> = { str: 0, agi: 0, end: 0, wil: 0 };
   private tab: Tab = 'stats';
@@ -63,8 +66,16 @@ export class HeroScene extends BaseScene {
   create(data: HeroData): void {
     this.initUi();
     ensureFonts(this);
-    const camp = state.campaign;
-    this.heroId = data?.heroId && camp.hero(data.heroId) ? data.heroId : camp.data.heroes[0]?.id ?? '';
+    this.src = data?.source ?? campaignHeroes;
+    const all = this.src.heroes();
+    this.heroId = data?.heroId && all.some((h) => h.id === data.heroId) ? data.heroId : all[0]?.id ?? '';
+    // a server-backed source redraws when its answer arrives
+    this.src.onChange = () => this.sys.isActive() && this.build();
+    this.src.onError = (msg) => {
+      if (!this.sys.isActive()) return;
+      hapticNotify('error');
+      toast(this, msg, 'bad');
+    };
     this.from = data?.back ?? {};
     this.tab = data?.tab && TABS.includes(data.tab) ? data.tab : this.tab;
     this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
@@ -84,15 +95,15 @@ export class HeroScene extends BaseScene {
   }
 
   private hero(): Hero | undefined {
-    return state.campaign.hero(this.heroId);
+    return this.src.heroes().find((h) => h.id === this.heroId);
   }
 
   back(): void {
-    this.scene.start('Army', { ...this.from, heroId: this.heroId });
+    this.src.back(this, this.heroId, this.from);
   }
 
   private cycleHero(d: number): void {
-    const hs = state.campaign.data.heroes;
+    const hs = this.src.heroes();
     const i = hs.findIndex((h) => h.id === this.heroId);
     this.heroId = hs[(i + d + hs.length) % hs.length].id;
     this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
@@ -123,7 +134,7 @@ export class HeroScene extends BaseScene {
       L.add(new Button(this, 3, 2, 26, 22, { icon: 'back', onClick: () => this.back() }));
       left = 32;
     }
-    const many = state.campaign.data.heroes.length > 1;
+    const many = this.src.heroes().length > 1;
     const right = many ? VW - 4 - 2 * 24 - SIZE.gap : VW - 4;
     if (many) {
       L.add(new Button(this, VW - 4 - 2 * 24 - SIZE.gap, 2, 24, 22, { label: '<', tip: t('hero.prev'), id: 'hero.prev', onClick: () => this.cycleHero(-1) }));
@@ -282,9 +293,10 @@ export class HeroScene extends BaseScene {
     const c = area.content;
     const w = VW - 8 - 3;
     let y = 0;
-    // points header
-    c.add(addText(this, 0, y + 1, free > 0 ? t('hero.points', { n: free }) : (h.points > 0 ? t('hero.preview') : t('hero.noPoints')), free > 0 ? 'gold' : 'dim', 0, w));
-    y += 12;
+    // points header (it may wrap on narrow screens: the rows below start after it)
+    const head = wrapText(free > 0 ? t('hero.points', { n: free }) : h.points > 0 ? t('hero.preview') : t('hero.noPoints'), w, 2);
+    c.add(addText(this, 0, y + 1, head.lines.join('\n'), free > 0 ? 'gold' : 'dim'));
+    y += 2 + head.lines.length * LINE_H;
     const next = previewAttrs(h, this.pending);
     ATTR_IDS.forEach((k) => {
       c.add(addPanel(this, 0, y, w, 25, 'inset'));
@@ -334,6 +346,36 @@ export class HeroScene extends BaseScene {
       c.add(addText(this, 6, y + 10, wr.lines.join('\n'), 'dim'));
       y += 10 + wr.lines.length * LINE_H + 3;
     }
+    const rs = this.src.respec;
+    if (rs) {
+      // duel heroes: buy back every attribute point and perk
+      y += 4;
+      const price = rs.price(h);
+      const b = new Button(this, 0, y, w, SIZE.btnH, {
+        label: t('hero.respec', { n: price }),
+        icon: 'back',
+        id: 'hero.respec',
+        tip: t('hero.respecTip'),
+        onClick: () =>
+          confirmDialog(this, {
+            title: t('hero.respecTitle', { name: h.name }),
+            body: t('hero.respecBody', { n: price }),
+            ok: t('hero.respecOk'),
+            cancel: t('common.cancel'),
+            okIcon: 'back',
+            onOk: () => {
+              this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
+              if (!rs.run(h.id)) {
+                hapticNotify('error');
+                toast(this, t('duels.noGlory'), 'bad');
+              }
+            },
+          }),
+      });
+      b.setEnabled(h.level > 1 || h.perks.length > 0, t('hero.respecNothing'));
+      c.add(b);
+      y += SIZE.btnH + 4;
+    }
     area.setContentHeight(y + 4);
     frameScrollTexts(area, VW - 8);
     if (pend) {
@@ -351,7 +393,7 @@ export class HeroScene extends BaseScene {
     const { VW, VH } = this.m;
     const top = this.pageTop;
     this.stash = new StashGrid(this, this.page, 4, top, VW - 8, VH - top - 4, {
-      items: () => state.campaign.data.stash,
+      items: () => this.src.stash(),
       state: this.stashState,
       hero: () => this.hero(),
       drag: this.drag,
@@ -382,8 +424,8 @@ export class HeroScene extends BaseScene {
   }
 
   private openEquipped(h: Hero, slot: Slot, it: Item): void {
-    const camp = state.campaign;
-    const cost = camp.repairCost(it);
+    const gold = this.src.gold();
+    const cost = this.src.repairCost(it);
     openItemCard(this, {
       item: it,
       hero: h,
@@ -391,54 +433,56 @@ export class HeroScene extends BaseScene {
       notes: [{ text: t('stash.equippedBy', { name: h.name }) }],
       actions: [
         { label: t('stash.unequip'), icon: 'back', id: 'stash.unequip', onClick: () => this.unequip(slot) },
-        cost > 0
-          ? { label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', variant: 'primary', disabled: camp.data.gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) }
-          : { label: t('stash.full'), icon: 'check', id: 'stash.full', disabled: t('stash.full'), onClick: () => {} },
+        // gear that never wears (duels) has no repair button
+        ...(gold === null
+          ? []
+          : [
+              cost > 0
+                ? { label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', variant: 'primary' as const, disabled: gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) }
+                : { label: t('stash.full'), icon: 'check', id: 'stash.full', disabled: t('stash.full'), onClick: () => {} },
+            ]),
       ],
     });
   }
 
   private openStashItem(it: Item): void {
     const h = this.hero();
-    const camp = state.campaign;
-    const cost = camp.repairCost(it);
+    const gold = this.src.gold();
+    const cost = this.src.repairCost(it);
     openItemCard(this, {
       item: it,
       hero: h,
       actions: [
-        ...(cost > 0 ? [{ label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', disabled: camp.data.gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) }] : []),
+        ...(gold !== null && cost > 0 ? [{ label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', disabled: gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) }] : []),
         { label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', onClick: () => this.equip(it) },
       ],
     });
   }
 
   equip(it: Item): void {
-    if (!state.campaign.equip(this.heroId, it.uid)) {
+    if (!this.src.equip(this.heroId, it.uid)) {
       hapticNotify('error');
       return;
     }
     hapticNotify('success');
     toast(this, t('army.equipped', { name: itemName(it) }), 'good');
-    void state.save();
     this.build();
   }
 
   private unequip(slot: Slot): void {
-    state.campaign.unequip(this.heroId, slot);
+    this.src.unequip(this.heroId, slot);
     haptic('light');
-    void state.save();
     this.build();
   }
 
   private repair(it: Item): void {
-    if (!state.campaign.repair(it)) {
+    if (!this.src.repair(it)) {
       hapticNotify('error');
       toast(this, t('stash.noGold'), 'bad');
       return;
     }
     hapticNotify('success');
     toast(this, t('stash.repaired'), 'good');
-    void state.save();
     this.build();
   }
 
@@ -553,13 +597,12 @@ export class HeroScene extends BaseScene {
   }
 
   takePerk(id: PerkId): void {
-    if (!state.campaign.takePerk(this.heroId, id)) {
+    if (!this.src.takePerk(this.heroId, id)) {
       hapticNotify('error');
       return;
     }
     hapticNotify('success');
     toast(this, t('hero.perk.learnedToast', { name: tOr(`perk.${id}.name`, PERKS[id].name) }), 'good');
-    void state.save();
     this.build();
   }
 
@@ -659,12 +702,10 @@ export class HeroScene extends BaseScene {
   }
 
   confirmPoints(): void {
-    const camp = state.campaign;
-    for (const k of ATTR_IDS) for (let i = 0; i < this.pending[k]; i++) camp.spendPoint(this.heroId, k);
+    const ok = this.src.spendPoints(this.heroId, this.pending);
     this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
-    hapticNotify('success');
-    toast(this, t('hero.pointsSaved'), 'good');
-    void state.save();
+    hapticNotify(ok ? 'success' : 'error');
+    if (ok) toast(this, t('hero.pointsSaved'), 'good');
     this.build();
   }
 }

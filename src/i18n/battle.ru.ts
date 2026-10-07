@@ -190,6 +190,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'results.tile.kills': 'Убито',
   'results.tile.losses': 'Потери',
   'results.tile.gold': 'Золото',
+  'results.tile.glory': 'Слава',
   'results.tile.xp': 'Опыт',
   'results.mvp': 'Герой битвы',
   'results.mvpLine': '{kills} · урон {dmg}',
@@ -225,6 +226,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'results.tip.kills': 'Сколько врагов убило ваше войско',
   'results.tip.losses': 'Герои, павшие навсегда',
   'results.tip.gold': 'Заработанное золото',
+  'results.tip.glory': 'Заработанная слава: валюта дуэлей',
   'results.tip.xp': 'Опыт, разделённый между выжившими',
   'results.tip.card': 'Нажмите, чтобы осмотреть, сравнить и взять',
 

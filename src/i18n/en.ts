@@ -12,6 +12,7 @@ import { TUTORIAL_EN } from './tutorial.en';
 import { BATTLE_EN } from './battle.en';
 import { EN_ARMY } from './en.army';
 import { BEASTS_EN } from './beasts.en';
+import { DUELS_EN } from './duels.en';
 
 export const EN = {
   // ---- shared words
@@ -278,4 +279,5 @@ export const EN = {
   ...EN_ARMY,
   // ---- mythical beasts, the Beast trial, world bosses (beasts.en.ts)
   ...BEASTS_EN,
+  ...DUELS_EN,
 } as const;

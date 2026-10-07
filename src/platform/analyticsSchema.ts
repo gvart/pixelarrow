@@ -34,7 +34,7 @@ export interface EventSpec {
 const int = (min: number, max: number): PropSpec => ({ kind: 'int', min, max });
 const en = (...values: string[]): PropSpec => ({ kind: 'enum', values });
 
-export const BATTLE_MODES = ['offline', 'trial', 'online', 'beast', 'boss', 'duel'] as const;
+export const BATTLE_MODES = ['offline', 'trial', 'online', 'beast', 'boss', 'duel', 'ladder'] as const;
 export const BATTLE_RESULTS = ['win', 'loss', 'draw'] as const;
 
 export const ANALYTICS_EVENTS = {
@@ -53,6 +53,8 @@ export const ANALYTICS_EVENTS = {
   /** Offline battles are reported by the client; online, beast, boss and duel results by the server. */
   battle_result: { source: 'both', strings: { mode: en(...BATTLE_MODES), result: en(...BATTLE_RESULTS) }, numbers: { ticks: int(0, 1_000_000) } },
   online_join: { source: 'server', numbers: { shard: int(0, 1_000_000), season: int(0, 1_000_000) } },
+  /** Server: the player opened the duel mode for the first time (docs/DUELS.md). */
+  duel_join: { source: 'server' },
   /** Server-derived once per player: their first hex captured from a neutral or a player. */
   first_capture: { source: 'server' },
   clan_join: { source: 'server', strings: { how: en('create', 'invite') } },

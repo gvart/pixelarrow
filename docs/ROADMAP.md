@@ -183,6 +183,9 @@ ladder and unranked queue for farming, a global matchmaker with live ranked
 The war-map shop moves onto town and trading-post hexes. Slices, in order:
 duel roster and economy → live ranked → async and seasons → map merchants.
 
+Done: duel roster and economy (profile, team, budget, Glory, shop, hero
+development, ladder with verified battles; Menu → Duels). Next: live ranked.
+
 ## Next session: polish backlog
 
 Left over from the 2026-10-07 polish pass (smoke fix, parallel CI, narrator

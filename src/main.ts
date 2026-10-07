@@ -20,6 +20,7 @@ import { ShopScene } from './scenes/ShopScene';
 import { MarketScene } from './scenes/MarketScene';
 import { BeastTrialScene } from './scenes/BeastTrialScene';
 import { FirstRunScene } from './scenes/FirstRunScene';
+import { DuelScene } from './scenes/duel/DuelScene';
 import { installWidgets } from './ui/widgets';
 import { installDuelInvites } from './ui/duelInvites';
 import { checkUi, collectUi } from './ui/layout';
@@ -45,7 +46,7 @@ const game = new Phaser.Game({
   },
   input: { activePointers: 3 },
   audio: { noAudio: true }, // all sound is our own Web Audio (src/audio)
-  scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, OnlineScene, OnlineArmyScene, ClanScene, KitScene, ShopScene, MarketScene, BeastTrialScene, FirstRunScene],
+  scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, OnlineScene, OnlineArmyScene, ClanScene, KitScene, ShopScene, MarketScene, BeastTrialScene, FirstRunScene, DuelScene],
 });
 
 // Crash reports and product analytics (docs/OPS.md); analytics honours the Settings toggle.
