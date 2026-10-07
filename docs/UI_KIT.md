@@ -162,6 +162,8 @@ list to its end and checks again. It fails on:
 - `overlap` / `spacing`: interactive elements overlapping or closer than 4 pt;
 - `text-overflow`: text outside its box (its button / panel, or wider than
   its declared `maxWidth`); `text-overlap`: texts on top of each other;
+  `text-column`: a line of a wrapped block outside its declared column, or
+  the block's lines not sharing a left edge (`uiColumn`);
   `clipped`: something cut at the side of a scroll area;
 - `outside-safe-area`: anything outside the canvas;
 - `touch-size`: an interactive element under 44 pt.
@@ -181,6 +183,9 @@ Help it where needed:
 - `uiId(obj, 'army.dismiss')`: a stable name (otherwise the i18n key of the
   text, the label or icon of a button, or the normalised text);
 - `uiFrame(text, container, w, h)`: the box a text must stay in;
+- `uiColumn(line, container, x0, x1, blockId)`: one line of a wrapped,
+  left-aligned block (built line by line, e.g. the narrator's speech beside
+  his portrait) must stay in `x0 .. x1` and start where its block's lines start;
 - `uiBlocker(shade)`: a modal backdrop (everything under it is ignored;
   full-screen interactive rectangles are detected automatically);
 - `uiIgnore(obj)`: not a UI element (e.g. a full-screen drag zone);

@@ -196,6 +196,25 @@ describe('layout check', () => {
     const kinds = v.map((x) => `${x.check}:${x.ids.join('+')}`).sort();
     expect(kinds).toEqual(['outside-safe-area:f', 'overlap:a+b', 'spacing:c+d', 'text-overflow:t1', 'text-overlap:t2+t3', 'touch-size:e'].sort());
   });
+  it('flags a line that escapes its column and a ragged wrapped block', () => {
+    const col = { x0: 60, x1: 300 };
+    const ok = checkLayout(
+      [el('l1', 'text', 60, 400, 200, 9, { column: col, block: 'say', text: 'THE SLINGSHOT: PRESS ON' }), el('l2', 'text', 60, 410, 230, 9, { column: col, block: 'say', text: 'YOUR HOPLITES' })],
+      { width: 320, height: 568 },
+    );
+    expect(ok).toEqual([]);
+    // the last line flows out from beside the portrait to the panel's left edge
+    const v = checkLayout(
+      [
+        el('l1', 'text', 60, 400, 200, 9, { column: col, block: 'say', text: 'THEN PULL BACK. THEY' }),
+        el('l2', 'text', 12, 410, 200, 9, { column: col, block: 'say', text: 'FACE AWAY FROM YOUR FINGER.' }),
+      ],
+      { width: 320, height: 568 },
+    );
+    expect(v.map((x) => `${x.check}:${x.ids.join('+')}`).sort()).toEqual(['text-column:l2', 'text-column:say']);
+    // too wide for the column on the right
+    expect(checkLayout([el('l1', 'text', 60, 400, 260, 9, { column: col })], { width: 320, height: 568 }).map((x) => x.check)).toEqual(['text-column']);
+  });
   it('scrolled-out parts do not count', () => {
     const v = checkLayout([el('a', 'interactive', 10, 500, 50, 50, { visible: { x: 10, y: 500, w: 50, h: 40 } }), el('b', 'interactive', 10, 548, 50, 50, { visible: { x: 0, y: 0, w: 0, h: 0 } })], { width: 320, height: 568 });
     expect(v).toEqual([]);

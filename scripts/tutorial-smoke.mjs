@@ -165,6 +165,7 @@ check('pinch done', await doneWith('zoom'));
 
 // the slingshot: carry to the flag, pull back
 check('slingshot step', await talkingAt('sling', 8000));
+await ev(() => window.__game.scene.getScene('Battle').tutorial.narrator.finishTyping()); // the whole line in the screenshot
 // the ghost hand half-way through its demonstration
 await until(() => ev(() => { const g = window.__game.scene.getScene('Battle').tutorial.ghost; const t = window.__game.loop.time - g.start; return g.hands[0].visible && g.segs.length > 1 && t > g.segs[1].t0 + 150 && t < g.segs[1].t1; }), 12000, 50);
 await page.screenshot({ path: `${shots}/43-tutorial-gesture.png` });

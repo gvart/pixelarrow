@@ -7,7 +7,7 @@
  */
 import Phaser from 'phaser';
 import { Button, addPanel, addText } from '../kit';
-import { uiBlocker, uiFrame, uiId } from '../layout';
+import { uiBlocker, uiColumn, uiFrame, uiId } from '../layout';
 import { ellipsize, measureText, LINE_H } from '../textfit';
 import { SIZE } from '../theme';
 import { NARRATOR_SIZE, renderNarrator } from '../../art/narrator';
@@ -94,11 +94,13 @@ export class Narrator {
     const w = VW - 8;
     const tx = x + 4 + PORTRAIT + 5;
     const skipW = SIZE.btnMinW + SIZE.gap + 2;
-    // lines beside the portrait start right of it, lines below it use the whole width;
+    // every line stays in the column right of the portrait (the panel grows
+    // taller instead of a last line flowing under the portrait);
     // lines beside the skip button (top 3 .. 25) are shorter
     const lineY = (i: number) => 17 + i * LINE_H;
-    const lineX = (i: number) => (lineY(i) < PORTRAIT + 5 ? tx : x + 6);
-    const lines = wrapWidths(text, (i) => x + w - 6 - lineX(i) - (lineY(i) < 3 + SIZE.btnH ? skipW : 0));
+    const colR = x + w - 6;
+    // (1 px spare: a glyph box is a pixel wider than its measured advance)
+    const lines = wrapWidths(text, (i) => colR - tx - 1 - (lineY(i) < 3 + SIZE.btnH ? skipW : 0));
     const h = Math.max(PORTRAIT + 8, lineY(lines.length) - 3 + (o.tap ? 9 : 4));
     const y = o.y === 'bottom' ? VH - h - 2 : o.y;
     this.rect = { x, y, w, h };
@@ -119,8 +121,10 @@ export class Narrator {
     this.texts = [];
     let start = 0;
     lines.forEach((str, i) => {
-      const obj = addText(s, lineX(i), y + lineY(i), '', 'ink');
-      uiFrame(obj, this.c as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, w, h, x, y);
+      const obj = addText(s, tx, y + lineY(i), '', 'ink');
+      const ref = this.c as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject;
+      uiFrame(obj, ref, w, h, x, y);
+      uiColumn(obj, ref, tx, colR, 'tut.narrator.text');
       this.c.add(obj);
       this.texts.push({ obj, start, str });
       start += str.length + 1;

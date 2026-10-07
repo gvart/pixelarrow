@@ -27,6 +27,10 @@ export interface UiElement {
   frame?: Rect;
   /** Text: declared maximum line width in CSS px, if any. */
   maxW?: number;
+  /** Text: the column (left .. right, CSS px) a line of a wrapped block must stay in, if declared. */
+  column?: { x0: number; x1: number };
+  /** Text: id of the wrapped, left-aligned block this line belongs to (all its lines share a left edge). */
+  block?: string;
   /** Scene key and display-list path, for reports. */
   scene: string;
   path: string;
@@ -36,7 +40,7 @@ export interface UiElement {
   world?: boolean;
 }
 
-export type CheckKind = 'overlap' | 'spacing' | 'text-overflow' | 'text-overlap' | 'outside-safe-area' | 'touch-size' | 'clipped';
+export type CheckKind = 'overlap' | 'spacing' | 'text-overflow' | 'text-column' | 'text-overlap' | 'outside-safe-area' | 'touch-size' | 'clipped';
 
 export interface Violation {
   check: CheckKind;
@@ -114,6 +118,18 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
   for (const e of texts) {
     if (e.frame && !contains(e.frame, e.rect, eps)) out.push({ check: 'text-overflow', ids: [e.id], detail: `text ${fmt(e.rect)} outside its box ${fmt(e.frame)}` });
     else if (e.maxW !== undefined && e.rect.w > e.maxW + eps) out.push({ check: 'text-overflow', ids: [e.id], detail: `text ${Math.round(e.rect.w)}pt wider than ${Math.round(e.maxW)}pt` });
+  }
+  // Lines of a wrapped block stay in their column (e.g. beside a portrait) and share its left edge.
+  const blocks = new Map<string, UiElement[]>();
+  for (const e of texts) {
+    if (e.column && (e.rect.x < e.column.x0 - eps || e.rect.x + e.rect.w > e.column.x1 + eps))
+      out.push({ check: 'text-column', ids: [e.id], detail: `line ${fmt(e.rect)} outside its column ${Math.round(e.column.x0)}..${Math.round(e.column.x1)}` });
+    if (e.block && e.text?.trim()) (blocks.get(e.block) ?? blocks.set(e.block, []).get(e.block)!).push(e);
+  }
+  for (const [id, lines] of blocks) {
+    const left = Math.min(...lines.map((l) => l.rect.x));
+    const right = Math.max(...lines.map((l) => l.rect.x));
+    if (right - left > eps) out.push({ check: 'text-column', ids: [id], detail: `ragged block: line starts ${Math.round(left)}..${Math.round(right)}` });
   }
   for (let i = 0; i < texts.length; i++) {
     for (let j = i + 1; j < texts.length; j++) {

@@ -26,6 +26,8 @@ type GO = Phaser.GameObjects.GameObject & {
   __uiFrame?: () => Rect | null;
   __uiClip?: Phaser.GameObjects.GameObject;
   __uiMaxW?: number;
+  __uiColumn?: () => { x0: number; x1: number } | null;
+  __uiBlock?: string;
   __uiRect?: () => Rect;
   __uiBlocker?: boolean;
   list?: GO[];
@@ -62,6 +64,21 @@ export function uiFrame<T extends Phaser.GameObjects.GameObject>(text: T, ref: P
 /** Declared maximum line width of a text, in UI pixels (its parent's scale applies). */
 export function uiMaxWidth<T extends Phaser.GameObjects.GameObject>(text: T, w: number): T {
   (text as GO).__uiMaxW = w;
+  return text;
+}
+
+/**
+ * A line of a wrapped, left-aligned text block: it must stay inside the column
+ * `x0 .. x1` (UI px in `ref`'s space) and start where the block's other lines
+ * start (`block` names the block). Catches lines that escape a column, e.g.
+ * the last line of a speech flowing out from beside a portrait.
+ */
+export function uiColumn<T extends Phaser.GameObjects.GameObject>(text: T, ref: Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, x0: number, x1: number, block: string): T {
+  (text as GO).__uiColumn = () => {
+    const r = worldRect(ref, x0, 0, x1 - x0, 1);
+    return { x0: r.x, x1: r.x + r.w };
+  };
+  (text as GO).__uiBlock = block;
   return text;
 }
 
@@ -217,6 +234,12 @@ export function collectUi(game: Phaser.Game): UiElement[] {
       el.text = (it.o as unknown as { text: string }).text;
       const sx = (it.o as unknown as Phaser.GameObjects.Components.Transform).getWorldTransformMatrix?.().scaleX ?? 1;
       if (it.o.__uiMaxW !== undefined) el.maxW = it.o.__uiMaxW * sx;
+      if (it.o.__uiBlock) el.block = it.o.__uiBlock;
+      const col = it.o.__uiColumn?.();
+      if (col) {
+        const p = it.project({ x: col.x0, y: 0, w: col.x1 - col.x0, h: 1 });
+        el.column = { x0: p.x, x1: p.x + p.w };
+      }
       if (it.o.__uiFrame) {
         const f = it.o.__uiFrame();
         if (f) el.frame = it.project(f);
