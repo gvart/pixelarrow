@@ -30,6 +30,21 @@ with DESIGN.md or ROADMAP.md, this document wins.
   big bonuses; holding capitals is the clan endgame and decides season ranking.
 - **Fog of war:** players see hexes near their own territory and allies;
   scouting reveals more.
+- **Neutral defenders: no free land.** Every unclaimed hex is held by neutral
+  enemies that must be defeated in battle before the hex can be claimed. They
+  vary by hex type and region:
+  - Farmland: peasant militia and brigands.
+  - Forest: wolf packs, wild boars, outlaw archers.
+  - Hills and mountains: hill tribes with slingers and javelins, bears.
+  - Coast: pirates and raiders from the sea.
+  - Mines: deserter mercenaries guarding the shafts.
+  - Towns: city hoplite garrisons with walls.
+  - Ruins and shrines: cultists and fanatics.
+  - Beast lairs: mythical beasts (see below).
+
+  Strength scales with the hex tier and the distance from the shard's starting
+  areas. Higher tiers need several victories in a row. Neutral defenders
+  slowly return to hexes that are abandoned.
 - **Garrisons:** an owned hex is defended by the garrison its owner left there.
   Attacks against it are async: the attacker fights the garrison under bot AI,
   and the server re-runs the battle from seed + order log before applying it.
