@@ -45,13 +45,34 @@ async function beastBattle(enc, file, moment, opts = {}) {
   }, [enc, 77]);
   await until(() => window.__game.scene.isActive('BeastTrial'));
   await wait(300);
-  await page.evaluate(async ([enc, seed]) => {
+  await page.evaluate(async ([enc, seed0]) => {
+    let seed = seed0;
     // a fixed seed and an open plain, so the shot is the same every time
     const G = await import('/src/game/beasts.ts');
+    const BF = await import('/src/world/battlefield.ts');
+    const T = await import('/src/data/terrain.ts');
     const t = window.__game.scene.getScene('BeastTrial');
     const st = window.__state;
+    // the field with the fewest trees and stones in the middle, so nothing hides the fight
+    const site0 = { base: enc === 'kraken' ? 'beach' : 'plain', river: false, coast: enc === 'kraken', rocky: false, woods: 0 };
+    const clutter = (sd) => {
+      const g = BF.generateBattlefield(sd, site0);
+      let n = 0;
+      for (let y = 6; y < 30; y++) for (let x = 2; x < 22; x++) {
+        const c = g.cells[y * g.w + x];
+        if (c === T.TERRAIN.forest.code || c === T.TERRAIN.rocks.code) n++;
+      }
+      return n;
+    };
+    for (let k = 1, best = Infinity; k < 40; k++) {
+      const c = clutter(k * 7919);
+      if (c < best) {
+        best = c;
+        seed = k * 7919;
+      }
+    }
     const enemy = G.beastEnemy(enc, t.level(enc), seed, st.campaign.data);
-    st.pending = { enemy, seed, label: enc, site: { base: enc === 'kraken' ? 'beach' : 'plain', river: false, coast: enc === 'kraken', rocky: false, woods: 0 } };
+    st.pending = { enemy, seed, label: enc, site: site0 };
     t.scene.start('Battle');
   }, [enc, opts.seed ?? 4]);
   await until(() => window.__game.scene.isActive('Battle') && !!window.__game.scene.getScene('Battle').sim);
