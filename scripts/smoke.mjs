@@ -16,11 +16,32 @@ page.on('pageerror', (e) => errors.push(e.message));
 const cdp = await ctx.newCDPSession(page);
 const wait = (ms) => page.waitForTimeout(ms);
 const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], i) => ({ x, y, id: i })) });
+/**
+ * A tap: touchstart now, touchend one animation frame later, dispatched inside
+ * the page. In headless software WebGL the game runs at a few frames a second,
+ * and CDP touches (each acknowledged only after the renderer handled it) then
+ * arrive several frames apart: a 60 ms tap became 400-600 ms of game time and
+ * read as a long-press (450 ms: the tooltip, no click). That was the
+ * intermittent "battle started" / "ability used" failure, not a game bug.
+ * Gestures (drags, pinch) still go through CDP.
+ */
 async function tap(x, y) {
-  await touch('touchStart', [[x, y]]);
-  await wait(60);
-  await touch('touchEnd', []);
-  await wait(250);
+  await ev(
+    ([tx, ty]) =>
+      new Promise((done) => {
+        const c = window.__game.canvas;
+        const touch = new Touch({ identifier: 7, target: c, clientX: tx, clientY: ty, pageX: tx, pageY: ty, screenX: tx, screenY: ty });
+        const fire = (type) =>
+          c.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [touch], targetTouches: type === 'touchend' ? [] : [touch], changedTouches: [touch], bubbles: true, cancelable: true }));
+        fire('touchstart');
+        requestAnimationFrame(() => {
+          fire('touchend');
+          requestAnimationFrame(() => done(true));
+        });
+      }),
+    [x, y],
+  );
+  await wait(150);
 }
 async function drag(x0, y0, x1, y1, steps = 10) {
   await touch('touchStart', [[x0, y0]]);
@@ -65,7 +86,9 @@ async function btn(sceneKey, match) {
   }, [sceneKey, match]);
 }
 async function tapBtn(sceneKey, match) {
-  const p = await btn(sceneKey, match);
+  // state-based: wait for the button to exist (a screen may still be building)
+  let p = null;
+  await until(async () => (p = await btn(sceneKey, match)) !== null, 4000, 100);
   if (!p) {
     console.log(`  (no button ${JSON.stringify(match)} in ${sceneKey})`);
     return false;
@@ -103,7 +126,7 @@ const target = await ev(() => {
   return null;
 });
 await tap(target[0], target[1]);
-check('tap on the map plans a route', await ev(() => window.__state.campaign.world.route.length > 0));
+check('tap on the map plans a route', await until(() => ev(() => window.__state.campaign.world.route.length > 0), 4000, 100));
 await wait(2000);
 const moved = await ev(() => window.__state.campaign.world.s);
 check('party marched and time passed', Math.hypot(moved.x - start.x, moved.y - start.y) > 0.5 && moved.time > start.t, `${start.x.toFixed(1)},${start.y.toFixed(1)} -> ${moved.x.toFixed(1)},${moved.y.toFixed(1)}`);
@@ -134,7 +157,7 @@ check('battle against the band', await ev(() => window.__state.pending && window
 // ---- touch controls in deployment (field coords projected through the battle camera)
 check('one-time controls hint on the first deployment', await ev(() => !!window.__game.scene.getScene('Battle').hint));
 await tap(195, 120);
-check('hint dismissed and remembered', await ev(() => !window.__game.scene.getScene('Battle').hint && window.__state.campaign.data.settings.seenGestureHint));
+check('hint dismissed and remembered', await until(() => ev(() => !window.__game.scene.getScene('Battle').hint && window.__state.campaign.data.settings.seenGestureHint), 4000, 100));
 await wait(300);
 /** Screen points for field points, plus the selected group's state. */
 const geo = (pts, frame = true) =>
@@ -280,7 +303,7 @@ const z1 = await ev(() => window.__game.scene.getScene('Battle').cameras.main.zo
 check('pinch zoom', z1 > z0, `${z0} -> ${z1}`);
 
 await tapBtn('Battle', { label: 'Fight' });
-check('battle started', (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle');
+check('battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 5000, 100));
 // fast-forward: the band is worn out (test staging), the sim runs to the end.
 // The player's few men are made unbreakable too: they only hold their ground,
 // and a big band could otherwise wear down their nerve (not their hit points)
@@ -336,6 +359,7 @@ check('entered the village', await until(() => active('Settlement'), 12000));
 await wait(400);
 const before = await ev(() => ({ n: window.__state.campaign.data.heroes.length, gold: window.__state.campaign.data.gold }));
 await tapBtn('Settlement', { icon: 'coin', index: 0 });
+await until(() => ev((n) => window.__state.campaign.data.heroes.length > n, before.n), 4000, 100);
 const hired = await ev(() => ({ n: window.__state.campaign.data.heroes.length, gold: window.__state.campaign.data.gold }));
 check('recruited a volunteer', hired.n === before.n + 1 && hired.gold < before.gold, JSON.stringify([before, hired]));
 
@@ -353,18 +377,23 @@ check('hero screen', await until(() => active('Hero'), 3000));
 const hero0 = await ev(() => { const h = window.__state.campaign.data.heroes[0]; return { str: h.attrs.str, id: h.id }; });
 await tapBtn('Hero', { label: '+', index: 0 });
 await tapBtn('Hero', { label: 'Confirm' });
+await until(() => ev((s0) => window.__state.campaign.data.heroes[0].attrs.str > s0, hero0.str), 3000, 100);
 // perks: the Perks tab, a node of the tree, its card's Learn, then the confirmation
 await tapBtn('Hero', { label: 'Perks' });
-async function takePerk(name) {
+const hasPerk = (id) => ev((i) => window.__state.campaign.data.heroes[0].perks.includes(i), id);
+async function takePerk(name, id) {
   await tapBtn('Hero', { label: name });
   await until(() => btn('Hero', { label: 'Learn' }), 3000, 100);
-  await tapBtn('Hero', { label: 'Learn' });
-  await wait(200);
-  await tapBtn('Hero', { label: 'Learn' });
-  await wait(300);
+  // the card's Learn opens the confirmation, whose Learn takes the perk
+  for (let i = 0; i < 3 && !(await hasPerk(id)); i++) {
+    await tapBtn('Hero', { label: 'Learn' });
+    await until(() => hasPerk(id), 1500, 100);
+  }
+  // the dialogs close after taking it
+  await until(async () => !(await btn('Hero', { label: 'Learn' })), 3000, 100);
 }
-await takePerk('Shield Drill');
-await takePerk('Shield Bash');
+await takePerk('Shield Drill', 'shield_drill');
+await takePerk('Shield Bash', 'shield_bash');
 const hero1 = await ev(() => { const h = window.__state.campaign.data.heroes[0]; return { str: h.attrs.str, perks: h.perks }; });
 check('spent a stat point', hero1.str === hero0.str + 1, `${hero0.str} -> ${hero1.str}`);
 check('took perks Shield Drill and Shield Bash', hero1.perks.includes('shield_drill') && hero1.perks.includes('shield_bash'), JSON.stringify(hero1.perks));
@@ -378,6 +407,7 @@ await ev(() => {
 });
 await wait(300);
 await tapBtn('Hero', { label: 'Equip' });
+await until(() => ev(() => window.__state.campaign.data.heroes[0].equip.helmet?.uid === 'smoke_helm'), 3000, 100);
 const helm = await ev(() => ({ on: window.__state.campaign.data.heroes[0].equip.helmet?.uid, inStash: window.__state.campaign.data.stash.some((i) => i.uid === 'smoke_helm') }));
 check('equipped a helmet from the stash', helm.on === 'smoke_helm' && !helm.inStash, JSON.stringify(helm));
 
@@ -413,6 +443,8 @@ const ready = await ev((hid) => {
 check('shield basher in contact', ready);
 await wait(300);
 await tapBtn('Battle', { icon: 'bash' });
+const usedBash = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.some((o) => o.side === 0 && o.order.kind === 'ability' && o.order.ability === 'bash'));
+await until(usedBash, 4000, 100);
 const used = await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.filter((o) => o.side === 0 && o.order.kind === 'ability').map((o) => o.order.ability));
 check('ability used from the battle bar', used.includes('bash'), JSON.stringify(used));
 await tap(16 * 2, 12 * 2); // unpause

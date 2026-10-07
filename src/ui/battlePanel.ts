@@ -10,7 +10,7 @@
  * check the same way (a container with w / h, texts framed by it).
  */
 import Phaser from 'phaser';
-import { addIcon, addText, longPress, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
+import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText } from './textfit';
 import { CATEGORY_COLOR, CATEGORY_DARK, type BattleCategory } from './theme';
@@ -88,7 +88,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
   private sel: boolean;
   private o: PanelButtonOpts;
   private downAt: { x: number; y: number } | null = null;
-  private timer: Phaser.Time.TimerEvent | null = null;
+  private timer: HoldTimer | null = null;
   private long = false;
   private iconBox = { x: 0, y: 0 };
   private shortened = false;
@@ -117,7 +117,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
       this.downAt = { x: p.x, y: p.y };
       this.long = false;
       this.timer?.remove();
-      this.timer = scene.time.delayedCall(longPress.ms, () => {
+      this.timer = holdTimer(scene, longPress.ms, () => {
         this.timer = null;
         const tip = this.tipText();
         if (!this.downAt || !tip || !longPress.show || !this.scene) return;
@@ -361,13 +361,13 @@ export class GroupCard extends Phaser.GameObjects.Container {
     this.setSize(this.w, this.h);
     this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
     let down: { x: number; y: number } | null = null;
-    let timer: Phaser.Time.TimerEvent | null = null;
+    let timer: HoldTimer | null = null;
     let long = false;
     this.on('pointerdown', (p: Phaser.Input.Pointer) => {
       down = { x: p.x, y: p.y };
       long = false;
       timer?.remove();
-      timer = scene.time.delayedCall(longPress.ms, () => {
+      timer = holdTimer(scene, longPress.ms, () => {
         timer = null;
         if (!down || !this.scene) return;
         long = true;

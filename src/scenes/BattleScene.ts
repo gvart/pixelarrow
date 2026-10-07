@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, addPanel, addText, tappable } from '../ui/kit';
+import { Button, Meter, addPanel, addText, holdTimer, longPress, tappable, type HoldTimer } from '../ui/kit';
 import { ScrollList, confirmDialog, openModal, showTooltip, toast, Label, type Modal } from '../ui/widgets';
 import { GroupCard, PanelButton, type PanelButtonOpts } from '../ui/battlePanel';
 import { CATEGORY_COLOR, SIZE, type BattleCategory } from '../ui/theme';
@@ -178,7 +178,7 @@ export class BattleScene extends BaseScene {
   private props: { img: Phaser.GameObjects.Image; x: number; y: number; tree: boolean }[] = [];
   private glints: { img: Phaser.GameObjects.Image; phase: number }[] = [];
   private infoTip: Phaser.GameObjects.Container | null = null;
-  private holdTimer: Phaser.Time.TimerEvent | null = null;
+  private holdTimer: HoldTimer | null = null;
   private propTick = 0;
   /** Online battle (attack or live duel) instead of the offline campaign's; see src/online/battleSource.ts. */
   private src: BattleSource | null = null;
@@ -1019,7 +1019,7 @@ export class BattleScene extends BaseScene {
     this.holdTimer = null;
     if (this.sim.phase === 'deploy' && !onGroup) {
       // long press on the ground in deployment: what is this terrain?
-      this.holdTimer = this.time.delayedCall(450, () => {
+      this.holdTimer = holdTimer(this, longPress.ms, () => {
         if (this.gesture !== g || g.mode !== 'pending') return;
         g.mode = 'info';
         this.showTerrainInfo(g.wx0, g.wy0, g.sx, g.sy);

@@ -177,6 +177,7 @@ const s = await session('ok', async (route) => {
       return json(200, { order: { requestId: body.requestId, item: body.item, qty: 1, currency: 'gold', price: 80, season: 1, at: Date.now() }, replayed: false, drachmae: econ.drachmae });
     }
     default:
+      console.log('  unmocked', req.method(), url.pathname);
       return json(404, { error: { code: 'not_found', message: 'no route' } });
   }
 });

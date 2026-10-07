@@ -180,6 +180,41 @@ export const longPress = {
   toast: null as null | ((scene: Phaser.Scene, text: string) => void),
 };
 
+/** A pending long-press: `remove()` cancels it. */
+export interface HoldTimer {
+  remove(): void;
+}
+
+/** Longest frame that counts in full towards a long-press (longer ones are stalls). */
+export const HOLD_FRAME_CAP = 100;
+
+/**
+ * Calls `cb` once the finger has been held for `ms` of *smooth* frame time.
+ * A stalled frame (a slow phone, a texture upload, software WebGL) counts as
+ * at most HOLD_FRAME_CAP ms, so a quick tap that happens to straddle a long
+ * frame is still a tap, never a long-press (the same rule as the slingshot's
+ * dwell in BattleScene.checkDwell).
+ */
+export function holdTimer(scene: Phaser.Scene, ms: number, cb: () => void): HoldTimer {
+  let held = 0;
+  let live = true;
+  const onUpdate = (_t: number, delta: number) => {
+    held += Math.min(delta, HOLD_FRAME_CAP);
+    if (held < ms) return;
+    stop();
+    cb();
+  };
+  const stop = () => {
+    if (!live) return;
+    live = false;
+    scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
+    scene.events.off(Phaser.Scenes.Events.SHUTDOWN, stop);
+  };
+  scene.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, stop);
+  return { remove: stop };
+}
+
 /**
  * Parchment button. Coordinates are in UI pixels inside the scaled UI root.
  * Press state, click sound and haptic on every tap; long-press shows the tip;
@@ -198,7 +233,7 @@ export class Button extends Phaser.GameObjects.Container {
   private selected = false;
   private enabled = true;
   private downAt: { x: number; y: number } | null = null;
-  private pressTimer: Phaser.Time.TimerEvent | null = null;
+  private pressTimer: HoldTimer | null = null;
   private longPressed = false;
   private truncated = false;
 
@@ -221,7 +256,7 @@ export class Button extends Phaser.GameObjects.Container {
       this.downAt = { x: p.x, y: p.y };
       this.longPressed = false;
       this.pressTimer?.remove();
-      this.pressTimer = scene.time.delayedCall(longPress.ms, () => {
+      this.pressTimer = holdTimer(scene, longPress.ms, () => {
         this.pressTimer = null;
         if (!this.downAt || !this.scene) return;
         const tip = this.tipText();
@@ -604,7 +639,7 @@ export class ScrollArea {
  */
 export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | null, onTap: () => void, tip?: string | (() => string | undefined)): void {
   let down: { x: number; y: number } | null = null;
-  let timer: Phaser.Time.TimerEvent | null = null;
+  let timer: HoldTimer | null = null;
   let long = false;
   const scene = obj.scene;
   const stop = () => {
@@ -616,7 +651,7 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
     long = false;
     stop();
     if (tip && longPress.show)
-      timer = scene.time.delayedCall(longPress.ms, () => {
+      timer = holdTimer(scene, longPress.ms, () => {
         timer = null;
         const text = typeof tip === 'function' ? tip() : tip;
         if (!down || (area && area.moved) || !text || !obj.scene) return;
