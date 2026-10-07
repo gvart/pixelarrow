@@ -159,7 +159,8 @@ export const onlineApi = {
   recruit: (archetype: Archetype) => req<{ hero: Hero }>('POST', '/recruit', { archetype }),
   equip: (heroId: string, slot: Slot, itemUid: string | null) => req<{ hero: Hero; stash: Item[] }>('POST', '/equip', { heroId, slot, itemUid }),
   army: (groups: Record<string, number>, formations?: FormationType[]) => req<{ ok: true }>('POST', '/army', { groups, formations }),
-  attackStart: (h: Axial) => req<AttackTicket>('POST', '/attack/start', h),
+  /** consumable: at most one battle consumable (src/data/consumables.ts), spent when the ticket is created. */
+  attackStart: (h: Axial, consumable?: string) => req<AttackTicket>('POST', '/attack/start', consumable ? { q: h.q, r: h.r, consumable } : h),
   attackSubmit: (ticket: string, orders: LoggedOrder[], deployOrders: number, claim: { winner: number; ticks: number; hash: string }) =>
     req<AttackResult>('POST', '/attack/submit', { ticket, orders, deployOrders, claim }, 30_000),
   attackAbandon: (ticket: string) => req<{ ok: true }>('POST', '/attack/abandon', { ticket }),

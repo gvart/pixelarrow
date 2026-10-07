@@ -17,6 +17,7 @@
  * - end: the server replays the log (src/sim) and sends duel_result to both.
  */
 import { OrderSchema, replayBattle } from '../battle';
+import { BATTLE_CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import type { Hero } from '../../../src/data/units';
 import type { BattleSetup, LoggedOrder, Order, Side } from '../../../src/sim/types';
 import {
@@ -48,6 +49,8 @@ export interface Challenge {
   to: PresencePlayer;
   at: number;
   accepting?: boolean;
+  /** The challenger's battle consumable. */
+  consumable?: ConsumableId | null;
 }
 
 export interface DuelState {
@@ -74,8 +77,13 @@ export interface DuelDeps {
   now(): number;
   randomId(): string;
   randomSeed(): number;
-  /** The duel setup from both players' server-side armies (null if either cannot fight). */
-  buildDuel(a: PresencePlayer, b: PresencePlayer, seed: number): Promise<{ setup: BattleSetup; heroes: [Hero[], Hero[]] } | null>;
+  /**
+   * The duel setup from both players' server-side armies (null if either
+   * cannot fight). Spends the chosen battle consumables (null if one is gone).
+   */
+  buildDuel(a: PresencePlayer, b: PresencePlayer, seed: number, consumables: [ConsumableId | null, ConsumableId | null]): Promise<{ setup: BattleSetup; heroes: [Hero[], Hero[]] } | null>;
+  /** Gives back consumables spent by a buildDuel whose duel could not start after all. */
+  release?(a: PresencePlayer, b: PresencePlayer, consumables: [ConsumableId | null, ConsumableId | null]): Promise<void> | void;
   /** Persist a finished duel (battle_log). */
   record?(d: DuelState, result: Extract<ServerMsg, { type: 'duel_result' }>): Promise<void> | void;
   online(pid: number): boolean;
@@ -115,12 +123,14 @@ export class DuelHub {
     const err = (message: string, code = 'bad_request') => [...out, { to: me.id, msg: { type: 'error', message, code } as ServerMsg }];
     switch (msg.type) {
       case 'challenge': {
+        const pick = duelConsumable(msg.consumable);
+        if (pick === undefined) return err('At most one battle consumable per duel', 'bad_consumable');
         const to = lookup(Number(msg.to));
         if (!to || !this.deps.online(to.id)) return err('That player is not online', 'unavailable');
         if (to.id === me.id) return err('You cannot challenge yourself');
         if (this.busy(me.id) || this.busy(to.id)) return err('Someone is already in a duel', 'busy');
         for (const c of this.challenges.values()) if (c.from.id === me.id) return err('You already have an open challenge', 'busy');
-        const c: Challenge = { id: this.deps.randomId(), from: me, to, at: this.deps.now() };
+        const c: Challenge = { id: this.deps.randomId(), from: me, to, at: this.deps.now(), consumable: pick };
         this.challenges.set(c.id, c);
         out.push({ to: me.id, msg: { type: 'challenge_sent', id: c.id, to } }, { to: to.id, msg: { type: 'challenged', id: c.id, from: me } });
         return out;
@@ -140,6 +150,8 @@ export class DuelHub {
           out.push({ to: c.from.id, msg: { type: 'challenge_closed', id: c.id, reason: 'declined' } }, { to: me.id, msg: { type: 'challenge_closed', id: c.id, reason: 'declined' } });
           return out;
         }
+        const mine = duelConsumable(msg.consumable);
+        if (mine === undefined) return err('At most one battle consumable per duel', 'bad_consumable');
         if (!this.deps.online(c.from.id) || this.busy(c.from.id) || this.busy(me.id)) {
           this.challenges.delete(c.id);
           out.push({ to: me.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } }, { to: c.from.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } });
@@ -147,9 +159,11 @@ export class DuelHub {
         }
         c.accepting = true;
         const seed = this.deps.randomSeed();
-        const built = await this.deps.buildDuel(c.from, c.to, seed).catch(() => null);
+        const picks: [ConsumableId | null, ConsumableId | null] = [c.consumable ?? null, mine];
+        const built = await this.deps.buildDuel(c.from, c.to, seed, picks).catch(() => null);
         this.challenges.delete(c.id);
         if (!built || this.busy(c.from.id) || this.busy(me.id)) {
+          if (built) await this.deps.release?.(c.from, c.to, picks);
           out.push({ to: me.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } }, { to: c.from.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } });
           return out;
         }
@@ -307,6 +321,12 @@ export class DuelHub {
     }
     return out;
   }
+}
+
+/** A duel message's consumable: null for none, undefined when invalid (not ONE battle consumable id). */
+export function duelConsumable(v: unknown): ConsumableId | null | undefined {
+  if (v === undefined || v === null) return null;
+  return typeof v === 'string' && (BATTLE_CONSUMABLES as string[]).includes(v) ? (v as ConsumableId) : undefined;
 }
 
 function parseOrder(o: unknown): Order | null {

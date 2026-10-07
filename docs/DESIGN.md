@@ -503,7 +503,34 @@ garrison), `ClanScene`. The battle scene takes a `BattleSource`
 (`src/online/battleSource.ts`) instead of the campaign's pending battle, so
 everything the sim adds to `BattleSetup` (terrain today) flows through.
 
-## Art pipeline (`src/art`)
+## Economy (`server/src/economy`, `server/src/online/market.ts`, `src/data/consumables.ts`)
+
+Server-owned; endpoints and exact rules in server/README.md "Economy".
+
+- **Stars buy only Drachmae** (packs 100/250/500/1000 Stars → 100/275/600/1300
+  Dr). Everything premium is a server-side Drachmae debit, idempotent per
+  client request id. Drachmae are account-wide; a refunded pack is debited
+  again (the balance may go negative, which blocks spending). The old 5-Star
+  `supporter_banner` stays as a legacy Stars entitlement and a banner cosmetic.
+- **Cosmetics** (emblems, banners, cloaks, clan flags, army skins, table
+  themes) are account-wide entitlements with a per-slot loadout. Prices live
+  in `server/src/economy/catalog.ts`.
+- **Consumables** (`src/data/consumables.ts`): bought with season gold or
+  Drachmae, daily caps per UTC day, held per season. At most one per battle
+  (attacks and duels); battle consumables are baked into the server-built
+  `BattleSetup` (unit stats; `setup.consumables` records the ids), so clients
+  and the replay agree. TODO(sim): the war horn reuses Rally Cry on the best
+  hero; a true one-shot army rally needs a sim feature.
+- **Season pass**: 30 tiers × 100 XP from verified attacks and duels; free
+  track for everyone, premium track for 500 Dr per season; idempotent claims.
+- **Town marketplace**: list stash items, food/wood/bronze or consumables in a
+  town you hold or stand on/next to; escrow on listing; gold or Drachmae; 10%
+  fee burned on every sale; 48 h expiry (resolved lazily); 20 open listings;
+  price bounds per rarity; audit log. Listings are season-scoped: at season
+  end they are left behind with the season (goods vanish, Drachmae already
+  earned stay).
+
+
 
 Everything is generated at boot from code; there are no image files.
 

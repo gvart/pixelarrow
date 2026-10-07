@@ -39,7 +39,134 @@ export interface Product {
   title: string;
   description: string;
   stars: number;
+  /** 'drachmae' (a Drachmae pack: the only thing Stars buy) or 'entitlement' (legacy supporter banner). */
   kind: string;
+  /** Drachmae credited by a pack. */
+  drachmae?: number;
+  legacy?: boolean;
+}
+
+// ---------------------------------------------------------------- economy (server/README.md "Economy")
+
+export type Currency = 'gold' | 'drachmae';
+export type ConsumableKey = 'healing_salve' | 'morale_wine' | 'war_horn' | 'sharpening_stone' | 'march_rations';
+
+export interface CosmeticInfo {
+  id: string;
+  slot: 'emblem' | 'banner' | 'cloak' | 'clan_flag' | 'army_skin' | 'table_theme';
+  name: string;
+  /** Drachmae price; null = not for sale (legacy or a pass reward). */
+  drachmae: number | null;
+  source?: 'legacy_stars' | 'season_pass';
+}
+
+export type PassReward =
+  | { kind: 'gold'; amount: number }
+  | { kind: 'drachmae'; amount: number }
+  | { kind: 'consumable'; id: ConsumableKey; qty: number }
+  | { kind: 'cosmetic'; id: string };
+
+export interface PassTierInfo {
+  tier: number;
+  xp: number;
+  free: PassReward;
+  premium: PassReward;
+}
+
+export interface EconomyCatalog {
+  packs: { id: string; stars: number; drachmae: number }[];
+  cosmetics: CosmeticInfo[];
+  slots: CosmeticInfo['slot'][];
+  /** src/data/consumables.ts ConsumableDef (prices, daily caps, effects). */
+  consumables: { id: ConsumableKey; name: string; desc: string; use: 'battle' | 'heal' | 'march'; gold: number | null; drachmae: number | null; dailyCap: number }[];
+  pass: { premiumDrachmae: number; xpPerTier: number; xp: Record<string, number>; tiers: PassTierInfo[] };
+  market: { feeRate: number; listingHours: number; maxOpenListings: number; priceBounds: Record<Currency, Record<string, [number, number]>>; resources: string[] };
+}
+
+export interface WalletInfo {
+  drachmae: number;
+  /** False while the balance is zero or negative (after a refunded pack). */
+  canSpend: boolean;
+  ledger: { delta: number; kind: string; ref: string; at: number }[];
+  /** Owned cosmetic ids (account-wide). */
+  cosmetics: string[];
+  /** slot -> cosmetic id shown. */
+  loadout: Record<string, string>;
+}
+
+export interface BuyResult {
+  order: { requestId: string; item: string; qty: number; currency: Currency; price: number; season: number | null; at: number };
+  /** True when this request id had already been processed (nothing charged again). */
+  replayed: boolean;
+  drachmae: number;
+}
+
+export interface SeasonPassInfo {
+  season: { id: number; endsAt: number };
+  xp: number;
+  tier: number;
+  premium: boolean;
+  premiumDrachmae: number;
+  xpPerTier: number;
+  claimed: { tier: number; track: 'free' | 'premium' }[];
+  tiers: PassTierInfo[];
+}
+
+export interface MarketListing {
+  id: string;
+  seller: { id: number; name: string | null };
+  town: { q: number; r: number };
+  kind: 'item' | 'resource' | 'consumable';
+  /** Item def id, resource key or consumable id. */
+  ref: string;
+  item: Record<string, unknown> | null;
+  qty: number;
+  rarity: string;
+  currency: Currency;
+  /** Total price; the seller receives price - fee (the fee is burned). */
+  price: number;
+  fee: number;
+  status: 'open' | 'sold' | 'cancelled' | 'expired';
+  mine: boolean;
+  createdAt: number;
+  expiresAt: number;
+  closedAt: number | null;
+}
+
+export interface MarketQuery {
+  kind?: MarketListing['kind'];
+  ref?: string;
+  rarity?: string;
+  currency?: Currency;
+  minPrice?: number;
+  maxPrice?: number;
+  townQ?: number;
+  townR?: number;
+  sort?: 'price_asc' | 'price_desc' | 'newest' | 'ending';
+  /** `next` from the previous page. */
+  cursor?: number;
+  limit?: number;
+}
+
+export interface MarketListRequest {
+  town: { q: number; r: number };
+  kind: MarketListing['kind'];
+  /** Item uid (kind item), 'food' | 'wood' | 'bronze' (resource) or a consumable id. */
+  ref: string;
+  qty?: number;
+  currency: Currency;
+  price: number;
+}
+
+/** A fresh idempotency key for POST /api/economy/buy (reuse it when retrying the same purchase). */
+export function newRequestId(): string {
+  const a = new Uint8Array(12);
+  try {
+    crypto.getRandomValues(a);
+  } catch {
+    for (let i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256);
+  }
+  return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export interface Entitlement {
@@ -255,5 +382,80 @@ export class ApiClient {
 
   verifyBattle(body: VerifyRequest): Promise<VerifyResponse> {
     return this.request<VerifyResponse>('POST', '/api/battle/verify', { auth: true, body, timeoutMs: 20000 });
+  }
+
+  // ---------------------------------------------------------------- economy
+
+  /** Packs (Stars), cosmetics and pass (Drachmae), consumables (gold or Drachmae), market rules. Public. */
+  economyCatalog(): Promise<EconomyCatalog> {
+    return this.request<EconomyCatalog>('GET', '/api/economy/catalog');
+  }
+
+  wallet(): Promise<WalletInfo> {
+    return this.request<WalletInfo>('GET', '/api/economy/wallet', { auth: true });
+  }
+
+  /**
+   * Buys a cosmetic or 'season_pass' (Drachmae) or a consumable (gold or
+   * Drachmae; needs a season profile; daily caps). Keep the requestId when
+   * retrying after a network error: the server never charges twice for it.
+   * Errors: insufficient_funds, already_owned, daily_cap, no_profile, request_reused.
+   */
+  buy(item: string, opts: { currency?: Currency; qty?: number; requestId?: string } = {}): Promise<BuyResult> {
+    return this.request<BuyResult>('POST', '/api/economy/buy', { auth: true, body: { item, currency: opts.currency ?? 'drachmae', qty: opts.qty ?? 1, requestId: opts.requestId ?? newRequestId() } });
+  }
+
+  equipCosmetic(slot: CosmeticInfo['slot'], id: string | null): Promise<{ loadout: Record<string, string> }> {
+    return this.request('POST', '/api/economy/cosmetics/equip', { auth: true, body: { slot, id } });
+  }
+
+  seasonPass(): Promise<SeasonPassInfo> {
+    return this.request<SeasonPassInfo>('GET', '/api/economy/pass', { auth: true });
+  }
+
+  /** Idempotent: claiming a claimed reward answers `replayed: true`. Errors: locked, no_profile. */
+  claimPass(tier: number, track: 'free' | 'premium'): Promise<{ tier: number; track: string; reward: PassReward; replayed: boolean; drachmae?: number }> {
+    return this.request('POST', '/api/economy/pass/claim', { auth: true, body: { tier, track } });
+  }
+
+  // ---------------------------------------------------------------- online consumables & marketplace
+
+  consumables(): Promise<{ inventory: Partial<Record<ConsumableKey, number>>; day: string; caps: Record<ConsumableKey, { cap: number; bought: number }> }> {
+    return this.request('GET', '/api/online/consumables', { auth: true });
+  }
+
+  /** healing_salve or march_rations (battle consumables go with attack/start or a duel challenge). */
+  useConsumable(id: ConsumableKey): Promise<{ used: ConsumableKey; inventory: Partial<Record<ConsumableKey, number>>; march: unknown }> {
+    return this.request('POST', '/api/online/consumables/use', { auth: true, body: { id } });
+  }
+
+  marketSearch(q: MarketQuery = {}): Promise<{ listings: MarketListing[]; next: number | null }> {
+    const qs = Object.entries(q)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join('&');
+    return this.request('GET', `/api/online/market${qs ? `?${qs}` : ''}`, { auth: true });
+  }
+
+  marketMine(): Promise<{ listings: MarketListing[]; open: number; maxOpen: number }> {
+    return this.request('GET', '/api/online/market/mine', { auth: true });
+  }
+
+  marketTowns(): Promise<{ towns: { q: number; r: number }[] }> {
+    return this.request('GET', '/api/online/market/towns', { auth: true });
+  }
+
+  /** Errors: town_unreachable, price_out_of_bounds, listing_cap, cannot_afford, none_left. */
+  marketList(body: MarketListRequest): Promise<{ listing: MarketListing }> {
+    return this.request('POST', '/api/online/market/list', { auth: true, body });
+  }
+
+  /** Errors: self_buy, insufficient_funds, sold, expired (410), gone. */
+  marketBuy(listingId: string): Promise<{ listing: MarketListing; paid: number; fee: number; sellerGets: number }> {
+    return this.request('POST', '/api/online/market/buy', { auth: true, body: { listingId } });
+  }
+
+  marketCancel(listingId: string): Promise<{ ok: true; returned: { kind: string; ref: string; qty: number } }> {
+    return this.request('POST', '/api/online/market/cancel', { auth: true, body: { listingId } });
   }
 }

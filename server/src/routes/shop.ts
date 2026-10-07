@@ -14,7 +14,17 @@ export const shop = new Hono<AppEnv>();
 
 /** Public catalogue. */
 shop.get('/products', (c) =>
-  c.json({ products: Object.values(PRODUCTS).map((p) => ({ id: p.id, title: p.title, description: p.description, stars: p.stars, kind: p.kind })) }),
+  c.json({
+    products: Object.values(PRODUCTS).map((p) => ({
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      stars: p.stars,
+      kind: p.kind,
+      ...(p.drachmae ? { drachmae: p.drachmae } : {}),
+      ...(p.legacy ? { legacy: true } : {}),
+    })),
+  }),
 );
 
 /**
@@ -32,7 +42,7 @@ shop.post('/invoice', requireAuth, async (c) => {
     .prepare('SELECT 1 FROM entitlements WHERE player_id = ?1 AND product_id = ?2 AND revoked_at IS NULL')
     .bind(pid, product.id)
     .first();
-  if (owned) throw new ApiError(409, 'already_owned', 'You already own this item');
+  if (owned && product.kind === 'entitlement') throw new ApiError(409, 'already_owned', 'You already own this item');
 
   const payload = makePayload(product.id, pid, randomNonce());
   const link = await callBot<string>(botToken, 'createInvoiceLink', {

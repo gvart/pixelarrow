@@ -27,6 +27,8 @@ import type { Archetype } from '../../../src/game/heroes';
 import { attack, currentNeutrals, siegeWins } from './attack';
 import { pendingIncome } from './income';
 import { clans } from './clans';
+import { consumableInventory, consumables } from './consumables';
+import { market, resolveExpired } from './market';
 import { base, hexKey, limit, player, shardStub, type PlayerCtx } from './context';
 import {
   armyState,
@@ -66,12 +68,15 @@ function resources(p: ProfileRow): Resources {
 }
 
 async function profileView(c: PlayerCtx) {
-  const { db: d, profile: p, now, season, shard } = c;
-  const [heroes, stash, income, clanInfo] = await Promise.all([
+  const { db: d, now, season, shard } = c;
+  // Expired marketplace listings give their goods back before the stash is read.
+  const p = (await resolveExpired(d, season.id, c.pid, now)) ? ((await getProfile(d, season.id, c.pid)) ?? c.profile) : c.profile;
+  const [heroes, stash, income, clanInfo, inventory] = await Promise.all([
     loadHeroes(d, season.id, c.pid),
     loadItems(d, season.id, c.pid),
     pendingIncome(d, shard, c.pid, c.clan?.clanId ?? null, now),
     c.clan ? d.prepare('SELECT id, name, tag FROM clans WHERE id = ?1').bind(c.clan.clanId).first<{ id: number; name: string; tag: string }>() : null,
+    consumableInventory(d, season.id, c.pid),
   ]);
   const army = armyState(p, now);
   return {
@@ -86,6 +91,7 @@ async function profileView(c: PlayerCtx) {
     formations: formationsOf(p.formations),
     heroes: heroes.map((h) => ({ hero: h.hero, garrison: h.garrison, woundedUntil: h.woundedUntil, busy: h.busyUntil > now })),
     stash,
+    consumables: inventory,
     clan: clanInfo && c.clan ? { ...clanInfo, role: c.clan.role } : null,
     battles: p.battles,
     wins: p.wins,
@@ -533,4 +539,6 @@ online.post('/army', async (c) => {
 
 online.route('/attack', attack);
 online.route('/clans', clans);
+online.route('/consumables', consumables);
+online.route('/market', market);
 

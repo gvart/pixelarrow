@@ -2,6 +2,7 @@
 import { getPlayerByTelegramId, upsertPlayer } from './players';
 import { getProduct, parsePayload } from './products';
 import type { TelegramUser } from './telegramAuth';
+import { creditOnce } from './economy/wallet';
 
 export interface PreCheckoutQuery {
   id: string;
@@ -63,8 +64,23 @@ export async function recordPayment(db: D1Database, from: TelegramUser, pay: Suc
     .run();
   const fresh = ins.meta.changes === 1;
 
+  const product = getProduct(productId);
+  if (product?.kind === 'drachmae') {
+    // Credit the pack once per charge (and never after a refund of that charge).
+    await creditOnce(
+      db,
+      player.id,
+      product.drachmae ?? 0,
+      'pack',
+      pay.telegram_payment_charge_id,
+      now,
+      { sql: 'EXISTS (SELECT 1 FROM purchases WHERE telegram_payment_charge_id = ?7 AND player_id = ?1 AND refunded = 0)', binds: [pay.telegram_payment_charge_id] },
+    );
+    return fresh;
+  }
+
   // Grant (or re-grant after an earlier refund) — idempotent.
-  if (getProduct(productId)) {
+  if (product) {
     await db
       .prepare(
         `INSERT INTO entitlements (player_id, product_id, purchase_id, granted_at)
@@ -79,8 +95,35 @@ export async function recordPayment(db: D1Database, from: TelegramUser, pay: Suc
   return fresh;
 }
 
-/** Marks a purchase refunded and revokes what it granted. Idempotent. */
+/**
+ * Marks a purchase refunded and revokes what it granted. Idempotent. A
+ * refunded Drachmae pack is debited again in full, even if that makes the
+ * balance negative (spending is then blocked until it is positive again).
+ */
 export async function recordRefund(db: D1Database, refund: RefundedPayment, now = Date.now()): Promise<void> {
+  const purchase = await db
+    .prepare('SELECT player_id, product_id FROM purchases WHERE telegram_payment_charge_id = ?1')
+    .bind(refund.telegram_payment_charge_id)
+    .first<{ player_id: number; product_id: string }>();
+  const product = purchase ? getProduct(purchase.product_id) : undefined;
+  if (purchase && product?.kind === 'drachmae') {
+    await db
+      .prepare('UPDATE purchases SET refunded = 1, refunded_at = ?2 WHERE telegram_payment_charge_id = ?1 AND refunded = 0')
+      .bind(refund.telegram_payment_charge_id, now)
+      .run();
+    // Debit exactly what the pack credited (only if it was credited).
+    const credited = await db
+      .prepare("SELECT delta FROM drachmae_ledger WHERE player_id = ?1 AND kind = 'pack' AND ref = ?2")
+      .bind(purchase.player_id, refund.telegram_payment_charge_id)
+      .first<{ delta: number }>();
+    if (credited) {
+      await creditOnce(db, purchase.player_id, -credited.delta, 'refund', refund.telegram_payment_charge_id, now, {
+        sql: 'EXISTS (SELECT 1 FROM purchases WHERE telegram_payment_charge_id = ?7 AND refunded = 1)',
+        binds: [refund.telegram_payment_charge_id],
+      });
+    }
+    return;
+  }
   await db.batch([
     db
       .prepare('UPDATE purchases SET refunded = 1, refunded_at = ?2 WHERE telegram_payment_charge_id = ?1 AND refunded = 0')

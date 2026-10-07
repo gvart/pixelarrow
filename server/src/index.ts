@@ -15,6 +15,7 @@ import { entitlements, shop } from './routes/shop';
 import { webhook } from './routes/webhook';
 import { WS_PROTOCOL } from './region';
 import { online } from './online/routes';
+import { economy } from './economy/routes';
 import { currentSeason, requireProfile, shardDoName } from './online/store';
 
 // Only handlers and Durable Object classes may be exported from the entry module.
@@ -74,6 +75,7 @@ app.route('/api/entitlements', entitlements);
 app.route('/api/telegram', webhook);
 
 app.route('/api/online', online);
+app.route('/api/economy', economy);
 
 app.post('/api/battle/verify', requireAuth, async (c) => {
   const req = await readJson(c, VerifyBody, LIMITS.maxBodyBytes);

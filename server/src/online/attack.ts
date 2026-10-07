@@ -25,6 +25,8 @@ import { ABANDON_MS, neutralDefenders, RESPAWN_MS, SIEGE_DECAY_MS, WINS_TO_CLAIM
 import { militia, ONLINE_RULES, DEFAULT_FORMATIONS } from '../../../src/online/rules';
 import { onlineBattleSetup, resolveAttack } from '../../../src/online/battle';
 import { hexKey, limit, player, shardStub, type PlayerCtx } from './context';
+import { applyBattleConsumable, BATTLE_CONSUMABLES, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
+import { attackXp, passXpStmt } from '../economy/pass';
 import { pendingIncome } from './income';
 import {
   armyState,
@@ -82,6 +84,7 @@ interface TicketRow {
   result: string | null;
   apply_nonce: string | null;
   won: number | null;
+  consumable: string | null;
   created_at: number;
   expires_at: number;
   finished_at: number | null;
@@ -93,6 +96,7 @@ function ticketView(t: TicketRow, info: HexInfo, extra: Record<string, unknown> 
     expiresAt: t.expires_at,
     hex: { q: t.q, r: t.r, type: info.type, tier: info.tier },
     defenderKind: t.defender_kind,
+    consumable: t.consumable ?? null,
     setup: JSON.parse(t.setup) as BattleSetup,
     attackers: JSON.parse(t.attackers) as Hero[],
     defenders: JSON.parse(t.defenders) as Hero[],
@@ -100,12 +104,40 @@ function ticketView(t: TicketRow, info: HexInfo, extra: Record<string, unknown> 
   };
 }
 
-const StartBody = z.object({ q: z.number().int().min(-200).max(200), r: z.number().int().min(-200).max(200), heroIds: z.array(z.string().max(80)).max(ONLINE_RULES.maxArmy).optional() });
+const StartBody = z.object({
+  q: z.number().int().min(-200).max(200),
+  r: z.number().int().min(-200).max(200),
+  heroIds: z.array(z.string().max(80)).max(ONLINE_RULES.maxArmy).optional(),
+  /** At most ONE battle consumable per battle (spent when the ticket is created). */
+  consumable: z.string().max(40).nullable().optional(),
+  /** Rejected when it names more than one: one consumable per battle. */
+  consumables: z.array(z.string().max(40)).max(10).optional(),
+});
+
+/** The single battle consumable an attack/duel request names (400 for several or a non-battle one). */
+export function pickConsumable(one: string | null | undefined, many: string[] | undefined): ConsumableId | null {
+  const all = [...(one ? [one] : []), ...(many ?? [])];
+  if (all.length > 1) throw new ApiError(400, 'one_consumable', 'At most one consumable per battle');
+  if (all.length === 0) return null;
+  if (!(BATTLE_CONSUMABLES as string[]).includes(all[0])) throw new ApiError(400, 'bad_consumable', `${all[0]} is not a battle consumable`);
+  return all[0] as ConsumableId;
+}
+
+/** Records the consumables of both sides in a setup and bakes in their effects (the server replay sees the same setup). */
+export function withConsumables(setup: BattleSetup, picks: [ConsumableId | null, ConsumableId | null]): BattleSetup {
+  if (!picks[0] && !picks[1]) return setup;
+  picks.forEach((id, side) => {
+    if (id) applyBattleConsumable(setup.armies[side], id);
+  });
+  (setup as BattleSetup & { consumables?: [string | null, string | null] }).consumables = picks;
+  return setup;
+}
 
 attack.post('/start', async (c) => {
   limit(c, 'attack', 12);
   const pc = await player(c);
   const body = await readJson(c, StartBody, 8 * 1024);
+  const consumable = pickConsumable(body.consumable, body.consumables);
   const target: Axial = { q: body.q, r: body.r };
   if (!inShard(target, pc.shard.radius)) throw badRequest('Outside the map');
   const info = staticHex(pc.shard, target);
@@ -139,6 +171,13 @@ attack.post('/start', async (c) => {
     if (attackers.length !== want.size) throw new ApiError(409, 'heroes_unavailable', 'Some of those heroes cannot fight now');
   }
   if (attackers.length === 0) throw new ApiError(409, 'no_army', 'No hero of your field army can fight');
+  if (consumable) {
+    const has = await pc.db
+      .prepare('SELECT qty FROM online_consumables WHERE season_id = ?1 AND player_id = ?2 AND consumable_id = ?3')
+      .bind(pc.season.id, pc.pid, consumable)
+      .first<{ qty: number }>();
+    if (!has || has.qty < 1) throw new ApiError(409, 'none_left', `You have no ${CONSUMABLES[consumable].name.toLowerCase()}`);
+  }
 
   let kind: TicketRow['defender_kind'] = 'npc';
   let defenders: Hero[];
@@ -164,11 +203,14 @@ attack.post('/start', async (c) => {
   const id = randomToken(16);
   const seed = randomU32();
   const expiresAt = now + ONLINE_RULES.ticketTtlMs;
-  const setup = onlineBattleSetup(
-    seed,
-    { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false },
-    { heroes: defenders, formations: defFormations, bot: true },
-    info.site,
+  const setup = withConsumables(
+    onlineBattleSetup(
+      seed,
+      { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false },
+      { heroes: defenders, formations: defFormations, bot: true },
+      info.site,
+    ),
+    [consumable, null],
   );
 
   const stub = shardStub(pc.env, pc.shard);
@@ -181,19 +223,23 @@ attack.post('/start', async (c) => {
   const res = await pc.db.batch([
     pc.db
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, q, r, seed, setup, attackers, defenders, defender_kind, defender_id, hex_version, created_at, expires_at)
-         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
-         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 16}`).join(',')}) AND busy_until > ?14)`,
+        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, q, r, seed, setup, attackers, defenders, defender_kind, defender_id, hex_version, created_at, expires_at, consumable)
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16
+         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 17}`).join(',')}) AND busy_until > ?14)
+           AND (?16 IS NULL OR EXISTS (SELECT 1 FROM online_consumables WHERE season_id = ?2 AND player_id = ?4 AND consumable_id = ?16 AND qty >= 1))`,
       )
-      .bind(id, pc.season.id, pc.shard.id, pc.pid, target.q, target.r, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), kind, row?.owner_id ?? null, row?.version ?? 0, now, expiresAt, ...busy),
+      .bind(id, pc.season.id, pc.shard.id, pc.pid, target.q, target.r, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), kind, row?.owner_id ?? null, row?.version ?? 0, now, expiresAt, consumable, ...busy),
     pc.db.prepare(`UPDATE online_heroes SET busy_ticket = ?1, busy_until = ?2 WHERE id IN (${ph}) AND ${g}`).bind(id, expiresAt, ...busy),
     pc.db
       .prepare(`UPDATE online_profiles SET energy = ?3, energy_at = ?4, rev = rev + 1 WHERE season_id = ?1 AND player_id = ?2 AND ${g}`)
       .bind(pc.season.id, pc.pid, energy - ONLINE_RULES.energyPerAttack, now),
+    ...(consumable
+      ? [pc.db.prepare(`UPDATE online_consumables SET qty = qty - 1 WHERE season_id = ?1 AND player_id = ?2 AND consumable_id = ?3 AND qty >= 1 AND ${g}`).bind(pc.season.id, pc.pid, consumable)]
+      : []),
   ]);
   if (res[0].meta.changes !== 1) {
     await stub.unlockHex(hexKey(target.q, target.r), id);
-    throw new ApiError(409, 'heroes_busy', 'Some heroes are already in a battle');
+    throw new ApiError(409, 'heroes_busy', 'Some heroes are already in a battle (or the consumable is gone)');
   }
   const t = (await pc.db.prepare('SELECT * FROM battle_tickets WHERE id = ?1').bind(id).first<TicketRow>())!;
   return c.json(ticketView(t, info));
@@ -392,8 +438,11 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
     loot,
     attacker: { dead: res.attacker.dead, wounded: res.attacker.wounded, heroes: res.attacker.outcome.heroes },
     defender: { dead: res.defender.dead.length, total: defenders.length },
+    consumable: t.consumable ?? null,
+    passXp: attackXp(won, captured),
   };
   stmts.push(d.prepare(`UPDATE battle_tickets SET result = ?2 WHERE id = ?1 AND ${G}`).bind(t.id, JSON.stringify(summaryOut)));
+  stmts.push(passXpStmt(d, t.season_id, pc.pid, summaryOut.passXp, G, now));
   stmts.push(
     d
       .prepare(

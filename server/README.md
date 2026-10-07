@@ -27,7 +27,11 @@ server/
     region.ts         RegionDO (presence; per online shard also hex attack locks and the duel relay)
     online/           online mode: routes.ts (profile, map, hex, march, garrison, collect, recruit, equip, army),
                       attack.ts (tickets, verified attacks), clans.ts, duel.ts (lobby, lockstep relay),
-                      store.ts (seasons, shards, homes, D1 access), income.ts, context.ts
+                      store.ts (seasons, shards, homes, D1 access), income.ts, context.ts,
+                      consumables.ts (season inventory, use), market.ts (town marketplace)
+    economy/          routes.ts (/api/economy: catalog, wallet, buy, cosmetics, season pass),
+                      catalog.ts (cosmetics, pass tiers, market limits: all prices), wallet.ts (Drachmae
+                      ledger helpers), pass.ts (pass XP)
     telegramAuth.ts   initData validation (HMAC-SHA256, constant-time, 24 h max age)
     session.ts        stateless signed session tokens
     payments.ts       pre-checkout checks, idempotent payment/refund recording
@@ -37,6 +41,9 @@ server/
   migrations/0001_init.sql   D1 schema (players, saves, purchases, entitlements)
   migrations/0002_online.sql online mode (seasons, shards, profiles, heroes, items, hexes, garrisons,
                              clans, invites, battle tickets, battle log, season rewards)
+  migrations/0003_economy.sql wallets, Drachmae ledger, shop orders, cosmetic loadout, consumables
+                             (season inventory, daily caps), battle_tickets.consumable, season pass,
+                             market listings and audit
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
 ```
@@ -58,8 +65,9 @@ Authenticated routes take `Authorization: Bearer <token>`.
 | GET | `/api/save` | ✓ | `{ revision, version, data, updatedAt }`; `revision: 0, data: null` if none |
 | PUT | `/api/save` | ✓ | body `{ revision: <last revision you saw>, data: <SaveData, must have numeric v> }` → `{ revision }`, or **409** `save_conflict` with the current `revision`. Max 512 KB. |
 | POST | `/api/battle/verify` | ✓ | see below |
-| GET | `/api/shop/products` | – | catalogue |
-| POST | `/api/shop/invoice` | ✓ | body `{ productId }` → `{ link }` (Stars invoice link); 409 if already owned |
+| GET | `/api/shop/products` | – | Stars products: the Drachmae packs (`kind: 'drachmae'`, `drachmae`) and the legacy `supporter_banner` |
+| POST | `/api/shop/invoice` | ✓ | body `{ productId }` → `{ link }` (Stars invoice link); 409 if an entitlement is already owned |
+| … | `/api/economy/*` | ✓ (catalog –) | Drachmae, shop, cosmetics, season pass: see "Economy" |
 | GET | `/api/entitlements` | ✓ | `{ entitlements: [{productId, grantedAt}], purchases: [...] }` |
 | POST | `/api/telegram/webhook` | secret header | bot updates (see below) |
 | GET (WS) | `/ws/region/:id` | token | presence WebSocket (see below) |
@@ -136,9 +144,15 @@ TELEGRAM_WEBHOOK_SECRET` (constant-time compare), otherwise 401.
   `telegram_payment_charge_id` (webhook retries are no-ops) and grants the
   entitlement. `message.refunded_payment` marks it refunded and revokes it.
 
-Products live in `src/products.ts` (`supporter_banner`, 5 Stars, for testing
-the flow). Invoices are created with `createInvoiceLink`, currency `XTR`, empty
-`provider_token`.
+Products live in `src/products.ts`. **Stars buy only Drachmae packs**
+(`drachmae_100` 100 Stars → 100 Dr, `drachmae_275` 250 → 275, `drachmae_600`
+500 → 600, `drachmae_1300` 1000 → 1300). `successful_payment` of a pack
+credits the wallet exactly once per charge (a `drachmae_ledger` row keyed by
+the charge id; never after that charge was refunded); `refunded_payment`
+debits the credited amount again, once, even if that makes the balance
+negative. The legacy `supporter_banner` (5 Stars) stays a Stars entitlement
+for the existing shop screen and doubles as a banner cosmetic. Invoices are
+created with `createInvoiceLink`, currency `XTR`, empty `provider_token`.
 
 ### Region WebSocket (`RegionDO`)
 
@@ -274,6 +288,103 @@ in `src/online/protocol.ts`:
 Duel and challenge state is kept in DO memory (a live duel keeps the object
 awake); hex locks are in DO storage.
 
+## Economy
+
+Rules: docs/DESIGN_V2.md "Monetization and economy" and "Trading". All
+prices are data: Stars packs in `src/products.ts`, cosmetics, pass tiers and
+market limits in `src/economy/catalog.ts`, consumables in the shared
+`src/data/consumables.ts` (root).
+
+**Drachmae** (`wallets`, `drachmae_ledger`): account-wide, survive seasons.
+Every movement is a ledger row unique per `(player, kind, ref)` (`pack`,
+`refund`, `spend`, `pass`, `market_buy`, `market_sale`), written in the same
+batch as the balance change and guarded by the operation's own key row, so
+retries never double-apply. Spending needs `balance >= price`; only a refund
+can make it negative, which blocks spending until topped up. Things already
+bought with Drachmae are kept after a pack refund.
+
+**Purchases** are server-side debits, never Telegram invoices: `POST
+/api/economy/buy {requestId, item, currency?, qty?}`. `requestId` (8–64 of
+`[A-Za-z0-9_-]`; the client makes a fresh one per purchase and reuses it on
+retry) is the primary key of `shop_orders`; the order row, the debit and the
+goods go in one batch and only apply if the order row was inserted by it
+(conditions in its `WHERE`: funds, not owned, daily cap). A retry answers the
+stored order with `replayed: true`; the same id for another item is 409
+`request_reused`.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/economy/catalog` | public: `packs`, `cosmetics` (+`slots`), `consumables`, `pass` (price, XP rules, tiers), `market` (fee, hours, cap, price bounds) |
+| GET | `/api/economy/wallet` | `{ drachmae, canSpend, ledger (last 50), cosmetics (owned ids), loadout {slot: id} }` |
+| POST | `/api/economy/buy` | `{requestId, item, currency = 'drachmae', qty = 1}` → `{ order, replayed, drachmae }`. Items: a cosmetic id, `season_pass`, a consumable id (gold or Drachmae, needs a season profile). 409 `insufficient_funds` / `already_owned` / `daily_cap` / `no_profile` / `request_reused`; 404 `unknown_item` |
+| POST | `/api/economy/cosmetics/equip` | `{slot, id or null}` → `{ loadout }`; 403 `not_owned` |
+| GET | `/api/economy/pass` | `{ season, xp, tier, premium, premiumDrachmae, xpPerTier, claimed: [{tier, track}], tiers }` |
+| POST | `/api/economy/pass/claim` | `{tier, track: free or premium}` → `{ reward, replayed }`; 409 `locked` (tier not reached / premium not unlocked), `no_profile` (gold and consumable rewards go to the season profile) |
+| GET | `/api/online/consumables` | `{ inventory: {id: qty}, day, caps: {id: {cap, bought}} }` (also `consumables` in `GET /api/online/profile`) |
+| POST | `/api/online/consumables/use` | `{id}`: `healing_salve` (every wound 1 h shorter), `march_rations` (rest of the march ×0.75); battle ones → 400 |
+| GET | `/api/online/market` | open listings of your shard; query `kind, ref, rarity, currency, minPrice, maxPrice, townQ+townR, sort (price_asc, price_desc, newest, ending), cursor, limit ≤ 50` → `{ listings, next }` (`next` = cursor of the next page, or null) |
+| GET | `/api/online/market/mine` | your listings this season (resolves expired ones first) `{ listings, open, maxOpen }` |
+| GET | `/api/online/market/towns` | towns where you can list now |
+| POST | `/api/online/market/list` | `{town: {q,r}, kind: item/resource/consumable, ref (item uid, food/wood/bronze, or consumable id), qty, currency: gold/drachmae, price}` → `{ listing }`; 403 `town_unreachable`, 400 `price_out_of_bounds`, 409 `listing_cap` / `cannot_afford` / `none_left` |
+| POST | `/api/online/market/buy` | `{listingId}` → `{ listing, paid, fee, sellerGets }`; 403 `self_buy`, 409 `insufficient_funds` / `sold` / `gone`, 410 `expired` |
+| POST | `/api/online/market/cancel` | `{listingId}` (seller) → goods back |
+
+**Consumables** (`src/data/consumables.ts`): healing salve, morale wine, war
+horn, sharpening stone, march rations. Bought with season gold or Drachmae;
+the daily cap counts shop purchases per player per UTC day (server time),
+gold and Drachmae together (pass rewards and marketplace buys do not count).
+They are held per season (`online_consumables`) and vanish with it.
+
+- **At most one consumable per battle**, PvP attacks and duels alike (also
+  against neutrals): `POST /api/online/attack/start {q, r, consumable?}`
+  (`consumables: [..]` naming more than one → 400 `one_consumable`; a
+  non-battle one → 400 `bad_consumable`; none held → 409 `none_left`). It is
+  spent in the ticket's batch (gone even if the attack is abandoned or
+  rejected); resuming an open ticket spends nothing. Duels: `challenge {to,
+  consumable?}` and `challenge_reply {id, accept, consumable?}`; both are
+  spent when the duel starts (all or nothing; `error {code:
+  'bad_consumable'}` for anything but one battle consumable id).
+- The effect is baked into the server-built setup (unit stats: sharpening
+  stone ×1.1 melee and ranged damage, morale wine +10 morale, war horn grants
+  Rally Cry to the side's highest-level hero), and `setup.consumables =
+  [side0, side1]` records the ids, so both clients and the server replay
+  simulate the same battle. TODO(sim): a true one-shot, army-wide war-horn
+  rally needs a sim feature; until then the horn uses the Rally Cry ability.
+
+**Season pass** (`pass_progress`, `pass_claims`, per online season): 30 tiers,
+100 XP each. XP is written by verified server events inside their own guarded
+batches: an attack 10 (+15 won, +25 captured), a verified duel 10 (+10 to the
+winner). Free track: gold every tier, a battle consumable every 5th. Premium
+track (500 Dr per season, bought via `/api/economy/buy` item `season_pass`):
+consumables, 15 Dr every 3rd tier, cosmetics at 10/20/30. A claim inserts its
+`pass_claims` row (only if the tier is reached and, for premium, unlocked) and
+the reward in one batch; claiming again grants nothing.
+
+**Town marketplace** (`market_listings`, `market_audit`):
+
+- Listing: in a town hex (type town, or a capital) you or your clan hold, or
+  where your army stands on or next to. Goods go into escrow in the listing
+  batch (stash item removed, resource or consumables subtracted). Prices in
+  gold or Drachmae; total price bounds per rarity and currency
+  (`MARKET.priceBounds`; resources and consumables count as common). At most
+  20 open listings per player; rate limits of 20 lists, 30 buys, 30 cancels
+  and 60 searches a minute per player (per isolate).
+- Buying (any player of the same season and shard): one batch flips the
+  listing `open → sold` (only if still open, unexpired, not your own and you
+  can pay), debits the buyer, credits the seller the price minus the **10%
+  fee (rounded up), which is burned**, moves the goods and writes the audit
+  row. Two concurrent buyers: exactly one wins, the other gets 409 `sold`.
+- Cancel returns the goods. Listings expire after 48 h (never later than the
+  season end); expiry is lazy: an expired listing cannot be bought and its
+  goods return to the seller the next time they list, open
+  `/api/online/market/mine` or load their profile.
+- **Season end:** listings are season-scoped and are left behind with the
+  season like everything else. Unsold goods vanish with the season (there is
+  nothing to return them to); gold dies with the season; Drachmae already
+  paid to sellers stay theirs (account-wide). There is no listing fee, so
+  nothing is refunded.
+- Every list, buy, cancel and expiry is in `market_audit` (actor, price, fee).
+
 ## Local development
 
 ```bash
@@ -347,6 +458,13 @@ Steps 1–4 are implemented in the game (`src/platform/api.ts`, `online.ts`,
 `saveSync.ts`, `verify.ts`; see docs/DESIGN.md "Online client"); the online
 mode (`src/online/`, `src/scenes/online/`) uses `/api/online/*` and
 `/ws/online`.
+
+Economy screens (to be built by the UI overhaul) use the typed methods in
+`src/platform/api.ts`: `economyCatalog`, `wallet`, `buy` (makes a request id;
+pass the same one when retrying), `equipCosmetic`, `seasonPass`, `claimPass`,
+`consumables`, `useConsumable`, `marketSearch`, `marketMine`, `marketTowns`,
+`marketList`, `marketBuy`, `marketCancel`. Drachmae packs still go through
+`invoice(productId)` + `openInvoice`, then poll `wallet()`.
 
 1. **Boot:** if `Telegram.WebApp.initData` is non-empty,
    `POST /api/auth/telegram { initData }` → keep `token` in memory (re-auth on

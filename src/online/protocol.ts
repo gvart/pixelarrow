@@ -38,9 +38,10 @@ export interface SealedOrder {
 export type ClientMsg =
   | { type: 'ping'; t?: unknown }
   | { type: 'who' }
-  | { type: 'challenge'; to: number }
+  /** consumable: at most one battle consumable (src/data/consumables.ts), spent when the duel starts. */
+  | { type: 'challenge'; to: number; consumable?: string | null }
   | { type: 'challenge_cancel'; id: string }
-  | { type: 'challenge_reply'; id: string; accept: boolean }
+  | { type: 'challenge_reply'; id: string; accept: boolean; consumable?: string | null }
   /** Deployment order (applied by both clients in the order the server echoes them). */
   | { type: 'd_order'; duel: string; order: Order }
   | { type: 'd_ready'; duel: string }

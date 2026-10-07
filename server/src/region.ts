@@ -24,6 +24,10 @@ import { onlineBattleSetup } from '../../src/online/battle';
 import { randomSite } from '../../src/world/battlefield';
 import { Rng } from '../../src/sim/rng';
 import { fieldReady, formationsOf, getProfile, loadHeroes, randomToken, randomU32 } from './online/store';
+import { withConsumables } from './online/attack';
+import type { ConsumableId } from '../../src/data/consumables';
+import { PASS } from './economy/catalog';
+import { passXpStmt } from './economy/pass';
 
 export interface PresenceInfo {
   id: number;
@@ -62,10 +66,18 @@ export class RegionDO extends DurableObject<Env> {
       randomId: () => randomToken(8),
       randomSeed: () => randomU32(),
       online: (pid) => this.ctx.getWebSockets(`p:${pid}`).some((w) => w.deserializeAttachment() !== null),
-      buildDuel: (a, b, seed) => this.buildDuel(a, b, seed),
+      buildDuel: (a, b, seed, picks) => this.buildDuel(a, b, seed, picks),
+      release: (a, b, picks) => this.giveBack([a.id, b.id], picks),
       record: async (d, r) => {
         const m = await this.shardMeta();
         if (!this.env.DB || !m) return;
+        if (r.verified) {
+          // Season pass XP for both duellists (the winner gets a bonus).
+          const now = Date.now();
+          await this.env.DB.batch(
+            d.players.map((pid, side) => passXpStmt(this.env.DB!, m.season, pid, PASS.xp.duel + (r.winner === side ? PASS.xp.duelWin : 0), '1', now)),
+          );
+        }
         await this.env.DB.prepare(
           `INSERT INTO battle_log (season_id, shard_id, kind, ref, attacker_id, defender_id, winner, ticks, hash, verified, summary, created_at)
            VALUES (?1, ?2, 'duel', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
@@ -109,7 +121,39 @@ export class RegionDO extends DurableObject<Env> {
     return this.meta;
   }
 
-  private async buildDuel(a: PresencePlayer, b: PresencePlayer, seed: number) {
+  /** Spends one consumable per side that picked one; all or nothing (compensating on a partial failure). */
+  private async spend(pids: [number, number], picks: [ConsumableId | null, ConsumableId | null]): Promise<boolean> {
+    const m = await this.shardMeta();
+    const db = this.env.DB;
+    if (!m || !db) return false;
+    const sides = [0, 1].filter((i) => picks[i]);
+    if (!sides.length) return true;
+    const res = await db.batch(
+      sides.map((i) =>
+        db.prepare('UPDATE online_consumables SET qty = qty - 1 WHERE season_id = ?1 AND player_id = ?2 AND consumable_id = ?3 AND qty >= 1').bind(m.season, pids[i], picks[i]),
+      ),
+    );
+    const ok = res.map((r) => r.meta.changes === 1);
+    if (ok.every(Boolean)) return true;
+    const back: [ConsumableId | null, ConsumableId | null] = [null, null];
+    sides.forEach((i, k) => {
+      if (ok[k]) back[i] = picks[i];
+    });
+    await this.giveBack(pids, back);
+    return false;
+  }
+
+  private async giveBack(pids: [number, number], picks: [ConsumableId | null, ConsumableId | null]): Promise<void> {
+    const m = await this.shardMeta();
+    const db = this.env.DB;
+    if (!m || !db) return;
+    const stmts = [0, 1]
+      .filter((i) => picks[i])
+      .map((i) => db.prepare('UPDATE online_consumables SET qty = qty + 1 WHERE season_id = ?1 AND player_id = ?2 AND consumable_id = ?3').bind(m.season, pids[i], picks[i]));
+    if (stmts.length) await db.batch(stmts);
+  }
+
+  private async buildDuel(a: PresencePlayer, b: PresencePlayer, seed: number, picks: [ConsumableId | null, ConsumableId | null]) {
     const m = await this.shardMeta();
     const db = this.env.DB;
     if (!m || !db) return null;
@@ -122,7 +166,8 @@ export class RegionDO extends DurableObject<Env> {
       }),
     );
     if (!sides[0] || !sides[1]) return null;
-    const setup = onlineBattleSetup(seed, sides[0], sides[1], randomSite(new Rng(seed ^ 0x2f6b9e1d)));
+    if (!(await this.spend([a.id, b.id], picks))) return null;
+    const setup = withConsumables(onlineBattleSetup(seed, sides[0], sides[1], randomSite(new Rng(seed ^ 0x2f6b9e1d))), picks);
     return { setup, heroes: [sides[0].heroes, sides[1].heroes] as [Hero[], Hero[]] };
   }
 
