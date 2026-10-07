@@ -26,13 +26,14 @@ const BUSY_SCENES = new Set(['Battle', 'Results', 'Boot']);
 let popup: { id: string; modal: Modal } | null = null;
 let installed = false;
 
-/** The screen on top that can show a dialog (has a UI root), or null when a battle is running. */
+/** The online screen on top that can show a dialog, 'busy' in a battle, or null outside the online mode. */
 function hostScene(game: Phaser.Game): UiScene | null | 'busy' {
   const scenes = game.scene.getScenes(true);
   if (scenes.some((s) => BUSY_SCENES.has(s.scene.key))) return 'busy';
   for (let i = scenes.length - 1; i >= 0; i--) {
     const s = scenes[i] as UiScene;
-    if (s.ui && s.m && s.sys.settings.visible) return s;
+    // the online screens (map, army, clan, and any later Online* screen)
+    if (s.ui && s.m && s.sys.settings.visible && s.scene.key.startsWith('Online')) return s;
   }
   return null;
 }

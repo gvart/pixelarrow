@@ -45,11 +45,29 @@ async function until(fn, ms = 15000, step = 200) {
   }
   return false;
 }
+/**
+ * A tap on the canvas, dispatched inside the page: touchstart now, touchend one
+ * animation frame later. Two players in software WebGL run at ~5 fps; touches
+ * sent from outside (CDP) then arrive several frames apart and read as a
+ * long-press (450 ms of game time), or both in one frame.
+ */
 async function tap(p, x, y) {
-  const t = (type, pts) => p.cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([a, b], i) => ({ x: a, y: b, id: i })) });
-  await t('touchStart', [[x, y]]);
-  await p.page.waitForTimeout(60);
-  await t('touchEnd', []);
+  await ev(
+    p,
+    ([tx, ty]) =>
+      new Promise((done) => {
+        const c = window.__game.canvas;
+        const touch = new Touch({ identifier: 7, target: c, clientX: tx, clientY: ty, pageX: tx, pageY: ty, screenX: tx, screenY: ty });
+        const fire = (type) =>
+          c.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [touch], targetTouches: type === 'touchend' ? [] : [touch], changedTouches: [touch], bubbles: true, cancelable: true }));
+        fire('touchstart');
+        requestAnimationFrame(() => {
+          fire('touchend');
+          requestAnimationFrame(() => done(true));
+        });
+      }),
+    [x, y],
+  );
   await p.page.waitForTimeout(250);
 }
 /** Taps the first visible Button in a scene whose label starts with `label`. */
@@ -118,9 +136,12 @@ const target = await ev(A, () => {
 check('a neutral hex next to home', !!target);
 await ev(A, (h) => window.__game.scene.getScene('Online').select(h), target);
 await until(() => ev(A, () => !!window.__game.scene.getScene('Online').detail), 5000);
-await A.page.waitForTimeout(400);
+// the war table pans to the hex and the panel settles (slow frames in software WebGL)
+await A.page.waitForTimeout(1500);
 await A.page.screenshot({ path: `${out}/23-online-map.png` });
 console.log('saved', `${out}/23-online-map.png`);
+// A screenshot stalls the page for one long frame; a tap right after it would read as a long-press.
+await A.page.waitForTimeout(800);
 await tapBtn(A, 'Online', 'Attack');
 check('attack ticket -> deployment', await until(() => active(A, 'Battle'), 8000));
 await A.page.waitForTimeout(800);

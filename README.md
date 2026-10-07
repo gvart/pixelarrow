@@ -22,6 +22,7 @@ font, icons, effects) is generated procedurally in code at startup.
 | ![Hero perks](docs/screenshots/17-hero-perks.png) | ![Town market](docs/screenshots/16-town-market.png) | ![Level up](docs/screenshots/19-level-up.png) |
 | ![Deployment](docs/screenshots/04-deploy.png) | ![Battle](docs/screenshots/06-battle-contact.png) | ![Village](docs/screenshots/15-village.png) |
 | ![Menu](docs/screenshots/01-menu.png) | ![Army](docs/screenshots/03-army-stash-compare.png) | ![Retreat](docs/screenshots/12-retreat-confirm.png) |
+| ![War-table hex map](docs/screenshots/39-war-table-map.png) | ![Hex panel](docs/screenshots/40-hex-panel.png) | ![Fog and armies](docs/screenshots/41-fog-and-armies.png) |
 
 | ![Battle panel](docs/screenshots/30-battle-panel.png) | ![Online deployment](docs/screenshots/31-online-deploy-countdown.png) | ![Battle report](docs/screenshots/32-battle-report.png) |
 
@@ -102,6 +103,12 @@ API (no backend needed): checks the game stays playable with the API down
 server-verified attack, a clan formed through an invite link and a live
 lockstep duel, and saves `docs/screenshots/23-online-map.png`, `24-clan.png`
 and `25-duel.png`.
+
+`node scripts/war-table-shots.mjs http://localhost:5173/` needs no backend: it
+opens the war-table hex map on a local demo shard (`src/online/demoShard.ts`,
+the scene's `{ preview }` mode, also used by the layout check) and saves
+`docs/screenshots/39-war-table-map.png`, `40-hex-panel.png` and
+`41-fog-and-armies.png`.
 
 ### Online features (cloud save, shop) locally
 

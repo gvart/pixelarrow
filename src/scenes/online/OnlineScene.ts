@@ -181,6 +181,7 @@ export class OnlineScene extends BaseScene {
   private backdrop: Phaser.GameObjects.Image | null = null;
   private candle: Phaser.GameObjects.Image | null = null;
   private chipText: Phaser.GameObjects.BitmapText | null = null;
+  private chipTimer: Phaser.Time.TimerEvent | null = null;
   private duelBadge: Badge | null = null;
   private lobbyOpen = false;
   private boardBuilt = false;
@@ -488,7 +489,6 @@ export class OnlineScene extends BaseScene {
       H.add(addIcon(this, cx, ry + 1, RES_ICON[k]));
       H.add(addText(this, cx + 14, ry + 4, k === 'recruits' ? `${Math.floor(p.resources[k])}` : fmtNum(p.resources[k]), 'ink'));
     });
-    const resTip = t('online.resTip', { gold: Math.floor(p.resources.gold), food: Math.floor(p.resources.food), wood: Math.floor(p.resources.wood), bronze: Math.floor(p.resources.bronze), recruits: Math.floor(p.resources.recruits) });
     // ---- marching chip
     if (p.army.marching && p.army.arriveAt) {
       const cy = TOP_H + 2;
@@ -505,7 +505,8 @@ export class OnlineScene extends BaseScene {
         this.chipText.setText(s.length && measureText(s) > VW - hw - 34 ? fmtTime(left).toUpperCase() : s);
       };
       upd();
-      this.time.addEvent({ delay: 1000, loop: true, callback: upd });
+      this.chipTimer?.remove();
+      this.chipTimer = this.time.addEvent({ delay: 1000, loop: true, callback: upd });
     }
     // ---- bottom bar: Army, Clan, Duels, Collect
     const by = VH - BAR_H;
@@ -542,7 +543,6 @@ export class OnlineScene extends BaseScene {
         if (i === 2) this.duelBadge = badge;
       }
     });
-    void resTip;
     if (this.selected) this.buildPanel();
   }
 

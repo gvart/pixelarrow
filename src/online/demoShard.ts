@@ -198,7 +198,7 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
 
   const neutralNext = neighbours(me, DEMO.radius).find((n) => !owners.has(hexId(n.q, n.r)) && info(n).passable) ?? mine[1];
   const neutralFar = hexes.find((x) => x.owner === null && x.occupant === 'npc' && hexDistance(x, me) === 3) ?? neutralNext;
-  const town = hexes.find((x) => x.type === 'town' && x.owner === null) ?? null;
+  const town = hexes.find((x) => (x.type === 'town' || x.fort) && x.owner === null) ?? null;
   const rivalSeen = hexes.filter((x) => x.owner === DEMO.rival).sort((a, b) => hexDistance(a, me) - hexDistance(b, me))[0];
   return { now, profile, map, owners, hex, spots: { own: mine[1] ?? me, neutralNext, neutralFar, rival: rivalSeen ?? rivals[0], town } };
 }

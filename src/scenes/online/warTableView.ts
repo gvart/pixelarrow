@@ -467,11 +467,12 @@ export class WarTableView {
         g.lineBetween(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0, a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1);
       }
     }
+    // a small marker at the front edge of the goal (the hex's props stay visible)
     const end = pts[pts.length - 1];
     g.fillStyle(0x1d140f, 0.5);
-    g.fillEllipse(end.x, end.y + 1, 9, 5);
+    g.fillEllipse(end.x, end.y + 7, 7, 4);
     g.fillStyle(this.route.own ? 0xd8a840 : col, 1);
-    g.fillEllipse(end.x, end.y, 7, 4);
+    g.fillEllipse(end.x, end.y + 6, 5, 3);
   }
 
   /** The selected hex: a pre-drawn glowing outline whose light pulses (no per-frame geometry). */
