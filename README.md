@@ -142,15 +142,15 @@ Audio (unlock, mute, background, battle sounds under the voice cap, no console e
 src/
   sim/        pure TS battle simulation (no Phaser): battle.ts, ai.ts, formation.ts, stats.ts, rng.ts, types.ts
   world/      pure TS overland campaign: map.ts (seeded map generator), path.ts (A*), world.ts (travel, bands, settlements), noise.ts
-  data/       items.ts (all gear), traits.ts, perks.ts (attributes, perk trees, abilities, auras), units.ts (hero model), names.ts
+  data/       classes.ts (unit classes, mounts, beasts), items.ts (all gear), terrain.ts, traits.ts, perks.ts (attributes, perk trees, abilities, auras), units.ts (hero model), names.ts
   game/       campaign.ts, heroes.ts (factories, development), enemy.ts (bot and band armies), loot.ts, save.ts, armySpec.ts
-  art/        procedural pixel art: paperdoll.ts, emblems.ts, ground.ts (iso tiles), iso.ts (projection), worldArt.ts (map, towns, bands), fx.ts (aura rings, stars, pips), font.ts, icons.ts, itemIcons.ts, uiTextures.ts
+  art/        procedural pixel art: model3d.ts (3D-primitive pixel renderer), materials.ts (colour ramps), paperdoll.ts (men, riders, chariots, animals), emblems.ts, ground.ts (iso tiles), iso.ts (projection), worldArt.ts (map, towns, bands), fx.ts (aura rings, stars, pips), font.ts, icons.ts, itemIcons.ts, uiTextures.ts
   audio/      procedural Web Audio: engine.ts (mixer, unlock, suspend), voices.ts (voice limiter), sfx.ts (effect recipes), music.ts (sequencer + tracks), synth.ts, hooks.ts (event -> sound mapping)
   ui/         Phaser UI kit (buttons, panels, meters, scroll lists), battleFx.ts (pooled battle effects), texture registration
   scenes/     Boot, Menu, World (map + encounters), Settlement, Army, Hero (skills), Battle (deployment + battle), Results
   platform/   telegram.ts (WebApp SDK wrapper), nav.ts (back navigation stack), safeArea.ts (full-screen insets), storage.ts (CloudStorage / localStorage), api.ts (typed API client),
               online.ts + saveSync.ts (sign-in, cloud save sync, shop, entitlements), cloud.ts (instance), verify.ts (battle replay check)
-  dev/        preview.ts (sprite sheet page), balance.ts (headless balance harness for `npm run balance`)
+  dev/        preview.ts (sprite sheet page), balance.ts + classBalance.ts (headless balance harness for `npm run balance`)
   state.ts    shared campaign state and persistence
 tests/        vitest suites
 scripts/      screenshot tour and touch smoke test (Playwright), balance runner

@@ -75,8 +75,9 @@ the code keeps for it are in [ROADMAP.md](ROADMAP.md).
   morale, −3% morale damage taken, +0.12 aura/shout radius, −2.5% ability
   cooldowns, and WIL 9 grants Rally Cry. **Two points per level**, spent in
   the Hero screen with a preview of every derived stat before confirming.
-- **Perks:** one point at levels 2, 4, 6, 8, 10. Three five-tier trees; a perk
-  needs the previous tier of its tree and the matching level:
+- **Perks:** one point at levels 2, 4, 6, 8, 10. Each class has its own
+  five-tier tree (see Unit classes below); a perk needs the previous tier and
+  the matching level. The three original trees, which the classes reuse:
 
 | Tier (Lv) | Hoplite | Skirmisher | Warrior |
 | --- | --- | --- | --- |
@@ -102,8 +103,8 @@ the code keeps for it are in [ROADMAP.md](ROADMAP.md).
   holder) within their radius: *Steady Presence* (3.5) −20% morale damage and
   +1 morale/s even in melee; *Eagle Eye* (5) +12% accuracy, +15% missile
   damage; *Warlord* (3) +12% melee damage.
-- Bots develop by archetype (points along a fixed pattern, perks down their
-  tree) and **use abilities** with the same orders: bash when engaged, fury in
+- Bots develop by class (points along the class growth pattern, perks down
+  the class tree) and **use abilities** with the same orders: bash when engaged, fury in
   a frontal melee, a volley when two or more shooters have targets, a shout
   when several men nearby waver.
 
@@ -121,6 +122,127 @@ the code keeps for it are in [ROADMAP.md](ROADMAP.md).
   3, 5 and 8 (Skittish turns into Steady).
 - **Groups:** heroes belong to one of four battle groups —
   I Phalanx, II Skirmish, III Reserve, IV Flank — assigned in deployment.
+
+## Unit classes (`src/data/classes.ts`)
+
+Every hero has a **class** (`Hero.cls`): one data entry that fixes his role,
+attribute spread and growth, combat modifiers, the gear he is raised with
+(by tier: recruit / veteran / elite), the cultures that field him, his cost
+in the bot army budget, his default battle group, his **own five-tier perk
+tree** and the colours of his clothing. Adding a class is adding one entry.
+Saves from before classes map onto them (`classOfHero`: hoplite → Spartan
+hoplite, skirmisher → slinger / archer / javelineer by weapon, swordsman →
+thureophoros or Celtic swordsman by culture, animals by kind).
+
+| Class | Role | Cost | Cultures | Kit (recruit) | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Militia | levy | 60 | all | dory / club / javelins / sling | cheap, brittle; village recruits |
+| Spartan hoplite | heavy | 100 | Greek | dory, hoplon, Corinthian | braced spear wall, the anti-cavalry line |
+| Thureophoros | heavy | 85 | Greek, Punic | xiphos or longche, thureos | flexible medium foot |
+| Celtic swordsman | heavy | 80 | Celtic | longsword, thureos, mail later | shock infantry |
+| Thracian rhomphaia | heavy | 85 | Greek | two-handed rhomphaia, no shield | shield breaker, weak to missiles |
+| Cretan archer | ranged | 50 | Greek, Punic | bow → Cretan bow | longest range, armour piercing |
+| Rhodian slinger | ranged | 50 | all | sling → Rhodian sling | most ammunition |
+| Peltast javelineer | ranged | 45 | all | javelins, pelte | heavy short-range volleys |
+| Scythian horse archer | ranged (mounted) | 75 | Punic, Celtic | Scythian bow, hood | shoots on the move, kites |
+| Peltast | light | 65 | Greek, Celtic | javelins + longche, pelte | throws then closes; hunts archers |
+| Thracian falx | light | 75 | Greek, Celtic | falx | fast, hits hard, no shield |
+| Gallic warband | light | 70 | Celtic | axe / longsword, thureos | cheap fierce charge |
+| Fanatic | light | 70 | any (bands) | club / axe / kopis, buckler | hardly breaks (morale loss ×0.65) |
+| Companion cavalry | cavalry | 160 | Greek | xyston lance, Boeotian helmet | shock riders: flank and rear charges |
+| Thessalian horse | cavalry | 115 | Greek, Punic | javelins, buckler | lighter riders, throw then charge |
+| Scythed chariot | cavalry | 260 | Punic | kopis; scythed wheels | breaks loose foot, dies in rough ground |
+| Royal guard | elite | 130 | Greek | bronze dory, silver argyraspis, Attic | elite line |
+| Sacred Band | elite | 125 | Greek | bronze dory, aspis, Corinthian | elite line |
+| Wolf | beast | 50 | — | — | packs, flank, bolt when hurt |
+| Wild boar | beast | 100 | — | — | armoured charge |
+| Brown bear | beast | 250 | — | — | cleaves and knocks men down |
+
+**Perk trees** — each class has its own five perks (tiers at levels 2, 4,
+6, 8, 10; the old Hoplite / Skirmisher / Warrior trees are now the trees of
+the classes that grew out of them). Twelve class-only perks fill the gaps:
+*Drilled* (+5 morale, +4% block), *Iron Discipline* (+6 morale, −20% morale
+damage), *Shield Breaker*, *Reaping Blow*, *Longshot* (+1.5 range), *Lead
+Bullets*, *Zealot*, *Horsemanship* (+6% speed, +10 stamina, +6 HP), *Lance
+Charge* (+0.3 charge impact), *Parthian Shot* (+8% accuracy, +25% arrows),
+*Ride Down* (+50% damage to routing men), *Scythe Master* (scythes cut 40%
+deeper). A perk outside the hero's class tree is blocked ("Another class").
+Example trees: hoplite *Shield Drill → Shield Bash → Phalangite → Steady
+Presence → Unbreakable*; Companion *Horsemanship → Lance Charge → Ride Down →
+Rally Cry → Warlord*; horse archer *Horsemanship → Volley → Parthian Shot →
+Eagle Eye → Skirmish Master*.
+
+**New items:** longche, xyston (lance), falx, rhomphaia (polearm), Cretan
+and Scythian bows, Rhodian sling, pelte, silver argyraspis, Scythian hood,
+Thracian, Boeotian and Attic helmets. Bows, slings and javelins carry
+**armour pierce** (a share of the target's armour ignored).
+
+**Recruitment:** villages offer militia, slingers and javelineers; towns
+offer their culture's classes (`townClasses`), weighted toward the common
+ones, priced from the class cost, level and gear. Bands and garrisons are
+built by class and tier (`src/game/enemy.ts`); cavalry appears from tier 2;
+neutral bands include outlaws, hill tribes, pirates, deserters, cultists
+(fanatics) and **beasts** (wolf packs, boars, a bear).
+
+### Mounts
+
+A mount is a **class property, not an item** (`MOUNTS` in classes.ts): it
+cannot be looted or swapped, and the rider's gear works as on foot (no
+shield wall, no shield bash from the saddle).
+
+| Mount | Speed / gallop | +HP | +Stamina | Charge | Footprint | Accel / brake | Turn slow / fast |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| horse | ×1.55 / ×1.95 | 14 | 30 | +0.7 | radius 0.48 | 3.2 / 4.5 | 4 / 1.4 rad/s |
+| chariot | ×1.6 / ×2.1 | 34 | 40 | +1.0 | radius 0.72 | 2.4 / 3.2 | 2.4 / 0.8 rad/s, scythes 11 |
+
+### Mounted, chariot and animal rules (`src/sim/battle.ts`, `MOUNTED_RULES`)
+
+- **Momentum.** Mounted units carry a speed (`spd`) that accelerates and
+  brakes at the mount's rates and turns slowly at speed; they cannot stop
+  dead. A rider that reaches a foe at ≥55% of his gallop delivers a
+  **charge impact** scaled by speed: damage, a 0.7 s stun, a shove and
+  terror (−8 morale, 40% of it to the men around). Riders drive on through
+  unshielded or missile men at the gallop; chariots drive through anything
+  that is not a braced spear wall.
+- **Braced spears.** A charge into braced spears from the front balks:
+  the impact is cut to a quarter, the horse rears (1.6 s stun), the rider
+  takes the spear (×2.2) and −10 morale. Spearmen hit horses ×1.35 and a
+  rider striking at a braced front misses 20% more often.
+- **Flanks and pursuit.** Charges on a flank or the rear do ×1.3 damage and
+  +1 morale shock; riders cut down routing men ×1.5 (more with Ride Down).
+  Each horse within 2.5 paces costs men on foot morale (missile men twice,
+  spear walls never). From the saddle men on foot take ×1.2.
+- **Horse archers** shoot while moving (scatter ×1.3 at speed).
+- **Chariots** cut everyone they pass with scythes (once a second per man),
+  but forest, rough ground, water and fords slow them badly and wreck them
+  (damage per second by terrain); riders lose speed and charge power there
+  too (`cavSpeed`, `cavCharge`, `chariotSpeed`, `chariotDamage` in
+  `src/data/terrain.ts`).
+- **Animals** (`kind: 'animal'`) take no orders: they hunt anything within
+  9 paces (the whole pack wakes when one is attacked), wolves circle to
+  the flanks of their prey, boars charge, bears cleave and knock men down.
+  Wounds shake them less (×0.6), but they **flee** at their rout threshold
+  and never rally.
+- Footprints: separation, reach and "outnumbered" counts use each unit's
+  radius (a horse is worth ½ of a man in the outnumbered count, an animal
+  ⅓).
+- **Determinism and old replays.** All of this is gated on `stats.mount` /
+  `stats.kind`: battles without mounts or animals run the exact old float
+  operations. `tests/legacy.test.ts` replays five battles recorded before
+  classes existed (`tests/fixtures/legacy-battles.json`) and checks their
+  mid-battle and final hashes. The server schema (`server/src/battle.ts`)
+  accepts the new optional stats.
+
+### Bot AI for classes (`src/sim/ai.ts`)
+
+- **Cavalry** waits behind the line until it is shot at or enemy missile
+  men are within reach, then rides wide round a flank, charges the enemy
+  flank or rear (or their missile men), breaks off after ~4 s of melee,
+  regroups and charges again. Chariots always charge.
+- **Horse archers** orbit at the edge of their range (Cantabrian circle),
+  shooting on the move and keeping clear of melee.
+- **Spearmen brace** when riders come at them from the front.
+- **Animals** are run by the beast logic above, not by the commander.
 
 ## Equipment
 
@@ -336,6 +458,40 @@ should be; symmetric fields stay even, and broken ground makes battles longer:
 | defending a ridge vs attacking it | **63% / 38%** | 143 s |
 | river across the middle, ford in the centre | 49% / 51% | 103 s |
 | generated plain / scrub / forest / hills / beach | 45–54% | 96–141 s |
+
+**Classes** (`src/dev/classBalance.ts`, part of the same report). The
+matched, passive, frontal, flank, ability and terrain numbers above are
+unchanged by classes (old armies replay exactly); the report after this
+milestone: player win 52% / loss 48%, duration mean 96 s / median 85 s, 80%
+in 60–150 s, passive player hits the limit 6%, braced hoplites never rout a
+charging line within 15 s, rear attack routs the line at 13.5 s vs 101 s
+from the front, perks 53–60%, ridge defence 75%.
+
+| Test (equal cost, both bot-driven, 26 seeds) | Result |
+| --- | --- |
+| Companions charge braced hoplites head on | hoplites win **100%**; 14% of riders down 10 s after the clash |
+| 6 hoplites + 2 Companions vs the same cost in hoplites | cavalry side wins 42% |
+| Peltasts vs Cretan archers | 81% |
+| Companions vs archers | 81% |
+| Horse archers vs hoplites / vs Celtic swordsmen | 52% / 100% |
+| Scythed chariots vs militia (spears) | 0% |
+| Wolves / boars / a bear vs militia (budgets 600 and 900) | 54% / 54% / 50% |
+
+Class costs were fitted (`npm run balance`'s round robin, budgets 700 and
+900 so that rounding the head count does not decide a matchup) until every
+class's mean win rate against all others lies between 34% and 64%: Levy 54,
+hoplite 50, thureophoros 50, Celt 64, rhomphaia 50, archer 34, slinger 43,
+javelineer 64, horse archer 54, peltast 58, falx 40, Gaul 59, fanatic 46,
+Companion 43, Thessalian 51, chariot 41, royal guard 47, Sacred Band 52.
+The intended counters hold: spears beat riders head on (hoplites over
+Companions / Thessalians / chariots 92–100%), riders beat missile men
+(Companions over archers / slingers / javelineers 69–92%), peltasts beat
+archers (85%), horse archers bleed slow heavy foot (Celts 100%,
+thureophoroi 92%). **Gap:** single matchups between two one-class armies are
+still very decisive (many pairs above 60%, see the matrix in the report):
+with identical bots on both sides a fight between two pure armies tends to
+go the same way every seed. Mixed armies and the player's own orders soften
+this, but pure-class rock-paper-scissors is sharper than the 60% target.
 
 `tests/balance.test.ts` checks the matched targets on smaller samples;
 `tests/abilities.test.ts` covers each ability, auras, cooldowns, knock-outs
@@ -560,20 +716,40 @@ Server-owned; endpoints and exact rules in server/README.md "Economy".
 
 Everything is generated at boot from code; there are no image files.
 
-- `paperdoll.ts` — layered soldier generator. Sheet format: 32×40 frames,
-  feet at y = 37; 13 columns (`idle0 idle1 walk0-3 atk0-2 hit die0-2`) by
-  2 rows (row 0 facing down-right, row 1 facing up-right; left-facing is a
-  horizontal mirror), i.e. the four isometric diagonals. Layers, back to front:
-  legs, tunic, body armour, head/hair/beard, helmet, back-view shield (carried
-  on the left side, angled out so its painted face shows), arm, front-view
-  shield, 1px outline, weapon. Each layer is keyed by the item's `art` id, so a hand-drawn sheet per
-  layer in the same grid can replace a draw function later.
+- `model3d.ts` — a tiny software renderer: figures are posed as 3D
+  primitives in metres (spheres, tapered limbs swept as spheres, ellipsoids,
+  boxes, lines) and ray-cast one pixel at a time through the battle camera
+  (2:1 dimetric, 30° elevation, 16 px per metre). Each hit is lit from the
+  upper left (Lambert + ambient), quantised to its material's colour ramp
+  with Bayer dithering, creases are darkened where depth jumps, and a soft
+  outline (a darker shade of the edge colour, never black) is added. Pure and
+  deterministic. `materials.ts` holds the muted ramps (skin, hair, linen and
+  dyed wool, bronze, iron, silver, leather, wood, horse coats, manes, beasts).
+- `paperdoll.ts` — soldiers, riders, chariots and animals built from those
+  primitives with an IK skeleton per frame. **Sheet format:** 13 columns
+  (`idle0 idle1 walk0-3 atk0-2 hit die0-2`; riders gallop, rear when hit and
+  fall with the horse) × **4 rows, one per facing** (field +x, −y, +y, −x;
+  no mirroring). Frame sizes (`dollGeom`): a man 48×56 with the feet at
+  y = 50 (a man is ~34 px tall, head ~5 px), a rider 96×84 (hooves at 74), a
+  chariot 128×96 (84), wolf / boar 48×40 (34), bear 64×60 (52). Layers, back
+  to front, keyed by the item or class `art` id: cloak, legs (skin, trousers,
+  greaves), tunic, body armour, arms, head/hair/beard, helmet and crest,
+  shield (field colour, emblem, rim), weapon. A hand-drawn sheet per layer in
+  the same grid can replace a builder function. On the player's side (seen
+  from behind) the shield is turned so its painted face shows.
+  Sheets are rendered **lazily, one facing row at a time** (`ensureDollRow`
+  in `src/ui/sprites.ts`; other rows are filled by an idle pump), so a battle
+  opens fast on a phone. Class portraits (24×24 head and shoulders in the
+  class's helmet and colours) are the class icons in the army, hero and
+  recruit screens; item icons are rendered with the same models
+  (`renderGearIcon`).
 - `emblems.ts` — 7×7 shield emblems, painted on round (hoplon) and oval shields (lambda, owl, horse, trident, sun wheel,
   lion, eye, scorpion, boar, Tanit, club, star).
-- `ground.ts` — isometric grass plain made of 2:1 diamond tiles: each pixel is
-  mapped back to field coordinates, tiles get their own tone, a dithered seam
-  (dark lower edges, lit upper edges) and value noise + Bayer 4×4 dithering;
-  tufts, flowers, dirt; blood decals; shadows; selection rings.
+- `ground.ts` — isometric grass plain in a muted, dry palette: each pixel
+  is mapped back to field coordinates; broad value noise, dry patches and
+  Bayer 4×4 dithering with no tile seams; tufts, flowers, dirt; blood
+  decals; shadows (one per footprint); selection rings sized for men and
+  for horses. Trees and boulders (`terrainArt.ts`) use the same 3D renderer.
 - `iso.ts` — the projection (see below).
 - `worldArt.ts` — the overland map at 8 px per tile in a top-down 3/4 view:
   per-pixel terrain with domain-warped borders, Bayer-dithered ramps, shallow
@@ -596,10 +772,10 @@ Everything is generated at boot from code; there are no image files.
 ### Isometric projection (`src/art/iso.ts`)
 
 The simulation keeps its own flat field coordinates (x lateral, y depth,
-24 × 36 units); only the renderer projects. One field unit is one 24×12 px
+24 × 36 units); only the renderer projects. One field unit is one 36×18 px
 diamond tile:
 
-    screen.x = (x − y) · 12        screen.y = (x + y) · 6
+    screen.x = (x − y) · 18        screen.y = (x + y) · 9
 
 so field +x runs down-right and field +y down-left. The battle line (field x)
 therefore runs diagonally across the screen: your army stands bottom-left
@@ -608,23 +784,29 @@ facing up-right (seen from behind), the enemy top-right facing down-left.
 the slingshot formation drag and the deployment zone. Placement boxes are the
 slot footprints projected, i.e. dashed iso diamonds; the deployment zone is a
 projected band. Sprites are upright, anchored at the feet and depth-sorted by
-screen y; the facing row/mirror is picked from the projected facing vector
-(with hysteresis). The default camera is at least 2× (a soldier is then
-about 64 px tall on a 390-wide phone) and follows the fighting; pinch/wheel
-zoom 1–4×.
+screen y; the facing row (one of four) is picked from the projected facing
+vector with hysteresis. Sprites are drawn at their native size: the default
+camera is 1× (a man is ~34 px tall, a rider ~60 px on a 390-wide phone) and
+follows the fighting; pinch/wheel zoom 1–3×. Touch targets cover a figure's
+full height (and a horse's body); trees fade when a soldier stands behind
+them.
 
 ## Known gaps (milestone 2)
 
 - No food or wages yet: the economy runs on loot, recruits, gear, repairs
   and healing. Bands do not fight each other or besiege settlements.
 - Battle terrain is read from the overland tile (the overland map itself is
-  slated to become a hex map, see DESIGN_V2.md); no sieges, sailing or cavalry.
+  slated to become a hex map, see DESIGN_V2.md); no sieges or sailing.
   Units are not raised on hills in the iso view: height is shown by shading
   and contour steps only.
 - Defeat on the map does not capture the commander; the band simply keeps
   its survivors and both sides break off.
 - Ability and aura balance was tuned in mirror battles of level-4 armies;
   late-campaign armies (level 8–10, full trees) are untuned.
+- Class matchups between pure one-class armies are decisive (often 0% or
+  100% at equal cost); costs only balance each class's average. Riders do
+  not dismount; there are no elephants and no camels. Animals in the
+  campaign appear only as neutral beast bands.
 - The world map texture (896×896) is rendered at scene start (~0.3 s on a
   desktop, more on phones); it is cached per seed for the session.
 - Determinism relies on IEEE doubles and `Math.sqrt` (correctly rounded), so

@@ -172,7 +172,7 @@ with DESIGN.md or ROADMAP.md, this document wins.
 
 1. Drag facing fix (small).
 2. Battle terrain (in progress).
-3. Unit classes, cavalry, art overhaul.
+3. Unit classes, cavalry, art overhaul (done; see DESIGN.md "Unit classes").
 4. Online server foundations (in progress): server-owned armies, verified async
    attacks, garrisons, clans, duels, all scoped by `season_id`.
 5. Hex shard world: hex generation, resources, marches, fog of war, forts and

@@ -166,7 +166,8 @@ const orders = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLo
 await ev(() => { window.__game.scene.getScene('Battle').dwellMs = 5000; });
 let G0 = await geo([]);
 check('a group is selected in deployment', G0.sel >= 0);
-check('readable default zoom', G0.zoom >= 2, `zoom ${G0.zoom}`);
+// sprites are drawn at native size: a man is ~34 px tall at zoom 1
+check('readable default zoom (a man is at least 30 px tall)', G0.zoom * 34 >= 30, `zoom ${G0.zoom}`);
 
 // 1) one-finger drag on empty ground pans, even with a group selected
 const emptyPt = await ev(() => {
@@ -261,18 +262,25 @@ check('pinch zoom', z1 > z0, `${z0} -> ${z1}`);
 
 await tapBtn('Battle', { label: 'Fight' });
 check('battle started', (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle');
-// fast-forward: the band is worn out (test staging), the sim runs to the end
-await ev(() => {
+// fast-forward: the band is worn out (test staging), the sim runs to the end.
+// The player's few men are made unbreakable too: they only hold their ground,
+// and a big band could otherwise wear down their nerve (not their hit points)
+// until they routed - the battle was then lost and the band stayed on the map
+// (the old ~1-in-5 flake of "defeated band is gone").
+const ff = await ev(() => {
   const s = window.__game.scene.getScene('Battle');
   s.sim.units.filter((u) => u.side === 1).forEach((u) => { u.hp = 1; u.morale = Math.min(u.morale, u.stats.morale * 0.3); });
-  s.sim.units.filter((u) => u.side === 0).forEach((u) => { u.hp = u.stats.maxHp * 5; });
+  s.sim.units.filter((u) => u.side === 0).forEach((u) => { u.hp = u.stats.maxHp * 5; u.stats.moraleLoss = 0; u.morale = u.stats.morale; });
+  for (const g of s.sim.groups) if (g.side === 0 && !g.disbanded) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' });
   for (let i = 0; i < 20 * 300 && s.sim.phase === 'battle'; i++) s.sim.step();
+  return { winner: s.sim.winner, tick: s.sim.tick };
 });
-check('results screen', await until(() => active('Results'), 8000));
+check('results screen', await until(() => active('Results'), 8000), JSON.stringify(ff));
 await wait(1500);
 await tapBtn('Results', { icon: 'check' });
 check('back on the map after the battle', await until(() => active('World'), 5000));
-check('defeated band is gone', await ev((id) => !window.__state.campaign.world.party(id), bandId));
+const gone = await ev((id) => ({ gone: !window.__state.campaign.world.party(id), victory: window.__state.last?.outcome?.victory, parties: window.__state.campaign.world.s.parties.map((p) => p.id) }), bandId);
+check('defeated band is gone', gone.gone, JSON.stringify({ bandId, ...gone }));
 
 // ---- village: stand next to one, tap it, march in, hire a volunteer
 const village = await ev(() => {

@@ -263,5 +263,93 @@ await call('Battle', `s.hideBanner(); s.cameras.main.setZoom(1); s.centerCam(s.p
 await wait(300);
 await shot('21-battle-terrain');
 
+// Unit classes: a town's recruits, each with its class icon, name and role
+await page.evaluate(() => {
+  const w = window.__state.campaign.world;
+  window.__state.campaign.data.gold = 900;
+  const towns = w.map.settlements.filter((x) => x.kind === 'town');
+  // the town with the most varied pool
+  let best = towns[0];
+  let bn = 0;
+  for (const t of towns) {
+    const n = new Set(w.recruits(t.id, []).map((r) => r.hero.cls)).size;
+    if (n > bn) {
+      bn = n;
+      best = t;
+    }
+  }
+  window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Settlement', { id: best.id, tab: 'recruits' }));
+});
+await wait(1200);
+await shot('26-classes');
+
+// Staged battles: cavalry on the flank, then beasts (debug handles; real play is untouched)
+async function stagedBattle(mode) {
+  // leave any battle first (its end-of-battle timer must not fire into the new one)
+  await scene('World');
+  await wait(800);
+  await page.evaluate(async (mode) => {
+    const st = window.__state;
+    const c = st.campaign;
+    const mod = await import('/src/game/heroes.ts');
+    const enemyMod = await import('/src/game/enemy.ts');
+    const { Rng } = await import('/src/sim/rng.ts');
+    const rng = new Rng(mode === 'cav' ? 5 : 9);
+    const mk = (cls, n, group, culture = 'greek') => Array.from({ length: n }, () => mod.makeHero(rng, c.data, culture, cls, 4, 2, group, c.data.heroes));
+    c.data.heroes = [];
+    const add = (hs) => hs.forEach((h) => c.data.heroes.push(h));
+    if (mode === 'cav') {
+      add(mk('hoplite', 8, 0));
+      add(mk('archer', 3, 1));
+      add(mk('companion', 4, 3));
+    } else {
+      add(mk('militia', 6, 0));
+      add(mk('hoplite', 4, 0));
+      add(mk('slinger', 3, 1));
+    }
+    const ids = { nextId: 5000 };
+    let foes = [];
+    const e = (cls, n, group, culture) => { for (let i = 0; i < n; i++) foes.push(mod.makeHero(rng, ids, culture, cls, 4, 2, group, foes)); };
+    if (mode === 'cav') {
+      e('celt_sword', 7, 0, 'celtic');
+      e('javelineer', 3, 1, 'celtic');
+      e('gallic', 3, 2, 'celtic');
+    } else foes = [...enemyMod.beastPack(rng, ids, 'wolf', 7, 3), ...enemyMod.beastPack(rng, ids, 'boar', 2, 3), ...enemyMod.beastPack(rng, ids, 'bear', 1, 3)];
+    st.pending = { enemy: { culture: 'celtic', heroes: foes, power: 1, targetPower: 1 }, seed: mode === 'cav' ? 31 : 41, label: mode === 'cav' ? 'Galatae' : 'Wolves of the oak wood', site: { base: mode === 'cav' ? 'plain' : 'scrub', river: false, coast: false, rocky: false, woods: mode === 'cav' ? 0.1 : 0.25 } };
+    window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Battle', {}));
+  }, mode);
+  await wait(2500);
+}
+await stagedBattle('cav');
+// the player's line advances, the Companions wait, then ride round the flank and charge (bot tactics for the riders)
+await call('Battle', `s.hideBanner(); s.startFight(); s.sim.issue(0, { kind: 'order', group: 0, order: 'advance' }); return 1;`);
+const cavShot = await call('Battle', `
+  const sim = s.sim;
+  const cav = sim.units.filter((u) => u.side === 0 && u.stats.mount);
+  let impact = -1;
+  for (let i = 0; i < 20 * 90 && sim.phase === 'battle'; i++) {
+    // the riders follow the bot's cavalry tactics: wide round the flank, then the charge
+    if (i === 60) for (const g of sim.groups) if (g.side === 0 && g.role === 'flank') { const f = g.formation; sim.issue(0, { kind: 'form', group: g.id, cx: 21, cy: 14, fx: -0.2, fy: -1, frontage: 4 }); }
+    if (i === 260) for (const g of sim.groups) if (g.side === 0 && g.role === 'flank') { const e = sim.units.filter((u) => u.side === 1 && u.state === 'ready'); const t = e.reduce((a, u) => (u.x > a.x ? u : a), e[0]); sim.issue(0, { kind: 'form', group: g.id, cx: g.formation.cx, cy: g.formation.cy, fx: t.x - g.formation.cx, fy: t.y - g.formation.cy, frontage: 4 }); sim.issue(0, { kind: 'order', group: g.id, order: 'charge' }); }
+    sim.step();
+    for (const ev of sim.drainEvents()) { s.handleEvents([ev]); if (ev.type === 'impact' && cav.some((u) => u.id === ev.by) && impact < 0) impact = i; }
+    if (impact >= 0 && i > impact + 6) break;
+  }
+  s.setPaused(true); s.hideBanner(); s.setFollow(false);
+  for (let k = 0; k < 20; k++) s.fx.update(100); // let the floating ability icons run out
+  s.cameras.main.setZoom(2);
+  const c = cav.filter((u) => u.state !== 'dead');
+  const u = c[0] || cav[0];
+  const p = s.project(u.x, u.y); s.centerCam(p.x - 10, p.y - 20);
+  return impact;`);
+console.log('cavalry impact at step', cavShot);
+await wait(500);
+await shot('27-cavalry-charge');
+
+await stagedBattle('animals');
+await call('Battle', `s.hideBanner(); s.startFight(); for (const g of s.sim.groups) if (g.side === 0 && !g.individual && g.role === 'main') s.sim.issue(0, { kind: 'order', group: g.id, order: 'advance' }); for (let i = 0; i < 20 * 22 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); s.setFollow(false); s.cameras.main.setZoom(2); const f = s.focusPoint(); s.centerCam(f.x, f.y); return 1;`);
+await wait(500);
+await shot('28-animals');
+
 console.log(problems.length ? problems.join('\n') : 'no console errors');
 await browser.close();
