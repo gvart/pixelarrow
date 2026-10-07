@@ -29,11 +29,16 @@ runs:
     - name: Install Chromium
       if: steps.pw-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: npx playwright install --with-deps --only-shell chromium
+      # apt mirrors and dpkg locks sometimes hang a runner: bounded attempts instead of the job timeout
+      run: |
+        for i in 1 2 3; do timeout 240 npx playwright install --with-deps --only-shell chromium && exit 0; echo "attempt $i failed"; sleep 10; done
+        exit 1
     - name: Chromium system libraries
       if: steps.pw-cache.outputs.cache-hit == 'true'
       shell: bash
-      run: npx playwright install-deps chromium
+      run: |
+        for i in 1 2 3; do timeout 180 npx playwright install-deps chromium && exit 0; echo "attempt $i failed"; sleep 10; done
+        exit 1
     - name: Serve dist/
       shell: bash
       run: |
