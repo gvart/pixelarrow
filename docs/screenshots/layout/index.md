@@ -85,5 +85,26 @@ Sizes: 320x568, 375x667, 390x844, 430x932, 360x780. Telegram insets: top 59 + 46
 | online-lair-info | C | 0 | 0 | 0 | 0 |
 | online-boss | C | 0 | 0 | 0 | 0 |
 | online-boss-info | C | 0 | 0 | 0 | 0 |
+| first-run-offer | F | 0 | 0 | 0 | 0 |
+| first-run-resume | F | 0 | 0 | 0 | 0 |
+| first-run-modes | F | 0 | 0 | 0 | 0 |
+| first-run-reward | F | 0 | 0 | 0 | 0 |
+| first-run-skip | F | 0 | 0 | 0 | 0 |
+| tutorial-intro | F | 0 | 0 | 0 | 0 |
+| tutorial-select | F | 0 | 0 | 0 | 0 |
+| tutorial-pan | F | 0 | 0 | 0 | 0 |
+| tutorial-sling | F | 0 | 0 | 0 | 0 |
+| tutorial-fight | F | 0 | 0 | 0 | 0 |
+| tutorial-move | F | 0 | 0 | 0 | 0 |
+| tutorial-wall | F | 0 | 0 | 0 | 0 |
+| tutorial-loose | F | 0 | 0 | 0 | 0 |
+| tutorial-skip | F | 0 | 0 | 0 | 0 |
+| online-coach-home | F | 0 | 0 | 0 | 0 |
+| online-coach-neighbour | F | 0 | 0 | 0 | 0 |
+| online-coach-defenders | F | 0 | 0 | 0 | 0 |
+| online-coach-march | F | 0 | 0 | 0 | 0 |
+| online-coach-attack | F | 0 | 0 | 0 | 0 |
+| online-coach-collect | F | 0 | 0 | 0 | 0 |
+| online-coach-clan | F | 0 | 0 | 0 | 0 |
 
 Distinct violations: 0 (allowlisted 0, new 0).
