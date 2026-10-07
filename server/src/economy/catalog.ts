@@ -1,7 +1,7 @@
 /**
  * Data-driven economy catalogue: cosmetics and the season pass priced in
- * Drachmae, consumables (src/data/consumables.ts) in gold or Drachmae, and
- * the marketplace limits. Change prices here; nothing else hard-codes them.
+ * Drachmae, consumables (src/data/consumables.ts: gold or Drachmae, sold by
+ * the map merchants, src/online/merchants.ts) and the marketplace limits. Change prices here; nothing else hard-codes them.
  * Stars products (Drachmae packs) live in ../products.ts.
  */
 import { LEGACY_RARITY, normalizeRarity, RARITIES } from '../../../src/data/items';
@@ -90,19 +90,17 @@ export const PASS_TIERS: PassTier[] = Array.from({ length: PASS.tiers }, (_, i) 
 
 // ------------------------------------------------------------------ shop items
 
-export type ShopItem =
-  | { kind: 'cosmetic'; id: string; drachmae: number }
-  | { kind: 'pass'; id: 'season_pass'; drachmae: number }
-  | { kind: 'consumable'; id: ConsumableId; drachmae: number | null; gold: number | null; dailyCap: number };
+/**
+ * What the menu shop sells: cosmetics and the season pass, for Drachmae.
+ * Consumables are sold by the merchants on the war map
+ * (server/src/online/merchant.ts, docs/DUELS.md "War-map shops on the map").
+ */
+export type ShopItem = { kind: 'cosmetic'; id: string; drachmae: number } | { kind: 'pass'; id: 'season_pass'; drachmae: number };
 
 export function shopItem(id: string): ShopItem | null {
   if (id === 'season_pass') return { kind: 'pass', id, drachmae: PASS.premiumDrachmae };
   const c = getCosmetic(id);
   if (c) return c.drachmae === null ? null : { kind: 'cosmetic', id, drachmae: c.drachmae };
-  if ((CONSUMABLE_IDS as string[]).includes(id)) {
-    const d = CONSUMABLES[id as ConsumableId];
-    return { kind: 'consumable', id: d.id, drachmae: d.drachmae, gold: d.gold, dailyCap: d.dailyCap };
-  }
   return null;
 }
 

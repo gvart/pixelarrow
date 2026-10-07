@@ -184,7 +184,11 @@ The war-map shop moves onto town and trading-post hexes. Slices, in order:
 duel roster and economy → live ranked → async and seasons → map merchants.
 
 Done: duel roster and economy (profile, team, budget, Glory, shop, hero
-development, ladder with verified battles; Menu → Duels). Next: live ranked.
+development, ladder with verified battles; Menu → Duels); map merchants
+(every town and ~12 seeded trading posts per shard, stock per seed/hex/UTC
+day with regional specialties and a daily rare slot, holder discount 10% and
+cut 5%; consumables left the menu shop; hex panel → Merchant). Next: live
+ranked.
 
 ## Next session: polish backlog
 

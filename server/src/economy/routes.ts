@@ -1,9 +1,10 @@
 /**
  * Economy API (/api/economy/*): the catalogue, the Drachmae wallet, shop
- * purchases (cosmetics, the season pass, consumables), the cosmetic loadout
- * and the season pass. Stars only buy Drachmae packs (/api/shop/invoice);
- * everything here is a server-side debit of Drachmae (or season gold for
- * consumables), atomic in one D1 batch and idempotent per client request id.
+ * purchases (cosmetics, the season pass), the cosmetic loadout and the season
+ * pass. Stars only buy Drachmae packs (/api/shop/invoice); everything here is
+ * a server-side debit of Drachmae, atomic in one D1 batch and idempotent per
+ * client request id. Consumables are bought from the map merchants
+ * (/api/online/merchant, server/src/online/merchant.ts).
  */
 import { emit } from '../telemetry/analytics';
 import { Hono, type Context } from 'hono';
@@ -14,6 +15,7 @@ import { ApiError, badRequest } from '../errors';
 import { db, requireAuth } from '../middleware';
 import { rateLimit } from '../rateLimit';
 import { currentSeason, getProfile, randomToken } from '../online/store';
+import { isConsumableId } from '../../../src/data/consumables';
 import { catalogView, COSMETIC_SLOTS, getCosmetic, PASS, PASS_TIERS, shopItem, type CosmeticSlot, type PassReward } from './catalog';
 import { passTier } from './pass';
 import { balance, balanceSql, ensureWallet, walletMove } from './wallet';
@@ -79,8 +81,7 @@ interface OrderRow {
 const orderView = (requestId: string, o: OrderRow) => ({ requestId, item: o.item, qty: o.qty, currency: o.currency, price: o.price, season: o.season_id, at: o.created_at });
 
 /**
- * Buys a cosmetic (Drachmae), the season pass premium track (Drachmae) or
- * consumables (gold or Drachmae; daily caps; need a season profile).
+ * Buys a cosmetic or the season pass premium track (Drachmae).
  * Retrying with the same requestId never charges twice and answers the
  * stored order (`replayed: true`).
  */
@@ -90,6 +91,7 @@ economy.post('/buy', async (c) => {
   const pid = c.get('session').pid;
   const now = Date.now();
   const body = await readJson(c, BuyBody, 1024);
+  if (isConsumableId(body.item)) throw new ApiError(410, 'merchant_only', 'Consumables are sold by merchants on the war map (towns and trading posts)');
   const item = shopItem(body.item);
   if (!item) throw new ApiError(404, 'unknown_item', `Nothing called "${body.item}" is for sale`);
 
@@ -99,33 +101,16 @@ economy.post('/buy', async (c) => {
     return c.json({ order: orderView(body.requestId, prior), replayed: true, drachmae: await balance(d, pid) });
   }
 
-  const qty = item.kind === 'consumable' ? body.qty : 1;
-  let unit: number | null;
-  if (item.kind === 'consumable') unit = body.currency === 'gold' ? item.gold : item.drachmae;
-  else {
-    if (body.currency !== 'drachmae') throw badRequest('Only Drachmae buy this');
-    unit = item.drachmae;
-  }
-  if (unit === null) throw badRequest(`${body.item} cannot be bought with ${body.currency}`);
-  const price = unit * qty;
+  const qty = 1;
+  if (body.currency !== 'drachmae') throw badRequest('Only Drachmae buy this');
+  const price = item.drachmae;
 
   const season = item.kind === 'cosmetic' ? null : await currentSeason(d, now);
-  if (item.kind === 'consumable' && !(await getProfile(d, season!.id, pid))) throw new ApiError(409, 'no_profile', 'Join the online season first (POST /api/online/profile)');
 
-  // ?1 pid, ?2 request id, ?3 item, ?4 qty, ?5 currency, ?6 price, ?7 season, ?8 nonce, ?9 now, ?10.. extra
-  const conds: string[] = [];
-  const extra: unknown[] = [];
-  const P = (v: unknown) => {
-    extra.push(v);
-    return `?${9 + extra.length}`;
-  };
-  conds.push(body.currency === 'drachmae' ? `${balanceSql('?1')} >= ?6` : 'EXISTS (SELECT 1 FROM online_profiles WHERE season_id = ?7 AND player_id = ?1 AND gold >= ?6)');
-  const day = utcDay(now);
+  // ?1 pid, ?2 request id, ?3 item, ?4 qty, ?5 currency, ?6 price, ?7 season, ?8 nonce, ?9 now
+  const conds: string[] = [`${balanceSql('?1')} >= ?6`];
   if (item.kind === 'cosmetic') conds.push('NOT EXISTS (SELECT 1 FROM entitlements WHERE player_id = ?1 AND product_id = ?3 AND revoked_at IS NULL)');
   if (item.kind === 'pass') conds.push('NOT EXISTS (SELECT 1 FROM pass_progress WHERE season_id = ?7 AND player_id = ?1 AND premium = 1)');
-  if (item.kind === 'consumable') {
-    conds.push(`COALESCE((SELECT bought FROM consumable_daily WHERE player_id = ?1 AND day = ${P(day)} AND consumable_id = ?3), 0) + ?4 <= ${P(item.dailyCap)}`);
-  }
 
   const nonce = randomToken(8);
   const G = `EXISTS (SELECT 1 FROM shop_orders WHERE player_id = ${pid | 0} AND request_id = '${body.requestId}' AND nonce = '${nonce}')`;
@@ -136,10 +121,9 @@ economy.post('/buy', async (c) => {
         `INSERT INTO shop_orders (player_id, request_id, item, qty, currency, price, season_id, nonce, created_at)
          SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9 WHERE ${conds.join(' AND ')} ON CONFLICT DO NOTHING`,
       )
-      .bind(pid, body.requestId, body.item, qty, body.currency, price, season?.id ?? null, nonce, now, ...extra),
+      .bind(pid, body.requestId, body.item, qty, body.currency, price, season?.id ?? null, nonce, now),
   ];
-  if (body.currency === 'drachmae') stmts.push(...walletMove(d, pid, -price, 'spend', body.requestId, G, now));
-  else stmts.push(d.prepare(`UPDATE online_profiles SET gold = gold - ?3, rev = rev + 1, updated_at = ?4 WHERE season_id = ?1 AND player_id = ?2 AND ${G}`).bind(season!.id, pid, price, now));
+  stmts.push(...walletMove(d, pid, -price, 'spend', body.requestId, G, now));
   if (item.kind === 'cosmetic') stmts.push(grantCosmetic(d, pid, item.id, G, now));
   if (item.kind === 'pass') {
     stmts.push(
@@ -149,17 +133,6 @@ economy.post('/buy', async (c) => {
            ON CONFLICT (season_id, player_id) DO UPDATE SET premium = 1, premium_at = excluded.premium_at, updated_at = excluded.updated_at`,
         )
         .bind(season!.id, pid, now),
-    );
-  }
-  if (item.kind === 'consumable') {
-    stmts.push(addConsumable(d, season!.id, pid, item.id, qty, G));
-    stmts.push(
-      d
-        .prepare(
-          `INSERT INTO consumable_daily (player_id, day, consumable_id, bought) SELECT ?1, ?2, ?3, ?4 WHERE ${G}
-           ON CONFLICT (player_id, day, consumable_id) DO UPDATE SET bought = bought + excluded.bought`,
-        )
-        .bind(pid, day, item.id, qty),
     );
   }
   const res = await d.batch(stmts);
@@ -173,11 +146,7 @@ economy.post('/buy', async (c) => {
       const pp = await d.prepare('SELECT premium FROM pass_progress WHERE season_id = ?1 AND player_id = ?2').bind(season!.id, pid).first<{ premium: number }>();
       if (pp?.premium === 1) throw new ApiError(409, 'already_owned', 'The premium track is already unlocked this season');
     }
-    if (item.kind === 'consumable') {
-      const b = await d.prepare('SELECT bought FROM consumable_daily WHERE player_id = ?1 AND day = ?2 AND consumable_id = ?3').bind(pid, day, item.id).first<{ bought: number }>();
-      if ((b?.bought ?? 0) + qty > item.dailyCap) throw new ApiError(409, 'daily_cap', `At most ${item.dailyCap} a day`, { cap: item.dailyCap, bought: b?.bought ?? 0 });
-    }
-    throw new ApiError(409, 'insufficient_funds', body.currency === 'drachmae' ? 'Not enough Drachmae' : 'Not enough gold', { price, currency: body.currency });
+    throw new ApiError(409, 'insufficient_funds', 'Not enough Drachmae', { price, currency: body.currency });
   }
   const order: OrderRow = { item: body.item, qty, currency: body.currency, price, season_id: season?.id ?? null, created_at: now };
   return c.json({ order: orderView(body.requestId, order), replayed: false, drachmae: await balance(d, pid) });

@@ -10,7 +10,8 @@ import { capitals, hexDistance, hexId, hexInfo, hexesWithin, MARCH_MINUTES, neig
 import { defenderFor, neutralDefenders, WINS_TO_CLAIM } from './defenders';
 import { hexIncome, ONLINE_RULES, starterOnlineArmy, type Resources } from './rules';
 import { heroPower } from '../sim/stats';
-import type { BossView, HexDetail, HexView, MapView, ProfileView } from './client';
+import type { BossView, HexDetail, HexView, MapView, MerchantView, ProfileView } from './client';
+import { capKey, merchantAt, merchantDay, merchantStock, MERCHANT, nextReset, offerPrice, regionOf, tradingPosts, type MerchantKind } from './merchants';
 import { ENCOUNTERS, MYTHS, lairLevel, mythHeroes, type EncounterId } from '../data/beasts';
 import { bossMaxHp } from './lairs';
 
@@ -62,7 +63,13 @@ export interface DemoShard {
   owners: Map<string, { owner: number; clan: number | null; home: boolean; garrison?: number }>;
   hex(h: Axial): HexDetail;
   /** Interesting hexes to stage the panel on. */
-  spots: { own: Axial; neutralNext: Axial; neutralFar: Axial; rival: Axial; town: Axial | null; lair: Axial | null; boss: Axial | null };
+  spots: { own: Axial; neutralNext: Axial; neutralFar: Axial; rival: Axial; town: Axial | null; lair: Axial | null; boss: Axial | null; post: Axial | null; market: Axial | null };
+  /**
+   * A merchant's stock (GET /merchant). `stage` fakes the situation for the
+   * layout check: 'held' = in reach with the clan's discount, 'far' = out of
+   * reach; otherwise the honest answer for the demo army.
+   */
+  merchant(h: Axial, stage?: 'held' | 'far'): MerchantView | null;
   /** The world boss in sight (GET /boss). */
   bosses: BossView[];
 }
@@ -109,8 +116,20 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
     if (!o && s.passable) v.def = defenderFor(DEMO.seed, s).id;
     return v;
   });
+  // Trading posts in sight (the seeded ones; the demo invents a harbour when none is near).
+  const posts = new Map<string, MerchantKind>();
+  for (const tp of tradingPosts(DEMO.seed, DEMO.radius)) if (visible.has(hexId(tp.q, tp.r))) posts.set(hexId(tp.q, tp.r), tp.kind);
+  if (!posts.size) {
+    const spot = hexes.find((h) => h.coast && h.owner === null && h.occupant === 'npc' && h.type !== 'town' && !h.fort && hexDistance(h, me) >= 2);
+    if (spot) posts.set(hexId(spot.q, spot.r), 'harbour');
+  }
+  for (const h of hexes) {
+    const kind = posts.get(hexId(h.q, h.r));
+    if (kind === 'harbour' || kind === 'crossroads') h.post = kind;
+  }
+
   // Beast lairs in sight (a few of every kind, for the art) and a world boss on the coast.
-  const free = hexes.filter((h) => h.owner === null && h.occupant === 'npc' && !h.fort && !h.capital && h.type !== 'town' && hexDistance(h, me) >= 2).sort((a, b) => hexDistance(a, me) - hexDistance(b, me) || a.q - b.q || a.r - b.r);
+  const free = hexes.filter((h) => h.owner === null && h.occupant === 'npc' && !h.fort && !h.capital && h.type !== 'town' && !h.post && hexDistance(h, me) >= 2).sort((a, b) => hexDistance(a, me) - hexDistance(b, me) || a.q - b.q || a.r - b.r);
   const bossHex = free.find((h) => h.coast) ?? free[free.length - 1];
   const lairs: Axial[] = [];
   const kinds: EncounterId[] = ['hydra', 'cyclops', 'minotaur', 'chimera', 'harpies', 'nemean_lion'];
@@ -255,6 +274,43 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
       canGarrison: ours && me.q === h.q && me.r === h.r,
       lair: view.lair ? { enc: view.lair, level: view.lairLevel ?? 3, tier: Math.min(5, s.tier + 1), home: true, returnsAt: null } : null,
       boss: view.boss ?? null,
+      merchant: view.post ?? merchantAt(DEMO.seed, s, DEMO.radius),
+    };
+  };
+
+  const merchant = (h: Axial, stage?: 'held' | 'far'): MerchantView | null => {
+    const s = info(h);
+    const view = hexes.find((x) => x.q === h.q && x.r === h.r);
+    const kind: MerchantKind | null = view?.post ?? merchantAt(DEMO.seed, s, DEMO.radius);
+    if (!kind) return null;
+    const o = owners.get(hexId(h.q, h.r));
+    const held = stage === 'held';
+    const discount = held || (!!o && o.clan === DEMO.clan);
+    const reach = stage === 'far' ? false : held || discount || hexDistance(profile.army, h) <= 1;
+    const holder = held ? DEMO.mate : o?.owner ?? null;
+    const day = merchantDay(now);
+    // some of today's caps already used: a war horn bought out, a salve bought
+    const bought: Record<string, number> = { war_horn: 2, healing_salve: 1 };
+    return {
+      hex: { q: h.q, r: h.r },
+      kind,
+      region: regionOf(h, DEMO.radius),
+      day,
+      now,
+      resetsAt: nextReset(now),
+      reach,
+      discount,
+      discountRate: MERCHANT.ownerDiscount,
+      holderCutRate: MERCHANT.ownerCut,
+      holder: holder ? { id: holder, name: map.players[String(holder)] ?? null, you: holder === DEMO.me } : null,
+      earned: 0,
+      gold: profile.resources.gold,
+      drachmae: 340,
+      offers: merchantStock(DEMO.seed, h, kind, day, DEMO.radius).map((x) => ({
+        ...x,
+        price: { gold: offerPrice(x, 'gold', discount), drachmae: offerPrice(x, 'drachmae', discount) },
+        bought: bought[capKey(x)] ?? 0,
+      })),
     };
   };
 
@@ -262,5 +318,7 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0)): DemoShard {
   const neutralFar = hexes.find((x) => x.owner === null && x.occupant === 'npc' && hexDistance(x, me) === 3) ?? neutralNext;
   const town = hexes.find((x) => (x.type === 'town' || x.fort) && x.owner === null) ?? null;
   const rivalSeen = hexes.filter((x) => x.owner === DEMO.rival).sort((a, b) => hexDistance(a, me) - hexDistance(b, me))[0];
-  return { now, profile, map, owners, hex, bosses, spots: { own: mine[1] ?? me, neutralNext, neutralFar, rival: rivalSeen ?? rivals[0], town, lair: lairs[0] ?? null, boss: bossHex ?? null } };
+  const postSpot = hexes.find((x) => x.post) ?? null;
+  const market = hexes.find((x) => x.type === 'town') ?? null;
+  return { now, profile, map, owners, hex, merchant, bosses, spots: { own: mine[1] ?? me, neutralNext, neutralFar, rival: rivalSeen ?? rivals[0], town, lair: lairs[0] ?? null, boss: bossHex ?? null, post: postSpot, market } };
 }
