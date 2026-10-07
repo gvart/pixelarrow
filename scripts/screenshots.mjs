@@ -139,7 +139,7 @@ await page.evaluate(() => {
 });
 for (let i = 0; i < 40 && !(await call('World', `return !!s.dialog;`)); i++) await wait(250);
 await shot('14-encounter');
-await call('World', `s.attack(s.w.s.parties[0].id); return 1;`);
+await call('World', `window.__state.campaign.data.settings.seenGestureHint = true; s.attack(s.w.s.parties[0].id); return 1;`); // no controls hint in the shots
 await wait(1800);
 
 // Deployment

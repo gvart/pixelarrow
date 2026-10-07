@@ -1,7 +1,7 @@
 // End-to-end smoke test with real touch events (CDP) in a portrait phone viewport.
 // Covers the campaign loop: new campaign -> march on the map -> encounter ->
 // battle -> back to the map -> recruit in a village -> spend a stat point and
-// take perks -> use an ability in battle; plus formation drag and pinch zoom.
+// take perks -> use an ability in battle; plus the touch controls (pan vs order, slingshot formation, tap to move) and pinch zoom.
 // Usage: node scripts/smoke.mjs [baseUrl]
 import { chromium } from 'playwright';
 
@@ -130,27 +130,122 @@ await tapBtn('World', { label: 'Attack' });
 check('Attack opens the deployment', await until(() => active('Battle'), 5000));
 check('battle against the band', await ev(() => window.__state.pending && window.__state.pending.partyId) === bandId);
 
-// formation drag in deployment (field coords projected through the battle camera)
-const pt = await ev(() => {
+// ---- touch controls in deployment (field coords projected through the battle camera)
+check('one-time controls hint on the first deployment', await ev(() => !!window.__game.scene.getScene('Battle').hint));
+await tap(195, 120);
+check('hint dismissed and remembered', await ev(() => !window.__game.scene.getScene('Battle').hint && window.__state.campaign.data.settings.seenGestureHint));
+await wait(300);
+/** Screen points for field points, plus the selected group's state. */
+const geo = (pts, frame = true) =>
+  ev(([pts, frame]) => {
+    const s = window.__game.scene.getScene('Battle');
+    const cam = s.cameras.main;
+    const toScreen = ([x, y]) => { const p = s.project(x, y); return [(p.x - cam.worldView.x) * cam.zoom, (p.y - cam.worldView.y) * cam.zoom]; };
+    const g = s.sim.groups[s.selGroup];
+    const f = g.formation;
+    // frame: (a, b) = a paces to the group's right, b paces behind its front-rank centre
+    const P = (a, b) => (frame ? [f.cx - f.fy * a - f.fx * b, f.cy + f.fx * a - f.fy * b] : [f.cx + a, f.cy + b]);
+    return { sel: s.selGroup, f: { ...f }, zoom: cam.zoom, scroll: [cam.scrollX, cam.scrollY], z: s.sim.deployZone(0), pts: pts.map(([a, b]) => toScreen(P(a, b))) };
+  }, [pts, frame]);
+/** One finger along a polyline of screen points (touchStart .. touchEnd). */
+async function swipe(points, steps = 8) {
+  await touch('touchStart', [points[0]]);
+  for (let k = 1; k < points.length; k++) {
+    const [x0, y0] = points[k - 1];
+    const [x1, y1] = points[k];
+    for (let i = 1; i <= steps; i++) {
+      await touch('touchMove', [[x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps]]);
+      await wait(16);
+    }
+  }
+  await touch('touchEnd', []);
+  await wait(250);
+}
+const orders = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
+// scripted touch events can stall under load; a stall must not read as the finger resting
+await ev(() => { window.__game.scene.getScene('Battle').dwellMs = 5000; });
+let G0 = await geo([]);
+check('a group is selected in deployment', G0.sel >= 0);
+check('readable default zoom', G0.zoom >= 2, `zoom ${G0.zoom}`);
+
+// 1) one-finger drag on empty ground pans, even with a group selected
+const emptyPt = await ev(() => {
   const s = window.__game.scene.getScene('Battle');
   const cam = s.cameras.main;
-  const g = s.sim.groups[0];
-  const toScreen = (x, y) => { const p = s.project(x, y); return [(p.x - cam.worldView.x) * cam.zoom, (p.y - cam.worldView.y) * cam.zoom]; };
-  const cx = g.formation.cx;
-  // touch at (cx, 27) and pull: sideways (+x), then toward the enemy (-y), then a long pull (more ranks)
-  return { a: toScreen(cx, 27), side: toScreen(cx + 2, 27), fwd: toScreen(cx, 25), far: toScreen(cx, 21), zoom: cam.zoom, frontage: g.formation.frontage };
+  const H = s.scale.height;
+  const W = s.scale.width;
+  const own = s.views.filter((v) => v.u.side === 0).map((v) => [(v.spr.x - cam.worldView.x) * cam.zoom, (v.spr.y - 10 - cam.worldView.y) * cam.zoom]);
+  for (let y = H * 0.25; y < H * 0.6; y += 20)
+    for (let x = 40; x < W - 40; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90) && s.input.hitTestPointer({ x, y, camera: null }).length === 0) return [x, y];
+  return [W / 2, H * 0.3];
 });
-check('readable default zoom', pt.zoom >= 2, `zoom ${pt.zoom}`);
-const form0 = () => ev(() => ({ ...window.__game.scene.getScene('Battle').sim.groups[0].formation }));
-await drag(pt.a[0], pt.a[1], pt.side[0], pt.side[1]);
-const turned = await form0();
-check('formation drag: soldiers face the pull (sideways)', Math.abs(turned.cy - 27) < 0.3 && turned.fx > 0.9, JSON.stringify([turned.cx.toFixed(2), turned.cy.toFixed(2), turned.fx.toFixed(2), turned.fy.toFixed(2)]));
-await drag(pt.a[0], pt.a[1], pt.far[0], pt.far[1]);
-const deep = await form0();
-check('formation drag: a long pull adds ranks', deep.fy < -0.9 && deep.frontage < pt.frontage, `${pt.frontage} -> ${deep.frontage}`);
-await drag(pt.a[0], pt.a[1], pt.fwd[0], pt.fwd[1]);
-const after = await form0();
-check('formation drag moved group', Math.abs(after.cy - 27) < 1.2 && after.fy < -0.9, JSON.stringify([after.cx.toFixed(2), after.cy.toFixed(2), after.frontage]));
+const o0 = await orders();
+await swipe([emptyPt, [emptyPt[0] - 60, emptyPt[1] + 50]]);
+let G1 = await geo([]);
+check('drag on empty ground pans the camera with a group selected', Math.hypot(G1.scroll[0] - G0.scroll[0], G1.scroll[1] - G0.scroll[1]) > 20 && (await orders()) === o0, JSON.stringify([G0.scroll, G1.scroll]));
+check('pan gave no order', G1.f.cx === G0.f.cx && G1.f.cy === G0.f.cy && G1.f.fx === G0.f.fx);
+
+// 2) slingshot: press on the group, carry it 2 paces forward, pull back to the right: faces away (forward-left)
+const cy0 = G1.f.cy;
+let g = await geo([[0, 0], [0, -2], [1.5, -0.5]]);
+await swipe(g.pts);
+let F = (await geo([])).f;
+check('slingshot: the group stands where it was carried', Math.abs(F.cx - G1.f.cx) < 0.4 && Math.abs(F.cy - (cy0 - 2)) < 0.4, JSON.stringify([F.cx.toFixed(2), F.cy.toFixed(2)]));
+check('slingshot: soldiers face AWAY from the pull', F.fx < -0.6 && F.fy < -0.6, JSON.stringify([F.fx.toFixed(2), F.fy.toFixed(2)]));
+
+// 3) grab and pull back (and a little right): re-aims in place, facing opposite to the pull
+g = await geo([[0, 0], [0.6, 1.5]]);
+await swipe(g.pts);
+let F2 = (await geo([])).f;
+// expected: -(0.6 right + 1.5 back) = 1.5 forward - 0.6 right
+const ex = [1.5 * F.fx - 0.6 * -F.fy, 1.5 * F.fy - 0.6 * F.fx];
+const el = Math.hypot(ex[0], ex[1]);
+check('pull back from the group: aims in place, facing opposite to the pull', Math.abs(F2.cx - F.cx) < 0.3 && Math.abs(F2.cy - F.cy) < 0.3 && (F2.fx * ex[0] + F2.fy * ex[1]) / el > 0.97, JSON.stringify([F2.cx.toFixed(2), F2.cy.toFixed(2), F2.fx.toFixed(2), F2.fy.toFixed(2)]));
+
+// 4) keep pulling further back: more ranks (a narrower, deeper block)
+g = await geo([[0, 0], [0, 1.4], [0, 3.8]]);
+const fr0 = g.f.frontage;
+await swipe(g.pts);
+let F3 = (await geo([])).f;
+check('pulling further back adds ranks (facing kept)', F3.frontage < fr0 && F3.fx * F2.fx + F3.fy * F2.fy > 0.97, `${fr0} -> ${F3.frontage}`);
+// ...and sideways widens the line again
+g = await geo([[0, 0], [0, 1.4], [2.6, 1.4]]);
+await swipe(g.pts);
+let F4 = (await geo([])).f;
+check('pushing sideways widens the line', F4.frontage > F3.frontage, `${F3.frontage} -> ${F4.frontage}`);
+
+// 5) drag back onto the start point cancels
+const o1 = await orders();
+g = await geo([[0, 0], [0, -2.5], [0, 0]]);
+await swipe(g.pts);
+check('drag back onto the start point = no order', (await orders()) === o1);
+
+// 6) a second finger cancels a half-done formation drag
+g = await geo([[0, 0], [0, -2]]);
+await touch('touchStart', [g.pts[0]]);
+for (let i = 1; i <= 6; i++) {
+  await touch('touchMove', [[g.pts[0][0] + ((g.pts[1][0] - g.pts[0][0]) * i) / 6, g.pts[0][1] + ((g.pts[1][1] - g.pts[0][1]) * i) / 6]]);
+  await wait(16);
+}
+await touch('touchMove', [g.pts[1], [g.pts[1][0] + 80, g.pts[1][1] + 40]]);
+await wait(16);
+await touch('touchMove', [g.pts[1], [g.pts[1][0] + 100, g.pts[1][1] + 60]]);
+await touch('touchEnd', []);
+await wait(400);
+check('pinch start cancels the pending formation order', (await orders()) === o1);
+
+// 7) tap on the ground moves the group there, keeping its shape, facing the enemy
+await ev(() => { const s = window.__game.scene.getScene('Battle'); s.frameArmies(); });
+await wait(200);
+g = await geo([]);
+// three paces in front of the group (clear of its men), inside the deployment zone
+const dest = [g.f.cx + g.f.fx * 3, Math.min(g.z.y1 - 0.5, Math.max(g.z.y0 + 0.5, g.f.cy + g.f.fy * 3))];
+const dpt = await geo([[dest[0] - g.f.cx, dest[1] - g.f.cy]], false);
+await tap(dpt.pts[0][0], dpt.pts[0][1]);
+F = (await geo([])).f;
+check('tap on the ground moves the selected group there', Math.abs(F.cx - dest[0]) < 0.3 && Math.abs(F.cy - dest[1]) < 0.3 && F.frontage === g.f.frontage, JSON.stringify([F.cx.toFixed(2), F.cy.toFixed(2), dest]));
+check('tap-to-move faces the enemy', F.fy < -0.5, JSON.stringify([F.fx.toFixed(2), F.fy.toFixed(2)]));
+
 
 // pinch to zoom in
 const z0 = await ev(() => window.__game.scene.getScene('Battle').cameras.main.zoom);

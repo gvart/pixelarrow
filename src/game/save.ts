@@ -21,6 +21,8 @@ export interface Settings {
   sound: boolean;
   musicVol: number;
   sfxVol: number;
+  /** The one-time touch-controls hint was shown (battle deployment). */
+  seenGestureHint: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -33,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   musicVol: 6,
   sfxVol: 7,
+  seenGestureHint: false,
 };
 
 export interface SaveData {
