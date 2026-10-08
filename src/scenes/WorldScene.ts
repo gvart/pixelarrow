@@ -186,7 +186,7 @@ export class WorldScene extends BaseScene {
     this.party = this.add.sprite(0, 0, playerPartyTexture(this), 0).setOrigin(PARTY_FOOT.x / PARTY_FW, PARTY_FOOT.y / PARTY_FH).setDepth(D_PARTY);
     this.layer.add([this.partyShadow, this.party]);
     this.initFog();
-    this.mapLife = new OverlandLife(this, art.sites, art.lanes, art.water, m.w * WTILE, m.h * WTILE, (x, y) => this.explored(x / WTILE, y / WTILE), (o) => this.layer.add(o), -55000);
+    this.mapLife = new OverlandLife(this, art.sites, art.lanes, art.water, m.w * WTILE, m.h * WTILE, (x, y) => this.explored(x / WTILE, y / WTILE), (o) => this.layer.add(o), -55000, art.fields);
 
     // ---- cameras
     const cam = this.cameras.main;
