@@ -348,8 +348,12 @@ export class MarketScene extends BaseScene {
     const { VW } = this.m;
     const w = Math.min(VW - 12, 200);
     const inner = w - 16;
-    const desc = 'consumable' in s ? wrapText(tOr(`consumable.${s.consumable}.desc`, CONSUMABLES[s.consumable as ConsumableId]?.desc ?? ''), inner - 4, 3) : { lines: [] as string[] };
-    const h = 26 + 30 + desc.lines.length * LINE_H + notes.length * LINE_H + 8 + (actions.length ? SIZE.btnH + 8 : 0) + 6;
+    // the description gets the lines the screen has left (openModal caps the card at VH - 16)
+    // the button row is always there (Close, and the action beside it when there is one)
+    const base = 26 + 30 + notes.length * LINE_H + 8 + SIZE.btnH + 8 + 6;
+    const descMax = Math.max(0, Math.min(3, Math.floor((this.m.VH - 16 - base - 2) / LINE_H)));
+    const desc = 'consumable' in s && descMax > 0 ? wrapText(tOr(`consumable.${s.consumable}.desc`, CONSUMABLES[s.consumable as ConsumableId]?.desc ?? ''), inner - 4, descMax) : { lines: [] as string[] };
+    const h = base + desc.lines.length * LINE_H + (desc.lines.length ? 2 : 0);
     const m = openModal(this, { title: name, w, h });
     const { c, x, y } = m;
     c.add(new ItemIcon(this, x + 8, y + 24, s, { size: 26, qty, tip: false }));
