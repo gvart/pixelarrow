@@ -112,7 +112,8 @@ export class CampIsoLife {
     const dir = opts.face ?? facingOf(1, 1);
     const rowKey = battleRow(this.scene, key, dir);
     const [ox, oy] = dollOrigin(key);
-    const img = this.keep(this.scene.add.image(Math.round(x), Math.round(y), rowKey, 0).setOrigin(ox, oy));
+    const f0 = battleFrame(rowKey, 0);
+    const img = this.keep(this.scene.add.image(Math.round(x), Math.round(y), f0.key, f0.frame).setOrigin(ox, oy));
     const f: Figure = { key, img, x, y, role, dir, frames: ANIM.idle, period: 520, phase: opts.phase ?? Math.random() * 5000, speed: 9, face: opts.face, rowKey, rowDir: dir };
     this.pose(f, role);
     if (route(f, opts.route)) f.waitUntil = this.scene.time.now + 300 + Math.random() * 2000;
@@ -172,10 +173,10 @@ export class CampIsoLife {
     if (f.rowDir !== f.dir) {
       f.rowKey = battleRow(this.scene, f.key, f.dir);
       f.rowDir = f.dir;
-      f.img.setTexture(f.rowKey, 0);
     }
-    battleFrame(f.rowKey, col);
-    if (this.scene.textures.get(f.rowKey).has(String(col))) f.img.setFrame(col);
+    const fr = battleFrame(f.rowKey, col);
+    if (f.img.texture.key !== fr.key) f.img.setTexture(fr.key, fr.frame);
+    else if (f.img.frame.name !== fr.frame) f.img.setFrame(fr.frame);
     f.img.setPosition(Math.round(f.x), Math.round(f.y)).setDepth(this.o.depthAt(f.y));
   }
 

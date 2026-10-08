@@ -24,7 +24,7 @@ import {
   type StashState,
 } from '../../ui/sheet';
 import { addEconState } from '../../ui/econ/widgets';
-import { ensurePortrait } from '../../ui/sprites';
+import { addPortrait } from '../../ui/sprites';
 import { dollFromHero } from '../../art/paperdoll';
 import { P } from '../../art/palette';
 import { hapticNotify } from '../../platform/telegram';
@@ -1181,7 +1181,7 @@ export class DuelScene extends BaseScene {
     fr.fillStyle(roleColor(cls.role), 1);
     fr.fillRect(4, 4, 22, 22);
     row.add(fr);
-    row.add(this.add.image(3, 3, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
+    row.add(addPortrait(this, dollFromHero(h), 3, 3));
     const bw = 28;
     const tog = new Button(this, w - bw - 3, 4, bw, 22, {
       icon: inTeam ? 'check' : 'plus',
@@ -1281,7 +1281,7 @@ export class DuelScene extends BaseScene {
         pf.fillStyle(locked ? 0x5a4232 : roleColor(cls.role), 1);
         pf.fillRect(4, 4, 28, 28);
         row.add(pf);
-        row.add(this.add.image(6, 6, ensurePortrait(this, dollFromHero(sample))).setOrigin(0, 0).setAlpha(locked ? 0.5 : 1));
+        row.add(addPortrait(this, dollFromHero(sample), 6, 6).setAlpha(locked ? 0.5 : 1));
         const bw = 26;
         const why = locked ? t('duels.unlocksAt', { n: level }) : full ? t('duels.why.roster_full') : p.glory < price ? t('duels.noGlory') : undefined;
         const b = new Button(this, rw - bw - 3, 5, bw, SIZE.btnH, {
@@ -1335,7 +1335,7 @@ export class DuelScene extends BaseScene {
         render: (i, row, rw, rh) => {
           const h = bench[i];
           row.add(addPanel(this, 0, 0, rw, rh, 'button'));
-          row.add(this.add.image(2, 2, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
+          row.add(addPortrait(this, dollFromHero(h), 2, 2));
           const bw = 50;
           const b = new Button(this, rw - bw - 3, 3, bw, 22, {
             label: t('duels.dismissOne'),

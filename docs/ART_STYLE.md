@@ -296,6 +296,25 @@ outlined but partly under fog.
 - Camp UI: reuse the parchment scroll panels with an icon row of buildable structures, each with
   a cost line using the resource icons.
 
+## 13b. Render resolution of the figures (how we apply the rules at 2x)
+
+The soldiers, riders and animals are 3D models rasterised by `src/art/model3d.ts`.
+`DollSpec.res` draws a figure with `res` times the pixels each way and the sprite shows
+it at `1 / res`, so its size on the field, feet line, base plate and hitbox do not move:
+the battle uses `res = 2` (`BATTLE_RES`), the hero sheet's stage its integer fit scale,
+portraits `PORTRAIT_RES = 2` on a `PORTRAIT_PX = 24` box.
+
+- **Outlines keep their weight:** the sel-out outline is `res` pixels thick, the outer
+  rings copying the first ring's shade (no darkening towards black). Shafts widen with
+  `res`; threads (bowstrings, sling cords, blade edges) stay one pixel.
+- **Detail is gated by density** (`fineDetail`: from ~28 px/m, i.e. the 2x battle and
+  portraits, not the 1x screens): brows, cheek hollows, moustaches, hair and crest
+  strands, tunic pleats, cloak folds, sandal straps, greave ridges, cheek-piece rivets,
+  leaf-shaped spear heads, horse tack and mane. At 1x these would be noise.
+- **Portraits** are busts from the front 3/4 (no shield: it would hide the face), with
+  an idle loop per hero (breathing, blinks, glances, a glint across the metal) on a
+  seeded rhythm so a roster never moves in step.
+
 ## 14. "Biggest differences vs a cheap look" checklist
 
 - [ ] **No black outlines.** Use coloured sel-out from the local ramp, plus light rims on shields.

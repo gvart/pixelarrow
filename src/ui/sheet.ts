@@ -15,7 +15,7 @@ import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './font
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
 import { renderStage, renderStar, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
-import { ANIM, attackLength, dollFromHero, weaponClass } from '../art/paperdoll';
+import { ANIM, attackLength, dollFromHero, dollGeom, weaponClass } from '../art/paperdoll';
 import { itemDef, itemValue, normalizeRarity, SLOTS, type Item, type Slot } from '../data/items';
 import type { Hero } from '../data/units';
 import { computeStats, heroClass } from '../sim/stats';
@@ -108,27 +108,30 @@ export class Stage extends Phaser.GameObjects.Container {
     const accent = o.accent ?? roleColor(cls.role);
     this.add(scene.add.image(0, 0, stageTexture(scene, w, h, accent)).setOrigin(0, 0));
     const dir = o.dir ?? 0;
-    const spec = dollFromHero(hero, cosmeticLoadout());
+    const spec0 = dollFromHero(hero, cosmeticLoadout());
+    const g0 = dollGeom(spec0);
+    // pick the largest integer scale that fits (riders are big), and render the figure at that
+    // resolution rather than blowing a 1x sheet up: the stage shows twice the detail
+    const fit = Math.max(1, Math.min(o.scale ?? 2, Math.floor((h - 6) / (g0.footY + 2)), Math.floor((w - 4) / Math.min(g0.fw, 64))));
+    const spec = fit > 1 ? { ...spec0, res: fit } : spec0;
     const key = ensureDoll(scene, spec, [dir]);
     const g = dollGeomOf(key);
-    // pick the largest integer scale that fits (riders are big)
-    const fit = Math.max(1, Math.min(o.scale ?? 2, Math.floor((h - 6) / (g.footY + 2)), Math.floor((w - 4) / Math.min(g.fw, 64))));
     const footY = h - Math.max(4, Math.round(h * 0.12));
-    const sh = scene.add.image(w / 2, footY, g.fw > 48 ? 'shadow_big' : 'shadow').setAlpha(0.45).setScale(fit * (g.fw > 48 ? 1 : 1.2), fit);
+    const sh = scene.add.image(w / 2, footY, g0.fw > 48 ? 'shadow_big' : 'shadow').setAlpha(0.45).setScale(fit * (g0.fw > 48 ? 1 : 1.2), fit);
     this.add(sh);
-    this.sprite = scene.add.sprite(Math.round(w / 2), footY, key, dollFrame(dir, 0)).setOrigin(...dollOrigin(key)).setScale(fit);
+    this.sprite = scene.add.sprite(Math.round(w / 2), footY, key, dollFrame(dir, 0)).setOrigin(...dollOrigin(key));
     this.add(this.sprite);
-    // keep the figure inside the stage (riders' lances, tall crests)
-    const vis = { x: Math.round(w / 2 - (g.fw * fit) / 2), y: Math.round(footY - g.footY * fit) };
-    const cropX = Math.max(0, Math.ceil((2 - vis.x) / fit));
-    const cropY = Math.max(0, Math.ceil((2 - vis.y) / fit));
+    // keep the figure inside the stage (riders' lances, tall crests); the crop is in rendered pixels
+    const vis = { x: Math.round(w / 2 - g.fw / 2), y: Math.round(footY - g.footY) };
+    const cropX = Math.max(0, Math.ceil(2 - vis.x));
+    const cropY = Math.max(0, Math.ceil(2 - vis.y));
     this.sprite.setCrop(cropX, cropY, g.fw - cropX * 2, g.fh - cropY);
     // rarity effects: the epic / legendary outline pulse, the glint sweep, legendary motes
     const fxKey = dollFxKey(key);
     const fx = dollFxOf(key);
     const crop = (o: Phaser.GameObjects.Sprite) => o.setCrop(cropX, cropY, g.fw - cropX * 2, g.fh - cropY);
-    const ring = fxKey && fx?.outline != null ? crop(scene.add.sprite(this.sprite.x, footY, fxKey, `r${dollFrame(dir, 0)}`).setOrigin(...dollOrigin(key)).setScale(fit).setTint(fx.outline)) : null;
-    const glint = fxKey && fx?.glint ? scene.add.sprite(this.sprite.x, footY, fxKey, `g${dollFrame(dir, 0)}`).setOrigin(...dollOrigin(key)).setScale(fit).setTint(0xfff6d8).setVisible(false) : null;
+    const ring = fxKey && fx?.outline != null ? crop(scene.add.sprite(this.sprite.x, footY, fxKey, `r${dollFrame(dir, 0)}`).setOrigin(...dollOrigin(key)).setTint(fx.outline)) : null;
+    const glint = fxKey && fx?.glint ? scene.add.sprite(this.sprite.x, footY, fxKey, `g${dollFrame(dir, 0)}`).setOrigin(...dollOrigin(key)).setTint(0xfff6d8).setVisible(false) : null;
     if (ring) {
       this.addAt(ring, this.getIndex(this.sprite));
       scene.tweens.add({ targets: ring, alpha: { from: 0.3, to: 0.85 }, duration: (fx?.rank ?? 0) >= 4 ? 700 : 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
@@ -184,7 +187,7 @@ export class Stage extends Phaser.GameObjects.Container {
             }
             if (fx?.particles && Math.random() < 0.18) {
               const cols = fx.particles === 'embers' ? [0xffb040, 0xffe080] : fx.particles === 'sparkle' ? [0xd0f0ff, 0xffffff] : [0xfff6c8, 0xffe8a0];
-              const px = scene.add.rectangle(Math.round(w / 2 + (Math.random() - 0.5) * 14 * fit), Math.round(footY - Math.random() * g.footY * 0.7 * fit), fit, fit, cols[Math.floor(Math.random() * cols.length)]).setOrigin(0, 0);
+              const px = scene.add.rectangle(Math.round(w / 2 + (Math.random() - 0.5) * 14 * fit), Math.round(footY - Math.random() * g0.footY * 0.7 * fit), fit, fit, cols[Math.floor(Math.random() * cols.length)]).setOrigin(0, 0);
               this.add(px);
               scene.tweens.add({ targets: px, y: px.y - 10 * fit, alpha: 0, duration: 1000 + Math.random() * 500, onComplete: () => px.destroy() });
             }

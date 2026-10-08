@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ANIM, ANIM_FRAMES, BATTLE_SCALE, FRAME_NAMES, LEGACY_FRAMES, NFRAMES, aimFrame, applyCosmetics, attackFrame, attackLength, dollFx, dollKey,
-  legacyFrame, renderFrame, renderFrameFx, sheetColumn, sheetFrames, weaponClass, type DollSpec,
+  ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, FRAME_NAMES, LEGACY_FRAMES, NFRAMES, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, aimFrame, applyCosmetics, attackFrame, attackLength,
+  dollFx, dollGeom, dollKey, fineDetail, legacyFrame, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames, weaponClass, type DollSpec,
 } from '../src/art/paperdoll';
 import { renderItemIcon, itemIconKey } from '../src/art/itemIcons';
 import { renderCosmetic } from '../src/art/cosmeticArt';
@@ -67,6 +67,71 @@ describe('soldier sheets', () => {
     expect(aimFrame('bow', 2, 0)).toBe(-1);
     expect(weaponClass('rhomphaia')).toBe('two');
     expect(weaponClass(undefined)).toBe('none');
+  });
+});
+
+describe('render resolution', () => {
+  it('scales the frame and the feet line by res, keys the sheet by it, and keeps the figure the same size', () => {
+    const g1 = dollGeom(HOPLITE);
+    const g2 = dollGeom({ ...HOPLITE, res: BATTLE_RES });
+    expect(g2).toEqual({ fw: g1.fw * BATTLE_RES, fh: g1.fh * BATTLE_RES, footY: g1.footY * BATTLE_RES });
+    expect(dollKey({ ...HOPLITE, res: 2 })).not.toBe(dollKey(HOPLITE));
+    expect(dollKey({ ...HOPLITE, res: 1 })).toBe(dollKey(HOPLITE));
+    // the 2x man covers about four times the pixels of the 1x man (same silhouette, finer raster)
+    const a = solid(renderFrame(HOPLITE, 0, 2));
+    const b = solid(renderFrame({ ...HOPLITE, res: 2 }, 0, 2));
+    expect(b / a).toBeGreaterThan(3);
+    expect(b / a).toBeLessThan(5);
+    // fine detail switches on with the pixel density: the battle at 2x and portraits, not the 1x screens
+    expect(fineDetail(HOPLITE)).toBe(false);
+    expect(fineDetail({ ...HOPLITE, res: 2 })).toBe(true);
+    expect(fineDetail({ ...HOPLITE, scale: 1 })).toBe(false);
+  });
+
+  it('draws every frame of a 2x man, each distinct, with riders and animals too', () => {
+    const seen = new Set<string>();
+    const hd = { ...HOPLITE, res: 2 };
+    for (let f = 0; f < NFRAMES; f++) {
+      const px = renderFrame(hd, f, 1);
+      expect(solid(px)).toBeGreaterThan(240);
+      seen.add(Array.from(px.data).join(','));
+    }
+    expect(seen.size).toBe(NFRAMES);
+    for (const gal of ANIM.gallop) expect(solid(renderFrame({ ...hd, mount: 'horse' }, gal, 2))).toBeGreaterThan(400);
+    expect(solid(renderFrame({ look: HOPLITE.look, beast: 'wolf', scale: BATTLE_SCALE, res: 2 }, 2, 0))).toBeGreaterThan(100);
+  });
+});
+
+describe('portraits', () => {
+  it('renders a bust at the portrait resolution, with distinct idle variants, and a 1x still', () => {
+    const size = PORTRAIT_PX * PORTRAIT_RES;
+    const seen = new Set<string>();
+    // bare-headed: a blink is hidden behind a Corinthian helmet
+    const face: DollSpec = { ...HOPLITE, helmet: undefined };
+    for (let f = 0; f < PORTRAIT_FRAMES.length; f++) {
+      const px = renderPortrait(face, f);
+      expect(px.w).toBe(size);
+      expect(px.h).toBe(size);
+      expect(solid(px)).toBeGreaterThan(size * size * 0.25);
+      seen.add(Array.from(px.data).join(','));
+    }
+    expect(seen.size).toBe(PORTRAIT_FRAMES.length);
+    const still = renderPortrait(HOPLITE, 0, 1);
+    expect(still.w).toBe(PORTRAIT_PX);
+    expect(solid(still)).toBeGreaterThan(PORTRAIT_PX * PORTRAIT_PX * 0.25);
+    // animals and riders have one too
+    expect(solid(renderPortrait({ look: HOPLITE.look, beast: 'bear' }, 0))).toBeGreaterThan(200);
+    expect(solid(renderPortrait({ ...HOPLITE, mount: 'horse' }, 0))).toBeGreaterThan(200);
+  });
+
+  it('gives every hero an idle loop of its own that uses every variant kind', () => {
+    const a = portraitLoop(1);
+    const b = portraitLoop(2);
+    expect(a.length).toBeGreaterThan(20);
+    expect(a.join()).not.toBe(b.join());
+    for (const f of a) expect(f).toBeLessThan(PORTRAIT_FRAMES.length);
+    expect(a).toContain(PORTRAIT_FRAMES.indexOf('breath2'));
+    expect(a).toContain(PORTRAIT_FRAMES.indexOf('glint1'));
   });
 });
 

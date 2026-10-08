@@ -3,7 +3,9 @@
  *
  *   /preview.html            one card per unit class: the four facings standing, then the
  *                            enemy-side facing walking, striking, hit and fallen.
- *   ?s=N                     pixel scale (default 2); ?b=1 battlefield scale; ?full=1 whole sheets.
+ *   ?s=N                     pixel scale (default 2); ?b=1 battlefield scale; ?full=1 whole sheets;
+ *                            ?r=N render resolution (DollSpec.res, the battle uses 2): N times the
+ *                            pixels at the same size on screen.
  *   ?g=gear                  the gallery: every helmet / armour / shield / weapon at the five
  *                            rarities, side by side, at battlefield scale.
  *   ?g=anim                  every animation of each weapon class (front and back rows), plus a
@@ -24,7 +26,9 @@ import { RARITY_COLOR } from '../ui/theme';
 import type { Pix } from '../art/pixels';
 
 const q = new URLSearchParams(location.search);
-const scale = Number(q.get('s') ?? (q.get('g') ? 4 : 2));
+/** Render resolution of the figures; the canvas scale is per rendered pixel, so the figures keep their size. */
+const res = Number(q.get('r') ?? 1);
+const scale = Number(q.get('s') ?? (q.get('g') ? 4 : 2)) / res;
 const full = q.get('full') === '1';
 /** ?b=1: the figures at battlefield scale (the gallery always is). */
 const battle = q.get('b') === '1' || !!q.get('g');
@@ -58,7 +62,7 @@ function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContex
 const draw = (ctx: CanvasRenderingContext2D, px: Pix, x: number, y: number) => ctx.drawImage(px.toCanvas(), x * scale, y * scale, px.w * scale, px.h * scale);
 
 /** A bare hoplite to dress piece by piece. */
-const BASE: DollSpec = { look: { skin: 1, hair: 1, hairStyle: 0, beard: 1, tunic: 'tunicWhite' }, seed: 7, scale: BATTLE_SCALE };
+const BASE: DollSpec = { look: { skin: 1, hair: 1, hairStyle: 0, beard: 1, tunic: 'tunicWhite' }, seed: 7, scale: BATTLE_SCALE, res };
 
 function labelRow(c: HTMLElement, labels: string[], cw: number, colors?: number[]): void {
   const row = document.createElement('div');
@@ -188,7 +192,7 @@ function fxGallery(): void {
     const h = makeHero(new Rng(500 + i * 13 + r * 101), { nextId: 1000 + i + r * 40 }, 'greek', cls, 1, 3);
     setBotLevel(h, 3);
     for (const it of Object.values(h.equip)) if (it) it.rarity = RARITIES[r];
-    return { ...dollFromHero(h), scale: BATTLE_SCALE };
+    return { ...dollFromHero(h), scale: BATTLE_SCALE, res };
   };
   const [cv, ctx] = canvas(W * 5, H + 8);
   c.appendChild(cv);

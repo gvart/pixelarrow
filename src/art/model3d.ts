@@ -111,7 +111,7 @@ interface Line {
   p0: V3;
   p1: V3;
   mat: Material;
-  /** Pixel width 1 or 2. */
+  /** Pixel width 1 or 2 (0.5: a thread that stays one pixel at any resolution). */
   width: number;
   group: number;
 }
@@ -132,6 +132,12 @@ export class Scene {
   prims: Prim[] = [];
   lines: Line[] = [];
   dots: Dot[] = [];
+  /**
+   * Render resolution multiplier (pixels per "style pixel"): thin things
+   * drawn in pixel units (shafts, strings, blade edges) are widened by it so a
+   * figure rasterised at 2x keeps the same silhouette weight.
+   */
+  px = 1;
   private g = 1;
 
   /** A new crease group (parts of one body that blend without inner outlines). */
@@ -238,10 +244,12 @@ export class Scene {
    * Render into a w x h Pix with the world origin (the feet) at (ox, oy).
    * Returns the pixels; shading, creases and the soft outline included.
    */
-  render(w: number, h: number, ox: number, oy: number, opts: { outline?: boolean; mask?: Uint8Array } = {}): Pix {
+  render(w: number, h: number, ox: number, oy: number, opts: { outline?: boolean; mask?: Uint8Array; maskMetal?: boolean } = {}): Pix {
     const n = w * h;
     const glint = new Uint8Array(n);
     let curGlint = 0;
+    // the glint mask marks rare+ gear; portraits ask for every metal surface instead
+    const glintOf = (m: Material) => (m.glint || (opts.maskMetal && m.metal) ? 1 : 0);
     const depth = new Float32Array(n).fill(Infinity);
     const color = new Int32Array(n).fill(-1);
     const grp = new Int32Array(n);
@@ -259,7 +267,7 @@ export class Scene {
 
     for (let pi = 0; pi < this.prims.length; pi++) {
       const p = this.prims[pi];
-      curGlint = p.mat.glint ? 1 : 0;
+      curGlint = glintOf(p.mat);
       // screen bounding box from the axis vectors
       const cs = project(p.c);
       if (p.kind === 'ell' && p.sph !== undefined) {
@@ -400,7 +408,7 @@ export class Scene {
 
     // lines (shafts, strings): depth-tested, two tones by orientation
     for (const l of this.lines) {
-      curGlint = l.mat.glint ? 1 : 0;
+      curGlint = glintOf(l.mat);
       const a = project(l.p0);
       const b = project(l.p1);
       const da = dot(l.p0, VIEW);
@@ -414,13 +422,14 @@ export class Scene {
         const x = Math.floor(ox + a.x + (b.x - a.x) * t);
         const y = Math.floor(oy + a.y + (b.y - a.y) * t);
         const d = da + (db - da) * t - 0.02;
-        for (let wdt = 0; wdt < l.width; wdt++) {
+        const lw = Math.max(1, Math.round(l.width * this.px));
+        for (let wdt = 0; wdt < lw; wdt++) {
           const xx = x + (Math.abs(b.y - a.y) > Math.abs(b.x - a.x) ? wdt : 0);
           const yy = y + (Math.abs(b.y - a.y) > Math.abs(b.x - a.x) ? 0 : wdt);
           if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
           const i = yy * w + xx;
           if (d >= depth[i]) continue;
-          const tn = (wdt === 0 ? 0.25 + (1 - lit) * 0.9 : 1.4) * (l.mat.ramp.length - 1) / 2;
+          const tn = (wdt < lw - 1 || lw === 1 ? 0.25 + (1 - lit) * 0.9 : 1.4) * (l.mat.ramp.length - 1) / 2;
           put(i, d, l.mat.ramp, tn + (((xx + yy) & 3) === 0 && l.mat.grit ? 0.6 : 0), l.group);
         }
       }
@@ -468,7 +477,8 @@ export class Scene {
         od[o + 3] = 255;
       }
     }
-    if (opts.outline !== false) softOutline(out);
+    // the sel-out outline keeps its weight at higher resolutions: one style pixel = px render pixels
+    if (opts.outline !== false) softOutline(out, Math.max(1, Math.round(this.px)));
     if (opts.mask) opts.mask.set(glint.subarray(0, Math.min(n, opts.mask.length)));
     return out;
   }
@@ -495,30 +505,37 @@ export class Scene {
   }
 }
 
-/** Soft outline: transparent pixels next to the sprite take a dark shade of their neighbour. */
-export function softOutline(px: Pix): void {
+/**
+ * Soft outline: transparent pixels next to the sprite take a dark shade of
+ * their neighbour. `width` > 1 (figures rendered at 2x) grows the outline by
+ * further rings that copy the first ring's colour, so it stays the same
+ * sel-out shade rather than darkening towards black.
+ */
+export function softOutline(px: Pix, width = 1): void {
   const { w, h, data } = px;
-  const marks: number[] = [];
   const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && data[(y * w + x) * 4 + 3] > 128;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (data[(y * w + x) * 4 + 3] > 0) continue;
-      // prefer the pixel above / left (the outline reads as a shadow edge below / right)
-      let j = -1;
-      if (solid(x, y - 1)) j = (y - 1) * w + x;
-      else if (solid(x - 1, y)) j = y * w + x - 1;
-      else if (solid(x + 1, y)) j = y * w + x + 1;
-      else if (solid(x, y + 1)) j = (y + 1) * w + x;
-      if (j >= 0) marks.push(y * w + x, (data[j * 4] << 16) | (data[j * 4 + 1] << 8) | data[j * 4 + 2]);
+  for (let ring = 0; ring < width; ring++) {
+    const marks: number[] = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > 0) continue;
+        // prefer the pixel above / left (the outline reads as a shadow edge below / right)
+        let j = -1;
+        if (solid(x, y - 1)) j = (y - 1) * w + x;
+        else if (solid(x - 1, y)) j = y * w + x - 1;
+        else if (solid(x + 1, y)) j = y * w + x + 1;
+        else if (solid(x, y + 1)) j = (y + 1) * w + x;
+        if (j >= 0) marks.push(y * w + x, (data[j * 4] << 16) | (data[j * 4 + 1] << 8) | data[j * 4 + 2]);
+      }
     }
-  }
-  for (let k = 0; k < marks.length; k += 2) {
-    const c = selOut(marks[k + 1]);
-    const o = marks[k] * 4;
-    data[o] = (c >> 16) & 255;
-    data[o + 1] = (c >> 8) & 255;
-    data[o + 2] = c & 255;
-    data[o + 3] = 255;
+    for (let k = 0; k < marks.length; k += 2) {
+      const c = ring === 0 ? selOut(marks[k + 1]) : marks[k + 1];
+      const o = marks[k] * 4;
+      data[o] = (c >> 16) & 255;
+      data[o + 1] = (c >> 8) & 255;
+      data[o + 2] = c & 255;
+      data[o + 3] = 255;
+    }
   }
 }
 
