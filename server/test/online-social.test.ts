@@ -349,7 +349,8 @@ describe('live duel over WebSocket', () => {
     expect(la.sim.hash()).toBe(lb.sim.hash());
     let ordered = false;
     let retreated = false;
-    for (let guard = 0; guard < 4000 && !(la.sim.phase === 'ended' && lb.sim.phase === 'ended'); guard++) {
+    // (bounded by wall time, not by a count of yields: round trips slow down under CPU load)
+    for (const end = Date.now() + 45_000; Date.now() < end && !(la.sim.phase === 'ended' && lb.sim.phase === 'ended'); ) {
       la.pump(50);
       lb.pump(50);
       if (!ordered && la.sim.tick >= 6) {

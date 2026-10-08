@@ -271,7 +271,8 @@ describe('live duel flow (two lockstep clients over the shard socket)', () => {
     // battle at uneven frame rates; orders mid-battle; B sounds the retreat
     let ordered = false;
     let retreated = false;
-    for (let guard = 0; guard < 20_000 && !(fA.sim.phase === 'ended' && fB.sim.phase === 'ended'); guard++) {
+    // (bounded by wall time, not by a count of yields: round trips slow down under CPU load)
+    for (let guard = 0, end = Date.now() + 45_000; Date.now() < end && !(fA.sim.phase === 'ended' && fB.sim.phase === 'ended'); guard++) {
       fA.frame(200);
       fB.frame(guard % 3 === 0 ? 250 : 40);
       if (!ordered && fA.sim.tick >= 7) {

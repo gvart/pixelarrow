@@ -20,6 +20,9 @@ export default defineConfig({
           ONLINE_MAP: 'test30',
           ADMIN_TOKEN: 'ops:test-admin-token-0123456789abcdef0123456789, short:tooshort',
           TEST_MIGRATIONS: await readD1Migrations('./migrations'),
+          // Salt of the seeded server randomness (test/setup.ts): TEST_SEED=n npx vitest run
+          // replays the suite on other homes, shard seeds and battles.
+          TEST_SEED: process.env.TEST_SEED ?? '',
         },
       },
     })),
@@ -28,5 +31,9 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     setupFiles: ['./test/setup.ts'],
     globalSetup: ['./test/globalSetup.ts'],
+    // Generous bounds: under CPU load (busy CI runners) socket round trips and
+    // background work are slow; tests wait on conditions, these only cap a hang.
+    testTimeout: 120_000,
+    hookTimeout: 60_000,
   },
 });
