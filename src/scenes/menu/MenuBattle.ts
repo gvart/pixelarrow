@@ -22,7 +22,7 @@
  * motion" preference the lines just stand facing each other, breathing.
  */
 import Phaser from 'phaser';
-import { ANIM, BATTLE_SCALE, FRAME, aimFrame, attackFrame, attackLength, dollFromHero, isRangedClass, weaponClass, type DollSpec, type WeaponClass } from '../../art/paperdoll';
+import { ANIM, BATTLE_RES, BATTLE_SCALE, FRAME, aimFrame, attackFrame, attackLength, dollFromHero, isRangedClass, weaponClass, type DollSpec, type WeaponClass } from '../../art/paperdoll';
 import { renderGround } from '../../art/ground';
 import { isoToScreen } from '../../art/iso';
 import { P } from '../../art/palette';
@@ -32,7 +32,7 @@ import { cosmeticLoadout } from '../../game/cosmetics';
 import { standardArmy } from '../../game/heroes';
 import { Rng } from '../../sim/rng';
 import type { UIMetrics } from '../../ui/kit';
-import { battleDoll, battleFrame, battleRow, dollOrigin, flushDolls, pumpDolls, releaseBattleRows } from '../../ui/sprites';
+import { battleDoll, battleFrame, battleRow, dollDisplayScale, dollOrigin, flushDolls, pumpDolls, releaseBattleRows } from '../../ui/sprites';
 import type { Culture } from '../../data/names';
 
 /** The stage (UI px): an unobstructed rectangle the skirmish is masked to. */
@@ -290,9 +290,9 @@ export class MenuBattle {
     const lo = cosmeticLoadout();
 
     // the player's army: men on foot (riders and beasts have their own sheets; another day)
-    const own = this.heroes.map((h) => ({ h, spec: { ...dollFromHero(h, lo), scale: BATTLE_SCALE } })).filter((e) => !e.spec.mount && !e.spec.beast);
+    const own = this.heroes.map((h) => ({ h, spec: { ...dollFromHero(h, lo), scale: BATTLE_SCALE, res: BATTLE_RES } })).filter((e) => !e.spec.mount && !e.spec.beast);
     // a small party is joined by the city's levy (the standard army) so a line forms
-    const levy = standardArmy(new Rng(this.seed ^ 0x5bd1e995), { nextId: 90001 }).map((h) => ({ h, spec: { ...dollFromHero(h), scale: BATTLE_SCALE } }));
+    const levy = standardArmy(new Rng(this.seed ^ 0x5bd1e995), { nextId: 90001 }).map((h) => ({ h, spec: { ...dollFromHero(h), scale: BATTLE_SCALE, res: BATTLE_RES } }));
     const lead = own[0] ?? levy[0];
     const rest = (own.length ? own : levy).slice(1);
     const rot = rest.length ? rest.slice(this.rosterOffset % rest.length).concat(rest.slice(0, this.rosterOffset % rest.length)) : [];
@@ -313,7 +313,7 @@ export class MenuBattle {
     const ids = { nextId: 70001 };
     // asked for more than needed: missile-heavy mixes leave few foot men after the trim
     const army = buildArmy(rng, ids, { culture, count: this.nLine * 2 + this.nRanged + 1, level: 1, tier: 1, targetPower: 0, mix, tune: false });
-    const foes = army.heroes.map((h) => ({ h, spec: { ...dollFromHero(h), scale: BATTLE_SCALE } })).filter((e) => !e.spec.mount && !e.spec.beast);
+    const foes = army.heroes.map((h) => ({ h, spec: { ...dollFromHero(h), scale: BATTLE_SCALE, res: BATTLE_RES } })).filter((e) => !e.spec.mount && !e.spec.beast);
     let eLine = foes.filter((e) => !isRangedClass(weaponClass(e.spec.weapon))).slice(0, this.nLine);
     const eRanged = foes.filter((e) => isRangedClass(weaponClass(e.spec.weapon))).slice(0, this.nRanged);
     if (eLine.length < 2) eLine = [...eLine, ...eRanged.splice(0, 2 - eLine.length)];
@@ -353,7 +353,8 @@ export class MenuBattle {
     const rowKey = battleRow(this.scene, key, row);
     const [ox, oy] = dollOrigin(key);
     const shadow = this.scene.add.image(0, 0, 'shadow').setAlpha(0.32).setDepth(DEPTH_SHADOW);
-    const img = this.scene.add.image(0, 0, rowKey, 0).setOrigin(ox, oy);
+    const f0 = battleFrame(rowKey, 0);
+    const img = this.scene.add.image(0, 0, f0.key, f0.frame).setOrigin(ox, oy).setScale(dollDisplayScale(key));
     this.world.add(shadow);
     this.world.add(img);
     const m: Man = {
@@ -908,11 +909,10 @@ export class MenuBattle {
     if (row !== m.row) {
       m.row = row;
       m.rowKey = battleRow(this.scene, m.key, row);
-      m.img.setTexture(m.rowKey, 0);
     }
-    const frame = this.frameOf(m);
-    battleFrame(m.rowKey, frame);
-    if (Number(m.img.frame.name) !== frame) m.img.setFrame(frame);
+    const f = battleFrame(m.rowKey, this.frameOf(m));
+    if (m.img.texture.key !== f.key) m.img.setTexture(f.key, f.frame);
+    else if (m.img.frame.name !== f.frame) m.img.setFrame(f.frame);
     const p = isoToScreen(m.x, m.y);
     const rx = Math.round(p.x);
     const ry = Math.round(p.y);
