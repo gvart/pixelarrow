@@ -29,6 +29,11 @@
  *   - Frame size and the feet line depend on the figure (dollGeom): a man 56 x 72
  *     with the feet at y = 64, a rider 96 x 84 (hooves at 74), a chariot 128 x 96
  *     (84), wolf / boar 48 x 40 (34), bear 64 x 60 (52). The feet are centred on x.
+ *     DollSpec.scale shrinks the model (the battle's 0.74) and DollSpec.res
+ *     multiplies the pixels (the battle's 2, shown at scale 1 / res): both scale
+ *     the frame and the feet line, so a 2x battle man is 84 x 108, feet at 96.
+ *     Details that need the pixels (brows, straps, folds, strands, leaf-shaped
+ *     spear heads, horse tack) are only built from ~28 px/m up (fineDetail).
  *   - Layers, back to front, each keyed by an `art` id from src/data/items.ts (or the
  *     class / mount / beast for bodies) and refined by the item def and rarity
  *     (DollSpec.gear): [cloak], legs (skin / trousers / greaves), tunic and skirt,
@@ -42,7 +47,7 @@
  *   - The player's side (row 1) always shows the painted shield face: the shield
  *     carried on the left side is turned towards the viewer.
  */
-import { Scene, add, cross, mul, norm, sub, len, CAM, project, type Material, type V3, type Hit } from './model3d';
+import { Scene, add, cross, mul, norm, sub, len, lerp3, CAM, project, type Material, type V3, type Hit } from './model3d';
 import {
   BLOOD, BRONZE, BEAST, CLOTH, COATS, CREST, CREST_EXTRA, DARK_LEATHER, DARK_WOOD, DIVINE, EMBER, EYE, FELT, FIELD, GOLD, HAIR, HOOF, INK, IRON, IVORY,
   LEATHER, LINEN, MANE, ORICHALCUM, RIM_LIGHT, SKIN, STRING, WOOD, bronzeOf, ironOf, trimOf, BRIGHT_SILVER,
@@ -182,12 +187,12 @@ export const isRangedClass = (w: WeaponClass): boolean => w === 'bow' || w === '
  * shot instead (see aimFrame).
  */
 const ATTACK_TIMES: Record<WeaponClass, number[]> = {
-  spear: [0.06, 0.1, 0.07, 0.08, 0.1],
-  lance: [0.06, 0.1, 0.08, 0.08, 0.1],
-  blade: [0.07, 0.1, 0.05, 0.09, 0.1],
-  chop: [0.08, 0.14, 0.06, 0.1, 0.12],
-  two: [0.1, 0.15, 0.07, 0.1, 0.12],
-  none: [0.06, 0.1, 0.06, 0.08, 0.1],
+  spear: [0.05, 0.11, 0.05, 0.08, 0.12],
+  lance: [0.05, 0.11, 0.06, 0.08, 0.12],
+  blade: [0.06, 0.11, 0.04, 0.09, 0.12],
+  chop: [0.07, 0.16, 0.05, 0.1, 0.14],
+  two: [0.09, 0.17, 0.06, 0.1, 0.14],
+  none: [0.05, 0.11, 0.05, 0.08, 0.12],
   bow: [0, 0, 0.08, 0.12, 0.14],
   sling: [0, 0, 0.08, 0.1, 0.12],
   jav: [0, 0, 0.08, 0.12, 0.14],
@@ -272,6 +277,14 @@ export interface DollSpec {
    * (a man ~26 px tall on a 36 px tile); portraits and screens use 1.
    */
   scale?: number;
+  /**
+   * Render resolution (default 1): the figure is rasterised with `res` times
+   * as many pixels each way and shown at the same world size (the sprite's
+   * scale is 1 / res), so a 2x figure keeps its layout, feet line and
+   * hitbox but gains real detail (facial features, folds, straps). dollGeom
+   * reports the frame size in rendered pixels.
+   */
+  res?: number;
   /** Item defs and rarity per slot (finishes, legendary silhouettes); trinket = its def id. */
   gear?: { weapon?: GearTag; shield?: GearTag; helmet?: GearTag; armor?: GearTag; trinket?: GearTag };
   /** Crest colour override (a cosmetic): a CREST / CREST_EXTRA key. */
@@ -288,6 +301,14 @@ export interface DollSpec {
 
 /** Scale of the battlefield's figures: small, chunky miniatures on 36 x 18 tiles. */
 export const BATTLE_SCALE = 0.74;
+/** Render resolution of the battlefield's figures (see DollSpec.res). */
+export const BATTLE_RES = 2;
+/** Pixels per metre of a figure's render (model3d's camera at scale 1 draws 22.6 px/m). */
+export const PPM = 16 * Math.SQRT2;
+/** Fine detail (brows, straps, folds, strands) is added from this density on: battle 2x and portraits, not the 1x screens. */
+export function fineDetail(d: DollSpec): boolean {
+  return (d.scale ?? 1) * (d.res ?? 1) * PPM >= 28;
+}
 
 /** The visible cosmetic loadout (slot -> cosmetic id), see src/game/cosmetics.ts. */
 export type CosmeticLoadout = Partial<Record<string, string>>;
@@ -382,6 +403,7 @@ const gearKey = (g?: GearTag) => (g ? `${g.def ?? ''}${g.r ?? ''}` : '');
 export function dollKey(d: DollSpec): string {
   const l = d.look;
   const p = (x?: ItemPaint) => (x ? `${x.emblem ?? ''}.${x.field ?? ''}.${x.ink ?? ''}` : '');
+  if (d.res && d.res !== 1) return `${dollKey({ ...d, res: undefined })}#r${d.res}`;
   if (d.scale && d.scale !== 1 && !isMythId(d.beast)) return `${dollKey({ ...d, scale: undefined })}@${d.scale}`;
   if (d.beast) return `beast_${d.beast}${d.pose ?? ''}${d.beast === 'hydra_head' || d.beast === 'kraken_arm' ? `_${(d.seed ?? 0) % 3}` : ''}`;
   const g = d.gear;
@@ -391,6 +413,10 @@ export function dollKey(d: DollSpec): string {
 }
 
 export function dollGeom(d: DollSpec): SheetGeom {
+  if (d.res && d.res !== 1) {
+    const g = dollGeom({ ...d, res: undefined });
+    return { fw: g.fw * d.res, fh: g.fh * d.res, footY: g.footY * d.res };
+  }
   if (isMythId(d.beast)) return MYTH_GEOM[d.beast];
   if (d.scale && d.scale !== 1) {
     const g = dollGeom({ ...d, scale: undefined });
@@ -471,7 +497,10 @@ export function renderFrame(d: DollSpec, frame: number, dir: number, mask?: Uint
   else if (d.mount === 'chariot') buildChariot(sc, d, lf, B, dir);
   else if (d.mount) buildRider(sc, d, lf, B, dir);
   else buildMan(sc, d, frame, B, dir, manPose(d, frame));
-  if (d.scale && d.scale !== 1 && !isMythId(d.beast)) sc.scale(d.scale);
+  const res = d.res ?? 1;
+  const k = (isMythId(d.beast) ? 1 : d.scale ?? 1) * res;
+  if (k !== 1) sc.scale(k);
+  sc.px = res;
   return sc.render(g.fw, g.fh, Math.floor(g.fw / 2), g.footY, { mask });
 }
 
@@ -585,6 +614,9 @@ interface ManPose {
   nod: number;
   /** Victory with the shield raised overhead. */
   shieldUp?: boolean;
+  /** Portraits: eyes closed this frame, head turned (radians, + = to his right). */
+  blink?: boolean;
+  yaw?: number;
 }
 
 function basePose(): ManPose {
@@ -628,13 +660,22 @@ function manPose(d: DollSpec, frame: number): ManPose {
     const ph = (k * Math.PI) / 4;
     p.arm = 'walk';
     p.phase = ph;
-    p.footL = [0.24 * Math.cos(ph), -0.12, Math.max(0, Math.sin(ph)) * 0.14];
-    p.footR = [-0.24 * Math.cos(ph), 0.12, Math.max(0, -Math.sin(ph)) * 0.14];
+    // the swing foot lifts in an arc that peaks early (heel up, toe through), the stance foot stays planted
+    const arc = (x: number) => Math.pow(Math.max(0, x), 0.75);
+    p.footL = [0.24 * Math.cos(ph), -0.12, arc(Math.sin(ph)) * 0.13];
+    p.footR = [-0.24 * Math.cos(ph), 0.12, arc(-Math.sin(ph)) * 0.13];
     // a clear 1 px bob: lowest on the contact frames (feet apart), highest when passing
     p.hip = 0.95 - Math.abs(Math.cos(ph)) * 0.06;
+    // weight shifts over the planted foot: the pelvis sways sideways and the shoulders tilt the other way
+    const sway = Math.sin(ph + 0.4);
+    p.pr = -0.028 * sway;
+    p.roll = 0.035 * sway;
     p.lean = 0.05;
     p.swing = -0.14 * Math.cos(ph);
-    p.twist = -0.08 * Math.cos(ph);
+    // counter-rotation: the shoulders turn against the hips as the arms swing
+    p.twist = -0.1 * Math.cos(ph);
+    // a slight nod on each contact
+    p.nod = 0.008 * Math.abs(Math.cos(ph));
     // the cloak and crest bounce twice a stride, trailing behind the bob
     p.lag = 0.06 + 0.035 * Math.sin(2 * ph - 0.9);
   } else if (name.startsWith('run') || name.startsWith('rout')) {
@@ -645,12 +686,16 @@ function manPose(d: DollSpec, frame: number): ManPose {
     p.arm = rout ? 'rout' : 'run';
     p.phase = ph;
     const stride = rout ? 0.34 : 0.4;
-    p.footL = [stride * Math.cos(ph), -0.11, Math.max(0, Math.sin(ph)) * 0.26];
-    p.footR = [-stride * Math.cos(ph), 0.11, Math.max(0, -Math.sin(ph)) * 0.26];
+    // running: the swing leg folds high behind, the body floats up between contacts
+    p.footL = [stride * Math.cos(ph), -0.11, Math.pow(Math.max(0, Math.sin(ph)), 0.8) * 0.26];
+    p.footR = [-stride * Math.cos(ph), 0.11, Math.pow(Math.max(0, -Math.sin(ph)), 0.8) * 0.26];
     p.hip = 0.92 - Math.abs(Math.cos(ph)) * 0.07 + Math.abs(Math.sin(ph)) * 0.02;
+    p.pr = -0.022 * Math.sin(ph + 0.4);
+    p.roll = 0.04 * Math.sin(ph + 0.4);
     p.lean = rout ? 0.2 : 0.17;
     p.swing = -0.28 * Math.cos(ph);
-    p.twist = -0.14 * Math.cos(ph);
+    p.twist = -0.16 * Math.cos(ph);
+    p.nod = rout ? 0.02 : 0.01;
     p.lag = 0.2 + 0.05 * Math.sin(2 * ph);
   } else {
     switch (name) {
@@ -725,33 +770,42 @@ function manPose(d: DollSpec, frame: number): ManPose {
         p.lag = 0.02;
         break;
       case 'die0':
+        // the stagger: knees buckle, the head snaps back, a hand goes to the wound
         p.arm = 'fall';
-        p.hip = 0.72;
-        p.lean = -0.12;
+        p.hip = 0.78;
+        p.lean = -0.14;
+        p.nod = -0.05;
+        p.roll = 0.04;
         p.footL = [0.25, -0.15, 0];
         p.footR = [0.05, 0.15, 0];
+        p.lag = -0.04;
         break;
       case 'die1':
+        // toppling: the fall starts slowly (ease-in), arms thrown out
         p.arm = 'fall';
-        p.hip = 0.6;
-        p.fall = 0.75;
+        p.hip = 0.64;
+        p.fall = 0.5;
         p.dead = true;
-        p.footL = [0.3, -0.15, 0];
+        p.nod = -0.03;
+        p.footL = [0.3, -0.15, 0.02];
         p.footR = [0.12, 0.18, 0];
+        p.lag = -0.08;
         break;
       case 'die1b':
-        // between falling and flat: the body hits the ground
+        // the body hits the ground hard: the fastest step, legs kicked up
         p.arm = 'fall';
         p.hip = 0.57;
-        p.fall = 1.15;
+        p.fall = 1.22;
         p.dead = true;
-        p.footL = [0.31, -0.15, 0];
-        p.footR = [0.16, 0.19, 0];
+        p.footL = [0.31, -0.15, 0.06];
+        p.footR = [0.16, 0.19, 0.03];
+        p.lag = -0.1;
         break;
       case 'die2':
+        // settled flat, the legs dropped
         p.arm = 'fall';
         p.hip = 0.55;
-        p.fall = 1.45;
+        p.fall = 1.5;
         p.dead = true;
         p.footL = [0.32, -0.16, 0];
         p.footR = [0.2, 0.2, 0];
@@ -764,13 +818,16 @@ function manPose(d: DollSpec, frame: number): ManPose {
         const k = num('dieB');
         p.arm = 'fall';
         p.fallFwd = true;
-        p.hip = [0.58, 0.5, 0.48, 0.46][k];
-        p.lean = [0.2, 0.25, 0.25, 0.25][k];
+        // down onto one knee, a pause, then the body pitches over (ease-in) and slumps
+        p.hip = [0.58, 0.52, 0.48, 0.46][k];
+        p.lean = [0.16, 0.26, 0.25, 0.25][k];
+        p.roll = [0.03, 0.05, 0.02, 0][k];
         p.footL = [0.22, -0.14, 0];
         p.footR = [-0.3, 0.14, 0];
-        p.fall = [0, 0.55, 1.05, 1.42][k];
+        p.fall = [0, 0.4, 1.0, 1.45][k];
         p.dead = k > 0;
-        p.nod = 0.06;
+        p.nod = [0.04, 0.08, 0.06, 0.02][k];
+        p.lag = [-0.02, -0.06, -0.08, 0][k];
         break;
       }
       case 'win0':
@@ -1132,6 +1189,8 @@ function buildMan(sc: Scene, d: DollSpec, _frame: number, B: Basis, dir: number,
   const { up, fwd } = k;
   const greaves = d.armor === 'cuirass' || d.helmet?.art === 'corinthian' || d.helmet?.art === 'attic' || (d.armor === 'scale' && seed % 3 === 0) || armR >= 3;
   const greaveMat = d.polish ? bronzeOf(Math.max(2, armR)) : bronzeOf(armR);
+  // details that only resolve at 2x (battle) and in portraits: straps, folds, strands, brows
+  const fine = fineDetail(d);
 
   // ---- cloak (behind the body, trailing as he moves)
   if (d.cloak && !p.seated) {
@@ -1145,9 +1204,13 @@ function buildMan(sc: Scene, d: DollSpec, _frame: number, B: Basis, dir: number,
     const mid = mul(add(top, bottom), 0.5);
     const along = sub(top, bottom);
     const trim = d.cloakTrim;
-    sc.ellipsoid(add(mid, mul(B.F, -0.08)), mul(B.F, 0.06), mul(B.R, 0.19), mul(norm(along), len(along) / 2 + 0.05), cm, (l) =>
-      l[2] < -0.8 ? (trim ? { ramp: GOLD.ramp, shade: 0.5 } : { shade: 0.8 }) : Math.abs(l[1]) > 0.9 ? { shade: 0.6 } : null,
-    );
+    sc.ellipsoid(add(mid, mul(B.F, -0.08)), mul(B.F, 0.06), mul(B.R, 0.19), mul(norm(along), len(along) / 2 + 0.05), cm, (l) => {
+      if (l[2] < -0.8) return trim ? { ramp: GOLD.ramp, shade: 0.5 } : { shade: 0.8 };
+      if (Math.abs(l[1]) > 0.9) return { shade: 0.6 };
+      // hanging folds: soft vertical bands that gather towards the hem
+      if (fine && l[0] < 0.2 && ((Math.floor((l[1] + 1.4) * 4.5 + (l[2] < -0.3 ? 0.5 : 0)) & 1) === 0)) return { shade: 0.45 };
+      return null;
+    });
     // a fold line down the middle
     sc.line(add(top, mul(B.F, -0.15)), add(bottom, mul(B.F, -0.1)), { ramp: cm.ramp.slice(2) }, 1);
     // the brooch at the shoulder
@@ -1169,8 +1232,19 @@ function buildMan(sc: Scene, d: DollSpec, _frame: number, B: Basis, dir: number,
     sc.limb(knee, ankle, greaves ? 0.064 : 0.056, 0.042, greaves ? greaveMat : legMat, greaves ? undefined : checks);
     if (greaves) sc.dot(add(knee, mul(B.F, 0.06)), greaveMat.ramp[0], 0.05, !!greaveMat.glint); // the knee boss catches the light
     // sandal / boot (some go barefoot)
-    if (d.trousers || seed % 5 !== 2) sc.limb(ankle, add(ankle, add(mul(B.F, 0.13), [0, 0, -0.04])), 0.045, 0.035, d.trousers ? DARK_LEATHER : LEATHER);
-    else sc.limb(ankle, add(ankle, add(mul(B.F, 0.13), [0, 0, -0.04])), 0.042, 0.032, skin);
+    const sandal = d.trousers || seed % 5 !== 2;
+    const toe = add(ankle, add(mul(B.F, 0.13), [0, 0, -0.04]));
+    if (sandal) sc.limb(ankle, toe, 0.045, 0.035, d.trousers ? DARK_LEATHER : LEATHER);
+    else sc.limb(ankle, toe, 0.042, 0.032, skin);
+    if (fine && sandal && !d.trousers) {
+      // the straps: a crossed thong over the instep and a band round the shin above the ankle
+      const shin = lerp3(ankle, knee, 0.18);
+      const across = norm(cross(sub(knee, ankle), B.F));
+      sc.line(add(shin, mul(across, -0.05)), add(shin, mul(across, 0.05)), DARK_LEATHER, 0.5);
+      sc.line(add(ankle, mul(B.F, 0.03)), add(toe, add(mul(across, 0.03), [0, 0, 0.02])), DARK_LEATHER, 0.5);
+      sc.line(add(ankle, mul(B.F, 0.03)), add(toe, add(mul(across, -0.03), [0, 0, 0.02])), DARK_LEATHER, 0.5);
+    }
+    if (fine && greaves) sc.line(add(ankle, mul(B.F, 0.04)), add(lerp3(ankle, knee, 0.95), mul(B.F, 0.065)), { ramp: greaveMat.ramp.slice(0, 2) }, 0.5); // the shin ridge
   }
 
   // ---- body: hips, skirt, torso
@@ -1178,19 +1252,33 @@ function buildMan(sc: Scene, d: DollSpec, _frame: number, B: Basis, dir: number,
   const torsoMat: Material = d.bare ? skin : tunic;
   const skirtLen = d.bare ? 0.1 : 0.22;
   const swish = Number.isNaN(p.phase) ? 0 : Math.sin(p.phase) * 0.02;
-  sc.blob(B.at(k.pelvis, -swish, 0, -0.06 - skirtLen / 2), B.F, B.R, B.U, 0.16, 0.2, skirtLen / 2 + 0.08, d.bare ? (d.trousers ? CLOTH[d.trousers] ?? LEATHER : LEATHER) : tunic, (l) =>
-    l[2] < -0.7 ? { shade: 0.9 } : l[1] > 0.55 ? { shade: 0.4 } : !d.bare && Math.abs(l[1] + 0.2) < 0.05 && l[0] > 0 ? { shade: 0.6 } : null,
-  );
+  // the skirt of the tunic: a dark hem, a crease at the hip, and hanging pleats at 2x
+  const pleats = (l: V3): Hit | null => {
+    if (l[2] < -0.7) return { shade: 0.9 };
+    if (l[1] > 0.55) return { shade: 0.4 };
+    if (!d.bare && Math.abs(l[1] + 0.2) < 0.05 && l[0] > 0) return { shade: 0.6 };
+    if (fine && !d.bare && l[2] < 0.5 && (Math.floor((Math.atan2(l[1], l[0]) + 4) * 2.3) & 1) === 0) return { shade: 0.4 };
+    return null;
+  };
+  sc.blob(B.at(k.pelvis, -swish, 0, -0.06 - skirtLen / 2), B.F, B.R, B.U, 0.16, 0.2, skirtLen / 2 + 0.08, d.bare ? (d.trousers ? CLOTH[d.trousers] ?? LEATHER : LEATHER) : tunic, pleats);
   const [bw] = build(seed);
-  sc.ellipsoid(add(k.pelvis, mul(up, 0.15)), mul(fwd, 0.12), mul(B.R, 0.16 * bw), mul(up, 0.17), torsoMat, d.bare ? muscles : undefined);
-  sc.ellipsoid(add(k.pelvis, mul(up, 0.38 + p.breath * 0.008)), mul(fwd, 0.135 + p.breath * 0.006), mul(B.R, 0.2 * bw), mul(up, 0.17), torsoMat, d.bare ? muscles : undefined);
+  // the tunic's body: cloth gathers under the belt and at the armpits
+  const folds = (l: V3): Hit | null => {
+    if (!fine) return null;
+    if (l[2] < -0.55 && (Math.floor((Math.atan2(l[1], l[0]) + 4) * 2.3) & 1) === 0) return { shade: 0.35 };
+    if (l[0] > 0.5 && Math.abs(l[1]) < 0.08) return { shade: 0.3 }; // the neckline's fall
+    return null;
+  };
+  sc.ellipsoid(add(k.pelvis, mul(up, 0.15)), mul(fwd, 0.12), mul(B.R, 0.16 * bw), mul(up, 0.17), torsoMat, d.bare ? muscles : folds);
+  sc.ellipsoid(add(k.pelvis, mul(up, 0.38 + p.breath * 0.008)), mul(fwd, 0.135 + p.breath * 0.006), mul(B.R, 0.2 * bw), mul(up, 0.17), torsoMat, d.bare ? muscles : folds);
   // body armour over the torso
   sc.group();
   armour(sc, d.armor, k, B, fwd, up, d.polish ? Math.max(2, armR) : armR, g.armor?.def, seed, !back);
   // belt (zoster) with a bronze buckle
   if (!d.bare || d.trousers) {
-    sc.blob(add(k.pelvis, mul(up, 0.04)), fwd, B.R, up, 0.125 * bw, 0.17 * bw, 0.025, d.armor === 'mail' ? DARK_LEATHER : LEATHER);
+    sc.blob(add(k.pelvis, mul(up, 0.04)), fwd, B.R, up, 0.125 * bw, 0.17 * bw, 0.025, d.armor === 'mail' ? DARK_LEATHER : LEATHER, fine ? (l) => (l[2] < -0.5 ? { shade: 0.8 } : null) : undefined);
     if (!back) sc.dot(add(add(k.pelvis, mul(up, 0.04)), mul(fwd, 0.13)), 0xc8a050, 0.06);
+    if (!back && fine) sc.dot(add(add(k.pelvis, mul(up, 0.04)), add(mul(fwd, 0.125), mul(B.R, 0.03))), 0x8a6a30, 0.06);
   }
 
   // ---- arms (skin; sleeves from the tunic; an armband on some)
@@ -1206,30 +1294,50 @@ function buildMan(sc: Scene, d: DollSpec, _frame: number, B: Basis, dir: number,
   sc.group();
   sc.limb(k.neck, add(k.neck, mul(up, 0.08)), 0.055, 0.05, skin);
   const H = k.head;
+  // the head may turn (portraits glance aside): its features use a basis rotated about the neck
+  const B0 = B;
+  if (p.yaw) {
+    const c = Math.cos(p.yaw);
+    const sn = Math.sin(p.yaw);
+    B = basis(B.F[0] * c - B.F[1] * sn, B.F[0] * sn + B.F[1] * c);
+  }
   sc.sphere(H, 0.105, skin);
   sc.blob(B.at(H, 0.035, 0, -0.06), B.F, B.R, B.U, 0.07, 0.07, 0.06, skin); // jaw
   sc.sphere(B.at(H, 0.105, 0, -0.01), 0.022, skin); // nose
   const hair = HAIR[Math.max(0, Math.min(3, look.hair))];
   const hairStyle = look.hairStyle;
   const fullFace = d.helmet?.art === 'corinthian';
-  if (hairStyle !== 2) sc.blob(B.at(H, -0.025, 0, 0.03), B.F, B.R, B.U, 0.1, 0.112, 0.1, hair);
+  // locks and curls: the hair and beard are combed into strands at 2x (a hash so no two men match)
+  const strands = (l: V3): Hit | null => (fine && ((Math.floor((Math.atan2(l[1], l[0]) + 4) * 5) + Math.floor((l[2] + 1) * 4) + seed) & 1) === 0 ? { shade: 0.55 } : null);
+  if (hairStyle !== 2) sc.blob(B.at(H, -0.025, 0, 0.03), B.F, B.R, B.U, 0.1, 0.112, 0.1, hair, strands);
+  else if (fine) sc.blob(B.at(H, -0.03, 0, 0.04), B.F, B.R, B.U, 0.095, 0.106, 0.09, { ...hair, contrast: 0.6 }, (l) => (l[2] > 0.3 ? { shade: 0.6 } : { shade: 1.3 })); // cropped: a shadow of stubble
   if (hairStyle === 1) {
     // long hair down the back, swinging with the body
-    sc.limb(B.at(H, -0.06, 0, -0.02), B.at(H, -0.1 - p.lag * 0.5, 0, -0.17 + Math.max(0, p.lag - 0.1) * 0.4), 0.07, 0.045, hair);
+    sc.limb(B.at(H, -0.06, 0, -0.02), B.at(H, -0.1 - p.lag * 0.5, 0, -0.17 + Math.max(0, p.lag - 0.1) * 0.4), 0.07, 0.045, hair, strands);
   }
-  if (look.beard >= 1 && !fullFace) sc.blob(B.at(H, 0.05, 0, -0.085), B.F, B.R, B.U, 0.065, 0.075, look.beard === 2 ? 0.07 : 0.045, hair);
-  else if (look.beard >= 1) sc.blob(B.at(H, 0.03, 0, -0.16), B.F, B.R, B.U, 0.05, 0.06, 0.04, hair); // the beard below the cheek plates
+  if (look.beard >= 1 && !fullFace) {
+    sc.blob(B.at(H, 0.05, 0, -0.085), B.F, B.R, B.U, 0.065, 0.075, look.beard === 2 ? 0.07 : 0.045, hair, strands);
+    if (fine) sc.blob(B.at(H, 0.095, 0, -0.045), B.F, B.R, B.U, 0.02, 0.045, 0.012, hair); // moustache
+  } else if (look.beard >= 1) sc.blob(B.at(H, 0.03, 0, -0.16), B.F, B.R, B.U, 0.05, 0.06, 0.04, hair, strands); // the beard below the cheek plates
   // the face: two eyes and a brow, as crisp pixels (hidden from behind by the head itself)
   if (!fullFace) {
     for (const s of [-1, 1]) {
-      sc.dot(B.at(H, 0.098, s * 0.042, 0.012), EYE_PX, 0.025);
+      if (p.blink) sc.dot(B.at(H, 0.098, s * 0.042, 0.012), skin.ramp[3], 0.025); // lids down
+      else sc.dot(B.at(H, 0.098, s * 0.042, 0.012), EYE_PX, 0.025);
+      if (fine) {
+        sc.dot(B.at(H, 0.095, s * 0.045, 0.038), hair.ramp[2], 0.025); // brow
+        sc.dot(B.at(H, 0.093, s * 0.055, -0.01), skin.ramp[3], 0.02); // the cheek's hollow under the eye
+      }
     }
     if (look.beard === 0) sc.dot(B.at(H, 0.09, 0, -0.07), skin.ramp[3], 0.025); // mouth shadow
+    if (fine && look.beard === 0) sc.dot(B.at(H, 0.092, 0.012, -0.07), skin.ramp[3], 0.025);
+    if (fine) sc.dot(B.at(H, 0.118, 0, -0.025), skin.ramp[3], 0.02); // the shadow under the nose
   }
   // headband for some bareheaded men; a laurel wreath for the laurel token
   if (!d.helmet && seed % 4 === 1 && hairStyle !== 2) ring(sc, B, H, 0.108, 0.03, 0x9a3a2a, 9);
   if (g.trinket?.def === 'laurel' && !d.helmet) ring(sc, B, H, 0.112, 0.035, 0x6e8a3a, 11, 0x9ab04a);
   if (d.helmet) helmet(sc, d, H, B, back, p);
+  B = B0;
 
   // ---- trinket on the chest or belt
   if (g.trinket?.def) trinket(sc, g.trinket, k, B, back, H, !!d.helmet);
@@ -1238,7 +1346,7 @@ function buildMan(sc: Scene, d: DollSpec, _frame: number, B: Basis, dir: number,
   if (d.shield) shield(sc, d.shield, k, B, dir, p, g.shield, !!d.polish);
 
   // ---- weapon
-  if (d.weapon) weapon(sc, d.weapon, k, B, p, seed, g.weapon, !!d.polish);
+  if (d.weapon) weapon(sc, d.weapon, k, B, p, seed, g.weapon, !!d.polish, fine);
 
   // ---- a dead man bleeds; the body (and everything on it) topples backwards, or forwards onto the face
   if (p.fall) {
@@ -1330,6 +1438,9 @@ function armour(sc: Scene, art: string | undefined, k: Skeleton, B: Basis, fwd: 
         if (l[0] > 0.25 && Math.abs(l[1]) < 0.1 && l[2] > -0.7) return { shade: 1 };
         if (l[0] > 0.35 && Math.abs(l[2] - 0.05) < 0.11 && Math.abs(l[1]) > 0.2) return { shade: 0.9 };
         if (l[0] > 0.3 && l[2] < -0.35 && ((Math.floor(l[2] * 6) & 1) === 0)) return { shade: 0.6 };
+        // the muscled chest's lower edge and the lighter swell of the pectorals
+        if (l[0] > 0.45 && Math.abs(l[1]) > 0.12 && Math.abs(l[1]) < 0.55 && l[2] > 0.12 && l[2] < 0.4) return { shade: -0.4 };
+        if (Math.abs(l[1]) > 0.92) return { shade: 0.8 }; // the side hinge seam
         return null;
       };
       sc.ellipsoid(at(0.17), mul(fwd, 0.14), mul(B.R, 0.18), mul(up, 0.19), metal, shader);
@@ -1420,8 +1531,18 @@ function helmet(sc: Scene, d: DollSpec, H: V3, B: Basis, back: boolean, p: ManPo
   const trim = trimOf(r, metal);
   const art = h.art === 'montefortino' && d.culture === 'celtic' ? 'celtic' : h.art;
   const lag = p.lag;
+  const fine = fineDetail(d);
   const sway = Number.isNaN(p.phase) ? 0 : Math.sin(p.phase) * 0.02;
-  const bowl = (rad = 0.122, mat: Material = metal) => sc.blob(B.at(H, -0.01, 0, 0.035), B.F, B.R, B.U, rad, rad * 0.98, rad * 0.92, mat);
+  // the bowl's rim: a beaten edge a shade darker (a 2x detail)
+  const rimmed = (l: V3): Hit | null => (fine && l[2] < -0.72 ? { shade: 0.7 } : null);
+  const bowl = (rad = 0.122, mat: Material = metal) => sc.blob(B.at(H, -0.01, 0, 0.035), B.F, B.R, B.U, rad, rad * 0.98, rad * 0.92, mat, rimmed);
+  // hinged cheek-pieces with a rivet at the hinge and a dark gap to the face
+  const cheeks = (f: number, r: number, u: number, rf: number, ru: number) => {
+    for (const sd of [-1, 1]) {
+      sc.blob(B.at(H, f, sd * r, u), B.F, B.R, B.U, rf, 0.02, ru, metal, fine ? (l) => (l[0] > 0.6 ? { shade: 0.6 } : null) : undefined);
+      if (fine && !back) sc.dot(B.at(H, f - 0.02, sd * (r + 0.015), u + ru * 0.9), trim.ramp[1], 0.03, !!trim.glint);
+    }
+  };
   const brow = (h0: number, rad: number) => {
     // a brow band / rim of crisp pixels: gilded from epic up
     if (r >= 3) ring(sc, B, H, rad, h0, 0xffe08a, 9, 0xf0c860, true);
@@ -1431,14 +1552,18 @@ function helmet(sc: Scene, d: DollSpec, H: V3, B: Basis, back: boolean, p: ManPo
     sc.group();
     const n = 9;
     const hh = height * (r >= 4 ? 1.5 : r >= 3 ? 1.2 : 1);
+    // horsehair: combed strands run along the crest (a 2x detail), the tips a shade darker
+    const hairs = (l: V3): Hit | null => (fine ? (((Math.floor((l[2] + 1.2) * 6) + Math.floor((l[transverse ? 1 : 0] + 1) * 2)) & 1) === 0 ? { shade: 0.5 } : l[2] > 0.8 ? { shade: -0.3 } : null) : null);
     for (let i = 0; i <= n; i++) {
       const t = i / n - 0.5;
       const tail = Math.max(0, t) * lag * 0.6; // the back of the crest trails
       const a = transverse ? B.at(H, 0, t * length * 2, h0 + hh * (1 - 4 * t * t) * 0.7) : B.at(H, t * length * 2 - 0.02 - tail, sway * (t + 0.5), h0 + hh * (1 - 2.4 * t * t) * 0.8);
-      sc.sphere(a, 0.042 + (1 - 4 * t * t) * 0.015, crest);
+      sc.sphere(a, 0.042 + (1 - 4 * t * t) * 0.015, crest, hairs);
     }
     // tail of the crest hanging behind, swinging with the walk
-    if (!transverse) sc.limb(B.at(H, -length * 1.05, 0, h0 + hh * 0.25), B.at(H, -length * 1.25 - lag * 0.8, sway * 2, h0 - 0.12 + Math.max(0, lag - 0.1) * 0.5), 0.04, 0.02, crest);
+    if (!transverse) sc.limb(B.at(H, -length * 1.05, 0, h0 + hh * 0.25), B.at(H, -length * 1.25 - lag * 0.8, sway * 2, h0 - 0.12 + Math.max(0, lag - 0.1) * 0.5), 0.04, 0.02, crest, hairs);
+    // the crest box: a bronze holder the hair springs from
+    if (fine && !transverse) sc.line(B.at(H, -length * 0.9, 0, h0 + 0.01), B.at(H, length * 0.9, 0, h0 + 0.01), trim, 0.5);
     // the crest's top edge catches the light
     if (!transverse) sc.dot(B.at(H, -0.02, 0, h0 + hh * 0.8 + 0.055), crest.ramp[0], 0.05, !!crest.glint);
     // legendary: two white wings rising from the temples
@@ -1472,8 +1597,7 @@ function helmet(sc: Scene, d: DollSpec, H: V3, B: Basis, back: boolean, p: ManPo
       sc.sphere(B.at(H, -0.01, 0, 0.16), 0.03, trim); // knob
       // a plume from the knob, nodding back as he moves
       sc.limb(B.at(H, -0.01, 0, 0.18), B.at(H, -0.12 - lag * 0.7, sway, 0.3 + (r >= 3 ? 0.06 : 0)), 0.035, 0.05, crest);
-      sc.blob(B.at(H, 0.02, 0.09, -0.06), B.F, B.R, B.U, 0.05, 0.02, 0.06, metal); // cheek guards
-      sc.blob(B.at(H, 0.02, -0.09, -0.06), B.F, B.R, B.U, 0.05, 0.02, 0.06, metal);
+      cheeks(0.02, 0.09, -0.06, 0.05, 0.06); // cheek guards
       sc.blob(B.at(H, -0.1, 0, -0.04), B.F, B.R, B.U, 0.04, 0.1, 0.02, metal); // neck rim
       brow(-0.01, 0.124);
       if (r >= 4) ridgeCrest(0.2, 0.08, 0.1);
@@ -1505,8 +1629,7 @@ function helmet(sc: Scene, d: DollSpec, H: V3, B: Basis, back: boolean, p: ManPo
       // the forward-curving Phrygian peak and a small crest along it
       sc.limb(B.at(H, -0.02, 0, 0.1), B.at(H, 0.08, 0, 0.2), 0.09, 0.05, metal);
       sc.limb(B.at(H, 0.08, 0, 0.2), B.at(H, 0.14, 0, 0.15), 0.05, 0.035, trim);
-      sc.blob(B.at(H, 0.03, 0.095, -0.07), B.F, B.R, B.U, 0.06, 0.02, 0.06, metal);
-      sc.blob(B.at(H, 0.03, -0.095, -0.07), B.F, B.R, B.U, 0.06, 0.02, 0.06, metal);
+      cheeks(0.03, 0.095, -0.07, 0.06, 0.06);
       brow(0.0, 0.124);
       ridgeCrest(0.2, 0.06, 0.08);
       break;
@@ -1521,7 +1644,9 @@ function helmet(sc: Scene, d: DollSpec, H: V3, B: Basis, back: boolean, p: ManPo
     case 'attic':
     case 'corinthian': {
       const full = art === 'corinthian';
-      sc.blob(B.at(H, -0.01, 0, full ? 0.0 : 0.03), B.F, B.R, B.U, 0.128, 0.126, full ? 0.15 : 0.11, metal, full ? (l) => (l[0] < -0.3 && l[2] < -0.5 ? { shade: 0.6 } : null) : undefined);
+      sc.blob(B.at(H, -0.01, 0, full ? 0.0 : 0.03), B.F, B.R, B.U, 0.128, 0.126, full ? 0.15 : 0.11, metal, full
+        ? (l) => (l[0] < -0.3 && l[2] < -0.5 ? { shade: 0.6 } : fine && l[0] > 0.55 && Math.abs(l[1]) < 0.06 && l[2] < -0.1 ? { shade: 1.4 } : fine && l[0] > 0.7 && Math.abs(l[1]) > 0.25 && Math.abs(l[1]) < 0.62 && l[2] > -0.05 && l[2] < 0.25 ? { shade: 1.6 } : null)
+        : rimmed);
       if (full) {
         // eye-holes and the gap between the cheek plates: dark crisp pixels on the face
         if (!back) {
@@ -1535,8 +1660,7 @@ function helmet(sc: Scene, d: DollSpec, H: V3, B: Basis, back: boolean, p: ManPo
         // the flared neck guard
         sc.blob(B.at(H, -0.08, 0, -0.1), B.F, B.R, B.U, 0.06, 0.11, 0.03, metal);
       } else {
-        sc.blob(B.at(H, 0.03, 0.1, -0.07), B.F, B.R, B.U, 0.06, 0.02, 0.07, metal);
-        sc.blob(B.at(H, 0.03, -0.1, -0.07), B.F, B.R, B.U, 0.06, 0.02, 0.07, metal);
+        cheeks(0.03, 0.1, -0.07, 0.06, 0.07);
         if (art === 'attic') sc.blob(B.at(H, 0.09, 0, 0.06), B.F, B.R, B.U, 0.05, 0.1, 0.02, trim); // the brow peak
         if (art === 'chalcidian' && !back) sc.dot(B.at(H, 0.13, 0, 0.0), metal.ramp[1], 0.03); // nasal
       }
@@ -1672,7 +1796,7 @@ function shield(sc: Scene, sh: { art: string; paint?: ItemPaint }, k: Skeleton, 
 
 // ---------------------------------------------------------------- weapons
 
-function weapon(sc: Scene, w: string, k: Skeleton, B: Basis, p: ManPose, seed: number, tag?: GearTag, polish = false): void {
+function weapon(sc: Scene, w: string, k: Skeleton, B: Basis, p: ManPose, seed: number, tag?: GearTag, polish = false, fine = false): void {
   sc.group();
   const r = Math.max(rankOf(tag), polish && (w === 'spear' || w === 'spear_short') ? 2 : 0);
   const def = tag?.def;
@@ -1686,6 +1810,13 @@ function weapon(sc: Scene, w: string, k: Skeleton, B: Basis, p: ManPose, seed: n
   const tip = (base: V3, d: V3, l = 0.24, mat: Material = bronze) => {
     sc.line(base, add(base, mul(d, l)), mat, 2);
     sc.line(add(base, mul(d, l)), add(base, mul(d, l + 0.05)), mat, 1);
+    if (fine) {
+      // a leaf-shaped blade with a midrib, and the socket's collar
+      const side = norm(cross(d, Math.abs(d[2]) > 0.9 ? B.R : [0, 0, 1]));
+      const flat = norm(cross(d, side));
+      sc.ellipsoid(add(base, mul(d, l * 0.5 + 0.02)), mul(d, l * 0.5 + 0.02), mul(side, 0.028), mul(flat, 0.009), { ...mat, metal: true }, (q) => (Math.abs(q[1]) < 0.25 ? { shade: -0.5 } : null));
+      sc.dot(add(base, mul(d, 0.02)), DARK_LEATHER.ramp[1], 0.04);
+    }
     if (r >= 4) {
       // the legendary head burns: a glowing core and a bright point
       sc.line(add(base, mul(d, 0.04)), add(base, mul(d, l)), EMBER, 1);
@@ -1749,7 +1880,7 @@ function weapon(sc: Scene, w: string, k: Skeleton, B: Basis, p: ManPose, seed: n
       } else {
         const end = add(hR, mul(d, L));
         sc.line(hR, end, bladeMat, 1);
-        sc.line(add(hR, mul(B.U, -0.015)), add(end, mul(B.U, -0.015)), { ramp: bladeMat.ramp.slice(2), glint: bladeMat.glint }, 1);
+        sc.line(add(hR, mul(B.U, -0.015)), add(end, mul(B.U, -0.015)), { ramp: bladeMat.ramp.slice(2), glint: bladeMat.glint }, 0.5);
         if (r >= 4) sc.dot(add(end, mul(d, 0.03)), 0xffffff, 0.08, true);
       }
       break;
@@ -1812,16 +1943,16 @@ function weapon(sc: Scene, w: string, k: Skeleton, B: Basis, p: ManPose, seed: n
         for (let i = 0; i < 8; i++) {
           const a0 = (i / 8) * Math.PI * 2;
           const a1 = ((i + 1) / 8) * Math.PI * 2;
-          if (i % 2) sc.line(add(c, add(mul(B.F, Math.cos(a0) * 0.3), mul(B.R, Math.sin(a0) * 0.3))), add(c, add(mul(B.F, Math.cos(a1) * 0.3), mul(B.R, Math.sin(a1) * 0.3))), cord, 1);
+          if (i % 2) sc.line(add(c, add(mul(B.F, Math.cos(a0) * 0.3), mul(B.R, Math.sin(a0) * 0.3))), add(c, add(mul(B.F, Math.cos(a1) * 0.3), mul(B.R, Math.sin(a1) * 0.3))), cord, 0.5);
         }
         const pouch = add(c, add(mul(B.F, Math.cos(ph) * 0.3), mul(B.R, Math.sin(ph) * 0.3)));
-        sc.line(hR, pouch, cord, 1);
+        sc.line(hR, pouch, cord, 0.5);
         sc.sphere(pouch, 0.04, stone);
       } else if (p.arm === 'strike' || p.arm === 'follow') {
         // released: the empty cords fly forward
-        sc.line(hR, add(hR, B.dir(0.9, 0, 0.3)), cord, 1);
+        sc.line(hR, add(hR, B.dir(0.9, 0, 0.3)), cord, 0.5);
       } else {
-        sc.line(hR, add(hR, B.dir(0.1, 0, -0.5)), cord, 1);
+        sc.line(hR, add(hR, B.dir(0.1, 0, -0.5)), cord, 0.5);
         sc.sphere(add(hR, B.dir(0.1, 0, -0.55)), 0.04, stone);
       }
       // the pouch of stones at the hip; spare slings round the head of a Balearic
@@ -1852,8 +1983,8 @@ function weapon(sc: Scene, w: string, k: Skeleton, B: Basis, p: ManPose, seed: n
       sc.dot(pts[0], r >= 3 ? 0xffe08a : 0xe8dcc0, 0.05, r >= 3);
       sc.dot(pts[6], r >= 3 ? 0xffe08a : 0xe8dcc0, 0.05, r >= 3);
       const nock = drawn || p.arm === 'wind' ? hR : add(grip, mul(fwd, -0.02));
-      sc.line(pts[0], nock, stringMat, 1);
-      sc.line(nock, pts[6], stringMat, 1);
+      sc.line(pts[0], nock, stringMat, 0.5);
+      sc.line(nock, pts[6], stringMat, 0.5);
       if (drawn || p.arm === 'wind') {
         sc.line(nock, add(grip, mul(fwd, 0.16)), WOOD, 1); // arrow
         sc.dot(add(grip, mul(fwd, 0.18)), r >= 4 ? 0xfff4c0 : 0xa8a8a0, 0.05, r >= 4);
@@ -1894,25 +2025,30 @@ function gait(frame: number): Gait {
   const name = FRAME_NAMES[frame];
   if (name === 'idle1') g.head = -0.08;
   if (name.startsWith('walk')) {
-    // transverse gallop: hind pair then fore pair, a moment of suspension
+    // Transverse gallop, right lead, four beats then a moment of suspension:
+    //   0  left hind lands under the body (the fores reach out ahead)
+    //   1  right hind down, left fore lands: the hindquarters drive, the body is lowest
+    //   2  right (leading) fore lands as the hinds fold forwards under the belly
+    //   3  suspension: every hoof off the ground, the body highest and gathered
+    // legs are [fore-left, fore-right, hind-left, hind-right]; swing is forward (rad), lift in metres.
     const k = frame - 2;
     const sw = [
-      [0.45, 0.3, -0.35, -0.5],
-      [0.1, 0.45, -0.05, -0.35],
-      [-0.45, -0.3, 0.45, 0.3],
-      [-0.2, -0.45, 0.2, 0.45],
+      [0.55, 0.42, -0.08, -0.3],
+      [0.18, 0.5, -0.4, -0.22],
+      [-0.3, 0.05, 0.3, 0.45],
+      [-0.4, -0.25, 0.55, 0.4],
     ][k];
     const lf = [
-      [0.12, 0.05, 0.0, 0.0],
-      [0.0, 0.12, 0.06, 0.0],
-      [0.0, 0.0, 0.14, 0.06],
-      [0.06, 0.0, 0.0, 0.14],
+      [0.1, 0.16, 0.0, 0.06],
+      [0.0, 0.08, 0.0, 0.0],
+      [0.1, 0.0, 0.14, 0.1],
+      [0.22, 0.2, 0.24, 0.26],
     ][k];
     g.swing = sw;
     g.lift = lf;
-    g.pitch = [0.05, 0.0, -0.06, 0.0][k];
-    g.bob = [0.05, 0.0, 0.03, -0.02][k];
-    g.head = [-0.1, 0.05, 0.12, 0.0][k];
+    g.pitch = [0.08, 0.0, -0.07, 0.03][k];
+    g.bob = [0.0, -0.04, 0.02, 0.08][k];
+    g.head = [0.08, -0.04, -0.14, -0.02][k];
   } else if (name === 'atk0') {
     g.head = 0.15;
     g.swing = [0.25, 0.1, -0.15, -0.1];
@@ -1945,7 +2081,7 @@ function gait(frame: number): Gait {
 }
 
 /** A horse standing on the origin, facing B.F. Returns the saddle point (world). */
-function buildHorse(sc: Scene, B: Basis, frame: number, coat: Material, o: V3 = [0, 0, 0], tack: Material | null = LEATHER, cloth: Material | null = null): V3 {
+function buildHorse(sc: Scene, B: Basis, frame: number, coat: Material, o: V3 = [0, 0, 0], tack: Material | null = LEATHER, cloth: Material | null = null, fine = false): V3 {
   const g = gait(frame);
   const at = (f: number, r: number, u: number) => B.at(o, f, r, u + g.bob - g.down);
   sc.group();
@@ -1960,7 +2096,7 @@ function buildHorse(sc: Scene, B: Basis, frame: number, coat: Material, o: V3 = 
     const bendF = hind ? -1 : 1;
     const hoof = add(knee, add(mul(B.F, Math.sin(a) * 0.3 + bendF * lift * 0.5 * (hind ? -0.6 : 0.6)), mul(B.U, -0.5 + lift)));
     sc.limb(top, knee, 0.1, 0.055, coat);
-    sc.limb(knee, hoof, 0.045, 0.035, coat);
+    sc.limb(knee, hoof, 0.045, 0.035, coat, fine ? (_l, w) => (w[2] - hoof[2] < 0.1 ? { shade: 0.5 } : null) : undefined);
     sc.limb(hoof, add(hoof, mul(B.U, -0.06)), 0.045, 0.05, HOOF);
   }
   // barrel, chest and haunches
@@ -1974,24 +2110,47 @@ function buildHorse(sc: Scene, B: Basis, frame: number, coat: Material, o: V3 = 
   const headTop = at(1.02 + g.head * 0.1, 0, 1.92 + g.head * 0.3);
   sc.limb(neckBase, headTop, 0.17, 0.1, coat);
   const muzzle = add(headTop, B.dir(0.55, 0, -0.55 + g.head).map((v) => v * 0.48) as V3);
-  sc.limb(headTop, muzzle, 0.1, 0.065, coat);
+  const headDir = norm(sub(muzzle, headTop));
+  sc.limb(headTop, muzzle, 0.1, 0.065, coat, fine ? (_l, w) => (len(sub(w, headTop)) < 0.16 ? null : { shade: 0.3 }) : undefined);
   sc.sphere(muzzle, 0.06, coat);
-  for (const s of [-1, 1]) sc.limb(add(headTop, mul(B.R, s * 0.05)), add(headTop, add(mul(B.U, 0.13), mul(B.R, s * 0.06))), 0.025, 0.012, coat);
+  for (const s of [-1, 1]) {
+    sc.limb(add(headTop, mul(B.R, s * 0.05)), add(headTop, add(mul(B.U, 0.13), mul(B.R, s * 0.06))), 0.025, 0.012, coat);
+    // eyes and nostrils
+    sc.dot(add(add(headTop, mul(headDir, 0.12)), add(mul(B.R, s * 0.085), mul(B.U, 0.02))), 0x1a1412, 0.03);
+    if (fine) sc.dot(add(add(muzzle, mul(headDir, 0.04)), mul(B.R, s * 0.035)), coat.ramp[4], 0.03);
+  }
   sc.group();
-  sc.limb(add(neckBase, mul(B.U, 0.14)), add(headTop, mul(B.U, 0.08)), 0.055, 0.045, MANE);
+  // the mane: a crest of hair falling to one side, combed into strands at 2x
+  const strands = (_l: V3, w: V3): Hit | null => (fine && ((Math.floor((w[0] + w[1]) * 9) + Math.floor(w[2] * 11)) & 1) === 0 ? { shade: 0.6 } : null);
+  sc.limb(add(neckBase, mul(B.U, 0.14)), add(headTop, mul(B.U, 0.08)), 0.055, 0.045, MANE, strands);
+  if (fine) sc.limb(add(add(neckBase, mul(B.U, 0.06)), mul(B.R, 0.1)), add(add(headTop, mul(B.U, 0.02)), mul(B.R, 0.09)), 0.04, 0.025, MANE, strands); // the mane's fall down the right of the neck
+  if (fine) sc.limb(add(headTop, mul(B.U, 0.09)), add(headTop, add(mul(headDir, 0.14), mul(B.U, 0.06))), 0.035, 0.015, MANE); // forelock
   const tailRoot = at(-0.86, 0, 1.4);
-  const flick = FRAME_NAMES[frame].startsWith('walk') ? 0.25 : 0;
-  sc.limb(tailRoot, add(tailRoot, B.dir(-0.6 - flick, 0, -0.8).map((v) => v * 0.6) as V3), 0.06, 0.03, MANE);
+  const flick = FRAME_NAMES[frame].startsWith('walk') ? 0.25 + [0.1, 0, -0.1, 0.2][frame - 2] : 0;
+  sc.limb(tailRoot, add(tailRoot, B.dir(-0.6 - flick, 0, -0.8).map((v) => v * 0.6) as V3), 0.06, 0.03, MANE, strands);
   // tack: saddle cloth, bridle, reins
   let saddle = at(-0.08, 0, 1.52);
   if (cloth) {
     sc.group();
-    sc.blob(at(-0.1, 0, 1.44), B.F, B.R, B.U, 0.36, 0.3, 0.1, cloth, (l) => (l[2] < -0.5 ? { shade: 0.6 } : null));
+    sc.blob(at(-0.1, 0, 1.44), B.F, B.R, B.U, 0.36, 0.3, 0.1, cloth, (l) => (l[2] < -0.5 ? { shade: 0.6 } : fine && l[2] < -0.2 && (Math.floor((l[0] + 1) * 7) & 1) === 0 ? { shade: 0.8 } : fine && Math.abs(l[0]) > 0.9 ? { shade: -0.4 } : null));
     saddle = at(-0.08, 0, 1.56);
+    // the girth under the belly
+    if (fine) sc.blob(at(-0.08, 0, 1.2), B.F, B.R, B.U, 0.03, 0.29, 0.3, DARK_LEATHER);
   }
   if (tack) {
     sc.line(add(headTop, mul(B.U, -0.04)), muzzle, tack, 1);
     sc.line(muzzle, add(saddle, mul(B.F, 0.3)), tack, 1);
+    if (fine) {
+      // bridle: noseband, cheek strap and browband with a bronze boss; a breast strap across the chest
+      const nose = add(muzzle, mul(headDir, -0.06));
+      for (const s of [-1, 1]) sc.line(add(nose, add(mul(B.R, s * 0.06), mul(B.U, 0.04))), add(nose, add(mul(B.R, s * 0.06), mul(B.U, -0.05))), tack, 0.5);
+      sc.line(add(headTop, add(mul(B.R, 0.1), mul(B.U, -0.02))), add(nose, add(mul(B.R, 0.065), mul(B.U, 0.02))), tack, 0.5);
+      sc.line(add(headTop, add(mul(B.R, -0.1), mul(B.U, 0.08))), add(headTop, add(mul(B.R, 0.1), mul(B.U, 0.08))), tack, 0.5);
+      sc.dot(add(add(headTop, mul(headDir, 0.1)), add(mul(B.R, 0.1), mul(B.U, -0.01))), 0xc8a050, 0.04);
+      sc.line(at(0.5, -0.26, 1.3), at(0.74, 0, 1.26), tack, 0.5);
+      sc.line(at(0.74, 0, 1.26), at(0.5, 0.26, 1.3), tack, 0.5);
+      sc.dot(at(0.76, 0, 1.26), 0xc8a050, 0.05);
+    }
   }
   // body pitch (rearing) and roll (falling) about the hind hooves / the ground
   if (g.pitch) sc.rotate(at(-0.6, 0, 0), B.R, -g.pitch);
@@ -2013,7 +2172,7 @@ function buildRider(sc: Scene, d: DollSpec, frame: number, B: Basis, dir: number
   p.fall = 0;
   p.dead = false;
   const horse = new Scene();
-  const saddle = buildHorse(horse, B, frame, coat, [0, 0, 0], LEATHER, cloth ?? CLOTH.tunicOchre);
+  const saddle = buildHorse(horse, B, frame, coat, [0, 0, 0], LEATHER, cloth ?? CLOTH.tunicOchre, fineDetail(d));
   // seat him: the pelvis just above the saddle
   const riderScene = new Scene();
   const name = FRAME_NAMES[frame];
@@ -2052,7 +2211,7 @@ function buildChariot(sc: Scene, d: DollSpec, frame: number, B: Basis, dir: numb
   for (const [side, coat] of [[-0.42, coatA], [0.42, coatB]] as [number, Material][]) {
     const h = new Scene();
     const f = wrecked ? (name === 'die1' ? 10 : 12) : frame;
-    buildHorse(h, B, f >= 10 && !wrecked ? 0 : f, coat, B.at([0, 0, 0], 0.9, side, 0), LEATHER, null);
+    buildHorse(h, B, f >= 10 && !wrecked ? 0 : f, coat, B.at([0, 0, 0], 0.9, side, 0), LEATHER, null, fineDetail(d));
     merge(sc, h);
   }
   sc.group();
@@ -2196,6 +2355,138 @@ function buildBeast(sc: Scene, beast: BeastId, frame: number, B: Basis, seed: nu
   void seed;
 }
 
+
+// ---------------------------------------------------------------- portraits
+
+/** Display size (px) of a portrait; the texture is PORTRAIT_RES times larger each way. */
+export const PORTRAIT_PX = 24;
+export const PORTRAIT_RES = 2;
+/**
+ * The idle variants of an animated portrait (frame columns of its sheet):
+ * breathing, a blink, glances aside, and three positions of a glint sweeping
+ * across the metal. A roster picks a seeded sequence of these (portraitLoop).
+ */
+export const PORTRAIT_FRAMES = ['neutral', 'breath1', 'breath2', 'blink', 'glanceR', 'glanceR2', 'glanceL', 'glint0', 'glint1', 'glint2'] as const;
+export type PortraitFrame = (typeof PORTRAIT_FRAMES)[number];
+export const PORTRAIT_FRAME: Record<PortraitFrame, number> = Object.fromEntries(PORTRAIT_FRAMES.map((n, i) => [n, i])) as Record<PortraitFrame, number>;
+
+/**
+ * A head-and-shoulders bust of a figure, seen from the front 3/4 and lit like
+ * the battlefield: box x box display pixels drawn at `res` times the
+ * resolution (so the face has brows, a nose and a beard rather than four
+ * pixels). Animals show the whole beast. `frame` picks an idle variant
+ * (PORTRAIT_FRAMES).
+ */
+export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box = PORTRAIT_PX): Pix {
+  const size = box * res;
+  const name = PORTRAIT_FRAMES[frame] ?? 'neutral';
+  if (d.beast) {
+    // the whole animal, scaled into the box, nosing about on the breathing frames
+    const sc = new Scene();
+    const B = basis(0.4, 0.92);
+    const col = name === 'breath1' || name === 'glanceR' ? 1 : name === 'breath2' ? 0 : name === 'glanceR2' || name === 'glanceL' ? 9 : 0;
+    if (isMythId(d.beast)) buildMyth(sc, d.beast, 0, mythBasis(0.4, 0.92), false, (d.seed ?? 0) % 3);
+    else buildBeast(sc, d.beast, col, B, d.seed ?? 0);
+    const tall = isMythId(d.beast) ? 3.2 : d.beast === 'bear' ? 1.4 : 0.9;
+    const zoom = (box / PPM / (tall * 1.15)) * res;
+    sc.translate([0, 0, -tall * 0.45]);
+    sc.scale(zoom);
+    sc.px = res;
+    return sc.render(size, size, size / 2, size / 2);
+  }
+  // the bust: no shield (it would hide the face at this angle), the spear kept as a hint of the kit
+  const base: DollSpec = { ...d, scale: undefined, res: undefined, mount: undefined, shield: undefined };
+  const spec: DollSpec = { ...base, scale: res, res: 1 };
+  const sc = new Scene();
+  const B = basis(0.4, 0.92);
+  const p = manPose(spec, 0);
+  p.arm = 'idle';
+  switch (name) {
+    case 'breath1':
+      p.breath = 0.6;
+      break;
+    case 'breath2':
+      p.breath = 1;
+      p.hip += 0.006;
+      p.lag = 0.04;
+      break;
+    case 'blink':
+      p.blink = true;
+      p.breath = 0.3;
+      break;
+    case 'glanceR':
+      p.yaw = 0.28;
+      p.nod = 0.01;
+      p.twist = 0.04;
+      break;
+    case 'glanceR2':
+      p.yaw = 0.14;
+      p.breath = 0.4;
+      break;
+    case 'glanceL':
+      p.yaw = -0.24;
+      p.breath = 0.5;
+      p.lag = 0.05;
+      break;
+  }
+  // the man at `res` times his size, the window centred a little above the head so the crest fits
+  const k = buildMan(sc, spec, 0, B, 2, p);
+  const centre = add(k.head, [0, 0, 0.05]);
+  const zoom = 1.45;
+  sc.translate(mul(centre, -1));
+  sc.scale(zoom * res);
+  sc.px = res;
+  const mask = new Uint8Array(size * size);
+  const px = sc.render(size, size, size / 2, size / 2 + Math.round(res * 2), { mask, maskMetal: true });
+  if (name.startsWith('glint')) {
+    // a bright band sweeping across the metal, top-left to bottom-right
+    const pos = [0.3, 0.52, 0.74][Number(name.slice(5))];
+    const bw = Math.max(1, Math.round(res * 1.2));
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        if (!mask[y * size + x] || px.alpha(x, y) === 0) continue;
+        const u = (x + y * 0.5) / (size * 1.5);
+        if (Math.abs(u - pos) * size * 1.5 > bw) continue;
+        const c = px.get(x, y);
+        px.set(x, y, lighten(c, Math.abs(u - pos) * size * 1.5 < bw * 0.5 ? 0.5 : 0.22));
+      }
+  }
+  return px;
+}
+
+function lighten(c: number, k: number): number {
+  const r = (c >> 16) & 255;
+  const g = (c >> 8) & 255;
+  const b = c & 255;
+  const t = (v: number, to: number) => Math.round(v + (to - v) * k);
+  return (t(r, 255) << 16) | (t(g, 246) << 8) | t(b, 216);
+}
+
+/**
+ * A seeded idle loop over PORTRAIT_FRAMES for one portrait (frame indices with
+ * holds, played at PORTRAIT_FPS): slow breathing with a blink every few
+ * breaths, a glance aside now and then and an occasional glint, in a
+ * different order and rhythm per seed so a roster never moves in step.
+ */
+export const PORTRAIT_FPS = 6;
+export function portraitLoop(seed: number): number[] {
+  const F = PORTRAIT_FRAME;
+  const out: number[] = [];
+  const r = (i: number) => hash2(seed, i, 23);
+  const breath = (hold: number) => out.push(F.neutral, F.neutral, F.breath1, F.breath2, F.breath2, F.breath2, F.breath1, ...new Array(hold).fill(F.neutral));
+  const n = 4 + Math.floor(r(1) * 3);
+  for (let i = 0; i < n; i++) {
+    breath(2 + Math.floor(r(10 + i) * 4));
+    const ev = r(20 + i);
+    if (ev < 0.35) out.push(F.blink, F.neutral);
+    else if (ev < 0.55) out.push(F.glanceR2, F.glanceR, F.glanceR, F.glanceR, F.glanceR2, F.neutral, F.neutral);
+    else if (ev < 0.7) out.push(F.glanceL, F.glanceL, F.glanceL, F.glanceR2, F.neutral);
+    else if (ev < 0.85) out.push(F.glint0, F.glint1, F.glint2);
+    if (r(30 + i) < 0.3) out.push(F.blink);
+  }
+  if (!out.includes(F.glint0)) out.push(F.glint0, F.glint1, F.glint2, F.neutral);
+  return out;
+}
 
 // ---------------------------------------------------------------- gear icons
 
