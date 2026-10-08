@@ -8,8 +8,8 @@ import { RadialOrders, type RadialOrder } from '../ui/radialOrders';
 import { CATEGORY_COLOR, RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
-import { PLATE_W, PLATE_W_BIG, battleDoll, battleFrame, battleRow, battleRowFx, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
-import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
+import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
+import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
 import { AURA_COLORS, BANNER_COLORS, cosmeticLoadout } from '../game/cosmetics';
 import { STANDARD_FRAMES, STANDARD_H, STANDARD_W, STRIP_STEPS, plateOrigin, renderGround, renderStandard, renderStripPlate, stripStep } from '../art/ground';
 import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
@@ -362,7 +362,8 @@ export class BattleScene extends BaseScene {
       const f = isoFacing(u.fx, u.fy);
       const dir = facingRow(f.back, f.left);
       // the player's men wear his cosmetics (shield paint, cloak, crest, army skin, victory pose)
-      const spec = { ...dollFromHero(hero, u.side === this.me ? lo : undefined), scale: BATTLE_SCALE };
+      // drawn at BATTLE_RES (twice the pixels), shown at the same size: setScale(1 / res) keeps layout, feet and hitboxes
+      const spec = { ...dollFromHero(hero, u.side === this.me ? lo : undefined), scale: BATTLE_SCALE, res: BATTLE_RES };
       const man = !spec.beast && !spec.mount;
       let key: string;
       let rowKey = '';
@@ -386,11 +387,13 @@ export class BattleScene extends BaseScene {
         : this.add.image(0, 0, u.side === this.me ? (big ? 'ring_sel_big' : 'ring_sel') : 'ring_enemy').setDepth(-70000).setVisible(false);
       if (!plated && big && u.side !== this.me) ring.setScale(1.6);
       const [ox, oy] = dollOrigin(key);
-      const spr = man ? this.add.sprite(0, 0, rowKey, 0).setOrigin(ox, oy) : this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy);
+      const ds = dollDisplayScale(key);
+      const f0 = man ? battleFrame(rowKey, 0) : null;
+      const spr = f0 ? this.add.sprite(0, 0, f0.key, f0.frame).setOrigin(ox, oy).setScale(ds) : this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy).setScale(ds);
       const fx = man ? dollFx(spec) : null;
-      const fxKey = man ? battleRowFx(rowKey) : null;
-      const fxRing = fxKey && fx?.outline != null ? this.add.sprite(0, 0, fxKey, 'r0').setOrigin(ox, oy).setTint(fx.outline) : null;
-      const fxGlint = fxKey && fx?.glint ? this.add.sprite(0, 0, fxKey, 'g0').setOrigin(ox, oy).setTint(0xfff6d8).setVisible(false) : null;
+      const hasFx = man && battleRowFx(rowKey);
+      const fxRing = hasFx && f0?.ring && fx?.outline != null ? this.add.sprite(0, 0, f0.key, f0.ring).setOrigin(ox, oy).setScale(ds).setTint(fx.outline) : null;
+      const fxGlint = hasFx && f0?.glint && fx?.glint ? this.add.sprite(0, 0, f0.key, f0.glint).setOrigin(ox, oy).setScale(ds).setTint(0xfff6d8).setVisible(false) : null;
       if (fxRing) this.world.add(fxRing);
       if (fxGlint) this.world.add(fxGlint);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
@@ -672,10 +675,14 @@ export class BattleScene extends BaseScene {
     const sinceBlock = (now - u.lastBlockTick) / TICK_RATE;
     if (sinceBlock >= 0 && sinceBlock < 0.22) return ANIM.block[0];
     if (sinceHit >= 0 && sinceHit < 0.24) return ANIM.hit[sinceHit < 0.1 ? 0 : 1];
-    if (u.state === 'routing') return ANIM.rout[Math.floor(t * 11 + u.id) % ANIM.rout.length];
+    // the stride keeps time with the man's actual pace (no sliding feet), at a cadence of his own (+-8%) and a
+    // phase of his own, so a rank never marches in lockstep
+    const cadence = 0.92 + ((u.id * 0.37) % 1) * 0.16;
+    const pace = Math.max(0.6, Math.min(1.6, u.spd / Math.max(0.01, u.stats.speed)));
+    if (u.state === 'routing') return ANIM.rout[Math.floor(t * 11 * cadence + u.id) % ANIM.rout.length];
     if (moving) {
-      if (u.spd > u.stats.speed * 1.3) return ANIM.run[Math.floor(t * 13 + u.id) % ANIM.run.length];
-      return ANIM.walk[Math.floor(t * 13 + u.id) % ANIM.walk.length];
+      if (u.spd > u.stats.speed * 1.3) return ANIM.run[Math.floor(t * 12 * cadence * Math.min(1.25, pace / 1.4) + u.id) % ANIM.run.length];
+      return ANIM.walk[Math.floor(t * 12 * cadence * pace + u.id) % ANIM.walk.length];
     }
     if (isRangedClass(v.wc) && u.ammo > 0 && u.lastShotTick > 0 && (now - u.lastShotTick) / TICK_RATE < u.stats.shotTime * 1.8) {
       const f = aimFrame(v.wc, Math.max(0, u.cooldown) / TICK_RATE, t);
@@ -691,7 +698,9 @@ export class BattleScene extends BaseScene {
     if (sinceAtk >= 0 && sinceAtk < 0.42) return sinceAtk < 0.12 ? ANIM_FRAMES.attack[0] : sinceAtk < 0.24 ? ANIM_FRAMES.attack[1] : ANIM_FRAMES.attack[2];
     if (sinceHit >= 0 && sinceHit < 0.18) return ANIM_FRAMES.hit[0];
     if (moving || u.state === 'routing') {
-      const rate = (u.state === 'routing' ? 1.5 : 1) * 8;
+      // hooves keep time with the ground covered; each horse at a stride of its own
+      const pace = Math.max(0.6, Math.min(1.5, u.spd / Math.max(0.01, u.stats.speed)));
+      const rate = (u.state === 'routing' ? 1.5 : 1) * 8 * pace * (0.94 + ((u.id * 0.61) % 1) * 0.12);
       return ANIM.gallop[Math.floor((now / TICK_RATE) * rate + u.id) % ANIM.gallop.length];
     }
     return ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + ((u.id * 0.618) % 1) * 2) % 2];
@@ -703,31 +712,31 @@ export class BattleScene extends BaseScene {
       v.spr.setFrame(dollFrame(dir, frame));
       return;
     }
-    battleFrame(v.rowKey, frame);
-    if (v.spr.texture.key !== v.rowKey) v.spr.setTexture(v.rowKey, frame);
-    else if (Number(v.spr.frame.name) !== frame) v.spr.setFrame(frame);
+    const f = battleFrame(v.rowKey, frame);
+    if (v.spr.texture.key !== f.key) v.spr.setTexture(f.key, f.frame);
+    else if (v.spr.frame.name !== f.frame) v.spr.setFrame(f.frame);
   }
 
   /** Epic+ gear: the outline ring pulses; rare+: a highlight sweeps across the metal now and then. */
   private updateGearFx(v: UnitView, rx: number, ry: number, frame: number): void {
-    const fxKey = battleRowFx(v.rowKey);
+    const f = battleFrame(v.rowKey, frame);
     const t = this.time.now / 1000;
     const rank = v.fx?.rank ?? 0;
-    if (v.fxRing && fxKey) {
-      if (v.fxRing.texture.key !== fxKey) v.fxRing.setTexture(fxKey, `r${frame}`);
-      else v.fxRing.setFrame(`r${frame}`);
+    if (v.fxRing && f.ring) {
+      if (v.fxRing.texture.key !== f.key) v.fxRing.setTexture(f.key, f.ring);
+      else if (v.fxRing.frame.name !== f.ring) v.fxRing.setFrame(f.ring);
       const pulse = 0.5 + 0.5 * Math.sin(t * (rank >= 4 ? 4.4 : 3) + v.u.id);
       v.fxRing.setPosition(v.spr.x, ry).setDepth(ry - 0.5).setVisible(true).setAlpha(0.3 + 0.5 * pulse);
     }
-    if (v.fxGlint && fxKey) {
+    if (v.fxGlint && f.glint) {
       const period = rank >= 4 ? 1.8 : rank >= 3 ? 2.4 : 3.2;
       const ph = ((t + (v.u.id * 0.53) % period) % period) / 0.4; // the sweep takes 0.4 s
       const fw = v.spr.frame.width;
       const bx = Math.floor(ph * (fw * 0.6)) + Math.floor(fw * 0.2);
       if (ph < 1) {
-        if (v.fxGlint.texture.key !== fxKey) v.fxGlint.setTexture(fxKey, `g${frame}`);
-        else v.fxGlint.setFrame(`g${frame}`);
-        v.fxGlint.setCrop(bx, 0, 2, v.spr.frame.height).setPosition(v.spr.x, ry).setDepth(ry + 0.5).setVisible(true).setAlpha(0.85);
+        if (v.fxGlint.texture.key !== f.key) v.fxGlint.setTexture(f.key, f.glint);
+        else if (v.fxGlint.frame.name !== f.glint) v.fxGlint.setFrame(f.glint);
+        v.fxGlint.setCrop(bx, 0, 2 * BATTLE_RES, v.spr.frame.height).setPosition(v.spr.x, ry).setDepth(ry + 0.5).setVisible(true).setAlpha(0.85);
       } else v.fxGlint.setVisible(false);
     }
     void rx;
@@ -2470,7 +2479,7 @@ export class BattleScene extends BaseScene {
     const w = VW - 4 - x;
     c.add(addPanel(this, x, y, w, 24, 'parch'));
     const hero = this.views[u.id].hero;
-    c.add(this.add.image(x + 2, y + 2, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0).setCrop(3, 0, 18, 20));
+    c.add(addPortrait(this, dollFromHero(hero), x + 2, y + 2, { crop: [3, 0, 18, 20] }));
     // the portrait framed in the colour of his finest piece of gear (rare and up pulse)
     const best = this.views[u.id].fx?.rank ?? 0;
     if (best >= 1) {
@@ -2848,7 +2857,7 @@ export class BattleScene extends BaseScene {
         const u = units[i];
         const hero = this.views[u.id].hero;
         row.add(addPanel(this, 0, 0, rw, rowH, 'inset'));
-        row.add(this.add.image(3, 2, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0));
+        row.add(addPortrait(this, dollFromHero(hero), 3, 2));
         const tw = rw - 32;
         row.add(addText(this, 29, 4, ellipsize(hero.name, tw), 'red'));
         row.add(addText(this, 29, 14, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), tw), 'dim'));

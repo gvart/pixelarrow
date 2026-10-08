@@ -6,31 +6,47 @@
  *
  *  - UI screens (ensureDoll) get one texture per figure with all four facing
  *    rows; a row is drawn when asked for, the rest in idle time (pumpDolls).
- *  - The battle (battleRow / battleFrame) gets one texture per figure *and
- *    facing row*, created only when a man first faces that way (most men only
- *    ever face one or two ways), and each frame is drawn the first time it is
- *    shown; the remaining frames of the rows in use are filled in idle time.
- *    Textures drawn into during a frame are uploaded once (flushDolls).
- *  - Figures with rare+ gear get a matching effect texture per row (the 1 px
- *    outline ring and the glint mask, see renderFrameFx), drawn with the frame.
+ *    Wide sheets (a 2x man is 112 x 40 columns) wrap their columns so no
+ *    texture is wider than a phone GPU allows.
+ *  - The battle (battleRow / battleFrame) draws its figures at BATTLE_RES
+ *    (twice the pixels each way, shown at the same size) into shared atlases:
+ *    a frame gets a slot the first time it is shown, and the frames a man
+ *    shows all the time (idle, walk, flinch, block) are filled in idle time;
+ *    the rest (attacks, deaths, runs) are drawn on demand (about 1 ms each).
+ *    That keeps the texture memory of a 2x battle close to the old 1x rows:
+ *    every man had a 40-column row canvas before, whether he used it or not.
+ *    Atlases drawn into during a frame are uploaded once (flushDolls).
+ *  - Figures with rare+ gear get matching effect frames in the same atlas
+ *    (the 1 px outline ring and the glint mask, see renderFrameFx).
+ *  - Portraits (ensurePortrait, addPortrait) are busts rendered at
+ *    PORTRAIT_RES with an idle loop (breathing, blinks, glances, a glint),
+ *    seeded per hero so a roster is never in step.
  *
  * Every sheet is keyed by the full loadout (dollKey: gear, rarity, paint,
  * cosmetics, look), so identical men share one texture and a changed item
  * shows at once.
  */
 import Phaser from 'phaser';
-import { NDIRS, NFRAMES, dollFx, dollGeom, dollKey, renderFrame, renderFrameFx, sheetColumn, sheetFrames, type DollFx, type DollSpec, type SheetGeom } from '../art/paperdoll';
+import {
+  ANIM, NDIRS, NFRAMES, PORTRAIT_FPS, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, dollFx, dollGeom, dollKey, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames,
+  type DollFx, type DollSpec, type SheetGeom,
+} from '../art/paperdoll';
 import { itemIconKey, renderItemIcon } from '../art/itemIcons';
 import { renderBasePlate, renderBlood, renderPlateRing, renderRing, renderShadow } from '../art/ground';
 import { Pix } from '../art/pixels';
 import { P } from '../art/palette';
 import type { Item } from '../data/items';
 
+/** Widest texture we create (safe on every phone GPU). */
+const MAX_TEX_W = 4096;
+
 interface DollTex {
   spec: DollSpec;
   geom: SheetGeom;
   /** Columns actually drawn in the sheet (men 40, other figures 16). */
   cols: number;
+  /** Columns per texture row (the sheet wraps when a row would be too wide). */
+  perRow: number;
   rows: boolean[];
   fx: DollFx;
   /** Effect sheet key (rare+ gear only). */
@@ -46,7 +62,9 @@ function info(spec: DollSpec, key: string): DollTex {
   let d = dolls.get(key);
   if (!d) {
     const fx = dollFx(spec);
-    d = { spec, geom: dollGeom(spec), cols: sheetFrames(spec), rows: [false, false, false, false], fx, fxKey: hasFx(fx) && !spec.beast ? `${key}#fx` : null };
+    const geom = dollGeom(spec);
+    const cols = sheetFrames(spec);
+    d = { spec, geom, cols, perRow: Math.max(1, Math.min(cols, Math.floor(MAX_TEX_W / geom.fw))), rows: [false, false, false, false], fx, fxKey: hasFx(fx) && !spec.beast ? `${key}#fx` : null };
     dolls.set(key, d);
   }
   return d;
@@ -56,6 +74,16 @@ function put(ctx: CanvasRenderingContext2D, px: Pix, x: number, y: number): void
   const img = ctx.createImageData(px.w, px.h);
   img.data.set(px.data);
   ctx.putImageData(img, x, y);
+}
+
+/** Where a column of a facing row sits on a (possibly wrapped) sheet: band = facing * bandsPerDir + wrap row. */
+function cell(d: DollTex, col: number, dir: number, bands = 1): [number, number] {
+  const wraps = Math.ceil(d.cols / d.perRow);
+  return [(col % d.perRow) * d.geom.fw, ((dir * bands) * wraps + Math.floor(col / d.perRow)) * d.geom.fh];
+}
+
+function sheetHeight(d: DollTex, bands = 1): number {
+  return Math.ceil(d.cols / d.perRow) * NDIRS * bands * d.geom.fh;
 }
 
 /**
@@ -69,15 +97,20 @@ export function ensureDoll(scene: Phaser.Scene, spec: DollSpec, rows: number[] =
   if (!scene.textures.exists(key)) {
     d.rows = [false, false, false, false];
     const { fw, fh } = d.geom;
-    const tex = scene.textures.createCanvas(key, fw * d.cols, fh * NDIRS)!;
-    for (let dir = 0; dir < NDIRS; dir++) for (let f = 0; f < NFRAMES; f++) tex.add(dir * NFRAMES + f, 0, sheetColumn(f, d.cols) * fw, dir * fh, fw, fh);
+    const tex = scene.textures.createCanvas(key, fw * d.perRow, sheetHeight(d))!;
+    for (let dir = 0; dir < NDIRS; dir++)
+      for (let f = 0; f < NFRAMES; f++) {
+        const [x, y] = cell(d, sheetColumn(f, d.cols), dir);
+        tex.add(dir * NFRAMES + f, 0, x, y, fw, fh);
+      }
     if (d.fxKey) {
       if (scene.textures.exists(d.fxKey)) scene.textures.remove(d.fxKey);
-      const fxt = scene.textures.createCanvas(d.fxKey, fw * d.cols, fh * NDIRS * 2)!;
+      const fxt = scene.textures.createCanvas(d.fxKey, fw * d.perRow, sheetHeight(d, 2))!;
       for (let dir = 0; dir < NDIRS; dir++)
         for (let f = 0; f < NFRAMES; f++) {
-          fxt.add(`r${dir * NFRAMES + f}`, 0, sheetColumn(f, d.cols) * fw, dir * fh, fw, fh);
-          fxt.add(`g${dir * NFRAMES + f}`, 0, sheetColumn(f, d.cols) * fw, (NDIRS + dir) * fh, fw, fh);
+          const [x, y] = cell(d, sheetColumn(f, d.cols), dir, 2);
+          fxt.add(`r${dir * NFRAMES + f}`, 0, x, y, fw, fh);
+          fxt.add(`g${dir * NFRAMES + f}`, 0, x, y + Math.ceil(d.cols / d.perRow) * fh, fw, fh);
         }
     }
   }
@@ -96,13 +129,16 @@ function drawRow(scene: Phaser.Scene, key: string, d: DollTex, dir: number): boo
   if (d.rows[dir]) return false;
   const ctx = (scene.textures.get(key) as Phaser.Textures.CanvasTexture).getContext();
   const fctx = d.fxKey ? (scene.textures.get(d.fxKey) as Phaser.Textures.CanvasTexture).getContext() : null;
+  const wrapH = Math.ceil(d.cols / d.perRow) * d.geom.fh;
   for (let f = 0; f < d.cols; f++) {
+    const [x, y] = cell(d, f, dir);
     if (fctx) {
       const r = renderFrameFx(d.spec, f, dir);
-      put(ctx, r.px, f * d.geom.fw, dir * d.geom.fh);
-      put(fctx, r.ring, f * d.geom.fw, dir * d.geom.fh);
-      put(fctx, r.glint, f * d.geom.fw, (NDIRS + dir) * d.geom.fh);
-    } else put(ctx, renderFrame(d.spec, f, dir), f * d.geom.fw, dir * d.geom.fh);
+      put(ctx, r.px, x, y);
+      const [fx, fy] = cell(d, f, dir, 2);
+      put(fctx, r.ring, fx, fy);
+      put(fctx, r.glint, fx, fy + wrapH);
+    } else put(ctx, renderFrame(d.spec, f, dir), x, y);
   }
   d.rows[dir] = true;
   return true;
@@ -136,20 +172,80 @@ export function dollFxOf(key: string): DollFx | null {
   return dolls.get(key)?.fx ?? null;
 }
 
-// ------------------------------------------------------------------ battle: one texture per facing, frames on demand
+// ------------------------------------------------------------------ battle: shared atlases, frames on demand
+
+/** Atlas canvas size: 1024 x 1024 (4 MB) keeps a dirty atlas cheap to re-upload. */
+const ATLAS_W = 1024;
+const ATLAS_H = 1024;
+
+interface Atlas {
+  key: string;
+  scene: Phaser.Scene;
+  /** Shelves of equal-height slots, packed left to right. */
+  shelves: { y: number; h: number; x: number }[];
+  nextY: number;
+}
+
+interface Slot {
+  atlas: Atlas;
+  x: number;
+  y: number;
+}
+
+/** A frame as shown by a sprite: the atlas texture key and the frame name in it. */
+export interface FrameRef {
+  key: string;
+  frame: string;
+}
 
 interface RowTex {
   scene: Phaser.Scene;
   doll: DollTex;
   dir: number;
-  drawn: boolean[];
-  left: number;
-  fxKey: string | null;
+  /** Drawn columns: the frame to show, plus the ring / glint frames of rare+ gear. */
+  frames: Map<number, FrameRef & { ring?: string; glint?: string }>;
+  /** Columns still to draw in idle time. */
+  pending: number[];
 }
 
+const atlases = new Map<Phaser.Scene, Atlas[]>();
 const rowTex = new Map<string, RowTex>();
 const dirty = new Set<string>();
 const rowQueue: string[] = [];
+let atlasN = 0;
+
+/** The columns of a man that play most of the time; drawn ahead. The rest (attacks, deaths, runs, victory) on demand. */
+const COMMON_COLS: readonly number[] = [...ANIM.idle, ...ANIM.walk, ...ANIM.hit, ...ANIM.block];
+
+/** `n` slots of fw x fh side by side on one shelf (so a frame and its effect frames share a texture). */
+function allocSlots(scene: Phaser.Scene, fw: number, fh: number, n: number): Slot[] {
+  let list = atlases.get(scene);
+  if (!list) atlases.set(scene, (list = []));
+  const need = fw * n;
+  for (const a of list) {
+    for (const sh of a.shelves) if (sh.h === fh && sh.x + need <= ATLAS_W) return take(a, sh, fw, n);
+    if (a.nextY + fh <= ATLAS_H) {
+      const sh = { y: a.nextY, h: fh, x: 0 };
+      a.shelves.push(sh);
+      a.nextY += fh;
+      return take(a, sh, fw, n);
+    }
+  }
+  const key = `dollatlas_${atlasN++}`;
+  scene.textures.createCanvas(key, Math.max(ATLAS_W, need), Math.max(ATLAS_H, fh));
+  const a: Atlas = { key, scene, shelves: [{ y: 0, h: fh, x: 0 }], nextY: fh };
+  list.push(a);
+  return take(a, a.shelves[0], fw, n);
+}
+
+function take(a: Atlas, sh: { y: number; h: number; x: number }, fw: number, n: number): Slot[] {
+  const out: Slot[] = [];
+  for (let i = 0; i < n; i++) {
+    out.push({ atlas: a, x: sh.x, y: sh.y });
+    sh.x += fw;
+  }
+  return out;
+}
 
 /** Register a figure for the battle; returns its base key (pass it to battleRow). */
 export function battleDoll(spec: DollSpec): string {
@@ -159,78 +255,86 @@ export function battleDoll(spec: DollSpec): string {
 }
 
 /**
- * The texture of one facing row of a battle figure (created on first use).
- * Its frames are named by column (0..NFRAMES-1, aliased on 16-column
- * figures); call battleFrame before showing one.
+ * One facing row of a battle figure: returns its row key. Frames are drawn
+ * into the scene's atlases on demand (battleFrame); the common ones are
+ * queued for idle time. The sprite shows whatever battleFrame returns.
  */
 export function battleRow(scene: Phaser.Scene, key: string, dir: number): string {
   const rk = `${key}|${dir}`;
   const r = rowTex.get(rk);
-  if (r && r.scene === scene && scene.textures.exists(rk)) return rk;
+  if (r && r.scene === scene) return rk;
   const d = dolls.get(key);
   if (!d) throw new Error(`battleRow: unknown figure ${key}`);
-  if (scene.textures.exists(rk)) scene.textures.remove(rk);
-  const { fw, fh } = d.geom;
-  const tex = scene.textures.createCanvas(rk, fw * d.cols, fh)!;
-  for (let f = 0; f < NFRAMES; f++) tex.add(f, 0, sheetColumn(f, d.cols) * fw, 0, fw, fh);
-  let fxKey: string | null = null;
-  if (d.fxKey) {
-    fxKey = `${rk}#fx`;
-    if (scene.textures.exists(fxKey)) scene.textures.remove(fxKey);
-    const fxt = scene.textures.createCanvas(fxKey, fw * d.cols, fh * 2)!;
-    for (let f = 0; f < NFRAMES; f++) {
-      fxt.add(`r${f}`, 0, sheetColumn(f, d.cols) * fw, 0, fw, fh);
-      fxt.add(`g${f}`, 0, sheetColumn(f, d.cols) * fw, fh, fw, fh);
-    }
-  }
-  rowTex.set(rk, { scene, doll: d, dir, drawn: new Array(d.cols).fill(false), left: d.cols, fxKey });
+  const common = d.cols >= NFRAMES ? COMMON_COLS : Array.from({ length: d.cols }, (_, i) => i);
+  rowTex.set(rk, { scene, doll: d, dir, frames: new Map(), pending: common.filter((c) => c !== 0) });
   rowQueue.push(rk);
   battleFrame(rk, 0);
   return rk;
 }
 
-/** The effect texture of a battle row (null when the figure has no rare+ gear). */
-export function battleRowFx(rk: string): string | null {
-  return rowTex.get(rk)?.fxKey ?? null;
+/** Whether a battle row carries effect frames (rare+ gear): ring and glint names come with battleFrame. */
+export function battleRowFx(rk: string): boolean {
+  return !!rowTex.get(rk)?.doll.fxKey;
 }
 
-/** Draw a frame of a battle row if it is not drawn yet (uploaded at the next flushDolls). */
-export function battleFrame(rk: string, frame: number): void {
+/**
+ * The frame of a battle row to show (drawn now if it is not yet; uploaded at
+ * the next flushDolls). With rare+ gear, `ring` and `glint` name the effect
+ * frames in the same texture.
+ */
+export function battleFrame(rk: string, frame: number): FrameRef & { ring?: string; glint?: string } {
   const r = rowTex.get(rk);
-  if (!r) return;
+  if (!r) return { key: '__MISSING', frame: '__BASE' };
   const col = sheetColumn(frame, r.doll.cols);
-  if (r.drawn[col]) return;
-  if (!r.scene.sys.isActive() || !r.scene.textures.exists(rk)) return;
-  const { fw } = r.doll.geom;
-  const ctx = (r.scene.textures.get(rk) as Phaser.Textures.CanvasTexture).getContext();
-  if (r.fxKey && r.scene.textures.exists(r.fxKey)) {
-    const fx = renderFrameFx(r.doll.spec, col, r.dir);
-    put(ctx, fx.px, col * fw, 0);
-    const fctx = (r.scene.textures.get(r.fxKey) as Phaser.Textures.CanvasTexture).getContext();
-    put(fctx, fx.ring, col * fw, 0);
-    put(fctx, fx.glint, col * fw, r.doll.geom.fh);
-    dirty.add(r.fxKey);
-  } else put(ctx, renderFrame(r.doll.spec, col, r.dir), col * fw, 0);
-  r.drawn[col] = true;
-  r.left--;
-  dirty.add(rk);
+  const have = r.frames.get(col);
+  if (have) return have;
+  const { fw, fh } = r.doll.geom;
+  const fx = !!r.doll.fxKey;
+  const slots = allocSlots(r.scene, fw, fh, fx ? 3 : 1);
+  const slot = slots[0];
+  const tex = r.scene.textures.get(slot.atlas.key) as Phaser.Textures.CanvasTexture;
+  const ctx = tex.getContext();
+  const name = `${rk}/${col}`;
+  const ref: FrameRef & { ring?: string; glint?: string } = { key: slot.atlas.key, frame: name };
+  if (fx) {
+    // the effect frames (ring, glint) sit beside the frame in the same atlas
+    const f = renderFrameFx(r.doll.spec, col, r.dir);
+    put(ctx, f.px, slot.x, slot.y);
+    tex.add(name, 0, slot.x, slot.y, fw, fh);
+    put(ctx, f.ring, slots[1].x, slots[1].y);
+    ref.ring = `${rk}/r${col}`;
+    tex.add(ref.ring, 0, slots[1].x, slots[1].y, fw, fh);
+    put(ctx, f.glint, slots[2].x, slots[2].y);
+    ref.glint = `${rk}/g${col}`;
+    tex.add(ref.glint, 0, slots[2].x, slots[2].y, fw, fh);
+  } else {
+    put(ctx, renderFrame(r.doll.spec, col, r.dir), slot.x, slot.y);
+    tex.add(name, 0, slot.x, slot.y, fw, fh);
+  }
+  r.frames.set(col, ref);
+  const pi = r.pending.indexOf(col);
+  if (pi >= 0) r.pending.splice(pi, 1);
+  dirty.add(slot.atlas.key);
+  return ref;
 }
 
-/** Upload every texture drawn into since the last call (once per game frame, before rendering). */
+/** Upload every atlas drawn into since the last call (once per game frame, before rendering). */
 export function flushDolls(scene: Phaser.Scene): void {
   for (const k of dirty) if (scene.textures.exists(k)) (scene.textures.get(k) as Phaser.Textures.CanvasTexture).refresh();
   dirty.clear();
 }
 
-/** Forget a scene's battle rows (their textures go with the scene's texture manager entries). */
+/** Forget a scene's battle rows and atlases (a scene restarting). */
 export function releaseBattleRows(scene: Phaser.Scene): void {
-  for (const [k, r] of rowTex) {
-    if (r.scene !== scene) continue;
-    if (scene.textures.exists(k)) scene.textures.remove(k);
-    if (r.fxKey && scene.textures.exists(r.fxKey)) scene.textures.remove(r.fxKey);
-    rowTex.delete(k);
-  }
+  for (const [k, r] of rowTex) if (r.scene === scene) rowTex.delete(k);
+  for (const a of atlases.get(scene) ?? []) if (scene.textures.exists(a.key)) scene.textures.remove(a.key);
+  atlases.delete(scene);
   rowQueue.length = 0;
+}
+
+/** Texture memory held by a scene's battle atlases (bytes), for the perf overlay. */
+export function battleAtlasBytes(scene: Phaser.Scene): number {
+  return (atlases.get(scene)?.length ?? 0) * ATLAS_W * ATLAS_H * 4;
 }
 
 /** Draw queued rows / frames for at most `budgetMs` (call once per frame). */
@@ -241,24 +345,19 @@ export function pumpDolls(budgetMs = 6): void {
     if (!q.scene.sys.isActive() || !q.scene.textures.exists(q.key)) continue;
     ensureDollRow(q.scene, q.key, q.dir);
   }
-  // battle rows in use: fill in the frames not shown yet, a few at a time
+  // battle rows in use: fill in the common frames not shown yet, a few at a time
   while (rowQueue.length && performance.now() - t0 < budgetMs) {
     const rk = rowQueue[0];
     const r = rowTex.get(rk);
-    if (!r || r.left <= 0 || !r.scene.sys.isActive()) {
+    if (!r || !r.pending.length || !r.scene.sys.isActive()) {
       rowQueue.shift();
       continue;
     }
-    const col = r.drawn.indexOf(false);
-    if (col < 0) {
-      rowQueue.shift();
-      continue;
-    }
-    battleFrame(rk, col);
+    battleFrame(rk, r.pending[0]);
   }
 }
 
-/** Sheet geometry of a registered figure (frame size and feet line). */
+/** Sheet geometry of a registered figure (frame size and feet line, in rendered pixels). */
 export function dollGeomOf(key: string): SheetGeom {
   return dolls.get(key)?.geom ?? { fw: 56, fh: 72, footY: 64 };
 }
@@ -269,39 +368,64 @@ export function dollOrigin(key: string): [number, number] {
   return [0.5, g.footY / g.fh];
 }
 
+/** The scale a sprite of a registered figure needs to show at its world size (1 / its render resolution). */
+export function dollDisplayScale(key: string): number {
+  return 1 / (dolls.get(key)?.spec.res ?? 1);
+}
+
+// ------------------------------------------------------------------ portraits
+
 /**
- * A head-and-shoulders portrait (24 x 24) of a figure, facing the viewer: the
- * class icon in lists (recruits, roster rows, group lists).
+ * A still head-and-shoulders portrait (PORTRAIT_PX square, drawn at 1x) of a
+ * figure: the class icon in lists for callers that want a plain image.
  */
 export function ensurePortrait(scene: Phaser.Scene, spec: DollSpec): string {
   const key = `portrait_${dollKey(spec)}`;
   if (scene.textures.exists(key)) return key;
-  const g = dollGeom(spec);
-  const fr = renderFrame(spec, 0, 2);
-  const out = new Pix(24, 24);
-  let x0: number;
-  let y0: number;
-  if (spec.beast) {
-    // the whole animal, scaled into the box
-    const s = Math.max(fr.w, fr.h) / 24;
-    for (let y = 0; y < 24; y++) for (let x = 0; x < 24; x++) {
-      const sx = Math.floor(x * s);
-      const sy = Math.floor(y * s + (fr.h - 24 * s) * 0.6);
-      if (fr.alpha(sx, sy) > 0) out.set(x, y, fr.get(sx, sy));
-    }
-    scene.textures.addCanvas(key, out.toCanvas());
-    return key;
-  }
-  if (spec.mount) {
-    x0 = Math.floor(g.fw / 2) - 12;
-    y0 = g.footY - (spec.mount === 'chariot' ? 52 : 60);
-  } else {
-    x0 = Math.floor(g.fw / 2) - 12;
-    y0 = g.footY - 41;
-  }
-  out.blit(fr, 0, 0, false, x0, y0, 24, 24);
-  scene.textures.addCanvas(key, out.toCanvas());
+  scene.textures.addCanvas(key, renderPortrait(spec, 0, 1).toCanvas());
   return key;
+}
+
+/**
+ * The animated portrait of a figure: a sheet of idle variants at PORTRAIT_RES
+ * and a seeded idle loop. Returns the texture key, the animation key and the
+ * scale that shows it at PORTRAIT_PX.
+ */
+export function ensurePortraitAnim(scene: Phaser.Scene, spec: DollSpec): { key: string; anim: string; scale: number } {
+  const key = `portraitHD_${dollKey(spec)}`;
+  const anim = `${key}#idle`;
+  const size = PORTRAIT_PX * PORTRAIT_RES;
+  if (!scene.textures.exists(key)) {
+    const tex = scene.textures.createCanvas(key, size * PORTRAIT_FRAMES.length, size)!;
+    const ctx = tex.getContext();
+    for (let f = 0; f < PORTRAIT_FRAMES.length; f++) {
+      put(ctx, renderPortrait(spec, f), f * size, 0);
+      tex.add(f, 0, f * size, 0, size, size);
+    }
+    tex.refresh();
+  }
+  if (!scene.anims.exists(anim)) {
+    const loop = portraitLoop(spec.seed ?? 0);
+    scene.anims.create({ key: anim, frames: loop.map((f) => ({ key, frame: f })), frameRate: PORTRAIT_FPS, repeat: -1 });
+  }
+  return { key, anim, scale: 1 / PORTRAIT_RES };
+}
+
+/**
+ * A portrait sprite at (x, y) (top-left), PORTRAIT_PX square on screen and
+ * alive: breathing, blinking and glancing on its own rhythm. `still` for a
+ * frozen one; `crop` (display px) trims it like Image.setCrop would.
+ */
+export function addPortrait(scene: Phaser.Scene, spec: DollSpec, x: number, y: number, opts: { still?: boolean; crop?: [number, number, number, number] } = {}): Phaser.GameObjects.Sprite {
+  const p = ensurePortraitAnim(scene, spec);
+  const spr = scene.add.sprite(x, y, p.key, 0).setOrigin(0, 0).setScale(p.scale);
+  if (opts.crop) spr.setCrop(opts.crop[0] * PORTRAIT_RES, opts.crop[1] * PORTRAIT_RES, opts.crop[2] * PORTRAIT_RES, opts.crop[3] * PORTRAIT_RES);
+  if (!opts.still) {
+    // a random point of the loop, so a roster breathes out of step
+    const n = scene.anims.get(p.anim)?.frames.length ?? 1;
+    spr.play({ key: p.anim, startFrame: Math.floor(Math.random() * n) });
+  }
+  return spr;
 }
 
 export function ensureItemIcon(scene: Phaser.Scene, item: Item): string {
