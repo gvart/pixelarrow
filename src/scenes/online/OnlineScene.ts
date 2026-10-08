@@ -1160,6 +1160,14 @@ export class OnlineScene extends BaseScene {
         const n = neighbour();
         return n !== null ? hexRect(this, n) : null;
       },
+      showNeighbour: () => {
+        const n = neighbour();
+        if (n === null) return false;
+        const r = hexRect(this, n);
+        const { top, bottom } = this.mapArea();
+        if (r.x < 4 || r.x + r.w > this.m.VW - 4 || r.y < top + 4 || r.y + r.h > bottom - 4) this.centerOn(n);
+        return true;
+      },
       mapRect: () => {
         const a = this.mapArea();
         return { x: 0, y: a.top, w: this.m.VW, h: a.bottom - a.top };

@@ -349,11 +349,18 @@ export class SettlementScene extends BaseScene {
     const wounded = camp.wounded();
     const w = VW - 8;
     const town = def.kind === 'town';
-    const actionsH = (SIZE.btnH + SIZE.gap) * (town ? 3 : 2) + 4 + 12;
+    // On a short screen Rest and Physician share a row, and then the headline
+    // goes (the top bar already counts the hurt): the actions always fit.
+    const rowsH = (rows: number) => (SIZE.btnH + SIZE.gap) * rows + 4 + 12;
+    const pair = town && h < 12 + rowsH(3);
+    const actionsH = rowsH(town && !pair ? 3 : 2);
+    const showHead = h >= 12 + actionsH;
     let cy = y;
     const head = wounded.length ? `${t('town.wounded')}: ${wounded.length}` : t('town.allFit');
-    this.body.add(addText(this, VW / 2, cy + 1, ellipsize(head, w), wounded.length ? 'red' : 'good', 0.5));
-    cy += 12;
+    if (showHead) {
+      this.body.add(addText(this, VW / 2, cy + 1, ellipsize(head, w), wounded.length ? 'red' : 'good', 0.5));
+      cy += 12;
+    }
     // the wounded list, the healing rate under it when there is room
     const room = y + h - actionsH - cy;
     const noteLines = wrapText(t('town.restRate', { n: rate }), w - 8, 3);
@@ -394,12 +401,14 @@ export class SettlementScene extends BaseScene {
       this.body.add(b);
     });
     by += SIZE.btnH + SIZE.gap;
-    this.body.add(new Button(this, 4, by, w, SIZE.btnH, { label: t('town.rest8'), icon: 'tent', id: 'town.rest', onClick: () => this.rest(8) }));
-    by += SIZE.btnH + SIZE.gap;
+    this.body.add(new Button(this, 4, by, pair ? half : w, SIZE.btnH, { label: t('town.rest8'), icon: 'tent', id: 'town.rest', onClick: () => this.rest(8) }));
+    if (!pair) by += SIZE.btnH + SIZE.gap;
     if (town) {
       const cost = camp.healCost();
-      const b = new Button(this, 4, by, w, SIZE.btnH, {
-        label: cost > 0 ? t('town.physician', { n: cost }) : t('town.noPatients'),
+      const label = cost > 0 ? t('town.physician', { n: cost }) : t('town.noPatients');
+      const b = new Button(this, pair ? 4 + half + SIZE.gap : 4, by, pair ? half : w, SIZE.btnH, {
+        label,
+        tip: pair ? label : undefined,
         icon: 'cross',
         variant: cost > 0 && camp.data.gold >= cost ? 'primary' : 'secondary',
         id: 'town.physician',

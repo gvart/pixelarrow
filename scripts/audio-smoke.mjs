@@ -137,6 +137,21 @@ async function run(label, { noAudio }) {
       const w = s.w;
       w.stop();
       w.s.safeUntil = 0;
+      // camps keep clear of settlements (src/world/camp.ts campBlocker): stage the party on campable ground
+      const x0 = Math.floor(w.s.x);
+      const y0 = Math.floor(w.s.y);
+      search: for (let r = 0; r < 30; r++) {
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            w.s.x = x0 + dx + 0.5;
+            w.s.y = y0 + dy + 0.5;
+            if (!w.campBlocker() && w.nearestPassable(x0 + dx + 2, y0 + dy, 3)) break search;
+          }
+        }
+      }
+      w.reveal(w.s.x, w.s.y, 6);
+      s.cameras.main.centerOn(w.s.x * 8, w.s.y * 8);
       const p = w.s.parties[0];
       const t = w.nearestPassable(Math.floor(w.s.x) + 2, Math.floor(w.s.y), 3);
       p.x = t.x + 0.5;
