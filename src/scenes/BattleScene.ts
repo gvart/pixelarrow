@@ -1,12 +1,15 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, addPanel, addText, holdTimer, longPress, type HoldTimer } from '../ui/kit';
+import { Button, Meter, addPanel, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
+import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
 import { GroupCard } from '../ui/battlePanel';
-import { Chip, CommandStrip, ListRow, SituationBar, type ChipOpts, type CommandStripOpts, type SitNumber, type StripSlot } from '../ui/strategos';
+import { ListRow, type StripSlot } from '../ui/strategos';
+import { HintPill, MED_H, MED_W, Medallion, TOP_H, TopBar, type TopBarOpts } from '../ui/battleHud';
+import { TERRA } from '../art/smoothUi';
 import { RadialOrders, type RadialOrder } from '../ui/radialOrders';
-import { CATEGORY_COLOR, RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
-import { uiId, uiIgnore } from '../ui/layout';
+import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
+import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
 import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
@@ -58,10 +61,10 @@ const CATCH_UP_STEPS = 120;
 
 // HUD geometry (UI pixels, docs/UI_STRATEGOS.md "Battle"): the situation bar, the field with the
 // group cards down its left edge and the radial ring, the ability row, the command strip.
-const CARD_W = 56;
-const CARD_H = 44;
-const CARD_W_COMPACT = 30;
-const CARD_H_COMPACT = 30;
+/** Bottom sheet (UI px): group card height, the header line, the order buttons. */
+const SHEET_CARD_H = 28;
+const SHEET_HEAD_H = 22;
+const SHEET_ORDERS_H = 28;
 
 const PRESETS: [FormationType, string, string][] = [
   ['line', 'line', 'f_line'],
@@ -136,11 +139,11 @@ type Gesture = {
 } | null;
 
 /** Finger travel (screen px) before a press becomes a drag: below it a lift is a tap. */
-const DRAG_PX = 10;
+const DRAG_PX = px(10);
 /** Grab radius (screen px) around the selected group's soldiers, placement marker and facing knob. */
-const GRAB_PX = 30;
+const GRAB_PX = px(30);
 /** Tap radius (screen px) of a floating group tag (a 44 pt target). */
-const TAG_PX = 20;
+const TAG_PX = px(20);
 
 export class BattleScene extends BaseScene {
   private sim!: Battle;
@@ -181,9 +184,9 @@ export class BattleScene extends BaseScene {
   private tags!: Phaser.GameObjects.Container;
   private tagMap = new Map<number, Phaser.GameObjects.Container>();
   private tagPos = new Map<number, { x: number; y: number }>();
-  private sit: SituationBar | null = null;
+  private top: TopBar | null = null;
+  private hintPill: HintPill | null = null;
   private sitKey = '';
-  private strip: CommandStrip | null = null;
   private ring: RadialOrders | null = null;
   private ringKey = '';
   /** The tutorial hides the ring during its field steps. */
@@ -204,8 +207,8 @@ export class BattleScene extends BaseScene {
   private beasts: BeastView | null = null;
   /** Camera follows the fighting until the player pans or pinches. */
   private follow = true;
-  private followBtn: Chip | null = null;
-  private abilityBtns: { id: AbilityId; btn: Chip }[] = [];
+  private followBtn: Button | null = null;
+  private abilityBtns: { id: AbilityId; btn: Medallion }[] = [];
   /** The shape sheet is open. */
   private shapeOpen = false;
   private lastSparkle = 0;
@@ -229,7 +232,7 @@ export class BattleScene extends BaseScene {
   private netBanner = false;
   /** Online battles: the timed deployment (docs/DESIGN_V2.md "Online battle rules"). */
   private dclock: DeployClock | null = null;
-  private countdown: { text: Phaser.GameObjects.BitmapText; bar: Phaser.GameObjects.Graphics; shown: number } | null = null;
+  private countdown: { bar: Phaser.GameObjects.Graphics; shown: number } | null = null;
   private lastTickSound = -1;
   /** The guided tutorial battle (src/ui/tutorial/battleTutorial.ts): set from the scene data, the controller after the HUD. */
   private tutorialData: TutorialStart | null = null;
@@ -434,7 +437,7 @@ export class BattleScene extends BaseScene {
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
     this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => {
-      this.setZoom(Math.round(cam.zoom) + (dy > 0 ? -1 : 1));
+      this.setZoom(Math.round(zoomUnits(cam.zoom)) + (dy > 0 ? -1 : 1));
       this.tutorialEvent({ kind: 'zoom' });
     });
     // Back never leaves silently: deployment asks first, in battle it offers the retreat (pausing offline).
@@ -472,13 +475,13 @@ export class BattleScene extends BaseScene {
 
   /** Height of the chrome under the field: the command strip and the ability row. */
   private panelHeight(): number {
-    return STRAT.stripH + this.abilityRowH();
+    return this.sheetH();
   }
 
   /** Visible battlefield in screen pixels: right of the group cards, between the situation bar and the strip. */
   private fieldViewport(): { top: number; bottom: number; left: number } {
     const { S, VH } = this.m;
-    return { top: this.topH() * S, bottom: (VH - this.panelHeight() - 6) * S, left: this.leftColumnRight() * S };
+    return { top: this.topH() * S, bottom: (VH - this.panelHeight() - 6) * S, left: 0 };
   }
 
   /**
@@ -502,12 +505,12 @@ export class BattleScene extends BaseScene {
     if (!isFinite(x0)) return;
     const vp = this.fieldViewport();
     // the zoom is chosen for the whole width (the group cards overlay the field's edge); the centring skips them
-    const availW = this.scale.width;
-    const availH = vp.bottom - vp.top;
+    const availW = this.scale.width / RS;
+    const availH = (vp.bottom - vp.top) / RS;
     const fit = Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0)));
     // 1x shows a man ~25 px tall on a 390-wide phone; closer if both armies fit
     const z = Phaser.Math.Clamp(Math.max(1, fit), 1, 2);
-    cam.setZoom(z);
+    cam.setZoom(camZoom(z));
     const t0 = this.focusPoint();
     this.centerCam(t0.x, t0.y);
   }
@@ -1445,7 +1448,7 @@ export class BattleScene extends BaseScene {
       const d = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
       const cx = (a.x + b.x) / 2;
       const cy = (a.y + b.y) / 2;
-      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), 1, 3);
+      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), camZoom(1), camZoom(3));
       cam.setZoom(z);
       cam.scrollX -= (cx - this.pinch.cx) / z;
       cam.scrollY -= (cy - this.pinch.cy) / z;
@@ -1469,7 +1472,7 @@ export class BattleScene extends BaseScene {
       this.setFollow(false);
       cam.scrollX -= (p.x - g.lx) / cam.zoom;
       cam.scrollY -= (p.y - g.ly) / cam.zoom;
-      this.tutorialEvent({ kind: 'pan', px: Math.hypot(p.x - g.lx, p.y - g.ly) });
+      this.tutorialEvent({ kind: 'pan', px: Math.hypot(p.x - g.lx, p.y - g.ly) / RS });
     } else if (g.mode === 'formation' && g.drag) {
       const w = cam.getWorldPoint(p.x, p.y);
       const f = screenToIso(w.x, w.y);
@@ -1486,7 +1489,7 @@ export class BattleScene extends BaseScene {
       if (down.length < 2) {
         const z0 = this.pinch.z0;
         this.pinch = null;
-        this.setZoom(Math.round(this.cameras.main.zoom));
+        this.setZoom(Math.round(zoomUnits(this.cameras.main.zoom)));
         if (Math.abs(this.cameras.main.zoom - z0) > 0.05) this.tutorialEvent({ kind: 'zoom' });
       }
       this.gesture = null;
@@ -1513,7 +1516,7 @@ export class BattleScene extends BaseScene {
 
   private setZoom(z: number): void {
     const cam = this.cameras.main;
-    const target = Phaser.Math.Clamp(z, 1, 3);
+    const target = camZoom(Phaser.Math.Clamp(z, 1, 3));
     if (target !== cam.zoom) this.setFollow(false);
     this.tweens.add({ targets: cam, zoom: target, duration: 120 });
   }
@@ -1583,7 +1586,7 @@ export class BattleScene extends BaseScene {
     const fr = this.selectedFrame()!;
     const press = screenToIso(g.wx0, g.wy0);
     // thresholds are in paces at the default zoom (1: a pace is 36 px across a tile) and scale with zoom
-    const k = 1 / this.cameras.main.zoom;
+    const k = 1 / zoomUnits(this.cameras.main.zoom);
     haptic('light');
     return dragStart(kind, fr, press.x, press.y, k);
   }
@@ -1979,22 +1982,26 @@ export class BattleScene extends BaseScene {
     this.hideBanner();
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    // right of the group cards, clear of the countdown
-    const left = this.leftColumnRight();
-    const maxW = VW - left - 8;
+    // under the top bar, in the hint's place (the hint hides while a banner shows)
+    const left = 0;
+    const maxW = VW - 60;
     const lines = wrapText(msg, maxW - 12, 2).lines;
     const w = Math.max(60, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
-    const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 4, 2).lines.join('\n') : null;
-    const h = lines.length * LINE_H + 8;
-    const x = Math.round(left + (VW - left - w) / 2);
-    const y = this.topH() + 3;
-    c.add(addPanel(this, x, y, w, h, 'parch'));
-    const txt = addText(this, x + w / 2, y + 5, lines.join('\n'), 'red', 0.5);
+    const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 2, false, 6).lines : [];
+    const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6))) + 14 : 0;
+    const bw = Math.min(maxW, Math.max(w, subW));
+    const h = lines.length * LINE_H + 8 + sub.length * 8;
+    const x = Math.round(left + (VW - left - bw) / 2);
+    const y = this.topH() + 4;
+    c.add(addPanel(this, x, y, bw, h, 'tooltip'));
+    const txt = addText(this, x + bw / 2, y + 4, lines.join('\n'), 'gold', 0.5);
     txt.setCenterAlign();
     c.add(txt);
-    if (sub) c.add(addText(this, x + w / 2, y + h + 3, sub, 'light', 0.5).setCenterAlign());
+    if (sub.length) c.add(addText(this, x + bw / 2, y + 4 + lines.length * LINE_H, sub.join('\n'), 'dim', 0.5).setFontSize(6).setCenterAlign());
     this.ui.add(c);
     this.banner = c;
+    this.hintPill?.setText('');
+    this.sitKey = '';
     this.bannerTimer = ms > 0 ? this.time.delayedCall(ms, () => this.hideBanner()) : null;
   }
 
@@ -2003,6 +2010,7 @@ export class BattleScene extends BaseScene {
     this.bannerTimer = null;
     this.banner?.destroy();
     this.banner = null;
+    this.sitKey = '';
   }
 
   buildHud(): void {
@@ -2014,67 +2022,104 @@ export class BattleScene extends BaseScene {
     this.tabBtns.clear();
     this.heroInfo = null;
     this.countdown = null;
-    this.sit = null;
-    this.strip = null;
+    this.top = null;
+    this.hintPill = null;
     this.ring = null;
     this.sitKey = '';
-    this.buildSituation();
-    this.buildLeftColumn();
-    this.buildAbilityRow();
-    this.buildStrip();
-    this.buildRing();
+    this.buildSheet();
+    this.buildTop();
+    this.buildMedallions();
     if (this.shapeOpen) this.buildShapeSheet();
-    // the selected soldier: who he is and how he fares, just above the strip
+    // the selected soldier: who he is and how he fares, just above the sheet
     const u = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
-    if (u) this.buildHeroInfo(u, this.stripTop() - this.abilityRowH() - 27);
+    if (u) this.buildHeroInfo(u, this.stripTop() - 27);
     this.hudDirty = true;
     this.refreshHud();
     this.tutorialEvent({ kind: 'hud' });
   }
 
-  // ---- the situation bar (top)
+  // ---- the top bar (Pause / Speed / clock / Retreat, the two armies' strength) and the hint under it
 
-  /** Height of the situation bar: two lines of sentence, one on short screens. */
+  /** Height of the top bar: where the field begins. */
   private topH(): number {
-    return this.compact ? STRAT.sitHCompact : STRAT.sitH;
+    return TOP_H;
   }
 
-  /** Top edge of the command strip. */
+  /** Top edge of the bottom sheet. */
   private stripTop(): number {
-    return this.m.VH - STRAT.stripH;
+    return this.m.VH - this.sheetH();
   }
 
-  private buildSituation(): void {
+  private buildTop(): void {
     const { VW } = this.m;
-    const right = this.dclock && this.sim.phase === 'deploy' ? measureText('00', false, 14) + 8 : 0;
-    this.sit = new SituationBar(this, VW, { sentence: '', compact: this.compact, right, id: 'battle.situation' });
-    this.hud.add(this.sit);
+    this.top = new TopBar(this, VW, this.topOpts());
+    this.hud.add(this.top);
+    // following the fight: a small eye at the field's top right (battle only)
+    const pillW = VW - 2 * 30;
+    if (this.sim.phase === 'battle' && !this.online) {
+      const fb = new Button(this, VW - 26, TOP_H + 4, 22, 22, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), style: this.follow ? 'buttonSel' : undefined, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
+      this.hud.add(fb);
+      this.followBtn = fb;
+    }
+    this.hintPill = new HintPill(this, VW / 2, TOP_H + 4, pillW);
+    this.hud.add(this.hintPill);
     if (this.dclock && this.sim.phase === 'deploy') {
-      // the countdown: big seconds on the right, a draining bar along the bottom edge
-      const text = addText(this, VW - 6, 4, '15', 'red', 1);
-      text.setFontSize(14);
+      // the online deployment's draining bar along the top bar's bottom edge
       const bar = this.add.graphics();
-      this.hud.add([text, bar]);
-      this.countdown = { text, bar, shown: -1 };
+      this.hud.add(bar);
+      this.countdown = { bar, shown: -1 };
       this.updateCountdown();
     }
   }
 
-  /** The sentence and the numbers for this moment (rebuilt only when they change). */
+  private topOpts(): TopBarOpts {
+    const deploy = this.sim.phase === 'deploy';
+    const ended = this.sim.phase === 'ended';
+    if (deploy) {
+      return {
+        left: { icon: 'back', label: t('battle.strip.leave'), tip: t('battle.tip.leave'), id: 'battle.leave', onClick: () => this.confirmLeaveDeploy() },
+        right: { icon: 'people', label: t('battle.strip.men'), tip: t('battle.tip.groups'), id: 'battle.groups', onClick: () => this.openGroups() },
+      };
+    }
+    const flee: StripSlot = { icon: 'flag', label: t('battle.strip.flee'), tip: t('battle.tip.retreat'), id: 'battle.retreat', off: ended ? t('battle.why.over') : undefined, destructive: !ended, onClick: () => this.openRetreat() };
+    if (this.online) {
+      return {
+        left: { icon: 'eye', label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), selected: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() },
+        right: flee,
+      };
+    }
+    return {
+      left: this.paused
+        ? { icon: 'play', label: t('battle.strip.play'), tip: t('battle.tip.pause'), id: 'battle.play', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() }
+        : { icon: 'pause', label: t('battle.strip.pause'), tip: t('battle.tip.pause'), id: 'battle.pause', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() },
+      mid: { icon: 'fast', label: `${this.speed}×`, selected: this.speed > 1, tip: t('battle.tip.speed'), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
+      right: flee,
+      // paused, Play is the one thing to do next
+      primary: this.paused && !ended ? 'left' : undefined,
+    };
+  }
+
+  /** Swap the top bar's actions (pause / play, speed) without rebuilding the HUD. */
+  private refreshStrip(): void {
+    this.top?.set(this.topOpts());
+    if (this.online && this.top?.buttons.left) this.followBtn = this.top.buttons.left;
+  }
+
+  /** The sentence, the clock and the strength row for this moment (rebuilt only when they change). */
   private refreshSituation(): void {
-    if (!this.sit) return;
+    if (!this.top || !this.hintPill) return;
     const sim = this.sim;
     const deploy = sim.phase === 'deploy';
     let sentence: string;
     let urgent = false;
-    const nums: SitNumber[] = [];
     const mine = sim.units.filter((u) => u.side === this.me && sim.isAlive(u)).length;
     if (deploy) {
       sentence = this.src?.lockstep ? t('battle.sit.deployDuel') : this.src ? t('battle.sit.deployHidden') : t('battle.sit.deploy');
-      nums.push({ icon: 'people', value: `${mine}`, word: t('strat.menWord', { n: mine }), tip: t('battle.tip.groups') });
       const groups = sim.groups.filter((g) => g.side === this.me && !g.disbanded && !g.individual && sim.members(g.id).length > 0).length;
-      nums.push({ icon: 'flag', value: `${groups}`, word: t('battle.num.groups', { n: groups }).replace(/^\d+\s*/, '') });
-      if (!this.hideFoes()) nums.push({ icon: 'skull', value: `${this.enemyHeroes.length}`, word: t('battle.num.foes', { n: this.enemyHeroes.length }).replace(/^\d+\s*/, ''), tip: this.vsLabel() });
+      const words = [t('battle.num.groups', { n: groups })];
+      if (!this.hideFoes()) words.push(t('battle.num.foes', { n: this.enemyHeroes.length }));
+      this.top.setRow({ text: words.join(' · ') });
+      if (!this.dclock) this.top.setTime(`${mine}`, t('strat.menWord', { n: mine }));
     } else {
       const ours = Math.round((100 * sim.sideStrength(this.me)) / this.initialStrength[this.me]);
       const theirs = Math.round((100 * sim.sideStrength(this.foe)) / this.initialStrength[this.foe]);
@@ -2094,18 +2139,17 @@ export class BattleScene extends BaseScene {
         const name = sel.individual ? sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim();
         sentence = t('battle.sit.marching', { group: name, order: sel.routed ? t('battle.order.routed') : t(`battle.order.${sel.order}` as TKey) });
       } else sentence = this.online ? t('battle.sit.online') : t('battle.sit.quiet');
-      nums.push({ icon: 'hourglass', value: fmtClock(Math.floor(sim.tick / TICK_RATE)), word: this.speed > 1 ? t('battle.num.fast') : this.online ? t('battle.strip.live') : t('battle.num.time'), tip: t('battle.tip.speed') });
-      nums.push({ icon: 'heart', value: `${ours}%`, word: t('battle.num.ours'), tip: t('battle.tip.strength') });
-      nums.push({ icon: 'skull', value: `${theirs}%`, word: t('battle.num.theirs'), tip: t('battle.tip.strength') });
+      this.top.setTime(fmtClock(Math.floor(sim.tick / TICK_RATE)), this.speed > 1 ? t('battle.num.fast') : this.online ? t('battle.strip.live') : t('battle.top.time'));
+      this.top.setRow({ ours, theirs, you: t('battle.top.you'), foe: t('battle.top.foe') });
     }
-    const key = `${sentence}|${urgent}|${nums.map((n) => n.value + n.word).join(',')}`;
+    const key = `${sentence}|${urgent}`;
     if (key === this.sitKey) return;
     this.sitKey = key;
-    this.sit.setSentence(sentence, urgent);
-    this.sit.setNumbers(nums);
+    // a banner (Paused, a message) sits where the hint goes: the hint waits
+    this.hintPill.setText(this.banner ? '' : sentence, urgent);
   }
 
-  /** Online deployment: seconds left and the draining bar. */
+  /** Online deployment: seconds left in the top bar's clock and the draining bar. */
   private updateCountdown(): void {
     const c = this.countdown;
     const d = this.dclock;
@@ -2114,8 +2158,7 @@ export class BattleScene extends BaseScene {
     const hot = urgent(d);
     if (s !== c.shown) {
       c.shown = s;
-      c.text.setText(`${s}`).setFont(hot ? 'font_red' : 'font_ink');
-      c.text.setFontSize(14);
+      this.top?.setTime(`${s}`, t('battle.top.deploy'), hot);
       if (hot && s !== this.lastTickSound && s > 0) {
         this.lastTickSound = s;
         sfx.play('tap');
@@ -2123,70 +2166,49 @@ export class BattleScene extends BaseScene {
       }
     }
     const { VW } = this.m;
-    const TOP = this.topH();
     const f = d.total > 0 ? d.left / d.total : 0;
     c.bar.clear();
-    c.bar.fillStyle(0x2a1a16, 0.35);
-    c.bar.fillRect(2, TOP - 3, VW - 4, 2);
-    c.bar.fillStyle(hot && Math.floor(this.time.now / 250) % 2 ? 0xe05040 : CATEGORY_COLOR.attack, 1);
-    c.bar.fillRect(2, TOP - 3, Math.round((VW - 4) * f), 2);
+    c.bar.fillStyle(0x0d0a08, 0.8);
+    c.bar.fillRect(4, TOP_H - 3, VW - 8, 2);
+    c.bar.fillStyle(hot && Math.floor(this.time.now / 250) % 2 ? 0xe05040 : TERRA.hi, 1);
+    c.bar.fillRect(4, TOP_H - 3, Math.round((VW - 8) * f), 2);
   }
 
-  // ---- the left column: group cards, the shape chip, follow / reset
+  // ---- the bottom sheet: group cards, then the orders (battle) or Fight (deployment)
 
-  private cardH(): number {
-    return this.compact ? CARD_H_COMPACT : CARD_H;
-  }
-
-  private cardW(): number {
-    return this.compact ? CARD_W_COMPACT : CARD_W;
-  }
-
-  /** Right edge of the left column (where the field's free space begins). */
-  private leftColumnRight(): number {
-    return 4 + this.cardW() + 4;
-  }
-
-  private buildLeftColumn(): void {
+  /** Group cards in the sheet: two per row, at most two rows. */
+  private sheetGroups(): { g: Battle['groups'][number]; numeral: string }[] {
     const deploy = this.sim.phase === 'deploy';
-    const cw = this.cardW();
-    const ch = this.cardH();
-    const x = 4;
-    let y = this.topH() + 4;
-    const bottom = this.stripTop() - this.abilityRowH() - 2;
-    // the chips under the cards: shape (deploy and battle), reset (deploy, offline) or follow (battle)
-    const chips: ChipOpts[] = [];
-    const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
-    const shapeOf = sel && !sel.disbanded ? sel.formation.type : null;
-    const preset = PRESETS.find((p) => p[0] === shapeOf);
-    chips.push({
-      icon: preset ? preset[2] : 'f_line',
-      label: preset ? t(`battle.cmd.${preset[1]}` as TKey) : t('battle.shape.chip'),
-      selected: this.shapeOpen,
-      off: sel && this.canCommand() ? undefined : t('battle.why.noGroup'),
-      tip: t('battle.tip.cat.formation'),
-      id: 'battle.cat.formation',
-      onClick: () => this.openCategory('formation'),
-    });
-    if (deploy && !this.online) chips.push({ icon: 'repair', label: t('battle.strip.reset'), tip: t('battle.tip.reset'), id: 'battle.reset', onClick: () => this.resetDeploy() });
-    if (!deploy) chips.push({ icon: 'eye', label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), selected: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
-    // one soldier picked out: send him alone, or back into his group
-    const u = !deploy && this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
-    if (u && this.sim.groups[u.group].individual) chips.push({ icon: 'people', label: t('battle.ring.join'), tip: t('battle.tip.join'), id: 'battle.cmd.join', onClick: () => this.rejoin(u) });
-    else if (u) chips.push({ icon: 'detach', label: t('battle.ring.solo'), tip: t('battle.tip.solo'), id: 'battle.cmd.solo', onClick: () => this.detach(u) });
-    const chipsH = chips.length * (22 + SIZE.gap);
-    // the cards: as many as fit above the chips
     const groups = this.sim.groups.filter((g) => g.side === this.me && !g.disbanded && (this.sim.members(g.id).length > 0 || deploy) && !g.individual);
     const indiv = this.sim.groups.filter((g) => g.side === this.me && g.individual && !g.disbanded && this.sim.activeMembers(g.id).length > 0);
-    const fit = Math.max(1, Math.floor((bottom - y - chipsH + SIZE.gap) / (ch + SIZE.gap)));
-    const all = [...groups.map((g, i) => ({ g, numeral: ROMAN[i] ?? `${i + 1}` })), ...indiv.map((g) => ({ g, numeral: '*' }))].slice(0, fit);
-    all.forEach(({ g, numeral }) => {
+    return [...groups.map((g, i) => ({ g, numeral: ROMAN[i] ?? `${i + 1}` })), ...indiv.map((g) => ({ g, numeral: '*' }))].slice(0, 4);
+  }
+
+  private cardRows(): number {
+    return Math.max(1, Math.ceil(this.sheetGroups().length / 2));
+  }
+
+  /** Height of the bottom sheet. */
+  private sheetH(): number {
+    const cards = this.cardRows() * (SHEET_CARD_H + SIZE.gap) - SIZE.gap;
+    return 5 + cards + 4 + SHEET_HEAD_H + SHEET_ORDERS_H + 5;
+  }
+
+  private buildSheet(): void {
+    const { VW, VH } = this.m;
+    const deploy = this.sim.phase === 'deploy';
+    const y0 = this.stripTop();
+    this.hud.add(addPanel(this, -2, y0, VW + 4, VH - y0 + 4, 'parch'));
+    // cards
+    const cw = Math.floor((VW - 8 - SIZE.gap) / 2);
+    const all = this.sheetGroups();
+    all.forEach(({ g, numeral }, i) => {
       const card = new GroupCard(
         this,
-        x,
-        y,
-        cw,
-        ch,
+        4 + (i % 2) * (cw + SIZE.gap),
+        y0 + 5 + Math.floor(i / 2) * (SHEET_CARD_H + SIZE.gap),
+        all.length === 1 ? VW - 8 : cw,
+        SHEET_CARD_H,
         () => {
           if (this.selGroup === g.id && this.selUnit < 0) this.selGroup = -1;
           else this.selGroup = g.id;
@@ -2199,99 +2221,122 @@ export class BattleScene extends BaseScene {
       uiId(card, `battle.group.${numeral}`);
       this.hud.add(card);
       this.cards.push({ gid: g.id, card, numeral });
-      y += ch + SIZE.gap;
     });
-    for (const c of chips) {
-      const chip = new Chip(this, x, y, cw, c);
-      this.hud.add(chip);
-      if (c.id === 'battle.cat.formation') this.tabBtns.set('formation', chip);
-      if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), chip);
-      if (c.id === 'battle.follow') this.followBtn = chip;
-      y += 22 + SIZE.gap;
+    // the header: whose orders, and the chips (shape, reset / solo / join)
+    let y = y0 + 5 + this.cardRows() * (SHEET_CARD_H + SIZE.gap) - SIZE.gap + 4;
+    const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
+    const numeral = sel ? this.cards.find((c) => c.gid === sel.id)?.numeral ?? '' : '';
+    const selName = sel ? (sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim()) : '';
+    const chips: { icon: string; label: string; tip: string; id: string; selected?: boolean; off?: string; onClick: () => void }[] = [];
+    const shapeOf = sel && !sel.disbanded ? sel.formation.type : null;
+    const preset = PRESETS.find((p) => p[0] === shapeOf);
+    chips.push({
+      icon: preset ? preset[2] : 'f_line',
+      label: preset ? t('battle.orders.formation', { shape: t(`battle.cmd.${preset[1]}` as TKey) }) : t('battle.shape.chip'),
+      selected: this.shapeOpen,
+      off: sel && this.canCommand() ? undefined : t('battle.why.noGroup'),
+      tip: t('battle.tip.cat.formation'),
+      id: 'battle.cat.formation',
+      onClick: () => this.openCategory('formation'),
+    });
+    if (deploy && !this.online) chips.push({ icon: 'repair', label: t('battle.strip.reset'), tip: t('battle.tip.reset'), id: 'battle.reset', onClick: () => this.resetDeploy() });
+    const u = !deploy && this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
+    if (u && this.sim.groups[u.group].individual) chips.push({ icon: 'people', label: t('battle.ring.join'), tip: t('battle.tip.join'), id: 'battle.cmd.join', onClick: () => this.rejoin(u) });
+    else if (u) chips.push({ icon: 'detach', label: t('battle.ring.solo'), tip: t('battle.tip.solo'), id: 'battle.cmd.solo', onClick: () => this.detach(u) });
+    let cx = VW - 4;
+    for (const c of chips.reverse()) {
+      const w = Math.min(96, measureText(c.label, false, 6) + 26);
+      cx -= w;
+      const b = new Button(this, cx, y - 1, w, SHEET_HEAD_H, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, style: c.selected ? 'buttonSel' : undefined, disabledReason: c.off, onClick: c.onClick, small: true });
+      if (c.off) b.setEnabled(false, c.off);
+      this.hud.add(b);
+      if (c.id === 'battle.cat.formation') this.tabBtns.set('formation', b);
+      if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), b);
+      cx -= SIZE.gap;
     }
+    const title = deploy ? t('battle.shape.chip') : sel ? t('battle.orders.title', { group: selName }) : '';
+    if (title) {
+      const ht = addText(this, 6, y + 2, ellipsize(title.toUpperCase(), cx - 10, false, 5.5, 'head'), 'head', 0).setFontSize(5.5);
+      this.hud.add(ht);
+    }
+    y += SHEET_HEAD_H + 3;
+    // the row: Fight (deployment) or the five orders (battle)
+    if (deploy) {
+      const ready = this.dclock?.ready ?? false;
+      const main: StripSlot = this.online
+        ? { icon: 'check', label: t('battle.ready'), selected: ready, off: ready ? t('battle.why.waiting') : undefined, tip: t(this.src?.lockstep ? 'battle.tip.readyDuel' : 'battle.tip.ready'), id: 'battle.ready', onClick: () => this.startFight() }
+        : { icon: 'swords', label: t('battle.fight'), tip: t('battle.tip.fight'), id: 'battle.fight', onClick: () => this.startFight() };
+      const fight = new Button(this, 4, y, VW - 8, SHEET_ORDERS_H - 2, { icon: main.icon, label: main.label, tip: main.tip, id: main.id, variant: main.selected ? 'secondary' : 'primary', style: main.selected ? 'buttonSel' : undefined, disabledReason: main.off, onClick: main.onClick, inline: true });
+      if (main.off) fight.setEnabled(false, main.off);
+      this.hud.add(fight);
+      return;
+    }
+    const orders = this.ringOrders();
+    if (!orders.length) {
+      const hint = addText(this, VW / 2, y + 9, t('battle.orders.none'), 'dim', 0.5).setFontSize(6);
+      this.hud.add(hint);
+      return;
+    }
+    const n = orders.length;
+    const bw = Math.floor((VW - 8 - SIZE.gap * (n - 1)) / n);
+    orders.forEach((o, i) => {
+      const b = new Button(this, 4 + i * (bw + SIZE.gap), y, bw, SHEET_ORDERS_H, {
+        icon: o.icon,
+        label: o.label,
+        tip: o.tip,
+        id: `battle.cmd.${o.key}`,
+        style: o.selected ? 'buttonSel' : undefined,
+        disabledReason: o.off,
+        onClick: () => o.onTap(),
+      });
+      if (o.off) b.setEnabled(false, o.off);
+      this.hud.add(b);
+      this.cmdBtns.set(o.key, b);
+    });
+    this.ringKey = this.ordersKey();
   }
 
-  // ---- the ability row (above the strip)
+  /** What the order row shows (rebuilt when it changes: orders are rare events). */
+  private ordersKey(): string {
+    const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
+    return sel ? `${sel.order}|${sel.fireAtWill}|${this.selectedUnits().length > 0}|${sel.formation.type}` : '';
+  }
 
-  /** The heroes' abilities the selection can use, and the war horn: chips in a row above the strip. */
-  private abilityDefs(): { key: string; icon: string; label: string; tip: string; run: () => void; ability?: AbilityId }[] {
+  // ---- abilities: medallions down the field's right edge
+
+  /** The heroes' abilities the selection can use, and the war horn. */
+  private abilityDefs(): { key: string; icon: string; label: string; tip: string; sub: string; run: () => void; ability?: AbilityId }[] {
     if (this.sim.phase === 'deploy') return [];
     const ids: AbilityId[] = [];
     for (const u of this.selectedUnits()) for (const id of u.abil) if (!ids.includes(id)) ids.push(id);
-    const cmds: ReturnType<BattleScene['abilityDefs']> = ids.slice(0, 5).map((id) => ({ key: id, icon: ABILITIES[id].icon, label: abilityName(id), tip: tOr(`ability.${id}.desc`, ABILITIES[id].desc), run: () => this.useAbility(id), ability: id }));
-    if (this.sim.horns[this.me] > 0 && this.sim.phase === 'battle') cmds.unshift({ key: 'horn', icon: 'horn', label: t('battle.horn'), tip: t('battle.horn.tip'), run: () => this.blowHorn() });
+    const cmds: ReturnType<BattleScene['abilityDefs']> = ids.slice(0, 5).map((id) => ({ key: id, icon: ABILITIES[id].icon, label: abilityName(id), sub: tOr(`battle.effect.${id}`, ''), tip: tOr(`ability.${id}.desc`, ABILITIES[id].desc), run: () => this.useAbility(id), ability: id }));
+    if (this.sim.horns[this.me] > 0 && this.sim.phase === 'battle') cmds.unshift({ key: 'horn', icon: 'horn', label: t('battle.horn'), sub: t('battle.effect.horn'), tip: t('battle.horn.tip'), run: () => this.blowHorn() });
     return cmds.slice(0, 5);
   }
 
-  private abilityRowH(): number {
-    return this.abilityDefs().length ? 22 + SIZE.gap + 1 : 0;
-  }
-
-  private buildAbilityRow(): void {
+  private buildMedallions(): void {
     const defs = this.abilityDefs();
     if (!defs.length) return;
     const { VW } = this.m;
-    const x0 = 4;
-    const W = VW - 8;
-    const n = defs.length;
-    const bw = Math.min(70, Math.floor((W - SIZE.gap * (n - 1)) / n));
-    const y = this.stripTop() - 22 - SIZE.gap - 1;
+    const x = VW - MED_W - 2;
+    let y = TOP_H + (this.followBtn && !this.online ? 30 : 6);
+    const bottom = this.stripTop() - (this.selUnit >= 0 ? 29 : 2);
     const tabs = this.tabBtns;
-    defs.forEach((d, i) => {
-      const label = d.ability && measureText(d.label) > bw - 21 ? abilityShort(d.ability) : d.label;
-      const chip = new Chip(this, x0 + i * (bw + SIZE.gap), y, bw, { icon: d.icon, label, tip: `${d.label}: ${d.tip}`, id: `battle.cmd.${d.key}`, onClick: d.run });
-      this.hud.add(chip);
-      this.cmdBtns.set(d.key, chip);
-      if (d.ability) this.abilityBtns.push({ id: d.ability, btn: chip });
-    });
+    for (const d of defs) {
+      if (y + MED_H > bottom) break;
+      const m = new Medallion(this, x, y, { icon: d.icon, label: d.label, sub: d.sub, tip: d.tip, id: `battle.cmd.${d.key}`, onClick: d.run });
+      this.hud.add(m);
+      this.cmdBtns.set(d.key, m);
+      if (d.ability) this.abilityBtns.push({ id: d.ability, btn: m });
+      y += MED_H + 4;
+    }
     // the tutorial lights the first ability when it asks for one
-    if (!tabs.has('abilities') && defs[0]) tabs.set('abilities', this.cmdBtns.get(defs[0].key)!);
+    const first = this.cmdBtns.get(defs[0].key);
+    if (!tabs.has('abilities') && first) tabs.set('abilities', first);
   }
 
-  // ---- the command strip (bottom)
+  // ---- the radial ring (no longer shown: the orders live in the bottom sheet)
 
-  private buildStrip(): void {
-    const { VW, VH } = this.m;
-    this.strip = new CommandStrip(this, VW, VH, this.stripOpts());
-    this.hud.add(this.strip);
-  }
-
-  /** Swap the strip's actions (pause / play, speed) without rebuilding the HUD. */
-  private refreshStrip(): void {
-    this.strip?.set(this.stripOpts());
-  }
-
-  private stripOpts(): CommandStripOpts {
-    const deploy = this.sim.phase === 'deploy';
-    const ended = this.sim.phase === 'ended';
-    if (deploy) {
-      const ready = this.dclock?.ready ?? false;
-      return {
-        left: { icon: 'back', label: t('battle.strip.leave'), tip: t('battle.tip.leave'), id: 'battle.leave', onClick: () => this.confirmLeaveDeploy() },
-        main: this.online
-          ? { icon: 'check', label: t('battle.ready'), selected: ready, off: ready ? t('battle.why.waiting') : undefined, tip: t(this.src?.lockstep ? 'battle.tip.readyDuel' : 'battle.tip.ready'), id: 'battle.ready', onClick: () => this.startFight() }
-          : { icon: 'swords', label: t('battle.fight'), tip: t('battle.tip.fight'), id: 'battle.fight', onClick: () => this.startFight() },
-        right: { icon: 'people', label: t('battle.strip.men'), tip: t('battle.tip.groups'), id: 'battle.groups', onClick: () => this.openGroups() },
-      };
-    }
-    const flee: StripSlot = { icon: 'flag', label: t('battle.strip.flee'), tip: t('battle.tip.retreat'), id: 'battle.retreat', off: ended ? t('battle.why.over') : undefined, destructive: !ended, onClick: () => this.openRetreat() };
-    if (this.online) {
-      return {
-        left: { icon: 'eye', label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), selected: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() },
-        main: { icon: 'map', label: t('battle.strip.watch'), secondary: true, tip: t('battle.tip.follow'), id: 'battle.watch', onClick: () => this.frameArmies() },
-        right: flee,
-      };
-    }
-    return {
-      left: { icon: 'pause', label: t('battle.strip.pause'), selected: this.paused, tip: t('battle.tip.pause'), id: 'battle.pause', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() },
-      main: this.paused
-        ? { icon: 'play', label: t('battle.strip.play'), tip: t('battle.tip.pause'), id: 'battle.play', onClick: () => this.togglePause() }
-        : { icon: 'fast', label: t('battle.strip.speed', { n: this.speed }), secondary: true, tip: t('battle.tip.speed'), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
-      right: flee,
-    };
-  }
-
-  // ---- the radial ring (battle: orders round the selected group)
 
   /** Orders the ring offers the selection, with their state now. */
   private ringOrders(): RadialOrder[] {
@@ -2314,28 +2359,18 @@ export class BattleScene extends BaseScene {
     return orders;
   }
 
-  private buildRing(): void {
-    const orders = this.ringOrders();
-    // the shape sheet takes the ring's place while it is open
-    if (!orders.length || this.selGroup < 0 || this.shapeOpen) return;
-    const numeral = this.cards.find((c) => c.gid === this.selGroup)?.numeral ?? (this.sim.groups[this.selGroup].individual ? '*' : '');
-    this.ring = new RadialOrders(this, { orders, numeral, bounds: this.ringBounds(), compact: this.compact });
-    for (const [k, b] of this.ring.buttons) this.cmdBtns.set(k, b);
-    this.hud.add(this.ring);
-    this.placeRing();
-  }
 
   /** Where the ring may sit: the field between the left column, the chrome and the tutorial's narrator. */
   private ringBounds(): { x0: number; y0: number; x1: number; y1: number } {
     const { VW } = this.m;
     let y0 = this.topH();
-    let y1 = this.stripTop() - this.abilityRowH() - (this.selUnit >= 0 ? 27 : 0);
+    let y1 = this.stripTop() - (this.selUnit >= 0 ? 27 : 0);
     const n = this.tutorial?.narratorRect();
     if (n) {
       if (n.y + n.h / 2 < this.m.VH / 2) y0 = Math.max(y0, n.y + n.h);
       else y1 = Math.min(y1, n.y);
     }
-    return { x0: this.leftColumnRight(), y0, x1: VW - 4, y1 };
+    return { x0: 4, y0, x1: VW - 4 - MED_W, y1 };
   }
 
   /** The selected group's centre on screen -> the ring (every frame; hidden while a finger pans or drags). */
@@ -2380,17 +2415,25 @@ export class BattleScene extends BaseScene {
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
     if (!sel) return;
     const mem = this.selectedUnits();
-    const x = this.leftColumnRight() + 2;
-    const w = VW - 4 - x;
+    const x = 4;
+    const w = VW - 8;
     const rowH = this.compact ? 22 : 24;
     const h = 16 + PRESETS.length * (rowH + SIZE.gap) - SIZE.gap + 6;
     this.hideBanner();
-    const y = this.stripTop() - this.abilityRowH() - h - 2;
+    // above the bottom sheet when there is room; on short screens it rises over the sheet, never under the top bar
+    const y = Math.max(TOP_H + 2, this.stripTop() - h - 2);
     const c = this.add.container(0, 0);
     this.hud.add(c);
+    // a popup: the field and the sheet dim behind it, and a tap outside closes it
+    const shade = uiBlocker(this.add.rectangle(0, 0, this.m.VW, this.m.VH, 0x000000, 0.35).setOrigin(0, 0).setInteractive());
+    shade.on('pointerup', () => {
+      this.shapeOpen = false;
+      this.buildHud();
+    });
+    c.add(shade);
     c.add(addPanel(this, x, y, w, h, 'parch'));
     const numeral = this.cards.find((k) => k.gid === sel.id)?.numeral ?? '';
-    const title = addText(this, x + 6, y + 5, ellipsize(t('battle.shape.title', { numeral, name: sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : groupName(sel.name) }), w - 12), 'red');
+    const title = addText(this, x + 6, y + 5, ellipsize(t('battle.shape.title', { numeral, name: sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : groupName(sel.name) }), w - 12, false, 7, 'head'), 'head');
     c.add(title);
     let ry = y + 16;
     for (const [type, key, icon] of PRESETS) {
@@ -2474,8 +2517,8 @@ export class BattleScene extends BaseScene {
   private buildHeroInfo(u: SimUnit, y: number): void {
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    // right of the group cards (they may reach down this far on short screens)
-    const x = this.leftColumnRight();
+    // across the field's foot, just above the sheet
+    const x = 4;
     const w = VW - 4 - x;
     c.add(addPanel(this, x, y, w, 24, 'parch'));
     const hero = this.views[u.id].hero;
@@ -2531,16 +2574,10 @@ export class BattleScene extends BaseScene {
         routed: g.routed,
       });
     }
-    // the ring shows the order in force: rebuild it when that changes (orders are rare events)
-    if (this.ring && this.selGroup >= 0) {
-      const sel = this.sim.groups[this.selGroup];
-      const key = `${sel.order}|${sel.fireAtWill}|${this.selectedUnits().length > 0}`;
-      if (key !== this.ringKey) {
-        this.ringKey = key;
-        this.ring.destroy();
-        this.ring = null;
-        this.buildRing();
-      }
+    // the order row shows the order in force: rebuild when that changes (orders are rare events)
+    if (this.sim.phase === 'battle' && this.ordersKey() !== this.ringKey) {
+      this.buildHud();
+      return;
     }
     this.refreshAbilities();
     if (this.heroInfo) {
@@ -2642,6 +2679,7 @@ export class BattleScene extends BaseScene {
       // a recovering or target-less ability keeps its look: the seconds say when it is back
       a.btn.setBlocked(why);
       a.btn.setCorner(cdLeft > 0 ? t('battle.ability.cooldown', { n: cdLeft }) : ready.length > 1 ? `${ready.length}` : '');
+      a.btn.setCooldown(cdLeft > 0 ? (Math.min(...cds) / TICK_RATE) / ABILITIES[a.id].cooldown : 0);
     }
   }
 
@@ -2971,10 +3009,7 @@ export class BattleScene extends BaseScene {
 }
 
 function uiMetricsOf(scene: Phaser.Scene): { S: number; VW: number; VH: number } {
-  const W = scene.scale.width;
-  const H = scene.scale.height;
-  const S = Math.max(2, Math.min(4, Math.floor(Math.min(W / 190, H / 400))));
-  return { S, VW: Math.floor(W / S), VH: Math.floor(H / S) };
+  return uiMetrics(scene);
 }
 
 /** "1:05". */
@@ -2992,9 +3027,6 @@ function abilityName(id: AbilityId): string {
   return tOr(`ability.${id}.name`, ABILITIES[id].name);
 }
 
-function abilityShort(id: AbilityId): string {
-  return tOr(`ability.${id}.short`, ABILITIES[id].short);
-}
 
 function itemName(def: string): string {
   const d = itemDef(def);

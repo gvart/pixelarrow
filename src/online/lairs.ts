@@ -199,6 +199,11 @@ export function segmentOutcome(setup: BattleSetup, result: BattleResult): { body
   return { body, parts, dealt: Math.round(dealt), killed };
 }
 
+/** What a world boss's hoard holds: every finer weapon, shield, helmet and armour. */
+export function bossLootPool(): string[] {
+  return ITEM_LIST.filter((d) => d.tier >= 2 && d.slot !== 'trinket').map((d) => d.id);
+}
+
 /**
  * A player's share of a slain world boss's hoard: pieces by damage share,
  * rarity from rollBeastRarity, all seeded by the boss and the player so the
@@ -208,11 +213,11 @@ export function bossLoot(boss: EncounterId, shardKey: string, pid: number, share
   if (share < BEAST_RULES.minShare) return [];
   const n = Math.max(1, Math.round(share * BEAST_RULES.bossItems));
   const rng = new Rng(hashString(`${shardKey}:${boss}:loot:${pid}`));
-  const pool = ITEM_LIST.filter((d) => d.tier >= 2 && d.slot !== 'trinket');
+  const pool = bossLootPool();
   const ids = { nextId: 1 };
   const out: Item[] = [];
   for (let i = 0; i < n; i++) {
-    const it = makeItem(rng, ids, rng.pick(pool).id, rollBeastRarity(rng), 100);
+    const it = makeItem(rng, ids, rng.pick(pool), rollBeastRarity(rng), 100);
     it.uid = `${uidPrefix}${i}`;
     out.push(it);
   }

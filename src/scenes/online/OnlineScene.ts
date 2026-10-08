@@ -9,6 +9,7 @@
  * displays it and sends intents. Started with `{ preview }` it shows a local
  * demo shard instead (src/online/demoShard.ts: layout check, screenshots).
  */
+import { RS } from '../../platform/renderScale';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { Button, Meter, addIcon, addPanel, addScroll, addText, tappable } from '../../ui/kit';
@@ -1265,7 +1266,7 @@ export class OnlineScene extends BaseScene {
     }
     const g = this.gesture;
     if (!g || g.id !== p.id || !p.isDown) return;
-    if (g.mode === 'pending' && Math.abs(p.x - g.sx) + Math.abs(p.y - g.sy) > 10) g.mode = 'pan';
+    if (g.mode === 'pending' && Math.abs(p.x - g.sx) + Math.abs(p.y - g.sy) > 10 * RS) g.mode = 'pan';
     if (g.mode === 'pan') {
       const cam = this.cameras.main;
       cam.scrollX -= (p.x - g.lx) / cam.zoom;

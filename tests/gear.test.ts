@@ -15,7 +15,7 @@ import { TRAIT_IDS } from '../src/data/traits';
 import { dataTable, setLang, tOr } from '../src/i18n';
 import { missingGlyphs } from '../src/ui/textfit';
 
-const hero = (arch: 'hoplite' | 'archer' | 'peltast' = 'hoplite', level = 3, seed = 5): Hero => makeHero(new Rng(seed), { nextId: 1 }, 'greek', arch, level, 1, 0);
+const hero = (arch: 'hoplite' | 'archer' | 'peltast' = 'hoplite', level = 3, seed = 5): Hero => makeHero(new Rng(seed), { nextId: seed * 100 }, 'greek', arch, level, 1, 0);
 const item = (uid: string, def: string, rarity: Item['rarity'] = 'common', cond = 100): Item => ({ uid, def, rarity, cond });
 
 describe('compare deltas', () => {

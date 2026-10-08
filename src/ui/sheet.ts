@@ -6,13 +6,13 @@
  * drop from the stash onto equipment slots.
  */
 import Phaser from 'phaser';
-import { Button, Meter, ScrollArea, addIcon, addPanel, addText, tappable, type FontKey } from './kit';
+import { scaleIcon, Button, Meter, ScrollArea, addIcon, addPanel, addText, tappable, type FontKey } from './kit';
 import { Badge, ItemIcon, Grid, addEmptyState, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { SIZE, COLOR, RARITY_COLOR } from './theme';
 import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
-import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon } from './sprites';
+import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
 import { renderStage, renderStar, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
 import { ANIM, attackLength, dollFromHero, dollGeom, weaponClass } from '../art/paperdoll';
@@ -294,7 +294,7 @@ export class DragDrop {
     this.cancel();
     const { S } = this.scene.m;
     this.item = it;
-    this.ghost = this.scene.add.image(p.x / S, p.y / S - 6, ensureItemIcon(this.scene, it)).setScale(2).setAlpha(0.92).setDepth(10);
+    this.ghost = fitItemIcon(this.scene.add.image(p.x / S, p.y / S - 6, ensureItemIcon(this.scene, it, 32)), 32).setAlpha(0.92).setDepth(10);
     this.scene.ui.add(this.ghost);
     this.marks = this.scene.add.graphics();
     this.scene.ui.add(this.marks);
@@ -405,7 +405,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   c.add(addText(scene, tx, cy + 10, ellipsize(`${t(`rarity.${rarity}` as TKey)} · ${t(`slot.${def.slot}` as TKey)}${def.twoHanded ? ` · ${t('stash.twoHanded')}` : ''}`, tw), 'dim'));
   c.add(new Meter(scene, tx, cy + 22, Math.max(20, tw - 46), 4, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100));
   c.add(addText(scene, tx + Math.max(20, tw - 46) + 3, cy + 20, `${Math.round(it.cond)}%`, it.cond < 34 ? 'red' : 'ink'));
-  c.add(addIcon(scene, tx - 1, cy + 28, 'coin').setScale(0.75));
+  c.add(scaleIcon(addIcon(scene, tx - 1, cy + 28, 'coin'), 0.75));
   c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }), tw - 10), 'dim'));
   cy += headH;
   // ---- scrolling body (compare, stats, description, notes)
@@ -673,7 +673,8 @@ export function bigItemIcon(scene: Phaser.Scene, x: number, y: number, it: Item,
   const key = ensureItemIcon(scene, it);
   for (const o of ic.list) {
     if (o instanceof Phaser.GameObjects.Image && o.texture.key === key) {
-      o.setScale(2);
+      // the smooth icon redrawn at 32 UI px (not the 16 px one scaled up)
+      fitItemIcon(o.setTexture(ensureItemIcon(scene, it, 32)), 32);
       o.setPosition(Math.floor((size - 32) / 2), Math.floor((size - 32) / 2));
     }
   }

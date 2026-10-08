@@ -6,18 +6,21 @@
  * (src/ui/layout.ts) automatically.
  */
 import Phaser from 'phaser';
-import { renderFontAtlas, FONT_LINE_HEIGHT } from '../art/font';
+import { renderVectorAtlas, type Face } from '../art/vectorFont';
 import { ICONS } from '../art/icons';
-import { P } from '../art/palette';
-import { renderIcon, renderPanel, renderScrollRoll, type PanelStyle } from '../art/uiTextures';
+import { VECTOR_CAMP_ICONS, VECTOR_ICONS } from '../art/vectorIcons';
+import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
+import { renderIcon, type PanelStyle } from '../art/uiTextures';
+import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
 import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
 import { ellipsize, measureText } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
+import { RS } from '../platform/renderScale';
 
-export type FontKey = 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good';
+export type FontKey = 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good' | 'head';
 
 export interface UIMetrics {
   S: number;
@@ -28,85 +31,107 @@ export interface UIMetrics {
 export function uiMetrics(scene: Phaser.Scene): UIMetrics {
   const W = scene.scale.width;
   const H = scene.scale.height;
-  const S = Math.max(2, Math.min(4, Math.floor(Math.min(W / 190, H / 400))));
+  // whole UI px per CSS px, chosen on the CSS size; the canvas is RS x denser (src/platform/renderScale.ts)
+  const S = Math.max(2, Math.min(4, Math.floor(Math.min(W / RS / 190, H / RS / 400)))) * RS;
   return { S, VW: Math.floor(W / S), VH: Math.floor(H / S) };
 }
 
+/** Text colours on the Bronze & Stone surfaces (src/art/smoothUi.ts): light ink on dark stone. */
 const FONT_COLORS: Record<FontKey, [number, number | undefined]> = {
-  ink: [P.ink, undefined],
-  light: [P.cream, P.redDark],
-  red: [P.inkRed, undefined],
-  gold: [P.gold, 0x3a2410],
-  dim: [0x8a6a5c, undefined],
-  title: [P.cream, P.ink],
-  good: [0x3f7a2e, undefined],
+  ink: [TEXT_D2.tx, undefined],
+  light: [TEXT_D2.onBtn, 0x1a0d06],
+  red: [0xe08a6e, undefined],
+  gold: [BRONZE_D2.hi, 0x120e0b],
+  dim: [0x9d8f78, undefined],
+  title: [TEXT_D2.tx, 0x120e0b],
+  good: [STATUS_D2.good, undefined],
+  // section headings and names: Cormorant SC in bronze (measure with face 'head')
+  head: [BRONZE_D2.hi, undefined],
 };
+const FONT_FACE: Partial<Record<FontKey, Face>> = { head: 'head' };
+
+/**
+ * Register a bitmap font `key` drawn from a vector face (src/art/vectorFont.ts)
+ * at this screen's density. Glyphs are smooth, so the atlas samples linearly.
+ */
+export function registerVectorFont(scene: Phaser.Scene, key: string, color: number, shadow?: number, face: Face = 'body'): void {
+  if (scene.textures.exists(key)) return;
+  const K = Math.max(2, Math.ceil(uiMetrics(scene).S));
+  const { canvas, glyphs, lineH, size } = renderVectorAtlas(color, shadow, K, face);
+  scene.textures.addCanvas(key, canvas)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  const tw = canvas.width;
+  const th = canvas.height;
+  const chars: Record<number, unknown> = {};
+  for (const g of glyphs) {
+    chars[g.ch.charCodeAt(0)] = {
+      x: g.x, y: g.y, width: g.w, height: g.h, centerX: Math.floor(g.w / 2), centerY: Math.floor(g.h / 2),
+      xOffset: g.xOffset, yOffset: g.yOffset, xAdvance: g.xAdvance, data: {}, kerning: {},
+      u0: g.x / tw, v0: g.y / th, u1: (g.x + g.w) / tw, v1: (g.y + g.h) / th,
+    };
+  }
+  scene.cache.bitmapFont.add(key, { data: { retroFont: true, font: key, size, lineHeight: lineH, chars }, texture: key, frame: null });
+}
 
 /** Register fonts and icon textures once per game. */
 export function registerUiAssets(scene: Phaser.Scene): void {
   if (scene.textures.exists('font_ink')) return;
   for (const key of Object.keys(FONT_COLORS) as FontKey[]) {
     const [color, shadow] = FONT_COLORS[key];
-    const { canvas, glyphs } = renderFontAtlas(color, shadow);
-    const tkey = `font_${key}`;
-    scene.textures.addCanvas(tkey, canvas);
-    const frame = scene.textures.getFrame(tkey);
-    const tw = frame.source.width;
-    const th = frame.source.height;
-    const chars: Record<number, unknown> = {};
-    const h = FONT_LINE_HEIGHT;
-    for (const g of glyphs) {
-      chars[g.ch.charCodeAt(0)] = {
-        x: g.x,
-        y: g.y,
-        width: g.w,
-        height: h,
-        centerX: Math.floor(g.w / 2),
-        centerY: Math.floor(h / 2),
-        xOffset: 0,
-        yOffset: 0,
-        xAdvance: g.w + 1 - (shadow !== undefined ? 1 : 0),
-        data: {},
-        kerning: {},
-        u0: g.x / tw,
-        v0: g.y / th,
-        u1: (g.x + g.w) / tw,
-        v1: (g.y + h) / th,
-      };
-    }
-    // Letters without a lower-case glyph fall back to the upper-case one.
-    for (let cc = 97; cc <= 122; cc++) if (!chars[cc] && chars[cc - 32]) chars[cc] = chars[cc - 32];
-    // ... and so do Cyrillic ones (а..я -> А..Я, ё -> Ё).
-    for (let cc = 0x430; cc <= 0x44f; cc++) if (!chars[cc] && chars[cc - 0x20]) chars[cc] = chars[cc - 0x20];
-    if (!chars[0x451] && chars[0x401]) chars[0x451] = chars[0x401];
-    const data = { retroFont: true, font: tkey, size: 7, lineHeight: h + 1, chars };
-    scene.cache.bitmapFont.add(tkey, { data, texture: tkey, frame: null });
+    registerVectorFont(scene, `font_${key}`, color, shadow, FONT_FACE[key]);
+  }
+  // smooth icons first (src/art/vectorIcons.ts); a name with no vector form keeps its pixel icon
+  const K = panelK(scene);
+  const vec: [string, IconPart[]][] = [...Object.entries(VECTOR_ICONS), ...Object.entries(VECTOR_CAMP_ICONS).map(([k, d]): [string, IconPart[]] => [`camp_${k}`, d])];
+  for (const [name, d] of vec) {
+    registerVectorIcon(scene, `icon_${name}`, name, d, 'full', K);
+    registerVectorIcon(scene, `iconL_${name}`, name, d, 'light', K);
+    registerVectorIcon(scene, `iconD_${name}`, name, d, 'dim', K);
   }
   for (const [name, rows] of Object.entries(ICONS)) {
-    scene.textures.addCanvas(`icon_${name}`, renderIcon(rows, P.inkRed, P.parchShade).toCanvas());
-    scene.textures.addCanvas(`iconL_${name}`, renderIcon(rows, P.cream, 0xd08070).toCanvas());
-    scene.textures.addCanvas(`iconD_${name}`, renderIcon(rows, 0x9a8070, 0xc8b0a0).toCanvas());
+    if (scene.textures.exists(`icon_${name}`)) continue;
+    scene.textures.addCanvas(`icon_${name}`, renderIcon(rows, BRONZE_D2.hi, BRONZE_D2.mid).toCanvas());
+    scene.textures.addCanvas(`iconL_${name}`, renderIcon(rows, TEXT_D2.onBtn, 0xd8b88a).toCanvas());
+    scene.textures.addCanvas(`iconD_${name}`, renderIcon(rows, TEXT_D2.tx3, BRONZE_D2.lo).toCanvas());
   }
 }
 
-export function panelTexture(scene: Phaser.Scene, w: number, h: number, style: PanelStyle): string {
+/**
+ * Atlas px per UI px of panel textures: they are drawn at the screen's
+ * density (src/art/smoothUi.ts), so an image showing one is scaled by
+ * 1 / panelK (use `panelImage`, or keep that scale when calling setTexture).
+ */
+export function panelK(scene: Phaser.Scene): number {
+  return Math.max(2, Math.ceil(uiMetrics(scene).S));
+}
+
+export function panelTexture(scene: Phaser.Scene, w: number, h: number, style: SmoothStyle): string {
   w = Math.max(6, Math.round(w));
   h = Math.max(6, Math.round(h));
-  const key = `panel_${style}_${w}x${h}`;
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderPanel(w, h, style).toCanvas());
+  const K = panelK(scene);
+  const key = `panel_${style}_${w}x${h}@${K}`;
+  if (!scene.textures.exists(key)) {
+    const css = (K * RS) / uiMetrics(scene).S;
+    scene.textures.addCanvas(key, renderSmoothPanel(w, h, style, K, css))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  }
   return key;
 }
 
-export function addPanel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: PanelStyle = 'parch'): Phaser.GameObjects.Image {
-  return scene.add.image(Math.round(x), Math.round(y), panelTexture(scene, w, h, style)).setOrigin(0, 0);
+/** An image of a panel texture, scaled to UI px (origin top-left). */
+export function panelImage(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, panelTexture(scene, w, h, style)).setOrigin(0, 0).setScale(1 / panelK(scene));
 }
 
+export function addPanel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: PanelStyle = 'parch'): Phaser.GameObjects.Image {
+  return panelImage(scene, Math.round(x), Math.round(y), w, h, style);
+}
+
+/** A title plaque (it was a parchment scroll): a stone panel with a fine bronze rule inside. */
 export function addScroll(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number): void {
-  parent.add(addPanel(scene, x, y + 3, w, h - 6, 'parch'));
-  const key = `roll_${w + 8}`;
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderScrollRoll(w + 8).toCanvas());
-  parent.add(scene.add.image(x - 4, y - 2, key).setOrigin(0, 0));
-  parent.add(scene.add.image(x - 4, y + h - 6, key).setOrigin(0, 0));
+  parent.add(addPanel(scene, x, y, w, h, 'parch'));
+  const g = scene.add.graphics();
+  g.lineStyle(0.5, BRONZE_D2.lo, 1);
+  g.strokeRoundedRect(x + 2.5, y + 2.5, w - 5, h - 5, 2.5);
+  parent.add(g);
 }
 
 export function addText(
@@ -145,8 +170,25 @@ export function fitText(txt: Phaser.GameObjects.BitmapText, w: number): Phaser.G
   return txt;
 }
 
+/** Icon edge in UI px (the pixel icons' size; smooth icons are drawn denser and scaled down to it). */
+export const ICON_PX = 12;
+
+/** Paint an icon from its parts (24 x 24 box) at K atlas px per UI px (src/art/iconStyle.ts). */
+function registerVectorIcon(scene: Phaser.Scene, key: string, name: string, d: IconPart[], look: IconLook, K: number): void {
+  if (scene.textures.exists(key)) return;
+  scene.textures.addCanvas(key, paintIcon(name, d, look, ICON_PX * K))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+}
+
 export function addIcon(scene: Phaser.Scene, x: number, y: number, name: string, variant: '' | 'L' | 'D' = ''): Phaser.GameObjects.Image {
-  return scene.add.image(Math.round(x), Math.round(y), `icon${variant}_${name}`).setOrigin(0, 0);
+  const img = scene.add.image(Math.round(x), Math.round(y), `icon${variant}_${name}`).setOrigin(0, 0);
+  // smooth icons are denser than their 12 UI px: show them at that size
+  if (img.width > ICON_PX) img.setScale(ICON_PX / img.width);
+  return img;
+}
+
+/** Scale an icon `n` times its standard size (works for smooth and pixel icons alike). */
+export function scaleIcon(img: Phaser.GameObjects.Image, n: number): Phaser.GameObjects.Image {
+  return img.setScale((n * ICON_PX) / Math.max(1, img.width));
 }
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
@@ -247,7 +289,7 @@ export class Button extends Phaser.GameObjects.Container {
     this.opts = opts;
     this.selected = opts.style === 'buttonSel';
     this.enabled = opts.style !== 'buttonOff';
-    this.bg = scene.add.image(0, 0, panelTexture(scene, this.w, this.h, this.baseStyle())).setOrigin(0, 0);
+    this.bg = panelImage(scene, 0, 0, this.w, this.h, this.baseStyle());
     this.add(this.bg);
     this.content = scene.add.container(0, 0);
     this.add(this.content);
@@ -275,14 +317,14 @@ export class Button extends Phaser.GameObjects.Container {
     });
     this.on('pointerout', () => this.release());
     this.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (this.downAt && p.isDown && Math.abs(p.x - this.downAt.x) + Math.abs(p.y - this.downAt.y) > 14) this.release();
+      if (this.downAt && p.isDown && Math.abs(p.x - this.downAt.x) + Math.abs(p.y - this.downAt.y) > 14 * RS) this.release();
     });
     this.on('pointerup', (p: Phaser.Input.Pointer) => {
       const d = this.downAt;
       const long = this.longPressed;
       this.release();
       if (!d || long) return;
-      if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14) return;
+      if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       if (!this.enabled) {
         uiError();
         hapticNotify('warning');
@@ -316,21 +358,23 @@ export class Button extends Phaser.GameObjects.Container {
     return undefined;
   }
 
-  private baseStyle(): PanelStyle {
+  /** Primary = terracotta, selected = lit bronze, destructive = stone, else bronze. */
+  private baseStyle(): SmoothStyle {
     if (!this.enabled) return 'buttonOff';
-    if (this.selected || this.opts.variant === 'primary') return 'buttonSel';
+    if (this.opts.variant === 'primary') return 'buttonSel';
+    if (this.selected) return 'buttonOn';
     if (this.opts.variant === 'destructive') return 'buttonDanger';
     return 'button';
   }
 
-  private downStyle(): PanelStyle {
+  private downStyle(): SmoothStyle {
     const b = this.baseStyle();
-    return b === 'buttonSel' ? 'buttonSelDown' : b === 'buttonDanger' ? 'buttonDangerDown' : 'buttonDown';
+    return b === 'buttonSel' ? 'buttonSelDown' : b === 'buttonOn' ? 'buttonOnDown' : b === 'buttonDanger' ? 'buttonDangerDown' : 'buttonDown';
   }
 
   private isLight(): boolean {
     const b = this.baseStyle();
-    return b === 'buttonSel' || b === 'buttonDanger';
+    return b === 'buttonSel' || b === 'buttonDanger' || b === 'buttonOn';
   }
 
   private build(): void {
@@ -344,10 +388,14 @@ export class Button extends Phaser.GameObjects.Container {
     const shadow = SHADOW_FONTS.has(font);
     const hasIcon = !!this.opts.icon;
     const hasLabel = !!this.opts.label;
+    const stacked = hasIcon && hasLabel && this.h >= 26 && !this.opts.inline && !this.opts.iconOnly;
+    // words under an icon, and small buttons, use the smaller text size
+    const size = stacked || this.opts.small ? 6 : 7;
+    const lh = (8 * size) / 7;
     this.truncated = false;
     const fit = (maxW: number) => {
       const full = this.opts.label!;
-      const out = ellipsize(full, maxW, shadow);
+      const out = ellipsize(full, maxW, shadow, size);
       this.truncated = out !== full;
       return out;
     };
@@ -360,7 +408,7 @@ export class Button extends Phaser.GameObjects.Container {
     } else if (hasIcon && hasLabel && this.h >= 26 && !this.opts.inline) {
       // icon above label
       this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);
-      this.labelText = addText(scene, this.w / 2, this.h - 11, fit(this.w - 6), font, 0.5);
+      this.labelText = addText(scene, this.w / 2, this.h - 11, fit(this.w - 4), font, 0.5).setFontSize(size);
       this.content.add([this.iconImg, this.labelText]);
     } else if (hasIcon && hasLabel) {
       const room = this.w - 6 - 15;
@@ -369,15 +417,15 @@ export class Button extends Phaser.GameObjects.Container {
         // no room for words: icon only, the label becomes the long-press tip
         iconCentered();
       } else {
-        this.labelText = addText(scene, 0, 0, label, font, 0);
-        const total = 12 + 3 + measureText(label, shadow);
+        this.labelText = addText(scene, 0, 0, label, font, 0).setFontSize(size);
+        const total = 12 + 3 + measureText(label, shadow, size);
         const x0 = Math.round((this.w - total) / 2);
         this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
-        this.labelText.setPosition(x0 + 15, Math.round((this.h - 8) / 2) - 1);
+        this.labelText.setPosition(x0 + 15, (this.h - lh) / 2 - 1);
         this.content.add([this.iconImg, this.labelText]);
       }
     } else if (hasLabel) {
-      this.labelText = addText(scene, this.w / 2, Math.round((this.h - 8) / 2) - 1, fit(this.w - 6), font, 0.5);
+      this.labelText = addText(scene, this.w / 2, (this.h - lh) / 2 - 1, fit(this.w - 6), font, 0.5).setFontSize(size);
       this.content.add(this.labelText);
     }
     if (this.labelText) uiFrame(this.labelText, this, this.w, this.h);
@@ -452,10 +500,10 @@ export class Meter extends Phaser.GameObjects.Graphics {
   setValue(v: number, max: number, color = this.color): this {
     const f = max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
     this.clear();
-    this.fillStyle(P.ink, 1);
+    this.fillStyle(BRONZE_D2.lo, 1);
     this.fillRect(0, 0, this.w, this.h);
-    this.fillStyle(0x6b4a40, 1);
-    this.fillRect(1, 1, this.w - 2, this.h - 2);
+    this.fillStyle(0x0d0a08, 1);
+    this.fillRect(0.5, 0.5, this.w - 1, this.h - 1);
     const fw = Math.round((this.w - 2) * f);
     if (fw > 0) {
       this.fillStyle(color, 1);
@@ -529,7 +577,7 @@ export class ScrollArea {
       if (!this.dragging || !p.isDown) return;
       const dy = (p.y - this.lastY) / S;
       this.lastY = p.y;
-      if (Math.abs(p.y - this.startY) > 10) this.moved = true;
+      if (Math.abs(p.y - this.startY) > 10 * RS) this.moved = true;
       this.vel = dy;
       this.setScroll(this.scroll - dy);
     };
@@ -666,7 +714,7 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
       });
   });
   obj.on('pointermove', (p: Phaser.Input.Pointer) => {
-    if (down && Math.abs(p.x - down.x) + Math.abs(p.y - down.y) > 14) stop();
+    if (down && Math.abs(p.x - down.x) + Math.abs(p.y - down.y) > 14 * RS) stop();
   });
   obj.on('pointerout', stop);
   obj.on('pointerup', (p: Phaser.Input.Pointer) => {
@@ -674,7 +722,7 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
     if (!down || long) return;
     const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
     down = null;
-    if (d > 14 || (area && area.moved)) return;
+    if (d > 14 * RS || (area && area.moved)) return;
     hapticSelect();
     uiButton();
     onTap();

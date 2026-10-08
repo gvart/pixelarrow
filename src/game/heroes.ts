@@ -44,12 +44,31 @@ export function crestPaint(rng: Rng): ItemPaint {
   return { field: rng.pick(['red', 'ink', 'cream', 'red']) };
 }
 
+/** Helmet arts that carry a painted crest (src/art/paperdoll.ts). */
+const CRESTED_ART = ['corinthian', 'chalcidian', 'montefortino'];
+
+/**
+ * Charms a bot hero of a culture may wear (item ids, src/data/items.ts):
+ * the trinket source of enemy armies, garrisons and recruits, so their loot.
+ * A hero of kit tier t draws from the charms of item tier <= t.
+ */
+export const HERO_TRINKETS: Record<Culture, readonly string[]> = {
+  greek: ['owl_amulet', 'herakles_knot', 'laurel', 'boar_tusk', 'knucklebones', 'hermes_token', 'votive_shield', 'iron_ring', 'gorgoneion', 'horse_pendant', 'lion_claw', 'serpent_ring', 'curse_tablet', 'bulla', 'pythian_token'],
+  phoenician: ['scarab', 'tanit_eye', 'herakles_knot', 'eye_bead', 'votive_shield', 'bes_amulet', 'signet_ring', 'faravahar', 'serpent_ring', 'thumb_ring', 'curse_tablet'],
+  celtic: ['boar_tusk', 'torc', 'wolf_tooth', 'iron_ring', 'knucklebones', 'lion_claw', 'thumb_ring', 'horse_pendant', 'gold_torc', 'gold_stag'],
+};
+
+/** The charms a hero of `culture` and kit tier `tier` may carry. */
+export function heroTrinkets(culture: Culture, tier: number): string[] {
+  return HERO_TRINKETS[culture].filter((id) => itemDef(id).tier <= tier);
+}
+
 export function makeItem(rng: Rng, ids: IdSource, defId: string, rarity: Rarity = 'common', cond = 100, culture: Culture = 'greek', paint?: ItemPaint): Item {
   const def = itemDef(defId);
   const item: Item = { uid: newId(ids, 'i'), def: defId, rarity, cond: Math.round(cond) };
   if (paint) item.paint = paint;
   else if (def.slot === 'shield') item.paint = shieldPaint(rng, culture);
-  else if (def.slot === 'helmet' && (defId === 'corinthian' || defId === 'chalcidian' || defId === 'montefortino')) item.paint = crestPaint(rng);
+  else if (def.slot === 'helmet' && CRESTED_ART.includes(def.art)) item.paint = crestPaint(rng);
   return item;
 }
 
@@ -199,7 +218,7 @@ export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: A
     hero.equip[slot] = makeItem(rng, ids, defId, levy ? 'common' : rollRarity(rng, t), levy ? rng.range(45, 80) : rng.range(55, 100), culture);
   }
   if (!levy && t >= 2 && rng.chance(0.15 * t)) {
-    hero.equip.trinket = makeItem(rng, ids, rng.pick(['owl_amulet', 'herakles_knot', 'scarab', 'laurel', 'tanit_eye', 'boar_tusk']), rollRarity(rng, t - 1), 100, culture);
+    hero.equip.trinket = makeItem(rng, ids, rng.pick(heroTrinkets(culture, t)), rollRarity(rng, t - 1), 100, culture);
   }
   return hero;
 }

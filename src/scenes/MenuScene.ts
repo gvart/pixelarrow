@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, addPanel, addScroll, addText } from '../ui/kit';
+import { Button, addPanel, addScroll, addText, panelK } from '../ui/kit';
 import { ensurePortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { MenuBattle } from './menu/MenuBattle';
@@ -64,14 +64,16 @@ export class MenuScene extends BaseScene {
       const tw = Math.min(w, 150);
       const tx = Math.round((VW - tw) / 2);
       addScroll(this, this.ui, tx, 6, tw, 42);
-      const title = addText(this, VW / 2, 12, 'Pixelarrow', 'red', 0.5);
-      title.setFontSize(14);
+      // the wordmark: bronze small capitals, the subtitle spaced out under a rule
+      const title = addText(this, VW / 2, 11, 'Pixelarrow', 'head', 0.5);
+      title.setFontSize(13);
       this.ui.add(title);
-      this.ui.add(addText(this, VW / 2, 31, ellipsize(t('menu.subtitle'), tw - 16), 'ink', 0.5));
+      const sub = ellipsize(t('menu.subtitle').toUpperCase(), tw - 16, false, 5);
+      this.ui.add(addText(this, VW / 2, 35, sub, 'dim', 0.5).setFontSize(5).setLetterSpacing(panelK(this) * 1.1));
       y = stageH + 4;
     } else {
       // no room for a stage (a very short window): the title line alone
-      this.ui.add(addText(this, VW / 2, 4, 'Pixelarrow', 'title', 0.5));
+      this.ui.add(addText(this, VW / 2, 4, 'Pixelarrow', 'head', 0.5).setFontSize(9));
       y = 18;
     }
 

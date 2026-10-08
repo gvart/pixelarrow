@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { registerUiAssets, addText, uiMetrics } from '../ui/kit';
 import { registerMisc } from '../ui/sprites';
+import { loadUiFonts } from '../art/vectorFont';
 import { initTelegram, startParam } from '../platform/telegram';
 import { parseStartParam, sceneForRoute } from '../online/deeplink';
 import { setPendingInvite } from '../online/client';
@@ -15,6 +16,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // canvas text does not wait for web fonts: the atlases need the bundled faces loaded first
+    void loadUiFonts().finally(() => this.start());
+  }
+
+  private start(): void {
     registerUiAssets(this);
     registerMisc(this);
     const m = uiMetrics(this);

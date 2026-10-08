@@ -70,6 +70,13 @@ export function contains(outer: Rect, inner: Rect, eps = 0.5): boolean {
   return inner.x >= outer.x - eps && inner.y >= outer.y - eps && inner.x + inner.w <= outer.x + outer.w + eps && inner.y + inner.h <= outer.y + outer.h + eps;
 }
 
+/** The part of `r` between the top and bottom edges of `clip` (full width), or null if none. */
+function rowsIn(r: Rect, clip: Rect): Rect | null {
+  const y0 = Math.max(r.y, clip.y);
+  const y1 = Math.min(r.y + r.h, clip.y + clip.h);
+  return y1 > y0 ? { x: r.x, y: y0, w: r.w, h: y1 - y0 } : null;
+}
+
 const fmt = (r: Rect) => `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.w)}x${Math.round(r.h)}`;
 
 /** Gap between two non-overlapping rects along the axis where they face each other (Infinity if diagonal). */
@@ -116,7 +123,11 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
     }
   }
   for (const e of texts) {
-    if (e.frame && !contains(e.frame, e.rect, eps)) out.push({ check: 'text-overflow', ids: [e.id], detail: `text ${fmt(e.rect)} outside its box ${fmt(e.frame)}` });
+    // A scroll viewport cutting a line at its top or bottom edge is scrolling, not overflow (see
+    // 'clipped' above): judge the rows inside the viewport; a line scrolled fully out is not judged.
+    const r = e.clip ? rowsIn(e.rect, e.clip) : e.rect;
+    if (!r) continue;
+    if (e.frame && !contains(e.frame, r, eps)) out.push({ check: 'text-overflow', ids: [e.id], detail: `text ${fmt(r)} outside its box ${fmt(e.frame)}` });
     else if (e.maxW !== undefined && e.rect.w > e.maxW + eps) out.push({ check: 'text-overflow', ids: [e.id], detail: `text ${Math.round(e.rect.w)}pt wider than ${Math.round(e.maxW)}pt` });
   }
   // Lines of a wrapped block stay in their column (e.g. beside a portrait) and share its left edge.

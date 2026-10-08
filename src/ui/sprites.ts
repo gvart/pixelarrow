@@ -32,6 +32,8 @@ import {
   type DollFx, type DollSpec, type SheetGeom,
 } from '../art/paperdoll';
 import { itemIconKey, renderItemIcon } from '../art/itemIcons';
+import { renderItemIconHD } from '../art/itemIconsHD';
+import { panelK } from './kit';
 import { renderBasePlate, renderBlood, renderPlateRing, renderRing, renderShadow } from '../art/ground';
 import { Pix } from '../art/pixels';
 import { P } from '../art/palette';
@@ -435,10 +437,32 @@ export function addPortrait(scene: Phaser.Scene, spec: DollSpec, x: number, y: n
   return spr;
 }
 
-export function ensureItemIcon(scene: Phaser.Scene, item: Item): string {
-  const key = itemIconKey(item);
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderItemIcon(item).toCanvas());
+/**
+ * The texture of an item's icon at `size` UI px: a smooth icon drawn at the
+ * screen's density (src/art/itemIconsHD.ts, K atlas px per UI px), so an
+ * image showing it is scaled by `size / image.width` (see addItemIcon /
+ * fitItemIcon). Falls back on the pixel icon where there is no DOM.
+ */
+export function ensureItemIcon(scene: Phaser.Scene, item: Item, size = 16): string {
+  if (typeof document === 'undefined') {
+    const key = itemIconKey(item);
+    if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderItemIcon(item).toCanvas());
+    return key;
+  }
+  const px = Math.round(size * panelK(scene));
+  const key = itemIconKey(item, px);
+  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderItemIconHD(item, px))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
   return key;
+}
+
+/** Scale an image of an item icon texture to `size` UI px. */
+export function fitItemIcon(img: Phaser.GameObjects.Image, size = 16): Phaser.GameObjects.Image {
+  return img.setScale(size / Math.max(1, img.width));
+}
+
+/** An item icon image at (x, y), origin top left, `size` UI px on a side. */
+export function addItemIcon(scene: Phaser.Scene, x: number, y: number, item: Item, size = 16): Phaser.GameObjects.Image {
+  return fitItemIcon(scene.add.image(x, y, ensureItemIcon(scene, item, size)).setOrigin(0, 0), size);
 }
 
 /** Base plate widths (px) for a man and for a rider / chariot. */

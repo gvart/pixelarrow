@@ -10,14 +10,15 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics } from './kit';
+import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
 import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, glows } from './theme';
 import { renderGlow, renderRarityFrame } from '../art/uiTextures';
-import { renderGoodsIcon, goodsIconKey, type GoodsKind } from '../art/goodsIcons';
+import { type GoodsKind } from '../art/goodsIcons';
+import { goodsTexture } from './econ/textures';
 import { itemDef, normalizeRarity, type Item, type Rarity } from '../data/items';
-import { ensureItemIcon } from './sprites';
+import { ensureItemIcon, fitItemIcon } from './sprites';
 import { navLayer } from '../platform/nav';
 import { haptic } from '../platform/telegram';
 import { sfx } from '../audio';
@@ -29,7 +30,7 @@ export interface UiScene extends Phaser.Scene {
   m: UIMetrics;
 }
 
-const metrics = (scene: Phaser.Scene): UIMetrics => (scene as UiScene).m ?? { S: 2, VW: Math.floor(scene.scale.width / 2), VH: Math.floor(scene.scale.height / 2) };
+const metrics = (scene: Phaser.Scene): UIMetrics => (scene as UiScene).m ?? uiMetrics(scene);
 
 /** The container overlays go into: the scene's UI root, or a scaled root made on demand. */
 function overlayRoot(scene: Phaser.Scene): Phaser.GameObjects.Container {
@@ -673,10 +674,7 @@ export function subjectName(s: IconSubject): string {
 function iconTexture(scene: Phaser.Scene, s: IconSubject): string {
   if ('item' in s) return ensureItemIcon(scene, s.item);
   const kind: GoodsKind = 'consumable' in s ? 'consumable' : 'resource';
-  const id = 'consumable' in s ? s.consumable : s.resource;
-  const key = goodsIconKey(kind, id);
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderGoodsIcon(kind, id).toCanvas());
-  return key;
+  return goodsTexture(scene, kind, 'consumable' in s ? s.consumable : s.resource);
 }
 
 /**
@@ -710,6 +708,7 @@ export class ItemIcon extends Phaser.GameObjects.Container {
     if (!scene.textures.exists(fk)) scene.textures.addCanvas(fk, renderRarityFrame(size, RARITY_COLOR[rarity], RARITY_GLOW[rarity]).toCanvas());
     this.add(scene.add.image(0, 0, fk).setOrigin(0, 0));
     const icon = scene.add.image(Math.floor((size - 16) / 2), Math.floor((size - 16) / 2), iconTexture(scene, subject)).setOrigin(0, 0);
+    fitItemIcon(icon, 16); // smooth item and goods icons are denser than their 16 UI px
     this.add(icon);
     if (o.qty !== undefined && o.qty > 1) {
       const q = addText(scene, size - 1, size - 9, `${o.qty > 999 ? '999+' : o.qty}`, 'light', 1);
@@ -1054,7 +1053,7 @@ export function addEmptyState(scene: Phaser.Scene, x: number, y: number, w: numb
   while (total() > h && lines > 1) wr = wrapText(o.hint, w - 12, --lines);
   let cy = Math.max(0, Math.round((h - total()) / 2));
   if (showIcon && o.icon) {
-    const ic = addIcon(scene, w / 2 - 12, cy, o.icon, 'D').setScale(2);
+    const ic = scaleIcon(addIcon(scene, w / 2 - 12, cy, o.icon, 'D'), 2);
     c.add(ic);
     cy += 28;
   }

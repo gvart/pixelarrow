@@ -18,7 +18,28 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures++;
 };
 
+/**
+ * The canvas renders at device pixels (src/platform/renderScale.ts RS): game
+ * px (scale.width, getBounds(), camera projections, UI px * m.S) are CSS px *
+ * RS. Touches and page.mouse are CSS px. `__css(x, y)` maps game px to page
+ * (CSS) px through the canvas rect, `__gamePt(x, y)` back, `__rs()` is RS.
+ * Also: no Vite HMR socket, so a source edit elsewhere cannot reload the page
+ * mid-run (the scripts run against a live dev server).
+ */
+async function prepContext(c) {
+  await c.routeWebSocket((u) => u.searchParams.has('token'), () => {});
+  await c.addInitScript(() => {
+    const geo = () => {
+      const r = window.__game.canvas.getBoundingClientRect();
+      return { r, k: r.width / window.__game.scale.width };
+    };
+    window.__css = (x, y) => { const { r, k } = geo(); return [r.left + x * k, r.top + y * k]; };
+    window.__gamePt = (x, y) => { const { r, k } = geo(); return [(x - r.left) / k, (y - r.top) / k]; };
+    window.__rs = () => 1 / geo().k;
+  });
+}
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+await prepContext(ctx);
 const page = await ctx.newPage();
 const errors = [];
 page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
@@ -57,7 +78,7 @@ async function until(fn, ms = 15000, step = 200) {
   return false;
 }
 const active = (k) => ev((key) => window.__game.scene.isActive(key), k);
-/** Centre of a visible kit button by its (English) label. */
+/** Page (CSS px) centre of a visible kit button by its (English) label. */
 async function btn(sceneKey, label) {
   return ev(([k, l]) => {
     const s = window.__game.scene.getScene(k);
@@ -71,7 +92,7 @@ async function btn(sceneKey, label) {
     walk(s.children.list);
     if (!hit) return null;
     const r = hit.getBounds();
-    return [r.centerX, r.centerY];
+    return window.__css(r.centerX, r.centerY);
   }, [sceneKey, label]);
 }
 async function tapBtn(sceneKey, label) {
@@ -85,7 +106,10 @@ const tut = () =>
     const s = window.__game?.scene.getScene('Battle');
     const t = s?.tutorial;
     if (!s || !s.sys.isActive() || !t) return null;
-    return { step: t.step, phase: t.phase, typing: t.narrator.typing, hole: t.spot.hole, S: s.m.S };
+    const h = t.spot.hole;
+    // the lit hole (UI px) as a page rect (CSS px)
+    const hole = h ? (([x, y], [x1, y1]) => ({ x, y, w: x1 - x, h: y1 - y }))(window.__css(h.x * s.m.S, h.y * s.m.S), window.__css((h.x + h.w) * s.m.S, (h.y + h.h) * s.m.S)) : null;
+    return { step: t.step, phase: t.phase, typing: t.narrator.typing, hole };
   });
 const talkingAt = (id, ms = 30000) => until(async () => {
   const x = await tut();
@@ -96,7 +120,7 @@ async function tapSpot(id, tries = 6) {
   for (let i = 0; i < tries; i++) {
     const x = await tut();
     if (!x || x.step !== id || x.phase !== 'talk') return true;
-    if (x.hole) await tap((x.hole.x + x.hole.w / 2) * x.S, (x.hole.y + x.hole.h / 2) * x.S);
+    if (x.hole) await tap(x.hole.x + x.hole.w / 2, x.hole.y + x.hole.h / 2);
     await wait(350);
   }
   const x = await tut();
@@ -106,12 +130,12 @@ const doneWith = (id, ms = 4000) => until(async () => {
   const x = await tut();
   return !x || x.step !== id || x.phase !== 'talk';
 }, ms);
-/** A ghost demonstration's points (UI px) as screen points. */
+/** A ghost demonstration's points (UI px) as page (CSS px) points. */
 const ghostPts = (fn) =>
   ev((f) => {
     const s = window.__game.scene.getScene('Battle');
     const g = s.tutorial[f]();
-    return g ? g.pts.map((p) => [p.x * s.m.S, p.y * s.m.S]) : null;
+    return g ? g.pts.map((p) => window.__css(p.x * s.m.S, p.y * s.m.S)) : null;
   }, fn);
 
 // ------------------------------------------------------------------ first launch
@@ -147,7 +171,7 @@ check('pan step', await talkingAt('pan', 8000));
 const emptyPt = await ev(() => {
   const s = window.__game.scene.getScene('Battle');
   const p = s.tutorial.emptySpot();
-  return [p.x * s.m.S, p.y * s.m.S];
+  return window.__css(p.x * s.m.S, p.y * s.m.S);
 });
 await swipe([emptyPt, [emptyPt[0] + (emptyPt[0] > 195 ? -100 : 100), emptyPt[1] + 20]]);
 check('pan done', await doneWith('pan'));
@@ -187,7 +211,7 @@ const flag = await ev(() => {
   const s = window.__game.scene.getScene('Battle');
   const f = s.tutorial.flag;
   const p = s.tutorialHost().toUi(f.x, f.y);
-  return [p.x * s.m.S, p.y * s.m.S];
+  return window.__css(p.x * s.m.S, p.y * s.m.S);
 });
 await tap(flag[0], flag[1]);
 check('tap to move done', await doneWith('move'));
@@ -244,7 +268,7 @@ await coachOn('map', 'neighbour');
 const nb = await ev(() => {
   const s = window.__game.scene.getScene('Online');
   const r = s.coach.target().rect;
-  return [(r.x + r.w / 2) * s.m.S, (r.y + r.h / 2) * s.m.S];
+  return window.__css((r.x + r.w / 2) * s.m.S, (r.y + r.h / 2) * s.m.S);
 });
 await tap(nb[0], nb[1]);
 check('coach mark: tapping the ringed neighbour opens it and goes on', await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 5000), JSON.stringify(await ev(() => window.__game.scene.getScene('Online').selected)));
@@ -252,6 +276,7 @@ check('coach mark: tapping the ringed neighbour opens it and goes on', await unt
 // ------------------------------------------------------------------ resume and skip
 
 const ctx2 = await browser.newContext({ viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+await prepContext(ctx2);
 const p2 = await ctx2.newPage();
 p2.on('pageerror', (e) => errors.push(e.message));
 await p2.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
@@ -286,7 +311,7 @@ const skipAt = await ev2(() => {
   const walk = (l) => l.forEach((o) => { if (o.opts && o.opts.label === 'Skip' && o.visible) hit = o; if (o.list) walk(o.list); });
   walk(s.children.list);
   const r = hit.getBounds();
-  return [r.centerX, r.centerY];
+  return window.__css(r.centerX, r.centerY);
 });
 const cdp2 = await ctx2.newCDPSession(p2);
 await cdp2.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: skipAt[0], y: skipAt[1], id: 0 }] });

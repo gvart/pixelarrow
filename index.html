@@ -16,7 +16,7 @@
         --pa-r: calc(max(env(safe-area-inset-right, 0px), var(--pa-safe-right, var(--tg-safe-area-inset-right, 0px))) + var(--pa-content-right, var(--tg-content-safe-area-inset-right, 0px)));
       }
       #game { position: fixed; top: var(--pa-t); bottom: var(--pa-b); left: calc(50% + (var(--pa-l) - var(--pa-r)) / 2); transform: translateX(-50%); width: min(calc(100vw - var(--pa-l) - var(--pa-r)), calc((100vh - var(--pa-t) - var(--pa-b)) * 0.64)); }
-      #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+      #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: 100% !important; height: 100% !important; }
     </style>
   </head>
   <body>
