@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, addPanel, addScroll, addText } from '../ui/kit';
+import { Button, addPanel, addScroll, addText, panelK } from '../ui/kit';
 import { ensureDoll, dollFrame, dollOrigin, ensurePortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
@@ -41,16 +41,18 @@ export class MenuScene extends BaseScene {
 
     // ---- title
     if (compact) {
-      this.ui.add(addText(this, VW / 2, y, 'Pixelarrow', 'title', 0.5));
+      this.ui.add(addText(this, VW / 2, y, 'Pixelarrow', 'head', 0.5).setFontSize(9));
       y += 14;
     } else {
       const tw = Math.min(w, 176);
       const tx = Math.round((VW - tw) / 2);
       addScroll(this, this.ui, tx, y + 4, tw, 44);
-      const title = addText(this, VW / 2, y + 11, 'Pixelarrow', 'red', 0.5);
-      title.setFontSize(14);
+      // the wordmark: bronze small capitals, the subtitle spaced out under a rule
+      const title = addText(this, VW / 2, y + 9, 'Pixelarrow', 'head', 0.5);
+      title.setFontSize(13);
       this.ui.add(title);
-      this.ui.add(addText(this, VW / 2, y + 30, ellipsize(t('menu.subtitle'), tw - 16), 'ink', 0.5));
+      const sub = ellipsize(t('menu.subtitle').toUpperCase(), tw - 16, false, 5);
+      this.ui.add(addText(this, VW / 2, y + 33, sub, 'dim', 0.5).setFontSize(5).setLetterSpacing(panelK(this) * 1.1));
       y += 54;
     }
 

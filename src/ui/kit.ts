@@ -8,7 +8,8 @@
 import Phaser from 'phaser';
 import { renderVectorAtlas, type Face } from '../art/vectorFont';
 import { ICONS } from '../art/icons';
-import { renderIcon, renderScrollRoll, type PanelStyle } from '../art/uiTextures';
+import { VECTOR_CAMP_ICONS, VECTOR_ICONS } from '../art/vectorIcons';
+import { renderIcon, type PanelStyle } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
@@ -77,7 +78,16 @@ export function registerUiAssets(scene: Phaser.Scene): void {
     const [color, shadow] = FONT_COLORS[key];
     registerVectorFont(scene, `font_${key}`, color, shadow, FONT_FACE[key]);
   }
+  // smooth icons first (src/art/vectorIcons.ts); a name with no vector form keeps its pixel icon
+  const K = panelK(scene);
+  const vec: [string, string][] = [...Object.entries(VECTOR_ICONS), ...Object.entries(VECTOR_CAMP_ICONS).map(([k, d]): [string, string] => [`camp_${k}`, d])];
+  for (const [name, d] of vec) {
+    registerVectorIcon(scene, `icon_${name}`, d, BRONZE_D2.hi, K);
+    registerVectorIcon(scene, `iconL_${name}`, d, TEXT_D2.onBtn, K);
+    registerVectorIcon(scene, `iconD_${name}`, d, TEXT_D2.tx3, K);
+  }
   for (const [name, rows] of Object.entries(ICONS)) {
+    if (scene.textures.exists(`icon_${name}`)) continue;
     scene.textures.addCanvas(`icon_${name}`, renderIcon(rows, BRONZE_D2.hi, BRONZE_D2.mid).toCanvas());
     scene.textures.addCanvas(`iconL_${name}`, renderIcon(rows, TEXT_D2.onBtn, 0xd8b88a).toCanvas());
     scene.textures.addCanvas(`iconD_${name}`, renderIcon(rows, TEXT_D2.tx3, BRONZE_D2.lo).toCanvas());
@@ -114,12 +124,13 @@ export function addPanel(scene: Phaser.Scene, x: number, y: number, w: number, h
   return panelImage(scene, Math.round(x), Math.round(y), w, h, style);
 }
 
+/** A title plaque (it was a parchment scroll): a stone panel with a fine bronze rule inside. */
 export function addScroll(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number): void {
-  parent.add(addPanel(scene, x, y + 3, w, h - 6, 'parch'));
-  const key = `roll_${w + 8}`;
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderScrollRoll(w + 8).toCanvas());
-  parent.add(scene.add.image(x - 4, y - 2, key).setOrigin(0, 0));
-  parent.add(scene.add.image(x - 4, y + h - 6, key).setOrigin(0, 0));
+  parent.add(addPanel(scene, x, y, w, h, 'parch'));
+  const g = scene.add.graphics();
+  g.lineStyle(0.5, BRONZE_D2.lo, 1);
+  g.strokeRoundedRect(x + 2.5, y + 2.5, w - 5, h - 5, 2.5);
+  parent.add(g);
 }
 
 export function addText(
@@ -158,8 +169,33 @@ export function fitText(txt: Phaser.GameObjects.BitmapText, w: number): Phaser.G
   return txt;
 }
 
+/** Icon edge in UI px (the pixel icons' size; smooth icons are drawn denser and scaled down to it). */
+export const ICON_PX = 12;
+
+/** Draw an icon from SVG path data (24 x 24 box) at K atlas px per UI px. */
+function registerVectorIcon(scene: Phaser.Scene, key: string, d: string, color: number, K: number): void {
+  if (scene.textures.exists(key)) return;
+  const n = ICON_PX * K;
+  const canvas = document.createElement('canvas');
+  canvas.width = n;
+  canvas.height = n;
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(n / 24, n / 24);
+  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.fill(new Path2D(d), 'evenodd');
+  scene.textures.addCanvas(key, canvas)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+}
+
 export function addIcon(scene: Phaser.Scene, x: number, y: number, name: string, variant: '' | 'L' | 'D' = ''): Phaser.GameObjects.Image {
-  return scene.add.image(Math.round(x), Math.round(y), `icon${variant}_${name}`).setOrigin(0, 0);
+  const img = scene.add.image(Math.round(x), Math.round(y), `icon${variant}_${name}`).setOrigin(0, 0);
+  // smooth icons are denser than their 12 UI px: show them at that size
+  if (img.width > ICON_PX) img.setScale(ICON_PX / img.width);
+  return img;
+}
+
+/** Scale an icon `n` times its standard size (works for smooth and pixel icons alike). */
+export function scaleIcon(img: Phaser.GameObjects.Image, n: number): Phaser.GameObjects.Image {
+  return img.setScale((n * ICON_PX) / Math.max(1, img.width));
 }
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive';

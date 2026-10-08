@@ -8,7 +8,7 @@
  */
 import { RS } from '../platform/renderScale';
 import Phaser from 'phaser';
-import { addIcon, addText, panelImage, panelTexture, holdTimer, longPress, type HoldTimer } from './kit';
+import { scaleIcon, addIcon, addText, panelImage, panelTexture, holdTimer, longPress, type HoldTimer } from './kit';
 import { uiFrame, uiId } from './layout';
 import { BRONZE } from './theme';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
@@ -62,7 +62,7 @@ class RingButton extends Phaser.GameObjects.Container {
     this.add(this.bg);
     const variant = o.off ? 'D' : o.selected ? 'L' : '';
     // the glyph at 2x: 24 px in a 26 px button
-    this.add(addIcon(scene, Math.floor((size - 24) / 2), Math.floor((size - 24) / 2), o.icon, variant).setScale(2));
+    this.add(scaleIcon(addIcon(scene, Math.floor((size - 24) / 2), Math.floor((size - 24) / 2), o.icon, variant), 2));
     this.setSize(size, size);
     this.setInteractive(new Phaser.Geom.Rectangle(size / 2, size / 2, size, size), Phaser.Geom.Rectangle.Contains);
     uiId(this, `battle.cmd.${o.key}`);

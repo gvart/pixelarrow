@@ -10,7 +10,7 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
+import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
 import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, glows } from './theme';
@@ -1054,7 +1054,7 @@ export function addEmptyState(scene: Phaser.Scene, x: number, y: number, w: numb
   while (total() > h && lines > 1) wr = wrapText(o.hint, w - 12, --lines);
   let cy = Math.max(0, Math.round((h - total()) / 2));
   if (showIcon && o.icon) {
-    const ic = addIcon(scene, w / 2 - 12, cy, o.icon, 'D').setScale(2);
+    const ic = scaleIcon(addIcon(scene, w / 2 - 12, cy, o.icon, 'D'), 2);
     c.add(ic);
     cy += 28;
   }

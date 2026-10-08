@@ -1,7 +1,7 @@
 import { setCosmeticLoadout } from '../game/cosmetics';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
+import { scaleIcon, Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
 import { ItemIcon, ScrollList, Tabs, addScrollHint, confirmDialog, openModal, showTooltip, toast } from '../ui/widgets';
 import { uiFrame, uiId } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
@@ -556,7 +556,7 @@ export class ShopScene extends BaseScene {
     let y = 0;
     // balance
     c.add(addPanel(this, 0, y, w, 40, 'dark'));
-    c.add(this.add.image(8, y + 8, 'icon_drachma').setOrigin(0, 0).setScale(2));
+    c.add(scaleIcon(this.add.image(8, y + 8, 'icon_drachma').setOrigin(0, 0), 2));
     const bal = addText(this, 38, y + 7, `${d.wallet.drachmae}`, 'title');
     bal.setFontSize(14);
     c.add(bal);
