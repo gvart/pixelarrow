@@ -83,7 +83,15 @@ export interface ItemDef {
   desc: string;
   twoHanded?: boolean;
   shieldWall?: boolean;
+  /**
+   * What it is mostly made of, for the item icon (src/art/itemIcons.ts) to
+   * tell variants of one `art` apart. Optional: the icon falls back to the
+   * art's usual material.
+   */
+  material?: ItemMaterial;
 }
+
+export type ItemMaterial = 'bronze' | 'iron' | 'steel' | 'silver' | 'gold' | 'wood' | 'leather' | 'linen' | 'bone' | 'horn' | 'stone' | 'faience' | 'felt' | 'wicker';
 
 const defs: ItemDef[] = [
   // ---- weapons -------------------------------------------------------------
