@@ -29,6 +29,8 @@ export interface CoachHost {
   homeRect(): Rect | null;
   /** A free hex next to your army, to tap. */
   neighbourRect(): Rect | null;
+  /** Bring that neighbour into the free map area when it is off screen (regions can be far apart); false: none known yet. */
+  showNeighbour(): boolean;
   /** The free map area (between the top bar and the panel or the bottom bar). */
   mapRect(): Rect;
   /** A hex next to the army is selected and its panel is up. */
@@ -61,6 +63,8 @@ export class OnlineCoach {
   private arrow: Phaser.GameObjects.Graphics;
   private step: CoachId | null;
   private shownFor = '';
+  /** The neighbour mark brought its region on screen once (the player may pan away after). */
+  private focused = false;
   /** Forced (layout check, screenshots): nothing is saved. */
   private forced: boolean;
 
@@ -121,6 +125,7 @@ export class OnlineCoach {
     if (this.step === 'neighbour' && this.host.neighbourOpen()) return this.advance();
     // nothing to point at (no March here, say): on to the next
     if ((this.step === 'march' || this.step === 'attack') && this.host.neighbourOpen() && !this.target()?.rect && this.host.element('online.hexInfo')) return this.advance();
+    if (this.step === 'neighbour' && !this.focused) this.focused = this.host.showNeighbour();
     const tg = this.target();
     if (!tg) return this.clear();
     const key = `${this.step}|${JSON.stringify(tg.rect)}|${JSON.stringify(tg.hole)}`;
