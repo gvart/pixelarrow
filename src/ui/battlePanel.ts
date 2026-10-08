@@ -14,6 +14,8 @@ import { BRONZE_D2, STATUS_D2 } from '../art/smoothUi';
 import Phaser from 'phaser';
 import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelImage, panelK, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
 import { uiFrame, uiId } from './layout';
+import { addPortrait } from './sprites';
+import { dollKey, type DollSpec } from '../art/paperdoll';
 import { ellipsize, measureText } from './textfit';
 import { CATEGORY_COLOR, CATEGORY_DARK, type BattleCategory } from './theme';
 import { Pix } from '../art/pixels';
@@ -345,8 +347,8 @@ export interface GroupCardInfo {
   shortName?: string;
   orderWord?: string;
   orderShort?: string;
-  /** Portrait texture key of the group's leading class. */
-  portrait: string | null;
+  /** The group's leading man (his living portrait, src/ui/sprites.ts addPortrait). */
+  portrait: DollSpec | null;
   selected: boolean;
   routed: boolean;
 }
@@ -406,10 +408,12 @@ export class GroupCard extends Phaser.GameObjects.Container {
   }
 
   private wide = false;
+  /** Wide cards: where the bars start (right of the portrait). */
+  private barX = 4;
 
   setInfo(i: GroupCardInfo): this {
     this.info = i;
-    const key = [i.numeral, i.men, i.orderIcon, i.portrait, i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort].join('|');
+    const key = [i.numeral, i.men, i.orderIcon, i.portrait ? dollKey(i.portrait) : '', i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort].join('|');
     if (key !== this.key) {
       this.key = key;
       this.rebuild();
@@ -472,10 +476,10 @@ export class GroupCard extends Phaser.GameObjects.Container {
       return;
     }
     if (i.portrait && i.men > 0 && this.w >= 34) {
-      // the class portrait, head and shoulders
-      const img = s.add.image(x - 3, 3, i.portrait).setOrigin(0, 0).setCrop(3, 0, 18, ph);
-      this.add(img);
-      x += 19;
+      // the leading man's living portrait, head and shoulders
+      const ps = Math.min(20, ph);
+      this.add(addPortrait(s, i.portrait, x - 2, 2, { size: ps }));
+      x += ps - 1;
     }
     const room = this.w - x - 3;
     if (room >= 30 && i.name) {
@@ -507,21 +511,30 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const s = this.scene;
     this.wide = true;
     this.add(panelImage(s, 0, 0, this.w, this.h, i.selected ? 'slotSel' : i.men === 0 ? 'buttonOff' : 'slot'));
+    // the leading man's living portrait at the left (room permitting), the bronze numeral disc beside the name
+    let x = 4;
+    this.barX = 4;
+    if (i.portrait && i.men > 0 && this.w >= 70) {
+      const ps = this.h - 4;
+      this.add(addPortrait(s, i.portrait, 2, 2, { size: ps }));
+      x = 2 + ps + 3;
+      this.barX = x;
+    }
     const g = s.add.graphics();
-    const r = 6.5;
-    const cx = 4 + r;
-    const cy = 4 + r;
+    const r = 4.5;
+    const cx = x + r;
+    const cy = 2.5 + r;
     g.fillStyle(i.selected ? BRONZE_D2.hi : BRONZE_D2.main, 1);
     g.fillCircle(cx, cy, r);
     g.fillStyle(0x1c1612, 1);
-    g.fillCircle(cx, cy, r - 1.2);
+    g.fillCircle(cx, cy, r - 1);
     this.add(g);
-    const num = addText(s, cx, cy - 4.3, i.numeral, 'head', 0.5).setFontSize(6);
+    const num = addText(s, cx, cy - 3.6, i.numeral, 'head', 0.5).setFontSize(5);
     this.add(num);
-    const x = cx + r + 4;
+    const nx = cx + r + 2;
     const tw = this.w - x - 3;
     const head = 5.6;
-    const name = addText(s, x, 2.5, ellipsize(i.name ?? i.numeral, tw, false, head, 'head'), i.men === 0 || i.routed ? 'dim' : 'head', 0).setFontSize(head);
+    const name = addText(s, nx, 2.5, ellipsize(i.name ?? i.numeral, tw - (nx - x), false, head, 'head'), i.men === 0 || i.routed ? 'dim' : 'head', 0).setFontSize(head);
     uiFrame(name, this, this.w, this.h);
     const subSize = 5.5;
     const sub = firstFit([i.orderWord && `${t('strat.men', { n: i.men })} · ${i.orderWord}`, i.orderShort && `${i.men} · ${i.orderShort}`, `${i.men}`], tw / (subSize / 7), false);
@@ -535,9 +548,9 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const g = this.bars;
     g.clear();
     if (this.wide) {
-      const x0 = 4;
+      const x0 = this.barX;
       const y = this.h - 6;
-      const half = (this.w - 8 - 3) / 2;
+      const half = (this.w - x0 - 4 - 3) / 2;
       const bar = (x: number, f: number, c: number) => {
         g.fillStyle(0x0d0a08, 1);
         g.fillRoundedRect(x, y, half, 3, 1);

@@ -3109,38 +3109,52 @@ function buildBeast(sc: Scene, id: BeastId, frame: number, B: Basis, seed: numbe
 
 // ---------------------------------------------------------------- portraits
 
-/** Display size (px) of a portrait; the texture is PORTRAIT_RES times larger each way. */
+/** Default display size (UI px) of a portrait; the texture is PORTRAIT_RES times larger each way (renderPortrait's `box` and `res`). */
 export const PORTRAIT_PX = 24;
 export const PORTRAIT_RES = 2;
 /**
  * The idle variants of an animated portrait (frame columns of its sheet):
- * breathing, a blink, glances aside, and three positions of a glint sweeping
- * across the metal. A roster picks a seeded sequence of these (portraitLoop).
+ * breathing, a blink, glances aside, three positions of a glint sweeping
+ * across the metal, and a small nod (the blink's stand-in behind a closed
+ * helmet). A roster picks a seeded sequence of these (portraitLoop).
  */
-export const PORTRAIT_FRAMES = ['neutral', 'breath1', 'breath2', 'blink', 'glanceR', 'glanceR2', 'glanceL', 'glint0', 'glint1', 'glint2'] as const;
+export const PORTRAIT_FRAMES = ['neutral', 'breath1', 'breath2', 'blink', 'glanceR', 'glanceR2', 'glanceL', 'glint0', 'glint1', 'glint2', 'nod'] as const;
 export type PortraitFrame = (typeof PORTRAIT_FRAMES)[number];
 export const PORTRAIT_FRAME: Record<PortraitFrame, number> = Object.fromEntries(PORTRAIT_FRAMES.map((n, i) => [n, i])) as Record<PortraitFrame, number>;
 
+/** Whether a blink shows on this figure's portrait (not behind a Corinthian helm, not on an animal). */
+export function portraitBlinks(d: DollSpec): boolean {
+  return !d.beast && d.helmet?.art !== 'corinthian';
+}
+
+/** Screen right as a world axis (model3d's camera): the portrait tilts about it. */
+const CAM_RIGHT: V3 = [Math.SQRT1_2, -Math.SQRT1_2, 0];
+/** The portrait camera: the battle's 30 degree elevation tilted down towards eye level (radians). */
+const PORTRAIT_TILT = 0.42;
+
 /**
- * A head-and-shoulders bust of a figure, seen from the front 3/4 and lit like
- * the battlefield: box x box display pixels drawn at `res` times the
- * resolution (so the face has brows, a nose and a beard rather than four
- * pixels). Animals show the whole beast. `frame` picks an idle variant
- * (PORTRAIT_FRAMES).
+ * A head-and-shoulders bust of a figure, seen from the front 3/4 near eye
+ * level and lit like the battlefield: box x box display pixels drawn at `res`
+ * times the resolution (so the face has brows, a nose and a beard rather than
+ * four pixels; a bigger box draws more pixels, it never upscales). The head
+ * sits in the upper middle with room above for a crest; a bigger box widens
+ * the view (chest and shoulders) rather than magnifying the face. Animals
+ * show the whole beast. `frame` picks an idle variant (PORTRAIT_FRAMES).
  */
 export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box = PORTRAIT_PX): Pix {
   const size = box * res;
   const name = PORTRAIT_FRAMES[frame] ?? 'neutral';
   if (d.beast) {
-    // the whole animal, scaled into the box, nosing about on the breathing frames
+    // the whole animal facing the camera, scaled into the box, nosing about on the breathing frames
     const sc = new Scene();
-    const B = basis(0.4, 0.92);
-    const col = name === 'breath1' || name === 'glanceR' ? 1 : name === 'breath2' ? 0 : name === 'glanceR2' || name === 'glanceL' ? 9 : 0;
+    const myth = isMythId(d.beast);
+    const col = name === 'breath1' || name === 'glanceR' ? 1 : name === 'breath2' || name === 'nod' ? 0 : name === 'glanceR2' || name === 'glanceL' ? 9 : 0;
     if (isMythId(d.beast)) buildMyth(sc, d.beast, 0, mythBasis(0.4, 0.92), false, (d.seed ?? 0) % 3);
-    else buildBeast(sc, d.beast, col, B, d.seed ?? 0);
-    const tall = isMythId(d.beast) ? 3.2 : d.beast === 'bear' ? 1.4 : 0.9;
+    else buildBeast(sc, d.beast, col, basis(1, 0), d.seed ?? 0); // side-on 3/4: the shape of the animal, tusks and ears
+    const tall = myth ? 3.2 : d.beast === 'bear' ? 1.4 : 0.9;
     const zoom = (box / PPM / (tall * 1.15)) * res;
     sc.translate([0, 0, -tall * 0.45]);
+    if (!myth) sc.rotate([0, 0, 0], CAM_RIGHT, PORTRAIT_TILT * 0.8);
     sc.scale(zoom);
     sc.px = res;
     return sc.render(size, size, size / 2, size / 2);
@@ -3165,6 +3179,10 @@ export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box =
       p.blink = true;
       p.breath = 0.3;
       break;
+    case 'nod':
+      p.nod = 0.05;
+      p.breath = 0.3;
+      break;
     case 'glanceR':
       p.yaw = 0.28;
       p.nod = 0.01;
@@ -3180,15 +3198,18 @@ export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box =
       p.lag = 0.05;
       break;
   }
-  // the man at `res` times his size, the window centred a little above the head so the crest fits
+  // the man at `res` times his size; the window centred on the head and tilted towards eye level
   const k = buildMan(sc, spec, 0, B, 2, p);
-  const centre = add(k.head, [0, 0, 0.05]);
-  const zoom = 1.45;
+  const centre = add(k.head, [0, 0, 0.02]);
+  // a 24 px box frames head and shoulders at 1.55x; a bigger box grows slower than the box, so it shows the chest too
+  const zoom = 1.55 * Math.pow(box / PORTRAIT_PX, 0.6);
   sc.translate(mul(centre, -1));
+  sc.rotate([0, 0, 0], CAM_RIGHT, PORTRAIT_TILT);
   sc.scale(zoom * res);
   sc.px = res;
   const mask = new Uint8Array(size * size);
-  const px = sc.render(size, size, size / 2, size / 2 + Math.round(res * 2), { mask, maskMetal: true });
+  // the head above the middle of the box: the room above it is for the crest
+  const px = sc.render(size, size, size / 2, Math.round(size * 0.4), { mask, maskMetal: true });
   if (name.startsWith('glint')) {
     // a bright band sweeping across the metal, top-left to bottom-right
     const pos = [0.42, 0.58, 0.74][Number(name.slice(5))];
@@ -3220,20 +3241,22 @@ function lighten(c: number, k: number): number {
  * different order and rhythm per seed so a roster never moves in step.
  */
 export const PORTRAIT_FPS = 6;
-export function portraitLoop(seed: number): number[] {
+export function portraitLoop(seed: number, blinks = true): number[] {
   const F = PORTRAIT_FRAME;
   const out: number[] = [];
   const r = (i: number) => hash2(seed, i, 23);
   const breath = (hold: number) => out.push(F.neutral, F.neutral, F.breath1, F.breath2, F.breath2, F.breath2, F.breath1, ...new Array(hold).fill(F.neutral));
+  // behind a closed helm (or on an animal) a blink shows nothing: a small nod takes its beat (portraitBlinks)
+  const blink = blinks ? F.blink : F.nod;
   const n = 4 + Math.floor(r(1) * 3);
   for (let i = 0; i < n; i++) {
     breath(2 + Math.floor(r(10 + i) * 4));
     const ev = r(20 + i);
-    if (ev < 0.35) out.push(F.blink, F.neutral);
+    if (ev < 0.35) out.push(blink, F.neutral);
     else if (ev < 0.55) out.push(F.glanceR2, F.glanceR, F.glanceR, F.glanceR, F.glanceR2, F.neutral, F.neutral);
     else if (ev < 0.7) out.push(F.glanceL, F.glanceL, F.glanceL, F.glanceR2, F.neutral);
     else if (ev < 0.85) out.push(F.glint0, F.glint1, F.glint2);
-    if (r(30 + i) < 0.3) out.push(F.blink);
+    if (r(30 + i) < 0.3) out.push(blink);
   }
   if (!out.includes(F.glint0)) out.push(F.glint0, F.glint1, F.glint2, F.neutral);
   return out;

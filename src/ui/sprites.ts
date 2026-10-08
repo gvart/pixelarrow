@@ -29,7 +29,7 @@
  */
 import Phaser from 'phaser';
 import {
-  ANIM, ANIM_FRAMES, NDIRS, NFRAMES, PORTRAIT_FPS, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, dollFx, dollGeom, dollKey, drawnFrames, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames,
+  ANIM, ANIM_FRAMES, NDIRS, NFRAMES, PORTRAIT_FPS, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, dollFx, dollGeom, dollKey, drawnFrames, portraitBlinks, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames,
   type DollFx, type DollSpec, type SheetGeom,
 } from '../art/paperdoll';
 import { itemIconKey, renderItemIcon } from '../art/itemIcons';
@@ -554,55 +554,142 @@ export function dollDisplayScale(key: string): number {
 
 // ------------------------------------------------------------------ portraits
 
+/** Widest a portrait frame is drawn (rendered px): the cap on size x res. */
+const PORTRAIT_MAX_PX = 160;
+
 /**
- * A still head-and-shoulders portrait (PORTRAIT_PX square, drawn at 1x) of a
- * figure: the class icon in lists for callers that want a plain image.
+ * The render resolution of a portrait shown at `size` UI px: the screen's
+ * density (one rendered pixel per canvas pixel, so a bigger portrait gets
+ * more pixels rather than bigger ones), capped so a frame stays at most
+ * PORTRAIT_MAX_PX across.
  */
-export function ensurePortrait(scene: Phaser.Scene, spec: DollSpec): string {
-  const key = `portrait_${dollKey(spec)}`;
-  if (scene.textures.exists(key)) return key;
-  scene.textures.addCanvas(key, renderPortrait(spec, 0, 1).toCanvas());
-  return key;
+export function portraitRes(scene: Phaser.Scene, size: number): number {
+  const K = typeof document === 'undefined' ? PORTRAIT_RES : panelK(scene);
+  return Math.max(1, Math.min(K, Math.floor(PORTRAIT_MAX_PX / size)));
+}
+
+/** A portrait sheet still being filled: frame 0 is drawn at once, the idle variants in idle time. */
+interface PortraitJob {
+  scene: Phaser.Scene;
+  key: string;
+  anim: string;
+  spec: DollSpec;
+  size: number;
+  res: number;
+  next: number;
+  /** Sprites that will play the loop once every frame is drawn. */
+  waiting: Phaser.GameObjects.Sprite[];
+}
+
+const portraitJobs = new Map<string, PortraitJob>();
+const portraitPumps = new WeakSet<Phaser.Scene>();
+
+export interface PortraitHandle {
+  key: string;
+  anim: string;
+  /** The sprite scale that shows the portrait at its UI size. */
+  scale: number;
+  res: number;
 }
 
 /**
- * The animated portrait of a figure: a sheet of idle variants at PORTRAIT_RES
- * and a seeded idle loop. Returns the texture key, the animation key and the
- * scale that shows it at PORTRAIT_PX.
+ * The animated portrait of a figure at `size` UI px: a sheet of idle variants
+ * at the screen's density (portraitRes) and a seeded idle loop. The first
+ * frame is drawn now; the others fill in over the next game frames
+ * (pumpPortraits), when the loop starts. Returns the texture key, the
+ * animation key and the scale that shows it at `size`.
  */
-export function ensurePortraitAnim(scene: Phaser.Scene, spec: DollSpec): { key: string; anim: string; scale: number } {
-  const key = `portraitHD_${dollKey(spec)}`;
+export function ensurePortraitAnim(scene: Phaser.Scene, spec: DollSpec, size = PORTRAIT_PX): PortraitHandle {
+  const res = portraitRes(scene, size);
+  const key = `portrait_${dollKey(spec)}@${size}x${res}`;
   const anim = `${key}#idle`;
-  const size = PORTRAIT_PX * PORTRAIT_RES;
+  const px = size * res;
   if (!scene.textures.exists(key)) {
-    const tex = scene.textures.createCanvas(key, size * PORTRAIT_FRAMES.length, size)!;
+    const tex = scene.textures.createCanvas(key, px * PORTRAIT_FRAMES.length, px)!;
     const ctx = tex.getContext();
-    for (let f = 0; f < PORTRAIT_FRAMES.length; f++) {
-      put(ctx, renderPortrait(spec, f), f * size, 0);
-      tex.add(f, 0, f * size, 0, size, size);
-    }
+    put(ctx, renderPortrait(spec, 0, res, size), 0, 0);
+    for (let f = 0; f < PORTRAIT_FRAMES.length; f++) tex.add(f, 0, f * px, 0, px, px);
     tex.refresh();
+    if (scene.anims.exists(anim)) scene.anims.remove(anim);
+    portraitJobs.set(key, { scene, key, anim, spec, size, res, next: 1, waiting: [] });
   }
-  if (!scene.anims.exists(anim)) {
-    const loop = portraitLoop(spec.seed ?? 0);
-    scene.anims.create({ key: anim, frames: loop.map((f) => ({ key, frame: f })), frameRate: PORTRAIT_FPS, repeat: -1 });
+  // textures and animations are game-wide: a sheet left half drawn by a scene that shut down is finished here
+  const job = portraitJobs.get(key);
+  if (job && job.scene !== scene) {
+    job.scene = scene;
+    job.waiting = job.waiting.filter((s) => s.active && s.scene === scene);
   }
-  return { key, anim, scale: 1 / PORTRAIT_RES };
+  if (job && !portraitPumps.has(scene)) {
+    portraitPumps.add(scene);
+    const pump = () => pumpPortraits(scene);
+    scene.events.on('postupdate', pump);
+    scene.events.once('shutdown', () => {
+      scene.events.off('postupdate', pump);
+      portraitPumps.delete(scene);
+    });
+  }
+  return { key, anim, scale: 1 / res, res };
+}
+
+/** Draw queued portrait frames for at most `budgetMs` (once per game frame, on the scene's postupdate). */
+export function pumpPortraits(scene: Phaser.Scene, budgetMs = 5): void {
+  const t0 = performance.now();
+  for (const [k, j] of portraitJobs) {
+    if (j.scene !== scene) continue;
+    if (!scene.textures.exists(j.key)) {
+      portraitJobs.delete(k);
+      continue;
+    }
+    const tex = scene.textures.get(j.key) as Phaser.Textures.CanvasTexture;
+    const ctx = tex.getContext();
+    const px = j.size * j.res;
+    let drew = false;
+    while (j.next < PORTRAIT_FRAMES.length && performance.now() - t0 < budgetMs) {
+      put(ctx, renderPortrait(j.spec, j.next, j.res, j.size), j.next * px, 0);
+      j.next++;
+      drew = true;
+    }
+    if (drew) tex.refresh();
+    if (j.next >= PORTRAIT_FRAMES.length) {
+      portraitJobs.delete(k);
+      if (!scene.anims.exists(j.anim)) {
+        const loop = portraitLoop(j.spec.seed ?? 0, portraitBlinks(j.spec));
+        scene.anims.create({ key: j.anim, frames: loop.map((f) => ({ key: j.key, frame: f })), frameRate: PORTRAIT_FPS, repeat: -1 });
+      }
+      for (const spr of j.waiting) if (spr.active && spr.scene) playPortrait(spr, j.anim);
+    }
+    if (performance.now() - t0 >= budgetMs) break;
+  }
+}
+
+/** Start the idle loop at a random point, so a roster breathes out of step. */
+function playPortrait(spr: Phaser.GameObjects.Sprite, anim: string): void {
+  const n = spr.scene.anims.get(anim)?.frames.length ?? 1;
+  spr.play({ key: anim, startFrame: Math.floor(Math.random() * n) });
+}
+
+export interface PortraitOpts {
+  /** Display size (UI px, square; default PORTRAIT_PX). */
+  size?: number;
+  /** A frozen portrait (frame 0). */
+  still?: boolean;
+  /** Trim (display px: x, y, w, h), like Image.setCrop. */
+  crop?: [number, number, number, number];
 }
 
 /**
- * A portrait sprite at (x, y) (top-left), PORTRAIT_PX square on screen and
- * alive: breathing, blinking and glancing on its own rhythm. `still` for a
- * frozen one; `crop` (display px) trims it like Image.setCrop would.
+ * A portrait sprite at (x, y) (top-left), `size` UI px square on screen and
+ * alive: breathing, blinking (or nodding, behind a closed helm) and glancing
+ * on its own rhythm once its frames are drawn.
  */
-export function addPortrait(scene: Phaser.Scene, spec: DollSpec, x: number, y: number, opts: { still?: boolean; crop?: [number, number, number, number] } = {}): Phaser.GameObjects.Sprite {
-  const p = ensurePortraitAnim(scene, spec);
+export function addPortrait(scene: Phaser.Scene, spec: DollSpec, x: number, y: number, opts: PortraitOpts = {}): Phaser.GameObjects.Sprite {
+  const size = opts.size ?? PORTRAIT_PX;
+  const p = ensurePortraitAnim(scene, spec, size);
   const spr = scene.add.sprite(x, y, p.key, 0).setOrigin(0, 0).setScale(p.scale);
-  if (opts.crop) spr.setCrop(opts.crop[0] * PORTRAIT_RES, opts.crop[1] * PORTRAIT_RES, opts.crop[2] * PORTRAIT_RES, opts.crop[3] * PORTRAIT_RES);
+  if (opts.crop) spr.setCrop(opts.crop[0] * p.res, opts.crop[1] * p.res, opts.crop[2] * p.res, opts.crop[3] * p.res);
   if (!opts.still) {
-    // a random point of the loop, so a roster breathes out of step
-    const n = scene.anims.get(p.anim)?.frames.length ?? 1;
-    spr.play({ key: p.anim, startFrame: Math.floor(Math.random() * n) });
+    if (scene.anims.exists(p.anim)) playPortrait(spr, p.anim);
+    else portraitJobs.get(p.key)?.waiting.push(spr);
   }
   return spr;
 }

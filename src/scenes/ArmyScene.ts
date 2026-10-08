@@ -347,22 +347,23 @@ export class ArmyScene extends BaseScene {
     row.add(addPanel(this, 0, 0, w, rh, sel ? 'buttonSel' : 'button'));
     // portrait in a frame tinted by role
     const cls = heroClass(h);
+    const ps = rh - 4;
     const fr = this.add.graphics();
     fr.fillStyle(0x1d140f, 1);
-    fr.fillRect(3, 3, 24, 24);
+    fr.fillRect(1, 1, ps + 2, ps + 2);
     fr.fillStyle(roleColor(cls.role), 1);
-    fr.fillRect(4, 4, 22, 22);
+    fr.fillRect(2, 2, ps, ps);
     row.add(fr);
-    row.add(addPortrait(this, dollFromHero(h), 3, 3));
+    row.add(addPortrait(this, dollFromHero(h), 2, 2, { size: ps }));
     if (h.wound > 0) {
       const wg = this.add.graphics();
       wg.fillStyle(0x000000, 0.45);
-      wg.fillRect(4, 4, 22, 22);
+      wg.fillRect(2, 2, ps, ps);
       row.add(wg);
-      row.add(addIcon(this, 9, 9, 'cross', 'L'));
+      row.add(addIcon(this, 2 + (ps - 12) / 2, 2 + (ps - 12) / 2, 'cross', 'L'));
     }
     const light = sel;
-    const x = 31;
+    const x = ps + 7;
     const right = w - 4;
     // group badge on the right, power under it
     addGroupBadge(this, row, right - 12, 3, h.group);
