@@ -66,6 +66,9 @@ export const RAMPS: Record<MatKey, Ramp> = {
   wicker: ramp(0xe0c080, 0xb48e4c, 0x7d5e2b, 0x4c3718),
 };
 
+/** Spear and javelin shafts: a lighter wood than the fittings, so a thin shaft stands off the dark slot. */
+const SHAFT = ramp(0xd6ac78, 0xa87645, 0x6e4a26, 0x3e2812);
+
 const EMBLEM_MASKS = new Map<string, HTMLCanvasElement>();
 
 const OUTLINE = 'rgba(22, 13, 8, 0.88)';
@@ -338,13 +341,13 @@ function spearIcon(c: Ctx, kind: 'spear' | 'spear_short' | 'lance'): void {
   const sarissa = has(c, 'sarissa');
   const sauroter = has(c, 'sauroter');
   const kontos = has(c, 'kontos');
-  const shaft = lance ? RAMPS.darkwood : has(c, 'ash') ? RAMPS.olive : c.mat && !isMetal(c.mat) && c.mat !== 'wood' ? RAMPS[c.mat] : RAMPS.wood;
+  const shaft = lance ? RAMPS.wood : has(c, 'ash') ? RAMPS.olive : c.mat && !isMetal(c.mat) && c.mat !== 'wood' ? RAMPS[c.mat] : SHAFT;
   const head = isMetal(c.mat) ? c.main : lance || has(c, 'hasta', 'lancea') ? finish(RAMPS.iron, r) : finish(RAMPS.bronze, r);
   const trim = c.trim;
   // bold at 16 px: a thick shaft and a big head; the long spears run off the bottom-left corner
-  const rr = short ? 3.6 : lance ? 3.4 : 4;
+  const rr = short ? 4.8 : lance ? 4.6 : 5.4;
   const x0 = short ? -34 : sauroter ? -26 : -50;
-  const x1 = short ? 6 : sarissa ? 16 : lance ? 11 : has(c, 'hasta') ? 4 : 7; // socket
+  const x1 = short ? 4 : sarissa ? 14 : lance ? 9 : has(c, 'hasta') ? 2 : 5; // socket
   const tip = short ? 38 : 39;
   let tipPt: [number, number] = [0, 0];
   weaponFrame(g, () => {
@@ -385,17 +388,17 @@ function spearIcon(c: Ctx, kind: 'spear' | 'spear_short' | 'lance'): void {
     const hx = x1 + sock - 1;
     if (kontos) {
       // a long narrow diamond
-      shape(g, poly([[hx, -3.5], [hx + 14, -6.5], [tip, 0], [hx + 14, 6.5], [hx, 3.5]]), grad(g, head, 0, -6.5, 0, 6.5), true, WO);
+      shape(g, poly([[hx, -4.5], [hx + 14, -8], [tip, 0], [hx + 14, 8], [hx, 4.5]]), grad(g, head, 0, -8, 0, 8), true, WO);
       spec(g, head, [[hx + 2, -0.4], [tip - 2, 0]], 1.3, 0.85);
     } else if (lance) {
       // the xyston: a lozenge head with a strong midrib
-      leaf(g, head, hx, tip, 7.5, c, { waist: 0.5, ow: WO, neck: 0.3 });
-    } else if (sarissa) leaf(g, head, hx, tip, 6, c, { waist: 0.4, ow: WO });
-    else if (short) leaf(g, head, hx, tip, has(c, 'lancea') ? 6 : 8, c, { waist: has(c, 'lancea') ? 0.3 : 0.45, ow: WO });
-    else if (id === 'bronze_dory') leaf(g, head, hx, tip, 9.5, c, { waist: 0.48, ow: WO });
-    else if (has(c, 'hasta')) leaf(g, head, hx, tip, 8.5, c, { waist: 0.55, ow: WO, neck: 0.6 });
-    else if (has(c, 'ash')) leaf(g, head, hx, tip, 6.5, c, { waist: 0.32, ow: WO });
-    else leaf(g, head, hx, tip, 7.5 + (c.v % 2), c, { waist: 0.4, ow: WO });
+      leaf(g, head, hx, tip, 9, c, { waist: 0.5, ow: WO, neck: 0.35 });
+    } else if (sarissa) leaf(g, head, hx, tip, 7.5, c, { waist: 0.4, ow: WO });
+    else if (short) leaf(g, head, hx, tip, has(c, 'lancea') ? 7.5 : 10, c, { waist: has(c, 'lancea') ? 0.3 : 0.45, ow: WO });
+    else if (id === 'bronze_dory') leaf(g, head, hx, tip, 11.5, c, { waist: 0.48, ow: WO });
+    else if (has(c, 'hasta')) leaf(g, head, hx, tip, 10.5, c, { waist: 0.55, ow: WO, neck: 0.6 });
+    else if (has(c, 'ash')) leaf(g, head, hx, tip, 8, c, { waist: 0.32, ow: WO });
+    else leaf(g, head, hx, tip, 9.5 + (c.v % 2), c, { waist: 0.4, ow: WO });
     tipPt = toScreen(g, tip, 0);
   });
   c.glints = [tipPt];
@@ -942,10 +945,10 @@ function javelinIcon(c: Ctx): void {
   const gaesum = has(c, 'gaesum');
   const ankyle = has(c, 'ankyle', 'thong');
   const ironR = isMetal(c.mat) ? c.main : finish(RAMPS.iron, r);
-  const shaft = allIron ? ironR : c.mat && !isMetal(c.mat) ? RAMPS[c.mat] : RAMPS.wood;
+  const shaft = allIron ? ironR : c.mat && !isMetal(c.mat) && c.mat !== 'wood' ? RAMPS[c.mat] : SHAFT;
   const head = isMetal(c.mat) && !allIron ? c.main : gaesum ? finish(RAMPS.iron, r) : allIron ? ironR : finish(RAMPS.bronze, r);
   // a bundle: the darts fan out a little from the bottom left; the heads crowd the top right
-  const offs: number[] = pilum ? [8, -8] : gaesum ? [6, -6] : soliferrum ? [0] : saunion ? [5, -5] : [9, 0, -9];
+  const offs: number[] = pilum ? [9, -9] : gaesum ? [8, -8] : soliferrum ? [0] : saunion ? [7, -7] : [11, 0, -11];
   const pts: [number, number][] = [];
   weaponFrame(g, () => {
     for (const off of offs) {
@@ -956,14 +959,14 @@ function javelinIcon(c: Ctx): void {
       const tip = long ? 39 : 34;
       if (pilum) {
         // a wooden shaft, a long thin iron shank off a block and a small pyramidal head
-        rod(g, shaft, -48, 2, 3.2, { grain: c.v, ow: WO });
-        shape(g, rrect(0, -4.2, 9, 8.4, 1.2), grad(g, head, 0, -4.2, 0, 4.2), true, WO);
-        stud(g, c.trim, 4.5, 0, 1.3);
-        rod(g, head, 8, tip - 8, 2.3, { ow: WO });
-        shape(g, poly([[tip - 11, -4], [tip, 0], [tip - 11, 4]]), grad(g, head, 0, -4, 0, 4), true, WO);
+        rod(g, shaft, -48, 2, 4.2, { grain: c.v, ow: WO });
+        shape(g, rrect(0, -5.4, 9, 10.8, 1.4), grad(g, head, 0, -5.4, 0, 5.4), true, WO);
+        stud(g, c.trim, 4.5, 0, 1.5);
+        rod(g, head, 8, tip - 8, 2.8, { ow: WO });
+        shape(g, poly([[tip - 12, -5], [tip, 0], [tip - 12, 5]]), grad(g, head, 0, -5, 0, 5), true, WO);
       } else if (soliferrum) {
         // one heavy all-iron dart: a thick rod, a grip of grooves, a small barbed head
-        rod(g, shaft, -48, tip - 12, 3.4, { ow: WO });
+        rod(g, shaft, -48, tip - 12, 4.4, { ow: WO });
         g.save();
         g.strokeStyle = 'rgba(22,13,8,0.55)';
         g.lineWidth = 1.2;
@@ -974,20 +977,20 @@ function javelinIcon(c: Ctx): void {
           g.stroke();
         }
         g.restore();
-        shape(g, poly([[tip - 14, -2.4], [tip - 8, -6.5], [tip, 0], [tip - 8, 6.5], [tip - 14, 2.4]]), grad(g, head, 0, -6, 0, 6), true, WO);
+        shape(g, poly([[tip - 15, -3], [tip - 8, -8], [tip, 0], [tip - 8, 8], [tip - 15, 3]]), grad(g, head, 0, -8, 0, 8), true, WO);
         spec(g, head, [[tip - 12, -0.5], [tip - 2, 0]], 1.2, 0.8);
       } else {
-        rod(g, shaft, -48, tip - (gaesum ? 20 : 16), allIron ? 2.4 : 2.8, allIron ? { ow: WO } : { grain: c.v, ow: WO });
+        rod(g, shaft, -48, tip - (gaesum ? 20 : 16), allIron ? 3.2 : 3.8, allIron ? { ow: WO } : { grain: c.v, ow: WO });
         if (gaesum) {
           // the Celtic gaesum: a big barbed, waisted iron head
-          shape(g, poly([[tip - 22, -2], [tip - 15, -8], [tip - 10, -4], [tip, 0], [tip - 10, 4], [tip - 15, 8], [tip - 22, 2]]), grad(g, head, 0, -8, 0, 8), true, WO);
+          shape(g, poly([[tip - 22, -3], [tip - 15, -10], [tip - 10, -5], [tip, 0], [tip - 10, 5], [tip - 15, 10], [tip - 22, 3]]), grad(g, head, 0, -10, 0, 10), true, WO);
           spec(g, head, [[tip - 20, -0.5], [tip - 2, 0]], 1.3, 0.8);
         } else if (saunion) {
           // all-iron Iberian dart with a long barbed head
-          shape(g, poly([[tip - 18, -2], [tip - 12, -5.5], [tip, 0], [tip - 12, 5.5], [tip - 18, 2]]), grad(g, head, 0, -5, 0, 5), true, WO);
+          shape(g, poly([[tip - 18, -3], [tip - 12, -7], [tip, 0], [tip - 12, 7], [tip - 18, 3]]), grad(g, head, 0, -7, 0, 7), true, WO);
         } else {
-          band(g, c.trim, tip - 16, 2.6, 2.9, WO);
-          leaf(g, head, tip - 16, tip, 5, c, { waist: 0.35, ow: WO });
+          band(g, c.trim, tip - 16, 3, 3.9, WO);
+          leaf(g, head, tip - 16, tip, 6.5, c, { waist: 0.35, ow: WO });
         }
       }
       pts.push(toScreen(g, tip, 0));
@@ -2243,47 +2246,8 @@ function trinketIcon(c: Ctx): void {
   const cx = 32;
   const metalR = c.mat && isMetal(c.mat) ? c.main : finish(RAMPS.bronze, r);
   switch (id) {
-    case 'owl_amulet': {
-      const br = metalR;
-      const disc = medallion(c, br, cx, 36, 16, RAMPS.leather);
-      // the owl: two big eyes, a beak, ear tufts in relief
-      g.save();
-      g.clip(disc);
-      g.strokeStyle = 'rgba(22,13,8,0.65)';
-      g.lineWidth = 1;
-      for (const s of [-1, 1]) {
-        g.beginPath();
-        g.arc(cx + s * 6, 34, 4.6, 0, 6.283);
-        g.stroke();
-        g.fillStyle = br.hi;
-        g.beginPath();
-        g.arc(cx + s * 6, 34, 3, 0, 6.283);
-        g.fill();
-        g.fillStyle = '#1e130c';
-        g.beginPath();
-        g.arc(cx + s * 6, 34, 1.5, 0, 6.283);
-        g.fill();
-        g.beginPath();
-        g.moveTo(cx + s * 10, 27);
-        g.lineTo(cx + s * 13, 20);
-        g.lineTo(cx + s * 6, 26);
-        g.stroke();
-      }
-      g.fillStyle = br.dk;
-      g.fill(poly([[cx - 2, 38], [cx + 2, 38], [cx, 43]]));
-      g.strokeStyle = br.dk;
-      g.globalAlpha = 0.4;
-      for (let y = 44; y < 52; y += 3) {
-        g.beginPath();
-        g.moveTo(cx - 8, y);
-        g.quadraticCurveTo(cx - 4, y + 2, cx, y);
-        g.quadraticCurveTo(cx + 4, y + 2, cx + 8, y);
-        g.stroke();
-      }
-      g.restore();
-      c.glints = [[cx - 9, 26]];
-      return;
-    }
+    case 'owl_amulet':
+      return owlIcon(c, metalR);
     case 'herakles_knot': {
       cord(c, cx, 20, RAMPS.cord);
       const gr = c.mat && isMetal(c.mat) ? c.main : finish(RAMPS.gold, r);
@@ -3132,6 +3096,69 @@ function tanitIcon(c: Ctx): void {
   shape(g, bar, grad(g, sign, 0, cy - 7, 0, cy - 2), true, 1.6);
   const head = ellipse(cx, cy - 10, 4.5, 4.5);
   shape(g, head, dome(g, sign, cx, cy - 10, 4.5), true, 1.6);
+  g.restore();
+  c.glints = [[cx - 10, cy - 11]];
+}
+
+function owlIcon(c: Ctx, rp: Ramp): void {
+  const { g } = c;
+  const cx = 32, cy = 37, R = 18;
+  cord(c, cx, cy - R - 2, RAMPS.leather);
+  const disc = ellipse(cx, cy, R, R);
+  shape(g, disc, dome(g, rp, cx, cy, R));
+  stud(g, rp, cx, cy - R - 0.5, 2.6);
+  g.save();
+  g.clip(disc);
+  // a sunk ring near the rim, as on a struck coin
+  g.strokeStyle = 'rgba(22,13,8,0.35)';
+  g.lineWidth = 0.9;
+  g.stroke(ellipse(cx, cy, R - 2.6, R - 2.6));
+  // the owl of Athena in relief: a squat body, a broad head with ear tufts
+  const body = new Path2D();
+  body.moveTo(cx - 9, cy - 4);
+  body.quadraticCurveTo(cx - 12, cy + 8, cx - 6, cy + 14);
+  body.lineTo(cx + 6, cy + 14);
+  body.quadraticCurveTo(cx + 12, cy + 8, cx + 9, cy - 4);
+  body.closePath();
+  emboss(g, body, rp, 0.9);
+  const head = new Path2D();
+  head.moveTo(cx - 12, cy - 13);
+  head.quadraticCurveTo(cx - 6, cy - 10, cx, cy - 11);
+  head.quadraticCurveTo(cx + 6, cy - 10, cx + 12, cy - 13);
+  head.quadraticCurveTo(cx + 13, cy - 2, cx + 6, cy + 1);
+  head.quadraticCurveTo(cx, cy + 3, cx - 6, cy + 1);
+  head.quadraticCurveTo(cx - 13, cy - 2, cx - 12, cy - 13);
+  head.closePath();
+  emboss(g, head, rp, 0.9);
+  // the eyes: sunk rings round a raised centre (no cartoon whites)
+  for (const s of [-1, 1]) {
+    engrave(g, ellipse(cx + s * 5.2, cy - 5, 4.2, 4.2), rp, 0.8, rp.lo);
+    emboss(g, ellipse(cx + s * 5.2, cy - 5, 2, 2), rp, 0.6);
+  }
+  // beak and the breast feathers, sunk
+  engrave(g, poly([[cx - 1.8, cy - 2], [cx + 1.8, cy - 2], [cx, cy + 2]]), rp, 0.6, rp.dk);
+  g.strokeStyle = rp.dk;
+  g.globalAlpha = 0.55;
+  g.lineWidth = 0.9;
+  for (let y = cy + 4; y < cy + 13; y += 3) {
+    g.beginPath();
+    g.moveTo(cx - 6, y);
+    g.quadraticCurveTo(cx - 3, y + 2, cx, y);
+    g.quadraticCurveTo(cx + 3, y + 2, cx + 6, y);
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+  // feet
+  g.strokeStyle = rp.dk;
+  g.lineWidth = 1.2;
+  g.beginPath();
+  for (const x of [cx - 4, cx + 4]) {
+    g.moveTo(x, cy + 13);
+    g.lineTo(x - 1.5, cy + 16);
+    g.moveTo(x, cy + 13);
+    g.lineTo(x + 1.5, cy + 16);
+  }
+  g.stroke();
   g.restore();
   c.glints = [[cx - 10, cy - 11]];
 }
