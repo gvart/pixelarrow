@@ -15,7 +15,7 @@
  */
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, addIcon, addPanel, addText } from '../ui/kit';
+import { scaleIcon, Button, addIcon, addPanel, addText } from '../ui/kit';
 import { confirmDialog, openModal, toast, ScrollList, type Modal } from '../ui/widgets';
 import { SIZE } from '../ui/theme';
 import { ensureFonts } from '../ui/fonts';
@@ -723,7 +723,7 @@ export class CampScene extends BaseScene {
         if (!camp) btn.setEnabled(false, t('ocamp.why.notCamp'));
         H.add(btn);
         if (built) H.add(addText(this, bx + bw - 2, by + bw - 10, `${built.building ?? built.level}`, on ? 'light' : 'red', 1));
-        else if (camp && !afford) H.add(addIcon(this, bx + bw - 9, by + bw - 9, 'coin', 'D').setScale(0.5));
+        else if (camp && !afford) H.add(scaleIcon(addIcon(this, bx + bw - 9, by + bw - 9, 'coin', 'D'), 0.5));
         by += bw + gap;
       }
     }

@@ -50,6 +50,8 @@ async function session(name, routeApi) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+  // no Vite HMR socket: a source edit elsewhere must not reload the page mid-run (the script runs against a live dev server)
+  await ctx.routeWebSocket((u) => u.searchParams.has('token'), () => {});
   const page = await ctx.newPage();
   const errors = [];
   const netErrors = [];

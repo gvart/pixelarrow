@@ -6,8 +6,9 @@
  */
 import { uiIgnore } from './layout';
 import Phaser from 'phaser';
-import { renderAuraRing, renderDot, renderFxIcon, renderPip, renderStar, isoEllipse } from '../art/fx';
-import { ICONS } from '../art/icons';
+import { FX_ICON_PX, renderAuraRing, renderDot, renderFxIcon, renderPip, renderStar, isoEllipse } from '../art/fx';
+import { VECTOR_ICONS } from '../art/vectorIcons';
+import { RS } from '../platform/renderScale';
 import { ABILITIES, AURAS, AURA_IDS, type AbilityId, type AuraId } from '../data/perks';
 import { willRadius } from '../sim/stats';
 import type { SimUnit } from '../sim/types';
@@ -40,6 +41,8 @@ interface FloatItem {
   dur: number;
   rise: number;
   live: boolean;
+  /** Scale showing the texture at its intended size (smooth icons are drawn denser). */
+  scale?: number;
 }
 
 interface Overlay {
@@ -61,11 +64,13 @@ export function registerFxTextures(scene: Phaser.Scene): void {
   for (const p of PIP_DEFS) scene.textures.addCanvas(p.key, renderPip(p.kind, p.color).toCanvas());
   scene.textures.addCanvas('fx_dot1', renderDot(1, 0xffffff).toCanvas());
   scene.textures.addCanvas('fx_dot2', renderDot(2, 0xffffff).toCanvas());
+  // smooth icons drawn at the screen's density for the closest camera zoom (3x); floatIcon scales them down
+  const fxN = FX_ICON_PX * RS * 3;
   for (const id of Object.keys(ABILITIES) as AbilityId[]) {
     const def = ABILITIES[id];
-    scene.textures.addCanvas(`fxicon_${id}`, renderFxIcon(ICONS[def.icon], def.color).toCanvas());
+    scene.textures.addCanvas(`fxicon_${id}`, renderFxIcon(VECTOR_ICONS[def.icon] ?? VECTOR_ICONS.star, fxN))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
   }
-  scene.textures.addCanvas('fxicon_levelup', renderFxIcon(ICONS.star, 0xf0c860).toCanvas());
+  scene.textures.addCanvas('fxicon_levelup', renderFxIcon(VECTOR_ICONS.star, fxN))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
 }
 
 export class BattleFx {
@@ -139,8 +144,10 @@ export class BattleFx {
 
   floatIcon(x: number, y: number, key: string): void {
     const img = this.scene.add.image(Math.round(x), Math.round(y), key).setDepth(DEPTH_FX + 2);
+    const scale = img.width > FX_ICON_PX ? FX_ICON_PX / img.width : 1;
+    img.setScale(scale);
     this.layer.add(img);
-    this.floats.push({ obj: img, x, y, t: 0, dur: 1.1, rise: 14, live: true });
+    this.floats.push({ obj: img, x, y, t: 0, dur: 1.1, rise: 14, live: true, scale });
   }
 
   floatText(x: number, y: number, text: string, tint = 0xffffff, dur = 0.8): void {
@@ -300,7 +307,7 @@ export class BattleFx {
         const rise = f.rise * Math.min(1, k * 3);
         f.obj.setPosition(Math.round(f.x), Math.round(f.y - rise));
         f.obj.setAlpha(k < 0.7 ? 1 : k < 0.85 ? 0.6 : 0.3);
-        if (list === this.floats) f.obj.setScale(k < 0.08 ? 2 : 1);
+        if (list === this.floats) f.obj.setScale((f.scale ?? 1) * (k < 0.08 ? 2 : 1));
       }
     }
     this.floats = this.floats.filter((f) => f.live);

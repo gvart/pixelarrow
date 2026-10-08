@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import '@fontsource/inter/500.css';
+import '@fontsource/cormorant-sc/700.css';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { ArmyScene } from './scenes/ArmyScene';
@@ -31,8 +33,10 @@ import { refreshLang } from './ui/lang';
 import { lang, setLang, type Lang } from './i18n';
 import { installMonitoring } from './platform/monitoring';
 import type { GameLike } from './platform/telemetry';
+import { installRenderScale, RS } from './platform/renderScale';
 
 installWidgets();
+installRenderScale();
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -43,8 +47,8 @@ const game = new Phaser.Game({
   antialias: false,
   scale: {
     mode: Phaser.Scale.RESIZE,
-    width: window.innerWidth,
-    height: window.innerHeight,
+    width: window.innerWidth * RS,
+    height: window.innerHeight * RS,
   },
   input: { activePointers: 3 },
   audio: { noAudio: true }, // all sound is our own Web Audio (src/audio)

@@ -9,6 +9,27 @@ const base = process.argv[2] ?? 'http://localhost:5173/';
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+/**
+ * The canvas renders at device pixels (src/platform/renderScale.ts RS): game
+ * px (scale.width, getBounds(), camera projections, UI px * m.S) are CSS px *
+ * RS. Touches and page.mouse are CSS px. `__css(x, y)` maps game px to page
+ * (CSS) px through the canvas rect, `__gamePt(x, y)` back, `__rs()` is RS.
+ * Also: no Vite HMR socket, so a source edit elsewhere cannot reload the page
+ * mid-run (the scripts run against a live dev server).
+ */
+async function prepContext(c) {
+  await c.routeWebSocket((u) => u.searchParams.has('token'), () => {});
+  await c.addInitScript(() => {
+    const geo = () => {
+      const r = window.__game.canvas.getBoundingClientRect();
+      return { r, k: r.width / window.__game.scale.width };
+    };
+    window.__css = (x, y) => { const { r, k } = geo(); return [r.left + x * k, r.top + y * k]; };
+    window.__gamePt = (x, y) => { const { r, k } = geo(); return [(x - r.left) / k, (y - r.top) / k]; };
+    window.__rs = () => 1 / geo().k;
+  });
+}
+await prepContext(ctx);
 const page = await ctx.newPage();
 const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -67,14 +88,14 @@ async function until(fn, ms = 15000, step = 250) {
   return false;
 }
 
-/** Screen centre of the first Button in a scene matching a label or icon (searches containers). */
+/** Page (CSS px) centre of the first Button in a scene matching a label, icon or layout id (searches containers). */
 async function btn(sceneKey, match) {
   return ev(([k, m]) => {
     const s = window.__game.scene.getScene(k);
     const found = [];
     const walk = (list) => {
       for (const o of list) {
-        if (o.opts && o.visible && ((m.label && o.opts.label && o.opts.label.toUpperCase().startsWith(m.label.toUpperCase())) || (m.icon && o.opts.icon === m.icon))) found.push(o);
+        if (o.visible && ((m.id && o.__uiId === m.id) || (o.opts && ((m.label && o.opts.label && o.opts.label.toUpperCase().startsWith(m.label.toUpperCase())) || (m.icon && o.opts.icon === m.icon))))) found.push(o);
         if (o.list) walk(o.list);
       }
     };
@@ -82,7 +103,7 @@ async function btn(sceneKey, match) {
     const b = found[m.index ?? found.length - 1];
     if (!b) return null;
     const r = b.getBounds();
-    return [r.centerX, r.centerY];
+    return window.__css(r.centerX, r.centerY);
   }, [sceneKey, match]);
 }
 async function tapBtn(sceneKey, match) {
@@ -102,6 +123,7 @@ await ev(() => localStorage.clear());
 await page.goto(base);
 await wait(2500);
 check('menu active', await active('Menu'));
+const RS = await ev(() => window.__rs());
 
 // ---- new campaign
 await tapBtn('Menu', { label: 'New campaign' });
@@ -126,14 +148,15 @@ const target = await ev(() => {
     });
   const cam = s.cameras.main;
   const view = cam.worldView;
+  const rs = window.__rs();
   for (const r of [4, 6, 8, 10]) {
     for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, r], [r, -r], [-r, -r]]) {
       const t = w.nearestPassable(Math.floor(w.s.x) + dx, Math.floor(w.s.y) + dy, 1);
       if (!t || onSite((t.x + 0.5) * 8, (t.y + 0.5) * 8)) continue;
-      // on screen, clear of the HUD (top bar, bottom bar)
+      // on screen, clear of the HUD (top bar, bottom bar; CSS px x RS)
       const sy = ((t.y + 0.5) * 8 - view.y) * cam.zoom;
-      if ((t.x + 0.5) * 8 < view.x || (t.x + 0.5) * 8 > view.right || sy < 90 || sy > s.scale.height - 120) continue;
-      return [((t.x + 0.5) * 8 - view.x) * cam.zoom, sy];
+      if ((t.x + 0.5) * 8 < view.x || (t.x + 0.5) * 8 > view.right || sy < 90 * rs || sy > s.scale.height - 120 * rs) continue;
+      return window.__css(((t.x + 0.5) * 8 - view.x) * cam.zoom, sy);
     }
   }
   return null;
@@ -172,6 +195,10 @@ async function ambush() {
     p.y = t.y + 0.5;
     p.idle = 0;
     p.power = s.info.power * 1.4; // strong enough to hunt us
+    // a melee band: skirmishers or riders can keep out of reach for the whole run, and the
+    // shield-bash check below needs a man in front of the basher (scripts/screenshots.mjs stages the same)
+    p.kind = 'raiders';
+    p.culture = 'celtic';
   });
   await tapBtn('World', { label: 'Camp' });
   return until(() => ev(() => !!window.__game.scene.getScene('World').dialog), 10000);
@@ -187,12 +214,12 @@ check('one-time controls hint on the first deployment', await ev(() => !!window.
 await tap(195, 120);
 check('hint dismissed and remembered', await until(() => ev(() => !window.__game.scene.getScene('Battle').hint && window.__state.campaign.data.settings.seenGestureHint), 4000, 100));
 await wait(300);
-/** Screen points for field points, plus the selected group's state. */
+/** Page (CSS px) points for field points, plus the selected group's state. */
 const geo = (pts, frame = true) =>
   ev(([pts, frame]) => {
     const s = window.__game.scene.getScene('Battle');
     const cam = s.cameras.main;
-    const toScreen = ([x, y]) => { const p = s.project(x, y); return [(p.x - cam.worldView.x) * cam.zoom, (p.y - cam.worldView.y) * cam.zoom]; };
+    const toScreen = ([x, y]) => { const p = s.project(x, y); return window.__css((p.x - cam.worldView.x) * cam.zoom, (p.y - cam.worldView.y) * cam.zoom); };
     const g = s.sim.groups[s.selGroup];
     const f = g.formation;
     // frame: (a, b) = a paces to the group's right, b paces behind its front-rank centre
@@ -216,8 +243,8 @@ async function swipe(points, steps = 8) {
 const orders = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
 let G0 = await geo([]);
 check('a group is selected in deployment', G0.sel >= 0);
-// sprites are drawn at native size: a man is ~34 px tall at zoom 1
-check('readable default zoom (a man is at least 30 px tall)', G0.zoom * 34 >= 30, `zoom ${G0.zoom}`);
+// sprites are drawn at native size: a man is ~34 CSS px tall at zoom 1 (camera zoom RS)
+check('readable default zoom (a man is at least 30 px tall)', (G0.zoom / RS) * 34 >= 30, `zoom ${G0.zoom / RS} (camera ${G0.zoom}, RS ${RS})`);
 
 // 1) one-finger drag on empty ground pans, even with a group selected
 const emptyPt = await ev(() => {
@@ -225,10 +252,11 @@ const emptyPt = await ev(() => {
   const cam = s.cameras.main;
   const H = s.scale.height;
   const W = s.scale.width;
+  const rs = window.__rs();
   const own = s.views.filter((v) => v.u.side === 0).map((v) => [(v.spr.x - cam.worldView.x) * cam.zoom, (v.spr.y - 10 - cam.worldView.y) * cam.zoom]);
   for (let y = H * 0.25; y < H * 0.6; y += 20)
-    for (let x = 40; x < W - 40; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90) && s.input.hitTestPointer({ x, y, camera: null }).length === 0) return [x, y];
-  return [W / 2, H * 0.3];
+    for (let x = 40 * rs; x < W - 40 * rs; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90 * rs) && s.input.hitTestPointer({ x, y, camera: null }).length === 0) return window.__css(x, y);
+  return window.__css(W / 2, H * 0.3);
 });
 const o0 = await orders();
 await swipe([emptyPt, [emptyPt[0] - 60, emptyPt[1] + 50]]);
@@ -291,13 +319,15 @@ let dpt = null;
 for (const d of [3, 4, 5, 6]) {
   const c = [g.f.cx + g.f.fx * d, Math.min(g.z.y1 - 0.5, Math.max(g.z.y0 + 0.5, g.f.cy + g.f.fy * d))];
   const q = await geo([[c[0] - g.f.cx, c[1] - g.f.cy]], false);
-  const free = await ev(([x, y]) => {
+  const free = await ev(([px, py]) => {
     const s = window.__game.scene.getScene('Battle');
     const cam = s.cameras.main;
+    const [x, y] = window.__gamePt(px, py);
+    const rs = window.__rs();
     // not on a soldier (a tap there selects him) nor on a tag
-    const clear = s.views.every((v) => v.u.state === 'dead' || Math.hypot((v.spr.x - cam.worldView.x) * cam.zoom - x, (v.spr.y - v.tall * 0.45 - cam.worldView.y) * cam.zoom - y) > 34);
+    const clear = s.views.every((v) => v.u.state === 'dead' || Math.hypot((v.spr.x - cam.worldView.x) * cam.zoom - x, (v.spr.y - v.tall * 0.45 - cam.worldView.y) * cam.zoom - y) > 34 * rs);
     // group tags are map markers: a tap near one selects its group
-    const offTags = [...s.tagPos.values()].every((t) => Math.hypot(t.x * s.m.S - x, t.y * s.m.S - y) > 26);
+    const offTags = [...s.tagPos.values()].every((t) => Math.hypot(t.x * s.m.S - x, t.y * s.m.S - y) > 26 * rs);
     return clear && offTags && s.input.hitTestPointer({ x, y, camera: null }).length === 0;
   }, q.pts[0]);
   if (free || d === 6) {
@@ -324,7 +354,7 @@ await wait(400);
 const z1 = await ev(() => window.__game.scene.getScene('Battle').cameras.main.zoom);
 check('pinch zoom', z1 > z0, `${z0} -> ${z1}`);
 
-await tapBtn('Battle', { label: 'Fight' });
+await tapBtn('Battle', { id: 'battle.fight' });
 check('battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 5000, 100));
 // fast-forward: the band is worn out (test staging), the sim runs to the end.
 // The player's few men are made unbreakable too: they only hold their ground,
@@ -384,7 +414,7 @@ const vpos = await ev((id) => {
   const s = window.__game.scene.getScene('World');
   const v = s.w.map.settlements[id];
   const cam = s.cameras.main;
-  return [((v.x * 8 + 4) - cam.worldView.x) * cam.zoom, (v.y * 8 - cam.worldView.y) * cam.zoom];
+  return window.__css(((v.x * 8 + 4) - cam.worldView.x) * cam.zoom, (v.y * 8 - cam.worldView.y) * cam.zoom);
 }, village.id);
 await tap(vpos[0], vpos[1]);
 check('entered the village', await until(() => active('Settlement'), 12000));
@@ -453,7 +483,7 @@ check('left the village', await until(() => active('World'), 3000));
 check('second encounter', await ambush());
 await tapBtn('World', { label: 'Attack' });
 await until(() => active('Battle'), 5000);
-await tapBtn('Battle', { label: 'Fight' });
+await tapBtn('Battle', { id: 'battle.fight' });
 // run until the shield-basher has a man in front of him, then pause and select him
 const ready = await ev((hid) => {
   const s = window.__game.scene.getScene('Battle');
@@ -473,12 +503,12 @@ const ready = await ev((hid) => {
 }, hero0.id);
 check('shield basher in contact', ready);
 await wait(300);
-await tapBtn('Battle', { icon: 'bash' });
+await tapBtn('Battle', { id: 'battle.cmd.bash' }); // the ability medallion
 const usedBash = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.some((o) => o.side === 0 && o.order.kind === 'ability' && o.order.ability === 'bash'));
 await until(usedBash, 4000, 100);
 const used = await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.filter((o) => o.side === 0 && o.order.kind === 'ability').map((o) => o.order.ability));
 check('ability used from the battle bar', used.includes('bash'), JSON.stringify(used));
-await tapBtn('Battle', { label: 'Play' }); // unpause
+await tapBtn('Battle', { id: 'battle.play' }); // unpause
 await wait(1500);
 check('no console errors', errors.length === 0, errors.join(' | '));
 await browser.close();

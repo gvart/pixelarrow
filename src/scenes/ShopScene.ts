@@ -1,7 +1,7 @@
 import { setCosmeticLoadout } from '../game/cosmetics';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
+import { scaleIcon, Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
 import { ItemIcon, ScrollList, Tabs, addScrollHint, confirmDialog, openModal, showTooltip, toast } from '../ui/widgets';
 import { uiFrame, uiId } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
@@ -12,7 +12,7 @@ import { addChip, addTabBadge, frameScrollTexts } from '../ui/sheet';
 import { econ, newRequestId, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
 import { pickBattleConsumable } from '../ui/econ/consumablePicker';
-import { addEconState, ago, cosmeticName, cosmeticTexture, currencyIcon, ensureEconIcons, goodsTexture, priceText, rewardName } from '../ui/econ/widgets';
+import { addCosmetic, addEconState, addGoodsIcon, ago, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
 import { claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
@@ -261,7 +261,7 @@ export class ShopScene extends BaseScene {
     g.lineStyle(1, cm.drachmae === null ? RARITY_COLOR.epic : 0x8a6128, 1);
     g.strokeRect(x + Math.round((w - 32) / 2) + 0.5, y + 3.5, 31, 31);
     c.add(g);
-    c.add(this.add.image(x + Math.round((w - 28) / 2), y + 5, cosmeticTexture(this, cm.id, cm.slot)).setOrigin(0, 0));
+    c.add(addCosmetic(this, x + Math.round((w - 28) / 2), y + 5, cm.id, cm.slot));
     const light = equipped;
     c.add(addText(this, x + w / 2, y + 38, ellipsize(cosmeticName(cm), w - 10), light ? 'light' : 'ink', 0.5));
     let status: string;
@@ -288,7 +288,7 @@ export class ShopScene extends BaseScene {
     g.lineStyle(2, 0xb8863b, 1);
     g.strokeRect(x + w / 2 - 31, y + 24, 62, 62);
     c.add(g);
-    c.add(this.add.image(Math.round(x + w / 2 - 28), y + 27, cosmeticTexture(this, cm.id, cm.slot)).setOrigin(0, 0).setScale(2));
+    c.add(addCosmetic(this, Math.round(x + w / 2 - 28), y + 27, cm.id, cm.slot, 56));
     const line = `${tOr(`shop.slot.${cm.slot}`, cm.slot)}${cm.drachmae !== null && !owned ? ' · ' + t('econ.dr', { n: cm.drachmae }) : ''}`;
     c.add(addText(this, x + w / 2, y + 92, ellipsize(line, w - 16), 'dim', 0.5));
     if (cm.source === 'season_pass' && !owned) c.add(addText(this, x + w / 2, y + 103, ellipsize(t('shop.passOnly'), w - 16), 'red', 0.5));
@@ -472,7 +472,7 @@ export class ShopScene extends BaseScene {
     // reward icon
     if (r.kind === 'cosmetic') {
       const cm = d.cat.cosmetics.find((c) => c.id === r.id);
-      row.add(this.add.image(x + 3, 3, cosmeticTexture(this, r.id, cm?.slot ?? 'emblem')).setOrigin(0, 0));
+      row.add(addCosmetic(this, x + 3, 3, r.id, cm?.slot ?? 'emblem'));
     } else {
       const sub = r.kind === 'consumable' ? { consumable: r.id } : { resource: r.kind === 'gold' ? 'gold' : 'drachmae' };
       row.add(new ItemIcon(this, x + 4, 5, sub, { size: 24, tip: false, glow: false, rarity: track === 'premium' ? 'epic' : 'common' }));
@@ -556,7 +556,7 @@ export class ShopScene extends BaseScene {
     let y = 0;
     // balance
     c.add(addPanel(this, 0, y, w, 40, 'dark'));
-    c.add(this.add.image(8, y + 8, 'icon_drachma').setOrigin(0, 0).setScale(2));
+    c.add(scaleIcon(this.add.image(8, y + 8, 'icon_drachma').setOrigin(0, 0), 2));
     const bal = addText(this, 38, y + 7, `${d.wallet.drachmae}`, 'title');
     bal.setFontSize(14);
     c.add(bal);
@@ -581,7 +581,7 @@ export class ShopScene extends BaseScene {
       const px = (i % cols) * (pw + SIZE.gap);
       const py = y + Math.floor(i / cols) * (ph + SIZE.gap);
       c.add(addPanel(this, px, py, pw, ph, 'parch'));
-      c.add(this.add.image(px + 5, py + 5, goodsTexture(this, 'resource', 'drachmae')).setOrigin(0, 0));
+      c.add(addGoodsIcon(this, px + 5, py + 5, 'resource', 'drachmae'));
       const amt = addText(this, px + 24, py + 6, `${pk.drachmae}`, 'red');
       c.add(amt);
       const bonus = Math.round((pk.drachmae / pk.stars - 1) * 100);

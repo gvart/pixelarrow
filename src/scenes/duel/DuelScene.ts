@@ -50,7 +50,7 @@ import {
 import { RANKED, divisionRoman, leagueRank, type DuelMode, type League, type LeagueId } from '../../duel/rating';
 import type { AsyncReport, MatchReport } from '../../duel/protocol';
 import { ASYNC, seasonMonth } from '../../duel/season';
-import { cosmeticTexture } from '../../ui/econ/widgets';
+import { addCosmetic } from '../../ui/econ/widgets';
 import { MatchLink, matchSource, type MatchOutcome } from '../../duel/match';
 import { LINE_H, wrapText } from '../../ui/textfit';
 import { DuelHeroSource } from '../../duel/heroSource';
@@ -1111,7 +1111,7 @@ export class DuelScene extends BaseScene {
       pf.fillStyle(LEAGUE_COLOR[r.league], 1);
       pf.fillRect(x + 12, y + 8, 26, 26);
       c.add(pf);
-      c.add(this.add.image(x + 12, y + 8, cosmeticTexture(this, r.cosmetic, r.cosmetic.startsWith('duel_banner') ? 'banner' : 'emblem')).setOrigin(0, 0).setDisplaySize(26, 26));
+      c.add(addCosmetic(this, x + 12, y + 8, r.cosmetic, r.cosmetic.startsWith('duel_banner') ? 'banner' : 'emblem', 26));
       const tx = x + 43;
       const tw = x + 8 + inner - tx - 4;
       c.add(addText(this, tx, y + 4, ellipsize(t('duels.reward.line', { ladder: t(`duels.board.${r.ladder}` as TKey), league: leagueTitle(r.league) }), tw), 'red'));

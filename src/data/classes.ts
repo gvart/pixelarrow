@@ -153,7 +153,7 @@ const defs: ClassDef[] = [
     desc: 'Farmers with spears and clubs. Cheap, brittle, many.',
     mods: { morale: -6 }, attrs: A(5, 5, 5, 5), growth: ['end', 'str', 'agi', 'wil'],
     tree: ['drilled', 'shield_bash', 'phalangite', 'rally_cry', 'unbreakable'],
-    kit: { weapon: [['dory', 'club', 'javelins', 'sling'], ['dory', 'longche'], ['longche']], shield: [['', 'thureos'], ['thureos'], ['thureos']], helmet: [[], ['cap'], ['pilos']] },
+    kit: { weapon: [['dory', 'club', 'javelins', 'sling', 'ash_dory'], ['dory', 'longche', 'lancea'], ['longche', 'lancea']], shield: [['', 'thureos', 'hide_shield'], ['thureos', 'hide_shield'], ['thureos', 'gerron']], helmet: [[], ['cap', 'felt_pilos', 'wolfskin_cap'], ['pilos', 'konos', 'bronze_skullcap']] },
     cultures: ['greek', 'phoenician', 'celtic'], art: { tunics: ['tunicWhite', 'tunicOchre', 'tunicGreen'] },
   },
   // ------------------------------------------------------------- heavy infantry
@@ -163,8 +163,8 @@ const defs: ClassDef[] = [
     mods: { morale: 8, block: 0.03 }, attrs: A(5, 4, 6, 5), growth: ['end', 'str', 'wil', 'end', 'str', 'agi'],
     tree: ['shield_drill', 'shield_bash', 'phalangite', 'steady_presence', 'unbreakable'],
     kit: {
-      weapon: [['dory'], ['dory', 'bronze_dory'], ['bronze_dory']], shield: [['hoplon'], ['hoplon'], ['hoplon', 'aspis']],
-      helmet: [['pilos', 'corinthian'], ['corinthian', 'chalcidian'], ['corinthian']], armor: [['linothorax'], ['linothorax', 'cuirass'], ['cuirass']],
+      weapon: [['dory'], ['dory', 'bronze_dory'], ['bronze_dory', 'sauroter_dory']], shield: [['hoplon'], ['hoplon', 'boeotian_shield'], ['hoplon', 'aspis', 'spartan_aspis']],
+      helmet: [['pilos', 'corinthian'], ['corinthian', 'chalcidian', 'apulo_corinthian'], ['corinthian', 'crested_chalcidian']], armor: [['linothorax'], ['linothorax', 'cuirass', 'painted_linothorax', 'bell_cuirass'], ['cuirass', 'plated_linothorax']],
     },
     cultures: ['greek'], art: { tunics: ['tunicRed'], cloak: 'cloakRed' },
   },
@@ -174,8 +174,8 @@ const defs: ClassDef[] = [
     mods: { speed: 0.05, stamina: 10 }, attrs: A(6, 5, 5, 4), growth: ['str', 'agi', 'end', 'str', 'wil', 'agi'],
     tree: ['shield_drill', 'shield_bash', 'iron_discipline', 'rally_cry', 'warlord'],
     kit: {
-      weapon: [['xiphos', 'longche'], ['kopis', 'longche'], ['kopis', 'falcata']], shield: [['thureos'], ['thureos'], ['thureos', 'celtic_shield']],
-      helmet: [['pilos', 'montefortino'], ['montefortino', 'chalcidian'], ['chalcidian']], armor: [['leather'], ['linothorax'], ['linothorax', 'scale']],
+      weapon: [['xiphos', 'longche'], ['kopis', 'longche', 'iron_xiphos', 'makhaira'], ['kopis', 'falcata', 'gladius']], shield: [['thureos'], ['thureos', 'punic_shield'], ['thureos', 'celtic_shield', 'scutum']],
+      helmet: [['pilos', 'montefortino'], ['montefortino', 'chalcidian', 'iron_pilos', 'illyrian'], ['chalcidian', 'hellenistic']], armor: [['leather'], ['linothorax', 'scaled_linothorax'], ['linothorax', 'scale', 'hamata']],
     },
     cultures: ['greek', 'phoenician'], art: { tunics: ['tunicBlue', 'tunicWhite', 'tunicOchre'] },
   },
@@ -185,8 +185,8 @@ const defs: ClassDef[] = [
     mods: { chargeBonus: 0.25, moraleShock: 0.15, morale: -2 }, attrs: A(6, 5, 5, 4), growth: ['str', 'agi', 'end', 'str', 'wil', 'agi'],
     tree: ['brawler', 'shield_bash', 'bloodlust', 'rally_cry', 'warlord'],
     kit: {
-      weapon: [['longsword'], ['longsword'], ['longsword', 'falcata']], shield: [['thureos'], ['celtic_shield'], ['celtic_shield']],
-      helmet: [['', 'montefortino'], ['montefortino'], ['montefortino']], armor: [['', 'leather'], ['mail', 'leather'], ['mail']],
+      weapon: [['longsword'], ['longsword'], ['longsword', 'falcata', 'chieftain_sword']], shield: [['thureos'], ['celtic_shield'], ['celtic_shield', 'bossed_shield']],
+      helmet: [['', 'montefortino'], ['montefortino', 'coolus'], ['montefortino', 'horned_helm']], armor: [['', 'leather'], ['mail', 'leather', 'hide_jerkin'], ['mail', 'noble_mail']],
     },
     cultures: ['celtic'], art: { tunics: ['tunicGreen', 'tunicOchre', 'tunicRed'], trousers: 'checkGreen' },
   },
@@ -195,7 +195,7 @@ const defs: ClassDef[] = [
     desc: 'Two-handed long blade: cuts through shield walls, no shield of his own.',
     mods: { hp: 4, moraleShock: 0.1 }, attrs: A(7, 4, 5, 4), growth: ['str', 'end', 'str', 'agi', 'wil', 'str'],
     tree: ['shield_breaker', 'berserk', 'reaping_blow', 'bloodlust', 'warlord'],
-    kit: { weapon: [['rhomphaia'], ['rhomphaia'], ['rhomphaia']], helmet: [['thracian'], ['thracian'], ['thracian']], armor: [['leather'], ['linothorax', 'scale'], ['scale']] },
+    kit: { weapon: [['rhomphaia'], ['rhomphaia'], ['rhomphaia']], helmet: [['thracian'], ['thracian', 'phrygian'], ['thracian', 'gilded_thracian']], armor: [['leather', 'spolas'], ['linothorax', 'scale'], ['scale']] },
     cultures: ['greek'], art: { tunics: ['tunicOchre', 'tunicRed'], trousers: 'trouserBrown', cloak: 'cloakBrown' },
   },
   // ------------------------------------------------------------- ranged
@@ -204,7 +204,7 @@ const defs: ClassDef[] = [
     desc: 'The longest bow: bleeds slow heavy infantry from afar.',
     mods: { accuracy: 0.06, range: 1 }, attrs: A(4, 7, 4, 5), growth: ['agi', 'wil', 'agi', 'end', 'agi', 'str'],
     tree: ['longshot', 'volley', 'deep_quiver', 'eagle_eye', 'skirmish_master'],
-    kit: { weapon: [['bow'], ['cretan_bow'], ['cretan_bow']], helmet: [[], ['cap'], ['pilos']], armor: [[], ['leather'], ['leather']] },
+    kit: { weapon: [['bow'], ['cretan_bow', 'persian_bow'], ['cretan_bow']], helmet: [[], ['cap', 'felt_pilos'], ['pilos']], armor: [[], ['leather', 'quilted'], ['leather']] },
     cultures: ['greek', 'phoenician'], art: { tunics: ['tunicWhite', 'tunicOchre'] },
   },
   {
@@ -212,7 +212,7 @@ const defs: ClassDef[] = [
     desc: 'Lead bullets at long range; plenty of them.',
     mods: { accuracy: 0.04 }, attrs: A(4, 7, 4, 5), growth: ['agi', 'wil', 'agi', 'end', 'agi', 'str'],
     tree: ['lead_bullets', 'volley', 'deep_quiver', 'eagle_eye', 'skirmish_master'],
-    kit: { weapon: [['sling'], ['rhodian_sling', 'balearic_sling'], ['rhodian_sling']], helmet: [[], [], ['cap']] },
+    kit: { weapon: [['sling'], ['rhodian_sling', 'balearic_sling', 'staff_sling'], ['rhodian_sling', 'achaean_sling']], helmet: [[], [], ['cap', 'wolfskin_cap']] },
     cultures: ['greek', 'phoenician', 'celtic'], art: { tunics: ['tunicWhite', 'tunicBlue', 'tunicOchre'] },
   },
   {
@@ -220,7 +220,7 @@ const defs: ClassDef[] = [
     desc: 'A bundle of heavy javelins and a pelte: short range, hard hits.',
     mods: { speed: 0.06, ammo: 1 }, attrs: A(4, 6, 5, 5), growth: ['agi', 'end', 'str', 'agi', 'wil', 'end'],
     tree: ['fleet', 'volley', 'deep_quiver', 'eagle_eye', 'skirmish_master'],
-    kit: { weapon: [['javelins'], ['javelins', 'saunion'], ['saunion']], shield: [['pelte'], ['pelte'], ['pelte']], helmet: [[], ['cap'], ['thracian']], armor: [[], [], ['leather']] },
+    kit: { weapon: [['javelins'], ['javelins', 'saunion', 'gaesum'], ['saunion', 'pilum', 'soliferrum']], shield: [['pelte'], ['pelte', 'caetra'], ['pelte', 'bronze_pelte']], helmet: [[], ['cap', 'wolfskin_cap'], ['thracian']], armor: [[], [], ['leather']] },
     cultures: ['greek', 'phoenician', 'celtic'], art: { tunics: ['tunicOchre', 'tunicGreen', 'tunicWhite'] },
   },
   {
@@ -228,7 +228,7 @@ const defs: ClassDef[] = [
     desc: 'Shoots from the saddle on the move; never lets the enemy close.',
     mods: { accuracy: -0.04, hp: -4 }, attrs: A(4, 7, 5, 4), growth: ['agi', 'end', 'agi', 'wil', 'agi', 'str'],
     tree: ['horsemanship', 'volley', 'parthian_shot', 'eagle_eye', 'skirmish_master'],
-    kit: { weapon: [['scythian_bow'], ['scythian_bow'], ['scythian_bow']], helmet: [['scythian_hood'], ['scythian_hood'], ['scythian_hood']], armor: [[], ['leather'], ['leather', 'scale']] },
+    kit: { weapon: [['scythian_bow'], ['scythian_bow'], ['scythian_bow', 'gorytos_bow']], helmet: [['scythian_hood'], ['scythian_hood', 'persian_tiara'], ['scythian_hood']], armor: [[], ['leather', 'felt_coat'], ['leather', 'scale', 'horn_scale']] },
     cultures: ['phoenician', 'celtic'], art: { tunics: ['tunicRed', 'tunicOchre', 'tunicGreen'], trousers: 'checkRed' },
   },
   // ------------------------------------------------------------- light / shock
@@ -237,7 +237,7 @@ const defs: ClassDef[] = [
     desc: 'Fast spear-and-pelte skirmisher: runs down archers, throws a pair.',
     mods: { speed: 0.12, stamina: 10 }, attrs: A(5, 6, 5, 4), growth: ['agi', 'str', 'end', 'agi', 'wil', 'str'],
     tree: ['fleet', 'volley', 'brawler', 'rally_cry', 'skirmish_master'],
-    kit: { weapon: [['javelins', 'longche'], ['saunion', 'longche'], ['saunion']], shield: [['pelte'], ['pelte'], ['pelte', 'thureos']], helmet: [[], ['thracian', 'cap'], ['thracian']], armor: [[], ['leather'], ['leather']] },
+    kit: { weapon: [['javelins', 'longche'], ['saunion', 'longche'], ['saunion']], shield: [['pelte'], ['pelte', 'caetra'], ['pelte', 'thureos', 'bronze_pelte']], helmet: [[], ['thracian', 'cap'], ['thracian', 'phrygian']], armor: [[], ['leather'], ['leather']] },
     cultures: ['greek', 'celtic'], art: { tunics: ['tunicOchre', 'tunicRed', 'tunicBlue'], cloak: 'cloakBrown' },
   },
   {
@@ -245,7 +245,7 @@ const defs: ClassDef[] = [
     desc: 'Sickle-blade shock trooper: hooks shields aside, light and quick.',
     mods: { chargeBonus: 0.15, speed: 0.05 }, attrs: A(6, 6, 4, 4), growth: ['str', 'agi', 'str', 'end', 'wil', 'agi'],
     tree: ['brawler', 'berserk', 'shield_breaker', 'bloodlust', 'warlord'],
-    kit: { weapon: [['falx'], ['falx'], ['falx']], helmet: [['thracian', ''], ['thracian'], ['thracian']], armor: [[], ['leather'], ['leather']] },
+    kit: { weapon: [['falx'], ['falx'], ['falx']], helmet: [['thracian', ''], ['thracian'], ['thracian', 'gilded_thracian']], armor: [[], ['leather', 'hide_jerkin'], ['leather']] },
     cultures: ['greek', 'celtic'], art: { tunics: ['tunicRed', 'tunicOchre'], trousers: 'trouserBrown', cloak: 'cloakBrown' },
   },
   {
@@ -254,7 +254,7 @@ const defs: ClassDef[] = [
     mods: { chargeBonus: 0.45, moraleShock: 0.25, morale: -4, stamina: -10, speed: 0.06 }, moraleLoss: 1.1,
     attrs: A(7, 5, 4, 4), growth: ['str', 'agi', 'str', 'end', 'wil', 'str'],
     tree: ['brawler', 'berserk', 'bloodlust', 'rally_cry', 'warlord'],
-    kit: { weapon: [['axe', 'longsword', 'club'], ['axe', 'longsword'], ['longsword']], shield: [['thureos'], ['celtic_shield'], ['celtic_shield']], helmet: [[], [], ['montefortino']] },
+    kit: { weapon: [['axe', 'longsword', 'club'], ['axe', 'longsword'], ['longsword']], shield: [['thureos', 'hide_shield'], ['celtic_shield'], ['celtic_shield']], helmet: [[], [], ['montefortino', 'coolus']] },
     cultures: ['celtic'], art: { bare: true, trousers: 'checkGreen' },
   },
   {
@@ -263,7 +263,7 @@ const defs: ClassDef[] = [
     mods: { hp: -4, morale: 10, speed: 0.06, chargeBonus: 0.2 }, moraleLoss: 0.65, routAt: 0.15,
     attrs: A(6, 5, 4, 6), growth: ['str', 'wil', 'agi', 'str', 'end', 'wil'],
     tree: ['zealot', 'berserk', 'bloodlust', 'rally_cry', 'unbreakable'],
-    kit: { weapon: [['club', 'axe', 'xiphos'], ['axe', 'kopis'], ['kopis']], shield: [['', 'buckler'], ['buckler'], ['buckler']] },
+    kit: { weapon: [['club', 'axe', 'xiphos'], ['axe', 'kopis', 'sica', 'bronze_mace'], ['kopis', 'labrys']], shield: [['', 'buckler'], ['buckler'], ['buckler']] },
     cultures: [], art: { bare: true, tunics: ['tunicWhite'], cloak: 'cloakBlack' },
   },
   // ------------------------------------------------------------- cavalry and elites
@@ -272,7 +272,7 @@ const defs: ClassDef[] = [
     desc: 'Lance and horse: shatters flanks and rears, rides down the routing. Never charge braced spears head on.',
     mods: { morale: 8 }, attrs: A(6, 5, 5, 5), growth: ['str', 'wil', 'end', 'agi', 'str', 'end'],
     tree: ['horsemanship', 'lance_charge', 'ride_down', 'rally_cry', 'warlord'],
-    kit: { weapon: [['xyston'], ['xyston'], ['xyston']], helmet: [['boeotian'], ['boeotian'], ['boeotian']], armor: [['linothorax'], ['linothorax', 'cuirass'], ['cuirass']] },
+    kit: { weapon: [['xyston'], ['xyston'], ['xyston', 'kontos']], helmet: [['boeotian'], ['boeotian'], ['boeotian', 'iron_boeotian']], armor: [['linothorax'], ['linothorax', 'cuirass'], ['cuirass', 'iron_cuirass']] },
     cultures: ['greek'], art: { tunics: ['tunicOchre', 'tunicRed'], cloak: 'cloakPurple' },
   },
   {
@@ -280,7 +280,7 @@ const defs: ClassDef[] = [
     desc: 'Fast light horse: javelins, then the chase. Screens and pursues.',
     mods: { speed: 0.08 }, attrs: A(5, 6, 5, 4), growth: ['agi', 'str', 'end', 'agi', 'wil', 'str'],
     tree: ['horsemanship', 'volley', 'ride_down', 'lance_charge', 'skirmish_master'],
-    kit: { weapon: [['javelins'], ['javelins', 'saunion'], ['saunion']], shield: [['buckler'], ['buckler'], ['buckler']], helmet: [['boeotian', 'pilos'], ['boeotian'], ['boeotian']], armor: [[], ['leather'], ['linothorax']] },
+    kit: { weapon: [['javelins'], ['javelins', 'saunion'], ['saunion']], shield: [['buckler'], ['buckler'], ['buckler']], helmet: [['boeotian', 'pilos'], ['boeotian'], ['boeotian', 'iron_boeotian']], armor: [[], ['leather', 'spolas'], ['linothorax', 'painted_linothorax']] },
     cultures: ['greek', 'phoenician'], art: { tunics: ['tunicBlue', 'tunicWhite'], cloak: 'cloakBlue' },
   },
   {
@@ -288,7 +288,7 @@ const defs: ClassDef[] = [
     desc: 'Two horses and scythed wheels: cuts through loose ranks on open ground; wrecks in woods and stones.',
     mods: { armor: 1, morale: 18 }, moraleLoss: 0.8, attrs: A(5, 6, 5, 4), growth: ['agi', 'str', 'end', 'wil', 'agi', 'str'],
     tree: ['horsemanship', 'lance_charge', 'scythe_master', 'ride_down', 'warlord'],
-    kit: { weapon: [['kopis'], ['kopis'], ['falcata']], helmet: [['pilos'], ['montefortino'], ['chalcidian']], armor: [['leather'], ['linothorax'], ['scale']] },
+    kit: { weapon: [['kopis', 'akinakes'], ['kopis', 'sagaris'], ['falcata']], helmet: [['pilos', 'persian_tiara'], ['montefortino', 'negau'], ['chalcidian']], armor: [['leather'], ['linothorax', 'persian_scale'], ['scale', 'iron_scale']] },
     cultures: ['phoenician'], art: { tunics: ['tunicRed', 'tunicOchre'] },
   },
   {

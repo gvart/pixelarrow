@@ -1,6 +1,7 @@
 import { encounterOf } from '../data/beasts';
 import { encounterName } from '../ui/beastInfo';
 import Phaser from 'phaser';
+import { RS, camZoom, zoomUnits } from '../platform/renderScale';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addText } from '../ui/kit';
 import { t } from '../i18n';
@@ -194,7 +195,7 @@ export class WorldScene extends BaseScene {
     const cam = this.cameras.main;
     cam.setBounds(-60, -60, m.w * WTILE + 120, m.h * WTILE + 120);
     cam.setBackgroundColor(MAPC.parch[0]);
-    cam.setZoom(2);
+    cam.setZoom(camZoom(2));
     cam.centerOn(this.w.s.x * WTILE, this.w.s.y * WTILE);
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.uiCam.ignore(this.layer);
@@ -211,7 +212,7 @@ export class WorldScene extends BaseScene {
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
-    this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => this.setZoom(Math.round(cam.zoom) + (dy > 0 ? -1 : 1)));
+    this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => this.setZoom(Math.round(zoomUnits(cam.zoom)) + (dy > 0 ? -1 : 1)));
     this.screen({ back: () => (this.placing ? this.cancelPlacing() : this.leaveToMenu()) });
     this.events.once('shutdown', () => void state.save());
 
@@ -1033,7 +1034,7 @@ export class WorldScene extends BaseScene {
       if (down.length < 2) return;
       const [a, b] = down;
       const d = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
-      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), 1, 4);
+      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), camZoom(1), camZoom(4));
       cam.setZoom(z);
       return;
     }
@@ -1044,7 +1045,7 @@ export class WorldScene extends BaseScene {
     }
     const g = this.gesture;
     if (!g || p.id !== g.id || !p.isDown) return;
-    if (g.mode === 'pending' && Math.abs(p.x - g.sx) + Math.abs(p.y - g.sy) > 12) g.mode = 'pan';
+    if (g.mode === 'pending' && Math.abs(p.x - g.sx) + Math.abs(p.y - g.sy) > 12 * RS) g.mode = 'pan';
     if (g.mode === 'pan') {
       if (this.follow) this.toggleFollow();
       cam.scrollX -= (p.x - g.lx) / cam.zoom;
@@ -1058,7 +1059,7 @@ export class WorldScene extends BaseScene {
     if (this.pinch) {
       if (this.input.manager.pointers.filter((q) => q.isDown).length < 2) {
         this.pinch = null;
-        this.setZoom(Math.round(this.cameras.main.zoom));
+        this.setZoom(Math.round(zoomUnits(this.cameras.main.zoom)));
       }
       this.gesture = null;
       return;
@@ -1071,7 +1072,7 @@ export class WorldScene extends BaseScene {
   }
 
   private setZoom(z: number): void {
-    this.tweens.add({ targets: this.cameras.main, zoom: Phaser.Math.Clamp(z, 1, 4), duration: 120 });
+    this.tweens.add({ targets: this.cameras.main, zoom: camZoom(Phaser.Math.Clamp(z, 1, 4)), duration: 120 });
   }
 
   /** Tap at world pixel (x, y): a band, a settlement, or a spot to march to. */

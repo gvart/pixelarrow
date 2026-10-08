@@ -14,7 +14,7 @@
  * src/online/camps.ts; the server decides.
  */
 import type Phaser from 'phaser';
-import { Button, addIcon, addText, tappable } from '../../ui/kit';
+import { scaleIcon, Button, addIcon, addText, tappable } from '../../ui/kit';
 import { openModal, toast, type Modal, type UiScene } from '../../ui/widgets';
 import { SIZE } from '../../ui/theme';
 import { measureText, wrapText } from '../../ui/textfit';
@@ -382,7 +382,7 @@ class CampPanel {
       });
       objs.push(btn);
       if (built) objs.push(addText(s, bx + cw - 3, y + SIZE.btnH - 8, `${built.building ?? built.level}`, on ? 'light' : 'red', 1));
-      else if (!afford) objs.push(addIcon(s, bx + cw - 9, y + SIZE.btnH - 9, 'coin', 'D').setScale(0.5));
+      else if (!afford) objs.push(scaleIcon(addIcon(s, bx + cw - 9, y + SIZE.btnH - 9, 'coin', 'D'), 0.5));
     });
     // actions: Rest (secondary, left) and Build / Upgrade (primary, right)
     const by = m.y + m.h - 8 - SIZE.btnH;
@@ -472,7 +472,7 @@ class CampPanel {
         if (bd.building !== null) {
           // going up: a scaffold over it and a man at work
           objs.push(s.add.image(bx + 2, by + 4, this.scaffoldKey(shown <= 0 ? 1 : 2)).setOrigin(0, 0).setAlpha(shown <= 0 ? 1 : 0.9));
-          objs.push(addIcon(s, tx + TILE - 11, ty + 1, 'hourglass').setScale(0.75));
+          objs.push(scaleIcon(addIcon(s, tx + TILE - 11, ty + 1, 'hourglass'), 0.75));
           live.push((l) => {
             l.figure(i, bx + 22, by + 23, 'smith', true);
             l.sparks(bx + 18, by + 19, 6, () => l.striking(bx + 22, by + 23));

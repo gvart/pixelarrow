@@ -142,11 +142,12 @@ describe('i18n', () => {
 });
 
 describe('text fitting', () => {
-  it('measures like the bitmap font and fits with an ellipsis', () => {
-    expect(measureText('A')).toBe(4);
-    expect(measureText('AA')).toBe(9);
-    expect(measureText('A', true)).toBe(5);
-    expect(measureText('Щ')).toBe(6);
+  it('measures like the UI typeface and fits with an ellipsis', () => {
+    // Inter 500 at 8 UI px: 'A' advances 5.67 px, 'Щ' 7.6 px (src/art/fontMetrics.ts)
+    expect(measureText('A')).toBe(6);
+    expect(measureText('AA')).toBe(12);
+    expect(measureText('A', true)).toBe(7);
+    expect(measureText('Щ')).toBe(8);
     const s = ellipsize('Пауза при первом контакте', 60);
     expect(s.endsWith('…')).toBe(true);
     expect(measureText(s)).toBeLessThanOrEqual(60);

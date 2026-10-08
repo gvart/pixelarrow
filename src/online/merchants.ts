@@ -39,23 +39,26 @@ export const REGIONS: Region[] = ['attica', 'thessaly', 'thrace', 'crete', 'gaul
 
 /** Regional specialties (item def ids, src/data/items.ts). */
 export const SPECIALTIES: Record<Region, string[]> = {
-  attica: ['aspis', 'corinthian', 'cuirass', 'owl_amulet'],
-  thessaly: ['xyston', 'boeotian', 'scale'],
-  thrace: ['rhomphaia', 'falx', 'thracian', 'pelte'],
-  crete: ['cretan_bow', 'kopis', 'linothorax'],
-  gaul: ['longsword', 'celtic_shield', 'mail', 'montefortino'],
-  phoenicia: ['balearic_sling', 'falcata', 'scarab', 'tanit_eye'],
-  scythia: ['scythian_bow', 'scythian_hood', 'boar_tusk'],
+  attica: ['aspis', 'corinthian', 'cuirass', 'owl_amulet', 'sauroter_dory', 'spartan_aspis', 'crested_chalcidian', 'bell_cuirass', 'gorgoneion'],
+  thessaly: ['xyston', 'boeotian', 'scale', 'sarissa', 'macedonian_aspis', 'iron_boeotian', 'iron_cuirass', 'horse_pendant'],
+  thrace: ['rhomphaia', 'falx', 'thracian', 'pelte', 'sica', 'phrygian', 'gilded_thracian', 'spolas', 'wolf_tooth'],
+  crete: ['cretan_bow', 'kopis', 'linothorax', 'labrys', 'self_bow', 'iron_xiphos', 'painted_linothorax', 'knucklebones'],
+  gaul: ['longsword', 'celtic_shield', 'mail', 'montefortino', 'chieftain_sword', 'gaesum', 'bossed_shield', 'horned_helm', 'torc'],
+  phoenicia: ['balearic_sling', 'falcata', 'scarab', 'tanit_eye', 'soliferrum', 'caetra', 'punic_shield', 'bes_amulet', 'eye_bead'],
+  scythia: ['scythian_bow', 'scythian_hood', 'boar_tusk', 'gorytos_bow', 'sagaris', 'akinakes', 'kontos', 'persian_tiara', 'felt_coat'],
 };
 
-/** What a harbour or a crossroads adds on top of its region. */
+/** What a harbour or a crossroads adds on top of its region (harbours: sea trade; crossroads: Italian and mercenary gear). */
 export const POST_GOODS: Record<PostKind, string[]> = {
-  harbour: ['rhodian_sling', 'saunion', 'tanit_eye'],
-  crossroads: ['xyston', 'chalcidian', 'laurel', 'herakles_knot'],
+  harbour: ['rhodian_sling', 'saunion', 'tanit_eye', 'achaean_sling', 'staff_sling', 'makhaira', 'persian_bow', 'serpent_ring', 'faravahar'],
+  crossroads: ['xyston', 'chalcidian', 'laurel', 'herakles_knot', 'pilum', 'gladius', 'hasta', 'legion_scutum', 'triple_disc', 'dolabra', 'bulla'],
 };
 
 /** Basic gear every merchant may carry (a few each day). */
-export const BASE_GEAR = ['dory', 'xiphos', 'longche', 'javelins', 'sling', 'hoplon', 'thureos', 'pilos', 'cap', 'leather', 'linothorax', 'pelte'];
+export const BASE_GEAR = [
+  'dory', 'xiphos', 'longche', 'javelins', 'sling', 'hoplon', 'thureos', 'pilos', 'cap', 'leather', 'linothorax', 'pelte',
+  'club', 'axe', 'buckler', 'ash_dory', 'shepherd_sling', 'ankyle', 'hide_shield', 'felt_pilos', 'quilted',
+];
 
 /** Candidates of the daily rare slot: every finer piece of gear. */
 export const RARE_POOL = Object.values(ITEMS)

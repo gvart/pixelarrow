@@ -1,6 +1,11 @@
-/** 16x16 item icons: weapons and trinkets drawn by hand, gear rendered with the soldiers' own 3D layers. */
-import { itemDef, rarityRank, type Item } from '../data/items';
-import { P } from './palette';
+/**
+ * 16x16 pixel item icons: weapons and trinkets drawn by hand, gear rendered
+ * with the soldiers' own 3D layers. The UI shows the smooth icons of
+ * src/art/itemIconsHD.ts (see ensureItemIcon in src/ui/sprites.ts); this
+ * pixel set remains the DOM-free renderer (tests, tooling) and the fallback.
+ */
+import { itemDef, rarityRank, type Item, type ItemDef } from '../data/items';
+import { P, mix } from './palette';
 import { Pix } from './pixels';
 import { renderGearIcon } from './paperdoll';
 
@@ -188,7 +193,7 @@ function weaponIcon(art: string, id: string): Pix {
   return px;
 }
 
-function trinketIcon(id: string): Pix {
+function trinketIcon(id: string, material?: ItemDef['material']): Pix {
   const px = new Pix(SZ, SZ);
   // cord
   px.line(3, 1, 7, 6, P.leather[1]);
@@ -227,8 +232,11 @@ function trinketIcon(id: string): Pix {
       px.line(6, 6, 7, 12, 0xd2c4a4);
       px.line(7, 13, 10, 12, 0xe6dcc4);
       break;
-    default:
-      px.ellipse(5, 7, 6, 6, () => P.gold);
+    default: {
+      // a pendant in its material
+      const ramp = (material && MATERIAL_RAMP[material]) ?? [P.gold, P.gold, P.goldDark, P.goldDark];
+      px.ellipse(5, 7, 6, 6, (_x, _y, e, u) => (e ? ramp[2] : u < 0 ? ramp[0] : ramp[1]));
+    }
   }
   return px;
 }
@@ -276,17 +284,70 @@ export function renderItemIcon(item: Item): Pix {
   const r = rarityRank(item.rarity);
   let px: Pix;
   if (def.slot === 'weapon') px = weaponIcon(def.art, def.id);
-  else if (def.slot === 'trinket') px = trinketIcon(def.id);
+  else if (def.slot === 'trinket') px = trinketIcon(def.id, def.material);
   else {
-    const paint = item.def === 'argyraspis' ? { ...(item.paint ?? {}), field: 'silver' } : item.paint;
+    const paint = item.def === 'argyraspis' || def.material === 'silver' ? { ...(item.paint ?? {}), field: 'silver' } : item.paint;
     // helmets, shields and armour come in the item's own finish (tarnished .. orichalcum, legendary silhouettes)
     px = centerInto(renderGearIcon(def.slot as 'helmet' | 'shield' | 'armor', def.art, paint, 28, 28, { def: def.id, r }));
     gearDetail(px, def.id);
+    materialTint(px, def);
+    idMark(px, def.id);
     return px;
   }
+  materialTint(px, def);
   if (def.slot === 'weapon') finish(px, r);
   px.outline(P.outline);
+  idMark(px, def.id);
   return px;
+}
+
+/** Metal ramps of the materials an item can name (see ItemDef.material); the rest keep the art's colours. */
+const MATERIAL_RAMP: Partial<Record<NonNullable<ItemDef['material']>, number[]>> = {
+  bronze: P.bronze,
+  iron: P.iron,
+  steel: [0xf0f4f7, 0xb2bcc4, 0x6a7680, 0x3b454d],
+  silver: [0xffffff, 0xd6dadf, 0x8d939a, 0x4f555b],
+  gold: [0xfff4b8, 0xe8c25c, 0xa47c28, 0x694b14],
+  horn: [0xeadcb4, 0xa6844e, 0x5e4727, 0x33240f],
+  bone: [0xfefaf0, 0xeee4cc, 0xbdab8a, 0x7e6e52],
+  faience: [0xaaf0e4, 0x3f9e97, 0x226462, 0x143a39],
+  felt: [0xad957c, 0x7d6753, 0x4f3f31, 0x2e251b],
+  wicker: [0xe0c080, 0xb48e4c, 0x7d5e2b, 0x4c3718],
+  linen: [0xfcf7ea, 0xe6dcc2, 0xb9ab8c, 0x7b6f59],
+  leather: [0xbb8a60, 0x87593b, 0x5a3824, 0x372113],
+  stone: [0xcdc5b4, 0x938b7d, 0x5e584e, 0x383430],
+};
+
+/** Recolour the art's metal (bronze and iron pixels) in the item's own material. */
+function materialTint(px: Pix, def: ItemDef): void {
+  const ramp = def.material && MATERIAL_RAMP[def.material];
+  if (!ramp) return;
+  const from = new Map<number, number>();
+  P.bronze.forEach((c, i) => from.set(c, i));
+  P.iron.forEach((c, i) => from.set(c, i));
+  for (let y = 0; y < px.h; y++)
+    for (let x = 0; x < px.w; x++) {
+      if (px.alpha(x, y) === 0) continue;
+      const i = from.get(px.get(x, y));
+      if (i !== undefined) px.set(x, y, ramp[Math.min(i, ramp.length - 1)]);
+    }
+}
+
+/**
+ * Wear marks placed by the id's hash: two opaque pixels darkened, so items
+ * sharing art, tier and material (siblings told apart by the smooth icons'
+ * flourishes) still have distinct pixel icons.
+ */
+function idMark(px: Pix, id: string): void {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  const solid: [number, number][] = [];
+  for (let y = 0; y < px.h; y++) for (let x = 0; x < px.w; x++) if (px.alpha(x, y) > 0) solid.push([x, y]);
+  if (solid.length < 2) return;
+  for (const k of [h >>> 0, Math.imul(h, 2654435761) >>> 0, Math.imul(h ^ 0x9e3779b9, 40503) >>> 0]) {
+    const [x, y] = solid[k % solid.length];
+    px.set(x, y, mix(px.get(x, y), 0x000000, 0.3));
+  }
 }
 
 /** Weapon icons: epic metal is gilded, legendary orichalcum with a bright point; rare+ catches a glint. */
@@ -314,7 +375,12 @@ function finish(px: Pix, r: number): void {
   if (top) px.set(top[0], top[1], 0xffffff);
 }
 
-export function itemIconKey(item: Item): string {
+/**
+ * Texture key of an item's icon: definition, paint and rarity; `px` is the
+ * edge of the smooth icon (src/art/itemIconsHD.ts) in atlas pixels, so one
+ * item cached at two densities / sizes keeps two textures.
+ */
+export function itemIconKey(item: Item, px?: number): string {
   const p = item.paint;
-  return `item_${item.def}_${p?.emblem ?? ''}${p?.field ?? ''}${p?.ink ?? ''}_r${rarityRank(item.rarity)}`;
+  return `item_${item.def}_${p?.emblem ?? ''}${p?.field ?? ''}${p?.ink ?? ''}_r${rarityRank(item.rarity)}${px ? `@${px}` : ''}`;
 }

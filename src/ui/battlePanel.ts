@@ -9,8 +9,10 @@
  * long-press, a tap on a disabled one says why) and register with the layout
  * check the same way (a container with w / h, texts framed by it).
  */
+import { RS } from '../platform/renderScale';
+import { BRONZE_D2, STATUS_D2 } from '../art/smoothUi';
 import Phaser from 'phaser';
-import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
+import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelImage, panelK, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText } from './textfit';
 import { CATEGORY_COLOR, CATEGORY_DARK, type BattleCategory } from './theme';
@@ -102,7 +104,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
     this.h = Math.round(h);
     this.o = o;
     this.sel = !!o.selected;
-    this.bg = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0);
+    this.bg = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0).setScale(1 / panelK(scene));
     this.content = scene.add.container(0, 0);
     this.sweep = scene.add.graphics();
     // top right, clear of the label (bottom or centre) and the icon
@@ -133,13 +135,13 @@ export class PanelButton extends Phaser.GameObjects.Container {
     });
     this.on('pointerout', () => this.release());
     this.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (this.downAt && p.isDown && Math.abs(p.x - this.downAt.x) + Math.abs(p.y - this.downAt.y) > 14) this.release();
+      if (this.downAt && p.isDown && Math.abs(p.x - this.downAt.x) + Math.abs(p.y - this.downAt.y) > 14 * RS) this.release();
     });
     this.on('pointerup', (p: Phaser.Input.Pointer) => {
       const d = this.downAt;
       const long = this.long;
       this.release();
-      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14) return;
+      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       if (!this.enabled || this.blocked) {
         uiError();
         hapticNotify('warning');
@@ -193,8 +195,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
     const s = this.scene;
     if (!this.enabled) return panelTexture(s, this.w, this.h, 'buttonOff');
     if (this.o.primary) return panelTexture(s, this.w, this.h, down ? 'buttonSelDown' : 'buttonSel');
-    if (this.sel && this.o.cat) return categoryTexture(s, this.w, this.h, this.o.cat, down);
-    if (this.sel) return panelTexture(s, this.w, this.h, down ? 'buttonSelDown' : 'buttonSel');
+    if (this.sel) return panelTexture(s, this.w, this.h, down ? 'buttonOnDown' : 'buttonOn');
     return panelTexture(s, this.w, this.h, down ? 'buttonDown' : 'button');
   }
 
@@ -395,7 +396,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
       stop();
       const d = down;
       down = null;
-      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14) return;
+      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       hapticSelect();
       uiButton();
       onTap();
@@ -403,6 +404,8 @@ export class GroupCard extends Phaser.GameObjects.Container {
     this.once('destroy', stop);
     scene.add.existing(this);
   }
+
+  private wide = false;
 
   setInfo(i: GroupCardInfo): this {
     this.info = i;
@@ -420,8 +423,12 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const s = this.scene;
     this.removeAll(true);
     this.bars = s.add.graphics();
-    const style = i.selected ? 'buttonSel' : i.men === 0 ? 'buttonOff' : 'button';
-    this.add(s.add.image(0, 0, panelTexture(s, this.w, this.h, style)).setOrigin(0, 0));
+    if (this.w >= 80 && this.h < 40) {
+      this.rebuildWide(i);
+      return;
+    }
+    const style = i.selected ? 'buttonOn' : i.men === 0 ? 'buttonOff' : 'parch';
+    this.add(panelImage(s, 0, 0, this.w, this.h, style));
     if (i.selected) {
       // a gold rim: the selected group stands out at a glance
       const g = s.add.graphics();
@@ -492,10 +499,58 @@ export class GroupCard extends Phaser.GameObjects.Container {
     this.add(this.bars);
   }
 
+  /**
+   * The bottom sheet's card (Bronze & Stone): a bronze numeral disc, the
+   * group's name, "7 men · Advancing", health and morale bars side by side.
+   */
+  private rebuildWide(i: GroupCardInfo): void {
+    const s = this.scene;
+    this.wide = true;
+    this.add(panelImage(s, 0, 0, this.w, this.h, i.selected ? 'slotSel' : i.men === 0 ? 'buttonOff' : 'slot'));
+    const g = s.add.graphics();
+    const r = 6.5;
+    const cx = 4 + r;
+    const cy = 4 + r;
+    g.fillStyle(i.selected ? BRONZE_D2.hi : BRONZE_D2.main, 1);
+    g.fillCircle(cx, cy, r);
+    g.fillStyle(0x1c1612, 1);
+    g.fillCircle(cx, cy, r - 1.2);
+    this.add(g);
+    const num = addText(s, cx, cy - 4.3, i.numeral, 'head', 0.5).setFontSize(6);
+    this.add(num);
+    const x = cx + r + 4;
+    const tw = this.w - x - 3;
+    const head = 5.6;
+    const name = addText(s, x, 2.5, ellipsize(i.name ?? i.numeral, tw, false, head, 'head'), i.men === 0 || i.routed ? 'dim' : 'head', 0).setFontSize(head);
+    uiFrame(name, this, this.w, this.h);
+    const subSize = 5.5;
+    const sub = firstFit([i.orderWord && `${t('strat.men', { n: i.men })} · ${i.orderWord}`, i.orderShort && `${i.men} · ${i.orderShort}`, `${i.men}`], tw / (subSize / 7), false);
+    const st = addText(s, x, 11.5, sub, 'dim', 0).setFontSize(subSize);
+    uiFrame(st, this, this.w, this.h);
+    this.add([name, st, this.bars]);
+  }
+
   private drawBars(): void {
     const i = this.info!;
     const g = this.bars;
     g.clear();
+    if (this.wide) {
+      const x0 = 4;
+      const y = this.h - 6;
+      const half = (this.w - 8 - 3) / 2;
+      const bar = (x: number, f: number, c: number) => {
+        g.fillStyle(0x0d0a08, 1);
+        g.fillRoundedRect(x, y, half, 3, 1);
+        const fw = (half - 1) * Math.max(0, Math.min(1, f));
+        if (fw > 0.3) {
+          g.fillStyle(c, 1);
+          g.fillRoundedRect(x + 0.5, y + 0.5, fw, 2, 0.8);
+        }
+      };
+      bar(x0, i.hp, STATUS_D2.hp);
+      bar(x0 + half + 3, i.morale, i.routed ? 0x8f826d : STATUS_D2.morale);
+      return;
+    }
     const bw = this.w - 6;
     const bar = (y: number, f: number, c: number) => {
       g.fillStyle(0x2a1a16, 1);

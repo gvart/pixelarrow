@@ -19,6 +19,8 @@ const check = (name, ok, detail = '') => {
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 await ctx.addInitScript(() => (window.__noFirstRun = true));
+// no Vite HMR socket: a source edit elsewhere must not reload the page mid-run (the script runs against a live dev server)
+await ctx.routeWebSocket((u) => u.searchParams.has('token'), () => {});
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
