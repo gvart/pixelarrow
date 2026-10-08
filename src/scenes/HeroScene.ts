@@ -5,6 +5,7 @@ import { StatBar, Tabs, addEmptyState, addScrollHint, confirmDialog, firstTimeHi
 import { uiId } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import { SIZE, COLOR, CATEGORY_COLOR } from '../ui/theme';
+import { CommandStrip, SituationBar, type SitNumber } from '../ui/strategos';
 import { ensureFonts } from '../ui/fonts';
 import {
   DragDrop, Stage, StashGrid, addChip, addTabBadge, frameScrollTexts, addMountTile, addSlotTile, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
@@ -58,6 +59,8 @@ export class HeroScene extends BaseScene {
   private drag!: DragDrop;
   private slotRects = new Map<Slot, Phaser.GameObjects.GameObject>();
   private pageTop = 0;
+  private sit: SituationBar | null = null;
+  private strip: CommandStrip | null = null;
 
   constructor() {
     super('Hero');
@@ -88,6 +91,8 @@ export class HeroScene extends BaseScene {
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     this.ui.add([this.head, this.page]);
+    this.strip = new CommandStrip(this, VW, VH, {});
+    this.ui.add(this.strip);
     this.drag = new DragDrop(this);
     this.events.once('shutdown', () => this.clearPage());
     this.build();
@@ -127,29 +132,19 @@ export class HeroScene extends BaseScene {
     const L = this.head;
     const h = this.hero();
     const { VW, VH } = this.m;
-    // top bar: back, the hero's name, previous / next hero
-    L.add(addPanel(this, 0, 0, VW, 26, 'parch'));
-    let left = 4;
-    if (this.inGameBack) {
-      L.add(new Button(this, 3, 2, 26, 22, { icon: 'back', onClick: () => this.back() }));
-      left = 32;
-    }
-    const many = this.src.heroes().length > 1;
-    const right = many ? VW - 4 - 2 * 24 - SIZE.gap : VW - 4;
-    if (many) {
-      L.add(new Button(this, VW - 4 - 2 * 24 - SIZE.gap, 2, 24, 22, { label: '<', tip: t('hero.prev'), id: 'hero.prev', onClick: () => this.cycleHero(-1) }));
-      L.add(new Button(this, VW - 4 - 24, 2, 24, 22, { label: '>', tip: t('hero.next'), id: 'hero.next', onClick: () => this.cycleHero(1) }));
-    }
-    if (!h) {
-      L.add(addText(this, VW / 2, 9, t('hero.title'), 'red', 0.5));
-      return;
-    }
-    L.add(addText(this, Math.round((left + right) / 2), 9, ellipsize(h.name, right - left - 6), 'red', 0.5));
+    // the situation bar: who he is and what there is to spend; the strip below: back, confirm / next hero, previous
+    this.sit?.destroy();
+    this.sit = new SituationBar(this, VW, { sentence: '', compact: this.compact, id: 'hero.situation' });
+    L.add(this.sit);
+    this.refreshSituation();
+    this.refreshStrip();
+    if (!h) return;
 
     // dark header: the stage with the slots, identity, XP (a parchment page below)
     const compact = this.compact;
     const cls = heroClass(h);
-    const y0 = 29;
+    const top = this.sit!.bottom;
+    const y0 = top + 3;
     const headBg = this.add.container(0, 0);
     L.add(headBg);
     let y: number;
@@ -205,10 +200,10 @@ export class HeroScene extends BaseScene {
       if (cls.mount) addMountTile(this, L, 4 + slots.length * step, y, h, ss);
       y += ss + 4;
     }
-    headBg.add(addPanel(this, 0, 26, VW, y - 26 + 1, 'dark'));
+    headBg.add(addPanel(this, 0, top, VW, y - top + 1, 'dark'));
     y += 2;
-    // the page under the tabs is parchment
-    headBg.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, VH - y - SIZE.tabH + 2, 'parch'));
+    // the page under the tabs is parchment, down to the strip
+    headBg.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, this.pageBottom() - y - SIZE.tabH + 2, 'parch'));
 
     // tabs with badges for what there is to spend
     const perkFree = Math.max(0, perkSlots(h.level) - h.perks.length);
@@ -223,6 +218,55 @@ export class HeroScene extends BaseScene {
     if (perkFree > 0) addTabBadge(this, L, 4, y, VW - 8, TABS.length, 2, perkFree);
     this.pageTop = y + SIZE.tabH + 4;
     this.buildPage();
+  }
+
+  /** Bottom edge of the page (the strip starts there). */
+  private pageBottom(): number {
+    return (this.strip?.top ?? this.m.VH) - 2;
+  }
+
+  /** The sentence: who he is, what there is to spend (or that he is hurt); numbers: power, points, perks. */
+  private refreshSituation(): void {
+    const h = this.hero();
+    if (!this.sit) return;
+    if (!h) {
+      this.sit.setSentence(t('hero.title'));
+      return;
+    }
+    const perkFree = Math.max(0, perkSlots(h.level) - h.perks.length);
+    const free = h.points - this.spent();
+    const parts = [t('hero.sit.who', { name: h.name, lv: h.level, cls: className(h) })];
+    if (free > 0) parts.push(t('hero.sit.points', { n: free }));
+    if (perkFree > 0) parts.push(t('hero.sit.perks', { n: perkFree }));
+    if (h.wound > 0) parts.push(t('hero.sit.hurt', { h: Math.ceil(h.wound) }));
+    if (free <= 0 && perkFree <= 0 && h.wound <= 0) parts.push(t('hero.sit.fine'));
+    const nums: SitNumber[] = [{ icon: 'star', value: `${powerRating(h)}`, word: t('strat.power'), tip: t('hero.powerTip') }];
+    if (free > 0) nums.push({ icon: 'plus', value: `${free}`, word: t('hero.points', { n: free }).replace(/^\d+\s*/, ''), tip: t('hero.pointsTip'), font: 'good' });
+    if (perkFree > 0) nums.push({ icon: 'star', value: `${perkFree}`, word: t('hero.tab.perks').toLowerCase(), font: 'good' });
+    this.sit.setSentence(parts.join(' '), free > 0 || perkFree > 0);
+    this.sit.setNumbers(nums);
+  }
+
+  /** The strip: back; confirm the pending points (stats) or the next hero; undo or the previous hero. */
+  private refreshStrip(): void {
+    if (!this.strip) return;
+    const h = this.hero();
+    const many = this.src.heroes().length > 1;
+    const pend = this.tab === 'stats' && this.spent() > 0;
+    const next = this.src.heroes()[(this.src.heroes().findIndex((x) => x.id === this.heroId) + 1) % Math.max(1, this.src.heroes().length)];
+    this.strip.set({
+      left: { label: t('strat.back'), icon: 'back', id: 'hero.back', onClick: () => this.back() },
+      main: pend
+        ? { label: t('hero.strip.confirm', { n: this.spent() }), icon: 'check', id: 'hero.confirm', onClick: () => this.confirmPoints() }
+        : many && h
+          ? { label: `${t('strat.next')}: ${next?.name ?? ''}`, icon: 'people', secondary: true, tip: t('hero.next'), id: 'hero.next', onClick: () => this.cycleHero(1) }
+          : null,
+      right: pend
+        ? { label: t('hero.undo'), icon: 'back', id: 'hero.undo', onClick: () => this.resetPoints() }
+        : many
+          ? { label: t('strat.prev'), icon: 'back', tip: t('hero.prev'), id: 'hero.prev', onClick: () => this.cycleHero(-1) }
+          : null,
+    });
   }
 
   /** "Power N" (tap: what it means), right-aligned at x; returns its width. */
@@ -284,12 +328,11 @@ export class HeroScene extends BaseScene {
   // ------------------------------------------------------------------ stats: attributes with a live preview
 
   private buildStats(h: Hero): void {
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const pend = this.spent() > 0;
     const free = h.points - this.spent();
-    const barH = pend ? SIZE.btnH + 6 : 0;
     const top = this.pageTop;
-    const area = this.scrollArea(top, VH - top - 4 - barH);
+    const area = this.scrollArea(top, this.pageBottom() - top);
     const c = area.content;
     const w = VW - 8 - 3;
     let y = 0;
@@ -378,21 +421,16 @@ export class HeroScene extends BaseScene {
     }
     area.setContentHeight(y + 4);
     frameScrollTexts(area, VW - 8);
-    if (pend) {
-      const by = VH - 4 - SIZE.btnH;
-      const bw = Math.floor((VW - 8 - SIZE.gap) / 3);
-      this.page.add(addPanel(this, 0, by - 4, VW, SIZE.btnH + 8, 'parch'));
-      this.page.add(new Button(this, 4, by, bw, SIZE.btnH, { label: t('hero.undo'), icon: 'back', onClick: () => this.resetPoints() }));
-      this.page.add(new Button(this, 4 + bw + SIZE.gap, by, VW - 8 - bw - SIZE.gap, SIZE.btnH, { label: t('hero.confirmPoints'), icon: 'check', variant: 'primary', id: 'hero.confirm', onClick: () => this.confirmPoints() }));
-    }
+    this.refreshSituation();
+    this.refreshStrip();
   }
 
   // ------------------------------------------------------------------ gear: the stash for this hero
 
   private buildGear(): void {
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const top = this.pageTop;
-    this.stash = new StashGrid(this, this.page, 4, top, VW - 8, VH - top - 4, {
+    this.stash = new StashGrid(this, this.page, 4, top, VW - 8, this.pageBottom() - top, {
       items: () => this.src.stash(),
       state: this.stashState,
       hero: () => this.hero(),
@@ -489,10 +527,10 @@ export class HeroScene extends BaseScene {
   // ------------------------------------------------------------------ perks: the class tree
 
   private buildPerks(h: Hero): void {
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const top = this.pageTop;
     const tree = heroTree({ cls: heroClass(h).id });
-    const area = this.scrollArea(top, VH - top - 4);
+    const area = this.scrollArea(top, this.pageBottom() - top);
     const c = area.content;
     const w = VW - 8 - 3;
     const free = Math.max(0, perkSlots(h.level) - h.perks.length);
@@ -609,7 +647,7 @@ export class HeroScene extends BaseScene {
   // ------------------------------------------------------------------ skills: abilities and auras
 
   private buildSkills(h: Hero): void {
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const top = this.pageTop;
     const s = computeStats(h);
     const tree = heroTree({ cls: heroClass(h).id });
@@ -628,10 +666,10 @@ export class HeroScene extends BaseScene {
       if (p.aura && !s.auras.includes(p.aura)) rows.push({ kind: 'aura', id: p.aura, has: false, source: `${tOr(`perk.${id}.name`, p.name)} · ${t('hero.level', { n: PERK_LEVELS[i] })}` });
     });
     if (!rows.length) {
-      this.page.add(addEmptyState(this, 4, top, VW - 8, VH - top - 4, { icon: 'bash', title: t('hero.noAbilities'), hint: t('hero.noAbilitiesHint'), action: { label: t('hero.tab.perks'), icon: 'star', onClick: () => this.tabs?.select(2) } }));
+      this.page.add(addEmptyState(this, 4, top, VW - 8, this.pageBottom() - top, { icon: 'bash', title: t('hero.noAbilities'), hint: t('hero.noAbilitiesHint'), action: { label: t('hero.tab.perks'), icon: 'star', onClick: () => this.tabs?.select(2) } }));
       return;
     }
-    const area = this.scrollArea(top, VH - top - 4);
+    const area = this.scrollArea(top, this.pageBottom() - top);
     const c = area.content;
     const w = VW - 8 - 3;
     let y = 0;

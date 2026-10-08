@@ -1,19 +1,25 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, addPanel, addScroll, addText, addIcon } from '../ui/kit';
-import { ensureDoll, dollFrame, dollOrigin } from '../ui/sprites';
+import { Button, addPanel, addScroll, addText } from '../ui/kit';
+import { ensureDoll, dollFrame, dollOrigin, ensurePortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
 import { inTelegram, telegramUserName } from '../platform/telegram';
 import { openSettings } from '../ui/settings';
 import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
-import { MAX_ARMY } from '../data/units';
 import { addSyncBadge } from '../ui/online';
 import { confirmDialog } from '../ui/widgets';
-import { ellipsize } from '../ui/textfit';
-import { SIZE } from '../ui/theme';
+import { ListRow, addChecklist, addNumbers, ofCount, type SitNumber } from '../ui/strategos';
+import { ellipsize, wrapText } from '../ui/textfit';
+import { SIZE, STRAT } from '../ui/theme';
 import { t } from '../i18n';
 
+/**
+ * The hub (docs/UI_STRATEGOS.md "Home"): the title scroll, the situation card
+ * of the save (who, where, what is up, numbers with words), ONE primary
+ * (Continue the march), the other starts as rows with a line of context, and
+ * the first-steps checklist. Short screens fold the rows into two columns.
+ */
 export class MenuScene extends BaseScene {
   private dolls: { s: Phaser.GameObjects.Sprite; phase: number }[] = [];
   private overlay: Phaser.GameObjects.Container | null = null;
@@ -28,99 +34,145 @@ export class MenuScene extends BaseScene {
     const { VW, VH } = this.m;
     const c = state.campaign.data;
     this.addGrassBackdrop(11);
+    const compact = VH < STRAT.compactVH;
+    const x0 = 8;
+    const w = VW - 16;
+    let y = compact ? 4 : 8;
 
-    // Menu panel anchored above the footer; the title scroll on top and
-    // soldiers in between. Short screens (small phones inside Telegram's
-    // safe area) get a compact layout: a plain title, tighter buttons and no
-    // soldiers, so nothing overlaps.
-    const pw = Math.min(VW - 24, 150);
-    const px = Math.round((VW - pw) / 2);
-    const bh = 24;
-    let gap = 5;
-    let panelH = bh * 5 + gap * 4 + 12;
-    let py = Math.min(Math.round(VH * 0.55), VH - 30 - 16 - panelH + 6);
-    const compact = py - 6 < 74;
-    const tw = Math.min(VW - 16, 176);
-    const tx = Math.round((VW - tw) / 2);
+    // ---- title
     if (compact) {
-      gap = SIZE.gap;
-      panelH = bh * 5 + gap * 4 + 12;
-      const titleBottom = 20;
-      py = Math.max(titleBottom + 6 + 2, Math.round((titleBottom + VH - 30 - 13 - panelH) / 2) + 6);
-      this.ui.add(addText(this, VW / 2, 6, 'Pixelarrow', 'title', 0.5));
+      this.ui.add(addText(this, VW / 2, y, 'Pixelarrow', 'title', 0.5));
+      y += 14;
     } else {
-      addScroll(this, this.ui, tx, 14, tw, 56);
-      const title = addText(this, VW / 2, 27, 'Pixelarrow', 'red', 0.5);
+      const tw = Math.min(w, 176);
+      const tx = Math.round((VW - tw) / 2);
+      addScroll(this, this.ui, tx, y + 4, tw, 44);
+      const title = addText(this, VW / 2, y + 11, 'Pixelarrow', 'red', 0.5);
       title.setFontSize(14);
       this.ui.add(title);
-      this.ui.add(addText(this, VW / 2, 50, ellipsize(t('menu.subtitle'), tw - 16), 'ink', 0.5));
+      this.ui.add(addText(this, VW / 2, y + 30, ellipsize(t('menu.subtitle'), tw - 16), 'ink', 0.5));
+      y += 54;
     }
-    const top = 74;
-    const room = compact ? 0 : py - 6 - top;
 
-    // Soldiers standing in line on the plain
+    // ---- the situation of the save: who, where, what is up; numbers with words
+    const lead = c.heroes[0];
+    const cardH = compact ? 50 : 56;
+    this.ui.add(addPanel(this, x0, y, w, cardH, 'parch'));
+    let tx = x0 + 6;
+    if (lead && !compact) {
+      this.ui.add(addPanel(this, x0 + 6, y + 6, 28, 28, 'slot'));
+      this.ui.add(this.add.image(x0 + 8, y + 8, ensurePortrait(this, dollFromHero(lead))).setOrigin(0, 0).setCrop(0, 0, 24, 24));
+      tx = x0 + 40;
+    }
+    const tw2 = x0 + w - 6 - tx - 14;
+    const day = Math.floor(c.world.time / 24) + 1;
+    const inside = state.hasSave ? state.campaign.world.s.inside : -1;
+    const place = inside >= 0 ? state.campaign.world.settlement(inside)?.name : undefined;
+    const hurt = c.heroes.filter((h) => (h.wound ?? 0) > 0).length;
+    const who = lead ? t('menu.strategos', { name: lead.name }) : t('menu.noSave');
+    const where = !state.hasSave ? t('menu.status.noSave') : place ? t('menu.where.inside', { n: day, place }) : t('menu.where.day', { n: day });
+    const status = !state.hasSave ? t('menu.status.fresh') : hurt > 0 ? t('menu.status.hurt', { n: hurt }) : t('menu.status.ready');
+    this.ui.add(addText(this, tx, y + 6, ellipsize(who, tw2), 'ink'));
+    this.ui.add(addText(this, tx, y + 16, ellipsize(where, tw2), 'dim'));
+    this.ui.add(addText(this, tx, y + 26, ellipsize(status, tw2), hurt > 0 && state.hasSave ? 'red' : 'ink'));
+    const nums: SitNumber[] = [
+      { icon: 'coin', value: `${c.gold}`, word: t('strat.gold'), tip: t('menu.tip.gold') },
+      { icon: 'people', value: `${c.heroes.length}`, word: hurt > 0 ? `${t('strat.menWord', { n: c.heroes.length })}, ${hurt} ${t('strat.hurtWord', { n: hurt })}` : t('strat.menWord', { n: c.heroes.length }), tip: t('menu.tip.army') },
+      { icon: 'star', value: `${c.won}`, word: t('menu.wonWord', { n: c.won }), tip: t('menu.tip.record') },
+    ];
+    addNumbers(this, this.ui, x0 + 6, y + cardH - 12, w - 12 - 18, nums);
+    addSyncBadge(this, this.ui, x0 + w - 18, y + cardH - 14);
+    y += cardH + SIZE.gap + 1;
+
+    // ---- the one primary
+    const cont = new Button(this, x0, y, w, 26, { label: t('menu.continueMarch'), icon: 'play', inline: true, variant: 'primary', id: 'menu.continue', onClick: () => this.continueCampaign() });
+    cont.setEnabled(state.hasSave, t('menu.noSave'));
+    this.ui.add(cont);
+    y += 26 + SIZE.gap + 1;
+
+    // ---- the other starts: rows with a line of context (two columns on short screens)
+    const rows: { label: string; sub: string; icon: string; id: string; onClick: () => void }[] = [
+      { label: t('menu.newCampaign'), sub: t('menu.row.new'), icon: 'flag', id: 'menu.new', onClick: () => (state.hasSave ? this.confirmReset() : this.newCampaign()) },
+      { label: t('menu.online'), sub: t('menu.row.online'), icon: 'map', id: 'menu.online', onClick: () => this.scene.start('Online', {}) },
+      { label: t('menu.duels'), sub: t('menu.row.duels'), icon: 'swords', id: 'menu.duels', onClick: () => this.openDuels() },
+      { label: t('menu.trial'), sub: t('menu.row.trial'), icon: 'beast', id: 'menu.trial', onClick: () => this.openTrial() },
+      { label: t('menu.shop'), sub: t('menu.row.shop'), icon: 'coin', id: 'menu.shop', onClick: () => this.openShop() },
+      { label: t('menu.settings'), sub: t('menu.row.settings'), icon: 'gear', id: 'menu.settings', onClick: () => this.openSettings() },
+    ];
+    if (compact) {
+      const half = Math.floor((w - SIZE.gap) / 2);
+      rows.forEach((r, i) => {
+        const col = i % 2;
+        const rx = x0 + col * (half + SIZE.gap);
+        this.ui.add(new Button(this, rx, y + Math.floor(i / 2) * (22 + SIZE.gap), col ? w - half - SIZE.gap : half, 22, { label: r.label, icon: r.icon, id: r.id, onClick: r.onClick }));
+      });
+      y += 3 * (22 + SIZE.gap);
+    } else {
+      rows.forEach((r) => {
+        this.ui.add(new ListRow(this, x0, y, w, { label: r.label, sub: r.sub, icon: r.icon, id: r.id, onClick: r.onClick }, 24));
+        y += 24 + SIZE.gap;
+      });
+    }
+    y += 2;
+
+    // ---- the save's home and the first steps, with the men standing on the plain
+    const who2 = telegramUserName();
+    const saveLabel = inTelegram() ? (who2 ? t('menu.cloudSaveOf', { name: who2 }) : t('menu.cloudSave')) : t('menu.localSave');
+    const room = VH - 4 - y;
+    if (!compact && room >= 40) {
+      const steps = this.firstSteps();
+      const done = steps.filter((s) => s.done).length;
+      const cw = Math.min(112, Math.floor(w * 0.62));
+      const ch = addChecklist(this, this.ui, x0, y, cw, t('menu.firstSteps', { done: ofCount(done, steps.length) }), steps);
+      const wr = wrapText(saveLabel, w - cw - 8, 2, true);
+      const label = addText(this, x0 + w, VH - 4 - wr.lines.length * 10, wr.lines.join('\n'), 'light', 1);
+      label.setRightAlign();
+      this.ui.add(label);
+      this.addSoldiers(x0 + cw + 8, y - 4, w - cw - 8, Math.max(ch, room) - 6 - wr.lines.length * 10);
+    } else if (room >= 12) {
+      this.ui.add(addText(this, VW / 2, VH - 12, ellipsize(saveLabel, w, true), 'light', 0.5));
+    }
+    // Opened from a bot message's "Open in the game" (startapp=settings).
+    if (data?.settings === 'notify') this.openNotifications();
+  }
+
+  /** The first-steps checklist: what the save says the player has done. */
+  private firstSteps(): { text: string; done: boolean }[] {
+    const c = state.campaign.data;
+    const st = c.settings;
+    const tut = st.tutorial?.status;
+    const seen = st.seenHints ?? [];
+    return [
+      { text: t('menu.step.tutorial'), done: tut === 'done' || tut === 'skipped' },
+      { text: t('menu.step.battle'), done: c.won > 0 },
+      { text: t('menu.step.hire'), done: c.heroes.length >= 4 },
+      { text: t('menu.step.gear'), done: seen.includes('*') || seen.includes('army') || seen.includes('hero') },
+    ];
+  }
+
+  /** The men standing in line on the plain, in the free space. */
+  private addSoldiers(x: number, y: number, w: number, h: number): void {
+    const c = state.campaign.data;
     this.dolls = [];
-    // the figures are drawn at their true size (a man is ~34 px): no upscaling
-    const scale = 1;
-    const rows = compact ? 0 : room >= 80 ? 2 : 1;
-    const perRow = 7;
+    const step = 20;
+    const perRow = Math.max(1, Math.floor((w - 10) / step));
+    const rows = h >= 60 ? 2 : h >= 36 ? 1 : 0;
     const heroes = c.heroes.slice(0, perRow * rows);
-    const step = 22;
     const rowGap = 18;
-    const base = Math.round(top + (room - (rows - 1) * rowGap) / 2 + 17);
-    heroes.forEach((h, i) => {
-      const key = ensureDoll(this, dollFromHero(h), [0]);
+    const base = Math.round(y + (h - (rows - 1) * rowGap) / 2 + 12);
+    heroes.forEach((hero, i) => {
+      const key = ensureDoll(this, dollFromHero(hero), [0]);
       const row = Math.floor(i / perRow);
       const col = i % perRow;
       const n = Math.min(perRow, heroes.length - row * perRow);
-      const x = Math.round(VW / 2 - ((n - 1) / 2) * step + col * step + (row ? 6 : 0));
-      const y = base + row * rowGap;
-      const sh = this.add.image(x, y, 'shadow').setAlpha(0.35).setScale(scale);
-      const sp = this.add.sprite(x, y, key, dollFrame(0, 0)).setOrigin(...dollOrigin(key)).setScale(scale);
+      const sx = Math.round(x + w / 2 - ((n - 1) / 2) * step + col * step + (row ? 5 : 0));
+      const sy = base + row * rowGap;
+      const sh = this.add.image(sx, sy, 'shadow').setAlpha(0.35);
+      const sp = this.add.sprite(sx, sy, key, dollFrame(0, 0)).setOrigin(...dollOrigin(key));
       this.ui.add(sh);
       this.ui.add(sp);
       this.dolls.push({ s: sp, phase: i * 0.37 });
     });
-
-    this.ui.add(addPanel(this, px - 6, py - 6, pw + 12, panelH, 'parch'));
-    const mk = (i: number, label: string, icon: string, cb: () => void) => {
-      const b = new Button(this, px, py + i * (bh + gap), pw, bh, { label, icon, onClick: cb });
-      this.ui.add(b);
-      return b;
-    };
-    const cont = mk(0, t('menu.continue'), 'map', () => this.continueCampaign());
-    cont.setSelected(state.hasSave);
-    cont.setEnabled(state.hasSave, t('menu.noSave'));
-    mk(1, t('menu.newCampaign'), 'flag', () => (state.hasSave ? this.confirmReset() : this.newCampaign()));
-    // the online war and the duels share a row, as do the shop and the Beast trial
-    const half = Math.floor((pw - SIZE.gap) / 2);
-    this.ui.add(new Button(this, px, py + 2 * (bh + gap), half, bh, { label: t('menu.online'), icon: 'swords', onClick: () => this.scene.start('Online', {}) }));
-    this.ui.add(new Button(this, px + half + SIZE.gap, py + 2 * (bh + gap), pw - half - SIZE.gap, bh, { label: t('menu.duels'), icon: 'shield', id: 'menu.duels', onClick: () => this.openDuels() }));
-    this.ui.add(new Button(this, px, py + 3 * (bh + gap), half, bh, { label: t('menu.shop'), icon: 'coin', onClick: () => this.openShop() }));
-    this.ui.add(new Button(this, px + half + SIZE.gap, py + 3 * (bh + gap), pw - half - SIZE.gap, bh, { label: t('menu.trial'), icon: 'beast', onClick: () => this.openTrial() }));
-    mk(4, t('menu.settings'), 'gear', () => this.openSettings());
-
-    // Footer status
-    const fy = VH - 30;
-    this.ui.add(addPanel(this, 8, fy, VW - 16, 22, 'inset'));
-    // three stats spread over the bar, the sync badge at its right end
-    const stats: [string, string][] = [
-      ['coin', `${c.gold}`],
-      ['people', `${c.heroes.length}/${MAX_ARMY}`],
-      ['star', state.hasSave ? t('common.day', { n: Math.floor(c.world.time / 24) + 1 }) : `${c.won}/${c.fought}`],
-    ];
-    const cellW = Math.floor((VW - 16 - 6 - 18) / stats.length);
-    stats.forEach(([icon, text], i) => {
-      const sx = 13 + i * cellW;
-      this.ui.add(addIcon(this, sx, fy + 5, icon));
-      this.ui.add(addText(this, sx + 15, fy + 7, ellipsize(text, cellW - 18), 'ink'));
-    });
-    addSyncBadge(this, this.ui, VW - 26, fy + 8);
-    const who = telegramUserName();
-    const saveLabel = inTelegram() ? (who ? t('menu.cloudSaveOf', { name: who }) : t('menu.cloudSave')) : t('menu.localSave');
-    this.ui.add(addText(this, VW / 2, fy - 11, ellipsize(saveLabel, VW - 16, true), 'light', 0.5));
-    // Opened from a bot message's "Open in the game" (startapp=settings).
-    if (data?.settings === 'notify') this.openNotifications();
   }
 
   /** Settings with the notification switches on top (`demo`: in-memory switches, for the layout check). */

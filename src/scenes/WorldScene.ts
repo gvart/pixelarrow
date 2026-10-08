@@ -2,7 +2,10 @@ import { encounterOf } from '../data/beasts';
 import { encounterName } from '../ui/beastInfo';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, addIcon, addPanel, addText } from '../ui/kit';
+import { Button, addPanel, addText } from '../ui/kit';
+import { t } from '../i18n';
+import { CommandStrip, SituationBar, type CommandStripOpts, type SitNumber, type StripSlot } from '../ui/strategos';
+import { STRAT } from '../ui/theme';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import {
   BAND_COLORS, MAPC, PARTY_FH, PARTY_FOOT, PARTY_FRAMES, PARTY_FW, STRUCT_FRAMES, STRUCT_FX, STRUCT_LIFT, STRUCT_PAD, WTILE, renderBoat, renderCampZone,
@@ -66,14 +69,10 @@ export class WorldScene extends BaseScene {
   private marker!: Phaser.GameObjects.Image;
   private night!: Phaser.GameObjects.Rectangle;
   private hud!: Phaser.GameObjects.Container;
-  private clockText!: Phaser.GameObjects.BitmapText;
-  private goldText!: Phaser.GameObjects.BitmapText;
-  private armyText!: Phaser.GameObjects.BitmapText;
-  private regionText!: Phaser.GameObjects.BitmapText;
-  private foodText!: Phaser.GameObjects.BitmapText;
-  private supplyText!: Phaser.GameObjects.BitmapText;
-  private hintText!: Phaser.GameObjects.BitmapText;
-  private waitBtn: Button | null = null;
+  private sit: SituationBar | null = null;
+  private sitKey = '';
+  private strip: CommandStrip | null = null;
+  private stripKey = '';
   private followBtn!: Button;
   private dialog: Phaser.GameObjects.Container | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
@@ -139,7 +138,10 @@ export class WorldScene extends BaseScene {
     this.ghost = [];
     this.fogAnim = new Set();
     this.settlementObjs = new Map();
-    this.waitBtn = null;
+    this.sit = null;
+    this.strip = null;
+    this.sitKey = '';
+    this.stripKey = '';
     this.initUi();
     const camp = state.campaign;
     this.w = camp.world;
@@ -217,7 +219,6 @@ export class WorldScene extends BaseScene {
     this.w.discoveries = [];
     this.renderWorld(0);
     if (data?.encounter !== undefined && this.w.party(data.encounter)) this.openEncounter(data.encounter, true);
-    else if (this.w.s.time < 9 && camp.data.fought === 0) this.showBanner('Tap the map to march', 2600);
   }
 
   protected onResized(): void {
@@ -865,104 +866,102 @@ export class WorldScene extends BaseScene {
     const H = this.hud;
     H.removeAll(true);
     const { VW, VH } = this.m;
-    const top = 42;
-    H.add(addPanel(this, 0, 0, VW, top, 'parch'));
-    if (this.inGameBack) H.add(new Button(this, 3, 3, 24, 24, { icon: 'back', onClick: () => this.leaveToMenu() }));
-    const tx = this.inGameBack ? 31 : 6;
-    this.clockText = addText(this, tx, 5, '', 'red');
-    this.regionText = addText(this, tx, 16, '', 'dim');
-    H.add([this.clockText, this.regionText]);
-    H.add(addIcon(this, VW - 72, 3, 'coin'));
-    this.goldText = addText(this, VW - 58, 5, '', 'ink');
-    H.add(addIcon(this, VW - 72, 15, 'people'));
-    this.armyText = addText(this, VW - 58, 17, '', 'ink');
-    H.add([this.goldText, this.armyText]);
-    // provisions row
-    H.add(addIcon(this, 6, 27, 'food'));
-    this.foodText = addText(this, 20, 29, '', 'ink');
-    H.add(addIcon(this, VW - 72, 27, 'wood'));
-    this.supplyText = addText(this, VW - 58, 29, '', 'ink');
-    H.add([this.foodText, this.supplyText]);
-    this.followBtn = new Button(this, VW - 28, 3, 25, 24, { icon: 'eye', style: this.follow ? 'buttonSel' : 'button', onClick: () => this.toggleFollow() });
+    // the situation bar: where we are and what is up, numbers with words; follow and sync under it
+    this.sit = new SituationBar(this, VW, { sentence: '', compact: VH < STRAT.compactVH, id: 'world.situation' });
+    H.add(this.sit);
+    this.followBtn = new Button(this, VW - 27, this.sit.h + 3, 24, 22, { icon: 'eye', iconOnly: true, label: t('battle.strip.follow'), style: this.follow ? 'buttonSel' : 'button', tip: t('battle.tip.follow'), id: 'world.follow', onClick: () => this.toggleFollow() });
     H.add(this.followBtn);
-
-    const by = VH - 34;
-    H.add(addPanel(this, 0, by - 16, VW, VH - by + 16, 'parch'));
-    this.hintText = addText(this, VW / 2, by - 12, '', 'ink', 0.5);
-    H.add(this.hintText);
-    addSyncBadge(this, H, VW - 15, top + 3);
-    const camp = state.campaign;
-    const pending = camp.data.heroes.some((h) => h.points > 0 || h.perks.length < perkSlots(h.level));
-    const party = { label: pending ? 'Party !' : 'Party', icon: 'people', onClick: () => this.scene.start('Army', { from: 'World' }) };
-    type B = { label: string; icon: string; sel?: boolean; onClick: () => void };
-    let row: B[];
-    this.waitBtn = null;
-    if (this.placing) {
-      row = [
-        { label: 'Cancel', icon: 'close', onClick: () => this.cancelPlacing() },
-        { label: 'Place', icon: 'check', sel: true, onClick: () => this.confirmPlacing() },
-      ];
-    } else if (this.w.camp) {
-      row = [
-        party,
-        { label: 'Camp', icon: 'tent', sel: true, onClick: () => this.scene.start('Camp', { mode: 'field' }) },
-        { label: this.waiting ? 'Pause' : 'Rest', icon: this.waiting ? 'pause' : 'hourglass', sel: this.waiting, onClick: () => this.setWaiting(!this.waiting) },
-        { label: 'Strike', icon: 'tent', onClick: () => this.strikeCamp() },
-      ];
-    } else {
-      row = [party, { label: 'Camp', icon: 'tent', onClick: () => this.makeCamp() }, { label: 'Stop', icon: 'hold', onClick: () => this.stopTravel() }];
-    }
-    const gap = 3;
-    const bw = Math.floor((VW - 8 - gap * (row.length - 1)) / row.length);
-    row.forEach((b, i) => {
-      const btn = new Button(this, 4 + i * (bw + gap), by, bw, 28, { label: b.label, icon: b.icon, style: b.sel ? 'buttonSel' : 'button', onClick: b.onClick });
-      if (b.icon === 'pause' || b.icon === 'hourglass') this.waitBtn = btn;
-      H.add(btn);
-    });
+    addSyncBadge(this, H, 8, this.sit.h + 8);
+    this.strip = new CommandStrip(this, VW, VH, this.stripOpts());
+    H.add(this.strip);
     this.refreshHud();
   }
 
+  /** The command strip: Menu | Camp (or Place) | Rest / Stop | Party. */
+  private stripOpts(): CommandStripOpts {
+    const camp = state.campaign;
+    const pending = camp.data.heroes.some((h) => h.points > 0 || h.perks.length < perkSlots(h.level));
+    const party: StripSlot = { label: t('world.strip.party'), icon: 'people', badge: pending ? '!' : 0, tip: t('world.strip.partyTip'), id: 'world.party', onClick: () => this.scene.start('Army', { from: 'World' }) };
+    const menu: StripSlot = { label: t('strat.menu'), icon: 'back', id: 'world.menu', onClick: () => this.leaveToMenu() };
+    if (this.placing) {
+      return {
+        left: { label: t('common.cancel'), icon: 'close', id: 'world.cancel', onClick: () => this.cancelPlacing() },
+        main: { label: t('world.strip.place'), icon: 'check', id: 'world.place', onClick: () => this.confirmPlacing() },
+      };
+    }
+    if (this.w.camp) {
+      return {
+        left: menu,
+        main: { label: t('world.strip.camp'), icon: 'tent', tip: t('world.strip.enterTip'), id: 'world.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) },
+        extra: this.waiting
+          ? { label: t('battle.strip.pause'), icon: 'pause', selected: true, tip: t('world.strip.restTip'), id: 'world.rest', onClick: () => this.setWaiting(false) }
+          : { label: t('world.strip.rest'), icon: 'hourglass', tip: t('world.strip.restTip'), id: 'world.rest', onClick: () => this.setWaiting(true) },
+        right: party,
+      };
+    }
+    return {
+      left: menu,
+      main: { label: t('world.strip.camp'), icon: 'tent', secondary: true, tip: t('world.strip.campTip'), id: 'world.camp', onClick: () => this.makeCamp() },
+      extra: this.w.moving ? { label: t('world.strip.stop'), icon: 'hold', id: 'world.stop', onClick: () => this.stopTravel() } : null,
+      right: party,
+    };
+  }
+
   refreshHud(): void {
-    if (!this.clockText) return;
+    if (!this.sit?.active) return;
     const camp = state.campaign;
     const s = this.w.s;
     const day = Math.floor(s.time / 24) + 1;
     const h = Math.floor(s.time % 24);
-    const room = this.m.VW - 76 - this.clockText.x;
-    this.clockText.setText(ellipsize(`Day ${day}  ${String(h).padStart(2, '0')}:00${h >= 21 || h < 5 ? ' night' : ''}`, room));
     const d = dangerAt(this.w.map, s.x, s.y);
-    this.regionText.setText(ellipsize(this.w.camp ? `Camp - ${regionName(this.w.map, s.x, s.y)}` : `${regionName(this.w.map, s.x, s.y)} - ${d < 0.3 ? 'safe' : d < 0.6 ? 'risky' : 'wild'}`, room));
-    this.goldText.setText(`${camp.data.gold}`);
+    const region = regionName(this.w.map, s.x, s.y);
+    const hh = `${String(h).padStart(2, '0')}:00${h >= 21 || h < 5 ? ` ${t('world.night')}` : ''}`;
+    const where = this.w.camp ? t('world.whereCamp', { d: day, h: hh, region }) : t('world.where', { d: day, h: hh, region, danger: t(d < 0.3 ? 'world.safe' : d < 0.6 ? 'world.risky' : 'world.wild') });
     const wounded = camp.wounded().length;
-    this.armyText.setText(`${camp.data.heroes.length - wounded}/${camp.data.heroes.length}`);
     const mouths = camp.data.heroes.length;
     const days = this.w.foodDays(mouths);
-    this.foodText.setFont(this.w.starving ? 'font_red' : 'font_ink');
-    this.foodText.setText(ellipsize(this.w.starving ? 'Starving!' : `${Math.floor(this.w.food)} food (${days < 1 ? '<1' : Math.floor(days)}d)`, this.m.VW - 96));
-    this.supplyText.setText(`${Math.floor(this.w.supplies)}`);
-    let hint = 'Tap the map to march, a town to enter';
+    let hint = t('world.sit.hint');
+    let urgent = false;
     const c = this.w.camp;
-    if (this.placing) hint = 'Tap inside the camp to move it';
+    if (this.placing) hint = t('world.sit.placing');
     else if (c) {
       const fx = campEffects(this.w.map, c);
       const net = fx.forage * 24 - mouths;
-      hint = `${this.waiting ? 'Resting' : 'Camp'}: heal x${this.w.healRate().toFixed(1)}, food ${net >= 0 ? '+' : ''}${net.toFixed(0)}/day`;
-    } else if (this.w.starving) hint = 'No food! Slow march, wounds barely heal';
-    else if (s.destParty >= 0) {
+      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: this.w.healRate().toFixed(1), net: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
+    } else if (this.w.starving) {
+      hint = t('world.sit.starving');
+      urgent = true;
+    } else if (s.destParty >= 0) {
       const p = this.w.party(s.destParty);
-      hint = p ? `Pursuing ${p.name}` : hint;
-    } else if (s.destSettlement >= 0) hint = `Marching to ${this.w.settlement(s.destSettlement)?.name ?? ''}`;
-    else if (this.w.moving) hint = 'On the march';
-    else if (days < 1.5) hint = 'Food runs low: buy rations in a village';
-    this.hintText.setText(ellipsize(hint, this.m.VW - 10));
+      hint = p ? t('world.sit.pursuing', { name: p.name }) : hint;
+    } else if (s.destSettlement >= 0) hint = t('world.sit.marchingTo', { name: this.w.settlement(s.destSettlement)?.name ?? '' });
+    else if (this.w.moving) hint = t('world.sit.marching');
+    else if (days < 1.5) {
+      hint = t('world.sit.lowFood');
+      urgent = true;
+    }
+    const nums: SitNumber[] = [
+      { icon: 'coin', value: `${camp.data.gold}`, word: t('strat.gold') },
+      { icon: 'people', value: `${mouths - wounded}/${mouths}`, word: t('strat.menWord', { n: mouths }) },
+      { icon: 'food', value: `${Math.floor(this.w.food)}`, word: this.w.starving ? t('world.starvingWord') : t('world.foodWord', { d: days < 1 ? '<1' : `${Math.floor(days)}` }), font: this.w.starving ? 'red' : 'ink' },
+      { icon: 'wood', value: `${Math.floor(this.w.supplies)}`, word: t('world.suppliesWord') },
+    ];
+    const key = `${where}|${hint}|${urgent}|${nums.map((n) => n.value + n.word).join(',')}`;
+    if (key !== this.sitKey) {
+      this.sitKey = key;
+      this.sit.setSentence(`${where} ${hint}`, urgent);
+      this.sit.setNumbers(nums);
+    }
+    const stripKey = `${!!this.placing}|${!!this.w.camp}|${this.waiting}|${this.w.moving}`;
+    if (stripKey !== this.stripKey) {
+      this.stripKey = stripKey;
+      this.strip?.set(this.stripOpts());
+    }
   }
 
   private setWaiting(on: boolean): void {
     this.waiting = on;
     if (on) this.w.stop();
-    if (this.waitBtn) {
-      this.waitBtn.setSelected(on).setLabel(on ? 'Pause' : 'Rest');
-    }
     this.refreshHud();
   }
 
@@ -981,9 +980,11 @@ export class WorldScene extends BaseScene {
     this.banner?.destroy();
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    const t = addText(this, VW / 2, 50, ellipsize(msg, VW - 30), 'red', 0.5);
+    // under the situation bar and its follow button
+    const by = (this.sit?.h ?? STRAT.sitH) + 30;
+    const t = addText(this, VW / 2, by + 5, ellipsize(msg, VW - 30), 'red', 0.5);
     const wdt = Math.min(VW - 8, Math.max(80, t.width + 20));
-    c.add(addPanel(this, Math.round((VW - wdt) / 2), 45, wdt, 18, 'parch'));
+    c.add(addPanel(this, Math.round((VW - wdt) / 2), by, wdt, 18, 'parch'));
     c.add(t);
     this.ui.add(c);
     this.banner = c;

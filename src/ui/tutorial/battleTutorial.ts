@@ -77,6 +77,8 @@ export interface TutorialHost {
   readonly paused: boolean;
   setPaused(p: boolean): void;
   hideBanner(): void;
+  /** Show or hide the radial ring (hidden during field steps: tap to move, turn). */
+  showRing(on: boolean): void;
   /** Bottom of the top bar and top of the command panel (UI px). */
   fieldTop(): number;
   panelTop(): number;
@@ -198,6 +200,11 @@ export class BattleTutorial {
     return this.phase === 'talk';
   }
 
+  /** Where the narrator sits now (UI px), or null: the battle scene keeps its ring clear of it. */
+  narratorRect(): Rect | null {
+    return this.narrator.visible ? this.narrator.rect : null;
+  }
+
   // ------------------------------------------------------------------ steps
 
   private buildSpecs(): Record<TutStepId, StepSpec> {
@@ -213,7 +220,7 @@ export class BattleTutorial {
     };
     return {
       intro: { at: 'bottom', text: 'tut.step.intro' },
-      select: { at: 'top', text: 'tut.step.select', target: () => this.needGroup(G.hop) },
+      select: { at: 'bottom', text: 'tut.step.select', target: () => this.needGroup(G.hop) },
       pan: { at: 'bottom', text: 'tut.step.pan', target: field, ghost: () => this.panDemo() },
       zoom: { at: 'bottom', text: 'tut.step.zoom', target: field, ghost: () => this.pinchDemo() },
       sling: {
@@ -245,7 +252,16 @@ export class BattleTutorial {
       },
       wall: { at: 'top', text: 'tut.step.wall', target: () => this.needCmd(G.hop, 'formation', 'form_shieldwall'), after: 2.5 },
       loose: { at: 'top', text: 'tut.step.loose', target: () => this.needCmd(G.sling, 'attack', 'loose'), after: 2.5 },
-      charge: { at: 'top', text: 'tut.step.charge', target: () => this.needCmd(G.hop, 'attack', 'charge'), done: () => enemyCue(sim(), 'charge') },
+      charge: {
+        at: 'top',
+        text: 'tut.step.charge',
+        // the hoplites' card sits under the narrator: select them for the player, the ring shows Charge
+        enter: () => {
+          if (h.selGroup !== G.hop) h.select(G.hop);
+        },
+        target: () => this.needCmd(G.hop, 'attack', 'charge'),
+        done: () => enemyCue(sim(), 'charge'),
+      },
       ability: {
         at: 'top',
         text: 'tut.step.ability',
@@ -322,6 +338,8 @@ export class BattleTutorial {
     else if (battle) h.setPaused(true);
     spec.enter?.();
     if (spec.at === 'top') h.hideBanner();
+    // field steps (tap the ground, swing the knob): the ring would sit in the way
+    h.showRing(spec.target?.() !== 'field');
     const text = t(spec.text ?? 'tut.step.win');
     const info = def.kind === 'info';
     this.say(text, spec.at, info);
@@ -387,6 +405,7 @@ export class BattleTutorial {
   private praiseC: Phaser.GameObjects.Container | null = null;
 
   private clearUi(): void {
+    this.host.showRing(true);
     this.narrator.hide();
     this.spot.show(null);
     this.ghost.stop();
@@ -563,8 +582,8 @@ export class BattleTutorial {
     const walk = (list: Phaser.GameObjects.GameObject[]) => {
       for (const o of list) {
         if (hit) return;
-        const any = o as unknown as { o?: { label?: string }; list?: Phaser.GameObjects.GameObject[] };
-        if (any.o?.label === label) hit = o;
+        const any = o as unknown as { o?: { label?: string }; opts?: { label?: string }; list?: Phaser.GameObjects.GameObject[] };
+        if (any.o?.label === label || any.opts?.label === label) hit = o;
         else if (any.list) walk(any.list);
       }
     };

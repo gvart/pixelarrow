@@ -4,7 +4,8 @@ import { Button, addIcon, addPanel, addText } from '../ui/kit';
 import { ScrollList, Tabs, addEmptyState, confirmDialog, firstTimeHint, toast } from '../ui/widgets';
 import { uiId } from '../ui/layout';
 import { ellipsize } from '../ui/textfit';
-import { SIZE, COLOR } from '../ui/theme';
+import { SIZE, COLOR, STRAT } from '../ui/theme';
+import { CommandStrip, SituationBar, type SitNumber } from '../ui/strategos';
 import { ensureFonts, FONT_RED_LIGHT } from '../ui/fonts';
 import {
   DragDrop, ROMAN, Stage, StashGrid, addChip, addGroupBadge, addMountTile, addSlotTile, addStars, addTabBadge, className, defaultStashState,
@@ -20,7 +21,7 @@ import { perkSlots } from '../data/perks';
 import { heroClass } from '../sim/stats';
 import { P } from '../art/palette';
 import { haptic, hapticNotify } from '../platform/telegram';
-import { addSupporterTrim, addSyncBadge } from '../ui/online';
+import { addSyncBadge } from '../ui/online';
 import { uiCoin } from '../audio/hooks';
 import { cycle, hasPending, heroStars, powerRating, queryRoster, ROSTER_FILTERS, ROSTER_SORTS, type RosterFilter, type RosterSort } from '../game/gear';
 import { t, type TKey } from '../i18n';
@@ -56,11 +57,9 @@ export class ArmyScene extends BaseScene {
   private roster: Hero[] = [];
   private drag!: DragDrop;
   private slotObjs = new Map<Slot, Phaser.GameObjects.GameObject>();
-  private goldText!: Phaser.GameObjects.BitmapText;
-  private coin!: Phaser.GameObjects.Image;
   private bodyTop = 0;
-  private sheetBtn!: Button;
-  private foot!: Phaser.GameObjects.Container;
+  private sit!: SituationBar;
+  private strip!: CommandStrip;
 
   constructor() {
     super('Army');
@@ -78,23 +77,16 @@ export class ArmyScene extends BaseScene {
     this.screen({ back: () => this.goBack() });
     const { VW, VH } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
-    // top bar: title, sync, gold
-    this.ui.add(addPanel(this, 0, 0, VW, 26, 'parch'));
-    if (this.inGameBack) this.ui.add(new Button(this, 3, 2, 26, 22, { icon: 'back', onClick: () => this.goBack() }));
-    const title = addText(this, VW / 2, 9, t('army.title'), 'red', 0.5);
-    this.ui.add(title);
-    addSupporterTrim(this, this.ui, VW, 26, VW / 2, title.width);
-    addSyncBadge(this, this.ui, this.inGameBack ? 34 : 8, 10);
-    this.goldText = addText(this, VW - 6, 9, '', 'ink', 1);
-    this.ui.add(this.goldText);
-    this.coin = addIcon(this, 0, 7, 'coin');
-    this.ui.add(this.coin);
+    // the situation bar: how the army fares, numbers with words; the command strip at the bottom
+    this.sit = new SituationBar(this, VW, { sentence: '', compact: VH < STRAT.compactVH, id: 'army.situation' });
+    this.ui.add(this.sit);
+    addSyncBadge(this, this.ui, VW - 16, 4);
+    this.strip = new CommandStrip(this, VW, VH, {});
     this.head = this.add.container(0, 0);
     this.body = this.add.container(0, 0);
     this.ui.add([this.head, this.body]);
     this.drag = new DragDrop(this);
-    this.foot = this.add.container(0, 0);
-    this.ui.add(this.foot);
+    this.ui.add(this.strip);
     this.events.once('shutdown', () => this.clearBody());
     this.refresh();
     firstTimeHint(this, 'army', t('stash.dragHint'));
@@ -126,46 +118,46 @@ export class ArmyScene extends BaseScene {
   }
 
   refresh(): void {
-    const c = state.campaign.data;
-    this.goldText.setText(`${c.gold}`);
-    this.coin.x = this.goldText.x - this.goldText.width - 15;
+    this.refreshSituation();
     this.buildFoot();
     this.buildHead();
     this.buildBody();
   }
 
-  /** Bottom bar: the sheet, (short screens: the group), dismiss, back to the map / town (primary). */
+  /** The sentence: men, wounds, points to spend; on the stash tab what the stash holds. */
+  private refreshSituation(): void {
+    const c = state.campaign.data;
+    const hurt = c.heroes.filter((h) => (h.wound ?? 0) > 0);
+    const pend = c.heroes.filter((h) => hasPending(h, perkSlots));
+    const parts: string[] = [];
+    if (this.tab === 'stash') parts.push(c.stash.length ? t('army.sit.stash', { n: c.stash.length }) : t('army.sit.empty'));
+    else {
+      // what needs doing first: points to spend, then wounds, then the count
+      if (pend.length) parts.push(t('army.sit.pending', { n: pend.length, name: pend[0].name, more: pend.length - 1 }));
+      if (hurt.length) parts.push(t('army.sit.hurt', { n: hurt.length }));
+      if (!pend.length || !hurt.length) parts.push(t('army.sit.men', { n: c.heroes.length }));
+    }
+    const nums: SitNumber[] = [
+      { icon: 'people', value: `${c.heroes.length}`, word: t('strat.menWord', { n: c.heroes.length }), tip: t('menu.tip.army') },
+      { icon: 'coin', value: `${c.gold}`, word: t('strat.gold'), tip: t('menu.tip.gold') },
+    ];
+    if (hurt.length) nums.splice(1, 0, { icon: 'cross', value: `${hurt.length}`, word: t('strat.hurtWord', { n: hurt.length }), font: 'red' });
+    this.sit.setSentence(parts.join(' '), pend.length > 0 && this.tab !== 'stash');
+    this.sit.setNumbers(nums);
+  }
+
+  /** The command strip: back to the map / town, the sheet (points to spend lead there), the group on short screens, dismiss. */
   private buildFoot(): void {
-    this.foot.removeAll(true);
-    const { VW, VH } = this.m;
     const c = state.campaign.data;
     const h = this.hero();
-    const by = VH - 28;
-    this.foot.add(addPanel(this, 0, by - 4, VW, 32, 'parch'));
-    const small = this.compact && !!h;
-    const fixed = 26 + (small ? 24 + SIZE.gap : 0);
-    const bw = Math.floor((VW - 8 - fixed - 2 * SIZE.gap) / 2);
     const pend = h ? hasPending(h, perkSlots) : false;
-    this.sheetBtn = new Button(this, 4, by, bw, SIZE.btnH, { label: t('army.sheet'), icon: 'star', style: pend ? 'buttonSel' : 'button', tip: pend ? `${t('army.sheetTip')} ${t('army.pending')}.` : t('army.sheetTip'), id: 'army.sheet', onClick: () => this.openHero() });
-    this.foot.add(this.sheetBtn);
-    let x = 4 + bw + SIZE.gap;
-    if (small && h) {
-      this.foot.add(
-        new Button(this, x, by, 24, SIZE.btnH, {
-          label: ROMAN[h.group],
-          tip: `${t('army.group')}: ${groupName(h.group)}. ${t('army.groupTip')}`,
-          id: 'army.group',
-          onClick: () => this.setGroup((h.group + 1) % 4),
-        }),
-      );
-      x += 24 + SIZE.gap;
-    }
-    const dis = new Button(this, x, by, 26, SIZE.btnH, { icon: 'skull', label: t('army.dismiss'), iconOnly: true, variant: 'destructive', id: 'army.dismiss', onClick: () => this.dismiss() });
-    dis.setEnabled(c.heroes.length > 1, t('army.dismissLast'));
-    this.foot.add(dis);
-    x += 26 + SIZE.gap;
     const backLabel = this.back.from === 'Settlement' ? t('army.town') : this.back.from === 'Camp' ? t('army.camp') : t('army.map');
-    this.foot.add(new Button(this, x, by, VW - 4 - x, SIZE.btnH, { label: backLabel, icon: 'map', variant: 'primary', id: 'army.back', onClick: () => this.goBack() }));
+    this.strip.set({
+      left: { label: backLabel, icon: 'map', id: 'army.back', onClick: () => this.goBack() },
+      main: { label: t('army.sheet'), icon: 'star', badge: pend ? '!' : 0, tip: pend ? `${t('army.sheetTip')} ${t('army.pending')}.` : t('army.sheetTip'), id: 'army.sheet', off: h ? undefined : t('army.noHeroes'), onClick: () => this.openHero() },
+      extra: this.compact && h ? { label: ROMAN[h.group], tip: `${t('army.group')}: ${groupName(h.group)}. ${t('army.groupTip')}`, id: 'army.group', onClick: () => this.setGroup((h.group + 1) % 4) } : null,
+      right: { label: t('army.dismiss'), icon: 'skull', destructive: true, id: 'army.dismiss', off: c.heroes.length > 1 ? undefined : t('army.dismissLast'), onClick: () => this.dismiss() },
+    });
   }
 
   // ------------------------------------------------------------------ the selected hero
@@ -177,11 +169,12 @@ export class ArmyScene extends BaseScene {
     const { VW } = this.m;
     const h = this.hero();
     const compact = this.compact;
-    const y0 = 28;
+    const top = this.sit.bottom;
+    const y0 = top + 2;
     if (!h) {
-      L.add(addPanel(this, 0, 26, VW, 60, 'dark'));
+      L.add(addPanel(this, 0, top, VW, 60, 'dark'));
       L.add(addText(this, VW / 2, y0 + 30, t('army.noHeroes'), 'title', 0.5));
-      this.bodyTop = 26 + 62;
+      this.bodyTop = top + 62;
       return;
     }
     const cls = heroClass(h);
@@ -238,7 +231,7 @@ export class ArmyScene extends BaseScene {
     if (cls.mount && !compact) addMountTile(this, L, x0 + SLOTS.length * step, slotY, h, ss);
     this.bodyTop = slotY + ss + 5;
     // the dark panel down to the slots
-    L.addAt(addPanel(this, 0, 26, VW, this.bodyTop - 26 - 1, 'dark'), 0);
+    L.addAt(addPanel(this, 0, top, VW, this.bodyTop - top - 1, 'dark'), 0);
   }
 
   private groupButton(x: number, y: number, w: number, g: number, h: Hero): Button {
@@ -303,7 +296,7 @@ export class ArmyScene extends BaseScene {
   private buildBody(): void {
     const keep = this.tab === 'roster' ? this.list?.area.scrollY ?? 0 : 0;
     this.clearBody();
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const c = state.campaign.data;
     const y = this.bodyTop;
     this.tabs = new Tabs(this, 4, y, VW - 8, [t('army.roster', { n: c.heroes.length, max: MAX_ARMY }), t('army.stash', { n: c.stash.length })], {
@@ -311,15 +304,17 @@ export class ArmyScene extends BaseScene {
       ids: ['army.tab.roster', 'army.tab.stash'],
       onChange: (i) => {
         this.tab = i === 0 ? 'roster' : 'stash';
+        this.refreshSituation();
         this.buildBody();
       },
     });
-    this.body.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, VH - 32 - (y + SIZE.tabH - 2), 'parch'));
+    const foot = this.strip.top;
+    this.body.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, foot - (y + SIZE.tabH - 2), 'parch'));
     this.body.add(this.tabs);
     const pend = c.heroes.filter((h) => hasPending(h, perkSlots)).length;
     if (pend) addTabBadge(this, this.body, 4, y, VW - 8, 2, 0, pend);
     const top = y + SIZE.tabH + 4;
-    const bottom = VH - 32 - 3;
+    const bottom = foot - 3;
     if (this.tab === 'roster') this.buildRoster(top, bottom, keep);
     else this.buildStash(top, bottom);
   }

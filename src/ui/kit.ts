@@ -172,6 +172,8 @@ export interface ButtonOpts {
   disabledReason?: string;
   /** Element id for the layout check (defaults to the label's i18n key / icon). */
   id?: string;
+  /** Icon beside the label even on tall buttons (default: above it from 26 tall). */
+  inline?: boolean;
 }
 
 /** Long-press and feedback hooks; widgets.ts installs the tooltip and toast. */
@@ -355,7 +357,7 @@ export class Button extends Phaser.GameObjects.Container {
     };
     if (hasIcon && (!hasLabel || this.opts.iconOnly)) {
       iconCentered();
-    } else if (hasIcon && hasLabel && this.h >= 26) {
+    } else if (hasIcon && hasLabel && this.h >= 26 && !this.opts.inline) {
       // icon above label
       this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);
       this.labelText = addText(scene, this.w / 2, this.h - 11, fit(this.w - 6), font, 0.5);

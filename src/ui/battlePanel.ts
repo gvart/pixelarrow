@@ -440,6 +440,30 @@ export class GroupCard extends Phaser.GameObjects.Container {
       return tx;
     };
     let x = 3;
+    if (this.h >= 40 && this.w >= 44) {
+      // tall (the Strategos column): "I" and "4 men" on the first line, the group's name, its order in words
+      const tw = this.w - 6;
+      text(3, 3, i.numeral, fontA, 0, 16);
+      text(this.w - 3, 3, firstFit([t('strat.men', { n: i.men }), `${i.men}`], tw - 14, SHADOW_FONTS.has(fontB)), fontB, 1, tw - 14);
+      text(3, 13, firstFit([i.name, i.shortName, ''], tw, SHADOW_FONTS.has(fontB)), fontB, 0, tw);
+      const order = firstFit([i.orderWord, i.orderShort, ''], tw, false);
+      const ot = addText(s, 3, 23, order, light ? 'light' : i.men === 0 ? 'dim' : 'dim', 0);
+      if (light) ot.setTint(0xf0c0b0);
+      uiFrame(ot, this, this.w, this.h);
+      this.add(ot);
+      this.add(this.bars);
+      return;
+    }
+    if (this.h >= 28 && this.h < 40 && this.w >= 28 && this.w < 44) {
+      // short cards (compact screens): numeral and men on one line, the order under them
+      const tw = this.w - 6;
+      text(3, 3, firstFit([`${i.numeral} ${i.men}`, i.numeral], tw, SHADOW_FONTS.has(fontA)), fontA, 0, tw);
+      const ot = addText(s, 3, 13, ellipsize(i.orderShort ?? '', tw, light), light ? 'light' : 'dim', 0);
+      uiFrame(ot, this, this.w, this.h);
+      this.add(ot);
+      this.add(this.bars);
+      return;
+    }
     if (i.portrait && i.men > 0 && this.w >= 34) {
       // the class portrait, head and shoulders
       const img = s.add.image(x - 3, 3, i.portrait).setOrigin(0, 0).setCrop(3, 0, 18, ph);

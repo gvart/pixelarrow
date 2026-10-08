@@ -5,13 +5,14 @@ import { Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit
 import { ItemIcon, ScrollList, Tabs, addScrollHint, confirmDialog, openModal, showTooltip, toast } from '../ui/widgets';
 import { uiFrame, uiId } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
-import { SIZE, COLOR, RARITY_COLOR } from '../ui/theme';
+import { SIZE, COLOR, RARITY_COLOR, STRAT } from '../ui/theme';
+import { CommandStrip, SituationBar, type SitNumber } from '../ui/strategos';
 import { ensureFonts } from '../ui/fonts';
 import { addChip, addTabBadge, frameScrollTexts } from '../ui/sheet';
 import { econ, newRequestId, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
 import { pickBattleConsumable } from '../ui/econ/consumablePicker';
-import { addEconState, addPurse, ago, cosmeticName, cosmeticTexture, currencyIcon, ensureEconIcons, goodsTexture, priceText, rewardName } from '../ui/econ/widgets';
+import { addEconState, ago, cosmeticName, cosmeticTexture, currencyIcon, ensureEconIcons, goodsTexture, priceText, rewardName } from '../ui/econ/widgets';
 import { claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
@@ -60,6 +61,7 @@ export class ShopScene extends BaseScene {
   private busy = false;
   private pendingIds = new Map<string, string>();
   private pageTop = 0;
+  private strip: CommandStrip | null = null;
   private gen = 0;
 
   constructor() {
@@ -83,6 +85,8 @@ export class ShopScene extends BaseScene {
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     this.ui.add([this.head, this.page]);
+    this.strip = new CommandStrip(this, this.m.VW, this.m.VH, {});
+    this.ui.add(this.strip);
     this.events.once('shutdown', () => this.clearPage());
     this.render();
     void this.fetchAll();
@@ -125,20 +129,23 @@ export class ShopScene extends BaseScene {
     this.head.removeAll(true);
     const { VW, VH } = this.m;
     const H = this.head;
-    H.add(addPanel(this, 0, 0, VW, 26, 'parch'));
-    let left = 6;
-    if (this.inGameBack) {
-      H.add(new Button(this, 3, 2, 26, 22, { icon: 'back', onClick: () => this.leave() }));
-      left = 33;
-    }
     const d = this.loaded;
-    const purseW = addPurse(this, H, VW - 6, 7, { drachmae: d?.wallet.drachmae ?? null, gold: d?.profile?.resources.gold ?? null }, VW - left - 50);
-    const pz = this.add.zone(VW - 4 - Math.max(24, purseW), 2, Math.max(24, purseW), 22).setOrigin(0, 0).setInteractive();
-    uiId(pz, 'shop.purse');
-    pz.on('pointerup', () => showTooltip(this, t('econ.purseTip'), pz));
-    H.add(pz);
-    H.add(addText(this, left, 9, ellipsize(t('shop.title'), VW - left - purseW - 12), 'red'));
-    const ty = 29;
+    ensureEconIcons(this);
+    // the situation bar: what this page sells, the purse as numbers with words
+    const nums: SitNumber[] = [{ icon: 'drachma', value: d?.wallet.drachmae === undefined || d?.wallet.drachmae === null ? '-' : `${d.wallet.drachmae}`, word: t('shop.num.drachmae'), tip: t('econ.purseTip') }];
+    if (d?.profile) nums.push({ icon: 'coin', value: `${d.profile.resources.gold}`, word: t('strat.gold'), tip: t('econ.purseTip') });
+    const sit = new SituationBar(this, VW, { sentence: t(`shop.sit.${this.tab}` as TKey), numbers: nums, compact: VH < STRAT.compactVH, id: 'shop.situation' });
+    H.add(sit);
+    // the strip: back, the wallet (or the shop from the wallet), the pass with what there is to claim
+    const claim = d?.pass ? claimableCount(d.pass) : 0;
+    this.strip?.set({
+      left: { label: t('strat.back'), icon: 'back', id: 'shop.back', onClick: () => this.leave() },
+      main: this.tab === 'wallet'
+        ? { label: t('shop.tab.shop'), icon: 'coin', secondary: true, id: 'shop.toShop', onClick: () => this.switchTab('shop') }
+        : { label: t('shop.tab.wallet'), icon: 'drachma', secondary: true, id: 'shop.toWallet', onClick: () => this.switchTab('wallet') },
+      right: this.tab === 'pass' ? null : { label: t('shop.tab.pass'), icon: 'star', badge: claim, id: 'shop.toPass', onClick: () => this.switchTab('pass') },
+    });
+    const ty = sit.bottom + 3;
     const tabs = new Tabs(this, 4, ty, VW - 8, TABS.map((k) => t(`shop.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),
       ids: TABS.map((k) => `shop.tab.${k}`),
@@ -148,7 +155,7 @@ export class ShopScene extends BaseScene {
         this.buildPage();
       },
     });
-    H.add(addPanel(this, 0, ty + SIZE.tabH - 2, VW, VH - ty - SIZE.tabH + 2, 'parch'));
+    H.add(addPanel(this, 0, ty + SIZE.tabH - 2, VW, this.pageBottom() + 2 - ty - SIZE.tabH + 2, 'parch'));
     H.add(tabs);
     if (d?.pass) {
       const n = claimableCount(d.pass);
@@ -156,6 +163,17 @@ export class ShopScene extends BaseScene {
     }
     this.pageTop = ty + SIZE.tabH + 4;
     this.buildPage();
+  }
+
+  /** Switch the page from the strip (the tabs follow on the next render). */
+  private switchTab(tab: Tab): void {
+    this.tab = tab;
+    this.render();
+  }
+
+  /** Bottom edge of the page (the strip starts there). */
+  private pageBottom(): number {
+    return (this.strip?.top ?? this.m.VH) - 2;
   }
 
   private clearPage(): void {
@@ -166,10 +184,10 @@ export class ShopScene extends BaseScene {
 
   private buildPage(): void {
     this.clearPage();
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const top = this.pageTop;
     if (this.st !== 'ready' || !this.loaded) {
-      addEconState(this, this.page, 4, top, VW - 8, VH - top - 4, this.st as EconState | 'loading', () => void this.fetchAll());
+      addEconState(this, this.page, 4, top, VW - 8, this.pageBottom() - top, this.st as EconState | 'loading', () => void this.fetchAll());
       return;
     }
     if (this.tab === 'shop') this.buildShop(this.loaded);
@@ -188,9 +206,9 @@ export class ShopScene extends BaseScene {
   // ------------------------------------------------------------------ shop: consumables and cosmetics
 
   private buildShop(d: Loaded): void {
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const top = this.pageTop;
-    const area = this.area(top, VH - top - 4);
+    const area = this.area(top, this.pageBottom() - top);
     const c = area.content;
     const w = VW - 8 - 4;
     let y = 0;
@@ -375,11 +393,11 @@ export class ShopScene extends BaseScene {
   // ------------------------------------------------------------------ season pass
 
   private buildPass(d: Loaded): void {
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const top = this.pageTop;
     const p = d.pass;
     if (!p) {
-      addEconState(this, this.page, 4, top, VW - 8, VH - top - 4, 'error', () => void this.fetchAll());
+      addEconState(this, this.page, 4, top, VW - 8, this.pageBottom() - top, 'error', () => void this.fetchAll());
       return;
     }
     const w = VW - 8;
@@ -415,7 +433,7 @@ export class ShopScene extends BaseScene {
     const cellW = Math.floor((w - 26 - 2 * SIZE.gap) / 2);
     this.page.add(addText(this, 4 + 26 + cellW / 2, ly, t('pass.free'), 'red', 0.5));
     this.page.add(addText(this, 4 + 26 + SIZE.gap + cellW + cellW / 2, ly, t('pass.premium'), FONT_EPIC, 0.5));
-    const list = new ScrollList(this, this.page, 4, ly + 11, w, VH - ly - 11 - 4, {
+    const list = new ScrollList(this, this.page, 4, ly + 11, w, this.pageBottom() - ly - 11, {
       count: p.tiers.length,
       rowH: 34,
       render: (i, row, rw, rh, area) => this.tierRow(d, p, i, row, rw, rh, area),
@@ -530,9 +548,9 @@ export class ShopScene extends BaseScene {
   // ------------------------------------------------------------------ wallet
 
   private buildWallet(d: Loaded): void {
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const top = this.pageTop;
-    const area = this.area(top, VH - top - 4);
+    const area = this.area(top, this.pageBottom() - top);
     const c = area.content;
     const w = VW - 8 - 4;
     let y = 0;

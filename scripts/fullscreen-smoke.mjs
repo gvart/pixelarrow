@@ -259,7 +259,7 @@ const tapButton = async (key, label) => {
     ([k, l]) => {
       const s = window.__game.scene.getScene(k);
       let b = null;
-      const walk = (list) => list.forEach((o) => (o.opts && o.opts.label === l && o.visible && (b = o), o.list && walk(o.list)));
+      const walk = (list) => list.forEach((o) => (o.opts && o.opts.label && o.opts.label.startsWith(l) && o.visible && (b = o), o.list && walk(o.list)));
       walk(s.children.list);
       if (!b) return null;
       const m = b.getWorldTransformMatrix();
@@ -396,7 +396,8 @@ const bgeo = (pts) =>
     const own = s.views.filter((v) => v.u.side === 0).map((v) => [c.left + (v.spr.x - cam.worldView.x) * cam.zoom * k, c.top + (v.spr.y - 10 - cam.worldView.y) * cam.zoom * k]);
     let empty = null;
     for (let y = c.top + c.height * 0.25; !empty && y < c.top + c.height * 0.6; y += 20)
-      for (let x = 40; !empty && x < c.width - 40; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90)) empty = [x, y];
+      // right of the group cards down the field's left edge (the Strategos HUD, docs/UI_STRATEGOS.md)
+      for (let x = c.left + (s.leftColumnRight() * s.m.S + 8) * k; !empty && x < c.width - 40; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90)) empty = [x, y];
     return { f: { ...f }, scroll: [cam.scrollX, cam.scrollY], empty, orders: s.sim.orderLog.length, pts: pts.map(([a, b]) => toPage([f.cx - f.fy * a - f.fx * b, f.cy + f.fx * a - f.fy * b])) };
   }, pts);
 const b0 = await bgeo([]);

@@ -443,7 +443,7 @@ const SCREENS = [
   {
     id: 'battle-deploy-formation',
     owner: 'A',
-    // the compact panel opens the formation commands in its row
+    // the shape sheet (deployment)
     run: async (p) => (await battle(p), await call(p, 'Battle', `s.openCategory('formation'); return 1;`), wait(p, 400)),
   },
   { id: 'battle-groups', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', 's.openGroups(); return 1;'), wait(p, 500)) },
@@ -456,13 +456,17 @@ const SCREENS = [
       return wait(p, 700);
     },
   },
-  ...['movement', 'attack', 'formation', 'abilities'].map((cat) => ({
-    id: `battle-cmd-${cat}`,
+  ...[
+    // the radial ring round the selected group (a hero with abilities: the ability row shows) and the shape sheet
+    ['battle-ring', 'u.group', '-1', ''],
+    ['battle-ring-soldier', 'u.group', 'u.id', ''],
+    ['battle-shapes', 'u.group', '-1', "s.shapeOpen = true;"],
+  ].map(([id, group, unit, extra]) => ({
+    id,
     owner: 'A',
     run: async (p) => {
       await battle(p);
-      // a hero with abilities is selected (his strip shows over the panel), the category open
-      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 2; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); const u = s.sim.units.find((x) => x.side === 0 && x.abil.length > 0) || s.sim.units.find((x) => x.side === 0); s.selGroup = u.group; s.selUnit = ${cat === 'movement' ? 'u.id' : '-1'}; s.cat = '${cat}'; s.catOpen = true; s.buildHud(); return 1;`);
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 2; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); const u = s.sim.units.find((x) => x.side === 0 && x.abil.length > 0) || s.sim.units.find((x) => x.side === 0); s.selGroup = ${group}; s.selUnit = ${unit}; ${extra} s.buildHud(); return 1;`);
       return wait(p, 500);
     },
   })),
