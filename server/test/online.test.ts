@@ -264,8 +264,12 @@ describe('async attacks', () => {
     // After the winner abandons, the region is free again.
     const winner = ra.status === 200 ? { p: a, t: ra } : { p: b, t: rb };
     expect((await post('/api/online/attack/abandon', winner.p.token, { ticket: winner.t.body.ticket })).status).toBe(200);
-    const retry = ra.status === 409 ? await startAttack(a, h) : await startAttack(b, h);
+    const loserP = ra.status === 409 ? a : b;
+    const retry = await startAttack(loserP, h);
     expect(retry.status).toBe(200);
+    // Release the lock again: the shard's Durable Object outlives this test, and a
+    // later test whose (random) home lands next to the same region would find it locked.
+    expect((await post('/api/online/attack/abandon', loserP.token, { ticket: retry.body.ticket })).status).toBe(200);
   });
 
   it('attacks a player garrison: defenders fight under the bot, both sides take casualties', async () => {
