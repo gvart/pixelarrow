@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addScroll, addText } from '../ui/kit';
-import { ensureDoll, dollFrame, dollOrigin, ensurePortrait } from '../ui/sprites';
+import { ensurePortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
+import { MenuBattle } from './menu/MenuBattle';
 import { state } from '../state';
 import { inTelegram, telegramUserName } from '../platform/telegram';
 import { openSettings } from '../ui/settings';
@@ -19,9 +20,11 @@ import { t } from '../i18n';
  * of the save (who, where, what is up, numbers with words), ONE primary
  * (Continue the march), the other starts as rows with a line of context, and
  * the first-steps checklist. Short screens fold the rows into two columns.
+ * Behind it all, in the free band under the rows, the player's own men fight
+ * a looping skirmish (src/scenes/menu/MenuBattle.ts).
  */
 export class MenuScene extends BaseScene {
-  private dolls: { s: Phaser.GameObjects.Sprite; phase: number }[] = [];
+  private battle: MenuBattle | null = null;
   private overlay: Phaser.GameObjects.Container | null = null;
 
   constructor() {
@@ -33,7 +36,12 @@ export class MenuScene extends BaseScene {
     this.screen({ back: null }); // root: Telegram shows Close
     const { VW, VH } = this.m;
     const c = state.campaign.data;
-    this.addGrassBackdrop(11);
+    // the plain under everything; the skirmish starts once the layout says where the free band is
+    this.battle = new MenuBattle(this, c.heroes, (Date.now() % 100000) | 1);
+    this.events.once('shutdown', () => {
+      this.battle?.destroy();
+      this.battle = null;
+    });
     const compact = VH < STRAT.compactVH;
     const x0 = 8;
     const w = VW - 16;
@@ -115,7 +123,7 @@ export class MenuScene extends BaseScene {
     }
     y += 2;
 
-    // ---- the save's home and the first steps, with the men standing on the plain
+    // ---- the save's home and the first steps, with the skirmish on the plain around them
     const who2 = telegramUserName();
     const saveLabel = inTelegram() ? (who2 ? t('menu.cloudSaveOf', { name: who2 }) : t('menu.cloudSave')) : t('menu.localSave');
     const room = VH - 4 - y;
@@ -128,9 +136,11 @@ export class MenuScene extends BaseScene {
       const label = addText(this, x0 + w, VH - 4 - wr.lines.length * 10, wr.lines.join('\n'), 'light', 1);
       label.setRightAlign();
       this.ui.add(label);
-      this.addSoldiers(x0 + cw + 8, y - 4, w - cw - 8, Math.max(ch, room) - 6 - wr.lines.length * 10);
-    } else if (room >= 12) {
-      this.ui.add(addText(this, VW / 2, VH - 12, ellipsize(saveLabel, w, true), 'light', 0.5));
+      // the skirmish is drawn under the checklist and the label; its melee sits in the clear part of the band
+      this.battle?.start({ x: x0, y, w, h: room + 4, panelRight: x0 + cw + 2, panelBottom: y + ch, labelH: wr.lines.length * 10 + 2 });
+    } else {
+      this.battle?.still();
+      if (room >= 12) this.ui.add(addText(this, VW / 2, VH - 12, ellipsize(saveLabel, w, true), 'light', 0.5));
     }
     // Opened from a bot message's "Open in the game" (startapp=settings).
     if (data?.settings === 'notify') this.openNotifications();
@@ -150,31 +160,6 @@ export class MenuScene extends BaseScene {
     ];
   }
 
-  /** The men standing in line on the plain, in the free space. */
-  private addSoldiers(x: number, y: number, w: number, h: number): void {
-    const c = state.campaign.data;
-    this.dolls = [];
-    const step = 20;
-    const perRow = Math.max(1, Math.floor((w - 10) / step));
-    const rows = h >= 60 ? 2 : h >= 36 ? 1 : 0;
-    const heroes = c.heroes.slice(0, perRow * rows);
-    const rowGap = 18;
-    const base = Math.round(y + (h - (rows - 1) * rowGap) / 2 + 12);
-    heroes.forEach((hero, i) => {
-      const key = ensureDoll(this, dollFromHero(hero), [0]);
-      const row = Math.floor(i / perRow);
-      const col = i % perRow;
-      const n = Math.min(perRow, heroes.length - row * perRow);
-      const sx = Math.round(x + w / 2 - ((n - 1) / 2) * step + col * step + (row ? 5 : 0));
-      const sy = base + row * rowGap;
-      const sh = this.add.image(sx, sy, 'shadow').setAlpha(0.35);
-      const sp = this.add.sprite(sx, sy, key, dollFrame(0, 0)).setOrigin(...dollOrigin(key));
-      this.ui.add(sh);
-      this.ui.add(sp);
-      this.dolls.push({ s: sp, phase: i * 0.37 });
-    });
-  }
-
   /** Settings with the notification switches on top (`demo`: in-memory switches, for the layout check). */
   openNotifications(demo = false): void {
     this.openSettings();
@@ -187,11 +172,8 @@ export class MenuScene extends BaseScene {
     openAbout(this);
   }
 
-  update(time: number): void {
-    for (const d of this.dolls) {
-      const f = Math.floor(time / 600 + d.phase) % 2;
-      d.s.setFrame(dollFrame(0, f));
-    }
+  update(_time: number, delta: number): void {
+    this.battle?.update(delta);
   }
 
   private closeOverlay(): void {
