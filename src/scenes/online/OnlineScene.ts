@@ -519,7 +519,8 @@ export class OnlineScene extends BaseScene {
     nums.push({ icon: 'bolt', value: `${energy}`, word: t('online.num.energy'), font: energy < ONLINE_RULES.energyPerAttack ? 'red' : 'ink', tip: t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }) });
     H.add(new SituationBar(this, VW, { sentence, numbers: nums, urgent: urgentSit, compact: false, id: 'online.situation' }));
     // centre on my army: over the map's top-right corner, under the march chip when there is one
-    H.add(new Button(this, VW - 27, TOP_H + 3 + (p.army.marching && p.army.arriveAt ? CHIP_H : 0), SIZE.btnMinW, SIZE.btnH, { icon: 'map', iconOnly: true, label: t('online.centre'), onClick: () => this.centerOn(this.profile!.army.loc, true), id: 'online.centre' }));
+    // (not while a region panel is open: the panel's close button sits there on short screens)
+    if (!this.selected) H.add(new Button(this, VW - 27, TOP_H + 3 + (p.army.marching && p.army.arriveAt ? CHIP_H : 0), SIZE.btnMinW, SIZE.btnH, { icon: 'map', iconOnly: true, label: t('online.centre'), onClick: () => this.centerOn(this.profile!.army.loc, true), id: 'online.centre' }));
     // ---- marching chip
     if (p.army.marching && p.army.arriveAt) {
       const cy = TOP_H + 2;
