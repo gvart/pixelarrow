@@ -314,6 +314,17 @@ portraits `PORTRAIT_RES = 2` on a `PORTRAIT_PX = 24` box.
 - **Portraits** are busts from the front 3/4 (no shield: it would hide the face), with
   an idle loop per hero (breathing, blinks, glances, a glint across the metal) on a
   seeded rhythm so a roster never moves in step.
+- **Four-legged figures** (horses, wolves, boars, bears) are posed by a footfall
+  table (walk, trot, pace, transverse and rotary gallop: when each leg lands and
+  how long it stays down) with two-bone IK from shoulder / hip to hoof, so strides
+  reach the ground and lifted legs fold the right way; the head nods, the tail
+  swishes, the spine gathers and extends in a gallop, and an idle has a cocked
+  hind foot, a head toss and an ear laid back. Riders follow the horse (bob
+  absorbed by the seat, a forward seat at the gallop, thrown back when it rears,
+  rolling with it when it falls). Attacks run anticipation, coil, strike, bite /
+  follow-through, recover. Deaths: a stumble onto the fores and over onto the side,
+  or the hinds giving and a sink / topple. Battle frames are drawn on demand into
+  shared atlases, trimmed to their opaque bounds, and dropped when unused.
 
 ## 14. "Biggest differences vs a cheap look" checklist
 

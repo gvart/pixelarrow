@@ -2580,8 +2580,11 @@ function buildRider(sc: Scene, d: DollSpec, frame: number, B: Basis, dir: number
     const f = thrown === 1 ? (name === 'die1b' ? FRAME.die1b : FRAME.die2) : name === 'dieB2' ? FRAME.dieB2 : FRAME.dieB3;
     const r = thrown === 1 ? 0.55 : -0.65;
     const spot = [B.at([0, 0, 0], 0.5, r, 0), B.at([0, 0, 0], -0.5, r, 0)].sort((a, b) => project(a).y - project(b).y)[0];
+    // and he lies along whichever facing runs up the screen (a body stretched below the feet line would be cut)
+    const kDir = [0, 1, 2, 3].sort((a, b) => project([DIRS[a][0], DIRS[a][1], 0]).y - project([DIRS[b][0], DIRS[b][1], 0]).y)[(dir + 1) % 2];
+    const B2 = basis(DIRS[kDir][0], DIRS[kDir][1]);
     const pp = manPose({ ...d, cloak: undefined }, f);
-    buildMan(riderScene, { ...d, cloak: undefined }, f, B, dir, pp, spot);
+    buildMan(riderScene, { ...d, cloak: undefined }, f, B2, kDir, pp, spot);
   }
   if (g.roll) {
     // the horse goes over onto a side (its left for die, right for dieB), hinging on the hooves of that side,
