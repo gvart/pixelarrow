@@ -195,6 +195,10 @@ async function ambush() {
     p.y = t.y + 0.5;
     p.idle = 0;
     p.power = s.info.power * 1.4; // strong enough to hunt us
+    // a melee band: skirmishers or riders can keep out of reach for the whole run, and the
+    // shield-bash check below needs a man in front of the basher (scripts/screenshots.mjs stages the same)
+    p.kind = 'raiders';
+    p.culture = 'celtic';
   });
   await tapBtn('World', { label: 'Camp' });
   return until(() => ev(() => !!window.__game.scene.getScene('World').dialog), 10000);
