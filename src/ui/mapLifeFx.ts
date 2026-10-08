@@ -6,8 +6,8 @@
  * proportional to what is on screen.
  */
 import Phaser from 'phaser';
-import { hash2 } from '../art/pixels';
-import { MP, gullPix, merchantPix, shipPix } from '../art/mapProps';
+import { Pix, hash2 } from '../art/pixels';
+import { MP, gullPix, merchantPix, mix, shipPix } from '../art/mapProps';
 import { alongPolyline } from '../online/liveArmies';
 
 export const SMOKE = [0xf0e6e2, 0xe2d6d6, 0xcfc2c8];
@@ -60,7 +60,7 @@ export class ImagePool {
       this.pool.push(im);
     } else if (im.texture.key !== key) im.setTexture(key);
     this.used++;
-    return im.setVisible(true);
+    return im.setVisible(true).setAlpha(1);
   }
 
   end(): void {
@@ -152,4 +152,126 @@ export function flicker(g: Phaser.GameObjects.Graphics, x: number, y: number, T:
 export function gullAt(T: number, q: number, seed: number, cx: number, cy: number): { x: number; y: number } {
   const a = T * (0.5 + q * 0.13) + q * 2.1 + seed;
   return { x: Math.round(cx + Math.cos(a) * (18 + q * 6)), y: Math.round(cy + Math.sin(a) * (9 + q * 3) - 14) };
+}
+
+// ------------------------------------------------------------------ clouds
+
+/** A cloud wisp: a few overlapping parchment puffs, lit on top, rimmed below; `shade` draws its shadow instead. */
+function cloudPix(w: number, h: number, seed: number, shade: boolean): Pix {
+  const p = new Pix(w, h);
+  const n = 3 + Math.floor(hash2(seed, 1, 541) * 3);
+  const puffs: [number, number, number, number][] = [];
+  for (let k = 0; k < n; k++) {
+    const rx = (w / 2) * (0.35 + hash2(seed, k, 542) * 0.4);
+    const ry = (h / 2) * (0.45 + hash2(seed, k, 543) * 0.5);
+    puffs.push([rx + hash2(seed, k, 544) * (w - 2 * rx), h / 2 + (hash2(seed, k, 545) - 0.5) * (h - 2 * ry), rx, ry]);
+  }
+  const inside = (x: number, y: number) => puffs.some(([cx, cy, rx, ry]) => ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (!inside(x, y)) continue;
+      if (shade) {
+        if (((x + y) & 1) === 0 || !inside(x, y + 1)) p.set(x, y, MP.fogShadow);
+        continue;
+      }
+      const below = !inside(x, y + 1);
+      const above = !inside(x, y - 1) || !inside(x - 1, y);
+      p.set(x, y, below ? MP.parchRim : above ? MP.parchHi : (x + y) % 7 === 0 ? MP.parchLo : MP.parch);
+    }
+  return p;
+}
+
+/** Textures of three cloud wisps and their shadows, registered once per prefix. */
+export function cloudTextures(scene: Phaser.Scene, prefix: string): { cloud: string[]; shade: string[] } {
+  const sizes: [number, number][] = [
+    [16, 6],
+    [26, 8],
+    [38, 10],
+  ];
+  const add = (k: string, make: () => Pix) => {
+    if (!scene.textures.exists(k)) scene.textures.addCanvas(k, make().toCanvas());
+    return k;
+  };
+  return {
+    cloud: sizes.map(([w, h], i) => add(`${prefix}cloud${i}`, () => cloudPix(w, h, i, false))),
+    shade: sizes.map(([w, h], i) => add(`${prefix}cloudsh${i}`, () => cloudPix(w, h, i, true))),
+  };
+}
+
+/**
+ * Cloud wisps drifting east over the revealed map on a coarse grid, each with
+ * its shadow on the ground a little down and right (`open(x, y)`: not fogged).
+ */
+export function drawClouds(pool: ImagePool, tex: { cloud: string[]; shade: string[] }, x0: number, y0: number, x1: number, y1: number, k: number, T: number, open: (x: number, y: number) => boolean, cellBase = 150): void {
+  const cell = cellBase * k;
+  for (let gy = Math.floor(y0 / cell); gy <= Math.floor(y1 / cell); gy++)
+    for (let gx = Math.floor(x0 / cell) - 1; gx <= Math.floor(x1 / cell); gx++) {
+      const h = hash2(gx, gy, 551);
+      if (h > 0.34) continue;
+      const i = Math.floor(h * 30) % 3;
+      const speed = 2 + h * 4;
+      const x = gx * cell + ((hash2(gx, gy, 552) * cell + T * speed) % cell);
+      const y = gy * cell + hash2(gx, gy, 553) * cell;
+      if (x < x0 - 40 * k || x > x1 + 40 * k || !open(x, y)) continue;
+      pool.img(tex.shade[i]).setScale(k).setAlpha(0.3).setFlipX(false).setPosition(Math.round(x + 7 * k), Math.round(y + 12 * k));
+      pool.img(tex.cloud[i]).setScale(k).setAlpha(0.92).setFlipX(false).setPosition(Math.round(x), Math.round(y));
+    }
+}
+
+// ------------------------------------------------------------------ shore, fields, roads
+
+/** Foam dashes breaking along the shore (`shore(x, y)`: shallow water by the coast, in sight). */
+export function surf(g: Phaser.GameObjects.Graphics, x0: number, y0: number, x1: number, y1: number, k: number, T: number, shore: (x: number, y: number) => boolean, cellBase = 11): void {
+  const cell = cellBase * k;
+  for (let gy = Math.floor(y0 / cell); gy <= Math.floor(y1 / cell); gy++)
+    for (let gx = Math.floor(x0 / cell); gx <= Math.floor(x1 / cell); gx++) {
+      const h = hash2(gx, gy, 561);
+      const x = (gx + hash2(gx, gy, 562)) * cell;
+      const y = (gy + hash2(gx, gy, 563)) * cell;
+      if (!shore(x, y)) continue;
+      const ph = (T * 0.45 + h * 9) % 1;
+      if (ph > 0.5) continue;
+      const a = Math.sin((ph / 0.5) * Math.PI) * 0.85;
+      g.fillStyle(MP.foam, a);
+      g.fillRect(Math.round(x), Math.round(y), (2 + Math.floor(h * 4)) * k, k);
+      if (h > 0.5) g.fillRect(Math.round(x) + k, Math.round(y) - k, 2 * k, k);
+    }
+}
+
+/** A few sheep grazing about a field (cx, cy) +- (rx, ry), drifting slowly. */
+export function herd(g: Phaser.GameObjects.Graphics, cx: number, cy: number, rx: number, ry: number, T: number, seed: number, n = 3): void {
+  for (let q = 0; q < n; q++) {
+    const a = T * 0.05 + q * 2.1 + seed;
+    const x = Math.round(cx + Math.cos(a) * rx * 0.7 + Math.cos(a * 3.1) * 2);
+    const y = Math.round(cy + Math.sin(a * 0.7) * ry * 0.6);
+    const dir = Math.cos(a) < 0 ? -1 : 1;
+    g.fillStyle(MP.shadow, 0.35).fillRect(x, y + 1, 3, 1);
+    g.fillStyle(0xf6eee2, 1).fillRect(x, y - 1, 2, 2);
+    g.fillStyle(0x6a5450, 1).fillRect(dir > 0 ? x + 2 : x - 1, y - 1, 1, 1);
+    if (Math.floor(T * 2 + q) % 5 === 0) g.fillStyle(0x6a5450, 1).fillRect(dir > 0 ? x + 2 : x - 1, y, 1, 1); // head down, grazing
+  }
+}
+
+/** An ox cart on the road at (x, y), heading dir (+1 east). */
+export function cart(g: Phaser.GameObjects.Graphics, x: number, y: number, dir: number, k: number, T: number): void {
+  const bob = Math.floor(T * 6) % 2;
+  g.fillStyle(MP.shadow, 0.4).fillRect(x - 3 * k, y + k, 8 * k, k);
+  // the ox ahead, the cart behind
+  const ox = x + dir * 3 * k;
+  g.fillStyle(0xc8a078, 1).fillRect(ox - k, y - 2 * k, 2 * k, 2 * k);
+  g.fillStyle(0x6a4a3a, 1).fillRect(ox + (dir > 0 ? k : -k), y - 2 * k - bob * k, k, k);
+  g.fillStyle(MP.wood, 1).fillRect(x - 2 * k, y - 3 * k + bob * k, 4 * k, 2 * k);
+  g.fillStyle(0xe8d8b8, 1).fillRect(x - 2 * k, y - 4 * k + bob * k, 4 * k, k);
+  g.fillStyle(0x3a2a28, 1).fillRect(x - 2 * k, y - k, k, k);
+  g.fillStyle(0x3a2a28, 1).fillRect(x + k, y - k, k, k);
+}
+
+/** A slow day cycle: a warm tint that comes and goes over the view (very light). */
+export function dayTint(g: Phaser.GameObjects.Graphics, view: Phaser.Geom.Rectangle, T: number): void {
+  g.clear();
+  const ph = (T / 300) % 1;
+  const warm = Math.max(0, Math.sin(ph * Math.PI * 2));
+  const cool = Math.max(0, -Math.sin(ph * Math.PI * 2));
+  if (warm > 0.02) g.fillStyle(0xffb870, warm * 0.07).fillRect(view.x - 4, view.y - 4, view.width + 8, view.height + 8);
+  if (cool > 0.02) g.fillStyle(mix(MP.fogShadow, 0x6080c0, 0.4), cool * 0.06).fillRect(view.x - 4, view.y - 4, view.width + 8, view.height + 8);
 }

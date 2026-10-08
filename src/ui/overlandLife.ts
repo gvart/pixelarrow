@@ -1,21 +1,25 @@
 /**
  * Ambient life on the offline overland map (src/scenes/WorldScene.ts), the
  * same as on the online war map (src/ui/mapLifeFx.ts): glints and wave
- * crests on the sea, merchant ships and galleys on the sea lanes with a
- * wake, fishing boats off the villages, gulls over the harbours, chimney and
- * campfire smoke, waving flags and flickering fires. Only what is in view and
- * out of the fog is drawn; nothing is simulated.
+ * crests on the sea and surf on the shores, cloud wisps drifting over with
+ * their shadows, merchant ships and galleys on the sea lanes with a wake,
+ * fishing boats off the villages, gulls over the harbours, herds in the
+ * fields, chimney and campfire smoke, waving flags and flickering fires, and
+ * a slow day tint. Only what is in view and out of the fog is drawn; nothing
+ * is simulated.
  */
 import Phaser from 'phaser';
 import { boatPix } from '../art/mapProps';
 import type { SiteArt, SeaLane } from '../art/overlandMap';
-import { ImagePool, flicker, gullAt, lifeTextures, seaShimmer, shipOnLane, smokePuffs, wake, wavingFlag } from './mapLifeFx';
+import { ImagePool, cloudTextures, dayTint, drawClouds, flicker, gullAt, herd, lifeTextures, seaShimmer, shipOnLane, smokePuffs, surf, wake, wavingFlag } from './mapLifeFx';
 
 export class OverlandLife {
   private g: Phaser.GameObjects.Graphics;
+  private tintG: Phaser.GameObjects.Graphics;
   private c: Phaser.GameObjects.Container;
   private pool: ImagePool;
   private tex: { merchant: string; galley: string; gull: [string, string]; boat: string };
+  private clouds: { cloud: string[]; shade: string[] };
 
   constructor(
     scene: Phaser.Scene,
@@ -27,13 +31,16 @@ export class OverlandLife {
     private seen: (x: number, y: number) => boolean,
     add: (o: Phaser.GameObjects.GameObject[]) => void,
     depth: number,
+    private fields: { x: number; y: number; w: number; h: number; kind: number }[] = [],
   ) {
     this.g = scene.add.graphics().setDepth(depth);
     this.c = scene.add.container(0, 0).setDepth(depth + 1);
-    add([this.g, this.c]);
+    this.tintG = scene.add.graphics().setDepth(depth + 2);
+    add([this.g, this.c, this.tintG]);
     this.pool = new ImagePool(scene, this.c);
     if (!scene.textures.exists('ol_boat')) scene.textures.addCanvas('ol_boat', boatPix().toCanvas());
     this.tex = { ...lifeTextures(scene, 'ol_'), boat: 'ol_boat' };
+    this.clouds = cloudTextures(scene, 'ol_');
   }
 
   private sea(x: number, y: number): boolean {
@@ -53,8 +60,9 @@ export class OverlandLife {
     const x1 = view.right + 30;
     const y1 = view.bottom + 30;
     const T = time / 1000;
-    // the open sea shimmers (off the shelf: water all round)
+    // the open sea shimmers (off the shelf: water all round); surf breaks where the water meets the land
     seaShimmer(g, x0, y0, x1, y1, k, T, (x, y) => this.sea(x, y) && this.sea(x - 7, y) && this.sea(x + 7, y) && this.sea(x, y - 7) && this.sea(x, y + 7) && this.seen(x, y), 28);
+    surf(g, x0, y0, x1, y1, k, T, (x, y) => this.sea(x, y) && this.sea(x - 1, y) && (!this.sea(x - 4, y) || !this.sea(x + 4, y) || !this.sea(x, y - 4) || !this.sea(x, y + 4)) && this.seen(x, y));
     // ships on the sea lanes
     for (const l of this.lanes) {
       if (l.x1 < x0 - 30 || l.x0 > x1 + 30 || l.y1 < y0 - 30 || l.y0 > y1 + 30) continue;
@@ -68,6 +76,12 @@ export class OverlandLife {
         .setFlipX(p.dir < 0)
         .setPosition(Math.round(p.x), Math.round(p.y) + 3 + bob);
     }
+    // herds in the green fields
+    this.fields.forEach((fp, i) => {
+      if (fp.kind !== 1 || i % 2 || fp.w < 10) return;
+      if (fp.x > x1 || fp.x + fp.w < x0 || fp.y > y1 || fp.y + fp.h < y0 || !this.seen(fp.x + fp.w / 2, fp.y + fp.h / 2)) return;
+      herd(g, fp.x + fp.w / 2, fp.y + fp.h / 2, fp.w / 2 - 3, fp.h / 2 - 2, T, i);
+    });
     // the settlements and landmarks in view
     for (const s of this.sites) {
       if (s.x > x1 || s.x + s.w < x0 || s.y > y1 || s.y + s.h < y0) continue;
@@ -102,11 +116,14 @@ export class OverlandLife {
         }
       }
     }
+    drawClouds(this.pool, this.clouds, x0, y0, x1, y1, 1, T, (x, y) => this.seen(x, y), 170);
     this.pool.end();
+    dayTint(this.tintG, view, T);
   }
 
   destroy(): void {
     this.g.destroy();
+    this.tintG.destroy();
     this.c.destroy();
   }
 }
