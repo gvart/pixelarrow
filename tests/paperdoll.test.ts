@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, FRAME_NAMES, LEGACY_FRAMES, NFRAMES, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, aimFrame, applyCosmetics, attackFrame, attackLength,
-  dollFx, dollGeom, dollKey, fineDetail, legacyFrame, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames, weaponClass, type DollSpec,
+  dollFx, dollGeom, dollKey, drawnFrames, fineDetail, legacyFrame, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames, weaponClass, type DollSpec,
 } from '../src/art/paperdoll';
 import { renderItemIcon, itemIconKey } from '../src/art/itemIcons';
 import { renderCosmetic } from '../src/art/cosmeticArt';
@@ -44,6 +44,9 @@ describe('soldier sheets', () => {
     }
     expect(sheetFrames(HOPLITE)).toBe(NFRAMES);
     expect(sheetFrames({ ...HOPLITE, mount: 'horse' })).toBe(LEGACY_FRAMES);
+    expect(drawnFrames({ ...HOPLITE, mount: 'horse' })).toBe(NFRAMES);
+    expect(drawnFrames({ ...HOPLITE, mount: 'chariot' })).toBe(LEGACY_FRAMES);
+    expect(ANIM_FRAMES.gallop).toEqual([2, 3, 4, 5]);
   });
 
   it('draws every frame of a man, with distinct poses', () => {

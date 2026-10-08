@@ -10,12 +10,13 @@
  *    texture is wider than a phone GPU allows.
  *  - The battle (battleRow / battleFrame) draws its figures at BATTLE_RES
  *    (twice the pixels each way, shown at the same size) into shared atlases:
- *    a frame gets a slot the first time it is shown (about 1 ms to draw), the
- *    breathing frames ahead of time; so an atlas holds only frames that were
- *    seen, where every man had a 40-column row canvas per facing before,
- *    whether he used it or not. A 2x battle takes roughly twice the texture
- *    memory of the old 1x rows for four times the pixels.
- *    Atlases drawn into during a frame are uploaded once (flushDolls).
+ *    a frame gets a cell the first time it is shown (about 1-3 ms to draw),
+ *    the breathing frames ahead of time; so an atlas holds only frames that
+ *    were seen. Cells are trimmed to the frame's opaque bounds (Phaser trim
+ *    data keeps the feet line and the effect overlays aligned), and a frame
+ *    nobody has shown for a few seconds is dropped and its cell reused (a
+ *    dead man keeps only his last frame). Atlases drawn into during a frame
+ *    are uploaded once (flushDolls).
  *  - Figures with rare+ gear get matching effect frames in the same atlas
  *    (the 1 px outline ring and the glint mask, see renderFrameFx).
  *  - Portraits (ensurePortrait, addPortrait) are busts rendered at
@@ -28,7 +29,7 @@
  */
 import Phaser from 'phaser';
 import {
-  ANIM, ANIM_FRAMES, NDIRS, NFRAMES, PORTRAIT_FPS, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, dollFx, dollGeom, dollKey, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames,
+  ANIM, ANIM_FRAMES, NDIRS, NFRAMES, PORTRAIT_FPS, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, dollFx, dollGeom, dollKey, drawnFrames, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames,
   type DollFx, type DollSpec, type SheetGeom,
 } from '../art/paperdoll';
 import { itemIconKey, renderItemIcon } from '../art/itemIcons';
@@ -179,19 +180,39 @@ export function dollFxOf(key: string): DollFx | null {
 /** Atlas canvas size: 1024 x 512 (2 MB) keeps a dirty atlas cheap to re-upload and the last, part-filled one small. */
 const ATLAS_W = 1024;
 const ATLAS_H = 512;
+/** Shelf heights are rounded up to a multiple of this, so a freed slot fits frames of about the same height. */
+const SHELF_STEP = 8;
+/** A frame nobody asked for this long is dropped from its atlas (every sprite asks for its frame every update, so a shown frame never expires). */
+const FRAME_TTL_MS = 6000;
+/** How often the expiry sweep runs. */
+const SWEEP_MS = 1000;
+
+interface Shelf {
+  y: number;
+  h: number;
+  /** End of the packed part; freed slots before it are listed in `free`. */
+  x: number;
+  free: { x: number; w: number }[];
+}
 
 interface Atlas {
   key: string;
   scene: Phaser.Scene;
   /** Shelves of equal-height slots, packed left to right. */
-  shelves: { y: number; h: number; x: number }[];
+  shelves: Shelf[];
   nextY: number;
+  /** Live slots (an atlas with none is removed, unless it is the scene's only one). */
+  used: number;
 }
 
+/** A run of `n` frame-sized cells (a frame and its effect frames) on one shelf. */
 interface Slot {
   atlas: Atlas;
+  shelf: Shelf;
   x: number;
   y: number;
+  w: number;
+  h: number;
 }
 
 /** A frame as shown by a sprite: the atlas texture key and the frame name in it. */
@@ -200,14 +221,24 @@ export interface FrameRef {
   frame: string;
 }
 
+interface DrawnFrame extends FrameRef {
+  ring?: string;
+  glint?: string;
+  slot: Slot;
+  /** When a sprite last asked for it (performance.now()). */
+  last: number;
+}
+
 interface RowTex {
   scene: Phaser.Scene;
   doll: DollTex;
   dir: number;
   /** Drawn columns: the frame to show, plus the ring / glint frames of rare+ gear. */
-  frames: Map<number, FrameRef & { ring?: string; glint?: string }>;
+  frames: Map<number, DrawnFrame>;
   /** Columns still to draw in idle time. */
   pending: number[];
+  /** Bumped per draw so a redrawn column gets a fresh frame name (a sprite then re-reads it instead of keeping a stale Frame). */
+  gen: number;
 }
 
 const atlases = new Map<Phaser.Scene, Atlas[]>();
@@ -215,45 +246,127 @@ const rowTex = new Map<string, RowTex>();
 const dirty = new Set<string>();
 const rowQueue: string[] = [];
 let atlasN = 0;
+let sweptAt = 0;
 
 /**
- * Columns drawn ahead in idle time: a man's breathing (what he shows most),
- * a rider's or animal's idle and gait. Everything else is drawn the moment it
+ * Columns drawn ahead in idle time: a figure's breathing (what it shows
+ * most); a chariot's idle and gait. Everything else is drawn the moment it
  * first shows (~1-3 ms), so an atlas only ever holds frames that were seen:
  * men turn through facings they use for a moment, and most never play every
  * attack, death or run column.
  */
 const COMMON_COLS: readonly number[] = [...ANIM.idle];
-const COMMON_COLS_LEGACY: readonly number[] = [...ANIM_FRAMES.idle, ...ANIM.gallop];
+const COMMON_COLS_LEGACY: readonly number[] = [...ANIM_FRAMES.idle, ...ANIM_FRAMES.gallop];
 
-/** `n` slots of fw x fh side by side on one shelf (so a frame and its effect frames share a texture). */
-function allocSlots(scene: Phaser.Scene, fw: number, fh: number, n: number): Slot[] {
+const shelfH = (h: number) => Math.ceil(Math.max(1, h) / SHELF_STEP) * SHELF_STEP;
+
+/** `n` cells of w x h side by side on one shelf (so a frame and its effect frames share a texture), reusing freed space first. */
+function allocSlots(scene: Phaser.Scene, w: number, h: number, n: number): Slot {
   let list = atlases.get(scene);
   if (!list) atlases.set(scene, (list = []));
-  const need = fw * n;
+  const need = w * n;
+  const hh = shelfH(h);
+  // a freed run on a shelf of this height
+  for (const a of list)
+    for (const sh of a.shelves) {
+      if (sh.h !== hh) continue;
+      for (let i = 0; i < sh.free.length; i++) {
+        const f = sh.free[i];
+        if (f.w < need) continue;
+        const slot: Slot = { atlas: a, shelf: sh, x: f.x, y: sh.y, w: need, h };
+        if (f.w === need) sh.free.splice(i, 1);
+        else {
+          f.x += need;
+          f.w -= need;
+        }
+        a.used++;
+        return slot;
+      }
+    }
+  // the end of a shelf of this height, or a new shelf
   for (const a of list) {
-    for (const sh of a.shelves) if (sh.h === fh && sh.x + need <= ATLAS_W) return take(a, sh, fw, n);
-    if (a.nextY + fh <= ATLAS_H) {
-      const sh = { y: a.nextY, h: fh, x: 0 };
+    for (const sh of a.shelves) if (sh.h === hh && sh.x + need <= ATLAS_W) return take(a, sh, need, h);
+    if (a.nextY + hh <= ATLAS_H) {
+      const sh: Shelf = { y: a.nextY, h: hh, x: 0, free: [] };
       a.shelves.push(sh);
-      a.nextY += fh;
-      return take(a, sh, fw, n);
+      a.nextY += hh;
+      return take(a, sh, need, h);
     }
   }
   const key = `dollatlas_${atlasN++}`;
-  scene.textures.createCanvas(key, Math.max(ATLAS_W, need), Math.max(ATLAS_H, fh));
-  const a: Atlas = { key, scene, shelves: [{ y: 0, h: fh, x: 0 }], nextY: fh };
+  scene.textures.createCanvas(key, Math.max(ATLAS_W, need), Math.max(ATLAS_H, hh));
+  const a: Atlas = { key, scene, shelves: [{ y: 0, h: hh, x: 0, free: [] }], nextY: hh, used: 0 };
   list.push(a);
-  return take(a, a.shelves[0], fw, n);
+  return take(a, a.shelves[0], need, h);
 }
 
-function take(a: Atlas, sh: { y: number; h: number; x: number }, fw: number, n: number): Slot[] {
-  const out: Slot[] = [];
-  for (let i = 0; i < n; i++) {
-    out.push({ atlas: a, x: sh.x, y: sh.y });
-    sh.x += fw;
+function take(a: Atlas, sh: Shelf, need: number, h: number): Slot {
+  const slot: Slot = { atlas: a, shelf: sh, x: sh.x, y: sh.y, w: need, h };
+  sh.x += need;
+  a.used++;
+  return slot;
+}
+
+/** Give a slot back: its run joins the shelf's free list (merged with neighbours); an emptied atlas goes, unless it is the last. */
+function freeSlot(s: Slot): void {
+  const sh = s.shelf;
+  const a = s.atlas;
+  if (s.x + s.w === sh.x) sh.x -= s.w; // the last run on the shelf: just shrink it
+  else {
+    sh.free.push({ x: s.x, w: s.w });
+    sh.free.sort((p, q) => p.x - q.x);
+    for (let i = 0; i + 1 < sh.free.length; ) {
+      const p = sh.free[i];
+      const q = sh.free[i + 1];
+      if (p.x + p.w === q.x) {
+        p.w += q.w;
+        sh.free.splice(i + 1, 1);
+      } else i++;
+    }
+    // a free run that reaches the shelf's end shrinks it instead
+    const tail = sh.free[sh.free.length - 1];
+    if (tail && tail.x + tail.w === sh.x) {
+      sh.x = tail.x;
+      sh.free.pop();
+    }
   }
-  return out;
+  a.used--;
+  const list = atlases.get(a.scene);
+  if (a.used === 0 && list && list.length > 1) {
+    list.splice(list.indexOf(a), 1);
+    dirty.delete(a.key);
+    if (a.scene.textures.exists(a.key)) a.scene.textures.remove(a.key);
+  }
+}
+
+/** Opaque bounding box of some frames together (x0, y0, x1, y1 exclusive); at least one pixel. */
+function bounds(pix: Pix[]): [number, number, number, number] {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -1;
+  let y1 = -1;
+  for (const p of pix) {
+    const d = p.data;
+    for (let y = 0; y < p.h; y++) {
+      const row = y * p.w;
+      for (let x = 0; x < p.w; x++)
+        if (d[(row + x) * 4 + 3] > 0) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+    }
+  }
+  if (x1 < 0) return [0, 0, 1, 1];
+  return [x0, y0, x1 + 1, y1 + 1];
+}
+
+/** Copy the part of a frame inside the bounds to an atlas cell. */
+function putTrimmed(ctx: CanvasRenderingContext2D, px: Pix, b: [number, number, number, number], x: number, y: number): void {
+  const img = ctx.createImageData(px.w, px.h);
+  img.data.set(px.data);
+  ctx.putImageData(img, x - b[0], y - b[1], b[0], b[1], b[2] - b[0], b[3] - b[1]);
 }
 
 /** Register a figure for the battle; returns its base key (pass it to battleRow). */
@@ -274,8 +387,8 @@ export function battleRow(scene: Phaser.Scene, key: string, dir: number): string
   if (r && r.scene === scene) return rk;
   const d = dolls.get(key);
   if (!d) throw new Error(`battleRow: unknown figure ${key}`);
-  const common = d.cols >= NFRAMES ? COMMON_COLS : COMMON_COLS_LEGACY;
-  rowTex.set(rk, { scene, doll: d, dir, frames: new Map(), pending: common.filter((c) => c !== 0) });
+  const common = drawnFrames(d.spec) >= NFRAMES ? COMMON_COLS : COMMON_COLS_LEGACY;
+  rowTex.set(rk, { scene, doll: d, dir, frames: new Map(), pending: common.filter((c) => c !== 0), gen: 0 });
   rowQueue.push(rk);
   battleFrame(rk, 0);
   return rk;
@@ -289,42 +402,77 @@ export function battleRowFx(rk: string): boolean {
 /**
  * The frame of a battle row to show (drawn now if it is not yet; uploaded at
  * the next flushDolls). With rare+ gear, `ring` and `glint` name the effect
- * frames in the same texture.
+ * frames in the same texture. Frames are trimmed to their opaque bounds in
+ * the atlas and carry the full frame size and offset as Phaser trim data, so
+ * a sprite's origin (the feet line) and its effect overlays line up as if
+ * the frame were whole.
  */
 export function battleFrame(rk: string, frame: number): FrameRef & { ring?: string; glint?: string } {
   const r = rowTex.get(rk);
   if (!r) return { key: '__MISSING', frame: '__BASE' };
-  const col = sheetColumn(frame, r.doll.cols);
+  const col = sheetColumn(frame, drawnFrames(r.doll.spec));
   const have = r.frames.get(col);
-  if (have) return have;
+  const now = performance.now();
+  if (have) {
+    have.last = now;
+    return have;
+  }
   const { fw, fh } = r.doll.geom;
   const fx = !!r.doll.fxKey;
-  const slots = allocSlots(r.scene, fw, fh, fx ? 3 : 1);
-  const slot = slots[0];
+  const f = fx ? renderFrameFx(r.doll.spec, col, r.dir) : { px: renderFrame(r.doll.spec, col, r.dir), ring: null, glint: null };
+  // the ring sits one pixel outside the figure: one box holds the frame and both effect frames
+  const b = bounds(f.ring ? [f.px, f.ring] : [f.px]);
+  const w = b[2] - b[0];
+  const h = b[3] - b[1];
+  const slot = allocSlots(r.scene, w, h, fx ? 3 : 1);
   const tex = r.scene.textures.get(slot.atlas.key) as Phaser.Textures.CanvasTexture;
   const ctx = tex.getContext();
-  const name = `${rk}/${col}`;
-  const ref: FrameRef & { ring?: string; glint?: string } = { key: slot.atlas.key, frame: name };
-  if (fx) {
-    // the effect frames (ring, glint) sit beside the frame in the same atlas
-    const f = renderFrameFx(r.doll.spec, col, r.dir);
-    put(ctx, f.px, slot.x, slot.y);
-    tex.add(name, 0, slot.x, slot.y, fw, fh);
-    put(ctx, f.ring, slots[1].x, slots[1].y);
-    ref.ring = `${rk}/r${col}`;
-    tex.add(ref.ring, 0, slots[1].x, slots[1].y, fw, fh);
-    put(ctx, f.glint, slots[2].x, slots[2].y);
-    ref.glint = `${rk}/g${col}`;
-    tex.add(ref.glint, 0, slots[2].x, slots[2].y, fw, fh);
-  } else {
-    put(ctx, renderFrame(r.doll.spec, col, r.dir), slot.x, slot.y);
-    tex.add(name, 0, slot.x, slot.y, fw, fh);
+  const gen = ++r.gen;
+  const name = `${rk}/${col}.${gen}`;
+  const ref: DrawnFrame = { key: slot.atlas.key, frame: name, slot, last: now };
+  const add = (nm: string, px: Pix, i: number) => {
+    putTrimmed(ctx, px, b, slot.x + i * w, slot.y);
+    tex.add(nm, 0, slot.x + i * w, slot.y, w, h)?.setTrim(fw, fh, b[0], b[1], w, h);
+  };
+  add(name, f.px, 0);
+  if (f.ring && f.glint) {
+    ref.ring = `${rk}/r${col}.${gen}`;
+    add(ref.ring, f.ring, 1);
+    ref.glint = `${rk}/g${col}.${gen}`;
+    add(ref.glint, f.glint, 2);
   }
   r.frames.set(col, ref);
   const pi = r.pending.indexOf(col);
   if (pi >= 0) r.pending.splice(pi, 1);
   dirty.add(slot.atlas.key);
   return ref;
+}
+
+function dropFrame(r: RowTex, col: number, f: DrawnFrame): void {
+  const tex = r.scene.textures.exists(f.key) ? (r.scene.textures.get(f.key) as Phaser.Textures.CanvasTexture) : null;
+  if (tex) {
+    tex.remove(f.frame);
+    if (f.ring) tex.remove(f.ring);
+    if (f.glint) tex.remove(f.glint);
+  }
+  r.frames.delete(col);
+  freeSlot(f.slot);
+}
+
+/**
+ * Drop the frames nobody has shown for a while (a dead man's standing frames,
+ * the facings a rider turned away from), so their atlas space is reused.
+ * Safe because every sprite asks for its frame each update (BattleScene,
+ * MenuBattle), which keeps that frame alive, and a redrawn frame gets a new
+ * name, so a sprite never keeps a frame object whose cell was reassigned.
+ */
+function sweepFrames(now: number): void {
+  if (now - sweptAt < SWEEP_MS) return;
+  sweptAt = now;
+  for (const r of rowTex.values()) {
+    if (!r.scene.sys.isActive() || !r.frames.size) continue;
+    for (const [col, f] of r.frames) if (now - f.last > FRAME_TTL_MS) dropFrame(r, col, f);
+  }
 }
 
 /** Upload every atlas drawn into since the last call (once per game frame, before rendering). */
@@ -336,7 +484,10 @@ export function flushDolls(scene: Phaser.Scene): void {
 /** Forget a scene's battle rows and atlases (a scene restarting). */
 export function releaseBattleRows(scene: Phaser.Scene): void {
   for (const [k, r] of rowTex) if (r.scene === scene) rowTex.delete(k);
-  for (const a of atlases.get(scene) ?? []) if (scene.textures.exists(a.key)) scene.textures.remove(a.key);
+  for (const a of atlases.get(scene) ?? []) {
+    dirty.delete(a.key);
+    if (scene.textures.exists(a.key)) scene.textures.remove(a.key);
+  }
   atlases.delete(scene);
   rowQueue.length = 0;
 }
@@ -346,9 +497,24 @@ export function battleAtlasBytes(scene: Phaser.Scene): number {
   return (atlases.get(scene)?.length ?? 0) * ATLAS_W * ATLAS_H * 4;
 }
 
-/** Draw queued rows / frames for at most `budgetMs` (call once per frame). */
+/** Frames held in a scene's battle atlases and the cells they take (bytes), for tests and the perf overlay. */
+export function battleAtlasStats(scene: Phaser.Scene): { atlases: number; frames: number; cellBytes: number } {
+  let frames = 0;
+  let cellBytes = 0;
+  for (const r of rowTex.values()) {
+    if (r.scene !== scene) continue;
+    for (const f of r.frames.values()) {
+      frames++;
+      cellBytes += f.slot.w * f.slot.h * 4;
+    }
+  }
+  return { atlases: atlases.get(scene)?.length ?? 0, frames, cellBytes };
+}
+
+/** Draw queued rows / frames for at most `budgetMs` (call once per frame); expire frames not shown lately. */
 export function pumpDolls(budgetMs = 6): void {
   const t0 = performance.now();
+  sweepFrames(t0);
   while (queue.length && performance.now() - t0 < budgetMs) {
     const q = queue.shift()!;
     if (!q.scene.sys.isActive() || !q.scene.textures.exists(q.key)) continue;

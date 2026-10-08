@@ -99,8 +99,9 @@ export const ANIM = {
   rout: [FRAME.rout0, FRAME.rout1, FRAME.rout2, FRAME.rout3],
   /** Victory pose (a cosmetic picks which), two frames looped. */
   win: [FRAME.win0, FRAME.win1],
-  /** Riders, chariots and animals. */
-  gallop: [2, 3, 4, 5],
+  /** Riders and animals: the gallop / lope is their run (a 16-column sheet shows its walk columns for it). */
+  gallop: [FRAME.run0, FRAME.run1, FRAME.run2, FRAME.run3, FRAME.run4, FRAME.run5],
+  /** Chariots and other 16-column figures: the three-step fall. */
   fall: [10, 11, 12],
 } as const;
 
@@ -111,7 +112,8 @@ export const ANIM = {
 export const ANIM_FRAMES = {
   idle: [0, 1],
   walk: ANIM.walk,
-  gallop: ANIM.gallop,
+  /** The four gallop columns of a 16-column sheet (walk0..walk3). */
+  gallop: [2, 3, 4, 5],
   attack: [6, 7, 8],
   hit: [9],
   die: ANIM.die,
@@ -429,9 +431,19 @@ export function dollGeom(d: DollSpec): SheetGeom {
   return GEOM.man;
 }
 
-/** Columns of this figure's sheet: NFRAMES for a man on foot, LEGACY_FRAMES otherwise. */
+/** Columns of this figure's sheet (a UI texture): NFRAMES for a man on foot, LEGACY_FRAMES otherwise. */
 export function sheetFrames(d: DollSpec): number {
   return d.beast || d.mount ? LEGACY_FRAMES : NFRAMES;
+}
+
+/**
+ * Distinct poses this figure's builder draws: every column (NFRAMES) for men,
+ * riders and animals; the sixteen legacy ones for chariots and mythic beasts.
+ * The battle's atlases draw frames one at a time, so a rider there has the
+ * full set (a walk and a gallop, two deaths) while his UI sheet stays at 16.
+ */
+export function drawnFrames(d: DollSpec): number {
+  return d.mount === 'chariot' || isMythId(d.beast) ? LEGACY_FRAMES : NFRAMES;
 }
 
 // ================================================================ rarity effects

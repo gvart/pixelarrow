@@ -11,8 +11,8 @@ import { RadialOrders, type RadialOrder } from '../ui/radialOrders';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
-import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
-import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
+import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollOrigin, ensurePortrait, flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
+import { dollFromHero, dollFx, drawnFrames, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, NFRAMES, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
 import { AURA_COLORS, BANNER_COLORS, cosmeticLoadout } from '../game/cosmetics';
 import { STANDARD_FRAMES, STANDARD_H, STANDARD_W, STRIP_STEPS, plateOrigin, renderGround, renderStandard, renderStripPlate, stripStep } from '../art/ground';
 import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
@@ -92,8 +92,10 @@ interface UnitView {
   /** Figure height in pixels (tags, flags, numbers, touch). */
   tall: number;
   big: boolean;
-  /** A man on foot (six-phase walk, four-step fall); riders and animals use the shorter sets. */
+  /** A man on foot (standards, formation strips). */
   man: boolean;
+  /** Draws every animation column (men, riders, animals: walk and run, five-step attacks, two deaths); chariots use the sixteen legacy columns. */
+  full: boolean;
   /** Stands on a base plate (men and riders; animals only cast a shadow). */
   plated: boolean;
   /** Top face of his piece of a joined formation base (the side layer is `shadow`). */
@@ -368,17 +370,10 @@ export class BattleScene extends BaseScene {
       // drawn at BATTLE_RES (twice the pixels), shown at the same size: setScale(1 / res) keeps layout, feet and hitboxes
       const spec = { ...dollFromHero(hero, u.side === this.me ? lo : undefined), scale: BATTLE_SCALE, res: BATTLE_RES };
       const man = !spec.beast && !spec.mount;
-      let key: string;
-      let rowKey = '';
-      if (man) {
-        // men: one texture per facing row, each frame drawn the first time it shows
-        key = battleDoll(spec);
-        rowKey = battleRow(this, key, dir);
-      } else {
-        // only the row he faces now is drawn up front; the rest in idle time
-        key = ensureDoll(this, spec, [dir]);
-        queueDollRows(this, key);
-      }
+      const full = drawnFrames(spec) >= NFRAMES;
+      // every figure draws into the shared atlases: a frame the first time it shows, trimmed, dropped again when unused
+      const key = battleDoll(spec);
+      const rowKey = battleRow(this, key, dir);
       const big = !!u.stats.mount || u.rad > 0.45;
       // every man and rider stands on a miniature's base plate; animals only cast a shadow
       const plated = u.stats.kind !== 'animal';
@@ -391,12 +386,12 @@ export class BattleScene extends BaseScene {
       if (!plated && big && u.side !== this.me) ring.setScale(1.6);
       const [ox, oy] = dollOrigin(key);
       const ds = dollDisplayScale(key);
-      const f0 = man ? battleFrame(rowKey, 0) : null;
-      const spr = f0 ? this.add.sprite(0, 0, f0.key, f0.frame).setOrigin(ox, oy).setScale(ds) : this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy).setScale(ds);
-      const fx = man ? dollFx(spec) : null;
-      const hasFx = man && battleRowFx(rowKey);
-      const fxRing = hasFx && f0?.ring && fx?.outline != null ? this.add.sprite(0, 0, f0.key, f0.ring).setOrigin(ox, oy).setScale(ds).setTint(fx.outline) : null;
-      const fxGlint = hasFx && f0?.glint && fx?.glint ? this.add.sprite(0, 0, f0.key, f0.glint).setOrigin(ox, oy).setScale(ds).setTint(0xfff6d8).setVisible(false) : null;
+      const f0 = battleFrame(rowKey, 0);
+      const spr = this.add.sprite(0, 0, f0.key, f0.frame).setOrigin(ox, oy).setScale(ds);
+      const fx = spec.beast ? null : dollFx(spec);
+      const hasFx = battleRowFx(rowKey);
+      const fxRing = hasFx && f0.ring && fx?.outline != null ? this.add.sprite(0, 0, f0.key, f0.ring).setOrigin(ox, oy).setScale(ds).setTint(fx.outline) : null;
+      const fxGlint = hasFx && f0.glint && fx?.glint ? this.add.sprite(0, 0, f0.key, f0.glint).setOrigin(ox, oy).setScale(ds).setTint(0xfff6d8).setVisible(false) : null;
       if (fxRing) this.world.add(fxRing);
       if (fxGlint) this.world.add(fxGlint);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
@@ -404,7 +399,7 @@ export class BattleScene extends BaseScene {
       this.world.add([shadow, plateTop, ring, spr, flag]);
       const tall = Math.round((u.stats.mount ? 52 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 18) : 38) * BATTLE_SCALE);
       const view: UnitView = {
-        u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big, man, plated, plateTop, strip: -1, topKey: '',
+        u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big, man, full, plated, plateTop, strip: -1, topKey: '',
         wc: weaponClass(spec.weapon), rowKey, fx, fxRing, fxGlint, aura: u.side === this.me && man ? myAura : null, dieB: (u.id * 7 + 3) % 3 === 0,
       };
       this.views.push(view);
@@ -694,7 +689,7 @@ export class BattleScene extends BaseScene {
     return ANIM.idle[Math.floor(t * 2.2 + ((u.id * 0.618) % 1) * 4) % 4];
   }
 
-  /** Riders, chariots and animals: the original four-phase sets. */
+  /** Chariots (sixteen-column figures): the original four-phase sets. */
   private figureFrame(v: UnitView, now: number, sinceHit: number, moving: boolean): number {
     const u = v.u;
     const sinceAtk = (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE;
@@ -704,17 +699,13 @@ export class BattleScene extends BaseScene {
       // hooves keep time with the ground covered; each horse at a stride of its own
       const pace = Math.max(0.6, Math.min(1.5, u.spd / Math.max(0.01, u.stats.speed)));
       const rate = (u.state === 'routing' ? 1.5 : 1) * 8 * pace * (0.94 + ((u.id * 0.61) % 1) * 0.12);
-      return ANIM.gallop[Math.floor((now / TICK_RATE) * rate + u.id) % ANIM.gallop.length];
+      return ANIM_FRAMES.gallop[Math.floor((now / TICK_RATE) * rate + u.id) % ANIM_FRAMES.gallop.length];
     }
     return ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + ((u.id * 0.618) % 1) * 2) % 2];
   }
 
-  /** Show a frame: men from their facing row's texture (drawn on demand), others from their sheet. */
-  private showFrame(v: UnitView, dir: number, frame: number): void {
-    if (!v.man) {
-      v.spr.setFrame(dollFrame(dir, frame));
-      return;
-    }
+  /** Show a frame from the figure's facing row (drawn into the atlases on demand). */
+  private showFrame(v: UnitView, frame: number): void {
     const f = battleFrame(v.rowKey, frame);
     if (v.spr.texture.key !== f.key) v.spr.setTexture(f.key, f.frame);
     else if (v.spr.frame.name !== f.frame) v.spr.setFrame(f.frame);
@@ -734,12 +725,13 @@ export class BattleScene extends BaseScene {
     if (v.fxGlint && f.glint) {
       const period = rank >= 4 ? 1.8 : rank >= 3 ? 2.4 : 3.2;
       const ph = ((t + (v.u.id * 0.53) % period) % period) / 0.4; // the sweep takes 0.4 s
-      const fw = v.spr.frame.width;
+      // the crop is in whole-frame pixels (atlas frames are trimmed)
+      const fw = v.spr.frame.realWidth;
       const bx = Math.floor(ph * (fw * 0.6)) + Math.floor(fw * 0.2);
       if (ph < 1) {
         if (v.fxGlint.texture.key !== f.key) v.fxGlint.setTexture(f.key, f.glint);
         else if (v.fxGlint.frame.name !== f.glint) v.fxGlint.setFrame(f.glint);
-        v.fxGlint.setCrop(bx, 0, 2 * BATTLE_RES, v.spr.frame.height).setPosition(v.spr.x, ry).setDepth(ry + 0.5).setVisible(true).setAlpha(0.85);
+        v.fxGlint.setCrop(bx, 0, 2 * BATTLE_RES, v.spr.frame.realHeight).setPosition(v.spr.x, ry).setDepth(ry + 0.5).setVisible(true).setAlpha(0.85);
       } else v.fxGlint.setVisible(false);
     }
     void rx;
@@ -802,16 +794,15 @@ export class BattleScene extends BaseScene {
       else if (fc.sx > 6) v.flip = false;
       const dir = facingRow(v.back, v.flip);
       if (dir !== v.dir) {
-        if (v.man) v.rowKey = battleRow(this, v.key, dir);
-        else ensureDollRow(this, v.key, dir);
+        v.rowKey = battleRow(this, v.key, dir);
         v.dir = dir;
       }
       let frame: number;
       if (u.state === 'dead') {
         if (v.deathTick < 0) v.deathTick = tick;
         const tt = (now - v.deathTick) / TICK_RATE;
-        // a man falls in four steps (stagger, topple / crumple, hit the ground, lie still); riders and beasts in three
-        const die = v.man ? (v.dieB ? ANIM.dieB : ANIM.die) : ANIM_FRAMES.fall;
+        // men, riders and beasts fall in four steps (stagger, topple / crumple, hit the ground, lie still); chariots in three
+        const die = v.full ? (v.dieB ? ANIM.dieB : ANIM.die) : ANIM_FRAMES.fall;
         frame = die[Math.min(die.length - 1, Math.floor(tt / (v.man ? 0.08 : 0.11)))];
         v.spr.setDepth(-50000 + ry);
         v.shadow.setVisible(false);
@@ -821,14 +812,14 @@ export class BattleScene extends BaseScene {
         v.fxRing?.setVisible(false);
         v.fxGlint?.setVisible(false);
         v.spr.clearTint();
-        this.showFrame(v, dir, frame);
+        this.showFrame(v, frame);
         this.fx.unit(u, rx, ry, this.time.now, false);
         continue;
       }
       const moving = Math.abs(u.vx) + Math.abs(u.vy) > 0.004;
       const sinceHit = (now - u.lastHitTick) / TICK_RATE;
-      frame = v.man ? this.manFrame(v, now, sinceHit, moving) : this.figureFrame(v, now, sinceHit, moving);
-      this.showFrame(v, dir, frame);
+      frame = v.full ? this.manFrame(v, now, sinceHit, moving) : this.figureFrame(v, now, sinceHit, moving);
+      this.showFrame(v, frame);
       v.spr.setDepth(ry);
       if (v.fxRing || v.fxGlint) this.updateGearFx(v, rx, ry, frame);
       if ((v.fx?.particles || v.aura) && !this.paused) this.gearParticles(v, rx, ry);
