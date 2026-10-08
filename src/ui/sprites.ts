@@ -10,11 +10,11 @@
  *    texture is wider than a phone GPU allows.
  *  - The battle (battleRow / battleFrame) draws its figures at BATTLE_RES
  *    (twice the pixels each way, shown at the same size) into shared atlases:
- *    a frame gets a slot the first time it is shown, and the frames a man
- *    shows all the time (idle, walk, flinch, block) are filled in idle time;
- *    the rest (attacks, deaths, runs) are drawn on demand (about 1 ms each).
- *    That keeps the texture memory of a 2x battle close to the old 1x rows:
- *    every man had a 40-column row canvas before, whether he used it or not.
+ *    a frame gets a slot the first time it is shown (about 1 ms to draw), the
+ *    breathing frames ahead of time; so an atlas holds only frames that were
+ *    seen, where every man had a 40-column row canvas per facing before,
+ *    whether he used it or not. A 2x battle takes roughly twice the texture
+ *    memory of the old 1x rows for four times the pixels.
  *    Atlases drawn into during a frame are uploaded once (flushDolls).
  *  - Figures with rare+ gear get matching effect frames in the same atlas
  *    (the 1 px outline ring and the glint mask, see renderFrameFx).
@@ -28,7 +28,7 @@
  */
 import Phaser from 'phaser';
 import {
-  ANIM, NDIRS, NFRAMES, PORTRAIT_FPS, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, dollFx, dollGeom, dollKey, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames,
+  ANIM, ANIM_FRAMES, NDIRS, NFRAMES, PORTRAIT_FPS, PORTRAIT_FRAMES, PORTRAIT_PX, PORTRAIT_RES, dollFx, dollGeom, dollKey, portraitLoop, renderFrame, renderFrameFx, renderPortrait, sheetColumn, sheetFrames,
   type DollFx, type DollSpec, type SheetGeom,
 } from '../art/paperdoll';
 import { itemIconKey, renderItemIcon } from '../art/itemIcons';
@@ -174,9 +174,9 @@ export function dollFxOf(key: string): DollFx | null {
 
 // ------------------------------------------------------------------ battle: shared atlases, frames on demand
 
-/** Atlas canvas size: 1024 x 1024 (4 MB) keeps a dirty atlas cheap to re-upload. */
+/** Atlas canvas size: 1024 x 512 (2 MB) keeps a dirty atlas cheap to re-upload and the last, part-filled one small. */
 const ATLAS_W = 1024;
-const ATLAS_H = 1024;
+const ATLAS_H = 512;
 
 interface Atlas {
   key: string;
@@ -214,8 +214,15 @@ const dirty = new Set<string>();
 const rowQueue: string[] = [];
 let atlasN = 0;
 
-/** The columns of a man that play most of the time; drawn ahead. The rest (attacks, deaths, runs, victory) on demand. */
-const COMMON_COLS: readonly number[] = [...ANIM.idle, ...ANIM.walk, ...ANIM.hit, ...ANIM.block];
+/**
+ * Columns drawn ahead in idle time: a man's breathing (what he shows most),
+ * a rider's or animal's idle and gait. Everything else is drawn the moment it
+ * first shows (~1-3 ms), so an atlas only ever holds frames that were seen:
+ * men turn through facings they use for a moment, and most never play every
+ * attack, death or run column.
+ */
+const COMMON_COLS: readonly number[] = [...ANIM.idle];
+const COMMON_COLS_LEGACY: readonly number[] = [...ANIM_FRAMES.idle, ...ANIM.gallop];
 
 /** `n` slots of fw x fh side by side on one shelf (so a frame and its effect frames share a texture). */
 function allocSlots(scene: Phaser.Scene, fw: number, fh: number, n: number): Slot[] {
@@ -265,7 +272,7 @@ export function battleRow(scene: Phaser.Scene, key: string, dir: number): string
   if (r && r.scene === scene) return rk;
   const d = dolls.get(key);
   if (!d) throw new Error(`battleRow: unknown figure ${key}`);
-  const common = d.cols >= NFRAMES ? COMMON_COLS : Array.from({ length: d.cols }, (_, i) => i);
+  const common = d.cols >= NFRAMES ? COMMON_COLS : COMMON_COLS_LEGACY;
   rowTex.set(rk, { scene, doll: d, dir, frames: new Map(), pending: common.filter((c) => c !== 0) });
   rowQueue.push(rk);
   battleFrame(rk, 0);
