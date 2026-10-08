@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addScroll, addText, panelK } from '../ui/kit';
-import { ensurePortrait } from '../ui/sprites';
+import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { MenuBattle } from './menu/MenuBattle';
 import { state } from '../state';
@@ -18,7 +18,10 @@ import { t } from '../i18n';
 /** The menu below the stage: card, Continue, the grid of starts, the first-steps line and the save label. */
 const CARD_H = 50;
 const GRID_ROWS = 3;
-const MENU_H = 4 + CARD_H + SIZE.gap + 1 + 26 + SIZE.gap + 1 + GRID_ROWS * (22 + SIZE.gap) + 2 + 10 + 10 + 4;
+/** Grid buttons: a plain row, or a taller one with a line of context under the label (when the stage keeps its height). */
+const GRID_H = 22;
+const GRID_H_SUB = 28;
+const menuH = (gridH: number) => 4 + CARD_H + SIZE.gap + 1 + 26 + SIZE.gap + 1 + GRID_ROWS * (gridH + SIZE.gap) + 2 + 10 + 10 + 4;
 
 /**
  * The hub (docs/UI_STRATEGOS.md "Home"): the top of the screen is a
@@ -46,7 +49,10 @@ export class MenuScene extends BaseScene {
     this.addGrassBackdrop(11);
 
     // ---- the stage: as tall as the menu leaves, up to half the screen; the battle is drawn at 2x when there is room
-    const stageH = Math.min(Math.round(VH * 0.5), VH - MENU_H);
+    // (the grid's lines of context cost 18 px: only when the stage keeps a decent height)
+    const subs = VH - menuH(GRID_H_SUB) >= 120;
+    const gridH = subs ? GRID_H_SUB : GRID_H;
+    const stageH = Math.min(Math.round(VH * 0.5), VH - menuH(gridH));
     let y: number;
     if (stageH >= 56) {
       this.battle = new MenuBattle(this, c.heroes, (Date.now() % 100000) | 1);
@@ -82,9 +88,10 @@ export class MenuScene extends BaseScene {
     this.ui.add(addPanel(this, x0, y, w, CARD_H, 'parch'));
     let tx = x0 + 6;
     if (lead) {
-      this.ui.add(addPanel(this, x0 + 6, y + 6, 28, 28, 'slot'));
-      this.ui.add(this.add.image(x0 + 8, y + 8, ensurePortrait(this, dollFromHero(lead))).setOrigin(0, 0).setCrop(0, 0, 24, 24));
-      tx = x0 + 40;
+      // the strategos, alive: breathing and glancing over the card
+      this.ui.add(addPanel(this, x0 + 5, y + 4, 32, 32, 'slot'));
+      this.ui.add(addPortrait(this, dollFromHero(lead), x0 + 7, y + 6, { size: 28 }));
+      tx = x0 + 42;
     }
     const tw2 = x0 + w - 6 - tx - 14;
     const day = Math.floor(c.world.time / 24) + 1;
@@ -112,22 +119,22 @@ export class MenuScene extends BaseScene {
     this.ui.add(cont);
     y += 26 + SIZE.gap + 1;
 
-    // ---- the other starts: a grid of two columns
-    const rows: { label: string; icon: string; id: string; onClick: () => void }[] = [
-      { label: t('menu.newCampaign'), icon: 'flag', id: 'menu.new', onClick: () => (state.hasSave ? this.confirmReset() : this.newCampaign()) },
-      { label: t('menu.online'), icon: 'map', id: 'menu.online', onClick: () => this.scene.start('Online', {}) },
-      { label: t('menu.duels'), icon: 'swords', id: 'menu.duels', onClick: () => this.openDuels() },
-      { label: t('menu.trial'), icon: 'beast', id: 'menu.trial', onClick: () => this.openTrial() },
-      { label: t('menu.shop'), icon: 'coin', id: 'menu.shop', onClick: () => this.openShop() },
-      { label: t('menu.settings'), icon: 'gear', id: 'menu.settings', onClick: () => this.openSettings() },
+    // ---- the other starts: a grid of two columns, each with a line of context when the screen has the height
+    const rows: { label: string; sub: string; icon: string; id: string; onClick: () => void }[] = [
+      { label: t('menu.newCampaign'), sub: t('menu.row.new'), icon: 'flag', id: 'menu.new', onClick: () => (state.hasSave ? this.confirmReset() : this.newCampaign()) },
+      { label: t('menu.online'), sub: t('menu.row.online'), icon: 'map', id: 'menu.online', onClick: () => this.scene.start('Online', {}) },
+      { label: t('menu.duels'), sub: t('menu.row.duels'), icon: 'swords', id: 'menu.duels', onClick: () => this.openDuels() },
+      { label: t('menu.trial'), sub: t('menu.row.trial'), icon: 'beast', id: 'menu.trial', onClick: () => this.openTrial() },
+      { label: t('menu.shop'), sub: t('menu.row.shop'), icon: 'coin', id: 'menu.shop', onClick: () => this.openShop() },
+      { label: t('menu.settings'), sub: t('menu.row.settings'), icon: 'gear', id: 'menu.settings', onClick: () => this.openSettings() },
     ];
     const half = Math.floor((w - SIZE.gap) / 2);
     rows.forEach((r, i) => {
       const col = i % 2;
       const rx = x0 + col * (half + SIZE.gap);
-      this.ui.add(new Button(this, rx, y + Math.floor(i / 2) * (22 + SIZE.gap), col ? w - half - SIZE.gap : half, 22, { label: r.label, icon: r.icon, id: r.id, onClick: r.onClick }));
+      this.ui.add(new Button(this, rx, y + Math.floor(i / 2) * (gridH + SIZE.gap), col ? w - half - SIZE.gap : half, gridH, { label: r.label, sub: subs ? r.sub : undefined, icon: r.icon, id: r.id, onClick: r.onClick }));
     });
-    y += GRID_ROWS * (22 + SIZE.gap) + 2;
+    y += GRID_ROWS * (gridH + SIZE.gap) + 2;
 
     // ---- the next first step, and the save's home
     const who2 = telegramUserName();

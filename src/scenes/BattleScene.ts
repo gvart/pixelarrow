@@ -11,8 +11,8 @@ import { RadialOrders, type RadialOrder } from '../ui/radialOrders';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
-import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
-import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
+import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollFrame, dollOrigin, ensureDoll, ensureDollRow, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
+import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type DollSpec, type WeaponClass } from '../art/paperdoll';
 import { AURA_COLORS, BANNER_COLORS, cosmeticLoadout } from '../game/cosmetics';
 import { STANDARD_FRAMES, STANDARD_H, STANDARD_W, STRIP_STEPS, plateOrigin, renderGround, renderStandard, renderStripPlate, stripStep } from '../art/ground';
 import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
@@ -2507,10 +2507,10 @@ export class BattleScene extends BaseScene {
     return t('battle.card.tip', { numeral, name, men: t('battle.men', { n }), order: t(`battle.order.${g.order}` as TKey), formation: t(`battle.formation.${g.formation.type}` as TKey) });
   }
 
-  private portraitOf(gid: number): string | null {
+  private portraitOf(gid: number): DollSpec | null {
     const lead = this.sim.activeMembers(gid)[0] ?? this.sim.members(gid)[0];
     if (!lead) return null;
-    return ensurePortrait(this, dollFromHero(this.views[lead.id].hero));
+    return dollFromHero(this.views[lead.id].hero);
   }
 
   /** The selected soldier: portrait, name and level, weapon, and health / morale / stamina columns. */
@@ -2522,13 +2522,13 @@ export class BattleScene extends BaseScene {
     const w = VW - 4 - x;
     c.add(addPanel(this, x, y, w, 24, 'parch'));
     const hero = this.views[u.id].hero;
-    c.add(addPortrait(this, dollFromHero(hero), x + 2, y + 2, { crop: [3, 0, 18, 20] }));
+    c.add(addPortrait(this, dollFromHero(hero), x + 2, y + 2, { size: 20 }));
     // the portrait framed in the colour of his finest piece of gear (rare and up pulse)
     const best = this.views[u.id].fx?.rank ?? 0;
     if (best >= 1) {
       const rf = this.add.graphics();
       rf.lineStyle(1, RARITY_COLOR[RARITIES[best]], 1);
-      rf.strokeRect(x + 4.5, y + 1.5, 19, 21);
+      rf.strokeRect(x + 1.5, y + 1.5, 21, 21);
       c.add(rf);
       if (best >= 2) this.tweens.add({ targets: rf, alpha: { from: 0.45, to: 1 }, duration: best >= 4 ? 600 : 1000, yoyo: true, repeat: -1 });
     }

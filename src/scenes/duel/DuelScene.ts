@@ -1175,13 +1175,14 @@ export class DuelScene extends BaseScene {
     const inTeam = p.team.includes(h.id);
     row.add(addPanel(this, 0, 0, w, rh, inTeam ? 'buttonSel' : 'button'));
     const cls = heroClass(h);
+    const ps = rh - 4;
     const fr = this.add.graphics();
     fr.fillStyle(0x1d140f, 1);
-    fr.fillRect(3, 3, 24, 24);
+    fr.fillRect(1, 1, ps + 2, ps + 2);
     fr.fillStyle(roleColor(cls.role), 1);
-    fr.fillRect(4, 4, 22, 22);
+    fr.fillRect(2, 2, ps, ps);
     row.add(fr);
-    row.add(addPortrait(this, dollFromHero(h), 3, 3));
+    row.add(addPortrait(this, dollFromHero(h), 2, 2, { size: ps }));
     const bw = 28;
     const tog = new Button(this, w - bw - 3, 4, bw, 22, {
       icon: inTeam ? 'check' : 'plus',
@@ -1281,7 +1282,7 @@ export class DuelScene extends BaseScene {
         pf.fillStyle(locked ? 0x5a4232 : roleColor(cls.role), 1);
         pf.fillRect(4, 4, 28, 28);
         row.add(pf);
-        row.add(addPortrait(this, dollFromHero(sample), 6, 6).setAlpha(locked ? 0.5 : 1));
+        row.add(addPortrait(this, dollFromHero(sample), 4, 4, { size: 28 }).setAlpha(locked ? 0.5 : 1));
         const bw = 26;
         const why = locked ? t('duels.unlocksAt', { n: level }) : full ? t('duels.why.roster_full') : p.glory < price ? t('duels.noGlory') : undefined;
         const b = new Button(this, rw - bw - 3, 5, bw, SIZE.btnH, {
