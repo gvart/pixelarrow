@@ -55,6 +55,8 @@ export class TopBar extends Phaser.GameObjects.Container {
   private wordText: Phaser.GameObjects.BitmapText;
   private row: Phaser.GameObjects.Container;
   private rowKey = '';
+  private clock = { x0: 0, x1: 0, size: 12 };
+  private word = '';
   private key = '';
 
   constructor(scene: Phaser.Scene, w: number, o: TopBarOpts) {
@@ -85,27 +87,50 @@ export class TopBar extends Phaser.GameObjects.Container {
     const s = this.scene;
     const y = 4;
     const h = 26;
-    this.buttons.left = slotButton(s, 4, y, 30, h, o.left, o.primary === 'left');
+    // narrow phones: slimmer slots leave the clock its room
+    const narrow = this.w < 170;
+    const bw = narrow ? 26 : 30;
+    const rw = narrow ? 36 : 42;
+    this.buttons.left = slotButton(s, 4, y, bw, h, o.left, o.primary === 'left');
     this.slots.add(this.buttons.left);
+    let x0 = 4 + bw + 2;
     if (o.mid) {
-      this.buttons.mid = slotButton(s, 37, y, 30, h, o.mid, o.primary === 'mid');
+      this.buttons.mid = slotButton(s, x0 + 1, y, bw, h, o.mid, o.primary === 'mid');
       this.slots.add(this.buttons.mid);
+      x0 += bw + 3;
     } else delete this.buttons.mid;
-    const rw = 42;
     this.buttons.right = slotButton(s, this.w - 4 - rw, y, rw, h, o.right, o.primary === 'right');
     this.slots.add(this.buttons.right);
-    const x0 = o.mid ? 70 : 37;
-    const cx = Math.round((x0 + this.w - 4 - rw - 3) / 2);
+    const x1 = this.w - 4 - rw - 2;
+    this.clock = { x0, x1, size: narrow ? 10 : 12 };
+    const cx = Math.round((x0 + x1) / 2);
     this.timeText.setX(cx);
     this.wordText.setX(cx);
+    // the clock and its word live between the slots, above the strength row
+    uiFrame(this.timeText, this, x1 - x0, TOP_H - 14, x0, 0);
+    uiFrame(this.wordText, this, x1 - x0, TOP_H - 14, x0, 0);
+    this.layoutClock();
     return this;
+  }
+
+  /** Clock size and the word under it, fitted to the room between the slots. */
+  private layoutClock(): void {
+    const { x0, x1, size } = this.clock;
+    this.timeText.setFontSize(size);
+    const wordY = 4 + (10 * size) / 7 + 0.5;
+    const wordSize = 5.5;
+    this.wordText.setY(wordY);
+    const fitted = ellipsize(this.word, x1 - x0, false, wordSize);
+    if (this.wordText.text !== fitted) this.wordText.setText(fitted);
+    this.wordText.setFontSize(wordSize);
   }
 
   /** The clock ("0:09") and its word ("battle time"); `hot` turns it red (the online deployment's last seconds). */
   setTime(value: string, word: string, hot = false): this {
-    if (this.timeText.text !== value) this.timeText.setText(value).setFontSize(13);
-    this.timeText.setFont(hot ? 'font_red' : 'font_ink').setFontSize(13);
-    if (this.wordText.text !== word) this.wordText.setText(word).setFontSize(5.5);
+    if (this.timeText.text !== value) this.timeText.setText(value);
+    this.timeText.setFont(hot ? 'font_red' : 'font_ink');
+    this.word = word;
+    this.layoutClock();
     return this;
   }
 
@@ -220,7 +245,7 @@ export interface MedallionOpts {
 /** Medallion diameter and the plate under it (UI px). */
 export const MED_D = 26;
 export const MED_W = 50;
-export const MED_H = MED_D + 2 + 17;
+export const MED_H = MED_D + 2 + 19;
 const HALO = 4;
 
 /**
@@ -251,10 +276,11 @@ export class Medallion extends Phaser.GameObjects.Container {
     this.cdText = addText(scene, cx, MED_D / 2 - 5, '', 'ink', 0.5).setFontSize(8).setVisible(false);
     this.badge = scene.add.container(cx + MED_D / 2 - 3, 2);
     const plateY = MED_D + 2;
-    const plate = panelImage(scene, 0, plateY, MED_W, 17, 'tooltip');
+    const plate = panelImage(scene, 0, plateY, MED_W, 19, 'tooltip');
     const size = 6;
     const name = addText(scene, cx, plateY + 1.5, ellipsize(o.label, MED_W - 4, false, size), 'ink', 0.5).setFontSize(size);
-    const sub = addText(scene, cx, plateY + 9, ellipsize(o.sub, MED_W - 4, false, 5), 'dim', 0.5).setFontSize(5);
+    name.setY(plateY + 1);
+    const sub = addText(scene, cx, plateY + 10, ellipsize(o.sub, MED_W - 4, false, 5), 'dim', 0.5).setFontSize(5);
     uiFrame(name, this, MED_W, MED_H);
     uiFrame(sub, this, MED_W, MED_H);
     this.add([this.disc, this.icon, this.sweep, this.cdText, this.badge, plate, name, sub]);
