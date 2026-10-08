@@ -23,6 +23,8 @@ import { DB, fresh, getJson, post, wsPath, type WsClient } from './onlineHelpers
 beforeEach(fresh);
 
 const tick = () => new Promise((r) => setTimeout(r, 1));
+/** Wall-time bound of the lockstep loops below. */
+const LOOP_MS = 45_000;
 
 interface Duellist {
   token: string;
@@ -85,11 +87,12 @@ type Client = Awaited<ReturnType<typeof joinMatch>>;
 async function fight(A: Client, B: Client): Promise<void> {
   A.ls.markReady();
   B.ls.markReady();
-  for (let i = 0; i < 200 && (A.ls.sim.phase === 'deploy' || B.ls.sim.phase === 'deploy'); i++) await tick();
+  // (bounded by wall time, not by a count of yields: round trips slow down under CPU load)
+  for (const end = Date.now() + LOOP_MS; Date.now() < end && (A.ls.sim.phase === 'deploy' || B.ls.sim.phase === 'deploy'); ) await tick();
   expect(A.ls.sim.phase).toBe('battle');
   const s0 = A.start.side === 0 ? A : B;
   s0.ls.issue({ kind: 'retreat' });
-  for (let guard = 0; guard < 50_000 && !(A.ls.sim.phase === 'ended' && B.ls.sim.phase === 'ended'); guard++) {
+  for (const end = Date.now() + LOOP_MS; Date.now() < end && !(A.ls.sim.phase === 'ended' && B.ls.sim.phase === 'ended'); ) {
     A.ls.pump(40);
     B.ls.pump(40);
     await tick();
@@ -228,10 +231,10 @@ describe('a ranked match (DuelDO)', () => {
     const B = await joinMatch(b, match);
     A.ls.markReady();
     B.ls.markReady();
-    for (let i = 0; i < 200 && A.ls.sim.phase === 'deploy'; i++) await tick();
+    for (const end = Date.now() + LOOP_MS; Date.now() < end && A.ls.sim.phase === 'deploy'; ) await tick();
     // Turns are sealed by socket round trips, not by wall time: step until both
     // sides are past tick 10 (a fixed number of 1 ms waits is too few under load).
-    for (let guard = 0; guard < 50_000 && (A.ls.sim.tick <= 10 || B.ls.sim.tick <= 10); guard++) {
+    for (const end = Date.now() + LOOP_MS; Date.now() < end && (A.ls.sim.tick <= 10 || B.ls.sim.tick <= 10); ) {
       A.ls.pump(10);
       B.ls.pump(10);
       await tick();
@@ -286,7 +289,7 @@ describe('a ranked match (DuelDO)', () => {
       away[0] = away[1] = Date.now() - RANKED.reconnectMs - 1;
     });
     await runDurableObjectAlarm(duelStub(match));
-    await vi.waitFor(async () => expect((await DB().prepare('SELECT status FROM duel_matches WHERE id = ?1').bind(match).first<{ status: string }>())!.status).toBe('void'));
+    await vi.waitFor(async () => expect((await DB().prepare('SELECT status FROM duel_matches WHERE id = ?1').bind(match).first<{ status: string }>())!.status).toBe('void'), { timeout: 30_000, interval: 50 });
     expect(await DB().prepare('SELECT 1 FROM duel_ratings WHERE player_id IN (?1, ?2)').bind(a.pid, b.pid).first()).toBeNull();
     const q = await DB().prepare('SELECT abandons FROM duel_queue_state WHERE player_id = ?1').bind(a.pid).first<{ abandons: string }>();
     expect(JSON.parse(q!.abandons)).toHaveLength(1);

@@ -22,7 +22,20 @@ import { DEFAULT_FORMATIONS, energyAt, regionScore, ONLINE_RULES, starterOnlineA
 import { bytesToHex } from '../crypto';
 import { ApiError } from '../errors';
 
+let randomSource: (() => number) | null = null;
+
+/**
+ * Tests only: replaces the entropy behind randomU32 (shard seeds, home
+ * placement, battle and duel seeds, recruits) with a seeded stream, so a test
+ * run does not depend on chance; null restores crypto randomness. Tokens and
+ * codes (randomToken, randomCode) always stay crypto-random.
+ */
+export function setRandomSource(next: (() => number) | null): void {
+  randomSource = next;
+}
+
 export function randomU32(): number {
+  if (randomSource) return randomSource() >>> 0 || 1;
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
   return a[0] >>> 0 || 1;

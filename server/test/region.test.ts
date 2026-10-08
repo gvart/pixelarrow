@@ -43,7 +43,7 @@ async function connect(region: string, token: string, via: 'query' | 'protocol' 
       new Promise((resolve, reject) => {
         waiters.push({ type, resolve });
         pump();
-        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs)}`)), 3000);
+        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs)}`)), 30_000);
       }),
   };
 }

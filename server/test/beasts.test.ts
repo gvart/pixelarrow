@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { lairAt, worldBossSites, bossMaxHp } from '../../src/online/lairs';
 import { currentSeason, getShard } from '../src/online/store';
 import type { BattleSetup } from '../../src/sim/types';
-import { DB, fresh, getJson, join, placeArmy, play, post, type Player, type Ticket } from './onlineHelpers';
+import { DB, fresh, getJson, join, must, placeArmy, play, post, type Player, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -13,7 +13,7 @@ async function shardOf(p: Player) {
 
 /** Puts a player's army next to a region of a shard (test shortcut for a march). */
 async function standBeside(p: Player, loc: number, shard: { id: number; world: { neighbours(l: number): readonly number[]; info(l: number): { passable: boolean } } }): Promise<number> {
-  const spot = shard.world.neighbours(loc).find((n) => shard.world.info(n).passable)!;
+  const spot = must(shard.world.neighbours(loc).find((n) => shard.world.info(n).passable), `passable neighbour of ${loc}`);
   await placeArmy(p, spot, shard.id);
   return spot;
 }

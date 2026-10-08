@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ONLINE_RULES } from '../../src/online/rules';
 import { WINS_TO_CLAIM } from '../../src/online/defenders';
-import { currentSeason, endSeason, getShard, pickHome } from '../src/online/store';
+import { currentSeason, endSeason, getShard, pickHome, setRandomSource } from '../src/online/store';
 import { api } from './helpers';
-import { DB, fresh, freeNeighbour, getJson, join, placeArmy, play, post, weakenNeutrals, worldOf, type Profile, type Ticket } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, must, getJson, join, placeArmy, play, post, weakenNeutrals, worldOf, type Profile, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -56,6 +56,18 @@ describe('season, shard and profile', () => {
     await DB().prepare('UPDATE online_shards SET players = ?3 WHERE season_id = ?1 AND id = ?2').bind(season.id, first.profile.shard.id, was).run();
   });
 
+  it('server randomness follows the seeded test stream (test/setup.ts), so homes and battles never hinge on chance', async () => {
+    const p = await join(7099);
+    const h = await freeNeighbour(p);
+    setRandomSource(() => 0xc0ffee);
+    const t = await post<Ticket>('/api/online/attack/start', p.token, { loc: h });
+    expect(t.status).toBe(200);
+    const row = await DB().prepare('SELECT seed FROM battle_tickets WHERE id = ?1').bind(t.body.ticket).first<{ seed: number }>();
+    expect(row?.seed).toBe(0xc0ffee);
+    // leave no lock behind for later tests
+    expect((await post('/api/online/attack/abandon', p.token, { ticket: t.body.ticket })).status).toBe(200);
+  });
+
   it('fog of war: only regions near your land are sent; far ones are hidden', async () => {
     const p = await join(7004);
     const w = worldOf(p);
@@ -63,7 +75,7 @@ describe('season, shard and profile', () => {
     expect(map.status).toBe(200);
     expect(map.body.shard.map).toBe('test30');
     expect(new Set(map.body.regions.map((r) => r.loc))).toEqual(new Set(w.within(p.profile.home, ONLINE_RULES.sight)));
-    const far = w.all().find((r) => r.passable && w.hops(p.profile.home, r.id) > ONLINE_RULES.sight)!.id;
+    const far = must(w.all().find((r) => r.passable && w.hops(p.profile.home, r.id) > ONLINE_RULES.sight), 'region out of sight of home').id;
     expect((await api(`/api/online/region/${far}`, { token: p.token })).status).toBe(404);
     expect((await api('/api/online/region/9999', { token: p.token })).status).toBe(400);
     expect((await api('/api/online/map')).status).toBe(401);
@@ -251,10 +263,11 @@ describe('async attacks', () => {
   it('locks a region: two concurrent attacks, one wins the lock', async () => {
     const a = await join(7307);
     const b = await join(7308);
-    const h = await freeNeighbour(a);
-    // Put B's army next to the same region (in A's shard).
     const w = worldOf(a);
-    const spot = w.neighbours(h).find((n) => n !== a.profile.army.loc && w.info(n).passable)!;
+    // (a region B can reach too: one with a second way in besides A's army)
+    const h = await freeNeighbour(a, (n) => w.neighbours(n).some((m) => m !== a.profile.army.loc && w.info(m).passable));
+    // Put B's army next to the same region (in A's shard).
+    const spot = must(w.neighbours(h).find((n) => n !== a.profile.army.loc && w.info(n).passable), `second passable neighbour of ${h}`);
     await placeArmy(b, spot, a.profile.shard.id);
     const [ra, rb] = await Promise.all([startAttack(a, h), startAttack(b, h)]);
     const statuses = [ra.status, rb.status].sort();
@@ -274,7 +287,9 @@ describe('async attacks', () => {
 
   it('attacks a player garrison: defenders fight under the bot, both sides take casualties', async () => {
     const a = await join(7309);
-    const h = await freeNeighbour(a);
+    const w = worldOf(a);
+    // (a region with another way in than A's home, for B)
+    const h = await freeNeighbour(a, (n) => w.neighbours(n).some((m) => m !== a.profile.home && w.info(m).passable));
     await weakenNeutrals(a, h);
     // Give A the region directly and a garrison of two.
     await DB()
@@ -286,8 +301,7 @@ describe('async attacks', () => {
     expect((await post(`/api/online/region/${h}/garrison`, a.token, { heroIds: ids })).status).toBe(200);
     // B stands next to it (in A's shard).
     const b = await join(7310);
-    const w = worldOf(a);
-    const spot = w.neighbours(h).find((n) => w.info(n).passable && n !== a.profile.home)!;
+    const spot = must(w.neighbours(h).find((n) => w.info(n).passable && n !== a.profile.home), `passable neighbour of ${h} besides A's home`);
     await placeArmy(b, spot, a.profile.shard.id);
     const t = await post<Ticket>('/api/online/attack/start', b.token, { loc: h });
     expect(t.status).toBe(200);

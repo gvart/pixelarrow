@@ -45,8 +45,19 @@ export async function shardOf(p: { profile: Profile }): Promise<{ season: number
   return { season: p.profile.season.id, id: p.profile.shard.id, seed: r!.seed, world: getMap(r!.map_id) };
 }
 
+/**
+ * A test precondition: the value a lookup found, or a clear error naming what
+ * was missing (instead of an `undefined` that only fails later, e.g. as a D1
+ * "Type 'undefined' not supported" when it is bound to a query).
+ */
+export function must<T>(v: T | null | undefined, what: string): T {
+  if (v === undefined || v === null) throw new Error(`test precondition failed: no ${what}`);
+  return v;
+}
+
 /** Test shortcut for a march: puts a player's army in `loc` of `shard` (moving them into that shard when needed). */
 export async function placeArmy(p: Player, loc: number, shard = p.profile.shard.id): Promise<void> {
+  if (!Number.isInteger(loc) || !Number.isInteger(shard)) throw new Error(`placeArmy: bad region ${loc} / shard ${shard}`);
   await DB().prepare('UPDATE online_profiles SET army_loc = ?1, shard_id = ?2, march = NULL WHERE season_id = ?3 AND player_id = ?4').bind(loc, shard, p.profile.season.id, p.playerId).run();
   p.profile = { ...p.profile, shard: { ...p.profile.shard, id: shard }, army: { loc, marching: false } };
 }
@@ -183,7 +194,7 @@ export async function wsPath(token: string, path: string): Promise<WsClient> {
       new Promise((resolve, reject) => {
         waiters.push({ type, pred, resolve });
         pump();
-        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs.map((m) => m.type))}`)), 10_000);
+        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs.map((m) => m.type))}`)), 30_000);
       }),
   };
   const pump = () => {

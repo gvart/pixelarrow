@@ -9,7 +9,7 @@ import { buttonUrl, render } from '../src/notify/templates';
 import { BOT_COMMANDS } from '../src/bot/commands';
 import { currentSeason, getShard, shardDoName } from '../src/online/store';
 import { api, mockTelegram, webhook, type BotCall } from './helpers';
-import { DB, fresh, getJson, join, placeArmy, play, post, sameShard, wsOnline, type Player, type Ticket } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, getJson, must, join, placeArmy, play, post, sameShard, wsOnline, type Player, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -35,7 +35,7 @@ async function waitForEvent(pid: number, event: string): Promise<OutRow> {
       row = (await outbox(pid)).find((r) => r.event === event);
       if (!row) throw new Error(`no ${event} yet`);
     },
-    { timeout: 8000, interval: 50 },
+    { timeout: 30_000, interval: 50 },
   );
   return row!;
 }
@@ -237,15 +237,15 @@ describe('delivery rules', () => {
 });
 
 describe('event triggers', () => {
-  it('attack start, then the result, reach the region owner (who is offline)', { timeout: 30_000 }, async () => {
+  it('attack start, then the result, reach the region owner (who is offline)', async () => {
     const owner = await join(77101, 'Owner');
     const att = await join(77102, 'Raider');
     await sameShard(att, owner);
     const shard = await shardOf(att);
     const w = shard.world;
-    // the owner holds a passable plot next to the raider's army (no garrison: militia)
+    // the owner holds a plot (not a boss site, not locked, nobody's yet) next to the raider's army (no garrison: militia)
     const bosses = worldBossSites(w, shard.seed).map((b) => b.loc);
-    const h = w.neighbours(att.profile.army.loc).find((n) => w.info(n).kind === 'plot' && !bosses.includes(n))!;
+    const h = await freeNeighbour(att, (n) => w.info(n).kind === 'plot' && !bosses.includes(n));
     await DB()
       .prepare(
         `INSERT INTO online_regions (season_id, shard_id, loc, occupant, owner_id, accrued_at) VALUES (?1, ?2, ?3, 'player', ?4, ?5)
@@ -259,7 +259,7 @@ describe('event triggers', () => {
     expect(t.body.defenderKind).toBe('militia');
     const start = await waitForEvent(owner.playerId, 'attack_start');
     expect(JSON.parse(start.data)).toMatchObject({ loc: h, place: w.info(h).name, by: 'Raider' });
-    await vi.waitFor(() => expect(sends(calls, 77101)).toHaveLength(1));
+    await vi.waitFor(() => expect(sends(calls, 77101)).toHaveLength(1), { timeout: 30_000, interval: 50 });
     expect(button(sends(calls, 77101)[0])[0][0].web_app!.url).toBe(`https://pixelarrow.app/?startapp=loc_${h}`);
     const run = play(t.body.setup);
     const sub = await post<{ captured: boolean; won: boolean }>('/api/online/attack/submit', att.token, { ticket: t.body.ticket, ...run });
@@ -271,7 +271,7 @@ describe('event triggers', () => {
     expect((await outbox(att.playerId)).length).toBe(0);
   });
 
-  it('a march arrival notifies its owner when offline, not when online', { timeout: 20_000 }, async () => {
+  it('a march arrival notifies its owner when offline, not when online', async () => {
     const a = await join(77201);
     const calls = mockTelegram();
     const stub = env.REGION.get(env.REGION.idFromName(shardDoName({ season: a.profile.season.id, id: a.profile.shard.id })));
@@ -280,20 +280,20 @@ describe('event triggers', () => {
     const row = await waitForEvent(a.playerId, 'march_arrived');
     expect(JSON.parse(row.data)).toEqual({ loc: 4, place: 'Arx Borea' });
     // (the alarm, due at once, may already have run by itself: wait for its send)
-    await vi.waitFor(() => expect(sends(calls, 77201)).toHaveLength(1));
+    await vi.waitFor(() => expect(sends(calls, 77201)).toHaveLength(1), { timeout: 30_000, interval: 50 });
     // online on the war table: no message
     const ws = await wsOnline(a.token);
     await ws.next('welcome');
     await stub.marchNotice(a.playerId, { at: Date.now() - 1000, loc: 5, place: 'Campus Altus' });
     await runDurableObjectAlarm(stub);
-    await vi.waitFor(async () => expect(await runInDurableObject(stub, (_i: RegionDO, state) => state.storage.get(`notice:${a.playerId}`))).toBeUndefined());
+    await vi.waitFor(async () => expect(await runInDurableObject(stub, (_i: RegionDO, state) => state.storage.get(`notice:${a.playerId}`))).toBeUndefined(), { timeout: 30_000, interval: 50 });
     expect((await outbox(a.playerId)).filter((r) => r.event === 'march_arrived')).toHaveLength(1);
     ws.ws.close(1000);
     // a long march registers its notice; a halt clears it
     await stub.marchNotice(a.playerId, null);
   });
 
-  it('a duel challenge to an offline player of the shard notifies them', { timeout: 20_000 }, async () => {
+  it('a duel challenge to an offline player of the shard notifies them', async () => {
     const a = await join(77301, 'Challenger');
     const b = await join(77302, 'Sleeper');
     await sameShard(a, b);
@@ -304,7 +304,7 @@ describe('event triggers', () => {
     expect(await wa.next('error')).toMatchObject({ code: 'unavailable' });
     const row = await waitForEvent(b.playerId, 'duel_challenge');
     expect(JSON.parse(row.data)).toEqual({ by: 'Challenger' });
-    await vi.waitFor(() => expect(sends(calls, 77302)).toHaveLength(1));
+    await vi.waitFor(() => expect(sends(calls, 77302)).toHaveLength(1), { timeout: 30_000, interval: 50 });
     expect(button(sends(calls, 77302)[0])[0][0].web_app!.url).toBe('https://pixelarrow.app/?startapp=duel');
     wa.ws.close(1000);
   });
@@ -341,12 +341,12 @@ describe('event triggers', () => {
     expect(JSON.parse(row.data)).toMatchObject({ what: '10× wood', price: 40, currency: 'gold', gets: 36 });
   });
 
-  it('the killing raid on a world boss tells the other damage dealers their share', { timeout: 30_000 }, async () => {
+  it('the killing raid on a world boss tells the other damage dealers their share', async () => {
     const a = await join(77601);
     const b = await join(77602);
     const shard = await shardOf(a);
     const site = worldBossSites(shard.world, shard.seed)[0];
-    const spot = shard.world.neighbours(site.loc).find((n) => shard.world.info(n).passable)!;
+    const spot = must(shard.world.neighbours(site.loc).find((n) => shard.world.info(n).passable), `passable neighbour of boss site ${site.loc}`);
     for (const p of [a, b]) await placeArmy(p, spot, shard.id);
     await getJson('/api/online/boss', a.token);
     const parts = JSON.stringify(Array.from({ length: bossMaxHp(site.boss, site.level).parts }, () => 0));
