@@ -11,7 +11,7 @@ import {
   DragDrop, ROMAN, Stage, StashGrid, addChip, addGroupBadge, addMountTile, addSlotTile, addStars, addTabBadge, className, defaultStashState,
   groupName, itemName, openItemCard, roleColor, uiBoundsOf, type StashState,
 } from '../ui/sheet';
-import { ensurePortrait } from '../ui/sprites';
+import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
 import { scrapValue } from '../game/campaign';
@@ -206,7 +206,7 @@ export class ArmyScene extends BaseScene {
       slotY = y0 + sh + 4;
     } else {
       // short screens: portrait, name, class and power on two lines; the group button sits in the bottom bar
-      L.add(this.add.image(4, y0, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
+      L.add(addPortrait(this, dollFromHero(h), 4, y0));
       const tx = 31;
       const tw = VW - tx - 5;
       L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 42), 'title'));
@@ -353,7 +353,7 @@ export class ArmyScene extends BaseScene {
     fr.fillStyle(roleColor(cls.role), 1);
     fr.fillRect(4, 4, 22, 22);
     row.add(fr);
-    row.add(this.add.image(3, 3, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
+    row.add(addPortrait(this, dollFromHero(h), 3, 3));
     if (h.wound > 0) {
       const wg = this.add.graphics();
       wg.fillStyle(0x000000, 0.45);

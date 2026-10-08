@@ -18,7 +18,8 @@ import { CountUp, ItemIcon, Label, ScrollList, StatBar, Tabs, addEmptyState, add
 import { uiFrame, uiId } from '../ui/layout';
 import { ellipsize, measureText, wrapText } from '../ui/textfit';
 import { COLOR, RARITY_COLOR, RARITY_GLOW, SIZE } from '../ui/theme';
-import { ensurePortrait } from '../ui/sprites';
+import { addPortrait } from '../ui/sprites';
+import { PORTRAIT_PX } from '../art/paperdoll';
 import { dollFromHero } from '../art/paperdoll';
 import { P } from '../art/palette';
 import { state } from '../state';
@@ -361,8 +362,8 @@ export class ResultsScene extends BaseScene {
     g.fillRect(fx + 3, fy + 3, fs - 6, fs - 6);
     c.add(g);
     if (mvp.hero) {
-      const img = this.add.image(fx + 3, fy + 3, ensurePortrait(this, dollFromHero(mvp.hero))).setOrigin(0, 0);
-      img.setScale((fs - 6) / 24);
+      const img = addPortrait(this, dollFromHero(mvp.hero), fx + 3, fy + 3);
+      img.setScale(img.scaleX * ((fs - 6) / PORTRAIT_PX));
       c.add(img);
     }
     const tx = fx + fs + 6;
@@ -399,7 +400,7 @@ export class ResultsScene extends BaseScene {
   private renderHeroRow(h: HeroLine, row: Phaser.GameObjects.Container, w: number, rh: number): void {
     row.add(addPanel(this, 0, 0, w, rh, h.died ? 'buttonOff' : 'inset'));
     if (h.hero) {
-      const img = this.add.image(3, 3, ensurePortrait(this, dollFromHero(h.hero))).setOrigin(0, 0).setCrop(3, 0, 18, rh - 6);
+      const img = addPortrait(this, dollFromHero(h.hero), 3, 3, { crop: [3, 0, 18, rh - 6] });
       img.x -= 3;
       if (h.died) img.setTint(0x8a7a70);
       row.add(img);

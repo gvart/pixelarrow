@@ -7,7 +7,7 @@ import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import { SIZE } from '../ui/theme';
 import { ensureFonts, rarityFont } from '../ui/fonts';
 import { StashGrid, addChip, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
-import { ensurePortrait } from '../ui/sprites';
+import { addPortrait } from '../ui/sprites';
 import { heroClass } from '../sim/stats';
 import { dollFromHero } from '../art/paperdoll';
 import { renderSettlement } from '../art/worldArt';
@@ -181,7 +181,7 @@ export class SettlementScene extends BaseScene {
         pf.fillStyle(roleColor(cls.role), 1);
         pf.fillRect(4, 4, 28, 28);
         row.add(pf);
-        const img = this.add.image(6, 6, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0).setInteractive();
+        const img = addPortrait(this, dollFromHero(hero), 6, 6).setInteractive();
         uiId(img, 'recruit.card');
         row.add(img);
         img.on('pointerup', () => !this.list?.area.moved && this.openRecruit(r.index));
@@ -373,7 +373,7 @@ export class SettlementScene extends BaseScene {
         render: (i, row, rw, rh) => {
           const hero = wounded[i];
           row.add(addPanel(this, 0, 0, rw, rh, 'inset'));
-          row.add(this.add.image(2, 1, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0));
+          row.add(addPortrait(this, dollFromHero(hero), 2, 1));
           const hrs = addText(this, rw - 4, 9, t('town.restHours', { h: Math.ceil(hero.wound) }), 'red', 1);
           row.add(hrs);
           row.add(addText(this, 29, 9, ellipsize(hero.name, rw - 33 - hrs.width - 4), 'ink'));

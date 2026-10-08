@@ -17,7 +17,7 @@ import {
   openClassCard, openItemCard, roleColor, roleName, roleTraits, uiBoundsOf, type StashState,
 } from '../../ui/sheet';
 import { addEconState } from '../../ui/econ/widgets';
-import { ensurePortrait } from '../../ui/sprites';
+import { addPortrait } from '../../ui/sprites';
 import { dollFromHero } from '../../art/paperdoll';
 import { P } from '../../art/palette';
 import { hapticNotify } from '../../platform/telegram';
@@ -234,7 +234,7 @@ export class OnlineArmyScene extends BaseScene {
       ss = 26;
       slotY = y0 + sh + 4;
     } else {
-      L.add(this.add.image(4, y0, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
+      L.add(addPortrait(this, dollFromHero(h), 4, y0));
       const tx = 31;
       const tw = VW - tx - 5;
       L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 42), 'title'));
@@ -330,7 +330,7 @@ export class OnlineArmyScene extends BaseScene {
     fr.fillStyle(roleColor(cls.role), 1);
     fr.fillRect(4, 4, 22, 22);
     row.add(fr);
-    row.add(this.add.image(3, 3, ensurePortrait(this, dollFromHero(h))).setOrigin(0, 0));
+    row.add(addPortrait(this, dollFromHero(h), 3, 3));
     const st = this.status(oh, now);
     const x = 31;
     const right = w - 4;
@@ -467,7 +467,7 @@ export class OnlineArmyScene extends BaseScene {
         pf.fillStyle(roleColor(cls.role), 1);
         pf.fillRect(4, 4, 28, 28);
         row.add(pf);
-        const img = this.add.image(6, 6, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0).setInteractive();
+        const img = addPortrait(this, dollFromHero(hero), 6, 6).setInteractive();
         uiId(img, 'recruit.card');
         img.on('pointerup', () => !list.area.moved && openClassCard(this, { hero, title: className(hero), action: { label: t('town.hire'), icon: 'plus', id: 'oarmy.recruitCard', disabled: can ? undefined : why, onClick: () => (m.close(), void this.act(() => onlineApi.recruit(a), t('town.hired', { name: className(hero) }))) } }));
         row.add(img);
