@@ -23,7 +23,7 @@ import { Badge, hintStore } from './widgets';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { BRONZE, SIZE, STRAT } from './theme';
-import { renderGoodsIcon, goodsIconKey } from '../art/goodsIcons';
+import { addGoodsIcon } from './econ/textures';
 import { ICONS } from '../art/icons';
 import { t } from '../i18n';
 
@@ -43,10 +43,8 @@ export interface SitNumber {
 /** Icon texture for a situation number: a kit icon, else a resource goods icon. */
 function numberIcon(scene: Phaser.Scene, x: number, y: number, icon: string): Phaser.GameObjects.Image {
   if (ICONS[icon] || scene.textures.exists(`icon_${icon}`)) return addIcon(scene, x, y, icon);
-  const key = goodsIconKey('resource', icon);
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderGoodsIcon('resource', icon).toCanvas());
   // goods icons are 16 px: centred on the 12 px icon box
-  return scene.add.image(Math.round(x) - 2, Math.round(y) - 2, key).setOrigin(0, 0);
+  return addGoodsIcon(scene, Math.round(x) - 2, Math.round(y) - 2, 'resource', icon);
 }
 
 /**

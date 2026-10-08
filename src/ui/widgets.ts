@@ -15,7 +15,8 @@ import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, glows } from './theme';
 import { renderGlow, renderRarityFrame } from '../art/uiTextures';
-import { renderGoodsIcon, goodsIconKey, type GoodsKind } from '../art/goodsIcons';
+import { type GoodsKind } from '../art/goodsIcons';
+import { goodsTexture } from './econ/textures';
 import { itemDef, normalizeRarity, type Item, type Rarity } from '../data/items';
 import { ensureItemIcon, fitItemIcon } from './sprites';
 import { navLayer } from '../platform/nav';
@@ -673,10 +674,7 @@ export function subjectName(s: IconSubject): string {
 function iconTexture(scene: Phaser.Scene, s: IconSubject): string {
   if ('item' in s) return ensureItemIcon(scene, s.item);
   const kind: GoodsKind = 'consumable' in s ? 'consumable' : 'resource';
-  const id = 'consumable' in s ? s.consumable : s.resource;
-  const key = goodsIconKey(kind, id);
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderGoodsIcon(kind, id).toCanvas());
-  return key;
+  return goodsTexture(scene, kind, 'consumable' in s ? s.consumable : s.resource);
 }
 
 /**
@@ -710,7 +708,7 @@ export class ItemIcon extends Phaser.GameObjects.Container {
     if (!scene.textures.exists(fk)) scene.textures.addCanvas(fk, renderRarityFrame(size, RARITY_COLOR[rarity], RARITY_GLOW[rarity]).toCanvas());
     this.add(scene.add.image(0, 0, fk).setOrigin(0, 0));
     const icon = scene.add.image(Math.floor((size - 16) / 2), Math.floor((size - 16) / 2), iconTexture(scene, subject)).setOrigin(0, 0);
-    if ('item' in subject) fitItemIcon(icon, 16); // smooth item icons are denser than their 16 UI px
+    fitItemIcon(icon, 16); // smooth item and goods icons are denser than their 16 UI px
     this.add(icon);
     if (o.qty !== undefined && o.qty > 1) {
       const q = addText(scene, size - 1, size - 9, `${o.qty > 999 ? '999+' : o.qty}`, 'light', 1);

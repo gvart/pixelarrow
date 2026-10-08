@@ -4,40 +4,26 @@
  * offline / closed" states (built on the kit's empty state).
  */
 import Phaser from 'phaser';
-import { addIcon, addPanel, addText } from '../kit';
+import { addIcon, addPanel, addText, registerUiAssets } from '../kit';
 import { addEmptyState, subjectName } from '../widgets';
 import { ellipsize, measureText } from '../textfit';
-import { renderIcon } from '../../art/uiTextures';
-import { renderGoodsIcon, goodsIconKey, type GoodsKind } from '../../art/goodsIcons';
-import { renderCosmetic, cosmeticKey } from '../../art/cosmeticArt';
-import { P } from '../../art/palette';
 import type { CosmeticInfo, EconomyCatalog, PassReward } from '../../platform/api';
 import type { EconState } from '../../game/economy';
 import { t, tOr } from '../../i18n';
 
-const DRACHMA = ['............', '...######...', '..#++++++#..', '.#+++##+++#.', '.#++#..#++#.', '.#++#..#++#.', '.#+#....#+#.', '.#+######+#.', '.#++++++++#.', '..#++++++#..', '...######...', '............'];
-
-/** Registers the kit-style 'drachma' icon (icon_drachma, iconL_, iconD_) once. */
+/**
+ * Makes sure the 'drachma' kit icon (icon_drachma, iconL_, iconD_) exists: it
+ * is one of the smooth UI icons (src/art/vectorIcons.ts), registered with the
+ * rest of the kit's assets.
+ */
 export function ensureEconIcons(scene: Phaser.Scene): void {
   if (scene.textures.exists('icon_drachma')) return;
-  scene.textures.addCanvas('icon_drachma', renderIcon(DRACHMA, 0x2f5ea8, 0xc8d8f0).toCanvas());
-  scene.textures.addCanvas('iconL_drachma', renderIcon(DRACHMA, P.cream, 0x9cc4ff).toCanvas());
-  scene.textures.addCanvas('iconD_drachma', renderIcon(DRACHMA, 0x9a8070, 0xc8b0a0).toCanvas());
+  registerUiAssets(scene);
 }
 
 export const currencyIcon = (c: 'gold' | 'drachmae'): string => (c === 'gold' ? 'coin' : 'drachma');
 
-export function goodsTexture(scene: Phaser.Scene, kind: GoodsKind, id: string): string {
-  const key = goodsIconKey(kind, id);
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderGoodsIcon(kind, id).toCanvas());
-  return key;
-}
-
-export function cosmeticTexture(scene: Phaser.Scene, id: string, slot: string): string {
-  const key = cosmeticKey(id);
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderCosmetic(id, slot).toCanvas());
-  return key;
-}
+export { addCosmetic, addGoodsIcon, cosmeticTexture, fitCosmetic, fitGoodsIcon, goodsTexture } from './textures';
 
 export function cosmeticName(c: Pick<CosmeticInfo, 'id' | 'name'>): string {
   return tOr(`cosmetic.${c.id}`, c.name);
