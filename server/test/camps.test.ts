@@ -222,7 +222,7 @@ describe('camps', () => {
     expect((await getJson<{ status: number }>(`/api/online/region/${ring[0]}`, p.token)).status).toBe(200);
   });
 
-  it('a palisade raises the militia and the garrison cap; a captured camp is razed', { timeout: 30_000 }, async () => {
+  it('a palisade raises the militia and the garrison cap; a captured camp is razed', async () => {
     const owner = await join(880501, 'Owner');
     const att = await join(880502, 'Raider');
     await sameShard(owner, att);
@@ -262,7 +262,7 @@ describe('camps', () => {
         expect(rows.find((r) => r.event === end)?.status).toBe('pending');
         expect(bot.filter((b) => b.method === 'sendMessage')).toHaveLength(1);
       },
-      { timeout: 8000, interval: 50 },
+      { timeout: 30_000, interval: 50 },
     );
   });
 });

@@ -194,7 +194,7 @@ export async function wsPath(token: string, path: string): Promise<WsClient> {
       new Promise((resolve, reject) => {
         waiters.push({ type, pred, resolve });
         pump();
-        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs.map((m) => m.type))}`)), 10_000);
+        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs.map((m) => m.type))}`)), 30_000);
       }),
   };
   const pump = () => {

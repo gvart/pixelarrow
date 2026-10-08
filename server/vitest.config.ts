@@ -31,5 +31,9 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     setupFiles: ['./test/setup.ts'],
     globalSetup: ['./test/globalSetup.ts'],
+    // Generous bounds: under CPU load (busy CI runners) socket round trips and
+    // background work are slow; tests wait on conditions, these only cap a hang.
+    testTimeout: 120_000,
+    hookTimeout: 60_000,
   },
 });
