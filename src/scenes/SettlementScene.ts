@@ -181,7 +181,7 @@ export class SettlementScene extends BaseScene {
         pf.fillStyle(roleColor(cls.role), 1);
         pf.fillRect(4, 4, 28, 28);
         row.add(pf);
-        const img = addPortrait(this, dollFromHero(hero), 6, 6).setInteractive();
+        const img = addPortrait(this, dollFromHero(hero), 4, 4, { size: 28 }).setInteractive();
         uiId(img, 'recruit.card');
         row.add(img);
         img.on('pointerup', () => !this.list?.area.moved && this.openRecruit(r.index));

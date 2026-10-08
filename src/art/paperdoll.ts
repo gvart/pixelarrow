@@ -21,8 +21,12 @@
  *     dieB0..dieB3 rout0..rout3 win0 win1. ANIM lists every sequence in play
  *     order (idle 4, walk 8, run 6, attack 5, hit 2, two deaths of 4, rout 4,
  *     victory 2); use it (or attackFrames) instead of raw column numbers.
- *     Riders: walk = gallop, hit = the horse rears, die = horse and rider fall.
- *     Animals: walk = trot/lope, atk = lunge and bite (the bear rears and swipes).
+ *     Riders: walk = a four-beat walk, run = the gallop (ANIM.gallop), hit = the
+ *     horse rears, die = the horse stumbles and goes over (the rider thrown ahead),
+ *     dieB = it sits back and topples (the rider slid off behind).
+ *     Animals: walk = trot (the bear ambles), run = gallop / lope, atk = crouch,
+ *     coil, lunge, bite (the bear rears and swipes), two deaths; on a 16-column
+ *     sheet (chariots, UI sheets) the extra columns alias the legacy ones.
  *   - Rows (DIRS): 0 facing field +x (screen down-right), 1 facing field -y (up-right,
  *     seen from behind: the player's army), 2 facing field +y (down-left, seen from the
  *     front: the enemy), 3 facing field -x (up-left). No mirroring at render time.
@@ -99,8 +103,9 @@ export const ANIM = {
   rout: [FRAME.rout0, FRAME.rout1, FRAME.rout2, FRAME.rout3],
   /** Victory pose (a cosmetic picks which), two frames looped. */
   win: [FRAME.win0, FRAME.win1],
-  /** Riders, chariots and animals. */
-  gallop: [2, 3, 4, 5],
+  /** Riders and animals: the gallop / lope is their run (a 16-column sheet shows its walk columns for it). */
+  gallop: [FRAME.run0, FRAME.run1, FRAME.run2, FRAME.run3, FRAME.run4, FRAME.run5],
+  /** Chariots and other 16-column figures: the three-step fall. */
   fall: [10, 11, 12],
 } as const;
 
@@ -111,7 +116,8 @@ export const ANIM = {
 export const ANIM_FRAMES = {
   idle: [0, 1],
   walk: ANIM.walk,
-  gallop: ANIM.gallop,
+  /** The four gallop columns of a 16-column sheet (walk0..walk3). */
+  gallop: [2, 3, 4, 5],
   attack: [6, 7, 8],
   hit: [9],
   die: ANIM.die,
@@ -429,9 +435,19 @@ export function dollGeom(d: DollSpec): SheetGeom {
   return GEOM.man;
 }
 
-/** Columns of this figure's sheet: NFRAMES for a man on foot, LEGACY_FRAMES otherwise. */
+/** Columns of this figure's sheet (a UI texture): NFRAMES for a man on foot, LEGACY_FRAMES otherwise. */
 export function sheetFrames(d: DollSpec): number {
   return d.beast || d.mount ? LEGACY_FRAMES : NFRAMES;
+}
+
+/**
+ * Distinct poses this figure's builder draws: every column (NFRAMES) for men,
+ * riders and animals; the sixteen legacy ones for chariots and mythic beasts.
+ * The battle's atlases draw frames one at a time, so a rider there has the
+ * full set (a walk and a gallop, two deaths) while his UI sheet stays at 16.
+ */
+export function drawnFrames(d: DollSpec): number {
+  return d.mount === 'chariot' || isMythId(d.beast) ? LEGACY_FRAMES : NFRAMES;
 }
 
 // ================================================================ rarity effects
@@ -491,7 +507,8 @@ export function renderFrame(d: DollSpec, frame: number, dir: number, mask?: Uint
   const sc = new Scene();
   const [fx, fy] = DIRS[dir];
   const B = basis(fx, fy);
-  const lf = legacyFrame(frame);
+  // figures that draw every column get the frame as is; sixteen-column ones its legacy column
+  const lf = drawnFrames(d) >= NFRAMES ? frame : legacyFrame(frame);
   if (isMythId(d.beast)) buildMyth(sc, d.beast, d.pose === 'sp' ? frame : lf, mythBasis(fx, fy), d.pose === 'sp', (d.seed ?? 0) % 3);
   else if (d.beast) buildBeast(sc, d.beast, lf, B, d.seed ?? 0);
   else if (d.mount === 'chariot') buildChariot(sc, d, lf, B, dir);
@@ -908,8 +925,9 @@ function rig(d: DollSpec, p: ManPose): { R: V3; L: V3; w: V3; grip: number } {
       grip = 0.42;
       if (rest) {
         // upright, butt-spike near the foot: the hedge of a phalanx at rest; slanted forward on the march
-        R = [0.1, 0.25, 0.08 + (a === 'walk' ? Math.sin(p.phase * 2) * 0.012 : 0)];
-        w = a === 'walk' ? [0.32, 0.02, 1] : [0.08 + (k === 2 ? 0.06 : 0) + hash2(d.seed ?? 0, 1, 2) * 0.05, 0, 1];
+        R = [0.1, 0.25, 0.08 + (a === 'walk' && !Number.isNaN(p.phase) ? Math.sin(p.phase * 2) * 0.012 : 0)];
+        // a rider keeps it slanted up and forward, clear of the horse's neck
+        w = p.seated ? [0.45, 0, 1] : a === 'walk' ? [0.32, 0.02, 1] : [0.08 + (k === 2 ? 0.06 : 0) + hash2(d.seed ?? 0, 1, 2) * 0.05, 0, 1];
         grip = 0.28;
       } else if (a === 'run') {
         // levelled for the charge, underarm
@@ -958,15 +976,42 @@ function rig(d: DollSpec, p: ManPose): { R: V3; L: V3; w: V3; grip: number } {
     case 'lance': {
       grip = 0.35;
       if (rest) {
+        // carried at the thigh, slanting up over the shoulder
         R = [0.12, 0.22, 0.12];
-        w = [0.25, 0, 1];
+        w = p.seated ? [0.5, 0, 1] : [0.25, 0, 1];
         grip = 0.28;
-      } else if (a === 'strike' || a === 'follow') {
-        R = [0.38, 0.12, 0.3];
-        w = [1, 0, -0.08];
-      } else if (a === 'cock' || a === 'raise' || a === 'wind') {
-        R = [-0.08, 0.2, 0.3];
+      } else if (a === 'run') {
+        // couched for the charge
+        R = [0.1, 0.22, 0.06];
         w = [1, 0, -0.04];
+        grip = 0.42;
+      } else if (a === 'wind') {
+        // drawn back along the flank
+        R = [-0.16, 0.24, 0.12];
+        w = [1, 0, 0.04];
+      } else if (a === 'cock' || a === 'raise') {
+        R = [-0.3, 0.26, 0.16];
+        w = [1, 0, 0.0];
+      } else if (a === 'strike') {
+        R = [0.56, 0.14, 0.2];
+        w = [1, 0, -0.12];
+      } else if (a === 'follow') {
+        R = [0.64, 0.1, 0.14];
+        w = [1, -0.03, -0.18];
+      } else if (a === 'recover') {
+        R = [0.26, 0.2, 0.18];
+        w = [1, 0, 0.05];
+      } else if (a === 'hit') {
+        R = [0.0, 0.3, 0.3];
+        w = [0.6, 0.1, 0.8];
+      } else if (a === 'rout') {
+        R = [-0.05, 0.26, 0.0];
+        w = [-0.8, 0.1, 0.5];
+        grip = 0.5;
+      } else if (a === 'win') {
+        R = [0.05, 0.24, 0.8 + k * 0.1];
+        w = [0.15, 0, 1];
+        grip = 0.3;
       } else {
         R = [0.2, 0.2, 0.2];
         w = [1, 0, 0.1];
@@ -1130,6 +1175,7 @@ function rig(d: DollSpec, p: ManPose): { R: V3; L: V3; w: V3; grip: number } {
     R = [0.18, 0.32, 0.12];
     L = [0.12, -0.32, 0.18];
   }
+  if (p.seated && a === 'hit' && !sh) L = [0.42, -0.1, 0.22];
   return { R, L, w, grip };
 }
 
@@ -1847,13 +1893,8 @@ function weapon(sc: Scene, w: string, k: Skeleton, B: Basis, p: ManPose, seed: n
     case 'spear_short':
     case 'lance': {
       const L = w === 'lance' ? 3.4 : w === 'spear' ? (def === 'bronze_dory' ? 2.6 : 2.5) : 1.85;
-      let grip = k.grip;
-      let dd = d;
-      if (p.seated && p.arm === 'idle') {
-        dd = norm(add(mul(B.F, 1), mul(B.U, w === 'lance' ? 0.15 : 0.9)));
-        grip = 0.35;
-      }
-      if (p.seated && w === 'lance' && p.arm !== 'idle' && p.arm !== 'rest') dd = norm(add(B.F, mul(B.U, -0.08)));
+      const grip = k.grip;
+      const dd = d;
       const a = sub(hR, mul(dd, L * grip));
       const b = add(hR, mul(dd, L * (1 - grip)));
       shaft(a, b, w === 'lance' ? DARK_WOOD : shaftMat);
@@ -2005,137 +2046,377 @@ function weapon(sc: Scene, w: string, k: Skeleton, B: Basis, p: ManPose, seed: n
 function ringAt(sc: Scene, H: V3, B: Basis, r: number, h: number, c: number): void {
   ring(sc, B, H, r, h, c, 8);
 }
-// ================================================================ horses and riders
+// ================================================================ quadruped gaits
 
-interface Gait {
-  /** Per leg [fl, fr, hl, hr]: swing angle forward (rad) and lift (m). */
-  swing: number[];
-  lift: number[];
-  /** Body pitch (rad, + = nose up) and height bob. */
-  pitch: number;
-  bob: number;
-  /** Head / neck: + = head raised. */
-  head: number;
-  roll: number;
-  down: number;
+/** One foot: forward offset of the hoof / paw from its rest spot (m, along F) and lift. */
+interface LegPose {
+  x: number;
+  z: number;
 }
 
-function gait(frame: number): Gait {
-  const g: Gait = { swing: [0.05, -0.05, -0.05, 0.05], lift: [0, 0, 0, 0], pitch: 0, bob: 0, head: 0, roll: 0, down: 0 };
-  const name = FRAME_NAMES[frame];
-  if (name === 'idle1') g.head = -0.08;
-  if (name.startsWith('walk')) {
-    // Transverse gallop, right lead, four beats then a moment of suspension:
-    //   0  left hind lands under the body (the fores reach out ahead)
-    //   1  right hind down, left fore lands: the hindquarters drive, the body is lowest
-    //   2  right (leading) fore lands as the hinds fold forwards under the belly
-    //   3  suspension: every hoof off the ground, the body highest and gathered
-    // legs are [fore-left, fore-right, hind-left, hind-right]; swing is forward (rad), lift in metres.
-    const k = frame - 2;
-    const sw = [
-      [0.55, 0.42, -0.08, -0.3],
-      [0.18, 0.5, -0.4, -0.22],
-      [-0.3, 0.05, 0.3, 0.45],
-      [-0.4, -0.25, 0.55, 0.4],
-    ][k];
-    const lf = [
-      [0.1, 0.16, 0.0, 0.06],
-      [0.0, 0.08, 0.0, 0.0],
-      [0.1, 0.0, 0.14, 0.1],
-      [0.22, 0.2, 0.24, 0.26],
-    ][k];
-    g.swing = sw;
-    g.lift = lf;
-    g.pitch = [0.08, 0.0, -0.07, 0.03][k];
-    g.bob = [0.0, -0.04, 0.02, 0.08][k];
-    g.head = [0.08, -0.04, -0.14, -0.02][k];
-  } else if (name === 'atk0') {
-    g.head = 0.15;
-    g.swing = [0.25, 0.1, -0.15, -0.1];
-  } else if (name === 'atk1') {
-    g.pitch = -0.05;
-    g.swing = [0.35, 0.3, -0.3, -0.25];
-    g.head = -0.1;
-  } else if (name === 'atk2') {
-    g.swing = [0.15, 0.05, -0.1, -0.05];
-  } else if (name === 'hit') {
-    // rearing
-    g.pitch = 0.45;
-    g.swing = [0.9, 0.6, 0.15, 0.1];
-    g.lift = [0.3, 0.2, 0, 0];
-    g.head = 0.3;
-  } else if (name === 'die0') {
-    g.pitch = -0.2;
-    g.swing = [0.7, 0.6, -0.1, -0.1];
-    g.down = 0.25;
-  } else if (name === 'die1') {
-    g.roll = 0.75;
-    g.down = 0.35;
-    g.swing = [0.5, 0.3, -0.3, -0.2];
-  } else if (name === 'die2') {
-    g.roll = 1.5;
-    g.down = 0.42;
-    g.swing = [0.6, 0.2, -0.5, -0.1];
+/** What a four-legged body is doing in a frame (horse, wolf, boar, bear). */
+interface Gait {
+  /** Per leg [fore-left, fore-right, hind-left, hind-right]. */
+  legs: LegPose[];
+  /** Height bob (+ up), body pitch about its centre (+ = nose up), roll about F (falling onto a side), sink (dying). */
+  bob: number;
+  pitch: number;
+  roll: number;
+  down: number;
+  /** Rearing: pitch about the hind feet (+ = nose up). */
+  rear: number;
+  /** Head raised (+) / lowered, neck extended forward (+), head turned (+ = to its right). */
+  head: number;
+  neck: number;
+  yaw: number;
+  /** Tail swished sideways (+ right) and lifted. */
+  tail: number;
+  tailUp: number;
+  /** One ear laid back (0..1). */
+  ear: number;
+  /** Spine: + extended (reaching), - gathered (hinds under the body, back arched). */
+  stretch: number;
+  /** Whole body shifted forward (a lunge). */
+  lunge: number;
+  /** Jaws open (0..1). */
+  jaw: number;
+}
+
+function baseGait(): Gait {
+  return { legs: [{ x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }], bob: 0, pitch: 0, roll: 0, down: 0, rear: 0, head: 0, neck: 0, yaw: 0, tail: 0, tailUp: 0, ear: 0, stretch: 0, lunge: 0, jaw: 0 };
+}
+
+/**
+ * Footfall patterns: when in the cycle (0..1) each leg [FL, FR, HL, HR] lands,
+ * and how long it stays on the ground (duty).
+ *   walk    four-beat lateral sequence (LH, LF, RH, RF), three feet down at a time
+ *   trot    diagonal pairs (LF + RH, RF + LH)
+ *   pace    lateral pairs (a bear's amble: the body sways)
+ *   gallop  transverse, right lead (LH, RH, LF, RF, then suspension): the horse
+ *   rotary  rotary (LH, RH, RF, LF): dogs, boars, with the spine flexing
+ */
+const GAITS = {
+  walk: { off: [0.25, 0.75, 0.0, 0.5], duty: 0.65 },
+  trot: { off: [0.0, 0.5, 0.5, 0.0], duty: 0.5 },
+  pace: { off: [0.0, 0.5, 0.08, 0.58], duty: 0.6 },
+  gallop: { off: [0.25, 0.38, 0.0, 0.1], duty: 0.33 },
+  rotary: { off: [0.42, 0.3, 0.0, 0.12], duty: 0.35 },
+} as const;
+type GaitKind = keyof typeof GAITS;
+
+/** A leg at `u` (0..1) of its own cycle: planted and moving back, then swinging forward in an arc. */
+function legCycle(u: number, duty: number, stride: number, lift: number): LegPose {
+  u = ((u % 1) + 1) % 1;
+  if (u < duty) return { x: stride * (0.5 - u / duty), z: 0 };
+  const t = (u - duty) / (1 - duty);
+  const e = t * t * (3 - 2 * t);
+  return { x: stride * (e - 0.5), z: lift * Math.sin(Math.PI * t) };
+}
+
+/** The four legs of a gait at phase `ph` (0..1); `lift` per leg pair [fore, hind]. */
+function legsOf(kind: GaitKind, ph: number, stride: number, lift: [number, number]): LegPose[] {
+  const g = GAITS[kind];
+  return g.off.map((o, i) => legCycle(ph - o, g.duty, stride, lift[i < 2 ? 0 : 1]));
+}
+
+const TAU = Math.PI * 2;
+const cyc = (ph: number, at: number) => Math.cos(TAU * (ph - at));
+
+// ================================================================ horses and riders
+
+/** The horse's pose for a frame of the full (40-column) set; a chariot's horses pass legacy columns through the same table. */
+function horseGait(frame: number, seed = 0): Gait {
+  const g = baseGait();
+  const name = FRAME_NAMES[frame] ?? 'idle0';
+  const num = (pre: string) => Number(name.slice(pre.length));
+  // at rest a horse cocks one hind foot (the toe down, the hip dropped) and shifts now and then
+  const restHind = (i: number) => {
+    g.legs[i] = { x: 0.08, z: 0.025 };
+    g.roll = i === 3 ? 0.02 : -0.02;
+  };
+  if (name.startsWith('idle')) {
+    const k = num('idle');
+    restHind(k === 2 ? 2 : 3);
+    if (k === 1) {
+      g.head = -0.08;
+      g.tail = 0.35;
+      g.ear = 1;
+    } else if (k === 2) {
+      // a head toss, turned to look aside
+      g.head = 0.14;
+      g.yaw = 0.3;
+      g.tail = -0.1;
+    } else if (k === 3) {
+      g.head = -0.03;
+      g.tail = -0.35;
+      g.tailUp = 0.1;
+      g.ear = 0.5;
+      g.neck = 0.03;
+    }
+  } else if (name.startsWith('walk')) {
+    // a four-beat walk: the head nods down as each fore lands, the body sways over the planted side
+    const ph = num('walk') / 8;
+    g.legs = legsOf('walk', ph, 0.5, [0.09, 0.08]);
+    g.bob = 0.012 * cyc(ph, 0.1) * -1 + 0.012 * cyc(2 * ph, 0.25) * 0.5;
+    g.head = -0.06 + 0.05 * cyc(2 * ph, 0.0);
+    g.neck = 0.03 * cyc(2 * ph, 0.5);
+    g.roll = 0.035 * Math.sin(TAU * (ph - 0.1));
+    g.tail = 0.18 * Math.sin(TAU * ph);
+    g.ear = ph > 0.5 ? 0.4 : 0;
+  } else if (name.startsWith('run') || name.startsWith('rout')) {
+    // transverse gallop, right lead: the hinds drive (nose up), the fores reach and land (nose down,
+    // neck stretched), then a moment of suspension with every hoof folded under the body
+    const rout = name.startsWith('rout');
+    const ph = (rout ? num('rout') / 4 : num('run') / 6) + (rout ? 0.5 : 0);
+    g.legs = legsOf('gallop', ph, 0.95, [0.28, 0.32]);
+    g.bob = 0.05 * cyc(ph, 0.85) - 0.01;
+    g.pitch = 0.09 * cyc(ph, 0.15);
+    g.head = -0.04 + 0.12 * cyc(ph, 0.1);
+    g.neck = 0.06 * cyc(ph, 0.45);
+    g.stretch = cyc(ph, 0.45);
+    g.tailUp = 0.3 + 0.1 * cyc(ph, 0.6);
+    g.tail = 0.1 * Math.sin(TAU * ph);
+    if (rout) {
+      g.ear = 1;
+      g.head += 0.06;
+    }
+  } else {
+    switch (name) {
+      case 'wind':
+        // the rider winds up: the horse's head comes up, the hinds gather
+        g.head = 0.1;
+        g.legs[2] = { x: 0.06, z: 0 };
+        g.legs[3] = { x: 0.1, z: 0 };
+        g.ear = 0.3;
+        break;
+      case 'atk0':
+        g.head = 0.14;
+        g.neck = -0.03;
+        g.bob = -0.025;
+        g.pitch = 0.04;
+        g.legs[2] = { x: 0.12, z: 0 };
+        g.legs[3] = { x: 0.16, z: 0 };
+        g.stretch = -0.4;
+        break;
+      case 'atk1':
+        // the surge behind the strike: the neck stretches, a fore reaches
+        g.head = -0.08;
+        g.neck = 0.08;
+        g.pitch = -0.03;
+        g.lunge = 0.06;
+        g.legs[1] = { x: 0.26, z: 0.1 };
+        g.legs[0] = { x: 0.08, z: 0 };
+        g.legs[2] = { x: -0.05, z: 0 };
+        g.stretch = 0.6;
+        g.ear = 0.6;
+        break;
+      case 'follow':
+        g.head = -0.1;
+        g.neck = 0.06;
+        g.lunge = 0.08;
+        g.legs[1] = { x: 0.3, z: 0 };
+        g.legs[0] = { x: 0.12, z: 0 };
+        g.legs[2] = { x: -0.12, z: 0 };
+        g.legs[3] = { x: -0.06, z: 0 };
+        g.stretch = 0.4;
+        g.ear = 0.6;
+        break;
+      case 'atk2':
+        g.head = -0.02;
+        g.lunge = 0.03;
+        g.legs[1] = { x: 0.14, z: 0 };
+        g.legs[0] = { x: 0.06, z: 0 };
+        break;
+      case 'block':
+        g.head = 0.08;
+        g.bob = -0.015;
+        g.ear = 1;
+        break;
+      case 'hit':
+        // rearing: up on the hinds, the fores pawing, the head thrown up
+        g.rear = 0.6;
+        g.legs[0] = { x: 0.3, z: 0.4 };
+        g.legs[1] = { x: 0.45, z: 0.3 };
+        g.legs[2] = { x: 0.1, z: 0 };
+        g.legs[3] = { x: 0.05, z: 0 };
+        g.head = 0.2;
+        g.neck = -0.04;
+        g.ear = 1;
+        g.tailUp = 0.2;
+        g.jaw = 1;
+        break;
+      case 'hit1':
+        // coming down: the fores reach for the ground
+        g.rear = 0.25;
+        g.legs[0] = { x: 0.42, z: 0.12 };
+        g.legs[1] = { x: 0.5, z: 0.2 };
+        g.legs[2] = { x: 0.08, z: 0 };
+        g.head = 0.04;
+        g.neck = 0.04;
+        g.ear = 1;
+        g.jaw = 0.5;
+        break;
+      case 'die0':
+        // stumbling: the fores buckle (one knee on the ground), the nose dives, the hinds still stretched behind
+        g.down = 0.1;
+        g.pitch = -0.34;
+        g.head = -0.3;
+        g.neck = 0.05;
+        g.legs[0] = { x: -0.38, z: 0.04 };
+        g.legs[1] = { x: 0.12, z: 0.0 };
+        g.legs[2] = { x: -0.22, z: 0 };
+        g.legs[3] = { x: -0.12, z: 0 };
+        g.ear = 1;
+        break;
+      case 'die1':
+        // going over onto its left side
+        g.down = 0.14;
+        g.pitch = -0.18;
+        g.roll = 0.6;
+        g.head = -0.2;
+        g.legs[0] = { x: 0.2, z: 0.2 };
+        g.legs[1] = { x: 0.35, z: 0.15 };
+        g.legs[2] = { x: -0.3, z: 0.1 };
+        g.legs[3] = { x: 0.1, z: 0.2 };
+        g.ear = 1;
+        break;
+      case 'die1b':
+        // down on the side, legs kicking out
+        g.down = 0.02;
+        g.roll = 1.35;
+        g.pitch = -0.05;
+        g.head = -0.1;
+        g.neck = 0.05;
+        g.legs[0] = { x: 0.35, z: 0.3 };
+        g.legs[1] = { x: 0.5, z: 0.1 };
+        g.legs[2] = { x: -0.2, z: 0.3 };
+        g.legs[3] = { x: -0.05, z: 0.15 };
+        g.ear = 1;
+        break;
+      case 'die2':
+        g.down = 0.02;
+        g.roll = 1.5;
+        g.head = -0.12;
+        g.neck = 0.08;
+        g.legs[0] = { x: 0.3, z: 0.12 };
+        g.legs[1] = { x: 0.45, z: 0.02 };
+        g.legs[2] = { x: -0.25, z: 0.12 };
+        g.legs[3] = { x: -0.1, z: 0.04 };
+        g.ear = 1;
+        break;
+      case 'dieB0':
+      case 'dieB1':
+      case 'dieB2':
+      case 'dieB3': {
+        // the hind legs give: the horse sits back, then topples onto its left side
+        const k = num('dieB');
+        g.down = [0.18, 0.16, 0.02, 0.02][k];
+        g.pitch = [0.22, 0.12, -0.02, 0][k];
+        g.roll = [0, -0.55, -1.3, -1.5][k];
+        g.head = [0.18, 0.1, -0.12, -0.15][k];
+        g.neck = [-0.04, 0, 0.06, 0.08][k];
+        g.legs[2] = { x: [0.25, 0.3, 0.1, 0.0][k], z: [0.05, 0.15, 0.25, 0.1][k] };
+        g.legs[3] = { x: [0.3, 0.25, 0.2, 0.1][k], z: [0.02, 0.1, 0.3, 0.15][k] };
+        g.legs[0] = { x: [0.1, 0.25, 0.3, 0.35][k], z: [0, 0.1, 0.2, 0.05][k] };
+        g.legs[1] = { x: [0.0, 0.2, 0.4, 0.45][k], z: [0, 0.05, 0.1, 0][k] };
+        g.ear = 1;
+        g.jaw = k < 2 ? 1 : 0;
+        break;
+      }
+      case 'win0':
+      case 'win1':
+        g.head = num('win') ? 0.16 : 0.1;
+        g.neck = -0.02;
+        restHind(3);
+        g.tailUp = 0.15;
+        g.legs[1] = num('win') ? { x: 0.2, z: 0.1 } : { x: 0.15, z: 0.02 };
+        break;
+    }
   }
+  void seed;
   return g;
 }
 
-/** A horse standing on the origin, facing B.F. Returns the saddle point (world). */
-function buildHorse(sc: Scene, B: Basis, frame: number, coat: Material, o: V3 = [0, 0, 0], tack: Material | null = LEATHER, cloth: Material | null = null, fine = false): V3 {
-  const g = gait(frame);
-  const at = (f: number, r: number, u: number) => B.at(o, f, r, u + g.bob - g.down);
+/**
+ * A horse standing on the origin, facing B.F, posed by a Gait. Returns the
+ * saddle point (world) with the bob, sink and pitch applied, and the roll
+ * (the caller rolls the rider with the horse).
+ */
+function buildHorse(sc: Scene, B: Basis, g: Gait, coat: Material, o: V3 = [0, 0, 0], tack: Material | null = LEATHER, cloth: Material | null = null, fine = false): V3 {
+  const at = (f: number, r: number, u: number) => B.at(o, f + g.lunge, r, u + g.bob - g.down);
+  // the body pitches about its centre; the hooves stay on the ground
+  const centre = at(0, 0, 1.22);
+  const cp = Math.cos(g.pitch);
+  const sp = Math.sin(g.pitch);
+  const bp = (f: number, r: number, u: number): V3 => {
+    const p = at(f, r, u);
+    const d = sub(p, centre);
+    const fwd = d[0] * B.F[0] + d[1] * B.F[1] + d[2] * B.F[2];
+    const up = d[2];
+    const rt = d[0] * B.R[0] + d[1] * B.R[1] + d[2] * B.R[2];
+    return add(centre, add(add(mul(B.F, fwd * cp - up * sp), mul(B.U, fwd * sp + up * cp)), mul(B.R, rt)));
+  };
+  const st = g.stretch;
   sc.group();
-  // legs first (each leg: shoulder/hip -> knee -> hoof)
-  const legs: [number, number, number][] = [[0.52, -0.16, 0], [0.52, 0.16, 1], [-0.58, -0.16, 2], [-0.58, 0.16, 3]];
+  // legs: shoulder / hip -> knee (carpus) or hock -> hoof, two-bone IK from the body down to the hoof
+  const legs: [number, number, number][] = [[0.52 + 0.05 * st, -0.16, 0], [0.52 + 0.05 * st, 0.16, 1], [-0.58 - 0.06 * st, -0.16, 2], [-0.58 - 0.06 * st, 0.16, 3]];
   for (const [lf, lr, i] of legs) {
-    const top = at(lf, lr, 1.02);
-    const a = g.swing[i];
-    const lift = g.lift[i];
-    const knee = add(top, add(mul(B.F, Math.sin(a) * 0.45), mul(B.U, -Math.cos(a) * 0.45 + lift * 0.4)));
+    const top = bp(lf, lr, 1.0);
     const hind = i >= 2;
-    const bendF = hind ? -1 : 1;
-    const hoof = add(knee, add(mul(B.F, Math.sin(a) * 0.3 + bendF * lift * 0.5 * (hind ? -0.6 : 0.6)), mul(B.U, -0.5 + lift)));
+    const lp = g.legs[i];
+    const hoof = B.at(o, lf + g.lunge + lp.x, lr, 0.06 + lp.z);
+    const { mid: knee } = ik(top, hoof, hind ? 0.5 : 0.46, hind ? 0.54 : 0.56, hind ? B.dir(-1, 0, -0.2) : B.dir(1, 0, -0.1));
     sc.limb(top, knee, 0.1, 0.055, coat);
     sc.limb(knee, hoof, 0.045, 0.035, coat, fine ? (_l, w) => (w[2] - hoof[2] < 0.1 ? { shade: 0.5 } : null) : undefined);
     sc.limb(hoof, add(hoof, mul(B.U, -0.06)), 0.045, 0.05, HOOF);
   }
-  // barrel, chest and haunches
+  // barrel, chest and haunches (the barrel stretches with the gallop)
   sc.group();
-  const body = at(0, 0, 1.22);
-  sc.blob(body, B.F, B.R, B.U, 0.72, 0.27, 0.3, coat, (l) => (l[2] < -0.75 ? { shade: 0.6 } : null));
-  sc.blob(at(0.5, 0, 1.25), B.F, B.R, B.U, 0.32, 0.26, 0.32, coat);
-  sc.blob(at(-0.55, 0, 1.28), B.F, B.R, B.U, 0.34, 0.29, 0.32, coat);
+  const body = bp(0, 0, 1.22);
+  const bl = 0.72 + 0.04 * st;
+  const pitchF = add(mul(B.F, cp), mul(B.U, sp));
+  const pitchU = add(mul(B.U, cp), mul(B.F, -sp));
+  sc.blob(body, pitchF, B.R, pitchU, bl, 0.27, 0.3 - 0.015 * st, coat, (l) => (l[2] < -0.75 ? { shade: 0.6 } : null));
+  sc.blob(bp(0.5 + 0.04 * st, 0, 1.25), pitchF, B.R, pitchU, 0.32, 0.26, 0.32, coat);
+  sc.blob(bp(-0.55 - 0.05 * st, 0, 1.28), pitchF, B.R, pitchU, 0.34, 0.29, 0.32, coat);
   // neck, head, ears, mane, tail
-  const neckBase = at(0.72, 0, 1.45);
-  const headTop = at(1.02 + g.head * 0.1, 0, 1.92 + g.head * 0.3);
+  const neckBase = bp(0.72 + 0.03 * st, 0, 1.45);
+  const headTop = bp(1.02 + g.head * 0.1 + g.neck * 1.2, 0, 1.92 + g.head * 0.3 - g.neck * 0.5);
   sc.limb(neckBase, headTop, 0.17, 0.1, coat);
-  const muzzle = add(headTop, B.dir(0.55, 0, -0.55 + g.head).map((v) => v * 0.48) as V3);
+  const cy = Math.cos(g.yaw);
+  const sy = Math.sin(g.yaw);
+  const HF = add(mul(B.F, cy), mul(B.R, sy)); // the head's own forward
+  const HR = add(mul(B.R, cy), mul(B.F, -sy));
+  const muzzle = add(headTop, mul(norm(add(mul(HF, 0.55), mul(B.U, -0.55 + g.head - g.jaw * 0.05))), 0.48));
   const headDir = norm(sub(muzzle, headTop));
   sc.limb(headTop, muzzle, 0.1, 0.065, coat, fine ? (_l, w) => (len(sub(w, headTop)) < 0.16 ? null : { shade: 0.3 }) : undefined);
   sc.sphere(muzzle, 0.06, coat);
+  if (g.jaw) sc.limb(add(muzzle, mul(headDir, -0.08)), add(muzzle, add(mul(headDir, -0.02), mul(B.U, -0.07 * g.jaw))), 0.04, 0.03, coat); // the lower jaw dropped
   for (const s of [-1, 1]) {
-    sc.limb(add(headTop, mul(B.R, s * 0.05)), add(headTop, add(mul(B.U, 0.13), mul(B.R, s * 0.06))), 0.025, 0.012, coat);
-    // eyes and nostrils
-    sc.dot(add(add(headTop, mul(headDir, 0.12)), add(mul(B.R, s * 0.085), mul(B.U, 0.02))), 0x1a1412, 0.03);
-    if (fine) sc.dot(add(add(muzzle, mul(headDir, 0.04)), mul(B.R, s * 0.035)), coat.ramp[4], 0.03);
+    // ears (one laid back when flicked), eyes and nostrils
+    const back = g.ear > 0 && s === 1 ? g.ear : 0;
+    sc.limb(add(headTop, mul(HR, s * 0.05)), add(headTop, add(add(mul(B.U, 0.13 - back * 0.05), mul(HR, s * 0.06)), mul(HF, -back * 0.08))), 0.025, 0.012, coat);
+    sc.dot(add(add(headTop, mul(headDir, 0.12)), add(mul(HR, s * 0.085), mul(B.U, 0.02))), 0x1a1412, 0.03);
+    if (fine) sc.dot(add(add(muzzle, mul(headDir, 0.04)), mul(HR, s * 0.035)), coat.ramp[4], 0.03);
   }
   sc.group();
-  // the mane: a crest of hair falling to one side, combed into strands at 2x
+  // the mane: a crest of hair falling to one side, combed into strands at 2x; it lifts in a gallop
   const strands = (_l: V3, w: V3): Hit | null => (fine && ((Math.floor((w[0] + w[1]) * 9) + Math.floor(w[2] * 11)) & 1) === 0 ? { shade: 0.6 } : null);
-  sc.limb(add(neckBase, mul(B.U, 0.14)), add(headTop, mul(B.U, 0.08)), 0.055, 0.045, MANE, strands);
+  const fly = Math.max(0, g.tailUp - 0.2) * 0.3;
+  sc.limb(add(neckBase, mul(B.U, 0.14)), add(headTop, mul(B.U, 0.08 + fly)), 0.055, 0.045, MANE, strands);
   if (fine) sc.limb(add(add(neckBase, mul(B.U, 0.06)), mul(B.R, 0.1)), add(add(headTop, mul(B.U, 0.02)), mul(B.R, 0.09)), 0.04, 0.025, MANE, strands); // the mane's fall down the right of the neck
   if (fine) sc.limb(add(headTop, mul(B.U, 0.09)), add(headTop, add(mul(headDir, 0.14), mul(B.U, 0.06))), 0.035, 0.015, MANE); // forelock
-  const tailRoot = at(-0.86, 0, 1.4);
-  const flick = FRAME_NAMES[frame].startsWith('walk') ? 0.25 + [0.1, 0, -0.1, 0.2][frame - 2] : 0;
-  sc.limb(tailRoot, add(tailRoot, B.dir(-0.6 - flick, 0, -0.8).map((v) => v * 0.6) as V3), 0.06, 0.03, MANE, strands);
+  const tailRoot = bp(-0.86 - 0.04 * st, 0, 1.4);
+  const tailDir = B.dir(-0.6 - g.tailUp * 0.5, g.tail, -0.8 + g.tailUp * 1.2);
+  sc.limb(tailRoot, add(tailRoot, mul(tailDir, 0.6)), 0.06, 0.03, MANE, strands);
   // tack: saddle cloth, bridle, reins
-  let saddle = at(-0.08, 0, 1.52);
+  let saddle = bp(-0.08, 0, 1.52);
   if (cloth) {
     sc.group();
-    sc.blob(at(-0.1, 0, 1.44), B.F, B.R, B.U, 0.36, 0.3, 0.1, cloth, (l) => (l[2] < -0.5 ? { shade: 0.6 } : fine && l[2] < -0.2 && (Math.floor((l[0] + 1) * 7) & 1) === 0 ? { shade: 0.8 } : fine && Math.abs(l[0]) > 0.9 ? { shade: -0.4 } : null));
-    saddle = at(-0.08, 0, 1.56);
+    sc.blob(bp(-0.1, 0, 1.44), pitchF, B.R, pitchU, 0.36, 0.3, 0.1, cloth, (l) => (l[2] < -0.5 ? { shade: 0.6 } : fine && l[2] < -0.2 && (Math.floor((l[0] + 1) * 7) & 1) === 0 ? { shade: 0.8 } : fine && Math.abs(l[0]) > 0.9 ? { shade: -0.4 } : null));
+    saddle = bp(-0.08, 0, 1.56);
     // the girth under the belly
-    if (fine) sc.blob(at(-0.08, 0, 1.2), B.F, B.R, B.U, 0.03, 0.29, 0.3, DARK_LEATHER);
+    if (fine) sc.blob(bp(-0.08, 0, 1.2), pitchF, B.R, pitchU, 0.03, 0.29, 0.3, DARK_LEATHER);
   }
   if (tack) {
     sc.line(add(headTop, mul(B.U, -0.04)), muzzle, tack, 1);
@@ -2143,75 +2424,223 @@ function buildHorse(sc: Scene, B: Basis, frame: number, coat: Material, o: V3 = 
     if (fine) {
       // bridle: noseband, cheek strap and browband with a bronze boss; a breast strap across the chest
       const nose = add(muzzle, mul(headDir, -0.06));
-      for (const s of [-1, 1]) sc.line(add(nose, add(mul(B.R, s * 0.06), mul(B.U, 0.04))), add(nose, add(mul(B.R, s * 0.06), mul(B.U, -0.05))), tack, 0.5);
-      sc.line(add(headTop, add(mul(B.R, 0.1), mul(B.U, -0.02))), add(nose, add(mul(B.R, 0.065), mul(B.U, 0.02))), tack, 0.5);
-      sc.line(add(headTop, add(mul(B.R, -0.1), mul(B.U, 0.08))), add(headTop, add(mul(B.R, 0.1), mul(B.U, 0.08))), tack, 0.5);
-      sc.dot(add(add(headTop, mul(headDir, 0.1)), add(mul(B.R, 0.1), mul(B.U, -0.01))), 0xc8a050, 0.04);
-      sc.line(at(0.5, -0.26, 1.3), at(0.74, 0, 1.26), tack, 0.5);
-      sc.line(at(0.74, 0, 1.26), at(0.5, 0.26, 1.3), tack, 0.5);
-      sc.dot(at(0.76, 0, 1.26), 0xc8a050, 0.05);
+      for (const s of [-1, 1]) sc.line(add(nose, add(mul(HR, s * 0.06), mul(B.U, 0.04))), add(nose, add(mul(HR, s * 0.06), mul(B.U, -0.05))), tack, 0.5);
+      sc.line(add(headTop, add(mul(HR, 0.1), mul(B.U, -0.02))), add(nose, add(mul(HR, 0.065), mul(B.U, 0.02))), tack, 0.5);
+      sc.line(add(headTop, add(mul(HR, -0.1), mul(B.U, 0.08))), add(headTop, add(mul(HR, 0.1), mul(B.U, 0.08))), tack, 0.5);
+      sc.dot(add(add(headTop, mul(headDir, 0.1)), add(mul(HR, 0.1), mul(B.U, -0.01))), 0xc8a050, 0.04);
+      sc.line(bp(0.5, -0.26, 1.3), bp(0.74, 0, 1.26), tack, 0.5);
+      sc.line(bp(0.74, 0, 1.26), bp(0.5, 0.26, 1.3), tack, 0.5);
+      sc.dot(bp(0.76, 0, 1.26), 0xc8a050, 0.05);
     }
   }
-  // body pitch (rearing) and roll (falling) about the hind hooves / the ground
-  if (g.pitch) sc.rotate(at(-0.6, 0, 0), B.R, -g.pitch);
+  // rearing: the whole horse pitches up about the hind hooves
+  if (g.rear) {
+    const pivot = at(-0.6, 0, 0);
+    sc.rotate(pivot, B.R, -g.rear);
+    saddle = rotAbout(saddle, pivot, B.R, -g.rear);
+  }
   return saddle;
+}
+
+/** Rodrigues rotation of a point about an axis through a pivot. */
+function rotAbout(p: V3, pivot: V3, axis: V3, angle: number): V3 {
+  const k = norm(axis);
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const v = sub(p, pivot);
+  return add(pivot, add(add(mul(v, c), mul(cross(k, v), s)), mul(k, (k[0] * v[0] + k[1] * v[1] + k[2] * v[2]) * (1 - c))));
+}
+
+/** The rider's body following his horse: seated, bobbing and leaning with the gait, the arms doing the frame's act. */
+function riderPose(d: DollSpec, frame: number, g: Gait): ManPose {
+  const p = manPose({ ...d, shield: d.shield }, frame);
+  const name = FRAME_NAMES[frame] ?? 'idle0';
+  p.seated = true;
+  p.pf = 0;
+  p.pr = 0;
+  p.footL = [0, 0, 0];
+  p.footR = [0, 0, 0];
+  p.fall = 0;
+  p.fallFwd = false;
+  p.dead = false;
+  p.phase = NaN;
+  p.swing = 0;
+  p.roll = g.roll * 0.5;
+  p.twist *= 0.7;
+  // a lean of his own per act, plus following the horse: forward with its pitch down, back when it rears
+  let lean = 0.02;
+  let nod = 0;
+  if (name.startsWith('walk')) {
+    lean = 0.06;
+    nod = 0.01;
+    p.lag = 0.04;
+  } else if (name.startsWith('run')) {
+    // forward seat in the gallop, the body rising a little in the suspension
+    lean = 0.16 + 0.04 * g.stretch;
+    nod = 0.015;
+    p.lag = 0.18 + g.bob;
+  } else if (name.startsWith('rout')) {
+    lean = 0.24;
+    nod = 0.03;
+    p.lag = 0.22;
+  } else {
+    switch (name) {
+      case 'wind':
+        lean = -0.03;
+        break;
+      case 'atk0':
+        lean = -0.06;
+        break;
+      case 'atk1':
+        lean = 0.17;
+        nod = 0.02;
+        p.lag = 0.08;
+        break;
+      case 'follow':
+        lean = 0.2;
+        nod = 0.03;
+        p.lag = 0.06;
+        break;
+      case 'atk2':
+        lean = 0.06;
+        break;
+      case 'block':
+        lean = -0.04;
+        break;
+      case 'hit':
+        // thrown back as the horse rears, the free hand grabbing the mane
+        lean = -0.05;
+        nod = -0.03;
+        p.lag = -0.08;
+        break;
+      case 'hit1':
+        lean = -0.08;
+        nod = 0.02;
+        p.lag = -0.03;
+        break;
+      case 'die0':
+        lean = 0.26;
+        nod = 0.1;
+        p.arm = 'fall';
+        p.lag = -0.06;
+        break;
+      case 'die1':
+        lean = 0.34;
+        nod = 0.06;
+        p.arm = 'fall';
+        p.lag = -0.1;
+        break;
+      case 'dieB0':
+        lean = -0.16;
+        nod = -0.06;
+        p.arm = 'fall';
+        p.lag = -0.05;
+        break;
+      case 'dieB1':
+        lean = -0.26;
+        nod = -0.04;
+        p.arm = 'fall';
+        p.roll = -0.3;
+        p.lag = -0.1;
+        break;
+      case 'win0':
+      case 'win1':
+        lean = -0.05;
+        break;
+    }
+  }
+  p.lean = lean - g.pitch * 0.6 - g.rear * 0.06;
+  p.nod = nod - g.rear * 0.04;
+  return p;
 }
 
 function buildRider(sc: Scene, d: DollSpec, frame: number, B: Basis, dir: number): void {
   const coat = COATS[(d.coat ?? 0) % COATS.length];
   const cloth = d.cloak ? CLOTH[d.cloak] ?? null : null;
-  const g = gait(frame);
-  // the rider's pose: seated, the weapon moving with the frame
-  const p = manPose({ ...d, shield: d.shield }, frame);
-  p.seated = true;
-  p.lean = FRAME_NAMES[frame] === 'atk1' ? 0.14 : FRAME_NAMES[frame].startsWith('walk') ? 0.08 : 0.02;
-  p.pf = 0;
-  p.footL = [0, 0, 0];
-  p.footR = [0, 0, 0];
-  if (frame >= 10) p.arm = 'fall';
-  p.fall = 0;
-  p.dead = false;
+  const g = horseGait(frame, d.seed ?? 0);
+  const name = FRAME_NAMES[frame] ?? 'idle0';
+  const fine = fineDetail(d);
   const horse = new Scene();
-  const saddle = buildHorse(horse, B, frame, coat, [0, 0, 0], LEATHER, cloth ?? CLOTH.tunicOchre, fineDetail(d));
-  // seat him: the pelvis just above the saddle
+  const saddle = buildHorse(horse, B, g, coat, [0, 0, 0], LEATHER, cloth ?? CLOTH.tunicOchre, fine);
   const riderScene = new Scene();
-  const name = FRAME_NAMES[frame];
-  const thrown = name === 'die1' || name === 'die2';
+  // the rider leaves the saddle once the horse is going over: die1b / die2 thrown ahead, dieB2 / dieB3 pinned behind
+  const thrown = name === 'die1b' || name === 'die2' ? 1 : name === 'dieB2' || name === 'dieB3' ? 2 : 0;
   if (!thrown) {
-    p.hip = saddle[2] + 0.08;
-    // skeleton() places the pelvis at origin + hip: origin = saddle ground projection
+    const p = riderPose(d, frame, g);
+    // seated just above the saddle, the seat absorbing a little of the bob
+    p.hip = saddle[2] + 0.08 - g.bob * 0.35;
+    const pelvis = B.at([0, 0, 0], 0, 0, 0);
+    void pelvis;
     buildMan(riderScene, d, frame, B, dir, p, [saddle[0], saddle[1], 0]);
-    if (g.pitch) riderScene.rotate(B.at([0, 0, 0], -0.6, 0, 0), B.R, -g.pitch);
+    if (g.rear) riderScene.rotate(B.at([0, 0, 0], -0.6, 0, 0), B.R, -g.rear);
   } else {
-    // thrown ahead of the falling horse
-    const pp = manPose({ ...d, cloak: undefined }, name === 'die1' ? 11 : 12);
-    buildMan(riderScene, { ...d, cloak: undefined }, name === 'die1' ? 11 : 12, B, dir, pp, B.at([0, 0, 0], 0.6, -0.7, 0));
+    // flung clear: on his back beside the horse (die, which lies on its left: he lands to its right), or
+    // on his face (dieB: to its left). The frame has little room below the feet line, so of the two
+    // spots either way along the horse the one that projects upwards on screen is used.
+    const f = thrown === 1 ? (name === 'die1b' ? FRAME.die1b : FRAME.die2) : name === 'dieB2' ? FRAME.dieB2 : FRAME.dieB3;
+    const r = thrown === 1 ? 0.55 : -0.65;
+    const spot = [B.at([0, 0, 0], 0.5, r, 0), B.at([0, 0, 0], -0.5, r, 0)].sort((a, b) => project(a).y - project(b).y)[0];
+    // and he lies along whichever facing runs up the screen (a body stretched below the feet line would be cut)
+    const kDir = [0, 1, 2, 3].sort((a, b) => project([DIRS[a][0], DIRS[a][1], 0]).y - project([DIRS[b][0], DIRS[b][1], 0]).y)[(dir + 1) % 2];
+    const B2 = basis(DIRS[kDir][0], DIRS[kDir][1]);
+    const pp = manPose({ ...d, cloak: undefined }, f);
+    buildMan(riderScene, { ...d, cloak: undefined }, f, B2, kDir, pp, spot);
   }
   if (g.roll) {
-    // the horse falls onto its side (towards its right)
-    horse.rotate(B.at([0, 0, 0], 0, 0.3, 0), B.F, g.roll);
-    // keep the fallen horse on its spot (it lies across where it stood)
-    horse.translate(mul(B.R, -Math.sin(Math.min(g.roll, Math.PI / 2)) * 0.95));
-    if (g.roll > 1.2) {
+    // the horse goes over onto a side (its left for die, right for dieB), hinging on the hooves of that side,
+    // then is pulled back so it lies across where it stood; a rider still seated goes over with it
+    const side = g.roll > 0 ? -1 : 1;
+    const pivot = B.at([0, 0, 0], 0, side * 0.3, 0);
+    const shift = mul(B.R, -side * Math.sin(Math.min(Math.abs(g.roll), Math.PI / 2)) * 0.7);
+    horse.rotate(pivot, B.F, g.roll);
+    horse.translate(shift);
+    if (!thrown) {
+      riderScene.rotate(pivot, B.F, g.roll * 0.85);
+      riderScene.translate(shift);
+    }
+    if (Math.abs(g.roll) > 1.2) {
       horse.group();
-      horse.blob(B.at([0, 0, 0], 0, 0.1, 0.005), B.F, B.R, B.U, 0.6, 0.35, 0.01, BLOOD);
+      horse.blob(B.at([0, 0, 0], 0.1, side * 0.2, 0.005), B.F, B.R, B.U, 0.6, 0.35, 0.01, BLOOD);
     }
   }
+  // draw order: the rider behind the horse's near side when he is thrown on the far side (the scene depth-tests anyway)
   merge(sc, horse);
   merge(sc, riderScene);
 }
 
-/** Two horses, a pole and a scythed two-wheeled car with a driver and the warrior. */
+/** Two horses, a pole and a scythed two-wheeled car with a driver and the warrior (sixteen legacy columns). */
 function buildChariot(sc: Scene, d: DollSpec, frame: number, B: Basis, dir: number): void {
   const name = FRAME_NAMES[frame];
   const wrecked = name === 'die1' || name === 'die2';
   const coatA = COATS[(d.coat ?? 0) % COATS.length];
   const coatB = COATS[((d.coat ?? 0) + 3) % COATS.length];
-  // horses abreast in front
-  for (const [side, coat] of [[-0.42, coatA], [0.42, coatB]] as [number, Material][]) {
+  const fine = fineDetail(d);
+  // horses abreast in front: the legacy walk columns are their gallop, a little out of step with each other
+  for (const [side, coat, j] of [[-0.42, coatA, 0], [0.42, coatB, 1]] as [number, Material, number][]) {
     const h = new Scene();
-    const f = wrecked ? (name === 'die1' ? 10 : 12) : frame;
-    buildHorse(h, B, f >= 10 && !wrecked ? 0 : f, coat, B.at([0, 0, 0], 0.9, side, 0), LEATHER, null, fineDetail(d));
+    let g: Gait;
+    if (name.startsWith('walk')) {
+      const ph = (frame - 2) / 4 + j * 0.08;
+      g = baseGait();
+      g.legs = legsOf('gallop', ph, 0.95, [0.28, 0.32]);
+      g.bob = 0.05 * cyc(ph, 0.85) - 0.01;
+      g.pitch = 0.09 * cyc(ph, 0.15);
+      g.head = -0.04 + 0.12 * cyc(ph, 0.1);
+      g.neck = 0.06 * cyc(ph, 0.45);
+      g.stretch = cyc(ph, 0.45);
+      g.tailUp = 0.3;
+    } else if (wrecked) g = horseGait(name === 'die1' ? FRAME.die1 : FRAME.die2);
+    else if (name === 'die0') g = horseGait(j ? FRAME.die0 : FRAME.hit1);
+    else if (name === 'hit') g = horseGait(j ? FRAME.hit1 : FRAME.hit);
+    else if (name.startsWith('atk')) g = horseGait(FRAME.run0 + (frame - FRAME.atk0) * 2 + j);
+    else g = horseGait(frame === 1 ? (j ? FRAME.idle3 : FRAME.idle1) : j ? FRAME.idle0 : FRAME.idle2);
+    const saddle = buildHorse(h, B, g, coat, B.at([0, 0, 0], 0.9, side, 0), LEATHER, null, fine);
+    void saddle;
+    if (g.roll) {
+      const pivot = B.at([0, 0, 0], 0.9, side - 0.3, 0);
+      h.rotate(pivot, B.F, g.roll);
+      h.translate(mul(B.R, Math.sin(Math.min(g.roll, Math.PI / 2)) * 0.7));
+    }
     merge(sc, h);
   }
   sc.group();
@@ -2247,10 +2676,19 @@ function buildChariot(sc: Scene, d: DollSpec, frame: number, B: Basis, dir: numb
     if (frame >= 10) p.arm = 'fall';
     p.fall = 0;
     p.dead = false;
+    // braced against the car's bounce
+    if (name.startsWith('walk')) {
+      p.lean = 0.08;
+      p.hip = 0.94 + 0.015 * cyc((frame - 2) / 4, 0.85);
+    }
     buildMan(crew, { ...d, cloak: undefined, mount: undefined }, frame, B, dir, p, B.at(car, 0.02, 0.2, -0.22));
     const driver: DollSpec = { look: { ...d.look, tunic: 'tunicWhite', beard: 0 }, helmet: { art: 'cap' }, seed: 1 };
     const dp = manPose(driver, 0);
     dp.arm = 'idle';
+    if (name.startsWith('walk')) {
+      dp.lean = 0.1;
+      dp.hip = 0.93 + 0.015 * cyc((frame - 2) / 4, 0.85);
+    }
     buildMan(crew, driver, 0, B, dir, dp, B.at(car, 0.06, -0.22, -0.22));
   } else {
     const pp = manPose(d, name === 'die1' ? 11 : 12);
@@ -2262,134 +2700,461 @@ function buildChariot(sc: Scene, d: DollSpec, frame: number, B: Basis, dir: numb
 
 // ================================================================ animals
 
-function buildBeast(sc: Scene, beast: BeastId, frame: number, B: Basis, seed: number): void {
-  const c = BEAST[beast];
-  const name = FRAME_NAMES[frame];
-  const walk = name.startsWith('walk') ? frame - 2 : -1;
-  const S = beast === 'bear' ? 1.5 : beast === 'boar' ? 1.0 : 1.0;
-  const bodyH = beast === 'wolf' ? 0.55 : beast === 'boar' ? 0.5 : 0.75;
-  const bodyL = beast === 'wolf' ? 0.42 : beast === 'boar' ? 0.48 : 0.7;
-  const bodyR = beast === 'wolf' ? 0.13 : beast === 'boar' ? 0.22 : 0.38;
-  const bodyU = beast === 'wolf' ? 0.15 : beast === 'boar' ? 0.25 : 0.4;
-  let rear = 0; // bear rearing / lunge pitch
-  let lunge = 0;
-  let down = 0;
-  let roll = 0;
-  if (name === 'atk0') {
-    rear = beast === 'bear' ? 0.9 : 0.12;
-    lunge = beast === 'bear' ? 0 : -0.05;
-  } else if (name === 'atk1') {
-    rear = beast === 'bear' ? 0.45 : -0.12;
-    lunge = beast === 'bear' ? 0.1 : 0.15;
-  } else if (name === 'atk2') rear = beast === 'bear' ? 0.2 : 0;
-  else if (name === 'hit') rear = 0.15;
-  else if (name === 'die0') down = bodyH * 0.35;
-  else if (name === 'die1') {
-    down = bodyH * 0.55;
-    roll = 0.8;
-  } else if (name === 'die2') {
-    down = bodyH * 0.7;
-    roll = 1.45;
-  }
-  const bob = walk >= 0 ? [0.03, 0, 0.04, 0][walk] : name === 'idle1' ? -0.01 : 0;
-  const o: V3 = B.at([0, 0, 0], lunge, 0, 0);
-  const at = (f: number, r: number, u: number) => B.at(o, f, r, u + bob - down);
-  // legs
-  sc.group();
-  const lx = bodyL * 0.72;
-  const legs: [number, number, number][] = [[lx, -bodyR * 0.6, 0], [lx, bodyR * 0.6, 1], [-lx, -bodyR * 0.6, 2], [-lx, bodyR * 0.6, 3]];
-  const sw = walk >= 0 ? [[0.5, 0.2, -0.4, -0.5], [0.1, 0.5, -0.1, -0.3], [-0.5, -0.2, 0.4, 0.5], [-0.1, -0.5, 0.1, 0.3]][walk] : [0.05, -0.05, -0.05, 0.05];
-  const legR = beast === 'bear' ? 0.11 : beast === 'boar' ? 0.065 : 0.05;
-  for (const [lf, lr, i] of legs) {
-    const top = at(lf, lr, bodyH - bodyU * 0.2);
-    const hgt = bodyH - bodyU * 0.2 - down * 0.4;
-    const foot = B.at(o, lf + Math.sin(sw[i]) * hgt * 0.6, lr, 0.04 + Math.max(0, Math.sin(sw[i] * 2)) * 0.05);
-    const knee = add(mul(add(top, foot), 0.5), mul(B.F, i < 2 ? 0.04 : -0.06));
-    sc.limb(top, knee, legR * 1.4, legR, c.coat);
-    sc.limb(knee, foot, legR, legR * 0.85, i % 2 ? c.dark : c.coat);
-  }
-  // body with a lighter belly and a darker back
-  sc.group();
-  const shade = (l: V3): Hit | null => (l[2] < -0.45 ? { ramp: c.belly.ramp } : l[2] > 0.7 ? { shade: 0.7 } : null);
-  sc.blob(at(0, 0, bodyH), B.F, B.R, B.U, bodyL, bodyR, bodyU, c.coat, shade);
-  sc.blob(at(bodyL * 0.55, 0, bodyH + bodyU * 0.1), B.F, B.R, B.U, bodyL * 0.45, bodyR * 1.08, bodyU * 1.05, c.coat, shade);
-  if (beast === 'boar') sc.limb(at(-bodyL * 0.4, 0, bodyH + bodyU * 0.85), at(bodyL * 0.6, 0, bodyH + bodyU * 1.05), 0.05, 0.07, c.dark); // bristle ridge
-  if (beast === 'bear') sc.blob(at(bodyL * 0.35, 0, bodyH + bodyU * 0.75), B.F, B.R, B.U, 0.25, 0.28, 0.18, c.coat); // shoulder hump
-  // head
-  sc.group();
-  const neck = at(bodyL * 0.95, 0, bodyH + bodyU * (beast === 'boar' ? 0.1 : 0.45));
-  const headC = add(neck, B.dir(0.7, 0, beast === 'boar' ? -0.4 : 0.25).map((v) => v * (beast === 'bear' ? 0.28 : 0.2)) as V3);
-  const hr = beast === 'bear' ? 0.17 : beast === 'boar' ? 0.15 : 0.1;
-  sc.limb(neck, headC, hr * 1.1, hr, c.coat);
-  const snoutL = beast === 'wolf' ? 0.2 : beast === 'boar' ? 0.22 : 0.17;
-  const snout = add(headC, B.dir(1, 0, beast === 'boar' ? -0.45 : -0.2).map((v) => v * snoutL) as V3);
-  sc.limb(headC, snout, hr * 0.75, hr * 0.38, beast === 'wolf' ? c.belly : c.coat);
-  sc.sphere(snout, hr * 0.32, c.dark);
-  for (const s of [-1, 1]) {
-    // ears and eyes
-    const ear = add(headC, add(mul(B.R, s * hr * 0.6), mul(B.U, hr * 0.8)));
-    sc.limb(add(headC, mul(B.R, s * hr * 0.5)), ear, hr * 0.3, beast === 'wolf' ? 0.012 : hr * 0.2, c.dark);
-    sc.sphere(add(headC, add(add(mul(B.F, hr * 0.7), mul(B.R, s * hr * 0.45)), mul(B.U, hr * 0.25))), 0.016, EYE);
-  }
-  if (beast === 'boar') {
-    for (const s of [-1, 1]) sc.line(add(snout, mul(B.R, s * 0.05)), add(snout, add(mul(B.R, s * 0.08), add(mul(B.U, 0.1), mul(B.F, -0.02)))), IVORY, 1);
-  }
-  if (beast === 'wolf' && (name === 'atk1' || name === 'atk0')) sc.line(snout, add(snout, mul(B.U, -0.05)), IVORY, 1);
-  // tail
-  sc.group();
-  const tail0 = at(-bodyL * 0.95, 0, bodyH + bodyU * 0.4);
-  const tLen = beast === 'wolf' ? 0.45 : 0.12;
-  const wag = walk >= 0 ? (walk % 2 ? 0.2 : -0.2) : 0;
-  sc.limb(tail0, add(tail0, B.dir(-0.7, wag, beast === 'wolf' ? -0.55 : -0.4).map((v) => v * tLen) as V3), beast === 'wolf' ? 0.06 : 0.02, beast === 'wolf' ? 0.03 : 0.01, beast === 'wolf' ? c.coat : c.dark);
-  // rearing (pitch up about the hind feet), lunging, falling onto the side
-  if (rear) sc.rotate(B.at(o, -bodyL * 0.75, 0, 0), B.R, -rear);
-  if (roll) {
-    sc.rotate(B.at(o, 0, 0, 0), B.F, roll);
-    sc.translate(mul(B.R, -Math.sin(Math.min(roll, Math.PI / 2)) * bodyH * 0.6));
-    if (roll > 1.2) {
-      sc.group();
-      sc.blob(B.at(o, 0.1, bodyU, 0.005), B.F, B.R, B.U, bodyL * 0.7, bodyR * 1.4, 0.01, BLOOD);
+/** Body of a wild animal: lengths in metres, how it moves. */
+interface BeastBody {
+  /** Shoulder height, half-length, half-width, half-height of the barrel. */
+  h: number;
+  l: number;
+  r: number;
+  u: number;
+  /** Leg radius; upper and lower bone lengths. */
+  leg: number;
+  up: number;
+  low: number;
+  /** Head size and the snout's length. */
+  head: number;
+  snout: number;
+  /** Gait at a walk and at a run; stride (m) and foot lift for each. */
+  walk: GaitKind;
+  run: GaitKind;
+  stride: [number, number];
+  lift: [number, number];
+}
+
+const BODIES: Record<'wolf' | 'boar' | 'bear', BeastBody> = {
+  wolf: { h: 0.55, l: 0.42, r: 0.13, u: 0.15, leg: 0.05, up: 0.24, low: 0.26, head: 0.1, snout: 0.2, walk: 'trot', run: 'rotary', stride: [0.36, 0.7], lift: [0.08, 0.16] },
+  boar: { h: 0.5, l: 0.48, r: 0.22, u: 0.25, leg: 0.065, up: 0.2, low: 0.2, head: 0.15, snout: 0.22, walk: 'trot', run: 'rotary', stride: [0.3, 0.55], lift: [0.06, 0.14] },
+  bear: { h: 0.75, l: 0.7, r: 0.38, u: 0.4, leg: 0.11, up: 0.32, low: 0.32, head: 0.17, snout: 0.17, walk: 'pace', run: 'rotary', stride: [0.5, 0.85], lift: [0.1, 0.18] },
+};
+
+/** The pose of a wild animal for a frame of the full set. */
+/** The three wild animals (mythic beasts are built in src/art/beastArt.ts). */
+type WildId = keyof typeof BODIES;
+const wildOf = (beast: BeastId): WildId => (beast === 'boar' || beast === 'bear' ? beast : 'wolf');
+
+function beastGait(beast: WildId, frame: number, seed: number): Gait {
+  const b = BODIES[beast];
+  const g = baseGait();
+  const name = FRAME_NAMES[frame] ?? 'idle0';
+  const num = (pre: string) => Number(name.slice(pre.length));
+  const bear = beast === 'bear';
+  const boar = beast === 'boar';
+  if (name.startsWith('idle')) {
+    const k = num('idle');
+    if (k === 1) {
+      // sniffing the ground, the tail low
+      g.head = boar ? -0.1 : -0.22;
+      g.neck = 0.04;
+      g.tailUp = -0.1;
+      g.ear = 0.4;
+    } else if (k === 2) {
+      // a look aside, one ear turned
+      g.yaw = seed & 1 ? -0.4 : 0.4;
+      g.head = 0.05;
+      g.ear = 1;
+      g.tail = 0.2;
+    } else if (k === 3) {
+      g.head = -0.06;
+      g.tail = -0.25;
+      g.ear = 0.6;
+      g.bob = 0.008;
+    }
+    if (k === 0) g.bob = -0.005;
+  } else if (name.startsWith('walk')) {
+    // a trot (the bear ambles: lateral pairs, the body swaying), the head nodding with the stride
+    const ph = num('walk') / 8;
+    g.legs = legsOf(b.walk, ph, b.stride[0], [b.lift[0], b.lift[0]]);
+    g.bob = 0.02 * cyc(2 * ph, 0.2);
+    g.head = -0.05 + 0.05 * cyc(2 * ph, 0.45);
+    g.roll = bear ? 0.1 * Math.sin(TAU * (ph + 0.05)) : 0.02 * Math.sin(TAU * ph);
+    g.tail = 0.25 * Math.sin(TAU * ph);
+    g.tailUp = bear ? 0 : 0.1;
+  } else if (name.startsWith('run') || name.startsWith('rout')) {
+    // a rotary gallop: the spine gathers as the hinds come under, extends as the fores reach; the head low
+    const rout = name.startsWith('rout');
+    const ph = rout ? num('rout') / 4 : num('run') / 6;
+    g.legs = legsOf(b.run, ph, b.stride[1], [b.lift[1], b.lift[1] * 1.2]);
+    g.stretch = cyc(ph, 0.45);
+    g.bob = 0.04 * cyc(ph, 0.65) + 0.015;
+    g.pitch = 0.1 * cyc(ph, 0.2);
+    g.head = -0.12 + 0.06 * cyc(ph, 0.5);
+    g.neck = 0.05 + 0.04 * g.stretch;
+    g.tailUp = rout ? -0.35 : 0.25;
+    g.tail = 0.1 * Math.sin(TAU * ph);
+    g.ear = rout ? 1 : 0.3;
+    if (rout) g.head -= 0.08;
+  } else {
+    switch (name) {
+      case 'wind':
+        // the crouch: belly low, ears back, eyes on the target (the bear rises)
+        if (bear) {
+          g.rear = 0.45;
+          g.head = 0.1;
+          g.legs[0] = { x: 0.1, z: 0.25 };
+          g.legs[1] = { x: 0.15, z: 0.22 };
+        } else {
+          g.down = 0.1;
+          g.head = -0.15;
+          g.neck = 0.05;
+          g.legs[2] = { x: 0.08, z: 0 };
+          g.legs[3] = { x: 0.1, z: 0 };
+          g.stretch = -0.3;
+        }
+        g.ear = 1;
+        g.tailUp = -0.15;
+        break;
+      case 'atk0':
+        // coiled: the hinds gathered under, the body shortened (the bear rears to its full height)
+        if (bear) {
+          g.rear = 0.95;
+          g.head = 0.15;
+          g.jaw = 1;
+          g.legs[0] = { x: 0.2, z: 0.5 };
+          g.legs[1] = { x: 0.3, z: 0.45 };
+        } else {
+          g.down = 0.14;
+          g.head = -0.1;
+          g.neck = 0.02;
+          g.lunge = -0.08;
+          g.legs[2] = { x: 0.2, z: 0 };
+          g.legs[3] = { x: 0.24, z: 0 };
+          g.legs[0] = { x: -0.05, z: 0 };
+          g.stretch = -0.9;
+          g.jaw = 0.5;
+        }
+        g.ear = 1;
+        g.tailUp = -0.1;
+        break;
+      case 'atk1':
+        // the lunge: airborne and stretched, jaws open (the boar's head drives up with the tusks; the bear swipes)
+        if (bear) {
+          g.rear = 0.55;
+          g.head = 0.0;
+          g.neck = 0.06;
+          g.jaw = 1;
+          g.lunge = 0.1;
+          g.legs[1] = { x: 0.55, z: 0.3 };
+          g.legs[0] = { x: 0.05, z: 0.4 };
+          g.legs[2] = { x: -0.05, z: 0 };
+        } else {
+          // airborne: the fores reach ahead and up, the hinds trail, every paw clear of the ground
+          g.lunge = 0.28;
+          g.bob = 0.14;
+          g.pitch = boar ? 0.12 : 0.06;
+          g.stretch = 1;
+          g.head = boar ? 0.2 : -0.02;
+          g.neck = 0.1;
+          g.jaw = 1;
+          g.legs[0] = { x: 0.34, z: b.h * 0.85 };
+          g.legs[1] = { x: 0.4, z: b.h * 0.75 };
+          g.legs[2] = { x: -0.34, z: b.h * 0.75 };
+          g.legs[3] = { x: -0.3, z: b.h * 0.85 };
+        }
+        g.ear = 1;
+        g.tailUp = 0.2;
+        break;
+      case 'follow':
+        // the bite: landed on the fores, the head down on the target (the bear's paws slam down)
+        if (bear) {
+          g.rear = 0.1;
+          g.head = -0.2;
+          g.neck = 0.08;
+          g.jaw = 1;
+          g.lunge = 0.14;
+          g.legs[0] = { x: 0.3, z: 0 };
+          g.legs[1] = { x: 0.34, z: 0 };
+          g.legs[2] = { x: -0.1, z: 0 };
+          g.stretch = 0.5;
+        } else {
+          g.lunge = 0.32;
+          g.bob = 0.0;
+          g.pitch = -0.1;
+          g.stretch = 0.6;
+          g.head = boar ? 0.05 : -0.22;
+          g.neck = 0.1;
+          g.jaw = 0.8;
+          g.legs[0] = { x: 0.26, z: 0 };
+          g.legs[1] = { x: 0.32, z: 0 };
+          g.legs[2] = { x: -0.28, z: 0.06 };
+          g.legs[3] = { x: -0.22, z: 0.1 };
+        }
+        g.ear = 1;
+        break;
+      case 'atk2':
+        // backing off, the head still low
+        g.lunge = bear ? 0.04 : 0.1;
+        g.head = -0.1;
+        g.neck = 0.04;
+        g.jaw = 0.3;
+        g.legs[1] = { x: 0.12, z: 0 };
+        g.legs[2] = { x: -0.1, z: 0 };
+        g.stretch = 0.2;
+        g.ear = 0.6;
+        break;
+      case 'block':
+      case 'hit':
+        // the flinch: thrown back on the haunches, the head up and away, a yelp
+        g.lunge = -0.1;
+        g.down = 0.06;
+        g.pitch = 0.12;
+        g.head = 0.15;
+        g.neck = -0.05;
+        g.jaw = 1;
+        g.legs[0] = { x: 0.18, z: 0.1 };
+        g.legs[1] = { x: 0.14, z: 0 };
+        g.legs[2] = { x: 0.1, z: 0 };
+        g.legs[3] = { x: 0.14, z: 0 };
+        g.ear = 1;
+        g.tailUp = -0.3;
+        break;
+      case 'hit1':
+        // cowering: low, the tail down
+        g.down = 0.12;
+        g.head = -0.08;
+        g.lunge = -0.05;
+        g.legs[0] = { x: 0.08, z: 0 };
+        g.legs[2] = { x: 0.06, z: 0 };
+        g.ear = 1;
+        g.tailUp = -0.35;
+        break;
+      case 'die0':
+        // the stumble: the fores fold, the chin drops
+        g.down = 0.1;
+        g.pitch = -0.25;
+        g.head = -0.25;
+        g.legs[0] = { x: -0.2, z: 0.04 };
+        g.legs[1] = { x: 0.1, z: 0 };
+        g.legs[2] = { x: -0.15, z: 0 };
+        g.legs[3] = { x: -0.08, z: 0 };
+        g.ear = 1;
+        g.tailUp = -0.2;
+        break;
+      case 'die1':
+        // going over onto its left side
+        g.down = b.u * 0.3;
+        g.pitch = -0.15;
+        g.roll = 0.7;
+        g.head = -0.15;
+        g.legs[0] = { x: 0.15, z: 0.1 };
+        g.legs[1] = { x: 0.25, z: 0.08 };
+        g.legs[2] = { x: -0.2, z: 0.06 };
+        g.legs[3] = { x: 0.05, z: 0.12 };
+        g.ear = 1;
+        break;
+      case 'die1b':
+        // on its side, the legs kicking
+        g.down = 0.02;
+        g.roll = 1.35;
+        g.head = -0.08;
+        g.neck = 0.05;
+        g.legs[0] = { x: 0.25, z: 0.18 };
+        g.legs[1] = { x: 0.3, z: 0.06 };
+        g.legs[2] = { x: -0.15, z: 0.2 };
+        g.legs[3] = { x: -0.05, z: 0.1 };
+        g.ear = 1;
+        break;
+      case 'die2':
+        g.down = 0.02;
+        g.roll = 1.5;
+        g.head = -0.1;
+        g.neck = 0.06;
+        g.legs[0] = { x: 0.2, z: 0.08 };
+        g.legs[1] = { x: 0.28, z: 0.0 };
+        g.legs[2] = { x: -0.2, z: 0.06 };
+        g.legs[3] = { x: -0.08, z: 0.02 };
+        g.ear = 1;
+        break;
+      case 'dieB0':
+      case 'dieB1':
+      case 'dieB2':
+      case 'dieB3': {
+        // sinking: the hinds give, then the belly on the ground, then the head goes down and the legs splay
+        const k = num('dieB');
+        g.down = [b.h * 0.25, b.h * 0.55, b.h * 0.62, b.h * 0.62][k];
+        g.pitch = [0.15, 0.05, 0, 0][k];
+        g.head = [0.12, 0.08, -0.22, -0.3][k];
+        g.neck = [0, 0.02, 0.1, 0.14][k];
+        g.jaw = [1, 0.6, 0.2, 0][k];
+        const sp = [0.05, 0.15, 0.22, 0.26][k];
+        g.legs[0] = { x: sp * 2, z: 0 };
+        g.legs[1] = { x: sp * 2.4, z: 0 };
+        g.legs[2] = { x: -sp, z: 0 };
+        g.legs[3] = { x: -sp * 1.3, z: 0 };
+        g.ear = 1;
+        g.tailUp = -0.3;
+        break;
+      }
+      case 'win0':
+      case 'win1':
+        // the howl / the bear up on its hinds
+        if (bear) {
+          g.rear = num('win') ? 0.95 : 0.85;
+          g.head = 0.12;
+          g.legs[0] = { x: 0.2, z: 0.5 };
+          g.legs[1] = { x: 0.25, z: 0.45 + num('win') * 0.08 };
+        } else {
+          g.head = num('win') ? 0.4 : 0.32;
+          g.neck = -0.03;
+          g.jaw = num('win') ? 0.8 : 0.4;
+        }
+        g.tailUp = 0.3;
+        break;
     }
   }
-  void S;
-  void seed;
+  return g;
+}
+
+function buildBeast(sc: Scene, id: BeastId, frame: number, B: Basis, seed: number): void {
+  const beast = wildOf(id);
+  const c = BEAST[beast];
+  const b = BODIES[beast];
+  const g = beastGait(beast, frame, seed);
+  const name = FRAME_NAMES[frame] ?? 'idle0';
+  const bear = beast === 'bear';
+  const boar = beast === 'boar';
+  const wolf = beast === 'wolf';
+  const o: V3 = B.at([0, 0, 0], g.lunge, 0, 0);
+  const at = (f: number, r: number, u: number) => B.at(o, f, r, u + g.bob - g.down);
+  // the body pitches about the centre of the barrel; the feet stay where the gait put them
+  const centre = at(0, 0, b.h);
+  const cp = Math.cos(g.pitch);
+  const sp = Math.sin(g.pitch);
+  const bp = (f: number, r: number, u: number): V3 => {
+    const p = at(f, r, u);
+    const d = sub(p, centre);
+    const fwd = d[0] * B.F[0] + d[1] * B.F[1] + d[2] * B.F[2];
+    const up = d[2];
+    const rt = d[0] * B.R[0] + d[1] * B.R[1] + d[2] * B.R[2];
+    return add(centre, add(add(mul(B.F, fwd * cp - up * sp), mul(B.U, fwd * sp + up * cp)), mul(B.R, rt)));
+  };
+  const pitchF = add(mul(B.F, cp), mul(B.U, sp));
+  const pitchU = add(mul(B.U, cp), mul(B.F, -sp));
+  const st = g.stretch;
+  // legs: shoulder / hip -> knee or hock -> paw, two-bone IK (the spine's stretch moves the leg roots)
+  sc.group();
+  const lx = b.l * 0.72;
+  const legs: [number, number, number][] = [[lx + 0.06 * st, -b.r * 0.6, 0], [lx + 0.06 * st, b.r * 0.6, 1], [-lx - 0.08 * st, -b.r * 0.6, 2], [-lx - 0.08 * st, b.r * 0.6, 3]];
+  for (const [lf, lr, i] of legs) {
+    const top = bp(lf, lr, b.h - b.u * 0.25);
+    const hind = i >= 2;
+    const lp = g.legs[i];
+    const foot = B.at(o, lf + lp.x, lr, 0.035 + lp.z);
+    const { mid: knee } = ik(top, foot, b.up, b.low, hind ? B.dir(-1, 0, -0.3) : B.dir(1, 0, -0.2));
+    sc.limb(top, knee, b.leg * 1.4, b.leg, c.coat);
+    sc.limb(knee, foot, b.leg, b.leg * 0.85, i % 2 ? c.dark : c.coat);
+    if (bear) sc.sphere(add(foot, mul(B.F, 0.04)), b.leg * 0.9, c.dark); // the paw
+  }
+  // body with a lighter belly and a darker back; the barrel stretches and arches with the gallop
+  sc.group();
+  const shade = (l: V3): Hit | null => (l[2] < -0.45 ? { ramp: c.belly.ramp } : l[2] > 0.7 ? { shade: 0.7 } : null);
+  const arch = -0.05 * Math.min(0, st); // the back arches when gathered
+  sc.blob(bp(0, 0, b.h + arch), pitchF, B.R, pitchU, b.l * (1 + 0.1 * st), b.r, b.u * (1 - 0.05 * st), c.coat, shade);
+  sc.blob(bp(b.l * (0.55 + 0.08 * st), 0, b.h + b.u * 0.1), pitchF, B.R, pitchU, b.l * 0.45, b.r * 1.08, b.u * 1.05, c.coat, shade);
+  if (boar) sc.limb(bp(-b.l * 0.4, 0, b.h + b.u * 0.85), bp(b.l * 0.6, 0, b.h + b.u * 1.05), 0.05, 0.07, c.dark); // bristle ridge
+  if (bear) sc.blob(bp(b.l * 0.35, 0, b.h + b.u * 0.75), pitchF, B.R, pitchU, 0.25, 0.28, 0.18, c.coat); // shoulder hump
+  // head: the neck swings up / down and out, the head turns
+  sc.group();
+  const neck = bp(b.l * 0.95 + g.neck * 0.5, 0, b.h + b.u * (boar ? 0.1 : 0.45));
+  const cy = Math.cos(g.yaw);
+  const sy = Math.sin(g.yaw);
+  const HF = add(mul(B.F, cy), mul(B.R, sy));
+  const HR = add(mul(B.R, cy), mul(B.F, -sy));
+  const headC = add(neck, mul(norm(add(mul(HF, 0.7 + g.neck * 2), mul(B.U, (boar ? -0.4 : 0.25) + g.head * 1.5))), bear ? 0.28 : 0.2));
+  const hr = b.head;
+  sc.limb(neck, headC, hr * 1.1, hr, c.coat);
+  const snoutDir = norm(add(mul(HF, 1), mul(B.U, (boar ? -0.45 : -0.2) + g.head * 0.8)));
+  const snout = add(headC, mul(snoutDir, b.snout));
+  sc.limb(headC, snout, hr * 0.75, hr * 0.38, wolf ? c.belly : c.coat);
+  sc.sphere(snout, hr * 0.32, c.dark);
+  if (g.jaw) {
+    // the lower jaw dropped: a second, shorter muzzle below, and the teeth
+    const jawDir = norm(add(snoutDir, mul(B.U, -0.5 * g.jaw)));
+    const jawEnd = add(headC, mul(jawDir, b.snout * 0.8));
+    sc.limb(add(headC, mul(B.U, -hr * 0.3)), jawEnd, hr * 0.45, hr * 0.25, wolf ? c.belly : c.coat);
+    if (!bear) sc.line(add(snout, mul(B.U, -hr * 0.25)), add(snout, mul(B.U, -hr * 0.25 - 0.04 * g.jaw)), IVORY, 1);
+  }
+  for (const s of [-1, 1]) {
+    // ears (laid back when flicked or fighting) and eyes
+    const back = g.ear > 0 && (s === 1 || g.ear >= 1) ? g.ear : 0;
+    const ear = add(headC, add(add(mul(HR, s * hr * 0.6), mul(B.U, hr * 0.8 - back * hr * 0.3)), mul(HF, -back * hr * 0.45)));
+    sc.limb(add(headC, mul(HR, s * hr * 0.5)), ear, hr * 0.3, wolf ? 0.012 : hr * 0.2, c.dark);
+    sc.sphere(add(headC, add(add(mul(HF, hr * 0.7), mul(HR, s * hr * 0.45)), mul(B.U, hr * 0.25))), 0.016, EYE);
+  }
+  if (boar) {
+    for (const s of [-1, 1]) sc.line(add(snout, mul(HR, s * 0.05)), add(snout, add(mul(HR, s * 0.08), add(mul(B.U, 0.1), mul(HF, -0.02)))), IVORY, 1);
+  }
+  // tail: swishing, carried high at a run, tucked when beaten
+  sc.group();
+  const tail0 = bp(-b.l * 0.95, 0, b.h + b.u * 0.4);
+  const tLen = wolf ? 0.45 : 0.12;
+  const tDir = B.dir(-0.7 - g.tailUp * 0.3, g.tail, (wolf ? -0.55 : -0.4) + g.tailUp * 1.6);
+  sc.limb(tail0, add(tail0, mul(tDir, tLen)), wolf ? 0.06 : 0.02, wolf ? 0.03 : 0.01, wolf ? c.coat : c.dark);
+  // rearing (pitch up about the hind feet), falling onto a side
+  if (g.rear) sc.rotate(B.at(o, -lx, 0, 0), B.R, -g.rear);
+  if (g.roll) {
+    const side = g.roll > 0 ? -1 : 1;
+    const pivot = B.at(o, 0, side * b.r * 0.6, 0);
+    sc.rotate(pivot, B.F, g.roll);
+    sc.translate(mul(B.R, -side * Math.sin(Math.min(Math.abs(g.roll), Math.PI / 2)) * b.h * 0.55));
+    if (Math.abs(g.roll) > 1.2) {
+      sc.group();
+      sc.blob(B.at(o, 0.1, side * b.u * 0.5, 0.005), B.F, B.R, B.U, b.l * 0.7, b.r * 1.4, 0.01, BLOOD);
+    }
+  } else if (name === 'dieB3') {
+    sc.group();
+    sc.blob(B.at(o, b.l * 0.6, 0.1, 0.005), B.F, B.R, B.U, b.l * 0.5, b.r * 1.2, 0.01, BLOOD);
+  }
 }
 
 
 // ---------------------------------------------------------------- portraits
 
-/** Display size (px) of a portrait; the texture is PORTRAIT_RES times larger each way. */
+/** Default display size (UI px) of a portrait; the texture is PORTRAIT_RES times larger each way (renderPortrait's `box` and `res`). */
 export const PORTRAIT_PX = 24;
 export const PORTRAIT_RES = 2;
 /**
  * The idle variants of an animated portrait (frame columns of its sheet):
- * breathing, a blink, glances aside, and three positions of a glint sweeping
- * across the metal. A roster picks a seeded sequence of these (portraitLoop).
+ * breathing, a blink, glances aside, three positions of a glint sweeping
+ * across the metal, and a small nod (the blink's stand-in behind a closed
+ * helmet). A roster picks a seeded sequence of these (portraitLoop).
  */
-export const PORTRAIT_FRAMES = ['neutral', 'breath1', 'breath2', 'blink', 'glanceR', 'glanceR2', 'glanceL', 'glint0', 'glint1', 'glint2'] as const;
+export const PORTRAIT_FRAMES = ['neutral', 'breath1', 'breath2', 'blink', 'glanceR', 'glanceR2', 'glanceL', 'glint0', 'glint1', 'glint2', 'nod'] as const;
 export type PortraitFrame = (typeof PORTRAIT_FRAMES)[number];
 export const PORTRAIT_FRAME: Record<PortraitFrame, number> = Object.fromEntries(PORTRAIT_FRAMES.map((n, i) => [n, i])) as Record<PortraitFrame, number>;
 
+/** Whether a blink shows on this figure's portrait (not behind a Corinthian helm, not on an animal). */
+export function portraitBlinks(d: DollSpec): boolean {
+  return !d.beast && d.helmet?.art !== 'corinthian';
+}
+
+/** Screen right as a world axis (model3d's camera): the portrait tilts about it. */
+const CAM_RIGHT: V3 = [Math.SQRT1_2, -Math.SQRT1_2, 0];
+/** The portrait camera: the battle's 30 degree elevation tilted down towards eye level (radians). */
+const PORTRAIT_TILT = 0.42;
+
 /**
- * A head-and-shoulders bust of a figure, seen from the front 3/4 and lit like
- * the battlefield: box x box display pixels drawn at `res` times the
- * resolution (so the face has brows, a nose and a beard rather than four
- * pixels). Animals show the whole beast. `frame` picks an idle variant
- * (PORTRAIT_FRAMES).
+ * A head-and-shoulders bust of a figure, seen from the front 3/4 near eye
+ * level and lit like the battlefield: box x box display pixels drawn at `res`
+ * times the resolution (so the face has brows, a nose and a beard rather than
+ * four pixels; a bigger box draws more pixels, it never upscales). The head
+ * sits in the upper middle with room above for a crest; a bigger box widens
+ * the view (chest and shoulders) rather than magnifying the face. Animals
+ * show the whole beast. `frame` picks an idle variant (PORTRAIT_FRAMES).
  */
 export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box = PORTRAIT_PX): Pix {
   const size = box * res;
   const name = PORTRAIT_FRAMES[frame] ?? 'neutral';
   if (d.beast) {
-    // the whole animal, scaled into the box, nosing about on the breathing frames
+    // the whole animal facing the camera, scaled into the box, nosing about on the breathing frames
     const sc = new Scene();
-    const B = basis(0.4, 0.92);
-    const col = name === 'breath1' || name === 'glanceR' ? 1 : name === 'breath2' ? 0 : name === 'glanceR2' || name === 'glanceL' ? 9 : 0;
+    const myth = isMythId(d.beast);
+    const col = name === 'breath1' || name === 'glanceR' ? 1 : name === 'breath2' || name === 'nod' ? 0 : name === 'glanceR2' || name === 'glanceL' ? 9 : 0;
     if (isMythId(d.beast)) buildMyth(sc, d.beast, 0, mythBasis(0.4, 0.92), false, (d.seed ?? 0) % 3);
-    else buildBeast(sc, d.beast, col, B, d.seed ?? 0);
-    const tall = isMythId(d.beast) ? 3.2 : d.beast === 'bear' ? 1.4 : 0.9;
+    else buildBeast(sc, d.beast, col, basis(1, 0), d.seed ?? 0); // side-on 3/4: the shape of the animal, tusks and ears
+    const tall = myth ? 3.2 : d.beast === 'bear' ? 1.4 : 0.9;
     const zoom = (box / PPM / (tall * 1.15)) * res;
     sc.translate([0, 0, -tall * 0.45]);
+    if (!myth) sc.rotate([0, 0, 0], CAM_RIGHT, PORTRAIT_TILT * 0.8);
     sc.scale(zoom);
     sc.px = res;
     return sc.render(size, size, size / 2, size / 2);
@@ -2414,6 +3179,10 @@ export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box =
       p.blink = true;
       p.breath = 0.3;
       break;
+    case 'nod':
+      p.nod = 0.05;
+      p.breath = 0.3;
+      break;
     case 'glanceR':
       p.yaw = 0.28;
       p.nod = 0.01;
@@ -2429,15 +3198,18 @@ export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box =
       p.lag = 0.05;
       break;
   }
-  // the man at `res` times his size, the window centred a little above the head so the crest fits
+  // the man at `res` times his size; the window centred on the head and tilted towards eye level
   const k = buildMan(sc, spec, 0, B, 2, p);
-  const centre = add(k.head, [0, 0, 0.05]);
-  const zoom = 1.45;
+  const centre = add(k.head, [0, 0, 0.02]);
+  // a 24 px box frames head and shoulders at 1.55x; a bigger box grows slower than the box, so it shows the chest too
+  const zoom = 1.55 * Math.pow(box / PORTRAIT_PX, 0.6);
   sc.translate(mul(centre, -1));
+  sc.rotate([0, 0, 0], CAM_RIGHT, PORTRAIT_TILT);
   sc.scale(zoom * res);
   sc.px = res;
   const mask = new Uint8Array(size * size);
-  const px = sc.render(size, size, size / 2, size / 2 + Math.round(res * 2), { mask, maskMetal: true });
+  // the head above the middle of the box: the room above it is for the crest
+  const px = sc.render(size, size, size / 2, Math.round(size * 0.4), { mask, maskMetal: true });
   if (name.startsWith('glint')) {
     // a bright band sweeping across the metal, top-left to bottom-right
     const pos = [0.42, 0.58, 0.74][Number(name.slice(5))];
@@ -2469,20 +3241,22 @@ function lighten(c: number, k: number): number {
  * different order and rhythm per seed so a roster never moves in step.
  */
 export const PORTRAIT_FPS = 6;
-export function portraitLoop(seed: number): number[] {
+export function portraitLoop(seed: number, blinks = true): number[] {
   const F = PORTRAIT_FRAME;
   const out: number[] = [];
   const r = (i: number) => hash2(seed, i, 23);
   const breath = (hold: number) => out.push(F.neutral, F.neutral, F.breath1, F.breath2, F.breath2, F.breath2, F.breath1, ...new Array(hold).fill(F.neutral));
+  // behind a closed helm (or on an animal) a blink shows nothing: a small nod takes its beat (portraitBlinks)
+  const blink = blinks ? F.blink : F.nod;
   const n = 4 + Math.floor(r(1) * 3);
   for (let i = 0; i < n; i++) {
     breath(2 + Math.floor(r(10 + i) * 4));
     const ev = r(20 + i);
-    if (ev < 0.35) out.push(F.blink, F.neutral);
+    if (ev < 0.35) out.push(blink, F.neutral);
     else if (ev < 0.55) out.push(F.glanceR2, F.glanceR, F.glanceR, F.glanceR, F.glanceR2, F.neutral, F.neutral);
     else if (ev < 0.7) out.push(F.glanceL, F.glanceL, F.glanceL, F.glanceR2, F.neutral);
     else if (ev < 0.85) out.push(F.glint0, F.glint1, F.glint2);
-    if (r(30 + i) < 0.3) out.push(F.blink);
+    if (r(30 + i) < 0.3) out.push(blink);
   }
   if (!out.includes(F.glint0)) out.push(F.glint0, F.glint1, F.glint2, F.neutral);
   return out;
