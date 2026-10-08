@@ -204,12 +204,133 @@ export function recruitHero(seed: number, ids: IdSource, prefix: string, arch: A
   return scopeHero(makeHero(rng, ids, culture, arch, 1, 1, group, roster), prefix);
 }
 
-/** A held region whose owner left no garrison is defended by a little militia. */
-export function militia(shardSeed: number, region: Pick<RegionInfo, 'id' | 'tier'>, salt: number): Hero[] {
+/**
+ * A held region whose owner left no garrison is defended by a little militia
+ * (`extra` more men behind a camp's palisade, CAMP_BUILDINGS.palisade).
+ */
+export function militia(shardSeed: number, region: Pick<RegionInfo, 'id' | 'tier'>, salt: number, extra = 0): Hero[] {
   const rng = new Rng((shardSeed ^ hashString(`${region.id}:militia`) ^ salt) >>> 0 || 1);
   const culture: Culture = (['greek', 'phoenician', 'celtic'] as const)[hashString(`${shardSeed}:${region.id}`) % 3];
   const ids: IdSource = { nextId: 1 };
   const heroes: Hero[] = [];
-  for (let i = 0; i < Math.min(4, region.tier); i++) heroes.push(makeHero(rng, ids, culture, 'raw', 1, 1, i === 0 ? 0 : 1, heroes));
+  for (let i = 0; i < Math.min(4, region.tier) + Math.max(0, Math.floor(extra)); i++) heroes.push(makeHero(rng, ids, culture, 'raw', 1, 1, i === 0 ? 0 : 1, heroes));
   return heroes.map((h) => scopeHero(h, `mil${region.id}_`));
+}
+
+// ------------------------------------------------------------------ camps
+
+/**
+ * Camp plots (docs/MAP_V3.md "Camp"): every player's home region is a camp;
+ * up to `maxForward` more (forward bases) may be made on regions with
+ * campPlot = true that the player holds, with the army standing there. A camp
+ * has a grid of building slots (`cols` x `rows`, the forward camps fewer);
+ * each building kind at most once per camp, levels 1..maxLevel, one
+ * construction at a time per camp. A camp lost in battle is razed.
+ */
+export type CampBuildingId = 'palisade' | 'granary' | 'forge' | 'barracks' | 'watchtower';
+export const CAMP_BUILDING_IDS: CampBuildingId[] = ['palisade', 'granary', 'forge', 'barracks', 'watchtower'];
+
+export const CAMP_RULES = {
+  /** Camps besides the home camp. */
+  maxForward: 2,
+  maxLevel: 3,
+  /** The camp zone grid (slot = row * cols + col). */
+  cols: 3,
+  rows: 2,
+  /** Usable slots: the home camp has the whole grid, a forward camp the first `forwardSlots`. */
+  homeSlots: 6,
+  forwardSlots: 4,
+  /** Making a forward camp. */
+  claimCost: R(150, 40, 60, 0, 0),
+  /** Rest at a camp (army standing in it): energy back and wounds halved, once per cooldown per camp. */
+  restEnergy: 30,
+  restCooldownMs: 4 * 60 * 60_000,
+};
+
+export interface CampLevel {
+  cost: Resources;
+  /** Construction time. */
+  minutes: number;
+}
+
+export interface CampBuildingDef {
+  id: CampBuildingId;
+  /** Per level (index 0 = level 1). */
+  levels: [CampLevel, CampLevel, CampLevel];
+  /** Hourly income at each level (index 0 = level 1). */
+  income?: [Resources, Resources, Resources];
+}
+
+export const CAMP_BUILDINGS: Record<CampBuildingId, CampBuildingDef> = {
+  palisade: {
+    id: 'palisade',
+    levels: [
+      { cost: R(60, 0, 40, 0), minutes: 10 },
+      { cost: R(140, 0, 90, 10), minutes: 45 },
+      { cost: R(300, 0, 180, 40), minutes: 180 },
+    ],
+  },
+  granary: {
+    id: 'granary',
+    levels: [
+      { cost: R(50, 10, 30, 0), minutes: 10 },
+      { cost: R(120, 20, 70, 0), minutes: 40 },
+      { cost: R(260, 40, 140, 10), minutes: 150 },
+    ],
+    income: [R(0, 4), R(0, 8), R(0, 14)],
+  },
+  forge: {
+    id: 'forge',
+    levels: [
+      { cost: R(80, 0, 40, 10), minutes: 15 },
+      { cost: R(180, 0, 80, 30), minutes: 60 },
+      { cost: R(360, 0, 160, 70), minutes: 200 },
+    ],
+    income: [R(0, 0, 0, 2), R(0, 0, 0, 4), R(0, 0, 0, 7)],
+  },
+  barracks: {
+    id: 'barracks',
+    levels: [
+      { cost: R(90, 30, 50, 0), minutes: 15 },
+      { cost: R(200, 60, 100, 20), minutes: 60 },
+      { cost: R(400, 120, 200, 50), minutes: 240 },
+    ],
+    income: [R(0, 0, 0, 0, 0.2), R(0, 0, 0, 0, 0.4), R(0, 0, 0, 0, 0.7)],
+  },
+  watchtower: {
+    id: 'watchtower',
+    levels: [
+      { cost: R(70, 0, 60, 0), minutes: 20 },
+      { cost: R(160, 0, 120, 20), minutes: 90 },
+      { cost: R(320, 0, 220, 50), minutes: 240 },
+    ],
+  },
+};
+
+/** Extra garrison places and militia men per palisade level. */
+export const PALISADE = { garrison: [0, 2, 4, 6], militia: [0, 1, 2, 3] } as const;
+/** Extra sight (routes) from a camp with a watchtower, per level. */
+export const WATCHTOWER_SIGHT = [0, 1, 1, 2] as const;
+/** The most extra sight any camp can have (for "who might see this" filters). */
+export const MAX_TOWER_SIGHT = 2;
+
+/** Cost and time to reach `level` (1..maxLevel) of a building. */
+export function campLevelCost(id: CampBuildingId, level: number): CampLevel {
+  const l = CAMP_BUILDINGS[id].levels[Math.max(1, Math.min(CAMP_RULES.maxLevel, level)) - 1];
+  return { cost: { ...l.cost }, minutes: l.minutes };
+}
+
+/** Hourly income of a building at a level (zero for buildings without income or level 0). */
+export function campBuildingIncome(id: CampBuildingId, level: number): Resources {
+  const inc = CAMP_BUILDINGS[id].income;
+  if (!inc || level < 1) return R();
+  return { ...inc[Math.min(CAMP_RULES.maxLevel, level) - 1] };
+}
+
+export function campSlots(home: boolean): number {
+  return home ? CAMP_RULES.homeSlots : CAMP_RULES.forwardSlots;
+}
+
+export function canAfford(have: Resources, cost: Resources): boolean {
+  return RESOURCE_KEYS.every((k) => have[k] + 1e-9 >= cost[k]);
 }

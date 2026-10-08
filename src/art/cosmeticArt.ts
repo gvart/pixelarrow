@@ -7,7 +7,8 @@
 import { Pix } from './pixels';
 import { P } from './palette';
 import { EMBLEM_BITMAPS } from './emblems';
-import { renderGearIcon } from './paperdoll';
+import { ANIM, applyCosmetics, renderFrame, renderGearIcon, type DollSpec } from './paperdoll';
+import { AURA_COLORS } from '../game/cosmetics';
 
 export const COSMETIC_PREVIEW = 28;
 
@@ -54,7 +55,33 @@ const SLOT_DEFAULT: Record<string, Look> = {
   clan_flag: { main: 0x5f8a45, dark: 0x3e5a2c, light: 0x9ad87a, motif: 'boar', ink: 0xf6ecd8 },
   army_skin: { main: 0xb8863b, dark: 0x6e4f22, light: 0xe8c26a },
   table_theme: { main: 0x9a7048, dark: 0x57391f, light: 0xc89a68 },
+  crest: { main: 0xa83224, dark: 0x6e2219, light: 0xd06048 },
+  aura: { main: 0xe0b040, dark: 0x8a6a28, light: 0xfff0a0 },
+  pose: { main: 0xb8863b, dark: 0x6e4f22, light: 0xe8c26a },
 };
+
+/** A hoplite in the cosmetic, small enough for the 28 px tile (crests, auras, victory poses). */
+const MODEL: DollSpec = {
+  look: { skin: 1, hair: 1, hairStyle: 0, beard: 1, tunic: 'tunicWhite' },
+  weapon: 'spear',
+  shield: { art: 'hoplon', paint: { emblem: 'lambda', field: 'red', ink: 'cream' } },
+  helmet: { art: 'attic', paint: { field: 'red' } },
+  armor: 'linothorax',
+  seed: 2,
+  scale: 0.5,
+};
+
+function soldier(px: Pix, id: string, slot: string): void {
+  const spec = applyCosmetics(MODEL, { [slot]: id });
+  const fr = renderFrame(spec, slot === 'pose' ? ANIM.win[1] : 0, 0);
+  // the figure's feet on the tile's bottom edge
+  px.blit(fr, Math.round((px.w - fr.w) / 2), px.h - 2 - Math.round(fr.h * (64 / 72)));
+  if (slot === 'aura') {
+    const cols = AURA_COLORS[id] ?? [0xfff0a0];
+    const spots = [[5, 20], [22, 8], [7, 9], [21, 18], [12, 4], [18, 24], [4, 14], [24, 13]];
+    spots.forEach(([x, y], i) => px.set(x, y, cols[i % cols.length]));
+  }
+}
 
 function motif(px: Pix, x: number, y: number, name: string | undefined, ink: number, scale = 1): void {
   const rows = EMBLEM_BITMAPS[name ?? ''] ?? EMBLEM_BITMAPS.star;
@@ -164,6 +191,7 @@ export function renderCosmetic(id: string, slot: string): Pix {
   else if (slot === 'cloak') cloak(px, l);
   else if (slot === 'clan_flag') flag(px, l);
   else if (slot === 'army_skin') skin(px, l, id);
+  else if (slot === 'crest' || slot === 'aura' || slot === 'pose') soldier(px, id, slot);
   else table(px, l);
   return px;
 }

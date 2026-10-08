@@ -137,6 +137,20 @@ describe('shop: cosmetics and the season pass with Drachmae', () => {
     expect((await wallet(token)).loadout).toEqual({ cloak: 'cloak_crimson' });
   });
 
+  it('soldier cosmetics (crest, aura, victory pose) are bought and worn like the rest', async () => {
+    const { token, playerId } = await devLogin(950109);
+    await giveDrachmae(playerId, 500);
+    for (const item of ['crest_white', 'aura_embers', 'pose_salute']) expect((await post('/api/economy/buy', token, { requestId: reqId(), item })).status).toBe(200);
+    // the slot must match the cosmetic
+    expect((await post('/api/economy/cosmetics/equip', token, { slot: 'aura', id: 'crest_white' })).status).toBe(400);
+    await post('/api/economy/cosmetics/equip', token, { slot: 'crest', id: 'crest_white' });
+    await post('/api/economy/cosmetics/equip', token, { slot: 'aura', id: 'aura_embers' });
+    const eq = await post<{ loadout: Record<string, string> }>('/api/economy/cosmetics/equip', token, { slot: 'pose', id: 'pose_salute' });
+    expect(eq.body.loadout).toEqual({ crest: 'crest_white', aura: 'aura_embers', pose: 'pose_salute' });
+    const off = await post<{ loadout: Record<string, string> }>('/api/economy/cosmetics/equip', token, { slot: 'aura', id: null });
+    expect(off.body.loadout).toEqual({ crest: 'crest_white', pose: 'pose_salute' });
+  });
+
   it('concurrent purchases cannot overspend', async () => {
     const { token, playerId } = await devLogin(950102);
     await giveDrachmae(playerId, 150);

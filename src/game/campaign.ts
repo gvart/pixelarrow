@@ -2,16 +2,17 @@
  * Campaign state: roster, stash, gold, the overland world, and every operation
  * the screens perform on them (equip, hire, buy, heal, level up, encounters).
  */
-import { itemDef, itemValue, type Item, type Slot } from '../data/items';
+import { RARITIES, itemDef, itemValue, normalizeRarity, type Item, type Slot } from '../data/items';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
 import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/perks';
 import { Rng } from '../sim/rng';
-import { makeHero, makeItem, starterParty } from './heroes';
+import { grantXp, makeHero, makeItem, starterParty } from './heroes';
 import { dedupeNames } from '../data/names';
 import { DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
 import { armyPower, type EnemyArmy } from './enemy';
 import type { Outcome } from './loot';
 import { World, WORLD_RULES, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
+import { CAMP_RULES, FOOD_RULES, campEffects } from '../world/camp';
 
 export const START_GOLD = 60;
 
@@ -80,7 +81,7 @@ export class Campaign {
 
   playerInfo(): PlayerInfo {
     const fit = this.fitHeroes();
-    return { power: armyPower(fit), size: fit.length };
+    return { power: armyPower(fit), size: fit.length, mouths: this.data.heroes.length };
   }
 
   // ------------------------------------------------------------- time & healing
@@ -88,6 +89,79 @@ export class Campaign {
   /** Heal wounds for `hours` at `rate` wound-hours per hour. */
   heal(hours: number, rate: number): void {
     for (const h of this.data.heroes) if (h.wound > 0) h.wound = Math.max(0, h.wound - hours * rate);
+  }
+
+  /**
+   * After `hours` passed on the map (marching, or resting in camp): wounds heal
+   * at the world's current rate, and a camp's forge and drill yard do their work.
+   */
+  tickWorld(hours: number): void {
+    const w = this.world;
+    this.heal(hours, w.healRate());
+    const c = w.camp;
+    if (!c || hours <= 0) return;
+    const fx = campEffects(w.map, c);
+    if (fx.forge && w.supplies > 0) {
+      let work = false;
+      for (const h of this.data.heroes) {
+        for (const it of Object.values(h.equip)) {
+          if (!it || it.cond >= 100) continue;
+          it.cond = Math.min(100, it.cond + CAMP_RULES.repairPerHour * hours);
+          work = true;
+        }
+      }
+      if (work) w.addSupplies(-CAMP_RULES.repairSupplies * hours);
+    }
+    if (fx.drill && !w.starving) {
+      for (const h of this.data.heroes) {
+        if ((h.wound ?? 0) > 0 || h.level >= CAMP_RULES.drillMaxLevel) continue;
+        // fractional XP accumulates on the hero (grantXp rounds), so keep the remainder here
+        const acc = (this.drill.get(h.id) ?? 0) + CAMP_RULES.drillXp * hours;
+        const whole = Math.floor(acc);
+        this.drill.set(h.id, acc - whole);
+        if (whole > 0) grantXp(h, whole, this.rng);
+      }
+    }
+  }
+
+  private drill = new Map<string, number>();
+
+  /** Forge: supplies and gold to temper an item one rarity step finer (up to rare). */
+  temperCost(item: Item): { supplies: number; gold: number } | null {
+    const r = RARITIES.indexOf(normalizeRarity(item.rarity));
+    if (r < 0 || r >= 2) return null;
+    return { supplies: 6 + r * 6, gold: Math.ceil(itemDef(item.def).value * (0.4 + r * 0.4)) };
+  }
+
+  /** Temper an item at the camp forge. */
+  temper(item: Item): boolean {
+    const w = this.world;
+    const cost = this.temperCost(item);
+    if (!cost || !w.camp || !campEffects(w.map, w.camp).forge) return false;
+    if (w.supplies < cost.supplies || this.data.gold < cost.gold) return false;
+    w.addSupplies(-cost.supplies);
+    this.data.gold -= cost.gold;
+    item.rarity = RARITIES[RARITIES.indexOf(normalizeRarity(item.rarity)) + 1];
+    item.cond = 100;
+    return true;
+  }
+
+  /** Buy 10 rations or 10 supplies in a village or town. */
+  provisionPrice(kind: 'food' | 'supplies', settlement: number): number {
+    const def = this.world.settlement(settlement);
+    const town = def?.kind === 'town';
+    return kind === 'food' ? FOOD_RULES.foodPrice[town ? 'town' : 'village'] : FOOD_RULES.supplyPrice[town ? 'town' : 'village'];
+  }
+
+  buyProvisions(kind: 'food' | 'supplies', settlement: number): boolean {
+    const w = this.world;
+    const price = this.provisionPrice(kind, settlement);
+    const room = kind === 'food' ? FOOD_RULES.cap - w.food : FOOD_RULES.supplyCap - w.supplies;
+    if (this.data.gold < price || room < 10) return false;
+    this.data.gold -= price;
+    if (kind === 'food') w.addFood(10);
+    else w.addSupplies(10);
+    return true;
   }
 
   /** Let time pass inside a settlement (resting); bands move meanwhile. */

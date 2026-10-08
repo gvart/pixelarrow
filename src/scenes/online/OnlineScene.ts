@@ -41,7 +41,7 @@ import { ONLINE_RULES, RESOURCE_KEYS, type Resources } from '../../online/rules'
 import { planMarch, type MarchPlan } from '../../online/marchPlan';
 import { regionActions, type Act } from '../../online/regionActions';
 import { demoShard, type DemoShard } from '../../online/demoShard';
-import { MarkerMapView, clampCenter, zoomLimits, type WorldMapView } from './regionMapView';
+import { ParchmentMapView, clampCenter, snapZoom, zoomLimits, zoomStep, type WorldMapView } from './regionMapView';
 import { renderVignette } from '../../art/warTable';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
@@ -49,6 +49,8 @@ import { attackReport, duelReport } from '../../online/report';
 import { attackSubmission } from '../../online/battle';
 import { showReport } from '../ResultsScene';
 import { openBossInfo, openLairInfo, raidSource } from './beastPanel';
+import { demoCampSource, liveCampSource, openCampPanel } from './campPanel';
+import { campPlotMarkers, type CampPlotMarker } from '../../online/camps';
 import { encounterName } from '../../ui/beastInfo';
 import type { EncounterId } from '../../data/beasts';
 import { OnlineCoach, coachDue, type CoachHost } from '../../ui/tutorial/onlineCoach';
@@ -62,7 +64,7 @@ const CHIP_H = 28;
 type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string } | { kind: 'join' } | { kind: 'map' };
 
 /** Staged states of the preview map (layout check, screenshots). */
-export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result' | 'lair' | 'lairInfo' | 'boss' | 'bossInfo' | 'market' | 'post';
+export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result' | 'lair' | 'lairInfo' | 'boss' | 'bossInfo' | 'market' | 'post' | 'camp';
 
 export interface OnlineSceneData {
   /** Show the outcome of an attack that just came back from the battle scene. */
@@ -236,7 +238,11 @@ export class OnlineScene extends BaseScene {
     this.screen({ back: () => this.back() });
     this.cameras.main.setBackgroundColor(0x1d1410);
     this.layer = this.add.layer();
-    this.board = new MarkerMapView(this, this.layer, 0);
+    this.board = new ParchmentMapView(this, this.layer, 0);
+    this.board.onDiscover = (loc, name) => {
+      this.centerOn(loc, true);
+      toast(this, t('online.discovered', { name }), 'good', 3000);
+    };
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.uiCam.ignore(this.layer);
     this.cameras.main.ignore(this.ui);
@@ -246,7 +252,7 @@ export class OnlineScene extends BaseScene {
     this.input.on('pointerdown', this.onDown, this);
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
-    this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown[], _dx: number, dy: number) => this.zoomAt(dy > 0 ? 0.8 : 1.25, p.x, p.y));
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown[], _dx: number, dy: number) => this.zoomAt(zoomStep(this.cameras.main.zoom, dy > 0 ? -1 : 1, zoomLimits(this.m.S)) / this.cameras.main.zoom, p.x, p.y));
     if (!this.demo) {
       this.offSocket = shardSocket.on((m) => this.onSocket(m));
       Object.assign(window, { __shard: shardSocket }); // debug handle (e2e script)
@@ -348,6 +354,7 @@ export class OnlineScene extends BaseScene {
     const own = profile.army.marching && profile.army.path && profile.army.at ? { path: profile.army.path, at: profile.army.at } : null;
     this.board.build(map, own);
     this.boardBuilt = true;
+    this.showCampPlots();
     this.board.setRoute(own ? own.path : null, true);
     this.bosses = await this.src.bosses().catch(() => [] as BossView[]);
     if (!this.sys.isActive()) return;
@@ -380,6 +387,10 @@ export class OnlineScene extends BaseScene {
     const spot = k === 'own' ? demo.spots.own : k === 'neutral' ? demo.spots.neutralNext : k === 'far' ? demo.spots.neutralFar : k === 'rival' ? demo.spots.rival : k === 'town' ? demo.spots.town : k === 'lair' || k === 'lairInfo' ? demo.spots.lair : k === 'boss' || k === 'bossInfo' ? demo.spots.boss : k === 'market' ? demo.spots.market : k === 'post' ? demo.spots.post : null;
     if (spot !== null) this.select(spot);
     if ((k === 'lairInfo' || k === 'bossInfo') && spot !== null) this.openBeast(spot);
+    if (k === 'camp') {
+      this.select(demo.camp.spots.home);
+      this.openCamp(demo.camp.spots.home);
+    }
     if (k === 'lobby') this.openLobby();
     if (k === 'challenge') showChallenge(this.game, 'preview', { id: 102, name: 'Brasidas' });
     if (k === 'march') void this.march(demo.spots.neutralFar);
@@ -730,14 +741,20 @@ export class OnlineScene extends BaseScene {
     const beastBtn = !!d && (!!d.lair || !!this.bossAt(h));
     // a town or a trading post: its merchant (docs/DUELS.md "War-map shops on the map")
     const merchantBtn = !!d?.merchant;
-    if (!acts.length && !beastBtn && !merchantBtn) return;
+    // your camp, or your camp plot to pitch one on (docs/MAP_V3.md "Camp")
+    const campBtn = !!d && ((!!d.camp && d.camp.owner === map.you.id) || (!!d.campPlot && d.mine && !d.camp));
+    if (!acts.length && !beastBtn && !merchantBtn && !campBtn) return;
     const by = infoTop + infoH + SIZE.gap + 1;
-    const n = acts.length + (beastBtn ? 1 : 0) + (merchantBtn ? 1 : 0);
+    const n = acts.length + (beastBtn ? 1 : 0) + (merchantBtn ? 1 : 0) + (campBtn ? 1 : 0);
     const bw = Math.floor((W - 12 - (n - 1) * SIZE.gap) / n);
     // slot i of n; the last one takes the rounding remainder
     const slot = (i: number) => ({ bx: x + 6 + i * (bw + SIZE.gap), bw: i === n - 1 ? W - 12 - i * (bw + SIZE.gap) : bw });
     // the merchant first (left): the primary action stays at the right, under the thumb
-    const first = merchantBtn ? 1 : 0;
+    const first = (merchantBtn ? 1 : 0) + (campBtn ? 1 : 0);
+    if (campBtn) {
+      const sl = slot(merchantBtn ? 1 : 0);
+      c.add(new Button(this, sl.bx, by, sl.bw, SIZE.btnH, { label: t('hex.act.camp'), icon: 'tent', tip: t('hex.campTip'), onClick: () => this.openCamp(h), id: 'online.act.camp' }));
+    }
     if (merchantBtn) {
       const sl = slot(0);
       c.add(new Button(this, sl.bx, by, sl.bw, SIZE.btnH, { label: t('hex.act.merchant'), icon: 'amphora', tip: t('hex.merchantTip'), onClick: () => this.openMerchant(h), id: 'online.act.merchant' }));
@@ -761,6 +778,33 @@ export class OnlineScene extends BaseScene {
       const sl = slot(n - 1);
       c.add(new Button(this, sl.bx, by, sl.bw, SIZE.btnH, { label: t('hex.act.beast'), icon: 'beast', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' }));
     }
+  }
+
+  /** The camp panel of your camp (or camp plot) in a region. */
+  openCamp(h: number): void {
+    this.closeModal();
+    this.modal = openCampPanel(this, {
+      loc: h,
+      name: this.world.has(h) ? this.world.info(h).name : `#${h}`,
+      source: this.demo ? demoCampSource(this.demo) : liveCampSource,
+      onChange: (v) => {
+        if (this.profile) this.profile.resources = v.resources;
+        void this.reload().catch(() => undefined);
+      },
+      onClose: () => {
+        this.modal = null;
+      },
+    });
+  }
+
+  /** Camps and camp plots in sight to the map renderer (when it draws them). */
+  private showCampPlots(): void {
+    const map = this.map;
+    if (!map) return;
+    const view = this.board as WorldMapView & { setCampPlots?: (plots: CampPlotMarker[]) => void };
+    if (typeof view.setCampPlots !== 'function') return;
+    const forward = (map.camps ?? []).filter((c) => c.owner === map.you.id && !c.home).length;
+    view.setCampPlots(campPlotMarkers(this.world, map.regions, map.camps ?? [], map.you.id, forward));
   }
 
   /** The merchant screen of a town or a trading post (Back returns to this hex, selected). */
@@ -1221,7 +1265,13 @@ export class OnlineScene extends BaseScene {
 
   private onUp(p: Phaser.Input.Pointer): void {
     if (this.pinch) {
-      if (!this.input.pointer1.isDown || !this.input.pointer2.isDown) this.pinch = null;
+      if (!this.input.pointer1.isDown || !this.input.pointer2.isDown) {
+        this.pinch = null;
+        // settle on a pixel-clean zoom (nearest-neighbour, integer texel sizes)
+        const cam = this.cameras.main;
+        const z = snapZoom(cam.zoom, zoomLimits(this.m.S));
+        if (z !== cam.zoom) this.zoomAt(z / cam.zoom, p.x, p.y);
+      }
       this.gesture = null;
       return;
     }

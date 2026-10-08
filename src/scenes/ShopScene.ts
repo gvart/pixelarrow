@@ -1,3 +1,4 @@
+import { setCosmeticLoadout } from '../game/cosmetics';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
@@ -109,6 +110,7 @@ export class ShopScene extends BaseScene {
       ]);
       if (gen !== this.gen || !this.sys.isActive()) return;
       this.loaded = { cat, wallet, pass, cons, profile };
+      setCosmeticLoadout(wallet.loadout);
       this.st = 'ready';
     } catch (e) {
       if (gen !== this.gen || !this.sys.isActive()) return;
@@ -296,6 +298,7 @@ export class ShopScene extends BaseScene {
       const r = await econ().equipCosmetic(cm.slot, on ? cm.id : null);
       if (!this.loaded || !this.sys.isActive()) return;
       this.loaded.wallet.loadout = r.loadout;
+      setCosmeticLoadout(r.loadout);
       hapticNotify('success');
       toast(this, on ? t('shop.equipped') : t('shop.unequip'), 'good');
       this.render();

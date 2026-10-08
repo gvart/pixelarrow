@@ -7,8 +7,9 @@
 import { LEGACY_RARITY, normalizeRarity, RARITIES } from '../../../src/data/items';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 
-export type CosmeticSlot = 'emblem' | 'banner' | 'cloak' | 'clan_flag' | 'army_skin' | 'table_theme';
-export const COSMETIC_SLOTS: CosmeticSlot[] = ['emblem', 'banner', 'cloak', 'clan_flag', 'army_skin', 'table_theme'];
+/** crest, aura and pose are worn by the soldiers in battle (src/art/paperdoll.ts applyCosmetics, src/game/cosmetics.ts). */
+export type CosmeticSlot = 'emblem' | 'banner' | 'cloak' | 'clan_flag' | 'army_skin' | 'table_theme' | 'crest' | 'aura' | 'pose';
+export const COSMETIC_SLOTS: CosmeticSlot[] = ['emblem', 'banner', 'cloak', 'crest', 'aura', 'pose', 'clan_flag', 'army_skin', 'table_theme'];
 
 export interface Cosmetic {
   id: string;
@@ -39,6 +40,15 @@ export const COSMETICS: Record<string, Cosmetic> = Object.fromEntries(
     C('skin_macedon', 'army_skin', 'Macedonian army', 300),
     C('table_marble', 'table_theme', 'Marble war table', 250),
     C('table_tent', 'table_theme', 'Campaign tent table', 200),
+    C('crest_white', 'crest', 'Swan-white crests', 80),
+    C('crest_black', 'crest', 'Raven-black crests', 80),
+    C('crest_purple', 'crest', 'Royal purple crests', 150),
+    C('crest_gold', 'crest', 'Gilded crests', 250),
+    C('aura_laurel', 'aura', 'Laurel motes', 200),
+    C('aura_embers', 'aura', 'Ember aura', 300),
+    C('aura_storm', 'aura', 'Zeus-touched sparks', 400),
+    C('pose_salute', 'pose', 'Victory: spear salute', 120),
+    C('pose_shield', 'pose', 'Victory: shield aloft', 120),
     C('emblem_pass_s', 'emblem', 'Season victor emblem', null, 'season_pass'),
     C('cloak_pass_s', 'cloak', 'Season victor cloak', null, 'season_pass'),
     C('banner_pass_s', 'banner', 'Season victor banner', null, 'season_pass'),

@@ -349,7 +349,7 @@ export class SettlementScene extends BaseScene {
     const wounded = camp.wounded();
     const w = VW - 8;
     const town = def.kind === 'town';
-    const actionsH = (SIZE.btnH + SIZE.gap) * (town ? 2 : 1) + 4;
+    const actionsH = (SIZE.btnH + SIZE.gap) * (town ? 3 : 2) + 4 + 12;
     let cy = y;
     const head = wounded.length ? `${t('town.wounded')}: ${wounded.length}` : t('town.allFit');
     this.body.add(addText(this, VW / 2, cy + 1, ellipsize(head, w), wounded.length ? 'red' : 'good', 0.5));
@@ -376,6 +376,24 @@ export class SettlementScene extends BaseScene {
     }
     if (y + h - actionsH - cy >= noteH) this.body.add(addText(this, VW / 2, cy + 2, noteLines.lines.join('\n'), 'dim', 0.5).setCenterAlign());
     let by = y + h - actionsH + 4;
+    // provisions: rations for the march, supplies for the field camp
+    const w0 = camp.world;
+    this.body.add(addText(this, VW / 2, by, ellipsize(t('town.provisions', { food: Math.floor(w0.food), sup: Math.floor(w0.supplies) }), w), 'dim', 0.5));
+    by += 12;
+    const half = Math.floor((w - SIZE.gap) / 2);
+    (['food', 'supplies'] as const).forEach((kind, i) => {
+      const price = camp.provisionPrice(kind, this.id);
+      const b = new Button(this, 4 + i * (half + SIZE.gap), by, half, SIZE.btnH, {
+        label: `${t(kind === 'food' ? 'town.buyFood' : 'town.buySupplies')} ${price}`,
+        icon: kind === 'food' ? 'food' : 'wood',
+        id: `town.buy.${kind}`,
+        tip: t(kind === 'food' ? 'town.foodTip' : 'town.supplyTip'),
+        onClick: () => this.provision(kind),
+      });
+      b.setEnabled(camp.data.gold >= price, t('stash.noGold'));
+      this.body.add(b);
+    });
+    by += SIZE.btnH + SIZE.gap;
     this.body.add(new Button(this, 4, by, w, SIZE.btnH, { label: t('town.rest8'), icon: 'tent', id: 'town.rest', onClick: () => this.rest(8) }));
     by += SIZE.btnH + SIZE.gap;
     if (town) {
@@ -396,6 +414,19 @@ export class SettlementScene extends BaseScene {
     state.campaign.rest(hours);
     haptic('light');
     toast(this, t('town.rested'), 'good');
+    void state.save();
+    this.refresh();
+  }
+
+  private provision(kind: 'food' | 'supplies'): void {
+    const camp = state.campaign;
+    if (!camp.buyProvisions(kind, this.id)) {
+      hapticNotify('error');
+      toast(this, t(camp.data.gold < camp.provisionPrice(kind, this.id) ? 'stash.noGold' : 'town.storesFull'), 'bad');
+      return;
+    }
+    haptic('light');
+    toast(this, t('town.bought10', { what: t(kind === 'food' ? 'res.food' : 'town.buySupplies').replace(/\s*\+10$/, '') }), 'good');
     void state.save();
     this.refresh();
   }

@@ -9,13 +9,15 @@
  */
 import { siteName } from '../world/battlefield';
 import { defenderFor, neutralDefenders, WINS_TO_CLAIM } from './defenders';
-import { regionIncome, ONLINE_RULES, starterOnlineArmy, type Resources } from './rules';
+import { regionIncome, CAMP_RULES, ONLINE_RULES, RESOURCE_KEYS, starterOnlineArmy, type CampBuildingId, type Resources } from './rules';
+import { campView, checkBuild, checkClaim, effectiveLevel, towerSight, type CampBuildingState, type CampMarker, type CampsView } from './camps';
 import { heroPower } from '../sim/stats';
 import type { BossView, MapView, MerchantView, ProfileView, RegionDetail, RegionView } from './client';
 import { capKey, merchantAt, merchantDay, merchantStock, MERCHANT, nextReset, offerPrice, regionOf, tradingPostAt } from './merchants';
 import { ENCOUNTERS, MYTHS, mythHeroes } from '../data/beasts';
 import { bossMaxHp, lairAt, worldBossSites } from './lairs';
 import { DEFAULT_MAP_ID, getMap, type WorldGraph } from './world';
+import { t, type TKey } from '../i18n';
 
 export const DEMO = { seed: 42, me: 101, mate: 102, rival: 201, raider: 202, clan: 7, rivalClan: 9 };
 
@@ -51,6 +53,18 @@ export interface DemoShard {
   merchant(loc: number, stage?: 'held' | 'far'): MerchantView | null;
   /** The world bosses in sight (GET /boss). */
   bosses: BossView[];
+  /** The camps (GET/POST /camps): answered and changed locally; `now` is the demo's server time. */
+  camp: DemoCamps;
+}
+
+/** The demo's camps: your home camp, a forward camp and a camp plot still to claim. */
+export interface DemoCamps {
+  view(now: number): CampsView;
+  claim(loc: number, now: number): CampsView;
+  build(loc: number, kind: CampBuildingId, slot: number | null, now: number): CampsView & { built: { loc: number; slot: number; kind: CampBuildingId; level: number; doneAt: number } };
+  rest(loc: number, now: number): CampsView & { energy: number };
+  /** Your home camp, the forward camp and the plot to claim (null when the map has none near). */
+  spots: { home: number; forward: number | null; plot: number | null };
 }
 
 export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT_MAP_ID): DemoShard {
@@ -70,16 +84,45 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
   const mates = mateHome === me ? [] : landAround(world, mateHome, 3, taken, avoid);
   const rivalHome = others.find((s) => s !== mateHome && !taken.has(s) && world.hops(me, s) >= 2) ?? others.find((s) => s !== mateHome && !taken.has(s)) ?? mateHome;
   const rivals = rivalHome === mateHome ? [] : landAround(world, rivalHome, 3, taken, avoid);
+  // camp plots near home: the first a forward camp, the next one yours to claim
+  const campLocs = world
+    .all()
+    .filter((r) => r.campPlot && !taken.has(r.id) && !avoid.has(r.id) && world.hops(me, r.id) <= 4)
+    .sort((a, b) => world.hops(me, a.id) - world.hops(me, b.id) || a.id - b.id)
+    .slice(0, 2)
+    .map((r) => r.id);
+  for (const l of campLocs) taken.add(l);
   const owners = new Map<number, { owner: number; clan: number | null; home: boolean; garrison?: number }>();
   mine.forEach((l, i) => owners.set(l, { owner: DEMO.me, clan: DEMO.clan, home: i === 0, garrison: i === 0 ? 2 : undefined }));
+  for (const l of campLocs) owners.set(l, { owner: DEMO.me, clan: DEMO.clan, home: false });
   mates.forEach((l, i) => owners.set(l, { owner: DEMO.mate, clan: DEMO.clan, home: i === 0, garrison: i === 0 ? 3 : undefined }));
   rivals.forEach((l, i) => owners.set(l, { owner: DEMO.rival, clan: DEMO.rivalClan, home: i === 0 }));
 
   // Armies: yours at home, the clan mate's beside its land, a raider marching through your sight.
   const mateArmy = mates[mates.length - 1] ?? mateHome;
-  const sources = [...mine, ...mates, me, mateArmy];
+  const sources = [...mine, ...campLocs, ...mates, me, mateArmy];
   const visible = new Set<number>();
   for (const s of sources) for (const l of world.within(s, ONLINE_RULES.sight)) visible.add(l);
+
+  // Camps: home (granary 2, palisade 1, a forge going up), a forward camp with a watchtower.
+  const atMin = (m: number) => now + m * 60_000;
+  const camps: { loc: number; home: boolean; restedAt: number | null; buildings: CampBuildingState[] }[] = [
+    {
+      loc: me,
+      home: true,
+      restedAt: now - 60 * 60_000,
+      buildings: [
+        { slot: 0, kind: 'palisade', level: 1, doneAt: atMin(-600) },
+        { slot: 1, kind: 'granary', level: 2, doneAt: atMin(-300) },
+        { slot: 4, kind: 'forge', level: 1, doneAt: atMin(25) },
+      ],
+    },
+  ];
+  if (campLocs[0] !== undefined) camps.push({ loc: campLocs[0], home: false, restedAt: null, buildings: [{ slot: 0, kind: 'watchtower', level: 1, doneAt: atMin(-200) }] });
+  for (const c of camps) {
+    const hops = ONLINE_RULES.sight + towerSight(c.buildings, now);
+    if (hops > ONLINE_RULES.sight) for (const l of world.within(c.loc, hops)) visible.add(l);
+  }
   const bossSites = worldBossSites(world, seed);
 
   const regions: RegionView[] = [...visible].sort((a, b) => a - b).map((loc) => {
@@ -156,6 +199,13 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
     players: { [DEMO.me]: 'Ana', [DEMO.mate]: 'Brasidas', [DEMO.rival]: 'Kleon', [DEMO.raider]: 'Phormion' },
     clans: { [DEMO.clan]: { name: 'Kites of Pella', tag: 'KIT' }, [DEMO.rivalClan]: { name: 'Sons of Argos', tag: 'ARG' } },
   };
+  const markers = (tNow: number): CampMarker[] =>
+    camps
+      .filter((c) => visible.has(c.loc))
+      .map((c) => ({ loc: c.loc, owner: DEMO.me, home: c.home, buildings: c.buildings.filter((b) => effectiveLevel(b, tNow) > 0).length }));
+  // the mate's home camp too
+  const mateCamp: CampMarker[] = mates[0] !== undefined && visible.has(mates[0]) ? [{ loc: mates[0], owner: DEMO.mate, home: true, buildings: 2 }] : [];
+  map.camps = [...markers(now), ...mateCamp].sort((a, b) => a.loc - b.loc);
 
   // the world bosses some raids into the season: wounded, an arm cut, a leaderboard
   const bosses: BossView[] = bossSites.map((site) => {
@@ -269,6 +319,64 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
     };
   };
 
+  // ---- camps (the same checks as the server, applied to the local copy)
+  const campErr = (reason: string): never => {
+    throw new Error(t(`ocamp.why.${reason}` as TKey, { max: CAMP_RULES.maxForward }));
+  };
+  const campsView = (t0: number): CampsView => {
+    map.camps = [...markers(t0), ...mateCamp].sort((a, b) => a.loc - b.loc);
+    return {
+      now: t0,
+      camps: camps.map((c) => campView(c, t0)),
+      claimable: campLocs.filter((l) => !camps.some((c) => c.loc === l)),
+      forward: { n: camps.filter((c) => !c.home).length, max: CAMP_RULES.maxForward },
+      resources: { ...profile.resources },
+      army: { loc: profile.army.loc, marching: profile.army.marching },
+    };
+  };
+  const spend = (cost: Resources) => {
+    for (const k of RESOURCE_KEYS) profile.resources[k] = Math.round((profile.resources[k] - cost[k]) * 100) / 100;
+  };
+  const camp: DemoCamps = {
+    spots: { home: me, forward: campLocs[0] ?? null, plot: campLocs[1] ?? null },
+    view: (t0) => campsView(t0),
+    claim(loc, t0) {
+      const ok = checkClaim({
+        campPlot: world.has(loc) && world.info(loc).campPlot,
+        mine: owners.get(loc)?.owner === DEMO.me,
+        isCamp: camps.some((c) => c.loc === loc),
+        forward: camps.filter((c) => !c.home).length,
+        // the demo lets you pitch a camp without marching there
+        armyHere: true,
+        have: profile.resources,
+      });
+      if (!ok.ok) campErr(ok.reason);
+      spend(CAMP_RULES.claimCost);
+      camps.push({ loc, home: false, restedAt: null, buildings: [] });
+      return campsView(t0);
+    },
+    build(loc, kind, slot, t0) {
+      const c = camps.find((x) => x.loc === loc);
+      if (!c) return campErr('notCamp');
+      const ok = checkBuild(c, kind, slot, profile.resources, t0);
+      if (!ok.ok) return campErr(ok.reason);
+      spend(ok.cost);
+      const existing = c.buildings.find((b) => b.kind === kind);
+      const doneAt = t0 + ok.minutes * 60_000;
+      if (existing) Object.assign(existing, { level: ok.level, doneAt });
+      else c.buildings.push({ slot: slot!, kind, level: 1, doneAt });
+      return { built: { loc, slot: existing?.slot ?? slot!, kind, level: ok.level, doneAt }, ...campsView(t0) };
+    },
+    rest(loc, t0) {
+      const c = camps.find((x) => x.loc === loc);
+      if (!c) return campErr('notCamp');
+      if (c.restedAt !== null && t0 - c.restedAt < CAMP_RULES.restCooldownMs) return campErr('resting');
+      c.restedAt = t0;
+      profile.energy = Math.min(ONLINE_RULES.energyMax, profile.energy + CAMP_RULES.restEnergy);
+      return { energy: profile.energy, ...campsView(t0) };
+    },
+  };
+
   const neutral = regions.filter((x) => x.owner === null && x.occupant === 'npc');
   const plots = [...neutral.filter((x) => x.kind === 'plot'), ...neutral.filter((x) => x.kind !== 'plot')];
   const neutralNext = plots.find((x) => world.adjacent(me, x.loc))?.loc ?? mine[1] ?? me;
@@ -288,6 +396,7 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
     region,
     merchant,
     bosses,
+    camp,
     spots: { own: mine[1] ?? me, neutralNext, neutralFar, rival: rivalSeen ?? rivals[0] ?? rivalHome, town, lair: lairSpot, boss: bossSpot, post, market },
   };
 }

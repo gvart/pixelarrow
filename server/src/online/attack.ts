@@ -28,6 +28,8 @@ import { limit, player, regionKey, shardStub, type PlayerCtx } from './context';
 import { applyBattleConsumable, BATTLE_CONSUMABLES, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import { attackXp, passXpStmt } from '../economy/pass';
 import { pendingIncome } from './income';
+import { campAt, razeCampStmts } from './camps';
+import { militiaBonus } from '../../../src/online/camps';
 import { pushArmyMove } from './live';
 import { BEAST_RULES, bossAt, lairAt, lairBeasts, type Lair } from '../../../src/online/lairs';
 import { ev, later, notify } from '../notify/outbox';
@@ -210,7 +212,9 @@ attack.post('/start', async (c) => {
       defFormations = formationsOf(row.formations);
     } else {
       kind = 'militia';
-      defenders = militia(pc.shard.seed, info, row.version);
+      // a camp's palisade raises more men
+      const camp = await campAt(pc.db, pc.shard, target);
+      defenders = militia(pc.shard.seed, info, row.version, camp ? militiaBonus(camp.buildings, now) : 0);
     }
   } else {
     defenders = currentNeutrals(pc.shard, target, row, now);
@@ -446,6 +450,8 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
     );
     // A slain beast leaves a trophy (a cosmetic entitlement, kept across seasons).
     if (beast) stmts.push(d.prepare(`INSERT OR IGNORE INTO entitlements (player_id, product_id, purchase_id, granted_at) SELECT ?1, ?2, NULL, ?3 WHERE ${G}`).bind(pc.pid, trophyId(beast.enc), now));
+    // A camp there is razed.
+    if (row?.owner_id) stmts.push(...razeCampStmts(d, t.season_id, t.shard_id, loc, G));
     // The army moves into the conquered region.
     stmts.push(d.prepare(`UPDATE online_profiles SET army_loc = ?3, march = NULL WHERE season_id = ?1 AND player_id = ?2 AND ${G}`).bind(t.season_id, pc.pid, loc));
   } else if (t.defender_kind === 'beast') {
@@ -463,6 +469,8 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
         )
         .bind(survivors, now, won ? 1 : 0, won ? pc.pid : null, wins, won ? now : null, row?.owner_id ? 1 : 0),
     );
+    // An abandoned region falls back to the neutrals: its camp goes with it.
+    if (row?.owner_id) stmts.push(...razeCampStmts(d, t.season_id, t.shard_id, loc, G));
   }
 
   const summaryOut = {
