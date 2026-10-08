@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { ProfileView } from '../../src/online/client';
 import { MUSTER } from '../../src/game/muster';
 import { fresh, getJson, join, placeArmy, post, worldOf, type Ticket } from './onlineHelpers';
+
+/** The slice of GET /api/online/profile this test reads. Typed locally: the
+ *  client's ProfileView (src/online/client.ts) drags the browser-only client
+ *  (window, localStorage, DOM WebSocket) into the server's type-check. */
+interface ProfileView {
+  heroes: { hero: { id: string }; reserve?: boolean }[];
+}
 
 beforeEach(async () => {
   await fresh();
