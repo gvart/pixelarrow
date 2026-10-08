@@ -1,0 +1,87 @@
+name: D1 backup
+
+# Daily SQL export of the production D1 database (docs/OPS.md "Backups").
+# The dump holds player data, so it is encrypted (AES-256, openssl, with the
+# BACKUP_PASSPHRASE secret) before it leaves the runner; without that secret
+# the job only records the Time Travel bookmark.
+# D1 Time Travel already keeps 30 days of point-in-time history; this export
+# is the copy that lives outside Cloudflare's database (and beyond 30 days):
+#   - always: a GitHub Actions artifact, kept BACKUP_RETENTION_DAYS (default 30)
+#   - optional: also an R2 object when the BACKUP_R2_BUCKET variable is set
+# Run it by hand from the Actions tab (workflow_dispatch) before risky work.
+
+on:
+  schedule:
+    - cron: '41 2 * * *' # 02:41 UTC daily (low traffic; an export briefly slows the database)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-backup
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    if: ${{ vars.D1_DATABASE_ID != '' || github.event_name == 'workflow_dispatch' }}
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      # Resolve the database by id (wrangler.jsonc only holds a placeholder).
+      - run: node server/scripts/deploy-config.mjs wrangler.jsonc
+        env:
+          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID || secrets.D1_DATABASE_ID }}
+
+      - name: Export D1 and record the Time Travel bookmark
+        working-directory: server
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          mkdir -p ../backup
+          # The bookmark lets you restore to exactly this moment within 30 days.
+          npx wrangler d1 time-travel info pixelarrow --json --config ../wrangler.deploy.json > "../backup/pixelarrow-$stamp.bookmark.json"
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::warning::BACKUP_PASSPHRASE is not set: skipping the SQL export (docs/OPS.md \"Backups\")."
+          else
+            dump="$RUNNER_TEMP/pixelarrow-$stamp.sql"
+            npx wrangler d1 export pixelarrow --remote --config ../wrangler.deploy.json --output "$dump"
+            gzip -9 "$dump"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE \
+              -in "$dump.gz" -out "../backup/pixelarrow-$stamp.sql.gz.enc"
+            rm -f "$dump.gz"
+          fi
+          ls -la ../backup
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: d1-backup-${{ env.STAMP }}
+          path: backup/
+          retention-days: ${{ vars.BACKUP_RETENTION_DAYS || 30 }}
+          if-no-files-found: error
+
+      - name: Copy to R2 (optional)
+        if: ${{ vars.BACKUP_R2_BUCKET != '' }}
+        working-directory: server
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
+        run: |
+          for f in ../backup/*; do
+            npx wrangler r2 object put "$BUCKET/d1/$(basename "$f")" --file "$f" --remote --config ../wrangler.deploy.json
+          done

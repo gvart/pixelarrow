@@ -1,0 +1,6 @@
+{
+  "_doc": "Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps. Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids.",
+  "A": [],
+  "B": [],
+  "C": []
+}

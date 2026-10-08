@@ -1,0 +1,9 @@
+# Local secrets for `npm run dev` in server/. Copy to the REPO ROOT as .dev.vars
+# (wrangler looks next to wrangler.jsonc): cp server/.dev.vars.example .dev.vars
+# .dev.vars is gitignored; never commit it.
+# Production values are Worker secrets: npx wrangler secret put <NAME>
+TELEGRAM_BOT_TOKEN=123456:replace-with-a-test-bot-token
+TELEGRAM_WEBHOOK_SECRET=replace-with-a-long-random-string
+SESSION_SECRET=replace-with-another-long-random-string
+# Accept { "dev": { "id": 1, "first_name": "Dev" } } logins without Telegram. Local only!
+DEV_AUTH=1

@@ -1,0 +1,70 @@
+/* Legal pages (/terms, /privacy, /refunds and /ru/...): the game's parchment, readable on a phone. */
+:root {
+  --parch: #ecd9ae;
+  --parch-hi: #f5e8c6;
+  --edge: #b8935a;
+  --ink: #3f201b;
+  --ink-soft: #6a4636;
+  --red: #8a2f22;
+  --frame: #2a1a12;
+  --note: #e3c98f;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--frame);
+  color: var(--ink);
+  font: 17px/1.55 Georgia, 'Times New Roman', serif;
+}
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+}
+.sheet {
+  background: linear-gradient(180deg, var(--parch-hi), var(--parch));
+  border: 2px solid var(--edge);
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px #4a2e1c, 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 20px 18px 28px;
+}
+header { border-bottom: 2px solid var(--edge); margin-bottom: 18px; padding-bottom: 10px; }
+.brand { color: var(--red); font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; font-size: 13px; text-decoration: none; }
+h1 { font-size: 28px; line-height: 1.2; margin: 6px 0 4px; color: var(--red); }
+h2 { font-size: 20px; margin: 26px 0 6px; color: var(--red); }
+h3 { font-size: 17px; margin: 18px 0 4px; }
+p, li { margin: 0 0 10px; }
+ul, ol { padding-left: 22px; margin: 0 0 10px; }
+a { color: var(--red); text-underline-offset: 2px; }
+.meta { color: var(--ink-soft); font-size: 14px; margin: 0; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+nav a {
+  display: inline-block;
+  min-height: 44px;
+  padding: 11px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  background: var(--note);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 15px;
+  line-height: 20px;
+}
+nav a[aria-current='page'] { background: var(--red); color: var(--parch-hi); border-color: var(--red); }
+.note { background: var(--note); border-left: 4px solid var(--red); padding: 10px 12px; margin: 14px 0; border-radius: 3px; }
+.ph { background: #f7e08a; padding: 0 3px; border-radius: 2px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 6px; border-bottom: 1px solid var(--edge); }
+footer { margin-top: 26px; padding-top: 10px; border-top: 2px solid var(--edge); font-size: 14px; color: var(--ink-soft); }
+@media (max-width: 480px) {
+  body { font-size: 16px; }
+  .page { padding: 10px; }
+  .sheet { padding: 16px 14px 22px; }
+  h1 { font-size: 24px; }
+  table, thead, tbody, tr, th, td { display: block; }
+  thead { display: none; }
+  td { border: 0; padding: 2px 0; }
+  tr { border-bottom: 1px solid var(--edge); padding: 6px 0; }
+  td:first-child { font-weight: bold; }
+}

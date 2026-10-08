@@ -1,0 +1,15 @@
+node_modules
+dist
+*.log
+.DS_Store
+test-results
+/wrangler.deploy.json
+/wrangler.deploy.noae.json
+.wrangler
+.dev.vars
+
+# Agent worktrees (local only)
+.claude/worktrees/
+
+# Layout check screenshots (scripts/layout-check.mjs); only index.md is committed
+docs/screenshots/layout/*/

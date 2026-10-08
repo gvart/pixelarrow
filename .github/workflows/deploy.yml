@@ -1,0 +1,167 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push supersedes a queued one but never
+# cancels a deployment that is already running.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+# Gates run in parallel; every one of them must pass before the deploy job:
+#   build (types, unit tests, dist/ as an artifact) -> layout (10 shards) + smoke (5 scripts)
+#   build -> server (types, tests in workerd; wrangler.jsonc's assets need dist/)
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # vitest 5 needs Node >= 22.12 (vite 8 alone would run on 20.19+).
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      # vite build only: the type-check above is what `npm run build` adds
+      - run: npx vite build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 3
+
+  server:
+    # the Worker tests run in workerd with wrangler.jsonc, whose assets need dist/
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      # server/ (Worker API, bundles ../src/sim)
+      - run: npm ci
+        working-directory: server
+      - run: npx tsc --noEmit
+        working-directory: server
+      - run: npx vitest run
+        working-directory: server
+
+  # ---- layout check (docs/UI_KIT.md "Layout check"): every screen at five
+  # phone sizes, with and without Telegram's safe-area insets, in English and
+  # Russian: 20 configurations, two per shard, each split in two contexts.
+  # Known violations are allowlisted with an owner in
+  # scripts/layout-allowlist.json; anything else fails the deploy.
+  layout:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/browser-setup
+      - name: Layout check (shard ${{ matrix.shard }}/10)
+        run: node scripts/layout-check.mjs http://localhost:4173/ --shard ${{ matrix.shard }}/10 --split 2 --jobs 4
+      - name: Upload layout screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-screenshots-${{ matrix.shard }}
+          path: docs/screenshots/layout
+          retention-days: 14
+
+  # ---- touch smoke tests (README "Screenshots and smoke test")
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        script: [smoke, online-smoke, fullscreen-smoke, audio-smoke, tutorial-smoke, duel-smoke]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/browser-setup
+      - run: node scripts/${{ matrix.script }}.mjs http://localhost:4173/
+
+  deploy:
+    needs: [build, server, layout, smoke]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://pixelarrow.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - run: npm ci
+        working-directory: server
+
+      # wrangler.deploy.json = wrangler.jsonc with the D1 id filled in from the
+      # D1_DATABASE_ID Actions variable (or secret), or without the D1 binding
+      # when it is unset (the API then answers 503 "database not configured").
+      - id: config
+        run: node server/scripts/deploy-config.mjs wrangler.jsonc
+        env:
+          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID || secrets.D1_DATABASE_ID }}
+          # "off" deploys without the Analytics Engine datasets (docs/OPS.md).
+          ANALYTICS_ENGINE: ${{ vars.ANALYTICS_ENGINE }}
+
+      - name: Apply D1 migrations
+        if: steps.config.outputs.d1 == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Uses the wrangler pinned in server/package-lock.json.
+          workingDirectory: server
+          command: d1 migrations apply pixelarrow --remote --config ../wrangler.deploy.json
+
+      # If the account cannot bind Analytics Engine yet (it must be enabled
+      # once in the dashboard on some accounts), deploy without it rather than
+      # not at all: product analytics are then skipped until the next deploy
+      # (docs/OPS.md "Analytics"). Uses the wrangler pinned in server/.
+      - name: Deploy assets + Worker
+        working-directory: server
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! npx wrangler deploy --config ../wrangler.deploy.json 2>&1 | tee /tmp/deploy.log; then
+            if grep -qi "analytics" /tmp/deploy.log; then
+              echo "::warning::Deploy with Analytics Engine failed; deploying without it. Enable Analytics Engine in the Cloudflare dashboard (docs/OPS.md)."
+              npx wrangler deploy --config ../wrangler.deploy.noae.json
+            else
+              exit 1
+            fi
+          fi
