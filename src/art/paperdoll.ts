@@ -2440,7 +2440,7 @@ export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box =
   const px = sc.render(size, size, size / 2, size / 2 + Math.round(res * 2), { mask, maskMetal: true });
   if (name.startsWith('glint')) {
     // a bright band sweeping across the metal, top-left to bottom-right
-    const pos = [0.3, 0.52, 0.74][Number(name.slice(5))];
+    const pos = [0.42, 0.58, 0.74][Number(name.slice(5))];
     const bw = Math.max(1, Math.round(res * 1.2));
     for (let y = 0; y < size; y++)
       for (let x = 0; x < size; x++) {
