@@ -13,6 +13,12 @@ import { armyPower, type EnemyArmy } from './enemy';
 import type { Outcome } from './loot';
 import { World, WORLD_RULES, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
 import { CAMP_RULES, FOOD_RULES, campEffects } from '../world/camp';
+import { MUSTER, fieldHeroes } from './muster';
+
+/** Supplies a scrapped item yields (timber, hides, bronze scrap): a share of its worth, at least one. */
+export function scrapValue(it: Item): number {
+  return Math.max(1, Math.round(itemValue(it) / 6));
+}
 
 export const START_GOLD = 60;
 
@@ -69,10 +75,41 @@ export class Campaign {
     return this.data.heroes.find((h) => h.id === id);
   }
 
-  /** Heroes fit to fight (wounded men sit out); if everyone is wounded, all of them. */
+  /**
+   * Heroes who march into battle: the formation chosen in camp (fit men not
+   * in the reserve, up to the caps of src/game/muster.ts). If nobody is fit,
+   * everyone fights.
+   */
   fitHeroes(): Hero[] {
+    const field = fieldHeroes(this.data.heroes);
+    if (field.length > 0) return field;
     const fit = this.data.heroes.filter((h) => (h.wound ?? 0) <= 0);
-    return fit.length > 0 ? fit : this.data.heroes;
+    return fit.length > 0 ? fit.slice(0, MUSTER.fieldCap) : this.data.heroes;
+  }
+
+  /** Keep a hero in camp (out of the formation) or send him back to it. */
+  setReserve(heroId: string, reserve: boolean): boolean {
+    const h = this.hero(heroId);
+    if (!h) return false;
+    if (reserve) h.reserve = true;
+    else delete h.reserve;
+    return true;
+  }
+
+  /** Reserve men and the wounded: those who stay in camp while the formation marches. */
+  reserves(): Hero[] {
+    const field = new Set(this.fitHeroes().map((h) => h.id));
+    return this.data.heroes.filter((h) => !field.has(h.id));
+  }
+
+  /** Break a stash item up for camp supplies (no market in the field). Returns the supplies gained or -1. */
+  scrap(itemUid: string): number {
+    const idx = this.data.stash.findIndex((i) => i.uid === itemUid);
+    if (idx < 0) return -1;
+    const [it] = this.data.stash.splice(idx, 1);
+    const got = scrapValue(it);
+    this.world.addSupplies(got);
+    return got;
   }
 
   wounded(): Hero[] {

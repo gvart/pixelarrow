@@ -16,6 +16,7 @@ import { DUELS_EN } from './duels.en';
 import { MERCHANT_EN } from './merchant.en';
 import { FIELDCAMP_EN } from './fieldcamp.en';
 import { OCAMP_EN } from './camp.en';
+import { CAMPSCENE_EN } from './campscene.en';
 
 export const EN = {
   // ---- shared words
@@ -287,4 +288,5 @@ export const EN = {
   ...MERCHANT_EN,
   ...FIELDCAMP_EN,
   ...OCAMP_EN,
+  ...CAMPSCENE_EN,
 } as const;
