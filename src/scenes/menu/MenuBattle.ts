@@ -2,8 +2,9 @@
  * The living skirmish behind the main menu (src/scenes/MenuScene.ts): the
  * player's own men (their real classes, gear and cosmetics) meet a fresh band
  * of enemies in a short, scripted bout that loops forever and never repeats
- * exactly. Two lines form at the edges of the free band under the menu
- * panels, close, the archers loose, the lines charge into a melee of attacks,
+ * exactly, on a letterboxed stage at the top of the screen (the menu sits
+ * below it). Two lines form off the stage, close, the archers loose, the
+ * lines charge into a melee of attacks,
  * blocks, flinches and a few deaths, one hero's killing blow lands in slow
  * motion with the camera pushing in, the enemy breaks and runs, the victors
  * raise their arms, a fade, and the next bout starts with new enemies.
@@ -34,18 +35,14 @@ import type { UIMetrics } from '../../ui/kit';
 import { battleDoll, battleFrame, battleRow, dollOrigin, flushDolls, pumpDolls, releaseBattleRows } from '../../ui/sprites';
 import type { Culture } from '../../data/names';
 
-/** The free band of the menu (UI px) where the skirmish should be seen. */
+/** The stage (UI px): an unobstructed rectangle the skirmish is masked to. */
 export interface MenuStage {
-  /** The band: below the menu rows down to the bottom of the screen. */
   x: number;
   y: number;
   w: number;
   h: number;
-  /** A panel in the band's top-left corner (the first-steps checklist): its right and bottom edges. */
-  panelRight: number;
-  panelBottom: number;
-  /** Height of the save label at the bottom right. */
-  labelH: number;
+  /** Integer zoom of the battle world on the stage (2: figures twice the battlefield's size at 2x). */
+  zoom: number;
 }
 
 type Side = 0 | 1;
@@ -113,15 +110,15 @@ interface Particle {
   live: boolean;
 }
 
-const PAD = 14;
-/** Field units (one = a diamond tile, 36 x 18 px) along the line, between men. */
-const LINE_SP = 1.0;
+const PAD = 10;
+/** Field units (one = a diamond tile, 36 x 18 world px) along the line, between men. */
+const LINE_SP = 0.8;
 /** Where the player's line waits for the enemy before the charge, and where the lines meet (±). */
-const HOLD_Y = 1.6;
-const FIGHT_Y = 0.6;
-/** The archers' posts behind their lines (field y), and the lines' starting distance (off screen). */
-const POST_Y = 2.5;
-const START_Y = [4.0, 6.2];
+const HOLD_Y = 1.4;
+const FIGHT_Y = 0.5;
+/** The archers' posts behind their lines (field y), and the lines' starting distance (off the stage). */
+const POST_Y = 1.6;
+const START_Y = [3.6, 4.6];
 const WALK = 1.05;
 const RUN = 2.5;
 const ROUT = 2.3;
@@ -150,6 +147,8 @@ export class MenuBattle {
   private dimG: Phaser.GameObjects.Graphics | null = null;
   private fadeG: Phaser.GameObjects.Graphics | null = null;
   private projG: Phaser.GameObjects.Graphics | null = null;
+  private maskG: Phaser.GameObjects.Graphics | null = null;
+  private zoom = 1;
   private men: Man[] = [];
   private missiles: Missile[] = [];
   private parts: Particle[] = [];
@@ -198,51 +197,48 @@ export class MenuBattle {
   }
 
   /**
-   * The plain, a little bigger than the screen so the camera can drift. Its
-   * faint diamond grid is aligned with the field the men stand on (the world's
-   * origin, at `focus` on screen).
+   * The plain under the stage (world px, shown at the stage's zoom), a little
+   * bigger than the stage so the camera can drift. Its faint diamond grid is
+   * aligned with the field the men stand on (the world's origin, at `focus`).
    */
   private plain(): void {
-    const { VW, VH } = this.m;
-    const gw = VW + PAD * 2;
-    const gh = VH + PAD * 2;
-    const ox = -this.focus.x - PAD;
-    const oy = -this.focus.y - PAD;
+    const st = this.stage!;
+    const Z = this.zoom;
+    const gw = Math.ceil(st.w / Z) + PAD * 2;
+    const gh = Math.ceil(st.h / Z) + PAD * 2;
+    const ox = -Math.round((this.focus.x - st.x) / Z) - PAD;
+    const oy = -Math.round((this.focus.y - st.y) / Z) - PAD;
     const key = `menu_plain_${gw}x${gh}_${ox}_${oy}`;
     if (!this.scene.textures.exists(key)) {
       for (const k of this.scene.textures.getTextureKeys()) if (k.startsWith('menu_plain_')) this.scene.textures.remove(k);
       this.scene.textures.addCanvas(key, renderGround(gw, gh, { originX: ox, originY: oy, fieldW: 1e6, fieldH: 1e6, seed: 11 }).toCanvas());
     }
     this.ground.setTexture(key).setPosition(ox, oy).setVisible(true);
-    this.world.setPosition(this.focus.x, this.focus.y);
+    this.world.setPosition(this.focus.x, this.focus.y).setScale(Z);
   }
 
-  /** No room for a skirmish: the empty plain. */
-  still(): void {
-    if (this.destroyed) return;
-    this.focus = { x: 0, y: 0 };
-    this.plain();
-  }
-
-  /** Begin the skirmish in the band (the ground alone shows until then). */
+  /** Begin the skirmish on the stage. */
   start(stage: MenuStage): void {
     if (this.destroyed) return;
     this.stage = stage;
-    // The lines meet at the inner corner of the clear L (right of the panel,
-    // below it): the enemy line runs up into the clear strip on the right, the
-    // player's line down into the band under the panel, the archers behind each.
-    const freeW = stage.x + stage.w - stage.panelRight;
-    const freeH = stage.y + stage.h - stage.panelBottom - stage.labelH;
-    // on a wide band (landscape) the melee moves towards the middle of the clear strip
-    this.focus.x = Math.round(Math.min(stage.panelRight + Math.max(38, Math.min(freeW * 0.45, 140)), stage.x + stage.w - 30));
-    this.focus.y = Math.round(stage.panelBottom + Math.min(18, Math.max(8, freeH * 0.4)));
-    this.nLine = Math.max(3, Math.min(5, Math.round(freeW / 20)));
-    this.nRanged = freeW >= 60 ? 2 : 1;
+    this.zoom = Math.max(1, Math.round(stage.zoom));
+    // the lines meet a little below the middle of the stage (the title sits at its top)
+    this.focus.x = Math.round(stage.x + stage.w * 0.5);
+    this.focus.y = Math.round(stage.y + stage.h * 0.66);
+    const unitsW = stage.w / (this.zoom * 18);
+    this.nLine = unitsW >= 7.5 ? 4 : 3;
+    this.nRanged = unitsW >= 7.5 ? 2 : 1;
     this.plain();
+    // the world shows only inside the stage
+    const S = this.m.S;
+    this.maskG = this.scene.make.graphics({}, false);
+    this.maskG.fillStyle(0xffffff);
+    this.maskG.fillRect(stage.x * S, stage.y * S, stage.w * S, stage.h * S);
+    this.world.setMask(this.maskG.createGeometryMask());
     this.projG = this.scene.add.graphics().setDepth(DEPTH_MISSILE);
     this.world.add(this.projG);
-    // a quiet dim under the menu panels and a vignette at the edges keep the UI readable;
-    // both sit right above the plain and the men, under the panels already laid out
+    // the film look (letterbox bars, a soft edge) and the fade between bouts sit
+    // right above the world, under whatever the menu lays over the stage
     this.dimG = this.scene.add.graphics();
     this.ui.add(this.dimG);
     this.drawDim();
@@ -259,17 +255,16 @@ export class MenuBattle {
     const g = this.dimG;
     const st = this.stage;
     if (!g || !st) return;
-    const { VW } = this.m;
-    // one translucent sheet under the menu column, fading out at the top of the band
-    // (kept to five rectangles: a blended fill is what a weak GPU pays for)
+    // letterbox bars and a soft darkening of the sides (few rectangles: blended fill is what a weak GPU pays for)
     g.clear();
-    g.fillStyle(0x1a100c, 0.24);
-    g.fillRect(0, 0, VW, st.y - 2);
-    const steps = [0.18, 0.12, 0.07, 0.03];
-    steps.forEach((a, i) => {
-      g.fillStyle(0x1a100c, a);
-      g.fillRect(0, st.y - 2 + i * 3, VW, 3);
-    });
+    g.fillStyle(0x14100c, 0.92);
+    g.fillRect(st.x, st.y, st.w, 6);
+    g.fillRect(st.x, st.y + st.h - 6, st.w, 6);
+    g.fillStyle(0x14100c, 0.14);
+    g.fillRect(st.x, st.y + 6, 8, st.h - 12);
+    g.fillRect(st.x + st.w - 8, st.y + 6, 8, st.h - 12);
+    g.fillRect(st.x, st.y + 6, st.w, 6);
+    g.fillRect(st.x, st.y + st.h - 12, st.w, 6);
   }
 
   // ------------------------------------------------------------ armies
@@ -316,7 +311,8 @@ export class MenuBattle {
     const culture = rng.pick<Culture>(['greek', 'phoenician', 'celtic']);
     const mix = rng.pick<ArmyMix>(['line', 'line', 'raiders', 'bandits', 'mercs', 'hill_tribe', 'pirates', 'deserters']);
     const ids = { nextId: 70001 };
-    const army = buildArmy(rng, ids, { culture, count: this.nLine + this.nRanged + 1, level: 1, tier: 1, targetPower: 0, mix, tune: false });
+    // asked for more than needed: missile-heavy mixes leave few foot men after the trim
+    const army = buildArmy(rng, ids, { culture, count: this.nLine * 2 + this.nRanged + 1, level: 1, tier: 1, targetPower: 0, mix, tune: false });
     const foes = army.heroes.map((h) => ({ h, spec: { ...dollFromHero(h), scale: BATTLE_SCALE } })).filter((e) => !e.spec.mount && !e.spec.beast);
     let eLine = foes.filter((e) => !isRangedClass(weaponClass(e.spec.weapon))).slice(0, this.nLine);
     const eRanged = foes.filter((e) => isRangedClass(weaponClass(e.spec.weapon))).slice(0, this.nRanged);
@@ -327,9 +323,9 @@ export class MenuBattle {
       const n = list.length;
       const sign = side === 0 ? 1 : -1;
       list.forEach((e, i) => {
-        // the archers stand behind the line and off its left end (the clear parts of the band)
-        const lx = ranged ? -1.6 - i * 1.1 : (i - (n - 1) / 2) * LINE_SP;
-        const startY = sign * (START_Y[side] + (ranged ? 1.4 : 0) + rng.range(0, 0.5));
+        // the archers stand behind their line, towards its outer flank
+        const lx = ranged ? sign * -(0.4 + i * 0.9) : (i - (n - 1) / 2) * LINE_SP;
+        const startY = sign * (START_Y[side] + (ranged ? 1.2 : 0) + rng.range(0, 0.5));
         const m = this.spawn(e.h, e.spec, side, ranged, lx, startY);
         m.ty = sign * (ranged ? POST_Y + rng.range(0, 0.3) - i * 0.15 : side === 0 ? HOLD_Y : FIGHT_Y);
         m.tx = lx;
@@ -416,12 +412,15 @@ export class MenuBattle {
     this.drawFade();
   }
 
-  private camera(zoom: number): void {
-    const drift = this.reduced ? { x: 0, y: 0 } : { x: 5 * Math.sin(this.wall * 0.33), y: 2 * Math.sin(this.wall * 0.21 + 1) };
+  private camera(push: number): void {
+    const drift = this.reduced ? { x: 0, y: 0 } : { x: 3 * Math.sin(this.wall * 0.33), y: 1.5 * Math.sin(this.wall * 0.21 + 1) };
+    const Z = this.zoom;
+    const z = Z * push;
+    // the push-in keeps the hero where he is: a world point a shows at focus + a * z
     const ax = this.slowAnchor.x;
     const ay = this.slowAnchor.y;
-    this.world.setScale(zoom);
-    this.world.setPosition(Math.round(this.focus.x + drift.x - ax * (zoom - 1)), Math.round(this.focus.y + drift.y - ay * (zoom - 1)));
+    this.world.setScale(z);
+    this.world.setPosition(Math.round(this.focus.x + drift.x - ax * (z - Z)), Math.round(this.focus.y + drift.y - ay * (z - Z)));
   }
 
   private step(dt: number): void {
@@ -856,8 +855,9 @@ export class MenuBattle {
     const u = Math.min(1, this.fadeT / 1.1);
     const a = Math.sin(Math.PI * u) * 0.8;
     if (a <= 0.01) return;
+    const st = this.stage!;
     g.fillStyle(0x1a100c, a);
-    g.fillRect(0, 0, this.m.VW, this.m.VH);
+    g.fillRect(st.x, st.y, st.w, st.h);
   }
 
   // ------------------------------------------------------------ drawing a man
@@ -931,6 +931,8 @@ export class MenuBattle {
     this.dimG?.destroy();
     this.fadeG?.destroy();
     this.projG?.destroy();
+    this.world.clearMask(true);
+    this.maskG?.destroy();
     this.world.destroy();
     releaseBattleRows(this.scene);
   }
