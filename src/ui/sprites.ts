@@ -181,7 +181,9 @@ export function dollFxOf(key: string): DollFx | null {
 const ATLAS_W = 1024;
 const ATLAS_H = 512;
 /** Shelf heights are rounded up to a multiple of this, so a freed slot fits frames of about the same height. */
-const SHELF_STEP = 8;
+const SHELF_STEP = 16;
+/** A frame may go on a shelf up to this much taller than it needs (fewer, fuller shelves). */
+const SHELF_SLACK = 16;
 /** A frame nobody asked for this long is dropped from its atlas (every sprite asks for its frame every update, so a shown frame never expires). */
 const FRAME_TTL_MS = 6000;
 /** How often the expiry sweep runs. */
@@ -266,10 +268,11 @@ function allocSlots(scene: Phaser.Scene, w: number, h: number, n: number): Slot 
   if (!list) atlases.set(scene, (list = []));
   const need = w * n;
   const hh = shelfH(h);
-  // a freed run on a shelf of this height
+  const fits = (sh: Shelf) => sh.h >= hh && sh.h <= hh + SHELF_SLACK;
+  // a freed run on a shelf of about this height
   for (const a of list)
     for (const sh of a.shelves) {
-      if (sh.h !== hh) continue;
+      if (!fits(sh)) continue;
       for (let i = 0; i < sh.free.length; i++) {
         const f = sh.free[i];
         if (f.w < need) continue;
@@ -283,9 +286,10 @@ function allocSlots(scene: Phaser.Scene, w: number, h: number, n: number): Slot 
         return slot;
       }
     }
-  // the end of a shelf of this height, or a new shelf
+  // the end of a shelf of this height (an exact one first), or a new shelf
   for (const a of list) {
     for (const sh of a.shelves) if (sh.h === hh && sh.x + need <= ATLAS_W) return take(a, sh, need, h);
+    for (const sh of a.shelves) if (fits(sh) && sh.x + need <= ATLAS_W) return take(a, sh, need, h);
     if (a.nextY + hh <= ATLAS_H) {
       const sh: Shelf = { y: a.nextY, h: hh, x: 0, free: [] };
       a.shelves.push(sh);
