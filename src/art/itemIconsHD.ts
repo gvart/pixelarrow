@@ -69,7 +69,9 @@ export const RAMPS: Record<MatKey, Ramp> = {
 const EMBLEM_MASKS = new Map<string, HTMLCanvasElement>();
 
 const OUTLINE = 'rgba(22, 13, 8, 0.88)';
-const OUTLINE_W = 2.1;
+const OUTLINE_W = 2.3;
+/** Outline of a weapon's silhouette pieces: bolder, they are thin shapes read at 16 px. */
+const WO = 3;
 
 // ------------------------------------------------------------------ helpers
 
@@ -166,10 +168,10 @@ function outline(g: G, p: Path2D, w = OUTLINE_W): void {
 }
 
 /** Fill a path with a gradient and rim it. */
-function shape(g: G, p: Path2D, fill: string | CanvasGradient, rim = true): void {
+function shape(g: G, p: Path2D, fill: string | CanvasGradient, rim = true, w = OUTLINE_W): void {
   g.fillStyle = fill;
   g.fill(p);
-  if (rim) outline(g, p);
+  if (rim) outline(g, p, w);
 }
 
 /** A thin highlight line (specular) in the ramp's spec colour. */
@@ -264,13 +266,13 @@ function stud(g: G, rp: Ramp, x: number, y: number, rad: number): void {
 }
 
 /** A band across a rod in the local frame (rod along x). */
-function band(g: G, rp: Ramp, x: number, w: number, r: number): void {
+function band(g: G, rp: Ramp, x: number, w: number, r: number, ow = OUTLINE_W): void {
   const p = rrect(x - w / 2, -r - 0.4, w, r * 2 + 0.8, 0.8);
-  shape(g, p, grad(g, rp, 0, -r, 0, r));
+  shape(g, p, grad(g, rp, 0, -r, 0, r), true, ow);
 }
 
 /** A rod along x from x0 to x1 of radius r (rounded ends), lit from -y. */
-function rod(g: G, rp: Ramp, x0: number, x1: number, r: number, opts: { grain?: number; taper?: number; rim?: boolean } = {}): Path2D {
+function rod(g: G, rp: Ramp, x0: number, x1: number, r: number, opts: { grain?: number; taper?: number; rim?: boolean; ow?: number } = {}): Path2D {
   const r1 = opts.taper !== undefined ? opts.taper : r;
   const p = new Path2D();
   p.moveTo(x0, -r);
@@ -279,31 +281,32 @@ function rod(g: G, rp: Ramp, x0: number, x1: number, r: number, opts: { grain?: 
   p.lineTo(x0, r);
   p.arc(x0, 0, r, Math.PI / 2, -Math.PI / 2);
   p.closePath();
-  shape(g, p, grad(g, rp, 0, -Math.max(r, r1), 0, Math.max(r, r1)), opts.rim !== false);
+  shape(g, p, grad(g, rp, 0, -Math.max(r, r1), 0, Math.max(r, r1)), opts.rim !== false, opts.ow ?? OUTLINE_W);
   if (opts.grain !== undefined) grain(g, p, rp, (x0 + x1) / 2, 0, x1 - x0, 0, Math.max(r, r1) * 1.4, opts.grain);
   return p;
 }
 
 /** Leaf-shaped spear / sword blade from x0 (socket) to x1 (point), half width w at its widest. */
-function leaf(g: G, rp: Ramp, x0: number, x1: number, w: number, c: Ctx, opts: { waist?: number; rib?: boolean } = {}): void {
+function leaf(g: G, rp: Ramp, x0: number, x1: number, w: number, c: Ctx, opts: { waist?: number; rib?: boolean; ow?: number; neck?: number } = {}): void {
   const L = x1 - x0;
   const wx = x0 + L * (opts.waist ?? 0.35);
+  const nk = opts.neck ?? 0.45;
   const p = new Path2D();
-  p.moveTo(x0, -w * 0.45);
+  p.moveTo(x0, -w * nk);
   p.quadraticCurveTo(wx, -w * 1.15, x1, 0);
-  p.quadraticCurveTo(wx, w * 1.15, x0, w * 0.45);
+  p.quadraticCurveTo(wx, w * 1.15, x0, w * nk);
   p.closePath();
-  shape(g, p, grad(g, rp, 0, -w, 0, w));
+  shape(g, p, grad(g, rp, 0, -w, 0, w), true, opts.ow ?? OUTLINE_W);
   if (opts.rib !== false) {
     // the midrib: a highlight above, a shadow below
-    spec(g, rp, [[x0 + 1, -0.2], [x1 - 1.5, 0]], 0.9, 0.85);
+    spec(g, rp, [[x0 + 1, -0.3], [x1 - 2, 0]], w > 6 ? 1.4 : 1, 0.85);
     g.save();
-    g.globalAlpha = 0.35;
+    g.globalAlpha = 0.4;
     g.strokeStyle = rp.dk;
-    g.lineWidth = 0.7;
+    g.lineWidth = w > 6 ? 1.2 : 0.8;
     g.beginPath();
-    g.moveTo(x0 + 1, 0.9);
-    g.lineTo(x1 - 2, 0.3);
+    g.moveTo(x0 + 1, 1.3);
+    g.lineTo(x1 - 3, 0.4);
     g.stroke();
     g.restore();
   }
@@ -333,48 +336,66 @@ function spearIcon(c: Ctx, kind: 'spear' | 'spear_short' | 'lance'): void {
   const lance = kind === 'lance';
   const short = kind === 'spear_short';
   const sarissa = has(c, 'sarissa');
-  const shaft = lance ? RAMPS.darkwood : c.mat === 'wood' || !c.mat || isMetal(c.mat) ? RAMPS.wood : RAMPS[c.mat];
-  const head = isMetal(c.mat) ? c.main : lance ? finish(RAMPS.iron, r) : finish(RAMPS.bronze, r);
+  const sauroter = has(c, 'sauroter');
+  const kontos = has(c, 'kontos');
+  const shaft = lance ? RAMPS.darkwood : has(c, 'ash') ? RAMPS.olive : c.mat && !isMetal(c.mat) && c.mat !== 'wood' ? RAMPS[c.mat] : RAMPS.wood;
+  const head = isMetal(c.mat) ? c.main : lance || has(c, 'hasta', 'lancea') ? finish(RAMPS.iron, r) : finish(RAMPS.bronze, r);
   const trim = c.trim;
-  const x0 = lance || sarissa ? -38 : short ? -26 : -34;
-  const x1 = lance || sarissa ? 24 : short ? 12 : 16;
-  const tip = lance || sarissa ? 37 : short ? 28 : 33;
-  const rr = lance || sarissa ? 2.1 : 2.7;
+  // bold at 16 px: a thick shaft and a big head; the long spears run off the bottom-left corner
+  const rr = short ? 3.6 : lance ? 3.4 : 4;
+  const x0 = short ? -34 : sauroter ? -26 : -50;
+  const x1 = short ? 6 : sarissa ? 16 : lance ? 11 : has(c, 'hasta') ? 4 : 7; // socket
+  const tip = short ? 38 : 39;
   let tipPt: [number, number] = [0, 0];
   weaponFrame(g, () => {
-    rod(g, shaft, x0, x1 + 2, rr, { grain: c.v });
-    // butt spike (sauroter) on the long spears
-    if (!short) {
-      const sp = poly([[x0 + 1, -rr * 0.8], [x0 - 6, 0], [x0 + 1, rr * 0.8]]);
-      shape(g, sp, grad(g, trim, 0, -2, 0, 2));
-      band(g, trim, x0 + 1, 2.6, rr);
-    }
-    // socket and bands: more on the finer spears; the sarissa's iron sleeve joins two halves
-    band(g, trim, x1 + 0.5, 3, rr);
-    if (sarissa) band(g, RAMPS.iron, -6, 5, rr + 0.2);
-    else {
-      if (tier >= 2 || id === 'bronze_dory') band(g, trim, x1 - 7, 1.8, rr);
-      if (tier >= 3) band(g, trim, x1 - 12, 1.8, rr);
+    rod(g, shaft, x0, x1 + 3, rr, { grain: c.v, ow: WO });
+    if (sauroter) {
+      // the big four-sided butt spike that names it
+      shape(g, poly([[x0 + 2, -rr - 0.5], [x0 - 13, 0], [x0 + 2, rr + 0.5]]), grad(g, trim, 0, -4, 0, 4), true, WO);
+      spec(g, trim, [[x0 + 1, -1.5], [x0 - 10, -0.3]], 1, 0.8);
+      band(g, trim, x0 + 2.5, 3.6, rr + 0.2, WO);
+    } else if (short) band(g, trim, x0 + 2, 3.2, rr + 0.2, WO);
+    if (sarissa) {
+      // the iron sleeve joining the two halves, riveted
+      band(g, RAMPS.iron, -16, 12, rr + 0.8, WO);
+      stud(g, RAMPS.iron, -19, 0, 1.3);
+      stud(g, RAMPS.iron, -13, 0, 1.3);
     }
     if (lance) {
-      // leather grip in the middle
-      const gp = rod(g, RAMPS.leather, -9, 1, rr + 0.5, { rim: true });
+      // leather grip wound round the middle
+      const gp = rod(g, RAMPS.leather, -14, 0, rr + 0.7, { ow: WO });
       g.save();
       g.clip(gp);
-      g.strokeStyle = 'rgba(22,13,8,0.45)';
-      g.lineWidth = 0.7;
-      for (let x = -8; x < 1; x += 1.8) {
+      g.strokeStyle = 'rgba(22,13,8,0.5)';
+      g.lineWidth = 0.9;
+      for (let x = -13; x < 0; x += 2.2) {
         g.beginPath();
-        g.moveTo(x, -3);
-        g.lineTo(x + 1, 3);
+        g.moveTo(x, -5);
+        g.lineTo(x + 1.3, 5);
         g.stroke();
       }
       g.restore();
     }
-    // the head: leaf shapes of different widths and waists tell siblings apart
-    const vv = c.v % 3;
-    const wide = id === 'bronze_dory' || tier >= 3 ? 5 : lance || sarissa ? 2.8 : 3.8 + vv * 0.5;
-    leaf(g, head, x1 + 1.5, tip, wide, c, { waist: lance ? 0.3 : 0.32 + vv * 0.1 });
+    // the socket (long on the hasta and the lances) and bands on the finer spears
+    const sock = has(c, 'hasta') || lance ? 7 : 4;
+    band(g, trim, x1 + 1 + sock / 2 - 2, sock, rr + 0.4, WO);
+    if (!sarissa && !lance && (tier >= 2 || id === 'bronze_dory')) band(g, trim, x1 - 6, 2.4, rr + 0.1, WO);
+    if (!sarissa && !lance && tier >= 3) band(g, trim, x1 - 12, 2.4, rr + 0.1, WO);
+    // the head: each sibling its own leaf
+    const hx = x1 + sock - 1;
+    if (kontos) {
+      // a long narrow diamond
+      shape(g, poly([[hx, -3.5], [hx + 14, -6.5], [tip, 0], [hx + 14, 6.5], [hx, 3.5]]), grad(g, head, 0, -6.5, 0, 6.5), true, WO);
+      spec(g, head, [[hx + 2, -0.4], [tip - 2, 0]], 1.3, 0.85);
+    } else if (lance) {
+      // the xyston: a lozenge head with a strong midrib
+      leaf(g, head, hx, tip, 7.5, c, { waist: 0.5, ow: WO, neck: 0.3 });
+    } else if (sarissa) leaf(g, head, hx, tip, 6, c, { waist: 0.4, ow: WO });
+    else if (short) leaf(g, head, hx, tip, has(c, 'lancea') ? 6 : 8, c, { waist: has(c, 'lancea') ? 0.3 : 0.45, ow: WO });
+    else if (id === 'bronze_dory') leaf(g, head, hx, tip, 9.5, c, { waist: 0.48, ow: WO });
+    else if (has(c, 'hasta')) leaf(g, head, hx, tip, 8.5, c, { waist: 0.55, ow: WO, neck: 0.6 });
+    else if (has(c, 'ash')) leaf(g, head, hx, tip, 6.5, c, { waist: 0.32, ow: WO });
+    else leaf(g, head, hx, tip, 7.5 + (c.v % 2), c, { waist: 0.4, ow: WO });
     tipPt = toScreen(g, tip, 0);
   });
   c.glints = [tipPt];
@@ -384,119 +405,179 @@ function swordIcon(c: Ctx, kind: 'sword' | 'kopis' | 'longsword'): void {
   const { g, id, r, tier } = c;
   const falcata = id === 'falcata';
   const sica = has(c, 'sica');
+  const makhaira = has(c, 'makhaira');
   const gladius = has(c, 'gladius');
   const dagger = has(c, 'akinakes', 'dagger', 'pugio');
+  const chief = has(c, 'chief', 'noble', 'king');
   const blade = falcata && !isMetal(c.mat) ? finish(RAMPS.blued, r) : isMetal(c.mat) ? c.main : finish(RAMPS.iron, r);
   const trim = c.trim;
   const grip = c.v & 1 ? RAMPS.leather : RAMPS.darkwood;
   let tipPt: [number, number] = [0, 0];
   weaponFrame(g, () => {
     const long = kind === 'longsword';
-    const hx = long ? -20 : dagger ? -12 : -16; // guard position
-    const tip = long ? 33 : dagger ? 20 : 27;
+    const hx = long ? -18 : dagger ? -10 : sica ? -16 : -14; // guard position
+    const tip = long ? 38 : dagger ? 30 : sica ? 26 : makhaira ? 38 : 35;
+    const gl = dagger ? 11 : 13; // grip length
     // grip and pommel
-    rod(g, grip, hx - 11, hx, 2.6);
+    rod(g, grip, hx - gl, hx, 3.4, { ow: WO });
     if (long) {
-      // Celtic anthropoid pommel: two curled arms
+      // Celtic anthropoid pommel: two curled arms (a disc on the chieftain's)
+      if (chief) shape(g, ellipse(hx - gl - 3, 0, 4.5, 4.5), dome(g, trim, hx - gl - 3, 0, 4.5), true, WO);
+      else {
+        const pm = new Path2D();
+        pm.moveTo(hx - gl + 1, -2);
+        pm.quadraticCurveTo(hx - gl - 7, -7, hx - gl - 4, -8);
+        pm.quadraticCurveTo(hx - gl - 1, -8, hx - gl - 2, -3.5);
+        pm.lineTo(hx - gl - 2, 3.5);
+        pm.quadraticCurveTo(hx - gl - 1, 8, hx - gl - 4, 8);
+        pm.quadraticCurveTo(hx - gl - 7, 7, hx - gl + 1, 2);
+        pm.closePath();
+        shape(g, pm, grad(g, trim, 0, -7, 0, 7), true, WO);
+        stud(g, trim, hx - gl - 3.4, 0, 1.8);
+      }
+    } else if (falcata) {
+      // the hooked horse-head pommel and the knuckle bow down to the guard
       const pm = new Path2D();
-      pm.moveTo(hx - 10, -1.4);
-      pm.quadraticCurveTo(hx - 16, -5, hx - 13, -5.8);
-      pm.quadraticCurveTo(hx - 10.5, -6, hx - 11.5, -2.8);
-      pm.lineTo(hx - 11.5, 2.8);
-      pm.quadraticCurveTo(hx - 10.5, 6, hx - 13, 5.8);
-      pm.quadraticCurveTo(hx - 16, 5, hx - 10, 1.4);
+      pm.moveTo(hx - gl + 1, -3.6);
+      pm.quadraticCurveTo(hx - gl - 9, -5, hx - gl - 7, 4);
+      pm.quadraticCurveTo(hx - gl - 4, 7.5, hx - gl - 2, 4);
+      pm.lineTo(hx - gl + 1, 3.6);
       pm.closePath();
-      shape(g, pm, grad(g, trim, 0, -5, 0, 5));
-      stud(g, trim, hx - 12.8, 0, 1.5);
-    } else if (falcata || sica) {
-      // hooked bird's-head pommel
+      shape(g, pm, grad(g, trim, 0, -4, 0, 6), true, WO);
+      g.save();
+      g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(hx - gl - 4, 5.5);
+      g.quadraticCurveTo(hx - gl + 3, 15, hx + 1, 6.5);
+      g.lineWidth = 3.6 + WO;
+      g.strokeStyle = OUTLINE;
+      g.stroke();
+      g.lineWidth = 3.6;
+      g.strokeStyle = trim.base;
+      g.stroke();
+      g.lineWidth = 1;
+      g.strokeStyle = trim.hi;
+      g.globalAlpha = 0.7;
+      g.stroke();
+      g.restore();
+    } else if (kind === 'kopis' && !sica) {
+      // the kopis' hooked bird's-head pommel
       const pm = new Path2D();
-      pm.moveTo(hx - 10, -2.8);
-      pm.quadraticCurveTo(hx - 19, -4, hx - 17, 3.6);
-      pm.quadraticCurveTo(hx - 14, 6.2, hx - 12, 3.4);
-      pm.lineTo(hx - 10, 2.8);
+      pm.moveTo(hx - gl + 1, -3.6);
+      pm.quadraticCurveTo(hx - gl - 10, -5, hx - gl - 7, 4.5);
+      pm.quadraticCurveTo(hx - gl - 4, 8, hx - gl - 2, 4.5);
+      pm.lineTo(hx - gl + 1, 3.6);
       pm.closePath();
-      shape(g, pm, grad(g, trim, 0, -3, 0, 5));
-      stud(g, RAMPS.gold, hx - 15, 0.5, 1);
+      shape(g, pm, grad(g, trim, 0, -4, 0, 6), true, WO);
+      stud(g, RAMPS.gold, hx - gl - 5, 0.5, 1.3);
+    } else if (sica) {
+      // a plain bone grip with a flat cap
+      shape(g, rrect(hx - gl - 3, -4.5, 3.6, 9, 1.2), grad(g, RAMPS.bone, 0, -4.5, 0, 4.5), true, WO);
     } else if (dagger) {
       // the akinakes' bar pommel
-      shape(g, rrect(hx - 13.5, -4.5, 3, 9, 1.2), grad(g, trim, 0, -4.5, 0, 4.5));
+      shape(g, rrect(hx - gl - 4, -6, 4, 12, 1.4), grad(g, trim, 0, -6, 0, 6), true, WO);
     } else {
-      const pm = ellipse(hx - 12, 0, 3, 3.4);
-      shape(g, pm, grad(g, trim, 0, -3, 0, 3));
+      const pm = ellipse(hx - gl - 2.5, 0, 4, 4.5);
+      shape(g, pm, grad(g, trim, 0, -4, 0, 4), true, WO);
     }
     // grip binding
     g.save();
-    g.strokeStyle = 'rgba(22,13,8,0.45)';
-    g.lineWidth = 0.7;
-    for (let x = hx - 9.5; x < hx - 1; x += 1.9) {
+    g.strokeStyle = 'rgba(22,13,8,0.5)';
+    g.lineWidth = 0.9;
+    for (let x = hx - gl + 1.5; x < hx - 1.5; x += 2.4) {
       g.beginPath();
-      g.moveTo(x, -3);
-      g.lineTo(x + 0.9, 3);
+      g.moveTo(x, -4);
+      g.lineTo(x + 1.2, 4);
       g.stroke();
     }
     g.restore();
     // guard: a bar on the straight swords, a stub on the choppers, a heart on the dagger
-    if (dagger) shape(g, poly([[hx - 1.5, -5.5], [hx + 2.5, -1.5], [hx + 2.5, 1.5], [hx - 1.5, 5.5]]), grad(g, trim, 0, -5, 0, 5));
+    if (dagger) shape(g, poly([[hx - 2, -7.5], [hx + 3, -2], [hx + 3, 2], [hx - 2, 7.5]]), grad(g, trim, 0, -7, 0, 7), true, WO);
+    else if (sica) shape(g, rrect(hx - 1.6, -5, 3.2, 10, 1.2), grad(g, trim, 0, -5, 0, 5), true, WO);
     else {
-      const guard = kind === 'sword' ? rrect(hx - 1.6, -5.8, 3.2, 11.6, 1.3) : rrect(hx - 1.4, -4, 2.8, 8, 1);
-      shape(g, guard, grad(g, trim, 0, -5, 0, 5));
+      const guard = kind === 'sword' ? rrect(hx - 2, -8, 4, 16, 1.6) : kind === 'longsword' ? rrect(hx - 2, -7, 4, 14, 1.6) : rrect(hx - 1.8, -5.5, 3.6, 11, 1.2);
+      shape(g, guard, grad(g, trim, 0, -7, 0, 7), true, WO);
     }
     // blade
-    if (kind === 'kopis') {
-      const belly = sica ? 2.6 : has(c, 'makhaira') ? 4.2 : 5.4;
-      const curve = sica ? 11 : 8.5;
+    if (sica) {
+      // a short blade curving hard into a hooked point
       const p = new Path2D();
-      p.moveTo(hx + 1, -2.6);
-      p.quadraticCurveTo(hx + 18, -4, tip, -curve); // spine curving forward
-      p.quadraticCurveTo(tip - 3, -2, tip - 9, belly); // the belly
-      p.quadraticCurveTo(hx + 10, belly + 0.5, hx + 1, 2.6);
+      p.moveTo(hx + 1, -4.5);
+      p.quadraticCurveTo(hx + 22, -5, hx + 34, -14);
+      p.quadraticCurveTo(hx + 44, -22, hx + 36, -36);
+      p.quadraticCurveTo(hx + 32, -22, hx + 22, -14);
+      p.quadraticCurveTo(hx + 12, -6, hx + 1, 4.5);
       p.closePath();
-      shape(g, p, grad(g, blade, 0, -8, 0, 5));
-      spec(g, blade, [[hx + 2, -2.1], [tip - 2, -curve + 1]], 1, 0.8);
+      shape(g, p, grad(g, blade, 6, -22, 20, -2), true, WO);
+      spec(g, blade, [[hx + 3, -3], [hx + 26, -7.5], [hx + 37, -22]], 1.4, 0.85);
+      tipPt = toScreen(g, hx + 36, -36);
+    } else if (kind === 'kopis') {
+      // forward-curving choppers: the kopis deep-bellied, the makhaira a longer, slimmer sabre, the falcata blued
+      const belly = makhaira ? 5.5 : 9;
+      const curve = makhaira ? 8 : 12;
+      const p = new Path2D();
+      p.moveTo(hx + 1, -3.4);
+      p.quadraticCurveTo(hx + 22, -5, tip, -curve); // spine curving forward
+      p.quadraticCurveTo(tip - 4, -1, tip - 11, belly); // the belly
+      p.quadraticCurveTo(hx + 14, belly + 1, hx + 1, 3.4);
+      p.closePath();
+      shape(g, p, grad(g, blade, 0, -10, 0, 8), true, WO);
+      spec(g, blade, [[hx + 3, -2.8], [tip - 2, -curve + 1.2]], 1.3, 0.85);
+      if (makhaira) {
+        // a fuller along the spine
+        g.save();
+        g.globalAlpha = 0.45;
+        g.strokeStyle = blade.dk;
+        g.lineWidth = 1.1;
+        g.beginPath();
+        g.moveTo(hx + 4, -0.5);
+        g.quadraticCurveTo(hx + 22, -2, tip - 6, -5);
+        g.stroke();
+        g.restore();
+      }
       if (falcata || tier >= 3) {
         // gold inlay along the spine
         g.save();
         g.strokeStyle = RAMPS.gold.base;
-        g.lineWidth = 0.9;
-        g.setLineDash([1.6, 1.7]);
+        g.lineWidth = 1.1;
+        g.setLineDash([2, 2]);
         g.globalAlpha = 0.9;
         g.beginPath();
-        g.moveTo(hx + 4, 0.2);
-        g.quadraticCurveTo(hx + 16, -0.8, tip - 6, -4);
+        g.moveTo(hx + 5, 0.5);
+        g.quadraticCurveTo(hx + 20, -1.5, tip - 7, -6);
         g.stroke();
         g.restore();
       }
       tipPt = toScreen(g, tip, -curve);
     } else {
-      const w = long ? 4.2 : dagger ? 4.2 : 5.2;
+      const w = long ? 6 : dagger ? 7 : gladius ? 6.5 : 8;
       const p = new Path2D();
       if (long || gladius) {
         // parallel edges, a long point on the gladius, a rounded one on the Celtic sword
-        const pt = gladius ? 9 : 6;
+        const pt = gladius ? 12 : 7;
         p.moveTo(hx + 1, -w);
-        p.lineTo(tip - pt, -w * 0.92);
+        p.lineTo(tip - pt, -w * 0.94);
         p.quadraticCurveTo(tip - pt * 0.3, -w * 0.5, tip + 1, 0);
-        p.quadraticCurveTo(tip - pt * 0.3, w * 0.5, tip - pt, w * 0.92);
+        p.quadraticCurveTo(tip - pt * 0.3, w * 0.5, tip - pt, w * 0.94);
         p.lineTo(hx + 1, w);
       } else {
         // leaf blade (the xiphos), a straight taper on the dagger
-        const wx = dagger ? hx + 3 : hx + 14;
-        p.moveTo(hx + 1, -w * 0.62);
-        p.quadraticCurveTo(wx, -w * 1.25, tip, 0);
-        p.quadraticCurveTo(wx, w * 1.25, hx + 1, w * 0.62);
+        const wx = dagger ? hx + 8 : hx + 22;
+        p.moveTo(hx + 1, -w * (dagger ? 0.9 : 0.6));
+        p.quadraticCurveTo(wx, -w * (dagger ? 1.05 : 1.3), tip, 0);
+        p.quadraticCurveTo(wx, w * (dagger ? 1.05 : 1.3), hx + 1, w * (dagger ? 0.9 : 0.6));
       }
       p.closePath();
-      shape(g, p, grad(g, blade, 0, -w, 0, w));
+      shape(g, p, grad(g, blade, 0, -w, 0, w), true, WO);
       // fuller / midrib
-      spec(g, blade, [[hx + 3, -0.4], [tip - 3, -0.1]], 1.1, 0.85);
+      spec(g, blade, [[hx + 4, -0.5], [tip - 4, -0.1]], 1.4, 0.85);
       g.save();
-      g.globalAlpha = 0.4;
+      g.globalAlpha = 0.45;
       g.strokeStyle = blade.dk;
-      g.lineWidth = 0.9;
+      g.lineWidth = 1.2;
       g.beginPath();
-      g.moveTo(hx + 3, 1.1);
-      g.lineTo(tip - 4, 0.7);
+      g.moveTo(hx + 4, 1.4);
+      g.lineTo(tip - 5, 0.9);
       g.stroke();
       g.restore();
       tipPt = toScreen(g, tip, 0);
@@ -509,28 +590,36 @@ function axeIcon(c: Ctx): void {
   const { g, r, tier } = c;
   const head = isMetal(c.mat) ? c.main : finish(RAMPS.iron, r);
   const double = has(c, 'labrys', 'double');
-  const pick = has(c, 'sagaris', 'dolabra', 'pick');
+  const sagaris = has(c, 'sagaris');
+  const dolabra = has(c, 'dolabra', 'pick');
   let tipPt: [number, number] = [0, 0];
   weaponFrame(g, () => {
-    rod(g, RAMPS.wood, -28, double ? 24 : 20, 2.6, { grain: c.v });
-    // the blade toward -y (the top left on screen)
+    // the haft, its head end a little short of the top-right corner
+    rod(g, RAMPS.wood, -42, 18, 3.8, { grain: c.v, ow: WO });
+    // the bit toward -y (the top left on screen), big
     const bit = (sx: number): Path2D => {
       const p = new Path2D();
-      if (pick && has(c, 'sagaris')) {
+      if (sagaris) {
         // a narrow, long blade
-        p.moveTo(10, -2);
-        p.lineTo(8, -11);
-        p.quadraticCurveTo(13, -21, 20, -19);
-        p.lineTo(19, -2);
+        p.moveTo(4, -3);
+        p.lineTo(2, -14);
+        p.quadraticCurveTo(8, -25, 17, -23);
+        p.lineTo(14, -3);
+      } else if (dolabra) {
+        // a square-ish bit
+        p.moveTo(3, -3);
+        p.lineTo(2, -16);
+        p.quadraticCurveTo(10, -24, 22, -21);
+        p.lineTo(19, -3);
       } else {
-        p.moveTo(10, -2);
-        p.lineTo(9, -13);
-        p.quadraticCurveTo(16, -21, 26, -17);
-        p.lineTo(24, -2);
+        p.moveTo(2, -3);
+        p.lineTo(0, -16);
+        p.quadraticCurveTo(10, -26, 23, -22);
+        p.lineTo(20, -3);
       }
-      p.quadraticCurveTo(24, 3, 20, 3);
-      p.lineTo(14, 3);
-      p.quadraticCurveTo(10, 3, 10, -2);
+      p.quadraticCurveTo(20, 4, 15, 4);
+      p.lineTo(8, 4);
+      p.quadraticCurveTo(2, 4, 2, -3);
       p.closePath();
       const m = new DOMMatrix().scaleSelf(1, sx);
       const q = new Path2D();
@@ -539,23 +628,23 @@ function axeIcon(c: Ctx): void {
     };
     if (double) {
       // the labrys: a second bit mirrored below the haft
-      shape(g, bit(-1), grad(g, head, 6, 2, 24, 18));
-      spec(g, head, [[9.6, 12.5], [16, 19.6], [24.5, 15.5]], 1.1, 0.5);
+      shape(g, bit(-1), grad(g, head, 0, 2, 20, 22), true, WO);
+      spec(g, head, [[2, 15], [10, 24], [22, 20]], 1.3, 0.5);
     }
-    shape(g, bit(1), grad(g, head, 6, -18, 24, 2));
-    spec(g, head, [[9.6, -12.5], [16, -19.6], [25.5, -16]], 1.1, 0.9);
-    if (pick && !has(c, 'sagaris')) {
+    shape(g, bit(1), grad(g, head, 0, -22, 20, 2), true, WO);
+    spec(g, head, sagaris ? [[3.5, -14], [8, -23.5], [16, -22]] : [[1.5, -15], [10, -24.5], [22, -21]], 1.4, 0.9);
+    if (dolabra) {
       // the dolabra's pick spike behind the blade
-      const sp = poly([[14, 2], [19, 2], [10, 16], [12, 4]]);
-      shape(g, sp, grad(g, head, 10, 2, 16, 16));
-    } else if (has(c, 'sagaris')) {
+      const sp = poly([[7, 3], [16, 3], [6, 22], [6, 6]]);
+      shape(g, sp, grad(g, head, 4, 4, 14, 22), true, WO);
+    } else if (sagaris) {
       // the sagaris' hammer poll
-      shape(g, rrect(12, 2.5, 7, 5, 1), grad(g, head, 0, 2, 0, 8));
+      shape(g, rrect(5, 3, 10, 8, 1.5), grad(g, head, 0, 3, 0, 11), true, WO);
     }
     // socket wedge and a band
-    band(g, c.trim, 7.5, 2, 2.7);
-    if (tier >= 2) band(g, c.trim, 2, 1.6, 2.7);
-    tipPt = toScreen(g, 17, -18);
+    band(g, c.trim, 0, 2.6, 4, WO);
+    if (tier >= 2) band(g, c.trim, -7, 2.2, 3.9, WO);
+    tipPt = toScreen(g, 12, sagaris ? -23 : -22);
   });
   c.glints = [tipPt];
 }
@@ -568,56 +657,56 @@ function clubIcon(c: Ctx): void {
   weaponFrame(g, () => {
     if (mace) {
       // a wooden haft and a flanged metal head
-      rod(g, RAMPS.darkwood, -28, 16, 2.6, { grain: c.v });
+      rod(g, RAMPS.darkwood, -40, 14, 3.6, { grain: c.v, ow: WO });
       const head = isMetal(c.mat) ? c.main : finish(RAMPS.bronze, r);
       const hp = new Path2D();
-      hp.moveTo(14, -4);
-      hp.quadraticCurveTo(18, -9, 24, -8);
-      hp.quadraticCurveTo(30, -4, 30, 0);
-      hp.quadraticCurveTo(30, 4, 24, 8);
-      hp.quadraticCurveTo(18, 9, 14, 4);
+      hp.moveTo(12, -6);
+      hp.quadraticCurveTo(18, -13, 26, -12);
+      hp.quadraticCurveTo(34, -6, 34, 0);
+      hp.quadraticCurveTo(34, 6, 26, 12);
+      hp.quadraticCurveTo(18, 13, 12, 6);
       hp.closePath();
-      shape(g, hp, grad(g, head, 0, -9, 0, 9));
+      shape(g, hp, grad(g, head, 0, -13, 0, 13), true, WO);
       // flanges
       g.save();
       g.clip(hp);
-      g.strokeStyle = 'rgba(22,13,8,0.55)';
-      g.lineWidth = 1;
-      for (const y of [-5, -1.5, 2, 5.5]) {
+      g.strokeStyle = 'rgba(22,13,8,0.6)';
+      g.lineWidth = 1.3;
+      for (const y of [-7.5, -2.5, 2.5, 7.5]) {
         g.beginPath();
-        g.moveTo(15, y);
-        g.lineTo(29, y * 0.6);
+        g.moveTo(13, y);
+        g.lineTo(33, y * 0.55);
         g.stroke();
       }
       g.restore();
-      spec(g, head, [[16, -3.5], [26, -6]], 1, 0.8);
-      band(g, c.trim, 13, 2.4, 2.8);
-      band(g, c.trim, -26, 2, 2.6);
-      tipPt = toScreen(g, 27, -4);
+      spec(g, head, [[15, -5.5], [27, -9]], 1.3, 0.8);
+      band(g, c.trim, 11, 3, 3.8, WO);
+      band(g, c.trim, -37, 2.6, 3.6, WO);
+      tipPt = toScreen(g, 30, -6);
       return;
     }
     const p = new Path2D();
-    p.moveTo(-28, -2.2);
-    p.quadraticCurveTo(0, -4, 14, -7);
-    p.quadraticCurveTo(27, -7.6, 28, 0);
-    p.quadraticCurveTo(27, 7.6, 14, 7);
-    p.quadraticCurveTo(0, 4, -28, 2.2);
+    p.moveTo(-40, -3);
+    p.quadraticCurveTo(0, -5.5, 14, -10);
+    p.quadraticCurveTo(32, -11, 33, 0);
+    p.quadraticCurveTo(32, 11, 14, 10);
+    p.quadraticCurveTo(0, 5.5, -40, 3);
     p.closePath();
-    shape(g, p, grad(g, wood, 0, -7, 0, 7));
-    grain(g, p, wood, 0, 0, 56, 0, 8, c.v);
+    shape(g, p, grad(g, wood, 0, -10, 0, 10), true, WO);
+    grain(g, p, wood, 0, 0, 70, 0, 11, c.v);
     // knots on the head
-    for (const [x, y, s] of [[17, -3.5, 1.7], [22, 2.5, 1.5], [12, 3, 1.3]] as [number, number, number][]) {
+    for (const [x, y, s] of [[18, -5, 2.2], [25, 3, 2], [12, 4, 1.7]] as [number, number, number][]) {
       const k = ellipse(x, y, s, s * 0.8);
       g.fillStyle = dome(g, wood, x, y, s);
       g.fill(k);
       g.strokeStyle = 'rgba(22,13,8,0.5)';
-      g.lineWidth = 0.6;
+      g.lineWidth = 0.7;
       g.stroke(k);
     }
     // a bronze (gilt) ferrule on better clubs
-    if (tier >= 2 || r >= 3) band(g, c.trim, -24, 2.2, 2.4);
-    if (r >= 3) for (const x of [10, 16, 22]) stud(g, c.trim, x, -5.8 + (x - 10) * 0.05, 1);
-    tipPt = toScreen(g, 27, -2);
+    if (tier >= 2 || r >= 3) band(g, c.trim, -34, 2.8, 3.2, WO);
+    if (r >= 3) for (const x of [10, 18, 26]) stud(g, c.trim, x, -8.4 + (x - 10) * 0.06, 1.3);
+    tipPt = toScreen(g, 31, -3);
   });
   c.glints = [tipPt];
 }
@@ -626,36 +715,38 @@ function slingIcon(c: Ctx): void {
   const { g, id, r } = c;
   const balearic = id === 'balearic_sling' || c.mat === 'felt';
   const rhodian = id === 'rhodian_sling';
+  const shepherd = has(c, 'shepherd');
   const staff = has(c, 'staff');
-  const cordR = balearic ? ramp(0x5a4a44, 0x3b2e2a, 0x24191a, 0x120c0c) : c.mat === 'leather' ? RAMPS.leather : RAMPS.cord;
-  const pouch = rhodian ? RAMPS.darkwood : RAMPS.leather;
-  let top = 8;
-  let ax = 16, bx = 48;
+  const cordR = balearic ? ramp(0x6a5650, 0x45342f, 0x2a1d1c, 0x150d0d) : c.mat === 'leather' || shepherd ? RAMPS.leather : RAMPS.cord;
+  const pouch = rhodian ? RAMPS.darkwood : shepherd ? RAMPS.wicker : RAMPS.leather;
+  let top = 6;
+  let ax = 13, bx = 51;
   if (staff) {
     // a sling on the end of a staff: the staff rises from the bottom left
     weaponFrame(g, () => {
-      rod(g, RAMPS.wood, -34, 6, 2.6, { grain: c.v });
-      band(g, c.trim, 5, 2.4, 2.7);
+      rod(g, RAMPS.wood, -46, 4, 3.6, { grain: c.v, ow: WO });
+      band(g, c.trim, 3, 3, 3.8, WO);
     });
-    ax = 36;
-    bx = 56;
-    top = 10;
+    ax = 34;
+    bx = 58;
+    top = 8;
   }
   // two cords from the top to the pouch
   const px = staff ? 44 : 32;
+  const py = staff ? 46 : 44;
   g.save();
   g.lineCap = 'round';
-  for (const [x0, x1] of [[ax, px - 5], [bx, px + 5]]) {
+  for (const [x0, x1] of [[ax, px - 6], [bx, px + 6]]) {
     g.beginPath();
     g.moveTo(x0, top);
-    g.quadraticCurveTo(x0 + (x1 - x0) * 0.25, 26, x1, 44);
-    g.lineWidth = 4;
+    g.quadraticCurveTo(x0 + (x1 - x0) * 0.25, 26, x1, py);
+    g.lineWidth = 3.4 + WO;
     g.strokeStyle = OUTLINE;
     g.stroke();
-    g.lineWidth = 2.4;
+    g.lineWidth = 3.4;
     g.strokeStyle = cordR.base;
     g.stroke();
-    g.lineWidth = 0.8;
+    g.lineWidth = 1.1;
     g.strokeStyle = cordR.hi;
     g.globalAlpha = 0.7;
     g.stroke();
@@ -663,122 +754,148 @@ function slingIcon(c: Ctx): void {
   }
   if (!staff) {
     // finger loop and release knot
-    const loop = ellipse(16, 6, 3, 2.4);
-    g.lineWidth = 1.8;
+    const loop = ellipse(13, 6, 4.5, 3.6);
+    g.lineWidth = 2.6 + WO * 0.6;
     g.strokeStyle = OUTLINE;
     g.stroke(loop);
-    g.lineWidth = 1;
+    g.lineWidth = 2.2;
+    g.strokeStyle = cordR.base;
+    g.stroke(loop);
+    g.lineWidth = 0.8;
     g.strokeStyle = cordR.hi;
     g.stroke(loop);
-    stud(g, cordR, 48, 7, 2.2);
+    stud(g, cordR, 51, 7, 3.2);
   }
   g.restore();
-  // the pouch
-  const pp = smooth([[px - 11, 44], [px, 40], [px + 11, 44], [px + 9, 53], [px, 56], [px - 9, 53]]);
-  shape(g, pp, grad(g, pouch, px - 8, 40, px + 8, 56));
+  // the pouch (a woven one on the shepherd's)
+  const pp = smooth([[px - 14, py], [px, py - 5], [px + 14, py], [px + 11, py + 11], [px, py + 14], [px - 11, py + 11]]);
+  shape(g, pp, grad(g, pouch, px - 10, py - 5, px + 10, py + 14), true, WO);
   g.save();
+  g.clip(pp);
   g.strokeStyle = 'rgba(22,13,8,0.5)';
-  g.lineWidth = 0.7;
-  g.setLineDash([1.3, 1.3]);
-  g.beginPath();
-  g.moveTo(px - 8, 46);
-  g.quadraticCurveTo(px, 43.5, px + 8, 46);
-  g.stroke();
+  g.lineWidth = 0.9;
+  if (shepherd) {
+    for (let y = py + 2; y < py + 14; y += 3) {
+      g.beginPath();
+      g.moveTo(px - 14, y);
+      g.quadraticCurveTo(px, y - 2, px + 14, y);
+      g.stroke();
+    }
+  } else {
+    g.setLineDash([1.6, 1.6]);
+    g.beginPath();
+    g.moveTo(px - 10, py + 3);
+    g.quadraticCurveTo(px, py, px + 10, py + 3);
+    g.stroke();
+  }
   g.restore();
   // the shot: a stone, a cast lead bullet, or two stones
   if (rhodian || c.tier >= 3) {
-    const b = ellipse(px, 45.5, 5.4, 2.8, -0.2);
-    shape(g, b, grad(g, finish(RAMPS.lead, r), px - 4, 42, px + 4, 48));
-    spec(g, RAMPS.lead, [[px - 3, 44.2], [px + 2, 44.2]], 0.9, 0.8);
+    const b = ellipse(px, py + 2, 7, 3.6, -0.2);
+    shape(g, b, grad(g, finish(RAMPS.lead, r), px - 5, py - 2, px + 5, py + 6), true, WO);
+    spec(g, RAMPS.lead, [[px - 4, py + 0.4], [px + 3, py + 0.4]], 1.1, 0.8);
   } else {
-    const st = smooth([[px - 4.5, 44], [px + 1, 42.4], [px + 5, 45], [px + 2, 48.5], [px - 3, 48]]);
-    shape(g, st, dome(g, RAMPS.stone, px, 45, 4.5));
-    if (balearic) shape(g, ellipse(px + 12, 54, 3.4, 2.8, 0.4), dome(g, RAMPS.stone, px + 12, 54, 3));
+    const st = smooth([[px - 6, py + 0.5], [px + 1, py - 1.5], [px + 6.5, py + 2], [px + 3, py + 6.5], [px - 4, py + 6]]);
+    shape(g, st, dome(g, RAMPS.stone, px, py + 2, 6), true, WO);
+    if (balearic) shape(g, ellipse(px + 15, py + 12, 4.5, 3.6, 0.4), dome(g, RAMPS.stone, px + 15, py + 12, 4), true, WO);
   }
-  c.glints = [[px - 1, 43.5]];
+  c.glints = [[px - 1, py]];
 }
 
 function bowIcon(c: Ctx, short: boolean): void {
   const { g, id, r, tier } = c;
   const horn = id === 'cretan_bow' || c.mat === 'horn';
   const self = has(c, 'self', 'hunting') || (c.mat === 'wood' && tier <= 1);
-  const stave = c.mat && !isMetal(c.mat) && c.mat !== 'horn' ? RAMPS[c.mat] : RAMPS.wood;
-  const x = 20;
-  const top = short ? 11 : 5;
-  const bot = short ? 53 : 59;
-  const bulge = short ? 37 : 41;
-  // stave
+  const persian = has(c, 'persian');
+  const stave = c.mat && !isMetal(c.mat) && c.mat !== 'horn' ? RAMPS[c.mat] : horn ? RAMPS.horn : RAMPS.wood;
+  const x = 16;
+  const top = short ? 8 : 3;
+  const bot = short ? 56 : 61;
+  const bulge = short ? 38 : 40;
+  // stave: thick enough to read at 16 px
   const p = new Path2D();
   if (short) {
     // recurve: tips bent forward
-    p.moveTo(x - 1, top);
-    p.quadraticCurveTo(x + 6, top + 6, bulge - 6, 24);
-    p.quadraticCurveTo(bulge + 4, 32, bulge - 6, 40);
-    p.quadraticCurveTo(x + 6, bot - 6, x - 1, bot);
-    p.quadraticCurveTo(x + 2, bot - 5, bulge - 10, 40);
-    p.quadraticCurveTo(bulge - 1, 32, bulge - 10, 24);
-    p.quadraticCurveTo(x + 2, top + 5, x - 1, top);
+    p.moveTo(x - 2, top);
+    p.quadraticCurveTo(x + 8, top + 6, bulge - 6, 22);
+    p.quadraticCurveTo(bulge + 6, 32, bulge - 6, 42);
+    p.quadraticCurveTo(x + 8, bot - 6, x - 2, bot);
+    p.quadraticCurveTo(x + 2, bot - 7, bulge - 12, 42);
+    p.quadraticCurveTo(bulge - 2, 32, bulge - 12, 22);
+    p.quadraticCurveTo(x + 2, top + 7, x - 2, top);
+  } else if (persian) {
+    // the Persian bow's double curve (a "cupid's bow")
+    p.moveTo(x, top);
+    p.quadraticCurveTo(x + 18, 10, x + 16, 24);
+    p.quadraticCurveTo(x + 14, 30, x + 18, 32);
+    p.quadraticCurveTo(x + 14, 34, x + 16, 40);
+    p.quadraticCurveTo(x + 18, 54, x, bot);
+    p.quadraticCurveTo(x + 10, 52, x + 8, 40);
+    p.quadraticCurveTo(x + 8, 34, x + 10, 32);
+    p.quadraticCurveTo(x + 8, 30, x + 8, 24);
+    p.quadraticCurveTo(x + 10, 12, x, top);
   } else {
     p.moveTo(x, top);
-    p.quadraticCurveTo(bulge + 10, 32, x, bot);
-    p.quadraticCurveTo(bulge + 1, 32, x, top);
+    p.quadraticCurveTo(bulge + 14, 32, x, bot);
+    p.quadraticCurveTo(bulge - 1, 32, x, top);
   }
   p.closePath();
-  shape(g, p, grad(g, stave, x, 0, bulge + 8, 0));
-  if (self) grain(g, p, stave, 30, 32, 54, Math.PI / 2, 4, c.v);
+  shape(g, p, grad(g, stave, x, 0, bulge + 8, 0), true, WO);
+  if (self) grain(g, p, stave, 30, 32, 54, Math.PI / 2, 6, c.v);
   // horn tips and a grip (a plain self bow has neither)
   const tipR = horn ? RAMPS.horn : c.trim;
   if (!self)
     for (const y of [top, bot]) {
-      const t = ellipse(x, y, 2.6, 2, 0.3);
-      shape(g, t, grad(g, tipR, x - 2, y - 2, x + 2, y + 2));
+      const t = ellipse(x, y, 3.4, 2.6, 0.3);
+      shape(g, t, grad(g, tipR, x - 2, y - 2, x + 2, y + 2), true, WO);
     }
   const gripR = short ? flatRamp(0xa83224) : horn ? RAMPS.horn : RAMPS.leather;
   const gy = 32;
   if (!self) {
-    const gripP = rrect(bulge - 10, gy - 5.5, 6, 11, 1.8);
-    shape(g, gripP, grad(g, gripR, bulge - 10, gy - 5, bulge - 4, gy + 5));
+    const gx = persian ? x + 7 : short ? bulge - 11 : bulge - 11;
+    const gripP = rrect(gx, gy - 6.5, persian ? 11 : 8, 13, 2.2);
+    shape(g, gripP, grad(g, gripR, gx, gy - 6, gx + 8, gy + 6), true, WO);
   }
   // string
   g.save();
   g.lineCap = 'round';
   g.beginPath();
-  g.moveTo(x - 1, top);
-  g.lineTo(x - 1, bot);
-  g.lineWidth = 2.2;
+  g.moveTo(x - 2, top);
+  g.lineTo(x - 2, bot);
+  g.lineWidth = 3;
   g.strokeStyle = OUTLINE;
   g.stroke();
-  g.lineWidth = 1;
+  g.lineWidth = 1.4;
   g.strokeStyle = RAMPS.linen.base;
   g.stroke();
   g.restore();
   // arrow nocked across, pointing right
-  const ax0 = x - 1, ax1 = 60;
+  const ax0 = x - 2, ax1 = 62;
   g.save();
   g.lineCap = 'round';
   g.beginPath();
   g.moveTo(ax0, gy);
-  g.lineTo(ax1 - 6, gy);
-  g.lineWidth = 3.8;
+  g.lineTo(ax1 - 8, gy);
+  g.lineWidth = 3.4 + WO;
   g.strokeStyle = OUTLINE;
   g.stroke();
-  g.lineWidth = 2.2;
+  g.lineWidth = 3.4;
   g.strokeStyle = RAMPS.wood.base;
   g.stroke();
-  g.lineWidth = 0.7;
+  g.lineWidth = 1;
   g.strokeStyle = RAMPS.wood.hi;
   g.globalAlpha = 0.6;
   g.beginPath();
-  g.moveTo(ax0, gy - 0.5);
-  g.lineTo(ax1 - 6, gy - 0.5);
+  g.moveTo(ax0, gy - 0.8);
+  g.lineTo(ax1 - 8, gy - 0.8);
   g.stroke();
   g.restore();
   const headR = isMetal(c.mat) ? c.main : finish(RAMPS.iron, r);
-  shape(g, poly([[ax1 - 8.5, gy - 3], [ax1, gy], [ax1 - 8.5, gy + 3]]), grad(g, headR, ax1 - 8, gy - 3, ax1 - 4, gy + 3));
+  shape(g, poly([[ax1 - 12, gy - 4.5], [ax1, gy], [ax1 - 12, gy + 4.5]]), grad(g, headR, ax1 - 10, gy - 4, ax1 - 4, gy + 4), true, WO);
   // fletching
   const fl = flatRamp(tier >= 3 ? 0xe6dcc4 : (c.v & 4) ? 0x8a6a4a : 0x9a8a78);
-  shape(g, poly([[ax0 + 1, gy - 0.8], [ax0 + 10, gy - 3.8], [ax0 + 10, gy - 0.8]]), grad(g, fl, ax0, gy - 4, ax0 + 9, gy));
-  shape(g, poly([[ax0 + 1, gy + 0.8], [ax0 + 10, gy + 3.8], [ax0 + 10, gy + 0.8]]), grad(g, fl, ax0, gy, ax0 + 9, gy + 4));
+  shape(g, poly([[ax0 + 1, gy - 1.2], [ax0 + 13, gy - 5.5], [ax0 + 13, gy - 1.2]]), grad(g, fl, ax0, gy - 5, ax0 + 12, gy), true, WO);
+  shape(g, poly([[ax0 + 1, gy + 1.2], [ax0 + 13, gy + 5.5], [ax0 + 13, gy + 1.2]]), grad(g, fl, ax0, gy, ax0 + 12, gy + 5), true, WO);
   c.glints = [[ax1 - 1, gy]];
 }
 
@@ -787,30 +904,30 @@ function polearmIcon(c: Ctx, kind: 'falx' | 'rhomphaia'): void {
   const blade = isMetal(c.mat) ? c.main : finish(RAMPS.iron, r);
   let tipPt: [number, number] = [0, 0];
   weaponFrame(g, () => {
-    rod(g, RAMPS.darkwood, -34, 2, 2.6, { grain: c.v });
-    band(g, c.trim, 1.5, 2.8, 2.8);
-    if (c.tier >= 3) band(g, c.trim, -7, 1.8, 2.7);
+    rod(g, RAMPS.darkwood, -48, kind === 'falx' ? 4 : -2, 3.8, { grain: c.v, ow: WO });
+    band(g, c.trim, kind === 'falx' ? 2 : -4, 3.6, 4, WO);
+    if (c.tier >= 3) band(g, c.trim, -12, 2.4, 3.9, WO);
     const p = new Path2D();
     if (kind === 'falx') {
       // sickle blade: the spine runs on, the edge hooks up toward -y
-      p.moveTo(2, -2.8);
-      p.quadraticCurveTo(18, -3.2, 26, -7);
-      p.quadraticCurveTo(32, -10, 31, -18);
-      p.quadraticCurveTo(29, -12, 24, -9);
-      p.quadraticCurveTo(14, -2.5, 2, 2.8);
+      p.moveTo(4, -4.5);
+      p.quadraticCurveTo(24, -6, 32, -14);
+      p.quadraticCurveTo(38, -20, 26, -32);
+      p.quadraticCurveTo(26, -20, 20, -14);
+      p.quadraticCurveTo(12, -6, 4, 4.5);
       p.closePath();
-      shape(g, p, grad(g, blade, 10, -14, 26, 2));
-      spec(g, blade, [[4, -2.3], [20, -4.2], [30.5, -15]], 1, 0.85);
-      tipPt = toScreen(g, 31, -18);
+      shape(g, p, grad(g, blade, 8, -22, 26, 0), true, WO);
+      spec(g, blade, [[6, -3.2], [24, -6.5], [31, -14], [27, -27]], 1.3, 0.85);
+      tipPt = toScreen(g, 26, -32);
     } else {
       // long, gently curved single edge
-      p.moveTo(2, -3);
-      p.quadraticCurveTo(20, -3.4, 34, -7.5);
-      p.quadraticCurveTo(24, 1.6, 2, 2.4);
+      p.moveTo(-4, -4.5);
+      p.quadraticCurveTo(20, -6, 39, -11);
+      p.quadraticCurveTo(26, 4, -4, 4);
       p.closePath();
-      shape(g, p, grad(g, blade, 0, -6, 0, 3));
-      spec(g, blade, [[4, -2.3], [32, -6.4]], 1, 0.85);
-      tipPt = toScreen(g, 34, -7.5);
+      shape(g, p, grad(g, blade, 0, -8, 0, 4), true, WO);
+      spec(g, blade, [[-2, -3.4], [37, -9.6]], 1.3, 0.85);
+      tipPt = toScreen(g, 39, -11);
     }
   });
   c.glints = [tipPt];
@@ -819,53 +936,86 @@ function polearmIcon(c: Ctx, kind: 'falx' | 'rhomphaia'): void {
 function javelinIcon(c: Ctx): void {
   const { g, id, r } = c;
   const pilum = has(c, 'pilum');
-  const allIron = id === 'saunion' || has(c, 'soliferrum') || (c.mat === 'iron' && !pilum && !has(c, 'gaesum'));
-  const barbed = has(c, 'gaesum', 'saunion') || (allIron && c.tier >= 2);
+  const soliferrum = has(c, 'soliferrum');
+  const saunion = id === 'saunion';
+  const allIron = soliferrum || saunion || (c.mat === 'iron' && !pilum && !has(c, 'gaesum'));
+  const gaesum = has(c, 'gaesum');
+  const ankyle = has(c, 'ankyle', 'thong');
   const ironR = isMetal(c.mat) ? c.main : finish(RAMPS.iron, r);
   const shaft = allIron ? ironR : c.mat && !isMetal(c.mat) ? RAMPS[c.mat] : RAMPS.wood;
-  const head = ironR;
+  const head = isMetal(c.mat) && !allIron ? c.main : gaesum ? finish(RAMPS.iron, r) : allIron ? ironR : finish(RAMPS.bronze, r);
+  // a bundle: the darts fan out a little from the bottom left; the heads crowd the top right
+  const offs: number[] = pilum ? [8, -8] : gaesum ? [6, -6] : soliferrum ? [0] : saunion ? [5, -5] : [9, 0, -9];
   const pts: [number, number][] = [];
   weaponFrame(g, () => {
-    for (const off of [5, -5]) {
+    for (const off of offs) {
       g.save();
       g.translate(0, off);
+      g.rotate(off * 0.012);
+      const long = off === 0 || offs.length === 2;
+      const tip = long ? 39 : 34;
       if (pilum) {
-        // a wooden shaft, a long thin iron shank and a small pyramidal head
-        rod(g, shaft, -28, 4, 1.9, { grain: c.v });
-        shape(g, rrect(2, -2.6, 6, 5.2, 1), grad(g, head, 0, -2.6, 0, 2.6));
-        rod(g, head, 6, 24, 0.9);
-        shape(g, poly([[23, -1.6], [30, 0], [23, 1.6]]), grad(g, head, 0, -2, 0, 2));
+        // a wooden shaft, a long thin iron shank off a block and a small pyramidal head
+        rod(g, shaft, -48, 2, 3.2, { grain: c.v, ow: WO });
+        shape(g, rrect(0, -4.2, 9, 8.4, 1.2), grad(g, head, 0, -4.2, 0, 4.2), true, WO);
+        stud(g, c.trim, 4.5, 0, 1.3);
+        rod(g, head, 8, tip - 8, 2.3, { ow: WO });
+        shape(g, poly([[tip - 11, -4], [tip, 0], [tip - 11, 4]]), grad(g, head, 0, -4, 0, 4), true, WO);
+      } else if (soliferrum) {
+        // one heavy all-iron dart: a thick rod, a grip of grooves, a small barbed head
+        rod(g, shaft, -48, tip - 12, 3.4, { ow: WO });
+        g.save();
+        g.strokeStyle = 'rgba(22,13,8,0.55)';
+        g.lineWidth = 1.2;
+        for (let x = -18; x <= -2; x += 3) {
+          g.beginPath();
+          g.moveTo(x, -3);
+          g.lineTo(x, 3);
+          g.stroke();
+        }
+        g.restore();
+        shape(g, poly([[tip - 14, -2.4], [tip - 8, -6.5], [tip, 0], [tip - 8, 6.5], [tip - 14, 2.4]]), grad(g, head, 0, -6, 0, 6), true, WO);
+        spec(g, head, [[tip - 12, -0.5], [tip - 2, 0]], 1.2, 0.8);
       } else {
-        rod(g, shaft, -28, 20, allIron ? 1.5 : 1.9, allIron ? {} : { grain: c.v });
-        if (barbed) shape(g, poly([[18, -1.3], [23, -3.6], [30, 0], [23, 3.6], [18, 1.3]]), grad(g, head, 0, -3, 0, 3));
-        else {
-          if (!allIron) band(g, c.trim, 19.5, 1.8, 1.9);
-          leaf(g, head, 20, 30, 2.4, c, { waist: 0.35 });
+        rod(g, shaft, -48, tip - (gaesum ? 20 : 16), allIron ? 2.4 : 2.8, allIron ? { ow: WO } : { grain: c.v, ow: WO });
+        if (gaesum) {
+          // the Celtic gaesum: a big barbed, waisted iron head
+          shape(g, poly([[tip - 22, -2], [tip - 15, -8], [tip - 10, -4], [tip, 0], [tip - 10, 4], [tip - 15, 8], [tip - 22, 2]]), grad(g, head, 0, -8, 0, 8), true, WO);
+          spec(g, head, [[tip - 20, -0.5], [tip - 2, 0]], 1.3, 0.8);
+        } else if (saunion) {
+          // all-iron Iberian dart with a long barbed head
+          shape(g, poly([[tip - 18, -2], [tip - 12, -5.5], [tip, 0], [tip - 12, 5.5], [tip - 18, 2]]), grad(g, head, 0, -5, 0, 5), true, WO);
+        } else {
+          band(g, c.trim, tip - 16, 2.6, 2.9, WO);
+          leaf(g, head, tip - 16, tip, 5, c, { waist: 0.35, ow: WO });
         }
       }
-      pts.push(toScreen(g, 30, 0));
+      pts.push(toScreen(g, tip, 0));
       g.restore();
     }
-    // the throwing thong (amentum) wound round the near shaft of the wooden darts
-    if (!allIron && !pilum) {
+    // the throwing thong (ankyle) looped round the middle dart
+    if (ankyle) {
       g.save();
       g.lineCap = 'round';
-      g.strokeStyle = RAMPS.leather.lo;
-      g.lineWidth = 1.2;
-      for (let x = -4; x <= 2; x += 2) {
+      for (const [w, col] of [[4.2, OUTLINE], [2.4, RAMPS.leather.base]] as [number, string][]) {
+        g.lineWidth = w;
+        g.strokeStyle = col;
         g.beginPath();
-        g.moveTo(x, 3);
-        g.lineTo(x + 1, 7);
+        g.moveTo(-10, -3.5);
+        g.lineTo(-10, 3.5);
+        g.moveTo(-7, -3.5);
+        g.lineTo(-7, 3.5);
+        g.moveTo(-4, -3.5);
+        g.lineTo(-4, 3.5);
+        g.moveTo(-6, 3);
+        g.quadraticCurveTo(-4, 16, 6, 14);
+        g.quadraticCurveTo(14, 12, 10, 4);
         g.stroke();
       }
-      g.beginPath();
-      g.moveTo(-1, 3);
-      g.quadraticCurveTo(-3, -1.5, 1, -2.8);
-      g.stroke();
       g.restore();
     }
   });
-  c.glints = [pts[0]];
+  c.glints = [pts[pts.length - 1]];
 }
 
 function fallbackWeapon(c: Ctx): void {
@@ -1470,20 +1620,28 @@ function helmetIcon(c: Ctx): void {
       const coolus = has(c, 'coolus');
       const negau = has(c, 'negau');
       const horned = has(c, 'horn');
-      const p = bowl(c, metal, cx, 40, negau ? 10 : 12, 18, { flat: 3 });
+      const p = negau ? bowl(c, metal, cx, 40, 13, 16, { flat: 4 }) : bowl(c, metal, cx, 40, 12, 18, { flat: 3 });
       if (negau) {
-        // the Negau bell: a ridge round the crown
+        // the Negau bell: a flat crown with a crest ridge, and a flared flange at the base
+        shape(g, rrect(cx - 11, 10, 22, 5, 2), grad(g, metal, 0, 10, 0, 15));
+        shape(g, rrect(cx - 1.6, 11, 3.2, 14, 1.4), grad(g, c.trim, cx - 2, 0, cx + 2, 0));
         g.save();
         g.clip(p);
         g.strokeStyle = metal.dk;
         g.globalAlpha = 0.5;
         g.lineWidth = 1.2;
         g.beginPath();
-        g.moveTo(cx - 18, 24);
-        g.quadraticCurveTo(cx, 19, cx + 18, 24);
+        g.moveTo(cx - 16, 30);
+        g.quadraticCurveTo(cx, 26, cx + 16, 30);
         g.stroke();
         g.restore();
-        spec(g, metal, [[cx - 14, 22.5], [cx, 19.6]], 1, 0.6);
+        spec(g, metal, [[cx - 12, 29], [cx, 26.6]], 1, 0.6);
+        const fl = new Path2D();
+        fl.moveTo(cx - 23, 45);
+        fl.quadraticCurveTo(cx, 40, cx + 23, 45);
+        fl.quadraticCurveTo(cx, 50, cx - 23, 45);
+        fl.closePath();
+        shape(g, fl, grad(g, metal, cx - 20, 40, cx + 20, 50));
       }
       if (horned) {
         for (const s of [-1, 1]) {
@@ -1506,10 +1664,12 @@ function helmetIcon(c: Ctx): void {
         shape(g, pl, grad(g, plume, cx - 11, 2, cx, 11));
         stud(g, c.trim, cx, 11.5, 2.4);
       } else stud(g, c.trim, cx, 12.5, 1.6);
-      cheekGuards(c, metal, cx, 43, 18, 12);
-      // neck guard: wide on the Coolus
-      const ng = coolus ? rrect(cx - 19, 42, 38, 4, 1.5) : rrect(cx - 15, 42, 30, 3.5, 1.5);
-      shape(g, ng, grad(g, metal, 0, 42, 0, 46));
+      if (!negau) {
+        cheekGuards(c, metal, cx, 43, 18, 12);
+        // neck guard: wide on the Coolus
+        const ng = coolus ? rrect(cx - 19, 42, 38, 4, 1.5) : rrect(cx - 15, 42, 30, 3.5, 1.5);
+        shape(g, ng, grad(g, metal, 0, 42, 0, 46));
+      }
       if (r >= 3) stud(g, c.trim, cx, 44, 1.2);
       c.glints = [[cx - 7, 18]];
       break;
@@ -1529,16 +1689,24 @@ function helmetIcon(c: Ctx): void {
     }
     case 'thracian': {
       // Phrygian cap: a tall bowl whose peak curls forward (left)
+      // the bowl rises to a thick peak that rolls forward and down over the brow like a fist
       const p = new Path2D();
       p.moveTo(cx - 17, 44);
-      p.quadraticCurveTo(cx - 20, 24, cx - 8, 13);
-      p.quadraticCurveTo(cx - 2, 8, cx - 10, 4);
-      p.quadraticCurveTo(cx - 24, -1, cx - 20, 11);
-      p.quadraticCurveTo(cx - 16, 4, cx - 6, 6);
-      p.quadraticCurveTo(cx + 10, 7, cx + 15, 22);
-      p.quadraticCurveTo(cx + 18, 30, cx + 17, 44);
+      p.quadraticCurveTo(cx - 20, 26, cx - 12, 16);
+      p.quadraticCurveTo(cx - 6, 10, cx - 12, 8);
+      p.quadraticCurveTo(cx - 24, 5, cx - 26, 14);
+      p.quadraticCurveTo(cx - 28, 4, cx - 16, 1);
+      p.quadraticCurveTo(cx - 2, -1, cx + 6, 6);
+      p.quadraticCurveTo(cx + 15, 14, cx + 16, 26);
+      p.quadraticCurveTo(cx + 18, 34, cx + 17, 44);
       p.closePath();
       shape(g, p, dome(g, metal, cx, 28, 24));
+      // the curl's underside in shadow
+      g.save();
+      g.clip(p);
+      g.fillStyle = 'rgba(14,8,5,0.4)';
+      g.fill(ellipse(cx - 18, 14, 9, 4, 0.3));
+      g.restore();
       g.save();
       g.clip(p);
       g.fillStyle = metal.spec;
@@ -1548,9 +1716,9 @@ function helmetIcon(c: Ctx): void {
       // the crest ridge along the top (the Phrygian helm has a plain ridge)
       const cr = has(c, 'phrygian') ? c.trim : crestRamp(c);
       const ridge = new Path2D();
-      ridge.moveTo(cx - 5, 7);
-      ridge.quadraticCurveTo(cx + 10, 6, cx + 15, 22);
-      ridge.quadraticCurveTo(cx + 9, 11, cx - 4, 10.5);
+      ridge.moveTo(cx - 10, 2.5);
+      ridge.quadraticCurveTo(cx + 6, 2, cx + 16, 24);
+      ridge.quadraticCurveTo(cx + 8, 8, cx - 8, 6);
       ridge.closePath();
       shape(g, ridge, grad(g, cr, cx, 6, cx + 15, 22));
       // cheek pieces: the Phrygian's are shaped like a beard
@@ -1567,8 +1735,8 @@ function helmetIcon(c: Ctx): void {
         shape(g, bd, grad(g, metal, cx - 15, 43, cx + 15, 56));
       } else cheekGuards(c, metal, cx, 44, 17, 11);
       shape(g, rrect(cx - 14, 43, 28, 3.5, 1.5), grad(g, metal, 0, 43, 0, 47));
-      if (tier >= 3 || r >= 3) stud(g, c.trim, cx - 14, 6, 1.6);
-      c.glints = [[cx - 14, 5]];
+      if (tier >= 3 || r >= 3) stud(g, c.trim, cx - 22, 8, 1.8);
+      c.glints = [[cx - 16, 4]];
       break;
     }
     case 'boeotian': {
@@ -2176,7 +2344,7 @@ function trinketIcon(c: Ctx): void {
     case 'laurel':
       return wreath(c, ramp(0xa8c47a, 0x6f8c4c, 0x45602e, 0x273a18), ramp(0x90ac66, 0x5c7840, 0x3a5026, 0x1f2e12), RAMPS.olive, finish(RAMPS.gold, r));
     case 'tanit_eye':
-      return eyeBead(c, 0x2e5a8a, 0x3a78b8);
+      return tanitIcon(c);
     case 'boar_tusk': {
       cord(c, cx, 14);
       const bn = c.mat && c.mat !== 'bone' ? RAMPS[c.mat] : RAMPS.bone;
@@ -2197,84 +2365,10 @@ function trinketIcon(c: Ctx): void {
   }
   // ---- keyword families (new trinkets get a fitting shape from their id and material)
   if (has(c, 'ring')) {
-    // a finger ring seen at a slant: a torus, a serpent coil or a signet bezel
-    const rp = c.mat && !isMetal(c.mat) ? RAMPS[c.mat] : metalR;
-    const p = new Path2D();
-    p.ellipse(cx, 36, 17, 13, 0, 0, 6.283);
-    p.ellipse(cx, 37.5, 12, 8.5, 0, 0, 6.283);
-    g.fillStyle = grad(g, rp, cx - 17, 23, cx + 17, 49);
-    g.fill(p, 'evenodd');
-    outline(g, p, 1.8);
-    // the inside of the band, seen through the hole
-    g.save();
-    g.clip(ellipse(cx, 37.5, 12, 8.5));
-    g.fillStyle = rp.dk;
-    g.globalAlpha = 0.6;
-    g.fill(ellipse(cx, 41, 12, 8));
-    g.restore();
-    spec(g, rp, [[cx - 12, 27], [cx - 2, 23.6]], 1.4, 0.8);
-    if (has(c, 'serpent')) {
-      // the snake's head rising over the bezel
-      const hd = smooth([[cx - 6, 22], [cx + 2, 16], [cx + 9, 19], [cx + 6, 25], [cx - 2, 26]]);
-      shape(g, hd, grad(g, rp, cx - 6, 16, cx + 9, 26));
-      g.fillStyle = '#1e130c';
-      g.fill(ellipse(cx + 3, 20, 1.1, 1.1));
-      g.strokeStyle = 'rgba(22,13,8,0.5)';
-      g.lineWidth = 0.6;
-      for (let x = cx - 14; x < cx + 14; x += 3) {
-        g.beginPath();
-        g.moveTo(x, 24 + Math.abs(x - cx) * 0.25);
-        g.lineTo(x + 1.5, 27 + Math.abs(x - cx) * 0.25);
-        g.stroke();
-      }
-    } else if (has(c, 'signet')) {
-      const bz = ellipse(cx, 24, 8, 5.5);
-      shape(g, bz, dome(g, rp, cx, 24, 8));
-      g.save();
-      g.clip(bz);
-      g.strokeStyle = 'rgba(22,13,8,0.7)';
-      g.lineWidth = 0.9;
-      g.beginPath();
-      g.moveTo(cx - 4, 26.5);
-      g.lineTo(cx, 21);
-      g.lineTo(cx + 4, 26.5);
-      g.moveTo(cx - 2, 24.5);
-      g.lineTo(cx + 2, 24.5);
-      g.stroke();
-      g.restore();
-    }
-    c.glints = [[cx - 10, 26]];
-    return;
+    return ringIcon(c, c.mat && !isMetal(c.mat) ? RAMPS[c.mat] : metalR);
   }
   if (has(c, 'torc')) {
-    // a neck ring, open at the bottom, with ball terminals; twisted strands
-    const rp = metalR;
-    const p = new Path2D();
-    p.arc(cx, 34, 22, Math.PI * 0.68, Math.PI * 2.32);
-    g.lineCap = 'round';
-    g.lineWidth = 8.4;
-    g.strokeStyle = OUTLINE;
-    g.stroke(p);
-    g.lineWidth = 6;
-    g.strokeStyle = grad(g, rp, cx - 22, 12, cx + 22, 56);
-    g.stroke(p);
-    // the twist
-    g.save();
-    g.strokeStyle = 'rgba(22,13,8,0.45)';
-    g.lineWidth = 0.9;
-    for (let a = Math.PI * 0.72; a < Math.PI * 2.3; a += 0.17) {
-      const x = cx + Math.cos(a) * 22, y = 34 + Math.sin(a) * 22;
-      const tx = -Math.sin(a), ty = Math.cos(a);
-      g.beginPath();
-      g.moveTo(x - tx * 1.5 + Math.cos(a) * 2.6, y - ty * 1.5 + Math.sin(a) * 2.6);
-      g.lineTo(x + tx * 1.5 - Math.cos(a) * 2.6, y + ty * 1.5 - Math.sin(a) * 2.6);
-      g.stroke();
-    }
-    g.restore();
-    spec(g, rp, [[cx - 18, 22], [cx - 6, 13.5], [cx + 6, 13.5]], 1.4, 0.75);
-    for (const a of [Math.PI * 0.68, Math.PI * 2.32]) stud(g, rp, cx + Math.cos(a) * 22, 34 + Math.sin(a) * 22, 4.4);
-    c.glints = [[cx - 10, 16]];
-    return;
+    return torcIcon(c, metalR);
   }
   if (has(c, 'tooth', 'teeth', 'fang')) {
     // a string of teeth on a cord
@@ -2481,36 +2575,7 @@ function trinketIcon(c: Ctx): void {
     return;
   }
   if (has(c, 'gorgon', 'medusa')) {
-    // the Gorgon's face on a disc, snakes for hair
-    const rp = metalR;
-    const disc = medallion(c, rp, cx, 37, 15);
-    g.save();
-    g.strokeStyle = rp.dk;
-    g.lineWidth = 1.3;
-    g.lineCap = 'round';
-    for (let i = 0; i < 9; i++) {
-      const a = Math.PI * (1.05 + (i / 8) * 0.9);
-      const x = cx + Math.cos(a) * 12, y = 37 + Math.sin(a) * 12;
-      g.beginPath();
-      g.moveTo(x, y);
-      g.quadraticCurveTo(x + Math.cos(a) * 4 + 2, y + Math.sin(a) * 4 - 2, x + Math.cos(a) * 7, y + Math.sin(a) * 7);
-      g.stroke();
-    }
-    g.restore();
-    g.save();
-    g.clip(disc);
-    g.fillStyle = '#1e130c';
-    for (const s of [-1, 1]) g.fill(ellipse(cx + s * 5, 34, 3, 2.6));
-    g.fillStyle = rp.hi;
-    for (const s of [-1, 1]) g.fill(ellipse(cx + s * 5, 33.6, 1.1, 1.1));
-    // the open mouth and tongue
-    g.fillStyle = '#1e130c';
-    g.fill(ellipse(cx, 43, 5, 3));
-    g.fillStyle = flatRamp(0xa83224).base;
-    g.fill(poly([[cx - 2, 43], [cx + 2, 43], [cx, 49]]));
-    g.restore();
-    c.glints = [[cx - 9, 29]];
-    return;
+    return gorgonIcon(c, metalR);
   }
   if (has(c, 'hermes', 'caduceus')) {
     // a token with the herald's staff
@@ -2542,29 +2607,7 @@ function trinketIcon(c: Ctx): void {
     return;
   }
   if (has(c, 'bes') || c.mat === 'faience') {
-    // a squat faience Bes: feather crown, big face
-    const fr = RAMPS.faience;
-    cord(c, cx, 16, RAMPS.cord);
-    for (let i = -2; i <= 2; i++) shape(g, rrect(cx + i * 4 - 1.5, 12, 3, 10, 1.5), grad(g, fr, cx + i * 4 - 1.5, 12, cx + i * 4 + 1.5, 22));
-    const head = ellipse(cx, 32, 13, 11);
-    shape(g, head, dome(g, fr, cx, 32, 13));
-    const body = rrect(cx - 10, 41, 20, 12, 4);
-    shape(g, body, grad(g, fr, cx - 10, 41, cx + 10, 53));
-    g.save();
-    g.clip(head);
-    g.fillStyle = fr.dk;
-    for (const s of [-1, 1]) g.fill(ellipse(cx + s * 5, 30, 2.6, 2.2));
-    g.fillStyle = fr.hi;
-    for (const s of [-1, 1]) g.fill(ellipse(cx + s * 5, 29.6, 1, 1));
-    g.strokeStyle = fr.dk;
-    g.lineWidth = 1.2;
-    g.beginPath();
-    g.moveTo(cx - 6, 37);
-    g.quadraticCurveTo(cx, 42, cx + 6, 37);
-    g.stroke();
-    g.restore();
-    c.glints = [[cx - 7, 25]];
-    return;
+    return besIcon(c);
   }
   // anything else: a medallion in its material, with an emblem the id names (a horse pendant) or a star relief
   const mr = c.mat ? (isMetal(c.mat) ? finish(RAMPS[c.mat], r) : RAMPS[c.mat]) : finish(RAMPS.bronze, r);
@@ -2737,6 +2780,362 @@ function eyeBead(c: Ctx, outer: number, iris: number): void {
   c.glints = [[cx - 8, 29]];
 }
 
+function emboss(g: G, p: Path2D, rp: Ramp, depth = 0.9, top: string | CanvasGradient = rp.base): void {
+  g.save();
+  g.translate(depth, depth);
+  g.fillStyle = rp.dk;
+  g.fill(p);
+  g.translate(-depth * 2, -depth * 2);
+  g.fillStyle = rp.hi;
+  g.fill(p);
+  g.restore();
+  g.fillStyle = top;
+  g.fill(p);
+}
+
+function engrave(g: G, p: Path2D, rp: Ramp, depth = 0.8, floor = 'rgba(14,8,5,0.85)'): void {
+  g.save();
+  g.translate(-depth, -depth);
+  g.fillStyle = rp.dk;
+  g.fill(p);
+  g.translate(depth * 2, depth * 2);
+  g.fillStyle = rp.hi;
+  g.globalAlpha = 0.8;
+  g.fill(p);
+  g.restore();
+  g.fillStyle = floor;
+  g.fill(p);
+}
+
+function gorgonIcon(c: Ctx, rp: Ramp): void {
+  const { g } = c;
+  const cx = 32, cy = 36, R = 18;
+  cord(c, cx, cy - R - 3, RAMPS.cord);
+  // the snake hair: a ring of coils round the disc, part of the silhouette
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 + 0.26;
+    const x = cx + Math.cos(a) * (R - 0.5), y = cy + Math.sin(a) * (R - 0.5);
+    const coil = ellipse(x, y, 4.2, 4.2);
+    shape(g, coil, dome(g, rp, x, y, 4.2));
+  }
+  const disc = ellipse(cx, cy, R - 1, R - 1);
+  shape(g, disc, dome(g, rp, cx, cy, R - 1));
+  stud(g, rp, cx, cy - R - 1, 2.6);
+  g.save();
+  g.clip(disc);
+  // the face in relief: brow ridge, nose, cheeks
+  const brow = new Path2D();
+  brow.moveTo(cx - 11, cy - 4);
+  brow.quadraticCurveTo(cx - 6, cy - 9, cx, cy - 6);
+  brow.quadraticCurveTo(cx + 6, cy - 9, cx + 11, cy - 4);
+  brow.quadraticCurveTo(cx + 6, cy - 6, cx + 1, cy - 4);
+  brow.lineTo(cx + 1, cy + 4);
+  brow.quadraticCurveTo(cx + 3, cy + 6, cx, cy + 6);
+  brow.quadraticCurveTo(cx - 3, cy + 6, cx - 1, cy + 4);
+  brow.lineTo(cx - 1, cy - 4);
+  brow.quadraticCurveTo(cx - 6, cy - 6, cx - 11, cy - 4);
+  brow.closePath();
+  emboss(g, brow, rp, 0.9);
+  // sunk almond eyes
+  for (const s of [-1, 1]) {
+    const e = new Path2D();
+    e.moveTo(cx + s * 2.5, cy - 2);
+    e.quadraticCurveTo(cx + s * 6, cy - 5.5, cx + s * 10, cy - 2);
+    e.quadraticCurveTo(cx + s * 6, cy + 1.5, cx + s * 2.5, cy - 2);
+    e.closePath();
+    engrave(g, e, rp, 0.8);
+    g.fillStyle = rp.hi;
+    g.fill(ellipse(cx + s * 6.2, cy - 2.2, 1.4, 1.4));
+  }
+  // the gaping mouth, fangs and the lolling tongue
+  const mouth = ellipse(cx, cy + 9.5, 7.5, 4.2);
+  engrave(g, mouth, rp, 0.9);
+  g.fillStyle = rp.hi;
+  for (const s of [-1, 1]) g.fill(poly([[cx + s * 5.5, cy + 6.5], [cx + s * 3, cy + 6.5], [cx + s * 4.2, cy + 10]]));
+  const tongue = new Path2D();
+  tongue.moveTo(cx - 2.2, cy + 9);
+  tongue.lineTo(cx + 2.2, cy + 9);
+  tongue.quadraticCurveTo(cx + 2.6, cy + 15, cx, cy + 15.5);
+  tongue.quadraticCurveTo(cx - 2.6, cy + 15, cx - 2.2, cy + 9);
+  tongue.closePath();
+  emboss(g, tongue, rp, 0.6, rp.lo);
+  g.restore();
+  c.glints = [[cx - 10, cy - 10]];
+}
+
+function besIcon(c: Ctx): void {
+  const { g } = c;
+  const fr = RAMPS.faience;
+  const cx = 32;
+  cord(c, cx, 14, RAMPS.cord);
+  // the plaque: a squat figure cut in faience, feather crown on top
+  for (let i = -2; i <= 2; i++) {
+    const x = cx + i * 5.2;
+    const f = new Path2D();
+    f.moveTo(x - 2.4, 24);
+    f.quadraticCurveTo(x - 2.8, 12, x, 9 + Math.abs(i) * 1.2);
+    f.quadraticCurveTo(x + 2.8, 12, x + 2.4, 24);
+    f.closePath();
+    shape(g, f, grad(g, fr, x - 2.5, 9, x + 2.5, 24));
+  }
+  const body = new Path2D();
+  body.moveTo(cx - 14, 24);
+  body.lineTo(cx + 14, 24);
+  body.quadraticCurveTo(cx + 15, 40, cx + 12, 46);
+  body.lineTo(cx + 12, 58);
+  body.lineTo(cx + 3, 58);
+  body.lineTo(cx + 3, 50);
+  body.lineTo(cx - 3, 50);
+  body.lineTo(cx - 3, 58);
+  body.lineTo(cx - 12, 58);
+  body.lineTo(cx - 12, 46);
+  body.quadraticCurveTo(cx - 15, 40, cx - 14, 24);
+  body.closePath();
+  shape(g, body, grad(g, fr, cx - 14, 22, cx + 14, 58));
+  g.save();
+  g.clip(body);
+  // the face in relief: brow, broad nose, round ears; sunk eyes and a grinning mouth; a beard band
+  const face = new Path2D();
+  face.moveTo(cx - 10, 28);
+  face.quadraticCurveTo(cx, 25, cx + 10, 28);
+  face.quadraticCurveTo(cx + 3, 29, cx + 2.5, 33);
+  face.quadraticCurveTo(cx + 4, 38, cx, 39);
+  face.quadraticCurveTo(cx - 4, 38, cx - 2.5, 33);
+  face.quadraticCurveTo(cx - 3, 29, cx - 10, 28);
+  face.closePath();
+  emboss(g, face, fr, 0.9);
+  for (const s of [-1, 1]) {
+    engrave(g, ellipse(cx + s * 6.5, 31.5, 3, 2.6), fr, 0.8, fr.dk);
+    emboss(g, ellipse(cx + s * 13.5, 31, 2.6, 3.4), fr, 0.7);
+  }
+  const mouth = new Path2D();
+  mouth.moveTo(cx - 7, 40);
+  mouth.quadraticCurveTo(cx, 46, cx + 7, 40);
+  mouth.quadraticCurveTo(cx, 42.5, cx - 7, 40);
+  mouth.closePath();
+  engrave(g, mouth, fr, 0.8);
+  g.strokeStyle = fr.hi;
+  g.lineWidth = 0.8;
+  g.globalAlpha = 0.7;
+  g.beginPath();
+  g.moveTo(cx - 6, 41.5);
+  g.lineTo(cx + 6, 41.5);
+  g.stroke();
+  // beard: hatched band under the mouth
+  g.globalAlpha = 0.55;
+  g.strokeStyle = fr.dk;
+  g.lineWidth = 1;
+  for (let x = cx - 11; x <= cx + 11; x += 2.4) {
+    g.beginPath();
+    g.moveTo(x, 44.5);
+    g.lineTo(x + 0.6, 49);
+    g.stroke();
+  }
+  g.restore();
+  c.glints = [[cx - 8, 27]];
+}
+
+function ringIcon(c: Ctx, rp: Ramp): void {
+  const { g } = c;
+  const cx = 32;
+  if (has(c, 'thumb')) {
+    // an archer's thumb ring: a short cylinder with a flat lip on one side
+    const bn = c.mat && !isMetal(c.mat) ? RAMPS[c.mat] : RAMPS.bone;
+    const cy = 30;
+    const side = new Path2D();
+    side.moveTo(cx - 17, cy);
+    side.lineTo(cx - 17, cy + 15);
+    side.quadraticCurveTo(cx, cy + 25, cx + 17, cy + 15);
+    side.lineTo(cx + 17, cy);
+    side.closePath();
+    shape(g, side, grad(g, bn, cx - 17, 0, cx + 17, 0));
+    // the lip: a tongue sticking out to the lower right
+    const lip = new Path2D();
+    lip.moveTo(cx + 2, cy + 20);
+    lip.quadraticCurveTo(cx + 18, cy + 26, cx + 28, cy + 16);
+    lip.quadraticCurveTo(cx + 22, cy + 10, cx + 14, cy + 12);
+    lip.closePath();
+    shape(g, lip, grad(g, bn, cx + 4, cy + 10, cx + 26, cy + 26));
+    const top = ellipse(cx, cy, 17, 7.5);
+    shape(g, top, grad(g, bn, cx - 17, cy - 7, cx + 17, cy + 7));
+    const hole = ellipse(cx, cy, 12, 4.8);
+    g.fillStyle = 'rgba(14,8,5,0.9)';
+    g.fill(hole);
+    g.strokeStyle = 'rgba(14,8,5,0.6)';
+    g.lineWidth = 0.8;
+    g.stroke(hole);
+    spec(g, bn, [[cx - 12, cy - 3], [cx - 4, cy - 5.5]], 1.2, 0.6);
+    c.glints = [[cx - 10, cy - 3]];
+    return;
+  }
+  const cy = 38, rx = 19, ry = 14, bw = has(c, 'iron') ? 7 : 5.5;
+  const band = new Path2D();
+  band.ellipse(cx, cy, rx, ry, 0, 0, 6.283);
+  band.ellipse(cx, cy + 1.5, rx - bw, ry - bw, 0, 0, 6.283);
+  g.fillStyle = grad(g, rp, cx - rx, cy - ry, cx + rx, cy + ry);
+  g.fill(band, 'evenodd');
+  outline(g, band, 2);
+  // the inside of the band, seen through the hole
+  g.save();
+  g.clip(ellipse(cx, cy + 1.5, rx - bw, ry - bw));
+  g.fillStyle = rp.dk;
+  g.globalAlpha = 0.6;
+  g.fill(ellipse(cx, cy + 5, rx - bw, ry - bw));
+  g.restore();
+  spec(g, rp, [[cx - 14, cy - 7], [cx - 3, cy - ry + 1.5]], 1.6, 0.8);
+  if (has(c, 'serpent')) {
+    // a coiled snake: the body winds twice round, the head rises over the top
+    g.save();
+    g.lineCap = 'round';
+    const coil = new Path2D();
+    coil.moveTo(cx - 12, cy + 9);
+    coil.quadraticCurveTo(cx - 20, cy - 4, cx - 6, cy - 12);
+    coil.moveTo(cx + 14, cy + 7);
+    coil.quadraticCurveTo(cx + 22, cy - 6, cx + 6, cy - 13);
+    g.lineWidth = 4.6;
+    g.strokeStyle = OUTLINE;
+    g.stroke(coil);
+    g.lineWidth = 2.6;
+    g.strokeStyle = rp.base;
+    g.stroke(coil);
+    g.lineWidth = 0.9;
+    g.strokeStyle = rp.hi;
+    g.globalAlpha = 0.7;
+    g.stroke(coil);
+    g.restore();
+    const hd = smooth([[cx - 8, cy - 12], [cx, cy - 20], [cx + 9, cy - 16], [cx + 7, cy - 10], [cx - 2, cy - 9]]);
+    shape(g, hd, grad(g, rp, cx - 8, cy - 20, cx + 9, cy - 9));
+    g.fillStyle = '#1e130c';
+    g.fill(ellipse(cx + 3, cy - 15, 1.4, 1.4));
+    g.strokeStyle = 'rgba(22,13,8,0.5)';
+    g.lineWidth = 0.7;
+    for (let x = cx - 16; x < cx + 16; x += 3.2) {
+      g.beginPath();
+      g.moveTo(x, cy - ry + 1 + Math.abs(x - cx) * 0.3);
+      g.lineTo(x + 1.6, cy - ry + 4.5 + Math.abs(x - cx) * 0.3);
+      g.stroke();
+    }
+  } else if (has(c, 'signet')) {
+    // a big oval bezel with a sunk device (a lambda under a star)
+    const bz = ellipse(cx, cy - ry + 1, 12, 8.5);
+    shape(g, bz, dome(g, rp, cx, cy - ry + 1, 12));
+    g.strokeStyle = 'rgba(22,13,8,0.5)';
+    g.lineWidth = 0.8;
+    g.stroke(ellipse(cx, cy - ry + 1, 9.5, 6.3));
+    const dev = new Path2D();
+    dev.moveTo(cx - 5, cy - ry + 5.5);
+    dev.lineTo(cx - 1.4, cy - ry - 3.5);
+    dev.lineTo(cx + 1.4, cy - ry - 3.5);
+    dev.lineTo(cx + 5, cy - ry + 5.5);
+    dev.lineTo(cx + 2.6, cy - ry + 5.5);
+    dev.lineTo(cx, cy - ry - 0.8);
+    dev.lineTo(cx - 2.6, cy - ry + 5.5);
+    dev.closePath();
+    engrave(g, dev, rp, 0.7);
+  } else {
+    // a plain band: a flattened facet on top
+    g.save();
+    g.clip(band);
+    g.fillStyle = rp.hi;
+    g.globalAlpha = 0.35;
+    g.fill(ellipse(cx - 2, cy - ry + bw * 0.5, 9, 2.2, -0.15));
+    g.restore();
+  }
+  c.glints = [[cx - 12, cy - 8]];
+}
+
+function torcIcon(c: Ctx, rp: Ramp): void {
+  const { g, id } = c;
+  const cx = 32, cy = 36, R = 23;
+  const a0 = Math.PI * 0.7, a1 = Math.PI * 2.3;
+  const p = new Path2D();
+  p.arc(cx, cy, R, a0, a1);
+  g.save();
+  g.lineCap = 'butt';
+  g.lineWidth = 9 + WO;
+  g.strokeStyle = OUTLINE;
+  g.stroke(p);
+  g.lineWidth = 9;
+  g.strokeStyle = grad(g, rp, cx - R, cy - R, cx + R, cy + R);
+  g.stroke(p);
+  // the twisted strands: alternating raised ridges along the ring
+  g.lineCap = 'round';
+  for (let a = a0 + 0.12; a < a1 - 0.08; a += 0.3) {
+    const cs = Math.cos(a), sn = Math.sin(a);
+    const x = cx + cs * R, y = cy + sn * R;
+    const tx = -sn, ty = cs;
+    // a dark groove and, beside it, a lit ridge: a few bold turns, not a fine hatch
+    g.beginPath();
+    g.moveTo(x - tx * 3 + cs * 3.6, y - ty * 3 + sn * 3.6);
+    g.lineTo(x + tx * 3 - cs * 3.6, y + ty * 3 - sn * 3.6);
+    g.lineWidth = 2.4;
+    g.strokeStyle = 'rgba(22,13,8,0.5)';
+    g.stroke();
+    g.beginPath();
+    g.moveTo(x - tx * 3 + cs * 3.6 + tx * 2.6, y - ty * 3 + sn * 3.6 + ty * 2.6);
+    g.lineTo(x + tx * 3 - cs * 3.6 + tx * 2.6, y + ty * 3 - sn * 3.6 + ty * 2.6);
+    g.lineWidth = 1.6;
+    g.strokeStyle = rp.hi;
+    g.globalAlpha = 0.6;
+    g.stroke();
+    g.globalAlpha = 1;
+  }
+  g.restore();
+  // terminals: buffer discs on the gold torc, balls on the bronze one
+  for (const a of [a0, a1]) {
+    const x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+    if (id === 'gold_torc' || has(c, 'buffer')) {
+      const d = ellipse(x, y, 6.5, 6.5);
+      shape(g, d, dome(g, rp, x, y, 6.5));
+      g.strokeStyle = 'rgba(22,13,8,0.45)';
+      g.lineWidth = 0.8;
+      g.stroke(ellipse(x, y, 4, 4));
+      g.fillStyle = rp.hi;
+      g.globalAlpha = 0.5;
+      g.fill(ellipse(x, y, 1.8, 1.8));
+      g.globalAlpha = 1;
+    } else {
+      const d = ellipse(x, y, 5.6, 5.6);
+      shape(g, d, dome(g, rp, x, y, 5.6));
+    }
+  }
+  c.glints = [[cx - 12, cy - 17]];
+}
+
+function tanitIcon(c: Ctx): void {
+  const { g, r } = c;
+  const cx = 32, cy = 37, R = 19;
+  const clay = flatRamp(0xa8583a);
+  const sign = finish(RAMPS.bronze, r);
+  cord(c, cx, cy - R - 2, RAMPS.cord);
+  const disc = ellipse(cx, cy, R, R);
+  shape(g, disc, dome(g, clay, cx, cy, R));
+  stud(g, sign, cx, cy - R - 0.5, 2.6);
+  g.save();
+  g.clip(disc);
+  g.strokeStyle = 'rgba(22,13,8,0.35)';
+  g.lineWidth = 0.9;
+  g.stroke(ellipse(cx, cy, R - 3, R - 3));
+  // the sign of Tanit in bronze relief: a triangle, a bar with upturned ends, a disc on top
+  const body = poly([[cx, cy - 2], [cx + 10, cy + 13], [cx - 10, cy + 13]]);
+  shape(g, body, grad(g, sign, cx - 10, cy - 2, cx + 10, cy + 13), true, 1.6);
+  const bar = new Path2D();
+  bar.moveTo(cx - 13, cy - 7);
+  bar.lineTo(cx - 13, cy - 2.5);
+  bar.lineTo(cx + 13, cy - 2.5);
+  bar.lineTo(cx + 13, cy - 7);
+  bar.lineTo(cx + 10, cy - 7);
+  bar.lineTo(cx + 10, cy - 5.5);
+  bar.lineTo(cx - 10, cy - 5.5);
+  bar.lineTo(cx - 10, cy - 7);
+  bar.closePath();
+  shape(g, bar, grad(g, sign, 0, cy - 7, 0, cy - 2), true, 1.6);
+  const head = ellipse(cx, cy - 10, 4.5, 4.5);
+  shape(g, head, dome(g, sign, cx, cy - 10, 4.5), true, 1.6);
+  g.restore();
+  c.glints = [[cx - 10, cy - 11]];
+}
+
 // ------------------------------------------------------------------ rarity sparkle
 
 function star(g: G, x: number, y: number, s: number, alpha = 1): void {
@@ -2817,8 +3216,17 @@ export function renderItemIconHD(item: Item, px: number): HTMLCanvasElement {
     case 'armor':
       armorIcon(c);
       break;
-    default:
+    default: {
+      // trinkets are small things: drawn a little larger so they fill the box like the gear does
+      const k = 1.1;
+      g.save();
+      g.translate(ICON_UNITS / 2, ICON_UNITS / 2);
+      g.scale(k, k);
+      g.translate(-ICON_UNITS / 2, -ICON_UNITS / 2);
       trinketIcon(c);
+      g.restore();
+      c.glints = c.glints.map(([x, y]) => [ICON_UNITS / 2 + (x - ICON_UNITS / 2) * k, ICON_UNITS / 2 + (y - ICON_UNITS / 2) * k]);
+    }
   }
   // uncommon and up: a soft sheen over the whole piece (brighter the rarer)
   if (r >= 1) {
