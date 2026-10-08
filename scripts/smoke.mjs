@@ -168,8 +168,8 @@ const moved = await ev(() => window.__state.campaign.world.s);
 check('party marched and time passed', Math.hypot(moved.x - start.x, moved.y - start.y) > 0.5 && moved.time > start.t, `${start.x.toFixed(1)},${start.y.toFixed(1)} -> ${moved.x.toFixed(1)},${moved.y.toFixed(1)}`);
 
 // ---- encounter: a band steps out next to us; camping lets time run until it attacks
-async function ambush() {
-  await ev(() => {
+async function ambush(melee = false) {
+  await ev((melee) => {
     const s = window.__game.scene.getScene('World');
     const w = s.w;
     w.stop();
@@ -195,11 +195,13 @@ async function ambush() {
     p.y = t.y + 0.5;
     p.idle = 0;
     p.power = s.info.power * 1.4; // strong enough to hunt us
-    // a melee band: skirmishers or riders can keep out of reach for the whole run, and the
-    // shield-bash check below needs a man in front of the basher (scripts/screenshots.mjs stages the same)
-    p.kind = 'raiders';
-    p.culture = 'celtic';
-  });
+    // a melee band for the shield-bash check: skirmishers or riders can keep out of reach for the
+    // whole run, and the check needs a man in front of the basher (scripts/screenshots.mjs stages the same)
+    if (melee) {
+      p.kind = 'raiders';
+      p.culture = 'celtic';
+    }
+  }, melee);
   await tapBtn('World', { label: 'Camp' });
   return until(() => ev(() => !!window.__game.scene.getScene('World').dialog), 10000);
 }
@@ -480,7 +482,7 @@ await tapBtn('Army', { label: 'Town' });
 await wait(400);
 await tapBtn('Settlement', { label: 'Leave' });
 check('left the village', await until(() => active('World'), 3000));
-check('second encounter', await ambush());
+check('second encounter', await ambush(true));
 await tapBtn('World', { label: 'Attack' });
 await until(() => active('Battle'), 5000);
 await tapBtn('Battle', { id: 'battle.fight' });

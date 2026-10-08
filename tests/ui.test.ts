@@ -197,6 +197,20 @@ describe('layout check', () => {
     const kinds = v.map((x) => `${x.check}:${x.ids.join('+')}`).sort();
     expect(kinds).toEqual(['outside-safe-area:f', 'overlap:a+b', 'spacing:c+d', 'text-overflow:t1', 'text-overlap:t2+t3', 'touch-size:e'].sort());
   });
+  it('judges a scrolled line by its rows inside the viewport, but not its sides', () => {
+    const clip = { x: 0, y: 100, w: 300, h: 200 };
+    const frame = { x: 0, y: 100, w: 300, h: 200 };
+    const v = checkLayout(
+      [
+        // cut by the viewport's bottom edge: scrolling, not overflow
+        el('cut', 'text', 10, 290, 120, 20, { clip, frame, visible: { x: 10, y: 290, w: 120, h: 10 } }),
+        // too wide for its box even inside the viewport: overflow
+        el('wide', 'text', 10, 150, 320, 20, { clip, frame, visible: { x: 10, y: 150, w: 290, h: 20 } }),
+      ],
+      { width: 320, height: 568 },
+    );
+    expect(v.filter((x) => x.check === 'text-overflow').map((x) => x.ids.join('+'))).toEqual(['wide']);
+  });
   it('flags a line that escapes its column and a ragged wrapped block', () => {
     const col = { x0: 60, x1: 300 };
     const ok = checkLayout(

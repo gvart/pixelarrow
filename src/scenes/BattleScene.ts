@@ -9,7 +9,7 @@ import { HintPill, MED_H, MED_W, Medallion, TOP_H, TopBar, type TopBarOpts } fro
 import { TERRA } from '../art/smoothUi';
 import { RadialOrders, type RadialOrder } from '../ui/radialOrders';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
-import { uiId, uiIgnore } from '../ui/layout';
+import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { PLATE_W, PLATE_W_BIG, battleDoll, battleFrame, battleRow, battleRowFx, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
 import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
@@ -63,7 +63,7 @@ const CATCH_UP_STEPS = 120;
 // group cards down its left edge and the radial ring, the ability row, the command strip.
 /** Bottom sheet (UI px): group card height, the header line, the order buttons. */
 const SHEET_CARD_H = 28;
-const SHEET_HEAD_H = 16;
+const SHEET_HEAD_H = 22;
 const SHEET_ORDERS_H = 28;
 
 const PRESETS: [FormationType, string, string][] = [
@@ -2411,12 +2411,20 @@ export class BattleScene extends BaseScene {
     const rowH = this.compact ? 22 : 24;
     const h = 16 + PRESETS.length * (rowH + SIZE.gap) - SIZE.gap + 6;
     this.hideBanner();
-    const y = this.stripTop() - h - 2;
+    // above the bottom sheet when there is room; on short screens it rises over the sheet, never under the top bar
+    const y = Math.max(TOP_H + 2, this.stripTop() - h - 2);
     const c = this.add.container(0, 0);
     this.hud.add(c);
+    // a popup: the field and the sheet dim behind it, and a tap outside closes it
+    const shade = uiBlocker(this.add.rectangle(0, 0, this.m.VW, this.m.VH, 0x000000, 0.35).setOrigin(0, 0).setInteractive());
+    shade.on('pointerup', () => {
+      this.shapeOpen = false;
+      this.buildHud();
+    });
+    c.add(shade);
     c.add(addPanel(this, x, y, w, h, 'parch'));
     const numeral = this.cards.find((k) => k.gid === sel.id)?.numeral ?? '';
-    const title = addText(this, x + 6, y + 5, ellipsize(t('battle.shape.title', { numeral, name: sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : groupName(sel.name) }), w - 12), 'red');
+    const title = addText(this, x + 6, y + 5, ellipsize(t('battle.shape.title', { numeral, name: sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : groupName(sel.name) }), w - 12, false, 7, 'head'), 'head');
     c.add(title);
     let ry = y + 16;
     for (const [type, key, icon] of PRESETS) {
