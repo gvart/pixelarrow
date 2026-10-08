@@ -26,19 +26,23 @@ runs:
       with:
         path: ~/.cache/ms-playwright
         key: playwright-shell-${{ runner.os }}-${{ steps.pw.outputs.version }}
+    # Chromium's system libraries (apt) and the headless shell download, each
+    # retried with a time bound by bounded-retry.sh: a timed-out attempt has
+    # its whole process tree killed (including the root apt-get that sudo
+    # starts in its own session) and the dpkg locks released before the next
+    # one. Budgets fit inside the layout (20 min) and smoke (15 min) jobs.
+    - name: Chromium system libraries
+      shell: bash
+      run: |
+        # wait for a dpkg lock held by something else (e.g. unattended-upgrades)
+        # instead of failing at once; retry slow or flaky mirror downloads
+        printf '%s\n' 'DPkg::Lock::Timeout "120";' 'Acquire::Retries "3";' \
+          | sudo tee /etc/apt/apt.conf.d/99ci-browser-setup > /dev/null
+        bash "$GITHUB_ACTION_PATH/bounded-retry.sh" 480 300 npx playwright install-deps chromium
     - name: Install Chromium
       if: steps.pw-cache.outputs.cache-hit != 'true'
       shell: bash
-      # apt mirrors and dpkg locks sometimes hang a runner: bounded attempts instead of the job timeout
-      run: |
-        for i in 1 2 3; do timeout 240 npx playwright install --with-deps --only-shell chromium && exit 0; echo "attempt $i failed"; sleep 10; done
-        exit 1
-    - name: Chromium system libraries
-      if: steps.pw-cache.outputs.cache-hit == 'true'
-      shell: bash
-      run: |
-        for i in 1 2 3; do timeout 180 npx playwright install-deps chromium && exit 0; echo "attempt $i failed"; sleep 10; done
-        exit 1
+      run: bash "$GITHUB_ACTION_PATH/bounded-retry.sh" 240 120 npx playwright install --only-shell chromium
     - name: Serve dist/
       shell: bash
       run: |
