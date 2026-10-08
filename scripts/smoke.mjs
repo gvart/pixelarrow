@@ -117,11 +117,24 @@ const target = await ev(() => {
   const s = window.__game.scene.getScene('World');
   const w = s.w;
   w.s.safeUntil = w.s.time + 1000; // no ambush during this leg
-  for (const [dx, dy] of [[4, 0], [-4, 0], [0, 4], [0, -4], [3, 3], [-3, 3], [3, -3], [-3, -3]]) {
-    const t = w.nearestPassable(Math.floor(w.s.x) + dx, Math.floor(w.s.y) + dy, 1);
-    if (!t) continue;
-    const cam = s.cameras.main;
-    return [((t.x + 0.5) * 8 - cam.worldView.x) * cam.zoom, ((t.y + 0.5) * 8 - cam.worldView.y) * cam.zoom];
+  // a tap on a town's picture enters it (WorldScene.tapWorld): march to open ground clear of every site
+  const onSite = (px, py) =>
+    w.map.settlements.some((st) => {
+      if (Math.hypot(st.x * 8 + 4 - px, st.y * 8 - py) < 11) return true;
+      const site = s.siteOf(st.id);
+      return !!site && px > site.x && px < site.x + site.w && py > site.y && py < site.y + site.h;
+    });
+  const cam = s.cameras.main;
+  const view = cam.worldView;
+  for (const r of [4, 6, 8, 10]) {
+    for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, r], [r, -r], [-r, -r]]) {
+      const t = w.nearestPassable(Math.floor(w.s.x) + dx, Math.floor(w.s.y) + dy, 1);
+      if (!t || onSite((t.x + 0.5) * 8, (t.y + 0.5) * 8)) continue;
+      // on screen, clear of the HUD (top bar, bottom bar)
+      const sy = ((t.y + 0.5) * 8 - view.y) * cam.zoom;
+      if ((t.x + 0.5) * 8 < view.x || (t.x + 0.5) * 8 > view.right || sy < 90 || sy > s.scale.height - 120) continue;
+      return [((t.x + 0.5) * 8 - view.x) * cam.zoom, sy];
+    }
   }
   return null;
 });
@@ -138,6 +151,21 @@ async function ambush() {
     const w = s.w;
     w.stop();
     w.s.safeUntil = 0;
+    // camps keep clear of settlements (src/world/camp.ts campBlocker): stage the party on campable ground
+    const x0 = Math.floor(w.s.x);
+    const y0 = Math.floor(w.s.y);
+    search: for (let r = 0; r < 30; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          w.s.x = x0 + dx + 0.5;
+          w.s.y = y0 + dy + 0.5;
+          if (!w.campBlocker() && w.nearestPassable(x0 + dx + 2, y0 + dy, 3)) break search;
+        }
+      }
+    }
+    w.reveal(w.s.x, w.s.y, 6);
+    s.cameras.main.centerOn(w.s.x * 8, w.s.y * 8);
     const p = w.s.parties[0];
     const t = w.nearestPassable(Math.floor(w.s.x) + 2, Math.floor(w.s.y), 3);
     p.x = t.x + 0.5;
@@ -332,7 +360,14 @@ const village = await ev(() => {
   w.stop();
   w.s.safeUntil = w.s.time + 1000;
   window.__state.campaign.data.gold = 600; // enough for any volunteer
+  // still camped where the band attacked: strike it (a tap elsewhere would ask first) and reveal the village
+  if (w.camp) {
+    w.breakCamp();
+    s.renderCamp();
+    s.buildHud();
+  }
   const v = w.map.settlements.find((x) => x.kind === 'village');
+  w.reveal(v.x + 0.5, v.y + 0.5, 4);
   const t = w.nearestPassable(v.x + 2, v.y, 3);
   w.s.x = t.x + 0.5;
   w.s.y = t.y + 0.5;
@@ -342,6 +377,9 @@ const village = await ev(() => {
   return { id: v.id };
 });
 await wait(200);
+// discovering a settlement plays a short camera cut that ignores taps (WorldScene.cine): let it finish
+await until(() => ev(() => !window.__game.scene.getScene('World').cine), 8000, 100);
+await wait(300);
 const vpos = await ev((id) => {
   const s = window.__game.scene.getScene('World');
   const v = s.w.map.settlements[id];
