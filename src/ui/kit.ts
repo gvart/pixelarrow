@@ -9,7 +9,7 @@ import Phaser from 'phaser';
 import { renderVectorAtlas, type Face } from '../art/vectorFont';
 import { ICONS } from '../art/icons';
 import { VECTOR_CAMP_ICONS, VECTOR_ICONS } from '../art/vectorIcons';
-import { paintIcon, type IconLook } from '../art/iconStyle';
+import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
 import { renderIcon, type PanelStyle } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
@@ -81,7 +81,7 @@ export function registerUiAssets(scene: Phaser.Scene): void {
   }
   // smooth icons first (src/art/vectorIcons.ts); a name with no vector form keeps its pixel icon
   const K = panelK(scene);
-  const vec: [string, string][] = [...Object.entries(VECTOR_ICONS), ...Object.entries(VECTOR_CAMP_ICONS).map(([k, d]): [string, string] => [`camp_${k}`, d])];
+  const vec: [string, IconPart[]][] = [...Object.entries(VECTOR_ICONS), ...Object.entries(VECTOR_CAMP_ICONS).map(([k, d]): [string, IconPart[]] => [`camp_${k}`, d])];
   for (const [name, d] of vec) {
     registerVectorIcon(scene, `icon_${name}`, name, d, 'full', K);
     registerVectorIcon(scene, `iconL_${name}`, name, d, 'light', K);
@@ -173,8 +173,8 @@ export function fitText(txt: Phaser.GameObjects.BitmapText, w: number): Phaser.G
 /** Icon edge in UI px (the pixel icons' size; smooth icons are drawn denser and scaled down to it). */
 export const ICON_PX = 12;
 
-/** Paint an icon from SVG path data (24 x 24 box) at K atlas px per UI px (src/art/iconStyle.ts). */
-function registerVectorIcon(scene: Phaser.Scene, key: string, name: string, d: string, look: IconLook, K: number): void {
+/** Paint an icon from its parts (24 x 24 box) at K atlas px per UI px (src/art/iconStyle.ts). */
+function registerVectorIcon(scene: Phaser.Scene, key: string, name: string, d: IconPart[], look: IconLook, K: number): void {
   if (scene.textures.exists(key)) return;
   scene.textures.addCanvas(key, paintIcon(name, d, look, ICON_PX * K))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
 }

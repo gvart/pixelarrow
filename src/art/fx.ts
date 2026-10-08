@@ -6,6 +6,7 @@
 import { P, mix } from './palette';
 import { BAYER4, Pix } from './pixels';
 import { ISO_HH, ISO_HW } from './iso';
+import { paintIcon, type IconPart } from './iconStyle';
 
 /** Semi-axes in pixels of a field-space circle of radius r projected to the iso screen. */
 export function isoEllipse(r: number): { rx: number; ry: number } {
@@ -82,12 +83,15 @@ export function renderPip(kind: 'up' | 'fang' | 'shield', color: number): Pix {
   return px;
 }
 
-/** An icon from src/art/icons.ts in a solid colour with a dark outline (floating ability icons). */
-export function renderFxIcon(rows: string[], color: number): Pix {
-  const px = new Pix(rows[0].length + 2, rows.length + 2);
-  px.bitmap(1, 1, rows, { '#': color, '+': mix(color, 0xffffff, 0.5) });
-  px.outline(P.outline);
-  return px;
+/** Edge in world px of a floating ability icon (the old 12 px pixel icon plus its outline). */
+export const FX_ICON_PX = 14;
+
+/**
+ * A floating ability / level-up icon: the smooth UI icon (src/art/vectorIcons.ts)
+ * painted at `n` device px, to be shown scaled down to FX_ICON_PX world px.
+ */
+export function renderFxIcon(parts: IconPart[], n: number): HTMLCanvasElement {
+  return paintIcon('fx', parts, 'full', n);
 }
 
 /** Confetti flake (2x2) and a square particle in a solid colour. */
