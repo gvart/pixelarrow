@@ -19,10 +19,17 @@ export interface MarchStep {
   until: number | null;
 }
 
-/** Every region within `sight` routes of one of `sources`. */
-export function sightSet(world: WorldGraph, sources: readonly number[], sight: number): Set<number> {
+/** A vision source that sees further than the rest (a camp's watchtower): `hops` routes from `loc`. */
+export interface Tower {
+  loc: number;
+  hops: number;
+}
+
+/** Every region within `sight` routes of one of `sources` (and within `hops` of a tower). */
+export function sightSet(world: WorldGraph, sources: readonly number[], sight: number, towers: readonly Tower[] = []): Set<number> {
   const out = new Set<number>();
   for (const s of sources) for (const r of world.within(s, sight)) out.add(r);
+  for (const t of towers) for (const r of world.within(t.loc, t.hops)) out.add(r);
   return out;
 }
 
@@ -30,9 +37,10 @@ export function sightSet(world: WorldGraph, sources: readonly number[], sight: n
  * The part of a march a viewer may see: every region of `path` within `sight`
  * routes of one of the viewer's vision sources, with its entry time and the
  * time the army leaves it (the next region's entry time, or null for the last).
+ * Watchtowers (`towers`) see further than the other sources.
  */
-export function sightSteps(world: WorldGraph, path: readonly number[], at: readonly number[], sources: readonly number[], sight: number): MarchStep[] {
-  const seen = sightSet(world, sources, sight);
+export function sightSteps(world: WorldGraph, path: readonly number[], at: readonly number[], sources: readonly number[], sight: number, towers: readonly Tower[] = []): MarchStep[] {
+  const seen = sightSet(world, sources, sight, towers);
   const out: MarchStep[] = [];
   for (let i = 0; i < path.length; i++) {
     if (!seen.has(path[i])) continue;

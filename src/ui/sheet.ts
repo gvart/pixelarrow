@@ -12,9 +12,10 @@ import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { SIZE, COLOR, RARITY_COLOR } from './theme';
 import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
-import { dollFrame, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon } from './sprites';
+import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon } from './sprites';
+import { cosmeticLoadout } from '../game/cosmetics';
 import { renderStage, renderStar, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
-import { dollFromHero } from '../art/paperdoll';
+import { ANIM, attackLength, dollFromHero, weaponClass } from '../art/paperdoll';
 import { itemDef, itemValue, normalizeRarity, SLOTS, type Item, type Slot } from '../data/items';
 import type { Hero } from '../data/units';
 import { computeStats, heroClass } from '../sim/stats';
@@ -107,7 +108,8 @@ export class Stage extends Phaser.GameObjects.Container {
     const accent = o.accent ?? roleColor(cls.role);
     this.add(scene.add.image(0, 0, stageTexture(scene, w, h, accent)).setOrigin(0, 0));
     const dir = o.dir ?? 0;
-    const key = ensureDoll(scene, dollFromHero(hero), [dir]);
+    const spec = dollFromHero(hero, cosmeticLoadout());
+    const key = ensureDoll(scene, spec, [dir]);
     const g = dollGeomOf(key);
     // pick the largest integer scale that fits (riders are big)
     const fit = Math.max(1, Math.min(o.scale ?? 2, Math.floor((h - 6) / (g.footY + 2)), Math.floor((w - 4) / Math.min(g.fw, 64))));
@@ -121,27 +123,78 @@ export class Stage extends Phaser.GameObjects.Container {
     const cropX = Math.max(0, Math.ceil((2 - vis.x) / fit));
     const cropY = Math.max(0, Math.ceil((2 - vis.y) / fit));
     this.sprite.setCrop(cropX, cropY, g.fw - cropX * 2, g.fh - cropY);
+    // rarity effects: the epic / legendary outline pulse, the glint sweep, legendary motes
+    const fxKey = dollFxKey(key);
+    const fx = dollFxOf(key);
+    const crop = (o: Phaser.GameObjects.Sprite) => o.setCrop(cropX, cropY, g.fw - cropX * 2, g.fh - cropY);
+    const ring = fxKey && fx?.outline != null ? crop(scene.add.sprite(this.sprite.x, footY, fxKey, `r${dollFrame(dir, 0)}`).setOrigin(...dollOrigin(key)).setScale(fit).setTint(fx.outline)) : null;
+    const glint = fxKey && fx?.glint ? scene.add.sprite(this.sprite.x, footY, fxKey, `g${dollFrame(dir, 0)}`).setOrigin(...dollOrigin(key)).setScale(fit).setTint(0xfff6d8).setVisible(false) : null;
+    if (ring) {
+      this.addAt(ring, this.getIndex(this.sprite));
+      scene.tweens.add({ targets: ring, alpha: { from: 0.3, to: 0.85 }, duration: (fx?.rank ?? 0) >= 4 ? 700 : 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+    if (glint) this.add(glint);
+    let cur = 0;
+    const show = (fr: number) => {
+      cur = fr;
+      this.sprite.setFrame(dollFrame(dir, fr));
+      ring?.setFrame(`r${dollFrame(dir, fr)}`);
+      if (ring) crop(ring);
+    };
     let f = 0;
     this.timer = scene.time.addEvent({
-      delay: 450,
+      delay: 300,
       loop: true,
       callback: () => {
         if (!this.scene || this.busy) return;
-        f = (f + 1) % 2;
-        this.sprite.setFrame(dollFrame(dir, f));
+        f = (f + 1) % ANIM.idle.length;
+        show(ANIM.idle[f]);
       },
     });
-    // a swing every few seconds
+    // a swing every few seconds, with the weapon's own timing
+    const wc = weaponClass(spec.weapon);
     const swing = () => {
       if (!this.scene) return;
       this.busy = true;
-      [6, 7, 8, 0].forEach((fr, i) => scene.time.delayedCall(i * 110, () => this.scene && this.sprite.setFrame(dollFrame(dir, fr))));
-      scene.time.delayedCall(480, () => (this.busy = false));
+      let t = 0;
+      for (const fr of [...ANIM.attack, ANIM.idle[0]]) {
+        const at = t;
+        scene.time.delayedCall(at * 1000 * 1.5, () => this.scene && show(fr));
+        t += fr === ANIM.idle[0] ? 0 : Math.max(0.06, attackLength(wc) / ANIM.attack.length);
+      }
+      scene.time.delayedCall(t * 1500 + 60, () => (this.busy = false));
     };
     const loop = scene.time.addEvent({ delay: 3600, loop: true, callback: swing });
+    // the glint sweeps across the metal every couple of seconds; legendary gear sheds motes
+    let gt = 0;
+    const fxTimer = glint || fx?.particles
+      ? scene.time.addEvent({
+          delay: 50,
+          loop: true,
+          callback: () => {
+            if (!this.scene) return;
+            gt += 0.05;
+            if (glint) {
+              const period = (fx?.rank ?? 0) >= 4 ? 1.8 : 2.6;
+              const ph = (gt % period) / 0.45;
+              if (ph < 1) {
+                const bx = Math.floor(g.fw * 0.2 + ph * g.fw * 0.6);
+                glint.setFrame(`g${dollFrame(dir, cur)}`).setCrop(bx, cropY, 2, g.fh - cropY).setVisible(true).setAlpha(0.9);
+              } else glint.setVisible(false);
+            }
+            if (fx?.particles && Math.random() < 0.18) {
+              const cols = fx.particles === 'embers' ? [0xffb040, 0xffe080] : fx.particles === 'sparkle' ? [0xd0f0ff, 0xffffff] : [0xfff6c8, 0xffe8a0];
+              const px = scene.add.rectangle(Math.round(w / 2 + (Math.random() - 0.5) * 14 * fit), Math.round(footY - Math.random() * g.footY * 0.7 * fit), fit, fit, cols[Math.floor(Math.random() * cols.length)]).setOrigin(0, 0);
+              this.add(px);
+              scene.tweens.add({ targets: px, y: px.y - 10 * fit, alpha: 0, duration: 1000 + Math.random() * 500, onComplete: () => px.destroy() });
+            }
+          },
+        })
+      : null;
     this.once('destroy', () => {
       this.timer.remove();
       loop.remove();
+      fxTimer?.remove();
     });
     scene.add.existing(this);
   }

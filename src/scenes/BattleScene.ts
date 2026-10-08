@@ -3,11 +3,12 @@ import { BaseScene } from './BaseScene';
 import { Button, Meter, addPanel, addText, holdTimer, longPress, tappable, type HoldTimer } from '../ui/kit';
 import { ScrollList, confirmDialog, openModal, showTooltip, toast, Label, type Modal } from '../ui/widgets';
 import { GroupCard, PanelButton, type PanelButtonOpts } from '../ui/battlePanel';
-import { CATEGORY_COLOR, SIZE, type BattleCategory } from '../ui/theme';
+import { CATEGORY_COLOR, RARITY_COLOR, SIZE, type BattleCategory } from '../ui/theme';
 import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
-import { PLATE_W, PLATE_W_BIG, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, pumpDolls, queueDollRows } from '../ui/sprites';
-import { dollFromHero, ANIM_FRAMES, BATTLE_SCALE } from '../art/paperdoll';
+import { PLATE_W, PLATE_W_BIG, battleDoll, battleFrame, battleRow, battleRowFx, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
+import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
+import { AURA_COLORS, BANNER_COLORS, cosmeticLoadout } from '../game/cosmetics';
 import { STANDARD_FRAMES, STANDARD_H, STANDARD_W, STRIP_STEPS, plateOrigin, renderGround, renderStandard, renderStripPlate, stripStep } from '../art/ground';
 import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
 import { P } from '../art/palette';
@@ -27,7 +28,7 @@ import { resolveBattle } from '../game/loot';
 import { lastBattle, unitStats } from '../game/report';
 import { makeHero } from '../game/heroes';
 import { GROUP_NAMES, type Hero } from '../data/units';
-import { itemDef } from '../data/items';
+import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { BattleFx } from '../ui/battleFx';
@@ -101,6 +102,17 @@ interface UnitView {
   strip: number;
   /** Texture key on plateTop (plain / selected / singled out). */
   topKey: string;
+  /** Men: weapon class (which attack / aim animation), the facing row's texture, and rarity effects. */
+  wc: WeaponClass;
+  rowKey: string;
+  fx: DollFx | null;
+  /** Epic+ outline ring and rare+ glint sweep overlays (men with such gear only). */
+  fxRing: Phaser.GameObjects.Sprite | null;
+  fxGlint: Phaser.GameObjects.Sprite | null;
+  /** Aura cosmetic colours (the player's men), or null. */
+  aura: number[] | null;
+  /** Which death he dies (backwards or onto the face). */
+  dieB: boolean;
 }
 
 /** Texture origins of the joined formation plates, per strip step. */
@@ -161,6 +173,11 @@ export class BattleScene extends BaseScene {
   private enemyHeroes: Hero[] = [];
   private initialStrength: [number, number] = [1, 1];
   private ending = false;
+  /** Side whose men play the victory pose once the battle is over (-1: none). */
+  private victorySide = -1;
+  /** Particles left this second for legendary gear and aura cosmetics (mobile cap). */
+  private moteBudget = 0;
+  private moteTime = 0;
   private retreatMsg: string | null = null;
   // HUD
   private hud!: Phaser.GameObjects.Container;
@@ -246,6 +263,7 @@ export class BattleScene extends BaseScene {
     this.dragLabel = null;
     this.hint = null;
     this.ending = false;
+    this.victorySide = -1;
     this.retreatMsg = null;
     this.overlay = null;
     this.banner = null;
@@ -333,13 +351,27 @@ export class BattleScene extends BaseScene {
     for (const h of [...heroes, ...this.enemyHeroes]) heroById.set(h.id, h);
     this.ensureFormationArt();
     this.viewById.clear();
+    releaseBattleRows(this);
+    const lo = cosmeticLoadout();
+    const myAura = (lo.aura && AURA_COLORS[lo.aura]) || null;
     for (const u of this.sim.units) {
       const hero = heroById.get(u.heroId)!;
       const f = isoFacing(u.fx, u.fy);
       const dir = facingRow(f.back, f.left);
-      // only the row he faces now is drawn up front; the rest in idle time
-      const key = ensureDoll(this, { ...dollFromHero(hero), scale: BATTLE_SCALE }, [dir]);
-      queueDollRows(this, key);
+      // the player's men wear his cosmetics (shield paint, cloak, crest, army skin, victory pose)
+      const spec = { ...dollFromHero(hero, u.side === this.me ? lo : undefined), scale: BATTLE_SCALE };
+      const man = !spec.beast && !spec.mount;
+      let key: string;
+      let rowKey = '';
+      if (man) {
+        // men: one texture per facing row, each frame drawn the first time it shows
+        key = battleDoll(spec);
+        rowKey = battleRow(this, key, dir);
+      } else {
+        // only the row he faces now is drawn up front; the rest in idle time
+        key = ensureDoll(this, spec, [dir]);
+        queueDollRows(this, key);
+      }
       const big = !!u.stats.mount || u.rad > 0.45;
       // every man and rider stands on a miniature's base plate; animals only cast a shadow
       const plated = u.stats.kind !== 'animal';
@@ -351,13 +383,21 @@ export class BattleScene extends BaseScene {
         : this.add.image(0, 0, u.side === this.me ? (big ? 'ring_sel_big' : 'ring_sel') : 'ring_enemy').setDepth(-70000).setVisible(false);
       if (!plated && big && u.side !== this.me) ring.setScale(1.6);
       const [ox, oy] = dollOrigin(key);
-      const spr = this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy);
+      const spr = man ? this.add.sprite(0, 0, rowKey, 0).setOrigin(ox, oy) : this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy);
+      const fx = man ? dollFx(spec) : null;
+      const fxKey = man ? battleRowFx(rowKey) : null;
+      const fxRing = fxKey && fx?.outline != null ? this.add.sprite(0, 0, fxKey, 'r0').setOrigin(ox, oy).setTint(fx.outline) : null;
+      const fxGlint = fxKey && fx?.glint ? this.add.sprite(0, 0, fxKey, 'g0').setOrigin(ox, oy).setTint(0xfff6d8).setVisible(false) : null;
+      if (fxRing) this.world.add(fxRing);
+      if (fxGlint) this.world.add(fxGlint);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
       const plateTop = this.add.image(0, 0, 'strip_top_0').setDepth(-59900).setVisible(false);
       this.world.add([shadow, plateTop, ring, spr, flag]);
       const tall = Math.round((u.stats.mount ? 52 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 18) : 38) * BATTLE_SCALE);
-      const spec = dollFromHero(hero);
-      const view: UnitView = { u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big, man: !spec.beast && !spec.mount, plated, plateTop, strip: -1, topKey: '' };
+      const view: UnitView = {
+        u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big, man, plated, plateTop, strip: -1, topKey: '',
+        wc: weaponClass(spec.weapon), rowKey, fx, fxRing, fxGlint, aura: u.side === this.me && man ? myAura : null, dieB: (u.id * 7 + 3) % 3 === 0,
+      };
       this.views.push(view);
       this.viewById.set(u.id, view);
     }
@@ -596,12 +636,112 @@ export class BattleScene extends BaseScene {
     this.fx.update(this.paused ? 0 : delta);
     pumpDolls(this.sim.phase === 'battle' && !this.paused ? 4 : 8);
     this.renderUnits(alpha);
+    flushDolls(this);
     this.beasts?.update(alpha, !!this.banner);
     this.renderProjectiles(alpha);
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
     if (this.hudDirty) this.refreshHud();
+  }
+
+  /**
+   * A man's frame: victory pose, attack (per weapon: thrust, slash, chop,
+   * draw / whirl / throw), block, flinch, rout, run or walk, the archer's
+   * draw before a shot, or breathing in place (random phase per man).
+   */
+  private manFrame(v: UnitView, now: number, sinceHit: number, moving: boolean): number {
+    const u = v.u;
+    const t = now / TICK_RATE;
+    if (this.sim.phase === 'ended' && u.side === this.victorySide && !moving) return ANIM.win[Math.floor(t * 2.6 + ((u.id * 0.37) % 1) * 2) % 2];
+    const shot = u.lastShotTick > u.lastAttackTick;
+    const sinceAtk = (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE;
+    if (sinceAtk >= 0) {
+      // missile men at close quarters jab with the weapon in hand
+      const wc: WeaponClass = !shot && isRangedClass(v.wc) ? 'none' : v.wc;
+      const f = attackFrame(wc, sinceAtk);
+      if (f >= 0) return f;
+    }
+    const sinceBlock = (now - u.lastBlockTick) / TICK_RATE;
+    if (sinceBlock >= 0 && sinceBlock < 0.22) return ANIM.block[0];
+    if (sinceHit >= 0 && sinceHit < 0.24) return ANIM.hit[sinceHit < 0.1 ? 0 : 1];
+    if (u.state === 'routing') return ANIM.rout[Math.floor(t * 11 + u.id) % ANIM.rout.length];
+    if (moving) {
+      if (u.spd > u.stats.speed * 1.3) return ANIM.run[Math.floor(t * 13 + u.id) % ANIM.run.length];
+      return ANIM.walk[Math.floor(t * 13 + u.id) % ANIM.walk.length];
+    }
+    if (isRangedClass(v.wc) && u.ammo > 0 && u.lastShotTick > 0 && (now - u.lastShotTick) / TICK_RATE < u.stats.shotTime * 1.8) {
+      const f = aimFrame(v.wc, Math.max(0, u.cooldown) / TICK_RATE, t);
+      if (f >= 0) return f;
+    }
+    return ANIM.idle[Math.floor(t * 2.2 + ((u.id * 0.618) % 1) * 4) % 4];
+  }
+
+  /** Riders, chariots and animals: the original four-phase sets. */
+  private figureFrame(v: UnitView, now: number, sinceHit: number, moving: boolean): number {
+    const u = v.u;
+    const sinceAtk = (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE;
+    if (sinceAtk >= 0 && sinceAtk < 0.42) return sinceAtk < 0.12 ? ANIM_FRAMES.attack[0] : sinceAtk < 0.24 ? ANIM_FRAMES.attack[1] : ANIM_FRAMES.attack[2];
+    if (sinceHit >= 0 && sinceHit < 0.18) return ANIM_FRAMES.hit[0];
+    if (moving || u.state === 'routing') {
+      const rate = (u.state === 'routing' ? 1.5 : 1) * 8;
+      return ANIM.gallop[Math.floor((now / TICK_RATE) * rate + u.id) % ANIM.gallop.length];
+    }
+    return ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + ((u.id * 0.618) % 1) * 2) % 2];
+  }
+
+  /** Show a frame: men from their facing row's texture (drawn on demand), others from their sheet. */
+  private showFrame(v: UnitView, dir: number, frame: number): void {
+    if (!v.man) {
+      v.spr.setFrame(dollFrame(dir, frame));
+      return;
+    }
+    battleFrame(v.rowKey, frame);
+    if (v.spr.texture.key !== v.rowKey) v.spr.setTexture(v.rowKey, frame);
+    else if (Number(v.spr.frame.name) !== frame) v.spr.setFrame(frame);
+  }
+
+  /** Epic+ gear: the outline ring pulses; rare+: a highlight sweeps across the metal now and then. */
+  private updateGearFx(v: UnitView, rx: number, ry: number, frame: number): void {
+    const fxKey = battleRowFx(v.rowKey);
+    const t = this.time.now / 1000;
+    const rank = v.fx?.rank ?? 0;
+    if (v.fxRing && fxKey) {
+      if (v.fxRing.texture.key !== fxKey) v.fxRing.setTexture(fxKey, `r${frame}`);
+      else v.fxRing.setFrame(`r${frame}`);
+      const pulse = 0.5 + 0.5 * Math.sin(t * (rank >= 4 ? 4.4 : 3) + v.u.id);
+      v.fxRing.setPosition(v.spr.x, ry).setDepth(ry - 0.5).setVisible(true).setAlpha(0.3 + 0.5 * pulse);
+    }
+    if (v.fxGlint && fxKey) {
+      const period = rank >= 4 ? 1.8 : rank >= 3 ? 2.4 : 3.2;
+      const ph = ((t + (v.u.id * 0.53) % period) % period) / 0.4; // the sweep takes 0.4 s
+      const fw = v.spr.frame.width;
+      const bx = Math.floor(ph * (fw * 0.6)) + Math.floor(fw * 0.2);
+      if (ph < 1) {
+        if (v.fxGlint.texture.key !== fxKey) v.fxGlint.setTexture(fxKey, `g${frame}`);
+        else v.fxGlint.setFrame(`g${frame}`);
+        v.fxGlint.setCrop(bx, 0, 2, v.spr.frame.height).setPosition(v.spr.x, ry).setDepth(ry + 0.5).setVisible(true).setAlpha(0.85);
+      } else v.fxGlint.setVisible(false);
+    }
+    void rx;
+  }
+
+  /** Legendary gear and aura cosmetics: sparse motes rising around the man (capped for phones). */
+  private gearParticles(v: UnitView, rx: number, ry: number): void {
+    const now = this.time.now;
+    if (now - this.moteTime > 1000) {
+      this.moteTime = now;
+      this.moteBudget = 36;
+    }
+    if (this.moteBudget <= 0) return;
+    const legend = v.fx?.particles;
+    const rate = (legend ? 1.4 : 0) + (v.aura ? 1 : 0);
+    if (Math.random() > (rate * this.game.loop.delta) / 1000) return;
+    this.moteBudget--;
+    const useAura = v.aura && (!legend || Math.random() < 0.5);
+    const cols = useAura ? v.aura! : legend === 'embers' ? [0xffb040, 0xffe080, 0xf07830] : legend === 'sparkle' ? [0xd0f0ff, 0xffffff] : [0xfff6c8, 0xffe8a0];
+    const c = cols[Math.floor(Math.random() * cols.length)];
+    this.fx.mote(rx + Math.round((Math.random() - 0.5) * 12), ry - 3 - Math.random() * v.tall * 0.8, c);
   }
 
   /** Online deployment: the enemy's men stay hidden until the battle starts (only their zone shows). */
@@ -621,6 +761,8 @@ export class BattleScene extends BaseScene {
         v.plateTop.setVisible(false);
         v.ring.setVisible(false);
         v.flag.setVisible(false);
+        v.fxRing?.setVisible(false);
+        v.fxGlint?.setVisible(false);
         this.fx.unit(u, 0, 0, 0, false);
         continue;
       }
@@ -641,44 +783,36 @@ export class BattleScene extends BaseScene {
       else if (fc.sx > 6) v.flip = false;
       const dir = facingRow(v.back, v.flip);
       if (dir !== v.dir) {
-        ensureDollRow(this, v.key, dir);
+        if (v.man) v.rowKey = battleRow(this, v.key, dir);
+        else ensureDollRow(this, v.key, dir);
         v.dir = dir;
       }
       let frame: number;
       if (u.state === 'dead') {
         if (v.deathTick < 0) v.deathTick = tick;
         const tt = (now - v.deathTick) / TICK_RATE;
-        // a man falls in four steps (stagger, topple, hit the ground, lie still); riders and beasts in three
-        const die = v.man ? ANIM_FRAMES.die : ANIM_FRAMES.fall;
+        // a man falls in four steps (stagger, topple / crumple, hit the ground, lie still); riders and beasts in three
+        const die = v.man ? (v.dieB ? ANIM.dieB : ANIM.die) : ANIM_FRAMES.fall;
         frame = die[Math.min(die.length - 1, Math.floor(tt / (v.man ? 0.08 : 0.11)))];
         v.spr.setDepth(-50000 + ry);
         v.shadow.setVisible(false);
         v.plateTop.setVisible(false);
         v.ring.setVisible(false);
         v.flag.setVisible(false);
+        v.fxRing?.setVisible(false);
+        v.fxGlint?.setVisible(false);
         v.spr.clearTint();
-        v.spr.setFrame(dollFrame(dir, frame));
+        this.showFrame(v, dir, frame);
         this.fx.unit(u, rx, ry, this.time.now, false);
         continue;
       }
       const moving = Math.abs(u.vx) + Math.abs(u.vy) > 0.004;
-      const sinceAtk = (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE;
       const sinceHit = (now - u.lastHitTick) / TICK_RATE;
-      if (sinceAtk >= 0 && sinceAtk < 0.42) {
-        // windup held ~120 ms, a quick thrust, then recover (docs/ART_STYLE.md §10)
-        frame = sinceAtk < 0.12 ? ANIM_FRAMES.attack[0] : sinceAtk < 0.24 ? ANIM_FRAMES.attack[1] : ANIM_FRAMES.attack[2];
-      } else if (sinceHit >= 0 && sinceHit < 0.18) {
-        frame = ANIM_FRAMES.hit[0];
-      } else if (moving || u.state === 'routing') {
-        // men: six phases at ~10 fps; riders and animals: the four-phase gallop at 8
-        const seq = v.man ? ANIM_FRAMES.walk : ANIM_FRAMES.gallop;
-        const rate = (u.state === 'routing' ? 1.5 : 1) * (v.man ? 10 : 8);
-        frame = seq[Math.floor((now / TICK_RATE) * rate + u.id) % seq.length];
-      } else {
-        frame = ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + ((u.id * 0.618) % 1) * 2) % 2]; // random phase per man
-      }
-      v.spr.setFrame(dollFrame(dir, frame));
+      frame = v.man ? this.manFrame(v, now, sinceHit, moving) : this.figureFrame(v, now, sinceHit, moving);
+      this.showFrame(v, dir, frame);
       v.spr.setDepth(ry);
+      if (v.fxRing || v.fxGlint) this.updateGearFx(v, rx, ry, frame);
+      if ((v.fx?.particles || v.aura) && !this.paused) this.gearParticles(v, rx, ry);
       v.shadow.setVisible(true);
       if (sinceHit >= 0 && sinceHit < 0.12) v.spr.setTint(0xff9a8a);
       else if (u.berserk > 0) {
@@ -752,6 +886,13 @@ export class BattleScene extends BaseScene {
       const tex = this.textures.addCanvas(key, renderStandard(STANDARD_RAMP[i]).toCanvas())!;
       for (let f = 0; f < STANDARD_FRAMES; f++) tex.add(f, 0, f * STANDARD_W, 0, STANDARD_W, STANDARD_H);
     }
+    // the player's banner cosmetic dyes his own standards
+    const banner = cosmeticLoadout().banner;
+    const bc = banner ? BANNER_COLORS[banner] : undefined;
+    if (bc && !this.textures.exists(`standard_${banner}`)) {
+      const tex = this.textures.addCanvas(`standard_${banner}`, renderStandard([bc.cloth[0], bc.cloth[1], bc.cloth[2], bc.cloth[4]]).toCanvas())!;
+      for (let f = 0; f < STANDARD_FRAMES; f++) tex.add(f, 0, f * STANDARD_W, 0, STANDARD_W, STANDARD_H);
+    }
   }
 
   /**
@@ -779,7 +920,9 @@ export class BattleScene extends BaseScene {
     for (const g of this.sim.groups) {
       const men = this.views.filter((v) => v.u.group === g.id && v.man);
       if (men.length < 2) continue;
-      const img = this.add.sprite(0, 0, `standard_${g.side === this.me ? 0 : 1}`, 0).setOrigin(6.5 / STANDARD_W, 1).setVisible(false);
+      const banner = cosmeticLoadout().banner;
+      const mine = g.side === this.me && banner && this.textures.exists(`standard_${banner}`) ? `standard_${banner}` : null;
+      const img = this.add.sprite(0, 0, mine ?? `standard_${g.side === this.me ? 0 : 1}`, 0).setOrigin(6.5 / STANDARD_W, 1).setVisible(false);
       this.world.add(img);
       this.standards.push({ img, group: g.id, bearer: null, picked: 0 });
     }
@@ -1133,6 +1276,8 @@ export class BattleScene extends BaseScene {
   private onEnd(winner: number): void {
     if (this.ending) return;
     this.ending = true;
+    // the winners strike their victory pose (a cosmetic picks which)
+    this.victorySide = winner === 0 || winner === 1 ? winner : -1;
     const msg = this.retreatMsg ?? (winner === this.me ? t('battle.banner.victory') : winner === this.foe ? t('battle.banner.defeat') : t('battle.banner.draw'));
     this.showBanner(msg, 0);
     hapticNotify(winner === this.me ? 'success' : 'error');
@@ -2204,6 +2349,15 @@ export class BattleScene extends BaseScene {
     c.add(addPanel(this, x, y, w, 24, 'parch'));
     const hero = this.views[u.id].hero;
     c.add(this.add.image(x + 2, y + 2, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0).setCrop(3, 0, 18, 20));
+    // the portrait framed in the colour of his finest piece of gear (rare and up pulse)
+    const best = this.views[u.id].fx?.rank ?? 0;
+    if (best >= 1) {
+      const rf = this.add.graphics();
+      rf.lineStyle(1, RARITY_COLOR[RARITIES[best]], 1);
+      rf.strokeRect(x + 4.5, y + 1.5, 19, 21);
+      c.add(rf);
+      if (best >= 2) this.tweens.add({ targets: rf, alpha: { from: 0.45, to: 1 }, duration: best >= 4 ? 600 : 1000, yoyo: true, repeat: -1 });
+    }
     const colW = Math.max(18, ...(['hp', 'mor', 'sta'] as const).map((k) => measureText(t(`battle.stat.${k}`)) + 2));
     const mx = x + w - 4 - 3 * colW - 4;
     const textW = mx - 4 - (x + 22);

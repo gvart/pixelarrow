@@ -19,6 +19,11 @@ import {
   type BandKind, type SettlementDef, type WorldMap,
 } from './map';
 import { findPath, type Tile } from './path';
+import { hash3 } from './noise';
+import {
+  CAMP_RULES, FOOD_RULES, STRUCTURES, campBlocker, campEffects, campRefund, campZone, countBuilt, placeCheck,
+  type CampState, type StructureId,
+} from './camp';
 
 export type PartyMode = 'wander' | 'chase' | 'flee';
 
@@ -73,6 +78,15 @@ export interface WorldSave {
   lastSpawn: number;
   /** No band may engage before this time (after an escape, a battle, leaving a town). */
   safeUntil: number;
+  /** Explored tiles (fog of war), a base64 bitset; missing in old saves. */
+  fog?: string;
+  /** Settlements the party has discovered (ids). */
+  found?: number[];
+  /** Rations (one per hero per day) and supplies (camp building, the forge). */
+  food?: number;
+  supplies?: number;
+  /** The field camp the party has pitched, if any. */
+  camp?: CampState | null;
 }
 
 export type WorldEvent =
@@ -82,6 +96,8 @@ export type WorldEvent =
 export interface PlayerInfo {
   power: number;
   size: number;
+  /** Heroes who eat (the whole roster, wounded too); defaults to size. */
+  mouths?: number;
 }
 
 export const WORLD_RULES = {
@@ -97,9 +113,11 @@ export const WORLD_RULES = {
   spawnEvery: 10,
   villageRefresh: 48,
   townRefresh: 72,
-  /** Wound hours healed per hour: on the road, camping, resting in a village / town. */
+  /** Tiles the party sees around itself (fog of war). */
+  sight: 6.5,
+  /** Wound hours healed per hour: on the road, camping (open camp; structures add, see camp.ts), resting in a village / town. */
   healRoad: 1,
-  healCamp: 1.5,
+  healCamp: CAMP_RULES.heal,
   healVillage: 2.5,
   healTown: 3,
   healGoldPerHour: 1,
@@ -133,11 +151,158 @@ export class World {
   private aiRoutes = new Map<number, { x: number; y: number }[]>();
   private aiThink = new Map<number, number>();
 
+  /** Explored tiles (1 = no fog). */
+  readonly explored: Uint8Array;
+  /** Tiles revealed since the scene last drained it (for the fog dissolve). */
+  revealLog: number[] = [];
+  /** Settlements discovered since the scene last drained it (toast + camera pan). */
+  discoveries: number[] = [];
+  private fogDirty = false;
+
   constructor(save: WorldSave, map?: WorldMap) {
     this.s = save;
     this.map = map ?? generateMap(save.seed);
     this.rng = new Rng(save.rng);
+    this.explored = new Uint8Array(this.map.w * this.map.h);
+    // Older saves have no provisions, fog or camp: start them stocked, with the home country known.
+    if (typeof save.food !== 'number' || !isFinite(save.food)) save.food = FOOD_RULES.startFood;
+    if (typeof save.supplies !== 'number' || !isFinite(save.supplies)) save.supplies = FOOD_RULES.startSupplies;
+    if (!Array.isArray(save.found)) save.found = [];
+    if (save.camp && (!Array.isArray(save.camp.zone) || !Array.isArray(save.camp.built))) save.camp = null;
+    if (typeof save.fog === 'string' && decodeBits(save.fog, this.explored)) {
+      // ok
+    } else {
+      const st = this.map.settlements[this.map.start];
+      this.reveal(st.x + 0.5, st.y + 0.5, WORLD_RULES.sight + 4);
+      this.reveal(save.x, save.y, WORLD_RULES.sight + 1);
+      this.revealLog = [];
+      this.discoveries = [];
+      this.fogDirty = true;
+    }
     if (save.dest) this.setDestination(save.dest[0], save.dest[1], save.destSettlement, save.destParty);
+  }
+
+  // ---------------------------------------------------------------- fog of war
+
+  isExplored(tx: number, ty: number): boolean {
+    return tx >= 0 && ty >= 0 && tx < this.map.w && ty < this.map.h && this.explored[ty * this.map.w + tx] === 1;
+  }
+
+  /** Clear the fog in a disc around (x, y) (tile units). Newly seen settlements are discovered. */
+  reveal(x: number, y: number, r: number): number {
+    const m = this.map;
+    let n = 0;
+    const R = r + 1;
+    for (let ty = Math.max(0, Math.floor(y - R)); ty <= Math.min(m.h - 1, Math.ceil(y + R)); ty++) {
+      for (let tx = Math.max(0, Math.floor(x - R)); tx <= Math.min(m.w - 1, Math.ceil(x + R)); tx++) {
+        const i = ty * m.w + tx;
+        if (this.explored[i]) continue;
+        // a ragged edge: each tile's reach wobbles a little
+        const rr = r + (hash3(tx, ty, m.seed ^ 0x5f3759df) - 0.5) * 1.8;
+        if ((tx + 0.5 - x) ** 2 + (ty + 0.5 - y) ** 2 > rr * rr) continue;
+        this.explored[i] = 1;
+        this.revealLog.push(i);
+        n++;
+      }
+    }
+    if (n === 0) return 0;
+    this.fogDirty = true;
+    const found = this.s.found!;
+    for (const st of m.settlements) {
+      if (found.includes(st.id) || !this.explored[st.y * m.w + st.x]) continue;
+      found.push(st.id);
+      this.discoveries.push(st.id);
+      // A town or village is seen whole: its surroundings come out of the fog with it.
+      if (st.kind !== 'lair') this.reveal(st.x + 0.5, st.y + 0.5, st.kind === 'town' ? 5.5 : 3.5);
+    }
+    return n;
+  }
+
+  // ---------------------------------------------------------------- provisions & camp
+
+  get food(): number {
+    return this.s.food ?? 0;
+  }
+
+  get supplies(): number {
+    return this.s.supplies ?? 0;
+  }
+
+  get starving(): boolean {
+    return this.food <= 0;
+  }
+
+  get camp(): CampState | null {
+    return this.s.camp ?? null;
+  }
+
+  addFood(n: number): void {
+    this.s.food = Math.max(0, Math.min(FOOD_RULES.cap, this.food + n));
+  }
+
+  addSupplies(n: number): void {
+    this.s.supplies = Math.max(0, Math.min(FOOD_RULES.supplyCap, this.supplies + n));
+  }
+
+  /** Days the rations last for `mouths` heroes. */
+  foodDays(mouths: number): number {
+    return this.food / Math.max(1, mouths * FOOD_RULES.perHeroDay);
+  }
+
+  /** Wound-hours healed per hour right now (on the road, or in camp with its structures; hunger slows it). */
+  healRate(): number {
+    const base = this.camp ? campEffects(this.map, this.camp).heal : WORLD_RULES.healRoad;
+    return this.starving ? base * FOOD_RULES.starveHeal : base;
+  }
+
+  /** Why the party cannot pitch camp where it stands, or null. */
+  campBlocker(): string | null {
+    if (this.camp) return 'Already camped';
+    if (this.s.inside >= 0) return 'Not inside a settlement';
+    const t = this.tileOf(this.s.x, this.s.y);
+    return campBlocker(this.map, t.x, t.y);
+  }
+
+  /** Pitch camp on the party's tile. Returns null or why it failed. */
+  makeCamp(): string | null {
+    const why = this.campBlocker();
+    if (why) return why;
+    this.stop();
+    const t = this.tileOf(this.s.x, this.s.y);
+    this.s.x = t.x + 0.5;
+    this.s.y = t.y + 0.5;
+    this.s.camp = { x: t.x, y: t.y, zone: campZone(this.map, t.x, t.y), built: [], since: this.s.time };
+    return null;
+  }
+
+  /** Strike camp: the structures are left behind, half their supplies come back. Returns the refund. */
+  breakCamp(): number {
+    const c = this.camp;
+    if (!c) return 0;
+    const back = campRefund(c);
+    this.addSupplies(back);
+    this.s.camp = null;
+    return back;
+  }
+
+  /** Why structure `id` cannot be built at (x, y), or null. */
+  buildBlocker(id: StructureId, x: number, y: number): string | null {
+    const c = this.camp;
+    if (!c) return 'Make camp first';
+    const d = STRUCTURES[id];
+    if (countBuilt(c, id) >= d.max) return d.max === 1 ? `The camp has a ${d.name.toLowerCase()}` : `No room for more ${d.name.toLowerCase()}s`;
+    if (this.supplies < d.cost) return `Needs ${d.cost} supplies`;
+    if (!placeCheck(this.map, c, id, x, y).ok) return 'Build inside the camp, on free ground';
+    return null;
+  }
+
+  /** Build a structure (spends supplies; the scene lets its hours pass). */
+  build(id: StructureId, x: number, y: number): string | null {
+    const why = this.buildBlocker(id, x, y);
+    if (why) return why;
+    this.s.supplies = this.supplies - STRUCTURES[id].cost;
+    this.camp!.built.push({ id, x, y });
+    return null;
   }
 
   /** A new world: the party stands in the starting town; a few bands roam. */
@@ -168,6 +333,10 @@ export class World {
 
   sync(): WorldSave {
     this.s.rng = this.rng.state;
+    if (this.fogDirty) {
+      this.s.fog = encodeBits(this.explored);
+      this.fogDirty = false;
+    }
     return this.s;
   }
 
@@ -222,18 +391,55 @@ export class World {
 
   /** Plan the party's route to a tile. Returns false if it cannot be reached. */
   setDestination(tx: number, ty: number, settlement = -1, party = -1): boolean {
+    if (this.camp) return false; // strike camp first
     const goal = this.nearestPassable(tx, ty);
     if (!goal) return false;
     const from = this.tileOf(this.s.x, this.s.y);
     const p = this.path(from, goal);
     if (!p) return false;
     p.shift(); // we are already on the first tile
-    this.route = p;
+    this.route = this.smooth(p);
     if (p.length === 0) this.route = [{ x: goal.x + 0.5, y: goal.y + 0.5 }];
     this.s.dest = [goal.x, goal.y];
     this.s.destSettlement = settlement;
     this.s.destParty = party;
     return true;
+  }
+
+  /**
+   * Straighten a tile path (string pulling): drop a waypoint when the straight
+   * line past it crosses no terrain worse than the path it replaces, so the
+   * party walks smooth lines instead of tile steps.
+   */
+  private smooth(p: { x: number; y: number }[]): { x: number; y: number }[] {
+    if (p.length < 3) return p;
+    const cost = (x: number, y: number) => travelCost(this.map, Math.floor(x), Math.floor(y));
+    const clear = (a: { x: number; y: number }, b: { x: number; y: number }, worst: number) => {
+      const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 4);
+      for (let k = 1; k < n; k++) {
+        const c = cost(a.x + ((b.x - a.x) * k) / n, a.y + ((b.y - a.y) * k) / n);
+        if (!isFinite(c) || c > worst + 1e-9) return false;
+      }
+      return true;
+    };
+    const out: { x: number; y: number }[] = [];
+    let a = { x: this.s.x, y: this.s.y };
+    let i = 0;
+    while (i < p.length) {
+      let j = i;
+      let worst = cost(p[i].x, p[i].y);
+      // reach as far ahead as a clear straight line allows (at most 12 tiles per leg)
+      for (let k = i + 1; k < p.length && k - i <= 12; k++) {
+        const w = Math.max(worst, cost(p[k].x, p[k].y));
+        if (!clear(a, p[k], w)) break;
+        worst = w;
+        j = k;
+      }
+      out.push(p[j]);
+      a = p[j];
+      i = j + 1;
+    }
+    return out;
   }
 
   stop(): void {
@@ -260,6 +466,7 @@ export class World {
       done += h;
       this.s.time += h;
       if (!waiting) this.movePlayer(h, player, events);
+      this.eat(h, player);
       if (events.length) break;
       this.updateParties(h, player);
       this.checkContact(player, events);
@@ -272,6 +479,15 @@ export class World {
     return { events, hours: done };
   }
 
+  /** Rations eaten (and, in camp, foraged) over `h` hours. Nothing is eaten inside a settlement. */
+  private eat(h: number, player: PlayerInfo): void {
+    if (this.s.inside >= 0) return;
+    const mouths = player.mouths ?? player.size;
+    let d = -(mouths * FOOD_RULES.perHeroDay * h) / 24;
+    if (this.camp) d += campEffects(this.map, this.camp).forage * h;
+    this.s.food = Math.max(0, Math.min(FOOD_RULES.cap, this.food + d));
+  }
+
   private movePlayer(h: number, player: PlayerInfo, events: WorldEvent[]): void {
     // Pursuing a band: re-aim at it as it moves.
     if (this.s.destParty >= 0) {
@@ -282,7 +498,8 @@ export class World {
       }
     }
     if (this.route.length === 0) return;
-    let budget = h * partySpeed(player.size);
+    let budget = h * partySpeed(player.size) * (this.starving ? FOOD_RULES.starveSpeed : 1);
+    const before = this.tileOf(this.s.x, this.s.y);
     while (budget > 0 && this.route.length > 0) {
       const wp = this.route[0];
       const t = this.tileOf(this.s.x, this.s.y);
@@ -303,6 +520,8 @@ export class World {
         budget = 0;
       }
     }
+    const after = this.tileOf(this.s.x, this.s.y);
+    if (after.x !== before.x || after.y !== before.y) this.reveal(this.s.x, this.s.y, WORLD_RULES.sight);
     if (this.route.length === 0) {
       const sid = this.s.destSettlement;
       this.s.dest = null;
@@ -317,6 +536,8 @@ export class World {
       const d = Math.sqrt((p.x - this.s.x) ** 2 + (p.y - this.s.y) ** 2);
       if (d > WORLD_RULES.contact) continue;
       const byPlayer = this.s.destParty === p.id;
+      // A palisaded camp keeps the bands out.
+      if (!byPlayer && this.camp && campEffects(this.map, this.camp).fortified) continue;
       // Bands keep their distance for a while after a fight or an escape (unless the player hunts them).
       if (!byPlayer && (p.idle > 0 || this.s.time < this.s.safeUntil)) continue;
       this.stop();
@@ -343,7 +564,8 @@ export class World {
   private thinkParty(p: PartyState, player: PlayerInfo): void {
     const d = Math.sqrt((p.x - this.s.x) ** 2 + (p.y - this.s.y) ** 2);
     const ratio = p.power / Math.max(1, player.power);
-    const visible = d < WORLD_RULES.vision && this.s.inside < 0 && this.s.time >= this.s.safeUntil;
+    const walled = !!this.camp && campEffects(this.map, this.camp).fortified;
+    const visible = d < WORLD_RULES.vision && this.s.inside < 0 && this.s.time >= this.s.safeUntil && !walled;
     let mode: PartyMode = 'wander';
     if (visible && ratio >= WORLD_RULES.chaseRatio) mode = 'chase';
     else if (visible && ratio < WORLD_RULES.fleeRatio) mode = 'flee';
@@ -609,4 +831,31 @@ export function partyArmy(p: PartyState, ids: IdSource): EnemyArmy {
   const beast = p.kind !== 'mercs' ? bandBeast(p.seed) : null;
   if (beast) return beastEnemy(beast, Math.max(2, p.level + 1), p.seed, ids);
   return buildArmy(new Rng(p.seed), ids, { culture: p.culture, count: p.size, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false });
+}
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/** 0/1 array -> base64 bitset (6 bits per char). */
+export function encodeBits(bits: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bits.length; i += 6) {
+    let v = 0;
+    for (let k = 0; k < 6; k++) if (bits[i + k]) v |= 1 << k;
+    out += B64[v];
+  }
+  return out;
+}
+
+/** Inverse of encodeBits; false if the string does not fit. */
+export function decodeBits(s: string, into: Uint8Array): boolean {
+  if (s.length !== Math.ceil(into.length / 6)) return false;
+  for (let c = 0; c < s.length; c++) {
+    const v = B64.indexOf(s[c]);
+    if (v < 0) return false;
+    for (let k = 0; k < 6; k++) {
+      const i = c * 6 + k;
+      if (i < into.length) into[i] = (v >> k) & 1;
+    }
+  }
+  return true;
 }

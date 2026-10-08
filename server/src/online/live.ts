@@ -4,14 +4,16 @@
  * shard who can see any of it gets an `army_*` message through the shard
  * socket (RegionDO.liveMove). The fog of war is applied here, per receiver:
  * a march is cut down to the regions within sight of the receiver's land and
- * of their own and clan mates' armies (src/online/liveArmies.ts sightSteps);
+ * of their own and clan mates' armies, further from their camps' watchtowers
+ * (src/online/liveArmies.ts sightSteps);
  * nothing a receiver cannot see is sent. Own and clan armies go out whole.
  *
  * Failures never break the action that moved the army: live updates are a
  * nicety on top of the map refresh.
  */
 import { ONLINE_RULES } from '../../../src/online/rules';
-import { allSteps, sightSet, sightSteps, type MarchStep } from '../../../src/online/liveArmies';
+import { allSteps, sightSet, sightSteps, type MarchStep, type Tower } from '../../../src/online/liveArmies';
+import { shardTowers } from './camps';
 import type { WorldGraph } from '../../../src/online/world';
 import type { LiveArmyMsg } from '../../../src/online/protocol';
 import type { PlayerCtx } from './context';
@@ -38,6 +40,8 @@ interface Viewer {
   pid: number;
   clan: number | null;
   sources: number[];
+  /** Watchtowers of the viewer's and their clan's camps (see further). */
+  towers?: Tower[];
   whole: boolean;
 }
 
@@ -58,7 +62,7 @@ export function liveMessages(
   const base = { player: mover.pid, name: mover.name, clan: mover.clan };
   if (move.kind === 'pos') {
     for (const v of viewers) {
-      if (!v.whole && !sightSet(world, v.sources, sight).has(move.pos)) continue;
+      if (!v.whole && !sightSet(world, v.sources, sight, v.towers).has(move.pos)) continue;
       out.push({ to: v.pid, msg: { type: 'army_pos', ...base, loc: move.pos, now } });
     }
     return { out, arrival: null };
@@ -66,7 +70,7 @@ export function liveMessages(
   const last = move.path[move.path.length - 1];
   const arrival: LiveArrival = { at: move.at[move.at.length - 1], loc: last, to: [], told: [] };
   for (const v of viewers) {
-    const steps: MarchStep[] = v.whole ? allSteps(move.path, move.at) : sightSteps(world, move.path, move.at, v.sources, sight);
+    const steps: MarchStep[] = v.whole ? allSteps(move.path, move.at) : sightSteps(world, move.path, move.at, v.sources, sight, v.towers);
     if (!steps.length) continue;
     out.push({
       to: v.pid,
@@ -98,7 +102,7 @@ export async function pushArmyMove(pc: PlayerCtx, move: ArmyMove): Promise<void>
     const sight = ONLINE_RULES.sight;
     // Only vision sources within sight of the move matter.
     const near = sightSet(world, move.kind === 'march' ? move.path : [move.pos], sight);
-    const [rows, profs] = await Promise.all([
+    const [rows, profs, towers] = await Promise.all([
       pc.db
         .prepare('SELECT loc, owner_id, clan_id FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND owner_id IS NOT NULL')
         .bind(pc.shard.season, pc.shard.id)
@@ -111,6 +115,7 @@ export async function pushArmyMove(pc: PlayerCtx, move: ArmyMove): Promise<void>
         )
         .bind(pc.shard.season, pc.shard.id)
         .all<Pick<ProfileRow, 'army_loc' | 'march'> & { player_id: number; clan_id: number | null }>(),
+      shardTowers(pc.db, pc.shard, pc.now),
     ]);
     const clanOf = new Map(profs.results.map((p) => [p.player_id, p.clan_id]));
     const armies = profs.results.map((p) => ({ pid: p.player_id, clan: p.clan_id, pos: armyState(p, pc.now).pos })).filter((a) => near.has(a.pos));
@@ -122,7 +127,8 @@ export async function pushArmyMove(pc: PlayerCtx, move: ArmyMove): Promise<void>
         const clan = clanOf.get(pid) ?? null;
         const mine = (owner: number | null, c: number | null) => owner === pid || (clan !== null && c === clan);
         const sources: number[] = [...held.filter((x) => mine(x.owner_id, x.clan_id)).map((x) => x.loc), ...armies.filter((a) => a.pid !== pc.pid && mine(a.pid, a.clan)).map((a) => a.pos)];
-        return { pid, clan, sources, whole: pid === pc.pid || (clan !== null && clan === moverClan) };
+        const seeing = towers.filter((t) => mine(t.pid, t.clan)).map((t) => ({ loc: t.loc, hops: t.hops }));
+        return { pid, clan, sources, towers: seeing, whole: pid === pc.pid || (clan !== null && clan === moverClan) };
       });
     const name = (await playerNames(pc.db, [pc.pid])).get(pc.pid) ?? pc.name;
     const { out, arrival } = liveMessages(world, { pid: pc.pid, name, clan: moverClan }, move, viewers, pc.now, sight);

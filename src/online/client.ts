@@ -15,6 +15,7 @@ import type { Resources } from './rules';
 import type { ClientMsg, PresencePlayer, ServerMsg } from './protocol';
 import type { BattleSite } from '../world/battlefield';
 import type { MerchantKind, Offer, PostKind, Region } from './merchants';
+import type { CampMarker, CampView } from './camps';
 
 export interface ArmyView {
   /** Region the army stands in (or last passed). */
@@ -85,6 +86,8 @@ export interface MapView {
   armies: { player: number; loc: number; dest: number | null; arriveAt: number | null; path: number[] | null; at?: number[] | null }[];
   players: Record<string, string>;
   clans: Record<string, { name: string; tag: string }>;
+  /** Camps in sight (src/online/camps.ts). */
+  camps?: CampMarker[];
 }
 
 export interface RegionDetail {
@@ -109,6 +112,10 @@ export interface RegionDetail {
   boss?: string | null;
   /** A town or a trading post: its merchant (onlineApi.merchant). */
   merchant?: MerchantKind | null;
+  /** A camp plot (a forward camp may be made here). */
+  campPlot?: boolean;
+  /** The camp here: whose, and (yours) its buildings. */
+  camp?: { owner: number; home: boolean; view: CampView | null } | null;
 }
 
 /** A merchant's offer as GET /merchant answers it: list prices, this player's prices and today's count. */

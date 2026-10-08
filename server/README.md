@@ -265,9 +265,21 @@ respawns are all computed on read from server time. No alarms or polling
 | GET | `/api/online/clans/invite/:code` | invite preview |
 | POST | `/api/online/clans/join` | `{code}`; a player new to the season is placed in the clan's shard |
 | POST | `/api/online/clans/kick`, `/promote`, `/leave` | `{playerId}`, `{playerId, role}`, – |
+| GET | `/api/online/camps` | your camps `{loc, home, slots, buildings: [{slot, kind, level, building, doneAt}], income, sight, garrisonCap, militia, restAt}`, your `claimable` camp plots, `forward {n, max}`, purse, army (`/map` also lists the camps in sight: `camps: [{loc, owner, home, buildings}]`) |
+| POST | `/api/online/camps/claim` | `{loc}`: a forward camp on a campPlot region you hold, army there, `CAMP_RULES.claimCost`; at most 2 (`camp_notPlot` / `camp_notYours` / `camp_isCamp` / `camp_limit` / `camp_notHere` / `camp_funds`) |
+| POST | `/api/online/camps/build` | `{loc, kind, slot?}`: palisade / granary / forge / barracks / watchtower on an empty slot, or the existing one raised a level (1-3); one construction per camp, finished lazily at `doneAt` (`camp_busy`, `camp_slotTaken`, `camp_built`, `camp_maxLevel`, `camp_funds`, ...) |
+| POST | `/api/online/camps/rest` | `{loc}`: army in your camp → +energy, field wounds halved; 4 h cooldown per camp |
 
 Rate limits are per player and per isolate (e.g. 12 attack starts and 30
 marches a minute).
+
+Camps (`online_camps`, `online_camp_buildings`; rules `src/online/rules.ts`
+`CAMP_*`, logic `src/online/camps.ts`): the home region is a camp from the
+join; granary / forge / barracks add food / bronze / recruits to the camp
+region's lazy income, a palisade raises the garrison cap and the militia, a
+watchtower adds sight routes from the camp (map fog, region detail and live
+army messages). A camp whose region is captured or falls back to the
+neutrals is razed with it.
 
 ### Beast lairs and world bosses
 

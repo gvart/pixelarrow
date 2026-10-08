@@ -207,6 +207,15 @@ export const DATA_RU: Record<string, string> = {
   'cosmetic.emblem_pass_s': 'Эмблема победителя сезона',
   'cosmetic.cloak_pass_s': 'Плащ победителя сезона',
   'cosmetic.banner_pass_s': 'Знамя победителя сезона',
+  'cosmetic.crest_white': 'Лебяжьи гребни',
+  'cosmetic.crest_black': 'Вороные гребни',
+  'cosmetic.crest_purple': 'Царские пурпурные гребни',
+  'cosmetic.crest_gold': 'Позолоченные гребни',
+  'cosmetic.aura_laurel': 'Лавровые искры',
+  'cosmetic.aura_embers': 'Аура углей',
+  'cosmetic.aura_storm': 'Искры Зевса',
+  'cosmetic.pose_salute': 'Победа: салют копьём',
+  'cosmetic.pose_shield': 'Победа: щит над головой',
 
   // items: names
   'item.dory.name': 'Копьё дори',

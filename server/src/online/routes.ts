@@ -19,6 +19,7 @@ import type { RegionKind } from '../../../src/online/mapSchema';
 import {
   regionIncome,
   ONLINE_RULES,
+  PALISADE,
   RECRUIT_ARCHETYPES,
   recruitHero,
   RESOURCE_KEYS,
@@ -34,6 +35,8 @@ import { ENCOUNTERS, MYTHS } from '../../../src/data/beasts';
 import { bosses } from './bosses';
 import { pendingIncome } from './income';
 import { clans } from './clans';
+import { campAt, campMarkers, camps, shardTowers, towerVision } from './camps';
+import { campView, garrisonCap } from '../../../src/online/camps';
 import { consumableInventory, consumables } from './consumables';
 import { market, resolveExpired } from './market';
 import { merchant } from './merchant';
@@ -133,8 +136,8 @@ interface RegionView {
 
 /**
  * Regions the player may see: within ONLINE_RULES.sight routes of their own
- * and their clan's regions and of their own and clan mates' armies. Nothing
- * else is sent.
+ * and their clan's regions and of their own and clan mates' armies, plus
+ * what the watchtowers of their and their clan's camps see. Nothing else is sent.
  */
 export async function visibility(c: PlayerCtx): Promise<{ visible: Set<number>; armies: { pid: number; pos: number; dest: number | null; arriveAt: number | null; path: number[] | null }[] }> {
   const { db: d, shard, now } = c;
@@ -158,6 +161,9 @@ export async function visibility(c: PlayerCtx): Promise<{ visible: Set<number>; 
   const sources: number[] = held.results.map((x) => x.loc);
   for (const a of armies) if (a.pid === c.pid || (clanId !== null && a.clan === clanId)) sources.push(a.pos);
   const visible = sightSet(shard.world, sources, ONLINE_RULES.sight);
+  // watchtowers of your and your clan's camps see further
+  const towers = (await shardTowers(d, shard, now)).filter((t) => t.pid === c.pid || (clanId !== null && t.clan === clanId));
+  for (const r of towerVision(shard.world, towers)) visible.add(r);
   return { visible, armies: armies.filter((a) => visible.has(a.pos)).map(({ clan: _c, ...a }) => a) };
 }
 
@@ -243,6 +249,7 @@ online.get('/map', async (c) => {
   const names = await playerNames(pc.db, [...owners, ...armies.map((a) => a.pid)]);
   const tags = await clanTags(pc.db, regions.map((r) => r.clan).filter((x): x is number => x !== null));
   const army = armyState(pc.profile, pc.now);
+  const campList = await campMarkers(pc.db, pc.shard, visible, pc.now);
   return c.json({
     season: { id: pc.season.id, endsAt: pc.season.endsAt },
     shard: { id: pc.shard.id, map: pc.shard.mapId },
@@ -250,6 +257,8 @@ online.get('/map', async (c) => {
     you: { id: pc.pid, clan: pc.clan?.clanId ?? null, home: pc.profile.home_loc, army: { loc: army.pos, marching: army.marching, dest: army.dest, arriveAt: army.arriveAt } },
     regions,
     armies: armies.map((a) => ({ player: a.pid, loc: a.pos, dest: a.dest, arriveAt: a.arriveAt, path: a.pid === pc.pid ? a.path : null })),
+    /** Camps in sight (src/online/camps.ts CampMarker). */
+    camps: campList,
     players: Object.fromEntries(names),
     clans: Object.fromEntries(tags),
   });
@@ -304,6 +313,7 @@ online.get('/region/:loc', async (c) => {
   }
   const names = await playerNames(pc.db, row?.owner_id ? [row.owner_id] : []);
   const tags = await clanTags(pc.db, row?.clan_id ? [row.clan_id] : []);
+  const campRow = await campAt(pc.db, pc.shard, h);
   return c.json({
     region: view,
     ownerName: row?.owner_id ? names.get(row.owner_id) ?? null : null,
@@ -326,6 +336,10 @@ online.get('/region/:loc', async (c) => {
     canGarrison: ours && !army.marching && army.pos === h,
     /** A town or a trading post: its merchant (GET /merchant/:loc). */
     merchant: merchantAt(w, h),
+    /** A camp plot (forward camps may be made here). */
+    campPlot: s.campPlot,
+    /** The camp here: whose, and (yours) its buildings (src/online/camps.ts CampView). */
+    camp: campRow ? { owner: campRow.player_id, home: campRow.home === 1, view: campRow.player_id === pc.pid ? campView({ loc: h, home: campRow.home === 1, restedAt: campRow.rested_at, buildings: campRow.buildings }, pc.now) : null } : null,
   });
 });
 
@@ -388,7 +402,7 @@ online.post('/march/stop', async (c) => {
 
 // ------------------------------------------------------------------ garrisons
 
-const GarrisonBody = z.object({ heroIds: z.array(HeroId).max(ONLINE_RULES.maxGarrison), formations: Formations.optional() });
+const GarrisonBody = z.object({ heroIds: z.array(HeroId).max(ONLINE_RULES.maxGarrison + PALISADE.garrison[3]), formations: Formations.optional() });
 
 /**
  * Sets which of YOUR heroes hold a region you or your clan own. The army must
@@ -417,7 +431,10 @@ online.post('/region/:loc/garrison', async (c) => {
     if (x.garrison !== null && x.garrison !== h) throw new ApiError(409, 'elsewhere', `${x.hero.name} holds another region`);
   }
   const others = (await loadGarrison(pc.db, pc.shard, h)).filter((x) => x.playerId !== pc.pid).length;
-  if (others + want.length > ONLINE_RULES.maxGarrison) throw new ApiError(409, 'garrison_full', `At most ${ONLINE_RULES.maxGarrison} heroes per region`);
+  // a camp's palisade makes room for more
+  const camp = await campAt(pc.db, pc.shard, h);
+  const cap = camp ? garrisonCap(camp.buildings, pc.now) : ONLINE_RULES.maxGarrison;
+  if (others + want.length > cap) throw new ApiError(409, 'garrison_full', `At most ${cap} heroes in this region`);
   const newRev = pc.profile.rev + 1;
   const g = revGuard(pc.season.id, pc.pid, newRev);
   const here = heroes.filter((x) => x.garrison === h).map((x) => x.hero.id);
@@ -576,6 +593,7 @@ online.post('/army', async (c) => {
 
 online.route('/attack', attack);
 online.route('/clans', clans);
+online.route('/camps', camps);
 online.route('/consumables', consumables);
 online.route('/market', market);
 online.route('/merchant', merchant);
