@@ -3,7 +3,7 @@ import { CAMP_BUILDINGS, CAMP_RULES, ONLINE_RULES, regionIncome } from '../../sr
 import type { CampsView } from '../../src/online/camps';
 import { bossAt } from '../../src/online/lairs';
 import { mockTelegram, type BotCall } from './helpers';
-import { DB, fresh, getJson, join, placeArmy, play, post, sameShard, shardOf, worldOf, type Player, type Ticket } from './onlineHelpers';
+import { DB, fresh, getJson, join, must, placeArmy, play, post, sameShard, shardOf, worldOf, type Player, type Ticket } from './onlineHelpers';
 
 // Attacks notify the region's owner in the background (waitUntil): keep that off the network.
 let bot: BotCall[] = [];
@@ -239,7 +239,7 @@ describe('camps', () => {
     expect(v.body.camps.find((c) => c.loc === plot)).toMatchObject({ garrisonCap: ONLINE_RULES.maxGarrison + 2, militia: 1 });
     // the owner leaves; the raider comes next door
     await placeArmy(owner, owner.profile.home);
-    const next = w.neighbours(plot).find((n) => w.info(n).passable)!;
+    const next = must(w.neighbours(plot).find((n) => w.info(n).passable), `passable neighbour of camp plot ${plot}`);
     await placeArmy(att, next);
     const t = await post<Ticket>('/api/online/attack/start', att.token, { loc: plot });
     expect(t.status).toBe(200);

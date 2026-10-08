@@ -5,7 +5,7 @@ import { PASS, PASS_TIERS } from '../src/economy/catalog';
 import { PRODUCTS } from '../src/products';
 import { currentSeason, getShard } from '../src/online/store';
 import { api, devLogin, mockTelegram, webhook } from './helpers';
-import { DB, fresh, freeNeighbour, getJson, join, placeArmy, play, post, sameShard, weakenNeutrals, wsOnline, type Ticket } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, getJson, must, join, placeArmy, play, post, sameShard, weakenNeutrals, worldOf, wsOnline, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -233,13 +233,15 @@ describe('consumables', () => {
 
   it('at most one consumable per PvP attack; it is spent once, baked into the setup and replays', async () => {
     const a = await join(950401);
-    const h = await freeNeighbour(a);
+    const wa = worldOf(a);
+    // (a region with another way in than A's home, for B)
+    const h = await freeNeighbour(a, (n) => wa.neighbours(n).some((m) => m !== a.profile.home && wa.info(m).passable));
     await weakenNeutrals(a, h);
     const season = await currentSeason(DB());
     const shard = await getShard(DB(), season.id, a.profile.shard.id);
     await DB().prepare("UPDATE online_regions SET owner_id = ?1, occupant = 'player', accrued_at = ?2, captured_at = ?2 WHERE shard_id = ?3 AND loc = ?4").bind(a.playerId, Date.now(), shard.id, h).run();
     const b = await join(950402);
-    const spot = shard.world.neighbours(h).find((n) => shard.world.info(n).passable && n !== a.profile.home)!;
+    const spot = must(shard.world.neighbours(h).find((n) => shard.world.info(n).passable && n !== a.profile.home), `passable neighbour of ${h} besides A's home`);
     await placeArmy(b, spot, shard.id);
     await DB()
       .prepare("INSERT INTO online_consumables (season_id, player_id, consumable_id, qty) VALUES (?1, ?2, 'sharpening_stone', 2), (?1, ?2, 'morale_wine', 1)")

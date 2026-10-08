@@ -9,7 +9,7 @@ import { buttonUrl, render } from '../src/notify/templates';
 import { BOT_COMMANDS } from '../src/bot/commands';
 import { currentSeason, getShard, shardDoName } from '../src/online/store';
 import { api, mockTelegram, webhook, type BotCall } from './helpers';
-import { DB, fresh, getJson, join, placeArmy, play, post, sameShard, wsOnline, type Player, type Ticket } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, getJson, must, join, placeArmy, play, post, sameShard, wsOnline, type Player, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -243,9 +243,9 @@ describe('event triggers', () => {
     await sameShard(att, owner);
     const shard = await shardOf(att);
     const w = shard.world;
-    // the owner holds a passable plot next to the raider's army (no garrison: militia)
+    // the owner holds a plot (not a boss site, not locked, nobody's yet) next to the raider's army (no garrison: militia)
     const bosses = worldBossSites(w, shard.seed).map((b) => b.loc);
-    const h = w.neighbours(att.profile.army.loc).find((n) => w.info(n).kind === 'plot' && !bosses.includes(n))!;
+    const h = await freeNeighbour(att, (n) => w.info(n).kind === 'plot' && !bosses.includes(n));
     await DB()
       .prepare(
         `INSERT INTO online_regions (season_id, shard_id, loc, occupant, owner_id, accrued_at) VALUES (?1, ?2, ?3, 'player', ?4, ?5)
@@ -346,7 +346,7 @@ describe('event triggers', () => {
     const b = await join(77602);
     const shard = await shardOf(a);
     const site = worldBossSites(shard.world, shard.seed)[0];
-    const spot = shard.world.neighbours(site.loc).find((n) => shard.world.info(n).passable)!;
+    const spot = must(shard.world.neighbours(site.loc).find((n) => shard.world.info(n).passable), `passable neighbour of boss site ${site.loc}`);
     for (const p of [a, b]) await placeArmy(p, spot, shard.id);
     await getJson('/api/online/boss', a.token);
     const parts = JSON.stringify(Array.from({ length: bossMaxHp(site.boss, site.level).parts }, () => 0));

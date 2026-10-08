@@ -20,6 +20,9 @@ export default defineConfig({
           ONLINE_MAP: 'test30',
           ADMIN_TOKEN: 'ops:test-admin-token-0123456789abcdef0123456789, short:tooshort',
           TEST_MIGRATIONS: await readD1Migrations('./migrations'),
+          // Salt of the seeded server randomness (test/setup.ts): TEST_SEED=n npx vitest run
+          // replays the suite on other homes, shard seeds and battles.
+          TEST_SEED: process.env.TEST_SEED ?? '',
         },
       },
     })),
