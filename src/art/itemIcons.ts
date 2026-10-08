@@ -1,5 +1,5 @@
 /** 16x16 item icons: weapons and trinkets drawn by hand, gear rendered with the soldiers' own 3D layers. */
-import { itemDef, type Item } from '../data/items';
+import { itemDef, rarityRank, type Item } from '../data/items';
 import { P } from './palette';
 import { Pix } from './pixels';
 import { renderGearIcon } from './paperdoll';
@@ -273,20 +273,48 @@ function gearDetail(px: Pix, id: string): void {
 
 export function renderItemIcon(item: Item): Pix {
   const def = itemDef(item.def);
+  const r = rarityRank(item.rarity);
   let px: Pix;
   if (def.slot === 'weapon') px = weaponIcon(def.art, def.id);
   else if (def.slot === 'trinket') px = trinketIcon(def.id);
   else {
     const paint = item.def === 'argyraspis' ? { ...(item.paint ?? {}), field: 'silver' } : item.paint;
-    px = centerInto(renderGearIcon(def.slot as 'helmet' | 'shield' | 'armor', def.art, paint));
+    // helmets, shields and armour come in the item's own finish (tarnished .. orichalcum, legendary silhouettes)
+    px = centerInto(renderGearIcon(def.slot as 'helmet' | 'shield' | 'armor', def.art, paint, 28, 28, { def: def.id, r }));
     gearDetail(px, def.id);
     return px;
   }
+  if (def.slot === 'weapon') finish(px, r);
   px.outline(P.outline);
   return px;
 }
 
+/** Weapon icons: epic metal is gilded, legendary orichalcum with a bright point; rare+ catches a glint. */
+const GILT = [0xfff2b0, 0xf0c860, 0xc8963a, 0x8e6224];
+const MYTH = [0xfffbe0, 0xffe08a, 0xf0a848, 0xb46a2c];
+function finish(px: Pix, r: number): void {
+  if (r < 2) return;
+  const metal = new Map<number, number>();
+  P.bronze.forEach((c, i) => metal.set(c, i));
+  P.iron.forEach((c, i) => metal.set(c, i));
+  let top: [number, number] | null = null;
+  for (let y = 0; y < px.h; y++)
+    for (let x = 0; x < px.w; x++) {
+      if (px.alpha(x, y) === 0) continue;
+      const i = metal.get(px.get(x, y));
+      if (i === undefined) continue;
+      if (!top) top = [x, y];
+      if (r >= 3) px.set(x, y, (r >= 4 ? MYTH : GILT)[i]);
+    }
+  if (!top) {
+    // no metal (a club): the gleam sits on its tip, gilded from epic up
+    for (let y = 0; y < px.h && !top; y++) for (let x = px.w - 1; x >= 0 && !top; x--) if (px.alpha(x, y) > 0) top = [x, y];
+    if (top && r >= 3) px.set(top[0], top[1] + 1, r >= 4 ? MYTH[1] : GILT[1]);
+  }
+  if (top) px.set(top[0], top[1], 0xffffff);
+}
+
 export function itemIconKey(item: Item): string {
   const p = item.paint;
-  return `item_${item.def}_${p?.emblem ?? ''}${p?.field ?? ''}${p?.ink ?? ''}`;
+  return `item_${item.def}_${p?.emblem ?? ''}${p?.field ?? ''}${p?.ink ?? ''}_r${rarityRank(item.rarity)}`;
 }

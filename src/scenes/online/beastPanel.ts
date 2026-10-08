@@ -65,12 +65,12 @@ export function raidSource(game: Phaser.Game, tk: RaidTicket): BattleSource {
       const deployed = sim.orderLog.slice(0, deployOrders).filter((o) => o.side === 0).length;
       onlineApi
         .raidSubmit(tk.ticket, orders, deployed, { winner: sim.winner ?? -1, ticks: sim.tick, hash: sim.hash() })
-        .then((r) => showReport(game, raidReport(r, this.label), () => backToOnline(game, { focus: tk.hex })))
-        .catch((e) => backToOnline(game, { attack: { error: errorText(e) }, focus: tk.hex }));
+        .then((r) => showReport(game, raidReport(r, this.label), () => backToOnline(game, { focus: tk.loc })))
+        .catch((e) => backToOnline(game, { attack: { error: errorText(e) }, focus: tk.loc }));
     },
     onLeave() {
       void onlineApi.raidAbandon(tk.ticket).catch(() => undefined);
-      backToOnline(game, { focus: tk.hex });
+      backToOnline(game, { focus: tk.loc });
     },
   };
 }

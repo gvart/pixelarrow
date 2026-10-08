@@ -1,43 +1,57 @@
 /**
- * Live army movement on the hex map (docs/DESIGN_V2.md "Online battle rules":
+ * Live army movement on the region map (docs/DESIGN_V2.md "Online battle rules":
  * other armies inside your vision move live through the shard WebSocket).
  *
  * Shared, pure parts:
- *  - `sightSteps` (server): cuts a march down to the hexes one receiver can
+ *  - `sightSteps` (server): cuts a march down to the regions one receiver can
  *    see, so nothing outside the fog of war ever leaves the server;
  *  - `LiveArmies` (client): the armies the map shows, fed by the map refresh
  *    and the socket's `army_*` messages, interpolated smoothly along their
- *    paths (`positionAt`). No Phaser, no DOM, unit-tested.
+ *    routes' waypoints (`poseOf`). No Phaser, no DOM, unit-tested.
  */
-import { hexDistance, hexToPixel, type Axial } from './hex';
+import type { WorldGraph } from './world';
 import type { LiveArmyMsg } from './protocol';
 
-/** One step of a (possibly cut) march: the army enters (q, r) at `at` and leaves at `until` (null: it stops there). */
+/** One step of a (possibly cut) march: the army enters `loc` at `at` and leaves at `until` (null: it stops there). */
 export interface MarchStep {
-  q: number;
-  r: number;
+  loc: number;
   at: number;
   until: number | null;
 }
 
+/** A vision source that sees further than the rest (a camp's watchtower): `hops` routes from `loc`. */
+export interface Tower {
+  loc: number;
+  hops: number;
+}
+
+/** Every region within `sight` routes of one of `sources` (and within `hops` of a tower). */
+export function sightSet(world: WorldGraph, sources: readonly number[], sight: number, towers: readonly Tower[] = []): Set<number> {
+  const out = new Set<number>();
+  for (const s of sources) for (const r of world.within(s, sight)) out.add(r);
+  for (const t of towers) for (const r of world.within(t.loc, t.hops)) out.add(r);
+  return out;
+}
+
 /**
- * The part of a march a viewer may see: every hex of `path` within `sight` of
- * one of the viewer's vision sources, with its entry time and the time the
- * army leaves it (the next hex's entry time, or null for the last hex).
+ * The part of a march a viewer may see: every region of `path` within `sight`
+ * routes of one of the viewer's vision sources, with its entry time and the
+ * time the army leaves it (the next region's entry time, or null for the last).
+ * Watchtowers (`towers`) see further than the other sources.
  */
-export function sightSteps(path: readonly Axial[], at: readonly number[], sources: readonly Axial[], sight: number): MarchStep[] {
+export function sightSteps(world: WorldGraph, path: readonly number[], at: readonly number[], sources: readonly number[], sight: number, towers: readonly Tower[] = []): MarchStep[] {
+  const seen = sightSet(world, sources, sight, towers);
   const out: MarchStep[] = [];
   for (let i = 0; i < path.length; i++) {
-    const h = path[i];
-    if (!sources.some((s) => hexDistance(s, h) <= sight)) continue;
-    out.push({ q: h.q, r: h.r, at: at[i], until: i + 1 < path.length ? at[i + 1] : null });
+    if (!seen.has(path[i])) continue;
+    out.push({ loc: path[i], at: at[i], until: i + 1 < path.length ? at[i + 1] : null });
   }
   return out;
 }
 
 /** Whole march (own and clan armies): every step. */
-export function allSteps(path: readonly Axial[], at: readonly number[]): MarchStep[] {
-  return path.map((h, i) => ({ q: h.q, r: h.r, at: at[i], until: i + 1 < path.length ? at[i + 1] : null }));
+export function allSteps(path: readonly number[], at: readonly number[]): MarchStep[] {
+  return path.map((loc, i) => ({ loc, at: at[i], until: i + 1 < path.length ? at[i + 1] : null }));
 }
 
 // ------------------------------------------------------------------ client tracker
@@ -47,8 +61,7 @@ export interface LiveArmy {
   name: string;
   clan: number | null;
   /** Where it stands when not marching. */
-  q: number;
-  r: number;
+  loc: number;
   /** A march being shown (steps in time order), or null. */
   steps: MarchStep[] | null;
   own: boolean;
@@ -56,14 +69,13 @@ export interface LiveArmy {
 
 export interface ArmyPose {
   player: number;
-  /** Position in board units (hexToPixel with size 1): interpolate, then scale. */
+  /** Position in map pixels (along the route's waypoints while marching). */
   x: number;
   y: number;
-  /** Hex it is on (the step it last entered). */
-  q: number;
-  r: number;
+  /** Region it is in (the step it last entered). */
+  loc: number;
   moving: boolean;
-  /** Direction of travel in board units (0,0 when standing). */
+  /** Direction of travel in map pixels (0,0 when standing). */
   dx: number;
   dy: number;
   visible: boolean;
@@ -72,11 +84,10 @@ export interface ArmyPose {
 /** Map refresh input: what /api/online/map returns for armies. */
 export interface MapArmy {
   player: number;
-  q: number;
-  r: number;
-  dest: Axial | null;
+  loc: number;
+  dest: number | null;
   arriveAt: number | null;
-  path: [number, number][] | null;
+  path: number[] | null;
   at?: number[] | null;
 }
 
@@ -93,9 +104,10 @@ export class LiveArmies {
   version = 0;
 
   constructor(
+    public world: WorldGraph,
     public me: number,
-    /** Is a hex inside the fog-free area the client knows? (hide armies standing in fog) */
-    public known: (q: number, r: number) => boolean = () => true,
+    /** Is a region inside the fog-free area the client knows? (hide armies standing in fog) */
+    public known: (loc: number) => boolean = () => true,
   ) {}
 
   /** Replace everything with a map refresh. Marching armies with a full path (your own) animate along it. */
@@ -105,17 +117,17 @@ export class LiveArmies {
     for (const a of list) {
       const own = a.player === this.me;
       let steps: MarchStep[] | null = null;
-      if (a.path && a.path.length > 1 && a.at && a.at.length === a.path.length) steps = allSteps(a.path.map(([q, r]) => ({ q, r })), a.at);
-      this.armies.set(a.player, { player: a.player, name: names[String(a.player)] ?? '', clan: null, q: a.q, r: a.r, steps, own });
+      if (a.path && a.path.length > 1 && a.at && a.at.length === a.path.length) steps = allSteps(a.path, a.at);
+      this.armies.set(a.player, { player: a.player, name: names[String(a.player)] ?? '', clan: null, loc: a.loc, steps, own });
     }
     this.version++;
   }
 
   /** Your own march, from the /march answer (path + times). */
-  ownMarch(path: readonly [number, number][], at: readonly number[], name = ''): void {
+  ownMarch(path: readonly number[], at: readonly number[], name = ''): void {
     const cur = this.armies.get(this.me);
-    const steps = allSteps(path.map(([q, r]) => ({ q, r })), at);
-    this.armies.set(this.me, { player: this.me, name: cur?.name ?? name, clan: cur?.clan ?? null, q: path[0][0], r: path[0][1], steps, own: true });
+    const steps = allSteps(path, at);
+    this.armies.set(this.me, { player: this.me, name: cur?.name ?? name, clan: cur?.clan ?? null, loc: path[0], steps, own: true });
     this.version++;
   }
 
@@ -126,17 +138,16 @@ export class LiveArmies {
     switch (m.type) {
       case 'army_march': {
         if (!m.path.length) return false;
-        const steps: MarchStep[] = m.path.map(([q, r], i) => ({ q, r, at: m.at[i], until: m.until[i] ?? null }));
-        this.armies.set(m.player, { player: m.player, name: m.name, clan: m.clan, q: steps[0].q, r: steps[0].r, steps, own: m.player === this.me });
+        const steps: MarchStep[] = m.path.map((loc, i) => ({ loc, at: m.at[i], until: m.until[i] ?? null }));
+        this.armies.set(m.player, { player: m.player, name: m.name, clan: m.clan, loc: steps[0].loc, steps, own: m.player === this.me });
         break;
       }
       case 'army_pos':
-        this.armies.set(m.player, { player: m.player, name: m.name, clan: m.clan, q: m.q, r: m.r, steps: null, own: m.player === this.me });
+        this.armies.set(m.player, { player: m.player, name: m.name, clan: m.clan, loc: m.loc, steps: null, own: m.player === this.me });
         break;
       case 'army_arrive':
         if (!cur) return false;
-        cur.q = m.q;
-        cur.r = m.r;
+        cur.loc = m.loc;
         cur.steps = null;
         break;
       case 'army_hide':
@@ -155,15 +166,15 @@ export class LiveArmies {
     return localNow + this.skew;
   }
 
-  /** Where every army is at local time `localNow` (board units, size 1). */
+  /** Where every army is at local time `localNow` (map pixels). */
   poses(localNow: number): ArmyPose[] {
     const t = this.serverTime(localNow);
     const out: ArmyPose[] = [];
-    for (const a of this.armies.values()) out.push(poseOf(a, t, this.known));
+    for (const a of this.armies.values()) out.push(poseOf(this.world, a, t, this.known));
     return out;
   }
 
-  /** Marches that finished by server time `t` settle on their last hex (no message needed for own / clan armies). */
+  /** Marches that finished by server time `t` settle on their last region (no message needed for own / clan armies). */
   settle(localNow: number): boolean {
     const t = this.serverTime(localNow);
     let changed = false;
@@ -172,8 +183,7 @@ export class LiveArmies {
       if (!s || !s.length) continue;
       const last = s[s.length - 1];
       if (last.until === null && t >= last.at) {
-        a.q = last.q;
-        a.r = last.r;
+        a.loc = last.loc;
         a.steps = null;
         changed = true;
       } else if (last.until !== null && t >= last.until && !a.own) {
@@ -187,31 +197,64 @@ export class LiveArmies {
   }
 }
 
+/** The point `k` (0..1) of the way along a polyline, and the direction of travel there. */
+export function alongPolyline(pts: readonly { x: number; y: number }[], k: number): { x: number; y: number; dx: number; dy: number } {
+  if (pts.length === 1) return { ...pts[0], dx: 0, dy: 0 };
+  const lens: number[] = [];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const l = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    lens.push(l);
+    total += l;
+  }
+  let want = Math.max(0, Math.min(1, k)) * total;
+  for (let i = 0; i < lens.length; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (want <= lens[i] || i === lens.length - 1) {
+      const f = lens[i] > 0 ? Math.min(1, want / lens[i]) : 1;
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, dx: b.x - a.x, dy: b.y - a.y };
+    }
+    want -= lens[i];
+  }
+  const last = pts[pts.length - 1];
+  return { ...last, dx: 0, dy: 0 };
+}
+
+/** The drawn route from region a to region b: its waypoints (oriented a -> b), else the two labels. */
+export function routePoints(world: WorldGraph, a: number, b: number): { x: number; y: number }[] {
+  const e = world.edge(a, b);
+  const pa = world.pos(a);
+  const pb = world.pos(b);
+  if (!e || e.waypoints.length < 2) return [pa, pb];
+  const pts = e.waypoints.map(([x, y]) => ({ x, y }));
+  return e.a === a ? pts : pts.reverse();
+}
+
 /** An army's pose at server time t. */
-export function poseOf(a: LiveArmy, t: number, known: (q: number, r: number) => boolean = () => true): ArmyPose {
-  const stand = (q: number, r: number, visible: boolean): ArmyPose => {
-    const p = hexToPixel({ q, r }, 1);
-    return { player: a.player, x: p.x, y: p.y, q, r, moving: false, dx: 0, dy: 0, visible };
+export function poseOf(world: WorldGraph, a: LiveArmy, t: number, known: (loc: number) => boolean = () => true): ArmyPose {
+  const stand = (loc: number, visible: boolean): ArmyPose => {
+    const p = world.has(loc) ? world.pos(loc) : { x: 0, y: 0 };
+    return { player: a.player, x: p.x, y: p.y, loc, moving: false, dx: 0, dy: 0, visible };
   };
   const s = a.steps;
-  if (!s || !s.length) return stand(a.q, a.r, a.own || known(a.q, a.r));
+  if (!s || !s.length) return stand(a.loc, a.own || known(a.loc));
   if (t < s[0].at) {
     // not yet in sight (an army marching into view), or about to set out
-    return s[0].at - t < 1 || a.own ? stand(s[0].q, s[0].r, a.own) : stand(s[0].q, s[0].r, false);
+    return s[0].at - t < 1 || a.own ? stand(s[0].loc, a.own) : stand(s[0].loc, false);
   }
   let i = 0;
   while (i + 1 < s.length && s[i + 1].at <= t) i++;
   const cur = s[i];
-  if (cur.until === null) return stand(cur.q, cur.r, true);
+  if (cur.until === null) return stand(cur.loc, true);
   if (t >= cur.until) {
-    // left the last visible hex: out of sight (own armies always have the next step)
-    return stand(cur.q, cur.r, false);
+    // left the last visible region: out of sight (own armies always have the next step)
+    return stand(cur.loc, false);
   }
   const next = s[i + 1];
-  const linked = next && next.at === cur.until && hexDistance(cur, next) === 1;
-  const p0 = hexToPixel(cur, 1);
-  if (!linked) return { ...stand(cur.q, cur.r, true), moving: true };
-  const p1 = hexToPixel(next, 1);
+  const linked = next && next.at === cur.until && world.adjacent(cur.loc, next.loc);
+  if (!linked) return { ...stand(cur.loc, true), moving: true };
   const k = Math.max(0, Math.min(1, (t - cur.at) / Math.max(1, cur.until - cur.at)));
-  return { player: a.player, x: p0.x + (p1.x - p0.x) * k, y: p0.y + (p1.y - p0.y) * k, q: cur.q, r: cur.r, moving: true, dx: p1.x - p0.x, dy: p1.y - p0.y, visible: true };
+  const p = alongPolyline(routePoints(world, cur.loc, next.loc), k);
+  return { player: a.player, x: p.x, y: p.y, loc: cur.loc, moving: true, dx: p.dx, dy: p.dy, visible: true };
 }

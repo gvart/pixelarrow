@@ -7,8 +7,8 @@
  * module ray-casts them one pixel at a time, shades every hit against a
  * fixed light (upper left of the screen), quantises the result to a
  * material's colour ramp with ordered dithering, darkens creases where depth
- * jumps, and adds a soft outline (a darker shade of the edge colour, never
- * black). Pure: no Phaser, no DOM, deterministic.
+ * jumps, and adds a selective outline (a dark, red-shifted shade of the edge
+ * colour, never black) plus a lighter upper-left silhouette edge. Pure: no Phaser, no DOM, deterministic.
  *
  * World axes: X = field x (down-right on screen), Y = field y (down-left),
  * Z = up. 1 unit = 1 metre; a man is about 1.75 m (~34 px).
@@ -45,6 +45,8 @@ export const CAM: V3 = [-VIEW[0], -VIEW[1], -VIEW[2]];
 /** Light: from the upper left of the screen and a little towards the camera. */
 export const LIGHT: V3 = norm(add(add(mul(RIGHT, -0.55), mul(UP, 0.75)), mul(CAM, 0.45)));
 const HALF: V3 = norm(add(LIGHT, CAM));
+/** Ordered-dither amplitude in ramp steps: small, so tones form clean bands rather than noisy gradients. */
+const DITHER = 0.2;
 
 /** Screen position (relative to the sprite origin) of a world point. */
 export function project(p: V3): { x: number; y: number } {
@@ -62,6 +64,11 @@ export interface Material {
   grit?: number;
   /** Shading contrast (default 1). Cloth is softer, metal harder. */
   contrast?: number;
+  /**
+   * Rare+ gear: the pixels are marked in the render's glint mask (see
+   * Scene.render opts.mask), so the battle can sweep a highlight across them.
+   */
+  glint?: boolean;
 }
 
 export interface Hit {
@@ -111,10 +118,20 @@ interface Line {
 
 type Prim = Ellipsoid | Box;
 
+/** A single crisp pixel at a 3D point (eyes, rivets, trim): depth-tested with a tolerance. */
+interface Dot {
+  p: V3;
+  color: number;
+  /** How far behind the visible surface it may sit and still show (metres). */
+  tol: number;
+  glint: boolean;
+}
+
 /** A scene of primitives in world space, then rendered into a Pix. */
 export class Scene {
   prims: Prim[] = [];
   lines: Line[] = [];
+  dots: Dot[] = [];
   private g = 1;
 
   /** A new crease group (parts of one body that blend without inner outlines). */
@@ -163,8 +180,18 @@ export class Scene {
     this.lines.push({ kind: 'line', p0, p1, mat, width, group });
   }
 
+  /**
+   * One hand-placed pixel at a 3D point, drawn over the shaded surfaces when it
+   * is not hidden (a face's eyes, a helmet's eye-slits, gilded trim, rivets).
+   * This is how small features stay readable at battle scale.
+   */
+  dot(p: V3, color: number, tol = 0.06, glint = false): void {
+    this.dots.push({ p, color, tol, glint });
+  }
+
   /** Move every primitive (rotations are applied by the rig before adding). */
   translate(d: V3): void {
+    for (const dt of this.dots) dt.p = add(dt.p, d);
     for (const p of this.prims) p.c = add(p.c, d);
     for (const l of this.lines) {
       l.p0 = add(l.p0, d);
@@ -174,6 +201,10 @@ export class Scene {
 
   /** Scale the whole scene about the origin (icons: a helmet blown up to fill 16 px). */
   scale(k: number): void {
+    for (const dt of this.dots) {
+      dt.p = mul(dt.p, k);
+      dt.tol *= k;
+    }
     for (const p of this.prims) {
       p.c = mul(p.c, k);
       p.a = [mul(p.a[0], k), mul(p.a[1], k), mul(p.a[2], k)];
@@ -192,6 +223,7 @@ export class Scene {
     const s = Math.sin(angle);
     const rot = (v: V3): V3 => add(add(mul(v, c), mul(cross(k, v), s)), mul(k, dot(k, v) * (1 - c)));
     const rp = (p: V3): V3 => add(pivot, rot(sub(p, pivot)));
+    for (const dt of this.dots) dt.p = rp(dt.p);
     for (const p of this.prims) {
       p.c = rp(p.c);
       p.a = [rot(p.a[0]), rot(p.a[1]), rot(p.a[2])];
@@ -206,8 +238,10 @@ export class Scene {
    * Render into a w x h Pix with the world origin (the feet) at (ox, oy).
    * Returns the pixels; shading, creases and the soft outline included.
    */
-  render(w: number, h: number, ox: number, oy: number, opts: { outline?: boolean } = {}): Pix {
+  render(w: number, h: number, ox: number, oy: number, opts: { outline?: boolean; mask?: Uint8Array } = {}): Pix {
     const n = w * h;
+    const glint = new Uint8Array(n);
+    let curGlint = 0;
     const depth = new Float32Array(n).fill(Infinity);
     const color = new Int32Array(n).fill(-1);
     const grp = new Int32Array(n);
@@ -220,10 +254,12 @@ export class Scene {
       tone[i] = level;
       grp[i] = g;
       color[i] = 1;
+      glint[i] = curGlint;
     };
 
     for (let pi = 0; pi < this.prims.length; pi++) {
       const p = this.prims[pi];
+      curGlint = p.mat.glint ? 1 : 0;
       // screen bounding box from the axis vectors
       const cs = project(p.c);
       if (p.kind === 'ell' && p.sph !== undefined) {
@@ -364,6 +400,7 @@ export class Scene {
 
     // lines (shafts, strings): depth-tested, two tones by orientation
     for (const l of this.lines) {
+      curGlint = l.mat.glint ? 1 : 0;
       const a = project(l.p0);
       const b = project(l.p1);
       const da = dot(l.p0, VIEW);
@@ -389,6 +426,27 @@ export class Scene {
       }
     }
 
+    // dots: crisp single pixels, shown when they sit on (or just under) the visible surface
+    const fixed = new Int32Array(n).fill(-1);
+    for (const dt of this.dots) {
+      const q = project(dt.p);
+      const x = Math.floor(ox + q.x);
+      const y = Math.floor(oy + q.y);
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const i = y * w + x;
+      const d = dot(dt.p, VIEW);
+      if (color[i] >= 0 && d - dt.tol > depth[i]) continue;
+      if (color[i] < 0) {
+        depth[i] = d;
+        grp[i] = -7;
+        color[i] = 1;
+        rampOf[i] = [dt.color];
+        tone[i] = 0;
+      }
+      fixed[i] = dt.color;
+      if (dt.glint) glint[i] = 1;
+    }
+
     // creases: a pixel behind a much nearer neighbour of another part goes a tone darker
     const out = new Pix(w, h);
     const od = out.data;
@@ -399,8 +457,10 @@ export class Scene {
         if (color[i] < 0) continue;
         let lv = tone[i];
         if ((x > 0 && crease(i, i - 1)) || (x < w - 1 && crease(i, i + 1)) || (y > 0 && crease(i, i - w)) || (y < h - 1 && crease(i, i + w))) lv += 1;
+        // upper-left light: the silhouette's top / left edge catches a lighter tone
+        else if ((y > 0 && color[i - w] < 0) || (x > 0 && color[i - 1] < 0)) lv -= 0.75;
         const ramp = rampOf[i]!;
-        const c = ramp[Math.max(0, Math.min(ramp.length - 1, Math.round(lv)))];
+        const c = fixed[i] >= 0 ? fixed[i] : ramp[Math.max(0, Math.min(ramp.length - 1, Math.round(lv)))];
         const o = i * 4;
         od[o] = (c >> 16) & 255;
         od[o + 1] = (c >> 8) & 255;
@@ -409,6 +469,7 @@ export class Scene {
       }
     }
     if (opts.outline !== false) softOutline(out);
+    if (opts.mask) opts.mask.set(glint.subarray(0, Math.min(n, opts.mask.length)));
     return out;
   }
 
@@ -420,7 +481,8 @@ export class Scene {
     // 0 = brightest, 1 = darkest
     let dark = 1 - (0.18 + 0.72 * diff + 0.1 * facing);
     dark = 0.5 + (dark - 0.5) * c;
-    let lv = dark * (nr - 1) + (BAYER4[py & 3][px & 3] - 0.5) * 0.55;
+    // a whisper of ordered dither only, so tones form clean bands (no noisy gradients)
+    let lv = dark * (nr - 1) + (BAYER4[py & 3][px & 3] - 0.5) * DITHER;
     if (m.metal) {
       const spec = Math.pow(Math.max(0, nx * HALF[0] + ny * HALF[1] + nz * HALF[2]), 24);
       if (spec > 0.45) lv = 0;
@@ -451,13 +513,25 @@ export function softOutline(px: Pix): void {
     }
   }
   for (let k = 0; k < marks.length; k += 2) {
-    const c = shadeOf(marks[k + 1], 0.42);
+    const c = selOut(marks[k + 1]);
     const o = marks[k] * 4;
     data[o] = (c >> 16) & 255;
     data[o + 1] = (c >> 8) & 255;
     data[o + 2] = c & 255;
-    data[o + 3] = 235;
+    data[o + 3] = 255;
   }
+}
+
+/**
+ * Selective outline colour: a dark version of the local colour, shifted
+ * towards red-purple (dark brown under skin, oxblood under red, slate under
+ * blue), never black.
+ */
+export function selOut(c: number): number {
+  const r = (c >> 16) & 255;
+  const g = (c >> 8) & 255;
+  const b = c & 255;
+  return (Math.round(r * 0.36 + 26) << 16) | (Math.round(g * 0.3 + 14) << 8) | Math.round(b * 0.36 + 18);
 }
 
 /** A darker, slightly cooler version of a colour. */

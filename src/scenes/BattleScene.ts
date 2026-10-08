@@ -3,18 +3,19 @@ import { BaseScene } from './BaseScene';
 import { Button, Meter, addPanel, addText, holdTimer, longPress, tappable, type HoldTimer } from '../ui/kit';
 import { ScrollList, confirmDialog, openModal, showTooltip, toast, Label, type Modal } from '../ui/widgets';
 import { GroupCard, PanelButton, type PanelButtonOpts } from '../ui/battlePanel';
-import { CATEGORY_COLOR, SIZE, type BattleCategory } from '../ui/theme';
+import { CATEGORY_COLOR, RARITY_COLOR, SIZE, type BattleCategory } from '../ui/theme';
 import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
-import { dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, pumpDolls, queueDollRows } from '../ui/sprites';
-import { dollFromHero, ANIM_FRAMES } from '../art/paperdoll';
-import { renderGround } from '../art/ground';
+import { PLATE_W, PLATE_W_BIG, battleDoll, battleFrame, battleRow, battleRowFx, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
+import { dollFromHero, dollFx, ANIM, ANIM_FRAMES, BATTLE_SCALE, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type WeaponClass } from '../art/paperdoll';
+import { AURA_COLORS, BANNER_COLORS, cosmeticLoadout } from '../game/cosmetics';
+import { STANDARD_FRAMES, STANDARD_H, STANDARD_W, STRIP_STEPS, plateOrigin, renderGround, renderStandard, renderStripPlate, stripStep } from '../art/ground';
 import { isoFacing, isoFieldBounds, isoToScreen, screenToIso } from '../art/iso';
 import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
-import { formationSlots, rightOf, type FormationType } from '../sim/formation';
+import { SPACING, formationSlots, rightOf, type FormationType } from '../sim/formation';
 import { KNOB_PACES, dragMove, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import type { TerrainGrid } from '../sim/terrain';
@@ -27,7 +28,7 @@ import { resolveBattle } from '../game/loot';
 import { lastBattle, unitStats } from '../game/report';
 import { makeHero } from '../game/heroes';
 import { GROUP_NAMES, type Hero } from '../data/units';
-import { itemDef } from '../data/items';
+import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { BattleFx } from '../ui/battleFx';
@@ -37,7 +38,7 @@ import { battleAudio, uiError } from '../audio/hooks';
 import { sfx } from '../audio';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { rallyRadius } from '../sim/stats';
-import { BOULDER_GEOM, TREE_GEOM, renderBoulder, renderGlint, renderTree } from '../art/terrainArt';
+import { BOULDER_GEOM, TREE_GEOM, renderBoulder, renderGlint, renderSparkle, renderTree } from '../art/terrainArt';
 import { generateBattlefield, randomSite } from '../world/battlefield';
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
@@ -91,7 +92,36 @@ interface UnitView {
   /** Figure height in pixels (tags, flags, numbers, touch). */
   tall: number;
   big: boolean;
+  /** A man on foot (six-phase walk, four-step fall); riders and animals use the shorter sets. */
+  man: boolean;
+  /** Stands on a base plate (men and riders; animals only cast a shadow). */
+  plated: boolean;
+  /** Top face of his piece of a joined formation base (the side layer is `shadow`). */
+  plateTop: Phaser.GameObjects.Image;
+  /** Strip step on show (-1: his own small plate). */
+  strip: number;
+  /** Texture key on plateTop (plain / selected / singled out). */
+  topKey: string;
+  /** Men: weapon class (which attack / aim animation), the facing row's texture, and rarity effects. */
+  wc: WeaponClass;
+  rowKey: string;
+  fx: DollFx | null;
+  /** Epic+ outline ring and rare+ glint sweep overlays (men with such gear only). */
+  fxRing: Phaser.GameObjects.Sprite | null;
+  fxGlint: Phaser.GameObjects.Sprite | null;
+  /** Aura cosmetic colours (the player's men), or null. */
+  aura: number[] | null;
+  /** Which death he dies (backwards or onto the face). */
+  dieB: boolean;
 }
+
+/** Texture origins of the joined formation plates, per strip step. */
+const STRIP_ORIGIN: [number, number][] = [];
+/** Team colours of the standards: the viewer's side, the other side (cool slate vs madder red, as the HUD bars). */
+const STANDARD_RAMP = [
+  [0x8ea2b8, 0x4f6c8c, 0x3d5a78, 0x2e3e56],
+  [0xcc7677, 0xb83d4a, 0xa12735, 0x5e2427],
+];
 
 type Gesture = {
   mode: 'pending' | 'pan' | 'formation' | 'info';
@@ -143,6 +173,11 @@ export class BattleScene extends BaseScene {
   private enemyHeroes: Hero[] = [];
   private initialStrength: [number, number] = [1, 1];
   private ending = false;
+  /** Side whose men play the victory pose once the battle is over (-1: none). */
+  private victorySide = -1;
+  /** Particles left this second for legendary gear and aura cosmetics (mobile cap). */
+  private moteBudget = 0;
+  private moteTime = 0;
   private retreatMsg: string | null = null;
   // HUD
   private hud!: Phaser.GameObjects.Container;
@@ -175,7 +210,13 @@ export class BattleScene extends BaseScene {
   private lastSparkle = 0;
   /** Trees and boulders standing on the field (depth-sorted with the men). */
   private props: { img: Phaser.GameObjects.Image; x: number; y: number; tree: boolean }[] = [];
-  private glints: { img: Phaser.GameObjects.Image; phase: number }[] = [];
+  /** Water shimmer: sparkles and streaks that blink on and off at random spots on the water. */
+  private glints: { img: Phaser.GameObjects.Image; t0: number; life: number }[] = [];
+  /** Water cells the shimmer picks its spots from. */
+  private waterCells: number[] = [];
+  /** One standard per formation, carried by a man near the centre-front. */
+  private standards: { img: Phaser.GameObjects.Sprite; group: number; bearer: UnitView | null; picked: number }[] = [];
+  private viewById = new Map<number, UnitView>();
   private infoTip: Phaser.GameObjects.Container | null = null;
   private holdTimer: HoldTimer | null = null;
   private propTick = 0;
@@ -222,6 +263,7 @@ export class BattleScene extends BaseScene {
     this.dragLabel = null;
     this.hint = null;
     this.ending = false;
+    this.victorySide = -1;
     this.retreatMsg = null;
     this.overlay = null;
     this.banner = null;
@@ -307,24 +349,59 @@ export class BattleScene extends BaseScene {
 
     const heroById = new Map<string, Hero>();
     for (const h of [...heroes, ...this.enemyHeroes]) heroById.set(h.id, h);
+    this.ensureFormationArt();
+    this.viewById.clear();
+    releaseBattleRows(this);
+    const lo = cosmeticLoadout();
+    const myAura = (lo.aura && AURA_COLORS[lo.aura]) || null;
     for (const u of this.sim.units) {
       const hero = heroById.get(u.heroId)!;
       const f = isoFacing(u.fx, u.fy);
       const dir = facingRow(f.back, f.left);
-      // only the row he faces now is drawn up front; the rest in idle time
-      const key = ensureDoll(this, dollFromHero(hero), [dir]);
-      queueDollRows(this, key);
+      // the player's men wear his cosmetics (shield paint, cloak, crest, army skin, victory pose)
+      const spec = { ...dollFromHero(hero, u.side === this.me ? lo : undefined), scale: BATTLE_SCALE };
+      const man = !spec.beast && !spec.mount;
+      let key: string;
+      let rowKey = '';
+      if (man) {
+        // men: one texture per facing row, each frame drawn the first time it shows
+        key = battleDoll(spec);
+        rowKey = battleRow(this, key, dir);
+      } else {
+        // only the row he faces now is drawn up front; the rest in idle time
+        key = ensureDoll(this, spec, [dir]);
+        queueDollRows(this, key);
+      }
       const big = !!u.stats.mount || u.rad > 0.45;
-      const shadow = this.add.image(0, 0, big ? 'shadow_big' : 'shadow').setAlpha(0.3).setDepth(-60000);
-      const ring = this.add.image(0, 0, u.side === this.me ? (big ? 'ring_sel_big' : 'ring_sel') : 'ring_enemy').setDepth(-70000).setVisible(false);
-      if (big && u.side !== this.me) ring.setScale(1.6);
+      // every man and rider stands on a miniature's base plate; animals only cast a shadow
+      const plated = u.stats.kind !== 'animal';
+      const shadow = plated
+        ? this.add.image(0, 0, big ? 'base_plate_big' : 'base_plate').setOrigin(...plateOrigin(big ? PLATE_W_BIG : PLATE_W)).setDepth(-60000)
+        : this.add.image(0, 0, big ? 'shadow_big' : 'shadow').setAlpha(0.3).setDepth(-60000);
+      const ring = plated
+        ? this.add.image(0, 0, big ? 'plate_sel_big' : 'plate_sel').setOrigin(...plateOrigin(big ? PLATE_W_BIG : PLATE_W)).setDepth(-59000).setVisible(false)
+        : this.add.image(0, 0, u.side === this.me ? (big ? 'ring_sel_big' : 'ring_sel') : 'ring_enemy').setDepth(-70000).setVisible(false);
+      if (!plated && big && u.side !== this.me) ring.setScale(1.6);
       const [ox, oy] = dollOrigin(key);
-      const spr = this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy);
+      const spr = man ? this.add.sprite(0, 0, rowKey, 0).setOrigin(ox, oy) : this.add.sprite(0, 0, key, dollFrame(dir, 0)).setOrigin(ox, oy);
+      const fx = man ? dollFx(spec) : null;
+      const fxKey = man ? battleRowFx(rowKey) : null;
+      const fxRing = fxKey && fx?.outline != null ? this.add.sprite(0, 0, fxKey, 'r0').setOrigin(ox, oy).setTint(fx.outline) : null;
+      const fxGlint = fxKey && fx?.glint ? this.add.sprite(0, 0, fxKey, 'g0').setOrigin(ox, oy).setTint(0xfff6d8).setVisible(false) : null;
+      if (fxRing) this.world.add(fxRing);
+      if (fxGlint) this.world.add(fxGlint);
       const flag = this.add.image(0, 0, 'flag_white').setOrigin(0, 1).setVisible(false).setDepth(90000);
-      this.world.add([shadow, ring, spr, flag]);
-      const tall = u.stats.mount ? 52 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 18) : 38;
-      this.views.push({ u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big });
+      const plateTop = this.add.image(0, 0, 'strip_top_0').setDepth(-59900).setVisible(false);
+      this.world.add([shadow, plateTop, ring, spr, flag]);
+      const tall = Math.round((u.stats.mount ? 52 : u.stats.kind === 'animal' ? (u.rad > 0.45 ? 30 : 18) : 38) * BATTLE_SCALE);
+      const view: UnitView = {
+        u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big, man, plated, plateTop, strip: -1, topKey: '',
+        wc: weaponClass(spec.weapon), rowKey, fx, fxRing, fxGlint, aura: u.side === this.me && man ? myAura : null, dieB: (u.id * 7 + 3) % 3 === 0,
+      };
+      this.views.push(view);
+      this.viewById.set(u.id, view);
     }
+    this.createStandards();
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
     this.beasts = BeastView.create(this, this.sim, this.views, this.world, this.ui, this.me, this.m.VW, TOP);
 
@@ -422,7 +499,7 @@ export class BattleScene extends BaseScene {
     const availW = this.scale.width;
     const availH = vp.bottom - vp.top;
     const fit = Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0)));
-    // 1x shows a man ~34 px tall on a 390-wide phone; closer if both armies fit
+    // 1x shows a man ~25 px tall on a 390-wide phone; closer if both armies fit
     const z = Phaser.Math.Clamp(Math.max(1, fit), 1, 2);
     cam.setZoom(z);
     const t0 = this.focusPoint();
@@ -559,12 +636,112 @@ export class BattleScene extends BaseScene {
     this.fx.update(this.paused ? 0 : delta);
     pumpDolls(this.sim.phase === 'battle' && !this.paused ? 4 : 8);
     this.renderUnits(alpha);
+    flushDolls(this);
     this.beasts?.update(alpha, !!this.banner);
     this.renderProjectiles(alpha);
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
     if (this.hudDirty) this.refreshHud();
+  }
+
+  /**
+   * A man's frame: victory pose, attack (per weapon: thrust, slash, chop,
+   * draw / whirl / throw), block, flinch, rout, run or walk, the archer's
+   * draw before a shot, or breathing in place (random phase per man).
+   */
+  private manFrame(v: UnitView, now: number, sinceHit: number, moving: boolean): number {
+    const u = v.u;
+    const t = now / TICK_RATE;
+    if (this.sim.phase === 'ended' && u.side === this.victorySide && !moving) return ANIM.win[Math.floor(t * 2.6 + ((u.id * 0.37) % 1) * 2) % 2];
+    const shot = u.lastShotTick > u.lastAttackTick;
+    const sinceAtk = (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE;
+    if (sinceAtk >= 0) {
+      // missile men at close quarters jab with the weapon in hand
+      const wc: WeaponClass = !shot && isRangedClass(v.wc) ? 'none' : v.wc;
+      const f = attackFrame(wc, sinceAtk);
+      if (f >= 0) return f;
+    }
+    const sinceBlock = (now - u.lastBlockTick) / TICK_RATE;
+    if (sinceBlock >= 0 && sinceBlock < 0.22) return ANIM.block[0];
+    if (sinceHit >= 0 && sinceHit < 0.24) return ANIM.hit[sinceHit < 0.1 ? 0 : 1];
+    if (u.state === 'routing') return ANIM.rout[Math.floor(t * 11 + u.id) % ANIM.rout.length];
+    if (moving) {
+      if (u.spd > u.stats.speed * 1.3) return ANIM.run[Math.floor(t * 13 + u.id) % ANIM.run.length];
+      return ANIM.walk[Math.floor(t * 13 + u.id) % ANIM.walk.length];
+    }
+    if (isRangedClass(v.wc) && u.ammo > 0 && u.lastShotTick > 0 && (now - u.lastShotTick) / TICK_RATE < u.stats.shotTime * 1.8) {
+      const f = aimFrame(v.wc, Math.max(0, u.cooldown) / TICK_RATE, t);
+      if (f >= 0) return f;
+    }
+    return ANIM.idle[Math.floor(t * 2.2 + ((u.id * 0.618) % 1) * 4) % 4];
+  }
+
+  /** Riders, chariots and animals: the original four-phase sets. */
+  private figureFrame(v: UnitView, now: number, sinceHit: number, moving: boolean): number {
+    const u = v.u;
+    const sinceAtk = (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE;
+    if (sinceAtk >= 0 && sinceAtk < 0.42) return sinceAtk < 0.12 ? ANIM_FRAMES.attack[0] : sinceAtk < 0.24 ? ANIM_FRAMES.attack[1] : ANIM_FRAMES.attack[2];
+    if (sinceHit >= 0 && sinceHit < 0.18) return ANIM_FRAMES.hit[0];
+    if (moving || u.state === 'routing') {
+      const rate = (u.state === 'routing' ? 1.5 : 1) * 8;
+      return ANIM.gallop[Math.floor((now / TICK_RATE) * rate + u.id) % ANIM.gallop.length];
+    }
+    return ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + ((u.id * 0.618) % 1) * 2) % 2];
+  }
+
+  /** Show a frame: men from their facing row's texture (drawn on demand), others from their sheet. */
+  private showFrame(v: UnitView, dir: number, frame: number): void {
+    if (!v.man) {
+      v.spr.setFrame(dollFrame(dir, frame));
+      return;
+    }
+    battleFrame(v.rowKey, frame);
+    if (v.spr.texture.key !== v.rowKey) v.spr.setTexture(v.rowKey, frame);
+    else if (Number(v.spr.frame.name) !== frame) v.spr.setFrame(frame);
+  }
+
+  /** Epic+ gear: the outline ring pulses; rare+: a highlight sweeps across the metal now and then. */
+  private updateGearFx(v: UnitView, rx: number, ry: number, frame: number): void {
+    const fxKey = battleRowFx(v.rowKey);
+    const t = this.time.now / 1000;
+    const rank = v.fx?.rank ?? 0;
+    if (v.fxRing && fxKey) {
+      if (v.fxRing.texture.key !== fxKey) v.fxRing.setTexture(fxKey, `r${frame}`);
+      else v.fxRing.setFrame(`r${frame}`);
+      const pulse = 0.5 + 0.5 * Math.sin(t * (rank >= 4 ? 4.4 : 3) + v.u.id);
+      v.fxRing.setPosition(v.spr.x, ry).setDepth(ry - 0.5).setVisible(true).setAlpha(0.3 + 0.5 * pulse);
+    }
+    if (v.fxGlint && fxKey) {
+      const period = rank >= 4 ? 1.8 : rank >= 3 ? 2.4 : 3.2;
+      const ph = ((t + (v.u.id * 0.53) % period) % period) / 0.4; // the sweep takes 0.4 s
+      const fw = v.spr.frame.width;
+      const bx = Math.floor(ph * (fw * 0.6)) + Math.floor(fw * 0.2);
+      if (ph < 1) {
+        if (v.fxGlint.texture.key !== fxKey) v.fxGlint.setTexture(fxKey, `g${frame}`);
+        else v.fxGlint.setFrame(`g${frame}`);
+        v.fxGlint.setCrop(bx, 0, 2, v.spr.frame.height).setPosition(v.spr.x, ry).setDepth(ry + 0.5).setVisible(true).setAlpha(0.85);
+      } else v.fxGlint.setVisible(false);
+    }
+    void rx;
+  }
+
+  /** Legendary gear and aura cosmetics: sparse motes rising around the man (capped for phones). */
+  private gearParticles(v: UnitView, rx: number, ry: number): void {
+    const now = this.time.now;
+    if (now - this.moteTime > 1000) {
+      this.moteTime = now;
+      this.moteBudget = 36;
+    }
+    if (this.moteBudget <= 0) return;
+    const legend = v.fx?.particles;
+    const rate = (legend ? 1.4 : 0) + (v.aura ? 1 : 0);
+    if (Math.random() > (rate * this.game.loop.delta) / 1000) return;
+    this.moteBudget--;
+    const useAura = v.aura && (!legend || Math.random() < 0.5);
+    const cols = useAura ? v.aura! : legend === 'embers' ? [0xffb040, 0xffe080, 0xf07830] : legend === 'sparkle' ? [0xd0f0ff, 0xffffff] : [0xfff6c8, 0xffe8a0];
+    const c = cols[Math.floor(Math.random() * cols.length)];
+    this.fx.mote(rx + Math.round((Math.random() - 0.5) * 12), ry - 3 - Math.random() * v.tall * 0.8, c);
   }
 
   /** Online deployment: the enemy's men stay hidden until the battle starts (only their zone shows). */
@@ -581,13 +758,18 @@ export class BattleScene extends BaseScene {
       if (u.state === 'fled' || (hide && u.side === this.foe)) {
         v.spr.setVisible(false);
         v.shadow.setVisible(false);
+        v.plateTop.setVisible(false);
         v.ring.setVisible(false);
         v.flag.setVisible(false);
+        v.fxRing?.setVisible(false);
+        v.fxGlint?.setVisible(false);
         this.fx.unit(u, 0, 0, 0, false);
         continue;
       }
       v.spr.setVisible(true);
-      const sp = isoToScreen(Phaser.Math.Linear(v.px, u.x, alpha), Phaser.Math.Linear(v.py, u.y, alpha));
+      const ix = Phaser.Math.Linear(v.px, u.x, alpha);
+      const iy = Phaser.Math.Linear(v.py, u.y, alpha);
+      const sp = isoToScreen(ix, iy);
       const rx = Math.round(sp.x);
       const ry = Math.round(sp.y);
       v.spr.setPosition(rx, ry);
@@ -601,38 +783,36 @@ export class BattleScene extends BaseScene {
       else if (fc.sx > 6) v.flip = false;
       const dir = facingRow(v.back, v.flip);
       if (dir !== v.dir) {
-        ensureDollRow(this, v.key, dir);
+        if (v.man) v.rowKey = battleRow(this, v.key, dir);
+        else ensureDollRow(this, v.key, dir);
         v.dir = dir;
       }
       let frame: number;
       if (u.state === 'dead') {
         if (v.deathTick < 0) v.deathTick = tick;
         const tt = (now - v.deathTick) / TICK_RATE;
-        frame = tt < 0.12 ? ANIM_FRAMES.die[0] : tt < 0.28 ? ANIM_FRAMES.die[1] : ANIM_FRAMES.die[2];
+        // a man falls in four steps (stagger, topple / crumple, hit the ground, lie still); riders and beasts in three
+        const die = v.man ? (v.dieB ? ANIM.dieB : ANIM.die) : ANIM_FRAMES.fall;
+        frame = die[Math.min(die.length - 1, Math.floor(tt / (v.man ? 0.08 : 0.11)))];
         v.spr.setDepth(-50000 + ry);
         v.shadow.setVisible(false);
+        v.plateTop.setVisible(false);
         v.ring.setVisible(false);
         v.flag.setVisible(false);
+        v.fxRing?.setVisible(false);
+        v.fxGlint?.setVisible(false);
         v.spr.clearTint();
-        v.spr.setFrame(dollFrame(dir, frame));
+        this.showFrame(v, dir, frame);
         this.fx.unit(u, rx, ry, this.time.now, false);
         continue;
       }
       const moving = Math.abs(u.vx) + Math.abs(u.vy) > 0.004;
-      const sinceAtk = (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE;
       const sinceHit = (now - u.lastHitTick) / TICK_RATE;
-      if (sinceAtk >= 0 && sinceAtk < 0.42) {
-        frame = sinceAtk < 0.1 ? ANIM_FRAMES.attack[0] : sinceAtk < 0.26 ? ANIM_FRAMES.attack[1] : ANIM_FRAMES.attack[2];
-      } else if (sinceHit >= 0 && sinceHit < 0.18) {
-        frame = ANIM_FRAMES.hit[0];
-      } else if (moving || u.state === 'routing') {
-        const rate = u.state === 'routing' ? 12 : 8;
-        frame = ANIM_FRAMES.walk[Math.floor((now / TICK_RATE) * rate + u.id) % 4];
-      } else {
-        frame = ANIM_FRAMES.idle[Math.floor((now / TICK_RATE) * 1.6 + u.id * 0.37) % 2];
-      }
-      v.spr.setFrame(dollFrame(dir, frame));
+      frame = v.man ? this.manFrame(v, now, sinceHit, moving) : this.figureFrame(v, now, sinceHit, moving);
+      this.showFrame(v, dir, frame);
       v.spr.setDepth(ry);
+      if (v.fxRing || v.fxGlint) this.updateGearFx(v, rx, ry, frame);
+      if ((v.fx?.particles || v.aura) && !this.paused) this.gearParticles(v, rx, ry);
       v.shadow.setVisible(true);
       if (sinceHit >= 0 && sinceHit < 0.12) v.spr.setTint(0xff9a8a);
       else if (u.berserk > 0) {
@@ -649,10 +829,134 @@ export class BattleScene extends BaseScene {
         this.fx.sparkle(rx, ry - v.tall * 0.6, AURAS.steady.color, 2);
       }
       const selected = u.side === this.me && (u.group === this.selGroup || u.id === this.selUnit);
-      v.ring.setVisible(selected);
-      if (selected) v.ring.setTexture(u.id === this.selUnit ? 'ring_one' : 'ring_sel');
+      const one = u.id === this.selUnit;
+      // men standing in their formation slots share one joined base (a strip per rank)
+      const k = this.stripOf(v);
+      if (k !== v.strip) {
+        v.strip = k;
+        if (k >= 0) v.shadow.setTexture(`strip_side_${k}`).setOrigin(...STRIP_ORIGIN[k]);
+        else if (v.plated) v.shadow.setTexture(v.big ? 'base_plate_big' : 'base_plate').setOrigin(...plateOrigin(v.big ? PLATE_W_BIG : PLATE_W));
+        v.plateTop.setVisible(k >= 0);
+        v.topKey = '';
+      }
+      if (k >= 0) {
+        // the plate sits on his slot (shifted by the same interpolation lag as the man), not under his feet
+        const g = this.sim.groups[u.group].formation;
+        const r = rightOf(g.fx, g.fy);
+        const pp = isoToScreen(g.cx + r.x * u.slotLat - g.fx * u.slotDep + (ix - u.x), g.cy + r.y * u.slotLat - g.fy * u.slotDep + (iy - u.y));
+        const px = Math.round(pp.x);
+        const py = Math.round(pp.y);
+        v.shadow.setPosition(px, py);
+        const tk = `${selected ? (one ? 'strip_one' : 'strip_sel') : 'strip_top'}_${k}`;
+        if (tk !== v.topKey) {
+          v.topKey = tk;
+          v.plateTop.setTexture(tk).setOrigin(...STRIP_ORIGIN[k]);
+        }
+        v.plateTop.setPosition(px, py).setVisible(true);
+      }
+      v.ring.setVisible(selected && k < 0);
+      if (selected && k < 0) {
+        if (v.u.stats.kind !== 'animal') v.ring.setTexture(`${one ? 'plate_one' : 'plate_sel'}${v.big ? '_big' : ''}`);
+        else v.ring.setTexture(one ? 'ring_one' : 'ring_sel');
+      }
       v.flag.setVisible(u.state === 'routing');
       if (u.state === 'routing') v.flag.setPosition(rx + 3, ry - v.tall);
+    }
+    this.updateStandards();
+  }
+
+  // ===================================================================== formation art
+
+  /** Joined-plate textures (side, plain / selected / singled-out tops) per facing step, and the standards. */
+  private ensureFormationArt(): void {
+    for (let k = 0; k < STRIP_STEPS; k++) {
+      if (!STRIP_ORIGIN[k] || !this.textures.exists(`strip_top_${k}`)) {
+        const sp = renderStripPlate(k);
+        STRIP_ORIGIN[k] = [sp.ox, sp.oy];
+        if (this.textures.exists(`strip_top_${k}`)) continue;
+        this.textures.addCanvas(`strip_side_${k}`, sp.side.toCanvas());
+        this.textures.addCanvas(`strip_top_${k}`, sp.top.toCanvas());
+        this.textures.addCanvas(`strip_sel_${k}`, sp.sel.toCanvas());
+        this.textures.addCanvas(`strip_one_${k}`, sp.one.toCanvas());
+      }
+    }
+    for (let i = 0; i < 2; i++) {
+      const key = `standard_${i}`;
+      if (this.textures.exists(key)) continue;
+      const tex = this.textures.addCanvas(key, renderStandard(STANDARD_RAMP[i]).toCanvas())!;
+      for (let f = 0; f < STANDARD_FRAMES; f++) tex.add(f, 0, f * STANDARD_W, 0, STANDARD_W, STANDARD_H);
+    }
+    // the player's banner cosmetic dyes his own standards
+    const banner = cosmeticLoadout().banner;
+    const bc = banner ? BANNER_COLORS[banner] : undefined;
+    if (bc && !this.textures.exists(`standard_${banner}`)) {
+      const tex = this.textures.addCanvas(`standard_${banner}`, renderStandard([bc.cloth[0], bc.cloth[1], bc.cloth[2], bc.cloth[4]]).toCanvas())!;
+      for (let f = 0; f < STANDARD_FRAMES; f++) tex.add(f, 0, f * STANDARD_W, 0, STANDARD_W, STANDARD_H);
+    }
+  }
+
+  /**
+   * The strip step a man's plate joins at, or -1 for his own small plate: he
+   * stands (within a step) on his slot in a close-order formation that is
+   * holding together. Hysteresis keeps plates from flickering as men shuffle.
+   */
+  private stripOf(v: UnitView): number {
+    const u = v.u;
+    if (!v.plated || v.big || u.state !== 'ready') return -1;
+    const g = this.sim.groups[u.group];
+    if (!g || g.routed || g.individual || g.disbanded || SPACING[g.formation.type].file > 1.05) return -1;
+    const f = g.formation;
+    const r = rightOf(f.fx, f.fy);
+    const dx = f.cx + r.x * u.slotLat - f.fx * u.slotDep - u.x;
+    const dy = f.cy + r.y * u.slotLat - f.fy * u.slotDep - u.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > (v.strip >= 0 ? 0.36 * 0.36 : 0.22 * 0.22)) return -1;
+    return stripStep(f.fx, f.fy);
+  }
+
+  /** One standard per formation of men (two or more on foot), coloured by side as seen by this player. */
+  private createStandards(): void {
+    this.standards = [];
+    for (const g of this.sim.groups) {
+      const men = this.views.filter((v) => v.u.group === g.id && v.man);
+      if (men.length < 2) continue;
+      const banner = cosmeticLoadout().banner;
+      const mine = g.side === this.me && banner && this.textures.exists(`standard_${banner}`) ? `standard_${banner}` : null;
+      const img = this.add.sprite(0, 0, mine ?? `standard_${g.side === this.me ? 0 : 1}`, 0).setOrigin(6.5 / STANDARD_W, 1).setVisible(false);
+      this.world.add(img);
+      this.standards.push({ img, group: g.id, bearer: null, picked: 0 });
+    }
+  }
+
+  /** Keep each standard with a living man near the centre-front of his formation; wave it at 4 fps. */
+  private updateStandards(): void {
+    const now = this.time.now;
+    for (const st of this.standards) {
+      const g = this.sim.groups[st.group];
+      let b = st.bearer;
+      const ok = (v: UnitView | null) => !!v && v.u.state === 'ready' && v.spr.visible;
+      if (!ok(b) || now - st.picked > 4000) {
+        // the man nearest the centre of the second rank (or the front, if there is only one)
+        let best: UnitView | null = null;
+        let bs = Infinity;
+        for (const v of this.views) {
+          if (v.u.group !== st.group || !v.man || !ok(v)) continue;
+          const sc = Math.abs(v.u.slotLat) + Math.abs(v.u.slotDep - 1.3) * 0.6 + (v === b ? -0.3 : 0);
+          if (sc < bs) {
+            bs = sc;
+            best = v;
+          }
+        }
+        b = st.bearer = best;
+        st.picked = now;
+      }
+      if (!b || !g || g.routed || g.disbanded) {
+        st.img.setVisible(false);
+        continue;
+      }
+      const x = b.spr.x + (b.flip ? -4 : 4);
+      st.img.setPosition(Math.round(x), b.spr.y - 1).setDepth(b.spr.depth + 0.5).setVisible(true);
+      st.img.setFrame(Math.floor(now / 250 + st.group * 1.7) % STANDARD_FRAMES);
     }
   }
 
@@ -741,26 +1045,78 @@ export class BattleScene extends BaseScene {
           const p = isoToScreen(x, y);
           return [Math.round(p.x), Math.round(p.y)] as [number, number];
         });
-        this.dashRect(g, corners, color, a, 2, 2);
+        // a translucent cyan-grey cell per soldier: together they read as the formation's lattice
+        g.fillStyle(color, a * 0.3);
+        g.fillPoints(corners.map(([x, y]) => new Phaser.Math.Vector2(x, y)), true);
+        this.dashRect(g, corners, color, a, 1, 0);
       }
     };
     if (this.dragPreview) {
       const d = this.dragPreview;
       const slots = formationSlots({ type: d.type, cx: d.cx, cy: d.cy, fx: d.fx, fy: d.fy, frontage: d.frontage }, d.n);
-      drawSlots(slots, d.fx, d.fy, 0xfff4c0, 0.95);
+      drawSlots(slots, d.fx, d.fy, 0x9fd8dc, 0.85);
       this.drawFacingKnob(this.knobG, d.cx, d.cy, d.fx, d.fy, 0xfff4c0, 0.95);
       this.placeDragLabel(d);
       return;
     }
     this.placeDragLabel(null);
+    if (this.sim.phase === 'battle') this.drawMoveOrders(g);
     if (this.selGroup >= 0) {
       const grp = this.sim.groups[this.selGroup];
       if (!grp || grp.disbanded) return;
       const slots = this.sim.groupSlots(grp.id);
-      drawSlots(slots, grp.formation.fx, grp.formation.fy, 0xf6ecd8, 0.75);
+      drawSlots(slots, grp.formation.fx, grp.formation.fy, 0x7fa9a8, 0.6);
       // the facing arrow and its knob: drag the knob to turn the group
       const fr = this.canCommand() && this.sim.phase !== 'ended' ? this.selectedFrame() : null;
       if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85);
+    }
+  }
+
+  /**
+   * Move orders as in the reference (docs/ART_STYLE.md §9): every man of ours
+   * still walking to a distant slot gets a hollow order marker there (a
+   * dotted dark diamond) and a thin dotted line back to him. The selected
+   * group's lines are stronger.
+   */
+  private drawMoveOrders(g: Phaser.GameObjects.Graphics): void {
+    let budget = 2400; // dots per frame, a ceiling for big armies on phones
+    for (const grp of this.sim.groups) {
+      if (grp.side !== this.me || grp.disbanded || grp.routed) continue;
+      const sel = grp.id === this.selGroup;
+      const r = rightOf(grp.formation.fx, grp.formation.fy);
+      const { fx, fy } = grp.formation;
+      for (const u of this.sim.activeMembers(grp.id)) {
+        const v = this.viewById.get(u.id);
+        if (!v || u.state !== 'ready') continue;
+        const s = this.sim.slotPos(u);
+        const ddx = s.x - u.x;
+        const ddy = s.y - u.y;
+        if (ddx * ddx + ddy * ddy < 0.8 * 0.8) continue;
+        const t = isoToScreen(s.x, s.y);
+        const tx = Math.round(t.x);
+        const ty = Math.round(t.y);
+        // the dotted line, from his feet to the marker
+        const x0 = v.spr.x;
+        const y0 = v.spr.y;
+        const len = Math.max(Math.abs(tx - x0), Math.abs(ty - y0));
+        const step = sel ? 2 : 3;
+        g.fillStyle(0x9fc8c8, sel ? 0.8 : 0.45);
+        for (let k = 4; k < len - 4 && budget > 0; k += step, budget--) g.fillRect(Math.round(x0 + ((tx - x0) * k) / len), Math.round(y0 + ((ty - y0) * k) / len), 1, 1);
+        // the hollow marker: one cell, dotted dark outline
+        const hw = 0.36;
+        const hd = 0.4;
+        const corners = [
+          [s.x - r.x * hw + fx * hd, s.y - r.y * hw + fy * hd],
+          [s.x + r.x * hw + fx * hd, s.y + r.y * hw + fy * hd],
+          [s.x + r.x * hw - fx * hd, s.y + r.y * hw - fy * hd],
+          [s.x - r.x * hw - fx * hd, s.y - r.y * hw - fy * hd],
+        ].map(([x, y]) => {
+          const p = isoToScreen(x, y);
+          return [Math.round(p.x), Math.round(p.y)] as [number, number];
+        });
+        this.dashRect(g, corners, 0x2a2620, sel ? 0.7 : 0.45, 1, 1);
+        budget -= 30;
+      }
     }
   }
 
@@ -920,6 +1276,8 @@ export class BattleScene extends BaseScene {
   private onEnd(winner: number): void {
     if (this.ending) return;
     this.ending = true;
+    // the winners strike their victory pose (a cosmetic picks which)
+    this.victorySide = winner === 0 || winner === 1 ? winner : -1;
     const msg = this.retreatMsg ?? (winner === this.me ? t('battle.banner.victory') : winner === this.foe ? t('battle.banner.defeat') : t('battle.banner.draw'));
     this.showBanner(msg, 0);
     hapticNotify(winner === this.me ? 'success' : 'error');
@@ -1294,11 +1652,13 @@ export class BattleScene extends BaseScene {
   private addTerrainProps(): void {
     this.props = [];
     this.glints = [];
+    this.waterCells = [];
     const tr = this.sim.terrain;
     if (!tr) return;
     for (let v = 0; v < 3; v++) if (!this.textures.exists(`tree_${v}`)) this.textures.addCanvas(`tree_${v}`, renderTree(v).toCanvas());
     for (let v = 0; v < 2; v++) if (!this.textures.exists(`boulder_${v}`)) this.textures.addCanvas(`boulder_${v}`, renderBoulder(v).toCanvas());
     if (!this.textures.exists('glint')) this.textures.addCanvas('glint', renderGlint().toCanvas());
+    if (!this.textures.exists('sparkle')) this.textures.addCanvas('sparkle', renderSparkle().toCanvas());
     const seed = this.sim.seed;
     const h = (a: number, b: number) => ((Math.imul(a + 1, 73856093) ^ Math.imul(b + 7, 19349663) ^ seed) >>> 0) % 1000 / 1000;
     const place = (key: string, fx: number, fy: number, tree: boolean) => {
@@ -1319,21 +1679,54 @@ export class BattleScene extends BaseScene {
         }
       } else if (d.kind === 'rocks') {
         place(`boulder_${i % 2}`, c.x + (h(i, 6) - 0.5) * 0.3, c.y + (h(i, 7) - 0.5) * 0.3, false);
-      } else if ((d.kind === 'water' || d.kind === 'sea') && h(i, 8) < 0.3) {
-        const p = isoToScreen(c.x + (h(i, 9) - 0.5) * 0.6, c.y);
-        const img = this.add.image(Math.round(p.x), Math.round(p.y), 'glint').setDepth(-99000).setAlpha(0);
-        this.world.add(img);
-        this.glints.push({ img, phase: Math.floor(h(i, 3) * 8) });
+      } else if (d.kind === 'water' || d.kind === 'sea') {
+        this.waterCells.push(i);
       }
     }
+    // a pool of shimmer sprites that hop between random spots on the water (docs/ART_STYLE.md §10)
+    const n = Math.min(70, Math.ceil(this.waterCells.length * 0.8));
+    for (let k = 0; k < n; k++) {
+      const img = this.add.image(0, 0, k % 3 === 0 ? 'glint' : 'sparkle').setDepth(-99000).setAlpha(0);
+      this.world.add(img);
+      const g = { img, t0: 0, life: 0 };
+      this.placeGlint(g, Math.random() * 900);
+      this.glints.push(g);
+    }
+  }
+
+  /** Move a shimmer sprite to a random spot on the water, starting after `delay` ms. */
+  private placeGlint(g: { img: Phaser.GameObjects.Image; t0: number; life: number }, delay: number): void {
+    const tr = this.sim.terrain;
+    if (!tr || this.waterCells.length === 0) return;
+    const cw = this.sim.width / tr.w;
+    const ch = this.sim.height / tr.h;
+    for (let tries = 0; tries < 4; tries++) {
+      const i = this.waterCells[Math.floor(Math.random() * this.waterCells.length)];
+      const c = tr.cellCenter(i);
+      const x = c.x + (Math.random() - 0.5) * cw;
+      const y = c.y + (Math.random() - 0.5) * ch;
+      // keep off the shore: all four neighbours a little way out are water too
+      const wet = (px: number, py: number) => {
+        const k = tr.at(px, py).kind;
+        return k === 'water' || k === 'sea';
+      };
+      if (![[0.35, 0], [-0.35, 0], [0, 0.35], [0, -0.35]].every(([dx, dy]) => wet(x + dx, y + dy))) continue;
+      const p = isoToScreen(x, y);
+      g.img.setPosition(Math.round(p.x), Math.round(p.y));
+      break;
+    }
+    g.t0 = this.time.now + delay;
+    g.life = 300 + Math.random() * 500;
   }
 
   /** Water shimmer (stepped), and trees fade when a soldier stands behind them. */
   private updateProps(): void {
-    const step = Math.floor(this.time.now / 180);
+    const now = this.time.now;
     for (const g of this.glints) {
-      const f = (step + g.phase) % 8;
-      g.img.setAlpha(f === 0 ? 0.9 : f === 1 ? 0.5 : 0);
+      const a = (now - g.t0) / g.life;
+      if (a > 1) this.placeGlint(g, Math.random() * 700);
+      // stepped, never a smooth fade: half on, on, half on
+      g.img.setAlpha(a < 0 || a > 1 ? 0 : a < 0.25 || a > 0.75 ? 0.5 : 0.95);
     }
     if (this.props.length === 0 || this.propTick++ % 4 !== 0) return;
     for (const pr of this.props) {
@@ -1956,6 +2349,15 @@ export class BattleScene extends BaseScene {
     c.add(addPanel(this, x, y, w, 24, 'parch'));
     const hero = this.views[u.id].hero;
     c.add(this.add.image(x + 2, y + 2, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0).setCrop(3, 0, 18, 20));
+    // the portrait framed in the colour of his finest piece of gear (rare and up pulse)
+    const best = this.views[u.id].fx?.rank ?? 0;
+    if (best >= 1) {
+      const rf = this.add.graphics();
+      rf.lineStyle(1, RARITY_COLOR[RARITIES[best]], 1);
+      rf.strokeRect(x + 4.5, y + 1.5, 19, 21);
+      c.add(rf);
+      if (best >= 2) this.tweens.add({ targets: rf, alpha: { from: 0.45, to: 1 }, duration: best >= 4 ? 600 : 1000, yoyo: true, repeat: -1 });
+    }
     const colW = Math.max(18, ...(['hp', 'mor', 'sta'] as const).map((k) => measureText(t(`battle.stat.${k}`)) + 2));
     const mx = x + w - 4 - 3 * colW - 4;
     const textW = mx - 4 - (x + 22);

@@ -70,7 +70,7 @@ export class MarketScene extends BaseScene {
   private next: number | null = null;
   private listLoaded = false;
   private mine: { listings: MarketListing[]; open: number; maxOpen: number } | null = null;
-  private towns: { q: number; r: number }[] | null = null;
+  private towns: { loc: number; name: string }[] | null = null;
   private busy = false;
   private pageTop = 0;
   private gen = 0;
@@ -326,7 +326,7 @@ export class MarketScene extends BaseScene {
     const left = timeLeft(l.expiresAt, now);
     const notes = [
       { text: `${priceText(l.price, l.currency)} · ${t('market.by', { name: l.seller.name ?? '?' })}`, font: 'red' as const },
-      { text: `${t('market.town', { q: l.town.q, r: l.town.r })} · ${left.ms ? t('market.left', { t: left.text }) : t('market.expired')}` },
+      { text: `${t('market.town', { name: l.town.name })} · ${left.ms ? t('market.left', { t: left.text }) : t('market.expired')}` },
       { text: t('market.feeNote', { gets: sellerGets(l.price, b.cat.market.feeRate), fee: marketFee(l.price, b.cat.market.feeRate) }) },
     ];
     const can = canAfford(l, { gold: b.profile?.resources.gold ?? null, drachmae: b.wallet.drachmae });
@@ -642,7 +642,7 @@ export class MarketScene extends BaseScene {
     // town
     const tn = towns[town];
     c.add(new Button(this, x + 8, cy, inner, SIZE.btnH, {
-      label: tn ? t('market.town', { q: tn.q, r: tn.r }) : t('market.noTown'),
+      label: tn ? t('market.town', { name: tn.name }) : t('market.noTown'),
       icon: 'flag',
       id: 'market.town',
       tip: t('market.noTownHint'),
@@ -671,11 +671,11 @@ export class MarketScene extends BaseScene {
     c.add(list);
   }
 
-  async list(s: Sellable, qty: number, currency: Currency, price: number, town: { q: number; r: number }): Promise<boolean> {
+  async list(s: Sellable, qty: number, currency: Currency, price: number, town: { loc: number; name: string }): Promise<boolean> {
     if (this.busy) return false;
     this.busy = true;
     try {
-      await econ().marketList({ town, kind: s.kind, ref: s.kind === 'item' ? s.item.uid : s.id, qty: s.kind === 'item' ? 1 : qty, currency, price });
+      await econ().marketList({ town: town.loc, kind: s.kind, ref: s.kind === 'item' ? s.item.uid : s.id, qty: s.kind === 'item' ? 1 : qty, currency, price });
       if (!this.sys.isActive()) return true;
       hapticNotify('success');
       uiCoin();

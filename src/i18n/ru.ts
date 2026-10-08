@@ -6,6 +6,8 @@ import { RU_ARMY } from './ru.army';
 import { BEASTS_RU } from './beasts.ru';
 import { DUELS_RU } from './duels.ru';
 import { MERCHANT_RU } from './merchant.ru';
+import { FIELDCAMP_RU } from './fieldcamp.ru';
+import { OCAMP_RU } from './camp.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -104,6 +106,7 @@ export const RU: Table = {
   'online.halt': 'Стой',
   'online.haltTip': 'Остановиться на последнем гексе',
   'online.onMarch': 'В походе: гексов {n}, {t}',
+  'online.discovered': 'Открыт город: {name}!',
   'online.preview': 'Пробная карта: ничего не отправляется',
   'hex.plains': 'Равнина',
   'hex.farmland': 'Поля',
@@ -263,4 +266,6 @@ export const RU: Table = {
   ...BEASTS_RU,
   ...DUELS_RU,
   ...MERCHANT_RU,
+  ...FIELDCAMP_RU,
+  ...OCAMP_RU,
 };

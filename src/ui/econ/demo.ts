@@ -28,6 +28,15 @@ const COSMETICS: EconomyCatalog['cosmetics'] = [
   { id: 'skin_macedon', slot: 'army_skin', name: 'Macedonian army', drachmae: 300 },
   { id: 'table_marble', slot: 'table_theme', name: 'Marble war table', drachmae: 250 },
   { id: 'table_tent', slot: 'table_theme', name: 'Campaign tent table', drachmae: 200 },
+  { id: 'crest_white', slot: 'crest', name: 'Swan-white crests', drachmae: 80 },
+  { id: 'crest_black', slot: 'crest', name: 'Raven-black crests', drachmae: 80 },
+  { id: 'crest_purple', slot: 'crest', name: 'Royal purple crests', drachmae: 150 },
+  { id: 'crest_gold', slot: 'crest', name: 'Gilded crests', drachmae: 250 },
+  { id: 'aura_laurel', slot: 'aura', name: 'Laurel motes', drachmae: 200 },
+  { id: 'aura_embers', slot: 'aura', name: 'Ember aura', drachmae: 300 },
+  { id: 'aura_storm', slot: 'aura', name: 'Zeus-touched sparks', drachmae: 400 },
+  { id: 'pose_salute', slot: 'pose', name: 'Victory: spear salute', drachmae: 120 },
+  { id: 'pose_shield', slot: 'pose', name: 'Victory: shield aloft', drachmae: 120 },
   { id: 'emblem_pass_s', slot: 'emblem', name: 'Season victor emblem', drachmae: null, source: 'season_pass' },
   { id: 'cloak_pass_s', slot: 'cloak', name: 'Season victor cloak', drachmae: null, source: 'season_pass' },
   { id: 'banner_pass_s', slot: 'banner', name: 'Season victor banner', drachmae: null, source: 'season_pass' },
@@ -62,7 +71,7 @@ export function demoCatalog(): EconomyCatalog {
       { id: 'drachmae_1300', stars: 1000, drachmae: 1300 },
     ],
     cosmetics: COSMETICS,
-    slots: ['emblem', 'banner', 'cloak', 'clan_flag', 'army_skin', 'table_theme'],
+    slots: ['emblem', 'banner', 'cloak', 'crest', 'aura', 'pose', 'clan_flag', 'army_skin', 'table_theme'],
     consumables: CONSUMABLE_IDS.map((id) => ({ ...CONSUMABLES[id] })),
     pass: { premiumDrachmae: 500, xpPerTier: 100, xp: { attack: 10, attackWin: 15, capture: 25, duel: 10, duelWin: 10 }, tiers: tiers() },
     market: {
@@ -120,20 +129,20 @@ export class DemoEconSource implements EconSource {
     const heroes = (o.heroes ?? []).map((h) => ({ hero: h, garrison: null, woundedUntil: 0, busy: false }));
     this.prof = {
       season: { id: 3, startedAt: this.now - 86_400_000 * 49, endsAt: this.now + 86_400_000 * 41 },
-      shard: { id: 1, radius: 34 },
+      shard: { id: 1, map: 'test30' },
       now: this.now,
       resources: { gold: 1240, food: 380, wood: 210, bronze: 95, recruits: 3 },
       energy: 72,
       energyMax: 100,
-      home: { q: 0, r: 0 },
-      army: { q: 0, r: 0, marching: false, dest: null, arriveAt: null },
+      home: 1,
+      army: { loc: 1, marching: false, dest: null, arriveAt: null },
       formations: [],
       heroes,
       stash: (o.stash ?? []).map((it) => ({ ...it })),
       clan: null,
       battles: 14,
       wins: 9,
-      income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, hexes: 6 },
+      income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, regions: 6 },
     };
     // market: a spread of items, goods and consumables from other players, two of mine
     const items = ITEM_LIST.filter((_, i) => i % 3 === 0);
@@ -161,7 +170,7 @@ export class DemoEconSource implements EconSource {
     return {
       id: `l${i}`,
       seller: { id: 100 + i, name: NAMES[i % NAMES.length] },
-      town: { q: (i % 3) * 2 - 2, r: 1 - (i % 2) },
+      town: [{ loc: 7, name: 'Oppidum Vetus' }, { loc: 17, name: 'Emporium' }, { loc: 9, name: 'Urbs Media' }][i % 3],
       ...x,
       fee: marketFee(x.price),
       status: 'open',
@@ -267,7 +276,7 @@ export class DemoEconSource implements EconSource {
     return this.ok({ listings: l, open: l.filter((x) => x.status === 'open').length, maxOpen: 20 });
   }
   marketTowns() {
-    return this.ok({ towns: [{ q: 2, r: -1 }, { q: -3, r: 2 }] });
+    return this.ok({ towns: [{ loc: 7, name: 'Oppidum Vetus' }, { loc: 17, name: 'Emporium' }] });
   }
   marketList(b: MarketListRequest) {
     let item: Record<string, unknown> | null = null;

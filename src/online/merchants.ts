@@ -2,35 +2,26 @@
  * Map merchants (docs/DUELS.md "War-map shops on the map"): pure, shared by
  * the client (demo shard, price display) and the Worker (the authority).
  *
- * - Every town hex (capitals included) has a merchant. A few seeded trading
- *   posts per shard (harbours on the coast, crossroads on river plains) carry
- *   rarer stock. Their places are a pure function of the shard seed.
- * - Stock is generated from (shard seed, hex, UTC day) and never stored: the
- *   consumables and some basic gear everywhere, the specialties of the hex's
- *   region (the nearest capital), and a daily rotating rare slot.
+ * - Every town (capitals included) has a merchant. The map's trading posts
+ *   (kind 'post': harbours on the coast, crossroads inland) carry rarer stock.
+ * - Stock is generated from (shard seed, region, UTC day) and never stored:
+ *   the consumables and some basic gear everywhere, the specialties of the
+ *   merchant's realm (its nearest capital), and a daily rotating rare slot.
  * - Prices are in season gold; consumables also in Drachmae (the shortcut of
  *   DESIGN_V2.md). Gear is never sold for Drachmae (no paid power).
- * - The hex's holder and their clan pay 10% less; the holder earns 5% of the
+ * - The region's holder and their clan pay 10% less; the holder earns 5% of the
  *   list gold price of every sale to someone else, paid by the merchant.
  */
-import { hash3 } from '../world/noise';
 import { hashString } from '../sim/rng';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../data/consumables';
 import { ITEMS, type Rarity } from '../data/items';
-import { capitals, hexDistance, hexInfo, hexesWithin, neighbours, SHARD_RADIUS, type Axial, type HexInfo } from './hex';
-import { beastHex } from './lairs';
+import type { WorldGraph } from './world';
 
 export const MERCHANT = {
   /** Holder (and clan) discount on gold and Drachmae prices. */
   ownerDiscount: 0.1,
-  /** Share of the list gold price the merchant pays the hex's holder per sale. */
+  /** Share of the list gold price the merchant pays the region's holder per sale. */
   ownerCut: 0.05,
-  /** One trading post per this many hexes of the shard (~12 on a full shard). */
-  hexesPerPost: 300,
-  /** Trading posts keep at least this far apart. */
-  postSpacing: 7,
-  /** ...and this far from the capitals (homes keep 5 away too). */
-  postCapitalGap: 5,
   /** Gold price of gear: item value x this, by rarity. */
   gearPrice: { common: 2, uncommon: 3, rare: 5, epic: 8, legendary: 12 } as Record<Rarity, number>,
   /** Daily caps per player (all merchants together) for gear, by slot. */
@@ -42,7 +33,7 @@ export const MERCHANT = {
 export type PostKind = 'harbour' | 'crossroads';
 export type MerchantKind = 'town' | PostKind;
 
-/** Seven regions, one per capital (in `capitals()` order): what their merchants are known for. */
+/** Seven realms, one per capital (capitals in id order, repeating): what their merchants are known for. */
 export type Region = 'attica' | 'thessaly' | 'thrace' | 'crete' | 'gaul' | 'phoenicia' | 'scythia';
 export const REGIONS: Region[] = ['attica', 'thessaly', 'thrace', 'crete', 'gaul', 'phoenicia', 'scythia'];
 
@@ -87,80 +78,43 @@ export interface Offer {
 
 // ------------------------------------------------------------------ places
 
-const postCache = new Map<string, Map<string, PostKind>>();
-
-/**
- * The trading posts of a shard: about one per MERCHANT.hexesPerPost hexes,
- * half harbours (passable coast) and half crossroads (plains or farmland on a
- * river with land all around), never on towns, forts, capitals, lairs, world
- * bosses or near the capitals (so never on a home either), spread apart.
- */
-export function tradingPosts(seed: number, radius = SHARD_RADIUS): { q: number; r: number; kind: PostKind }[] {
-  return [...postMap(seed, radius)].map(([k, kind]) => {
-    const [q, r] = k.split('_').map(Number);
-    return { q, r, kind };
-  });
+/** The trading posts of a map: every region of kind 'post' (a harbour on the coast, else a crossroads). */
+export function tradingPosts(world: WorldGraph): { loc: number; kind: PostKind }[] {
+  return world
+    .all()
+    .filter((r) => r.kind === 'post')
+    .map((r) => ({ loc: r.id, kind: r.coast ? 'harbour' : 'crossroads' }));
 }
 
-function postMap(seed: number, radius: number): Map<string, PostKind> {
-  const key = `${seed}:${radius}`;
-  const hit = postCache.get(key);
+export function tradingPostAt(world: WorldGraph, loc: number): PostKind | null {
+  if (!world.has(loc)) return null;
+  const r = world.info(loc);
+  return r.kind === 'post' ? (r.coast ? 'harbour' : 'crossroads') : null;
+}
+
+/** The merchant of a region: every town (capitals included) and every trading post. */
+export function merchantAt(world: WorldGraph, loc: number): MerchantKind | null {
+  if (!world.has(loc)) return null;
+  return world.info(loc).town ? 'town' : tradingPostAt(world, loc);
+}
+
+const realmCache = new Map<string, Region>();
+
+/** The realm of a region: the one of its nearest capital by routes (ties: the lower capital id). */
+export function regionOf(world: WorldGraph, loc: number): Region {
+  const key = `${world.id}:${loc}`;
+  const hit = realmCache.get(key);
   if (hit) return hit;
-  const caps = capitals(radius);
-  const all = hexesWithin({ q: 0, r: 0 }, radius, radius).map((h) => hexInfo(seed, h.q, h.r, radius));
-  const byId = new Map(all.map((h) => [h.id, h]));
-  const towns = all.filter((h) => h.type === 'town');
-  const ok = (h: HexInfo) =>
-    h.passable &&
-    h.type !== 'town' &&
-    !h.fort &&
-    !h.capital &&
-    hexDistance(h, { q: 0, r: 0 }) <= radius - 2 &&
-    !caps.some((c) => hexDistance(c, h) < MERCHANT.postCapitalGap) &&
-    !towns.some((t) => hexDistance(t, h) <= 1) &&
-    !beastHex(seed, h, radius);
-  const score = (h: HexInfo) => hash3(h.q, h.r, seed + 41);
-  const harbours = all.filter((h) => h.coast && ok(h)).sort((a, b) => score(a) - score(b));
-  const crossroads = all
-    .filter((h) => !h.coast && (h.type === 'plains' || h.type === 'farmland') && h.site.river && neighbours(h, radius).every((n) => byId.get(`${n.q}_${n.r}`)?.passable) && ok(h))
-    .sort((a, b) => score(a) - score(b));
-  const n = Math.max(1, Math.round(all.length / MERCHANT.hexesPerPost));
-  const picked: { h: HexInfo; kind: PostKind }[] = [];
-  const free = (h: HexInfo) => picked.every((p) => hexDistance(p.h, h) >= MERCHANT.postSpacing);
-  const take = (list: HexInfo[], kind: PostKind, want: number) => {
-    let got = 0;
-    for (const h of list) {
-      if (got >= want || picked.length >= n) break;
-      if (!free(h)) continue;
-      picked.push({ h, kind });
-      got++;
-    }
-  };
-  take(harbours, 'harbour', Math.ceil(n / 2));
-  take(crossroads, 'crossroads', n - picked.length);
-  // Too few of one kind (an inland or an island shard): fill up with the other.
-  take(harbours, 'harbour', n);
-  const out = new Map(picked.map((p) => [p.h.id, p.kind] as [string, PostKind]));
-  postCache.set(key, out);
-  return out;
-}
-
-export function tradingPostAt(seed: number, h: Axial, radius = SHARD_RADIUS): PostKind | null {
-  return postMap(seed, radius).get(`${h.q}_${h.r}`) ?? null;
-}
-
-/** The merchant of a hex: every town (capitals included) and every trading post. */
-export function merchantAt(seed: number, h: Pick<HexInfo, 'q' | 'r' | 'type' | 'capital'>, radius = SHARD_RADIUS): MerchantKind | null {
-  if (h.type === 'town' || h.capital) return 'town';
-  return tradingPostAt(seed, h, radius);
-}
-
-/** The region of a hex: the one of its nearest capital (ties: the first in order). */
-export function regionOf(h: Axial, radius = SHARD_RADIUS): Region {
-  const caps = capitals(radius);
+  const caps = world.capitals();
   let best = 0;
-  for (let i = 1; i < caps.length; i++) if (hexDistance(caps[i], h) < hexDistance(caps[best], h)) best = i;
-  return REGIONS[best];
+  let bd = Infinity;
+  caps.forEach((c, i) => {
+    const d = world.hops(c, loc);
+    if (d < bd) (bd = d), (best = i);
+  });
+  const out = REGIONS[best % REGIONS.length];
+  realmCache.set(key, out);
+  return out;
 }
 
 // ------------------------------------------------------------------ stock
@@ -188,14 +142,14 @@ function gearOffer(def: string, rarity: Rarity, slot: Offer['slot']): Offer {
  * regional specialty plus their harbour or crossroads goods (rare) and an
  * epic in the rotating slot.
  */
-export function merchantStock(seed: number, h: Axial, kind: MerchantKind, day: string, radius = SHARD_RADIUS): Offer[] {
-  const key = `${seed}:${h.q}_${h.r}:${day}`;
+export function merchantStock(world: WorldGraph, seed: number, loc: number, kind: MerchantKind, day: string): Offer[] {
+  const key = `${seed}:${loc}:${day}`;
   const out: Offer[] = CONSUMABLE_IDS.map((id: ConsumableId) => {
     const c = CONSUMABLES[id];
     return { id: `c:${id}`, kind: 'consumable', ref: id, rarity: c.use === 'battle' ? 'rare' : 'uncommon', slot: 'base', gold: c.gold ?? 0, drachmae: c.drachmae, dailyCap: c.dailyCap };
   });
   for (const def of pickSome(BASE_GEAR, MERCHANT.baseGear, `${key}:base`)) out.push(gearOffer(def, 'common', 'base'));
-  const region = SPECIALTIES[regionOf(h, radius)];
+  const region = SPECIALTIES[regionOf(world, loc)];
   const post = kind !== 'town';
   const specials = post ? [...new Set([...region, ...POST_GOODS[kind]])] : pickSome(region, 2, `${key}:region`);
   for (const def of specials) out.push(gearOffer(def, post ? 'rare' : 'uncommon', 'region'));
@@ -215,7 +169,7 @@ export function offerPrice(o: Pick<Offer, 'gold' | 'drachmae'>, currency: 'gold'
   return discount ? Math.max(1, Math.round(list * (1 - MERCHANT.ownerDiscount))) : list;
 }
 
-/** Gold the merchant pays the hex's holder for one sale (of the list gold price). */
+/** Gold the merchant pays the region's holder for one sale (of the list gold price). */
 export function holderCut(o: Pick<Offer, 'gold'>): number {
   return Math.floor(o.gold * MERCHANT.ownerCut);
 }

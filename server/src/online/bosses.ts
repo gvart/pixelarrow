@@ -6,7 +6,7 @@
  *                (players and clans), your own tally and loot.
  * POST /start    a raid ticket: the server fixes the seed, your army and the
  *                boss at its CURRENT wounds (stored HP, severed arms) for a
- *                segment of ENCOUNTERS[boss].segment seconds. No hex lock: many
+ *                segment of ENCOUNTERS[boss].segment seconds. No region lock: many
  *                raids may run at once.
  * POST /submit   the order log; the server replays the segment (src/sim) and,
  *                only if the claim matches, applies it in one D1 batch:
@@ -27,7 +27,6 @@ import { requireAuth } from '../middleware';
 import type { Hero } from '../../../src/data/units';
 import type { Item } from '../../../src/data/items';
 import type { BattleSetup, LoggedOrder } from '../../../src/sim/types';
-import { hexDistance } from '../../../src/online/hex';
 import { ENCOUNTERS, trophyId, type EncounterId } from '../../../src/data/beasts';
 import { BEAST_RULES, applyBossState, bossDefenders, bossLoot, bossMaxHp, segmentOutcome, worldBossSites, type BossSite } from '../../../src/online/lairs';
 import { DEFAULT_FORMATIONS, ONLINE_RULES } from '../../../src/online/rules';
@@ -36,7 +35,7 @@ import { CONSUMABLES } from '../../../src/data/consumables';
 import { limit, player, type PlayerCtx } from './context';
 import { ev, later, notify, type NotifyEvent } from '../notify/outbox';
 import { pickConsumable, withConsumables } from './attack';
-import { armyState, clanTags, energyNow, fieldReady, formationsOf, heroPrefix, loadHeroes, playerNames, randomToken, randomU32, staticHex, type OwnedHero } from './store';
+import { armyState, clanTags, energyNow, fieldReady, formationsOf, heroPrefix, loadHeroes, playerNames, randomToken, randomU32, staticRegion, type OwnedHero } from './store';
 
 export const bosses = new Hono<AppEnv>();
 bosses.use('*', requireAuth);
@@ -45,8 +44,7 @@ interface BossRow {
   season_id: number;
   shard_id: number;
   boss: EncounterId;
-  q: number;
-  r: number;
+  loc: number;
   level: number;
   hp: number;
   max_hp: number;
@@ -63,8 +61,7 @@ interface TicketRow {
   season_id: number;
   shard_id: number;
   player_id: number;
-  q: number;
-  r: number;
+  loc: number;
   seed: number;
   setup: string;
   attackers: string;
@@ -80,7 +77,7 @@ interface TicketRow {
 const shardKey = (pc: { season: { id: number }; shard: { id: number; seed: number } }) => `${pc.season.id}:${pc.shard.id}:${pc.shard.seed}`;
 
 function siteOf(pc: PlayerCtx, boss: string): BossSite {
-  const site = worldBossSites(pc.shard.seed, pc.shard.radius).find((b) => b.boss === boss);
+  const site = worldBossSites(pc.shard.world, pc.shard.seed).find((b) => b.boss === boss);
   if (!site) throw new ApiError(404, 'not_found', 'No such world boss in this shard');
   return site;
 }
@@ -89,8 +86,8 @@ function siteOf(pc: PlayerCtx, boss: string): BossSite {
 async function bossRow(pc: PlayerCtx, site: BossSite): Promise<BossRow> {
   const max = bossMaxHp(site.boss, site.level);
   await pc.db
-    .prepare('INSERT OR IGNORE INTO world_bosses (season_id, shard_id, boss, q, r, level, hp, max_hp, parts, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, ?8, ?9)')
-    .bind(pc.season.id, pc.shard.id, site.boss, site.q, site.r, site.level, max.body, JSON.stringify(Array.from({ length: max.parts }, () => max.part)), pc.now)
+    .prepare('INSERT OR IGNORE INTO world_bosses (season_id, shard_id, boss, loc, level, hp, max_hp, parts, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, ?7, ?8)')
+    .bind(pc.season.id, pc.shard.id, site.boss, site.loc, site.level, max.body, JSON.stringify(Array.from({ length: max.parts }, () => max.part)), pc.now)
     .run();
   return (await pc.db.prepare('SELECT * FROM world_bosses WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3').bind(pc.season.id, pc.shard.id, site.boss).first<BossRow>())!;
 }
@@ -149,8 +146,7 @@ async function bossView(pc: PlayerCtx, site: BossSite) {
   const max = bossMaxHp(site.boss, site.level);
   return {
     boss: site.boss,
-    q: site.q,
-    r: site.r,
+    loc: site.loc,
     level: site.level,
     hp: row.hp,
     maxHp: row.max_hp,
@@ -168,7 +164,7 @@ async function bossView(pc: PlayerCtx, site: BossSite) {
 bosses.get('/', async (c) => {
   const pc = await player(c);
   const out = [];
-  for (const site of worldBossSites(pc.shard.seed, pc.shard.radius)) out.push(await bossView(pc, site));
+  for (const site of worldBossSites(pc.shard.world, pc.shard.seed)) out.push(await bossView(pc, site));
   return c.json({ now: pc.now, bosses: out });
 });
 
@@ -184,7 +180,7 @@ function ticketView(t: TicketRow, boss: EncounterId, extra: Record<string, unkno
     ticket: t.id,
     expiresAt: t.expires_at,
     boss,
-    hex: { q: t.q, r: t.r },
+    loc: t.loc,
     defenderKind: 'boss',
     consumable: t.consumable ?? null,
     setup: JSON.parse(t.setup) as BattleSetup,
@@ -202,15 +198,15 @@ bosses.post('/start', async (c) => {
   const site = siteOf(pc, body.boss);
   const now = pc.now;
   const open = await pc.db
-    .prepare("SELECT * FROM battle_tickets WHERE player_id = ?1 AND season_id = ?2 AND shard_id = ?3 AND q = ?4 AND r = ?5 AND status = 'open' AND expires_at > ?6 ORDER BY created_at DESC LIMIT 1")
-    .bind(pc.pid, pc.season.id, pc.shard.id, site.q, site.r, now)
+    .prepare("SELECT * FROM battle_tickets WHERE player_id = ?1 AND season_id = ?2 AND shard_id = ?3 AND loc = ?4 AND status = 'open' AND expires_at > ?5 ORDER BY created_at DESC LIMIT 1")
+    .bind(pc.pid, pc.season.id, pc.shard.id, site.loc, now)
     .first<TicketRow>();
   if (open) return c.json(ticketView(open, site.boss, { resumed: true }));
   const row = await bossRow(pc, site);
   if (row.status === 'dead') throw new ApiError(409, 'boss_dead', 'This world boss is already slain');
   const army = armyState(pc.profile, now);
   if (army.marching) throw new ApiError(409, 'marching', 'Your army is on the march');
-  if (hexDistance(army.pos, site) > 1) throw new ApiError(409, 'not_adjacent', 'Your army must stand next to the boss');
+  if (army.pos !== site.loc && !pc.shard.world.adjacent(army.pos, site.loc)) throw new ApiError(409, 'not_adjacent', 'Your army must stand next to the boss');
   const energy = energyNow(pc.profile, now);
   if (energy < BEAST_RULES.raidEnergy) throw new ApiError(409, 'no_energy', 'Not enough energy');
   let attackers: OwnedHero[] = fieldReady(await loadHeroes(pc.db, pc.season.id, pc.pid), now);
@@ -230,7 +226,7 @@ bosses.post('/start', async (c) => {
   // The boss as it stands now: its stored HP and severed arms.
   const { heroes: defenders, hp0 } = bossDefenders(site.boss, site.level, row.hp, JSON.parse(row.parts) as number[], shardKey(pc));
   const seed = randomU32();
-  const info = staticHex(pc.shard, site);
+  const info = staticRegion(pc.shard, site.loc);
   const setup = withConsumables(
     applyBossState(
       onlineBattleSetup(seed, { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false }, { heroes: defenders, formations: [...DEFAULT_FORMATIONS], bot: true }, info.site),
@@ -247,12 +243,12 @@ bosses.post('/start', async (c) => {
   const res = await pc.db.batch([
     pc.db
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, q, r, seed, setup, attackers, defenders, defender_kind, defender_id, hex_version, created_at, expires_at, consumable)
-         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'boss', NULL, ?11, ?12, ?13, ?14
-         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 15}`).join(',')}) AND busy_until > ?12)
-           AND (?14 IS NULL OR EXISTS (SELECT 1 FROM online_consumables WHERE season_id = ?2 AND player_id = ?4 AND consumable_id = ?14 AND qty >= 1))`,
+        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, defender_id, region_version, created_at, expires_at, consumable)
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'boss', NULL, ?10, ?11, ?12, ?13
+         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 14}`).join(',')}) AND busy_until > ?11)
+           AND (?13 IS NULL OR EXISTS (SELECT 1 FROM online_consumables WHERE season_id = ?2 AND player_id = ?4 AND consumable_id = ?13 AND qty >= 1))`,
       )
-      .bind(id, pc.season.id, pc.shard.id, pc.pid, site.q, site.r, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), row.version, now, expiresAt, consumable, ...busy),
+      .bind(id, pc.season.id, pc.shard.id, pc.pid, site.loc, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), row.version, now, expiresAt, consumable, ...busy),
     pc.db.prepare(`UPDATE online_heroes SET busy_ticket = ?1, busy_until = ?2 WHERE id IN (${ph}) AND ${g}`).bind(id, expiresAt, ...busy),
     pc.db.prepare(`UPDATE online_profiles SET energy = ?3, energy_at = ?4, rev = rev + 1 WHERE season_id = ?1 AND player_id = ?2 AND ${g}`).bind(pc.season.id, pc.pid, energy - BEAST_RULES.raidEnergy, now),
     ...(consumable
@@ -326,7 +322,7 @@ bosses.post('/submit', async (c) => {
 
 /** "The boss you damaged was slain": everyone with a loot share except the killer (who sees it on screen). */
 async function slainEvents(pc: PlayerCtx, t: TicketRow): Promise<NotifyEvent[]> {
-  const site = worldBossSites(pc.shard.seed, pc.shard.radius).find((b) => b.q === t.q && b.r === t.r);
+  const site = worldBossSites(pc.shard.world, pc.shard.seed).find((b) => b.loc === t.loc);
   if (!site) return [];
   const rows = await pc.db
     .prepare('SELECT player_id, share, items FROM world_boss_loot WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3')
@@ -341,7 +337,7 @@ async function slainEvents(pc: PlayerCtx, t: TicketRow): Promise<NotifyEvent[]> 
       } catch {
         // none
       }
-      return ev(r.player_id, 'boss_slain', `boss:${t.season_id}:${t.shard_id}:${site.boss}`, { boss: site.boss, q: site.q, r: site.r, share: r.share, items });
+      return ev(r.player_id, 'boss_slain', `boss:${t.season_id}:${t.shard_id}:${site.boss}`, { boss: site.boss, loc: site.loc, share: r.share, items });
     });
 }
 
@@ -357,7 +353,7 @@ bosses.post('/abandon', async (c) => {
 /** Applies a verified raid segment atomically (guarded by the ticket's apply nonce). */
 async function applyRaid(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeof replayBattle>['result'], summary: ReturnType<typeof replayBattle>['summary'], setup: BattleSetup, claimJson: string) {
   const { db: d, now } = pc;
-  const site = worldBossSites(pc.shard.seed, pc.shard.radius).find((b) => b.q === t.q && b.r === t.r)!;
+  const site = worldBossSites(pc.shard.world, pc.shard.seed).find((b) => b.loc === t.loc)!;
   const attackers = JSON.parse(t.attackers) as Hero[];
   const defenders = JSON.parse(t.defenders) as Hero[];
   const res = resolveAttack(result, attackers, defenders, t.seed);
@@ -421,7 +417,7 @@ async function applyRaid(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeof 
     winner: summary.winner,
     ticks: summary.ticks,
     hash: summary.hash,
-    hex: { q: t.q, r: t.r },
+    loc: t.loc,
     gold: res.attacker.outcome.gold,
     attacker: { dead: res.attacker.dead, wounded: res.attacker.wounded, heroes: res.attacker.outcome.heroes },
     consumable: t.consumable ?? null,
@@ -430,10 +426,10 @@ async function applyRaid(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeof 
   stmts.push(
     d
       .prepare(
-        `INSERT INTO battle_log (season_id, shard_id, kind, ref, attacker_id, defender_id, q, r, winner, ticks, hash, verified, summary, created_at)
-         SELECT ?1, ?2, 'raid', ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11 WHERE ${G}`,
+        `INSERT INTO battle_log (season_id, shard_id, kind, ref, attacker_id, defender_id, loc, winner, ticks, hash, verified, summary, created_at)
+         SELECT ?1, ?2, 'raid', ?3, ?4, NULL, ?5, ?6, ?7, ?8, 1, ?9, ?10 WHERE ${G}`,
       )
-      .bind(t.season_id, t.shard_id, t.id, pc.pid, t.q, t.r, summary.winner, summary.ticks, summary.hash, JSON.stringify({ boss: site.boss, dealt: seg.dealt }), now),
+      .bind(t.season_id, t.shard_id, t.id, pc.pid, t.loc, summary.winner, summary.ticks, summary.hash, JSON.stringify({ boss: site.boss, dealt: seg.dealt }), now),
   );
   const outB = await d.batch(stmts);
   if (outB[0].meta.changes !== 1) {

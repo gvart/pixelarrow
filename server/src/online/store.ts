@@ -1,7 +1,8 @@
 /**
  * D1 access for the online mode: seasons and shards (lifecycle, rewards),
- * profiles with home placement, armies and marches, heroes, items, hex state
- * and clan membership.
+ * profiles with home placement, armies and marches, heroes, items, region
+ * state and clan membership. Locations are region ids (`loc`) of the shard's
+ * map (src/online/world.ts).
  *
  * Economy writes are relative (`gold = gold + ?`, `WHERE gold >= ?`) and the
  * statements of one operation run in a single D1 batch (a transaction) whose
@@ -13,10 +14,10 @@ import type { Hero } from '../../../src/data/units';
 import { normalizeEquip, normalizeItem, type Item } from '../../../src/data/items';
 import type { FormationType } from '../../../src/sim/formation';
 import { hashString } from '../../../src/sim/rng';
-import { capitals, hexDistance, hexesWithin, hexInfo, SHARD_RADIUS, type Axial, type HexInfo } from '../../../src/online/hex';
-import { beastHex } from '../../../src/online/lairs';
+import { DEFAULT_MAP_ID, getMap, hasMap, type RegionInfo, type WorldGraph } from '../../../src/online/world';
+import { beastLoc } from '../../../src/online/lairs';
 import { tradingPostAt } from '../../../src/online/merchants';
-import { DEFAULT_FORMATIONS, energyAt, hexScore, ONLINE_RULES, starterOnlineArmy } from '../../../src/online/rules';
+import { DEFAULT_FORMATIONS, energyAt, regionScore, ONLINE_RULES, starterOnlineArmy } from '../../../src/online/rules';
 import { bytesToHex } from '../crypto';
 import { ApiError } from '../errors';
 
@@ -98,20 +99,19 @@ export interface Standing {
   clanScore: number;
 }
 
-/** Scores of a season: hexes 1, forts 10, capitals 100 points (per player and per clan). */
+/** Scores of a season: regions 1, towns 3, forts 10, capitals 100 points (per player and per clan). */
 export async function standings(db: D1Database, season: number): Promise<Standing[]> {
-  const shards = await db.prepare('SELECT id, seed, radius FROM online_shards WHERE season_id = ?1').bind(season).all<{ id: number; seed: number; radius: number }>();
-  const seedOf = new Map(shards.results.map((s) => [s.id, s]));
-  const hexes = await db
-    .prepare('SELECT shard_id, q, r, owner_id FROM online_hexes WHERE season_id = ?1 AND owner_id IS NOT NULL')
+  const shards = await db.prepare('SELECT id, map_id FROM online_shards WHERE season_id = ?1').bind(season).all<{ id: number; map_id: string }>();
+  const mapOf = new Map(shards.results.map((s) => [s.id, hasMap(s.map_id) ? getMap(s.map_id) : null]));
+  const held = await db
+    .prepare('SELECT shard_id, loc, owner_id FROM online_regions WHERE season_id = ?1 AND owner_id IS NOT NULL')
     .bind(season)
-    .all<{ shard_id: number; q: number; r: number; owner_id: number }>();
+    .all<{ shard_id: number; loc: number; owner_id: number }>();
   const score = new Map<number, number>();
-  for (const h of hexes.results) {
-    const s = seedOf.get(h.shard_id);
-    if (!s) continue;
-    const info = hexInfo(s.seed, h.q, h.r, s.radius);
-    score.set(h.owner_id, (score.get(h.owner_id) ?? 0) + hexScore(info));
+  for (const h of held.results) {
+    const w = mapOf.get(h.shard_id);
+    if (!w || !w.has(h.loc)) continue;
+    score.set(h.owner_id, (score.get(h.owner_id) ?? 0) + regionScore(w.info(h.loc)));
   }
   const members = await db
     .prepare(
@@ -176,7 +176,9 @@ export interface Shard {
   season: number;
   id: number;
   seed: number;
-  radius: number;
+  mapId: string;
+  /** The shard's map. */
+  world: WorldGraph;
 }
 
 const shardCache = new Map<string, Shard>();
@@ -185,23 +187,34 @@ export async function getShard(db: D1Database, season: number, id: number): Prom
   const k = `${season}:${id}`;
   const c = shardCache.get(k);
   if (c) return c;
-  const r = await db.prepare('SELECT seed, radius FROM online_shards WHERE season_id = ?1 AND id = ?2').bind(season, id).first<{ seed: number; radius: number }>();
+  const r = await db.prepare('SELECT seed, map_id FROM online_shards WHERE season_id = ?1 AND id = ?2').bind(season, id).first<{ seed: number; map_id: string }>();
   if (!r) throw new ApiError(404, 'not_found', 'No such shard');
-  const s = { season, id, seed: r.seed, radius: r.radius };
+  if (!hasMap(r.map_id)) throw new ApiError(503, 'map_missing', `This shard's map (${r.map_id}) is not available`);
+  const s: Shard = { season, id, seed: r.seed, mapId: r.map_id, world: getMap(r.map_id) };
   shardCache.set(k, s);
   return s;
 }
 
-/** The newest shard with room, or a new one. */
-export async function openShard(db: D1Database, season: number, now = Date.now()): Promise<Shard> {
-  const r = await db
-    .prepare('SELECT id FROM online_shards WHERE season_id = ?1 AND players < ?2 ORDER BY id LIMIT 1')
-    .bind(season, ONLINE_RULES.shardCapacity)
-    .first<{ id: number }>();
-  if (r) return getShard(db, season, r.id);
+/** Players a shard on this map takes: the rules' capacity, at most one per spawn plot. */
+export function shardCapacity(world: WorldGraph): number {
+  return Math.max(1, Math.min(ONLINE_RULES.shardCapacity, world.spawns().length));
+}
+
+/** The map new shards get (the season map; tests may pin one with the ONLINE_MAP binding). */
+export function seasonMapId(pinned?: string | null): string {
+  return pinned && hasMap(pinned) ? pinned : DEFAULT_MAP_ID;
+}
+
+/** The oldest shard with room, or a new one on the season map. */
+export async function openShard(db: D1Database, season: number, now = Date.now(), mapId = DEFAULT_MAP_ID): Promise<Shard> {
+  const open = await db
+    .prepare('SELECT id, map_id, players FROM online_shards WHERE season_id = ?1 ORDER BY id')
+    .bind(season)
+    .all<{ id: number; map_id: string; players: number }>();
+  for (const s of open.results) if (hasMap(s.map_id) && s.players < shardCapacity(getMap(s.map_id))) return getShard(db, season, s.id);
   const last = await db.prepare('SELECT MAX(id) AS id FROM online_shards WHERE season_id = ?1').bind(season).first<{ id: number | null }>();
   const id = (last?.id ?? 0) + 1;
-  await db.prepare('INSERT OR IGNORE INTO online_shards (season_id, id, seed, radius, created_at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(season, id, randomU32(), SHARD_RADIUS, now).run();
+  await db.prepare('INSERT OR IGNORE INTO online_shards (season_id, id, map_id, seed, created_at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(season, id, mapId, randomU32(), now).run();
   return getShard(db, season, id);
 }
 
@@ -222,10 +235,8 @@ export interface ProfileRow {
   energy_at: number;
   next_id: number;
   formations: string;
-  home_q: number;
-  home_r: number;
-  army_q: number;
-  army_r: number;
+  home_loc: number;
+  army_loc: number;
   march: string | null;
   battles: number;
   wins: number;
@@ -235,30 +246,31 @@ export interface ProfileRow {
 }
 
 export interface March {
-  path: [number, number][];
+  /** Regions from the start to the destination. */
+  path: number[];
   /** Arrival time at each path entry (at[0] = departure). */
   at: number[];
 }
 
 export interface ArmyState {
-  /** Hex the army stands on (or last passed). */
-  pos: Axial;
+  /** Region the army stands in (or last passed). */
+  pos: number;
   marching: boolean;
   march: March | null;
   /** Destination and arrival while marching. */
-  dest: Axial | null;
+  dest: number | null;
   arriveAt: number | null;
 }
 
-export function armyState(p: Pick<ProfileRow, 'army_q' | 'army_r' | 'march'>, now: number): ArmyState {
+export function armyState(p: Pick<ProfileRow, 'army_loc' | 'march'>, now: number): ArmyState {
   const m = p.march ? (JSON.parse(p.march) as March) : null;
-  if (!m || m.path.length === 0) return { pos: { q: p.army_q, r: p.army_r }, marching: false, march: null, dest: null, arriveAt: null };
+  if (!m || m.path.length === 0) return { pos: p.army_loc, marching: false, march: null, dest: null, arriveAt: null };
   let i = 0;
   while (i + 1 < m.at.length && m.at[i + 1] <= now) i++;
   const last = m.path.length - 1;
-  const pos = { q: m.path[i][0], r: m.path[i][1] };
+  const pos = m.path[i];
   if (i >= last) return { pos, marching: false, march: null, dest: null, arriveAt: null };
-  return { pos, marching: true, march: m, dest: { q: m.path[last][0], r: m.path[last][1] }, arriveAt: m.at[last] };
+  return { pos, marching: true, march: m, dest: m.path[last], arriveAt: m.at[last] };
 }
 
 export const heroPrefix = (season: number, pid: number) => `s${season}p${pid}_`;
@@ -273,69 +285,65 @@ export async function requireProfile(db: D1Database, season: number, pid: number
   return p;
 }
 
-/** Owned hexes of a shard (for home placement). */
-async function ownedCoords(db: D1Database, shard: Shard): Promise<Axial[]> {
+/** Owned regions of a shard (for home placement). */
+async function ownedLocs(db: D1Database, shard: Shard): Promise<number[]> {
   const r = await db
-    .prepare('SELECT q, r FROM online_hexes WHERE season_id = ?1 AND shard_id = ?2 AND owner_id IS NOT NULL')
+    .prepare('SELECT loc FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND owner_id IS NOT NULL')
     .bind(shard.season, shard.id)
-    .all<{ q: number; r: number }>();
-  return r.results;
+    .all<{ loc: number }>();
+  return r.results.map((x) => x.loc);
 }
 
 /**
- * A free home hex: passable plain land (no town, fort or capital) at least
- * homeSpacing hexes from anyone's territory and away from the capitals,
- * searched outward from a random spot on the middle rings.
+ * A free home region: a spawn plot of the map nobody holds, that is not a
+ * lair, boss site or trading post, preferably homeSpacing routes from anyone's
+ * land (else any free spawn). `start` picks among the candidates.
  */
-export function pickHome(shard: Shard, taken: Axial[], start: number): Axial | null {
-  const near = (h: Axial, d: number) => taken.some((t) => hexDistance(t, h) <= d);
-  const caps = capitals(shard.radius);
-  const ring = 8 + (start % Math.max(1, shard.radius - 14));
-  const dirs = hexesWithin({ q: 0, r: 0 }, ring).filter((h) => hexDistance(h, { q: 0, r: 0 }) === ring);
-  const c0 = dirs[start % dirs.length];
-  for (let d = 0; d <= shard.radius; d++) {
-    const cands = d === 0 ? [c0] : hexesWithin(c0, d, shard.radius).filter((h) => hexDistance(h, c0) === d);
-    for (const h of cands) {
-      const info = hexInfo(shard.seed, h.q, h.r, shard.radius);
-      if (!info.passable || info.fort || info.capital || info.type === 'town') continue;
-      // beast lairs and world bosses are nobody's home
-      if (beastHex(shard.seed, info, shard.radius)) continue;
-      // nor are the trading posts (src/online/merchants.ts)
-      if (tradingPostAt(shard.seed, h, shard.radius)) continue;
-      if (hexDistance(h, { q: 0, r: 0 }) > shard.radius - 2) continue;
-      if (caps.some((c) => hexDistance(c, h) <= 4)) continue;
-      if (near(h, ONLINE_RULES.homeSpacing)) continue;
-      return h;
-    }
-  }
-  return null;
+export function pickHome(shard: Pick<Shard, 'world' | 'seed'>, taken: readonly number[], start: number): number | null {
+  const w = shard.world;
+  const held = new Set(taken);
+  const free = w
+    .spawns()
+    .filter((loc) => !held.has(loc) && !beastLoc(w, shard.seed, loc) && !tradingPostAt(w, loc));
+  if (!free.length) return null;
+  const near = new Set<number>();
+  for (const t of taken) if (w.has(t)) for (const n of w.within(t, ONLINE_RULES.homeSpacing)) near.add(n);
+  const spaced = free.filter((loc) => !near.has(loc));
+  const list = spaced.length ? spaced : free;
+  return list[(start >>> 0) % list.length];
 }
 
 /**
  * Joins the current season: picks a shard (or the given one, e.g. the shard
- * of the clan whose invite brought the player), places the home hex and
+ * of the clan whose invite brought the player), places the home region and
  * raises the starting army. Idempotent.
  */
-export async function ensureProfile(db: D1Database, season: Season, pid: number, now = Date.now(), shardId?: number): Promise<ProfileRow> {
+export async function ensureProfile(db: D1Database, season: Season, pid: number, now = Date.now(), shardId?: number, mapId?: string): Promise<ProfileRow> {
   const existing = await getProfile(db, season.id, pid);
   if (existing) return existing;
-  const shard = shardId !== undefined ? await getShard(db, season.id, shardId) : await openShard(db, season.id, now);
-  const taken = await ownedCoords(db, shard);
-  let home: Axial | null = null;
-  for (let attempt = 0; attempt < 5 && !home; attempt++) {
-    const h = pickHome(shard, taken, hashString(`${pid}:${attempt}:${randomU32()}`));
-    if (!h) break;
-    const ins = await db
-      .prepare(
-        `INSERT INTO online_hexes (season_id, shard_id, q, r, occupant, owner_id, home, captured_at, accrued_at)
-         VALUES (?1, ?2, ?3, ?4, 'player', ?5, 1, ?6, ?6) ON CONFLICT DO NOTHING`,
-      )
-      .bind(season.id, shard.id, h.q, h.r, pid, now)
-      .run();
-    if (ins.meta.changes === 1) home = h;
-    else taken.push(h);
+  let shard = shardId !== undefined ? await getShard(db, season.id, shardId) : await openShard(db, season.id, now, seasonMapId(mapId));
+  let home: number | null = null;
+  for (let round = 0; home === null; round++) {
+    const taken = await ownedLocs(db, shard);
+    for (let attempt = 0; attempt < 5 && home === null; attempt++) {
+      const h = pickHome(shard, taken, hashString(`${pid}:${attempt}:${randomU32()}`));
+      if (h === null) break;
+      const ins = await db
+        .prepare(
+          `INSERT INTO online_regions (season_id, shard_id, loc, occupant, owner_id, home, captured_at, accrued_at)
+           VALUES (?1, ?2, ?3, 'player', ?4, 1, ?5, ?5) ON CONFLICT DO NOTHING`,
+        )
+        .bind(season.id, shard.id, h, pid, now)
+        .run();
+      if (ins.meta.changes === 1) home = h;
+      else taken.push(h);
+    }
+    if (home !== null) break;
+    // Every spawn plot of this shard is taken (homes and conquests): it is full; the next join opens another.
+    if (shardId !== undefined || round >= 2) throw new ApiError(503, 'shard_full', 'No free home region in this shard');
+    await db.prepare('UPDATE online_shards SET players = MAX(players, ?3) WHERE season_id = ?1 AND id = ?2').bind(season.id, shard.id, shardCapacity(shard.world)).run();
+    shard = await openShard(db, season.id, now, seasonMapId(mapId));
   }
-  if (!home) throw new ApiError(503, 'shard_full', 'No free home hex in this shard');
   const ids = { nextId: 1 };
   const heroes = starterOnlineArmy(hashString(`online:${season.id}:${pid}`), ids, heroPrefix(season.id, pid));
   const s = ONLINE_RULES.start;
@@ -343,11 +351,18 @@ export async function ensureProfile(db: D1Database, season: Season, pid: number,
     db
       .prepare(
         `INSERT OR IGNORE INTO online_profiles (season_id, player_id, shard_id, gold, food, wood, bronze, recruits, energy, energy_at,
-           next_id, formations, home_q, home_r, army_q, army_r, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?13, ?14, ?10, ?10)`,
+           next_id, formations, home_loc, army_loc, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13, ?10, ?10)`,
       )
-      .bind(season.id, pid, shard.id, s.gold, s.food, s.wood, s.bronze, s.recruits, ONLINE_RULES.energyMax, now, ids.nextId, JSON.stringify(DEFAULT_FORMATIONS), home.q, home.r),
+      .bind(season.id, pid, shard.id, s.gold, s.food, s.wood, s.bronze, s.recruits, ONLINE_RULES.energyMax, now, ids.nextId, JSON.stringify(DEFAULT_FORMATIONS), home),
     db.prepare('UPDATE online_shards SET players = players + changes() WHERE season_id = ?1 AND id = ?2').bind(season.id, shard.id),
+    // the home region is the player's home camp (docs/MAP_V3.md "Camp")
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO online_camps (season_id, shard_id, loc, player_id, home, created_at)
+         SELECT ?1, ?2, ?3, ?4, 1, ?5 WHERE EXISTS (SELECT 1 FROM online_profiles WHERE season_id = ?1 AND player_id = ?4 AND home_loc = ?3)`,
+      )
+      .bind(season.id, shard.id, home, pid, now),
     ...heroes.map((h) =>
       db
         .prepare('INSERT OR IGNORE INTO online_heroes (id, season_id, player_id, data, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)')
@@ -355,9 +370,9 @@ export async function ensureProfile(db: D1Database, season: Season, pid: number,
     ),
   ]);
   if (res[0].meta.changes !== 1) {
-    // Lost a race with another request of the same player: give the extra home hex back.
-    await db.prepare('DELETE FROM online_hexes WHERE season_id = ?1 AND shard_id = ?2 AND q = ?3 AND r = ?4 AND owner_id = ?5 AND home = 1 AND NOT EXISTS (SELECT 1 FROM online_profiles WHERE season_id = ?1 AND player_id = ?5 AND home_q = ?3 AND home_r = ?4)')
-      .bind(season.id, shard.id, home.q, home.r, pid)
+    // Lost a race with another request of the same player: give the extra home region back.
+    await db.prepare('DELETE FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND loc = ?3 AND owner_id = ?4 AND home = 1 AND NOT EXISTS (SELECT 1 FROM online_profiles WHERE season_id = ?1 AND player_id = ?4 AND home_loc = ?3)')
+      .bind(season.id, shard.id, home, pid)
       .run();
   }
   return (await getProfile(db, season.id, pid))!;
@@ -399,15 +414,14 @@ export interface HeroRow {
   busy_ticket: string | null;
   busy_until: number;
   updated_at: number;
-  gq: number | null;
-  gr: number | null;
+  gloc: number | null;
 }
 
 export interface OwnedHero {
   hero: Hero;
   playerId: number;
-  /** Hex it garrisons, or null when it marches with the field army. */
-  garrison: Axial | null;
+  /** Region it garrisons, or null when it marches with the field army. */
+  garrison: number | null;
   woundedUntil: number;
   busyUntil: number;
   updatedAt: number;
@@ -417,7 +431,7 @@ export function heroOf(r: HeroRow): OwnedHero {
   return {
     hero: normalizeEquip(JSON.parse(r.data) as Hero),
     playerId: r.player_id,
-    garrison: r.gq === null || r.gq === undefined ? null : { q: r.gq, r: r.gr! },
+    garrison: r.gloc === null || r.gloc === undefined ? null : r.gloc,
     woundedUntil: r.wounded_until,
     busyUntil: r.busy_until,
     updatedAt: r.updated_at,
@@ -427,7 +441,7 @@ export function heroOf(r: HeroRow): OwnedHero {
 export async function loadHeroes(db: D1Database, season: number, pid: number): Promise<OwnedHero[]> {
   const r = await db
     .prepare(
-      `SELECT h.*, g.q AS gq, g.r AS gr FROM online_heroes h
+      `SELECT h.*, g.loc AS gloc FROM online_heroes h
        LEFT JOIN online_garrisons g ON g.hero_id = h.id
        WHERE h.season_id = ?1 AND h.player_id = ?2 ORDER BY h.created_at, h.id`,
     )
@@ -436,13 +450,13 @@ export async function loadHeroes(db: D1Database, season: number, pid: number): P
   return r.results.map(heroOf);
 }
 
-export async function loadGarrison(db: D1Database, shard: Shard, h: Axial): Promise<OwnedHero[]> {
+export async function loadGarrison(db: D1Database, shard: Pick<Shard, 'season' | 'id'>, loc: number): Promise<OwnedHero[]> {
   const r = await db
     .prepare(
-      `SELECT x.*, g.q AS gq, g.r AS gr FROM online_garrisons g JOIN online_heroes x ON x.id = g.hero_id
-       WHERE g.season_id = ?1 AND g.shard_id = ?2 AND g.q = ?3 AND g.r = ?4 ORDER BY g.placed_at, x.id`,
+      `SELECT x.*, g.loc AS gloc FROM online_garrisons g JOIN online_heroes x ON x.id = g.hero_id
+       WHERE g.season_id = ?1 AND g.shard_id = ?2 AND g.loc = ?3 ORDER BY g.placed_at, x.id`,
     )
-    .bind(shard.season, shard.id, h.q, h.r)
+    .bind(shard.season, shard.id, loc)
     .all<HeroRow>();
   return r.results.map(heroOf);
 }
@@ -467,13 +481,12 @@ export function formationsOf(json: string | null): FormationType[] {
   }
 }
 
-// ------------------------------------------------------------------ hexes
+// ------------------------------------------------------------------ regions
 
-export interface HexRow {
+export interface RegionRow {
   season_id: number;
   shard_id: number;
-  q: number;
-  r: number;
+  loc: number;
   occupant: string;
   owner_id: number | null;
   clan_id: number | null;
@@ -488,27 +501,33 @@ export interface HexRow {
   siege_wins: number;
   siege_at: number | null;
   version: number;
-  /** Lair hexes: when the beast was last slain (migration 0004). */
+  /** Lair regions: when the beast was last slain. */
   beast_slain_at?: number | null;
 }
 
-export async function hexRow(db: D1Database, shard: Shard, h: Axial): Promise<HexRow | null> {
-  return db
-    .prepare('SELECT * FROM online_hexes WHERE season_id = ?1 AND shard_id = ?2 AND q = ?3 AND r = ?4')
-    .bind(shard.season, shard.id, h.q, h.r)
-    .first<HexRow>();
+export async function regionRow(db: D1Database, shard: Pick<Shard, 'season' | 'id'>, loc: number): Promise<RegionRow | null> {
+  return db.prepare('SELECT * FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND loc = ?3').bind(shard.season, shard.id, loc).first<RegionRow>();
 }
 
-export async function hexRowsIn(db: D1Database, shard: Shard, q0: number, q1: number, r0: number, r1: number): Promise<HexRow[]> {
-  const r = await db
-    .prepare('SELECT * FROM online_hexes WHERE season_id = ?1 AND shard_id = ?2 AND q BETWEEN ?3 AND ?4 AND r BETWEEN ?5 AND ?6')
-    .bind(shard.season, shard.id, q0, q1, r0, r1)
-    .all<HexRow>();
-  return r.results;
+/** The stored rows of some regions (those without a row are at the map's default). */
+export async function regionRows(db: D1Database, shard: Pick<Shard, 'season' | 'id'>, locs: Iterable<number>): Promise<RegionRow[]> {
+  const ids = [...new Set(locs)].filter((x) => Number.isSafeInteger(x));
+  const out: RegionRow[] = [];
+  for (let i = 0; i < ids.length; i += 90) {
+    const part = ids.slice(i, i + 90);
+    const r = await db
+      .prepare(`SELECT * FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND loc IN (${part.map((_, j) => `?${j + 3}`).join(',')})`)
+      .bind(shard.season, shard.id, ...part)
+      .all<RegionRow>();
+    out.push(...r.results);
+  }
+  return out;
 }
 
-export function staticHex(shard: Shard, h: Axial): HexInfo {
-  return hexInfo(shard.seed, h.q, h.r, shard.radius);
+/** Static facts of a region of the shard's map; 400 for an id not on the map. */
+export function staticRegion(shard: Pick<Shard, 'world'>, loc: number): RegionInfo {
+  if (!Number.isInteger(loc) || !shard.world.has(loc)) throw new ApiError(400, 'bad_request', 'No such region');
+  return shard.world.info(loc);
 }
 
 // ------------------------------------------------------------------ clans & names

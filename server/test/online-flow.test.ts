@@ -20,7 +20,7 @@ import { currentSeason } from '../src/online/store';
 import { shardStub } from '../src/online/context';
 import { RegionDO } from '../src/region';
 import type { DuelHub } from '../src/online/duel';
-import { DB, fresh, freeNeighbour, join, post, wsOnline, type Ticket, type WsClient } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, join, post, sameShard, wsOnline, type Ticket, type WsClient } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -115,7 +115,7 @@ async function attackRound(id: number, opts: { pressReady: boolean; fps: number;
     await DB().prepare('INSERT INTO online_consumables (season_id, player_id, consumable_id, qty) VALUES (?1, ?2, ?3, 1)').bind(season.id, p.playerId, opts.consumable).run();
   }
   const h = await freeNeighbour(p);
-  const t = await post<Ticket & { consumable: string | null }>('/api/online/attack/start', p.token, { ...h, consumable: opts.consumable ?? null });
+  const t = await post<Ticket & { consumable: string | null }>('/api/online/attack/start', p.token, { loc: h, consumable: opts.consumable ?? null });
   expect(t.status).toBe(200);
   expect(t.body.consumable ?? null).toBe(opts.consumable ?? null);
   // the ticket travels as JSON, exactly as the client gets it
@@ -172,7 +172,7 @@ describe('online attack flow (client code -> server replay)', () => {
   it('a wrong deployment count does not replay (the count matters)', async () => {
     const p = await join(970103);
     const h = await freeNeighbour(p);
-    const t = await post<Ticket>('/api/online/attack/start', p.token, h);
+    const t = await post<Ticket>('/api/online/attack/start', p.token, { loc: h });
     const s = new HeadlessScene(t.body.setup, 0);
     const f = s.sim.groups[s.groups()[0]].formation;
     s.order({ kind: 'form', group: s.groups()[0], cx: f.cx - 3, cy: f.cy + 1, fx: f.fx, fy: f.fy, frontage: f.frontage });
@@ -206,6 +206,7 @@ function client(start: DuelStart, c: WsClient) {
 async function duelPair(ids: [number, number]) {
   const a = await join(ids[0], 'Achilles');
   const b = await join(ids[1], 'Hektor');
+  await sameShard(a, b);
   const ca = await wsOnline(a.token);
   const cb = await wsOnline(b.token);
   await ca.next('welcome');

@@ -26,12 +26,12 @@ import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
 import { LEGACY_RARITY, normalizeItem, normalizeRarity, type Item } from '../../../src/data/items';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
-import { hexDistance, inShard, type Axial } from '../../../src/online/hex';
+import type { WorldGraph } from '../../../src/online/world';
 import { MARKET, marketFee, priceBounds } from '../economy/catalog';
 import { balanceSql, ensureWallet, walletMove } from '../economy/wallet';
 import { addConsumable } from '../economy/routes';
 import { limit, player, type PlayerCtx } from './context';
-import { armyState, hexRow, playerNames, randomToken, revBatch, revGuard, staticHex, type HexRow, type Shard } from './store';
+import { armyState, playerNames, randomToken, regionRow, revBatch, revGuard, type RegionRow } from './store';
 import { ev, later, notify } from '../notify/outbox';
 
 export const market = new Hono<AppEnv>();
@@ -46,8 +46,7 @@ export interface ListingRow {
   season_id: number;
   shard_id: number;
   seller_id: number;
-  town_q: number;
-  town_r: number;
+  town_loc: number;
   kind: Kind;
   ref: string;
   item: string | null;
@@ -76,11 +75,11 @@ function goodsName(l: ListingRow): string {
   return (l.qty > 1 ? `${l.qty}× ${name}` : name).slice(0, 60);
 }
 
-function listingView(l: ListingRow, pid: number, names: Map<number, string>, now: number) {
+function listingView(l: ListingRow, pid: number, names: Map<number, string>, now: number, world: WorldGraph) {
   return {
     id: l.id,
     seller: { id: l.seller_id, name: names.get(l.seller_id) ?? null },
-    town: { q: l.town_q, r: l.town_r },
+    town: { loc: l.town_loc, name: world.has(l.town_loc) ? world.info(l.town_loc).name : `#${l.town_loc}` },
     kind: l.kind,
     ref: l.ref,
     item: l.item ? normalizeItem(JSON.parse(l.item) as Item) : null,
@@ -97,28 +96,28 @@ function listingView(l: ListingRow, pid: number, names: Map<number, string>, now
   };
 }
 
-/** A town hex (type town, or a capital). */
-function isTown(shard: Shard, h: Axial): boolean {
-  const s = staticHex(shard, h);
-  return s.type === 'town' || s.capital;
+/** A town region (a town or a capital). */
+function isTown(world: WorldGraph, loc: number): boolean {
+  return world.has(loc) && world.info(loc).town;
 }
 
 /**
- * The "reachable place" rule of towns and merchants: the hex is the player's
- * or their clan's, or their army stands on or next to it. `row` may be passed
- * when already loaded.
+ * The "reachable place" rule of towns and merchants: the region is the
+ * player's or their clan's, or their army stands in or one route from it.
+ * `row` may be passed when already loaded.
  */
-export async function canReachHex(pc: PlayerCtx, h: Axial, row?: HexRow | null): Promise<boolean> {
-  if (!inShard(h, pc.shard.radius)) return false;
+export async function canReachRegion(pc: PlayerCtx, loc: number, row?: RegionRow | null): Promise<boolean> {
+  const w = pc.shard.world;
+  if (!w.has(loc)) return false;
   const army = armyState(pc.profile, pc.now);
-  if (hexDistance(army.pos, h) <= 1) return true;
-  const r = row === undefined ? await hexRow(pc.db, pc.shard, h) : row;
+  if (army.pos === loc || w.adjacent(army.pos, loc)) return true;
+  const r = row === undefined ? await regionRow(pc.db, pc.shard, loc) : row;
   return !!r && (r.owner_id === pc.pid || (pc.clan !== null && r.clan_id === pc.clan.clanId));
 }
 
-/** Can this player trade in this town (see canReachHex)? */
-async function canReachTown(pc: PlayerCtx, h: Axial): Promise<boolean> {
-  return inShard(h, pc.shard.radius) && isTown(pc.shard, h) && canReachHex(pc, h);
+/** Can this player trade in this town (see canReachRegion)? */
+async function canReachTown(pc: PlayerCtx, loc: number): Promise<boolean> {
+  return isTown(pc.shard.world, loc) && canReachRegion(pc, loc);
 }
 
 // ------------------------------------------------------------------ escrow return
@@ -179,8 +178,7 @@ const SearchQuery = z.object({
   currency: z.enum(['gold', 'drachmae']).optional(),
   minPrice: z.coerce.number().int().min(0).optional(),
   maxPrice: z.coerce.number().int().min(0).optional(),
-  townQ: z.coerce.number().int().optional(),
-  townR: z.coerce.number().int().optional(),
+  town: z.coerce.number().int().min(1).optional(),
   sort: z.enum(['price_asc', 'price_desc', 'newest', 'ending']).default('price_asc'),
   cursor: z.coerce.number().int().min(0).max(100_000).default(0),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -211,10 +209,7 @@ market.get('/', async (c) => {
   if (f.currency) add('currency = ?', f.currency);
   if (f.minPrice !== undefined) add('price >= ?', f.minPrice);
   if (f.maxPrice !== undefined) add('price <= ?', f.maxPrice);
-  if (f.townQ !== undefined && f.townR !== undefined) {
-    add('town_q = ?', f.townQ);
-    add('town_r = ?', f.townR);
-  }
+  if (f.town !== undefined) add('town_loc = ?', f.town);
   const order = { price_asc: 'price ASC, created_at ASC', price_desc: 'price DESC, created_at ASC', newest: 'created_at DESC', ending: 'expires_at ASC' }[f.sort];
   const rows = await pc.db
     .prepare(`SELECT * FROM market_listings WHERE ${where.join(' AND ')} ORDER BY ${order}, id LIMIT ${f.limit + 1} OFFSET ${f.cursor}`)
@@ -223,7 +218,7 @@ market.get('/', async (c) => {
   const page = rows.results.slice(0, f.limit);
   const names = await playerNames(pc.db, page.map((l) => l.seller_id));
   return c.json({
-    listings: page.map((l) => listingView(l, pc.pid, names, pc.now)),
+    listings: page.map((l) => listingView(l, pc.pid, names, pc.now, pc.shard.world)),
     next: rows.results.length > f.limit ? f.cursor + f.limit : null,
   });
 });
@@ -238,33 +233,28 @@ market.get('/mine', async (c) => {
     .all<ListingRow>();
   const names = await playerNames(pc.db, [pc.pid]);
   const open = rows.results.filter((l) => l.status === 'open').length;
-  return c.json({ listings: rows.results.map((l) => listingView(l, pc.pid, names, pc.now)), open, maxOpen: MARKET.maxOpenListings });
+  return c.json({ listings: rows.results.map((l) => listingView(l, pc.pid, names, pc.now, pc.shard.world)), open, maxOpen: MARKET.maxOpenListings });
 });
 
 /** Towns where you can list right now. */
 market.get('/towns', async (c) => {
   const pc = await player(c);
+  const w = pc.shard.world;
   const held = await pc.db
-    .prepare('SELECT q, r FROM online_hexes WHERE season_id = ?1 AND shard_id = ?2 AND (owner_id = ?3 OR (?4 IS NOT NULL AND clan_id = ?4))')
+    .prepare('SELECT loc FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND (owner_id = ?3 OR (?4 IS NOT NULL AND clan_id = ?4))')
     .bind(pc.season.id, pc.shard.id, pc.pid, pc.clan?.clanId ?? null)
-    .all<{ q: number; r: number }>();
+    .all<{ loc: number }>();
   const army = armyState(pc.profile, pc.now);
-  const cands: Axial[] = [...held.results, army.pos];
-  for (const d of [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]]) cands.push({ q: army.pos.q + d[0], r: army.pos.r + d[1] });
-  const seen = new Set<string>();
-  const towns = cands.filter((h) => {
-    const k = `${h.q},${h.r}`;
-    if (seen.has(k) || !inShard(h, pc.shard.radius) || !isTown(pc.shard, h)) return false;
-    seen.add(k);
-    return true;
-  });
+  const cands = new Set<number>([...held.results.map((x) => x.loc), ...w.within(army.pos, 1)]);
+  const towns = [...cands].filter((loc) => isTown(w, loc)).map((loc) => ({ loc, name: w.info(loc).name }));
   return c.json({ towns });
 });
 
 // ------------------------------------------------------------------ list
 
 const ListBody = z.object({
-  town: z.object({ q: z.number().int().min(-200).max(200), r: z.number().int().min(-200).max(200) }),
+  /** The town (loc) to list in. */
+  town: z.number().int().min(1).max(1_000_000),
   kind: z.enum(['item', 'resource', 'consumable']),
   /** item uid (kind item), resource key (food|wood|bronze) or consumable id. */
   ref: z.string().min(1).max(80),
@@ -319,8 +309,7 @@ market.post('/list', async (c) => {
     season_id: pc.season.id,
     shard_id: pc.shard.id,
     seller_id: pc.pid,
-    town_q: body.town.q,
-    town_r: body.town.r,
+    town_loc: body.town,
     kind: body.kind,
     ref,
     item: item ? JSON.stringify(item) : null,
@@ -347,10 +336,10 @@ market.post('/list', async (c) => {
   stmts.push(
     pc.db
       .prepare(
-        `INSERT INTO market_listings (id, season_id, shard_id, seller_id, town_q, town_r, kind, ref, item, qty, rarity, currency, price, created_at, expires_at)
-         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15 WHERE ${g}`,
+        `INSERT INTO market_listings (id, season_id, shard_id, seller_id, town_loc, kind, ref, item, qty, rarity, currency, price, created_at, expires_at)
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14 WHERE ${g}`,
       )
-      .bind(id, pc.season.id, pc.shard.id, pc.pid, body.town.q, body.town.r, body.kind, ref, listing.item, qty, rarity, body.currency, body.price, pc.now, expiresAt),
+      .bind(id, pc.season.id, pc.shard.id, pc.pid, body.town, body.kind, ref, listing.item, qty, rarity, body.currency, body.price, pc.now, expiresAt),
     audit(pc.db, listing, pc.pid, 'list', g, pc.now),
   );
   try {
@@ -363,7 +352,7 @@ market.post('/list', async (c) => {
   }
   emit(c, 'market_list', { kind: body.kind, currency: body.currency, price: body.price });
   const names = await playerNames(pc.db, [pc.pid]);
-  return c.json({ listing: listingView(listing, pc.pid, names, pc.now) });
+  return c.json({ listing: listingView(listing, pc.pid, names, pc.now, pc.shard.world) });
 });
 
 // ------------------------------------------------------------------ buy & cancel
@@ -425,7 +414,7 @@ market.post('/buy', async (c) => {
   emit(c, 'market_buy', { kind: l.kind as 'item' | 'resource' | 'consumable', currency: l.currency as 'gold' | 'drachmae', price: l.price });
   const names = await playerNames(pc.db, [l.seller_id]);
   later(c, notify(c.env, [ev(l.seller_id, 'market_sold', `sold:${l.id}`, { what: goodsName(l), price: l.price, currency: l.currency, gets: l.price - fee })], { shard: pc.shard }));
-  return c.json({ listing: listingView({ ...l, status: 'sold', buyer_id: pc.pid, fee, closed_at: pc.now }, pc.pid, names, pc.now), paid: l.price, fee, sellerGets: l.price - fee });
+  return c.json({ listing: listingView({ ...l, status: 'sold', buyer_id: pc.pid, fee, closed_at: pc.now }, pc.pid, names, pc.now, pc.shard.world), paid: l.price, fee, sellerGets: l.price - fee });
 });
 
 market.post('/cancel', async (c) => {

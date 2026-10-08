@@ -104,8 +104,7 @@ CREATE TABLE market_listings (
   season_id   INTEGER NOT NULL,
   shard_id    INTEGER NOT NULL,
   seller_id   INTEGER NOT NULL REFERENCES players(id),
-  town_q      INTEGER NOT NULL,
-  town_r      INTEGER NOT NULL,
+  town_loc    INTEGER NOT NULL,                    -- the town region it is listed in
   kind        TEXT NOT NULL,                       -- item | resource | consumable
   ref         TEXT NOT NULL,                       -- item def id | resource key | consumable id
   item        TEXT,                                -- JSON Item for kind = item

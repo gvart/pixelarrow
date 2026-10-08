@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { hexInfo, neighbours } from '../../src/online/hex';
 import { computeStats } from '../../src/sim/stats';
 import type { Hero } from '../../src/data/units';
 import { PASS, PASS_TIERS } from '../src/economy/catalog';
 import { PRODUCTS } from '../src/products';
 import { currentSeason, getShard } from '../src/online/store';
 import { api, devLogin, mockTelegram, webhook } from './helpers';
-import { DB, fresh, freeNeighbour, getJson, join, play, post, weakenNeutrals, wsOnline, type Ticket } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, getJson, join, placeArmy, play, post, sameShard, weakenNeutrals, wsOnline, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -138,6 +137,20 @@ describe('shop: cosmetics and the season pass with Drachmae', () => {
     expect((await wallet(token)).loadout).toEqual({ cloak: 'cloak_crimson' });
   });
 
+  it('soldier cosmetics (crest, aura, victory pose) are bought and worn like the rest', async () => {
+    const { token, playerId } = await devLogin(950109);
+    await giveDrachmae(playerId, 500);
+    for (const item of ['crest_white', 'aura_embers', 'pose_salute']) expect((await post('/api/economy/buy', token, { requestId: reqId(), item })).status).toBe(200);
+    // the slot must match the cosmetic
+    expect((await post('/api/economy/cosmetics/equip', token, { slot: 'aura', id: 'crest_white' })).status).toBe(400);
+    await post('/api/economy/cosmetics/equip', token, { slot: 'crest', id: 'crest_white' });
+    await post('/api/economy/cosmetics/equip', token, { slot: 'aura', id: 'aura_embers' });
+    const eq = await post<{ loadout: Record<string, string> }>('/api/economy/cosmetics/equip', token, { slot: 'pose', id: 'pose_salute' });
+    expect(eq.body.loadout).toEqual({ crest: 'crest_white', aura: 'aura_embers', pose: 'pose_salute' });
+    const off = await post<{ loadout: Record<string, string> }>('/api/economy/cosmetics/equip', token, { slot: 'aura', id: null });
+    expect(off.body.loadout).toEqual({ crest: 'crest_white', pose: 'pose_salute' });
+  });
+
   it('concurrent purchases cannot overspend', async () => {
     const { token, playerId } = await devLogin(950102);
     await giveDrachmae(playerId, 150);
@@ -151,7 +164,7 @@ describe('shop: cosmetics and the season pass with Drachmae', () => {
     const p = await join(950201);
     // A verified attack gives pass XP.
     const h = await freeNeighbour(p);
-    const t = await post<Ticket>('/api/online/attack/start', p.token, h);
+    const t = await post<Ticket>('/api/online/attack/start', p.token, { loc: h });
     const run = play(t.body.setup);
     const sub = await post<{ passXp: number; won: boolean }>('/api/online/attack/submit', p.token, { ticket: t.body.ticket, ...run });
     expect(sub.status).toBe(200);
@@ -224,24 +237,24 @@ describe('consumables', () => {
     await weakenNeutrals(a, h);
     const season = await currentSeason(DB());
     const shard = await getShard(DB(), season.id, a.profile.shard.id);
-    await DB().prepare("UPDATE online_hexes SET owner_id = ?1, occupant = 'player', accrued_at = ?2, captured_at = ?2 WHERE q = ?3 AND r = ?4").bind(a.playerId, Date.now(), h.q, h.r).run();
+    await DB().prepare("UPDATE online_regions SET owner_id = ?1, occupant = 'player', accrued_at = ?2, captured_at = ?2 WHERE shard_id = ?3 AND loc = ?4").bind(a.playerId, Date.now(), shard.id, h).run();
     const b = await join(950402);
-    const spot = neighbours(h).find((n) => hexInfo(shard.seed, n.q, n.r).passable && !(n.q === a.profile.home.q && n.r === a.profile.home.r))!;
-    await DB().prepare('UPDATE online_profiles SET army_q = ?1, army_r = ?2 WHERE player_id = ?3').bind(spot.q, spot.r, b.playerId).run();
+    const spot = shard.world.neighbours(h).find((n) => shard.world.info(n).passable && n !== a.profile.home)!;
+    await placeArmy(b, spot, shard.id);
     await DB()
       .prepare("INSERT INTO online_consumables (season_id, player_id, consumable_id, qty) VALUES (?1, ?2, 'sharpening_stone', 2), (?1, ?2, 'morale_wine', 1)")
       .bind(season.id, b.playerId)
       .run();
 
-    const two = await post<{ error: { code: string } }>('/api/online/attack/start', b.token, { ...h, consumables: ['sharpening_stone', 'morale_wine'] });
+    const two = await post<{ error: { code: string } }>('/api/online/attack/start', b.token, { loc: h, consumables: ['sharpening_stone', 'morale_wine'] });
     expect(two.status).toBe(400);
     expect(two.body.error.code).toBe('one_consumable');
-    const both = await post<{ error: { code: string } }>('/api/online/attack/start', b.token, { ...h, consumable: 'sharpening_stone', consumables: ['morale_wine'] });
+    const both = await post<{ error: { code: string } }>('/api/online/attack/start', b.token, { loc: h, consumable: 'sharpening_stone', consumables: ['morale_wine'] });
     expect(both.body.error.code).toBe('one_consumable');
-    expect((await post<{ error: { code: string } }>('/api/online/attack/start', b.token, { ...h, consumable: 'march_rations' })).body.error.code).toBe('bad_consumable');
-    expect((await post<{ error: { code: string } }>('/api/online/attack/start', b.token, { ...h, consumable: 'war_horn' })).body.error.code).toBe('none_left');
+    expect((await post<{ error: { code: string } }>('/api/online/attack/start', b.token, { loc: h, consumable: 'march_rations' })).body.error.code).toBe('bad_consumable');
+    expect((await post<{ error: { code: string } }>('/api/online/attack/start', b.token, { loc: h, consumable: 'war_horn' })).body.error.code).toBe('none_left');
 
-    const t = await post<Ticket & { consumable: string; setup: { consumables?: unknown; armies: { units: { stats: { dmg: number } }[] }[] } }>('/api/online/attack/start', b.token, { ...h, consumable: 'sharpening_stone' });
+    const t = await post<Ticket & { consumable: string; setup: { consumables?: unknown; armies: { units: { stats: { dmg: number } }[] }[] } }>('/api/online/attack/start', b.token, { loc: h, consumable: 'sharpening_stone' });
     expect(t.status).toBe(200);
     expect(t.body.defenderKind).toBe('militia');
     expect(t.body.consumable).toBe('sharpening_stone');
@@ -251,7 +264,7 @@ describe('consumables', () => {
     const unit = t.body.setup.armies[0].units.find((u) => (u as unknown as { heroId: string }).heroId === hero.id)!;
     expect(unit.stats.dmg).toBeCloseTo(computeStats(hero).dmg * 1.1, 1);
     // Resuming the open ticket (even naming another consumable) spends nothing more.
-    const again = await post<{ resumed: boolean; consumable: string }>('/api/online/attack/start', b.token, { ...h, consumable: 'morale_wine' });
+    const again = await post<{ resumed: boolean; consumable: string }>('/api/online/attack/start', b.token, { loc: h, consumable: 'morale_wine' });
     expect(again.body).toMatchObject({ resumed: true, consumable: 'sharpening_stone' });
     const inv = await inventory(b.token);
     expect(inv.inventory).toEqual({ sharpening_stone: 1, morale_wine: 1 });
@@ -265,6 +278,7 @@ describe('consumables', () => {
   it('duels: one consumable per side, spent when the duel starts and recorded in the setup', async () => {
     const a = await join(950501, 'Ajax');
     const b = await join(950502, 'Paris');
+    await sameShard(a, b);
     const season = await currentSeason(DB());
     await DB().prepare("INSERT INTO online_consumables (season_id, player_id, consumable_id, qty) VALUES (?1, ?2, 'war_horn', 1)").bind(season.id, a.playerId).run();
     await DB().prepare("INSERT INTO online_consumables (season_id, player_id, consumable_id, qty) VALUES (?1, ?2, 'morale_wine', 1)").bind(season.id, b.playerId).run();

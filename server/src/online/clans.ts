@@ -2,7 +2,7 @@
  * Clans (POST/GET /api/online/clans/*): one shard, one season. Roles leader /
  * officer / member; leader and officers invite (Telegram deep link
  * t.me/<bot>/<app>?startapp=clan_<code>) and kick lower ranks; only the leader
- * promotes, demotes or hands over leadership. Members' hexes are clan land:
+ * promotes, demotes or hands over leadership. Members' regions are clan land:
  * any member can garrison them.
  */
 import { emit } from '../telemetry/analytics';
@@ -56,11 +56,11 @@ async function clanView(pc: { db: D1Database; season: { id: number } }, clanId: 
     .prepare('SELECT player_id, role, joined_at FROM clan_members WHERE clan_id = ?1 ORDER BY joined_at')
     .bind(clanId)
     .all<{ player_id: number; role: ClanRole; joined_at: number }>();
-  const hexes = await pc.db
-    .prepare('SELECT owner_id, COUNT(*) AS n FROM online_hexes WHERE season_id = ?1 AND clan_id = ?2 GROUP BY owner_id')
+  const land = await pc.db
+    .prepare('SELECT owner_id, COUNT(*) AS n FROM online_regions WHERE season_id = ?1 AND clan_id = ?2 GROUP BY owner_id')
     .bind(pc.season.id, clanId)
     .all<{ owner_id: number; n: number }>();
-  const held = new Map(hexes.results.map((h) => [h.owner_id, h.n]));
+  const held = new Map(land.results.map((h) => [h.owner_id, h.n]));
   const names = await playerNames(pc.db, members.results.map((m) => m.player_id));
   const rank = { leader: 0, officer: 1, member: 2 } as const;
   return {
@@ -69,9 +69,9 @@ async function clanView(pc: { db: D1Database; season: { id: number } }, clanId: 
     tag: clan.tag,
     shard: clan.shard_id,
     createdAt: clan.created_at,
-    hexes: hexes.results.reduce((a, h) => a + h.n, 0),
+    regions: land.results.reduce((a, h) => a + h.n, 0),
     members: members.results
-      .map((m) => ({ id: m.player_id, name: names.get(m.player_id) ?? '?', role: m.role, joinedAt: m.joined_at, hexes: held.get(m.player_id) ?? 0 }))
+      .map((m) => ({ id: m.player_id, name: names.get(m.player_id) ?? '?', role: m.role, joinedAt: m.joined_at, regions: held.get(m.player_id) ?? 0 }))
       .sort((a, b) => rank[a.role] - rank[b.role] || a.joinedAt - b.joinedAt),
   };
 }
@@ -79,12 +79,12 @@ async function clanView(pc: { db: D1Database; season: { id: number } }, clanId: 
 /** Statements that move a player's land in or out of a clan and send away garrisons that no longer belong. */
 function landStatements(d: D1Database, season: number, pid: number, clanId: number | null): D1PreparedStatement[] {
   return [
-    d.prepare('UPDATE online_hexes SET clan_id = ?3 WHERE season_id = ?1 AND owner_id = ?2').bind(season, pid, clanId),
-    // My heroes guarding other people's hexes, and other people's heroes guarding mine, go home.
+    d.prepare('UPDATE online_regions SET clan_id = ?3 WHERE season_id = ?1 AND owner_id = ?2').bind(season, pid, clanId),
+    // My heroes guarding other people's regions, and other people's heroes guarding mine, go home.
     d
       .prepare(
         `DELETE FROM online_garrisons WHERE season_id = ?1 AND hero_id IN (
-           SELECT g.hero_id FROM online_garrisons g JOIN online_hexes x ON x.season_id = g.season_id AND x.shard_id = g.shard_id AND x.q = g.q AND x.r = g.r
+           SELECT g.hero_id FROM online_garrisons g JOIN online_regions x ON x.season_id = g.season_id AND x.shard_id = g.shard_id AND x.loc = g.loc
            WHERE g.season_id = ?1 AND ((g.player_id = ?2 AND x.owner_id != ?2) OR (x.owner_id = ?2 AND g.player_id != ?2)))`,
       )
       .bind(season, pid),
@@ -169,7 +169,7 @@ clans.get('/invite/:code', async (c) => {
   const inv = await validInvite(b.db, c.req.param('code'), b.now);
   const view = await clanView(b, inv.clan_id);
   const mine = await membership(b.db, b.season.id, b.pid);
-  return c.json({ clan: view && { id: view.id, name: view.name, tag: view.tag, members: view.members.length, hexes: view.hexes }, current: mine?.clanId ?? null, sameSeason: inv.clan.season_id === b.season.id });
+  return c.json({ clan: view && { id: view.id, name: view.name, tag: view.tag, members: view.members.length, regions: view.regions }, current: mine?.clanId ?? null, sameSeason: inv.clan.season_id === b.season.id });
 });
 
 clans.post('/join', async (c) => {
@@ -197,7 +197,7 @@ clans.post('/join', async (c) => {
       .prepare('UPDATE clan_invites SET uses = uses + 1 WHERE code = ?1 AND EXISTS (SELECT 1 FROM clan_members WHERE season_id = ?2 AND player_id = ?3 AND clan_id = ?4 AND joined_at = ?5)')
       .bind(inv.code, b.season.id, b.pid, inv.clan_id, b.now),
     b.db
-      .prepare('UPDATE online_hexes SET clan_id = ?3 WHERE season_id = ?1 AND owner_id = ?2 AND EXISTS (SELECT 1 FROM clan_members WHERE season_id = ?1 AND player_id = ?2 AND clan_id = ?3)')
+      .prepare('UPDATE online_regions SET clan_id = ?3 WHERE season_id = ?1 AND owner_id = ?2 AND EXISTS (SELECT 1 FROM clan_members WHERE season_id = ?1 AND player_id = ?2 AND clan_id = ?3)')
       .bind(b.season.id, b.pid, inv.clan_id),
   ]);
   if (res[0].meta.changes !== 1) throw new ApiError(409, 'clan_full', 'The clan is full or you already joined one');

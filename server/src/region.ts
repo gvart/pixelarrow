@@ -10,7 +10,7 @@
  * trusts those (it is not reachable from the internet directly).
  *
  * Besides presence it hosts, per shard:
- *  - hex attack locks (RPC lockHex / unlockHex / hexLock): one attack per hex
+ *  - region attack locks (RPC lockRegion / unlockRegion / regionLock): one attack per region
  *    at a time, expiring with the attack ticket (lazily; no alarms needed);
  *  - the live duel lobby and lockstep relay (server/src/online/duel.ts).
  * Protocol: src/online/protocol.ts and server/README.md.
@@ -36,8 +36,9 @@ import { ev, notify } from './notify/outbox';
 /** A march whose owner gets a bot notification on arrival if they are not online then. */
 export interface MarchNotice {
   at: number;
-  q: number;
-  r: number;
+  loc: number;
+  /** The region's name (for the message). */
+  place: string;
 }
 
 export interface PresenceInfo {
@@ -54,7 +55,7 @@ interface ShardMeta {
   shard: number;
 }
 
-export interface HexLock {
+export interface RegionLock {
   ticket: string;
   player: number;
   until: number;
@@ -120,21 +121,21 @@ export class RegionDO extends DurableObject<Env> {
   // ------------------------------------------------------------------ hex locks (RPC)
 
   /** Takes the attack lock of a hex unless someone else holds a live one. */
-  async lockHex(key: string, ticket: string, player: number, until: number, now = Date.now()): Promise<{ ok: boolean; until?: number }> {
-    const cur = await this.ctx.storage.get<HexLock>(`lock:${key}`);
+  async lockRegion(key: string, ticket: string, player: number, until: number, now = Date.now()): Promise<{ ok: boolean; until?: number }> {
+    const cur = await this.ctx.storage.get<RegionLock>(`lock:${key}`);
     if (cur && cur.until > now && cur.ticket !== ticket) return { ok: false, until: cur.until };
-    await this.ctx.storage.put(`lock:${key}`, { ticket, player, until } satisfies HexLock);
+    await this.ctx.storage.put(`lock:${key}`, { ticket, player, until } satisfies RegionLock);
     return { ok: true };
   }
 
-  async unlockHex(key: string, ticket: string): Promise<void> {
-    const cur = await this.ctx.storage.get<HexLock>(`lock:${key}`);
+  async unlockRegion(key: string, ticket: string): Promise<void> {
+    const cur = await this.ctx.storage.get<RegionLock>(`lock:${key}`);
     if (cur && cur.ticket === ticket) await this.ctx.storage.delete(`lock:${key}`);
   }
 
   /** The live lock of a hex, if any (expired locks are dropped lazily). */
-  async hexLock(key: string, now = Date.now()): Promise<HexLock | null> {
-    const cur = await this.ctx.storage.get<HexLock>(`lock:${key}`);
+  async regionLock(key: string, now = Date.now()): Promise<RegionLock | null> {
+    const cur = await this.ctx.storage.get<RegionLock>(`lock:${key}`);
     if (!cur) return null;
     if (cur.until <= now) {
       await this.ctx.storage.delete(`lock:${key}`);
@@ -163,7 +164,7 @@ export class RegionDO extends DurableObject<Env> {
     const prev = await this.ctx.storage.get<LiveArrival>(key);
     const sent = new Set(out.map((o) => o.to));
     const hides: Out[] = prev && prev.at > now ? prev.told.filter((v) => !sent.has(v)).map((v) => ({ to: v, msg: { type: 'army_hide', player: pid, now } })) : [];
-    const due = arrival && arrival.told.length && arrival.at <= now ? arrival.to.map((v) => ({ to: v, msg: { type: 'army_arrive', player: pid, q: arrival.q, r: arrival.r, now } })) : [];
+    const due = arrival && arrival.told.length && arrival.at <= now ? arrival.to.map((v) => ({ to: v, msg: { type: 'army_arrive', player: pid, loc: arrival.loc, now } })) : [];
     this.deliver([...out, ...hides, ...due] as Out[]);
     if (arrival && arrival.told.length && arrival.at > now) await this.ctx.storage.put(key, arrival);
     else if (prev) await this.ctx.storage.delete(key);
@@ -208,7 +209,7 @@ export class RegionDO extends DurableObject<Env> {
     for (const [k, a] of all) {
       if (a.at > now) continue;
       const pid = Number(k.slice('arrive:'.length));
-      for (const v of a.to) out.push({ to: v, msg: { type: 'army_arrive', player: pid, q: a.q, r: a.r, now } } as Out);
+      for (const v of a.to) out.push({ to: v, msg: { type: 'army_arrive', player: pid, loc: a.loc, now } } as Out);
       done.push(k);
     }
     if (done.length) await this.ctx.storage.delete(done);
@@ -240,7 +241,7 @@ export class RegionDO extends DurableObject<Env> {
     if (!due.length) return;
     await this.ctx.storage.delete(due.map(([pid]) => `notice:${pid}`));
     const away = due.filter(([pid]) => !this.ctx.getWebSockets(`p:${pid}`).some((w) => w.deserializeAttachment() !== null));
-    if (away.length) await notify(this.env, away.map(([pid, n]) => ev(pid, 'march_arrived', `march:${n.at}:${n.q}_${n.r}`, { q: n.q, r: n.r })), { now });
+    if (away.length) await notify(this.env, away.map(([pid, n]) => ev(pid, 'march_arrived', `march:${n.at}:${n.loc}`, { loc: n.loc, place: n.place })), { now });
   }
 
   // ------------------------------------------------------------------ duels

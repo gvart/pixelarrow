@@ -6,7 +6,7 @@
 import Phaser from 'phaser';
 import { Pix } from '../art/pixels';
 import { P } from '../art/palette';
-import { BAND_COLORS, renderPartyFigure } from '../art/worldArt';
+import { BAND_COLORS, PARTY_FH, PARTY_FINIAL, PARTY_FRAMES, PARTY_FW, renderPartyFigure } from '../art/worldArt';
 import { online } from '../platform/cloud';
 import { SUPPORTER_BANNER, type SyncStatus } from '../platform/online';
 
@@ -87,14 +87,15 @@ export function playerPartyTexture(scene: Phaser.Scene): string {
   const key = 'wm_band_player_gold';
   if (!scene.textures.exists(key)) {
     const px = renderPartyFigure(BAND_COLORS.player, GOLD);
-    // Taller finial and a light glint on the banner for each frame.
-    for (const ox of [0, 12]) {
-      px.set(ox + 9, 2, GOLD_LIGHT);
-      px.set(ox + 10, 1, GOLD_LIGHT);
+    // A light glint on the finial and the banner in each frame.
+    for (let f = 0; f < PARTY_FRAMES; f++) {
+      const ox = f * PARTY_FW + PARTY_FINIAL.x;
+      const bob = f % 2 ? -1 : 0;
+      px.set(ox, PARTY_FINIAL.y + bob, GOLD_LIGHT);
+      px.set(ox + 1, PARTY_FINIAL.y + bob + 2, GOLD_LIGHT);
     }
     const tex = scene.textures.addCanvas(key, px.toCanvas())!;
-    tex.add(0, 0, 0, 0, 12, 16);
-    tex.add(1, 0, 12, 0, 12, 16);
+    for (let f = 0; f < PARTY_FRAMES; f++) tex.add(f, 0, f * PARTY_FW, 0, PARTY_FW, PARTY_FH);
   }
   return key;
 }

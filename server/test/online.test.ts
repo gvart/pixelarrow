@@ -1,46 +1,71 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { hexInfo } from '../../src/online/hex';
 import { ONLINE_RULES } from '../../src/online/rules';
 import { WINS_TO_CLAIM } from '../../src/online/defenders';
 import { currentSeason, endSeason, getShard, pickHome } from '../src/online/store';
 import { api } from './helpers';
-import { DB, fresh, freeNeighbour, getJson, join, play, post, weakenNeutrals, type Profile, type Ticket } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, getJson, join, placeArmy, play, post, weakenNeutrals, worldOf, type Profile, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 
 describe('season, shard and profile', () => {
-  it('joins the season: home hex, starting army, purse; idempotent', async () => {
+  it('joins the season: home region on a spawn plot, starting army, purse; idempotent', async () => {
     const p = await join(7001);
     expect(p.profile.heroes).toHaveLength(5);
     expect(p.profile.resources.gold).toBe(ONLINE_RULES.start.gold);
-    expect(p.profile.army).toMatchObject(p.profile.home);
+    expect(p.profile.army).toMatchObject({ loc: p.profile.home, marching: false });
+    expect(p.profile.shard.map).toBe('test30');
+    expect(worldOf(p).info(p.profile.home)).toMatchObject({ spawn: true, kind: 'plot' });
     const again = await post<Profile>('/api/online/profile', p.token);
     expect(again.body.home).toEqual(p.profile.home);
     expect(again.body.heroes.map((h) => h.hero.id)).toEqual(p.profile.heroes.map((h) => h.hero.id));
-    const home = await DB().prepare('SELECT owner_id, home FROM online_hexes WHERE q = ?1 AND r = ?2').bind(p.profile.home.q, p.profile.home.r).first();
+    const home = await DB().prepare('SELECT owner_id, home FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND loc = ?3').bind(p.profile.season.id, p.profile.shard.id, p.profile.home).first();
     expect(home).toMatchObject({ owner_id: p.playerId, home: 1 });
-    const shard = await DB().prepare('SELECT players FROM online_shards').first<{ players: number }>();
+    const shard = await DB().prepare('SELECT players, map_id FROM online_shards WHERE id = ?1').bind(p.profile.shard.id).first<{ players: number; map_id: string }>();
     expect(shard?.players).toBeGreaterThanOrEqual(1);
+    expect(shard?.map_id).toBe('test30');
   });
 
-  it('places homes apart and on land', async () => {
+  it('places homes on free spawn plots, apart when the map allows', async () => {
     const a = await join(7002);
     const b = await join(7003);
-    const d = (Math.abs(a.profile.home.q - b.profile.home.q) + Math.abs(a.profile.home.r - b.profile.home.r) + Math.abs(a.profile.home.q + a.profile.home.r - b.profile.home.q - b.profile.home.r)) / 2;
-    expect(d).toBeGreaterThan(ONLINE_RULES.homeSpacing);
+    expect(b.profile.home === a.profile.home && b.profile.shard.id === a.profile.shard.id).toBe(false);
     const season = await currentSeason(DB());
     const shard = await getShard(DB(), season.id, a.profile.shard.id);
-    expect(hexInfo(shard.seed, a.profile.home.q, a.profile.home.r).passable).toBe(true);
-    expect(pickHome(shard, [a.profile.home, b.profile.home], 1)).not.toBeNull();
+    expect(shard.world.info(a.profile.home).spawn).toBe(true);
+    // pickHome: a free spawn, spaced from taken land when possible, never a taken one
+    const w = shard.world;
+    const taken = [a.profile.home];
+    for (let i = 0; i < 20; i++) {
+      const h = pickHome(shard, taken, i)!;
+      expect(w.info(h).spawn).toBe(true);
+      expect(taken).not.toContain(h);
+      expect(w.hops(a.profile.home, h)).toBeGreaterThan(ONLINE_RULES.homeSpacing);
+    }
+    const all = w.spawns();
+    expect(pickHome(shard, all, 3)).toBeNull();
+    expect(pickHome(shard, all.slice(1), 3)).toBe(all[0]);
   });
 
-  it('fog of war: only hexes near your land are sent; far hexes are hidden', async () => {
+  it('a full shard opens the next one', async () => {
+    const season = await currentSeason(DB());
+    const first = await join(7006);
+    const was = (await DB().prepare('SELECT players FROM online_shards WHERE season_id = ?1 AND id = ?2').bind(season.id, first.profile.shard.id).first<{ players: number }>())!.players;
+    await DB().prepare('UPDATE online_shards SET players = 1000 WHERE season_id = ?1 AND id = ?2').bind(season.id, first.profile.shard.id).run();
+    const next = await join(7007);
+    expect(next.profile.shard.id).toBeGreaterThan(first.profile.shard.id);
+    await DB().prepare('UPDATE online_shards SET players = ?3 WHERE season_id = ?1 AND id = ?2').bind(season.id, first.profile.shard.id, was).run();
+  });
+
+  it('fog of war: only regions near your land are sent; far ones are hidden', async () => {
     const p = await join(7004);
-    const map = await getJson<{ hexes: { q: number; r: number }[] }>('/api/online/map', p.token);
+    const w = worldOf(p);
+    const map = await getJson<{ regions: { loc: number }[]; shard: { map: string } }>('/api/online/map', p.token);
     expect(map.status).toBe(200);
-    expect(map.body.hexes.length).toBe(37); // home + sight 3
-    const far = { q: p.profile.home.q > 0 ? -20 : 20, r: 0 };
-    expect((await api(`/api/online/hex/${far.q}/${far.r}`, { token: p.token })).status).toBe(404);
+    expect(map.body.shard.map).toBe('test30');
+    expect(new Set(map.body.regions.map((r) => r.loc))).toEqual(new Set(w.within(p.profile.home, ONLINE_RULES.sight)));
+    const far = w.all().find((r) => r.passable && w.hops(p.profile.home, r.id) > ONLINE_RULES.sight)!.id;
+    expect((await api(`/api/online/region/${far}`, { token: p.token })).status).toBe(404);
+    expect((await api('/api/online/region/9999', { token: p.token })).status).toBe(400);
     expect((await api('/api/online/map')).status).toBe(401);
   });
 
@@ -49,8 +74,7 @@ describe('season, shard and profile', () => {
 describe('income', () => {
   it('accrues lazily from server time and is collected once', async () => {
     const p = await join(7101);
-    const { q, r } = p.profile.home;
-    await DB().prepare('UPDATE online_hexes SET accrued_at = ?1 WHERE q = ?2 AND r = ?3').bind(Date.now() - 10 * 3_600_000, q, r).run();
+    await DB().prepare('UPDATE online_regions SET accrued_at = ?1 WHERE owner_id = ?2').bind(Date.now() - 10 * 3_600_000, p.playerId).run();
     const prof = await getJson<Profile>('/api/online/profile', p.token);
     const pending = prof.body.income.pending;
     expect(pending.gold + pending.food).toBeGreaterThan(0);
@@ -65,10 +89,9 @@ describe('income', () => {
 
   it('caps accrual at incomeCapHours', async () => {
     const p = await join(7102);
-    const { q, r } = p.profile.home;
-    await DB().prepare('UPDATE online_hexes SET accrued_at = ?1 WHERE q = ?2 AND r = ?3').bind(Date.now() - 24 * 3_600_000, q, r).run();
+    await DB().prepare('UPDATE online_regions SET accrued_at = ?1 WHERE owner_id = ?2').bind(Date.now() - 24 * 3_600_000, p.playerId).run();
     const a = (await getJson<Profile>('/api/online/profile', p.token)).body.income.pending.food;
-    await DB().prepare('UPDATE online_hexes SET accrued_at = ?1 WHERE q = ?2 AND r = ?3').bind(Date.now() - 100 * 3_600_000, q, r).run();
+    await DB().prepare('UPDATE online_regions SET accrued_at = ?1 WHERE owner_id = ?2').bind(Date.now() - 100 * 3_600_000, p.playerId).run();
     const b = (await getJson<Profile>('/api/online/profile', p.token)).body.income.pending.food;
     expect(b).toBe(a);
   });
@@ -100,27 +123,33 @@ describe('army, recruiting and marches', () => {
     expect((await post('/api/online/equip', p.token, { heroId: h.id, slot: 'helmet', itemUid: 'nope' })).status).toBe(404);
   });
 
-  it('marches with travel time and energy; arrival resolves lazily', async () => {
+  it('marches along the routes with travel time and energy; arrival resolves lazily', async () => {
     const p = await join(7203);
+    const w = worldOf(p);
     const to = await freeNeighbour(p);
-    const m = await post<{ path: [number, number][]; at: number[]; energy: number; arriveAt: number }>('/api/online/march', p.token, to);
+    const m = await post<{ path: number[]; at: number[]; energy: number; arriveAt: number }>('/api/online/march', p.token, { loc: to });
     expect(m.status).toBe(200);
-    expect(m.body.path).toHaveLength(2);
-    expect(m.body.arriveAt).toBeGreaterThan(Date.now() + 60_000);
-    expect(m.body.energy).toBe(ONLINE_RULES.energyMax - ONLINE_RULES.energyPerHex);
+    const from = p.profile.army.loc;
+    expect(m.body.path).toEqual([from, to]);
+    expect(m.body.arriveAt - m.body.at[0]).toBe(w.minutes(from, to) * 60_000);
+    expect(m.body.energy).toBe(ONLINE_RULES.energyMax - ONLINE_RULES.energyPerStep);
     const during = (await getJson<Profile>('/api/online/profile', p.token)).body;
-    expect(during.army).toMatchObject({ marching: true, q: p.profile.home.q, r: p.profile.home.r });
+    expect(during.army).toMatchObject({ marching: true, loc: from });
+    // the sea is no destination; unknown regions neither
+    const sea = w.all().find((r) => r.kind === 'sea')!.id;
+    expect((await post<{ error: { code: string } }>('/api/online/march', p.token, { loc: sea })).body.error.code).toBe('no_path');
+    expect((await post('/api/online/march', p.token, { loc: 9999 })).status).toBe(400);
     // Time passes: shift the march into the past.
     const march = JSON.stringify({ path: m.body.path, at: m.body.at.map((t) => t - 3_600_000) });
     await DB().prepare('UPDATE online_profiles SET march = ?1 WHERE player_id = ?2').bind(march, p.playerId).run();
     const after = (await getJson<Profile>('/api/online/profile', p.token)).body;
-    expect(after.army).toMatchObject({ marching: false, q: to.q, r: to.r });
+    expect(after.army).toMatchObject({ marching: false, loc: to });
   });
 });
 
 describe('async attacks', () => {
-  async function startAttack(p: Awaited<ReturnType<typeof join>>, h: { q: number; r: number }) {
-    return post<Ticket & { error?: { code: string } }>('/api/online/attack/start', p.token, h);
+  async function startAttack(p: Awaited<ReturnType<typeof join>>, loc: number) {
+    return post<Ticket & { error?: { code: string } }>('/api/online/attack/start', p.token, { loc });
   }
 
   it('a verified attack applies: ticket, casualties, log; resubmitting returns the same result', async () => {
@@ -147,12 +176,10 @@ describe('async attacks', () => {
     expect(prof.resources.gold).toBe(p.profile.resources.gold + sub.body.gold);
   });
 
-  it('a won attack on weakened neutrals captures the hex and moves the army in', async () => {
+  it('a won attack on weakened neutrals captures the region and moves the army in', async () => {
     const p = await join(7302);
     const h = await freeNeighbour(p, () => true);
-    const season = await currentSeason(DB());
-    const shard = await getShard(DB(), season.id, p.profile.shard.id);
-    const tier = hexInfo(shard.seed, h.q, h.r).tier;
+    const tier = worldOf(p).info(h).tier;
     await weakenNeutrals(p, h);
     let captured = false;
     for (let i = 0; i < (WINS_TO_CLAIM[tier] ?? 1); i++) {
@@ -167,13 +194,14 @@ describe('async attacks', () => {
       expect(sub.body.siege?.wins).toBe(i + 1);
     }
     expect(captured).toBe(true);
-    const row = await DB().prepare('SELECT owner_id FROM online_hexes WHERE q = ?1 AND r = ?2').bind(h.q, h.r).first<{ owner_id: number }>();
+    const row = await DB().prepare('SELECT owner_id FROM online_regions WHERE shard_id = ?1 AND loc = ?2').bind(p.profile.shard.id, h).first<{ owner_id: number }>();
     expect(row?.owner_id).toBe(p.playerId);
     const prof = (await getJson<Profile>('/api/online/profile', p.token)).body;
-    expect(prof.army).toMatchObject({ q: h.q, r: h.r });
-    // Own hexes cannot be attacked; the army now garrisons it.
+    expect(prof.army).toMatchObject({ loc: h });
+    expect(prof.income.regions).toBe(2);
+    // Own regions cannot be attacked; the army now garrisons it.
     expect((await startAttack(p, p.profile.home)).status).toBe(409);
-    const g = await post<{ garrison: unknown[] }>(`/api/online/hex/${h.q}/${h.r}/garrison`, p.token, { heroIds: [prof.heroes[0].hero.id], formations: ['line', 'skirmish', 'line', 'column'] });
+    const g = await post<{ garrison: unknown[] }>(`/api/online/region/${h}/garrison`, p.token, { heroIds: [prof.heroes[0].hero.id], formations: ['line', 'skirmish', 'line', 'column'] });
     expect(g.status).toBe(200);
     expect(g.body.garrison).toHaveLength(1);
   });
@@ -220,23 +248,20 @@ describe('async attacks', () => {
     expect((await post('/api/online/attack/submit', other.token, { ticket: t.body.ticket, ...run })).status).toBe(404);
   });
 
-  it('locks a hex: two concurrent attacks, one wins the lock', async () => {
+  it('locks a region: two concurrent attacks, one wins the lock', async () => {
     const a = await join(7307);
     const b = await join(7308);
     const h = await freeNeighbour(a);
-    // Put B's army next to the same hex.
-    const { neighbours } = await import('../../src/online/hex');
-    const spot = neighbours(h).find((n) => !(n.q === a.profile.army.q && n.r === a.profile.army.r))!;
-    await DB().prepare('UPDATE online_profiles SET army_q = ?1, army_r = ?2 WHERE player_id = ?3').bind(spot.q, spot.r, b.playerId).run();
-    const season = await currentSeason(DB());
-    const shard = await getShard(DB(), season.id, a.profile.shard.id);
-    if (!hexInfo(shard.seed, spot.q, spot.r).passable) return; // geometry did not allow it on this seed
+    // Put B's army next to the same region (in A's shard).
+    const w = worldOf(a);
+    const spot = w.neighbours(h).find((n) => n !== a.profile.army.loc && w.info(n).passable)!;
+    await placeArmy(b, spot, a.profile.shard.id);
     const [ra, rb] = await Promise.all([startAttack(a, h), startAttack(b, h)]);
     const statuses = [ra.status, rb.status].sort();
     expect(statuses).toEqual([200, 409]);
     const loser = ra.status === 409 ? ra : rb;
-    expect(loser.body.error?.code).toBe('hex_locked');
-    // After the winner abandons, the hex is free again.
+    expect(loser.body.error?.code).toBe('region_locked');
+    // After the winner abandons, the region is free again.
     const winner = ra.status === 200 ? { p: a, t: ra } : { p: b, t: rb };
     expect((await post('/api/online/attack/abandon', winner.p.token, { ticket: winner.t.body.ticket })).status).toBe(200);
     const retry = ra.status === 409 ? await startAttack(a, h) : await startAttack(b, h);
@@ -247,33 +272,31 @@ describe('async attacks', () => {
     const a = await join(7309);
     const h = await freeNeighbour(a);
     await weakenNeutrals(a, h);
-    const season = await currentSeason(DB());
-    const shard = await getShard(DB(), season.id, a.profile.shard.id);
-    // Give A the hex directly and a garrison of two.
+    // Give A the region directly and a garrison of two.
     await DB()
-      .prepare("UPDATE online_hexes SET owner_id = ?1, occupant = 'player', accrued_at = ?2, captured_at = ?2 WHERE q = ?3 AND r = ?4")
-      .bind(a.playerId, Date.now(), h.q, h.r)
+      .prepare("UPDATE online_regions SET owner_id = ?1, occupant = 'player', accrued_at = ?2, captured_at = ?2 WHERE shard_id = ?3 AND loc = ?4")
+      .bind(a.playerId, Date.now(), a.profile.shard.id, h)
       .run();
-    await DB().prepare('UPDATE online_profiles SET army_q = ?1, army_r = ?2 WHERE player_id = ?3').bind(h.q, h.r, a.playerId).run();
+    await placeArmy(a, h);
     const ids = a.profile.heroes.slice(0, 2).map((x) => x.hero.id);
-    expect((await post(`/api/online/hex/${h.q}/${h.r}/garrison`, a.token, { heroIds: ids })).status).toBe(200);
-    // B stands next to it.
+    expect((await post(`/api/online/region/${h}/garrison`, a.token, { heroIds: ids })).status).toBe(200);
+    // B stands next to it (in A's shard).
     const b = await join(7310);
-    const { neighbours } = await import('../../src/online/hex');
-    const spot = neighbours(h).find((n) => hexInfo(shard.seed, n.q, n.r).passable && !(n.q === a.profile.home.q && n.r === a.profile.home.r))!;
-    await DB().prepare('UPDATE online_profiles SET army_q = ?1, army_r = ?2 WHERE player_id = ?3').bind(spot.q, spot.r, b.playerId).run();
-    const t = await post<Ticket>('/api/online/attack/start', b.token, h);
+    const w = worldOf(a);
+    const spot = w.neighbours(h).find((n) => w.info(n).passable && n !== a.profile.home)!;
+    await placeArmy(b, spot, a.profile.shard.id);
+    const t = await post<Ticket>('/api/online/attack/start', b.token, { loc: h });
     expect(t.status).toBe(200);
     expect(t.body.defenderKind).toBe('garrison');
     expect(t.body.defenders.map((d) => d.id).sort()).toEqual([...ids].sort());
     // The owner cannot reshuffle the garrison during the attack.
-    expect((await post(`/api/online/hex/${h.q}/${h.r}/garrison`, a.token, { heroIds: [] })).status).toBe(409);
+    expect((await post(`/api/online/region/${h}/garrison`, a.token, { heroIds: [] })).status).toBe(409);
     const run = play(t.body.setup);
     const sub = await post<{ captured: boolean; defender: { dead: number } }>('/api/online/attack/submit', b.token, { ticket: t.body.ticket, ...run });
     expect(sub.status).toBe(200);
     const left = await DB().prepare('SELECT COUNT(*) AS n FROM online_heroes WHERE player_id = ?1').bind(a.playerId).first<{ n: number }>();
     expect(left!.n).toBe(5 - sub.body.defender.dead);
-    const row = await DB().prepare('SELECT owner_id FROM online_hexes WHERE q = ?1 AND r = ?2').bind(h.q, h.r).first<{ owner_id: number }>();
+    const row = await DB().prepare('SELECT owner_id FROM online_regions WHERE shard_id = ?1 AND loc = ?2').bind(a.profile.shard.id, h).first<{ owner_id: number }>();
     expect(row!.owner_id).toBe(sub.body.captured ? b.playerId : a.playerId);
   });
 });

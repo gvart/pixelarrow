@@ -49,7 +49,7 @@ server/
     middleware.ts     requireAuth, db()/secret() -> 503 when not configured
     crypto.ts, body.ts, errors.ts, players.ts, rateLimit.ts, telegramApi.ts
   migrations/0001_init.sql   D1 schema (players, saves, purchases, entitlements)
-  migrations/0002_online.sql online mode (seasons, shards, profiles, heroes, items, hexes, garrisons,
+  migrations/0002_online.sql online mode (seasons, shards, profiles, heroes, items, regions, garrisons,
                              clans, invites, battle tickets, battle log, season rewards)
   migrations/0003_economy.sql wallets, Drachmae ledger, shop orders, cosmetic loadout, consumables
                              (season inventory, daily caps), battle_tickets.consumable, season pass,
@@ -217,16 +217,20 @@ never half-apply or double-spend (409 `conflict` → retry).
 **Seasons and shards.** `online_seasons` last 90 days; the first request
 after the end ranks every shard into `season_rewards` (kept forever: rank,
 score, title) and starts season n+1. That is the full reset: every army and
-world table is keyed by `season_id`. Players join the newest shard with room
-(500 players; a radius-34 hex disc, about 3.5k hexes; seed in
-`online_shards`). Static hex data (type, resources, fort/capital,
-battlefield, neutral defenders) is a pure function of the shard seed and is
-never stored; `online_hexes` only holds hexes whose state changed (owner,
-clan, home, income clock, neutral losses, siege progress, `occupant`
-npc|player|beast). The seed never leaves the server.
+world table is keyed by `season_id`. Players join the oldest shard with room
+(about 150 players, at most one per spawn plot of its map). Each shard plays
+a hand-authored map (`online_shards.map_id` -> `src/online/maps/<id>.json`,
+read through `src/online/world.ts`, docs/MAP_V3.md); every location is a
+region id `loc`. Static region data (kind, tier, battlefield, routes) comes
+from the map; neutral defenders, lair beasts and boss sites are a pure
+function of the map and the shard seed and are never stored;
+`online_regions` (keyed by season, shard, loc) only holds regions whose state
+changed (owner, clan, home, income clock, neutral losses, siege progress,
+`occupant` npc|player|beast). The seed never leaves the server.
 
-**Fog of war.** `/map` and `/hex` only answer for hexes within 3 of the
-player's or their clan's land and armies; anything else is 404 `fogged`.
+**Fog of war.** `/map` and `/region` only answer for regions within
+`ONLINE_RULES.sight` routes of the player's or their clan's land and armies;
+anything else is 404 `fogged`.
 
 **Lazy time.** Income (`accrued_at`, capped at 24 h), energy (`energy_at`),
 marches (arrival time per hex), wounds, ticket expiry, hex locks and neutral
@@ -239,16 +243,16 @@ respawns are all computed on read from server time. No alarms or polling
 | POST | `/api/online/profile` | join the season (idempotent): shard, home hex, 5 heroes, purse → profile |
 | GET | `/api/online/profile` | resources, energy, home, army (position/march), heroes (garrison, wounds, busy), stash, clan, pending income |
 | GET | `/api/online/season` | season dates and your titles from past seasons |
-| GET | `/api/online/map` | visible hexes `{q,r,type,tier,fort,capital,coast,site,occupant,owner,clan,home,garrison?,def?}` (`def`: the neutral holders, a `src/online/defenders.ts` id), visible armies, player names, clan tags |
-| GET | `/api/online/hex/:q/:r` | yields, march minutes, owner, garrison (own/clan only), defenders estimate, siege `{wins, needed, label}`, `locked`, `canAttack`, `canGarrison`, pending income |
-| POST | `/api/online/march` | `{q,r}` → A* path over land not held by rivals, arrival times `at[]`; 1 energy per hex, at most 40 hexes |
+| GET | `/api/online/map` | `shard {id, map}`, visible regions `{loc,kind,tier,coast,site,occupant,owner,clan,home,garrison?,def?,lair?,boss?,post?}` (`def`: the neutral holders, a `src/online/defenders.ts` id), visible armies `{player, loc, dest, arriveAt, path}`, player names, clan tags |
+| GET | `/api/online/region/:loc` | yields, route minutes from the army, owner, garrison (own/clan only), defenders estimate, siege `{wins, needed, label}`, `locked`, `canAttack`, `canGarrison`, pending income |
+| POST | `/api/online/march` | `{loc}` → quickest route (edge minutes) not crossing rival land, arrival times `at[]`; `energyPerStep` per route, at most `maxMarch` routes |
 | POST | `/api/online/march/stop` | halt on the last hex reached |
-| POST | `/api/online/hex/:q/:r/garrison` | `{heroIds, formations?}`: which of YOUR heroes hold the hex (own or clan hex; the army must stand on it; refused while under attack) |
-| POST | `/api/online/collect` | collect the income of all held hexes |
+| POST | `/api/online/region/:loc/garrison` | `{heroIds, formations?}`: which of YOUR heroes hold the region (own or clan region; the army must stand in it; refused while under attack) |
+| POST | `/api/online/collect` | collect the income of all held regions |
 | POST | `/api/online/recruit` | `{archetype}`: 40 gold, 10 food, 1 recruit |
 | POST | `/api/online/equip` | `{heroId, slot, itemUid \| null}`: stash ↔ hero |
 | POST | `/api/online/army` | `{groups?: {heroId: 0..3}, formations?: FormationType[4]}` |
-| POST | `/api/online/attack/start` | `{q,r,heroIds?}` → `{ticket, expiresAt, setup, attackers, defenders, defenderKind}` |
+| POST | `/api/online/attack/start` | `{loc,heroIds?}` → `{ticket, expiresAt, setup, attackers, defenders, defenderKind}` |
 | POST | `/api/online/attack/submit` | `{ticket, orders, deployOrders?, claim: {winner, ticks, hash}}` → result |
 | POST | `/api/online/attack/abandon` | `{ticket}` |
 | GET | `/api/online/boss` | the shard's world bosses: shared HP, arms, status, top damage (players, clans), your tally and loot |
@@ -261,9 +265,21 @@ respawns are all computed on read from server time. No alarms or polling
 | GET | `/api/online/clans/invite/:code` | invite preview |
 | POST | `/api/online/clans/join` | `{code}`; a player new to the season is placed in the clan's shard |
 | POST | `/api/online/clans/kick`, `/promote`, `/leave` | `{playerId}`, `{playerId, role}`, – |
+| GET | `/api/online/camps` | your camps `{loc, home, slots, buildings: [{slot, kind, level, building, doneAt}], income, sight, garrisonCap, militia, restAt}`, your `claimable` camp plots, `forward {n, max}`, purse, army (`/map` also lists the camps in sight: `camps: [{loc, owner, home, buildings}]`) |
+| POST | `/api/online/camps/claim` | `{loc}`: a forward camp on a campPlot region you hold, army there, `CAMP_RULES.claimCost`; at most 2 (`camp_notPlot` / `camp_notYours` / `camp_isCamp` / `camp_limit` / `camp_notHere` / `camp_funds`) |
+| POST | `/api/online/camps/build` | `{loc, kind, slot?}`: palisade / granary / forge / barracks / watchtower on an empty slot, or the existing one raised a level (1-3); one construction per camp, finished lazily at `doneAt` (`camp_busy`, `camp_slotTaken`, `camp_built`, `camp_maxLevel`, `camp_funds`, ...) |
+| POST | `/api/online/camps/rest` | `{loc}`: army in your camp → +energy, field wounds halved; 4 h cooldown per camp |
 
 Rate limits are per player and per isolate (e.g. 12 attack starts and 30
 marches a minute).
+
+Camps (`online_camps`, `online_camp_buildings`; rules `src/online/rules.ts`
+`CAMP_*`, logic `src/online/camps.ts`): the home region is a camp from the
+join; granary / forge / barracks add food / bronze / recruits to the camp
+region's lazy income, a palisade raises the garrison cap and the militia, a
+watchtower adds sight routes from the camp (map fog, region detail and live
+army messages). A camp whose region is captured or falls back to the
+neutrals is razed with it.
 
 ### Beast lairs and world bosses
 
@@ -271,7 +287,7 @@ Lairs and world boss sites are a pure function of the shard seed
 (`src/online/lairs.ts`). A lair hex fights with its beast (`defenderKind:
 'beast'`) until it is slain: the win captures the hex at once, the loot is the
 beast's hoard (rare / epic / legendary) and a `trophy_<beast>` entitlement is
-granted; `online_hexes.beast_slain_at` brings the beast back after 48 h if the
+granted; `online_regions.beast_slain_at` brings the beast back after 48 h if the
 hex falls back to the neutrals. World bosses live in `world_bosses` (HP and
 arms), `world_boss_damage` (tally) and `world_boss_loot` (the split, one row
 per player, idempotent). See migration 0004.
@@ -351,9 +367,9 @@ in `src/online/protocol.ts`:
     leaves (`until`, null for the last hex) each one. A gap means the army is
     out of sight in between; nothing outside the fog ever leaves the server.
     The receiver's own and clan mates' armies come whole.
-  - `army_pos {player, name, clan, q, r, now}`: it stands on a hex the
+  - `army_pos {player, name, clan, loc, now}`: it stands in a region the
     receiver sees (halt, capture).
-  - `army_arrive {player, q, r, now}`: pushed by a DO alarm at the arrival
+  - `army_arrive {player, loc, now}`: pushed by a DO alarm at the arrival
     time to those who see the last hex (arrivals are kept in DO storage).
   - `army_hide {player, now}`: a halt or a new march the receiver can no
     longer see replaces a march they were shown.
@@ -404,11 +420,11 @@ stored order with `replayed: true`; the same id for another item is 409
 | GET | `/api/online/market` | open listings of your shard; query `kind, ref, rarity, currency, minPrice, maxPrice, townQ+townR, sort (price_asc, price_desc, newest, ending), cursor, limit ≤ 50` → `{ listings, next }` (`next` = cursor of the next page, or null) |
 | GET | `/api/online/market/mine` | your listings this season (resolves expired ones first) `{ listings, open, maxOpen }` |
 | GET | `/api/online/market/towns` | towns where you can list now |
-| POST | `/api/online/market/list` | `{town: {q,r}, kind: item/resource/consumable, ref (item uid, food/wood/bronze, or consumable id), qty, currency: gold/drachmae, price}` → `{ listing }`; 403 `town_unreachable`, 400 `price_out_of_bounds`, 409 `listing_cap` / `cannot_afford` / `none_left` |
+| POST | `/api/online/market/list` | `{town: loc, kind: item/resource/consumable, ref (item uid, food/wood/bronze, or consumable id), qty, currency: gold/drachmae, price}` → `{ listing }`; 403 `town_unreachable`, 400 `price_out_of_bounds`, 409 `listing_cap` / `cannot_afford` / `none_left` |
 | POST | `/api/online/market/buy` | `{listingId}` → `{ listing, paid, fee, sellerGets }`; 403 `self_buy`, 409 `insufficient_funds` / `sold` / `gone`, 410 `expired` |
 | POST | `/api/online/market/cancel` | `{listingId}` (seller) → goods back |
-| GET | `/api/online/merchant/:q/:r` | a visible town or trading post: `{ hex, kind (town/harbour/crossroads), region, day, now, resetsAt, reach, discount, discountRate, holderCutRate, holder, earned, gold, drachmae, offers: [{id, kind, ref, rarity, slot, gold, drachmae, dailyCap, price: {gold, drachmae}, bought}] }`; 404 `no_merchant` / `fogged` |
-| POST | `/api/online/merchant/buy` | `{q, r, offer, currency, requestId}` → `{ order, replayed, item?, gold, drachmae }`; 403 `out_of_reach`, 404 `no_offer`, 400 (gear for Drachmae), 409 `daily_cap` / `insufficient_funds` / `request_reused` / `conflict` |
+| GET | `/api/online/merchant/:loc` | a visible town or trading post: `{ loc, kind (town/harbour/crossroads), region, day, now, resetsAt, reach, discount, discountRate, holderCutRate, holder, earned, gold, drachmae, offers: [{id, kind, ref, rarity, slot, gold, drachmae, dailyCap, price: {gold, drachmae}, bought}] }`; 404 `no_merchant` / `fogged` |
+| POST | `/api/online/merchant/buy` | `{loc, offer, currency, requestId}` → `{ order, replayed, item?, gold, drachmae }`; 403 `out_of_reach`, 404 `no_offer`, 400 (gear for Drachmae), 409 `daily_cap` / `insufficient_funds` / `request_reused` / `conflict` |
 
 **Consumables** (`src/data/consumables.ts`): healing salve, morale wine, war
 horn, sharpening stone, march rations. Bought from the map merchants (below)
@@ -418,7 +434,7 @@ together (pass rewards and marketplace buys do not count).
 They are held per season (`online_consumables`) and vanish with it.
 
 - **At most one consumable per battle**, PvP attacks and duels alike (also
-  against neutrals): `POST /api/online/attack/start {q, r, consumable?}`
+  against neutrals): `POST /api/online/attack/start {loc, consumable?}`
   (`consumables: [..]` naming more than one → 400 `one_consumable`; a
   non-battle one → 400 `bad_consumable`; none held → 409 `none_left`). It is
   spent in the ticket's batch (gone even if the attack is abandoned or
@@ -436,14 +452,11 @@ They are held per season (`online_consumables`) and vanish with it.
 **Map merchants** (`src/online/merchants.ts` shared, `server/src/online/merchant.ts`,
 `merchant_orders`, `merchant_daily`; docs/DUELS.md "War-map shops on the map"):
 
-- Every town hex (capitals included) has a merchant; so do the shard's
-  **trading posts**: one per 300 hexes (12 on a full shard), half harbours
-  (passable coast), half crossroads (plains or farmland on a river with land
-  all around), at least 7 apart, never on towns, forts, capitals, lairs or
-  world bosses, at least 5 from a capital, and never chosen as a home. Their
-  places are a pure function of the shard seed; `GET /map` marks them with
-  `post` and `GET /hex` answers `merchant`.
-- **Stock** is generated from `(shard seed, hex, UTC day)` and never stored:
+- Every town (capitals included) has a merchant; so do the map's
+  **trading posts** (regions of kind `post`): harbours on the coast,
+  crossroads inland; never chosen as a home. `GET /map` marks them with
+  `post` and `GET /region` answers `merchant`.
+- **Stock** is generated from `(shard seed, region, UTC day)` and never stored:
   every consumable (gold or Drachmae, their usual prices and caps), 3 basic
   common pieces of gear, the specialties of the hex's region (the region of
   its nearest capital: Attic, Thessalian, Thracian, Cretan, Gallic,

@@ -1,6 +1,7 @@
 /**
  * Online mode HTTP API (/api/online/*): season and profile, fog-of-war map,
- * hex detail, marches, garrisons, income, recruiting and equipment. Attacks
+ * region detail, marches, garrisons, income, recruiting and equipment.
+ * Locations are region ids (`loc`) of the shard's map (src/online/world.ts). Attacks
  * live in attack.ts, clans in clans.ts. Every economy change happens here,
  * validated against server state; the client never sends amounts.
  */
@@ -13,10 +14,12 @@ import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
 import { itemDef, SLOTS, type Item, type Slot } from '../../../src/data/items';
 import { FORMATION_TYPES, type FormationType } from '../../../src/sim/formation';
-import { findHexPath, hexDistance, hexesWithin, hexId, inShard, MARCH_MINUTES, siteLabel, type Axial, type HexInfo } from '../../../src/online/hex';
+import { siteName } from '../../../src/world/battlefield';
+import type { RegionKind } from '../../../src/online/mapSchema';
 import {
-  hexIncome,
+  regionIncome,
   ONLINE_RULES,
+  PALISADE,
   RECRUIT_ARCHETYPES,
   recruitHero,
   RESOURCE_KEYS,
@@ -27,16 +30,19 @@ import { defenderFor, WINS_TO_CLAIM } from '../../../src/online/defenders';
 import type { Archetype } from '../../../src/game/heroes';
 import { attack, currentNeutrals, lairBeast, siegeWins } from './attack';
 import { BEAST_RULES, bossAt, lairAt } from '../../../src/online/lairs';
+import { sightSet } from '../../../src/online/liveArmies';
 import { ENCOUNTERS, MYTHS } from '../../../src/data/beasts';
 import { bosses } from './bosses';
 import { pendingIncome } from './income';
 import { clans } from './clans';
+import { campAt, campMarkers, camps, shardTowers, towerVision } from './camps';
+import { campView, garrisonCap } from '../../../src/online/camps';
 import { consumableInventory, consumables } from './consumables';
 import { market, resolveExpired } from './market';
 import { merchant } from './merchant';
 import { merchantAt, tradingPostAt, type PostKind } from '../../../src/online/merchants';
 import { pushArmyMove } from './live';
-import { base, hexKey, limit, player, shardStub, type PlayerCtx } from './context';
+import { base, limit, player, regionKey, shardStub, type PlayerCtx } from './context';
 import {
   armyState,
   clanTags,
@@ -45,19 +51,19 @@ import {
   formationsOf,
   getProfile,
   heroPrefix,
-  hexRow,
-  hexRowsIn,
   loadGarrison,
   loadHeroes,
   loadItems,
   playerNames,
   randomU32,
+  regionRow,
+  regionRows,
   reserveIds,
   revBatch,
   revGuard,
-  staticHex,
-  type HexRow,
+  staticRegion,
   type ProfileRow,
+  type RegionRow,
   type Shard,
 } from './store';
 
@@ -66,7 +72,7 @@ online.use('*', requireAuth);
 
 const Formations = z.array(z.enum(FORMATION_TYPES as [string, ...string[]])).length(4);
 const HeroId = z.string().min(1).max(80);
-const coord = z.number().int().min(-200).max(200);
+const Loc = z.number().int().min(1).max(1_000_000);
 
 // ------------------------------------------------------------------ views
 
@@ -88,13 +94,13 @@ async function profileView(c: PlayerCtx) {
   const army = armyState(p, now);
   return {
     season: { id: season.id, startedAt: season.startedAt, endsAt: season.endsAt },
-    shard: { id: shard.id, radius: shard.radius },
+    shard: { id: shard.id, map: shard.mapId },
     now,
     resources: resources(p),
     energy: Math.floor(energyNow(p, now) * 10) / 10,
     energyMax: ONLINE_RULES.energyMax,
-    home: { q: p.home_q, r: p.home_r },
-    army: { q: army.pos.q, r: army.pos.r, marching: army.marching, dest: army.dest, arriveAt: army.arriveAt, path: army.march?.path ?? null, at: army.march?.at ?? null },
+    home: p.home_loc,
+    army: { loc: army.pos, marching: army.marching, dest: army.dest, arriveAt: army.arriveAt, path: army.march?.path ?? null, at: army.march?.at ?? null },
     formations: formationsOf(p.formations),
     heroes: heroes.map((h) => ({ hero: h.hero, garrison: h.garrison, woundedUntil: h.woundedUntil, busy: h.busyUntil > now })),
     stash,
@@ -102,17 +108,14 @@ async function profileView(c: PlayerCtx) {
     clan: clanInfo && c.clan ? { ...clanInfo, role: c.clan.role } : null,
     battles: p.battles,
     wins: p.wins,
-    income: { pending: income.total, hexes: income.hexes.length },
+    income: { pending: income.total, regions: income.regions.length },
   };
 }
 
-interface HexView {
-  q: number;
-  r: number;
-  type: HexInfo['type'];
+interface RegionView {
+  loc: number;
+  kind: RegionKind;
   tier: number;
-  fort: boolean;
-  capital: boolean;
   coast: boolean;
   site: string;
   occupant: string;
@@ -120,7 +123,7 @@ interface HexView {
   clan: number | null;
   home: boolean;
   garrison?: number;
-  /** Who holds a neutral hex (src/online/defenders.ts id): the map shows them as miniatures. */
+  /** Who holds a neutral region (src/online/defenders.ts id): the map shows them as miniatures. */
   def?: string;
   /** A mythical beast's lair (src/online/lairs.ts): which beast and its level. */
   lair?: string;
@@ -132,49 +135,49 @@ interface HexView {
 }
 
 /**
- * Hexes the player may see: within ONLINE_RULES.sight of their own and their
- * clan's hexes and of their own and clan mates' armies. Nothing else is sent.
+ * Regions the player may see: within ONLINE_RULES.sight routes of their own
+ * and their clan's regions and of their own and clan mates' armies, plus
+ * what the watchtowers of their and their clan's camps see. Nothing else is sent.
  */
-export async function visibility(c: PlayerCtx): Promise<{ visible: Map<string, Axial>; armies: { pid: number; pos: Axial; dest: Axial | null; arriveAt: number | null; path: [number, number][] | null }[] }> {
+export async function visibility(c: PlayerCtx): Promise<{ visible: Set<number>; armies: { pid: number; pos: number; dest: number | null; arriveAt: number | null; path: number[] | null }[] }> {
   const { db: d, shard, now } = c;
   const clanId = c.clan?.clanId ?? null;
   const held = await d
-    .prepare('SELECT q, r FROM online_hexes WHERE season_id = ?1 AND shard_id = ?2 AND (owner_id = ?3 OR (?4 IS NOT NULL AND clan_id = ?4))')
+    .prepare('SELECT loc FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND (owner_id = ?3 OR (?4 IS NOT NULL AND clan_id = ?4))')
     .bind(shard.season, shard.id, c.pid, clanId)
-    .all<{ q: number; r: number }>();
+    .all<{ loc: number }>();
   const profs = await d
     .prepare(
-      `SELECT p.player_id, p.army_q, p.army_r, p.march, m.clan_id FROM online_profiles p
+      `SELECT p.player_id, p.army_loc, p.march, m.clan_id FROM online_profiles p
        LEFT JOIN clan_members m ON m.season_id = p.season_id AND m.player_id = p.player_id
        WHERE p.season_id = ?1 AND p.shard_id = ?2`,
     )
     .bind(shard.season, shard.id)
-    .all<{ player_id: number; army_q: number; army_r: number; march: string | null; clan_id: number | null }>();
+    .all<{ player_id: number; army_loc: number; march: string | null; clan_id: number | null }>();
   const armies = profs.results.map((p) => {
     const a = armyState(p, now);
     return { pid: p.player_id, clan: p.clan_id, pos: a.pos, dest: a.dest, arriveAt: a.arriveAt, path: a.march?.path ?? null };
   });
-  const sources: Axial[] = [...held.results];
+  const sources: number[] = held.results.map((x) => x.loc);
   for (const a of armies) if (a.pid === c.pid || (clanId !== null && a.clan === clanId)) sources.push(a.pos);
-  const visible = new Map<string, Axial>();
-  for (const s of sources) for (const h of hexesWithin(s, ONLINE_RULES.sight, shard.radius)) visible.set(hexId(h.q, h.r), h);
-  return { visible, armies: armies.filter((a) => visible.has(hexId(a.pos.q, a.pos.r))).map(({ clan: _c, ...a }) => a) };
+  const visible = sightSet(shard.world, sources, ONLINE_RULES.sight);
+  // watchtowers of your and your clan's camps see further
+  const towers = (await shardTowers(d, shard, now)).filter((t) => t.pid === c.pid || (clanId !== null && t.clan === clanId));
+  for (const r of towerVision(shard.world, towers)) visible.add(r);
+  return { visible, armies: armies.filter((a) => visible.has(a.pos)).map(({ clan: _c, ...a }) => a) };
 }
 
-function hexView(shard: Shard, h: Axial, row: HexRow | undefined, now = Date.now()): HexView {
-  const s = staticHex(shard, h);
-  const boss = bossAt(shard.seed, h, shard.radius);
-  const lair = !row?.owner_id ? lairBeast(shard, s, row, now) : null;
+function regionView(shard: Shard, loc: number, row: RegionRow | undefined, now = Date.now()): RegionView {
+  const s = staticRegion(shard, loc);
+  const boss = bossAt(shard.world, shard.seed, loc);
+  const lair = !row?.owner_id ? lairBeast(shard, loc, row, now) : null;
   const occupant = boss || lair ? 'beast' : row?.occupant ?? (s.passable ? 'npc' : 'none');
-  const v: HexView = {
-    q: h.q,
-    r: h.r,
-    type: s.type,
+  const v: RegionView = {
+    loc,
+    kind: s.kind,
     tier: s.tier,
-    fort: s.fort,
-    capital: s.capital,
     coast: s.coast,
-    site: siteLabel(s.site),
+    site: siteName(s.site),
     occupant,
     owner: row?.owner_id ?? null,
     clan: row?.clan_id ?? null,
@@ -186,7 +189,7 @@ function hexView(shard: Shard, h: Axial, row: HexRow | undefined, now = Date.now
     v.lairLevel = lair.level;
   }
   if (boss) v.boss = boss.boss;
-  const post = tradingPostAt(shard.seed, h, shard.radius);
+  const post = tradingPostAt(shard.world, loc);
   if (post) v.post = post;
   return v;
 }
@@ -199,12 +202,12 @@ online.get('/status', async (c) => {
   return c.json({ season: b.season, joined: !!p, shard: p?.shard_id ?? null, now: b.now });
 });
 
-/** Joins the current season (idempotent): shard, home hex and starting army. */
+/** Joins the current season (idempotent): shard, home region and starting army. */
 online.post('/profile', async (c) => {
   limit(c, 'profile', 10);
   const b = await base(c);
   const had = await getProfile(b.db, b.season.id, b.pid);
-  const prof = had ?? (await ensureProfile(b.db, b.season, b.pid, b.now));
+  const prof = had ?? (await ensureProfile(b.db, b.season, b.pid, b.now, undefined, b.env.ONLINE_MAP));
   if (!had) emit(c, 'online_join', { shard: prof.shard_id, season: b.season.id });
   return c.json(await profileView(await player(c)));
 });
@@ -225,61 +228,64 @@ online.get('/season', async (c) => {
 online.get('/map', async (c) => {
   const pc = await player(c);
   const { visible, armies } = await visibility(pc);
-  const all = [...visible.values()];
-  const rows = all.length
-    ? await hexRowsIn(pc.db, pc.shard, Math.min(...all.map((h) => h.q)), Math.max(...all.map((h) => h.q)), Math.min(...all.map((h) => h.r)), Math.max(...all.map((h) => h.r)))
-    : [];
-  const byId = new Map(rows.map((r) => [hexId(r.q, r.r), r]));
-  const hexes = all.map((h) => hexView(pc.shard, h, byId.get(hexId(h.q, h.r)), pc.now));
-  // Garrison sizes of own and clan hexes only.
+  const rows = await regionRows(pc.db, pc.shard, visible);
+  const byLoc = new Map(rows.map((r) => [r.loc, r]));
+  const regions = [...visible].sort((a, b) => a - b).map((loc) => regionView(pc.shard, loc, byLoc.get(loc), pc.now));
+  // Garrison sizes of own and clan regions only.
   const counts = await pc.db
     .prepare(
-      `SELECT g.q, g.r, COUNT(*) AS n FROM online_garrisons g JOIN online_hexes x
-         ON x.season_id = g.season_id AND x.shard_id = g.shard_id AND x.q = g.q AND x.r = g.r
-       WHERE g.season_id = ?1 AND g.shard_id = ?2 AND (x.owner_id = ?3 OR (?4 IS NOT NULL AND x.clan_id = ?4)) GROUP BY g.q, g.r`,
+      `SELECT g.loc, COUNT(*) AS n FROM online_garrisons g JOIN online_regions x
+         ON x.season_id = g.season_id AND x.shard_id = g.shard_id AND x.loc = g.loc
+       WHERE g.season_id = ?1 AND g.shard_id = ?2 AND (x.owner_id = ?3 OR (?4 IS NOT NULL AND x.clan_id = ?4)) GROUP BY g.loc`,
     )
     .bind(pc.shard.season, pc.shard.id, pc.pid, pc.clan?.clanId ?? null)
-    .all<{ q: number; r: number; n: number }>();
-  const cnt = new Map(counts.results.map((x) => [hexId(x.q, x.r), x.n]));
-  for (const h of hexes) {
-    const n = cnt.get(hexId(h.q, h.r));
-    if (n !== undefined) h.garrison = n;
+    .all<{ loc: number; n: number }>();
+  const cnt = new Map(counts.results.map((x) => [x.loc, x.n]));
+  for (const r of regions) {
+    const n = cnt.get(r.loc);
+    if (n !== undefined) r.garrison = n;
   }
-  const owners = hexes.map((h) => h.owner).filter((x): x is number => x !== null);
+  const owners = regions.map((r) => r.owner).filter((x): x is number => x !== null);
   const names = await playerNames(pc.db, [...owners, ...armies.map((a) => a.pid)]);
-  const tags = await clanTags(pc.db, hexes.map((h) => h.clan).filter((x): x is number => x !== null));
+  const tags = await clanTags(pc.db, regions.map((r) => r.clan).filter((x): x is number => x !== null));
   const army = armyState(pc.profile, pc.now);
+  const campList = await campMarkers(pc.db, pc.shard, visible, pc.now);
   return c.json({
     season: { id: pc.season.id, endsAt: pc.season.endsAt },
-    shard: { id: pc.shard.id, radius: pc.shard.radius },
+    shard: { id: pc.shard.id, map: pc.shard.mapId },
     now: pc.now,
-    you: { id: pc.pid, clan: pc.clan?.clanId ?? null, home: { q: pc.profile.home_q, r: pc.profile.home_r }, army: { q: army.pos.q, r: army.pos.r, marching: army.marching, dest: army.dest, arriveAt: army.arriveAt } },
-    hexes,
-    armies: armies.map((a) => ({ player: a.pid, q: a.pos.q, r: a.pos.r, dest: a.dest, arriveAt: a.arriveAt, path: a.pid === pc.pid ? a.path : null })),
+    you: { id: pc.pid, clan: pc.clan?.clanId ?? null, home: pc.profile.home_loc, army: { loc: army.pos, marching: army.marching, dest: army.dest, arriveAt: army.arriveAt } },
+    regions,
+    armies: armies.map((a) => ({ player: a.pid, loc: a.pos, dest: a.dest, arriveAt: a.arriveAt, path: a.pid === pc.pid ? a.path : null })),
+    /** Camps in sight (src/online/camps.ts CampMarker). */
+    camps: campList,
     players: Object.fromEntries(names),
     clans: Object.fromEntries(tags),
   });
 });
 
-function parseHex(c: { req: { param: (k: string) => string } }, shard: Shard): Axial {
-  const q = Number(c.req.param('q'));
-  const r = Number(c.req.param('r'));
-  if (!Number.isInteger(q) || !Number.isInteger(r) || !inShard({ q, r }, shard.radius)) throw badRequest('Bad hex');
-  return { q, r };
+/** The :loc route parameter: a region of the shard's map (400 otherwise). */
+export function parseLoc(c: { req: { param: (k: string) => string } }, shard: Shard): number {
+  const raw = c.req.param('loc');
+  const loc = /^\d{1,7}$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isInteger(loc) || !shard.world.has(loc)) throw badRequest('No such region');
+  return loc;
 }
 
-online.get('/hex/:q/:r', async (c) => {
+online.get('/region/:loc', async (c) => {
   const pc = await player(c);
-  const h = parseHex(c, pc.shard);
+  const h = parseLoc(c, pc.shard);
   const { visible } = await visibility(pc);
-  if (!visible.has(hexId(h.q, h.r))) throw new ApiError(404, 'fogged', 'That hex is hidden by the fog of war');
-  const row = (await hexRow(pc.db, pc.shard, h)) ?? undefined;
-  const view = hexView(pc.shard, h, row, pc.now);
-  const s = staticHex(pc.shard, h);
+  if (!visible.has(h)) throw new ApiError(404, 'fogged', 'That region is hidden by the fog of war');
+  const row = (await regionRow(pc.db, pc.shard, h)) ?? undefined;
+  const view = regionView(pc.shard, h, row, pc.now);
+  const s = staticRegion(pc.shard, h);
+  const w = pc.shard.world;
   const mine = row?.owner_id === pc.pid;
   const ours = mine || (pc.clan !== null && row?.clan_id === pc.clan.clanId);
   const army = armyState(pc.profile, pc.now);
-  const locked = await shardStub(pc.env, pc.shard).hexLock(hexKey(h.q, h.r), pc.now);
+  const adjacent = w.adjacent(army.pos, h);
+  const locked = await shardStub(pc.env, pc.shard).regionLock(regionKey(h), pc.now);
   let garrison: unknown = null;
   let defenders: { count: number; power: number; kind: string } | null = null;
   let siege: { wins: number; needed: number; label: string } | null = null;
@@ -287,33 +293,34 @@ online.get('/hex/:q/:r', async (c) => {
     const g = await loadGarrison(pc.db, pc.shard, h);
     if (ours) garrison = g.map((x) => ({ hero: x.hero, playerId: x.playerId, woundedUntil: x.woundedUntil, busy: x.busyUntil > pc.now }));
     // Scouting: the size of a foreign garrison is visible from next door.
-    if (!ours && hexDistance(army.pos, h) <= 1) defenders = { count: g.length, power: Math.round(g.reduce((a, x) => a + heroPower(x.hero), 0)), kind: g.length ? 'garrison' : 'militia' };
+    if (!ours && (army.pos === h || adjacent)) defenders = { count: g.length, power: Math.round(g.reduce((a, x) => a + heroPower(x.hero), 0)), kind: g.length ? 'garrison' : 'militia' };
   } else if (s.passable) {
-    const npc = currentNeutrals(pc.shard, s, row, pc.now);
+    const npc = currentNeutrals(pc.shard, h, row, pc.now);
     defenders = { count: npc.length, power: Math.round(npc.reduce((a, x) => a + heroPower(x), 0)), kind: 'npc' };
-    const lair = lairBeast(pc.shard, s, row, pc.now);
+    const lair = lairBeast(pc.shard, h, row, pc.now);
     if (lair) {
       defenders.kind = 'beast';
       siege = { wins: 0, needed: 1, label: MYTHS[ENCOUNTERS[lair.enc].body].name };
     } else siege = { wins: siegeWins(row, pc.pid, pc.now), needed: WINS_TO_CLAIM[s.tier] ?? 1, label: defenderFor(pc.shard.seed, s).label };
   }
-  const isBoss = !!bossAt(pc.shard.seed, h, pc.shard.radius);
+  const boss = bossAt(w, pc.shard.seed, h);
   const slain = row?.beast_slain_at ?? null;
-  const lairInfo = lairAt(pc.shard.seed, s, pc.shard.radius);
+  const lairInfo = lairAt(w, pc.shard.seed, h);
   let income: Resources | null = null;
   if (mine) {
     const inc = await pendingIncome(pc.db, pc.shard, pc.pid, pc.clan?.clanId ?? null, pc.now);
-    income = inc.hexes.find((x) => x.q === h.q && x.r === h.r)?.income ?? null;
+    income = inc.regions.find((x) => x.loc === h)?.income ?? null;
   }
   const names = await playerNames(pc.db, row?.owner_id ? [row.owner_id] : []);
   const tags = await clanTags(pc.db, row?.clan_id ? [row.clan_id] : []);
-  const adjacent = hexDistance(army.pos, h) === 1;
+  const campRow = await campAt(pc.db, pc.shard, h);
   return c.json({
-    hex: view,
+    region: view,
     ownerName: row?.owner_id ? names.get(row.owner_id) ?? null : null,
     clan: row?.clan_id ? { id: row.clan_id, ...tags.get(row.clan_id) } : null,
-    yields: hexIncome(s),
-    marchMinutes: MARCH_MINUTES[s.type],
+    yields: regionIncome(s),
+    /** Minutes of the route from the army (0 when not next door). */
+    marchMinutes: adjacent ? w.minutes(army.pos, h) : 0,
     siege,
     mine,
     ours,
@@ -322,98 +329,98 @@ online.get('/hex/:q/:r', async (c) => {
     formations: ours ? formationsOf(row?.formations ?? null) : null,
     defenders,
     income,
-    canAttack: s.passable && !ours && !(row?.home === 1) && adjacent && !army.marching && !isBoss,
-    /** A lair: its beast, level, and when it returns if slain. World boss hexes: raid them (GET /boss). */
-    lair: lairInfo ? { enc: lairInfo.enc, level: lairInfo.level, tier: lairInfo.tier, home: !!lairBeast(pc.shard, s, row, pc.now), returnsAt: slain !== null && pc.now - slain < BEAST_RULES.respawnMs ? slain + BEAST_RULES.respawnMs : null } : null,
-    boss: isBoss ? bossAt(pc.shard.seed, h, pc.shard.radius)!.boss : null,
-    canGarrison: ours && !army.marching && army.pos.q === h.q && army.pos.r === h.r,
-    /** A town or a trading post: its merchant (GET /merchant/:q/:r). */
-    merchant: merchantAt(pc.shard.seed, s, pc.shard.radius),
+    canAttack: s.passable && !ours && !(row?.home === 1) && adjacent && !army.marching && !boss,
+    /** A lair: its beast, level, and when it returns if slain. World boss regions: raid them (GET /boss). */
+    lair: lairInfo ? { enc: lairInfo.enc, level: lairInfo.level, tier: lairInfo.tier, home: !!lairBeast(pc.shard, h, row, pc.now), returnsAt: slain !== null && pc.now - slain < BEAST_RULES.respawnMs ? slain + BEAST_RULES.respawnMs : null } : null,
+    boss: boss ? boss.boss : null,
+    canGarrison: ours && !army.marching && army.pos === h,
+    /** A town or a trading post: its merchant (GET /merchant/:loc). */
+    merchant: merchantAt(w, h),
+    /** A camp plot (forward camps may be made here). */
+    campPlot: s.campPlot,
+    /** The camp here: whose, and (yours) its buildings (src/online/camps.ts CampView). */
+    camp: campRow ? { owner: campRow.player_id, home: campRow.home === 1, view: campRow.player_id === pc.pid ? campView({ loc: h, home: campRow.home === 1, restedAt: campRow.rested_at, buildings: campRow.buildings }, pc.now) : null } : null,
   });
 });
 
 // ------------------------------------------------------------------ marches
 
-const MarchBody = z.object({ q: coord, r: coord });
+const MarchBody = z.object({ loc: Loc });
 
-/** Marches the field army to a hex through land that is not held by a rival. Arrival is resolved lazily. */
+/** Marches the field army to a region along routes that do not cross a rival's land. Arrival is resolved lazily. */
 online.post('/march', async (c) => {
   limit(c, 'march', 30);
   const pc = await player(c);
   const body = await readJson(c, MarchBody, 1024);
-  const to = { q: body.q, r: body.r };
-  if (!inShard(to, pc.shard.radius)) throw badRequest('Outside the map');
+  const to = body.loc;
+  const w = pc.shard.world;
+  if (!w.has(to)) throw badRequest('No such region');
   const army = armyState(pc.profile, pc.now);
   const heroes = await loadHeroes(pc.db, pc.season.id, pc.pid);
   if (heroes.some((h) => !h.garrison && h.busyUntil > pc.now)) throw new ApiError(409, 'in_battle', 'Your army is in a battle');
   if (!heroes.some((h) => !h.garrison)) throw new ApiError(409, 'no_army', 'Your field army is empty');
   const clanId = pc.clan?.clanId ?? null;
-  const all = [army.pos, to];
-  const margin = ONLINE_RULES.maxMarch;
-  const rows = await hexRowsIn(
-    pc.db,
-    pc.shard,
-    Math.min(...all.map((x) => x.q)) - margin,
-    Math.max(...all.map((x) => x.q)) + margin,
-    Math.min(...all.map((x) => x.r)) - margin,
-    Math.max(...all.map((x) => x.r)) + margin,
-  );
-  const rival = new Set(rows.filter((x) => x.owner_id !== null && x.owner_id !== pc.pid && (clanId === null || x.clan_id !== clanId)).map((x) => hexId(x.q, x.r)));
-  const path = findHexPath(pc.shard.seed, army.pos, to, (h) => !rival.has(h.id), 8000, pc.shard.radius);
-  if (!path) throw new ApiError(422, 'no_path', 'No way there (water, mountains or rival land in between)');
-  if (path.length - 1 > ONLINE_RULES.maxMarch) throw new ApiError(422, 'too_far', `At most ${ONLINE_RULES.maxMarch} hexes per march`);
-  const cost = (path.length - 1) * ONLINE_RULES.energyPerHex;
+  const held = await pc.db
+    .prepare('SELECT loc FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND owner_id IS NOT NULL AND owner_id != ?3 AND (?4 IS NULL OR clan_id IS NULL OR clan_id != ?4)')
+    .bind(pc.shard.season, pc.shard.id, pc.pid, clanId)
+    .all<{ loc: number }>();
+  const rival = new Set(held.results.map((x) => x.loc));
+  const route = w.path(army.pos, to, (r) => !rival.has(r.id));
+  if (!route) throw new ApiError(422, 'no_path', 'No way there (the sea or rival land in between)');
+  const path = route.path;
+  if (path.length - 1 > ONLINE_RULES.maxMarch) throw new ApiError(422, 'too_far', `At most ${ONLINE_RULES.maxMarch} routes per march`);
+  const cost = (path.length - 1) * ONLINE_RULES.energyPerStep;
   const energy = energyNow(pc.profile, pc.now);
   if (energy < cost) throw new ApiError(409, 'no_energy', `Not enough energy (${Math.floor(energy)}/${cost})`);
   const at = [pc.now];
-  for (let i = 1; i < path.length; i++) at.push(at[i - 1] + MARCH_MINUTES[staticHex(pc.shard, path[i]).type] * 60_000);
-  const march = path.length > 1 ? JSON.stringify({ path: path.map((h) => [h.q, h.r]), at }) : null;
+  for (let i = 1; i < path.length; i++) at.push(at[i - 1] + w.minutes(path[i - 1], path[i]) * 60_000);
+  const march = path.length > 1 ? JSON.stringify({ path, at }) : null;
   await revBatch(pc.db, [
     pc.db
       .prepare(
-        `UPDATE online_profiles SET army_q = ?3, army_r = ?4, march = ?5, energy = ?6, energy_at = ?7, rev = rev + 1, updated_at = ?7
-         WHERE season_id = ?1 AND player_id = ?2 AND rev = ?8`,
+        `UPDATE online_profiles SET army_loc = ?3, march = ?4, energy = ?5, energy_at = ?6, rev = rev + 1, updated_at = ?6
+         WHERE season_id = ?1 AND player_id = ?2 AND rev = ?7`,
       )
-      .bind(pc.season.id, pc.pid, army.pos.q, army.pos.r, march, energy - cost, pc.now, pc.profile.rev),
+      .bind(pc.season.id, pc.pid, army.pos, march, energy - cost, pc.now, pc.profile.rev),
   ]);
   await pushArmyMove(pc, path.length > 1 ? { kind: 'march', path, at } : { kind: 'pos', pos: army.pos });
-  return c.json({ path: path.map((h) => [h.q, h.r]), at, energy: energy - cost, arriveAt: at[at.length - 1] });
+  return c.json({ path, at, energy: energy - cost, arriveAt: at[at.length - 1] });
 });
 
-/** Halts a march on the last hex reached. */
+/** Halts a march in the last region reached. */
 online.post('/march/stop', async (c) => {
   const pc = await player(c);
   const army = armyState(pc.profile, pc.now);
   await revBatch(pc.db, [
     pc.db
-      .prepare('UPDATE online_profiles SET army_q = ?3, army_r = ?4, march = NULL, rev = rev + 1, updated_at = ?5 WHERE season_id = ?1 AND player_id = ?2 AND rev = ?6')
-      .bind(pc.season.id, pc.pid, army.pos.q, army.pos.r, pc.now, pc.profile.rev),
+      .prepare('UPDATE online_profiles SET army_loc = ?3, march = NULL, rev = rev + 1, updated_at = ?4 WHERE season_id = ?1 AND player_id = ?2 AND rev = ?5')
+      .bind(pc.season.id, pc.pid, army.pos, pc.now, pc.profile.rev),
   ]);
   if (army.marching) await pushArmyMove(pc, { kind: 'pos', pos: army.pos });
-  return c.json({ q: army.pos.q, r: army.pos.r });
+  return c.json({ loc: army.pos });
 });
 
 // ------------------------------------------------------------------ garrisons
 
-const GarrisonBody = z.object({ heroIds: z.array(HeroId).max(ONLINE_RULES.maxGarrison), formations: Formations.optional() });
+const GarrisonBody = z.object({ heroIds: z.array(HeroId).max(ONLINE_RULES.maxGarrison + PALISADE.garrison[3]), formations: Formations.optional() });
 
 /**
- * Sets which of YOUR heroes hold a hex you or your clan own. The army must
- * stand on the hex. Only the owner (or clan leader/officers) changes formations.
+ * Sets which of YOUR heroes hold a region you or your clan own. The army must
+ * stand in it. Only the owner (or clan leader/officers) changes formations.
  */
-online.post('/hex/:q/:r/garrison', async (c) => {
+online.post('/region/:loc/garrison', async (c) => {
   limit(c, 'garrison', 30);
   const pc = await player(c);
-  const h = parseHex(c, pc.shard);
+  const h = parseLoc(c, pc.shard);
   const body = await readJson(c, GarrisonBody, 8 * 1024);
-  const row = await hexRow(pc.db, pc.shard, h);
+  const row = await regionRow(pc.db, pc.shard, h);
   const mine = row?.owner_id === pc.pid;
   const ours = mine || (!!row && pc.clan !== null && row.clan_id === pc.clan.clanId);
-  if (!row || !ours) throw new ApiError(403, 'forbidden', 'You can only garrison your own or your clan’s hexes');
+  if (!row || !ours) throw new ApiError(403, 'forbidden', 'You can only garrison your own or your clan’s regions');
   const army = armyState(pc.profile, pc.now);
-  if (army.marching || army.pos.q !== h.q || army.pos.r !== h.r) throw new ApiError(409, 'not_here', 'Your army must stand on the hex');
+  if (army.marching || army.pos !== h) throw new ApiError(409, 'not_here', 'Your army must stand in the region');
   if (body.formations && !(mine || pc.clan?.role === 'leader' || pc.clan?.role === 'officer')) throw new ApiError(403, 'forbidden', 'Only the owner or clan officers set the garrison formation');
-  if (await shardStub(pc.env, pc.shard).hexLock(hexKey(h.q, h.r), pc.now)) throw new ApiError(409, 'under_attack', 'The hex is under attack right now');
+  if (await shardStub(pc.env, pc.shard).regionLock(regionKey(h), pc.now)) throw new ApiError(409, 'under_attack', 'The region is under attack right now');
   const heroes = await loadHeroes(pc.db, pc.season.id, pc.pid);
   const byId = new Map(heroes.map((x) => [x.hero.id, x]));
   const want = [...new Set(body.heroIds)];
@@ -421,13 +428,16 @@ online.post('/hex/:q/:r/garrison', async (c) => {
     const x = byId.get(id);
     if (!x) throw new ApiError(404, 'not_found', `No hero ${id}`);
     if (x.busyUntil > pc.now) throw new ApiError(409, 'busy', `${x.hero.name} is in a battle`);
-    if (x.garrison && (x.garrison.q !== h.q || x.garrison.r !== h.r)) throw new ApiError(409, 'elsewhere', `${x.hero.name} holds another hex`);
+    if (x.garrison !== null && x.garrison !== h) throw new ApiError(409, 'elsewhere', `${x.hero.name} holds another region`);
   }
   const others = (await loadGarrison(pc.db, pc.shard, h)).filter((x) => x.playerId !== pc.pid).length;
-  if (others + want.length > ONLINE_RULES.maxGarrison) throw new ApiError(409, 'garrison_full', `At most ${ONLINE_RULES.maxGarrison} heroes per hex`);
+  // a camp's palisade makes room for more
+  const camp = await campAt(pc.db, pc.shard, h);
+  const cap = camp ? garrisonCap(camp.buildings, pc.now) : ONLINE_RULES.maxGarrison;
+  if (others + want.length > cap) throw new ApiError(409, 'garrison_full', `At most ${cap} heroes in this region`);
   const newRev = pc.profile.rev + 1;
   const g = revGuard(pc.season.id, pc.pid, newRev);
-  const here = heroes.filter((x) => x.garrison && x.garrison.q === h.q && x.garrison.r === h.r).map((x) => x.hero.id);
+  const here = heroes.filter((x) => x.garrison === h).map((x) => x.hero.id);
   const stmts = [
     pc.db.prepare('UPDATE online_profiles SET rev = rev + 1, updated_at = ?3 WHERE season_id = ?1 AND player_id = ?2 AND rev = ?4').bind(pc.season.id, pc.pid, pc.now, pc.profile.rev),
     ...here
@@ -437,12 +447,12 @@ online.post('/hex/:q/:r/garrison', async (c) => {
       .filter((id) => !here.includes(id))
       .map((id) =>
         pc.db
-          .prepare(`INSERT INTO online_garrisons (hero_id, season_id, shard_id, q, r, player_id, placed_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7 WHERE ${g}`)
-          .bind(id, pc.season.id, pc.shard.id, h.q, h.r, pc.pid, pc.now),
+          .prepare(`INSERT INTO online_garrisons (hero_id, season_id, shard_id, loc, player_id, placed_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE ${g}`)
+          .bind(id, pc.season.id, pc.shard.id, h, pc.pid, pc.now),
       ),
   ];
   if (body.formations) {
-    stmts.push(pc.db.prepare(`UPDATE online_hexes SET formations = ?5 WHERE season_id = ?1 AND shard_id = ?2 AND q = ?3 AND r = ?4 AND ${g}`).bind(pc.season.id, pc.shard.id, h.q, h.r, JSON.stringify(body.formations)));
+    stmts.push(pc.db.prepare(`UPDATE online_regions SET formations = ?4 WHERE season_id = ?1 AND shard_id = ?2 AND loc = ?3 AND ${g}`).bind(pc.season.id, pc.shard.id, h, JSON.stringify(body.formations)));
   }
   await revBatch(pc.db, stmts);
   const after = await loadGarrison(pc.db, pc.shard, h);
@@ -451,7 +461,7 @@ online.post('/hex/:q/:r/garrison', async (c) => {
 
 // ------------------------------------------------------------------ income
 
-/** Collects the income of every hex the player holds (computed from server time). */
+/** Collects the income of every region the player holds (computed from server time). */
 online.post('/collect', async (c) => {
   limit(c, 'collect', 20);
   const pc = await player(c);
@@ -466,11 +476,11 @@ online.post('/collect', async (c) => {
       )
       .bind(pc.season.id, pc.pid, t.gold, t.food, t.wood, t.bronze, t.recruits, pc.now, pc.profile.rev),
     pc.db
-      .prepare(`UPDATE online_hexes SET accrued_at = ?4 WHERE season_id = ?1 AND shard_id = ?2 AND owner_id = ?3 AND ${g}`)
+      .prepare(`UPDATE online_regions SET accrued_at = ?4 WHERE season_id = ?1 AND shard_id = ?2 AND owner_id = ?3 AND ${g}`)
       .bind(pc.season.id, pc.shard.id, pc.pid, pc.now),
   ]);
   const after = (await getProfile(pc.db, pc.season.id, pc.pid))!;
-  return c.json({ collected: t, hexes: inc.hexes.length, resources: resources(after) });
+  return c.json({ collected: t, regions: inc.regions.length, resources: resources(after) });
 });
 
 // ------------------------------------------------------------------ recruiting & equipment
@@ -583,6 +593,7 @@ online.post('/army', async (c) => {
 
 online.route('/attack', attack);
 online.route('/clans', clans);
+online.route('/camps', camps);
 online.route('/consumables', consumables);
 online.route('/market', market);
 online.route('/merchant', merchant);

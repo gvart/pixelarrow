@@ -14,6 +14,8 @@ import { EN_ARMY } from './en.army';
 import { BEASTS_EN } from './beasts.en';
 import { DUELS_EN } from './duels.en';
 import { MERCHANT_EN } from './merchant.en';
+import { FIELDCAMP_EN } from './fieldcamp.en';
+import { OCAMP_EN } from './camp.en';
 
 export const EN = {
   // ---- shared words
@@ -119,6 +121,7 @@ export const EN = {
   'online.halt': 'Halt',
   'online.haltTip': 'Stop on the hex reached last',
   'online.onMarch': 'On the march: {n} hexes, {t}',
+  'online.discovered': 'Discovered: {name}!',
   'online.preview': 'Preview map: nothing is sent',
   'hex.plains': 'Plains',
   'hex.farmland': 'Farmland',
@@ -282,4 +285,6 @@ export const EN = {
   ...BEASTS_EN,
   ...DUELS_EN,
   ...MERCHANT_EN,
+  ...FIELDCAMP_EN,
+  ...OCAMP_EN,
 } as const;

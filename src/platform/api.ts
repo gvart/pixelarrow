@@ -7,6 +7,8 @@
  * pseudo-codes `network` / `timeout` with status 0. Nothing here ever throws
  * synchronously or blocks the game: callers treat any error as "offline".
  */
+import type { CampsView } from '../online/camps';
+import type { CampBuildingId } from '../online/rules';
 
 export interface PlayerInfo {
   id: number;
@@ -67,7 +69,7 @@ export type ConsumableKey = 'healing_salve' | 'morale_wine' | 'war_horn' | 'shar
 
 export interface CosmeticInfo {
   id: string;
-  slot: 'emblem' | 'banner' | 'cloak' | 'clan_flag' | 'army_skin' | 'table_theme';
+  slot: 'emblem' | 'banner' | 'cloak' | 'clan_flag' | 'army_skin' | 'table_theme' | 'crest' | 'aura' | 'pose';
   name: string;
   /** Drachmae price; null = not for sale (legacy, a pass reward or a duel season reward). */
   drachmae: number | null;
@@ -129,7 +131,8 @@ export interface SeasonPassInfo {
 export interface MarketListing {
   id: string;
   seller: { id: number; name: string | null };
-  town: { q: number; r: number };
+  /** The town (region) it is listed in. */
+  town: { loc: number; name: string };
   kind: 'item' | 'resource' | 'consumable';
   /** Item def id, resource key or consumable id. */
   ref: string;
@@ -154,8 +157,8 @@ export interface MarketQuery {
   currency?: Currency;
   minPrice?: number;
   maxPrice?: number;
-  townQ?: number;
-  townR?: number;
+  /** Only listings in this town (loc). */
+  town?: number;
   sort?: 'price_asc' | 'price_desc' | 'newest' | 'ending';
   /** `next` from the previous page. */
   cursor?: number;
@@ -163,7 +166,8 @@ export interface MarketQuery {
 }
 
 export interface MarketListRequest {
-  town: { q: number; r: number };
+  /** The town (loc) to list in. */
+  town: number;
   kind: MarketListing['kind'];
   /** Item uid (kind item), 'food' | 'wood' | 'bronze' (resource) or a consumable id. */
   ref: string;
@@ -474,7 +478,7 @@ export class ApiClient {
     return this.request('GET', '/api/online/market/mine', { auth: true });
   }
 
-  marketTowns(): Promise<{ towns: { q: number; r: number }[] }> {
+  marketTowns(): Promise<{ towns: { loc: number; name: string }[] }> {
     return this.request('GET', '/api/online/market/towns', { auth: true });
   }
 
@@ -490,5 +494,31 @@ export class ApiClient {
 
   marketCancel(listingId: string): Promise<{ ok: true; returned: { kind: string; ref: string; qty: number } }> {
     return this.request('POST', '/api/online/market/cancel', { auth: true, body: { listingId } });
+  }
+
+  // ---------------------------------------------------------------- online camps (server/src/online/camps.ts)
+
+  /** Your camps (buildings, timers, effects), the camp plots you could claim, limits and purse. */
+  camps(): Promise<CampsView> {
+    return this.request('GET', '/api/online/camps', { auth: true });
+  }
+
+  /** Makes a forward camp on a camp plot you hold (army there). Errors: camp_notPlot, camp_notYours, camp_isCamp, camp_limit, camp_notHere, camp_funds. */
+  campClaim(loc: number): Promise<CampsView> {
+    return this.request('POST', '/api/online/camps/claim', { auth: true, body: { loc } });
+  }
+
+  /**
+   * Builds `kind` on an empty `slot` of a camp, or raises the existing one a
+   * level (slot omitted). Errors: camp_notCamp, camp_badSlot, camp_slotTaken,
+   * camp_built, camp_busy, camp_maxLevel, camp_funds.
+   */
+  campBuild(loc: number, kind: CampBuildingId, slot?: number | null): Promise<CampsView & { built: { loc: number; slot: number; kind: CampBuildingId; level: number; doneAt: number } }> {
+    return this.request('POST', '/api/online/camps/build', { auth: true, body: slot === undefined || slot === null ? { loc, kind } : { loc, kind, slot } });
+  }
+
+  /** Rests the army at one of your camps (energy, wounds). Errors: camp_notCamp, camp_notHere, camp_resting. */
+  campRest(loc: number): Promise<CampsView & { energy: number }> {
+    return this.request('POST', '/api/online/camps/rest', { auth: true, body: { loc } });
   }
 }

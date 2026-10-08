@@ -48,7 +48,7 @@ export interface EconSource {
   profile(): Promise<ProfileView | null>;
   marketSearch(q: MarketQuery): Promise<{ listings: MarketListing[]; next: number | null }>;
   marketMine(): Promise<{ listings: MarketListing[]; open: number; maxOpen: number }>;
-  marketTowns(): Promise<{ towns: { q: number; r: number }[] }>;
+  marketTowns(): Promise<{ towns: { loc: number; name: string }[] }>;
   marketList(body: MarketListRequest): Promise<{ listing: MarketListing }>;
   marketBuy(id: string): Promise<{ listing: MarketListing; paid: number; fee: number; sellerGets: number }>;
   marketCancel(id: string): Promise<unknown>;

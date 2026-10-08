@@ -2,7 +2,6 @@
 import Phaser from 'phaser';
 import { Button, addIcon, addPanel, addScroll, addText, type FontKey } from '../../ui/kit';
 import type { Resources } from '../../online/rules';
-import type { HexType } from '../../online/hex';
 
 export interface Modal {
   c: Phaser.GameObjects.Container;
@@ -59,30 +58,6 @@ export function addResourceBar(scene: Phaser.Scene, ui: Phaser.GameObjects.Conta
   ui.add(addText(scene, x + 16, y + 3, resourceLine(r).slice(1), 'ink'));
   ui.add(addText(scene, x + w - 4, y + 3, `E${Math.floor(energy)}/${energyMax}`, energy < 10 ? 'red' : 'ink', 1));
 }
-
-export const HEX_COLORS: Record<HexType, number> = {
-  plains: 0xa9b863,
-  farmland: 0xd9c271,
-  forest: 0x55803f,
-  hills: 0xa08c5c,
-  mine: 0x86766a,
-  town: 0xd2a77f,
-  ruins: 0xa2988a,
-  water: 0x3e6b94,
-  mountain: 0x6c6259,
-};
-
-export const HEX_NAMES: Record<HexType, string> = {
-  plains: 'Plains',
-  farmland: 'Farmland',
-  forest: 'Forest',
-  hills: 'Hills',
-  mine: 'Mine',
-  town: 'Town',
-  ruins: 'Ruins',
-  water: 'Sea',
-  mountain: 'Mountains',
-};
 
 export const MINE_COLOR = 0x2f6fd0;
 export const CLAN_COLOR = 0x3fae4a;

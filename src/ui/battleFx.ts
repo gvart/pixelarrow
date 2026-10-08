@@ -15,6 +15,8 @@ import type { SimUnit } from '../sim/types';
 const RING_FRAMES = 8;
 const MAX_PARTICLES = 240;
 const MAX_NUMBERS = 24;
+/** Gear and aura motes alive at once (on top of the burst pool's own cap). */
+const MAX_MOTES = 48;
 const DEPTH_RING = -75000;
 const DEPTH_FX = 96000;
 
@@ -88,7 +90,7 @@ export class BattleFx {
   // ------------------------------------------------------------ particles
 
   /** A burst of square particles at a world point (pixels). */
-  burst(x: number, y: number, color: number, n: number, o: { speed?: number; up?: number; grav?: number; life?: number; big?: boolean } = {}): void {
+  burst(x: number, y: number, color: number, n: number, o: { speed?: number; up?: number; grav?: number; life?: number; big?: boolean; small?: boolean } = {}): void {
     const speed = o.speed ?? 40;
     for (let i = 0; i < n; i++) {
       let p = this.parts.find((q) => !q.live);
@@ -109,8 +111,16 @@ export class BattleFx {
       p.max = (o.life ?? 0.6) * (0.7 + Math.random() * 0.5);
       p.life = p.max;
       p.live = true;
-      p.img.setTexture(o.big || Math.random() < 0.3 ? 'fx_dot2' : 'fx_dot1').setTint(color).setVisible(true).setAlpha(1);
+      p.img.setTexture(o.big || (!o.small && Math.random() < 0.3) ? 'fx_dot2' : 'fx_dot1').setTint(color).setVisible(true).setAlpha(1);
     }
+  }
+
+  /** One slow rising mote (legendary gear, aura cosmetics): drifts up, flickers out. Capped separately. */
+  mote(x: number, y: number, color: number): void {
+    let live = 0;
+    for (const p of this.parts) if (p.live && p.grav === -5) live++;
+    if (live >= MAX_MOTES) return;
+    this.burst(x, y, color, 1, { speed: 3, up: 9, grav: -5, life: 1.1, small: true });
   }
 
   /** Slow rising sparkles (morale up). */

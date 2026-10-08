@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { hexDistance, hexInfo, hexesWithin, neighbours, type Axial } from '../../src/online/hex';
+import { ONLINE_RULES } from '../../src/online/rules';
 import { CONSUMABLES } from '../../src/data/consumables';
 import { holderCut, merchantDay, merchantStock, MERCHANT, offerPrice, tradingPosts } from '../../src/online/merchants';
 import { currentSeason, getShard } from '../src/online/store';
-import { DB, fresh, getJson, join, post, type Player } from './onlineHelpers';
+import { DB, fresh, getJson, join, placeArmy, post, sameShard, worldOf, type Player } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -40,18 +40,13 @@ async function shardOf(p: Player) {
   return { season, shard: await getShard(DB(), season.id, p.profile.shard.id) };
 }
 
-/** A town of the player's shard away from the capitals and from the player's home. */
-async function aTown(p: Player): Promise<Axial> {
-  const { shard } = await shardOf(p);
-  return hexesWithin({ q: 0, r: 0 }, shard.radius, shard.radius).find((h) => {
-    const i = hexInfo(shard.seed, h.q, h.r, shard.radius);
-    return i.type === 'town' && !i.capital && hexDistance(h, p.profile.home) > 8;
-  })!;
-}
-
-async function placeArmy(p: Player, h: Axial) {
-  const season = await currentSeason(DB());
-  await DB().prepare('UPDATE online_profiles SET army_q = ?1, army_r = ?2, march = NULL WHERE season_id = ?3 AND player_id = ?4').bind(h.q, h.r, season.id, p.playerId).run();
+/** A town of the player's shard (not a capital), with the player's land given up and the army out of sight of it. */
+async function aTown(p: Player): Promise<number> {
+  const w = worldOf(p);
+  const town = w.all().find((r) => r.kind === 'town')!.id;
+  await DB().prepare('DELETE FROM online_regions WHERE owner_id = ?1').bind(p.playerId).run();
+  await placeArmy(p, w.all().find((r) => r.passable && w.hops(r.id, town) > ONLINE_RULES.sight)!.id);
+  return town;
 }
 
 async function setGold(p: Player, gold: number) {
@@ -67,20 +62,20 @@ async function giveDrachmae(pid: number, n: number) {
   await DB().prepare('INSERT INTO wallets (player_id, drachmae, updated_at) VALUES (?1, ?2, 0) ON CONFLICT (player_id) DO UPDATE SET drachmae = excluded.drachmae').bind(pid, n).run();
 }
 
-async function hold(p: Player, h: Axial, clan: number | null = null) {
+async function hold(p: Player, h: number, clan: number | null = null) {
   const { season, shard } = await shardOf(p);
   await DB()
-    .prepare("INSERT INTO online_hexes (season_id, shard_id, q, r, occupant, owner_id, clan_id, captured_at, accrued_at) VALUES (?1, ?2, ?3, ?4, 'player', ?5, ?6, ?7, ?7)")
-    .bind(season.id, shard.id, h.q, h.r, p.playerId, clan, Date.now())
+    .prepare("INSERT INTO online_regions (season_id, shard_id, loc, occupant, owner_id, clan_id, captured_at, accrued_at) VALUES (?1, ?2, ?3, 'player', ?4, ?5, ?6, ?6)")
+    .bind(season.id, shard.id, h, p.playerId, clan, Date.now())
     .run();
 }
 
-const stock = (p: Player, h: Axial) => getJson<Stock & { error?: { code: string } }>(`/api/online/merchant/${h.q}/${h.r}`, p.token);
-const buy = (p: Player, h: Axial, offer: string, currency: 'gold' | 'drachmae', requestId = reqId()) =>
+const stock = (p: Player, h: number) => getJson<Stock & { error?: { code: string } }>(`/api/online/merchant/${h}`, p.token);
+const buy = (p: Player, h: number, offer: string, currency: 'gold' | 'drachmae', requestId = reqId()) =>
   post<{ replayed: boolean; order: { price: number; discount: boolean; holderCut: number }; item: { uid: string; def: string; rarity: string } | null; gold: number; error?: { code: string } }>(
     '/api/online/merchant/buy',
     p.token,
-    { q: h.q, r: h.r, offer, currency, requestId },
+    { loc: h, offer, currency, requestId },
   );
 
 describe('map merchants', () => {
@@ -89,20 +84,21 @@ describe('map merchants', () => {
     const town = await aTown(p);
     // Hidden by the fog: no stock.
     expect((await stock(p, town)).status).toBe(404);
-    // In sight but two hexes away: stock shown, out of reach.
-    const two = hexesWithin(town, 2).find((h) => hexDistance(h, town) === 2)!;
+    // In sight but two routes away: stock shown, out of reach.
+    const w = worldOf(p);
+    const two = w.within(town, 2).find((h) => w.hops(h, town) === 2 && w.info(h).passable)!;
     await placeArmy(p, two);
     const far = await stock(p, town);
     expect(far.status).toBe(200);
     expect(far.body).toMatchObject({ kind: 'town', reach: false, discount: false, holder: null });
     expect((await buy(p, town, 'c:morale_wine', 'gold')).body.error!.code).toBe('out_of_reach');
-    // Next to it: in reach. The hex panel names the merchant.
-    await placeArmy(p, neighbours(town)[0]);
-    expect((await getJson<{ merchant: string | null }>(`/api/online/hex/${town.q}/${town.r}`, p.token)).body.merchant).toBe('town');
+    // Next to it: in reach. The region panel names the merchant.
+    await placeArmy(p, w.neighbours(town)[0]);
+    expect((await getJson<{ merchant: string | null }>(`/api/online/region/${town}`, p.token)).body.merchant).toBe('town');
     const s = (await stock(p, town)).body;
     expect(s.reach).toBe(true);
     const { shard } = await shardOf(p);
-    expect(s.offers.map((o) => o.id)).toEqual(merchantStock(shard.seed, town, 'town', merchantDay(Date.now()), shard.radius).map((o) => o.id));
+    expect(s.offers.map((o) => o.id)).toEqual(merchantStock(shard.world, shard.seed, town, 'town', merchantDay(Date.now())).map((o) => o.id));
     expect(s.offers.filter((o) => o.kind === 'consumable')).toHaveLength(5);
     // Gear is never sold for Drachmae.
     expect(s.offers.filter((o) => o.kind === 'item').every((o) => o.drachmae === null)).toBe(true);
@@ -159,6 +155,7 @@ describe('map merchants', () => {
     const owner = await join(970101, 'Owner');
     const mate = await join(970102, 'Mate');
     const stranger = await join(970103, 'Stranger');
+    await sameShard(owner, mate, stranger);
     const town = await aTown(owner);
     // The owner holds the town from afar (no army there: holding is enough).
     const cl = await post<{ clan: { id: number } }>('/api/online/clans', owner.token, { name: 'Merchants Guild', tag: 'MRC' });
@@ -167,7 +164,7 @@ describe('map merchants', () => {
     expect((await post('/api/online/clans/join', mate.token, { code: inv.body.code })).status).toBe(200);
     await hold(owner, town, cl.body.clan.id);
     for (const p of [owner, mate, stranger]) await setGold(p, 1000);
-    await placeArmy(stranger, neighbours(town)[1]);
+    await placeArmy(stranger, worldOf(owner).neighbours(town)[1]);
     await placeArmy(mate, town);
 
     const so = (await stock(owner, town)).body;
@@ -198,22 +195,19 @@ describe('map merchants', () => {
   it('trading posts: rarer stock, shown on the map', async () => {
     const p = await join(970201);
     const { shard } = await shardOf(p);
-    const posts = tradingPosts(shard.seed, shard.radius);
+    const posts = tradingPosts(shard.world);
     expect(posts.length).toBeGreaterThan(0);
     const tp = posts[0];
-    await placeArmy(p, tp);
-    const s = await stock(p, tp);
+    await placeArmy(p, tp.loc);
+    const s = await stock(p, tp.loc);
     expect(s.status).toBe(200);
     expect(s.body.kind).toBe(tp.kind);
     expect(s.body.offers.some((o) => o.rarity === 'epic' && o.slot === 'rare')).toBe(true);
     expect(s.body.offers.filter((o) => o.slot === 'region').every((o) => o.rarity === 'rare')).toBe(true);
-    const map = (await getJson<{ hexes: { q: number; r: number; post?: string }[] }>('/api/online/map', p.token)).body;
-    expect(map.hexes.find((h) => h.q === tp.q && h.r === tp.r)?.post).toBe(tp.kind);
-    // A plain hex has no merchant.
-    const plain = neighbours(tp).find((h) => {
-      const i = hexInfo(shard.seed, h.q, h.r, shard.radius);
-      return i.type !== 'town' && !posts.some((x) => x.q === h.q && x.r === h.r);
-    })!;
+    const map = (await getJson<{ regions: { loc: number; post?: string }[] }>('/api/online/map', p.token)).body;
+    expect(map.regions.find((h) => h.loc === tp.loc)?.post).toBe(tp.kind);
+    // A plain region has no merchant.
+    const plain = shard.world.neighbours(tp.loc).find((h) => shard.world.info(h).kind === 'plot')!;
     expect((await stock(p, plain)).body.error!.code).toBe('no_merchant');
   });
 });

@@ -36,6 +36,8 @@ export interface Env {
   ADMIN_TOKEN?: string;
   /** "1" only in local .dev.vars: accept a fake Telegram user in /api/auth/telegram. */
   DEV_AUTH?: string;
+  /** Pins the map new online shards get (src/online/maps id; tests use 'test30'). Default: the season map. */
+  ONLINE_MAP?: string;
 }
 
 /** Hono generics for this app. */

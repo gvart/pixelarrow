@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capitals, hexDistance, hexInfo, hexesWithin, SHARD_RADIUS } from '../src/online/hex';
-import { beastHex } from '../src/online/lairs';
+import { getMap } from '../src/online/world';
 import { CONSUMABLE_IDS, CONSUMABLES } from '../src/data/consumables';
 import { ITEMS } from '../src/data/items';
 import {
@@ -25,75 +24,56 @@ import { demoShard } from '../src/online/demoShard';
 
 const DAY = '2026-10-07';
 
+const W = getMap('test30');
+
 describe('trading posts', () => {
-  it('a handful per shard (one per ~300 hexes), deterministic, spread apart, half harbours', () => {
-    for (const seed of [1, 42, 4242, 987654]) {
-      const a = tradingPosts(seed);
-      expect(a).toEqual(tradingPosts(seed));
-      const hexes = hexesWithin({ q: 0, r: 0 }, SHARD_RADIUS).length;
-      expect(a.length).toBe(Math.round(hexes / MERCHANT.hexesPerPost));
-      expect(a.filter((p) => p.kind === 'harbour').length).toBe(Math.ceil(a.length / 2));
-      for (const p of a) for (const o of a) if (p !== o) expect(hexDistance(p, o)).toBeGreaterThanOrEqual(MERCHANT.postSpacing);
-    }
-    // another seed, another layout
-    expect(tradingPosts(1)).not.toEqual(tradingPosts(2));
-  });
-
-  it('never on towns, forts, capitals, beasts or near the capitals (so never on a home); harbours on the coast', () => {
-    const seed = 4242;
-    const caps = capitals();
-    for (const p of tradingPosts(seed)) {
-      const i = hexInfo(seed, p.q, p.r);
-      expect(i.passable).toBe(true);
-      expect(i.type).not.toBe('town');
-      expect(i.fort || i.capital).toBe(false);
-      expect(beastHex(seed, i)).toBe(false);
-      expect(Math.min(...caps.map((c) => hexDistance(c, p)))).toBeGreaterThanOrEqual(MERCHANT.postCapitalGap);
-      if (p.kind === 'harbour') expect(i.coast).toBe(true);
-      else expect(i.site.river && !i.coast).toBe(true);
-      expect(tradingPostAt(seed, p)).toBe(p.kind);
-      expect(merchantAt(seed, i)).toBe(p.kind);
+  it("are the map's regions of kind 'post': harbours on the coast, crossroads inland", () => {
+    const posts = tradingPosts(W);
+    expect(posts.map((p) => p.loc)).toEqual(W.all().filter((r) => r.kind === 'post').map((r) => r.id));
+    expect(posts.length).toBeGreaterThan(0);
+    for (const p of posts) {
+      expect(p.kind).toBe(W.info(p.loc).coast ? 'harbour' : 'crossroads');
+      expect(tradingPostAt(W, p.loc)).toBe(p.kind);
+      expect(merchantAt(W, p.loc)).toBe(p.kind);
     }
   });
 
-  it('every town has a merchant; plain land does not', () => {
-    const seed = 42;
-    const posts = new Set(tradingPosts(seed).map((p) => `${p.q}_${p.r}`));
+  it('every town and capital has a merchant; plain land does not', () => {
     let towns = 0;
-    for (const h of hexesWithin({ q: 0, r: 0 }, SHARD_RADIUS)) {
-      const i = hexInfo(seed, h.q, h.r);
-      const m = merchantAt(seed, i);
-      if (i.type === 'town') {
+    for (const r of W.all()) {
+      const m = merchantAt(W, r.id);
+      if (r.kind === 'town' || r.kind === 'capital') {
         towns++;
         expect(m).toBe('town');
-      } else expect(m === null).toBe(!posts.has(i.id));
+      } else expect(m === null).toBe(r.kind !== 'post');
     }
-    expect(towns).toBeGreaterThan(7);
+    expect(towns).toBeGreaterThanOrEqual(3);
+    expect(merchantAt(W, 9999)).toBeNull();
   });
 
-  it('regions follow the nearest capital', () => {
-    const caps = capitals();
-    caps.forEach((c, i) => expect(regionOf(c)).toBe(REGIONS[i]));
-    expect(regionOf({ q: 1, r: 0 })).toBe('attica');
+  it('realms follow the nearest capital (by routes)', () => {
+    const caps = W.capitals();
+    caps.forEach((c, i) => expect(regionOf(W, c)).toBe(REGIONS[i % REGIONS.length]));
+    for (const c of caps) for (const n of W.neighbours(c)) if (!caps.some((o) => o !== c && W.hops(o, n) <= 1)) expect(regionOf(W, n)).toBe(regionOf(W, c));
   });
 });
 
 describe('merchant stock', () => {
   const seed = 42;
-  const town = hexesWithin({ q: 0, r: 0 }, SHARD_RADIUS).find((h) => hexInfo(seed, h.q, h.r).type === 'town' && !hexInfo(seed, h.q, h.r).capital)!;
-  const post = tradingPosts(seed)[0];
+  const town = W.all().find((r) => r.kind === 'town')!.id;
+  const post = tradingPosts(W)[0];
 
-  it('is a pure function of (seed, hex, day): the same all day, rotating day by day', () => {
-    const a = merchantStock(seed, town, 'town', DAY);
-    expect(merchantStock(seed, town, 'town', DAY)).toEqual(a);
-    const week = ['2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12'].map((d) => merchantStock(seed, town, 'town', d).map((o) => o.id).join());
+  it('is a pure function of (seed, region, day): the same all day, rotating day by day', () => {
+    const a = merchantStock(W, seed, town, 'town', DAY);
+    expect(merchantStock(W, seed, town, 'town', DAY)).toEqual(a);
+    const week = ['2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12'].map((d) => merchantStock(W, seed, town, 'town', d).map((o) => o.id).join());
     expect(week.some((ids) => ids !== a.map((o) => o.id).join())).toBe(true);
     // ids are unique within a stock
     expect(new Set(a.map((o) => o.id)).size).toBe(a.length);
   });
 
   it('towns: every consumable, basic gear, two regional uncommons and a rare', () => {
-    const s = merchantStock(seed, town, 'town', DAY);
+    const s = merchantStock(W, seed, town, 'town', DAY);
     const cons = s.filter((o) => o.kind === 'consumable');
     expect(cons.map((o) => o.ref)).toEqual(CONSUMABLE_IDS);
     for (const o of cons) expect(o).toMatchObject({ gold: CONSUMABLES[o.ref as keyof typeof CONSUMABLES].gold, drachmae: CONSUMABLES[o.ref as keyof typeof CONSUMABLES].drachmae, dailyCap: CONSUMABLES[o.ref as keyof typeof CONSUMABLES].dailyCap });
@@ -103,7 +83,7 @@ describe('merchant stock', () => {
     const region = s.filter((o) => o.slot === 'region');
     expect(region).toHaveLength(2);
     for (const o of region) {
-      expect(SPECIALTIES[regionOf(town)]).toContain(o.ref);
+      expect(SPECIALTIES[regionOf(W, town)]).toContain(o.ref);
       expect(o.rarity).toBe('uncommon');
     }
     const rare = s.filter((o) => o.slot === 'rare');
@@ -119,9 +99,9 @@ describe('merchant stock', () => {
   });
 
   it('trading posts carry rarer stock: all regional goods and their own at rare, an epic in the rotating slot', () => {
-    const s = merchantStock(seed, post, post.kind, DAY);
+    const s = merchantStock(W, seed, post.loc, post.kind, DAY);
     const region = s.filter((o) => o.slot === 'region');
-    const want = new Set([...SPECIALTIES[regionOf(post)], ...POST_GOODS[post.kind]]);
+    const want = new Set([...SPECIALTIES[regionOf(W, post.loc)], ...POST_GOODS[post.kind]]);
     expect(new Set(region.map((o) => o.ref))).toEqual(want);
     for (const o of region) expect(o.rarity).toBe('rare');
     expect(s.find((o) => o.slot === 'rare')!.rarity).toBe('epic');
@@ -154,8 +134,8 @@ describe('demo shard merchants', () => {
     const d = demoShard();
     expect(d.spots.market).not.toBeNull();
     expect(d.spots.post).not.toBeNull();
-    expect(d.hex(d.spots.market!).merchant).toBe('town');
-    expect(d.hex(d.spots.post!).merchant).toMatch(/harbour|crossroads/);
+    expect(d.region(d.spots.market!).merchant).toBe('town');
+    expect(d.region(d.spots.post!).merchant).toMatch(/harbour|crossroads/);
     const held = d.merchant(d.spots.market!, 'held')!;
     expect(held).toMatchObject({ reach: true, discount: true });
     expect(held.offers.every((o) => o.price.gold === offerPrice(o, 'gold', true))).toBe(true);

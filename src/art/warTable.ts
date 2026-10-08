@@ -7,7 +7,8 @@
  * unexplored map, the wooden table, clouds, smoke and water glints. Pure:
  * every function returns a Pix; the scene turns them into textures.
  *
- * Board geometry (tile sizes, heights) comes from src/online/board.ts. The
+ * Tile geometry (sizes, heights) is local to this file (legacy tiles; the
+ * season map's parchment view replaces them, docs/MAP_V3.md). The
  * palette follows the battlefield: muted grass, olive scrub, dusty soil,
  * weathered stone, slate sea.
  */
@@ -15,10 +16,24 @@ import { mix } from './palette';
 import { BAYER4, Pix, hash2, valueNoise } from './pixels';
 import { Scene, ramp, type Material, type V3 } from './model3d';
 import { BRONZE, CLOTH, DARK_WOOD, IRON, IVORY, LEATHER, LINEN, SKIN, WOOD, BEAST } from './materials';
-import { ELEV, TILE_H, TILE_W, inTopFace } from '../online/board';
 import { ENCOUNTERS, type EncounterId } from '../data/beasts';
 import { buildMyth, mythBasis } from './beastArt';
-import type { HexType } from '../online/hex';
+
+/** Ground of a painted tile. */
+export type TileType = 'plains' | 'farmland' | 'forest' | 'hills' | 'mine' | 'town' | 'ruins' | 'water' | 'mountain';
+
+/** A tile's top face (a squashed pointy-top hexagon), board pixels. */
+export const TILE_W = 28;
+export const TILE_H = 20;
+/** Tile thickness by ground. */
+export const ELEV: Record<TileType, number> = { water: 3, plains: 5, farmland: 5, town: 6, ruins: 6, forest: 6, hills: 9, mine: 9, mountain: 13 };
+
+/** Is (dx, dy), relative to a top face's centre, inside that face? */
+export function inTopFace(dx: number, dy: number): boolean {
+  const ax = Math.abs(dx);
+  if (ax > TILE_W / 2) return false;
+  return Math.abs(dy) <= TILE_H / 2 - (ax * (TILE_H / 4)) / (TILE_W / 2);
+}
 
 export interface Sprite {
   pix: Pix;
@@ -52,7 +67,7 @@ const pickRamp = (ramp: readonly number[], v: number) => ramp[Math.max(0, Math.m
 // ------------------------------------------------------------------ tiles
 
 /** Top-face colour of one pixel of a terrain tile. dx, dy: pixel centre relative to the face centre. */
-function topColor(type: HexType, dx: number, dy: number, px: number, py: number, seed: number): number {
+function topColor(type: TileType, dx: number, dy: number, px: number, py: number, seed: number): number {
   const b = BAYER4[py & 3][px & 3] - 0.5;
   const n = valueNoise(px + seed * 37, py + seed * 53, 4, seed) * 0.55 + valueNoise(px, py, 9, seed + 11) * 0.45;
   // light from the upper left; a painted, slightly brushed board
@@ -112,7 +127,7 @@ function topColor(type: HexType, dx: number, dy: number, px: number, py: number,
  * seam so neighbouring tiles read as separate pieces) and its side faces
  * (soil strata, ELEV[type] pixels thick). Anchor: the top face's centre.
  */
-export function renderTile(type: HexType, variant: number): Sprite {
+export function renderTile(type: TileType, variant: number): Sprite {
   const elev = ELEV[type];
   const w = TILE_W;
   const h = TILE_H + elev + 1;

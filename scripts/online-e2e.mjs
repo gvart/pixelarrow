@@ -158,18 +158,15 @@ for (const p of [A, B]) {
 const prof = await ev(A, () => window.__game.scene.getScene('Online').profile);
 check('server-owned starting army', prof.heroes.length === 5 && prof.resources.gold > 0, `${prof.heroes.length} heroes, ${prof.resources.gold} gold`);
 
-// ---------------------------------------------------------------- attack a neighbouring hex
+// ---------------------------------------------------------------- attack a neighbouring region
 const target = await ev(A, () => {
   const s = window.__game.scene.getScene('Online');
-  const a = s.profile.army;
-  const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
-  for (const [dq, dr] of dirs) {
-    const h = s.map.hexes.find((x) => x.q === a.q + dq && x.r === a.r + dr);
-    if (h && h.occupant === 'npc' && h.owner === null) return { q: h.q, r: h.r };
-  }
-  return null;
+  const w = s.world;
+  const a = s.profile.army.loc;
+  const r = s.map.regions.find((x) => w.adjacent(a, x.loc) && x.occupant === 'npc' && x.owner === null);
+  return r ? r.loc : null;
 });
-check('a neutral hex next to home', !!target);
+check('a neutral region next to home', target !== null);
 await ev(A, (h) => window.__game.scene.getScene('Online').select(h), target);
 await until(() => ev(A, () => !!window.__game.scene.getScene('Online').detail), 5000);
 // the war table pans to the hex and the panel settles (slow frames in software WebGL)

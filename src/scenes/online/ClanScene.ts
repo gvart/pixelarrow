@@ -132,13 +132,13 @@ export class ClanScene extends BaseScene {
       const c = this.add.container(0, 0);
       this.ui.add(c);
       c.add(addPanel(this, 8, 34, VW - 16, 112, 'parch'));
-      const y = lines(this, c, VW / 2, 42, ['Clans share their land:', 'members garrison each other', 'and earn more next to clan hexes.', 'Found one, or ask a leader for', 'an invite link.'], 'ink', VW - 30);
+      const y = lines(this, c, VW / 2, 42, ['Clans share their land:', 'members garrison each other', 'and earn more next to clan land.', 'Found one, or ask a leader for', 'an invite link.'], 'ink', VW - 30);
       button(this, c, VW / 2 - 55, y + 6, 110, 24, 'Found a clan', () => void this.create_(), { icon: 'flag', sel: true });
       return;
     }
     const cl = this.clan;
     this.ui.add(addText(this, 32, 4, `[${cl.tag}] ${cl.name}`, 'red'));
-    this.ui.add(addText(this, 32, 13, `${cl.members.length}/${ONLINE_RULES.clanMaxMembers} men - ${cl.hexes} hexes - ${this.role}`, 'dim'));
+    this.ui.add(addText(this, 32, 13, `${cl.members.length}/${ONLINE_RULES.clanMaxMembers} men - ${cl.regions} regions - ${this.role}`, 'dim'));
     const area = new ScrollArea(this, this.ui, 3, 28, VW - 6, VH - 28 - 34, S);
     this.area = area;
     let y = 0;
@@ -146,7 +146,7 @@ export class ClanScene extends BaseScene {
       const row = this.add.container(0, y);
       row.add(addPanel(this, 0, 0, VW - 6, 24, m.id === this.me ? 'buttonSel' : 'inset'));
       row.add(addText(this, 6, 4, m.name, m.id === this.me ? 'light' : 'ink'));
-      row.add(addText(this, 6, 14, `${m.role} - ${m.hexes} hexes`, m.id === this.me ? 'light' : 'dim'));
+      row.add(addText(this, 6, 14, `${m.role} - ${m.regions} regions`, m.id === this.me ? 'light' : 'dim'));
       if (this.role && m.id !== this.me && (canKick(this.role, m.role) || canPromote(this.role, m.role, 'officer'))) {
         row.add(new Button(this, VW - 6 - 50, 3, 46, 18, { label: 'Manage', onClick: () => !area.moved && this.manage(m) }));
       }
@@ -229,7 +229,7 @@ export class ClanScene extends BaseScene {
     const { VW } = this.m;
     this.modal = this.openM(96, 'Leave the clan?');
     const md = this.modal;
-    lines(this, md.c, VW / 2, md.y + 28, ['Your hexes stay yours,', 'but no longer clan land.'], 'ink');
+    lines(this, md.c, VW / 2, md.y + 28, ['Your land stays yours,', 'but no longer clan land.'], 'ink');
     button(this, md.c, md.x + 10, md.y + 58, md.w / 2 - 15, 24, 'Stay', () => this.closeModal());
     button(this, md.c, md.x + md.w / 2 + 5, md.y + 58, md.w / 2 - 15, 24, 'Leave', () => {
       this.closeModal();
@@ -256,7 +256,7 @@ export class ClanScene extends BaseScene {
     const { VW } = this.m;
     this.modal = this.openM(112, 'Clan invite');
     const md = this.modal;
-    lines(this, md.c, VW / 2, md.y + 28, [`[${c.tag}] ${c.name}`, `${c.members} members - ${c.hexes} hexes`, preview.current ? 'You must leave your clan first.' : 'Join them?'], 'ink');
+    lines(this, md.c, VW / 2, md.y + 28, [`[${c.tag}] ${c.name}`, `${c.members} members - ${c.regions} regions`, preview.current ? 'You must leave your clan first.' : 'Join them?'], 'ink');
     button(this, md.c, md.x + 10, md.y + 74, md.w / 2 - 15, 24, 'Not now', () => {
       this.closeModal();
       void this.fetchData();

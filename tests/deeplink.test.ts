@@ -8,9 +8,9 @@ describe('startapp deep links', () => {
   it('round-trips every route within Telegram limits', () => {
     const routes: StartRoute[] = [
       { kind: 'invite', code: 'abcD2345xy' },
-      { kind: 'hex', q: 12, r: -7 },
-      { kind: 'hex', q: -34, r: 0 },
-      { kind: 'boss', q: 5, r: -9 },
+      { kind: 'loc', loc: 12 },
+      { kind: 'loc', loc: 0 },
+      { kind: 'boss', loc: 305 },
       { kind: 'duel' },
       { kind: 'market' },
       { kind: 'clan' },
@@ -27,8 +27,8 @@ describe('startapp deep links', () => {
   });
 
   it('routes each link to its scene', () => {
-    expect(sceneForRoute(parseStartParam('hex_3_-2'))).toEqual({ scene: 'Online', data: { focus: { q: 3, r: -2 }, select: true } });
-    expect(sceneForRoute(parseStartParam('boss_-1_4'))).toEqual({ scene: 'Online', data: { focus: { q: -1, r: 4 }, select: true } });
+    expect(sceneForRoute(parseStartParam('loc_32'))).toEqual({ scene: 'Online', data: { focus: 32, select: true } });
+    expect(sceneForRoute(parseStartParam('boss_14'))).toEqual({ scene: 'Online', data: { focus: 14, select: true } });
     expect(sceneForRoute(parseStartParam('duel'))).toEqual({ scene: 'Online', data: { lobby: true } });
     expect(sceneForRoute(parseStartParam('market'))?.scene).toBe('Market');
     expect(sceneForRoute(parseStartParam('myclan'))?.scene).toBe('OnlineClan');
@@ -42,9 +42,9 @@ describe('startapp deep links', () => {
   });
 
   it('ignores anything unknown or malformed (the game opens on the menu)', () => {
-    for (const p of [null, undefined, '', 'nope', 'hex_1', 'hex_a_b', 'hex_1_2_3', 'hex_99999_1', 'clan_x', 'duel!', 'x'.repeat(65), 'market ', ' hex_1_2']) {
+    for (const p of [null, undefined, '', 'nope', 'hex_1_2', 'loc_', 'loc_a', 'loc_-3', 'loc_1_2', 'loc_1234567', 'clan_x', 'duel!', 'x'.repeat(65), 'market ', ' loc_12']) {
       const r = parseStartParam(p);
-      if (p === 'market ' || p === ' hex_1_2') expect(r).not.toBeNull(); // surrounding spaces are trimmed
+      if (p === 'market ' || p === ' loc_12') expect(r).not.toBeNull(); // surrounding spaces are trimmed
       else expect(r).toBeNull();
     }
     expect(sceneForRoute(null)).toBeNull();
