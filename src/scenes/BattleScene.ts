@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, addPanel, addText, holdTimer, longPress, type HoldTimer } from '../ui/kit';
+import { Button, Meter, addPanel, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
+import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
 import { GroupCard } from '../ui/battlePanel';
 import { Chip, CommandStrip, ListRow, SituationBar, type ChipOpts, type CommandStripOpts, type SitNumber, type StripSlot } from '../ui/strategos';
@@ -136,11 +137,11 @@ type Gesture = {
 } | null;
 
 /** Finger travel (screen px) before a press becomes a drag: below it a lift is a tap. */
-const DRAG_PX = 10;
+const DRAG_PX = px(10);
 /** Grab radius (screen px) around the selected group's soldiers, placement marker and facing knob. */
-const GRAB_PX = 30;
+const GRAB_PX = px(30);
 /** Tap radius (screen px) of a floating group tag (a 44 pt target). */
-const TAG_PX = 20;
+const TAG_PX = px(20);
 
 export class BattleScene extends BaseScene {
   private sim!: Battle;
@@ -431,7 +432,7 @@ export class BattleScene extends BaseScene {
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
     this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => {
-      this.setZoom(Math.round(cam.zoom) + (dy > 0 ? -1 : 1));
+      this.setZoom(Math.round(zoomUnits(cam.zoom)) + (dy > 0 ? -1 : 1));
       this.tutorialEvent({ kind: 'zoom' });
     });
     // Back never leaves silently: deployment asks first, in battle it offers the retreat (pausing offline).
@@ -499,12 +500,12 @@ export class BattleScene extends BaseScene {
     if (!isFinite(x0)) return;
     const vp = this.fieldViewport();
     // the zoom is chosen for the whole width (the group cards overlay the field's edge); the centring skips them
-    const availW = this.scale.width;
-    const availH = vp.bottom - vp.top;
+    const availW = this.scale.width / RS;
+    const availH = (vp.bottom - vp.top) / RS;
     const fit = Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0)));
     // 1x shows a man ~25 px tall on a 390-wide phone; closer if both armies fit
     const z = Phaser.Math.Clamp(Math.max(1, fit), 1, 2);
-    cam.setZoom(z);
+    cam.setZoom(camZoom(z));
     const t0 = this.focusPoint();
     this.centerCam(t0.x, t0.y);
   }
@@ -1436,7 +1437,7 @@ export class BattleScene extends BaseScene {
       const d = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
       const cx = (a.x + b.x) / 2;
       const cy = (a.y + b.y) / 2;
-      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), 1, 3);
+      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), camZoom(1), camZoom(3));
       cam.setZoom(z);
       cam.scrollX -= (cx - this.pinch.cx) / z;
       cam.scrollY -= (cy - this.pinch.cy) / z;
@@ -1460,7 +1461,7 @@ export class BattleScene extends BaseScene {
       this.setFollow(false);
       cam.scrollX -= (p.x - g.lx) / cam.zoom;
       cam.scrollY -= (p.y - g.ly) / cam.zoom;
-      this.tutorialEvent({ kind: 'pan', px: Math.hypot(p.x - g.lx, p.y - g.ly) });
+      this.tutorialEvent({ kind: 'pan', px: Math.hypot(p.x - g.lx, p.y - g.ly) / RS });
     } else if (g.mode === 'formation' && g.drag) {
       const w = cam.getWorldPoint(p.x, p.y);
       const f = screenToIso(w.x, w.y);
@@ -1477,7 +1478,7 @@ export class BattleScene extends BaseScene {
       if (down.length < 2) {
         const z0 = this.pinch.z0;
         this.pinch = null;
-        this.setZoom(Math.round(this.cameras.main.zoom));
+        this.setZoom(Math.round(zoomUnits(this.cameras.main.zoom)));
         if (Math.abs(this.cameras.main.zoom - z0) > 0.05) this.tutorialEvent({ kind: 'zoom' });
       }
       this.gesture = null;
@@ -1504,7 +1505,7 @@ export class BattleScene extends BaseScene {
 
   private setZoom(z: number): void {
     const cam = this.cameras.main;
-    const target = Phaser.Math.Clamp(z, 1, 3);
+    const target = camZoom(Phaser.Math.Clamp(z, 1, 3));
     if (target !== cam.zoom) this.setFollow(false);
     this.tweens.add({ targets: cam, zoom: target, duration: 120 });
   }
@@ -1574,7 +1575,7 @@ export class BattleScene extends BaseScene {
     const fr = this.selectedFrame()!;
     const press = screenToIso(g.wx0, g.wy0);
     // thresholds are in paces at the default zoom (1: a pace is 36 px across a tile) and scale with zoom
-    const k = 1 / this.cameras.main.zoom;
+    const k = 1 / zoomUnits(this.cameras.main.zoom);
     haptic('light');
     return dragStart(kind, fr, press.x, press.y, k);
   }
@@ -2962,10 +2963,7 @@ export class BattleScene extends BaseScene {
 }
 
 function uiMetricsOf(scene: Phaser.Scene): { S: number; VW: number; VH: number } {
-  const W = scene.scale.width;
-  const H = scene.scale.height;
-  const S = Math.max(2, Math.min(4, Math.floor(Math.min(W / 190, H / 400))));
-  return { S, VW: Math.floor(W / S), VH: Math.floor(H / S) };
+  return uiMetrics(scene);
 }
 
 /** "1:05". */

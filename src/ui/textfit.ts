@@ -1,12 +1,12 @@
 /**
- * Measure-based text fitting for the procedural pixel font (src/art/font.ts).
+ * Measure-based text fitting for the UI typeface (src/art/vectorFont.ts).
  * Pure functions (no Phaser), so they run in unit tests: every language's
  * strings are measured the same way the bitmap text renders them.
  *
  * Widths are in UI pixels at the base size (7 px cap height); pass `size` for
  * scaled titles. Text renders in the case it is given (the font has lower case).
  */
-import { glyphWidth } from '../art/font';
+import { advance } from '../art/vectorFont';
 
 export const BASE_FONT_SIZE = 7;
 export const ELLIPSIS = '…';
@@ -16,19 +16,19 @@ export function measureText(str: string, shadow = false, size = BASE_FONT_SIZE):
   let w = 0;
   let n = 0;
   for (const ch of str) {
-    const g = glyphWidth(ch);
+    const g = advance(ch);
     if (g < 0) continue;
-    w += g + 1;
+    w += g;
     n++;
   }
   if (n === 0) return 0;
-  return Math.ceil(((w - 1 + (shadow ? 1 : 0)) * size) / BASE_FONT_SIZE);
+  return Math.ceil(((w + (shadow ? 0.5 : 0)) * size) / BASE_FONT_SIZE);
 }
 
 /** Characters the pixel font cannot draw (they would silently vanish). */
 export function missingGlyphs(str: string): string[] {
   const out = new Set<string>();
-  for (const ch of str) if (ch !== '\n' && glyphWidth(ch) < 0) out.add(ch);
+  for (const ch of str) if (ch !== '\n' && advance(ch) < 0) out.add(ch);
   return [...out];
 }
 

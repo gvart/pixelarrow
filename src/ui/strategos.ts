@@ -18,7 +18,7 @@
  * layout check through the kit's Button / addText.
  */
 import Phaser from 'phaser';
-import { Button, addIcon, addPanel, addText, longPress, panelTexture as panelTextureOf, tappable, type ButtonOpts, type FontKey } from './kit';
+import { Button, addIcon, addPanel, addText, longPress, panelImage, panelTexture as panelTextureOf, tappable, type ButtonOpts, type FontKey } from './kit';
 import { Badge, hintStore } from './widgets';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
@@ -376,7 +376,7 @@ export class ListRow extends Phaser.GameObjects.Container {
     this.h = h;
     this.opts = { label: o.label, icon: o.icon };
     const style = o.off ? 'buttonOff' : o.primary ? 'buttonSel' : 'button';
-    this.bg = scene.add.image(0, 0, panelTextureOf(scene, this.w, this.h, style)).setOrigin(0, 0);
+    this.bg = panelImage(scene, 0, 0, this.w, this.h, style);
     this.add(this.bg);
     const light = !!o.primary && !o.off;
     const font: FontKey = o.off ? 'dim' : light ? 'light' : 'ink';

@@ -17,6 +17,7 @@
  * for scripts/layout-check.mjs.
  */
 import Phaser from 'phaser';
+import { RS } from '../platform/renderScale';
 import { keyOfText } from '../i18n';
 import { checkLayout, intersect, type Rect, type UiElement, type Violation } from './layoutCheck';
 
@@ -270,13 +271,24 @@ export function collectUi(game: Phaser.Game): UiElement[] {
     }
     out.push(el);
   });
-  return out;
+  return RS === 1 ? out : out.map(toCss);
+}
+
+/** Canvas px -> CSS px (the canvas is drawn RS x denser, src/platform/renderScale.ts). */
+function toCss(el: UiElement): UiElement {
+  const r = (b: Rect): Rect => ({ x: b.x / RS, y: b.y / RS, w: b.w / RS, h: b.h / RS });
+  const o: UiElement = { ...el, rect: r(el.rect) };
+  if (el.clip) o.clip = r(el.clip);
+  if (el.frame) o.frame = r(el.frame);
+  if (el.column) o.column = { x0: el.column.x0 / RS, x1: el.column.x1 / RS };
+  if (el.maxW !== undefined) o.maxW = el.maxW / RS;
+  return o;
 }
 
 /** Collect and check the current screen. */
 export function checkUi(game: Phaser.Game): { elements: UiElement[]; violations: Violation[]; width: number; height: number } {
   const elements = collectUi(game);
-  const width = game.scale.width;
-  const height = game.scale.height;
+  const width = game.scale.width / RS;
+  const height = game.scale.height / RS;
   return { elements, violations: checkLayout(elements, { width, height }), width, height };
 }

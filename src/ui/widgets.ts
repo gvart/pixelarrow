@@ -10,7 +10,7 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics } from './kit';
+import { Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
 import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, glows } from './theme';
@@ -29,7 +29,7 @@ export interface UiScene extends Phaser.Scene {
   m: UIMetrics;
 }
 
-const metrics = (scene: Phaser.Scene): UIMetrics => (scene as UiScene).m ?? { S: 2, VW: Math.floor(scene.scale.width / 2), VH: Math.floor(scene.scale.height / 2) };
+const metrics = (scene: Phaser.Scene): UIMetrics => (scene as UiScene).m ?? uiMetrics(scene);
 
 /** The container overlays go into: the scene's UI root, or a scaled root made on demand. */
 function overlayRoot(scene: Phaser.Scene): Phaser.GameObjects.Container {

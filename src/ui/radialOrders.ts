@@ -6,8 +6,9 @@
  * hides while a finger drags the field. The facing handle is the battle
  * scene's own turn knob, drawn bronze beside the ring.
  */
+import { RS } from '../platform/renderScale';
 import Phaser from 'phaser';
-import { addIcon, addText, panelTexture, holdTimer, longPress, type HoldTimer } from './kit';
+import { addIcon, addText, panelImage, panelTexture, holdTimer, longPress, type HoldTimer } from './kit';
 import { uiFrame, uiId } from './layout';
 import { BRONZE } from './theme';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
@@ -56,8 +57,8 @@ class RingButton extends Phaser.GameObjects.Container {
     this.o = o;
     this.w = size;
     this.h = size;
-    const style = o.off ? 'buttonOff' : o.selected ? 'buttonSel' : 'button';
-    this.bg = scene.add.image(0, 0, panelTexture(scene, size, size, style)).setOrigin(0, 0);
+    const style = o.off ? 'buttonOff' : o.selected ? 'buttonOn' : 'button';
+    this.bg = panelImage(scene, 0, 0, size, size, style);
     this.add(this.bg);
     const variant = o.off ? 'D' : o.selected ? 'L' : '';
     // the glyph at 2x: 24 px in a 26 px button
@@ -78,14 +79,14 @@ class RingButton extends Phaser.GameObjects.Container {
         longPress.show?.(scene, tip, this);
         this.release();
       });
-      if (!o.off) this.bg.setTexture(panelTexture(scene, size, size, o.selected ? 'buttonSelDown' : 'buttonDown'));
+      if (!o.off) this.bg.setTexture(panelTexture(scene, size, size, o.selected ? 'buttonOnDown' : 'buttonDown'));
     });
     this.on('pointerout', () => this.release());
     this.on('pointerup', (p: Phaser.Input.Pointer) => {
       const d = this.downAt;
       const long = this.long;
       this.release();
-      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14) return;
+      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       if (o.off) {
         uiError();
         hapticNotify('warning');
@@ -114,7 +115,7 @@ class RingButton extends Phaser.GameObjects.Container {
     this.timer?.remove();
     this.timer = null;
     if (!this.scene) return;
-    this.bg.setTexture(panelTexture(this.scene, this.w, this.h, this.o.off ? 'buttonOff' : this.o.selected ? 'buttonSel' : 'button'));
+    this.bg.setTexture(panelTexture(this.scene, this.w, this.h, this.o.off ? 'buttonOff' : this.o.selected ? 'buttonOn' : 'button'));
   }
 }
 

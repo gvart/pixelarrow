@@ -9,8 +9,9 @@
  * long-press, a tap on a disabled one says why) and register with the layout
  * check the same way (a container with w / h, texts framed by it).
  */
+import { RS } from '../platform/renderScale';
 import Phaser from 'phaser';
-import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
+import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelImage, panelK, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText } from './textfit';
 import { CATEGORY_COLOR, CATEGORY_DARK, type BattleCategory } from './theme';
@@ -102,7 +103,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
     this.h = Math.round(h);
     this.o = o;
     this.sel = !!o.selected;
-    this.bg = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0);
+    this.bg = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0).setScale(1 / panelK(scene));
     this.content = scene.add.container(0, 0);
     this.sweep = scene.add.graphics();
     // top right, clear of the label (bottom or centre) and the icon
@@ -133,13 +134,13 @@ export class PanelButton extends Phaser.GameObjects.Container {
     });
     this.on('pointerout', () => this.release());
     this.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (this.downAt && p.isDown && Math.abs(p.x - this.downAt.x) + Math.abs(p.y - this.downAt.y) > 14) this.release();
+      if (this.downAt && p.isDown && Math.abs(p.x - this.downAt.x) + Math.abs(p.y - this.downAt.y) > 14 * RS) this.release();
     });
     this.on('pointerup', (p: Phaser.Input.Pointer) => {
       const d = this.downAt;
       const long = this.long;
       this.release();
-      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14) return;
+      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       if (!this.enabled || this.blocked) {
         uiError();
         hapticNotify('warning');
@@ -193,8 +194,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
     const s = this.scene;
     if (!this.enabled) return panelTexture(s, this.w, this.h, 'buttonOff');
     if (this.o.primary) return panelTexture(s, this.w, this.h, down ? 'buttonSelDown' : 'buttonSel');
-    if (this.sel && this.o.cat) return categoryTexture(s, this.w, this.h, this.o.cat, down);
-    if (this.sel) return panelTexture(s, this.w, this.h, down ? 'buttonSelDown' : 'buttonSel');
+    if (this.sel) return panelTexture(s, this.w, this.h, down ? 'buttonOnDown' : 'buttonOn');
     return panelTexture(s, this.w, this.h, down ? 'buttonDown' : 'button');
   }
 
@@ -395,7 +395,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
       stop();
       const d = down;
       down = null;
-      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14) return;
+      if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       hapticSelect();
       uiButton();
       onTap();
@@ -420,8 +420,8 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const s = this.scene;
     this.removeAll(true);
     this.bars = s.add.graphics();
-    const style = i.selected ? 'buttonSel' : i.men === 0 ? 'buttonOff' : 'button';
-    this.add(s.add.image(0, 0, panelTexture(s, this.w, this.h, style)).setOrigin(0, 0));
+    const style = i.selected ? 'buttonOn' : i.men === 0 ? 'buttonOff' : 'parch';
+    this.add(panelImage(s, 0, 0, this.w, this.h, style));
     if (i.selected) {
       // a gold rim: the selected group stands out at a glance
       const g = s.add.graphics();
