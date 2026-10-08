@@ -13,6 +13,7 @@
 import type { Hero } from '../../../src/data/units';
 import { normalizeEquip, normalizeItem, type Item } from '../../../src/data/items';
 import type { FormationType } from '../../../src/sim/formation';
+import { fieldIds, musterOf } from '../../../src/game/muster';
 import { hashString } from '../../../src/sim/rng';
 import { DEFAULT_MAP_ID, getMap, hasMap, type RegionInfo, type WorldGraph } from '../../../src/online/world';
 import { beastLoc } from '../../../src/online/lairs';
@@ -21,7 +22,20 @@ import { DEFAULT_FORMATIONS, energyAt, regionScore, ONLINE_RULES, starterOnlineA
 import { bytesToHex } from '../crypto';
 import { ApiError } from '../errors';
 
+let randomSource: (() => number) | null = null;
+
+/**
+ * Tests only: replaces the entropy behind randomU32 (shard seeds, home
+ * placement, battle and duel seeds, recruits) with a seeded stream, so a test
+ * run does not depend on chance; null restores crypto randomness. Tokens and
+ * codes (randomToken, randomCode) always stay crypto-random.
+ */
+export function setRandomSource(next: (() => number) | null): void {
+  randomSource = next;
+}
+
 export function randomU32(): number {
+  if (randomSource) return randomSource() >>> 0 || 1;
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
   return a[0] >>> 0 || 1;
@@ -415,6 +429,8 @@ export interface HeroRow {
   busy_until: number;
   updated_at: number;
   gloc: number | null;
+  /** Kept in camp, out of the field army (0/1). */
+  reserve?: number;
 }
 
 export interface OwnedHero {
@@ -425,6 +441,8 @@ export interface OwnedHero {
   woundedUntil: number;
   busyUntil: number;
   updatedAt: number;
+  /** Kept in camp by the muster (src/game/muster.ts): never marches with the field army. */
+  reserve: boolean;
 }
 
 export function heroOf(r: HeroRow): OwnedHero {
@@ -435,6 +453,7 @@ export function heroOf(r: HeroRow): OwnedHero {
     woundedUntil: r.wounded_until,
     busyUntil: r.busy_until,
     updatedAt: r.updated_at,
+    reserve: !!r.reserve,
   };
 }
 
@@ -466,9 +485,15 @@ export async function loadItems(db: D1Database, season: number, pid: number): Pr
   return r.results.map((x) => normalizeItem(JSON.parse(x.data) as Item));
 }
 
-/** Field army heroes that can fight now: not garrisoned, not wounded, not in another battle. */
+/**
+ * Field army heroes that can fight now: not garrisoned, not wounded, not in
+ * another battle, not kept in camp by the muster, within the formation caps
+ * (MUSTER.fieldCap and the per-group cap, in roster order).
+ */
 export function fieldReady(heroes: OwnedHero[], now: number): OwnedHero[] {
-  return heroes.filter((h) => !h.garrison && h.woundedUntil <= now && h.busyUntil <= now);
+  const fit = heroes.filter((h) => !h.garrison && h.woundedUntil <= now && h.busyUntil <= now);
+  const field = new Set(fieldIds(musterOf(fit.map((h) => h.hero), () => false, (h) => !!fit.find((x) => x.hero.id === h.id)?.reserve)));
+  return fit.filter((h) => field.has(h.hero.id));
 }
 
 export function formationsOf(json: string | null): FormationType[] {

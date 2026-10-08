@@ -22,7 +22,7 @@
  * - `harbourProp`: quays, piers, moored ships and (for capitals) a lighthouse.
  * - `shipPix`, `merchantPix`, `gullPix`: sailing things.
  */
-import { Pix, hash2 } from './pixels';
+import { Pix, hash2, valueNoise } from './pixels';
 
 // ------------------------------------------------------------------ palette
 
@@ -330,13 +330,13 @@ interface Pal {
 }
 
 const PAL: Record<Arch, Pal> = {
-  greek: { wall: MP.stone, wallLo: MP.stoneLo, roof: 0xa88078, roofHi: 0xc8a296, roofLo: 0x84605c, rim: 0x6e4a4a, cap: MP.teal, capHi: MP.tealHi, capLo: MP.tealLo, flat: false },
-  roman: { wall: 0xf0dccb, wallLo: 0xd6bcae, roof: 0xc06a50, roofHi: 0xe0906e, roofLo: 0x924838, rim: 0x6a3430, cap: 0xc06a50, capHi: 0xe0906e, capLo: 0x924838, flat: false },
-  etruscan: { wall: 0xe4c8a4, wallLo: 0xc4a684, roof: 0xb86848, roofHi: 0xd8906a, roofLo: 0x8a4632, rim: 0x5e3428, cap: 0xb86848, capHi: 0xd8906a, capLo: 0x8a4632, flat: false },
-  punic: { wall: 0xe8cdb0, wallLo: 0xcdae94, roof: 0xf4e6d8, roofHi: 0xfff4e8, roofLo: 0xd8c2b0, rim: 0x7a5a4c, cap: 0x9a5a7a, capHi: 0xc088a4, capLo: 0x6e3a58, flat: true },
-  iberian: { wall: 0xd4b08a, wallLo: 0xb08e6c, roof: 0xc8a47c, roofHi: 0xe0c49c, roofLo: 0x9e7c5a, rim: 0x5e4430, cap: 0xb07a50, capHi: 0xd09a6a, capLo: 0x8a5a38, flat: true },
-  celtic: { wall: 0xb08a62, wallLo: 0x8e6a48, roof: 0xc8a062, roofHi: 0xe0c084, roofLo: 0x9c7642, rim: 0x5e4426, cap: 0xc8a062, capHi: 0xe0c084, capLo: 0x9c7642, flat: false },
-  numidian: { wall: 0xdcc09c, wallLo: 0xbca07c, roof: 0xd4b482, roofHi: 0xead09e, roofLo: 0xa88a5e, rim: 0x6a4e34, cap: 0xb07a50, capHi: 0xd09a6a, capLo: 0x8a5a38, flat: false },
+  greek: { wall: 0xe2c8bc, wallLo: 0xa88a8a, roof: 0xecd8ca, roofHi: 0xfaece2, roofLo: 0xc4a69c, rim: 0x6e4a4a, cap: MP.teal, capHi: MP.tealHi, capLo: MP.tealLo, flat: false },
+  roman: { wall: 0xf6e4d4, wallLo: 0xbf9f92, roof: 0xc06a50, roofHi: 0xe0906e, roofLo: 0x924838, rim: 0x6a3430, cap: 0xc06a50, capHi: 0xe0906e, capLo: 0x924838, flat: false },
+  etruscan: { wall: 0xe0c4a2, wallLo: 0x9e7e62, roof: 0xc87a58, roofHi: 0xe0a07c, roofLo: 0x96503a, rim: 0x5e3428, cap: 0xb86848, capHi: 0xd8906a, capLo: 0x8a4632, flat: false },
+  punic: { wall: 0xf4e2cc, wallLo: 0xb8977e, roof: 0xf4e6d8, roofHi: 0xfff4e8, roofLo: 0xd8c2b0, rim: 0x7a5a4c, cap: 0x9a5a7a, capHi: 0xc088a4, capLo: 0x6e3a58, flat: true },
+  iberian: { wall: 0xdcbc98, wallLo: 0x987858, roof: 0xc8a47c, roofHi: 0xe0c49c, roofLo: 0x9e7c5a, rim: 0x5e4430, cap: 0xb07a50, capHi: 0xd09a6a, capLo: 0x8a5a38, flat: true },
+  celtic: { wall: 0xb89264, wallLo: 0x7c5a3c, roof: 0xc8a062, roofHi: 0xe0c084, roofLo: 0x9c7642, rim: 0x5e4426, cap: 0xc8a062, capHi: 0xe0c084, capLo: 0x9c7642, flat: false },
+  numidian: { wall: 0xe4caa6, wallLo: 0xa48868, roof: 0xd4b482, roofHi: 0xead09e, roofLo: 0xa88a5e, rim: 0x6a4e34, cap: 0xb07a50, capHi: 0xd09a6a, capLo: 0x8a5a38, flat: false },
 };
 
 export interface Pt {
@@ -357,7 +357,16 @@ export interface PropSprite {
   fires: Pt[];
 }
 
-/** Drawing context for one prop: the Pix plus animation anchors. */
+/**
+ * Drawing context for one prop: the Pix plus animation anchors, and the
+ * building kit every settlement is composed from. Everything is drawn as a
+ * 3/4 volume: the roof is seen from above, lifted `fh` px over its
+ * footprint; the south face hangs below it (walls, doors, windows, columns)
+ * and a narrow east face stands to its right in shade; the light comes from
+ * the upper left, so north roof slopes and west faces are lit; a lavender
+ * shadow falls on the ground to the south-east; a dark rim separates each
+ * volume from the ground.
+ */
 class Cv {
   readonly p: Pix;
   readonly smoke: Pt[] = [];
@@ -382,7 +391,7 @@ class Cv {
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.p.set(x + i, y + j, hash2(x + i, y + j, 911) < 0.1 ? dot : c);
   }
 
-  /** Ground texture under a town (beaten earth with grass tufts). */
+  /** Ground texture under a town (beaten earth with grass tufts), a soft organic edge. */
   ground(x: number, y: number, w: number, h: number, c: number, round = true): void {
     const cx = x + w / 2;
     const cy = y + h / 2;
@@ -391,119 +400,201 @@ class Cv {
         const u = (x + i - cx) / (w / 2);
         const v = (y + j - cy) / (h / 2);
         const d = round ? u * u + v * v : Math.max(Math.abs(u), Math.abs(v)) ** 4;
-        const edge = 0.75 + hash2(x + i, y + j, 913) * 0.3;
+        const edge = 0.7 + valueNoise(x + i, y + j, 9, 913) * 0.4;
         if (d > edge) continue;
         const h2 = hash2(x + i, y + j, 912);
-        this.p.set(x + i, y + j, h2 < 0.08 ? mix(c, MP.grassDk, 0.4) : h2 > 0.95 ? MP.paveDot : c);
+        this.p.set(x + i, y + j, h2 < 0.08 ? mix(c, MP.grassDk, 0.4) : h2 > 0.95 ? MP.paveDot : d > edge - 0.12 && ((x + i + y + j) & 1) ? mix(c, MP.grass, 0.5) : c);
       }
   }
 
-  /** A building: roof (w x d) over a south facade fh high. kind: pitched / flat / court(yard). */
-  block(x: number, y: number, w: number, d: number, pal: Pal, kind: 'pitch' | 'flat' | 'court' = pal.flat ? 'flat' : 'pitch', fh = 2, chimney = 0.25): void {
+  /**
+   * The volume under every structure: `(x, y, w, d)` is the roof rect, lifted
+   * `fh` over its footprint. Draws the ground shadow, the rim, the east face
+   * (`e` wide, in shade) and the plain south face; the caller paints the roof
+   * and the facade details on top.
+   */
+  volume(x: number, y: number, w: number, d: number, fh: number, wall: number, wallLo: number, rim: number, e = Math.max(1, Math.round(fh / 3))): void {
     const p = this.p;
-    this.shadow(x + 1, y + 2, w + 2, d + fh + 1);
-    p.rect(x - 1, y - 1, w + 2, d + fh + 2, pal.rim);
+    this.shadow(x + e + 2, y + fh + 2, w + e, d + 1, 110);
+    this.shadow(x + w + e, y + 2, 2, d + fh, 110);
+    this.shadow(x + w + e + 2, y + 4, 1, d + fh - 1, 60);
+    p.rect(x - 1, y - 1, w + e + 2, d + fh + 2, rim);
+    p.rect(x + w, y + 1, e, d + fh - 1, wallLo);
+    if (e > 1) p.vline(x + w + e - 1, y + 1, y + d + fh - 1, mix(wallLo, rim, 0.35));
+    for (let j = 0; j < fh; j++) p.hline(x, x + w - 1, y + d + j, j === 0 ? mix(wall, rim, 0.3) : j === fh - 1 ? wallLo : wall);
+  }
+
+  /** A building: roof (w x d) over a south facade fh high. kind: pitched / flat / court(yard). */
+  block(x: number, y: number, w: number, d: number, pal: Pal, kind: 'pitch' | 'flat' | 'court' = pal.flat ? 'flat' : 'pitch', fh = 3, chimney = 0.25): void {
+    const p = this.p;
+    const e = fh >= 3 ? 2 : 1;
+    this.volume(x, y, w, d, fh, pal.wall, pal.wallLo, pal.rim, e);
+    // door and windows on the south face
+    const door = x + 1 + Math.floor(this.r() * Math.max(1, w - 2));
+    p.rect(door, y + d + fh - 2, 1, 2, pal.rim);
+    if (fh >= 3) for (let i = x + 1; i < x + w - 1; i += 2) if (Math.abs(i - door) > 1 && this.r() < 0.5) p.set(i, y + d + 1, pal.rim);
     if (kind === 'flat') {
       p.rect(x, y, w, d, pal.roof);
       p.hline(x, x + w - 1, y, pal.roofHi);
       p.vline(x, y, y + d - 1, pal.roofHi);
       p.hline(x, x + w - 1, y + d - 1, pal.roofLo);
       p.vline(x + w - 1, y, y + d - 1, pal.roofLo);
-      if (w >= 6 && d >= 5 && this.r() < 0.45) p.rect(x + 2, y + 2, w - 4, d - 4, pal.wallLo);
-      else if (this.r() < 0.4) p.set(x + 1 + Math.floor(this.r() * (w - 2)), y + 1, pal.rim);
-      if (pal === PAL.punic && this.r() < 0.35) p.rect(x + w - 3, y + 1, 2, 2, pal.cap);
+      if (w >= 7 && d >= 6 && this.r() < 0.45) {
+        // a lower terrace / light well
+        p.rect(x + 2, y + 2, w - 4, d - 4, pal.wallLo);
+        p.hline(x + 2, x + w - 3, y + 2, pal.rim);
+        p.vline(x + 2, y + 2, y + d - 3, mix(pal.wallLo, pal.rim, 0.5));
+      } else if (this.r() < 0.4) p.set(x + 1 + Math.floor(this.r() * (w - 2)), y + 1, pal.rim);
+      if (pal === PAL.punic && this.r() < 0.35) {
+        p.rect(x + w - 3, y + 1, 2, 2, pal.cap);
+        p.set(x + w - 3, y + 1, pal.capHi);
+      }
     } else if (kind === 'court') {
+      // a ring of pitched roofs round an open courtyard
       p.rect(x, y, w, d, pal.roof);
       p.hline(x, x + w - 1, y, pal.roofHi);
       p.hline(x, x + w - 1, y + 1, pal.roofHi);
-      for (let j = y + 2; j < y + d; j += 2) p.hline(x, x + w - 1, j, mix(pal.roof, pal.roofLo, 0.5));
+      p.vline(x, y, y + d - 1, pal.roofHi);
+      for (let j = y + 2; j < y + d; j += 2) p.hline(x + 1, x + w - 2, j, mix(pal.roof, pal.roofLo, 0.5));
       p.vline(x + w - 1, y, y + d - 1, pal.roofLo);
+      p.hline(x, x + w - 1, y + d - 1, pal.roofLo);
       if (w >= 7 && d >= 6) {
         p.rect(x + 2, y + 2, w - 4, d - 4, MP.pave);
-        p.hline(x + 2, x + w - 3, y + 2, pal.wallLo);
-        p.hline(x + 2, x + w - 3, y + 3, pal.wall);
-        if (this.r() < 0.4) p.set(x + Math.floor(w / 2), y + d - 3, MP.leafMid);
+        p.hline(x + 2, x + w - 3, y + 2, pal.rim);
+        p.hline(x + 2, x + w - 3, y + 3, pal.wallLo);
+        p.vline(x + 2, y + 3, y + d - 3, pal.wallLo);
+        if (this.r() < 0.5) drawTree(p, x + Math.floor(w / 2), y + Math.floor(d / 2) + 1, 1, x * 3 + y);
+        else p.set(x + Math.floor(w / 2), y + d - 3, MP.water);
       }
     } else {
       const vertical = d > w + 2;
       for (let j = y; j < y + d; j++)
         for (let i = x; i < x + w; i++) {
           let c: number;
-          if (vertical) c = i < x + w / 2 ? pal.roofHi : pal.roof;
-          else {
+          const tile = (i + j * 2) % 5 === 0;
+          if (vertical) {
+            const ridge = x + Math.floor(w / 2);
+            c = i < ridge ? (tile ? pal.roof : pal.roofHi) : i === ridge ? mix(pal.roofHi, 0xffffff, 0.15) : tile ? pal.roofLo : pal.roof;
+          } else {
             const ridge = y + Math.floor(d / 2);
-            c = j < ridge ? pal.roofHi : j === ridge ? mix(pal.roofHi, 0xffffff, 0.15) : (i - x) % 2 ? pal.roofLo : pal.roof;
+            c = j < ridge ? (tile ? pal.roof : pal.roofHi) : j === ridge ? mix(pal.roofHi, 0xffffff, 0.15) : tile ? pal.roofLo : pal.roof;
           }
-          if (i === x + w - 1) c = pal.roofLo;
+          if (i === x + w - 1 || j === y + d - 1) c = pal.roofLo;
           p.set(i, j, c);
         }
+      if (vertical && w >= 5) {
+        // the gable end faces south
+        const ridge = x + Math.floor(w / 2);
+        const gh = Math.min(3, Math.floor(w / 2) - 1);
+        for (let k = 0; k < gh; k++) {
+          const half = gh - 1 - k;
+          p.hline(ridge - half, ridge + half, y + d - 1 - k, pal.wall);
+          p.set(ridge - half - 1, y + d - 1 - k, pal.rim);
+          p.set(ridge + half + 1, y + d - 1 - k, pal.rim);
+        }
+      }
     }
-    for (let j = 0; j < fh; j++) p.hline(x, x + w - 1, y + d + j, j === fh - 1 ? pal.wallLo : pal.wall);
-    for (let i = x + 1; i < x + w - 1; i += 2) if (this.r() < 0.55) p.set(i, y + d, pal.rim);
-    p.set(x + Math.floor(w / 2), y + d + fh - 1, pal.rim);
-    if (this.r() < chimney) this.smoke.push({ x: x + 1 + Math.floor(this.r() * Math.max(1, w - 2)), y });
+    if (this.r() < chimney) {
+      const cx = x + 1 + Math.floor(this.r() * Math.max(1, w - 2));
+      p.rect(cx, y, 1, 2, pal.rim);
+      p.set(cx, y, mix(pal.wall, pal.rim, 0.5));
+      this.smoke.push({ x: cx, y: y - 1 });
+    }
   }
 
-  /** A round hut (thatch). */
+  /** A round hut: a thatched cone over a short wall. */
   hut(cx: number, cy: number, rr: number, pal: Pal, oval = 1): void {
     const p = this.p;
-    const rx = rr * oval;
-    for (let j = -rr; j <= rr + 2; j++) for (let i = -rx; i <= rx + 2; i++) if ((i / (rx + 1)) ** 2 + (j / (rr + 1)) ** 2 <= 1) p.set(cx + i + 1, cy + j + 2, MP.shadow, 70);
+    const rx = Math.round(rr * oval);
+    const wh = 2;
+    for (let j = -rr; j <= rr + 1; j++) for (let i = -rx; i <= rx + 2; i++) if ((i / (rx + 1)) ** 2 + (j / (rr + 1)) ** 2 <= 1) p.set(cx + i + 2, cy + j + wh + 2, MP.shadow, 60);
+    // wall ring below the cone
+    for (let j = 0; j <= wh; j++) for (let i = -rx - 1; i <= rx + 1; i++) p.set(cx + i, cy + rr + j, Math.abs(i) > rx ? pal.rim : j === wh ? pal.rim : i > rx * 0.5 ? pal.wallLo : pal.wall);
+    p.set(cx, cy + rr + 1, 0x3e2a20);
+    p.set(cx, cy + rr, 0x3e2a20);
     for (let j = -rr - 1; j <= rr + 1; j++)
-      for (let i = -Math.ceil(rx) - 1; i <= Math.ceil(rx) + 1; i++) {
+      for (let i = -rx - 1; i <= rx + 1; i++) {
         const d = (i / (rx + 1)) ** 2 + (j / (rr + 1)) ** 2;
         if (d > 1) continue;
         if ((i / Math.max(0.5, rx)) ** 2 + (j / Math.max(0.5, rr)) ** 2 > 1) p.set(cx + i, cy + j, pal.rim);
-        else p.set(cx + i, cy + j, i + j < -rr * 0.4 ? pal.roofHi : i + j > rr * 0.6 ? pal.roofLo : (i * 3 + j * 5) % 4 === 0 ? pal.roofLo : pal.roof);
+        else {
+          const lit = -i / Math.max(1, rx) - j / Math.max(1, rr);
+          p.set(cx + i, cy + j, lit > 0.7 ? pal.roofHi : lit < -0.6 ? pal.roofLo : (i * 3 + j * 5) % 4 === 0 ? pal.roofLo : pal.roof);
+        }
       }
+    p.set(cx, cy - 1, pal.rim);
     p.set(cx, cy, pal.roofLo);
-    p.set(cx, cy + rr, 0x3e2a20);
-    if (this.r() < 0.3) this.smoke.push({ x: cx, y: cy - 1 });
+    if (this.r() < 0.3) this.smoke.push({ x: cx, y: cy - 2 });
   }
 
-  /** A columned temple on a stepped base; roof colour from `roof`. */
+  /** A columned temple on a stepped platform: pediment facing south, a colonnade down the east side; roof colours from `roof`. */
   temple(x: number, y: number, w: number, d: number, roof: [number, number, number], altar = true): void {
     const p = this.p;
     const [base, hi, lo] = roof;
-    this.shadow(x, y + 2, w + 5, d + 9);
-    // stylobate (steps)
-    p.rect(x - 3, y - 3, w + 6, d + 10, MP.stoneRim);
-    p.rect(x - 2, y - 2, w + 4, d + 8, MP.stoneLo);
-    p.hline(x - 2, x + w + 1, y - 2, MP.stoneHi);
-    p.hline(x - 2, x + w + 1, y + d + 5, MP.stone);
-    p.hline(x - 2, x + w + 1, y + d + 6, MP.stoneLo);
-    p.hline(x - 1, x + w, y + d + 4, MP.stone);
-    // side columns (peristyle)
-    for (let j = y; j < y + d + 4; j += 2) p.set(x - 1, j, MP.stoneHi), p.set(x + w, j, MP.stone);
-    // roof
+    const fh = 6;
+    const e = 2;
+    // stylobate: three steps round the footprint
+    this.shadow(x + 4, y + fh + 4, w + 4, d + 2, 55);
+    p.rect(x - 4, y, w + e + 8, d + fh + 4, MP.stoneRim);
+    p.rect(x - 3, y + 1, w + e + 6, d + fh + 2, MP.stoneLo);
+    p.rect(x - 2, y + 1, w + e + 4, d + fh + 1, MP.stone);
+    p.hline(x - 3, x + w + e + 2, y + d + fh + 1, MP.stoneLo);
+    p.hline(x - 2, x + w + e + 1, y + d + fh, MP.stoneHi);
+    p.hline(x - 3, x + w + e + 2, y + d + fh + 2, MP.stoneRim);
+    // walls of the cella in shade behind the columns, then the colonnades
+    p.rect(x - 1, y - 1, w + e + 2, d + fh + 1, MP.stoneRim);
+    for (let j = 1; j < d + fh - 1; j++) for (let i = 0; i < e; i++) p.set(x + w + i, y + j, (j & 1) === 0 ? MP.stone : mix(MP.stoneDk, MP.shadow, 0.35));
+    p.hline(x, x + w - 1, y + d, MP.stoneHi);
+    for (let j = 1; j < fh; j++) for (let i = 0; i < w; i++) p.set(x + i, y + d + j, i % 2 === 0 ? MP.stoneHi : mix(MP.stoneDk, MP.shadow, 0.35));
+    p.hline(x, x + w - 1, y + d + fh - 1, MP.stoneLo);
+    // roof: lit north slope, ridge, tiled south slope with a checker of light tiles
+    const vertical = d > w;
     for (let j = 0; j < d; j++)
       for (let i = 0; i < w; i++) {
-        let c = j < d / 2 ? hi : base;
-        if (j === Math.floor(d / 2)) c = mix(hi, 0xffffff, 0.2);
-        if (j > d / 2 && i % 3 === 2) c = lo;
-        if (i === w - 1 || i === 0) c = j < d / 2 ? base : lo;
+        let c: number;
+        if (vertical) {
+          const ridge = Math.floor(w / 2);
+          c = i < ridge ? (((i + j) & 1) === 0 ? hi : base) : i === ridge ? mix(hi, 0xffffff, 0.2) : ((i + j) & 1) === 0 ? base : lo;
+        } else {
+          const ridge = Math.floor(d / 2);
+          c = j < ridge ? (((i + j) & 1) === 0 ? hi : base) : j === ridge ? mix(hi, 0xffffff, 0.2) : ((i + j) & 1) === 0 ? base : lo;
+        }
+        if (i === w - 1 || j === d - 1 || i === 0) c = lo;
         p.set(x + i, y + j, c);
       }
-    // south front: entablature + columns
-    p.hline(x, x + w - 1, y + d, MP.stoneHi);
-    for (let j = 1; j < 4; j++) for (let i = 0; i < w; i++) p.set(x + i, y + d + j, i % 2 === 0 ? MP.stone : mix(MP.stoneDk, MP.shadow, 0.3));
+    // the pediment over the south front
+    const gh = Math.max(2, Math.min(3, Math.floor(w / 8)));
+    for (let k = 0; k < gh; k++) {
+      const inset = Math.round(((gh - 1 - k) * w) / (2 * gh));
+      p.hline(x + inset, x + w - 1 - inset, y + d - gh + k, k === gh - 1 ? MP.stone : MP.stoneHi);
+      p.set(x + inset - 1, y + d - gh + k, MP.stoneRim);
+      p.set(x + w - inset, y + d - gh + k, MP.stoneRim);
+    }
+    p.set(x + Math.floor(w / 2), y + d - gh - 1, MP.stoneRim);
     if (altar) {
-      p.rect(x + Math.floor(w / 2) - 1, y + d + 8, 3, 2, MP.stoneLo);
-      this.smoke.push({ x: x + Math.floor(w / 2), y: y + d + 8 });
+      const ax = x + Math.floor(w / 2) - 1;
+      this.shadow(ax + 1, y + d + fh + 6, 3, 1, 60);
+      p.rect(ax, y + d + fh + 4, 3, 2, MP.stoneLo);
+      p.hline(ax, ax + 2, y + d + fh + 4, MP.stoneHi);
+      this.smoke.push({ x: ax + 1, y: y + d + fh + 3 });
     }
   }
 
   /** A long colonnade (stoa) facing south. */
   stoa(x: number, y: number, w: number, pal: Pal): void {
     const p = this.p;
-    this.shadow(x, y + 2, w + 2, 9);
-    p.rect(x - 1, y - 1, w + 2, 9, MP.stoneRim);
-    for (let j = 0; j < 4; j++) p.hline(x, x + w - 1, y + j, j < 2 ? pal.roofHi : pal.roof);
-    p.hline(x, x + w - 1, y + 4, MP.stoneHi);
-    for (let j = 5; j < 7; j++) for (let i = 0; i < w; i++) p.set(x + i, y + j, i % 2 === 0 ? MP.stone : MP.stoneDk);
+    const d = 4;
+    const fh = 4;
+    this.shadow(x + 2, y + fh + 2, w + 1, d, 55);
+    p.rect(x - 1, y - 1, w + 3, d + fh + 2, MP.stoneRim);
+    for (let j = 0; j < d; j++) p.hline(x, x + w - 1, y + j, j < 2 ? pal.roofHi : j === 2 ? pal.roof : pal.roofLo);
+    for (let j = 1; j < d + fh - 1; j++) p.set(x + w, y + j, (j & 1) === 0 ? MP.stone : MP.stoneDk);
+    p.hline(x, x + w - 1, y + d, MP.stoneHi);
+    for (let j = 1; j < fh; j++) for (let i = 0; i < w; i++) p.set(x + i, y + d + j, i % 2 === 0 ? MP.stoneHi : mix(MP.stoneDk, MP.shadow, 0.35));
+    p.hline(x, x + w - 1, y + d + fh - 1, MP.stoneLo);
   }
 
-  /** A Greek/Roman theatre: semicircular cavea opening south, orchestra, stage. */
+  /** A Greek/Roman theatre: semicircular cavea opening south, orchestra, a stage building. */
   theatre(cx: number, cy: number, r: number): void {
     const p = this.p;
     for (let j = -r - 1; j <= 1; j++)
@@ -514,97 +605,155 @@ class Cv {
         if (d > r) c = MP.stoneRim;
         else if (d < r * 0.32) c = MP.pave;
         else if (d < r * 0.38) c = MP.stoneDk;
-        else c = Math.floor(d / 2) % 2 ? MP.stone : MP.stoneLo;
+        else {
+          const ring = Math.floor(d / 2) % 2;
+          c = ring ? (i + j < 0 ? MP.stoneHi : MP.stone) : MP.stoneLo;
+        }
         if (d >= r * 0.38 && d <= r && Math.abs(i) < 1) c = MP.stoneDk; // stair
         p.set(cx + i, cy + j, c);
       }
-    p.rect(cx - Math.round(r * 0.8), cy + 2, Math.round(r * 1.6), 3, MP.stoneLo);
-    p.hline(cx - Math.round(r * 0.8), cx + Math.round(r * 0.8) - 1, cy + 2, MP.stoneHi);
-    this.shadow(cx - Math.round(r * 0.8) + 1, cy + 5, Math.round(r * 1.6), 2);
+    const sw = Math.round(r * 1.6);
+    this.volume(cx - Math.round(r * 0.8), cy + 1, sw, 3, 4, MP.stone, MP.stoneLo, MP.stoneRim, 1);
+    p.rect(cx - Math.round(r * 0.8), cy + 1, sw, 3, MP.stoneLo);
+    p.hline(cx - Math.round(r * 0.8), cx + Math.round(r * 0.8) - 1, cy + 1, MP.stoneHi);
+    for (let i = cx - Math.round(r * 0.8) + 1; i < cx + Math.round(r * 0.8); i += 3) p.set(i, cy + 5, MP.stoneRim);
   }
 
-  /** A rocky or grassy hill (acropolis, Roman hills). */
+  /** A rocky or grassy hill (acropolis, Roman hills): a dome with a cliff on its south side. */
   hill(cx: number, cy: number, rx: number, ry: number, grassy: boolean): void {
     const p = this.p;
-    for (let j = -ry; j <= ry + 3; j++) for (let i = -rx; i <= rx + 4; i++) if (((i - 3) / rx) ** 2 + ((j - 3) / ry) ** 2 <= 1) p.set(cx + i, cy + j, MP.shadow, 60);
+    for (let j = -ry; j <= ry + 3; j++) for (let i = -rx; i <= rx + 4; i++) if (((i - 3) / rx) ** 2 + ((j - 3) / ry) ** 2 <= 1) p.set(cx + i, cy + j, MP.shadow, 55);
     for (let j = -ry; j <= ry; j++)
       for (let i = -rx; i <= rx; i++) {
         const u = i / rx;
         const v = j / ry;
-        const d = u * u + v * v;
+        const d = u * u + v * v + (valueNoise(cx + i, cy + j, 6, 79) - 0.5) * 0.08;
         if (d > 1) continue;
         const lit = u + v * 1.2;
         let c: number;
         if (grassy) c = d > 0.8 ? (lit > 0.3 ? MP.moundLo : MP.mound) : lit < -0.5 ? MP.moundHi : lit > 0.5 ? MP.mound : mix(MP.mound, MP.moundHi, 0.4);
         else c = d > 0.75 ? (lit > 0.2 ? MP.peakShade : MP.peak) : lit < -0.5 ? MP.peakHi : lit > 0.6 ? MP.peak : mix(MP.peak, MP.peakHi, 0.5);
-        if (d > 0.93) c = lit > 0 ? (grassy ? MP.moundRim : MP.peakRim) : grassy ? MP.moundLo : MP.peakShade;
+        // the cliff face below the plateau
+        if (v > 0.45 && d > 0.6) {
+          const t = (d - 0.6) / 0.4;
+          c = grassy ? (t > 0.6 ? MP.moundRim : MP.moundLo) : t > 0.65 ? MP.peakDeep : t > 0.3 ? MP.peakShade : MP.peak;
+          if (!grassy && hash2(cx + i, cy + j, 78) < 0.15) c = MP.peakDeep;
+          if (grassy && hash2(cx + i, cy + j, 78) < 0.1) c = MP.moundRim;
+        }
+        if (d > 0.93) c = lit > 0 || v > 0.3 ? (grassy ? MP.moundRim : MP.peakRim) : grassy ? MP.moundLo : MP.peakShade;
         if (hash2(cx + i, cy + j, 77) < 0.06) c = mix(c, grassy ? MP.grassDk : MP.peakDeep, 0.5);
         p.set(cx + i, cy + j, c);
       }
   }
 
-  /** A thick wall along a polyline (top + south face + rim), with towers at the corners. */
+  /** A thick wall along a polyline (walkway, crenels, south face in the light, east face in shade), towers at the corners. */
   wall(pts: [number, number][], closed: boolean, towerCap: Pal | null, round = false, wallPal: [number, number, number] = [MP.stone, MP.stoneLo, MP.stoneRim]): void {
     const p = this.p;
     const [top, face, rim] = wallPal;
     const segs: [number, number, number, number][] = [];
     for (let i = 1; i < pts.length; i++) segs.push([...pts[i - 1], ...pts[i]]);
     if (closed) segs.push([...pts[pts.length - 1], ...pts[0]]);
-    const stamp = (x0: number, y0: number, x1: number, y1: number, fn: (x: number, y: number) => void) => {
+    const stamp = (x0: number, y0: number, x1: number, y1: number, fn: (x: number, y: number, k: number) => void) => {
       const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
-      for (let k = 0; k <= n; k++) fn(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n));
+      for (let k = 0; k <= n; k++) fn(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), k);
     };
-    for (const s of segs) stamp(...s, (x, y) => this.shadow(x + 1, y + 3, 3, 2, 50));
-    for (const s of segs) stamp(...s, (x, y) => p.rect(x - 2, y - 2, 5, 6, rim));
-    for (const s of segs) stamp(...s, (x, y) => p.rect(x - 1, y + 1, 3, 2, face));
+    const H = 4;
+    const topHi = mix(top, 0xffffff, 0.3);
+    const faceDk = mix(face, rim, 0.45);
+    for (const s of segs) stamp(...s, (x, y) => this.shadow(x + 1, y + H + 1, 4, 2, 50));
+    for (const s of segs) stamp(...s, (x, y) => p.rect(x - 2, y - 4, 6, H + 5, rim));
+    for (const s of segs) stamp(...s, (x, y) => p.rect(x - 1, y, 3, H, face));
+    for (const s of segs) stamp(...s, (x, y) => p.rect(x + 2, y - 2, 1, H + 2, faceDk));
     for (const s of segs)
       stamp(...s, (x, y) => {
-        p.rect(x - 1, y - 1, 3, 2, top);
-        if ((x + y) % 3 === 0) p.set(x, y - 2, top); // crenels
+        p.rect(x - 1, y - 3, 3, 3, top);
+        p.set(x - 1, y - 3, topHi);
       });
-    if (towerCap) for (const [x, y] of pts) (round ? this.roundTower(x, y - 3, towerCap) : this.tower(x - 3, y - 6, towerCap));
+    for (const s of segs)
+      stamp(...s, (x, y, k) => {
+        if (k % 3 === 0) p.set(x, y - 4, topHi);
+        if (k % 5 === 2) p.set(x, y + 1, faceDk); // an arrow slit
+      });
+    if (towerCap) for (const [x, y] of pts) (round ? this.roundTower(x, y - 2, towerCap) : this.tower(x - 3, y - 6, towerCap));
   }
 
-  /** A square tower with a capped roof (and sometimes a flag). */
+  /** A square tower with a pyramidal roof (and sometimes a flag). x, y: top-left of the roof; the body stands below. */
   tower(x: number, y: number, pal: Pal, flag = 0): void {
     const p = this.p;
-    this.shadow(x + 1, y + 2, 8, 10);
-    p.rect(x - 1, y - 1, 8, 12, MP.stoneRim);
+    const W = 6;
+    const H = 8;
+    const RH = 4;
+    const e = 2;
+    const body = y + RH;
+    this.shadow(x + 3, body + H, W + 2, 3, 55);
+    this.shadow(x + W + e, body - 1, 2, H + 1, 55);
+    p.rect(x - 1, y - 1, W + e + 2, RH + H + 2, pal.rim);
+    // body: a lit west edge, windows, east face in shade
+    const native = pal === PAL.celtic || pal === PAL.numidian;
+    const wall = native ? pal.wall : MP.stone;
+    const wallLo = native ? pal.wallLo : MP.stoneLo;
+    p.rect(x, body, W, H, wall);
+    p.vline(x, body, body + H - 1, mix(wall, 0xffffff, 0.3));
+    p.hline(x, x + W - 1, body + H - 1, wallLo);
+    p.rect(x + W, body - 1, e, H + 1, wallLo);
+    p.vline(x + W + e - 1, body - 1, body + H - 1, mix(wallLo, pal.rim, 0.4));
+    p.set(x + 2, body + 2, pal.rim);
+    p.set(x + 3, body + 2, pal.rim);
+    p.set(x + 2, body + 5, pal.rim);
+    // pyramid: apex, lit west slope, dark east slope, the south slope seen in 3/4
     const pointed = !pal.flat;
-    for (let j = 0; j < 5; j++)
-      for (let i = 0; i < 6; i++) {
-        let c = pal.cap;
-        if (pointed) c = i + j < 4 ? pal.capHi : i > 3 || j > 3 ? pal.capLo : pal.cap;
-        else c = j === 0 || i === 0 ? pal.capHi : j === 4 || i === 5 ? pal.capLo : pal.cap;
-        p.set(x + i, y + j, c);
+    const apex = x + 3;
+    for (let k = 0; k < RH; k++) {
+      if (!pointed) {
+        p.hline(x, x + W - 1, y + k, k === 0 ? pal.capHi : k === RH - 1 ? pal.capLo : pal.cap);
+        continue;
       }
-    p.rect(x, y + 5, 6, 5, pal === PAL.celtic || pal === PAL.numidian ? pal.wall : MP.stone);
-    p.vline(x + 5, y + 5, y + 9, MP.stoneLo);
-    p.set(x + 2, y + 7, MP.stoneRim);
-    p.set(x + 3, y + 7, MP.stoneRim);
-    if (flag) this.flags.push({ x: x + 3, y: y - 6, c: flag }), p.vline(x + 3, y - 6, y - 1, MP.woodDk);
+      const half = Math.round(((k + 1) * (W / 2)) / RH);
+      for (let i = apex - half; i < apex + half; i++) p.set(i, y + k, k === 0 ? pal.capHi : i < apex - 1 ? pal.capHi : i < apex + 1 ? pal.cap : pal.capLo);
+    }
+    for (let i = 0; i < e; i++) p.set(x + W + i, y + RH - 1, pal.capLo);
+    p.hline(x, x + W - 1, y + RH - 1, pal.capLo);
+    p.set(apex - 1, y - 1, pal.rim);
+    if (flag) {
+      p.vline(apex - 1, y - 6, y - 2, MP.woodDk);
+      this.flags.push({ x: apex - 1, y: y - 7, c: flag });
+    }
   }
 
+  /** A round tower with a conical cap. cx: the centre line; cy: the cap's top row. */
   roundTower(cx: number, cy: number, pal: Pal): void {
     const p = this.p;
-    this.shadow(cx - 1, cy + 2, 8, 8);
-    for (let j = -4; j <= 4; j++)
-      for (let i = -4; i <= 4; i++) {
-        const d = i * i + j * j;
-        if (d > 17) continue;
-        p.set(cx + i, cy + j, d > 12 ? MP.stoneRim : i + j < -2 ? pal.capHi : i + j > 2 ? pal.capLo : pal.cap);
+    const R = 3;
+    const H = 6;
+    const body = cy + 4;
+    this.shadow(cx - R + 2, body + H, 2 * R + 3, 2, 55);
+    this.shadow(cx + R + 1, body - 1, 2, H + 1, 55);
+    // body cylinder: light west, dark east
+    for (let j = -1; j <= H; j++)
+      for (let i = -R - 1; i <= R + 1; i++) {
+        const edge = Math.abs(i) > R || j === H;
+        p.set(cx + i, body + j, edge ? pal.rim : i < -1 ? mix(pal.wall, 0xffffff, 0.2) : i < 1 ? pal.wall : i < R ? pal.wallLo : mix(pal.wallLo, pal.rim, 0.4));
       }
-    p.rect(cx - 3, cy + 4, 7, 3, pal.wall);
-    p.hline(cx - 3, cx + 3, cy + 6, pal.wallLo);
-    p.hline(cx - 4, cx + 4, cy + 7, MP.stoneRim);
+    p.set(cx, body + 2, pal.rim);
+    // cone
+    for (let k = 0; k <= 3; k++) {
+      const half = k === 0 ? 0 : k === 1 ? 1 : k === 2 ? 2 : R;
+      for (let i = -half - 1; i <= half + 1; i++) p.set(cx + i, cy + k, Math.abs(i) > half ? pal.rim : i < -1 ? pal.capHi : i < 1 ? pal.cap : pal.capLo);
+    }
+    for (let i = -R - 1; i <= R + 1; i++) p.set(cx + i, cy + 4, Math.abs(i) > R ? pal.rim : i < 0 ? pal.cap : pal.capLo);
   }
 
-  /** A gate in a south wall at x. */
+  /** A gatehouse in a south wall at x: a tall block with an arched passage. */
   gate(x: number, y: number): void {
     const p = this.p;
-    p.rect(x - 3, y - 2, 7, 6, MP.stoneRim);
-    p.rect(x - 2, y - 1, 5, 5, 0x4a3438);
-    p.rect(x - 1, y, 3, 4, 0x2e2026);
+    this.volume(x - 3, y - 6, 7, 3, 6, MP.stone, MP.stoneLo, MP.stoneRim, 1);
+    p.rect(x - 3, y - 6, 7, 3, MP.stoneHi);
+    p.hline(x - 3, x + 3, y - 4, MP.stoneLo);
+    for (let i = x - 3; i <= x + 3; i += 2) p.set(i, y - 7, MP.stone);
+    p.rect(x - 1, y - 2, 3, 5, 0x3a2830);
+    p.set(x - 1, y - 2, MP.stoneRim);
+    p.set(x + 1, y - 2, MP.stoneRim);
+    p.rect(x, y - 1, 1, 4, 0x241820);
   }
 
   /** A cultivated field: wheat / green / ploughed / vineyard / olives. */
@@ -612,7 +761,7 @@ class Cv {
     drawField(this.p, x, y, w, h, kind);
   }
 
-  /** A pier from (x, y) along (dx, dy). */
+  /** A wooden pier from (x, y) along (dx, dy): planks on piles. */
   pier(x: number, y: number, dx: number, dy: number, len: number): void {
     const p = this.p;
     const nx = -dy;
@@ -621,32 +770,48 @@ class Cv {
       const px = Math.round(x + dx * k);
       const py = Math.round(y + dy * k);
       p.set(px + 1, py + 2, MP.shadow, 80);
-      p.set(px, py, MP.wood);
+      p.set(px + 2, py + 2, MP.shadow, 50);
+    }
+    for (let k = 0; k < len; k++) {
+      const px = Math.round(x + dx * k);
+      const py = Math.round(y + dy * k);
+      p.set(px, py, k % 4 === 0 ? mix(MP.wood, 0xffffff, 0.2) : MP.wood);
       p.set(Math.round(px + nx), Math.round(py + ny), k % 3 === 0 ? MP.woodDk : mix(MP.wood, MP.woodDk, 0.4));
+      if (k % 4 === 1) p.set(Math.round(px + nx) + (Math.abs(dx) > 0.7 ? 0 : 1), Math.round(py + ny) + 1, MP.woodDk);
     }
   }
 
-  /** A stone quay along a horizontal / vertical line. */
+  /** A stone quay: a top surface and a face dropping to the water. */
   quay(x: number, y: number, w: number, h: number): void {
     const p = this.p;
     p.rect(x, y, w, h, MP.stoneLo);
     p.hline(x, x + w - 1, y, MP.stoneHi);
     p.hline(x, x + w - 1, y + h - 1, MP.stoneRim);
+    p.hline(x, x + w - 1, y + h - 2, MP.stoneDk);
     for (let i = x; i < x + w; i += 4) p.set(i, y + 1, MP.stoneDk);
   }
 
-  /** A lighthouse with a beacon. */
+  /** A lighthouse: a tall tower on a platform with a beacon. */
   lighthouse(x: number, y: number): void {
     const p = this.p;
-    this.shadow(x + 2, y + 4, 10, 12);
-    p.rect(x - 1, y + 6, 10, 9, MP.stoneRim);
-    p.rect(x, y + 7, 8, 7, MP.stone);
-    p.vline(x + 7, y + 7, y + 13, MP.stoneLo);
-    p.rect(x + 1, y - 2, 6, 9, MP.stoneRim);
-    p.rect(x + 2, y - 1, 4, 8, MP.stoneHi);
-    p.vline(x + 5, y - 1, y + 6, MP.stoneLo);
-    p.rect(x + 2, y - 4, 4, 2, MP.ember);
-    this.fires.push({ x: x + 3, y: y - 5 });
+    this.shadow(x + 3, y + 14, 9, 3, 60);
+    this.shadow(x + 7, y + 2, 4, 12, 50);
+    p.rect(x - 1, y + 10, 10, 6, MP.stoneRim);
+    p.rect(x, y + 11, 8, 4, MP.stone);
+    p.hline(x, x + 7, y + 11, MP.stoneHi);
+    p.vline(x + 7, y + 11, y + 14, MP.stoneLo);
+    p.hline(x, x + 7, y + 14, MP.stoneLo);
+    p.rect(x + 1, y - 3, 7, 15, MP.stoneRim);
+    p.rect(x + 2, y - 2, 4, 13, MP.stoneHi);
+    p.vline(x + 2, y - 2, y + 10, 0xfff4ec);
+    p.vline(x + 5, y - 2, y + 10, MP.stoneLo);
+    p.vline(x + 6, y - 1, y + 10, MP.stoneDk);
+    p.hline(x + 2, x + 6, y + 3, MP.stoneLo);
+    p.hline(x + 2, x + 6, y + 7, MP.stoneLo);
+    p.rect(x + 1, y - 5, 6, 3, MP.stoneRim);
+    p.rect(x + 2, y - 5, 4, 2, MP.ember);
+    p.set(x + 2, y - 5, 0xf8e090);
+    this.fires.push({ x: x + 3, y: y - 6 });
   }
 
   /** A moored ship sprite. */
@@ -681,11 +846,11 @@ class Cv {
         // irregular plots: some double width, some narrow, a lane now and then
         const span = this.r() < 0.18 ? 2 : 1;
         const bwx = bw * span - (this.r() < 0.3 ? 2 : 0);
-        const w = Math.min(bwx - 3, x1 - x - 1);
-        const d = bh - 5 - (this.r() < 0.3 ? 1 : 0);
+        const w = Math.min(bwx - 4, x1 - x - 2);
+        const d = bh - 6 - (this.r() < 0.3 ? 1 : 0);
         const xx = x;
         x += bwx + (this.r() < 0.12 ? 3 : 0);
-        if (w < 4 || hit(xx - 1, y - 1, w + 2, d + 4)) continue;
+        if (w < 4 || hit(xx - 1, y - 1, w + 3, d + 5)) continue;
         const roll = this.r();
         if (roll < (opts.trees ?? 0.06)) {
           // a garden plot
@@ -693,13 +858,14 @@ class Cv {
           drawTree(this.p, xx + Math.floor(w / 2), y + 3, 2 + Math.floor(this.r() * 2), xx * 7 + y);
           continue;
         }
-        if (roll < court + 0.06 && w >= 8 && d >= 6) this.block(xx, y, w, d, pal, 'court');
+        const tall = this.r() < 0.35 ? 5 : 4;
+        if (roll < court + 0.06 && w >= 8 && d >= 6) this.block(xx, y, w, d, pal, 'court', tall);
         else if (w >= 9 && this.r() < 0.6) {
           // two houses side by side
           const a = Math.floor(w / 2) - 1;
-          this.block(xx, y + 1, a, d - 1 - Math.floor(this.r() * 2), pal);
-          this.block(xx + a + 2, y + Math.floor(this.r() * 2), w - a - 2, d - 1, pal);
-        } else this.block(xx, y + (this.r() < 0.3 ? 1 : 0), w, d - (this.r() < 0.3 ? 1 : 0), pal);
+          this.block(xx, y + 1, a, d - 1 - Math.floor(this.r() * 2), pal, undefined, 4);
+          this.block(xx + a + 2, y + Math.floor(this.r() * 2), w - a - 3, d - 1, pal, undefined, tall);
+        } else this.block(xx, y + (this.r() < 0.3 ? 1 : 0), w, d - (this.r() < 0.3 ? 1 : 0), pal, undefined, tall);
       }
   }
 }

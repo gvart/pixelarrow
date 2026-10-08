@@ -17,6 +17,7 @@ import { MERCHANT_EN } from './merchant.en';
 import { FIELDCAMP_EN } from './fieldcamp.en';
 import { OCAMP_EN } from './camp.en';
 import { STRAT_EN } from './strat.en';
+import { CAMPSCENE_EN } from './campscene.en';
 
 export const EN = {
   // ---- shared words
@@ -288,6 +289,7 @@ export const EN = {
   ...MERCHANT_EN,
   ...FIELDCAMP_EN,
   ...OCAMP_EN,
+  ...CAMPSCENE_EN,
   // ---- the Strategos chrome: situation sentences, strip, ring, tips (strat.en.ts)
   ...STRAT_EN,
 } as const;

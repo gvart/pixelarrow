@@ -17,12 +17,11 @@ import { haptic, hapticNotify } from '../platform/telegram';
 import { CULTURE_LABEL } from '../data/names';
 import { addSyncBadge, playerPartyTexture } from '../ui/online';
 import { perkSlots } from '../data/perks';
-import { itemDef, type Item } from '../data/items';
 import { dangerAt, isWater, regionName, type SettlementDef } from '../world/map';
 import { siteAt } from '../world/battlefield';
-import { STRUCTURES, STRUCTURE_LIST, campEffects, countBuilt, footprint, freeSpot, placeCheck, type StructureId } from '../world/camp';
+import { STRUCTURES, campEffects, footprint, placeCheck, type StructureId } from '../world/camp';
 import { THREAT_COLOR, THREAT_LABEL, WORLD_RULES, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
-import { openModal, confirmDialog } from '../ui/widgets';
+import { confirmDialog } from '../ui/widgets';
 import { CampLife } from '../ui/campLife';
 import { renderScaffold } from '../art/campArt';
 
@@ -187,7 +186,7 @@ export class WorldScene extends BaseScene {
     this.party = this.add.sprite(0, 0, playerPartyTexture(this), 0).setOrigin(PARTY_FOOT.x / PARTY_FW, PARTY_FOOT.y / PARTY_FH).setDepth(D_PARTY);
     this.layer.add([this.partyShadow, this.party]);
     this.initFog();
-    this.mapLife = new OverlandLife(this, art.sites, art.lanes, art.water, m.w * WTILE, m.h * WTILE, (x, y) => this.explored(x / WTILE, y / WTILE), (o) => this.layer.add(o), -55000);
+    this.mapLife = new OverlandLife(this, art.sites, art.lanes, art.water, m.w * WTILE, m.h * WTILE, (x, y) => this.explored(x / WTILE, y / WTILE), (o) => this.layer.add(o), -55000, art.fields);
 
     // ---- cameras
     const cam = this.cameras.main;
@@ -772,105 +771,7 @@ export class WorldScene extends BaseScene {
     });
   }
 
-  private openBuildMenu(): void {
-    const c = this.w.camp;
-    if (!c) return;
-    this.setWaiting(false);
-    const { VW } = this.m;
-    const rowH = 30;
-    const forge = c.built.some((b) => b.id === 'forge');
-    const h = 30 + STRUCTURE_LIST.length * (rowH + 2) + (forge ? 32 : 0) + 36;
-    const md = openModal(this, { title: `Build  (${Math.floor(this.w.supplies)} supplies)`, w: Math.min(VW - 12, 220), h, onClose: () => (this.dialog = null) });
-    this.dialog = md.c;
-    const { x, w } = md;
-    let y = md.body.y;
-    for (const d of STRUCTURE_LIST) {
-      const n = countBuilt(c, d.id);
-      const spot = freeSpot(this.w.map, c, d.id);
-      const why = n >= d.max ? 'Built' : this.w.supplies < d.cost ? `Needs ${d.cost} supplies` : !spot ? 'No room left' : null;
-      md.c.add(addPanel(this, x + 6, y, w - 12, rowH, 'inset'));
-      md.c.add(addIcon(this, x + 10, y + 9, d.icon));
-      md.c.add(addText(this, x + 26, y + 4, ellipsize(`${d.name}${d.max > 1 ? ` ${n}/${d.max}` : n ? ' (built)' : ''}`, w - 90), 'ink'));
-      md.c.add(addText(this, x + 26, y + 15, ellipsize(d.desc, w - 90), 'dim'));
-      const b = new Button(this, x + w - 56, y + 3, 48, rowH - 6, {
-        label: `${d.cost}`,
-        icon: 'wood',
-        variant: why ? 'secondary' : 'primary',
-        tip: `${d.cost} supplies, ${d.hours}h of work`,
-        onClick: () => {
-          md.close();
-          this.startPlacing(d.id);
-        },
-      });
-      b.setEnabled(!why, why ?? undefined);
-      md.c.add(b);
-      y += rowH + 2;
-    }
-    if (forge) {
-      md.c.add(new Button(this, x + 6, y + 2, w - 12, 26, { label: 'Temper gear at the forge', icon: 'anvil', onClick: () => (md.close(), this.openTemper()) }));
-      y += 32;
-    }
-    md.c.add(new Button(this, x + 6, y + 4, w - 12, 26, { label: 'Close', icon: 'back', onClick: () => md.close() }));
-  }
-
-  /** The forge: temper an equipped item one rarity step finer for supplies and gold. */
-  private openTemper(): void {
-    const camp = state.campaign;
-    const items: { item: Item; who: string; cost: { supplies: number; gold: number } }[] = [];
-    for (const h of camp.data.heroes) {
-      for (const it of Object.values(h.equip)) {
-        const cost = it ? camp.temperCost(it) : null;
-        if (it && cost) items.push({ item: it, who: h.name, cost });
-      }
-    }
-    items.sort((a, b) => itemDef(b.item.def).value - itemDef(a.item.def).value);
-    const list = items.slice(0, 6);
-    const { VW } = this.m;
-    const rowH = 28;
-    const h = 30 + Math.max(1, list.length) * (rowH + 2) + 36;
-    const md = openModal(this, { title: 'Temper gear', w: Math.min(VW - 12, 220), h, onClose: () => (this.dialog = null) });
-    this.dialog = md.c;
-    const { x, w } = md;
-    let y = md.body.y;
-    if (!list.length) {
-      md.c.add(addText(this, VW / 2, y + 8, 'Nothing left to temper', 'dim', 0.5));
-      y += rowH + 2;
-    }
-    for (const e of list) {
-      const def = itemDef(e.item.def);
-      md.c.add(addPanel(this, x + 6, y, w - 12, rowH, 'inset'));
-      md.c.add(addText(this, x + 10, y + 4, ellipsize(`${def.name} (${e.item.rarity})`, w - 80), 'ink'));
-      md.c.add(addText(this, x + 10, y + 15, ellipsize(`${e.who} - ${e.cost.supplies} supplies`, w - 80), 'dim'));
-      const can = this.w.supplies >= e.cost.supplies && camp.data.gold >= e.cost.gold;
-      const b = new Button(this, x + w - 62, y + 3, 54, rowH - 6, {
-        label: `${e.cost.gold}`,
-        icon: 'coin',
-        variant: can ? 'primary' : 'secondary',
-        onClick: () => {
-          if (!camp.temper(e.item)) return;
-          hapticNotify('success');
-          md.close();
-          this.showBanner(`${def.name} tempered`, 1600);
-          this.refreshHud();
-          void state.save();
-        },
-      });
-      b.setEnabled(can, this.w.supplies < e.cost.supplies ? `Needs ${e.cost.supplies} supplies` : 'Not enough gold');
-      md.c.add(b);
-      y += rowH + 2;
-    }
-    md.c.add(new Button(this, x + 6, y + 4, w - 12, 26, { label: 'Close', icon: 'back', onClick: () => md.close() }));
-  }
-
-  private startPlacing(id: StructureId): void {
-    const c = this.w.camp;
-    if (!c) return;
-    const at = freeSpot(this.w.map, c, id) ?? { x: c.x, y: c.y };
-    this.placing = { id, x: at.x, y: at.y };
-    this.setWaiting(false);
-    this.drawGhost();
-    this.buildHud();
-  }
+  // Structures are placed in the camp scene (src/scenes/CampScene.ts); the map keeps the ghost for a placement in progress.
 
   private cancelPlacing(): void {
     this.placing = null;
@@ -1004,7 +905,7 @@ export class WorldScene extends BaseScene {
     } else if (this.w.camp) {
       row = [
         party,
-        { label: 'Build', icon: 'plus', onClick: () => this.openBuildMenu() },
+        { label: 'Camp', icon: 'tent', sel: true, onClick: () => this.scene.start('Camp', { mode: 'field' }) },
         { label: this.waiting ? 'Pause' : 'Rest', icon: this.waiting ? 'pause' : 'hourglass', sel: this.waiting, onClick: () => this.setWaiting(!this.waiting) },
         { label: 'Strike', icon: 'tent', onClick: () => this.strikeCamp() },
       ];

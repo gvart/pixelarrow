@@ -86,7 +86,7 @@ async function intoShardOf(p: Player, others: Player[], at: number): Promise<voi
 }
 
 describe('live army movement over the shard socket', () => {
-  it('pushes marches, halts and arrivals only to players who can see them', { timeout: 30_000 }, async () => {
+  it('pushes marches, halts and arrivals only to players who can see them', async () => {
     const a = await join(9101, 'Mover');
     const b = await join(9102, 'Watcher');
     const d = await join(9104, 'Faraway');
@@ -207,7 +207,7 @@ describe('the shard alarm: march arrivals and timed duel deployments share it', 
     wa.ws.close(1000);
   });
 
-  it('interleaves arrivals with a duel deployment: earliest first, re-armed for the other', { timeout: 30_000 }, async () => {
+  it('interleaves arrivals with a duel deployment: earliest first, re-armed for the other', async () => {
     const { a, b, ca, cb, duel, stub, deadline } = await deploying([9211, 9212]);
     expect(await alarmOf(stub)).toBe(deadline);
 
@@ -246,7 +246,7 @@ describe('the shard alarm: march arrivals and timed duel deployments share it', 
     for (const w of [ca, cb]) w.ws.close(1000);
   });
 
-  it('an arrival and a deployment survive the shard object being evicted; the woken object starts and announces them', { timeout: 30_000 }, async () => {
+  it('an arrival and a deployment survive the shard object being evicted; the woken object starts and announces them', async () => {
     const { a, b, ca, cb, duel, stub, deadline } = await deploying([9221, 9222]);
     const t = Date.now();
     const later = deadline + 60_000;

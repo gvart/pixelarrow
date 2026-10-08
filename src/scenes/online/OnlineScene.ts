@@ -51,6 +51,7 @@ import { attackSubmission } from '../../online/battle';
 import { showReport } from '../ResultsScene';
 import { openBossInfo, openLairInfo, raidSource } from './beastPanel';
 import { demoCampSource, liveCampSource, openCampPanel } from './campPanel';
+import type { CampSceneData } from '../CampScene';
 import { campPlotMarkers, type CampPlotMarker } from '../../online/camps';
 import { encounterName } from '../../ui/beastInfo';
 import type { EncounterId } from '../../data/beasts';
@@ -762,6 +763,29 @@ export class OnlineScene extends BaseScene {
 
   /** The camp panel of your camp (or camp plot) in a region. */
   openCamp(h: number): void {
+    this.closeModal();
+    const info = this.world.has(h) ? this.world.info(h) : null;
+    const heroes = this.profile?.heroes ?? [];
+    const demo = this.demo;
+    const data: CampSceneData = {
+      mode: 'online',
+      loc: h,
+      name: info?.name ?? `#${h}`,
+      coast: !!info?.coast,
+      source: demo ? demoCampSource(demo) : liveCampSource,
+      demo: !!demo,
+      heroes,
+      setReserve: async (flags) => {
+        if (demo) return;
+        await onlineApi.army({}, undefined, flags);
+      },
+      back: { scene: 'Online', data: { focus: h, select: true, preview: demo ? 'map' : undefined } },
+    };
+    this.scene.start('Camp', data);
+  }
+
+  /** The old scroll panel of a camp (kept for the hex panel's quick look). */
+  openCampPanel(h: number): void {
     this.closeModal();
     this.modal = openCampPanel(this, {
       loc: h,

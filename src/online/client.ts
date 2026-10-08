@@ -33,6 +33,8 @@ export interface OwnedHeroView {
   garrison: number | null;
   woundedUntil: number;
   busy: boolean;
+  /** Kept in camp, out of the field army (src/game/muster.ts). */
+  reserve?: boolean;
 }
 
 export interface ProfileView {
@@ -263,7 +265,7 @@ export const onlineApi = {
   collect: () => req<{ collected: Resources; regions: number; resources: Resources }>('POST', '/collect', {}),
   recruit: (archetype: Archetype) => req<{ hero: Hero }>('POST', '/recruit', { archetype }),
   equip: (heroId: string, slot: Slot, itemUid: string | null) => req<{ hero: Hero; stash: Item[] }>('POST', '/equip', { heroId, slot, itemUid }),
-  army: (groups: Record<string, number>, formations?: FormationType[]) => req<{ ok: true }>('POST', '/army', { groups, formations }),
+  army: (groups: Record<string, number>, formations?: FormationType[], reserve?: Record<string, boolean>) => req<{ ok: true }>('POST', '/army', reserve ? { groups, formations, reserve } : { groups, formations }),
   /** consumable: at most one battle consumable (src/data/consumables.ts), spent when the ticket is created. */
   attackStart: (loc: number, consumable?: string) => req<AttackTicket>('POST', '/attack/start', consumable ? { loc, consumable } : { loc }),
   attackSubmit: (ticket: string, orders: LoggedOrder[], deployOrders: number, claim: { winner: number; ticks: number; hash: string }) =>

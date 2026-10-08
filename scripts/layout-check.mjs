@@ -282,6 +282,51 @@ const SCREENS = [
       return wait(p, 400);
     },
   },
+  // the isometric camp scene (src/scenes/CampScene.ts): the field camp staged with every structure, a placement, the muster, the forge
+  ...[
+    ['camp', ''],
+    ['camp-place', "s.startPlacing('tent');"],
+    ['camp-muster', 's.openMuster();'],
+    ['camp-temper', 's.openTemper();'],
+  ].map(([id, after]) => ({
+    id,
+    owner: 'C',
+    run: async (p) => {
+      await ev(p, () => {
+        const c = window.__state.campaign;
+        const w = c.world;
+        const m = w.map;
+        if (!w.camp) {
+          // the nearest tile to the start where the party may camp
+          const st = m.settlements[m.start];
+          let best = null;
+          for (let y = 2; y < m.h - 2; y++)
+            for (let x = 2; x < m.w - 2; x++) {
+              w.s.x = x + 0.5;
+              w.s.y = y + 0.5;
+              if (w.campBlocker()) continue;
+              const d = Math.hypot(x - st.x, y - st.y);
+              if (!best || d < best.d) best = { x, y, d };
+            }
+          w.s.x = best.x + 0.5;
+          w.s.y = best.y + 0.5;
+          w.s.safeUntil = 1e9;
+          w.addSupplies(120);
+          w.makeCamp();
+          const build = (id) => {
+            for (const i of w.camp.zone) if (w.build(id, i % m.w, Math.floor(i / m.w)) === null) return;
+          };
+          for (const id of ['fire', 'tent', 'forge', 'training', 'palisade']) build(id);
+          c.data.heroes[1].wound = 20;
+        }
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Camp', { mode: 'field' }));
+      });
+      await until(p, activeIs('Camp'));
+      await wait(p, 900);
+      if (after) await call(p, 'Camp', `${after} return 1;`);
+      return wait(p, 500);
+    },
+  })),
   { id: 'army', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World' }), wait(p, 900)) },
   { id: 'army-stash', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World', tab: 'stash' }), wait(p, 900)) },
   {
@@ -490,11 +535,18 @@ const SCREENS = [
     ['online-boss-info', 'bossInfo'],
     ['online-hex-market', 'market'],
     ['online-hex-post', 'post'],
+    ['online-camp', 'camp'],
   ].map(([id, preview]) => ({
     id,
     owner: 'C',
     run: async (p) => {
       await start(p, 'Online', { preview });
+      if (preview === 'camp') {
+        // the camp preview opens the camp scene on the demo shard
+        await until(p, activeIs('Camp'), 25000);
+        await until(p, () => !!window.__game.scene.getScene('Camp').layout, 10000);
+        return wait(p, 900);
+      }
       await until(p, new Function(`const s = window.__game.scene.getScene('Online'); return ${preview === 'join' ? "s.sys.isActive()" : '!!s.map'};`), 8000);
       if (['neutral', 'far', 'own', 'rival', 'town', 'lair', 'lairInfo', 'boss', 'bossInfo', 'market', 'post'].includes(preview)) await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
       if (preview === 'lairInfo' || preview === 'bossInfo') {

@@ -244,18 +244,26 @@ export function renderBoat(): Pix {
  */
 export function renderNamePlate(w: number, kind: SettlementKind): Pix {
   const h = 10;
-  const px = new Pix(w + 4, h + 1);
+  const px = new Pix(w + 8, h + 2);
   const paper = kind === 'lair' ? 0xe0bfaf : MAPC.parch[0];
-  for (let x = 2; x < w + 2; x++) px.set(x + 1, h, MAPC.shade, 80);
-  px.rect(2, 0, w, h, paper);
-  px.hline(2, w + 1, 0, 0xfff2e2);
-  px.hline(2, w + 1, h - 1, 0xd8b8a4);
-  // checker-dither underline (UI motif)
-  for (let x = 3; x < w + 1; x++) if (x % 2 === 0) px.set(x, h - 2, 0xe8cbb8);
-  // rolled caps
-  for (const cx of [0, w + 2]) {
-    px.rect(cx, 0, 2, h, 0x8e725c);
-    px.vline(cx, 1, h - 2, 0xb6957c);
+  const x0 = 4;
+  for (let x = 0; x < w + 6; x++) px.set(x + 2, h + 1, MAPC.shade, 80);
+  px.rect(x0, 0, w, h, paper);
+  px.hline(x0, x0 + w - 1, 0, 0x8e725c);
+  px.hline(x0, x0 + w - 1, h - 1, 0x8e725c);
+  px.hline(x0 + 1, x0 + w - 2, 1, kind === 'lair' ? 0xc8a0a0 : MAPC.teal[0]);
+  px.hline(x0 + 1, x0 + w - 2, h - 2, kind === 'lair' ? 0xa07878 : MAPC.teal[2]);
+  // rolled ends: little cylinders a row taller than the paper, lit on their left
+  for (const cx of [0, w + 4]) {
+    for (let j = 0; j <= h; j++) {
+      const end = j === 0 || j === h;
+      px.set(cx, j, 0x8e725c);
+      px.set(cx + 1, j, end ? 0x8e725c : 0xc8a890);
+      px.set(cx + 2, j, end ? 0x8e725c : 0xfdeedc);
+      px.set(cx + 3, j, end ? 0x8e725c : 0xc8a890);
+    }
+    px.set(cx + 1, h >> 1, 0x8e725c);
+    px.set(cx + 3, h >> 1, 0x8e725c);
   }
   return px;
 }
