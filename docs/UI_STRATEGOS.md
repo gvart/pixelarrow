@@ -8,9 +8,13 @@ kit of docs/UI_KIT.md is unchanged underneath; this page is the layer on top.
 Read docs/UI_KIT.md for the components, this page for how screens are shaped.
 
 Implemented in this pass: the kit tokens, `src/ui/strategos.ts`,
-`src/ui/radialOrders.ts`, the main menu, the battle HUD, the army, hero, shop
-and the online war map's chrome. The camp scene and the map screens (world,
-region, settlements) keep their old chrome until they adopt this page.
+`src/ui/radialOrders.ts`, the main menu, the battle HUD, the army, hero, shop,
+the overland map's chrome and the online war map's chrome (its region panel
+lays its actions out in two rows rather than cut a word). The isometric camp
+scene keeps its own strips and column (they already follow the pattern: an
+info sentence in the bottom strip, one red action, the back button top-left);
+settlements, results, duels, market and the first run keep their old chrome
+until they adopt this page.
 
 ## Tokens (`src/ui/theme.ts`)
 
@@ -97,11 +101,16 @@ Hero (HeroScene)       SITUATION (who, what to spend · power / points / perks) 
 Shop (ShopScene)       SITUATION (what the page sells · drachmae / gold) · Shop | Pass | Wallet ·
                        STRIP: Back | Wallet (or Shop) | Pass (badge: claimable)
 Online (OnlineScene)   SITUATION (marching / income waiting / energy / season + hint · resources, energy)
-                       · map · region panel · STRIP: Army | Collect | Duels | Clan
+                       · map · region panel (actions in rows of whole words) · STRIP: Army | Collect | Duels | Clan
+World (WorldScene)     SITUATION ("Day 3, 09:00 · Road, safe. Tap the map to march, a town to enter."
+                       · gold / fit men / food · days / supplies) · map (follow button under the bar)
+                       · STRIP: Menu | Camp (pitch, or enter the camp) | Stop or Rest / Pause | Party
+Camp (CampScene)       own iso strips: title + purse on top, the info sentence and the action row
+                       (Muster, Loot, End day (primary), Strike) at the bottom; structures down the column
 ```
 
-Not yet adopted (keep their own chrome for now): CampScene, WorldScene,
-SettlementScene, the region map view, Results, Duel, Market, FirstRun. To adopt:
+Not yet adopted (keep their own chrome for now): SettlementScene, Results,
+Duel, Market, FirstRun; CampScene keeps its iso strips by design. To adopt:
 replace the top bar with a `SituationBar` (sentence + numbers), the bottom
 buttons with a `CommandStrip` (Back | the one action | Army), and any tab row of
 actions with chips; keep the content between `sit.bottom` and `strip.top`.
