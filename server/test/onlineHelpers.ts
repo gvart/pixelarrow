@@ -68,15 +68,16 @@ export async function post<T>(path: string, token: string, json: unknown = {}): 
   return { status: res.status, body: await res.json<T>() };
 }
 
-/** A neighbour of the player's army (one route away) that is attackable and held by plain neutrals. */
+/** A neighbour of the player's army (one route away) that is attackable now (no live attack lock) and held by plain neutrals. */
 export async function freeNeighbour(p: Player, filter?: (loc: number) => boolean): Promise<number> {
   const w = worldOf(p);
   const tryFrom = async (): Promise<number | null> => {
     for (const n of w.neighbours(p.profile.army.loc)) {
       if (filter && !filter(n)) continue;
-      const r = await getJson<{ region: { occupant: string; owner: number | null }; canAttack: boolean }>(`/api/online/region/${n}`, p.token);
-      // (beast lairs are not plain neutrals: weakenNeutrals cannot touch them)
-      if (r.status === 200 && r.body.canAttack && r.body.region.owner === null && r.body.region.occupant !== 'beast') return n;
+      const r = await getJson<{ region: { occupant: string; owner: number | null }; canAttack: boolean; locked: boolean }>(`/api/online/region/${n}`, p.token);
+      // (beast lairs are not plain neutrals: weakenNeutrals cannot touch them;
+      // a region another test's open ticket still locks cannot be attacked or garrisoned now)
+      if (r.status === 200 && r.body.canAttack && !r.body.locked && r.body.region.owner === null && r.body.region.occupant !== 'beast') return n;
     }
     return null;
   };

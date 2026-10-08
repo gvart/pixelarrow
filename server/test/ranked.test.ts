@@ -229,7 +229,9 @@ describe('a ranked match (DuelDO)', () => {
     A.ls.markReady();
     B.ls.markReady();
     for (let i = 0; i < 200 && A.ls.sim.phase === 'deploy'; i++) await tick();
-    for (let i = 0; i < 30; i++) {
+    // Turns are sealed by socket round trips, not by wall time: step until both
+    // sides are past tick 10 (a fixed number of 1 ms waits is too few under load).
+    for (let guard = 0; guard < 50_000 && (A.ls.sim.tick <= 10 || B.ls.sim.tick <= 10); guard++) {
       A.ls.pump(10);
       B.ls.pump(10);
       await tick();
