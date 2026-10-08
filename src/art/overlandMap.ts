@@ -59,6 +59,8 @@ export interface WorldMapArt {
   water: Uint8Array;
   sites: SiteArt[];
   lanes: SeaLane[];
+  /** The cultivated fields (for the herds). */
+  fields: { x: number; y: number; w: number; h: number; kind: number }[];
 }
 
 /** Building culture of a settlement on the overland map. */
@@ -393,7 +395,7 @@ export function renderWorldMap(m: WorldMap): WorldMapArt {
       }
   }
   const lanes = seaLanes(m, sites, seed);
-  return { pix: px, water, sites: [...sites, ...marks], lanes };
+  return { pix: px, water, sites: [...sites, ...marks], lanes, fields };
 }
 
 // ------------------------------------------------------------------ layout
@@ -782,9 +784,9 @@ function distField(W: number, H: number, src: (i: number) => boolean, cap: numbe
   return d;
 }
 
-/** Land patchwork: 16 px square tiles in sage tones, with wind-combed "w" tufts. */
+/** Land in sage tones: organic patches of drier and lusher ground (no grid), with wind-combed "w" tufts. */
 function landColor(t: number, x: number, y: number, seed: number): number {
-  const blk = hash2(x >> 4, y >> 4, seed + 31);
+  const blk = valueNoise(x, y, 38, seed + 31) * 0.65 + valueNoise(x, y, 12, seed + 32) * 0.35;
   let base: number;
   let ramp: number[];
   if (t === T.scrub) ramp = MAPC.scrub;
@@ -792,7 +794,11 @@ function landColor(t: number, x: number, y: number, seed: number): number {
   else if (t === T.hills) ramp = MAPC.hillFloor;
   else if (t === T.mountain) ramp = MAPC.rockFloor;
   else ramp = MAPC.grass;
-  base = ramp[Math.floor(blk * ramp.length) % ramp.length];
+  // a dithered fringe between the patches keeps the edges pixel-clean
+  const q = Math.min(ramp.length - 1, Math.max(0, (blk - 0.2) / 0.6) * ramp.length);
+  const qi = Math.floor(q);
+  base = ramp[q - qi < 0.15 && ((x + y) & 1) && qi > 0 ? qi - 1 : qi];
+  if (t === T.grass && blk > 0.68 && !(blk < 0.71 && ((x + y) & 1))) base = hash2(x, y, seed + 33) > 0.96 ? MAPC.sandDot : MP.pale;
   // tufts: a little "w" mark in a 6x5 cell
   const cx = Math.floor(x / 6);
   const cy = Math.floor(y / 5);

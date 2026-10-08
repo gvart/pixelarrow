@@ -17,7 +17,7 @@
 import type { WorldGraph } from '../online/world';
 import { decodeTerrain } from '../online/mapSchema';
 import { Pix, hash2, valueNoise } from './pixels';
-import { MP, archOf, clamp01, drawTree, harbourProp, mix, rng, settlementProp, shipPix, type PropSprite, type Pt } from './mapProps';
+import { MP, archOf, clamp01, drawCypress, drawTree, harbourProp, mix, rng, settlementProp, shipPix, type PropSprite, type Pt } from './mapProps';
 
 export { MP, drawTree, shipPix };
 
@@ -190,7 +190,10 @@ export class MapFields {
 
   /** Signed coast value at map px (cells; > 0 land), with a wobble. */
   coast(mx: number, my: number): number {
-    return this.bil(this.sd, mx, my) + (valueNoise(mx, my, 26, 1) - 0.5) * 0.6 + (valueNoise(mx, my, 7, 2) - 0.5) * 0.22;
+    // domain-warped so the chamfer facets of the cell grid never show: broad bays, then coves, then a fine fringe
+    const wx = mx + (valueNoise(mx, my, 61, 3) - 0.5) * 22;
+    const wy = my + (valueNoise(mx + 311, my + 97, 61, 4) - 0.5) * 22;
+    return this.bil(this.sd, wx, wy) + (valueNoise(mx, my, 26, 1) - 0.5) * 0.55 + (valueNoise(mx, my, 11, 2) - 0.5) * 0.3 + (valueNoise(mx, my, 4.5, 5) - 0.5) * 0.12;
   }
 
   /** Land region at map px with wavy borders (0: sea / none). */
@@ -565,7 +568,7 @@ export function stateSignature(f: MapFields, st: MapState, cx0: number, cy0: num
 export function bakeChunk(f: MapFields, st: MapState, s: number, gx0: number, gy0: number, tw: number, th: number): Pix {
   const p = new Pix(tw, th);
   const d32 = new Uint32Array(p.data.buffer);
-  const P = 4;
+  const P = 7;
   const W2 = tw + 2 * P;
   const H2 = th + 2 * P;
   const N2 = W2 * H2;
@@ -588,21 +591,23 @@ export function bakeChunk(f: MapFields, st: MapState, s: number, gx0: number, gy
     }
   const allFog = anyFog && !anyClear;
   const fogScale = s >= 8 ? 0.3 : 1;
-  // stair-step offset per row (rows of 4 texels shift together)
+  // the cloud edge is torn in long horizontal rags: two-texel rows shift together (stair steps)
   const rowOff = new Float32Array(H2);
   for (let j = 0; j < H2; j++) {
-    const gy = gy0 + j - P;
-    rowOff[j] = ((hash2(gy >> 2, 7, 31) - 0.5) * 10 + (valueNoise(0, gy, 9, 32) - 0.5) * 16) * fogScale;
+    const gq = (gy0 + j - P) & ~1;
+    rowOff[j] = ((hash2(gq >> 1, 7, 31) - 0.5) * 12 + (valueNoise(0, gq, 5, 32) - 0.5) * 24 + (valueNoise(0, gq, 23, 37) - 0.5) * 30) * fogScale;
   }
   const fogAt = (gx: number, gy: number): number => {
     if (!anyFog) return 0;
     if (allFog) return 1;
-    const off = rowOff[gy - gy0 + P];
-    const colOff = ((hash2(gx >> 3, 9, 34) - 0.5) * 8 + (hash2(gx >> 5, 10, 35) - 0.5) * 8) * fogScale;
+    const j = Math.max(0, Math.min(H2 - 1, gy - gy0 + P));
+    const gq = gy & ~1;
+    const off = rowOff[j];
+    const colOff = ((hash2(gx >> 3, 9, 34) - 0.5) * 6 + (valueNoise(gx, 0, 19, 35) - 0.5) * 14) * fogScale;
     const mx = (gx + off) * s + half;
-    const my = (gy + colOff) * s + half;
+    const my = (gq + colOff) * s + half;
     let v = f.bil(st.fog, mx, my);
-    if (v > 0 && v < 1) v += (valueNoise(gx * 0.3, gy, 5, 33) - 0.5) * 0.36;
+    if (v > 0 && v < 1) v += (valueNoise(gx * 0.3, gq, 6, 33) - 0.5) * 0.5 + (valueNoise(gx * 0.5, gq, 2.5, 36) - 0.5) * 0.2;
     return v > 0.5 ? 1 : 0;
   };
   for (let j = 0; j < H2; j++) {
@@ -666,10 +671,23 @@ export function bakeChunk(f: MapFields, st: MapState, s: number, gx0: number, gy
     if (s === 1) drawFeatures(p, f, gx0, gy0, tw, th, F, W2, P);
     else if (s <= 4) drawMiniFeatures(p, f, s, gx0, gy0, tw, th, F, W2, P);
   }
-  // fog of war: parchment clouds with stair-stepped edges, layered puffs, hatching and a lavender shadow
+  // fog of war: cream parchment with a handwritten scribble texture, torn ragged edges, layered puffs, a
+  // lavender shadow cast down and right onto what lies below, and loose puffs drifting off the boundary
   if (anyFog) {
     // puff layers inside the clouds: elongated, stair-stepped (shifted per row band)
-    const puff = (gx: number, gy: number) => valueNoise((gx + rowOff[gy - gy0 + P] * 2) / 3, gy, 11, 74) > 0.56;
+    const puff = (gx: number, gy: number) => valueNoise((gx + rowOff[Math.max(0, Math.min(H2 - 1, gy - gy0 + P))] * 2) / 3, gy & ~1, 11, 74) > 0.56;
+    // short wavy dashes: a slot of 14 texels per row holds one dash now and then, its middle lifted a row
+    const dashAt = (gx: number, r: number, lift: boolean): boolean => {
+      const q = gx + Math.floor(hash2(r, 3, 71) * 40);
+      const slot = Math.floor(q / 14);
+      const pos = q - slot * 14;
+      const h = hash2(slot, r, 72);
+      if (h > 0.09) return false;
+      const len = 4 + Math.floor(h * 70);
+      if (pos < 1 || pos >= 1 + len) return false;
+      const mid = pos >= 3 && pos < len - 1;
+      return lift ? mid : !mid;
+    };
     for (let j = 0; j < th; j++) {
       const gy = gy0 + j;
       for (let i = 0; i < tw; i++) {
@@ -678,26 +696,61 @@ export function bakeChunk(f: MapFields, st: MapState, s: number, gx0: number, gy
         const o = j * tw + i;
         if (FG[k]) {
           let c = MP.parch;
-          const streak = hash2(Math.floor((gx + hash2(gy, 3, 71) * 40) / 11), gy >> 1, 72);
-          if (streak < 0.12) c = MP.parchLo;
-          else if (streak > 0.93) c = MP.parchHi;
           if (s <= 4) {
+            if (dashAt(gx, gy, false) || dashAt(gx, gy + 1, true)) c = hash2(gx >> 3, gy, 73) < 0.3 ? MP.parchDot : MP.parchLo;
+            else if (hash2(gx, gy, 76) < 0.012) c = MP.parchHi;
             const pu = puff(gx, gy);
             if (pu && !puff(gx, gy + 1)) c = MP.parchRim;
             else if (!pu && (puff(gx, gy - 1) || puff(gx, gy - 2))) c = ((gx + gy) & 1) === 0 ? MP.parchDot : MP.parchLo;
             else if (pu && !puff(gx, gy - 1)) c = MP.parchHi;
+          } else {
+            const streak = hash2(Math.floor((gx + hash2(gy, 3, 71) * 40) / 11), gy >> 1, 72);
+            if (streak < 0.12) c = MP.parchLo;
+            else if (streak > 0.93) c = MP.parchHi;
           }
           if (!FG[k + W2]) c = MP.parchRim;
-          else if (!FG[k - W2]) c = MP.parchHi;
-          else if (!FG[k + 2 * W2] && ((gx + gy) & 1) === 0) c = MP.parchDot;
+          else if (!FG[k - W2] || !FG[k - 1]) c = MP.parchHi;
+          else if ((!FG[k + 2 * W2] || !FG[k + 1]) && ((gx + gy) & 1) === 0) c = MP.parchDot;
           d32[o] = abgr(c);
-        } else if (FG[k - 2 * W2 - 1] || FG[k - W2] || FG[k - 3 * W2 - 2]) {
-          d32[o] = abgr(mix(fromAbgr(d32[o]), MP.fogShadow, 0.6));
-        } else if (FG[k - 4 * W2 - 3] || FG[k - 4 * W2 - 4]) {
-          const c0 = fromAbgr(d32[o]);
-          d32[o] = abgr(((gx + gy) & 1) === 0 ? mix(c0, MP.fogShadow, 0.5) : mix(c0, MP.fogShadow2, 0.35));
+        } else {
+          // the shadow band: solid for three rows under the rag, dithered out over three more; cast a little right
+          let sh = 0;
+          if (FG[k - W2] || FG[k - 2 * W2 - 1] || FG[k - 3 * W2 - 2] || FG[k - 1] || FG[k - 2]) sh = 2;
+          else if (FG[k - 4 * W2 - 2] || FG[k - 5 * W2 - 3] || FG[k - 6 * W2 - 3] || FG[k - 3]) sh = 1;
+          if (sh) {
+            const c0 = fromAbgr(d32[o]);
+            const sea = F[k] <= 0;
+            const chk = ((gx + gy) & 1) === 0;
+            d32[o] = abgr(sh === 2 ? mix(c0, MP.fogShadow, sea ? 0.62 : 0.42) : chk ? mix(c0, MP.fogShadow, sea ? 0.5 : 0.32) : mix(c0, MP.fogShadow2, sea ? 0.3 : 0.18));
+          }
         }
       }
+    }
+    // loose puffs just off the torn edge, with their own little shadows
+    if (s <= 4 && !allFog) {
+      const fg = (i: number, j: number) => (i >= -P && j >= -P && i < tw + P && j < th + P ? FG[(j + P) * W2 + i + P] : fogAt(gx0 + i, gy0 + j));
+      const GX = 11;
+      const GY = 5;
+      for (let cy = Math.floor((gy0 - 8) / GY); cy <= Math.floor((gy0 + th + 4) / GY); cy++)
+        for (let cx = Math.floor((gx0 - 12) / GX); cx <= Math.floor((gx0 + tw + 12) / GX); cx++) {
+          const h = hash2(cx, cy, 77);
+          if (h > 0.42) continue;
+          const px = cx * GX + Math.floor(hash2(cx, cy, 78) * GX) - gx0;
+          const py = cy * GY + Math.floor(hash2(cx, cy, 79) * GY) - gy0;
+          if (!fg(px, py - 4) || fg(px, py + 2) || fg(px - 6, py + 1) || fg(px + 6, py + 1)) continue;
+          const rx = 3 + Math.floor(h * 14);
+          const ry = 1 + Math.floor(hash2(cx, cy, 80) * 2);
+          for (let j = -ry; j <= ry + 3; j++)
+            for (let i = -rx; i <= rx + 2; i++) {
+              const x = px + i;
+              const y = py + j;
+              if (x < 0 || y < 0 || x >= tw || y >= th || fg(x, y)) continue;
+              const inside = (i / (rx + 0.5)) ** 2 + (j / (ry + 0.5)) ** 2 <= 1;
+              const o = y * tw + x;
+              if (inside) d32[o] = abgr(j === -ry ? MP.parchHi : j >= ry ? MP.parchRim : MP.parch);
+              else if (((i - 2) / (rx + 0.5)) ** 2 + ((j - 3) / (ry + 0.5)) ** 2 <= 1) d32[o] = abgr(mix(fromAbgr(d32[o]), MP.fogShadow, ((x + y) & 1) === 0 ? 0.5 : 0.3));
+            }
+        }
     }
   }
   return p;
@@ -731,8 +784,6 @@ function seaColour(f: MapFields, gx: number, gy: number, mx: number, my: number,
   }
   return c;
 }
-
-const tileMemo = { x: NaN, y: NaN, th: 0, pv: 0 };
 
 function landColour(f: MapFields, gx: number, gy: number, mx: number, my: number, d: number, s: number): number {
   const n1 = valueNoise(mx, my, 13, 91) - 0.5;
@@ -773,40 +824,26 @@ function landColour(f: MapFields, gx: number, gy: number, mx: number, my: number
     return h < 0.3 ? MP.leafDk : h < 0.55 ? MP.leafMid : MP.leaf;
   }
   const hillV = fl & 16 ? f.bil(f.hills, mx, my) + n1 * 0.35 : 0;
-  // tile patchwork (on the hidden square grid, ragged edges)
-  const jx = (hash2(gx, gy, 99) - 0.5) * 3 * s;
-  const jy = (hash2(gx, gy, 100) - 0.5) * 3 * s;
-  const tcx = Math.floor((mx + jx) / f.cell);
-  const tcy = Math.floor((my + jy) / f.cell);
-  let th: number;
-  let pv: number;
-  if (tcx === tileMemo.x && tcy === tileMemo.y) (th = tileMemo.th), (pv = tileMemo.pv);
-  else {
-    th = hash2(tcx, tcy, 101);
-    pv = valueNoise(tcx, tcy, 3.2, 105) * 0.72 + th * 0.4;
-    tileMemo.x = tcx;
-    tileMemo.y = tcy;
-    tileMemo.th = th;
-    tileMemo.pv = pv;
-  }
+  // organic patches of dry pale ground and lusher meadow (no grid anywhere), with a dithered fringe
+  const patch = valueNoise(mx, my, 46, 105) * 0.62 + valueNoise(mx, my, 15, 106) * 0.38 + clamp01(1.2 - d) * 0.22;
   const drift = valueNoise(mx * 0.35, my, 40, 102);
   let base = MP.grass;
   let lo = MP.grassLo;
   let dk = MP.grassDk;
   let hi = MP.grassHi;
   let dens = 0.07;
+  const paleAt = s > 1 ? 0.7 : 0.64;
   if (hillV > 0.5) {
     base = MP.hill;
     lo = MP.hillLo;
     dk = MP.moundRim;
     hi = MP.moundHi;
     dens = 0.08;
-  } else if (pv + clamp01(1.2 - d) * 0.25 > (s > 1 ? 0.84 : 0.74)) {
-    // pale bare tiles (clustered patchwork)
+  } else if (patch > paleAt && !(patch < paleAt + 0.03 && ((gx + gy) & 1))) {
     if (s > 1) return mix(base, MP.pale, 0.55);
     const h = hash2(gx, gy, 103);
     return h < 0.05 ? MP.paleDot : h > 0.97 ? MP.grassLo : MP.pale;
-  } else if (th > 0.8) {
+  } else if (patch < 0.36 || (patch < 0.39 && ((gx + gy) & 1))) {
     base = MP.lush;
     lo = MP.grassDk;
     dens = 0.09;
@@ -1005,7 +1042,13 @@ function drawFeatures(p: Pix, f: MapFields, gx0: number, gy0: number, tw: number
       }
       if (!tree) continue;
       if (coastAt(x, y) < 0.45 || blockedBy(sets, hs, x, y, 3)) continue;
-      const r = 3 + Math.floor(hash2(gx, gy, 226) * 3);
+      const hv = f.bil(f.hills, x, y);
+      if (fv > 0.48 && hv > 0.45 && hash2(gx, gy, 227) < 0.4) {
+        // pines on the high woods
+        feats.push({ y, draw: () => drawCypress(p, Math.round(lx(x)), Math.round(ly(y)) + 3, 7 + Math.floor(hash2(gx, gy, 228) * 4)) });
+        continue;
+      }
+      const r = (fv > 0.48 ? 4 : 3) + Math.floor(hash2(gx, gy, 226) * 3);
       feats.push({ y, draw: () => drawTree(p, Math.round(lx(x)), Math.round(ly(y)), r, gx * 7 + gy * 13) });
     }
   for (const b of sets) {
@@ -1185,21 +1228,27 @@ export function armyPix(team: number): Pix {
   return p;
 }
 
-/** A parchment plate for a name label: (w x h) with rolled caps. */
+/** A parchment scroll for a name label: (w x h) of paper with a teal inner frame between two rolled ends. */
 export function platePix(w: number, h: number, accent: number | null): Pix {
-  const p = new Pix(w + 4, h + 1);
-  const x0 = 2;
+  const p = new Pix(w + 8, h + 2);
+  const x0 = 4;
+  for (let i = 0; i < w + 6; i++) p.set(i + 2, h + 1, MP.shadow, 70);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) p.set(x0 + i, j, j === 0 ? MP.plateHi : j === h - 1 ? MP.plateLo : MP.plate);
   p.hline(x0, x0 + w - 1, 0, MP.plateRim);
   p.hline(x0, x0 + w - 1, h - 1, MP.plateRim);
-  p.hline(x0, x0 + w - 1, 1, MP.plateHi);
-  // rolled caps
-  for (const cx of [0, w + 2]) {
-    p.vline(cx, 0, h - 1, MP.plateRim);
-    p.vline(cx + 1, 0, h - 1, MP.plateCap);
-    p.set(cx + 1, 1, MP.plateHi);
+  p.hline(x0 + 1, x0 + w - 2, 1, MP.tealHi);
+  p.hline(x0 + 1, x0 + w - 2, h - 2, MP.teal);
+  // rolled ends: little cylinders a row taller than the paper, lit on their left
+  for (const cx of [0, w + 4]) {
+    for (let j = 0; j <= h; j++) {
+      p.set(cx, j, MP.plateRim);
+      p.set(cx + 1, j, j === 0 || j === h ? MP.plateRim : MP.plateCap);
+      p.set(cx + 2, j, j === 0 || j === h ? MP.plateRim : MP.plateHi);
+      p.set(cx + 3, j, j === 0 || j === h ? MP.plateRim : MP.plateCap);
+    }
+    p.set(cx + 1, Math.floor(h / 2), MP.plateRim);
+    p.set(cx + 3, Math.floor(h / 2), MP.plateRim);
   }
-  for (let i = 0; i < w + 4; i++) p.set(i + 1, h, MP.shadow, 70);
   if (accent !== null) {
     p.rect(x0 + 2, 2, 3, h - 4, accent);
     p.vline(x0 + 4, 2, h - 3, mix(accent, 0, 0.35));
