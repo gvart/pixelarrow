@@ -60,8 +60,9 @@ export interface VectorGlyph {
   y: number;
   w: number;
   h: number;
-  /** Pen offset of the cell's left edge and the advance (atlas px). */
+  /** Pen offset of the cell's left and top edges and the advance (atlas px). */
   xOffset: number;
+  yOffset: number;
   xAdvance: number;
 }
 
@@ -72,7 +73,11 @@ export interface VectorGlyph {
 export function renderVectorAtlas(color: number, shadow: number | undefined, K: number, face: Face = 'body'): { canvas: HTMLCanvasElement; glyphs: VectorGlyph[]; lineH: number; size: number } {
   const f = FACES[face];
   const pad = Math.ceil(K * 1.5);
-  const cellH = Math.ceil(LINE_H * K) + pad;
+  // room above the line box for accents and tall capitals (the heading's em is larger than the
+  // line), so no glyph reaches into the cell above; the quad starts that much higher (yOffset)
+  const above = Math.ceil(Math.max(0, f.px * 1.05 - BASELINE) * K) + pad;
+  const below = Math.ceil(Math.max(LINE_H - BASELINE, f.px * 0.35) * K) + pad;
+  const cellH = above + Math.ceil(BASELINE * K) + below;
   const chars = UI_CHARS;
   const cells = chars.map((ch) => Math.ceil(Math.max(0, advance(ch, face)) * K) + pad * 2);
   const maxW = 1024;
@@ -98,14 +103,14 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
   chars.forEach((ch, i) => {
     const p = pos[i];
     const bx = p.x + pad;
-    const by = p.y + BASELINE * K;
+    const by = p.y + above + BASELINE * K;
     if (shadow !== undefined) {
       ctx.fillStyle = hex(shadow);
       ctx.fillText(ch, bx + K * 0.5, by + K * 0.5);
     }
     ctx.fillStyle = hex(color);
     ctx.fillText(ch, bx, by);
-    glyphs.push({ ch, x: p.x, y: p.y, w: cells[i], h: cellH, xOffset: -pad, xAdvance: advance(ch, face) * K });
+    glyphs.push({ ch, x: p.x, y: p.y, w: cells[i], h: cellH, xOffset: -pad, yOffset: -above, xAdvance: advance(ch, face) * K });
   });
   return { canvas, glyphs, lineH: (LINE_H + 1) * K, size: BASE_SIZE * K };
 }

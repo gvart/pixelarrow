@@ -111,3 +111,67 @@ export function renderSmoothPanel(w: number, h: number, style: SmoothStyle, K: n
   }
   return canvas;
 }
+
+export type MedallionState = 'idle' | 'ready' | 'cool';
+
+/**
+ * A round ability medallion: bronze ring round a dark face, `d` UI px across,
+ * plus `halo` UI px of room for the ready glow on every side.
+ */
+export function renderMedallion(d: number, halo: number, state: MedallionState, K: number, css: number): HTMLCanvasElement {
+  const size = Math.round((d + halo * 2) * K);
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const c = size / 2;
+  const r = (d / 2) * K;
+  if (state === 'ready') {
+    const g = ctx.createRadialGradient(c, c, r * 0.8, c, c, r + halo * K);
+    g.addColorStop(0, 'rgba(240,201,119,0.55)');
+    g.addColorStop(1, 'rgba(240,201,119,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+  }
+  // drop shadow, ring, face
+  ctx.beginPath();
+  ctx.arc(c, c + css, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fill();
+  const ring = ctx.createLinearGradient(0, c - r, 0, c + r);
+  ring.addColorStop(0, state === 'cool' ? '#7a6044' : '#e2c48c');
+  ring.addColorStop(0.5, state === 'cool' ? '#5c4325' : '#b48a52');
+  ring.addColorStop(1, state === 'cool' ? '#3a2915' : '#5c4325');
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  ctx.fillStyle = ring;
+  ctx.fill();
+  const face = ctx.createRadialGradient(c, c - r * 0.25, r * 0.1, c, c, r * 0.82);
+  face.addColorStop(0, state === 'cool' ? '#241d17' : '#3a2f25');
+  face.addColorStop(1, '#120e0b');
+  ctx.beginPath();
+  ctx.arc(c, c, r - 3 * css, 0, Math.PI * 2);
+  ctx.fillStyle = face;
+  ctx.fill();
+  ctx.lineWidth = css;
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.stroke();
+  return canvas;
+}
+
+/** A pie of the remaining cooldown (fraction f of a full turn, from 12 o'clock), dark over the face. */
+export function renderSweep(d: number, f: number, K: number): HTMLCanvasElement {
+  const size = Math.round(d * K);
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const c = size / 2;
+  ctx.beginPath();
+  ctx.moveTo(c, c);
+  ctx.arc(c, c, c, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, f)));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fill();
+  return canvas;
+}

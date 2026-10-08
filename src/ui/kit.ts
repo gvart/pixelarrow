@@ -8,7 +8,6 @@
 import Phaser from 'phaser';
 import { renderVectorAtlas, type Face } from '../art/vectorFont';
 import { ICONS } from '../art/icons';
-import { P } from '../art/palette';
 import { renderIcon, renderScrollRoll, type PanelStyle } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
@@ -19,7 +18,7 @@ import { ellipsize, measureText } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
 import { RS } from '../platform/renderScale';
 
-export type FontKey = 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good';
+export type FontKey = 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good' | 'head';
 
 export interface UIMetrics {
   S: number;
@@ -44,7 +43,10 @@ const FONT_COLORS: Record<FontKey, [number, number | undefined]> = {
   dim: [0x9d8f78, undefined],
   title: [TEXT_D2.tx, 0x120e0b],
   good: [STATUS_D2.good, undefined],
+  // section headings and names: Cormorant SC in bronze (measure with face 'head')
+  head: [BRONZE_D2.hi, undefined],
 };
+const FONT_FACE: Partial<Record<FontKey, Face>> = { head: 'head' };
 
 /**
  * Register a bitmap font `key` drawn from a vector face (src/art/vectorFont.ts)
@@ -61,7 +63,7 @@ export function registerVectorFont(scene: Phaser.Scene, key: string, color: numb
   for (const g of glyphs) {
     chars[g.ch.charCodeAt(0)] = {
       x: g.x, y: g.y, width: g.w, height: g.h, centerX: Math.floor(g.w / 2), centerY: Math.floor(g.h / 2),
-      xOffset: g.xOffset, yOffset: 0, xAdvance: g.xAdvance, data: {}, kerning: {},
+      xOffset: g.xOffset, yOffset: g.yOffset, xAdvance: g.xAdvance, data: {}, kerning: {},
       u0: g.x / tw, v0: g.y / th, u1: (g.x + g.w) / tw, v1: (g.y + g.h) / th,
     };
   }
@@ -73,7 +75,7 @@ export function registerUiAssets(scene: Phaser.Scene): void {
   if (scene.textures.exists('font_ink')) return;
   for (const key of Object.keys(FONT_COLORS) as FontKey[]) {
     const [color, shadow] = FONT_COLORS[key];
-    registerVectorFont(scene, `font_${key}`, color, shadow);
+    registerVectorFont(scene, `font_${key}`, color, shadow, FONT_FACE[key]);
   }
   for (const [name, rows] of Object.entries(ICONS)) {
     scene.textures.addCanvas(`icon_${name}`, renderIcon(rows, BRONZE_D2.hi, BRONZE_D2.mid).toCanvas());
@@ -357,10 +359,14 @@ export class Button extends Phaser.GameObjects.Container {
     const shadow = SHADOW_FONTS.has(font);
     const hasIcon = !!this.opts.icon;
     const hasLabel = !!this.opts.label;
+    const stacked = hasIcon && hasLabel && this.h >= 26 && !this.opts.inline && !this.opts.iconOnly;
+    // words under an icon, and small buttons, use the smaller text size
+    const size = stacked || this.opts.small ? 6 : 7;
+    const lh = (8 * size) / 7;
     this.truncated = false;
     const fit = (maxW: number) => {
       const full = this.opts.label!;
-      const out = ellipsize(full, maxW, shadow);
+      const out = ellipsize(full, maxW, shadow, size);
       this.truncated = out !== full;
       return out;
     };
@@ -373,7 +379,7 @@ export class Button extends Phaser.GameObjects.Container {
     } else if (hasIcon && hasLabel && this.h >= 26 && !this.opts.inline) {
       // icon above label
       this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);
-      this.labelText = addText(scene, this.w / 2, this.h - 11, fit(this.w - 6), font, 0.5);
+      this.labelText = addText(scene, this.w / 2, this.h - 11, fit(this.w - 4), font, 0.5).setFontSize(size);
       this.content.add([this.iconImg, this.labelText]);
     } else if (hasIcon && hasLabel) {
       const room = this.w - 6 - 15;
@@ -382,15 +388,15 @@ export class Button extends Phaser.GameObjects.Container {
         // no room for words: icon only, the label becomes the long-press tip
         iconCentered();
       } else {
-        this.labelText = addText(scene, 0, 0, label, font, 0);
-        const total = 12 + 3 + measureText(label, shadow);
+        this.labelText = addText(scene, 0, 0, label, font, 0).setFontSize(size);
+        const total = 12 + 3 + measureText(label, shadow, size);
         const x0 = Math.round((this.w - total) / 2);
         this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
-        this.labelText.setPosition(x0 + 15, Math.round((this.h - 8) / 2) - 1);
+        this.labelText.setPosition(x0 + 15, (this.h - lh) / 2 - 1);
         this.content.add([this.iconImg, this.labelText]);
       }
     } else if (hasLabel) {
-      this.labelText = addText(scene, this.w / 2, Math.round((this.h - 8) / 2) - 1, fit(this.w - 6), font, 0.5);
+      this.labelText = addText(scene, this.w / 2, (this.h - lh) / 2 - 1, fit(this.w - 6), font, 0.5).setFontSize(size);
       this.content.add(this.labelText);
     }
     if (this.labelText) uiFrame(this.labelText, this, this.w, this.h);
@@ -465,10 +471,10 @@ export class Meter extends Phaser.GameObjects.Graphics {
   setValue(v: number, max: number, color = this.color): this {
     const f = max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
     this.clear();
-    this.fillStyle(P.ink, 1);
+    this.fillStyle(BRONZE_D2.lo, 1);
     this.fillRect(0, 0, this.w, this.h);
-    this.fillStyle(0x6b4a40, 1);
-    this.fillRect(1, 1, this.w - 2, this.h - 2);
+    this.fillStyle(0x0d0a08, 1);
+    this.fillRect(0.5, 0.5, this.w - 1, this.h - 1);
     const fw = Math.round((this.w - 2) * f);
     if (fw > 0) {
       this.fillStyle(color, 1);
