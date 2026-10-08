@@ -13,6 +13,7 @@ import {
 import { ensurePortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
+import { scrapValue } from '../game/campaign';
 import { itemDef, itemValue, SLOTS, type Item, type Slot } from '../data/items';
 import { MAX_ARMY, type Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
@@ -110,6 +111,7 @@ export class ArmyScene extends BaseScene {
   private goBack(): void {
     void state.save();
     if (this.back.from === 'Settlement') this.scene.start('Settlement', { id: this.back.id });
+    else if (this.back.from === 'Camp') this.scene.start('Camp', { mode: 'field' });
     else this.scene.start(this.back.from ?? 'World');
   }
 
@@ -162,7 +164,7 @@ export class ArmyScene extends BaseScene {
     dis.setEnabled(c.heroes.length > 1, t('army.dismissLast'));
     this.foot.add(dis);
     x += 26 + SIZE.gap;
-    const backLabel = this.back.from === 'Settlement' ? t('army.town') : t('army.map');
+    const backLabel = this.back.from === 'Settlement' ? t('army.town') : this.back.from === 'Camp' ? t('army.camp') : t('army.map');
     this.foot.add(new Button(this, x, by, VW - 4 - x, SIZE.btnH, { label: backLabel, icon: 'map', variant: 'primary', id: 'army.back', onClick: () => this.goBack() }));
   }
 
@@ -425,9 +427,19 @@ export class ArmyScene extends BaseScene {
         onClick: () => confirmDialog(this, { title: t('stash.sellTitle', { name: itemName(it) }), body: t('stash.sellBody', { n: val }), ok: t('stash.sell', { n: val }), cancel: t('common.cancel'), onOk: () => this.sell(it, val) }),
       });
     }
+    if (this.back.from === 'Camp') {
+      // in camp: no market, but an item can be broken up for supplies
+      const got = scrapValue(it);
+      actions.push({
+        label: t('cs.scrap', { n: got }),
+        icon: 'wood',
+        id: 'stash.scrap',
+        onClick: () => confirmDialog(this, { title: t('cs.scrapTitle', { name: itemName(it) }), body: t('cs.scrapBody', { n: got }), ok: t('cs.scrap', { n: got }), cancel: t('common.cancel'), destructive: true, onOk: () => this.scrap(it) }),
+      });
+    }
     if (cost > 0) actions.push({ label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', disabled: camp.data.gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) });
     if (h) actions.push({ label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', onClick: () => this.equip(it) });
-    openItemCard(this, { item: it, hero: h, actions, notes: this.inTown() ? [] : [{ text: t('stash.sellInTown') }] });
+    openItemCard(this, { item: it, hero: h, actions, notes: this.inTown() ? [] : [{ text: this.back.from === 'Camp' ? t('cs.scrapHint') : t('stash.sellInTown') }] });
   }
 
   equip(it: Item): void {
@@ -456,6 +468,15 @@ export class ArmyScene extends BaseScene {
     }
     hapticNotify('success');
     toast(this, t('stash.repaired'), 'good');
+    void state.save();
+    this.refresh();
+  }
+
+  private scrap(it: Item): void {
+    const got = state.campaign.scrap(it.uid);
+    if (got < 0) return;
+    haptic('medium');
+    toast(this, t('cs.scrapped', { name: itemName(it), n: got }), 'good');
     void state.save();
     this.refresh();
   }

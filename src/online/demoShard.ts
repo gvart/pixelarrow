@@ -182,7 +182,7 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
     home: me,
     army: { loc: me, marching: false, dest: null, arriveAt: null, path: null, at: null },
     formations: ['line', 'skirmish', 'line', 'column'],
-    heroes: heroes.map((hero, i) => ({ hero, garrison: i >= heroes.length - 1 ? me : null, woundedUntil: 0, busy: false })),
+    heroes: heroes.map((hero, i) => ({ hero, garrison: i >= heroes.length - 1 ? me : null, woundedUntil: 0, busy: false, reserve: false })),
     stash: [],
     clan: { id: DEMO.clan, name: 'Kites of Pella', tag: 'KIT', role: 'officer' },
     battles: 14,

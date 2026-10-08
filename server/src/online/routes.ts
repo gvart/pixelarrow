@@ -102,7 +102,7 @@ async function profileView(c: PlayerCtx) {
     home: p.home_loc,
     army: { loc: army.pos, marching: army.marching, dest: army.dest, arriveAt: army.arriveAt, path: army.march?.path ?? null, at: army.march?.at ?? null },
     formations: formationsOf(p.formations),
-    heroes: heroes.map((h) => ({ hero: h.hero, garrison: h.garrison, woundedUntil: h.woundedUntil, busy: h.busyUntil > now })),
+    heroes: heroes.map((h) => ({ hero: h.hero, garrison: h.garrison, woundedUntil: h.woundedUntil, busy: h.busyUntil > now, reserve: h.reserve })),
     stash,
     consumables: inventory,
     clan: clanInfo && c.clan ? { ...clanInfo, role: c.clan.role } : null,
@@ -566,7 +566,7 @@ online.post('/equip', async (c) => {
   return c.json({ hero, stash: await loadItems(pc.db, pc.season.id, pc.pid) });
 });
 
-const ArmyBody = z.object({ groups: z.record(HeroId, z.number().int().min(0).max(3)).optional(), formations: Formations.optional() });
+const ArmyBody = z.object({ groups: z.record(HeroId, z.number().int().min(0).max(3)).optional(), formations: Formations.optional(), reserve: z.record(HeroId, z.boolean()).optional() });
 
 /** Battle groups of heroes and the field army's formations. */
 online.post('/army', async (c) => {
@@ -587,6 +587,15 @@ online.post('/army', async (c) => {
     x.hero.group = group;
     stmts.push(pc.db.prepare(`UPDATE online_heroes SET data = ?2, updated_at = ?3 WHERE id = ?1 AND busy_until <= ?3 AND ${g}`).bind(id, JSON.stringify(x.hero), pc.now));
   }
+  // the muster: who stays in camp; someone must still march (a garrisoned man cannot be fielded anyway)
+  for (const [id, reserve] of Object.entries(body.reserve ?? {})) {
+    const x = heroes.find((h) => h.hero.id === id);
+    if (!x) throw new ApiError(404, 'not_found', `No hero ${id}`);
+    if (x.busyUntil > pc.now || x.reserve === reserve) continue;
+    x.reserve = reserve;
+    stmts.push(pc.db.prepare(`UPDATE online_heroes SET reserve = ?2, updated_at = ?3 WHERE id = ?1 AND busy_until <= ?3 AND ${g}`).bind(id, reserve ? 1 : 0, pc.now));
+  }
+  if (body.reserve && !heroes.some((h) => !h.reserve && !h.garrison)) throw new ApiError(400, 'bad_request', 'Someone must march with the army');
   await revBatch(pc.db, stmts);
   return c.json({ ok: true });
 });
