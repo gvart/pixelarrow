@@ -60,7 +60,8 @@ export class MenuScene extends BaseScene {
         this.battle?.destroy();
         this.battle = null;
       });
-      this.battle.start({ x: 0, y: 0, w: VW, h: stageH, zoom: stageH >= 160 && VW >= 180 ? 2 : 1 });
+      // wide stages show the clash at 2x, phones at 1.5x (a front of five or six duels fits), small windows at 1x
+      this.battle.start({ x: 0, y: 0, w: VW, h: stageH, zoom: stageH >= 160 && VW >= 320 ? 2 : stageH >= 100 && VW >= 150 ? 1.5 : 1 });
       // a quiet dim under the menu keeps it readable on the plain
       const dim = this.add.graphics();
       dim.fillStyle(0x1a100c, 0.22);
