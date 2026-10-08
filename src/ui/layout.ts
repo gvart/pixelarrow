@@ -254,6 +254,8 @@ export function collectUi(game: Phaser.Game): UiElement[] {
           let best: Rect | null = null;
           for (const p of panels) {
             if (items.indexOf(p) > idx || p.scene !== it.scene) continue;
+            // Map text (a region label) and the UI drawn over it never share a box.
+            if (p.world !== it.world) continue;
             if (sameClip !== (!!it.clip && p.clip === it.clip)) continue;
             const pr = p.rect;
             const pv = sameClip ? pr : p.clip ? intersect(p.rect, p.clip) : pr;
