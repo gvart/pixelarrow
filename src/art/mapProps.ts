@@ -415,8 +415,9 @@ class Cv {
    */
   volume(x: number, y: number, w: number, d: number, fh: number, wall: number, wallLo: number, rim: number, e = Math.max(1, Math.round(fh / 3))): void {
     const p = this.p;
-    this.shadow(x + e + 2, y + fh + 2, w + e, d + 1, 85);
-    this.shadow(x + w + e, y + 2, 2, d + fh, 85);
+    this.shadow(x + e + 2, y + fh + 2, w + e, d + 1, 110);
+    this.shadow(x + w + e, y + 2, 2, d + fh, 110);
+    this.shadow(x + w + e + 2, y + 4, 1, d + fh - 1, 60);
     p.rect(x - 1, y - 1, w + e + 2, d + fh + 2, rim);
     p.rect(x + w, y + 1, e, d + fh - 1, wallLo);
     if (e > 1) p.vline(x + w + e - 1, y + 1, y + d + fh - 1, mix(wallLo, rim, 0.35));

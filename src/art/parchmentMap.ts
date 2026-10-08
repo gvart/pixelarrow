@@ -809,11 +809,17 @@ function landColour(f: MapFields, gx: number, gy: number, mx: number, my: number
   const mountV = fl & 4 ? f.bil(f.mount, mx, my) + n1 * 0.35 : 0;
   if (mountV > 0.32) {
     if (s > 4) return MP.rock;
-    // scree: short slope strokes
+    // the massif: rock shaded by the slope of the ridge field (lit from the upper left), scree flecks
     const h = hash2(gx >> 1, gy, 96);
-    const ridge = 1 - Math.abs(2 * valueNoise(mx, my * 1.3, 64, 206) - 1);
-    const base = ridge > 0.62 ? mix(MP.rock, MP.peak, 0.45) : ridge < 0.3 ? mix(MP.rock, MP.hill, 0.3) : MP.rock;
-    if (h < 0.1) return MP.rockDot;
+    const ridgeAt = (x: number, y: number) => 1 - Math.abs(2 * valueNoise(x, y * 1.3, 64, 206) - 1);
+    const ridge = ridgeAt(mx, my);
+    const e = 4 * s;
+    const lit = ridgeAt(mx - e, my) - ridgeAt(mx + e, my) + ridgeAt(mx, my - e) - ridgeAt(mx, my + e);
+    let base = ridge > 0.62 ? mix(MP.rock, MP.peak, 0.45) : ridge < 0.3 ? mix(MP.rock, MP.hill, 0.3) : MP.rock;
+    if (lit > 0.05) base = mix(base, MP.peakHi, 0.55);
+    else if (lit < -0.05) base = mix(base, MP.peakShade, lit < -0.12 ? 0.6 : 0.35);
+    else if (lit < -0.02 && ((gx + gy) & 1) === 0) base = mix(base, MP.peakShade, 0.35);
+    if (h < 0.1) return mix(base, MP.rockDot, 0.7);
     if (hash2(gx, gy, 97) < 0.05) return MP.peakShade;
     return base;
   }
