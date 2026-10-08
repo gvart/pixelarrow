@@ -203,7 +203,8 @@ async function ambush(melee = false) {
     }
   }, melee);
   await tapBtn('World', { label: 'Camp' });
-  return until(() => ev(() => !!window.__game.scene.getScene('World').dialog), 10000);
+  // game time runs slower than the wall clock when frames are slow (software GL on CI runners)
+  return until(() => ev(() => !!window.__game.scene.getScene('World').dialog), 25000);
 }
 check('band attacks: encounter dialog', await ambush());
 const bandId = await ev(() => window.__state.campaign.world.s.parties[0].id);
@@ -371,7 +372,7 @@ const ff = await ev(() => {
   for (let i = 0; i < 20 * 300 && s.sim.phase === 'battle'; i++) s.sim.step();
   return { winner: s.sim.winner, tick: s.sim.tick };
 });
-check('results screen', await until(() => active('Results'), 8000), JSON.stringify(ff));
+check('results screen', await until(() => active('Results'), 25000), JSON.stringify(ff));
 await wait(1500);
 check('report: victory banner and count-up tiles', await ev(() => { const s = window.__game.scene.getScene('Results'); return s.report.result === 'victory' && s.report.kills > 0; }));
 // the bottom button leads to the spoils first (cards turn over), then takes them
