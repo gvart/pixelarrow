@@ -82,3 +82,32 @@ export const SIZE = {
   /** Tab bar height. */
   tabH: 24,
 } as const;
+
+// ------------------------------------------------------------ Strategos (docs/UI_STRATEGOS.md)
+
+/**
+ * Bronze is the one "selected / next" accent: the radial ring, its facing
+ * handle, the focus ring round the next thing to tap, selected chips. Red
+ * stays the one primary action; grey dither means "cannot" (with a reason).
+ */
+export const BRONZE = {
+  main: 0xb8863b,
+  dark: 0x6e4f22,
+  hi: 0xe8c26a,
+} as const;
+
+/** Fixed chrome of every Strategos screen, in UI pixels. */
+export const STRAT = {
+  /** Situation bar: two sentence lines plus a row of labelled numbers. */
+  sitH: 40,
+  /** Situation bar on short screens (one sentence line). */
+  sitHCompact: 30,
+  /** Command strip: three fixed slots over a parchment band. */
+  stripH: 34,
+  /** Width of the strip's side slots (Back / Army); the middle slot takes the rest. */
+  stripSide: 40,
+  /** Height of the strip's buttons (a 52 pt target at S = 2). */
+  stripBtnH: 26,
+  /** Screens shorter than this (UI px) use the compact situation bar and shorter group cards. */
+  compactVH: 300,
+} as const;

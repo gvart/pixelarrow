@@ -5,6 +5,7 @@ principles", "Localization"); this page says which code implements them. Read
 it before touching a screen.
 
 - `src/ui/kit.ts`: fonts, panels, `Button`, `Meter`, `ScrollArea`, `tappable`, `addText`, `fitText`.
+- `src/ui/strategos.ts` + `src/ui/radialOrders.ts`: the screen chrome since the Strategos redesign (situation bar, command strip, chips, rows, tips, the radial orders ring): docs/UI_STRATEGOS.md says how screens are shaped.
 - `src/ui/widgets.ts`: everything else (tabs, lists, cards, grid, item icons, tooltip, toast, badge, stat bar, count-up, modal, confirm dialog, empty state, fitted label, first-time hint).
 - `src/ui/theme.ts`: colours (rarity, battle categories, meaning) and sizes (`SIZE`, touch rules).
 - `src/ui/textfit.ts`: measuring and fitting text (pure, unit-tested).

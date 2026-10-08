@@ -468,7 +468,6 @@ const ready = await ev((hid) => {
   s.setPaused(true);
   s.selGroup = u.group;
   s.selUnit = u.id;
-  s.cat = 'abilities';
   s.buildHud();
   return s.sim.abilityReady(u, 'bash');
 }, hero0.id);
@@ -479,7 +478,7 @@ const usedBash = () => ev(() => window.__game.scene.getScene('Battle').sim.order
 await until(usedBash, 4000, 100);
 const used = await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.filter((o) => o.side === 0 && o.order.kind === 'ability').map((o) => o.order.ability));
 check('ability used from the battle bar', used.includes('bash'), JSON.stringify(used));
-await tap(16 * 2, 12 * 2); // unpause
+await tapBtn('Battle', { label: 'Play' }); // unpause
 await wait(1500);
 check('no console errors', errors.length === 0, errors.join(' | '));
 await browser.close();

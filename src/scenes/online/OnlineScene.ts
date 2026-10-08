@@ -13,7 +13,8 @@ import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { Button, Meter, addIcon, addPanel, addScroll, addText, tappable } from '../../ui/kit';
 import { Badge, Label, ScrollList, firstTimeHint, openModal, showTooltip, toast, type Modal } from '../../ui/widgets';
-import { SIZE, COLOR } from '../../ui/theme';
+import { SIZE, COLOR, STRAT } from '../../ui/theme';
+import { CommandStrip, SituationBar, type SitNumber } from '../../ui/strategos';
 import { LINE_H, measureText, wrapText } from '../../ui/textfit';
 import { uiId, worldRect } from '../../ui/layout';
 import { haptic, hapticNotify } from '../../platform/telegram';
@@ -57,8 +58,8 @@ import { OnlineCoach, coachDue, type CoachHost } from '../../ui/tutorial/onlineC
 import type { CoachId } from '../../game/tutorial';
 
 /** Layout (UI pixels). */
-const TOP_H = 44;
-const BAR_H = 34;
+const TOP_H = STRAT.sitH;
+const BAR_H = STRAT.stripH;
 const CHIP_H = 28;
 
 type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string } | { kind: 'join' } | { kind: 'map' };
@@ -499,40 +500,25 @@ export class OnlineScene extends BaseScene {
     const { VW, VH } = this.m;
     const H = this.hud;
     const p = this.profile!;
-    // ---- top: season, energy, centre-on-army; resources below
-    H.add(addPanel(this, 0, 0, VW, TOP_H, 'parch'));
-    let x0 = 4;
-    if (this.inGameBack) {
-      H.add(new Button(this, 3, 2, SIZE.btnMinW, SIZE.btnH, { icon: 'back', onClick: () => this.back(), id: 'online.back' }));
-      x0 = 30;
-    }
-    H.add(new Button(this, VW - 27, 2, SIZE.btnMinW, SIZE.btnH, { icon: 'map', iconOnly: true, label: t('online.centre'), onClick: () => this.centerOn(this.profile!.army.loc, true), id: 'online.centre' }));
+    // ---- top: the situation bar (what now, in a sentence; resources and energy with words), centre-on-army on its right
     const energy = Math.floor(p.energy);
-    const ew = 12 + 3 + measureText(`${energy}`) + 10;
-    const energyBtn = new Button(this, VW - 27 - SIZE.gap - ew, 2, ew, SIZE.btnH, {
-      icon: 'bolt',
-      label: `${energy}`,
-      font: energy < ONLINE_RULES.energyPerAttack ? 'red' : 'ink',
-      tip: t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }),
-      onClick: () => showTooltip(this, t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }), energyBtn),
-      id: 'online.energy',
-    });
-    H.add(energyBtn);
     const days = Math.max(0, Math.ceil((p.season.endsAt - p.now) / 86_400_000));
-    const titleW = VW - 27 - SIZE.gap - ew - 4 - x0;
-    const long = t('online.season', { n: p.season.id, d: days });
-    const title = measureText(long) <= titleW ? long : t('online.seasonShort', { n: p.season.id, d: days });
-    H.add(new Label(this, x0, 10, title, { maxW: titleW, font: 'red', expandable: false }));
-    // resources: an inset strip (tap: full numbers)
-    const ry = TOP_H - 17;
-    H.add(addPanel(this, 3, ry, VW - 6, 15, 'inset'));
+    const pend = p.income.pending;
+    const pendSum = RESOURCE_KEYS.reduce((a, k) => a + pend[k], 0);
+    let sentence: string;
+    let urgentSit = false;
+    if (p.army.marching && p.army.arriveAt) sentence = t('online.sit.marching', { t: fmtTime(p.army.arriveAt - this.board.armies.serverTime(Date.now())) });
+    else if (pendSum >= 1) {
+      sentence = t('online.sit.collect');
+      urgentSit = true;
+    } else if (energy < ONLINE_RULES.energyPerAttack) sentence = t('online.sit.energy', { n: ONLINE_RULES.energyPerHour });
+    else sentence = `${t('online.sit.season', { n: p.season.id, d: days })}. ${t('online.sit.hex')}`;
     const keys = (VW >= 200 ? RESOURCE_KEYS : RESOURCE_KEYS.filter((k) => k !== 'recruits')) as (keyof Resources)[];
-    const cell = Math.floor((VW - 10) / keys.length);
-    keys.forEach((k, i) => {
-      const cx = 6 + i * cell;
-      H.add(addIcon(this, cx, ry + 1, RES_ICON[k]));
-      H.add(addText(this, cx + 14, ry + 4, k === 'recruits' ? `${Math.floor(p.resources[k])}` : fmtNum(p.resources[k]), 'ink'));
-    });
+    const nums: SitNumber[] = keys.map((k) => ({ icon: RES_ICON[k], value: k === 'recruits' ? `${Math.floor(p.resources[k])}` : fmtNum(p.resources[k]), word: t(`res.${k}` as TKey).toLowerCase(), tip: `${t(`res.${k}` as TKey)}: ${Math.floor(p.resources[k])}` }));
+    nums.push({ icon: 'bolt', value: `${energy}`, word: t('online.num.energy'), font: energy < ONLINE_RULES.energyPerAttack ? 'red' : 'ink', tip: t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }) });
+    H.add(new SituationBar(this, VW, { sentence, numbers: nums, urgent: urgentSit, compact: false, id: 'online.situation' }));
+    // centre on my army: over the map's top-right corner, under the march chip when there is one
+    H.add(new Button(this, VW - 27, TOP_H + 3 + (p.army.marching && p.army.arriveAt ? CHIP_H : 0), SIZE.btnMinW, SIZE.btnH, { icon: 'map', iconOnly: true, label: t('online.centre'), onClick: () => this.centerOn(this.profile!.army.loc, true), id: 'online.centre' }));
     // ---- marching chip
     if (p.army.marching && p.army.arriveAt) {
       const cy = TOP_H + 2;
@@ -552,41 +538,24 @@ export class OnlineScene extends BaseScene {
       this.chipTimer?.remove();
       this.chipTimer = this.time.addEvent({ delay: 1000, loop: true, callback: upd });
     }
-    // ---- bottom bar: Army, Clan, Duels, Collect
-    const by = VH - BAR_H;
-    H.add(addPanel(this, 0, by, VW, BAR_H, 'parch'));
-    const n = 4;
-    const bw = Math.floor((VW - 8 - (n - 1) * SIZE.gap) / n);
-    const pend = p.income.pending;
-    const pendSum = RESOURCE_KEYS.reduce((a, k) => a + pend[k], 0);
+    // ---- the command strip: Army | Collect | Duels | Clan
     const online = this.demo ? 3 : shardSocket.players.filter((x) => x.id !== shardSocket.me?.id).length;
-    const items: { label: string; icon: string; tip: string; onClick: () => void; primary?: boolean; disabled?: string; badge?: number | string }[] = [
-      { label: t('online.bar.army'), icon: 'people', tip: t('online.bar.armyTip'), onClick: () => !this.demo && this.scene.start('OnlineArmy', {}) },
-      { label: t('online.bar.clan'), icon: 'flag', tip: t('online.bar.clanTip'), onClick: () => !this.demo && this.scene.start('OnlineClan', {}) },
-      { label: t('online.bar.duels'), icon: 'swords', tip: t('online.bar.duelsTip'), onClick: () => this.openLobby(), badge: online },
-      {
+    const strip = new CommandStrip(this, VW, VH, {
+      left: { label: t('online.bar.army'), icon: 'people', tip: t('online.bar.armyTip'), id: 'online.bar.army', onClick: () => !this.demo && this.scene.start('OnlineArmy', {}) },
+      main: {
         label: t('online.bar.collect'),
         icon: 'coin',
         tip: `${t('online.bar.collectTip')}: ${resLine(pend)}`,
+        id: 'online.bar.collect',
+        off: pendSum >= 1 ? undefined : t('online.collectNone'),
         onClick: () => void this.collect(),
-        primary: pendSum >= 1 && !this.selected,
-        disabled: pendSum >= 1 ? undefined : t('online.collectNone'),
-        badge: pendSum >= 1 ? '!' : 0,
       },
-    ];
-    items.forEach((it, i) => {
-      const bx = 4 + i * (bw + SIZE.gap);
-      // narrow screens: icons only (the label becomes the long-press tip) rather than "AR…"
-      const iconOnly = measureText(it.label, it.primary) > bw - 6;
-      const b = new Button(this, bx, by + 3, bw, 28, { label: it.label, icon: it.icon, iconOnly, tip: iconOnly ? `${it.label}: ${it.tip}` : it.tip, variant: it.primary ? 'primary' : 'secondary', onClick: it.onClick, disabledReason: it.disabled });
-      if (it.disabled) b.setEnabled(false, it.disabled);
-      H.add(b);
-      if (it.badge !== undefined) {
-        const badge = new Badge(this, bx + bw - 5, by + 7, it.badge);
-        H.add(badge);
-        if (i === 2) this.duelBadge = badge;
-      }
+      extra: { label: t('online.bar.duels'), icon: 'swords', tip: t('online.bar.duelsTip'), id: 'online.bar.duels', badge: online, onClick: () => this.openLobby() },
+      right: { label: t('online.bar.clan'), icon: 'flag', tip: t('online.bar.clanTip'), id: 'online.bar.clan', onClick: () => !this.demo && this.scene.start('OnlineClan', {}) },
+      why: '',
     });
+    H.add(strip);
+    this.duelBadge = null;
     if (this.selected) this.buildPanel();
     this.coach?.refresh();
   }
@@ -708,7 +677,20 @@ export class OnlineScene extends BaseScene {
     const rowH = 11;
     // the info rows sit in one tap area (full text on long-press) at least a touch target tall
     const infoH = Math.max(SIZE.btnH, rows.length * rowH + 2);
-    const ph = 8 + 11 + infoH + (acts.length ? SIZE.gap + 1 + SIZE.btnH : 0) + 8;
+    // a lair or a world boss: its info panel (how it fights, the raid) on one more button
+    const beastBtn = !!d && (!!d.lair || !!this.bossAt(h));
+    // a town or a trading post: its merchant (docs/DUELS.md "War-map shops on the map")
+    const merchantBtn = !!d?.merchant;
+    // your camp, or your camp plot to pitch one on (docs/MAP_V3.md "Camp")
+    const campBtn = !!d && ((!!d.camp && d.camp.owner === map.you.id) || (!!d.campPlot && d.mine && !d.camp));
+    // the actions: one row of up to three whole words, two rows beyond that (never "Mercha…")
+    const n = acts.length + (beastBtn ? 1 : 0) + (merchantBtn ? 1 : 0) + (campBtn ? 1 : 0);
+    const labels = [...acts.map((a) => this.actSpec(a, h).label), ...(beastBtn ? [t('hex.act.beast')] : []), ...(merchantBtn ? [t('hex.act.merchant')] : []), ...(campBtn ? [t('hex.act.camp')] : [])];
+    const widest = Math.max(0, ...labels.map((l) => measureText(l, true) + 22));
+    const oneRow = n > 0 && widest <= Math.floor((W - 12 - (n - 1) * SIZE.gap) / n);
+    const actRows = n > 3 || (n > 1 && !oneRow) ? 2 : n > 0 ? 1 : 0;
+    const perRow = Math.ceil(n / Math.max(1, actRows));
+    const ph = 8 + 11 + infoH + (actRows ? SIZE.gap + 1 + actRows * SIZE.btnH + (actRows - 1) * SIZE.gap : 0) + 8;
     const py = VH - BAR_H - ph - 1;
     this.panelTop = py;
     const c = this.add.container(0, 0);
@@ -737,32 +719,30 @@ export class OnlineScene extends BaseScene {
     uiId(zone, 'online.hexInfo');
     tappable(zone, null, () => showTooltip(this, full, { x: x + 6, y: infoTop, w: tw, h: infoH }), full);
     c.addAt(zone, 1);
-    // a lair or a world boss: its info panel (how it fights, the raid) on one more button
-    const beastBtn = !!d && (!!d.lair || !!this.bossAt(h));
-    // a town or a trading post: its merchant (docs/DUELS.md "War-map shops on the map")
-    const merchantBtn = !!d?.merchant;
-    // your camp, or your camp plot to pitch one on (docs/MAP_V3.md "Camp")
-    const campBtn = !!d && ((!!d.camp && d.camp.owner === map.you.id) || (!!d.campPlot && d.mine && !d.camp));
     if (!acts.length && !beastBtn && !merchantBtn && !campBtn) return;
-    const by = infoTop + infoH + SIZE.gap + 1;
-    const n = acts.length + (beastBtn ? 1 : 0) + (merchantBtn ? 1 : 0) + (campBtn ? 1 : 0);
-    const bw = Math.floor((W - 12 - (n - 1) * SIZE.gap) / n);
-    // slot i of n; the last one takes the rounding remainder
-    const slot = (i: number) => ({ bx: x + 6 + i * (bw + SIZE.gap), bw: i === n - 1 ? W - 12 - i * (bw + SIZE.gap) : bw });
+    const by0 = infoTop + infoH + SIZE.gap + 1;
+    // slot i of n: row by row; the last slot of a row takes the rounding remainder
+    const slot = (i: number) => {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const inRow = row === actRows - 1 ? n - perRow * (actRows - 1) : perRow;
+      const bw = Math.floor((W - 12 - (inRow - 1) * SIZE.gap) / inRow);
+      return { bx: x + 6 + col * (bw + SIZE.gap), bw: col === inRow - 1 ? W - 12 - col * (bw + SIZE.gap) : bw, by: by0 + row * (SIZE.btnH + SIZE.gap) };
+    };
     // the merchant first (left): the primary action stays at the right, under the thumb
     const first = (merchantBtn ? 1 : 0) + (campBtn ? 1 : 0);
     if (campBtn) {
       const sl = slot(merchantBtn ? 1 : 0);
-      c.add(new Button(this, sl.bx, by, sl.bw, SIZE.btnH, { label: t('hex.act.camp'), icon: 'tent', tip: t('hex.campTip'), onClick: () => this.openCamp(h), id: 'online.act.camp' }));
+      c.add(new Button(this, sl.bx, sl.by, sl.bw, SIZE.btnH, { label: t('hex.act.camp'), icon: 'tent', tip: t('hex.campTip'), onClick: () => this.openCamp(h), id: 'online.act.camp' }));
     }
     if (merchantBtn) {
       const sl = slot(0);
-      c.add(new Button(this, sl.bx, by, sl.bw, SIZE.btnH, { label: t('hex.act.merchant'), icon: 'amphora', tip: t('hex.merchantTip'), onClick: () => this.openMerchant(h), id: 'online.act.merchant' }));
+      c.add(new Button(this, sl.bx, sl.by, sl.bw, SIZE.btnH, { label: t('hex.act.merchant'), icon: 'amphora', tip: t('hex.merchantTip'), onClick: () => this.openMerchant(h), id: 'online.act.merchant' }));
     }
     acts.forEach((a, i) => {
       const spec = this.actSpec(a, h);
       const sl = slot(first + i);
-      const b = new Button(this, sl.bx, by, sl.bw, SIZE.btnH, {
+      const b = new Button(this, sl.bx, sl.by, sl.bw, SIZE.btnH, {
         label: spec.label,
         icon: spec.icon,
         variant: a.primary ? 'primary' : 'secondary',
@@ -776,7 +756,7 @@ export class OnlineScene extends BaseScene {
     });
     if (beastBtn) {
       const sl = slot(n - 1);
-      c.add(new Button(this, sl.bx, by, sl.bw, SIZE.btnH, { label: t('hex.act.beast'), icon: 'beast', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' }));
+      c.add(new Button(this, sl.bx, sl.by, sl.bw, SIZE.btnH, { label: t('hex.act.beast'), icon: 'beast', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' }));
     }
   }
 

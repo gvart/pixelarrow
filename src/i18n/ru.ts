@@ -8,6 +8,7 @@ import { DUELS_RU } from './duels.ru';
 import { MERCHANT_RU } from './merchant.ru';
 import { FIELDCAMP_RU } from './fieldcamp.ru';
 import { OCAMP_RU } from './camp.ru';
+import { STRAT_RU } from './strat.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -268,4 +269,5 @@ export const RU: Table = {
   ...MERCHANT_RU,
   ...FIELDCAMP_RU,
   ...OCAMP_RU,
+  ...STRAT_RU,
 };

@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, addPanel, addText, holdTimer, longPress, tappable, type HoldTimer } from '../ui/kit';
-import { ScrollList, confirmDialog, openModal, showTooltip, toast, Label, type Modal } from '../ui/widgets';
-import { GroupCard, PanelButton, type PanelButtonOpts } from '../ui/battlePanel';
-import { CATEGORY_COLOR, RARITY_COLOR, SIZE, type BattleCategory } from '../ui/theme';
+import { Button, Meter, addPanel, addText, holdTimer, longPress, type HoldTimer } from '../ui/kit';
+import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
+import { GroupCard } from '../ui/battlePanel';
+import { Chip, CommandStrip, ListRow, SituationBar, type ChipOpts, type CommandStripOpts, type SitNumber, type StripSlot } from '../ui/strategos';
+import { RadialOrders, type RadialOrder } from '../ui/radialOrders';
+import { CATEGORY_COLOR, RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { PLATE_W, PLATE_W_BIG, battleDoll, battleFrame, battleRow, battleRowFx, dollFrame, dollOrigin, ensureDoll, ensureDollRow, ensurePortrait, flushDolls, pumpDolls, queueDollRows, releaseBattleRows } from '../ui/sprites';
@@ -54,18 +56,13 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 const CATCH_UP_TURNS = 4;
 const CATCH_UP_STEPS = 120;
 
-// HUD geometry (UI pixels). Top bar, then the field, then the command panel.
-const TOP = 26;
-const CARD_H = 28;
-const TAB_H = 24;
-const CMD_H = 28;
-const ROW_H = 26;
-const PAD = 3;
-/** Below this many UI pixels of height the panel goes compact (one row for tabs or commands). */
-const COMPACT_VH = 300;
+// HUD geometry (UI pixels, docs/UI_STRATEGOS.md "Battle"): the situation bar, the field with the
+// group cards down its left edge and the radial ring, the ability row, the command strip.
+const CARD_W = 56;
+const CARD_H = 44;
+const CARD_W_COMPACT = 30;
+const CARD_H_COMPACT = 30;
 
-const CATS: BattleCategory[] = ['movement', 'attack', 'formation', 'abilities'];
-const CAT_ICON: Record<BattleCategory, string> = { movement: 'advance', attack: 'swords', formation: 'f_line', abilities: 'star' };
 const PRESETS: [FormationType, string, string][] = [
   ['line', 'line', 'f_line'],
   ['column', 'column', 'f_column'],
@@ -184,13 +181,18 @@ export class BattleScene extends BaseScene {
   private tags!: Phaser.GameObjects.Container;
   private tagMap = new Map<number, Phaser.GameObjects.Container>();
   private tagPos = new Map<number, { x: number; y: number }>();
-  private pauseBtn: Button | null = null;
-  private speedBtn: Button | null = null;
-  private clock: Phaser.GameObjects.BitmapText | null = null;
-  private strength: [Meter, Meter] | null = null;
+  private sit: SituationBar | null = null;
+  private sitKey = '';
+  private strip: CommandStrip | null = null;
+  private ring: RadialOrders | null = null;
+  private ringKey = '';
+  /** The tutorial hides the ring during its field steps. */
+  private ringHidden = false;
   private cards: { gid: number; card: GroupCard; numeral: string }[] = [];
-  private cmdBtns = new Map<string, PanelButton>();
-  private tabBtns = new Map<BattleCategory, PanelButton>();
+  /** Order, shape and ability controls by key (ring buttons, shape rows, ability chips): the tutorial lights them. */
+  private cmdBtns = new Map<string, Phaser.GameObjects.Container>();
+  /** The shape chip under 'formation' and the first ability chip under 'abilities' (the tutorial's fallbacks). */
+  private tabBtns = new Map<BattleCategory, Phaser.GameObjects.Container>();
   private heroInfo: Phaser.GameObjects.Container | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
   private bannerTimer: Phaser.Time.TimerEvent | null = null;
@@ -202,11 +204,10 @@ export class BattleScene extends BaseScene {
   private beasts: BeastView | null = null;
   /** Camera follows the fighting until the player pans or pinches. */
   private follow = true;
-  private followBtn: Button | null = null;
-  private abilityBtns: { id: AbilityId; btn: PanelButton }[] = [];
-  /** Selected category of the command panel, and (compact panel) whether its commands are open. */
-  private cat: BattleCategory = 'movement';
-  private catOpen = false;
+  private followBtn: Chip | null = null;
+  private abilityBtns: { id: AbilityId; btn: Chip }[] = [];
+  /** The shape sheet is open. */
+  private shapeOpen = false;
   private lastSparkle = 0;
   /** Trees and boulders standing on the field (depth-sorted with the men). */
   private props: { img: Phaser.GameObjects.Image; x: number; y: number; tree: boolean }[] = [];
@@ -274,8 +275,10 @@ export class BattleScene extends BaseScene {
     this.propTick = 0;
     this.stallMs = 0;
     this.netBanner = false;
-    this.catOpen = false;
-    this.cat = 'movement';
+    this.shapeOpen = false;
+    this.sitKey = '';
+    this.ringKey = '';
+    this.ringHidden = false;
     this.countdown = null;
     this.lastTickSound = -1;
     this.src = data?.source ?? null;
@@ -403,7 +406,7 @@ export class BattleScene extends BaseScene {
     }
     this.createStandards();
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
-    this.beasts = BeastView.create(this, this.sim, this.views, this.world, this.ui, this.me, this.m.VW, TOP);
+    this.beasts = BeastView.create(this, this.sim, this.views, this.world, this.ui, this.me, this.m.VW, this.topH());
 
     // ---- cameras
     const cam = this.cameras.main;
@@ -459,21 +462,20 @@ export class BattleScene extends BaseScene {
     return screenToIso(wx, wy);
   }
 
-  /** The compact panel (one row for tabs or commands) keeps the field big on small phones. */
+  /** Short screens: a one-line situation bar and short group cards. */
   private get compact(): boolean {
-    return this.m.VH < COMPACT_VH;
+    return this.m.VH < STRAT.compactVH;
   }
 
-  /** Height of the bottom command panel in UI pixels. */
+  /** Height of the chrome under the field: the command strip and the ability row. */
   private panelHeight(): number {
-    if (this.compact) return PAD + CARD_H + PAD + ROW_H + PAD;
-    return this.sim.phase === 'deploy' ? PAD + CARD_H + PAD + ROW_H + PAD + ROW_H + PAD : PAD + CARD_H + PAD + TAB_H + PAD + CMD_H + PAD;
+    return STRAT.stripH + this.abilityRowH();
   }
 
-  /** Visible battlefield in screen pixels: between the top bar and the bottom panel. */
-  private fieldViewport(): { top: number; bottom: number } {
+  /** Visible battlefield in screen pixels: right of the group cards, between the situation bar and the strip. */
+  private fieldViewport(): { top: number; bottom: number; left: number } {
     const { S, VH } = this.m;
-    return { top: TOP * S, bottom: (VH - this.panelHeight() - 6) * S };
+    return { top: this.topH() * S, bottom: (VH - this.panelHeight() - 6) * S, left: this.leftColumnRight() * S };
   }
 
   /**
@@ -496,6 +498,7 @@ export class BattleScene extends BaseScene {
     }
     if (!isFinite(x0)) return;
     const vp = this.fieldViewport();
+    // the zoom is chosen for the whole width (the group cards overlay the field's edge); the centring skips them
     const availW = this.scale.width;
     const availH = vp.bottom - vp.top;
     const fit = Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0)));
@@ -510,8 +513,9 @@ export class BattleScene extends BaseScene {
   private centerCam(x: number, y: number): void {
     const cam = this.cameras.main;
     const vp = this.fieldViewport();
+    const offX = (this.scale.width / 2 - (vp.left + this.scale.width) / 2) / cam.zoom;
     const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
-    cam.centerOn(x, y + offY);
+    cam.centerOn(x + offX, y + offY);
   }
 
   /**
@@ -574,12 +578,14 @@ export class BattleScene extends BaseScene {
 
   /** Smoothly track the fighting while following. */
   private updateCamera(delta: number): void {
-    if (!this.follow || this.sim.phase !== 'battle' || this.pinch) return;
+    // a paused field stays still under the finger: orders and the ring are given on a fixed view
+    if (!this.follow || this.sim.phase !== 'battle' || this.pinch || this.paused) return;
     const cam = this.cameras.main;
     const t0 = this.focusPoint();
     const vp = this.fieldViewport();
+    const offX = (this.scale.width / 2 - (vp.left + this.scale.width) / 2) / cam.zoom;
     const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
-    const cur = { x: cam.midPoint.x, y: cam.midPoint.y - offY };
+    const cur = { x: cam.midPoint.x - offX, y: cam.midPoint.y - offY };
     const k = 1 - Math.exp((-delta / 1000) * 2.2);
     this.centerCam(cur.x + (t0.x - cur.x) * k, cur.y + (t0.y - cur.y) * k);
   }
@@ -642,6 +648,7 @@ export class BattleScene extends BaseScene {
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
+    this.placeRing();
     if (this.hudDirty) this.refreshHud();
   }
 
@@ -1398,12 +1405,14 @@ export class BattleScene extends BaseScene {
       this.setFollow(false);
       return;
     }
-    if (over.length > 0 || this.overlay || this.hint) {
+    const grab = this.grabAt(p.x, p.y);
+    // the facing knob wins over a ring button lying on it: a press there turns the group
+    const ringOnly = over.length > 0 && !!this.ring && over.every((o) => (o as Phaser.GameObjects.GameObject & { parentContainer?: unknown }).parentContainer === this.ring);
+    if ((over.length > 0 && !(ringOnly && grab === 'turn')) || this.overlay || this.hint) {
       this.gesture = null;
       return;
     }
     const w = this.cameras.main.getWorldPoint(p.x, p.y);
-    const grab = this.grabAt(p.x, p.y);
     const g: NonNullable<Gesture> = { mode: 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y, wx0: w.x, wy0: w.y, grab, drag: null };
     this.gesture = g;
     this.holdTimer?.remove();
@@ -1618,6 +1627,7 @@ export class BattleScene extends BaseScene {
     const { VW, VH } = this.m;
     const w = Math.min(VW - 12, 200);
     const keys: TKey[] = ['battle.hint.sling', 'battle.hint.shape', 'battle.hint.pan'];
+    const TOP = this.topH();
     const room = VH - this.panelHeight() - TOP - 10;
     let paras = keys.map((k) => wrapText(t(k), w - 14).lines);
     const height = () => 18 + paras.reduce((a, l) => a + l.length * LINE_H + 4, 0) + 12;
@@ -1762,7 +1772,7 @@ export class BattleScene extends BaseScene {
     const wrapped = lines.map((l) => wrapText(l, w - 12).lines);
     const h = wrapped.reduce((a, l) => a + l.length * LINE_H + 2, 8);
     const x = Phaser.Math.Clamp(Math.round(sx / S - w / 2), 6, VW - w - 6);
-    const y = Math.max(TOP + 4, Math.round(sy / S - h - 18));
+    const y = Math.max(this.topH() + 4, Math.round(sy / S - h - 18));
     c.add(addPanel(this, x, y, w, h, 'parch'));
     let ty = y + 5;
     wrapped.forEach((l, i) => {
@@ -1945,8 +1955,8 @@ export class BattleScene extends BaseScene {
   setPaused(p: boolean): void {
     if (p && this.online) return; // online battles never pause
     this.paused = p;
-    this.pauseBtn?.setIcon(p ? 'play' : 'pause');
-    this.pauseBtn?.setSelected(p);
+    this.refreshStrip();
+    this.hudDirty = true;
     if (!p && this.banner && this.bannerTimer === null && !this.netBanner) this.hideBanner();
   }
 
@@ -1960,19 +1970,20 @@ export class BattleScene extends BaseScene {
     this.hideBanner();
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    // clear of the follow button on the right
-    const maxW = VW - 2 * 30;
+    // right of the group cards, clear of the countdown
+    const left = this.leftColumnRight();
+    const maxW = VW - left - 8;
     const lines = wrapText(msg, maxW - 12, 2).lines;
-    const w = Math.max(80, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
+    const w = Math.max(60, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
     const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 4, 2).lines.join('\n') : null;
     const h = lines.length * LINE_H + 8;
-    const x = Math.round((VW - w) / 2);
-    const y = TOP + 3;
+    const x = Math.round(left + (VW - left - w) / 2);
+    const y = this.topH() + 3;
     c.add(addPanel(this, x, y, w, h, 'parch'));
-    const txt = addText(this, VW / 2, y + 5, lines.join('\n'), 'red', 0.5);
+    const txt = addText(this, x + w / 2, y + 5, lines.join('\n'), 'red', 0.5);
     txt.setCenterAlign();
     c.add(txt);
-    if (sub) c.add(addText(this, VW / 2, y + h + 3, sub, 'light', 0.5).setCenterAlign());
+    if (sub) c.add(addText(this, x + w / 2, y + h + 3, sub, 'light', 0.5).setCenterAlign());
     this.ui.add(c);
     this.banner = c;
     this.bannerTimer = ms > 0 ? this.time.delayedCall(ms, () => this.hideBanner()) : null;
@@ -1994,87 +2005,95 @@ export class BattleScene extends BaseScene {
     this.tabBtns.clear();
     this.heroInfo = null;
     this.countdown = null;
-    this.pauseBtn = null;
-    this.speedBtn = null;
-    this.clock = null;
-    this.strength = null;
-    this.buildTopBar();
-    this.buildPanel();
+    this.sit = null;
+    this.strip = null;
+    this.ring = null;
+    this.sitKey = '';
+    this.buildSituation();
+    this.buildLeftColumn();
+    this.buildAbilityRow();
+    this.buildStrip();
+    this.buildRing();
+    if (this.shapeOpen) this.buildShapeSheet();
+    // the selected soldier: who he is and how he fares, just above the strip
+    const u = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
+    if (u) this.buildHeroInfo(u, this.stripTop() - this.abilityRowH() - 27);
     this.hudDirty = true;
     this.refreshHud();
     this.tutorialEvent({ kind: 'hud' });
   }
 
-  // ---- top bar
+  // ---- the situation bar (top)
 
-  private buildTopBar(): void {
+  /** Height of the situation bar: two lines of sentence, one on short screens. */
+  private topH(): number {
+    return this.compact ? STRAT.sitHCompact : STRAT.sitH;
+  }
+
+  /** Top edge of the command strip. */
+  private stripTop(): number {
+    return this.m.VH - STRAT.stripH;
+  }
+
+  private buildSituation(): void {
     const { VW } = this.m;
-    const H = this.hud;
-    const deploy = this.sim.phase === 'deploy';
-    H.add(addPanel(this, 0, 0, VW, TOP, 'parch'));
-    const bw = 24;
-    const bh = 22;
-    if (deploy) {
-      let tx = 6;
-      if (this.inGameBack) {
-        H.add(new Button(this, 3, 2, bw, bh, { icon: 'back', tip: t('battle.tip.leave'), onClick: () => this.confirmLeaveDeploy() }));
-        tx = 3 + bw + 5;
-      }
-      let right = VW - 4;
-      if (this.dclock) {
-        // the countdown: big seconds on the right, a draining bar along the bottom edge
-        const text = addText(this, VW - 6, 4, '15', 'red', 1);
-        text.setFontSize(14);
-        const bar = this.add.graphics();
-        H.add([text, bar]);
-        this.countdown = { text, bar, shown: -1 };
-        right = VW - 6 - measureText('00', false, 14) - 6;
-      }
-      const room = right - tx;
-      H.add(addText(this, tx, 4, ellipsize(t(this.online ? 'battle.deploy.titleOnline' : 'battle.deploy.title'), room), 'red'));
-      H.add(addText(this, tx, 14, ellipsize(`${this.vsLabel()} (${this.enemyHeroes.length})`, room), 'dim'));
+    const right = this.dclock && this.sim.phase === 'deploy' ? measureText('00', false, 14) + 8 : 0;
+    this.sit = new SituationBar(this, VW, { sentence: '', compact: this.compact, right, id: 'battle.situation' });
+    this.hud.add(this.sit);
+    if (this.dclock && this.sim.phase === 'deploy') {
+      // the countdown: big seconds on the right, a draining bar along the bottom edge
+      const text = addText(this, VW - 6, 4, '15', 'red', 1);
+      text.setFontSize(14);
+      const bar = this.add.graphics();
+      this.hud.add([text, bar]);
+      this.countdown = { text, bar, shown: -1 };
       this.updateCountdown();
-      return;
     }
-    let x = 3;
-    if (!this.online) {
-      this.pauseBtn = new Button(this, x, 2, bw, bh, { icon: this.paused ? 'play' : 'pause', style: this.paused ? 'buttonSel' : 'button', tip: t('battle.tip.pause'), onClick: () => this.togglePause() });
-      x += bw + SIZE.gap;
-      this.speedBtn = new Button(this, x, 2, bw, bh, { label: `${this.speed}x`, tip: t('battle.tip.speed'), onClick: () => this.toggleSpeed() });
-      x += bw + SIZE.gap;
-      H.add([this.pauseBtn, this.speedBtn]);
+  }
+
+  /** The sentence and the numbers for this moment (rebuilt only when they change). */
+  private refreshSituation(): void {
+    if (!this.sit) return;
+    const sim = this.sim;
+    const deploy = sim.phase === 'deploy';
+    let sentence: string;
+    let urgent = false;
+    const nums: SitNumber[] = [];
+    const mine = sim.units.filter((u) => u.side === this.me && sim.isAlive(u)).length;
+    if (deploy) {
+      sentence = this.src?.lockstep ? t('battle.sit.deployDuel') : this.src ? t('battle.sit.deployHidden') : t('battle.sit.deploy');
+      nums.push({ icon: 'people', value: `${mine}`, word: t('strat.menWord', { n: mine }), tip: t('battle.tip.groups') });
+      const groups = sim.groups.filter((g) => g.side === this.me && !g.disbanded && !g.individual && sim.members(g.id).length > 0).length;
+      nums.push({ icon: 'flag', value: `${groups}`, word: t('battle.num.groups', { n: groups }).replace(/^\d+\s*/, '') });
+      if (!this.hideFoes()) nums.push({ icon: 'skull', value: `${this.enemyHeroes.length}`, word: t('battle.num.foes', { n: this.enemyHeroes.length }).replace(/^\d+\s*/, ''), tip: this.vsLabel() });
+    } else {
+      const ours = Math.round((100 * sim.sideStrength(this.me)) / this.initialStrength[this.me]);
+      const theirs = Math.round((100 * sim.sideStrength(this.foe)) / this.initialStrength[this.foe]);
+      const sel = this.selGroup >= 0 ? sim.groups[this.selGroup] : null;
+      const engaged = sim.units.some((u) => u.side === this.me && u.state === 'ready' && u.engaged);
+      if (sim.phase === 'ended') sentence = t('battle.sit.ended');
+      else if (this.paused) {
+        sentence = t('battle.sit.paused');
+        urgent = true;
+      } else if (engaged && ours - theirs > 25) sentence = t('battle.sit.winning');
+      else if (engaged && theirs - ours > 25) {
+        sentence = t('battle.sit.losing');
+        urgent = true;
+      } else if (engaged) sentence = t('battle.sit.contact', { ours, theirs });
+      else if (sel && !sel.disbanded && sim.activeMembers(sel.id).length > 0) {
+        const numeral = this.cards.find((c) => c.gid === sel.id)?.numeral ?? '';
+        const name = sel.individual ? sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim();
+        sentence = t('battle.sit.marching', { group: name, order: sel.routed ? t('battle.order.routed') : t(`battle.order.${sel.order}` as TKey) });
+      } else sentence = this.online ? t('battle.sit.online') : t('battle.sit.quiet');
+      nums.push({ icon: 'hourglass', value: fmtClock(Math.floor(sim.tick / TICK_RATE)), word: this.speed > 1 ? t('battle.num.fast') : this.online ? t('battle.strip.live') : t('battle.num.time'), tip: t('battle.tip.speed') });
+      nums.push({ icon: 'heart', value: `${ours}%`, word: t('battle.num.ours'), tip: t('battle.tip.strength') });
+      nums.push({ icon: 'skull', value: `${theirs}%`, word: t('battle.num.theirs'), tip: t('battle.tip.strength') });
     }
-    const retreatBtn = new Button(this, x, 2, bw, bh, { icon: 'flag', tip: t('battle.tip.retreat'), disabledReason: t('battle.why.notStarted'), onClick: () => this.openRetreat() });
-    retreatBtn.setEnabled(this.sim.phase === 'battle', t('battle.why.over'));
-    H.add(retreatBtn);
-    x += bw + 5;
-    this.clock = addText(this, x, 4, '0:00', 'ink');
-    H.add(this.clock);
-    // online: real time for everyone, said under the clock
-    if (this.online) H.add(addText(this, x, 14, t('battle.live'), 'red'));
-    const left = x + Math.max(measureText('00:00'), this.online ? measureText(t('battle.live')) : 0) + 6;
-    // strength of both armies (yours blue, the enemy's red), with a tip
-    const you = t('battle.you');
-    const foe = t('battle.foe');
-    const lw = Math.max(measureText(you), measureText(foe));
-    const avail = VW - 4 - left;
-    const labels = avail >= lw + 3 + 28;
-    const mw = Math.max(16, Math.min(64, avail - (labels ? lw + 3 : 0)));
-    const mx = VW - 4 - mw;
-    if (labels) {
-      H.add(addText(this, mx - 3, 4, you, 'dim', 1));
-      H.add(addText(this, mx - 3, 14, foe, 'dim', 1));
-    }
-    this.strength = [new Meter(this, mx, 5, mw, 6, P.blue), new Meter(this, mx, 15, mw, 6, P.bad)];
-    H.add(this.strength);
-    const zx = Math.min(labels ? mx - 3 - lw : mx, VW - 3 - 24);
-    const zone = this.add.zone(zx, 2, VW - 3 - zx, 22).setOrigin(0, 0).setInteractive();
-    uiId(zone, 'battle.strength');
-    tappable(zone, null, () => showTooltip(this, t('battle.tip.strength'), zone), t('battle.tip.strength'));
-    H.add(zone);
-    // follow the fighting
-    this.followBtn = new Button(this, VW - 3 - bw, TOP + 3, bw, bw, { icon: 'eye', style: this.follow ? 'buttonSel' : 'button', tip: t('battle.tip.follow'), onClick: () => this.toggleFollow() });
-    H.add(this.followBtn);
+    const key = `${sentence}|${urgent}|${nums.map((n) => n.value + n.word).join(',')}`;
+    if (key === this.sitKey) return;
+    this.sitKey = key;
+    this.sit.setSentence(sentence, urgent);
+    this.sit.setNumbers(nums);
   }
 
   /** Online deployment: seconds left and the draining bar. */
@@ -2095,6 +2114,7 @@ export class BattleScene extends BaseScene {
       }
     }
     const { VW } = this.m;
+    const TOP = this.topH();
     const f = d.total > 0 ? d.left / d.total : 0;
     c.bar.clear();
     c.bar.fillStyle(0x2a1a16, 0.35);
@@ -2103,166 +2123,301 @@ export class BattleScene extends BaseScene {
     c.bar.fillRect(2, TOP - 3, Math.round((VW - 4) * f), 2);
   }
 
-  // ---- bottom panel
+  // ---- the left column: group cards, the shape chip, follow / reset
 
-  private buildPanel(): void {
-    const { VW, VH } = this.m;
-    const H = this.hud;
+  private cardH(): number {
+    return this.compact ? CARD_H_COMPACT : CARD_H;
+  }
+
+  private cardW(): number {
+    return this.compact ? CARD_W_COMPACT : CARD_W;
+  }
+
+  /** Right edge of the left column (where the field's free space begins). */
+  private leftColumnRight(): number {
+    return 4 + this.cardW() + 4;
+  }
+
+  private buildLeftColumn(): void {
     const deploy = this.sim.phase === 'deploy';
-    const by = VH - this.panelHeight();
-    H.add(addPanel(this, 0, by, VW, VH - by, 'parch'));
-    let y = by + PAD;
+    const cw = this.cardW();
+    const ch = this.cardH();
+    const x = 4;
+    let y = this.topH() + 4;
+    const bottom = this.stripTop() - this.abilityRowH() - 2;
+    // the chips under the cards: shape (deploy and battle), reset (deploy, offline) or follow (battle)
+    const chips: ChipOpts[] = [];
+    const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
+    const shapeOf = sel && !sel.disbanded ? sel.formation.type : null;
+    const preset = PRESETS.find((p) => p[0] === shapeOf);
+    chips.push({
+      icon: preset ? preset[2] : 'f_line',
+      label: preset ? t(`battle.cmd.${preset[1]}` as TKey) : t('battle.shape.chip'),
+      selected: this.shapeOpen,
+      off: sel && this.canCommand() ? undefined : t('battle.why.noGroup'),
+      tip: t('battle.tip.cat.formation'),
+      id: 'battle.cat.formation',
+      onClick: () => this.openCategory('formation'),
+    });
+    if (deploy && !this.online) chips.push({ icon: 'repair', label: t('battle.strip.reset'), tip: t('battle.tip.reset'), id: 'battle.reset', onClick: () => this.resetDeploy() });
+    if (!deploy) chips.push({ icon: 'eye', label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), selected: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
+    // one soldier picked out: send him alone, or back into his group
+    const u = !deploy && this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
+    if (u && this.sim.groups[u.group].individual) chips.push({ icon: 'people', label: t('battle.ring.join'), tip: t('battle.tip.join'), id: 'battle.cmd.join', onClick: () => this.rejoin(u) });
+    else if (u) chips.push({ icon: 'detach', label: t('battle.ring.solo'), tip: t('battle.tip.solo'), id: 'battle.cmd.solo', onClick: () => this.detach(u) });
+    const chipsH = chips.length * (22 + SIZE.gap);
+    // the cards: as many as fit above the chips
+    const groups = this.sim.groups.filter((g) => g.side === this.me && !g.disbanded && (this.sim.members(g.id).length > 0 || deploy) && !g.individual);
+    const indiv = this.sim.groups.filter((g) => g.side === this.me && g.individual && !g.disbanded && this.sim.activeMembers(g.id).length > 0);
+    const fit = Math.max(1, Math.floor((bottom - y - chipsH + SIZE.gap) / (ch + SIZE.gap)));
+    const all = [...groups.map((g, i) => ({ g, numeral: ROMAN[i] ?? `${i + 1}` })), ...indiv.map((g) => ({ g, numeral: '*' }))].slice(0, fit);
+    all.forEach(({ g, numeral }) => {
+      const card = new GroupCard(
+        this,
+        x,
+        y,
+        cw,
+        ch,
+        () => {
+          if (this.selGroup === g.id && this.selUnit < 0) this.selGroup = -1;
+          else this.selGroup = g.id;
+          this.selUnit = g.individual ? this.sim.members(g.id)[0]?.id ?? -1 : -1;
+          this.shapeOpen = false;
+          this.buildHud();
+        },
+        () => this.cardTip(g.id, numeral),
+      );
+      uiId(card, `battle.group.${numeral}`);
+      this.hud.add(card);
+      this.cards.push({ gid: g.id, card, numeral });
+      y += ch + SIZE.gap;
+    });
+    for (const c of chips) {
+      const chip = new Chip(this, x, y, cw, c);
+      this.hud.add(chip);
+      if (c.id === 'battle.cat.formation') this.tabBtns.set('formation', chip);
+      if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), chip);
+      if (c.id === 'battle.follow') this.followBtn = chip;
+      y += 22 + SIZE.gap;
+    }
+  }
+
+  // ---- the ability row (above the strip)
+
+  /** The heroes' abilities the selection can use, and the war horn: chips in a row above the strip. */
+  private abilityDefs(): { key: string; icon: string; label: string; tip: string; run: () => void; ability?: AbilityId }[] {
+    if (this.sim.phase === 'deploy') return [];
+    const ids: AbilityId[] = [];
+    for (const u of this.selectedUnits()) for (const id of u.abil) if (!ids.includes(id)) ids.push(id);
+    const cmds: ReturnType<BattleScene['abilityDefs']> = ids.slice(0, 5).map((id) => ({ key: id, icon: ABILITIES[id].icon, label: abilityName(id), tip: tOr(`ability.${id}.desc`, ABILITIES[id].desc), run: () => this.useAbility(id), ability: id }));
+    if (this.sim.horns[this.me] > 0 && this.sim.phase === 'battle') cmds.unshift({ key: 'horn', icon: 'horn', label: t('battle.horn'), tip: t('battle.horn.tip'), run: () => this.blowHorn() });
+    return cmds.slice(0, 5);
+  }
+
+  private abilityRowH(): number {
+    return this.abilityDefs().length ? 22 + SIZE.gap + 1 : 0;
+  }
+
+  private buildAbilityRow(): void {
+    const defs = this.abilityDefs();
+    if (!defs.length) return;
+    const { VW } = this.m;
     const x0 = 4;
     const W = VW - 8;
-    if (this.compact) {
-      // Two rows: the group cards, or the open category's commands in their place; then the
-      // categories (deployment: Formation, Groups, Reset, Fight). The open category's tab closes it.
-      if (this.catOpen) this.buildCommands(deploy ? 'formation' : this.cat, x0, y, W, CARD_H);
-      else this.buildCards(y);
-      y += CARD_H + PAD;
-      if (deploy) this.buildDeployActions(x0, y, W, ROW_H, true);
-      else this.buildTabs(x0, y, W, ROW_H);
-    } else if (deploy) {
-      this.buildCards(y);
-      y += CARD_H + PAD;
-      this.buildCommands('formation', x0, y, W, ROW_H);
-      y += ROW_H + PAD;
-      this.buildDeployActions(x0, y, W, ROW_H, false);
-    } else {
-      this.buildCards(y);
-      y += CARD_H + PAD;
-      this.buildTabs(x0, y, W, TAB_H);
-      y += TAB_H + PAD;
-      this.buildCommands(this.cat, x0, y, W, CMD_H);
-    }
-    // the selected soldier: who he is and how he fares, just above the panel
-    const u = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
-    if (u) this.buildHeroInfo(u, by - 27);
-  }
-
-  /** Compact panel: open a category's commands in place of the cards (null, or the open one again: close). */
-  openCategory(cat: BattleCategory | null): void {
-    const close = !cat || (this.catOpen && this.cat === cat);
-    if (cat) this.cat = cat;
-    this.catOpen = !close;
-    this.buildHud();
-  }
-
-  private selectTab(cat: BattleCategory): void {
-    if (this.compact) return this.openCategory(cat);
-    this.cat = cat;
-    this.buildHud();
-  }
-
-  private buildTabs(x: number, y: number, w: number, h: number): void {
-    const n = CATS.length;
-    const tw = Math.floor((w - SIZE.gap * (n - 1)) / n);
-    // one look for the row: icon and label if every label fits beside its icon, else labels alone, else icons alone
-    const short = CATS.map((c) => t(`battle.catShort.${c}` as TKey));
-    const widest = Math.max(...short.map((l) => measureText(l)));
-    const mode = widest + 14 <= tw - 6 ? 'both' : widest <= tw - 6 ? 'label' : 'icon';
-    CATS.forEach((cat, i) => {
-      const bx = x + i * (tw + SIZE.gap);
-      const b = new PanelButton(this, bx, y, i === n - 1 ? x + w - bx : tw, h, {
-        icon: CAT_ICON[cat],
-        label: short[i],
-        show: mode,
-        cat,
-        selected: this.cat === cat && (!this.compact || this.catOpen),
-        tip: t(`battle.tip.cat.${cat}`),
-        id: `battle.cat.${cat}`,
-        onClick: () => this.selectTab(cat),
-      });
-      this.tabBtns.set(cat, b);
-      this.hud.add(b);
-    });
-  }
-
-  /** Deployment actions: Formation (compact), Groups, Reset (offline), Fight! / Ready. */
-  private buildDeployActions(x: number, y: number, w: number, h: number, withFormation: boolean): void {
-    const items: { opts: PanelButtonOpts; weight: number }[] = [];
-    if (withFormation) items.push({ weight: 1, opts: { icon: CAT_ICON.formation, label: t('battle.cat.formation'), cat: 'formation', selected: this.catOpen, tip: t('battle.tip.cat.formation'), id: 'battle.cat.formation', onClick: () => this.openCategory('formation') } });
-    items.push({ weight: 1, opts: { icon: 'people', label: t('battle.groups'), tip: t('battle.tip.groups'), onClick: () => this.openGroups() } });
-    if (!this.online) items.push({ weight: 1, opts: { icon: 'repair', label: t('battle.reset'), tip: t('battle.tip.reset'), onClick: () => this.resetDeploy() } });
-    const ready = this.dclock?.ready ?? false;
-    items.push({
-      weight: withFormation ? 1.8 : this.online ? 2 : 1,
-      opts: this.online
-        ? { icon: 'check', label: t('battle.ready'), primary: !ready, selected: ready, tip: t(this.src?.lockstep ? 'battle.tip.readyDuel' : 'battle.tip.ready'), disabledReason: t('battle.why.waiting'), onClick: () => this.startFight() }
-        : { icon: 'swords', label: t('battle.fight'), primary: true, tip: t('battle.tip.fight'), onClick: () => this.startFight() },
-    });
-    const total = items.reduce((a, i) => a + i.weight, 0);
-    const free = w - SIZE.gap * (items.length - 1);
-    let bx = x;
-    items.forEach((it, i) => {
-      const bw = i === items.length - 1 ? x + w - bx : Math.floor((free * it.weight) / total);
-      const b = new PanelButton(this, bx, y, bw, h, it.opts);
-      if (it.opts.label === t('battle.ready') && ready) b.setEnabled(false, t('battle.why.waiting'));
-      this.hud.add(b);
-      bx += bw + SIZE.gap;
-    });
-  }
-
-  /** One category's commands in a row. */
-  private buildCommands(cat: BattleCategory, x: number, y: number, w: number, h: number): void {
-    const defs = this.commandsFor(cat);
-    if (defs.length === 0) {
-      const msg = this.selGroup < 0 ? t('battle.why.noGroup') : t('battle.noAbilities');
-      const lab = new Label(this, x + w / 2, y + Math.max(0, Math.round((h - 2 * LINE_H) / 2)) + 1, msg, { maxW: w - 8, maxLines: 2, font: 'dim', align: 0.5 });
-      this.hud.add(lab);
-      return;
-    }
     const n = defs.length;
-    // few commands do not stretch into huge bars
-    const maxW = 72;
-    let bw = Math.floor((w - SIZE.gap * (n - 1)) / n);
-    let x0 = x;
-    if (bw > maxW) {
-      bw = maxW;
-      x0 = Math.round(x + (w - (bw * n + SIZE.gap * (n - 1))) / 2);
-    }
-    // one look for the whole row: labels only when every label fits
-    const widest = Math.max(...defs.map((d) => measureText(d.label)));
-    const show = h >= 28 ? (widest <= bw - 4 ? 'both' : 'icon') : widest + 14 <= bw - 6 ? 'both' : 'icon';
+    const bw = Math.min(70, Math.floor((W - SIZE.gap * (n - 1)) / n));
+    const y = this.stripTop() - 22 - SIZE.gap - 1;
+    const tabs = this.tabBtns;
     defs.forEach((d, i) => {
-      const b = new PanelButton(this, x0 + i * (bw + SIZE.gap), y, bw, h, { icon: d.icon, label: d.label, cat, tip: d.tip, id: `battle.cmd.${d.key}`, show, onClick: d.run });
-      this.cmdBtns.set(d.key, b);
-      if (d.ability) this.abilityBtns.push({ id: d.ability, btn: b });
-      this.hud.add(b);
+      const label = d.ability && measureText(d.label) > bw - 21 ? abilityShort(d.ability) : d.label;
+      const chip = new Chip(this, x0 + i * (bw + SIZE.gap), y, bw, { icon: d.icon, label, tip: `${d.label}: ${d.tip}`, id: `battle.cmd.${d.key}`, onClick: d.run });
+      this.hud.add(chip);
+      this.cmdBtns.set(d.key, chip);
+      if (d.ability) this.abilityBtns.push({ id: d.ability, btn: chip });
     });
+    // the tutorial lights the first ability when it asks for one
+    if (!tabs.has('abilities') && defs[0]) tabs.set('abilities', this.cmdBtns.get(defs[0].key)!);
   }
 
-  private commandsFor(cat: BattleCategory): { key: string; icon: string; label: string; tip: string; run: () => void; ability?: AbilityId }[] {
-    const order = (o: 'hold' | 'advance' | 'charge' | 'fallback') => () => this.command({ kind: 'order', group: -1, order: o });
-    switch (cat) {
-      case 'movement': {
-        const u = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
-        const join = !!u && this.sim.groups[u.group].individual;
-        return [
-          { key: 'hold', icon: 'hold', label: t('battle.cmd.hold'), tip: t('battle.tip.hold'), run: order('hold') },
-          { key: 'advance', icon: 'advance', label: t('battle.cmd.advance'), tip: t('battle.tip.advance'), run: order('advance') },
-          { key: 'fallback', icon: 'fallback', label: t('battle.cmd.fallback'), tip: t('battle.tip.fallback'), run: order('fallback') },
-          join
-            ? { key: 'join', icon: 'people', label: t('battle.cmd.join'), tip: t('battle.tip.join'), run: () => u && this.rejoin(u) }
-            : { key: 'solo', icon: 'detach', label: t('battle.cmd.solo'), tip: t('battle.tip.solo'), run: () => u && this.detach(u) },
-        ];
-      }
-      case 'attack':
-        return [
-          { key: 'charge', icon: 'charge', label: t('battle.cmd.charge'), tip: t('battle.tip.charge'), run: order('charge') },
-          { key: 'loose', icon: 'throw', label: t('battle.cmd.throw'), tip: t('battle.tip.throw'), run: () => this.toggleThrow() },
-        ];
-      case 'formation':
-        return PRESETS.map(([type, key, icon]) => ({ key: `form_${type}`, icon, label: t(`battle.cmd.${key}` as TKey), tip: t(`battle.tip.${key}` as TKey), run: () => this.command({ kind: 'preset', group: -1, type }) }));
-      case 'abilities': {
-        const ids: AbilityId[] = [];
-        for (const u of this.selectedUnits()) for (const id of u.abil) if (!ids.includes(id)) ids.push(id);
-        const cmds: ReturnType<BattleScene['commandsFor']> = ids.slice(0, 5).map((id) => ({ key: id, icon: ABILITIES[id].icon, label: abilityShort(id), tip: `${abilityName(id)}: ${tOr(`ability.${id}.desc`, ABILITIES[id].desc)}`, run: () => this.useAbility(id), ability: id }));
-        // the war horn (a battle consumable): one army-wide rally
-        if (this.sim.horns[this.me] > 0 && this.sim.phase === 'battle') cmds.unshift({ key: 'horn', icon: 'horn', label: t('battle.horn'), tip: t('battle.horn.tip'), run: () => this.blowHorn() });
-        return cmds.slice(0, 5);
-      }
+  // ---- the command strip (bottom)
+
+  private buildStrip(): void {
+    const { VW, VH } = this.m;
+    this.strip = new CommandStrip(this, VW, VH, this.stripOpts());
+    this.hud.add(this.strip);
+  }
+
+  /** Swap the strip's actions (pause / play, speed) without rebuilding the HUD. */
+  private refreshStrip(): void {
+    this.strip?.set(this.stripOpts());
+  }
+
+  private stripOpts(): CommandStripOpts {
+    const deploy = this.sim.phase === 'deploy';
+    const ended = this.sim.phase === 'ended';
+    if (deploy) {
+      const ready = this.dclock?.ready ?? false;
+      return {
+        left: { icon: 'back', label: t('battle.strip.leave'), tip: t('battle.tip.leave'), id: 'battle.leave', onClick: () => this.confirmLeaveDeploy() },
+        main: this.online
+          ? { icon: 'check', label: t('battle.ready'), selected: ready, off: ready ? t('battle.why.waiting') : undefined, tip: t(this.src?.lockstep ? 'battle.tip.readyDuel' : 'battle.tip.ready'), id: 'battle.ready', onClick: () => this.startFight() }
+          : { icon: 'swords', label: t('battle.fight'), tip: t('battle.tip.fight'), id: 'battle.fight', onClick: () => this.startFight() },
+        right: { icon: 'people', label: t('battle.strip.men'), tip: t('battle.tip.groups'), id: 'battle.groups', onClick: () => this.openGroups() },
+      };
     }
+    const flee: StripSlot = { icon: 'flag', label: t('battle.strip.flee'), tip: t('battle.tip.retreat'), id: 'battle.retreat', off: ended ? t('battle.why.over') : undefined, destructive: !ended, onClick: () => this.openRetreat() };
+    if (this.online) {
+      return {
+        left: { icon: 'eye', label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), selected: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() },
+        main: { icon: 'map', label: t('battle.strip.watch'), secondary: true, tip: t('battle.tip.follow'), id: 'battle.watch', onClick: () => this.frameArmies() },
+        right: flee,
+      };
+    }
+    return {
+      left: { icon: 'pause', label: t('battle.strip.pause'), selected: this.paused, tip: t('battle.tip.pause'), id: 'battle.pause', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() },
+      main: this.paused
+        ? { icon: 'play', label: t('battle.strip.play'), tip: t('battle.tip.pause'), id: 'battle.play', onClick: () => this.togglePause() }
+        : { icon: 'fast', label: t('battle.strip.speed', { n: this.speed }), secondary: true, tip: t('battle.tip.speed'), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
+      right: flee,
+    };
+  }
+
+  // ---- the radial ring (battle: orders round the selected group)
+
+  /** Orders the ring offers the selection, with their state now. */
+  private ringOrders(): RadialOrder[] {
+    const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
+    if (!sel || this.sim.phase !== 'battle') return [];
+    const mem = this.selectedUnits();
+    const can = mem.length > 0;
+    const why = can ? undefined : t('battle.why.noMen');
+    const order = (o: 'hold' | 'advance' | 'charge' | 'fallback') => () => this.command({ kind: 'order', group: -1, order: o });
+    const shooters = mem.filter((u) => u.stats.range > 0);
+    const ammo = shooters.some((u) => u.ammo > 0);
+    const shootWhy = why ?? (shooters.length === 0 ? t('battle.why.noMissiles') : !ammo ? t('battle.why.outOfAmmo') : undefined);
+    const orders: RadialOrder[] = [
+      { key: 'advance', icon: 'advance', label: t('battle.ring.advance'), tip: t('battle.tip.radialAdvance'), selected: sel.order === 'advance', off: why, onTap: order('advance') },
+      { key: 'charge', icon: 'charge', label: t('battle.ring.charge'), tip: t('battle.tip.radialCharge'), selected: sel.order === 'charge', off: why, onTap: order('charge') },
+      { key: 'hold', icon: 'hold', label: t('battle.ring.hold'), tip: t('battle.tip.radialHold'), selected: sel.order === 'hold', off: why, onTap: order('hold') },
+      { key: 'loose', icon: 'throw', label: t('battle.ring.shoot'), tip: t('battle.tip.radialShoot'), selected: sel.fireAtWill && ammo, off: shootWhy, onTap: () => this.toggleThrow() },
+      { key: 'fallback', icon: 'fallback', label: t('battle.ring.back'), tip: t('battle.tip.radialBack'), selected: sel.order === 'fallback', off: why, onTap: order('fallback') },
+    ];
+    return orders;
+  }
+
+  private buildRing(): void {
+    const orders = this.ringOrders();
+    // the shape sheet takes the ring's place while it is open
+    if (!orders.length || this.selGroup < 0 || this.shapeOpen) return;
+    const numeral = this.cards.find((c) => c.gid === this.selGroup)?.numeral ?? (this.sim.groups[this.selGroup].individual ? '*' : '');
+    this.ring = new RadialOrders(this, { orders, numeral, bounds: this.ringBounds(), compact: this.compact });
+    for (const [k, b] of this.ring.buttons) this.cmdBtns.set(k, b);
+    this.hud.add(this.ring);
+    this.placeRing();
+  }
+
+  /** Where the ring may sit: the field between the left column, the chrome and the tutorial's narrator. */
+  private ringBounds(): { x0: number; y0: number; x1: number; y1: number } {
+    const { VW } = this.m;
+    let y0 = this.topH();
+    let y1 = this.stripTop() - this.abilityRowH() - (this.selUnit >= 0 ? 27 : 0);
+    const n = this.tutorial?.narratorRect();
+    if (n) {
+      if (n.y + n.h / 2 < this.m.VH / 2) y0 = Math.max(y0, n.y + n.h);
+      else y1 = Math.min(y1, n.y);
+    }
+    return { x0: this.leftColumnRight(), y0, x1: VW - 4, y1 };
+  }
+
+  /** The selected group's centre on screen -> the ring (every frame; hidden while a finger pans or drags). */
+  private placeRing(): void {
+    const r = this.ring;
+    if (!r) return;
+    const busy = !!this.pinch || (!!this.gesture && this.gesture.mode !== 'pending') || !!this.overlay || this.ringHidden;
+    r.setShown(!busy);
+    if (busy) return;
+    const mem = this.selUnit >= 0 ? [this.sim.units[this.selUnit]] : this.sim.activeMembers(this.selGroup);
+    if (!mem.length) return;
+    const cam = this.cameras.main;
+    const S = this.m.S;
+    let cx = 0;
+    let cy = 0;
+    for (const u of mem) {
+      cx += u.x;
+      cy += u.y;
+    }
+    cx /= mem.length;
+    cy /= mem.length;
+    const c = isoToScreen(cx, cy);
+    // the ring sits a little behind the group (against its facing) so its buttons leave the facing knob clear
+    const fr = this.selectedFrame();
+    let ox = 0;
+    let oy = 0;
+    if (fr) {
+      const f = isoToScreen(cx + fr.fx, cy + fr.fy);
+      const dx = f.x - c.x;
+      const dy = f.y - c.y;
+      const l = Math.hypot(dx, dy) || 1;
+      ox = (-dx / l) * 22;
+      oy = (-dy / l) * 22;
+    }
+    if (this.tutorial) r.setBounds(this.ringBounds());
+    r.place(((c.x - cam.worldView.x) * cam.zoom) / S + ox, ((c.y - 10 - cam.worldView.y) * cam.zoom) / S + oy);
+  }
+
+  /** The shape sheet (deployment and battle): five shapes with one line of meaning each. */
+  private buildShapeSheet(): void {
+    const { VW } = this.m;
+    const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
+    if (!sel) return;
+    const mem = this.selectedUnits();
+    const x = this.leftColumnRight() + 2;
+    const w = VW - 4 - x;
+    const rowH = this.compact ? 22 : 24;
+    const h = 16 + PRESETS.length * (rowH + SIZE.gap) - SIZE.gap + 6;
+    this.hideBanner();
+    const y = this.stripTop() - this.abilityRowH() - h - 2;
+    const c = this.add.container(0, 0);
+    this.hud.add(c);
+    c.add(addPanel(this, x, y, w, h, 'parch'));
+    const numeral = this.cards.find((k) => k.gid === sel.id)?.numeral ?? '';
+    const title = addText(this, x + 6, y + 5, ellipsize(t('battle.shape.title', { numeral, name: sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : groupName(sel.name) }), w - 12), 'red');
+    c.add(title);
+    let ry = y + 16;
+    for (const [type, key, icon] of PRESETS) {
+      const wallOff = type === 'shieldwall' && !mem.some((u) => u.stats.canShieldWall) ? t('battle.why.noShields') : undefined;
+      const row = new ListRow(
+        this,
+        x + 4,
+        ry,
+        w - 8,
+        {
+          icon,
+          label: t(`battle.cmd.${key}` as TKey),
+          sub: this.compact ? undefined : t(`battle.shape.${type}` as TKey),
+          primary: sel.formation.type === type,
+          off: wallOff,
+          tip: t(`battle.tip.${key}` as TKey),
+          id: `battle.cmd.form_${type}`,
+          onClick: () => {
+            this.command({ kind: 'preset', group: -1, type });
+            this.shapeOpen = false;
+            this.buildHud();
+          },
+        },
+        rowH,
+      );
+      c.add(row);
+      this.cmdBtns.set(`form_${type}`, row);
+      ry += rowH + SIZE.gap;
+    }
+  }
+
+  /** Open or close the shape sheet (the other categories have no sheet: orders live on the ring, abilities in their row). */
+  openCategory(cat: BattleCategory | null): void {
+    if (cat === 'formation') this.shapeOpen = !this.shapeOpen;
+    else this.shapeOpen = false;
+    this.buildHud();
   }
 
   private blowHorn(): void {
@@ -2293,40 +2448,6 @@ export class BattleScene extends BaseScene {
     return false;
   }
 
-  /** Group cards: class portrait, numeral, men, current order, health and morale. */
-  private buildCards(y: number): void {
-    const { VW } = this.m;
-    const deploy = this.sim.phase === 'deploy';
-    const groups = this.sim.groups.filter((g) => g.side === this.me && !g.disbanded && (this.sim.members(g.id).length > 0 || deploy) && !g.individual);
-    const indiv = this.sim.groups.filter((g) => g.side === this.me && g.individual && !g.disbanded && this.sim.activeMembers(g.id).length > 0);
-    const minW = 24;
-    const fit = Math.max(1, Math.floor((VW - 8 + SIZE.gap) / (minW + SIZE.gap)));
-    const all = [...groups.map((g, i) => ({ g, numeral: ROMAN[i] ?? `${i + 1}` })), ...indiv.map((g) => ({ g, numeral: '*' }))].slice(0, fit);
-    if (all.length === 0) return;
-    const n = all.length;
-    const cw = Math.min(70, Math.floor((VW - 8 - SIZE.gap * (n - 1)) / n));
-    const x0 = Math.round((VW - (cw * n + SIZE.gap * (n - 1))) / 2);
-    all.forEach(({ g, numeral }, i) => {
-      const card = new GroupCard(
-        this,
-        x0 + i * (cw + SIZE.gap),
-        y,
-        cw,
-        CARD_H,
-        () => {
-          if (this.selGroup === g.id && this.selUnit < 0) this.selGroup = -1;
-          else this.selGroup = g.id;
-          this.selUnit = g.individual ? this.sim.members(g.id)[0]?.id ?? -1 : -1;
-          this.buildHud();
-        },
-        () => this.cardTip(g.id, numeral),
-      );
-      uiId(card, `battle.group.${numeral}`);
-      this.hud.add(card);
-      this.cards.push({ gid: g.id, card, numeral });
-    });
-  }
-
   private cardTip(gid: number, numeral: string): string {
     const g = this.sim.groups[gid];
     const n = this.sim.activeMembers(gid).length;
@@ -2344,8 +2465,9 @@ export class BattleScene extends BaseScene {
   private buildHeroInfo(u: SimUnit, y: number): void {
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    const x = 4;
-    const w = VW - 8;
+    // right of the group cards (they may reach down this far on short screens)
+    const x = this.leftColumnRight();
+    const w = VW - 4 - x;
     c.add(addPanel(this, x, y, w, 24, 'parch'));
     const hero = this.views[u.id].hero;
     c.add(this.add.image(x + 2, y + 2, ensurePortrait(this, dollFromHero(hero))).setOrigin(0, 0).setCrop(3, 0, 18, 20));
@@ -2378,11 +2500,7 @@ export class BattleScene extends BaseScene {
 
   private refreshHud(): void {
     this.hudDirty = false;
-    if (this.clock) this.clock.setText(fmtClock(Math.floor(this.sim.tick / TICK_RATE)));
-    if (this.strength) {
-      this.strength[0].setValue(this.sim.sideStrength(this.me), this.initialStrength[this.me]);
-      this.strength[1].setValue(this.sim.sideStrength(this.foe), this.initialStrength[this.foe]);
-    }
+    this.refreshSituation();
     for (const c of this.cards) {
       const g = this.sim.groups[c.gid];
       const mem = this.sim.activeMembers(c.gid);
@@ -2404,44 +2522,15 @@ export class BattleScene extends BaseScene {
         routed: g.routed,
       });
     }
-    const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
-    const mem = this.selectedUnits();
-    const noGroup = t('battle.why.noGroup');
-    for (const [key, b] of this.cmdBtns) {
-      if (!sel || mem.length === 0) {
-        b.setEnabled(false, sel ? t('battle.why.noMen') : noGroup).setSelected(false);
-        continue;
-      }
-      switch (key) {
-        case 'hold':
-        case 'advance':
-        case 'charge':
-        case 'fallback':
-          b.setEnabled(true).setSelected(sel.order === key);
-          break;
-        case 'loose': {
-          const shooters = mem.filter((u) => u.stats.range > 0);
-          const ammo = shooters.some((u) => u.ammo > 0);
-          if (shooters.length === 0) b.setEnabled(false, t('battle.why.noMissiles'));
-          else if (!ammo) b.setEnabled(false, t('battle.why.outOfAmmo'));
-          else b.setEnabled(true);
-          b.setSelected(sel.fireAtWill && ammo);
-          break;
-        }
-        case 'solo':
-          b.setEnabled(this.selUnit >= 0, t('battle.why.pickSoldier'));
-          break;
-        case 'join':
-          b.setEnabled(true);
-          break;
-        default: {
-          const preset = PRESETS.find((p) => `form_${p[0]}` === key);
-          if (preset) {
-            if (preset[0] === 'shieldwall' && !mem.some((u) => u.stats.canShieldWall)) b.setEnabled(false, t('battle.why.noShields'));
-            else b.setEnabled(true);
-            b.setSelected(sel.formation.type === preset[0]);
-          }
-        }
+    // the ring shows the order in force: rebuild it when that changes (orders are rare events)
+    if (this.ring && this.selGroup >= 0) {
+      const sel = this.sim.groups[this.selGroup];
+      const key = `${sel.order}|${sel.fireAtWill}|${this.selectedUnits().length > 0}`;
+      if (key !== this.ringKey) {
+        this.ringKey = key;
+        this.ring.destroy();
+        this.ring = null;
+        this.buildRing();
       }
     }
     this.refreshAbilities();
@@ -2496,7 +2585,7 @@ export class BattleScene extends BaseScene {
         this.tagMap.set(g.id, tag);
       }
       const tx = Math.round(sx / S);
-      const ty = Math.round(Math.max(TOP + 6, sy / S));
+      const ty = Math.round(Math.max(this.topH() + 6, sy / S));
       tag.setPosition(tx, ty);
       this.tagPos.set(g.id, { x: tx, y: ty });
     }
@@ -2538,25 +2627,12 @@ export class BattleScene extends BaseScene {
     for (const a of this.abilityBtns) {
       const holders = units.filter((u) => u.abil.includes(a.id));
       const ready = holders.filter((u) => this.sim.abilityReady(u, a.id));
-      let frac = 0;
-      if (ready.length === 0 && holders.length > 0) {
-        const max = ABILITIES[a.id].cooldown * TICK_RATE;
-        const cd = Math.min(...holders.map((u) => this.sim.abilityCooldown(u, a.id)));
-        frac = cd > 0 ? Math.min(1, cd / Math.max(1, max * holders[0].stats.cdMult)) : 0;
-      }
+      const cds = holders.map((u) => this.sim.abilityCooldown(u, a.id)).filter((c) => c > 0);
+      const cdLeft = ready.length === 0 && cds.length ? Math.ceil(Math.min(...cds) / TICK_RATE) : 0;
       const why = holders.length ? this.abilityBlocked(a.id, holders) : t('battle.why.notReady');
-      // a recovering or target-less ability keeps its gold look: the sweep shows when it is back
-      a.btn.setEnabled(this.sim.phase === 'battle', t('battle.why.notStarted'));
+      // a recovering or target-less ability keeps its look: the seconds say when it is back
       a.btn.setBlocked(why);
-      a.btn.setCooldown(frac);
-      const cdLeft = frac > 0 ? Math.ceil(Math.min(...holders.map((u) => this.sim.abilityCooldown(u, a.id)).filter((c) => c > 0)) / TICK_RATE) : 0;
-      a.btn.setBadge(cdLeft > 0 ? `${cdLeft}` : ready.length > 1 ? `${ready.length}` : '');
-    }
-    const tab = this.tabBtns.get('abilities');
-    if (tab) {
-      const ids = new Set<AbilityId>();
-      for (const u of units) for (const id of u.abil) if (this.sim.abilityReady(u, id)) ids.add(id);
-      tab.setBadge(ids.size ? `${ids.size}` : '');
+      a.btn.setCorner(cdLeft > 0 ? t('battle.ability.cooldown', { n: cdLeft }) : ready.length > 1 ? `${ready.length}` : '');
     }
   }
 
@@ -2592,7 +2668,8 @@ export class BattleScene extends BaseScene {
   private toggleSpeed(): void {
     if (this.online) return;
     this.speed = this.speed === 1 ? 2 : this.speed === 2 ? 3 : 1;
-    this.speedBtn?.setLabel(`${this.speed}x`);
+    this.refreshStrip();
+    this.hudDirty = true;
   }
 
   private detach(u: SimUnit): void {
@@ -2642,7 +2719,7 @@ export class BattleScene extends BaseScene {
   private onBattleStarted(): void {
     if (this.sim.phase === 'deploy') this.sim.startBattle();
     if (this.dclock) markStarted(this.dclock);
-    this.catOpen = false;
+    this.shapeOpen = false;
     this.setFollow(true);
     hapticNotify('success');
     this.netBanner = false;
@@ -2837,13 +2914,13 @@ export class BattleScene extends BaseScene {
         s.buildHud();
       },
       get cat() {
-        return s.cat;
+        return 'formation' as BattleCategory;
       },
       get catOpen() {
-        return s.catOpen;
+        return s.shapeOpen;
       },
       get compact() {
-        return s.compact;
+        return false;
       },
       get cards() {
         return s.cards;
@@ -2865,7 +2942,10 @@ export class BattleScene extends BaseScene {
       },
       setPaused: (p: boolean) => s.setPaused(p),
       hideBanner: () => s.hideBanner(),
-      fieldTop: () => TOP,
+      showRing: (on: boolean) => {
+        s.ringHidden = !on;
+      },
+      fieldTop: () => s.topH(),
       panelTop: () => s.m.VH - s.panelHeight(),
       toUi: (x: number, y: number) => {
         const cam = s.cameras.main;
