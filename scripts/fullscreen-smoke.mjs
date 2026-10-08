@@ -179,6 +179,8 @@ function fakeTelegram(ins) {
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+// no Vite HMR socket: a source edit elsewhere must not reload the page mid-run (the script runs against a live dev server)
+await ctx.routeWebSocket((u) => u.searchParams.has('token'), () => {});
 const page = await ctx.newPage();
 const errors = [];
 page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
@@ -198,16 +200,21 @@ const pressBack = async () => {
   await ev(() => window.__tg.pressBack());
   await wait(500);
 };
-/** The canvas must fill exactly the safe rect. */
+/**
+ * The canvas must fill exactly the safe rect. The game size is in device px:
+ * the safe rect (CSS px) x RS, RS = devicePixelRatio rounded to 0.25, capped
+ * at 3 (src/platform/renderScale.ts).
+ */
 const top = INSETS.safeTop + INSETS.contentTop;
 const checkLayout = async (name) => {
   const r = await ev(() => {
     const c = document.querySelector('#game canvas').getBoundingClientRect();
-    return { top: c.top, bottom: innerHeight - c.bottom, left: c.left, right: innerWidth - c.right, gw: window.__game.scale.width, gh: window.__game.scale.height };
+    const rs = Math.max(1, Math.min(3, Math.round(devicePixelRatio * 4) / 4));
+    return { top: c.top, bottom: innerHeight - c.bottom, left: c.left, right: innerWidth - c.right, gw: window.__game.scale.width, gh: window.__game.scale.height, rs };
   });
   check(`${name}: canvas below status bar and Telegram buttons`, Math.abs(r.top - top) < 1, `top=${r.top}`);
   check(`${name}: canvas above home indicator`, Math.abs(r.bottom - INSETS.safeBottom) < 1, `bottom=${r.bottom}`);
-  check(`${name}: game size = safe rect`, r.gw === W && r.gh === H - top - INSETS.safeBottom, `${r.gw}x${r.gh}`);
+  check(`${name}: game size = safe rect x RS`, r.gw === Math.floor(W * r.rs) && r.gh === Math.floor((H - top - INSETS.safeBottom) * r.rs), `${r.gw}x${r.gh} RS ${r.rs}`);
 };
 /** No arrow-only back button: Telegram's header button replaces it. */
 const noArrow = (key) =>
@@ -396,8 +403,8 @@ const bgeo = (pts) =>
     const own = s.views.filter((v) => v.u.side === 0).map((v) => [c.left + (v.spr.x - cam.worldView.x) * cam.zoom * k, c.top + (v.spr.y - 10 - cam.worldView.y) * cam.zoom * k]);
     let empty = null;
     for (let y = c.top + c.height * 0.25; !empty && y < c.top + c.height * 0.6; y += 20)
-      // right of the group cards down the field's left edge (the Strategos HUD, docs/UI_STRATEGOS.md)
-      for (let x = c.left + (s.leftColumnRight() * s.m.S + 8) * k; !empty && x < c.width - 40; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90)) empty = [x, y];
+      // inside the visible field (BattleScene.fieldViewport, game px): the field spans the width under the top bar
+      for (let x = c.left + (s.fieldViewport().left + 8) * k; !empty && x < c.width - 40; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90)) empty = [x, y];
     return { f: { ...f }, scroll: [cam.scrollX, cam.scrollY], empty, orders: s.sim.orderLog.length, pts: pts.map(([a, b]) => toPage([f.cx - f.fy * a - f.fx * b, f.cy + f.fx * a - f.fy * b])) };
   }, pts);
 const b0 = await bgeo([]);

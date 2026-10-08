@@ -14,9 +14,31 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures++;
 };
 
+/**
+ * The canvas renders at device pixels (src/platform/renderScale.ts RS): game
+ * px (scale.width, getBounds(), camera projections, UI px * m.S) are CSS px *
+ * RS. Touches and page.mouse are CSS px. `__css(x, y)` maps game px to page
+ * (CSS) px through the canvas rect, `__gamePt(x, y)` back, `__rs()` is RS.
+ * Also: no Vite HMR socket, so a source edit elsewhere cannot reload the page
+ * mid-run (the scripts run against a live dev server).
+ */
+async function prepContext(c) {
+  await c.routeWebSocket((u) => u.searchParams.has('token'), () => {});
+  await c.addInitScript(() => {
+    const geo = () => {
+      const r = window.__game.canvas.getBoundingClientRect();
+      return { r, k: r.width / window.__game.scale.width };
+    };
+    window.__css = (x, y) => { const { r, k } = geo(); return [r.left + x * k, r.top + y * k]; };
+    window.__gamePt = (x, y) => { const { r, k } = geo(); return [(x - r.left) / k, (y - r.top) / k]; };
+    window.__rs = () => 1 / geo().k;
+  });
+}
+
 async function run(label, { noAudio }) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+  await prepContext(ctx);
   if (noAudio) {
     await ctx.addInitScript(() => {
       delete window.AudioContext;
@@ -52,7 +74,7 @@ async function run(label, { noAudio }) {
         walk(s.children.list);
         if (!hit) return null;
         const r = hit.getBounds();
-        return [r.centerX, r.centerY];
+        return window.__css(r.centerX, r.centerY);
       },
       [sceneKey, label],
     );
@@ -97,7 +119,7 @@ async function run(label, { noAudio }) {
     const ly = lab.getBounds().centerY;
     const b = btns.sort((a, c) => Math.abs(a.getBounds().centerY - ly) - Math.abs(c.getBounds().centerY - ly))[0];
     const r = b.getBounds();
-    return [r.centerX, r.centerY];
+    return window.__css(r.centerX, r.centerY);
   });
   check(`[${label}] sound toggle present`, !!soundBtn);
   if (soundBtn) {
