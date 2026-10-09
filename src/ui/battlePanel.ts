@@ -10,9 +10,11 @@
  * check the same way (a container with w / h, texts framed by it).
  */
 import { RS } from '../platform/renderScale';
-import { BRONZE_D2, STATUS_D2 } from '../art/smoothUi';
+import { mosaicImage } from './mosaic/base';
+import { caps } from './mosaic/KeyButton';
+import { MOSAIC } from './tokens';
 import Phaser from 'phaser';
-import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelImage, panelK, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
+import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelK, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
 import { uiFrame, uiId } from './layout';
 import { addPortrait } from './sprites';
 import { dollKey, type DollSpec } from '../art/paperdoll';
@@ -318,10 +320,29 @@ export class PanelButton extends Phaser.GameObjects.Container {
 
 // ================================================================== group card
 
+/**
+ * The selected card's gold frame: a double gold line with a stepped key at
+ * each corner (the meander of the screen frame in miniature).
+ */
+function goldFrame(scene: Phaser.Scene, w: number, h: number): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics();
+  g.lineStyle(1.4, MOSAIC.meanderHi, 1);
+  g.strokeRoundedRect(0.7, 0.7, w - 1.4, h - 1.4, 2);
+  g.lineStyle(0.6, MOSAIC.meanderLo, 0.9);
+  g.strokeRect(2.4, 2.4, w - 4.8, h - 4.8);
+  g.fillStyle(MOSAIC.meanderHi, 1);
+  for (const [cx, cy, sx, sy] of [[0, 0, 1, 1], [w, 0, -1, 1], [0, h, 1, -1], [w, h, -1, -1]] as const) {
+    // an L-shaped step at the corner
+    g.fillRect(Math.min(cx, cx + sx * 4.5), Math.min(cy + sy * 0.5, cy + sy * 2), 4.5, 1.5);
+    g.fillRect(Math.min(cx + sx * 0.5, cx + sx * 2), Math.min(cy, cy + sy * 4.5), 1.5, 4.5);
+  }
+  return g;
+}
+
 /** The first candidate (upper-cased) whose width fits `maxW`; else the last one. */
-export function firstFit(cands: (string | undefined | false | null)[], maxW: number, shadow = false): string {
-  const list = cands.filter((c): c is string => !!c).map((c) => c);
-  return list.find((c) => measureText(c, shadow) <= maxW) ?? list[list.length - 1] ?? '';
+export function firstFit(cands: (string | undefined | false | null)[], maxW: number, shadow = false, face: 'body' | 'roman' = 'body'): string {
+  const list = cands.filter((c): c is string => !!c).map((c) => (face === 'roman' ? caps(c) : c));
+  return list.find((c) => measureText(c, shadow, 7, face) <= maxW) ?? list[list.length - 1] ?? '';
 }
 
 export interface GroupCardInfo {
@@ -423,21 +444,17 @@ export class GroupCard extends Phaser.GameObjects.Container {
       this.rebuildWide(i);
       return;
     }
-    const style = i.selected ? 'buttonOn' : i.men === 0 ? 'buttonOff' : 'parch';
-    this.add(panelImage(s, 0, 0, this.w, this.h, style));
-    if (i.selected) {
-      // a gold rim: the selected group stands out at a glance
-      const g = s.add.graphics();
-      g.lineStyle(1, 0xf0c860, 1);
-      g.strokeRect(1.5, 1.5, this.w - 3, this.h - 3);
-      this.add(g);
-    }
-    const light = i.selected;
-    const fontA: FontKey = light ? 'light' : i.men === 0 || i.routed ? 'dim' : 'red';
-    const fontB: FontKey = light ? 'light' : i.men === 0 ? 'dim' : 'ink';
+    this.add(mosaicImage(s, 0, 0, this.w, this.h, i.selected ? 'parchmentSel' : 'parchment'));
+    if (i.men === 0) this.add(s.add.rectangle(0, 0, this.w, this.h, MOSAIC.parchLo, 0.5).setOrigin(0, 0));
+    // a gold frame: the selected group stands out at a glance
+    if (i.selected) this.add(goldFrame(s, this.w, this.h));
+    const light = false;
+    const fontA: FontKey = i.men === 0 || i.routed ? 'pOff' : 'rInk';
+    const fontB: FontKey = i.men === 0 ? 'pOff' : 'pInk';
     const ph = this.h - 11;
     const text = (x: number, y: number, str: string, font: FontKey, align: 0 | 0.5 | 1, maxW: number) => {
-      const tx = addText(s, x, y, ellipsize(str, maxW, SHADOW_FONTS.has(font)), font, align);
+      const roman = font === 'rInk';
+      const tx = addText(s, x, y, roman ? ellipsize(caps(str), maxW, false, 7, 'roman') : ellipsize(str, maxW, SHADOW_FONTS.has(font)), font, align);
       uiFrame(tx, this, this.w, this.h);
       this.add(tx);
       return tx;
@@ -450,8 +467,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
       text(this.w - 3, 3, firstFit([t('strat.men', { n: i.men }), `${i.men}`], tw - 14, SHADOW_FONTS.has(fontB)), fontB, 1, tw - 14);
       text(3, 13, firstFit([i.name, i.shortName, ''], tw, SHADOW_FONTS.has(fontB)), fontB, 0, tw);
       const order = firstFit([i.orderWord, i.orderShort, ''], tw, false);
-      const ot = addText(s, 3, 23, order, light ? 'light' : i.men === 0 ? 'dim' : 'dim', 0);
-      if (light) ot.setTint(0xf0c0b0);
+      const ot = addText(s, 3, 23, order, 'pSec', 0);
       uiFrame(ot, this, this.w, this.h);
       this.add(ot);
       this.add(this.bars);
@@ -460,8 +476,8 @@ export class GroupCard extends Phaser.GameObjects.Container {
     if (this.h >= 28 && this.h < 40 && this.w >= 28 && this.w < 44) {
       // short cards (compact screens): numeral and men on one line, the order under them
       const tw = this.w - 6;
-      text(3, 3, firstFit([`${i.numeral} ${i.men}`, i.numeral], tw, SHADOW_FONTS.has(fontA)), fontA, 0, tw);
-      const ot = addText(s, 3, 13, ellipsize(i.orderShort ?? '', tw, light), light ? 'light' : 'dim', 0);
+      text(3, 3, firstFit([`${i.numeral} ${i.men}`, i.numeral], tw, false, 'roman'), fontA, 0, tw);
+      const ot = addText(s, 3, 13, ellipsize(i.orderShort ?? '', tw, light), 'pSec', 0);
       uiFrame(ot, this, this.w, this.h);
       this.add(ot);
       this.add(this.bars);
@@ -480,7 +496,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
       // ("II SKIRM." / "7 ADV" / "II" / "7"): never an ellipsis
       const tw = room - (i.orderIcon ? 13 : 0);
       if (i.orderIcon) this.add(addIcon(s, this.w - 14, 1, i.orderIcon, light ? 'L' : i.routed || i.men === 0 ? 'D' : ''));
-      text(x, 2, firstFit([`${i.numeral} ${i.name}`, i.shortName && `${i.numeral} ${i.shortName}`, i.numeral], tw, SHADOW_FONTS.has(fontA)), fontA, 0, tw);
+      text(x, 2, firstFit([`${i.numeral} ${i.name}`, i.shortName && `${i.numeral} ${i.shortName}`, i.numeral], tw, false, 'roman'), fontA, 0, tw);
       text(x, 11, firstFit([i.orderWord && `${i.men} ${i.orderWord}`, i.orderShort && `${i.men} ${i.orderShort}`, `${i.men}`], tw, SHADOW_FONTS.has(fontB)), fontB, 0, tw);
     } else if (x > 3) {
       // narrow: the numeral over the portrait's corner, the order icon and the men beside it
@@ -502,7 +518,9 @@ export class GroupCard extends Phaser.GameObjects.Container {
   private rebuildWide(i: GroupCardInfo): void {
     const s = this.scene;
     this.wide = true;
-    this.add(panelImage(s, 0, 0, this.w, this.h, i.selected ? 'slotSel' : i.men === 0 ? 'buttonOff' : 'slot'));
+    this.add(mosaicImage(s, 0, 0, this.w, this.h, i.selected ? 'parchmentSel' : 'parchment'));
+    if (i.men === 0) this.add(s.add.rectangle(0, 0, this.w, this.h, MOSAIC.parchLo, 0.5).setOrigin(0, 0));
+    if (i.selected) this.add(goldFrame(s, this.w, this.h));
     // the leading man's living portrait at the left (room permitting), the bronze numeral disc beside the name
     let x = 4;
     this.barX = 4;
@@ -516,21 +534,21 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const r = 4.5;
     const cx = x + r;
     const cy = 2.5 + r;
-    g.fillStyle(i.selected ? BRONZE_D2.hi : BRONZE_D2.main, 1);
+    g.fillStyle(i.selected ? MOSAIC.meanderHi : MOSAIC.bronzeHi, 1);
     g.fillCircle(cx, cy, r);
-    g.fillStyle(0x1c1612, 1);
+    g.fillStyle(MOSAIC.stone1, 1);
     g.fillCircle(cx, cy, r - 1);
     this.add(g);
-    const num = addText(s, cx, cy - 3.6, i.numeral, 'head', 0.5).setFontSize(5);
+    const num = addText(s, cx, cy - 3.2, i.numeral, 'rGold', 0.5).setFontSize(5);
     this.add(num);
     const nx = cx + r + 2;
     const tw = this.w - x - 3;
     const head = 5.6;
-    const name = addText(s, nx, 2.5, ellipsize(i.name ?? i.numeral, tw - (nx - x), false, head, 'head'), i.men === 0 || i.routed ? 'dim' : 'head', 0).setFontSize(head);
+    const name = addText(s, nx, 2.5, ellipsize(caps(i.name ?? i.numeral), tw - (nx - x), false, head, 'roman'), i.men === 0 || i.routed ? 'pOff' : 'rInk', 0).setFontSize(head);
     uiFrame(name, this, this.w, this.h);
     const subSize = 5.5;
     const sub = firstFit([i.orderWord && `${t('strat.men', { n: i.men })} · ${i.orderWord}`, i.orderShort && `${i.men} · ${i.orderShort}`, `${i.men}`], tw / (subSize / 7), false);
-    const st = addText(s, x, 11.5, sub, 'dim', 0).setFontSize(subSize);
+    const st = addText(s, x, 11.5, sub, 'pSec', 0).setFontSize(subSize);
     uiFrame(st, this, this.w, this.h);
     this.add([name, st, this.bars]);
   }
@@ -544,21 +562,23 @@ export class GroupCard extends Phaser.GameObjects.Container {
       const y = this.h - 6;
       const half = (this.w - x0 - 4 - 3) / 2;
       const bar = (x: number, f: number, c: number) => {
-        g.fillStyle(0x0d0a08, 1);
-        g.fillRoundedRect(x, y, half, 3, 1);
+        g.fillStyle(MOSAIC.parchEdge, 1);
+        g.fillRoundedRect(x, y, half, 3.4, 1);
+        g.fillStyle(MOSAIC.wellLo, 1);
+        g.fillRoundedRect(x + 0.5, y + 0.5, half - 1, 2.4, 0.8);
         const fw = (half - 1) * Math.max(0, Math.min(1, f));
         if (fw > 0.3) {
           g.fillStyle(c, 1);
-          g.fillRoundedRect(x + 0.5, y + 0.5, fw, 2, 0.8);
+          g.fillRoundedRect(x + 0.5, y + 0.5, fw, 2.4, 0.8);
         }
       };
-      bar(x0, i.hp, STATUS_D2.hp);
-      bar(x0 + half + 3, i.morale, i.routed ? 0x8f826d : STATUS_D2.morale);
+      bar(x0, i.hp, MOSAIC.terra);
+      bar(x0 + half + 3, i.morale, i.routed ? MOSAIC.inkDisabled : MOSAIC.teal);
       return;
     }
     const bw = this.w - 6;
     const bar = (y: number, f: number, c: number) => {
-      g.fillStyle(0x2a1a16, 1);
+      g.fillStyle(MOSAIC.parchEdge, 1);
       g.fillRect(3, y, bw, 3);
       const fw = Math.round((bw - 2) * Math.max(0, Math.min(1, f)));
       if (fw > 0) {
@@ -566,7 +586,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
         g.fillRect(4, y + 1, fw, 1);
       }
     };
-    bar(this.h - 8, i.hp, 0xd0503c);
-    bar(this.h - 5, i.morale, i.routed ? 0x9a948a : 0x6d8fd0);
+    bar(this.h - 8, i.hp, MOSAIC.terra);
+    bar(this.h - 5, i.morale, i.routed ? MOSAIC.inkDisabled : MOSAIC.teal);
   }
 }

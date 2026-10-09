@@ -1,18 +1,14 @@
 /**
  * Beast trial (offline): fight any mythical beast or world boss with the
- * campaign army, to learn how it fights without the online server. A list of
- * the beasts; a tap opens its info panel (how it fights, what beats it) with
- * the Fight button.
+ * campaign army, to learn how it fights without the online server. A v4
+ * sub-screen (back arrow, no tab bar): a row for each beast; a tap opens its
+ * panel (how it fights, what beats it) with the Fight button.
  */
 import { BaseScene } from './BaseScene';
-import { addPanel, addText } from '../ui/kit';
-import { ScreenHeader, addTipLine } from '../ui/v3';
-import { addModeBanner } from '../ui/modeArt';
-import { ROLE, SURFACE } from '../ui/tokens';
-import { addChip } from '../ui/sheet';
-import { ScrollList } from '../ui/widgets';
-import { ellipsize, wrapText } from '../ui/textfit';
-import { beastThumb, encounterName, openBeastInfo } from '../ui/beastInfo';
+import { ScrollArea } from '../ui/kit';
+import { Label } from '../ui/widgets';
+import { ParchmentRow, ScreenFrame, TopBar } from '../ui/mosaic';
+import { beastThumb, encounterName, openBeastSheet } from '../ui/beastInfo';
 import { ENCOUNTER_IDS, WORLD_BOSSES, type EncounterId } from '../data/beasts';
 import { beastEnemy } from '../game/beasts';
 import { state, randomSeed } from '../state';
@@ -33,9 +29,11 @@ interface TrialData {
   open?: EncounterId;
 }
 
+const ROW_H = 34;
+
 export class BeastTrialScene extends BaseScene {
-  private list: ScrollList | null = null;
   private from = 'Menu';
+  private area: ScrollArea | null = null;
 
   constructor() {
     super('BeastTrial');
@@ -44,62 +42,61 @@ export class BeastTrialScene extends BaseScene {
   create(data?: TrialData): void {
     this.initUi();
     this.from = data?.from ?? 'Menu';
-    this.screen({ back: () => this.scene.start(this.from) });
-    const { VW, VH } = this.m;
-    this.ui.add(this.add.rectangle(0, 0, VW, VH, SURFACE.bg).setOrigin(0, 0));
-    const hdr = new ScreenHeader(this, VW, { title: t('trial.title'), back: () => this.scene.start(this.from), id: 'trial.header' });
-    this.ui.add(hdr);
-    const x = 6;
-    const w = VW - 12;
-    let y = hdr.bottom + 4;
-    // the beasts' cave: where you are, before any word
-    if (VH >= 330) {
-      addModeBanner(this, this.ui, x, y - 2, w, 26, 'beasts');
-      y += 26 + 2;
-    }
-    const tip = addTipLine(this, this.ui, x, y, w, { text: t('trial.sub'), icon: 'beast', dismissId: 'trial.what' });
-    if (tip) y += tip + 4;
+    const back = () => this.scene.start(this.from);
+    this.screen({ back });
+    const { VW, VH, S } = this.m;
+    const frame = new ScreenFrame(this, VW, VH);
+    this.ui.add(frame);
+    this.ui.add(new TopBar(this, frame.topBar, { title: t('trial.title'), back: this.inGameBack ? back : undefined, id: 'trial.header' }));
+    const c = frame.content;
+    const x = c.x + 4;
+    const w = c.w - 8;
+    // what the trial is, in a line or two
+    const sub = new Label(this, x + 1, c.y + 5, t('trial.sub'), { maxW: w - 4, maxLines: 3, font: 'pSec' });
+    this.ui.add(sub);
+    const top = c.y + 5 + sub.h + 5;
+    const area = new ScrollArea(this, this.ui, x, top, w, c.y + c.h - top - 2, S);
+    this.area = area;
     const ids = ENCOUNTER_IDS;
-    this.list = new ScrollList(this, this.ui, x, y, w, VH - y - 4, {
-      count: ids.length,
-      rowH: 46,
-      fade: SURFACE.bg,
-      id: (i) => `trial.${ids[i]}`,
-      onTap: (i) => this.open(ids[i]),
-      tip: () => t('trial.tip'),
-      render: (i, row, rw, rh) => {
-        const enc = ids[i];
-        const boss = WORLD_BOSSES.includes(enc);
-        row.add(addPanel(this, 0, 0, rw, rh, boss ? 'cardRaised' : 'card'));
-        row.add(addPanel(this, 4, 5, 36, 36, 'well'));
-        row.add(this.add.image(5, 6, beastThumb(this, enc, 34)).setOrigin(0, 0));
-        const lv = boss ? t('myth.info.worldBoss') : t('myth.info.level', { n: this.level(enc) });
-        const lw = addChip(this, row, rw - 6, 5, lv, boss ? ROLE.beast : 0x3a2f25, 70, true);
-        row.add(addText(this, 46, 6, ellipsize(encounterName(enc), rw - 46 - lw - 10, false, 7, 'head'), 'head'));
-        // how it fights, on two lines (never cut mid-thought where it fits)
-        const hint = wrapText(t(`myth.${enc}.hint1` as TKey), rw - 52, 3, false, 6);
-        row.add(addText(this, 46, 18, hint.lines.join('\n'), 'sec').setFontSize(6).setLineSpacing(-1.5));
-      },
-    });
-    this.events.once('shutdown', () => this.list?.destroy());
+    let y = 1;
+    for (const enc of ids) {
+      const boss = WORLD_BOSSES.includes(enc);
+      area.content.add(
+        new ParchmentRow(
+          this,
+          1,
+          y,
+          w - 3,
+          {
+            image: beastThumb(this, enc, 30),
+            title: encounterName(enc),
+            subtitle: t(`myth.${enc}.hint1` as TKey),
+            value: boss ? t('myth.info.worldBoss') : t('myth.info.level', { n: beastLevel(enc) }),
+            tip: t('trial.tip'),
+            id: `trial.${enc}`,
+            onClick: () => !area.moved && this.open(enc),
+          },
+          ROW_H,
+        ),
+      );
+      y += ROW_H + 4;
+    }
+    area.setContentHeight(y);
+    this.events.once('shutdown', () => this.area?.destroy());
     if (data?.open) this.open(data.open);
-  }
-
-  private level(enc: EncounterId): number {
-    return beastLevel(enc);
   }
 
   open(enc: EncounterId): void {
     const fit = state.campaign.fitHeroes().filter((h) => (h.wound ?? 0) <= 0);
-    openBeastInfo(this, enc, {
-      level: this.level(enc),
+    openBeastSheet(this, enc, {
+      level: beastLevel(enc),
       action: { label: t('trial.fight'), run: () => this.fight(enc), disabled: fit.length ? undefined : t('trial.empty') },
     });
   }
 
   fight(enc: EncounterId): void {
     const seed = randomSeed();
-    const enemy = beastEnemy(enc, this.level(enc), seed, state.campaign.data);
+    const enemy = beastEnemy(enc, beastLevel(enc), seed, state.campaign.data);
     const site: BattleSite = { base: enc === 'kraken' ? 'beach' : enc === 'cyclops' || enc === 'titan' ? 'hills' : 'plain', river: false, coast: enc === 'kraken', rocky: false, woods: 0 };
     state.pending = { enemy, seed, label: encounterName(enc), site };
     this.scene.start('Battle');

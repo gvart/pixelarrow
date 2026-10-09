@@ -15,7 +15,7 @@ export type MosaicStyle =
   | 'page' | 'topBar' | 'frame'
   | 'paper' | 'parchment' | 'parchmentSel' | 'parchmentWell' | 'sheet'
   | 'plaque'
-  | 'btnPrimary' | 'btnPrimaryDown' | 'btnHero' | 'btnHeroDown' | 'btnBronze' | 'btnBronzeDown' | 'btnNeutral' | 'btnNeutralDown' | 'btnStone' | 'btnBuy' | 'btnBuyDown'
+  | 'btnPrimary' | 'btnPrimaryDown' | 'btnHero' | 'btnHeroDown' | 'btnBronze' | 'btnBronzeDown' | 'btnNeutral' | 'btnNeutralDown' | 'btnStone' | 'btnBuy' | 'btnBuyDown' | 'btnLit' | 'btnLitDown'
   | 'tileStone' | 'tileTerra' | 'tileGlaze' | 'tileBronze' | 'tileOff'
   | 'fresco' | 'track' | 'trackSel' | 'segDone' | 'segOpen' | 'questTrack'
   | 'tabBar' | 'tabSel' | 'medallion' | 'medallionSel'
@@ -471,6 +471,8 @@ const BTN: Record<string, BtnLook> = {
   btnBronzeDown: { hi: M.bronze, mid: M.bronzeLo, lo: M.bronzeLo, rimHi: M.meander, rimLo: 0x2a1c0c, brushed: true, pressed: true },
   btnNeutral: { hi: M.slabHi, mid: M.slab, lo: M.slabLo, rimHi: M.bronzeHi, rimLo: 0x2a1c0c },
   btnNeutralDown: { hi: M.slab, mid: M.slabLo, lo: M.slabLo, rimHi: M.bronze, rimLo: 0x2a1c0c, pressed: true },
+  btnLit: { hi: M.goldHi, mid: M.meanderHi, lo: M.meander, rimHi: 0xfff6d8, rimLo: M.meanderLo, gloss: true },
+  btnLitDown: { hi: M.meanderHi, mid: M.meander, lo: M.meander, rimHi: M.goldHi, rimLo: M.meanderLo, gloss: true, pressed: true },
   btnBuy: { hi: ACCENT.purchaseHi, mid: ACCENT.purchase, lo: ACCENT.purchaseLo, rimHi: 0xc8e8ff, rimLo: 0x0a2436, gloss: true },
   btnBuyDown: { hi: ACCENT.purchase, mid: ACCENT.purchaseLo, lo: ACCENT.purchaseLo, rimHi: 0x9cd0f0, rimLo: 0x0a2436, gloss: true, pressed: true },
 };
@@ -1045,7 +1047,7 @@ export function renderMosaic(style: MosaicStyle, w: number, h: number, K: number
     case 'sheet': return renderParchment(w, h, K, style, { sheet: true });
     case 'plaque': return renderPlaque(w, h, K);
     case 'btnPrimary': case 'btnPrimaryDown': case 'btnHero': case 'btnHeroDown':
-    case 'btnBronze': case 'btnBronzeDown': case 'btnNeutral': case 'btnNeutralDown': case 'btnBuy': case 'btnBuyDown':
+    case 'btnBronze': case 'btnBronzeDown': case 'btnNeutral': case 'btnNeutralDown': case 'btnBuy': case 'btnBuyDown': case 'btnLit': case 'btnLitDown':
       return renderButton(w, h, K, style);
     case 'btnStone': return renderButtonOff(w, h, K);
     case 'tileStone': case 'tileTerra': case 'tileGlaze': case 'tileBronze': case 'tileOff':

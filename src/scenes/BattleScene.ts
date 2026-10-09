@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, addPanel, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
+import { Meter, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
 import { GroupCard } from '../ui/battlePanel';
-import { ListRow, type StripSlot } from '../ui/strategos';
+import type { StripSlot } from '../ui/strategos';
+import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
+import { MOSAIC } from '../ui/tokens';
 import { HintPill, MED_H, MED_W, Medallion, TOP_H, TopBar, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RadialOrders, type RadialOrder } from '../ui/radialOrders';
@@ -212,7 +214,7 @@ export class BattleScene extends BaseScene {
   private beasts: BeastView | null = null;
   /** Camera follows the fighting until the player pans or pinches. */
   private follow = true;
-  private followBtn: Button | null = null;
+  private followBtn: KeyButton | null = null;
   private abilityBtns: { id: AbilityId; btn: Medallion }[] = [];
   /** The shape sheet is open. */
   private shapeOpen = false;
@@ -1661,14 +1663,14 @@ export class BattleScene extends BaseScene {
     const c = this.add.container(0, 0);
     const x = Math.round((VW - w) / 2);
     const y = Math.max(TOP + 4, Math.round(TOP + (room - h) / 2));
-    c.add(addPanel(this, x, y, w, h, 'parch'));
-    c.add(addText(this, VW / 2, y + 6, t('battle.hint.title'), 'red', 0.5));
+    c.add(mosaicImage(this, x, y, w, h, 'parchment'));
+    c.add(mtext(this, VW / 2, y + 6, caps(t('battle.hint.title')), 'rInk', { align: 0.5, maxW: w - 12 }));
     let ty = y + 18;
     for (const lines of paras) {
-      c.add(addText(this, x + 7, ty, lines.join('\n'), 'ink'));
+      c.add(addText(this, x + 7, ty, lines.join('\n'), 'pInk'));
       ty += lines.length * LINE_H + 4;
     }
-    c.add(addText(this, VW / 2, y + h - 11, ellipsize(t('battle.hint.dismiss'), w - 8), 'dim', 0.5));
+    c.add(addText(this, VW / 2, y + h - 11, ellipsize(t('battle.hint.dismiss'), w - 8), 'pSec', 0.5));
     this.ui.add(c);
     this.hint = c;
     const dismiss = () => {
@@ -1798,10 +1800,10 @@ export class BattleScene extends BaseScene {
     const h = wrapped.reduce((a, l) => a + l.length * LINE_H + 2, 8);
     const x = Phaser.Math.Clamp(Math.round(sx / S - w / 2), 6, VW - w - 6);
     const y = Math.max(this.topH() + 4, Math.round(sy / S - h - 18));
-    c.add(addPanel(this, x, y, w, h, 'parch'));
+    c.add(mosaicImage(this, x, y, w, h, 'parchment'));
     let ty = y + 5;
     wrapped.forEach((l, i) => {
-      c.add(addText(this, x + 6, ty, l.join('\n'), i === 0 ? 'red' : 'ink'));
+      c.add(addText(this, x + 6, ty, l.join('\n'), i === 0 ? 'pBad' : 'pInk'));
       ty += l.length * LINE_H + 2;
     });
     this.ui.add(c);
@@ -2006,11 +2008,11 @@ export class BattleScene extends BaseScene {
     const h = lines.length * LINE_H + 8 + sub.length * 8;
     const x = Math.round(left + (VW - left - bw) / 2);
     const y = this.topH() + 4;
-    c.add(addPanel(this, x, y, bw, h, 'tooltip'));
-    const txt = addText(this, x + bw / 2, y + 4, lines.join('\n'), 'gold', 0.5);
+    c.add(mosaicImage(this, x, y, bw, h, 'parchment'));
+    const txt = addText(this, x + bw / 2, y + 4, lines.join('\n'), 'pInk', 0.5);
     txt.setCenterAlign();
     c.add(txt);
-    if (sub.length) c.add(addText(this, x + bw / 2, y + 4 + lines.length * LINE_H, sub.join('\n'), 'dim', 0.5).setFontSize(6).setCenterAlign());
+    if (sub.length) c.add(addText(this, x + bw / 2, y + 4 + lines.length * LINE_H, sub.join('\n'), 'pSec', 0.5).setFontSize(6).setCenterAlign());
     this.ui.add(c);
     this.banner = c;
     this.hintPill?.setText('');
@@ -2070,7 +2072,7 @@ export class BattleScene extends BaseScene {
     // following the fight: a small eye at the field's top right (battle only)
     const pillW = VW - 2 * 30;
     if (this.sim.phase === 'battle' && !this.online) {
-      const fb = new Button(this, VW - 26, TOP_H + 4, 22, 22, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), style: this.follow ? 'buttonSel' : undefined, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
+      const fb = new KeyButton(this, VW - 26, TOP_H + 4, 22, 22, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), lit: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
       this.hud.add(fb);
       this.followBtn = fb;
     }
@@ -2214,7 +2216,13 @@ export class BattleScene extends BaseScene {
     // whenever this differs, so a stale key would rebuild it forever (a stack overflow freezing the game loop)
     this.ringKey = this.ordersKey();
     const y0 = this.stripTop();
-    this.hud.add(addPanel(this, -2, y0, VW + 4, VH - y0 + 4, 'parch'));
+    this.hud.add(mosaicImage(this, -2, y0, VW + 4, VH - y0 + 4, 'topBar'));
+    const rim = this.add.graphics();
+    rim.fillStyle(MOSAIC.meander, 1);
+    rim.fillRect(-2, y0, VW + 4, 1);
+    rim.fillStyle(MOSAIC.meanderLo, 1);
+    rim.fillRect(-2, y0 + 1, VW + 4, 1);
+    this.hud.add(rim);
     // cards
     const cw = Math.floor((VW - 8 - SIZE.gap) / 2);
     const all = this.sheetGroups();
@@ -2260,11 +2268,17 @@ export class BattleScene extends BaseScene {
     if (u && this.sim.groups[u.group].individual) chips.push({ icon: 'people', label: t('battle.ring.join'), tip: t('battle.tip.join'), id: 'battle.cmd.join', onClick: () => this.rejoin(u) });
     else if (u) chips.push({ icon: 'detach', label: t('battle.ring.solo'), tip: t('battle.tip.solo'), id: 'battle.cmd.solo', onClick: () => this.detach(u) });
     let cx = VW - 4;
-    for (const c of chips.reverse()) {
-      const w = Math.min(96, measureText(c.label, false, 6) + 26);
+    // natural widths, squeezed (never under a touch target) to leave the title a little room
+    const nat = chips.map((c) => Math.min(112, Math.ceil(mw(caps(c.label), 'rCream', 6.5)) + 22));
+    const budget = VW - 8 - 60 - SIZE.gap * (chips.length - 1);
+    const sum = nat.reduce((a, n) => a + n, 0);
+    const widths = sum <= budget ? nat : nat.map((n) => Math.max(24, Math.floor((n * budget) / sum)));
+    chips.reverse();
+    widths.reverse();
+    for (const [ci, c] of chips.entries()) {
+      const w = widths[ci];
       cx -= w;
-      const b = new Button(this, cx, y - 1, w, SHEET_HEAD_H, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, style: c.selected ? 'buttonSel' : undefined, disabledReason: c.off, onClick: c.onClick, small: true });
-      if (c.off) b.setEnabled(false, c.off);
+      const b = new KeyButton(this, cx, y - 1, w, SHEET_HEAD_H, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', lit: c.selected, disabledReason: c.off, onClick: c.onClick });
       this.hud.add(b);
       if (c.id === 'battle.cat.formation') this.tabBtns.set('formation', b);
       if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), b);
@@ -2272,8 +2286,11 @@ export class BattleScene extends BaseScene {
     }
     const title = deploy ? t('battle.shape.chip') : sel ? t('battle.orders.title', { group: selName }) : '';
     if (title) {
-      const ht = addText(this, 6, y + 2, ellipsize(title.toUpperCase(), cx - 10, false, 5.5, 'head'), 'head', 0).setFontSize(5.5);
-      this.hud.add(ht);
+      // the whole line (a size down when it must), else only the group's name
+      const room = cx - 10;
+      const size = [6.5, 6, 5.5].find((z) => mw(caps(title), 'rGold', z) <= room);
+      const line = size ? title : !deploy && sel ? selName : title;
+      this.hud.add(mtext(this, 6, y + 3 + (size === 5.5 ? 0.5 : 0), caps(line), 'rGold', { size: size ?? 6.5, maxW: room }));
     }
     y += SHEET_HEAD_H + 3;
     // the row: Fight (deployment) or the five orders (battle)
@@ -2282,9 +2299,8 @@ export class BattleScene extends BaseScene {
       const main: StripSlot = this.online
         ? { icon: 'check', label: t('battle.ready'), selected: ready, off: ready ? t('battle.why.waiting') : undefined, tip: t(this.src?.lockstep ? 'battle.tip.readyDuel' : 'battle.tip.ready'), id: 'battle.ready', onClick: () => this.startFight() }
         : { icon: 'swords', label: t('battle.fight'), tip: t('battle.tip.fight'), id: 'battle.fight', onClick: () => this.startFight() };
-      const fight = new Button(this, 4, y, VW - 8, SHEET_ORDERS_H - 2, { icon: main.icon, label: main.label, tip: main.tip, id: main.id, variant: main.selected ? 'secondary' : 'primary', style: main.selected ? 'buttonSel' : undefined, disabledReason: main.off, onClick: main.onClick, inline: true });
-      if (main.off) fight.setEnabled(false, main.off);
-      this.hud.add(fight);
+      // the one primary of the deployment: the hero button (grey stone while the online ready is waiting)
+      this.hud.add(new MButton(this, 4, y, VW - 8, SHEET_ORDERS_H, { icon: main.icon, label: main.label, tip: main.tip, id: main.id, variant: main.off ? 'disabled' : 'primaryHero', disabledReason: main.off, onClick: main.onClick }));
       return;
     }
     const orders = this.ringOrders();
@@ -2295,17 +2311,20 @@ export class BattleScene extends BaseScene {
     }
     const n = orders.length;
     const bw = Math.floor((VW - 8 - SIZE.gap * (n - 1)) / n);
+    // one face for the whole row: capitals when every word fits as such, else Inter
+    const plain = orders.some((o) => mw(caps(o.label), 'rCream', 5.5) > bw - 4);
     orders.forEach((o, i) => {
-      const b = new Button(this, 4 + i * (bw + SIZE.gap), y, bw, SHEET_ORDERS_H, {
+      const b = new KeyButton(this, 4 + i * (bw + SIZE.gap), y, bw, SHEET_ORDERS_H, {
         icon: o.icon,
         label: o.label,
         tip: o.tip,
         id: `battle.cmd.${o.key}`,
-        style: o.selected ? 'buttonSel' : undefined,
+        variant: 'bronze',
+        lit: o.selected,
+        plain,
         disabledReason: o.off,
         onClick: () => o.onTap(),
       });
-      if (o.off) b.setEnabled(false, o.off);
       this.hud.add(b);
       this.cmdBtns.set(o.key, b);
     });
@@ -2446,24 +2465,23 @@ export class BattleScene extends BaseScene {
       this.buildHud();
     });
     c.add(shade);
-    c.add(addPanel(this, x, y, w, h, 'parch'));
+    c.add(mosaicImage(this, x, y, w, h, 'sheet'));
     const numeral = this.cards.find((k) => k.gid === sel.id)?.numeral ?? '';
-    const title = addText(this, x + 6, y + 5, ellipsize(t('battle.shape.title', { numeral, name: sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : groupName(sel.name) }), w - 12, false, 7, 'head'), 'head');
-    c.add(title);
+    c.add(mtext(this, x + 6, y + 5, t('battle.shape.title', { numeral, name: sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : groupName(sel.name) }).toUpperCase().replace(/ +/g, '  '), 'rInk', { size: 7.5, maxW: w - 12 }));
     let ry = y + 16;
     for (const [type, key, icon] of PRESETS) {
       const wallOff = type === 'shieldwall' && !mem.some((u) => u.stats.canShieldWall) ? t('battle.why.noShields') : undefined;
-      const row = new ListRow(
+      const row = new ParchmentRow(
         this,
         x + 4,
         ry,
         w - 8,
         {
           icon,
-          label: t(`battle.cmd.${key}` as TKey),
-          sub: this.compact ? undefined : t(`battle.shape.${type}` as TKey),
-          primary: sel.formation.type === type,
-          off: wallOff,
+          title: t(`battle.cmd.${key}` as TKey),
+          subtitle: this.compact ? undefined : t(`battle.shape.${type}` as TKey),
+          selected: sel.formation.type === type,
+          disabled: wallOff,
           tip: t(`battle.tip.${key}` as TKey),
           id: `battle.cmd.form_${type}`,
           onClick: () => {
@@ -2535,7 +2553,7 @@ export class BattleScene extends BaseScene {
     // across the field's foot, just above the sheet
     const x = 4;
     const w = VW - 4 - x;
-    c.add(addPanel(this, x, y, w, 24, 'parch'));
+    c.add(mosaicImage(this, x, y, w, 24, 'parchment'));
     const hero = this.views[u.id].hero;
     c.add(addPortrait(this, dollFromHero(hero), x + 2, y + 2, { size: 20 }));
     // the portrait framed in the colour of his finest piece of gear (rare and up pulse)
@@ -2550,12 +2568,12 @@ export class BattleScene extends BaseScene {
     const colW = Math.max(18, ...(['hp', 'mor', 'sta'] as const).map((k) => measureText(t(`battle.stat.${k}`)) + 2));
     const mx = x + w - 4 - 3 * colW - 4;
     const textW = mx - 4 - (x + 22);
-    c.add(addText(this, x + 22, y + 3, ellipsize(`${u.name} ${t('battle.lv', { n: u.level })}`, textW), 'red'));
-    c.add(addText(this, x + 22, y + 13, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), textW), 'dim'));
+    c.add(addText(this, x + 22, y + 3, ellipsize(`${u.name} ${t('battle.lv', { n: u.level })}`, textW), 'pBad'));
+    c.add(addText(this, x + 22, y + 13, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), textW), 'pSec'));
     const colors = [P.bad, P.blue, P.good];
     const meters = (['hp', 'mor', 'sta'] as const).map((k, i) => {
       const cx = mx + i * (colW + 2);
-      c.add(addText(this, cx + colW / 2, y + 3, t(`battle.stat.${k}`), 'dim', 0.5));
+      c.add(addText(this, cx + colW / 2, y + 3, t(`battle.stat.${k}`), 'pSec', 0.5));
       return new Meter(this, cx, y + 14, colW, 5, colors[i]);
     });
     c.add(meters);
@@ -2637,9 +2655,10 @@ export class BattleScene extends BaseScene {
       if (!tag || tag.getData('label') !== label || tag.getData('sel') !== sel) {
         tag?.destroy();
         tag = this.add.container(0, 0);
-        const w = label.length * 5 + 9;
-        tag.add(addPanel(this, -w / 2, -6, w, 13, sel ? 'buttonSel' : 'button'));
-        tag.add(addText(this, 0, -3, label, sel ? 'light' : 'red', 0.5));
+        const w = Math.ceil(mw(label, 'rCream', 6.5)) + 9;
+        const plate = mosaicImage(this, -w / 2, -6, w, 13, sel ? 'btnLit' : 'btnBronze');
+        tag.add(plate);
+        tag.add(addText(this, 0, -3.4, label, sel ? 'rInk' : 'rCream', 0.5).setFontSize(6.5));
         tag.setData('label', label);
         tag.setData('sel', sel);
         this.tags.add(tag);
@@ -2915,18 +2934,19 @@ export class BattleScene extends BaseScene {
       render: (i, row, rw, _rh, area) => {
         const u = units[i];
         const hero = this.views[u.id].hero;
-        row.add(addPanel(this, 0, 0, rw, rowH, 'inset'));
+        row.add(mosaicImage(this, 0, 0, rw, rowH, 'parchment'));
         row.add(addPortrait(this, dollFromHero(hero), 3, 2));
         const tw = rw - 32;
-        row.add(addText(this, 29, 4, ellipsize(hero.name, tw), 'red'));
-        row.add(addText(this, 29, 14, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), tw), 'dim'));
+        row.add(addText(this, 29, 4, ellipsize(hero.name, tw), 'pBad'));
+        row.add(addText(this, 29, 14, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), tw), 'pSec'));
         const n = sideGroups.length;
         const cw = Math.floor((rw - 4 - SIZE.gap * (n - 1)) / n);
         sideGroups.forEach((g, gi) => {
           const on = u.group === g.id;
-          const b = new Button(this, 2 + gi * (cw + SIZE.gap), 25, cw, 22, {
+          const b = new KeyButton(this, 2 + gi * (cw + SIZE.gap), 25, cw, 22, {
             label: `${ROMAN[gi]}`,
-            style: on ? 'buttonSel' : 'button',
+            variant: 'bronze',
+            lit: on,
             tip: groupName(g.name),
             id: `battle.groups.chip${gi}`,
             onClick: () => {
@@ -2948,7 +2968,7 @@ export class BattleScene extends BaseScene {
       },
     });
     this.groupList = list;
-    md.c.add(new Button(this, md.x + Math.round((md.w - 100) / 2), doneY, 100, SIZE.btnH, { label: t('battle.groups.done'), icon: 'check', variant: 'primary', style: 'buttonSel', onClick: () => md.close() }));
+    md.c.add(new MButton(this, md.x + Math.round((md.w - 100) / 2), doneY, 100, SIZE.btnH, { label: t('battle.groups.done'), icon: 'check', variant: 'primary', onClick: () => md.close() }));
   }
 
   private closeGroups(rebuild: boolean): void {
