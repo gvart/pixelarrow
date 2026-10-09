@@ -319,6 +319,8 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
       const hit = scene.add.container(sx, 0);
       makePressable(hit, { w: this.segW, h: this.h, inset: 1, onTap: () => this.pick(opt.id, true) });
       uiId(hit, `${o.id ?? 'switch'}.${opt.id}`);
+      Object.assign(hit, { opts: { label: opt.label } });
+      hit.add(scene.add.rectangle(0, 0, this.segW, this.h, 0, 0).setOrigin(0, 0));
       this.add(hit);
     });
     this.pick(this.sel, false);
