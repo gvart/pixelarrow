@@ -91,5 +91,11 @@ export const V3_EN = {
   "dv.teamCapShort": "Team {n} pts · cap {cap}",
   "dv.capNote": "The Arena and defence allow {cap} pts; each ladder floor sets its own cap.",
   "v3.passXp": "XP to the next tier",
+  "hero.lowerNothing": "Nothing to take back: only points not yet confirmed can be lowered.",
+  "hero.allSpent": "All points are placed: confirm them below, or Undo.",
+  "hero.attrMax": "This attribute is at its maximum of {n}.",
+  "hero.perk.unlocksAt": "Unlocks at Lv {n}",
+  "hero.perk.pick": "Pick",
+  "hero.xpTo": "XP to level {n}",
   "dv.chapterLocked": "Clear floor {n} to open",
 } as const;

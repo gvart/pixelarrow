@@ -14,7 +14,7 @@ import { SIZE, COLOR, RARITY_COLOR } from './theme';
 import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
-import { renderStage, renderStar, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
+import { renderStage, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
 import { ANIM, attackLength, dollFromHero, dollGeom, weaponClass } from '../art/paperdoll';
 import { itemDef, itemValue, normalizeRarity, SLOTS, type Item, type Slot } from '../data/items';
 import type { Hero } from '../data/units';
@@ -51,10 +51,26 @@ export function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: 
 }
 
 /** Rank stars (filled up to n of max) as a row of 7 px icons, 8 px apart. Returns the width. */
+/**
+ * A hero's rank as bronze pips (diamonds): the gold star belongs to ladder
+ * floor ratings only (docs/UI_V3.md "One icon, one meaning"). Returns the width.
+ */
 export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, n: number, max = 5): number {
-  const on = tex(scene, 'star_on', () => renderStar(true));
-  const off = tex(scene, 'star_off', () => renderStar(false));
-  for (let i = 0; i < max; i++) parent.add(scene.add.image(Math.round(x + i * 8), Math.round(y), i < n ? on : off).setOrigin(0, 0));
+  const g = scene.add.graphics();
+  for (let i = 0; i < max; i++) {
+    const cx = Math.round(x + i * 8) + 3.5;
+    const cy = Math.round(y) + 3.5;
+    const pts = [{ x: cx, y: cy - 3.5 }, { x: cx + 3, y: cy }, { x: cx, y: cy + 3.5 }, { x: cx - 3, y: cy }];
+    g.fillStyle(0x000000, 0.5);
+    g.fillPoints(pts.map((p) => ({ x: p.x + 0.5, y: p.y + 0.6 })), true);
+    g.fillStyle(i < n ? 0xd2a564 : 0x3a2f25, 1);
+    g.fillPoints(pts, true);
+    if (i < n) {
+      g.fillStyle(0xf8e4b8, 0.8);
+      g.fillPoints([{ x: cx, y: cy - 3.5 }, { x: cx + 1.2, y: cy - 1.4 }, { x: cx - 1.2, y: cy - 1.4 }], true);
+    }
+  }
+  parent.add(g);
   return max * 8 - 1;
 }
 

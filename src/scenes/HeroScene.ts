@@ -1,17 +1,18 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
-import { StatBar, Tabs, addEmptyState, addScrollHint, confirmDialog, firstTimeHint, openModal, showTooltip, toast } from '../ui/widgets';
-import { uiId } from '../ui/layout';
+import { Button, ScrollArea, addIcon, addPanel, addText, scaleIcon } from '../ui/kit';
+import { StatBar, Tabs, addEmptyState, addScrollHint, confirmDialog, firstTimeHint, openModal, toast } from '../ui/widgets';
+import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
-import { SIZE, COLOR, CATEGORY_COLOR } from '../ui/theme';
-import { CommandStrip, SituationBar, type SitNumber } from '../ui/strategos';
+import { SIZE, COLOR } from '../ui/theme';
+import { CommandStrip } from '../ui/strategos';
+import { InfoChip, Pager, ProgressBar, ScreenHeader, addClaimGlow, addSection, addSwipe, addTipLine, layChips } from '../ui/v3';
+import { ACCENT, RESOURCES, SURFACE } from '../ui/tokens';
 import { ensureFonts } from '../ui/fonts';
 import {
-  DragDrop, Stage, StashGrid, addChip, addTabBadge, frameScrollTexts, addMountTile, addSlotTile, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
+  DragDrop, Stage, StashGrid, addChip, frameScrollTexts, addMountTile, addSlotTile, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
   uiBoundsOf, type StashState,
 } from '../ui/sheet';
-import { P } from '../art/palette';
 import { campaignHeroes, type HeroSource } from './heroSource';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { xpToNext, type Hero } from '../data/units';
@@ -59,7 +60,6 @@ export class HeroScene extends BaseScene {
   private drag!: DragDrop;
   private slotRects = new Map<Slot, Phaser.GameObjects.GameObject>();
   private pageTop = 0;
-  private sit: SituationBar | null = null;
   private strip: CommandStrip | null = null;
 
   constructor() {
@@ -92,7 +92,7 @@ export class HeroScene extends BaseScene {
     this.tabs = null;
     this.screen({ back: () => this.back() });
     const { VW, VH } = this.m;
-    this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
+    this.ui.add(this.add.rectangle(0, 0, VW, VH, SURFACE.bg).setOrigin(0, 0));
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     this.ui.add([this.head, this.page]);
@@ -137,65 +137,68 @@ export class HeroScene extends BaseScene {
     const L = this.head;
     const h = this.hero();
     const { VW, VH } = this.m;
-    // the situation bar: who he is and what there is to spend; the strip below: back, confirm / next hero, previous
-    this.sit?.destroy();
-    this.sit = new SituationBar(this, VW, { sentence: '', compact: this.compact, id: 'hero.situation' });
-    L.add(this.sit);
-    this.refreshSituation();
+    // the header (his name; the back arrow only outside Telegram), then power and the pager
+    const hdr = new ScreenHeader(this, VW, { title: h ? h.name : t('hero.title'), back: () => this.back(), id: 'hero.header' });
+    L.add(hdr);
     this.refreshStrip();
     if (!h) return;
-
-    // dark header: the stage with the slots, identity, XP (a parchment page below)
     const compact = this.compact;
     const cls = heroClass(h);
-    const top = this.sit!.bottom;
-    const y0 = top + 3;
+    let top = hdr.bottom + 3;
+    const all = this.src.heroes();
+    const idx = Math.max(0, all.findIndex((x) => x.id === this.heroId));
+    layChips(L, [new InfoChip(this, 0, 0, { icon: 'power', value: powerRating(h), word: t('strat.power'), tip: t('hero.powerTip'), id: 'hero.power' })], 4, top, VW - 8 - 84);
+    if (all.length > 1) L.add(new Pager(this, VW - 4 - 80, top - 1, { index: idx, count: all.length, onPrev: () => this.cycleHero(-1), onNext: () => this.cycleHero(1), prevTip: t('hero.prev'), nextTip: t('hero.next') }));
+    top += 22 + 3;
+    // hurt: the one thing worth a line of its own (points and perks are badges on their tabs)
+    if (h.wound > 0) {
+      const th = addTipLine(this, L, 4, top, VW - 8, { text: t('hero.woundedTip', { h: Math.ceil(h.wound) }), tone: 'warn', icon: 'heart', maxLines: 1 });
+      top += th + 3;
+    }
+    const y0 = top;
     const headBg = this.add.container(0, 0);
     L.add(headBg);
     let y: number;
     if (!compact) {
-      // the stage between two columns of slots
+      // the stage between two columns of slots (swipe it for the next hero)
       const ss = 28;
       const stageH = VH >= 400 ? 124 : 112;
       const sgap = Math.floor((stageH - 3 * ss) / 2);
       const sx0 = 4 + ss + 4;
       const sw = VW - 2 * sx0;
       L.add(new Stage(this, sx0, y0, sw, stageH, h, { scale: 2 }));
+      this.swipeZone(L, sx0, y0, sw, stageH);
       (['helmet', 'armor', 'trinket'] as Slot[]).forEach((s, i) => this.slot(L, 4, y0 + i * (ss + sgap), s, h, ss));
       (['weapon', 'shield'] as Slot[]).forEach((s, i) => this.slot(L, VW - 4 - ss, y0 + i * (ss + sgap), s, h, ss));
       addMountTile(this, L, VW - 4 - ss, y0 + 2 * (ss + sgap), h, ss);
-      addChip(this, L, sx0 + 3, y0 + 3, t('hero.level', { n: h.level }), 0x8c2f25);
+      addChip(this, L, sx0 + 3, y0 + 3, t('hero.level', { n: h.level }), 0x5c4325);
       addStars(this, L, sx0 + sw - 3 - 39, y0 + 5, heroStars(h));
-      if (h.wound > 0) this.woundChip(L, sx0 + 3, y0 + stageH - 16, sw - 6);
       y = y0 + stageH + 4;
-      // class and power
-      const pwW = this.power(L, VW - 5, y, h);
-      L.add(addText(this, 5, y + 1, ellipsize(className(h), VW - 14 - pwW - 4), 'gold'));
+      // class, role, traits
+      L.add(addText(this, 5, y + 1, ellipsize(className(h), VW - 10, false, 7, 'head'), 'head'));
       y += 12;
       const chipW = addChip(this, L, 5, y, roleName(cls.role), roleColor(cls.role), Math.floor(VW / 2));
       const traits = h.traits.map((k) => tOr(`trait.${k}.name`, TRAITS[k].name)).join(', ');
-      if (traits) L.add(addText(this, 5 + chipW + 4, y + 2, ellipsize(traits, VW - 14 - chipW - 4), 'title'));
-      y += 14;
+      if (traits) L.add(addText(this, 5 + chipW + 4, y + 2, ellipsize(traits, VW - 14 - chipW - 4), 'sec'));
+      y += 15;
       const need = xpToNext(h.level);
-      const xpT = addText(this, VW - 5, y, t('hero.xp', { xp: Math.floor(h.xp), need }), 'title', 1);
-      L.add(xpT);
-      L.add(new Meter(this, 5, y + 2, VW - 10 - xpT.width - 4, 5, COLOR.xp).setValue(h.xp, need));
-      y += 12;
+      const xp = new ProgressBar(this, 5, y, VW - 10, { value: h.xp, max: need, h: 4, color: RESOURCES.xp.color, label: t('hero.xpTo', { n: h.level + 1 }), right: t('hero.xp', { xp: Math.floor(h.xp), need }) });
+      L.add(xp);
+      y += xp.h + 5;
     } else {
       // short screens: a small stage beside the identity, the slots in one row below
       const sw = 50;
       const stageH = 60;
       L.add(new Stage(this, 4, y0, sw, stageH, h, { scale: 1 }));
-      if (h.wound > 0) this.woundChip(L, 6, y0 + stageH - 15, sw - 4);
+      this.swipeZone(L, 4, y0, sw, stageH);
       const tx = 4 + sw + 5;
       const tw = VW - tx - 5;
-      L.add(addText(this, tx, y0 + 1, ellipsize(className(h), tw), 'gold'));
+      L.add(addText(this, tx, y0 + 1, ellipsize(className(h), tw, false, 7, 'head'), 'head'));
       addChip(this, L, tx, y0 + 12, roleName(cls.role), roleColor(cls.role), tw);
-      const lvW = addChip(this, L, tx, y0 + 26, t('hero.level', { n: h.level }), 0x8c2f25, 40);
+      const lvW = addChip(this, L, tx, y0 + 26, t('hero.level', { n: h.level }), 0x5c4325, 40);
       addStars(this, L, tx + lvW + 4, y0 + 28, heroStars(h));
       const need = xpToNext(h.level);
-      L.add(new Meter(this, tx, y0 + 40, tw, 4, COLOR.xp).setValue(h.xp, need));
-      L.add(addText(this, VW - 5, y0 + 48, ellipsize(t('hero.power', { n: powerRating(h) }), tw), 'title', 1));
+      L.add(new ProgressBar(this, tx, y0 + 42, tw, { value: h.xp, max: need, h: 4, color: RESOURCES.xp.color }));
       y = y0 + stageH + 3;
       const slots: Slot[] = ['weapon', 'shield', 'helmet', 'armor', 'trinket'];
       const n = slots.length + (cls.mount ? 1 : 0);
@@ -205,24 +208,31 @@ export class HeroScene extends BaseScene {
       if (cls.mount) addMountTile(this, L, 4 + slots.length * step, y, h, ss);
       y += ss + 4;
     }
-    headBg.add(addPanel(this, 0, top, VW, y - top + 1, 'dark'));
+    headBg.add(addPanel(this, 0, y0 - 2, VW, y - y0 + 2, 'header'));
     y += 2;
-    // the page under the tabs is parchment, down to the strip
-    headBg.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, this.pageBottom() - y - SIZE.tabH + 2, 'parch'));
 
-    // tabs with badges for what there is to spend
+    // tabs, badged with what there is to spend
     const perkFree = Math.max(0, perkSlots(h.level) - h.perks.length);
     this.tabs = new Tabs(this, 4, y, VW - 8, TABS.map((k) => t(`hero.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),
       ids: TABS.map((k) => `hero.tab.${k}`),
-      icons: compact ? ['plus', 'shield', 'star', 'bash'] : undefined,
+      icons: compact ? ['plus', 'shield', 'aura', 'bash'] : undefined,
       onChange: (i) => this.setTab(TABS[i]),
     });
     L.add(this.tabs);
-    if (h.points > 0) addTabBadge(this, L, 4, y, VW - 8, TABS.length, 0, h.points);
-    if (perkFree > 0) addTabBadge(this, L, 4, y, VW - 8, TABS.length, 2, perkFree);
-    this.pageTop = y + SIZE.tabH + 4;
+    if (h.points > 0) this.tabs.badge(0, h.points);
+    if (perkFree > 0) this.tabs.badge(2, perkFree);
+    this.pageTop = y + SIZE.tabH + 5;
     this.buildPage();
+  }
+
+  /** Swipe the stage: the next or the previous hero. */
+  private swipeZone(L: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number): void {
+    if (this.src.heroes().length < 2) return;
+    const z = this.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
+    uiIgnore(z);
+    addSwipe(z, () => this.cycleHero(1), () => this.cycleHero(-1));
+    L.add(z);
   }
 
   /** Bottom edge of the page (the strip starts there). */
@@ -230,67 +240,21 @@ export class HeroScene extends BaseScene {
     return (this.strip?.top ?? this.m.VH) - 2;
   }
 
-  /** The sentence: who he is, what there is to spend (or that he is hurt); numbers: power, points, perks. */
-  private refreshSituation(): void {
-    const h = this.hero();
-    if (!this.sit) return;
-    if (!h) {
-      this.sit.setSentence(t('hero.title'));
-      return;
-    }
-    const perkFree = Math.max(0, perkSlots(h.level) - h.perks.length);
-    const free = h.points - this.spent();
-    const parts = [t('hero.sit.who', { name: h.name, lv: h.level, cls: className(h) })];
-    if (free > 0) parts.push(t('hero.sit.points', { n: free }));
-    if (perkFree > 0) parts.push(t('hero.sit.perks', { n: perkFree }));
-    if (h.wound > 0) parts.push(t('hero.sit.hurt', { h: Math.ceil(h.wound) }));
-    if (free <= 0 && perkFree <= 0 && h.wound <= 0) parts.push(t('hero.sit.fine'));
-    const nums: SitNumber[] = [{ icon: 'star', value: `${powerRating(h)}`, word: t('strat.power'), tip: t('hero.powerTip') }];
-    if (free > 0) nums.push({ icon: 'plus', value: `${free}`, word: t('hero.points', { n: free }).replace(/^\d+\s*/, ''), tip: t('hero.pointsTip'), font: 'good' });
-    if (perkFree > 0) nums.push({ icon: 'star', value: `${perkFree}`, word: t('hero.tab.perks').toLowerCase(), font: 'good' });
-    this.sit.setSentence(parts.join(' '), free > 0 || perkFree > 0);
-    this.sit.setNumbers(nums);
-  }
+  /** The header and its chips are rebuilt with the sheet: nothing to refresh on its own. */
+  private refreshSituation(): void {}
 
-  /** The strip: back; confirm the pending points (stats) or the next hero; undo or the previous hero. */
+  /** The strip: only while points wait to be confirmed (Confirm is the one red action, Undo beside it); the pager moves between heroes. */
   private refreshStrip(): void {
     if (!this.strip) return;
-    const h = this.hero();
-    const many = this.src.heroes().length > 1;
     const pend = this.tab === 'stats' && this.spent() > 0;
-    const next = this.src.heroes()[(this.src.heroes().findIndex((x) => x.id === this.heroId) + 1) % Math.max(1, this.src.heroes().length)];
-    this.strip.set({
-      left: { label: t('strat.back'), icon: 'back', id: 'hero.back', onClick: () => this.back() },
-      main: pend
-        ? { label: t('hero.strip.confirm', { n: this.spent() }), icon: 'check', id: 'hero.confirm', onClick: () => this.confirmPoints() }
-        : many && h
-          ? { label: `${t('strat.next')}: ${next?.name ?? ''}`, icon: 'people', secondary: true, tip: t('hero.next'), id: 'hero.next', onClick: () => this.cycleHero(1) }
-          : null,
-      right: pend
-        ? { label: t('hero.undo'), icon: 'back', id: 'hero.undo', onClick: () => this.resetPoints() }
-        : many
-          ? { label: t('strat.prev'), icon: 'back', tip: t('hero.prev'), id: 'hero.prev', onClick: () => this.cycleHero(-1) }
-          : null,
-    });
-  }
-
-  /** "Power N" (tap: what it means), right-aligned at x; returns its width. */
-  private power(L: Phaser.GameObjects.Container, x: number, y: number, h: Hero): number {
-    const txt = addText(this, x, y + 1, t('hero.power', { n: powerRating(h) }), 'title', 1);
-    const z = this.add.zone(x - txt.width - 2, y - 5, txt.width + 4, 22).setOrigin(0, 0).setInteractive();
-    uiId(z, 'hero.power');
-    z.on('pointerup', () => showTooltip(this, t('hero.powerTip'), z));
-    L.add([z, txt]);
-    return txt.width;
-  }
-
-  private woundChip(L: Phaser.GameObjects.Container, x: number, y: number, w: number): void {
-    const h = this.hero()!;
-    const z = this.add.zone(x - 1, y - 5, w + 2, 22).setOrigin(0, 0).setInteractive();
-    uiId(z, 'hero.wound');
-    z.on('pointerup', () => showTooltip(this, t('hero.woundedTip', { h: Math.ceil(h.wound) }), z));
-    L.add(z);
-    addChip(this, L, x, y, t('hero.wounded', { h: Math.ceil(h.wound) }), COLOR.bad, w);
+    this.strip.set(
+      pend
+        ? {
+            main: { label: t('hero.strip.confirm', { n: this.spent() }), icon: 'check', id: 'hero.confirm', onClick: () => this.confirmPoints() },
+            right: { label: t('hero.undo'), icon: 'back', id: 'hero.undo', onClick: () => this.resetPoints() },
+          }
+        : {},
+    );
   }
 
   private slot(L: Phaser.GameObjects.Container, x: number, y: number, slot: Slot, h: Hero, size: number): void {
@@ -343,23 +307,28 @@ export class HeroScene extends BaseScene {
     let y = 0;
     // points header (it may wrap on narrow screens: the rows below start after it)
     const head = wrapText(free > 0 ? t('hero.points', { n: free }) : h.points > 0 ? t('hero.preview') : t('hero.noPoints'), w, 2);
-    c.add(addText(this, 0, y + 1, head.lines.join('\n'), free > 0 ? 'gold' : 'dim'));
+    c.add(addText(this, 0, y + 1, head.lines.join('\n'), free > 0 ? 'reward' : 'sec'));
     y += 2 + head.lines.length * LINE_H;
     const next = previewAttrs(h, this.pending);
     ATTR_IDS.forEach((k) => {
-      c.add(addPanel(this, 0, y, w, 25, 'inset'));
-      c.add(addText(this, 5, y + 4, t(`attr.${k}.short` as TKey), 'red'));
+      c.add(addPanel(this, 0, y, w, 33, 'card'));
+      c.add(addText(this, 5, y + 4, t(`attr.${k}.short` as TKey), 'head'));
       const val = h.attrs[k] + this.pending[k];
       c.add(addText(this, 40, y + 4, `${val}`, this.pending[k] ? 'good' : 'ink', 1));
-      const descW = w - 46 - 2 * 24 - SIZE.gap - 6;
+      // the steppers only while there are points to spend (or pending ones to take back)
+      const spendable = h.points > 0;
+      const descW = w - 46 - (spendable ? 2 * 24 + SIZE.gap + 6 : 4);
       c.add(addText(this, 45, y + 4, ellipsize(t(`attr.${k}` as TKey), descW), 'ink'));
-      c.add(addText(this, 45, y + 14, ellipsize(t(`attr.${k}.desc` as TKey), descW), 'dim'));
-      const minus = new Button(this, w - 2 * 24 - SIZE.gap - 1, y + 2, 24, 22, { label: '-', tip: t('hero.lower'), id: `attr.${k}.minus`, onClick: () => this.removePoint(k) });
-      minus.setEnabled(this.pending[k] > 0, t('hero.noPoints'));
-      const plus = new Button(this, w - 24 - 1, y + 2, 24, 22, { label: '+', tip: t('hero.raise'), id: `attr.${k}.plus`, variant: free > 0 && val < ATTR_MAX ? 'primary' : 'secondary', onClick: () => this.addPoint(k) });
-      plus.setEnabled(free > 0 && val < ATTR_MAX, free > 0 ? `${ATTR_MAX}` : t('hero.noPoints'));
-      c.add([minus, plus]);
-      y += 25 + SIZE.gap;
+      const dw = wrapText(t(`attr.${k}.desc` as TKey), descW, 2, false, 6);
+      c.add(addText(this, 45, y + 14, dw.lines.join('\n'), 'sec').setFontSize(6).setLineSpacing(-1));
+      if (spendable) {
+        const minus = new Button(this, w - 2 * 24 - SIZE.gap - 1, y + 5, 24, 22, { label: '-', tip: t('hero.lower'), id: `attr.${k}.minus`, onClick: () => this.removePoint(k) });
+        minus.setEnabled(this.pending[k] > 0, t('hero.lowerNothing'));
+        const plus = new Button(this, w - 24 - 1, y + 5, 24, 22, { label: '+', tip: t('hero.raise'), id: `attr.${k}.plus`, onClick: () => this.addPoint(k) });
+        plus.setEnabled(free > 0 && val < ATTR_MAX, free > 0 ? t('hero.attrMax', { n: ATTR_MAX }) : t('hero.allSpent'));
+        c.add([minus, plus]);
+      }
+      y += 33 + SIZE.gap;
     });
     y += 4;
     // every derived stat, previewing the pending points
@@ -374,24 +343,22 @@ export class HeroScene extends BaseScene {
     }
     // record and traits
     y += 4;
-    c.add(addText(this, 0, y, t('hero.record'), 'red'));
-    y += 11;
+    y = addSection(this, c, 0, y, w, t('hero.record'));
     const rec = `${t('hero.kills')} ${h.kills}   ${t('hero.battles')} ${h.battles}`;
     c.add(addText(this, 0, y, ellipsize(rec, w), 'ink'));
     y += 11;
-    c.add(addText(this, 0, y, (h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : t('hero.fit')), h.wound > 0 ? 'red' : 'good'));
-    y += 13;
-    c.add(addText(this, 0, y, t('hero.traits'), 'red'));
-    y += 11;
+    c.add(addText(this, 0, y, (h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : t('hero.fit')), h.wound > 0 ? 'bad' : 'good'));
+    y += 15;
+    y = addSection(this, c, 0, y, w, t('hero.traits'));
     if (!h.traits.length) {
-      c.add(addText(this, 0, y, t('hero.noTraits'), 'dim'));
+      c.add(addText(this, 0, y, t('hero.noTraits'), 'muted'));
       y += 11;
     }
     for (const k of h.traits) {
       const tr = TRAITS[k];
-      c.add(addText(this, 0, y, ellipsize(tOr(`trait.${k}.name`, tr.name), w), tr.negative ? 'red' : 'ink'));
+      c.add(addText(this, 0, y, ellipsize(tOr(`trait.${k}.name`, tr.name), w), tr.negative ? 'bad' : 'ink'));
       const wr = wrapText(tOr(`trait.${k}.desc`, tr.desc), w - 6, 2);
-      c.add(addText(this, 6, y + 10, wr.lines.join('\n'), 'dim'));
+      c.add(addText(this, 6, y + 10, wr.lines.join('\n'), 'sec'));
       y += 10 + wr.lines.length * LINE_H + 3;
     }
     const rs = this.src.respec;
@@ -542,9 +509,9 @@ export class HeroScene extends BaseScene {
     let y = 0;
     const nextLvl = PERK_LEVELS.find((l) => l > h.level);
     const head = free > 0 ? t('hero.perk.free', { n: free }) : nextLvl ? t('hero.perk.nextAt', { n: nextLvl }) : t('hero.perkTree', { cls: className(h) });
-    c.add(addText(this, w / 2, y + 1, ellipsize(head, w), free > 0 ? 'gold' : 'dim', 0.5));
+    c.add(addText(this, w / 2, y + 1, ellipsize(head, w), free > 0 ? 'reward' : 'sec', 0.5));
     y += 13;
-    const rowH = 34;
+    const rowH = 49;
     const g = this.add.graphics();
     c.add(g);
     tree.forEach((id, i) => {
@@ -553,48 +520,39 @@ export class HeroScene extends BaseScene {
       const blocker = perkBlocker(h, id);
       const open = !known && blocker === null;
       const ry = y + i * (rowH + SIZE.gap);
-      // the trunk joining the nodes
+      // the trunk joining the nodes: gold through what is learned
       if (i > 0) {
-        g.fillStyle(known ? P.red : 0x8a7a6a, 1);
+        g.fillStyle(known ? ACCENT.gold : SURFACE.line, 1);
         g.fillRect(28 + 11, ry - SIZE.gap - 6, 3, SIZE.gap + 8);
       }
-      c.add(addPanel(this, 0, ry, w, rowH, known ? 'parch' : open ? 'parch' : 'inset'));
-      // level requirement on the left
-      c.add(addText(this, 8, ry + 13, `${PERK_LEVELS[i]}`, h.level >= PERK_LEVELS[i] ? 'ink' : 'dim', 0.5));
-      // node button with the perk icon
-      const node = new Button(this, 26, ry + 5, 26, 24, {
+      c.add(addPanel(this, 0, ry, w, rowH, known ? 'cardSel' : open ? 'cardRaised' : 'cardLocked'));
+      // the level it needs, on the left
+      c.add(addText(this, 9, ry + 18, `${PERK_LEVELS[i]}`, h.level >= PERK_LEVELS[i] ? 'ink' : 'muted', 0.5));
+      if (open) addClaimGlow(this, c, 26, ry + 11, 26, 24);
+      const node = new Button(this, 26, ry + 11, 26, 24, {
         icon: perkIcon(p),
         label: tOr(`perk.${id}.name`, p.name),
         iconOnly: true,
-        style: known ? 'buttonSel' : 'button',
+        style: known ? 'buttonSel' : undefined,
+        variant: known || open ? undefined : 'ghost',
         id: `perk:${id}`,
         onClick: () => this.openPerk(h, p, tree),
       });
-      if (!known && !open) {
-        // locked: dimmed, still opens the perk's card
-        const dim = this.add.rectangle(27, ry + 6, 24, 21, 0x6e5a44, 0.45).setOrigin(0, 0);
-        node.add(dim.setPosition(1, 1));
-      }
       c.add(node);
-      if (open) {
-        const ring = this.add.rectangle(25, ry + 4, 28, 26).setOrigin(0, 0).setStrokeStyle(2, P.gold);
-        c.add(ring);
-        this.tweens.add({ targets: ring, alpha: { from: 1, to: 0.25 }, duration: 520, yoyo: true, repeat: -1 });
-      }
-      // tree colour pip
       const pip = this.add.graphics();
       pip.fillStyle(TREES[p.tree].color, 1);
-      pip.fillRect(17, ry + 4, 3, rowH - 8);
+      pip.fillRect(17, ry + 5, 3, rowH - 10);
       c.add(pip);
       const tx = 57;
-      const tw = w - tx - 4;
+      const tw = w - tx - 6;
+      // name, then its state on a line of its own (never cut), then what it does
+      c.add(addText(this, tx, ry + 5, ellipsize(tOr(`perk.${id}.name`, p.name), tw), known ? 'head' : open ? 'ink' : 'sec'));
       const status = known ? t('hero.perk.learned') : open ? t('hero.perk.available') : blocker ? blockerText(blocker, tree, i) : '';
-      const st = addText(this, w - 4, ry + 4, ellipsize(status, Math.floor(tw / 2)), known ? 'good' : open ? 'gold' : 'dim', 1);
-      c.add(st);
-      c.add(addText(this, tx, ry + 4, ellipsize(tOr(`perk.${id}.name`, p.name), tw - st.width - 4), known ? 'red' : 'ink'));
+      if (!known && !open) c.add(scaleIcon(addIcon(this, tx, ry + 15, 'lock', 'D'), 0.75));
+      if (known) c.add(scaleIcon(addIcon(this, tx, ry + 15, 'check'), 0.75));
+      c.add(addText(this, tx + 11, ry + 16, ellipsize(status, tw - 11), known ? 'good' : open ? 'reward' : 'muted'));
       const wr = wrapText(tOr(`perk.${id}.desc`, p.desc), tw, 2);
-      c.add(addText(this, tx, ry + 14, wr.lines.join('\n'), 'dim'));
-      // the whole row opens the perk too (beside the node)
+      c.add(addText(this, tx, ry + 26, wr.lines.join('\n'), known || open ? 'sec' : 'muted'));
       const z = this.add.zone(tx - 2, ry, w - tx + 2, rowH).setOrigin(0, 0).setInteractive();
       uiId(z, `perkrow:${id}`);
       z.on('pointerup', () => !area.moved && this.openPerk(h, p, tree));
@@ -602,7 +560,7 @@ export class HeroScene extends BaseScene {
     });
     y += tree.length * (rowH + SIZE.gap) + 4;
     const note = wrapText(t('hero.abilityUse'), w, 2);
-    c.add(addText(this, 0, y, note.lines.join('\n'), 'dim'));
+    c.add(addText(this, 0, y, note.lines.join('\n'), 'muted'));
     y += note.lines.length * LINE_H;
     area.setContentHeight(y + 4);
     frameScrollTexts(area, VW - 8);
@@ -667,8 +625,9 @@ export class HeroScene extends BaseScene {
     tree.forEach((id, i) => {
       const p = PERKS[id];
       if (h.perks.includes(id)) return;
-      if (p.ability && !s.abilities.includes(p.ability)) rows.push({ kind: 'ability', id: p.ability, has: false, source: `${tOr(`perk.${id}.name`, p.name)} · ${t('hero.level', { n: PERK_LEVELS[i] })}` });
-      if (p.aura && !s.auras.includes(p.aura)) rows.push({ kind: 'aura', id: p.aura, has: false, source: `${tOr(`perk.${id}.name`, p.name)} · ${t('hero.level', { n: PERK_LEVELS[i] })}` });
+      const when = h.level < PERK_LEVELS[i] ? t('hero.perk.unlocksAt', { n: PERK_LEVELS[i] }) : t('hero.fromPerk', { name: tOr(`perk.${id}.name`, p.name) });
+      if (p.ability && !s.abilities.includes(p.ability)) rows.push({ kind: 'ability', id: p.ability, has: false, source: when });
+      if (p.aura && !s.auras.includes(p.aura)) rows.push({ kind: 'aura', id: p.aura, has: false, source: when });
     });
     if (!rows.length) {
       this.page.add(addEmptyState(this, 4, top, VW - 8, this.pageBottom() - top, { icon: 'bash', title: t('hero.noAbilities'), hint: t('hero.noAbilitiesHint'), action: { label: t('hero.tab.perks'), icon: 'star', onClick: () => this.tabs?.select(2) } }));
@@ -685,28 +644,25 @@ export class HeroScene extends BaseScene {
       const desc = isAb ? tOr(`ability.${r.id}.desc`, def.desc) : tOr(`aura.${r.id}.desc`, def.desc);
       const wr = wrapText(desc, w - 34, 4);
       const hh = Math.max(36, 26 + wr.lines.length * LINE_H + 2);
-      c.add(addPanel(this, 0, y, w, hh, r.has ? 'parch' : 'inset'));
-      // gold ability tile (the battle panel's abilities colour)
-      const tile = this.add.graphics();
-      tile.fillStyle(0x1d140f, 1);
-      tile.fillRect(4, y + 4, 24, 24);
-      tile.fillStyle(r.has ? CATEGORY_COLOR.abilities : 0x8a7a6a, 1);
-      tile.fillRect(5, y + 5, 22, 22);
-      c.add(tile);
-      c.add(addIcon(this, 10, y + 10, isAb ? (def as (typeof ABILITIES)[AbilityId]).icon : 'aura', r.has ? '' : 'D'));
+      c.add(addPanel(this, 0, y, w, hh, r.has ? 'card' : 'cardLocked'));
+      // the ability's own picture on a gold tile; a skill not learned yet: dimmed in a well, with a lock
+      c.add(addPanel(this, 4, y + 4, 24, 24, r.has ? 'thumb' : 'well'));
+      const icon = isAb ? (def as (typeof ABILITIES)[AbilityId]).icon : `aura_${r.id}`;
+      c.add(addIcon(this, 10, y + 10, icon, r.has ? '' : 'D'));
+      if (!r.has) c.add(scaleIcon(addIcon(this, 20, y + 20, 'lock', 'D'), 0.67));
       let right = w - 4;
       if (isAb) {
         const cd = Math.round((def as (typeof ABILITIES)[AbilityId]).cooldown * s.cdMult);
-        const cw = addChip(this, c, w - 4, y + 4, t('hero.cooldownShort', { n: cd }), 0x5a4232, 60, true);
+        const cw = addChip(this, c, w - 4, y + 4, t('hero.cooldownShort', { n: cd }), 0x3a2f25, 60, true);
         right = w - 4 - cw - 4;
       }
-      c.add(addText(this, 32, y + 5, ellipsize(name, right - 32), r.has ? 'red' : 'dim'));
-      c.add(addText(this, 32, y + 15, ellipsize(`${isAb ? t('hero.ability') : t('hero.aura')}${r.source ? ' · ' + r.source : ''}`, w - 36), r.has ? 'gold' : 'dim'));
-      c.add(addText(this, 32, y + 26, wr.lines.join('\n'), r.has ? 'ink' : 'dim'));
+      c.add(addText(this, 32, y + 5, ellipsize(name, right - 32), r.has ? 'head' : 'sec'));
+      c.add(addText(this, 32, y + 15, ellipsize(`${isAb ? t('hero.ability') : t('hero.aura')}${r.source ? ' · ' + r.source : ''}`, w - 36), r.has ? 'reward' : 'muted'));
+      c.add(addText(this, 32, y + 26, wr.lines.join('\n'), r.has ? 'ink' : 'muted'));
       y += hh + SIZE.gap;
     }
     const note = wrapText(`${t('hero.abilityUse')} ${t('hero.auraUse')}`, w, 3);
-    c.add(addText(this, 0, y + 2, note.lines.join('\n'), 'dim'));
+    c.add(addText(this, 0, y + 2, note.lines.join('\n'), 'muted'));
     y += 2 + note.lines.length * LINE_H;
     area.setContentHeight(y + 4);
     frameScrollTexts(area, VW - 8);
@@ -755,14 +711,14 @@ export class HeroScene extends BaseScene {
 
 function perkIcon(p: PerkDef): string {
   if (p.ability) return ABILITIES[p.ability].icon;
-  if (p.aura) return 'aura';
+  if (p.aura) return `aura_${p.aura}`;
   return p.tree === 'hoplite' ? 'shield' : p.tree === 'skirmisher' ? 'spear' : p.tree === 'rider' ? 'advance' : 'swords';
 }
 
 function blockerText(b: string, tree: readonly PerkId[], tier: number): string {
   if (b === 'Known') return t('hero.perk.learned');
   if (b === 'No perk point') return t('hero.perk.noPoint');
-  if (b.startsWith('Needs Lv')) return t('hero.perk.needsLevel', { n: PERK_LEVELS[tier] });
+  if (b.startsWith('Needs Lv')) return t('hero.perk.unlocksAt', { n: PERK_LEVELS[tier] });
   if (b.startsWith('Needs ')) {
     const prev = tree[tier - 1];
     return t('hero.perk.needs', { name: prev ? tOr(`perk.${prev}.name`, PERKS[prev].name) : '' });
