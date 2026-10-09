@@ -55,7 +55,8 @@ export function showChallenge(game: Phaser.Game, id: string, from: PresencePlaye
   const w = Math.min(VW - 16, 200);
   const wr = wrapText(t('duel.challengesYou', { name: from.name }), w - 20, 4);
   const h = 30 + wr.lines.length * LINE_H + 10 + SIZE.btnH + 12;
-  const modal = openModal(host, { title: t('duel.challenged'), w, h, onClose: () => {
+  // it pops up unasked: a stray tap outside must not decline the challenge
+  const modal = openModal(host, { title: t('duel.challenged'), w, h, shadeCloses: false, onClose: () => {
     if (popup?.id === id) {
       popup = null;
       shardSocket.send({ type: 'challenge_reply', id, accept: false });

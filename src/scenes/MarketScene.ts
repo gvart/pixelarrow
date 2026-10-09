@@ -590,7 +590,8 @@ export class MarketScene extends BaseScene {
     const w = Math.min(VW - 12, 210);
     const inner = w - 16;
     const rowsH = (s.kind === 'item' ? 0 : 1) * (SIZE.btnH + 12) + 3 * (SIZE.btnH + 12) + 34;
-    const m = openModal(this, { title: t('market.listTitle', { name }), w, h: Math.min(VH - 12, 26 + 30 + rowsH + SIZE.btnH + 14) });
+    // a form: an outside tap (easy next to the edge steppers) must not drop the price set so far
+    const m = openModal(this, { title: t('market.listTitle', { name }), w, h: Math.min(VH - 12, 26 + 30 + rowsH + SIZE.btnH + 14), shadeCloses: false });
     const { c, x } = m;
     let cy = m.y + 24;
     const subj: IconSubject = s.kind === 'item' ? { item: s.item } : s.kind === 'resource' ? { resource: s.id } : { consumable: s.id };

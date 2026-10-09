@@ -135,7 +135,6 @@ class CampPanel {
       title: o.name,
       w,
       h: 236,
-      shadeCloses: true,
       onClose: () => {
         this.closed = true;
         this.timer.remove();

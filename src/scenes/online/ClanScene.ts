@@ -70,10 +70,11 @@ export class ClanScene extends BaseScene {
     }
   }
 
-  /** A parchment modal that Back (Telegram's or ours) closes. */
-  private openM(h: number, title: string): Modal {
+  /** A parchment modal that Back (Telegram's or ours) closes, and a tap outside it unless `shadeCloses` is false. */
+  private openM(h: number, title: string, shadeCloses = true): Modal {
     const md = openModal(this, this.ui, this.m.VW, this.m.VH, h, title);
     this.modalLayer(md.c, () => this.closeModal());
+    if (shadeCloses) md.onShadeTap(() => this.closeModal());
     return md;
   }
 
@@ -227,7 +228,7 @@ export class ClanScene extends BaseScene {
 
   private confirmLeave(): void {
     const { VW } = this.m;
-    this.modal = this.openM(96, 'Leave the clan?');
+    this.modal = this.openM(96, 'Leave the clan?', false);
     const md = this.modal;
     lines(this, md.c, VW / 2, md.y + 28, ['Your land stays yours,', 'but no longer clan land.'], 'ink');
     button(this, md.c, md.x + 10, md.y + 58, md.w / 2 - 15, 24, 'Stay', () => this.closeModal());
@@ -254,7 +255,7 @@ export class ClanScene extends BaseScene {
     const c = preview.clan;
     if (!c) return;
     const { VW } = this.m;
-    this.modal = this.openM(112, 'Clan invite');
+    this.modal = this.openM(112, 'Clan invite', false);
     const md = this.modal;
     lines(this, md.c, VW / 2, md.y + 28, [`[${c.tag}] ${c.name}`, `${c.members} members - ${c.regions} regions`, preview.current ? 'You must leave your clan first.' : 'Join them?'], 'ink');
     button(this, md.c, md.x + 10, md.y + 74, md.w / 2 - 15, 24, 'Not now', () => {

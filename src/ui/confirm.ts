@@ -1,4 +1,4 @@
-/** A small yes/no modal; Back (Telegram or in-game) answers "cancel". Kept for older call sites: use confirmDialog (widgets.ts). */
+/** A small yes/no modal; Back (Telegram or in-game) answers "cancel"; a tap outside does nothing (confirmDialog sets shadeCloses: false). Kept for older call sites: use confirmDialog (widgets.ts). */
 import Phaser from 'phaser';
 import type { UIMetrics } from './kit';
 import { confirmDialog } from './widgets';

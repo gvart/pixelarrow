@@ -1,6 +1,7 @@
 /** Shared bits of the online scenes: modals, the resource strip, colours. */
 import Phaser from 'phaser';
 import { Button, addIcon, addPanel, addScroll, addText, type FontKey } from '../../ui/kit';
+import { shadeTap } from '../../ui/widgets';
 import type { Resources } from '../../online/rules';
 
 export interface Modal {
@@ -9,18 +10,24 @@ export interface Modal {
   y: number;
   w: number;
   h: number;
+  /** Close on a tap on the shade outside the box (see `shadeTap` in ui/widgets.ts). */
+  onShadeTap: (close: () => void) => void;
 }
 
-/** Parchment modal over a dark shade, centred in the UI root. */
+/**
+ * Parchment modal over a dark shade, centred in the UI root. Closing is the
+ * caller's: pass the same close Back uses to `onShadeTap` for tap-outside.
+ */
 export function openModal(scene: Phaser.Scene, ui: Phaser.GameObjects.Container, VW: number, VH: number, h: number, title: string, w = Math.min(VW - 16, 184)): Modal {
   const c = scene.add.container(0, 0);
   ui.add(c);
-  c.add(scene.add.rectangle(0, 0, VW, VH, 0x000000, 0.55).setOrigin(0, 0).setInteractive());
+  const shade = scene.add.rectangle(0, 0, VW, VH, 0x000000, 0.55).setOrigin(0, 0).setInteractive();
+  c.add(shade);
   const x = Math.round((VW - w) / 2);
   const y = Math.max(4, Math.round((VH - h) / 2));
   addScroll(scene, c, x, y, w, h);
   c.add(addText(scene, VW / 2, y + 12, title, 'red', 0.5));
-  return { c, x, y, w, h };
+  return { c, x, y, w, h, onShadeTap: (close) => shadeTap(shade, { x, y, w, h }, close) };
 }
 
 /** Centred lines of text; returns the y after the last line. */
