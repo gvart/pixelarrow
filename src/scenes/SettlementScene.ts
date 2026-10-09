@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, addIcon, addPanel, addScroll, addText } from '../ui/kit';
-import { ItemIcon, ScrollList, Tabs, addEmptyState, confirmDialog, toast } from '../ui/widgets';
+import { ScrollArea, panelK } from '../ui/kit';
+import { ScrollList, ItemIcon, addScrollHint, confirmDialog, toast } from '../ui/widgets';
 import { uiId } from '../ui/layout';
-import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
-import { SIZE } from '../ui/theme';
-import { ensureFonts, rarityFont } from '../ui/fonts';
-import { StashGrid, addChip, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
+import { measureText, wrapText } from '../ui/textfit';
+import { ensureFonts } from '../ui/fonts';
+import { className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
 import { addPortrait } from '../ui/sprites';
 import { heroClass } from '../sim/stats';
 import { dollFromHero } from '../art/paperdoll';
+import { renderGround } from '../art/ground';
 import { renderSettlement } from '../art/worldArt';
 import { state } from '../state';
 import { haptic, hapticNotify } from '../platform/telegram';
@@ -19,9 +19,14 @@ import { WORLD_RULES } from '../world/world';
 import { CULTURE_LABEL } from '../data/names';
 import { uiCoin, uiError } from '../audio/hooks';
 import { itemModLines } from '../game/gear';
+import { MOSAIC } from '../ui/tokens';
+import { ActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, addFramedArt, addPartyEmpty, addPartyShell, addPill, addPortraitWell, addRowFace, mtext, mw, rarityInk, type MButtonOpts } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
 
 type Tab = 'recruits' | 'market' | 'sell' | 'rest';
+
+const TAB_ICON: Record<Tab, string> = { recruits: 'plus', market: 'shop', sell: 'amphora', rest: 'tent' };
+const TAB_KEY: Record<Tab, TKey> = { recruits: 'town.tab.hire', market: 'town.tab.buy', sell: 'town.tab.sell', rest: 'town.tab.rest' };
 
 /** Village / town screen: hire volunteers (class cards), buy and sell gear, rest and heal. */
 export class SettlementScene extends BaseScene {
@@ -29,12 +34,17 @@ export class SettlementScene extends BaseScene {
   private tab: Tab = 'recruits';
   private tabList: Tab[] = [];
   private body!: Phaser.GameObjects.Container;
+  private status!: Phaser.GameObjects.Container;
   private list: ScrollList | null = null;
-  private stash: StashGrid | null = null;
+  private stash: MStashGrid | null = null;
   private stashState: StashState = defaultStashState();
-  private goldText!: Phaser.GameObjects.BitmapText;
-  private armyText!: Phaser.GameObjects.BitmapText;
+  /** The content column (UI px). */
+  private ax = 0;
+  private aw = 0;
   private bodyTop = 0;
+  private bodyBottom = 0;
+  private chipsY = 0;
+  private restArea: ScrollArea | null = null;
 
   constructor() {
     super('Settlement');
@@ -57,53 +67,75 @@ export class SettlementScene extends BaseScene {
     this.list = null;
     this.stash = null;
     this.screen({ back: () => this.leave() });
-    const { VW, VH } = this.m;
+    const { VH } = this.m;
     const compact = VH < 300;
 
-    // backdrop: the plain and the settlement drawn large (a short band on small screens)
-    this.addGrassBackdrop(def.id + 30);
-    const artH = compact ? 50 : 92;
-    const key = `wm_setbig_${def.kind}_${def.id % 2}_${def.coastal ? 1 : 0}`;
-    if (!this.textures.exists(key)) this.textures.addCanvas(key, renderSettlement(def.kind, def.id, def.coastal).toCanvas());
-    this.ui.add(this.add.image(VW / 2, artH, key).setScale(compact ? (def.kind === 'town' ? 1 : 2) : def.kind === 'town' ? 2 : 3).setOrigin(0.5, 1));
+    const shell = addPartyShell(this, { title: def.name, back: () => this.leave(), id: 'town.topbar' });
+    const b = shell.body;
+    this.ax = b.x + 4;
+    this.aw = b.w - 8;
+    let y = b.y + 4;
 
-    addScroll(this, this.ui, 8, 4, VW - 16, compact ? 28 : 34);
+    // the settlement, drawn large, in the fresco frame
+    const artH = compact ? 38 : 78;
+    addFramedArt(this, this.ui, this.ax, y, this.aw, artH, this.artTexture(def, this.aw - 8, artH - 8));
+    y += artH + 3;
     const people = tOr(`culture.${def.culture}`, CULTURE_LABEL[def.culture]);
-    this.ui.add(addText(this, VW / 2, compact ? 9 : 11, ellipsize(def.name, VW - 32), 'red', 0.5));
-    this.ui.add(addText(this, VW / 2, compact ? 19 : 23, ellipsize(t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), VW - 32), 'dim', 0.5));
+    this.ui.add(mtext(this, b.x + b.w / 2, y + 1, t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), 'pSec', { size: 6.5, align: 0.5, maxW: this.aw, box: { owner: this.ui, w: this.m.VW, h: VH } }));
+    y += 11;
 
-    // status strip: gold, army, wounded
-    const sy = artH + 2;
-    this.ui.add(addPanel(this, 4, sy, VW - 8, 16, 'parch'));
-    this.ui.add(addIcon(this, 8, sy + 2, 'coin'));
-    this.goldText = addText(this, 23, sy + 4, '', 'ink');
-    this.ui.add(this.goldText);
-    this.ui.add(addIcon(this, Math.round(VW / 2) - 10, sy + 2, 'people'));
-    this.armyText = addText(this, Math.round(VW / 2) + 5, sy + 4, '', 'ink');
-    this.ui.add(this.armyText);
+    // gold, men, wounded
+    this.chipsY = y;
+    y += 18 + 3;
 
     // tabs
-    const ty = sy + 19;
-    const tabs = new Tabs(this, 4, ty, VW - 8, this.tabList.map((k) => t(`town.tab.${k === 'recruits' ? 'hire' : k === 'market' ? 'buy' : k}` as TKey)), {
-      selected: this.tabList.indexOf(this.tab),
-      icons: ['plus', 'shop', 'amphora', 'tent'].filter((_, i) => def.kind === 'town' || i === 0 || i === 3),
-      ids: this.tabList.map((k) => `town.tab.${k}`),
-      onChange: (i) => this.setTab(this.tabList[i]),
-    });
-    this.ui.add(addPanel(this, 0, ty + SIZE.tabH - 2, VW, VH - ty - SIZE.tabH - 30, 'parch'));
-    this.ui.add(tabs);
-    this.bodyTop = ty + SIZE.tabH + 4;
+    this.ui.add(
+      new SegmentedSwitch(this, this.ax, y, this.aw, {
+        options: this.tabList.map((k) => ({ id: k, label: t(TAB_KEY[k]), icon: TAB_ICON[k] })),
+        selected: this.tab,
+        onChange: (id) => this.setTab(id as Tab),
+        id: 'town.tab',
+      }),
+    );
+    y += SWITCH_H + 4;
+    this.bodyTop = y;
 
     this.body = this.add.container(0, 0);
     this.ui.add(this.body);
+    // (after the body: scripts that look for the first coin button find a hire button, not the gold chip)
+    this.status = this.add.container(0, 0);
+    this.ui.add(this.status);
 
-    const by = VH - 28;
-    this.ui.add(addPanel(this, 0, by - 4, VW, 32, 'parch'));
-    const bw = Math.floor((VW - 8 - SIZE.gap) / 2);
-    this.ui.add(new Button(this, 4, by, bw, SIZE.btnH, { label: t('town.party'), icon: 'people', id: 'town.party', onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id }) }));
-    this.ui.add(new Button(this, 4 + bw + SIZE.gap, by, VW - 8 - bw - SIZE.gap, SIZE.btnH, { label: t('town.leave'), icon: 'map', variant: 'primary', id: 'town.leave', onClick: () => this.leave() }));
+    const actions: MButtonOpts[] = [
+      { label: t('town.party'), icon: 'people', variant: 'secondary', id: 'town.party', onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id }) },
+      { label: t('town.leave'), icon: 'map', variant: 'primary', id: 'town.leave', onClick: () => this.leave() },
+    ];
+    const bar = new ActionBar(this, b, actions);
+    this.ui.add(bar);
+    this.bodyBottom = bar.top - 3;
     this.events.once('shutdown', () => this.clearBody());
     this.refresh();
+  }
+
+  /** The settlement over the plain, at the frame's inside size and the screen's pixel density. */
+  private artTexture(def: { kind: 'village' | 'town' | 'lair'; id: number; coastal: boolean }, w: number, h: number): string {
+    const K = panelK(this);
+    const key = `set_art_${def.kind}_${def.id % 2}_${def.coastal ? 1 : 0}_${w}x${h}@${K}`;
+    if (this.textures.exists(key)) return key;
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(w * K);
+    cv.height = Math.round(h * K);
+    const ctx = cv.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(renderGround(w, h, { originX: 0, originY: w, fieldW: 1e6, fieldH: 1e6, seed: def.id + 30 }).toCanvas(), 0, 0, cv.width, cv.height);
+    const art = renderSettlement(def.kind, def.id, def.coastal).toCanvas();
+    // the largest whole scale that leaves a little ground round it
+    const s = Math.max(1, Math.min(3, Math.floor(Math.min((h - 2) / art.height, w / art.width) * 2) / 2));
+    const dw = art.width * s * K;
+    const dh = art.height * s * K;
+    ctx.drawImage(art, Math.round((cv.width - dw) / 2), cv.height - dh - Math.round(K), dw, dh);
+    this.textures.addCanvas(key, cv);
+    return key;
   }
 
   private setTab(tab: Tab): void {
@@ -121,13 +153,33 @@ export class SettlementScene extends BaseScene {
 
   private refresh(): void {
     const camp = state.campaign;
-    this.goldText.setText(`${camp.data.gold}`);
+    this.status.removeAll(true);
     const wounded = camp.wounded().length;
-    this.armyText.setText(ellipsize(`${camp.data.heroes.length}/${MAX_ARMY}${wounded ? ` ${t('town.hurt', { n: wounded })}` : ''}`, this.m.VW - 8 - this.armyText.x));
+    const chips = [
+      new MChip(this, 0, 0, { icon: 'coin', value: camp.data.gold, tip: t('menu.tip.gold'), id: 'town.gold' }),
+      new MChip(this, 0, 0, { icon: 'people', value: `${camp.data.heroes.length}/${MAX_ARMY}`, tip: t('menu.tip.army'), id: 'town.men' }),
+    ];
+    if (wounded) {
+      // the word goes before the chip does not fit
+      const room = this.aw - chips.reduce((a, c) => a + c.w, 0) - GAP * 2;
+      const word = t('town.hurt', { n: wounded });
+      const value = MChip.width({ icon: 'cross', value: word }) <= room ? word : `${wounded}`;
+      chips.push(new MChip(this, 0, 0, { icon: 'cross', value, tip: t('town.wounded'), id: 'town.hurt' }));
+    }
+    const total = chips.reduce((a, c) => a + c.w, 0) + GAP * (chips.length - 1);
+    let x = Math.round(this.ax + (this.aw - total) / 2);
+    for (const c of chips) {
+      c.x = x;
+      c.y = this.chipsY;
+      this.status.add(c);
+      x += c.w + GAP;
+    }
     this.buildBody();
   }
 
   private clearBody(): void {
+    this.restArea?.destroy();
+    this.restArea = null;
     this.list?.destroy();
     this.list = null;
     this.stash?.destroy();
@@ -138,9 +190,8 @@ export class SettlementScene extends BaseScene {
   private buildBody(): void {
     const keep = this.list?.area.scrollY ?? 0;
     this.clearBody();
-    const { VH } = this.m;
     const y = this.bodyTop;
-    const h = VH - 34 - y;
+    const h = this.bodyBottom - y;
     if (this.tab === 'recruits') this.buildRecruits(y, h);
     else if (this.tab === 'market') this.buildMarket(y, h);
     else if (this.tab === 'sell') this.buildSell(y, h);
@@ -148,63 +199,61 @@ export class SettlementScene extends BaseScene {
     this.list?.area.setScroll(keep);
   }
 
+  private newList(y: number, h: number, count: number, rowH: number, render: ConstructorParameters<typeof ScrollList>[6]['render']): ScrollList {
+    return new ScrollList(this, this.body, this.ax, y, this.aw, h, { count, rowH, render, fade: MOSAIC.parch });
+  }
+
   // ------------------------------------------------------------------ hire: class cards
 
   private buildRecruits(y: number, h: number): void {
-    const { VW } = this.m;
     const camp = state.campaign;
     const w = camp.world;
     const pool = w.recruits(this.id, camp.data.heroes);
     const refresh = Math.ceil(w.refreshIn(this.id));
     if (!pool.length) {
-      this.body.add(addEmptyState(this, 4, y, VW - 8, h, { icon: 'people', title: t('town.noVolunteers'), hint: t('town.moreIn', { h: refresh }) }));
+      this.body.add(addPartyEmpty(this, this.ax, y, this.aw, h, { icon: 'people', title: t('town.noVolunteers'), hint: t('town.moreIn', { h: refresh }) }));
       return;
     }
     const full = camp.data.heroes.length >= MAX_ARMY;
-    const rowH = 50;
-    this.list = new ScrollList(this, this.body, 4, y, VW - 8, h, {
-      count: pool.length + 1,
-      rowH,
-      render: (i, row, rw) => {
-        if (i === pool.length) {
-          row.add(addText(this, rw / 2, 8, ellipsize(t('town.newVolunteers', { h: refresh }), rw), 'dim', 0.5));
-          return;
-        }
-        const r = pool[i];
-        const hero = r.hero;
-        const cls = heroClass(hero);
-        row.add(addPanel(this, 0, 0, rw, rowH, 'button'));
-        // portrait in its role colour: tap for the class card
-        const pf = this.add.graphics();
-        pf.fillStyle(0x1d140f, 1);
-        pf.fillRect(3, 3, 30, 30);
-        pf.fillStyle(roleColor(cls.role), 1);
-        pf.fillRect(4, 4, 28, 28);
-        row.add(pf);
-        const img = addPortrait(this, dollFromHero(hero), 4, 4, { size: 28 }).setInteractive();
-        uiId(img, 'recruit.card');
-        row.add(img);
-        img.on('pointerup', () => !this.list?.area.moved && this.openRecruit(r.index));
-        const can = camp.data.gold >= r.price && !full;
-        const bw = 46;
-        const b = new Button(this, rw - bw - 3, 13, bw, SIZE.btnH, {
+    const rowH = 46;
+    this.list = this.newList(y, h, pool.length + 1, rowH, (i, row, rw) => {
+      const box = { owner: row, w: rw, h: rowH };
+      if (i === pool.length) {
+        row.add(mtext(this, rw / 2, 8, t('town.newVolunteers', { h: refresh }), 'pMuted', { size: 6, align: 0.5, maxW: rw - 4, box }));
+        return;
+      }
+      const r = pool[i];
+      const hero = r.hero;
+      const cls = heroClass(hero);
+      addRowFace(this, row, rw, rowH);
+      // portrait in its role colour: tap for the class card
+      const ps = 30;
+      const py = Math.round((rowH - ps) / 2);
+      addPortraitWell(this, row, 5, py, ps, roleColor(cls.role));
+      const img = addPortrait(this, dollFromHero(hero), 5, py, { size: ps }).setInteractive();
+      uiId(img, 'recruit.card');
+      row.add(img);
+      img.on('pointerup', () => !this.list?.area.moved && this.openRecruit(r.index));
+      const can = camp.data.gold >= r.price && !full;
+      const bw = 50;
+      row.add(
+        new MButton(this, rw - bw - 4, Math.round((rowH - TAP) / 2), bw, TAP, {
           label: `${r.price}`,
           icon: 'coin',
-          variant: can ? 'primary' : 'secondary',
+          variant: can ? 'secondary' : 'disabled',
+          disabledReason: full ? t('town.armyFull') : t('stash.noGold'),
           id: 'town.hire',
           tip: t('town.hire'),
           onClick: () => this.hire(r.index),
-        });
-        b.setEnabled(can, full ? t('town.armyFull') : t('stash.noGold'));
-        row.add(b);
-        const tx = 38;
-        const tw = rw - tx - bw - 8;
-        row.add(addText(this, tx, 3, ellipsize(`${hero.name} · ${t('hero.level', { n: hero.level })}`, tw), 'ink'));
-        row.add(addText(this, tx, 13, ellipsize(className(hero), tw), 'red'));
-        const rt = roleTraits(cls.role);
-        addChip(this, row, tx, 24, roleName(cls.role), roleColor(cls.role), tw);
-        row.add(addText(this, tx, 38, ellipsize(`+${rt.good}`, tw), 'good'));
-      },
+        }),
+      );
+      const tx = 5 + ps + 6;
+      const tw = rw - tx - bw - 8;
+      row.add(mtext(this, tx, 4, `${hero.name} · ${t('hero.level', { n: hero.level })}`, 'rInk', { size: 6.5, maxW: tw, box }));
+      row.add(mtext(this, tx, 14, className(hero), 'pSec', { size: 6, maxW: tw, box }));
+      addPill(this, row, tx, 24, roleName(cls.role), roleColor(cls.role), tw);
+      const good = `+${roleTraits(cls.role).good}`;
+      row.add(mtext(this, tx, 37, good, 'pGood', { size: 6, maxW: tw, box }));
     });
   }
 
@@ -238,42 +287,47 @@ export class SettlementScene extends BaseScene {
   // ------------------------------------------------------------------ buy
 
   private buildMarket(y: number, h: number): void {
-    const { VW } = this.m;
     const camp = state.campaign;
     const w = camp.world;
     const wares = w.wares(this.id);
     const refresh = Math.ceil(w.refreshIn(this.id));
     if (!wares.length) {
-      this.body.add(addEmptyState(this, 4, y, VW - 8, h, { icon: 'coin', title: t('town.soldOut'), hint: t('town.newWares', { h: refresh }) }));
+      this.body.add(addPartyEmpty(this, this.ax, y, this.aw, h, { icon: 'coin', title: t('town.soldOut'), hint: t('town.newWares', { h: refresh }) }));
       return;
     }
-    const rowH = 38;
-    this.list = new ScrollList(this, this.body, 4, y, VW - 8, h, {
-      count: wares.length + 1,
-      rowH,
-      render: (i, row, rw, rh, area) => {
-        if (i === wares.length) {
-          row.add(addText(this, rw / 2, 8, ellipsize(t('town.newWares', { h: refresh }), rw), 'dim', 0.5));
-          return;
-        }
-        const ware = wares[i];
-        const it = ware.item;
-        row.add(addPanel(this, 0, 0, rw, rh, 'card'));
-        row.add(new ItemIcon(this, 3, Math.round((rh - 24) / 2), { item: it }, { area, onTap: () => this.openWare(ware.index) }));
-        const can = camp.data.gold >= ware.price;
-        const bw = 46;
-        const b = new Button(this, rw - bw - 3, Math.round((rh - SIZE.btnH) / 2), bw, SIZE.btnH, { label: `${ware.price}`, icon: 'coin', id: 'town.buy', variant: can ? 'secondary' : 'secondary', onClick: () => this.buy(ware.index) });
-        b.setEnabled(can, t('stash.noGold'));
-        row.add(b);
-        const tw = rw - 32 - bw - 6;
-        row.add(addText(this, 31, 5, ellipsize(itemName(it), tw), rarityFont(it.rarity)));
-        const def = itemDef(it.def);
-        // the slot, then its main stats on their own line (whole; a long one drops before it is cut)
-        const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${m.text}`);
-        const ml = measureText(mods.join(' · ')) <= tw ? mods.join(' · ') : (mods[0] ?? '');
-        row.add(addText(this, 31, 15, ellipsize(t(`slot.${def.slot}` as TKey), tw), 'sec'));
-        row.add(addText(this, 31, 25, ellipsize(ml, tw), 'dim'));
-      },
+    const rowH = 40;
+    this.list = this.newList(y, h, wares.length + 1, rowH, (i, row, rw, rh, area) => {
+      const box = { owner: row, w: rw, h: rh };
+      if (i === wares.length) {
+        row.add(mtext(this, rw / 2, 8, t('town.newWares', { h: refresh }), 'pMuted', { size: 6, align: 0.5, maxW: rw - 4, box }));
+        return;
+      }
+      const ware = wares[i];
+      const it = ware.item;
+      addRowFace(this, row, rw, rh);
+      const isz = 28;
+      row.add(new ItemIcon(this, 5, Math.round((rh - isz) / 2), { item: it }, { size: isz, area, glow: false, onTap: () => this.openWare(ware.index) }));
+      const can = camp.data.gold >= ware.price;
+      const bw = 50;
+      row.add(
+        new MButton(this, rw - bw - 4, Math.round((rh - TAP) / 2), bw, TAP, {
+          label: `${ware.price}`,
+          icon: 'coin',
+          variant: can ? 'secondary' : 'disabled',
+          disabledReason: t('stash.noGold'),
+          id: 'town.buy',
+          onClick: () => this.buy(ware.index),
+        }),
+      );
+      const tx = 5 + isz + 6;
+      const tw = rw - tx - bw - 8;
+      row.add(mtext(this, tx, 5, itemName(it), rarityInk(this, it.rarity), { size: 6.5, maxW: tw, box }));
+      const def = itemDef(it.def);
+      // the slot, then its main stats on their own line (whole; a long one drops before it is cut)
+      const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${m.text}`);
+      const ml = measureText(mods.join(' · ')) <= tw ? mods.join(' · ') : (mods[0] ?? '');
+      row.add(mtext(this, tx, 16, t(`slot.${def.slot}` as TKey), 'pSec', { size: 6, maxW: tw, box }));
+      row.add(mtext(this, tx, 26, ml, 'pMuted', { size: 6, maxW: tw, box }));
     });
   }
 
@@ -307,8 +361,7 @@ export class SettlementScene extends BaseScene {
   // ------------------------------------------------------------------ sell (the stash grid)
 
   private buildSell(y: number, h: number): void {
-    const { VW } = this.m;
-    this.stash = new StashGrid(this, this.body, 4, y, VW - 8, h, {
+    this.stash = new MStashGrid(this, this.body, this.ax, y, this.aw, h, {
       items: () => state.campaign.data.stash,
       state: this.stashState,
       onTap: (it) => this.openSell(it),
@@ -347,79 +400,158 @@ export class SettlementScene extends BaseScene {
   private buildRest(y: number, h: number): void {
     const camp = state.campaign;
     const def = camp.world.settlement(this.id)!;
-    const { VW } = this.m;
     const rate = def.kind === 'town' ? WORLD_RULES.healTown : WORLD_RULES.healVillage;
     const wounded = camp.wounded();
-    const w = VW - 8;
+    const w = this.aw;
+    const x0 = this.ax;
+    const cx = x0 + w / 2;
     const town = def.kind === 'town';
+    const BH = TAP + 2;
+    const box = { owner: this.body, w: this.m.VW, h: this.m.VH };
     // On a short screen Rest and Physician share a row, and then the headline
     // goes (the top bar already counts the hurt): the actions always fit.
-    const rowsH = (rows: number) => (SIZE.btnH + SIZE.gap) * rows + 4 + 12;
+    const rowsH = (rows: number) => (BH + GAP) * rows + 4 + 12;
+    // not even the two rows of actions fit: the whole tab scrolls
+    if (h < 12 + rowsH(town ? 2 : 2) + 20) {
+      this.buildRestScroll(y, h);
+      return;
+    }
     const pair = town && h < 12 + rowsH(3);
     const actionsH = rowsH(town && !pair ? 3 : 2);
     const showHead = h >= 12 + actionsH;
     let cy = y;
     const head = wounded.length ? `${t('town.wounded')}: ${wounded.length}` : t('town.allFit');
     if (showHead) {
-      this.body.add(addText(this, VW / 2, cy + 1, ellipsize(head, w), wounded.length ? 'red' : 'good', 0.5));
+      this.body.add(mtext(this, cx, cy + 1, head, wounded.length ? 'pBad' : 'pGood', { size: 7, align: 0.5, maxW: w, box }));
       cy += 12;
     }
     // the wounded list, the healing rate under it when there is room
     const room = y + h - actionsH - cy;
-    const noteLines = wrapText(t('town.restRate', { n: rate }), w - 8, 3);
-    const noteH = noteLines.lines.length * LINE_H + 4;
+    const noteLines = wrapText(t('town.restRate', { n: rate }), w - 8, 3, false, 6);
+    const noteH = noteLines.lines.length * 8 + 4;
     const listH = wounded.length ? Math.floor((room - (room - noteH >= 52 ? noteH : 0)) / 29) * 29 - 3 : 0;
     if (wounded.length && listH >= 26) {
-      this.list = new ScrollList(this, this.body, 4, cy, w, listH, {
-        count: wounded.length,
-        rowH: 26,
-        render: (i, row, rw, rh) => {
-          const hero = wounded[i];
-          row.add(addPanel(this, 0, 0, rw, rh, 'inset'));
-          row.add(addPortrait(this, dollFromHero(hero), 2, 1));
-          const hrs = addText(this, rw - 4, 9, t('town.restHours', { h: Math.ceil(hero.wound) }), 'red', 1);
-          row.add(hrs);
-          row.add(addText(this, 29, 9, ellipsize(hero.name, rw - 33 - hrs.width - 4), 'ink'));
-        },
+      this.list = this.newList(cy, listH, wounded.length, 26, (i, row, rw, rh) => {
+        const hero = wounded[i];
+        const rb = { owner: row, w: rw, h: rh };
+        addRowFace(this, row, rw, rh);
+        addPortraitWell(this, row, 3, 2, rh - 4, roleColor(heroClass(hero).role));
+        row.add(addPortrait(this, dollFromHero(hero), 3, 2, { size: rh - 4 }));
+        const hrs = t('town.restHours', { h: Math.ceil(hero.wound) });
+        row.add(mtext(this, rw - 5, Math.round((rh - 7) / 2), hrs, 'pBad', { align: 1, box: rb }));
+        row.add(mtext(this, rh + 3, Math.round((rh - 7) / 2), hero.name, 'rInk', { size: 6.5, maxW: rw - rh - 8 - mw(hrs, 'pBad'), box: rb }));
       });
       cy += listH + 3;
     }
-    if (y + h - actionsH - cy >= noteH) this.body.add(addText(this, VW / 2, cy + 2, noteLines.lines.join('\n'), 'dim', 0.5).setCenterAlign());
+    if (y + h - actionsH - cy >= noteH) noteLines.lines.forEach((l, i) => this.body.add(mtext(this, cx, cy + 2 + i * 8, l, 'pMuted', { size: 6, align: 0.5, box })));
     let by = y + h - actionsH + 4;
     // provisions: rations for the march, supplies for the field camp
     const w0 = camp.world;
-    this.body.add(addText(this, VW / 2, by, ellipsize(t('town.provisions', { food: Math.floor(w0.food), sup: Math.floor(w0.supplies) }), w), 'dim', 0.5));
+    this.body.add(mtext(this, cx, by, t('town.provisions', { food: Math.floor(w0.food), sup: Math.floor(w0.supplies) }), 'pSec', { size: 6, align: 0.5, maxW: w, box }));
     by += 12;
-    const half = Math.floor((w - SIZE.gap) / 2);
+    const half = Math.floor((w - GAP) / 2);
     (['food', 'supplies'] as const).forEach((kind, i) => {
       const price = camp.provisionPrice(kind, this.id);
-      const b = new Button(this, 4 + i * (half + SIZE.gap), by, half, SIZE.btnH, {
-        label: `${t(kind === 'food' ? 'town.buyFood' : 'town.buySupplies')} ${price}`,
-        icon: kind === 'food' ? 'food' : 'wood',
-        id: `town.buy.${kind}`,
-        tip: t(kind === 'food' ? 'town.foodTip' : 'town.supplyTip'),
-        onClick: () => this.provision(kind),
-      });
-      b.setEnabled(camp.data.gold >= price, t('stash.noGold'));
-      this.body.add(b);
+      this.body.add(
+        new MButton(this, x0 + i * (half + GAP), by, i === 0 ? half : w - half - GAP, BH, {
+          label: `${t(kind === 'food' ? 'town.buyFood' : 'town.buySupplies')} ${price}`,
+          icon: kind === 'food' ? 'food' : 'wood',
+          variant: camp.data.gold >= price ? 'secondary' : 'disabled',
+          disabledReason: t('stash.noGold'),
+          id: `town.buy.${kind}`,
+          tip: t(kind === 'food' ? 'town.foodTip' : 'town.supplyTip'),
+          onClick: () => this.provision(kind),
+        }),
+      );
     });
-    by += SIZE.btnH + SIZE.gap;
-    this.body.add(new Button(this, 4, by, pair ? half : w, SIZE.btnH, { label: t('town.rest8'), icon: 'tent', id: 'town.rest', onClick: () => this.rest(8) }));
-    if (!pair) by += SIZE.btnH + SIZE.gap;
+    by += BH + GAP;
+    this.body.add(new MButton(this, x0, by, pair ? half : w, BH, { label: t('town.rest8'), icon: 'tent', variant: 'secondary', id: 'town.rest', onClick: () => this.rest(8) }));
+    if (!pair) by += BH + GAP;
     if (town) {
       const cost = camp.healCost();
       const label = cost > 0 ? t('town.physician', { n: cost }) : t('town.noPatients');
-      const b = new Button(this, pair ? 4 + half + SIZE.gap : 4, by, pair ? half : w, SIZE.btnH, {
-        label,
-        tip: pair ? label : undefined,
-        icon: 'cross',
-        variant: cost > 0 && camp.data.gold >= cost ? 'primary' : 'secondary',
-        id: 'town.physician',
-        onClick: () => this.physician(),
-      });
-      b.setEnabled(cost > 0 && camp.data.gold >= cost, cost > 0 ? t('stash.noGold') : t('town.allFit'));
-      this.body.add(b);
+      const can = cost > 0 && camp.data.gold >= cost;
+      this.body.add(
+        new MButton(this, pair ? x0 + half + GAP : x0, by, pair ? w - half - GAP : w, BH, {
+          label,
+          tip: pair ? label : undefined,
+          icon: 'cross',
+          variant: can ? 'secondary' : 'disabled',
+          disabledReason: cost > 0 ? t('stash.noGold') : t('town.allFit'),
+          id: 'town.physician',
+          onClick: () => this.physician(),
+        }),
+      );
     }
+  }
+
+  /** The rest tab as one scrolling page (a short screen): headline, the wounded, the note, provisions and the actions in a column. */
+  private buildRestScroll(y: number, h: number): void {
+    const camp = state.campaign;
+    const def = camp.world.settlement(this.id)!;
+    const town = def.kind === 'town';
+    const rate = town ? WORLD_RULES.healTown : WORLD_RULES.healVillage;
+    const wounded = camp.wounded();
+    const area = new ScrollArea(this, this.body, this.ax, y, this.aw, h, this.m.S);
+    this.restArea = area;
+    addScrollHint(this, this.body, area, MOSAIC.parch);
+    const c = area.content;
+    const w = this.aw - 3;
+    const box = { owner: c, w: this.aw, h: 100000 };
+    const BH = TAP + 2;
+    let cy = 0;
+    c.add(mtext(this, w / 2, cy + 1, wounded.length ? `${t('town.wounded')}: ${wounded.length}` : t('town.allFit'), wounded.length ? 'pBad' : 'pGood', { size: 7, align: 0.5, maxW: w, box }));
+    cy += 12;
+    wounded.forEach((hero) => {
+      const rh = 26;
+      const row = this.add.container(0, cy);
+      const rb = { owner: row, w, h: rh };
+      addRowFace(this, row, w, rh);
+      addPortraitWell(this, row, 3, 2, rh - 4, roleColor(heroClass(hero).role));
+      row.add(addPortrait(this, dollFromHero(hero), 3, 2, { size: rh - 4 }));
+      const hrs = t('town.restHours', { h: Math.ceil(hero.wound) });
+      row.add(mtext(this, w - 5, Math.round((rh - 7) / 2), hrs, 'pBad', { align: 1, box: rb }));
+      row.add(mtext(this, rh + 3, Math.round((rh - 7) / 2), hero.name, 'rInk', { size: 6.5, maxW: w - rh - 8 - mw(hrs, 'pBad'), box: rb }));
+      c.add(row);
+      cy += rh + GAP;
+    });
+    wrapText(t('town.restRate', { n: rate }), w - 8, 3, false, 6).lines.forEach((l, i) => c.add(mtext(this, w / 2, cy + 2 + i * 8, l, 'pMuted', { size: 6, align: 0.5, box })));
+    cy += wrapText(t('town.restRate', { n: rate }), w - 8, 3, false, 6).lines.length * 8 + 6;
+    c.add(mtext(this, w / 2, cy, t('town.provisions', { food: Math.floor(camp.world.food), sup: Math.floor(camp.world.supplies) }), 'pSec', { size: 6, align: 0.5, maxW: w, box }));
+    cy += 12;
+    (['food', 'supplies'] as const).forEach((kind) => {
+      const price = camp.provisionPrice(kind, this.id);
+      c.add(
+        new MButton(this, 0, cy, w, BH, {
+          label: `${t(kind === 'food' ? 'town.buyFood' : 'town.buySupplies')} ${price}`,
+          icon: kind === 'food' ? 'food' : 'wood',
+          variant: camp.data.gold >= price ? 'secondary' : 'disabled',
+          disabledReason: t('stash.noGold'),
+          id: `town.buy.${kind}`,
+          tip: t(kind === 'food' ? 'town.foodTip' : 'town.supplyTip'),
+          onClick: () => this.provision(kind),
+        }),
+      );
+      cy += BH + GAP;
+    });
+    c.add(new MButton(this, 0, cy, w, BH, { label: t('town.rest8'), icon: 'tent', variant: 'secondary', id: 'town.rest', onClick: () => this.rest(8) }));
+    cy += BH + GAP;
+    if (town) {
+      const cost = camp.healCost();
+      const label = cost > 0 ? t('town.physician', { n: cost }) : t('town.noPatients');
+      c.add(
+        new MButton(this, 0, cy, w, BH, {
+          label,
+          icon: 'cross',
+          variant: cost > 0 && camp.data.gold >= cost ? 'secondary' : 'disabled',
+          disabledReason: cost > 0 ? t('stash.noGold') : t('town.allFit'),
+          id: 'town.physician',
+          onClick: () => this.physician(),
+        }),
+      );
+      cy += BH + GAP;
+    }
+    area.setContentHeight(cy + 2);
   }
 
   private rest(hours: number): void {
@@ -454,3 +586,4 @@ export class SettlementScene extends BaseScene {
     this.refresh();
   }
 }
+
