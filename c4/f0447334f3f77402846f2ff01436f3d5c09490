@@ -1,0 +1,167 @@
+src/online/client.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 173,268-269
+src/scenes/SettlementScene.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 16,292,336,372,376,379,383,390,394
+  s_1934d7c234e5b1::t_4eed5f3e401ad8 8
+src/ui/mosaic/tabLayout.ts
+  s_1934d7c234e5b1::t_ffebfa05260323 13,18
+src/scenes/online/OnlineArmyScene.ts
+  s_1934d7c234e5b1::t_7cd410139d5371 11
+  s_1934d7c234e5b1::t_921f5fb8703f0c 28,427,433-449
+  s_1934d7c234e5b1::t_601e8f39af0e30 450-451
+server/test/market.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 3,176-198
+  s_1934d7c234e5b1::t_1a36e0d3a0a0e6 199-200
+server/test/ranked.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 178-188,200-201
+docs/ITEMS.md
+  s_1934d7c234e5b1::t_921f5fb8703f0c 3-9,19-20,262,277,292,307,324,341,358,377,431,435,441-464,467-470,473-498,504-508,539,575-582,585-587
+src/i18n/beasts.ru.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 59
+scripts/layout-check.mjs
+  s_1934d7c234e5b1::t_921f5fb8703f0c 194-200
+src/i18n/beasts.en.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 65
+tests/iconAtlas.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1-44
+src/duel/client.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 11-12,138-139,262-263,292-293,339-341,390-392,702-709,712,986-987,991-999
+  s_1934d7c234e5b1::t_8f5dc9fdbc4f89 1000
+src/world/world.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 16,767-768,777,787-788,834-839,842-845
+server/src/online/market.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 27,286
+src/duel/ladder.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 24-25,50,172-173,199-204,207-210,212,226-229,231,234-240,242,308,315-316,331-336,338-340
+src/game/campaign.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 5-7,259-260,262,305,310,372-391
+docs/GAMEPLAY.md
+  s_1934d7c234e5b1::t_921f5fb8703f0c 603-606
+src/online/lairs.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 23-24,213,217,221,228-267
+tests/sources.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1-408
+src/ui/battleFx.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 15,64-66,85,88-90,92
+server/README.md
+  s_1934d7c234e5b1::t_921f5fb8703f0c 251,256,258,422,509,529-530,609,611
+server/src/duel/store.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 41-42
+src/online/merchants.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 17-19,59-73,80-81,160-163,172-173,175-176,178,180
+src/duel/rules.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 14,16-17,21,71-74,86-88,91-107,111,301-305,310-339
+  s_1934d7c234e5b1::t_fc712f36e0de7f 340
+src/scenes/BeastTrialScene.ts
+  s_1934d7c234e5b1::t_4eed5f3e401ad8 99
+src/i18n/ru.army.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 235-239
+src/duel/protocol.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 15,59-60,82-83
+tests/itemSources.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 17-18,32-40,122-123,125-172
+server/src/duel/season.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 18-23,45,47,62-63,87-88,105,118-121,131-153
+  s_1934d7c234e5b1::t_1a13267e7237a5 154-155
+src/art/iconStyle.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 16-17,122-127
+README.md
+  s_1934d7c234e5b1::t_921f5fb8703f0c 9-10
+server/test/async.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 291-292,306,308-324
+src/data/items.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 118,458,460,462,464,466,468,470,472,474,476,586-596
+  s_1934d7c234e5b1::t_dba69c0ff753a3 597
+src/ui/online.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 12,115-120
+src/scenes/ArmyScene.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 17,537,539,542,600,604
+  s_1934d7c234e5b1::t_4eed5f3e401ad8 11
+docs/DUELS.md
+  s_1934d7c234e5b1::t_921f5fb8703f0c 21-22,89-93,110-114,116-119,131-142,210-213,235-237,277-282
+src/i18n/duels.ru.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 58-61,189-192
+src/game/beasts.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 10,14,25-48,55-56,61-62
+server/src/online/attack.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 37-38,348-356,382
+server/src/duel/live.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 18-20,29,189-190,216-223,279
+docs/UI_KIT.md
+  s_1934d7c234e5b1::t_921f5fb8703f0c 128-135
+src/game/save.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 91-92
+server/src/online/bosses.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 33-35,99-115,124-132,137-157,193-196,213-219
+tests/merchants.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 5,18,106-108,114-131
+  s_1934d7c234e5b1::t_e1be399de1fee7 132-133
+src/i18n/en.army.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 244-248
+server/src/duel/async.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 31-32,38-39,311-312,326,345,448-456
+  s_1934d7c234e5b1::t_87eaeb84578265 457-458
+public/icons/items.json
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1
+src/scenes/online/beastPanel.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 19,35
+server/src/loot.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1-23
+src/art/itemIconsHD.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 22,3206-3211,3249-3252,3254-3274
+src/art/fx.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 93-95
+server/migrations/0015_item_sources.sql
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1-39
+server/test/beasts.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 37,150-151,172-184
+src/scenes/BattleScene.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1330
+server/src/duel/routes.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 13,25-27,410-433,522-527,571,620-621
+src/ui/sheet.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 19,44-52
+tests/season.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 51-54
+server/src/online/routes.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 15,557-577
+  s_1934d7c234e5b1::t_1d4cd8e2904d79 578-579
+src/duel/season.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 17,117-118,121-123,129-130
+src/game/sources.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1-176
+public/icons/ui.json
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1
+src/art/goodsIcons.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 24,940-942
+server/test/duel.test.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 4-5,150-173,314,319-320
+src/i18n/duels.en.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 61-64,192-195
+src/scenes/BootScene.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 5,24-25,33-46,48
+src/scenes/duel/DuelScene.ts
+  s_1934d7c234e5b1::t_bf17a2e7db7131 2069
+  s_1934d7c234e5b1::t_ea8f97d26210da 2037-2043,2047,2075-2076,2078-2093
+  s_1934d7c234e5b1::t_921f5fb8703f0c 30,49,66,2070-2074,2077,2710,2713-2714,2719,2722,2727-2729,2731,2955-2957,2994-2996
+src/art/iconBitmaps.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 1-122
+src/scenes/MarketScene.ts
+  s_1934d7c234e5b1::t_921f5fb8703f0c 22,571-572
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c4f0447334f3f77402846f2ff01436f3d5c09490",
+  "prompts": {},
+  "sessions": {
+    "s_1934d7c234e5b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d39328de-c77f-462f-b9ee-81a255a8912b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
