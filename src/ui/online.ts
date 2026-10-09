@@ -4,7 +4,10 @@
  * header). All art is generated here so the shared icon set stays untouched.
  */
 import Phaser from 'phaser';
-import { panelK } from './kit';
+import { panelK, tappable } from './kit';
+import { showTooltip } from './widgets';
+import { uiId } from './layout';
+import { t, type TKey } from '../i18n';
 import { hex, P } from '../art/palette';
 import { BAND_COLORS, PARTY_FH, PARTY_FINIAL, PARTY_FRAMES, PARTY_FW, renderPartyFigure } from '../art/worldArt';
 import { online } from '../platform/cloud';
@@ -139,6 +142,12 @@ export function addSyncBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Con
     if (s === 'syncing') blink = scene.tweens.add({ targets: img, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
   };
   apply(online.status);
+  // what the cloud means, on tap (a 22 x 22 target round it)
+  const z = scene.add.zone(Math.round(x) - 4, Math.round(y) - 4, 22, 22).setOrigin(0, 0).setInteractive();
+  uiId(z, 'legend.sync');
+  tappable(z, null, () => showTooltip(scene, t(`legend.sync.${online.status}` as TKey), z));
+  parent.add(z);
+  img.once('destroy', () => z.destroy());
   const off = online.onStatus(apply);
   scene.events.once('shutdown', off);
   img.once('destroy', off);

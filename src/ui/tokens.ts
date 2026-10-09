@@ -105,6 +105,22 @@ export const RESOURCES = {
 } as const;
 export type ResourceId = keyof typeof RESOURCES;
 
+/**
+ * One icon per game mode, used on every screen that names the mode (tabs,
+ * cards, team "Use for" chips, headers). Raids and the raid defence are one
+ * mode (the defence is who holds off raids): both the torch.
+ */
+export const MODE_ICON = {
+  campaign: 'march',
+  ladder: 'ladder',
+  arena: 'arena',
+  raid: 'raid',
+  defence: 'raid',
+  online: 'map',
+  beasts: 'beast',
+} as const;
+export type ModeId = keyof typeof MODE_ICON;
+
 /** Icons reserved for one meaning each (a resource, a mode): never reused for anything else. */
 export const RESERVED_ICONS: Record<string, string> = {
   ...Object.fromEntries(Object.entries(RESOURCES).map(([k, v]) => [v.icon, `resource:${k}`])),
@@ -112,6 +128,9 @@ export const RESERVED_ICONS: Record<string, string> = {
   podium: 'leaderboard',
   lock: 'locked',
   shop: 'shop',
+  ladder: 'mode:ladder',
+  arena: 'mode:arena',
+  raid: 'mode:raid',
 };
 
 // ================================================================== type, spacing, motion

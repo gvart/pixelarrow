@@ -354,7 +354,7 @@ export const RU_ARMY: Record<keyof typeof EN_ARMY, Entry> = {
   'pass.reward.cosmetic': '{name}',
 
   'wallet.balance': 'Баланс',
-  'wallet.note': 'Драхмы остаются между сезонами, ими можно торговать на рынке. Купить их можно за звёзды Telegram.',
+  'wallet.note': 'Остаются между сезонами; ими можно торговать на рынке.',
   'wallet.packs': 'Наборы драхм',
   'wallet.legal': 'За звёзды покупаются цифровые товары. Драхмы нельзя вывести. Помощь с покупкой: /paysupport в боте.',
   'wallet.terms': 'Условия',

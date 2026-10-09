@@ -368,7 +368,7 @@ export const EN_ARMY = {
 
   // ---- wallet
   'wallet.balance': 'Balance',
-  'wallet.note': 'Drachmae are kept across seasons and can be traded on the market. Buy them with Telegram Stars.',
+  'wallet.note': 'Kept across seasons; tradable on the market.',
   'wallet.packs': 'Drachmae packs',
   'wallet.legal': 'Stars buy digital goods. Drachmae cannot be cashed out. Help with a purchase: /paysupport in the bot.',
   'wallet.terms': 'Terms',

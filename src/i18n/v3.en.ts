@@ -99,7 +99,7 @@ export const V3_EN = {
   "dv.board.live": "Live",
   "dv.board.legend": "Legend",
   "dv.teamCapShort": "Team {n} pts · cap {cap}",
-  "dv.capNote": "The Arena and defence allow {cap} pts; each ladder floor sets its own cap.",
+  "dv.capNote": "Arena and defence: cap {cap} · ladder: per floor",
   "v3.passXp": "XP to the next tier",
   "hero.lowerNothing": "Nothing to take back: only points not yet confirmed can be lowered.",
   "hero.allSpent": "All points are placed: confirm them below, or Undo.",

@@ -55,7 +55,7 @@ export function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: 
  * A hero's rank as bronze pips (diamonds): the gold star belongs to ladder
  * floor ratings only (docs/UI_KIT.md "One icon, one meaning"). Returns the width.
  */
-export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, n: number, max = 5): number {
+export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, n: number, max = 5, legend?: { area?: ScrollArea | null }): number {
   const g = scene.add.graphics();
   for (let i = 0; i < max; i++) {
     const cx = Math.round(x + i * 8) + 3.5;
@@ -68,17 +68,36 @@ export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Contain
     if (i < n) {
       g.fillStyle(0xf8e4b8, 0.8);
       g.fillPoints([{ x: cx, y: cy - 3.5 }, { x: cx + 1.2, y: cy - 1.4 }, { x: cx - 1.2, y: cy - 1.4 }], true);
+    } else {
+      g.lineStyle(0.6, 0x8a7a62, 0.8);
+      g.strokePoints(pts, true);
     }
   }
   parent.add(g);
+  // what the diamonds mean, on tap (a touch target round them)
+  if (legend) addLegend(scene, parent, x - 4, y - 8, max * 8 + 7, 22, t('legend.rank', { n, max }), legend.area ?? null, 'legend.rank');
   return max * 8 - 1;
 }
 
-/** A round group badge with its roman numeral (12 x 12, numeral beside it when `label`). */
-export function addGroupBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, group: number): void {
+/** A round group badge with its roman numeral (12 x 12). With `legend`, a tap says which battle group it is. */
+export function addGroupBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, group: number, legend?: { area?: ScrollArea | null }): void {
   parent.add(scene.add.image(Math.round(x), Math.round(y), tex(scene, `gbadge_${group}`, () => renderGroupBadge(group))).setOrigin(0, 0));
   const n = ROMAN[group] ?? '?';
   parent.add(addText(scene, Math.round(x + 6), Math.round(y + 2), n, 'light', 0.5));
+  if (legend) addLegend(scene, parent, x - 5, y - 5, 22, 22, t('legend.group', { n, name: tOr(`group.${group}`, n) }), legend.area ?? null, 'legend.group');
+}
+
+/**
+ * An invisible tap target over a symbol that explains it (a legend on tap:
+ * rank diamonds, group numerals, the sync cloud). Inside a scroll list pass
+ * its area so a drag does not count as a tap.
+ */
+export function addLegend(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, text: string, area: ScrollArea | null = null, id = 'legend'): Phaser.GameObjects.Zone {
+  const z = scene.add.zone(Math.round(x), Math.round(y), w, h).setOrigin(0, 0).setInteractive();
+  uiId(z, id);
+  tappable(z, area, () => showTooltip(scene, text, z));
+  parent.add(z);
+  return z;
 }
 
 /** A coloured pill with light text (role, status). Returns its width. */

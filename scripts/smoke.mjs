@@ -21,8 +21,8 @@ check('menu active', await active('Menu'));
 const RS = await ev(() => window.__rs());
 
 // ---- new campaign
-await tapBtn('Menu', { label: 'New campaign' });
-check('world map via New campaign', await until(() => active('World'), 8000));
+await tapBtn('Menu', { label: 'Begin the march' });
+check('world map via Begin the march', await until(() => active('World'), 8000));
 const start = await ev(() => {
   const c = window.__state.campaign;
   return { heroes: c.data.heroes.length, gold: c.data.gold, x: c.world.s.x, y: c.world.s.y, t: c.world.s.time };

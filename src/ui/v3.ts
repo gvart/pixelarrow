@@ -54,6 +54,8 @@ export function addSection(scene: Phaser.Scene, parent: C, x: number, y: number,
 // ================================================================== header
 
 export const HEADER_H = 30;
+/** The title's scale when chips share the band (a little smaller, so two chips fit on a phone). */
+const TITLE_K_CHIPS = 1.12;
 
 export interface HeaderAction {
   icon: string;
@@ -63,6 +65,8 @@ export interface HeaderAction {
   badge?: number | string;
   id?: string;
   tip?: string;
+  /** "You are here": the view this action opened is the one on screen (lit bronze, a bar under it). */
+  active?: boolean;
 }
 
 export interface HeaderOpts {
@@ -70,6 +74,16 @@ export interface HeaderOpts {
   /** Back one level. Drawn only outside Telegram (its BackButton runs the same handler through nav.ts). */
   back?: (() => void) | null;
   actions?: HeaderAction[];
+  /**
+   * Resource chips on the right of the band (before the actions), laid right
+   * to left. Where they do not fit whole their words drop first (the number
+   * never does); chips that still do not fit are left in `overflow` for the
+   * screen to lay under the header.
+   */
+  chips?: InfoChipOpts[];
+  /** A small muted line under the title (the demo marker); a tap shows `noteTip`. */
+  note?: string;
+  noteTip?: string;
   id?: string;
 }
 
@@ -82,6 +96,10 @@ export class ScreenHeader extends Phaser.GameObjects.Container {
   readonly w: number;
   readonly h = HEADER_H;
   readonly buttons: Button[] = [];
+  /** The chips laid in the band, in the order given. */
+  readonly chips: InfoChip[] = [];
+  /** Chips that did not fit in the band (their options; lay them under the header). */
+  readonly overflow: InfoChipOpts[] = [];
 
   constructor(scene: Phaser.Scene, w: number, o: HeaderOpts) {
     super(scene, 0, 0);
@@ -97,19 +115,59 @@ export class ScreenHeader extends Phaser.GameObjects.Container {
     }
     // actions from the right: icon over its word
     let right = this.w - 3;
+    const withChips = !!o.chips?.length;
     for (const a of [...(o.actions ?? [])].reverse()) {
-      const bw = Math.max(30, Math.min(48, measureText(a.label, false, 6) + 8));
+      const bw = Math.max(withChips ? 28 : 30, Math.min(48, measureText(a.label, false, 6) + 8));
       right -= bw;
-      const b = new Button(scene, right, 2, bw, 26, { icon: a.icon, label: a.label, variant: 'ghost', id: a.id, tip: a.tip, onClick: a.onClick });
+      const b = new Button(scene, right, 2, bw, 26, { icon: a.icon, label: a.label, variant: 'ghost', style: a.active ? 'buttonSel' : undefined, id: a.id, tip: a.tip, onClick: a.onClick });
       this.add(b);
       this.buttons.push(b);
+      if (a.active) this.add(scene.add.rectangle(right + 4, this.h - 3, bw - 8, 2, ACCENT.goldHi).setOrigin(0, 0));
       if (a.badge !== undefined && a.badge !== 0) this.add(new BadgeDot(scene, right + bw - 5, 5, a.badge));
-      right -= 3;
+      right -= withChips ? 2 : 3;
+    }
+    // chips: whole where they fit, else without their words, else left for the screen (the title keeps ~ 56 UI px)
+    const chipOpts = o.chips ?? [];
+    if (chipOpts.length) {
+      const minTitle = Math.min(56, measureText(o.title, false, 7, 'head') * TITLE_K_CHIPS + 4);
+      const room = right - x - minTitle - 4;
+      const gap = 3;
+      const widthOf = (c: InfoChipOpts, words: boolean) => InfoChip.measure(words ? c : { ...c, word: undefined, lead: undefined });
+      let words = true;
+      let n = chipOpts.length;
+      const total = (k: number, wds: boolean) => chipOpts.slice(0, k).reduce((a, c) => a + widthOf(c, wds) + gap, 0);
+      if (total(n, true) > room) words = false;
+      while (n > 0 && total(n, words) > room) n--;
+      let cx = right;
+      for (let i = n - 1; i >= 0; i--) {
+        const c = chipOpts[i];
+        const chip = new InfoChip(scene, 0, 0, { ...(words ? c : { ...c, word: undefined, lead: undefined }), h: 22 });
+        cx -= chip.w;
+        chip.x = Math.round(cx);
+        chip.y = Math.round((this.h - 22) / 2);
+        this.add(chip);
+        this.chips.unshift(chip);
+        cx -= gap;
+      }
+      this.overflow.push(...chipOpts.slice(n));
+      right = cx;
     }
     const tw = right - x - 4;
-    const title = addText(scene, x, 8, ellipsize(o.title, tw / 1.25, false, 7, 'head'), 'headL').setScale(1.25);
+    const k = withChips ? TITLE_K_CHIPS : 1.25;
+    const title = addText(scene, x, o.note ? 4 : withChips ? 9 : 8, ellipsize(o.title, tw / k, false, 7, 'head'), 'headL').setScale(k);
     uiFrame(title, this, this.w, this.h);
     this.add(title);
+    if (o.note) {
+      const nt = addText(scene, x, 20, ellipsize(o.note, tw, false, 5.5), 'muted').setFontSize(5.5);
+      uiFrame(nt, this, this.w, this.h);
+      this.add(nt);
+      if (o.noteTip) {
+        const z = scene.add.zone(x, 0, Math.min(tw, Math.max(nt.width, title.displayWidth)) + 4, this.h).setOrigin(0, 0).setInteractive();
+        uiId(z, `${o.id ?? 'header'}.note`);
+        tappable(z, null, () => showTooltip(scene, o.noteTip!, z));
+        this.add(z);
+      }
+    }
     uiId(this, o.id ?? 'header');
     scene.add.existing(this);
   }
@@ -170,20 +228,26 @@ export class InfoChip extends Phaser.GameObjects.Container {
   private counter: Phaser.Tweens.Tween | null = null;
   private listenedDestroy = false;
 
+  /** The width a chip with these options takes (layout before building). */
+  static measure(o: InfoChipOpts): number {
+    const iw = (o.icon ? 14 : 4) + (o.lead ? measureText(o.lead) + 4 : 0);
+    return Math.round(iw + measureText(`${o.value}`) + (o.word ? measureText(o.word) + 4 : 0) + 6);
+  }
+
   constructor(scene: Phaser.Scene, x: number, y: number, o: InfoChipOpts) {
     super(scene, Math.round(x), Math.round(y));
     this.h = o.h ?? 22;
     const valueStr = `${o.value}`;
     this.shown = typeof o.value === 'number' ? o.value : 0;
-    const iw0 = o.icon ? 15 : 4;
+    const iw0 = o.icon ? 14 : 4;
     const lw = o.lead ? measureText(o.lead) + 4 : 0;
     const iw = iw0 + lw;
     const vw = measureText(valueStr);
     const ww = o.word ? measureText(o.word) + 4 : 0;
-    this.w = Math.round(iw + vw + ww + 7);
+    this.w = Math.round(iw + vw + ww + 6);
     this.opts = { label: [o.lead, valueStr, o.word].filter(Boolean).join(' ') };
     this.add(panelImage(scene, 0, 0, this.w, this.h, 'chip'));
-    if (o.icon) this.add(addIcon(scene, 4, Math.round((this.h - 12) / 2), o.icon));
+    if (o.icon) this.add(addIcon(scene, 3, Math.round((this.h - 12) / 2), o.icon));
     const ty = Math.round((this.h - 9) / 2) + 1;
     if (o.lead) {
       const lt = addText(scene, iw0 + 1, ty, o.lead, 'sec');
@@ -248,10 +312,29 @@ export class InfoChip extends Phaser.GameObjects.Container {
   }
 }
 
+/** The options of a resource's chip (for `ScreenHeader.chips`): its icon, its word, its explanation on tap. */
+export function resourceChipOpts(res: ResourceId, value: number | string, o: { word?: boolean | string; tipKey?: TKey; id?: string; onTap?: () => void } = {}): InfoChipOpts {
+  const word = o.word === true ? t(`res.${res}` as TKey) : typeof o.word === 'string' ? o.word : undefined;
+  return { icon: RESOURCES[res].icon, value, word, tip: t(o.tipKey ?? (`res.tip.${res}` as TKey)), id: o.id ?? `chip.${res}`, onTap: o.onTap };
+}
+
 /** The chip of a resource: its own icon and colour, its explanation on tap. `tipKey` overrides the explanation (campaign vs war gold). */
 export function resourceChip(scene: Phaser.Scene, x: number, y: number, res: ResourceId, value: number | string, o: { word?: boolean | string; tipKey?: TKey; id?: string; onTap?: () => void } = {}): InfoChip {
   const word = o.word === true ? t(`res.${res}` as TKey) : typeof o.word === 'string' ? o.word : undefined;
   return new InfoChip(scene, x, y, { icon: RESOURCES[res].icon, value, word, tip: t(o.tipKey ?? (`res.tip.${res}` as TKey)), id: o.id ?? `chip.${res}`, onTap: o.onTap });
+}
+
+/**
+ * Chips that fit `w` together: whole where they can; else the words drop,
+ * from the last chip to the first (a `lead` label stays: it says whose the
+ * number is); chips go only when even the bare numbers do not fit.
+ */
+export function fitChips(scene: Phaser.Scene, opts: InfoChipOpts[], w: number, gap = 4): InfoChip[] {
+  const cur = opts.map((o) => ({ ...o }));
+  const total = () => cur.reduce((a, o) => a + InfoChip.measure(o), 0) + gap * Math.max(0, cur.length - 1);
+  for (let i = cur.length - 1; i >= 0 && total() > w; i--) if (cur[i].word) cur[i] = { ...cur[i], word: undefined };
+  while (cur.length && total() > w) cur.pop();
+  return cur.map((o) => new InfoChip(scene, 0, 0, o));
 }
 
 /** Lay chips left to right from x; chips that do not fit in w are dropped from the end. Returns the chips placed. */
@@ -312,7 +395,7 @@ export function addTipLine(scene: Phaser.Scene, parent: C, x: number, y: number,
   c.add(txt);
   if (o.dismissId) {
     const id = o.dismissId;
-    const b = new Button(scene, w - 22, Math.round((h - 22) / 2), 22, 22, { icon: 'close', label: t('v3.dismiss'), iconOnly: true, variant: 'ghost', id: `tip.${id}.close`, onClick: () => {
+    const b = new Button(scene, w - 22, Math.round((h - 22) / 2), 22, 22, { icon: 'xmark', label: t('v3.dismiss'), iconOnly: true, variant: 'ghost', id: `tip.${id}.close`, onClick: () => {
       hintStore.mark(`tip:${id}`);
       tweenTo(scene, c, { alpha: 0 }, MOTION.fade, { onComplete: () => c.destroy() });
     } });
@@ -836,6 +919,121 @@ export class Tile extends Phaser.GameObjects.Container {
     this.on('pointerout', () => press(false));
     const tip = o.tip ?? (truncated ? [o.label, o.sub].filter(Boolean).join(': ') : undefined);
     tappable(this, null, () => (o.locked ? showTooltip(scene, o.locked, this) : o.onClick()), tip);
+    scene.add.existing(this);
+  }
+}
+
+// ================================================================== legend
+
+export interface LegendItem {
+  /** Draws the symbol into `c` with its top-left at (x, y), in a 24 x 14 box. */
+  draw: (c: C, x: number, y: number) => void;
+  title: string;
+  text: string;
+}
+
+/** "What do these symbols mean": a sheet with each symbol, its name and a line or two about it. */
+export function openLegend(scene: UiScene, title: string, items: LegendItem[]): Modal {
+  const w = Math.min(scene.m.VW - 8, 260);
+  const inner = w - 20;
+  const wraps = items.map((it) => wrapText(it.text, inner - 32, 3));
+  const rowsH = wraps.reduce((a, wr) => a + 12 + wr.lines.length * LINE_H + 8, 0);
+  const m = openSheet(scene, { title, w, h: 26 + rowsH + 10 + 24 + 16 });
+  const { c, body: b } = m;
+  let y = b.y;
+  items.forEach((it, i) => {
+    c.add(panelImage(scene, b.x, y, 26, 18, 'well'));
+    it.draw(c, b.x + 1, y + 2);
+    c.add(addText(scene, b.x + 32, y, ellipsize(it.title, inner - 32), 'ink'));
+    c.add(addText(scene, b.x + 32, y + 11, wraps[i].lines.join('\n'), 'sec'));
+    y += 12 + wraps[i].lines.length * LINE_H + 8;
+  });
+  c.add(new Button(scene, b.x, m.y + m.h - 8 - 24, b.w, 24, { label: t('common.close'), variant: 'ghost', id: 'legend.close', onClick: () => m.close() }));
+  return m;
+}
+
+// ================================================================== toggle chip
+
+export interface ToggleChipOpts {
+  label: string;
+  /** The thing it switches on (a mode's icon). */
+  icon: string;
+  on: boolean;
+  onClick: () => void;
+  id?: string;
+  tip?: string;
+  /** Cannot switch now, and why (dimmed; a tap says why). */
+  off?: string;
+}
+
+/**
+ * An on/off choice readable at a glance (Team "Use for"): ON is a filled,
+ * lit bronze chip, the mode's icon in colour with a gold check badge and a
+ * light label; OFF is an outline only, the icon and label dimmed.
+ * At least 22 UI px tall; presses like a button.
+ */
+export class ToggleChip extends Phaser.GameObjects.Container {
+  readonly w: number;
+  readonly h: number;
+  readonly opts: { label: string; icon: string };
+
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, o: ToggleChipOpts) {
+    super(scene, Math.round(x), Math.round(y));
+    this.w = Math.round(w);
+    this.h = Math.max(22, Math.round(h));
+    this.opts = { label: o.label, icon: o.icon };
+    const face = scene.add.container(this.w / 2, this.h / 2);
+    this.add(face);
+    const L = (obj: Phaser.GameObjects.GameObject & { x: number; y: number }) => {
+      obj.x -= this.w / 2;
+      obj.y -= this.h / 2;
+      face.add(obj);
+      return obj;
+    };
+    const g = scene.add.graphics();
+    if (o.on) {
+      L(panelImage(scene, 0, 0, this.w, this.h, 'cardSel'));
+    } else {
+      // outline only: a dark fill and a muted rim, so ON (filled) and OFF never look alike
+      g.fillStyle(SURFACE.sunken, 0.9);
+      g.fillRoundedRect(0.5, 0.5, this.w - 1, this.h - 1, 4);
+      g.lineStyle(1, SURFACE.rim, 0.75);
+      g.strokeRoundedRect(0.5, 0.5, this.w - 1, this.h - 1, 4);
+    }
+    L(g);
+    // the mode's icon (in colour when on), with a gold check badge on its corner when on
+    const ix = 5;
+    const iy = Math.round((this.h - 12) / 2);
+    L(addIcon(scene, ix, iy, o.icon, o.on ? '' : 'D'));
+    const mark = scene.add.graphics();
+    if (o.on) {
+      const cx = ix + 11;
+      const cy = iy + 10;
+      mark.fillStyle(0x1a0f08, 1);
+      mark.fillCircle(cx, cy, 4.6);
+      mark.fillStyle(ACCENT.goldHi, 1);
+      mark.fillCircle(cx, cy, 3.8);
+      mark.lineStyle(1.2, 0x2a1a08, 1);
+      mark.beginPath();
+      mark.moveTo(cx - 1.9, cy + 0.1);
+      mark.lineTo(cx - 0.5, cy + 1.5);
+      mark.lineTo(cx + 2, cy - 1.6);
+      mark.strokePath();
+    }
+    L(mark);
+    const tx = ix + 12 + 6;
+    const lt = addText(scene, tx, Math.round((this.h - 9) / 2) + 1, ellipsize(o.label, this.w - tx - 4), o.on ? 'ink' : 'muted');
+    uiFrame(lt, this, this.w, this.h);
+    L(lt);
+    if (o.off) this.setAlpha(0.55);
+    this.setSize(this.w, this.h);
+    this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+    uiId(this, o.id ?? `togglechip:${o.label}`);
+    const press = (down: boolean) => face.setScale(down && !motion.reduced && !o.off ? 0.96 : 1);
+    this.on('pointerdown', () => press(true));
+    this.on('pointerup', () => press(false));
+    this.on('pointerout', () => press(false));
+    tappable(this, null, () => (o.off ? showTooltip(scene, o.off, this) : o.onClick()), o.tip);
     scene.add.existing(this);
   }
 }

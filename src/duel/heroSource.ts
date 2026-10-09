@@ -10,6 +10,7 @@ import { ATTR_IDS, ATTR_MAX, perkBlocker, type AttrId } from '../data/perks';
 import type { HeroSource } from '../scenes/heroSource';
 import { errorText } from '../online/client';
 import { respecPrice } from './rules';
+import { t } from '../i18n';
 import type { DuelProfileView, DuelSource } from './client';
 
 export class DuelHeroSource implements HeroSource {
@@ -29,6 +30,25 @@ export class DuelHeroSource implements HeroSource {
       if (!h || this.profile.glory < respecPrice(h)) return false;
       this.send(this.src.respec(heroId));
       return true;
+    },
+  };
+
+  /** Dismiss from the sheet: a hero on the bench only (the team view's rule), never the last one. */
+  dismiss = {
+    blocked: (heroId: string): string | null => {
+      if (this.profile.heroes.length <= 1) return t('dv.dismissLast');
+      if (this.profile.team.includes(heroId)) return t('dv.dismissBenchFirst');
+      return null;
+    },
+    run: async (heroId: string): Promise<boolean> => {
+      try {
+        const r = await this.src.dismiss(heroId);
+        this.profile = r.profile;
+        return true;
+      } catch (e) {
+        this.onError?.(errorText(e));
+        return false;
+      }
     },
   };
 

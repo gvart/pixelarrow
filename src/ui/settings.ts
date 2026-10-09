@@ -5,7 +5,7 @@
  */
 import Phaser from 'phaser';
 import { Button, addText, type UIMetrics } from './kit';
-import { ScrollList, Tabs } from './widgets';
+import { ScrollList, Tabs, confirmDialog } from './widgets';
 import { Stepper, Toggle, openSheet } from './v3';
 import { SURFACE } from './tokens';
 import { motion, setReducedMotion } from './motion';
@@ -30,7 +30,8 @@ type Row =
   | { kind: 'volume'; key: Volume; label: TKey }
   | { kind: 'lang' }
   | { kind: 'tutorial'; label: TKey }
-  | { kind: 'open'; what: 'notify' | 'about'; label: TKey };
+  | { kind: 'open'; what: 'notify' | 'about'; label: TKey }
+  | { kind: 'newCampaign'; label: TKey };
 
 interface UiScene extends Phaser.Scene {
   ui: Phaser.GameObjects.Container;
@@ -59,6 +60,7 @@ const ROWS: Row[] = [
   { kind: 'open', what: 'notify', label: 'settings.notifications' },
   { kind: 'open', what: 'about', label: 'settings.about' },
   { kind: 'toggle', key: 'analytics', label: 'settings.analytics' },
+  { kind: 'newCampaign', label: 'settings.newCampaign' },
 ];
 const LANGS_SET: LangSetting[] = ['auto', 'en', 'ru'];
 /** Scenes that may be rebuilt when the language changes (never a running battle). */
@@ -116,7 +118,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         );
         return;
       }
-      const right = r.kind === 'volume' ? 74 : r.kind === 'tutorial' || r.kind === 'open' ? 70 : 38;
+      const right = r.kind === 'volume' ? 74 : r.kind === 'tutorial' || r.kind === 'open' || r.kind === 'newCampaign' ? 70 : 38;
       // a label that does not fit goes onto two smaller lines (never cut)
       const room = rw - right - 6;
       const label = t(r.label);
@@ -180,6 +182,13 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
           scene.scene.start('Battle', { tutorial: { replay: !resume } });
         });
         row.add(b);
+      } else if (r.kind === 'newCampaign') {
+        // ends the march: a quiet destructive button, then a confirmation that says what is lost and kept
+        const b = new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.newCampaignGo'), icon: 'flag', inline: true, variant: 'destructive', small: true, id: 'settings.newCampaign', tip: t('menu.row.new') });
+        const busy = ['Battle', 'Results'].includes(scene.sys.settings.key) || !state.hasSave;
+        if (busy) b.setEnabled(false, state.hasSave ? t('settings.tutorialBusy') : t('menu.noSave'));
+        b.setOnClick(() => (m.close(), confirmNewCampaign(scene)));
+        row.add(b);
       } else if (r.kind === 'open') {
         const what = r.what;
         row.add(new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.open'), icon: 'chevR', inline: true, variant: 'ghost', small: true, id: `settings.open.${what}`, onClick: () => (what === 'notify' ? openNotifySettings(scene) : openAbout(scene)) }));
@@ -194,4 +203,21 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
     list = null;
   });
   return c;
+}
+
+/**
+ * "New campaign": confirmed (destructive), saying what is lost (the warband,
+ * stash, gold and map) and what is kept (settings, Duels, the online war,
+ * Drachmae and looks), then a fresh march on the world map.
+ */
+export function confirmNewCampaign(scene: UiScene): Phaser.GameObjects.Container {
+  const c = state.campaign.data;
+  return confirmDialog(scene, {
+    title: t('menu.resetTitle'),
+    body: t('menu.resetBodyFull', { men: c.heroes.length, gold: c.gold, day: Math.floor(c.world.time / 24) + 1 }),
+    cancel: t('common.cancel'),
+    ok: t('menu.resetOk'),
+    destructive: true,
+    onOk: () => void state.reset().then(() => scene.scene.start('World')),
+  });
 }

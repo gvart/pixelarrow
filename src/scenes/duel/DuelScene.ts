@@ -33,9 +33,9 @@ import { SIZE, BRONZE, STRAT, RARITY_COLOR } from '../../ui/theme';
 import { ensureFonts, rarityFont } from '../../ui/fonts';
 import { Chip, CommandStrip, addFocusRing, addNumbers, type CommandStripOpts } from '../../ui/strategos';
 import {
-  InfoChip, ProgressBar, ScreenHeader, addCard, addClaimGlow, addLocked, addTipLine, layChips, openSheet, resourceChip, type HeaderAction,
+  InfoChip, ProgressBar, ScreenHeader, ToggleChip, openLegend, addCard, resourceChipOpts, type InfoChipOpts, addClaimGlow, addLocked, addTipLine, layChips, openSheet, type HeaderAction,
 } from '../../ui/v3';
-import { ACCENT, RESOURCES, SURFACE, TEXT } from '../../ui/tokens';
+import { ACCENT, MODE_ICON, RESOURCES, ROLE, SURFACE, TEXT } from '../../ui/tokens';
 import { fadeIn, hop } from '../../ui/motion';
 import { addChestSprite } from '../../art/menuSprites';
 import {
@@ -119,8 +119,8 @@ export interface DuelSceneData {
  */
 const BACK_GUARD_MS = 600;
 const MODES: HubMode[] = ['ladder', 'ranked'];
-const MODE_ICONS = ['ladder', 'arena'];
-const USE_ICONS: Record<LoadoutUse, string> = { ladder: 'flag', arena: 'swords', defence: 'shield' };
+const MODE_ICONS = [MODE_ICON.ladder, MODE_ICON.arena];
+const USE_ICONS: Record<LoadoutUse, string> = { ladder: MODE_ICON.ladder, arena: MODE_ICON.arena, defence: MODE_ICON.defence };
 
 /** Badge colour of each league (placements: the plain frame). */
 const LEAGUE_COLOR: Record<League['id'], number> = { bronze: 0x8a5a2b, silver: 0x8f9aa3, gold: 0xc89a30, hoplite: 0x8c2f25, strategos: 0x4a3a8c, legend: 0x2a7a6a };
@@ -585,37 +585,48 @@ export class DuelScene extends BaseScene {
     const { VW } = this.m;
     const p = this.profile;
     const ready = this.st === 'ready' && !!p;
-    // Team and Shop live on the header of the two modes (labelled); a full view shows only its title and back
+    // Team and Shop always on the header, lit on their own view ("you are here"); Glory and the duel level in the band
+    const team = this.tab === 'team';
+    const shop = this.tab === 'shop';
     const actions: HeaderAction[] =
-      ready && p && !this.subView
+      ready && p
         ? [
-            { icon: 'people', label: t('dv.team'), id: 'duel.team', tip: t('dv.teamTip'), badge: this.fightingHeroes(p).some(heroNeedsAttention) ? '!' : 0, onClick: () => this.openView('team') },
-            { icon: 'shop', label: t('dv.shop'), id: 'duel.shop', tip: t('dv.shopTip'), onClick: () => this.openView('shop') },
+            { icon: 'people', label: t('dv.team'), id: 'duel.team', tip: t('dv.teamTip'), active: team, badge: this.fightingHeroes(p).some(heroNeedsAttention) ? '!' : 0, onClick: () => (team ? this.up() : this.openView('team')) },
+            { icon: 'shop', label: t('dv.shop'), id: 'duel.shop', tip: t('dv.shopTip'), active: shop, onClick: () => (shop ? this.up() : this.openView('shop')) },
           ]
         : [];
-    const hdr = new ScreenHeader(this, VW, { title: this.viewTitle(), back: () => this.back(), actions, id: 'duel.header' });
+    const chips = ready && p ? this.chipOpts(p) : [];
+    const demo = this.src.demo ? { note: t('dv.demo'), noteTip: t('dv.demoTip') } : {};
+    const hdr = new ScreenHeader(this, VW, { title: this.viewTitle(), back: () => this.back(), actions, chips, ...demo, id: 'duel.header' });
     this.head.add(hdr);
-    this.topY = hdr.bottom + 3;
+    this.topY = hdr.bottom + 4;
     if (!ready || !p) {
       this.clearBody();
       this.buildState();
       return;
     }
-    this.buildChips(p);
+    // Glory counts to its new value after a change
+    const glory = hdr.chips.find((c) => c.opts.label.includes(t('res.glory'))) ?? hdr.chips[0];
+    if (glory && this.shownGlory !== null && this.shownGlory !== p.glory) {
+      glory.setValue(p.glory);
+    }
+    this.shownGlory = p.glory;
+    // chips that did not fit the band (narrow screens): a row of their own
+    if (hdr.overflow.length) {
+      layChips(this.head, hdr.overflow.map((o) => new InfoChip(this, 0, 0, o)), this.cx, this.topY, this.cw);
+      this.topY += 22 + 4;
+    }
     this.buildBody();
   }
 
-  /** Glory (counts to its new value after a change), the duel level with its XP line (a tap explains it), and the demo marker. */
-  private buildChips(p: DuelProfileView): void {
+  /** Glory, the duel level with its XP line (a tap explains it), and the demo marker, as header chips. */
+  private chipOpts(p: DuelProfileView): InfoChipOpts[] {
     const lp = levelProgress(p.xp);
-    const glory = resourceChip(this, 0, 0, 'glory', this.shownGlory ?? p.glory, { word: true, id: 'duel.glory' });
-    const lv = new InfoChip(this, 0, 0, { icon: 'xp', value: t('dv.lv', { n: lp.level }), progress: lp.need ? lp.into / lp.need : 1, onTap: () => this.openLevel(), id: 'duel.level' });
-    const chips = [glory, lv];
-    if (this.src.demo) chips.push(new InfoChip(this, 0, 0, { value: t('dv.demo'), font: 'muted', tip: t('dv.demoTip'), id: 'duel.demo' }));
-    layChips(this.head, chips, this.cx, this.topY, this.cw);
-    if (this.shownGlory !== null && this.shownGlory !== p.glory) glory.setValue(p.glory);
-    this.shownGlory = p.glory;
-    this.topY += 22 + 4;
+    const chips: InfoChipOpts[] = [
+      resourceChipOpts('glory', this.shownGlory ?? p.glory, { word: true, id: 'duel.glory' }),
+      { icon: 'xp', value: t('dv.lvShort', { n: lp.level }), progress: lp.need ? lp.into / lp.need : 1, onTap: () => this.openLevel(), id: 'duel.level' },
+    ];
+    return chips;
   }
 
   /** The duel level: XP to the next one, where duel XP comes from, what the next levels open. */
@@ -1444,8 +1455,10 @@ export class DuelScene extends BaseScene {
     const top = this.pageTop;
     this.scrollPage(top, this.bottom - top, keep, (c) => {
       let y = this.buildSeasonLine(c, cx, 0, cw) + 2;
-      y += this.liveCard(c, p, cx, y, cw) + 6;
-      y += this.raidCard(c, p, cx, y, cw);
+      // ranked and raids closed at the same level: one card says so, with one bar (not two identical ones)
+      const together = !!r && !r.unlocked && !r.match && !!a && !a.unlocked && r.unlockLevel === a.unlockLevel;
+      y += this.liveCard(c, p, cx, y, cw, together) + 6;
+      if (!together) y += this.raidCard(c, p, cx, y, cw);
       return y + 2;
     });
   }
@@ -1455,7 +1468,7 @@ export class DuelScene extends BaseScene {
    * red action) and Unranked. Ranked locked: Play unranked is the red action
    * and ranked is a progress card (duel level x of 5, what to do).
    */
-  private liveCard(c: Phaser.GameObjects.Container, p: DuelProfileView, x: number, y: number, w: number): number {
+  private liveCard(c: Phaser.GameObjects.Container, p: DuelProfileView, x: number, y: number, w: number, withRaids = false): number {
     const r = this.ranked;
     const now = Date.now();
     const team = this.teamHeroes(p, 'arena');
@@ -1465,7 +1478,7 @@ export class DuelScene extends BaseScene {
     const match = r?.match ?? null;
     const level = levelProgress(p.xp).level;
     const i0 = c.list.length;
-    let ly = this.cardTitle(c, x, y, w, { title: t('duels.card.live'), icon: 'arena', board: 'live', id: 'duel.live' });
+    let ly = this.cardTitle(c, x, y, w, { title: t('duels.card.live'), icon: MODE_ICON.arena, board: 'live', id: 'duel.live' });
     const why = this.entering ? t('duel.preparing') : cooldown ? t('duels.unq.cooldown') : problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : !r ? t('duels.unq.error') : undefined;
     const line = (text: string, font: FontKey) => {
       const wr = wrapText(text, w - 14, 2);
@@ -1512,9 +1525,9 @@ export class DuelScene extends BaseScene {
     if (r && locked && !match) {
       h += 6;
       h += addLocked(this, c, x, y + h, w, {
-        title: t('dv.rankedTitle'),
-        icon: 'trophy',
-        reason: t('dv.unlockReason', { n: r.unlockLevel }),
+        title: withRaids ? t('dv.unlocksAt', { n: r.unlockLevel }) : t('dv.rankedTitle'),
+        icon: withRaids ? 'xp' : 'trophy',
+        reason: withRaids ? t('dv.unlocksBoth') : t('dv.unlockReason', { n: r.unlockLevel }),
         progress: { value: Math.min(level, r.unlockLevel), max: r.unlockLevel, label: t('dv.lvProgress') },
         how: t('dv.rankedHow'),
       });
@@ -1536,7 +1549,7 @@ export class DuelScene extends BaseScene {
       });
     }
     const i0 = c.list.length;
-    let ly = this.cardTitle(c, x, y, w, { title: t('duels.card.raids'), icon: 'raid', board: 'async', id: 'duel.raids' });
+    let ly = this.cardTitle(c, x, y, w, { title: t('duels.card.raids'), icon: MODE_ICON.raid, board: 'async', id: 'duel.raids' });
     if (!a) {
       c.add(addText(this, x + 7, ly, '...', 'sec'));
       ly += 14;
@@ -2132,7 +2145,6 @@ export class DuelScene extends BaseScene {
       over ? t('duels.sit.teamOver', { n: pts - budget, b: budget }) : spend.length ? t('duels.sit.teamSpend', { name: spend[0].name }) : '',
       {
         main: { label: t('duels.recruit'), icon: 'plus', id: 'duel.recruit', onClick: () => this.openRecruit() },
-        right: { label: t('duels.dismiss'), icon: 'close', id: 'duel.dismiss', onClick: () => this.openDismiss() },
       },
       { urgent: over, tone: spend.length ? 'info' : undefined },
     );
@@ -2162,14 +2174,26 @@ export class DuelScene extends BaseScene {
 
   /** Whose heroes these are: the duel army, not the campaign warband (Home counts that one). */
   private rosterRow(p: DuelProfileView, row: Phaser.GameObjects.Container, w: number, area: ScrollArea): void {
+    const label = t('dv.symbols');
+    const bw = Math.max(44, measureText(label) + 26);
     row.add(addIcon(this, 2, 9, 'people'));
-    const head = addText(this, 18, 8, ellipsize(t('dv.rosterHead', { n: p.heroes.length }), w - 20, false, 7, 'head'), 'head');
-    row.add(head);
-    row.add(addText(this, 18, 20, ellipsize(t('dv.rosterSub'), w - 20, false, 6), 'muted').setFontSize(6));
-    const z = this.add.zone(0, 0, w, 30).setOrigin(0, 0).setInteractive();
+    row.add(addText(this, 18, 4, ellipsize(t('dv.rosterHead', { n: p.heroes.length }), w - 24 - bw, false, 7, 'head'), 'head'));
+    row.add(addText(this, 18, 17, ellipsize(t('dv.rosterSub'), w - 24 - bw, false, 6), 'muted').setFontSize(6));
+    const z = this.add.zone(0, 0, w - bw - 6, 30).setOrigin(0, 0).setInteractive();
     uiId(z, 'duel.roster');
     tappable(z, area, () => showTooltip(this, t('dv.rosterTip'), z));
     row.add(z);
+    row.add(new Button(this, w - bw, 4, bw, 22, { label, icon: 'info', inline: true, variant: 'ghost', small: true, id: 'duel.symbols', onClick: () => this.openSymbols() }));
+  }
+
+  /** What the roster's symbols mean: group numerals, rank diamonds, the "!" and the role stripe. */
+  openSymbols(): void {
+    openLegend(this, t('dv.symbolsTitle'), [
+      { draw: (c, x, y) => addGroupBadge(this, c, x + 6, y + 1, 1), title: t('legend.group.title'), text: t('legend.group.text') },
+      { draw: (c, x, y) => void addStars(this, c, x + 1, y + 3, 2, 3), title: t('legend.rank.title'), text: t('legend.rank.text') },
+      { draw: (c, x, y) => c.add(new Badge(this, x + 12, y + 7, '!')), title: t('legend.attn.title'), text: t('legend.attn.text') },
+      { draw: (c, x, y) => c.add(this.add.rectangle(x + 2, y + 5, 20, 3, ROLE.heavy).setOrigin(0, 0)), title: t('legend.role.title'), text: t('legend.role.text') },
+    ]);
   }
 
   /** The presets: one chip each (the edited one bronze-rimmed; icons for what it fights on), then "+" while there is room. */
@@ -2237,26 +2261,28 @@ export class DuelScene extends BaseScene {
     const hw = measureText(head) + 6;
     const labels = LOADOUT_USES.map((u) => t(`duels.use.${u}` as TKey));
     // the "Use for" word only while the buttons keep their words whole
-    const fits = (room: number) => labels.every((l) => measureText(l) + 10 <= Math.floor((room - 2 * gap) / 3));
+    // (a toggle chip needs its icon, the gap and the label: 22 + label)
+    const fits = (room: number) => labels.every((l) => measureText(l) + 24 <= Math.floor((room - 2 * gap) / 3));
     const withHead = fits(w - hw);
     const x0 = withHead ? hw : 0;
     const bw = Math.floor((w - x0 - 2 * gap) / 3);
-    const withIcons = (i: number) => measureText(labels[i]) + 26 <= (i === 2 ? w - x0 - 2 * (bw + gap) : bw);
     if (withHead) row.add(addText(this, 2, 11, head, 'dim'));
     const heroes = this.teamHeroes(p);
     LOADOUT_USES.forEach((u, i) => {
       const on = p.use[u] === p.loadout;
       const problem = u === 'defence' ? teamProblem(heroes, DUEL_RULES.budget) : heroes.length ? null : 'empty';
-      const b = new Button(this, x0 + i * (bw + gap), 3, i === 2 ? w - x0 - 2 * (bw + gap) : bw, SIZE.btnH, {
-        label: labels[i],
-        icon: withIcons(i) ? (on ? 'check' : USE_ICONS[u]) : undefined,
-        style: on ? 'buttonSel' : 'button',
-        id: `duel.use.${u}`,
-        tip: on ? t('duels.useOn', { use: labels[i] }) : t('duels.useTip', { use: labels[i] }),
-        onClick: () => (on ? toast(this, t('duels.useOn', { use: labels[i] }), 'info', 3000) : this.assignUse(u)),
-      });
-      if (!on && problem) b.setEnabled(false, t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }));
-      row.add(b);
+      const bx = x0 + i * (bw + gap);
+      row.add(
+        new ToggleChip(this, bx, 3, i === 2 ? w - x0 - 2 * (bw + gap) : bw, SIZE.btnH, {
+          label: labels[i],
+          icon: USE_ICONS[u],
+          on,
+          id: `duel.use.${u}`,
+          tip: on ? t('duels.useOn', { use: labels[i] }) : t('duels.useTip', { use: labels[i] }),
+          off: !on && problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : undefined,
+          onClick: () => (on ? toast(this, t('duels.useOn', { use: labels[i] }), 'info', 3000) : this.assignUse(u)),
+        }),
+      );
     });
   }
 
@@ -2269,7 +2295,10 @@ export class DuelScene extends BaseScene {
     // the team's points against the Arena's cap (ladder floors set their own, shown on each floor)
     const bar = new ProgressBar(this, 2, 3, w - 4, { value: Math.min(pts, budget), max: budget, label: t('duels.inTeam', { n: team.length, max: DUEL_RULES.teamMax }), right: t('duels.points', { n: pts, max: budget }), color: over ? ACCENT.dangerFill : ACCENT.gold, h: 4, labelFont: 'ink' });
     row.add(bar);
-    row.add(addText(this, 2, 21, ellipsize(t('dv.capNote', { cap: budget }), w - 4, false, 6), over ? 'bad' : 'muted').setFontSize(6));
+    // the whole note where it fits, else the short one (never cut mid-sentence)
+    const note = t('dv.capNote', { cap: budget });
+    const fits = measureText(note, false, 6) <= w - 4;
+    row.add(addText(this, 2, 21, fits ? note : ellipsize(t('dv.capNoteShort', { cap: budget }), w - 4, false, 6), over ? 'bad' : 'muted').setFontSize(6));
   }
 
   private heroRow(p: DuelProfileView, h: Hero, row: Phaser.GameObjects.Container, rw: number): void {

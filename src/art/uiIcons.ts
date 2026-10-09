@@ -142,6 +142,11 @@ export const UI_ICONS: Record<string, IconPart[]> = {
     { d: 'M4.4 11.4L12 4.4', tone: 'gleam', detail: true, w: 1 },
   ],
   // the season pass: a ticket of parchment with a wax seal
+  // a neutral × (hide a tip, close, cancel): stone, never the red of an error
+  xmark: [
+    { d: 'M16.4 5.2L18.8 7.6L14.4 12L18.8 16.4L16.4 18.8L12 14.4L7.6 18.8L5.2 16.4L9.6 12L5.2 7.6L7.6 5.2L12 9.6Z', tone: 'stone' },
+    { d: 'M6.6 7.4L7.6 6.4L12 10.8L16.4 6.4', tone: 'gleam', detail: true, w: 0.9 },
+  ],
   // war gold (the online season's purse; campaign gold is `coin`): a bronze stater stamped with crossed spears
   wargold: [
     { d: 'M2.4 12A9.6 9.6 0 1 1 21.6 12A9.6 9.6 0 1 1 2.4 12Z', tone: 'bronze' },

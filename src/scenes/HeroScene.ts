@@ -6,17 +6,17 @@ import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import { SIZE, COLOR } from '../ui/theme';
 import { CommandStrip } from '../ui/strategos';
-import { InfoChip, Pager, ProgressBar, ScreenHeader, addClaimGlow, addSection, addSwipe, addTipLine, layChips } from '../ui/v3';
+import { InfoChip, Pager, ProgressBar, ScreenHeader, addClaimGlow, addSection, addSwipe, addTipLine, layChips, type InfoChipOpts } from '../ui/v3';
 import { ACCENT, RESOURCES, SURFACE } from '../ui/tokens';
 import { fadeIn } from '../ui/motion';
 import { ensureFonts } from '../ui/fonts';
 import {
-  DragDrop, Stage, StashGrid, addChip, frameScrollTexts, addMountTile, addSlotTile, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
+  DragDrop, Stage, StashGrid, addChip, addLegend, frameScrollTexts, addMountTile, addSlotTile, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
   uiBoundsOf, type StashState,
 } from '../ui/sheet';
 import { campaignHeroes, type HeroSource } from './heroSource';
 import { haptic, hapticNotify } from '../platform/telegram';
-import { xpToNext, type Hero } from '../data/units';
+import { MAX_LEVEL, xpToNext, type Hero } from '../data/units';
 import { TRAITS } from '../data/traits';
 import { itemDef, type Item, type Slot } from '../data/items';
 import {
@@ -139,7 +139,9 @@ export class HeroScene extends BaseScene {
     const h = this.hero();
     const { VW, VH } = this.m;
     // the header (his name; the back arrow only outside Telegram), then power and the pager
-    const hdr = new ScreenHeader(this, VW, { title: h ? h.name : t('hero.title'), back: () => this.back(), id: 'hero.header' });
+    // the header: his name and his power in the band (the pager sits on the stage)
+    const power: InfoChipOpts | null = h ? { icon: 'power', value: powerRating(h), word: t('strat.power'), tip: t('hero.powerTip'), id: 'hero.power' } : null;
+    const hdr = new ScreenHeader(this, VW, { title: h ? h.name : t('hero.title'), back: () => this.back(), chips: power ? [power] : [], id: 'hero.header' });
     L.add(hdr);
     this.refreshStrip();
     if (!h) return;
@@ -148,9 +150,12 @@ export class HeroScene extends BaseScene {
     let top = hdr.bottom + 3;
     const all = this.src.heroes();
     const idx = Math.max(0, all.findIndex((x) => x.id === this.heroId));
-    layChips(L, [new InfoChip(this, 0, 0, { icon: 'power', value: powerRating(h), word: t('strat.power'), tip: t('hero.powerTip'), id: 'hero.power' })], 4, top, VW - 8 - 84);
-    if (all.length > 1) L.add(new Pager(this, VW - 4 - 80, top - 1, { index: idx, count: all.length, onPrev: () => this.cycleHero(-1), onNext: () => this.cycleHero(1), prevTip: t('hero.prev'), nextTip: t('hero.next') }));
-    top += 22 + 3;
+    const pager = all.length > 1 ? { index: idx, count: all.length, onPrev: () => this.cycleHero(-1), onNext: () => this.cycleHero(1), prevTip: t('hero.prev'), nextTip: t('hero.next') } : null;
+    if (hdr.overflow.length || (compact && pager)) {
+      if (hdr.overflow.length) layChips(L, hdr.overflow.map((o) => new InfoChip(this, 0, 0, o)), 4, top, VW - 8 - 84);
+      if (compact && pager) L.add(new Pager(this, VW - 4 - 80, top - 1, pager));
+      top += 22 + 3;
+    }
     // hurt: the one thing worth a line of its own (points and perks are badges on their tabs)
     if (h.wound > 0) {
       const th = addTipLine(this, L, 4, top, VW - 8, { text: t('hero.woundedTip', { h: Math.ceil(h.wound) }), tone: 'warn', icon: 'heart', maxLines: 1 });
@@ -173,7 +178,9 @@ export class HeroScene extends BaseScene {
       (['weapon', 'shield'] as Slot[]).forEach((s, i) => this.slot(L, VW - 4 - ss, y0 + i * (ss + sgap), s, h, ss));
       addMountTile(this, L, VW - 4 - ss, y0 + 2 * (ss + sgap), h, ss);
       addChip(this, L, sx0 + 3, y0 + 3, t('hero.level', { n: h.level }), 0x5c4325);
-      addStars(this, L, sx0 + sw - 3 - 39, y0 + 5, heroStars(h));
+      addStars(this, L, sx0 + sw - 3 - 39, y0 + 5, heroStars(h), 5, {});
+      // the pager on the stage's foot: ‹ 7 / 9 › (a swipe does the same)
+      if (pager) L.add(new Pager(this, Math.round(sx0 + sw / 2 - 40), y0 + stageH - 25, pager));
       y = y0 + stageH + 4;
       // class, role, traits
       L.add(addText(this, 5, y + 1, ellipsize(className(h), VW - 10, false, 7, 'head'), 'head'));
@@ -197,7 +204,7 @@ export class HeroScene extends BaseScene {
       L.add(addText(this, tx, y0 + 1, ellipsize(className(h), tw, false, 7, 'head'), 'head'));
       addChip(this, L, tx, y0 + 12, roleName(cls.role), roleColor(cls.role), tw);
       const lvW = addChip(this, L, tx, y0 + 26, t('hero.level', { n: h.level }), 0x5c4325, 40);
-      addStars(this, L, tx + lvW + 4, y0 + 28, heroStars(h));
+      addStars(this, L, tx + lvW + 4, y0 + 28, heroStars(h), 5, {});
       const need = xpToNext(h.level);
       L.add(new ProgressBar(this, tx, y0 + 42, tw, { value: h.xp, max: need, h: 4, color: RESOURCES.xp.color }));
       y = y0 + stageH + 3;
@@ -248,14 +255,37 @@ export class HeroScene extends BaseScene {
   private refreshStrip(): void {
     if (!this.strip) return;
     const pend = this.tab === 'stats' && this.spent() > 0;
+    const dis = this.src.dismiss;
     this.strip.set(
       pend
         ? {
             main: { label: t('hero.strip.confirm', { n: this.spent() }), icon: 'check', id: 'hero.confirm', onClick: () => this.confirmPoints() },
             right: { label: t('hero.undo'), icon: 'back', id: 'hero.undo', onClick: () => this.resetPoints() },
           }
-        : {},
+        : dis
+          ? { right: { label: t('duels.dismissOne'), icon: 'bin', id: 'hero.dismiss', off: dis.blocked(this.heroId) ?? undefined, onClick: () => this.askDismiss() } }
+          : {},
     );
+  }
+
+  /** Dismiss (a source that allows it): confirmed, then back to where the sheet was opened from. */
+  private askDismiss(): void {
+    const h = this.hero();
+    const dis = this.src.dismiss;
+    if (!h || !dis) return;
+    confirmDialog(this, {
+      title: t('duels.dismissConfirm', { name: h.name }),
+      body: t('duels.dismissBody'),
+      ok: t('duels.dismissOne'),
+      cancel: t('common.cancel'),
+      destructive: true,
+      onOk: () =>
+        void dis.run(h.id).then((ok) => {
+          if (!ok || !this.sys.isActive()) return;
+          toast(this, t('duels.dismissed', { name: h.name }), 'good');
+          this.back();
+        }),
+    });
   }
 
   private slot(L: Phaser.GameObjects.Container, x: number, y: number, slot: Slot, h: Hero, size: number): void {
@@ -308,29 +338,33 @@ export class HeroScene extends BaseScene {
     const w = VW - 8 - 3;
     let y = 0;
     // points header (it may wrap on narrow screens: the rows below start after it)
-    const head = wrapText(free > 0 ? t('hero.points', { n: free }) : h.points > 0 ? t('hero.preview') : t('hero.noPoints'), w, 2);
+    const nextPoint = h.level >= MAX_LEVEL ? t('hero.noMorePoints') : t('hero.nextPoint', { n: h.level + 1 });
+    const head = wrapText(free > 0 ? t('hero.points', { n: free }) : h.points > 0 ? t('hero.preview') : nextPoint, w, 2);
     c.add(addText(this, 0, y + 1, head.lines.join('\n'), free > 0 ? 'reward' : 'sec'));
     y += 2 + head.lines.length * LINE_H;
     const next = previewAttrs(h, this.pending);
     ATTR_IDS.forEach((k) => {
-      c.add(addPanel(this, 0, y, w, 33, 'card'));
-      c.add(addText(this, 5, y + 4, t(`attr.${k}.short` as TKey), 'head'));
+      // compact: the short name and value, the name, one line of what it does (the whole text on tap)
+      const rh = 26;
+      c.add(addPanel(this, 0, y, w, rh, 'card'));
+      c.add(addText(this, 5, y + 3, t(`attr.${k}.short` as TKey), 'head'));
       const val = h.attrs[k] + this.pending[k];
-      c.add(addText(this, 40, y + 4, `${val}`, this.pending[k] ? 'good' : 'ink', 1));
+      c.add(addText(this, 40, y + 3, `${val}`, this.pending[k] ? 'good' : 'ink', 1));
       // the steppers only while there are points to spend (or pending ones to take back)
       const spendable = h.points > 0;
       const descW = w - 46 - (spendable ? 2 * 24 + SIZE.gap + 6 : 4);
-      c.add(addText(this, 45, y + 4, ellipsize(t(`attr.${k}` as TKey), descW), 'ink'));
-      const dw = wrapText(t(`attr.${k}.desc` as TKey), descW, 2, false, 6);
-      c.add(addText(this, 45, y + 14, dw.lines.join('\n'), 'sec').setFontSize(6).setLineSpacing(-1));
+      c.add(addText(this, 45, y + 3, ellipsize(t(`attr.${k}` as TKey), descW), 'ink'));
+      const desc = t(`attr.${k}.desc` as TKey);
+      c.add(addText(this, 45, y + 14, ellipsize(desc, descW, false, 6), 'sec').setFontSize(6));
+      addLegend(this, c, 0, y, 45 + descW, rh, `${t(`attr.${k}` as TKey)}: ${desc}`, area, `attr.${k}.info`);
       if (spendable) {
-        const minus = new Button(this, w - 2 * 24 - SIZE.gap - 1, y + 5, 24, 22, { label: '-', tip: t('hero.lower'), id: `attr.${k}.minus`, onClick: () => this.removePoint(k) });
+        const minus = new Button(this, w - 2 * 24 - SIZE.gap - 1, y + 2, 24, 22, { label: '-', tip: t('hero.lower'), id: `attr.${k}.minus`, onClick: () => this.removePoint(k) });
         minus.setEnabled(this.pending[k] > 0, t('hero.lowerNothing'));
-        const plus = new Button(this, w - 24 - 1, y + 5, 24, 22, { label: '+', tip: t('hero.raise'), id: `attr.${k}.plus`, onClick: () => this.addPoint(k) });
+        const plus = new Button(this, w - 24 - 1, y + 2, 24, 22, { label: '+', tip: t('hero.raise'), id: `attr.${k}.plus`, onClick: () => this.addPoint(k) });
         plus.setEnabled(free > 0 && val < ATTR_MAX, free > 0 ? t('hero.attrMax', { n: ATTR_MAX }) : t('hero.allSpent'));
         c.add([minus, plus]);
       }
-      y += 33 + SIZE.gap;
+      y += rh + SIZE.gap;
     });
     y += 4;
     // every derived stat, previewing the pending points
