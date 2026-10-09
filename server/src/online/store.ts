@@ -370,7 +370,7 @@ export async function ensureProfile(db: D1Database, season: Season, pid: number,
       )
       .bind(season.id, pid, shard.id, s.gold, s.food, s.wood, s.bronze, s.recruits, ONLINE_RULES.energyMax, now, ids.nextId, JSON.stringify(DEFAULT_FORMATIONS), home),
     db.prepare('UPDATE online_shards SET players = players + changes() WHERE season_id = ?1 AND id = ?2').bind(season.id, shard.id),
-    // the home region is the player's home camp (docs/MAP_V3.md "Camp")
+    // the home region is the player's home camp (docs/DESIGN_V2.md "Camp")
     db
       .prepare(
         `INSERT OR IGNORE INTO online_camps (season_id, shard_id, loc, player_id, home, created_at)

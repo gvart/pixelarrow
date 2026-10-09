@@ -26,7 +26,7 @@ const UTIL_H = 28;
 const menuH = (tileH: number) => 4 + CARD_H + 5 + CONT_H + 5 + tileH + 4 + UTIL_H + 4 + 14 + 4;
 
 /**
- * The hub (docs/UI_V3.md "Home"): the top of the screen is a cinematic stage
+ * The hub (docs/UI_KIT.md "Home"): the top of the screen is a cinematic stage
  * where the player's own men fight a looping skirmish
  * (src/scenes/menu/MenuBattle.ts) under the title; below it, in order of
  * importance: the save's card (who, where, campaign gold and battles won),

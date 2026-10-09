@@ -9,6 +9,7 @@ import { Rng } from './rng';
 import { presetFrontage, rightOf } from './formation';
 import type { Side, SimGroup, SimUnit } from './types';
 import { rallyRadius } from './stats';
+import { clamp } from '../util/math';
 
 /** Seconds without any combat before the bot commits everything to an attack. */
 export const PRESS_IDLE_S = 8;
@@ -920,6 +921,3 @@ function largestGroup(b: Battle, enemies: SimUnit[]): SimGroup | undefined {
   return best;
 }
 
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
-}

@@ -13,8 +13,7 @@ import { RANKED, glicko2, scoreOf } from '../../src/duel/rating';
 import { ASYNC, SEASON, seasonId, softReset } from '../../src/duel/season';
 import type { AsyncReport } from '../../src/duel/protocol';
 import { rollRatings } from '../src/duel/season';
-import { devLogin } from './helpers';
-import { DB, fresh, getJson, play, post } from './onlineHelpers';
+import { DB, fresh, getJson, openDuellist, play, post } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -55,13 +54,7 @@ interface Ticket {
   resumed?: boolean;
 }
 
-async function duellist(tg: number, level5 = true): Promise<{ token: string; pid: number; profile: Profile }> {
-  const { token, playerId } = await devLogin(tg, `D${tg}`);
-  const r = await post<Profile>('/api/duel/profile', token);
-  expect(r.status).toBe(200);
-  if (level5) await DB().prepare('UPDATE duel_profiles SET xp = 500 WHERE player_id = ?1').bind(playerId).run();
-  return { token, pid: playerId, profile: r.body };
-}
+const duellist = (tg: number, level5 = true) => openDuellist<Profile>(tg, { name: `D${tg}`, level5 });
 
 /** A defender: the duel profile, the starter team saved as the defence. */
 async function defender(tg: number) {

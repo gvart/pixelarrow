@@ -10,7 +10,7 @@
  * and both armies, the client submits its order log, and only the server's
  * replay decides the payout. Duels cost nothing: no deaths, wounds or wear.
  */
-import { Hono, type Context } from 'hono';
+import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
@@ -18,10 +18,12 @@ import { ApiError, badRequest } from '../errors';
 import { db, requireAuth } from '../middleware';
 import { LIMITS } from '../battle';
 import { SubmitBody, verifyBattle } from './verify';
+import { closeTicketStmt, loadOwnTicket, requireOpenTicket, ticketPreamble, type TicketStatus } from '../tickets';
 import { emit, emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { limit } from '../online/context';
 import { randomToken, randomU32 } from '../online/store';
 import { itemDef, SLOTS, type Item, type Slot } from '../../../src/data/items';
+import { equipInto, unequipInto } from '../../../src/game/gear';
 import { ATTR_IDS } from '../../../src/data/perks';
 import { isClassId, type ClassId } from '../../../src/data/classes';
 import type { Hero } from '../../../src/data/units';
@@ -38,7 +40,7 @@ import { getQueueState, getRating, liveMatchOf, matchReport, rowLeague } from '.
 import {
   LOADOUT_SLOTS, LOADOUT_USES, bumpRev, duelBatch, duelPrefix, duelProfileView, duelRevGuard, editedSlot, ensureDuelProfile, farmLeft, heroProgressStmts, loadDuelHeroes,
   loadDuelItems, loadLadderStars, loadLoadouts, loadoutFor, loadoutHeroes, loadoutStmt, presentSlot, presetAt, requireDuelProfile, reserveDuelIds, syncDefence, useSlot,
-  type DuelProfileRow, type Loadout, type LoadoutUse,
+  type Loadout, type LoadoutUse, duelCtx as ctx, type DuelCtx as Ctx,
 } from './store';
 import { rollRatings } from './season';
 import { duelSeason } from './async';
@@ -51,19 +53,6 @@ duel.route('/', duelSeason);
 const HeroId = z.string().min(1).max(80);
 const RequestId = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/);
 const Formations = z.array(z.enum(FORMATION_TYPES as [string, ...string[]])).length(4);
-
-interface Ctx {
-  db: D1Database;
-  pid: number;
-  now: number;
-  p: DuelProfileRow;
-}
-
-async function ctx(c: Context<AppEnv>): Promise<Ctx> {
-  const d = db(c.env);
-  const pid = c.get('session').pid;
-  return { db: d, pid, now: Date.now(), p: await requireDuelProfile(d, pid) };
-}
 
 async function view(x: Ctx) {
   return duelProfileView(x.db, x.pid, x.now);
@@ -205,23 +194,8 @@ duel.post('/equip', async (c) => {
     if (!taken) throw new ApiError(404, 'not_found', 'No such item in your stash');
     const def = itemDef(taken.def);
     if (def.slot !== body.slot) throw badRequest(`${def.name} does not go in the ${body.slot} slot`);
-    const prev = hero.equip[body.slot];
-    if (prev) toStash.push(prev);
-    hero.equip[body.slot] = taken;
-    if (body.slot === 'weapon' && def.twoHanded && hero.equip.shield) {
-      toStash.push(hero.equip.shield);
-      delete hero.equip.shield;
-    }
-    if (body.slot === 'shield' && hero.equip.weapon && itemDef(hero.equip.weapon.def).twoHanded) {
-      toStash.push(hero.equip.weapon);
-      delete hero.equip.weapon;
-    }
-  } else {
-    const prev = hero.equip[body.slot];
-    if (!prev) return c.json({ profile: await view(x) });
-    toStash.push(prev);
-    delete hero.equip[body.slot];
-  }
+    toStash.push(...equipInto(hero.equip, taken));
+  } else if (!unequipInto(hero.equip, body.slot, toStash)) return c.json({ profile: await view(x) });
   const G = duelRevGuard(x.pid, x.p.rev + 1);
   await duelBatch(x.db, [
     bumpRev(x.db, x.p, x.now),
@@ -451,7 +425,7 @@ interface TicketRow {
   seed: number;
   setup: string;
   team: string;
-  status: 'open' | 'used' | 'rejected' | 'abandoned';
+  status: TicketStatus;
   claim: string | null;
   result: string | null;
   won: number | null;
@@ -505,17 +479,12 @@ duel.post('/ladder/start', async (c) => {
   return c.json(ticketView(t));
 });
 
-async function loadTicket(x: Ctx, id: string): Promise<TicketRow> {
-  const t = await x.db.prepare('SELECT * FROM duel_tickets WHERE id = ?1 AND player_id = ?2').bind(id, x.pid).first<TicketRow>();
-  if (!t) throw new ApiError(404, 'not_found', 'No such ticket');
-  return t;
+function loadTicket(x: Ctx, id: string): Promise<TicketRow> {
+  return loadOwnTicket<TicketRow>(x.db, 'duel_tickets', id, x.pid);
 }
 
 async function closeTicket(x: Ctx, t: TicketRow, status: 'rejected' | 'abandoned', claim?: string, result?: string): Promise<void> {
-  await x.db
-    .prepare("UPDATE duel_tickets SET status = ?2, finished_at = ?3, claim = COALESCE(?4, claim), result = COALESCE(?5, result), won = 0 WHERE id = ?1 AND status = 'open'")
-    .bind(t.id, status, x.now, claim ?? null, result ?? null)
-    .run();
+  await closeTicketStmt(x.db, 'duel_tickets', t.id, status, x.now, claim, result).run();
 }
 
 /** Verifies a ladder battle by replay and pays it out (hero XP; Glory, account XP and maybe an item on a win). */
@@ -525,15 +494,8 @@ duel.post('/ladder/submit', async (c) => {
   const body = await readJson(c, SubmitBody, LIMITS.maxBodyBytes);
   const t = await loadTicket(x, body.ticket);
   const claimJson = JSON.stringify(body.claim);
-  if (t.status === 'used') {
-    if (t.claim === claimJson && t.result) return c.json({ ...JSON.parse(t.result), replayed: true, profile: await view(x) });
-    throw new ApiError(409, 'ticket_used', 'This battle was already reported');
-  }
-  if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This battle was ${t.status}`);
-  if (t.expires_at < x.now) {
-    await closeTicket(x, t, 'abandoned');
-    throw new ApiError(410, 'ticket_expired', 'Too late: the battle ticket expired');
-  }
+  const replay = await ticketPreamble(t, claimJson, x.now, 'battle', () => closeTicket(x, t, 'abandoned'));
+  if (replay) return c.json({ ...JSON.parse(replay), replayed: true, profile: await view(x) });
   const out = await verifyBattle(JSON.parse(t.setup) as BattleSetup, body, (claim, result) => closeTicket(x, t, 'rejected', claim, result));
   const s = out.summary;
 
@@ -660,7 +622,7 @@ duel.post('/ladder/abandon', async (c) => {
   const x = await ctx(c);
   const body = await readJson(c, z.object({ ticket: z.string().regex(/^[0-9a-f]{32}$/) }), 1024);
   const t = await loadTicket(x, body.ticket);
-  if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This battle was ${t.status}`);
+  requireOpenTicket(t, 'battle');
   await closeTicket(x, t, 'abandoned');
   return c.json({ ok: true });
 });

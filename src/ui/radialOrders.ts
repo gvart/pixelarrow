@@ -1,5 +1,5 @@
 /**
- * Radial orders (docs/UI_STRATEGOS.md "Battle"): tap a group on the field and
+ * Radial orders (docs/UI_KIT.md "Battle HUD": not built any more): tap a group on the field and
  * a ring of orders opens around it, each a 26 px glyph button with its word
  * outside the ring. The ring follows the group as the camera moves (`place`),
  * stays inside the field (clamped clear of the group cards and the strip) and

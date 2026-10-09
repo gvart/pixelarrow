@@ -366,7 +366,7 @@ export function offerSummary(offer: Pick<ShopOffer, 'def' | 'rarity'>, heroes: r
 const TIME_MODS: (keyof StatMods)[] = ['atkTime', 'shotTime'];
 
 /**
- * How a compare line is drawn (docs/UI_V3.md "Stat deltas"): the arrow follows
+ * How a compare line is drawn (docs/UI_KIT.md "Stat deltas"): the arrow follows
  * the number (up when it grows), the colour follows the verdict (better /
  * worse), the text carries its unit ("+0.2 s") and, for times, the word that
  * says what it means ("slower"). Null when nothing changes.

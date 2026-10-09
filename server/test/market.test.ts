@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { marketFee } from '../src/economy/catalog';
-import { currentSeason, getShard } from '../src/online/store';
+import { currentSeason } from '../src/online/store';
 import { resetRateLimits } from '../src/rateLimit';
-import { DB, fresh, getJson, join, placeArmy, post, sameShard, type Player } from './onlineHelpers';
+import { DB, fresh, getJson, giveDrachmae, join, placeArmy, post, sameShard, setPurse, shardRow, type Player } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -20,8 +20,7 @@ interface Listing {
 
 /** Puts the player's army in a town of their shard (so they can list there). */
 async function toTown(p: Player): Promise<number> {
-  const season = await currentSeason(DB());
-  const shard = await getShard(DB(), season.id, p.profile.shard.id);
+  const shard = await shardRow(p);
   const town = shard.world.all().find((r) => r.kind === 'town')!.id;
   await placeArmy(p, town);
   return town;
@@ -29,15 +28,6 @@ async function toTown(p: Player): Promise<number> {
 
 async function profile(p: Player) {
   return (await getJson<{ resources: { gold: number; food: number; wood: number }; stash: { uid: string }[]; consumables: Record<string, number> }>('/api/online/profile', p.token)).body;
-}
-
-async function setPurse(p: Player, gold: number, wood = 0) {
-  const season = await currentSeason(DB());
-  await DB().prepare('UPDATE online_profiles SET gold = ?1, wood = ?2 WHERE season_id = ?3 AND player_id = ?4').bind(gold, wood, season.id, p.playerId).run();
-}
-
-async function giveDrachmae(pid: number, n: number) {
-  await DB().prepare('INSERT INTO wallets (player_id, drachmae, updated_at) VALUES (?1, ?2, 0) ON CONFLICT (player_id) DO UPDATE SET drachmae = excluded.drachmae').bind(pid, n).run();
 }
 
 async function drachmae(p: Player): Promise<number> {

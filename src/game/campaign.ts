@@ -3,6 +3,7 @@
  * the screens perform on them (equip, hire, buy, heal, level up, encounters).
  */
 import { RARITIES, itemDef, itemValue, normalizeRarity, type Item, type Slot } from '../data/items';
+import { equipFromStash, unequipInto } from './gear';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
 import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/perks';
 import { Rng } from '../sim/rng';
@@ -276,31 +277,13 @@ export class Campaign {
     const h = this.hero(heroId);
     const idx = this.data.stash.findIndex((i) => i.uid === itemUid);
     if (!h || idx < 0) return false;
-    const item = this.data.stash[idx];
-    const def = itemDef(item.def);
-    this.data.stash.splice(idx, 1);
-    const slot = def.slot;
-    const prev = h.equip[slot];
-    if (prev) this.data.stash.push(prev);
-    h.equip[slot] = item;
-    // Two-handed weapons and shields are exclusive.
-    if (slot === 'weapon' && def.twoHanded && h.equip.shield) {
-      this.data.stash.push(h.equip.shield);
-      delete h.equip.shield;
-    }
-    if (slot === 'shield' && h.equip.weapon && itemDef(h.equip.weapon.def).twoHanded) {
-      this.data.stash.push(h.equip.weapon);
-      delete h.equip.weapon;
-    }
+    equipFromStash(h.equip, this.data.stash, idx);
     return true;
   }
 
   unequip(heroId: string, slot: Slot): boolean {
     const h = this.hero(heroId);
-    if (!h || !h.equip[slot]) return false;
-    this.data.stash.push(h.equip[slot]!);
-    delete h.equip[slot];
-    return true;
+    return !!h && !!unequipInto(h.equip, slot, this.data.stash);
   }
 
   /** Repair an item to 100 condition for gold. Returns cost or -1. */

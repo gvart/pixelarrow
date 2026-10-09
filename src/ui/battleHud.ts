@@ -1,5 +1,5 @@
 /**
- * The battle HUD of the "Bronze & Stone" design (docs/UI_D2.md):
+ * The battle HUD of the "Bronze & Stone" design (docs/UI_KIT.md "Battle HUD"):
  *  - TopBar: Pause / Speed / Retreat, the battle clock and the two armies'
  *    strength side by side;
  *  - HintPill: the one sentence that says what is going on and what to do;

@@ -1,5 +1,5 @@
 /**
- * Online camp plots (docs/MAP_V3.md "Camp", rules in ./rules.ts CAMP_*):
+ * Online camp plots (docs/DESIGN_V2.md "Camp", rules in ./rules.ts CAMP_*):
  * the state of a camp's buildings over time (lazy construction timers), the
  * effects of the buildings (income, sight, garrison and militia), the checks
  * of a build / upgrade / claim shared by the server (which decides) and the

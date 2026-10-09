@@ -19,7 +19,8 @@ import { Pix, hash2, valueNoise } from './pixels';
 import { T, isWater, type SettlementDef, type WorldMap } from '../world/map';
 import { findPath } from '../world/path';
 import { MAPC, WTILE } from './worldArt';
-import { MP, LANDMARKS, drawCypress, drawField, drawTree, harbourProp, landmarkProp, mix, rng, shipPix, townProp, villageProp, type Arch, type LandmarkKind, type PropSprite, type Pt } from './mapProps';
+import { MP, LANDMARKS, drawCypress, drawField, drawTree, harbourProp, landmarkProp, rng, shipPix, townProp, villageProp, type Arch, type LandmarkKind, type PropSprite, type Pt } from './mapProps';
+import { mix } from './palette';
 import { KIT, drawStake, renderCampfire, renderProp, renderTent, type PropKind } from './campArt';
 
 export interface SiteArt {

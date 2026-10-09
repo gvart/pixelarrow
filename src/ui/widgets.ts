@@ -436,7 +436,7 @@ class TabItem extends Phaser.GameObjects.Container {
 }
 
 /**
- * The top-level switch of a screen (docs/UI_V3.md "Navigation"): a sunken
+ * The top-level switch of a screen (docs/UI_KIT.md "Navigation"): a sunken
  * track with a lit bronze thumb that slides to the selected segment. Same API
  * as before (Stats | Gear | Perks...). Height SIZE.tabH.
  */
@@ -494,7 +494,7 @@ export class Tabs extends Phaser.GameObjects.Container {
 }
 
 /**
- * The second level under a Tabs switch (docs/UI_V3.md): words on the page
+ * The second level under a Tabs switch (docs/UI_KIT.md "Navigation"): words on the page
  * with a gold underline that slides to the selected one (Today | Gear | Sell).
  * Height 22.
  */
@@ -578,7 +578,7 @@ function fadeTexture(scene: Phaser.Scene, w: number, h: number, color: number): 
 }
 
 /**
- * The scroll hint of long lists (docs/UI_V3.md): soft fades at the top and
+ * The scroll hint of long lists (docs/UI_KIT.md "v3 components"): soft fades at the top and
  * bottom edges while there is more to see that way, and a slim bronze thumb
  * that shows while the list moves. Nothing sits on the rows (no chevrons), and
  * nothing redraws per frame: everything changes on scroll only.

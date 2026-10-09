@@ -25,7 +25,8 @@ import { state } from '../state';
 import { itemDef, itemMods, normalizeRarity, rarityRank, type Item, type StatMods } from '../data/items';
 import { xpToNext, MAX_LEVEL, type Hero } from '../data/units';
 import { takeLoot } from '../game/loot';
-import { buildReport, formatDuration, type BattleReport, type HeroLine, type UnitStat } from '../game/report';
+import { fmtClock } from '../util/format';
+import { buildReport, type BattleReport, type HeroLine, type UnitStat } from '../game/report';
 import { heroClass } from '../sim/stats';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
@@ -284,7 +285,7 @@ export class ResultsScene extends BaseScene {
     const roomy = this.bottom - this.top >= 200;
     const th = roomy ? 46 : 36;
     const tiles: { icon: string; key: string; value: number; prefix?: string; text?: string; font?: 'ink' | 'red' | 'good' }[] = [
-      { icon: 'hourglass', key: 'time', value: r.duration, text: formatDuration(r.duration) },
+      { icon: 'hourglass', key: 'time', value: r.duration, text: fmtClock(r.duration) },
       { icon: 'swords', key: 'kills', value: r.kills },
       { icon: 'skull', key: 'losses', value: r.losses, font: r.losses > 0 ? 'red' : 'ink' },
       r.glory !== undefined ? { icon: 'laurel', key: 'glory', value: r.glory, prefix: '+', font: 'good' } : { icon: 'coin', key: 'gold', value: r.gold, prefix: '+', font: 'good' },
@@ -304,7 +305,7 @@ export class ResultsScene extends BaseScene {
         const num = (tile as unknown as { num: Phaser.GameObjects.BitmapText }).num;
         const total = tl.value;
         if (animate) {
-          this.pageTweens.push(this.tweens.addCounter({ from: 0, to: total, duration: 900, ease: 'Cubic.easeOut', onUpdate: (tw2) => num.setText(formatDuration(tw2.getValue() ?? 0)), onComplete: () => num.setText(tl.text!) }));
+          this.pageTweens.push(this.tweens.addCounter({ from: 0, to: total, duration: 900, ease: 'Cubic.easeOut', onUpdate: (tw2) => num.setText(fmtClock(tw2.getValue() ?? 0)), onComplete: () => num.setText(tl.text!) }));
         } else this.time.delayedCall(1, () => num.setText(tl.text!));
       } else {
         tile = new CountUp(this, x, y, tw, th, { icon: this.iconOr(tl.icon), label, value: tl.value, prefix: tl.prefix, font: tl.font, duration: animate ? 900 : 1, delay: animate ? 150 + i * 160 : 0, sound: animate });

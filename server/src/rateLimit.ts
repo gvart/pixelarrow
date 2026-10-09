@@ -4,6 +4,8 @@
  * against hammering /api/auth, not a hard quota). Swap for the Workers Rate
  * Limiting binding or a Durable Object when it matters.
  */
+import { ApiError } from './errors';
+
 const windows = new Map<string, { start: number; count: number }>();
 const MAX_KEYS = 10_000;
 
@@ -16,6 +18,11 @@ export function rateLimit(key: string, limit: number, windowMs: number, now = Da
   }
   w.count++;
   return w.count <= limit;
+}
+
+/** Counts a hit on `key`; over `limit` in the window it throws 429 `rate_limited` with `message`. */
+export function requireRate(key: string, limit: number, windowMs: number, message = 'Too many requests, slow down'): void {
+  if (!rateLimit(key, limit, windowMs)) throw new ApiError(429, 'rate_limited', message);
 }
 
 /** True while `key` is over `limit` in its current window (does not count a hit). */

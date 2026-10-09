@@ -5,7 +5,7 @@
  * Unknown ids fall back to a look by their slot (and their colour words:
  * "crest_purple"), so new catalogue entries still get a preview.
  *
- * `renderCosmeticHD` is the "Bronze & Stone" preview (docs/UI_D2.md), painted
+ * `renderCosmeticHD` is the "Bronze & Stone" preview (docs/UI_KIT.md "Surfaces"), painted
  * with Canvas 2D at the screen's density (K atlas px per UI px, shown scaled
  * by 1 / K, see cosmeticTexture in src/ui/econ/widgets.ts) in a 112 x 112
  * unit box. `renderCosmetic` is the old pixel picture, kept for where there is
@@ -16,7 +16,8 @@ import { P, hex, mix } from './palette';
 import { EMBLEM_BITMAPS } from './emblems';
 import { ANIM, applyCosmetics, renderFrame, renderGearIcon, type DollSpec } from './paperdoll';
 import { AURA_COLORS } from '../game/cosmetics';
-import { INK, TONES, ellipsePath, flatTone, glint, iconCanvas, line, poly, roundRect, shape, stroke, tone, type G, type Tone } from './goodsIcons';
+import { INK, TONES, flatTone, glint, iconCanvas, line, shape, stroke, tone, type G, type Tone } from './goodsIcons';
+import { ellipsePath, poly, roundRect } from './path2d';
 
 export const COSMETIC_PREVIEW = 28;
 /** Drawing space edge of a smooth preview: 28 UI px = 112 units. */

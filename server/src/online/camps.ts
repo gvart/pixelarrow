@@ -1,5 +1,5 @@
 /**
- * Camp plots (POST/GET /api/online/camps/*, docs/MAP_V3.md "Camp"; rules in
+ * Camp plots (POST/GET /api/online/camps/*, docs/DESIGN_V2.md "Camp"; rules in
  * src/online/rules.ts CAMP_*, shared logic in src/online/camps.ts).
  *
  * GET  /         your camps (buildings, timers, effects), claimable plots, limits.

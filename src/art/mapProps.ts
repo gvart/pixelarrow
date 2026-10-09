@@ -22,6 +22,7 @@
  * - `harbourProp`: quays, piers, moored ships and (for capitals) a lighthouse.
  * - `shipPix`, `merchantPix`, `gullPix`: sailing things.
  */
+import { mix } from './palette';
 import { Pix, hash2, valueNoise } from './pixels';
 
 // ------------------------------------------------------------------ palette
@@ -138,14 +139,7 @@ export const MP = {
   plateCap: 0xc8a890,
 };
 
-export const mix = (a: number, b: number, t: number): number => {
-  const r = ((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * t;
-  const g = ((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * t;
-  const bl = (a & 255) + ((b & 255) - (a & 255)) * t;
-  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl);
-};
 
-export const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /** A tiny seeded generator for sprite layouts. */
 export function rng(seed: number): () => number {

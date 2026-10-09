@@ -14,13 +14,15 @@
 import { emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { LIMITS, LoggedOrderSchema, replayBattle } from '../battle';
+import { LIMITS, replayBattle } from '../battle';
+import { SubmitBody, verifyBattle } from '../duel/verify';
+import { battleTicketView, closeBattleTicket, loadOwnTicket, requireOpenTicket, ticketPreamble } from '../tickets';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
 import type { Hero } from '../../../src/data/units';
-import type { BattleSetup, LoggedOrder } from '../../../src/sim/types';
+import type { BattleSetup } from '../../../src/sim/types';
 import { ABANDON_MS, neutralDefenders, RESPAWN_MS, SIEGE_DECAY_MS, WINS_TO_CLAIM } from '../../../src/online/defenders';
 import { militia, ONLINE_RULES, DEFAULT_FORMATIONS } from '../../../src/online/rules';
 import { onlineBattleSetup, resolveAttack } from '../../../src/online/battle';
@@ -108,17 +110,7 @@ interface TicketRow {
 }
 
 function ticketView(t: TicketRow, info: { kind: string; tier: number }, extra: Record<string, unknown> = {}) {
-  return {
-    ticket: t.id,
-    expiresAt: t.expires_at,
-    region: { loc: t.loc, kind: info.kind, tier: info.tier },
-    defenderKind: t.defender_kind,
-    consumable: t.consumable ?? null,
-    setup: JSON.parse(t.setup) as BattleSetup,
-    attackers: JSON.parse(t.attackers) as Hero[],
-    defenders: JSON.parse(t.defenders) as Hero[],
-    ...extra,
-  };
+  return battleTicketView(t, { region: { loc: t.loc, kind: info.kind, tier: info.tier }, defenderKind: t.defender_kind }, extra);
 }
 
 const StartBody = z.object({
@@ -270,30 +262,13 @@ attack.post('/start', async (c) => {
   return c.json(ticketView(t, info));
 });
 
-const SubmitBody = z.object({
-  ticket: z.string().regex(/^[0-9a-f]{32}$/),
-  orders: z.array(LoggedOrderSchema).max(LIMITS.maxOrders),
-  deployOrders: z.number().int().min(0).max(LIMITS.maxOrders).optional(),
-  claim: z.object({
-    winner: z.union([z.literal(0), z.literal(1), z.literal(-1)]),
-    ticks: z.number().int().min(0),
-    hash: z.string().max(16),
-  }),
-});
-
-async function loadTicket(pc: PlayerCtx, id: string): Promise<TicketRow> {
-  const t = await pc.db.prepare('SELECT * FROM battle_tickets WHERE id = ?1 AND player_id = ?2').bind(id, pc.pid).first<TicketRow>();
-  if (!t) throw new ApiError(404, 'not_found', 'No such ticket');
-  return t;
+function loadTicket(pc: PlayerCtx, id: string): Promise<TicketRow> {
+  return loadOwnTicket<TicketRow>(pc.db, 'battle_tickets', id, pc.pid);
 }
 
+/** Closes the ticket, frees its heroes and releases the region lock. */
 async function closeTicket(pc: PlayerCtx, t: TicketRow, status: 'rejected' | 'abandoned', extra: { claim?: string; result?: string } = {}): Promise<void> {
-  await pc.db.batch([
-    pc.db
-      .prepare("UPDATE battle_tickets SET status = ?2, finished_at = ?3, claim = COALESCE(?4, claim), result = COALESCE(?5, result), won = 0 WHERE id = ?1 AND status = 'open'")
-      .bind(t.id, status, pc.now, extra.claim ?? null, extra.result ?? null),
-    pc.db.prepare('UPDATE online_heroes SET busy_ticket = NULL, busy_until = 0 WHERE busy_ticket = ?1').bind(t.id),
-  ]);
+  await closeBattleTicket(pc.db, t.id, status, pc.now, extra);
   await shardStub(pc.env, { season: t.season_id, id: t.shard_id }).unlockRegion(regionKey(t.loc), t.id);
 }
 
@@ -303,34 +278,13 @@ attack.post('/submit', async (c) => {
   const body = await readJson(c, SubmitBody, LIMITS.maxBodyBytes);
   const t = await loadTicket(pc, body.ticket);
   const claimJson = JSON.stringify(body.claim);
-  if (t.status === 'used') {
-    if (t.claim === claimJson && t.result) return c.json({ ...JSON.parse(t.result), replayed: true });
-    throw new ApiError(409, 'ticket_used', 'This battle was already reported');
-  }
-  if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This attack was ${t.status}`);
-  if (t.expires_at < pc.now) {
-    await closeTicket(pc, t, 'abandoned');
-    throw new ApiError(410, 'ticket_expired', 'Too late: the attack ticket expired');
-  }
+  const replay = await ticketPreamble(t, claimJson, pc.now, 'attack', () => closeTicket(pc, t, 'abandoned'), 'battle');
+  if (replay) return c.json({ ...JSON.parse(replay), replayed: true });
 
   // The server's own replay of the ticket's setup is the only truth.
   const setup = JSON.parse(t.setup) as BattleSetup;
-  let out;
-  try {
-    out = replayBattle(setup, body.orders as LoggedOrder[], body.deployOrders);
-  } catch (e) {
-    await closeTicket(pc, t, 'rejected', { claim: claimJson });
-    throw new ApiError(422, 'sim_rejected', `The simulation rejected this battle: ${(e as Error).message}`);
-  }
+  const out = await verifyBattle(setup, body, (claim, result) => closeTicket(pc, t, 'rejected', { claim, result }), 'The battle did not replay as reported; the attack is void');
   const s = out.summary;
-  const mismatches: string[] = [];
-  if (s.winner !== body.claim.winner) mismatches.push(`winner: claimed ${body.claim.winner}, server ${s.winner}`);
-  if (s.ticks !== body.claim.ticks) mismatches.push(`ticks: claimed ${body.claim.ticks}, server ${s.ticks}`);
-  if (s.hash !== body.claim.hash) mismatches.push(`hash: claimed ${body.claim.hash}, server ${s.hash}`);
-  if (mismatches.length) {
-    await closeTicket(pc, t, 'rejected', { claim: claimJson, result: JSON.stringify({ mismatches }) });
-    throw new ApiError(422, 'replay_mismatch', 'The battle did not replay as reported; the attack is void', { mismatches });
-  }
 
   const result = await applyAttack(pc, t, out.result, s, claimJson);
   await shardStub(pc.env, { season: t.season_id, id: t.shard_id }).unlockRegion(regionKey(t.loc), t.id);
@@ -355,7 +309,7 @@ attack.post('/abandon', async (c) => {
   const pc = await player(c);
   const body = await readJson(c, z.object({ ticket: z.string().regex(/^[0-9a-f]{32}$/) }), 1024);
   const t = await loadTicket(pc, body.ticket);
-  if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This attack was ${t.status}`);
+  requireOpenTicket(t, 'attack');
   await closeTicket(pc, t, 'abandoned');
   return c.json({ ok: true });
 });

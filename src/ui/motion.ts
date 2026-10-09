@@ -1,5 +1,5 @@
 /**
- * Motion switch of the UI (docs/UI_V3.md "Motion"): Settings → Reduce motion,
+ * Motion switch of the UI (docs/UI_KIT.md "Motion"): Settings → Reduce motion,
  * by default the system's `prefers-reduced-motion`. Every UI tween goes through
  * `tweenTo` / `pulse` here, so one flag turns slides, pulses and count-ups into
  * instant changes. Pure of game state (the settings set it at boot).

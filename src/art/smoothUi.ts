@@ -2,14 +2,14 @@
  * "Bronze & Stone" UI surfaces: smooth panels and buttons drawn with Canvas
  * 2D at the screen's density (K atlas px per UI px), replacing the dithered
  * parchment of uiTextures.ts renderPanel for every kit style. Colours and
- * bevels follow the D2 mock (docs/UI_D2.md): charcoal stone panels with a
+ * bevels follow the D2 mock (docs/UI_KIT.md "Surfaces"): charcoal stone panels with a
  * fine bronze rim, bevelled bronze buttons, one terracotta primary action, a
  * lit bronze "selected" state.
  */
 import type { PanelStyle } from './uiTextures';
 
 /**
- * v3 materials (docs/UI_V3.md): riveted bronze-stone cards, sunken wells, the
+ * v3 materials (docs/UI_KIT.md "Surfaces"): riveted bronze-stone cards, sunken wells, the
  * segmented control's track and thumb, the real-money purchase button (its own
  * blue), the ghost button, and the neutral locked card.
  */

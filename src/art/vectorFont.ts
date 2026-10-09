@@ -11,6 +11,7 @@
  * (the em) with the baseline at BASELINE inside a LINE_H line: the same box
  * the pixel font used, so existing layouts keep their rhythm.
  */
+import { hex } from './palette';
 import { BODY_METRICS, HEAD_METRICS } from './fontMetrics';
 
 export type Face = 'body' | 'head';
@@ -111,7 +112,6 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
   const ctx = canvas.getContext('2d')!;
   ctx.font = cssFont(face, f.px * K);
   ctx.textBaseline = 'alphabetic';
-  const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
   const glyphs: VectorGlyph[] = [];
   chars.forEach((ch, i) => {
     const p = pos[i];

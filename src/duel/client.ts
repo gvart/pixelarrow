@@ -9,6 +9,7 @@ import { online } from '../platform/cloud';
 import { ApiError, newRequestId } from '../platform/api';
 import type { Hero } from '../data/units';
 import { itemDef, type Item, type Slot } from '../data/items';
+import { equipFromStash, unequipInto } from '../game/gear';
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type Attrs } from '../data/perks';
 import type { ClassId } from '../data/classes';
 import type { FormationType } from '../sim/formation';
@@ -567,24 +568,9 @@ export class DemoDuelSource implements DuelSource {
     if (itemUid) {
       const i = this.p.stash.findIndex((x) => x.uid === itemUid);
       if (i < 0) throw new ApiError(404, 'not_found', 'No such item in your stash');
-      const it = this.p.stash[i];
-      const def = itemDef(it.def);
-      if (def.slot !== slot) throw new ApiError(400, 'bad_request', 'Wrong slot');
-      this.p.stash.splice(i, 1);
-      if (h.equip[slot]) this.p.stash.push(h.equip[slot]!);
-      h.equip[slot] = it;
-      if (slot === 'weapon' && def.twoHanded && h.equip.shield) {
-        this.p.stash.push(h.equip.shield);
-        delete h.equip.shield;
-      }
-      if (slot === 'shield' && h.equip.weapon && itemDef(h.equip.weapon.def).twoHanded) {
-        this.p.stash.push(h.equip.weapon);
-        delete h.equip.weapon;
-      }
-    } else if (h.equip[slot]) {
-      this.p.stash.push(h.equip[slot]!);
-      delete h.equip[slot];
-    }
+      if (itemDef(this.p.stash[i].def).slot !== slot) throw new ApiError(400, 'bad_request', 'Wrong slot');
+      equipFromStash(h.equip, this.p.stash, i);
+    } else unequipInto(h.equip, slot, this.p.stash);
     return { profile: this.view() };
   }
 

@@ -1,5 +1,5 @@
 /**
- * Smooth item icons for the "Bronze & Stone" UI (docs/UI_D2.md): painted
+ * Smooth item icons for the "Bronze & Stone" UI (docs/UI_KIT.md "Icons"): painted
  * inventory icons drawn with Canvas 2D paths and gradients at the screen's
  * density (K atlas px per UI px, shown scaled by 1 / K with LINEAR filtering).
  *
@@ -14,6 +14,8 @@
  * later get a sensible icon without code here (unknown art keys fall back on
  * the slot / weapon kind / shield kind).
  */
+import { ellipsePath as ellipse, poly } from './path2d';
+import { hashString } from '../sim/rng';
 import { itemDef, rarityRank, type Item, type ItemDef, type ItemMaterial, type ItemPaint } from '../data/items';
 import { EMBLEM_BITMAPS } from './emblems';
 import { P, hex, mix } from './palette';
@@ -101,12 +103,6 @@ interface Ctx {
 /** Does the item id mention any of these words (per-id flourishes, keyword families)? */
 function has(c: Ctx, ...words: string[]): boolean {
   return words.some((w) => c.id.includes(w));
-}
-
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
 }
 
 const isMetal = (m: ItemMaterial | undefined) => m === 'bronze' || m === 'iron' || m === 'steel' || m === 'silver' || m === 'gold';
@@ -198,19 +194,6 @@ function rrect(x: number, y: number, w: number, h: number, r: number): Path2D {
   p.arcTo(x + w, y + h, x, y + h, rr);
   p.arcTo(x, y + h, x, y, rr);
   p.arcTo(x, y, x + w, y, rr);
-  p.closePath();
-  return p;
-}
-
-function ellipse(cx: number, cy: number, rx: number, ry: number, rot = 0): Path2D {
-  const p = new Path2D();
-  p.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2);
-  return p;
-}
-
-function poly(pts: [number, number][]): Path2D {
-  const p = new Path2D();
-  pts.forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y)));
   p.closePath();
   return p;
 }
@@ -3227,7 +3210,7 @@ export function renderItemIconHD(item: Item, px: number): HTMLCanvasElement {
   g.scale(u, u);
   const base = mainRamp(def);
   const main = base.metal ? finish(base, r) : base;
-  const c: Ctx = { g, def, id: def.id, r, tier: def.tier, mat: def.material, paint: item.paint, v: hash(def.id), main, trim: trimOf(base, r), glints: [] };
+  const c: Ctx = { g, def, id: def.id, r, tier: def.tier, mat: def.material, paint: item.paint, v: hashString(def.id), main, trim: trimOf(base, r), glints: [] };
   g.lineJoin = 'round';
   g.lineCap = 'round';
   switch (def.slot) {

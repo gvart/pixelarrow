@@ -2,11 +2,11 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppEnv, Env } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { db, secret } from '../middleware';
+import { clientIp, db, secret } from '../middleware';
 import { bannedError } from '../ban';
 import { displayName, getPlayerByTelegramId, publicPlayer, upsertPlayer, type PlayerRow } from '../players';
 import { optedOut, requestCtx, writeEvent } from '../telemetry/analytics';
-import { rateLimit } from '../rateLimit';
+import { requireRate } from '../rateLimit';
 import { signSession } from '../session';
 import { validateInitData, type TelegramUser } from '../telegramAuth';
 
@@ -39,10 +39,7 @@ function devAuthAllowed(env: Env): boolean {
 export const auth = new Hono<AppEnv>();
 
 auth.post('/telegram', async (c) => {
-  const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
-  if (!rateLimit(`auth:${ip}`, AUTH_LIMIT, AUTH_WINDOW_MS)) {
-    throw new ApiError(429, 'rate_limited', 'Too many login attempts, slow down');
-  }
+  requireRate(`auth:${clientIp(c)}`, AUTH_LIMIT, AUTH_WINDOW_MS, 'Too many login attempts, slow down');
   const sessionSecret = secret(c.env, 'SESSION_SECRET');
 
   // Accept either JSON { initData } or the raw initData string as the body.

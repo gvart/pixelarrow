@@ -12,13 +12,11 @@ import { Lockstep } from '../../src/online/lockstep';
 import type { DuelStart, ServerMsg } from '../../src/online/protocol';
 import { DUEL_RULES } from '../../src/duel/rules';
 import { RANKED, matchWindow } from '../../src/duel/rating';
-import { seasonId } from '../../src/duel/season';
 import type { MatchReport } from '../../src/duel/protocol';
 import type { DuelDO } from '../src/duel/duelDO';
 import type { MatchmakerDO } from '../src/duel/matchmaker';
 import { settleMatch, type MatchInit, type MatchOutcome } from '../src/duel/live';
-import { devLogin } from './helpers';
-import { DB, fresh, getJson, post, wsPath, type WsClient } from './onlineHelpers';
+import { DB, fresh, getJson, openDuellist, wsPath, type WsClient } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -33,16 +31,8 @@ interface Duellist {
 
 /** A player with a duel profile; `level5` gives the XP of duel level 5 (ranked). */
 async function duellist(tg: number, opts: { level5?: boolean; rating?: number } = {}): Promise<Duellist> {
-  const { token, playerId } = await devLogin(tg, `D${tg}`);
-  expect((await post('/api/duel/profile', token)).status).toBe(200);
-  if (opts.level5) await DB().prepare('UPDATE duel_profiles SET xp = 500 WHERE player_id = ?1').bind(playerId).run();
-  if (opts.rating !== undefined) {
-    await DB()
-      .prepare("INSERT INTO duel_ratings (player_id, ladder, rating, rd, vol, games, updated_at, season, played_at) VALUES (?1, 'live', ?2, 80, 0.06, 20, 0, ?3, ?4)")
-      .bind(playerId, opts.rating, seasonId(Date.now()), Date.now())
-      .run();
-  }
-  return { token, pid: playerId };
+  const { token, pid } = await openDuellist(tg, { name: `D${tg}`, ...opts });
+  return { token, pid };
 }
 
 const queueSocket = async (p: Duellist) => {

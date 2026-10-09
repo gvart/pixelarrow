@@ -5,7 +5,7 @@
  * stars and power rating. Unit-tested in tests/gear.test.ts.
  */
 import { itemDef, itemMods, itemValue, normalizeRarity, rarityRank, SLOTS, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
-import type { Hero } from '../data/units';
+import type { Equipment, Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
 import { computeStats, heroClass, heroPower, type CombatStats } from '../sim/stats';
 
@@ -88,15 +88,53 @@ export function changedDeltas(cur: CombatStats, next: CombatStats): StatDelta[] 
   return statDeltas(cur, next).filter((d) => d.better !== null);
 }
 
+// ------------------------------------------------------------------ equipping
+
+/**
+ * Put `item` in its slot of `equip` (mutates). Two-handed weapons and shields
+ * exclude each other. Returns what was taken off, in stash order: the old item
+ * in that slot first, then a shield or two-hander the new item displaced.
+ */
+export function equipInto(equip: Equipment, item: Item): Item[] {
+  const def = itemDef(item.def);
+  const slot = def.slot;
+  const out: Item[] = [];
+  const prev = equip[slot];
+  if (prev) out.push(prev);
+  equip[slot] = item;
+  if (slot === 'weapon' && def.twoHanded && equip.shield) {
+    out.push(equip.shield);
+    delete equip.shield;
+  }
+  if (slot === 'shield' && equip.weapon && itemDef(equip.weapon.def).twoHanded) {
+    out.push(equip.weapon);
+    delete equip.weapon;
+  }
+  return out;
+}
+
+/** Take what `equip` carries in `slot` off into `stash` (mutates both); returns it, or undefined if the slot was empty. */
+export function unequipInto(equip: Equipment, slot: Slot, stash: Item[]): Item | undefined {
+  const prev = equip[slot];
+  if (!prev) return undefined;
+  stash.push(prev);
+  delete equip[slot];
+  return prev;
+}
+
+/** Equip `stash[index]` on `equip`, moving whatever it displaces back into `stash` (mutates both). Returns the item. */
+export function equipFromStash(equip: Equipment, stash: Item[], index: number): Item {
+  const [item] = stash.splice(index, 1);
+  stash.push(...equipInto(equip, item));
+  return item;
+}
+
 // ------------------------------------------------------------------ equip previews
 
 /** The hero as he would be with `item` equipped (two-handers drop the shield and vice versa). */
 export function previewEquip(h: Hero, it: Item): Hero {
-  const def = itemDef(it.def);
   const clone: Hero = { ...h, equip: { ...h.equip } };
-  clone.equip[def.slot] = it;
-  if (def.slot === 'weapon' && def.twoHanded) delete clone.equip.shield;
-  if (def.slot === 'shield' && clone.equip.weapon && itemDef(clone.equip.weapon.def).twoHanded) delete clone.equip.weapon;
+  equipInto(clone.equip, it);
   return clone;
 }
 

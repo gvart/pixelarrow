@@ -19,6 +19,11 @@ export function db(env: Env): D1Database {
   return env.DB;
 }
 
+/** The client IP Cloudflare reports, or 'unknown'. */
+export function clientIp(c: Context): string {
+  return c.req.header('cf-connecting-ip') ?? 'unknown';
+}
+
 /** Session token from `Authorization: Bearer <token>`. */
 export function bearer(c: Context): string | null {
   const h = c.req.header('authorization');

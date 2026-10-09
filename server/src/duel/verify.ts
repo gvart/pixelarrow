@@ -21,9 +21,14 @@ export type Replayed = ReturnType<typeof replayBattle>;
 /**
  * Replays a submission. On a rejection `reject(claim, result)` closes the
  * ticket first, then the ApiError is thrown (422 `sim_rejected` or
- * `replay_mismatch`).
+ * `replay_mismatch` with `mismatchMessage`).
  */
-export async function verifyBattle(setup: BattleSetup, body: Submission, reject: (claim: string, result?: string) => Promise<void>): Promise<Replayed> {
+export async function verifyBattle(
+  setup: BattleSetup,
+  body: Submission,
+  reject: (claim: string, result?: string) => Promise<void>,
+  mismatchMessage = 'The battle did not replay as reported; it does not count',
+): Promise<Replayed> {
   const claimJson = JSON.stringify(body.claim);
   let out: Replayed;
   try {
@@ -39,7 +44,7 @@ export async function verifyBattle(setup: BattleSetup, body: Submission, reject:
   if (s.hash !== body.claim.hash) mismatches.push(`hash: claimed ${body.claim.hash}, server ${s.hash}`);
   if (mismatches.length) {
     await reject(claimJson, JSON.stringify({ mismatches }));
-    throw new ApiError(422, 'replay_mismatch', 'The battle did not replay as reported; it does not count', { mismatches });
+    throw new ApiError(422, 'replay_mismatch', mismatchMessage, { mismatches });
   }
   return out;
 }

@@ -43,7 +43,7 @@ import { itemDef, type Item } from '../data/items';
 import { MUSTER, classRows, fieldIds, musterOf, reserveChanges, shiftClass, toggleReserve, type MusterHero, type MusterWhy } from '../game/muster';
 import { CLASSES, type ClassId } from '../data/classes';
 import { frameScrollTexts } from '../ui/sheet';
-import { fmtTime, fmtNum } from './online/OnlineScene';
+import { fmtDuration, fmtNum } from '../util/format';
 import type { OwnedHeroView } from '../online/client';
 
 export interface CampSceneData {
@@ -824,7 +824,7 @@ export class CampScene extends BaseScene {
     const upgrade = !!sel;
     const label = upgrade ? (sel!.level >= OCAMP.maxLevel ? t('ocamp.maxed') : t('ocamp.upgrade')) : t('ocamp.build');
     const why = !kind ? t('ocamp.empty') : check && !check.ok ? this.why(check.reason) : !check ? (sel?.building !== null ? this.why('busy') : this.why('maxLevel')) : undefined;
-    const restWhy = v.army.marching || v.army.loc !== this.d.loc ? this.why('notHere') : camp.restAt ? t('ocamp.restIn', { t: fmtTime(camp.restAt - this.nowServer()) }) : undefined;
+    const restWhy = v.army.marching || v.army.loc !== this.d.loc ? this.why('notHere') : camp.restAt ? t('ocamp.restIn', { t: fmtDuration(camp.restAt - this.nowServer()) }) : undefined;
     return [
       { label: t('cs.muster'), icon: 'people', iconOnly: true, onClick: () => this.openMuster(), id: 'camp.muster', tip: t('cs.musterTip') },
       { label: t('cs.loot'), icon: 'amphora', iconOnly: true, onClick: () => this.openLoot(), id: 'camp.loot', tip: t('cs.lootTip') },
@@ -868,7 +868,7 @@ export class CampScene extends BaseScene {
       const sel = camp.buildings.find((b) => b.slot === this.slot) ?? null;
       if (sel) {
         info = `${t('ocamp.level', { name: t(`ocamp.b.${sel.kind}` as TKey), n: sel.level })}: ${sel.level > 0 ? effectText(sel.kind, sel.level, 0) : t(`ocamp.d.${sel.kind}` as TKey)}`;
-        if (sel.building !== null && sel.doneAt !== null) info = `${t(`ocamp.b.${sel.kind}` as TKey)} ${t('ocamp.building', { t: fmtTime(Math.max(0, sel.doneAt - this.nowServer())) })}`;
+        if (sel.building !== null && sel.doneAt !== null) info = `${t(`ocamp.b.${sel.kind}` as TKey)} ${t('ocamp.building', { t: fmtDuration(Math.max(0, sel.doneAt - this.nowServer())) })}`;
         else if (sel.level < OCAMP.maxLevel) info += ` · ${costLine(sel.kind, sel.level + 1)}`;
       } else if (this.kind) info = `${t(`ocamp.b.${this.kind}` as TKey)}: ${effectText(this.kind, 1, 0)} · ${costLine(this.kind, 1)}`;
       else info = t('ocamp.empty');
@@ -1305,7 +1305,7 @@ function costLine(kind: CampBuildingId, level: number): string {
   const c = campLevelCost(kind, level);
   const parts: string[] = [];
   for (const k of RESOURCE_KEYS) if (c.cost[k] > 0) parts.push(`${fmtNum(c.cost[k])} ${tOr(`res.${k}`, k)}`);
-  return `${parts.join(', ')} · ${fmtTime(c.minutes * 60_000)}`;
+  return `${parts.join(', ')} · ${fmtDuration(c.minutes * 60_000)}`;
 }
 
 const clsName = (c: ClassId): string => tOr(`class.${c}.name`, CLASSES[c].name);

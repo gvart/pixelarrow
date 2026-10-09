@@ -6,7 +6,9 @@
  * Unit-tested in tests/economy.test.ts.
  */
 import type { ApiError, EconomyCatalog, MarketListing, PassReward, SeasonPassInfo } from '../platform/api';
-import { normalizeRarity, RARITIES } from '../data/items';
+import { DEFAULT_FEE_RATE, marketFee, rarityBounds } from './marketRules';
+
+export { DEFAULT_FEE_RATE, marketFee, rarityBounds };
 
 // ------------------------------------------------------------------ season pass
 
@@ -59,13 +61,6 @@ export function rewardIcon(r: PassReward): { kind: 'resource' | 'consumable' | '
 
 // ------------------------------------------------------------------ marketplace
 
-export const DEFAULT_FEE_RATE = 0.1;
-
-/** The fee burned on a sale: 10% rounded up (the server's rule, server/src/economy/catalog.ts). */
-export function marketFee(price: number, rate = DEFAULT_FEE_RATE): number {
-  return Math.ceil(Math.max(0, price) * rate);
-}
-
 /** What the seller receives for a listing priced `price`. */
 export function sellerGets(price: number, rate = DEFAULT_FEE_RATE): number {
   return Math.max(0, price - marketFee(price, rate));
@@ -76,8 +71,7 @@ export function priceBounds(cat: Pick<EconomyCatalog, 'market'> | null, currency
   const t = cat?.market.priceBounds[currency];
   const fallback: [number, number] = currency === 'gold' ? [2, 100_000] : [2, 10_000];
   if (!t) return fallback;
-  const known = (RARITIES as string[]).includes(rarity) || rarity === 'fine' || rarity === 'heroic';
-  return (known ? t[normalizeRarity(rarity)] : undefined) ?? t.default ?? fallback;
+  return rarityBounds(t, rarity) ?? fallback;
 }
 
 export function clampPrice(price: number, bounds: [number, number]): number {

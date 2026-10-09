@@ -5,7 +5,8 @@ import type { BattleSetup, Order } from '../../src/sim/types';
 import { getMap, WorldGraph } from '../../src/online/world';
 import { rleEncode } from '../../src/online/mapSchema';
 import { resetRateLimits } from '../src/rateLimit';
-import { forgetSeasonCache } from '../src/online/store';
+import { currentSeason, forgetSeasonCache, getShard, type Shard } from '../src/online/store';
+import { seasonId } from '../../src/duel/season';
 import { api, BASE, devLogin } from './helpers';
 
 export const DB = () => env.DB!;
@@ -43,6 +44,48 @@ export function worldOf(p: { profile: Profile }): WorldGraph {
 export async function shardOf(p: { profile: Profile }): Promise<{ season: number; id: number; seed: number; world: WorldGraph }> {
   const r = await DB().prepare('SELECT seed, map_id FROM online_shards WHERE season_id = ?1 AND id = ?2').bind(p.profile.season.id, p.profile.shard.id).first<{ seed: number; map_id: string }>();
   return { season: p.profile.season.id, id: p.profile.shard.id, seed: r!.seed, world: getMap(r!.map_id) };
+}
+
+/** The shard (seed, map) a player is in, for the current season. */
+export async function shardRow(p: { profile: Profile }): Promise<Shard> {
+  const season = await currentSeason(DB());
+  return getShard(DB(), season.id, p.profile.shard.id);
+}
+
+/** Sets a player's Drachmae balance (creating the wallet). */
+export async function giveDrachmae(pid: number, n: number): Promise<void> {
+  await DB().prepare('INSERT INTO wallets (player_id, drachmae, updated_at) VALUES (?1, ?2, 0) ON CONFLICT (player_id) DO UPDATE SET drachmae = excluded.drachmae').bind(pid, n).run();
+}
+
+/** Sets a player's gold in the current season (other resources unchanged). */
+export async function setGold(p: Player, gold: number): Promise<void> {
+  const season = await currentSeason(DB());
+  await DB().prepare('UPDATE online_profiles SET gold = ?1 WHERE season_id = ?2 AND player_id = ?3').bind(gold, season.id, p.playerId).run();
+}
+
+/** Sets a player's gold and wood in the current season (wood 0 unless given). */
+export async function setPurse(p: Player, gold: number, wood = 0): Promise<void> {
+  const season = await currentSeason(DB());
+  await DB().prepare('UPDATE online_profiles SET gold = ?1, wood = ?2 WHERE season_id = ?3 AND player_id = ?4').bind(gold, wood, season.id, p.playerId).run();
+}
+
+/**
+ * Logs in (as `name`, else devLogin's default) and opens the duel mode.
+ * `level5` gives the XP of duel level 5 (ranked); `rating` seeds a live
+ * rating with 20 games in the current season.
+ */
+export async function openDuellist<P = unknown>(tg: number, opts: { name?: string; level5?: boolean; rating?: number } = {}): Promise<{ token: string; pid: number; profile: P }> {
+  const { token, playerId } = await devLogin(tg, opts.name);
+  const r = await post<P>('/api/duel/profile', token);
+  expect(r.status).toBe(200);
+  if (opts.level5) await DB().prepare('UPDATE duel_profiles SET xp = 500 WHERE player_id = ?1').bind(playerId).run();
+  if (opts.rating !== undefined) {
+    await DB()
+      .prepare("INSERT INTO duel_ratings (player_id, ladder, rating, rd, vol, games, updated_at, season, played_at) VALUES (?1, 'live', ?2, 80, 0.06, 20, 0, ?3, ?4)")
+      .bind(playerId, opts.rating, seasonId(Date.now()), Date.now())
+      .run();
+  }
+  return { token, pid: playerId, profile: r.body };
 }
 
 /**
@@ -168,6 +211,9 @@ export function play(setup: BattleSetup, script: { tick: number; order: Order }[
 
 export interface WsClient {
   ws: WebSocket;
+  /** The Sec-WebSocket-Protocol the server answered with (null: none). */
+  protocol: string | null;
+  /** Every message so far; a non-JSON frame is recorded as `{ type: 'raw', data }`. */
   msgs: Record<string, unknown>[];
   next(type: string, pred?: (m: Record<string, unknown>) => boolean): Promise<Record<string, unknown>>;
   send(m: unknown): void;
@@ -178,9 +224,17 @@ export function wsOnline(token: string): Promise<WsClient> {
   return wsPath(token, '/ws/online');
 }
 
-/** A socket on any /ws/* path (the shard, the duel queue, a duel match). */
-export async function wsPath(token: string, path: string): Promise<WsClient> {
-  const res = await SELF.fetch(`${BASE}${path}`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${token}` } });
+/**
+ * A socket on any /ws/* path (a region, the shard, the duel queue, a duel
+ * match). The session token goes in the Sec-WebSocket-Protocol header
+ * (`auth: 'protocol'`, the default) or in `?token=` (`auth: 'query'`).
+ */
+export async function wsPath(token: string, path: string, opts: { auth?: 'protocol' | 'query' } = {}): Promise<WsClient> {
+  const headers: Record<string, string> = { upgrade: 'websocket' };
+  let url = `${BASE}${path}`;
+  if (opts.auth === 'query') url += `${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+  else headers['sec-websocket-protocol'] = `pixelarrow.v1, ${token}`;
+  const res = await SELF.fetch(url, { headers });
   expect(res.status).toBe(101);
   const ws = res.webSocket!;
   const msgs: Record<string, unknown>[] = [];
@@ -188,6 +242,7 @@ export async function wsPath(token: string, path: string): Promise<WsClient> {
   const taken = new Set<number>();
   const client: WsClient = {
     ws,
+    protocol: res.headers.get('sec-websocket-protocol'),
     msgs,
     send: (m) => ws.send(JSON.stringify(m)),
     next: (type, pred) =>
@@ -210,7 +265,7 @@ export async function wsPath(token: string, path: string): Promise<WsClient> {
     }
   };
   ws.addEventListener('message', (e) => {
-    const m = JSON.parse(e.data as string) as Record<string, unknown>;
+    const m = (typeof e.data === 'string' && e.data.startsWith('{') ? JSON.parse(e.data) : { type: 'raw', data: e.data }) as Record<string, unknown>;
     msgs.push(m);
     client.onMessage?.(m);
     pump();

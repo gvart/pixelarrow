@@ -3,7 +3,7 @@ import { makeHero } from '../src/game/heroes';
 import { Rng } from '../src/sim/rng';
 import { computeStats } from '../src/sim/stats';
 import {
-  changedDeltas, compareItem, cycle, fmtStat, heroStars, isUpgrade, itemModLines, powerRating, previewAttrs, previewEquip, queryRoster, queryStash,
+  changedDeltas, compareItem, cycle, equipFromStash, equipInto, unequipInto, fmtStat, heroStars, isUpgrade, itemModLines, powerRating, previewAttrs, previewEquip, queryRoster, queryStash,
   sheetStats, statDeltas, STASH_SORTS,
 } from '../src/game/gear';
 import { ITEM_LIST, type Item } from '../src/data/items';
@@ -157,5 +157,61 @@ describe('data translations (src/i18n/data.ru.ts)', () => {
     expect(tOr('item.dory.name', 'Dory spear')).toBe('Копьё дори');
     setLang('en');
     expect(tOr('item.dory.name', 'Dory spear')).toBe('Dory spear');
+  });
+});
+
+describe('equip rule', () => {
+  it('equipping into an empty slot displaces nothing', () => {
+    const equip: Hero['equip'] = {};
+    expect(equipInto(equip, item('w', 'dory'))).toEqual([]);
+    expect(equip.weapon?.uid).toBe('w');
+  });
+
+  it('a two-hander drops the shield after the old weapon', () => {
+    const equip: Hero['equip'] = { weapon: item('w0', 'dory'), shield: item('s0', 'hoplon') };
+    const off = equipInto(equip, item('w1', 'falx'));
+    expect(off.map((i) => i.uid)).toEqual(['w0', 's0']);
+    expect(equip.weapon?.uid).toBe('w1');
+    expect(equip.shield).toBeUndefined();
+  });
+
+  it('a shield drops a two-handed weapon', () => {
+    const equip: Hero['equip'] = { weapon: item('w0', 'falx') };
+    expect(equipInto(equip, item('s1', 'hoplon')).map((i) => i.uid)).toEqual(['w0']);
+    expect(equip.weapon).toBeUndefined();
+    expect(equip.shield?.uid).toBe('s1');
+  });
+
+  it('a shield keeps a one-handed weapon', () => {
+    const equip: Hero['equip'] = { weapon: item('w0', 'dory'), shield: item('s0', 'hoplon') };
+    expect(equipInto(equip, item('s1', 'aspis')).map((i) => i.uid)).toEqual(['s0']);
+    expect(equip.weapon?.uid).toBe('w0');
+  });
+
+  it('equipFromStash takes the item out and pushes displaced items back in order', () => {
+    const equip: Hero['equip'] = { weapon: item('w0', 'dory'), shield: item('s0', 'hoplon') };
+    const stash = [item('a', 'cap'), item('w1', 'falx'), item('b', 'cap')];
+    expect(equipFromStash(equip, stash, 1).uid).toBe('w1');
+    expect(stash.map((i) => i.uid)).toEqual(['a', 'b', 'w0', 's0']);
+  });
+
+  it('unequipInto moves the item to the stash, or reports an empty slot', () => {
+    const equip: Hero['equip'] = { helmet: item('h', 'cap') };
+    const stash: Item[] = [];
+    expect(unequipInto(equip, 'helmet', stash)?.uid).toBe('h');
+    expect(equip.helmet).toBeUndefined();
+    expect(stash.map((i) => i.uid)).toEqual(['h']);
+    expect(unequipInto(equip, 'helmet', stash)).toBeUndefined();
+    expect(stash).toHaveLength(1);
+  });
+
+  it('previewEquip leaves the hero untouched', () => {
+    const h = hero();
+    h.equip.shield = item('s0', 'hoplon');
+    const before = JSON.stringify(h);
+    const p = previewEquip(h, item('w1', 'falx'));
+    expect(JSON.stringify(h)).toBe(before);
+    expect(p.equip.shield).toBeUndefined();
+    expect(p.equip.weapon?.uid).toBe('w1');
   });
 });

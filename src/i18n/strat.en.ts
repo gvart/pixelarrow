@@ -1,5 +1,5 @@
 /**
- * English strings of the Strategos chrome (docs/UI_STRATEGOS.md): situation
+ * English strings of the Strategos chrome (docs/UI_KIT.md "Screen chrome"): situation
  * sentences, the command strip's words, the radial orders, the first-steps
  * checklist and the persistent tips. Spread into en.ts; ru.ts spreads
  * strat.ru.ts. Plain words only: no abbreviations, numbers with their unit.

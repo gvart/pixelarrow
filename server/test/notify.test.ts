@@ -7,9 +7,9 @@ import { enqueue, ev, flushDue, flushPlayer, isQuiet, NOTIFY_RULES, notify } fro
 import { ensureBotSetup, incomeNotices, runScheduled, seasonNotices } from '../src/notify/jobs';
 import { buttonUrl, render } from '../src/notify/templates';
 import { BOT_COMMANDS } from '../src/bot/commands';
-import { currentSeason, getShard, shardDoName } from '../src/online/store';
+import { currentSeason, shardDoName } from '../src/online/store';
 import { api, mockTelegram, webhook, type BotCall } from './helpers';
-import { DB, fresh, freeNeighbour, getJson, must, join, placeArmy, play, post, sameShard, wsOnline, type Player, type Ticket } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, getJson, must, join, placeArmy, play, post, sameShard, shardRow, wsOnline, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -42,11 +42,6 @@ async function waitForEvent(pid: number, event: string): Promise<OutRow> {
 
 const sends = (calls: BotCall[], chat?: number) => calls.filter((c) => c.method === 'sendMessage' && (chat === undefined || c.params.chat_id === chat));
 const button = (c: BotCall) => (c.params.reply_markup as { inline_keyboard: { text: string; web_app?: { url: string }; callback_data?: string }[][] }).inline_keyboard;
-
-async function shardOf(p: Player) {
-  const season = await currentSeason(DB());
-  return getShard(DB(), season.id, p.profile.shard.id);
-}
 
 /** A failing Telegram: every sendMessage answers with `status`. */
 function telegramFailing(status: number, description: string): BotCall[] {
@@ -241,7 +236,7 @@ describe('event triggers', () => {
     const owner = await join(77101, 'Owner');
     const att = await join(77102, 'Raider');
     await sameShard(att, owner);
-    const shard = await shardOf(att);
+    const shard = await shardRow(att);
     const w = shard.world;
     // the owner holds a plot (not a boss site, not locked, nobody's yet) next to the raider's army (no garrison: militia)
     const bosses = worldBossSites(w, shard.seed).map((b) => b.loc);
@@ -329,7 +324,7 @@ describe('event triggers', () => {
     const buyer = await join(77502, 'Buyer');
     await sameShard(seller, buyer);
     const season = await currentSeason(DB());
-    const shard = await shardOf(seller);
+    const shard = await shardRow(seller);
     const town = shard.world.all().find((x) => x.kind === 'town')!.id;
     for (const p of [seller, buyer]) await placeArmy(p, town, shard.id);
     await DB().prepare('UPDATE online_profiles SET wood = 50, gold = 1000 WHERE season_id = ?1').bind(season.id).run();
@@ -344,7 +339,7 @@ describe('event triggers', () => {
   it('the killing raid on a world boss tells the other damage dealers their share', async () => {
     const a = await join(77601);
     const b = await join(77602);
-    const shard = await shardOf(a);
+    const shard = await shardRow(a);
     const site = worldBossSites(shard.world, shard.seed)[0];
     const spot = must(shard.world.neighbours(site.loc).find((n) => shard.world.info(n).passable), `passable neighbour of boss site ${site.loc}`);
     for (const p of [a, b]) await placeArmy(p, spot, shard.id);

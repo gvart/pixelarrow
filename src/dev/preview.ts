@@ -14,6 +14,7 @@
  *                            small formation, and the cosmetics on the player's army.
  *   ?g=all                   all of the above.
  */
+import { hex } from '../art/palette';
 import {
   renderFrame, renderFrameFx, renderSheet, dollGeom, dollFromHero, dollFx, applyCosmetics, attackFrame, weaponClass, ANIM,
   BATTLE_SCALE, NDIRS, FRAME_NAMES, sheetFrames, type DollSpec, type GearTag,
@@ -36,7 +37,6 @@ const gal = q.get('g');
 
 document.body.style.cssText = 'margin:0;padding:12px;background:#4a4a36;color:#f0e6d0;font:12px monospace;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start';
 
-const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const GRASS = '#8f8a42';
 
 function card(title: string, wide = false): HTMLDivElement {

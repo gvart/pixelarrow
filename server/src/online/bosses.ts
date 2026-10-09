@@ -19,14 +19,16 @@
 import { emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { LIMITS, LoggedOrderSchema, replayBattle } from '../battle';
+import { LIMITS, replayBattle } from '../battle';
+import { SubmitBody, verifyBattle } from '../duel/verify';
+import { battleTicketView, closeBattleTicket, loadOwnTicket, requireOpenTicket, ticketPreamble, type TicketStatus } from '../tickets';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
 import { requireAuth } from '../middleware';
 import type { Hero } from '../../../src/data/units';
 import type { Item } from '../../../src/data/items';
-import type { BattleSetup, LoggedOrder } from '../../../src/sim/types';
+import type { BattleSetup } from '../../../src/sim/types';
 import { ENCOUNTERS, trophyId, type EncounterId } from '../../../src/data/beasts';
 import { BEAST_RULES, applyBossState, bossDefenders, bossLoot, bossMaxHp, segmentOutcome, worldBossSites, type BossSite } from '../../../src/online/lairs';
 import { DEFAULT_FORMATIONS, ONLINE_RULES } from '../../../src/online/rules';
@@ -67,7 +69,7 @@ interface TicketRow {
   attackers: string;
   defenders: string;
   defender_kind: string;
-  status: 'open' | 'used' | 'rejected' | 'abandoned';
+  status: TicketStatus;
   claim: string | null;
   result: string | null;
   consumable: string | null;
@@ -176,18 +178,7 @@ const StartBody = z.object({
 });
 
 function ticketView(t: TicketRow, boss: EncounterId, extra: Record<string, unknown> = {}) {
-  return {
-    ticket: t.id,
-    expiresAt: t.expires_at,
-    boss,
-    loc: t.loc,
-    defenderKind: 'boss',
-    consumable: t.consumable ?? null,
-    setup: JSON.parse(t.setup) as BattleSetup,
-    attackers: JSON.parse(t.attackers) as Hero[],
-    defenders: JSON.parse(t.defenders) as Hero[],
-    ...extra,
-  };
+  return battleTicketView(t, { boss, loc: t.loc, defenderKind: 'boss' }, extra);
 }
 
 bosses.post('/start', async (c) => {
@@ -260,26 +251,12 @@ bosses.post('/start', async (c) => {
   return c.json(ticketView(t, site.boss));
 });
 
-const SubmitBody = z.object({
-  ticket: z.string().regex(/^[0-9a-f]{32}$/),
-  orders: z.array(LoggedOrderSchema).max(LIMITS.maxOrders),
-  deployOrders: z.number().int().min(0).max(LIMITS.maxOrders).optional(),
-  claim: z.object({ winner: z.union([z.literal(0), z.literal(1), z.literal(-1)]), ticks: z.number().int().min(0), hash: z.string().max(16) }),
-});
-
-async function loadTicket(pc: PlayerCtx, id: string): Promise<TicketRow> {
-  const t = await pc.db.prepare("SELECT * FROM battle_tickets WHERE id = ?1 AND player_id = ?2 AND defender_kind = 'boss'").bind(id, pc.pid).first<TicketRow>();
-  if (!t) throw new ApiError(404, 'not_found', 'No such raid');
-  return t;
+function loadTicket(pc: PlayerCtx, id: string): Promise<TicketRow> {
+  return loadOwnTicket<TicketRow>(pc.db, 'battle_tickets', id, pc.pid, 'No such raid', " AND defender_kind = 'boss'");
 }
 
-async function closeTicket(pc: PlayerCtx, t: TicketRow, status: 'rejected' | 'abandoned', extra: { claim?: string; result?: string } = {}): Promise<void> {
-  await pc.db.batch([
-    pc.db
-      .prepare("UPDATE battle_tickets SET status = ?2, finished_at = ?3, claim = COALESCE(?4, claim), result = COALESCE(?5, result), won = 0 WHERE id = ?1 AND status = 'open'")
-      .bind(t.id, status, pc.now, extra.claim ?? null, extra.result ?? null),
-    pc.db.prepare('UPDATE online_heroes SET busy_ticket = NULL, busy_until = 0 WHERE busy_ticket = ?1').bind(t.id),
-  ]);
+function closeTicket(pc: PlayerCtx, t: TicketRow, status: 'rejected' | 'abandoned', extra: { claim?: string; result?: string } = {}): Promise<void> {
+  return closeBattleTicket(pc.db, t.id, status, pc.now, extra);
 }
 
 bosses.post('/submit', async (c) => {
@@ -288,32 +265,11 @@ bosses.post('/submit', async (c) => {
   const body = await readJson(c, SubmitBody, LIMITS.maxBodyBytes);
   const t = await loadTicket(pc, body.ticket);
   const claimJson = JSON.stringify(body.claim);
-  if (t.status === 'used') {
-    if (t.claim === claimJson && t.result) return c.json({ ...JSON.parse(t.result), replayed: true });
-    throw new ApiError(409, 'ticket_used', 'This raid was already reported');
-  }
-  if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This raid was ${t.status}`);
-  if (t.expires_at < pc.now) {
-    await closeTicket(pc, t, 'abandoned');
-    throw new ApiError(410, 'ticket_expired', 'Too late: the raid ticket expired');
-  }
+  const replay = await ticketPreamble(t, claimJson, pc.now, 'raid', () => closeTicket(pc, t, 'abandoned'));
+  if (replay) return c.json({ ...JSON.parse(replay), replayed: true });
   const setup = JSON.parse(t.setup) as BattleSetup;
-  let out;
-  try {
-    out = replayBattle(setup, body.orders as LoggedOrder[], body.deployOrders);
-  } catch (e) {
-    await closeTicket(pc, t, 'rejected', { claim: claimJson });
-    throw new ApiError(422, 'sim_rejected', `The simulation rejected this battle: ${(e as Error).message}`);
-  }
+  const out = await verifyBattle(setup, body, (claim, result) => closeTicket(pc, t, 'rejected', { claim, result }), 'The raid did not replay as reported; it is void');
   const s = out.summary;
-  const mismatches: string[] = [];
-  if (s.winner !== body.claim.winner) mismatches.push(`winner: claimed ${body.claim.winner}, server ${s.winner}`);
-  if (s.ticks !== body.claim.ticks) mismatches.push(`ticks: claimed ${body.claim.ticks}, server ${s.ticks}`);
-  if (s.hash !== body.claim.hash) mismatches.push(`hash: claimed ${body.claim.hash}, server ${s.hash}`);
-  if (mismatches.length) {
-    await closeTicket(pc, t, 'rejected', { claim: claimJson, result: JSON.stringify({ mismatches }) });
-    throw new ApiError(422, 'replay_mismatch', 'The raid did not replay as reported; it is void', { mismatches });
-  }
   const res = await applyRaid(pc, t, out.result, s, setup, claimJson);
   if (res.killedNow) later(c, (async () => notify(c.env, await slainEvents(pc, t), { shard: pc.shard }))());
   if (!(res as { replayed?: boolean }).replayed) await emitWithFirst(c, 'battle_result', { mode: 'boss', result: outcomeOf(s.winner), ticks: s.ticks }, 'first_battle', { mode: 'boss' });
@@ -345,7 +301,7 @@ bosses.post('/abandon', async (c) => {
   const pc = await player(c);
   const body = await readJson(c, z.object({ ticket: z.string().regex(/^[0-9a-f]{32}$/) }), 1024);
   const t = await loadTicket(pc, body.ticket);
-  if (t.status !== 'open') throw new ApiError(409, 'ticket_closed', `This raid was ${t.status}`);
+  requireOpenTicket(t, 'raid');
   await closeTicket(pc, t, 'abandoned');
   return c.json({ ok: true });
 });

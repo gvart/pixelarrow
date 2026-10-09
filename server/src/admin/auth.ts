@@ -15,7 +15,7 @@ import type { MiddlewareHandler } from 'hono';
 import { safeEqual } from '../crypto';
 import type { AppEnv, Env } from '../env';
 import { ApiError, notConfigured } from '../errors';
-import { bearer } from '../middleware';
+import { bearer, clientIp } from '../middleware';
 import { overLimit, rateLimit } from '../rateLimit';
 import { log } from '../telemetry/log';
 
@@ -50,7 +50,7 @@ export function adminFor(env: Env, token: string | null): string | null {
 
 export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (adminCredentials(c.env).length === 0) throw notConfigured('ADMIN_TOKEN');
-  const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
+  const ip = clientIp(c);
   // An IP that failed too often is locked out for the window, even with a right token.
   if (overLimit(`admin:fail:${ip}`, ADMIN_FAILS_PER_10MIN, 600_000)) throw new ApiError(429, 'rate_limited', 'Too many failed admin logins');
   const who = adminFor(c.env, bearer(c));

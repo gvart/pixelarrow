@@ -10,7 +10,8 @@
  * changed; `vis` (0 = fog .. 1 = clear, per tile) animates for the dissolve.
  */
 import { hash2, valueNoise } from './pixels';
-import { MP, mix } from './mapProps';
+import { MP } from './mapProps';
+import { mix } from './palette';
 import { MAPC } from './worldArt';
 
 export const FOG_CHUNK = 128;

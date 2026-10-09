@@ -1,5 +1,5 @@
 /**
- * The camp panel of the war-table map (docs/MAP_V3.md "Camp", art in
+ * The camp panel of the war-table map (docs/DESIGN_V2.md "Camp", art in
  * docs/ART_STYLE.md §13): a parchment scroll over the map with the camp zone
  * (a grid of building slots: tan / pink checker tiles inside a dotted
  * orange-brown border, marching ants on hover), the buildings standing in it,
@@ -28,7 +28,7 @@ import { errorText } from '../../online/client';
 import type { DemoShard } from '../../online/demoShard';
 import { CAMP_FX, registerCampTextures, renderCampGround, renderCampGroundBorder, renderScaffold } from '../../art/campArt';
 import { CampLife } from '../../ui/campLife';
-import { fmtTime, fmtNum } from './OnlineScene';
+import { fmtDuration, fmtNum } from '../../util/format';
 
 /** Where the panel's data comes from. */
 export interface CampSource {
@@ -227,7 +227,7 @@ class CampPanel {
       if (left <= 0) {
         this.ticker = null;
         void this.load();
-      } else this.ticker.text.setText(t('ocamp.building', { t: fmtTime(left) }));
+      } else this.ticker.text.setText(t('ocamp.building', { t: fmtDuration(left) }));
     }
   }
 
@@ -320,7 +320,7 @@ class CampPanel {
       const lvl = sel.level;
       objs.push(addText(s, b.x, y, t('ocamp.level', { name: name(sel.kind), n: lvl }), 'red'));
       if (sel.building !== null && sel.doneAt !== null) {
-        const tx = addText(s, b.x + b.w, y, t('ocamp.building', { t: fmtTime(sel.doneAt - this.nowServer()) }), 'dim', 1);
+        const tx = addText(s, b.x + b.w, y, t('ocamp.building', { t: fmtDuration(sel.doneAt - this.nowServer()) }), 'dim', 1);
         objs.push(tx);
         this.ticker = { text: tx, doneAt: sel.doneAt };
       }
@@ -386,7 +386,7 @@ class CampPanel {
     // actions: Rest (secondary, left) and Build / Upgrade (primary, right)
     const by = m.y + m.h - 8 - SIZE.btnH;
     const half = Math.floor((b.w - SIZE.gap) / 2);
-    const restWhy = v.army.marching || v.army.loc !== this.o.loc ? this.why('notHere') : camp.restAt ? t('ocamp.restIn', { t: fmtTime(camp.restAt - this.nowServer()) }) : undefined;
+    const restWhy = v.army.marching || v.army.loc !== this.o.loc ? this.why('notHere') : camp.restAt ? t('ocamp.restIn', { t: fmtDuration(camp.restAt - this.nowServer()) }) : undefined;
     const rest = new Button(s, b.x, by, half, SIZE.btnH, {
       label: t('ocamp.rest'),
       icon: 'tent',
@@ -418,7 +418,7 @@ class CampPanel {
     const c = campLevelCost(kind, level);
     const used = this.purse(objs, x, y, w - 40, have, c.cost);
     objs.push(addIcon(this.scene, x + used + 2, y - 3, 'hourglass'));
-    objs.push(addText(this.scene, x + used + 15, y, fmtTime(c.minutes * 60_000), 'dim'));
+    objs.push(addText(this.scene, x + used + 15, y, fmtDuration(c.minutes * 60_000), 'dim'));
   }
 
   /**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDeployClock, DEPLOY_MS, foeIsReady, markStarted, pressReady, secondsLeft, tickDeploy, urgent } from '../src/online/deployClock';
-import { buildReport, formatDuration, pickMvp, resultFor, unitStats, type HeroLine, type UnitStat } from '../src/game/report';
+import { fmtClock } from '../src/util/format';
+import { buildReport, pickMvp, resultFor, unitStats, type HeroLine, type UnitStat } from '../src/game/report';
 import { resolveBattle } from '../src/game/loot';
 import { Battle, TICK_RATE } from '../src/sim/battle';
 import { Rng } from '../src/sim/rng';
@@ -75,9 +76,9 @@ describe('post-battle report', () => {
   });
 
   it('formats the duration and maps winners to results', () => {
-    expect(formatDuration(0)).toBe('0:00');
-    expect(formatDuration(65)).toBe('1:05');
-    expect(formatDuration(600)).toBe('10:00');
+    expect(fmtClock(0)).toBe('0:00');
+    expect(fmtClock(65)).toBe('1:05');
+    expect(fmtClock(600)).toBe('10:00');
     expect(resultFor(0, 0)).toBe('victory');
     expect(resultFor(1, 0)).toBe('defeat');
     expect(resultFor(0, 1)).toBe('defeat');

@@ -28,7 +28,7 @@ import { P } from '../../art/palette';
 import { hapticNotify } from '../../platform/telegram';
 import { uiCoin } from '../../audio/hooks';
 import { t, tOr, type TKey } from '../../i18n';
-import { fmtTime } from './OnlineScene';
+import { fmtDuration } from '../../util/format';
 
 export interface MerchantData {
   /** The merchant's region. */
@@ -187,7 +187,7 @@ export class MerchantScene extends BaseScene {
           : v.holder
             ? { text: t('merchant.held', { name: v.holder.name ?? '?', cut }), font: 'dim' }
             : { text: t('merchant.free', { pct, cut }), font: 'dim' },
-      { text: t('merchant.reset', { t: fmtTime(v.resetsAt - v.now) }), font: 'dim' },
+      { text: t('merchant.reset', { t: fmtDuration(v.resetsAt - v.now) }), font: 'dim' },
     ];
     const lines = info.map((x) => ({ ...x, lines: wrapText(x.text, w - 8, 3).lines }));
     const infoH = 6 + lines.reduce((a, x) => a + x.lines.length * LINE_H + 2, 0) + 2;

@@ -5,7 +5,7 @@ import { DUEL_RULES, catalogue, dailyOffers, gearPrice, recruitPrice, utcDay } f
 import { LADDER, chestReward, ladderFloor, ladderStars } from '../../src/duel/ladder';
 import type { BattleSetup } from '../../src/sim/types';
 import { devLogin } from './helpers';
-import { DB, fresh, getJson, play, post } from './onlineHelpers';
+import { DB, fresh, getJson, openDuellist, play, post } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -35,12 +35,7 @@ interface LadderTicket {
   resumed?: boolean;
 }
 
-async function open(tg: number): Promise<{ token: string; pid: number; profile: DuelProfile }> {
-  const { token, playerId } = await devLogin(tg);
-  const r = await post<DuelProfile>('/api/duel/profile', token);
-  expect(r.status).toBe(200);
-  return { token, pid: playerId, profile: r.body };
-}
+const open = (tg: number) => openDuellist<DuelProfile>(tg);
 
 describe('duel profile', () => {
   it('opens once with the starter roster, a full team and starting Glory', async () => {

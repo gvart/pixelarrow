@@ -1,5 +1,5 @@
 /**
- * Season map JSON (docs/MAP_V3.md "Data model"): the format of
+ * Season map JSON (docs/DESIGN_V2.md "Data model"): the format of
  * `src/online/maps/<mapId>.json`, its RLE helpers and the validator. Pure TS,
  * shared by the client, the Worker and scripts/buildMap.ts.
  *

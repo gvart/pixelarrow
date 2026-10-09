@@ -36,6 +36,7 @@ import { cosmeticLoadout } from '../../game/cosmetics';
 import { standardArmy } from '../../game/heroes';
 import { Rng } from '../../sim/rng';
 import type { UIMetrics } from '../../ui/kit';
+import { prefersReducedMotion } from '../../ui/motion';
 import { battleDoll, battleFrame, battleRow, dollDisplayScale, dollOrigin, flushDolls, pumpDolls, releaseBattleRows } from '../../ui/sprites';
 import type { Culture } from '../../data/names';
 
@@ -1265,13 +1266,5 @@ export class MenuBattle {
     this.maskG?.destroy();
     this.world.destroy();
     releaseBattleRows(this.scene);
-  }
-}
-
-function prefersReducedMotion(): boolean {
-  try {
-    return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch {
-    return false;
   }
 }

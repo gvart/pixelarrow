@@ -47,6 +47,7 @@ import { ParchmentMapView, clampCenter, snapZoom, zoomLimits, zoomStep, type Wor
 import { renderVignette } from '../../art/warTable';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
+import { fmtDuration, fmtNum } from '../../util/format';
 import { attackReport, duelReport } from '../../online/report';
 import { attackSubmission } from '../../online/battle';
 import { showReport } from '../ResultsScene';
@@ -154,25 +155,6 @@ function previewSource(d: DemoShard): Source {
 }
 
 type Gesture = { mode: 'pending' | 'pan'; id: number; sx: number; sy: number; lx: number; ly: number } | null;
-
-/** "12m 30s", "2h 05m" (localized). */
-export function fmtTime(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return t('online.time.s', { s });
-  const m = Math.floor(s / 60);
-  if (m < 60) return s % 60 && m < 10 ? t('online.time.ms', { m, s: s % 60 }) : t('online.time.m', { m });
-  const h = Math.floor(m / 60);
-  if (h < 48) return t('online.time.hm', { h, m: m % 60 });
-  return t('online.time.d', { d: Math.floor(h / 24), h: h % 24 });
-}
-
-/** 999, 1.2K, 12K. */
-export function fmtNum(n: number): string {
-  const v = Math.floor(n);
-  if (v < 1000) return `${v}`;
-  if (v < 10_000) return `${(Math.floor(v / 100) / 10).toString()}K`;
-  return `${Math.floor(v / 1000)}K`;
-}
 
 const RES_ICON: Record<keyof Resources, string> = { gold: 'coin', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
 
@@ -509,7 +491,7 @@ export class OnlineScene extends BaseScene {
     const pendSum = RESOURCE_KEYS.reduce((a, k) => a + pend[k], 0);
     let sentence: string;
     let urgentSit = false;
-    if (p.army.marching && p.army.arriveAt) sentence = t('online.sit.marching', { t: fmtTime(p.army.arriveAt - this.board.armies.serverTime(Date.now())) });
+    if (p.army.marching && p.army.arriveAt) sentence = t('online.sit.marching', { t: fmtDuration(p.army.arriveAt - this.board.armies.serverTime(Date.now())) });
     else if (pendSum >= 1) {
       sentence = t('online.sit.collect');
       urgentSit = true;
@@ -534,8 +516,8 @@ export class OnlineScene extends BaseScene {
       const upd = () => {
         if (!this.chipText?.scene || !this.profile?.army.arriveAt) return;
         const left = this.profile.army.arriveAt - this.board.armies.serverTime(Date.now());
-        const s = t('online.marching', { t: fmtTime(left) });
-        this.chipText.setText(s.length && measureText(s) > VW - hw - 34 ? fmtTime(left) : s);
+        const s = t('online.marching', { t: fmtDuration(left) });
+        this.chipText.setText(s.length && measureText(s) > VW - hw - 34 ? fmtDuration(left) : s);
       };
       upd();
       this.chipTimer?.remove();
@@ -653,7 +635,7 @@ export class OnlineScene extends BaseScene {
       if (d.siege && d.siege.needed > 1) rows.push({ text: t('hex.siege', { wins: d.siege.wins, needed: d.siege.needed }), font: 'ink', kind: 'siege' });
       const boss = this.bossAt(h);
       if (boss) rows.push({ text: `${encounterLabel(boss.boss)} · ${t('boss.status', { pct: Math.ceil((100 * boss.hp) / Math.max(1, boss.maxHp)) })}`, font: boss.status === 'dead' ? 'dim' : 'red' });
-      if (d.lair && !d.lair.home && d.lair.returnsAt) rows.push({ text: t('hex.lairBack', { t: fmtTime(d.lair.returnsAt - Date.now()) }), font: 'dim' });
+      if (d.lair && !d.lair.home && d.lair.returnsAt) rows.push({ text: t('hex.lairBack', { t: fmtDuration(d.lair.returnsAt - Date.now()) }), font: 'dim' });
       if (d.garrison) rows.push({ text: d.garrison.length ? t('hex.garrison', { names: d.garrison.map((g) => g.hero.name).join(', ') }) : t('hex.noGarrison'), font: 'ink' });
       if (d.income) rows.push({ text: t('hex.waiting', { res: resLine(d.income) }), font: 'good' });
       if (view.post) rows.push({ text: t(`merchant.kind.${view.post}` as TKey), font: 'good' });
@@ -684,7 +666,7 @@ export class OnlineScene extends BaseScene {
     const beastBtn = !!d && (!!d.lair || !!this.bossAt(h));
     // a town or a trading post: its merchant (docs/DUELS.md "War-map shops on the map")
     const merchantBtn = !!d?.merchant;
-    // your camp, or your camp plot to pitch one on (docs/MAP_V3.md "Camp")
+    // your camp, or your camp plot to pitch one on (docs/DESIGN_V2.md "Camp")
     const campBtn = !!d && ((!!d.camp && d.camp.owner === map.you.id) || (!!d.campPlot && d.mine && !d.camp));
     // the actions: one row of up to three whole words, two rows beyond that (never "Mercha…")
     const n = acts.length + (beastBtn ? 1 : 0) + (merchantBtn ? 1 : 0) + (campBtn ? 1 : 0);
@@ -837,7 +819,7 @@ export class OnlineScene extends BaseScene {
     if (!d?.lair) return;
     const lair = d.lair;
     this.modal = openLairInfo(this, lair.enc as EncounterId, lair.level, {
-      returnsIn: !lair.home && lair.returnsAt ? fmtTime(lair.returnsAt - Date.now()) : undefined,
+      returnsIn: !lair.home && lair.returnsAt ? fmtDuration(lair.returnsAt - Date.now()) : undefined,
       attack: lair.home ? { run: () => void this.attack(h), disabled: d.canAttack ? undefined : t('boss.why.far') } : undefined,
     });
   }
@@ -857,9 +839,9 @@ export class OnlineScene extends BaseScene {
       case 'march': {
         const pl = this.plan && this.plan.ok ? this.plan : null;
         return {
-          label: pl ? t('hex.act.marchEta', { t: fmtTime(pl.minutes * 60_000) }) : t('hex.act.march'),
+          label: pl ? t('hex.act.marchEta', { t: fmtDuration(pl.minutes * 60_000) }) : t('hex.act.march'),
           icon: 'advance',
-          tip: pl ? t('hex.marchTip', { t: fmtTime(pl.minutes * 60_000), e: pl.energy }) : undefined,
+          tip: pl ? t('hex.marchTip', { t: fmtDuration(pl.minutes * 60_000), e: pl.energy }) : undefined,
           onClick: () => void this.march(h),
         };
       }
@@ -914,7 +896,7 @@ export class OnlineScene extends BaseScene {
     const r = await this.act(() => this.src.march(h));
     if (!r || !this.sys.isActive()) return;
     haptic('medium');
-    toast(this, t('online.onMarch', { n: r.path.length - 1, t: fmtTime(r.arriveAt - this.board.armies.serverTime(Date.now())) }), 'good');
+    toast(this, t('online.onMarch', { n: r.path.length - 1, t: fmtDuration(r.arriveAt - this.board.armies.serverTime(Date.now())) }), 'good');
     this.board.armies.ownMarch(r.path, r.at);
     await this.reload().catch((e) => this.fail(e));
   }

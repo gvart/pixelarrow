@@ -13,7 +13,10 @@ import { hashString } from '../../../src/sim/rng';
 import { DEFAULT_FORMATIONS } from '../../../src/online/rules';
 import { DUEL_RULES, accountLevel, freshGear, starterDuelRoster, teamPoints, teamProblem, utcDay } from '../../../src/duel/rules';
 import { starsByFloor } from '../../../src/duel/ladder';
+import type { Context } from 'hono';
+import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
+import { db } from '../middleware';
 
 export interface DuelProfileRow {
   player_id: number;
@@ -68,6 +71,20 @@ export async function requireDuelProfile(db: D1Database, pid: number): Promise<D
 }
 
 /** Creates the duel profile with the starter roster (idempotent). */
+/** What a signed-in duel request works with: the player, the request time and their duel profile (409 `no_duel_profile` without one). */
+export interface DuelCtx {
+  db: D1Database;
+  pid: number;
+  now: number;
+  p: DuelProfileRow;
+}
+
+export async function duelCtx(c: Context<AppEnv>): Promise<DuelCtx> {
+  const d = db(c.env);
+  const pid = c.get('session').pid;
+  return { db: d, pid, now: Date.now(), p: await requireDuelProfile(d, pid) };
+}
+
 export async function ensureDuelProfile(db: D1Database, pid: number, now: number): Promise<{ row: DuelProfileRow; created: boolean }> {
   const had = await getDuelProfile(db, pid);
   if (had) return { row: had, created: false };

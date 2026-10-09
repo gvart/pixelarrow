@@ -83,7 +83,7 @@ export const SIZE = {
   tabH: 24,
 } as const;
 
-// ------------------------------------------------------------ Strategos (docs/UI_STRATEGOS.md)
+// ------------------------------------------------------------ Strategos (docs/UI_KIT.md "Screen chrome")
 
 /**
  * Bronze is the one "selected / next" accent: the radial ring, its facing

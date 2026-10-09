@@ -1,15 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { lairAt, worldBossSites, bossMaxHp } from '../../src/online/lairs';
-import { currentSeason, getShard } from '../src/online/store';
+import { currentSeason } from '../src/online/store';
 import type { BattleSetup } from '../../src/sim/types';
-import { DB, fresh, getJson, join, must, placeArmy, play, post, type Player, type Ticket } from './onlineHelpers';
+import { DB, fresh, getJson, join, must, placeArmy, play, post, shardRow, type Player, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
-
-async function shardOf(p: Player) {
-  const season = await currentSeason(DB());
-  return getShard(DB(), season.id, p.profile.shard.id);
-}
 
 /** Puts a player's army next to a region of a shard (test shortcut for a march). */
 async function standBeside(p: Player, loc: number, shard: { id: number; world: { neighbours(l: number): readonly number[]; info(l: number): { passable: boolean } } }): Promise<number> {
@@ -45,7 +40,7 @@ interface BossInfo {
 describe('beast lairs', () => {
   it('a lair region shows its beast; a slain beast gives the region, its hoard and a trophy', async () => {
     const p = await join(8801, 'Herakles');
-    const shard = await shardOf(p);
+    const shard = await shardRow(p);
     // the nearest lair to home
     const lair = shard.world.within(p.profile.home, 99).find((l) => lairAt(shard.world, shard.seed, l));
     expect(lair).toBeDefined();
@@ -80,7 +75,7 @@ describe('world bosses', () => {
   async function setupBoss(ids: number[]) {
     const players = [];
     for (const id of ids) players.push(await join(id));
-    const shard = await shardOf(players[0]);
+    const shard = await shardRow(players[0]);
     const site = worldBossSites(shard.world, shard.seed)[0];
     expect(site).toBeTruthy();
     for (const p of players) await standBeside(p, site.loc, shard);

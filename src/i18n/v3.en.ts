@@ -1,5 +1,5 @@
 /**
- * English strings of the v3 UI (docs/UI_V3.md): resource names and their
+ * English strings of the v3 UI (docs/UI_KIT.md "v3 components"): resource names and their
  * explanations, the shared components (header, chips, locked states, pager,
  * toggles) and the redesigned screens. Spread into en.ts; ru.ts spreads
  * v3.ru.ts.
