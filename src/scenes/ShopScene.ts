@@ -1,22 +1,24 @@
 import { setCosmeticLoadout } from '../game/cosmetics';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { scaleIcon, Button, Meter, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
+import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
 import { ItemIcon, ScrollList, Tabs, addScrollHint, confirmDialog, openModal, showTooltip, toast } from '../ui/widgets';
 import { uiFrame, uiId } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
-import { SIZE, COLOR, RARITY_COLOR, STRAT } from '../ui/theme';
-import { CommandStrip, SituationBar, type SitNumber } from '../ui/strategos';
+import { SIZE } from '../ui/theme';
+import { CommandStrip } from '../ui/strategos';
+import { InfoChip, ScreenHeader, addSection, addTipLine, confirmPurchase, flyReward, layChips, purchaseButton, resourceChip, ProgressBar, addClaimGlow } from '../ui/v3';
+import { ACCENT, ROLE, SURFACE } from '../ui/tokens';
+import { walletOverdrawn } from '../game/economy';
 import { ensureFonts } from '../ui/fonts';
-import { addChip, addTabBadge, frameScrollTexts } from '../ui/sheet';
+import { addChip, frameScrollTexts } from '../ui/sheet';
 import { econ, newRequestId, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
 import { pickBattleConsumable } from '../ui/econ/consumablePicker';
-import { addCosmetic, addEconState, addGoodsIcon, ago, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
+import { addCosmetic, addEconState, ago, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
 import { claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
-import { P } from '../art/palette';
 import { haptic, hapticNotify, openExternalLink } from '../platform/telegram';
 import { legalUrl } from '../ui/legal';
 import { uiCoin } from '../audio/hooks';
@@ -63,6 +65,8 @@ export class ShopScene extends BaseScene {
   private pageTop = 0;
   private strip: CommandStrip | null = null;
   private gen = 0;
+  /** The Drachmae chip (counts to the new balance after a purchase). */
+  private drChip: InfoChip | null = null;
 
   constructor() {
     super('Shop');
@@ -81,7 +85,7 @@ export class ShopScene extends BaseScene {
     this.busy = false;
     this.screen({ back: () => this.leave() });
     const { VW, VH } = this.m;
-    this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
+    this.ui.add(this.add.rectangle(0, 0, VW, VH, SURFACE.bg).setOrigin(0, 0));
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     this.ui.add([this.head, this.page]);
@@ -125,53 +129,52 @@ export class ShopScene extends BaseScene {
 
   // ------------------------------------------------------------------ frame
 
+  /**
+   * The header (title; the back arrow only outside Telegram), the Drachmae
+   * balance (the one currency this shop spends; the war's gold belongs to the
+   * war map, the campaign's to the campaign), then Shop | Pass | Wallet. No
+   * strip: the tabs are the navigation.
+   */
   private render(): void {
     this.head.removeAll(true);
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const H = this.head;
     const d = this.loaded;
     ensureEconIcons(this);
-    // the situation bar: what this page sells, the purse as numbers with words
-    const nums: SitNumber[] = [{ icon: 'drachma', value: d?.wallet.drachmae === undefined || d?.wallet.drachmae === null ? '-' : `${d.wallet.drachmae}`, word: t('shop.num.drachmae'), tip: t('econ.purseTip') }];
-    if (d?.profile) nums.push({ icon: 'coin', value: `${d.profile.resources.gold}`, word: t('strat.gold'), tip: t('econ.purseTip') });
-    const sit = new SituationBar(this, VW, { sentence: t(`shop.sit.${this.tab}` as TKey), numbers: nums, compact: VH < STRAT.compactVH, id: 'shop.situation' });
-    H.add(sit);
-    // the strip: back, the wallet (or the shop from the wallet), the pass with what there is to claim
+    const hdr = new ScreenHeader(this, VW, { title: t('menu.shop'), back: () => this.leave(), id: 'shop.header' });
+    H.add(hdr);
+    let y = hdr.bottom + 3;
+    const x0 = 6;
+    const w = VW - 12;
+    const dr = d?.wallet.drachmae;
+    const chip = resourceChip(this, 0, 0, 'drachmae', dr === undefined || dr === null ? '-' : dr, { word: true, id: 'shop.drachmae', onTap: () => this.switchTab('wallet') });
+    layChips(H, [chip], x0, y, w);
+    this.drChip = chip;
+    y += 22 + 4;
+    this.strip?.set({});
     const claim = d?.pass ? claimableCount(d.pass) : 0;
-    this.strip?.set({
-      left: { label: t('strat.back'), icon: 'back', id: 'shop.back', onClick: () => this.leave() },
-      main: this.tab === 'wallet'
-        ? { label: t('shop.tab.shop'), icon: 'coin', secondary: true, id: 'shop.toShop', onClick: () => this.switchTab('shop') }
-        : { label: t('shop.tab.wallet'), icon: 'drachma', secondary: true, id: 'shop.toWallet', onClick: () => this.switchTab('wallet') },
-      right: this.tab === 'pass' ? null : { label: t('shop.tab.pass'), icon: 'star', badge: claim, id: 'shop.toPass', onClick: () => this.switchTab('pass') },
-    });
-    const ty = sit.bottom + 3;
-    const tabs = new Tabs(this, 4, ty, VW - 8, TABS.map((k) => t(`shop.tab.${k}` as TKey)), {
+    const tabs = new Tabs(this, x0, y, w, TABS.map((k) => t(`shop.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),
       ids: TABS.map((k) => `shop.tab.${k}`),
-      icons: VW >= 170 ? ['coin', 'star', 'drachma'] : undefined,
+      icons: ['shop', 'pass', 'drachma'],
       onChange: (i) => {
         this.tab = TABS[i];
         this.buildPage();
       },
     });
-    H.add(addPanel(this, 0, ty + SIZE.tabH - 2, VW, this.pageBottom() + 2 - ty - SIZE.tabH + 2, 'parch'));
     H.add(tabs);
-    if (d?.pass) {
-      const n = claimableCount(d.pass);
-      if (n) addTabBadge(this, H, 4, ty, VW - 8, 3, 1, n);
-    }
-    this.pageTop = ty + SIZE.tabH + 4;
+    if (claim) tabs.badge(1, claim);
+    this.pageTop = y + SIZE.tabH + 5;
     this.buildPage();
   }
 
-  /** Switch the page from the strip (the tabs follow on the next render). */
+  /** Switch the page (the tabs follow on the next render). */
   private switchTab(tab: Tab): void {
     this.tab = tab;
     this.render();
   }
 
-  /** Bottom edge of the page (the strip starts there). */
+  /** Bottom edge of the page. */
   private pageBottom(): number {
     return (this.strip?.top ?? this.m.VH) - 2;
   }
@@ -187,7 +190,7 @@ export class ShopScene extends BaseScene {
     const { VW } = this.m;
     const top = this.pageTop;
     if (this.st !== 'ready' || !this.loaded) {
-      addEconState(this, this.page, 4, top, VW - 8, this.pageBottom() - top, this.st as EconState | 'loading', () => void this.fetchAll());
+      addEconState(this, this.page, 6, top, VW - 12, this.pageBottom() - top, this.st as EconState | 'loading', () => void this.fetchAll());
       return;
     }
     if (this.tab === 'shop') this.buildShop(this.loaded);
@@ -197,45 +200,37 @@ export class ShopScene extends BaseScene {
 
   private area(y: number, h: number): ScrollArea {
     const { VW, S } = this.m;
-    const a = new ScrollArea(this, this.page, 4, y, VW - 8, h, S);
+    const a = new ScrollArea(this, this.page, 6, y, VW - 12, h, S);
     this.areas.push(a);
-    addScrollHint(this, this.page, a);
+    addScrollHint(this, this.page, a, SURFACE.bg);
     return a;
   }
 
-  // ------------------------------------------------------------------ shop: consumables and cosmetics
+  // ------------------------------------------------------------------ shop: cosmetics (consumables point to the map)
 
   private buildShop(d: Loaded): void {
     const { VW } = this.m;
     const top = this.pageTop;
     const area = this.area(top, this.pageBottom() - top);
     const c = area.content;
-    const w = VW - 8 - 4;
+    const w = VW - 12 - 4;
     let y = 0;
-    // consumables moved onto the war map: the merchants of towns and trading posts (docs/DUELS.md)
-    c.add(addText(this, 0, y, t('shop.consumables'), 'red'));
-    y += 11;
-    const mm = wrapText(t('shop.mapMerchants'), w - 36, 6);
-    const mh = Math.max(32, mm.lines.length * LINE_H + 10);
-    c.add(addPanel(this, 0, y, w, mh, 'inset'));
-    c.add(new ItemIcon(this, 4, y + Math.round((mh - 24) / 2), { consumable: 'morale_wine' }, { rarity: 'rare', tip: false }));
-    c.add(addText(this, 32, y + 5, mm.lines.join('\n'), 'ink'));
-    y += mh + SIZE.gap;
+    // what this shop is (and is not): a tip the player can hide
+    const tip = addTipLine(this, c, 0, y, w, { text: t('shop.sit.shop'), dismissId: 'shop.what', maxLines: 3 });
+    if (tip) y += tip + 6;
     // cosmetics by slot: preview tiles
-    y += 6;
-    c.add(addText(this, 0, y, t('shop.cosmetics'), 'red'));
-    y += 11;
+    y = addSection(this, c, 0, y, w, t('shop.cosmetics'));
     const ch = wrapText(t('shop.cosmeticsHint'), w, 2);
-    c.add(addText(this, 0, y, ch.lines.join('\n'), 'dim'));
-    y += ch.lines.length * LINE_H + 3;
+    c.add(addText(this, 0, y, ch.lines.join('\n'), 'muted'));
+    y += ch.lines.length * LINE_H + 4;
     const cols = Math.max(2, Math.floor((w + SIZE.gap) / (58 + SIZE.gap)));
     const tw = Math.floor((w - (cols - 1) * SIZE.gap) / cols);
-    const th = 62;
+    const th = 70;
     for (const slot of d.cat.slots) {
       const list = d.cat.cosmetics.filter((x) => x.slot === slot);
       if (!list.length) continue;
-      c.add(addText(this, 0, y + 1, ellipsize(tOr(`shop.slot.${slot}`, slot), w), 'ink'));
-      y += 11;
+      c.add(addText(this, 0, y + 1, ellipsize(tOr(`shop.slot.${slot}`, slot), w), 'sec'));
+      y += 12;
       list.forEach((cm, i) => {
         const tx = (i % cols) * (tw + SIZE.gap);
         const ty = y + Math.floor(i / cols) * (th + SIZE.gap);
@@ -243,34 +238,48 @@ export class ShopScene extends BaseScene {
       });
       y += Math.ceil(list.length / cols) * (th + SIZE.gap) + 4;
     }
+    // supplies moved onto the war map: the merchants of towns and trading posts (docs/DUELS.md)
+    y += 2;
+    y = addSection(this, c, 0, y, w, t('shop.consumables'));
+    const mm = wrapText(t('shop.mapMerchants'), w - 40, 6);
+    const mh = Math.max(34, mm.lines.length * LINE_H + 10);
+    c.add(addPanel(this, 0, y, w, mh, 'well'));
+    c.add(new ItemIcon(this, 5, y + Math.round((mh - 24) / 2), { consumable: 'morale_wine' }, { rarity: 'rare', tip: false }));
+    c.add(addText(this, 34, y + 5, mm.lines.join('\n'), 'sec'));
+    y += mh + 4;
     area.setContentHeight(y);
-    frameScrollTexts(area, VW - 8);
+    frameScrollTexts(area, VW - 12);
   }
 
+  /** A look: its preview, its name (two lines, never cut), owned / equipped / its price in Drachmae. */
   private cosmeticTile(c: Phaser.GameObjects.Container, area: ScrollArea, x: number, y: number, w: number, h: number, cm: CosmeticInfo, d: Loaded): void {
     const owned = d.wallet.cosmetics.includes(cm.id);
     const equipped = d.wallet.loadout[cm.slot] === cm.id;
-    c.add(addPanel(this, x, y, w, h, equipped ? 'buttonSel' : 'button'));
+    const forSale = cm.drachmae !== null;
+    c.add(addPanel(this, x, y, w, h, equipped ? 'cardSel' : owned ? 'cardRaised' : forSale ? 'card' : 'cardLocked'));
     const bg = this.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     uiId(bg, `cosmetic:${cm.id}`);
     bg.on('pointerup', () => !area.moved && this.openCosmetic(cm));
     c.add(bg);
-    const g = this.add.graphics();
-    g.fillStyle(0x2a1d18, 1);
-    g.fillRect(x + Math.round((w - 32) / 2), y + 3, 32, 32);
-    g.lineStyle(1, cm.drachmae === null ? RARITY_COLOR.epic : 0x8a6128, 1);
-    g.strokeRect(x + Math.round((w - 32) / 2) + 0.5, y + 3.5, 31, 31);
-    c.add(g);
-    c.add(addCosmetic(this, x + Math.round((w - 28) / 2), y + 5, cm.id, cm.slot));
-    const light = equipped;
-    c.add(addText(this, x + w / 2, y + 38, ellipsize(cosmeticName(cm), w - 10), light ? 'light' : 'ink', 0.5));
-    let status: string;
-    let font: 'light' | 'good' | 'dim' | 'ink' = 'ink';
-    if (equipped) (status = t('shop.equipped')), (font = 'light');
-    else if (owned) (status = t('econ.owned')), (font = 'good');
-    else if (cm.drachmae === null) (status = cm.source === 'season_pass' ? t('shop.passOnly') : cm.source === 'duel_season' ? t('shop.duelSeason') : t('shop.notForSale')), (font = 'dim');
-    else status = t('econ.dr', { n: cm.drachmae });
-    c.add(addText(this, x + w / 2, y + 49, ellipsize(status, w - 10), font, 0.5));
+    c.add(addPanel(this, x + Math.round((w - 32) / 2), y + 4, 32, 32, 'well'));
+    c.add(addCosmetic(this, x + Math.round((w - 28) / 2), y + 6, cm.id, cm.slot));
+    const name = wrapText(cosmeticName(cm), w - 8, 2);
+    const nt = addText(this, x + w / 2, y + 39, name.lines.join('\n'), 'ink', 0.5).setFontSize(6);
+    nt.setCenterAlign();
+    c.add(nt);
+    const sy = y + h - 12;
+    if (equipped) c.add(addText(this, x + w / 2, sy, ellipsize(t('shop.equipped'), w - 8, false, 6), 'reward', 0.5).setFontSize(6));
+    else if (owned) c.add(addText(this, x + w / 2, sy, ellipsize(t('econ.owned'), w - 8, false, 6), 'good', 0.5).setFontSize(6));
+    else if (!forSale) {
+      const why = cm.source === 'season_pass' ? t('shop.passOnly') : cm.source === 'duel_season' ? t('shop.duelSeason') : t('shop.notForSale');
+      c.add(addText(this, x + w / 2, sy, ellipsize(why, w - 8, false, 6), 'muted', 0.5).setFontSize(6));
+    } else {
+      const pt = addText(this, 0, sy, `${cm.drachmae}`, 'premium').setFontSize(6);
+      const both = 10 + 2 + pt.width;
+      const px = Math.round(x + w / 2 - both / 2);
+      c.add(scaleIcon(addIcon(this, px, sy - 1, 'drachma'), 10 / 12));
+      c.add(pt.setX(px + 12));
+    }
   }
 
   openCosmetic(cm: CosmeticInfo): void {
@@ -397,45 +406,37 @@ export class ShopScene extends BaseScene {
     const top = this.pageTop;
     const p = d.pass;
     if (!p) {
-      addEconState(this, this.page, 4, top, VW - 8, this.pageBottom() - top, 'error', () => void this.fetchAll());
+      addEconState(this, this.page, 6, top, VW - 12, this.pageBottom() - top, 'error', () => void this.fetchAll());
       return;
     }
-    const w = VW - 8;
+    const x0 = 6;
+    const w = VW - 12;
     const prog = passProgress(p);
     const days = Math.max(0, Math.ceil((p.season.endsAt - Date.now()) / 86_400_000));
     const claimN = claimableCount(p);
-    // header: season, tier, XP, premium / claim all
-    const hh = 64;
-    this.page.add(addPanel(this, 4, top, w, hh, 'dark'));
-    const ends = addText(this, 4 + w - 5, top + 5, t('pass.endsIn', { d: days }), 'title', 1);
+    // the season card: tier, XP to the next, the premium track, Claim all
+    const hh = 70;
+    this.page.add(addPanel(this, x0, top, w, hh, 'cardRaised'));
+    const ends = addText(this, x0 + w - 8, top + 7, t('pass.endsIn', { d: days }), 'sec', 1);
     this.page.add(ends);
-    this.page.add(addText(this, 9, top + 5, ellipsize(`${t('pass.season', { n: p.season.id })} · ${t('pass.tierOf', { n: p.tier, max: p.tiers.length })}`, w - 14 - ends.width), 'gold'));
-    const xpT = addText(this, 4 + w - 5, top + 16, prog.maxed ? t('pass.maxed') : t('pass.xp', { into: prog.into, need: prog.need }), 'title', 1);
-    this.page.add(xpT);
-    this.page.add(new Meter(this, 9, top + 18, Math.max(20, w - 14 - xpT.width - 4), 5, COLOR.xp).setValue(prog.frac, 1));
-    const by = top + hh - SIZE.btnH - 6;
-    const bw = Math.floor((w - 10 - SIZE.gap) / 2);
-    if (p.premium) addChip(this, this.page, 9, by + 6, t('pass.unlocked'), RARITY_COLOR.epic, bw);
-    else
-      this.page.add(
-        new Button(this, 9, by, bw, SIZE.btnH, {
-          label: t('pass.unlock', { n: p.premiumDrachmae }),
-          icon: 'drachma',
-          id: 'pass.unlock',
-          onClick: () => this.unlockPremium(p),
-        }),
-      );
-    const ca = new Button(this, 9 + bw + SIZE.gap, by, w - 10 - bw - SIZE.gap, SIZE.btnH, { label: t('pass.claimAll', { n: claimN }), icon: 'check', variant: 'primary', id: 'pass.claimAll', onClick: () => void this.claimAll() });
+    this.page.add(addText(this, x0 + 8, top + 6, ellipsize(`${t('pass.season', { n: p.season.id })} · ${t('pass.tierOf', { n: p.tier, max: p.tiers.length })}`, w - 20 - ends.width, false, 7, 'head'), 'head'));
+    this.page.add(new ProgressBar(this, x0 + 8, top + 18, w - 16, { value: prog.maxed ? 1 : prog.into, max: prog.maxed ? 1 : prog.need, label: prog.maxed ? t('pass.maxed') : t('v3.passXp'), right: prog.maxed ? '' : t('pass.xp', { into: prog.into, need: prog.need }), h: 4, color: ACCENT.gold }));
+    const by = top + hh - 26 - 6;
+    const bw = Math.floor((w - 16 - SIZE.gap) / 2);
+    if (p.premium) addChip(this, this.page, x0 + 8, by + 7, t('pass.unlocked'), ROLE.elite, bw);
+    else this.page.add(new Button(this, x0 + 8, by, bw, 26, { label: t('pass.unlock', { n: p.premiumDrachmae }), icon: 'drachma', inline: true, id: 'pass.unlock', onClick: () => this.unlockPremium(p) }));
+    const ca = new Button(this, x0 + 8 + bw + SIZE.gap, by, w - 16 - bw - SIZE.gap, 26, { label: t('pass.claimAll', { n: claimN }), icon: 'check', inline: true, variant: 'primary', id: 'pass.claimAll', onClick: () => void this.claimAll() });
     ca.setEnabled(claimN > 0, t('pass.xpHint'));
     this.page.add(ca);
-    // column titles and the tiers
-    const ly = top + hh + 3;
+    // the two tracks, then the tiers
+    const ly = top + hh + 5;
     const cellW = Math.floor((w - 26 - 2 * SIZE.gap) / 2);
-    this.page.add(addText(this, 4 + 26 + cellW / 2, ly, t('pass.free'), 'red', 0.5));
-    this.page.add(addText(this, 4 + 26 + SIZE.gap + cellW + cellW / 2, ly, t('pass.premium'), FONT_EPIC, 0.5));
-    const list = new ScrollList(this, this.page, 4, ly + 11, w, this.pageBottom() - ly - 11, {
+    this.page.add(addText(this, x0 + 26 + cellW / 2, ly, t('pass.free'), 'sec', 0.5));
+    this.page.add(addText(this, x0 + 26 + SIZE.gap + cellW + cellW / 2, ly, t('pass.premium'), 'premium', 0.5));
+    const list = new ScrollList(this, this.page, x0, ly + 12, w, this.pageBottom() - ly - 12, {
       count: p.tiers.length,
-      rowH: 34,
+      rowH: 42,
+      fade: SURFACE.bg,
       render: (i, row, rw, rh, area) => this.tierRow(d, p, i, row, rw, rh, area),
     });
     this.areas.push(list);
@@ -445,56 +446,51 @@ export class ShopScene extends BaseScene {
   private tierRow(d: Loaded, p: SeasonPassInfo, i: number, row: Phaser.GameObjects.Container, rw: number, rh: number, area: ScrollArea): void {
     const tier = p.tiers[i];
     const reached = tier.tier <= p.tier;
-    const g = this.add.graphics();
-    g.fillStyle(0x1d140f, 1);
-    g.fillRect(0, 4, 22, rh - 8);
-    g.fillStyle(reached ? 0xd8a840 : 0x6e5a44, 1);
-    g.fillRect(1, 5, 20, rh - 10);
-    row.add(g);
-    row.add(uiFrame(addText(this, 11, rh / 2 - 4, `${tier.tier}`, reached ? 'ink' : 'title', 0.5), row, 22, rh));
+    row.add(addPanel(this, 0, 4, 22, rh - 8, reached ? 'thumb' : 'well'));
+    row.add(uiFrame(addText(this, 11, rh / 2 - 5, `${tier.tier}`, reached ? 'onAccent' : 'muted', 0.5), row, 22, rh));
     const cellW = Math.floor((rw - 26 - SIZE.gap) / 2);
     (['free', 'premium'] as Track[]).forEach((track, k) => this.rewardCell(d, p, tier.tier, track, track === 'free' ? tier.free : tier.premium, row, 26 + k * (cellW + SIZE.gap), cellW, rh, area));
   }
 
+  /** A reward in one of four states: claimable (lit, a glow), claimed (a tick), not reached (locked), premium (locked: unlock the track). */
   private rewardCell(d: Loaded, p: SeasonPassInfo, tier: number, track: Track, r: PassReward, row: Phaser.GameObjects.Container, x: number, w: number, h: number, area: ScrollArea): void {
     const st = tierState(p, tier, track);
-    const style = st === 'claimable' ? 'buttonSel' : st === 'claimed' ? 'inset' : st === 'premium' ? 'buttonOff' : 'button';
-    row.add(addPanel(this, x, 0, w, h, style));
+    if (st === 'claimable') addClaimGlow(this, row, x, 0, w, h);
+    row.add(addPanel(this, x, 0, w, h, st === 'claimable' ? 'cardSel' : st === 'claimed' ? 'well' : st === 'premium' || st === 'locked' ? 'cardLocked' : 'card'));
     const bg = this.add.zone(x, 0, w, h).setOrigin(0, 0).setInteractive();
     uiId(bg, `pass:${tier}:${track}`);
     row.add(bg);
     const name = rewardName(r, d.cat);
     bg.on('pointerup', () => {
       if (area.moved) return;
-      if (st === 'claimable') void this.claim(tier, track, r);
-      else showTooltip(this, `${name}\n${st === 'claimed' ? t('pass.claimed') : st === 'premium' ? t('pass.premiumLocked') : t('pass.locked', { n: tier })}`, bg);
+      if (st === 'claimable') {
+        const m = bg.getWorldTransformMatrix();
+        void this.claim(tier, track, r, { x: m.tx / this.m.S + w / 2, y: m.ty / this.m.S + h / 2 });
+      } else showTooltip(this, `${name}\n${st === 'claimed' ? t('pass.claimed') : st === 'premium' ? t('pass.premiumLocked') : t('pass.locked', { n: tier })}`, bg);
     });
-    // reward icon
-    if (r.kind === 'cosmetic') {
+    // narrow cells (small phones): the words get the room, the icon goes
+    const showIcon = w >= 72;
+    if (!showIcon) {
+      /* no picture */
+    } else if (r.kind === 'cosmetic') {
       const cm = d.cat.cosmetics.find((c) => c.id === r.id);
-      row.add(addCosmetic(this, x + 3, 3, r.id, cm?.slot ?? 'emblem'));
+      row.add(addCosmetic(this, x + 3, Math.round((h - 28) / 2), r.id, cm?.slot ?? 'emblem'));
     } else {
       const sub = r.kind === 'consumable' ? { consumable: r.id } : { resource: r.kind === 'gold' ? 'gold' : 'drachmae' };
-      row.add(new ItemIcon(this, x + 4, 5, sub, { size: 24, tip: false, glow: false, rarity: track === 'premium' ? 'epic' : 'common' }));
+      row.add(new ItemIcon(this, x + 4, Math.round((h - 24) / 2), sub, { size: 24, tip: false, glow: false, rarity: track === 'premium' ? 'epic' : 'common' }));
     }
-    const light = st === 'claimable';
-    const tx = x + 32;
-    const tw = w - 36;
-    const amount = r.kind === 'gold' || r.kind === 'drachmae' ? `${r.amount}` : r.kind === 'consumable' ? `${r.qty}x` : '';
-    const label = r.kind === 'cosmetic' ? rewardName(r, d.cat) : r.kind === 'consumable' ? tOr(`consumable.${r.id}.name`, r.id) : t(r.kind === 'gold' ? 'common.gold' : 'econ.drachmae');
-    row.add(addText(this, tx, 6, ellipsize(`${amount} ${label}`.trim(), tw), light ? 'light' : st === 'claimed' ? 'dim' : 'ink'));
-    const stText = st === 'claimable' ? t('pass.claim') : st === 'claimed' ? t('pass.claimed') : st === 'premium' ? t('pass.premium') : t('pass.tier', { n: tier });
-    row.add(addText(this, tx, 18, ellipsize(stText, tw), light ? 'gold' : st === 'claimed' ? 'good' : 'dim'));
-    if (st === 'claimed') row.add(addIcon(this, x + w - 15, h - 15, 'check'));
-    if (st === 'premium') row.add(addIcon(this, x + w - 15, h - 15, 'close', 'D'));
-    if (st === 'claimable') {
-      const glow = this.add.rectangle(x + 1, 1, w - 2, h - 2).setOrigin(0, 0).setStrokeStyle(1, 0xffe080);
-      row.add(glow);
-      this.tweens.add({ targets: glow, alpha: { from: 1, to: 0.2 }, duration: 600, yoyo: true, repeat: -1 });
-    }
+    const tx = x + (showIcon ? 32 : 5);
+    const tw = w - (showIcon ? 36 : 9);
+    // the name gets the room; "Claim" is the only state in words (claimed / locked show as a tick / a lock, the track as its column)
+    const claimable = st === 'claimable';
+    const lines = wrapText(name, tw - (claimable ? 0 : 10), claimable ? 2 : 3).lines;
+    row.add(addText(this, tx, 4, lines.join('\n'), st === 'claimed' ? 'muted' : 'ink').setFontSize(6.5));
+    if (claimable) row.add(addText(this, tx, h - 12, ellipsize(t('pass.claim'), tw), 'reward'));
+    if (st === 'claimed') row.add(scaleIcon(addIcon(this, x + w - 13, h - 13, 'check'), 0.8));
+    if (st === 'premium' || st === 'locked') row.add(scaleIcon(addIcon(this, x + w - 13, h - 13, 'lock', 'D'), 0.8));
   }
 
-  async claim(tier: number, track: Track, r: PassReward): Promise<void> {
+  async claim(tier: number, track: Track, r: PassReward, from?: { x: number; y: number }): Promise<void> {
     if (this.busy || !this.loaded?.pass) return;
     this.busy = true;
     try {
@@ -504,7 +500,10 @@ export class ShopScene extends BaseScene {
       hapticNotify('success');
       uiCoin();
       toast(this, t('pass.got', { reward: rewardName(r, this.loaded.cat) }), 'good');
-      if (r.kind === 'drachmae') this.loaded.wallet.drachmae += r.amount;
+      if (r.kind === 'drachmae') {
+        this.loaded.wallet.drachmae += r.amount;
+        if (this.drChip && from) flyReward(this, 'drachma', from.x, from.y, this.drChip, this.loaded.wallet.drachmae);
+      }
       if (r.kind === 'gold' && this.loaded.profile) this.loaded.profile.resources.gold += r.amount;
       const s = (this.areas[0] as ScrollList | undefined)?.area?.scrollY ?? 0;
       this.render();
@@ -552,82 +551,73 @@ export class ShopScene extends BaseScene {
     const top = this.pageTop;
     const area = this.area(top, this.pageBottom() - top);
     const c = area.content;
-    const w = VW - 8 - 4;
+    const w = VW - 12 - 4;
     let y = 0;
-    // balance
-    c.add(addPanel(this, 0, y, w, 40, 'dark'));
-    c.add(scaleIcon(this.add.image(8, y + 8, 'icon_drachma').setOrigin(0, 0), 2));
-    const bal = addText(this, 38, y + 7, `${d.wallet.drachmae}`, 'title');
-    bal.setFontSize(14);
+    // the balance, big
+    c.add(addPanel(this, 0, y, w, 42, 'cardRaised'));
+    c.add(scaleIcon(addIcon(this, 9, y + 9, 'drachma'), 2));
+    const bal = addText(this, 40, y + 7, `${d.wallet.drachmae}`, walletOverdrawn(d.wallet) ? 'bad' : 'premium').setScale(1.7);
     c.add(bal);
-    c.add(addText(this, 38 + bal.width + 5, y + 14, ellipsize(t('econ.drachmae'), w - 46 - bal.width), 'gold'));
-    c.add(addText(this, 38, y + 28, ellipsize(t('wallet.balance'), w - 42), 'title'));
-    y += 44;
-    if (!d.wallet.canSpend) {
-      const ws = wrapText(t('wallet.cannotSpend'), w, 2);
-      c.add(addText(this, 0, y, ws.lines.join('\n'), 'red'));
-      y += ws.lines.length * LINE_H + 3;
+    c.add(addText(this, 40 + bal.width + 6, y + 13, ellipsize(t('econ.drachmae'), w - 52 - bal.width), 'sec'));
+    c.add(addText(this, 40, y + 29, ellipsize(t('wallet.balance'), w - 44), 'muted').setFontSize(6));
+    y += 46;
+    // a real problem only: below zero after a refunded pack (0 is a normal empty wallet)
+    if (walletOverdrawn(d.wallet)) {
+      const h = addTipLine(this, c, 0, y, w, { text: t('wallet.cannotSpend'), tone: 'warn' });
+      y += h + 4;
     }
     const note = wrapText(t('wallet.note'), w, 4);
-    c.add(addText(this, 0, y, note.lines.join('\n'), 'dim'));
-    y += note.lines.length * LINE_H + 5;
-    // packs
-    c.add(addText(this, 0, y, t('wallet.packs'), 'red'));
-    y += 11;
+    c.add(addText(this, 0, y, note.lines.join('\n'), 'sec'));
+    y += note.lines.length * LINE_H + 6;
+    // packs: real money, so the Telegram blue button with "Stars", and a confirmation
+    y = addSection(this, c, 0, y, w, t('wallet.packs'));
     const cols = 2;
     const pw = Math.floor((w - SIZE.gap) / cols);
-    const ph = 58;
+    const ph = 62;
     d.cat.packs.forEach((pk, i) => {
       const px = (i % cols) * (pw + SIZE.gap);
       const py = y + Math.floor(i / cols) * (ph + SIZE.gap);
-      c.add(addPanel(this, px, py, pw, ph, 'parch'));
-      c.add(addGoodsIcon(this, px + 5, py + 5, 'resource', 'drachmae'));
-      const amt = addText(this, px + 24, py + 6, `${pk.drachmae}`, 'red');
+      c.add(addPanel(this, px, py, pw, ph, 'card'));
+      c.add(addIcon(this, px + 7, py + 7, 'drachma'));
+      const amt = addText(this, px + 22, py + 8, `${pk.drachmae}`, 'premium');
       c.add(amt);
       const bonus = Math.round((pk.drachmae / pk.stars - 1) * 100);
-      if (bonus > 0) addChip(this, c, px + pw - 4, py + 4, t('wallet.bonus', { n: bonus }), COLOR.good, pw - 30 - amt.width, true);
-      c.add(addText(this, px + 24, py + 16, ellipsize(t('econ.drachmae'), pw - 28), 'dim'));
-      c.add(new Button(this, px + 4, py + ph - SIZE.btnH - 4, pw - 8, SIZE.btnH, { label: `${pk.stars}`, icon: 'star', variant: 'primary', id: `wallet.pack.${pk.id}`, tip: t('econ.stars', { n: pk.stars }), onClick: () => this.askPack(pk) }));
+      if (bonus > 0) addChip(this, c, px + pw - 6, py + 6, t('wallet.bonus', { n: bonus }), 0x3d6b22, pw - 36 - amt.width, true);
+      c.add(addText(this, px + 22, py + 18, ellipsize(t('econ.drachmae'), pw - 28), 'sec'));
+      c.add(purchaseButton(this, px + 6, py + ph - 26 - 6, pw - 12, 26, { stars: pk.stars, id: `wallet.pack.${pk.id}`, onClick: () => this.askPack(pk) }));
     });
     y += Math.ceil(d.cat.packs.length / cols) * (ph + SIZE.gap) + 4;
     // what Stars buy, and the legal pages (Telegram's payment rules)
     const legal = wrapText(t('wallet.legal'), w, 3);
-    c.add(addText(this, 0, y, legal.lines.join('\n'), 'dim'));
-    y += legal.lines.length * LINE_H + 3;
+    c.add(addText(this, 0, y, legal.lines.join('\n'), 'muted'));
+    y += legal.lines.length * LINE_H + 4;
     const lw = Math.floor((w - SIZE.gap) / 2);
-    c.add(new Button(this, 0, y, lw, SIZE.btnH, { label: t('wallet.terms'), id: 'wallet.terms', onClick: () => openExternalLink(legalUrl('terms', lang())) }));
-    c.add(new Button(this, lw + SIZE.gap, y, lw, SIZE.btnH, { label: t('wallet.refunds'), id: 'wallet.refunds', onClick: () => openExternalLink(legalUrl('refunds', lang())) }));
+    c.add(new Button(this, 0, y, lw, SIZE.btnH, { label: t('wallet.terms'), variant: 'ghost', id: 'wallet.terms', onClick: () => openExternalLink(legalUrl('terms', lang())) }));
+    c.add(new Button(this, lw + SIZE.gap, y, lw, SIZE.btnH, { label: t('wallet.refunds'), variant: 'ghost', id: 'wallet.refunds', onClick: () => openExternalLink(legalUrl('refunds', lang())) }));
     y += SIZE.btnH + 8;
     // history
-    c.add(addText(this, 0, y, t('wallet.history'), 'red'));
-    y += 11;
+    y = addSection(this, c, 0, y, w, t('wallet.history'));
     if (!d.wallet.ledger.length) {
-      c.add(addText(this, 0, y, t('wallet.noHistory'), 'dim'));
+      c.add(addText(this, 0, y, t('wallet.noHistory'), 'muted'));
       y += 11;
     }
     const now = Date.now();
     for (const l of d.wallet.ledger.slice(0, 30)) {
-      c.add(addPanel(this, 0, y, w, 22, 'inset'));
-      const delta = addText(this, w - 5, y + 7, `${l.delta > 0 ? '+' : ''}${l.delta}`, l.delta >= 0 ? 'good' : 'red', 1);
+      c.add(addPanel(this, 0, y, w, 22, 'card'));
+      const delta = addText(this, w - 6, y + 7, `${l.delta > 0 ? '+' : ''}${l.delta}`, l.delta >= 0 ? 'good' : 'bad', 1);
       c.add(delta);
-      const when = addText(this, w - 10 - delta.width, y + 7, ago(l.at, now), 'dim', 1);
+      const when = addText(this, w - 12 - delta.width, y + 7, ago(l.at, now), 'muted', 1);
       c.add(when);
-      c.add(addText(this, 5, y + 7, ellipsize(tOr(`wallet.kind.${l.kind}`, l.kind), w - 20 - delta.width - when.width), 'ink'));
+      c.add(addText(this, 6, y + 7, ellipsize(tOr(`wallet.kind.${l.kind}`, l.kind), w - 22 - delta.width - when.width), 'ink'));
       y += 22 + 2;
     }
     area.setContentHeight(y + 4);
-    frameScrollTexts(area, VW - 8);
+    frameScrollTexts(area, VW - 12);
   }
 
+  /** Real money: the confirmation sheet says so, then Telegram's own payment. */
   private askPack(pk: { id: string; stars: number; drachmae: number }): void {
-    confirmDialog(this, {
-      title: t('wallet.packs'),
-      body: t('wallet.buyPack', { n: pk.drachmae, stars: pk.stars }),
-      ok: `${pk.stars}`,
-      okIcon: 'star',
-      cancel: t('common.cancel'),
-      onOk: () => void this.buyPack(pk.id, pk.drachmae),
-    });
+    confirmPurchase(this, { what: t('pass.reward.drachmae', { n: pk.drachmae }), stars: pk.stars, onOk: () => void this.buyPack(pk.id, pk.drachmae) });
   }
 
   /** The battle consumable picker of attacks and duels (layout check and gallery). */
@@ -663,4 +653,3 @@ export class ShopScene extends BaseScene {
   }
 }
 
-const FONT_EPIC = 'rar_epic' as 'ink';

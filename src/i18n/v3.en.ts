@@ -90,5 +90,6 @@ export const V3_EN = {
   "dv.board.legend": "Legend",
   "dv.teamCapShort": "Team {n} pts · cap {cap}",
   "dv.capNote": "The Arena and defence allow {cap} pts; each ladder floor sets its own cap.",
+  "v3.passXp": "XP to the next tier",
   "dv.chapterLocked": "Clear floor {n} to open",
 } as const;

@@ -667,7 +667,7 @@ export function addSwipe(zone: Phaser.GameObjects.GameObject, onLeft: () => void
 
 /** The real-money button: Telegram blue, the Telegram star and the word "Stars" (never terracotta, never a bare number). */
 export function purchaseButton(scene: Phaser.Scene, x: number, y: number, w: number, h: number, o: { stars: number; onClick: () => void; id?: string; tip?: string }): Button {
-  return new Button(scene, x, y, w, h, { label: t('res.starsPrice', { n: o.stars }), icon: 'tgstar', variant: 'purchase', id: o.id, tip: o.tip ?? t('res.tip.stars'), onClick: o.onClick });
+  return new Button(scene, x, y, w, h, { label: t('res.starsPrice', { n: o.stars }), icon: 'tgstar', inline: true, variant: 'purchase', id: o.id, tip: o.tip ?? t('res.tip.stars'), onClick: o.onClick });
 }
 
 /** Every real-money purchase asks first, in a sheet that says it is real money. */

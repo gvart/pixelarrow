@@ -445,7 +445,8 @@ export class Button extends Phaser.GameObjects.Container {
     this.iconImg = undefined;
     const scene = this.scene;
     const light = this.isLight();
-    const variant = light ? 'L' : this.enabled ? '' : 'D';
+    // the Telegram star keeps its own colours on the purchase blue
+    const variant = this.opts.variant === 'purchase' && this.enabled ? '' : light ? 'L' : this.enabled ? '' : 'D';
     const font: FontKey = !this.enabled ? 'dim' : light ? 'light' : this.opts.font ?? 'ink';
     const shadow = SHADOW_FONTS.has(font);
     const hasIcon = !!this.opts.icon;

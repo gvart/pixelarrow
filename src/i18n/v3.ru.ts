@@ -83,5 +83,6 @@ export const V3_RU: Record<keyof typeof V3_EN, string> = {
   "dv.board.legend": "Легенды",
   "dv.teamCapShort": "Отряд {n} оч. · лимит {cap}",
   "dv.capNote": "Арена и защита допускают {cap} оч.; у каждого этажа башни свой лимит.",
+  "v3.passXp": "Опыт до следующей ступени",
   "dv.chapterLocked": "Пройдите этаж {n}, чтобы открыть",
 };

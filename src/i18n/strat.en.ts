@@ -127,9 +127,9 @@ export const STRAT_EN = {
   'hero.strip.confirm': 'Confirm {n}',
 
   // ---- shop
-  'shop.sit.shop': 'Looks and battle consumables for Drachmae. Gear comes from battles.',
+  'shop.sit.shop': 'Looks for Drachmae: nothing here adds power. Gear comes from battles, town markets, war merchants and the Duels shop.',
   'shop.sit.pass': 'The season pass: rewards for every season level.',
-  'shop.sit.wallet': 'Drachmae buy looks, consumables and the pass.',
+  'shop.sit.wallet': 'Drachmae buy looks, the season pass and war-map supplies.',
   'shop.num.drachmae': 'drachmae',
 
   // ---- online (the war map's chrome)

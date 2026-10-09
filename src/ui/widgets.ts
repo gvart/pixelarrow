@@ -1255,9 +1255,10 @@ export function addEmptyState(scene: Phaser.Scene, x: number, y: number, w: numb
     c.add(ic);
     cy += 28;
   }
-  c.add(addText(scene, w / 2, cy, ellipsize((o.title ?? t('kit.empty.title')), w - 8), 'red', 0.5));
+  // an empty or closed state is not an error: its title in the heading face, not the error red
+  c.add(addText(scene, w / 2, cy, ellipsize(o.title ?? t('kit.empty.title'), w - 8, false, 7, 'head'), 'headL', 0.5));
   cy += titleH;
-  const hint = addText(scene, w / 2, cy, wr.lines.join('\n'), 'dim', 0.5);
+  const hint = addText(scene, w / 2, cy, wr.lines.join('\n'), 'sec', 0.5);
   hint.setCenterAlign();
   c.add(hint);
   cy += wr.lines.length * LINE_H + 8;
