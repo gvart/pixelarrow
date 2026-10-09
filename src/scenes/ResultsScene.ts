@@ -14,10 +14,12 @@
 import Phaser from 'phaser';
 import { LAUREL, addGridImage } from '../art/menuSprites';
 import { BaseScene } from './BaseScene';
-import { Button, ScrollArea, addIcon, addPanel, addText, tappable } from '../ui/kit';
-import { CountUp, ItemIcon, Label, ScrollList, StatBar, Tabs, addEmptyState, addScrollHint, openModal, showTooltip, toast, subjectName } from '../ui/widgets';
+import { ScrollArea, addIcon, addText, tappable, Button } from '../ui/kit';
+import { ItemIcon, Label, ScrollList, StatBar, addEmptyState, addScrollHint, openModal, showTooltip, toast, subjectName } from '../ui/widgets';
 import { uiFrame, uiId } from '../ui/layout';
-import { ellipsize, measureText, wrapText } from '../ui/textfit';
+import { ellipsize, wrapText } from '../ui/textfit';
+import { MOSAIC, RARITY_INK } from '../ui/tokens';
+import { GAP, MButton, ScreenFrame, SegmentedSwitch, StatTile, SWITCH_H, mosaicImage, mtext, mw, parchRarityFont, type Box } from '../ui/mosaic';
 import { COLOR, RARITY_COLOR, RARITY_GLOW, SIZE } from '../ui/theme';
 import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
@@ -64,8 +66,10 @@ export class ResultsScene extends BaseScene {
   private pageLayer: Phaser.GameObjects.Container | null = null;
   private pageArea: ScrollArea | null = null;
   private heroList: ScrollList | null = null;
-  private tabs: Tabs | null = null;
-  private primary: Button | null = null;
+  private tabs: SegmentedSwitch | null = null;
+  private primary: MButton | null = null;
+  /** The framed content area (inside the stone band). */
+  private box!: Box;
   private counter: Phaser.GameObjects.BitmapText | null = null;
   private seen = new Set<Page>();
   /** Loot cards already turned over, and the cards on show. */
@@ -115,24 +119,29 @@ export class ResultsScene extends BaseScene {
       this.page = 'summary';
     }
     const { VW, VH } = this.m;
-    this.addGrassBackdrop(7);
-    this.ui.add(this.add.rectangle(0, 0, VW, VH, 0x1d140f, 0.55).setOrigin(0, 0));
+    // a full-screen sheet: the framed page, no top bar, no tab bar
+    const frame = new ScreenFrame(this, VW, VH, { topBar: false });
+    this.ui.add(frame);
+    this.box = frame.content;
     this.screen({ back: () => this.finish() });
 
-    const bannerH = VH < 300 ? 36 : 44;
+    const bannerH = VH < 300 ? 30 : VH < 380 ? 38 : 46;
+    const subH = 10;
     this.buildBanner(bannerH);
-    const ty = 6 + bannerH + 4;
-    const W = VW - 12;
-    this.tabs = new Tabs(this, 6, ty, W, PAGES.map((p) => t(`results.tab.${p}` as TKey)), {
-      selected: PAGES.indexOf(this.page),
-      icons: W >= 200 ? ['trophy', 'people', 'chest'] : undefined,
-      ids: PAGES.map((p) => `results.tab.${p}`),
-      onChange: (i) => this.showPage(PAGES[i]),
+    const x0 = this.box.x + 4;
+    const W = this.box.w - 8;
+    const ty = this.box.y + 4 + bannerH + subH + 6;
+    this.tabs = new SegmentedSwitch(this, x0, ty, W, {
+      options: PAGES.map((p) => ({ id: p, label: t(`results.tab.${p}` as TKey), icon: W >= 156 ? (p === 'summary' ? 'trophy' : p === 'heroes' ? 'people' : 'chest') : undefined })),
+      selected: this.page,
+      id: 'results.tab',
+      onChange: (id) => this.showPage(id as Page),
     });
     this.ui.add(this.tabs);
-    this.top = ty + SIZE.tabH + 4;
-    this.bottom = VH - 8 - SIZE.btnH - 6;
-    this.primary = new Button(this, Math.round((VW - Math.min(W, 150)) / 2), VH - 8 - SIZE.btnH, Math.min(W, 150), SIZE.btnH, { label: t('results.continue'), icon: 'check', variant: 'primary', style: 'buttonSel', onClick: () => this.onPrimary() });
+    this.top = ty + SWITCH_H + 5;
+    const BTN_H = 28;
+    this.bottom = this.box.y + this.box.h - 4 - BTN_H - 5;
+    this.primary = new MButton(this, x0, this.box.y + this.box.h - 4 - BTN_H, W, BTN_H, { label: t('results.continue'), icon: 'check', variant: 'primaryHero', id: 'results.primary', onClick: () => this.onPrimary() });
     this.ui.add(this.primary);
     this.showPage(this.page);
     if (fresh) {
@@ -175,34 +184,30 @@ export class ResultsScene extends BaseScene {
   // ------------------------------------------------------------------ banner
 
   private buildBanner(h: number): void {
-    const { VW } = this.m;
     const r = this.report;
-    const c = this.add.container(VW / 2, 6 + h / 2);
+    const cx = this.box.x + this.box.w / 2;
+    const cy = this.box.y + 4 + h / 2;
+    const c = this.add.container(cx, cy);
     this.ui.add(c);
-    const w = Math.min(VW - 12, 220);
+    const w = Math.min(this.box.w - 8, 220);
     const win = r.result === 'victory';
-    // a victory: a raised bronze plaque between two gilded laurel branches (terracotta stays for the next action)
-    c.add(addPanel(this, -w / 2, -h / 2, w, h, win ? 'cardSel' : 'dark'));
-    const rim = this.add.graphics();
-    rim.lineStyle(1, win ? 0xf0c860 : 0x8c2f25, win ? 0.6 : 1);
-    rim.strokeRect(-w / 2 + 2.5, -h / 2 + 2.5, w - 5, h - 5);
-    c.add(rim);
-    if (win && h >= 30) {
-      const k = Math.min(2, Math.floor((h - 6) / LAUREL.length));
-      const lh = LAUREL.length * k;
-      const lw = LAUREL[0].length * k;
-      c.add(addGridImage(this, -w / 2 + 6, -lh / 2, 'laurel', LAUREL, { scale: k }));
-      c.add(addGridImage(this, w / 2 - 6 - lw, -lh / 2, 'laurel', LAUREL, { scale: k }).setFlipX(true));
+    // a victory: a teal plaque between two gilded laurel branches; anything else on grey stone (terracotta stays for the next action)
+    c.add(mosaicImage(this, -w / 2, -h / 2, w, h, win ? 'plaque' : 'tileOff'));
+    if (h >= 30) {
+      const k = Math.min(2, Math.floor((h - 8) / LAUREL.length));
+      if (k >= 1) {
+        const lh = LAUREL.length * k;
+        const lw = LAUREL[0].length * k;
+        c.add(addGridImage(this, -w / 2 + 6, -lh / 2, 'laurel', LAUREL, { scale: k }).setAlpha(win ? 1 : 0.45));
+        c.add(addGridImage(this, w / 2 - 6 - lw, -lh / 2, 'laurel', LAUREL, { scale: k }).setFlipX(true).setAlpha(win ? 1 : 0.45));
+      }
     }
-    const title = addText(this, 0, -h / 2 + 5, t(`results.${r.result}` as TKey), win ? 'gold' : 'light', 0.5);
-    title.setFontSize(14);
-    uiFrame(title, c, w, h, -w / 2, -h / 2);
-    c.add(title);
+    const word = t(`results.${r.result}` as TKey).toUpperCase();
+    const size = [13, 12, 11, 10, 9, 8].find((z) => mw(word, 'rCream', z) <= w - 56) ?? 8;
+    c.add(uiFrame(mtext(this, 0, Math.round(-(size * 11) / 14 - 1), word, 'rCream', { size, align: 0.5, maxW: w - 40 }), c, w, h, -w / 2, -h / 2));
     const sub: string[] = [r.vs];
     if (r.verified !== null) sub.push(t(r.verified ? 'results.verified' : 'results.unverified'));
-    const subT = addText(this, 0, h / 2 - 12, ellipsize(sub.join(' · '), w - 10), win ? 'light' : 'dim', 0.5);
-    uiFrame(subT, c, w, h, -w / 2, -h / 2);
-    c.add(subT);
+    this.ui.add(mtext(this, cx, this.box.y + 4 + h + 4, sub.join(' · '), 'pSec', { size: 6.5, align: 0.5, maxW: this.box.w - 12, box: { owner: this.ui, w: this.m.VW, h: this.m.VH } }));
     if (!this.seen.has('summary')) {
       // drop in, bounce, then a shine sweeps across
       c.setScale(0.3).setAlpha(0);
@@ -210,8 +215,8 @@ export class ResultsScene extends BaseScene {
       const shine = this.add.rectangle(-w / 2, 0, 6, h - 6, 0xffffff, 0.35).setOrigin(0.5);
       c.add(shine);
       this.tweens.add({ targets: shine, x: w / 2, duration: 700, delay: 450, ease: 'Sine.easeInOut', onComplete: () => shine.destroy() });
-      if (win) this.time.delayedCall(420, () => this.burst(VW / 2, 6 + h / 2, w, [P.gold, 0xfff0a0, P.cream], 40));
-      else if (r.result === 'defeat') this.time.delayedCall(420, () => this.tweens.add({ targets: c, x: VW / 2 + 2, duration: 40, yoyo: true, repeat: 3 }));
+      if (win) this.time.delayedCall(420, () => this.burst(cx, cy, w, [P.gold, 0xfff0a0, P.cream], 40));
+      else if (r.result === 'defeat') this.time.delayedCall(420, () => this.tweens.add({ targets: c, x: cx + 2, duration: 40, yoyo: true, repeat: 3 }));
       sfx.play(win ? 'coin' : 'warning');
     }
   }
@@ -247,7 +252,7 @@ export class ResultsScene extends BaseScene {
   showPage(p: Page): void {
     this.clearPage();
     this.page = p;
-    this.tabs?.select(PAGES.indexOf(p), false);
+    this.tabs?.pick(p, false);
     const first = !this.seen.has(p);
     this.seen.add(p);
     this.pageLayer = this.add.container(0, 0);
@@ -277,27 +282,27 @@ export class ResultsScene extends BaseScene {
 
   /** A scrolling page between the tabs and the bottom button. */
   private pageScroll(): { area: ScrollArea; x: number; w: number } {
-    const { VW, S } = this.m;
-    const area = new ScrollArea(this, this.pageLayer!, 6, this.top, VW - 12, this.bottom - this.top, S);
+    const { S } = this.m;
+    const area = new ScrollArea(this, this.pageLayer!, this.box.x + 4, this.top, this.box.w - 8, this.bottom - this.top, S);
     this.pageArea = area;
-    addScrollHint(this, this.pageLayer!, area);
-    return { area, x: 0, w: VW - 12 - 4 };
+    addScrollHint(this, this.pageLayer!, area, MOSAIC.parch);
+    return { area, x: 0, w: this.box.w - 8 - 4 };
   }
 
   private buildSummary(animate: boolean): void {
     const r = this.report;
     const { area, w } = this.pageScroll();
     const c = area.content;
-    const gap = SIZE.gap;
+    const gap = GAP;
     const tw = Math.floor((w - 2 * gap) / 3);
     const roomy = this.bottom - this.top >= 200;
     const th = roomy ? 46 : 36;
-    const tiles: { icon: string; key: string; value: number; prefix?: string; text?: string; font?: 'ink' | 'red' | 'good' }[] = [
-      { icon: 'hourglass', key: 'time', value: r.duration, text: fmtClock(r.duration) },
+    const tiles: { icon: string; key: string; value: number; prefix?: string; clock?: boolean; tone?: 'ink' | 'good' | 'bad' }[] = [
+      { icon: 'hourglass', key: 'time', value: r.duration, clock: true },
       { icon: 'swords', key: 'kills', value: r.kills },
-      { icon: 'skull', key: 'losses', value: r.losses, font: r.losses > 0 ? 'red' : 'ink' },
-      r.glory !== undefined ? { icon: 'laurel', key: 'glory', value: r.glory, prefix: '+', font: 'good' } : { icon: 'coin', key: 'gold', value: r.gold, prefix: '+', font: 'good' },
-      { icon: 'xp', key: 'xp', value: r.xp, prefix: '+', font: 'good' },
+      { icon: 'skull', key: 'losses', value: r.losses, tone: r.losses > 0 ? 'bad' : 'ink' },
+      r.glory !== undefined ? { icon: 'laurel', key: 'glory', value: r.glory, prefix: '+', tone: 'good' } : { icon: 'coin', key: 'gold', value: r.gold, prefix: '+', tone: 'good' },
+      { icon: 'xp', key: 'xp', value: r.xp, prefix: '+', tone: 'good' },
     ];
     tiles.forEach((tl, i) => {
       const row = Math.floor(i / 3);
@@ -306,19 +311,10 @@ export class ResultsScene extends BaseScene {
       const x = Math.round((w - rowW) / 2) + (i % 3) * (tw + gap);
       const y = row * (th + gap);
       const label = t(`results.tile.${tl.key}` as TKey);
-      let tile: Phaser.GameObjects.Container;
-      if (tl.text !== undefined) {
-        // the clock counts in m:ss
-        tile = new CountUp(this, x, y, tw, th, { icon: this.iconOr(tl.icon), label, value: 0, sound: false, duration: 1 });
-        const num = (tile as unknown as { num: Phaser.GameObjects.BitmapText }).num;
-        const total = tl.value;
-        if (animate) {
-          this.pageTweens.push(this.tweens.addCounter({ from: 0, to: total, duration: 900, ease: 'Cubic.easeOut', onUpdate: (tw2) => num.setText(fmtClock(tw2.getValue() ?? 0)), onComplete: () => num.setText(tl.text!) }));
-        } else this.time.delayedCall(1, () => num.setText(tl.text!));
-      } else {
-        tile = new CountUp(this, x, y, tw, th, { icon: this.iconOr(tl.icon), label, value: tl.value, prefix: tl.prefix, font: tl.font, duration: animate ? 900 : 1, delay: animate ? 150 + i * 160 : 0, sound: animate });
-        this.pageTweens.push((tile as CountUp).start());
-      }
+      // the clock counts in m:ss
+      const tile = new StatTile(this, x, y, tw, th, { icon: this.iconOr(tl.icon), label, value: tl.value, prefix: tl.prefix, format: tl.clock ? fmtClock : undefined, tone: tl.tone, duration: animate ? 900 : 0, delay: animate ? 150 + i * 160 : 0, sound: animate && !tl.clock, id: `stat.${tl.key}` });
+      const tween = tile.start();
+      if (tween) this.pageTweens.push(tween);
       c.add(tile);
       const z = this.add.zone(x, y, tw, th).setOrigin(0, 0).setInteractive();
       uiId(z, `results.tile.${tl.key}`);
@@ -331,7 +327,7 @@ export class ResultsScene extends BaseScene {
     // level-ups and notes
     const ups = r.heroes.filter((h) => h.levelsGained > 0);
     if (ups.length) {
-      const pop = new Label(this, w / 2, y, `${t('results.levelUp')} ${ups.map((h) => h.name).join(', ')}`, { maxW: w - 4, maxLines: 2, font: 'gold', align: 0.5, area });
+      const pop = new Label(this, w / 2, y, `${t('results.levelUp')} ${ups.map((h) => h.name).join(', ')}`, { maxW: w - 4, maxLines: 2, font: 'pGood', align: 0.5, area });
       c.add(pop);
       if (animate) {
         pop.setScale(1.6).setAlpha(0);
@@ -340,7 +336,7 @@ export class ResultsScene extends BaseScene {
       y += pop.h + 5;
     }
     for (const n of r.notes) {
-      const lab = new Label(this, w / 2, y, n, { maxW: w - 4, maxLines: 2, font: 'light', align: 0.5, area });
+      const lab = new Label(this, w / 2, y, n, { maxW: w - 4, maxLines: 2, font: 'pSec', align: 0.5, area });
       c.add(lab);
       y += lab.h + 3;
     }
@@ -355,35 +351,37 @@ export class ResultsScene extends BaseScene {
   private buildMvp(c: Phaser.GameObjects.Container, area: ScrollArea, y: number, w: number, big: boolean): number {
     const mvp = this.report.mvp;
     const h = big ? 60 : 50;
-    c.add(addPanel(this, 0, y, w, h, 'parch'));
+    c.add(mosaicImage(this, 0, y, w, h, 'parchment'));
     if (!mvp) {
-      c.add(new Label(this, w / 2, y + 12, t('results.noMvp'), { maxW: w - 12, maxLines: 2, font: 'dim', align: 0.5, area }));
+      c.add(new Label(this, w / 2, y + 12, t('results.noMvp'), { maxW: w - 12, maxLines: 2, font: 'pSec', align: 0.5, area }));
       return y + h + 5;
     }
-    // portrait in a gold frame (twice the size when there is room)
+    // portrait in a bronze frame (twice the size when there is room)
     const fs = h - 10;
     const fx = 5;
     const fy = y + 5;
     const g = this.add.graphics();
-    g.fillStyle(0x2a1a16, 1);
-    g.fillRect(fx, fy, fs, fs);
-    g.fillStyle(0xe0b040, 1);
-    g.fillRect(fx + 1, fy + 1, fs - 2, fs - 2);
-    g.fillStyle(0x3a2a24, 1);
-    g.fillRect(fx + 3, fy + 3, fs - 6, fs - 6);
+    g.fillStyle(MOSAIC.stone1, 1);
+    g.fillRect(fx + 2, fy + 2, fs - 4, fs - 4);
+    g.lineStyle(1.4, MOSAIC.bronze, 1);
+    g.strokeRect(fx - 0.5, fy - 0.5, fs + 1, fs + 1);
+    g.lineStyle(0.6, MOSAIC.parchEdge, 1);
+    g.strokeRect(fx - 1.5, fy - 1.5, fs + 3, fs + 3);
     c.add(g);
     if (mvp.hero) {
-      c.add(addPortrait(this, dollFromHero(mvp.hero), fx + 3, fy + 3, { size: fs - 6 }));
+      c.add(addPortrait(this, dollFromHero(mvp.hero), fx + 2, fy + 2, { size: fs - 4 }));
     }
-    const tx = fx + fs + 6;
+    const tx = fx + fs + 7;
     const tw = w - tx - 6;
     const ty = y + Math.max(4, Math.round((h - 41) / 2));
+    const box = { owner: c, w, h: y + h };
     c.add(addIcon(this, tx, ty - 2, 'laurel'));
-    c.add(addText(this, tx + 14, ty, ellipsize(t('results.mvp'), tw - 14, false, 7, 'head'), 'head'));
+    const mvpT = t('results.mvp');
+    c.add(mtext(this, tx + 14, ty, mvpT, 'rInk', { size: [7, 6.5, 6, 5.5].find((z) => mw(mvpT, 'rInk', z) <= tw - 14) ?? 5.5, maxW: tw - 14, box }));
     const cls = mvp.hero ? heroClass(mvp.hero) : null;
-    c.add(addText(this, tx, ty + 11, ellipsize(mvp.name, tw), 'ink'));
-    if (cls) c.add(addText(this, tx, ty + 21, ellipsize(tOr(`class.${cls.id}.name`, cls.name), tw), 'dim'));
-    c.add(addText(this, tx, ty + (cls ? 31 : 21), ellipsize(t('results.mvpLine', { kills: t('results.kills', { n: mvp.kills }), dmg: mvp.dmg }), tw), 'good'));
+    c.add(mtext(this, tx, ty + 11, mvp.name, 'pInk', { maxW: tw, box }));
+    if (cls) c.add(mtext(this, tx, ty + 21, tOr(`class.${cls.id}.name`, cls.name), 'pSec', { size: 6.5, maxW: tw, box }));
+    c.add(mtext(this, tx, ty + (cls ? 31 : 21), t('results.mvpLine', { kills: t('results.kills', { n: mvp.kills }), dmg: mvp.dmg }), 'pGood', { size: 6.5, maxW: tw, box }));
     return y + h + 5;
   }
 
@@ -391,14 +389,15 @@ export class ResultsScene extends BaseScene {
 
   private buildHeroes(animate: boolean): void {
     const r = this.report;
-    const { VW } = this.m;
     if (r.heroes.length === 0) {
-      this.pageLayer!.add(addEmptyState(this, 6, this.top, VW - 12, this.bottom - this.top, { icon: 'people', hint: t('results.noHeroes') }));
+      this.pageLayer!.add(mosaicImage(this, this.box.x + 4, this.top, this.box.w - 8, this.bottom - this.top, 'parchment'));
+      this.pageLayer!.add(addEmptyState(this, this.box.x + 6, this.top + 2, this.box.w - 12, this.bottom - this.top - 4, { icon: 'people', hint: t('results.noHeroes') }));
       return;
     }
     if (animate) this.xpStart = this.time.now + 300;
     const rowH = 28;
-    this.heroList = new ScrollList(this, this.pageLayer!, 6, this.top, VW - 12, this.bottom - this.top, {
+    this.heroList = new ScrollList(this, this.pageLayer!, this.box.x + 4, this.top, this.box.w - 8, this.bottom - this.top, {
+      fade: MOSAIC.parch,
       count: r.heroes.length,
       rowH,
       id: (i) => `results.hero${i}`,
@@ -407,7 +406,7 @@ export class ResultsScene extends BaseScene {
   }
 
   private renderHeroRow(h: HeroLine, row: Phaser.GameObjects.Container, w: number, rh: number): void {
-    row.add(addPanel(this, 0, 0, w, rh, h.died ? 'buttonOff' : 'inset'));
+    row.add(mosaicImage(this, 0, 0, w, rh, h.died ? 'parchmentWell' : 'parchment'));
     if (h.hero) {
       const img = addPortrait(this, dollFromHero(h.hero), 2, 2, { size: rh - 4 });
       if (h.died) img.setTint(0x8a7a70);
@@ -416,15 +415,16 @@ export class ResultsScene extends BaseScene {
     const right = 50;
     const tx = rh + 2;
     const tw = w - tx - right - 4;
+    const box = { owner: row, w, h: rh };
     const lvNow = this.levelOf(h);
-    row.add(addText(this, tx, 4, ellipsize(h.name, tw - 24), h.died ? 'dim' : 'red'));
-    const lv = addText(this, tx + tw, 4, t('battle.lv', { n: lvNow.level }), 'dim', 1);
+    row.add(mtext(this, tx, 4, h.name, h.died ? 'pOff' : 'pInk', { maxW: tw - 24, box }));
+    const lv = mtext(this, tx + tw, 4, t('battle.lv', { n: lvNow.level }), 'pSec', { align: 1, box });
     row.add(lv);
     const rx = w - 4;
     if (h.died) {
       row.add(addIcon(this, tx, 14, 'skull', 'D'));
-      row.add(addText(this, tx + 15, 16, ellipsize(t('results.kills', { n: h.kills }), tw - 15), 'dim'));
-      row.add(addText(this, rx, 10, t('results.fallen'), 'red', 1));
+      row.add(mtext(this, tx + 15, 16, t('results.kills', { n: h.kills }), 'pOff', { size: 6.5, maxW: tw - 15, box }));
+      row.add(mtext(this, rx, 10, t('results.fallen'), 'pBad', { align: 1, maxW: right, box }));
       return;
     }
     const g = this.add.graphics();
@@ -434,10 +434,10 @@ export class ResultsScene extends BaseScene {
     // rows come and go as the list scrolls (virtualised)
     g.once('destroy', () => this.xpRows.get(h.heroId) === entry && this.xpRows.delete(h.heroId));
     this.drawXp(h.heroId);
-    row.add(addText(this, rx, 4, t('results.xp', { n: h.xp }), 'good', 1));
-    const status = h.levelsGained > 0 ? { s: t('results.lvUp', { n: h.levelBefore + h.levelsGained }), f: 'gold' as const } : h.wounded ? { s: t('results.wounded'), f: 'red' as const } : { s: t('results.kills', { n: h.kills }), f: 'dim' as const };
-    row.add(addText(this, rx, 15, ellipsize(status.s, right - 2, status.f === 'gold'), status.f, 1));
-    if (h.wounded) row.add(addIcon(this, rx - measureText(status.s) - 14, 13, 'cross'));
+    row.add(mtext(this, rx, 4, t('results.xp', { n: h.xp }), 'pGood', { align: 1, maxW: right, box }));
+    const status = h.levelsGained > 0 ? { s: t('results.lvUp', { n: h.levelBefore + h.levelsGained }), f: 'pGood' as const } : h.wounded ? { s: t('results.wounded'), f: 'pBad' as const } : { s: t('results.kills', { n: h.kills }), f: 'pSec' as const };
+    row.add(mtext(this, rx, 15, status.s, status.f, { size: 6.5, align: 1, maxW: right - 2, box }));
+    if (h.wounded) row.add(addIcon(this, rx - mw(status.s, status.f, 6.5) - 14, 13, 'cross'));
   }
 
   /** Cumulative XP from level 1 (to animate across level boundaries). */
@@ -465,9 +465,9 @@ export class ResultsScene extends BaseScene {
     const x = 23;
     const y = 16;
     g.clear();
-    g.fillStyle(0x2a1a16, 1);
+    g.fillStyle(MOSAIC.stone0, 1);
     g.fillRect(x, y, r.w, 6);
-    g.fillStyle(0x6b4a40, 1);
+    g.fillStyle(MOSAIC.stone2, 1);
     g.fillRect(x + 1, y + 1, r.w - 2, 4);
     const f = level >= MAX_LEVEL ? 1 : Math.min(1, xp / xpToNext(level));
     const fw = Math.round((r.w - 2) * f);
@@ -484,20 +484,20 @@ export class ResultsScene extends BaseScene {
 
   private buildSpoils(): void {
     const r = this.report;
-    const { VW } = this.m;
     const top = this.top;
     if (r.loot.length === 0) {
       const hint = r.result === 'victory' || r.result === 'draw' ? t('results.noSpoilsWin') : r.result === 'retreat' ? t('results.noSpoilsRetreat') : t('results.noSpoilsLoss');
-      this.pageLayer!.add(addEmptyState(this, 6, top, VW - 12, this.bottom - top, { icon: 'coin', title: t('results.tab.spoils'), hint }));
+      this.pageLayer!.add(mosaicImage(this, this.box.x + 4, top, this.box.w - 8, this.bottom - top, 'parchment'));
+      this.pageLayer!.add(addEmptyState(this, this.box.x + 6, top + 2, this.box.w - 12, this.bottom - top - 4, { icon: 'coin', title: t('results.tab.spoils'), hint }));
       return;
     }
-    this.counter = addText(this, VW / 2, top + 1, '', 'light', 0.5);
+    this.counter = addText(this, this.box.x + this.box.w / 2, top + 1, '', 'pInk', 0.5);
     this.pageLayer!.add(this.counter);
     this.refreshCounter();
     this.top = top + 13;
     const { area, w } = this.pageScroll();
     this.top = top;
-    const gap = SIZE.gap;
+    const gap = GAP;
     const cols = w >= 3 * 64 + 2 * gap ? 3 : 2;
     const cw = Math.floor((w - (cols - 1) * gap) / cols);
     const ch = 64;
@@ -517,7 +517,7 @@ export class ResultsScene extends BaseScene {
     const r = this.report;
     if (!this.counter) return;
     const s = r.lootInStash ? t('results.inStash') : r.picks > 0 ? t('results.pick', { n: this.chosen.size, max: r.picks }) : '';
-    this.counter.setText(ellipsize(s, this.m.VW - 16, true));
+    this.counter.setText(ellipsize(s, this.box.w - 16));
   }
 
   /** Turn the next hidden card over every 0.35 s. */
@@ -569,26 +569,28 @@ export class ResultsScene extends BaseScene {
     c.removeAll(true);
     const area = this.pageArea;
     if (!this.revealed.has(i)) {
-      // face down: a dark card with a chest
-      c.add(addPanel(this, 0, 0, w, h, 'dark'));
-      c.add(addIcon(this, Math.round((w - 12) / 2), Math.round((h - 12) / 2), 'chest', 'D'));
+      // face down: a dark stone card with a chest
+      c.add(mosaicImage(this, 0, 0, w, h, 'tileStone'));
+      c.add(addIcon(this, Math.round((w - 12) / 2), Math.round((h - 12) / 2), 'chest', 'L'));
       return;
     }
     const it = this.report.loot[i];
     const rar = normalizeRarity(it.rarity);
     const sel = this.chosen.has(it.uid);
-    c.add(addPanel(this, 0, 0, w, h, sel ? 'buttonSel' : 'button'));
-    c.add(this.add.rectangle(2, 2, w - 4, 2, RARITY_COLOR[rar]).setOrigin(0, 0));
+    c.add(mosaicImage(this, 0, 0, w, h, sel ? 'parchmentSel' : 'parchment'));
+    // the rarity frame
+    const fr = this.add.graphics();
+    fr.lineStyle(sel ? 1.6 : 1.1, RARITY_INK[rar], 1);
+    fr.strokeRect(1.5, 1.5, w - 3, h - 3);
+    c.add(fr);
     c.add(new ItemIcon(this, Math.round((w - 24) / 2), 6, { item: it }, { tip: false }));
-    const lines = wrapText(subjectName({ item: it }), w - 6, 2, sel).lines;
-    const name = addText(this, w / 2, lines.length > 1 ? 32 : 37, lines.join('\n'), sel ? 'light' : 'ink', 0.5);
+    const lines = wrapText(subjectName({ item: it }), w - 8, 2).lines;
+    const name = addText(this, w / 2, lines.length > 1 ? 32 : 37, lines.join('\n'), parchRarityFont(this, rar), 0.5);
     name.setCenterAlign();
     uiFrame(name, c, w, h);
     c.add(name);
-    const sub = addText(this, w / 2, 52, ellipsize(`${t(`rarity.${rar}` as TKey)} ${Math.round(it.cond)}%`, w - 6, sel), sel ? 'light' : 'dim', 0.5);
-    uiFrame(sub, c, w, h);
-    c.add(sub);
-    if (sel) c.add(addIcon(this, w - 14, 4, 'check', 'L'));
+    c.add(mtext(this, w / 2, 52, `${t(`rarity.${rar}` as TKey)} ${Math.round(it.cond)}%`, 'pSec', { size: 6, align: 0.5, maxW: w - 8, box: { owner: c, w, h } }));
+    if (sel) c.add(addIcon(this, w - 15, 4, 'check'));
     const z = this.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive();
     uiId(z, `results.loot${i}`);
     tappable(z, area, () => this.inspect(i), t('results.tip.card'));
@@ -727,7 +729,7 @@ export class ResultsScene extends BaseScene {
           uiLevelUp();
           if (row) {
             row.flash = time + 200;
-            row.lv.setFont('font_gold').setScale(1.6);
+            row.lv.setFont('font_pGood').setScale(1.6);
             this.time.delayedCall(120, () => row.lv.active && row.lv.setScale(1.2));
             this.time.delayedCall(240, () => row.lv.active && row.lv.setScale(1));
             const m = row.g.getWorldTransformMatrix();

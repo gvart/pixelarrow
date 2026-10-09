@@ -102,6 +102,13 @@ export class MButton extends Phaser.GameObjects.Container {
     return this;
   }
 
+  setIcon(icon?: string): this {
+    this.o.icon = icon;
+    this.opts.icon = icon;
+    this.build();
+    return this;
+  }
+
   private setSurface(down: boolean): void {
     if (!this.enabled) return;
     const [up, dn] = BTN_STYLE[this.variant];
