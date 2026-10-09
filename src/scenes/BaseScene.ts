@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { uiMetrics, type UIMetrics } from '../ui/kit';
+import { sweepPanels, uiMetrics, type UIMetrics } from '../ui/kit';
 import { registerScreen, navLayer, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
 import { openSettings } from '../ui/settings';
 import { renderGround } from '../art/ground';
@@ -38,6 +38,8 @@ export abstract class BaseScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.scale.off('resize', onResize);
     });
+    // the screen before this one is gone and this one is built: free the big panels nothing shows any more
+    this.events.once('update', () => sweepPanels(this.game));
   }
 
   /** Default: rebuild the scene with the same data. */

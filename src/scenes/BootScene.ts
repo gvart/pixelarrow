@@ -9,6 +9,8 @@ import { state } from '../state';
 import { refreshLang } from '../ui/lang';
 import { hintStore } from '../ui/widgets';
 import { canResume, progressOf } from '../game/tutorial';
+import { ongoingMatch } from '../duel/match';
+import { online } from '../platform/cloud';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -48,7 +50,11 @@ export class BootScene extends Phaser.Scene {
       // A deep link wins. Test scripts that drive the menu set window.__noFirstRun.
       const tut = progressOf(state.campaign.data.settings);
       const first = !target && !debugScene && !(window as { __noFirstRun?: boolean }).__noFirstRun ? (tut.status === 'offer' ? 'offer' : canResume(tut) ? 'resume' : null) : null;
-      if (first) this.scene.start('FirstRun', { mode: first });
+      // Reloaded during a live duel (Telegram reopens a mini app the system closed): back into the match,
+      // or its report, instead of the menu while the match is lost by abandonment.
+      const live = !target && !debugScene && online.available ? ongoingMatch() : null;
+      if (live) this.scene.start('Duel', { tab: 'ranked', arena: 'live', rejoin: { id: live.id, mode: live.mode } });
+      else if (first) this.scene.start('FirstRun', { mode: first });
       else if (target) this.scene.start(target.scene, target.data);
       else this.scene.start(debugScene ?? 'Menu', {});
     })();

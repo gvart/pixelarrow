@@ -51,7 +51,7 @@ import { RANKED, divisionRoman, leagueRank, type DuelMode, type League, type Lea
 import type { AsyncReport, MatchReport } from '../../duel/protocol';
 import { ASYNC, SEASON, seasonMonth } from '../../duel/season';
 import { addCosmetic } from '../../ui/econ/widgets';
-import { MatchLink, matchSource, type MatchOutcome } from '../../duel/match';
+import { MatchLink, forgetMatch, matchSource, rememberMatch, type MatchOutcome } from '../../duel/match';
 import { LINE_H, wrapText } from '../../ui/textfit';
 import { DuelHeroSource } from '../../duel/heroSource';
 import { showReport } from '../ResultsScene';
@@ -78,6 +78,8 @@ export interface DuelSceneData {
   arena?: ArenaTab;
   /** What the battle just played paid (a toast on arrival; `floor`: a ladder floor, `first`: its first clear). */
   result?: { glory: number; won: boolean; draw?: boolean; floor?: number; first?: boolean };
+  /** Boot after a reload: go straight back into this live match (or show its report). */
+  rejoin?: { id: string; mode: DuelMode };
 }
 
 const TABS: DuelTab[] = ['ladder', 'ranked', 'team', 'shop'];
@@ -271,6 +273,7 @@ export class DuelScene extends BaseScene {
     this.render();
     void this.fetchData();
     if (data.error) toast(this, data.error, 'bad', 3500);
+    if (data.rejoin && !relayout && !this.src.demo) this.enterMatch(data.rejoin.id, data.rejoin.mode);
   }
 
   private back(): void {
@@ -2045,7 +2048,7 @@ export function ladderReport(r: LadderReport, label: string, demo = false): Batt
 let opening: string | null = null;
 
 /** Opens the match socket and starts the battle (or shows the report of a match already over). */
-export async function playLiveMatch(game: Phaser.Game, src: DuelSource, id: string, _mode: DuelMode): Promise<void> {
+export async function playLiveMatch(game: Phaser.Game, src: DuelSource, id: string, mode: DuelMode): Promise<void> {
   if (opening === id) return;
   opening = id;
   const link = new MatchLink(id);
@@ -2053,13 +2056,20 @@ export async function playLiveMatch(game: Phaser.Game, src: DuelSource, id: stri
     const first = await link.open();
     if (!('type' in first)) {
       link.close();
+      forgetMatch(id);
       reportThenHub(game, () => rankedReport(first, t('battle.vs', { name: first.names[1 - first.side] })), { tab: 'ranked', arena: 'live', result: matchResult(first.glory, first.winner, first.side, first.end === 'void') });
       return;
     }
     for (const sc of game.scene.getScenes(true)) if (sc.scene.key !== 'Battle') game.scene.stop(sc.scene.key);
-    game.scene.start('Battle', { source: matchSource(link, first, (o) => finishMatch(game, src, id, o)) });
+    // the settled report, or null while the match still runs (409 match_live) or the server is out of reach
+    const poll = () => src.matchReport(id).then((r) => r.report).catch(() => null);
+    // a reload (Telegram frees a backgrounded or memory-hungry mini app) comes back into the match
+    rememberMatch(id, mode);
+    game.scene.start('Battle', { source: matchSource(link, first, (o) => finishMatch(game, src, id, o), poll) });
   } catch {
     link.close();
+    // not after every boot: the Arena's Rejoin still offers a match the server says runs
+    forgetMatch(id);
     backToDuel(game, { tab: 'ranked', error: t('duels.live.unreachable') });
   } finally {
     opening = null;
@@ -2076,6 +2086,7 @@ const REPORT_RETRY_MS = 2000;
  * the Ranked tab.
  */
 export function finishMatch(game: Phaser.Game, src: DuelSource, id: string, o: MatchOutcome, tries = 1): void {
+  forgetMatch(id);
   const label = t('battle.vs', { name: o.names[1 - o.side] });
   const report = o.report;
   if (report) return reportThenHub(game, () => rankedReport(report, label), { tab: 'ranked', arena: 'live', result: matchResult(report.glory, report.winner, report.side, report.end === 'void') });

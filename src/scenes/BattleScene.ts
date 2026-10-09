@@ -202,6 +202,8 @@ export class BattleScene extends BaseScene {
   private banner: Phaser.GameObjects.Container | null = null;
   private bannerTimer: Phaser.Time.TimerEvent | null = null;
   private overlay: Phaser.GameObjects.Container | null = null;
+  /** The "leave the deployment?" dialog while it is open (closed when the battle starts under it). */
+  private leaveDialog: Phaser.GameObjects.Container | null = null;
   private hudDirty = true;
   private groupList: ScrollList | null = null;
   private fx!: BattleFx;
@@ -232,6 +234,8 @@ export class BattleScene extends BaseScene {
   private me: Side = 0;
   private stallMs = 0;
   private netBanner = false;
+  /** The stall banner's text (refreshed when the status changes). */
+  private netText = '';
   /** Online battles: the timed deployment (docs/DESIGN_V2.md "Online battle rules"). */
   private dclock: DeployClock | null = null;
   private countdown: { bar: Phaser.GameObjects.Graphics; shown: number } | null = null;
@@ -272,6 +276,7 @@ export class BattleScene extends BaseScene {
     this.victorySide = -1;
     this.retreatMsg = null;
     this.overlay = null;
+    this.leaveDialog = null;
     this.banner = null;
     this.follow = true;
     this.abilityBtns = [];
@@ -280,6 +285,7 @@ export class BattleScene extends BaseScene {
     this.propTick = 0;
     this.stallMs = 0;
     this.netBanner = false;
+    this.netText = '';
     this.shapeOpen = false;
     this.sitKey = '';
     this.ringKey = '';
@@ -1337,11 +1343,17 @@ export class BattleScene extends BaseScene {
       onOk: () => this.leaveDeploy(),
     });
     this.overlay = c;
-    c.once('destroy', () => this.overlay === c && (this.overlay = null));
+    this.leaveDialog = c;
+    c.once('destroy', () => {
+      if (this.overlay === c) this.overlay = null;
+      if (this.leaveDialog === c) this.leaveDialog = null;
+    });
   }
 
   /** Leave the deployment screen without fighting (back to the map or the army). */
   private leaveDeploy(): void {
+    // the deployment clock may have started the battle under the dialog: leaving now would abandon it
+    if (this.sim.phase !== 'deploy' || this.ending) return;
     if (this.src) {
       this.src.onLeave();
       return;
@@ -2188,6 +2200,9 @@ export class BattleScene extends BaseScene {
   private buildSheet(): void {
     const { VW, VH } = this.m;
     const deploy = this.sim.phase === 'deploy';
+    // what the order row is built for, on every path (no selection draws no row): refreshHud rebuilds the HUD
+    // whenever this differs, so a stale key would rebuild it forever (a stack overflow freezing the game loop)
+    this.ringKey = this.ordersKey();
     const y0 = this.stripTop();
     this.hud.add(addPanel(this, -2, y0, VW + 4, VH - y0 + 4, 'parch'));
     // cards
@@ -2284,7 +2299,6 @@ export class BattleScene extends BaseScene {
       this.hud.add(b);
       this.cmdBtns.set(o.key, b);
     });
-    this.ringKey = this.ordersKey();
   }
 
   /** What the order row shows (rebuilt when it changes: orders are rare events). */
@@ -2756,6 +2770,9 @@ export class BattleScene extends BaseScene {
 
   private onBattleStarted(): void {
     if (this.sim.phase === 'deploy') this.sim.startBattle();
+    // a "leave the deployment?" dialog still open no longer applies (its Leave would quit the battle)
+    this.leaveDialog?.destroy();
+    this.leaveDialog = null;
     if (this.dclock) markStarted(this.dclock);
     this.shapeOpen = false;
     this.setFollow(true);
@@ -2854,9 +2871,12 @@ export class BattleScene extends BaseScene {
     if (this.sim.phase !== 'battle') return;
     if (!ls.canStep()) this.stallMs += delta;
     else this.stallMs = 0;
-    if (this.stallMs > 700 && !this.netBanner && !this.ending) {
-      this.showBanner(ls.status() ?? t('battle.banner.waitingFoe', { name: this.opponentName() }), 0);
+    if (this.stallMs > 700 && !this.ending) {
+      // kept current while it shows: "Reconnecting...", the opponent's countdown
+      const msg = ls.status() ?? t('battle.banner.waitingFoe', { name: this.opponentName() });
+      if (!this.netBanner || msg !== this.netText) this.showBanner(msg, 0);
       this.netBanner = true;
+      this.netText = msg;
     } else if (this.stallMs === 0 && this.netBanner) {
       this.hideBanner();
       this.netBanner = false;
