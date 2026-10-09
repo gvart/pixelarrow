@@ -30,6 +30,8 @@ audio files.
   layout check.
 - [docs/ART_STYLE.md](docs/ART_STYLE.md): the art style the procedural
   renderers follow.
+- [docs/icons/README.md](docs/icons/README.md): every icon in the game, its
+  meaning and the Gemini prompts and tile-sheet layout for redrawing them.
 - [docs/OPS.md](docs/OPS.md): monitoring, analytics, backups, restore, the
   admin panel.
 - [docs/ROADMAP.md](docs/ROADMAP.md): architecture, invariants and open
