@@ -33,15 +33,23 @@ export interface HubShell {
   w: number;
 }
 
-/** The framed page of a mode hub: `title` on the plaque, the gear opening Settings, `active` lit in the tab bar. */
-export function addHubShell(scene: UiScene, o: { title: string; active: TabId }): HubShell {
+/**
+ * The framed page of a mode hub: `title` on the plaque, the gear opening Settings, `active` lit in the tab bar.
+ * `reserve`: UI px kept free at the bottom of the content for a fixed action; `parent`: the container the
+ * parts go into (default the scene's UI root).
+ */
+export function addHubShell(scene: UiScene, o: { title: string; active: TabId; reserve?: number; parent?: Phaser.GameObjects.Container }): HubShell {
   const { VW, VH, S } = scene.m;
+  const parent = o.parent ?? scene.ui;
   const frame = new ScreenFrame(scene, VW, VH, { tabBar: TAB_H });
-  scene.ui.add(frame);
-  scene.ui.add(new TopBar(scene, frame.topBar, { title: o.title, id: 'hub.topbar', actions: [{ icon: 'gear', label: t('menu.settings'), onClick: () => openSettings(scene) }] }));
+  parent.add(frame);
+  const top = new TopBar(scene, frame.topBar, { title: o.title, id: 'hub.topbar', actions: [{ icon: 'gear', label: t('menu.settings'), onClick: () => openSettings(scene) }] });
+  parent.add(top);
   const c = frame.content;
-  const area = new ScrollArea(scene, scene.ui, c.x + 4, c.y + 3, c.w - 8, c.h - 3, S);
+  const area = new ScrollArea(scene, parent, c.x + 4, c.y + 3, c.w - 8, c.h - 3 - (o.reserve ?? 0), S);
+  // above the scrolled content: a row scrolled under the bar must not take the gear's taps
+  parent.bringToTop(top);
   const tabs = new TabBar(scene, VW, VH, { active: o.active, onSelect: (id) => id !== o.active && goTab(scene, id) });
-  scene.ui.add(tabs);
+  parent.add(tabs);
   return { frame, tabs, area, w: c.w - 8 - 2 };
 }
