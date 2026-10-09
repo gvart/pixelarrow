@@ -14,7 +14,7 @@ import { SIZE, COLOR, RARITY_COLOR } from './theme';
 import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
-import { renderStage, renderStar, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
+import { renderStage, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
 import { ANIM, attackLength, dollFromHero, dollGeom, weaponClass } from '../art/paperdoll';
 import { itemDef, itemValue, normalizeRarity, SLOTS, type Item, type Slot } from '../data/items';
 import type { Hero } from '../data/units';
@@ -24,6 +24,7 @@ import {
   type RarityFilter, type SlotFilter, type StashSort, type StatDelta, type StatId,
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
+import { ROLE } from './tokens';
 
 export const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
 export const ROMAN = ['I', 'II', 'III', 'IV'];
@@ -50,10 +51,26 @@ export function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: 
 }
 
 /** Rank stars (filled up to n of max) as a row of 7 px icons, 8 px apart. Returns the width. */
+/**
+ * A hero's rank as bronze pips (diamonds): the gold star belongs to ladder
+ * floor ratings only (docs/UI_V3.md "One icon, one meaning"). Returns the width.
+ */
 export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, n: number, max = 5): number {
-  const on = tex(scene, 'star_on', () => renderStar(true));
-  const off = tex(scene, 'star_off', () => renderStar(false));
-  for (let i = 0; i < max; i++) parent.add(scene.add.image(Math.round(x + i * 8), Math.round(y), i < n ? on : off).setOrigin(0, 0));
+  const g = scene.add.graphics();
+  for (let i = 0; i < max; i++) {
+    const cx = Math.round(x + i * 8) + 3.5;
+    const cy = Math.round(y) + 3.5;
+    const pts = [{ x: cx, y: cy - 3.5 }, { x: cx + 3, y: cy }, { x: cx, y: cy + 3.5 }, { x: cx - 3, y: cy }];
+    g.fillStyle(0x000000, 0.5);
+    g.fillPoints(pts.map((p) => ({ x: p.x + 0.5, y: p.y + 0.6 })), true);
+    g.fillStyle(i < n ? 0xd2a564 : 0x3a2f25, 1);
+    g.fillPoints(pts, true);
+    if (i < n) {
+      g.fillStyle(0xf8e4b8, 0.8);
+      g.fillPoints([{ x: cx, y: cy - 3.5 }, { x: cx + 1.2, y: cy - 1.4 }, { x: cx - 1.2, y: cy - 1.4 }], true);
+    }
+  }
+  parent.add(g);
   return max * 8 - 1;
 }
 
@@ -81,7 +98,8 @@ export function addChip(scene: Phaser.Scene, parent: Phaser.GameObjects.Containe
   return w;
 }
 
-export const roleColor = (role: string): number => ROLE_COLOR[role] ?? 0x8a7a6a;
+/** A unit role's pill colour: the role palette of src/ui/tokens.ts (never the danger red). */
+export const roleColor = (role: string): number => (ROLE as Record<string, number>)[role] ?? ROLE_COLOR[role] ?? 0x6b5d4c;
 
 // ------------------------------------------------------------------ portrait stage
 
@@ -367,7 +385,11 @@ export interface ItemCardOpts {
   worth?: boolean;
 }
 
-const deltaText = (d: StatDelta): string => `${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`;
+/** "+4.5", "-7%", and for the blow time its unit and meaning: "+0.2 s slower". */
+const deltaText = (d: StatDelta): string => {
+  const n = `${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`;
+  return d.id === 'atkTime' ? `${n} s ${t(d.delta > 0 ? 'dv.slower' : 'dv.faster')}` : n;
+};
 
 /**
  * The item card: big icon in its rarity frame, name in the rarity colour,
@@ -433,9 +455,13 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
       ry += 11;
     }
     for (const d of changed) {
-      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 90), 'ink'));
-      b.add(addText(scene, inner - 44, ry, `${fmtStat(d.id, d.cur)}>${fmtStat(d.id, d.next)}`, 'dim', 1));
-      b.add(addText(scene, inner - 4, ry, deltaText(d), d.better ? 'good' : 'red', 1));
+      const dt = addText(scene, inner - 4, ry, deltaText(d), d.better ? 'good' : 'bad', 1);
+      const cn = addText(scene, inner - 4 - dt.width - 6, ry, `${fmtStat(d.id, d.cur)} > ${fmtStat(d.id, d.next)}`, 'sec', 1);
+      // narrow cards: the stat's name and its change matter most, "1.3 > 1.5" goes first
+      const fitsBoth = inner - 12 - dt.width - cn.width - 6 >= 44;
+      if (!fitsBoth) cn.destroy();
+      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 12 - dt.width - (fitsBoth ? cn.width + 6 : 0)), 'ink'));
+      b.add(fitsBoth ? [cn, dt] : [dt]);
       ry += 11;
     }
     if (cmp.displaced.length) b.add(addText(scene, 4, ry, ellipsize(t('stash.alsoRemoves', { name: cmp.displaced.map(itemName).join(', ') }), inner - 8), 'red'));

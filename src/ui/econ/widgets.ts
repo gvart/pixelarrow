@@ -74,15 +74,15 @@ export function addPurse(scene: Phaser.Scene, parent: Phaser.GameObjects.Contain
 /** The unavailable states as an empty state with a Retry action (not outside Telegram). */
 export function addEconState(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, s: EconState | 'loading', onRetry: () => void): void {
   if (s === 'loading') {
-    parent.add(addPanel(scene, x, y, w, h, 'inset'));
-    const tx = addText(scene, x + w / 2, y + h / 2 - 4, ellipsize(t('econ.loading'), w - 8), 'dim', 0.5);
+    parent.add(addPanel(scene, x, y, w, h, 'cardLocked'));
+    const tx = addText(scene, x + w / 2, y + h / 2 - 4, ellipsize(t('econ.loading'), w - 8), 'sec', 0.5);
     parent.add(tx);
     scene.tweens.add({ targets: tx, alpha: { from: 1, to: 0.35 }, duration: 500, yoyo: true, repeat: -1 });
     return;
   }
   const title = s === 'outside' ? t('econ.outside') : s === 'offline' ? t('econ.offline') : s === 'closed' ? t('econ.closed') : t('econ.error');
   const hint = s === 'outside' ? t('econ.outsideHint') : s === 'offline' ? t('econ.offlineHint') : s === 'closed' ? t('econ.closedHint') : t('econ.offlineHint');
-  parent.add(addPanel(scene, x, y, w, h, 'inset'));
+  parent.add(addPanel(scene, x, y, w, h, 'cardLocked'));
   parent.add(addEmptyState(scene, x + 2, y + 2, w - 4, h - 4, { icon: s === 'outside' ? 'flag' : 'tent', title, hint, action: s === 'outside' ? undefined : { label: t('econ.retry'), icon: 'repair', onClick: onRetry } }));
 }
 

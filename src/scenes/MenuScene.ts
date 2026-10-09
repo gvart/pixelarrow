@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addScroll, addText, panelK } from '../ui/kit';
+import { InfoChip, ProgressBar, Tile, addCard, layChips, resourceChip, type TileOpts } from '../ui/v3';
+import { ACCENT, SURFACE } from '../ui/tokens';
+import { DUEL_RULES } from '../duel/rules';
 import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { MenuBattle } from './menu/MenuBattle';
@@ -10,26 +13,26 @@ import { openSettings } from '../ui/settings';
 import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
 import { addSyncBadge } from '../ui/online';
 import { confirmDialog } from '../ui/widgets';
-import { addNumbers, ofCount, type SitNumber } from '../ui/strategos';
-import { ellipsize } from '../ui/textfit';
-import { SIZE } from '../ui/theme';
+import { ofCount } from '../ui/strategos';
+import { ellipsize, measureText } from '../ui/textfit';
 import { t } from '../i18n';
 
-/** The menu below the stage: card, Continue, the grid of starts, the first-steps line and the save label. */
-const CARD_H = 50;
-const GRID_ROWS = 3;
-/** Grid buttons: a plain row, or a taller one with a line of context under the label (when the stage keeps its height). */
-const GRID_H = 22;
-const GRID_H_SUB = 28;
-const menuH = (gridH: number) => 4 + CARD_H + SIZE.gap + 1 + 26 + SIZE.gap + 1 + GRID_ROWS * (gridH + SIZE.gap) + 2 + 10 + 10 + 4;
+/** The menu below the stage (UI px): the save's card, the hero CTA, three mode tiles, the utility row, first steps. */
+const CARD_H = 58;
+const CONT_H = 30;
+const TILE_H = 50;
+const TILE_H_COMPACT = 40;
+const UTIL_H = 28;
+const menuH = (tileH: number) => 4 + CARD_H + 5 + CONT_H + 5 + tileH + 4 + UTIL_H + 4 + 14 + 4;
 
 /**
- * The hub (docs/UI_STRATEGOS.md "Home"): the top of the screen is a
- * cinematic stage where the player's own men fight a looping skirmish
- * (src/scenes/menu/MenuBattle.ts) with the title scroll laid over it; below,
- * the situation card of the save (who, where, what is up, numbers with
- * words), ONE primary (Continue the march), the other starts as a compact
- * grid, the next first step and the save's home.
+ * The hub (docs/UI_V3.md "Home"): the top of the screen is a cinematic stage
+ * where the player's own men fight a looping skirmish
+ * (src/scenes/menu/MenuBattle.ts) under the title; below it, in order of
+ * importance: the save's card (who, where, campaign gold and battles won),
+ * the one hero action (Continue the march), the three game modes as big
+ * tiles (Duels, Online, Beasts), then the utility row (Shop, New campaign,
+ * Settings) and the first-steps progress.
  */
 export class MenuScene extends BaseScene {
   private battle: MenuBattle | null = null;
@@ -44,15 +47,13 @@ export class MenuScene extends BaseScene {
     this.screen({ back: null }); // root: Telegram shows Close
     const { VW, VH } = this.m;
     const c = state.campaign.data;
-    const x0 = 8;
-    const w = VW - 16;
+    const w = Math.min(VW - 12, 300);
+    const x0 = Math.round((VW - w) / 2);
     this.addGrassBackdrop(11);
 
-    // ---- the stage: as tall as the menu leaves, up to half the screen; the battle is drawn at 2x when there is room
-    // (the grid's lines of context cost 18 px: only when the stage keeps a decent height)
-    const subs = VH - menuH(GRID_H_SUB) >= 120;
-    const gridH = subs ? GRID_H_SUB : GRID_H;
-    const stageH = Math.min(Math.round(VH * 0.5), VH - menuH(gridH));
+    // ---- the stage: what the menu leaves, at most 42% of the screen
+    const tileH = VH - menuH(TILE_H) >= 90 ? TILE_H : TILE_H_COMPACT;
+    const stageH = Math.min(Math.round(VH * 0.42), VH - menuH(tileH));
     let y: number;
     if (stageH >= 56) {
       this.battle = new MenuBattle(this, c.heroes, (Date.now() % 100000) | 1);
@@ -60,18 +61,13 @@ export class MenuScene extends BaseScene {
         this.battle?.destroy();
         this.battle = null;
       });
-      // wide stages show the clash at 2x, phones at 1.5x (a front of five or six duels fits), small windows at 1x
       this.battle.start({ x: 0, y: 0, w: VW, h: stageH, zoom: stageH >= 160 && VW >= 320 ? 2 : stageH >= 100 && VW >= 150 ? 1.5 : 1 });
-      // a quiet dim under the menu keeps it readable on the plain
-      const dim = this.add.graphics();
-      dim.fillStyle(0x1a100c, 0.22);
-      dim.fillRect(0, stageH, VW, VH - stageH);
-      this.ui.add(dim);
-      // the title scroll laid over the top of the stage
+      // the page under the stage: deep warm stone, a bronze edge where the field ends
+      this.ui.add(this.add.rectangle(0, stageH, VW, VH - stageH, SURFACE.bg, 0.94).setOrigin(0, 0));
+      this.ui.add(this.add.rectangle(0, stageH, VW, 1, SURFACE.rim).setOrigin(0, 0));
       const tw = Math.min(w, 150);
       const tx = Math.round((VW - tw) / 2);
       addScroll(this, this.ui, tx, 6, tw, 42);
-      // the wordmark: bronze small capitals, the subtitle spaced out under a rule
       const title = addText(this, VW / 2, 11, 'Pixelarrow', 'head', 0.5);
       title.setFontSize(13);
       this.ui.add(title);
@@ -79,22 +75,21 @@ export class MenuScene extends BaseScene {
       this.ui.add(addText(this, VW / 2, 35, sub, 'dim', 0.5).setFontSize(5).setLetterSpacing(panelK(this) * 1.1));
       y = stageH + 4;
     } else {
-      // no room for a stage (a very short window): the title line alone
+      this.ui.add(this.add.rectangle(0, 0, VW, VH, SURFACE.bg, 0.94).setOrigin(0, 0));
       this.ui.add(addText(this, VW / 2, 4, 'Pixelarrow', 'head', 0.5).setFontSize(9));
       y = 18;
     }
 
-    // ---- the situation of the save: who, where, what is up; numbers with words
+    // ---- the save: the strategos, where the army is, what is up; campaign gold, battles won, men
     const lead = c.heroes[0];
-    this.ui.add(addPanel(this, x0, y, w, CARD_H, 'parch'));
-    let tx = x0 + 6;
+    addCard(this, this.ui, x0, y, w, CARD_H, 'cardRaised');
+    let tx = x0 + 8;
     if (lead) {
-      // the strategos, alive: breathing and glancing over the card
-      this.ui.add(addPanel(this, x0 + 5, y + 4, 32, 32, 'slot'));
-      this.ui.add(addPortrait(this, dollFromHero(lead), x0 + 7, y + 6, { size: 28 }));
-      tx = x0 + 42;
+      this.ui.add(addPanel(this, x0 + 6, y + 6, 26, 26, 'well'));
+      this.ui.add(addPortrait(this, dollFromHero(lead), x0 + 7, y + 7, { size: 24 }));
+      tx = x0 + 37;
     }
-    const tw2 = x0 + w - 6 - tx - 14;
+    const tw2 = x0 + w - 24 - tx;
     const day = Math.floor(c.world.time / 24) + 1;
     const inside = state.hasSave ? state.campaign.world.s.inside : -1;
     const place = inside >= 0 ? state.campaign.world.settlement(inside)?.name : undefined;
@@ -102,53 +97,62 @@ export class MenuScene extends BaseScene {
     const who = lead ? t('menu.strategos', { name: lead.name }) : t('menu.noSave');
     const where = !state.hasSave ? t('menu.status.noSave') : place ? t('menu.where.inside', { n: day, place }) : t('menu.where.day', { n: day });
     const status = !state.hasSave ? t('menu.status.fresh') : hurt > 0 ? t('menu.status.hurt', { n: hurt }) : t('menu.status.ready');
-    this.ui.add(addText(this, tx, y + 6, ellipsize(who, tw2), 'ink'));
-    this.ui.add(addText(this, tx, y + 16, ellipsize(where, tw2), 'dim'));
-    this.ui.add(addText(this, tx, y + 26, ellipsize(status, tw2), hurt > 0 && state.hasSave ? 'red' : 'ink'));
-    const nums: SitNumber[] = [
-      { icon: 'coin', value: `${c.gold}`, word: t('strat.gold'), tip: t('menu.tip.gold') },
-      { icon: 'people', value: `${c.heroes.length}`, word: hurt > 0 ? `${t('strat.menWord', { n: c.heroes.length })}, ${hurt} ${t('strat.hurtWord', { n: hurt })}` : t('strat.menWord', { n: c.heroes.length }), tip: t('menu.tip.army') },
-      { icon: 'star', value: `${c.won}`, word: t('menu.wonWord', { n: c.won }), tip: t('menu.tip.record') },
+    // "Name, strategos" where it fits whole, else the name alone
+    const whoFits = measureText(who, false, 7, 'head') <= tw2;
+    this.ui.add(addText(this, tx, y + 6, ellipsize(whoFits || !lead ? who : lead.name, tw2, false, 7, 'head'), 'head'));
+    // where and how the men are: one line when it fits, else the more urgent half
+    const both = `${where} · ${status}`;
+    const line = measureText(both) <= tw2 ? both : hurt > 0 && state.hasSave ? status : where;
+    this.ui.add(addText(this, tx, y + 18, ellipsize(line, tw2), hurt > 0 && state.hasSave ? 'bad' : 'sec'));
+    const chips = [
+      resourceChip(this, 0, 0, 'gold', c.gold, { word: t('strat.gold'), tipKey: 'res.tip.gold.campaign', id: 'menu.gold' }),
+      new InfoChip(this, 0, 0, { icon: 'trophy', value: c.won, word: t('menu.wonWord', { n: c.won }), tip: `${t('menu.tip.record')}: ${t('menu.record', { won: c.won, fought: c.fought })}`, id: 'menu.wins' }),
+      new InfoChip(this, 0, 0, { icon: 'people', value: c.heroes.length, word: t('strat.menWord', { n: c.heroes.length }), tip: t('menu.tip.army'), id: 'menu.men' }),
     ];
-    addNumbers(this, this.ui, x0 + 6, y + CARD_H - 12, w - 12 - 18, nums);
-    addSyncBadge(this, this.ui, x0 + w - 18, y + CARD_H - 14);
-    y += CARD_H + SIZE.gap + 1;
+    layChips(this.ui, chips, x0 + 6, y + CARD_H - 27, w - 12);
+    addSyncBadge(this, this.ui, x0 + w - 20, y + 4);
+    y += CARD_H + 5;
 
-    // ---- the one primary
-    const cont = new Button(this, x0, y, w, 26, { label: t('menu.continueMarch'), icon: 'play', inline: true, variant: 'primary', id: 'menu.continue', onClick: () => this.continueCampaign() });
+    // ---- the one hero action
+    const cont = new Button(this, x0, y, w, CONT_H, { label: t('menu.continueMarch'), icon: 'march', inline: true, variant: 'primary', id: 'menu.continue', onClick: () => this.continueCampaign() });
     cont.setEnabled(state.hasSave, t('menu.noSave'));
     this.ui.add(cont);
-    y += 26 + SIZE.gap + 1;
+    y += CONT_H + 5;
 
-    // ---- the other starts: a grid of two columns, each with a line of context when the screen has the height
-    const rows: { label: string; sub: string; icon: string; id: string; onClick: () => void }[] = [
-      { label: t('menu.newCampaign'), sub: t('menu.row.new'), icon: 'flag', id: 'menu.new', onClick: () => (state.hasSave ? this.confirmReset() : this.newCampaign()) },
-      { label: t('menu.online'), sub: t('menu.row.online'), icon: 'map', id: 'menu.online', onClick: () => this.scene.start('Online', {}) },
-      { label: t('menu.duels'), sub: t('menu.row.duels'), icon: 'swords', id: 'menu.duels', onClick: () => this.openDuels() },
-      { label: t('menu.trial'), sub: t('menu.row.trial'), icon: 'beast', id: 'menu.trial', onClick: () => this.openTrial() },
-      { label: t('menu.shop'), sub: t('menu.row.shop'), icon: 'coin', id: 'menu.shop', onClick: () => this.openShop() },
-      { label: t('menu.settings'), sub: t('menu.row.settings'), icon: 'gear', id: 'menu.settings', onClick: () => this.openSettings() },
+    // ---- the game modes: three big tiles
+    const modes: TileOpts[] = [
+      { icon: 'swords', label: t('menu.duels'), tip: t('menu.row.duels', { n: DUEL_RULES.rankedLevel }), id: 'menu.duels', raised: true, onClick: () => this.openDuels() },
+      { icon: 'map', label: t('menu.online'), tip: t('menu.row.online'), id: 'menu.online', raised: true, onClick: () => this.scene.start('Online', {}) },
+      { icon: 'beast', label: t('menu.trial'), tip: t('menu.row.trial'), id: 'menu.trial', raised: true, onClick: () => this.openTrial() },
     ];
-    const half = Math.floor((w - SIZE.gap) / 2);
-    rows.forEach((r, i) => {
-      const col = i % 2;
-      const rx = x0 + col * (half + SIZE.gap);
-      this.ui.add(new Button(this, rx, y + Math.floor(i / 2) * (gridH + SIZE.gap), col ? w - half - SIZE.gap : half, gridH, { label: r.label, sub: subs ? r.sub : undefined, icon: r.icon, id: r.id, onClick: r.onClick }));
-    });
-    y += GRID_ROWS * (gridH + SIZE.gap) + 2;
+    const gap = 4;
+    const mw = Math.floor((w - 2 * gap) / 3);
+    modes.forEach((o, i) => this.ui.add(new Tile(this, x0 + i * (mw + gap), y, i === 2 ? w - 2 * (mw + gap) : mw, tileH, { ...o, iconScale: tileH >= TILE_H ? 2 : 1.5 })));
+    y += tileH + 4;
 
-    // ---- the next first step, and the save's home
-    const who2 = telegramUserName();
-    const saveLabel = inTelegram() ? (who2 ? t('menu.cloudSaveOf', { name: who2 }) : t('menu.cloudSave')) : t('menu.localSave');
+    // ---- utility: smaller, quieter
+    const util: { label: string; icon: string; id: string; tip: string; onClick: () => void }[] = [
+      { label: t('menu.shop'), icon: 'shop', id: 'menu.shop', tip: t('menu.row.shop'), onClick: () => this.openShop() },
+      { label: t('menu.newCampaign'), icon: 'flag', id: 'menu.new', tip: t('menu.row.new'), onClick: () => (state.hasSave ? this.confirmReset() : this.newCampaign()) },
+      { label: t('menu.settings'), icon: 'gear', id: 'menu.settings', tip: t('menu.row.settings'), onClick: () => this.openSettings() },
+    ];
+    const uw = Math.floor((w - 2 * gap) / 3);
+    util.forEach((u, i) => this.ui.add(new Button(this, x0 + i * (uw + gap), y, i === 2 ? w - 2 * (uw + gap) : uw, UTIL_H, { label: u.label, icon: u.icon, variant: 'ghost', id: u.id, tip: u.tip, onClick: u.onClick })));
+    y += UTIL_H + 4;
+
+    // ---- first steps: a progress line with the next step, and where the save lives
     const steps = this.firstSteps();
     const done = steps.filter((s) => s.done).length;
     const next = steps.find((s) => !s.done);
-    const stepLine = next ? `${t('menu.firstSteps', { done: ofCount(done, steps.length) })} · ${next.text}` : t('menu.firstSteps', { done: ofCount(done, steps.length) });
-    if (VH - y >= 24) {
-      this.ui.add(addText(this, x0, y, ellipsize(stepLine, w, true), 'light'));
-      y += 10;
+    if (next && VH - y >= 14) {
+      const label = `${t('menu.firstSteps', { done: ofCount(done, steps.length) })} · ${next.text}`;
+      this.ui.add(new ProgressBar(this, x0 + 2, y, w - 4, { value: done, max: steps.length, h: 3, label, color: ACCENT.gold }));
+      y += 16;
+    } else if (VH - y >= 12) {
+      const who2 = telegramUserName();
+      const saveLabel = inTelegram() ? (who2 ? t('menu.cloudSaveOf', { name: who2 }) : t('menu.cloudSave')) : t('menu.localSave');
+      this.ui.add(addText(this, VW / 2, y + 1, ellipsize(saveLabel, w), 'muted', 0.5));
     }
-    if (VH - y >= 12) this.ui.add(addText(this, VW / 2, Math.min(y + 2, VH - 12), ellipsize(saveLabel, w, true), 'light', 0.5));
     // Opened from a bot message's "Open in the game" (startapp=settings).
     if (data?.settings === 'notify') this.openNotifications();
   }

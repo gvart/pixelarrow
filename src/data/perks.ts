@@ -271,8 +271,9 @@ export function perkBlocker(h: { level: number; perks: readonly PerkId[]; cls?: 
   const tree = heroTree(h, id);
   const tier = tree.indexOf(id);
   if (tier < 0) return 'Another class';
-  if (h.perks.length >= perkSlots(h.level)) return 'No perk point';
+  // the most lasting reason first: a perk of a later level says when it opens, not that no point is free today
   if (h.level < PERK_LEVELS[tier]) return `Needs Lv ${PERK_LEVELS[tier]}`;
   if (tier > 0 && !h.perks.includes(tree[tier - 1])) return `Needs ${PERKS[tree[tier - 1]].name}`;
+  if (h.perks.length >= perkSlots(h.level)) return 'No perk point';
   return null;
 }

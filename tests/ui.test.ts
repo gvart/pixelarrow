@@ -235,3 +235,11 @@ describe('layout check', () => {
     expect(v).toEqual([]);
   });
 });
+
+describe('wrapText on tiny widths', () => {
+  it('ends even when the width is narrower than one character', () => {
+    const r = wrapText('Sharpening stone', 2, 3);
+    expect(r.lines.length).toBeLessThanOrEqual(3);
+    expect(wrapText('W', 1).lines).toEqual(['W']);
+  });
+});

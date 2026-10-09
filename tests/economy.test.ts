@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canAfford, capLeft, claimableCount, clampPrice, econState, focusTier, listingAction, marketFee, passProgress, priceBounds, priceStep, rewardIcon, sellerGets,
-  suggestPrice, tierState, timeLeft, withClaim,
+  suggestPrice, tierState, timeLeft, walletOverdrawn, withClaim,
 } from '../src/game/economy';
 import { ApiError, type SeasonPassInfo } from '../src/platform/api';
 import { DemoEconSource, demoCatalog } from '../src/ui/econ/demo';
@@ -128,5 +128,13 @@ describe('shop and availability', () => {
     expect(page.listings.length).toBe(3);
     expect(page.listings[0].price).toBeLessThanOrEqual(page.listings[1].price);
     expect(page.next).toBe(3);
+  });
+});
+
+describe('wallet warning', () => {
+  it('warns only below zero (0 is a normal empty wallet)', () => {
+    expect(walletOverdrawn({ drachmae: 0 })).toBe(false);
+    expect(walletOverdrawn({ drachmae: 120 })).toBe(false);
+    expect(walletOverdrawn({ drachmae: -60 })).toBe(true);
   });
 });

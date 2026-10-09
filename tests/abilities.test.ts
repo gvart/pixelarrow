@@ -44,6 +44,9 @@ describe('progression data', () => {
     expect(perkBlocker(h, 'shield_bash')).toBeNull();
     expect(perkBlocker({ level: 3, perks: ['shield_drill'] }, 'shield_bash')).toMatch(/No perk point|Lv/);
     expect(perkBlocker({ level: 10, perks: ['shield_drill', 'shield_bash', 'phalangite'] }, 'unbreakable')).toMatch(/Steady/);
+    // a perk of a later level says when it opens (it read "No perk point" while the free point was spent)
+    expect(perkBlocker({ level: 2, perks: ['shield_drill'] }, 'steady_presence')).toMatch(/^Needs Lv \d+/);
+    expect(perkBlocker({ level: 2, perks: ['shield_drill'] }, 'shield_bash')).toMatch(/^Needs Lv \d+/);
   });
 
   it('attributes shift derived stats; perks grant abilities and auras', () => {

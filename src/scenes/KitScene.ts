@@ -14,6 +14,8 @@ import { ITEM_LIST, RARITIES } from '../data/items';
 import { CONSUMABLE_ICON_IDS, RESOURCE_ICON_IDS } from '../art/goodsIcons';
 import { SIZE, CATEGORY_COLOR, type BattleCategory } from '../ui/theme';
 import { t } from '../i18n';
+import { HEADER_H, InfoChip, Pager, ProgressBar, ScreenHeader, Stepper, Tile, Toggle, addLocked, addTipLine, confirmPurchase, layChips, openSheet, purchaseButton, resourceChip } from '../ui/v3';
+import { SURFACE } from '../ui/tokens';
 import { ellipsize } from '../ui/textfit';
 
 interface KitData {
@@ -34,9 +36,9 @@ export class KitScene extends BaseScene {
     this.tab = data?.tab ?? 0;
     this.screen({ back: () => this.scene.start('Menu') });
     const { VW } = this.m;
-    this.ui.add(addPanel(this, 0, 0, VW, this.m.VH, 'parch'));
-    this.ui.add(addText(this, VW / 2, 6, 'UI KIT', 'red', 0.5));
-    const tabs = new Tabs(this, 6, 18, VW - 12, ['Controls', 'Items', 'Lists'], { selected: this.tab, onChange: (i) => this.show(i) });
+    this.ui.add(this.add.rectangle(0, 0, VW, this.m.VH, SURFACE.bg).setOrigin(0, 0));
+    this.ui.add(addText(this, VW / 2, 6, 'UI KIT', 'head', 0.5));
+    const tabs = new Tabs(this, 6, 18, VW - 12, ['Controls', 'Items', 'Lists', 'V3'], { selected: this.tab, onChange: (i) => this.show(i) });
     this.ui.add(tabs);
     this.show(this.tab);
   }
@@ -50,7 +52,47 @@ export class KitScene extends BaseScene {
     this.ui.add(this.page);
     if (i === 0) this.controls(this.page);
     else if (i === 1) this.items(this.page);
-    else this.lists(this.page);
+    else if (i === 2) this.lists(this.page);
+    else this.v3(this.page);
+  }
+
+  /** The v3 component layer (src/ui/v3.ts): header, chips, tip, tiles, switches, progress, locked state, pager, real money. */
+  private v3(p: Phaser.GameObjects.Container): void {
+    const { VW, VH } = this.m;
+    const top = 48;
+    const area = new ScrollArea(this, p, 6, top, VW - 12, VH - top - 6, this.m.S);
+    this.cleanup.push(() => area.destroy());
+    addScrollHint(this, p, area, SURFACE.bg);
+    const c = area.content;
+    const w = VW - 12 - 4;
+    let y = 0;
+    c.add(new ScreenHeader(this, w, { title: 'Screen title', actions: [{ icon: 'people', label: 'Team', badge: '!', onClick: () => toast(this, 'Team') }, { icon: 'shop', label: 'Shop', onClick: () => toast(this, 'Shop') }] }));
+    y += HEADER_H + 4;
+    layChips(c, [resourceChip(this, 0, 0, 'glory', 640, { word: true }), resourceChip(this, 0, 0, 'drachmae', 340, { word: true }), new InfoChip(this, 0, 0, { icon: 'xp', value: 'Duel Lv 2', progress: 0.4, tip: '35 / 100 XP to duel level 3' })], 0, y, w);
+    y += 26;
+    layChips(c, [resourceChip(this, 0, 0, 'gold', 240, { word: true, tipKey: 'res.tip.gold.campaign' }), resourceChip(this, 0, 0, 'power', 539), resourceChip(this, 0, 0, 'wins', 3), resourceChip(this, 0, 0, 'stars', 250, { word: true })], 0, y, w);
+    y += 26;
+    y += addTipLine(this, c, 0, y, w, { text: 'A chest is ready to claim: tap the glowing chest.', tone: 'reward' }) + 4;
+    y += addTipLine(this, c, 0, y, w, { text: 'Your team is over this floor\'s budget.', tone: 'warn' }) + 4;
+    const tw = Math.floor((w - 8) / 3);
+    ['swords', 'map', 'beast'].forEach((icon, i) => c.add(new Tile(this, i * (tw + 4), y, i === 2 ? w - 2 * (tw + 4) : tw, 50, { icon, label: ['Duels', 'Online', 'Beasts'][i], raised: true, locked: i === 2 ? 'Unlocks at level 3' : undefined, onClick: () => toast(this, 'Tile') })));
+    y += 54;
+    c.add(new Toggle(this, 0, y, { on: true, label: 'Sound', onChange: () => undefined }));
+    c.add(new Toggle(this, 40, y, { on: false, label: 'Music', onChange: () => undefined }));
+    y += 26;
+    c.add(new Stepper(this, 0, y, { value: 6, min: 0, max: 10, label: 'Volume', onChange: () => undefined }));
+    y += 26;
+    const pb = new ProgressBar(this, 0, y, w, { value: 35, max: 100, label: 'Duel level 3', right: '35 / 100 XP' });
+    c.add(pb);
+    y += pb.h + 6;
+    y += addLocked(this, c, 0, y, w, { title: 'Ranked matches', icon: 'trophy', reason: 'Unlocks at duel level 5', progress: { value: 2, max: 5, label: 'Duel level' }, how: 'Win ladder floors and unranked matches to earn duel XP.' }) + 6;
+    c.add(new Pager(this, 0, y, { index: 1, count: 8, onPrev: () => toast(this, 'Prev'), onNext: () => toast(this, 'Next') }));
+    c.add(new Button(this, 86, y, w - 86, 24, { label: 'Ghost action', variant: 'ghost', onClick: () => toast(this, 'Ghost') }));
+    y += 28;
+    c.add(purchaseButton(this, 0, y, Math.floor(w / 2) - 2, 26, { stars: 250, onClick: () => confirmPurchase(this, { what: '275 Drachmae', stars: 250, onOk: () => toast(this, 'Paid', 'good') }) }));
+    c.add(new Button(this, Math.floor(w / 2) + 2, y, w - Math.floor(w / 2) - 2, 26, { label: 'Open a sheet', onClick: () => openSheet(this, { title: 'Bottom sheet', h: 90 }) }));
+    y += 30;
+    area.setContentHeight(y + 4);
   }
 
   private controls(p: Phaser.GameObjects.Container): void {
@@ -98,7 +140,7 @@ export class KitScene extends BaseScene {
     const tiles = [
       new CountUp(this, 0, y, tw, 44, { icon: 'skull', label: 'Kills', value: 27 }),
       new CountUp(this, tw + SIZE.gap, y, tw, 44, { icon: 'coin', label: 'Gold', value: 340, prefix: '+' }),
-      new CountUp(this, 2 * (tw + SIZE.gap), y, w - 2 * (tw + SIZE.gap), 44, { icon: 'star', label: 'Experience', value: 1250 }),
+      new CountUp(this, 2 * (tw + SIZE.gap), y, w - 2 * (tw + SIZE.gap), 44, { icon: 'xp', label: 'Experience', value: 1250 }),
     ];
     tiles.forEach((tile, i) => {
       c.add(tile);

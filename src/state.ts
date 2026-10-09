@@ -10,6 +10,7 @@ import { gameKV } from './platform/storage';
 import { setHaptics } from './platform/telegram';
 import { online } from './platform/cloud';
 import { newProgress } from './game/tutorial';
+import { setReducedMotion } from './ui/motion';
 
 /** Longest the boot screen waits for the cloud save before starting with the local one. */
 const PULL_WAIT_MS = 6000;
@@ -65,6 +66,7 @@ class GameState {
     // A first launch: the guided tutorial is offered (src/scenes/FirstRunScene.ts).
     if (!data) this.campaign.data.settings.tutorial = newProgress();
     setHaptics(this.campaign.data.settings.haptics);
+    setReducedMotion(this.campaign.data.settings.reduceMotion);
     if (!data) await this.save();
   }
 
@@ -97,6 +99,7 @@ class GameState {
     this.pending = null;
     this.last = null;
     setHaptics(this.campaign.data.settings.haptics);
+    setReducedMotion(this.campaign.data.settings.reduceMotion);
     await this.writeLocal(data);
   }
 

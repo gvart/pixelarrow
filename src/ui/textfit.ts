@@ -69,7 +69,8 @@ export function wrapText(str: string, maxW: number, maxLines = 0, shadow = false
       line = '';
       // A word wider than the line: break it.
       let rest = word;
-      while (!fits(rest)) {
+      // (at least one character per line, so a width narrower than one glyph still ends)
+      while (rest && !fits(rest) && [...rest].length > 1) {
         const chars = [...rest];
         let k = chars.length - 1;
         while (k > 1 && !fits(chars.slice(0, k).join(''))) k--;

@@ -35,6 +35,8 @@ export interface Settings {
   onlineCoach?: number;
   /** Anonymous product analytics (src/platform/analytics.ts); off = nothing is sent. */
   analytics: boolean;
+  /** Reduce motion (src/ui/motion.ts); missing = follow the system's prefers-reduced-motion. */
+  reduceMotion?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

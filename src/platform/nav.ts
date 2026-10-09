@@ -43,6 +43,9 @@ interface Entry {
   layers: Layer[];
 }
 
+/** Which way the next screen enters: set by Back, read (and reset) by the screen that opens. */
+export const navMotion = { back: false };
+
 export class NavStack {
   private entries: Entry[] = [];
   private unsaved = false;
@@ -112,6 +115,8 @@ export class NavStack {
       return true;
     }
     if (!e.opts.back) return false;
+    // the next screen slides in from the left (src/scenes/BaseScene.ts)
+    navMotion.back = true;
     e.opts.back();
     return true;
   }

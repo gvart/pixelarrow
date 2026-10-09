@@ -10,6 +10,7 @@ import { FIELDCAMP_RU } from './fieldcamp.ru';
 import { OCAMP_RU } from './camp.ru';
 import { STRAT_RU } from './strat.ru';
 import { CAMPSCENE_RU } from './campscene.ru';
+import { V3_RU } from './v3.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -76,10 +77,10 @@ export const RU: Table = {
   'menu.resetBody': 'Ваше войско, склад и карта будут потеряны навсегда.',
   'menu.resetOk': 'Начать',
   'menu.noSave': 'Сохранённого похода нет: начните новый.',
-  'menu.tip.gold': 'Золото в казне',
+  'menu.tip.gold': 'Золото похода в казне',
   'menu.tip.army': 'Герои в войске',
   'menu.tip.day': 'Дней в походе',
-  'menu.tip.record': 'Победы / битвы',
+  'menu.tip.record': 'Победы / битвы похода',
 
   'online.title': 'Война сезона',
   'online.reaching': 'Связь с царством...',
@@ -272,4 +273,5 @@ export const RU: Table = {
   ...OCAMP_RU,
   ...CAMPSCENE_RU,
   ...STRAT_RU,
+  ...V3_RU,
 };

@@ -10,7 +10,9 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
+import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addText, longPress, panelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
+import { ACCENT, MOTION, SURFACE } from './tokens';
+import { tweenTo } from './motion';
 import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, STRAT, glows } from './theme';
@@ -370,37 +372,99 @@ export interface TabsOpts {
 }
 
 /**
- * A row of equal tabs for separate sections of one screen (Stats | Gear |
- * Perks). The selected tab is red; labels that do not fit end in "…" (full
- * label on long-press). Height SIZE.tabH.
+ * One segment of a Tabs / UnderlineTabs row: a tap target with an icon and a
+ * label. Carries `opts.label` (scripts find tabs by it) and an id for the
+ * layout check.
+ */
+class TabItem extends Phaser.GameObjects.Container {
+  readonly opts: { label: string; icon?: string };
+  readonly w: number;
+  readonly h: number;
+  private labelText: Phaser.GameObjects.BitmapText | null = null;
+  private iconImg: Phaser.GameObjects.Image | null = null;
+  private truncated = false;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, label: string, private look: { icon?: string; iconOnly?: boolean; id?: string; size?: number }, onTap: () => void) {
+    super(scene, Math.round(x), Math.round(y));
+    this.w = Math.round(w);
+    this.h = h;
+    this.opts = { label, icon: look.icon };
+    this.setSize(this.w, this.h);
+    this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+    if (look.id) (this as unknown as { __uiId?: string }).__uiId = look.id;
+    tappable(this, null, onTap, () => (this.truncated || look.iconOnly ? label : undefined));
+    scene.add.existing(this);
+  }
+
+  /** Redraw in the selected or plain look. */
+  paint(on: boolean, onFont: FontKey, offFont: FontKey): void {
+    this.labelText?.destroy();
+    this.iconImg?.destroy();
+    this.labelText = null;
+    this.iconImg = null;
+    const scene = this.scene;
+    const size = this.look.size ?? 7;
+    const font = on ? onFont : offFont;
+    const variant = on ? (onFont === 'onAccent' || onFont === 'light' ? 'L' : '') : 'D';
+    const icon = this.look.icon;
+    if (icon && this.look.iconOnly) {
+      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, icon, variant);
+      this.add(this.iconImg);
+      this.truncated = true;
+      return;
+    }
+    const room = this.w - 8 - (icon ? 15 : 0);
+    const label = ellipsize(this.opts.label, room, SHADOW_FONTS.has(font), size);
+    this.truncated = label !== this.opts.label;
+    // too narrow for words: the icon alone (the label on long-press)
+    if (icon && this.truncated && room < 22) {
+      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, icon, variant);
+      this.add(this.iconImg);
+      return;
+    }
+    const tw = measureText(label, SHADOW_FONTS.has(font), size);
+    const total = (icon ? 15 : 0) + tw;
+    const x0 = Math.round((this.w - total) / 2);
+    if (icon) {
+      this.iconImg = addIcon(scene, x0, Math.round((this.h - 12) / 2), icon, variant);
+      this.add(this.iconImg);
+    }
+    this.labelText = addText(scene, x0 + (icon ? 15 : 0), Math.round((this.h - 9) / 2), label, font).setFontSize(size);
+    uiFrame(this.labelText, this, this.w, this.h);
+    this.add(this.labelText);
+  }
+}
+
+/**
+ * The top-level switch of a screen (docs/UI_V3.md "Navigation"): a sunken
+ * track with a lit bronze thumb that slides to the selected segment. Same API
+ * as before (Stats | Gear | Perks...). Height SIZE.tabH.
  */
 export class Tabs extends Phaser.GameObjects.Container {
   readonly w: number;
   readonly h = SIZE.tabH;
-  private buttons: Button[] = [];
+  private items: TabItem[] = [];
+  private thumb: Phaser.GameObjects.Image;
   private sel: number;
+  private tw: number;
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, labels: string[], private o: TabsOpts = {}) {
     super(scene, Math.round(x), Math.round(y));
     this.w = Math.round(w);
     this.sel = o.selected ?? 0;
     const n = labels.length;
-    const gap = SIZE.gap;
-    const tw = Math.floor((this.w - gap * (n - 1)) / n);
+    this.add(panelImage(scene, 0, 0, this.w, this.h, 'track'));
+    this.tw = (this.w - 4) / n;
+    this.thumb = panelImage(scene, 0, 2, Math.round(this.tw), this.h - 4, 'thumb');
+    this.thumb.x = Math.round(2 + this.sel * this.tw);
+    this.add(this.thumb);
     labels.forEach((label, i) => {
-      const b = new Button(scene, i * (tw + gap), 0, i === n - 1 ? this.w - i * (tw + gap) : tw, this.h, {
-        label,
-        icon: o.icons?.[i],
-        iconOnly: !!o.iconOnly && !!o.icons?.[i],
-        style: i === this.sel ? 'buttonSel' : 'button',
-        id: o.ids?.[i],
-        onClick: () => this.select(i),
-      });
-      this.buttons.push(b);
-      this.add(b);
+      // hit areas 3 px apart (the touch spacing rule); the thumb still spans the whole segment
+      const it = new TabItem(scene, 2 + Math.round(i * this.tw) + 1.5, 0, Math.round(this.tw) - 3, this.h, label, { icon: o.icons?.[i], iconOnly: !!o.iconOnly && !!o.icons?.[i], id: o.ids?.[i] }, () => this.select(i));
+      this.items.push(it);
+      this.add(it);
     });
-    // underline joining the tabs to their page
-    this.add(scene.add.rectangle(0, this.h, this.w, 1, 0x8c2f25).setOrigin(0, 0));
+    this.paint();
     scene.add.existing(this);
   }
 
@@ -408,17 +472,78 @@ export class Tabs extends Phaser.GameObjects.Container {
     return this.sel;
   }
 
+  private paint(): void {
+    this.items.forEach((it, k) => it.paint(k === this.sel, 'onAccent', 'sec'));
+  }
+
   select(i: number, notify = true): void {
     if (i === this.sel) return;
     this.sel = i;
-    this.buttons.forEach((b, k) => b.setSelected(k === i));
+    tweenTo(this.scene, this.thumb, { x: Math.round(2 + i * this.tw) }, MOTION.tab);
+    this.paint();
     if (notify) this.o.onChange?.(i);
   }
 
-  /** Badge on a tab (e.g. new items). */
+  /** Badge on a tab (e.g. points to spend). */
   badge(i: number, count: number | string): Badge {
-    const b = this.buttons[i];
-    const badge = new Badge(this.scene, b.x + b.w - 4, 3, count);
+    const it = this.items[i];
+    const badge = new Badge(this.scene, it.x + it.w - 5, 3, count);
+    this.add(badge);
+    return badge;
+  }
+}
+
+/**
+ * The second level under a Tabs switch (docs/UI_V3.md): words on the page
+ * with a gold underline that slides to the selected one (Today | Gear | Sell).
+ * Height 22.
+ */
+export class UnderlineTabs extends Phaser.GameObjects.Container {
+  readonly w: number;
+  readonly h = 22;
+  private items: TabItem[] = [];
+  private bar: Phaser.GameObjects.Rectangle;
+  private sel: number;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, labels: string[], private o: TabsOpts = {}) {
+    super(scene, Math.round(x), Math.round(y));
+    this.w = Math.round(w);
+    this.sel = o.selected ?? 0;
+    const n = labels.length;
+    const tw = this.w / n;
+    this.add(scene.add.rectangle(0, this.h - 1, this.w, 1, SURFACE.line).setOrigin(0, 0));
+    labels.forEach((label, i) => {
+      const it = new TabItem(scene, Math.round(i * tw) + 1.5, 0, Math.round(tw) - 3, this.h, label, { icon: o.icons?.[i], iconOnly: !!o.iconOnly && !!o.icons?.[i], id: o.ids?.[i] }, () => this.select(i));
+      this.items.push(it);
+      this.add(it);
+    });
+    const it = this.items[this.sel];
+    this.bar = scene.add.rectangle(it.x + 6, this.h - 2, it.w - 12, 2, ACCENT.gold).setOrigin(0, 0);
+    this.add(this.bar);
+    this.paint();
+    scene.add.existing(this);
+  }
+
+  get selected(): number {
+    return this.sel;
+  }
+
+  private paint(): void {
+    this.items.forEach((it, k) => it.paint(k === this.sel, 'ink', 'sec'));
+  }
+
+  select(i: number, notify = true): void {
+    if (i === this.sel) return;
+    this.sel = i;
+    const it = this.items[i];
+    tweenTo(this.scene, this.bar, { x: it.x + 6, width: it.w - 12 }, MOTION.tab);
+    this.paint();
+    if (notify) this.o.onChange?.(i);
+  }
+
+  badge(i: number, count: number | string): Badge {
+    const it = this.items[i];
+    const badge = new Badge(this.scene, it.x + it.w - 5, 4, count);
     this.add(badge);
     return badge;
   }
@@ -426,50 +551,80 @@ export class Tabs extends Phaser.GameObjects.Container {
 
 // ================================================================== scroll hint
 
+/** Colour the edge fades melt into by default (the stone of the pages); v3 screens pass their own. */
+export const FADE_DEFAULT = 0x1f1913;
+
+/** A vertical gradient from `color` (opaque, top) to transparent (bottom), w x h UI px, cached per size. */
+function fadeTexture(scene: Phaser.Scene, w: number, h: number, color: number): string {
+  const K = Math.max(2, Math.ceil(metrics(scene).S));
+  const key = `fade_${color.toString(16)}_${Math.round(w)}x${Math.round(h)}@${K}`;
+  if (!scene.textures.exists(key)) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(2, Math.round(w * K));
+    c.height = Math.max(2, Math.round(h * K));
+    const g = c.getContext('2d')!;
+    const r = (color >> 16) & 255;
+    const gg = (color >> 8) & 255;
+    const bb = color & 255;
+    const grad = g.createLinearGradient(0, 0, 0, c.height);
+    grad.addColorStop(0, `rgba(${r},${gg},${bb},1)`);
+    grad.addColorStop(0.45, `rgba(${r},${gg},${bb},0.75)`);
+    grad.addColorStop(1, `rgba(${r},${gg},${bb},0)`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, c.width, c.height);
+    scene.textures.addCanvas(key, c)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  }
+  return key;
+}
+
 /**
- * A scrollbar thumb along the right edge and a bobbing chevron while there is
- * more below (and above): the "visible scroll hint" of long lists.
+ * The scroll hint of long lists (docs/UI_V3.md): soft fades at the top and
+ * bottom edges while there is more to see that way, and a slim bronze thumb
+ * that shows while the list moves. Nothing sits on the rows (no chevrons), and
+ * nothing redraws per frame: everything changes on scroll only.
  */
-export function addScrollHint(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, area: ScrollArea): Phaser.GameObjects.Graphics {
+export function addScrollHint(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, area: ScrollArea, color: number = FADE_DEFAULT): Phaser.GameObjects.Graphics {
   const { x, y, w, h } = area.bounds;
+  const fh = Math.min(12, Math.round(h / 4));
+  const key = fadeTexture(scene, w, fh, color);
+  const K = Math.max(2, Math.ceil(metrics(scene).S));
+  const top = scene.add.image(x, y, key).setOrigin(0, 0).setScale(1 / K).setVisible(false);
+  const bottom = scene.add.image(x, y + h, key).setOrigin(0, 0).setScale(1 / K, -1 / K).setVisible(false);
   const g = scene.add.graphics();
-  parent.add(g);
-  let bob = 0;
-  const draw = () => {
+  parent.add([top, bottom, g]);
+  let hideAt = 0;
+  const drawThumb = () => {
     g.clear();
     const max = area.maxScrollY;
     if (max <= 0) return;
-    const s = area.scrollY;
     const total = area.contentHeight;
     const th = Math.max(10, Math.round((h * h) / total));
-    const ty = Math.round(y + (h - th) * (s / max));
-    g.fillStyle(0x2a1a16, 0.35);
-    g.fillRect(x + w - 2, y + 1, 2, h - 2);
-    g.fillStyle(0x8c2f25, 0.9);
-    g.fillRect(x + w - 2, ty, 2, th);
-    const cx = Math.round(x + w / 2);
-    const chev = (cy: number, down: boolean) => {
-      g.fillStyle(0x2a1a16, 0.55);
-      g.fillRoundedRect(cx - 7, cy - 3, 14, 7, 3);
-      g.fillStyle(0xf6ecd8, 1);
-      for (let i = 0; i < 4; i++) g.fillRect(cx - 4 + i, cy + (down ? i - 1 : 2 - i), 1, 1), g.fillRect(cx + 3 - i, cy + (down ? i - 1 : 2 - i), 1, 1);
-    };
-    const b = Math.round(Math.sin(bob) * 1.5);
-    if (s < max - 1) chev(y + h - 5 + b, true);
-    if (s > 1) chev(y + 4 - b, false);
+    const ty = Math.round(y + 2 + (h - 4 - th) * (area.scrollY / max));
+    g.fillStyle(0xb48a52, 0.7);
+    g.fillRoundedRect(x + w - 2.5, ty, 2, th, 1);
+  };
+  const draw = () => {
+    const max = area.maxScrollY;
+    top.setVisible(max > 0 && area.scrollY > 1);
+    bottom.setVisible(max > 0 && area.scrollY < max - 1);
+    drawThumb();
+    g.setAlpha(1);
+    hideAt = scene.time.now + 900;
   };
   area.onScroll(draw);
-  const tick = () => {
-    bob += 0.12;
-    if (area.maxScrollY > 0) draw();
-  };
-  const off = () => {
-    scene.events.off('update', tick);
-    scene.events.off('shutdown', off);
-  };
-  scene.events.on('update', tick);
-  g.once('destroy', off);
-  scene.events.once('shutdown', off);
+  // the thumb fades out a moment after the list stops (one timer, not a per-frame redraw)
+  const timer = scene.time.addEvent({
+    delay: 250,
+    loop: true,
+    callback: () => {
+      if (g.alpha > 0 && scene.time.now > hideAt && area.maxScrollY > 0) g.setAlpha(Math.max(0, g.alpha - 0.5));
+    },
+  });
+  g.once('destroy', () => {
+    timer.remove();
+    top.destroy();
+    bottom.destroy();
+  });
   draw();
   return g;
 }
@@ -491,8 +646,10 @@ export interface ScrollListOpts {
   id?: (i: number) => string;
   /** Rows built beyond the viewport on each side (default 2). */
   overscan?: number;
-  /** Draw the scrollbar / chevron hint (default true). */
+  /** Draw the scroll hint (edge fades and thumb; default true). */
   hint?: boolean;
+  /** The colour behind the list, that the edge fades melt into (default FADE_DEFAULT). */
+  fade?: number;
 }
 
 /**
@@ -518,7 +675,7 @@ export class ScrollList {
     this.o = { gap: SIZE.gap, overscan: 2, hint: true, ...o };
     this.area = new ScrollArea(scene, parent, x, y, w, h, metrics(scene).S);
     this.area.onScroll(() => this.sync());
-    if (this.o.hint) this.hint = addScrollHint(scene, parent, this.area);
+    if (this.o.hint) this.hint = addScrollHint(scene, parent, this.area, this.o.fade);
     this.setCount(o.count);
   }
 
@@ -996,10 +1153,10 @@ export function openModal(scene: UiScene, o: ModalOpts): Modal {
   const h = Math.min(o.h, VH - 16);
   const x = Math.round((VW - w) / 2);
   const y = Math.round((VH - h) / 2);
-  addScroll(scene, c, x, y, w, h);
+  c.add(panelImage(scene, x, y, w, h, 'cardRaised'));
   let top = y + 8;
   if (o.title) {
-    c.add(addText(scene, VW / 2, y + 12, ellipsize(o.title, w - 16), 'red', 0.5));
+    c.add(addText(scene, VW / 2, y + 10, ellipsize(o.title, (w - 20) / 1.1, false, 7, 'head'), 'head', 0.5).setScale(1.1));
     top = y + 26;
   }
   let closed = false;
@@ -1098,9 +1255,10 @@ export function addEmptyState(scene: Phaser.Scene, x: number, y: number, w: numb
     c.add(ic);
     cy += 28;
   }
-  c.add(addText(scene, w / 2, cy, ellipsize((o.title ?? t('kit.empty.title')), w - 8), 'red', 0.5));
+  // an empty or closed state is not an error: its title in the heading face, not the error red
+  c.add(addText(scene, w / 2, cy, ellipsize(o.title ?? t('kit.empty.title'), w - 8, false, 7, 'head'), 'headL', 0.5));
   cy += titleH;
-  const hint = addText(scene, w / 2, cy, wr.lines.join('\n'), 'dim', 0.5);
+  const hint = addText(scene, w / 2, cy, wr.lines.join('\n'), 'sec', 0.5);
   hint.setCenterAlign();
   c.add(hint);
   cy += wr.lines.length * LINE_H + 8;
@@ -1121,7 +1279,7 @@ export function installWidgets(): void {
   if (installed) return;
   installed = true;
   longPress.show = (scene, text, anchor) => showTooltip(scene, text, anchor);
-  longPress.toast = (scene, text) => toast(scene, text, 'bad');
+  longPress.toast = (scene, text) => toast(scene, text, 'info');
 }
 
 /** Panel texture helper re-exported for screens building custom tiles. */

@@ -5,10 +5,12 @@
  * the Fight button.
  */
 import { BaseScene } from './BaseScene';
-import { Button, addPanel, addText } from '../ui/kit';
+import { addPanel, addText } from '../ui/kit';
+import { ScreenHeader, addTipLine } from '../ui/v3';
+import { ROLE, SURFACE } from '../ui/tokens';
+import { addChip } from '../ui/sheet';
 import { ScrollList } from '../ui/widgets';
-import { SIZE } from '../ui/theme';
-import { ellipsize } from '../ui/textfit';
+import { ellipsize, wrapText } from '../ui/textfit';
 import { beastThumb, encounterName, openBeastInfo } from '../ui/beastInfo';
 import { ENCOUNTER_IDS, WORLD_BOSSES, type EncounterId } from '../data/beasts';
 import { beastEnemy } from '../game/beasts';
@@ -27,36 +29,34 @@ export class BeastTrialScene extends BaseScene {
     this.initUi();
     this.screen({ back: () => this.scene.start('Menu') });
     const { VW, VH } = this.m;
-    this.addGrassBackdrop(5);
-    const top = 34;
-    this.ui.add(addPanel(this, 0, 0, VW, top, 'parch'));
-    let tx = 6;
-    if (this.inGameBack) {
-      this.ui.add(new Button(this, 3, 5, SIZE.btnMinW, SIZE.btnH, { icon: 'back', tip: t('common.back'), onClick: () => this.scene.start('Menu') }));
-      tx = 3 + SIZE.btnMinW + 5;
-    }
-    this.ui.add(addText(this, tx, 7, ellipsize(t('trial.title'), VW - tx - 6), 'red'));
-    this.ui.add(addText(this, tx, 18, ellipsize(t('trial.sub'), VW - tx - 6), 'dim'));
+    this.ui.add(this.add.rectangle(0, 0, VW, VH, SURFACE.bg).setOrigin(0, 0));
+    const hdr = new ScreenHeader(this, VW, { title: t('trial.title'), back: () => this.scene.start('Menu'), id: 'trial.header' });
+    this.ui.add(hdr);
     const x = 6;
     const w = VW - 12;
-    const y = top + 6;
-    this.ui.add(addPanel(this, x - 3, y - 3, w + 6, VH - y - 3, 'inset'));
+    let y = hdr.bottom + 4;
+    const tip = addTipLine(this, this.ui, x, y, w, { text: t('trial.sub'), icon: 'beast', dismissId: 'trial.what' });
+    if (tip) y += tip + 4;
     const ids = ENCOUNTER_IDS;
-    this.list = new ScrollList(this, this.ui, x, y, w, VH - y - 9, {
+    this.list = new ScrollList(this, this.ui, x, y, w, VH - y - 4, {
       count: ids.length,
-      rowH: 40,
+      rowH: 46,
+      fade: SURFACE.bg,
       id: (i) => `trial.${ids[i]}`,
       onTap: (i) => this.open(ids[i]),
       tip: () => t('trial.tip'),
       render: (i, row, rw, rh) => {
         const enc = ids[i];
-        row.add(addPanel(this, 0, 0, rw, rh, 'parch'));
-        row.add(this.add.image(3, 3, beastThumb(this, enc, 34)).setOrigin(0, 0));
-        const lv = t('myth.info.level', { n: this.level(enc) });
-        const lw = 52;
-        row.add(addText(this, 42, 8, ellipsize(encounterName(enc), rw - 42 - lw - 4), 'red'));
-        row.add(addText(this, 42, 22, ellipsize(t(`myth.${enc}.hint1` as TKey), rw - 46), 'dim'));
-        row.add(addText(this, rw - 4, 8, ellipsize((WORLD_BOSSES.includes(enc) ? t('myth.info.worldBoss') : lv), lw), 'ink', 1));
+        const boss = WORLD_BOSSES.includes(enc);
+        row.add(addPanel(this, 0, 0, rw, rh, boss ? 'cardRaised' : 'card'));
+        row.add(addPanel(this, 4, 5, 36, 36, 'well'));
+        row.add(this.add.image(5, 6, beastThumb(this, enc, 34)).setOrigin(0, 0));
+        const lv = boss ? t('myth.info.worldBoss') : t('myth.info.level', { n: this.level(enc) });
+        const lw = addChip(this, row, rw - 6, 5, lv, boss ? ROLE.beast : 0x3a2f25, 70, true);
+        row.add(addText(this, 46, 6, ellipsize(encounterName(enc), rw - 46 - lw - 10, false, 7, 'head'), 'head'));
+        // how it fights, on two lines (never cut mid-thought where it fits)
+        const hint = wrapText(t(`myth.${enc}.hint1` as TKey), rw - 52, 2, false, 6.5);
+        row.add(addText(this, 46, 19, hint.lines.join('\n'), 'sec').setFontSize(6.5));
       },
     });
     this.events.once('shutdown', () => this.list?.destroy());

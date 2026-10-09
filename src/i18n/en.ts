@@ -18,6 +18,7 @@ import { FIELDCAMP_EN } from './fieldcamp.en';
 import { OCAMP_EN } from './camp.en';
 import { STRAT_EN } from './strat.en';
 import { CAMPSCENE_EN } from './campscene.en';
+import { V3_EN } from './v3.en';
 
 export const EN = {
   // ---- shared words
@@ -90,10 +91,10 @@ export const EN = {
   'menu.resetBody': 'Your army, stash and map will be lost forever.',
   'menu.resetOk': 'Begin',
   'menu.noSave': 'No campaign saved yet: start a new one.',
-  'menu.tip.gold': 'Gold in your treasury',
+  'menu.tip.gold': 'Campaign gold in your treasury',
   'menu.tip.army': 'Heroes in your army',
   'menu.tip.day': 'Days on campaign',
-  'menu.tip.record': 'Battles won / fought',
+  'menu.tip.record': 'Campaign battles won / fought',
 
   // ---- online hex map (scenes/online/OnlineScene.ts), hex panel, results, duels
   'online.title': 'Season war',
@@ -292,4 +293,6 @@ export const EN = {
   ...CAMPSCENE_EN,
   // ---- the Strategos chrome: situation sentences, strip, ring, tips (strat.en.ts)
   ...STRAT_EN,
+  // ---- the v3 UI: resources, shared components, redesigned screens (v3.en.ts)
+  ...V3_EN,
 } as const;

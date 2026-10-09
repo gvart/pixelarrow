@@ -41,7 +41,7 @@ installRenderScale();
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  backgroundColor: '#2b1d1a',
+  backgroundColor: '#14100c',
   pixelArt: true,
   roundPixels: true,
   antialias: false,

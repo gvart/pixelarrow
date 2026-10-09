@@ -148,3 +148,13 @@ export function econState(e: unknown, available = true): EconState {
   }
   return 'error';
 }
+
+/**
+ * The wallet's red warning: only a balance below zero (a refunded pack that
+ * was already spent). `WalletInfo.canSpend` is also false at exactly 0, which
+ * is normal and needs no warning (the old screen showed it at 0).
+ */
+export function walletOverdrawn(w: { drachmae: number }): boolean {
+  return w.drachmae < 0;
+}
+

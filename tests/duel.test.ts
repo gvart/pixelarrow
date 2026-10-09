@@ -3,7 +3,7 @@ import { Battle } from '../src/sim/battle';
 import { runToEnd } from './helpers';
 import {
   DUEL_CLASSES, DUEL_RULES, accountLevel, catalogue, classPoints, dailyOffers, developHero, duelRecruit, findOffer, gearPrice, heroPoints,
-  levelProgress, offerSummary, recruitPrice, respecHero, starterDuelRoster, teamPoints, teamProblem, xpForLevel,
+  deltaParts, levelProgress, offerSummary, recruitPrice, respecHero, starterDuelRoster, teamPoints, teamProblem, xpForLevel,
 } from '../src/duel/rules';
 import {
   CHAPTERS, CHEST_TIERS, LADDER, canFight, chapterFloors, chapterMaxStars, chapterOf, chapterStars, chestItem, chestReward, chestState, floorBudget, isBoss,
@@ -186,6 +186,18 @@ describe('demo duel source', () => {
     await expect(src.ladderStart(2)).rejects.toMatchObject({ code: 'floor_locked' });
   });
 
+  it('the duel level has one source: the profile level always matches its XP', async () => {
+    const { DemoDuelSource } = await import('../src/duel/client');
+    const { levelProgress, accountLevel } = await import('../src/duel/rules');
+    const src = new DemoDuelSource();
+    for (const xp of [0, 49, 50, 149, 150, 560, 5000]) {
+      src.setXp(xp);
+      const p = await src.profile();
+      expect(p.level, `xp ${xp}`).toBe(levelProgress(p.xp).level);
+      expect(p.level).toBe(accountLevel(xp));
+    }
+  });
+
   it('a ladder ticket pays out from the simulated result', async () => {
     const { DemoDuelSource } = await import('../src/duel/client');
     const src = new DemoDuelSource({ fresh: true });
@@ -302,6 +314,35 @@ describe('shop offer summary', () => {
     // the same item equipped: no change
     const same = offerSummary(offer, [{ ...team[0], equip: { ...team[0].equip, armor: { uid: 'z', def: 'cuirass', rarity: 'rare', cond: 100 } } }]);
     expect(same.lines.every((l) => l.better === null && l.deltaText === '')).toBe(true);
+  });
+});
+
+describe('shop delta display', () => {
+  it('the arrow follows the number, the colour the verdict; times carry seconds and a word', () => {
+    // a slower blow: the number goes up (arrow up) and that is worse (red), "+0.2 s, slower"
+    expect(deltaParts({ key: 'atkTime', delta: 0.2, deltaText: '+0.2', better: false })).toEqual({ up: true, better: false, text: '+0.2 s', note: 'slower' });
+    expect(deltaParts({ key: 'atkTime', delta: -0.1, deltaText: '-0.1', better: true })).toEqual({ up: false, better: true, text: '-0.1 s', note: 'faster' });
+    expect(deltaParts({ key: 'dmg', delta: 4.5, deltaText: '+4.5', better: true })).toEqual({ up: true, better: true, text: '+4.5', note: null });
+    expect(deltaParts({ key: 'dmg', delta: 0, deltaText: '', better: null })).toBeNull();
+    // every real summary agrees: up exactly when the delta is positive
+    const team = starterDuelRoster(42, { nextId: 1 }, 'd1_');
+    for (const o of catalogue()) for (const l of offerSummary(o, team).lines) {
+      const d = deltaParts(l);
+      if (d) expect(d.up).toBe(l.delta > 0);
+    }
+  });
+
+  it('compares against one picked hero (his item in that slot, or nothing)', () => {
+    const team = starterDuelRoster(42, { nextId: 1 }, 'd1_');
+    const offer = catalogue().find((o) => o.def === 'cuirass' && o.rarity === 'rare')!;
+    for (const h of team) {
+      const s = offerSummary(offer, team, 3, h.id);
+      expect(s.vsHeroId).toBe(h.id);
+      expect(s.vs?.uid ?? null).toBe(h.equip.armor?.uid ?? null);
+    }
+    // nothing worn there: every line is new, shown once (not "value ▲ value")
+    const bare = offerSummary(offer, [{ ...team[0], equip: { ...team[0].equip, armor: undefined } }], 3, team[0].id);
+    expect(bare.lines.every((l) => l.isNew)).toBe(true);
   });
 });
 

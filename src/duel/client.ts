@@ -784,6 +784,7 @@ export class DemoDuelSource implements DuelSource {
   /** Previews: another duel account XP (the ranked gate at level 5). */
   setXp(xp: number): void {
     this.p.xp = xp;
+    this.p.level = accountLevel(xp);
   }
 
   async ranked(): Promise<RankedView> {
