@@ -21,7 +21,7 @@ export function goTab(scene: Phaser.Scene, id: TabId): void {
     case 'duels': return void scene.scene.start('Duel', {});
     case 'war': return void scene.scene.start('Online', {});
     case 'codex': return void scene.scene.start('Codex');
-    case 'shop': return void scene.scene.start('Shop', { back: { scene: 'Menu' } });
+    case 'shop': return void scene.scene.start('Shop', {});
   }
 }
 

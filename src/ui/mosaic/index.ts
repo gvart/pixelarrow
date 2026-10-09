@@ -13,3 +13,8 @@ export { BottomPanel, type BottomPanelOpts } from './BottomPanel';
 export { MBadge, mosaicImage, mosaicTexture, mtext, mw, fit, TAP, GAP } from './base';
 export { addCover, preloadRasters, hasRaster, RASTERS } from './raster';
 export { addHubShell, goTab, type HubShell } from './hub';
+export { StatTile, type StatTileOpts, type StatTone } from './StatTile';
+export { OfferCard, type OfferCardOpts, type OfferState } from './OfferCard';
+export { FrescoFrame } from './FrescoFrame';
+export { parchRarityFont } from './rarityInk';
+export { TipCard, type TipCardOpts } from './TipCard';
