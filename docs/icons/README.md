@@ -6,9 +6,11 @@ with Gemini and swap into the game. Today all of them are painted in code
 `src/art/goodsIcons.ts`, `src/ui/online.ts`); the new art replaces them one
 for one, keeping the IDs.
 
-**160 icons on 10 sheets of 16.** Each sheet below has its exact cell map, a
-short description of what each icon means in the game, the shape to draw, and
-a ready-to-paste prompt.
+**237 icons on 15 sheets of 16.** That includes all 135 items of
+`src/data/items.ts`, each with its own picture: today the 135 items share 58
+pictures (every spear is the same spear). Each sheet below has its exact cell
+map, a short description of what each icon means in the game, the shape to
+draw, and a ready-to-paste prompt.
 
 ## How to make a sheet
 
@@ -19,11 +21,12 @@ a ready-to-paste prompt.
    current icons in the exact same cells, on the same magenta) and add
    *"Use the attached image only as a layout and subject reference: same
    object in the same cell. Redraw every icon from scratch at much higher
-   quality."*
+   quality."* On the item sheets (07-15) the reference still shows
+   today's shared pictures, so several cells look alike there: the text wins.
 4. Check the result against the cell map: right object in the right cell,
    nothing crossing a cell edge, flat magenta background, no text. Re-roll
    single bad icons with the single-icon prompt at the end of this file.
-5. Save as `sheet-01.png` ... `sheet-10.png` (PNG, 1024 x 1024) and send them
+5. Save as `sheet-01.png` ... `sheet-15.png` (PNG, 1024 x 1024) and send them
    over. Single re-rolled icons: name the file by the icon ID, e.g.
    `ui_hold.png`.
 
@@ -115,7 +118,7 @@ File: `sheet-01.png`. Current icons in the same cells: [current/sheet-01.png](cu
 Sheet prompt:
 
 ```text
-Sheet 01 of 10: battle orders and speed.
+Sheet 01 of 15: battle orders and speed.
 Cells, in reading order:
 1. (row 1, column 1) An upright heater-shaped shield, dark iron rim, bronze face, a round steel boss in the centre, front view.
 2. (row 1, column 2) A thick bronze arrow pointing straight up, a smaller gold arrow inlaid in its centre.
@@ -163,7 +166,7 @@ File: `sheet-02.png`. Current icons in the same cells: [current/sheet-02.png](cu
 Sheet prompt:
 
 ```text
-Sheet 02 of 10: formations and unit status.
+Sheet 02 of 15: formations and unit status.
 Cells, in reading order:
 1. (row 1, column 1) Seen from above: round tokens arranged in a triangle pointing up, one red token at the apex, then two and three bronze tokens below.
 2. (row 1, column 2) Seen from above: eight round tokens scattered loosely with wide irregular gaps, two red ones at the front, the rest bronze.
@@ -211,7 +214,7 @@ File: `sheet-03.png`. Current icons in the same cells: [current/sheet-03.png](cu
 Sheet prompt:
 
 ```text
-Sheet 03 of 10: equipment slots, auras and navigation.
+Sheet 03 of 15: equipment slots, auras and navigation.
 Cells, in reading order:
 1. (row 1, column 1) A bronze Greek helmet, front view, T-shaped face opening, a red horsehair crest on top.
 2. (row 1, column 2) Two short swords crossed in an X, steel blades, gold cross-guards, leather grips, bronze pommels.
@@ -259,7 +262,7 @@ File: `sheet-04.png`. Current icons in the same cells: [current/sheet-04.png](cu
 Sheet prompt:
 
 ```text
-Sheet 04 of 10: tools and menus.
+Sheet 04 of 15: tools and menus.
 Cells, in reading order:
 1. (row 1, column 1) An iron cog wheel with a bronze hub.
 2. (row 1, column 2) A round bronze disc with a bold ivory lowercase letter i.
@@ -307,7 +310,7 @@ File: `sheet-05.png`. Current icons in the same cells: [current/sheet-05.png](cu
 Sheet prompt:
 
 ```text
-Sheet 05 of 10: modes and currencies.
+Sheet 05 of 15: modes and currencies.
 Cells, in reading order:
 1. (row 1, column 1) A stepped stone tower of three tiers with a red pennant on top.
 2. (row 1, column 2) A grey stone amphitheatre facade with two rows of dark arches and a small red flag on top.
@@ -355,7 +358,7 @@ File: `sheet-06.png`. Current icons in the same cells: [current/sheet-06.png](cu
 Sheet prompt:
 
 ```text
-Sheet 06 of 10: camp, status badges and resources.
+Sheet 06 of 15: camp, status badges and resources.
 Cells, in reading order:
 1. (row 1, column 1) A golden paw print, four toes and a pad.
 2. (row 1, column 2) An iron anvil standing on a wooden block.
@@ -389,25 +392,27 @@ File: `sheet-07.png`. Current icons in the same cells: [current/sheet-07.png](cu
 | 4 | R1 C4 | 768-1023, 0-255 | `goods:war_horn` | Consumable: War horn. | a long curved ox horn with a leather carrying strap |
 | 5 | R2 C1 | 0-255, 256-511 | `goods:sharpening_stone` | Consumable: Sharpening stone. | a grey whetstone bar, diagonal, a leather loop at one end and a bright spark at the other |
 | 6 | R2 C2 | 256-511, 256-511 | `goods:march_rations` | Consumable: March rations. | a round loaf of bread with a cross scored on top, on a folded linen cloth |
-| 7 | R2 C3 | 512-767, 256-511 | `item:spear` | Weapon: Dory spear, Bronze-shod dory. | a long spear: wooden shaft, leaf-shaped steel head |
-| 8 | R2 C4 | 768-1023, 256-511 | `item:spear_short` | Weapon: Longche (short spear). | a short thick spear: wooden shaft, steel head on a bronze socket |
-| 9 | R3 C1 | 0-255, 512-767 | `item:lance` | Weapon: Xyston lance. | a long cavalry lance: wooden shaft with a leather-wrapped grip in the middle, slim steel head |
-| 10 | R3 C2 | 256-511, 512-767 | `item:javelins` | Weapon: Akontia, Iron saunia (javelins). | a bundle of three slim javelins, slightly fanned, bronze heads |
-| 11 | R3 C3 | 512-767, 512-767 | `item:sword` | Weapon: Xiphos. | a short Greek sword: leaf-shaped bronze blade, small cross-guard, wooden grip |
-| 12 | R3 C4 | 768-1023, 512-767 | `item:kopis` | Weapon: Kopis, Falcata. | a forward-curving single-edged chopping sword, steel blade, hooked grip |
-| 13 | R4 C1 | 0-255, 768-1023 | `item:longsword` | Weapon: Celtic longsword. | a long straight iron sword, simple cross-guard, round pommel |
-| 14 | R4 C2 | 256-511, 768-1023 | `item:axe` | Weapon: War axe. | a war axe: wooden haft, bearded steel blade |
-| 15 | R4 C3 | 512-767, 768-1023 | `item:club` | Weapon: Club. | a heavy knobbly wooden club, thick end at the upper right |
-| 16 | R4 C4 | 768-1023, 768-1023 | `item:falx` | Weapon: Falx. | a Dacian falx: a long wooden haft with an inward-curving sickle-like steel blade |
+| 7 | R2 C3 | 512-767, 256-511 | `item:dory` | Weapon, tier 1: **Dory spear**. Long thrusting spear. Reach; braces against charges. | a long spear: plain wooden shaft, leaf-shaped iron head, small bronze butt-spike |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:bronze_dory` | Weapon, tier 2: **Bronze-shod dory**. A finer spear with a heavy bronze head. | a long spear with a heavy, broad bronze leaf-shaped head and a bronze collar, wooden shaft |
+| 9 | R3 C1 | 0-255, 512-767 | `item:ash_dory` | Weapon, tier 1: **Ash-wood dory**. A long, plain ash shaft: outreaches the dory, hits a little softer. | a very long, plain pale ash-wood spear with a small narrow iron head |
+| 10 | R3 C2 | 256-511, 512-767 | `item:sauroter_dory` | Weapon, tier 3: **Sauroter dory**. Balanced by its bronze butt-spike, the "lizard-killer". A veteran's spear. | a long spear with an iron leaf head and a big square-sectioned bronze butt-spike (sauroter) clearly visible at the lower left |
+| 11 | R3 C3 | 512-767, 512-767 | `item:sarissa` | Weapon, tier 2: **Sarissa**. Macedonian pike. Two-handed: the longest reach in the line, but no shield. | an extremely long, thin Macedonian pike running from corner to corner, a bronze sleeve joining the shaft in the middle, a small iron head |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:hasta` | Weapon, tier 2: **Hasta**. Thrusting spear of the Italian third line: shorter than a dory, quicker. | a medium-length spear, sturdy dark wooden shaft, long narrow iron head |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:longche` | Weapon, tier 1: **Longche**. Short thrusting spear: quicker than the dory, less reach. | a short thrusting spear: thick wooden shaft, slim iron head on a bronze socket |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:lancea` | Weapon, tier 1: **Celtic leaf spear**. Broad iron leaf-blade on a short haft. Bites past a shield rim. | a short spear with a very broad iron leaf blade with a raised midrib |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:xyston` | Weapon, tier 2: **Xyston lance**. Long cornel-wood cavalry lance, butt-spiked. Wins the first clash. | a long pale cornel-wood cavalry lance, leather-wrapped grip in the middle, iron points at both ends |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:kontos` | Weapon, tier 3: **Kontos**. Steppe lance held in both hands. Nothing hits harder in a charge. | a very thick, heavy steppe lance with a long iron head and a red pennon tied below the head |
 
 Sheet prompt:
 
 ```text
-Sheet 07 of 10: goods and weapons.
+Sheet 07 of 15: goods and weapons.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
-upper right, at the same 45 degree angle (bows and the sling hang upright). Shields, helmets and armour are front views, upright.
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
 top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
 Cells, in reading order:
 1. (row 1, column 1) A bronze Corinthian helmet, front view, a red crest.
 2. (row 1, column 2) A squat terracotta jar with a linen cover tied with cord and a green leaf sprig.
@@ -415,19 +420,19 @@ Cells, in reading order:
 4. (row 1, column 4) A long curved ox horn with a leather carrying strap.
 5. (row 2, column 1) A grey whetstone bar, diagonal, a leather loop at one end and a bright spark at the other.
 6. (row 2, column 2) A round loaf of bread with a cross scored on top, on a folded linen cloth.
-7. (row 2, column 3) A long spear: wooden shaft, leaf-shaped steel head.
-8. (row 2, column 4) A short thick spear: wooden shaft, steel head on a bronze socket.
-9. (row 3, column 1) A long cavalry lance: wooden shaft with a leather-wrapped grip in the middle, slim steel head.
-10. (row 3, column 2) A bundle of three slim javelins, slightly fanned, bronze heads.
-11. (row 3, column 3) A short Greek sword: leaf-shaped bronze blade, small cross-guard, wooden grip.
-12. (row 3, column 4) A forward-curving single-edged chopping sword, steel blade, hooked grip.
-13. (row 4, column 1) A long straight iron sword, simple cross-guard, round pommel.
-14. (row 4, column 2) A war axe: wooden haft, bearded steel blade.
-15. (row 4, column 3) A heavy knobbly wooden club, thick end at the upper right.
-16. (row 4, column 4) A Dacian falx: a long wooden haft with an inward-curving sickle-like steel blade.
+7. (row 2, column 3) A long spear: plain wooden shaft, leaf-shaped iron head, small bronze butt-spike.
+8. (row 2, column 4) A long spear with a heavy, broad bronze leaf-shaped head and a bronze collar, wooden shaft.
+9. (row 3, column 1) A very long, plain pale ash-wood spear with a small narrow iron head.
+10. (row 3, column 2) A long spear with an iron leaf head and a big square-sectioned bronze butt-spike (sauroter) clearly visible at the lower left.
+11. (row 3, column 3) An extremely long, thin Macedonian pike running from corner to corner, a bronze sleeve joining the shaft in the middle, a small iron head.
+12. (row 3, column 4) A medium-length spear, sturdy dark wooden shaft, long narrow iron head.
+13. (row 4, column 1) A short thrusting spear: thick wooden shaft, slim iron head on a bronze socket.
+14. (row 4, column 2) A short spear with a very broad iron leaf blade with a raised midrib.
+15. (row 4, column 3) A long pale cornel-wood cavalry lance, leather-wrapped grip in the middle, iron points at both ends.
+16. (row 4, column 4) A very thick, heavy steppe lance with a long iron head and a red pennon tied below the head.
 ```
 
-## Sheet 08: Weapons, shields and helmets
+## Sheet 08: Weapons
 
 File: `sheet-08.png`. Current icons in the same cells: [current/sheet-08.png](current/sheet-08.png)
 
@@ -435,51 +440,53 @@ File: `sheet-08.png`. Current icons in the same cells: [current/sheet-08.png](cu
 
 | Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
 | --- | --- | --- | --- | --- | --- |
-| 1 | R1 C1 | 0-255, 0-255 | `item:rhomphaia` | Weapon: Rhomphaia. | a Thracian rhomphaia: a long haft with a long, slightly curved steel blade |
-| 2 | R1 C2 | 256-511, 0-255 | `item:sling` | Weapon: Sling, Balearic sling, Rhodian sling. | a leather sling hanging in a V: two cords, a pouch with a stone at the bottom, a finger loop at one end |
-| 3 | R1 C3 | 512-767, 0-255 | `item:bow` | Weapon: Composite bow, Cretan bow. | a recurved composite bow standing upright, string on the left, an arrow nocked and pointing right |
-| 4 | R1 C4 | 768-1023, 0-255 | `item:bow_short` | Weapon: Scythian bow. | a short double-curved Scythian bow standing upright with an arrow nocked and pointing right |
-| 5 | R2 C1 | 0-255, 256-511 | `item:hoplon` | Shield: Hoplon, Argive aspis. | a round domed bronze hoplite shield, front view, wide flat rim |
-| 6 | R2 C2 | 256-511, 256-511 | `item:oval` | Shield: Thureos, Celtic long shield. | a tall oval wooden shield, front view, a vertical central spine and an iron boss |
-| 7 | R2 C3 | 512-767, 256-511 | `item:pelte` | Shield: Pelte. | a light crescent-shaped wicker shield covered in tan leather, front view |
-| 8 | R2 C4 | 768-1023, 256-511 | `item:buckler` | Shield: Buckler. | a small round shield with concentric bronze rings and a central boss |
-| 9 | R3 C1 | 0-255, 512-767 | `item:cap` | Helmet: Cap (leather / felt). | a simple brown leather skullcap made of stitched segments |
-| 10 | R3 C2 | 256-511, 512-767 | `item:pilos` | Helmet: Pilos. | a conical bronze pilos helmet with a narrow rim |
-| 11 | R3 C3 | 512-767, 512-767 | `item:montefortino` | Helmet: Montefortino. | a Montefortino helmet: rounded bronze bowl, top knob, short neck flare, hinged cheek guards |
-| 12 | R3 C4 | 768-1023, 512-767 | `item:chalcidian` | Helmet: Chalcidian. | a Chalcidian bronze helmet with cheek guards, open face and a small red crest |
-| 13 | R4 C1 | 0-255, 768-1023 | `item:hood` | Helmet: Hood (Scythian felt hood). | a brown felt Scythian hood with a pointed top bent forward and long side flaps |
-| 14 | R4 C2 | 256-511, 768-1023 | `item:thracian` | Helmet: Thracian. | a Thracian bronze helmet: tall forward-curving Phrygian crest, short brim, cheek guards |
-| 15 | R4 C3 | 512-767, 768-1023 | `item:boeotian` | Helmet: Boeotian. | a Boeotian cavalry helmet: bronze dome with a wide, folded, downturned brim |
-| 16 | R4 C4 | 768-1023, 768-1023 | `item:attic` | Helmet: Attic. | an Attic bronze helmet: rounded bowl, brow ridge, hinged cheek guards, a crest holder |
+| 1 | R1 C1 | 0-255, 0-255 | `item:javelins` | Weapon, tier 1: **Akontia javelins**. Three heavy throws, then a short spear. | three wooden javelins, slightly fanned, small iron heads, a leather throwing loop on each shaft |
+| 2 | R1 C2 | 256-511, 0-255 | `item:ankyle` | Weapon, tier 1: **Thonged darts**. Light darts flung with a finger-loop: five quick throws, longer range. | five short light darts fanned out, thin shafts, tiny iron tips, small finger loops |
+| 3 | R1 C3 | 512-767, 0-255 | `item:gaesum` | Weapon, tier 2: **Gaesum**. Gallic iron javelin; the last one makes a fair charging spear. | two slender all-iron Gallic javelins with long barbed heads |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:pilum` | Weapon, tier 2: **Pilum**. Roman heavy javelin. Its soft shank bends in a shield and drags it down. | one Roman pilum: wooden lower shaft, long thin iron shank, small pyramid point, a square wooden block where wood meets iron |
+| 5 | R2 C1 | 0-255, 256-511 | `item:saunion` | Weapon, tier 2: **Iron saunia**. All-iron javelins that pin shields. | two dark all-iron javelins with leaf-shaped heads |
+| 6 | R2 C2 | 256-511, 256-511 | `item:soliferrum` | Weapon, tier 2: **Soliferrum**. Iberian javelin forged in one piece of iron. Two throws that go through anything. | one long, thin javelin forged from a single piece of dark iron, a barbed tip |
+| 7 | R2 C3 | 512-767, 256-511 | `item:xiphos` | Weapon, tier 1: **Xiphos**. Short leaf-bladed sword. Quick. | a short Greek sword: leaf-shaped bronze blade, small cross-guard, wooden grip |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:iron_xiphos` | Weapon, tier 2: **Iron xiphos**. A xiphos in good forged iron: holds an edge and strikes fast. | a short leaf-shaped iron sword with a bronze cross-guard and a bone grip |
+| 9 | R3 C1 | 0-255, 512-767 | `item:akinakes` | Weapon, tier 1: **Akinakes**. Persian and Scythian short sword, worn on the right thigh. Very quick. | a short straight Persian short-sword with a heart-shaped guard and a gold bar pommel |
+| 10 | R3 C2 | 256-511, 512-767 | `item:gladius` | Weapon, tier 3: **Gladius hispaniensis**. The Spanish sword Rome adopted: a stabbing point in fine Celtiberian steel. | a Roman gladius: straight double-edged steel blade with a long point, ivory grip, round wooden pommel |
+| 11 | R3 C3 | 512-767, 512-767 | `item:kopis` | Weapon, tier 2: **Kopis**. Forward-curved chopping sword. | a forward-curving single-edged iron chopping sword with a hooked grip |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:falcata` | Weapon, tier 3: **Falcata**. Iberian blade, feared in every port. | an Iberian falcata: heavy forward-curving iron blade, the hilt curled round into a bird-head guard |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:makhaira` | Weapon, tier 2: **Makhaira**. Heavy single-edged chopper. Slow, but its wounds unnerve. | a heavy single-edged iron cleaver-sword with a straight back, widening toward the tip |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:sica` | Weapon, tier 2: **Sica**. Thracian curved blade that hooks around a shield. Short and vicious. | a Thracian sica: a short iron blade curved sharply like a hook, wooden grip |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:longsword` | Weapon, tier 2: **Celtic longsword**. Long iron slashing sword. | a long straight Celtic iron sword, simple cross-guard, round pommel |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:chieftain_sword` | Weapon, tier 3: **Chieftain's longsword**. Pattern-welded blade in a bronze-mounted scabbard. Men break before it. | a long pattern-welded steel sword lying beside its bronze-mounted scabbard decorated with swirls |
 
 Sheet prompt:
 
 ```text
-Sheet 08 of 10: weapons, shields and helmets.
+Sheet 08 of 15: weapons.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
-upper right, at the same 45 degree angle (bows and the sling hang upright). Shields, helmets and armour are front views, upright.
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
 top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
 Cells, in reading order:
-1. (row 1, column 1) A Thracian rhomphaia: a long haft with a long, slightly curved steel blade.
-2. (row 1, column 2) A leather sling hanging in a V: two cords, a pouch with a stone at the bottom, a finger loop at one end.
-3. (row 1, column 3) A recurved composite bow standing upright, string on the left, an arrow nocked and pointing right.
-4. (row 1, column 4) A short double-curved Scythian bow standing upright with an arrow nocked and pointing right.
-5. (row 2, column 1) A round domed bronze hoplite shield, front view, wide flat rim.
-6. (row 2, column 2) A tall oval wooden shield, front view, a vertical central spine and an iron boss.
-7. (row 2, column 3) A light crescent-shaped wicker shield covered in tan leather, front view.
-8. (row 2, column 4) A small round shield with concentric bronze rings and a central boss.
-9. (row 3, column 1) A simple brown leather skullcap made of stitched segments.
-10. (row 3, column 2) A conical bronze pilos helmet with a narrow rim.
-11. (row 3, column 3) A Montefortino helmet: rounded bronze bowl, top knob, short neck flare, hinged cheek guards.
-12. (row 3, column 4) A Chalcidian bronze helmet with cheek guards, open face and a small red crest.
-13. (row 4, column 1) A brown felt Scythian hood with a pointed top bent forward and long side flaps.
-14. (row 4, column 2) A Thracian bronze helmet: tall forward-curving Phrygian crest, short brim, cheek guards.
-15. (row 4, column 3) A Boeotian cavalry helmet: bronze dome with a wide, folded, downturned brim.
-16. (row 4, column 4) An Attic bronze helmet: rounded bowl, brow ridge, hinged cheek guards, a crest holder.
+1. (row 1, column 1) Three wooden javelins, slightly fanned, small iron heads, a leather throwing loop on each shaft.
+2. (row 1, column 2) Five short light darts fanned out, thin shafts, tiny iron tips, small finger loops.
+3. (row 1, column 3) Two slender all-iron Gallic javelins with long barbed heads.
+4. (row 1, column 4) One Roman pilum: wooden lower shaft, long thin iron shank, small pyramid point, a square wooden block where wood meets iron.
+5. (row 2, column 1) Two dark all-iron javelins with leaf-shaped heads.
+6. (row 2, column 2) One long, thin javelin forged from a single piece of dark iron, a barbed tip.
+7. (row 2, column 3) A short Greek sword: leaf-shaped bronze blade, small cross-guard, wooden grip.
+8. (row 2, column 4) A short leaf-shaped iron sword with a bronze cross-guard and a bone grip.
+9. (row 3, column 1) A short straight Persian short-sword with a heart-shaped guard and a gold bar pommel.
+10. (row 3, column 2) A Roman gladius: straight double-edged steel blade with a long point, ivory grip, round wooden pommel.
+11. (row 3, column 3) A forward-curving single-edged iron chopping sword with a hooked grip.
+12. (row 3, column 4) An Iberian falcata: heavy forward-curving iron blade, the hilt curled round into a bird-head guard.
+13. (row 4, column 1) A heavy single-edged iron cleaver-sword with a straight back, widening toward the tip.
+14. (row 4, column 2) A Thracian sica: a short iron blade curved sharply like a hook, wooden grip.
+15. (row 4, column 3) A long straight Celtic iron sword, simple cross-guard, round pommel.
+16. (row 4, column 4) A long pattern-welded steel sword lying beside its bronze-mounted scabbard decorated with swirls.
 ```
 
-## Sheet 09: Helmets, armour and trinkets
+## Sheet 09: Weapons
 
 File: `sheet-09.png`. Current icons in the same cells: [current/sheet-09.png](current/sheet-09.png)
 
@@ -487,51 +494,53 @@ File: `sheet-09.png`. Current icons in the same cells: [current/sheet-09.png](cu
 
 | Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
 | --- | --- | --- | --- | --- | --- |
-| 1 | R1 C1 | 0-255, 0-255 | `item:corinthian` | Helmet: Corinthian. | a Corinthian helmet, front view: a full bronze face cover with almond eye openings, a nose guard and a crest stub |
-| 2 | R1 C2 | 256-511, 0-255 | `item:leather` | Armour: Leather armour. | a brown leather jerkin, front view, with a belt |
-| 3 | R1 C3 | 512-767, 0-255 | `item:linothorax` | Armour: Linothorax. | a white layered linen cuirass, front view, shoulder flaps and a skirt of strips |
-| 4 | R1 C4 | 768-1023, 0-255 | `item:scale` | Armour: Scale armour. | a scale-armour shirt, front view, overlapping bronze scales |
-| 5 | R2 C1 | 0-255, 256-511 | `item:mail` | Armour: Mail. | an iron mail shirt, front view, grey rings, short sleeves and a belt |
-| 6 | R2 C2 | 256-511, 256-511 | `item:cuirass` | Armour: Bronze cuirass. | a bronze muscle cuirass, front view, sculpted chest and abdomen, strips hanging below |
-| 7 | R2 C3 | 512-767, 256-511 | `trinket:owl_amulet` | Trinket: Owl amulet. | a round silver amulet with an owl of Athena in relief, on a cord |
-| 8 | R2 C4 | 768-1023, 256-511 | `trinket:herakles_knot` | Trinket: Herakles knot. | a gold Herakles knot (two interlocked loops) with a red garnet in the centre |
-| 9 | R3 C1 | 0-255, 512-767 | `trinket:scarab` | Trinket: Faience scarab. | a turquoise faience scarab beetle, top view |
-| 10 | R3 C2 | 256-511, 512-767 | `trinket:laurel` | Trinket: Laurel token. | a small green laurel wreath, almost a closed circle, on a cord |
-| 11 | R3 C3 | 512-767, 512-767 | `trinket:tanit_eye` | Trinket: Eye of Tanit. | a round terracotta pendant with the bronze sign of Tanit (a triangle, a bar and a disc), on a cord |
-| 12 | R3 C4 | 768-1023, 512-767 | `trinket:boar_tusk` | Trinket: Boar tusk. | a curved white boar tusk hanging from a cord |
-| 13 | R4 C1 | 0-255, 768-1023 | `trinket:eye_bead` | Trinket: Eye bead. | a blue and white glass eye bead (nazar) on a cord |
-| 14 | R4 C2 | 256-511, 768-1023 | `trinket:wolf_tooth` | Trinket: Wolf-tooth string. | a necklace arc of pointed wolf teeth on a cord |
-| 15 | R4 C3 | 512-767, 768-1023 | `trinket:torc` | Trinket: Bronze torc. | a twisted bronze Celtic torc, an open ring with knob ends at the bottom |
-| 16 | R4 C4 | 768-1023, 768-1023 | `trinket:hermes_token` | Trinket: Hermes token. | a round bronze pendant with a caduceus, on a cord |
+| 1 | R1 C1 | 0-255, 0-255 | `item:axe` | Weapon, tier 1: **War axe**. Slow, but splits shields. | a war axe: wooden haft, one bearded iron blade |
+| 2 | R1 C2 | 256-511, 0-255 | `item:sagaris` | Weapon, tier 2: **Sagaris**. Steppe battle-axe with a pick at the back. Lighter and quicker than a war axe. | a slim steppe battle-axe on a long thin haft: a narrow axe blade on one side, a pick spike on the other |
+| 3 | R1 C3 | 512-767, 0-255 | `item:dolabra` | Weapon, tier 2: **Dolabra**. A sapper's pick-axe. Digs ditches by day, opens shields by day too. | a Roman dolabra: stout haft, an axe blade on one side and a downward pick on the other |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:labrys` | Weapon, tier 3: **Cretan labrys**. Sacred double axe, swung in both hands. Terrible and slow. | a Cretan labrys: a symmetrical bronze double-headed axe on a long haft |
+| 5 | R2 C1 | 0-255, 256-511 | `item:club` | Weapon, tier 1: **Club**. Knotted olive wood. Cracks nerves as well as skulls. | a heavy knobbly olive-wood club, thick end at the upper right |
+| 6 | R2 C2 | 256-511, 256-511 | `item:bronze_mace` | Weapon, tier 2: **Bronze mace**. Flanged bronze head on a short haft. Rings helmets like bells. | a short mace: wooden haft, flanged bronze head |
+| 7 | R2 C3 | 512-767, 256-511 | `item:falx` | Weapon, tier 2: **Falx**. Two-handed Dacian sickle-blade. Hooks shields aside. | a Dacian falx: long wooden haft with an inward-curving sickle-like iron blade |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:rhomphaia` | Weapon, tier 2: **Rhomphaia**. Thracian long blade on a long haft. Cleaves helmets and shields. | a Thracian rhomphaia: long haft with a long, slightly curved iron blade |
+| 9 | R3 C1 | 0-255, 512-767 | `item:sling` | Weapon, tier 1: **Sling**. Stones at long range: they bruise through armour. | a plain leather sling hanging in a V, a stone in the pouch, a finger loop at one end |
+| 10 | R3 C2 | 256-511, 512-767 | `item:balearic_sling` | Weapon, tier 2: **Balearic sling**. Island slingers never miss twice. | three slings of different lengths coiled together, dark cords |
+| 11 | R3 C3 | 512-767, 512-767 | `item:rhodian_sling` | Weapon, tier 2: **Rhodian sling**. Cast lead bullets: they outrange Persian bows. | a coiled leather sling with three grey almond-shaped cast lead bullets beside it |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:shepherd_sling` | Weapon, tier 1: **Shepherd's sling**. Woven wool cords and a pouch of river stones: shorter range, quicker and plenty of shot. | a sling of woven striped cream-and-brown wool cords with a pouch holding river stones |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:staff_sling` | Weapon, tier 2: **Staff sling**. A sling on a staff, two-handed: heavy stones, slow to reload. | a wooden staff, diagonal, with a leather sling pouch hanging from its upper tip |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:achaean_sling` | Weapon, tier 3: **Achaean sling**. Triple-thonged sling of Aegion, where boys shoot at rings for their bread. | a sling of three braided leather thongs joined by a small bronze ring |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:bow` | Weapon, tier 2: **Composite bow**. Two-handed. Long range arrows. | a recurved composite bow of horn and wood standing upright, an arrow nocked and pointing right |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:cretan_bow` | Weapon, tier 2: **Cretan bow**. Horn-backed bow of the island archers. The longest reach. | a long horn-backed bow standing upright, pale horn tips, one arrow nocked |
 
 Sheet prompt:
 
 ```text
-Sheet 09 of 10: helmets, armour and trinkets.
+Sheet 09 of 15: weapons.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
-upper right, at the same 45 degree angle (bows and the sling hang upright). Shields, helmets and armour are front views, upright.
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
 top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
 Cells, in reading order:
-1. (row 1, column 1) A Corinthian helmet, front view: a full bronze face cover with almond eye openings, a nose guard and a crest stub.
-2. (row 1, column 2) A brown leather jerkin, front view, with a belt.
-3. (row 1, column 3) A white layered linen cuirass, front view, shoulder flaps and a skirt of strips.
-4. (row 1, column 4) A scale-armour shirt, front view, overlapping bronze scales.
-5. (row 2, column 1) An iron mail shirt, front view, grey rings, short sleeves and a belt.
-6. (row 2, column 2) A bronze muscle cuirass, front view, sculpted chest and abdomen, strips hanging below.
-7. (row 2, column 3) A round silver amulet with an owl of Athena in relief, on a cord.
-8. (row 2, column 4) A gold Herakles knot (two interlocked loops) with a red garnet in the centre.
-9. (row 3, column 1) A turquoise faience scarab beetle, top view.
-10. (row 3, column 2) A small green laurel wreath, almost a closed circle, on a cord.
-11. (row 3, column 3) A round terracotta pendant with the bronze sign of Tanit (a triangle, a bar and a disc), on a cord.
-12. (row 3, column 4) A curved white boar tusk hanging from a cord.
-13. (row 4, column 1) A blue and white glass eye bead (nazar) on a cord.
-14. (row 4, column 2) A necklace arc of pointed wolf teeth on a cord.
-15. (row 4, column 3) A twisted bronze Celtic torc, an open ring with knob ends at the bottom.
-16. (row 4, column 4) A round bronze pendant with a caduceus, on a cord.
+1. (row 1, column 1) A war axe: wooden haft, one bearded iron blade.
+2. (row 1, column 2) A slim steppe battle-axe on a long thin haft: a narrow axe blade on one side, a pick spike on the other.
+3. (row 1, column 3) A Roman dolabra: stout haft, an axe blade on one side and a downward pick on the other.
+4. (row 1, column 4) A Cretan labrys: a symmetrical bronze double-headed axe on a long haft.
+5. (row 2, column 1) A heavy knobbly olive-wood club, thick end at the upper right.
+6. (row 2, column 2) A short mace: wooden haft, flanged bronze head.
+7. (row 2, column 3) A Dacian falx: long wooden haft with an inward-curving sickle-like iron blade.
+8. (row 2, column 4) A Thracian rhomphaia: long haft with a long, slightly curved iron blade.
+9. (row 3, column 1) A plain leather sling hanging in a V, a stone in the pouch, a finger loop at one end.
+10. (row 3, column 2) Three slings of different lengths coiled together, dark cords.
+11. (row 3, column 3) A coiled leather sling with three grey almond-shaped cast lead bullets beside it.
+12. (row 3, column 4) A sling of woven striped cream-and-brown wool cords with a pouch holding river stones.
+13. (row 4, column 1) A wooden staff, diagonal, with a leather sling pouch hanging from its upper tip.
+14. (row 4, column 2) A sling of three braided leather thongs joined by a small bronze ring.
+15. (row 4, column 3) A recurved composite bow of horn and wood standing upright, an arrow nocked and pointing right.
+16. (row 4, column 4) A long horn-backed bow standing upright, pale horn tips, one arrow nocked.
 ```
 
-## Sheet 10: Trinkets
+## Sheet 10: Weapons and shields
 
 File: `sheet-10.png`. Current icons in the same cells: [current/sheet-10.png](current/sheet-10.png)
 
@@ -539,48 +548,315 @@ File: `sheet-10.png`. Current icons in the same cells: [current/sheet-10.png](cu
 
 | Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
 | --- | --- | --- | --- | --- | --- |
-| 1 | R1 C1 | 0-255, 0-255 | `trinket:votive_shield` | Trinket: Votive shield. | a tiny round gold votive shield pendant on a cord |
-| 2 | R1 C2 | 256-511, 0-255 | `trinket:iron_ring` | Trinket: Iron ring. | a plain thick iron ring, 3/4 view |
-| 3 | R1 C3 | 512-767, 0-255 | `trinket:knucklebones` | Trinket: Knucklebones. | four small ivory knucklebones (astragali) scattered |
-| 4 | R1 C4 | 768-1023, 0-255 | `trinket:gorgoneion` | Trinket: Gorgoneion. | a silver medallion of Medusa's face with snake hair, tongue out |
-| 5 | R2 C1 | 0-255, 256-511 | `trinket:bulla` | Trinket: Golden bulla. | a round lens-shaped gold locket (bulla) on a cord |
-| 6 | R2 C2 | 256-511, 256-511 | `trinket:horse_pendant` | Trinket: Horse pendant. | a round bronze pendant with a dark horse silhouette, on a cord |
-| 7 | R2 C3 | 512-767, 256-511 | `trinket:lion_claw` | Trinket: Lion claw. | a dark curved lion claw hanging from a cord |
-| 8 | R2 C4 | 768-1023, 256-511 | `trinket:serpent_ring` | Trinket: Serpent ring. | a silver ring shaped as a coiled snake, its head on top |
-| 9 | R3 C1 | 0-255, 512-767 | `trinket:signet_ring` | Trinket: Signet ring. | a gold signet ring with an engraved oval bezel |
-| 10 | R3 C2 | 256-511, 512-767 | `trinket:curse_tablet` | Trinket: Curse tablet. | a small grey lead tablet with scratched lines of writing, slightly tilted |
-| 11 | R3 C3 | 512-767, 512-767 | `trinket:bes_amulet` | Trinket: Bes amulet. | a turquoise faience amulet of Bes, the squat Egyptian god with a feather crown |
-| 12 | R3 C4 | 768-1023, 512-767 | `trinket:thumb_ring` | Trinket: Archer's thumb ring. | a cream bone archer's thumb ring, a short wide cylinder with a lip |
-| 13 | R4 C1 | 0-255, 768-1023 | `trinket:faravahar` | Trinket: Winged disc. | a gold winged sun disc with spread wings |
-| 14 | R4 C2 | 256-511, 768-1023 | `trinket:gold_torc` | Trinket: Gold torc. | a thick twisted gold torc, an open ring with round gold ends at the bottom |
-| 15 | R4 C3 | 512-767, 768-1023 | `trinket:gold_stag` | Trinket: Gold stag plaque. | a rectangular gold plaque with an embossed stag |
-| 16 | R4 C4 | 768-1023, 768-1023 | `trinket:pythian_token` | Trinket: Pythian crown. | a victor's crown of dark green bay leaves bound with silver |
+| 1 | R1 C1 | 0-255, 0-255 | `item:persian_bow` | Weapon, tier 2: **Persian bow**. Long-eared composite bow of the Great King. Shoots arrows in clouds. | a long-eared Persian composite bow standing upright, stiff angled tips, red-painted grip, an arrow nocked |
+| 2 | R1 C2 | 256-511, 0-255 | `item:self_bow` | Weapon, tier 1: **Hunting bow**. A plain wooden bow. Two-handed; weaker than a composite. | a plain simple wooden D-shaped bow standing upright, with its string, no arrow |
+| 3 | R1 C3 | 512-767, 0-255 | `item:scythian_bow` | Weapon, tier 2: **Scythian bow**. Short recurve bow, quick to draw from the saddle. | a short double-curved Scythian bow standing upright, an arrow nocked |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:gorytos_bow` | Weapon, tier 3: **Gorytos bow**. A royal steppe bow in a gilded bow-case. Fast, deep quiver. | a short steppe bow tucked into a gilded leather bow-case (gorytos) with arrow fletchings showing |
+| 5 | R2 C1 | 0-255, 256-511 | `item:hoplon` | Shield, tier 1: **Hoplon**. Great round bronze-faced shield. Enables the shield wall. | a round domed hoplite shield, plain bronze face, wide flat rim |
+| 6 | R2 C2 | 256-511, 256-511 | `item:aspis` | Shield, tier 3: **Argive aspis**. A masterwork hoplon, passed father to son. | a round aspis with an engraved bronze rim and a red face with a white star emblem |
+| 7 | R2 C3 | 512-767, 256-511 | `item:argyraspis` | Shield, tier 3: **Silver aspis**. Silver-faced aspis of the royal guard. | a round aspis faced in gleaming silver, a small gold sunburst at the centre |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:spartan_aspis` | Shield, tier 3: **Lakedaimonian aspis**. Come back with it or on it. | a round bronze-rimmed aspis with a red face and a large white lambda (an upside-down V) |
+| 9 | R3 C1 | 0-255, 512-767 | `item:macedonian_aspis` | Shield, tier 2: **Macedonian aspis**. Smaller, flatter aspis on a neck strap: it leaves both hands for the pike. | a smaller, flatter round bronze shield with an embossed eight-ray sun |
+| 10 | R3 C2 | 256-511, 512-767 | `item:boeotian_shield` | Shield, tier 2: **Boeotian shield**. Hoplon with cut-away sides for a spear to pass. The Theban pattern. | an oval bronze hoplite shield with two semicircular notches cut out of its sides |
+| 11 | R3 C3 | 512-767, 512-767 | `item:thureos` | Shield, tier 1: **Thureos**. Light oval shield with an iron boss. | a light oval wooden shield, white face, a vertical spine and a strip iron boss |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:celtic_shield` | Shield, tier 2: **Celtic long shield**. Tall plank shield with a spina. | a tall narrow plank shield with rounded ends, painted green, a long vertical spine and a round boss |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:hide_shield` | Shield, tier 1: **Hide shield**. Ox-hide stretched on a frame. Light; it still locks in a wall. | an oval shield of spotted brown-and-white ox hide stretched on a wooden frame |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:gerron` | Shield, tier 1: **Gerron**. Tall Persian wicker shield. Stops arrows; heavy to carry. | a tall rectangular Persian shield of woven tan reeds with a leather border |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:scutum` | Shield, tier 2: **Scutum**. Big curved Italian shield of glued planks and hide. | a big curved oval Italian shield of reddish wood planks, a vertical spine and a wooden boss |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:legion_scutum` | Shield, tier 3: **Legionary scutum**. Iron-rimmed scutum with a heavy boss. A wall on its own. | a big curved rectangular red Roman scutum with an iron rim and a central iron boss |
 
 Sheet prompt:
 
 ```text
-Sheet 10 of 10: trinkets.
+Sheet 10 of 15: weapons and shields.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
-upper right, at the same 45 degree angle (bows and the sling hang upright). Shields, helmets and armour are front views, upright.
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
 top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
 Cells, in reading order:
-1. (row 1, column 1) A tiny round gold votive shield pendant on a cord.
-2. (row 1, column 2) A plain thick iron ring, 3/4 view.
-3. (row 1, column 3) Four small ivory knucklebones (astragali) scattered.
-4. (row 1, column 4) A silver medallion of Medusa's face with snake hair, tongue out.
-5. (row 2, column 1) A round lens-shaped gold locket (bulla) on a cord.
-6. (row 2, column 2) A round bronze pendant with a dark horse silhouette, on a cord.
-7. (row 2, column 3) A dark curved lion claw hanging from a cord.
-8. (row 2, column 4) A silver ring shaped as a coiled snake, its head on top.
-9. (row 3, column 1) A gold signet ring with an engraved oval bezel.
-10. (row 3, column 2) A small grey lead tablet with scratched lines of writing, slightly tilted.
-11. (row 3, column 3) A turquoise faience amulet of Bes, the squat Egyptian god with a feather crown.
-12. (row 3, column 4) A cream bone archer's thumb ring, a short wide cylinder with a lip.
-13. (row 4, column 1) A gold winged sun disc with spread wings.
-14. (row 4, column 2) A thick twisted gold torc, an open ring with round gold ends at the bottom.
-15. (row 4, column 3) A rectangular gold plaque with an embossed stag.
-16. (row 4, column 4) A victor's crown of dark green bay leaves bound with silver.
+1. (row 1, column 1) A long-eared Persian composite bow standing upright, stiff angled tips, red-painted grip, an arrow nocked.
+2. (row 1, column 2) A plain simple wooden D-shaped bow standing upright, with its string, no arrow.
+3. (row 1, column 3) A short double-curved Scythian bow standing upright, an arrow nocked.
+4. (row 1, column 4) A short steppe bow tucked into a gilded leather bow-case (gorytos) with arrow fletchings showing.
+5. (row 2, column 1) A round domed hoplite shield, plain bronze face, wide flat rim.
+6. (row 2, column 2) A round aspis with an engraved bronze rim and a red face with a white star emblem.
+7. (row 2, column 3) A round aspis faced in gleaming silver, a small gold sunburst at the centre.
+8. (row 2, column 4) A round bronze-rimmed aspis with a red face and a large white lambda (an upside-down V).
+9. (row 3, column 1) A smaller, flatter round bronze shield with an embossed eight-ray sun.
+10. (row 3, column 2) An oval bronze hoplite shield with two semicircular notches cut out of its sides.
+11. (row 3, column 3) A light oval wooden shield, white face, a vertical spine and a strip iron boss.
+12. (row 3, column 4) A tall narrow plank shield with rounded ends, painted green, a long vertical spine and a round boss.
+13. (row 4, column 1) An oval shield of spotted brown-and-white ox hide stretched on a wooden frame.
+14. (row 4, column 2) A tall rectangular Persian shield of woven tan reeds with a leather border.
+15. (row 4, column 3) A big curved oval Italian shield of reddish wood planks, a vertical spine and a wooden boss.
+16. (row 4, column 4) A big curved rectangular red Roman scutum with an iron rim and a central iron boss.
+```
+
+## Sheet 11: Shields and helmets
+
+File: `sheet-11.png`. Current icons in the same cells: [current/sheet-11.png](current/sheet-11.png)
+
+![Sheet 11, current icons](current/sheet-11.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `item:punic_shield` | Shield, tier 2: **Punic oval shield**. Bronze-faced oval of the Libyan spearmen, painted with the sign of Tanit. | a bronze-faced oval shield painted with the dark red sign of Tanit (triangle, bar and disc) |
+| 2 | R1 C2 | 256-511, 0-255 | `item:bossed_shield` | Shield, tier 3: **Bronze-bossed shield**. A chieftain's long shield, its boss worked in swirling bronze. | a tall Celtic long shield with a large bronze boss worked in swirling spirals |
+| 3 | R1 C3 | 512-767, 0-255 | `item:pelte` | Shield, tier 1: **Pelte**. Crescent wicker shield of the Thracian peltast. No shield wall. | a crescent-shaped wicker shield covered in tan leather |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:bronze_pelte` | Shield, tier 2: **Bronze-faced pelte**. A pelte sheathed in thin bronze. No shield wall. | a crescent-shaped pelte sheathed in thin bronze, a ring of small rivets |
+| 5 | R2 C1 | 0-255, 256-511 | `item:buckler` | Shield, tier 1: **Buckler**. Small hand shield. No shield wall. | a small round bronze shield with concentric rings and a central boss |
+| 6 | R2 C2 | 256-511, 256-511 | `item:caetra` | Shield, tier 2: **Caetra**. Small round Iberian shield, made for parrying. No shield wall. | a small round Iberian leather shield with a ring of bronze studs and a central boss |
+| 7 | R2 C3 | 512-767, 256-511 | `item:cap` | Helmet, tier 1: **Leather cap**. Better than nothing. | a simple brown leather skullcap of stitched segments |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:wolfskin_cap` | Helmet, tier 1: **Wolfskin cap**. A wolf's mask worn over the brow. | a grey wolf's head pelt worn as a cap, the wolf's snout and ears over the brow |
+| 9 | R3 C1 | 0-255, 512-767 | `item:bronze_skullcap` | Helmet, tier 1: **Bronze skullcap**. A plain hammered bowl. | a plain round hammered bronze bowl helmet with no fittings |
+| 10 | R3 C2 | 256-511, 512-767 | `item:pilos` | Helmet, tier 1: **Pilos helmet**. Conical bronze helmet. | a conical bronze pilos helmet with a narrow rim |
+| 11 | R3 C3 | 512-767, 512-767 | `item:felt_pilos` | Helmet, tier 1: **Felt pilos**. The traveller's felt cap. Cool and light. | a soft conical brown felt cap |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:konos` | Helmet, tier 1: **Konos helmet**. Bronze cone with a narrow brim. | a tall bronze cone helmet with a narrow brim and a small knob on the tip |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:iron_pilos` | Helmet, tier 2: **Iron pilos**. Late pilos in iron: tough and open-faced. | a conical dark iron pilos helmet with hinged cheek guards |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:montefortino` | Helmet, tier 2: **Montefortino**. Knobbed bowl helmet with cheek guards. | a Montefortino helmet: rounded bronze bowl, top knob, short neck flare, cheek guards |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:coolus` | Helmet, tier 2: **Coolus helm**. Round Gallic bowl with a little neck guard. | a round Gallic bronze bowl helmet with a small flat neck guard |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:negau` | Helmet, tier 2: **Negau helm**. Ridged Alpine helm of the Etruscans. Low brim, deep bowl. | an Etruscan Negau helmet: deep bronze bowl with a raised ridge over the top and a low flat brim |
+
+Sheet prompt:
+
+```text
+Sheet 11 of 15: shields and helmets.
+Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
+Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
+top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
+Cells, in reading order:
+1. (row 1, column 1) A bronze-faced oval shield painted with the dark red sign of Tanit (triangle, bar and disc).
+2. (row 1, column 2) A tall Celtic long shield with a large bronze boss worked in swirling spirals.
+3. (row 1, column 3) A crescent-shaped wicker shield covered in tan leather.
+4. (row 1, column 4) A crescent-shaped pelte sheathed in thin bronze, a ring of small rivets.
+5. (row 2, column 1) A small round bronze shield with concentric rings and a central boss.
+6. (row 2, column 2) A small round Iberian leather shield with a ring of bronze studs and a central boss.
+7. (row 2, column 3) A simple brown leather skullcap of stitched segments.
+8. (row 2, column 4) A grey wolf's head pelt worn as a cap, the wolf's snout and ears over the brow.
+9. (row 3, column 1) A plain round hammered bronze bowl helmet with no fittings.
+10. (row 3, column 2) A conical bronze pilos helmet with a narrow rim.
+11. (row 3, column 3) A soft conical brown felt cap.
+12. (row 3, column 4) A tall bronze cone helmet with a narrow brim and a small knob on the tip.
+13. (row 4, column 1) A conical dark iron pilos helmet with hinged cheek guards.
+14. (row 4, column 2) A Montefortino helmet: rounded bronze bowl, top knob, short neck flare, cheek guards.
+15. (row 4, column 3) A round Gallic bronze bowl helmet with a small flat neck guard.
+16. (row 4, column 4) An Etruscan Negau helmet: deep bronze bowl with a raised ridge over the top and a low flat brim.
+```
+
+## Sheet 12: Helmets and armour
+
+File: `sheet-12.png`. Current icons in the same cells: [current/sheet-12.png](current/sheet-12.png)
+
+![Sheet 12, current icons](current/sheet-12.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `item:horned_helm` | Helmet, tier 3: **Horned helm**. Ceremonial bronze cap with two horns. More awe than armour. | a ceremonial bronze cap helmet with two big curving horns |
+| 2 | R1 C2 | 256-511, 0-255 | `item:chalcidian` | Helmet, tier 2: **Chalcidian helm**. Crested helm with open ears. | a Chalcidian bronze helmet: open face, cheek guards, ear openings, a small red crest |
+| 3 | R1 C3 | 512-767, 0-255 | `item:crested_chalcidian` | Helmet, tier 3: **Plumed Chalcidian helm**. Silver-browed Chalcidian with a tall horsehair crest. | a Chalcidian helmet with silver eyebrows and a tall red-and-white horsehair crest |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:illyrian` | Helmet, tier 2: **Illyrian helm**. Square-faced helm with a crest channel. Snug and solid. | an Illyrian bronze helmet: square open face, two raised ridges along the top forming a crest channel |
+| 5 | R2 C1 | 0-255, 256-511 | `item:scythian_hood` | Helmet, tier 1: **Felt hood**. Pointed felt hood of the steppe riders. | a pointed brown felt Scythian hood with long side flaps |
+| 6 | R2 C2 | 256-511, 256-511 | `item:persian_tiara` | Helmet, tier 1: **Persian tiara**. Soft felt hood with lappets tied under the chin. | a soft cream felt Persian hood, top flopping forward, lappets tied under the chin |
+| 7 | R2 C3 | 512-767, 256-511 | `item:thracian` | Helmet, tier 2: **Thracian helm**. Peaked bronze cap with a forward crest. | a Thracian bronze helmet with a forward-curving crest, a short brim and cheek guards |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:phrygian` | Helmet, tier 2: **Phrygian helm**. Tall forward-curling crown and cheek pieces. | a Phrygian helmet: a tall bronze crown curling far forward, cheek pieces |
+| 9 | R3 C1 | 0-255, 512-767 | `item:gilded_thracian` | Helmet, tier 3: **Gilded Thracian helm**. A prince's helm with gilded eyebrows and beard on the cheeks. | a Thracian helmet with gold eyebrows and a gold beard embossed on the cheek guards |
+| 10 | R3 C2 | 256-511, 512-767 | `item:boeotian` | Helmet, tier 2: **Boeotian helm**. Open cavalry helm with a folded brim: a clear view. | a Boeotian bronze cavalry helmet with a wide, folded, downturned brim |
+| 11 | R3 C3 | 512-767, 512-767 | `item:iron_boeotian` | Helmet, tier 3: **Iron Boeotian helm**. Xenophon's choice for a horseman, in iron. | a Boeotian cavalry helmet in dark iron with a folded brim |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:attic` | Helmet, tier 3: **Attic helm**. Plumed parade helm of the royal guard. | an Attic helmet: rounded bronze bowl, brow ridge, hinged cheek guards, a tall plume |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:hellenistic` | Helmet, tier 3: **Hellenistic helm**. The Successors' practical helm: brow peak, hinged cheeks, good view. | a Hellenistic iron helmet with a projecting brow peak and hinged cheek guards, no crest |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:corinthian` | Helmet, tier 3: **Corinthian helm**. Full-face bronze. Terrifying, but hard to see out of. | a Corinthian helmet, front view: a full bronze face cover with almond eye openings, a nose guard and a crest stub |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:apulo_corinthian` | Helmet, tier 2: **Apulo-Corinthian helm**. A Corinthian worn pushed up like a cap: the look without the blindness. | an Apulo-Corinthian helmet: a closed bronze bowl with decorative engraved eyes and nose on the front, no real face opening, a small crest |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:leather` | Armour, tier 1: **Leather jerkin**. Boiled leather over the tunic. | a brown boiled-leather jerkin, front view, with a belt |
+
+Sheet prompt:
+
+```text
+Sheet 12 of 15: helmets and armour.
+Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
+Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
+top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
+Cells, in reading order:
+1. (row 1, column 1) A ceremonial bronze cap helmet with two big curving horns.
+2. (row 1, column 2) A Chalcidian bronze helmet: open face, cheek guards, ear openings, a small red crest.
+3. (row 1, column 3) A Chalcidian helmet with silver eyebrows and a tall red-and-white horsehair crest.
+4. (row 1, column 4) An Illyrian bronze helmet: square open face, two raised ridges along the top forming a crest channel.
+5. (row 2, column 1) A pointed brown felt Scythian hood with long side flaps.
+6. (row 2, column 2) A soft cream felt Persian hood, top flopping forward, lappets tied under the chin.
+7. (row 2, column 3) A Thracian bronze helmet with a forward-curving crest, a short brim and cheek guards.
+8. (row 2, column 4) A Phrygian helmet: a tall bronze crown curling far forward, cheek pieces.
+9. (row 3, column 1) A Thracian helmet with gold eyebrows and a gold beard embossed on the cheek guards.
+10. (row 3, column 2) A Boeotian bronze cavalry helmet with a wide, folded, downturned brim.
+11. (row 3, column 3) A Boeotian cavalry helmet in dark iron with a folded brim.
+12. (row 3, column 4) An Attic helmet: rounded bronze bowl, brow ridge, hinged cheek guards, a tall plume.
+13. (row 4, column 1) A Hellenistic iron helmet with a projecting brow peak and hinged cheek guards, no crest.
+14. (row 4, column 2) A Corinthian helmet, front view: a full bronze face cover with almond eye openings, a nose guard and a crest stub.
+15. (row 4, column 3) An Apulo-Corinthian helmet: a closed bronze bowl with decorative engraved eyes and nose on the front, no real face opening, a small crest.
+16. (row 4, column 4) A brown boiled-leather jerkin, front view, with a belt.
+```
+
+## Sheet 13: Armour
+
+File: `sheet-13.png`. Current icons in the same cells: [current/sheet-13.png](current/sheet-13.png)
+
+![Sheet 13, current icons](current/sheet-13.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `item:hide_jerkin` | Armour, tier 1: **Hide jerkin**. Untanned furs of beasts the wearer killed himself. | a shaggy jerkin of brown and grey fur pelts, front view |
+| 2 | R1 C2 | 256-511, 0-255 | `item:felt_coat` | Armour, tier 1: **Felt kaftan**. Thick felt coat of the steppe. Warm, light, soaks up a cut. | a long thick red felt steppe kaftan with a cream border, wrap-over front |
+| 3 | R1 C3 | 512-767, 0-255 | `item:quilted` | Armour, tier 1: **Quilted tunic**. Layers of stitched linen and wool stuffing. | a padded cream quilted tunic with diamond stitching |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:spolas` | Armour, tier 1: **Spolas**. Leather corselet with shoulder flaps, as Xenophon's men wore. | a leather corselet with shoulder flaps and one row of leather strips at the bottom |
+| 5 | R2 C1 | 0-255, 256-511 | `item:linothorax` | Armour, tier 1: **Linothorax**. Layered linen, light and stiff. | a white layered linen cuirass, shoulder flaps, a skirt of strips |
+| 6 | R2 C2 | 256-511, 256-511 | `item:painted_linothorax` | Armour, tier 2: **Painted linothorax**. Glued linen in bright meander borders. Proud and light. | a white linen cuirass painted with red-and-black meander borders |
+| 7 | R2 C3 | 512-767, 256-511 | `item:scaled_linothorax` | Armour, tier 2: **Scaled linothorax**. Linen with bronze scales over the belly. | a white linen cuirass with a panel of bronze scales over the belly |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:plated_linothorax` | Armour, tier 3: **Plated linothorax**. Linen faced with bronze plates and scales. Most of a cuirass for less weight. | a linen cuirass faced with bronze plates on the chest and bronze scales on the belly |
+| 9 | R3 C1 | 0-255, 512-767 | `item:scale` | Armour, tier 2: **Scale corselet**. Bronze scales on a linen backing. | a scale corselet of overlapping bronze scales on linen |
+| 10 | R3 C2 | 256-511, 512-767 | `item:horn_scale` | Armour, tier 2: **Horn scale**. Sarmatian scales cut from horse hooves. Light for scale. | a laced shirt of pale cream-and-grey horn scales |
+| 11 | R3 C3 | 512-767, 512-767 | `item:persian_scale` | Armour, tier 2: **Persian scale coat**. Long-sleeved coat of small bronze scales. Heavy. | a long-sleeved coat of small bronze scales reaching the knees |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:iron_scale` | Armour, tier 3: **Iron scale**. Iron scales on leather: proof against arrows. | a shirt of dark iron scales on leather |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:mail` | Armour, tier 3: **Ring mail**. A Celtic invention: iron rings. | an iron mail shirt with short sleeves and a belt |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:hamata` | Armour, tier 3: **Lorica hamata**. Italian mail shirt with doubled shoulders. Lighter than Gallic mail. | a Roman mail shirt with doubled shoulder capes held by bronze hooks |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:noble_mail` | Armour, tier 3: **Noble's mail**. Fine riveted rings with a bronze-hooked cape. A chieftain's fortune. | a fine iron mail shirt with a cape over the shoulders fastened by gold S-hooks |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:cuirass` | Armour, tier 3: **Muscle cuirass**. Sculpted bronze. The look of a hero. | a bronze muscle cuirass, sculpted chest and abdomen, strips hanging below |
+
+Sheet prompt:
+
+```text
+Sheet 13 of 15: armour.
+Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
+Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
+top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
+Cells, in reading order:
+1. (row 1, column 1) A shaggy jerkin of brown and grey fur pelts, front view.
+2. (row 1, column 2) A long thick red felt steppe kaftan with a cream border, wrap-over front.
+3. (row 1, column 3) A padded cream quilted tunic with diamond stitching.
+4. (row 1, column 4) A leather corselet with shoulder flaps and one row of leather strips at the bottom.
+5. (row 2, column 1) A white layered linen cuirass, shoulder flaps, a skirt of strips.
+6. (row 2, column 2) A white linen cuirass painted with red-and-black meander borders.
+7. (row 2, column 3) A white linen cuirass with a panel of bronze scales over the belly.
+8. (row 2, column 4) A linen cuirass faced with bronze plates on the chest and bronze scales on the belly.
+9. (row 3, column 1) A scale corselet of overlapping bronze scales on linen.
+10. (row 3, column 2) A laced shirt of pale cream-and-grey horn scales.
+11. (row 3, column 3) A long-sleeved coat of small bronze scales reaching the knees.
+12. (row 3, column 4) A shirt of dark iron scales on leather.
+13. (row 4, column 1) An iron mail shirt with short sleeves and a belt.
+14. (row 4, column 2) A Roman mail shirt with doubled shoulder capes held by bronze hooks.
+15. (row 4, column 3) A fine iron mail shirt with a cape over the shoulders fastened by gold S-hooks.
+16. (row 4, column 4) A bronze muscle cuirass, sculpted chest and abdomen, strips hanging below.
+```
+
+## Sheet 14: Armour and trinkets
+
+File: `sheet-14.png`. Current icons in the same cells: [current/sheet-14.png](current/sheet-14.png)
+
+![Sheet 14, current icons](current/sheet-14.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `item:bell_cuirass` | Armour, tier 2: **Bell cuirass**. Old-fashioned bronze bell, flared at the hips. Grandfather's armour. | an archaic bronze bell cuirass flaring out at the hips, spiral marks on the chest |
+| 2 | R1 C2 | 256-511, 0-255 | `item:triple_disc` | Armour, tier 2: **Triple-disc cuirass**. Three bronze discs front and back: Samnite pride. | a Samnite cuirass: three round bronze discs on the chest joined by straps |
+| 3 | R1 C3 | 512-767, 0-255 | `item:iron_cuirass` | Armour, tier 3: **Iron cuirass**. A king's iron cuirass, gold-trimmed. The heaviest there is. | a dark iron muscle cuirass with gold trim |
+| 4 | R1 C4 | 768-1023, 0-255 | `trinket:owl_amulet` | Trinket, tier 1: **Owl amulet**. Athena watches. +morale. | a round silver amulet with an owl of Athena in relief, on a cord |
+| 5 | R2 C1 | 0-255, 256-511 | `trinket:herakles_knot` | Trinket, tier 1: **Herakles knot**. Gold knot charm. +HP. | a gold Herakles knot (two interlocked loops) with a red garnet in the centre |
+| 6 | R2 C2 | 256-511, 256-511 | `trinket:scarab` | Trinket, tier 1: **Faience scarab**. Phoenician luck. +stamina. | a turquoise faience scarab beetle, top view |
+| 7 | R2 C3 | 512-767, 256-511 | `trinket:laurel` | Trinket, tier 2: **Laurel token**. Learns faster. +30% XP. | a small green laurel wreath, almost a closed circle, on a cord |
+| 8 | R2 C4 | 768-1023, 256-511 | `trinket:tanit_eye` | Trinket, tier 2: **Eye of Tanit**. +accuracy, +block. | a round terracotta pendant with the bronze sign of Tanit (a triangle, a bar and a disc), on a cord |
+| 9 | R3 C1 | 0-255, 512-767 | `trinket:boar_tusk` | Trinket, tier 2: **Boar tusk**. +melee damage. | a curved white boar tusk hanging from a cord |
+| 10 | R3 C2 | 256-511, 512-767 | `trinket:eye_bead` | Trinket, tier 1: **Eye bead**. Blue glass eye against the evil eye. +accuracy. | a blue and white glass eye bead (nazar) on a cord |
+| 11 | R3 C3 | 512-767, 512-767 | `trinket:wolf_tooth` | Trinket, tier 1: **Wolf-tooth string**. The wolf lends his legs. +speed, +morale. | a necklace arc of pointed wolf teeth on a cord |
+| 12 | R3 C4 | 768-1023, 512-767 | `trinket:torc` | Trinket, tier 1: **Bronze torc**. Twisted neck-ring of a free warrior. +morale, +HP. | a twisted bronze Celtic torc, an open ring with knob ends at the bottom |
+| 13 | R4 C1 | 0-255, 768-1023 | `trinket:hermes_token` | Trinket, tier 1: **Hermes token**. Winged sandal of the messenger. +speed, but you tire sooner. | a round bronze pendant with a winged sandal in relief, on a cord |
+| 14 | R4 C2 | 256-511, 768-1023 | `trinket:votive_shield` | Trinket, tier 1: **Votive shield**. A tiny shield vowed at a shrine. +block. | a tiny round gold votive shield pendant on a cord |
+| 15 | R4 C3 | 512-767, 768-1023 | `trinket:iron_ring` | Trinket, tier 1: **Iron ring**. Plain iron, as the Spartans wore. +armour, +HP. | a plain thick iron ring, 3/4 view |
+| 16 | R4 C4 | 768-1023, 768-1023 | `trinket:knucklebones` | Trinket, tier 1: **Knucklebones**. Astragali for games by the fire. +15% XP. | four small ivory knucklebones (astragali) scattered |
+
+Sheet prompt:
+
+```text
+Sheet 14 of 15: armour and trinkets.
+Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
+Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
+top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
+Cells, in reading order:
+1. (row 1, column 1) An archaic bronze bell cuirass flaring out at the hips, spiral marks on the chest.
+2. (row 1, column 2) A Samnite cuirass: three round bronze discs on the chest joined by straps.
+3. (row 1, column 3) A dark iron muscle cuirass with gold trim.
+4. (row 1, column 4) A round silver amulet with an owl of Athena in relief, on a cord.
+5. (row 2, column 1) A gold Herakles knot (two interlocked loops) with a red garnet in the centre.
+6. (row 2, column 2) A turquoise faience scarab beetle, top view.
+7. (row 2, column 3) A small green laurel wreath, almost a closed circle, on a cord.
+8. (row 2, column 4) A round terracotta pendant with the bronze sign of Tanit (a triangle, a bar and a disc), on a cord.
+9. (row 3, column 1) A curved white boar tusk hanging from a cord.
+10. (row 3, column 2) A blue and white glass eye bead (nazar) on a cord.
+11. (row 3, column 3) A necklace arc of pointed wolf teeth on a cord.
+12. (row 3, column 4) A twisted bronze Celtic torc, an open ring with knob ends at the bottom.
+13. (row 4, column 1) A round bronze pendant with a winged sandal in relief, on a cord.
+14. (row 4, column 2) A tiny round gold votive shield pendant on a cord.
+15. (row 4, column 3) A plain thick iron ring, 3/4 view.
+16. (row 4, column 4) Four small ivory knucklebones (astragali) scattered.
+```
+
+## Sheet 15: Trinkets
+
+File: `sheet-15.png`. Current icons in the same cells: [current/sheet-15.png](current/sheet-15.png)
+
+![Sheet 15, current icons](current/sheet-15.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `trinket:gorgoneion` | Trinket, tier 2: **Gorgoneion**. Medusa's face turns the enemy's heart to stone. +morale shock. | a silver medallion of Medusa's face with snake hair, tongue out |
+| 2 | R1 C2 | 256-511, 0-255 | `trinket:bulla` | Trinket, tier 2: **Golden bulla**. Etruscan locket worn since boyhood. +HP, +morale. | a round lens-shaped gold locket (bulla) on a cord |
+| 3 | R1 C3 | 512-767, 0-255 | `trinket:horse_pendant` | Trinket, tier 2: **Horse pendant**. Poseidon Hippios gives the charge its weight. +charge. | a round bronze pendant with a dark horse silhouette, on a cord |
+| 4 | R1 C4 | 768-1023, 0-255 | `trinket:lion_claw` | Trinket, tier 2: **Lion claw**. From a lion of the Macedonian hills. +damage, +morale shock. | a dark curved lion claw hanging from a cord |
+| 5 | R2 C1 | 0-255, 256-511 | `trinket:serpent_ring` | Trinket, tier 2: **Serpent ring**. Coiled silver snake of Asklepios. +HP, +stamina. | a silver ring shaped as a coiled snake, its head on top |
+| 6 | R2 C2 | 256-511, 256-511 | `trinket:signet_ring` | Trinket, tier 2: **Signet ring**. A gold seal: the mark of a man who gives orders. +XP, +morale. | a gold signet ring with an engraved oval bezel |
+| 7 | R2 C3 | 512-767, 256-511 | `trinket:curse_tablet` | Trinket, tier 2: **Curse tablet**. Names of foes scratched and nailed down. +shield-break, but it weighs on you. | a small grey lead tablet with scratched lines of writing, slightly tilted |
+| 8 | R2 C4 | 768-1023, 256-511 | `trinket:bes_amulet` | Trinket, tier 2: **Bes amulet**. The grinning dwarf god scares off ill luck. +morale, +stamina. | a turquoise faience amulet of Bes, the squat Egyptian god with a feather crown |
+| 9 | R3 C1 | 0-255, 512-767 | `trinket:thumb_ring` | Trinket, tier 2: **Archer's thumb ring**. Draws the string clean. +accuracy, but clumsy behind a shield. | a cream bone archer's thumb ring, a short wide cylinder with a lip |
+| 10 | R3 C2 | 256-511, 512-767 | `trinket:faravahar` | Trinket, tier 2: **Winged disc**. Persian winged sun in gold. +morale, +accuracy. | a gold winged sun disc with spread wings |
+| 11 | R3 C3 | 512-767, 512-767 | `trinket:gold_torc` | Trinket, tier 3: **Gold torc**. Heavy gold neck-ring of a king among Celts. +morale, +HP. | a thick twisted gold torc, an open ring with round gold ends at the bottom |
+| 12 | R3 C4 | 768-1023, 512-767 | `trinket:gold_stag` | Trinket, tier 3: **Gold stag plaque**. Shield badge of a steppe lord: a stag with folded legs. +charge, +morale, +HP. | a rectangular gold plaque with an embossed stag |
+| 13 | R4 C1 | 0-255, 768-1023 | `trinket:pythian_token` | Trinket, tier 3: **Pythian crown**. Laurel from Delphi, given to a victor of the games. +35% XP, +morale. | a victor's crown of dark green bay leaves bound with silver |
+
+Sheet prompt:
+
+```text
+Sheet 15 of 15: trinkets.
+Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
+Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
+top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
+Cells, in reading order:
+1. (row 1, column 1) A silver medallion of Medusa's face with snake hair, tongue out.
+2. (row 1, column 2) A round lens-shaped gold locket (bulla) on a cord.
+3. (row 1, column 3) A round bronze pendant with a dark horse silhouette, on a cord.
+4. (row 1, column 4) A dark curved lion claw hanging from a cord.
+5. (row 2, column 1) A silver ring shaped as a coiled snake, its head on top.
+6. (row 2, column 2) A gold signet ring with an engraved oval bezel.
+7. (row 2, column 3) A small grey lead tablet with scratched lines of writing, slightly tilted.
+8. (row 2, column 4) A turquoise faience amulet of Bes, the squat Egyptian god with a feather crown.
+9. (row 3, column 1) A cream bone archer's thumb ring, a short wide cylinder with a lip.
+10. (row 3, column 2) A gold winged sun disc with spread wings.
+11. (row 3, column 3) A thick twisted gold torc, an open ring with round gold ends at the bottom.
+12. (row 3, column 4) A rectangular gold plaque with an embossed stag.
+13. (row 4, column 1) A victor's crown of dark green bay leaves bound with silver.
+Cells 14 to 16: leave empty (plain magenta).
 ```
 
 ## Single-icon prompt
@@ -604,8 +880,8 @@ It must match the other icons of the set: same outline, lighting and level of de
 | `camp:` | `VECTOR_CAMP_ICONS`, texture keys `icon_camp_<name>` | |
 | `chrome:` | `src/ui/online.ts`, texture keys `sync_*`, `supporter_banner` | not square: draw the cloud wide and the banner tall inside the cell |
 | `goods:` | `src/art/goodsIcons.ts` (`renderGoodsIconHD`) | resources and battle consumables |
-| `item:` | `src/art/itemIconsHD.ts`, by the item's `art` key in `src/data/items.ts` | one icon per art key: items sharing an art key (e.g. Dory and Bronze-shod dory) share the picture; rarity frames and glow stay in code |
-| `trinket:` | `src/art/itemIconsHD.ts`, by item ID (`art: 'none'`) | |
+| `item:` | `src/data/items.ts` item ID (today drawn by `src/art/itemIconsHD.ts` from the item's `art` key) | one picture per item; rarity frames, glow and sparkles stay in code |
+| `trinket:` | `src/data/items.ts` item ID (`slot: 'trinket'`) | |
 
 Rules that still hold for the new art (docs/UI_KIT.md "One icon, one meaning"):
 the resource icons `ui:coin`, `ui:laurel`, `ui:drachma`, `ui:tgstar`,
