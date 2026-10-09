@@ -983,7 +983,9 @@ export class DuelScene extends BaseScene {
    */
   private chestMarker(row: Phaser.GameObjects.Container, x: number, y: number, ch: number, tier: number, st: ChestState, area: ScrollArea, w = 22): void {
     const need = LADDER.chestStars[tier - 1];
-    const wide = w > 22;
+    // the wide marker carries a word ("Claim", "Claimed", the stars) only where it fits whole
+    const label = st === 'claimed' ? t('dv.claimed') : st === 'ready' ? t('dv.claim') : `${need}`;
+    const wide = w > 22 && 16 + 3 + measureText(label) + (st === 'locked' ? 9 : 0) <= w - 4;
     if (st === 'ready') addClaimGlow(this, row, x, y, w, 23);
     row.add(addPanel(this, x, y, w, 23, st === 'ready' ? 'cardSel' : 'well'));
     // the chest itself, as pixel art: closed and grey (locked), closed and bright, hopping (ready), open and empty (claimed)
@@ -994,7 +996,6 @@ export class DuelScene extends BaseScene {
       return img;
     };
     if (wide) {
-      const label = st === 'claimed' ? t('dv.claimed') : st === 'ready' ? t('dv.claim') : `${need}`;
       const lt = addText(this, 0, y + 7, label, st === 'ready' ? 'reward' : 'muted');
       const extra = st === 'locked' ? 9 : 0;
       const both = 16 + 3 + lt.width + extra;
@@ -1003,8 +1004,8 @@ export class DuelScene extends BaseScene {
       row.add(lt.setX(ix + 19));
       if (st === 'locked') row.add(scaleIcon(addIcon(this, ix + 19 + lt.width + 1, y + 7, 'star', 'D'), 0.67));
     } else {
-      sprite(x + 3, y + 1);
-      if (st !== 'claimed') row.add(addText(this, x + 11, y + 14, `${need}`, st === 'ready' ? 'reward' : 'muted', 0.5).setFontSize(5.5));
+      sprite(Math.round(x + w / 2 - 8), y + 1);
+      if (st !== 'claimed') row.add(addText(this, x + w / 2, y + 14, `${need}`, st === 'ready' ? 'reward' : 'muted', 0.5).setFontSize(5.5));
     }
     const z = this.add.zone(x, y, w, 23).setOrigin(0, 0).setInteractive();
     uiId(z, `duel.chest.${tier}`);

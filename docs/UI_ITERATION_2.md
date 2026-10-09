@@ -119,3 +119,15 @@ cached.
 | Current floor | pulsing glow |
 | Idle | torches flicker, pennants flutter (`idleFrames`) |
 | Search | widening rings, breathing arena icon |
+
+## Checks
+
+- `npm test`: all unit tests pass (new: duel compare, wrapText, fmtSigned,
+  settings carry-over, pass XP parity, one icon per mode).
+- Layout check, all 20 configurations (5 sizes, EN / RU, plain / Telegram):
+  no new violations. Known, not from this branch: with `--split 3` the
+  `results-inspect` step fails on the base commit too (the screen order
+  leaves it without loot); CI's `--split 2` is unaffected.
+- Not measured: frame time on a mid-range Android device. The motion is
+  tweens and timers on existing objects, the new textures (panels, banners,
+  sprites) are drawn once per size and cached.

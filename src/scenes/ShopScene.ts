@@ -236,7 +236,7 @@ export class ShopScene extends BaseScene {
     y += ch.lines.length * LINE_H + 4;
     const cols = Math.max(2, Math.floor((w + SIZE.gap) / (58 + SIZE.gap)));
     const tw = Math.floor((w - (cols - 1) * SIZE.gap) / cols);
-    const th = 74;
+    const th = 66;
     for (const slot of d.cat.slots) {
       const list = d.cat.cosmetics.filter((x) => x.slot === slot);
       if (!list.length) continue;
@@ -246,7 +246,8 @@ export class ShopScene extends BaseScene {
       for (let r0 = 0; r0 < list.length; r0 += cols) {
         const rowItems = list.slice(r0, r0 + cols);
         const lines = Math.max(...rowItems.map((cm) => wrapText(cosmeticName(cm), tw - 6, 3, false, 6).lines.length));
-        const rh = th + (lines - 3) * 7;
+        // preview 4..36, the name from 39 (8 px a line), then the state line
+        const rh = Math.max(th, 39 + lines * 8 + 4 + 12);
         rowItems.forEach((cm, k) => this.cosmeticTile(c, area, k * (tw + SIZE.gap), y, tw, rh, cm, d));
         y += rh + SIZE.gap;
       }
@@ -589,19 +590,25 @@ export class ShopScene extends BaseScene {
     const qty = r.kind === 'gold' ? r.amount : r.kind === 'drachmae' ? r.amount : r.kind === 'consumable' ? r.qty : 0;
     const noun = r.kind === 'gold' ? t('res.wargold') : r.kind === 'drachmae' ? t('res.drachmae') : r.kind === 'consumable' ? subjectName({ consumable: r.id }) : '';
     const qFont: FontKey = dimmed ? 'muted' : r.kind === 'gold' ? 'wargold' : r.kind === 'drachmae' ? 'premium' : 'ink';
+    const qText = r.kind === 'consumable' ? `${qty}×` : `${qty}`;
+    // "Claim" sits beside the number where both fit; on narrow cells it takes the noun's line
+    const claimTop = st === 'claimable' && (r.kind === 'cosmetic' || measureText(qText) * 1.2 + 6 + measureText(t('pass.claim'), false, 6) <= tw);
     if (r.kind === 'cosmetic') {
       const nl = wrapText(name, tw, 2, false, 6);
       row.add(addText(this, tx, Math.round(h / 2 - (nl.lines.length * 8) / 2), nl.lines.join('\n'), dimmed ? 'muted' : 'ink').setFontSize(6).setLineSpacing(-1));
     } else {
-      const q = addText(this, tx, 2, r.kind === 'consumable' ? `${qty}×` : `${qty}`, qFont).setScale(1.2);
+      const q = addText(this, tx, 2, qText, qFont).setScale(1.2);
       row.add(q);
-      const nn = wrapText(noun, tw, 2, false, 6);
-      row.add(addText(this, tx, 14, nn.lines.join('\n'), dimmed ? 'muted' : 'sec').setFontSize(6).setLineSpacing(-1.5));
+      if (st === 'claimable' && !claimTop) row.add(addText(this, tx, 16, ellipsize(t('pass.claim'), tw, false, 6), 'reward').setFontSize(6));
+      else {
+        const nn = wrapText(noun, tw, 2, false, 6);
+        row.add(addText(this, tx, 14, nn.lines.join('\n'), dimmed ? 'muted' : 'sec').setFontSize(6).setLineSpacing(-1.5));
+      }
     }
     // the state, as a badge on the icon's corner: a tick, a grey lock, the violet seal; "Claim" beside the number
     const bx = x + 17;
     const by = iy + 13;
-    if (st === 'claimable') row.add(addText(this, x + w - 4, 3, t('pass.claim'), 'reward', 1).setFontSize(6));
+    if (st === 'claimable' && claimTop) row.add(addText(this, x + w - 4, 3, t('pass.claim'), 'reward', 1).setFontSize(6));
     else if (st === 'claimed') row.add(scaleIcon(addIcon(this, bx, by, 'check'), 0.75));
     else if (st === 'locked') row.add(scaleIcon(addIcon(this, bx, by, 'lock', 'D'), 0.75));
     else if (st === 'premium') row.add(scaleIcon(addIcon(this, bx, by, 'pass'), 0.75));

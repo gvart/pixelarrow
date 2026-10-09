@@ -4,7 +4,7 @@
  * header). All art is generated here so the shared icon set stays untouched.
  */
 import Phaser from 'phaser';
-import { panelK, tappable } from './kit';
+import { panelK, tappable, uiMetrics } from './kit';
 import { showTooltip } from './widgets';
 import { uiId } from './layout';
 import { t, type TKey } from '../i18n';
@@ -144,7 +144,8 @@ export function addSyncBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Con
   apply(online.status);
   // what the cloud means, on tap (a 22 x 22 target round it)
   // (kept inside the screen when the badge sits at its edge)
-  const z = scene.add.zone(Math.max(0, Math.round(x) - 4), Math.max(0, Math.round(y) - 4), 22, 22).setOrigin(0, 0).setInteractive();
+  const vw = uiMetrics(scene).VW;
+  const z = scene.add.zone(Math.min(vw - 22, Math.max(0, Math.round(x) - 4)), Math.max(0, Math.round(y) - 4), 22, 22).setOrigin(0, 0).setInteractive();
   uiId(z, 'legend.sync');
   tappable(z, null, () => showTooltip(scene, t(`legend.sync.${online.status}` as TKey), z));
   parent.add(z);
