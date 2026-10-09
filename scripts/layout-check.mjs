@@ -189,7 +189,13 @@ const SCREENS = [
     [
       'duel-season-reward',
       { tab: 'ranked', arena: 'home' },
-      "const id = s.season.season.id - 1; s.src.async.rewards = [{ season: id, ladder: 'live', league: 'strategos', glory: 400, cosmetic: 'duel_banner_strategos' }, { season: id, ladder: 'async', league: 'gold', glory: 90, cosmetic: 'duel_emblem_gold' }]; void s.src.season().then((v) => s.openSeasonRewards(v));",
+      "const id = s.season.season.id - 1; s.src.async.rewards = [{ season: id, ladder: 'live', league: 'strategos', glory: 400, cosmetic: 'duel_banner_strategos', pick: 'sacred_band' }, { season: id, ladder: 'async', league: 'gold', glory: 90, cosmetic: 'duel_emblem_gold', pick: null }]; void s.src.season().then((v) => s.openSeasonRewards(v));",
+    ],
+    // the Strategos / Legend reward's set piece of choice
+    [
+      'duel-season-pick',
+      { tab: 'ranked', arena: 'home' },
+      "const id = s.season.season.id - 1; s.src.async.rewards = [{ season: id, ladder: 'live', league: 'legend', glory: 600, cosmetic: 'duel_banner_legend', pick: 'sacred_band' }]; void s.src.season().then((v) => s.openSeasonPick(v.rewards[0]));",
     ],
   ].map(([id, data, after]) => ({
     id,

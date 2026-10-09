@@ -8,7 +8,8 @@
 import { online } from '../platform/cloud';
 import { ApiError, newRequestId } from '../platform/api';
 import type { Hero } from '../data/units';
-import { itemDef, type Item, type Slot } from '../data/items';
+import { isBound, itemDef, type Item, type Slot } from '../data/items';
+import { SETS, setPieces } from '../data/sets';
 import { equipBlocker, equipBlockerText, equipFromStash, unequipInto } from '../game/gear';
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type Attrs } from '../data/perks';
 import type { ClassId } from '../data/classes';
@@ -134,6 +135,8 @@ export interface SeasonRewardView {
   league: LeagueId;
   glory: number;
   cosmetic: string;
+  /** A set to pick one piece of (`seasonPick`), while not picked yet. */
+  pick?: string | null;
 }
 
 /** The running ranked season (GET /api/duel/season). */
@@ -256,6 +259,8 @@ export interface DuelSource {
   team(body: { heroIds?: string[]; formations?: FormationType[]; groups?: Record<string, number> }): Promise<WithProfile>;
   buy(offer: string): Promise<WithProfile<{ item: Item }>>;
   sell(uid: string): Promise<WithProfile<{ glory: number }>>;
+  /** Salvages a bound stash item (named legendaries, legendary set pieces: never sold) for the same Glory a sale would pay. */
+  salvage(uid: string): Promise<WithProfile<{ glory: number }>>;
   ladderStart(floor: number): Promise<LadderTicket>;
   /** `result`: the battle as the client simulated it (only the demo uses it; the server replays the log). */
   ladderSubmit(ticket: string, sub: LadderSubmission, result: BattleResult): Promise<LadderReport>;
@@ -284,6 +289,8 @@ export interface DuelSource {
   asyncLog(): Promise<{ now: number; entries: AsyncLogEntry[] }>;
   season(): Promise<SeasonView>;
   seasonSeen(): Promise<unknown>;
+  /** Picks the set piece a season reward offers (once; a repeat answers with the same item). */
+  seasonPick(season: number, ladder: Ladder, def: string): Promise<WithProfile<{ item: Item; replayed: boolean }>>;
   leaderboard(board: Board): Promise<LeaderboardView>;
 }
 
@@ -328,6 +335,9 @@ export class ApiDuelSource implements DuelSource {
   }
   sell(uid: string) {
     return this.req<WithProfile<{ glory: number }>>('POST', '/shop/sell', { uid, requestId: newRequestId() });
+  }
+  salvage(uid: string) {
+    return this.req<WithProfile<{ glory: number }>>('POST', '/shop/salvage', { uid, requestId: newRequestId() });
   }
   ladderStart(floor: number) {
     return this.req<LadderTicket>('POST', '/ladder/start', { floor });
@@ -376,6 +386,9 @@ export class ApiDuelSource implements DuelSource {
   }
   seasonSeen() {
     return this.req('POST', '/season/seen', {});
+  }
+  seasonPick(season: number, ladder: Ladder, def: string) {
+    return this.req<WithProfile<{ item: Item; replayed: boolean }>>('POST', '/season/pick', { season, ladder, def });
   }
   leaderboard(board: Board) {
     return this.req<LeaderboardView>('GET', `/leaderboard?board=${board}`);
@@ -686,8 +699,17 @@ export class DemoDuelSource implements DuelSource {
   }
 
   async sell(uid: string) {
+    return this.stashOrder(uid, 'sell');
+  }
+
+  async salvage(uid: string) {
+    return this.stashOrder(uid, 'salvage');
+  }
+
+  private stashOrder(uid: string, kind: 'sell' | 'salvage') {
     const i = this.p.stash.findIndex((x) => x.uid === uid);
     if (i < 0) throw new ApiError(404, 'not_found', 'No such item in your stash');
+    if (isBound(this.p.stash[i]) !== (kind === 'salvage')) throw err(kind === 'sell' ? 'bound_item' : 'not_bound', kind === 'sell' ? 'Bound gear is never sold' : 'Only bound gear is salvaged');
     const [it] = this.p.stash.splice(i, 1);
     const glory = sellPrice(it);
     this.p.glory += glory;
@@ -961,8 +983,19 @@ export class DemoDuelSource implements DuelSource {
   }
 
   async seasonSeen() {
-    this.async.rewards = [];
+    // a piece still to pick keeps its reward (as the server does)
+    this.async.rewards = this.async.rewards.filter((r) => r.pick);
     return { ok: true };
+  }
+
+  async seasonPick(season: number, ladder: Ladder, def: string) {
+    const r = this.async.rewards.find((x) => x.season === season && x.ladder === ladder && x.pick);
+    if (!r?.pick) throw new ApiError(404, 'no_pick', 'That season reward has no piece to pick');
+    if (!setPieces(r.pick).includes(def)) throw new ApiError(400, 'not_in_set', 'Pick a piece of the reward\'s set');
+    const item: Item = { uid: `demo_ss${season}${ladder}`, def, rarity: SETS[r.pick].rarity, cond: 100 };
+    this.p.stash.push(item);
+    this.async.rewards = this.async.rewards.filter((x) => x !== r);
+    return { item, replayed: false, profile: this.view() };
   }
 
   async leaderboard(board: Board): Promise<LeaderboardView> {

@@ -23,6 +23,7 @@
  * source; the screen redraws from the answer. Started with `{ preview: true }`
  * it runs on the in-memory demo.
  */
+import { SETS, setPieces } from '../../data/sets';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { Button, addIcon, addPanel, addText, scaleIcon, tappable, ScrollArea, type FontKey } from '../../ui/kit';
@@ -50,7 +51,7 @@ import {
 import { addPortrait } from '../../ui/sprites';
 import { dollFromHero } from '../../art/paperdoll';
 import { hapticNotify } from '../../platform/telegram';
-import { RARITY_LABEL, SLOTS, itemDef, normalizeEquip, normalizeItem, type Item, type Slot } from '../../data/items';
+import { RARITY_LABEL, SLOTS, isBound, itemDef, normalizeEquip, normalizeItem, type Item, type Slot } from '../../data/items';
 import type { Hero } from '../../data/units';
 import { CLASSES } from '../../data/classes';
 import { heroClass } from '../../sim/stats';
@@ -68,7 +69,7 @@ import {
 import { CHAPTERS, CHEST_TIERS, LADDER, chapterFloors, chapterMaxStars, chapterOf, chapterStars, chestReward, chestState, floorReward, isBoss, ladderFloor, type ChestState } from '../../duel/ladder';
 import {
   DemoDuelSource, LOADOUT_USES, duelSource, type AsyncTicket, type AsyncView, type AsyncLogEntry, type Board, type ChestClaim, type DemoMatch, type DuelProfileView, type DuelSource,
-  type LadderReport, type LadderTicket, type LeaderboardView, type Loadout, type LoadoutUse, type QueueEvent, type RankedView, type SeasonView,
+  type LadderReport, type LadderTicket, type LeaderboardView, type Loadout, type LoadoutUse, type QueueEvent, type RankedView, type SeasonRewardView, type SeasonView,
 } from '../../duel/client';
 import { RANKED, divisionRoman, leagueRank, type DuelMode, type League, type LeagueId } from '../../duel/rating';
 import type { AsyncReport, MatchReport } from '../../duel/protocol';
@@ -2247,10 +2248,11 @@ export class DuelScene extends BaseScene {
     const inner = w - 16;
     const rowH = 42;
     const best = v.title;
+    const pick = v.rewards.find((r) => r.pick);
     const m = openModal(this, {
       title: t('duels.reward.title'),
       w,
-      h: Math.min(VH - 12, 26 + 14 + v.rewards.length * (rowH + SIZE.gap) + (best ? 14 : 0) + SIZE.btnH + 16),
+      h: Math.min(VH - 12, 26 + 14 + v.rewards.length * (rowH + SIZE.gap) + (best ? 14 : 0) + (pick ? 14 : 0) + SIZE.btnH + 16),
       onClose: () => void this.src.seasonSeen().catch(() => undefined),
     });
     const { c, x } = m;
@@ -2269,7 +2271,37 @@ export class DuelScene extends BaseScene {
       y += rowH + SIZE.gap;
     }
     if (best) c.add(addText(this, x + w / 2, y + 2, ellipsize(t('duels.titleLine', { title: t('duels.titleOf', { league: leagueTitle(best.league), season: seasonName(best.season) }) }), inner), 'dim', 0.5));
-    c.add(new Button(this, x + 8, m.y + m.h - 8 - SIZE.btnH, inner, SIZE.btnH, { label: t('duels.reward.ok'), variant: 'primary', id: 'duel.reward.ok', onClick: () => m.close() }));
+    if (pick?.pick) c.add(addText(this, x + w / 2, y + (best ? 16 : 2), ellipsize(t('duels.reward.pickLine', { set: tOr(`set.${pick.pick}.name`, SETS[pick.pick]?.name ?? pick.pick) }), inner), 'gold', 0.5));
+    // a set piece to choose (Strategos and Legend): the button opens the choice; the popup comes back until it is made
+    const btn = pick
+      ? { label: t('duels.reward.pick'), variant: 'primary' as const, id: 'duel.reward.pick', onClick: () => (m.close(), this.openSeasonPick(pick)) }
+      : { label: t('duels.reward.ok'), variant: 'primary' as const, id: 'duel.reward.ok', onClick: () => m.close() };
+    c.add(new Button(this, x + 8, m.y + m.h - 8 - SIZE.btnH, inner, SIZE.btnH, btn));
+  }
+
+  /** The season reward's set piece of choice: one button per piece of the set. */
+  openSeasonPick(r: SeasonRewardView): void {
+    if (!r.pick) return;
+    const { VW, VH } = this.m;
+    const pieces = setPieces(r.pick);
+    const w = Math.min(VW - 12, 220);
+    const inner = w - 16;
+    const m = openModal(this, { title: t('duels.reward.pickTitle', { set: tOr(`set.${r.pick}.name`, SETS[r.pick]?.name ?? r.pick) }), w, h: Math.min(VH - 12, 26 + pieces.length * (SIZE.btnH + SIZE.gap) + 8) });
+    let y = m.y + 24;
+    for (const def of pieces) {
+      const name = itemName({ uid: `pick_${def}`, def, rarity: SETS[r.pick].rarity, cond: 100 });
+      m.c.add(
+        new Button(this, m.x + 8, y, inner, SIZE.btnH, {
+          label: name,
+          id: `duel.pick.${def}`,
+          onClick: () => {
+            m.close();
+            void this.act(() => this.src.seasonPick(r.season, r.ladder, def), (res) => t('duels.reward.picked', { name: itemName(res.item) })).then(() => (this.season = null));
+          },
+        }),
+      );
+      y += SIZE.btnH + SIZE.gap;
+    }
   }
 
   // ------------------------------------------------------------------ team
@@ -2938,25 +2970,28 @@ export class DuelScene extends BaseScene {
     void this.act(() => this.src.buy(o.id), (r) => t('duels.bought', { name: itemName(r.item) }));
   }
 
+  /** Sell a stash item, or salvage a bound one (never sold, docs/ITEMS.md "Bound items"): both pay a quarter of its shop price. */
   private openSell(it: Item): void {
     const price = sellPrice(it);
+    const bound = isBound(it);
+    const label = t(bound ? 'duels.salvage' : 'duels.sell', { n: price });
     openItemCard(this, {
       item: it,
       title: t('duels.shopItem'),
       worth: false,
-      notes: [{ text: t('duels.sellFor', { n: price }), font: 'gold' }],
+      notes: [{ text: bound ? t('duels.salvageFor', { n: price }) : t('duels.sellFor', { n: price }), font: 'gold' }],
       actions: [
         {
-          label: t('duels.sell', { n: price }),
+          label,
           icon: 'laurel',
           id: 'duel.sell',
           onClick: () =>
             confirmDialog(this, {
-              title: t('duels.sellTitle', { name: itemName(it) }),
-              body: t('duels.sellBody', { n: price }),
-              ok: t('duels.sell', { n: price }),
+              title: t(bound ? 'duels.salvageTitle' : 'duels.sellTitle', { name: itemName(it) }),
+              body: t(bound ? 'duels.salvageBody' : 'duels.sellBody', { n: price }),
+              ok: label,
               cancel: t('common.cancel'),
-              onOk: () => void this.act(() => this.src.sell(it.uid), () => t('duels.sold', { n: price })),
+              onOk: () => void this.act(() => (bound ? this.src.salvage(it.uid) : this.src.sell(it.uid)), () => t('duels.sold', { n: price })),
             }),
         },
       ],
@@ -3179,6 +3214,9 @@ export function raidReport(r: AsyncReport, demo = false): BattleReport {
     outcomes: r.xp.map((x) => ({ heroId: x.heroId, name: x.name, died: false, wounded: false, xp: x.xp, levelsGained: x.levelsGained, levelBefore: x.levelBefore, xpBefore: x.xpBefore })),
     gold: 0,
     glory: r.glory,
+    // spoils of a won duel go straight to the duel stash
+    loot: r.spoils ? [r.spoils] : [],
+    lootInStash: !!r.spoils,
     verified: demo ? null : r.verified,
     online: 'duel',
     notes,
@@ -3215,6 +3253,9 @@ export function rankedReport(r: MatchReport, label: string, demo = false): Battl
     outcomes: r.xp.map((x) => ({ heroId: x.heroId, name: x.name, died: false, wounded: false, xp: x.xp, levelsGained: x.levelsGained, levelBefore: x.levelBefore, xpBefore: x.xpBefore })),
     gold: 0,
     glory: r.glory,
+    // spoils of a won duel go straight to the duel stash
+    loot: r.spoils ? [r.spoils] : [],
+    lootInStash: !!r.spoils,
     verified: demo ? null : r.verified,
     online: 'duel',
     notes,

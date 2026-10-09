@@ -11,11 +11,14 @@
 import { Rng } from '../sim/rng';
 import { CLASSES, type ClassId } from '../data/classes';
 import type { Culture } from '../data/names';
-import { BASE_ITEMS, itemDef, itemMods, itemValue, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
+import { BASE_ITEMS, ITEMS, itemDef, itemMods, itemValue, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
 import { freezeRolls } from '../data/affixes';
+import { classGearBlocker, shortfall } from '../data/gearRules';
+import { activeBonuses } from '../data/sets';
 import { ATTR_IDS, ATTR_MAX, PERKS, POINTS_PER_LEVEL, perkBlocker, type Attrs, type PerkId } from '../data/perks';
 import type { Hero } from '../data/units';
 import { makeHero, makeItem, type IdSource } from '../game/heroes';
+import { armyPick } from '../game/sources';
 import { compareCandidates, itemModLines } from '../game/gear';
 import { scopeHero } from '../online/rules';
 
@@ -65,6 +68,10 @@ export function cleanPresetName(name: string | null | undefined): string | null 
 
 /** Budget points of an item by rarity (cosmetics cost nothing). */
 export const RARITY_POINTS: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, epic: 4, legendary: 6 };
+/** A named legendary costs more than a random one (docs/ITEMS.md "Duel fairness"). */
+export const NAMED_POINTS = 7;
+/** Each active set bonus line a hero wears costs this much on top of the pieces. */
+export const SET_LINE_POINTS = 1;
 
 /** Budget points of a class at level 1: a tenth of its recruitment price (hoplite 10, archer 5, companion 16). */
 export function classPoints(cls: ClassId): number {
@@ -76,15 +83,32 @@ export function levelMult(level: number): number {
   return 1 + (Math.max(1, Math.min(10, level)) - 1) / 9;
 }
 
-export function itemPoints(it: Pick<Item, 'rarity'> | null | undefined): number {
-  return it ? RARITY_POINTS[it.rarity] ?? 0 : 0;
+export function itemPoints(it: (Pick<Item, 'rarity'> & { def?: string }) | null | undefined): number {
+  if (!it) return 0;
+  return it.def && ITEMS[it.def]?.named ? NAMED_POINTS : RARITY_POINTS[it.rarity] ?? 0;
 }
 
-/** Budget points of a hero with the gear he wears. */
+/**
+ * Set bonus lines a hero has active: pieces count as in battle (src/sim/stats.ts),
+ * only those his class may use and whose requirements he meets.
+ */
+export function setLines(h: Hero): number {
+  const count = new Map<string, number>();
+  for (const it of Object.values(h.equip)) {
+    const def = it ? ITEMS[it.def] : undefined;
+    if (!it || !def?.set || classGearBlocker(h.cls ?? 'militia', def) || shortfall(h.attrs, it.def, it.rarity) > 0) continue;
+    count.set(def.set, (count.get(def.set) ?? 0) + 1);
+  }
+  let n = 0;
+  for (const [set, pieces] of count) n += activeBonuses(set, pieces).length;
+  return n;
+}
+
+/** Budget points of a hero with the gear he wears (and its active set lines). */
 export function heroPoints(h: Hero): number {
   const cls = (h.cls ?? 'militia') as ClassId;
   const base = Math.round((CLASSES[cls] ? classPoints(cls) : 6) * levelMult(h.level));
-  return base + Object.values(h.equip).reduce((a, it) => a + itemPoints(it), 0);
+  return base + Object.values(h.equip).reduce((a, it) => a + itemPoints(it), 0) + SET_LINE_POINTS * setLines(h);
 }
 
 export function teamPoints(heroes: readonly Hero[]): number {
@@ -274,9 +298,44 @@ export function findOffer(id: string, day: number): ShopOffer | null {
   return catalogue().find((o) => o.id === id) ?? dailyOffers(day).find((o) => o.id === id) ?? null;
 }
 
-/** The Glory a stash item sells back for: a quarter of its shop price at its rarity. */
+/**
+ * The Glory a stash item sells back for: a quarter of its shop price at its
+ * rarity. Bound items (named legendaries, legendary set pieces) are never
+ * sold, only salvaged, for the same quarter (`/shop/salvage`).
+ */
 export function sellPrice(it: Pick<Item, 'def' | 'rarity'>): number {
   return Math.max(1, Math.floor(gearPrice(it.def, it.rarity) / 4));
+}
+
+// ------------------------------------------------------------------ per-duel spoils
+
+/** Per-duel spoils (docs/DUELS.md "Spoils"): drop chances of a won duel, raids at `raidShare` of ranked. */
+export const SPOILS = {
+  unranked: 0.08,
+  ranked: 0.12,
+  raidShare: 0.5,
+  rarity: [['common', 50], ['uncommon', 35], ['rare', 15]] as [Rarity, number][],
+};
+
+export type SpoilsMode = 'ranked' | 'unranked' | 'raid';
+
+/**
+ * The item a won duel drops, or null: seeded by the match (or raid) seed and
+ * the side, so a settlement that runs twice drops the same thing. The first
+ * ranked win of a UTC day (`firstWin`) always drops, at least uncommon. The
+ * piece follows the army's `classes`.
+ */
+export function duelSpoils(seed: number, side: number, mode: SpoilsMode, firstWin: boolean, classes: readonly string[], uid: string): Item | null {
+  const rng = new Rng((seed ^ 0x6c8e9cf5 ^ Math.imul(side + 1, 0x9e3779b1)) >>> 0 || 1);
+  const chance = mode === 'unranked' ? SPOILS.unranked : mode === 'ranked' ? SPOILS.ranked : SPOILS.ranked * SPOILS.raidShare;
+  const hit = rng.chance(chance);
+  if (!hit && !firstWin) return null;
+  let rarity = rng.weighted(SPOILS.rarity);
+  if (firstWin && rarity === 'common') rarity = 'uncommon';
+  const def = armyPick(rng, BASE_ITEMS, classes);
+  const it = makeItem(rng, { nextId: 1 }, def.id, rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
+  it.uid = uid;
+  return it;
 }
 
 /** An item bought in the shop (perfect condition). */
