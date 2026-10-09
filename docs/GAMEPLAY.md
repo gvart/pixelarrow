@@ -601,8 +601,8 @@ retried with backoff. Outside Telegram (no `initData`) nothing is requested.
 ## Art pipeline (`src/art`)
 
 Everything but the icons is generated at boot from code. The icons are drawn
-art in two atlases (`public/icons`, see [icons/README.md](icons/README.md)),
-with the code-drawn icons as the fallback. The look is specified in
+art in two atlases (`public/icons`, drawn by `src/art/iconBitmaps.ts`), with
+the code-drawn icons as the fallback. The look is specified in
 [ART_STYLE.md](ART_STYLE.md).
 
 - `model3d.ts`: a small software renderer. Figures are posed as 3D primitives

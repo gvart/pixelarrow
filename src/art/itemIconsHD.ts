@@ -3203,7 +3203,7 @@ export function renderItemIconHD(item: Item, px: number): HTMLCanvasElement {
   const r = rarityRank(item.rarity);
   const n = Math.max(8, Math.round(px));
   const u = n / ICON_UNITS;
-  // the drawn icon (docs/icons/README.md), when the atlas is loaded: the same sheen and finish
+  // the drawn icon (src/art/iconBitmaps.ts), when the atlas is loaded: the same sheen and finish
   const bmp = drawIconBitmap(itemIconId(def), n, { shadow: false, fill: 0.9 });
   if (bmp) {
     if (r >= 1) sheen(bmp.getContext('2d')!, r, u);

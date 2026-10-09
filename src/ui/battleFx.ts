@@ -61,9 +61,9 @@ const PIP_DEFS: { key: string; kind: 'up' | 'fang' | 'shield'; color: number }[]
 ];
 
 /**
- * Vector icon shown over a hero when an item power or a set special fires
- * (texture `fxicon_power_<id>`). Stand-ins until the atlas's `power:<id>`
- * icons (docs/icons/README.md) are wired in.
+ * Icon shown over a hero when an item power or a set special fires (texture
+ * `fxicon_power_<id>`): a power's own drawn icon (`power:<id>` in the atlas),
+ * else this UI icon (set specials, and the fallback without the atlas).
  */
 export const PROC_ICON: Record<ProcId, string> = {
   blood_price: 'berserk', frenzy: 'bolt', sunder: 'anvil', rend: 'armor', second_wind: 'heart', aegis: 'shield',

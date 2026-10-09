@@ -125,14 +125,14 @@ battle panel (Movement bronze, Attack red, Formation blue, Abilities gold),
 
 ### Icons
 
-Icons are drawn art: the atlases in `public/icons`, cut from the artist's
-sheets by `npm run icons` ([icons/README.md](icons/README.md)) and drawn by
-`src/art/iconBitmaps.ts`. The cream look on buttons and the grey disabled look
-are made from each bitmap. Every icon also has a code-drawn fallback, the
-smooth "material" family of `src/art/iconStyle.ts` (`vectorIcons.ts`,
-`uiIcons.ts`, HD item and goods icons in `itemIconsHD.ts`, `goodsIcons.ts`).
-A new icon gets both: a vector form following these rules, and a drawing
-(README "Waiting for art" until it comes):
+Icons are drawn art: the atlases in `public/icons` (`ui` at 64 px, `items` at
+96 px), drawn by `src/art/iconBitmaps.ts`. The cream look on buttons and the
+grey disabled look are made from each bitmap. Every icon also has a code-drawn
+fallback, the smooth "material" family of `src/art/iconStyle.ts`
+(`vectorIcons.ts`, `uiIcons.ts`, HD item and goods icons in `itemIconsHD.ts`,
+`goodsIcons.ts`). A new icon needs a vector form following these rules; it
+shows that until its drawing is in the atlases (`tests/iconAtlas.test.ts`
+lists icons still waiting):
 
 | Rule | Value |
 | --- | --- |

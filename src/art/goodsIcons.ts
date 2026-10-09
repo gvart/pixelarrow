@@ -937,7 +937,7 @@ const DRAW: Record<string, (g: G) => void> = {
  */
 export function renderGoodsIconHD(kind: GoodsKind, id: string, px: number): HTMLCanvasElement {
   void kind;
-  // the drawn icon (docs/icons/README.md) when the atlas has it
+  // the drawn icon (src/art/iconBitmaps.ts) when the atlas has it
   const bmp = drawIconBitmap(`goods:${id}`, px, { fill: 0.9 });
   if (bmp) return bmp;
   const [canvas, g] = iconCanvas(px, GOODS_UNITS);

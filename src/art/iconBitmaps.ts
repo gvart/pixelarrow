@@ -1,6 +1,5 @@
 /**
- * The drawn icons (docs/icons/README.md): bitmaps cut from the artist's tile
- * sheets, shipped as two atlases in public/icons (ui.png: UI, camp, sync
+ * The drawn icons: bitmaps shipped as two atlases in public/icons (ui.png: UI, camp, sync
  * badges and power icons at 64 px; items.png: items, trinkets and goods at
  * 96 px). BootScene loads them and registers their frames here; the icon
  * painters (iconStyle.paintIcon, itemIconsHD, goodsIcons, the sync badges)
