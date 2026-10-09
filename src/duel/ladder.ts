@@ -10,10 +10,10 @@
 import { Rng } from '../sim/rng';
 import type { BattleResult } from '../sim/types';
 import type { FormationType } from '../sim/formation';
-import { ITEM_LIST, type Item, type Rarity } from '../data/items';
+import { BASE_ITEMS, type Item, type Rarity } from '../data/items';
 import type { Hero } from '../data/units';
 import { TRAITS } from '../data/traits';
-import { itemDef } from '../data/items';
+import { gearTotal } from '../game/gear';
 import { buildArmy, type ArmyMix } from '../game/enemy';
 import { grantXp, makeItem, rollBeastRarity, rollRarity, setBotLevel, type IdSource } from '../game/heroes';
 import { randomSite, type BattleSite } from '../world/battlefield';
@@ -179,7 +179,7 @@ export function duelHeroXp(result: Pick<BattleResult, 'units'>, team: Hero[], wo
   for (const h of heroes) {
     const u = result.units.find((x) => x.heroId === h.id && x.side === side);
     const kills = u?.kills ?? 0;
-    const bonus = (h.equip.trinket ? itemDef(h.equip.trinket.def).mods.xpBonus ?? 0 : 0) + h.traits.reduce((a, t) => a + (TRAITS[t].mods.xpBonus ?? 0), 0);
+    const bonus = gearTotal(h, 'xpBonus') + h.traits.reduce((a, t) => a + (TRAITS[t].mods.xpBonus ?? 0), 0);
     const gain = Math.round((12 + kills * 10 + (won ? 12 : 0)) * (1 + bonus));
     const levelBefore = h.level;
     const xpBefore = h.xp;
@@ -212,7 +212,7 @@ export function ladderPayout(floor: Floor, result: BattleResult, team: Hero[], c
   let drop: Item | null = null;
   if (firstClear || (won && rng.chance(LADDER.farmDropChance))) {
     const rarity: Rarity = firstClear && floor.boss ? rollBeastRarity(rng) : firstClear ? atLeast(rollRarity(rng, floor.tier), 'uncommon') : rollRarity(rng, floor.tier);
-    const def = rng.pick(ITEM_LIST);
+    const def = rng.pick(BASE_ITEMS);
     drop = makeItem(rng, ids, def.id, rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
     drop.uid = `${prefix}${drop.uid}`;
   }
@@ -310,7 +310,7 @@ export function chestItem(seed: number, ids: IdSource, prefix: string, chapter: 
   const rng = new Rng((seed ^ 0x5bd1e995) >>> 0 || 1);
   const c = Math.max(1, Math.min(CHAPTERS, chapter)) - 1;
   const rarity = rng.weighted<Rarity>([['rare', 70 - 10 * c], ['epic', 25 + 8 * c], ['legendary', 5 + 2 * c]]);
-  const def = rng.pick(ITEM_LIST);
+  const def = rng.pick(BASE_ITEMS);
   const it = makeItem(rng, ids, def.id, rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
   it.uid = `${prefix}${it.uid}`;
   return it;

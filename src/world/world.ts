@@ -9,7 +9,7 @@
 import { bandBeast, beastEnemy } from '../game/beasts';
 import { Rng, hashString } from '../sim/rng';
 import type { Culture } from '../data/names';
-import { ITEM_LIST, itemValue, type Item, type ItemDef } from '../data/items';
+import { BASE_ITEMS, itemValue, type Item, type ItemDef } from '../data/items';
 import { RECRUIT_COST, type Hero } from '../data/units';
 import { buildArmy, type ArmyMix, type EnemyArmy } from '../game/enemy';
 import { makeHero, makeItem, rollRarity, type IdSource } from '../game/heroes';
@@ -794,7 +794,7 @@ export class World {
 
 /** What a town market may stock this epoch: all common and finer gear, each elite (tier-3) piece with a 30% chance. */
 export function marketPool(rng: Rng): ItemDef[] {
-  return ITEM_LIST.filter((d) => d.tier <= 2 || rng.chance(0.3));
+  return BASE_ITEMS.filter((d) => d.tier <= 2 || rng.chance(0.3));
 }
 
 export interface Recruit {

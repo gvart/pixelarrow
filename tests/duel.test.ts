@@ -3,7 +3,7 @@ import { Battle } from '../src/sim/battle';
 import { runToEnd } from './helpers';
 import {
   DUEL_CLASSES, DUEL_RULES, accountLevel, catalogue, classPoints, dailyOffers, developHero, duelRecruit, findOffer, gearPrice, heroPoints,
-  deltaParts, levelProgress, offerSummary, recruitPrice, respecHero, starterDuelRoster, teamPoints, teamProblem, xpForLevel,
+  deltaParts, levelProgress, offerSummary, offerUid, recruitPrice, respecHero, starterDuelRoster, teamPoints, teamProblem, xpForLevel,
 } from '../src/duel/rules';
 import {
   CHAPTERS, CHEST_TIERS, LADDER, canFight, chapterFloors, chapterMaxStars, chapterOf, chapterStars, chestItem, chestReward, chestState, floorBudget, isBoss,
@@ -302,7 +302,7 @@ describe('shop offer summary', () => {
     const best = team.map((h) => h.equip.armor).filter((x) => !!x).sort((a, b) => itemValue(b!) - itemValue(a!))[0] ?? null;
     expect(s.vs?.uid ?? null).toBe(best?.uid ?? null);
     const armor = s.lines.find((l) => l.key === 'armor')!;
-    expect(armor.value).toBe(itemMods({ uid: 'o', def: 'cuirass', rarity: 'rare', cond: 100 }).armor);
+    expect(armor.value).toBe(itemMods({ uid: offerUid(offer), def: 'cuirass', rarity: 'rare', cond: 100 }).armor);
     expect(armor.delta).toBeCloseTo(armor.value - (best ? itemMods(best).armor ?? 0 : 0), 2);
     // against nothing: the delta is the value, always better
     const bare = offerSummary(offer, []);

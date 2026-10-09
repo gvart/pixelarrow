@@ -88,6 +88,16 @@ export function changedDeltas(cur: CombatStats, next: CombatStats): StatDelta[] 
   return statDeltas(cur, next).filter((d) => d.better !== null);
 }
 
+/** Sum of one stat over everything a hero wears (rarity, random stats and requirement penalty applied). */
+export function gearTotal(h: Pick<Hero, 'equip' | 'attrs'>, key: keyof StatMods): number {
+  let sum = 0;
+  for (const slot of SLOTS) {
+    const it = h.equip[slot];
+    if (it) sum += itemMods(it, h.attrs)[key] ?? 0;
+  }
+  return sum;
+}
+
 // ------------------------------------------------------------------ equipping
 
 /**

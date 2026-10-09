@@ -20,7 +20,7 @@ import type { Hero } from '../data/units';
 import type { BattleResult, BattleSetup } from '../sim/types';
 import type { Item } from '../data/items';
 import { makeItem, rollBeastRarity } from '../game/heroes';
-import { ITEM_LIST } from '../data/items';
+import { BASE_ITEMS } from '../data/items';
 
 export const BEAST_RULES = {
   /** A slain lair beast returns after this long (if the region fell back to the neutrals). */
@@ -201,7 +201,7 @@ export function segmentOutcome(setup: BattleSetup, result: BattleResult): { body
 
 /** What a world boss's hoard holds: every finer weapon, shield, helmet and armour. */
 export function bossLootPool(): string[] {
-  return ITEM_LIST.filter((d) => d.tier >= 2 && d.slot !== 'trinket').map((d) => d.id);
+  return BASE_ITEMS.filter((d) => d.tier >= 2 && d.slot !== 'trinket').map((d) => d.id);
 }
 
 /**

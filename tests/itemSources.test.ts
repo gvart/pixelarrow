@@ -12,9 +12,12 @@
  * The first test is the guard: a new item must be written into at least one
  * curated table (kits, charms or merchants), not only reach players through
  * the catch-all pools (markets, hoards, the duel catalogue).
+ *
+ * Set pieces and named legendaries (docs/ITEMS.md) are outside all of this:
+ * they come only from their own sources (bosses, chests, trading posts).
  */
 import { describe, expect, it } from 'vitest';
-import { ITEM_LIST, ITEMS, SLOTS, type Slot } from '../src/data/items';
+import { BASE_ITEMS, ITEM_LIST, ITEMS, SLOTS, type Slot } from '../src/data/items';
 import { CLASSES, SOLDIER_CLASSES, type ClassId } from '../src/data/classes';
 import type { Culture } from '../src/data/names';
 import { HERO_TRINKETS, heroTrinkets, makeHero } from '../src/game/heroes';
@@ -48,7 +51,7 @@ function merchantItems(): Set<string> {
 }
 
 function missing(have: Set<string>): string[] {
-  return ITEM_LIST.map((d) => d.id).filter((id) => !have.has(id));
+  return BASE_ITEMS.map((d) => d.id).filter((id) => !have.has(id));
 }
 
 describe('item acquisition: every item can be obtained', () => {
@@ -102,5 +105,15 @@ describe('item acquisition: every item can be obtained', () => {
   it('duels: the shop catalogue sells every item', () => {
     const sold = new Set(catalogue().map((o) => o.def));
     expect(missing(sold)).toEqual([]);
+  });
+});
+
+describe('set pieces and named legendaries', () => {
+  it('stay out of the shops, markets and random drop pools (they have their own sources)', () => {
+    const special = ITEM_LIST.filter((d) => d.set || d.named).map((d) => d.id);
+    expect(special.length).toBe(43);
+    const pools = new Set<string>([...catalogue().map((o) => o.def), ...BASE_ITEMS.map((d) => d.id)]);
+    for (const id of special) expect(pools.has(id), id).toBe(false);
+    for (const id of special) expect(ITEMS[id].named ? ITEMS[id].bound && ITEMS[id].power : ITEMS[id].set).toBeTruthy();
   });
 });

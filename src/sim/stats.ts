@@ -81,7 +81,7 @@ export function collectMods(hero: Hero): StatMods[] {
   const mods: StatMods[] = [];
   for (const slot of SLOTS) {
     const it = hero.equip[slot];
-    if (it) mods.push(itemMods(it));
+    if (it) mods.push(itemMods(it, hero.attrs));
   }
   for (const t of hero.traits) mods.push(TRAITS[t].mods);
   return mods;
@@ -178,11 +178,13 @@ export function computeStats(hero: Hero): CombatStats {
   };
 
   let speedMod = 0;
+  let atkSpeed = 0;
   for (const slot of SLOTS) {
     const it = hero.equip[slot];
     if (!it) continue;
     if (slot === 'shield' && !shieldUsable) continue;
-    const m = itemMods(it);
+    const m = itemMods(it, hero.attrs);
+    atkSpeed += m.atkSpeed ?? 0;
     // Weapon defines reach / timing absolutely; everything else is additive.
     if (slot === 'weapon') {
       if (m.reach !== undefined) s.reach = m.reach;
@@ -245,7 +247,7 @@ export function computeStats(hero: Hero): CombatStats {
   speedMod += agi * E.agiSpeed;
   s.accuracy += agi * E.agiAccuracy;
   const tempo = Math.max(0.6, 1 - agi * E.agiTempo);
-  s.atkTime *= tempo;
+  s.atkTime *= tempo / (1 + atkSpeed);
   s.shotTime *= tempo;
   s.stamina += end * E.endStamina;
   s.koChance += end * E.endKo;
@@ -294,6 +296,8 @@ function addCommon(s: CombatStats, m: StatMods): void {
   s.chargeBonus += m.chargeBonus ?? 0;
   s.moraleShock += m.moraleShock ?? 0;
   s.xpBonus += m.xpBonus ?? 0;
+  s.koChance += m.koChance ?? 0;
+  if (m.steady) s.moraleLoss *= Math.max(0.3, 1 - m.steady);
 }
 
 /** Rough combat power of a hero, used to scale the bot's army. */
