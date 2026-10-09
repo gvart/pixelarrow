@@ -131,3 +131,107 @@ cached.
 - Not measured: frame time on a mid-range Android device. The motion is
   tweens and timers on existing objects, the new textures (panels, banners,
   sprites) are drawn once per size and cached.
+
+## Before / after (390 × 844)
+
+Captured with the layout check's harness (`--dpr 2`, a fake full-screen Telegram) on the base commit and on this branch, the same staged data for both.
+
+### duel-board-live
+
+![duel-board-live](screenshots/iteration-2/duel-board-live.jpg)
+
+### duel-chest-item
+
+![duel-chest-item](screenshots/iteration-2/duel-chest-item.jpg)
+
+### duel-floor-farm
+
+![duel-floor-farm](screenshots/iteration-2/duel-floor-farm.jpg)
+
+### duel-floor
+
+![duel-floor](screenshots/iteration-2/duel-floor.jpg)
+
+### duel-hero
+
+![duel-hero](screenshots/iteration-2/duel-hero.jpg)
+
+### duel-ladder
+
+![duel-ladder](screenshots/iteration-2/duel-ladder.jpg)
+
+### duel-ranked-locked
+
+![duel-ranked-locked](screenshots/iteration-2/duel-ranked-locked.jpg)
+
+### duel-ranked
+
+![duel-ranked](screenshots/iteration-2/duel-ranked.jpg)
+
+### duel-searching
+
+![duel-searching](screenshots/iteration-2/duel-searching.jpg)
+
+### duel-shop-offers
+
+![duel-shop-offers](screenshots/iteration-2/duel-shop-offers.jpg)
+
+### duel-shop-sell
+
+![duel-shop-sell](screenshots/iteration-2/duel-shop-sell.jpg)
+
+### duel-team
+
+![duel-team](screenshots/iteration-2/duel-team.jpg)
+
+### hero-perks
+
+![hero-perks](screenshots/iteration-2/hero-perks.jpg)
+
+### hero-skills
+
+![hero-skills](screenshots/iteration-2/hero-skills.jpg)
+
+### hero
+
+![hero](screenshots/iteration-2/hero.jpg)
+
+### menu-reset
+
+![menu-reset](screenshots/iteration-2/menu-reset.jpg)
+
+### menu-settings
+
+![menu-settings](screenshots/iteration-2/menu-settings.jpg)
+
+### menu
+
+![menu](screenshots/iteration-2/menu.jpg)
+
+### merchant-town
+
+![merchant-town](screenshots/iteration-2/merchant-town.jpg)
+
+### results
+
+![results](screenshots/iteration-2/results.jpg)
+
+### shop-pass
+
+![shop-pass](screenshots/iteration-2/shop-pass.jpg)
+
+### shop-shop
+
+![shop-shop](screenshots/iteration-2/shop-shop.jpg)
+
+### shop-wallet
+
+![shop-wallet](screenshots/iteration-2/shop-wallet.jpg)
+
+### town-market
+
+![town-market](screenshots/iteration-2/town-market.jpg)
+
+### trial
+
+![trial](screenshots/iteration-2/trial.jpg)
