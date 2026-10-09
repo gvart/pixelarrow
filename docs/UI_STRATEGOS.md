@@ -13,8 +13,8 @@ the overland map's chrome and the online war map's chrome (its region panel
 lays its actions out in two rows rather than cut a word). The isometric camp
 scene keeps its own strips and column (they already follow the pattern: an
 info sentence in the bottom strip, one red action, the back button top-left);
-settlements, results, duels, market and the first run keep their old chrome
-until they adopt this page.
+the duel hub (below); settlements, results, market and the first run keep
+their old chrome until they adopt this page.
 
 ## Tokens (`src/ui/theme.ts`)
 
@@ -105,12 +105,22 @@ Online (OnlineScene)   SITUATION (marching / income waiting / energy / season + 
 World (WorldScene)     SITUATION ("Day 3, 09:00 · Road, safe. Tap the map to march, a town to enter."
                        · gold / fit men / food · days / supplies) · map (follow button under the bar)
                        · STRIP: Menu | Camp (pitch, or enter the camp) | Stop or Rest / Pause | Party
+Duels (DuelScene)      SITUATION (sentence · Glory, a duel level badge with its XP bar; Team (badged "!"
+                       when a fighting hero has points or a perk to spend) and Shop as icons on the right,
+                       on the switch's row on short screens) · Ladder | Arena switch
+                       Ladder: next floor card · farm line · chapters (stars, three chests) with tiles of
+                       five floors · STRIP: Back | Fight floor N
+                       Arena: season line · Live PvP card (Find match is its red action, Unranked, trophy)
+                       · Raids card (raids left, defence, Raid, log, trophy) · STRIP: Back
+                       full views (title + back arrow instead of the switch): Team (presets, uses, points,
+                       heroes · STRIP: Back | Recruit | Dismiss), Shop (Today / Gear / Sell, offer cards with
+                       Buy · STRIP: Back), raid picks (STRIP: Back | Raid <name> | Log), leaderboards
 Camp (CampScene)       own iso strips: title + purse on top, the info sentence and the action row
                        (Muster, Loot, End day (primary), Strike) at the bottom; structures down the column
 ```
 
 Not yet adopted (keep their own chrome for now): SettlementScene, Results,
-Duel, Market, FirstRun; CampScene keeps its iso strips by design. To adopt:
+Market, FirstRun; CampScene keeps its iso strips by design. To adopt:
 replace the top bar with a `SituationBar` (sentence + numbers), the bottom
 buttons with a `CommandStrip` (Back | the one action | Army), and any tab row of
 actions with chips; keep the content between `sit.bottom` and `strip.top`.

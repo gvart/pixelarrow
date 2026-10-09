@@ -12,6 +12,7 @@ import type { FormationType } from '../../../src/sim/formation';
 import { hashString } from '../../../src/sim/rng';
 import { DEFAULT_FORMATIONS } from '../../../src/online/rules';
 import { DUEL_RULES, accountLevel, freshGear, starterDuelRoster, teamPoints, teamProblem, utcDay } from '../../../src/duel/rules';
+import { starsByFloor } from '../../../src/duel/ladder';
 import { ApiError } from '../errors';
 
 export interface DuelProfileRow {
@@ -29,7 +30,7 @@ export interface DuelProfileRow {
   rev: number;
   created_at: number;
   updated_at: number;
-  /** The loadout the Team tab edits, and the ones that fight on the ladder, in the arena and defend (1..3). */
+  /** The loadout the Team tab edits, and the ones that fight on the ladder, in the arena and defend (slots 1..5). */
   loadout: number;
   lo_ladder: number;
   lo_arena: number;
@@ -38,7 +39,8 @@ export interface DuelProfileRow {
 
 export type LoadoutUse = 'ladder' | 'arena' | 'defence';
 export const LOADOUT_USES: LoadoutUse[] = ['ladder', 'arena', 'defence'];
-export const LOADOUT_SLOTS = 3;
+/** Most presets a player keeps (slots 1..LOADOUT_SLOTS). */
+export const LOADOUT_SLOTS = DUEL_RULES.presetsMax;
 
 export interface Loadout {
   slot: number;
@@ -151,29 +153,45 @@ export function duelFormations(p: Pick<DuelProfileRow, 'formations'>): Formation
   return formationList(p.formations);
 }
 
-/** The player's saved teams, slots 1..LOADOUT_SLOTS (a slot never saved is empty). */
+/**
+ * The player's presets (saved teams) by slot, 1..LOADOUT_SLOTS: one per row
+ * (0014: a preset exists while its row does). Never empty: a profile without
+ * rows (before 0010) has its legacy team as preset 1.
+ */
 export async function loadLoadouts(db: D1Database, p: DuelProfileRow): Promise<Loadout[]> {
-  const rows = await db.prepare('SELECT slot, name, team, formations FROM duel_loadouts WHERE player_id = ?1').bind(p.player_id).all<{ slot: number; name: string | null; team: string; formations: string }>();
-  const out: Loadout[] = [];
-  for (let slot = 1; slot <= LOADOUT_SLOTS; slot++) {
-    const r = rows.results.find((x) => x.slot === slot);
-    if (r) out.push({ slot, name: r.name, team: idList(r.team), formations: formationList(r.formations) });
-    // a profile from before 0010 that the migration did not see keeps its team in slot 1
-    else out.push({ slot, name: null, team: slot === 1 ? teamOf(p) : [], formations: slot === 1 ? duelFormations(p) : [...DEFAULT_FORMATIONS] });
-  }
+  const rows = await db
+    .prepare('SELECT slot, name, team, formations FROM duel_loadouts WHERE player_id = ?1 AND slot BETWEEN 1 AND ?2 ORDER BY slot')
+    .bind(p.player_id, LOADOUT_SLOTS)
+    .all<{ slot: number; name: string | null; team: string; formations: string }>();
+  const out = rows.results.map((r) => ({ slot: r.slot, name: r.name, team: idList(r.team), formations: formationList(r.formations) }));
+  if (!out.length) out.push({ slot: 1, name: null, team: teamOf(p), formations: duelFormations(p) });
   return out;
 }
 
-/** The slot a profile uses for something (1..3). */
+/** An existing preset slot: `slot` when it exists, else the first preset. */
+export function presentSlot(loadouts: readonly Loadout[], slot: number): number {
+  return loadouts.some((l) => l.slot === slot) ? slot : loadouts[0].slot;
+}
+
+/** The slot a profile row names for something (1..LOADOUT_SLOTS; resolve with presentSlot). */
 export function useSlot(p: Pick<DuelProfileRow, 'lo_ladder' | 'lo_arena' | 'lo_defence'>, use: LoadoutUse): number {
   const v = use === 'ladder' ? p.lo_ladder : use === 'arena' ? p.lo_arena : p.lo_defence;
   return v >= 1 && v <= LOADOUT_SLOTS ? v : 1;
 }
 
+/** The slot the Team tab edits (resolve with presentSlot). */
+export function editedSlot(p: Pick<DuelProfileRow, 'loadout'>): number {
+  return p.loadout >= 1 && p.loadout <= LOADOUT_SLOTS ? p.loadout : 1;
+}
+
+/** The preset of a slot among `loadouts` (the first one when that slot is gone). */
+export function presetAt(loadouts: readonly Loadout[], slot: number): Loadout {
+  return loadouts.find((l) => l.slot === slot) ?? loadouts[0];
+}
+
 /** The loadout a profile uses for something. */
 export async function loadoutFor(db: D1Database, p: DuelProfileRow, use: LoadoutUse): Promise<Loadout> {
-  const all = await loadLoadouts(db, p);
-  return all[useSlot(p, use) - 1];
+  return presetAt(await loadLoadouts(db, p), useSlot(p, use));
 }
 
 /** Writes a loadout (guarded by `G`). */
@@ -227,7 +245,15 @@ export interface DuelProfileView {
   glory: number;
   xp: number;
   level: number;
-  ladder: { cleared: number; farmLeft: number; farmCap: number };
+  ladder: {
+    cleared: number;
+    farmLeft: number;
+    farmCap: number;
+    /** Best stars per floor (index floor − 1, LADDER.floors long; 0: not won). */
+    stars: number[];
+    /** Chapter chests already claimed. */
+    chests: { chapter: number; tier: number }[];
+  };
   team: string[];
   formations: FormationType[];
   heroes: Hero[];
@@ -248,23 +274,24 @@ export interface DuelProfileView {
 export async function duelProfileView(db: D1Database, pid: number, now: number, row?: DuelProfileRow): Promise<DuelProfileView> {
   const p = row ?? (await requireDuelProfile(db, pid));
   const day = utcDay(now);
-  const [heroes, stash, bought, loadouts, defence] = await Promise.all([
+  const [heroes, stash, bought, loadouts, defence, ladder] = await Promise.all([
     loadDuelHeroes(db, pid),
     loadDuelItems(db, pid),
     db.prepare("SELECT ref FROM duel_orders WHERE player_id = ?1 AND kind = 'buy' AND ref LIKE ?2").bind(pid, `day${day}:%`).all<{ ref: string }>(),
     loadLoadouts(db, p),
     db.prepare('SELECT heroes, points, updated_at FROM duel_defences WHERE player_id = ?1').bind(pid).first<{ heroes: string; points: number; updated_at: number }>(),
+    loadLadderStars(db, p),
   ]);
   const ids = new Set(heroes.map((h) => h.hero.id));
   for (const l of loadouts) l.team = l.team.filter((id) => ids.has(id));
-  const edited = loadouts[Math.min(LOADOUT_SLOTS, Math.max(1, p.loadout || 1)) - 1];
+  const edited = presetAt(loadouts, editedSlot(p));
   return {
     now,
     day,
     glory: p.glory,
     xp: p.xp,
     level: accountLevel(p.xp),
-    ladder: { cleared: p.ladder_cleared, farmLeft: farmLeft(p, now), farmCap: DUEL_RULES.farmGloryPerDay },
+    ladder: { cleared: p.ladder_cleared, farmLeft: farmLeft(p, now), farmCap: DUEL_RULES.farmGloryPerDay, ...ladder },
     team: edited.team,
     formations: edited.formations,
     heroes: heroes.map((h) => h.hero),
@@ -274,8 +301,24 @@ export async function duelProfileView(db: D1Database, pid: number, now: number, 
     bought: bought.results.map((r) => r.ref),
     loadouts,
     loadout: edited.slot,
-    use: { ladder: useSlot(p, 'ladder'), arena: useSlot(p, 'arena'), defence: useSlot(p, 'defence') },
+    use: {
+      ladder: presentSlot(loadouts, useSlot(p, 'ladder')),
+      arena: presentSlot(loadouts, useSlot(p, 'arena')),
+      defence: presentSlot(loadouts, useSlot(p, 'defence')),
+    },
     defence: defence ? { points: defence.points, heroes: (JSON.parse(defence.heroes) as unknown[]).length, updatedAt: defence.updated_at } : null,
+  };
+}
+
+/** The ladder's best stars per floor (legacy cleared floors count 1) and the claimed chapter chests. */
+export async function loadLadderStars(db: D1Database, p: Pick<DuelProfileRow, 'player_id' | 'ladder_cleared'>): Promise<{ stars: number[]; chests: { chapter: number; tier: number }[] }> {
+  const [rows, chests] = await Promise.all([
+    db.prepare('SELECT floor, stars FROM duel_ladder_stars WHERE player_id = ?1').bind(p.player_id).all<{ floor: number; stars: number }>(),
+    db.prepare('SELECT chapter, tier FROM duel_ladder_chests WHERE player_id = ?1 ORDER BY chapter, tier').bind(p.player_id).all<{ chapter: number; tier: number }>(),
+  ]);
+  return {
+    stars: starsByFloor(p.ladder_cleared, new Map(rows.results.map((r) => [r.floor, r.stars]))),
+    chests: chests.results.map((c) => ({ chapter: c.chapter, tier: c.tier })),
   };
 }
 

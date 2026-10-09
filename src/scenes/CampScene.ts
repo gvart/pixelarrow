@@ -1030,7 +1030,7 @@ export class CampScene extends BaseScene {
     // as many rows as the screen holds (the finest gear first)
     const list = items.slice(0, Math.max(1, Math.min(6, Math.floor((VH - 16 - 40) / (rowH + 2)))));
     const h = 30 + Math.max(1, list.length) * (rowH + 2) + 10;
-    const md = openModal(this, { title: t('cs.temper'), w: Math.min(VW - 12, 220), h, shadeCloses: true, onClose: () => (this.modal = null) });
+    const md = openModal(this, { title: t('cs.temper'), w: Math.min(VW - 12, 220), h, onClose: () => (this.modal = null) });
     this.modal = md;
     const { x, w: mw } = md;
     let y = md.body.y;

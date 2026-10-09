@@ -20,7 +20,7 @@ import { randomSite, type BattleSite } from '../world/battlefield';
 import { DEFAULT_FORMATIONS, scopeHero } from '../online/rules';
 import { onlineBattleSetup } from '../online/battle';
 import type { BattleSetup } from '../sim/types';
-import { DUEL_RULES, teamPoints } from './rules';
+import { DUEL_RULES, heroPoints, teamPoints } from './rules';
 
 export const LADDER = {
   floors: 50,
@@ -28,6 +28,25 @@ export const LADDER = {
   bossEvery: 10,
   /** Chance of an item drop on a won replay. */
   farmDropChance: 0.25,
+  /** Floors per chapter (the boss is the last floor of each). */
+  chapterSize: 10,
+  /**
+   * Stars of a won floor by the share of the team's points lost (dead or
+   * fled heroes, weighted by heroPoints): 3 at most `stars3` lost, 2 at most
+   * `stars2`, else 1. A lost battle earns none. Stars only go up.
+   */
+  stars3: 0.2,
+  stars2: 0.5,
+  /** Chapter chests: claimable once each at these chapter star totals (tier 1..3). */
+  chestStars: [10, 20, 30] as readonly number[],
+  /** Chest Glory: base + perChapter × (chapter − 1), by tier. */
+  chestGlory: [
+    { base: 60, perChapter: 40 },
+    { base: 120, perChapter: 80 },
+    { base: 200, perChapter: 120 },
+  ] as readonly { base: number; perChapter: number }[],
+  /** The tier whose chest also holds a guaranteed item (rare or better). */
+  chestItemTier: 3,
 };
 
 const MIXES: ArmyMix[] = ['bandits', 'line', 'raiders', 'hill_tribe', 'mercs', 'pirates', 'deserters', 'cultists', 'line', 'garrison'];
@@ -148,6 +167,9 @@ export interface LadderPayout {
   heroes: Hero[];
   xp: HeroXp[];
   drop: Item | null;
+  /** Stars this battle earned (0 for a loss) and the share of team points lost. */
+  stars: number;
+  lost: number;
 }
 
 /** XP of each hero of `side` (0 on the ladder) for a duel battle: like the campaign, without wounds, deaths or wear. */
@@ -194,7 +216,104 @@ export function ladderPayout(floor: Floor, result: BattleResult, team: Hero[], c
     drop = makeItem(rng, ids, def.id, rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
     drop.uid = `${prefix}${drop.uid}`;
   }
-  return { won, firstClear, glory, capped, accountXp, heroes, xp, drop };
+  const lost = lostShare(result, team);
+  return { won, firstClear, glory, capped, accountXp, heroes, xp, drop, stars: ladderStars(won, lost), lost };
+}
+
+// ------------------------------------------------------------------ stars and chapters
+
+/** Share (0..1) of the team's points lost in a battle: dead or fled heroes of `side`, weighted by heroPoints. */
+export function lostShare(result: Pick<BattleResult, 'units'>, team: readonly Hero[], side = 0): number {
+  const total = teamPoints(team);
+  if (total <= 0) return 0;
+  let lost = 0;
+  for (const h of team) {
+    const u = result.units.find((x) => x.heroId === h.id && x.side === side);
+    if (!u || u.state === 'dead' || u.state === 'fled') lost += heroPoints(h);
+  }
+  return Math.min(1, lost / total);
+}
+
+/** Stars of a ladder battle (0 for a loss): ★ a win, ★★ at most 50% of the team's points lost, ★★★ at most 20%. */
+export function ladderStars(won: boolean, lost: number): 0 | 1 | 2 | 3 {
+  if (!won) return 0;
+  if (lost <= LADDER.stars3 + 1e-9) return 3;
+  if (lost <= LADDER.stars2 + 1e-9) return 2;
+  return 1;
+}
+
+export const CHAPTERS = Math.ceil(LADDER.floors / LADDER.chapterSize);
+export const CHEST_TIERS = LADDER.chestStars.length;
+
+/** The chapter (1..5) of a floor. */
+export function chapterOf(floor: number): number {
+  return Math.floor((Math.max(1, floor) - 1) / LADDER.chapterSize) + 1;
+}
+
+/** First and last floor of a chapter. */
+export function chapterFloors(chapter: number): [number, number] {
+  const first = (chapter - 1) * LADDER.chapterSize + 1;
+  return [first, Math.min(LADDER.floors, first + LADDER.chapterSize - 1)];
+}
+
+/**
+ * Best stars per floor (index floor − 1, length LADDER.floors) from the stored
+ * bests; a floor cleared before stars existed (no row, floor ≤ cleared) has 1.
+ */
+export function starsByFloor(cleared: number, best: ReadonlyMap<number, number> | Record<number, number>): number[] {
+  const get = (f: number) => (best instanceof Map ? best.get(f) : (best as Record<number, number>)[f]);
+  const out: number[] = [];
+  for (let f = 1; f <= LADDER.floors; f++) out.push(Math.max(get(f) ?? 0, f <= cleared ? 1 : 0));
+  return out;
+}
+
+/** Stars collected in a chapter (from a starsByFloor array). */
+export function chapterStars(stars: readonly number[], chapter: number): number {
+  const [a, b] = chapterFloors(chapter);
+  let n = 0;
+  for (let f = a; f <= b; f++) n += stars[f - 1] ?? 0;
+  return n;
+}
+
+/** The most stars a chapter holds (3 per floor). */
+export function chapterMaxStars(chapter: number): number {
+  const [a, b] = chapterFloors(chapter);
+  return 3 * (b - a + 1);
+}
+
+export interface ChestReward {
+  glory: number;
+  /** A guaranteed item of at least this rarity (only the top tier). */
+  item: Rarity | null;
+}
+
+/** What a chapter chest holds (tier 1..3). */
+export function chestReward(chapter: number, tier: number): ChestReward {
+  const g = LADDER.chestGlory[tier - 1];
+  return { glory: g.base + g.perChapter * (chapter - 1), item: tier === LADDER.chestItemTier ? 'rare' : null };
+}
+
+export type ChestState = 'locked' | 'ready' | 'claimed';
+
+/** A chest's state from the chapter's stars and the claimed list. */
+export function chestState(stars: readonly number[], claimed: readonly { chapter: number; tier: number }[], chapter: number, tier: number): ChestState {
+  if (claimed.some((c) => c.chapter === chapter && c.tier === tier)) return 'claimed';
+  return chapterStars(stars, chapter) >= LADDER.chestStars[tier - 1] ? 'ready' : 'locked';
+}
+
+export function validChest(chapter: number, tier: number): boolean {
+  return Number.isInteger(chapter) && Number.isInteger(tier) && chapter >= 1 && chapter <= CHAPTERS && tier >= 1 && tier <= CHEST_TIERS;
+}
+
+/** The top-tier chest's item: rare or better, rarer in later chapters (deterministic by seed). */
+export function chestItem(seed: number, ids: IdSource, prefix: string, chapter: number): Item {
+  const rng = new Rng((seed ^ 0x5bd1e995) >>> 0 || 1);
+  const c = Math.max(1, Math.min(CHAPTERS, chapter)) - 1;
+  const rarity = rng.weighted<Rarity>([['rare', 70 - 10 * c], ['epic', 25 + 8 * c], ['legendary', 5 + 2 * c]]);
+  const def = rng.pick(ITEM_LIST);
+  const it = makeItem(rng, ids, def.id, rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
+  it.uid = `${prefix}${it.uid}`;
+  return it;
 }
 
 function atLeast(r: Rarity, min: Rarity): Rarity {

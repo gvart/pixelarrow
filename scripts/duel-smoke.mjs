@@ -1,13 +1,16 @@
 // The duel mode end to end on its in-memory demo (no backend, docs/DUELS.md):
-// the hub opens from the menu, a recruit joins, the team changes, the shop
-// sells gear, the hero sheet equips it on a duel hero (not the campaign's),
-// and a ladder floor is fought through the real battle scene to the report
-// and back to the ladder with its Glory, XP and a cleared floor, a ranked
-// match and a raid on a defence team (the async ladder). Also checks
-// that the hub shows "available in Telegram" when the API cannot be used.
-// Regressions: switching tabs does not pile up listeners, a second Back or
+// the hub opens from the menu, Team and Shop open from the header and go back
+// to the mode they came from, a recruit joins, the team changes, presets are
+// made, renamed, duplicated, assigned and deleted, the shop sells gear, the
+// hero sheet equips it on a duel hero (not the campaign's), a chapter chest
+// is claimed, and a ladder floor is fought through the real battle scene to
+// the report (with its stars) and back to the ladder with its Glory, XP and a
+// cleared floor, a ranked match, a raid on a defence team (the async ladder)
+// and the leaderboards. Also checks that the hub shows "available in
+// Telegram" when the API cannot be used.
+// Regressions: switching views does not pile up listeners, a second Back or
 // Continue after a report lands on the hub (not the menu), a new screen size
-// keeps the tab and the queue search, and the hub is drawn after every match.
+// keeps the view and the queue search, and the hub is drawn after every match.
 // Usage: node scripts/duel-smoke.mjs [baseUrl]   (needs a running dev/preview server)
 import { chromium } from 'playwright';
 
@@ -66,8 +69,41 @@ check('[team] recruit joins for Glory', rec.heroes === before.heroes + 1 && rec.
 await call('Duel', 'const id = s.profile.heroes[s.profile.heroes.length - 1].id; s.toggleTeam(s.profile, s.profile.heroes.find((h) => h.id === id)); return 1;');
 check('[team] the recruit is in the team', await until(() => window.__game.scene.getScene('Duel').profile.team.length === 7));
 
+// Team and Shop open from the header; their back arrow (and Back) return to the mode they came from.
+await call('Duel', "s.openMode('ladder'); s.openView('team'); return 1;");
+check('[hub] Team opens from the header', (await call('Duel', 'return s.tab;')) === 'team');
+await call('Duel', 's.up(); return 1;');
+check('[hub] its back arrow returns to the Ladder', (await call('Duel', 'return s.tab;')) === 'ladder');
+await call('Duel', "s.openMode('ranked'); s.openView('shop'); return 1;");
+await page.waitForTimeout(700); // past the hub's Back guard
+await ev(() => window.__nav.back());
+await page.waitForTimeout(200);
+const fromShop = await call('Duel', 'return { tab: s.tab, arena: s.arenaTab, active: window.__game.scene.isActive("Duel") };');
+check('[hub] Back from the Shop lands on the Arena (not the menu)', fromShop.active && fromShop.tab === 'ranked' && fromShop.arena === 'home', JSON.stringify(fromShop));
+
+// Presets: a new empty one, renamed through the text prompt, a hero added, used on the ladder, duplicated, deleted.
+await call('Duel', "s.openView('team'); s.newPreset(); return 1;");
+check('[presets] a new empty preset is edited', await until(() => { const p = window.__game.scene.getScene('Duel').profile; return p.loadouts.length === 3 && p.team.length === 0 && p.loadout === 3; }));
+await call('Duel', 'void s.renamePreset(s.profile.loadout); return 1;');
+await page.waitForSelector('#px-prompt input', { timeout: 4000 });
+await page.fill('#px-prompt input', '  Phalanx  ');
+await page.click('#px-prompt button[type=submit]');
+check('[presets] renamed (trimmed)', await until(() => { const p = window.__game.scene.getScene('Duel').profile; return p.loadouts.find((l) => l.slot === p.loadout).name === 'Phalanx'; }));
+await call('Duel', 's.toggleTeam(s.profile, s.profile.heroes[0]); return 1;');
+await until(() => window.__game.scene.getScene('Duel').profile.team.length === 1);
+await call('Duel', "s.assignUse('ladder'); return 1;");
+check('[presets] used on the ladder', await until(() => { const p = window.__game.scene.getScene('Duel').profile; return p.use.ladder === 3; }));
+await call('Duel', 's.duplicatePreset(3); return 1;');
+check('[presets] duplicated', await until(() => { const p = window.__game.scene.getScene('Duel').profile; return p.loadouts.length === 4 && p.loadouts.find((l) => l.slot === 4).team.length === 1; }));
+await call('Duel', 'void s.act(() => s.src.deleteLoadout(4)); return 1;');
+await until(() => window.__game.scene.getScene('Duel').profile.loadouts.length === 3);
+await call('Duel', 'void s.act(() => s.src.deleteLoadout(3)); return 1;');
+const pr = await call('Duel', 'return new Promise((r) => setTimeout(() => r({ n: s.profile.loadouts.length, ladder: s.profile.use.ladder, edit: s.profile.loadout, team: s.profile.team.length }), 300));');
+check('[presets] deleted: its uses and the edit move to the first one left', pr.n === 2 && pr.ladder === 1 && pr.edit === 1 && pr.team === 7, JSON.stringify(pr));
+check('[presets] the Team view is drawn', await shown());
+
 // The shop: buy a rare dory.
-await call('Duel', "s.tab = 'shop'; s.shopTab = 'gear'; s.buildBody(); void s.act(() => s.src.buy('dory:rare')); return 1;");
+await call('Duel', "s.openView('shop'); s.shopTab = 'gear'; s.buildBody(); void s.act(() => s.src.buy('dory:rare')); return 1;");
 await until(new Function(`return window.__game.scene.getScene('Duel').profile.stash.length === ${before.stash + 1};`));
 const bought = await call('Duel', "const it = s.profile.stash.find((i) => i.def === 'dory' && i.rarity === 'rare'); return { uid: it && it.uid, glory: s.profile.glory };");
 check('[shop] gear bought for Glory', !!bought.uid && bought.glory < rec.glory, JSON.stringify(bought));
@@ -87,9 +123,19 @@ check('[hero] equipped on the duel hero, campaign untouched', eq.weapon === boug
 // Tab switches rebuild the page: listeners must not pile up (they fired once per old list).
 const listeners = () => call('Duel', "return s.events.listenerCount('shutdown') + s.events.listenerCount('update') + s.input.listenerCount('pointerdown');");
 const l0 = await listeners();
-await call('Duel', "for (let i = 0; i < 12; i++) for (const t of ['ladder', 'ranked', 'team', 'shop']) { s.tab = t; s.buildBody(); } s.tab = 'ladder'; s.buildBody(); return 1;");
+await call('Duel', "for (let i = 0; i < 12; i++) { s.openMode('ladder'); s.openMode('ranked'); s.openView('team'); s.openView('shop'); s.openBoard('live'); s.openArena('raid'); s.up(); } s.openMode('ladder'); return 1;");
+await page.waitForTimeout(400);
 const l1 = await listeners();
-check('[hub] tab switches do not pile up listeners', l1 <= l0, `${l0} -> ${l1}`);
+check('[hub] view switches do not pile up listeners', l1 <= l0, `${l0} -> ${l1}`);
+
+// A chapter chest: chapter 1 has 10 stars in the demo, its first chest is ready.
+const g0 = await call('Duel', 'return s.profile.glory;');
+await call('Duel', 'void s.claimChest(1, 1); return 1;');
+check('[ladder] the chapter chest is claimed', await until(() => window.__game.scene.getScene('Duel').profile.ladder.chests.some((c) => c.chapter === 1 && c.tier === 1)));
+const g1 = await call('Duel', 'return s.profile.glory;');
+check('[ladder] the chest paid its Glory', g1 === g0 + 60, `${g0} -> ${g1}`);
+await ev(() => window.__nav.back()); // the reward popup
+await page.waitForTimeout(200);
 
 // The ladder: fight the next floor through the battle scene.
 const floor = before.cleared + 1;
@@ -117,16 +163,17 @@ await call(
 check('[ladder] the report', await until(() => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 20000));
 const rep = await call('Results', 'const r = s.report; return { result: r.result, glory: r.glory, notes: r.notes, loot: r.loot.length, died: r.heroes.filter((h) => h.died).length };');
 check('[ladder] a won floor: Glory, a drop, nobody dies', rep.result === 'victory' && rep.glory > 0 && rep.notes.length >= 2 && rep.loot === 1 && rep.died === 0, JSON.stringify(rep));
+check('[ladder] the report says the stars', rep.notes.some((n) => /Stars: [123] of 3/.test(n)), JSON.stringify(rep.notes));
 // Continue tapped twice: one way out (the second must not open the campaign's Army)
 await call('Results', 's.finish(); s.finish(); return 1;');
 check('[ladder] back to the ladder', await until(() => window.__game.scene.isActive('Duel') && !!window.__game.scene.getScene('Duel').profile, 8000));
 await page.waitForTimeout(300);
 check('[ladder] the hub is drawn (and alone)', await shown());
-const after = await call('Duel', 'const p = s.profile; return { tab: s.tab, cleared: p.ladder.cleared, glory: p.glory, xp: p.xp, battles: p.battles };');
-check('[ladder] floor cleared, Glory and XP paid', after.tab === 'ladder' && after.cleared === floor && after.glory > bought.glory, JSON.stringify(after));
+const after = await call('Duel', 'const p = s.profile; return { tab: s.tab, cleared: p.ladder.cleared, glory: p.glory, xp: p.xp, battles: p.battles, stars: p.ladder.stars[p.ladder.cleared - 1] };');
+check('[ladder] floor cleared, Glory and XP paid, stars kept', after.tab === 'ladder' && after.cleared === floor && after.glory > bought.glory && after.stars >= 1, JSON.stringify(after));
 
 // The Arena: a ranked match on the demo (search -> opponent found -> the battle -> the report with the rating change -> back).
-await call('Duel', "s.src.findDelayMs = 400; s.foundHoldMs = 400; s.tab = 'ranked'; s.buildBody(); void s.fetchData(); return 1;");
+await call('Duel', "s.src.findDelayMs = 400; s.foundHoldMs = 400; s.openMode('ranked'); void s.fetchData(); return 1;");
 await until(() => !!window.__game.scene.getScene('Duel').ranked);
 const rk0 = await call('Duel', 'return { games: s.ranked.games, unlocked: s.ranked.unlocked, glory: s.profile.glory };');
 check('[arena] ranked is open at duel level 5', rk0.unlocked, JSON.stringify(rk0));
@@ -146,8 +193,16 @@ await ev(() => { window.__nav.back(); window.__nav.back(); });
 check('[arena] back to the Arena', await until(() => window.__game.scene.isActive('Duel') && !!window.__game.scene.getScene('Duel').ranked, 8000));
 await page.waitForTimeout(300);
 check('[arena] a second Back stays on the hub', await shown(), JSON.stringify(await ev(() => window.__game.scene.getScenes(true).map((x) => x.scene.key))));
-const rk1 = await call('Duel', 'return { tab: s.tab, games: s.ranked.games, glory: s.profile.glory };');
-check('[arena] one more rated match, Glory paid', rk1.tab === 'ranked' && rk1.games === rk0.games + 1 && rk1.glory === rk0.glory + 30, JSON.stringify(rk1));
+const rk1 = await call('Duel', 'return { tab: s.tab, arena: s.arenaTab, games: s.ranked.games, glory: s.profile.glory };');
+check('[arena] one more rated match, Glory paid, back on the Arena', rk1.tab === 'ranked' && rk1.arena === 'home' && rk1.games === rk0.games + 1 && rk1.glory === rk0.glory + 30, JSON.stringify(rk1));
+
+// The leaderboards: Live (with its Legend filter) and Raids, each a view of its own.
+await call('Duel', "s.openBoard('live'); return 1;");
+check('[boards] the Live board loads', await until(() => { const s = window.__game.scene.getScene('Duel'); return s.arenaTab === 'board' && s.boardView && s.boardView.board === 'live'; }));
+await call('Duel', "s.openBoard('legend'); return 1;");
+check('[boards] the Legend filter', await until(() => { const s = window.__game.scene.getScene('Duel'); return s.boardView && s.boardView.board === 'legend'; }));
+await call('Duel', 's.up(); return 1;');
+check('[boards] back to the Arena', (await call('Duel', 'return s.arenaTab;')) === 'home');
 
 // Raids: an async attack on a demo defence team (candidates -> the battle -> the report with the raid rating -> back to Raids).
 await call('Duel', "s.openArena('raid'); return 1;");
@@ -177,7 +232,7 @@ await call('Duel', "s.src.findDelayMs = 60000; s.findMatch('unranked'); return 1
 await page.setViewportSize({ width: 400, height: 800 });
 await page.waitForTimeout(1200);
 const rl = await call('Duel', 'return { search: !!s.search, tab: s.tab, arena: s.arenaTab, ready: s.st };');
-check('[hub] a resize keeps the tab and the queue search', rl.search && rl.tab === 'ranked' && rl.arena === 'live' && rl.ready === 'ready', JSON.stringify(rl));
+check('[hub] a resize keeps the view and the queue search', rl.search && rl.tab === 'ranked' && rl.arena === 'home' && rl.ready === 'ready', JSON.stringify(rl));
 await call('Duel', 's.cancelSearch(); return 1;');
 
 check('no page errors', errors.length === 0, errors.join(' | '));

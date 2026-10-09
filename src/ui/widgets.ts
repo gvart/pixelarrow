@@ -939,7 +939,11 @@ export interface ModalOpts {
   /** Height; clamped to the screen (put long content in a ScrollList inside `body`). */
   h: number;
   onClose?: () => void;
-  /** Tapping the shade closes (default false: only Back / buttons close). */
+  /**
+   * A tap on the shade outside the modal closes it, the same way as Back
+   * (default true). Pass false where an outside tap would skip a decision or
+   * lose progress: yes/no confirms, tutorial steps, forced choices, forms.
+   */
   shadeCloses?: boolean;
 }
 
@@ -955,8 +959,31 @@ export interface Modal {
 }
 
 /**
+ * Tap-outside on a modal shade: runs `onTap` only for a tap that went down and
+ * came up on the shade, both outside `rect` (UI px, the modal box). A press
+ * that began on the modal (a drag or scroll ending outside) or ended on it does
+ * not count. The tap that fires is swallowed: it never reaches the scene's own
+ * pointer handlers (the shade already blocks the game objects below).
+ */
+export function shadeTap(shade: Phaser.GameObjects.GameObject, rect: { x: number; y: number; w: number; h: number }, onTap: () => void): void {
+  const out = (lx: number, ly: number) => lx < rect.x || ly < rect.y || lx >= rect.x + rect.w || ly >= rect.y + rect.h;
+  let down: { id: number; time: number } | null = null;
+  shade.on('pointerdown', (p: Phaser.Input.Pointer, lx: number, ly: number) => {
+    down = out(lx, ly) ? { id: p.id, time: p.downTime } : null;
+  });
+  shade.on('pointerup', (p: Phaser.Input.Pointer, lx: number, ly: number, ev: Phaser.Types.Input.EventData) => {
+    const d = down;
+    down = null;
+    if (!d || d.id !== p.id || d.time !== p.downTime || !out(lx, ly)) return;
+    ev.stopPropagation();
+    onTap();
+  });
+}
+
+/**
  * A parchment modal on a shade that blocks the screen below, registered as a
- * navigation layer (Telegram Back closes it) and as a layout-check layer.
+ * navigation layer (Telegram Back closes it) and as a layout-check layer. A tap
+ * on the shade outside the box closes it too, unless `shadeCloses: false`.
  */
 export function openModal(scene: UiScene, o: ModalOpts): Modal {
   const { VW, VH } = scene.m;
@@ -982,7 +1009,7 @@ export function openModal(scene: UiScene, o: ModalOpts): Modal {
     c.destroy();
     o.onClose?.();
   };
-  if (o.shadeCloses) shade.on('pointerup', close);
+  if (o.shadeCloses !== false) shadeTap(shade, { x, y, w, h }, close);
   navLayer(c, close, scene);
   return { c, x, y, w, h, body: { x: x + 8, y: top, w: w - 16, h: y + h - 8 - top }, close };
 }
@@ -1015,7 +1042,8 @@ export function confirmDialog(scene: UiScene, o: ConfirmDialogOpts): Phaser.Game
   const wr = text ? wrapText(text, w - 20, 6) : { lines: [] as string[] };
   const h = 26 + wr.lines.length * LINE_H + (wr.lines.length ? 8 : 0) + SIZE.btnH + 12;
   let done = false;
-  const m = openModal(scene, { title: o.title ?? t('kit.confirm.title'), w, h, onClose: () => !done && o.onCancel?.() });
+  // explicit decisions stay explicit: an outside tap does not cancel
+  const m = openModal(scene, { title: o.title ?? t('kit.confirm.title'), w, h, shadeCloses: false, onClose: () => !done && o.onCancel?.() });
   const { c, x, y } = m;
   if (wr.lines.length) {
     const body = addText(scene, VW / 2, y + 26, wr.lines.join('\n'), 'ink', 0.5);

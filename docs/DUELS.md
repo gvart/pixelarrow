@@ -24,7 +24,7 @@ starting points to tune.
   `server/src/duel/live.ts`, migration `0008_duel_ranked.sql`
   (`duel_ratings`, `duel_queue_state`, `duel_matches`). Shared rules:
   `src/duel/rating.ts` (`RANKED`), protocol `src/duel/protocol.ts`. Client:
-  the hub's **Arena** tab (league card, placements, Find match / Unranked,
+  the hub's **Arena** (league card, placements, Find match / Unranked,
   the search with its timer and Cancel, the found opponent, the level-5 lock,
   the cooldown, Rejoin), the live battle through `src/duel/match.ts` (a
   lockstep driver that reconnects and fast-forwards), and the report via
@@ -61,13 +61,96 @@ starting points to tune.
   routes), `server/src/duel/season.ts` (lazy rollover, leaderboards),
   `server/src/duel/verify.ts` (the replay check shared with the ladder),
   migration `0010_duel_async_seasons.sql`. Shared rules `src/duel/season.ts`
-  (`SEASON`, `ASYNC`). Client: the Team tab's loadout bar and "Uses", the
-  Arena tab's season line and its Live / Raids / Top pages, the season
-  reward popup. API in server/README.md "Raids, seasons and leaderboards".
+  (`SEASON`, `ASYNC`). Client: the Team view's presets and their uses, the
+  Arena's season line, its Raids card and picks and the leaderboards, the
+  season reward popup. API in server/README.md "Raids, seasons and leaderboards".
 - **All duel slices are done** (2, 3, 4, 5).
+- **Hub redesign (data side):** ladder stars and chapter chests, up to 5
+  presets, the hero attention badge and the shop compare data. Migration
+  `0014_duel_stars_presets.sql` (`duel_ladder_stars`, `duel_ladder_chests`);
+  shared rules in `src/duel/ladder.ts` (`LADDER`, `ladderStars`,
+  `chestReward`...) and `src/duel/rules.ts` (`presetName`, `offerSummary`),
+  `heroNeedsAttention` in `src/game/gear.ts`.
+- **Hub redesign (client):** the hub in `src/scenes/duel/DuelScene.ts` is
+  rebuilt round two game modes and two places of their own ("Hub layout"
+  below); the four tabs and the Arena's Live / Raids / Top pages are gone.
 
 The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
 `RANKED`, `SEASON`, `ASYNC`, `MERCHANT`).
+
+### Hub redesign numbers and decisions
+
+- **Stars:** a won ladder floor earns ★ (a win), ★★ (at most 50% of the
+  team's points lost) or ★★★ (at most 20%). Lost points: the heroPoints of
+  the team's heroes that died or fled, from the server's replay. The best per
+  floor is kept and only goes up (farming a cleared floor can raise it).
+  Floors cleared before stars existed count ★ (no row, floor ≤ cleared).
+- **Chapters:** 5 of 10 floors, the boss last. **Chests** at 10 / 20 / 30
+  chapter stars, each claimed once: Glory 60 / 120 / 200 for chapter 1,
+  +40 / +80 / +120 per later chapter; the 30-star chest also holds an item,
+  rare or better (rare 70%, epic 25%, legendary 5% in chapter 1, rarer
+  later).
+- **Presets:** up to 5 saved teams (slots 1..5, kept stable: a deleted
+  preset leaves a gap that the next new one fills). New = a copy of the
+  edited preset, a duplicate of one, or empty; names ≤ 16 (trimmed), default
+  "Team <slot>"; the last one cannot be deleted; deleting one moves the
+  edited preset and its uses to the first remaining one.
+- **Badges:** a hero needs attention with unspent attribute points or a free
+  perk slot. **Shop compare:** each offer shows up to 3 main stats and the
+  change against the best item (by value) the current team wears in that
+  slot.
+
+### Hub layout
+
+- **Header** (the situation bar): the sentence, Glory and a duel level badge
+  with its XP bar; on the right two icon buttons, **Team** (a red "!" while a
+  hero of the edited preset or of a preset used on the ladder, in the arena
+  or in defence has attribute points or a free perk slot) and **Shop**. On
+  short screens (`STRAT.compactVH`) the two icons move to the switch's row so
+  the one-line sentence keeps the width.
+- **Ladder | Arena**: a two-way switch under the header, the two game modes.
+  Team, Shop, the raid picks and a leaderboard are **full views** with a
+  title and a back arrow (and the strip's Back, and Telegram's) that return
+  to where the player came from (Team and Shop to the last mode, the others
+  to the Arena). Back on a mode leaves for the menu.
+- **Ladder**: the next floor card (Fight is the strip's red action; short
+  screens drop the card: the strip and the ringed tile say it), the farm
+  Glory left today, then the chapters: a heading per chapter ("Chapter 1",
+  "10 of 30 stars", three chests marked with the stars they need: dim,
+  glowing when ready (a tap claims it: a popup with its Glory and item), a
+  tick once claimed), and in the open chapters their floors as tiles of
+  five (number, a skull on the boss, 0 to 3 stars, a lock beyond the next
+  floor). The current chapter is open at first; a tap on a heading opens or
+  closes it. A tap on a cleared floor opens its card (farm Glory, best stars,
+  "Farm Glory left today"), on the next floor its card with Fight, on a
+  locked one says what opens it. After a floor the toast and the report say
+  the stars and a new best. Narrow screens give the chests a row of their own.
+- **Arena**: the season line ("October · 22d 21h left"), then two cards:
+  **Live PvP** (crest, league or placements, won / lost, a line with what a
+  win pays or why it is closed (level 5 gate, cooldown, team over budget,
+  a match to rejoin), Find match (red) and Unranked) and **Raids** (raid
+  league, raids left today, the defence team (a tap: pick it), Raid (opens
+  the defender picks, the old Raids page: Raid <name> in the strip, the log)
+  and the raid log). Each card's trophy opens its leaderboard (Live, with a
+  Legend filter on its title row; Raids), the top 50 and your own row
+  pinned under it. The search and the opponent found take the Arena's page.
+  The strip has only Back on the Arena (the red action is the card's Find
+  match). The cards scroll on short screens.
+- **Team**: one scrolling list: the preset chips (name, icons for what each
+  fights on; the edited one bronze; "+" makes an empty one while there are
+  fewer than five), the edited preset's name with rename (a text prompt over
+  the canvas), duplicate and delete (confirmed; not the last one), "Use for:
+  Ladder / Arena / Defence" toggles (a use always has one preset: it moves
+  by switching it on in another; Defence needs a team within the budget),
+  the points against the budget, the heroes (a "!" badge on one with points
+  or a perk to spend), the bench. Strip: Back, Recruit, Dismiss.
+- **Shop**: Today / Gear / Sell chips; each offer is a card: the item, its
+  name in its rarity colour, rarity and slot, "-20%" on the daily ones, the
+  price, up to three main stats with a green up or red down change against
+  the best item the fighting heroes wear in that slot (`offerSummary`), and
+  Buy (no confirm; off with the reason when Glory is short, "Bought" once
+  sold). A tap on the card opens the full item card. Two columns where the
+  screen is wide enough, Buy under the stats on very narrow cards.
 
 ### Slice 3 numbers and decisions
 
@@ -101,15 +184,14 @@ The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
   a surrender: a loss, not an abandon.
 - **Abandons:** 3 in 24 h → a 15-minute queue cooldown for both queues,
   doubling for each repeat within 24 h, at most 4 h.
-- **Deviations:** the hub tab is called "Arena" (the four tabs switch to
-  icons on narrow screens); the ranked team is the one duel team (saved
+- **Deviations:** the hub's mode is called "Arena"; the ranked team is the one duel team (saved
   loadouts come with slice 4); the relay now refuses an `end` whose replay
   runs past the sealed turns (also for friendly duels).
 ### Slice 4 numbers and decisions
 
 - **Loadouts:** 3 saved teams per player (`duel_loadouts`); the old team
   became loadout 1. Each of Ladder, Arena (live matches and raids) and
-  Defence uses one of them (all loadout 1 by default); the Team tab edits
+  Defence uses one of them (all loadout 1 by default); the Team view edits
   one at a time. Battle groups belong to the hero, so they are shared by
   every loadout.
 - **Defence:** a snapshot of the defence loadout (perfect gear), taken when
@@ -153,8 +235,7 @@ The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
 - **Deviations:** no friends board (there is no friends list yet); no
   replay viewer (the raid row keeps the setup and the order log and
   `GET /api/duel/async/replay/:id` serves them to any signed-in player);
-  the Arena tab has no foot bar (its pages need the height at 320x568); the
-  season line sits on top of the Arena; players who have not opened the
+  the season line sits on top of the Arena; players who have not opened the
   duels in a new month are not on its boards until they do.
 
 
@@ -188,11 +269,11 @@ The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
   `Hero`/`Item` types, classes, perk trees and abilities (`src/data`), so the
   sim needs nothing new.
 - **Roster** up to 30 heroes; a **team** is up to 10 of them, with battle
-  groups and formations. The duel hub's Team tab picks the team; a tap opens
+  groups and formations. The duel hub's Team view picks the team; a tap opens
   the regular hero sheet on the duel army (stats, gear, perks, skills,
   respec). A dismissed hero leaves for good (gear to the stash, no refund).
-- **Loadouts:** three saved teams; each of the ladder, the arena and the
-  defence uses one (slice 4).
+- **Loadouts (presets):** up to five saved teams; each of the ladder, the
+  arena and the defence uses one (slice 4; five since the hub redesign).
 - **Starter roster:** 6 level-1 heroes (2 hoplites, 2 archers, a peltast, a
   slinger) with common gear, all in the team (42 points), and 200 Glory.
 - Hero level cap stays `MAX_LEVEL` (10). XP comes from ladder battles,
@@ -289,8 +370,8 @@ win.
 - **Glory** is earned only in duel modes (ladder, unranked, ranked, season
   rewards) and spent only in the duel shop. It cannot be bought with Stars or
   Drachmae and cannot be traded (no paid power, no gold-farming market).
-- The **duel shop** is a tab inside the duel hub:
-  - **Recruits** (Team tab → Recruit): pick a class, pay its recruitment
+- The **duel shop** is a view of the duel hub (the header's Shop icon):
+  - **Recruits** (Team → Recruit): pick a class, pay its recruitment
     price in Glory (hoplite 100, archer 50), get a level-1 hero with rolled
     attributes and traits. Unlocks by duel level: line infantry, archers,
     slingers, javelins and peltasts at 1; rhomphaia, falx, Gallic warband and

@@ -7,9 +7,11 @@ export interface Field {
   label: string;
   placeholder?: string;
   maxLength: number;
+  /** Initial text (e.g. the current name when renaming). */
+  value?: string;
 }
 
-export function promptFields(title: string, fields: Field[], okLabel = 'OK'): Promise<Record<string, string> | null> {
+export function promptFields(title: string, fields: Field[], okLabel = 'OK', cancelLabel = 'Cancel'): Promise<Record<string, string> | null> {
   return new Promise((resolve) => {
     const wrap = document.createElement('div');
     wrap.id = 'px-prompt';
@@ -30,6 +32,7 @@ export function promptFields(title: string, fields: Field[], okLabel = 'OK'): Pr
       i.name = f.name;
       i.maxLength = f.maxLength;
       i.placeholder = f.placeholder ?? '';
+      if (f.value) i.value = f.value;
       i.autocomplete = 'off';
       i.style.cssText = 'width:100%;box-sizing:border-box;padding:8px;font:inherit;font-size:16px;border:2px solid #4a2420;background:#f6e8dc;color:#2a1a16';
       box.appendChild(l);
@@ -46,7 +49,7 @@ export function promptFields(title: string, fields: Field[], okLabel = 'OK'): Pr
       row.appendChild(b);
       return b;
     };
-    const cancel = mk('Cancel', false);
+    const cancel = mk(cancelLabel, false);
     mk(okLabel, true);
     box.appendChild(row);
     wrap.appendChild(box);
@@ -63,5 +66,6 @@ export function promptFields(title: string, fields: Field[], okLabel = 'OK'): Pr
     };
     document.body.appendChild(wrap);
     inputs[0]?.focus();
+    inputs[0]?.select();
   });
 }
