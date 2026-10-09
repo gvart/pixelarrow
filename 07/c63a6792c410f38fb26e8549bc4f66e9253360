@@ -1,0 +1,20 @@
+src/art/vectorFont.ts
+  s_1934d7c234e5b1::t_dac399266dd47f 58-59
+  s_1934d7c234e5b1::t_67511b5b6af1e8 52-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "07c63a6792c410f38fb26e8549bc4f66e9253360",
+  "prompts": {},
+  "sessions": {
+    "s_1934d7c234e5b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d39328de-c77f-462f-b9ee-81a255a8912b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
