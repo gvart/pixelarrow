@@ -24,7 +24,7 @@ import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
-import { LEGACY_RARITY, normalizeItem, normalizeRarity, type Item } from '../../../src/data/items';
+import { LEGACY_RARITY, isBound, normalizeItem, normalizeRarity, type Item } from '../../../src/data/items';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import type { WorldGraph } from '../../../src/online/world';
 import { MARKET, marketFee, priceBounds } from '../economy/catalog';
@@ -283,6 +283,7 @@ market.post('/list', async (c) => {
     const r = await pc.db.prepare('SELECT data FROM online_items WHERE uid = ?1 AND season_id = ?2 AND player_id = ?3').bind(body.ref, pc.season.id, pc.pid).first<{ data: string }>();
     if (!r) throw new ApiError(404, 'not_found', 'No such item in your stash');
     item = JSON.parse(r.data) as Item;
+    if (isBound(item)) throw new ApiError(409, 'bound_item', 'Bound gear is never traded: salvage it instead');
     ref = item.def;
     qty = 1;
     rarity = normalizeRarity(item.rarity);

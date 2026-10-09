@@ -13,6 +13,7 @@ import { BASE_ITEMS, itemValue, type Item, type ItemDef } from '../data/items';
 import { RECRUIT_COST, type Hero } from '../data/units';
 import { buildArmy, type ArmyMix, type EnemyArmy } from '../game/enemy';
 import { makeHero, makeItem, rollRarity, type IdSource } from '../game/heroes';
+import { armyPick, bandSetPieces } from '../game/sources';
 import { CLASSES, townClasses, type ClassId } from '../data/classes';
 import {
   MIN_TRAVEL_COST, dangerAt, generateMap, passable, travelCost,
@@ -763,8 +764,8 @@ export class World {
     return r;
   }
 
-  /** Market wares in a town (deterministic per stock epoch). */
-  wares(id: number): Ware[] {
+  /** Market wares in a town (deterministic per stock epoch and army: weapons, shields and armour follow its `classes`). */
+  wares(id: number, classes: readonly string[] = []): Ware[] {
     const def = this.map.settlements[id];
     if (!def || def.kind !== 'town') return [];
     const st = this.placeState(id);
@@ -773,7 +774,7 @@ export class World {
     const out: Ware[] = [];
     const ids = { nextId: 1 };
     for (let i = 0; i < 10; i++) {
-      const d = rng.pick(pool);
+      const d = armyPick(rng, pool, classes);
       const item = makeItem(rng, ids, d.id, rollRarity(rng, 2), rng.range(70, 100), def.culture);
       item.uid = `w${id}_${st.epoch}_${i}`;
       if (st.sold.includes(i)) continue;
@@ -783,8 +784,8 @@ export class World {
   }
 
   /** Mark ware `index` as bought; returns it with a fresh uid. */
-  buy(id: number, index: number, ids: IdSource): Ware | null {
-    const w = this.wares(id).find((x) => x.index === index);
+  buy(id: number, index: number, ids: IdSource, classes: readonly string[] = []): Ware | null {
+    const w = this.wares(id, classes).find((x) => x.index === index);
     if (!w) return null;
     this.placeState(id).sold.push(index);
     w.item.uid = `i${(ids.nextId++).toString(36)}`;
@@ -830,12 +831,18 @@ function makeRecruit(def: SettlementDef, key: string, ids: IdSource, roster: rea
   return { hero, price: CLASSES[cls].cost - 40 + 35 * (level - 1) + Math.round(gear / 3) };
 }
 
-/** The band's army, generated from its seed (identical at every call). */
-export function partyArmy(p: PartyState, ids: IdSource): EnemyArmy {
+/**
+ * The band's army, generated from its seed (identical at every call for the
+ * same army `classes`, which a beast's hoard follows). Tier-3 bands now and
+ * then carry a rare set piece (src/game/sources.ts bandSetPieces).
+ */
+export function partyArmy(p: PartyState, ids: IdSource, classes: readonly string[] = []): EnemyArmy {
   // Now and then a lair's band is a mythical beast (src/game/beasts.ts): a rare encounter.
   const beast = p.kind !== 'mercs' ? bandBeast(p.seed) : null;
-  if (beast) return beastEnemy(beast, Math.max(2, p.level + 1), p.seed, ids);
-  return buildArmy(new Rng(p.seed), ids, { culture: p.culture, count: p.size, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false });
+  if (beast) return beastEnemy(beast, Math.max(2, p.level + 1), p.seed, ids, classes);
+  const army = buildArmy(new Rng(p.seed), ids, { culture: p.culture, count: p.size, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false });
+  bandSetPieces(army.heroes, army.culture, p.tier, p.seed);
+  return army;
 }
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

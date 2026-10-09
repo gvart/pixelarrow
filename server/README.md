@@ -248,13 +248,14 @@ respawns are all computed on read from server time. No alarms or polling
 | POST | `/api/online/collect` | collect the income of all held regions |
 | POST | `/api/online/recruit` | `{archetype}`: 40 gold, 10 food, 1 recruit |
 | POST | `/api/online/equip` | `{heroId, slot, itemUid \| null}`: stash ↔ hero |
+| POST | `/api/online/salvage` | `{uid}`: a bound stash item (named legendary, legendary set piece) for a quarter of its worth in gold; 409 `not_bound`; a retry after it is gone answers `salvaged: false` |
 | POST | `/api/online/army` | `{groups?: {heroId: 0..3}, formations?: FormationType[4]}` |
 | POST | `/api/online/attack/start` | `{loc,heroIds?}` → `{ticket, expiresAt, setup, attackers, defenders, defenderKind}` |
 | POST | `/api/online/attack/submit` | `{ticket, orders, deployOrders?, claim: {winner, ticks, hash}}` → result |
 | POST | `/api/online/attack/abandon` | `{ticket}` |
-| GET | `/api/online/boss` | the shard's world bosses: shared HP, arms, status, top damage (players, clans), your tally and loot |
+| GET | `/api/online/boss` | the shard's world bosses: shared HP, arms, status, top damage (players, clans), your tally, loot and chest |
 | POST | `/api/online/boss/start` | `{boss, heroIds?, consumable?}` → a raid ticket (a 120 s segment against the boss's current wounds; no region lock) |
-| POST | `/api/online/boss/submit` | `{ticket, orders, deployOrders?, claim}` → damage dealt, HP lowered relatively; the killing raid splits the hoard by damage share |
+| POST | `/api/online/boss/submit` | `{ticket, orders, deployOrders?, claim}` → damage dealt, HP lowered relatively; the killing raid splits the hoard by damage share and gives every contributor of at least 5% a chest (`world_boss_chests`: a legendary set piece, the named item or an epic; docs/ITEMS.md) |
 | POST | `/api/online/boss/abandon` | `{ticket}` |
 | POST | `/api/online/clans` | `{name, tag}`: create (you lead it) |
 | GET | `/api/online/clans/mine` | clan, members with roles and region counts |
@@ -418,7 +419,7 @@ stored order with `replayed: true`; the same id for another item is 409
 | GET | `/api/online/market` | open listings of your shard; query `kind, ref, rarity, currency, minPrice, maxPrice, town (loc), sort (price_asc, price_desc, newest, ending), cursor, limit ≤ 50` → `{ listings, next }` (`next` = cursor of the next page, or null) |
 | GET | `/api/online/market/mine` | your listings this season (resolves expired ones first) `{ listings, open, maxOpen }` |
 | GET | `/api/online/market/towns` | towns where you can list now |
-| POST | `/api/online/market/list` | `{town: loc, kind: item/resource/consumable, ref (item uid, food/wood/bronze, or consumable id), qty, currency: gold/drachmae, price}` → `{ listing }`; 403 `town_unreachable`, 400 `price_out_of_bounds`, 409 `listing_cap` / `cannot_afford` / `none_left` |
+| POST | `/api/online/market/list` | `{town: loc, kind: item/resource/consumable, ref (item uid, food/wood/bronze, or consumable id), qty, currency: gold/drachmae, price}` → `{ listing }`; 403 `town_unreachable`, 400 `price_out_of_bounds`, 409 `listing_cap` / `cannot_afford` / `none_left` / `bound_item` |
 | POST | `/api/online/market/buy` | `{listingId}` → `{ listing, paid, fee, sellerGets }`; 403 `self_buy`, 409 `insufficient_funds` / `sold` / `gone`, 410 `expired` |
 | POST | `/api/online/market/cancel` | `{listingId}` (seller) → goods back |
 | GET | `/api/online/merchant/:loc` | a visible town or trading post: `{ loc, kind (town/harbour/crossroads), region, day, now, resetsAt, reach, discount, discountRate, holderCutRate, holder, earned, gold, drachmae, offers: [{id, kind, ref, rarity, slot, gold, drachmae, dailyCap, price: {gold, drachmae}, bought}] }`; 404 `no_merchant` / `fogged` |
@@ -505,7 +506,7 @@ The duel army is a second roster per account: persistent (no `season_id`,
 never reset), separate from the war-map army, with its own stash and the
 duel-only currency **Glory**. Every write follows the online convention: the
 first statement of a D1 batch bumps `duel_profiles.rev`, the rest is guarded
-by it. Glory spends and gains (`recruit`, `shop/buy`, `shop/sell`, `respec`)
+by it. Glory spends and gains (`recruit`, `shop/buy`, `shop/sell`, `shop/salvage`, `respec`)
 carry a client `requestId` (8–64 chars `[A-Za-z0-9_-]`) recorded in
 `duel_orders`: a retry answers with the stored result (`replayed: true`); the
 same id for something else is **409** `request_reused`. Every answer that
@@ -525,7 +526,8 @@ changes the army includes the new `profile`.
 | POST | `/api/duel/loadout/create` | `{ from?: slot \| null, name?, edit? }` | a new preset in the lowest free slot (409 `presets_full` at 5): a copy of the edited one (`from` omitted), of `from` (duplicate; 404 `no_preset`) or empty (`null`); edited at once unless `edit: false` → `{ slot, profile }` |
 | POST | `/api/duel/loadout/delete` | `{ slot }` | deletes a preset (404 `no_preset`; 409 `last_preset`); the edited preset and every use on it move to the first remaining one |
 | POST | `/api/duel/shop/buy` | `{ offer, requestId }` | a catalogue offer (`<item>:<common\|uncommon\|rare>`) or one of today's (`day<N>:<item>:<rarity>`, once per player and UTC day: `sold_out`) |
-| POST | `/api/duel/shop/sell` | `{ uid, requestId }` | a stash item back for a quarter of its shop price |
+| POST | `/api/duel/shop/sell` | `{ uid, requestId }` | a stash item back for a quarter of its shop price (409 `bound_item` for bound gear) |
+| POST | `/api/duel/shop/salvage` | `{ uid, requestId }` | a bound stash item for the same quarter (409 `not_bound` for other gear) |
 | POST | `/api/duel/ladder/start` | `{ floor }` | the next floor or any cleared one (`floor_locked`); the ladder loadout must fit the floor's budget (`no_team`, `team_too_big`, `over_budget`). An open ticket of the same floor is resumed (same seed); one of another floor is abandoned. → `{ ticket, floor, boss, expiresAt, setup, team, enemies }` |
 | POST | `/api/duel/ladder/submit` | `{ ticket, orders, deployOrders, claim }` | replayed like an attack (`replay_mismatch`, `sim_rejected`, `ticket_expired` after 10 min); pays hero XP always, and on a win Glory (first clear, or farm Glory under the 300-a-day cap), account XP and maybe an item. Only progression is written to the heroes (gear changed meanwhile stays). A repeat of the same claim returns the stored result. The report also has `stars` (0..3 by the share of team points lost, `lost`), `prevStars`, `bestStars`, `newBest`; the best per floor only goes up. |
 | POST | `/api/duel/ladder/abandon` | `{ ticket }` | gives an open ticket up (nothing is lost) |
@@ -604,8 +606,9 @@ migration `0010_duel_async_seasons.sql`.
 | POST | `/api/duel/async/abandon` | `{ ticket }` |
 | GET | `/api/duel/async/log` | the last 30 raids by or on the player: `{ entries: [{id, at, role: attack \| defence, pid, name, score, delta, glory}] }` |
 | GET | `/api/duel/async/replay/:id` | a finished raid for any signed-in player (shareable): `{ names, setup, orders, deployOrders, winner, ticks, at }` |
-| GET | `/api/duel/season` | `{ season: {id, start, end}, live/async: {league, peak}, title, rewards (not seen yet), table }` |
+| GET | `/api/duel/season` | `{ season: {id, start, end}, live/async: {league, peak}, title, rewards (not seen yet, or with a set piece still to pick: `pick`), table }` |
 | POST | `/api/duel/season/seen` | the reward popup was shown |
+| POST | `/api/duel/season/pick` | `{ season, ladder, def }`: the piece of a live Strategos / Legend reward's set (Sacred Band) into the duel stash, once (404 `no_pick`, 400 `not_in_set`; a repeat answers with the same item, `replayed`) |
 | GET | `/api/duel/leaderboard?board=live\|async\|legend` | top 50 placed players of the running season and `me` (rank, league; the exact rating only in Legend) |
 
 **Raid settlement** follows the ticket convention: the first statement moves

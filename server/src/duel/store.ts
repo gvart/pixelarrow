@@ -38,6 +38,8 @@ export interface DuelProfileRow {
   lo_ladder: number;
   lo_arena: number;
   lo_defence: number;
+  /** UTC day of the last first-ranked-win spoil (-1: never; migration 0015). */
+  spoils_day: number;
 }
 
 export type LoadoutUse = 'ladder' | 'arena' | 'defence';

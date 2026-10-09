@@ -30,7 +30,9 @@ import type { Hero } from '../../../src/data/units';
 import type { Item } from '../../../src/data/items';
 import type { BattleSetup } from '../../../src/sim/types';
 import { ENCOUNTERS, trophyId, type EncounterId } from '../../../src/data/beasts';
-import { BEAST_RULES, applyBossState, bossDefenders, bossLoot, bossMaxHp, segmentOutcome, worldBossSites, type BossSite } from '../../../src/online/lairs';
+import { SOURCES, armyClasses } from '../../../src/game/sources';
+import { getPity, pityStmt } from '../loot';
+import { BEAST_RULES, applyBossState, bossChest, bossDefenders, bossLoot, bossMaxHp, segmentOutcome, worldBossSites, type BossSite } from '../../../src/online/lairs';
 import { DEFAULT_FORMATIONS, ONLINE_RULES } from '../../../src/online/rules';
 import { onlineBattleSetup, resolveAttack } from '../../../src/online/battle';
 import { CONSUMABLES } from '../../../src/data/consumables';
@@ -94,7 +96,23 @@ async function bossRow(pc: PlayerCtx, site: BossSite): Promise<BossRow> {
   return (await pc.db.prepare('SELECT * FROM world_bosses WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3').bind(pc.season.id, pc.shard.id, site.boss).first<BossRow>())!;
 }
 
-/** Splits a dead boss's hoard by damage share; safe to run any number of times. */
+/** What a player owns this season (stash and heroes' gear: item defs) and the classes of their army. */
+async function warHoldings(pc: PlayerCtx, season: number, pid: number): Promise<{ owned: Set<string>; classes: string[] }> {
+  const [items, heroes] = await Promise.all([
+    pc.db.prepare('SELECT data FROM online_items WHERE season_id = ?1 AND player_id = ?2').bind(season, pid).all<{ data: string }>(),
+    loadHeroes(pc.db, season, pid),
+  ]);
+  const owned = new Set<string>(items.results.map((r) => (JSON.parse(r.data) as Item).def));
+  for (const h of heroes) for (const it of Object.values(h.hero.equip)) if (it) owned.add(it.def);
+  return { owned, classes: armyClasses(heroes.map((h) => h.hero)) };
+}
+
+/**
+ * Splits a dead boss's hoard by damage share and hands each contributor of
+ * at least SOURCES.bossChest.minShare their chest (bossChest: a legendary
+ * set piece, the named item or an epic; the war bad-luck counter); safe to
+ * run any number of times: every write is guarded by its row not existing yet.
+ */
 export async function splitBossLoot(pc: PlayerCtx, row: BossRow): Promise<void> {
   if (row.status !== 'dead') return;
   const dmg = await pc.db
@@ -103,11 +121,40 @@ export async function splitBossLoot(pc: PlayerCtx, row: BossRow): Promise<void> 
     .all<{ player_id: number; damage: number }>();
   const total = dmg.results.reduce((a, x) => a + x.damage, 0);
   if (total <= 0) return;
+  const [looted, chested] = await Promise.all(
+    ['world_boss_loot', 'world_boss_chests'].map(async (table) =>
+      new Set(
+        (await pc.db.prepare(`SELECT player_id FROM ${table} WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3`).bind(row.season_id, row.shard_id, row.boss).all<{ player_id: number }>()).results.map(
+          (r) => r.player_id,
+        ),
+      ),
+    ),
+  );
   const stmts: D1PreparedStatement[] = [];
   const key = `${row.season_id}:${row.shard_id}:${pc.shard.seed}`;
   for (const d of dmg.results) {
     const share = d.damage / total;
-    const items = bossLoot(row.boss, key, d.player_id, share, `${heroPrefix(row.season_id, d.player_id)}wb${row.boss}_`);
+    const wantChest = share >= SOURCES.bossChest.minShare && !chested.has(d.player_id);
+    if (looted.has(d.player_id) && !wantChest) continue;
+    const held = await warHoldings(pc, row.season_id, d.player_id);
+    if (wantChest) {
+      const [pity, namedHad] = await Promise.all([
+        getPity(pc.db, d.player_id, 'war'),
+        pc.db.prepare("SELECT 1 FROM world_boss_chests WHERE player_id = ?1 AND season_id = ?2 AND boss = ?3 AND kind = 'named'").bind(d.player_id, row.season_id, row.boss).first(),
+      ]);
+      const chest = bossChest(row.boss, key, d.player_id, `${heroPrefix(row.season_id, d.player_id)}wbc${row.boss}`, { owned: held.owned, namedHad: !!namedHad, pity, classes: held.classes });
+      const noChest = `NOT EXISTS (SELECT 1 FROM world_boss_chests WHERE season_id = ${row.season_id | 0} AND shard_id = ${row.shard_id | 0} AND boss = '${row.boss}' AND player_id = ${d.player_id | 0})`;
+      // the item and the counter first, guarded by the chest row not existing yet; the row last
+      stmts.push(
+        pc.db.prepare(`INSERT OR IGNORE INTO online_items (uid, season_id, player_id, data, created_at) SELECT ?1, ?2, ?3, ?4, ?5 WHERE ${noChest}`).bind(chest.item.uid, row.season_id, d.player_id, JSON.stringify(chest.item), pc.now),
+        pityStmt(pc.db, d.player_id, 'war', chest.pity, noChest, pc.now),
+        pc.db
+          .prepare('INSERT OR IGNORE INTO world_boss_chests (season_id, shard_id, boss, player_id, kind, item, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)')
+          .bind(row.season_id, row.shard_id, row.boss, d.player_id, chest.kind, JSON.stringify(chest.item), pc.now),
+      );
+    }
+    if (looted.has(d.player_id)) continue;
+    const items = bossLoot(row.boss, key, d.player_id, share, `${heroPrefix(row.season_id, d.player_id)}wb${row.boss}_`, held.classes);
     const notYet = `NOT EXISTS (SELECT 1 FROM world_boss_loot WHERE season_id = ${row.season_id | 0} AND shard_id = ${row.shard_id | 0} AND boss = '${row.boss}' AND player_id = ${d.player_id | 0})`;
     // items first, guarded by the loot row not existing yet: a second split inserts nothing
     for (const it of items) {
@@ -143,6 +190,10 @@ async function bossView(pc: PlayerCtx, site: BossSite) {
     .prepare('SELECT share, items FROM world_boss_loot WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3 AND player_id = ?4')
     .bind(pc.season.id, pc.shard.id, site.boss, pc.pid)
     .first<{ share: number; items: string }>();
+  const chest = await pc.db
+    .prepare('SELECT kind, item FROM world_boss_chests WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3 AND player_id = ?4')
+    .bind(pc.season.id, pc.shard.id, site.boss, pc.pid)
+    .first<{ kind: string; item: string }>();
   const names = await playerNames(pc.db, top.results.map((x) => x.player_id));
   const tags = await clanTags(pc.db, [...top.results.map((x) => x.clan_id), ...clanTop.results.map((x) => x.clan_id)].filter((x): x is number => x !== null));
   const max = bossMaxHp(site.boss, site.level);
@@ -159,7 +210,13 @@ async function bossView(pc: PlayerCtx, site: BossSite) {
     segment: ENCOUNTERS[site.boss].segment ?? 120,
     top: top.results.map((x) => ({ player: x.player_id, name: names.get(x.player_id) ?? '?', clan: x.clan_id !== null ? tags.get(x.clan_id)?.tag ?? null : null, damage: x.damage, raids: x.raids })),
     clans: clanTop.results.map((x) => ({ clan: x.clan_id, tag: tags.get(x.clan_id)?.tag ?? '?', name: tags.get(x.clan_id)?.name ?? '?', damage: x.damage })),
-    you: { damage: mine?.damage ?? 0, raids: mine?.raids ?? 0, loot: loot ? { share: loot.share, items: JSON.parse(loot.items) as Item[] } : null },
+    you: {
+      damage: mine?.damage ?? 0,
+      raids: mine?.raids ?? 0,
+      loot: loot ? { share: loot.share, items: JSON.parse(loot.items) as Item[] } : null,
+      /** The contributor's chest (at least SOURCES.bossChest.minShare of the damage), or null. */
+      chest: chest ? { kind: chest.kind, item: JSON.parse(chest.item) as Item } : null,
+    },
   };
 }
 

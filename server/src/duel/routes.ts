@@ -10,7 +10,7 @@
  * and both armies, the client submits its order log, and only the server's
  * replay decides the payout. Duels cost nothing: no deaths, wounds or wear.
  */
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
@@ -22,7 +22,9 @@ import { closeTicketStmt, loadOwnTicket, requireOpenTicket, ticketPreamble, type
 import { emit, emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { limit } from '../online/context';
 import { randomToken, randomU32 } from '../online/store';
-import { itemDef, SLOTS, type Item, type Slot } from '../../../src/data/items';
+import { isBound, itemDef, SLOTS, type Item, type Slot } from '../../../src/data/items';
+import { armyClasses } from '../../../src/game/sources';
+import { getPity, pityStmt } from '../loot';
 import { equipBlocker, equipBlockerText, equipInto, unequipInto } from '../../../src/game/gear';
 import { ATTR_IDS } from '../../../src/data/perks';
 import { isClassId, type ClassId } from '../../../src/data/classes';
@@ -405,18 +407,30 @@ duel.post('/shop/buy', async (c) => {
   return c.json({ ...r.result, replayed: r.replayed, profile: await view(x) });
 });
 
-/** Sells a stash item back to the shop for Glory. */
-duel.post('/shop/sell', async (c) => {
-  limit(c, 'duel_sell', 60);
-  const x = await ctx(c);
-  const body = await readJson(c, z.object({ uid: z.string().max(80), requestId: RequestId }), 1024);
-  const replay = await x.db.prepare('SELECT kind, ref FROM duel_orders WHERE player_id = ?1 AND request_id = ?2').bind(x.pid, body.requestId).first<OrderRow>();
-  const it = (await loadDuelItems(x.db, x.pid)).find((i) => i.uid === body.uid);
-  if (!it && !(replay && replay.kind === 'sell' && replay.ref === body.uid)) throw new ApiError(404, 'not_found', 'No such item in your stash');
-  const price = it ? sellPrice(it) : 0;
-  const r = await gloryOrder(x, body.requestId, 'sell', body.uid, price, (G) => [x.db.prepare(`DELETE FROM duel_items WHERE uid = ?1 AND player_id = ?2 AND ${G}`).bind(body.uid, x.pid)], { glory: price });
-  return c.json({ ...r.result, replayed: r.replayed, profile: await view(x) });
-});
+/**
+ * Sells a stash item back to the shop for Glory (`/shop/sell`), or salvages
+ * a bound one (`/shop/salvage`: named legendaries and legendary set pieces
+ * are never sold, docs/ITEMS.md "Bound items"); both pay a quarter of the
+ * shop price and are idempotent per request id.
+ */
+function stashOrder(kind: 'sell' | 'salvage') {
+  return async (c: Context<AppEnv>) => {
+    limit(c, 'duel_sell', 60);
+    const x = await ctx(c);
+    const body = await readJson(c, z.object({ uid: z.string().max(80), requestId: RequestId }), 1024);
+    const replay = await x.db.prepare('SELECT kind, ref FROM duel_orders WHERE player_id = ?1 AND request_id = ?2').bind(x.pid, body.requestId).first<OrderRow>();
+    const it = (await loadDuelItems(x.db, x.pid)).find((i) => i.uid === body.uid);
+    if (!it && !(replay && replay.kind === kind && replay.ref === body.uid)) throw new ApiError(404, 'not_found', 'No such item in your stash');
+    if (it && kind === 'sell' && isBound(it)) throw new ApiError(409, 'bound_item', 'Bound gear is never sold: salvage it instead');
+    if (it && kind === 'salvage' && !isBound(it)) throw new ApiError(409, 'not_bound', 'Only bound gear is salvaged: sell it instead');
+    const price = it ? sellPrice(it) : 0;
+    const r = await gloryOrder(x, body.requestId, kind, body.uid, price, (G) => [x.db.prepare(`DELETE FROM duel_items WHERE uid = ?1 AND player_id = ?2 AND ${G}`).bind(body.uid, x.pid)], { glory: price });
+    return c.json({ ...r.result, replayed: r.replayed, profile: await view(x) });
+  };
+}
+
+duel.post('/shop/sell', stashOrder('sell'));
+duel.post('/shop/salvage', stashOrder('salvage'));
 
 // ------------------------------------------------------------------ ladder
 
@@ -505,7 +519,12 @@ duel.post('/ladder/submit', async (c) => {
   const team = JSON.parse(t.team) as Hero[];
   const start = await reserveDuelIds(x.db, x.pid, 4);
   x.p = await requireDuelProfile(x.db, x.pid);
-  const pay = ladderPayout(floor, out.result, team, x.p.ladder_cleared, farmLeft(x.p, x.now), t.seed, { nextId: start }, duelPrefix(x.pid));
+  // the drop follows the duel army; a boss floor's first clear counts on the bad-luck counter
+  const [roster, pity] = await Promise.all([loadDuelHeroes(x.db, x.pid), getPity(x.db, x.pid, 'duel')]);
+  const pay = ladderPayout(floor, out.result, team, x.p.ladder_cleared, farmLeft(x.p, x.now), t.seed, { nextId: start }, duelPrefix(x.pid), {
+    classes: armyClasses(roster.map((h) => h.hero)),
+    pity,
+  });
   const prevStars = (await loadLadderStars(x.db, x.p)).stars[floor.floor - 1] ?? 0;
   const summary = {
     floor: floor.floor,
@@ -549,6 +568,7 @@ duel.post('/ladder/submit', async (c) => {
   ];
   stmts.push(...heroProgressStmts(x.db, x.pid, team, pay.heroes, current, G, x.now));
   if (pay.drop) stmts.push(itemInsert(x.db, x.pid, pay.drop, G, x.now));
+  if (pay.pity !== pity) stmts.push(pityStmt(x.db, x.pid, 'duel', pay.pity, G, x.now));
   if (pay.stars > 0) {
     stmts.push(
       x.db
@@ -597,7 +617,8 @@ duel.post('/ladder/chest', async (c) => {
   if (reward.item) {
     const start = await reserveDuelIds(x.db, x.pid, 4);
     x.p = await requireDuelProfile(x.db, x.pid);
-    item = chestItem(randomU32(), { nextId: start }, duelPrefix(x.pid), body.chapter);
+    const roster = await loadDuelHeroes(x.db, x.pid);
+    item = chestItem(randomU32(), { nextId: start }, duelPrefix(x.pid), body.chapter, armyClasses(roster.map((h) => h.hero)));
   }
   const G = duelRevGuard(x.pid, x.p.rev + 1);
   const res = await x.db.batch([

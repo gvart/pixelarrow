@@ -28,14 +28,15 @@ import { Rng } from '../../../src/sim/rng';
 import type { Hero } from '../../../src/data/units';
 import type { FormationType } from '../../../src/sim/formation';
 import type { BattleSetup, LoggedOrder } from '../../../src/sim/types';
-import { DUEL_RULES, accountLevel, utcDay } from '../../../src/duel/rules';
+import { DUEL_RULES, accountLevel, duelSpoils, utcDay } from '../../../src/duel/rules';
+import { armyClasses } from '../../../src/game/sources';
 import { duelHeroXp } from '../../../src/duel/ladder';
 import { RANKED, glicko2, leagueOf, placed, scoreOf, type League, type Score } from '../../../src/duel/rating';
 import { ASYNC, asyncSetup, attackPay, defencePay, defenceRating, idleRating, pickCandidates, seasonId } from '../../../src/duel/season';
 import type { AsyncReport } from '../../../src/duel/protocol';
 import { getRating, leagueText, loadTeam, rowLeague, type RatingRow } from './live';
-import { leaderboard, markRewardsSeen, rollRatings, seasonView, type Board } from './season';
-import { duelCtx as ctx, duelProfileView, getDuelProfile, heroProgressStmts, loadDuelHeroes, syncDefence, type DuelCtx as Ctx } from './store';
+import { leaderboard, markRewardsSeen, pickSeasonPiece, rollRatings, seasonView, type Board } from './season';
+import { duelCtx as ctx, duelPrefix, duelProfileView, getDuelProfile, heroProgressStmts, loadDuelHeroes, syncDefence, type DuelCtx as Ctx } from './store';
 import { SubmitBody, verifyBattle } from './verify';
 import { requireOpenTicket, ticketPreamble } from '../tickets';
 
@@ -307,6 +308,8 @@ duelSeason.post('/async/submit', async (c) => {
   const earned = await x.db.prepare('SELECT COALESCE(SUM(glory_d), 0) AS g FROM duel_attacks WHERE defender = ?1 AND finished_at >= ?2').bind(a.defender, dayStart).first<{ g: number }>();
   const gloryD = defencePay(scoreD, earned?.g ?? 0);
   const team = JSON.parse(a.team) as Hero[];
+  // a won raid drops spoils at half the ranked chance (no first-win guarantee: that is the live ladder's)
+  const spoils = scoreA === 1 ? duelSpoils(a.seed, 0, 'raid', false, armyClasses(current.map((h) => h.hero)), `${duelPrefix(x.pid)}sr${a.id.slice(0, 12)}`) : null;
   const xp = duelHeroXp(out.result, team, scoreA === 1, new Rng((a.seed ^ 0x3a5c7e91) >>> 0 || 1), 0);
   const report: AsyncReport = {
     attack: a.id,
@@ -320,6 +323,7 @@ duelSeason.post('/async/submit', async (c) => {
     league: { before: rowLeague(me), after: rowLeague({ rating: nextA.rating, games }) },
     placements: { played: Math.min(games, RANKED.placements), of: RANKED.placements },
     xp: xp.xp,
+    spoils,
   };
 
   const nonce = randomToken(8);
@@ -338,6 +342,7 @@ duelSeason.post('/async/submit', async (c) => {
     ratingUpsert(x.db, x.pid, afterA, G, x.now, true),
     ratingUpsert(x.db, a.defender, afterD, G, x.now, false),
   ];
+  if (spoils) stmts.push(x.db.prepare(`INSERT OR IGNORE INTO duel_items (uid, player_id, data, created_at) SELECT ?1, ?2, ?3, ?4 WHERE ${G}`).bind(spoils.uid, x.pid, JSON.stringify(spoils), x.now));
   if (gloryD > 0) stmts.push(x.db.prepare(`UPDATE duel_profiles SET glory = glory + ?2, rev = rev + 1, updated_at = ?3 WHERE player_id = ?1 AND ${G}`).bind(a.defender, gloryD, x.now));
   const res = await x.db.batch(stmts);
   if (res[0].meta.changes !== 1) {
@@ -438,6 +443,17 @@ duelSeason.post('/season/seen', async (c) => {
   const x = await ctx(c);
   await markRewardsSeen(x.db, x.pid, x.now);
   return c.json({ ok: true });
+});
+
+const PickBody = z.object({ season: z.number().int().min(0), ladder: z.enum(['live', 'async']), def: z.string().max(40) });
+
+/** Picks the set piece a season reward offers (Strategos and Legend: a Sacred Band piece). */
+duelSeason.post('/season/pick', async (c) => {
+  limit(c, 'duel_pick', 20);
+  const x = await ctx(c);
+  const body = await readJson(c, PickBody, 1024);
+  const r = await pickSeasonPiece(x.db, x.pid, body.season, body.ladder, body.def, x.now);
+  return c.json({ ...r, profile: await duelProfileView(x.db, x.pid, x.now) });
 });
 
 /** Top live, top async or the Legend board of the running season, with the player's own place. */

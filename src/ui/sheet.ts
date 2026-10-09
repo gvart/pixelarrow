@@ -16,7 +16,7 @@ import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ens
 import { cosmeticLoadout } from '../game/cosmetics';
 import { renderStage, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
 import { ANIM, attackLength, dollFromHero, dollGeom, weaponClass } from '../art/paperdoll';
-import { itemDef, itemValue, normalizeRarity, SLOTS, type Item, type Slot, type StatMods } from '../data/items';
+import { isBound, itemDef, itemValue, normalizeRarity, salvageValue, SLOTS, type Item, type Slot, type StatMods } from '../data/items';
 import { POWERS, itemPower, powerText } from '../data/affixes';
 import { SETS, SET_SPECIAL_TEXT, setPieces } from '../data/sets';
 import { classesFor, gearPenalty, requirements, shortfall } from '../data/gearRules';
@@ -41,6 +41,15 @@ export const className = (h: Hero): string => {
 };
 export const roleName = (role: string): string => tOr(`role.${role}`, role);
 export const itemName = (it: Item): string => subjectName({ item: it });
+
+/** A campaign stash item's sale at a town market: its value, or for a bound item a salvage at a quarter of it (docs/ITEMS.md "Bound items"). */
+export function saleText(it: Item): { bound: boolean; value: number; label: string; title: string; body: string; done: string } {
+  const bound = isBound(it);
+  const n = bound ? salvageValue(it) : itemValue(it);
+  return bound
+    ? { bound, value: n, label: t('stash.salvage', { n }), title: t('stash.salvageTitle', { name: itemName(it) }), body: t('stash.salvageBody', { n }), done: t('stash.salvaged', { n }) }
+    : { bound, value: n, label: t('stash.sell', { n }), title: t('stash.sellTitle', { name: itemName(it) }), body: t('stash.sellBody', { n }), done: t('stash.sold', { n }) };
+}
 export const groupName = (g: number): string => tOr(`group.${g}`, ROMAN[g] ?? '');
 
 // ------------------------------------------------------------------ textures

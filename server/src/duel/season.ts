@@ -15,6 +15,12 @@
 import { RANKED, leagueOf, placed, type League, type LeagueId } from '../../../src/duel/rating';
 import { SEASON, bestLeague, seasonEnd, seasonId, seasonReward, seasonStart, softReset, type Ladder } from '../../../src/duel/season';
 import { randomToken } from '../online/store';
+import { ApiError } from '../errors';
+import { duelPrefix } from './store';
+import { SETS, setPieces } from '../../../src/data/sets';
+import type { Item } from '../../../src/data/items';
+import { makeItem } from '../../../src/game/heroes';
+import { Rng, hashString } from '../../../src/sim/rng';
 import { playerNames } from '../online/store';
 import { leagueText, rowLeague, type RatingRow } from './live';
 
@@ -36,9 +42,9 @@ export async function rollRatings(db: D1Database, pid: number, now: number): Pro
       stmts.push(
         db
           .prepare(
-            `INSERT OR IGNORE INTO duel_season_rewards (player_id, season, ladder, league, peak, glory, cosmetic, created_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8 WHERE ${G}`,
+            `INSERT OR IGNORE INTO duel_season_rewards (player_id, season, ladder, league, peak, glory, cosmetic, created_at, pick) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9 WHERE ${G}`,
           )
-          .bind(pid, r.season, r.ladder, reward.league, r.peak, reward.glory, reward.cosmetic, now),
+          .bind(pid, r.season, r.ladder, reward.league, r.peak, reward.glory, reward.cosmetic, now, reward.pick),
         db.prepare(`UPDATE duel_profiles SET glory = glory + ?2, rev = rev + 1, updated_at = ?3 WHERE player_id = ?1 AND ${G}`).bind(pid, reward.glory, now),
         db.prepare(`INSERT OR IGNORE INTO entitlements (player_id, product_id, purchase_id, granted_at) SELECT ?1, ?2, NULL, ?3 WHERE ${G}`).bind(pid, reward.cosmetic, now),
       );
@@ -53,6 +59,8 @@ export interface SeasonRewardView {
   league: LeagueId;
   glory: number;
   cosmetic: string;
+  /** A set to pick one piece of (POST /season/pick), while not picked yet; null otherwise. */
+  pick: string | null;
 }
 
 export interface SeasonView {
@@ -76,6 +84,8 @@ interface RewardRow {
   glory: number;
   cosmetic: string;
   seen_at: number | null;
+  pick: string | null;
+  picked: string | null;
 }
 
 /** The player's title: the best peak league of the latest rewarded season. */
@@ -92,7 +102,7 @@ export async function seasonView(db: D1Database, pid: number, now: number): Prom
   const id = seasonId(now);
   const [ratings, rewards] = await Promise.all([
     db.prepare('SELECT ladder, rating, games, peak FROM duel_ratings WHERE player_id = ?1').bind(pid).all<{ ladder: Ladder; rating: number; games: number; peak: number | null }>(),
-    db.prepare('SELECT season, ladder, league, glory, cosmetic, seen_at FROM duel_season_rewards WHERE player_id = ?1 ORDER BY season DESC, ladder LIMIT 20').bind(pid).all<RewardRow>(),
+    db.prepare('SELECT season, ladder, league, glory, cosmetic, seen_at, pick, picked FROM duel_season_rewards WHERE player_id = ?1 ORDER BY season DESC, ladder LIMIT 20').bind(pid).all<RewardRow>(),
   ]);
   const card = (ladder: Ladder) => {
     const r = ratings.results.find((x) => x.ladder === ladder);
@@ -105,7 +115,10 @@ export async function seasonView(db: D1Database, pid: number, now: number): Prom
     live: card('live'),
     async: card('async'),
     title: titleOf(rewards.results),
-    rewards: rewards.results.filter((r) => r.seen_at === null).map(({ season, ladder, league, glory, cosmetic }) => ({ season, ladder, league, glory, cosmetic })),
+    // a reward with a piece still to pick comes back until it is picked
+    rewards: rewards.results
+      .filter((r) => r.seen_at === null || (r.pick && !r.picked))
+      .map(({ season, ladder, league, glory, cosmetic, pick, picked }) => ({ season, ladder, league, glory, cosmetic, pick: pick && !picked ? pick : null })),
     table: RANKED.leagues.map((l) => ({ league: l.id, glory: SEASON.rewards[l.id].glory, asyncGlory: Math.round(SEASON.rewards[l.id].glory * SEASON.asyncShare), cosmetic: SEASON.rewards[l.id].cosmetic })),
   };
 }
@@ -113,6 +126,31 @@ export async function seasonView(db: D1Database, pid: number, now: number): Prom
 /** The reward popup was shown: those rewards no longer come back. */
 export async function markRewardsSeen(db: D1Database, pid: number, now: number): Promise<void> {
   await db.prepare('UPDATE duel_season_rewards SET seen_at = ?2 WHERE player_id = ?1 AND seen_at IS NULL').bind(pid, now).run();
+}
+
+/**
+ * Picks the set piece of a season reward (Strategos and Legend: a Sacred
+ * Band piece of the player's choice) into the duel stash, once: the reward
+ * row records the item, and a repeat answers with it (`replayed`).
+ */
+export async function pickSeasonPiece(db: D1Database, pid: number, season: number, ladder: Ladder, def: string, now: number): Promise<{ item: Item; replayed: boolean }> {
+  const where = 'player_id = ?1 AND season = ?2 AND ladder = ?3';
+  const row = await db.prepare(`SELECT pick, picked FROM duel_season_rewards WHERE ${where}`).bind(pid, season, ladder).first<{ pick: string | null; picked: string | null }>();
+  if (row?.picked) return { item: JSON.parse(row.picked) as Item, replayed: true };
+  if (!row?.pick) throw new ApiError(404, 'no_pick', 'That season reward has no piece to pick');
+  if (!setPieces(row.pick).includes(def)) throw new ApiError(400, 'not_in_set', 'Pick a piece of the reward\'s set');
+  const item = makeItem(new Rng(hashString(`${pid}:${season}:${ladder}:pick`) || 1), { nextId: 1 }, def, SETS[row.pick].rarity, 100);
+  item.uid = `${duelPrefix(pid)}ss${season}${ladder === 'live' ? 'l' : 'a'}`;
+  const json = JSON.stringify(item);
+  await db.batch([
+    db.prepare(`UPDATE duel_season_rewards SET picked = ?4, seen_at = COALESCE(seen_at, ?5) WHERE ${where} AND picked IS NULL`).bind(pid, season, ladder, json, now),
+    db
+      .prepare(`INSERT OR IGNORE INTO duel_items (uid, player_id, data, created_at) SELECT ?1, ?2, ?3, ?4 WHERE EXISTS (SELECT 1 FROM duel_season_rewards WHERE player_id = ?2 AND season = ?5 AND ladder = ?6 AND picked = ?3)`)
+      .bind(item.uid, pid, json, now, season, ladder),
+  ]);
+  const after = await db.prepare(`SELECT picked FROM duel_season_rewards WHERE ${where}`).bind(pid, season, ladder).first<{ picked: string | null }>();
+  const got = after?.picked ? (JSON.parse(after.picked) as Item) : item;
+  return { item: got, replayed: after?.picked !== json };
 }
 
 // ------------------------------------------------------------------ leaderboards
