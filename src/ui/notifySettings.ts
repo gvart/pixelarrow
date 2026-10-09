@@ -10,6 +10,7 @@
  */
 import Phaser from 'phaser';
 import { Button, addText, type UIMetrics } from './kit';
+import { Toggle } from './v3';
 import { ScrollList, openModal } from './widgets';
 import { ellipsize, wrapText, LINE_H } from './textfit';
 import { SIZE } from './theme';
@@ -79,7 +80,6 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
   let busy = false;
   const listY = y + 26 + noteLines * LINE_H + 6;
   const listH = h - (listY - y) - SIZE.btnH - 18;
-  const buttons = new Map<string, Button>();
   const isOn = (r: Row) => (st ? (r.kind === 'quiet' ? st.quiet : st.types.find((x) => x.type === r.type)?.on ?? true) : false);
   let list: ScrollList | null = new ScrollList(scene, c, x + 8, listY, iw, listH, {
     count: ROWS.length,
@@ -87,14 +87,10 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
     render: (i, row, rw) => {
       const r = ROWS[i];
       const label: TKey = r.kind === 'quiet' ? 'notify.quiet' : (`notify.type.${r.type}` as TKey);
-      row.add(addText(scene, 0, 8, ellipsize(t(label), rw - 46), 'ink'));
+      row.add(addText(scene, 0, 8, ellipsize(t(label), rw - 44), 'ink'));
       const on = isOn(r);
       const id = r.kind === 'quiet' ? 'notify.quiet' : `notify.${r.type}`;
-      const b = new Button(scene, rw - 40, 1, 40, 22, { label: on ? t('common.on') : t('common.off'), style: on ? 'buttonSel' : 'button', id });
-      if (!st) b.setEnabled(false, t('notify.offline'));
-      b.setOnClick(() => void toggle(r));
-      buttons.set(id, b);
-      row.add(b);
+      row.add(new Toggle(scene, rw - 4 - 34, 1, { on, label: t(label), id, disabled: st ? undefined : t('notify.offline'), onChange: () => void toggle(r) }));
     },
   });
   const toggle = async (r: Row) => {

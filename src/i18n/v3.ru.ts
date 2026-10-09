@@ -90,5 +90,10 @@ export const V3_RU: Record<keyof typeof V3_EN, string> = {
   "hero.perk.unlocksAt": "Откроется на ур. {n}",
   "hero.perk.pick": "Выбрать",
   "hero.xpTo": "Опыт до {n}-го уровня",
+  "settings.sec.audio": "Звук",
+  "settings.sec.battle": "Паузы и числа в бою",
+  "settings.sec.access": "Доступность",
+  "settings.sec.account": "Аккаунт и помощь",
+  "settings.reduceMotion": "Меньше анимации",
   "dv.chapterLocked": "Пройдите этаж {n}, чтобы открыть",
 };

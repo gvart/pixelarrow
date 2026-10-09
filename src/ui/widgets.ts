@@ -10,7 +10,7 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
+import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addText, longPress, panelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
 import { ACCENT, MOTION, SURFACE } from './tokens';
 import { tweenTo } from './motion';
 import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
@@ -1153,10 +1153,10 @@ export function openModal(scene: UiScene, o: ModalOpts): Modal {
   const h = Math.min(o.h, VH - 16);
   const x = Math.round((VW - w) / 2);
   const y = Math.round((VH - h) / 2);
-  addScroll(scene, c, x, y, w, h);
+  c.add(panelImage(scene, x, y, w, h, 'cardRaised'));
   let top = y + 8;
   if (o.title) {
-    c.add(addText(scene, VW / 2, y + 12, ellipsize(o.title, w - 16), 'red', 0.5));
+    c.add(addText(scene, VW / 2, y + 10, ellipsize(o.title, (w - 20) / 1.1, false, 7, 'head'), 'head', 0.5).setScale(1.1));
     top = y + 26;
   }
   let closed = false;

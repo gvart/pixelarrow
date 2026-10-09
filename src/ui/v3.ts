@@ -392,6 +392,8 @@ export interface ToggleOpts {
   /** What it switches (scripts and the long-press tip). */
   label: string;
   id?: string;
+  /** Cannot be switched now, and why (dimmed; a tap says why). */
+  disabled?: string;
 }
 
 /** A switch (34 x 22 target): a knob that slides over a lit track when on. */
@@ -414,7 +416,12 @@ export class Toggle extends Phaser.GameObjects.Container {
     this.setSize(this.w, this.h);
     this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
     uiId(this, o.id ?? `toggle:${o.label}`);
+    if (o.disabled) this.setAlpha(0.45);
     tappable(this, null, () => {
+      if (o.disabled) {
+        showTooltip(scene, o.disabled, this);
+        return;
+      }
       this.isOn = !this.isOn;
       tweenTo(scene, this.k, { x: this.isOn ? 1 : 0 }, 140, { onUpdate: () => this.draw() });
       this.draw();

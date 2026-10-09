@@ -97,5 +97,10 @@ export const V3_EN = {
   "hero.perk.unlocksAt": "Unlocks at Lv {n}",
   "hero.perk.pick": "Pick",
   "hero.xpTo": "XP to level {n}",
+  "settings.sec.audio": "Audio",
+  "settings.sec.battle": "Battle pauses and numbers",
+  "settings.sec.access": "Accessibility",
+  "settings.sec.account": "Account and help",
+  "settings.reduceMotion": "Reduce motion",
   "dv.chapterLocked": "Clear floor {n} to open",
 } as const;
