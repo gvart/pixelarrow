@@ -11,7 +11,7 @@ import { ICONS } from '../art/icons';
 import { VECTOR_CAMP_ICONS, VECTOR_ICONS } from '../art/vectorIcons';
 import { UI_ICONS } from '../art/uiIcons';
 import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
-import { renderIcon, type PanelStyle } from '../art/uiTextures';
+import { renderIcon } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
@@ -171,7 +171,7 @@ export function panelImage(scene: Phaser.Scene, x: number, y: number, w: number,
   return scene.add.image(x, y, panelTexture(scene, w, h, style)).setOrigin(0, 0).setScale(1 / panelK(scene));
 }
 
-export function addPanel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: PanelStyle = 'parch'): Phaser.GameObjects.Image {
+export function addPanel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle = 'parch'): Phaser.GameObjects.Image {
   return panelImage(scene, Math.round(x), Math.round(y), w, h, style);
 }
 

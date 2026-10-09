@@ -186,6 +186,18 @@ describe('demo duel source', () => {
     await expect(src.ladderStart(2)).rejects.toMatchObject({ code: 'floor_locked' });
   });
 
+  it('the duel level has one source: the profile level always matches its XP', async () => {
+    const { DemoDuelSource } = await import('../src/duel/client');
+    const { levelProgress, accountLevel } = await import('../src/duel/rules');
+    const src = new DemoDuelSource();
+    for (const xp of [0, 49, 50, 149, 150, 560, 5000]) {
+      src.setXp(xp);
+      const p = await src.profile();
+      expect(p.level, `xp ${xp}`).toBe(levelProgress(p.xp).level);
+      expect(p.level).toBe(accountLevel(xp));
+    }
+  });
+
   it('a ladder ticket pays out from the simulated result', async () => {
     const { DemoDuelSource } = await import('../src/duel/client');
     const src = new DemoDuelSource({ fresh: true });

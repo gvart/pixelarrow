@@ -77,10 +77,10 @@ export const RU: Table = {
   'menu.resetBody': 'Ваше войско, склад и карта будут потеряны навсегда.',
   'menu.resetOk': 'Начать',
   'menu.noSave': 'Сохранённого похода нет: начните новый.',
-  'menu.tip.gold': 'Золото в казне',
+  'menu.tip.gold': 'Золото похода в казне',
   'menu.tip.army': 'Герои в войске',
   'menu.tip.day': 'Дней в походе',
-  'menu.tip.record': 'Победы / битвы',
+  'menu.tip.record': 'Победы / битвы похода',
 
   'online.title': 'Война сезона',
   'online.reaching': 'Связь с царством...',

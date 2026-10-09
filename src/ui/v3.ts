@@ -16,7 +16,7 @@
  *   money: Telegram blue, "Stars", always confirmed), `flyReward`.
  */
 import Phaser from 'phaser';
-import { Button, addIcon, addText, panelImage, scaleIcon, tappable, SHADOW_FONTS, type FontKey } from './kit';
+import { Button, addIcon, addText, panelImage, panelTexture, scaleIcon, tappable, SHADOW_FONTS, type FontKey } from './kit';
 import { hintStore, showTooltip, shadeTap, type Modal, type UiScene } from './widgets';
 import { uiBlocker, uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
@@ -244,7 +244,9 @@ export function layChips(parent: C, chips: InfoChip[], x: number, y: number, w: 
       c.destroy();
       continue;
     }
-    c.setPosition(Math.round(cx), Math.round(y));
+    // (not setPosition: Phaser's setPosition(x, y, z, w) would zero the chip's `w`)
+    c.x = Math.round(cx);
+    c.y = Math.round(y);
     parent.add(c);
     out.push(c);
     cx += c.w + gap;
@@ -722,4 +724,90 @@ export function addClaimGlow(scene: Phaser.Scene, parent: C, x: number, y: numbe
 /** Measure a label in a font (shadow fonts are wider). */
 export function textW(s: string, font: FontKey = 'ink', size = 7): number {
   return measureText(s, SHADOW_FONTS.has(font), size);
+}
+
+// ================================================================== tile
+
+export interface TileOpts {
+  icon: string;
+  label: string;
+  /** A quieter line under the label (dropped when there is no room; the full text is the long-press tip). */
+  sub?: string;
+  onClick: () => void;
+  id?: string;
+  badge?: number | string;
+  /** Locked, and why: dimmed, a lock, the reason on tap. */
+  locked?: string;
+  tip?: string;
+  /** Raised (the main modes) or a plain card. */
+  raised?: boolean;
+  /** Icon size in multiples of 12 UI px (default 2). */
+  iconScale?: number;
+}
+
+/**
+ * A big tap target for a destination: a material card, a large icon, the
+ * label under it (and a line of context where there is room). Presses like a
+ * button (scale, face drop, haptic); carries `opts.label` for scripts.
+ */
+export class Tile extends Phaser.GameObjects.Container {
+  readonly w: number;
+  readonly h: number;
+  readonly opts: { label: string; icon: string };
+  private face: Phaser.GameObjects.Container;
+  private bg: Phaser.GameObjects.Image;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, o: TileOpts) {
+    super(scene, Math.round(x), Math.round(y));
+    this.w = Math.round(w);
+    this.h = Math.round(h);
+    this.opts = { label: o.label, icon: o.icon };
+    const style: SmoothStyle = o.locked ? 'cardLocked' : o.raised ? 'cardRaised' : 'card';
+    this.face = scene.add.container(this.w / 2, this.h / 2);
+    this.add(this.face);
+    const L = (obj: Phaser.GameObjects.GameObject & { x: number; y: number }) => {
+      obj.x -= this.w / 2;
+      obj.y -= this.h / 2;
+      this.face.add(obj);
+      return obj;
+    };
+    this.bg = panelImage(scene, 0, 0, this.w, this.h, style);
+    L(this.bg);
+    const k = o.iconScale ?? 2;
+    const isz = 12 * k;
+    const showSub = !!o.sub && this.h >= isz + 8 + 11 + 9 + 4;
+    const block = isz + 3 + 9 + (showSub ? 9 : 0);
+    let cy = Math.round((this.h - block) / 2);
+    const icon = scaleIcon(addIcon(scene, Math.round((this.w - isz) / 2), cy, o.icon, o.locked ? 'D' : ''), k);
+    L(icon);
+    cy += isz + 3;
+    const label = ellipsize(o.label, this.w - 8);
+    const lt = addText(scene, this.w / 2, cy, label, o.locked ? 'muted' : 'ink', 0.5);
+    uiFrame(lt, this, this.w, this.h);
+    L(lt);
+    let truncated = label !== o.label;
+    if (showSub) {
+      const sub = ellipsize(o.sub!, this.w - 8, false, 6);
+      truncated ||= sub !== o.sub;
+      const st = addText(scene, this.w / 2, cy + 10, sub, o.locked ? 'muted' : 'sec', 0.5).setFontSize(6);
+      uiFrame(st, this, this.w, this.h);
+      L(st);
+    }
+    if (o.locked) L(addIcon(scene, this.w - 15, 3, 'lock', 'D'));
+    if (o.badge !== undefined && o.badge !== 0) this.add(new BadgeDot(scene, this.w - 6, 6, o.badge));
+    this.setSize(this.w, this.h);
+    this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+    uiId(this, o.id ?? `tile:${o.label}`);
+    const press = (on: boolean) => {
+      if (!this.scene || o.locked) return;
+      this.bg.setTexture(panelTexture(scene, this.w, this.h, on ? 'cardSel' : style));
+      this.face.setScale(on && !motion.reduced ? 0.97 : 1);
+    };
+    this.on('pointerdown', () => press(true));
+    this.on('pointerup', () => press(false));
+    this.on('pointerout', () => press(false));
+    const tip = o.tip ?? (truncated ? [o.label, o.sub].filter(Boolean).join(': ') : undefined);
+    tappable(this, null, () => (o.locked ? showTooltip(scene, o.locked, this) : o.onClick()), tip);
+    scene.add.existing(this);
+  }
 }

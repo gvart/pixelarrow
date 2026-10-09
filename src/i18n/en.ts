@@ -91,10 +91,10 @@ export const EN = {
   'menu.resetBody': 'Your army, stash and map will be lost forever.',
   'menu.resetOk': 'Begin',
   'menu.noSave': 'No campaign saved yet: start a new one.',
-  'menu.tip.gold': 'Gold in your treasury',
+  'menu.tip.gold': 'Campaign gold in your treasury',
   'menu.tip.army': 'Heroes in your army',
   'menu.tip.day': 'Days on campaign',
-  'menu.tip.record': 'Battles won / fought',
+  'menu.tip.record': 'Campaign battles won / fought',
 
   // ---- online hex map (scenes/online/OnlineScene.ts), hex panel, results, duels
   'online.title': 'Season war',

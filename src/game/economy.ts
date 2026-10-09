@@ -148,3 +148,23 @@ export function econState(e: unknown, available = true): EconState {
   }
   return 'error';
 }
+
+/**
+ * The wallet's red warning: only a balance below zero (a refunded pack that
+ * was already spent). `WalletInfo.canSpend` is also false at exactly 0, which
+ * is normal and needs no warning (the old screen showed it at 0).
+ */
+export function walletOverdrawn(w: { drachmae: number }): boolean {
+  return w.drachmae < 0;
+}
+
+/**
+ * Which gold a season-pass reward pays: always the online war's gold (the
+ * server credits online_profiles), never the offline campaign's, so the
+ * reward and the shop say "War gold", not plain "gold" next to the
+ * campaign's purse.
+ */
+export function passGoldKey(): 'res.gold.war' {
+  return 'res.gold.war';
+}
+
