@@ -230,6 +230,8 @@ export interface MChipOpts {
   surface?: 'parchment' | 'stone';
   /** A fixed width; else as wide as its content. */
   w?: number;
+  /** Side padding in total, UI px (default 10; a tight row of chips takes less). */
+  pad?: number;
   onClick?: () => void;
   tip?: string;
   id?: string;
@@ -256,10 +258,13 @@ export class MChip extends Phaser.GameObjects.Container {
     put(face, this.w, this.h, mosaicImage(scene, 0, 0, this.w, this.h, stone ? 'chipStone' : 'chipParch'));
     const iconW = o.icon ? ICON_PX + 3 : 0;
     const font: FontKey = stone ? 'ink' : 'pInk';
-    const text = fit(val, font, 7, this.w - 10 - iconW);
-    const x0 = Math.round((this.w - (iconW + mw(text, font))) / 2);
+    // the number keeps its size while it fits, then shrinks (to 6) before it is cut
+    const room = this.w - (o.pad ?? 10) - iconW;
+    const size = [7, 6.5, 6].find((z) => mw(val, font, z) <= room) ?? 6;
+    const text = fit(val, font, size, room);
+    const x0 = Math.round((this.w - (iconW + mw(text, font, size))) / 2);
     if (o.icon) put(face, this.w, this.h, addIcon(scene, x0, Math.round((this.h - ICON_PX) / 2) - 1, o.icon));
-    put(face, this.w, this.h, mtext(scene, x0 + iconW, midY(this.h - 1), text, font, { box: { owner: this, w: this.w, h: this.h } }));
+    put(face, this.w, this.h, mtext(scene, x0 + iconW, midY(this.h - 1, size), text, font, { size, box: { owner: this, w: this.w, h: this.h } }));
     if (tapable) makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick!, tip: o.tip });
     uiId(this, o.id ?? `chip:${o.icon ?? ''}:${val}`);
     scene.add.existing(this);

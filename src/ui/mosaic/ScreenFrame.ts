@@ -28,6 +28,19 @@ export interface ScreenFrameOpts {
   topBar?: boolean;
   /** Top of the page (default 0: a screen of its own; the Kit gallery leaves room for its tabs). */
   y?: number;
+  /** A window left open in the content area (the war map shows through it): page and paper are drawn around it, not under it. */
+  window?: Box;
+}
+
+/** `outer` minus `hole` (the hole lies inside it) as up to four strips. */
+function around(outer: Box, hole: Box): Box[] {
+  const hb = hole.y + hole.h;
+  return [
+    { x: outer.x, y: outer.y, w: outer.w, h: hole.y - outer.y },
+    { x: outer.x, y: hb, w: outer.w, h: outer.y + outer.h - hb },
+    { x: outer.x, y: hole.y, w: hole.x - outer.x, h: hole.h },
+    { x: hole.x + hole.w, y: hole.y, w: outer.x + outer.w - hole.x - hole.w, h: hole.h },
+  ].filter((b) => b.w > 0 && b.h > 0);
 }
 
 export class ScreenFrame extends Phaser.GameObjects.Container {
@@ -50,8 +63,9 @@ export class ScreenFrame extends Phaser.GameObjects.Container {
     this.content = { x: FRAME_T, y: y0 + FRAME_T + barH, w: VW - FRAME_T * 2, h: bottom - y0 - FRAME_T * 2 - barH };
     const pad = SPACE.md;
     this.inner = { x: this.content.x + pad, y: this.content.y + SPACE.sm, w: this.content.w - pad * 2, h: this.content.h - SPACE.sm - pad };
-    this.add(mosaicImage(scene, 0, y0, VW, VH - y0, 'page'));
-    this.add(mosaicImage(scene, this.content.x, this.content.y, this.content.w, this.content.h, 'paper'));
+    const win = o.window;
+    for (const b of win ? around({ x: 0, y: y0, w: VW, h: VH - y0 }, win) : [{ x: 0, y: y0, w: VW, h: VH - y0 }]) this.add(mosaicImage(scene, b.x, b.y, b.w, b.h, 'page'));
+    for (const b of win ? around(this.content, win) : [this.content]) this.add(mosaicImage(scene, b.x, b.y, b.w, b.h, 'paper'));
     if (barH > 0) this.add(mosaicImage(scene, this.topBar.x, this.topBar.y, this.topBar.w, barH, 'topBar'));
     this.add(mosaicImage(scene, 0, y0, VW, bottom - y0, 'frame'));
     scene.add.existing(this);

@@ -578,6 +578,22 @@ const SCREENS = [
       return wait(p, 900);
     },
   })),
+  // The clan screen (src/scenes/online/ClanScene.ts) with a staged clan (the API is not reached).
+  ...[
+    ['online-clan', ''],
+    ['online-clan-manage', 's.manage(s.clan.members[1]);'],
+    ['online-clan-leave', 's.confirmLeave();'],
+    ['online-clan-none', 's.clan = null; s.render();'],
+  ].map(([id, after]) => ({
+    id,
+    owner: 'C',
+    run: async (p) => {
+      await start(p, 'OnlineClan', {});
+      await wait(p, 600);
+      await call(p, 'OnlineClan', `s.loaded = true; s.me = 1; s.role = 'leader'; s.clan = { id: 1, name: 'Sons of Lambda', tag: 'LMB', shard: 1, regions: 7, members: [{ id: 1, name: 'Leonidas', role: 'leader', joinedAt: 0, regions: 4 }, { id: 2, name: 'Brasidas', role: 'officer', joinedAt: 0, regions: 2 }, { id: 3, name: 'Myrto of Corinth', role: 'member', joinedAt: 0, regions: 1 }] }; s.render(); ${after} return 1;`);
+      return wait(p, 500);
+    },
+  })),
   // Map merchants (src/scenes/online/MerchantScene.ts) on the demo shard: a town in reach with the clan's
   // discount, a trading post out of reach, the buy dialog and a piece of gear's card.
   ...[

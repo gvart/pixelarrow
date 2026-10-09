@@ -14,6 +14,7 @@ import { V3_RU } from './v3.ru';
 import { V4_RU } from './v4.ru';
 import { MOSAIC_RU } from './mosaic.ru';
 import { MOSAIC_CMAP_RU } from './mosaic.campaignmap.ru';
+import { MOSAIC_WAR_RU } from './mosaic.war.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -283,4 +284,5 @@ export const RU: Table = {
   // ---- the v4 Mosaic & Parchment chrome (mosaic.ru.ts)
   ...MOSAIC_RU,
   ...MOSAIC_CMAP_RU,
+  ...MOSAIC_WAR_RU,
 };

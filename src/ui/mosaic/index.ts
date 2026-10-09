@@ -26,3 +26,4 @@ export { openParchmentSheet, sheetActionsH, SHEET_TITLE_H, SHEET_ACTION_H, type 
 export { MIconButton, type MIconButtonOpts, type MIconButtonVariant } from './iconButton';
 export { MActionBar, MSquareButton, actionBarH, type BarSlot, type MActionBarOpts, type MSquareButtonOpts } from './ActionBar';
 export { SituationLine, ChipRow, CHIP_ROW_H, addMapTopBar, type SituationChip } from './SituationLine';
+export { RoundButton, type RoundButtonOpts } from './RoundButton';

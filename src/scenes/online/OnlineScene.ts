@@ -12,11 +12,16 @@
 import { RS } from '../../platform/renderScale';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { Button, Meter, addIcon, addPanel, addText, tappable } from '../../ui/kit';
-import { Badge, Label, ScrollList, firstTimeHint, openModal, showTooltip, toast, type Modal } from '../../ui/widgets';
-import { SIZE, COLOR, STRAT } from '../../ui/theme';
-import { CommandStrip, SituationBar, type SitNumber } from '../../ui/strategos';
-import { LINE_H, ellipsize, measureText, wrapText } from '../../ui/textfit';
+import { Meter, addIcon, addText, tappable } from '../../ui/kit';
+import { ScrollList, firstTimeHint, showTooltip, toast, type Modal } from '../../ui/widgets';
+import { COLOR } from '../../ui/theme';
+import { MOSAIC, SPACE } from '../../ui/tokens';
+import { FRAME_T } from '../../art/mosaicUi';
+import { BottomPanel, MButton, MChip, RoundButton, ScreenFrame, TAB_H, TAP, TOPBAR_H, TabBar, TopBar, goTab, mosaicImage, mtext, mw, type Box, type MButtonOpts, type RoundButtonOpts, type TabId } from '../../ui/mosaic';
+import { TAB_FRAME_GAP } from '../../ui/mosaic/tabLayout';
+import { openSettings } from '../../ui/settings';
+import { openWarSheet, SHEET_TITLE_H } from './warSheet';
+import { LINE_H, measureText, wrapText } from '../../ui/textfit';
 import { uiId, worldRect } from '../../ui/layout';
 import { haptic, hapticNotify } from '../../platform/telegram';
 import { getMap, hasMap, type WorldGraph } from '../../online/world';
@@ -44,7 +49,6 @@ import { planMarch, type MarchPlan } from '../../online/marchPlan';
 import { regionActions, type Act } from '../../online/regionActions';
 import { demoShard, type DemoShard } from '../../online/demoShard';
 import { ParchmentMapView, clampCenter, snapZoom, zoomLimits, zoomStep, type WorldMapView } from './regionMapView';
-import { renderVignette } from '../../art/warTable';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
 import { fmtDuration, fmtNum } from '../../util/format';
@@ -61,9 +65,36 @@ import { OnlineCoach, coachDue, type CoachHost } from '../../ui/tutorial/onlineC
 import type { CoachId } from '../../game/tutorial';
 
 /** Layout (UI pixels). */
-const TOP_H = STRAT.sitH;
-const BAR_H = STRAT.stripH;
-const CHIP_H = 28;
+const SIT_H = 24;
+const MARCH_H = 24;
+const STATE_BTN_H = 24;
+const GAP = 3;
+/** Height of a hex panel action button. */
+const ACT_H = 24;
+
+/** Least width of an action button: its label at size 6 and the padding (the icon goes first). */
+function btnNeed(a: MButtonOpts): number {
+  return Math.ceil(mw(a.label.toUpperCase(), a.variant === 'disabled' ? 'rOff' : 'rCream', 6)) + 14;
+}
+
+/** Actions in rows of a panel `w` wide: one row when every label fits, else packed greedily in order. */
+function packRows(specs: MButtonOpts[], w: number): MButtonOpts[][] {
+  const fits = (r: MButtonOpts[]) => r.reduce((sum, a) => sum + btnNeed(a), 0) + GAP * (r.length - 1) <= w;
+  if (!specs.length || fits(specs)) return specs.length ? [specs] : [];
+  const out: MButtonOpts[][] = [];
+  let cur: MButtonOpts[] = [];
+  for (const a of specs) {
+    if (cur.length && !fits([...cur, a])) {
+      out.push(cur);
+      cur = [];
+    }
+    cur.push(a);
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+/** Fonts of the hex panel's lines (on parchment). */
+const PANEL_FONT = { ink: 'pInk', dim: 'pSec', red: 'pBad', good: 'pGood' } as const;
 
 type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string } | { kind: 'join' } | { kind: 'map' };
 
@@ -182,11 +213,19 @@ export class OnlineScene extends BaseScene {
   private src: Source = liveSource;
   private demo: DemoShard | null = null;
   private cameraPlaced = false;
-  private backdrop: Phaser.GameObjects.Image | null = null;
-  private candle: Phaser.GameObjects.Image | null = null;
+  private frame!: ScreenFrame;
+  /** The situation line, the resource chips and the map window of the hub shell, UI px. */
+  private sit!: Box;
+  private chips!: Box;
+  private win!: Box;
+  /** Rects of the HUD controls over the map (a tap there is not a map tap). */
+  private uiRects: Box[] = [];
+  /** The hex whose panel last slid in (a rebuild of the same panel does not slide again). */
+  private animatedFor: number | null = null;
+  /** The open hex panel has its own Collect (so the map's is left out). */
+  private panelCollect = false;
   private chipText: Phaser.GameObjects.BitmapText | null = null;
   private chipTimer: Phaser.Time.TimerEvent | null = null;
-  private duelBadge: Badge | null = null;
   private lobbyOpen = false;
   private boardBuilt = false;
   /** World bosses of the shard (HP bars on the map, the raid panel). */
@@ -204,7 +243,8 @@ export class OnlineScene extends BaseScene {
     this.detail = null;
     this.plan = null;
     this.cameraPlaced = false;
-    this.backdrop = null;
+    this.animatedFor = null;
+    this.uiRects = [];
     this.modal = null;
     this.panel = null;
     this.gesture = null;
@@ -215,7 +255,6 @@ export class OnlineScene extends BaseScene {
     this.boardBuilt = false;
     this.coach = null;
     this.chipText = null;
-    this.duelBadge = null;
     this.demo = this.data0.preview ? demoShard() : null;
     this.src = this.demo ? previewSource(this.demo) : liveSource;
     this.view = { kind: 'loading', msg: t('online.reaching') };
@@ -231,9 +270,7 @@ export class OnlineScene extends BaseScene {
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.uiCam.ignore(this.layer);
     this.cameras.main.ignore(this.ui);
-    this.addAtmosphere();
-    this.hud = this.add.container(0, 0);
-    this.ui.add(this.hud);
+    this.buildShell();
     this.input.on('pointerdown', this.onDown, this);
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
@@ -270,26 +307,6 @@ export class OnlineScene extends BaseScene {
     this.scene.start('Menu');
   }
 
-  // ------------------------------------------------------------------ atmosphere
-
-  /** Candle-light vignette over the table (under the HUD). */
-  private addAtmosphere(): void {
-    const { VW, VH } = this.m;
-    const vk = `wt_vignette_${VW}x${VH}`;
-    if (!this.textures.exists(vk)) this.textures.addCanvas(vk, renderVignette(VW, VH).toCanvas());
-    // one full-screen overlay (cheap on phones): dark warm corners, a faint candle warmth, flickering
-    this.candle = this.add.image(0, 0, vk).setOrigin(0, 0);
-    this.ui.add(this.candle);
-  }
-
-  update(time: number, delta: number): void {
-    if (this.view.kind === 'map' && this.boardBuilt) this.board.update(time, delta);
-    if (this.coach) {
-      this.coach.refresh();
-      this.coach.update(time);
-    }
-    if (this.candle) this.candle.setAlpha(0.9 + Math.sin(time / 170) * 0.05 + Math.sin(time / 53) * 0.04);
-  }
 
   // ------------------------------------------------------------------ data
 
@@ -414,20 +431,58 @@ export class OnlineScene extends BaseScene {
     }
   }
 
+  // ------------------------------------------------------------------ shell
+
+  /** The framed page of the war hub: the map window, the top bar with the gear, the HUD layer and the tab bar (War lit). */
+  private buildShell(): void {
+    const { VW, VH } = this.m;
+    const c = { x: FRAME_T, y: FRAME_T + TOPBAR_H, w: VW - FRAME_T * 2, h: VH - TAB_H - TAB_FRAME_GAP - FRAME_T * 2 - TOPBAR_H };
+    this.sit = { x: c.x + 2, y: c.y + 2, w: c.w - 4, h: SIT_H };
+    this.chips = { x: this.sit.x, y: this.sit.y + this.sit.h + 3, w: this.sit.w, h: TAP };
+    const wy = this.chips.y + this.chips.h + 3;
+    this.win = { x: c.x + 2, y: wy, w: c.w - 4, h: c.y + c.h - 2 - wy };
+    this.frame = new ScreenFrame(this, VW, VH, { tabBar: TAB_H, window: this.win });
+    this.ui.add(this.frame);
+    this.ui.add(new TopBar(this, this.frame.topBar, { title: 'Pixelarrow', id: 'hub.topbar', actions: [{ icon: 'gear', label: t('menu.settings'), onClick: () => openSettings(this) }] }));
+    // the map window's carved edge
+    const w = this.win;
+    const g = this.add.graphics();
+    g.lineStyle(2, MOSAIC.stone0, 1);
+    g.strokeRect(w.x + 1, w.y + 1, w.w - 2, w.h - 2);
+    g.lineStyle(1, MOSAIC.meanderLo, 0.9);
+    g.strokeRect(w.x + 2.5, w.y + 2.5, w.w - 5, w.h - 5);
+    this.ui.add(g);
+    this.hud = this.add.container(0, 0);
+    this.ui.add(this.hud);
+    this.ui.add(new TabBar(this, VW, VH, { active: 'war', onSelect: (id) => id !== 'war' && this.openTab(id) }));
+  }
+
+  private openTab(id: TabId): void {
+    if (!this.demo) shardSocket.close();
+    goTab(this, id);
+  }
+
+  update(time: number, delta: number): void {
+    if (this.view.kind === 'map' && this.boardBuilt) this.board.update(time, delta);
+    if (this.coach) {
+      this.coach.refresh();
+      this.coach.update(time);
+    }
+  }
+
   // ------------------------------------------------------------------ render
 
   private render(): void {
     this.hud.removeAll(true);
     this.panel = null;
+    this.panelCollect = false;
     this.chipText = null;
-    this.duelBadge = null;
+    this.uiRects = [];
     if (this.view.kind !== 'map' || !this.profile || !this.map) {
       this.closeModal();
       this.renderState();
       return;
     }
-    this.backdrop?.destroy();
-    this.backdrop = null;
     this.buildHud();
     if (!this.cameraPlaced) {
       const lim = zoomLimits(this.m.S);
@@ -437,118 +492,151 @@ export class OnlineScene extends BaseScene {
     }
   }
 
-  /** Loading / unavailable / join: a parchment card over the grass. */
+  /** Loading / unavailable / join: a parchment card in the map window of the hub shell. */
   private renderState(): void {
-    const { VW, VH } = this.m;
-    if (!this.backdrop) {
-      this.backdrop = this.addGrassBackdrop(17).setAlpha(0.5);
-      this.ui.sendToBack(this.backdrop);
-    }
-    const v = this.view;
+    const win = this.win;
     const H = this.hud;
-    const w = Math.min(VW - 16, 200);
-    const x = Math.round((VW - w) / 2);
+    H.add(mosaicImage(this, win.x, win.y, win.w, win.h, 'paper'));
+    const v = this.view;
+    const w = Math.min(win.w - 12, 190);
+    const x = Math.round(win.x + (win.w - w) / 2);
+    const room = Math.max(2, Math.floor((this.frame.content.h - 12 - 30 - 10 - STATE_BTN_H - 12) / LINE_H));
     let lines: string[] = [];
     let title = t('online.title');
     const buttons: { label: string; icon: string; primary?: boolean; onClick: () => void }[] = [];
     if (v.kind === 'loading') {
-      lines = wrapText(v.msg, w - 20, 3).lines;
+      lines = wrapText(v.msg, w - 20, Math.min(3, room)).lines;
       buttons.push({ label: t('common.back'), icon: 'back', onClick: () => this.back() });
     } else if (v.kind === 'unavailable') {
       title = v.msg;
-      lines = wrapText(`${v.detail} ${t('online.offlineStill')}`, w - 20, 6).lines;
+      lines = wrapText(`${v.detail} ${t('online.offlineStill')}`, w - 20, Math.min(6, room)).lines;
       buttons.push({ label: t('online.backToMenu'), icon: 'back', primary: true, onClick: () => this.back() });
     } else if (v.kind === 'join') {
-      const room = Math.max(3, Math.floor((VH - 16 - 26 - SIZE.btnH - 18) / LINE_H));
       lines = wrapText(t('online.joinBody'), w - 20, room).lines;
       buttons.push({ label: t('common.back'), icon: 'back', onClick: () => this.back() });
       buttons.push({ label: t('online.join'), icon: 'flag', primary: true, onClick: () => void this.joinSeason() });
     }
-    const h = Math.min(VH - 16, 26 + lines.length * LINE_H + 10 + SIZE.btnH + 12);
-    const y = Math.round((VH - h) / 2);
-    H.add(addPanel(this, x, y, w, h, 'cardRaised'));
-    H.add(addText(this, VW / 2, y + 10, ellipsize(title, (w - 20) / 1.1, false, 7, 'head'), 'head', 0.5).setScale(1.1));
-    if (lines.length) {
-      const body = addText(this, VW / 2, y + 28, lines.join('\n'), 'ink', 0.5);
-      body.setCenterAlign();
-      H.add(body);
-    }
-    const bw = buttons.length > 1 ? Math.floor((w - 12 - SIZE.gap) / 2) : Math.min(w - 12, 110);
+    const h = Math.min(this.frame.content.h - 8, 30 + lines.length * LINE_H + 10 + STATE_BTN_H + 12);
+    const area = this.frame.content;
+    const y = area.y + Math.round((area.h - h) / 2);
+    const card = this.add.container(x, y);
+    H.add(card);
+    card.add(mosaicImage(this, 0, 0, w, h, 'parchment'));
+    const box = { owner: card, w, h };
+    const size = [9, 8.5, 8, 7.5, 7].find((z) => mw(title, 'rInk', z) <= w - 16) ?? 7;
+    card.add(mtext(this, w / 2, 10, title, 'rInk', { size, align: 0.5, maxW: w - 16, box }));
+    lines.forEach((l, i) => card.add(mtext(this, w / 2, 30 + i * LINE_H, l, 'pInk', { align: 0.5, maxW: w - 12, box })));
+    const bw = buttons.length > 1 ? Math.floor((w - 12 - GAP) / 2) : Math.min(w - 12, 120);
     buttons.forEach((b, i) => {
-      const bx = buttons.length > 1 ? x + 6 + i * (bw + SIZE.gap) : Math.round((VW - bw) / 2);
-      H.add(new Button(this, bx, y + h - SIZE.btnH - 9, bw, SIZE.btnH, { label: b.label, icon: b.icon, variant: b.primary ? 'primary' : 'secondary', onClick: b.onClick }));
+      const bx = buttons.length > 1 ? 6 + i * (bw + GAP) : Math.round((w - bw) / 2);
+      card.add(new MButton(this, bx, h - STATE_BTN_H - 9, bw, STATE_BTN_H, { label: b.label, icon: b.icon, variant: b.primary ? 'primary' : 'secondary', onClick: b.onClick }));
     });
   }
 
   private buildHud(): void {
-    const { VW, VH } = this.m;
     const H = this.hud;
     const p = this.profile!;
-    // ---- top: the situation bar (what now, in a sentence; resources and energy with words), centre-on-army on its right
+    const { sit, chips, win } = this;
+    // ---- the situation line: what now, in a sentence
     const energy = Math.floor(p.energy);
     const days = Math.max(0, Math.ceil((p.season.endsAt - p.now) / 86_400_000));
     const pend = p.income.pending;
     const pendSum = RESOURCE_KEYS.reduce((a, k) => a + pend[k], 0);
     let sentence: string;
-    let urgentSit = false;
     if (p.army.marching && p.army.arriveAt) sentence = t('online.sit.marching', { t: fmtDuration(p.army.arriveAt - this.board.armies.serverTime(Date.now())) });
-    else if (pendSum >= 1) {
-      sentence = t('online.sit.collect');
-      urgentSit = true;
-    } else if (energy < ONLINE_RULES.energyPerAttack) sentence = t('online.sit.energy', { n: ONLINE_RULES.energyPerHour });
+    else if (pendSum >= 1) sentence = t('online.sit.collect');
+    else if (energy < ONLINE_RULES.energyPerAttack) sentence = t('online.sit.energy', { n: ONLINE_RULES.energyPerHour });
     else sentence = `${t('online.sit.season', { n: p.season.id, d: days })}. ${t('online.sit.hex')}`;
-    const keys = (VW >= 200 ? RESOURCE_KEYS : RESOURCE_KEYS.filter((k) => k !== 'recruits')) as (keyof Resources)[];
-    const nums: SitNumber[] = keys.map((k) => ({ icon: RES_ICON[k], value: k === 'recruits' ? `${Math.floor(p.resources[k])}` : fmtNum(p.resources[k]), word: t(`res.${k}` as TKey).toLowerCase(), tip: `${t(`res.${k}` as TKey)}: ${Math.floor(p.resources[k])}` }));
-    nums.push({ icon: 'bolt', value: `${energy}`, word: t('online.num.energy'), font: energy < ONLINE_RULES.energyPerAttack ? 'red' : 'ink', tip: t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }) });
-    H.add(new SituationBar(this, VW, { sentence, numbers: nums, urgent: urgentSit, compact: false, id: 'online.situation' }));
-    // centre on my army: over the map's top-right corner, under the march chip when there is one
-    // (not while a region panel is open: the panel's close button sits there on short screens)
-    if (!this.selected) H.add(new Button(this, VW - 27, TOP_H + 3 + (p.army.marching && p.army.arriveAt ? CHIP_H : 0), SIZE.btnMinW, SIZE.btnH, { icon: 'map', iconOnly: true, label: t('online.centre'), onClick: () => this.centerOn(this.profile!.army.loc, true), id: 'online.centre' }));
-    // ---- marching chip
-    if (p.army.marching && p.army.arriveAt) {
-      const cy = TOP_H + 2;
-      H.add(addPanel(this, 3, cy, VW - 6, CHIP_H - 2, 'inset'));
-      const hw = Math.max(44, measureText(t('online.halt')) + 12);
-      H.add(new Button(this, VW - 4 - hw - 1, cy + 1, hw, SIZE.btnH, { label: t('online.halt'), tip: t('online.haltTip'), onClick: () => void this.halt(), id: 'online.halt' }));
-      H.add(addIcon(this, 7, cy + 7, 'clock'));
-      this.chipText = addText(this, 22, cy + 9, '', 'ink');
+    // ---- the hex panel first (its own primary wins over Collect); on a short screen it covers the situation line and the chips, which are then left out
+    if (this.selected) this.buildPanel();
+    if (!(this.panel && this.panelTop < chips.y + chips.h + 1)) {
+      H.add(mosaicImage(this, sit.x, sit.y, sit.w, sit.h, 'parchment'));
+      const sl = wrapText(sentence, sit.w - 16, 2).lines;
+      const sy = sit.y + Math.round((sit.h - sl.length * LINE_H) / 2);
+      sl.forEach((l, i) => H.add(mtext(this, sit.x + sit.w / 2, sy + i * LINE_H, l, 'pInk', { align: 0.5, maxW: sit.w - 12 })));
+      // ---- the resource chips: war gold, food, wood, bronze, (recruits on a wide screen), energy
+      const keys = (this.m.VW >= 200 ? RESOURCE_KEYS : RESOURCE_KEYS.filter((k) => k !== 'recruits')) as (keyof Resources)[];
+      const items = keys.map((k) => ({ icon: RES_ICON[k], value: k === 'recruits' ? `${Math.floor(p.resources[k])}` : fmtNum(p.resources[k]), tip: `${t(`res.${k}` as TKey)}: ${Math.floor(p.resources[k])}` }));
+      items.push({ icon: 'bolt', value: `${energy}`, tip: t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }) });
+      const cgap = 2;
+      const cw = Math.floor((chips.w - cgap * (items.length - 1)) / items.length);
+      items.forEach((it, i) => {
+        const chip: MChip = new MChip(this, chips.x + i * (cw + cgap), chips.y, { icon: it.icon, value: it.value, surface: 'stone', w: cw, pad: 4, tip: it.tip, onClick: () => showTooltip(this, it.tip, chip), id: `online.chip.${it.icon}` });
+        H.add(chip);
+      });
+    }
+    const bottom = this.panel ? this.panelTop : win.y + win.h;
+    // ---- marching bar with Halt
+    const marching = p.army.marching && p.army.arriveAt;
+    if (marching) {
+      const bx = win.x + 2;
+      const by = win.y + 2;
+      const bw = win.w - 4;
+      H.add(mosaicImage(this, bx, by, bw, MARCH_H, 'parchment'));
+      this.uiRects.push({ x: bx, y: by, w: bw, h: MARCH_H });
+      const hw = Math.max(44, mw(t('online.halt'), 'rCream', 7) + 18);
+      H.add(new MButton(this, bx + bw - hw - 2, by + 1, hw, TAP, { label: t('online.halt'), variant: 'secondary', tip: t('online.haltTip'), onClick: () => void this.halt(), id: 'online.halt' }));
+      H.add(addIcon(this, bx + 6, by + 7, 'clock'));
+      this.chipText = addText(this, bx + 20, by + 8, '', 'pInk');
       H.add(this.chipText);
+      const room = bw - hw - 30;
       const upd = () => {
         if (!this.chipText?.scene || !this.profile?.army.arriveAt) return;
         const left = this.profile.army.arriveAt - this.board.armies.serverTime(Date.now());
         const s = t('online.marching', { t: fmtDuration(left) });
-        this.chipText.setText(s.length && measureText(s) > VW - hw - 34 ? fmtDuration(left) : s);
+        this.chipText.setText(s.length && measureText(s) > room ? fmtDuration(left) : s);
       };
       upd();
       this.chipTimer?.remove();
       this.chipTimer = this.time.addEvent({ delay: 1000, loop: true, callback: upd });
     }
-    // ---- the command strip: Army | Collect | Duels | Clan
+    // ---- the round map buttons at the right edge: Army, Clan, Lobby, Region map
     const online = this.demo ? 3 : shardSocket.players.filter((x) => x.id !== shardSocket.me?.id).length;
-    const strip = new CommandStrip(this, VW, VH, {
-      left: { label: t('online.bar.army'), icon: 'people', tip: t('online.bar.armyTip'), id: 'online.bar.army', onClick: () => !this.demo && this.scene.start('OnlineArmy', {}) },
-      main: {
-        label: t('online.bar.collect'),
+    const specs: RoundButtonOpts[] = [
+      { icon: 'people', label: t('online.bar.army'), tip: t('online.bar.armyTip'), id: 'online.bar.army', onClick: () => !this.demo && this.scene.start('OnlineArmy', {}) },
+      { icon: 'flag', label: t('online.bar.clan'), tip: t('online.bar.clanTip'), id: 'online.bar.clan', onClick: () => !this.demo && this.scene.start('OnlineClan', {}) },
+      { icon: 'swords', label: t('war.lobby'), tip: t('online.bar.duelsTip'), id: 'online.bar.duels', badge: online, onClick: () => this.openLobby() },
+      { icon: 'map', label: t('war.regionMap'), tip: t('online.centre'), id: 'online.centre', onClick: () => this.centerOn(this.profile!.army.loc, true) },
+    ];
+    const top = win.y + 4 + (marching ? MARCH_H + 2 : 0);
+    const avail = bottom - top - 2;
+    let showLabel = true;
+    let pitch = RoundButton.size({}).h + GAP;
+    let n = Math.min(specs.length, Math.floor((avail + GAP) / pitch));
+    if (n < specs.length) {
+      showLabel = false;
+      pitch = RoundButton.size({ showLabel: false }).h + GAP;
+      n = Math.min(specs.length, Math.floor((avail + GAP) / pitch));
+    }
+    const rw = RoundButton.size({ showLabel }).w;
+    specs.slice(0, Math.max(0, n)).forEach((s, i) => {
+      const b = new RoundButton(this, win.x + win.w - rw - 2, top + i * pitch, { ...s, showLabel });
+      H.add(b);
+      this.uiRects.push({ x: b.x, y: b.y, w: b.w, h: b.h });
+    });
+    // ---- Collect: the primary while income waits (a secondary under an open hex panel, whose own primary wins)
+    const collectLabel = t('online.bar.collect');
+    const cwid = Math.max(60, mw(collectLabel.toUpperCase(), 'rCream', 7) + 34);
+    if (!(this.panel && this.panelCollect) && bottom - win.y >= TAP + 6 + (marching ? MARCH_H : 0)) {
+      const cb = new MButton(this, win.x + 4, bottom - TAP - 4, cwid, TAP, {
+        label: collectLabel,
         icon: 'wargold',
+        variant: pendSum < 1 ? 'disabled' : this.selected ? 'secondary' : 'primary',
         tip: `${t('online.bar.collectTip')}: ${resLine(pend)}`,
         id: 'online.bar.collect',
-        off: pendSum >= 1 ? undefined : t('online.collectNone'),
+        disabledReason: pendSum >= 1 ? undefined : t('online.collectNone'),
         onClick: () => void this.collect(),
-      },
-      extra: { label: t('online.bar.duels'), icon: 'swords', tip: t('online.bar.duelsTip'), id: 'online.bar.duels', badge: online, onClick: () => this.openLobby() },
-      right: { label: t('online.bar.clan'), icon: 'flag', tip: t('online.bar.clanTip'), id: 'online.bar.clan', onClick: () => !this.demo && this.scene.start('OnlineClan', {}) },
-      why: '',
-    });
-    H.add(strip);
-    this.duelBadge = null;
-    if (this.selected) this.buildPanel();
+      });
+      H.add(cb);
+      this.uiRects.push({ x: cb.x, y: cb.y, w: cb.w, h: cb.h });
+    }
     this.coach?.refresh();
   }
 
-  /** Free map area between the top HUD (and the march chip) and the panel / bottom bar, in UI px. */
+  /** Free map area between the march bar and the panel / the window's lower edge, in UI px. */
   private mapArea(): { top: number; bottom: number } {
-    const top = TOP_H + (this.profile?.army.marching ? CHIP_H : 0);
-    const bottom = this.panel ? this.panelTop : this.m.VH - BAR_H;
+    const top = this.win.y + (this.profile?.army.marching ? MARCH_H + 2 : 0);
+    const bottom = this.panel ? this.panelTop : this.win.y + this.win.h;
     return { top, bottom };
   }
 
@@ -606,16 +694,13 @@ export class OnlineScene extends BaseScene {
   }
 
   private buildPanel(): void {
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const h = this.selected!;
     const d = this.detail;
     const p = this.profile!;
     const map = this.map!;
     const view = d?.region ?? this.board.known(h);
     if (!view) return;
-    const x = 4;
-    const W = VW - 8;
-    const tw = W - 12;
     // ---- the lines of the panel (text, font)
     const rows: { text: string; font: 'ink' | 'dim' | 'red' | 'good'; kind?: 'yields' | 'siege' }[] = [];
     const owner = view.owner === null ? (view.occupant === 'none' ? t('hex.impassable') : t('hex.neutral')) : view.owner === map.you.id ? (view.home ? t('hex.yourHome') : t('hex.yours')) : `${d?.ownerName ?? map.players[String(view.owner)] ?? '?'}${(d?.clan?.tag ?? (view.clan !== null ? map.clans[String(view.clan)]?.tag : undefined)) ? ` [${d?.clan?.tag ?? map.clans[String(view.clan)]?.tag}]` : ''}`;
@@ -659,90 +744,88 @@ export class OnlineScene extends BaseScene {
           plan: this.plan ?? { ok: false, reason: 'unknown' },
         })
       : [];
-    const rowH = 11;
-    // the info rows sit in one tap area (full text on long-press) at least a touch target tall
-    const infoH = Math.max(SIZE.btnH, rows.length * rowH + 2);
     // a lair or a world boss: its info panel (how it fights, the raid) on one more button
     const beastBtn = !!d && (!!d.lair || !!this.bossAt(h));
     // a town or a trading post: its merchant (docs/DUELS.md "War-map shops on the map")
     const merchantBtn = !!d?.merchant;
     // your camp, or your camp plot to pitch one on (docs/DESIGN_V2.md "Camp")
     const campBtn = !!d && ((!!d.camp && d.camp.owner === map.you.id) || (!!d.campPlot && d.mine && !d.camp));
-    // the actions: one row of up to three whole words, two rows beyond that (never "Mercha…")
-    const n = acts.length + (beastBtn ? 1 : 0) + (merchantBtn ? 1 : 0) + (campBtn ? 1 : 0);
-    const labels = [...acts.map((a) => this.actSpec(a, h).label), ...(beastBtn ? [t('hex.act.beast')] : []), ...(merchantBtn ? [t('hex.act.merchant')] : []), ...(campBtn ? [t('hex.act.camp')] : [])];
-    const widest = Math.max(0, ...labels.map((l) => measureText(l, true) + 22));
-    const oneRow = n > 0 && widest <= Math.floor((W - 12 - (n - 1) * SIZE.gap) / n);
-    const actRows = n > 3 || (n > 1 && !oneRow) ? 2 : n > 0 ? 1 : 0;
-    const perRow = Math.ceil(n / Math.max(1, actRows));
-    const ph = 8 + 11 + infoH + (actRows ? SIZE.gap + 1 + actRows * SIZE.btnH + (actRows - 1) * SIZE.gap : 0) + 8;
-    const py = VH - BAR_H - ph - 1;
-    this.panelTop = py;
-    const c = this.add.container(0, 0);
-    this.hud.add(c);
-    this.panel = c;
-    c.add(addPanel(this, x, py, W, ph, 'parch'));
-    // a tap-catcher behind the content: taps on the panel never reach the map; long-press: the full text
-    const full = [`${this.hexName(view)} · ${view.tier}`, ...rows.map((r) => (r.kind === 'yields' && d ? `${t('hex.perHour')}: ${resLine(d.yields, true)}` : r.text))].join('\n');
-    const titleText = t('hex.title', { name: this.hexName(view), tier: view.tier });
-    c.add(new Label(this, x + 6, py + 7, titleText, { maxW: tw - 26, font: 'red', expandable: false }));
-    c.add(new Button(this, x + W - 27, py + 3, SIZE.btnMinW, SIZE.btnH, { icon: 'close', iconOnly: true, label: t('common.close'), onClick: () => this.select(null), id: 'online.closePanel' }));
-    let y = py + 8 + 13;
-    for (const r of rows) {
-      if (r.kind === 'yields' && d) this.yieldsRow(c, x + 6, y, tw, d.yields);
-      else if (r.kind === 'siege' && d?.siege) {
-        const txt = addText(this, x + 6, y, r.text, 'ink');
-        c.add(txt);
-        const mw = Math.min(60, tw - txt.width - 8);
-        if (mw > 12) c.add(new Meter(this, x + 6 + txt.width + 5, y + 1, mw, 5, COLOR.xp).setValue(d.siege.wins, d.siege.needed));
-      } else c.add(new Label(this, x + 6, y, r.text, { maxW: tw, font: r.font, expandable: false }));
-      y += rowH;
-    }
-    const infoTop = py + 8 + 11;
-    // left of the close button's column, so the two never touch
-    const zone = this.add.zone(x + 2, infoTop, W - 4 - SIZE.btnMinW - SIZE.gap - 3, infoH).setOrigin(0, 0).setInteractive();
-    uiId(zone, 'online.hexInfo');
-    tappable(zone, null, () => showTooltip(this, full, { x: x + 6, y: infoTop, w: tw, h: infoH }), full);
-    c.addAt(zone, 1);
-    if (!acts.length && !beastBtn && !merchantBtn && !campBtn) return;
-    const by0 = infoTop + infoH + SIZE.gap + 1;
-    // slot i of n: row by row; the last slot of a row takes the rounding remainder
-    const slot = (i: number) => {
-      const row = Math.floor(i / perRow);
-      const col = i % perRow;
-      const inRow = row === actRows - 1 ? n - perRow * (actRows - 1) : perRow;
-      const bw = Math.floor((W - 12 - (inRow - 1) * SIZE.gap) / inRow);
-      return { bx: x + 6 + col * (bw + SIZE.gap), bw: col === inRow - 1 ? W - 12 - col * (bw + SIZE.gap) : bw, by: by0 + row * (SIZE.btnH + SIZE.gap) };
-    };
-    // the merchant first (left): the primary action stays at the right, under the thumb
-    const first = (merchantBtn ? 1 : 0) + (campBtn ? 1 : 0);
-    if (campBtn) {
-      const sl = slot(merchantBtn ? 1 : 0);
-      c.add(new Button(this, sl.bx, sl.by, sl.bw, SIZE.btnH, { label: t('hex.act.camp'), icon: 'tent', tip: t('hex.campTip'), onClick: () => this.openCamp(h), id: 'online.act.camp' }));
-    }
-    if (merchantBtn) {
-      const sl = slot(0);
-      c.add(new Button(this, sl.bx, sl.by, sl.bw, SIZE.btnH, { label: t('hex.act.merchant'), icon: 'amphora', tip: t('hex.merchantTip'), onClick: () => this.openMerchant(h), id: 'online.act.merchant' }));
-    }
-    acts.forEach((a, i) => {
+    // the secondary buttons first, the action (the primary) last, at the right under the thumb
+    const specs: MButtonOpts[] = [];
+    if (merchantBtn) specs.push({ label: t('hex.act.merchant'), icon: 'amphora', variant: 'secondary', tip: t('hex.merchantTip'), onClick: () => this.openMerchant(h), id: 'online.act.merchant' });
+    if (campBtn) specs.push({ label: t('hex.act.camp'), icon: 'tent', variant: 'secondary', tip: t('hex.campTip'), onClick: () => this.openCamp(h), id: 'online.act.camp' });
+    if (beastBtn) specs.push({ label: t('hex.act.beast'), icon: 'beast', variant: 'secondary', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' });
+    for (const a of acts) {
       const spec = this.actSpec(a, h);
-      const sl = slot(first + i);
-      const b = new Button(this, sl.bx, sl.by, sl.bw, SIZE.btnH, {
+      specs.push({
         label: spec.label,
         icon: spec.icon,
-        variant: a.primary ? 'primary' : 'secondary',
+        variant: !a.enabled ? 'disabled' : a.primary ? 'primary' : 'secondary',
         tip: spec.tip,
         onClick: spec.onClick,
         disabledReason: a.reason ? t(`hex.why.${a.reason}` as TKey, a.params) : undefined,
         id: `online.act.${a.id}`,
       });
-      if (!a.enabled) b.setEnabled(false);
-      c.add(b);
-    });
-    if (beastBtn) {
-      const sl = slot(n - 1);
-      c.add(new Button(this, sl.bx, sl.by, sl.bw, SIZE.btnH, { label: t('hex.act.beast'), icon: 'beast', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' }));
     }
+    const rowH = LINE_H;
+    // the info rows sit in one tap area (full text on long-press)
+    // the action rows: all in one row when the labels fit, else packed row by row (a label is never cut)
+    const inner = VW - FRAME_T * 2 + 2 - SPACE.md * 2;
+    const arows = packRows(specs, inner);
+    const actH = arows.length ? arows.length * (ACT_H + GAP) - GAP + 3 : 0;
+    // (on a short screen the lines that do not fit are left out; the long-press text has them all)
+    let linesH = Math.max(TAP + 2, rows.length * rowH + 2);
+    const make = (lh: number) =>
+      new BottomPanel(this, VW, this.frame.rect.y + this.frame.rect.h, {
+        title: t('hex.title', { name: this.hexName(view), tier: view.tier }),
+        bodyH: lh + actH,
+        animate: this.animatedFor !== h,
+        // (the panel slides away on close: the hub rebuilds after that call, not inside it)
+        onClose: () => void this.time.delayedCall(0, () => this.selected === h && this.select(null)),
+        id: 'online.panel',
+      });
+    let panel = make(linesH);
+    const maxH = this.frame.content.h - 2;
+    if (panel.h > maxH) {
+      const over = panel.h - maxH;
+      panel.destroy();
+      linesH = Math.max(TAP + 2, linesH - Math.ceil(over / rowH) * rowH);
+      panel = make(linesH);
+    }
+    const shown = Math.max(1, Math.floor((linesH - 2) / rowH));
+    this.animatedFor = h;
+    this.hud.add(panel);
+    this.panel = panel;
+    this.panelTop = panel.y;
+    this.panelCollect = acts.some((a) => a.id === 'collect');
+    arows.forEach((row, ri) => {
+      const need = row.map((a) => btnNeed(a));
+      const extra = Math.floor((inner - need.reduce((x, y) => x + y, 0) - GAP * (row.length - 1)) / row.length);
+      let bx = SPACE.md;
+      row.forEach((a, i) => {
+        const last = i === row.length - 1;
+        const bw = last ? panel.w - SPACE.md - bx : need[i] + extra;
+        panel.add(new MButton(this, bx, panel.area.y + linesH + 3 + ri * (ACT_H + GAP), bw, ACT_H, a));
+        bx += bw + GAP;
+      });
+    });
+    const A = panel.area;
+    let y = A.y + 1;
+    for (const r of rows.slice(0, shown)) {
+      if (r.kind === 'yields' && d) this.yieldsRow(panel, A.x, y, A.w, d.yields);
+      else if (r.kind === 'siege' && d?.siege) {
+        const txt = mtext(this, A.x, y, r.text, PANEL_FONT[r.font], { maxW: A.w });
+        panel.add(txt);
+        const mw0 = Math.min(60, A.w - txt.width - 8);
+        if (mw0 > 12) panel.add(new Meter(this, A.x + txt.width + 5, y + 1, mw0, 5, COLOR.xp).setValue(d.siege.wins, d.siege.needed));
+      } else panel.add(mtext(this, A.x, y, r.text, PANEL_FONT[r.font], { maxW: A.w, box: { owner: panel, w: panel.w, h: panel.h } }));
+      y += rowH;
+    }
+    const full = [`${this.hexName(view)} · ${view.tier}`, ...rows.map((r) => (r.kind === 'yields' && d ? `${t('hex.perHour')}: ${resLine(d.yields, true)}` : r.text))].join('\n');
+    const zone = this.add.zone(A.x - 2, A.y + 2, A.w + 4, linesH - 2).setOrigin(0, 0).setInteractive();
+    uiId(zone, 'online.hexInfo');
+    tappable(zone, null, () => showTooltip(this, full, { x: panel.x + A.x, y: panel.y + A.y + 2, w: A.w, h: linesH - 2 }), full);
+    panel.addAt(zone, 1);
   }
 
   /** The camp panel of your camp (or camp plot) in a region. */
@@ -855,21 +938,22 @@ export class OnlineScene extends BaseScene {
   }
 
   /** "PER HOUR [icon]+6 [icon]+2": only what the hex yields, as far as it fits. */
-  private yieldsRow(c: Phaser.GameObjects.Container, x: number, y: number, w: number, r: Resources): void {
+  private yieldsRow(c: BottomPanel, x: number, y: number, w: number, r: Resources): void {
+    const box = { owner: c, w: c.w, h: c.h };
     const head = t('hex.perHour');
     const items = RESOURCE_KEYS.filter((k) => r[k] > 0);
     if (!items.length) {
-      c.add(addText(this, x, y, t('hex.noIncome'), 'dim'));
+      c.add(mtext(this, x, y, t('hex.noIncome'), 'pSec', { maxW: w, box }));
       return;
     }
-    c.add(addText(this, x, y, head, 'dim'));
-    let cx = x + measureText(head) + 5;
+    c.add(mtext(this, x, y, head, 'pSec', { box }));
+    let cx = x + mw(head, 'pSec') + 5;
     for (const k of items) {
       const v = k === 'recruits' ? `+${Math.round(r[k] * 10) / 10}` : `+${Math.floor(r[k])}`;
-      const need = 13 + measureText(v) + 4;
+      const need = 13 + mw(v, 'pGood') + 4;
       if (cx + need > x + w) break;
       c.add(addIcon(this, cx, y - 3, RES_ICON[k]));
-      c.add(addText(this, cx + 13, y, v, 'good'));
+      c.add(mtext(this, cx + 13, y, v, 'pGood', { box }));
       cx += need;
     }
   }
@@ -934,20 +1018,18 @@ export class OnlineScene extends BaseScene {
     m?.close();
   }
 
-  /** A modal with centred lines of text and a Close button. */
+  /** A parchment sheet with centred lines of text and a Close button. */
   private infoModal(title: string, lines: string[]): void {
     const { VW } = this.m;
     this.closeModal();
     const w = Math.min(VW - 16, 200);
-    const wrapped = lines.flatMap((l) => wrapText(l, w - 20, 3).lines);
-    const h = 26 + wrapped.length * LINE_H + 10 + SIZE.btnH + 12;
-    const md = openModal(this, { title, w, h, onClose: () => this.modal === md && (this.modal = null) });
+    const wrapped = lines.flatMap((l) => wrapText(l, w - 28, 3).lines);
+    const h = SHEET_TITLE_H + 6 + wrapped.length * LINE_H + 10 + TAP + 10;
+    const md = openWarSheet(this, { title, w, h, onClose: () => this.modal === md && (this.modal = null) });
     this.modal = md;
-    const body = addText(this, VW / 2, md.y + 28, wrapped.join('\n'), 'ink', 0.5);
-    body.setCenterAlign();
-    md.c.add(body);
-    const bw = Math.min(w - 12, 90);
-    md.c.add(new Button(this, Math.round((VW - bw) / 2), md.y + md.h - SIZE.btnH - 9, bw, SIZE.btnH, { label: t('common.close'), icon: 'check', variant: 'primary', onClick: () => this.closeModal() }));
+    wrapped.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + 2 + i * LINE_H, l, 'pInk', { align: 0.5, maxW: md.body.w })));
+    const bw = Math.min(md.body.w, 100);
+    md.c.add(new MButton(this, Math.round((VW - bw) / 2), md.y + md.h - TAP - 10, bw, TAP, { label: t('common.close'), icon: 'check', variant: 'primary', onClick: () => this.closeModal() }));
   }
 
   private showAttackResult(r: AttackResult | { error: string }): void {
@@ -994,7 +1076,6 @@ export class OnlineScene extends BaseScene {
       case 'presence':
       case 'join':
       case 'leave':
-        this.duelBadge?.setCount(shardSocket.players.filter((x) => x.id !== shardSocket.me?.id).length);
         if (this.lobbyOpen) this.openLobby();
         return;
       case 'army_march':
@@ -1041,10 +1122,11 @@ export class OnlineScene extends BaseScene {
     const others = this.lobbyPlayers();
     const rows = Math.max(1, others.length);
     const w = Math.min(VW - 16, 200);
-    const listH = Math.min(rows * (SIZE.rowH + SIZE.gap), Math.max(SIZE.rowH, VH - 16 - 26 - 18 - SIZE.btnH - 20));
-    const noteL = wrapText(t('duel.lobbyNote'), w - 20, 2).lines;
-    const h = 26 + listH + 6 + noteL.length * LINE_H + 8 + SIZE.btnH + 10;
-    const md = openModal(this, { title: t('duel.lobby'), w, h, onClose: () => {
+    const rowH = TAP + 4;
+    const noteL = wrapText(t('duel.lobbyNote'), w - 28, 3).lines;
+    const listH = Math.min(rows * (rowH + GAP), Math.max(rowH, VH - 16 - SHEET_TITLE_H - 18 - TAP - 30 - noteL.length * LINE_H));
+    const h = SHEET_TITLE_H + 4 + listH + 6 + noteL.length * LINE_H + 8 + TAP + 10;
+    const md = openWarSheet(this, { title: t('duel.lobby'), w, h, onClose: () => {
       if (this.modal === md) this.modal = null;
       this.lobbyOpen = false;
     } });
@@ -1053,24 +1135,22 @@ export class OnlineScene extends BaseScene {
     const connected = this.demo ? true : shardSocket.connected;
     if (!connected || !others.length) {
       const msg = !connected ? t('duel.connecting') : t('duel.nobody');
-      const wr = wrapText(msg, w - 20, 2);
-      const tx = addText(this, VW / 2, md.y + 30, wr.lines.join('\n'), 'dim', 0.5);
-      tx.setCenterAlign();
-      md.c.add(tx);
+      wrapText(msg, w - 28, 2).lines.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + 8 + i * LINE_H, l, 'pSec', { align: 0.5, maxW: md.body.w })));
     } else {
-      new ScrollList(this, md.c, md.x + 6, md.y + 26, w - 12, listH, {
+      new ScrollList(this, md.c, md.body.x, md.body.y, md.body.w, listH, {
         count: others.length,
-        rowH: SIZE.rowH,
+        rowH,
         render: (i, row, rw, rh) => {
           const pl = others[i];
-          row.add(addPanel(this, 0, 0, rw, rh, 'inset'));
+          row.add(mosaicImage(this, 0, 0, rw, rh, 'parchment'));
           const pending = this.challenge?.to.id === pl.id;
           const label = pl.busy ? t('duel.busy') : pending ? t('duel.cancel') : t('duel.challenge');
-          const bw = Math.min(rw - 50, Math.max(56, measureText(label) + 14));
-          row.add(new Label(this, 6, 9, pl.name, { maxW: rw - bw - 14, expandable: false }));
-          const b = new Button(this, rw - bw - 1, 1, bw, SIZE.btnH, {
+          const bw = Math.min(rw - 50, Math.max(60, mw(label.toUpperCase(), 'rCream', 7) + 18));
+          row.add(mtext(this, 7, Math.round((rh - LINE_H) / 2), pl.name, 'pInk', { maxW: rw - bw - 18 }));
+          const b = new MButton(this, rw - bw - 2, Math.round((rh - TAP) / 2), bw, TAP, {
             label,
-            variant: pending ? 'primary' : 'secondary',
+            variant: pl.busy ? 'disabled' : pending ? 'primary' : 'secondary',
+            disabledReason: pl.busy ? t('duel.busy') : undefined,
             onClick: () => {
               if (this.demo) {
                 toast(this, t('online.preview'));
@@ -1080,16 +1160,13 @@ export class OnlineScene extends BaseScene {
               else shardSocket.send({ type: 'challenge', to: pl.id });
             },
           });
-          if (pl.busy) b.setEnabled(false, t('duel.busy'));
           row.add(b);
         },
       });
     }
-    const note = addText(this, VW / 2, md.y + 26 + listH + 6, noteL.join('\n'), 'dim', 0.5);
-    note.setCenterAlign();
-    md.c.add(note);
-    const bw = Math.min(w - 12, 90);
-    md.c.add(new Button(this, Math.round((VW - bw) / 2), md.y + h - SIZE.btnH - 9, bw, SIZE.btnH, { label: t('common.close'), icon: 'check', onClick: () => this.closeModal() }));
+    noteL.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + listH + 6 + i * LINE_H, l, 'pSec', { align: 0.5, maxW: md.body.w })));
+    const bw = Math.min(md.body.w, 100);
+    md.c.add(new MButton(this, Math.round((VW - bw) / 2), md.y + h - TAP - 10, bw, TAP, { label: t('common.close'), icon: 'check', variant: 'secondary', onClick: () => this.closeModal() }));
   }
 
   // ------------------------------------------------------------------ coach marks
@@ -1206,11 +1283,14 @@ export class OnlineScene extends BaseScene {
   }
 
   private overUi(p: Phaser.Input.Pointer): boolean {
-    const { S } = this.m;
-    const y = p.y / S;
     if (this.modal) return true;
+    const { S } = this.m;
+    const x = p.x / S;
+    const y = p.y / S;
     const { top, bottom } = this.mapArea();
-    return y < top || y > bottom;
+    const win = this.win;
+    if (y < top || y > bottom || x < win.x || x > win.x + win.w) return true;
+    return this.uiRects.some((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
   }
 
   private onDown(p: Phaser.Input.Pointer): void {
