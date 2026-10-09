@@ -1,20 +1,36 @@
 /** Shared bits of the online scenes: text lines, buttons, the resource strip, colours. */
 import Phaser from 'phaser';
-import { Button, addIcon, addPanel, addText, type FontKey } from '../../ui/kit';
+import { addIcon, addPanel, addText, type FontKey, type UIMetrics } from '../../ui/kit';
+import { ScreenFrame, TopBar, MButton, mtext, type Box } from '../../ui/mosaic';
+import { showInGameBack } from '../../platform/nav';
 import type { Resources } from '../../online/rules';
 
+/**
+ * The frame of a v4 sub-screen (Army, Clan, Merchant): the page, the top bar
+ * with a back arrow (inside Telegram its header has one) and the title on the
+ * plaque, no tab bar. `content` is the area to fill, UI px.
+ */
+export function addSubShell(scene: Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container }, title: string, back: () => void, id = 'sub.topbar', parent?: Phaser.GameObjects.Container): { frame: ScreenFrame; content: Box } {
+  const { VW, VH } = scene.m;
+  const frame = new ScreenFrame(scene, VW, VH);
+  const into = parent ?? scene.ui;
+  into.add(frame);
+  into.add(new TopBar(scene, frame.topBar, { title, back: showInGameBack() ? back : undefined, id }));
+  return { frame, content: frame.content };
+}
+
 /** Centred lines of text; returns the y after the last line. */
-export function lines(scene: Phaser.Scene, c: Phaser.GameObjects.Container, cx: number, y: number, text: string[], font: FontKey = 'ink', maxW = 0): number {
+export function lines(scene: Phaser.Scene, c: Phaser.GameObjects.Container, cx: number, y: number, text: string[], font: FontKey = 'pInk', maxW = 0): number {
   for (const t of text) {
-    const o = addText(scene, cx, y, t, font, 0.5, maxW);
+    const o = maxW ? addText(scene, cx, y, t, font, 0.5, maxW) : mtext(scene, cx, y, t, font, { align: 0.5 });
     c.add(o);
     y += Math.max(10, o.height + 2);
   }
   return y;
 }
 
-export function button(scene: Phaser.Scene, c: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, label: string, onClick: () => void, opts: { icon?: string; sel?: boolean; off?: boolean } = {}): Button {
-  const b = new Button(scene, x, y, w, h, { label, icon: opts.icon, style: opts.off ? 'buttonOff' : opts.sel ? 'buttonSel' : 'button', onClick });
+export function button(scene: Phaser.Scene, c: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, label: string, onClick: () => void, opts: { icon?: string; sel?: boolean; off?: boolean } = {}): MButton {
+  const b = new MButton(scene, x, y, w, h, { label, icon: opts.icon, variant: opts.off ? 'disabled' : opts.sel ? 'primary' : 'secondary', onClick });
   c.add(b);
   return b;
 }

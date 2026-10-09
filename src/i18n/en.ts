@@ -21,6 +21,7 @@ import { CAMPSCENE_EN } from './campscene.en';
 import { V3_EN } from './v3.en';
 import { V4_EN } from './v4.en';
 import { MOSAIC_EN } from './mosaic.en';
+import { MOSAIC_WAR_EN } from './mosaic.war.en';
 
 export const EN = {
   // ---- shared words
@@ -302,4 +303,5 @@ export const EN = {
   ...V4_EN,
   // ---- the v4 Mosaic & Parchment chrome (mosaic.en.ts)
   ...MOSAIC_EN,
+  ...MOSAIC_WAR_EN,
 } as const;

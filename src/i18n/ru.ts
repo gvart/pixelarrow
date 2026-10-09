@@ -13,6 +13,7 @@ import { CAMPSCENE_RU } from './campscene.ru';
 import { V3_RU } from './v3.ru';
 import { V4_RU } from './v4.ru';
 import { MOSAIC_RU } from './mosaic.ru';
+import { MOSAIC_WAR_RU } from './mosaic.war.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -281,4 +282,5 @@ export const RU: Table = {
   ...V4_RU,
   // ---- the v4 Mosaic & Parchment chrome (mosaic.ru.ts)
   ...MOSAIC_RU,
+  ...MOSAIC_WAR_RU,
 };
