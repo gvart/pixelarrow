@@ -86,6 +86,10 @@ online.onAdopt = async (data) => {
   // played must not end on the menu).
   const hero = game.scene.getScene('Hero') as HeroScene;
   if (game.scene.isActive('Duel') || (game.scene.isActive('Hero') && !hero.campaignArmy)) return;
+  // canAdopt was asked before the download: a duel or online battle begun since then (not fought with the
+  // campaign's army) or its report must not be cut short by the menu
+  const sourced = (key: string) => game.scene.isActive(key) && !!(game.scene.getScene(key).sys.settings.data as { source?: unknown; done?: unknown } | undefined)?.[key === 'Battle' ? 'source' : 'done'];
+  if (sourced('Battle') || sourced('Results')) return;
   game.scene.getScenes(true).forEach((s) => s.scene.start('Menu'));
 };
 // Upload right away when the app is backgrounded or closed.
