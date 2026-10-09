@@ -6,9 +6,11 @@
  * reaches the battlefield) and, for the layout check, covers what is under it.
  */
 import Phaser from 'phaser';
-import { Button, addPanel, addText } from '../kit';
+import { addText } from '../kit';
+import { MIconButton, mosaicImage, mtext } from '../mosaic';
+import { MOSAIC } from '../tokens';
 import { uiBlocker, uiColumn, uiFrame, uiId } from '../layout';
-import { ellipsize, measureText, LINE_H } from '../textfit';
+import { measureText, LINE_H } from '../textfit';
 import { SIZE } from '../theme';
 import { NARRATOR_SIZE, renderNarrator } from '../../art/narrator';
 import { narratorType } from '../../audio/hooks';
@@ -109,19 +111,23 @@ export class Narrator {
     uiBlocker(uiId(swallow, 'tut.narrator'));
     if (o.onTap) swallow.on('pointerup', o.onTap);
     this.c.add(swallow);
-    this.c.add(addPanel(s, x, y, w, h, 'parch'));
-    this.c.add(addPanel(s, x + 3, y + 3, PORTRAIT + 2, PORTRAIT + 2, 'inset'));
+    this.c.add(mosaicImage(s, x, y, w, h, 'parchment'));
+    // the mentor in a bronze-framed square (a painted portrait comes later)
+    this.c.add(mosaicImage(s, x + 3, y + 3, PORTRAIT + 2, PORTRAIT + 2, 'parchmentWell'));
     this.portrait = s.add.image(x + 4, y + 4, 'narrator_0').setOrigin(0, 0);
     this.c.add(this.portrait);
-    const name = addText(s, tx, y + 5, ellipsize(t('tut.narrator'), x + w - 6 - tx - skipW), 'red');
-    this.c.add(name);
-    const skip = new Button(s, x + w - 3 - SIZE.btnMinW, y + 3, SIZE.btnMinW, SIZE.btnH - 2, { icon: 'close', iconOnly: true, label: t('tut.skip'), tip: t('tut.skip'), id: 'tut.skip', onClick: () => this.onSkip() });
+    const frame = s.add.graphics();
+    frame.lineStyle(1.4, MOSAIC.bronze, 1);
+    frame.strokeRect(x + 3, y + 3, PORTRAIT + 2, PORTRAIT + 2);
+    this.c.add(frame);
+    this.c.add(mtext(s, tx, y + 5, t('tut.narrator'), 'rInk', { size: 7, maxW: x + w - 6 - tx - skipW }));
+    const skip = new MIconButton(s, x + w - 3 - SIZE.btnMinW, y + 3, SIZE.btnMinW, SIZE.btnMinW, { icon: 'close', variant: 'neutral', label: t('tut.skip'), tip: t('tut.skip'), id: 'tut.skip', onClick: () => this.onSkip() });
     this.c.add(skip);
     this.full = lines.join('\n');
     this.texts = [];
     let start = 0;
     lines.forEach((str, i) => {
-      const obj = addText(s, tx, y + lineY(i), '', 'ink');
+      const obj = addText(s, tx, y + lineY(i), '', 'pInk');
       const ref = this.c as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject;
       uiFrame(obj, ref, w, h, x, y);
       uiColumn(obj, ref, tx, colR, 'tut.narrator.text');

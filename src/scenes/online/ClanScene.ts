@@ -4,13 +4,15 @@
  * leader's / officers' actions (promote, demote, hand over, kick).
  */
 import { BaseScene } from '../BaseScene';
-import { Button, ScrollArea, addPanel, addText } from '../../ui/kit';
+import { ScrollArea } from '../../ui/kit';
+import { MButton, ParchmentRow, ROW_H, TAP, mosaicImage, mtext, openParchmentSheet, addSubShell } from '../../ui/mosaic';
+import { LINE_H, wrapText } from '../../ui/textfit';
 import { hapticNotify } from '../../platform/telegram';
 import { inTelegram, openTelegramLink } from '../../platform/telegram';
 import { canInvite, canKick, canPromote, ONLINE_RULES, type ClanRole } from '../../online/rules';
 import { checkOnline, errorText, onlineApi, takePendingInvite, peekPendingInvite, type ClanMember, type ClanView } from '../../online/client';
 import { button, lines } from './common';
-import { openModal, type Modal } from '../../ui/widgets';
+import type { Modal } from '../../ui/widgets';
 import { online } from '../../platform/cloud';
 import { promptFields } from './textInput';
 
@@ -71,9 +73,9 @@ export class ClanScene extends BaseScene {
     }
   }
 
-  /** A parchment modal that Back (Telegram's or ours) closes, and a tap outside it unless `shadeCloses` is false. */
+  /** A parchment sheet that Back (Telegram's or ours) closes, and a tap outside it unless `shadeCloses` is false. */
   private openM(h: number, title: string, shadeCloses = true): Modal {
-    const md: Modal = openModal(this, {
+    const md: Modal = openParchmentSheet(this, { closeButton: false,
       title,
       w: 184,
       h,
@@ -114,9 +116,11 @@ export class ClanScene extends BaseScene {
   private flash(text: string): void {
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    const t = addText(this, VW / 2, 34, text, 'red', 0.5, VW - 30);
-    c.add(addPanel(this, 8, 29, VW - 16, t.height + 10, 'parch'));
-    c.add(t);
+    const w = VW - 32;
+    const wr = wrapText(text, w - 14, 3).lines;
+    const h = wr.length * LINE_H + 10;
+    c.add(mosaicImage(this, 16, 36, w, h, 'sheet'));
+    wr.forEach((l, i) => c.add(mtext(this, VW / 2, 41 + i * LINE_H, l, 'pInk', { align: 0.5 })));
     this.ui.add(c);
     this.time.delayedCall(2400, () => c.destroy());
   }
@@ -126,49 +130,46 @@ export class ClanScene extends BaseScene {
     this.area = null;
     this.ui.removeAll(true);
     this.modal = null;
-    const { VW, VH, S } = this.m;
-    this.addGrassBackdrop(9).setAlpha(0.6);
-    this.ui.add(addPanel(this, 0, 0, VW, 24, 'parch'));
-    if (this.inGameBack) this.ui.add(new Button(this, 3, 2, 24, 20, { icon: 'back', onClick: () => this.back() }));
+    const { VW, S } = this.m;
+    const { content: c } = addSubShell(this, { title: 'Clan', back: () => this.back(), scroll: false });
+    const w = c.w - 6;
+    const x = c.x + 3;
     if (!this.loaded) {
-      this.ui.add(addText(this, 32, 8, 'Clan', 'red'));
-      this.ui.add(addText(this, VW / 2, 60, this.msg, 'ink', 0.5, VW - 20));
+      this.ui.add(mtext(this, VW / 2, c.y + 40, this.msg, 'pInk', { align: 0.5, maxW: c.w - 12 }));
       return;
     }
     if (!this.clan) {
-      this.ui.add(addText(this, 32, 8, 'No clan', 'red'));
-      const c = this.add.container(0, 0);
-      this.ui.add(c);
-      c.add(addPanel(this, 8, 34, VW - 16, 112, 'parch'));
-      const y = lines(this, c, VW / 2, 42, ['Clans share their land:', 'members garrison each other', 'and earn more next to clan land.', 'Found one, or ask a leader for', 'an invite link.'], 'ink', VW - 30);
-      button(this, c, VW / 2 - 55, y + 6, 110, 24, 'Found a clan', () => void this.create_(), { icon: 'flag', sel: true });
+      const cardH = 116;
+      this.ui.add(mosaicImage(this, x, c.y + 4, w, cardH, 'parchment'));
+      const holder = this.add.container(0, 0);
+      this.ui.add(holder);
+      holder.add(mtext(this, VW / 2, c.y + 12, 'No clan', 'rInk', { size: 8, align: 0.5 }));
+      const y = lines(this, holder, VW / 2, c.y + 28, ['Clans share their land:', 'members garrison each other', 'and earn more next to clan land.', 'Found one, or ask a leader for', 'an invite link.'], 'pInk', w - 14);
+      button(this, holder, Math.round(VW / 2 - 60), y + 6, 120, 24, 'Found a clan', () => void this.create_(), { icon: 'flag', sel: true });
       return;
     }
     const cl = this.clan;
-    this.ui.add(addText(this, 32, 4, `[${cl.tag}] ${cl.name}`, 'red'));
-    this.ui.add(addText(this, 32, 13, `${cl.members.length}/${ONLINE_RULES.clanMaxMembers} men - ${cl.regions} regions - ${this.role}`, 'dim'));
-    const area = new ScrollArea(this, this.ui, 3, 28, VW - 6, VH - 28 - 34, S);
+    // the clan: its tag and name, how many men, how much land, your rank
+    const headH = 28;
+    this.ui.add(mosaicImage(this, x, c.y + 3, w, headH, 'parchment'));
+    this.ui.add(mtext(this, x + 8, c.y + 7, `[${cl.tag}] ${cl.name}`, 'rInk', { size: 7.5, maxW: w - 16 }));
+    this.ui.add(mtext(this, x + 8, c.y + 18, `${cl.members.length}/${ONLINE_RULES.clanMaxMembers} men - ${cl.regions} regions - ${this.role}`, 'pSec', { size: 6, maxW: w - 16 }));
+    const by = c.y + c.h - TAP - 4;
+    const top = c.y + 3 + headH + 3;
+    const area = new ScrollArea(this, this.ui, x, top, w, by - 4 - top, S);
     this.area = area;
     let y = 0;
     for (const m of cl.members) {
-      const row = this.add.container(0, y);
-      row.add(addPanel(this, 0, 0, VW - 6, 24, m.id === this.me ? 'buttonSel' : 'inset'));
-      row.add(addText(this, 6, 4, m.name, m.id === this.me ? 'light' : 'ink'));
-      row.add(addText(this, 6, 14, `${m.role} - ${m.regions} regions`, m.id === this.me ? 'light' : 'dim'));
-      if (this.role && m.id !== this.me && (canKick(this.role, m.role) || canPromote(this.role, m.role, 'officer'))) {
-        row.add(new Button(this, VW - 6 - 50, 3, 46, 18, { label: 'Manage', onClick: () => !area.moved && this.manage(m) }));
-      }
-      area.content.add(row);
-      y += 26;
+      const manage = !!this.role && m.id !== this.me && (canKick(this.role, m.role) || canPromote(this.role, m.role, 'officer'));
+      area.content.add(new ParchmentRow(this, 0, y, w, { title: m.name, subtitle: `${m.role} - ${m.regions} regions`, selected: m.id === this.me, onClick: manage ? () => !area.moved && this.manage(m) : undefined, id: `clan.member.${m.id}` }));
+      y += ROW_H + 2;
     }
     area.setContentHeight(y);
-    const by = VH - 30;
-    this.ui.add(addPanel(this, 0, by - 2, VW, 32, 'parch'));
-    const bw = Math.floor((VW - 11) / 2);
-    const inv = new Button(this, 4, by + 2, bw, 26, { label: 'Invite', icon: 'people', style: 'buttonSel', onClick: () => void this.invite() });
+    const bw = Math.floor((w - 4) / 2);
+    const inv = new MButton(this, x, by, bw, TAP, { label: 'Invite', icon: 'people', variant: 'primary', onClick: () => void this.invite() });
     if (!this.role || !canInvite(this.role)) inv.setEnabled(false);
     this.ui.add(inv);
-    this.ui.add(new Button(this, 7 + bw, by + 2, bw, 26, { label: 'Leave', icon: 'close', onClick: () => this.confirmLeave() }));
+    this.ui.add(new MButton(this, x + bw + 4, by, bw, TAP, { label: 'Leave', icon: 'close', variant: 'secondary', onClick: () => this.confirmLeave() }));
   }
 
   private async create_(): Promise<void> {
@@ -209,7 +210,7 @@ export class ClanScene extends BaseScene {
     const { VW } = this.m;
     this.modal = this.openM(124, 'Invite link');
     const md = this.modal;
-    const y = lines(this, md.c, VW / 2, md.y + 28, [inTelegram() ? 'Sent to the Telegram share sheet.' : 'Link copied:', link.replace(/^https:\/\//, ''), `Code ${code} - valid 7 days`], 'ink', md.w - 12);
+    const y = lines(this, md.c, VW / 2, md.y + 28, [inTelegram() ? 'Sent to the Telegram share sheet.' : 'Link copied:', link.replace(/^https:\/\//, ''), `Code ${code} - valid 7 days`], 'pInk', md.w - 12);
     button(this, md.c, md.x + 10, y + 6, md.w / 2 - 15, 22, 'Share', () => openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}`), { icon: 'people' });
     button(this, md.c, md.x + md.w / 2 + 5, y + 6, md.w / 2 - 15, 22, 'Close', () => this.closeModal(), { icon: 'check' });
   }
@@ -237,7 +238,7 @@ export class ClanScene extends BaseScene {
     const { VW } = this.m;
     this.modal = this.openM(96, 'Leave the clan?', false);
     const md = this.modal;
-    lines(this, md.c, VW / 2, md.y + 28, ['Your land stays yours,', 'but no longer clan land.'], 'ink');
+    lines(this, md.c, VW / 2, md.y + 28, ['Your land stays yours,', 'but no longer clan land.'], 'pInk');
     button(this, md.c, md.x + 10, md.y + 58, md.w / 2 - 15, 24, 'Stay', () => this.closeModal());
     button(this, md.c, md.x + md.w / 2 + 5, md.y + 58, md.w / 2 - 15, 24, 'Leave', () => {
       this.closeModal();
@@ -264,7 +265,7 @@ export class ClanScene extends BaseScene {
     const { VW } = this.m;
     this.modal = this.openM(112, 'Clan invite', false);
     const md = this.modal;
-    lines(this, md.c, VW / 2, md.y + 28, [`[${c.tag}] ${c.name}`, `${c.members} members - ${c.regions} regions`, preview.current ? 'You must leave your clan first.' : 'Join them?'], 'ink');
+    lines(this, md.c, VW / 2, md.y + 28, [`[${c.tag}] ${c.name}`, `${c.members} members - ${c.regions} regions`, preview.current ? 'You must leave your clan first.' : 'Join them?'], 'pInk');
     button(this, md.c, md.x + 10, md.y + 74, md.w / 2 - 15, 24, 'Not now', () => {
       this.closeModal();
       void this.fetchData();

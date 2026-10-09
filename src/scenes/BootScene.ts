@@ -12,6 +12,7 @@ import { hintStore } from '../ui/widgets';
 import { canResume, progressOf } from '../game/tutorial';
 import { ongoingMatch } from '../duel/match';
 import { online } from '../platform/cloud';
+import { preloadRasters } from '../ui/mosaic/raster';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -19,6 +20,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    preloadRasters(this);
     // the drawn icons (src/art/iconBitmaps.ts); a failed load leaves the vector icons in place
     for (const a of ICON_ATLASES) this.load.atlas(a.key, a.png, a.json);
   }

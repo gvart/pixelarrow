@@ -1,15 +1,18 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Button, addPanel, addText } from '../ui/kit';
-import { Grid, ItemIcon, ScrollList, Tabs, addEmptyState, confirmDialog, openModal, showTooltip, subjectName, toast, type IconSubject } from '../ui/widgets';
+import { Button, addIcon, addPanel, addText, type FontKey } from '../ui/kit';
+import { Grid, ItemIcon, ScrollList, confirmDialog, openModal, showTooltip, subjectName, toast, type IconSubject } from '../ui/widgets';
 import { uiId } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
-import { SIZE, COLOR } from '../ui/theme';
+import { MOSAIC } from '../ui/tokens';
+import { makePressable } from '../ui/mosaic/base';
+import { SIZE } from '../ui/theme';
 import { ensureFonts, rarityFont } from '../ui/fonts';
-import { addChip, bigItemIcon, itemName, openItemCard } from '../ui/sheet';
+import { GAP, addParchmentEmpty, MButton, MChip, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
+import { bigItemIcon, itemName, openItemCard } from '../ui/sheet';
 import { econ, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
-import { addEconState, addPurse, currencyIcon, ensureEconIcons, priceText } from '../ui/econ/widgets';
+import { addEconState, currencyIcon, ensureEconIcons, priceText } from '../ui/econ/widgets';
 import {
   clampPrice, canAfford, econState, listingAction, marketFee, priceBounds, priceStep, sellerGets, suggestPrice, timeLeft, type EconState,
 } from '../game/economy';
@@ -18,12 +21,14 @@ import { isApiError, type Currency, type EconomyCatalog, type MarketListing, typ
 import type { ProfileView } from '../online/client';
 import { ITEM_LIST, isBound, itemValue, normalizeItem, type Item } from '../data/items';
 import { CONSUMABLES, CONSUMABLE_IDS, type ConsumableId } from '../data/consumables';
-import { P } from '../art/palette';
 import { hapticNotify } from '../platform/telegram';
 import { uiCoin } from '../audio/hooks';
 import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
 
+const FILTER_H = 24;
+/** Width of an icon and its gap in a button. */
+const ICON_W = 15;
 type Tab = 'browse' | 'mine' | 'sell';
 const TABS: Tab[] = ['browse', 'mine', 'sell'];
 type KindF = 'all' | MarketListing['kind'];
@@ -73,6 +78,8 @@ export class MarketScene extends BaseScene {
   private towns: { loc: number; name: string }[] | null = null;
   private busy = false;
   private pageTop = 0;
+  /** The framed content area (inside the stone band, under the top bar). */
+  private box!: Box;
   private gen = 0;
 
   constructor() {
@@ -97,7 +104,11 @@ export class MarketScene extends BaseScene {
     this.busy = false;
     this.screen({ back: () => this.leave() });
     const { VW, VH } = this.m;
-    this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
+    // a sub-screen of the Shop: the framed page, a back arrow, no tab bar
+    const frame = new ScreenFrame(this, VW, VH);
+    this.ui.add(frame);
+    this.ui.add(new TopBar(this, frame.topBar, { title: t('market.title'), id: 'market.topbar', back: this.inGameBack ? () => this.leave() : undefined }));
+    this.box = frame.content;
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     this.ui.add([this.head, this.page]);
@@ -173,36 +184,41 @@ export class MarketScene extends BaseScene {
 
   private render(): void {
     this.head.removeAll(true);
-    const { VW, VH } = this.m;
     const H = this.head;
-    H.add(addPanel(this, 0, 0, VW, 26, 'parch'));
-    let left = 6;
-    if (this.inGameBack) {
-      H.add(new Button(this, 3, 2, 26, 22, { icon: 'back', onClick: () => this.leave() }));
-      left = 33;
-    }
+    const { x, y: by, w: bw } = this.box;
+    const x0 = x + 4;
+    const w = bw - 8;
+    let y = by + 4;
+    // the purse: war gold (when known) and Drachmae; a tap says what each is for
     const b = this.base;
-    const purseW = addPurse(this, H, VW - 6, 7, { drachmae: b?.wallet.drachmae ?? null, gold: b?.profile?.resources.gold ?? null }, VW - left - 50);
-    const pz = this.add.zone(VW - 4 - Math.max(24, purseW), 2, Math.max(24, purseW), 22).setOrigin(0, 0).setInteractive();
-    uiId(pz, 'market.purse');
-    pz.on('pointerup', () => showTooltip(this, t('econ.purseTip'), pz));
-    H.add(pz);
-    H.add(addText(this, left, 9, ellipsize(t('market.title'), VW - left - purseW - 12), 'red'));
-    const ty = 29;
-    const tabs = new Tabs(this, 4, ty, VW - 8, TABS.map((k) => t(`market.tab.${k}` as TKey)), {
-      selected: TABS.indexOf(this.tab),
-      ids: TABS.map((k) => `market.tab.${k}`),
-      icons: VW >= 170 ? ['eye', 'flag', 'amphora'] : undefined,
-      onChange: (i) => {
-        this.tab = TABS[i];
+    const purse: { icon: string; value: string }[] = [];
+    if (b?.profile) purse.push({ icon: 'wargold', value: `${b.profile.resources.gold}` });
+    purse.push({ icon: 'drachma', value: b ? `${b.wallet.drachmae}` : '-' });
+    let cx = x0;
+    purse.forEach((p, i) => {
+      const chip: MChip = new MChip(this, cx, y, { icon: p.icon, value: p.value, onClick: () => showTooltip(this, t('econ.purseTip'), chip), tip: t('econ.purseTip'), id: i === 0 && purse.length > 1 ? 'market.purse.gold' : 'market.purse' });
+      H.add(chip);
+      cx += chip.w + GAP;
+    });
+    y += TAP + 3;
+    const sw = new SegmentedSwitch(this, x0, y, w, {
+      options: TABS.map((k) => ({ id: k, label: t(`market.tab.${k}` as TKey), icon: w >= 156 ? (k === 'browse' ? 'eye' : k === 'mine' ? 'flag' : 'amphora') : undefined })),
+      selected: this.tab,
+      id: 'market.tab',
+      onChange: (id) => {
+        this.tab = id as Tab;
         this.render();
         if (this.st === 'ready') void this.refreshTab();
       },
     });
-    H.add(addPanel(this, 0, ty + SIZE.tabH - 2, VW, VH - ty - SIZE.tabH + 2, 'parch'));
-    H.add(tabs);
-    this.pageTop = ty + SIZE.tabH + 4;
+    H.add(sw);
+    this.pageTop = y + SWITCH_H + 4;
     this.buildPage();
+  }
+
+  /** Bottom edge of the page. */
+  private pageBottom(): number {
+    return this.box.y + this.box.h - 3;
   }
 
   private clearPage(): void {
@@ -213,10 +229,9 @@ export class MarketScene extends BaseScene {
 
   private buildPage(): void {
     this.clearPage();
-    const { VW, VH } = this.m;
     const top = this.pageTop;
     if (this.st !== 'ready' || !this.base) {
-      addEconState(this, this.page, 4, top, VW - 8, VH - top - 4, this.st as EconState | 'loading', () => void this.fetchAll());
+      addEconState(this, this.page, this.box.x + 4, top, this.box.w - 8, this.pageBottom() - top, this.st as EconState | 'loading', () => void this.fetchAll());
       return;
     }
     if (this.tab === 'browse') this.buildBrowse(this.base);
@@ -227,8 +242,8 @@ export class MarketScene extends BaseScene {
   // ------------------------------------------------------------------ browse
 
   private buildBrowse(b: Base): void {
-    const { VW, VH } = this.m;
-    const w = VW - 8;
+    const w = this.box.w - 8;
+    const x0 = this.box.x + 4;
     let y = this.pageTop;
     const n = 3;
     const bw = Math.floor((w - (n - 1) * SIZE.gap) / n);
@@ -239,32 +254,33 @@ export class MarketScene extends BaseScene {
       this.render();
       void this.refreshTab();
     };
-    this.page.add(new Button(this, 4, y, bw, SIZE.btnH, { label: t(`market.kind.${this.q.kind}` as TKey), id: 'market.kind', tip: t('market.kindTip'), onClick: () => set({ kind: cycle(KINDS, this.q.kind) }) }));
-    this.page.add(new Button(this, 4 + bw + SIZE.gap, y, bw, SIZE.btnH, { label: this.q.cur === 'all' ? t('market.cur.all') : t(`market.cur.${this.q.cur}` as TKey), icon: this.q.cur === 'all' ? undefined : currencyIcon(this.q.cur), id: 'market.cur', tip: t('market.curTip'), onClick: () => set({ cur: cycle(CURS, this.q.cur) }) }));
-    this.page.add(new Button(this, 4 + 2 * (bw + SIZE.gap), y, w - 2 * (bw + SIZE.gap), SIZE.btnH, { label: t(`market.sort.${this.q.sort}` as TKey), id: 'market.sort', tip: t('market.sortTip'), onClick: () => set({ sort: cycle(SORTS, this.q.sort) }) }));
-    y += SIZE.btnH + SIZE.gap;
+    this.page.add(new MButton(this, x0, y, bw, FILTER_H, { variant: 'secondary', label: t(`market.kind.${this.q.kind}` as TKey), id: 'market.kind', tip: t('market.kindTip'), onClick: () => set({ kind: cycle(KINDS, this.q.kind) }) }));
+    this.page.add(new MButton(this, x0 + bw + GAP, y, bw, FILTER_H, { variant: 'secondary', label: this.q.cur === 'all' ? t('market.cur.all') : t(`market.cur.${this.q.cur}` as TKey), icon: this.q.cur === 'all' ? undefined : currencyIcon(this.q.cur), id: 'market.cur', tip: t('market.curTip'), onClick: () => set({ cur: cycle(CURS, this.q.cur) }) }));
+    this.page.add(new MButton(this, x0 + 2 * (bw + GAP), y, w - 2 * (bw + GAP), FILTER_H, { variant: 'secondary', label: t(`market.sort.${this.q.sort}` as TKey), id: 'market.sort', tip: t('market.sortTip'), onClick: () => set({ sort: cycle(SORTS, this.q.sort) }) }));
+    y += FILTER_H + GAP;
     const refName = this.q.ref ? this.refLabel(this.q.ref) : t('market.anyItem');
-    const findW = this.q.ref ? w - 26 - SIZE.gap : w;
-    this.page.add(new Button(this, 4, y, findW, SIZE.btnH, { label: this.q.ref ? refName : t('market.find'), icon: 'eye', id: 'market.find', tip: t('market.findTip'), onClick: () => this.openFind((ref) => set({ ref })) }));
-    if (this.q.ref) this.page.add(new Button(this, 4 + findW + SIZE.gap, y, 26, SIZE.btnH, { icon: 'close', label: t('market.anyItem'), iconOnly: true, id: 'market.clearRef', onClick: () => set({ ref: null }) }));
-    y += SIZE.btnH + SIZE.gap;
-    const h = VH - y - 4;
+    const findW = this.q.ref ? w - FILTER_H - GAP : w;
+    this.page.add(new MButton(this, x0, y, findW, FILTER_H, { variant: 'secondary', label: this.q.ref ? refName : t('market.find'), icon: 'eye', id: 'market.find', tip: t('market.findTip'), onClick: () => this.openFind((ref) => set({ ref })) }));
+    if (this.q.ref) this.page.add(this.clearButton(x0 + findW + GAP, y, () => set({ ref: null }), 'market.clearRef'));
+    y += FILTER_H + GAP;
+    const h = this.pageBottom() - y;
     if (!this.listLoaded) {
-      addEconState(this, this.page, 4, y, w, h, 'loading', () => {});
+      addEconState(this, this.page, x0, y, w, h, 'loading', () => {});
       return;
     }
     if (!this.listings.length) {
-      this.page.add(addPanel(this, 4, y, w, h, 'inset'));
-      this.page.add(addEmptyState(this, 6, y + 2, w - 4, h - 4, { icon: 'coin', title: t('market.empty'), hint: t('market.emptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
+      this.page.add(mosaicImage(this, x0, y, w, h, 'parchment'));
+      this.page.add(addParchmentEmpty(this, x0 + 2, y + 2, w - 4, h - 4, { icon: 'coin', title: t('market.empty'), hint: t('market.emptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
       return;
     }
     const rows = this.listings.length + (this.next !== null ? 1 : 0);
-    const list = new ScrollList(this, this.page, 4, y, w, h, {
+    const list = new ScrollList(this, this.page, x0, y, w, h, {
       count: rows,
       rowH: 32,
+      fade: MOSAIC.parch,
       render: (i, row, rw, rh, area) => {
         if (i === this.listings.length) {
-          row.add(new Button(this, 0, 4, rw, SIZE.btnH, { label: t('market.more'), icon: 'plus', id: 'market.more', onClick: () => void this.more() }));
+          row.add(new MButton(this, 0, 4, rw, FILTER_H, { variant: 'secondary', label: t('market.more'), icon: 'plus', id: 'market.more', onClick: () => void this.more() }));
           return;
         }
         this.listingRow(b, this.listings[i], row, rw, rh, area);
@@ -302,21 +318,34 @@ export class MarketScene extends BaseScene {
 
   private listingRow(b: Base, l: MarketListing, row: Phaser.GameObjects.Container, rw: number, rh: number, area: import('../ui/kit').ScrollArea): void {
     const now = Date.now();
-    row.add(addPanel(this, 0, 0, rw, rh, l.mine ? 'inset' : 'button'));
-    row.add(new ItemIcon(this, 4, 4, this.subject(l), { size: 24, area, qty: l.qty, rarity: l.kind === 'item' ? undefined : 'common', onTap: () => this.openListing(b, l) }));
+    row.add(mosaicImage(this, 0, 0, rw, rh, l.mine ? 'parchmentWell' : 'parchment'));
+    row.add(new ItemIcon(this, 4, Math.round((rh - 24) / 2), this.subject(l), { size: 24, area, qty: l.qty, rarity: l.kind === 'item' ? undefined : 'common', onTap: () => this.openListing(b, l) }));
     const can = canAfford(l, { gold: b.profile?.resources.gold ?? null, drachmae: b.wallet.drachmae });
     const act = listingAction(l, now);
-    const bw = 52;
-    const pb = new Button(this, rw - bw - 3, 4, bw, SIZE.btnH, { label: `${l.price}`, icon: currencyIcon(l.currency), id: 'market.price', variant: act === 'buy' && can ? 'secondary' : 'secondary', onClick: () => this.openListing(b, l) });
+    const bw = Math.min(56, Math.max(40, mw(`${l.price}`, 'rCream', 7) + ICON_W + 14));
+    const pb = new MButton(this, rw - bw - 3, Math.round((rh - 24) / 2), bw, 24, { label: `${l.price}`, icon: currencyIcon(l.currency), variant: 'secondary', id: 'market.price', onClick: () => this.openListing(b, l) });
     if (act === 'buy' && !can) pb.setEnabled(false, t('econ.noFunds'));
     row.add(pb);
     const tx = 33;
     const tw = rw - tx - bw - 8;
-    const font = l.kind === 'item' ? rarityFont(l.rarity) : 'ink';
-    row.add(addText(this, tx, 5, ellipsize(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, tw), font));
+    const font = l.kind === 'item' ? rarityInk(this, l.rarity) : 'pInk';
+    const box = { owner: row, w: rw, h: rh };
+    row.add(mtext(this, tx, 5, `${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, font, { maxW: tw, box }));
     const left = timeLeft(l.expiresAt, now);
     const sub = `${l.seller.name ?? '?'} · ${left.ms ? left.text : t('market.expired')}`;
-    row.add(addText(this, tx, 17, ellipsize(sub, tw), 'dim'));
+    row.add(mtext(this, tx, 17, sub, 'pSec', { size: 6, maxW: tw, box }));
+  }
+
+  /** A small square "x" button (clears the item filter, withdraws a listing). */
+  private clearButton(x: number, y: number, onClick: () => void, id: string, label = t('market.anyItem')): Phaser.GameObjects.Container {
+    const c = this.add.container(x, y);
+    const face = this.add.container(FILTER_H / 2, FILTER_H / 2);
+    c.add(face);
+    face.add(mosaicImage(this, 0, 0, FILTER_H, FILTER_H, 'btnBronze').setPosition(-FILTER_H / 2, -FILTER_H / 2));
+    face.add(addIcon(this, -6, -7, 'close', 'L'));
+    makePressable(c, { face, w: FILTER_H, h: FILTER_H, onTap: onClick, tip: label });
+    uiId(c, id);
+    return c;
   }
 
   openListing(b: Base, l: MarketListing): void {
@@ -466,41 +495,45 @@ export class MarketScene extends BaseScene {
   // ------------------------------------------------------------------ my listings
 
   private buildMine(b: Base): void {
-    const { VW, VH } = this.m;
-    const w = VW - 8;
+    const w = this.box.w - 8;
+    const x0 = this.box.x + 4;
     const top = this.pageTop;
     const mine = this.mine;
     if (!mine) {
-      addEconState(this, this.page, 4, top, w, VH - top - 4, 'loading', () => {});
+      addEconState(this, this.page, x0, top, w, this.pageBottom() - top, 'loading', () => {});
       return;
     }
-    this.page.add(addText(this, VW / 2, top + 1, ellipsize(t('market.mineHead', { n: mine.open, max: mine.maxOpen }), w), 'red', 0.5));
-    const y = top + 13;
-    const h = VH - y - 4;
+    this.page.add(mtext(this, x0 + w / 2, top + 1, t('market.mineHead', { n: mine.open, max: mine.maxOpen }), 'rInk', { size: 7, align: 0.5, maxW: w }));
+    const y = top + 14;
+    const h = this.pageBottom() - y;
     if (!mine.listings.length) {
-      this.page.add(addPanel(this, 4, y, w, h, 'inset'));
-      this.page.add(addEmptyState(this, 6, y + 2, w - 4, h - 4, { icon: 'flag', title: t('market.mineEmpty'), hint: t('market.mineEmptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
+      this.page.add(mosaicImage(this, x0, y, w, h, 'parchment'));
+      this.page.add(addParchmentEmpty(this, x0 + 2, y + 2, w - 4, h - 4, { icon: 'flag', title: t('market.mineEmpty'), hint: t('market.mineEmptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
       return;
     }
     const now = Date.now();
-    const list = new ScrollList(this, this.page, 4, y, w, h, {
+    const list = new ScrollList(this, this.page, x0, y, w, h, {
       count: mine.listings.length,
       rowH: 32,
+      fade: MOSAIC.parch,
       render: (i, row, rw, rh, area) => {
         const l = mine.listings[i];
         const status = l.status === 'open' && l.expiresAt <= now ? 'expired' : l.status;
-        row.add(addPanel(this, 0, 0, rw, rh, status === 'open' ? 'button' : 'inset'));
-        row.add(new ItemIcon(this, 4, 4, this.subject(l), { size: 24, area, qty: l.qty, onTap: () => this.openListing(b, l) }));
-        const colors: Record<string, number> = { open: COLOR.good, sold: 0xd8a840, cancelled: 0x8a7a6a, expired: COLOR.bad };
+        row.add(mosaicImage(this, 0, 0, rw, rh, status === 'open' ? 'parchment' : 'parchmentWell'));
+        row.add(new ItemIcon(this, 4, Math.round((rh - 24) / 2), this.subject(l), { size: 24, area, qty: l.qty, onTap: () => this.openListing(b, l) }));
+        const statusFont: Record<string, FontKey> = { open: 'pGood', sold: 'pInk', cancelled: 'pOff', expired: 'pBad' };
         const tx = 33;
         const act = listingAction(l, now);
-        const bw = act === 'cancel' ? 26 : 0;
-        if (act === 'cancel') row.add(new Button(this, rw - bw - 3, 4, bw, SIZE.btnH, { icon: 'close', label: t('market.cancel'), iconOnly: true, variant: 'destructive', id: 'market.cancelRow', onClick: () => this.askCancel(l) }));
+        const box = { owner: row, w: rw, h: rh };
+        const bw = act === 'cancel' ? FILTER_H : 0;
+        if (act === 'cancel') row.add(this.clearButton(rw - bw - 3, Math.round((rh - FILTER_H) / 2), () => this.askCancel(l), 'market.cancelRow', t('market.cancel')));
         const right = rw - bw - (bw ? 7 : 4);
-        const cw = addChip(this, row, right, 4, t(`market.status.${status}` as TKey), colors[status] ?? 0x8a7a6a, 60, true);
-        row.add(addText(this, tx, 5, ellipsize(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, right - cw - 4 - tx), l.kind === 'item' ? rarityFont(l.rarity) : 'ink'));
+        const stT = t(`market.status.${status}` as TKey);
+        const stW = Math.min(60, mw(stT, statusFont[status] ?? 'pOff', 6));
+        row.add(mtext(this, right, 6, stT, statusFont[status] ?? 'pOff', { size: 6, align: 1, maxW: 60, box }));
+        row.add(mtext(this, tx, 5, `${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, l.kind === 'item' ? rarityInk(this, l.rarity) : 'pInk', { maxW: right - stW - 4 - tx, box }));
         const sub = `${priceText(l.price, l.currency)} · ${t('market.youGet', { n: sellerGets(l.price, b.cat.market.feeRate) })}`;
-        row.add(addText(this, tx, 18, ellipsize(sub, right - tx), 'dim'));
+        row.add(mtext(this, tx, 18, sub, 'pSec', { size: 6, maxW: right - tx, box }));
       },
     });
     this.areas.push(list);
@@ -549,20 +582,20 @@ export class MarketScene extends BaseScene {
   }
 
   private buildSell(b: Base): void {
-    const { VW, VH } = this.m;
-    const w = VW - 8;
+    const w = this.box.w - 8;
+    const x0 = this.box.x + 4;
+    const bottom = this.pageBottom();
     const top = this.pageTop;
     const list = this.sellables(b);
     if (!list.length) {
-      this.page.add(addPanel(this, 4, top, w, VH - top - 4, 'inset'));
-      this.page.add(addEmptyState(this, 6, top + 2, w - 4, VH - top - 8, { icon: 'coin', title: t('market.sellEmpty'), hint: t('market.sellEmptyHint') }));
+      this.page.add(mosaicImage(this, x0, top, w, bottom - top, 'parchment'));
+      this.page.add(addParchmentEmpty(this, x0 + 2, top + 2, w - 4, bottom - top - 4, { icon: 'coin', title: t('market.sellEmpty'), hint: t('market.sellEmptyHint') }));
       return;
     }
-    const hint = wrapText(t('market.sellHint'), w, 1);
-    this.page.add(addText(this, VW / 2, top + 1, hint.lines.join(''), 'dim', 0.5));
+    this.page.add(mtext(this, x0 + w / 2, top + 1, t('market.sellHint'), 'pSec', { size: 6.5, align: 0.5, maxW: w }));
     const y = top + 12;
-    this.page.add(addPanel(this, 4, y, w, VH - y - 4, 'inset'));
-    const grid = new Grid(this, this.page, 7, y + 3, w - 6, VH - y - 10, {
+    this.page.add(mosaicImage(this, x0, y, w, bottom - y, 'parchmentWell'));
+    const grid = new Grid(this, this.page, x0 + 3, y + 3, w - 6, bottom - y - 6, {
       count: list.length,
       cell: 28,
       render: (i, cc, size, area) => {

@@ -1,20 +1,21 @@
 /** Shared bits of the online scenes: text lines, buttons, the resource strip, colours. */
 import Phaser from 'phaser';
-import { Button, addIcon, addPanel, addText, type FontKey } from '../../ui/kit';
+import { addIcon, addPanel, addText, type FontKey } from '../../ui/kit';
+import { MButton, mtext } from '../../ui/mosaic';
 import type { Resources } from '../../online/rules';
 
 /** Centred lines of text; returns the y after the last line. */
-export function lines(scene: Phaser.Scene, c: Phaser.GameObjects.Container, cx: number, y: number, text: string[], font: FontKey = 'ink', maxW = 0): number {
+export function lines(scene: Phaser.Scene, c: Phaser.GameObjects.Container, cx: number, y: number, text: string[], font: FontKey = 'pInk', maxW = 0): number {
   for (const t of text) {
-    const o = addText(scene, cx, y, t, font, 0.5, maxW);
+    const o = maxW ? addText(scene, cx, y, t, font, 0.5, maxW) : mtext(scene, cx, y, t, font, { align: 0.5 });
     c.add(o);
     y += Math.max(10, o.height + 2);
   }
   return y;
 }
 
-export function button(scene: Phaser.Scene, c: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, label: string, onClick: () => void, opts: { icon?: string; sel?: boolean; off?: boolean } = {}): Button {
-  const b = new Button(scene, x, y, w, h, { label, icon: opts.icon, style: opts.off ? 'buttonOff' : opts.sel ? 'buttonSel' : 'button', onClick });
+export function button(scene: Phaser.Scene, c: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, label: string, onClick: () => void, opts: { icon?: string; sel?: boolean; off?: boolean } = {}): MButton {
+  const b = new MButton(scene, x, y, w, h, { label, icon: opts.icon, variant: opts.off ? 'disabled' : opts.sel ? 'primary' : 'secondary', onClick });
   c.add(b);
   return b;
 }

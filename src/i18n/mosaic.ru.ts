@@ -1,0 +1,23 @@
+/** Russian strings of the v4 "Mosaic & Parchment" chrome (same keys as mosaic.en.ts). */
+export const MOSAIC_RU = {
+  'tab.campaign': 'Поход',
+  'tab.duels': 'Дуэли',
+  'tab.war': 'Война',
+  'tab.codex': 'Кодекс',
+  'tab.shop': 'Лавка',
+  'mosaic.close': 'Закрыть',
+  'mosaic.settings': 'Настройки',
+  'hub.gold': '{n} золота',
+  'hub.trophies': { one: '{n} трофей', few: '{n} трофея', many: '{n} трофеев', other: '{n} трофея' },
+  'hub.warband': { one: 'Отряд: {n} воин', few: 'Отряд: {n} воина', many: 'Отряд: {n} воинов', other: 'Отряд: {n} воина' },
+  'hub.leader': 'Стратег {name}',
+  'hub.newCampaign': 'Новый поход',
+  'hub.army': 'Войско',
+  'hub.stash': 'Склад',
+  'hub.camp': 'Лагерь',
+  'hub.pitchCamp': 'Разбейте лагерь на карте',
+  'hub.tip.army': 'Ваши воины, их снаряжение и таланты',
+  'hub.tip.stash': 'Всё, что вы несёте, чтобы надеть на воинов',
+  'hub.tip.camp': 'Назад в ваш разбитый лагерь',
+  'codex.title': 'Звери',
+};

@@ -1,14 +1,21 @@
 // Generates src/art/fontMetrics.ts: advance widths of the UI fonts (Inter for
-// text, Cormorant SC for headings), measured in Chromium from the bundled
+// text, Cormorant SC for headings, Cinzel for the v4 roman face), measured in Chromium from the bundled
 // @fontsource files, so text fitting (src/ui/textfit.ts) runs without a browser.
 // Usage: npm run fonts:metrics   (node scripts/dev/font-metrics.mjs; re-run after changing a font or weight)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, launch } from '../lib/harness.mjs';
 
+// `family` is the CSS family list of the face; `files` are the bundled fonts it needs (Cinzel has no Cyrillic: those glyphs are measured through the Cormorant SC fallback)
+const FILES = {
+  Inter: { weight: 500, files: ['inter/files/inter-latin-500-normal.woff2', 'inter/files/inter-cyrillic-500-normal.woff2', 'inter/files/inter-latin-ext-500-normal.woff2'] },
+  'Cormorant SC': { weight: 700, files: ['cormorant-sc/files/cormorant-sc-latin-700-normal.woff2', 'cormorant-sc/files/cormorant-sc-cyrillic-700-normal.woff2', 'cormorant-sc/files/cormorant-sc-latin-ext-700-normal.woff2'] },
+  Cinzel: { weight: 700, files: ['cinzel/files/cinzel-latin-700-normal.woff2', 'cinzel/files/cinzel-latin-ext-700-normal.woff2'] },
+};
 const FACES = {
-  body: { family: 'Inter', weight: 500, files: ['inter/files/inter-latin-500-normal.woff2', 'inter/files/inter-cyrillic-500-normal.woff2', 'inter/files/inter-latin-ext-500-normal.woff2'] },
-  head: { family: 'Cormorant SC', weight: 700, files: ['cormorant-sc/files/cormorant-sc-latin-700-normal.woff2', 'cormorant-sc/files/cormorant-sc-cyrillic-700-normal.woff2', 'cormorant-sc/files/cormorant-sc-latin-ext-700-normal.woff2'] },
+  body: { family: "'Inter'", weight: 500 },
+  head: { family: "'Cormorant SC'", weight: 700 },
+  roman: { family: "'Cinzel', 'Cormorant SC'", weight: 700 },
 };
 
 // Every character the old pixel font drew, plus the rest of printable ASCII, Russian and UI typography.
@@ -21,8 +28,8 @@ for (const c of 'ЁёІіЇїЄє…–—«»“”„‘’·•×÷±→←�
 const list = [...chars].filter((c) => [...c].length === 1);
 
 const b64 = (f) => readFileSync(join(ROOT, 'node_modules/@fontsource', f)).toString('base64');
-const css = Object.values(FACES)
-  .flatMap((f) => f.files.map((file) => `@font-face{font-family:'${f.family}';font-weight:${f.weight};src:url(data:font/woff2;base64,${b64(file)}) format('woff2');}`))
+const css = Object.entries(FILES)
+  .flatMap(([family, f]) => f.files.map((file) => `@font-face{font-family:'${family}';font-weight:${f.weight};src:url(data:font/woff2;base64,${b64(file)}) format('woff2');}`))
   .join('\n');
 
 const browser = await launch();
@@ -32,7 +39,7 @@ const out = await page.evaluate(
   async ({ faces, list }) => {
     const res = {};
     for (const [key, f] of Object.entries(faces)) {
-      const font = `${f.weight} 1000px '${f.family}'`;
+      const font = `${f.weight} 1000px ${f.family}`;
       await document.fonts.load(font, list.join(''));
       const ctx = document.createElement('canvas').getContext('2d');
       ctx.font = font;

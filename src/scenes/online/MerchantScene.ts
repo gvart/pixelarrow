@@ -9,10 +9,9 @@
  */
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { Button, ScrollArea, addIcon, addPanel, addText, scaleIcon, type FontKey } from '../../ui/kit';
-import { InfoChip, ScreenHeader, addSection, layChips, resourceChipOpts, type InfoChipOpts } from '../../ui/v3';
-import { addModeBanner } from '../../ui/modeArt';
-import { SURFACE } from '../../ui/tokens';
+import { ScrollArea, addIcon, addText, scaleIcon, type FontKey } from '../../ui/kit';
+import { MButton, MChip, SECTION_TITLE_H as SectionTitle_H, SectionTitle, mosaicImage, TAP, addSubShell } from '../../ui/mosaic';
+import { MOSAIC } from '../../ui/tokens';
 import { ItemIcon, addScrollHint, confirmDialog, subjectName, toast } from '../../ui/widgets';
 import { ellipsize, wrapText, LINE_H } from '../../ui/textfit';
 import { SIZE } from '../../ui/theme';
@@ -102,8 +101,6 @@ export class MerchantScene extends BaseScene {
     this.busy = false;
     this.area = null;
     this.screen({ back: () => this.leave() });
-    const { VW, VH } = this.m;
-    this.ui.add(this.add.rectangle(0, 0, VW, VH, SURFACE.bg).setOrigin(0, 0));
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     this.ui.add([this.head, this.page]);
@@ -139,62 +136,60 @@ export class MerchantScene extends BaseScene {
     this.page.removeAll(true);
   }
 
-  /** The header (title, war gold and Drachmae in the band), the market banner, then the stock. */
+  /** The frame (title on the plaque, back arrow), war gold and Drachmae chips, then the stock. */
   private render(): void {
     this.head.removeAll(true);
     this.clearPage();
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
     const v = this.view;
     const H = this.head;
-    const chips: InfoChipOpts[] = [
-      resourceChipOpts('wargold', v?.gold ?? '-', { id: 'merchant.gold' }),
-      resourceChipOpts('drachmae', v?.drachmae ?? '-', { id: 'merchant.drachmae' }),
+    const { content: c } = addSubShell(this, { title: t(`merchant.title.${v?.kind ?? 'town'}` as TKey), back: () => this.leave(), id: 'merchant.header', parent: H, scroll: false });
+    const chips: { icon: string; value: string | number; id: string }[] = [
+      { icon: 'wargold', value: v?.gold ?? '-', id: 'merchant.gold' },
+      { icon: currencyIcon('drachmae'), value: v?.drachmae ?? '-', id: 'merchant.drachmae' },
     ];
-    const hdr = new ScreenHeader(this, VW, { title: t(`merchant.title.${v?.kind ?? 'town'}` as TKey), back: () => this.leave(), chips, id: 'merchant.header' });
-    H.add(hdr);
-    let top = hdr.bottom + 4;
-    if (hdr.overflow.length) {
-      layChips(H, hdr.overflow.map((o) => new InfoChip(this, 0, 0, o)), 4, top, VW - 8);
-      top += 22 + 4;
+    let cx = c.x + 3;
+    for (const o of chips) {
+      const chip = new MChip(this, cx, c.y + 3, { ...o, surface: 'stone', w: Math.max(40, MChip.width({ ...o, surface: 'stone' }) + 8) });
+      H.add(chip);
+      cx += chip.w + 3;
     }
-    if (VH >= 330) {
-      addModeBanner(this, H, 4, top - 2, VW - 8, 26, 'shop');
-      top += 26 + 2;
-    }
+    const top = c.y + 3 + TAP + 3;
     if (this.st !== 'ready' || !v) {
       const s = this.st === 'ready' ? 'error' : this.st;
-      addEconState(this, this.page, 4, top + 2, VW - 8, VH - top - 6, s, () => ((this.st = 'loading'), this.render(), void this.fetch()));
+      addEconState(this, this.page, c.x + 3, top + 2, VW - c.x * 2 - 6, c.y + c.h - top - 6, s, () => ((this.st = 'loading'), this.render(), void this.fetch()));
       return;
     }
-    this.buildStock(v, top);
+    this.buildStock(v, top, c);
   }
 
-  private buildStock(v: MerchantView, top: number): void {
-    const { VW, VH, S } = this.m;
-    const area = new ScrollArea(this, this.page, 4, top, VW - 8, VH - top - 4, S);
+  private buildStock(v: MerchantView, top: number, box: { x: number; y: number; w: number; h: number }): void {
+    const { VW, S } = this.m;
+    const areaW = box.w - 6;
+    const area = new ScrollArea(this, this.page, box.x + 3, top, areaW, box.y + box.h - top - 3, S);
     this.area = area;
-    addScrollHint(this, this.page, area, SURFACE.bg);
+    addScrollHint(this, this.page, area, MOSAIC.parch);
     const c = area.content;
-    const w = VW - 8 - 4;
+    const w = areaW - 4;
     let y = 0;
     // ---- who, where, and on what terms: one line each, with its sign
     const pct = Math.round(v.discountRate * 100);
     const cut = Math.round(v.holderCutRate * 100);
     const info: { icon: string; look: '' | 'D'; text: string; font: FontKey }[] = [
-      { icon: 'shop', look: '', text: `${t(`merchant.kind.${v.kind}` as TKey)} · ${t(`merchant.region.${v.region}` as TKey)}`, font: 'ink' },
-      { icon: v.reach ? 'check' : 'xmark', look: '', text: v.reach ? t('merchant.reach') : t('merchant.far'), font: v.reach ? 'good' : 'bad' },
+      { icon: 'shop', look: '', text: `${t(`merchant.kind.${v.kind}` as TKey)} · ${t(`merchant.region.${v.region}` as TKey)}`, font: 'pInk' },
+      { icon: v.reach ? 'check' : 'xmark', look: '', text: v.reach ? t('merchant.reach') : t('merchant.far'), font: v.reach ? 'pGood' : 'pBad' },
       v.holder?.you
-        ? { icon: 'flag', look: '', text: t('merchant.yours', { pct, cut, n: v.earned }), font: 'good' }
+        ? { icon: 'flag', look: '', text: t('merchant.yours', { pct, cut, n: v.earned }), font: 'pGood' }
         : v.discount
-          ? { icon: 'flag', look: '', text: t('merchant.discount', { pct }), font: 'good' }
+          ? { icon: 'flag', look: '', text: t('merchant.discount', { pct }), font: 'pGood' }
           : v.holder
-            ? { icon: 'flag', look: 'D', text: t('merchant.held', { name: v.holder.name ?? '?', cut }), font: 'sec' }
-            : { icon: 'flag', look: 'D', text: t('merchant.free', { pct, cut }), font: 'sec' },
-      { icon: 'clock', look: 'D', text: t('merchant.reset', { t: fmtDuration(v.resetsAt - v.now) }), font: 'sec' },
+            ? { icon: 'flag', look: '', text: t('merchant.held', { name: v.holder.name ?? '?', cut }), font: 'pSec' }
+            : { icon: 'flag', look: '', text: t('merchant.free', { pct, cut }), font: 'pSec' },
+      { icon: 'clock', look: '', text: t('merchant.reset', { t: fmtDuration(v.resetsAt - v.now) }), font: 'pSec' },
     ];
     const lines = info.map((x) => ({ ...x, lines: wrapText(x.text, w - 24, 3).lines }));
     const infoH = 6 + lines.reduce((a, x) => a + Math.max(12, x.lines.length * LINE_H) + 2, 0) + 2;
-    c.add(addPanel(this, 0, y, w, infoH, 'cardRaised'));
+    c.add(mosaicImage(this, 0, y, w, infoH, 'parchment'));
     let iy = y + 5;
     for (const x of lines) {
       c.add(scaleIcon(addIcon(this, 5, iy - 1, x.icon, x.look), 0.85));
@@ -207,7 +202,8 @@ export class MerchantScene extends BaseScene {
       const list = v.offers.filter((o) => o.slot === sec);
       if (!list.length) continue;
       const title = sec === 'region' ? t(`merchant.region.${v.region}` as TKey) : t(`merchant.sec.${sec}` as TKey);
-      y = addSection(this, c, 0, y, w, title);
+      c.add(new SectionTitle(this, 0, y, w, title, { size: 8 }));
+      y += SectionTitle_H;
       for (const o of list) y += this.offerRow(c, area, v, o, y, w) + SIZE.gap;
       y += 4;
     }
@@ -230,8 +226,8 @@ export class MerchantScene extends BaseScene {
     const descText = consumable ? tOr(`consumable.${o.ref}.desc`, CONSUMABLES[o.ref as ConsumableId]?.desc ?? '') : `${tOr(`rarity.${o.rarity}`, o.rarity)} · ${tOr(`slot.${def?.slot}`, def?.slot ?? '')} · ${tOr(`item.${o.ref}.desc`, def?.desc ?? '')}`;
     const tx = 32;
     const desc = wrapText(descText, w - tx - 4, 2);
-    const rowH = 30 + desc.lines.length * LINE_H + SIZE.btnH + 4;
-    c.add(addPanel(this, 0, y, w, rowH, capped0(o) ? 'cardLocked' : 'card'));
+    const rowH = 30 + desc.lines.length * LINE_H + TAP + 4;
+    c.add(mosaicImage(this, 0, y, w, rowH, capped0(o) ? 'parchmentWell' : 'parchment'));
     const name = this.offerName(o);
     const subject = consumable ? { consumable: o.ref } : { item: this.preview(o) };
     c.add(
@@ -240,11 +236,11 @@ export class MerchantScene extends BaseScene {
         onTap: consumable ? undefined : () => !area.moved && this.showOffer(o),
       }),
     );
-    c.add(addText(this, tx, y + 4, ellipsize(name, w - tx - 4), consumable ? 'ink' : rarityFont(o.rarity)));
+    c.add(addText(this, tx, y + 4, ellipsize(name, w - tx - 4), consumable ? 'pInk' : rarityFont(o.rarity)));
     const capped = o.bought >= o.dailyCap;
-    c.add(addText(this, tx, y + 15, ellipsize(t('merchant.today', { n: o.bought, cap: o.dailyCap }), w - tx - 4), capped ? 'muted' : 'reward'));
-    c.add(addText(this, tx, y + 27, desc.lines.join('\n'), 'sec'));
-    const by = y + rowH - SIZE.btnH - 4;
+    c.add(addText(this, tx, y + 15, ellipsize(t('merchant.today', { n: o.bought, cap: o.dailyCap }), w - tx - 4), capped ? 'pMuted' : 'pGood'));
+    c.add(addText(this, tx, y + 27, desc.lines.join('\n'), 'pSec'));
+    const by = y + rowH - TAP - 4;
     const prices: [Currency, number | null][] = [
       ['gold', o.price.gold],
       ['drachmae', o.price.drachmae],
@@ -254,7 +250,8 @@ export class MerchantScene extends BaseScene {
     shown.forEach(([cur, price], i) => {
       const p = price as number;
       const list = cur === 'gold' ? o.gold : o.drachmae;
-      const b = new Button(this, 4 + i * (bw + SIZE.gap), by, bw, SIZE.btnH, {
+      const b = new MButton(this, 4 + i * (bw + SIZE.gap), by, bw, TAP, {
+        variant: cur === 'gold' ? 'secondary' : 'purchase',
         label: list !== null && list !== p ? `${p} (-${Math.round(v.discountRate * 100)}%)` : `${p}`,
         icon: currencyIcon(cur),
         id: `merchant.buy.${o.id}.${cur}`,

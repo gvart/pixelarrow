@@ -1,5 +1,5 @@
 /**
- * UI kit gallery (debug): every component of src/ui/widgets.ts on three tabs.
+ * UI kit gallery (debug): the components of src/ui/widgets.ts, the v3 pieces and the v4 mosaic kit (src/ui/mosaic/) on tabs.
  * Not linked from the menu; open it with `?scene=Kit` or from a script
  * (`__game.scene.start('Kit')`). The layout check visits it, so the kit
  * itself stays within the rules (docs/UI_KIT.md).
@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addText } from '../ui/kit';
-import { Badge, Card, CountUp, Grid, ItemIcon, Label, ScrollList, StatBar, Tabs, addEmptyState, confirmDialog, stackCards, toast, type IconSubject } from '../ui/widgets';
+import { Badge, Card, CountUp, Grid, ItemIcon, Label, ScrollList, StatBar, Tabs, confirmDialog, stackCards, toast, type IconSubject } from '../ui/widgets';
 import { ScrollArea } from '../ui/kit';
 import { addScrollHint } from '../ui/widgets';
 import { ITEM_LIST, RARITIES } from '../data/items';
@@ -17,6 +17,8 @@ import { t } from '../i18n';
 import { HEADER_H, InfoChip, Pager, ProgressBar, ScreenHeader, Stepper, Tile, Toggle, addLocked, addTipLine, confirmPurchase, layChips, openSheet, purchaseButton, resourceChip } from '../ui/v3';
 import { SURFACE } from '../ui/tokens';
 import { ellipsize } from '../ui/textfit';
+import { buildParts } from './kit/mosaicParts';
+import { BottomPanel, FrescoBanner, addSubShell, addParchmentEmpty, MButton, MChip, ParchmentCard, ParchmentRow, ProfileCard, QuestCard, ScreenFrame, SectionTitle, SegmentedSwitch, StoneTile, TabBar, TAB_H, TopBar, ROW_H, SECTION_TITLE_H, SWITCH_H, type TabId } from '../ui/mosaic';
 
 interface KitData {
   tab?: number;
@@ -37,8 +39,13 @@ export class KitScene extends BaseScene {
     this.screen({ back: () => this.scene.start('Menu') });
     const { VW } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, this.m.VH, SURFACE.bg).setOrigin(0, 0));
+    // the sub-screen shell demo (tab 6) is a whole page of its own: no gallery title or tabs under it
+    if (this.tab === 6) return this.show(6);
     this.ui.add(addText(this, VW / 2, 6, 'UI KIT', 'head', 0.5));
-    const tabs = new Tabs(this, 6, 18, VW - 12, ['Controls', 'Items', 'Lists', 'V3'], { selected: this.tab, onChange: (i) => this.show(i) });
+    // a narrow canvas fits five 44 pt tabs no more: it keeps the three newest pages (the rest open with `data.tab`)
+    const pages = VW >= 190 ? [0, 1, 2, 3, 4, 5] : [3, 4, 5];
+    const names = ['Controls', 'Items', 'Lists', 'V3', 'Mosaic', 'Parts'];
+    const tabs = new Tabs(this, 6, 18, VW - 12, pages.map((i) => names[i]), { selected: Math.max(0, pages.indexOf(this.tab)), onChange: (i) => this.show(pages[i]) });
     this.ui.add(tabs);
     this.show(this.tab);
   }
@@ -53,7 +60,10 @@ export class KitScene extends BaseScene {
     if (i === 0) this.controls(this.page);
     else if (i === 1) this.items(this.page);
     else if (i === 2) this.lists(this.page);
-    else this.v3(this.page);
+    else if (i === 3) this.v3(this.page);
+    else if (i === 4) this.mosaic(this.page);
+    else if (i === 5) this.parts(this.page);
+    else this.shell(this.page);
   }
 
   /** The v3 component layer (src/ui/v3.ts): header, chips, tip, tiles, switches, progress, locked state, pager, real money. */
@@ -93,6 +103,128 @@ export class KitScene extends BaseScene {
     c.add(new Button(this, Math.floor(w / 2) + 2, y, w - Math.floor(w / 2) - 2, 26, { label: 'Open a sheet', onClick: () => openSheet(this, { title: 'Bottom sheet', h: 90 }) }));
     y += 30;
     area.setContentHeight(y + 4);
+  }
+
+  /** The rest of the shared v4 parts (src/scenes/kit/mosaicParts.ts), each in its states, on a parchment page. */
+  private parts(p: Phaser.GameObjects.Container): void {
+    const { VW, VH } = this.m;
+    const frame = new ScreenFrame(this, VW, VH, { y: 46 });
+    p.add(frame);
+    p.add(new TopBar(this, frame.topBar, { title: 'Parts' }));
+    const c0 = frame.content;
+    const area = new ScrollArea(this, p, c0.x + 4, c0.y + 3, c0.w - 8, c0.h - 3, this.m.S);
+    this.cleanup.push(() => area.destroy());
+    area.setContentHeight(buildParts(this, area, c0.w - 8 - 4, () => this.scene.restart({ tab: 6 })));
+  }
+
+  /** The sub-screen shell (addSubShell): frame, back arrow, plaque, gear and a scroll area. Back returns to the Parts page. */
+  private shell(p: Phaser.GameObjects.Container): void {
+    const sh = addSubShell(this, { title: 'Sub-screen', back: () => this.scene.restart({ tab: 5 }), parent: p });
+    sh.area.content.add(new SectionTitle(this, 0, 2, sh.w, 'addSubShell'));
+    const note = new ParchmentCard(this, 0, SECTION_TITLE_H + 6, sh.w, 40);
+    note.add(addText(this, 6, 8, 'Back arrow, plaque, gear; no tab bar.', 'pInk', 0, sh.w - 12));
+    sh.area.content.add(note);
+    sh.area.setContentHeight(SECTION_TITLE_H + 52);
+    this.cleanup.push(() => sh.area.destroy());
+  }
+
+  /** The v4 "Mosaic & Parchment" components (src/ui/mosaic/): a screen frame with a top bar, every component in its states, the tab bar at the bottom. */
+  private mosaic(p: Phaser.GameObjects.Container): void {
+    const { VW, VH } = this.m;
+    const frame = new ScreenFrame(this, VW, VH, { tabBar: TAB_H, y: 46 });
+    p.add(frame);
+    const bar = new TopBar(this, frame.topBar, { title: 'Pixelarrow', back: this.inGameBack ? () => toast(this, 'Back') : undefined, actions: [{ icon: 'gear', label: 'Settings', onClick: () => toast(this, 'Settings'), badge: 2 }] });
+    p.add(bar);
+    const c0 = frame.content;
+    const area = new ScrollArea(this, p, c0.x + 4, c0.y + 3, c0.w - 8, c0.h - 3, this.m.S);
+    this.cleanup.push(() => area.destroy());
+    const c = area.content;
+    const w = c0.w - 8 - 4;
+    const G = 4;
+    let y = 2;
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (c.add(o), o);
+    add(new SectionTitle(this, 0, y, w, 'Campaign Hub'));
+    y += SECTION_TITLE_H + 4;
+    const prof = add(new ProfileCard(this, 0, y, w, { portrait: 'ui_portrait_leader', name: 'Strategos Epameinon', subtitle: 'Day 1 on the march', stats: [{ icon: 'coin', text: '240 Gold', right: { icon: 'trophy', text: '0 Trophies' } }, { icon: 'people', text: 'Warband 9 Men' }] }));
+    y += prof.h + G;
+    const quest = add(new QuestCard(this, 0, y, w, { title: 'First steps (2 of 4)', total: 4, done: 2, next: 'Finish the tutorial' }));
+    y += quest.h + G;
+    add(new FrescoBanner(this, 0, y, w, Math.round(w / 2.4), { image: 'ui_banner_campaign', label: 'Banner', onClick: () => toast(this, 'Banner') }));
+    y += Math.round(w / 2.4) + G + 2;
+    add(new MButton(this, 0, y, w, 30, { label: 'Continue the march', variant: 'primaryHero', onClick: () => toast(this, 'March', 'good') }));
+    y += 30 + G + 2;
+    const tw = Math.floor((w - 2 * G) / 3);
+    const camp = new StoneTile(this, 2 * (tw + G), y, w - 2 * (tw + G), tw, { icon: 'tent', label: 'Camp', disabled: 'Pitch camp on the map' });
+    add(new StoneTile(this, 0, y, tw, tw, { icon: 'helmet', label: 'Army', badge: '!', onClick: () => toast(this, 'Army') }));
+    add(new StoneTile(this, tw + G, y, tw, tw, { icon: 'chest', label: 'Stash', variant: 'bronze', onClick: () => toast(this, 'Stash') }));
+    add(camp);
+    y += camp.totalH + G + 4;
+    add(new SectionTitle(this, 0, y, w, 'Buttons', { size: 8 }));
+    y += SECTION_TITLE_H + 2;
+    const bw = Math.floor((w - G) / 2);
+    add(new MButton(this, 0, y, bw, 24, { label: 'Fight', icon: 'swords', variant: 'primary', onClick: () => toast(this, 'Fight') }));
+    add(new MButton(this, bw + G, y, w - bw - G, 24, { label: 'Collect', icon: 'coin', variant: 'secondary', onClick: () => toast(this, 'Collect') }));
+    y += 24 + G;
+    add(new MButton(this, 0, y, bw, 24, { label: 'Back', variant: 'neutral', onClick: () => toast(this, 'Back') }));
+    add(new MButton(this, bw + G, y, w - bw - G, 24, { label: 'Garrison', icon: 'helmet', variant: 'disabled', disabledReason: 'Needs a settlement' }));
+    y += 24 + G;
+    add(new MButton(this, 0, y, bw, 24, { label: '250 Stars', icon: 'tgstar', variant: 'purchase', onClick: () => toast(this, 'Pay') }));
+    add(new MButton(this, bw + G, y, w - bw - G, 24, { label: 'Army with a very long label', variant: 'primary', badge: 3, onClick: () => toast(this, 'Long') }));
+    y += 24 + G + 4;
+    add(new SectionTitle(this, 0, y, w, 'Tiles and chips', { size: 8 }));
+    y += SECTION_TITLE_H + 2;
+    add(new StoneTile(this, 0, y, tw, tw, { icon: 'swords', label: 'Duels', variant: 'terracotta', onClick: () => toast(this, 'Duels') }));
+    add(new StoneTile(this, tw + G, y, tw, tw, { icon: 'map', label: 'World', variant: 'glaze', onClick: () => toast(this, 'World') }));
+    add(new StoneTile(this, 2 * (tw + G), y, w - 2 * (tw + G), tw, { icon: 'shield', label: 'Garrison settlement', disabled: 'Locked until day 3' }));
+    y += tw + 20;
+    const stoneChips = [new MChip(this, 0, y, { icon: 'laurel', value: 640, surface: 'stone' }), new MChip(this, 0, y, { icon: 'coin', value: '1.2K', surface: 'stone', onClick: () => toast(this, 'Gold') })];
+    let cx = 0;
+    stoneChips.forEach((ch) => {
+      ch.x = cx;
+      cx += ch.w + G;
+      add(ch);
+    });
+    y += 22 + G;
+    cx = 0;
+    for (const [icon, v] of [['coin', '240'], ['trophy', '3'], ['people', '9 men']] as const) {
+      const ch = add(new MChip(this, cx, y, { icon, value: v }));
+      cx += ch.w + G;
+    }
+    y += 18 + G + 4;
+    add(new SectionTitle(this, 0, y, w, 'Switches and rows', { size: 8 }));
+    y += SECTION_TITLE_H + 2;
+    add(new SegmentedSwitch(this, 0, y, w, { options: [{ id: 'l', label: 'Ladder', icon: 'ladder' }, { id: 'a', label: 'Arena', icon: 'arena' }], selected: 'l', onChange: (id) => toast(this, id) }));
+    y += SWITCH_H + G;
+    add(new SegmentedSwitch(this, 0, y, w, { options: [{ id: 'a', label: 'Gear' }, { id: 'b', label: 'Perks' }, { id: 'c', label: 'Skills' }], selected: 'b', onChange: (id) => toast(this, id) }));
+    y += SWITCH_H + G + 2;
+    for (const o of [
+      { icon: 'helmet', title: 'Next: Floor 5', subtitle: 'Team 43 pts, cap 76', value: '+80', onClick: () => toast(this, 'Row') },
+      { icon: 'people', title: 'Selected row', subtitle: 'The one you picked', selected: true, badge: 2, onClick: () => toast(this, 'Row') },
+      { icon: 'lock', title: 'Chapter 2', subtitle: 'Clear floor 10 to open', disabled: 'Clear floor 10 to open' },
+      { title: 'A row with a very long title that cannot fit on one line', value: '12', onClick: () => toast(this, 'Row') },
+    ] as const) {
+      add(new ParchmentRow(this, 0, y, w, { ...o }));
+      y += ROW_H + G;
+    }
+    const sel = add(new ParchmentCard(this, 0, y, w, 24, { selected: true }));
+    sel.add(addText(this, w / 2, 8, 'Selected parchment card', 'pInk', 0.5, w - 8));
+    y += 24 + G;
+    const panel = new BottomPanel(this, VW, 0, {
+      title: 'Helvian Pastures, Tier 1',
+      w,
+      bodyH: 34,
+      animate: false,
+      actions: [{ label: 'Collect', icon: 'coin', variant: 'secondary', onClick: () => toast(this, 'Collect') }, { label: 'Garrison', variant: 'disabled', disabledReason: 'Needs a settlement' }, { label: 'March 9m', variant: 'primary', onClick: () => toast(this, 'March') }],
+    });
+    panel.x = 0;
+    panel.y = y;
+    c.add(panel);
+    const lines = ['Yours', 'Per hour: gold +2, food +6', 'Waiting: Gold +12, Food +6'];
+    lines.forEach((l, i) => panel.add(addText(this, panel.area.x, panel.area.y + i * 11, l, i === 2 ? 'pGood' : 'pInk', 0, panel.area.w)));
+    y += panel.h + G;
+    area.setContentHeight(y + 4);
+    const tabs = new TabBar(this, VW, VH, { active: 'campaign', badges: { duels: 3 }, onSelect: (id: TabId) => (tabs.select(id), toast(this, id)) });
+    p.add(tabs);
   }
 
   private controls(p: Phaser.GameObjects.Container): void {
@@ -190,6 +322,6 @@ export class KitScene extends BaseScene {
       id: () => 'kit.row',
     });
     this.cleanup.push(() => list.destroy());
-    p.add(addEmptyState(this, 6, 48 + h + 4, VW - 12, VH - 54 - h - 4, { icon: 'tent', title: 'Empty stash', hint: 'Win battles to take loot from the field.', action: { label: 'Find a fight', onClick: () => toast(this, 'Off to war') } }));
+    p.add(addParchmentEmpty(this, 6, 48 + h + 4, VW - 12, VH - 54 - h - 4, { icon: 'tent', title: 'Empty stash', hint: 'Win battles to take loot from the field.', action: { label: 'Find a fight', onClick: () => toast(this, 'Off to war') } }));
   }
 }

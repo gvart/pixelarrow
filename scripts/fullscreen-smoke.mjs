@@ -118,7 +118,7 @@ const stays = async (key, layers, ms = 2200) => {
 const backFlips = async (from) => (await ev(() => window.__tg.log)).slice(from).filter((x) => /^back\./.test(x)).length;
 const logLen = async () => (await ev(() => window.__tg.log)).length;
 {
-  // the shop is its own screen: it stays, Back returns to the menu
+  // the shop is a mode tab: it stays, it is a root (Close, no Back), the Campaign tab returns to the menu
   const n0 = await logLen();
   await tapButton('Menu', 'Shop');
   await wait(300);
@@ -126,10 +126,10 @@ const logLen = async () => (await ev(() => window.__tg.log)).length;
   const r = await stays('Shop', 0);
   check('tap Shop: the shop screen stays (no auto back)', r === '', r);
   const f = await backFlips(n0);
-  check('tap Shop: BackButton shown once, no Close/Back flicker', f === 1, `flips=${f}`);
-  await pressBack();
+  check('tap Shop: no BackButton on a tab root', f === 0, `flips=${f}`);
+  await tapButton('Shop', 'Campaign');
   await wait(300);
-  check('tap Shop: Back returns to the menu', (await active('Menu')) && (await tg()).layers === 0);
+  check('tap Shop: the Campaign tab returns to the menu', (await active('Menu')) && (await tg()).layers === 0);
 }
 for (const label of ['Settings']) {
   const n0 = await logLen();

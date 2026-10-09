@@ -1,17 +1,14 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { SURFACE } from '../ui/tokens';
-import { Button, addIcon, addPanel, addText } from '../ui/kit';
-import { ScrollList, Tabs, addEmptyState, confirmDialog, firstTimeHint, toast } from '../ui/widgets';
+import { ScrollArea, addIcon, tappable } from '../ui/kit';
+import { ScrollList, addScrollHint, confirmDialog, firstTimeHint, toast } from '../ui/widgets';
 import { uiId } from '../ui/layout';
-import { ellipsize } from '../ui/textfit';
-import { SIZE, COLOR, STRAT } from '../ui/theme';
-import { CommandStrip, SituationBar, type SitNumber } from '../ui/strategos';
-import { ensureFonts, FONT_RED_LIGHT } from '../ui/fonts';
+import { wrapText } from '../ui/textfit';
+import { ensureFonts } from '../ui/fonts';
 import {
   equipRefusal,
-  DragDrop, ROMAN, Stage, StashGrid, addChip, addGroupBadge, addMountTile, addSlotTile, addStars, addTabBadge, className, defaultStashState,
-  groupName, itemName, openItemCard, saleText, roleColor, uiBoundsOf, type StashState,
+  DragDrop, ROMAN, Stage, addGroupBadge, addStars, className, defaultStashState,
+  groupName, itemName, openItemCard, saleText, roleColor, roleName, uiBoundsOf, type StashState,
 } from '../ui/sheet';
 import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
@@ -21,11 +18,15 @@ import { itemDef, SLOTS, type Item, type Slot } from '../data/items';
 import { MAX_ARMY, type Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
 import { heroClass } from '../sim/stats';
-import { P } from '../art/palette';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { addSyncBadge } from '../ui/online';
 import { uiCoin } from '../audio/hooks';
+import { ACCENT, MOSAIC } from '../ui/tokens';
 import { cycle, hasPending, heroStars, powerRating, queryRoster, ROSTER_FILTERS, ROSTER_SORTS, type RosterFilter, type RosterSort } from '../game/gear';
+import {
+  MActionBar, GAP, GearSlot, MBadge, MButton, MChip, MStashGrid, SegmentedSwitch, MIconButton, SWITCH_H, TAP,
+  addNiche, slotGrid, addParchmentEmpty, addSubShell, addPill, addSwitchBadge, type FramedSubShell, addPortraitWell, addRowFace, mosaicImage, mountSlot, mtext, type Box, type MButtonOpts,
+} from '../ui/mosaic';
 import { t, type TKey } from '../i18n';
 
 export { RARITY_COLOR } from '../ui/theme';
@@ -38,11 +39,14 @@ interface ArmyData {
   tab?: 'roster' | 'stash';
 }
 
+const LEVEL_PILL = MOSAIC.bronze;
+
 /**
- * The army: the selected hero on a small stage with his slots (drop targets),
- * group buttons and identity; then the roster (portraits, level, stars,
- * power, wounds, group badges; sort and filter) or the stash grid (filters,
- * compare, equip by tap or drag and drop, repair, sell in towns).
+ * The army: the selected hero on a parchment card (his figure in a stone niche,
+ * group buttons and identity, his slots as drop targets); then the roster
+ * (portraits, level, rank, power, wounds, group badges; sort and filter) or the
+ * stash grid (filters, compare, equip by tap or drag and drop, repair, sell in
+ * towns).
  */
 export class ArmyScene extends BaseScene {
   private heroId = '';
@@ -50,18 +54,25 @@ export class ArmyScene extends BaseScene {
   private back: ArmyData = {};
   private head!: Phaser.GameObjects.Container;
   private body!: Phaser.GameObjects.Container;
-  private tabs: Tabs | null = null;
+  private bar: MActionBar | null = null;
+  private shell!: FramedSubShell;
   private list: ScrollList | null = null;
-  private stash: StashGrid | null = null;
+  private stash: MStashGrid | null = null;
   private stashState: StashState = defaultStashState();
   private sort: RosterSort = 'power';
   private filter: RosterFilter = 'all';
   private roster: Hero[] = [];
   private drag!: DragDrop;
   private slotObjs = new Map<Slot, Phaser.GameObjects.GameObject>();
+  private box!: Box;
   private bodyTop = 0;
-  private sit!: SituationBar;
-  private strip!: CommandStrip;
+  private bodyBottom = 0;
+  /** Where the columns start and how wide they are (UI px; local to the scroll area in scroll mode). */
+  private ox = 0;
+  private oy = 0;
+  private cw = 0;
+  /** A short screen: everything under the top bar scrolls as one page. */
+  private area: ScrollArea | null = null;
 
   constructor() {
     super('Army');
@@ -76,19 +87,13 @@ export class ArmyScene extends BaseScene {
     this.back = { from: data?.from ?? 'World', id: data?.id };
     this.list = null;
     this.stash = null;
+    this.bar = null;
     this.screen({ back: () => this.goBack() });
-    const { VW, VH } = this.m;
-    this.ui.add(this.add.rectangle(0, 0, VW, VH, P.bg).setOrigin(0, 0));
-    // the situation bar: how the army fares, numbers with words; the command strip at the bottom
-    this.sit = new SituationBar(this, VW, { sentence: '', compact: VH < STRAT.compactVH, id: 'army.situation' });
-    this.ui.add(this.sit);
-    addSyncBadge(this, this.ui, VW - 16, 4);
-    this.strip = new CommandStrip(this, VW, VH, {});
-    this.head = this.add.container(0, 0);
-    this.body = this.add.container(0, 0);
-    this.ui.add([this.head, this.body]);
+    const shell = addSubShell(this, { title: t('hub.army'), back: () => this.goBack(), id: 'army.topbar', scroll: false });
+    this.box = shell.content;
+    addSyncBadge(this, this.ui, shell.frame.topBar.x + shell.frame.topBar.w - 17 - (TAP + GAP * 2), shell.frame.topBar.y + 6);
+    this.shell = shell;
     this.drag = new DragDrop(this);
-    this.ui.add(this.strip);
     this.events.once('shutdown', () => this.clearBody());
     this.refresh();
     firstTimeHint(this, 'army', t('stash.dragHint'));
@@ -126,15 +131,56 @@ export class ArmyScene extends BaseScene {
   }
 
   refresh(): void {
-    this.refreshSituation();
+    this.build(false);
+    // too little room for the roster or the stash under the hero: the whole page scrolls instead
+    if (this.bodyBottom - this.bodyTop < SWITCH_H + 4 + TAP + GAP + 56) this.build(true);
+  }
+
+  private build(scroll: boolean): void {
+    this.clearBody();
+    this.head?.destroy();
+    this.body?.destroy();
+    this.area?.destroy();
+    this.area = null;
+    this.slotObjs.clear();
+    this.bar?.destroy();
+    this.bar = null;
     this.buildFoot();
-    this.buildHead();
+    if (scroll) {
+      const top = this.box.y + 4;
+      this.area = new ScrollArea(this, this.ui, this.box.x + 4, top, this.box.w - 8, this.bodyBottom - top, this.m.S);
+      addScrollHint(this, this.ui, this.area, MOSAIC.parch);
+      this.ox = 0;
+      this.oy = 0;
+      this.cw = this.box.w - 8 - 3;
+      this.head = this.add.container(0, 0);
+      this.body = this.add.container(0, 0);
+      this.area.content.add([this.head, this.body]);
+      // the top bar stays on top of what scrolls under it
+      this.ui.bringToTop(this.shell.top);
+      this.ui.bringToTop(this.bar!);
+    } else {
+      this.ox = this.box.x + 4;
+      this.oy = this.box.y + 4;
+      this.cw = this.box.w - 8;
+      this.head = this.add.container(0, 0);
+      this.body = this.add.container(0, 0);
+      this.ui.add([this.head, this.body]);
+      this.ui.bringToTop(this.bar!);
+    }
+    let y = this.oy;
+    y = this.buildTip(y);
+    y = this.buildHead(y);
+    this.bodyTop = y;
     this.buildBody();
   }
 
-  /** The sentence: men, wounds, points to spend; on the stash tab what the stash holds. */
-  private refreshSituation(): void {
+  /** The sentence and the numbers: men, gold, wounds; on the stash tab what the stash holds. Returns the y below. */
+  private buildTip(y0: number): number {
     const c = state.campaign.data;
+    const L = this.head;
+    const w = this.cw;
+    const x = this.ox;
     const hurt = c.heroes.filter((h) => (h.wound ?? 0) > 0);
     const pend = c.heroes.filter((h) => hasPending(h, perkSlots));
     const parts: string[] = [];
@@ -145,109 +191,151 @@ export class ArmyScene extends BaseScene {
       if (hurt.length) parts.push(t('army.sit.hurt', { n: hurt.length }));
       if (!pend.length || !hurt.length) parts.push(t('army.sit.men', { n: c.heroes.length }));
     }
-    const nums: SitNumber[] = [
-      { icon: 'people', value: `${c.heroes.length}`, word: t('strat.menWord', { n: c.heroes.length }), tip: t('menu.tip.army') },
-      { icon: 'coin', value: `${c.gold}`, word: t('strat.gold'), tip: t('menu.tip.gold') },
+    let y = y0;
+    if (!this.compact) {
+      const lines = wrapText(parts.join(' '), w - 4, 2, false, 6).lines;
+      lines.forEach((l, i) => L.add(mtext(this, x + w / 2, y + i * 8, l, pend.length && this.tab !== 'stash' ? 'pInk' : 'pSec', { size: 6, align: 0.5, box: { owner: this.ui, w: this.m.VW, h: this.m.VH } })));
+      y += lines.length * 8 + 3;
+    }
+    const chips = [
+      new MChip(this, 0, 0, { icon: 'people', value: `${c.heroes.length}`, tip: t('menu.tip.army'), id: 'army.chip.men' }),
+      new MChip(this, 0, 0, { icon: 'coin', value: `${c.gold}`, tip: t('menu.tip.gold'), id: 'army.chip.gold' }),
     ];
-    if (hurt.length) nums.splice(1, 0, { icon: 'cross', value: `${hurt.length}`, word: t('strat.hurtWord', { n: hurt.length }), font: 'red' });
-    this.sit.setSentence(parts.join(' '), pend.length > 0 && this.tab !== 'stash');
-    this.sit.setNumbers(nums);
+    if (hurt.length) chips.push(new MChip(this, 0, 0, { icon: 'cross', value: `${hurt.length}`, tip: t('army.sit.hurt', { n: hurt.length }), id: 'army.chip.hurt' }));
+    const total = chips.reduce((a, k) => a + k.w, 0) + GAP * (chips.length - 1);
+    let cx = Math.round(x + (w - total) / 2);
+    for (const k of chips) {
+      k.x = cx;
+      k.y = y;
+      L.add(k);
+      cx += k.w + GAP;
+    }
+    return y + 18 + 4;
   }
 
-  /** The command strip: back to the map / town, the sheet (points to spend lead there), the group on short screens, dismiss. */
+  /** The action bar: back to the map / town, the sheet (points to spend lead there), dismiss. */
   private buildFoot(): void {
     const c = state.campaign.data;
     const h = this.hero();
     const pend = h ? hasPending(h, perkSlots) : false;
     const backLabel = this.back.from === 'Settlement' ? t('army.town') : this.back.from === 'Camp' ? t('army.camp') : t('army.map');
-    this.strip.set({
-      left: { label: backLabel, icon: 'map', id: 'army.back', onClick: () => this.goBack() },
-      main: { label: t('army.sheet'), icon: 'people', badge: pend ? '!' : 0, tip: pend ? `${t('army.sheetTip')} ${t('army.pending')}.` : t('army.sheetTip'), id: 'army.sheet', off: h ? undefined : t('army.noHeroes'), onClick: () => this.openHero() },
-      extra: this.compact && h ? { label: ROMAN[h.group], tip: `${t('army.group')}: ${groupName(h.group)}. ${t('army.groupTip')}`, id: 'army.group', onClick: () => this.setGroup((h.group + 1) % 4) } : null,
-      right: { label: t('army.dismiss'), icon: 'skull', destructive: true, id: 'army.dismiss', off: c.heroes.length > 1 ? undefined : t('army.dismissLast'), onClick: () => this.dismiss() },
-    });
+    const actions: MButtonOpts[] = [
+      { label: backLabel, icon: 'map', variant: 'secondary', id: 'army.back', onClick: () => this.goBack() },
+      {
+        label: t('army.sheet'),
+        icon: 'people',
+        variant: h ? 'primary' : 'disabled',
+        badge: pend ? '!' : 0,
+        tip: pend ? `${t('army.sheetTip')} ${t('army.pending')}.` : t('army.sheetTip'),
+        disabledReason: t('army.noHeroes'),
+        id: 'army.sheet',
+        onClick: () => this.openHero(),
+      },
+      { label: t('army.dismiss'), icon: 'skull', variant: c.heroes.length > 1 ? 'neutral' : 'disabled', disabledReason: t('army.dismissLast'), id: 'army.dismiss', onClick: () => this.dismiss() },
+    ];
+    this.bar = new MActionBar(this, this.box.w, this.box.y + this.box.h, { surface: 'parchment', x: this.box.x }).set(actions);
+    this.ui.add(this.bar);
+    this.bodyBottom = this.bar.top - 3;
   }
 
   // ------------------------------------------------------------------ the selected hero
 
-  private buildHead(): void {
-    this.head.removeAll(true);
-    this.slotObjs.clear();
-    const L = this.head;
-    const { VW } = this.m;
+  /** The selected hero's card; returns the y below it. */
+  private buildHead(y0: number): number {
     const h = this.hero();
-    const compact = this.compact;
-    const top = this.sit.bottom;
-    const y0 = top + 2;
+    const L = this.head;
+    const x0 = this.ox;
+    const cw = this.cw;
     if (!h) {
-      L.add(addPanel(this, 0, top, VW, 60, 'dark'));
-      L.add(addText(this, VW / 2, y0 + 30, t('army.noHeroes'), 'title', 0.5));
-      this.bodyTop = top + 62;
-      return;
+      const card = this.add.container(x0, y0);
+      card.add(mosaicImage(this, 0, 0, cw, 40, 'parchment'));
+      card.add(mtext(this, cw / 2, 15, t('army.noHeroes'), 'rInk', { size: 7.5, align: 0.5, maxW: cw - 8, box: { owner: card, w: cw, h: 40 } }));
+      L.add(card);
+      return y0 + 44;
     }
     const cls = heroClass(h);
+    const compact = this.compact;
+    const P = 5;
+    const card = this.add.container(x0, y0);
+    const n = SLOTS.length + (cls.mount ? 1 : 0);
+    const grid = slotGrid(cw - 2 * P, n, 26);
     let slotY: number;
-    let ss: number;
+    let ch: number;
     if (!compact) {
-      const sw = 58;
-      const sh = 80;
-      this.head.add(new Stage(this, 4, y0, sw, sh, h, { scale: 1 }));
-      if (h.wound > 0) addChip(this, L, 6, y0 + sh - 14, t('hero.wounded', { h: Math.ceil(h.wound) }), COLOR.bad, sw - 4);
-      const tx = 4 + sw + 5;
-      const tw = VW - tx - 5;
-      // name and stars, class, level, role and power
-      L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 44), 'title'));
-      addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
-      L.add(addText(this, tx, y0 + 11, ellipsize(className(h), tw), 'gold'));
-      const lvW = addChip(this, L, tx, y0 + 21, t('hero.level', { n: h.level }), 0x5c4325, 40);
-      const pw = addText(this, VW - 5, y0 + 23, t('hero.power', { n: powerRating(h) }), 'title', 1);
-      L.add(pw);
-      const roomRole = VW - 5 - pw.width - 4 - (tx + lvW + 3);
-      if (roomRole > 30) addChip(this, L, tx + lvW + 3, y0 + 21, t(`role.${cls.role}` as TKey), roleColor(cls.role), roomRole);
+      const nw = 56;
+      const nh = 72;
+      slotY = P + nh + 6;
+      ch = slotY + grid.h + P + 1;
+      const box = { owner: card, w: cw, h: ch };
+      card.add(mosaicImage(this, 0, 0, cw, ch, 'parchment'));
+      card.add(new Stage(this, P, P, nw, nh, h, { scale: 1 }));
+      addNiche(this, card, P, P, nw, nh);
+      if (h.wound > 0) addPill(this, card, P + 2, P + nh - 15, t('hero.wounded', { h: Math.ceil(h.wound) }), ACCENT.dangerFill, nw - 4);
+      const tx = P + nw + 7;
+      const tw = cw - tx - P;
+      card.add(mtext(this, tx, P, h.name, 'rInk', { size: 7.5, maxW: tw - 42, box }));
+      addStars(this, card, cw - P - 39, P + 1, heroStars(h), 5, {});
+      card.add(mtext(this, tx, P + 11, className(h), 'pSec', { size: 6.5, maxW: tw, box }));
+      const lv = addPill(this, card, tx, P + 22, t('hero.level', { n: h.level }), LEVEL_PILL, 40);
+      addPill(this, card, tx + lv + 3, P + 22, roleName(cls.role), roleColor(cls.role), tw - lv - 3);
+      card.add(mtext(this, tx, P + 37, t('hero.power', { n: powerRating(h) }), 'rInk', { size: 7, maxW: tw, box }));
       // group buttons with the group's name
-      const gy = y0 + 36;
-      const gw = Math.max(22, Math.min(30, Math.floor((tw - 3 * SIZE.gap) / 4)));
-      ROMAN.forEach((_r, g) => L.add(this.groupButton(tx + g * (gw + SIZE.gap), gy, gw, g, h)));
-      const gx = tx + 4 * (gw + SIZE.gap);
-      if (VW - 5 - gx > 30) L.add(addText(this, gx + 2, gy + 7, ellipsize(groupName(h.group), VW - 5 - gx - 2), 'title'));
-      ss = 26;
-      slotY = y0 + sh + 4;
+      const gy = P + 49;
+      const gw = Math.max(TAP, Math.min(30, Math.floor((tw - 3 * GAP) / 4)));
+      ROMAN.forEach((_r, g) => card.add(this.groupButton(tx + g * (gw + GAP), gy, gw, g, h)));
+      const gx = tx + 4 * (gw + GAP);
+      if (cw - P - gx > 28) card.add(mtext(this, gx + 1, gy + 8, groupName(h.group), 'pSec', { size: 6, maxW: cw - P - gx - 1, box }));
     } else {
-      // short screens: portrait, name, class and power on two lines; the group button sits in the bottom bar
-      L.add(addPortrait(this, dollFromHero(h), 4, y0));
-      const tx = 31;
-      const tw = VW - tx - 5;
-      L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 42), 'title'));
-      addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
-      const lvW = addChip(this, L, tx, y0 + 12, t('hero.level', { n: h.level }), 0x5c4325, 40);
-      const pw = addText(this, VW - 5, y0 + 14, `${powerRating(h)}`, 'title', 1);
-      L.add(pw);
+      // short screens: portrait with name, level and power, rank, class; the groups on a row of their own, then the slots
+      const ps = 28;
+      const block = 46;
+      const gy = P + block + 3;
+      slotY = gy + TAP + 4;
+      ch = slotY + grid.h + P + 1;
+      const box = { owner: card, w: cw, h: ch };
+      card.add(mosaicImage(this, 0, 0, cw, ch, 'parchment'));
+      addPortraitWell(this, card, P, P, ps, roleColor(cls.role));
+      card.add(addPortrait(this, dollFromHero(h), P, P, { size: ps }));
+      const tx = P + ps + 6;
+      const tw = cw - tx - P;
+      card.add(mtext(this, tx, P, h.name, 'rInk', { size: 7, maxW: tw, box }));
+      const lv = addPill(this, card, tx, P + 12, t('hero.level', { n: h.level }), LEVEL_PILL, 40);
+      card.add(mtext(this, tx + lv + 4, P + 13, `${powerRating(h)}`, 'rInk', { size: 7, maxW: tw - lv - 4, box }));
+      addStars(this, card, tx, P + 25, heroStars(h), 5, {});
       const sub = h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : className(h);
-      L.add(addText(this, tx + lvW + 3, y0 + 14, ellipsize(sub, VW - 5 - pw.width - 4 - (tx + lvW + 3)), h.wound > 0 ? FONT_RED_LIGHT : 'gold'));
-      ss = 22;
-      slotY = y0 + 27;
+      card.add(mtext(this, tx, P + 36, sub, h.wound > 0 ? 'pBad' : 'pSec', { size: 6, maxW: tw, box }));
+      const gw = Math.max(TAP, Math.min(30, Math.floor((cw - 2 * P - 3 * GAP) / 4)));
+      ROMAN.forEach((_r, g) => card.add(this.groupButton(P + g * (gw + GAP), gy, gw, g, h)));
     }
     // the slots: tap for the item card, drop stash items on them
-    const n = SLOTS.length + (cls.mount && !compact ? 1 : 0);
-    ss = Math.min(ss, Math.floor((VW - 8 - (n - 1) * SIZE.gap) / n));
-    const step = Math.min(ss + 8, Math.floor((VW - 8 - ss) / (n - 1)));
-    const x0 = Math.round((VW - (ss + step * (n - 1))) / 2);
+    const place = (o: Phaser.GameObjects.GameObject & { x: number; y: number }, i: number) => {
+      const p = grid.pos(i);
+      o.x = P + p.x;
+      o.y = slotY + p.y;
+    };
     SLOTS.forEach((s, i) => {
-      const o = addSlotTile(this, L, x0 + i * step, slotY, s, h.equip[s], { size: ss, onTap: () => this.tapSlot(s) });
-      this.slotObjs.set(s, o);
+      const gs = new GearSlot(this, 0, 0, { slot: s, item: h.equip[s], size: grid.ss, selected: this.tab === 'stash' && this.stashState.slot === s, onTap: () => this.tapSlot(s) });
+      place(gs, i);
+      card.add(gs);
+      this.slotObjs.set(s, gs);
     });
-    if (cls.mount && !compact) addMountTile(this, L, x0 + SLOTS.length * step, slotY, h, ss);
-    this.bodyTop = slotY + ss + 5;
-    // the dark panel down to the slots
-    L.addAt(addPanel(this, 0, top, VW, this.bodyTop - top - 1, 'dark'), 0);
+    if (cls.mount) {
+      const m = mountSlot(this, 0, 0, h, grid.ss);
+      if (m) {
+        place(m, SLOTS.length);
+        card.add(m);
+      }
+    }
+    L.add(card);
+    return y0 + ch + 4;
   }
 
-  private groupButton(x: number, y: number, w: number, g: number, h: Hero): Button {
+  private groupButton(x: number, y: number, w: number, g: number, h: Hero): MIconButton {
     const r = ROMAN[g];
-    return new Button(this, x, y, w, 22, {
-      label: r,
-      style: h.group === g ? 'buttonSel' : 'button',
-      tip: `${t('army.group')} ${r}: ${groupName(g)}. ${t('army.groupTip')}`,
+    return new MIconButton(this, x, y, w, TAP, {
+      text: r,
+      variant: h.group === g ? 'secondary' : 'neutral',
+      label: `${t('army.group')} ${r}: ${groupName(g)}. ${t('army.groupTip')}`,
       id: `army.group.${g}`,
       onClick: () => this.setGroup(g),
     });
@@ -269,7 +357,7 @@ export class ArmyScene extends BaseScene {
     if (this.tab !== 'stash' || this.stashState.slot !== slot) {
       this.stashState.slot = slot;
       this.tab = 'stash';
-      this.buildBody();
+      this.refresh();
     }
     const it = h.equip[slot];
     if (!it) return;
@@ -298,95 +386,115 @@ export class ArmyScene extends BaseScene {
     this.stash = null;
     this.drag.targets = [];
     this.drag.cancel();
-    this.body.removeAll(true);
+    this.body?.removeAll(true);
   }
 
   private buildBody(): void {
     const keep = this.tab === 'roster' ? this.list?.area.scrollY ?? 0 : 0;
     this.clearBody();
-    const { VW } = this.m;
     const c = state.campaign.data;
+    const x = this.ox;
+    const w = this.cw;
     const y = this.bodyTop;
-    this.tabs = new Tabs(this, 4, y, VW - 8, [t('army.roster', { n: c.heroes.length, max: MAX_ARMY }), t('army.stash', { n: c.stash.length })], {
-      selected: this.tab === 'roster' ? 0 : 1,
-      ids: ['army.tab.roster', 'army.tab.stash'],
-      onChange: (i) => {
-        this.tab = i === 0 ? 'roster' : 'stash';
-        this.refreshSituation();
-        this.buildBody();
+    const sw = new SegmentedSwitch(this, x, y, w, {
+      options: [
+        { id: 'roster', label: t('army.roster', { n: c.heroes.length, max: MAX_ARMY }) },
+        { id: 'stash', label: t('army.stash', { n: c.stash.length }) },
+      ],
+      selected: this.tab,
+      onChange: (id) => {
+        this.tab = id as 'roster' | 'stash';
+        this.refresh();
       },
+      id: 'army.tab',
     });
-    const foot = this.strip.top;
-    this.body.add(this.add.rectangle(0, y + SIZE.tabH - 2, VW, foot - (y + SIZE.tabH - 2), SURFACE.bg).setOrigin(0, 0));
-    this.body.add(this.tabs);
+    this.body.add(sw);
     const pend = c.heroes.filter((h) => hasPending(h, perkSlots)).length;
-    if (pend) addTabBadge(this, this.body, 4, y, VW - 8, 2, 0, pend);
-    const top = y + SIZE.tabH + 4;
-    const bottom = foot - 3;
-    if (this.tab === 'roster') this.buildRoster(top, bottom, keep);
-    else this.buildStash(top, bottom);
+    if (pend) addSwitchBadge(this, this.body, x, y, w, 2, 0, pend);
+    const top = y + SWITCH_H + 4;
+    // in scroll mode the page is as tall as its content; else the list takes what the action bar leaves
+    const bottom = this.area ? -1 : this.bodyBottom;
+    const end = this.tab === 'roster' ? this.buildRoster(top, bottom, keep) : this.buildStash(top, bottom);
+    this.area?.setContentHeight(end + 4);
   }
 
-  private buildRoster(top: number, bottom: number, keep: number): void {
-    const { VW } = this.m;
-    const w = VW - 8;
-    const bw = Math.floor((w - SIZE.gap) / 2);
+  /** The filter row, then the heroes; returns the y below (scroll mode: below the last row). */
+  private buildRoster(top: number, bottom: number, keep: number): number {
+    const x = this.ox;
+    const w = this.cw;
+    const bw = Math.floor((w - GAP) / 2);
     const fLabel = this.filter === 'all' ? t('army.filter.all') : t(`army.filter.${this.filter}` as TKey);
-    this.body.add(new Button(this, 4, top, bw, SIZE.btnH, { label: fLabel, icon: 'eye', tip: t('army.filterTip'), id: 'army.filter', onClick: () => ((this.filter = cycle(ROSTER_FILTERS, this.filter)), this.buildBody()) }));
-    this.body.add(new Button(this, 4 + bw + SIZE.gap, top, w - bw - SIZE.gap, SIZE.btnH, { label: t(`army.sort.${this.sort}` as TKey), icon: 'flag', tip: t('army.sortTip'), id: 'army.sort', onClick: () => ((this.sort = cycle(ROSTER_SORTS, this.sort)), this.buildBody()) }));
-    const ly = top + SIZE.btnH + SIZE.gap;
+    this.body.add(new MButton(this, x, top, bw, TAP, { label: fLabel, icon: 'eye', variant: 'neutral', tip: t('army.filterTip'), id: 'army.filter', onClick: () => ((this.filter = cycle(ROSTER_FILTERS, this.filter)), this.buildBody()) }));
+    this.body.add(new MButton(this, x + bw + GAP, top, w - bw - GAP, TAP, { label: t(`army.sort.${this.sort}` as TKey), icon: 'flag', variant: 'neutral', tip: t('army.sortTip'), id: 'army.sort', onClick: () => ((this.sort = cycle(ROSTER_SORTS, this.sort)), this.buildBody()) }));
+    const ly = top + TAP + GAP;
     this.roster = queryRoster(state.campaign.data.heroes, this.sort, this.filter);
     if (!this.roster.length) {
-      this.body.add(addEmptyState(this, 4, ly, w, bottom - ly, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint'), action: { label: t('army.filter.all'), onClick: () => ((this.filter = 'all'), this.buildBody()) } }));
-      return;
+      const eh = bottom >= 0 ? bottom - ly : 70;
+      this.body.add(addParchmentEmpty(this, x, ly, w, eh, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint'), action: { label: t('army.filter.all'), onClick: () => ((this.filter = 'all'), this.buildBody()) } }));
+      return ly + eh;
     }
-    this.list = new ScrollList(this, this.body, 4, ly, w, bottom - ly, {
+    const rowH = 34;
+    if (this.area) {
+      // the whole page scrolls: plain rows
+      let y = ly;
+      this.roster.forEach((h, i) => {
+        const row = this.add.container(x, y);
+        row.setSize(w, rowH);
+        this.rosterRow(h, row, w, rowH);
+        row.setInteractive(new Phaser.Geom.Rectangle(w / 2, rowH / 2, w, rowH), Phaser.Geom.Rectangle.Contains);
+        tappable(row, this.area, () => this.select(h.id));
+        uiId(row, `roster:${i}`);
+        this.body.add(row);
+        y += rowH + GAP;
+      });
+      return y;
+    }
+    this.list = new ScrollList(this, this.body, x, ly, w, bottom - ly, {
       count: this.roster.length,
-      rowH: 30,
+      rowH,
       render: (i, row, rw, rh) => this.rosterRow(this.roster[i], row, rw, rh),
       onTap: (i) => this.select(this.roster[i].id),
       id: (i) => `roster:${i}`,
+      fade: MOSAIC.parch,
     });
     this.list.area.setScroll(keep);
+    return bottom;
   }
 
   private rosterRow(h: Hero, row: Phaser.GameObjects.Container, w: number, rh: number): void {
     const sel = h.id === this.heroId;
-    // the selected hero: the lit bronze card (terracotta is the screen's one action, Sheet)
-    row.add(addPanel(this, 0, 0, w, rh, sel ? 'cardSel' : 'card'));
+    const box = { owner: row, w, h: rh };
+    // the selected hero: the lit parchment with a bronze rim (terracotta is the screen's one action, Hero sheet)
+    addRowFace(this, row, w, rh, sel);
     // portrait in a frame tinted by role
     const cls = heroClass(h);
-    const ps = rh - 4;
-    const fr = this.add.graphics();
-    fr.fillStyle(0x1d140f, 1);
-    fr.fillRect(1, 1, ps + 2, ps + 2);
-    fr.fillStyle(roleColor(cls.role), 1);
-    fr.fillRect(2, 2, ps, ps);
-    row.add(fr);
-    row.add(addPortrait(this, dollFromHero(h), 2, 2, { size: ps }));
+    const ps = rh - 8;
+    const py = Math.round((rh - ps) / 2);
+    addPortraitWell(this, row, 5, py, ps, roleColor(cls.role));
+    row.add(addPortrait(this, dollFromHero(h), 5, py, { size: ps }));
     if (h.wound > 0) {
       const wg = this.add.graphics();
-      wg.fillStyle(0x000000, 0.45);
-      wg.fillRect(2, 2, ps, ps);
+      wg.fillStyle(0x000000, 0.5);
+      wg.fillRect(5, py, ps, ps);
       row.add(wg);
-      row.add(addIcon(this, 2 + (ps - 12) / 2, 2 + (ps - 12) / 2, 'cross', 'L'));
+      row.add(addIcon(this, 5 + (ps - 12) / 2, py + (ps - 12) / 2, 'cross', 'L'));
     }
-    const light = false;
-    const x = ps + 7;
-    const right = w - 4;
+    const x = ps + 12;
+    const right = w - 6;
     // group badge on the right, power under it
-    addGroupBadge(this, row, right - 12, 3, h.group);
-    const pw = addText(this, right, 18, `${powerRating(h)}`, light ? 'light' : 'ink', 1);
-    row.add(pw);
+    addGroupBadge(this, row, right - 12, 4, h.group);
+    const pw = `${powerRating(h)}`;
+    const pt = mtext(this, right, 19, pw, 'rInk', { size: 7, align: 1, box });
+    row.add(pt);
     const pend = hasPending(h, perkSlots);
     const nameW = right - 16 - x - (pend ? 12 : 0);
-    const name = addText(this, x, 4, ellipsize(h.name, nameW), light ? 'light' : 'ink');
+    const name = mtext(this, x, 5, h.name, 'rInk', { size: 7, maxW: nameW, box });
     row.add(name);
-    if (pend) addChip(this, row, x + name.width + 3, 3, '!', 0xd8a840);
+    if (pend) row.add(new MBadge(this, x + name.width + 8, 8, '!'));
     const sub = h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : `${t('hero.level', { n: h.level })} ${cls.short}`;
-    const subT = addText(this, x, 17, ellipsize(sub, right - pw.width - 4 - x - 42), h.wound > 0 ? 'bad' : 'sec');
+    const subT = mtext(this, x, 19, sub, h.wound > 0 ? 'pBad' : 'pSec', { size: 6, maxW: right - pt.width - 4 - x - 42, box });
     row.add(subT);
-    if (h.wound <= 0) addStars(this, row, Math.min(x + subT.width + 4, right - pw.width - 4 - 39), 19, heroStars(h));
+    if (h.wound <= 0) addStars(this, row, Math.min(x + subT.width + 4, right - pt.width - 4 - 39), 20, heroStars(h));
     uiId(name, 'roster.name');
   }
 
@@ -400,14 +508,15 @@ export class ArmyScene extends BaseScene {
     this.refresh();
   }
 
-  private buildStash(top: number, bottom: number): void {
-    const { VW } = this.m;
-    this.stash = new StashGrid(this, this.body, 4, top, VW - 8, bottom - top, {
+  private buildStash(top: number, bottom: number): number {
+    const inline = !!this.area;
+    this.stash = new MStashGrid(this, this.body, this.ox, top, this.cw, inline ? 0 : bottom - top, {
       items: () => state.campaign.data.stash,
       state: this.stashState,
       hero: () => this.hero(),
       drag: this.drag,
       onTap: (it) => this.openStashItem(it),
+      inline: this.area ?? undefined,
     });
     for (const [slot, o] of this.slotObjs) {
       this.drag.targets.push({
@@ -416,6 +525,7 @@ export class ArmyScene extends BaseScene {
         drop: (it) => this.equip(it),
       });
     }
+    return inline ? top + this.stash.height : bottom;
   }
 
   openStashItem(it: Item): void {

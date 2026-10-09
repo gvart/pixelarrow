@@ -99,10 +99,14 @@ const SCREENS = [
   { id: 'menu-settings-notify', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openNotifications(true); return 1;'), wait(p, 500)) },
   { id: 'menu-settings-about', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openAboutPage(); return 1;'), wait(p, 400)) },
   { id: 'menu-reset', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.confirmReset(); return 1;'), wait(p, 400)) },
+  { id: 'codex', owner: 'F', run: async (p) => (await start(p, 'Codex'), wait(p, 700)) },
   { id: 'kit-controls', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 0 }), wait(p, 1500)) },
   { id: 'kit-items', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 1 }), wait(p, 700)) },
   { id: 'kit-lists', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 2 }), wait(p, 700)) },
   { id: 'kit-v3', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 3 }), wait(p, 700)) },
+  { id: 'kit-mosaic', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 4 }), wait(p, 900)) },
+  { id: 'kit-parts', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 5 }), wait(p, 1200)) },
+  { id: 'kit-shell', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 6 }), wait(p, 700)) },
   // the shop with the API down (503): the "closed" state
   { id: 'menu-shop', owner: 'B', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openShop(); return 1;'), wait(p, 1200)) },
   // economy screens on the in-memory demo economy (src/ui/econ/demo.ts)
@@ -498,7 +502,8 @@ const SCREENS = [
   {
     id: 'results-inspect',
     owner: 'A',
-    run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('spoils'); return 1;`), await wait(p, 600), await call(p, 'Results', `s.report.loot.forEach((_, i) => s.revealed.add(i)); s.showPage('spoils'); s.inspect(0); return 1;`), wait(p, 500)),
+    // the demo battle does not always drop loot: make sure the report holds one item to inspect
+    run: async (p) => (await results(p), await call(p, 'Results', `if (!s.report.loot.length) s.report.loot.push({ uid: 'inspect1', def: 'chalcidian', rarity: 'rare', cond: 80 }); s.showPage('spoils'); return 1;`), await wait(p, 600), await call(p, 'Results', `s.report.loot.forEach((_, i) => s.revealed.add(i)); s.showPage('spoils'); s.inspect(0); return 1;`), wait(p, 500)),
   },
   {
     id: 'results-online',
@@ -580,6 +585,22 @@ const SCREENS = [
         return wait(p, 400);
       }
       return wait(p, 900);
+    },
+  })),
+  // The clan screen (src/scenes/online/ClanScene.ts) with a staged clan (the API is not reached).
+  ...[
+    ['online-clan', ''],
+    ['online-clan-manage', 's.manage(s.clan.members[1]);'],
+    ['online-clan-leave', 's.confirmLeave();'],
+    ['online-clan-none', 's.clan = null; s.render();'],
+  ].map(([id, after]) => ({
+    id,
+    owner: 'C',
+    run: async (p) => {
+      await start(p, 'OnlineClan', {});
+      await wait(p, 600);
+      await call(p, 'OnlineClan', `s.loaded = true; s.me = 1; s.role = 'leader'; s.clan = { id: 1, name: 'Sons of Lambda', tag: 'LMB', shard: 1, regions: 7, members: [{ id: 1, name: 'Leonidas', role: 'leader', joinedAt: 0, regions: 4 }, { id: 2, name: 'Brasidas', role: 'officer', joinedAt: 0, regions: 2 }, { id: 3, name: 'Myrto of Corinth', role: 'member', joinedAt: 0, regions: 1 }] }; s.render(); ${after} return 1;`);
+      return wait(p, 500);
     },
   })),
   // Map merchants (src/scenes/online/MerchantScene.ts) on the demo shard: a town in reach with the clan's

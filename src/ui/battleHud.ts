@@ -10,30 +10,52 @@
  * buttons and GroupCard.
  */
 import Phaser from 'phaser';
-import { Button, addIcon, addText, longPress, panelImage, panelK, tappable, uiMetrics, type FontKey } from './kit';
-import { BRONZE_D2, STATUS_D2, renderMedallion, renderSweep, type MedallionState } from '../art/smoothUi';
+import { addIcon, addText, longPress, panelK, tappable, uiMetrics, type FontKey } from './kit';
+import { renderMedallion, renderSweep, type MedallionState } from '../art/smoothUi';
+import { KeyButton, caps, mosaicImage, mw } from './mosaic';
+import { MOSAIC } from './tokens';
 import { RS } from '../platform/renderScale';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { uiFrame, uiId } from './layout';
-import type { StripSlot } from './strategos';
 
 /** Height of the top bar (UI px). */
 export const TOP_H = 46;
 
 /** A slot of the top bar as a kit button: icon over word, primary terracotta, selected lit bronze. */
-function slotButton(scene: Phaser.Scene, x: number, y: number, w: number, h: number, s: StripSlot, primary: boolean): Button {
-  const b = new Button(scene, x, y, w, h, {
+/** One slot of the battle's command strip (a KeyButton: Back-or-Flee | the one primary | Army-or-More). */
+export interface StripSlot {
+  label: string;
+  icon?: string;
+  onClick?: () => void;
+  /** Cannot right now, and why (grey dither; a tap says why). */
+  off?: string;
+  /** Long-press explanation. */
+  tip?: string;
+  /** Count bubble in the corner (0 hides it). */
+  badge?: number | string;
+  /** Layout-check / script id. */
+  id?: string;
+  /** Selected look for a toggle (bronze-rimmed parchment), e.g. Pause while paused. */
+  selected?: boolean;
+  /** Middle slot only: not the red primary (a toggle or a secondary wide action). */
+  secondary?: boolean;
+  /** Destructive (dark wine): confirm first in `onClick`. */
+  destructive?: boolean;
+}
+
+function slotButton(scene: Phaser.Scene, x: number, y: number, w: number, h: number, s: StripSlot, primary: boolean, plain: boolean): KeyButton {
+  return new KeyButton(scene, x, y, w, h, {
     label: s.label,
     icon: s.icon,
     onClick: s.onClick,
     tip: s.tip,
     disabledReason: s.off,
     id: s.id,
-    variant: s.destructive ? 'destructive' : primary ? 'primary' : 'secondary',
-    style: s.selected ? 'buttonSel' : undefined,
+    // Play is terracotta when it is the next thing to do; Flee is quiet grey stone; the rest bronze
+    variant: s.destructive ? 'stone' : primary ? 'primary' : 'bronze',
+    lit: !!s.selected,
+    plain,
   });
-  if (s.off) b.setEnabled(false, s.off);
-  return b;
 }
 
 export interface TopBarOpts {
@@ -49,7 +71,7 @@ export interface TopBarOpts {
 
 export class TopBar extends Phaser.GameObjects.Container {
   readonly w: number;
-  readonly buttons: Partial<Record<'left' | 'mid' | 'right', Button>> = {};
+  readonly buttons: Partial<Record<'left' | 'mid' | 'right', KeyButton>> = {};
   private slots: Phaser.GameObjects.Container;
   private timeText: Phaser.GameObjects.BitmapText;
   private wordText: Phaser.GameObjects.BitmapText;
@@ -62,7 +84,7 @@ export class TopBar extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, w: number, o: TopBarOpts) {
     super(scene, 0, 0);
     this.w = w;
-    this.add(panelImage(scene, -2, -4, w + 4, TOP_H + 4, 'parch'));
+    this.add(mosaicImage(scene, -2, -4, w + 4, TOP_H + 4, 'topBar'));
     this.slots = scene.add.container(0, 0);
     this.add(this.slots);
     this.timeText = addText(scene, 0, 4, '', 'ink', 0.5);
@@ -91,15 +113,18 @@ export class TopBar extends Phaser.GameObjects.Container {
     const narrow = this.w < 170;
     const bw = narrow ? 26 : 30;
     const rw = narrow ? 36 : 42;
-    this.buttons.left = slotButton(s, 4, y, bw, h, o.left, o.primary === 'left');
+    // one face for the bar: capitals when every word fits as such, else Inter
+    const fits = (slot: StripSlot, w: number) => mw(caps(slot.label), 'rCream', 5.5) <= w - 4;
+    const plain = !(fits(o.left, bw) && (!o.mid || fits(o.mid, bw)) && fits(o.right, rw));
+    this.buttons.left = slotButton(s, 4, y, bw, h, o.left, o.primary === 'left', plain);
     this.slots.add(this.buttons.left);
     let x0 = 4 + bw + 2;
     if (o.mid) {
-      this.buttons.mid = slotButton(s, x0 + 1, y, bw, h, o.mid, o.primary === 'mid');
+      this.buttons.mid = slotButton(s, x0 + 1, y, bw, h, o.mid, o.primary === 'mid', plain);
       this.slots.add(this.buttons.mid);
       x0 += bw + 3;
     } else delete this.buttons.mid;
-    this.buttons.right = slotButton(s, this.w - 4 - rw, y, rw, h, o.right, o.primary === 'right');
+    this.buttons.right = slotButton(s, this.w - 4 - rw, y, rw, h, o.right, o.primary === 'right', plain);
     this.slots.add(this.buttons.right);
     const x1 = this.w - 4 - rw - 2;
     this.clock = { x0, x1, size: narrow ? 10 : 12 };
@@ -156,16 +181,16 @@ export class TopBar extends Phaser.GameObjects.Container {
     const right = `${r.theirs}% ${r.foe}`;
     const lw = measureText(left, false, 6);
     const rw = measureText(right, false, 6);
-    const lt = addText(s, 6, y - 1, left, 'ink', 0).setFontSize(6);
-    const rt = addText(s, this.w - 6, y - 1, right, 'ink', 1).setFontSize(6);
-    const vs = addText(s, this.w / 2, y - 1, 'vs', 'dim', 0.5).setFontSize(5.5);
+    const lt = addText(s, 6, y - 1, left, 'light', 0).setFontSize(6);
+    const rt = addText(s, this.w - 6, y - 1, right, 'light', 1).setFontSize(6);
+    const vs = addText(s, this.w / 2, y - 1, 'vs', 'gold', 0.5).setFontSize(5.5);
     for (const t of [lt, rt, vs]) uiFrame(t, this, this.w, TOP_H);
     const g = s.add.graphics();
     const bar = (x0: number, x1: number, f: number, color: number, fromRight: boolean) => {
       const w = Math.max(4, x1 - x0);
-      g.fillStyle(BRONZE_D2.lo, 1);
+      g.fillStyle(MOSAIC.bronzeLo, 1);
       g.fillRoundedRect(x0, y, w, 5, 1.5);
-      g.fillStyle(0x0d0a08, 1);
+      g.fillStyle(MOSAIC.stone0, 1);
       g.fillRoundedRect(x0 + 0.5, y + 0.5, w - 1, 4, 1.2);
       const fw = Math.max(0, Math.min(1, f)) * (w - 2);
       if (fw > 0.5) {
@@ -173,8 +198,8 @@ export class TopBar extends Phaser.GameObjects.Container {
         g.fillRoundedRect(fromRight ? x0 + w - 1 - fw : x0 + 1, y + 1, fw, 3, 1);
       }
     };
-    bar(6 + lw + 4, this.w / 2 - 7, r.ours / 100, STATUS_D2.gold, false);
-    bar(this.w / 2 + 7, this.w - 6 - rw - 4, r.theirs / 100, STATUS_D2.hp, true);
+    bar(6 + lw + 4, this.w / 2 - 7, r.ours / 100, MOSAIC.bronzeHi, false);
+    bar(this.w / 2 + 7, this.w - 6 - rw - 4, r.theirs / 100, MOSAIC.terraHi, true);
     this.row.add([g, lt, rt, vs]);
     return this;
   }
@@ -213,17 +238,18 @@ export class HintPill extends Phaser.GameObjects.Container {
     const lineH = 9;
     const h = 7 + lines.length * lineH;
     const x = Math.round(this.cx - w / 2);
-    this.add(panelImage(s, x, 0, w, h, 'tooltip'));
-    // the "!" disc
+    this.add(mosaicImage(s, x, 0, w, h, 'parchment'));
+    // the "!" disc: terracotta when it is urgent, bronze otherwise
     const g = s.add.graphics();
-    g.fillStyle(urgent ? 0xd8774f : BRONZE_D2.hi, 1);
+    g.fillStyle(urgent ? MOSAIC.terra : MOSAIC.bronze, 1);
     g.fillCircle(x + 9, h / 2, 4.5);
+    g.lineStyle(0.6, MOSAIC.goldHi, 0.9);
+    g.strokeCircle(x + 9, h / 2, 4.5);
     this.add(g);
-    const bang = addText(s, x + 9, h / 2 - 4.5, '!', 'ink', 0.5).setFontSize(6.5);
-    bang.setTint(0x120e0b);
+    const bang = addText(s, x + 9, h / 2 - 3.6, '!', 'rCream', 0.5).setFontSize(6.5);
     this.add(bang);
     lines.forEach((l, i) => {
-      const t = addText(s, x + 17, 3 + i * lineH, l, urgent ? 'gold' : 'ink', 0).setFontSize(size);
+      const t = addText(s, x + 17, 3 + i * lineH, l, urgent ? 'pBad' : 'pInk', 0).setFontSize(size);
       uiFrame(t, this, w, h, x, 0);
       this.add(t);
     });
@@ -276,11 +302,11 @@ export class Medallion extends Phaser.GameObjects.Container {
     this.cdText = addText(scene, cx, MED_D / 2 - 5, '', 'ink', 0.5).setFontSize(8).setVisible(false);
     this.badge = scene.add.container(cx + MED_D / 2 - 3, 2);
     const plateY = MED_D + 2;
-    const plate = panelImage(scene, 0, plateY, MED_W, 19, 'tooltip');
+    const plate = mosaicImage(scene, 0, plateY, MED_W, 19, 'parchment');
     const size = 6;
-    const name = addText(scene, cx, plateY + 1.5, ellipsize(o.label, MED_W - 4, false, size), 'ink', 0.5).setFontSize(size);
+    const name = addText(scene, cx, plateY + 1.5, ellipsize(o.label, MED_W - 4, false, size), 'pInk', 0.5).setFontSize(size);
     name.setY(plateY + 1);
-    const sub = addText(scene, cx, plateY + 10, ellipsize(o.sub, MED_W - 4, false, 5), 'dim', 0.5).setFontSize(5);
+    const sub = addText(scene, cx, plateY + 10, ellipsize(o.sub, MED_W - 4, false, 5), 'pSec', 0.5).setFontSize(5);
     uiFrame(name, this, MED_W, MED_H);
     uiFrame(sub, this, MED_W, MED_H);
     this.add([this.disc, this.icon, this.sweep, this.cdText, this.badge, plate, name, sub]);
@@ -361,9 +387,9 @@ export class Medallion extends Phaser.GameObjects.Container {
     this.badge.removeAll(true);
     if (!cooling && this.corner) {
       const g = this.scene.add.graphics();
-      g.fillStyle(0x76291a, 1);
+      g.fillStyle(MOSAIC.terra, 1);
       g.fillCircle(0, 3, 4.5);
-      g.lineStyle(0.5, BRONZE_D2.hi, 1);
+      g.lineStyle(0.5, MOSAIC.goldHi, 1);
       g.strokeCircle(0, 3, 4.5);
       const n = addText(this.scene, 0, -1, this.corner, 'light' as FontKey, 0.5).setFontSize(6);
       this.badge.add([g, n]);

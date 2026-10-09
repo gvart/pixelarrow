@@ -18,10 +18,10 @@ export function promptFields(title: string, fields: Field[], okLabel = 'OK', can
     wrap.style.cssText =
       'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000;font-family:monospace';
     const box = document.createElement('form');
-    box.style.cssText = 'background:#ecd8c8;border:3px solid #4a2420;padding:14px;width:min(320px,86vw);color:#4a2420;box-shadow:0 4px 0 #2a1a16';
+    box.style.cssText = 'background:#e7d6ad;border:3px solid #5a3d22;border-radius:6px;padding:14px;width:min(320px,86vw);color:#3a2414;box-shadow:0 4px 0 #1a1612';
     const h = document.createElement('div');
     h.textContent = title;
-    h.style.cssText = 'font-weight:bold;margin-bottom:10px;color:#8c2f25;text-transform:uppercase';
+    h.style.cssText = 'font-weight:bold;margin-bottom:10px;color:#3a2414;text-transform:uppercase;letter-spacing:.06em';
     box.appendChild(h);
     const inputs: HTMLInputElement[] = [];
     for (const f of fields) {
@@ -34,7 +34,7 @@ export function promptFields(title: string, fields: Field[], okLabel = 'OK', can
       i.placeholder = f.placeholder ?? '';
       if (f.value) i.value = f.value;
       i.autocomplete = 'off';
-      i.style.cssText = 'width:100%;box-sizing:border-box;padding:8px;font:inherit;font-size:16px;border:2px solid #4a2420;background:#f6e8dc;color:#2a1a16';
+      i.style.cssText = 'width:100%;box-sizing:border-box;padding:8px;font:inherit;font-size:16px;border:2px solid #5a3d22;border-radius:4px;background:#f0e3c2;color:#3a2414';
       box.appendChild(l);
       box.appendChild(i);
       inputs.push(i);
@@ -45,7 +45,7 @@ export function promptFields(title: string, fields: Field[], okLabel = 'OK', can
       const b = document.createElement('button');
       b.textContent = text;
       b.type = primary ? 'submit' : 'button';
-      b.style.cssText = `flex:1;padding:9px;font:inherit;text-transform:uppercase;border:2px solid #4a2420;background:${primary ? '#a83a2c' : '#f6e8dc'};color:${primary ? '#f6e8dc' : '#4a2420'}`;
+      b.style.cssText = `flex:1;padding:9px;font:inherit;text-transform:uppercase;border:2px solid #5a3d22;border-radius:4px;background:${primary ? '#a8432c' : '#7d5b30'};color:#fdf3de`;
       row.appendChild(b);
       return b;
     };

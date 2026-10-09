@@ -6,11 +6,12 @@
  * drop from the stash onto equipment slots.
  */
 import Phaser from 'phaser';
-import { scaleIcon, Button, Meter, ScrollArea, addIcon, addPanel, addText, tappable, type FontKey } from './kit';
-import { Badge, ItemIcon, Grid, addEmptyState, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
+import { scaleIcon, Button, Meter, ScrollArea, addIcon, addText, mosaicPanelImage, tappable, type FontKey } from './kit';
+import { Badge, ItemIcon, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
 import { uiFrame, uiId } from './layout';
-import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
+import { ellipsize, wrapText, LINE_H } from './textfit';
 import { SIZE, COLOR, RARITY_COLOR } from './theme';
+import { addPill } from './mosaic/pill';
 import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
@@ -24,7 +25,7 @@ import { CLASSES, type ClassId } from '../data/classes';
 import type { Hero } from '../data/units';
 import { computeStats, heroClass } from '../sim/stats';
 import {
-  compareItem, cycle, equipBlocker, fmtStat, isUpgrade, itemModLines, queryStash, RARITY_FILTERS, SLOT_FILTERS, STASH_SORTS, STATS, shoots,
+  compareItem, equipBlocker, fmtStat, itemModLines, STATS, shoots,
   type RarityFilter, type SlotFilter, type StashSort, type StatDelta, type StatId,
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
@@ -111,23 +112,6 @@ export function addLegend(scene: Phaser.Scene, parent: Phaser.GameObjects.Contai
   tappable(z, area, () => showTooltip(scene, text, z));
   parent.add(z);
   return z;
-}
-
-/** A coloured pill with light text (role, status). Returns its width. */
-export function addChip(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, text: string, color: number, maxW = 200, alignRight = false): number {
-  const s = ellipsize(text, maxW - 6, true);
-  const w = measureText(s, true) + 6;
-  if (alignRight) x -= w;
-  const g = scene.add.graphics();
-  g.fillStyle(0x1d140f, 1);
-  g.fillRoundedRect(Math.round(x), Math.round(y), w, 12, 3);
-  g.fillStyle(color, 1);
-  g.fillRoundedRect(Math.round(x) + 1, Math.round(y) + 1, w - 2, 10, 3);
-  parent.add(g);
-  const txt = addText(scene, Math.round(x + 3), Math.round(y + 2), s, 'light');
-  uiFrame(txt, g as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, w, 12, Math.round(x), Math.round(y));
-  parent.add(txt);
-  return w;
 }
 
 /** A unit role's pill colour: the role palette of src/ui/tokens.ts (never the danger red). */
@@ -274,12 +258,12 @@ export function addSlotTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Cont
     parent.add(cm);
     return ic;
   }
-  const bg = addPanel(scene, x, y, size, size, o.selected ? 'slotSel' : 'slot');
+  const bg = mosaicPanelImage(scene, x, y, size, size, o.selected ? 'parchmentSel' : 'parchmentWell');
   bg.setInteractive();
   uiId(bg, `slot:${slot}`);
   tappable(bg, o.area ?? null, o.onTap, t(`slot.${slot}` as TKey));
   parent.add(bg);
-  parent.add(addIcon(scene, x + Math.round((size - 12) / 2), y + Math.round((size - 12) / 2), SLOT_ICON[slot], o.selected ? 'L' : 'D'));
+  parent.add(addIcon(scene, x + Math.round((size - 12) / 2), y + Math.round((size - 12) / 2), SLOT_ICON[slot], o.selected ? '' : 'D'));
   return bg;
 }
 
@@ -287,7 +271,7 @@ export function addSlotTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Cont
 export function addMountTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, hero: Hero, size: number = SIZE.cell): void {
   const cls = heroClass(hero);
   if (!cls.mount) return;
-  const bg = addPanel(scene, x, y, size, size, 'slot');
+  const bg = mosaicPanelImage(scene, x, y, size, size, 'parchmentWell');
   bg.setInteractive();
   uiId(bg, 'slot:mount');
   const name = tOr(`mount.${cls.mount}`, cls.mount);
@@ -528,7 +512,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   const b = area.content;
   let by = 0;
   if (cmp && o.hero) {
-    b.add(addPanel(scene, 0, by, inner, cmpH - 4, 'inset'));
+    b.add(mosaicPanelImage(scene, 0, by, inner, cmpH - 4, 'parchmentWell'));
     const eq = cmp.equipped;
     b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }), inner - 8), 'dim'));
     if (eq) {
@@ -628,164 +612,6 @@ export interface StashGridOpts {
   selected?: () => string | null;
   /** A small label on each cell (the Duels Sell tab: what the item fetches). */
   price?: (it: Item) => { text: string; font: FontKey } | null;
-}
-
-/**
- * The stash as an inventory grid: slot filter chips (or a cycling button on
- * short screens), rarity filter and sort buttons, then the items in their
- * rarity frames with condition pips and green upgrade arrows.
- */
-export class StashGrid {
-  readonly c: Phaser.GameObjects.Container;
-  private grid: Grid | null = null;
-  private list: Item[] = [];
-
-  constructor(private scene: UiScene, parent: Phaser.GameObjects.Container, private x: number, private y: number, private w: number, private h: number, private o: StashGridOpts) {
-    ensureFonts(scene);
-    this.c = scene.add.container(0, 0);
-    parent.add(this.c);
-    this.build();
-  }
-
-  get scroll(): number {
-    return this.grid?.list.area.scrollY ?? 0;
-  }
-
-  rebuild(keepScroll = true): void {
-    const s = keepScroll ? this.scroll : 0;
-    this.build();
-    this.grid?.list.area.setScroll(s);
-  }
-
-  destroy(): void {
-    this.grid?.destroy();
-    this.grid = null;
-    this.c.destroy();
-  }
-
-  private set(s: Partial<StashState>): void {
-    Object.assign(this.o.state, s);
-    this.o.onState?.(this.o.state);
-    this.rebuild(false);
-  }
-
-  private build(): void {
-    const scene = this.scene;
-    this.grid?.destroy();
-    this.grid = null;
-    this.c.removeAll(true);
-    const { x, y, w, h } = this;
-    const st = this.o.state;
-    const gap = SIZE.gap;
-    let cy = y;
-    const chipW = Math.floor((w - 5 * gap) / 6);
-    const twoRows = h >= 130 && chipW >= 22;
-    if (twoRows) {
-      SLOT_FILTERS.forEach((f, i) => {
-        const bx = x + i * (chipW + gap);
-        const b = new Button(scene, bx, cy, i === 5 ? w - 5 * (chipW + gap) : chipW, SIZE.btnH, {
-          icon: f === 'all' ? 'people' : SLOT_ICON[f],
-          iconOnly: true,
-          label: f === 'all' ? t('stash.all') : t(`slot.${f}` as TKey),
-          variant: 'ghost',
-          style: st.slot === f ? 'buttonSel' : undefined,
-          id: `filter:${f}`,
-          onClick: () => this.set({ slot: f }),
-        });
-        this.c.add(b);
-      });
-      cy += SIZE.btnH + gap;
-    }
-    const n = twoRows ? 2 : 3;
-    const bw = Math.floor((w - (n - 1) * gap) / n);
-    let bx = x;
-    if (!twoRows) {
-      this.c.add(
-        new Button(scene, bx, cy, bw, SIZE.btnH, {
-          label: st.slot === 'all' ? t('stash.all') : t(`slot.${st.slot}` as TKey),
-          icon: st.slot === 'all' ? undefined : SLOT_ICON[st.slot],
-          variant: 'ghost',
-          small: true,
-          style: st.slot === 'all' ? undefined : 'buttonSel',
-          id: 'filter:slot',
-          tip: t('stash.slotTip'),
-          onClick: () => this.set({ slot: cycle(SLOT_FILTERS, st.slot) }),
-        }),
-      );
-      bx += bw + gap;
-    }
-    this.c.add(
-      new Button(scene, bx, cy, bw, SIZE.btnH, {
-        label: st.rarity === 'all' ? t('stash.anyRarity') : t(`rarity.${st.rarity}` as TKey),
-        variant: 'ghost',
-        small: true,
-        style: st.rarity === 'all' ? undefined : 'buttonSel',
-        id: 'filter:rarity',
-        font: st.rarity === 'all' ? 'ink' : rarityFont(st.rarity),
-        tip: t('stash.rarityTip'),
-        onClick: () => this.set({ rarity: cycle(RARITY_FILTERS, st.rarity) }),
-      }),
-    );
-    bx += bw + gap;
-    this.c.add(
-      new Button(scene, bx, cy, x + w - bx, SIZE.btnH, {
-        label: t(`stash.sort.${st.sort}` as TKey),
-        icon: 'scales',
-        inline: true,
-        variant: 'ghost',
-        small: true,
-        id: 'filter:sort',
-        tip: t('stash.sortTip'),
-        onClick: () => this.set({ sort: cycle(STASH_SORTS, st.sort) }),
-      }),
-    );
-    cy += SIZE.btnH + gap + 1;
-    const gh = y + h - cy;
-    const all = this.o.items();
-    this.list = queryStash(all, st);
-    this.c.add(addPanel(scene, x, cy, w, gh, 'inset'));
-    if (!this.list.length) {
-      const filtered = all.length > 0;
-      this.c.add(
-        addEmptyState(scene, x + 2, cy + 2, w - 4, gh - 4, {
-          icon: 'shield',
-          title: filtered ? t('stash.noMatch') : this.o.empty?.title ?? t('stash.emptyTitle'),
-          hint: filtered ? t('stash.noMatchHint') : this.o.empty?.hint ?? t('stash.emptyHint'),
-          action: filtered ? { label: t('stash.clearFilters'), onClick: () => this.set({ slot: 'all', rarity: 'all' }) } : undefined,
-        }),
-      );
-      return;
-    }
-    const cell = this.o.cell ?? 28;
-    const hero = this.o.hero?.();
-    this.grid = new Grid(scene, this.c, x + 3, cy + 3, w - 4, gh - 6, {
-      count: this.list.length,
-      cell,
-      render: (i, cc, size, area) => {
-        const it = this.list[i];
-        const sel = this.o.selected?.() === it.uid;
-        const ic = new ItemIcon(scene, 0, 0, { item: it }, { size, area, selected: sel, tip: false, onTap: () => this.o.drag?.dragging || this.o.onTap(it) });
-        cc.add(ic);
-        cc.add(new Meter(scene, 3, size - 4, size - 6, 2, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100));
-        const pr = this.o.price?.(it);
-        if (pr) {
-          const pt = addText(scene, size - 2, 1, pr.text, pr.font, 1).setFontSize(5.5);
-          const bg = scene.add.rectangle(size - 3 - pt.width, 1, pt.width + 2, 7, 0x000000, 0.65).setOrigin(0, 0);
-          cc.add([bg, pt]);
-        }
-        if (hero && isUpgrade(hero, it)) {
-          const g = scene.add.graphics();
-          g.fillStyle(0x1d140f, 1);
-          g.fillTriangle(size - 9, 7, size - 5, 2, size - 1, 7);
-          g.fillStyle(0x7fd05a, 1);
-          g.fillTriangle(size - 8, 6, size - 5, 3, size - 2, 6);
-          g.fillRect(size - 6, 6, 2, 3);
-          cc.add(g);
-        }
-        this.o.drag?.attach(ic, it, area);
-      },
-    });
-  }
 }
 
 /** Rarity colour of an item (for frames drawn by hand). */
@@ -896,8 +722,8 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
     b.add(new Stage(scene, 0, 0, inner, stageH, h, { scale: 2 }));
     by += stageH + 4;
   }
-  const chipW = addChip(scene, b, 0, by, roleName(cls.role), roleColor(cls.role), inner);
-  if (cls.mount) addChip(scene, b, chipW + 4, by, tOr(`mount.${cls.mount}`, cls.mount), 0x8a6a3a, inner - chipW - 4);
+  const chipW = addPill(scene, b, 0, by, roleName(cls.role), roleColor(cls.role), inner);
+  if (cls.mount) addPill(scene, b, chipW + 4, by, tOr(`mount.${cls.mount}`, cls.mount), 0x8a6a3a, inner - chipW - 4);
   by += 15;
   b.add(addText(scene, 0, by, desc.lines.join('\n'), 'ink'));
   by += desc.lines.length * LINE_H + 3;

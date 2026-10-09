@@ -65,7 +65,7 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
   const step = rowH + SIZE.gap;
   const w = Math.min(VW - 16, 220);
   const noteLines = 3;
-  const want = 26 + noteLines * LINE_H + 6 + ROWS.length * step + 8 + SIZE.btnH + 12;
+  const want = 26 + noteLines * LINE_H + 6 + ROWS.length * step + 12;
   const m = openModal(scene, { title: t('notify.title'), w, h: Math.min(want, VH - 16), onClose: opts.onClose });
   const { c, x, y, h } = m;
   const iw = w - 16;
@@ -79,7 +79,7 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
   let st: NotifySettings | null = null;
   let busy = false;
   const listY = y + 26 + noteLines * LINE_H + 6;
-  const listH = h - (listY - y) - SIZE.btnH - 18;
+  const listH = h - (listY - y) - 12;
   const isOn = (r: Row) => (st ? (r.kind === 'quiet' ? st.quiet : st.types.find((x) => x.type === r.type)?.on ?? true) : false);
   let list: ScrollList | null = new ScrollList(scene, c, x + 8, listY, iw, listH, {
     count: ROWS.length,
@@ -108,8 +108,6 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
       if (c.active) list?.refresh();
     }
   };
-  const bw = Math.min(110, w - 40);
-  c.add(new Button(scene, x + (w - bw) / 2, y + h - SIZE.btnH - 9, bw, SIZE.btnH, { label: t('common.close'), icon: 'check', onClick: () => m.close() }));
   c.once('destroy', () => {
     list?.destroy();
     list = null;
@@ -141,16 +139,14 @@ export function openAbout(scene: UiScene, onClose?: () => void): Phaser.GameObje
   const iw = w - 16;
   const note = wrapText(t('about.note'), iw, 6);
   const step = SIZE.btnH + SIZE.gap;
-  const want = 26 + note.lines.length * LINE_H + 8 + PAGES.length * step + 8 + SIZE.btnH + 12;
+  const want = 26 + note.lines.length * LINE_H + 8 + PAGES.length * step + 12;
   const m = openModal(scene, { title: t('about.title'), w, h: Math.min(want, VH - 16), onClose });
-  const { c, x, y, h } = m;
+  const { c, x, y } = m;
   c.add(addText(scene, x + 8, y + 26, note.lines.join('\n'), 'ink'));
   let by = y + 26 + note.lines.length * LINE_H + 8;
   for (const p of PAGES) {
     c.add(new Button(scene, x + 8, by, iw, SIZE.btnH, { label: t(p.label), id: `about.${p.page}`, onClick: () => openExternalLink(legalUrl(p.page, lang())) }));
     by += step;
   }
-  const bw = Math.min(110, w - 40);
-  c.add(new Button(scene, x + (w - bw) / 2, y + h - SIZE.btnH - 9, bw, SIZE.btnH, { label: t('common.close'), icon: 'check', onClick: () => m.close() }));
   return c;
 }

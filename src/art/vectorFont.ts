@@ -1,5 +1,5 @@
 /**
- * The UI typeface: Inter (text) and Cormorant SC (headings), bundled with
+ * The UI typeface: Inter (text), Cormorant SC (headings) and Cinzel (v4 roman caps), bundled with
  * @fontsource (main.ts imports the CSS) and drawn into Phaser bitmap-font
  * atlases at the device's resolution, so every existing `addText` /
  * BitmapText call renders smooth vector type instead of the old pixel font
@@ -12,9 +12,10 @@
  * the pixel font used, so existing layouts keep their rhythm.
  */
 import { hex } from './palette';
-import { BODY_METRICS, HEAD_METRICS } from './fontMetrics';
+import { BODY_METRICS, HEAD_METRICS, ROMAN_METRICS } from './fontMetrics';
 
-export type Face = 'body' | 'head';
+/** `roman`: Cinzel 700 (v4 titles, plaques, buttons, tabs); Cyrillic falls back to Cormorant SC. */
+export type Face = 'body' | 'head' | 'roman';
 
 /** The kit's base font size (BitmapText fontSize); other sizes scale from it. */
 export const BASE_SIZE = 7;
@@ -22,6 +23,8 @@ export const BASE_SIZE = 7;
 export const FONT_PX = 8;
 /** Em size in UI px of heading text at the base size (Cormorant runs small). */
 const HEAD_PX = 10;
+/** Em size in UI px of roman (Cinzel) text at the base size: caps as tall as the body's. */
+const ROMAN_PX = 8.4;
 /** Line box in UI px (the pixel font's: 7 px caps + 2 px descenders). */
 export const LINE_H = 9;
 /** Baseline from the top of the line box, UI px. */
@@ -30,6 +33,7 @@ const BASELINE = 7;
 const FACES: Record<Face, { css: string; px: number; m: { cap: number; adv: Record<string, number> } }> = {
   body: { css: "500 {px}px Inter, 'Helvetica Neue', Arial, sans-serif", px: FONT_PX, m: BODY_METRICS },
   head: { css: "700 {px}px 'Cormorant SC', Georgia, serif", px: HEAD_PX, m: HEAD_METRICS },
+  roman: { css: "700 {px}px Cinzel, 'Cormorant SC', Georgia, serif", px: ROMAN_PX, m: ROMAN_METRICS },
 };
 
 /** CSS font shorthand for a face at `px` CSS/canvas px. */
@@ -42,12 +46,17 @@ const DIGITS = '0123456789';
 const TAB_DIGIT: Record<Face, number> = {
   body: Math.max(...[...DIGITS].map((d) => BODY_METRICS.adv[d] ?? 0)),
   head: Math.max(...[...DIGITS].map((d) => HEAD_METRICS.adv[d] ?? 0)),
+  roman: Math.max(...[...DIGITS].map((d) => ROMAN_METRICS.adv[d] ?? 0)),
 };
+
+/** Word space of the roman face, per mille of the em. */
+const ROMAN_SPACE = 380;
 
 /** Advance of one character in UI px at the base size, or -1 if the face has no metrics for it. */
 export function advance(ch: string, face: Face = 'body'): number {
   const f = FACES[face];
-  const a = DIGITS.includes(ch) ? TAB_DIGIT[face] : f.m.adv[ch];
+  // Cinzel's word space (0.25 em) runs words together between its wide capitals at UI sizes
+  const a = DIGITS.includes(ch) ? TAB_DIGIT[face] : face === 'roman' && ch === ' ' ? ROMAN_SPACE : f.m.adv[ch];
   return a === undefined ? -1 : (a * f.px) / 1000;
 }
 
@@ -86,7 +95,8 @@ export interface VectorGlyph {
  */
 export function renderVectorAtlas(color: number, shadow: number | undefined, K: number, face: Face = 'body'): { canvas: HTMLCanvasElement; glyphs: VectorGlyph[]; lineH: number; size: number } {
   const f = FACES[face];
-  const pad = Math.ceil(K * 1.5);
+  // the roman face's capitals (Q, J) overshoot their advance: give them room and clip each glyph to its own cell
+  const pad = Math.ceil(K * (face === 'roman' ? 3.5 : 1.5));
   // room above the line box for accents and tall capitals (the heading's em is larger than the
   // line), so no glyph reaches into the cell above; the quad starts that much higher (yOffset)
   const above = Math.ceil(Math.max(0, f.px * 1.05 - BASELINE) * K) + pad;
@@ -118,12 +128,19 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
     // tabular digits sit centred in their (widest-digit) advance
     const bx = p.x + pad + (DIGITS.includes(ch) ? ((advance(ch, face) - naturalAdvance(ch, face)) * K) / 2 : 0);
     const by = p.y + above + BASELINE * K;
+    if (face === 'roman') {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(p.x, p.y, cells[i], cellH);
+      ctx.clip();
+    }
     if (shadow !== undefined) {
       ctx.fillStyle = hex(shadow);
       ctx.fillText(ch, bx + K * 0.5, by + K * 0.5);
     }
     ctx.fillStyle = hex(color);
     ctx.fillText(ch, bx, by);
+    if (face === 'roman') ctx.restore();
     glyphs.push({ ch, x: p.x, y: p.y, w: cells[i], h: cellH, xOffset: -pad, yOffset: -above, xAdvance: advance(ch, face) * K });
   });
   return { canvas, glyphs, lineH: (LINE_H + 1) * K, size: BASE_SIZE * K };
