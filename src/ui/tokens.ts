@@ -92,7 +92,10 @@ export const RARITY_TEXT = { common: 0xd2ccc0, uncommon: 0x9ed67c, rare: 0x8dbaf
  * kit icon (src/art/vectorIcons.ts / uiIcons.ts).
  */
 export const RESOURCES = {
+  /** Campaign gold (SaveData.gold). */
   gold: { icon: 'coin', color: 0xf0c24a },
+  /** War gold: the online season's purse (profile.resources.gold), never mixed with campaign gold. */
+  wargold: { icon: 'wargold', color: 0xe39a6b },
   glory: { icon: 'laurel', color: 0x9fd27a },
   drachmae: { icon: 'drachma', color: ACCENT.premium },
   stars: { icon: 'tgstar', color: ACCENT.tgStar },

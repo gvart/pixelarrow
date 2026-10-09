@@ -50,3 +50,34 @@ export function pulse(scene: Phaser.Scene, target: object, prop: string, from: n
   if (motion.reduced) return null;
   return scene.tweens.add({ targets: target, [prop]: { from, to }, duration, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 }
+
+/** A claimable thing hops (a chest ready to open): up `dy` and back, then a rest. Off under reduced motion. */
+export function hop(scene: Phaser.Scene, target: { y: number }, dy = 2, every = 1400): Phaser.Tweens.Tween | null {
+  if (motion.reduced) return null;
+  const y0 = target.y;
+  return scene.tweens.add({ targets: target, y: { from: y0, to: y0 - dy }, duration: 160, yoyo: true, repeat: -1, repeatDelay: every, ease: 'Quad.easeOut' });
+}
+
+/**
+ * Idle animation of a pixel sprite (a torch flickers, a pennant flutters):
+ * steps through `frames` of its texture on one timer (no object per frame),
+ * at slightly uneven intervals so several never tick together. Frame 0 and
+ * still under reduced motion. Stops with the sprite.
+ */
+export function idleFrames(scene: Phaser.Scene, img: Phaser.GameObjects.Image, frames: number, ms = 180, seed = 0): void {
+  img.setFrame(0);
+  if (motion.reduced || frames < 2) return;
+  let i = 0;
+  let k = seed;
+  const ev = scene.time.addEvent({
+    delay: ms,
+    loop: true,
+    callback: () => {
+      if (!img.active) return void ev.remove();
+      k = (k * 1103515245 + 12345) & 0x7fffffff;
+      i = (i + 1 + (k % 7 === 0 ? 1 : 0)) % frames;
+      img.setFrame(i);
+    },
+  });
+  img.once('destroy', () => ev.remove());
+}

@@ -107,7 +107,7 @@ export class MenuScene extends BaseScene {
     const chips = [
       resourceChip(this, 0, 0, 'gold', c.gold, { word: t('strat.gold'), tipKey: 'res.tip.gold.campaign', id: 'menu.gold' }),
       new InfoChip(this, 0, 0, { icon: 'trophy', value: c.won, word: t('menu.wonWord', { n: c.won }), tip: `${t('menu.tip.record')}: ${t('menu.record', { won: c.won, fought: c.fought })}`, id: 'menu.wins' }),
-      new InfoChip(this, 0, 0, { icon: 'people', value: c.heroes.length, word: t('strat.menWord', { n: c.heroes.length }), tip: t('menu.tip.army'), id: 'menu.men' }),
+      new InfoChip(this, 0, 0, { icon: 'people', lead: t('menu.warband'), value: c.heroes.length, tip: t('menu.tip.warband', { n: c.heroes.length }), id: 'menu.men' }),
     ];
     layChips(this.ui, chips, x0 + 6, y + CARD_H - 27, w - 12);
     addSyncBadge(this, this.ui, x0 + w - 20, y + 4);

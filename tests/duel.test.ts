@@ -9,8 +9,8 @@ import {
   CHAPTERS, CHEST_TIERS, LADDER, canFight, chapterFloors, chapterMaxStars, chapterOf, chapterStars, chestItem, chestReward, chestState, floorBudget, isBoss,
   ladderFloor, ladderPayout, ladderSetup, ladderStars, lostShare, starsByFloor, validChest,
 } from '../src/duel/ladder';
-import { heroNeedsAttention } from '../src/game/gear';
-import { itemMods, itemValue } from '../src/data/items';
+import { heroNeedsAttention, heroUses } from '../src/game/gear';
+import { itemDef, itemMods, itemValue } from '../src/data/items';
 import { setBotLevel } from '../src/game/heroes';
 import { CLASSES } from '../src/data/classes';
 
@@ -343,6 +343,59 @@ describe('shop delta display', () => {
     // nothing worn there: every line is new, shown once (not "value ▲ value")
     const bare = offerSummary(offer, [{ ...team[0], equip: { ...team[0].equip, armor: undefined } }], 3, team[0].id);
     expect(bare.lines.every((l) => l.isNew)).toBe(true);
+  });
+});
+
+describe('shop compare: same slot and weapon class, on a hero who would use it (P0: a spear was compared with a bow)', () => {
+  const team = starterDuelRoster(42, { nextId: 1 }, 'd1_'); // hoplite x2, archer x2, peltast, slinger
+  const kindOf = (it: { def: string } | null | undefined) => (it ? itemDef(it.def).weaponKind : undefined);
+
+  it('a spear is compared with a spearman\'s spear, never with a bow, a sling or javelins', () => {
+    const offer = catalogue().find((o) => o.def === 'dory')!;
+    const s = offerSummary(offer, team);
+    expect(s.vsHeroId).not.toBeNull();
+    expect(kindOf(s.vs)).toBe('spear');
+    const vsHero = team.find((h) => h.id === s.vsHeroId)!;
+    expect(heroUses(vsHero, itemDef('dory'))).toBe(true);
+    // the users are the spearmen only
+    for (const id of s.users) expect(kindOf(team.find((h) => h.id === id)!.equip.weapon)).toBe('spear');
+  });
+
+  it('every weapon offer is compared within its weapon class when anyone holds one', () => {
+    for (const o of catalogue().filter((x) => itemDef(x.def).slot === 'weapon')) {
+      const s = offerSummary(o, team);
+      const kind = itemDef(o.def).weaponKind;
+      if (team.some((h) => kindOf(h.equip.weapon) === kind)) expect(kindOf(s.vs)).toBe(kind);
+      if (s.vsHeroId) expect(heroUses(team.find((h) => h.id === s.vsHeroId)!, itemDef(o.def))).toBe(true);
+    }
+  });
+
+  it('a picked hero who would not use the item falls back to the best user, and says so', () => {
+    const archer = team.find((h) => h.cls === 'archer')!;
+    const s = offerSummary(catalogue().find((o) => o.def === 'dory')!, team, 3, archer.id);
+    expect(s.pickedCannot).toBe(true);
+    expect(s.vsHeroId).not.toBe(archer.id);
+    expect(kindOf(s.vs)).toBe('spear');
+    // a bow for the archer is compared with his own bow
+    const bow = offerSummary(catalogue().find((o) => itemDef(o.def).weaponKind === 'bow')!, team, 3, archer.id);
+    expect(bow.pickedCannot).toBe(false);
+    expect(bow.vsHeroId).toBe(archer.id);
+  });
+
+  it('nobody uses it: no hero, no item, the full values', () => {
+    const archers = team.filter((h) => h.cls === 'archer');
+    const s = offerSummary(catalogue().find((o) => o.def === 'dory')!, archers);
+    expect(s.vsHeroId).toBeNull();
+    expect(s.vs).toBeNull();
+    expect(s.users).toEqual([]);
+  });
+
+  it('shields: not for two-handed archers; helmets fit everyone', () => {
+    const archer = team.find((h) => h.cls === 'archer')!;
+    const hoplite = team.find((h) => h.cls === 'hoplite')!;
+    expect(heroUses(archer, { slot: 'shield' })).toBe(false);
+    expect(heroUses(hoplite, { slot: 'shield' })).toBe(true);
+    expect(team.every((h) => heroUses(h, { slot: 'helmet' }))).toBe(true);
   });
 });
 

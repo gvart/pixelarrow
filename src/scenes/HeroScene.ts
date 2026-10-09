@@ -292,7 +292,7 @@ export class HeroScene extends BaseScene {
     const { VW, S } = this.m;
     const a = new ScrollArea(this, this.page, 4, y, VW - 8, h, S);
     this.areas.push(a);
-    addScrollHint(this, this.page, a);
+    addScrollHint(this, this.page, a, SURFACE.bg);
     return a;
   }
 

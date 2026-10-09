@@ -45,3 +45,10 @@ export function fmtNum(n: number): string {
   if (v < 10_000) return `${(Math.floor(v / 100) / 10).toString()}K`;
   return `${Math.floor(v / 1000)}K`;
 }
+
+/** A change with its sign, always: "+15", "-5", "0" (ASCII minus: the bundled faces have no U+2212). Rewards read as "Win +15 · Loss +5", never "a loss 5". */
+export function fmtSigned(n: number): string {
+  if (n > 0) return `+${n}`;
+  if (n < 0) return `-${-n}`;
+  return '0';
+}

@@ -156,7 +156,7 @@ function previewSource(d: DemoShard): Source {
 
 type Gesture = { mode: 'pending' | 'pan'; id: number; sx: number; sy: number; lx: number; ly: number } | null;
 
-const RES_ICON: Record<keyof Resources, string> = { gold: 'coin', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
+const RES_ICON: Record<keyof Resources, string> = { gold: 'wargold', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
 
 export class OnlineScene extends BaseScene {
   private view: View = { kind: 'loading', msg: '' };
@@ -529,7 +529,7 @@ export class OnlineScene extends BaseScene {
       left: { label: t('online.bar.army'), icon: 'people', tip: t('online.bar.armyTip'), id: 'online.bar.army', onClick: () => !this.demo && this.scene.start('OnlineArmy', {}) },
       main: {
         label: t('online.bar.collect'),
-        icon: 'coin',
+        icon: 'wargold',
         tip: `${t('online.bar.collectTip')}: ${resLine(pend)}`,
         id: 'online.bar.collect',
         off: pendSum >= 1 ? undefined : t('online.collectNone'),

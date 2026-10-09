@@ -4,7 +4,7 @@
  * popup's green / red deltas), stash filters and sorting, roster sorting,
  * stars and power rating. Unit-tested in tests/gear.test.ts.
  */
-import { itemDef, itemMods, itemValue, normalizeRarity, rarityRank, SLOTS, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
+import { itemDef, itemMods, itemValue, normalizeRarity, rarityRank, SLOTS, type Item, type ItemDef, type Rarity, type Slot, type StatMods, type WeaponKind } from '../data/items';
 import type { Equipment, Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
 import { computeStats, heroClass, heroPower, type CombatStats } from '../sim/stats';
@@ -111,6 +111,50 @@ export function equipInto(equip: Equipment, item: Item): Item[] {
     delete equip.weapon;
   }
   return out;
+}
+
+// ------------------------------------------------------------------ who would use an item
+
+/** The weapon kinds a hero fights with: every weapon of his class kit, and the one in his hand. */
+export function heroWeaponKinds(h: Hero): Set<WeaponKind> {
+  const out = new Set<WeaponKind>();
+  for (const tier of heroClass(h).kit.weapon ?? []) for (const id of tier) if (id) {
+    const k = itemDef(id).weaponKind;
+    if (k) out.add(k);
+  }
+  const held = h.equip.weapon ? itemDef(h.equip.weapon.def).weaponKind : undefined;
+  if (held) out.add(held);
+  return out;
+}
+
+/**
+ * Whether a hero would actually equip an item (compare lines, "best in
+ * team"): a weapon of a kind he fights with (a spear for a spearman, never
+ * for an archer); a shield only beside a one-handed weapon and when his class
+ * carries one; helmets, armour and trinkets fit everyone. Any hero *can* wear
+ * anything; this is who it is *for*.
+ */
+export function heroUses(h: Hero, def: Pick<ItemDef, 'slot' | 'weaponKind'>): boolean {
+  if (def.slot === 'weapon') return !!def.weaponKind && heroWeaponKinds(h).has(def.weaponKind);
+  if (def.slot === 'shield') {
+    const held = h.equip.weapon ? itemDef(h.equip.weapon.def) : null;
+    if (held?.twoHanded) return false;
+    if (h.equip.shield) return true;
+    return (heroClass(h).kit.shield ?? []).some((tier) => tier.some((id) => !!id));
+  }
+  return true;
+}
+
+/**
+ * Who an item is compared against: the heroes who would use it, those already
+ * holding the same weapon kind first (a spear against a spear). Empty when no
+ * one in `heroes` would.
+ */
+export function compareCandidates(heroes: readonly Hero[], def: Pick<ItemDef, 'slot' | 'weaponKind'>): Hero[] {
+  const users = heroes.filter((h) => heroUses(h, def));
+  if (def.slot !== 'weapon') return users;
+  const same = users.filter((h) => h.equip.weapon && itemDef(h.equip.weapon.def).weaponKind === def.weaponKind);
+  return same.length ? same : users;
 }
 
 /** Take what `equip` carries in `slot` off into `stash` (mutates both); returns it, or undefined if the slot was empty. */

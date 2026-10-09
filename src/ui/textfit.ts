@@ -57,6 +57,10 @@ export interface WrapResult {
 export function wrapText(str: string, maxW: number, maxLines = 0, shadow = false, size = BASE_FONT_SIZE): WrapResult {
   const lines: string[] = [];
   const fits = (s: string) => measureText(s, shadow, size) <= maxW;
+  // Never break inside a word ("15 Drachm / ae"): a word wider than the line
+  // gets a line of its own and ends in "…" (the caller should shrink or
+  // abbreviate; `truncated` tells it, and Label / tips show the whole text).
+  let cut = false;
   for (const para of str.split('\n')) {
     let line = '';
     for (const word of para.split(/\s+/).filter(Boolean)) {
@@ -66,20 +70,17 @@ export function wrapText(str: string, maxW: number, maxLines = 0, shadow = false
         continue;
       }
       if (line) lines.push(line);
-      line = '';
-      // A word wider than the line: break it.
-      let rest = word;
-      // (at least one character per line, so a width narrower than one glyph still ends)
-      while (rest && !fits(rest) && [...rest].length > 1) {
-        const chars = [...rest];
-        let k = chars.length - 1;
-        while (k > 1 && !fits(chars.slice(0, k).join(''))) k--;
-        lines.push(chars.slice(0, k).join(''));
-        rest = chars.slice(k).join('');
+      if (fits(word)) {
+        line = word;
+        continue;
       }
-      line = rest;
+      const short = ellipsize(word, maxW, shadow, size);
+      cut = true;
+      // (a width narrower than "…" keeps the first character, so the line is never empty)
+      lines.push(short || [...word][0]);
+      line = '';
     }
-    lines.push(line);
+    if (line || !lines.length) lines.push(line);
   }
   if (maxLines > 0 && lines.length > maxLines) {
     const kept = lines.slice(0, maxLines);
@@ -88,7 +89,12 @@ export function wrapText(str: string, maxW: number, maxLines = 0, shadow = false
     kept[maxLines - 1] = chars.join('').trimEnd() + ELLIPSIS;
     return { lines: kept, truncated: true };
   }
-  return { lines, truncated: false };
+  return { lines, truncated: cut };
+}
+
+/** True when `str` wraps into `maxW` without cutting any word (every word fits a line on its own). */
+export function wrapsWhole(str: string, maxW: number, maxLines = 0, shadow = false, size = BASE_FONT_SIZE): boolean {
+  return !wrapText(str, maxW, maxLines, shadow, size).truncated;
 }
 
 /** Line height of the pixel font in UI pixels (glyphs 7-8 px + spacing). */

@@ -11,6 +11,7 @@ import { OCAMP_RU } from './camp.ru';
 import { STRAT_RU } from './strat.ru';
 import { CAMPSCENE_RU } from './campscene.ru';
 import { V3_RU } from './v3.ru';
+import { V4_RU } from './v4.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -79,6 +80,8 @@ export const RU: Table = {
   'menu.noSave': 'Сохранённого похода нет: начните новый.',
   'menu.tip.gold': 'Золото похода в казне',
   'menu.tip.army': 'Герои в войске',
+  'menu.warband': 'Войско',
+  'menu.tip.warband': { one: 'Войско похода: {n} человек. У дуэлей свои герои (Дуэли → Отряд).', few: 'Войско похода: {n} человека. У дуэлей свои герои (Дуэли → Отряд).', many: 'Войско похода: {n} человек. У дуэлей свои герои (Дуэли → Отряд).', other: 'Войско похода: {n} человека. У дуэлей свои герои (Дуэли → Отряд).' },
   'menu.tip.day': 'Дней в походе',
   'menu.tip.record': 'Победы / битвы похода',
 
@@ -274,4 +277,5 @@ export const RU: Table = {
   ...CAMPSCENE_RU,
   ...STRAT_RU,
   ...V3_RU,
+  ...V4_RU,
 };

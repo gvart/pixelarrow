@@ -144,6 +144,8 @@ export interface InfoChipOpts {
   value: number | string;
   /** A word after the number ("Glory", "Stars"). */
   word?: string;
+  /** A label before the number, to say whose it is ("Warband 9 men"). */
+  lead?: string;
   font?: FontKey;
   /** A thin progress line along the chip's bottom (0..1), e.g. XP to the next level. */
   progress?: number;
@@ -173,14 +175,21 @@ export class InfoChip extends Phaser.GameObjects.Container {
     this.h = o.h ?? 22;
     const valueStr = `${o.value}`;
     this.shown = typeof o.value === 'number' ? o.value : 0;
-    const iw = o.icon ? 15 : 4;
+    const iw0 = o.icon ? 15 : 4;
+    const lw = o.lead ? measureText(o.lead) + 4 : 0;
+    const iw = iw0 + lw;
     const vw = measureText(valueStr);
     const ww = o.word ? measureText(o.word) + 4 : 0;
     this.w = Math.round(iw + vw + ww + 7);
-    this.opts = { label: o.word ? `${valueStr} ${o.word}` : valueStr };
+    this.opts = { label: [o.lead, valueStr, o.word].filter(Boolean).join(' ') };
     this.add(panelImage(scene, 0, 0, this.w, this.h, 'chip'));
     if (o.icon) this.add(addIcon(scene, 4, Math.round((this.h - 12) / 2), o.icon));
     const ty = Math.round((this.h - 9) / 2) + 1;
+    if (o.lead) {
+      const lt = addText(scene, iw0 + 1, ty, o.lead, 'sec');
+      uiFrame(lt, this, this.w, this.h);
+      this.add(lt);
+    }
     this.valueText = addText(scene, iw + 1, ty, valueStr, o.font ?? 'ink');
     uiFrame(this.valueText, this, this.w, this.h);
     this.add(this.valueText);
