@@ -21,8 +21,8 @@ check('menu active', await active('Menu'));
 const RS = await ev(() => window.__rs());
 
 // ---- new campaign
-await tapBtn('Menu', { label: 'New campaign' });
-check('world map via New campaign', await until(() => active('World'), 8000));
+await tapBtn('Menu', { label: 'Begin the march' });
+check('world map via Begin the march', await until(() => active('World'), 8000));
 const start = await ev(() => {
   const c = window.__state.campaign;
   return { heroes: c.data.heroes.length, gold: c.data.gold, x: c.world.s.x, y: c.world.s.y, t: c.world.s.time };
@@ -256,8 +256,8 @@ check('results screen', await until(() => active('Results'), 25000), JSON.string
 await wait(1500);
 check('report: victory banner and count-up tiles', await ev(() => { const s = window.__game.scene.getScene('Results'); return s.report.result === 'victory' && s.report.kills > 0; }));
 // the bottom button leads to the spoils first (cards turn over), then takes them
-if (await btn('Results', { icon: 'coin' })) {
-  await tapBtn('Results', { icon: 'coin' });
+if (await btn('Results', { icon: 'chest' })) {
+  await tapBtn('Results', { icon: 'chest' });
   await wait(1200);
   check('report: spoils page with loot cards', await ev(() => { const s = window.__game.scene.getScene('Results'); return s.page === 'spoils' && s.revealed.size > 0; }));
 }

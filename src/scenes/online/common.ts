@@ -34,7 +34,7 @@ export function resourceLine(r: Resources, plus = false): string {
 /** Resources and energy in a strip at the top of a scene. */
 export function addResourceBar(scene: Phaser.Scene, ui: Phaser.GameObjects.Container, x: number, y: number, w: number, r: Resources, energy: number, energyMax: number): void {
   ui.add(addPanel(scene, x, y, w, 14, 'inset'));
-  ui.add(addIcon(scene, x + 2, y + 1, 'coin'));
+  ui.add(addIcon(scene, x + 2, y + 1, 'wargold'));
   ui.add(addText(scene, x + 16, y + 3, resourceLine(r).slice(1), 'ink'));
   ui.add(addText(scene, x + w - 4, y + 3, `E${Math.floor(energy)}/${energyMax}`, energy < 10 ? 'red' : 'ink', 1));
 }

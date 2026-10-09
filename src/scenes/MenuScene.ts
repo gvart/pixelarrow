@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addScroll, addText, panelK } from '../ui/kit';
-import { InfoChip, ProgressBar, Tile, addCard, layChips, resourceChip, type TileOpts } from '../ui/v3';
+import { ProgressBar, Tile, addCard, fitChips, layChips, resourceChipOpts, type TileOpts } from '../ui/v3';
 import { ACCENT, SURFACE } from '../ui/tokens';
 import { DUEL_RULES } from '../duel/rules';
 import { addPortrait } from '../ui/sprites';
@@ -9,10 +9,9 @@ import { dollFromHero } from '../art/paperdoll';
 import { MenuBattle } from './menu/MenuBattle';
 import { state } from '../state';
 import { inTelegram, telegramUserName } from '../platform/telegram';
-import { openSettings } from '../ui/settings';
+import { confirmNewCampaign, openSettings } from '../ui/settings';
 import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
 import { addSyncBadge } from '../ui/online';
-import { confirmDialog } from '../ui/widgets';
 import { ofCount } from '../ui/strategos';
 import { ellipsize, measureText } from '../ui/textfit';
 import { t } from '../i18n';
@@ -23,7 +22,7 @@ const CONT_H = 30;
 const TILE_H = 50;
 const TILE_H_COMPACT = 40;
 const UTIL_H = 28;
-const menuH = (tileH: number) => 4 + CARD_H + 5 + CONT_H + 5 + tileH + 4 + UTIL_H + 4 + 14 + 4;
+const menuH = (tileH: number) => 4 + CARD_H + 5 + CONT_H + 5 + tileH + 4 + UTIL_H + 4 + 18 + 4;
 
 /**
  * The hub (docs/UI_KIT.md "Home"): the top of the screen is a cinematic stage
@@ -104,18 +103,20 @@ export class MenuScene extends BaseScene {
     const both = `${where} · ${status}`;
     const line = measureText(both) <= tw2 ? both : hurt > 0 && state.hasSave ? status : where;
     this.ui.add(addText(this, tx, y + 18, ellipsize(line, tw2), hurt > 0 && state.hasSave ? 'bad' : 'sec'));
-    const chips = [
-      resourceChip(this, 0, 0, 'gold', c.gold, { word: t('strat.gold'), tipKey: 'res.tip.gold.campaign', id: 'menu.gold' }),
-      new InfoChip(this, 0, 0, { icon: 'trophy', value: c.won, word: t('menu.wonWord', { n: c.won }), tip: `${t('menu.tip.record')}: ${t('menu.record', { won: c.won, fought: c.fought })}`, id: 'menu.wins' }),
-      new InfoChip(this, 0, 0, { icon: 'people', value: c.heroes.length, word: t('strat.menWord', { n: c.heroes.length }), tip: t('menu.tip.army'), id: 'menu.men' }),
-    ];
+    const chips = fitChips(this, [
+      resourceChipOpts('gold', c.gold, { word: t('strat.gold'), tipKey: 'res.tip.gold.campaign', id: 'menu.gold' }),
+      { icon: 'trophy', value: c.won, word: t('menu.wonWord', { n: c.won }), tip: `${t('menu.tip.record')}: ${t('menu.record', { won: c.won, fought: c.fought })}`, id: 'menu.wins' },
+      { icon: 'people', lead: t('menu.warband'), value: c.heroes.length, tip: t('menu.tip.warband', { n: c.heroes.length }), id: 'menu.men' },
+    ], w - 12);
     layChips(this.ui, chips, x0 + 6, y + CARD_H - 27, w - 12);
     addSyncBadge(this, this.ui, x0 + w - 20, y + 4);
     y += CARD_H + 5;
 
     // ---- the one hero action
-    const cont = new Button(this, x0, y, w, CONT_H, { label: t('menu.continueMarch'), icon: 'march', inline: true, variant: 'primary', id: 'menu.continue', onClick: () => this.continueCampaign() });
-    cont.setEnabled(state.hasSave, t('menu.noSave'));
+    // (no save yet: the same place begins one; "New campaign" over a save lives in Settings, confirmed)
+    const cont = state.hasSave
+      ? new Button(this, x0, y, w, CONT_H, { label: t('menu.continueMarch'), icon: 'march', inline: true, variant: 'primary', id: 'menu.continue', onClick: () => this.continueCampaign() })
+      : new Button(this, x0, y, w, CONT_H, { label: t('menu.beginMarch'), icon: 'march', inline: true, variant: 'primary', id: 'menu.new', onClick: () => this.newCampaign() });
     this.ui.add(cont);
     y += CONT_H + 5;
 
@@ -133,25 +134,25 @@ export class MenuScene extends BaseScene {
     // ---- utility: smaller, quieter
     const util: { label: string; icon: string; id: string; tip: string; onClick: () => void }[] = [
       { label: t('menu.shop'), icon: 'shop', id: 'menu.shop', tip: t('menu.row.shop'), onClick: () => this.openShop() },
-      { label: t('menu.newCampaign'), icon: 'flag', id: 'menu.new', tip: t('menu.row.new'), onClick: () => (state.hasSave ? this.confirmReset() : this.newCampaign()) },
       { label: t('menu.settings'), icon: 'gear', id: 'menu.settings', tip: t('menu.row.settings'), onClick: () => this.openSettings() },
     ];
-    const uw = Math.floor((w - 2 * gap) / 3);
-    util.forEach((u, i) => this.ui.add(new Button(this, x0 + i * (uw + gap), y, i === 2 ? w - 2 * (uw + gap) : uw, UTIL_H, { label: u.label, icon: u.icon, variant: 'ghost', id: u.id, tip: u.tip, onClick: u.onClick })));
+    const uw = Math.floor((w - gap) / 2);
+    util.forEach((u, i) => this.ui.add(new Button(this, x0 + i * (uw + gap), y, i === 1 ? w - (uw + gap) : uw, UTIL_H, { label: u.label, icon: u.icon, inline: true, variant: 'ghost', id: u.id, tip: u.tip, onClick: u.onClick })));
     y += UTIL_H + 4;
 
-    // ---- first steps: a progress line with the next step, and where the save lives
+    // ---- first steps: a progress line with the next step, and where the save lives ("New campaign" is in Settings → Account)
     const steps = this.firstSteps();
     const done = steps.filter((s) => s.done).length;
     const next = steps.find((s) => !s.done);
+    const lw = w;
     if (next && VH - y >= 14) {
       const label = `${t('menu.firstSteps', { done: ofCount(done, steps.length) })} · ${next.text}`;
-      this.ui.add(new ProgressBar(this, x0 + 2, y, w - 4, { value: done, max: steps.length, h: 3, label, color: ACCENT.gold }));
-      y += 16;
+      this.ui.add(new ProgressBar(this, x0 + 2, y + 3, lw - 4, { value: done, max: steps.length, h: 3, label, color: ACCENT.gold }));
+      y += 26;
     } else if (VH - y >= 12) {
       const who2 = telegramUserName();
       const saveLabel = inTelegram() ? (who2 ? t('menu.cloudSaveOf', { name: who2 }) : t('menu.cloudSave')) : t('menu.localSave');
-      this.ui.add(addText(this, VW / 2, y + 1, ellipsize(saveLabel, w), 'muted', 0.5));
+      this.ui.add(addText(this, x0 + 2, y + 7, ellipsize(saveLabel, lw - 2), 'muted'));
     }
     // Opened from a bot message's "Open in the game" (startapp=settings).
     if (data?.settings === 'notify') this.openNotifications();
@@ -225,16 +226,10 @@ export class MenuScene extends BaseScene {
     void state.reset().then(() => this.scene.start('World'));
   }
 
-  private confirmReset(): void {
+  /** "New campaign?" (the shared confirmation; Settings → Account opens the same). */
+  confirmReset(): void {
     const prev = this.overlay;
-    const c = confirmDialog(this, {
-      title: t('menu.resetTitle'),
-      body: t('menu.resetBody'),
-      cancel: t('common.cancel'),
-      ok: t('menu.resetOk'),
-      destructive: true,
-      onOk: () => this.newCampaign(),
-    });
+    const c = confirmNewCampaign(this);
     this.overlay = c;
     c.once('destroy', () => this.overlay === c && (this.overlay = null));
     prev?.destroy();

@@ -152,3 +152,9 @@ export function walletOverdrawn(w: { drachmae: number }): boolean {
   return w.drachmae < 0;
 }
 
+
+/**
+ * Where season pass XP comes from (the server's PASS.xp, server/src/economy/catalog.ts;
+ * tests/economy.test.ts keeps the two equal): shown when the player taps the XP bar.
+ */
+export const PASS_XP = { attack: 10, attackWin: 15, capture: 25, duel: 10, duelWin: 10, perTier: 100 } as const;

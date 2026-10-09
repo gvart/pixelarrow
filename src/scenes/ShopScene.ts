@@ -1,15 +1,16 @@
 import { setCosmeticLoadout } from '../game/cosmetics';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addText } from '../ui/kit';
-import { ItemIcon, ScrollList, Tabs, addScrollHint, confirmDialog, openModal, showTooltip, toast } from '../ui/widgets';
+import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addText, tappable, type FontKey } from '../ui/kit';
+import { ItemIcon, ScrollList, Tabs, addScrollHint, confirmDialog, openModal, showTooltip, subjectName, toast } from '../ui/widgets';
 import { uiFrame, uiId } from '../ui/layout';
-import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
+import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { SIZE } from '../ui/theme';
 import { CommandStrip } from '../ui/strategos';
-import { InfoChip, ScreenHeader, addSection, addTipLine, confirmPurchase, flyReward, layChips, purchaseButton, resourceChip, ProgressBar, addClaimGlow } from '../ui/v3';
-import { ACCENT, ROLE, SURFACE } from '../ui/tokens';
+import { InfoChip, ScreenHeader, addSection, addTipLine, confirmPurchase, flyReward, layChips, purchaseButton, resourceChipOpts, ProgressBar, addClaimGlow, openSheet } from '../ui/v3';
+import { ACCENT, MODE_ICON, RESOURCES, ROLE, SURFACE } from '../ui/tokens';
 import { fadeIn } from '../ui/motion';
+import { addModeBanner } from '../ui/modeArt';
 import { walletOverdrawn } from '../game/economy';
 import { ensureFonts } from '../ui/fonts';
 import { addChip, frameScrollTexts } from '../ui/sheet';
@@ -18,7 +19,7 @@ import { DemoEconSource } from '../ui/econ/demo';
 import { pickBattleConsumable } from '../ui/econ/consumablePicker';
 import { fmtAgo } from '../util/format';
 import { addCosmetic, addEconState, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
-import { claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
+import { PASS_XP, claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
 import { haptic, hapticNotify, openExternalLink } from '../platform/telegram';
@@ -143,17 +144,24 @@ export class ShopScene extends BaseScene {
     const H = this.head;
     const d = this.loaded;
     ensureEconIcons(this);
-    const hdr = new ScreenHeader(this, VW, { title: t('menu.shop'), back: () => this.leave(), id: 'shop.header' });
+    const dr = d?.wallet.drachmae;
+    const drOpts = resourceChipOpts('drachmae', dr === undefined || dr === null ? '-' : dr, { word: true, id: 'shop.drachmae', onTap: () => this.switchTab('wallet') });
+    const hdr = new ScreenHeader(this, VW, { title: t('menu.shop'), back: () => this.leave(), chips: [drOpts], id: 'shop.header' });
     H.add(hdr);
-    let y = hdr.bottom + 3;
+    let y = hdr.bottom + 4;
     const x0 = 6;
     const w = VW - 12;
-    const dr = d?.wallet.drachmae;
-    const chip = resourceChip(this, 0, 0, 'drachmae', dr === undefined || dr === null ? '-' : dr, { word: true, id: 'shop.drachmae', onTap: () => this.switchTab('wallet') });
-    layChips(H, [chip], x0, y, w);
-    this.drChip = chip;
-    y += 22 + 4;
+    this.drChip = hdr.chips[0] ?? null;
+    if (hdr.overflow.length) {
+      this.drChip = layChips(H, [new InfoChip(this, 0, 0, drOpts)], x0, y, w)[0] ?? null;
+      y += 22 + 4;
+    }
     this.strip?.set({});
+    // the market stall: where you are, before any word
+    if (this.m.VH >= 330) {
+      addModeBanner(this, H, x0, y - 2, w, 26, 'shop');
+      y += 26 + 2;
+    }
     const claim = d?.pass ? claimableCount(d.pass) : 0;
     const tabs = new Tabs(this, x0, y, w, TABS.map((k) => t(`shop.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),
@@ -228,18 +236,22 @@ export class ShopScene extends BaseScene {
     y += ch.lines.length * LINE_H + 4;
     const cols = Math.max(2, Math.floor((w + SIZE.gap) / (58 + SIZE.gap)));
     const tw = Math.floor((w - (cols - 1) * SIZE.gap) / cols);
-    const th = 70;
+    const th = 66;
     for (const slot of d.cat.slots) {
       const list = d.cat.cosmetics.filter((x) => x.slot === slot);
       if (!list.length) continue;
       c.add(addText(this, 0, y + 1, ellipsize(tOr(`shop.slot.${slot}`, slot), w), 'sec'));
       y += 12;
-      list.forEach((cm, i) => {
-        const tx = (i % cols) * (tw + SIZE.gap);
-        const ty = y + Math.floor(i / cols) * (th + SIZE.gap);
-        this.cosmeticTile(c, area, tx, ty, tw, th, cm, d);
-      });
-      y += Math.ceil(list.length / cols) * (th + SIZE.gap) + 4;
+      // each row as tall as its longest name (one to three lines), never a fixed tall tile
+      for (let r0 = 0; r0 < list.length; r0 += cols) {
+        const rowItems = list.slice(r0, r0 + cols);
+        const lines = Math.max(...rowItems.map((cm) => wrapText(cosmeticName(cm), tw - 6, 3, false, 6).lines.length));
+        // preview 4..36, the name from 39 (8 px a line), then the state line
+        const rh = Math.max(th, 39 + lines * 8 + 4 + 12);
+        rowItems.forEach((cm, k) => this.cosmeticTile(c, area, k * (tw + SIZE.gap), y, tw, rh, cm, d));
+        y += rh + SIZE.gap;
+      }
+      y += 4;
     }
     // supplies moved onto the war map: the merchants of towns and trading posts (docs/DUELS.md)
     y += 2;
@@ -254,35 +266,69 @@ export class ShopScene extends BaseScene {
     frameScrollTexts(area, VW - 12);
   }
 
-  /** A look: its preview, its name (two lines, never cut), owned / equipped / its price in Drachmae. */
+  /** Where an earned-only look comes from: the pass tier that gives it, or the Duels seasons. */
+  private earnedFrom(cm: CosmeticInfo, d: Loaded): { text: string; short: string; icon: string; go: () => void } | null {
+    if (cm.drachmae !== null) return null;
+    if (cm.source === 'season_pass') {
+      const tier = d.pass?.tiers.find((x) => (x.premium.kind === 'cosmetic' && x.premium.id === cm.id) || (x.free.kind === 'cosmetic' && x.free.id === cm.id))?.tier;
+      return { text: tier ? t('shop.earnPassTier', { n: tier }) : t('shop.earnPass'), short: t('shop.passOnly'), icon: 'pass', go: () => this.switchTab('pass') };
+    }
+    if (cm.source === 'duel_season') return { text: t('shop.earnDuels'), short: t('shop.duelSeasonShort'), icon: MODE_ICON.arena, go: () => this.scene.start('Duel', { tab: 'ranked' }) };
+    return { text: t('shop.notForSale'), short: t('shop.notForSale'), icon: 'lock', go: () => undefined };
+  }
+
+  /**
+   * A look: its preview, its whole name (up to three lines, never cut), then
+   * one state: Equipped (a gold check on the preview), Owned (a tick), its
+   * price (grey when you cannot afford it: a tap shows the way to the
+   * wallet), or where to earn it (a lock on the preview, the pass seal or
+   * the Duels arena; a tap opens it).
+   */
   private cosmeticTile(c: Phaser.GameObjects.Container, area: ScrollArea, x: number, y: number, w: number, h: number, cm: CosmeticInfo, d: Loaded): void {
     const owned = d.wallet.cosmetics.includes(cm.id);
     const equipped = d.wallet.loadout[cm.slot] === cm.id;
-    const forSale = cm.drachmae !== null;
-    c.add(addPanel(this, x, y, w, h, equipped ? 'cardSel' : owned ? 'cardRaised' : forSale ? 'card' : 'cardLocked'));
+    const earn = owned ? null : this.earnedFrom(cm, d);
+    const afford = cm.drachmae !== null && d.wallet.drachmae >= cm.drachmae;
+    c.add(addPanel(this, x, y, w, h, equipped ? 'cardSel' : owned ? 'cardRaised' : earn ? 'cardLocked' : 'card'));
     const bg = this.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     uiId(bg, `cosmetic:${cm.id}`);
     bg.on('pointerup', () => !area.moved && this.openCosmetic(cm));
     c.add(bg);
-    c.add(addPanel(this, x + Math.round((w - 32) / 2), y + 4, 32, 32, 'well'));
-    c.add(addCosmetic(this, x + Math.round((w - 28) / 2), y + 6, cm.id, cm.slot));
-    const name = wrapText(cosmeticName(cm), w - 8, 2);
-    const nt = addText(this, x + w / 2, y + 39, name.lines.join('\n'), 'ink', 0.5).setFontSize(6);
+    const px = x + Math.round((w - 32) / 2);
+    c.add(addPanel(this, px, y + 4, 32, 32, 'well'));
+    const art = addCosmetic(this, x + Math.round((w - 28) / 2), y + 6, cm.id, cm.slot);
+    if (earn) art.setAlpha(0.55);
+    c.add(art);
+    if (equipped || owned) {
+      const g = this.add.graphics();
+      g.fillStyle(0x1a0f08, 1);
+      g.fillCircle(px + 30, y + 6, 5);
+      g.fillStyle(equipped ? ACCENT.goldHi : ACCENT.success, 1);
+      g.fillCircle(px + 30, y + 6, 4.2);
+      g.lineStyle(1.2, 0x1a0f08, 1);
+      g.beginPath();
+      g.moveTo(px + 28, y + 6);
+      g.lineTo(px + 29.5, y + 7.6);
+      g.lineTo(px + 32.2, y + 4.4);
+      g.strokePath();
+      c.add(g);
+    } else if (earn) c.add(scaleIcon(addIcon(this, px + 22, y + 1, 'lock', 'D'), 0.75));
+    const name = wrapText(cosmeticName(cm), w - 6, 3, false, 6);
+    const nt = addText(this, x + w / 2, y + 39, name.lines.join('\n'), owned || !earn ? 'ink' : 'sec', 0.5).setFontSize(6).setLineSpacing(-1);
     nt.setCenterAlign();
     c.add(nt);
     const sy = y + h - 12;
-    if (equipped) c.add(addText(this, x + w / 2, sy, ellipsize(t('shop.equipped'), w - 8, false, 6), 'reward', 0.5).setFontSize(6));
-    else if (owned) c.add(addText(this, x + w / 2, sy, ellipsize(t('econ.owned'), w - 8, false, 6), 'good', 0.5).setFontSize(6));
-    else if (!forSale) {
-      const why = cm.source === 'season_pass' ? t('shop.passOnly') : cm.source === 'duel_season' ? t('shop.duelSeason') : t('shop.notForSale');
-      c.add(addText(this, x + w / 2, sy, ellipsize(why, w - 8, false, 6), 'muted', 0.5).setFontSize(6));
-    } else {
-      const pt = addText(this, 0, sy, `${cm.drachmae}`, 'premium').setFontSize(6);
-      const both = 10 + 2 + pt.width;
-      const px = Math.round(x + w / 2 - both / 2);
-      c.add(scaleIcon(addIcon(this, px, sy - 1, 'drachma'), 10 / 12));
-      c.add(pt.setX(px + 12));
-    }
+    const centred = (icon: string | null, text: string, font: FontKey, look: '' | 'D' = '') => {
+      const tt = addText(this, 0, sy, ellipsize(text, w - 8 - (icon ? 12 : 0), false, 6), font).setFontSize(6);
+      const both = (icon ? 12 : 0) + tt.width;
+      const sx = Math.round(x + w / 2 - both / 2);
+      if (icon) c.add(scaleIcon(addIcon(this, sx, sy - 1, icon, look), 10 / 12));
+      c.add(tt.setX(sx + (icon ? 12 : 0)));
+    };
+    if (equipped) centred(null, t('shop.equipped'), 'reward');
+    else if (owned) centred(null, t('econ.owned'), 'good');
+    else if (earn) centred(earn.icon, earn.short, 'sec', 'D');
+    else centred('drachma', `${cm.drachmae}`, afford ? 'premium' : 'muted', afford ? '' : 'D');
   }
 
   openCosmetic(cm: CosmeticInfo): void {
@@ -291,8 +337,10 @@ export class ShopScene extends BaseScene {
     const { VW } = this.m;
     const owned = d.wallet.cosmetics.includes(cm.id);
     const equipped = d.wallet.loadout[cm.slot] === cm.id;
-    const w = Math.min(VW - 16, 190);
-    const m = openModal(this, { title: cosmeticName(cm), w, h: 26 + 64 + 30 + SIZE.btnH + 12 });
+    const earn = owned ? null : this.earnedFrom(cm, d);
+    const w = Math.min(VW - 16, 200);
+    const why = earn ? wrapText(earn.text, w - 16, 2) : null;
+    const m = openModal(this, { title: cosmeticName(cm), w, h: 26 + 64 + 22 + (why ? why.lines.length * LINE_H + 4 : 0) + SIZE.btnH + 14 });
     const { c, x, y } = m;
     const g = this.add.graphics();
     g.fillStyle(0x2a1d18, 1);
@@ -301,12 +349,13 @@ export class ShopScene extends BaseScene {
     g.strokeRect(x + w / 2 - 31, y + 24, 62, 62);
     c.add(g);
     c.add(addCosmetic(this, Math.round(x + w / 2 - 28), y + 27, cm.id, cm.slot, 56));
-    const line = `${tOr(`shop.slot.${cm.slot}`, cm.slot)}${cm.drachmae !== null && !owned ? ' · ' + t('econ.dr', { n: cm.drachmae }) : ''}`;
-    c.add(addText(this, x + w / 2, y + 92, ellipsize(line, w - 16), 'dim', 0.5));
-    if (cm.source === 'season_pass' && !owned) c.add(addText(this, x + w / 2, y + 103, ellipsize(t('shop.passOnly'), w - 16), 'red', 0.5));
+    const state = equipped ? t('shop.equipped') : owned ? t('econ.owned') : cm.drachmae !== null ? t('econ.dr', { n: cm.drachmae }) : '';
+    const line = [tOr(`shop.slot.${cm.slot}`, cm.slot), state].filter(Boolean).join(' · ');
+    c.add(addText(this, x + w / 2, y + 92, ellipsize(line, w - 16), 'sec', 0.5));
+    if (why) c.add(addText(this, x + w / 2, y + 104, why.lines.join('\n'), 'ink', 0.5).setCenterAlign());
     const by = m.y + m.h - 9 - SIZE.btnH;
     const bw = Math.floor((w - 12 - 6 - SIZE.gap) / 2);
-    c.add(new Button(this, x + 6, by, bw, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
+    c.add(new Button(this, x + 6, by, bw, SIZE.btnH, { label: t('common.close'), variant: 'ghost', onClick: () => m.close() }));
     let act: Button;
     if (owned)
       act = new Button(this, x + w - 6 - bw, by, bw, SIZE.btnH, {
@@ -316,9 +365,11 @@ export class ShopScene extends BaseScene {
         id: 'shop.equip',
         onClick: () => (m.close(), void this.equipCosmetic(cm, !equipped)),
       });
+    else if (earn) act = new Button(this, x + w - 6 - bw, by, bw, SIZE.btnH, { label: cm.source === 'duel_season' ? t('shop.openDuels') : t('shop.openPass'), icon: earn.icon, inline: true, variant: 'primary', id: 'shop.earnGo', onClick: () => (m.close(), earn.go()) });
     else {
-      act = new Button(this, x + w - 6 - bw, by, bw, SIZE.btnH, { label: `${cm.drachmae ?? '-'}`, icon: 'drachma', variant: 'primary', id: 'shop.buyCosmetic', onClick: () => (m.close(), this.askBuy(cm.id, cosmeticName(cm), cm.drachmae ?? 0, 'drachmae')) });
-      if (cm.drachmae === null) act.setEnabled(false, cm.source === 'season_pass' ? t('shop.passOnly') : cm.source === 'duel_season' ? t('shop.duelSeason') : t('shop.notForSale'));
+      const price = cm.drachmae ?? 0;
+      const short = d.wallet.drachmae < price;
+      act = new Button(this, x + w - 6 - bw, by, bw, SIZE.btnH, { label: short ? t('pass.needDr', { n: price }) : `${price}`, icon: 'drachma', inline: true, variant: 'primary', id: 'shop.buyCosmetic', onClick: () => (m.close(), short ? this.needDrachmae(price, cosmeticName(cm)) : this.askBuy(cm.id, cosmeticName(cm), price, 'drachmae')) });
     }
     c.add(act);
   }
@@ -341,12 +392,7 @@ export class ShopScene extends BaseScene {
   askBuy(item: string, name: string, price: number, currency: Currency): void {
     const d = this.loaded;
     if (!d) return;
-    if (currency === 'drachmae' && d.wallet.drachmae < price) {
-      toast(this, t('econ.noFundsDr'), 'bad');
-      this.tab = 'wallet';
-      this.render();
-      return;
-    }
+    if (currency === 'drachmae' && d.wallet.drachmae < price) return this.needDrachmae(price, name);
     confirmDialog(this, {
       title: t('shop.buyTitle', { name }),
       body: t('shop.buyBody', { price: priceText(price, currency) }),
@@ -417,28 +463,39 @@ export class ShopScene extends BaseScene {
     const prog = passProgress(p);
     const days = Math.max(0, Math.ceil((p.season.endsAt - Date.now()) / 86_400_000));
     const claimN = claimableCount(p);
-    // the season card: tier, XP to the next, the premium track, Claim all
-    const hh = 70;
+    // the season card: tier, XP to the next (tap: how XP is earned), the premium track, Claim all
+    const hh = 72;
     this.page.add(addPanel(this, x0, top, w, hh, 'cardRaised'));
     const ends = addText(this, x0 + w - 8, top + 7, t('pass.endsIn', { d: days }), 'sec', 1);
     this.page.add(ends);
     this.page.add(addText(this, x0 + 8, top + 6, ellipsize(`${t('pass.season', { n: p.season.id })} · ${t('pass.tierOf', { n: p.tier, max: p.tiers.length })}`, w - 20 - ends.width, false, 7, 'head'), 'head'));
-    this.page.add(new ProgressBar(this, x0 + 8, top + 18, w - 16, { value: prog.maxed ? 1 : prog.into, max: prog.maxed ? 1 : prog.need, label: prog.maxed ? t('pass.maxed') : t('v3.passXp'), right: prog.maxed ? '' : t('pass.xp', { into: prog.into, need: prog.need }), h: 4, color: ACCENT.gold }));
+    const bar = new ProgressBar(this, x0 + 8, top + 18, w - 16, { value: prog.maxed ? 1 : prog.into, max: prog.maxed ? 1 : prog.need, label: prog.maxed ? t('pass.maxed') : t('pass.xpHow'), right: prog.maxed ? '' : t('pass.xp', { into: prog.into, need: prog.need }), h: 4, color: ACCENT.gold, labelFont: 'sec' });
+    this.page.add(bar);
+    const xz = this.add.zone(x0 + 4, top + 14, w - 8, 22).setOrigin(0, 0).setInteractive();
+    uiId(xz, 'pass.xpInfo');
+    tappable(xz, null, () => this.openPassXp());
+    this.page.add(xz);
     const by = top + hh - 26 - 6;
     const bw = Math.floor((w - 16 - SIZE.gap) / 2);
     if (p.premium) addChip(this, this.page, x0 + 8, by + 7, t('pass.unlocked'), ROLE.elite, bw);
-    else this.page.add(new Button(this, x0 + 8, by, bw, 26, { label: t('pass.unlock', { n: p.premiumDrachmae }), icon: 'drachma', inline: true, id: 'pass.unlock', onClick: () => this.unlockPremium(p) }));
-    const ca = new Button(this, x0 + 8 + bw + SIZE.gap, by, w - 16 - bw - SIZE.gap, 26, { label: t('pass.claimAll', { n: claimN }), icon: 'check', inline: true, variant: 'primary', id: 'pass.claimAll', onClick: () => void this.claimAll() });
+    else {
+      // not enough Drachmae: the button says what is missing and goes to the wallet
+      const short = d.wallet.drachmae < p.premiumDrachmae;
+      this.page.add(new Button(this, x0 + 8, by, bw, 26, { label: short ? t('pass.needDr', { n: p.premiumDrachmae }) : t('pass.unlock', { n: p.premiumDrachmae }), icon: 'drachma', inline: true, id: 'pass.unlock', tip: short ? t('pass.needDrTip', { n: p.premiumDrachmae - d.wallet.drachmae }) : undefined, onClick: () => this.unlockPremium(p) }));
+    }
+    const ca = new Button(this, x0 + 8 + bw + SIZE.gap, by, w - 16 - bw - SIZE.gap, 26, { label: claimN > 0 ? t('pass.claimAll', { n: claimN }) : t('pass.nothing'), icon: claimN > 0 ? 'check' : undefined, inline: true, variant: claimN > 0 ? 'primary' : 'secondary', id: 'pass.claimAll', onClick: () => void this.claimAll() });
     ca.setEnabled(claimN > 0, t('pass.xpHint'));
     this.page.add(ca);
-    // the two tracks, then the tiers
+    // the two tracks, then the tiers (the player's place on the track is marked)
     const ly = top + hh + 5;
-    const cellW = Math.floor((w - 26 - 2 * SIZE.gap) / 2);
-    this.page.add(addText(this, x0 + 26 + cellW / 2, ly, t('pass.free'), 'sec', 0.5));
-    this.page.add(addText(this, x0 + 26 + SIZE.gap + cellW + cellW / 2, ly, t('pass.premium'), 'premium', 0.5));
+    const cellW = Math.floor((w - 30 - 2 * SIZE.gap) / 2);
+    this.page.add(addText(this, x0 + 30 + cellW / 2, ly, t('pass.free'), 'sec', 0.5));
+    const pt = addText(this, x0 + 30 + SIZE.gap + cellW + cellW / 2 + 6, ly, t('pass.premium'), 'premium', 0.5);
+    this.page.add(pt);
+    this.page.add(scaleIcon(addIcon(this, Math.round(pt.x - pt.width / 2 - 13), ly - 2, 'pass', p.premium ? '' : 'D'), 0.9));
     const list = new ScrollList(this, this.page, x0, ly + 12, w, this.pageBottom() - ly - 12, {
       count: p.tiers.length,
-      rowH: 42,
+      rowH: 36,
       fade: SURFACE.bg,
       render: (i, row, rw, rh, area) => this.tierRow(d, p, i, row, rw, rh, area),
     });
@@ -446,20 +503,67 @@ export class ShopScene extends BaseScene {
     list.scrollToIndex(focusTier(p) - 1);
   }
 
+  /** How pass XP is earned (a tap on the bar). */
+  openPassXp(): void {
+    const w = Math.min(this.m.VW - 8, 250);
+    const lines: [string, string][] = [
+      ['swords', t('pass.xp.attack', { n: PASS_XP.attack, w: PASS_XP.attackWin })],
+      ['flag', t('pass.xp.capture', { n: PASS_XP.capture })],
+      ['arena', t('pass.xp.duel', { n: PASS_XP.duel, w: PASS_XP.duelWin })],
+    ];
+    const wraps = lines.map(([, s]) => wrapText(s, w - 20 - 18, 2));
+    const m = openSheet(this, { title: t('pass.xpTitle'), w, h: 26 + wraps.reduce((a, x) => a + x.lines.length * LINE_H + 6, 0) + 14 + 10 + 24 + 16 });
+    const { c, body: b } = m;
+    let y = b.y;
+    lines.forEach(([icon], i) => {
+      c.add(addIcon(this, b.x, y - 1, icon));
+      c.add(addText(this, b.x + 18, y, wraps[i].lines.join('\n'), 'ink'));
+      y += wraps[i].lines.length * LINE_H + 6;
+    });
+    c.add(addText(this, b.x, y + 2, ellipsize(t('pass.xp.tier', { n: PASS_XP.perTier }), b.w), 'sec'));
+    c.add(new Button(this, b.x, m.y + m.h - 8 - 24, b.w, 24, { label: t('common.close'), variant: 'ghost', id: 'pass.xp.close', onClick: () => m.close() }));
+  }
+
   private tierRow(d: Loaded, p: SeasonPassInfo, i: number, row: Phaser.GameObjects.Container, rw: number, rh: number, area: ScrollArea): void {
     const tier = p.tiers[i];
     const reached = tier.tier <= p.tier;
-    row.add(addPanel(this, 0, 4, 22, rh - 8, reached ? 'thumb' : 'well'));
-    row.add(uiFrame(addText(this, 11, rh / 2 - 5, `${tier.tier}`, reached ? 'onAccent' : 'muted', 0.5), row, 22, rh));
-    const cellW = Math.floor((rw - 26 - SIZE.gap) / 2);
-    (['free', 'premium'] as Track[]).forEach((track, k) => this.rewardCell(d, p, tier.tier, track, track === 'free' ? tier.free : tier.premium, row, 26 + k * (cellW + SIZE.gap), cellW, rh, area));
+    const next = tier.tier === p.tier + 1;
+    const here = tier.tier === p.tier;
+    // the tier: lit when reached, the next one rimmed with its progress, "you are here" on the current one
+    const bh = rh - 6;
+    row.add(addPanel(this, 0, 3, 26, bh, reached ? 'thumb' : next ? 'cardSel' : 'well'));
+    row.add(uiFrame(addText(this, 13, here || next ? 6 : rh / 2 - 5, `${tier.tier}`, reached ? 'onAccent' : next ? 'ink' : 'muted', 0.5), row, 26, rh));
+    if (next) {
+      const prog = passProgress(p);
+      const g = this.add.graphics();
+      g.fillStyle(0x000000, 0.6);
+      g.fillRect(4, rh - 10, 18, 3);
+      g.fillStyle(ACCENT.gold, 1);
+      g.fillRect(4, rh - 10, Math.round(18 * (prog.need ? prog.into / prog.need : 0)), 3);
+      row.add(g);
+    }
+    if (here) row.add(addText(this, 13, rh - 14, t('pass.you'), 'onAccent', 0.5).setFontSize(5.5));
+    const cellW = Math.floor((rw - 30 - SIZE.gap) / 2);
+    (['free', 'premium'] as Track[]).forEach((track, k) => this.rewardCell(d, p, tier.tier, track, track === 'free' ? tier.free : tier.premium, row, 30 + k * (cellW + SIZE.gap), cellW, rh - 2, area));
   }
 
-  /** A reward in one of four states: claimable (lit, a glow), claimed (a tick), not reached (locked), premium (locked: unlock the track). */
+  /**
+   * A reward, short: its icon and a big quantity with a short noun under it
+   * (never a word broken in two). Four states: claimable (lit, a glow,
+   * "Claim"), claimed (a tick, quiet), not reached (grey lock: reach the
+   * tier), premium (violet seal: unlock the premium track). A tap explains.
+   */
   private rewardCell(d: Loaded, p: SeasonPassInfo, tier: number, track: Track, r: PassReward, row: Phaser.GameObjects.Container, x: number, w: number, h: number, area: ScrollArea): void {
     const st = tierState(p, tier, track);
     if (st === 'claimable') addClaimGlow(this, row, x, 0, w, h);
     row.add(addPanel(this, x, 0, w, h, st === 'claimable' ? 'cardSel' : st === 'claimed' ? 'well' : st === 'premium' || st === 'locked' ? 'cardLocked' : 'card'));
+    if (st === 'premium') {
+      // a violet edge: this one waits for the premium track, not for a tier
+      const g = this.add.graphics();
+      g.lineStyle(1, RESOURCES.drachmae.color, 0.55);
+      g.strokeRoundedRect(x + 0.5, 0.5, w - 1, h - 1, 4);
+      row.add(g);
+    }
     const bg = this.add.zone(x, 0, w, h).setOrigin(0, 0).setInteractive();
     uiId(bg, `pass:${tier}:${track}`);
     row.add(bg);
@@ -471,26 +575,43 @@ export class ShopScene extends BaseScene {
         void this.claim(tier, track, r, { x: m.tx / this.m.S + w / 2, y: m.ty / this.m.S + h / 2 });
       } else showTooltip(this, `${name}\n${st === 'claimed' ? t('pass.claimed') : st === 'premium' ? t('pass.premiumLocked') : t('pass.locked', { n: tier })}`, bg);
     });
-    // narrow cells (small phones): the words get the room, the icon goes
-    const showIcon = w >= 72;
-    if (!showIcon) {
-      /* no picture */
-    } else if (r.kind === 'cosmetic') {
+    const dimmed = st === 'claimed' || st === 'locked';
+    const iy = Math.round((h - 22) / 2);
+    if (r.kind === 'cosmetic') {
       const cm = d.cat.cosmetics.find((c) => c.id === r.id);
-      row.add(addCosmetic(this, x + 3, Math.round((h - 28) / 2), r.id, cm?.slot ?? 'emblem'));
+      row.add(addCosmetic(this, x + 3, iy - 1, r.id, cm?.slot ?? 'emblem', 24));
     } else {
       const sub = r.kind === 'consumable' ? { consumable: r.id } : { resource: r.kind === 'gold' ? 'gold' : 'drachmae' };
-      row.add(new ItemIcon(this, x + 4, Math.round((h - 24) / 2), sub, { size: 24, tip: false, glow: false, rarity: track === 'premium' ? 'epic' : 'common' }));
+      row.add(new ItemIcon(this, x + 3, iy, sub, { size: 22, tip: false, glow: false, rarity: track === 'premium' ? 'epic' : 'common' }));
     }
-    const tx = x + (showIcon ? 32 : 5);
-    const tw = w - (showIcon ? 36 : 9);
-    // the name gets the room; "Claim" is the only state in words (claimed / locked show as a tick / a lock, the track as its column)
-    const claimable = st === 'claimable';
-    const lines = wrapText(name, tw - (claimable ? 0 : 10), claimable ? 2 : 3).lines;
-    row.add(addText(this, tx, 4, lines.join('\n'), st === 'claimed' ? 'muted' : 'ink').setFontSize(6.5));
-    if (claimable) row.add(addText(this, tx, h - 12, ellipsize(t('pass.claim'), tw), 'reward'));
-    if (st === 'claimed') row.add(scaleIcon(addIcon(this, x + w - 13, h - 13, 'check'), 0.8));
-    if (st === 'premium' || st === 'locked') row.add(scaleIcon(addIcon(this, x + w - 13, h - 13, 'lock', 'D'), 0.8));
+    const tx = x + 29;
+    const tw = w - 29 - 3;
+    // the quantity big, the noun small (a look: its name on up to two lines)
+    const qty = r.kind === 'gold' ? r.amount : r.kind === 'drachmae' ? r.amount : r.kind === 'consumable' ? r.qty : 0;
+    const noun = r.kind === 'gold' ? t('res.wargold') : r.kind === 'drachmae' ? t('res.drachmae') : r.kind === 'consumable' ? subjectName({ consumable: r.id }) : '';
+    const qFont: FontKey = dimmed ? 'muted' : r.kind === 'gold' ? 'wargold' : r.kind === 'drachmae' ? 'premium' : 'ink';
+    const qText = r.kind === 'consumable' ? `${qty}×` : `${qty}`;
+    // "Claim" sits beside the number where both fit; on narrow cells it takes the noun's line
+    const claimTop = st === 'claimable' && (r.kind === 'cosmetic' || measureText(qText) * 1.2 + 6 + measureText(t('pass.claim'), false, 6) <= tw);
+    if (r.kind === 'cosmetic') {
+      const nl = wrapText(name, tw, 2, false, 6);
+      row.add(addText(this, tx, Math.round(h / 2 - (nl.lines.length * 8) / 2), nl.lines.join('\n'), dimmed ? 'muted' : 'ink').setFontSize(6).setLineSpacing(-1));
+    } else {
+      const q = addText(this, tx, 2, qText, qFont).setScale(1.2);
+      row.add(q);
+      if (st === 'claimable' && !claimTop) row.add(addText(this, tx, 16, ellipsize(t('pass.claim'), tw, false, 6), 'reward').setFontSize(6));
+      else {
+        const nn = wrapText(noun, tw, 2, false, 6);
+        row.add(addText(this, tx, 14, nn.lines.join('\n'), dimmed ? 'muted' : 'sec').setFontSize(6).setLineSpacing(-1.5));
+      }
+    }
+    // the state, as a badge on the icon's corner: a tick, a grey lock, the violet seal; "Claim" beside the number
+    const bx = x + 17;
+    const by = iy + 13;
+    if (st === 'claimable' && claimTop) row.add(addText(this, x + w - 4, 3, t('pass.claim'), 'reward', 1).setFontSize(6));
+    else if (st === 'claimed') row.add(scaleIcon(addIcon(this, bx, by, 'check'), 0.75));
+    else if (st === 'locked') row.add(scaleIcon(addIcon(this, bx, by, 'lock', 'D'), 0.75));
+    else if (st === 'premium') row.add(scaleIcon(addIcon(this, bx, by, 'pass'), 0.75));
   }
 
   async claim(tier: number, track: Track, r: PassReward, from?: { x: number; y: number }): Promise<void> {
@@ -531,12 +652,7 @@ export class ShopScene extends BaseScene {
   private unlockPremium(p: SeasonPassInfo): void {
     const d = this.loaded;
     if (!d) return;
-    if (d.wallet.drachmae < p.premiumDrachmae) {
-      toast(this, t('econ.noFundsDr'), 'bad');
-      this.tab = 'wallet';
-      this.render();
-      return;
-    }
+    if (d.wallet.drachmae < p.premiumDrachmae) return this.needDrachmae(p.premiumDrachmae, t('pass.premium'));
     confirmDialog(this, {
       title: t('pass.unlockTitle'),
       body: t('pass.unlockBody', { n: p.premiumDrachmae }),
@@ -545,6 +661,21 @@ export class ShopScene extends BaseScene {
       cancel: t('common.cancel'),
       onOk: () => void this.buy('season_pass', t('pass.premium'), 'drachmae'),
     });
+  }
+
+  /** Not enough Drachmae: what it costs, what you have, and the way to the wallet (never just a red toast). */
+  needDrachmae(price: number, what: string): void {
+    const d = this.loaded;
+    if (!d) return;
+    const have = d.wallet.drachmae;
+    const w = Math.min(this.m.VW - 8, 240);
+    const body = wrapText(t('econ.needDrBody', { what, n: price, have, miss: price - have }), w - 20, 4);
+    const m = openSheet(this, { title: t('econ.needDrTitle'), w, h: 26 + body.lines.length * LINE_H + 12 + 26 + 6 + 24 + 16 });
+    const { c, body: b } = m;
+    c.add(addText(this, b.x, b.y, body.lines.join('\n'), 'ink'));
+    const by = m.y + m.h - 8 - 24 - 6 - 26;
+    c.add(new Button(this, b.x, by, b.w, 26, { label: t('econ.getDr'), icon: 'drachma', inline: true, variant: 'primary', id: 'econ.toWallet', onClick: () => (m.close(), this.switchTab('wallet')) }));
+    c.add(new Button(this, b.x, by + 26 + 6, b.w, 24, { label: t('common.cancel'), variant: 'ghost', id: 'econ.needDr.cancel', onClick: () => m.close() }));
   }
 
   // ------------------------------------------------------------------ wallet
@@ -577,10 +708,25 @@ export class ShopScene extends BaseScene {
     const cols = 2;
     const pw = Math.floor((w - SIZE.gap) / cols);
     const ph = 62;
+    // the best value: the most Drachmae per Star (a tag on that pack only)
+    const best = d.cat.packs.reduce((a, pk) => (!a || pk.drachmae / pk.stars > a.drachmae / a.stars ? pk : a), null as (typeof d.cat.packs)[number] | null);
     d.cat.packs.forEach((pk, i) => {
       const px = (i % cols) * (pw + SIZE.gap);
       const py = y + Math.floor(i / cols) * (ph + SIZE.gap);
-      c.add(addPanel(this, px, py, pw, ph, 'card'));
+      const isBest = pk === best && d.cat.packs.length > 1;
+      if (isBest) addClaimGlow(this, c, px, py, pw, ph).setAlpha(0.5);
+      c.add(addPanel(this, px, py, pw, ph, isBest ? 'cardSel' : 'card'));
+      if (isBest) {
+        const tag = t('wallet.best');
+        const tw = measureText(tag, false, 6) + 10;
+        const g = this.add.graphics();
+        g.fillStyle(ACCENT.goldHi, 1);
+        g.fillRoundedRect(px + pw / 2 - tw / 2, py - 5, tw, 10, 3);
+        c.add(g);
+        const tt = addText(this, px + pw / 2, py - 4, tag, 'onAccent', 0.5).setFontSize(6);
+        uiFrame(tt, g as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, tw, 10, px + pw / 2 - tw / 2, py - 5);
+        c.add(tt);
+      }
       c.add(addIcon(this, px + 7, py + 7, 'drachma'));
       const amt = addText(this, px + 22, py + 8, `${pk.drachmae}`, 'premium');
       c.add(amt);

@@ -292,8 +292,8 @@ export const EN_ARMY = {
   'oarmy.inBattle': 'In battle',
   'oarmy.holds': 'Holds {name}',
   'oarmy.recruitTitle': 'Recruit',
-  'oarmy.recruitCost': '{gold} gold, {food} food, 1 recruit',
-  'oarmy.youHave': 'You have {gold} gold, {food} food, {rec} recruits',
+  'oarmy.recruitCost': '{gold} war gold, {food} food, 1 recruit',
+  'oarmy.youHave': 'You have {gold} war gold, {food} food, {rec} recruits',
   'oarmy.market': 'Market',
   'oarmy.loading': 'Loading the army...',
   'oarmy.equipped': 'Equipped',
@@ -301,7 +301,7 @@ export const EN_ARMY = {
   // ---- economy: shared
   'econ.drachmae': 'Drachmae',
   'econ.dr': '{n} Dr',
-  'econ.gold': '{n} gold',
+  'econ.gold': '{n} war gold',
   'econ.stars': '{n} Stars',
   'econ.outside': 'Available in Telegram',
   'econ.outsideHint': 'Open Pixelarrow from the Telegram bot to use the shop, the season pass and the market.',
@@ -320,7 +320,7 @@ export const EN_ARMY = {
   'econ.owned': 'Owned',
   'econ.bought': 'Bought {name}',
   'econ.busy': 'One moment...',
-  'econ.purseTip': 'Drachmae: account-wide, kept across seasons. Gold: this season.',
+  'econ.purseTip': 'Drachmae: account-wide, kept across seasons. War gold: this season only.',
 
   // ---- shop
   'shop.title': 'Shop',
@@ -353,7 +353,7 @@ export const EN_ARMY = {
   'shop.buy': 'Buy',
   'shop.payGold': 'Pay {n} gold',
   'shop.payDr': 'Pay {n} Dr',
-  'shop.goldTip': 'Pay with season gold',
+  'shop.goldTip': 'Pay with war gold',
   'shop.drTip': 'Pay with Drachmae',
 
   // ---- season pass
@@ -384,7 +384,7 @@ export const EN_ARMY = {
 
   // ---- wallet
   'wallet.balance': 'Balance',
-  'wallet.note': 'Drachmae are kept across seasons and can be traded on the market. Buy them with Telegram Stars.',
+  'wallet.note': 'Kept across seasons; tradable on the market.',
   'wallet.packs': 'Drachmae packs',
   'wallet.legal': 'Stars buy digital goods. Drachmae cannot be cashed out. Help with a purchase: /paysupport in the bot.',
   'wallet.terms': 'Terms',
@@ -418,7 +418,7 @@ export const EN_ARMY = {
   'market.kind.resource': 'Goods',
   'market.kind.consumable': 'Supplies',
   'market.cur.all': 'Any coin',
-  'market.cur.gold': 'Gold',
+  'market.cur.gold': 'War gold',
   'market.cur.drachmae': 'Drachmae',
   'market.sort.newest': 'Newest',
   'market.sort.price_asc': 'Cheapest',
@@ -428,7 +428,7 @@ export const EN_ARMY = {
   'market.findTitle': 'Find an item',
   'market.anyItem': 'Any item',
   'market.kindTip': 'Show gear, goods or supplies.',
-  'market.curTip': 'Show prices in gold or Drachmae.',
+  'market.curTip': 'Show prices in war gold or Drachmae.',
   'market.sortTip': 'Sort the listings.',
   'market.findTip': 'Look for one item.',
   'market.empty': 'No listings',

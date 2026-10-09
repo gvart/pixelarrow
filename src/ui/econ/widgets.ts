@@ -21,7 +21,7 @@ export function ensureEconIcons(scene: Phaser.Scene): void {
   registerUiAssets(scene);
 }
 
-export const currencyIcon = (c: 'gold' | 'drachmae'): string => (c === 'gold' ? 'coin' : 'drachma');
+export const currencyIcon = (c: 'gold' | 'drachmae'): string => (c === 'gold' ? 'wargold' : 'drachma');
 
 export { addCosmetic, addGoodsIcon, cosmeticTexture, fitCosmetic, fitGoodsIcon, goodsTexture } from './textures';
 
@@ -55,7 +55,7 @@ export interface Purse {
 export function addPurse(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, p: Purse, maxW: number): number {
   ensureEconIcons(scene);
   const parts: [string, string][] = [];
-  if (p.gold !== null) parts.push(['coin', `${p.gold}`]);
+  if (p.gold !== null) parts.push(['wargold', `${p.gold}`]);
   parts.push(['drachma', p.drachmae === null ? '-' : `${p.drachmae}`]);
   let cx = x;
   let used = 0;

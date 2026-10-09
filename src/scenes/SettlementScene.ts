@@ -3,7 +3,7 @@ import { BaseScene } from './BaseScene';
 import { Button, addIcon, addPanel, addScroll, addText } from '../ui/kit';
 import { ItemIcon, ScrollList, Tabs, addEmptyState, confirmDialog, toast } from '../ui/widgets';
 import { uiId } from '../ui/layout';
-import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
+import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { SIZE } from '../ui/theme';
 import { ensureFonts, rarityFont } from '../ui/fonts';
 import { StashGrid, addChip, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
@@ -86,7 +86,7 @@ export class SettlementScene extends BaseScene {
     const ty = sy + 19;
     const tabs = new Tabs(this, 4, ty, VW - 8, this.tabList.map((k) => t(`town.tab.${k === 'recruits' ? 'hire' : k === 'market' ? 'buy' : k}` as TKey)), {
       selected: this.tabList.indexOf(this.tab),
-      icons: ['plus', 'coin', 'shield', 'tent'].filter((_, i) => def.kind === 'town' || i === 0 || i === 3),
+      icons: ['plus', 'shop', 'amphora', 'tent'].filter((_, i) => def.kind === 'town' || i === 0 || i === 3),
       ids: this.tabList.map((k) => `town.tab.${k}`),
       onChange: (i) => this.setTab(this.tabList[i]),
     });
@@ -247,7 +247,7 @@ export class SettlementScene extends BaseScene {
       this.body.add(addEmptyState(this, 4, y, VW - 8, h, { icon: 'coin', title: t('town.soldOut'), hint: t('town.newWares', { h: refresh }) }));
       return;
     }
-    const rowH = 30;
+    const rowH = 38;
     this.list = new ScrollList(this, this.body, 4, y, VW - 8, h, {
       count: wares.length + 1,
       rowH,
@@ -258,18 +258,21 @@ export class SettlementScene extends BaseScene {
         }
         const ware = wares[i];
         const it = ware.item;
-        row.add(addPanel(this, 0, 0, rw, rh, 'button'));
-        row.add(new ItemIcon(this, 3, 3, { item: it }, { area, onTap: () => this.openWare(ware.index) }));
+        row.add(addPanel(this, 0, 0, rw, rh, 'card'));
+        row.add(new ItemIcon(this, 3, Math.round((rh - 24) / 2), { item: it }, { area, onTap: () => this.openWare(ware.index) }));
         const can = camp.data.gold >= ware.price;
         const bw = 46;
-        const b = new Button(this, rw - bw - 3, 3, bw, SIZE.btnH, { label: `${ware.price}`, icon: 'coin', id: 'town.buy', variant: can ? 'secondary' : 'secondary', onClick: () => this.buy(ware.index) });
+        const b = new Button(this, rw - bw - 3, Math.round((rh - SIZE.btnH) / 2), bw, SIZE.btnH, { label: `${ware.price}`, icon: 'coin', id: 'town.buy', variant: can ? 'secondary' : 'secondary', onClick: () => this.buy(ware.index) });
         b.setEnabled(can, t('stash.noGold'));
         row.add(b);
         const tw = rw - 32 - bw - 6;
         row.add(addText(this, 31, 5, ellipsize(itemName(it), tw), rarityFont(it.rarity)));
         const def = itemDef(it.def);
-        const ml = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${m.text}`).join(' ');
-        row.add(addText(this, 31, 16, ellipsize(`${t(`slot.${def.slot}` as TKey)} · ${ml}`, tw), 'dim'));
+        // the slot, then its main stats on their own line (whole; a long one drops before it is cut)
+        const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${m.text}`);
+        const ml = measureText(mods.join(' · ')) <= tw ? mods.join(' · ') : (mods[0] ?? '');
+        row.add(addText(this, 31, 15, ellipsize(t(`slot.${def.slot}` as TKey), tw), 'sec'));
+        row.add(addText(this, 31, 25, ellipsize(ml, tw), 'dim'));
       },
     });
   }

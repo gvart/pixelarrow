@@ -192,7 +192,7 @@ export class MarketScene extends BaseScene {
     const tabs = new Tabs(this, 4, ty, VW - 8, TABS.map((k) => t(`market.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),
       ids: TABS.map((k) => `market.tab.${k}`),
-      icons: VW >= 170 ? ['eye', 'flag', 'coin'] : undefined,
+      icons: VW >= 170 ? ['eye', 'flag', 'amphora'] : undefined,
       onChange: (i) => {
         this.tab = TABS[i];
         this.render();

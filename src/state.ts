@@ -1,6 +1,6 @@
 /** Global game state shared between scenes (no Phaser imports). */
 import { Campaign } from './game/campaign';
-import { readSave, writeSave, clearSave, type SaveData } from './game/save';
+import { carrySettings, readSave, writeSave, clearSave, type SaveData } from './game/save';
 import type { Outcome } from './game/loot';
 import type { UnitStat } from './game/report';
 import type { EnemyArmy } from './game/enemy';
@@ -110,9 +110,8 @@ class GameState {
     await clearSave(kv.primary);
     if (kv.mirror) await clearSave(kv.mirror);
     this.campaign = Campaign.fresh(randomSeed());
-    // The tutorial and the online coach marks belong to the player, not to the campaign.
-    if (prev?.tutorial) this.campaign.data.settings.tutorial = prev.tutorial;
-    if (prev?.onlineCoach !== undefined) this.campaign.data.settings.onlineCoach = prev.onlineCoach;
+    // Settings belong to the player, not to the campaign: all of them carry over.
+    this.campaign.data.settings = carrySettings(prev, this.campaign.data.settings);
     // Keep counting so the new campaign outranks the old one in cloud sync.
     this.campaign.data.seq = seq;
     this.pending = null;

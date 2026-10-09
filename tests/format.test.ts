@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtAgo, fmtAgoText, fmtClock, fmtDuration, fmtNum } from '../src/util/format';
+import { fmtAgo, fmtAgoText, fmtClock, fmtDuration, fmtNum, fmtSigned } from '../src/util/format';
 import { setLang } from '../src/i18n';
 
 describe('format', () => {
@@ -28,5 +28,14 @@ describe('format', () => {
     expect(fmtDuration(30_000)).toMatch(/30/);
     expect(fmtDuration(3 * 3_600_000)).toMatch(/3/);
     expect(fmtAgoText(0)).toBe(fmtAgoText(60_000));
+  });
+});
+
+describe('fmtSigned (reward copy reads "Win +15 · Loss +5", P0)', () => {
+  it('always carries the sign', () => {
+    expect(fmtSigned(15)).toBe('+15');
+    expect(fmtSigned(5)).toBe('+5');
+    expect(fmtSigned(-5)).toBe('-5');
+    expect(fmtSigned(0)).toBe('0');
   });
 });

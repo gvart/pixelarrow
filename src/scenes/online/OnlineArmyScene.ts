@@ -153,7 +153,7 @@ export class OnlineArmyScene extends BaseScene {
       const parts: [string, string, boolean][] = [
         ['stamina', `${Math.floor(p.energy)}`, p.energy < 10],
         ['heart', `${Math.floor(p.resources.food)}`, false],
-        ['coin', `${Math.floor(p.resources.gold)}`, false],
+        ['wargold', `${Math.floor(p.resources.gold)}`, false],
       ];
       for (const [icon, txt, low] of parts) {
         if (rx - left < 80) break;
