@@ -1,0 +1,19 @@
+scripts/fullscreen-smoke.mjs
+  s_1934d7c234e5b1::t_976f607f613bad 121,129-130,132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "48458f6b20757e4a0ce82aa66b2849541c82f3d4",
+  "prompts": {},
+  "sessions": {
+    "s_1934d7c234e5b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d39328de-c77f-462f-b9ee-81a255a8912b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
