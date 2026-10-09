@@ -385,7 +385,11 @@ export interface ItemCardOpts {
   worth?: boolean;
 }
 
-const deltaText = (d: StatDelta): string => `${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`;
+/** "+4.5", "-7%", and for the blow time its unit and meaning: "+0.2 s slower". */
+const deltaText = (d: StatDelta): string => {
+  const n = `${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`;
+  return d.id === 'atkTime' ? `${n} s ${t(d.delta > 0 ? 'dv.slower' : 'dv.faster')}` : n;
+};
 
 /**
  * The item card: big icon in its rarity frame, name in the rarity colour,
@@ -451,9 +455,13 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
       ry += 11;
     }
     for (const d of changed) {
-      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 90), 'ink'));
-      b.add(addText(scene, inner - 44, ry, `${fmtStat(d.id, d.cur)}>${fmtStat(d.id, d.next)}`, 'dim', 1));
-      b.add(addText(scene, inner - 4, ry, deltaText(d), d.better ? 'good' : 'red', 1));
+      const dt = addText(scene, inner - 4, ry, deltaText(d), d.better ? 'good' : 'bad', 1);
+      const cn = addText(scene, inner - 4 - dt.width - 6, ry, `${fmtStat(d.id, d.cur)} > ${fmtStat(d.id, d.next)}`, 'sec', 1);
+      // narrow cards: the stat's name and its change matter most, "1.3 > 1.5" goes first
+      const fitsBoth = inner - 12 - dt.width - cn.width - 6 >= 44;
+      if (!fitsBoth) cn.destroy();
+      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 12 - dt.width - (fitsBoth ? cn.width + 6 : 0)), 'ink'));
+      b.add(fitsBoth ? [cn, dt] : [dt]);
       ry += 11;
     }
     if (cmp.displaced.length) b.add(addText(scene, 4, ry, ellipsize(t('stash.alsoRemoves', { name: cmp.displaced.map(itemName).join(', ') }), inner - 8), 'red'));

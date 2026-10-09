@@ -102,24 +102,21 @@ async function run(label, { noAudio }) {
   }
   check(`[${label}] settings opens`, await tapLabel('Menu', 'Settings'));
   await wait(300);
-  // sound toggle row: the button right of the "Sound" label
+  // the Sound switch of the settings sheet (by its layout id)
   const soundBtn = await ev(() => {
     const s = window.__game.scene.getScene('Menu');
-    let lab = null;
-    const btns = [];
+    let b = null;
     const walk = (list) => {
       for (const o of list) {
-        if (o.text?.toUpperCase() === 'SOUND') lab = o;
-        if (o.opts && (o.opts.label === 'On' || o.opts.label === 'Off')) btns.push(o);
+        if (o.__uiId === 'settings.toggle.sound') b = o;
         if (o.list) walk(o.list);
       }
     };
     walk(s.children.list);
-    if (!lab) return null;
-    const ly = lab.getBounds().centerY;
-    const b = btns.sort((a, c) => Math.abs(a.getBounds().centerY - ly) - Math.abs(c.getBounds().centerY - ly))[0];
-    const r = b.getBounds();
-    return window.__css(r.centerX, r.centerY);
+    if (!b) return null;
+    // its own box (a container holding only a Graphics has no reliable getBounds)
+    const m = b.getWorldTransformMatrix();
+    return window.__css(m.tx + (b.w * m.a) / 2, m.ty + (b.h * m.d) / 2);
   });
   check(`[${label}] sound toggle present`, !!soundBtn);
   if (soundBtn) {

@@ -166,6 +166,7 @@ export class InfoChip extends Phaser.GameObjects.Container {
   private valueText: Phaser.GameObjects.BitmapText;
   private shown: number;
   private counter: Phaser.Tweens.Tween | null = null;
+  private listenedDestroy = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, o: InfoChipOpts) {
     super(scene, Math.round(x), Math.round(y));
@@ -216,15 +217,24 @@ export class InfoChip extends Phaser.GameObjects.Container {
       return this;
     }
     const p = { v: from };
+    // the screen may rebuild (and destroy this chip) while it counts: never write into a destroyed text
+    const set = (v: number) => this.active && this.valueText.active && this.valueText.setText(`${v}`);
     this.counter = this.scene.tweens.add({
       targets: p,
       v: n,
       duration: MOTION.countUp,
       ease: 'Cubic.easeOut',
-      onUpdate: () => this.valueText.setText(`${Math.round(p.v)}`),
-      onComplete: () => this.valueText.setText(`${n}`),
+      onUpdate: () => set(Math.round(p.v)),
+      onComplete: () => set(n),
     });
     this.scene.tweens.add({ targets: this, scale: { from: 1.08, to: 1 }, duration: 220, ease: 'Back.easeOut' });
+    if (!this.listenedDestroy) {
+      this.listenedDestroy = true;
+      this.once('destroy', () => {
+        this.counter?.stop();
+        this.scene?.tweens.killTweensOf(this);
+      });
+    }
     return this;
   }
 }
@@ -354,6 +364,7 @@ export class ProgressBar extends Phaser.GameObjects.Container {
 
   private draw(f: number): void {
     const g = this.g;
+    if (!g.active) return;
     const y = this.barY;
     const h = this.barH;
     const r = Math.min(2, h / 2);
@@ -436,6 +447,7 @@ export class Toggle extends Phaser.GameObjects.Container {
 
   private draw(): void {
     const g = this.g;
+    if (!g.active) return;
     const tx = 2;
     const ty = 4;
     const tw = 30;
