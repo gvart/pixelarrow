@@ -256,8 +256,8 @@ check('results screen', await until(() => active('Results'), 25000), JSON.string
 await wait(1500);
 check('report: victory banner and count-up tiles', await ev(() => { const s = window.__game.scene.getScene('Results'); return s.report.result === 'victory' && s.report.kills > 0; }));
 // the bottom button leads to the spoils first (cards turn over), then takes them
-if (await btn('Results', { icon: 'coin' })) {
-  await tapBtn('Results', { icon: 'coin' });
+if (await btn('Results', { icon: 'chest' })) {
+  await tapBtn('Results', { icon: 'chest' });
   await wait(1200);
   check('report: spoils page with loot cards', await ev(() => { const s = window.__game.scene.getScene('Results'); return s.page === 'spoils' && s.revealed.size > 0; }));
 }

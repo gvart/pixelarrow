@@ -568,6 +568,8 @@ export class HeroScene extends BaseScene {
       addMedallion(this, c, 27, ry + 12, 24, perkIcon(p), known ? 'learned' : open ? 'available' : 'locked');
       const node = this.add.zone(25, ry + 10, 28, 28).setOrigin(0, 0).setInteractive();
       uiId(node, `perk:${id}`);
+      // (like a Button: `opts.label` names it for scripts and the tutorial)
+      Object.assign(node, { opts: { label: tOr(`perk.${id}.name`, p.name) } });
       node.on('pointerup', () => !area.moved && this.openPerk(h, p, tree));
       c.add(node);
       const pip = this.add.graphics();
