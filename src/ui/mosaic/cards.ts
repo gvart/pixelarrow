@@ -265,6 +265,8 @@ export interface ParchmentRowOpts {
   /** Greyed and explained on tap. */
   disabled?: string;
   onClick?: () => void;
+  /** Long-press text. */
+  tip?: string;
   id?: string;
 }
 
@@ -315,7 +317,7 @@ export class ParchmentRow extends Phaser.GameObjects.Container {
     }
     if (o.badge !== undefined && o.badge !== 0) this.add(new MBadge(scene, this.w - 4, 4, o.badge));
     if (off) P(scene.add.rectangle(0, 0, this.w, this.h, MOSAIC.parchLo, 0.45).setOrigin(0, 0));
-    if (o.onClick || off) makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick ?? (() => undefined), disabled: () => o.disabled });
+    if (o.onClick || off) makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick ?? (() => undefined), disabled: () => o.disabled, tip: o.tip });
     uiId(this, o.id ?? `row:${o.title}`);
     scene.add.existing(this);
   }
