@@ -12,11 +12,11 @@
 import { RS } from '../../platform/renderScale';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { Button, Meter, addIcon, addPanel, addScroll, addText, tappable } from '../../ui/kit';
+import { Button, Meter, addIcon, addPanel, addText, tappable } from '../../ui/kit';
 import { Badge, Label, ScrollList, firstTimeHint, openModal, showTooltip, toast, type Modal } from '../../ui/widgets';
 import { SIZE, COLOR, STRAT } from '../../ui/theme';
 import { CommandStrip, SituationBar, type SitNumber } from '../../ui/strategos';
-import { LINE_H, measureText, wrapText } from '../../ui/textfit';
+import { LINE_H, ellipsize, measureText, wrapText } from '../../ui/textfit';
 import { uiId, worldRect } from '../../ui/layout';
 import { haptic, hapticNotify } from '../../platform/telegram';
 import { getMap, hasMap, type WorldGraph } from '../../online/world';
@@ -484,8 +484,8 @@ export class OnlineScene extends BaseScene {
     }
     const h = Math.min(VH - 16, 26 + lines.length * LINE_H + 10 + SIZE.btnH + 12);
     const y = Math.round((VH - h) / 2);
-    addScroll(this, H, x, y, w, h);
-    H.add(addText(this, VW / 2, y + 12, title, 'red', 0.5));
+    H.add(addPanel(this, x, y, w, h, 'cardRaised'));
+    H.add(addText(this, VW / 2, y + 10, ellipsize(title, (w - 20) / 1.1, false, 7, 'head'), 'head', 0.5).setScale(1.1));
     if (lines.length) {
       const body = addText(this, VW / 2, y + 28, lines.join('\n'), 'ink', 0.5);
       body.setCenterAlign();

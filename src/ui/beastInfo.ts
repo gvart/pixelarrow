@@ -134,7 +134,7 @@ export function openBeastInfo(scene: UiScene, enc: EncounterId, o: BeastInfoOpts
     y += l.h + 2;
   }
   y += 3;
-  c.add(addText(scene, 0, y, ellipsize(t('myth.info.mechanics'), w), 'red'));
+  c.add(addText(scene, 0, y, ellipsize(t('myth.info.mechanics'), w, false, 7, 'head'), 'head'));
   y += 11;
   for (let i = 1; i <= ENCOUNTERS[enc].hints; i++) {
     const l = new Label(scene, 0, y, `- ${t(`myth.${enc}.hint${i}` as TKey)}`, { maxW: w, maxLines: 3, area });
@@ -144,7 +144,7 @@ export function openBeastInfo(scene: UiScene, enc: EncounterId, o: BeastInfoOpts
   const terror = new Label(scene, 0, y, `- ${t('myth.info.terror')}`, { maxW: w, maxLines: 2, area });
   c.add(terror);
   y += terror.h + 5;
-  c.add(addText(scene, 0, y, ellipsize(t('myth.info.counters'), w), 'red'));
+  c.add(addText(scene, 0, y, ellipsize(t('myth.info.counters'), w, false, 7, 'head'), 'head'));
   y += 11;
   const ct = new Label(scene, 0, y, t(`myth.${enc}.counter` as TKey), { maxW: w, maxLines: 3, area, font: 'good' });
   c.add(ct);

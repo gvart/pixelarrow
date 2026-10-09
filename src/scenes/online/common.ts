@@ -1,6 +1,7 @@
 /** Shared bits of the online scenes: modals, the resource strip, colours. */
 import Phaser from 'phaser';
-import { Button, addIcon, addPanel, addScroll, addText, type FontKey } from '../../ui/kit';
+import { Button, addIcon, addPanel, addText, type FontKey } from '../../ui/kit';
+import { ellipsize } from '../../ui/textfit';
 import { shadeTap } from '../../ui/widgets';
 import type { Resources } from '../../online/rules';
 
@@ -25,8 +26,8 @@ export function openModal(scene: Phaser.Scene, ui: Phaser.GameObjects.Container,
   c.add(shade);
   const x = Math.round((VW - w) / 2);
   const y = Math.max(4, Math.round((VH - h) / 2));
-  addScroll(scene, c, x, y, w, h);
-  c.add(addText(scene, VW / 2, y + 12, title, 'red', 0.5));
+  c.add(addPanel(scene, x, y, w, h, 'cardRaised'));
+  c.add(addText(scene, VW / 2, y + 10, ellipsize(title, (w - 20) / 1.1, false, 7, 'head'), 'head', 0.5).setScale(1.1));
   return { c, x, y, w, h, onShadeTap: (close) => shadeTap(shade, { x, y, w, h }, close) };
 }
 

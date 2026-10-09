@@ -162,7 +162,7 @@ export class OnlineArmyScene extends BaseScene {
         rx -= tx.width + 18;
       }
     }
-    H.add(addText(this, left, 9, ellipsize((this.garrisonHex ? t('oarmy.garrison') : t('oarmy.title')), rx - left - 4), 'red'));
+    H.add(addText(this, left, 9, ellipsize(this.garrisonHex ? t('oarmy.garrison') : t('oarmy.title'), rx - left - 4, false, 7, 'head'), 'head'));
     if (this.st !== 'ready' || !p) {
       this.clearBody();
       addEconState(this, this.body, 4, 30, VW - 8, VH - 34, this.st as EconState | 'loading', () => {
