@@ -274,6 +274,12 @@ optional **paint** (shield emblem and colours, helmet crest colour).
 Shields block frontal attacks (hoplon > oval > buckler). Hoplon and oval
 shields allow the **shield wall**. A bow and a shield are exclusive.
 
+Rarity adds random stats, and epic and legendary items a **power** (grade I
+or II); item sets add bonuses by pieces worn, and named legendaries carry a
+fixed power and an extra. The battle runs the powers, the sets' special lines
+and the named extras (`src/sim/powers.ts`). Rules and numbers:
+[ITEMS.md](ITEMS.md).
+
 ## Battle simulation (`src/sim`)
 
 A pure TypeScript, real-time simulation with no Phaser imports:
@@ -286,7 +292,13 @@ A pure TypeScript, real-time simulation with no Phaser imports:
   `issue()` applies an order immediately between steps; `schedule()` applies
   it at the next step, which is what a future lockstep PvP layer will use.
 - The renderer only reads state and drains events (`hit`, `block`, `death`,
-  `contact`, `flanked`, `rout`, `shot`, `impact`, `end`, ...).
+  `contact`, `flanked`, `rout`, `shot`, `impact`, `proc`, `end`, ...).
+- Item powers and set specials live in `src/sim/powers.ts` (a `PowerSystem`,
+  like `src/sim/myth.ts` for beasts): hooks on hit, on being hit, on kill, on
+  low HP, timers and small auras, every chance from the battle's `Rng`, its
+  state in `Battle.hash()`. A battle with no powers creates none, so older
+  replays play exactly as before. A proc pushes a `proc` event and the
+  renderer floats the power's icon over the hero.
 
 ### Rules
 
