@@ -52,6 +52,22 @@ export const EN_ARMY = {
   'mod.armorPierce': 'Armour pierce',
   'mod.moraleShock': 'Shock',
   'mod.xpBonus': 'XP',
+  'mod.atkSpeed': 'Attack speed',
+  'mod.steady': 'Steadiness',
+  'mod.koChance': 'Survival',
+  'mod.goldBonus': 'Gold',
+  'mod.durable': 'Durability',
+
+  // ---- item card: powers, sets, requirements, class limits (docs/ITEMS.md)
+  'item.power': 'Power: {name}',
+  'item.set': 'Set: {name} ({n}/{of})',
+  'item.needs': 'Needs {list}',
+  'item.short': 'Short by {n}: stats -{p}%, power and set off',
+  'item.for': 'For: {list}',
+  'item.classBlocked': '{cls} cannot use this',
+  'item.duelInert': 'Gold, survival and durability do nothing in duels',
+  'item.sec': 's',
+  'army.gearMoved': 'Gear their class cannot use went to the stash: {names}',
 
   // ---- attributes
   'attr.str': 'Strength',

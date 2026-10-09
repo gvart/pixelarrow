@@ -9,6 +9,7 @@ import { SIZE, COLOR, STRAT } from '../ui/theme';
 import { CommandStrip, SituationBar, type SitNumber } from '../ui/strategos';
 import { ensureFonts, FONT_RED_LIGHT } from '../ui/fonts';
 import {
+  equipRefusal,
   DragDrop, ROMAN, Stage, StashGrid, addChip, addGroupBadge, addMountTile, addSlotTile, addStars, addTabBadge, className, defaultStashState,
   groupName, itemName, openItemCard, roleColor, uiBoundsOf, type StashState,
 } from '../ui/sheet';
@@ -91,6 +92,12 @@ export class ArmyScene extends BaseScene {
     this.events.once('shutdown', () => this.clearBody());
     this.refresh();
     firstTimeHint(this, 'army', t('stash.dragHint'));
+    // once after the class-limits update: gear some heroes' classes may no longer use went to the stash
+    if (c.data.gearMoved?.length) {
+      toast(this, t('army.gearMoved', { names: c.data.gearMoved.join(', ') }), 'info', 5000);
+      delete c.data.gearMoved;
+      void state.save();
+    }
   }
 
   private hero(): Hero | undefined {
@@ -436,7 +443,7 @@ export class ArmyScene extends BaseScene {
       });
     }
     if (cost > 0) actions.push({ label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', disabled: camp.data.gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) });
-    if (h) actions.push({ label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', onClick: () => this.equip(it) });
+    if (h) actions.push({ label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', disabled: equipRefusal(h, it), onClick: () => this.equip(it) });
     openItemCard(this, { item: it, hero: h, actions, notes: this.inTown() ? [] : [{ text: this.back.from === 'Camp' ? t('cs.scrapHint') : t('stash.sellInTown') }] });
   }
 

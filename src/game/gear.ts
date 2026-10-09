@@ -206,7 +206,8 @@ export function compareItem(h: Hero, item: Item): Comparison {
 const MOD_ORDER: [keyof StatMods, number, boolean?][] = [
   ['dmg', 1], ['rangedDmg', 1], ['range', 1], ['reach', 2], ['atkTime', 2], ['shotTime', 2], ['ammo', 0], ['accuracy', 0, true], ['block', 0, true],
   ['blockPierce', 0, true], ['armorPierce', 0, true], ['armor', 1], ['hp', 0], ['morale', 0], ['stamina', 0], ['speed', 0, true],
-  ['chargeBonus', 2], ['moraleShock', 2], ['xpBonus', 0, true],
+  ['chargeBonus', 2], ['moraleShock', 2], ['atkSpeed', 0, true], ['steady', 0, true], ['xpBonus', 0, true], ['koChance', 0, true],
+  ['goldBonus', 0, true], ['durable', 0, true],
 ];
 
 export interface ModLine {
@@ -218,9 +219,9 @@ export interface ModLine {
   good: boolean;
 }
 
-/** The modifiers of an item instance (rarity and condition applied), for its card. */
-export function itemModLines(it: Item): ModLine[] {
-  const m = itemMods(it);
+/** The modifiers of an item instance (rarity, condition, random stats and, with the wearer's attributes, the requirement penalty), for its card. */
+export function itemModLines(it: Item, attrs?: Hero['attrs']): ModLine[] {
+  const m = itemMods(it, attrs);
   const out: ModLine[] = [];
   for (const [k, dp, pct] of MOD_ORDER) {
     const v = m[k];

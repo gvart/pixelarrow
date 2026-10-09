@@ -13,6 +13,7 @@ import { ellipsize } from '../../ui/textfit';
 import { SIZE, COLOR } from '../../ui/theme';
 import { ensureFonts, FONT_RED_LIGHT } from '../../ui/fonts';
 import {
+  equipRefusal,
   DragDrop, ROMAN, Stage, StashGrid, addChip, addGroupBadge, addSlotTile, addStars, className, defaultStashState, groupName, itemName,
   openClassCard, openItemCard, roleColor, roleName, roleTraits, uiBoundsOf, type StashState,
 } from '../../ui/sheet';
@@ -422,7 +423,7 @@ export class OnlineArmyScene extends BaseScene {
       hero: oh?.hero,
       actions: [
         { label: t('oarmy.market'), icon: 'coin', id: 'oarmy.sell', onClick: () => this.scene.start('Market', { tab: 'sell', back: { scene: 'OnlineArmy' } }) },
-        ...(oh ? [{ label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', onClick: () => this.equip(it) }] : []),
+        ...(oh ? [{ label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', disabled: equipRefusal(oh.hero, it), onClick: () => this.equip(it) }] : []),
       ],
     });
   }

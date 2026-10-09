@@ -11,6 +11,7 @@ import { ACCENT, RESOURCES, SURFACE } from '../ui/tokens';
 import { fadeIn } from '../ui/motion';
 import { ensureFonts } from '../ui/fonts';
 import {
+  equipRefusal,
   DragDrop, Stage, StashGrid, addChip, frameScrollTexts, addMountTile, addSlotTile, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
   uiBoundsOf, type StashState,
 } from '../ui/sheet';
@@ -466,7 +467,7 @@ export class HeroScene extends BaseScene {
       hero: h,
       actions: [
         ...(gold !== null && cost > 0 ? [{ label: t('stash.repair', { n: cost }), icon: 'repair', id: 'stash.repair', disabled: gold < cost ? t('stash.noGold') : undefined, onClick: () => this.repair(it) }] : []),
-        { label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', onClick: () => this.equip(it) },
+        { label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', disabled: h ? equipRefusal(h, it) : undefined, onClick: () => this.equip(it) },
       ],
     });
   }

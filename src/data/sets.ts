@@ -35,6 +35,15 @@ export const SETS: Record<string, SetDef> = {
   alexander: S('alexander', 'Panoply of Alexander', 'legendary', [{ pieces: 2, mods: { morale: 8 } }, { pieces: 3, mods: { speed: 0.08 } }, { pieces: 4, mods: { chargeBonus: 0.15 } }, { pieces: 5, special: 'born_to_rule' }]),
 };
 
+/** What a set's special line does (item card; translations in src/i18n/data.ru.ts `setsp.<id>`). */
+export const SET_SPECIAL_TEXT: Record<SetSpecial, string> = {
+  war_cry: 'War Cry: at battle start enemies within 4 lose 10 morale; charges +20% shock',
+  rain_of_arrows: 'Rain of Arrows: every 5th shot looses 2 more arrows',
+  bond_of_the_band: 'Bond of the Band: +4% damage and +3% block per set ally within 3 (up to 4)',
+  heel_of_achilles: 'Heel of Achilles: -50% damage from front and side, +50% from behind',
+  born_to_rule: 'Born to Rule: allies within 4 +10% damage and +10 morale; his group never routs while he stands',
+};
+
 /** The item ids of a set, in the order of the item list. */
 export function setPieces(id: string): string[] {
   return ITEM_LIST.filter((d) => d.set === id).map((d) => d.id);

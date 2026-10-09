@@ -243,16 +243,20 @@ export function itemPower(item: Pick<Item, 'uid' | 'def' | 'rarity'> & { pow?: s
   return { id: new Rng(seed(item, 'pow')).pick(pool), grade };
 }
 
-/** A power's card line at a grade ("12% chance a hit does double damage; costs 5% of max HP"). */
-export function powerText(p: ItemPower): string {
+/**
+ * A power's card line at a grade ("12% chance a hit does double damage; costs
+ * 5% of max HP"). `template` is a translation of `POWERS[id].text` with the
+ * same {c} {v} {t} {x} slots; `sec` the unit of seconds.
+ */
+export function powerText(p: ItemPower, template = POWERS[p.id].text, sec = 's'): string {
   const g = POWERS[p.id].grades[p.grade];
   const pct = (v?: number) => `${Math.round((v ?? 0) * 100)}%`;
   const fmt = (v?: number) => (v !== undefined && v < 1 ? pct(v) : `${v ?? 0}`);
-  return POWERS[p.id].text
+  return template
     .replace('{c}', pct(g.chance))
     .replace('{v}', fmt(g.value))
-    .replace('{t}', `${g.time ?? 0} s`)
-    .replace('{x}', p.id === 'momentum' ? `${g.extra} s` : fmt(g.extra));
+    .replace('{t}', `${g.time ?? 0} ${sec}`)
+    .replace('{x}', p.id === 'momentum' ? `${g.extra} ${sec}` : fmt(g.extra));
 }
 
 /** The name an item shows: "Keen Iron xiphos of Frenzy". Set pieces and named items keep their own name. */
