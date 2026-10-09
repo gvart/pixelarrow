@@ -10,7 +10,7 @@ vi.mock('../src/platform/cloud', () => ({
 }));
 
 import { Battle } from '../src/sim/battle';
-import { MatchLink, matchSource } from '../src/duel/match';
+import { MATCH_HEARTBEAT, MatchLink, STALL_GIVE_UP_MS, STALL_POLL_MS, forgetMatch, matchSource, ongoingMatch, rememberMatch } from '../src/duel/match';
 import { ApiDuelSource, type QueueEvent } from '../src/duel/client';
 import { onlineBattleSetup } from '../src/online/battle';
 import { DEFAULT_FORMATIONS, starterOnlineArmy } from '../src/online/rules';
@@ -38,7 +38,8 @@ class FakeSocket {
     this.onmessage?.({ data: JSON.stringify(m) });
   }
   send(s: string): void {
-    this.sent.push(JSON.parse(s));
+    // the heartbeat's `ping` is a bare text frame
+    this.sent.push(s === 'ping' ? s : JSON.parse(s));
   }
   close(): void {
     this.readyState = 3;
@@ -145,5 +146,136 @@ describe('ranked queue', () => {
     ws.deliver({ type: 'unqueued', reason: 'cancelled' });
     ws.deliver({ type: 'queued', mode: 'ranked', since: 1, now: 1 });
     expect(events.length).toBe(n);
+  });
+});
+
+describe('a live match that goes quiet', () => {
+  it('a socket that stopped hearing anything (half-open: no close ever comes) is replaced, and the match resumes', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
+    try {
+      const link = new MatchLink('m1');
+      link.sock.open();
+      const ws = FakeSocket.all[0];
+      ws.open();
+      vi.advanceTimersByTime(MATCH_HEARTBEAT.everyMs);
+      expect(ws.sent).toContain('ping');
+      // the phone was put away: the socket still looks open but nothing arrives, not even the pongs
+      vi.advanceTimersByTime(MATCH_HEARTBEAT.deadMs + MATCH_HEARTBEAT.everyMs);
+      expect(FakeSocket.all.length).toBe(2);
+      expect(link.sock.connected).toBe(false);
+      // the new socket gets the server's resume (here: the report of a match settled meanwhile)
+      const ws2 = FakeSocket.all[1];
+      ws2.open();
+      ws2.deliver({ type: 'match_result', duel: 'm1', report: report({ end: 'forfeit', winner: 1 }) });
+      expect(link.report).toMatchObject({ end: 'forfeit', winner: 1 });
+      // the dead socket's late frames go nowhere
+      ws.deliver({ type: 'peer', duel: 'm1', side: 1, online: false, until: 1 });
+      expect(link.foeAwayUntil).toBeNull();
+      link.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a pong keeps a quiet socket (deployment, nobody moving) alive', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
+    try {
+      const link = new MatchLink('m1');
+      link.sock.open();
+      const ws = FakeSocket.all[0];
+      ws.open();
+      for (let t = 0; t < MATCH_HEARTBEAT.deadMs * 3; t += MATCH_HEARTBEAT.everyMs) {
+        vi.advanceTimersByTime(MATCH_HEARTBEAT.everyMs);
+        ws.onmessage?.({ data: 'pong' });
+      }
+      expect(FakeSocket.all.length).toBe(1);
+      link.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a match silent for long asks the server for its report and ends the battle with it (no endless wait)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
+    try {
+      const start = duelStart();
+      const link = new MatchLink('m1');
+      link.sock.open();
+      const ws = FakeSocket.all[0];
+      ws.open();
+      let settled: MatchReport | null = null;
+      const poll = vi.fn(async () => settled);
+      const done = vi.fn();
+      const src = matchSource(link, start, done, poll);
+      const sim = new Battle(JSON.parse(JSON.stringify(start.setup)));
+      src.lockstep!.attach(sim);
+      ws.deliver({ type: 'go', duel: 'm1' });
+      ws.deliver({ type: 'turn', duel: 'm1', n: 0, tick: 0, orders: [] });
+      // the turns stop coming (and the match_result will be lost with the socket)
+      vi.advanceTimersByTime(STALL_POLL_MS + 5000);
+      expect(poll).toHaveBeenCalled();
+      expect(src.lockstep!.aborted()).toBeNull(); // still running on the server
+      settled = report({ end: 'forfeit', winner: 1 });
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(src.lockstep!.aborted()).toBe('Match lost');
+      src.onFinish(sim, 0);
+      expect(done).toHaveBeenCalledTimes(1);
+      expect(done.mock.calls[0][0].report).toMatchObject({ end: 'forfeit' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a match the server cannot be reached about is given up after a while', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
+    try {
+      const start = duelStart();
+      const link = new MatchLink('m1');
+      const src = matchSource(link, start, () => undefined, async () => null);
+      src.lockstep!.attach(new Battle(JSON.parse(JSON.stringify(start.setup))));
+      vi.advanceTimersByTime(STALL_GIVE_UP_MS - 10_000);
+      expect(src.lockstep!.aborted()).toBeNull();
+      vi.advanceTimersByTime(20_000);
+      expect(src.lockstep!.aborted()).toBe('Cannot reach the match');
+      link.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('back into a live match after a reload', () => {
+  beforeEach(() => {
+    const m = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) });
+  });
+
+  it('remembers the match being played until it ends, and only for a while', () => {
+    expect(ongoingMatch()).toBeNull();
+    rememberMatch('m7', 'ranked', 1_000_000);
+    expect(ongoingMatch(1_000_000 + 60_000)).toEqual({ id: 'm7', mode: 'ranked', at: 1_000_000 });
+    // long over either way (the server voids a match after 12 minutes)
+    expect(ongoingMatch(1_000_000 + 16 * 60_000)).toBeNull();
+    // another match's end does not forget this one
+    forgetMatch('m8');
+    expect(ongoingMatch(1_000_000)).not.toBeNull();
+    forgetMatch('m7');
+    expect(ongoingMatch(1_000_000)).toBeNull();
+  });
+
+  it('a broken or blocked storage is no match', () => {
+    localStorage.setItem('pixelarrow.duel.ongoing', '{oops');
+    expect(ongoingMatch()).toBeNull();
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('blocked');
+      },
+      setItem: () => {
+        throw new Error('blocked');
+      },
+      removeItem: () => undefined,
+    });
+    expect(() => rememberMatch('m1', 'unranked')).not.toThrow();
+    expect(ongoingMatch()).toBeNull();
   });
 });

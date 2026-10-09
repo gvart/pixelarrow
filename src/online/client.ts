@@ -322,6 +322,14 @@ export type { PresencePlayer, BattleSite };
 
 type Listener<S> = (m: S) => void;
 
+/** A socket's heartbeat (ShardSocket): half-open sockets never fire onclose, so silence is the only sign. */
+export interface Heartbeat {
+  /** How often a `ping` text frame goes out (the server's auto-response answers `pong`). */
+  everyMs: number;
+  /** Nothing received for this long: the socket is dead (a phone put away, a network switch) and is replaced. */
+  deadMs: number;
+}
+
 /**
  * The shard socket with reconnect (backoff) while the online mode is open.
  * One instance for the whole game; scenes subscribe and unsubscribe. The duel
@@ -334,18 +342,87 @@ export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> 
   private retry = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private wanted = false;
+  private beat: ReturnType<typeof setInterval> | null = null;
+  /** When the current socket last received anything (a frame, a pong) or opened. */
+  private lastRx = 0;
   players: PresencePlayer[] = [];
   me: PresencePlayer | null = null;
   connected = false;
 
-  /** `path`: the socket's endpoint; `maxBackoffMs`: the longest wait between reconnects (a live match retries fast). */
+  /**
+   * `path`: the socket's endpoint; `maxBackoffMs`: the longest wait between reconnects (a live match retries fast);
+   * `heartbeat`: ping the server and replace a socket that went silent (a half-open socket never fires onclose).
+   */
   constructor(
     readonly path = '/ws/online',
     private readonly maxBackoffMs = 30_000,
+    private readonly heartbeat: Heartbeat | null = null,
   ) {}
+
+  /** Back in front (or back online): a socket silent for too long is replaced at once, else pinged. */
+  private readonly wake = (): void => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    this.check();
+  };
+
+  /** Heartbeat: replace a dead socket, else ping it. */
+  check(now = Date.now()): void {
+    if (!this.heartbeat || !this.wanted) return;
+    const ws = this.ws;
+    if (!ws) {
+      // waiting for a backoff timer that a backgrounded tab may have stretched: try now
+      if (this.timer) {
+        clearTimeout(this.timer);
+        this.timer = null;
+        this.open();
+      }
+      return;
+    }
+    if (now - this.lastRx > this.heartbeat.deadMs) return this.recycle();
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send('ping');
+      } catch {
+        // closing: onclose follows
+      }
+    }
+  }
+
+  /** Drops the current socket without waiting for its close (it may never come) and connects again. */
+  private recycle(): void {
+    const ws = this.ws;
+    if (ws) {
+      ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null;
+      try {
+        ws.close(4000, 'stale');
+      } catch {
+        // already closed
+      }
+    }
+    this.ws = null;
+    this.connected = false;
+    this.retry = 0;
+    this.open();
+  }
+
+  private startBeat(): void {
+    if (!this.heartbeat || this.beat) return;
+    this.beat = setInterval(() => this.check(), this.heartbeat.everyMs);
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.wake);
+    if (typeof window !== 'undefined') window.addEventListener('online', this.wake);
+  }
+
+  private stopBeat(): void {
+    if (!this.beat) return;
+    clearInterval(this.beat);
+    this.beat = null;
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.wake);
+    if (typeof window !== 'undefined') window.removeEventListener('online', this.wake);
+  }
 
   open(): void {
     this.wanted = true;
+    this.startBeat();
     if (this.ws) return;
     const token = online.api.token;
     if (!token) return;
@@ -359,11 +436,14 @@ export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> 
       return;
     }
     this.ws = ws;
+    this.lastRx = Date.now();
     ws.onopen = () => {
       this.connected = true;
       this.retry = 0;
+      this.lastRx = Date.now();
     };
     ws.onmessage = (e) => {
+      this.lastRx = Date.now();
       let msg: S;
       try {
         msg = JSON.parse(String(e.data)) as S;
@@ -406,6 +486,7 @@ export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> 
 
   close(): void {
     this.wanted = false;
+    this.stopBeat();
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     this.ws?.close(1000);
