@@ -1606,7 +1606,7 @@ export class DuelScene extends BaseScene {
     row.add(addPanel(this, 0, 0, w, 29, inTeam ? 'slotSel' : 'button'));
     const cls = heroClass(h);
     row.add(addPanel(this, 3, 3, 23, 23, 'slot'));
-    row.add(addPortrait(this, dollFromHero(h), 3, 3));
+    row.add(addPortrait(this, dollFromHero(h), 3, 3, { size: 23 }));
     row.add(this.add.rectangle(4, 23, 21, 2, roleColor(cls.role)).setOrigin(0, 0));
     // narrow rows (landscape phones): a slimmer toggle, the points under the name
     const narrow = w < 160;
@@ -1722,7 +1722,7 @@ export class DuelScene extends BaseScene {
         const pw = rw - 3;
         row.add(addPanel(this, 0, 0, pw, rh - 2, locked ? 'inset' : 'button'));
         row.add(addPanel(this, 3, 3, 26, 26, 'slot'));
-        row.add(addPortrait(this, dollFromHero(sample), 4, 4).setAlpha(locked ? 0.5 : 1));
+        row.add(addPortrait(this, dollFromHero(sample), 4, 4, { size: 24 }).setAlpha(locked ? 0.5 : 1));
         row.add(this.add.rectangle(4, 26, 24, 2, locked ? 0x5a4232 : roleColor(cls.role)).setOrigin(0, 0));
         const bw = 44;
         const why = locked ? t('duels.unlocksAt', { n: level }) : full ? t('duels.why.roster_full') : p.glory < price ? t('duels.noGlory') : undefined;

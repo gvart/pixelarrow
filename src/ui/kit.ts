@@ -216,6 +216,8 @@ export interface ButtonOpts {
   id?: string;
   /** Icon beside the label even on tall buttons (default: above it from 26 tall). */
   inline?: boolean;
+  /** A second, quieter line under the label (buttons 26 tall and up with an icon: icon at the left, two lines beside it). */
+  sub?: string;
 }
 
 /** Long-press and feedback hooks; widgets.ts installs the tooltip and toast. */
@@ -405,6 +407,17 @@ export class Button extends Phaser.GameObjects.Container {
     };
     if (hasIcon && (!hasLabel || this.opts.iconOnly)) {
       iconCentered();
+    } else if (hasIcon && hasLabel && this.opts.sub && this.h >= 26) {
+      // the icon at the left, the label over its quieter second line
+      const x0 = 5;
+      const tx = x0 + 15;
+      const room = this.w - tx - 4;
+      this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
+      this.labelText = addText(scene, tx, Math.round((this.h - 16) / 2) - 1, fit(room), font, 0).setFontSize(7);
+      const subFont: FontKey = !this.enabled ? 'dim' : light ? 'light' : 'dim';
+      const sub = addText(scene, tx, Math.round((this.h - 16) / 2) + 8, ellipsize(this.opts.sub, room, SHADOW_FONTS.has(subFont), 5), subFont, 0).setFontSize(5);
+      uiFrame(sub, this, this.w, this.h);
+      this.content.add([this.iconImg, this.labelText, sub]);
     } else if (hasIcon && hasLabel && this.h >= 26 && !this.opts.inline) {
       // icon above label
       this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);

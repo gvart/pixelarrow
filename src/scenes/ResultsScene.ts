@@ -19,7 +19,6 @@ import { uiFrame, uiId } from '../ui/layout';
 import { ellipsize, measureText, wrapText } from '../ui/textfit';
 import { COLOR, RARITY_COLOR, RARITY_GLOW, SIZE } from '../ui/theme';
 import { addPortrait } from '../ui/sprites';
-import { PORTRAIT_PX } from '../art/paperdoll';
 import { dollFromHero } from '../art/paperdoll';
 import { P } from '../art/palette';
 import { state } from '../state';
@@ -365,9 +364,7 @@ export class ResultsScene extends BaseScene {
     g.fillRect(fx + 3, fy + 3, fs - 6, fs - 6);
     c.add(g);
     if (mvp.hero) {
-      const img = addPortrait(this, dollFromHero(mvp.hero), fx + 3, fy + 3);
-      img.setScale(img.scaleX * ((fs - 6) / PORTRAIT_PX));
-      c.add(img);
+      c.add(addPortrait(this, dollFromHero(mvp.hero), fx + 3, fy + 3, { size: fs - 6 }));
     }
     const tx = fx + fs + 6;
     const tw = w - tx - 6;
@@ -403,13 +400,12 @@ export class ResultsScene extends BaseScene {
   private renderHeroRow(h: HeroLine, row: Phaser.GameObjects.Container, w: number, rh: number): void {
     row.add(addPanel(this, 0, 0, w, rh, h.died ? 'buttonOff' : 'inset'));
     if (h.hero) {
-      const img = addPortrait(this, dollFromHero(h.hero), 3, 3, { crop: [3, 0, 18, rh - 6] });
-      img.x -= 3;
+      const img = addPortrait(this, dollFromHero(h.hero), 2, 2, { size: rh - 4 });
       if (h.died) img.setTint(0x8a7a70);
       row.add(img);
     }
     const right = 50;
-    const tx = 23;
+    const tx = rh + 2;
     const tw = w - tx - right - 4;
     const lvNow = this.levelOf(h);
     row.add(addText(this, tx, 4, ellipsize(h.name, tw - 24), h.died ? 'dim' : 'red'));
