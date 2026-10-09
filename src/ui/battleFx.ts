@@ -11,6 +11,7 @@ import { VECTOR_ICONS } from '../art/vectorIcons';
 import { RS } from '../platform/renderScale';
 import { ABILITIES, AURAS, AURA_IDS, type AbilityId, type AuraId } from '../data/perks';
 import { willRadius } from '../sim/stats';
+import type { ProcId } from '../sim/powers';
 import type { SimUnit } from '../sim/types';
 
 const RING_FRAMES = 8;
@@ -58,6 +59,18 @@ const PIP_DEFS: { key: string; kind: 'up' | 'fang' | 'shield'; color: number }[]
   { key: 'pip_berserk', kind: 'fang', color: 0xe04030 },
 ];
 
+/**
+ * Vector icon shown over a hero when an item power or a set special fires
+ * (texture `fxicon_power_<id>`). Stand-ins until the atlas's `power:<id>`
+ * icons (docs/icons/README.md) are wired in.
+ */
+export const PROC_ICON: Record<ProcId, string> = {
+  blood_price: 'berserk', frenzy: 'bolt', sunder: 'anvil', rend: 'armor', second_wind: 'heart', aegis: 'shield',
+  retribution: 'swords', hunger: 'beast', terror: 'skull', steadfast: 'morale', eagle_eye: 'eye', twin_shot: 'volley',
+  unshaken: 'wall', momentum: 'charge', last_stand: 'flag', executioner: 'sword',
+  war_cry: 'horn', rain_of_arrows: 'volley', bond_of_the_band: 'people', heel_of_achilles: 'shield', born_to_rule: 'rally',
+};
+
 export function registerFxTextures(scene: Phaser.Scene): void {
   if (scene.textures.exists('fx_star')) return;
   scene.textures.addCanvas('fx_star', renderStar().toCanvas());
@@ -69,6 +82,9 @@ export function registerFxTextures(scene: Phaser.Scene): void {
   for (const id of Object.keys(ABILITIES) as AbilityId[]) {
     const def = ABILITIES[id];
     scene.textures.addCanvas(`fxicon_${id}`, renderFxIcon(VECTOR_ICONS[def.icon] ?? VECTOR_ICONS.star, fxN))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  }
+  for (const [id, icon] of Object.entries(PROC_ICON)) {
+    scene.textures.addCanvas(`fxicon_power_${id}`, renderFxIcon(VECTOR_ICONS[icon] ?? VECTOR_ICONS.star, fxN))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
   }
   scene.textures.addCanvas('fxicon_levelup', renderFxIcon(VECTOR_ICONS.star, fxN))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
 }

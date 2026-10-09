@@ -36,6 +36,7 @@ import { Terrain, cellHash } from './terrain';
 import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
 import { MOUNTS, type MountDef } from '../data/classes';
 import { MythSystem, hasMyth } from './myth';
+import { PowerSystem, hasPowers } from './powers';
 import { HORN_RULES } from '../data/beasts';
 import { clamp } from '../util/math';
 
@@ -160,6 +161,8 @@ export class Battle {
   readonly special: boolean;
   /** Mythical beasts on the field (src/sim/myth.ts); null in every battle without them. */
   readonly myth: MythSystem | null = null;
+  /** Item powers and set specials (src/sim/powers.ts); null in every battle without them. */
+  readonly pw: PowerSystem | null = null;
   /** War horns left per side (a battle consumable); [0, 0] for setups without. */
   horns: [number, number] = [0, 0];
   private readonly hornSetup: boolean;
@@ -280,6 +283,7 @@ export class Battle {
         bot.deploy(this);
       }
     });
+    if (hasPowers(allStats)) this.pw = new PowerSystem(this);
   }
 
   // ------------------------------------------------------------------ queries
@@ -818,7 +822,7 @@ export class Battle {
 
   /** Morale damage multiplier for a unit (traits, perks, Will, Steady Presence). */
   ml(u: SimUnit): number {
-    return u.stats.moraleLoss * (u.aura & AURAS.steady.bit ? AURA_RULES.steadyMoraleLoss : 1);
+    return u.stats.moraleLoss * (u.aura & AURAS.steady.bit ? AURA_RULES.steadyMoraleLoss : 1) * (this.pw ? this.pw.ml(u) : 1);
   }
 
   /**
@@ -978,6 +982,7 @@ export class Battle {
 
     for (const bot of this.bots) bot.think(this);
     if (this.tick % 10 === 1) this.updateAuras();
+    this.pw?.tick();
 
     if (this.tick % 40 === 0) {
       for (const g of this.groups) if (!g.disbanded && !g.individual) this.reassign(g.id);
@@ -1586,7 +1591,17 @@ export class Battle {
       u.morale = Math.max(u.morale, u.stats.morale * (u.stats.routAt ?? RULES.routFraction) + 1);
       return;
     }
-    if (u.morale < u.stats.morale * (u.stats.routAt ?? RULES.routFraction) && u.state === 'ready') this.rout(u);
+    let routAt = u.stats.morale * (u.stats.routAt ?? RULES.routFraction);
+    if (this.pw && u.state === 'ready' && u.morale < routAt) {
+      // Last Stand, or the king's own group: he holds whatever his morale
+      const r = this.pw.rout(u);
+      if (r.hold) {
+        u.morale = Math.max(u.morale, routAt + 1);
+        return;
+      }
+      routAt -= r.bonus;
+    }
+    if (u.morale < routAt && u.state === 'ready') this.rout(u);
   }
 
   private rout(u: SimUnit): void {
@@ -1661,6 +1676,7 @@ export class Battle {
     if (missile) b *= RULES.missileBlockFactor;
     b *= this.fatigue(t);
     if (t.berserk > 0) b *= ABILITY_RULES.berserkBlock;
+    if (this.pw) b += this.pw.blockBonus(t);
     b -= pierce;
     return clamp(b, 0, 0.85);
   }
@@ -1670,7 +1686,7 @@ export class Battle {
     const tg = this.groups[t.group];
     const wall = g.shieldWall && u.stats.canShieldWall && this.wallGround(u);
     const fury = u.berserk > 0;
-    u.cooldown = Math.round(u.stats.atkTime * TICK_RATE * (wall ? 1.2 : 1) * (fury ? ABILITY_RULES.berserkTempo : 1) / this.fatigue(u));
+    u.cooldown = Math.round(u.stats.atkTime * TICK_RATE * (wall ? 1.2 : 1) * (fury ? ABILITY_RULES.berserkTempo : 1) / this.fatigue(u) / (this.pw ? this.pw.tempo(u) : 1));
     u.lastAttackTick = this.tick;
     u.stamina = Math.max(0, u.stamina - 3);
     u.wear.weapon += 0.12;
@@ -1709,7 +1725,7 @@ export class Battle {
         if (u.state !== 'ready') return;
       }
     }
-    if (this.rng.chance(this.blockChance(t, dir, u.stats.blockPierce, false))) {
+    if (this.blocks(t, u, dir, u.stats.blockPierce, false)) {
       t.stamina = Math.max(0, t.stamina - (impact ? 10 : 3));
       t.lastBlockTick = this.tick;
       t.wear.shield += impact ? 1.5 : 0.6;
@@ -1730,6 +1746,12 @@ export class Battle {
     if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.meleeDown;
     else if (hd < 0) dmg *= 1 + hd * HEIGHT_RULES.meleeUp;
     let moraleMult = 1 + u.stats.moraleShock + (fury ? ABILITY_RULES.berserkShock : 0);
+    // Momentum, Unshaken and War Cry's shock bend a charge's impact
+    const ch = impact && this.pw ? this.pw.charge(u, t) : null;
+    if (ch) {
+      dmg *= ch.dmg;
+      moraleMult += ch.shock;
+    }
     if (impact && rider) {
       // A mounted charge: the faster the horse, the harder the blow.
       const sr = clamp(u.spd / Math.max(0.1, this.gallopSpeed(u)), 0.4, 1.15);
@@ -1747,7 +1769,7 @@ export class Battle {
         dmg *= MOUNTED_RULES.bracedImpact;
         moraleMult -= 0.6;
       } else {
-        t.stun = Math.max(t.stun, MOUNTED_RULES.impactStun);
+        if (!ch || ch.stuns) t.stun = Math.max(t.stun, MOUNTED_RULES.impactStun + (ch?.stun ?? 0));
         t.momentum = 0;
         this.shove(t, u, MOUNTED_RULES.impactShove * sr);
         // Terror of the horse: the man struck and those around him lose heart.
@@ -1767,7 +1789,7 @@ export class Battle {
       if (braced) {
         dmg *= RULES.bracedImpact;
         moraleMult -= 0.6;
-      } else t.stun = 8;
+      } else if (!ch || ch.stuns) t.stun = 8 + (ch?.stun ?? 0);
       u.momentum = 0;
       this.events.push({ type: 'impact', tick: this.tick, unit: t.id, by: u.id });
     }
@@ -1787,7 +1809,26 @@ export class Battle {
     if (u.stats.beast === 'bear' && t.state === 'ready') t.stun = Math.max(t.stun, MOUNTED_RULES.bearStun);
     // A rider strikes down from the saddle at men on foot.
     if (rider && !impact && !t.stats.mount && !shy) dmg *= MOUNTED_RULES.saddle;
-    this.applyDamage(t, u, dmg, dir, false, moraleMult);
+    if (!this.pw) {
+      this.applyDamage(t, u, dmg, dir, false, moraleMult);
+      return;
+    }
+    dmg = this.pw.dmgOut(u, t, dmg, false);
+    this.pw.onHit(u, t, this.applyDamage(t, u, dmg, dir, false, moraleMult), false);
+  }
+
+  /**
+   * Whether t's shield turns a blow or missile from `by`: Aegis turns it for
+   * sure, Eagle Eye's missiles ignore the shield, else the block roll.
+   * @internal also used by src/sim/myth.ts
+   */
+  blocks(t: SimUnit, by: SimUnit, dir: HitDir, pierce: number, missile: boolean): boolean {
+    const chance = this.blockChance(t, dir, pierce, missile);
+    if (this.pw) {
+      if (this.pw.aegis(t, dir)) return true;
+      if (missile && this.pw.eagleEye(by, chance)) return false;
+    }
+    return this.rng.chance(chance);
   }
 
   contactEvent(g: SimGroup): void {
@@ -1798,16 +1839,20 @@ export class Battle {
     }
   }
 
-  /** @internal also used by src/sim/myth.ts */
-  applyDamage(t: SimUnit, by: SimUnit, raw: number, dir: HitDir, ranged: boolean, moraleMult: number, ap?: number): void {
+  /** Returns the damage dealt (0 when a beast shrugged it off). @internal also used by src/sim/myth.ts */
+  applyDamage(t: SimUnit, by: SimUnit, raw: number, dir: HitDir, ranged: boolean, moraleMult: number, ap?: number): number {
     if (this.myth) {
       raw = this.myth.onDamage(t, by, raw, ranged);
       if (raw <= 0) {
         this.events.push({ type: 'block', tick: this.tick, unit: t.id, by: by.id });
-        return;
+        return 0;
       }
     }
     let armor = t.berserk > 0 ? Math.max(0, t.stats.armor - ABILITY_RULES.berserkArmor) : t.stats.armor;
+    if (this.pw) {
+      raw = this.pw.dmgIn(t, raw, dir);
+      armor = Math.max(0, armor - this.pw.rended(t));
+    }
     if (ap) armor *= 1 - ap;
     const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + armor));
     t.hp -= dmg;
@@ -1825,9 +1870,12 @@ export class Battle {
       }
     }
     if (t.hp <= 0) this.kill(t, by);
+    this.pw?.afterDamage(t, by, dmg, ranged);
+    return dmg;
   }
 
-  private kill(t: SimUnit, by: SimUnit): void {
+  /** @internal also used by src/sim/powers.ts (Retribution) */
+  kill(t: SimUnit, by: SimUnit): void {
     if (this.myth && t.state === 'dead') return;
     t.hp = 0;
     t.state = 'dead';
@@ -1849,9 +1897,21 @@ export class Battle {
       else o.morale = Math.min(o.stats.morale + 10, o.morale + RULES.enemyDeathMorale);
     }
     if (this.myth && t.stats.boss !== undefined) this.myth.onKill(t);
+    this.pw?.onKill(by, t);
   }
 
   private shoot(u: SimUnit, t: SimUnit, dmgMult = 1, accBonus = 0): void {
+    this.loose(u, t, dmgMult, accBonus);
+    u.cooldown = Math.round(u.stats.shotTime * TICK_RATE / this.fatigue(u) / (this.pw ? this.pw.tempo(u) : 1));
+    u.ammo--;
+    u.lastShotTick = this.tick;
+    u.stamina = Math.max(0, u.stamina - 2);
+    // Twin Shot and Rain of Arrows: free missiles at the same man
+    if (this.pw) for (let n = this.pw.extraShots(u); n > 0; n--) this.loose(u, t, dmgMult, accBonus);
+  }
+
+  /** One missile in flight from u at t (no ammunition or cooldown spent here). */
+  private loose(u: SimUnit, t: SimUnit, dmgMult: number, accBonus: number): void {
     const kind: ProjectileKind = u.stats.weapon === 'bow' ? 'arrow' : u.stats.weapon === 'sling' ? 'stone' : 'javelin';
     const speed = kind === 'arrow' ? 20 : kind === 'stone' ? 18 : 13;
     const dx = t.x - u.x;
@@ -1861,16 +1921,13 @@ export class Battle {
     // Lead the target a little, then scatter by inaccuracy.
     const lead = dur * 0.6;
     const eagle = (u.aura & AURAS.eagle.bit) !== 0;
-    const acc = Math.min(0.97, u.stats.accuracy + accBonus + (eagle ? AURA_RULES.eagleAccuracy : 0));
+    let acc = Math.min(0.97, u.stats.accuracy + accBonus + (eagle ? AURA_RULES.eagleAccuracy : 0));
+    if (this.pw) acc = Math.max(0.1, acc - this.pw.shroud(t));
     let spread = (1 - acc) * (0.35 + d * 0.09);
     if (u.stats.mount && u.spd > 1) spread *= MOUNTED_RULES.movingScatter;
     if (t.stats.mount && t.spd > 2) spread *= MOUNTED_RULES.movingScatter;
     const tx = t.x + t.vx * lead + this.rng.range(-spread, spread);
     const ty = t.y + t.vy * lead + this.rng.range(-spread, spread);
-    u.cooldown = Math.round(u.stats.shotTime * TICK_RATE / this.fatigue(u));
-    u.ammo--;
-    u.lastShotTick = this.tick;
-    u.stamina = Math.max(0, u.stamina - 2);
     const p: Projectile = {
       id: this.nextProjId++,
       kind,
@@ -1921,7 +1978,7 @@ export class Battle {
       p.hitId = best.id;
       const dir = this.hitDirection(best, p.sx, p.sy);
       const pierce = p.kind === 'javelin' ? shooter.stats.blockPierce + 0.05 : 0;
-      if (this.rng.chance(this.blockChance(best, dir, pierce, true))) {
+      if (this.blocks(best, shooter, dir, pierce, true)) {
         best.lastBlockTick = this.tick;
         best.wear.shield += 0.5;
         best.morale -= 0.6 * this.ml(best);
@@ -1936,7 +1993,12 @@ export class Battle {
         if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.missileDown;
       }
       this.events.push({ type: 'land', tick: this.tick, proj: p.id, hit: true });
-      this.applyDamage(best, shooter, dmg, dir, true, 1, p.ap);
+      if (!this.pw) {
+        this.applyDamage(best, shooter, dmg, dir, true, 1, p.ap);
+        continue;
+      }
+      dmg = this.pw.dmgOut(shooter, best, dmg, true) * this.pw.missileIn(best);
+      this.pw.onHit(shooter, best, this.applyDamage(best, shooter, dmg, dir, true, 1, p.ap), true);
     }
     // Keep finished projectiles briefly for rendering (stuck javelins), then drop.
     if (this.tick % 20 === 0) {
@@ -2069,7 +2131,7 @@ export class Battle {
         killedBy: u.killedBy,
         ko: u.ko,
         hp: Math.max(0, u.hp),
-        maxHp: u.stats.maxHp,
+        maxHp: u.stats.maxHp + (this.pw ? this.pw.sundered(u) : 0),
         wear: { ...u.wear },
       })),
     };
@@ -2108,6 +2170,7 @@ export class Battle {
       mix(this.horns[1]);
     }
     this.myth?.hash(mix);
+    this.pw?.hash(mix);
     for (const p of this.projectiles) {
       mix(p.tx);
       mix(p.ty);

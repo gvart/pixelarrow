@@ -117,6 +117,9 @@ export interface ItemDef {
   fixed?: Partial<Record<string, number>>;
   /** Never traded on the marketplace or sold to merchants. */
   bound?: boolean;
+  /** Named extras the battle runs (src/sim/powers.ts): fraction of missile damage taken off; accuracy enemy missiles lose against the wearer. */
+  missileWard?: number;
+  shroud?: number;
 }
 
 export type ItemMaterial = 'bronze' | 'iron' | 'steel' | 'silver' | 'gold' | 'wood' | 'leather' | 'linen' | 'bone' | 'horn' | 'stone' | 'faience' | 'felt' | 'wicker';
@@ -475,7 +478,7 @@ const defs: ItemDef[] = [
   { id: 'herakles_club', name: 'Club of Herakles', slot: 'weapon', weaponKind: 'club', art: 'club', tier: 3, value: 30,
     mods: { dmg: 6.5, reach: 1, atkTime: 1.15, moraleShock: 0.5 }, desc: 'Wild olive, torn from the ground at Nemea.', material: 'wood', named: true, bound: true, power: 'terror', fixed: { dmg: 3, atkSpeed: 2, accuracy: 2, moraleShock: 2 } },
   { id: 'nemean_pelt', name: 'Nemean lion pelt', slot: 'armor', art: 'leather', tier: 3, value: 54,
-    mods: { armor: 1.5, morale: 3 }, desc: 'No arrow ever pierced it.', material: 'leather', named: true, bound: true, power: 'unshaken', fixed: { hp: 3, armor: 3, stamina: 2, steady: 2 } },
+    mods: { armor: 1.5, morale: 3 }, desc: 'No arrow ever pierced it.', material: 'leather', named: true, bound: true, power: 'unshaken', missileWard: 0.4, fixed: { hp: 3, armor: 3, stamina: 2, steady: 2 } },
   { id: 'philoctetes_bow', name: 'Bow of Philoctetes', slot: 'weapon', weaponKind: 'bow', art: 'bow', tier: 3, value: 180, twoHanded: true,
     mods: { rangedDmg: 7, range: 13.5, ammo: 16, shotTime: 2, dmg: 2.5, reach: 1, atkTime: 1.1, armorPierce: 0.3 }, desc: 'Herakles\' bow; the arrows still carry the Hydra\'s venom.', named: true, bound: true, power: 'sunder', fixed: { rangedDmg: 3, range: 2, ammo: 2, armorPierce: 3 } },
   { id: 'minotaur_horn', name: 'Horn of the Minotaur', slot: 'trinket', art: 'none', tier: 3, value: 135,
@@ -493,7 +496,7 @@ const defs: ItemDef[] = [
   { id: 'golden_fleece', name: 'Golden Fleece', slot: 'trinket', art: 'none', tier: 3, value: 240,
     mods: { morale: 5, chargeBonus: 0.15, hp: 4, xpBonus: 0.1 }, desc: 'Taken from Colchis by Jason.', material: 'gold', named: true, bound: true, power: 'second_wind', fixed: { hp: 3, morale: 3, stamina: 2, xpBonus: 2 } },
   { id: 'helm_of_hades', name: 'Helm of Hades', slot: 'helmet', art: 'boeotian', tier: 3, value: 270,
-    mods: { armor: 4, morale: 2, accuracy: 0.03 }, desc: 'The Cap of Darkness.', material: 'iron', named: true, bound: true, power: 'steadfast', fixed: { hp: 3, armor: 2, morale: 3, steady: 2 } },
+    mods: { armor: 4, morale: 2, accuracy: 0.03 }, desc: 'The Cap of Darkness.', material: 'iron', named: true, bound: true, power: 'steadfast', shroud: 0.3, fixed: { hp: 3, armor: 2, morale: 3, steady: 2 } },
   { id: 'harpe_of_perseus', name: 'Harpe of Perseus', slot: 'weapon', weaponKind: 'sword', art: 'kopis', tier: 3, value: 180,
     mods: { dmg: 8, reach: 1, atkTime: 0.85, blockPierce: 0.12, atkSpeed: 0.05 }, desc: 'The sickle that took the Gorgon\'s head.', material: 'iron', named: true, bound: true, power: 'blood_price', fixed: { dmg: 3, atkSpeed: 2, accuracy: 2, moraleShock: 2 } },
 ];

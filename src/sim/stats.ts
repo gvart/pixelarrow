@@ -72,6 +72,10 @@ export interface CombatStats {
   powers?: ItemPower[];
   /** Special effects of complete-enough item sets (src/data/sets.ts). */
   setSpecials?: SetSpecial[];
+  /** Fraction of missile damage the wearer shrugs off (the Nemean lion pelt). */
+  missileWard?: number;
+  /** Accuracy enemy missiles lose against the wearer (the Helm of Hades). */
+  shroud?: number;
 }
 
 /** Radius bonus from Will for auras and shouts. */
@@ -206,6 +210,10 @@ export function computeStats(hero: Hero): CombatStats {
     atkSpeed += m.atkSpeed ?? 0;
     const pow = met ? itemPower(it) : null;
     if (pow && (powers.get(pow.id)?.grade ?? -1) < pow.grade) powers.set(pow.id, pow);
+    // a named item's extra works like its power: only while its requirements are met
+    const def = itemDef(it.def);
+    if (met && def.missileWard) s.missileWard = Math.max(s.missileWard ?? 0, def.missileWard);
+    if (met && def.shroud) s.shroud = Math.max(s.shroud ?? 0, def.shroud);
     // Weapon defines reach / timing absolutely; everything else is additive.
     if (slot === 'weapon') {
       if (m.reach !== undefined) s.reach = m.reach;

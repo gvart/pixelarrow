@@ -71,6 +71,11 @@ const CombatStats = z.looseObject({
   armorPierce: num.min(0).max(1).optional(),
   // Mythical beasts and world bosses (src/data/beasts.ts): src/sim/myth.ts runs them.
   boss: z.string().max(16).optional(),
+  // Item powers, set specials and named extras (src/sim/powers.ts; unknown ids are ignored there).
+  powers: z.array(z.object({ id: z.string().max(32), grade: z.number().int().min(0).max(1) })).max(16).optional(),
+  setSpecials: z.array(z.string().max(32)).max(8).optional(),
+  missileWard: num.min(0).max(0.9).optional(),
+  shroud: num.min(0).max(0.9).optional(),
 });
 
 const Army = z.object({

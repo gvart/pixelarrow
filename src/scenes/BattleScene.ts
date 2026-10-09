@@ -1234,6 +1234,15 @@ export class BattleScene extends BaseScene {
         case 'ability':
           this.abilityFx(e.unit, e.ability, e.targets);
           break;
+        case 'proc': {
+          // an item power or a set special: its icon over the hero
+          const u = this.sim.units[e.unit];
+          if (u) {
+            const p = isoToScreen(u.x, u.y);
+            this.fx.floatIcon(p.x, p.y - 44, `fxicon_power_${e.power}`);
+          }
+          break;
+        }
         case 'retreat':
           if (e.side === this.me) this.retreatMsg = e.caught > 0 ? t('battle.banner.retreatCaught', { n: e.caught }) : t('battle.banner.retreatSafe');
           break;

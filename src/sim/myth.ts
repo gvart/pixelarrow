@@ -494,7 +494,7 @@ export class MythSystem {
     b.contactEvent(b.groups[u.group]);
     b.contactEvent(b.groups[t.group]);
     if (!o.sure && !b.rng.chance(0.62 + (t.stamina < 30 ? 0.08 : 0))) return false;
-    if (!o.unblockable && b.rng.chance(b.blockChance(t, dir, o.pierce ?? 0.15, false))) {
+    if (!o.unblockable && b.blocks(t, u, dir, o.pierce ?? 0.15, false)) {
       t.stamina = Math.max(0, t.stamina - 7);
       t.lastBlockTick = b.tick;
       t.wear.shield += 1;
@@ -822,7 +822,8 @@ export class MythSystem {
         e.momentum = 0;
         e.morale -= f.shock * k * this.b.ml(e);
       }
-      b.applyDamage(e, src, f.dmg * k * b.rng.range(0.85, 1.15), b.hitDirection(e, f.sx, f.sy), true, 1.2, 0.3);
+      // a boulder is a missile too (the Nemean pelt)
+      b.applyDamage(e, src, f.dmg * k * b.rng.range(0.85, 1.15) * (b.pw ? b.pw.missileIn(e) : 1), b.hitDirection(e, f.sx, f.sy), true, 1.2, 0.3);
     }
     b.events.push({ type: 'myth', tick: b.tick, unit: src.id, act: 'boulder', x: src.x, y: src.y, tx: f.tx, ty: f.ty, dur: 0, targets: hit });
   }
@@ -987,9 +988,11 @@ export class MythSystem {
         // lands on him: borne down, mauled, the men round him aghast
         s.mode = 0;
         s.cd[0] = Math.round((sp.pounceCd ?? 6) * TR);
-        this.strike(s, t, sp.pounceDmg ?? 2, { sure: true, pierce: 0.35, shock: 4 });
+        // Unshaken: the lion's leap neither bears him down nor bites as deep
+        const ch = b.pw ? b.pw.chargeTaken(t) : null;
+        this.strike(s, t, (sp.pounceDmg ?? 2) * (ch?.dmg ?? 1), { sure: true, pierce: 0.35, shock: 4 });
         if (t.state === 'ready') {
-          t.stun = Math.max(t.stun, 30);
+          if (!ch || ch.stuns) t.stun = Math.max(t.stun, 30);
           t.morale -= 10 * b.ml(t);
           b.shove(t, u, 0.4);
         }
@@ -1086,8 +1089,9 @@ export class MythSystem {
           return;
         }
         hit.push(e.id);
+        const ch = b.pw ? b.pw.chargeTaken(e) : null;
         if (e.state === 'ready') {
-          e.stun = Math.max(e.stun, 16);
+          if (!ch || ch.stuns) e.stun = Math.max(e.stun, 16);
           e.momentum = 0;
           e.morale -= 8 * b.ml(e);
         }
@@ -1100,7 +1104,7 @@ export class MythSystem {
           e.y = sy;
         }
         b.contactEvent(b.groups[u.group]);
-        b.applyDamage(e, u, (sp.chargeDmg ?? 20) * s.k * this.fury(s) * b.rng.range(0.85, 1.15), b.hitDirection(e, u.x, u.y), false, 1.6);
+        b.applyDamage(e, u, (sp.chargeDmg ?? 20) * s.k * this.fury(s) * b.rng.range(0.85, 1.15) * (ch?.dmg ?? 1), b.hitDirection(e, u.x, u.y), false, 1.6);
       }
       if (hit.length) {
         u.lastAttackTick = b.tick;
