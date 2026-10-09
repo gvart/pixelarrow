@@ -116,6 +116,38 @@ export function panelTexture(scene: Phaser.Scene, w: number, h: number, style: S
   return key;
 }
 
+/** Panel textures at least this big (atlas px) are dropped once nothing shows them (full-screen and modal backs). */
+const SWEEP_MIN_PX = 512 * 512;
+
+/**
+ * Frees the big panel textures no game object shows any more. Panels are cached
+ * by size, and a full-screen one is ~10 MB at 3x: every screen height the
+ * WebView reported (Telegram expanding, full screen, a rotation) and every
+ * modal size would otherwise stay in memory for the whole session. Each use
+ * goes through panelTexture(), which draws a dropped panel again.
+ */
+export function sweepPanels(game: Phaser.Game): number {
+  const used = new Set<string>();
+  const walk = (list: Phaser.GameObjects.GameObject[]) => {
+    for (const o of list) {
+      const key = (o as { texture?: Phaser.Textures.Texture }).texture?.key;
+      if (key) used.add(key);
+      const kids = (o as { list?: Phaser.GameObjects.GameObject[] }).list;
+      if (Array.isArray(kids)) walk(kids);
+    }
+  };
+  for (const sc of game.scene.scenes) if (sc.sys.displayList) walk(sc.sys.displayList.list);
+  let freed = 0;
+  for (const key of game.textures.getTextureKeys()) {
+    if (!key.startsWith('panel_') || used.has(key)) continue;
+    const src = game.textures.get(key).source[0];
+    if (!src || src.width * src.height < SWEEP_MIN_PX) continue;
+    game.textures.remove(key);
+    freed++;
+  }
+  return freed;
+}
+
 /** An image of a panel texture, scaled to UI px (origin top-left). */
 export function panelImage(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle): Phaser.GameObjects.Image {
   return scene.add.image(x, y, panelTexture(scene, w, h, style)).setOrigin(0, 0).setScale(1 / panelK(scene));

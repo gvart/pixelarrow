@@ -144,6 +144,18 @@ check('[ladder] the battle starts', await until(() => window.__game.scene.isActi
 await page.waitForTimeout(800);
 const noPause = await call('Battle', 'return !!s.src && !s.src.lockstep;');
 check('[ladder] a sourced battle (online rules)', noPause);
+// Back in the deployment asks to leave; the battle starting under that dialog closes it (its Leave would quit the fight)
+await ev(() => window.__nav.back());
+const asked = await call('Battle', 'return !!s.overlay;');
+await call('Battle', 's.startFight(); return 1;');
+await until(() => window.__game.scene.getScene('Battle').sim.phase === 'battle', 10000);
+check('[ladder] the leave dialog goes when the battle starts', asked && (await call('Battle', 'return !s.overlay && !s.leaveDialog;')));
+await call('Battle', 's.leaveDeploy(); return 1;');
+check('[ladder] no leaving a battle that started', await active('Battle'));
+// Select a group, then tap its card again: the order row empties (this rebuilt the HUD forever: a frozen game)
+const frames0 = await call('Battle', "s.selGroup = s.cards[0].gid; s.selUnit = -1; s.buildHud(); const p = { x: 0, y: 0 }; s.cards[0].card.emit('pointerdown', p); s.cards[0].card.emit('pointerup', p); return window.__game.loop.frame;").catch((e) => (errors.push(String(e).slice(0, 200)), -1));
+await page.waitForTimeout(600);
+check('[ladder] deselecting in battle keeps the game running', frames0 >= 0 && (await call('Battle', 'return s.selGroup;')) === -1 && (await ev(() => window.__game.loop.frame)) > frames0 + 3 && !errors.some((e) => /call stack/i.test(e)), errors.join(' | '));
 await call(
   'Battle',
   `s.startFight(); for (const g of s.sim.groups) if (g.side === 0) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' }); s.sim.units.filter(u => u.side === 1 && u.state === 'ready').forEach(u => { u.hp = Math.min(u.hp, 1); }); for (let i = 0; i < 20*400 && s.sim.phase === 'battle'; i++) s.sim.step(); return 1;`,
