@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ITEM_LIST, RARITIES, itemMods, type Item } from '../src/data/items';
-import { AFFIXES, affixPool, affixSlot, encodeAffixes, freezeRolls, itemAffixes, itemDisplayName, itemPower, parseAffixes, powerPool, powerText } from '../src/data/affixes';
+import { ITEM_LIST, RARITIES, RARITY_MULT, itemMods, type Item } from '../src/data/items';
+import { AFFIXES, AFFIX_STEPS, affixPool, affixSlot, encodeAffixes, freezeRolls, itemAffixes, itemDisplayName, itemPower, parseAffixes, powerPool, powerText } from '../src/data/affixes';
 
 const item = (def: string, rarity: Item['rarity'], uid = 'u1'): Item => ({ uid, def, rarity, cond: 100 });
 
@@ -16,8 +16,8 @@ describe('random stats', () => {
           expect(new Set(a.map(([k]) => k)).size).toBe(a.length);
           for (const [k, steps] of a) {
             expect(pool.has(k), `${d.id} rolled ${k}`).toBe(true);
-            expect(steps).toBeGreaterThanOrEqual(n >= 3 ? 2 : 1);
-            expect(steps).toBeLessThanOrEqual(n >= 3 ? 3 : 2);
+            expect(steps).toBeGreaterThanOrEqual(AFFIX_STEPS[n][0]);
+            expect(steps).toBeLessThanOrEqual(AFFIX_STEPS[n][1]);
           }
         }
       });
@@ -41,7 +41,7 @@ describe('random stats', () => {
   it('add to itemMods, and a stored aff string wins over the roll', () => {
     const it: Item = { ...item('owl_amulet', 'uncommon'), aff: 'hp:2' };
     expect(itemMods(it).hp).toBe(2 * AFFIXES.hp.step);
-    expect(itemMods(it).morale).toBeCloseTo(10 * 1.05);
+    expect(itemMods(it).morale).toBeCloseTo(10 * RARITY_MULT.uncommon);
     expect(parseAffixes('hp:2,nope:3,dmg:0')).toEqual([['hp', 2]]);
   });
 
@@ -79,7 +79,7 @@ describe('powers', () => {
 
   it('reads as a card line and a name', () => {
     const it = { ...item('kopis', 'epic'), pow: 'blood_price', aff: 'dmg:3' };
-    expect(powerText(itemPower(it)!)).toBe('12% chance a hit does double damage; costs 5% of max HP');
+    expect(powerText(itemPower(it)!)).toBe('8% chance a hit does double damage; costs 5% of max HP');
     expect(itemDisplayName(it)).toBe('Keen Kopis of Blood Price');
   });
 });

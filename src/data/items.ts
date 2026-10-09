@@ -534,7 +534,7 @@ export interface Item {
 }
 
 /** Base stats by rarity: random stats and powers carry the rest (docs/ITEMS.md "Rarity tiers"). */
-export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.05, rare: 1.1, epic: 1.15, legendary: 1.2 };
+export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.03, rare: 1.06, epic: 1.07, legendary: 1.08 };
 /** Market value by rarity (prices kept from before random stats). */
 export const VALUE_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.12, rare: 1.25, epic: 1.4, legendary: 1.6 };
 /** English labels; UI code should use t(`rarity.${r}`) (src/i18n). */

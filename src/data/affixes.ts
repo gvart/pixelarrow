@@ -66,7 +66,7 @@ export const AFFIX_IDS = Object.keys(AFFIXES) as AffixId[];
 
 /** Number of random stats by rarity, and the steps each one rolls. */
 export const AFFIX_COUNT = [0, 1, 2, 3, 4];
-const STEPS: [number, number][] = [[0, 0], [1, 2], [1, 2], [2, 3], [2, 3]];
+export const AFFIX_STEPS: [number, number][] = [[0, 0], [1, 2], [1, 2], [1, 2], [1, 2]];
 
 export function affixSlot(def: ItemDef): AffixSlot {
   if (def.slot !== 'weapon') return def.slot;
@@ -116,7 +116,7 @@ export function itemAffixes(item: Pick<Item, 'uid' | 'def' | 'rarity'> & { aff?:
   const rng = new Rng(seed(item, 'aff'));
   const pool = affixPool(def);
   const out: Affixes = [];
-  const [lo, hi] = STEPS[r];
+  const [lo, hi] = AFFIX_STEPS[r];
   for (let i = 0; i < n && pool.length; i++) {
     const id = rng.weighted(pool);
     pool.splice(pool.findIndex(([k]) => k === id), 1);
@@ -193,22 +193,22 @@ export interface PowerDef {
 const P = (id: PowerId, name: string, slots: AffixSlot[], g1: PowerGrade, g2: PowerGrade, text: string, families?: string[]): PowerDef => ({ id, name, slots, grades: [g1, g2], text, families });
 
 export const POWERS: Record<PowerId, PowerDef> = {
-  blood_price: P('blood_price', 'Blood Price', ['melee'], { chance: 0.12, extra: 0.05 }, { chance: 0.18, extra: 0.05 }, '{c} chance a hit does double damage; costs {x} of max HP'),
-  frenzy: P('frenzy', 'Battle Frenzy', ['melee', 'ranged', 'trinket'], { value: 0.2, time: 6 }, { value: 0.3, time: 6 }, 'on a kill: +{v} attack speed for {t}'),
-  sunder: P('sunder', 'Sunder', ['melee', 'ranged'], { chance: 0.1, value: 0.1, time: 8 }, { chance: 0.15, value: 0.15, time: 8 }, '{c} chance on hit: target max HP -{v} for {t}'),
-  rend: P('rend', 'Rend Armour', ['melee', 'ranged'], { chance: 0.15, value: 2, time: 6 }, { chance: 0.25, value: 3, time: 6 }, '{c} chance on hit: target armour -{v} for {t}, stacks twice'),
-  second_wind: P('second_wind', 'Second Wind', ['armor', 'trinket'], { value: 0.2, extra: 30 }, { value: 0.3, extra: 50 }, 'once, below 30% HP: heal {v} of max HP and +{x} stamina'),
-  aegis: P('aegis', 'Aegis', ['shield'], { time: 12 }, { time: 8 }, 'every {t} the next front or side hit is blocked'),
-  retribution: P('retribution', 'Retribution', ['armor', 'shield'], { value: 0.15 }, { value: 0.25 }, 'melee attackers take {v} of their damage back'),
-  hunger: P('hunger', "Wolf's Hunger", ['melee'], { value: 0.06 }, { value: 0.1 }, 'heal {v} of the damage dealt'),
-  terror: P('terror', 'Terror', ['melee', 'ranged', 'helmet'], { value: 8, extra: 3 }, { value: 12, extra: 3 }, 'on a kill: enemies within {x} lose {v} morale'),
-  steadfast: P('steadfast', 'Steadfast', ['helmet', 'trinket'], { value: 0.1, extra: 3 }, { value: 0.15, extra: 3 }, 'allies within {x} take {v} less morale damage'),
-  eagle_eye: P('eagle_eye', 'Eagle Eye', ['ranged'], { chance: 0.15 }, { chance: 0.25 }, '{c} chance a missile ignores block'),
-  twin_shot: P('twin_shot', 'Twin Shot', ['ranged'], { chance: 0.1 }, { chance: 0.15 }, '{c} chance to loose a second missile free'),
-  unshaken: P('unshaken', 'Unshaken', ['armor', 'helmet'], { value: 0.2 }, { value: 0.35 }, 'charges cannot stun; charge damage taken -{v}'),
-  momentum: P('momentum', 'Momentum', ['melee', 'shield', 'trinket'], { value: 0.25, extra: 0.3 }, { value: 0.4, extra: 0.5 }, 'charge impact +{v}, charge stun +{x}', ['spear', 'short_spear', 'lance']),
-  last_stand: P('last_stand', 'Last Stand', ['armor', 'trinket'], { value: 0.2 }, { value: 0.35 }, 'below 25% HP: +{v} damage and never routs'),
-  executioner: P('executioner', 'Executioner', ['melee', 'ranged'], { value: 0.3 }, { value: 0.5 }, '+{v} damage against targets below 30% HP'),
+  blood_price: P('blood_price', 'Blood Price', ['melee'], { chance: 0.08, extra: 0.05 }, { chance: 0.1, extra: 0.05 }, '{c} chance a hit does double damage; costs {x} of max HP'),
+  frenzy: P('frenzy', 'Battle Frenzy', ['melee', 'ranged', 'trinket'], { value: 0.2, time: 6 }, { value: 0.25, time: 6 }, 'on a kill: +{v} attack speed for {t}'),
+  sunder: P('sunder', 'Sunder', ['melee', 'ranged'], { chance: 0.08, value: 0.1, time: 8 }, { chance: 0.1, value: 0.12, time: 8 }, '{c} chance on hit: target max HP -{v} for {t}'),
+  rend: P('rend', 'Rend Armour', ['melee', 'ranged'], { chance: 0.1, value: 1.5, time: 6 }, { chance: 0.12, value: 2, time: 6 }, '{c} chance on hit: target armour -{v} for {t}, stacks twice'),
+  second_wind: P('second_wind', 'Second Wind', ['armor', 'trinket'], { value: 0.15, extra: 30 }, { value: 0.2, extra: 40 }, 'once, below 30% HP: heal {v} of max HP and +{x} stamina'),
+  aegis: P('aegis', 'Aegis', ['shield'], { time: 16 }, { time: 13 }, 'every {t} the next front or side hit is blocked'),
+  retribution: P('retribution', 'Retribution', ['armor', 'shield'], { value: 0.08 }, { value: 0.1 }, 'melee attackers take {v} of their damage back'),
+  hunger: P('hunger', "Wolf's Hunger", ['melee'], { value: 0.05 }, { value: 0.07 }, 'heal {v} of the damage dealt'),
+  terror: P('terror', 'Terror', ['melee', 'ranged', 'helmet'], { value: 4, extra: 3 }, { value: 5, extra: 3 }, 'on a kill: enemies within {x} lose {v} morale'),
+  steadfast: P('steadfast', 'Steadfast', ['helmet', 'trinket'], { value: 0.05, extra: 3 }, { value: 0.07, extra: 3 }, 'allies within {x} take {v} less morale damage'),
+  eagle_eye: P('eagle_eye', 'Eagle Eye', ['ranged'], { chance: 0.15 }, { chance: 0.2 }, '{c} chance a missile ignores block'),
+  twin_shot: P('twin_shot', 'Twin Shot', ['ranged'], { chance: 0.1 }, { chance: 0.13 }, '{c} chance to loose a second missile free'),
+  unshaken: P('unshaken', 'Unshaken', ['armor', 'helmet'], { value: 0.2 }, { value: 0.3 }, 'charges cannot stun; charge damage taken -{v}'),
+  momentum: P('momentum', 'Momentum', ['melee', 'shield', 'trinket'], { value: 0.25, extra: 0.3 }, { value: 0.35, extra: 0.4 }, 'charge impact +{v}, charge stun +{x}', ['spear', 'short_spear', 'lance']),
+  last_stand: P('last_stand', 'Last Stand', ['armor', 'trinket'], { value: 0.2 }, { value: 0.3 }, 'below 25% HP: +{v} damage and never routs'),
+  executioner: P('executioner', 'Executioner', ['melee', 'ranged'], { value: 0.3 }, { value: 0.4 }, '+{v} damage against targets below 30% HP'),
 };
 export const POWER_IDS = Object.keys(POWERS) as PowerId[];
 
