@@ -24,6 +24,8 @@ export interface MBarOpts {
   h?: number;
   /** Size of the label row's text (default 7). */
   size?: number;
+  /** The trough: dark stone (default) or the pale sunken well of a hero sheet. */
+  trough?: 'dark' | 'light';
   /** The label is quieter (a used-up or locked meter). */
   quiet?: boolean;
   /** The value text in a good / bad ink (a preview of pending points: "a > b"). */
@@ -65,10 +67,17 @@ export class MBar extends Phaser.GameObjects.Container {
     this.barW = this.w;
     const by = this.h - this.barH - (o.tip ? 3 : 0);
     const g = scene.add.graphics();
-    g.fillStyle(MOSAIC.stone0, 1);
-    g.fillRoundedRect(0, by, this.w, this.barH, 1.5);
-    g.lineStyle(0.7, MOSAIC.parchEdge, 0.9);
-    g.strokeRoundedRect(0.35, by + 0.35, this.w - 0.7, this.barH - 0.7, 1.5);
+    if (o.trough === 'light') {
+      g.fillStyle(MOSAIC.parchEdge, 0.9);
+      g.fillRoundedRect(0, by, this.w, this.barH, this.barH / 2.2);
+      g.fillStyle(MOSAIC.well, 1);
+      g.fillRoundedRect(0.7, by + 0.7, this.w - 1.4, this.barH - 1.4, Math.max(1, this.barH / 2.6));
+    } else {
+      g.fillStyle(MOSAIC.stone0, 1);
+      g.fillRoundedRect(0, by, this.w, this.barH, 1.5);
+      g.lineStyle(0.7, MOSAIC.parchEdge, 0.9);
+      g.strokeRoundedRect(0.35, by + 0.35, this.w - 0.7, this.barH - 0.7, 1.5);
+    }
     this.add(g);
     const f = (v: number) => (o.max > 0 ? Math.max(0, Math.min(1, v / o.max)) : 0);
     const pv = o.preview;

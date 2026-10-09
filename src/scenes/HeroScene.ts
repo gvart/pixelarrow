@@ -236,7 +236,7 @@ export class HeroScene extends BaseScene {
       if (traits) L.add(mtext(this, x0 + 2 + chipW + 4, ey + 2, traits, 'pSec', { size: 6, maxW: cw - 8 - chipW, box: { owner: this.ui, w: this.m.VW, h: VH } }));
       ey += 15;
       const need = xpToNext(h.level);
-      const xp = new MBar(this, x0 + 2, ey, cw - 4, { value: h.xp, max: need, h: 5, size: 6, color: RESOURCES.xp.color, label: t('hero.xpTo', { n: h.level + 1 }), right: t('hero.xp', { xp: Math.floor(h.xp), need }) });
+      const xp = new MBar(this, x0 + 2, ey, cw - 4, { value: h.xp, max: need, h: 5, size: 6, trough: 'light', color: RESOURCES.xp.color, label: t('hero.xpTo', { n: h.level + 1 }), right: t('hero.xp', { xp: Math.floor(h.xp), need }) });
       L.add(xp);
       ey += xp.h + 5;
     } else {
@@ -256,7 +256,7 @@ export class HeroScene extends BaseScene {
       const stars = lvW + 4 + 39 <= tw;
       addStars(this, L, stars ? tx + lvW + 4 : tx, stars ? y + 27 : y + 38, heroStars(h), 5, {});
       const need = xpToNext(h.level);
-      L.add(new MBar(this, tx, y + (stars ? 42 : 51), tw, { value: h.xp, max: need, h: 5, color: RESOURCES.xp.color }));
+      L.add(new MBar(this, tx, y + (stars ? 42 : 51), tw, { value: h.xp, max: need, h: 5, trough: 'light', color: RESOURCES.xp.color }));
       ey = y + stageH + 4;
       const n = SLOTS.length + (cls.mount ? 1 : 0);
       const grid = slotGrid(cw, n, 24);
@@ -474,6 +474,7 @@ export class HeroScene extends BaseScene {
         color: barColor(id),
         h: 6,
         size: 6.5,
+        trough: 'light',
         preview: has ? d.get(nxt) : undefined,
         worse: has && !better,
         tip: t(`stat.${id}.tip` as TKey),

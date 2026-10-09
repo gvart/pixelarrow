@@ -95,7 +95,7 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   uiBlocker(shade);
   c.add(shade);
   const w = Math.min(o.w ?? (docked ? 260 : 200), VW - (docked ? 8 : 16));
-  const h = Math.min(o.h, VH - (docked ? 12 : 16));
+  const h = Math.min(o.h, VH - 12);
   const x = Math.round((VW - w) / 2);
   const y = docked ? VH - h : Math.round((VH - h) / 2);
   const box = scene.add.container(0, 0);

@@ -7,7 +7,7 @@ import Phaser from 'phaser';
 import { renderMosaic, type MosaicStyle } from '../../art/mosaicUi';
 import type { Face } from '../../art/vectorFont';
 import { LINE_H } from '../../art/vectorFont';
-import { SHADOW_FONTS, addText, panelK, tappable, type FontKey } from '../kit';
+import { SHADOW_FONTS, addText, fitCinzel, panelK, tappable, type FontKey } from '../kit';
 import { uiFrame } from '../layout';
 import { motion } from '../motion';
 import { MOSAIC, ACCENT } from '../tokens';
@@ -54,9 +54,19 @@ export interface TextOpts {
 
 /** A fitted one-line text (drawn at `x`, `y` with the given alignment). */
 export function mtext(scene: Phaser.Scene, x: number, y: number, str: string, font: FontKey, o: TextOpts = {}): Phaser.GameObjects.BitmapText {
-  const size = o.size ?? 7;
-  const s = o.maxW !== undefined ? fit(str, font, size, o.maxW) : str;
-  const t = addText(scene, x, y, s, font, o.align ?? 0);
+  let size = o.size ?? 7;
+  let face = font;
+  let s = str;
+  if (o.maxW !== undefined) {
+    if (ROMAN_FONTS.has(font)) {
+      // a Cinzel text that does not fit: smaller first (down to 5.5), then the same words in Inter, then cut
+      const sizes: number[] = [];
+      for (let z = size; z >= 5.5; z -= 0.5) sizes.push(z);
+      const fl = fitCinzel(str, font, o.maxW, sizes.length ? sizes : [size], (x) => x);
+      ({ text: s, font: face, size } = fl);
+    } else s = fit(str, font, size, o.maxW);
+  }
+  const t = addText(scene, x, y, s, face, o.align ?? 0);
   if (size !== 7) t.setFontSize(size);
   if (o.box) uiFrame(t, o.box.owner, o.box.w, o.box.h);
   return t;
