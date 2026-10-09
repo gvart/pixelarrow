@@ -36,8 +36,12 @@ import {
   InfoChip, ProgressBar, ScreenHeader, ToggleChip, openLegend, addCard, resourceChipOpts, type InfoChipOpts, addClaimGlow, addLocked, addTipLine, layChips, openSheet, type HeaderAction,
 } from '../../ui/v3';
 import { ACCENT, MODE_ICON, RESOURCES, ROLE, SURFACE, TEXT } from '../../ui/tokens';
-import { fadeIn, hop } from '../../ui/motion';
+import { fadeIn, hop, motion } from '../../ui/motion';
 import { addChestSprite } from '../../art/menuSprites';
+import { addModeBanner } from '../../ui/modeArt';
+
+/** Height of the illustrated mode banner (UI px). */
+const BANNER_H = 26;
 import {
   DragDrop, StashGrid, addChip, addGroupBadge, addStars, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName,
   type StashState,
@@ -245,6 +249,8 @@ export class DuelScene extends BaseScene {
   private gearSlot: Slot = 'weapon';
   /** The hero the shop's stat changes compare with (null: the best item in the team). */
   private compareHero: string | null = null;
+  /** The search page's range bar (ticks with the clock). */
+  private searchBar: ProgressBar | null = null;
   private head!: Phaser.GameObjects.Container;
   private body!: Phaser.GameObjects.Container;
   private list: ScrollList | null = null;
@@ -390,7 +396,7 @@ export class DuelScene extends BaseScene {
   /** The search (or the found opponent) holds the page: no way to lose track of it. Says why and returns true. */
   private blocked(): boolean {
     if (!this.search && !this.found) return false;
-    toast(this, this.found ? t('duel.preparing') : t('duels.why.searching'), 'bad');
+    toast(this, this.found ? t('duel.preparing') : t('duels.why.searching'), 'info');
     return true;
   }
 
@@ -714,6 +720,12 @@ export class DuelScene extends BaseScene {
     if (!p) return;
     this.listKey = key;
     let y = this.topY;
+    // the mode's illustrated banner (a tower, a colosseum, a market stall): where you are, at a glance
+    const art = this.tab === 'ladder' ? 'ladder' : this.tab === 'shop' ? 'shop' : this.tab === 'ranked' && this.arenaTab === 'home' && !this.search && !this.found ? 'arena' : null;
+    if (art && !this.compact && this.m.VH >= 330) {
+      addModeBanner(this, this.body, this.cx, y - 2, this.cw, BANNER_H, art);
+      y += BANNER_H + 2;
+    }
     // the two modes on a segmented switch; a full view has its title in the header and its own page
     if (!this.subView) {
       this.buildModeSwitch(y);
@@ -724,6 +736,7 @@ export class DuelScene extends BaseScene {
     }
     this.pageTop = y;
     this.searchText = null;
+    this.searchBar = null;
     this.nextCard = null;
     if (this.tab === 'ladder') this.buildLadder(p, keep);
     else if (this.tab === 'ranked') this.buildRanked(p, keep);
@@ -1594,47 +1607,95 @@ export class DuelScene extends BaseScene {
     return t(`duels.sit.searching.${s.mode}` as TKey, { t: fmtClock((Date.now() - s.since) / 1000) });
   }
 
+  /**
+   * The search takes the page: the mode, a pulsing arena with rings that
+   * widen like the search range, the clock, how the range widens (a bar that
+   * fills until anyone will do) and your lineup in pixels; ranked adds your
+   * league. Navigation waits (Cancel is on the strip).
+   */
   private buildSearch(p: DuelProfileView, s: { mode: DuelMode; since: number }): void {
-    void p;
     this.chrome(this.searchSentence(s), {
-      main: { label: t('common.cancel'), icon: 'close', secondary: true, id: 'duel.cancelSearch', onClick: () => this.cancelSearch() },
+      main: { label: t('common.cancel'), icon: 'xmark', secondary: true, id: 'duel.cancelSearch', onClick: () => this.cancelSearch() },
     });
     const B = this.body;
     const { cx, cw } = this;
     const mid = cx + cw / 2;
     const bottom = this.bottom;
-    let y = this.pageTop + 8;
+    let y = this.pageTop + 6;
     B.add(addText(this, mid, y, fitHead(t(`duels.searchMode.${s.mode}` as TKey), cw - 8), 'head', 0.5));
-    y += 16;
-    const big = bottom - y >= 130 ? 3 : 2;
-    const glass = scaleIcon(addIcon(this, mid, y + 6 * big, 'hourglass'), big).setOrigin(0.5, 0.5);
-    B.add(glass);
-    this.tweens.add({ targets: glass, angle: { from: 0, to: 180 }, duration: 800, yoyo: true, repeat: -1, repeatDelay: 300, ease: 'Sine.easeInOut' });
-    y += 12 * big + 6;
+    y += 14;
+    // the arena and its rings (tweens on two graphics: nothing is created per frame)
+    const big = bottom - y >= 250 ? 3 : 2;
+    const r = 6 * big + 10;
+    const cy = y + r + 2;
+    const rings = [0, 1].map(() => {
+      const g = this.add.graphics({ x: mid, y: cy });
+      g.lineStyle(1.5, ACCENT.goldHi, 0.9);
+      g.strokeCircle(0, 0, r);
+      B.add(g);
+      return g;
+    });
+    const disc = this.add.graphics({ x: mid, y: cy });
+    disc.fillStyle(SURFACE.sunken, 1);
+    disc.fillCircle(0, 0, r - 3);
+    disc.lineStyle(1, SURFACE.rimHi, 0.9);
+    disc.strokeCircle(0, 0, r - 3);
+    B.add(disc);
+    const icon = scaleIcon(addIcon(this, mid, cy, MODE_ICON.arena), big).setOrigin(0.5, 0.5);
+    B.add(icon);
+    if (!motion.reduced) {
+      rings.forEach((g, i) => this.tweens.add({ targets: g, scale: { from: 1, to: 1.9 }, alpha: { from: 0.9, to: 0 }, duration: 1800, delay: i * 900, repeat: -1, ease: 'Cubic.easeOut' }));
+      this.tweens.add({ targets: icon, scale: { from: icon.scale, to: icon.scale * 1.08 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    } else rings.forEach((g) => g.setAlpha(0));
+    y = cy + r + 8;
     this.searchText = addText(this, mid, y, t('duels.searching', { t: fmtClock((Date.now() - s.since) / 1000) }), 'title', 0.5).setScale(1.5);
     B.add(this.searchText);
     y += 18;
-    const lines = Math.min(3, Math.floor((bottom - y) / LINE_H));
+    // how the range widens: a bar that fills until anyone will do (an honest wait, not a guess)
+    const openMs = RANKED.window[s.mode].openAfterMs;
+    const el = Date.now() - s.since;
+    this.searchBar = new ProgressBar(this, cx + 8, y, cw - 16, { value: Math.min(el, openMs), max: openMs, h: 3, label: t('dv.searchRange'), right: el >= openMs ? t('dv.searchAnyone') : t('dv.searchOpensIn', { t: fmtClock((openMs - el) / 1000) }), color: ACCENT.gold, labelFont: 'sec' });
+    B.add(this.searchBar);
+    y += this.searchBar.h + 6;
+    const lines = Math.min(2, Math.floor((bottom - y) / LINE_H));
     if (lines > 0) {
-      const wr = wrapText(t(`duels.searchHint.${s.mode}` as TKey, { t: fmtClock(RANKED.window[s.mode].openAfterMs / 1000) }), cw - 16, lines);
+      const wr = wrapText(t(`duels.searchHint.${s.mode}` as TKey, { t: fmtClock(openMs / 1000) }), cw - 16, lines);
       B.add(addText(this, mid, y, wr.lines.join('\n'), 'dim', 0.5).setCenterAlign());
       y += wr.lines.length * LINE_H + 8;
     }
-    // your league under it (the page is not empty while you wait)
-    const r = this.ranked;
+    // your lineup: the arena team in pixels (who is about to fight)
+    const team = this.teamHeroes(p, 'arena');
+    const per = Math.min(5, Math.max(1, team.length));
+    const ps = Math.min(26, Math.floor((cw - 16 - (per - 1) * 3) / per));
+    const rowsN = Math.ceil(team.length / per);
+    const lh = 16 + rowsN * (ps + 3) + 4;
+    if (team.length && y + lh <= bottom) {
+      B.add(addPanel(this, cx, y, cw, lh, 'card'));
+      B.add(addText(this, cx + 7, y + 4, ellipsize(t('dv.searchTeam', { n: team.length, pts: teamPoints(team), cap: DUEL_RULES.budget }), cw - 14), 'sec'));
+      team.forEach((h, i) => {
+        const px = cx + 8 + (i % per) * (ps + 3);
+        const py = y + 15 + Math.floor(i / per) * (ps + 3);
+        B.add(addPanel(this, px, py, ps, ps, 'well'));
+        B.add(addPortrait(this, dollFromHero(h), px, py, { size: ps }));
+        B.add(this.add.rectangle(px + 1, py + ps - 3, ps - 2, 2, roleColor(heroClass(h).role)).setOrigin(0, 0));
+      });
+      y += lh + 6;
+    }
+    // ranked: your league under it
+    const rv = this.ranked;
     const ch = this.compact ? 30 : 40;
-    if (s.mode === 'ranked' && r && y + ch <= bottom) {
+    if (s.mode === 'ranked' && rv && y + ch <= bottom) {
       const n = B.list.length;
       B.add(addPanel(this, cx, y, cw, ch, 'inset'));
       const cs = ch - 10;
-      this.addCrest(B, cx + 6, y + 5, cs, r.league);
+      this.addCrest(B, cx + 6, y + 5, cs, rv.league);
       const tx = cx + 6 + cs + 7;
-      B.add(addText(this, tx, y + 5, ellipsize(this.standing(r), cx + cw - 6 - tx), 'ink'));
+      B.add(addText(this, tx, y + 5, ellipsize(this.standing(rv), cx + cw - 6 - tx), 'ink'));
       if (ch >= 40) addNumbers(this, B, tx, y + 19, cx + cw - 6 - tx, [
-        { icon: 'swords', value: `${r.wins}`, word: t('duels.num.won') },
-        { icon: 'skull', value: `${r.losses}`, word: t('duels.num.lost') },
+        { icon: 'trophy', value: `${rv.wins}`, word: t('duels.num.won') },
+        { icon: 'skull', value: `${rv.losses}`, word: t('duels.num.lost') },
       ]);
-      for (const o of B.list.slice(n)) (o as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(0.7);
+      for (const o of B.list.slice(n)) (o as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(0.8);
     }
   }
 
@@ -1675,6 +1736,9 @@ export class DuelScene extends BaseScene {
   private tickSearch(): void {
     if (this.search && this.searchText?.active) {
       this.searchText.setText(t('duels.searching', { t: fmtClock((Date.now() - this.search.since) / 1000) }));
+      const openMs = RANKED.window[this.search.mode].openAfterMs;
+      const el = Date.now() - this.search.since;
+      if (this.searchBar?.active) this.searchBar.set(Math.min(el, openMs), openMs, el >= openMs ? t('dv.searchAnyone') : t('dv.searchOpensIn', { t: fmtClock((openMs - el) / 1000) }));
       this.say(this.searchSentence(this.search));
     }
     // a running cooldown counts down on the Live card (only the Arena's cards: other views keep their lists)

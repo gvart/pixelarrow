@@ -55,5 +55,9 @@ export const V4_RU: Record<keyof typeof V4_EN, string> = {
   'settings.newCampaign': 'Новый поход (с первого дня)',
   'settings.newCampaignGo': 'Начать…',
   'menu.beginMarch': 'Начать поход',
+  'dv.searchRange': 'Разброс поиска',
+  'dv.searchAnyone': 'любой',
+  'dv.searchOpensIn': 'полностью через {t}',
+  'dv.searchTeam': 'Ваш отряд · {n} · {pts}/{cap} оч.',
   'dv.enemyArmy': 'Войско врага · {n}',
 };

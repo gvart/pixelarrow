@@ -10,6 +10,7 @@ import { CommandStrip } from '../ui/strategos';
 import { InfoChip, ScreenHeader, addSection, addTipLine, confirmPurchase, flyReward, layChips, purchaseButton, resourceChipOpts, ProgressBar, addClaimGlow, openSheet } from '../ui/v3';
 import { ACCENT, MODE_ICON, RESOURCES, ROLE, SURFACE } from '../ui/tokens';
 import { fadeIn } from '../ui/motion';
+import { addModeBanner } from '../ui/modeArt';
 import { walletOverdrawn } from '../game/economy';
 import { ensureFonts } from '../ui/fonts';
 import { addChip, frameScrollTexts } from '../ui/sheet';
@@ -156,6 +157,11 @@ export class ShopScene extends BaseScene {
       y += 22 + 4;
     }
     this.strip?.set({});
+    // the market stall: where you are, before any word
+    if (this.m.VH >= 330) {
+      addModeBanner(this, H, x0, y - 2, w, 26, 'shop');
+      y += 26 + 2;
+    }
     const claim = d?.pass ? claimableCount(d.pass) : 0;
     const tabs = new Tabs(this, x0, y, w, TABS.map((k) => t(`shop.tab.${k}` as TKey)), {
       selected: TABS.indexOf(this.tab),

@@ -58,5 +58,9 @@ export const V4_EN = {
   'settings.newCampaign': 'New campaign (from day 1)',
   'settings.newCampaignGo': 'Start…',
   'menu.beginMarch': 'Begin the march',
+  'dv.searchRange': 'Search range',
+  'dv.searchAnyone': 'anyone',
+  'dv.searchOpensIn': 'wide open in {t}',
+  'dv.searchTeam': 'Your team · {n} · {pts}/{cap} pts',
   'dv.enemyArmy': 'Enemy army · {n}',
 } as const;

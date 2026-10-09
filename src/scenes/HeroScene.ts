@@ -216,7 +216,7 @@ export class HeroScene extends BaseScene {
       if (cls.mount) addMountTile(this, L, 4 + slots.length * step, y, h, ss);
       y += ss + 4;
     }
-    headBg.add(addPanel(this, 0, y0 - 2, VW, y - y0 + 2, 'header'));
+    headBg.add(addPanel(this, 0, y0 - 2, VW, y - y0 + 2, 'stage'));
     y += 2;
 
     // tabs, badged with what there is to spend

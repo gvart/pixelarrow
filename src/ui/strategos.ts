@@ -211,7 +211,7 @@ export class CommandStrip extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, w: number, vh: number, o: CommandStripOpts) {
     super(scene, 0, vh - STRAT.stripH);
     this.w = Math.round(w);
-    this.add(addPanel(scene, 0, 0, this.w, this.h, 'header'));
+    this.add(addPanel(scene, 0, 0, this.w, this.h, 'bar'));
     this.add(scene.add.rectangle(0, 0, this.w, 1, BRONZE.dark).setOrigin(0, 0));
     this.slots = scene.add.container(0, 0);
     this.add(this.slots);
