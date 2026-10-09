@@ -36,11 +36,24 @@ export function cssFont(face: Face, px: number): string {
   return FACES[face].css.replace('{px}', String(px));
 }
 
+const DIGITS = '0123456789';
+/** Tabular figures: every digit of a face advances by the widest digit (counters do not jitter, columns line up). */
+const TAB_DIGIT: Record<Face, number> = {
+  body: Math.max(...[...DIGITS].map((d) => BODY_METRICS.adv[d] ?? 0)),
+  head: Math.max(...[...DIGITS].map((d) => HEAD_METRICS.adv[d] ?? 0)),
+};
+
 /** Advance of one character in UI px at the base size, or -1 if the face has no metrics for it. */
 export function advance(ch: string, face: Face = 'body'): number {
   const f = FACES[face];
-  const a = f.m.adv[ch];
+  const a = DIGITS.includes(ch) ? TAB_DIGIT[face] : f.m.adv[ch];
   return a === undefined ? -1 : (a * f.px) / 1000;
+}
+
+/** The natural (proportional) advance of a character, to centre a tabular digit in its cell. */
+function naturalAdvance(ch: string, face: Face): number {
+  const f = FACES[face];
+  return ((f.m.adv[ch] ?? 0) * f.px) / 1000;
 }
 
 /** Every character with metrics (the set the UI may use). */
@@ -102,7 +115,8 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
   const glyphs: VectorGlyph[] = [];
   chars.forEach((ch, i) => {
     const p = pos[i];
-    const bx = p.x + pad;
+    // tabular digits sit centred in their (widest-digit) advance
+    const bx = p.x + pad + (DIGITS.includes(ch) ? ((advance(ch, face) - naturalAdvance(ch, face)) * K) / 2 : 0);
     const by = p.y + above + BASELINE * K;
     if (shadow !== undefined) {
       ctx.fillStyle = hex(shadow);

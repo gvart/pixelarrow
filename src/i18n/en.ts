@@ -18,6 +18,7 @@ import { FIELDCAMP_EN } from './fieldcamp.en';
 import { OCAMP_EN } from './camp.en';
 import { STRAT_EN } from './strat.en';
 import { CAMPSCENE_EN } from './campscene.en';
+import { V3_EN } from './v3.en';
 
 export const EN = {
   // ---- shared words
@@ -292,4 +293,6 @@ export const EN = {
   ...CAMPSCENE_EN,
   // ---- the Strategos chrome: situation sentences, strip, ring, tips (strat.en.ts)
   ...STRAT_EN,
+  // ---- the v3 UI: resources, shared components, redesigned screens (v3.en.ts)
+  ...V3_EN,
 } as const;

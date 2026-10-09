@@ -26,6 +26,7 @@ import { BRONZE, SIZE, STRAT } from './theme';
 import { addGoodsIcon } from './econ/textures';
 import { ICONS } from '../art/icons';
 import { t } from '../i18n';
+import { hasNativeBack } from '../platform/telegram';
 
 // ================================================================== labelled numbers
 
@@ -225,6 +226,8 @@ export class CommandStrip extends Phaser.GameObjects.Container {
   }
 
   set(o: CommandStripOpts): this {
+    // inside Telegram its header BackButton is the one Back (nav.ts runs the same handler): no second one here
+    if (o.left?.icon === 'back' && hasNativeBack()) o = { ...o, left: null };
     this.slots.removeAll(true);
     this.whyText?.destroy();
     this.whyText = null;

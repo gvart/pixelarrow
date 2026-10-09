@@ -24,6 +24,7 @@ import {
   type RarityFilter, type SlotFilter, type StashSort, type StatDelta, type StatId,
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
+import { ROLE } from './tokens';
 
 export const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
 export const ROMAN = ['I', 'II', 'III', 'IV'];
@@ -81,7 +82,8 @@ export function addChip(scene: Phaser.Scene, parent: Phaser.GameObjects.Containe
   return w;
 }
 
-export const roleColor = (role: string): number => ROLE_COLOR[role] ?? 0x8a7a6a;
+/** A unit role's pill colour: the role palette of src/ui/tokens.ts (never the danger red). */
+export const roleColor = (role: string): number => (ROLE as Record<string, number>)[role] ?? ROLE_COLOR[role] ?? 0x6b5d4c;
 
 // ------------------------------------------------------------------ portrait stage
 

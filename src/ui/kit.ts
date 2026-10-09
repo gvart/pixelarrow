@@ -9,18 +9,24 @@ import Phaser from 'phaser';
 import { renderVectorAtlas, type Face } from '../art/vectorFont';
 import { ICONS } from '../art/icons';
 import { VECTOR_CAMP_ICONS, VECTOR_ICONS } from '../art/vectorIcons';
+import { UI_ICONS } from '../art/uiIcons';
 import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
 import { renderIcon, type PanelStyle } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
-import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
 import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
 import { ellipsize, measureText } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
 import { RS } from '../platform/renderScale';
+import { ACCENT, RESOURCES, TEXT } from './tokens';
+import { motion } from './motion';
 
-export type FontKey = 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good' | 'head';
+export type FontKey =
+  | 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good' | 'head'
+  // v3 (src/ui/tokens.ts): secondary and muted text, text on accents, the resource colours, errors
+  | 'sec' | 'muted' | 'onAccent' | 'reward' | 'glory' | 'premium' | 'bad' | 'xp' | 'power' | 'stars' | 'headL';
 
 export interface UIMetrics {
   S: number;
@@ -47,8 +53,20 @@ const FONT_COLORS: Record<FontKey, [number, number | undefined]> = {
   good: [STATUS_D2.good, undefined],
   // section headings and names: Cormorant SC in bronze (measure with face 'head')
   head: [BRONZE_D2.hi, undefined],
+  sec: [TEXT.secondary, undefined],
+  muted: [TEXT.muted, undefined],
+  onAccent: [TEXT.onAccent, 0x2a0f08],
+  reward: [ACCENT.gold, undefined],
+  glory: [RESOURCES.glory.color, undefined],
+  premium: [RESOURCES.drachmae.color, undefined],
+  bad: [ACCENT.danger, undefined],
+  xp: [RESOURCES.xp.color, undefined],
+  power: [RESOURCES.power.color, undefined],
+  stars: [RESOURCES.stars.color, undefined],
+  // titles: Cormorant SC in the primary text colour
+  headL: [TEXT.primary, undefined],
 };
-const FONT_FACE: Partial<Record<FontKey, Face>> = { head: 'head' };
+const FONT_FACE: Partial<Record<FontKey, Face>> = { head: 'head', headL: 'head' };
 
 /**
  * Register a bitmap font `key` drawn from a vector face (src/art/vectorFont.ts)
@@ -81,7 +99,7 @@ export function registerUiAssets(scene: Phaser.Scene): void {
   }
   // smooth icons first (src/art/vectorIcons.ts); a name with no vector form keeps its pixel icon
   const K = panelK(scene);
-  const vec: [string, IconPart[]][] = [...Object.entries(VECTOR_ICONS), ...Object.entries(VECTOR_CAMP_ICONS).map(([k, d]): [string, IconPart[]] => [`camp_${k}`, d])];
+  const vec: [string, IconPart[]][] = [...Object.entries(VECTOR_ICONS), ...Object.entries(UI_ICONS), ...Object.entries(VECTOR_CAMP_ICONS).map(([k, d]): [string, IconPart[]] => [`camp_${k}`, d])];
   for (const [name, d] of vec) {
     registerVectorIcon(scene, `icon_${name}`, name, d, 'full', K);
     registerVectorIcon(scene, `iconL_${name}`, name, d, 'light', K);
@@ -185,7 +203,7 @@ export function addText(
 }
 
 /** Fonts drawn with a 1 px drop shadow (one pixel wider). */
-export const SHADOW_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['light', 'gold', 'title']);
+export const SHADOW_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['light', 'gold', 'title', 'onAccent']);
 
 /**
  * Shortens a one-line text until it fits the width, ending it with "…". The
@@ -223,7 +241,8 @@ export function scaleIcon(img: Phaser.GameObjects.Image, n: number): Phaser.Game
   return img.setScale((n * ICON_PX) / Math.max(1, img.width));
 }
 
-export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
+/** 'ghost': a quiet outlined action; 'purchase': real money (Telegram Stars), its own blue. */
+export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost' | 'purchase';
 
 export interface ButtonOpts {
   label?: string;
@@ -305,6 +324,8 @@ export class Button extends Phaser.GameObjects.Container {
   w: number;
   h: number;
   private bg: Phaser.GameObjects.Image;
+  /** Background and content, centred on the button so a press scales it about its middle. */
+  private face: Phaser.GameObjects.Container;
   private content: Phaser.GameObjects.Container;
   private labelText?: Phaser.GameObjects.BitmapText;
   private iconImg?: Phaser.GameObjects.Image;
@@ -323,10 +344,12 @@ export class Button extends Phaser.GameObjects.Container {
     this.opts = opts;
     this.selected = opts.style === 'buttonSel';
     this.enabled = opts.style !== 'buttonOff';
-    this.bg = panelImage(scene, 0, 0, this.w, this.h, this.baseStyle());
-    this.add(this.bg);
-    this.content = scene.add.container(0, 0);
-    this.add(this.content);
+    this.face = scene.add.container(this.w / 2, this.h / 2);
+    this.add(this.face);
+    this.bg = panelImage(scene, -this.w / 2, -this.h / 2, this.w, this.h, this.baseStyle());
+    this.face.add(this.bg);
+    this.content = scene.add.container(-this.w / 2, -this.h / 2);
+    this.face.add(this.content);
     this.build();
     this.setSize(this.w, this.h);
     this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
@@ -347,7 +370,9 @@ export class Button extends Phaser.GameObjects.Container {
       });
       if (!this.enabled) return;
       this.bg.setTexture(panelTexture(scene, this.w, this.h, this.downStyle()));
-      this.content.y = 1;
+      // the face sinks onto its lip and gives a little under the finger
+      this.content.y = -this.h / 2 + 2;
+      if (!motion.reduced) this.face.setScale(0.97);
     });
     this.on('pointerout', () => this.release());
     this.on('pointermove', (p: Phaser.Input.Pointer) => {
@@ -365,7 +390,7 @@ export class Button extends Phaser.GameObjects.Container {
         longPress.toast?.(scene, this.opts.disabledReason ?? t('kit.disabled'));
         return;
       }
-      hapticSelect();
+      haptic('light');
       uiButton(this.opts.icon);
       // Crash-report breadcrumb: the button's id or icon only (labels may hold player names).
       breadcrumb('ui', `tap ${this.opts.id ?? this.opts.icon ?? '?'}`);
@@ -382,7 +407,8 @@ export class Button extends Phaser.GameObjects.Container {
     if (!keepLong) this.longPressed = false;
     if (!this.scene) return;
     this.refreshBg();
-    this.content.y = 0;
+    this.content.y = -this.h / 2;
+    this.face.setScale(1);
   }
 
   private tipText(): string | undefined {
@@ -395,7 +421,9 @@ export class Button extends Phaser.GameObjects.Container {
   /** Primary = terracotta, selected = lit bronze, destructive = stone, else bronze. */
   private baseStyle(): SmoothStyle {
     if (!this.enabled) return 'buttonOff';
+    if (this.opts.variant === 'purchase') return 'buttonBuy';
     if (this.opts.variant === 'primary') return 'buttonSel';
+    if (this.opts.variant === 'ghost' && !this.selected) return 'buttonGhost';
     if (this.selected) return 'buttonOn';
     if (this.opts.variant === 'destructive') return 'buttonDanger';
     return 'button';
@@ -403,12 +431,12 @@ export class Button extends Phaser.GameObjects.Container {
 
   private downStyle(): SmoothStyle {
     const b = this.baseStyle();
-    return b === 'buttonSel' ? 'buttonSelDown' : b === 'buttonOn' ? 'buttonOnDown' : b === 'buttonDanger' ? 'buttonDangerDown' : 'buttonDown';
+    return b === 'buttonSel' ? 'buttonSelDown' : b === 'buttonOn' ? 'buttonOnDown' : b === 'buttonDanger' ? 'buttonDangerDown' : b === 'buttonBuy' ? 'buttonBuyDown' : b === 'buttonGhost' ? 'buttonGhostDown' : 'buttonDown';
   }
 
   private isLight(): boolean {
     const b = this.baseStyle();
-    return b === 'buttonSel' || b === 'buttonDanger' || b === 'buttonOn';
+    return b === 'buttonSel' || b === 'buttonDanger' || b === 'buttonOn' || b === 'buttonBuy';
   }
 
   private build(): void {
@@ -771,7 +799,7 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
     const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
     down = null;
     if (d > 14 * RS || (area && area.moved)) return;
-    hapticSelect();
+    haptic('light');
     uiButton();
     onTap();
   });

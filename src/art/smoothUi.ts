@@ -8,7 +8,13 @@
  */
 import type { PanelStyle } from './uiTextures';
 
-export type SmoothStyle = PanelStyle | 'buttonOn' | 'buttonOnDown';
+/**
+ * v3 materials (docs/UI_V3.md): riveted bronze-stone cards, sunken wells, the
+ * segmented control's track and thumb, the real-money purchase button (its own
+ * blue), the ghost button, and the neutral locked card.
+ */
+export type V3Style = 'card' | 'cardRaised' | 'cardSel' | 'cardLocked' | 'well' | 'track' | 'thumb' | 'buttonBuy' | 'buttonBuyDown' | 'buttonGhost' | 'buttonGhostDown' | 'chip' | 'header';
+export type SmoothStyle = PanelStyle | 'buttonOn' | 'buttonOnDown' | V3Style;
 
 export const STONE = { s0: 0x120e0b, s1: 0x1a1511, s2: 0x241d17, s3: 0x2f261e, s4: 0x3b3027 } as const;
 export const BRONZE_D2 = { hi: 0xe2c48c, main: 0xb48a52, mid: 0x8c6a3c, lo: 0x5c4325, dk: 0x3a2915 } as const;
@@ -29,6 +35,12 @@ interface Look {
   pressed?: boolean;
   radius: number;
   borderW?: number;
+  /** Bronze rivets in the corners (cards big enough to carry them). */
+  rivets?: boolean;
+  /** A faint hammered grain over the face. */
+  grain?: boolean;
+  /** An inner shadow along the top edge (sunken wells). */
+  sunken?: boolean;
 }
 
 const BTN_R = 7;
@@ -51,6 +63,20 @@ const LOOKS: Record<SmoothStyle, Look> = {
   buttonDanger: { fill: [[0, '#3d332a'], [1, '#2b231c']], border: '#1a120c', ring: 'rgba(180,138,82,0.35)', top: 'rgba(255,235,200,0.1)', lip: true, radius: BTN_R },
   buttonDangerDown: { fill: [[0, '#2b231c'], [1, '#221b15']], border: '#1a120c', ring: 'rgba(180,138,82,0.3)', lip: true, pressed: true, radius: BTN_R },
   buttonOff: { fill: [[0, '#2b241e'], [1, '#221c17']], border: '#1a140f', ring: 'rgba(143,130,109,0.22)', radius: BTN_R },
+  // ---- v3
+  card: { fill: [[0, '#2c231b'], [0.5, '#241c15'], [1, '#1c1611']], border: '#6e5230', ring: 'rgba(0,0,0,0.5)', top: 'rgba(255,228,178,0.12)', radius: 8, rivets: true, grain: true },
+  cardRaised: { fill: [[0, '#3a2e22'], [0.5, '#2e241b'], [1, '#231b14']], border: '#a07a46', ring: 'rgba(0,0,0,0.5)', top: 'rgba(255,228,178,0.18)', radius: 8, rivets: true, grain: true },
+  cardSel: { fill: [[0, '#3d2f20'], [0.5, '#30251a'], [1, '#251c13']], border: '#e2c48c', borderW: 1.5, ring: 'rgba(226,196,140,0.25)', top: 'rgba(255,236,196,0.22)', radius: 8, rivets: true, grain: true },
+  cardLocked: { fill: [[0, '#1d1814'], [1, '#17130f']], border: 'rgba(143,130,109,0.35)', radius: 8 },
+  well: { fill: [[0, '#0b0907'], [1, '#14100c']], border: 'rgba(140,106,60,0.35)', radius: 6, sunken: true },
+  track: { fill: [[0, '#0d0a08'], [1, '#16120e']], border: 'rgba(140,106,60,0.5)', radius: 8, sunken: true },
+  thumb: { fill: [[0, '#c29a5c'], [0.5, '#93703f'], [1, '#6e522c']], border: '#f0d49c', ring: 'rgba(255,240,205,0.35)', top: 'rgba(255,244,214,0.7)', lip: true, radius: 7 },
+  buttonBuy: { fill: [[0, '#2f8cc8'], [0.5, '#1b6fa3'], [1, '#124c70']], border: '#0a2436', ring: 'rgba(200,232,255,0.45)', top: 'rgba(220,240,255,0.55)', lip: true, radius: BTN_R },
+  buttonBuyDown: { fill: [[0, '#1b6fa3'], [1, '#0f4262']], border: '#0a2436', ring: 'rgba(200,232,255,0.35)', lip: true, pressed: true, radius: BTN_R },
+  buttonGhost: { fill: [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0)']], border: 'rgba(180,138,82,0.55)', radius: BTN_R },
+  buttonGhostDown: { fill: [[0, 'rgba(180,138,82,0.18)'], [1, 'rgba(180,138,82,0.12)']], border: 'rgba(226,196,140,0.8)', radius: BTN_R },
+  chip: { fill: [[0, '#120e0b'], [1, '#1a1511']], border: 'rgba(180,138,82,0.55)', radius: 6 },
+  header: { fill: [[0, '#2a2119'], [1, '#1b1511']], border: 'rgba(0,0,0,0)', top: 'rgba(255,228,178,0.10)', radius: 0 },
 };
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -100,6 +126,50 @@ export function renderSmoothPanel(w: number, h: number, style: SmoothStyle, K: n
     ctx.lineWidth = css;
     ctx.strokeStyle = look.ring;
     ctx.stroke();
+  }
+  if (look.sunken) {
+    ctx.save();
+    roundRect(ctx, bw, fy + bw, W - bw * 2, fh - bw * 2, Math.max(0, r - bw));
+    ctx.clip();
+    const sh = ctx.createLinearGradient(0, fy, 0, fy + Math.min(fh, 4 * css));
+    sh.addColorStop(0, 'rgba(0,0,0,0.65)');
+    sh.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sh;
+    ctx.fillRect(0, fy, W, Math.min(fh, 4 * css));
+    ctx.restore();
+  }
+  if (look.grain) {
+    ctx.save();
+    roundRect(ctx, bw, fy + bw, W - bw * 2, fh - bw * 2, Math.max(0, r - bw));
+    ctx.clip();
+    // deterministic speckle (same panel size, same grain)
+    let seed = (W * 73856093) ^ (H * 19349663);
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const n = Math.min(400, Math.round((W * H) / (180 * css * css)));
+    for (let i = 0; i < n; i++) {
+      ctx.fillStyle = rnd() < 0.5 ? 'rgba(255,230,190,0.035)' : 'rgba(0,0,0,0.08)';
+      const s2 = css * (0.6 + rnd() * 0.9);
+      ctx.fillRect(rnd() * W, fy + rnd() * fh, s2, s2);
+    }
+    ctx.restore();
+  }
+  if (look.rivets && W > 40 * css && fh > 22 * css) {
+    const rr = 1.15 * css;
+    const inset = 4.2 * css;
+    for (const [px, py] of [[inset, fy + inset], [W - inset, fy + inset], [inset, fy + fh - inset], [W - inset, fy + fh - inset]]) {
+      ctx.beginPath();
+      ctx.arc(px + 0.3 * css, py + 0.4 * css, rr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fill();
+      const g2 = ctx.createRadialGradient(px - rr * 0.4, py - rr * 0.4, 0, px, py, rr);
+      g2.addColorStop(0, '#f4dcaa');
+      g2.addColorStop(0.6, '#a87c44');
+      g2.addColorStop(1, '#4e381e');
+      ctx.beginPath();
+      ctx.arc(px, py, rr, 0, Math.PI * 2);
+      ctx.fillStyle = g2;
+      ctx.fill();
+    }
   }
   if (look.top) {
     ctx.save();
