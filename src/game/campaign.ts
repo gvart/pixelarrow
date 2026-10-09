@@ -2,7 +2,9 @@
  * Campaign state: roster, stash, gold, the overland world, and every operation
  * the screens perform on them (equip, hire, buy, heal, level up, encounters).
  */
-import { RARITIES, itemDef, itemValue, normalizeRarity, type Item, type Slot } from '../data/items';
+import { RARITIES, isBound, itemDef, itemValue, normalizeRarity, salvageValue, type Item, type Slot } from '../data/items';
+import { encounterOf } from '../data/beasts';
+import { BEAST_NAMED, armyClasses, legendaryHoard, pityChest } from './sources';
 import { equipBlocker, equipFromStash, unequipInto } from './gear';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
 import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/perks';
@@ -254,9 +256,10 @@ export class Campaign {
   }
 
   buy(settlement: number, index: number): Item | null {
-    const ware = this.world.wares(settlement).find((w) => w.index === index);
+    const classes = this.armyClasses();
+    const ware = this.world.wares(settlement, classes).find((w) => w.index === index);
     if (!ware || this.data.gold < ware.price) return null;
-    const got = this.world.buy(settlement, index, this.data);
+    const got = this.world.buy(settlement, index, this.data, classes);
     if (!got) return null;
     this.data.gold -= got.price;
     this.data.stash.push(got.item);
@@ -299,12 +302,12 @@ export class Campaign {
     return true;
   }
 
-  /** Sell a stash item (town markets pay its value). */
+  /** Sell a stash item (town markets pay its value; a bound item is only salvaged, for a quarter of it). */
   sell(itemUid: string, value?: number): void {
     const idx = this.data.stash.findIndex((i) => i.uid === itemUid);
     if (idx < 0) return;
     const [it] = this.data.stash.splice(idx, 1);
-    this.data.gold += value ?? itemValue(it);
+    this.data.gold += value ?? (isBound(it) ? salvageValue(it) : itemValue(it));
   }
 
   // ------------------------------------------------------------- progression
@@ -366,7 +369,26 @@ export class Campaign {
   /** The enemy army for a battle against a world band. */
   partyEnemy(partyId: number): EnemyArmy | null {
     const p = this.world.party(partyId);
-    return p ? partyArmy(p, this.data) : null;
+    return p ? partyArmy(p, this.data, this.armyClasses()) : null;
+  }
+
+  /** The classes of the army, which loot and town wares follow (src/game/sources.ts armyPick). */
+  armyClasses(): string[] {
+    return armyClasses(this.data.heroes);
+  }
+
+  /**
+   * Bad-luck protection for a won beast battle (docs/ITEMS.md "Where items
+   * come from"): its hoard is a chest; one without a legendary counts up
+   * `data.pity`, and when the counter is due the best piece turns legendary.
+   * Mutates the outcome's loot.
+   */
+  beastPity(outcome: Outcome, enemies: Hero[]): void {
+    const enc = encounterOf(enemies);
+    if (!enc || !outcome.victory || !outcome.loot.length) return;
+    const r = pityChest(outcome.loot, this.data.pity ?? 0, (it) => legendaryHoard(it, BEAST_NAMED[enc], `${this.data.seq ?? 0}:${it.uid}`));
+    outcome.loot = r.items;
+    this.data.pity = r.count;
   }
 
   /**

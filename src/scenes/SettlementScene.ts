@@ -6,14 +6,14 @@ import { uiId } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { SIZE } from '../ui/theme';
 import { ensureFonts, rarityFont } from '../ui/fonts';
-import { StashGrid, addChip, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
+import { StashGrid, addChip, className, defaultStashState, itemName, openClassCard, openItemCard, saleText, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
 import { addPortrait } from '../ui/sprites';
 import { heroClass } from '../sim/stats';
 import { dollFromHero } from '../art/paperdoll';
 import { renderSettlement } from '../art/worldArt';
 import { state } from '../state';
 import { haptic, hapticNotify } from '../platform/telegram';
-import { itemDef, itemValue, type Item } from '../data/items';
+import { itemDef, type Item } from '../data/items';
 import { MAX_ARMY } from '../data/units';
 import { WORLD_RULES } from '../world/world';
 import { CULTURE_LABEL } from '../data/names';
@@ -241,7 +241,7 @@ export class SettlementScene extends BaseScene {
     const { VW } = this.m;
     const camp = state.campaign;
     const w = camp.world;
-    const wares = w.wares(this.id);
+    const wares = w.wares(this.id, camp.armyClasses());
     const refresh = Math.ceil(w.refreshIn(this.id));
     if (!wares.length) {
       this.body.add(addEmptyState(this, 4, y, VW - 8, h, { icon: 'coin', title: t('town.soldOut'), hint: t('town.newWares', { h: refresh }) }));
@@ -279,7 +279,7 @@ export class SettlementScene extends BaseScene {
 
   openWare(index: number): void {
     const camp = state.campaign;
-    const ware = camp.world.wares(this.id).find((x) => x.index === index);
+    const ware = camp.world.wares(this.id, camp.armyClasses()).find((x) => x.index === index);
     if (!ware) return;
     const hero = camp.data.heroes[0];
     openItemCard(this, {
@@ -316,28 +316,29 @@ export class SettlementScene extends BaseScene {
   }
 
   openSell(it: Item): void {
-    const val = itemValue(it);
+    const s = saleText(it);
     openItemCard(this, {
       item: it,
       hero: state.campaign.data.heroes[0],
-      notes: [{ text: t('town.sellHint') }],
+      notes: [{ text: s.bound ? t('stash.boundHint') : t('town.sellHint') }],
       actions: [
         {
-          label: t('stash.sell', { n: val }),
+          label: s.label,
           icon: 'coin',
           variant: 'primary',
           id: 'stash.sell',
-          onClick: () => confirmDialog(this, { title: t('stash.sellTitle', { name: itemName(it) }), body: t('stash.sellBody', { n: val }), ok: t('stash.sell', { n: val }), cancel: t('common.cancel'), onOk: () => this.sell(it, val) }),
+          onClick: () => confirmDialog(this, { title: s.title, body: s.body, ok: s.label, cancel: t('common.cancel'), onOk: () => this.sell(it, s.value) }),
         },
       ],
     });
   }
 
   private sell(it: Item, val: number): void {
+    const done = saleText(it).done;
     state.campaign.sell(it.uid, val);
     haptic('medium');
     uiCoin();
-    toast(this, t('stash.sold', { n: val }), 'good');
+    toast(this, done, 'good');
     void state.save();
     this.refresh();
   }
