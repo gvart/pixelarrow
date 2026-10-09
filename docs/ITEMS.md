@@ -1,12 +1,12 @@
 # Items: rarity, random stats, powers, sets and sources
 
-Status: **partly built**. Step 1 (random stats, requirements, class limits,
-the 43 new items, set stat bonuses, the item card) and step 2 (powers, set
-special lines and the named items' extras in battle, `src/sim/powers.ts`;
-the rebalance below) are in. Step 3 is next: drop sources for set pieces and
-named items, loot weighted to the army's classes, per-duel spoils, bad-luck
-protection and duel point costs. Where this page and the code differ, the
-code wins.
+Status: **built**. Step 1 (random stats, requirements, class limits, the 43
+new items, set stat bonuses, the item card), step 2 (powers, set special
+lines and the named items' extras in battle, `src/sim/powers.ts`; the
+rebalance below) and step 3 (the sources of set pieces and named items, loot
+weighted to the army's classes, per-duel spoils, bad-luck protection, bound
+items and duel point costs: `src/game/sources.ts`, "Where items come from")
+are in. Where this page and the code differ, the code wins.
 
 Before this work an item's rarity only multiplied its
 base stats (×1 to ×1.6, `RARITY_MULT` in `src/data/items.ts`), so a
@@ -260,7 +260,7 @@ single effect in the game, so its pieces drop only from world bosses.
 
 ### Agoge of Sparta (rare, 3 pieces)
 
-Source: duel ladder chapter 1 top chest; Spartan trading posts; Greek bands in the campaign (tier 3).
+Source: duel ladder chapter 1 top chest; trading posts of Attica and Thessaly; Greek bands in the campaign (tier 3).
 
 | Pieces worn | Bonus |
 | --- | --- |
@@ -275,7 +275,7 @@ Source: duel ladder chapter 1 top chest; Spartan trading posts; Greek bands in t
 
 ### Peltast of Thrace (rare, 3 pieces)
 
-Source: duel ladder chapter 2 top chest; Thracian trading posts; Thracian bands in the campaign (tier 3).
+Source: duel ladder chapter 2 top chest; trading posts of Thrace and Scythia; the javelin men (javelineers, peltasts) of tier-3 campaign bands.
 
 | Pieces worn | Bonus |
 | --- | --- |
@@ -290,7 +290,7 @@ Source: duel ladder chapter 2 top chest; Thracian trading posts; Thracian bands 
 
 ### Cretan Bowman (rare, 3 pieces)
 
-Source: duel ladder chapter 3 top chest; Cretan trading posts; archer bands in the campaign (tier 3).
+Source: duel ladder chapter 3 top chest; trading posts of Crete and Phoenicia; the archers of tier-3 campaign bands.
 
 | Pieces worn | Bonus |
 | --- | --- |
@@ -305,7 +305,7 @@ Source: duel ladder chapter 3 top chest; Cretan trading posts; archer bands in t
 
 ### Warband of Brennus (epic, 4 pieces)
 
-Source: Celtic trading posts (epic slot); beast hoards (epic drops); duel ladder chapter 4 top chest.
+Source: trading posts of Gaul and Thrace (epic slot); beast hoards (epic drops); duel ladder chapter 4 top chest.
 
 | Pieces worn | Bonus |
 | --- | --- |
@@ -322,7 +322,7 @@ Source: Celtic trading posts (epic slot); beast hoards (epic drops); duel ladder
 
 ### Immortals of Persia (epic, 4 pieces)
 
-Source: Persian trading posts (epic slot); beast hoards (epic drops); duel ladder chapter 5 top chest.
+Source: trading posts of Crete, Phoenicia and Scythia (epic slot); beast hoards (epic drops); duel ladder chapter 5 top chest.
 
 | Pieces worn | Bonus |
 | --- | --- |
@@ -339,7 +339,7 @@ Source: Persian trading posts (epic slot); beast hoards (epic drops); duel ladde
 
 ### Sacred Band of Thebes (epic, 4 pieces)
 
-Source: Theban trading posts (epic slot); beast hoards (epic drops); ranked season reward (Strategos and Legend pick one piece).
+Source: trading posts of Attica and Thessaly (epic slot); beast hoards (epic drops); ranked season reward (live Strategos and Legend pick one piece).
 
 | Pieces worn | Bonus |
 | --- | --- |
@@ -356,7 +356,7 @@ Source: Theban trading posts (epic slot); beast hoards (epic drops); ranked seas
 
 ### Arms of Achilles (legendary, 5 pieces)
 
-Source: world boss: the Kraken (one piece per victorious raid for contributors, see Sources).
+Source: world boss: the Kraken (40% of the chests of its contributors with at least 5% of the damage, see Sources).
 
 | Pieces worn | Bonus |
 | --- | --- |
@@ -375,7 +375,7 @@ Source: world boss: the Kraken (one piece per victorious raid for contributors, 
 
 ### Panoply of Alexander (legendary, 5 pieces)
 
-Source: world boss: the Titan (one piece per victorious raid for contributors, see Sources).
+Source: world boss: the Titan (40% of the chests of its contributors with at least 5% of the damage, see Sources).
 
 | Pieces worn | Bonus |
 | --- | --- |
@@ -429,46 +429,84 @@ start within 4 units" would never reach anyone.
 
 | Source | Common | Uncommon | Rare | Epic | Legendary | Sets | Named |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Campaign battles (enemy gear, `rollRarity` by band tier) | yes | yes | yes | tier 2-3 | - | rare set pieces: 4% of rare drops from tier-3 bands of the set's culture | - |
+| Campaign battles (enemy gear, `rollRarity` by band tier) | yes | yes | yes | tier 2-3 | - | rare set pieces: 4% of the rare pieces tier-3 bands carry (Greek bands Agoge, javelin men Peltast, archers Cretan) | - |
 | Campaign and war-map beasts (`rollBeastRarity`: rare 50 / epic 35 / legendary 15) | - | - | yes | yes | yes | epic set pieces: 25% of epic drops | 20% of legendary drops are the beast's named item |
 | World bosses (Kraken, Titan) | - | - | - | yes | yes | legendary set pieces (below) | Kraken: Trident; Titan: Aegis |
 | War-map merchants, towns | basic | regional | 1 a day | - | - | - | - |
-| War-map trading posts | - | - | yes | 1 a day | - | the 1 epic is a piece of the region's epic set 1 day in 3; rare set pieces of the region's culture | - |
+| War-map trading posts | - | - | yes | 1 a day | - | every piece of the realm's rare set; the epic is a piece of the realm's epic set 1 day in 3 (`REALM_SETS`) | - |
 | War-map marketplace (players) | yes | yes | yes | yes | yes | rare and epic pieces | never (bound) |
 | Duel shop (Glory) | yes | yes | yes | daily offer | - | - | - |
 | Duel ladder, won floor (25% on replays) | yes | yes | yes | tier 3 | boss floors | - | floors 30 / 40 / 50 bosses, see below |
 | Duel ladder chapter chests (top tier) | - | - | yes | yes | yes | chapters 1-3: a rare set piece of that chapter's set; chapters 4-5: an epic set piece | - |
 | Ranked and unranked duels (per-duel spoils) | yes | yes | yes | - | - | - | - |
-| Ranked season rewards | - | - | - | Strategos, Legend | - | Sacred Band piece of choice | - |
+| Ranked season rewards (live) | - | - | - | Strategos, Legend | - | Sacred Band piece of choice | - |
 
-Details:
+Details (numbers in `SOURCES`, `src/game/sources.ts`, and `SPOILS`,
+`src/duel/rules.ts`):
 
+- **Loot follows the army.** `armyPick`: a weapon, shield or armour is,
+  70% of the time, re-picked among the pool's weapons, shields and armour a
+  class of the player's army can use (an army of archers gets bows and
+  armour, never a shield it cannot carry); helmets and trinkets come up as
+  often as before. It applies to every per-player pick: campaign beast
+  hoards and town wares, duel ladder drops and chests, per-duel spoils,
+  world-boss hoards and chests. Stock that is the same for every player
+  follows no army: the war-map merchants (per region and UTC day), the duel
+  shop's daily offers (per UTC day) and a war-map lair's hoard (the beast
+  carries it, whoever slays it).
+- **Campaign bands.** Each rare piece a hero of a tier-3 band wears is, 4% of
+  the time, swapped for its set's piece of that slot that the hero's class
+  can use (`bandSetPieces`, seeded by the band): archers carry Cretan pieces,
+  javelineers and peltasts Peltast pieces, the rest of a Greek band Agoge
+  pieces. Celtic and Phoenician line troops carry none.
+- **Beast hoards** (campaign bands, the Beast trial, war-map lairs:
+  `hoardItem`). 25% of epic drops are a piece of an epic set (Brennus,
+  Immortals, Sacred Band), 20% of legendary drops the beast's named item
+  (into a free slot of its kind).
 - **Per-duel spoils.** A won unranked duel drops an item 8% of the time, a
   won ranked duel 12% (common 50 / uncommon 35 / rare 15). The first ranked
-  win of each UTC day drops one for sure, at least uncommon. Raids (async)
-  pay half these chances. Generated on the server from the match seed.
+  live win of each UTC day drops one for sure, at least uncommon
+  (`duel_profiles.spoils_day`). Raids pay half the ranked chance and have no
+  daily guarantee. Generated on the server from the match (or raid) seed and
+  the side, into the duel stash.
 - **Ladder bosses.** First clear of floor 30, 40 or 50 has a 25% chance of
   that floor's named item (Harpe of Perseus, Helm of Hades, Golden Fleece),
-  otherwise `rollBeastRarity` as today; won replays of those floors 2%.
-- **World bosses.** Every contributor with at least 5% of the damage in a
-  victorious raid gets a chest: 40% a piece of the boss's legendary set (a
-  piece they do not own yet, while there is one), 10% the boss's named item,
-  else an epic.
-- **Bad-luck protection.** A beast or world-boss chest that is not legendary
-  adds 1 to a per-player counter; at 8 the next one is legendary and the
-  counter resets. Named items: at most one copy per player per season from
-  world bosses (duplicates become an epic).
-- **Bound items.** Named legendaries and legendary set pieces cannot be
-  listed on the marketplace or sold to merchants; they can be salvaged for
-  gold or Glory (a quarter of their value).
+  otherwise `rollBeastRarity` as before; won replays of those floors 2%
+  (otherwise the usual 25% farm drop).
+- **Ladder chests.** The top (30-star) chest of chapters 1-3 holds a piece of
+  Agoge, Peltast and Cretan; of chapters 4-5 a piece of Brennus and Immortals.
+- **World bosses.** Every contributor with at least 5% of the damage of a
+  slain boss gets a chest on top of the hoard split (`bossChest`,
+  `world_boss_chests`): 40% a piece of the boss's legendary set they do not
+  own yet this season (stash and heroes), else an epic once they own all
+  five; 10% the boss's named item, at most one per player and boss per
+  season (a second one becomes an epic); else an epic piece.
+- **Bad-luck protection** (`pityChest`). A beast or world-boss chest that is
+  not legendary adds 1 to a per-player counter; at 8 the next one is
+  legendary (its best piece turns legendary, the beast's named item 20% of
+  the time; a world-boss chest gives a missing set piece, else the named
+  item, else a legendary piece) and the counter resets; any legendary resets
+  it. The chests: a won beast battle's loot in the campaign (`pity` in the
+  save), a slain lair beast's hoard and a world-boss chest on the war map
+  (`loot_pity` track `war`, kept across war seasons), a ladder boss floor's
+  first-clear drop in duels (track `duel`).
+- **Bound items.** Named legendaries and legendary set pieces (`bound: true`)
+  are refused by the marketplace (`bound_item`) and the duel shop's buy-back;
+  they are salvaged for a quarter of their value (`salvageValue`): gold in
+  the campaign (the town market's sell button), gold on the war map (the
+  army screen, `POST /api/online/salvage`), Glory in duels
+  (`POST /api/duel/shop/salvage`, the same quarter of the shop price a sale
+  pays).
 - **Duel and war stashes stay separate** (docs/DUELS.md): duel sources fill
   the duel stash, war and campaign sources the war or campaign stash.
 
 ## Duel fairness
 
-- Item points (`RARITY_POINTS`): 0 / 1 / 2 / 4 / 6 as today, a named
-  legendary 7. Each active set bonus line costs 1 point (a full legendary set
-  worn by one hero: 5 × 6 + 4 = 34 points).
+- Item points (`RARITY_POINTS`): 0 / 1 / 2 / 4 / 6 as before, a named
+  legendary 7 (`NAMED_POINTS`). Each active set bonus line costs 1 point
+  (`setLines`: pieces count as in battle, only those the hero's class may use
+  and whose requirements he meets; a full legendary set worn by one hero:
+  5 × 6 + 4 = 34 points).
 - Powers are allowed in ranked: they are deterministic in the seeded sim and
   verified by replay like everything else.
 - Economy stats (gold, survivor, durable) never roll on duel items, and do
@@ -499,7 +537,7 @@ level 5 / level 10; "Now" at 400 seeds per cell, the first two columns at 120):
 Without their powers the epic kit now wins 67 / 66% and the legendary kit
 78 / 77%: a full set of powers is worth about 10 points.
 
-## Code changes (steps 1 and 2 built; sources, spoils and duel points are step 3)
+## Code changes (built)
 
 - `src/data/items.ts`: `Item` gets `aff?: string` (steps, compact: `"atkSpeed:2,hp:1"`)
   and `pow?: PowerId`; `ItemDef` gets `set?`, `named?`, `power?`, `fixed?`
@@ -535,9 +573,19 @@ Without their powers the epic kit now wins 67 / 66% and the legendary kit
   stats (and epic and legendary their power) from a hash of its uid, so an
   item always rolls the same and nobody loses an item's worth. Server rows
   the same on read.
+- Step 3: `src/game/sources.ts` (the shared rules), the sources in
+  `src/game/beasts.ts`, `src/world/world.ts`, `src/duel/ladder.ts`,
+  `src/duel/rules.ts`, `src/online/lairs.ts`, `src/online/merchants.ts`;
+  server: `server/src/loot.ts`, world-boss chests in
+  `server/src/online/bosses.ts`, spoils in `server/src/duel/live.ts` and
+  `async.ts`, the season pick in `server/src/duel/season.ts`; migration
+  `0015_item_sources.sql` (`loot_pity`, `world_boss_chests`,
+  `duel_profiles.spoils_day`, `duel_season_rewards.pick` / `picked`).
 - Tests: affix pools by slot, no duplicate stat, seeded rolls, migration
   idempotent, each power's hook in the sim, replay determinism with powers,
-  balance targets.
+  balance targets; every source's rates over many seeds, the bad-luck
+  counter, bound refusals and point costs (`tests/sources.test.ts`), a real
+  source for every set piece and named item (`tests/itemSources.test.ts`).
 
 ## Open questions
 
