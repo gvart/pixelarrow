@@ -552,6 +552,8 @@ export interface StashGridOpts {
   empty?: { title: string; hint: string };
   cell?: number;
   selected?: () => string | null;
+  /** A small label on each cell (the Duels Sell tab: what the item fetches). */
+  price?: (it: Item) => { text: string; font: FontKey } | null;
 }
 
 /**
@@ -611,7 +613,8 @@ export class StashGrid {
           icon: f === 'all' ? 'people' : SLOT_ICON[f],
           iconOnly: true,
           label: f === 'all' ? t('stash.all') : t(`slot.${f}` as TKey),
-          style: st.slot === f ? 'buttonSel' : 'button',
+          variant: 'ghost',
+          style: st.slot === f ? 'buttonSel' : undefined,
           id: `filter:${f}`,
           onClick: () => this.set({ slot: f }),
         });
@@ -627,6 +630,9 @@ export class StashGrid {
         new Button(scene, bx, cy, bw, SIZE.btnH, {
           label: st.slot === 'all' ? t('stash.all') : t(`slot.${st.slot}` as TKey),
           icon: st.slot === 'all' ? undefined : SLOT_ICON[st.slot],
+          variant: 'ghost',
+          small: true,
+          style: st.slot === 'all' ? undefined : 'buttonSel',
           id: 'filter:slot',
           tip: t('stash.slotTip'),
           onClick: () => this.set({ slot: cycle(SLOT_FILTERS, st.slot) }),
@@ -637,6 +643,9 @@ export class StashGrid {
     this.c.add(
       new Button(scene, bx, cy, bw, SIZE.btnH, {
         label: st.rarity === 'all' ? t('stash.anyRarity') : t(`rarity.${st.rarity}` as TKey),
+        variant: 'ghost',
+        small: true,
+        style: st.rarity === 'all' ? undefined : 'buttonSel',
         id: 'filter:rarity',
         font: st.rarity === 'all' ? 'ink' : rarityFont(st.rarity),
         tip: t('stash.rarityTip'),
@@ -647,6 +656,10 @@ export class StashGrid {
     this.c.add(
       new Button(scene, bx, cy, x + w - bx, SIZE.btnH, {
         label: t(`stash.sort.${st.sort}` as TKey),
+        icon: 'scales',
+        inline: true,
+        variant: 'ghost',
+        small: true,
         id: 'filter:sort',
         tip: t('stash.sortTip'),
         onClick: () => this.set({ sort: cycle(STASH_SORTS, st.sort) }),
@@ -680,6 +693,12 @@ export class StashGrid {
         const ic = new ItemIcon(scene, 0, 0, { item: it }, { size, area, selected: sel, tip: false, onTap: () => this.o.drag?.dragging || this.o.onTap(it) });
         cc.add(ic);
         cc.add(new Meter(scene, 3, size - 4, size - 6, 2, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100));
+        const pr = this.o.price?.(it);
+        if (pr) {
+          const pt = addText(scene, size - 2, 1, pr.text, pr.font, 1).setFontSize(5.5);
+          const bg = scene.add.rectangle(size - 3 - pt.width, 1, pt.width + 2, 7, 0x000000, 0.65).setOrigin(0, 0);
+          cc.add([bg, pt]);
+        }
         if (hero && isUpgrade(hero, it)) {
           const g = scene.add.graphics();
           g.fillStyle(0x1d140f, 1);

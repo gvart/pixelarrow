@@ -2724,6 +2724,7 @@ export class DuelScene extends BaseScene {
         items: () => p.stash,
         state: this.stashState,
         onTap: (it) => this.openSell(it),
+        price: (it) => ({ text: `+${sellPrice(it)}`, font: 'glory' }),
         empty: { title: t('stash.emptyTitle'), hint: t('duels.sellEmpty') },
       });
       return;

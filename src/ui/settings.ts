@@ -4,7 +4,7 @@
  * pauses), so it fits the smallest phones in both languages.
  */
 import Phaser from 'phaser';
-import { Button, addText, type UIMetrics } from './kit';
+import { Button, addIcon, addText, panelImage, type UIMetrics } from './kit';
 import { ScrollList, Tabs, confirmDialog } from './widgets';
 import { Stepper, Toggle, openSheet } from './v3';
 import { SURFACE } from './tokens';
@@ -63,6 +63,14 @@ const ROWS: Row[] = [
   { kind: 'newCampaign', label: 'settings.newCampaign' },
 ];
 const LANGS_SET: LangSetting[] = ['auto', 'en', 'ru'];
+/** One icon per section. */
+const SECTION_ICON: Partial<Record<TKey, string>> = {
+  'settings.sec.audio': 'horn',
+  'settings.language': 'map',
+  'settings.sec.battle': 'swords',
+  'settings.sec.access': 'eye',
+  'settings.sec.account': 'people',
+};
 /** Scenes that may be rebuilt when the language changes (never a running battle). */
 const REBUILD_ON_LANG = new Set(['Menu', 'World', 'Settlement', 'Army', 'Hero', 'Online', 'OnlineArmy', 'OnlineClan', 'Kit']);
 
@@ -92,10 +100,14 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
     render: (i, row, rw) => {
       const r = ROWS[i];
       if (r.kind === 'section') {
-        row.add(addText(scene, 0, 10, ellipsize(t(r.label), rw, false, 7, 'head'), 'head'));
+        // a section: its icon and title over a bronze hairline
+        row.add(addIcon(scene, 0, 8, SECTION_ICON[r.label] ?? 'gear'));
+        row.add(addText(scene, 16, 10, ellipsize(t(r.label), rw - 16, false, 7, 'head'), 'head'));
         row.add(scene.add.rectangle(0, 21, rw - 4, 1, SURFACE.line).setOrigin(0, 0));
         return;
       }
+      // every setting on a faint well, so a section reads as one group
+      if (r.kind !== 'lang') row.add(panelImage(scene, 0, 0, rw - 4, rowH - 1, r.kind === 'newCampaign' ? 'cardLocked' : 'inset'));
       if (r.kind === 'lang') {
         const cur = LANGS_SET.indexOf(s.lang ?? 'auto');
         row.add(
@@ -122,8 +134,8 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
       // a label that does not fit goes onto two smaller lines (never cut)
       const room = rw - right - 6;
       const label = t(r.label);
-      if (measureText(label) <= room) row.add(addText(scene, 2, 8, label, 'ink'));
-      else row.add(addText(scene, 2, 3, wrapText(label, room, 2, false, 6).lines.join('\n'), 'ink').setFontSize(6).setLineSpacing(-1.5));
+      if (measureText(label) <= room - 4) row.add(addText(scene, 6, 8, label, 'ink'));
+      else row.add(addText(scene, 6, 3, wrapText(label, room - 4, 2, false, 6).lines.join('\n'), 'ink').setFontSize(6).setLineSpacing(-1.5));
       if (r.kind === 'toggle') {
         const k = r.key;
         row.add(
