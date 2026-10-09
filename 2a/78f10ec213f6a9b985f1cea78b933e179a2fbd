@@ -1,0 +1,97 @@
+src/ui/mosaic/TabBar.ts
+  s_1934d7c234e5b1::t_7cda63d9cb7fbd 8
+  s_1934d7c234e5b1::t_5671ae9989d36c 85-87
+src/ui/widgets.ts
+  s_1934d7c234e5b1::t_c95fec70888429 13,420,422-424,437
+  s_1934d7c234e5b1::t_9f926a0ffd6dbf 14
+  s_1934d7c234e5b1::t_66f93f9a698126 421
+src/scenes/BattleScene.ts
+  s_1934d7c234e5b1::t_9f926a0ffd6dbf 7
+docs/UI_KIT.md
+  s_1934d7c234e5b1::t_9674aa0b7837be 266
+  s_1934d7c234e5b1::t_64a6848167e266 7-10,16,171-182,192-199,205-207,209,215-217,248-257,259-265,267-304,327,330-332,471,474-476
+src/ui/mosaic/KeyButton.ts
+  s_1934d7c234e5b1::t_62155ec28c81ac 12,139,141-150
+src/scenes/MenuScene.ts
+  s_1934d7c234e5b1::t_9f926a0ffd6dbf 67
+src/scenes/online/OnlineArmyScene.ts
+  s_1934d7c234e5b1::t_5622f379ca6169 10-11,307
+  s_1934d7c234e5b1::t_02575437f61ba7 19,51,402
+src/scenes/KitScene.ts
+  s_1934d7c234e5b1::t_d5cbbe75673030 42-43
+  s_1934d7c234e5b1::t_9387761d80e4d9 20-21,46-47,64-66,108-129
+  s_1934d7c234e5b1::t_f9770ed2380107 2
+  s_1934d7c234e5b1::t_5622f379ca6169 10,325
+  s_1934d7c234e5b1::t_99694efad6ee49 130
+src/scenes/CodexScene.ts
+  s_1934d7c234e5b1::t_43c176fefb99bf 3
+src/scenes/ArmyScene.ts
+  s_1934d7c234e5b1::t_a4c842a02ddbe1 94
+src/scenes/MarketScene.ts
+  s_1934d7c234e5b1::t_5622f379ca6169 4,11,273,511,592
+src/ui/notifySettings.ts
+  s_1934d7c234e5b1::t_7835fb23ca1f36 144
+  s_1934d7c234e5b1::t_eeb289bbff3f21 82
+  s_1934d7c234e5b1::t_fde32f6177813f 68,142
+src/ui/battleHud.ts
+  s_1934d7c234e5b1::t_9f926a0ffd6dbf 25-45
+src/ui/mosaic/EmptyState.ts
+  s_1934d7c234e5b1::t_02575437f61ba7 7,16-18,20,39,43
+src/ui/sheet.ts
+  s_1934d7c234e5b1::t_199196a76fc0fc 10,28
+src/game/beasts.ts
+  s_1934d7c234e5b1::t_455a764d36ea73 11,18-26
+  s_1934d7c234e5b1::t_9c89de1c8bab02 27
+src/ui/mosaic/controls.ts
+  s_1934d7c234e5b1::t_b91c280eb51273 201,215
+  s_1934d7c234e5b1::t_7cda63d9cb7fbd 10,131,137-140,142,193-194,351-355,360,385-386
+src/scenes/duel/DuelScene.ts
+  s_1934d7c234e5b1::t_02575437f61ba7 35,46,214,2517
+src/scenes/ResultsScene.ts
+  s_1934d7c234e5b1::t_5622f379ca6169 18,22,394,491
+src/ui/textfit.ts
+  s_1934d7c234e5b1::t_3cb4fd1bc4642a 102-124
+src/ui/econ/widgets.ts
+  s_1934d7c234e5b1::t_02575437f61ba7 76,78,80,87
+  s_1934d7c234e5b1::t_199196a76fc0fc 7,11
+  s_1934d7c234e5b1::t_5622f379ca6169 8-10
+src/scenes/BeastTrialScene.ts
+  s_1934d7c234e5b1::t_e1147c25819129 11
+tests/myth.test.ts
+  s_1934d7c234e5b1::t_b1f1701feeb9f9 9,433-439
+  s_1934d7c234e5b1::t_1999794b401aa2 440-441
+src/scenes/kit/mosaicParts.ts
+  s_1934d7c234e5b1::t_d778d1a1d79261 37-53
+  s_1934d7c234e5b1::t_aa92cccfc76884 57
+  s_1934d7c234e5b1::t_68d0978a987915 1-36,54-56,58-172
+src/ui/settings.ts
+  s_1934d7c234e5b1::t_fde32f6177813f 80,91,94
+src/ui/beastInfo.ts
+  s_1934d7c234e5b1::t_455a764d36ea73 22-23,30-32
+src/ui/kit.ts
+  s_1934d7c234e5b1::t_3cb4fd1bc4642a 21,256-258,260,262-263
+  s_1934d7c234e5b1::t_3fb5138fe1ffd4 517-519,522-527,544,553,561,565,574
+  s_1934d7c234e5b1::t_9dcd3a2c53144e 243-255,259,261,264-265
+scripts/layout-check.mjs
+  s_1934d7c234e5b1::t_f9770ed2380107 108-109
+  s_1934d7c234e5b1::t_0bab7e3c09e055 505-506
+tests/ui.test.ts
+  s_1934d7c234e5b1::t_3cb4fd1bc4642a 14,257-275
+  s_1934d7c234e5b1::t_f415942cbd504f 276
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2a78f10ec213f6a9b985f1cea78b933e179a2fbd",
+  "prompts": {},
+  "sessions": {
+    "s_1934d7c234e5b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d39328de-c77f-462f-b9ee-81a255a8912b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
