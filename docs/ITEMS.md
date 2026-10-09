@@ -16,9 +16,8 @@ named legendaries, and decides where each kind of item comes from. The
 numbers are starting values for `npm run balance`; change them in the data,
 not here, once it is built.
 
-New items (31 set pieces, 12 named legendaries) and the 16 power icons are
-already in the icon atlas ([icons/README.md](icons/README.md), sheets 15-19).
-With them the game has **178 items**.
+New items: 31 set pieces and 12 named legendaries, each with its drawn icon,
+as are the 16 powers. With them the game has **178 items**.
 
 ## Summary
 

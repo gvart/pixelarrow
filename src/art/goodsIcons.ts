@@ -21,6 +21,7 @@ import { ellipsePath, poly, roundRect } from './path2d';
 import { hashString } from '../sim/rng';
 import { P, hex, mix } from './palette';
 import { Pix } from './pixels';
+import { drawIconBitmap } from './iconBitmaps';
 
 export type GoodsKind = 'consumable' | 'resource';
 export const CONSUMABLE_ICON_IDS = ['healing_salve', 'morale_wine', 'war_horn', 'sharpening_stone', 'march_rations'] as const;
@@ -936,6 +937,9 @@ const DRAW: Record<string, (g: G) => void> = {
  */
 export function renderGoodsIconHD(kind: GoodsKind, id: string, px: number): HTMLCanvasElement {
   void kind;
+  // the drawn icon (src/art/iconBitmaps.ts) when the atlas has it
+  const bmp = drawIconBitmap(`goods:${id}`, px, { fill: 0.9 });
+  if (bmp) return bmp;
   const [canvas, g] = iconCanvas(px, GOODS_UNITS);
   // a little inset so outline and shadow stay inside the box
   g.translate(2, 1);

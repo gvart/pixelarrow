@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { registerUiAssets, addText, uiMetrics } from '../ui/kit';
 import { registerMisc } from '../ui/sprites';
 import { loadUiFonts } from '../art/vectorFont';
+import { ICON_ATLASES, registerIconFrames } from '../art/iconBitmaps';
 import { initTelegram, startParam } from '../platform/telegram';
 import { parseStartParam, sceneForRoute } from '../online/deeplink';
 import { setPendingInvite } from '../online/client';
@@ -17,12 +18,32 @@ export class BootScene extends Phaser.Scene {
     super('Boot');
   }
 
+  preload(): void {
+    // the drawn icons (src/art/iconBitmaps.ts); a failed load leaves the vector icons in place
+    for (const a of ICON_ATLASES) this.load.atlas(a.key, a.png, a.json);
+  }
+
   create(): void {
     // canvas text does not wait for web fonts: the atlases need the bundled faces loaded first
     void loadUiFonts().finally(() => this.start());
   }
 
+  /** Hand the loaded icon atlases' frames to the icon painters. */
+  private registerIcons(): void {
+    for (const a of ICON_ATLASES) {
+      if (!this.textures.exists(a.key)) continue;
+      const tex = this.textures.get(a.key);
+      const frames: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const name of tex.getFrameNames()) {
+        const f = tex.get(name);
+        frames[name] = { x: f.cutX, y: f.cutY, w: f.cutWidth, h: f.cutHeight };
+      }
+      registerIconFrames(tex.getSourceImage() as CanvasImageSource, frames);
+    }
+  }
+
   private start(): void {
+    this.registerIcons();
     registerUiAssets(this);
     registerMisc(this);
     const m = uiMetrics(this);
