@@ -17,6 +17,45 @@ Coordinates and sizes are **UI pixels** inside the scene's scaled UI root
 (`this.ui`, scale `S` = 2..4, see `uiMetrics`). One UI pixel is `S` CSS
 pixels; 44 pt is 22 UI pixels at `S = 2`, the smallest scale.
 
+## v3 components (docs/UI_V3.md)
+
+The redesigned screens (Home, Duels, Hero sheet, Shop / Pass / Wallet,
+Settings, Beasts) are built from `src/ui/v3.ts` on the tokens of
+`src/ui/tokens.ts`; the gallery's **V3** page (`/?scene=Kit`, tab 4) shows
+every piece. Rules:
+
+- **One header** per screen: `new ScreenHeader(scene, VW, { title, back, actions })`.
+  `back` draws an arrow only outside Telegram (inside, its BackButton runs the
+  same handler through nav.ts). Header actions always carry a word under the
+  icon. No Back in the command strip inside Telegram (`CommandStrip` drops it).
+- **Resources**: `resourceChip(scene, x, y, 'glory' | 'gold' | 'drachmae' | 'stars' | 'power' | 'wins' | 'xp', value)`;
+  one icon and colour each (`RESOURCES`), a tap explains it, `setValue` counts.
+  Campaign gold and the war's gold are different balances: pass `tipKey`
+  (`res.tip.gold.campaign` / `res.tip.gold.war`). The gold star is only a
+  ladder floor rating.
+- **Real money**: `purchaseButton(...)` (Telegram blue, the Telegram star, "N
+  Stars") and always `confirmPurchase(...)` first.
+- **Tips** instead of banners: `addTipLine(..., { text, tone, dismissId })`;
+  `warn` (red) only for a real problem.
+- **Locked**: `addLocked(...)` (lock, muted reason, progress, how) instead of
+  a mode's live stats; lock reasons are never red.
+- **Tabs**: `Tabs` is the segmented control (sliding thumb) of the first level;
+  `UnderlineTabs` the second. Never a third.
+- **Lists** fade at their edges (`addScrollHint(..., color)` / `ScrollList`'s
+  `fade`): pass the colour behind the list.
+- `Tile` (big destination), `Toggle`, `Stepper`, `ProgressBar`, `Pager` +
+  `addSwipe`, `openSheet` (bottom sheet), `flyReward`, `addClaimGlow`.
+- **Motion** goes through `src/ui/motion.ts` (`tweenTo`, `pulse`, `fadeIn`):
+  off under Settings → Reduce motion. Buttons press (scale 0.97, face drop,
+  light haptic); screens slide in (from the left after Back).
+- Materials (`addPanel` styles): `card`, `cardRaised`, `cardSel`, `cardLocked`,
+  `well`, `track` / `thumb`, `header`, `chip`; buttons `variant: 'ghost'` and
+  `variant: 'purchase'`.
+- Fonts: `head` (Cormorant, bronze) and `headL` (Cormorant, light) for titles;
+  `ink`, `sec`, `muted` for text; `reward`, `glory`, `premium`, `xp`, `power`,
+  `stars` for their resources; `good` / `bad` for better / worse. Digits are
+  tabular in every face.
+
 ## Components
 
 | Component | API (short) | Use for |

@@ -158,13 +158,3 @@ export function walletOverdrawn(w: { drachmae: number }): boolean {
   return w.drachmae < 0;
 }
 
-/**
- * Which gold a season-pass reward pays: always the online war's gold (the
- * server credits online_profiles), never the offline campaign's, so the
- * reward and the shop say "War gold", not plain "gold" next to the
- * campaign's purse.
- */
-export function passGoldKey(): 'res.gold.war' {
-  return 'res.gold.war';
-}
-

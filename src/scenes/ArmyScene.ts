@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
+import { SURFACE } from '../ui/tokens';
 import { Button, addIcon, addPanel, addText } from '../ui/kit';
 import { ScrollList, Tabs, addEmptyState, confirmDialog, firstTimeHint, toast } from '../ui/widgets';
 import { uiId } from '../ui/layout';
@@ -191,7 +192,7 @@ export class ArmyScene extends BaseScene {
       L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 44), 'title'));
       addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
       L.add(addText(this, tx, y0 + 11, ellipsize(className(h), tw), 'gold'));
-      const lvW = addChip(this, L, tx, y0 + 21, t('hero.level', { n: h.level }), 0x8c2f25, 40);
+      const lvW = addChip(this, L, tx, y0 + 21, t('hero.level', { n: h.level }), 0x5c4325, 40);
       const pw = addText(this, VW - 5, y0 + 23, t('hero.power', { n: powerRating(h) }), 'title', 1);
       L.add(pw);
       const roomRole = VW - 5 - pw.width - 4 - (tx + lvW + 3);
@@ -211,7 +212,7 @@ export class ArmyScene extends BaseScene {
       const tw = VW - tx - 5;
       L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 42), 'title'));
       addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
-      const lvW = addChip(this, L, tx, y0 + 12, t('hero.level', { n: h.level }), 0x8c2f25, 40);
+      const lvW = addChip(this, L, tx, y0 + 12, t('hero.level', { n: h.level }), 0x5c4325, 40);
       const pw = addText(this, VW - 5, y0 + 14, `${powerRating(h)}`, 'title', 1);
       L.add(pw);
       const sub = h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : className(h);
@@ -309,7 +310,7 @@ export class ArmyScene extends BaseScene {
       },
     });
     const foot = this.strip.top;
-    this.body.add(addPanel(this, 0, y + SIZE.tabH - 2, VW, foot - (y + SIZE.tabH - 2), 'parch'));
+    this.body.add(this.add.rectangle(0, y + SIZE.tabH - 2, VW, foot - (y + SIZE.tabH - 2), SURFACE.bg).setOrigin(0, 0));
     this.body.add(this.tabs);
     const pend = c.heroes.filter((h) => hasPending(h, perkSlots)).length;
     if (pend) addTabBadge(this, this.body, 4, y, VW - 8, 2, 0, pend);
@@ -344,7 +345,8 @@ export class ArmyScene extends BaseScene {
 
   private rosterRow(h: Hero, row: Phaser.GameObjects.Container, w: number, rh: number): void {
     const sel = h.id === this.heroId;
-    row.add(addPanel(this, 0, 0, w, rh, sel ? 'buttonSel' : 'button'));
+    // the selected hero: the lit bronze card (terracotta is the screen's one action, Sheet)
+    row.add(addPanel(this, 0, 0, w, rh, sel ? 'cardSel' : 'card'));
     // portrait in a frame tinted by role
     const cls = heroClass(h);
     const ps = rh - 4;
@@ -362,7 +364,7 @@ export class ArmyScene extends BaseScene {
       row.add(wg);
       row.add(addIcon(this, 2 + (ps - 12) / 2, 2 + (ps - 12) / 2, 'cross', 'L'));
     }
-    const light = sel;
+    const light = false;
     const x = ps + 7;
     const right = w - 4;
     // group badge on the right, power under it
@@ -375,7 +377,7 @@ export class ArmyScene extends BaseScene {
     row.add(name);
     if (pend) addChip(this, row, x + name.width + 3, 3, '!', 0xd8a840);
     const sub = h.wound > 0 ? t('hero.wounded', { h: Math.ceil(h.wound) }) : `${t('hero.level', { n: h.level })} ${cls.short}`;
-    const subT = addText(this, x, 17, ellipsize(sub, right - pw.width - 4 - x - 42), light ? 'light' : h.wound > 0 ? 'red' : 'dim');
+    const subT = addText(this, x, 17, ellipsize(sub, right - pw.width - 4 - x - 42), h.wound > 0 ? 'bad' : 'sec');
     row.add(subT);
     if (h.wound <= 0) addStars(this, row, Math.min(x + subT.width + 4, right - pw.width - 4 - 39), 19, heroStars(h));
     uiId(name, 'roster.name');
