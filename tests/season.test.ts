@@ -113,15 +113,16 @@ describe('async ladder', () => {
 });
 
 describe('demo duel source (slice 4)', () => {
-  it('keeps three loadouts, uses and the defence; raids cap at 10 a day', async () => {
+  it('keeps its presets, uses and the defence; raids cap at 10 a day', async () => {
     const src = new DemoDuelSource({ now: () => Date.UTC(2026, 9, 7, 12) });
     src.setXp(560);
     const p = await src.profile();
-    expect(p.loadouts).toHaveLength(3);
+    expect(p.loadouts.map((l) => l.slot)).toEqual([1, 2]);
     expect(p.use).toEqual({ ladder: 1, arena: 1, defence: 2 });
     expect(p.defence?.heroes).toBe(3);
     const two = await src.loadout({ slot: 3, edit: true });
     expect(two.profile.loadout).toBe(3);
+    expect(two.profile.loadouts.map((l) => l.slot)).toEqual([1, 2, 3]);
     expect(two.profile.team).toEqual(p.loadouts[0].team);
     const v = await src.asyncView();
     expect(v.unlocked).toBe(true);

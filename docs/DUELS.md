@@ -65,9 +65,37 @@ starting points to tune.
   Arena tab's season line and its Live / Raids / Top pages, the season
   reward popup. API in server/README.md "Raids, seasons and leaderboards".
 - **All duel slices are done** (2, 3, 4, 5).
+- **Hub redesign (data side):** ladder stars and chapter chests, up to 5
+  presets, the hero attention badge and the shop compare data. Migration
+  `0014_duel_stars_presets.sql` (`duel_ladder_stars`, `duel_ladder_chests`);
+  shared rules in `src/duel/ladder.ts` (`LADDER`, `ladderStars`,
+  `chestReward`...) and `src/duel/rules.ts` (`presetName`, `offerSummary`),
+  `heroNeedsAttention` in `src/game/gear.ts`.
 
 The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
 `RANKED`, `SEASON`, `ASYNC`, `MERCHANT`).
+
+### Hub redesign numbers and decisions
+
+- **Stars:** a won ladder floor earns ★ (a win), ★★ (at most 50% of the
+  team's points lost) or ★★★ (at most 20%). Lost points: the heroPoints of
+  the team's heroes that died or fled, from the server's replay. The best per
+  floor is kept and only goes up (farming a cleared floor can raise it).
+  Floors cleared before stars existed count ★ (no row, floor ≤ cleared).
+- **Chapters:** 5 of 10 floors, the boss last. **Chests** at 10 / 20 / 30
+  chapter stars, each claimed once: Glory 60 / 120 / 200 for chapter 1,
+  +40 / +80 / +120 per later chapter; the 30-star chest also holds an item,
+  rare or better (rare 70%, epic 25%, legendary 5% in chapter 1, rarer
+  later).
+- **Presets:** up to 5 saved teams (slots 1..5, kept stable: a deleted
+  preset leaves a gap that the next new one fills). New = a copy of the
+  edited preset, a duplicate of one, or empty; names ≤ 16 (trimmed), default
+  "Team <slot>"; the last one cannot be deleted; deleting one moves the
+  edited preset and its uses to the first remaining one.
+- **Badges:** a hero needs attention with unspent attribute points or a free
+  perk slot. **Shop compare:** each offer shows up to 3 main stats and the
+  change against the best item (by value) the current team wears in that
+  slot.
 
 ### Slice 3 numbers and decisions
 
@@ -191,8 +219,8 @@ The numbers below are the ones the code uses (`DUEL_RULES`, `LADDER`,
   groups and formations. The duel hub's Team tab picks the team; a tap opens
   the regular hero sheet on the duel army (stats, gear, perks, skills,
   respec). A dismissed hero leaves for good (gear to the stash, no refund).
-- **Loadouts:** three saved teams; each of the ladder, the arena and the
-  defence uses one (slice 4).
+- **Loadouts (presets):** up to five saved teams; each of the ladder, the
+  arena and the defence uses one (slice 4; five since the hub redesign).
 - **Starter roster:** 6 level-1 heroes (2 hoplites, 2 archers, a peltast, a
   slinger) with common gear, all in the team (42 points), and 200 Glory.
 - Hero level cap stays `MAX_LEVEL` (10). XP comes from ladder battles,

@@ -75,14 +75,13 @@ async function defender(tg: number) {
 describe('team loadouts', () => {
   it('keeps the team in loadout 1, copies it into a new slot, edits one loadout at a time and assigns uses', async () => {
     const { token, profile } = await duellist(9401);
-    expect(profile.loadouts.map((l) => l.slot)).toEqual([1, 2, 3]);
+    expect(profile.loadouts.map((l) => l.slot)).toEqual([1]);
     expect(profile.loadouts[0].team).toEqual(profile.team);
-    expect(profile.loadouts[1].team).toEqual([]);
     expect(profile.use).toEqual({ ladder: 1, arena: 1, defence: 1 });
     expect(profile.defence).toBeNull();
     const two = await post<{ profile: Profile }>('/api/duel/loadout', token, { slot: 2, edit: true, name: 'Raiders' });
     expect(two.body.profile.loadout).toBe(2);
-    expect(two.body.profile.loadouts[1]).toMatchObject({ name: 'Raiders', team: profile.team });
+    expect(two.body.profile.loadouts[1]).toMatchObject({ slot: 2, name: 'Raiders', team: profile.team });
     const ids = profile.team.slice(0, 3);
     const t = await post<{ profile: Profile }>('/api/duel/team', token, { heroIds: ids });
     expect(t.body.profile.team).toEqual(ids);
@@ -99,6 +98,54 @@ describe('team loadouts', () => {
     const gone = await post<{ profile: Profile }>('/api/duel/dismiss', token, { heroId: ids[0] });
     expect(gone.status).toBe(200);
     expect(gone.body.profile.loadouts[1].team).toEqual(ids.slice(1));
+  });
+
+  it('presets: up to 5, created as copies or empty, renamed, duplicated and deleted with their uses reassigned', async () => {
+    const { token, pid, profile } = await duellist(9403);
+    const c = await post<{ slot: number; profile: Profile }>('/api/duel/loadout/create', token, {});
+    expect(c.status).toBe(200);
+    expect(c.body.slot).toBe(2);
+    expect(c.body.profile.loadout).toBe(2);
+    expect(c.body.profile.loadouts[1]).toMatchObject({ slot: 2, name: null, team: profile.team });
+    await post('/api/duel/team', token, { heroIds: profile.team.slice(0, 2) });
+    // duplicate preset 2 (not edited afterwards), then an empty one
+    const dup = await post<{ slot: number; profile: Profile }>('/api/duel/loadout/create', token, { from: 2, name: '  Twins  ', edit: false });
+    expect(dup.body.slot).toBe(3);
+    expect(dup.body.profile.loadout).toBe(2);
+    expect(dup.body.profile.loadouts[2]).toMatchObject({ slot: 3, name: 'Twins', team: profile.team.slice(0, 2) });
+    const empty = await post<{ slot: number; profile: Profile }>('/api/duel/loadout/create', token, { from: null });
+    expect(empty.body.profile.loadouts.find((l) => l.slot === 4)!.team).toEqual([]);
+    expect((await post<{ error: { code: string } }>('/api/duel/loadout/create', token, { from: 9 })).status).toBe(400);
+    expect((await post<{ slot: number }>('/api/duel/loadout/create', token, {})).body.slot).toBe(5);
+    const full = await post<{ error: { code: string } }>('/api/duel/loadout/create', token, {});
+    expect(full.status).toBe(409);
+    expect(full.body.error.code).toBe('presets_full');
+    // rename: trimmed, at most 16; empty back to the default
+    expect((await post('/api/duel/loadout', token, { slot: 3, name: 'x'.repeat(17) })).status).toBe(400);
+    const ren = await post<{ profile: Profile }>('/api/duel/loadout', token, { slot: 3, name: '  Archers ' });
+    expect(ren.body.profile.loadouts.find((l) => l.slot === 3)!.name).toBe('Archers');
+    expect((await post<{ profile: Profile }>('/api/duel/loadout', token, { slot: 3, name: '' })).body.profile.loadouts.find((l) => l.slot === 3)!.name).toBeNull();
+    // the defence on preset 3, the arena and the edited one on 2: deleting them moves those to preset 1
+    expect((await post('/api/duel/loadout', token, { slot: 3, use: ['defence', 'ladder'] })).status).toBe(200);
+    await post('/api/duel/loadout', token, { slot: 2, use: ['arena'], edit: true });
+    const d3 = await post<{ profile: Profile }>('/api/duel/loadout/delete', token, { slot: 3 });
+    expect(d3.status).toBe(200);
+    expect(d3.body.profile.loadouts.map((l) => l.slot)).toEqual([1, 2, 4, 5]);
+    expect(d3.body.profile.use).toEqual({ ladder: 1, arena: 2, defence: 1 });
+    const d2 = await post<{ profile: Profile }>('/api/duel/loadout/delete', token, { slot: 2 });
+    expect(d2.body.profile.use).toEqual({ ladder: 1, arena: 1, defence: 1 });
+    expect(d2.body.profile.loadout).toBe(1);
+    expect(d2.body.profile.team).toEqual(profile.team);
+    expect((await post('/api/duel/loadout/delete', token, { slot: 2 })).status).toBe(404);
+    // a team write to a preset that is gone is refused; a new preset takes the lowest free slot
+    expect((await post('/api/duel/team', token, { loadout: 2, heroIds: [] })).status).toBe(404);
+    expect((await post<{ slot: number }>('/api/duel/loadout/create', token, {})).body.slot).toBe(2);
+    for (const slot of [2, 4, 5]) expect((await post('/api/duel/loadout/delete', token, { slot })).status).toBe(200);
+    const last = await post<{ error: { code: string } }>('/api/duel/loadout/delete', token, { slot: 1 });
+    expect(last.status).toBe(409);
+    expect(last.body.error.code).toBe('last_preset');
+    // out of the raid pool again (the tests below expect only their own defenders)
+    await DB().prepare('DELETE FROM duel_defences WHERE player_id = ?1').bind(pid).run();
   });
 
   it('a defence must fit the ranked budget', async () => {

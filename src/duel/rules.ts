@@ -11,10 +11,11 @@
 import { Rng } from '../sim/rng';
 import { CLASSES, type ClassId } from '../data/classes';
 import type { Culture } from '../data/names';
-import { ITEM_LIST, itemDef, type Item, type Rarity } from '../data/items';
+import { ITEM_LIST, itemDef, itemMods, itemValue, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
 import { ATTR_IDS, ATTR_MAX, PERKS, POINTS_PER_LEVEL, perkBlocker, type Attrs, type PerkId } from '../data/perks';
 import type { Hero } from '../data/units';
 import { makeHero, makeItem, type IdSource } from '../game/heroes';
+import { itemModLines } from '../game/gear';
 import { scopeHero } from '../online/rules';
 
 export const DUEL_RULES = {
@@ -40,7 +41,24 @@ export const DUEL_RULES = {
   shopRarities: ['common', 'uncommon', 'rare'] as Rarity[],
   /** Daily offers in the shop. */
   dailyOffers: 4,
+  /** Saved team presets (loadouts) a player may keep, slots 1..presetsMax. */
+  presetsMax: 5,
+  /** Longest preset name (trimmed). */
+  presetNameMax: 16,
 };
+
+// ------------------------------------------------------------------ presets
+
+/** A preset's shown name: its own, or "Team <slot>". */
+export function presetName(l: { slot: number; name: string | null }): string {
+  return l.name?.trim() || `Team ${l.slot}`;
+}
+
+/** A preset name as stored: trimmed, at most presetNameMax, null for the default. */
+export function cleanPresetName(name: string | null | undefined): string | null {
+  const s = (name ?? '').trim();
+  return s ? s.slice(0, DUEL_RULES.presetNameMax) : null;
+}
 
 // ------------------------------------------------------------------ costs
 
@@ -266,4 +284,72 @@ export function shopItem(seed: number, ids: IdSource, prefix: string, offer: Sho
   const it = makeItem(rng, ids, offer.def, offer.rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
   it.uid = `${prefix}${it.uid}`;
   return it;
+}
+
+// ------------------------------------------------------------------ shop compare
+
+export interface OfferStatLine {
+  /** The modifier (translate with the item card's labels). */
+  key: keyof StatMods;
+  /** The offer's value (rarity applied, perfect condition) and its card text ("+8.5", "12%"). */
+  value: number;
+  text: string;
+  /** Offer minus the compared item (0 where it lacks the stat; the full value when nothing is equipped). */
+  delta: number;
+  /** Delta formatted with its sign ("+1.2", "-5%"); "" when unchanged. */
+  deltaText: string;
+  /** Better for the wearer, worse, or null when unchanged. */
+  better: boolean | null;
+}
+
+export interface OfferSummary {
+  slot: Slot;
+  /** The best item (by value) the given heroes wear in that slot, compared against; null when none. */
+  vs: Item | null;
+  /** Who wears `vs`. */
+  vsHeroId: string | null;
+  /** The 2-3 main stats of the offer. */
+  lines: OfferStatLine[];
+}
+
+/** Lower is better for these (attack and shot times). */
+const LOWER_BETTER: (keyof StatMods)[] = ['atkTime', 'shotTime'];
+const PCT_MODS: (keyof StatMods)[] = ['accuracy', 'block', 'blockPierce', 'armorPierce', 'speed', 'xpBonus'];
+
+function fmtDelta(key: keyof StatMods, d: number): string {
+  if (Math.abs(d) < 0.005) return '';
+  const pct = PCT_MODS.includes(key);
+  const v = pct ? d * 100 : d;
+  const dp = pct || key === 'ammo' || key === 'hp' || key === 'morale' || key === 'stamina' ? 0 : key === 'reach' || key === 'atkTime' || key === 'shotTime' || key === 'chargeBonus' || key === 'moraleShock' ? 2 : 1;
+  const num = dp === 0 ? `${Math.round(v)}` : v.toFixed(dp).replace(/\.?0+$/, '');
+  if (num === '0' || num === '-0') return '';
+  return `${v > 0 ? '+' : ''}${num}${pct ? '%' : ''}`;
+}
+
+/**
+ * The shop card's compare data: the offer's main stats (at most `max`, the
+ * item card's order) and the change against the best item the `heroes` (the
+ * player's current team) wear in the same slot.
+ */
+export function offerSummary(offer: Pick<ShopOffer, 'def' | 'rarity'>, heroes: readonly Hero[], max = 3): OfferSummary {
+  const def = itemDef(offer.def);
+  const slot = def.slot;
+  const it: Item = { uid: 'offer', def: offer.def, rarity: offer.rarity, cond: 100 };
+  let vs: Item | null = null;
+  let vsHeroId: string | null = null;
+  for (const h of heroes) {
+    const e = h.equip[slot];
+    if (e && (!vs || itemValue(e) > itemValue(vs))) {
+      vs = e;
+      vsHeroId = h.id;
+    }
+  }
+  const other: StatMods = vs ? itemMods({ ...vs, cond: 100 }) : {};
+  const lines = itemModLines(it).slice(0, Math.max(0, max)).map((l): OfferStatLine => {
+    const delta = Math.round((l.value - (other[l.key] ?? 0)) * 100) / 100;
+    const deltaText = fmtDelta(l.key, delta);
+    const better = deltaText === '' ? null : (delta > 0) !== LOWER_BETTER.includes(l.key);
+    return { key: l.key, value: l.value, text: l.text, delta, deltaText, better };
+  });
+  return { slot, vs, vsHeroId, lines };
 }

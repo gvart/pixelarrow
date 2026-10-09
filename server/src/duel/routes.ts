@@ -29,14 +29,16 @@ import { FORMATION_TYPES, type FormationType } from '../../../src/sim/formation'
 import type { BattleSetup } from '../../../src/sim/types';
 import {
   DUEL_RULES, accountLevel, classUnlockLevel, developHero, duelRecruit, findOffer, freshGear, recruitPrice, respecHero, respecPrice,
-  sellPrice, shopItem, teamProblem, utcDay,
+  cleanPresetName, sellPrice, shopItem, teamProblem, utcDay,
 } from '../../../src/duel/rules';
-import { canFight, ladderFloor, ladderPayout, ladderSetup } from '../../../src/duel/ladder';
+import { canFight, chestItem, chestReward, chestState, ladderFloor, ladderPayout, ladderSetup, validChest, CHAPTERS, CHEST_TIERS } from '../../../src/duel/ladder';
 import { RANKED } from '../../../src/duel/rating';
+import { DEFAULT_FORMATIONS } from '../../../src/online/rules';
 import { getQueueState, getRating, liveMatchOf, matchReport, rowLeague } from './live';
 import {
-  LOADOUT_SLOTS, LOADOUT_USES, bumpRev, duelBatch, duelPrefix, duelProfileView, duelRevGuard, ensureDuelProfile, farmLeft, heroProgressStmts, loadDuelHeroes, loadDuelItems,
-  loadLoadouts, loadoutFor, loadoutHeroes, loadoutStmt, requireDuelProfile, reserveDuelIds, syncDefence, useSlot, type DuelProfileRow, type Loadout, type LoadoutUse,
+  LOADOUT_SLOTS, LOADOUT_USES, bumpRev, duelBatch, duelPrefix, duelProfileView, duelRevGuard, editedSlot, ensureDuelProfile, farmLeft, heroProgressStmts, loadDuelHeroes,
+  loadDuelItems, loadLadderStars, loadLoadouts, loadoutFor, loadoutHeroes, loadoutStmt, presentSlot, presetAt, requireDuelProfile, reserveDuelIds, syncDefence, useSlot,
+  type DuelProfileRow, type Loadout, type LoadoutUse,
 } from './store';
 import { rollRatings } from './season';
 import { duelSeason } from './async';
@@ -286,7 +288,8 @@ duel.post('/team', async (c) => {
   const heroes = await loadDuelHeroes(x.db, x.pid);
   const byId = new Map(heroes.map((h) => [h.hero.id, h.hero]));
   const loadouts = await loadLoadouts(x.db, x.p);
-  const l = loadouts[(body.loadout ?? editedSlot(x.p)) - 1];
+  if (body.loadout !== undefined && !loadouts.some((y) => y.slot === body.loadout)) throw new ApiError(404, 'no_preset', 'No such preset');
+  const l = presetAt(loadouts, body.loadout ?? editedSlot(x.p));
   const team = body.heroIds ? [...new Set(body.heroIds)] : l.team;
   for (const id of team) if (!byId.has(id)) throw new ApiError(404, 'not_found', `No hero ${id}`);
   const G = duelRevGuard(x.pid, x.p.rev + 1);
@@ -303,15 +306,14 @@ duel.post('/team', async (c) => {
   return c.json({ profile: await view(x) });
 });
 
-function editedSlot(p: DuelProfileRow): number {
-  return p.loadout >= 1 && p.loadout <= LOADOUT_SLOTS ? p.loadout : 1;
-}
+const PresetName = z.string().trim().max(DUEL_RULES.presetNameMax).nullable().optional();
 
 const LoadoutBody = z.object({
   slot: z.number().int().min(1).max(LOADOUT_SLOTS),
   /** Edit this loadout in the Team tab. */
   edit: z.boolean().optional(),
-  name: z.string().trim().max(16).nullable().optional(),
+  /** Rename (trimmed, at most 16; empty or null: the default "Team <slot>"). */
+  name: PresetName,
   /** Fight with this loadout there (the others keep theirs). */
   use: z.array(z.enum(LOADOUT_USES as [LoadoutUse, ...LoadoutUse[]])).max(3).optional(),
 });
@@ -327,24 +329,82 @@ duel.post('/loadout', async (c) => {
   const body = await readJson(c, LoadoutBody, 1024);
   const loadouts = await loadLoadouts(x.db, x.p);
   const saved = await x.db.prepare('SELECT 1 FROM duel_loadouts WHERE player_id = ?1 AND slot = ?2').bind(x.pid, body.slot).first();
-  const edited = loadouts[editedSlot(x.p) - 1];
-  const l: Loadout = saved ? loadouts[body.slot - 1] : { ...edited, slot: body.slot, name: null };
-  if (body.name !== undefined) l.name = body.name ? body.name : null;
+  const edited = presetAt(loadouts, editedSlot(x.p));
+  const l: Loadout = saved ? presetAt(loadouts, body.slot) : { ...edited, slot: body.slot, name: null };
+  if (body.name !== undefined) l.name = cleanPresetName(body.name);
   const use = new Set(body.use ?? []);
   if (use.has('defence')) {
     const problem = teamProblem(loadoutHeroes(l, await loadDuelHeroes(x.db, x.pid)), DUEL_RULES.budget);
     if (problem === 'empty') throw new ApiError(409, 'no_team', 'That team is empty');
     if (problem) throw new ApiError(409, problem, `A defence must fit the ${DUEL_RULES.budget}-point budget`, { budget: DUEL_RULES.budget });
   }
-  const slotOf = (u: LoadoutUse) => (use.has(u) ? body.slot : useSlot(x.p, u));
+  const slotOf = (u: LoadoutUse) => (use.has(u) ? body.slot : presentSlot(loadouts, useSlot(x.p, u)));
   const G = duelRevGuard(x.pid, x.p.rev + 1);
   await duelBatch(x.db, [
     x.db
       .prepare('UPDATE duel_profiles SET loadout = ?2, lo_ladder = ?3, lo_arena = ?4, lo_defence = ?5, rev = rev + 1, updated_at = ?6 WHERE player_id = ?1 AND rev = ?7')
-      .bind(x.pid, body.edit ? body.slot : editedSlot(x.p), slotOf('ladder'), slotOf('arena'), slotOf('defence'), x.now, x.p.rev),
+      .bind(x.pid, body.edit ? body.slot : presentSlot(loadouts, editedSlot(x.p)), slotOf('ladder'), slotOf('arena'), slotOf('defence'), x.now, x.p.rev),
     loadoutStmt(x.db, x.pid, l, G, x.now),
   ]);
   await syncDefence(x.db, x.pid, x.now, use.has('defence'));
+  return c.json({ profile: await view(x) });
+});
+
+const CreatePresetBody = z.object({
+  /** Copy this preset (duplicate); omitted: a copy of the edited one; null: an empty team. */
+  from: z.number().int().min(1).max(LOADOUT_SLOTS).nullable().optional(),
+  name: PresetName,
+  /** Edit the new preset in the Team tab (default true). */
+  edit: z.boolean().optional(),
+});
+
+/** Creates a preset in the lowest free slot (at most LOADOUT_SLOTS): a copy of one (duplicate) or an empty team. */
+duel.post('/loadout/create', async (c) => {
+  limit(c, 'duel_loadout', 60);
+  const x = await ctx(c);
+  const body = await readJson(c, CreatePresetBody, 1024);
+  const loadouts = await loadLoadouts(x.db, x.p);
+  let slot = 0;
+  for (let s = 1; s <= LOADOUT_SLOTS && !slot; s++) if (!loadouts.some((l) => l.slot === s)) slot = s;
+  if (!slot) throw new ApiError(409, 'presets_full', `At most ${LOADOUT_SLOTS} presets`, { max: LOADOUT_SLOTS });
+  if (typeof body.from === 'number' && !loadouts.some((l) => l.slot === body.from)) throw new ApiError(404, 'no_preset', 'No such preset');
+  const src = body.from === null ? null : presetAt(loadouts, body.from ?? editedSlot(x.p));
+  const l: Loadout = { slot, name: cleanPresetName(body.name), team: src ? [...src.team] : [], formations: src ? [...src.formations] : [...DEFAULT_FORMATIONS] };
+  const G = duelRevGuard(x.pid, x.p.rev + 1);
+  // a profile without rows (before 0010) keeps its legacy preset 1 as a row
+  const rows = await x.db.prepare('SELECT COUNT(*) AS n FROM duel_loadouts WHERE player_id = ?1').bind(x.pid).first<{ n: number }>();
+  await duelBatch(x.db, [
+    x.db
+      .prepare('UPDATE duel_profiles SET loadout = ?2, rev = rev + 1, updated_at = ?3 WHERE player_id = ?1 AND rev = ?4')
+      .bind(x.pid, body.edit === false ? presentSlot(loadouts, editedSlot(x.p)) : slot, x.now, x.p.rev),
+    ...(rows?.n ? [] : [loadoutStmt(x.db, x.pid, loadouts[0], G, x.now)]),
+    loadoutStmt(x.db, x.pid, l, G, x.now),
+  ]);
+  return c.json({ slot, profile: await view(x) });
+});
+
+/**
+ * Deletes a preset (never the last one). The edited preset and every use
+ * that pointed at it move to the first remaining preset (the defence
+ * snapshot follows when that one fits the budget).
+ */
+duel.post('/loadout/delete', async (c) => {
+  limit(c, 'duel_loadout', 60);
+  const x = await ctx(c);
+  const body = await readJson(c, z.object({ slot: z.number().int().min(1).max(LOADOUT_SLOTS) }), 1024);
+  const loadouts = await loadLoadouts(x.db, x.p);
+  if (!loadouts.some((l) => l.slot === body.slot)) throw new ApiError(404, 'no_preset', 'No such preset');
+  if (loadouts.length <= 1) throw new ApiError(409, 'last_preset', 'Keep at least one preset');
+  const rest = loadouts.filter((l) => l.slot !== body.slot);
+  const move = (slot: number) => presentSlot(rest, slot);
+  const G = duelRevGuard(x.pid, x.p.rev + 1);
+  await duelBatch(x.db, [
+    x.db
+      .prepare('UPDATE duel_profiles SET loadout = ?2, lo_ladder = ?3, lo_arena = ?4, lo_defence = ?5, rev = rev + 1, updated_at = ?6 WHERE player_id = ?1 AND rev = ?7')
+      .bind(x.pid, move(editedSlot(x.p)), move(useSlot(x.p, 'ladder')), move(useSlot(x.p, 'arena')), move(useSlot(x.p, 'defence')), x.now, x.p.rev),
+    x.db.prepare(`DELETE FROM duel_loadouts WHERE player_id = ?1 AND slot = ?2 AND ${G}`).bind(x.pid, body.slot),
+  ]);
+  if (presentSlot(loadouts, useSlot(x.p, 'defence')) === body.slot) await syncDefence(x.db, x.pid, x.now);
   return c.json({ profile: await view(x) });
 });
 
@@ -482,6 +542,7 @@ duel.post('/ladder/submit', async (c) => {
   const start = await reserveDuelIds(x.db, x.pid, 4);
   x.p = await requireDuelProfile(x.db, x.pid);
   const pay = ladderPayout(floor, out.result, team, x.p.ladder_cleared, farmLeft(x.p, x.now), t.seed, { nextId: start }, duelPrefix(x.pid));
+  const prevStars = (await loadLadderStars(x.db, x.p)).stars[floor.floor - 1] ?? 0;
   const summary = {
     floor: floor.floor,
     boss: floor.boss,
@@ -496,6 +557,12 @@ duel.post('/ladder/submit', async (c) => {
     xp: pay.xp,
     drop: pay.drop,
     enemies: { dead: out.result.units.filter((u) => u.side === 1 && u.state === 'dead').length, total: floor.heroes.length },
+    /** Stars of this battle (0: lost), the share of team points lost, the floor's best before, and whether this is a new best. */
+    stars: pay.stars,
+    lost: Math.round(pay.lost * 1000) / 1000,
+    prevStars,
+    bestStars: Math.max(prevStars, pay.stars),
+    newBest: pay.stars > prevStars,
   };
 
   // Only progression is written to the heroes (level, XP, points, traits, tallies): gear changed meanwhile is kept.
@@ -518,6 +585,16 @@ duel.post('/ladder/submit', async (c) => {
   ];
   stmts.push(...heroProgressStmts(x.db, x.pid, team, pay.heroes, current, G, x.now));
   if (pay.drop) stmts.push(itemInsert(x.db, x.pid, pay.drop, G, x.now));
+  if (pay.stars > 0) {
+    stmts.push(
+      x.db
+        .prepare(
+          `INSERT INTO duel_ladder_stars (player_id, floor, stars, updated_at) SELECT ?1, ?2, ?3, ?4 WHERE ${G}
+           ON CONFLICT (player_id, floor) DO UPDATE SET stars = MAX(stars, excluded.stars), updated_at = excluded.updated_at`,
+        )
+        .bind(x.pid, floor.floor, pay.stars, x.now),
+    );
+  }
   const res = await x.db.batch(stmts);
   if (res[0].meta.changes !== 1) {
     const again = await loadTicket(x, t.id);
@@ -526,6 +603,57 @@ duel.post('/ladder/submit', async (c) => {
   }
   await emitWithFirst(c, 'battle_result', { mode: 'ladder', result: outcomeOf(s.winner), ticks: s.ticks }, 'first_battle', { mode: 'ladder' });
   return c.json({ ...summary, profile: await view(x) });
+});
+
+interface ChestRow {
+  glory: number;
+  item: string | null;
+}
+
+/**
+ * Claims a chapter chest (idempotent: a chest already claimed answers with
+ * what it paid, `replayed: true`). Needs the chapter's stars to reach the
+ * tier's threshold (10 / 20 / 30). Pays Glory; the top tier also a rare or
+ * better item into the stash.
+ */
+duel.post('/ladder/chest', async (c) => {
+  limit(c, 'duel_chest', 30);
+  const x = await ctx(c);
+  const body = await readJson(c, z.object({ chapter: z.number().int().min(1).max(CHAPTERS), tier: z.number().int().min(1).max(CHEST_TIERS) }), 1024);
+  if (!validChest(body.chapter, body.tier)) throw badRequest('No such chest');
+  const had = () => x.db.prepare('SELECT glory, item FROM duel_ladder_chests WHERE player_id = ?1 AND chapter = ?2 AND tier = ?3').bind(x.pid, body.chapter, body.tier).first<ChestRow>();
+  const answer = async (r: ChestRow, replayed: boolean) =>
+    c.json({ chapter: body.chapter, tier: body.tier, glory: r.glory, item: r.item ? (JSON.parse(r.item) as Item) : null, replayed, profile: await view(x) });
+  const old = await had();
+  if (old) return answer(old, true);
+  const ladder = await loadLadderStars(x.db, x.p);
+  if (chestState(ladder.stars, ladder.chests, body.chapter, body.tier) !== 'ready') throw new ApiError(409, 'chest_locked', 'Not enough stars in this chapter yet');
+  const reward = chestReward(body.chapter, body.tier);
+  let item: Item | null = null;
+  if (reward.item) {
+    const start = await reserveDuelIds(x.db, x.pid, 4);
+    x.p = await requireDuelProfile(x.db, x.pid);
+    item = chestItem(randomU32(), { nextId: start }, duelPrefix(x.pid), body.chapter);
+  }
+  const G = duelRevGuard(x.pid, x.p.rev + 1);
+  const res = await x.db.batch([
+    x.db
+      .prepare(
+        `UPDATE duel_profiles SET glory = glory + ?2, rev = rev + 1, updated_at = ?3 WHERE player_id = ?1 AND rev = ?4
+           AND NOT EXISTS (SELECT 1 FROM duel_ladder_chests WHERE player_id = ?1 AND chapter = ?5 AND tier = ?6)`,
+      )
+      .bind(x.pid, reward.glory, x.now, x.p.rev, body.chapter, body.tier),
+    x.db
+      .prepare(`INSERT INTO duel_ladder_chests (player_id, chapter, tier, glory, item, claimed_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE ${G}`)
+      .bind(x.pid, body.chapter, body.tier, reward.glory, item ? JSON.stringify(item) : null, x.now),
+    ...(item ? [itemInsert(x.db, x.pid, item, G, x.now)] : []),
+  ]);
+  if (res[0].meta.changes !== 1) {
+    const raced = await had();
+    if (raced) return answer(raced, true);
+    throw new ApiError(409, 'conflict', 'Your duel army changed meanwhile; try again');
+  }
+  return answer({ glory: reward.glory, item: item ? JSON.stringify(item) : null }, false);
 });
 
 duel.post('/ladder/abandon', async (c) => {

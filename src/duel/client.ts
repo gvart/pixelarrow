@@ -9,17 +9,17 @@ import { online } from '../platform/cloud';
 import { ApiError, newRequestId } from '../platform/api';
 import type { Hero } from '../data/units';
 import { itemDef, type Item, type Slot } from '../data/items';
-import { ATTR_IDS, type Attrs } from '../data/perks';
+import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type Attrs } from '../data/perks';
 import type { ClassId } from '../data/classes';
 import type { FormationType } from '../sim/formation';
 import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../sim/types';
 import { Rng } from '../sim/rng';
 import { DEFAULT_FORMATIONS } from '../online/rules';
 import {
-  DUEL_RULES, accountLevel, classUnlockLevel, developHero, duelRecruit, findOffer, recruitPrice, respecHero, respecPrice, sellPrice, shopItem,
+  DUEL_RULES, accountLevel, cleanPresetName, classUnlockLevel, developHero, duelRecruit, findOffer, recruitPrice, respecHero, respecPrice, sellPrice, shopItem,
   starterDuelRoster, teamPoints, teamProblem, utcDay,
 } from './rules';
-import { canFight, duelHeroXp, ladderFloor, ladderPayout, ladderSetup, type HeroXp } from './ladder';
+import { canFight, chestItem, chestReward, chestState, duelHeroXp, ladderFloor, ladderPayout, ladderSetup, starsByFloor, validChest, type HeroXp } from './ladder';
 import { RANKED, glicko2, leagueOf, matchPay, placed, scoreOf, type DuelMode, type League, type LeagueId, type Rating, type Score } from './rating';
 import type { AsyncReport, LiveMatchRef, MatchReport, MatchmakerClientMsg, MatchmakerServerMsg } from './protocol';
 import { ASYNC, SEASON, asyncSetup, attackPay, defenceRating, pickCandidates, seasonEnd, seasonId, seasonStart, type Ladder } from './season';
@@ -33,7 +33,15 @@ export interface DuelProfileView {
   glory: number;
   xp: number;
   level: number;
-  ladder: { cleared: number; farmLeft: number; farmCap: number };
+  ladder: {
+    cleared: number;
+    farmLeft: number;
+    farmCap: number;
+    /** Best stars per floor (index floor − 1, LADDER.floors long; 0: not won). Chapter sums: chapterStars (ladder.ts). */
+    stars: number[];
+    /** Chapter chests already claimed (states: chestState in ladder.ts). */
+    chests: { chapter: number; tier: number }[];
+  };
   team: string[];
   formations: FormationType[];
   heroes: Hero[];
@@ -41,7 +49,11 @@ export interface DuelProfileView {
   battles: number;
   wins: number;
   bought: string[];
-  /** The saved teams; `team` and `formations` above are the edited one's (`loadout`). */
+  /**
+   * The presets (saved teams), 1..DUEL_RULES.presetsMax of them, sorted by
+   * slot; slots may have gaps after a delete, so find a preset by `slot`
+   * (never index by slot − 1). `team` and `formations` above are the edited one's (`loadout`).
+   */
   loadouts: Loadout[];
   loadout: number;
   /** Which loadout fights where. */
@@ -54,7 +66,9 @@ export type LoadoutUse = 'ladder' | 'arena' | 'defence';
 export const LOADOUT_USES: LoadoutUse[] = ['ladder', 'arena', 'defence'];
 
 export interface Loadout {
+  /** Stable id of the preset (1..DUEL_RULES.presetsMax). */
   slot: number;
+  /** Null: the default name, presetName(l) = "Team <slot>". */
   name: string | null;
   team: string[];
   formations: FormationType[];
@@ -180,7 +194,27 @@ export interface LadderReport {
   xp: HeroXp[];
   drop: Item | null;
   enemies: { dead: number; total: number };
+  /** Stars this battle earned (0: lost) and the share (0..1) of team points lost. */
+  stars: number;
+  lost: number;
+  /** The floor's best stars before this battle and after it. */
+  prevStars: number;
+  bestStars: number;
+  /** This battle raised the floor's best. */
+  newBest: boolean;
   replayed?: boolean;
+  profile: DuelProfileView;
+}
+
+/** A claimed chapter chest (POST /api/duel/ladder/chest). */
+export interface ChestClaim {
+  chapter: number;
+  tier: number;
+  glory: number;
+  /** The top tier's item (rare or better, now in the stash). */
+  item: Item | null;
+  /** The chest was claimed before: this is what it paid then. */
+  replayed: boolean;
   profile: DuelProfileView;
 }
 
@@ -230,8 +264,18 @@ export interface DuelSource {
   queue(mode: DuelMode, on: (e: QueueEvent) => void): () => void;
   /** A settled match's report (after a reconnect that came too late for match_result). */
   matchReport(id: string): Promise<WithProfile<{ report: MatchReport }>>;
-  /** Picks, names and assigns a saved team (a slot never saved starts as a copy of the edited one). */
+  /** Picks (`edit`), renames (`name`, ≤ 16, null/empty: default) and assigns (`use`) a preset (a slot never saved starts as a copy of the edited one). */
   loadout(body: { slot: number; edit?: boolean; name?: string | null; use?: LoadoutUse[] }): Promise<WithProfile>;
+  /**
+   * A new preset in the lowest free slot (409 presets_full at 5): `from`
+   * omitted copies the edited preset, a slot copies that one (duplicate), null
+   * starts empty. Edited at once unless `edit: false`.
+   */
+  createLoadout(body?: { from?: number | null; name?: string | null; edit?: boolean }): Promise<WithProfile<{ slot: number }>>;
+  /** Deletes a preset (409 last_preset for the only one); its uses and the edited preset move to the first remaining one. */
+  deleteLoadout(slot: number): Promise<WithProfile>;
+  /** Claims a chapter chest (tier 1..3 at 10/20/30 chapter stars); idempotent. */
+  ladderChest(chapter: number, tier: number): Promise<ChestClaim>;
   asyncView(): Promise<AsyncView>;
   asyncStart(defender: number): Promise<AsyncTicket>;
   asyncSubmit(ticket: string, sub: LadderSubmission, result: BattleResult): Promise<WithProfile<{ report: AsyncReport; replayed?: boolean }>>;
@@ -301,6 +345,15 @@ export class ApiDuelSource implements DuelSource {
   }
   loadout(body: { slot: number; edit?: boolean; name?: string | null; use?: LoadoutUse[] }) {
     return this.req<WithProfile>('POST', '/loadout', body);
+  }
+  createLoadout(body: { from?: number | null; name?: string | null; edit?: boolean } = {}) {
+    return this.req<WithProfile<{ slot: number }>>('POST', '/loadout/create', body);
+  }
+  deleteLoadout(slot: number) {
+    return this.req<WithProfile>('POST', '/loadout/delete', { slot });
+  }
+  ladderChest(chapter: number, tier: number) {
+    return this.req<ChestClaim>('POST', '/ladder/chest', { chapter, tier });
   }
   asyncView() {
     return this.req<AsyncView>('GET', '/async');
@@ -397,6 +450,18 @@ export class DemoDuelSource implements DuelSource {
     if (!opts.fresh) heroes.push(duelRecruit(99, ids, 'demo_', 'thureophoros', heroes));
     this.ids.nextId = ids.nextId + 10;
     for (const h of heroes) this.base.set(h.id, { ...h.attrs });
+    if (!opts.fresh) {
+      // something to spend for the hub's badges: the recruit has points and a perk to take, the slinger a perk
+      Object.assign(heroes[6], { level: 2, points: POINTS_PER_LEVEL });
+      const sl = heroes[5];
+      sl.level = 2;
+      for (const k of ATTR_IDS) {
+        if (sl.attrs[k] < ATTR_MAX) {
+          sl.attrs[k] = Math.min(ATTR_MAX, sl.attrs[k] + POINTS_PER_LEVEL);
+          break;
+        }
+      }
+    }
     const now = this.clock();
     this.p = {
       now,
@@ -404,7 +469,14 @@ export class DemoDuelSource implements DuelSource {
       glory: opts.fresh ? DUEL_RULES.startGlory : 640,
       xp: opts.fresh ? 0 : 560,
       level: 1,
-      ladder: { cleared: opts.fresh ? 0 : 4, farmLeft: opts.fresh ? DUEL_RULES.farmGloryPerDay : 260, farmCap: DUEL_RULES.farmGloryPerDay },
+      ladder: {
+        cleared: opts.fresh ? 0 : 4,
+        farmLeft: opts.fresh ? DUEL_RULES.farmGloryPerDay : 260,
+        farmCap: DUEL_RULES.farmGloryPerDay,
+        // chapter 1: 3+3+1+3 = 10 stars, its first chest ready to claim
+        stars: starsByFloor(0, opts.fresh ? {} : { 1: 3, 2: 3, 3: 1, 4: 3 }),
+        chests: [],
+      },
       team: heroes.slice(0, 6).map((h) => h.id),
       formations: [...DEFAULT_FORMATIONS],
       heroes,
@@ -414,8 +486,7 @@ export class DemoDuelSource implements DuelSource {
       bought: [],
       loadouts: [
         { slot: 1, name: null, team: heroes.slice(0, 6).map((h) => h.id), formations: [...DEFAULT_FORMATIONS] },
-        { slot: 2, name: opts.fresh ? null : 'Wall', team: opts.fresh ? [] : [heroes[0].id, heroes[1].id, heroes[6]?.id ?? heroes[2].id], formations: [...DEFAULT_FORMATIONS] },
-        { slot: 3, name: null, team: [], formations: [...DEFAULT_FORMATIONS] },
+        ...(opts.fresh ? [] : [{ slot: 2, name: 'Wall', team: [heroes[0].id, heroes[1].id, heroes[6].id], formations: [...DEFAULT_FORMATIONS] }]),
       ],
       loadout: 1,
       use: { ladder: 1, arena: 1, defence: opts.fresh ? 1 : 2 },
@@ -425,8 +496,13 @@ export class DemoDuelSource implements DuelSource {
     if (!opts.fresh) this.snapDefence();
   }
 
+  /** A preset by slot (the first one when that slot is gone). */
+  private preset(slot: number): Loadout {
+    return this.p.loadouts.find((l) => l.slot === slot) ?? this.p.loadouts[0];
+  }
+
   private loadoutTeam(use: LoadoutUse): Hero[] {
-    const l = this.p.loadouts[this.p.use[use] - 1];
+    const l = this.preset(this.p.use[use]);
     return l.team.map((id) => this.p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
   }
 
@@ -441,7 +517,7 @@ export class DemoDuelSource implements DuelSource {
     const now = this.clock();
     const ids = new Set(this.p.heroes.map((h) => h.id));
     for (const l of this.p.loadouts) l.team = l.team.filter((id) => ids.has(id));
-    const edited = this.p.loadouts[this.p.loadout - 1];
+    const edited = this.preset(this.p.loadout);
     this.p.team = edited.team;
     this.p.formations = edited.formations;
     this.p.now = now;
@@ -528,7 +604,8 @@ export class DemoDuelSource implements DuelSource {
   }
 
   async team(body: { heroIds?: string[]; formations?: FormationType[]; groups?: Record<string, number>; loadout?: number }) {
-    const l = this.p.loadouts[(body.loadout ?? this.p.loadout) - 1];
+    if (body.loadout !== undefined && !this.p.loadouts.some((y) => y.slot === body.loadout)) throw new ApiError(404, 'no_preset', 'No such preset');
+    const l = this.preset(body.loadout ?? this.p.loadout);
     if (body.heroIds) {
       if (body.heroIds.length > DUEL_RULES.teamMax) throw new ApiError(400, 'bad_request', 'Team too big');
       for (const id of body.heroIds) this.hero(id);
@@ -541,14 +618,17 @@ export class DemoDuelSource implements DuelSource {
   }
 
   async loadout(body: { slot: number; edit?: boolean; name?: string | null; use?: LoadoutUse[] }) {
-    const l = this.p.loadouts[body.slot - 1];
-    if (!l) throw new ApiError(400, 'bad_request', 'No such loadout');
-    if (!l.team.length && body.slot !== this.p.loadout) {
-      const from = this.p.loadouts[this.p.loadout - 1];
-      l.team = [...from.team];
-      l.formations = [...from.formations];
+    if (!Number.isInteger(body.slot) || body.slot < 1 || body.slot > DUEL_RULES.presetsMax) throw new ApiError(400, 'bad_request', 'No such loadout');
+    if (typeof body.name === 'string' && body.name.trim().length > DUEL_RULES.presetNameMax) throw new ApiError(400, 'bad_request', 'Name too long');
+    let l = this.p.loadouts.find((y) => y.slot === body.slot);
+    if (!l) {
+      // a slot never saved starts as a copy of the edited preset
+      const from = this.preset(this.p.loadout);
+      l = { slot: body.slot, name: null, team: [...from.team], formations: [...from.formations] };
+      this.p.loadouts.push(l);
+      this.p.loadouts.sort((a, b) => a.slot - b.slot);
     }
-    if (body.name !== undefined) l.name = body.name || null;
+    if (body.name !== undefined) l.name = cleanPresetName(body.name);
     if (body.use?.includes('defence')) {
       const team = l.team.map((id) => this.p.heroes.find((h) => h.id === id)).filter((h): h is Hero => !!h);
       const problem = teamProblem(team, DUEL_RULES.budget);
@@ -559,6 +639,51 @@ export class DemoDuelSource implements DuelSource {
     if (body.use?.includes('defence') || this.p.defence) this.snapDefence();
     return { profile: this.view() };
   }
+
+  async createLoadout(body: { from?: number | null; name?: string | null; edit?: boolean } = {}) {
+    let slot = 0;
+    for (let x = 1; x <= DUEL_RULES.presetsMax && !slot; x++) if (!this.p.loadouts.some((l) => l.slot === x)) slot = x;
+    if (!slot) throw err('presets_full', `At most ${DUEL_RULES.presetsMax} presets`);
+    if (typeof body.from === 'number' && !this.p.loadouts.some((l) => l.slot === body.from)) throw new ApiError(404, 'no_preset', 'No such preset');
+    if (typeof body.name === 'string' && body.name.trim().length > DUEL_RULES.presetNameMax) throw new ApiError(400, 'bad_request', 'Name too long');
+    const src = body.from === null ? null : this.preset(body.from ?? this.p.loadout);
+    this.p.loadouts.push({ slot, name: cleanPresetName(body.name), team: src ? [...src.team] : [], formations: src ? [...src.formations] : [...DEFAULT_FORMATIONS] });
+    this.p.loadouts.sort((a, b) => a.slot - b.slot);
+    if (body.edit !== false) this.p.loadout = slot;
+    return { slot, profile: this.view() };
+  }
+
+  async deleteLoadout(slot: number) {
+    if (!this.p.loadouts.some((l) => l.slot === slot)) throw new ApiError(404, 'no_preset', 'No such preset');
+    if (this.p.loadouts.length <= 1) throw err('last_preset', 'Keep at least one preset');
+    const wasDefence = this.preset(this.p.use.defence).slot === slot;
+    this.p.loadouts = this.p.loadouts.filter((l) => l.slot !== slot);
+    const first = this.p.loadouts[0].slot;
+    if (this.p.loadout === slot) this.p.loadout = first;
+    for (const u of LOADOUT_USES) if (this.p.use[u] === slot) this.p.use[u] = first;
+    if (wasDefence && this.p.defence) this.snapDefence();
+    return { profile: this.view() };
+  }
+
+  async ladderChest(chapter: number, tier: number): Promise<ChestClaim> {
+    if (!validChest(chapter, tier)) throw new ApiError(400, 'bad_request', 'No such chest');
+    const state = chestState(this.p.ladder.stars, this.p.ladder.chests, chapter, tier);
+    const key = `${chapter}:${tier}`;
+    if (state === 'claimed') {
+      const old = this.chestPaid.get(key) ?? { glory: chestReward(chapter, tier).glory, item: null };
+      return { chapter, tier, ...old, replayed: true, profile: this.view() };
+    }
+    if (state !== 'ready') throw err('chest_locked', 'Not enough stars in this chapter yet');
+    const reward = chestReward(chapter, tier);
+    const item = reward.item ? chestItem(this.rng.int(1, 1e9), this.ids, 'demo_', chapter) : null;
+    this.p.glory += reward.glory;
+    if (item) this.p.stash.push(item);
+    this.p.ladder.chests.push({ chapter, tier });
+    this.chestPaid.set(key, { glory: reward.glory, item });
+    return { chapter, tier, glory: reward.glory, item, replayed: false, profile: this.view() };
+  }
+
+  private chestPaid = new Map<string, { glory: number; item: Item | null }>();
 
   async buy(offerId: string) {
     const day = utcDay(this.clock());
@@ -595,7 +720,7 @@ export class DemoDuelSource implements DuelSource {
       floor: floor.floor,
       boss: floor.boss,
       expiresAt: this.clock() + DUEL_RULES.ticketTtlMs,
-      setup: ladderSetup(seed, JSON.parse(JSON.stringify(team)) as Hero[], this.p.loadouts[this.p.use.ladder - 1].formations, floor),
+      setup: ladderSetup(seed, JSON.parse(JSON.stringify(team)) as Hero[], this.preset(this.p.use.ladder).formations, floor),
       team: JSON.parse(JSON.stringify(team)) as Hero[],
       enemies: floor.heroes,
     };
@@ -620,6 +745,8 @@ export class DemoDuelSource implements DuelSource {
       if (cur) Object.assign(cur, { level: h.level, xp: h.xp, points: h.points, traits: h.traits, battles: h.battles, kills: h.kills });
     }
     if (pay.drop) this.p.stash.push(pay.drop);
+    const prevStars = this.p.ladder.stars[floor.floor - 1] ?? 0;
+    if (pay.stars > prevStars) this.p.ladder.stars[floor.floor - 1] = pay.stars;
     return {
       floor: floor.floor,
       boss: floor.boss,
@@ -633,6 +760,11 @@ export class DemoDuelSource implements DuelSource {
       xp: pay.xp,
       drop: pay.drop,
       enemies: { dead: result.units.filter((u) => u.side === 1 && u.state === 'dead').length, total: floor.heroes.length },
+      stars: pay.stars,
+      lost: Math.round(pay.lost * 1000) / 1000,
+      prevStars,
+      bestStars: Math.max(prevStars, pay.stars),
+      newBest: pay.stars > prevStars,
       profile: this.view(),
     };
   }
@@ -763,7 +895,7 @@ export class DemoDuelSource implements DuelSource {
       ticket: `demo${seed.toString(16).padStart(28, '0')}`,
       defender: { pid: defender, name: c.name, league: c.league },
       expiresAt: this.clock() + ASYNC.ticketTtlMs,
-      setup: asyncSetup(seed, mine, this.p.loadouts[this.p.use.arena - 1].formations, foes, [...DEFAULT_FORMATIONS]),
+      setup: asyncSetup(seed, mine, this.preset(this.p.use.arena).formations, foes, [...DEFAULT_FORMATIONS]),
       team: mine,
       enemies: foes,
     };
@@ -863,7 +995,7 @@ export class DemoDuelSource implements DuelSource {
     const seed = this.rng.int(1, 0x7fffffff);
     const foes = starterDuelRoster(seed, { nextId: 1 }, 'demo_foe_');
     const mine = JSON.parse(JSON.stringify(team)) as Hero[];
-    const setup = onlineBattleSetup(seed, { heroes: mine, formations: this.p.loadouts[this.p.use.arena - 1].formations, bot: false }, { heroes: foes, formations: [...DEFAULT_FORMATIONS], bot: true }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
+    const setup = onlineBattleSetup(seed, { heroes: mine, formations: this.preset(this.p.use.arena).formations, bot: false }, { heroes: foes, formations: [...DEFAULT_FORMATIONS], bot: true }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
     const m: DemoMatch = { id: `demo${seed.toString(16)}`, mode, seed, setup, heroes: [mine, foes], names: ['You', 'Hektor'] };
     this.matches.set(m.id, m);
     return m;

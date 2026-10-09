@@ -6,6 +6,7 @@
  */
 import { itemDef, itemMods, itemValue, normalizeRarity, rarityRank, SLOTS, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
 import type { Hero } from '../data/units';
+import { perkSlots } from '../data/perks';
 import { computeStats, heroClass, heroPower, type CombatStats } from '../sim/stats';
 
 // ------------------------------------------------------------------ stats shown on a sheet
@@ -235,6 +236,14 @@ export const ROSTER_FILTERS: RosterFilter[] = ['all', 0, 1, 2, 3, 'wounded', 're
 /** Something to spend: attribute points or a perk point. */
 export function hasPending(h: Hero, perkSlots: (lvl: number) => number): boolean {
   return h.points > 0 || h.perks.length < perkSlots(h.level);
+}
+
+/**
+ * A hero to badge: unspent attribute points or a free perk slot
+ * (perkSlots(level) − perks taken > 0), as the hero sheet's tab badges.
+ */
+export function heroNeedsAttention(h: Pick<Hero, 'points' | 'perks' | 'level'>): boolean {
+  return h.points > 0 || perkSlots(h.level) - h.perks.length > 0;
 }
 
 export function queryRoster(heroes: readonly Hero[], sort: RosterSort = 'power', filter: RosterFilter = 'all'): Hero[] {

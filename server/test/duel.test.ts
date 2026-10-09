@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Hero } from '../../src/data/units';
 import type { Item } from '../../src/data/items';
 import { DUEL_RULES, catalogue, dailyOffers, gearPrice, recruitPrice, utcDay } from '../../src/duel/rules';
-import { ladderFloor } from '../../src/duel/ladder';
+import { LADDER, chestReward, ladderFloor, ladderStars } from '../../src/duel/ladder';
 import type { BattleSetup } from '../../src/sim/types';
 import { devLogin } from './helpers';
 import { DB, fresh, getJson, play, post } from './onlineHelpers';
@@ -237,5 +237,72 @@ describe('duel ladder', () => {
       expect(r.body.profile.ladder.farmLeft).toBe(0);
       break;
     }
+  });
+});
+
+describe('ladder stars and chapter chests', () => {
+  type StarReport = { won: boolean; stars: number; lost: number; prevStars: number; bestStars: number; newBest: boolean; profile: DuelProfile & { ladder: { stars: number[]; chests: { chapter: number; tier: number }[] } } };
+
+  it('a won floor earns stars by the points lost; the best is kept and only goes up', async () => {
+    const { token, pid, profile } = await open(9141);
+    expect((profile as unknown as StarReport['profile']).ladder.stars).toEqual(new Array(LADDER.floors).fill(0));
+    let won: StarReport | null = null;
+    for (let i = 0; i < 8 && !won; i++) {
+      const tk = await post<LadderTicket>('/api/duel/ladder/start', token, { floor: 1 });
+      const r = await post<StarReport>('/api/duel/ladder/submit', token, { ticket: tk.body.ticket, ...play(tk.body.setup) });
+      if (!r.body.won) {
+        expect(r.body).toMatchObject({ stars: 0, newBest: false });
+        continue;
+      }
+      won = r.body;
+    }
+    expect(won).not.toBeNull();
+    expect(won!.stars).toBe(ladderStars(true, won!.lost));
+    expect(won!).toMatchObject({ prevStars: 0, newBest: true, bestStars: won!.stars });
+    expect(won!.profile.ladder.stars[0]).toBe(won!.stars);
+    // a better best stays: a replay never lowers it
+    await DB().prepare('UPDATE duel_ladder_stars SET stars = 3 WHERE player_id = ?1 AND floor = 1').bind(pid).run();
+    for (let i = 0; i < 8; i++) {
+      const tk = await post<LadderTicket>('/api/duel/ladder/start', token, { floor: 1 });
+      const r = await post<StarReport>('/api/duel/ladder/submit', token, { ticket: tk.body.ticket, ...play(tk.body.setup) });
+      if (!r.body.won) continue;
+      expect(r.body).toMatchObject({ prevStars: 3, bestStars: 3, newBest: false });
+      expect(r.body.profile.ladder.stars[0]).toBe(3);
+      break;
+    }
+  });
+
+  it('floors cleared before stars count 1; chests open at 10/20/30 chapter stars and pay once', async () => {
+    const { token, pid } = await open(9142);
+    await DB().prepare('UPDATE duel_profiles SET ladder_cleared = 10 WHERE player_id = ?1').bind(pid).run();
+    type P = StarReport['profile'];
+    const p = (await getJson<P>('/api/duel/profile', token)).body;
+    expect(p.ladder.stars.slice(0, 11)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]);
+    expect(p.ladder.chests).toEqual([]);
+    type Chest = { chapter: number; tier: number; glory: number; item: Item | null; replayed: boolean; profile: P };
+    const t1 = await post<Chest>('/api/duel/ladder/chest', token, { chapter: 1, tier: 1 });
+    expect(t1.status).toBe(200);
+    expect(t1.body).toMatchObject({ glory: chestReward(1, 1).glory, item: null, replayed: false });
+    expect(t1.body.profile.glory).toBe(p.glory + chestReward(1, 1).glory);
+    const again = await post<Chest>('/api/duel/ladder/chest', token, { chapter: 1, tier: 1 });
+    expect(again.body).toMatchObject({ glory: chestReward(1, 1).glory, replayed: true });
+    expect(again.body.profile.glory).toBe(t1.body.profile.glory);
+    const locked = await post<{ error: { code: string } }>('/api/duel/ladder/chest', token, { chapter: 1, tier: 3 });
+    expect(locked.status).toBe(409);
+    expect(locked.body.error.code).toBe('chest_locked');
+    expect((await post('/api/duel/ladder/chest', token, { chapter: 6, tier: 1 })).status).toBe(400);
+    // three stars on every floor of chapter 1: the top chest holds a rare-or-better item
+    for (let f = 1; f <= 10; f++) await DB().prepare('INSERT INTO duel_ladder_stars (player_id, floor, stars, updated_at) VALUES (?1, ?2, 3, 0)').bind(pid, f).run();
+    const t3 = await post<Chest>('/api/duel/ladder/chest', token, { chapter: 1, tier: 3 });
+    expect(t3.status).toBe(200);
+    expect(t3.body.glory).toBe(chestReward(1, 3).glory);
+    expect(['rare', 'epic', 'legendary']).toContain(t3.body.item!.rarity);
+    expect(t3.body.profile.stash.some((i) => i.uid === t3.body.item!.uid)).toBe(true);
+    const t3again = await post<Chest>('/api/duel/ladder/chest', token, { chapter: 1, tier: 3 });
+    expect(t3again.body.replayed).toBe(true);
+    expect(t3again.body.item!.uid).toBe(t3.body.item!.uid);
+    expect(t3again.body.profile.stash.filter((i) => i.uid === t3.body.item!.uid)).toHaveLength(1);
+    expect(t3again.body.profile.glory).toBe(t3.body.profile.glory);
+    expect(t3again.body.profile.ladder.chests).toEqual([{ chapter: 1, tier: 1 }, { chapter: 1, tier: 3 }]);
   });
 });
