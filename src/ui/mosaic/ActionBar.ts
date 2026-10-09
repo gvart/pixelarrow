@@ -1,100 +1,39 @@
 /**
- * MActionBar: the bottom command strip of a map screen in the v4 style: a dark
- * stone bar with a gold rim holding a row of MButtons (one terracotta primary,
- * bronze secondaries, grey disabled with a reason) and, optionally, an info
- * line above them. MSquareButton is the square icon-only button (the camp's
- * muster / loot and its build rail).
+ * MActionBar: the bottom command strip of a screen in the v4 style, one
+ * component for every screen that has actions at its foot.
+ *  - surface 'stone' (map screens: World, Camp): a dark stone bar with a gold
+ *    rim, one row of buttons (a square icon-only button when the labels do not
+ *    all fit), optionally an info line above them.
+ *  - surface 'parchment' (party sub-screens: Army, Hero, Settlement): a
+ *    parchment bar inside the frame; buttons side by side in proportion to
+ *    their labels, wrapping onto rows (the primary alone on its own row) when
+ *    they do not fit.
+ * Slots are MButtonOpts plus the shorthands primary / selected / off / iconOnly.
  */
 import Phaser from 'phaser';
-import { addIcon, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
-import { MOSAIC } from '../tokens';
-import { MBadge, GAP, TAP, centeredFace, makePressable, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
-import { MButton, type MButtonVariant } from './controls';
+import { GAP, TAP, mosaicImage, mtext, mw } from './base';
+import { MButton, type MButtonOpts, type MButtonVariant } from './controls';
+import { MIconButton } from './iconButton';
+import { actionRows } from './BottomPanel';
 
-// ================================================================== MSquareButton
-
-export interface MSquareButtonOpts {
-  icon: string;
-  /** Accessible name: the long-press text and what scripts find it by. */
-  label: string;
-  /** Lit (bronze with a gold rim): the toggle that is on, the structure being placed. */
-  selected?: boolean;
-  /** Primary look (terracotta). */
-  primary?: boolean;
-  /** Not available, and why (a tap says it). */
-  off?: string;
-  onClick?: () => void;
-  tip?: string;
-  badge?: number | string;
-  /** A small count in the lower right corner (built structures). */
-  count?: string;
-  id?: string;
-}
-
-/** A square stone button with an icon only (>= 22 UI px). */
-export class MSquareButton extends Phaser.GameObjects.Container {
-  readonly w: number;
-  readonly h: number;
-  readonly opts: { label: string; icon: string };
-
-  constructor(scene: Phaser.Scene, x: number, y: number, size: number, o: MSquareButtonOpts) {
-    super(scene, Math.round(x), Math.round(y));
-    this.w = this.h = Math.max(TAP, Math.round(size));
-    this.opts = { label: o.label, icon: o.icon };
-    const off = !!o.off;
-    const style = off ? 'btnStone' : o.primary ? 'btnPrimary' : o.selected ? 'btnBronze' : 'btnNeutral';
-    const down = off ? 'btnStone' : o.primary ? 'btnPrimaryDown' : o.selected ? 'btnBronzeDown' : 'btnNeutralDown';
-    const face = centeredFace(scene, this.w, this.h);
-    this.add(face);
-    const bg = put(face, this.w, this.h, mosaicImage(scene, 0, 0, this.w, this.h, style));
-    const ic = scaleIcon(addIcon(scene, 0, 0, o.icon, off ? 'D' : 'L'), Math.min(1.6, (this.h - 8) / ICON_PX));
-    ic.setPosition(Math.round((this.w - ic.displayWidth) / 2), Math.round((this.h - ic.displayHeight) / 2) - 0.5);
-    put(face, this.w, this.h, ic);
-    if (o.selected && !off) {
-      const g = scene.add.graphics();
-      g.lineStyle(1, MOSAIC.goldHi, 1);
-      g.strokeRect(1.5, 1.5, this.w - 3, this.h - 3);
-      put(face, this.w, this.h, g);
-    }
-    if (o.count) put(face, this.w, this.h, mtext(scene, this.w - 3, this.h - 9, o.count, 'rCream', { size: 5.5, align: 1, box: { owner: this, w: this.w, h: this.h } }));
-    if (o.badge !== undefined && o.badge !== 0 && !off) this.add(new MBadge(scene, this.w - 3, 3, o.badge));
-    makePressable(this, {
-      face,
-      w: this.w,
-      h: this.h,
-      onTap: () => o.onClick?.(),
-      down: () => bg.setTexture(mosaicTexture(scene, this.w, this.h, down)),
-      up: () => bg.setTexture(mosaicTexture(scene, this.w, this.h, style)),
-      tip: o.tip ?? o.label,
-      disabled: () => o.off,
-    });
-    uiId(this, o.id ?? `icon:${o.icon}`);
-    scene.add.existing(this);
-  }
-}
-
-// ================================================================== MActionBar
-
-export interface BarSlot {
-  label: string;
-  icon?: string;
-  onClick?: () => void;
+export interface BarSlot extends MButtonOpts {
   /** Cannot right now, and why (grey stone; a tap says why). */
   off?: string;
-  tip?: string;
-  badge?: number | string;
-  id?: string;
   /** The one terracotta primary of the state. */
   primary?: boolean;
   /** A toggle that is on (stone instead of bronze). */
   selected?: boolean;
-  /** A square icon-only button (the label is its tip). */
+  /** A square icon-only button (the label is its tip); stone surface only. */
   iconOnly?: boolean;
 }
 
 export interface MActionBarOpts {
-  /** Room for one line of info text above the buttons. */
+  /** 'stone': the map screens' strip (default); 'parchment': the party screens' bar inside the frame. */
+  surface?: 'stone' | 'parchment';
+  /** Left edge in UI px (parchment bars sit inside the frame; the strip spans the screen). */
+  x?: number;
+  /** Room for one line of info text above the buttons (stone only). */
   info?: boolean;
   id?: string;
 }
@@ -102,26 +41,39 @@ export interface MActionBarOpts {
 const BTN_H = 26;
 const BAR_PAD = 4;
 const ROW_H = 34;
+const SHEET_BTN_H = 24;
 
-/** The bar's height in UI px: the buttons, and the info line when asked. */
+/** The stone strip's height in UI px: the buttons, and the info line when asked. */
 export const actionBarH = (info: boolean): number => (info ? 46 : ROW_H);
+
+/** The variant a slot is drawn in. */
+function variantOf(s: BarSlot): MButtonVariant {
+  return s.variant ?? (s.off ? 'disabled' : s.primary ? 'primary' : s.selected ? 'neutral' : 'secondary');
+}
 
 export class MActionBar extends Phaser.GameObjects.Container {
   readonly w: number;
-  readonly h: number;
-  readonly buttons: (MButton | MSquareButton)[] = [];
+  h: number;
+  readonly buttons: (MButton | MIconButton)[] = [];
   private slots: Phaser.GameObjects.Container;
+  private bg: Phaser.GameObjects.Image;
   private infoText: Phaser.GameObjects.BitmapText | null = null;
   private readonly withInfo: boolean;
+  private readonly parch: boolean;
+  private readonly bottom: number;
 
-  /** @param bottom Y of the bar's lower edge (the screen's bottom, UI px). */
+  /** @param bottom Y of the bar's lower edge (the screen's bottom, or the frame's lower edge, UI px). */
   constructor(scene: Phaser.Scene, w: number, bottom: number, o: MActionBarOpts = {}) {
-    const h = actionBarH(!!o.info);
-    super(scene, 0, bottom - h);
+    const parch = o.surface === 'parchment';
+    const h = parch ? SHEET_BTN_H + BAR_PAD * 2 : actionBarH(!!o.info);
+    super(scene, o.x ?? 0, bottom - h);
     this.w = Math.round(w);
     this.h = h;
-    this.withInfo = !!o.info;
-    this.add(mosaicImage(scene, 0, 0, this.w, h, 'tabBar'));
+    this.bottom = bottom;
+    this.parch = parch;
+    this.withInfo = !!o.info && !parch;
+    this.bg = mosaicImage(scene, 0, 0, this.w, h, parch ? 'sheet' : 'tabBar');
+    this.add(this.bg);
     this.slots = scene.add.container(0, 0);
     this.add(this.slots);
     uiId(this, o.id ?? 'strip');
@@ -142,11 +94,47 @@ export class MActionBar extends Phaser.GameObjects.Container {
     return this;
   }
 
-  /** Swap the actions: icon-only slots are square, the rest share the width. An empty list hides the bar. */
+  /** Swap the actions. An empty list hides the bar. */
   set(slots: BarSlot[]): this {
     this.slots.removeAll(true);
     this.buttons.length = 0;
     this.setVisible(slots.length > 0);
+    if (this.parch) this.layoutSheet(slots);
+    else this.layoutStrip(slots);
+    return this;
+  }
+
+  private add1(b: MButton | MIconButton): void {
+    this.slots.add(b);
+    this.buttons.push(b);
+  }
+
+  /** Parchment: rows of buttons in proportion to their labels (the primary alone on its own row when they do not fit). */
+  private layoutSheet(slots: BarSlot[]): void {
+    const scene = this.scene;
+    const inner = this.w - BAR_PAD * 2;
+    const rows = actionRows(slots.map((s) => ({ ...s, variant: variantOf(s) })), inner) as BarSlot[][];
+    const h = BAR_PAD * 2 + Math.max(1, rows.length) * SHEET_BTN_H + Math.max(0, rows.length - 1) * GAP;
+    this.h = h;
+    this.y = this.bottom - h;
+    this.bg.destroy();
+    this.bg = mosaicImage(scene, 0, 0, this.w, h, 'sheet');
+    this.addAt(this.bg, 0);
+    rows.forEach((row, ri) => {
+      const nat = row.map((a) => mw(a.label.toUpperCase(), variantOf(a) === 'disabled' ? 'rOff' : 'rCream', 7) + 16);
+      const free = inner - GAP * (row.length - 1);
+      const sum = nat.reduce((a, b) => a + b, 0);
+      let x = BAR_PAD;
+      row.forEach((a, i) => {
+        const bw = i === row.length - 1 ? BAR_PAD + inner - x : Math.round((nat[i] / sum) * free);
+        this.add1(new MButton(scene, x, BAR_PAD + ri * (SHEET_BTN_H + GAP), bw, SHEET_BTN_H, { ...a, variant: variantOf(a), disabledReason: a.off ?? a.disabledReason }));
+        x += bw + GAP;
+      });
+    });
+  }
+
+  /** Stone strip: icon-only slots are square, the rest share the width. */
+  private layoutStrip(slots: BarSlot[]): void {
     // a label needs its natural width (the button shrinks the text down to size 5.5); when they do not all fit,
     // the secondary actions with an icon give up their label (a square button, the label is its tip), and squares get small
     const natural = (sl: BarSlot) => mw(sl.label.toUpperCase(), sl.off ? 'rOff' : 'rCream', 7) + 14;
@@ -170,19 +158,24 @@ export class MActionBar extends Phaser.GameObjects.Container {
     let x = BAR_PAD;
     for (const s of slots) {
       if (s.iconOnly) {
-        const b = new MSquareButton(this.scene, x, by + Math.round((BTN_H - side) / 2), side, { icon: s.icon ?? 'fallback', label: s.label, off: s.off, onClick: s.onClick, tip: s.tip, badge: s.badge, id: s.id, selected: s.selected });
-        this.slots.add(b);
-        this.buttons.push(b);
+        this.add1(
+          new MIconButton(this.scene, x, by + Math.round((BTN_H - side) / 2), side, side, {
+            icon: s.icon ?? 'fallback',
+            label: s.label,
+            off: s.off,
+            onClick: s.onClick,
+            tip: s.tip,
+            badge: s.badge,
+            id: s.id,
+            variant: s.off ? 'disabled' : s.selected ? 'lit' : 'neutral',
+          }),
+        );
         x += side + GAP;
         continue;
       }
-      const variant: MButtonVariant = s.off ? 'disabled' : s.primary ? 'primary' : s.selected ? 'neutral' : 'secondary';
       const fw = equalFits ? equal : squeeze < 1 ? Math.floor(natural(s) * squeeze) : natural(s) + share;
-      const b = new MButton(this.scene, x, by, fw, BTN_H, { label: s.label, icon: s.icon, variant, onClick: s.onClick, disabledReason: s.off, tip: s.tip, badge: s.badge, id: s.id });
-      this.slots.add(b);
-      this.buttons.push(b);
+      this.add1(new MButton(this.scene, x, by, fw, BTN_H, { label: s.label, icon: s.icon, variant: variantOf(s), onClick: s.onClick, disabledReason: s.off, tip: s.tip, badge: s.badge, id: s.id }));
       x += fw + GAP;
     }
-    return this;
   }
 }

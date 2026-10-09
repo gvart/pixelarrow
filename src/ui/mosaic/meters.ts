@@ -1,15 +1,14 @@
 /**
  * Meters of the v4 UI: MBar (a thin bar with a label and a value over it, on
- * parchment: the farm Glory bar, the search range, the team's points) and
- * StatChip (a 22-tall stone or parchment plate with an icon, a number that can
- * count to a new value and an optional bar under it: Glory, the duel level).
+ * parchment: the farm Glory bar, the search range, the team's points, the
+ * hero's XP and derived stats with a preview of pending points).
  */
 import Phaser from 'phaser';
-import { addIcon, ICON_PX } from '../kit';
+import { tappable } from '../kit';
 import { uiId } from '../layout';
-import { motion } from '../motion';
-import { MOSAIC, MOTION } from '../tokens';
-import { TAP, centeredFace, fit, makePressable, midY, mosaicImage, mtext, mw, put } from './base';
+import { showTooltip } from '../widgets';
+import { ACCENT, MOSAIC } from '../tokens';
+import { TAP, mtext, mw } from './base';
 
 // ================================================================== MBar
 
@@ -23,15 +22,25 @@ export interface MBarOpts {
   color: number;
   /** Bar height in UI px (default 5). */
   h?: number;
+  /** Size of the label row's text (default 7). */
+  size?: number;
   /** The label is quieter (a used-up or locked meter). */
   quiet?: boolean;
+  /** The value text in a good / bad ink (a preview of pending points: "a > b"). */
+  rightTone?: 'good' | 'bad';
+  /** A pending value: the bar shows the move from `value` to it as a green gain or, with `worse`, a red loss. */
+  preview?: number;
+  /** The preview is a change for the worse. */
+  worse?: boolean;
+  /** Long-press / tap text; makes the meter a 22 tall touch target. */
+  tip?: string;
   id?: string;
 }
 
-/** A label row (Inter on parchment) over a dark trough with a coloured fill. */
+/** A label row (Inter on parchment) over a dark trough with a coloured fill; optionally a preview of a pending change and a tip. */
 export class MBar extends Phaser.GameObjects.Container {
   readonly w: number;
-  /** Total height: the label row (when there is one), the gap and the bar. */
+  /** Total height: the label row (when there is one), the gap and the bar (at least 22 with a tip). */
   readonly h: number;
   private fill: Phaser.GameObjects.Rectangle;
   private rightText: Phaser.GameObjects.BitmapText | null = null;
@@ -44,24 +53,39 @@ export class MBar extends Phaser.GameObjects.Container {
     this.barH = o.h ?? 5;
     const hasText = !!(o.label || o.right);
     const textH = hasText ? 11 : 0;
-    this.h = textH + this.barH;
+    this.h = Math.max(o.tip ? TAP : 0, textH + this.barH);
+    const size = o.size ?? 7;
     const frame = { owner: this as Phaser.GameObjects.Container, w: this.w, h: this.h };
+    const rightFont = o.rightTone === 'good' ? 'pGood' : o.rightTone === 'bad' ? 'pBad' : 'pInk';
     if (o.right) {
-      this.rightText = mtext(scene, this.w, 0, o.right, 'pInk', { align: 1, box: frame });
+      this.rightText = mtext(scene, this.w, 0, o.right, rightFont, { size, align: 1, box: frame });
       this.add(this.rightText);
     }
-    if (o.label) this.add(mtext(scene, 0, 0, o.label, o.quiet ? 'pMuted' : 'pSec', { maxW: this.w - (o.right ? mw(o.right, 'pInk') + 8 : 0), box: frame }));
+    if (o.label) this.add(mtext(scene, 0, 0, o.label, o.quiet ? 'pMuted' : o.tip ? 'pInk' : 'pSec', { size, maxW: this.w - (o.right ? mw(o.right, rightFont, size) + 8 : 0), box: frame }));
     this.barW = this.w;
-    const by = textH;
+    const by = this.h - this.barH - (o.tip ? 3 : 0);
     const g = scene.add.graphics();
     g.fillStyle(MOSAIC.stone0, 1);
     g.fillRoundedRect(0, by, this.w, this.barH, 1.5);
     g.lineStyle(0.7, MOSAIC.parchEdge, 0.9);
     g.strokeRoundedRect(0.35, by + 0.35, this.w - 0.7, this.barH - 0.7, 1.5);
     this.add(g);
+    const f = (v: number) => (o.max > 0 ? Math.max(0, Math.min(1, v / o.max)) : 0);
+    const pv = o.preview;
+    const lo = pv !== undefined ? Math.min(o.value, pv) : o.value;
     this.fill = scene.add.rectangle(1, by + 1, 0, this.barH - 2, o.color).setOrigin(0, 0);
     this.add(this.fill);
-    this.setValue(o.value, o.max, o.right);
+    if (pv !== undefined && Math.abs(pv - o.value) > 1e-6) {
+      const loW = Math.round((this.barW - 2) * f(lo));
+      const hiW = Math.round((this.barW - 2) * f(Math.max(o.value, pv)));
+      this.add(scene.add.rectangle(1 + loW, by + 1, Math.max(1, hiW - loW), this.barH - 2, o.worse ? ACCENT.dangerFill : 0x5fae3c).setOrigin(0, 0));
+    }
+    this.setValue(lo, o.max, o.right);
+    if (o.tip) {
+      this.setSize(this.w, this.h);
+      this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+      tappable(this, null, () => showTooltip(scene, o.tip!, this), o.tip);
+    }
     if (o.id) uiId(this, o.id);
     scene.add.existing(this);
   }
@@ -74,80 +98,3 @@ export class MBar extends Phaser.GameObjects.Container {
     return this;
   }
 }
-
-// ================================================================== StatChip
-
-export interface StatChipOpts {
-  icon?: string;
-  /** What it shows (the count-up of `setValue` replaces it with a number). */
-  value: string | number;
-  /** 0..1: a thin bar under the number (the duel level's XP). */
-  progress?: number;
-  /** Fill colour of that bar (a token). */
-  progressColor?: number;
-  surface?: 'parchment' | 'stone';
-  onClick?: () => void;
-  tip?: string;
-  id?: string;
-}
-
-const CHIP_H = TAP;
-
-/** A plate 22 tall: an icon, a number and (optionally) a bar under it; tappable when `onClick` is given. */
-export class StatChip extends Phaser.GameObjects.Container {
-  readonly w: number;
-  readonly h = CHIP_H;
-  readonly opts: { label: string; icon?: string };
-  private num: Phaser.GameObjects.BitmapText;
-  private counter = { v: 0 };
-
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number, o: StatChipOpts) {
-    super(scene, Math.round(x), Math.round(y));
-    this.w = Math.round(w);
-    const stone = o.surface !== 'parchment';
-    const val = String(o.value);
-    this.opts = { label: val, icon: o.icon };
-    const face = centeredFace(scene, this.w, this.h);
-    this.add(face);
-    put(face, this.w, this.h, mosaicImage(scene, 0, 0, this.w, this.h, stone ? 'chipStone' : 'chipParch'));
-    const font = stone ? 'ink' : 'pInk';
-    const iconW = o.icon ? ICON_PX + 3 : 0;
-    const room = this.w - 10 - iconW;
-    const text = fit(val, font, 8, room);
-    const bar = o.progress !== undefined;
-    const x0 = Math.round((this.w - (iconW + mw(text, font, 8))) / 2);
-    const ty = bar ? 3 : midY(this.h - 1, 8);
-    if (o.icon) put(face, this.w, this.h, addIcon(scene, x0, bar ? 2 : Math.round((this.h - ICON_PX) / 2) - 1, o.icon));
-    this.num = put(face, this.w, this.h, mtext(scene, x0 + iconW, ty, text, font, { size: 8, box: { owner: this, w: this.w, h: this.h } }));
-    if (bar) {
-      const bw = this.w - 12;
-      const g = scene.add.graphics();
-      g.fillStyle(MOSAIC.stone0, 1);
-      g.fillRoundedRect(6, this.h - 7, bw, 3, 1);
-      g.fillStyle(o.progressColor ?? MOSAIC.gold, 1);
-      g.fillRoundedRect(6, this.h - 7, Math.max(2, Math.round(bw * Math.max(0, Math.min(1, o.progress!)))), 3, 1);
-      put(face, this.w, this.h, g);
-    }
-    if (o.onClick) makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick, tip: o.tip });
-    uiId(this, o.id ?? `statchip:${o.icon ?? ''}:${val}`);
-    scene.add.existing(this);
-  }
-
-  /** The number counts to `v` (at once under Reduce motion); the chip keeps its width. */
-  setValue(v: number): this {
-    const from = Number(this.num.text.replace(/\D/g, '')) || 0;
-    if (motion.reduced || from === v) {
-      this.num.setText(`${v}`);
-      return this;
-    }
-    this.counter.v = from;
-    this.scene.tweens.add({ targets: this.counter, v, duration: MOTION.countUp, ease: 'Cubic.easeOut', onUpdate: () => this.num.active && this.num.setText(`${Math.round(this.counter.v)}`) });
-    return this;
-  }
-
-  /** The chip's width for a value (icon, number, padding). */
-  static width(o: Pick<StatChipOpts, 'icon' | 'value'>, min = 0): number {
-    return Math.max(min, Math.ceil(mw(String(o.value), 'ink', 8) + (o.icon ? ICON_PX + 3 : 0) + 11));
-  }
-}
-

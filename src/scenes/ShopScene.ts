@@ -25,7 +25,7 @@ import { haptic, hapticNotify, openExternalLink } from '../platform/telegram';
 import { legalUrl } from '../ui/legal';
 import { uiCoin } from '../audio/hooks';
 import { state } from '../state';
-import { MButton, MBadge, MChip, OfferCard, FrescoFrame, ParchmentCard, SectionTitle, SECTION_TITLE_H, SegmentedSwitch, SWITCH_H, TipCard, GAP, addHubShell, mosaicImage, mtext, mw, type Box, type OfferState } from '../ui/mosaic';
+import { MButton, MBadge, MChip, OfferCard, FrescoBanner, ParchmentCard, SectionTitle, SECTION_TITLE_H, SegmentedSwitch, SWITCH_H, addTipLine, GAP, addHubShell, mosaicImage, mtext, mw, type Box, type OfferState } from '../ui/mosaic';
 import { lang, t, tOr, type TKey } from '../i18n';
 
 type Tab = 'shop' | 'pass' | 'wallet';
@@ -158,7 +158,7 @@ export class ShopScene extends BaseScene {
     }
     // the market stall: where you are, before any word (only where there is room)
     if (this.box.h >= 280) {
-      H.add(new FrescoFrame(this, x0, y, w, 30, (parent, ax, ay, aw, ah) => addModeBanner(this, parent, ax, ay, aw, ah, 'shop')));
+      H.add(new FrescoBanner(this, x0, y, w, 30, { label: t('shop.title'), id: 'shop.banner', art: (parent, ax, ay, aw, ah) => addModeBanner(this, parent, ax, ay, aw, ah, 'shop') }));
       y += 30 + 3;
     }
     const claim = d?.pass ? claimableCount(d.pass) : 0;
@@ -241,11 +241,8 @@ export class ShopScene extends BaseScene {
     const w = this.box.w - 8 - 4;
     let y = this.pageHead(c, 1);
     // what this shop is (and is not): a tip the player can hide
-    if (!TipCard.hidden('shop.what')) {
-      const tip = new TipCard(this, 0, y, w, { text: t('shop.sit.shop'), dismissId: 'shop.what', maxLines: 3 });
-      c.add(tip);
-      y += tip.h + 5;
-    }
+    const tipH = addTipLine(this, c, 0, y, w, { text: t('shop.sit.shop'), dismissId: 'shop.what', card: true });
+    if (tipH) y += tipH + 5;
     // cosmetics by slot: cards with their art
     c.add(new SectionTitle(this, 0, y, w, t('shop.cosmetics')));
     y += SECTION_TITLE_H + 2;
@@ -707,9 +704,7 @@ export class ShopScene extends BaseScene {
     y += 48;
     // a real problem only: below zero after a refunded pack (0 is a normal empty wallet)
     if (over) {
-      const tip = new TipCard(this, 0, y, w, { text: t('wallet.cannotSpend'), tone: 'warn', maxLines: 3 });
-      c.add(tip);
-      y += tip.h + 4;
+      y += addTipLine(this, c, 0, y, w, { text: t('wallet.cannotSpend'), tone: 'warn', card: true }) + 4;
     }
     const note = wrapText(t('wallet.note'), w - 6, 4);
     c.add(addText(this, 1, y, note.lines.join('\n'), 'pSec'));

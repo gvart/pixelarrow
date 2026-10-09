@@ -18,7 +18,7 @@ import { BaseScene } from './BaseScene';
 import { scaleIcon, addIcon, addText } from '../ui/kit';
 import { confirmDialog, openModal, toast, ScrollList, type Modal } from '../ui/widgets';
 import { ellipsize } from '../ui/textfit';
-import { CHIP_ROW_H, ChipRow, MActionBar, MButton, ParchmentRow, MSquareButton, TOPBAR_H, actionBarH, addMapTopBar, mosaicImage, type SituationChip } from '../ui/mosaic';
+import { CHIP_ROW_H, ChipRow, MActionBar, MButton, ParchmentRow, MIconButton, TOPBAR_H, actionBarH, addSubShell, mosaicImage, type SituationChip } from '../ui/mosaic';
 import { ensureFonts } from '../ui/fonts';
 import { uiIgnore } from '../ui/layout';
 import { haptic, hapticNotify } from '../platform/telegram';
@@ -686,11 +686,11 @@ export class CampScene extends BaseScene {
         const why = n >= d.max ? t('cs.built') : w.supplies < d.cost ? t('cs.needSupplies', { n: d.cost }) : !freeSpot(w.map, c, d.id) ? t('cs.noRoom') : undefined;
         const on = this.placing?.id === d.id;
         H.add(
-          new MSquareButton(this, bx, by, bw, {
+          new MIconButton(this, bx, by, bw, bw, {
             icon: FIELD_ICON[d.id],
             label: `${d.name} (${d.cost})`,
             tip: `${d.name}: ${d.desc}. ${d.cost} ${t('cs.suppliesWord')}, ${d.hours}h`,
-            selected: on,
+            variant: on ? 'lit' : 'neutral',
             off: why && !on ? why : undefined,
             count: d.max > 1 || n ? `${n}` : undefined,
             onClick: () => (on ? this.cancelPlacing() : this.startPlacing(d.id)),
@@ -707,11 +707,11 @@ export class CampScene extends BaseScene {
         const on = camp ? (built ? this.slot === built.slot && !this.kind : this.kind === k) : false;
         const afford = v ? canAfford(v.resources, campLevelCost(k, 1).cost) : false;
         H.add(
-          new MSquareButton(this, bx, by, bw, {
+          new MIconButton(this, bx, by, bw, bw, {
             icon: `camp_${k}`,
             label: t(`ocamp.b.${k}` as TKey),
             tip: `${t(`ocamp.b.${k}` as TKey)}: ${t(`ocamp.d.${k}` as TKey)}`,
-            selected: on,
+            variant: on ? 'lit' : 'neutral',
             off: camp ? undefined : t('ocamp.why.notCamp'),
             count: built ? `${built.building ?? built.level}` : undefined,
             onClick: () => this.pickKind(k),
@@ -724,7 +724,7 @@ export class CampScene extends BaseScene {
     }
     const zx = zoomInRail ? bx : colX - bw - 3;
     const zy = zoomInRail ? by : TOP_H + 3;
-    H.add(new MSquareButton(this, zx, zy, bw, { icon: 'eye', label: t('cs.zoom'), selected: this.zoom > 1, onClick: () => this.toggleZoom(), id: 'camp.zoom' }));
+    H.add(new MIconButton(this, zx, zy, bw, bw, { icon: 'eye', label: t('cs.zoom'), variant: this.zoom > 1 ? 'lit' : 'neutral', onClick: () => this.toggleZoom(), id: 'camp.zoom' }));
     // bottom strip: the info line and the actions
     this.bar = new MActionBar(this, VW, VH, { info: true });
     H.add(this.bar);
@@ -740,7 +740,7 @@ export class CampScene extends BaseScene {
     if (title === this.topKey) return;
     this.topKey = title;
     this.topC.removeAll(true);
-    addMapTopBar(this, this.topC, this.m.VW, { title, id: 'camp.topbar', back: this.inGameBack ? () => this.goBack() : undefined });
+    addSubShell(this, { map: true, parent: this.topC, title, id: 'camp.topbar', actions: [], back: this.inGameBack ? () => this.goBack() : undefined });
   }
 
   /** The purse as chips on the stone band under the top bar. */

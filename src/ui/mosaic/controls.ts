@@ -9,8 +9,8 @@ import Phaser from 'phaser';
 import type { MosaicStyle } from '../../art/mosaicUi';
 import { addIcon, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
-import { tweenTo } from '../motion';
-import { MOTION } from '../tokens';
+import { motion, tweenTo } from '../motion';
+import { MOSAIC, MOTION } from '../tokens';
 import { wrapText } from '../textfit';
 import { MBadge, TAP, centeredFace, fit, makePressable, midY, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
 
@@ -232,6 +232,12 @@ export interface MChipOpts {
   w?: number;
   /** Side padding in total, UI px (default 10; a tight row of chips takes less). */
   pad?: number;
+  /** A plate 22 tall with a bigger number (size 8): Glory, the duel level. */
+  tall?: boolean;
+  /** 0..1: a thin bar under the number (the duel level's XP). */
+  progress?: number;
+  /** Fill colour of that bar (a token). */
+  progressColor?: number;
   onClick?: () => void;
   tip?: string;
   id?: string;
@@ -239,16 +245,18 @@ export interface MChipOpts {
 
 const CHIP_H = 18;
 
-/** A small pill: an icon and a number (Inter, tabular). 22 tall when tappable. */
+/** A small pill: an icon and a number (Inter, tabular). 22 tall when tappable or `tall`; the number can count to a new value (`setValue`). */
 export class MChip extends Phaser.GameObjects.Container {
   readonly w: number;
   readonly h: number;
   readonly opts: { label: string; icon?: string };
+  private num: Phaser.GameObjects.BitmapText;
+  private counter = { v: 0 };
 
   constructor(scene: Scene, x: number, y: number, o: MChipOpts) {
     super(scene, Math.round(x), Math.round(y));
     const tapable = !!o.onClick;
-    this.h = tapable ? TAP : CHIP_H;
+    this.h = tapable || o.tall ? TAP : CHIP_H;
     this.w = o.w ?? MChip.width(o);
     const stone = o.surface === 'stone';
     const val = String(o.value);
@@ -260,19 +268,43 @@ export class MChip extends Phaser.GameObjects.Container {
     const font: FontKey = stone ? 'ink' : 'pInk';
     // the number keeps its size while it fits, then shrinks (to 6) before it is cut
     const room = this.w - (o.pad ?? 10) - iconW;
-    const size = [7, 6.5, 6].find((z) => mw(val, font, z) <= room) ?? 6;
+    const big = o.tall ? 8 : 7;
+    const size = [big, 7, 6.5, 6].filter((z) => z <= big).find((z) => mw(val, font, z) <= room) ?? 6;
     const text = fit(val, font, size, room);
+    const bar = o.progress !== undefined;
     const x0 = Math.round((this.w - (iconW + mw(text, font, size))) / 2);
-    if (o.icon) put(face, this.w, this.h, addIcon(scene, x0, Math.round((this.h - ICON_PX) / 2) - 1, o.icon));
-    put(face, this.w, this.h, mtext(scene, x0 + iconW, midY(this.h - 1, size), text, font, { size, box: { owner: this, w: this.w, h: this.h } }));
+    if (o.icon) put(face, this.w, this.h, addIcon(scene, x0, bar ? 2 : Math.round((this.h - ICON_PX) / 2) - 1, o.icon));
+    this.num = put(face, this.w, this.h, mtext(scene, x0 + iconW, bar ? 3 : midY(this.h - 1, size), text, font, { size, box: { owner: this, w: this.w, h: this.h } }));
+    if (bar) {
+      const bw = this.w - 12;
+      const g = scene.add.graphics();
+      g.fillStyle(MOSAIC.stone0, 1);
+      g.fillRoundedRect(6, this.h - 7, bw, 3, 1);
+      g.fillStyle(o.progressColor ?? MOSAIC.gold, 1);
+      g.fillRoundedRect(6, this.h - 7, Math.max(2, Math.round(bw * Math.max(0, Math.min(1, o.progress!)))), 3, 1);
+      put(face, this.w, this.h, g);
+    }
     if (tapable) makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick!, tip: o.tip });
     uiId(this, o.id ?? `chip:${o.icon ?? ''}:${val}`);
     scene.add.existing(this);
   }
 
+  /** The number counts to `v` (at once under Reduce motion); the chip keeps its width. */
+  setValue(v: number): this {
+    const from = Number(this.num.text.replace(/\D/g, '')) || 0;
+    if (motion.reduced || from === v) {
+      this.num.setText(`${v}`);
+      return this;
+    }
+    this.counter.v = from;
+    this.scene.tweens.add({ targets: this.counter, v, duration: MOTION.countUp, ease: 'Cubic.easeOut', onUpdate: () => this.num.active && this.num.setText(`${Math.round(this.counter.v)}`) });
+    return this;
+  }
+
   /** Natural width of a chip. */
-  static width(o: MChipOpts): number {
-    return Math.ceil(mw(String(o.value), o.surface === 'stone' ? 'ink' : 'pInk') + (o.icon ? ICON_PX + 3 : 0) + 12);
+  static width(o: Pick<MChipOpts, 'icon' | 'value' | 'surface' | 'tall'>, min = 0): number {
+    const size = o.tall ? 8 : 7;
+    return Math.max(min, Math.ceil(mw(String(o.value), o.surface === 'stone' || (o.tall && o.surface !== 'parchment') ? 'ink' : 'pInk', size) + (o.icon ? ICON_PX + 3 : 0) + (o.tall ? 11 : 12)));
   }
 }
 
@@ -363,3 +395,8 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
   }
 }
 
+/** A round count badge on a tab of a SegmentedSwitch (`i` of `n` segments across `w`). */
+export function addSwitchBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, n: number, i: number, count: number | string): void {
+  const segW = Math.floor((w - 2) / n);
+  parent.add(new MBadge(scene, x + 1 + (i + 1) * segW - 5, y + 1, count));
+}

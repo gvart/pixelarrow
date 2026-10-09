@@ -9,8 +9,9 @@ import Phaser from 'phaser';
 import { scaleIcon, Button, Meter, ScrollArea, addIcon, addText, mosaicPanelImage, tappable, type FontKey } from './kit';
 import { Badge, ItemIcon, Grid, addEmptyState, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
 import { uiFrame, uiId } from './layout';
-import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
+import { ellipsize, wrapText, LINE_H } from './textfit';
 import { SIZE, COLOR, RARITY_COLOR } from './theme';
+import { addPill } from './mosaic/pill';
 import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
@@ -111,23 +112,6 @@ export function addLegend(scene: Phaser.Scene, parent: Phaser.GameObjects.Contai
   tappable(z, area, () => showTooltip(scene, text, z));
   parent.add(z);
   return z;
-}
-
-/** A coloured pill with light text (role, status). Returns its width. */
-export function addChip(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, text: string, color: number, maxW = 200, alignRight = false): number {
-  const s = ellipsize(text, maxW - 6, true);
-  const w = measureText(s, true) + 6;
-  if (alignRight) x -= w;
-  const g = scene.add.graphics();
-  g.fillStyle(0x1d140f, 1);
-  g.fillRoundedRect(Math.round(x), Math.round(y), w, 12, 3);
-  g.fillStyle(color, 1);
-  g.fillRoundedRect(Math.round(x) + 1, Math.round(y) + 1, w - 2, 10, 3);
-  parent.add(g);
-  const txt = addText(scene, Math.round(x + 3), Math.round(y + 2), s, 'light');
-  uiFrame(txt, g as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, w, 12, Math.round(x), Math.round(y));
-  parent.add(txt);
-  return w;
 }
 
 /** A unit role's pill colour: the role palette of src/ui/tokens.ts (never the danger red). */
@@ -896,8 +880,8 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
     b.add(new Stage(scene, 0, 0, inner, stageH, h, { scale: 2 }));
     by += stageH + 4;
   }
-  const chipW = addChip(scene, b, 0, by, roleName(cls.role), roleColor(cls.role), inner);
-  if (cls.mount) addChip(scene, b, chipW + 4, by, tOr(`mount.${cls.mount}`, cls.mount), 0x8a6a3a, inner - chipW - 4);
+  const chipW = addPill(scene, b, 0, by, roleName(cls.role), roleColor(cls.role), inner);
+  if (cls.mount) addPill(scene, b, chipW + 4, by, tOr(`mount.${cls.mount}`, cls.mount), 0x8a6a3a, inner - chipW - 4);
   by += 15;
   b.add(addText(scene, 0, by, desc.lines.join('\n'), 'ink'));
   by += desc.lines.length * LINE_H + 3;

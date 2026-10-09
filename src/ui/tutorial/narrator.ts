@@ -7,7 +7,7 @@
  */
 import Phaser from 'phaser';
 import { addText } from '../kit';
-import { MSquareButton, mosaicImage, mtext } from '../mosaic';
+import { MIconButton, mosaicImage, mtext } from '../mosaic';
 import { MOSAIC } from '../tokens';
 import { uiBlocker, uiColumn, uiFrame, uiId } from '../layout';
 import { measureText, LINE_H } from '../textfit';
@@ -121,7 +121,7 @@ export class Narrator {
     frame.strokeRect(x + 3, y + 3, PORTRAIT + 2, PORTRAIT + 2);
     this.c.add(frame);
     this.c.add(mtext(s, tx, y + 5, t('tut.narrator'), 'rInk', { size: 7, maxW: x + w - 6 - tx - skipW }));
-    const skip = new MSquareButton(s, x + w - 3 - SIZE.btnMinW, y + 3, SIZE.btnMinW, { icon: 'close', label: t('tut.skip'), tip: t('tut.skip'), id: 'tut.skip', onClick: () => this.onSkip() });
+    const skip = new MIconButton(s, x + w - 3 - SIZE.btnMinW, y + 3, SIZE.btnMinW, SIZE.btnMinW, { icon: 'close', variant: 'neutral', label: t('tut.skip'), tip: t('tut.skip'), id: 'tut.skip', onClick: () => this.onSkip() });
     this.c.add(skip);
     this.full = lines.join('\n');
     this.texts = [];

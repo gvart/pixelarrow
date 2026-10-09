@@ -4,7 +4,7 @@
  * UI px inside the screen's UI root; each is a Container with `w` and `h`.
  */
 import Phaser from 'phaser';
-import { addIcon, scaleIcon } from '../kit';
+import { addIcon, panelK, scaleIcon } from '../kit';
 import { inkify } from '../inkSkin';
 import { uiId } from '../layout';
 
@@ -225,13 +225,17 @@ export class QuestCard extends Phaser.GameObjects.Container {
 export interface FrescoBannerOpts {
   /** Texture key of the painted image (src/ui/mosaic/raster.ts). */
   image?: string;
+  /** A pixel illustration (a texture of exactly (w - 8) x (h - 8) UI px at panelK density) instead of the painted image. */
+  pixelKey?: string;
+  /** Art the caller draws into the inside rect (x, y, w, h in the banner's coordinates) instead of the painted image. */
+  art?: (parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number) => void;
   onClick?: () => void;
   /** Long-press text, and what scripts find it by. */
   label?: string;
   id?: string;
 }
 
-/** A painted image in a dark bronze riveted frame; tappable when `onClick` is given. */
+/** A painted image (or a pixel illustration, or art the caller draws) in a dark bronze riveted frame; tappable when `onClick` is given. */
 export class FrescoBanner extends Phaser.GameObjects.Container {
   readonly w: number;
   readonly h: number;
@@ -245,7 +249,12 @@ export class FrescoBanner extends Phaser.GameObjects.Container {
     const face = centeredFace(scene, this.w, this.h);
     this.add(face);
     const t = 4;
-    put(face, this.w, this.h, addCover(scene, t - 0.5, t - 0.5, this.w - t * 2 + 1, this.h - t * 2 + 1, o.image));
+    if (o.art) {
+      put(face, this.w, this.h, mosaicImage(scene, 0, 0, this.w, this.h, 'parchmentWell'));
+      const inner = put(face, this.w, this.h, scene.add.container(0, 0));
+      o.art(inner, t, t, this.w - t * 2, this.h - t * 2);
+    } else if (o.pixelKey) put(face, this.w, this.h, scene.add.image(t, t, o.pixelKey).setOrigin(0, 0).setScale(1 / panelK(scene)));
+    else put(face, this.w, this.h, addCover(scene, t - 0.5, t - 0.5, this.w - t * 2 + 1, this.h - t * 2 + 1, o.image));
     put(face, this.w, this.h, mosaicImage(scene, 0, 0, this.w, this.h, 'fresco'));
     if (o.onClick) makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick, tip: o.label });
     uiId(this, o.id ?? `banner:${this.opts.label}`);
@@ -326,3 +335,21 @@ export class ParchmentRow extends Phaser.GameObjects.Container {
   }
 }
 
+// ================================================================== row parts
+
+/** The parchment face of a list row (selected: lighter with a bronze rim). */
+export function addRowFace(scene: Phaser.Scene, row: Phaser.GameObjects.Container, w: number, h: number, selected = false): void {
+  row.add(mosaicImage(scene, 0, 0, w, h, selected ? 'parchmentSel' : 'parchment'));
+}
+
+/** A portrait well: a bronze-rimmed square tinted by `tint` (a role colour) around a pixel portrait added by the caller at (x + 1, y + 1). */
+export function addPortraitWell(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, size: number, tint: number): void {
+  const g = scene.add.graphics();
+  g.fillStyle(MOSAIC.bronzeLo, 1);
+  g.fillRect(x - 1, y - 1, size + 2, size + 2);
+  g.fillStyle(tint, 1);
+  g.fillRect(x, y, size, size);
+  g.lineStyle(0.6, MOSAIC.bronzeHi, 0.9);
+  g.strokeRect(x - 0.7, y - 0.7, size + 1.4, size + 1.4);
+  parent.add(g);
+}

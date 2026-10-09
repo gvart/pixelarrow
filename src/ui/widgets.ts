@@ -14,7 +14,7 @@ import { scaleIcon, Button, ScrollArea, addIcon, addText, longPress, mosaicPanel
 import { fadeTexture, inkFontKey, inkify } from './inkSkin';
 import { ACCENT, MOSAIC, MOTION } from './tokens';
 import { tweenTo } from './motion';
-import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
+import { uiFrame, uiId, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, STRAT, glows } from './theme';
 import { renderGlow, renderRarityFrame } from '../art/uiTextures';
@@ -22,7 +22,7 @@ import { type GoodsKind } from '../art/goodsIcons';
 import { goodsTexture } from './econ/textures';
 import { itemDef, normalizeRarity, type Item, type Rarity } from '../data/items';
 import { ensureItemIcon, fitItemIcon } from './sprites';
-import { navLayer } from '../platform/nav';
+import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { haptic } from '../platform/telegram';
 import { sfx } from '../audio';
 import { t, tOr } from '../i18n';
@@ -1076,28 +1076,6 @@ export function addLabel(scene: Phaser.Scene, x: number, y: number, str: string,
 
 // ================================================================== modal
 
-/**
- * The Cinzel title of a modal or sheet over a fine rule, with a bronze close X at the right when `onClose` is
- * given (the title stays centred on the box). Returns the y where the body starts.
- */
-export function addSheetTitle(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, title: string, onClose?: () => void): number {
-  const side = onClose ? 26 : 8;
-  const room = w - side * 2;
-  const font: FontKey = 'rInk';
-  const size = [9, 8.5, 8, 7.5, 7, 6.5, 6].find((z) => measureText(title, false, z, 'roman') <= room) ?? 6;
-  const txt = addText(scene, x + w / 2, y + 9, ellipsize(title, room, false, size, 'roman'), font, 0.5).setFontSize(size);
-  uiFrame(txt, parent as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, w, 24, x, y);
-  parent.add(txt);
-  const g = scene.add.graphics();
-  g.lineStyle(0.7, MOSAIC.parchEdge, 0.7);
-  g.lineBetween(x + side, y + 21, x + w - side, y + 21);
-  parent.add(g);
-  if (onClose) {
-    parent.add(new Button(scene, x + w - 25, y + 1, 22, 22, { icon: 'xmark', label: t('mosaic.close'), iconOnly: true, variant: 'secondary', id: 'sheet.close', onClick: onClose }));
-  }
-  return y + 26;
-}
-
 export interface ModalOpts {
   title?: string;
   /** Width (default: min(VW - 16, 200)). */
@@ -1149,36 +1127,12 @@ export function shadeTap(shade: Phaser.GameObjects.GameObject, rect: { x: number
 /**
  * A parchment modal on a shade that blocks the screen below, registered as a
  * navigation layer (Telegram Back closes it) and as a layout-check layer. A tap
- * on the shade outside the box closes it too, unless `shadeCloses: false`.
+ * on the shade outside the box closes it too, unless `shadeCloses: false`. This
+ * is the mosaic parchment sheet (`openParchmentSheet`) for content built from
+ * the legacy parts, which is re-inked for the parchment as it arrives.
  */
 export function openModal(scene: UiScene, o: ModalOpts): Modal {
-  const { VW, VH } = scene.m;
-  const c = scene.add.container(0, 0);
-  scene.ui.add(c);
-  const shade = scene.add.rectangle(0, 0, VW, VH, 0x000000, 0.55).setOrigin(0, 0).setInteractive();
-  uiBlocker(shade);
-  c.add(shade);
-  const w = Math.min(o.w ?? 200, VW - 16);
-  const h = Math.min(o.h, VH - 16);
-  const x = Math.round((VW - w) / 2);
-  const y = Math.round((VH - h) / 2);
-  c.add(mosaicPanelImage(scene, x, y, w, h, 'sheet'));
-  let top = y + 8;
-  if (o.title) {
-    top = addSheetTitle(scene, c, x, y, w, o.title, o.shadeCloses !== false ? () => close() : undefined);
-  }
-  let closed = false;
-  const close = () => {
-    if (closed) return;
-    closed = true;
-    c.destroy();
-    o.onClose?.();
-  };
-  if (o.shadeCloses !== false) shadeTap(shade, { x, y, w, h }, close);
-  navLayer(c, close, scene);
-  // the content is built for dark surfaces: skin it for the parchment as it arrives
-  inkify(c);
-  return { c, x, y, w, h, body: { x: x + 8, y: top, w: w - 16, h: y + h - 8 - top }, close };
+  return openParchmentSheet(scene, { ...o, skin: true });
 }
 
 // ================================================================== confirm dialog

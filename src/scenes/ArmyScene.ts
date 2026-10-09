@@ -24,8 +24,8 @@ import { uiCoin } from '../audio/hooks';
 import { ACCENT, MOSAIC } from '../ui/tokens';
 import { cycle, hasPending, heroStars, powerRating, queryRoster, ROSTER_FILTERS, ROSTER_SORTS, type RosterFilter, type RosterSort } from '../game/gear';
 import {
-  ActionBar, GAP, GearSlot, MBadge, MButton, MChip, MStashGrid, SegmentedSwitch, SmallButton, SWITCH_H, TAP,
-  addNiche, slotGrid, addPartyEmpty, addPartyShell, addPill, addSwitchBadge, type PartyShell, addPortraitWell, addRowFace, mosaicImage, mountSlot, mtext, type Box, type MButtonOpts,
+  MActionBar, GAP, GearSlot, MBadge, MButton, MChip, MStashGrid, SegmentedSwitch, MIconButton, SWITCH_H, TAP,
+  addNiche, slotGrid, addParchmentEmpty, addSubShell, addPill, addSwitchBadge, type FramedSubShell, addPortraitWell, addRowFace, mosaicImage, mountSlot, mtext, type Box, type MButtonOpts,
 } from '../ui/mosaic';
 import { t, type TKey } from '../i18n';
 
@@ -54,8 +54,8 @@ export class ArmyScene extends BaseScene {
   private back: ArmyData = {};
   private head!: Phaser.GameObjects.Container;
   private body!: Phaser.GameObjects.Container;
-  private bar: ActionBar | null = null;
-  private shell!: PartyShell;
+  private bar: MActionBar | null = null;
+  private shell!: FramedSubShell;
   private list: ScrollList | null = null;
   private stash: MStashGrid | null = null;
   private stashState: StashState = defaultStashState();
@@ -89,9 +89,9 @@ export class ArmyScene extends BaseScene {
     this.stash = null;
     this.bar = null;
     this.screen({ back: () => this.goBack() });
-    const shell = addPartyShell(this, { title: t('hub.army'), back: () => this.goBack(), id: 'army.topbar' });
-    this.box = shell.body;
-    addSyncBadge(this, this.ui, shell.frame.topBar.x + shell.frame.topBar.w - 17, shell.frame.topBar.y + 6);
+    const shell = addSubShell(this, { title: t('hub.army'), back: () => this.goBack(), id: 'army.topbar', scroll: false });
+    this.box = shell.content;
+    addSyncBadge(this, this.ui, shell.frame.topBar.x + shell.frame.topBar.w - 17 - (TAP + GAP), shell.frame.topBar.y + 6);
     this.shell = shell;
     this.drag = new DragDrop(this);
     this.events.once('shutdown', () => this.clearBody());
@@ -233,7 +233,7 @@ export class ArmyScene extends BaseScene {
       },
       { label: t('army.dismiss'), icon: 'skull', variant: c.heroes.length > 1 ? 'neutral' : 'disabled', disabledReason: t('army.dismissLast'), id: 'army.dismiss', onClick: () => this.dismiss() },
     ];
-    this.bar = new ActionBar(this, this.box, actions);
+    this.bar = new MActionBar(this, this.box.w, this.box.y + this.box.h, { surface: 'parchment', x: this.box.x }).set(actions);
     this.ui.add(this.bar);
     this.bodyBottom = this.bar.top - 3;
   }
@@ -330,12 +330,12 @@ export class ArmyScene extends BaseScene {
     return y0 + ch + 4;
   }
 
-  private groupButton(x: number, y: number, w: number, g: number, h: Hero): SmallButton {
+  private groupButton(x: number, y: number, w: number, g: number, h: Hero): MIconButton {
     const r = ROMAN[g];
-    return new SmallButton(this, x, y, w, TAP, {
-      label: r,
+    return new MIconButton(this, x, y, w, TAP, {
+      text: r,
       variant: h.group === g ? 'secondary' : 'neutral',
-      tip: `${t('army.group')} ${r}: ${groupName(g)}. ${t('army.groupTip')}`,
+      label: `${t('army.group')} ${r}: ${groupName(g)}. ${t('army.groupTip')}`,
       id: `army.group.${g}`,
       onClick: () => this.setGroup(g),
     });
@@ -430,7 +430,7 @@ export class ArmyScene extends BaseScene {
     this.roster = queryRoster(state.campaign.data.heroes, this.sort, this.filter);
     if (!this.roster.length) {
       const eh = bottom >= 0 ? bottom - ly : 70;
-      this.body.add(addPartyEmpty(this, x, ly, w, eh, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint'), action: { label: t('army.filter.all'), onClick: () => ((this.filter = 'all'), this.buildBody()) } }));
+      this.body.add(addParchmentEmpty(this, x, ly, w, eh, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint'), action: { label: t('army.filter.all'), onClick: () => ((this.filter = 'all'), this.buildBody()) } }));
       return ly + eh;
     }
     const rowH = 34;

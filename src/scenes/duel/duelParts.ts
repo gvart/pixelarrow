@@ -5,13 +5,11 @@
  * card. Pure drawing and small widgets; the scene owns the state.
  */
 import Phaser from 'phaser';
-import { addIcon, registerVectorFont, scaleIcon, type FontKey } from '../../ui/kit';
-import { normalizeRarity, type Rarity } from '../../data/items';
+import { addIcon, scaleIcon, type FontKey } from '../../ui/kit';
 import { uiId } from '../../ui/layout';
 import { pulse, hop } from '../../ui/motion';
-import { MOSAIC, RARITY_INK, SPACE } from '../../ui/tokens';
+import { MOSAIC, SPACE } from '../../ui/tokens';
 import { LINE_H, wrapText } from '../../ui/textfit';
-import { addModeBanner, type BannerMode } from '../../ui/modeArt';
 import { addChestSprite } from '../../art/menuSprites';
 import { addCosmetic } from '../../ui/econ/textures';
 import { addPortrait } from '../../ui/sprites';
@@ -123,15 +121,6 @@ export function addGlow(scene: Phaser.Scene, parent: C, x: number, y: number, w:
   parent.add(g);
   pulse(scene, g, 'alpha', 1, 0.35);
   return g;
-}
-
-// ------------------------------------------------------------------ fresco
-
-/** The mode's pixel banner (tower, colosseum, market) in the fresco frame; `h` includes the frame. */
-export function addPixelFresco(scene: Phaser.Scene, parent: C, x: number, y: number, w: number, h: number, mode: BannerMode): void {
-  const t = 4;
-  addModeBanner(scene, parent, x + t, y + t, w - t * 2, h - t * 2, mode);
-  parent.add(mosaicImage(scene, x, y, w, h, 'fresco'));
 }
 
 // ------------------------------------------------------------------ floor tiles and chests
@@ -383,20 +372,6 @@ export function addRankMedal(scene: Phaser.Scene, parent: C, cx: number, cy: num
   parent.add(g);
   const rk = mtext(scene, cx, cy - 4, `${rank}`, medal ? 'rInk' : 'pSec', { size: `${rank}`.length > 2 ? 5.5 : 7, align: 0.5 });
   parent.add(rk);
-}
-
-
-// ------------------------------------------------------------------ rarity ink
-
-/** Registers the item-name fonts in the rarity inks of parchment (src/ui/tokens.ts RARITY_INK). */
-export function ensureRarityInk(scene: Phaser.Scene): void {
-  if (scene.textures.exists("font_pr_legendary")) return;
-  for (const r of Object.keys(RARITY_INK) as (keyof typeof RARITY_INK)[]) registerVectorFont(scene, `font_pr_${r}`, RARITY_INK[r]);
-}
-
-/** The font of an item name in its rarity ink, for parchment. */
-export function rarityInk(r: Rarity | string): FontKey {
-  return `pr_${normalizeRarity(r)}` as FontKey;
 }
 
 // ------------------------------------------------------------------ numbers

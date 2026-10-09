@@ -31,18 +31,19 @@ import { SETS, setPieces } from '../../data/sets';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { ScrollArea, addIcon, scaleIcon, tappable } from '../../ui/kit';
-import { StashGrid, DragDrop, addChip, addGroupBadge, addStars, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, type StashState } from '../../ui/sheet';
+import { addModeBanner } from '../../ui/modeArt';
+import { StashGrid, DragDrop, addGroupBadge, addStars, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, type StashState } from '../../ui/sheet';
 import { ItemIcon, confirmDialog, showTooltip, toast, Badge } from '../../ui/widgets';
 import { LINE_H, ellipsize, measureText, wrapText } from '../../ui/textfit';
 import { uiId } from '../../ui/layout';
 import { ensureFonts } from '../../ui/fonts';
 import { openLegend } from '../../ui/v3';
-import { MODE_ICON, MOSAIC, RARITY_INK, RESOURCES, ROLE, SPACE } from '../../ui/tokens';
+import { MODE_ICON, MOSAIC, RESOURCES, ROLE, SPACE } from '../../ui/tokens';
 import { uiCoin } from '../../audio/hooks';
 import { motion } from '../../ui/motion';
 import { addChestSprite } from '../../art/menuSprites';
 import {
-  MBar, MButton, MIconButton, ParchmentCard, SECTION_TITLE_H, SectionTitle, SegmentedSwitch, StatChip, addHubShell, addSubShell, addTipLine, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H,
+  MBar, MButton, MIconButton, FrescoBanner, addPill, addRarityPill, rarityInk, ParchmentCard, SECTION_TITLE_H, SectionTitle, SegmentedSwitch, MChip, addHubShell, addSubShell, addTipLine, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H,
   MBadge, type MButtonOpts,
 } from '../../ui/mosaic';
 import { hapticNotify } from '../../platform/telegram';
@@ -79,8 +80,8 @@ import { Rng } from '../../sim/rng';
 import { promptFields } from '../online/textInput';
 import { ensureDuelIcons } from './duelIcons';
 import {
-  CHEST_H, CHEST_W, ChestSlot, FLOOR_H, FloorTile, LEAGUE_COLOR, PRESET_H, PresetChip, addCrest, addFace, addFocusRing, addLockedCard, addPixelFresco, addRankMedal, drawArrow, drawChevron, drawStars,
-  ensureRarityInk, inlineNumbers, ptext, pw, pwrap, rarityInk, type PFont,
+  CHEST_H, CHEST_W, ChestSlot, FLOOR_H, FloorTile, LEAGUE_COLOR, PRESET_H, PresetChip, addCrest, addFace, addFocusRing, addLockedCard, addRankMedal, drawArrow, drawChevron, drawStars,
+  inlineNumbers, ptext, pw, pwrap, type PFont,
 } from './duelParts';
 import { t, tOr, type TKey } from '../../i18n';
 import { fmtAgoText, fmtClock, fmtSigned } from '../../util/format';
@@ -131,7 +132,7 @@ const GAP = 3;
 /** Height of the hub's one fixed action (Fight floor / Recruit / Raid / Cancel), UI px. */
 const MAIN_H = 30;
 /** The sheet's room for its title and the padding under its body, UI px (see ParchmentSheet). */
-const SHEET_PAD = SHEET_TITLE_H + 2 + SPACE.sm;
+const SHEET_PAD = SHEET_TITLE_H + SPACE.sm;
 
 /** "Gold II", "Legend". */
 export function leagueName(l: League): string {
@@ -218,7 +219,7 @@ export class DuelScene extends BaseScene {
   /** Glory the header keeps showing while a reward is on screen (it flies in when the popup closes). */
   private heldGlory: number | null = null;
   /** The header's Glory chip (the target of a reward's fly-in). */
-  private gloryChip: StatChip | null = null;
+  private gloryChip: MChip | null = null;
   /** The ranked card (loaded with the profile). */
   ranked: RankedView | null = null;
   /** A queue search in progress. */
@@ -296,7 +297,6 @@ export class DuelScene extends BaseScene {
     this.initUi();
     ensureFonts(this);
     ensureDuelIcons(this);
-    ensureRarityInk(this);
     this.screen({ back: () => this.back() });
     this.body = this.add.container(0, 0);
     this.ui.add(this.body);
@@ -508,7 +508,7 @@ export class DuelScene extends BaseScene {
     this.mainSpec = main;
     this.mainBtn = null;
     if (main) {
-      const box = sh.frame.content;
+      const box = sh.content;
       const b = new MButton(this, box.x + 5, box.y + box.h - MAIN_H - 1, box.w - 10, MAIN_H, {
         label: main.label,
         icon: main.icon,
@@ -629,8 +629,8 @@ export class DuelScene extends BaseScene {
     const lp = levelProgress(p.xp);
     const shown = this.heldGlory ?? this.shownGlory ?? p.glory;
     const lv = t('dv.lvShort', { n: lp.level });
-    const gw = StatChip.width({ icon: 'laurel', value: Math.max(shown, p.glory) }, 36);
-    const lw = StatChip.width({ icon: 'xp', value: lv }, 40);
+    const gw = MChip.width({ icon: 'laurel', value: Math.max(shown, p.glory), tall: true }, 36);
+    const lw = MChip.width({ icon: 'xp', value: lv, tall: true }, 40);
     const buttons: { label: string; icon?: string; id: string; tip: string; badge?: string; go: 'team' | 'shop' }[] = [];
     if (o.team) buttons.push({ label: t('dv.team'), id: 'duel.team', tip: t('dv.teamTip'), badge: this.fightingHeroes(p).some(heroNeedsAttention) ? '!' : undefined, go: 'team' });
     if (o.shop) buttons.push({ label: t('dv.shop'), id: 'duel.shop', tip: t('dv.shopTip'), go: 'shop' });
@@ -652,10 +652,10 @@ export class DuelScene extends BaseScene {
     };
     const chip = (i: number, x: number, bw: number, ry: number): void => {
       if (i === 0) {
-        const gc = new StatChip(this, x, ry, bw, { icon: 'laurel', value: shown, id: 'duel.glory', tip: t('res.glory') });
+        const gc = new MChip(this, x, ry, { w: bw, tall: true, surface: 'stone', icon: 'laurel', value: shown, id: 'duel.glory', tip: t('res.glory') });
         c.add(gc);
         this.gloryChip = gc;
-      } else c.add(new StatChip(this, x, ry, bw, { icon: 'xp', value: lv, progress: lp.need ? lp.into / lp.need : 1, progressColor: RESOURCES.xp.color, onClick: () => this.openLevel(), tip: t('dv.lvTitle', { n: lp.level }), id: 'duel.level' }));
+      } else c.add(new MChip(this, x, ry, { w: bw, tall: true, surface: 'stone', icon: 'xp', value: lv, progress: lp.need ? lp.into / lp.need : 1, progressColor: RESOURCES.xp.color, onClick: () => this.openLevel(), tip: t('dv.lvTitle', { n: lp.level }), id: 'duel.level' }));
     };
     const button = (i: number, x: number, bw: number, ry: number): void => {
       const bt = buttons[i];
@@ -723,7 +723,7 @@ export class DuelScene extends BaseScene {
     y += this.headerRow(c, y, w, p, { team: true, shop: true }) + GAP;
     // the mode's illustrated banner: where you are, at a glance
     if (this.m.VH >= 330) {
-      addPixelFresco(this, c, 1, y, w, 36, art);
+      c.add(new FrescoBanner(this, 1, y, w, 36, { label: art, id: `duel.banner.${art}`, art: (parent, ax, ay, aw, ah) => addModeBanner(this, parent, ax, ay, aw, ah, art) }));
       y += 36 + GAP;
     }
     c.add(
@@ -1006,7 +1006,7 @@ export class DuelScene extends BaseScene {
   }
 
   /** Laurels fly from (x, y) to the Glory chip, which then counts to `value`. */
-  private flyGlory(x: number, y: number, chip: StatChip, value: number): void {
+  private flyGlory(x: number, y: number, chip: MChip, value: number): void {
     if (motion.reduced || !chip.scene) return void chip.setValue(value);
     const m = chip.getWorldTransformMatrix();
     const S = this.m.S;
@@ -1166,7 +1166,7 @@ export class DuelScene extends BaseScene {
       const tx = rowH + 2;
       const lv = ptext(this, sa.content, ww - 6, ry + 4, t('duels.lvPts', { l: e.level, p: heroPoints(e) }), 'sec', { align: 1 });
       ptext(this, sa.content, tx, ry + 4, className(e), 'ink', { maxW: ww - 6 - lv.width - 6 - tx });
-      addChip(this, sa.content, tx, ry + 15, roleName(cls.role), roleColor(cls.role), ww - tx - 6);
+      addPill(this, sa.content, tx, ry + 15, roleName(cls.role), roleColor(cls.role), ww - tx - 6);
     });
     sa.setContentHeight(full);
   }
@@ -1592,7 +1592,7 @@ export class DuelScene extends BaseScene {
         // centred on the column: measure first (the chip sizes itself to its word)
         const label = leagueName(league);
         const lw = Math.min(w / 2 - 8, measureText(label, true) + 6);
-        addChip(this, card, Math.round(sx - lw / 2), 26 + cs, label, LEAGUE_COLOR[league.id], lw);
+        addPill(this, card, Math.round(sx - lw / 2), 26 + cs, label, LEAGUE_COLOR[league.id], lw);
       }
     }
     ptext(this, card, mid, 10 + cs / 2 - 5, 'vs', 'head', { size: 9, align: 0.5 });
@@ -2019,7 +2019,7 @@ export class DuelScene extends BaseScene {
     if (r.rating !== null) {
       const rt = ptext(this, row, w - 8, 9, `${r.rating}`, 'ink', { align: 1 });
       rw = rt.width + 6;
-    } else rw = addChip(this, row, w - 6, 7, leagueName(r.league), LEAGUE_COLOR[r.league.id], Math.floor(w * 0.45), true) + 4;
+    } else rw = addPill(this, row, w - 6, 7, leagueName(r.league), LEAGUE_COLOR[r.league.id], Math.floor(w * 0.45), true) + 4;
     const nx = 29 + h - 6 + 6;
     ptext(this, row, nx, 9, me ? t('duels.board.you') : r.name, me ? 'head' : 'ink', { maxW: w - nx - rw - 8 });
   }
@@ -2433,7 +2433,7 @@ export class DuelScene extends BaseScene {
       // the full class name on top; its points and role under it
       ptext(this, k, tx, ry + 5, className(sample), 'ink', { maxW: tw });
       const ptsT = ptext(this, k, tx, ry + 19, t('duels.pts', { n: classPoints(id) }), 'sec');
-      addChip(this, k, tx + ptsT.width + 4, ry + 17, roleName(cls.role), roleColor(cls.role), Math.max(20, tw - ptsT.width - 4));
+      addPill(this, k, tx + ptsT.width + 4, ry + 17, roleName(cls.role), roleColor(cls.role), Math.max(20, tw - ptsT.width - 4));
     });
     sa.setContentHeight(full);
   }
@@ -2570,21 +2570,6 @@ export class DuelScene extends BaseScene {
     this.finishPage(y, keep);
   }
 
-  /** A rarity as a pill: a sunken well framed in the rarity's ink, its name in that ink (AA on parchment). Returns its width. */
-  private rarityPill(parent: Phaser.GameObjects.Container, x: number, y: number, r: Item['rarity'], maxW: number): number {
-    const label = ellipsize(tOr(`rarity.${r}`, RARITY_LABEL[r]), maxW - 8);
-    const w = measureText(label) + 8;
-    const g = this.add.graphics();
-    g.fillStyle(MOSAIC.well, 1);
-    g.fillRoundedRect(x, y, w, 12, 3);
-    g.lineStyle(1, RARITY_INK[r], 1);
-    g.strokeRoundedRect(x + 0.5, y + 0.5, w - 1, 11, 3);
-    parent.add(g);
-    const txt = ptext(this, parent, x + 4, y + 2, label, 'ink');
-    txt.setFont(`font_${rarityInk(r)}`);
-    return w;
-  }
-
   /**
    * An offer as a card: the item and its name in its rarity ink, a rarity
    * pill and the slot, the price (today's offers: the old price struck
@@ -2615,11 +2600,11 @@ export class DuelScene extends BaseScene {
     }
     const tx = 37;
     const name = ptext(this, card, tx, 6, itemName(it), 'ink', { maxW: w - priceW - 6 - tx });
-    name.setFont(`font_${rarityInk(o.rarity)}`);
+    name.setFont(`font_${rarityInk(this, o.rarity)}`);
     const room = w - 8 - tx - (daily && !sold ? 34 : 0);
-    const pwd = this.rarityPill(card, tx, 17, o.rarity, Math.min(room, 80));
+    const pwd = addRarityPill(this, card, tx, 17, o.rarity, tOr(`rarity.${o.rarity}`, RARITY_LABEL[o.rarity]), Math.min(room, 80));
     if (room - pwd - 5 >= 24) ptext(this, card, tx + pwd + 5, 18, t(`slot.${itemDef(o.def).slot}` as TKey), 'sec', { maxW: room - pwd - 5 });
-    if (daily && !sold) addChip(this, card, w - 7, 17, '-20%', MOSAIC.inkGood, 30, true);
+    if (daily && !sold) addPill(this, card, w - 7, 17, '-20%', MOSAIC.inkGood, 30, true);
     // what the changes compare against
     const sum = offerSummary(o, team, 3, this.compareHero);
     const vsHero = sum.vsHeroId ? team.find((hh) => hh.id === sum.vsHeroId) : undefined;

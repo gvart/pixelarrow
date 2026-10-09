@@ -5,14 +5,13 @@
  */
 import { BaseScene } from '../BaseScene';
 import { ScrollArea } from '../../ui/kit';
-import { MButton, ParchmentRow, ROW_H, TAP, mosaicImage, mtext } from '../../ui/mosaic';
+import { MButton, ParchmentRow, ROW_H, TAP, mosaicImage, mtext, openParchmentSheet, addSubShell } from '../../ui/mosaic';
 import { LINE_H, wrapText } from '../../ui/textfit';
-import { openWarSheet } from './warSheet';
 import { hapticNotify } from '../../platform/telegram';
 import { inTelegram, openTelegramLink } from '../../platform/telegram';
 import { canInvite, canKick, canPromote, ONLINE_RULES, type ClanRole } from '../../online/rules';
 import { checkOnline, errorText, onlineApi, takePendingInvite, peekPendingInvite, type ClanMember, type ClanView } from '../../online/client';
-import { addSubShell, button, lines } from './common';
+import { button, lines } from './common';
 import type { Modal } from '../../ui/widgets';
 import { online } from '../../platform/cloud';
 import { promptFields } from './textInput';
@@ -76,7 +75,7 @@ export class ClanScene extends BaseScene {
 
   /** A parchment sheet that Back (Telegram's or ours) closes, and a tap outside it unless `shadeCloses` is false. */
   private openM(h: number, title: string, shadeCloses = true): Modal {
-    const md: Modal = openWarSheet(this, {
+    const md: Modal = openParchmentSheet(this, { closeButton: false,
       title,
       w: 184,
       h,
@@ -132,7 +131,7 @@ export class ClanScene extends BaseScene {
     this.ui.removeAll(true);
     this.modal = null;
     const { VW, S } = this.m;
-    const { content: c } = addSubShell(this, 'Clan', () => this.back());
+    const { content: c } = addSubShell(this, { title: 'Clan', back: () => this.back(), scroll: false });
     const w = c.w - 6;
     const x = c.x + 3;
     if (!this.loaded) {

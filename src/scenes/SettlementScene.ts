@@ -20,7 +20,7 @@ import { CULTURE_LABEL } from '../data/names';
 import { uiCoin, uiError } from '../audio/hooks';
 import { itemModLines } from '../game/gear';
 import { MOSAIC } from '../ui/tokens';
-import { ActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, addFramedArt, addPartyEmpty, addPartyShell, addPill, addPortraitWell, addRowFace, mtext, mw, rarityInk, type MButtonOpts } from '../ui/mosaic';
+import { MActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, FrescoBanner, addParchmentEmpty, addSubShell, addPill, addPortraitWell, addRowFace, mtext, mw, rarityInk, type MButtonOpts } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
 
 type Tab = 'recruits' | 'market' | 'sell' | 'rest';
@@ -70,15 +70,15 @@ export class SettlementScene extends BaseScene {
     const { VH } = this.m;
     const compact = VH < 300;
 
-    const shell = addPartyShell(this, { title: def.name, back: () => this.leave(), id: 'town.topbar' });
-    const b = shell.body;
+    const shell = addSubShell(this, { title: def.name, back: () => this.leave(), id: 'town.topbar', scroll: false });
+    const b = shell.content;
     this.ax = b.x + 4;
     this.aw = b.w - 8;
     let y = b.y + 4;
 
     // the settlement, drawn large, in the fresco frame
     const artH = compact ? 38 : 78;
-    addFramedArt(this, this.ui, this.ax, y, this.aw, artH, this.artTexture(def, this.aw - 8, artH - 8));
+    this.ui.add(new FrescoBanner(this, this.ax, y, this.aw, artH, { pixelKey: this.artTexture(def, this.aw - 8, artH - 8), label: def.name, id: 'town.art' }));
     y += artH + 3;
     const people = tOr(`culture.${def.culture}`, CULTURE_LABEL[def.culture]);
     this.ui.add(mtext(this, b.x + b.w / 2, y + 1, t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), 'pSec', { size: 6.5, align: 0.5, maxW: this.aw, box: { owner: this.ui, w: this.m.VW, h: VH } }));
@@ -110,7 +110,7 @@ export class SettlementScene extends BaseScene {
       { label: t('town.party'), icon: 'people', variant: 'secondary', id: 'town.party', onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id }) },
       { label: t('town.leave'), icon: 'map', variant: 'primary', id: 'town.leave', onClick: () => this.leave() },
     ];
-    const bar = new ActionBar(this, b, actions);
+    const bar = new MActionBar(this, b.w, b.y + b.h, { surface: 'parchment', x: b.x }).set(actions);
     this.ui.add(bar);
     this.bodyBottom = bar.top - 3;
     this.events.once('shutdown', () => this.clearBody());
@@ -211,7 +211,7 @@ export class SettlementScene extends BaseScene {
     const pool = w.recruits(this.id, camp.data.heroes);
     const refresh = Math.ceil(w.refreshIn(this.id));
     if (!pool.length) {
-      this.body.add(addPartyEmpty(this, this.ax, y, this.aw, h, { icon: 'people', title: t('town.noVolunteers'), hint: t('town.moreIn', { h: refresh }) }));
+      this.body.add(addParchmentEmpty(this, this.ax, y, this.aw, h, { icon: 'people', title: t('town.noVolunteers'), hint: t('town.moreIn', { h: refresh }) }));
       return;
     }
     const full = camp.data.heroes.length >= MAX_ARMY;
@@ -292,7 +292,7 @@ export class SettlementScene extends BaseScene {
     const wares = w.wares(this.id, camp.armyClasses());
     const refresh = Math.ceil(w.refreshIn(this.id));
     if (!wares.length) {
-      this.body.add(addPartyEmpty(this, this.ax, y, this.aw, h, { icon: 'coin', title: t('town.soldOut'), hint: t('town.newWares', { h: refresh }) }));
+      this.body.add(addParchmentEmpty(this, this.ax, y, this.aw, h, { icon: 'coin', title: t('town.soldOut'), hint: t('town.newWares', { h: refresh }) }));
       return;
     }
     const rowH = 40;

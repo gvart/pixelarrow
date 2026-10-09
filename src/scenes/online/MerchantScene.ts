@@ -10,9 +10,8 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { ScrollArea, addIcon, addText, scaleIcon, type FontKey } from '../../ui/kit';
-import { MButton, MChip, SECTION_TITLE_H as SectionTitle_H, SectionTitle, mosaicImage, TAP } from '../../ui/mosaic';
+import { MButton, MChip, SECTION_TITLE_H as SectionTitle_H, SectionTitle, mosaicImage, TAP, addSubShell } from '../../ui/mosaic';
 import { MOSAIC } from '../../ui/tokens';
-import { addSubShell } from './common';
 import { ItemIcon, addScrollHint, confirmDialog, subjectName, toast } from '../../ui/widgets';
 import { ellipsize, wrapText, LINE_H } from '../../ui/textfit';
 import { SIZE } from '../../ui/theme';
@@ -144,7 +143,7 @@ export class MerchantScene extends BaseScene {
     const { VW } = this.m;
     const v = this.view;
     const H = this.head;
-    const { content: c } = addSubShell(this, t(`merchant.title.${v?.kind ?? 'town'}` as TKey), () => this.leave(), 'merchant.header', H);
+    const { content: c } = addSubShell(this, { title: t(`merchant.title.${v?.kind ?? 'town'}` as TKey), back: () => this.leave(), id: 'merchant.header', parent: H, scroll: false });
     const chips: { icon: string; value: string | number; id: string }[] = [
       { icon: 'wargold', value: v?.gold ?? '-', id: 'merchant.gold' },
       { icon: currencyIcon('drachmae'), value: v?.drachmae ?? '-', id: 'merchant.drachmae' },

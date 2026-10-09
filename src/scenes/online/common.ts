@@ -1,23 +1,8 @@
 /** Shared bits of the online scenes: text lines, buttons, the resource strip, colours. */
 import Phaser from 'phaser';
-import { addIcon, addPanel, addText, type FontKey, type UIMetrics } from '../../ui/kit';
-import { ScreenFrame, TopBar, MButton, mtext, type Box } from '../../ui/mosaic';
-import { showInGameBack } from '../../platform/nav';
+import { addIcon, addPanel, addText, type FontKey } from '../../ui/kit';
+import { MButton, mtext } from '../../ui/mosaic';
 import type { Resources } from '../../online/rules';
-
-/**
- * The frame of a v4 sub-screen (Army, Clan, Merchant): the page, the top bar
- * with a back arrow (inside Telegram its header has one) and the title on the
- * plaque, no tab bar. `content` is the area to fill, UI px.
- */
-export function addSubShell(scene: Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container }, title: string, back: () => void, id = 'sub.topbar', parent?: Phaser.GameObjects.Container): { frame: ScreenFrame; content: Box } {
-  const { VW, VH } = scene.m;
-  const frame = new ScreenFrame(scene, VW, VH);
-  const into = parent ?? scene.ui;
-  into.add(frame);
-  into.add(new TopBar(scene, frame.topBar, { title, back: showInGameBack() ? back : undefined, id }));
-  return { frame, content: frame.content };
-}
 
 /** Centred lines of text; returns the y after the last line. */
 export function lines(scene: Phaser.Scene, c: Phaser.GameObjects.Container, cx: number, y: number, text: string[], font: FontKey = 'pInk', maxW = 0): number {

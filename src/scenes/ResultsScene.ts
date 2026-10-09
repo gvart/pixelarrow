@@ -19,7 +19,7 @@ import { ItemIcon, Label, ScrollList, StatBar, addEmptyState, addScrollHint, ope
 import { uiFrame, uiId } from '../ui/layout';
 import { ellipsize, wrapText } from '../ui/textfit';
 import { MOSAIC, RARITY_INK } from '../ui/tokens';
-import { GAP, MButton, ScreenFrame, SegmentedSwitch, StatTile, SWITCH_H, mosaicImage, mtext, mw, parchRarityFont, type Box } from '../ui/mosaic';
+import { GAP, MButton, ScreenFrame, SegmentedSwitch, StatTile, SWITCH_H, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
 import { COLOR, RARITY_COLOR, RARITY_GLOW, SIZE } from '../ui/theme';
 import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
@@ -585,7 +585,7 @@ export class ResultsScene extends BaseScene {
     c.add(fr);
     c.add(new ItemIcon(this, Math.round((w - 24) / 2), 6, { item: it }, { tip: false }));
     const lines = wrapText(subjectName({ item: it }), w - 8, 2).lines;
-    const name = addText(this, w / 2, lines.length > 1 ? 32 : 37, lines.join('\n'), parchRarityFont(this, rar), 0.5);
+    const name = addText(this, w / 2, lines.length > 1 ? 32 : 37, lines.join('\n'), rarityInk(this, rar), 0.5);
     name.setCenterAlign();
     uiFrame(name, c, w, h);
     c.add(name);

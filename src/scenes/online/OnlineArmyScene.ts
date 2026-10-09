@@ -7,10 +7,8 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { addIcon, addText } from '../../ui/kit';
-import { MButton, type MButtonVariant, MChip, SegmentedSwitch, SWITCH_H, TAP, mosaicImage } from '../../ui/mosaic';
+import { MButton, type MButtonVariant, MChip, SegmentedSwitch, SWITCH_H, TAP, mosaicImage, addSubShell, openParchmentSheet, addPill } from '../../ui/mosaic';
 import { ScrollList, addEmptyState, confirmDialog, toast } from '../../ui/widgets';
-import { addSubShell } from './common';
-import { openWarSheet } from './warSheet';
 import { uiId } from '../../ui/layout';
 import { ellipsize } from '../../ui/textfit';
 import { SIZE, COLOR } from '../../ui/theme';
@@ -18,7 +16,7 @@ import { MOSAIC } from '../../ui/tokens';
 import { ensureFonts } from '../../ui/fonts';
 import {
   equipRefusal,
-  DragDrop, ROMAN, Stage, StashGrid, addChip, addGroupBadge, addSlotTile, addStars, className, defaultStashState, groupName, itemName,
+  DragDrop, ROMAN, Stage, StashGrid, addGroupBadge, addSlotTile, addStars, className, defaultStashState, groupName, itemName,
   openClassCard, openItemCard, roleColor, roleName, roleTraits, uiBoundsOf, type StashState,
 } from '../../ui/sheet';
 import { addEconState } from '../../ui/econ/widgets';
@@ -75,7 +73,7 @@ export class OnlineArmyScene extends BaseScene {
     this.initUi();
     ensureFonts(this);
     this.screen({ back: () => this.back() });
-    const { content: c } = addSubShell(this, this.garrisonHex !== null ? t('oarmy.garrison') : t('oarmy.title'), () => this.back(), 'oarmy.topbar');
+    const { content: c } = addSubShell(this, { title: this.garrisonHex !== null ? t('oarmy.garrison') : t('oarmy.title'), back: () => this.back(), id: 'oarmy.topbar', scroll: false });
     this.cw = c.w;
     this.ch = c.h;
     this.head = this.add.container(c.x, c.y);
@@ -207,11 +205,11 @@ export class OnlineArmyScene extends BaseScene {
       L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 44), 'pInk'));
       addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
       L.add(addText(this, tx, y0 + 11, ellipsize(className(h), tw), 'pSec'));
-      const lvW = addChip(this, L, tx, y0 + 21, t('hero.level', { n: h.level }), 0x8c2f25, 40);
+      const lvW = addPill(this, L, tx, y0 + 21, t('hero.level', { n: h.level }), 0x8c2f25, 40);
       const pw = addText(this, VW - 5, y0 + 23, t('hero.power', { n: powerRating(h) }), 'pInk', 1);
       L.add(pw);
       const status = this.status(oh, p.now);
-      if (status) addChip(this, L, tx + lvW + 3, y0 + 21, status.text, status.color, VW - 5 - pw.width - 4 - (tx + lvW + 3));
+      if (status) addPill(this, L, tx + lvW + 3, y0 + 21, status.text, status.color, VW - 5 - pw.width - 4 - (tx + lvW + 3));
       const gy = y0 + 36;
       const gw = Math.max(22, Math.min(30, Math.floor((tw - 3 * SIZE.gap) / 4)));
       ROMAN.forEach((r, g) =>
@@ -235,7 +233,7 @@ export class OnlineArmyScene extends BaseScene {
       const tw = VW - tx - 5;
       L.add(addText(this, tx, y0 + 1, ellipsize(h.name, tw - 42), 'pInk'));
       addStars(this, L, VW - 5 - 39, y0 + 1, heroStars(h));
-      const lvW = addChip(this, L, tx, y0 + 12, t('hero.level', { n: h.level }), 0x8c2f25, 40);
+      const lvW = addPill(this, L, tx, y0 + 12, t('hero.level', { n: h.level }), 0x8c2f25, 40);
       const pw = addText(this, VW - 5, y0 + 14, `${powerRating(h)}`, 'pInk', 1);
       L.add(pw);
       const st = this.status(oh, p.now);
@@ -468,7 +466,7 @@ export class OnlineArmyScene extends BaseScene {
     const w = Math.min(VW - 12, 210);
     const inner = w - 16;
     const rowH = 44;
-    const m = openWarSheet(this, { title: t('oarmy.recruitTitle'), w, h: Math.min(VH - 12, 26 + 22 + RECRUIT_ARCHETYPES.length * (rowH + SIZE.gap) + TAP + 14) });
+    const m = openParchmentSheet(this, { closeButton: false, title: t('oarmy.recruitTitle'), w, h: Math.min(VH - 12, 26 + 22 + RECRUIT_ARCHETYPES.length * (rowH + SIZE.gap) + TAP + 14) });
     const { c, x } = m;
     c.add(addText(this, x + 8, m.y + 24, ellipsize(t('oarmy.recruitCost', { gold: cost.gold, food: cost.food }), inner), 'pInk'));
     c.add(addText(this, x + 8, m.y + 34, ellipsize(t('oarmy.youHave', { gold: Math.floor(p.resources.gold), food: Math.floor(p.resources.food), rec: Math.floor(p.resources.recruits) }), inner), 'pSec'));
@@ -500,7 +498,7 @@ export class OnlineArmyScene extends BaseScene {
         const tx = 38;
         const tw = rw - tx - bw - 8;
         row.add(addText(this, tx, 4, ellipsize(className(hero), tw), 'pInk'));
-        addChip(this, row, tx, 15, roleName(cls.role), roleColor(cls.role), tw);
+        addPill(this, row, tx, 15, roleName(cls.role), roleColor(cls.role), tw);
         row.add(addText(this, tx, 30, ellipsize(`+${roleTraits(cls.role).good}`, tw), 'pGood'));
       },
     });

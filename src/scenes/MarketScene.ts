@@ -8,7 +8,7 @@ import { MOSAIC } from '../ui/tokens';
 import { makePressable } from '../ui/mosaic/base';
 import { SIZE } from '../ui/theme';
 import { ensureFonts, rarityFont } from '../ui/fonts';
-import { GAP, MButton, MChip, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, parchRarityFont, type Box } from '../ui/mosaic';
+import { GAP, MButton, MChip, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
 import { bigItemIcon, itemName, openItemCard } from '../ui/sheet';
 import { econ, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
@@ -328,7 +328,7 @@ export class MarketScene extends BaseScene {
     row.add(pb);
     const tx = 33;
     const tw = rw - tx - bw - 8;
-    const font = l.kind === 'item' ? parchRarityFont(this, l.rarity) : 'pInk';
+    const font = l.kind === 'item' ? rarityInk(this, l.rarity) : 'pInk';
     const box = { owner: row, w: rw, h: rh };
     row.add(mtext(this, tx, 5, `${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, font, { maxW: tw, box }));
     const left = timeLeft(l.expiresAt, now);
@@ -531,7 +531,7 @@ export class MarketScene extends BaseScene {
         const stT = t(`market.status.${status}` as TKey);
         const stW = Math.min(60, mw(stT, statusFont[status] ?? 'pOff', 6));
         row.add(mtext(this, right, 6, stT, statusFont[status] ?? 'pOff', { size: 6, align: 1, maxW: 60, box }));
-        row.add(mtext(this, tx, 5, `${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, l.kind === 'item' ? parchRarityFont(this, l.rarity) : 'pInk', { maxW: right - stW - 4 - tx, box }));
+        row.add(mtext(this, tx, 5, `${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, l.kind === 'item' ? rarityInk(this, l.rarity) : 'pInk', { maxW: right - stW - 4 - tx, box }));
         const sub = `${priceText(l.price, l.currency)} · ${t('market.youGet', { n: sellerGets(l.price, b.cat.market.feeRate) })}`;
         row.add(mtext(this, tx, 18, sub, 'pSec', { size: 6, maxW: right - tx, box }));
       },

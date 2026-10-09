@@ -19,13 +19,14 @@ import Phaser from 'phaser';
 import { Button, addIcon, addText, mosaicPanelImage, panelImage, panelK, panelTexture, scaleIcon, tappable, uiMetrics, SHADOW_FONTS, type FontKey } from './kit';
 import { RS } from '../platform/renderScale';
 import { renderMedallion } from '../art/smoothUi';
-import { hintStore, showTooltip, shadeTap, addSheetTitle, type Modal, type UiScene } from './widgets';
-import { inkify, ownSkin } from './inkSkin';
-import { uiBlocker, uiFrame, uiId } from './layout';
+import { hintStore, showTooltip, type Modal, type UiScene } from './widgets';
+import { ownSkin } from './inkSkin';
+import { openParchmentSheet } from './mosaic/ParchmentSheet';
+import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { ACCENT, MOSAIC, MOTION, RESOURCES, SURFACE, type ResourceId } from './tokens';
 import { motion, pulse, tweenTo } from './motion';
-import { navLayer, showInGameBack } from '../platform/nav';
+import { showInGameBack } from '../platform/nav';
 import { haptic } from '../platform/telegram';
 import type { SmoothStyle } from '../art/smoothUi';
 import { t, type TKey } from '../i18n';
@@ -684,41 +685,7 @@ export interface SheetOpts {
  * shape as `openModal`'s answer, so screens can use either.
  */
 export function openSheet(scene: UiScene, o: SheetOpts): Modal {
-  const { VW, VH } = scene.m;
-  const c = scene.add.container(0, 0);
-  scene.ui.add(c);
-  const shade = scene.add.rectangle(0, 0, VW, VH, 0x000000, 0.6).setOrigin(0, 0).setInteractive();
-  uiBlocker(shade);
-  c.add(shade);
-  const w = Math.min(o.w ?? 260, VW - 8);
-  const h = Math.min(o.h, VH - 12);
-  const x = Math.round((VW - w) / 2);
-  const y = VH - h;
-  const box = scene.add.container(0, 0);
-  c.add(box);
-  box.add(mosaicPanelImage(scene, x, y, w, h + 10, 'sheet'));
-  let top = y + 10;
-  if (o.title) top = addSheetTitle(scene, box, x, y, w, o.title, o.shadeCloses !== false ? () => close() : undefined);
-  let closed = false;
-  const close = () => {
-    if (closed) return;
-    closed = true;
-    tweenTo(scene, box, { y: h + 12 }, MOTION.sheet * 0.8, { ease: 'Cubic.easeIn' });
-    tweenTo(scene, shade, { alpha: 0 }, MOTION.sheet * 0.8, { onComplete: () => c.destroy() });
-    o.onClose?.();
-  };
-  if (o.shadeCloses !== false) shadeTap(shade, { x, y, w, h }, close);
-  navLayer(c, close, scene);
-  // the content is built for dark surfaces: skin it for the parchment as it arrives
-  inkify(box);
-  // slide in
-  if (!motion.reduced) {
-    box.y = h + 12;
-    shade.alpha = 0;
-    tweenTo(scene, box, { y: 0 }, MOTION.sheet);
-    tweenTo(scene, shade, { alpha: 0.6 }, MOTION.sheet);
-  }
-  return { c: box, x, y, w, h, body: { x: x + 10, y: top, w: w - 20, h: y + h - 8 - top }, close };
+  return openParchmentSheet(scene, { ...o, dock: 'bottom', skin: true });
 }
 
 // ================================================================== pager

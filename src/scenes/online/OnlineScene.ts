@@ -20,7 +20,7 @@ import { FRAME_T } from '../../art/mosaicUi';
 import { BottomPanel, MButton, MChip, RoundButton, ScreenFrame, TAB_H, TAP, TOPBAR_H, TabBar, TopBar, goTab, mosaicImage, mtext, mw, type Box, type MButtonOpts, type RoundButtonOpts, type TabId } from '../../ui/mosaic';
 import { TAB_FRAME_GAP } from '../../ui/mosaic/tabLayout';
 import { openSettings } from '../../ui/settings';
-import { openWarSheet, SHEET_TITLE_H } from './warSheet';
+import { SHEET_TITLE_H, openParchmentSheet } from '../../ui/mosaic';
 import { LINE_H, measureText, wrapText } from '../../ui/textfit';
 import { uiId, worldRect } from '../../ui/layout';
 import { haptic, hapticNotify } from '../../platform/telegram';
@@ -1025,7 +1025,7 @@ export class OnlineScene extends BaseScene {
     const w = Math.min(VW - 16, 200);
     const wrapped = lines.flatMap((l) => wrapText(l, w - 28, 3).lines);
     const h = SHEET_TITLE_H + 6 + wrapped.length * LINE_H + 10 + TAP + 10;
-    const md = openWarSheet(this, { title, w, h, onClose: () => this.modal === md && (this.modal = null) });
+    const md = openParchmentSheet(this, { closeButton: false, title, w, h, onClose: () => this.modal === md && (this.modal = null) });
     this.modal = md;
     wrapped.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + 2 + i * LINE_H, l, 'pInk', { align: 0.5, maxW: md.body.w })));
     const bw = Math.min(md.body.w, 100);
@@ -1126,7 +1126,7 @@ export class OnlineScene extends BaseScene {
     const noteL = wrapText(t('duel.lobbyNote'), w - 28, 3).lines;
     const listH = Math.min(rows * (rowH + GAP), Math.max(rowH, VH - 16 - SHEET_TITLE_H - 18 - TAP - 30 - noteL.length * LINE_H));
     const h = SHEET_TITLE_H + 4 + listH + 6 + noteL.length * LINE_H + 8 + TAP + 10;
-    const md = openWarSheet(this, { title: t('duel.lobby'), w, h, onClose: () => {
+    const md = openParchmentSheet(this, { closeButton: false, title: t('duel.lobby'), w, h, onClose: () => {
       if (this.modal === md) this.modal = null;
       this.lobbyOpen = false;
     } });

@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { RS, camZoom, zoomUnits } from '../platform/renderScale';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addText } from '../ui/kit';
-import { MActionBar, MSquareButton, SituationLine, TOPBAR_H, addMapTopBar, mosaicImage, mtext, type BarSlot, type SituationChip } from '../ui/mosaic';
+import { MActionBar, MIconButton, SituationLine, TOPBAR_H, addSubShell, mosaicImage, mtext, type BarSlot, type SituationChip } from '../ui/mosaic';
 import { t } from '../i18n';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import {
@@ -75,7 +75,7 @@ export class WorldScene extends BaseScene {
   private sitKey = '';
   private strip: MActionBar | null = null;
   private stripKey = '';
-  private followBtn!: MSquareButton;
+  private followBtn!: MIconButton;
   private dialog: Phaser.GameObjects.Container | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
   private waiting = false;
@@ -886,16 +886,19 @@ export class WorldScene extends BaseScene {
   private buildFollow(): void {
     this.followBtn?.destroy();
     const sit = this.sit!;
-    this.followBtn = new MSquareButton(this, this.m.VW - 4 - 24, sit.y + sit.h + 3, 24, { icon: 'eye', label: t('battle.strip.follow'), selected: this.follow, tip: t('battle.tip.follow'), id: 'world.follow', onClick: () => this.toggleFollow() });
+    this.followBtn = new MIconButton(this, this.m.VW - 4 - 24, sit.y + sit.h + 3, 24, 24, { icon: 'eye', label: t('battle.strip.follow'), variant: this.follow ? 'lit' : 'neutral', tip: t('battle.tip.follow'), id: 'world.follow', onClick: () => this.toggleFollow() });
     this.hud.add(this.followBtn);
   }
 
   /** The top bar: the back arrow to the Campaign hub (Menu) and "Day N - place". */
   private buildTop(title: string): void {
     this.topC.removeAll(true);
-    addMapTopBar(this, this.topC, this.m.VW, {
+    addSubShell(this, {
+      map: true,
+      parent: this.topC,
       title,
       id: 'world.topbar',
+      actions: [],
       back: this.inGameBack ? () => (this.placing ? this.cancelPlacing() : this.leaveToMenu()) : undefined,
     });
   }

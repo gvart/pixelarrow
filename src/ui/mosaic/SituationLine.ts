@@ -1,31 +1,14 @@
 /**
- * Chrome of a map screen (the world map, the camp): `addMapTopBar` puts the
- * v4 top bar (stone strip, plaque, back arrow) over a full-screen map,
- * `ChipRow` is a row of tight resource chips (icon and number) and
+ * Chrome of a map screen (the world map, the camp): `ChipRow` is a row of tight resource chips (icon and number) and
  * `SituationLine` is the slim parchment card under the top bar: the
  * one-sentence situation over a row of chips.
  */
 import Phaser from 'phaser';
 import { uiId } from '../layout';
 import { wrapText, LINE_H } from '../textfit';
-import { MOSAIC } from '../tokens';
-import { addIcon, ICON_PX } from '../kit';
-import { mosaicImage, midY, mtext, mw } from './base';
-import type { MChipOpts } from './controls';
-import { TopBar, type TopBarOpts } from './TopBar';
-import { TOPBAR_H } from './ScreenFrame';
-
-/** A TopBar on its own stone strip, across the full width at the top of a map screen. */
-export function addMapTopBar(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, VW: number, o: TopBarOpts): TopBar {
-  parent.add(mosaicImage(scene, 0, 0, VW, TOPBAR_H, 'topBar'));
-  const g = scene.add.graphics();
-  g.fillStyle(MOSAIC.meander, 0.9);
-  g.fillRect(0, TOPBAR_H - 1, VW, 1);
-  parent.add(g);
-  const bar = new TopBar(scene, { x: 0, y: 0, w: VW, h: TOPBAR_H }, o);
-  parent.add(bar);
-  return bar;
-}
+import { ICON_PX } from '../kit';
+import { mosaicImage, mtext, mw } from './base';
+import { MChip, type MChipOpts } from './controls';
 
 export interface SituationChip extends Omit<MChipOpts, 'surface' | 'w'> {
   /** A shorter value for rows too narrow for the full one. */
@@ -57,23 +40,10 @@ export class ChipRow extends Phaser.GameObjects.Container {
     let cx = 0;
     for (let i = 0; i < chips.length; i++) {
       const cw = ns[i] + share;
-      this.add(this.chip(cx, cw, chips[i], surface, font));
+      this.add(new MChip(scene, cx, 0, { ...chips[i], surface, w: cw, pad: 4 }));
       cx += cw + GAP;
     }
     scene.add.existing(this);
-  }
-
-  private chip(x: number, w: number, c: SituationChip, surface: 'parchment' | 'stone', font: 'ink' | 'pInk'): Phaser.GameObjects.Container {
-    const scene = this.scene;
-    const chip = scene.add.container(x, 0);
-    const val = String(c.value);
-    chip.add(mosaicImage(scene, 0, 0, w, CHIP_ROW_H, surface === 'stone' ? 'chipStone' : 'chipParch'));
-    const iconW = c.icon ? ICON_PX + 1 : 0;
-    const x0 = Math.round((w - (iconW + mw(val, font))) / 2);
-    if (c.icon) chip.add(addIcon(scene, x0, Math.round((CHIP_ROW_H - ICON_PX) / 2) - 1, c.icon));
-    chip.add(mtext(scene, x0 + iconW, midY(CHIP_ROW_H - 1), val, font, { maxW: w - 4, box: { owner: chip, w, h: CHIP_ROW_H } }));
-    uiId(chip, c.id ?? `chip:${c.icon ?? ''}:${val}`);
-    return chip;
   }
 }
 

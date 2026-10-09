@@ -27,8 +27,8 @@ import {
 import { computeStats, heroClass } from '../sim/stats';
 import { STATS, fmtStat, heroStars, powerRating, previewAttrs, sheetStats } from '../game/gear';
 import {
-  ActionBar, GAP, GearSlot, MButton, MChip, MStashGrid, PAGER_W, PartyMeter, PartyPager, PartyStat, SegmentedSwitch, SectionTitle, SECTION_TITLE_H, SmallButton, SWITCH_H, TAP,
-  addNiche, slotGrid, addPartyEmpty, addPartyShell, addPill, addSwitchBadge, mosaicImage, mountSlot, mtext, pillWidth, retitlePartyShell, type Box, type MButtonOpts, type PartyShell,
+  MActionBar, GAP, GearSlot, MButton, MChip, MStashGrid, PAGER_W, MBar, MPager, SegmentedSwitch, SectionTitle, SECTION_TITLE_H, MIconButton, SWITCH_H, TAP,
+  addNiche, slotGrid, addParchmentEmpty, addSubShell, addPill, addSwitchBadge, mosaicImage, mountSlot, mtext, pillWidth, type Box, type MButtonOpts, type FramedSubShell,
 } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
 
@@ -58,12 +58,12 @@ export class HeroScene extends BaseScene {
   private from: Record<string, unknown> = {};
   private pending: Record<AttrId, number> = { str: 0, agi: 0, end: 0, wil: 0 };
   private tab: Tab = 'stats';
-  private shell!: PartyShell;
+  private shell!: FramedSubShell;
   private box!: Box;
   private head!: Phaser.GameObjects.Container;
   private page!: Phaser.GameObjects.Container;
   private switcher: SegmentedSwitch | null = null;
-  private bar: ActionBar | null = null;
+  private bar: MActionBar | null = null;
   private areas: { destroy(): void }[] = [];
   private stash: MStashGrid | null = null;
   private stashState: StashState = defaultStashState();
@@ -108,8 +108,8 @@ export class HeroScene extends BaseScene {
     this.bar = null;
     this.outer = null;
     this.screen({ back: () => this.back() });
-    this.shell = addPartyShell(this, { title: t('hero.title'), back: () => this.back(), id: 'hero.header' });
-    this.box = this.shell.body;
+    this.shell = addSubShell(this, { title: t('hero.title'), back: () => this.back(), id: 'hero.header', scroll: false });
+    this.box = this.shell.content;
     this.drag = new DragDrop(this);
     this.events.once('shutdown', () => this.clearPage());
     this.build();
@@ -162,7 +162,7 @@ export class HeroScene extends BaseScene {
     const { VH } = this.m;
     const b = this.box;
     // the plaque carries his name
-    retitlePartyShell(this, this.shell, { title: h ? h.name : t('hero.title'), back: () => this.back(), id: 'hero.header' });
+    this.shell.retitle(h ? h.name : t('hero.title'));
     this.refreshBar();
     if (scroll) {
       const top = b.y + 4;
@@ -200,7 +200,7 @@ export class HeroScene extends BaseScene {
     power.x = compact && pager ? x0 : Math.round(x0 + (cw - power.w) / 2);
     power.y = y;
     L.add(power);
-    if (compact && pager) L.add(new PartyPager(this, x0 + cw - PAGER_W, y - 2, pager));
+    if (compact && pager) L.add(new MPager(this, x0 + cw - PAGER_W, y - 2, pager));
     y += (compact && pager ? TAP : 18) + 3;
     // hurt: the one thing worth a line of its own (points and perks are badges on their tabs)
     if (h.wound > 0) {
@@ -226,7 +226,7 @@ export class HeroScene extends BaseScene {
       addPill(this, L, sx0 + 3, y + 3, t('hero.level', { n: h.level }), MOSAIC.bronze, 40);
       addStars(this, L, sx0 + sw - 3 - 39, y + 5, heroStars(h), 5, {});
       // the pager on the niche's foot: ‹ 7 / 9 › (a swipe does the same)
-      if (pager) L.add(new PartyPager(this, Math.round(sx0 + sw / 2 - PAGER_W / 2), y + stageH - TAP - 3, pager));
+      if (pager) L.add(new MPager(this, Math.round(sx0 + sw / 2 - PAGER_W / 2), y + stageH - TAP - 3, pager));
       ey = y + stageH + 5;
       // class, role, traits
       L.add(mtext(this, x0 + 2, ey, className(h), 'rInk', { size: 8, maxW: cw - 4, box: { owner: this.ui, w: this.m.VW, h: VH } }));
@@ -236,7 +236,7 @@ export class HeroScene extends BaseScene {
       if (traits) L.add(mtext(this, x0 + 2 + chipW + 4, ey + 2, traits, 'pSec', { size: 6, maxW: cw - 8 - chipW, box: { owner: this.ui, w: this.m.VW, h: VH } }));
       ey += 15;
       const need = xpToNext(h.level);
-      const xp = new PartyMeter(this, x0 + 2, ey, cw - 4, { value: h.xp, max: need, h: 5, color: RESOURCES.xp.color, label: t('hero.xpTo', { n: h.level + 1 }), right: t('hero.xp', { xp: Math.floor(h.xp), need }) });
+      const xp = new MBar(this, x0 + 2, ey, cw - 4, { value: h.xp, max: need, h: 5, size: 6, color: RESOURCES.xp.color, label: t('hero.xpTo', { n: h.level + 1 }), right: t('hero.xp', { xp: Math.floor(h.xp), need }) });
       L.add(xp);
       ey += xp.h + 5;
     } else {
@@ -256,7 +256,7 @@ export class HeroScene extends BaseScene {
       const stars = lvW + 4 + 39 <= tw;
       addStars(this, L, stars ? tx + lvW + 4 : tx, stars ? y + 27 : y + 38, heroStars(h), 5, {});
       const need = xpToNext(h.level);
-      L.add(new PartyMeter(this, tx, y + (stars ? 42 : 51), tw, { value: h.xp, max: need, h: 5, color: RESOURCES.xp.color }));
+      L.add(new MBar(this, tx, y + (stars ? 42 : 51), tw, { value: h.xp, max: need, h: 5, color: RESOURCES.xp.color }));
       ey = y + stageH + 4;
       const n = SLOTS.length + (cls.mount ? 1 : 0);
       const grid = slotGrid(cw, n, 24);
@@ -323,7 +323,7 @@ export class HeroScene extends BaseScene {
       actions = [{ label: t('duels.dismissOne'), icon: 'bin', variant: why ? 'disabled' : 'neutral', disabledReason: why ?? undefined, id: 'hero.dismiss', onClick: () => this.askDismiss() }];
     }
     if (!actions.length) return;
-    this.bar = new ActionBar(this, this.box, actions);
+    this.bar = new MActionBar(this, this.box.w, this.box.y + this.box.h, { surface: 'parchment', x: this.box.x }).set(actions);
     this.ui.add(this.bar);
   }
 
@@ -450,9 +450,9 @@ export class HeroScene extends BaseScene {
       addLegend(this, c, 0, y, 50 + descW, rh, `${t(`attr.${k}` as TKey)}: ${desc}`, area, `attr.${k}.info`);
       if (spendable) {
         const by = y + Math.round((rh - TAP) / 2);
-        c.add(new SmallButton(this, w - 2 * TAP - GAP - 3, by, TAP, TAP, { label: '-', variant: 'neutral', tip: t('hero.lower'), disabled: this.pending[k] > 0 ? undefined : t('hero.lowerNothing'), id: `attr.${k}.minus`, onClick: () => this.removePoint(k) }));
+        c.add(new MIconButton(this, w - 2 * TAP - GAP - 3, by, TAP, TAP, { text: '-', variant: 'neutral', label: t('hero.lower'), off: this.pending[k] > 0 ? undefined : t('hero.lowerNothing'), id: `attr.${k}.minus`, onClick: () => this.removePoint(k) }));
         const canPlus = free > 0 && val < ATTR_MAX;
-        c.add(new SmallButton(this, w - TAP - 3, by, TAP, TAP, { label: '+', variant: 'secondary', tip: t('hero.raise'), disabled: canPlus ? undefined : free > 0 ? t('hero.attrMax', { n: ATTR_MAX }) : t('hero.allSpent'), id: `attr.${k}.plus`, onClick: () => this.addPoint(k) }));
+        c.add(new MIconButton(this, w - TAP - 3, by, TAP, TAP, { text: '+', variant: 'secondary', label: t('hero.raise'), off: canPlus ? undefined : free > 0 ? t('hero.attrMax', { n: ATTR_MAX }) : t('hero.allSpent'), id: `attr.${k}.plus`, onClick: () => this.addPoint(k) }));
       }
       y += rh + GAP;
     });
@@ -462,7 +462,23 @@ export class HeroScene extends BaseScene {
     const nxt = computeStats(next);
     for (const id of sheetStats(cur)) {
       const d = STATS[id];
-      const sb = new PartyStat(this, 0, y, w, { label: t(`stat.${id}` as TKey), max: d.max, color: barColor(id), tip: t(`stat.${id}.tip` as TKey), format: (v) => fmtStat(id, v), lowerIsBetter: d.lowerIsBetter }, d.get(cur), pend ? d.get(nxt) : undefined);
+      const fmt = (v: number) => fmtStat(id, v);
+      const has = pend && Math.abs(d.get(nxt) - d.get(cur)) > 1e-6;
+      const better = has && d.get(nxt) > d.get(cur) !== !!d.lowerIsBetter;
+      const sb = new MBar(this, 0, y, w, {
+        label: t(`stat.${id}` as TKey),
+        right: has ? `${fmt(d.get(cur))} > ${fmt(d.get(nxt))}` : fmt(d.get(cur)),
+        rightTone: has ? (better ? 'good' : 'bad') : undefined,
+        value: d.get(cur),
+        max: d.max,
+        color: barColor(id),
+        h: 6,
+        size: 6.5,
+        preview: has ? d.get(nxt) : undefined,
+        worse: has && !better,
+        tip: t(`stat.${id}.tip` as TKey),
+        id: `stat:${t(`stat.${id}` as TKey)}`,
+      });
       c.add(sb);
       y += 22 + GAP;
     }
@@ -763,7 +779,7 @@ export class HeroScene extends BaseScene {
     });
     if (!rows.length) {
       this.page.add(
-        addPartyEmpty(this, this.ox, top, this.cw, this.outer ? 90 : this.pageBottom() - top, {
+        addParchmentEmpty(this, this.ox, top, this.cw, this.outer ? 90 : this.pageBottom() - top, {
           icon: 'bash',
           title: t('hero.noAbilities'),
           hint: t('hero.noAbilitiesHint'),

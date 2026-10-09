@@ -8,7 +8,7 @@
 import type Phaser from 'phaser';
 import { normalizeRarity, type Rarity } from '../data/items';
 import { SHADOW_FONTS, registerVectorFont, type FontKey } from './kit';
-import { RARITY_INK } from './tokens';
+import { ensureRarityInk } from './mosaic/rarityInk';
 
 /** Readable on the stone panels (named DARK for the light-background era: the panel kind they sit on). */
 const DARK: Record<Rarity, number> = {
@@ -45,10 +45,10 @@ export function ensureFonts(scene: Phaser.Scene): void {
   for (const r of Object.keys(DARK) as Rarity[]) {
     register(scene, `rar_${r}`, DARK[r]);
     register(scene, `rarL_${r}`, LIGHT[r], 0x1d140f);
-    // ink forms for parchment (src/ui/inkSkin.ts maps rar_ and rarL_ to these)
-    register(scene, `rarI_${r}`, RARITY_INK[r]);
   }
   for (const [k, [c, s]] of Object.entries(EXTRA)) register(scene, k, c, s);
+  // ink forms for parchment (src/ui/inkSkin.ts maps rar_ and rarL_ to these)
+  ensureRarityInk(scene);
 }
 
 /** The font of an item name in its rarity colour. */
