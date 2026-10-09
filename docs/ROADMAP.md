@@ -1,81 +1,53 @@
 # Pixelarrow roadmap
 
-This records where the game is meant to go and the architecture agreed for
-getting there, so that today's single-player code keeps the doors open.
+Where the game is going, the architecture it runs on, the invariants the
+code keeps, and what is still open. What is built is described in
+GAMEPLAY.md, DESIGN_V2.md, DUELS.md and server/README.md.
 
 ## Vision
 
-- **Online multiplayer over WebSockets.** Players share one persistent world
-  map of the ancient Mediterranean. They occupy and hold territories (towns,
-  villages, passes, harbours), fight each other's armies and the roaming bands,
-  and expand.
-- **Clans.** Players band together, share territory and treasuries, call each
-  other to battle, and wage clan wars over regions.
-- **Paid features through Telegram Stars.** Cosmetic and convenience purchases
-  (banners, shield paints, extra hero slots, faster healing, campaign
-  boosters) sold for Stars inside the Telegram Mini App. Entitlements are
-  granted and checked on the server only.
-- The current offline campaign (overland map, bands, settlements, heroes,
-  perks, real-time formation battles) is the single-player core that the
-  online game grows from.
+- **A shared online war.** Seasonal shards of a hand-authored ancient
+  Mediterranean map: players hold regions, fight each other's garrisons, the
+  neutrals and the beasts, and expand (DESIGN_V2.md).
+- **Clans** share land, garrison each other's regions and fight for capitals.
+- **Duels:** a persistent duel army with ranked live and async ladders
+  (DUELS.md).
+- **Telegram Stars buy only Drachmae**; Drachmae buy cosmetics and the
+  season pass. No paid power.
+- The offline campaign (overland map, bands, settlements, heroes, perks,
+  real-time formation battles) stays the single-player core (GAMEPLAY.md).
 
 ## Agreed architecture
 
-A first backend has already landed in `server/` (see
-[server/README.md](../server/README.md)): one Worker serves the static game
-and the API (Hono, zod, D1, a hibernating `RegionDO`, Telegram `initData`
-auth, Stars payments, and battle verification that replays `src/sim`). The
-table below is the target the phases build towards.
+One Worker in `server/` (see [server/README.md](../server/README.md)) serves
+the static game and the API: Hono, zod, D1, hibernating Durable Objects (a
+`RegionDO` per shard, `MatchmakerDO` and `DuelDO` for duels), Telegram
+`initData` auth, Stars payments, and battle verification that replays
+`src/sim`.
 
 | Concern | Choice |
 | --- | --- |
-| Static game files | Already served by a Cloudflare Worker (static assets) on **https://pixelarrow.app** (`wrangler.jsonc`, `.github/workflows/deploy.yml`). The API lives on the same domain (e.g. `/api/*`, `/ws`), so no CORS and one origin for Telegram. |
-| Real-time server | **Cloudflare Workers + Durable Objects**: one DO per **region** of the world map (bands, territory, presence), one per **clan** (members, treasury, chat), one per **battle** (lockstep order relay and validation). WebSockets use the **hibernation API** so idle connections cost nothing. |
+| Static game files | Served by a Cloudflare Worker (static assets) on **https://pixelarrow.app** (`wrangler.jsonc`, `.github/workflows/deploy.yml`). The API lives on the same domain (e.g. `/api/*`, `/ws`), so no CORS and one origin for Telegram. |
+| Real-time server | **Cloudflare Workers + Durable Objects**: `RegionDO` per shard (presence, live armies, region locks, friendly duels), `MatchmakerDO` (the global duel queue), `DuelDO` per live match (lockstep relay and validation). WebSockets use the **hibernation API** so idle connections cost nothing. |
 | Persistence | **D1 (SQLite)**: accounts, heroes, items, territories, clans, purchases, battle records. DOs hold hot state and flush to D1. |
-| Shared game logic | **TypeScript shared with the client**: `src/sim` (battle), `src/world` (map generation, travel, bands), `src/game` (heroes, loot, enemy generation) run unchanged in the Worker. The server **re-runs every battle from its seed and order log** and only accepts the result it computes itself. |
+| Shared game logic | **TypeScript shared with the client**: `src/sim` (battle), `src/online` (world graph, rules), `src/duel`, `src/game` (heroes, loot, enemy generation) run unchanged in the Worker. The server **re-runs every battle from its seed and order log** and only accepts the result it computes itself. |
 | Auth | **Telegram `initData`** sent on connect; the Worker validates its **HMAC-SHA256** signature with the bot token (secret key = HMAC("WebAppData", bot token)), checks `auth_date` freshness, and binds the session to the Telegram user id. No passwords. |
 | Payments | **Telegram Stars** via the Bot API: the Worker calls `createInvoiceLink` with currency **`XTR`**; the client opens it with `WebApp.openInvoice`. A Worker **webhook** answers `pre_checkout_query` (validate the payload, stock and price) and records the **`successful_payment`** (with `telegram_payment_charge_id`) in D1, then grants the entitlement. The client never decides what was bought. Refunds via `refundStarPayment` revoke it. |
 | Cost | The **Workers paid plan (~$5/month)** is expected at launch: server-side battle replays need more CPU time per request than the free tier allows, and Durable Objects require it. |
 
 ### Battle flow online
 
-1. Both players (or a player and the server bot) join the battle DO over a WebSocket.
-2. The DO fixes the seed and both armies (from D1, not from the clients).
-3. Clients send orders; the DO stamps each with the tick it applies at
-   (`Battle.schedule()` style lockstep) and relays them. Bots run in the DO.
-4. Clients send periodic `Battle.hash()` values; a mismatch triggers a resync.
-5. At the end the DO replays seed + order log with `src/sim`, writes the
-   result, loot, XP and wounds to D1 and pushes them to both sides.
-
-## Online mode, phase 1 (landed)
-
-The seasonal hex war of [DESIGN_V2.md](DESIGN_V2.md) has its server
-foundations and a first client (see DESIGN.md "Online mode" and
-server/README.md "Online mode"):
-
-- Seasons (90 days, full reset, titles kept) and shards of ~500 players on a
-  seeded hex disc (~3.5k hexes) with resources, forts, capitals and
-  battlefield terrain; static hex data is never stored, only changed hexes.
-- Server-owned armies, gear and resources; every change is an endpoint that
-  validates it (D1 batches guarded by a profile revision).
-- Fog of war computed on the server; lazy income, energy, marches, wounds and
-  respawns (no alarms, no polling).
-- Neutral defenders on every unclaimed hex, sieges for strong hexes.
-- Async attacks with tickets: server seed and armies, a per-hex lock in the
-  shard Durable Object, replay verification before anything is applied.
-- Garrisons, clans with roles and Telegram invite links, shared clan land.
-- Presence and friendly live duels: lockstep relay through the shard DO with
-  hash desync checks and a verified result.
-
-Next for online: march-based attacks on distant hexes and scouting, player
-garrison battles that wake the defender (notifications), clan wars and
-treasuries, beasts and world bosses (the hex `occupant` column already allows
-`beast`), the town marketplace, live duels with stakes, season rewards in the
-shop, D1 clean-up of ended seasons, a rate limiter shared across isolates.
+- **Async** (war-map attacks, boss raids, the duel ladder and raids): the
+  server fixes the seed and both armies (from D1, never from the client) in a
+  ticket; the client fights the bot AI and submits its order log; the server
+  replays it with `src/sim` and applies only the result it computes.
+- **Live** (friendly and ranked duels): a DO relays deployment orders, then
+  seals battle orders into turns ahead of time; nobody simulates an unsealed
+  turn; clients compare `Battle.hash()` every 10 turns; at the end the server
+  replays the whole log and writes the result.
 
 ## Invariants the code must keep
 
-These hold today and must keep holding; they are what make the plan above possible.
 
 1. **Simulation purity.** `src/sim` (and the pure parts of `src/world`,
    `src/game`, `src/data`) import no Phaser, DOM, `Math.random`, clocks or
@@ -84,7 +56,8 @@ These hold today and must keep holding; they are what make the plan above possib
    in id order, no iteration over unordered sets, no trigonometry in the sim.
    Same seed + same logged orders at the same ticks = the same battle
    (`tests/sim.test.ts`, `tests/abilities.test.ts` replay tests). Cross-engine
-   lockstep must add hash checks or move to fixed point (see DESIGN.md).
+   lockstep checks hashes every 10 turns; moving to fixed point is the
+   fallback if engines ever disagree.
 3. **Serializable state.** Everything that matters is plain JSON: `SaveData`,
    `WorldSave`, heroes, items, orders, battle results. Maps are regenerated
    from seeds, never stored. Saves are versioned with migrations.
@@ -98,120 +71,58 @@ These hold today and must keep holding; they are what make the plan above possib
 6. **Data-driven content.** Items, traits, perks, abilities and auras live in
    `src/data` so client and server always agree on the rules.
 
-## Phased plan
+## Open items
 
-1. **Now: offline campaign (done).** Overland map, bands, settlements, wounds,
-   hero attributes/perks/abilities/auras, real-time battles, saves in Telegram
-   CloudStorage.
-2. **Accounts and cloud profile** (started: `server/` v1; the client signs in, syncs the save, verifies battles and has the Stars shop). Worker + D1, Telegram `initData` login,
-   server-side save of the campaign profile (heroes, items, gold) with the
-   client save as a cache. Keep offline play.
-3. **Server-validated battles.** Battle DO replays seed + order log; PvE
-   results (vs bands) are accepted only from the replay. Ship hash desync
-   checks in the client.
-4. **Async PvP.** Attack another player's garrison army (bot-controlled by the
-   server); results validated as in phase 3.
-5. **Shared world** (phase 1 landed as the seasonal hex shards above). Region DOs hold the world map, territories and roaming
-   bands for everyone; presence and movement over hibernating WebSockets.
-6. **Clans.** Clan DOs, shared treasury, territory ownership, clan wars,
-   chat.
-7. **Live PvP battles.** Lockstep battles between two online players through
-   a battle DO, with reconnect and timeouts.
-8. **Telegram Stars.** Invoice links (XTR), pre-checkout and payment webhooks,
-   D1 entitlements, a small store. Cosmetics and conveniences only; no paid
-   power in PvP.
-9. **Scale and polish.** Sharding regions, anti-cheat telemetry, seasonal
-   maps, sound and music.
+### Launch blockers
 
-## Queue after the current work (2026-10-07)
+1. **Bot notifications:** done (server/README.md "Bot notifications").
+2. **Payment compliance:** done; the legal texts at pixelarrow.app/terms,
+   /privacy, /refunds await the operator's review (server/README.md
+   "Payment support and legal pages").
+3. **Monitoring and analytics:** done (docs/OPS.md "Monitoring",
+   "Analytics").
+4. **Backups and the admin panel:** done (docs/OPS.md "Backups", "Restore
+   runbook", "Admin panel").
 
-In progress or queued, in order: classes/art overhaul, slingshot controls,
-server economy (Drachmae, shop, pass, marketplace), audio → UI overhaul with
-English/Russian and the online battle rules → tutorial battle → mythical beasts.
+### Polish
 
-### Launch blockers (queued next, after the beasts)
+- The world map, settlements, results, market, first run and the camp still
+  use the older chrome (docs/UI_KIT.md "Screen chrome"); move them to the v3
+  header and components.
+- Consumable picker in the online flows: `pickBattleConsumable` exists but
+  attacks, lairs, world-boss raids and duel challenges do not offer it yet
+  (`src/ui/econ/consumablePicker.ts`, `OnlineScene`, `src/ui/duelInvites.ts`,
+  the deploy HUD).
+- The premium season pass (500 Dr) should return about 600 Dr over its
+  tiers (DESIGN_V2.md "Economy decisions"); the reward table pays far less
+  (`server/src/economy/catalog.ts` `PASS`).
+- `supporter_banner` should become a Drachmae cosmetic (DESIGN_V2.md
+  "Economy decisions"); it is still a legacy Stars entitlement.
+- Beast trial with practice copies of the heroes (no permadeath, wounds or
+  loot), labelled "Practice" (`src/scenes/BeastTrialScene.ts`).
+- Show beast trophies (`trophy_<beast>` entitlements) on the hero sheet or
+  the army.
+- Battle report Summary tab: fill the space under the MVP card.
+- Hero stash: one rarity filter plus a labelled Sort control (`StashGrid`).
+- Ability cooldown numbers can overlap their icon (`PanelButton` badge).
+- `scripts/smoke.mjs` has been flaky in the "shield basher in contact" and
+  "ability used from the battle bar" checks; wait on state rather than a
+  fast-forward loop if it recurs.
 
-1. **Bot notifications** (done): attacks on your land, captures and held
-   garrisons, march arrivals, a full treasury, duel challenges while
-   offline, clan news, world boss loot, the season ending in 3 days / 1 day,
-   marketplace sales. Opt-out per type (Settings → Notifications, bot
-   `/settings`), quiet hours, 4 messages an hour, coalescing, deep links into
-   the right screen. See server/README.md "Bot notifications".
-2. **Payment compliance** (done, legal texts await the operator's review):
-   `/paysupport`, `/terms`, `/delete_my_data`, the command menu in English
-   and Russian, and the terms, privacy and refund pages at
-   pixelarrow.app/terms, /privacy, /refunds (and /ru/...), linked from
-   Settings → About and the wallet. See server/README.md "Payment support
-   and legal pages".
-3. ~~**Error monitoring and analytics:** client crash reports, plus funnel and
-   retention events (tutorial completed, first battle, first purchase, day-1
-   and day-7 return), in Cloudflare Analytics Engine or a similar low-cost
-   store.~~ Done: docs/OPS.md "Monitoring" and "Analytics".
-4. ~~**Backups and an admin panel:** a tested D1 point-in-time restore runbook.
-   A protected admin page to view players, refund, ban, adjust balances, and
-   end or start a season by hand.~~ Done: docs/OPS.md "Backups", "Restore
-   runbook" and "Admin panel".
+### Backlog
 
-### Later (backlog)
-
-- **Daily login rewards and daily quests** that feed season pass XP.
-- **Leaderboards:** players and clans per shard and globally; season titles on
-  profiles.
-- **Referrals:** "invite a friend, both get Drachmae when they reach level 5",
-  through Telegram deep links.
-- **Shareable battle replays:** seed plus order log, viewable from a link
-  shared in a chat.
-- **Multi-account and abuse protection:** trading limits for new accounts,
-  cooldowns on gifting Drachmae, flags for suspicious marketplace activity.
-- **Low-end phone performance:** 30 fps on a budget Android in a 40-soldier
-  battle; an automatic low-effects mode.
-- **Staging environment:** deploy each push to staging; promote to production
-  by hand once real players arrive.
-- **Clan chat and clan wars:** scheduled sieges of capitals.
-- **Season events and themes**, e.g. "Season of the Kraken" with a special
-  boss and cosmetics.
-- ~~**Ranked duels** with matchmaking.~~ Done: see "Duels" below.
-- **Assault time or post-battle rest** if attacks feel too cheap (see "Online
-  battle rules" in DESIGN_V2.md).
-
-## Duels: ranked PvP, duel army, two shops (designed 2026-10-07)
-
-Spec: [DUELS.md](DUELS.md). A separate, persistent duel army (10 heroes
-under a power budget, levels raise cost), Glory and a duel shop, a PvE
-ladder and unranked queue for farming, a global matchmaker with live ranked
-(Glicko-2, leagues, monthly seasons) and a separate async defence ladder.
-The war-map shop moves onto town and trading-post hexes. Slices, in order:
-duel roster and economy → live ranked → async and seasons → map merchants.
-
-**Done (all slices).** Duel roster and economy (profile, team, budget,
-Glory, shop, hero development, ladder with verified battles; Menu → Duels);
-live ranked and unranked (the global `MatchmakerDO` queue, a `DuelDO` per
-match on the shared lockstep relay with 30 s reconnects, Glicko-2, leagues
-and placements, the abandon cooldown; the duel hub's Arena tab; migration
-`0008_duel_ranked.sql`); map merchants (every town and ~12 seeded trading
-posts per shard, stock per seed/hex/UTC day with regional specialties and a
-daily rare slot, holder discount 10% and cut 5%; consumables left the menu
-shop; hex panel → Merchant); async ladder and seasons (3 saved team
-loadouts, raids on defence teams played by the server bot with a separate
-Glicko-2 rating and a raid log, 10 raids a day, monthly UTC seasons with a
-lazy soft reset and rewards by peak league: Glory, a league cosmetic and a
-title; live, raid and Legend leaderboards; migration
-`0010_duel_async_seasons.sql`). Open: a raid replay viewer and friends
-boards (no friends list yet).
-
-## Next session: polish backlog
-
-Left over from the 2026-10-07 polish pass (smoke fix, parallel CI, narrator
-column + `text-column` layout rule and the battle group cards are done):
-
-- Rally / ability cooldown number overlaps its icon: move the badge clear of the icon (`src/ui/battlePanel.ts` `PanelButton` badge + `setCooldown`, `BattleScene.buildCommands`).
-- Battle report Summary tab: fill the empty area below the MVP card (casualty bars per side, mini per-hero list or a timeline) (`src/scenes/ResultsScene.ts`, `src/game/battleReport.ts`).
-- Hero Gear filter shows "ANY RARITY" and "RARITY" side by side: one rarity filter plus a labelled Sort control (`src/ui/sheet.ts` `StashGrid`, i18n `stash.*`).
-- Consumable picker in the online flows: hex panel Attack → `pickBattleConsumable` → `attackStart(hex, id)`, duel challenge / accept, lair attacks, world-boss raids; 1 per battle, daily caps, the chosen consumable in the deployment HUD (`src/ui/econ/consumablePicker.ts`, `src/scenes/online/OnlineScene.ts`, `src/ui/duelInvites.ts`, `BattleScene` deploy HUD).
-- Premium season pass (500 Dr) should return ~600 Dr over its tiers: rebalance the premium reward table, client display and tests (`server/src/economy/catalog.ts`, `server/test/economy*.test.ts`, `src/game/economy.ts`).
-- `supporter_banner`: from a Stars product to a Drachmae cosmetic; keep existing entitlements, webhook honours old in-flight invoices (`src/products.ts`, `server/src/economy/catalog.ts`, `server/src/telegram*.ts`, tests, server/README.md "Economy").
-- Beast trial with practice copies of the heroes (no permadeath, no wounds, no loot, fixed small XP or none; labelled "Practice") (`src/scenes/BeastTrialScene.ts`).
-- Beast trophies (`trophy_<beast>` entitlements) shown with procedural icons on the hero sheet / profile or an Army "Trophies" tab, EN/RU (`src/scenes/ArmyScene.ts`, `src/art/icons.ts`, `src/i18n/beasts.*.ts`).
-- `scripts/online-smoke.mjs` fails on unmocked `POST /api/telemetry/*` once telemetry lands (404 console errors): mock those routes there.
-- CI: the run for 22dd235 finished all gates green but showed no deploy job (conclusion failure, no logs reachable from the sandbox); check the run page and the `production` environment rules.
-- `scripts/smoke.mjs` stability: reported flaky on main in the "shield basher in contact" / "ability used from the battle bar" checks (end of the script). After the in-page tap fix it passed 8 of 8 local runs (own preview port; note that port 4173 is often another agent's server, which made earlier local runs test the wrong build) and passed in CI run 37641709767. Not confirmed 5x on the latest main (the polish worktree was removed before the re-run). Next: run it 5x on main; if the bash check flakes, wait for `s.sim.abilityReady(u, 'bash')` and the Skills bar to be rebuilt before tapping (state-based) rather than relying on the 90 s fast-forward loop; if it blocks deploys meanwhile, mark only the `smoke` matrix entry `continue-on-error` with a TODO here.
+- Daily login rewards and daily quests that feed pass XP.
+- Clan leaderboards and season titles on profiles.
+- Referrals through Telegram deep links.
+- Shareable battle replays (seed + order log behind a link); a raid replay
+  viewer for duels.
+- Abuse protection: trading limits for new accounts, flags for suspicious
+  marketplace activity.
+- Low-end phones: 30 fps on a budget Android in a 40-soldier battle; an
+  automatic low-effects mode.
+- A staging environment.
+- Clan chat and clan wars (scheduled sieges of capitals).
+- Season events and themes (e.g. a Kraken season).
+- Assault time or post-battle rest if attacks feel too cheap (DESIGN_V2.md
+  "Online battle rules").
+- Friends lists (and friends leaderboards for duels).

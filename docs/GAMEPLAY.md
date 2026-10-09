@@ -1,17 +1,20 @@
-# Pixelarrow — design notes (milestone 2)
+# Pixelarrow gameplay reference
 
-Mobile-first pixel-art formation tactics set in the ancient Mediterranean
-(Hellenes, Carthaginians, Galatae). It runs as a Telegram Mini App and in any
-mobile browser. The loop:
+The core single-player game and the battle simulation that every mode
+(campaign, skirmish, tutorial, online war, duels) runs on. Mobile-first
+pixel-art formation tactics in the ancient Mediterranean (Hellenes,
+Carthaginians, Galatae), running as a Telegram Mini App and in any mobile
+browser. The loop:
 
-**Main menu (Continue / New campaign) → overland map → march, hunt or flee
-bands, visit villages and towns → encounter → Deployment → Battle → Results /
-loot / XP → back to the map.** The Army and Hero screens are reachable from
-the map and from settlements. The player is an abstract commander: no
-commander unit stands on the field.
+**Menu (Continue / New campaign) → overland map → march, hunt or flee bands,
+visit villages and towns → encounter → deployment → battle → results / loot /
+XP → back to the map.** The Army and Hero screens are reachable from the map
+and from settlements. The player is an abstract commander: no commander unit
+stands on the field.
 
-The online future (shared world, clans, Telegram Stars) and the invariants
-the code keeps for it are in [ROADMAP.md](ROADMAP.md).
+The online war is in [DESIGN_V2.md](DESIGN_V2.md), duels in
+[DUELS.md](DUELS.md), the UI in [UI_KIT.md](UI_KIT.md), the architecture and
+invariants in [ROADMAP.md](ROADMAP.md).
 
 ## Campaign and the overland map (`src/world`)
 
@@ -64,6 +67,12 @@ the code keeps for it are in [ROADMAP.md](ROADMAP.md).
   36-hour wound and half XP. Wounded heroes sit out battles (if everyone is
   wounded, all fight). Wounds heal 1 h per hour on the road, 1.5 camping,
   2.5 resting in a village, 3 in a town.
+- **Field camp** (`src/world/camp.ts`, `CampScene`): the party can pitch
+  camp on open land away from settlements and build tents, a fire, a
+  palisade, a forge and a training ground from **supplies**; the camp speeds
+  healing, forages **food**, keeps bands out, repairs gear and drills the
+  men. Food is eaten on the march and in camp (one ration per hero per day);
+  both are bought in villages and towns.
 
 ## Hero progression (`src/data/perks.ts`)
 
@@ -404,30 +413,20 @@ abilities and auras add 4–5% each on paper.
 
 ### Balance (`npm run balance`)
 
-`scripts/balance.mjs` runs the harness in `src/dev/balance.ts` headless (via
-Vite's module runner): 200 seeded matched battles (the ten-man reference army
-of milestone 1, `standardArmy`, vs its bot army, both sides bot-driven), 100
-battles against a passive player, targeted rule tests, and **ability/aura
-mirror battles**. Milestone 1 tuning (before → after):
+`scripts/dev/balance.mjs` runs the harness in `src/dev/balance.ts` headless (via
+Vite's module runner): 200 seeded matched battles (the ten-man reference army,
+`standardArmy`, vs its bot army, both sides bot-driven), 100 battles against a
+passive player, targeted rule tests, ability/aura and terrain mirror battles,
+and the class round robin (`src/dev/classBalance.ts`). Current report:
 
-| Metric | Before | After |
-| --- | --- | --- |
-| Starting army win rate vs matched bot | 69% | 54% |
-| Battle duration mean / median | 45 s / 40 s | 86 s / 75 s |
-| Battles lasting 60–150 s | 3% | 70% |
-| First group rout after contact (median) | 11–12 s | 34–38 s |
-| Passive player: 5-minute limit reached | 37% | 1% |
-| Swordsmen charging braced hoplites: attacker routs within 15 s | 34% | 0% |
-| ... HP lost in the clash (first 5 s), attacker vs defender | even | 23 vs 16 |
-| ... attacker wins (equal numbers) | 52% | 26% |
-| 3 extra men hit the rear vs join the front: enemy line routs at | 3 s vs 17 s | 9.5 s vs 63 s |
-
-After milestone 2 (attributes, knock-outs, single-rank lines for up to 8
-men, bot abilities) the matched numbers hold: player win 47% / loss 53%,
-duration mean 80 s / median 72 s, 68% of battles in 60–150 s, first group rout
-34–38 s after contact, passive player hits the time limit 1%, braced hoplites
-still never rout a charging line within 15 s, rear attack routs the line at
-8.8 s vs 76 s from the front.
+| Metric | Value |
+| --- | --- |
+| Reference army vs matched bot | win 52% / loss 48% |
+| Battle duration mean / median | 96 s / 85 s; 80% in 60–150 s |
+| First group rout after contact (median) | 34–38 s |
+| Passive player hits the 5-minute limit | 6% |
+| Swordsmen charging braced hoplites: attacker routs within 15 s | 0% |
+| 3 extra men hit the rear vs join the front: enemy line routs at | 13.5 s vs 101 s |
 
 **Abilities and auras** — mirror battles of identical level-4 ten-man armies
 (both bot-driven, sides alternated), only one side has the perk, 160 seeds:
@@ -459,15 +458,9 @@ should be; symmetric fields stay even, and broken ground makes battles longer:
 | river across the middle, ford in the centre | 49% / 51% | 103 s |
 | generated plain / scrub / forest / hills / beach | 45–54% | 96–141 s |
 
-**Classes** (`src/dev/classBalance.ts`, part of the same report). The
-matched, passive, frontal, flank, ability and terrain numbers above are
-unchanged by classes (old armies replay exactly); the report after this
-milestone: player win 52% / loss 48%, duration mean 96 s / median 85 s, 80%
-in 60–150 s, passive player hits the limit 6%, braced hoplites never rout a
-charging line within 15 s, rear attack routs the line at 13.5 s vs 101 s
-from the front, perks 53–60%, ridge defence 75%.
+**Classes** (equal cost, both bot-driven, 26 seeds):
 
-| Test (equal cost, both bot-driven, 26 seeds) | Result |
+| Test | Result |
 | --- | --- |
 | Companions charge braced hoplites head on | hoplites win **100%**; 14% of riders down 10 s after the clash |
 | 6 hoplites + 2 Companions vs the same cost in hoplites | cavalry side wins 42% |
@@ -487,11 +480,10 @@ The intended counters hold: spears beat riders head on (hoplites over
 Companions / Thessalians / chariots 92–100%), riders beat missile men
 (Companions over archers / slingers / javelineers 69–92%), peltasts beat
 archers (85%), horse archers bleed slow heavy foot (Celts 100%,
-thureophoroi 92%). **Gap:** single matchups between two one-class armies are
-still very decisive (many pairs above 60%, see the matrix in the report):
-with identical bots on both sides a fight between two pure armies tends to
-go the same way every seed. Mixed armies and the player's own orders soften
-this, but pure-class rock-paper-scissors is sharper than the 60% target.
+thureophoroi 92%). Single matchups between two one-class armies are still
+very decisive (many pairs above 60%): mixed armies and the player's orders
+soften this, but pure-class rock-paper-scissors is sharper than the 60%
+target.
 
 `tests/balance.test.ts` checks the matched targets on smaller samples;
 `tests/abilities.test.ts` covers each ability, auras, cooldowns, knock-outs
@@ -499,7 +491,7 @@ and replay determinism with abilities in the order log.
 
 ## Controls
 
-- Tap a group tag, tab or soldier to select a group. Tap the same soldier again
+- Tap a group's card, numeral or soldier to select it. Tap the same soldier again
   to select that hero alone; any order then detaches him (Solo / Join).
 - **Formation drags** (deployment and battle, also online raids and live
   duels; `src/ui/dragFormation.ts`). Two plain direct-manipulation gestures;
@@ -539,14 +531,16 @@ and replay determinism with abilities in the order log.
 - A short hint explains the gesture on the first deployment (remembered in
   the settings as `seenGestureHint`).
 - **Abilities:** with a hero or group selected, its abilities appear as
-  buttons above the info strip with a stepped cooldown sweep and a count of
+  medallions down the field's right edge with a cooldown sweep and a count of
   ready holders. Shouts and volleys use the best-placed holder; bashes and
   fury fire for every ready holder. Tapping an unusable one says why.
 - **Camera:** opens at 1× (sprites are drawn at native size; more if both armies fit) centred on the player's
   army; once the fight starts it smoothly follows the melee (or the army)
   until the player pans or pinches; the eye button resumes following.
-- Pause any time; orders can be given while paused. Auto-pause (settings):
-  first contact, a group flanked, a group routing, a hero death (off by default).
+- Offline battles pause any time; orders can be given while paused.
+  Auto-pause (settings): first contact, a group flanked, a group routing, a
+  hero death (off by default). Online battles never pause or speed up
+  (DESIGN_V2.md "Online battle rules").
 
 ## Loot and rewards
 
@@ -561,17 +555,17 @@ throws confetti.
 
 ## Saves
 
-`src/game/save.ts` holds a versioned schema (`SAVE_VERSION` = 3, migration chain,
-validation). v3 adds hero attributes, points, perks and wounds and the world
-(`WorldSave`: map seed, time, party position and route goal, bands with their
-army seeds, per-settlement stock epochs and purchases, world RNG). v2 saves
-migrate: heroes get neutral attributes and the points their levels earned,
-and the army sets out on a new map. The JSON is split into ≤3800-character chunks (`px_part_N` +
-`px_meta`) because Telegram CloudStorage values are limited to 4096 chars.
-Inside Telegram (Bot API 6.9+) the save goes to CloudStorage and is mirrored to
-localStorage; in a normal browser localStorage is used.
+`src/game/save.ts` holds a versioned schema (`SAVE_VERSION`, a migration
+chain, validation): heroes with attributes, points, perks and wounds, the
+stash and gold, and the world (`WorldSave`: map seed, time, party position and
+route goal, bands with their army seeds, per-settlement stock epochs and
+purchases, the field camp, world RNG). Older saves migrate forward. The JSON is
+split into ≤3800-character chunks (`px_part_N` + `px_meta`) because Telegram
+CloudStorage values are limited to 4096 chars. Inside Telegram the save goes
+to CloudStorage and is mirrored to localStorage; in a normal browser
+localStorage is used.
 
-## Online client (`src/platform`)
+## Cloud save (`src/platform`)
 
 The backend (`server/`, see server/README.md) is optional at runtime: every
 online call resolves, failures only flip the sync badge to offline and are
@@ -582,197 +576,39 @@ retried with backoff. Outside Telegram (no `initData`) nothing is requested.
 - **Cloud save:** every save gets `seq` (+1 per save, carried across devices)
   and `savedAt`. Local storage is written first, then a debounced (4 s)
   `PUT /api/save {revision, data}`; pending data is flushed when the app is
-  backgrounded. `px_sync` (next to the save) remembers the server revision and
-  the `seq` last agreed on. Boot waits at most 6 s for `GET /api/save`: the
-  server copy is adopted when it moved past our revision and we have no
-  unsynced progress; if both changed, the higher `seq` wins
-  (`src/platform/saveSync.ts`, pure and unit-tested). A 409 refetches, keeps
-  the more-played copy and retries once; a newer copy from another device
-  replaces the campaign only outside battle and returns to the menu. A new
-  campaign keeps counting `seq`, so it outranks the old one.
-- **Status badge:** a small cloud (synced / syncing / offline) in the menu
-  footer, the army header and under the world-map top bar.
-- **Shop:** Menu → Shop lists `GET /api/shop/products`; Buy → invoice →
-  `Telegram.WebApp.openInvoice`; on `paid` the client polls
-  `/api/entitlements` (the grant comes from the bot webhook). Entitlements are
-  cached locally so cosmetics show offline. `supporter_banner` gives the
-  world-map party a golden standard and the army header golden trim.
-- **Battle verify:** after each battle the setup (snapshot at creation), order
-  log, `deployOrders` and claim (winner, ticks, retreated, hash) go to
-  `POST /api/battle/verify`, fire-and-forget; mismatches are only logged (v1).
+  backgrounded. Boot waits at most 6 s for `GET /api/save`: the server copy is
+  adopted when it moved past our revision and we have no unsynced progress;
+  if both changed, the higher `seq` wins (`src/platform/saveSync.ts`, pure and
+  unit-tested). A 409 refetches, keeps the more-played copy and retries once.
+- **Status badge:** a small cloud (synced / syncing / offline) in the menu,
+  the army header and the world map.
+- **Battle verify:** after each campaign battle the setup, order log,
+  `deployOrders` and claim go to `POST /api/battle/verify`, fire-and-forget;
+  mismatches are only logged.
 
-## Online mode: seasonal hex war (`src/online`, `src/scenes/online`, `server/src/online`)
+## Art pipeline (`src/art`)
 
-The main game of [DESIGN_V2.md](DESIGN_V2.md), phase 1. It sits next to the
-offline campaign (menu → **Online**) and shares nothing with it: the online
-army, its heroes, gear and resources live on the server (D1) and change only
-through validated endpoints (protocol: [server/README.md](../server/README.md#online-mode-seasonal-hex-war)).
-Offline progress does not transfer. Without Telegram, or when the API is down
-or not configured (503), the Online screen says **Online unavailable** and the
-campaign is untouched.
+Everything is generated at boot from code; there are no image files. The look
+is specified in [ART_STYLE.md](ART_STYLE.md).
 
-**World.** A season (90 days) has shards of ~500 players; a shard is a hex
-disc of radius 34 (~3.5k hexes, axial q/r) generated from the shard seed
-(`src/online/hex.ts`): sea toward the rim, highlands inland, plains,
-farmland, forest, hills, mines, towns, rare ruins, ~1–2% forts, and seven
-capitals (the centre and six around it). Each hex has a battlefield site that
-becomes the battle's terrain grid. Yields per hour: farmland food, forest wood,
-mines bronze, towns gold and recruits, forts and capitals a large bonus on
-top; +10% per adjacent hex held by the same clan (or player), up to +50%.
-Income accrues lazily from server time (capped at 24 h) and is collected with
-one tap. Season points: hex 1, fort 10, capital 100; at the season's end every
-shard is ranked into `season_rewards` (titles Archon for the best clan,
-Basileus, Strategos, Polemarch, Veteran) and the next season starts from
-nothing.
-
-**Neutral defenders** (`src/online/defenders.ts`): no hex is free. Farmland
-and plains: militia and brigands; forest: wolf packs and boars, or outlaw
-archers; hills: hill tribes (slingers, javelins, a bear); coast: pirates;
-mines and forts: deserter mercenaries; towns and capitals: city garrisons;
-ruins: cultists. Size and level grow with hex tier and with depth into the
-shard (homes are on the outer rings). Animals are placeholder soldiers
-(`arch: 'animal:wolf'`, unarmed, beefy attributes) until the classes pass
-gives them bodies. Losses persist until a respawn (6 h); towns, forts and
-capitals need 2/3/4 victories in a row (a siege that decays after 6 h). An
-owned hex nobody guards whose income was ignored for 72 h falls back to the
-neutrals.
-
-**Army, energy, marches.** A new player gets a home hex (protected), five
-heroes and a small purse. The field army stands on a hex; it marches through
-land not held by rivals along an A* path (6–12 min per hex by terrain, 1
-energy per hex; energy 100, +12/h). It attacks hexes next to it (10 energy);
-a capture moves it in. Heroes left in an owned (or clan) hex are its garrison
-(up to 12, the army must stand there); without one a small militia defends.
-Recruiting costs gold, food and a recruit point; gear moves between the
-stash and heroes on the server. Knocked-out heroes rest 2 h of real time;
-the dead are gone.
-
-**Fog of war.** The server only sends hexes within 3 of the player's and
-clan's land and armies; foreign garrisons are only sized from next door.
-
-**Attacks** are async: the server fixes the seed and both armies in a ticket
-(and locks the hex in the shard Durable Object), the client fights the battle
-in the normal battle scene against the bot AI and submits its order log; the
-server replays the stored setup with `src/sim` and only applies a matching
-result (both sides' casualties, XP, loot from enemies the attacker killed,
-siege progress or capture, plunder of uncollected income).
-
-**Clans**: one shard and season; leader, officers and members; invite links
-`t.me/<bot>/<app>?startapp=clan_<code>` shared through Telegram's share sheet
-(the game reads `start_param`, and the bot's `/start clan_<code>` opens the
-game with it). A newcomer joining by invite is placed in the clan's shard.
-Clan land is shared: members garrison each other's hexes and get the
-adjacency bonus.
-
-**Live duels**: friendly in this phase. Players online in the shard are listed
-in the duel lobby; a challenge accepted starts the same battle on both phones.
-The battle scene runs with a lockstep driver (`src/online/lockstep.ts`):
-deployment orders are echoed by the server in one order, battle orders are
-sealed into 2-tick turns two turns ahead (≈200–300 ms input delay), nobody
-simulates an unsealed turn, hashes are compared every 10 turns and the server
-replays the whole log at the end. No pause or speed-up in duels; the
-accepting player commands side 1 (their army deploys at the top).
-
-**Client** (`src/scenes/online`): `OnlineScene` (hex map with pan/pinch,
-owned / clan / rival colours, homes, forts, capitals, armies and the march
-route; hex panel with yields, defenders, siege, garrison and March / Attack /
-Garrison / Halt; income; duel lobby and challenges; results),
-`OnlineArmyScene` (heroes, groups, gear, stash, recruiting, choosing a
-garrison), `ClanScene`. The battle scene takes a `BattleSource`
-(`src/online/battleSource.ts`) instead of the campaign's pending battle, so
-everything the sim adds to `BattleSetup` (terrain today) flows through.
-
-## Economy (`server/src/economy`, `server/src/online/market.ts`, `server/src/online/merchant.ts`, `src/data/consumables.ts`)
-
-Server-owned; endpoints and exact rules in server/README.md "Economy".
-
-- **Stars buy only Drachmae** (packs 100/250/500/1000 Stars → 100/275/600/1300
-  Dr). Everything premium is a server-side Drachmae debit, idempotent per
-  client request id. Drachmae are account-wide; a refunded pack is debited
-  again (the balance may go negative, which blocks spending). The old 5-Star
-  `supporter_banner` stays as a legacy Stars entitlement and a banner cosmetic.
-- **Cosmetics** (emblems, banners, cloaks, clan flags, army skins, table
-  themes) are account-wide entitlements with a per-slot loadout. Prices live
-  in `server/src/economy/catalog.ts`.
-- **Consumables** (`src/data/consumables.ts`): bought from the map merchants
-  (towns and trading posts, `src/online/merchants.ts`; no longer in the menu
-  shop) with season gold or Drachmae, daily caps per UTC day across all
-  merchants, held per season. At most one per battle
-  (attacks and duels); battle consumables are baked into the server-built
-  `BattleSetup` (unit stats; `setup.consumables` records the ids), so clients
-  and the replay agree. The war horn is a true one-shot rally: it becomes
-  `ArmySpec.horn` and the `horn` order rallies the whole side at once (routing
-  men turn back), once per horn; the bot sounds it when its army breaks.
-- **Map merchants** (docs/DUELS.md "War-map shops on the map"): every town
-  and ~12 seeded trading posts per shard sell consumables and gear from a
-  stock generated per (shard seed, hex, UTC day): basic gear, regional
-  specialties, a daily rare slot. Reach as for the marketplace; the holder
-  and clan pay 10% less, the holder earns 5% of each sale to others. Gear is
-  gold only. The hex panel's Merchant button opens `MerchantScene`.
-- **Season pass**: 30 tiers × 100 XP from verified attacks and duels; free
-  track for everyone, premium track for 500 Dr per season; idempotent claims.
-- **Town marketplace**: list stash items, food/wood/bronze or consumables in a
-  town you hold or stand on/next to; escrow on listing; gold or Drachmae; 10%
-  fee burned on every sale; 48 h expiry (resolved lazily); 20 open listings;
-  price bounds per rarity; audit log. Listings are season-scoped: at season
-  end they are left behind with the season (goods vanish, Drachmae already
-  earned stay).
-
-
-
-Everything is generated at boot from code; there are no image files.
-
-- `model3d.ts` — a tiny software renderer: figures are posed as 3D
-  primitives in metres (spheres, tapered limbs swept as spheres, ellipsoids,
-  boxes, lines) and ray-cast one pixel at a time through the battle camera
-  (2:1 dimetric, 30° elevation, 16 px per metre). Each hit is lit from the
-  upper left (Lambert + ambient), quantised to its material's colour ramp
-  with Bayer dithering, creases are darkened where depth jumps, and a soft
-  outline (a darker shade of the edge colour, never black) is added. Pure and
-  deterministic. `materials.ts` holds the muted ramps (skin, hair, linen and
-  dyed wool, bronze, iron, silver, leather, wood, horse coats, manes, beasts).
-- `paperdoll.ts` — soldiers, riders, chariots and animals built from those
-  primitives with an IK skeleton per frame. **Sheet format:** 13 columns
-  (`idle0 idle1 walk0-3 atk0-2 hit die0-2`; riders gallop, rear when hit and
-  fall with the horse) × **4 rows, one per facing** (field +x, −y, +y, −x;
-  no mirroring). Frame sizes (`dollGeom`): a man 48×56 with the feet at
-  y = 50 (a man is ~34 px tall, head ~5 px), a rider 96×84 (hooves at 74), a
-  chariot 128×96 (84), wolf / boar 48×40 (34), bear 64×60 (52). Layers, back
-  to front, keyed by the item or class `art` id: cloak, legs (skin, trousers,
-  greaves), tunic, body armour, arms, head/hair/beard, helmet and crest,
-  shield (field colour, emblem, rim), weapon. A hand-drawn sheet per layer in
-  the same grid can replace a builder function. On the player's side (seen
-  from behind) the shield is turned so its painted face shows.
-  Sheets are rendered **lazily, one facing row at a time** (`ensureDollRow`
-  in `src/ui/sprites.ts`; other rows are filled by an idle pump), so a battle
-  opens fast on a phone. Class portraits (24×24 head and shoulders in the
-  class's helmet and colours) are the class icons in the army, hero and
-  recruit screens; item icons are rendered with the same models
-  (`renderGearIcon`).
-- `emblems.ts` — 7×7 shield emblems, painted on round (hoplon) and oval shields (lambda, owl, horse, trident, sun wheel,
-  lion, eye, scorpion, boar, Tanit, club, star).
-- `ground.ts` — isometric grass plain in a muted, dry palette: each pixel
-  is mapped back to field coordinates; broad value noise, dry patches and
-  Bayer 4×4 dithering with no tile seams; tufts, flowers, dirt; blood
-  decals; shadows (one per footprint); selection rings sized for men and
-  for horses. Trees and boulders (`terrainArt.ts`) use the same 3D renderer.
-- `iso.ts` — the projection (see below).
-- `worldArt.ts` — the overland map at 8 px per tile in a top-down 3/4 view:
-  per-pixel terrain with domain-warped borders, Bayer-dithered ramps, shallow
-  water bands, wave glints and shore foam; rivers and roads stroked between
-  tile centres; trees, olive groves, scrub, hill humps and snow-capped peaks
-  drawn row by row so near ones overlap; walled towns with a temple, thatched
-  villages, lairs with tents and a skull pole; standard-bearer figures for the
-  party and the bands (two walk frames).
-- `fx.ts` + `src/ui/battleFx.ts` — battle effects, all stepped and dithered,
-  pooled and capped (≤240 particles, ≤24 numbers): aura ground rings (iso
-  ellipses, 8 shimmer frames, stepped alpha pulse) in each aura's colour,
-  particle bursts and floating outlined ability icons, stun stars orbiting
-  the head, buff pips (max two) above heads, rally waves and morale sparkles,
-  floating damage numbers (Settings toggle). Berserkers flicker red and
-  shake; dazed men are tinted.
-- `font.ts`, `icons.ts`, `uiTextures.ts` — pixel font, dark-red pictograms
-  and parchment panels / scroll rolls.
+- `model3d.ts`: a small software renderer. Figures are posed as 3D primitives
+  in metres and ray-cast per pixel through the battle camera (2:1 dimetric),
+  lit from the upper left, quantised to each material's ramp
+  (`materials.ts`) with Bayer dithering and a soft outline. Pure and
+  deterministic.
+- `paperdoll.ts`: soldiers, riders, chariots and animals built from those
+  primitives with an IK skeleton per frame. Sheet format: 13 columns
+  (`idle0 idle1 walk0-3 atk0-2 hit die0-2`) × 4 rows, one per facing (no
+  mirroring). Layers keyed by item or class `art` id (cloak, legs, tunic,
+  armour, arms, head, helmet, shield, weapon), so a hand-drawn sheet per layer
+  can replace a builder. Sheets render lazily, one facing row at a time
+  (`ensureDollRow` in `src/ui/sprites.ts`). Class portraits and gear icons use
+  the same models.
+- `ground.ts`, `terrainArt.ts`: the battlefield ground, trees and boulders.
+- `worldArt.ts`, `overlandMap.ts`, `parchmentMap.ts`: the overland and war
+  maps. `fx.ts` + `src/ui/battleFx.ts`: pooled, capped battle effects.
+- `smoothUi.ts`, `vectorFont.ts`, `vectorIcons.ts`, `uiIcons.ts`: the UI
+  (docs/UI_KIT.md).
 - `/preview.html` on the dev server shows sample sprite sheets.
 
 ### Isometric projection (`src/art/iso.ts`)
@@ -796,89 +632,3 @@ camera is 1× (a man is ~34 px tall, a rider ~60 px on a 390-wide phone) and
 follows the fighting; pinch/wheel zoom 1–3×. Touch targets cover a figure's
 full height (and a horse's body); trees fade when a soldier stands behind
 them.
-
-## Mythical beasts and world bosses (`src/data/beasts.ts`, `src/sim/myth.ts`, `src/online/lairs.ts`)
-
-- **Data**: every beast in one table (`MYTHS`): footprint, HP / damage per
-  level (+8% per level), armour, speed, the damage it takes from missiles,
-  its terror aura and its signature numbers (`sp`). `ENCOUNTERS` groups the
-  units of a fight (the hydra is a body and five heads, the kraken a body and
-  six arms, harpies a flock of six). Beasts are animal classes whose stats
-  carry `boss`; a setup without `boss` plays exactly as before
-  (tests/legacy.test.ts).
-- **Sim** (`MythSystem`, created only when a beast is on the field; hooks in
-  the battle: `update`, `afterMove`, `vis`, `onDamage`, `onKill`, collisions):
-  - Hydra: heads are separate targets anchored round the body; a wounded head
-    heals when left alone; a severed head grows back after 6 s unless a blade
-    strikes the body first (sealed); its scaled body takes 30% from missiles.
-  - Cyclops (and the Titan): hurls boulders at the tightest knot of men in
-    range (area damage, knockback, stun, morale shock), stamps on men who
-    crowd him; the Titan throws two and shakes the earth.
-  - Harpies: circle out of reach (untargetable), dive on missile-men and the
-    rear over the front line, claw a few seconds and climb again; while
-    diving or on the ground missiles hit them 1.7x.
-  - Nemean lion: immune to arrows, javelins and stones; pounces on men alone.
-  - Minotaur: charges through lines (trample, toss, stun); a braced spear
-    wall facing it stops it dead (stunned, counter-thrust); enrages at 35%.
-  - Chimera: fire cone (damage, burning, morale; half on a shield wall facing
-    it), goat-head fury, serpent-tail strikes at anyone behind it.
-  - Kraken: rooted at the shore; arms slam and drag men in, regrow unless the
-    head is struck. Terror: men near a beast lose morale, less with Will and
-    a Steady Presence aura.
-  - Bot AI per beast; the player-side bot hunts beasts (missile-men keep
-    their distance, spears brace against the minotaur, flank and reserve go
-    round to the body).
-- **Balance** (`npm run balance`, src/dev/beastBalance.ts): tier-3 lair, army
-  one level below the beast, 40 seeds, both sides bot-driven:
-
-  | Beast | Sensible army | Win | Naive army | Win |
-  | --- | --- | --- | --- | --- |
-  | Hydra | 4 hoplites (wall), 3 archers, 3 rhomphaia + 2 falx on the flank | 55% | 12 archers and slingers | 0% |
-  | Cyclops | javelins, archers, peltasts in loose order | 60% | 12 hoplites in a shield wall | 0% |
-  | Harpies | 7 archers and slingers, 3 hoplites guarding them | 55% | Gallic warband, militia, 2 archers | 5% |
-  | Nemean lion | 10 blades in close order | 53% | 10 archers, slingers, javelins | 0% |
-  | Minotaur | 6 hoplites (braced wall), 2 falx, 2 archers | 45% | archers, peltasts, Gauls | 8% |
-  | Chimera | hoplite wall, javelins, archers, peltasts spread out | 48% | 12 militia and Gauls in a column | 0% |
-
-- **Online**: lairs (`lairAt`) hold about 40 hexes per shard, mostly near
-  forts, tier-scaled; the beast fights instead of the neutrals until slain,
-  drops its hoard (`rollBeastRarity`: rare / epic / legendary) and a trophy
-  entitlement, the hex can be claimed, and the beast returns 48 h later if
-  the hex falls back to the neutrals. World bosses (`worldBossSites`: a
-  Kraken on the coast, a Titan inland) keep HP server-side (migration 0004);
-  raids are verified 120 s segments against the current wounds; damage is
-  tallied per player and clan; the killing raid splits the hoard by damage
-  share (idempotent). Endpoints: server/src/online/bosses.ts.
-- **Offline**: about one overland band in fourteen is a beast; the Beast
-  trial (menu: Beasts) fights any beast or world boss with the campaign army.
-
-## Known gaps (milestone 2)
-
-- No food or wages yet: the economy runs on loot, recruits, gear, repairs
-  and healing. Bands do not fight each other or besiege settlements.
-- Battle terrain is read from the overland tile (the overland map itself is
-  slated to become a hex map, see DESIGN_V2.md); no sieges or sailing.
-  Units are not raised on hills in the iso view: height is shown by shading
-  and contour steps only.
-- Defeat on the map does not capture the commander; the band simply keeps
-  its survivors and both sides break off.
-- Ability and aura balance was tuned in mirror battles of level-4 armies;
-  late-campaign armies (level 8–10, full trees) are untuned.
-- Class matchups between pure one-class armies are decisive (often 0% or
-  100% at equal cost); costs only balance each class's average. Riders do
-  not dismount; there are no elephants and no camels. Animals in the
-  campaign appear only as neutral beast bands.
-- The world map texture (896×896) is rendered at scene start (~0.3 s on a
-  desktop, more on phones); it is cached per seed for the session.
-- Determinism relies on IEEE doubles and `Math.sqrt` (correctly rounded), so
-  replays match on the same engine; cross-platform lockstep PvP should add
-  periodic `hash()` desync checks or move to fixed-point maths.
-- No sound or music, no tutorial beyond hint strips and banners.
-- The Phaser bundle is ~1.4 MB (~390 KB gzipped) in a single chunk.
-
-## Next steps
-
-See [ROADMAP.md](ROADMAP.md): accounts and server-validated battles on
-Cloudflare Workers + Durable Objects + D1, async then live PvP, a shared world
-map with territories and clans, Telegram Stars. Gameplay: terrain battles,
-food and wages, sieges, more troop types, sound.

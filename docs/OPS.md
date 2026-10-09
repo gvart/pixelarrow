@@ -427,7 +427,7 @@ logged with the operator name. The page has a strict CSP (`script-src 'self'`,
 - *Season:* the active season, **End the active season** (final ranks and
   titles; optionally start the next at once — otherwise the next player
   request starts it), **Start a new season** (only when none is active), the
-  shards (players, owned hexes, clans, open listings, world bosses, live
+  shards (players, owned regions, clans, open listings, world bosses, live
   sockets from each shard's Durable Object) and recent seasons. Other Worker
   isolates may serve the old season for up to 30 s after a manual end.
 - *Tickets:* `/paysupport` tickets once that table exists (the panel looks
