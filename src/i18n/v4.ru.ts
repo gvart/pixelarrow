@@ -59,5 +59,6 @@ export const V4_RU: Record<keyof typeof V4_EN, string> = {
   'dv.searchAnyone': 'любой',
   'dv.searchOpensIn': 'полностью через {t}',
   'dv.searchTeam': 'Ваш отряд · {n} · {pts}/{cap} оч.',
+  'hero.skill.learnNow': 'изучите «{name}» в умениях',
   'dv.enemyArmy': 'Войско врага · {n}',
 };

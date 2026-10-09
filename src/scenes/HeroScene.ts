@@ -6,7 +6,7 @@ import { uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import { SIZE, COLOR } from '../ui/theme';
 import { CommandStrip } from '../ui/strategos';
-import { InfoChip, Pager, ProgressBar, ScreenHeader, addClaimGlow, addSection, addSwipe, addTipLine, layChips, type InfoChipOpts } from '../ui/v3';
+import { InfoChip, Pager, ProgressBar, ScreenHeader, addMedallion, addSection, addSwipe, addTipLine, layChips, type InfoChipOpts } from '../ui/v3';
 import { ACCENT, RESOURCES, SURFACE } from '../ui/tokens';
 import { fadeIn } from '../ui/motion';
 import { ensureFonts } from '../ui/fonts';
@@ -564,16 +564,11 @@ export class HeroScene extends BaseScene {
       c.add(addPanel(this, 0, ry, w, rowH, known ? 'cardSel' : open ? 'cardRaised' : 'cardLocked'));
       // the level it needs, on the left
       c.add(addText(this, 9, ry + 18, `${PERK_LEVELS[i]}`, h.level >= PERK_LEVELS[i] ? 'ink' : 'muted', 0.5));
-      if (open) addClaimGlow(this, c, 26, ry + 11, 26, 24);
-      const node = new Button(this, 26, ry + 11, 26, 24, {
-        icon: perkIcon(p),
-        label: tOr(`perk.${id}.name`, p.name),
-        iconOnly: true,
-        style: known ? 'buttonSel' : undefined,
-        variant: known || open ? undefined : 'ghost',
-        id: `perk:${id}`,
-        onClick: () => this.openPerk(h, p, tree),
-      });
+      // the node: the perk's medallion (learned lit, available pulsing, locked faded with a lock); a tap opens it
+      addMedallion(this, c, 27, ry + 12, 24, perkIcon(p), known ? 'learned' : open ? 'available' : 'locked');
+      const node = this.add.zone(25, ry + 10, 28, 28).setOrigin(0, 0).setInteractive();
+      uiId(node, `perk:${id}`);
+      node.on('pointerup', () => !area.moved && this.openPerk(h, p, tree));
       c.add(node);
       const pip = this.add.graphics();
       pip.fillStyle(TREES[p.tree].color, 1);
@@ -650,7 +645,7 @@ export class HeroScene extends BaseScene {
     const top = this.pageTop;
     const s = computeStats(h);
     const tree = heroTree({ cls: heroClass(h).id });
-    type Row = { kind: 'ability' | 'aura'; id: AbilityId | AuraId; has: boolean; source: string };
+    type Row = { kind: 'ability' | 'aura'; id: AbilityId | AuraId; has: boolean; source: string; open?: boolean };
     const rows: Row[] = [];
     for (const a of s.abilities) {
       const perk = tree.map((id) => PERKS[id]).find((p) => p.ability === a && h.perks.includes(p.id));
@@ -661,9 +656,11 @@ export class HeroScene extends BaseScene {
     tree.forEach((id, i) => {
       const p = PERKS[id];
       if (h.perks.includes(id)) return;
-      const when = h.level < PERK_LEVELS[i] ? t('hero.perk.unlocksAt', { n: PERK_LEVELS[i] }) : t('hero.fromPerk', { name: tOr(`perk.${id}.name`, p.name) });
-      if (p.ability && !s.abilities.includes(p.ability)) rows.push({ kind: 'ability', id: p.ability, has: false, source: when });
-      if (p.aura && !s.auras.includes(p.aura)) rows.push({ kind: 'aura', id: p.aura, has: false, source: when });
+      // available: its perk can be learned right now (a point and the level are there)
+      const open = perkBlocker(h, id) === null;
+      const when = open ? t('hero.skill.learnNow', { name: tOr(`perk.${id}.name`, p.name) }) : h.level < PERK_LEVELS[i] ? t('hero.perk.unlocksAt', { n: PERK_LEVELS[i] }) : t('hero.fromPerk', { name: tOr(`perk.${id}.name`, p.name) });
+      if (p.ability && !s.abilities.includes(p.ability)) rows.push({ kind: 'ability', id: p.ability, has: false, source: when, open });
+      if (p.aura && !s.auras.includes(p.aura)) rows.push({ kind: 'aura', id: p.aura, has: false, source: when, open });
     });
     if (!rows.length) {
       this.page.add(addEmptyState(this, 4, top, VW - 8, this.pageBottom() - top, { icon: 'bash', title: t('hero.noAbilities'), hint: t('hero.noAbilitiesHint'), action: { label: t('hero.tab.perks'), icon: 'aura', onClick: () => this.tabs?.select(2) } }));
@@ -680,12 +677,10 @@ export class HeroScene extends BaseScene {
       const desc = isAb ? tOr(`ability.${r.id}.desc`, def.desc) : tOr(`aura.${r.id}.desc`, def.desc);
       const wr = wrapText(desc, w - 34, 4);
       const hh = Math.max(36, 26 + wr.lines.length * LINE_H + 2);
-      c.add(addPanel(this, 0, y, w, hh, r.has ? 'card' : 'cardLocked'));
-      // the ability's own picture on a gold tile; a skill not learned yet: dimmed in a well, with a lock
-      c.add(addPanel(this, 4, y + 4, 24, 24, r.has ? 'thumb' : 'well'));
+      c.add(addPanel(this, 0, y, w, hh, r.has ? 'cardRaised' : r.open ? 'card' : 'cardLocked'));
+      // the skill as its battle medallion, in colour: learned (lit), available now (a pulsing ring), locked (faded, a lock)
       const icon = isAb ? (def as (typeof ABILITIES)[AbilityId]).icon : `aura_${r.id}`;
-      c.add(addIcon(this, 10, y + 10, icon, r.has ? '' : 'D'));
-      if (!r.has) c.add(scaleIcon(addIcon(this, 20, y + 20, 'lock', 'D'), 0.67));
+      addMedallion(this, c, 4, y + 4, 24, icon, r.has ? 'learned' : r.open ? 'available' : 'locked');
       let right = w - 4;
       if (isAb) {
         const cd = Math.round((def as (typeof ABILITIES)[AbilityId]).cooldown * s.cdMult);
@@ -693,8 +688,8 @@ export class HeroScene extends BaseScene {
         right = w - 4 - cw - 4;
       }
       c.add(addText(this, 32, y + 5, ellipsize(name, right - 32), r.has ? 'head' : 'sec'));
-      c.add(addText(this, 32, y + 15, ellipsize(`${isAb ? t('hero.ability') : t('hero.aura')}${r.source ? ' · ' + r.source : ''}`, w - 36), r.has ? 'reward' : 'muted'));
-      c.add(addText(this, 32, y + 26, wr.lines.join('\n'), r.has ? 'ink' : 'muted'));
+      c.add(addText(this, 32, y + 15, ellipsize(`${isAb ? t('hero.ability') : t('hero.aura')}${r.source ? ' · ' + r.source : ''}`, w - 36), r.has ? 'good' : r.open ? 'reward' : 'muted'));
+      c.add(addText(this, 32, y + 26, wr.lines.join('\n'), r.has ? 'ink' : r.open ? 'sec' : 'muted'));
       y += hh + SIZE.gap;
     }
     const note = wrapText(`${t('hero.abilityUse')} ${t('hero.auraUse')}`, w, 3);

@@ -141,21 +141,21 @@ export const UI_ICONS: Record<string, IconPart[]> = {
     { d: 'M12 10.2L21 18.8V22.2L12 15.2L3 22.2V18.8Z', tone: 'blue' },
     { d: 'M4.4 11.4L12 4.4', tone: 'gleam', detail: true, w: 1 },
   ],
-  // the season pass: a ticket of parchment with a wax seal
   // a neutral × (hide a tip, close, cancel): stone, never the red of an error
   xmark: [
     { d: 'M16.4 5.2L18.8 7.6L14.4 12L18.8 16.4L16.4 18.8L12 14.4L7.6 18.8L5.2 16.4L9.6 12L5.2 7.6L7.6 5.2L12 9.6Z', tone: 'stone' },
     { d: 'M6.6 7.4L7.6 6.4L12 10.8L16.4 6.4', tone: 'gleam', detail: true, w: 0.9 },
   ],
-  // war gold (the online season's purse; campaign gold is `coin`): a bronze stater stamped with crossed spears
+  // war gold (the online season's purse; campaign gold is `coin`): a bronze stater stamped with a hoplite helmet
   wargold: [
     { d: 'M2.4 12A9.6 9.6 0 1 1 21.6 12A9.6 9.6 0 1 1 2.4 12Z', tone: 'bronze' },
-    { d: 'M4.6 12A7.4 7.4 0 1 1 19.4 12A7.4 7.4 0 1 1 4.6 12Z', tone: 'clay' },
-    { d: 'M7.2 16.8L16.8 7.2M7.2 7.2L16.8 16.8', tone: 'ink', detail: true, w: 1.3 },
-    { d: 'M15.4 6.2L17.8 6.2L17.8 8.6Z', tone: 'ink', detail: true, fill: true },
-    { d: 'M8.6 6.2L6.2 6.2L6.2 8.6Z', tone: 'ink', detail: true, fill: true },
+    { d: 'M4.6 12A7.4 7.4 0 1 1 19.4 12A7.4 7.4 0 1 1 4.6 12Z', tone: 'bronze' },
+    { d: 'M12 7C15 7 16.6 9 16.6 11.6V16.6H14.4L14 14H10L9.6 16.6H7.4V11.6C7.4 9 9 7 12 7Z', tone: 'dark', detail: true, fill: true },
+    { d: 'M9.4 6.9C9.8 5.2 10.8 4.4 12 4.4C13.2 4.4 14.2 5.2 14.6 6.9', tone: 'red', detail: true, w: 1.4 },
+    { d: 'M8.8 10.6H15.2', tone: 'gleam', detail: true, w: 0.9 },
     { d: 'M5.2 9.4A7 7 0 0 1 9.4 5.2', tone: 'gleam', detail: true, w: 1 },
   ],
+  // the season pass: a ticket of parchment with a wax seal
   pass: [
     { d: 'M3 6.2H21V9.4A2.6 2.6 0 0 0 21 14.6V17.8H3V14.6A2.6 2.6 0 0 0 3 9.4Z', tone: 'linen' },
     { d: 'M7 10H14M7 13H12.4', tone: 'ink', detail: true, w: 1 },

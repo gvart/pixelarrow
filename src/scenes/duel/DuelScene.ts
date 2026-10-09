@@ -599,8 +599,10 @@ export class DuelScene extends BaseScene {
     // Team and Shop always on the header, lit on their own view ("you are here"); Glory and the duel level in the band
     const team = this.tab === 'team';
     const shop = this.tab === 'shop';
+    // (a leaderboard or the raid picks: a view of the Arena, its title needs the room; Back returns)
+    const arenaView = this.tab === 'ranked' && this.arenaTab !== 'home';
     const actions: HeaderAction[] =
-      ready && p
+      ready && p && !arenaView
         ? [
             { icon: 'people', label: t('dv.team'), id: 'duel.team', tip: t('dv.teamTip'), active: team, badge: this.fightingHeroes(p).some(heroNeedsAttention) ? '!' : 0, onClick: () => (team ? this.up() : this.openView('team')) },
             { icon: 'shop', label: t('dv.shop'), id: 'duel.shop', tip: t('dv.shopTip'), active: shop, onClick: () => (shop ? this.up() : this.openView('shop')) },
@@ -2167,7 +2169,7 @@ export class DuelScene extends BaseScene {
       B.add(addText(this, cx + cw / 2, y + 8, '...', 'ink', 0.5));
       return;
     }
-    const rowH = 22;
+    const rowH = 27;
     const meH = v.me || this.board !== 'legend' ? rowH + 3 : 0;
     if (!v.rows.length) {
       const wr = wrapText(t('duels.board.empty'), cw - 8, 2);
@@ -2192,16 +2194,46 @@ export class DuelScene extends BaseScene {
     }
   }
 
+  /**
+   * A leaderboard row: the rank on a medal (gold, silver, bronze for the top
+   * three; a plain well below), the league's crest, the name, the rating (or
+   * the league where there is none). Your own row is lit and pinned.
+   */
   private boardRow(r: LeaderboardView['rows'][number], row: Phaser.GameObjects.Container, w: number, me: boolean): void {
-    row.add(addPanel(this, 0, 0, w, 20, me ? 'cardSel' : 'card'));
-    row.add(addText(this, 24, 6, `#${r.rank}`, r.rank <= 3 ? 'reward' : 'sec', 1));
+    const h = 25;
+    row.add(addPanel(this, 0, 0, w, h, me ? 'cardSel' : r.rank <= 3 ? 'cardRaised' : 'card'));
+    // the rank: a medal for the podium
+    const medal = r.rank <= 3 ? [0xe0b23a, 0xc8ccd2, 0xc07a42][r.rank - 1] : null;
+    const mx = 13;
+    const my = h / 2;
+    const g = this.add.graphics();
+    if (medal) {
+      g.fillStyle(0x1a0f08, 1);
+      g.fillCircle(mx, my, 9);
+      g.fillStyle(medal, 1);
+      g.fillCircle(mx, my, 8);
+      g.lineStyle(1, 0xffffff, 0.35);
+      g.beginPath();
+      g.arc(mx, my, 6, Math.PI * 1.05, Math.PI * 1.6);
+      g.strokePath();
+    } else {
+      g.fillStyle(SURFACE.sunken, 1);
+      g.fillRoundedRect(3, 5, 21, h - 10, 4);
+    }
+    row.add(g);
+    const rk = addText(this, mx, my - 4, `${r.rank}`, medal ? 'onAccent' : 'sec', 0.5);
+    if (`${r.rank}`.length > 2) rk.setFontSize(5.5);
+    row.add(rk);
+    // the league's crest, small
+    this.addCrest(row, 27, 4, h - 8, r.league);
     let rw = 0;
     if (r.rating !== null) {
-      const rt = addText(this, w - 6, 6, `${r.rating}`, 'ink', 1);
+      const rt = addText(this, w - 7, 8, `${r.rating}`, me ? 'gold' : 'ink', 1);
       row.add(rt);
       rw = rt.width + 6;
-    } else rw = addChip(this, row, w - 4, 4, leagueName(r.league), LEAGUE_COLOR[r.league.id], Math.floor(w * 0.45), true) + 4;
-    row.add(addText(this, 29, 6, ellipsize(me ? t('duels.board.you') : r.name, w - 29 - rw - 6), 'ink'));
+    } else rw = addChip(this, row, w - 5, 6, leagueName(r.league), LEAGUE_COLOR[r.league.id], Math.floor(w * 0.45), true) + 4;
+    const nx = 27 + h - 8 + 6;
+    row.add(addText(this, nx, 8, ellipsize(me ? t('duels.board.you') : r.name, w - nx - rw - 6), me ? 'gold' : 'ink'));
   }
 
   // ------------------------------------------------------------------ season rewards

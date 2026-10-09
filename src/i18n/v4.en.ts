@@ -62,5 +62,6 @@ export const V4_EN = {
   'dv.searchAnyone': 'anyone',
   'dv.searchOpensIn': 'wide open in {t}',
   'dv.searchTeam': 'Your team · {n} · {pts}/{cap} pts',
+  'hero.skill.learnNow': 'learn {name} in Perks',
   'dv.enemyArmy': 'Enemy army · {n}',
 } as const;

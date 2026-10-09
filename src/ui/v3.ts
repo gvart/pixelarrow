@@ -16,7 +16,9 @@
  *   money: Telegram blue, "Stars", always confirmed), `flyReward`.
  */
 import Phaser from 'phaser';
-import { Button, addIcon, addText, panelImage, panelTexture, scaleIcon, tappable, SHADOW_FONTS, type FontKey } from './kit';
+import { Button, addIcon, addText, panelImage, panelK, panelTexture, scaleIcon, tappable, uiMetrics, SHADOW_FONTS, type FontKey } from './kit';
+import { RS } from '../platform/renderScale';
+import { renderMedallion } from '../art/smoothUi';
 import { hintStore, showTooltip, shadeTap, type Modal, type UiScene } from './widgets';
 import { uiBlocker, uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
@@ -1036,4 +1038,35 @@ export class ToggleChip extends Phaser.GameObjects.Container {
     tappable(this, null, () => (o.off ? showTooltip(scene, o.off, this) : o.onClick()), o.tip);
     scene.add.existing(this);
   }
+}
+
+// ================================================================== skill medallion
+
+/**
+ * An ability or aura as the battle HUD shows it: its icon in colour on a
+ * round bronze medallion, `d` UI px across. States: `learned` (lit, a gold
+ * halo), `available` (bronze, a pulsing ring: it can be learned now),
+ * `locked` (dark stone, the icon faded but in colour, a lock badge).
+ */
+export function addMedallion(scene: Phaser.Scene, parent: C, x: number, y: number, d: number, icon: string, state: 'learned' | 'available' | 'locked'): void {
+  const K = panelK(scene);
+  const css = (K * RS) / uiMetrics(scene).S;
+  const look = state === 'learned' ? 'ready' : state === 'available' ? 'idle' : 'cool';
+  const halo = 3;
+  const key = `medal_${d}_${look}@${K}`;
+  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderMedallion(d, halo, look, K, css))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  const disc = scene.add.image(Math.round(x - halo), Math.round(y - halo), key).setOrigin(0, 0).setScale(1 / K);
+  parent.add(disc);
+  const k = (d * 0.6) / 12;
+  const ic = scaleIcon(addIcon(scene, x + d / 2, y + d / 2, icon), k).setOrigin(0.5, 0.5);
+  if (state === 'locked') ic.setAlpha(0.5);
+  parent.add(ic);
+  if (state === 'available') {
+    const g = scene.add.graphics();
+    g.lineStyle(1.2, ACCENT.goldHi, 1);
+    g.strokeCircle(x + d / 2, y + d / 2, d / 2 + 1.5);
+    parent.add(g);
+    pulse(scene, g, 'alpha', 1, 0.3, MOTION.pulse);
+  }
+  if (state === 'locked') parent.add(scaleIcon(addIcon(scene, x + d - 9, y + d - 9, 'lock', 'D'), 0.75));
 }
