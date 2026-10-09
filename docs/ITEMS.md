@@ -1,8 +1,13 @@
 # Items: rarity, random stats, powers, sets and sources
 
-Status: **design, not built yet.** Today an item's rarity only multiplies its
+Status: **partly built** (branch `items/system`): random stats, requirements,
+class limits, the 43 new items, set stat bonuses and the item card are in;
+powers and set special lines in battle, the new drop sources and duel points
+are next. Where this page and the code differ, the code wins.
+
+Before this work an item's rarity only multiplied its
 base stats (×1 to ×1.6, `RARITY_MULT` in `src/data/items.ts`), so a
-legendary is a bigger common. This document turns rarity into what the item
+legendary was a bigger common. This document turns rarity into what the item
 *does*: random stats, a power on epic and legendary gear, item sets and
 named legendaries, and decides where each kind of item comes from. The
 numbers are starting values for `npm run balance`; change them in the data,
@@ -91,20 +96,20 @@ which classes can). Helmets and trinkets are open to every class.
 
 | Class | Weapon families | Shields | Armour up to |
 | --- | --- | --- | --- |
-| Militia | spear, club, javelins, sling | long | light |
+| Militia | spear, short spear, club, javelins, sling | long | light |
 | Spartan hoplite | spear | big | heavy |
-| Thureophoros | short sword, curved sword, short spear | long | medium |
-| Celtic swordsman | longsword, short sword | long | heavy |
+| Thureophoros | short sword, curved sword, short spear | long | heavy |
+| Celtic swordsman | longsword, short sword, curved sword | long | heavy |
 | Thracian rhomphaia | rhomphaia | - | heavy |
 | Cretan archer | bow | - | medium |
 | Rhodian slinger | sling | - | light |
 | Peltast javelineer | javelins | light | light |
 | Scythian horse archer | short bow | - | heavy |
-| Peltast | javelins, short spear | light | light |
+| Peltast | javelins, short spear | light, long | light |
 | Thracian falx | falx | - | light |
 | Gallic warband | axe, longsword, club | long | light |
 | Fanatic | club, axe, short sword, curved sword | light | light |
-| Companion cavalry | lance, curved sword | - | heavy |
+| Companion cavalry | lance, curved sword | big (with a one-handed sword) | heavy |
 | Thessalian horse | javelins, short sword | light | medium |
 | Scythed chariot | curved sword, short sword, axe | - | heavy |
 | Royal guard, Sacred Band | spear | big | heavy |
@@ -128,9 +133,12 @@ Achilles fit hoplites and guards, Brennus's warband the Celtic swordsman).
 offers fit a class in the player's army (duel army or war army), 30% are
 any item (to sell, or for future recruits).
 
-**Existing heroes.** On load, gear a hero's class may not use moves to the
-stash with a one-time note; gear he lacks the stats for stays on with the
-soft penalty. Duel respec (20 Glory × level) stays as it is.
+**Existing heroes.** Gear a hero's class may not use does nothing in battle,
+wherever it comes from. Campaign saves (v5) move it to the stash with a
+one-time note; war and duel armies on the server keep it equipped (shown in
+red) until the player swaps it, and the server refuses to equip it again.
+Gear a hero lacks the stats for stays on with the soft penalty. Duel respec
+(20 Glory × level) stays as it is.
 
 ## Rarity tiers
 
@@ -155,8 +163,12 @@ Rules:
   never rolls melee damage); the same stat never rolls twice on one item.
 - Weighting: the stat the base item is about counts double (a shield rolls
   Block and Armour more often, a bow Missile damage and Range).
-- Stats marked "campaign and war map only" do nothing in duels; duel drops and
-  the duel shop never roll them.
+- Stats marked "campaign and war map only" can roll on any item but do
+  nothing in duels (the card says so).
+- Random stats and the power are a pure function of the item's uid, base item
+  and rarity, so every item, old ones included, has them without a save
+  change; an item may also store them (`aff`, `pow`). Shop and merchant
+  purchases store the rolls their offer card showed.
 
 | Stat | Word | One step | Slots | Note |
 | --- | --- | --- | --- | --- |
@@ -256,7 +268,7 @@ Source: duel ladder chapter 2 top chest; Thracian trading posts; Thracian bands 
 | Pieces worn | Bonus |
 | --- | --- |
 | 2 | +6% move speed |
-| 3 | +1 javelin throw and +10% missile damage |
+| 3 | +1 javelin throw and +1.3 missile damage |
 
 | Piece | Slot | Built on | Looks like |
 | --- | --- | --- | --- |
@@ -337,7 +349,7 @@ Source: world boss: the Kraken (one piece per victorious raid for contributors, 
 | Pieces worn | Bonus |
 | --- | --- |
 | 2 | +10 HP |
-| 3 | +10% melee damage |
+| 3 | +1.2 melee damage |
 | 4 | +3 armour |
 | 5 | Heel of Achilles: -50% damage from front and side hits; rear hits deal +50% |
 
