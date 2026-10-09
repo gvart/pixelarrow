@@ -51,15 +51,16 @@ export function fitsArmy(def: ItemDef, classes: readonly string[]): boolean {
 }
 
 /**
- * A pick from `pool` that follows the army: the slot comes from the pool as
- * before; a weapon, shield or armour is then, `SOURCES.armyShare` of the
- * time, re-picked among the pool's pieces of that slot the army can use.
- * Without classes it is a plain `rng.pick` (same draws as before).
+ * A pick from `pool` that follows the army: helmets and trinkets come up as
+ * often as before; a weapon, shield or armour is, `SOURCES.armyShare` of the
+ * time, re-picked among the pool's weapons, shields and armour the army can
+ * use (an army of archers gets bows and armour, never a shield it cannot
+ * carry). Without classes it is a plain `rng.pick` (same draws as before).
  */
 export function armyPick(rng: Rng, pool: readonly ItemDef[], classes: readonly string[]): ItemDef {
   const d = rng.pick(pool);
   if (!classes.length || !ARMY_SLOTS.includes(d.slot) || !rng.chance(SOURCES.armyShare)) return d;
-  const fit = pool.filter((x) => x.slot === d.slot && fitsArmy(x, classes));
+  const fit = pool.filter((x) => ARMY_SLOTS.includes(x.slot) && fitsArmy(x, classes));
   return fit.length ? rng.pick(fit) : d;
 }
 
