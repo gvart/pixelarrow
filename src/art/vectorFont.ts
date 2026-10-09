@@ -49,10 +49,14 @@ const TAB_DIGIT: Record<Face, number> = {
   roman: Math.max(...[...DIGITS].map((d) => ROMAN_METRICS.adv[d] ?? 0)),
 };
 
+/** Word space of the roman face, per mille of the em. */
+const ROMAN_SPACE = 380;
+
 /** Advance of one character in UI px at the base size, or -1 if the face has no metrics for it. */
 export function advance(ch: string, face: Face = 'body'): number {
   const f = FACES[face];
-  const a = DIGITS.includes(ch) ? TAB_DIGIT[face] : f.m.adv[ch];
+  // Cinzel's word space (0.25 em) runs words together between its wide capitals at UI sizes
+  const a = DIGITS.includes(ch) ? TAB_DIGIT[face] : face === 'roman' && ch === ' ' ? ROMAN_SPACE : f.m.adv[ch];
   return a === undefined ? -1 : (a * f.px) / 1000;
 }
 
