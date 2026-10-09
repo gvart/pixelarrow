@@ -1428,7 +1428,7 @@ export class DuelScene extends BaseScene {
       line(t('dv.unrankedLine', { w: RANKED.glory.unranked.win, l: RANKED.glory.unranked.loss }), 'sec');
       if (cooldown) line(t('duels.cooldown', { t: clockText(cooldown - now) }), 'bad');
       else if (problem) line(why!, 'bad');
-      const un = new Button(this, x + 7, ly, w - 14, 26, { label: t('dv.playUnranked'), icon: 'swords', variant: 'primary', id: 'duel.findUnranked', tip: t('duels.unrankedTip', { w: RANKED.glory.unranked.win }), onClick: () => this.findMatch('unranked') });
+      const un = new Button(this, x + 7, ly, w - 14, 26, { label: t('dv.playUnranked'), icon: 'swords', inline: true, variant: 'primary', id: 'duel.findUnranked', tip: t('duels.unrankedTip', { w: RANKED.glory.unranked.win }), onClick: () => this.findMatch('unranked') });
       if (why) un.setEnabled(false, why);
       c.add(un);
       ly += 26 + 7;
@@ -1443,8 +1443,8 @@ export class DuelScene extends BaseScene {
       const uw = match ? 0 : Math.min(Math.floor((w - 14) / 2), measureText(unLabel) + 14);
       const mw = w - 14 - (uw ? uw + gap : 0);
       const main = match
-        ? new Button(this, x + 7, ly, mw, 26, { label: t('duels.rejoin'), icon: 'swords', variant: 'primary', id: 'duel.rejoin', onClick: () => this.enterMatch(match.id, match.mode) })
-        : new Button(this, x + 7, ly, mw, 26, { label: t('duels.findMatch'), icon: measureText(t('duels.findMatch')) + 30 <= mw ? 'swords' : undefined, variant: 'primary', id: 'duel.findRanked', onClick: () => this.findMatch('ranked') });
+        ? new Button(this, x + 7, ly, mw, 26, { label: t('duels.rejoin'), icon: 'swords', inline: true, variant: 'primary', id: 'duel.rejoin', onClick: () => this.enterMatch(match.id, match.mode) })
+        : new Button(this, x + 7, ly, mw, 26, { label: t('duels.findMatch'), icon: measureText(t('duels.findMatch')) + 30 <= mw ? 'swords' : undefined, inline: true, variant: 'primary', id: 'duel.findRanked', onClick: () => this.findMatch('ranked') });
       const mainOff = match ? (this.entering ? t('duel.preparing') : undefined) : why;
       if (mainOff) main.setEnabled(false, mainOff);
       c.add(main);

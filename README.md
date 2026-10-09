@@ -111,6 +111,8 @@ overlapping or too-small touch targets, overflowing text and anything outside
 the safe area, except the known violations in `scripts/layout-allowlist.json`.
 How screens are built (UI kit components, colours, touch rules, i18n) and how
 the check works: [docs/UI_KIT.md](docs/UI_KIT.md).
+The v3 menu design (tokens, icons, one header, resources, motion) and its
+bug report: [docs/UI_V3.md](docs/UI_V3.md), [docs/UI_V3_REPORT.md](docs/UI_V3_REPORT.md).
 
 `node scripts/fullscreen-smoke.mjs http://localhost:4173/` fakes a full-screen
 Telegram on an iPhone and checks safe areas and Back navigation (see the

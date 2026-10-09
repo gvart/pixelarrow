@@ -51,6 +51,30 @@ is shown; every rule that decides whether a perk may be learned is the same.
 | Smooth, off under reduced motion | `src/ui/motion.ts`; Settings → Reduce motion (default from the system) |
 | Gameplay, saves, purchases keep working | unit tests, smoke, online smoke (Stars flow), fullscreen smoke |
 
+## Before / after (390 × 844, Telegram full screen)
+
+| Screen | Before / after |
+| --- | --- |
+| menu | ![menu](screenshots/v3/menu.png) |
+| menu-settings | ![menu-settings](screenshots/v3/menu-settings.png) |
+| duel-ladder | ![duel-ladder](screenshots/v3/duel-ladder.png) |
+| duel-floor | ![duel-floor](screenshots/v3/duel-floor.png) |
+| duel-ranked-locked | ![duel-ranked-locked](screenshots/v3/duel-ranked-locked.png) |
+| duel-ranked | ![duel-ranked](screenshots/v3/duel-ranked.png) |
+| duel-raid | ![duel-raid](screenshots/v3/duel-raid.png) |
+| duel-board-live | ![duel-board-live](screenshots/v3/duel-board-live.png) |
+| duel-team | ![duel-team](screenshots/v3/duel-team.png) |
+| duel-shop-gear | ![duel-shop-gear](screenshots/v3/duel-shop-gear.png) |
+| duel-shop-offers | ![duel-shop-offers](screenshots/v3/duel-shop-offers.png) |
+| hero | ![hero](screenshots/v3/hero.png) |
+| hero-perks | ![hero-perks](screenshots/v3/hero-perks.png) |
+| hero-skills | ![hero-skills](screenshots/v3/hero-skills.png) |
+| shop-shop | ![shop-shop](screenshots/v3/shop-shop.png) |
+| shop-pass | ![shop-pass](screenshots/v3/shop-pass.png) |
+| shop-wallet | ![shop-wallet](screenshots/v3/shop-wallet.png) |
+| trial | ![trial](screenshots/v3/trial.png) |
+| army | ![army](screenshots/v3/army.png) |
+
 ## Screens
 
 Home, Duels (Ladder, floor sheet, chests, Arena, raids, defence, raid log,
@@ -66,6 +90,10 @@ unchanged (out of scope); it gets the kit's press feedback for free.
   the new buttons, tabs, fades, modals and no duplicate Back.
 - Item cards (`openItemCard`) keep their layout ("1.3 > 1.5  +0.2 s slower";
   they never had the arrow contradiction).
-- The layout check ran on every screen at 390 × 844 (EN, plain and Telegram),
-  320 × 568 (RU, Telegram) and 360 × 780 (RU, plain) here; CI runs the full
-  5 sizes × 2 languages × 2 insets matrix.
+- Verified here: typecheck, 419 unit tests, the build, the layout check on all
+  140 screens at 390 × 844 (EN, plain and Telegram), 320 × 568 (RU, Telegram),
+  360 × 780 (RU, plain and Telegram) with zero violations, and the smoke suites
+  (campaign, full-screen Telegram navigation, online + Stars flow, tutorial,
+  audio, duels) all passing. CI's full 5 sizes × 2 languages × 2 insets matrix
+  was not run here (about 3.5 h on this machine); the server tests were not
+  run either (no server code changed).
