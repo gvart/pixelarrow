@@ -889,7 +889,9 @@ export class DuelScene extends BaseScene {
       const full = t('duels.chapterStars', { n: stars, max });
       ptext(this, card, 28, 18, measureText(full) <= left - 30 ? full : `${stars}/${max}`, stars >= max ? 'good' : 'sec', { maxW: left - 30 });
     } else ptext(this, card, 17, 18, t('dv.chapterLocked', { n: first - 1 }), 'off', { maxW: left - 20 });
-    const hz = this.add.zone(0, 0, left, narrow && chests ? 30 : h).setOrigin(0, 0).setInteractive();
+    // narrow: the chests sit on their own row below the heading; the heading's zone stops short of them
+    const chestTop = 8 + 22 + GAP - 6;
+    const hz = this.add.zone(0, 0, left, narrow && chests ? chestTop - 3 : h).setOrigin(0, 0).setInteractive();
     uiId(hz, 'duel.chapter');
     tappable(hz, null, () => !area.moved && this.toggleChapter(ch));
     card.add(hz);
@@ -901,7 +903,7 @@ export class DuelScene extends BaseScene {
       // a chapter not reached yet: its chests show once it opens
     } else if (narrow) {
       const cwid = Math.floor((w - 12 - 2 * GAP) / 3);
-      for (let tier = 1; tier <= CHEST_TIERS; tier++) slot(tier, 6 + (tier - 1) * (cwid + GAP), 8 + 22 + GAP - 6, cwid);
+      for (let tier = 1; tier <= CHEST_TIERS; tier++) slot(tier, 6 + (tier - 1) * (cwid + GAP), chestTop, cwid);
     } else for (let tier = 1; tier <= CHEST_TIERS; tier++) slot(tier, w - chestsW - 4 + (tier - 1) * (CHEST_W + GAP), Math.round((h - CHEST_H) / 2), CHEST_W);
     let used = h + GAP;
     if (!open) return used;

@@ -706,7 +706,7 @@ export class HeroScene extends BaseScene {
       c.add(z);
     });
     y += tree.length * (rowH + GAP) + 4;
-    const note = wrapText(t('hero.abilityUse'), w, 2, false, 6);
+    const note = wrapText(t('hero.abilityUse'), w - 2, 3, false, 6);
     note.lines.forEach((l, i) => c.add(mtext(this, 2, y + i * 8, l, 'pMuted', { size: 6, box })));
     y += note.lines.length * 8;
     area.setContentHeight(y + 4);
@@ -821,7 +821,7 @@ export class HeroScene extends BaseScene {
       wr.lines.forEach((l, i) => c.add(mtext(this, 38, y + 27 + i * 8, l, r.has ? 'pInk' : r.open ? 'pSec' : 'pMuted', { size: 6, box })));
       y += hh + GAP;
     }
-    const note = wrapText(`${t('hero.abilityUse')} ${t('hero.auraUse')}`, w, 3, false, 6);
+    const note = wrapText(`${t('hero.abilityUse')} ${t('hero.auraUse')}`, w - 2, 4, false, 6);
     note.lines.forEach((l, i) => c.add(mtext(this, 2, y + 2 + i * 8, l, 'pMuted', { size: 6, box })));
     y += 2 + note.lines.length * 8;
     area.setContentHeight(y + 4);

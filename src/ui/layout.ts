@@ -248,6 +248,10 @@ export function collectUi(game: Phaser.Game): UiElement[] {
         // The smallest panel drawn before this text that holds its start.
         const ax = it.rect.x + Math.min(3, it.rect.w / 2);
         const ay = it.rect.y + it.rect.h / 2;
+        // a text half scrolled under a fixed header belongs to its scroll area, not the header:
+        // panels outside its scroll area are matched on the part of it that shows
+        const shown = it.clip ? intersect(it.rect, it.clip) : null;
+        const ayShown = shown ? shown.y + shown.h / 2 : ay;
         const idx = items.indexOf(it);
         // Panels scrolling with the text (same scroll area) match on their full rect;
         // others only on their visible part (a row scrolled away holds nothing).
@@ -261,7 +265,8 @@ export function collectUi(game: Phaser.Game): UiElement[] {
             const pr = p.rect;
             const pv = sameClip ? pr : p.clip ? intersect(p.rect, p.clip) : pr;
             if (!pv) continue;
-            if (ax >= pv.x && ax <= pv.x + pv.w && ay >= pv.y && ay <= pv.y + pv.h && (!best || pr.w * pr.h < best.w * best.h)) best = pr;
+            const y = sameClip ? ay : ayShown;
+            if (ax >= pv.x && ax <= pv.x + pv.w && y >= pv.y && y <= pv.y + pv.h && (!best || pr.w * pr.h < best.w * best.h)) best = pr;
           }
           return best;
         };

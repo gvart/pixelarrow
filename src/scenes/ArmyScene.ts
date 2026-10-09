@@ -264,7 +264,9 @@ export class ArmyScene extends BaseScene {
     if (!compact) {
       const nw = 56;
       const nh = 72;
-      slotY = P + nh + 6;
+      // the four group buttons sit beside the niche when they fit there, else on a row of their own under it
+      const beside = cw - (P + nw + 7) - P >= 4 * TAP + 3 * GAP;
+      slotY = P + nh + 6 + (beside ? 0 : TAP + 4);
       ch = slotY + grid.h + P + 1;
       const box = { owner: card, w: cw, h: ch };
       card.add(mosaicImage(this, 0, 0, cw, ch, 'parchment'));
@@ -280,10 +282,11 @@ export class ArmyScene extends BaseScene {
       addPill(this, card, tx + lv + 3, P + 22, roleName(cls.role), roleColor(cls.role), tw - lv - 3);
       card.add(mtext(this, tx, P + 37, t('hero.power', { n: powerRating(h) }), 'rInk', { size: 7, maxW: tw, box }));
       // group buttons with the group's name
-      const gy = P + 49;
-      const gw = Math.max(TAP, Math.min(30, Math.floor((tw - 3 * GAP) / 4)));
-      ROMAN.forEach((_r, g) => card.add(this.groupButton(tx + g * (gw + GAP), gy, gw, g, h)));
-      const gx = tx + 4 * (gw + GAP);
+      const gy = beside ? P + 49 : P + nh + 6;
+      const gx0 = beside ? tx : P;
+      const gw = Math.max(TAP, Math.min(30, Math.floor((cw - gx0 - P - 3 * GAP) / 4)));
+      ROMAN.forEach((_r, g) => card.add(this.groupButton(gx0 + g * (gw + GAP), gy, gw, g, h)));
+      const gx = gx0 + 4 * (gw + GAP);
       if (cw - P - gx > 28) card.add(mtext(this, gx + 1, gy + 8, groupName(h.group), 'pSec', { size: 6, maxW: cw - P - gx - 1, box }));
     } else {
       // short screens: portrait with name, level and power, rank, class; the groups on a row of their own, then the slots
