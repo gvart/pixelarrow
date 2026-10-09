@@ -20,6 +20,7 @@ import { STRAT_EN } from './strat.en';
 import { CAMPSCENE_EN } from './campscene.en';
 import { V3_EN } from './v3.en';
 import { V4_EN } from './v4.en';
+import { MOSAIC_EN } from './mosaic.en';
 
 export const EN = {
   // ---- shared words
@@ -299,4 +300,6 @@ export const EN = {
   // ---- the v3 UI: resources, shared components, redesigned screens (v3.en.ts)
   ...V3_EN,
   ...V4_EN,
+  // ---- the v4 Mosaic & Parchment chrome (mosaic.en.ts)
+  ...MOSAIC_EN,
 } as const;

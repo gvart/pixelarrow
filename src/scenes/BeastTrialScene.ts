@@ -19,19 +19,35 @@ import { state, randomSeed } from '../state';
 import { t, type TKey } from '../i18n';
 import type { BattleSite } from '../world/battlefield';
 
+/** The beast's level against this army: a little above its average. */
+export function beastLevel(enc: EncounterId): number {
+  const fit = state.campaign.fitHeroes();
+  const avg = fit.reduce((a, h) => a + h.level, 0) / Math.max(1, fit.length);
+  return Math.max(2, Math.round(avg) + (WORLD_BOSSES.includes(enc) ? 3 : 1));
+}
+
+interface TrialData {
+  /** The scene Back returns to (default: the Menu). */
+  from?: string;
+  /** Open this beast's panel at once (a tap on its row in the Codex). */
+  open?: EncounterId;
+}
+
 export class BeastTrialScene extends BaseScene {
   private list: ScrollList | null = null;
+  private from = 'Menu';
 
   constructor() {
     super('BeastTrial');
   }
 
-  create(): void {
+  create(data?: TrialData): void {
     this.initUi();
-    this.screen({ back: () => this.scene.start('Menu') });
+    this.from = data?.from ?? 'Menu';
+    this.screen({ back: () => this.scene.start(this.from) });
     const { VW, VH } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, VH, SURFACE.bg).setOrigin(0, 0));
-    const hdr = new ScreenHeader(this, VW, { title: t('trial.title'), back: () => this.scene.start('Menu'), id: 'trial.header' });
+    const hdr = new ScreenHeader(this, VW, { title: t('trial.title'), back: () => this.scene.start(this.from), id: 'trial.header' });
     this.ui.add(hdr);
     const x = 6;
     const w = VW - 12;
@@ -66,13 +82,11 @@ export class BeastTrialScene extends BaseScene {
       },
     });
     this.events.once('shutdown', () => this.list?.destroy());
+    if (data?.open) this.open(data.open);
   }
 
-  /** The beast's level against this army: a little above its average. */
   private level(enc: EncounterId): number {
-    const fit = state.campaign.fitHeroes();
-    const avg = fit.reduce((a, h) => a + h.level, 0) / Math.max(1, fit.length);
-    return Math.max(2, Math.round(avg) + (WORLD_BOSSES.includes(enc) ? 3 : 1));
+    return beastLevel(enc);
   }
 
   open(enc: EncounterId): void {

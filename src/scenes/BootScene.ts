@@ -11,10 +11,15 @@ import { hintStore } from '../ui/widgets';
 import { canResume, progressOf } from '../game/tutorial';
 import { ongoingMatch } from '../duel/match';
 import { online } from '../platform/cloud';
+import { preloadRasters } from '../ui/mosaic/raster';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
+  }
+
+  preload(): void {
+    preloadRasters(this);
   }
 
   create(): void {

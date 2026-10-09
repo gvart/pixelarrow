@@ -210,6 +210,14 @@ export const UI_ICONS: Record<string, IconPart[]> = {
     { d: 'M7.4 7.4H15M9 13.6H16.6', tone: 'ink', detail: true, w: 0.9 },
     { d: 'M7.4 21.8Q12 19.6 16.6 21.8Z', tone: 'stone' },
   ],
+  // the Codex tab: a leather book with a gold band
+  book: [
+    { d: 'M5 2.6H19.4Q20.6 2.6 20.6 3.8V18.6H5Z', tone: 'leather' },
+    { d: 'M3.6 4.6Q3.6 2.6 5.6 2.6V18.6Q3.6 18.6 3.6 20.6Z', tone: 'wood' },
+    { d: 'M5.2 18.6H20.6V20.2Q20.6 21.4 19.4 21.4H5.6Q3.6 21.4 3.6 20.6Q3.6 18.6 5.2 18.6Z', tone: 'ivory' },
+    { d: 'M8.4 4V17.4M7 7.4H18.4M7 13.6H18.4', tone: 'gold', detail: true, w: 1 },
+    { d: circle(13.4, 10.5, 1.9), tone: 'gold' },
+  ],
   chevL: [{ d: chevron(-1), tone: 'bronze' }],
   chevR: [{ d: chevron(1), tone: 'bronze' }],
   info: [

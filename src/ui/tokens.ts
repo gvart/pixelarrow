@@ -84,6 +84,77 @@ export const ROLE = {
 export const RARITY_FRAME = { common: 0x9a948a, uncommon: 0x5f9a45, rare: 0x4a78c0, epic: 0x9a58c0, legendary: 0xe0b040 } as const;
 export const RARITY_TEXT = { common: 0xd2ccc0, uncommon: 0x9ed67c, rare: 0x8dbaff, epic: 0xd2a8ff, legendary: 0xffd263 } as const;
 
+// ================================================================== mosaic (UI v4)
+
+/**
+ * "Mosaic & Parchment" (docs/redesign/V4_SPEC.md): parchment cards with dark
+ * ink inside a carved-stone frame with a gold meander, on a basalt page.
+ * Terracotta is the one primary action, bronze the secondary, grey stone the
+ * unavailable, teal the plaque / tab bar. Existing v3 tokens stay until every
+ * screen has moved.
+ */
+export const MOSAIC = {
+  /** The page behind everything: dark warm basalt. */
+  page: 0x16120f,
+  pageSpeck: 0x211b16,
+  /** Dark carved stone of the frame, the top bar and chips on stone (darkest to lightest). */
+  stone0: 0x1a1612,
+  stone1: 0x26211b,
+  stone2: 0x342d25,
+  stone3: 0x463d33,
+  /** Grey cut stone of tiles and disabled buttons. */
+  slab: 0x6e6860,
+  slabHi: 0x8c857a,
+  slabLo: 0x4c4741,
+  /** Disabled button / tile faces and their label. */
+  off: 0x5f5a53,
+  offHi: 0x75706a,
+  offText: 0xd6cebf,
+  /** The meander band: gold-ochre on dark stone. */
+  meander: 0xb48f4a,
+  meanderHi: 0xdcb86e,
+  meanderLo: 0x6a5128,
+  /** Gold text and rims on dark stone. */
+  gold: 0xe6c885,
+  goldHi: 0xf6e0a6,
+  /** Parchment: face, light (selected) and shade, and the inked edge. */
+  parch: 0xe7d6ad,
+  parchHi: 0xf0e3c2,
+  parchLo: 0xdcc394,
+  parchEdge: 0x5a3d22,
+  /** A sunken parchment well (a track, an input). */
+  well: 0xd6be90,
+  wellLo: 0xbfa476,
+  /** Ink on parchment. */
+  ink: 0x3a2414,
+  inkSec: 0x5e4129,
+  inkMuted: 0x634830,
+  inkDisabled: 0x6e5a3b,
+  inkGood: 0x33581d,
+  inkBad: 0x8f2818,
+  /** Cream text on terracotta, bronze, teal and stone. */
+  cream: 0xfdf3de,
+  /** Terracotta (the primary action). */
+  terra: 0xa8432c,
+  terraHi: 0xc9573a,
+  terraLo: 0x6e2616,
+  /** Aged bronze (secondary actions, frames, the war medallion). */
+  bronze: 0x7d5b30,
+  bronzeHi: 0xc9a066,
+  bronzeLo: 0x4a3419,
+  /** Teal: the title plaque, the glaze tile and the tab bar. */
+  teal: 0x1f4f52,
+  tealHi: 0x2f7270,
+  tealLo: 0x122f33,
+  tabBar: 0x16333a,
+  /** Quest segments: done gold and open dark brown. */
+  segDone: 0xe9b94a,
+  segOpen: 0x4a3a2a,
+} as const;
+
+/** Rarity labels darkened to read on parchment. */
+export const RARITY_INK = { common: 0x4f483f, uncommon: 0x33581d, rare: 0x1f478a, epic: 0x62298a, legendary: 0x6e4600 } as const;
+
 // ================================================================== resources
 
 /**
@@ -207,6 +278,33 @@ export const CONTRAST_PAIRS: { fg: number; bg: number; min: number; what: string
     ...Object.entries(RARITY_TEXT).map(([r, fg]) => ({ fg, bg, min: 4.5, what: `rarity ${r}` })),
     ...Object.entries(RESOURCES).map(([r, v]) => ({ fg: v.color, bg, min: 4.5, what: `resource ${r}` })),
   ]),
+  // ---- mosaic (UI v4)
+  ...[MOSAIC.parchHi, MOSAIC.parch, MOSAIC.parchLo].flatMap((bg) => [
+    { fg: MOSAIC.ink, bg, min: 4.5, what: 'ink on parchment' },
+    { fg: MOSAIC.inkSec, bg, min: 4.5, what: 'secondary ink on parchment' },
+    { fg: MOSAIC.inkMuted, bg, min: 4.5, what: 'muted ink on parchment' },
+    { fg: MOSAIC.inkDisabled, bg, min: 3, what: 'disabled ink on parchment' },
+    { fg: MOSAIC.inkGood, bg, min: 4.5, what: 'success ink on parchment' },
+    { fg: MOSAIC.inkBad, bg, min: 4.5, what: 'danger ink on parchment' },
+    ...Object.entries(RARITY_INK).map(([r, fg]) => ({ fg, bg, min: 4.5, what: `rarity ${r} on parchment` })),
+  ]),
+  { fg: MOSAIC.ink, bg: MOSAIC.well, min: 4.5, what: 'ink in a parchment well' },
+  { fg: MOSAIC.inkSec, bg: MOSAIC.well, min: 4.5, what: 'secondary ink in a parchment well' },
+  ...[MOSAIC.terra, MOSAIC.terraLo].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on terracotta' })),
+  ...[MOSAIC.bronze, MOSAIC.bronzeLo].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on bronze' })),
+  ...[MOSAIC.teal, MOSAIC.tealLo, MOSAIC.tabBar].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on teal' })),
+  ...[MOSAIC.tealHi].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on teal glaze' })),
+  ...[MOSAIC.stone0, MOSAIC.stone1, MOSAIC.stone2, MOSAIC.stone3].flatMap((bg) => [
+    { fg: MOSAIC.gold, bg, min: 4.5, what: 'gold on stone' },
+    { fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on stone' },
+  ]),
+  ...[MOSAIC.slab, MOSAIC.slabLo].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on cut stone' })),
+  ...[MOSAIC.stone1, MOSAIC.stone2, MOSAIC.stone3].map((bg) => ({ fg: TEXT.primary, bg, min: 4.5, what: 'number on stone chip' })),
+  { fg: MOSAIC.cream, bg: MOSAIC.bronzeLo, min: 4.5, what: 'cream on bronze tile' },
+  { fg: MOSAIC.gold, bg: MOSAIC.tabBar, min: 4.5, what: 'gold on the tab bar' },
+  { fg: MOSAIC.offText, bg: MOSAIC.off, min: 3, what: 'disabled label on grey stone' },
+  { fg: MOSAIC.cream, bg: ACCENT.purchase, min: 4.5, what: 'cream on purchase blue' },
+  { fg: MOSAIC.ink, bg: MOSAIC.segDone, min: 4.5, what: 'check on a done quest segment' },
   { fg: TEXT.onAccent, bg: ACCENT.primary, min: 4.5, what: 'primary button label' },
   { fg: TEXT.onAccent, bg: ACCENT.primaryLo, min: 4.5, what: 'primary button (pressed)' },
   { fg: TEXT.onAccent, bg: ACCENT.purchase, min: 4.5, what: 'purchase button label' },

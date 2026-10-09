@@ -20,13 +20,15 @@ import { t } from '../i18n';
 import { ellipsize, measureText } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
 import { RS } from '../platform/renderScale';
-import { ACCENT, RESOURCES, TEXT } from './tokens';
+import { ACCENT, MOSAIC, RESOURCES, TEXT } from './tokens';
 import { motion } from './motion';
 
 export type FontKey =
   | 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good' | 'head'
   // v3 (src/ui/tokens.ts): secondary and muted text, text on accents, the resource colours, errors
-  | 'sec' | 'muted' | 'onAccent' | 'reward' | 'glory' | 'premium' | 'bad' | 'xp' | 'power' | 'stars' | 'headL' | 'wargold';
+  | 'sec' | 'muted' | 'onAccent' | 'reward' | 'glory' | 'premium' | 'bad' | 'xp' | 'power' | 'stars' | 'headL' | 'wargold'
+  // v4 Mosaic (MOSAIC in tokens.ts): Inter ink on parchment (p*) and Cinzel caps (r*): ink on parchment, cream on terracotta / bronze / teal / stone, gold on dark stone
+  | 'pInk' | 'pSec' | 'pMuted' | 'pOff' | 'pGood' | 'pBad' | 'rInk' | 'rCream' | 'rGold' | 'rOff';
 
 export interface UIMetrics {
   S: number;
@@ -66,8 +68,18 @@ const FONT_COLORS: Record<FontKey, [number, number | undefined]> = {
   wargold: [RESOURCES.wargold.color, undefined],
   // titles: Cormorant SC in the primary text colour
   headL: [TEXT.primary, undefined],
+  pInk: [MOSAIC.ink, undefined],
+  pSec: [MOSAIC.inkSec, undefined],
+  pMuted: [MOSAIC.inkMuted, undefined],
+  pOff: [MOSAIC.inkDisabled, undefined],
+  pGood: [MOSAIC.inkGood, undefined],
+  pBad: [MOSAIC.inkBad, undefined],
+  rInk: [MOSAIC.ink, undefined],
+  rCream: [MOSAIC.cream, 0x2a0f08],
+  rGold: [MOSAIC.gold, 0x0c0907],
+  rOff: [MOSAIC.offText, 0x2e2a25],
 };
-const FONT_FACE: Partial<Record<FontKey, Face>> = { head: 'head', headL: 'head' };
+const FONT_FACE: Partial<Record<FontKey, Face>> = { head: 'head', headL: 'head', rInk: 'roman', rCream: 'roman', rGold: 'roman', rOff: 'roman' };
 
 /**
  * Register a bitmap font `key` drawn from a vector face (src/art/vectorFont.ts)
@@ -204,7 +216,7 @@ export function addText(
 }
 
 /** Fonts drawn with a 1 px drop shadow (one pixel wider). */
-export const SHADOW_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['light', 'gold', 'title', 'onAccent']);
+export const SHADOW_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['light', 'gold', 'title', 'onAccent', 'rCream', 'rGold', 'rOff']);
 
 /**
  * Shortens a one-line text until it fits the width, ending it with "…". The
