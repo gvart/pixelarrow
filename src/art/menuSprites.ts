@@ -109,6 +109,28 @@ export const PENNANT: Grid[] = [
   ['.B..........', 'kbk.........', '.wkkkkkkk...', '.wkcCccck...', '.wkccccccckk', '.wkcCcccccck', '.wkkkkkkkkk.', '.w..........', '.w..........', '.w..........', '.w..........', '.w..........', '.w..........', '.d..........'],
 ];
 
+/** A laurel branch (the left half of a victor's wreath; flip it for the right), 13 x 18. */
+export const LAUREL: Grid = [
+  '.....kgGkk.kk',
+  '......kgGbkgG',
+  '...kk..kbkgGk',
+  '..kgGkkbkkkk.',
+  '...kgGbkgGk..',
+  '..kkkgbgGk...',
+  '.kgGkbkkk....',
+  '..kgGbkgGk...',
+  '..kkgbgGk....',
+  '.kgGkbkkk....',
+  '..kgGbkgGk...',
+  '...kgbgGk....',
+  '..kgGkbkkk...',
+  '...kgGbkgGk..',
+  '....kgkbGk...',
+  '.....k.kbkk..',
+  '........kbBk.',
+  '.........kk..',
+];
+
 // ------------------------------------------------------------------ texture builder
 
 /** Paints a grid into a canvas (pure: tests and the texture builder). Unknown letters are skipped. */
