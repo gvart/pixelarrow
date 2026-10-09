@@ -79,6 +79,12 @@ export interface DuelSceneData {
 }
 
 const TABS: DuelTab[] = ['ladder', 'ranked', 'team', 'shop'];
+/**
+ * Back is ignored this long after the hub opens: the Back (or a second tap)
+ * that left the report or the hero sheet must not also leave the hub for the
+ * menu.
+ */
+const BACK_GUARD_MS = 600;
 const TAB_ICONS = ['flag', 'swords', 'people', 'star'];
 
 /** Badge colour of each league (placements: the plain frame). */
@@ -160,6 +166,16 @@ export class DuelScene extends BaseScene {
   private pageBottom = Infinity;
   /** The season reward popup was shown in this visit. */
   private rewardShown = false;
+  /** Bumped by every visit (not a relayout): answers that arrive after the player left are dropped. */
+  private visit = 0;
+  /** The next create is a relayout (new screen size): the queue search and a found match carry over. */
+  private relayout = false;
+  /** A live match being opened (playLiveMatch): no second search or rejoin until the battle starts. */
+  private entering: string | null = null;
+  /** The raid log is loading (a second tap must not open it twice). */
+  private logLoading = false;
+  /** When this visit began (Date.now()): see BACK_GUARD_MS. */
+  private openedAt = 0;
 
   constructor() {
     super('Duel');
@@ -177,6 +193,14 @@ export class DuelScene extends BaseScene {
     this.arenaTab = data.arena ?? this.arenaTab;
     if (prev !== this.src) (this.asyncView = null), (this.season = null), (this.boardView = null), (this.rewardShown = false);
     this.st = this.profile ? 'ready' : 'loading';
+    // a relayout keeps the search, the found match and the requests in flight
+    const relayout = this.relayout;
+    this.relayout = false;
+    if (!relayout) {
+      this.visit++;
+      this.openedAt = Date.now();
+      this.busy = false;
+    }
     this.list = null;
     this.stash = null;
     this.initUi();
@@ -188,28 +212,51 @@ export class DuelScene extends BaseScene {
     this.body = this.add.container(0, 0);
     this.ui.add([this.head, this.body]);
     this.drag = new DragDrop(this);
-    this.search = null;
-    this.found = null;
+    if (!relayout) {
+      this.search = null;
+      this.found = null;
+      this.entering = null;
+    }
     this.events.once('shutdown', () => {
       this.clearBody();
+      if (this.relayout) return;
       this.search?.cancel();
       this.search = null;
     });
     this.time.addEvent({ delay: 1000, loop: true, callback: () => this.tickSearch() });
+    // the found opponent's hold timer went with the old layout
+    if (relayout && this.found) this.holdFound(this.found);
     this.render();
     void this.fetchData();
     if (data.error) toast(this, data.error, 'bad', 3500);
   }
 
   private back(): void {
+    if (Date.now() - this.openedAt < BACK_GUARD_MS) return;
     this.scene.start('Menu');
+  }
+
+  /**
+   * A new screen size rebuilds the hub where the player is (tab, Arena page)
+   * without leaving the queue or dropping a found match (the default restart
+   * would cancel the search, and a found match never entered is abandoned).
+   */
+  protected onResized(): void {
+    this.relayout = true;
+    this.scene.restart({ tab: this.tab, shop: this.shopTab, arena: this.arenaTab, preview: this.src.demo } satisfies DuelSceneData);
+  }
+
+  /** Whether an answer still belongs on screen: the scene runs and it is the visit that asked. */
+  private current(visit: number): boolean {
+    return this.sys.isActive() && visit === this.visit;
   }
 
   /** Load from the source, or show a given profile (tests, layout check). */
   async fetchData(given?: DuelProfileView): Promise<void> {
+    const visit = this.visit;
     try {
       const p = given ?? (await this.src.profile());
-      if (!this.sys.isActive()) return;
+      if (!this.current(visit)) return;
       this.setProfile(p);
       void this.loadRanked();
       void this.loadSeason();
@@ -217,7 +264,7 @@ export class DuelScene extends BaseScene {
       if (this.tab === 'ranked' && this.arenaTab === 'top') void this.loadBoard();
       this.st = 'ready';
     } catch (e) {
-      if (!this.sys.isActive()) return;
+      if (!this.current(visit)) return;
       this.st = econState(e, (e as { code?: string } | null)?.code !== 'outside');
     }
     this.render();
@@ -490,17 +537,22 @@ export class DuelScene extends BaseScene {
   private async fight(n: number): Promise<void> {
     if (this.busy) return;
     this.busy = true;
+    const visit = this.visit;
+    let started = false;
     try {
       const tk = await this.src.ladderStart(n);
-      if (!this.sys.isActive()) return;
+      // left meanwhile (Back, then maybe Duels again): no battle out of nowhere; the ticket resumes on the next tap
+      if (!this.current(visit)) return;
       this.scene.start('Battle', { source: ladderSource(this.game, this.src, tk) });
+      // the switch happens on the next frame: a second tap before it must not start a second battle
+      started = true;
     } catch (e) {
-      if (this.sys.isActive()) {
+      if (this.current(visit)) {
         hapticNotify('error');
         toast(this, errorText(e), 'bad');
       }
     } finally {
-      this.busy = false;
+      if (!started) this.busy = false;
     }
   }
 
@@ -542,9 +594,10 @@ export class DuelScene extends BaseScene {
 
   /** The season (and, once per visit, the popup of rewards not seen yet). */
   private async loadSeason(): Promise<void> {
+    const visit = this.visit;
     try {
       const v = await this.src.season();
-      if (!this.sys.isActive()) return;
+      if (!this.current(visit)) return;
       this.season = v;
       if (this.tab === 'ranked' && this.profile && this.st === 'ready' && !this.search && !this.found) this.buildBody();
       if (v.rewards.length && !this.rewardShown) this.openSeasonRewards(v);
@@ -634,14 +687,16 @@ export class DuelScene extends BaseScene {
     const bh = 30;
     if (r?.match) {
       const m = r.match;
-      B.add(new Button(this, x, y, w, bh, { label: t('duels.rejoin'), icon: 'swords', variant: 'primary', id: 'duel.rejoin', onClick: () => this.enterMatch(m.id, m.mode) }));
+      const rejoin = new Button(this, x, y, w, bh, { label: t('duels.rejoin'), icon: 'swords', variant: 'primary', id: 'duel.rejoin', onClick: () => this.enterMatch(m.id, m.mode) });
+      rejoin.setEnabled(!this.entering, this.entering ? t('duel.preparing') : undefined);
+      B.add(rejoin);
       this.hint(t('duels.rejoinHint'), x, y + bh + 3, w, 'dim', 2);
       return;
     }
     const cooldown = r && r.cooldownUntil > now ? r.cooldownUntil : 0;
     const locked = !!r && !r.unlocked;
     const problem = teamProblem(this.teamHeroes(p, 'arena'), DUEL_RULES.budget);
-    const why = cooldown ? t('duels.unq.cooldown') : problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : !r ? t('duels.unq.error') : undefined;
+    const why = this.entering ? t('duel.preparing') : cooldown ? t('duels.unq.cooldown') : problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : !r ? t('duels.unq.error') : undefined;
     // ranked (wide, primary) and unranked side by side
     const uw = Math.max(54, Math.floor(w * 0.4));
     const rw = w - uw - SIZE.gap;
@@ -706,7 +761,8 @@ export class DuelScene extends BaseScene {
   private tickSearch(): void {
     if (this.search && this.searchText?.active) this.searchText.setText(t('duels.searching', { t: clockText(Date.now() - this.search.since) }));
     // a running cooldown counts down on the card
-    if (!this.search && !this.found && this.tab === 'ranked' && this.ranked?.cooldownUntil && this.profile && this.st === 'ready') {
+    // (only the Live page shows it: rebuilding Raids or Top every second would reset their lists)
+    if (!this.search && !this.found && this.tab === 'ranked' && this.arenaTab === 'live' && this.ranked?.cooldownUntil && this.profile && this.st === 'ready') {
       if (this.ranked.cooldownUntil <= Date.now()) this.ranked.cooldownUntil = 0;
       this.buildBody();
     }
@@ -714,7 +770,7 @@ export class DuelScene extends BaseScene {
 
   /** Joins a queue: the card shows the search until a match is found or the server refuses. */
   findMatch(mode: DuelMode): void {
-    if (this.search || this.found) return;
+    if (this.search || this.found || this.entering) return;
     const since = Date.now();
     this.search = { mode, since, cancel: () => undefined };
     this.search.cancel = this.src.queue(mode, (e) => this.onQueue(e));
@@ -730,15 +786,19 @@ export class DuelScene extends BaseScene {
   }
 
   private onQueue(e: QueueEvent): void {
-    if (!this.sys.isActive() || !this.search) return;
+    if (!this.sys.isActive()) return;
     if (e.type === 'match_found') {
+      // also right after Cancel: the server was already pairing, and a match never joined is abandoned
+      if (this.found || this.entering) return;
       this.search = null;
       if (!e.opponent.name) return this.enterMatch(e.match, e.mode); // a live match to rejoin
       this.found = { match: e.match, mode: e.mode, name: e.opponent.name, league: e.opponent.league };
+      this.tab = 'ranked';
+      this.arenaTab = 'live';
       hapticNotify('success');
       this.buildBody();
-      this.time.delayedCall(this.foundHoldMs, () => this.found && this.enterMatch(e.match, e.mode));
-    } else if (e.type === 'unqueued' || e.type === 'error') {
+      this.holdFound(this.found);
+    } else if (this.search && (e.type === 'unqueued' || e.type === 'error')) {
       this.search = null;
       if (e.type === 'error' || e.reason !== 'cancelled') {
         hapticNotify('error');
@@ -749,15 +809,27 @@ export class DuelScene extends BaseScene {
     }
   }
 
-  /** Into the match's battle: the live socket, or the demo's local battle against the bot. */
+  /** The found opponent shows for foundHoldMs, then the battle. */
+  private holdFound(f: NonNullable<DuelScene['found']>): void {
+    this.time.delayedCall(this.foundHoldMs, () => this.found === f && this.enterMatch(f.match, f.mode));
+  }
+
+  /**
+   * Into the match's battle: the live socket, or the demo's local battle
+   * against the bot. While the socket opens the found card stays and Find
+   * match / Rejoin are off (a second tap would open the match twice).
+   */
   enterMatch(id: string, mode: DuelMode): void {
-    this.found = null;
     if (this.src instanceof DemoDuelSource) {
+      this.found = null;
       const m = this.src.demoMatch(id);
       if (!m) return this.buildBody();
       this.scene.start('Battle', { source: demoMatchSource(this.game, this.src, m) });
       return;
     }
+    if (this.entering) return;
+    this.entering = id;
+    if (this.profile && this.st === 'ready') this.buildBody();
     void playLiveMatch(this.game, this.src, id, mode);
   }
 
@@ -924,18 +996,21 @@ export class DuelScene extends BaseScene {
   async raid(defender: number): Promise<void> {
     if (this.busy) return;
     this.busy = true;
+    const visit = this.visit;
+    let started = false;
     try {
       const tk = await this.src.asyncStart(defender);
-      if (!this.sys.isActive()) return;
+      if (!this.current(visit)) return;
       this.scene.start('Battle', { source: raidSource(this.game, this.src, tk) });
+      started = true;
     } catch (e) {
-      if (this.sys.isActive()) {
+      if (this.current(visit)) {
         hapticNotify('error');
         toast(this, errorText(e), 'bad');
         void this.loadAsync();
       }
     } finally {
-      this.busy = false;
+      if (!started) this.busy = false;
     }
   }
 
@@ -975,15 +1050,21 @@ export class DuelScene extends BaseScene {
   /** The raid log: your raids and the raids on your defence. */
   async openRaidLog(given?: AsyncLogEntry[]): Promise<void> {
     let entries = given;
+    const visit = this.visit;
     if (!entries) {
+      // a second tap while the log loads would open it twice
+      if (this.logLoading) return;
+      this.logLoading = true;
       try {
         entries = (await this.src.asyncLog()).entries;
       } catch (e) {
-        if (this.sys.isActive()) toast(this, errorText(e), 'bad');
+        if (this.current(visit)) toast(this, errorText(e), 'bad');
         return;
+      } finally {
+        this.logLoading = false;
       }
     }
-    if (!this.sys.isActive()) return;
+    if (!this.current(visit)) return;
     const { VW, VH } = this.m;
     const w = Math.min(VW - 12, 220);
     const inner = w - 16;
@@ -1494,10 +1575,31 @@ function sample(o: ShopOffer): Item {
 
 // ------------------------------------------------------------------ battle
 
-/** Stops whatever runs and opens the duel hub (from the battle scene's callbacks). */
+/**
+ * Stops whatever runs and opens the duel hub (from the battle scene's
+ * callbacks). These run outside the hub (timers, sockets, promises), so an
+ * error here must not leave every scene stopped (a blank screen): the menu
+ * opens instead.
+ */
 export function backToDuel(game: Phaser.Game, data: DuelSceneData): void {
   for (const sc of game.scene.getScenes(true)) game.scene.stop(sc.scene.key);
-  game.scene.start('Duel', data);
+  try {
+    game.scene.start('Duel', data);
+  } catch (e) {
+    console.error('[duel] the hub failed to open', e);
+    game.scene.stop('Duel');
+    game.scene.start('Menu');
+  }
+}
+
+/** The report of a finished duel battle, then back to the hub; a report that cannot be shown goes straight back. */
+export function reportThenHub(game: Phaser.Game, build: () => BattleReport, data: DuelSceneData): void {
+  try {
+    showReport(game, build(), () => backToDuel(game, data));
+  } catch (e) {
+    console.error('[duel] the report failed', e);
+    backToDuel(game, { ...data, error: errorText(e) });
+  }
 }
 
 /** The battle scene's source for a ladder floor: submit the order log, then the report and back to the ladder. */
@@ -1512,7 +1614,7 @@ export function ladderSource(game: Phaser.Game, src: DuelSource, tk: LadderTicke
       const sub = attackSubmission(sim, deployOrders);
       src
         .ladderSubmit(tk.ticket, sub, sim.result())
-        .then((r) => showReport(game, ladderReport(r, this.label, src.demo), () => backToDuel(game, { tab: 'ladder', preview: src.demo })))
+        .then((r) => reportThenHub(game, () => ladderReport(r, this.label, src.demo), { tab: 'ladder', preview: src.demo }))
         .catch((e) => backToDuel(game, { tab: 'ladder', preview: src.demo, error: errorText(e) }));
     },
     onLeave() {
@@ -1550,14 +1652,19 @@ export function ladderReport(r: LadderReport, label: string, demo = false): Batt
 
 // ------------------------------------------------------------------ live matches
 
+/** The live match whose socket is opening (a second open would run two links on one match). */
+let opening: string | null = null;
+
 /** Opens the match socket and starts the battle (or shows the report of a match already over). */
 export async function playLiveMatch(game: Phaser.Game, src: DuelSource, id: string, _mode: DuelMode): Promise<void> {
+  if (opening === id) return;
+  opening = id;
   const link = new MatchLink(id);
   try {
     const first = await link.open();
     if (!('type' in first)) {
       link.close();
-      showReport(game, rankedReport(first, t('battle.vs', { name: first.names[1 - first.side] })), () => backToDuel(game, { tab: 'ranked' }));
+      reportThenHub(game, () => rankedReport(first, t('battle.vs', { name: first.names[1 - first.side] })), { tab: 'ranked', arena: 'live' });
       return;
     }
     for (const sc of game.scene.getScenes(true)) if (sc.scene.key !== 'Battle') game.scene.stop(sc.scene.key);
@@ -1565,17 +1672,34 @@ export async function playLiveMatch(game: Phaser.Game, src: DuelSource, id: stri
   } catch {
     link.close();
     backToDuel(game, { tab: 'ranked', error: t('duels.live.unreachable') });
+  } finally {
+    opening = null;
   }
 }
 
-/** The battle is over: the settled report (asked for again if the socket missed it), then back to the Ranked tab. */
-function finishMatch(game: Phaser.Game, src: DuelSource, id: string, o: MatchOutcome): void {
+/** How often, and how far apart, a report still being settled is asked for again. */
+const REPORT_TRIES = 5;
+const REPORT_RETRY_MS = 2000;
+
+/**
+ * The battle is over: the settled report (asked for again if the socket
+ * missed it; the server may still be settling, 409 match_live), then back to
+ * the Ranked tab.
+ */
+export function finishMatch(game: Phaser.Game, src: DuelSource, id: string, o: MatchOutcome, tries = 1): void {
   const label = t('battle.vs', { name: o.names[1 - o.side] });
-  if (o.report) return showReport(game, rankedReport(o.report, label), () => backToDuel(game, { tab: 'ranked' }));
+  const report = o.report;
+  if (report) return reportThenHub(game, () => rankedReport(report, label), { tab: 'ranked', arena: 'live' });
   src
     .matchReport(id)
-    .then((r) => showReport(game, rankedReport(r.report, label), () => backToDuel(game, { tab: 'ranked' })))
-    .catch((e) => backToDuel(game, { tab: 'ranked', error: errorText(e) }));
+    .then((r) => reportThenHub(game, () => rankedReport(r.report, label), { tab: 'ranked', arena: 'live' }))
+    .catch((e) => {
+      if ((e as { code?: string } | null)?.code === 'match_live' && tries < REPORT_TRIES) {
+        setTimeout(() => finishMatch(game, src, id, o, tries + 1), REPORT_RETRY_MS);
+        return;
+      }
+      backToDuel(game, { tab: 'ranked', arena: 'live', error: errorText(e) });
+    });
 }
 
 /** The demo's live match: the same screens, a local battle against the bot, settled by the demo source. */
@@ -1587,8 +1711,8 @@ export function demoMatchSource(game: Phaser.Game, src: DemoDuelSource, m: DemoM
     label: t('battle.vs', { name: m.names[1] }),
     opponent: m.names[1],
     onFinish(sim: Battle) {
-      const r = src.demoSettle(m.id, sim.result());
-      showReport(game, rankedReport(r, this.label, true), () => backToDuel(game, { tab: 'ranked', preview: true }));
+      const label = this.label;
+      reportThenHub(game, () => rankedReport(src.demoSettle(m.id, sim.result()), label, true), { tab: 'ranked', preview: true });
     },
     onLeave() {
       backToDuel(game, { tab: 'ranked', preview: true });
@@ -1608,7 +1732,7 @@ export function raidSource(game: Phaser.Game, src: DuelSource, tk: AsyncTicket):
       const sub = attackSubmission(sim, deployOrders);
       src
         .asyncSubmit(tk.ticket, sub, sim.result())
-        .then((r) => showReport(game, raidReport(r.report, src.demo), () => backToDuel(game, { tab: 'ranked', arena: 'raid', preview: src.demo })))
+        .then((r) => reportThenHub(game, () => raidReport(r.report, src.demo), { tab: 'ranked', arena: 'raid', preview: src.demo }))
         .catch((e) => backToDuel(game, { tab: 'ranked', arena: 'raid', preview: src.demo, error: errorText(e) }));
     },
     onLeave() {

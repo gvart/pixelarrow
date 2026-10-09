@@ -5,6 +5,9 @@
 // and back to the ladder with its Glory, XP and a cleared floor, a ranked
 // match and a raid on a defence team (the async ladder). Also checks
 // that the hub shows "available in Telegram" when the API cannot be used.
+// Regressions: switching tabs does not pile up listeners, a second Back or
+// Continue after a report lands on the hub (not the menu), a new screen size
+// keeps the tab and the queue search, and the hub is drawn after every match.
 // Usage: node scripts/duel-smoke.mjs [baseUrl]   (needs a running dev/preview server)
 import { chromium } from 'playwright';
 
@@ -31,6 +34,7 @@ await page.route('**/telegram.org/**', (r) => r.abort());
 const ev = (fn, arg) => page.evaluate(fn, arg);
 const call = (key, body) => ev(([k, f]) => new Function('s', f)(window.__game.scene.getScene(k)), [key, body]);
 const active = (k) => ev((key) => window.__game.scene.isActive(key), k);
+const shown = () => call('Duel', "return window.__game.scene.getScenes(true).map((x) => x.scene.key).join('+') === 'Duel' && s.st === 'ready' && s.body.list.length > 3;");
 const until = async (fn, ms = 8000) => {
   for (let t = 0; t < ms; t += 150) {
     if (await ev(fn)) return true;
@@ -80,6 +84,13 @@ await page.waitForTimeout(400);
 const eq = await call('Duel', `return { weapon: s.profile.heroes[0].equip.weapon && s.profile.heroes[0].equip.weapon.uid, campaignStash: window.__state.campaign.data.stash.length, demo: s.src.demo };`);
 check('[hero] equipped on the duel hero, campaign untouched', eq.weapon === bought.uid && eq.campaignStash === before.campaignStash && eq.demo, JSON.stringify(eq));
 
+// Tab switches rebuild the page: listeners must not pile up (they fired once per old list).
+const listeners = () => call('Duel', "return s.events.listenerCount('shutdown') + s.events.listenerCount('update') + s.input.listenerCount('pointerdown');");
+const l0 = await listeners();
+await call('Duel', "for (let i = 0; i < 12; i++) for (const t of ['ladder', 'ranked', 'team', 'shop']) { s.tab = t; s.buildBody(); } s.tab = 'ladder'; s.buildBody(); return 1;");
+const l1 = await listeners();
+check('[hub] tab switches do not pile up listeners', l1 <= l0, `${l0} -> ${l1}`);
+
 // The ladder: fight the next floor through the battle scene.
 const floor = before.cleared + 1;
 await call('Duel', `s.tab = 'ladder'; s.buildBody(); void s.fight(${floor}); return 1;`);
@@ -94,8 +105,11 @@ await call(
 check('[ladder] the report', await until(() => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 20000));
 const rep = await call('Results', 'const r = s.report; return { result: r.result, glory: r.glory, notes: r.notes, loot: r.loot.length, died: r.heroes.filter((h) => h.died).length };');
 check('[ladder] a won floor: Glory, a drop, nobody dies', rep.result === 'victory' && rep.glory > 0 && rep.notes.length >= 2 && rep.loot === 1 && rep.died === 0, JSON.stringify(rep));
-await call('Results', 's.finish(); return 1;');
+// Continue tapped twice: one way out (the second must not open the campaign's Army)
+await call('Results', 's.finish(); s.finish(); return 1;');
 check('[ladder] back to the ladder', await until(() => window.__game.scene.isActive('Duel') && !!window.__game.scene.getScene('Duel').profile, 8000));
+await page.waitForTimeout(300);
+check('[ladder] the hub is drawn (and alone)', await shown());
 const after = await call('Duel', 'const p = s.profile; return { tab: s.tab, cleared: p.ladder.cleared, glory: p.glory, xp: p.xp, battles: p.battles };');
 check('[ladder] floor cleared, Glory and XP paid', after.tab === 'ladder' && after.cleared === floor && after.glory > bought.glory, JSON.stringify(after));
 
@@ -115,8 +129,11 @@ await call(
 check('[arena] the report', await until(() => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 20000));
 const rrep = await call('Results', 'const r = s.report; return { result: r.result, glory: r.glory, notes: r.notes };');
 check('[arena] a won match: Glory and a rating change', rrep.result === 'victory' && rrep.glory === 30 && rrep.notes.some((n) => /\+\d+/.test(n)), JSON.stringify(rrep));
-await call('Results', 's.finish(); return 1;');
+// Back twice (Telegram's header button): the report goes, the hub stays (not the menu)
+await ev(() => { window.__nav.back(); window.__nav.back(); });
 check('[arena] back to the Arena', await until(() => window.__game.scene.isActive('Duel') && !!window.__game.scene.getScene('Duel').ranked, 8000));
+await page.waitForTimeout(300);
+check('[arena] a second Back stays on the hub', await shown(), JSON.stringify(await ev(() => window.__game.scene.getScenes(true).map((x) => x.scene.key))));
 const rk1 = await call('Duel', 'return { tab: s.tab, games: s.ranked.games, glory: s.profile.glory };');
 check('[arena] one more rated match, Glory paid', rk1.tab === 'ranked' && rk1.games === rk0.games + 1 && rk1.glory === rk0.glory + 30, JSON.stringify(rk1));
 
@@ -136,12 +153,20 @@ check('[raid] the report', await until(() => window.__game.scene.isActive('Resul
 const arep = await call('Results', 'const r = s.report; return { result: r.result, glory: r.glory, notes: r.notes };');
 check('[raid] a won raid: Glory and a raid rating change', arep.result === 'victory' && arep.glory === 20 && arep.notes.some((n) => /\+\d+/.test(n)), JSON.stringify(arep));
 await call('Results', 's.finish(); return 1;');
-check('[raid] back to Raids', await until(() => { const s = window.__game.scene.isActive('Duel') && window.__game.scene.getScene('Duel'); return !!s && !!s.asyncView && s.arenaTab === 'raid'; }, 8000));
+check('[raid] back to Raids (drawn)', (await until(() => { const s = window.__game.scene.isActive('Duel') && window.__game.scene.getScene('Duel'); return !!s && !!s.asyncView && s.arenaTab === 'raid'; }, 8000)) && (await shown()));
 await page.waitForTimeout(400);
 const av1 = await call('Duel', 'return { left: s.asyncView.attacks.left, glory: s.profile.glory };');
 check('[raid] one raid used, Glory paid', av1.left === av0.left - 1 && av1.glory === av0.glory + 20, JSON.stringify(av1));
 const log = await call('Duel', 'return s.src.asyncLog().then((l) => ({ n: l.entries.length, first: l.entries[0].role }));');
 check('[raid] the raid log has it', log.first === 'attack' && log.n >= 4, JSON.stringify(log));
+
+// A new screen size (rotation, Telegram's viewport) rebuilds the hub where it was, still searching.
+await call('Duel', "s.src.findDelayMs = 60000; s.findMatch('unranked'); return 1;");
+await page.setViewportSize({ width: 400, height: 800 });
+await page.waitForTimeout(1200);
+const rl = await call('Duel', 'return { search: !!s.search, tab: s.tab, arena: s.arenaTab, ready: s.st };');
+check('[hub] a resize keeps the tab and the queue search', rl.search && rl.tab === 'ranked' && rl.arena === 'live' && rl.ready === 'ready', JSON.stringify(rl));
+await call('Duel', 's.cancelSearch(); return 1;');
 
 check('no page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

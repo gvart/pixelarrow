@@ -454,9 +454,13 @@ export function addScrollHint(scene: Phaser.Scene, parent: Phaser.GameObjects.Co
     bob += 0.12;
     if (area.maxScrollY > 0) draw();
   };
+  const off = () => {
+    scene.events.off('update', tick);
+    scene.events.off('shutdown', off);
+  };
   scene.events.on('update', tick);
-  g.once('destroy', () => scene.events.off('update', tick));
-  scene.events.once('shutdown', () => scene.events.off('update', tick));
+  g.once('destroy', off);
+  scene.events.once('shutdown', off);
   draw();
   return g;
 }

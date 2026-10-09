@@ -136,6 +136,11 @@ export function matchSource(link: MatchLink, start: DuelStart, done: (o: MatchOu
       if (ls?.desync) return t('battle.duel.desync');
       const r = link.report;
       if (!r || ls?.sim.phase === 'ended') return null;
+      if (r.end === 'battle') {
+        // the battle ended and the other side reported it first: run on to the end on the sealed turns
+        if (ls?.canStep()) return null;
+        return r.winner === r.side ? t('battle.banner.victory') : r.winner === -1 ? t('battle.banner.draw') : t('battle.banner.defeat');
+      }
       // settled while this client still fights: the opponent left (or the match is void)
       if (r.end === 'void') return t('duels.live.void');
       return r.winner === r.side ? t('battle.duel.left', { name: opponent }) : t('duels.live.lost');
