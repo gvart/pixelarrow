@@ -369,7 +369,12 @@ const ff = await ev(() => {
   s.sim.units.filter((u) => u.side === 1).forEach((u) => { u.hp = 1; u.morale = Math.min(u.morale, u.stats.morale * 0.3); });
   s.sim.units.filter((u) => u.side === 0).forEach((u) => { u.hp = u.stats.maxHp * 5; u.stats.moraleLoss = 0; u.morale = u.stats.morale; });
   for (const g of s.sim.groups) if (g.side === 0 && !g.disbanded) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' });
-  for (let i = 0; i < 20 * 300 && s.sim.phase === 'battle'; i++) s.sim.step();
+  // held every step: a long fight against a big band could still break their nerve once
+  const mine = s.sim.units.filter((u) => u.side === 0 && u.state === 'ready');
+  for (let i = 0; i < 20 * 300 && s.sim.phase === 'battle'; i++) {
+    for (const u of mine) if (u.state === 'ready') { u.hp = Math.max(u.hp, u.stats.maxHp); u.morale = u.stats.morale; }
+    s.sim.step();
+  }
   return { winner: s.sim.winner, tick: s.sim.tick };
 });
 check('results screen', await until(() => active('Results'), 25000), JSON.stringify(ff));
