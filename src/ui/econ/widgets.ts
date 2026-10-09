@@ -85,12 +85,3 @@ export function addEconState(scene: Phaser.Scene, parent: Phaser.GameObjects.Con
   parent.add(addPanel(scene, x, y, w, h, 'cardLocked'));
   parent.add(addEmptyState(scene, x + 2, y + 2, w - 4, h - 4, { icon: s === 'outside' ? 'flag' : 'tent', title, hint, action: s === 'outside' ? undefined : { label: t('econ.retry'), icon: 'repair', onClick: onRetry } }));
 }
-
-/** Short human time for wallet history: "3d", "5h", "now". */
-export function ago(at: number, now: number): string {
-  const m = Math.max(0, Math.round((now - at) / 60_000));
-  if (m < 60) return `${m}m`;
-  const h = Math.round(m / 60);
-  if (h < 48) return `${h}h`;
-  return `${Math.round(h / 24)}d`;
-}

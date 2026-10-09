@@ -51,6 +51,8 @@
  *   - The player's side (row 1) always shows the painted shield face: the shield
  *     carried on the left side is turned towards the viewer.
  */
+import { lighten } from './palette';
+import { hashString } from '../sim/rng';
 import { Scene, add, cross, mul, norm, sub, len, lerp3, CAM, project, type Material, type V3, type Hit } from './model3d';
 import {
   BLOOD, BRONZE, BEAST, CLOTH, COATS, CREST, CREST_EXTRA, DARK_LEATHER, DARK_WOOD, DIVINE, EMBER, EYE, FELT, FIELD, GOLD, HAIR, HOOF, INK, IRON, IVORY,
@@ -398,11 +400,7 @@ function shieldPaintOf(it: Item): ItemPaint | undefined {
   return it.paint;
 }
 
-function hashId(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return (h >>> 0) % 100000;
-}
+const hashId = (s: string): number => hashString(s) % 100000;
 
 const gearKey = (g?: GearTag) => (g ? `${g.def ?? ''}${g.r ?? ''}` : '');
 
@@ -3220,19 +3218,14 @@ export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box =
         const u = (x + y * 0.5) / (size * 1.5);
         if (Math.abs(u - pos) * size * 1.5 > bw) continue;
         const c = px.get(x, y);
-        px.set(x, y, lighten(c, Math.abs(u - pos) * size * 1.5 < bw * 0.5 ? 0.5 : 0.22));
+        px.set(x, y, lightenCream(c, Math.abs(u - pos) * size * 1.5 < bw * 0.5 ? 0.5 : 0.22));
       }
   }
   return px;
 }
 
-function lighten(c: number, k: number): number {
-  const r = (c >> 16) & 255;
-  const g = (c >> 8) & 255;
-  const b = c & 255;
-  const t = (v: number, to: number) => Math.round(v + (to - v) * k);
-  return (t(r, 255) << 16) | (t(g, 246) << 8) | t(b, 216);
-}
+/** Towards a warm cream rather than white. */
+const lightenCream = (c: number, k: number): number => lighten(c, k, 0xfff6d8);
 
 /**
  * A seeded idle loop over PORTRAIT_FRAMES for one portrait (frame indices with

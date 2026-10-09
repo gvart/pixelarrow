@@ -1,160 +1,94 @@
 # Pixelarrow
 
 A mobile-first pixel-art formation tactics game set in the ancient
-Mediterranean — locked shields, thrown javelins, flanks wheeling to meet
-threats and lines that break when morale breaks. Lead a band of three heroes
-across a procedurally generated coast in the manner of Mount & Blade: march
-between towns and villages, hire men, buy gear, dodge or hunt bandits and
-raiders, and raise your heroes through attributes, perk trees, battle
-abilities and auras. Built with Phaser 3,
-TypeScript and Vite, and designed to run as a **Telegram Mini App**
-(it also runs in any browser).
+Mediterranean: locked shields, thrown javelins, flanks wheeling to meet
+threats and lines that break when morale breaks. Lead a band of heroes across
+a procedurally generated coast, fight a seasonal online war for a shared map
+with your clan, or take a persistent duel army up the ranked ladders. Built
+with Phaser 3, TypeScript and Vite as a **Telegram Mini App** (it also runs in
+any browser). All art and sound are generated in code; there are no image or
+audio files.
 
-**Play:** https://pixelarrow.app (sprite sheets:
-https://pixelarrow.app/preview.html)
-
-All art (soldiers, shields and emblems, grass, the world map, towns, UI,
-font, icons, effects) is generated procedurally in code at startup.
+**Play:** https://pixelarrow.app
 
 | | | |
 | --- | --- | --- |
-| ![World map](docs/screenshots/13-world-map.png) | ![Encounter](docs/screenshots/14-encounter.png) | ![Abilities](docs/screenshots/18-battle-abilities.png) |
-| ![Hero perks](docs/screenshots/17-hero-perks.png) | ![Town market](docs/screenshots/16-town-market.png) | ![Level up](docs/screenshots/19-level-up.png) |
-| ![Deployment](docs/screenshots/04-deploy.png) | ![Battle](docs/screenshots/06-battle-contact.png) | ![Village](docs/screenshots/15-village.png) |
-| ![Menu](docs/screenshots/01-menu.png) | ![Army](docs/screenshots/03-army-stash-compare.png) | ![Retreat](docs/screenshots/12-retreat-confirm.png) |
-| ![War-table hex map](docs/screenshots/39-war-table-map.png) | ![Hex panel](docs/screenshots/40-hex-panel.png) | ![Fog and armies](docs/screenshots/41-fog-and-armies.png) |
+| ![Menu](docs/screenshots/menu.png) | ![Army](docs/screenshots/army.png) | ![Hero sheet](docs/screenshots/hero.png) |
+| ![Duel ladder](docs/screenshots/duel-ladder.png) | ![Shop](docs/screenshots/shop.png) | ![Tutorial](docs/screenshots/tutorial.png) |
 
-| ![Battle panel](docs/screenshots/30-battle-panel.png) | ![Online deployment](docs/screenshots/31-online-deploy-countdown.png) | ![Battle report](docs/screenshots/32-battle-report.png) |
-| ![Tutorial narrator](docs/screenshots/42-tutorial-narrator.png) | ![Slingshot demonstration](docs/screenshots/43-tutorial-gesture.png) | ![First run](docs/screenshots/44-first-run.png) |
-| ![Online coach marks](docs/screenshots/45-online-coach.png) | | |
+## Docs
 
-**Onboarding.** A first launch offers a guided tutorial battle (about three
-minutes, skippable at any time, resumable if the app closes): old Nikias the
-strategos explains each control in a typewriter speech panel and waits until
-the player really does it, with the element to use lit (the rest dimmed and
-blocked) or the gesture shown by a ghost hand: select a group, pan, pinch,
-the slingshot (carry, then pull back), Fight, tap to move, the shield wall,
-slingers loosing, charge, Shield Bash, and turning the line to a flank. The
-battle pauses while he talks. A reward (gold and a common helmet) and a
-short screen on the two modes (Campaign offline, the Online war) follow.
-Settings → Tutorial replays it. The first visit to the online map shows coach
-marks (home hex, a neighbour and its defenders, March, Attack with its 15 s
-deployment, Collect, Clan), kept per account in the settings. Code:
-`src/game/tutorial.ts` (steps, conditions, progress, scenario),
-`src/ui/tutorial/`, `src/scenes/FirstRunScene.ts`.
-
-The battle command panel groups orders by colour (Movement bronze, Attack red,
-Formation blue, Abilities gold, with cooldown sweeps); group cards show the
-class portrait, men, health, morale and the current order; long-press any
-button for an explanation, and a greyed-out button says why on tap. On small
-phones the panel folds into two rows. Online battles (attacks and duels) have
-no pause and no speed-up and open with a 15-second deployment: a countdown,
-the enemy's zone but not its men, and Ready (a duel starts when both are ready
-or the time is up). Every battle ends with the same report: a VICTORY or
-DEFEAT banner, count-up tiles, the hero of the battle, XP bars per hero and
-loot cards that turn over one by one (tap to inspect and compare, then pick).
-
-Game design and mechanics: [docs/DESIGN.md](docs/DESIGN.md). Where it is
-going (online multiplayer, clans, Telegram Stars) and the invariants the code
-keeps for that: [docs/ROADMAP.md](docs/ROADMAP.md).
+- [docs/GAMEPLAY.md](docs/GAMEPLAY.md): the single-player game and the
+  battle sim reference: campaign, heroes, classes, combat rules, terrain, bot
+  AI, balance, controls, saves.
+- [docs/DESIGN_V2.md](docs/DESIGN_V2.md): the seasonal online war: the
+  region map, camps, beasts, clans, trading, economy, online battle rules, UX
+  requirements.
+- [docs/DUELS.md](docs/DUELS.md): duels: the duel army, ladder, ranked live
+  and async, seasons, the duel shop and the war-map merchants.
+- [docs/UI_KIT.md](docs/UI_KIT.md): how screens look and are built, and the
+  layout check.
+- [docs/ART_STYLE.md](docs/ART_STYLE.md): the art style the procedural
+  renderers follow.
+- [docs/OPS.md](docs/OPS.md): monitoring, analytics, backups, restore, the
+  admin panel.
+- [docs/ROADMAP.md](docs/ROADMAP.md): architecture, invariants and open
+  items.
+- [server/README.md](server/README.md): the backend and its API.
 
 ## Run, build, test
 
-Requires Node 22+ (vitest 5 needs 22.12+).
+Requires Node 22.12+.
 
 ```bash
 npm install
 npm run dev        # dev server on http://localhost:5173 (also on your LAN)
 npm run build      # type-check + production build into dist/
 npm run preview    # serve dist/ on http://localhost:4173
-npm test           # vitest: determinism, combat rules, abilities/auras/cooldowns, world map, campaign, saves
-npm run balance    # headless: 200 seeded bot-vs-bot battles, rule scenarios, ability/aura mirror tests
+npm test           # vitest
+npm run balance    # headless bot-vs-bot balance report (docs/GAMEPLAY.md "Balance")
 npx tsc --noEmit   # type-check only
 ```
 
 Open the dev server on a phone (same Wi-Fi) or use the browser's device
-toolbar in portrait mode. `http://localhost:5173/preview.html` shows the
-procedural sprite sheets (it is also part of the production build).
+toolbar in portrait mode. `/preview.html` shows the procedural sprite sheets,
+`/audio.html` plays every sound and track, `/?scene=Kit` is the UI gallery.
 
-### Deployment (Cloudflare)
-
-`.github/workflows/deploy.yml` runs on every push to `main` (and manually via
-*Run workflow*). Gates run as parallel jobs: **build** (type-check, unit
-tests, `vite build`; `dist/` is shared with the other jobs as an artifact),
-**server** (type-check, tests), **layout** (the layout check in 10 shards,
-`--shard i/10 --split 2`) and **smoke** (`smoke`, `online-smoke`,
-`fullscreen-smoke`, `audio-smoke`, `tutorial-smoke`, one job each; Chromium
-is cached, `.github/actions/browser-setup`). Only when all of them pass does
-the **deploy** job apply the D1 migrations and
-`wrangler deploy` publish `dist/` as static assets of a Cloudflare Worker
-(`wrangler.jsonc`) on the custom domain https://pixelarrow.app. It needs the
-repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The
-build uses a relative `base` (`./`), so it also works under a sub-path and
-inside Telegram.
-
-Monitoring, analytics queries, backups and the restore runbook, and the
-admin panel at https://pixelarrow.app/admin: [docs/OPS.md](docs/OPS.md).
-
-### Screenshots and smoke test
+### Browser checks
 
 With a dev or preview server running and Playwright's Chromium available
-(set `PLAYWRIGHT_BROWSERS_PATH` if your browsers live outside the default cache):
+(set `PLAYWRIGHT_BROWSERS_PATH` if needed). Screenshots go to the git-ignored
+`shots/` folder (`SHOTS=<dir>` overrides it).
 
 ```bash
-node scripts/screenshots.mjs http://localhost:5173/ docs/screenshots   # tour of every screen
-node scripts/smoke.mjs http://localhost:5173/                         # real taps through the campaign loop
-node scripts/layout-check.mjs http://localhost:4173/                  # layout rules on every screen, 5 sizes, EN/RU
+node scripts/smoke.mjs http://localhost:5173/             # real taps through the campaign loop
+node scripts/layout-check.mjs http://localhost:4173/      # layout rules on every screen, 5 sizes, EN/RU
+node scripts/fullscreen-smoke.mjs http://localhost:4173/  # fake full-screen Telegram: safe areas, Back
+node scripts/tutorial-smoke.mjs http://localhost:4173/    # the tutorial with real touch events
+node scripts/online-smoke.mjs http://localhost:4173/      # API down / unreachable, the Stars flow, a merchant
+node scripts/duel-smoke.mjs http://localhost:4173/        # the duel mode on its in-memory demo
+node scripts/audio-smoke.mjs http://localhost:4173/       # with and without Web Audio
 ```
 
-`scripts/layout-check.mjs` is also a CI gate before every deploy: it fails on
-overlapping or too-small touch targets, overflowing text and anything outside
-the safe area, except the known violations in `scripts/layout-allowlist.json`.
-How screens are built (UI kit components, colours, touch rules, i18n) and how
-the check works: [docs/UI_KIT.md](docs/UI_KIT.md).
-The v3 menu design (tokens, icons, one header, resources, motion) and its
-bug report: [docs/UI_V3.md](docs/UI_V3.md), [docs/UI_V3_REPORT.md](docs/UI_V3_REPORT.md).
-
-`node scripts/fullscreen-smoke.mjs http://localhost:4173/` fakes a full-screen
-Telegram on an iPhone and checks safe areas and Back navigation (see the
-Telegram section).
-
-`node scripts/tutorial-smoke.mjs http://localhost:4173/` plays the whole
-tutorial on a first launch with real touch events (the slingshot included),
-checks the reward, resume and skip, and saves `docs/screenshots/42-45`.
-Other scripts set `window.__noFirstRun` so the onboarding never gets in
+The layout check is a CI gate; it fails on overlapping or too-small touch
+targets, overflowing text and anything outside the safe area, except the
+known violations in `scripts/layout-allowlist.json` (docs/UI_KIT.md "Layout
+check"). Other scripts set `window.__noFirstRun` so onboarding never gets in
 their way.
 
-`node scripts/online-smoke.mjs http://localhost:4173/` fakes Telegram and the
-API (no backend needed): checks the game stays playable with the API down
-(503 / unreachable), walks the Stars purchase flow and saves
-`docs/screenshots/20-shop.png`.
+Dev tools in `scripts/dev/`: `screenshots.mjs` (a tour of every screen),
+`war-table-shots.mjs` and `beast-shots.mjs` (the war map on a demo shard, the
+beasts), `store-images.mjs` (the Telegram store art: BotFather cover and bot
+avatar, from `store.html`), `audio-samples.mjs` (sample WAVs rendered
+offline), `font-metrics.mjs` (`npm run fonts:metrics`). Store images and audio
+samples are not committed: regenerate them with
+`node scripts/dev/store-images.mjs` and `node scripts/dev/audio-samples.mjs`.
 
-### Online mode end to end
-
-`node scripts/online-e2e.mjs http://localhost:5173/` (with `wrangler dev` and
-`VITE_DEV_AUTH=1 npm run dev` running as below) drives two fake players
-(`?devuser=<n>` picks the DEV_AUTH test user) through joining the season, a
-server-verified attack (timed deployment, Ready, battle report), a clan formed
-through an invite link and a live lockstep duel (deployment withheld from the
-opponent until go, one side readied by its countdown, verified reports on
-both), and saves `docs/screenshots/23-online-map.png`, `24-clan.png` and
-`25-duel.png`. `E2E_DEBUG=1` logs the duel's socket traffic. The same flows
-run without a browser in `server/test/online-flow.test.ts` (the client's
-Battle, deployment clock and Lockstep driven frame by frame against the
-Worker and the shard Durable Object).
-
-`node scripts/war-table-shots.mjs http://localhost:5173/` needs no backend: it
-opens the war-table hex map on a local demo shard (`src/online/demoShard.ts`,
-the scene's `{ preview }` mode, also used by the layout check) and saves
-`docs/screenshots/39-war-table-map.png`, `40-hex-panel.png` and
-`41-fog-and-armies.png`.
-
-### Online features (cloud save, shop) locally
+### Online features locally
 
 The client talks to the Worker in `server/` on the same origin (`/api/*`,
 `/ws/*`); everything online is optional and the game is fully playable
-without it (offline, plain browser, or while the API answers 503). To run
-both locally:
+without it (offline, plain browser, or while the API answers 503).
 
 ```bash
 npm run build                          # wrangler serves dist/ too
@@ -164,163 +98,114 @@ cd .. && VITE_DEV_AUTH=1 npm run dev   # vite on :5173, proxies /api and /ws to 
 ```
 
 `VITE_DEV_AUTH=1` (dev server only) signs a plain browser in as the
-`DEV_AUTH` test user so cloud sync and battle verification can be tried
-without Telegram; Stars purchases need Telegram. `API_PROXY=http://host:port`
-changes the proxy target, `VITE_API_BASE` the API base at build time. See
-[docs/DESIGN.md](docs/DESIGN.md#online-client-srcplatform) for how sync works.
+`DEV_AUTH` test user; `?devuser=<n>` picks another. Stars purchases need
+Telegram. `API_PROXY=http://host:port` changes the proxy target,
+`VITE_API_BASE` the API base at build time.
 
-`node scripts/store-images.mjs` (starts its own Vite server) renders the
-Telegram store art in `docs/store/` (640x360 BotFather cover, 640x640 bot
-avatar) from the game's own generators via `store.html` / `src/dev/store.ts`.
+`node scripts/online-e2e.mjs http://localhost:5173/` (with both servers
+running) drives two players through joining the season, a verified attack, a
+clan invite and a live lockstep duel (`E2E_DEBUG=1` logs the duel's socket
+traffic). The same flows run without a browser in
+`server/test/online-flow.test.ts`.
+
+### Deployment
+
+`.github/workflows/deploy.yml` runs on every push to `main` (and by hand).
+The gates run in parallel: **build** (type-check, unit tests, `vite build`),
+**server** (type-check, tests), **layout** (the layout check in 10 shards)
+and **smoke** (one job per smoke script). When all pass, **deploy** applies
+the D1 migrations and `wrangler deploy` publishes `dist/` as static assets of
+the Worker (`wrangler.jsonc`) on https://pixelarrow.app. It needs the
+repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the
+backend setup is in server/README.md "One-time setup checklist". The build
+uses a relative `base` (`./`), so it also works under a sub-path.
 
 ## Audio
 
-All sound is synthesised at run time with the Web Audio API (`src/audio/`,
-no audio files, no dependencies): gritty procedural effects (sword, spear and
-axe clashes, shield blocks, arrows, javelins, sling stones, charge rumble and
-hooves, war horns, battle cries, routs, noise-based grunts, ability stingers,
-level-up, coins, UI clicks) and looping modal music (Karplus-Strong lyre,
-frame drums, drone, aulos) for the map/menus, deployment and battle (layers
-come in as the fighting heats up), with victory/defeat stingers.
+All sound is synthesised at run time with the Web Audio API (`src/audio/`):
+procedural effects (clashes, shield blocks, missiles, hooves, horns, cries,
+UI) and looping modal music (lyre, frame drums, drone, aulos) whose layers
+follow the battle.
 
-- `engine.ts`: lazy AudioContext created on the first tap (iOS / Telegram
-  requirement), master limiter + SFX and music buses, suspended while the page
-  or Telegram is in the background or sound is off. Without Web Audio every
-  call is a no-op.
-- `voices.ts`: voice limiter (12 voices, 3 per sound, same-tick dedupe,
-  priority stealing) so a big melee neither clips nor burns a phone's CPU;
-  sounds are panned by screen x and attenuated by distance and camera zoom.
-- `hooks.ts`: **the one file mapping game events to sounds** (battle sim
-  events, scene music, UI). Scenes only call one-liners from it.
-- Settings: Sound on/off, Music and Effects volume (0-10), saved with the
-  other settings. A phone's hardware silent switch can't be detected from a web
-  page (Web Audio plays through it on iOS), so players use the in-game toggle.
-
-`/audio.html` plays every effect and track. `node scripts/audio-samples.mjs`
-renders sample WAVs offline into [docs/audio-samples/](docs/audio-samples/)
-(clash, shield block, javelin, war horn, level-up and 20 s of battle music);
-`node scripts/audio-smoke.mjs <url>` checks the game with and without Web
-Audio (unlock, mute, background, battle sounds under the voice cap, no console errors).
+- `engine.ts`: the AudioContext is created on the first tap (iOS / Telegram
+  requirement) and suspended while the page or Telegram is in the background
+  or sound is off. Without Web Audio every call is a no-op.
+- `voices.ts`: a voice limiter (12 voices, 3 per sound) with panning and
+  distance attenuation.
+- `hooks.ts`: **the one file mapping game events to sounds**; scenes only
+  call one-liners from it.
+- Settings: Sound on/off, Music and Effects volume. A phone's silent switch
+  cannot be detected from a web page, so players use the in-game toggle.
 
 ## Project layout
 
 ```
 src/
-  sim/        pure TS battle simulation (no Phaser): battle.ts, ai.ts, formation.ts, stats.ts, rng.ts, types.ts
-  world/      pure TS overland campaign: map.ts (seeded map generator), path.ts (A*), world.ts (travel, bands, settlements), noise.ts
-  data/       classes.ts (unit classes, mounts, beasts), items.ts (all gear), terrain.ts, traits.ts, perks.ts (attributes, perk trees, abilities, auras), units.ts (hero model), names.ts
-  game/       campaign.ts, heroes.ts (factories, development), enemy.ts (bot and band armies), loot.ts, save.ts, armySpec.ts
-  art/        procedural pixel art: model3d.ts (3D-primitive pixel renderer), materials.ts (colour ramps), paperdoll.ts (men, riders, chariots, animals), emblems.ts, ground.ts (iso tiles), iso.ts (projection), worldArt.ts (map, towns, bands), fx.ts (aura rings, stars, pips), font.ts, icons.ts, itemIcons.ts, uiTextures.ts
-  audio/      procedural Web Audio: engine.ts (mixer, unlock, suspend), voices.ts (voice limiter), sfx.ts (effect recipes), music.ts (sequencer + tracks), synth.ts, hooks.ts (event -> sound mapping)
-  ui/         Phaser UI kit (buttons, panels, meters, scroll lists), battleFx.ts (pooled battle effects), texture registration
-  scenes/     Boot, Menu, World (map + encounters), Settlement, Army, Hero (skills), Battle (deployment + battle), Results
-  platform/   telegram.ts (WebApp SDK wrapper), nav.ts (back navigation stack), safeArea.ts (full-screen insets), storage.ts (CloudStorage / localStorage), api.ts (typed API client),
-              online.ts + saveSync.ts (sign-in, cloud save sync, shop, entitlements), cloud.ts (instance), verify.ts (battle replay check)
-  dev/        preview.ts (sprite sheet page), balance.ts + classBalance.ts (headless balance harness for `npm run balance`)
-  state.ts    shared campaign state and persistence
+  sim/        pure TS battle simulation (no Phaser): battle, AI, formations, stats, terrain, beasts, RNG
+  world/      pure TS overland campaign: map generation, paths, travel, bands, settlements, field camp
+  data/       classes, items, terrain, traits, perks and abilities, beasts, consumables
+  game/       campaign, heroes, enemy armies, loot, saves, gear and economy helpers, tutorial
+  online/     shared online rules: region map (world.ts, maps/), rules, defenders, lairs, camps, merchants, protocol, lockstep
+  duel/       shared duel rules: costs, ladder, rating, seasons; the duel client
+  art/        procedural art: 3D-primitive pixel renderer, paper dolls, ground, maps, effects, smooth UI, fonts, icons
+  audio/      procedural Web Audio
+  ui/         UI kit, v3 components, Strategos chrome, battle HUD, tutorial pieces, layout registry
+  scenes/     Boot, Menu, World, Camp, Settlement, Army, Hero, Battle, Results, Shop, Market, FirstRun, online/, duel/
+  i18n/       English and Russian tables
+  platform/   Telegram wrapper, back navigation, safe area, storage, API client, cloud save sync, battle verify
+  dev/        sprite preview, store art, audio samples, balance harnesses
+server/       the Cloudflare Worker (API, Durable Objects, D1 migrations), see server/README.md
+maps-src/     authored season maps, compiled by scripts/buildMap.ts
 tests/        vitest suites
-scripts/      screenshot tour and touch smoke test (Playwright), balance runner
-docs/         DESIGN.md, ROADMAP.md and screenshots
+scripts/      smoke tests, layout check, map compiler; dev/ for screenshot, art and balance tools
+docs/         design and operations docs (see "Docs")
+```
+
+## Telegram Mini App setup
+
+1. **Deploy the build** (above) to https://pixelarrow.app, or upload `dist/`
+   to any HTTPS static host (relative paths, so a sub-folder works). For
+   local testing expose the dev server with a tunnel, e.g.
+   `cloudflared tunnel --url http://localhost:5173`.
+2. **Create a bot** with [@BotFather](https://t.me/BotFather): `/newbot`, keep
+   the token.
+3. **Create the Mini App:** `/newapp`, pick the bot, give a title,
+   description and a 640×360 image, then the URL. BotFather returns a link
+   like `https://t.me/<bot>/<app>`.
+4. Optionally set the bot's **menu button** to the game URL
+   (`/mybots` → *Bot Settings* → *Menu Button*).
+
+Inside Telegram (all no-ops in a browser) the game:
+
+- calls `ready()`, `expand()` and `disableVerticalSwipes()` and sets the
+  header colour; goes **full screen** in portrait on Bot API 8.0+;
+- insets `#game` by the device and content safe areas
+  (`src/platform/safeArea.ts`), so every scene clears the notch, Telegram's
+  buttons and the home indicator without per-scene code;
+- saves to **CloudStorage** (chunked under the 4 KB value limit) mirrored to
+  localStorage;
+- uses **haptics** (toggle in Settings);
+- uses Telegram's **Back button** as the game's back button
+  (`src/platform/nav.ts`): it closes the top dialog first, then goes back one
+  level; in battle it pauses and asks before retreating. The menu is the root
+  (Telegram shows Close). **Closing confirmation** is on during battles and
+  while a save uploads.
+
+Every screen registers its back once in `create()`:
+
+```ts
+this.screen({ back: () => this.scene.start('Menu') }); // back one level
+this.screen({ back: null });                           // root screen
+this.modalLayer(container, () => container.destroy()); // Back closes a dialog first
 ```
 
 ## Legal pages: operator action required
 
-`public/terms.html`, `public/privacy.html`, `public/refunds.html` and their
-Russian versions in `public/ru/` are served at https://pixelarrow.app/terms,
-/privacy, /refunds (and /ru/...). They are **drafts written for the game's
-features, not legal advice**. Before relying on them, the operator must:
-
-- **review every text** (ideally with a lawyer for the countries you sell in);
-- **fill in every placeholder** (highlighted on the pages):
-  `[OPERATOR NAME]`, `[OPERATOR ADDRESS / COUNTRY]`, `[CONTACT EMAIL]`,
-  `[EFFECTIVE DATE]`, `[JURISDICTION]`, `[RETENTION PERIOD, e.g. N years]`
-  and the `[N]` days / months (refund window, support answer time, log and
-  support retention);
-- make sure the promises match how you operate: deletion within 30 days of a
-  `/delete_my_data` request, refunds through `/paysupport`, answers in
-  Telegram.
-
-`grep -rn '\[[A-Z]' public/` lists what is left. Requests sent with
-`/paysupport` and `/delete_my_data` land in the D1 table `support_requests`
-(see server/README.md "Payment support and legal pages").
-
-## Telegram Mini App setup
-
-1. **Deploy the build.** The Cloudflare workflow above publishes it to
-   **https://pixelarrow.app** — that is the URL to give BotFather.
-   (Any other HTTPS static host works too: upload `dist/`; the build uses
-   relative paths, so a sub-folder is fine. For local testing expose the dev
-   server with a tunnel, e.g. `cloudflared tunnel --url http://localhost:5173`.)
-2. **Create a bot** with [@BotFather](https://t.me/BotFather): `/newbot`,
-   choose a name and username, keep the token.
-3. **Create the Mini App:** in BotFather send `/newapp`, pick your bot, give a
-   title, description and a 640×360 image, then enter the URL
-   `https://pixelarrow.app`. BotFather
-   returns a direct link like `https://t.me/<bot>/<app>`.
-4. Optionally set the bot's **menu button** to open the game:
-   `/mybots` → your bot → *Bot Settings* → *Menu Button* →
-   `https://pixelarrow.app`.
-5. Open the link in Telegram (mobile recommended).
-
-What the game does inside Telegram (all optional, no-ops in a browser):
-
-- Loads `telegram-web-app.js` only when launched from Telegram, then calls
-  `ready()`, `expand()`, `disableVerticalSwipes()` (so drags don't close the
-  app) and sets the header/background colour.
-- **Full screen** on phones with Bot API 8.0+ (`requestFullscreen()`, plus
-  `lockOrientation()` in portrait). Older clients, desktop and a refused
-  request (`fullscreenFailed`) keep the expanded view.
-- **Safe areas:** the `#game` element is inset by the device safe area
-  (`safeAreaInset`, or `env(safe-area-inset-*)` if larger) plus Telegram's
-  content safe area (`contentSafeAreaInset`: the floating Close/Back and ⋯
-  pills), see `src/platform/safeArea.ts` and `index.html`. Phaser's RESIZE
-  mode sizes the canvas to that rect, so every scene's top and bottom bars stay
-  clear of the notch, Telegram's buttons and the home indicator without
-  per-scene code; `safeAreaChanged`, `contentSafeAreaChanged`,
-  `viewportChanged` and `fullscreenChanged` re-layout. Outside Telegram the
-  Telegram insets are 0.
-- Saves to **Telegram CloudStorage** (synced across the user's devices,
-  chunked under the 4 KB value limit) and mirrors to localStorage.
-- **Haptics** on orders, hits, deaths and routs (toggle in Settings).
-- **Native back navigation** (`src/platform/nav.ts`): Telegram's header Back
-  button is the game's back button; the in-game back arrows are hidden inside
-  Telegram. The menu is the root (Back hidden, Telegram shows Close). Back
-  closes the top dialog first, then goes back one level (Hero → Army → map or
-  town, town → map, map → menu, deployment → asks, then back to where the
-  battle came from). In battle Back pauses and opens the Retreat confirm; it
-  never leaves silently, and a band barring the road can't be dodged with it.
-  The ⋯ menu's **Settings** opens the settings modal on any screen.
-  **Closing confirmation** is on during battles and while a save uploads.
-
-### Back navigation in new scenes
-
-Every screen registers itself once in `create()`; nothing else is needed:
-
-```ts
-// a BaseScene subclass
-this.screen({ back: () => this.scene.start('Menu') }); // back one level
-this.screen({ back: null });                           // root screen (Telegram shows Close)
-this.screen({ back, confirmClose: true });             // ask before Telegram closes the app
-// any Phaser scene: registerScreen(scene, { back }) from src/platform/nav.ts
-
-// each modal / dialog: Back closes it first (the layer goes away with the container)
-this.modalLayer(container, () => container.destroy());
-// return false from the close callback to keep a dialog that Back must not dismiss
-
-// draw your own back arrow only outside Telegram
-if (this.inGameBack) this.ui.add(new Button(this, 3, 2, 26, 20, { icon: 'back', onClick: back }));
-```
-
-The registration is removed when the scene shuts down; a scene launched on
-top of another stacks above it. Exactly one BackButton handler is registered
-with Telegram at a time. `node scripts/fullscreen-smoke.mjs <url>` checks all
-of this with a fake full-screen iPhone Telegram (status bar 59, Telegram pills
-46, home indicator 34) and saves `docs/screenshots/29-fullscreen-safe-area.png`.
-
-## Status
-
-Milestone 2: an offline single-player campaign on a procedural overland map
-(towns, villages, lairs, roaming bands, wounds), hero progression (attributes,
-perk trees, battle abilities, auras) and the real-time formation battles of
-milestone 1. See "Known gaps" in [docs/DESIGN.md](docs/DESIGN.md) and the
-online plan in [docs/ROADMAP.md](docs/ROADMAP.md).
+`public/terms.html`, `privacy.html`, `refunds.html` and their Russian versions
+in `public/ru/` (served at /terms, /privacy, /refunds and /ru/...) are
+**drafts, not legal advice**. Before relying on them, review every text and
+fill in every placeholder (`[OPERATOR NAME]`, `[CONTACT EMAIL]`,
+`[JURISDICTION]`, the `[N]` days...): `grep -rn '\[[A-Z]' public/` lists what
+is left. Requests from `/paysupport` and `/delete_my_data` land in the D1
+table `support_requests` (server/README.md "Payment support and legal
+pages").

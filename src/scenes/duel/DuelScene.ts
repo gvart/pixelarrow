@@ -1,5 +1,5 @@
 /**
- * The duel hub (docs/DUELS.md, docs/UI_STRATEGOS.md "Duels"): the persistent
+ * The duel hub (docs/DUELS.md, docs/UI_KIT.md "Duels"): the persistent
  * duel army, its Glory and account level in the header, two game modes on a
  * switch and two places of their own behind the header's icons.
  *
@@ -77,6 +77,7 @@ import { Rng } from '../../sim/rng';
 import { promptFields } from '../online/textInput';
 import { ensureDuelIcons } from './duelIcons';
 import { t, tOr, type TKey } from '../../i18n';
+import { fmtAgoText, fmtClock } from '../../util/format';
 
 /** The hub's views: the two game modes and the two places behind the header icons. */
 export type DuelTab = 'ladder' | 'ranked' | 'team' | 'shop';
@@ -150,19 +151,7 @@ export function leftText(ms: number): string {
   return t('duels.timeM', { m });
 }
 
-/** "3h ago" of a past time. */
-function agoText(ms: number): string {
-  const m = Math.max(1, Math.floor(ms / 60_000));
-  if (m < 60) return t('duels.ago.m', { n: m });
-  if (m < 1440) return t('duels.ago.h', { n: Math.floor(m / 60) });
-  return t('duels.ago.d', { n: Math.floor(m / 1440) });
-}
 
-/** "0:42" from milliseconds. */
-function clockText(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
 const SHOP_TABS: ShopTab[] = ['offers', 'gear', 'sell'];
 /** Height of an offer card's row (name, rarity, compare line, three stats, Buy). */
 const OFFER_H = 104;
@@ -1381,7 +1370,7 @@ export class DuelScene extends BaseScene {
     const sentence = match
       ? t('duels.sit.rejoin')
       : cooldown
-        ? t('duels.sit.cooldown', { t: clockText(cooldown - now) })
+        ? t('duels.sit.cooldown', { t: fmtClock((cooldown - now) / 1000) })
         : problem === 'over_budget'
           ? t('duels.sit.arenaOver', { n: DUEL_RULES.budget })
           : problem
@@ -1426,7 +1415,7 @@ export class DuelScene extends BaseScene {
       ly += 14;
     } else if (locked && !match) {
       line(t('dv.unrankedLine', { w: RANKED.glory.unranked.win, l: RANKED.glory.unranked.loss }), 'sec');
-      if (cooldown) line(t('duels.cooldown', { t: clockText(cooldown - now) }), 'bad');
+      if (cooldown) line(t('duels.cooldown', { t: fmtClock((cooldown - now) / 1000) }), 'bad');
       else if (problem) line(why!, 'bad');
       const un = new Button(this, x + 7, ly, w - 14, 26, { label: t('dv.playUnranked'), icon: 'swords', inline: true, variant: 'primary', id: 'duel.findUnranked', tip: t('duels.unrankedTip', { w: RANKED.glory.unranked.win }), onClick: () => this.findMatch('unranked') });
       if (why) un.setEnabled(false, why);
@@ -1435,7 +1424,7 @@ export class DuelScene extends BaseScene {
     } else {
       ly = this.standingRow(c, x, ly, w, r);
       if (match) line(t('duels.rejoinHint'), 'ink');
-      else if (cooldown) line(t('duels.cooldown', { t: clockText(cooldown - now) }), 'bad');
+      else if (cooldown) line(t('duels.cooldown', { t: fmtClock((cooldown - now) / 1000) }), 'bad');
       else if (problem) line(why!, 'bad');
       else line(t('duels.payRanked', { w: RANKED.glory.ranked.win, l: RANKED.glory.ranked.loss }), 'sec');
       const gap = SIZE.gap;
@@ -1527,7 +1516,7 @@ export class DuelScene extends BaseScene {
   }
 
   private searchSentence(s: { mode: DuelMode; since: number }): string {
-    return t(`duels.sit.searching.${s.mode}` as TKey, { t: clockText(Date.now() - s.since) });
+    return t(`duels.sit.searching.${s.mode}` as TKey, { t: fmtClock((Date.now() - s.since) / 1000) });
   }
 
   private buildSearch(p: DuelProfileView, s: { mode: DuelMode; since: number }): void {
@@ -1547,7 +1536,7 @@ export class DuelScene extends BaseScene {
     B.add(glass);
     this.tweens.add({ targets: glass, angle: { from: 0, to: 180 }, duration: 800, yoyo: true, repeat: -1, repeatDelay: 300, ease: 'Sine.easeInOut' });
     y += 12 * big + 6;
-    this.searchText = addText(this, mid, y, t('duels.searching', { t: clockText(Date.now() - s.since) }), 'title', 0.5).setScale(1.5);
+    this.searchText = addText(this, mid, y, t('duels.searching', { t: fmtClock((Date.now() - s.since) / 1000) }), 'title', 0.5).setScale(1.5);
     B.add(this.searchText);
     y += 18;
     const lines = Math.min(3, Math.floor((bottom - y) / LINE_H));
@@ -1610,7 +1599,7 @@ export class DuelScene extends BaseScene {
 
   private tickSearch(): void {
     if (this.search && this.searchText?.active) {
-      this.searchText.setText(t('duels.searching', { t: clockText(Date.now() - this.search.since) }));
+      this.searchText.setText(t('duels.searching', { t: fmtClock((Date.now() - this.search.since) / 1000) }));
       this.say(this.searchSentence(this.search));
     }
     // a running cooldown counts down on the Live card (only the Arena's cards: other views keep their lists)
@@ -1957,7 +1946,7 @@ export class DuelScene extends BaseScene {
           row.add(rt);
           const who = e.role === 'defence' ? t('duels.log.defence', { name: e.name }) : t('duels.log.attack', { name: e.name });
           row.add(addText(this, 17, 3, ellipsize(who, pw - 17 - rt.width - 8), 'ink'));
-          const sub = [agoText(now - e.at), t('duels.log.delta', { d }), ...(e.glory ? [t('duels.note.glory', { n: e.glory })] : [])].join(' · ');
+          const sub = [fmtAgoText(now - e.at), t('duels.log.delta', { d }), ...(e.glory ? [t('duels.note.glory', { n: e.glory })] : [])].join(' · ');
           row.add(addText(this, 17, 15, ellipsize(sub, pw - 21), 'dim'));
         },
       });

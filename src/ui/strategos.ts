@@ -1,5 +1,5 @@
 /**
- * Strategos chrome (docs/UI_STRATEGOS.md): the pieces every screen shares.
+ * Strategos chrome (docs/UI_KIT.md "Screen chrome"): the pieces every screen shares.
  *
  * - `SituationBar`: one plain sentence ("what is happening / what to do
  *   next") over a row of labelled numbers ("344 gold", "9 men"), at the top.

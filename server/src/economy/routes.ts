@@ -13,7 +13,7 @@ import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { db, requireAuth } from '../middleware';
-import { rateLimit } from '../rateLimit';
+import { requireRate } from '../rateLimit';
 import { currentSeason, getProfile, randomToken } from '../online/store';
 import { isConsumableId } from '../../../src/data/consumables';
 import { catalogView, COSMETIC_SLOTS, getCosmetic, PASS, PASS_TIERS, shopItem, type CosmeticSlot, type PassReward } from './catalog';
@@ -29,7 +29,7 @@ economy.get('/catalog', (c) => c.json({ packs: DRACHMAE_PACKS, ...catalogView() 
 economy.use('/*', requireAuth);
 
 function limit(c: Context<AppEnv>, bucket: string, n: number): void {
-  if (!rateLimit(`economy:${bucket}:${c.get('session').pid}`, n, 60_000)) throw new ApiError(429, 'rate_limited', 'Too many requests, slow down');
+  requireRate(`economy:${bucket}:${c.get('session').pid}`, n, 60_000);
 }
 
 /** UTC day of a server timestamp (daily caps). */

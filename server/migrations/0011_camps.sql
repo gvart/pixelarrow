@@ -1,4 +1,4 @@
--- Online camp plots (docs/MAP_V3.md "Camp", rules in src/online/rules.ts
+-- Online camp plots (docs/DESIGN_V2.md "Camp", rules in src/online/rules.ts
 -- CAMP_RULES / CAMP_BUILDINGS, logic in src/online/camps.ts).
 --
 -- Every player's home region is a camp (made when they join); up to

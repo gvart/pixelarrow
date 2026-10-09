@@ -4,6 +4,7 @@
  * a refused change reloads the profile and says why (src/scenes/heroSource.ts).
  */
 import { itemDef } from '../data/items';
+import { equipFromStash, unequipInto } from '../game/gear';
 import type { Hero } from '../data/units';
 import { ATTR_IDS, ATTR_MAX, perkBlocker, type AttrId } from '../data/perks';
 import type { HeroSource } from '../scenes/heroSource';
@@ -72,28 +73,14 @@ export class DuelHeroSource implements HeroSource {
     const h = this.hero(heroId);
     const i = this.profile.stash.findIndex((x) => x.uid === uid);
     if (!h || i < 0) return false;
-    const it = this.profile.stash[i];
-    const def = itemDef(it.def);
-    this.profile.stash.splice(i, 1);
-    if (h.equip[def.slot]) this.profile.stash.push(h.equip[def.slot]!);
-    h.equip[def.slot] = it;
-    if (def.slot === 'weapon' && def.twoHanded && h.equip.shield) {
-      this.profile.stash.push(h.equip.shield);
-      delete h.equip.shield;
-    }
-    if (def.slot === 'shield' && h.equip.weapon && itemDef(h.equip.weapon.def).twoHanded) {
-      this.profile.stash.push(h.equip.weapon);
-      delete h.equip.weapon;
-    }
-    this.send(this.src.equip(heroId, def.slot, uid));
+    const it = equipFromStash(h.equip, this.profile.stash, i);
+    this.send(this.src.equip(heroId, itemDef(it.def).slot, uid));
     return true;
   }
 
   unequip(heroId: string, slot: Parameters<HeroSource['unequip']>[1]): boolean {
     const h = this.hero(heroId);
-    if (!h || !h.equip[slot]) return false;
-    this.profile.stash.push(h.equip[slot]!);
-    delete h.equip[slot];
+    if (!h || !unequipInto(h.equip, slot, this.profile.stash)) return false;
     this.send(this.src.equip(heroId, slot, null));
     return true;
   }

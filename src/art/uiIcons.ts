@@ -1,5 +1,5 @@
 /**
- * UI icons added by the v3 redesign (docs/UI_V3.md "Icons"), in the exact
+ * UI icons added by the v3 redesign (docs/UI_KIT.md "Icons"), in the exact
  * family of src/art/vectorIcons.ts: a 24 x 24 box, filled parts in one
  * material each, details on top, painted by src/art/iconStyle.ts (ink outline,
  * light from the top left, full / light / dim looks). Some shapes are built

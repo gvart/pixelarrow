@@ -1,5 +1,5 @@
 /**
- * The v3 component layer (docs/UI_V3.md, docs/UI_KIT.md "v3 components"):
+ * The v3 component layer (docs/UI_KIT.md "v3 components"):
  * the pieces the redesigned screens are built from, on top of the kit
  * (src/ui/kit.ts) and its widgets. Everything is a Phaser Container (or adds
  * plain objects to one), sizes are UI px, every tap target is at least 22 UI px

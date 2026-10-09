@@ -29,7 +29,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       // preview.html (procedural sprite sheets) and store.html (Telegram store
-      // art, see scripts/store-images.mjs) are shipped too, for art review;
+      // art, see scripts/dev/store-images.mjs) are shipped too, for art review;
       // audio.html plays every procedural sound and track (src/dev/audio.ts).
       input: { main: 'index.html', preview: 'preview.html', store: 'store.html', audio: 'audio.html' },
     },

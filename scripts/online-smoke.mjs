@@ -1,68 +1,24 @@
 // Online features without a real backend or Telegram: a fake Telegram.WebApp and
 // mocked /api/* routes. Checks that the game stays playable when the API is down
 // (503 / unreachable), then walks the Stars purchase flow, opens the shop (saves
-// docs/screenshots/20-shop.png) and buys a consumable from a map merchant against
-// mocked routes.
+// shots/20-shop.png, git-ignored) and buys a consumable from a map merchant
+// against mocked routes.
 // Usage: node scripts/online-smoke.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
-import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir } from './lib/harness.mjs';
+import { fakeTelegram } from './lib/fakeTelegram.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
-const out = process.argv[3] ?? 'docs/screenshots';
-mkdirSync(out, { recursive: true });
-
-let failures = 0;
-const check = (name, ok, detail = '') => {
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${detail}`);
-  if (!ok) failures++;
-};
-
-/** Minimal Telegram.WebApp: launch data, CloudStorage in memory, invoices "paid". */
-function fakeTelegram() {
-  const store = new Map();
-  window.Telegram = {
-    WebApp: {
-      initData: 'query_id=AA&user=%7B%22id%22%3A1%2C%22first_name%22%3A%22Ana%22%7D&auth_date=1&hash=00',
-      initDataUnsafe: { user: { first_name: 'Ana' } },
-      version: '8.0',
-      platform: 'ios',
-      colorScheme: 'dark',
-      themeParams: {},
-      isVersionAtLeast: () => true,
-      ready() {},
-      expand() {},
-      setHeaderColor() {},
-      setBackgroundColor() {},
-      disableVerticalSwipes() {},
-      HapticFeedback: { impactOccurred() {}, notificationOccurred() {}, selectionChanged() {} },
-      BackButton: { show() {}, hide() {}, onClick() {}, offClick() {} },
-      CloudStorage: {
-        getItem: (k, cb) => setTimeout(() => cb(null, store.get(k) ?? '')),
-        setItem: (k, v, cb) => setTimeout(() => (store.set(k, v), cb?.(null, true))),
-        removeItem: (k, cb) => setTimeout(() => (store.delete(k), cb?.(null, true))),
-      },
-      openInvoice: (link, cb) => setTimeout(() => cb(link.includes('invoice') ? 'paid' : 'failed'), 300),
-    },
-  };
-}
+const out = shotsDir('', process.argv[3]);
 
 async function session(name, routeApi) {
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-  await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
-  // no Vite HMR socket: a source edit elsewhere must not reload the page mid-run (the script runs against a live dev server)
-  await ctx.routeWebSocket((u) => u.searchParams.has('token'), () => {});
+  const browser = await launch();
+  const ctx = await phoneContext(browser);
   const page = await ctx.newPage();
-  const errors = [];
+  // The browser itself logs failed HTTP requests; those are expected here (kept apart in netErrors).
   const netErrors = [];
-  page.on('console', (m) => {
-    if (m.type() !== 'error') return;
-    // The browser itself logs failed HTTP requests; those are expected here.
-    if (/Failed to load resource/.test(m.text())) netErrors.push(m.text());
-    else errors.push(m.text());
-  });
-  page.on('pageerror', (e) => errors.push(e.message));
-  await ctx.addInitScript(fakeTelegram);
+  const errors = captureErrors(page, { ignoreNetwork: true, network: netErrors });
+  // launch data, CloudStorage in memory, invoices "paid"
+  await ctx.addInitScript(fakeTelegram, { invoices: true });
   await page.route('**/api/**', routeApi);
   await page.goto(base);
   await page.waitForTimeout(3000);
@@ -71,14 +27,8 @@ async function session(name, routeApi) {
 
 const ev = (page, fn, arg) => page.evaluate(fn, arg);
 /** All bitmap text currently in a scene (nested containers included). */
-const sceneText = (page, k) =>
-  ev(page, (key) => {
-    const out = [];
-    const walk = (list) => list.forEach((o) => (o.text !== undefined && out.push(o.text), o.list && walk(o.list)));
-    walk(window.__game.scene.getScene(key).children.list);
-    return out.join(' ').toUpperCase();
-  }, k);
-const active = (page, k) => ev(page, (key) => window.__game.scene.isActive(key), k);
+const sceneText = (page, k) => makePageApi(page).sceneText(k);
+const active = (page, k) => makePageApi(page).active(k);
 
 // ---- 1. API configured but down (current production state) and API unreachable
 for (const mode of ['503', 'abort']) {
@@ -272,7 +222,4 @@ check('[duel] aborted duel leaves the battle', await (async () => {
 })());
 await page.waitForTimeout(500);
 check('[duel] no page errors after the hand-over', s.errors.length === 0, s.errors.join(' | '));
-await s.browser.close();
-
-console.log(failures ? `${failures} FAILED` : 'ALL PASS');
-process.exit(failures ? 1 : 0);
+await finish({ browser: s.browser });

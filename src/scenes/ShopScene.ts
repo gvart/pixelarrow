@@ -16,7 +16,8 @@ import { addChip, frameScrollTexts } from '../ui/sheet';
 import { econ, newRequestId, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
 import { pickBattleConsumable } from '../ui/econ/consumablePicker';
-import { addCosmetic, addEconState, ago, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
+import { fmtAgo } from '../util/format';
+import { addCosmetic, addEconState, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
 import { claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
@@ -608,7 +609,7 @@ export class ShopScene extends BaseScene {
       c.add(addPanel(this, 0, y, w, 22, 'card'));
       const delta = addText(this, w - 6, y + 7, `${l.delta > 0 ? '+' : ''}${l.delta}`, l.delta >= 0 ? 'good' : 'bad', 1);
       c.add(delta);
-      const when = addText(this, w - 12 - delta.width, y + 7, ago(l.at, now), 'muted', 1);
+      const when = addText(this, w - 12 - delta.width, y + 7, fmtAgo(l.at, now), 'muted', 1);
       c.add(when);
       c.add(addText(this, 6, y + 7, ellipsize(tOr(`wallet.kind.${l.kind}`, l.kind), w - 22 - delta.width - when.width), 'ink'));
       y += 22 + 2;

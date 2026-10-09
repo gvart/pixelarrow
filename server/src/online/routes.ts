@@ -13,6 +13,7 @@ import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
 import { itemDef, SLOTS, type Item, type Slot } from '../../../src/data/items';
+import { equipInto, unequipInto } from '../../../src/game/gear';
 import { FORMATION_TYPES, type FormationType } from '../../../src/sim/formation';
 import { siteName } from '../../../src/world/battlefield';
 import type { RegionKind } from '../../../src/online/mapSchema';
@@ -535,23 +536,8 @@ online.post('/equip', async (c) => {
     if (!taken) throw new ApiError(404, 'not_found', 'No such item in your stash');
     const def = itemDef(taken.def);
     if (def.slot !== body.slot) throw badRequest(`${def.name} does not go in the ${body.slot} slot`);
-    const prev = hero.equip[body.slot];
-    if (prev) toStash.push(prev);
-    hero.equip[body.slot] = taken;
-    if (body.slot === 'weapon' && def.twoHanded && hero.equip.shield) {
-      toStash.push(hero.equip.shield);
-      delete hero.equip.shield;
-    }
-    if (body.slot === 'shield' && hero.equip.weapon && itemDef(hero.equip.weapon.def).twoHanded) {
-      toStash.push(hero.equip.weapon);
-      delete hero.equip.weapon;
-    }
-  } else {
-    const prev = hero.equip[body.slot];
-    if (!prev) return c.json({ hero, stash });
-    toStash.push(prev);
-    delete hero.equip[body.slot];
-  }
+    toStash.push(...equipInto(hero.equip, taken));
+  } else if (!unequipInto(hero.equip, body.slot, toStash)) return c.json({ hero, stash });
   const g = revGuard(pc.season.id, pc.pid, pc.profile.rev + 1);
   await revBatch(pc.db, [
     pc.db.prepare('UPDATE online_profiles SET rev = rev + 1, updated_at = ?3 WHERE season_id = ?1 AND player_id = ?2 AND rev = ?4').bind(pc.season.id, pc.pid, pc.now, pc.profile.rev),

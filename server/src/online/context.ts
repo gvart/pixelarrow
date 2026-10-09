@@ -1,9 +1,8 @@
 /** Per-request helpers for the online routes. */
 import type { Context } from 'hono';
 import type { AppEnv, Env } from '../env';
-import { ApiError } from '../errors';
 import { db } from '../middleware';
-import { rateLimit } from '../rateLimit';
+import { requireRate } from '../rateLimit';
 import { currentSeason, getShard, membership, requireProfile, shardDoName, type Membership, type ProfileRow, type Season, type Shard } from './store';
 
 export interface Ctx {
@@ -38,7 +37,7 @@ export async function player(c: Context<AppEnv>): Promise<PlayerCtx> {
 /** Per-player soft rate limit (per isolate, like the login limiter). */
 export function limit(c: Context<AppEnv>, bucket: string, n: number, windowMs = 60_000): void {
   const pid = c.get('session').pid;
-  if (!rateLimit(`online:${bucket}:${pid}`, n, windowMs)) throw new ApiError(429, 'rate_limited', 'Too many requests, slow down');
+  requireRate(`online:${bucket}:${pid}`, n, windowMs);
 }
 
 /** The shard's Durable Object (presence, duels, region attack locks). */

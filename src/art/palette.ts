@@ -71,3 +71,8 @@ export function mix(a: number, b: number, t: number): number {
   const bl = Math.round(ab + (bb - ab) * t);
   return (r << 16) | (g << 8) | bl;
 }
+
+/** `c` moved a fraction `k` of the way towards `to` (white by default). */
+export function lighten(c: number, k: number, to = 0xffffff): number {
+  return mix(c, to, k);
+}

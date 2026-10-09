@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ONLINE_RULES } from '../../src/online/rules';
 import { CONSUMABLES } from '../../src/data/consumables';
 import { holderCut, merchantDay, merchantStock, MERCHANT, offerPrice, tradingPosts } from '../../src/online/merchants';
-import { currentSeason, getShard } from '../src/online/store';
-import { DB, fresh, getJson, join, placeArmy, post, sameShard, worldOf, type Player } from './onlineHelpers';
+import { DB, fresh, getJson, giveDrachmae, join, placeArmy, post, sameShard, setGold, shardRow, worldOf, type Player } from './onlineHelpers';
 
 beforeEach(fresh);
 
@@ -35,11 +34,6 @@ interface Stock {
   offers: OfferView[];
 }
 
-async function shardOf(p: Player) {
-  const season = await currentSeason(DB());
-  return { season, shard: await getShard(DB(), season.id, p.profile.shard.id) };
-}
-
 /** A town of the player's shard (not a capital), with the player's land given up and the army out of sight of it. */
 async function aTown(p: Player): Promise<number> {
   const w = worldOf(p);
@@ -49,24 +43,15 @@ async function aTown(p: Player): Promise<number> {
   return town;
 }
 
-async function setGold(p: Player, gold: number) {
-  const season = await currentSeason(DB());
-  await DB().prepare('UPDATE online_profiles SET gold = ?1 WHERE season_id = ?2 AND player_id = ?3').bind(gold, season.id, p.playerId).run();
-}
-
 async function gold(p: Player): Promise<number> {
   return (await getJson<{ resources: { gold: number } }>('/api/online/profile', p.token)).body.resources.gold;
 }
 
-async function giveDrachmae(pid: number, n: number) {
-  await DB().prepare('INSERT INTO wallets (player_id, drachmae, updated_at) VALUES (?1, ?2, 0) ON CONFLICT (player_id) DO UPDATE SET drachmae = excluded.drachmae').bind(pid, n).run();
-}
-
 async function hold(p: Player, h: number, clan: number | null = null) {
-  const { season, shard } = await shardOf(p);
+  const shard = await shardRow(p);
   await DB()
     .prepare("INSERT INTO online_regions (season_id, shard_id, loc, occupant, owner_id, clan_id, captured_at, accrued_at) VALUES (?1, ?2, ?3, 'player', ?4, ?5, ?6, ?6)")
-    .bind(season.id, shard.id, h, p.playerId, clan, Date.now())
+    .bind(shard.season, shard.id, h, p.playerId, clan, Date.now())
     .run();
 }
 
@@ -97,7 +82,7 @@ describe('map merchants', () => {
     expect((await getJson<{ merchant: string | null }>(`/api/online/region/${town}`, p.token)).body.merchant).toBe('town');
     const s = (await stock(p, town)).body;
     expect(s.reach).toBe(true);
-    const { shard } = await shardOf(p);
+    const shard = await shardRow(p);
     expect(s.offers.map((o) => o.id)).toEqual(merchantStock(shard.world, shard.seed, town, 'town', merchantDay(Date.now())).map((o) => o.id));
     expect(s.offers.filter((o) => o.kind === 'consumable')).toHaveLength(5);
     // Gear is never sold for Drachmae.
@@ -194,7 +179,7 @@ describe('map merchants', () => {
 
   it('trading posts: rarer stock, shown on the map', async () => {
     const p = await join(970201);
-    const { shard } = await shardOf(p);
+    const shard = await shardRow(p);
     const posts = tradingPosts(shard.world);
     expect(posts.length).toBeGreaterThan(0);
     const tp = posts[0];

@@ -5,7 +5,7 @@
  */
 import Phaser from 'phaser';
 import { panelK } from './kit';
-import { P } from '../art/palette';
+import { hex, P } from '../art/palette';
 import { BAND_COLORS, PARTY_FH, PARTY_FINIAL, PARTY_FRAMES, PARTY_FW, renderPartyFigure } from '../art/worldArt';
 import { online } from '../platform/cloud';
 import { SUPPORTER_BANNER, type SyncStatus } from '../platform/online';
@@ -15,7 +15,6 @@ const GOLD_DARK = P.goldDark;
 const GOLD_LIGHT = 0xf6e0a0;
 
 type Ctx = CanvasRenderingContext2D;
-const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 
 /** A canvas of w x h UI px at K atlas px per UI px, drawn in UI-px units. */
 function drawCanvas(w: number, h: number, K: number, draw: (ctx: Ctx) => void): HTMLCanvasElement {

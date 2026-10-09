@@ -1,51 +1,13 @@
 import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { BASE, devLogin } from './helpers';
+import { wsPath, type WsClient } from './onlineHelpers';
 
-interface Client {
-  ws: WebSocket;
-  msgs: Record<string, unknown>[];
-  next(type: string): Promise<Record<string, unknown>>;
-}
-
-async function connect(region: string, token: string, via: 'query' | 'protocol' = 'query'): Promise<Client> {
-  const url = via === 'query' ? `${BASE}/ws/region/${region}?token=${encodeURIComponent(token)}` : `${BASE}/ws/region/${region}`;
-  const headers: Record<string, string> = { upgrade: 'websocket' };
-  if (via === 'protocol') headers['sec-websocket-protocol'] = `pixelarrow.v1, ${token}`;
-  const res = await SELF.fetch(url, { headers });
-  expect(res.status).toBe(101);
-  if (via === 'protocol') expect(res.headers.get('sec-websocket-protocol')).toBe('pixelarrow.v1');
-  const ws = res.webSocket!;
-  const msgs: Record<string, unknown>[] = [];
-  const waiters: { type: string; resolve: (m: Record<string, unknown>) => void }[] = [];
-  let seen = 0;
-  const pump = () => {
-    for (let i = 0; i < waiters.length; i++) {
-      const w = waiters[i];
-      const idx = msgs.findIndex((m, j) => j >= seen && m.type === w.type);
-      if (idx >= 0) {
-        seen = idx + 1;
-        waiters.splice(i, 1);
-        w.resolve(msgs[idx]);
-        i--;
-      }
-    }
-  };
-  ws.addEventListener('message', (e) => {
-    msgs.push(typeof e.data === 'string' && e.data.startsWith('{') ? JSON.parse(e.data) : { type: 'raw', data: e.data });
-    pump();
-  });
-  ws.accept();
-  return {
-    ws,
-    msgs,
-    next: (type) =>
-      new Promise((resolve, reject) => {
-        waiters.push({ type, resolve });
-        pump();
-        setTimeout(() => reject(new Error(`timeout waiting for ${type}; got ${JSON.stringify(msgs)}`)), 30_000);
-      }),
-  };
+/** A presence socket on a region room, the token in `?token=` (default) or in the WebSocket protocol header. */
+async function connect(region: string, token: string, via: 'query' | 'protocol' = 'query'): Promise<WsClient> {
+  const c = await wsPath(token, `/ws/region/${region}`, { auth: via });
+  if (via === 'protocol') expect(c.protocol).toBe('pixelarrow.v1');
+  return c;
 }
 
 describe('RegionDO presence', () => {

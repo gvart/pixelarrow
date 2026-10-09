@@ -220,7 +220,7 @@ export function militia(shardSeed: number, region: Pick<RegionInfo, 'id' | 'tier
 // ------------------------------------------------------------------ camps
 
 /**
- * Camp plots (docs/MAP_V3.md "Camp"): every player's home region is a camp;
+ * Camp plots (docs/DESIGN_V2.md "Camp"): every player's home region is a camp;
  * up to `maxForward` more (forward bases) may be made on regions with
  * campPlot = true that the player holds, with the army standing there. A camp
  * has a grid of building slots (`cols` x `rows`, the forward camps fewer);

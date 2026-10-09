@@ -1,35 +1,7 @@
-/** Shared bits of the online scenes: modals, the resource strip, colours. */
+/** Shared bits of the online scenes: text lines, buttons, the resource strip, colours. */
 import Phaser from 'phaser';
 import { Button, addIcon, addPanel, addText, type FontKey } from '../../ui/kit';
-import { ellipsize } from '../../ui/textfit';
-import { shadeTap } from '../../ui/widgets';
 import type { Resources } from '../../online/rules';
-
-export interface Modal {
-  c: Phaser.GameObjects.Container;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  /** Close on a tap on the shade outside the box (see `shadeTap` in ui/widgets.ts). */
-  onShadeTap: (close: () => void) => void;
-}
-
-/**
- * Parchment modal over a dark shade, centred in the UI root. Closing is the
- * caller's: pass the same close Back uses to `onShadeTap` for tap-outside.
- */
-export function openModal(scene: Phaser.Scene, ui: Phaser.GameObjects.Container, VW: number, VH: number, h: number, title: string, w = Math.min(VW - 16, 184)): Modal {
-  const c = scene.add.container(0, 0);
-  ui.add(c);
-  const shade = scene.add.rectangle(0, 0, VW, VH, 0x000000, 0.55).setOrigin(0, 0).setInteractive();
-  c.add(shade);
-  const x = Math.round((VW - w) / 2);
-  const y = Math.max(4, Math.round((VH - h) / 2));
-  c.add(addPanel(scene, x, y, w, h, 'cardRaised'));
-  c.add(addText(scene, VW / 2, y + 10, ellipsize(title, (w - 20) / 1.1, false, 7, 'head'), 'head', 0.5).setScale(1.1));
-  return { c, x, y, w, h, onShadeTap: (close) => shadeTap(shade, { x, y, w, h }, close) };
-}
 
 /** Centred lines of text; returns the y after the last line. */
 export function lines(scene: Phaser.Scene, c: Phaser.GameObjects.Container, cx: number, y: number, text: string[], font: FontKey = 'ink', maxW = 0): number {
@@ -69,12 +41,6 @@ export function addResourceBar(scene: Phaser.Scene, ui: Phaser.GameObjects.Conta
 
 export const MINE_COLOR = 0x2f6fd0;
 export const CLAN_COLOR = 0x3fae4a;
-
-/** A stable colour for another player's land. */
-export function ownerColor(id: number): number {
-  const palette = [0xc0392b, 0x8e44ad, 0xd35400, 0x9b2335, 0xb8860b, 0x6d4c41, 0xad1457, 0x5d6d7e];
-  return palette[Math.abs(id * 2654435761) % palette.length];
-}
 
 export function fmtDuration(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));

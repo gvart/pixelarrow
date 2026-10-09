@@ -48,6 +48,7 @@ import { generateBattlefield, randomSite } from '../world/battlefield';
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
 import { t, tOr, type TKey } from '../i18n';
+import { fmtClock } from '../util/format';
 import { BattleTutorial, type TutorialEvent, type TutorialHost, type TutorialStart } from '../ui/tutorial/battleTutorial';
 import { tutorialBattle } from '../game/tutorial';
 
@@ -59,8 +60,8 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 const CATCH_UP_TURNS = 4;
 const CATCH_UP_STEPS = 120;
 
-// HUD geometry (UI pixels, docs/UI_STRATEGOS.md "Battle"): the situation bar, the field with the
-// group cards down its left edge and the radial ring, the ability row, the command strip.
+// HUD geometry (UI pixels, docs/UI_KIT.md "Battle HUD"): the top bar, the field, the ability
+// medallions down its right edge, the bottom sheet (group cards and orders).
 /** Bottom sheet (UI px): group card height, the header line, the order buttons. */
 const SHEET_CARD_H = 28;
 const SHEET_HEAD_H = 22;
@@ -3021,11 +3022,6 @@ export class BattleScene extends BaseScene {
 
 function uiMetricsOf(scene: Phaser.Scene): { S: number; VW: number; VH: number } {
   return uiMetrics(scene);
-}
-
-/** "1:05". */
-function fmtClock(s: number): string {
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 /** A sim group's name (Phalanx, Skirmish...) in the current language. */

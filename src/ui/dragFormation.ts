@@ -21,6 +21,7 @@
  * zoom), so the gestures feel the same on screen at any zoom.
  */
 import { rightOf } from '../sim/formation';
+import { clamp } from '../util/math';
 
 /** The facing knob (the turn handle) sits this many paces ahead of the front-rank centre. */
 export const KNOB_PACES = 3;
@@ -84,7 +85,6 @@ export interface DragPlan {
   kind: DragKind;
 }
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const D = Math.SQRT1_2;
 /** The eight field directions a facing snaps to. */
 const DIRS: [number, number][] = [

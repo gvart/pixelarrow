@@ -9,9 +9,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
-import { ApiError } from '../errors';
 import { db, requireAuth } from '../middleware';
-import { rateLimit } from '../rateLimit';
+import { requireRate } from '../rateLimit';
 import { disabledSet, getSettings, type NotifySettingsRow } from './outbox';
 import { NOTIFY_TYPES, type NotifyType } from './templates';
 
@@ -55,7 +54,7 @@ const Body = z.object({
 
 notifyRoutes.put('/settings', async (c) => {
   const pid = c.get('session').pid;
-  if (!rateLimit(`notify:${pid}`, 30, 60_000)) throw new ApiError(429, 'rate_limited', 'Too many requests, slow down');
+  requireRate(`notify:${pid}`, 30, 60_000);
   const body = await readJson(c, Body, 2048);
   const d = db(c.env);
   let off: Set<NotifyType> | undefined;

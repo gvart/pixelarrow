@@ -19,18 +19,10 @@ import { dollKey, type DollSpec } from '../art/paperdoll';
 import { ellipsize, measureText } from './textfit';
 import { CATEGORY_COLOR, CATEGORY_DARK, type BattleCategory } from './theme';
 import { Pix } from '../art/pixels';
-import { P } from '../art/palette';
+import { lighten, P } from '../art/palette';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
 import { t } from '../i18n';
-
-const lighten = (c: number, k: number): number => {
-  const r = (c >> 16) & 255;
-  const g = (c >> 8) & 255;
-  const b = c & 255;
-  const f = (v: number) => Math.round(v + (255 - v) * k);
-  return (f(r) << 16) | (f(g) << 8) | f(b);
-};
 
 /** A bevelled panel filled with a category colour (selected command / tab), cached per size. */
 export function categoryTexture(scene: Phaser.Scene, w: number, h: number, cat: BattleCategory, down = false): string {

@@ -1,5 +1,5 @@
 /**
- * The war map of a shard (docs/MAP_V3.md "Rendering"): the interface the
+ * The war map of a shard (docs/DESIGN_V2.md "Rendering"): the interface the
  * online scene draws through, and the parchment implementation.
  *
  * OnlineScene only talks to `WorldMapView`: build it from a map answer, ask
@@ -89,7 +89,11 @@ export function territoryColor(map: Pick<MapView, 'you'>, r: Pick<RegionView, 'o
   if (r.owner === null) return null;
   if (r.owner === map.you.id) return TERRITORY.mine;
   if (map.you.clan !== null && r.clan === map.you.clan) return TERRITORY.clan;
-  const id = r.clan ?? r.owner;
+  return otherColor(r.clan ?? r.owner);
+}
+
+/** A stable colour for another player's (or clan's) land and armies. */
+function otherColor(id: number): number {
   return TERRITORY.others[Math.abs(Math.imul(id, 2654435761)) % TERRITORY.others.length];
 }
 
@@ -793,7 +797,7 @@ export class ParchmentMapView implements WorldMapView {
     if (player === map.you.id) return TERRITORY.mine;
     const a = this.armies.armies.get(player);
     if (map.you.clan !== null && a?.clan === map.you.clan) return TERRITORY.clan;
-    return TERRITORY.others[Math.abs(Math.imul(a?.clan ?? player, 2654435761)) % TERRITORY.others.length];
+    return otherColor(a?.clan ?? player);
   }
 
   private armyTex(kind: 'army' | 'ship', col: number): string {

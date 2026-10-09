@@ -4,7 +4,7 @@
  * the map merchants, src/online/merchants.ts) and the marketplace limits. Change prices here; nothing else hard-codes them.
  * Stars products (Drachmae packs) live in ../products.ts.
  */
-import { LEGACY_RARITY, normalizeRarity, RARITIES } from '../../../src/data/items';
+import { marketFee as sharedMarketFee, rarityBounds } from '../../../src/game/marketRules';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 
 /** crest, aura and pose are worn by the soldiers in battle (src/art/paperdoll.ts applyCosmetics, src/game/cosmetics.ts). */
@@ -144,13 +144,12 @@ export const MARKET = {
 
 /** Fee burned on a sale: 10%, rounded up (prices start at 2, so the seller always gets something). */
 export function marketFee(price: number): number {
-  return Math.ceil(price * MARKET.feeRate);
+  return sharedMarketFee(price, MARKET.feeRate);
 }
 
 export function priceBounds(currency: 'gold' | 'drachmae', rarity: string): [number, number] {
   const t = MARKET.priceBounds[currency];
-  const known = (RARITIES as string[]).includes(rarity) || rarity in LEGACY_RARITY;
-  return (known ? t[normalizeRarity(rarity)] : undefined) ?? t.default;
+  return rarityBounds(t, rarity) ?? t.default;
 }
 
 /** Public catalogue for GET /api/economy/catalog. */

@@ -10,8 +10,8 @@
 // Element bounds come from the game's debug UI registry (window.__layout,
 // src/ui/layout.ts). Known violations are listed with an owner in
 // scripts/layout-allowlist.json; anything not listed fails the run.
-// Screenshots: docs/screenshots/layout/<lang>-<plain|tg>/<WxH>/<screen>.png
-// (git-ignored) and a summary in docs/screenshots/layout/index.md.
+// Screenshots: shots/layout/<lang>-<plain|tg>/<WxH>/<screen>.png and a summary
+// in shots/layout/index.md (git-ignored; CI uploads shots/layout as an artifact).
 //
 // Usage: node scripts/layout-check.mjs [baseUrl] [options]   (needs a running dev/preview server)
 //   --update-allowlist   write the current violations into the allowlist (owners from the screen table)
@@ -22,12 +22,10 @@
 //   --split 2            split each configuration's screens into 2 contiguous runs (each in its own context, in parallel)
 //   --verbose            print every violation with its detail
 //   --no-retry           do not re-run screens with new violations (by default a new violation must show twice)
-import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { join } from 'node:path';
+import { ROOT as root, launch, captureErrors, apiDown, makePageApi, shotsDir } from './lib/harness.mjs';
+import { fakeTelegram } from './lib/fakeTelegram.mjs';
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
 const opt = (n, d) => {
@@ -35,7 +33,7 @@ const opt = (n, d) => {
   return i >= 0 && args[i + 1] ? args[i + 1] : d;
 };
 const base = args.find((a) => /^https?:/.test(a)) ?? 'http://localhost:5173/';
-const outDir = join(root, 'docs/screenshots/layout');
+const outDir = shotsDir('layout');
 const allowPath = join(root, 'scripts/layout-allowlist.json');
 
 const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780').split(',').map((s) => s.split('x').map(Number));
@@ -50,16 +48,10 @@ const TG = { safeTop: 59, contentTop: 46, safeBottom: 34 };
 // owner: F = UI foundation (must stay clean), A = battle + results, B = army /
 // hero / stash / shop / pass / market / settlement, C = world and hex maps.
 const ev = (page, fn, arg) => page.evaluate(fn, arg);
-const start = (page, key, data) => ev(page, ([k, d]) => window.__game.scene.getScenes(true).forEach((s) => s.scene.start(k, d)), [key, data ?? {}]);
-const call = (page, key, body) => ev(page, ([k, f]) => new Function('s', f)(window.__game.scene.getScene(k)), [key, body]);
+const start = (page, key, data) => makePageApi(page).start(key, data);
+const call = (page, key, body) => makePageApi(page).call(key, body);
 const wait = (page, ms) => page.waitForTimeout(ms);
-const until = async (page, fn, ms = 8000) => {
-  for (let t = 0; t < ms; t += 150) {
-    if (await ev(page, fn)) return true;
-    await wait(page, 150);
-  }
-  return false;
-};
+const until = (page, fn, ms = 8000) => makePageApi(page).untilPage(fn, ms, 150);
 const activeIs = (k) => new Function(`return window.__game.scene.isActive(${JSON.stringify(k)})`);
 
 /**
@@ -698,58 +690,16 @@ function seededRandom() {
   };
 }
 
-/** A minimal full-screen Telegram (Bot API 8.0, iOS) with the insets already reported. */
-function fakeTelegram(ins) {
-  const store = new Map();
-  const handlers = new Map();
-  const btn = () => ({ isVisible: false, show() { this.isVisible = true; }, hide() { this.isVisible = false; }, onClick() {}, offClick() {} });
-  window.Telegram = {
-    WebApp: {
-      initData: 'query_id=AA&user=%7B%22id%22%3A1%2C%22first_name%22%3A%22Ana%22%7D&auth_date=1&hash=00',
-      initDataUnsafe: { user: { first_name: 'Ana', language_code: 'en' } },
-      version: '8.0',
-      platform: 'ios',
-      colorScheme: 'dark',
-      themeParams: {},
-      isFullscreen: true,
-      isExpanded: true,
-      safeAreaInset: { top: ins.safeTop, bottom: ins.safeBottom, left: 0, right: 0 },
-      contentSafeAreaInset: { top: ins.contentTop, bottom: 0, left: 0, right: 0 },
-      isVersionAtLeast: (v) => parseFloat(v) <= 8.0,
-      ready() {},
-      expand() {},
-      setHeaderColor() {},
-      setBackgroundColor() {},
-      disableVerticalSwipes() {},
-      lockOrientation() {},
-      enableClosingConfirmation() {},
-      disableClosingConfirmation() {},
-      requestFullscreen() {},
-      onEvent: (e, cb) => (handlers.get(e) ?? handlers.set(e, []).get(e)).push(cb),
-      offEvent() {},
-      HapticFeedback: { impactOccurred() {}, notificationOccurred() {}, selectionChanged() {} },
-      BackButton: btn(),
-      SettingsButton: btn(),
-      CloudStorage: {
-        getItem: (k, cb) => setTimeout(() => cb(null, store.get(k) ?? '')),
-        setItem: (k, v, cb) => setTimeout(() => (store.set(k, v), cb?.(null, true))),
-        removeItem: (k, cb) => setTimeout(() => (store.delete(k), cb?.(null, true))),
-      },
-    },
-  };
-}
-
 async function runConfig(browser, cfg, screens) {
   const [W, H] = cfg.size;
   const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
   await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
   await ctx.addInitScript(seededRandom);
-  if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, TG);
+  // a full-screen Telegram with the insets already reported
+  if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, { insets: TG, fullscreen: 'launch', languageCode: 'en' });
   const page = await ctx.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
-  await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"code":"not_configured","message":"down"}}' }));
+  const errors = captureErrors(page, { ignoreNetwork: true });
+  await apiDown(page);
   await page.route('**/telegram.org/**', (r) => r.abort());
   const url = `${base}${base.includes('?') ? '&' : '?'}lang=${cfg.lang}${cfg.insets === 'tg' ? '#tgWebAppVersion=8.0&tgWebAppPlatform=ios' : ''}`;
   // a busy machine can be slow to serve the first load: one more try
@@ -827,7 +777,7 @@ const units = [];
 const per = Math.ceil(screens.length / SPLIT);
 for (const cfg of configs) for (let c = 0; c < SPLIT; c++) if (c * per < screens.length) units.push({ cfg, screens: screens.slice(c * per, (c + 1) * per), part: c });
 
-const browser = await chromium.launch();
+const browser = await launch();
 const runs = [];
 let next = 0;
 const t0 = Date.now();
@@ -878,7 +828,7 @@ if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
       if (!redo.has(tag)) redo.set(tag, { cfg, ids: new Set() });
       redo.get(tag).ids.add(found.get(k).screen);
     }
-  const b2 = await chromium.launch();
+  const b2 = await launch();
   const again = new Set();
   for (const { cfg, ids } of redo.values()) {
     const r = await runConfig(b2, cfg, SCREENS.filter((s) => ids.has(s.id)));
@@ -923,7 +873,7 @@ const md = [
   '# Layout check',
   '',
   'Generated by `node scripts/layout-check.mjs` (see docs/UI_KIT.md). Screenshots are written next to this file',
-  '(`<lang>-<plain|tg>/<W>x<H>/<screen>.png`, git-ignored; CI uploads them as the `layout-screenshots` artifact).',
+  '(`<lang>-<plain|tg>/<W>x<H>/<screen>.png`; CI uploads them as the `layout-screenshots-<shard>` artifacts).',
   '',
   `Sizes: ${SIZES.map((s) => s.join('x')).join(', ')}. Telegram insets: top ${TG.safeTop} + ${TG.contentTop}, bottom ${TG.safeBottom}.`,
   '',
@@ -936,10 +886,7 @@ const md = [
   `Distinct violations: ${found.size} (allowlisted ${[...found.keys()].filter((k) => allowed.has(k)).length}, new ${fresh.length}).`,
   '',
 ];
-if (!partial) {
-  mkdirSync(outDir, { recursive: true });
-  writeFileSync(join(outDir, 'index.md'), md.join('\n'));
-}
+if (!partial) writeFileSync(join(outDir, 'index.md'), md.join('\n'));
 
 // ------------------------------------------------------------------ report
 

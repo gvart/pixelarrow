@@ -5,7 +5,7 @@ import { PASS, PASS_TIERS } from '../src/economy/catalog';
 import { PRODUCTS } from '../src/products';
 import { currentSeason, getShard } from '../src/online/store';
 import { api, devLogin, mockTelegram, webhook } from './helpers';
-import { DB, fresh, freeNeighbour, getJson, must, join, placeArmy, play, post, sameShard, weakenNeutrals, worldOf, wsOnline, type Ticket } from './onlineHelpers';
+import { DB, fresh, freeNeighbour, getJson, giveDrachmae, must, join, placeArmy, play, post, sameShard, weakenNeutrals, worldOf, wsOnline, type Ticket } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -39,10 +39,6 @@ async function buyPack(tgId: number, token: string, productId: string, charge: s
     message: { message_id: 1, chat: { id: tgId, type: 'private' }, from: { id: tgId }, successful_payment: { currency: 'XTR', total_amount: p.stars, invoice_payload: payload, telegram_payment_charge_id: charge } },
   };
   return { payload, paid, calls };
-}
-
-async function giveDrachmae(pid: number, n: number) {
-  await DB().prepare('INSERT INTO wallets (player_id, drachmae, updated_at) VALUES (?1, ?2, 0) ON CONFLICT (player_id) DO UPDATE SET drachmae = excluded.drachmae').bind(pid, n).run();
 }
 
 async function inventory(token: string) {

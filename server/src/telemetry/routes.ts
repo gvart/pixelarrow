@@ -18,8 +18,8 @@ import { readJson } from '../body';
 import { bytesToHex, utf8 } from '../crypto';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { bearer, db, requireAuth, sessionFromToken } from '../middleware';
-import { rateLimit } from '../rateLimit';
+import { bearer, clientIp, db, requireAuth, sessionFromToken } from '../middleware';
+import { requireRate } from '../rateLimit';
 import { scrubText } from '../../../src/platform/analyticsSchema';
 import { milestone, optedOut, requestCtx, safeTag, writeEvent, writePoint } from './analytics';
 
@@ -72,8 +72,6 @@ export const EventsBody = z.object({
 
 export const telemetry = new Hono<AppEnv>();
 
-const ip = (c: Context<AppEnv>) => c.req.header('cf-connecting-ip') ?? 'unknown';
-
 /** The player id of a valid session (header or body token), else 0. Never throws. */
 async function optionalPid(c: Context<AppEnv>, bodyToken?: string): Promise<number> {
   const token = bearer(c) ?? bodyToken ?? null;
@@ -111,10 +109,10 @@ export function resetTelemetryLimits(): void {
 }
 
 telemetry.post('/errors', async (c) => {
-  if (!rateLimit(`tel:err:ip:${ip(c)}`, ERROR_BATCHES_PER_MIN, 60_000)) throw new ApiError(429, 'rate_limited', 'Too many error reports');
+  requireRate(`tel:err:ip:${clientIp(c)}`, ERROR_BATCHES_PER_MIN, 60_000, 'Too many error reports');
   const body = await readJson(c, ErrorsBody, ERRORS_MAX_BODY);
   const pid = await optionalPid(c, body.token);
-  if (pid && !rateLimit(`tel:err:pid:${pid}`, ERROR_BATCHES_PER_MIN, 60_000)) throw new ApiError(429, 'rate_limited', 'Too many error reports');
+  if (pid) requireRate(`tel:err:pid:${pid}`, ERROR_BATCHES_PER_MIN, 60_000, 'Too many error reports');
 
   const now = Date.now();
   if (now - globalWindow.start >= 60_000) globalWindow = { start: now, rows: 0 };
@@ -164,7 +162,7 @@ telemetry.post('/events', async (c) => {
   const body = await readJson(c, EventsBody, EVENTS_MAX_BODY);
   const pid = await optionalPid(c, body.token);
   if (!pid) throw new ApiError(401, 'unauthorized', 'Missing or invalid session token');
-  if (!rateLimit(`tel:ev:${pid}`, EVENT_BATCHES_PER_MIN, 60_000)) throw new ApiError(429, 'rate_limited', 'Too many analytics batches');
+  requireRate(`tel:ev:${pid}`, EVENT_BATCHES_PER_MIN, 60_000, 'Too many analytics batches');
   if (body.optOut || optedOut(c)) return c.json({ accepted: 0, rejected: [] });
   const ctx = { ...requestCtx(c, pid, 'client'), platform: body.app.platform ?? c.req.header('x-pa-platform'), version: body.app.version ?? c.req.header('x-pa-version') };
   let accepted = 0;

@@ -12,7 +12,7 @@
  * ratings, Glory, account and hero XP) is guarded by it. The row stays as the
  * defence log entry with what a replay needs (setup, orders).
  */
-import { Hono, type Context } from 'hono';
+import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
@@ -35,25 +35,13 @@ import { ASYNC, asyncSetup, attackPay, defencePay, defenceRating, idleRating, pi
 import type { AsyncReport } from '../../../src/duel/protocol';
 import { getRating, leagueText, loadTeam, rowLeague, type RatingRow } from './live';
 import { leaderboard, markRewardsSeen, rollRatings, seasonView, type Board } from './season';
-import { duelProfileView, getDuelProfile, heroProgressStmts, loadDuelHeroes, requireDuelProfile, syncDefence, type DuelProfileRow } from './store';
+import { duelCtx as ctx, duelProfileView, getDuelProfile, heroProgressStmts, loadDuelHeroes, syncDefence, type DuelCtx as Ctx } from './store';
 import { SubmitBody, verifyBattle } from './verify';
+import { requireOpenTicket, ticketPreamble } from '../tickets';
 
 export const duelSeason = new Hono<AppEnv>();
 
 const DAY_MS = 86_400_000;
-
-interface Ctx {
-  db: D1Database;
-  pid: number;
-  now: number;
-  p: DuelProfileRow;
-}
-
-async function ctx(c: Context<AppEnv>): Promise<Ctx> {
-  const d = db(c.env);
-  const pid = c.get('session').pid;
-  return { db: d, pid, now: Date.now(), p: await requireDuelProfile(d, pid) };
-}
 
 // ------------------------------------------------------------------ candidates
 
@@ -272,15 +260,8 @@ duelSeason.post('/async/submit', async (c) => {
   const body = await readJson(c, SubmitBody, LIMITS.maxBodyBytes);
   const a = await loadAttack(x, body.ticket);
   const claimJson = JSON.stringify(body.claim);
-  if (a.status === 'used') {
-    if (a.claim === claimJson && a.result) return c.json({ report: JSON.parse(a.result) as AsyncReport, replayed: true, profile: await duelProfileView(x.db, x.pid, x.now) });
-    throw new ApiError(409, 'ticket_used', 'This raid was already reported');
-  }
-  if (a.status !== 'open') throw new ApiError(409, 'ticket_closed', `This raid was ${a.status}`);
-  if (a.expires_at < x.now) {
-    await closeAttack(x, a, 'abandoned');
-    throw new ApiError(410, 'ticket_expired', 'Too late: the raid ticket expired');
-  }
+  const replay = await ticketPreamble(a, claimJson, x.now, 'raid', () => closeAttack(x, a, 'abandoned'));
+  if (replay) return c.json({ report: JSON.parse(replay) as AsyncReport, replayed: true, profile: await duelProfileView(x.db, x.pid, x.now) });
   const out = await verifyBattle(JSON.parse(a.setup) as BattleSetup, body, (claim) => closeAttack(x, a, 'rejected', claim));
   const s = out.summary;
 
@@ -373,7 +354,7 @@ duelSeason.post('/async/abandon', async (c) => {
   const x = await ctx(c);
   const body = await readJson(c, z.object({ ticket: z.string().regex(/^[0-9a-f]{32}$/) }), 1024);
   const a = await loadAttack(x, body.ticket);
-  if (a.status !== 'open') throw new ApiError(409, 'ticket_closed', `This raid was ${a.status}`);
+  requireOpenTicket(a, 'raid');
   await closeAttack(x, a, 'abandoned');
   return c.json({ ok: true });
 });

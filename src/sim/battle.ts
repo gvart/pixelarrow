@@ -37,6 +37,7 @@ import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
 import { MOUNTS, type MountDef } from '../data/classes';
 import { MythSystem, hasMyth } from './myth';
 import { HORN_RULES } from '../data/beasts';
+import { clamp } from '../util/math';
 
 export const TICK_RATE = 20;
 /** Running speed of a man (charging), as a multiple of his walk. */
@@ -2127,8 +2128,6 @@ export function slotPriority(u: SimUnit): number {
   return 1.5;
 }
 
-export function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
-}
+export { clamp };
 
 export type { Formation };

@@ -4,6 +4,15 @@ import { cloudStorage } from './telegram';
 
 const PREFIX = 'pixelarrow:';
 
+/** The browser's localStorage, or null where it is missing or blocked (private mode, sandboxed frames, tests). */
+export function safeLocalStorage(): Storage | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage;
+  } catch {
+    return null;
+  }
+}
+
 export function localKV(): KV {
   return {
     async get(k) {

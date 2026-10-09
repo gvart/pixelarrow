@@ -19,6 +19,7 @@ import { ShardSocket } from '../online/client';
 import type { DuelLiveServerMsg, MatchReport } from './protocol';
 import type { DuelMode } from './rating';
 import { t } from '../i18n';
+import { safeLocalStorage } from '../platform/storage';
 
 /** How long the first duel_start may take before the match counts as unreachable. */
 const OPEN_TIMEOUT_MS = 12_000;
@@ -217,14 +218,6 @@ export interface OngoingMatch {
   at: number;
 }
 
-function store(): Storage | null {
-  try {
-    return typeof localStorage === 'undefined' ? null : localStorage;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * The live match this device is playing, kept until it ends: Telegram reloads
  * a mini app the system squeezed for memory (or the player reopens it), and
@@ -233,7 +226,7 @@ function store(): Storage | null {
  */
 export function rememberMatch(id: string, mode: DuelMode, now = Date.now()): void {
   try {
-    store()?.setItem(ONGOING_KEY, JSON.stringify({ id, mode, at: now } satisfies OngoingMatch));
+    safeLocalStorage()?.setItem(ONGOING_KEY, JSON.stringify({ id, mode, at: now } satisfies OngoingMatch));
   } catch {
     // storage full or blocked: no resume after a reload
   }
@@ -241,7 +234,7 @@ export function rememberMatch(id: string, mode: DuelMode, now = Date.now()): voi
 
 export function forgetMatch(id?: string): void {
   try {
-    const s = store();
+    const s = safeLocalStorage();
     if (!s) return;
     if (id && ongoingMatch(Infinity)?.id !== id) return;
     s.removeItem(ONGOING_KEY);
@@ -253,7 +246,7 @@ export function forgetMatch(id?: string): void {
 /** The match to go back into on boot, if one was being played lately. */
 export function ongoingMatch(now = Date.now()): OngoingMatch | null {
   try {
-    const raw = store()?.getItem(ONGOING_KEY);
+    const raw = safeLocalStorage()?.getItem(ONGOING_KEY);
     if (!raw) return null;
     const m = JSON.parse(raw) as Partial<OngoingMatch>;
     if (typeof m.id !== 'string' || (m.mode !== 'ranked' && m.mode !== 'unranked') || typeof m.at !== 'number') return null;

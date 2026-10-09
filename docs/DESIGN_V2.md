@@ -1,61 +1,109 @@
-# Pixelarrow v2 design: seasonal hex war
+# Pixelarrow v2 design: the seasonal online war
 
-Decisions from the design interview (2026-10-07). This document supersedes the
-overland (Mount & Blade style) campaign as the main game. Where it conflicts
-with DESIGN.md or ROADMAP.md, this document wins.
+The online game: a shared, seasonal war map. Where it conflicts with
+GAMEPLAY.md (the single-player core and the battle sim) or ROADMAP.md, this
+document wins for online play. Duels are in DUELS.md.
 
 ## Game structure
 
-- **Main game: a shared, online, seasonal hex map.** Players start on a home hex,
-  capture neighbouring hexes, join clans and expand.
-- **Offline:** the overland campaign is retired as the main mode. Offline play
-  becomes a tutorial plus skirmish battles against bots (and a sandbox for
-  trying formations). The existing battle game, army and gear screens are reused.
+- **Main game: a shared, online, seasonal war map.** Players start on a home
+  region (their camp), capture neighbouring regions, join clans and expand.
+- **Offline:** the overland campaign, the tutorial, skirmishes and the beast
+  trial (GAMEPLAY.md). The battle game, army and gear screens are shared.
 - **Seasons:** 3 months. At the end of a season everything resets (map,
   territory, heroes, gear, resources) except cosmetics, titles/ranks, season
   rewards and Telegram Stars purchases.
-- **Shards:** about 500 players per map shard (several thousand hexes). New
-  shards open as players join. One Durable Object group per shard.
+- **Shards:** about 150 players per shard (`ONLINE_RULES.shardCapacity`) on
+  one hand-authored map of ~300 regions. New shards open as players join. One
+  Durable Object per shard.
 
-## Hex map
+## Map
 
-- **Pace:** real time. Armies march hex to hex and take real minutes to hours;
-  actions are limited by march time and stamina/energy. Built for checking in a
-  few times a day from Telegram.
-- **Hex resources:** farmland (food), forest (wood), mines (iron/bronze for
-  gear), towns (gold, recruits). Holding a mix matters.
-- **Terrain → battlefield:** a hex's terrain (plains, hills, forest, river and
-  ford, coast, rocks) becomes the battlefield, using the battle terrain system.
-- **Forts and capitals:** fortified objective hexes with strong garrisons and
-  big bonuses; holding capitals is the clan endgame and decides season ranking.
-- **Fog of war:** players see hexes near their own territory and allies;
-  scouting reveals more.
-- **Neutral defenders: no free land.** Every unclaimed hex is held by neutral
-  enemies that must be defeated in battle before the hex can be claimed. They
-  vary by hex type and region:
-  - Farmland: peasant militia and brigands.
-  - Forest: wolf packs, wild boars, outlaw archers.
-  - Hills and mountains: hill tribes with slingers and javelins, bears.
-  - Coast: pirates and raiders from the sea.
-  - Mines: deserter mercenaries guarding the shafts.
-  - Towns: city hoplite garrisons with walls.
-  - Ruins and shrines: cultists and fanatics.
-  - Beast lairs: mythical beasts (see below).
+One hand-authored map per season, a graph of regions joined by routes (no
+hexes). No backwards compatibility with the old hex shards. The first map is
+the Western Mediterranean (`westmed`: Massalia, Iberia, the Balearics,
+Sardinia and Corsica, Sicily, Carthage and the African coast, Etruria and
+Latium).
 
-  Strength scales with the hex tier and the distance from the shard's starting
-  areas. Higher tiers need several victories in a row. Neutral defenders
-  slowly return to hexes that are abandoned.
-- **Garrisons:** an owned hex is defended by the garrison its owner left there.
-  Attacks against it are async: the attacker fights the garrison under bot AI,
-  and the server re-runs the battle from seed + order log before applying it.
-- **Live duels:** friendly real-time duels between online players (lockstep on
-  the deterministic sim).
+- **Pace:** real time. Armies march region to region along routes that take
+  real minutes; energy (100, +12/h) pays for marches (2 per route, at most 12
+  routes a march) and attacks (10). Built for checking in a few times a day.
+- **Regions** (`kind`): plots, towns, forts, capitals, beast lairs, trading
+  posts and sea. Each has a tier 1-5 (defender strength and income), a
+  battlefield site, an income mix (food, wood, bronze, gold, recruits) and
+  season points (region 1, town 3, fort 10, capital 100). +10% income per
+  adjacent region held by the same clan or player, up to +50%; income piles
+  up for 24 h at most.
+- **Terrain → battlefield:** a region's site (plains, hills, forest, river and
+  ford, coast, rocks) becomes the battlefield.
+- **Forts and capitals:** strong garrisons and big bonuses; holding capitals
+  is the clan endgame and decides season ranking.
+- **Fog of war:** players see regions within 2 routes of their own, their
+  clan's land and their army (more with a watchtower).
+- **Neutral defenders: no free land.** Every unclaimed region is held by
+  neutrals that must be beaten first, by kind and terrain: farmland militia
+  and brigands, forest wolves, boars and outlaw archers, hill tribes with
+  slingers, javelins and bears, coastal pirates, deserter mercenaries, city
+  hoplite garrisons, cultists, and mythical beasts in lairs. Strength scales
+  with tier; losses re-raise after 6 h; neutrals return to abandoned land.
+- **Garrisons:** an owned region is defended by the garrison its owner left
+  there (up to 12). Attacks are async: the attacker fights the garrison under
+  bot AI, and the server re-runs the battle from seed + order log before
+  applying it.
+
+### Data model
+
+- `src/online/maps/<mapId>.json`, imported by the client and the Worker,
+  validated by `src/online/mapSchema.ts`:
+  `{id, version, cell, w, h, mask, terrain, regions[], edges[]}`. `mask` is
+  the RLE of region ids on a hidden square grid; `terrain` the RLE of
+  sea | shelf | sand | land | forest | hills | mountain | marsh.
+- Region: `{id, name, kind, tier, site, spawn?, campPlot?, label: [x, y], revealPan?}`.
+- Edge: `{a, b, minutes, naval?, waypoints: [[x, y]...]}` (the dotted route;
+  ships cross the sea on `naval` edges between coastal regions).
+- Authored in `maps-src/` and compiled by `scripts/buildMap.ts`; the
+  validator checks connectivity, spawn count and fairness, and that edges
+  touch both regions.
+
+### Engine
+
+- `src/online/world.ts`: `WorldGraph` (`info(id)`, `adjacent`, `neighbours`,
+  `within(id, hops)`, `path(from, to, ok)`, `pos(id)`, `all()`), built from
+  the map JSON. Every online rule uses it: attack adjacency, bosses, sight,
+  live visibility, march paths, spawns, income and score, merchants, lairs,
+  defenders, the demo shard, the coach.
+- A location is an integer `loc` (region id). D1 keeps only regions whose
+  state changed, keyed by `(season, shard, loc)`; a shard row records its
+  `map_id`.
+
+### Rendering
+
+- Parchment ancient map (ART_STYLE.md §12 "World map"): cream parchment,
+  lavender sea, sage land, parchment-cloud fog, dotted animated routes, a
+  city reveal with a camera pan. The offline overland map uses the same look.
+- Procedural (no image assets): terrain baked from the mask into chunked
+  textures; fog erased per revealed region with a dissolve; armies and ships
+  move smoothly along route waypoints (`src/scenes/online/regionMapView.ts`).
+
+### Camp
+
+- Every player's home region is their **camp**; up to 2 forward camps can be
+  made on held regions marked `campPlot`, with the army standing there.
+- Buildings: palisade, granary, forge, barracks, watchtower; levels 1-3, one
+  construction at a time per camp; they add income, sight, garrison and
+  militia. Resting at a camp restores energy and halves wounds (once per 4 h
+  per camp). A camp lost in battle is razed.
+- Rules in `src/online/rules.ts` (`CAMP_RULES`) and `src/online/camps.ts`;
+  server in `server/src/online/camps.ts`; the same isometric `CampScene` as
+  the offline field camp.
 
 ## Mythical beasts
 
-- **Beast lairs hold hexes:** Hydra, Minotaur, Nemean Lion, Cyclops, Harpy
-  flocks, Chimera sit on valuable hexes, often near forts. Defeating them takes
-  the hex and drops rare loot (legendary gear, trophies).
+- **Beast lairs hold regions:** Hydra, Minotaur, Nemean Lion, Cyclops, Harpy
+  flocks, Chimera sit in lair regions, often near forts. Defeating one takes
+  the region and drops its hoard (rare, epic or legendary gear) and a trophy
+  entitlement; the beast returns 48 h after the region falls back to the
+  neutrals.
 - **Real boss battles:** beasts fight on the battlefield as large multi-tile
   creatures with special mechanics, for example:
   - Hydra regrows heads unless they are finished quickly.
@@ -65,14 +113,25 @@ with DESIGN.md or ROADMAP.md, this document wins.
   - Minotaur charges through lines; Chimera breathes fire in a cone.
 - **Clan raids on world bosses:** a few huge bosses per season (for example a
   Kraken on the coast, a Titan inland) with shared HP. Many clan attacks wear
-  them down; loot is split by damage dealt.
+  them down; loot is split by damage dealt. Boss HP lives on the server;
+  raids are verified 120 s segments (`server/src/online/bosses.ts`).
+- **Sim** (`src/data/beasts.ts` `MYTHS` / `ENCOUNTERS`, `src/sim/myth.ts`
+  `MythSystem`, created only when a beast is on the field, so a setup without
+  one plays exactly as before): beasts are large animal units with HP per
+  level, armour, missile resistance, a terror aura and a bot AI each. The
+  hydra is a body and five heads that regrow unless the body is struck; the
+  kraken is rooted at the shore with arms that drag men in. `npm run balance`
+  (`src/dev/beastBalance.ts`) checks that a sensible army beats each beast
+  about half the time and a naive one almost never.
+- **Offline:** about one overland band in fourteen is a beast; the Beast
+  trial (menu: Beasts) fights any beast or world boss with the campaign army.
 
 ## Clans
 
 - Create and join through Telegram invite links (`startapp=clan_<code>`).
 - Roles: leader, officer, member. Leaders and officers invite, kick and promote.
-- Clan-owned shared territory; members can garrison clan hexes.
-- Bonus for adjacent clan-owned hexes.
+- Clan-owned shared territory; members can garrison clan regions.
+- Bonus for adjacent clan-owned regions.
 
 ## Trading
 
@@ -151,13 +210,9 @@ with DESIGN.md or ROADMAP.md, this document wins.
     level-ups and wounds.
   - Loot revealed as cards opening one by one with their rarity glow; tap to
     inspect before picking.
-- **Hex map: a map on a war table.**
-  - A painted terrain board on a wooden table.
-  - Raised hex tiles with thickness and shadows.
-  - Miniature-style trees, mountains, towns, forts and armies.
-  - Banners in clan colours.
-  - Fog of war as drifting clouds or parchment.
-  - Candle-light vignette, animated water, and smoke rising from towns.
+- **War map:** the parchment map of "Map" above, with miniature props and
+  figures (`src/art/warTable.ts`), banners in clan colours and fog as
+  parchment clouds.
 
 ## Invariants (unchanged)
 
@@ -166,19 +221,6 @@ with DESIGN.md or ROADMAP.md, this document wins.
 - The economy in online mode is server-owned; the client never sets gold,
   items or territory directly.
 - Old battle setups keep replaying (neutral defaults for new fields).
-
-## Build order
-
-1. Drag facing fix (small).
-2. Battle terrain (in progress).
-3. Unit classes, cavalry, art overhaul (done; see DESIGN.md "Unit classes").
-4. Online server foundations (in progress): server-owned armies, verified async
-   attacks, garrisons, clans, duels, all scoped by `season_id`.
-5. Hex shard world: hex generation, resources, marches, fog of war, forts and
-   capitals, season lifecycle.
-6. Beasts: lairs, boss battle mechanics, clan world bosses (done; see DESIGN.md "Mythical beasts").
-7. Town marketplace.
-8. Offline tutorial and skirmish mode replacing the overland campaign.
 
 ## Monetization and economy
 
@@ -216,7 +258,7 @@ with DESIGN.md or ROADMAP.md, this document wins.
   - Volume and mute in settings; muted while Telegram is in the background.
 - **Onboarding:** a skippable guided tutorial battle of 3–4 minutes with a
   narrator (select, drag to move, turn knob, charge, shield wall, abilities),
-  followed by a guided first hex capture online.
+  followed by coach marks on the first online visit.
 
 ## Online battle rules
 
@@ -228,9 +270,9 @@ with DESIGN.md or ROADMAP.md, this document wins.
   zone but not its final positions (in a duel the server holds back the
   opponent's deployment orders until the battle starts). The battle starts automatically when the
   timer ends; "Ready" from both sides starts it early.
-- **Live movement on the hex map:** other armies inside your vision move live
+- **Live movement on the map:** other armies inside your vision move live
   through the shard WebSocket, instead of only updating on refresh.
-- **Possible later tuning:** if attacks feel too cheap, a won hex takes a few
+- **Possible later tuning:** if attacks feel too cheap, a won region takes a few
   minutes to occupy (the army is exposed during that time), or armies get a
   longer rest after each battle.
 
@@ -246,14 +288,14 @@ with DESIGN.md or ROADMAP.md, this document wins.
   - compact cards that expand on tap for details.
 
   Never shrink text or buttons to make content fit.
-- **Readable:** pixel text at its native integer scale; at least about 8 px
-  base font times the UI scale. Text that might not fit gets a short form,
+- **Readable:** body text at least 16 CSS px (size 7 at S = 2), smooth
+  vector type (docs/UI_KIT.md "Type"). Text that might not fit gets a short form,
   wraps to a fixed number of lines, or ends in "…" with the full text on tap.
   It never overflows.
 - **Touch targets:** at least about 44 × 44 pt, with at least 4 pt of spacing.
   The most important actions are reachable by thumb at the bottom of the
   screen.
-- **Clear hierarchy:** one primary action per screen (filled, red); secondary
+- **Clear hierarchy:** one primary action per screen (filled, terracotta); secondary
   actions are outlined; destructive actions ask for confirmation. Use
   consistent icons and colour meanings everywhere (rarity colours, the battle
   panel's category colours).
@@ -282,8 +324,8 @@ with DESIGN.md or ROADMAP.md, this document wins.
 - `supporter_banner` is no longer a Stars product. It becomes a normal
   cosmetic priced in Drachmae; players who already bought it keep it.
 - Unchanged:
-  - daily caps count shop purchases only (the map merchants' since slice 5 of
-    docs/DUELS.md);
+  - daily caps count merchant purchases (docs/DUELS.md "War-map shops on the
+    map");
   - no marketplace listing fee, only the 10% sale fee;
   - buyers can buy anywhere in their shard, but listing an item needs a
     reachable town.

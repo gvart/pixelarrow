@@ -2,7 +2,7 @@
  * Icons for consumables (src/data/consumables.ts) and resources / currencies
  * (src/online/rules.ts RESOURCE_KEYS, plus Drachmae).
  *
- * `renderGoodsIconHD` is the "Bronze & Stone" icon (docs/UI_D2.md): painted
+ * `renderGoodsIconHD` is the "Bronze & Stone" icon (docs/UI_KIT.md "Icons"): painted
  * with Canvas 2D at the screen's density (K atlas px per UI px, shown scaled
  * by 1 / K with LINEAR filtering, see goodsTexture in src/ui/econ/widgets.ts).
  * Each icon is drawn in a 64 x 64 unit box (16 UI px), lit from the top left,
@@ -17,6 +17,8 @@
  * `renderGoodsIcon` is the old 16 x 16 pixel icon, kept for where there is no
  * DOM (tests) and as the fallback.
  */
+import { ellipsePath, poly, roundRect } from './path2d';
+import { hashString } from '../sim/rng';
 import { P, hex, mix } from './palette';
 import { Pix } from './pixels';
 
@@ -152,26 +154,6 @@ export function shape(g: G, p: Path2D, t: Tone, box: [number, number, number, nu
   }
 }
 
-/** A path from points (closed polygon). */
-export function poly(pts: [number, number][]): Path2D {
-  const p = new Path2D();
-  pts.forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y)));
-  p.closePath();
-  return p;
-}
-
-export function ellipsePath(cx: number, cy: number, rx: number, ry: number, rot = 0): Path2D {
-  const p = new Path2D();
-  p.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2);
-  return p;
-}
-
-export function roundRect(x: number, y: number, w: number, h: number, r: number): Path2D {
-  const p = new Path2D();
-  p.roundRect(x, y, w, h, r);
-  return p;
-}
-
 /** A small specular dot. */
 export function glint(g: G, x: number, y: number, r: number, a = 0.9): void {
   const gr = g.createRadialGradient(x, y, 0, x, y, r);
@@ -198,12 +180,6 @@ export function line(pts: [number, number][]): Path2D {
   const p = new Path2D();
   pts.forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y)));
   return p;
-}
-
-export function hashStr(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
 }
 
 /** A canvas of n x n px set up so the icon draws in a units x units box. */
@@ -694,7 +670,7 @@ function whetstone(g: G): void {
   g.clip(bar);
   // the grit: fine speckle, and a worn bright face along the upper edge
   g.fillStyle = 'rgba(0,0,0,0.28)';
-  const h = hashStr('stone');
+  const h = hashString('stone');
   for (let i = 0; i < 26; i++) {
     const x = 10 + ((h * (i + 1) * 2654435761) >>> 0) % 48;
     const y = 20 + ((h * (i + 7) * 40503) >>> 0) % 32;
@@ -907,7 +883,7 @@ function cloth(g: G, t: Tone): void {
 function family(id: string): (g: G) => void {
   const w = id.toLowerCase();
   const any = (...ws: string[]) => ws.some((s) => w.includes(s));
-  const hue = hashStr(id);
+  const hue = hashString(id);
   const col = flatTone(hsl((hue % 360) / 360, 0.42, 0.42));
   if (any('wine')) return (g) => amphora(g, TONES.clay, true);
   if (any('oil', 'olive')) return (g) => amphora(g, TONES.olive, false);

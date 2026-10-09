@@ -1,5 +1,5 @@
 /**
- * The seasonal world of a shard (docs/MAP_V3.md "Engine"): a graph of
+ * The seasonal world of a shard (docs/DESIGN_V2.md "Engine"): a graph of
  * hand-authored regions built from a map JSON (src/online/maps/, format in
  * ./mapSchema.ts). Every location online is an integer `loc` = region id.
  * Pure and deterministic; shared by the client and the Worker.

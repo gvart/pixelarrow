@@ -105,11 +105,6 @@ export function pickMvp(lines: readonly HeroLine[]): HeroLine | null {
 }
 
 /** "1:05" (minutes and seconds). */
-export function formatDuration(seconds: number): string {
-  const s = Math.max(0, Math.round(seconds));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
-
 export interface ReportInput {
   result: ReportResult;
   vs: string;

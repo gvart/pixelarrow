@@ -8,24 +8,18 @@
  * (src/art/paperdoll.ts applyCosmetics), aura (battle particles) and pose
  * (victory pose); banner tints the formation standards.
  */
+import { safeLocalStorage } from '../platform/storage';
+
 const KEY = 'pixelarrow.cosmetics';
 
 let cache: Record<string, string> | null = null;
-
-function storage(): Storage | null {
-  try {
-    return typeof localStorage === 'undefined' ? null : localStorage;
-  } catch {
-    return null;
-  }
-}
 
 /** The loadout last reported by the shop (empty when none). */
 export function cosmeticLoadout(): Record<string, string> {
   if (cache) return cache;
   cache = {};
   try {
-    const raw = storage()?.getItem(KEY);
+    const raw = safeLocalStorage()?.getItem(KEY);
     const v = raw ? (JSON.parse(raw) as unknown) : null;
     if (v && typeof v === 'object') for (const [k, id] of Object.entries(v as Record<string, unknown>)) if (typeof id === 'string' && id.length < 64) cache[k] = id;
   } catch {
@@ -38,7 +32,7 @@ export function cosmeticLoadout(): Record<string, string> {
 export function setCosmeticLoadout(lo: Record<string, string> | null | undefined): void {
   cache = { ...(lo ?? {}) };
   try {
-    storage()?.setItem(KEY, JSON.stringify(cache));
+    safeLocalStorage()?.setItem(KEY, JSON.stringify(cache));
   } catch {
     /* private mode: kept for this session only */
   }

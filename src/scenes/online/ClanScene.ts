@@ -9,7 +9,8 @@ import { hapticNotify } from '../../platform/telegram';
 import { inTelegram, openTelegramLink } from '../../platform/telegram';
 import { canInvite, canKick, canPromote, ONLINE_RULES, type ClanRole } from '../../online/rules';
 import { checkOnline, errorText, onlineApi, takePendingInvite, peekPendingInvite, type ClanMember, type ClanView } from '../../online/client';
-import { button, lines, openModal, type Modal } from './common';
+import { button, lines } from './common';
+import { openModal, type Modal } from '../../ui/widgets';
 import { online } from '../../platform/cloud';
 import { promptFields } from './textInput';
 
@@ -72,14 +73,20 @@ export class ClanScene extends BaseScene {
 
   /** A parchment modal that Back (Telegram's or ours) closes, and a tap outside it unless `shadeCloses` is false. */
   private openM(h: number, title: string, shadeCloses = true): Modal {
-    const md = openModal(this, this.ui, this.m.VW, this.m.VH, h, title);
-    this.modalLayer(md.c, () => this.closeModal());
-    if (shadeCloses) md.onShadeTap(() => this.closeModal());
+    const md: Modal = openModal(this, {
+      title,
+      w: 184,
+      h,
+      shadeCloses,
+      onClose: () => {
+        if (this.modal === md) this.modal = null;
+      },
+    });
     return md;
   }
 
   private closeModal(): void {
-    this.modal?.c.destroy();
+    this.modal?.close();
     this.modal = null;
   }
 

@@ -53,7 +53,7 @@ export function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: 
 /** Rank stars (filled up to n of max) as a row of 7 px icons, 8 px apart. Returns the width. */
 /**
  * A hero's rank as bronze pips (diamonds): the gold star belongs to ladder
- * floor ratings only (docs/UI_V3.md "One icon, one meaning"). Returns the width.
+ * floor ratings only (docs/UI_KIT.md "One icon, one meaning"). Returns the width.
  */
 export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, n: number, max = 5): number {
   const g = scene.add.graphics();

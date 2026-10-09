@@ -1,16 +1,18 @@
-# Pixelarrow backend (v1)
+# Pixelarrow backend
 
 One Cloudflare Worker, `pixelarrow`, serves **both** the static game (the root
 `dist/` build, on https://pixelarrow.app) **and** this API. `wrangler.jsonc`
 (repo root) sets `assets.run_worker_first: ["/api/*", "/ws/*"]`, so only those
 paths run Worker code; everything else is plain static hosting with the SPA
-fallback, exactly as before.
+fallback.
 
 - **Routing:** [Hono](https://hono.dev). **Validation:** zod. **Storage:** D1
-  (`DB`, database `pixelarrow`). **Realtime:** `RegionDO`, a SQLite-backed
-  Durable Object (free-plan compatible) using the WebSocket Hibernation API.
-- **Battle verification** imports the game's deterministic sim from
-  `../src/sim` read-only; wrangler/esbuild bundles it into the Worker.
+  (`DB`, database `pixelarrow`). **Realtime:** SQLite-backed Durable Objects
+  on the WebSocket Hibernation API: `RegionDO` (one per shard),
+  `MatchmakerDO` and `DuelDO` (duels).
+- **Shared code:** the Worker imports the game's deterministic sim
+  (`../src/sim`) and shared rules (`../src/online`, `../src/duel`,
+  `../src/data`) read-only; wrangler/esbuild bundles them.
 
 ## Layout
 
@@ -24,9 +26,9 @@ server/
     routes/shop.ts    GET /api/shop/products, POST /api/shop/invoice, GET /api/entitlements
     routes/webhook.ts POST /api/telegram/webhook
     battle.ts         sim adapter for POST /api/battle/verify (the only file that knows the sim API)
-    region.ts         RegionDO (presence; per online shard also hex attack locks, the duel relay and live army pushes)
-    online/           online mode: routes.ts (profile, map, hex, march, garrison, collect, recruit, equip, army), live.ts (live army movement, fog-filtered),
-                      attack.ts (tickets, verified attacks), clans.ts, duel.ts (friendly duel lobby),
+    region.ts         RegionDO (presence; per online shard also region attack locks, the duel relay and live army pushes)
+    online/           online mode: routes.ts (profile, map, region, march, garrison, collect, recruit, equip, army), live.ts (live army movement, fog-filtered),
+                      attack.ts (tickets, verified attacks), bosses.ts (world boss raids), camps.ts, clans.ts, duel.ts (friendly duel lobby),
                       relay.ts (the lockstep relay of one duel, shared with ranked matches),
                       store.ts (seasons, shards, homes, D1 access), income.ts, context.ts,
                       consumables.ts (season inventory, use), market.ts (town marketplace),
@@ -41,31 +43,27 @@ server/
                       ledger helpers), pass.ts (pass XP)
     duel/             routes.ts (/api/duel: duel profile, roster, develop, team, shop, ladder tickets, ranked card,
                       match reports), store.ts (D1 access), live.ts (queue checks, match armies, settlement),
-                      matchmaker.ts (MatchmakerDO: the global queue), duelDO.ts (DuelDO: one live match)
+                      matchmaker.ts (MatchmakerDO: the global queue), duelDO.ts (DuelDO: one live match),
+                      async.ts (raids, seasons, boards routes), season.ts (rollover, leaderboards),
+                      verify.ts (the replay check shared by the ladder and raids)
     telegramAuth.ts   initData validation (HMAC-SHA256, constant-time, 24 h max age)
     session.ts        stateless signed session tokens
     payments.ts       pre-checkout checks, idempotent payment/refund recording
     products.ts       shop catalogue (Stars prices) and invoice payload format
     middleware.ts     requireAuth, db()/secret() -> 503 when not configured
     crypto.ts, body.ts, errors.ts, players.ts, rateLimit.ts, telegramApi.ts
-  migrations/0001_init.sql   D1 schema (players, saves, purchases, entitlements)
-  migrations/0002_online.sql online mode (seasons, shards, profiles, heroes, items, regions, garrisons,
-                             clans, invites, battle tickets, battle log, season rewards)
-  migrations/0003_economy.sql wallets, Drachmae ledger, shop orders, cosmetic loadout, consumables
-                             (season inventory, daily caps), battle_tickets.consumable, season pass,
-                             market listings and audit
-  migrations/0005_notifications.sql notification settings, outbox and log, support_requests, bot state
-  migrations/0006_ops.sql           bans, analytics opt-out and milestones, client_errors, admin_audit (docs/OPS.md)
-  migrations/0007_duels.sql         duel profiles, heroes, items, ladder tickets, Glory orders
-  migrations/0008_duel_ranked.sql   duel ratings (Glicko-2, leagues), abandons and queue cooldown, live matches
-  migrations/0009_merchants.sql     map merchants: per-player daily gear counters, merchant orders (holder cut)
+  migrations/                D1 schema, applied in order by CI: 0001 players, saves, purchases,
+                             entitlements; 0002 online mode; 0003 economy; 0004 beasts and world
+                             bosses; 0005 notifications and support; 0006 ops (docs/OPS.md);
+                             0007-0010 and 0014 duels; 0009 merchants; 0011 camps; 0012 the switch
+                             to region maps; 0013 the muster reserve flag
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   scripts/bot-setup.mjs      one-off: setMyCommands (EN/RU) and setWebhook with the allowed updates
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
 ```
 
 The server has its own `package.json`/lockfile (vitest 4 for the Workers pool;
-the game uses vitest 5). Nothing under the root `src/` is modified by the server.
+the game uses vitest 5).
 
 ## API
 
@@ -124,11 +122,10 @@ production) `POST /api/auth/telegram` also accepts
 
 ### Saves
 
-The campaign save is stored as an opaque, versioned JSON blob per player with an
-optimistic-concurrency `revision`. **The economy is client-trusted in v1** (gold,
-loot, XP are whatever the client saves). For online/competitive modes the
-authoritative state (gold, items, battle rewards) must move server-side, with
-battle results accepted only through `/api/battle/verify`-style replays.
+The offline campaign save is stored as an opaque, versioned JSON blob per
+player with an optimistic-concurrency `revision`. It is client-trusted (it
+only affects the player's own campaign); everything in the online war and
+duels is server-owned and changes only through verified endpoints.
 
 ### Battle verification
 
@@ -196,16 +193,16 @@ created with `createInvoiceLink`, currency `XTR`, empty `provider_token`.
   The bare text frame `ping` is auto-answered `pong` without waking the DO.
 
 The user id/name live in each socket's attachment (`serializeAttachment`), so
-presence survives hibernation. This is the skeleton for territories and clans.
+presence survives hibernation.
 
-## Online mode (seasonal hex war)
+## Online mode (seasonal war)
 
-Design: [docs/DESIGN_V2.md](../docs/DESIGN_V2.md) and "Online mode" in
-[docs/DESIGN.md](../docs/DESIGN.md). Shared rules live in `src/online/`
-(`hex.ts` world generation and paths, `defenders.ts` neutral defenders,
-`rules.ts` economy and clan permissions, `battle.ts` setups and result
-application, `protocol.ts` socket messages, `lockstep.ts` the client adapter);
-the server imports them read-only like the sim.
+Design: [docs/DESIGN_V2.md](../docs/DESIGN_V2.md) ("Map" for the region
+graph). Shared rules live in `src/online/` (`world.ts` the region graph and
+paths, `mapSchema.ts` the map format, `defenders.ts` neutral defenders,
+`lairs.ts` beasts and bosses, `camps.ts` and `rules.ts` economy, camps and
+clan permissions, `battle.ts` setups and result application, `protocol.ts`
+socket messages, `lockstep.ts` the client adapter).
 
 **Everything economic is server-owned.** Armies, heroes, gear, resources and
 territory live in D1; the client only sends intents (march here, attack that,
@@ -220,7 +217,7 @@ score, title) and starts season n+1. That is the full reset: every army and
 world table is keyed by `season_id`. Players join the oldest shard with room
 (about 150 players, at most one per spawn plot of its map). Each shard plays
 a hand-authored map (`online_shards.map_id` -> `src/online/maps/<id>.json`,
-read through `src/online/world.ts`, docs/MAP_V3.md); every location is a
+read through `src/online/world.ts`); every location is a
 region id `loc`. Static region data (kind, tier, battlefield, routes) comes
 from the map; neutral defenders, lair beasts and boss sites are a pure
 function of the map and the shard seed and are never stored;
@@ -233,20 +230,20 @@ changed (owner, clan, home, income clock, neutral losses, siege progress,
 anything else is 404 `fogged`.
 
 **Lazy time.** Income (`accrued_at`, capped at 24 h), energy (`energy_at`),
-marches (arrival time per hex), wounds, ticket expiry, hex locks and neutral
+marches (arrival time per region), wounds, ticket expiry, region locks and neutral
 respawns are all computed on read from server time. No alarms or polling
 (the only scheduled work is bot notifications, see "Bot notifications").
 
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/online/status` | `{ season, joined, shard }` |
-| POST | `/api/online/profile` | join the season (idempotent): shard, home hex, 5 heroes, purse → profile |
+| POST | `/api/online/profile` | join the season (idempotent): shard, home region (camp), 5 heroes, purse → profile |
 | GET | `/api/online/profile` | resources, energy, home, army (position/march), heroes (garrison, wounds, busy), stash, clan, pending income |
 | GET | `/api/online/season` | season dates and your titles from past seasons |
 | GET | `/api/online/map` | `shard {id, map}`, visible regions `{loc,kind,tier,coast,site,occupant,owner,clan,home,garrison?,def?,lair?,boss?,post?}` (`def`: the neutral holders, a `src/online/defenders.ts` id), visible armies `{player, loc, dest, arriveAt, path}`, player names, clan tags |
 | GET | `/api/online/region/:loc` | yields, route minutes from the army, owner, garrison (own/clan only), defenders estimate, siege `{wins, needed, label}`, `locked`, `canAttack`, `canGarrison`, pending income |
 | POST | `/api/online/march` | `{loc}` → quickest route (edge minutes) not crossing rival land, arrival times `at[]`; `energyPerStep` per route, at most `maxMarch` routes |
-| POST | `/api/online/march/stop` | halt on the last hex reached |
+| POST | `/api/online/march/stop` | halt in the last region reached |
 | POST | `/api/online/region/:loc/garrison` | `{heroIds, formations?}`: which of YOUR heroes hold the region (own or clan region; the army must stand in it; refused while under attack) |
 | POST | `/api/online/collect` | collect the income of all held regions |
 | POST | `/api/online/recruit` | `{archetype}`: 40 gold, 10 food, 1 recruit |
@@ -256,11 +253,11 @@ respawns are all computed on read from server time. No alarms or polling
 | POST | `/api/online/attack/submit` | `{ticket, orders, deployOrders?, claim: {winner, ticks, hash}}` → result |
 | POST | `/api/online/attack/abandon` | `{ticket}` |
 | GET | `/api/online/boss` | the shard's world bosses: shared HP, arms, status, top damage (players, clans), your tally and loot |
-| POST | `/api/online/boss/start` | `{boss, heroIds?, consumable?}` → a raid ticket (a 120 s segment against the boss's current wounds; no hex lock) |
+| POST | `/api/online/boss/start` | `{boss, heroIds?, consumable?}` → a raid ticket (a 120 s segment against the boss's current wounds; no region lock) |
 | POST | `/api/online/boss/submit` | `{ticket, orders, deployOrders?, claim}` → damage dealt, HP lowered relatively; the killing raid splits the hoard by damage share |
 | POST | `/api/online/boss/abandon` | `{ticket}` |
 | POST | `/api/online/clans` | `{name, tag}`: create (you lead it) |
-| GET | `/api/online/clans/mine` | clan, members with roles and hex counts |
+| GET | `/api/online/clans/mine` | clan, members with roles and region counts |
 | POST | `/api/online/clans/invite` | leader/officer → `{code, link}`, link `https://t.me/<bot>/<app>?startapp=clan_<code>` |
 | GET | `/api/online/clans/invite/:code` | invite preview |
 | POST | `/api/online/clans/join` | `{code}`; a player new to the season is placed in the clan's shard |
@@ -283,28 +280,29 @@ neutrals is razed with it.
 
 ### Beast lairs and world bosses
 
-Lairs and world boss sites are a pure function of the shard seed
-(`src/online/lairs.ts`). A lair hex fights with its beast (`defenderKind:
-'beast'`) until it is slain: the win captures the hex at once, the loot is the
-beast's hoard (rare / epic / legendary) and a `trophy_<beast>` entitlement is
-granted; `online_regions.beast_slain_at` brings the beast back after 48 h if the
-hex falls back to the neutrals. World bosses live in `world_bosses` (HP and
+Every `lair` region holds a beast picked from the shard seed; world boss
+sites (a Kraken on the coast, a Titan in the hills) likewise
+(`src/online/lairs.ts`, never stored). A lair fights with its beast
+(`defenderKind: 'beast'`) until it is slain: the win captures the region at
+once, the loot is the beast's hoard (rare / epic / legendary) and a
+`trophy_<beast>` entitlement; `online_regions.beast_slain_at` brings the beast
+back after 48 h if the region falls back to the neutrals. World bosses live in `world_bosses` (HP and
 arms), `world_boss_damage` (tally) and `world_boss_loot` (the split, one row
 per player, idempotent). See migration 0004.
 
 ### Attacks: tickets and verification
 
-1. `attack/start` checks that the army stands next to the hex (not marching),
-   10 energy, no rival home hex, no cooldown; takes the **hex lock** in the
-   shard DO (`lockHex`, expires with the ticket: one attack per hex at a time,
-   else 409 `hex_locked`); picks the defenders: the owner's garrison (bot AI),
-   a militia if the owner left none, or the **neutral defenders**
-   (`src/online/defenders.ts`: by hex type and depth into the shard, losses
-   persist until a respawn); fixes a crypto-random **seed**, builds the setup
-   (`src/online/battle.ts`, with the hex's battlefield terrain) and stores the
-   ticket (10 min). Heroes on both sides are marked busy. An open ticket for
-   the same hex is **resumed** with the same seed, so restarting cannot fish
-   for seeds.
+1. `attack/start` checks that the army stands in a region next to the
+   target (not marching), 10 energy, no rival home camp, no cooldown; takes
+   the **region lock** in the shard DO (`lockRegion`, expires with the
+   ticket: one attack per region at a time, else 409 `region_locked`); picks
+   the defenders: the owner's garrison (bot AI), a militia if the owner left
+   none, or the **neutral defenders** (`src/online/defenders.ts`: by region
+   kind and tier, losses persist until a respawn); fixes a crypto-random
+   **seed**, builds the setup (`src/online/battle.ts`, with the region's
+   battlefield) and stores the ticket (10 min). Heroes on both sides are
+   marked busy. An open ticket for the same region is **resumed** with the
+   same seed, so restarting cannot fish for seeds.
 2. The client plays the battle locally and submits the order log.
 3. `attack/submit` replays the **stored** setup (the client's copy is never
    used). Any mismatch (winner, ticks, `Battle.hash()`) voids the ticket (422
@@ -357,20 +355,20 @@ in `src/online/protocol.ts`:
   battle_log. A player leaving → `duel_abort`.
 - **live armies** (server → client only; `server/src/online/live.ts`, shared
   helpers in `src/online/liveArmies.ts`): when an army sets out (`POST
-  /march`), halts (`/march/stop`) or moves into a conquered hex (attack
+  /march`), halts (`/march/stop`) or moves into a conquered region (attack
   submit), the Worker asks the shard who is online (`livePlayers()` RPC),
   works out each one's vision exactly like `/map` (their and their clan's
   land and armies, `ONLINE_RULES.sight`) and hands the cut messages to the DO
   (`liveMove()` RPC), which delivers them:
   - `army_march {player, name, clan, path, at, until, now}`: only the path
-    hexes the receiver can see, with the time the army enters (`at`) and
-    leaves (`until`, null for the last hex) each one. A gap means the army is
+    regions the receiver can see, with the time the army enters (`at`) and
+    leaves (`until`, null for the last region) each one. A gap means the army is
     out of sight in between; nothing outside the fog ever leaves the server.
     The receiver's own and clan mates' armies come whole.
   - `army_pos {player, name, clan, loc, now}`: it stands in a region the
     receiver sees (halt, capture).
   - `army_arrive {player, loc, now}`: pushed by a DO alarm at the arrival
-    time to those who see the last hex (arrivals are kept in DO storage).
+    time to those who see the last region (arrivals are kept in DO storage).
   - `army_hide {player, now}`: a halt or a new march the receiver can no
     longer see replaces a march they were shown.
 
@@ -378,7 +376,7 @@ in `src/online/protocol.ts`:
   between `at` and `until` (`LiveArmies` in `src/online/liveArmies.ts`).
 
 Duel and challenge state is kept in DO memory (a live duel keeps the object
-awake); hex locks are in DO storage. The relay itself (deployment, turns,
+awake); region locks are in DO storage. The relay itself (deployment, turns,
 hashes, replay) is `server/src/online/relay.ts`, shared with the ranked
 `DuelDO` ("Ranked duels").
 
@@ -386,7 +384,7 @@ hashes, replay) is `server/src/online/relay.ts`, shared with the ranked
 
 Rules: docs/DESIGN_V2.md "Monetization and economy" and "Trading". All
 prices are data: Stars packs in `src/products.ts`, cosmetics, pass tiers and
-market limits in `src/economy/catalog.ts`, consumables in the shared
+market limits in `server/src/economy/catalog.ts`, consumables in the shared
 `src/data/consumables.ts` (root).
 
 **Drachmae** (`wallets`, `drachmae_ledger`): account-wide, survive seasons.
@@ -417,7 +415,7 @@ stored order with `replayed: true`; the same id for another item is 409
 | POST | `/api/economy/pass/claim` | `{tier, track: free or premium}` → `{ reward, replayed }`; 409 `locked` (tier not reached / premium not unlocked), `no_profile` (gold and consumable rewards go to the season profile) |
 | GET | `/api/online/consumables` | `{ inventory: {id: qty}, day, caps: {id: {cap, bought}} }` (also `consumables` in `GET /api/online/profile`) |
 | POST | `/api/online/consumables/use` | `{id}`: `healing_salve` (every wound 1 h shorter), `march_rations` (rest of the march ×0.75); battle ones → 400 |
-| GET | `/api/online/market` | open listings of your shard; query `kind, ref, rarity, currency, minPrice, maxPrice, townQ+townR, sort (price_asc, price_desc, newest, ending), cursor, limit ≤ 50` → `{ listings, next }` (`next` = cursor of the next page, or null) |
+| GET | `/api/online/market` | open listings of your shard; query `kind, ref, rarity, currency, minPrice, maxPrice, town (loc), sort (price_asc, price_desc, newest, ending), cursor, limit ≤ 50` → `{ listings, next }` (`next` = cursor of the next page, or null) |
 | GET | `/api/online/market/mine` | your listings this season (resolves expired ones first) `{ listings, open, maxOpen }` |
 | GET | `/api/online/market/towns` | towns where you can list now |
 | POST | `/api/online/market/list` | `{town: loc, kind: item/resource/consumable, ref (item uid, food/wood/bronze, or consumable id), qty, currency: gold/drachmae, price}` → `{ listing }`; 403 `town_unreachable`, 400 `price_out_of_bounds`, 409 `listing_cap` / `cannot_afford` / `none_left` |
@@ -443,41 +441,24 @@ They are held per season (`online_consumables`) and vanish with it.
   spent when the duel starts (all or nothing; `error {code:
   'bad_consumable'}` for anything but one battle consumable id).
 - The effect is baked into the server-built setup (unit stats: sharpening
-  stone ×1.1 melee and ranged damage, morale wine +10 morale, war horn grants
-  Rally Cry to the side's highest-level hero), and `setup.consumables =
+  stone ×1.1 melee and ranged damage, morale wine +10 morale), and `setup.consumables =
   [side0, side1]` records the ids, so both clients and the server replay
-  simulate the same battle. TODO(sim): a true one-shot, army-wide war-horn
-  rally needs a sim feature; until then the horn uses the Rally Cry ability.
+  simulate the same battle. The war horn becomes `ArmySpec.horn`: the `horn`
+  order rallies the whole side once (routing men turn back); the bot sounds
+  it when its army breaks.
 
-**Map merchants** (`src/online/merchants.ts` shared, `server/src/online/merchant.ts`,
-`merchant_orders`, `merchant_daily`; docs/DUELS.md "War-map shops on the map"):
-
-- Every town (capitals included) has a merchant; so do the map's
-  **trading posts** (regions of kind `post`): harbours on the coast,
-  crossroads inland; never chosen as a home. `GET /map` marks them with
-  `post` and `GET /region` answers `merchant`.
-- **Stock** is generated from `(shard seed, region, UTC day)` and never stored:
-  every consumable (gold or Drachmae, their usual prices and caps), 3 basic
-  common pieces of gear, the specialties of the hex's region (the region of
-  its nearest capital: Attic, Thessalian, Thracian, Cretan, Gallic,
-  Phoenician, Scythian goods) and a daily rotating rare slot. Towns: 2
-  specialties at uncommon and a rare; trading posts: every specialty plus
-  their harbour or crossroads goods at rare and an epic. Gear costs item
-  value × 2 / 3 / 5 / 8 gold (common / uncommon / rare / epic) and is never
-  sold for Drachmae; gear caps per player per day: basic 2, regional 1, rare 1
-  (`merchant_daily`, keyed by item and rarity).
-- **Reach** is the marketplace rule: you or your clan hold the hex, or your
-  army stands on or next to it. The holder and their clan pay **10% less**
-  (rounded); the holder earns **5% of the list gold price** (rounded down) of
-  every sale to anyone else, paid by the merchant (credited to their season
-  gold in the buyer's batch; the buyer pays only the price).
-- **Buying** mirrors `/api/economy/buy`: the `merchant_orders` row (primary
-  key player + request id) is inserted only while the buyer's profile `rev`
-  is the one read, funds suffice and the cap allows; the payment (gold and a
-  rev bump, or a `merchant` ledger row), the goods (consumable or a stash item
-  with uid `s<season>p<player>_m<requestId>`), the daily counter and the
-  holder's cut are guarded by that row. A retry answers the stored order
-  (`replayed: true`).
+**Map merchants** (`src/online/merchants.ts` shared,
+`server/src/online/merchant.ts`, `merchant_orders`, `merchant_daily`): the
+rules and stock are in docs/DUELS.md "War-map shops on the map". Every town,
+capital and trading post (`post` region) has one; `GET /map` marks posts with
+`post` and `GET /region` answers `merchant`. Gear caps are counted in
+`merchant_daily` (by item and rarity). **Buying** mirrors `/api/economy/buy`:
+the `merchant_orders` row (primary key player + request id) is inserted only
+while the buyer's profile `rev` is the one read, funds suffice and the cap
+allows; the payment (gold and a rev bump, or a `merchant` ledger row), the
+goods (a consumable or a stash item with uid `s<season>p<player>_m<requestId>`),
+the daily counter and the holder's cut (credited to their season gold) are
+guarded by that row. A retry answers the stored order (`replayed: true`).
 
 **Season pass** (`pass_progress`, `pass_claims`, per online season): 30 tiers,
 100 XP each. XP is written by verified server events inside their own guarded
@@ -490,8 +471,8 @@ the reward in one batch; claiming again grants nothing.
 
 **Town marketplace** (`market_listings`, `market_audit`):
 
-- Listing: in a town hex (type town, or a capital) you or your clan hold, or
-  where your army stands on or next to. Goods go into escrow in the listing
+- Listing: in a town or capital you or your clan hold, or where your army
+  stands on or next to. Goods go into escrow in the listing
   batch (stash item removed, resource or consumables subtracted). Prices in
   gold or Drachmae; total price bounds per rarity and currency
   (`MARKET.priceBounds`, five tiers; legacy fine / heroic map to uncommon / epic; resources and consumables count as common). At most
@@ -517,7 +498,8 @@ the reward in one batch; claiming again grants nothing.
 
 Design: [docs/DUELS.md](../docs/DUELS.md). Code: `server/src/duel/` (routes,
 store), shared rules in `src/duel/` (`rules.ts` costs, budget, shop;
-`ladder.ts` floors and payouts), migration `0007_duels.sql`.
+`ladder.ts` floors, stars, chests and payouts), migrations `0007_duels.sql`
+and `0014_duel_stars_presets.sql`.
 
 The duel army is a second roster per account: persistent (no `season_id`,
 never reset), separate from the war-map army, with its own stash and the
@@ -554,7 +536,7 @@ No deaths, wounds or wear in duels. Analytics: `duel_join` once per player,
 
 ### Ranked duels (live ranked and unranked)
 
-Design: docs/DUELS.md "Ranked live" and "Slice 3 numbers". Shared rules
+Design: docs/DUELS.md "Ranked live" and "Matchmaking and rating". Shared rules
 `src/duel/rating.ts` (`RANKED`: Glicko-2, leagues, windows, payouts,
 cooldown), protocol `src/duel/protocol.ts`, migration `0008_duel_ranked.sql`.
 
@@ -605,9 +587,10 @@ account XP (`duel_profiles`, rev + 1), hero progression, and an abandon in
 at most 4 h). A repeat returns the stored reports. The relay state and log
 live in the DuelDO's storage (log in chunks of 500) so it can hibernate.
 
-### Raids, seasons and leaderboards (duels slice 4)
+### Raids, seasons and leaderboards
 
-Design: docs/DUELS.md "Ranked async" and "Slice 4 numbers". Shared rules
+Design: docs/DUELS.md "Ranked async (defence ladder)" and "Matchmaking and
+rating". Shared rules
 `src/duel/season.ts` (`SEASON`, `ASYNC`), code `server/src/duel/async.ts`
 (routes), `server/src/duel/season.ts` (rollover, boards),
 `server/src/duel/verify.ts` (the replay check shared with the ladder),
@@ -649,12 +632,12 @@ Code: `src/notify/` (delivery), `src/bot/` (commands), shared deep links in
 
 | Type (opt-out) | Events | Trigger | Button opens |
 | --- | --- | --- | --- |
-| `attack` | under attack / captured / garrison held | `attack/start` (garrison or militia defends), `attack/submit` (to the previous owner) | `hex_<q>_<r>` |
-| `march` | march arrived | the shard object's alarm at the arrival time (marches of 5 min or more; a halt or capture cancels it) | `hex_<q>_<r>` |
-| `income` | treasury full (24 h cap) | cron, hourly: the oldest uncollected hex reached `incomeCapHours`; once per accrual clock | `income` |
+| `attack` | under attack / captured / garrison held | `attack/start` (garrison or militia defends), `attack/submit` (to the previous owner) | `loc_<id>` |
+| `march` | march arrived | the shard object's alarm at the arrival time (marches of 5 min or more; a halt or capture cancels it) | `loc_<id>` |
+| `income` | treasury full (24 h cap) | cron, hourly: the oldest uncollected region reached `incomeCapHours`; once per accrual clock | `income` |
 | `duel` | challenged while offline; a raid on your duel defence (held or broken) | a `challenge` to a player of the shard without an open socket (the challenger still gets `unavailable`); `duel/async/submit` (to the defender) | `duel` |
 | `clan` | invite accepted (to the inviter), rank changed, kicked | `/clans/join`, `/clans/promote`, `/clans/kick` | `myclan` |
-| `boss` | a boss you damaged was slain: your share and items | the killing `boss/submit` (everyone with a loot share but the killer) | `boss_<q>_<r>` |
+| `boss` | a boss you damaged was slain: your share and items | the killing `boss/submit` (everyone with a loot share but the killer) | `boss_<id>` |
 | `season` | the season ends in 3 days / 1 day | cron, once per season and step (`bot_meta`) | `season` |
 | `market` | listing sold | `/market/buy` (to the seller) | `market` |
 
@@ -680,7 +663,7 @@ then tries to deliver the player's pending rows:
 6. **coalescing**: after a message of a type, newer events of that type wait
    for the type's window (attacks and duels 15 min, market 20 min, clan
    10 min, march 5 min), then go out as **one** message: "3 attacks on your
-   land in the last hour. Hexes lost: 1, attacks held: 1", "2 of your
+   land in the last hour. Regions lost: 1, attacks held: 1", "2 of your
    listings sold: +81 gold, +18 Drachmae", ...
 
 Rows are claimed (`pending → sending`) before the send, so two concurrent
@@ -688,8 +671,8 @@ flushes never double-send; a 429, 5xx or network error puts them back for
 the next run. Messages are EN or RU by the player's Telegram `language_code`,
 end with "Turn these off: /settings" and carry one inline **web_app** button
 `https://pixelarrow.app/?startapp=<route>`; `BootScene` routes it
-(`parseStartParam` / `sceneForRoute` in `src/online/deeplink.ts`): `hex_q_r`
-and `boss_q_r` centre the war table on the hex and select it, `duel` opens the
+(`parseStartParam` / `sceneForRoute` in `src/online/deeplink.ts`): `loc_<id>`
+and `boss_<id>` centre the war map on the region and select it, `duel` opens the
 lobby, `market` the marketplace, `myclan` the clan, `settings` the menu with
 Settings → Notifications, `wallet` the shop's wallet; `clan_<code>` is still
 a clan invite.
@@ -830,36 +813,20 @@ Actions variable `ANALYTICS_ENGINE=off` drops the datasets on purpose.
 
 ## Client integration
 
-Steps 1–4 are implemented in the game (`src/platform/api.ts`, `online.ts`,
-`saveSync.ts`, `verify.ts`; see docs/DESIGN.md "Online client"); the online
-mode (`src/online/`, `src/scenes/online/`) uses `/api/online/*` and
-`/ws/online`.
+The game's side (sign-in, cloud save, battle verify, the Stars shop) is
+described in docs/GAMEPLAY.md "Cloud save": `src/platform/api.ts`,
+`online.ts`, `saveSync.ts`, `verify.ts`. The online mode (`src/online/`,
+`src/scenes/online/`) uses `/api/online/*` and `/ws/online` through
+`src/online/client.ts` (`onlineApi`, including `merchant` / `merchantBuy` for
+`MerchantScene`, opened from the region panel); the duels use `/api/duel/*`
+and `/ws/duel` through `src/duel/client.ts`.
 
-The economy screens (`src/scenes/ShopScene.ts`: cosmetics, season pass,
-wallet; `src/scenes/MarketScene.ts`: the town marketplace; the battle consumable
-picker `src/ui/econ/consumablePicker.ts`) go through `src/ui/econ/source.ts`,
-which uses the typed methods in
-`src/platform/api.ts`: `economyCatalog`, `wallet`, `buy` (makes a request id;
-pass the same one when retrying), `equipCosmetic`, `seasonPass`, `claimPass`,
-`consumables`, `useConsumable`, `marketSearch`, `marketMine`, `marketTowns`,
-`marketList`, `marketBuy`, `marketCancel`. Drachmae packs still go through
-`invoice(productId)` + `openInvoice`, then poll `wallet()`. The map merchants
-(`src/scenes/online/MerchantScene.ts`, opened from the hex panel) use
-`onlineApi.merchant` and `onlineApi.merchantBuy` (`src/online/client.ts`).
-
-1. **Boot:** if `Telegram.WebApp.initData` is non-empty,
-   `POST /api/auth/telegram { initData }` → keep `token` in memory (re-auth on
-   401; initData is accepted for 24 h after launch).
-2. **Save sync:** on load `GET /api/save`; prefer the server copy when its
-   `revision` is newer than the locally remembered one. On save
-   `PUT /api/save { revision, data }`; on 409 fetch, pick/merge (e.g. the save
-   with more battles fought) and retry with the new revision. Keep
-   CloudStorage/localStorage as the offline fallback.
-3. **Shop:** `POST /api/shop/invoice { productId }` →
-   `Telegram.WebApp.openInvoice(link, status => { if (status === 'paid') refresh() })`,
-   then `GET /api/entitlements` (the grant arrives via the webhook, so poll
-   briefly after `paid`).
-4. **Battle verify (optional now):** send `{ setup, orders: battle.orderLog,
-   deployOrders, claim: { winner, ticks, hash: battle.hash() } }` after a battle;
-   record `deployOrders = battle.orderLog.length` right before `startBattle()`.
-5. **Presence:** `new WebSocket('wss://pixelarrow.app/ws/region/<id>', ['pixelarrow.v1', token])`.
+The economy screens (`ShopScene`: cosmetics, season pass, wallet;
+`MarketScene`: the town marketplace; the consumable picker
+`src/ui/econ/consumablePicker.ts`) go through `src/ui/econ/source.ts`, which
+uses the typed methods in `src/platform/api.ts` (`economyCatalog`, `wallet`,
+`buy` (makes a request id; pass the same one when retrying),
+`equipCosmetic`, `seasonPass`, `claimPass`, `consumables`, `useConsumable`,
+`market*`). Drachmae packs go through `invoice(productId)` +
+`Telegram.WebApp.openInvoice`, then poll `wallet()` (the grant arrives via
+the webhook).

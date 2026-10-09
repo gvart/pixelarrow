@@ -7,7 +7,8 @@
  */
 import Phaser from 'phaser';
 import { Pix, hash2 } from '../art/pixels';
-import { MP, gullPix, merchantPix, mix, shipPix } from '../art/mapProps';
+import { MP, gullPix, merchantPix, shipPix } from '../art/mapProps';
+import { mix } from '../art/palette';
 import { alongPolyline } from '../online/liveArmies';
 
 export const SMOKE = [0xf0e6e2, 0xe2d6d6, 0xcfc2c8];

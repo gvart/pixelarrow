@@ -1,5 +1,5 @@
 /**
- * The parchment war map (docs/ART_STYLE.md §12 "World map", docs/MAP_V3.md
+ * The parchment war map (docs/ART_STYLE.md §12 "World map", docs/DESIGN_V2.md
  * "Rendering"), drawn procedurally with the Pix pipeline. Independent of
  * Phaser: src/scenes/online/regionMapView.ts uploads what this bakes.
  *
@@ -14,10 +14,12 @@
  *   with hatching and a lavender shadow.
  * - Sprites for armies, ships, label plates, camp plots and the selection.
  */
+import { mix } from './palette';
 import type { WorldGraph } from '../online/world';
 import { decodeTerrain } from '../online/mapSchema';
 import { Pix, hash2, valueNoise } from './pixels';
-import { MP, archOf, clamp01, drawCypress, drawTree, harbourProp, mix, rng, settlementProp, shipPix, type PropSprite, type Pt } from './mapProps';
+import { clamp01 } from '../util/math';
+import { MP, archOf, drawCypress, drawTree, harbourProp, rng, settlementProp, shipPix, type PropSprite, type Pt } from './mapProps';
 
 export { MP, drawTree, shipPix };
 

@@ -4,6 +4,7 @@
  * src/art/itemIconsHD.ts (see ensureItemIcon in src/ui/sprites.ts); this
  * pixel set remains the DOM-free renderer (tests, tooling) and the fallback.
  */
+import { hashString } from '../sim/rng';
 import { itemDef, rarityRank, type Item, type ItemDef } from '../data/items';
 import { P, mix } from './palette';
 import { Pix } from './pixels';
@@ -339,8 +340,7 @@ function materialTint(px: Pix, def: ItemDef): void {
  * flourishes) still have distinct pixel icons.
  */
 function idMark(px: Pix, id: string): void {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  const h = hashString(id);
   const solid: [number, number][] = [];
   for (let y = 0; y < px.h; y++) for (let x = 0; x < px.w; x++) if (px.alpha(x, y) > 0) solid.push([x, y]);
   if (solid.length < 2) return;

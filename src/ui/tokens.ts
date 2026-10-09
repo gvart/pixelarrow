@@ -1,11 +1,12 @@
 /**
- * Design tokens of the "Bronze & Stone v3" UI (docs/UI_V3.md): one source for
+ * Design tokens of the "Bronze & Stone v3" UI (docs/UI_KIT.md "Tokens"): one source for
  * the colours, the type scale, spacing and motion of every menu screen. Colours
  * are 0xRRGGBB. Every text / surface pair the screens use is listed in
  * `CONTRAST_PAIRS` and checked against WCAG AA by tests/tokens.test.ts.
  *
  * Pure data (no Phaser), so tests and the art generators can import it.
  */
+import { hex } from '../art/palette';
 
 // ================================================================== palette
 
@@ -194,5 +195,5 @@ export const CONTRAST_PAIRS: { fg: number; bg: number; min: number; what: string
 /** "#rrggbb" of a token (Canvas 2D). */
 export function css(c: number, alpha = 1): string {
   if (alpha < 1) return `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${alpha})`;
-  return `#${c.toString(16).padStart(6, '0')}`;
+  return hex(c);
 }

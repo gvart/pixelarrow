@@ -1,6 +1,6 @@
 /**
- * Procedural art of the war-table hex map (docs/DESIGN_V2.md "Hex map: a map
- * on a war table"): painted terrain tiles with thickness, miniature props
+ * Procedural art of the war-table props (docs/DESIGN_V2.md "UI": the war
+ * map): painted terrain tiles with thickness, miniature props
  * (trees, peaks, farms, mines, walled towns, forts, capitals, ruins and
  * shrines, beast lairs) and painted figures (armies, neutral defenders) built
  * with the 3D primitive renderer (src/art/model3d.ts), the parchment of the
@@ -8,7 +8,7 @@
  * every function returns a Pix; the scene turns them into textures.
  *
  * Tile geometry (sizes, heights) is local to this file (legacy tiles; the
- * season map's parchment view replaces them, docs/MAP_V3.md). The
+ * season map's parchment view replaces them, docs/DESIGN_V2.md "Map"). The
  * palette follows the battlefield: muted grass, olive scrub, dusty soil,
  * weathered stone, slate sea.
  */
