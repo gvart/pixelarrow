@@ -125,9 +125,14 @@ battle panel (Movement bronze, Attack red, Formation blue, Abilities gold),
 
 ### Icons
 
-UI icons are the smooth "material" family of `src/art/iconStyle.ts`
-(`src/art/vectorIcons.ts`, `src/art/uiIcons.ts`); item and goods icons have HD
-versions (`itemIconsHD.ts`, `goodsIcons.ts`). Every new icon follows it:
+Icons are drawn art: the atlases in `public/icons` (`ui` at 64 px, `items` at
+96 px), drawn by `src/art/iconBitmaps.ts`. The cream look on buttons and the
+grey disabled look are made from each bitmap. Every icon also has a code-drawn
+fallback, the smooth "material" family of `src/art/iconStyle.ts`
+(`vectorIcons.ts`, `uiIcons.ts`, HD item and goods icons in `itemIconsHD.ts`,
+`goodsIcons.ts`). A new icon needs a vector form following these rules; it
+shows that until its drawing is in the atlases (`tests/iconAtlas.test.ts`
+lists icons still waiting):
 
 | Rule | Value |
 | --- | --- |

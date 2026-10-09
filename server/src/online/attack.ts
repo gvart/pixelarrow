@@ -34,6 +34,8 @@ import { campAt, razeCampStmts } from './camps';
 import { militiaBonus } from '../../../src/online/camps';
 import { pushArmyMove } from './live';
 import { BEAST_RULES, bossAt, lairAt, lairBeasts, type Lair } from '../../../src/online/lairs';
+import { BEAST_NAMED, legendaryHoard, pityChest } from '../../../src/game/sources';
+import { getPity, pityStmt } from '../loot';
 import { ev, later, notify } from '../notify/outbox';
 import { trophyId } from '../../../src/data/beasts';
 import {
@@ -343,7 +345,15 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
   }
   const gold = res.attacker.outcome.gold + plunder.gold;
   const prefix = heroPrefix(t.season_id, pc.pid);
-  const loot = res.loot.map((it, i) => ({ ...it, uid: `${prefix}l${t.id.slice(0, 8)}_${i}` }));
+  let loot = res.loot.map((it, i) => ({ ...it, uid: `${prefix}l${t.id.slice(0, 8)}_${i}` }));
+  // a slain lair beast's hoard is a chest for the war bad-luck counter (src/game/sources.ts pityChest)
+  let pity: { before: number; after: number } | null = null;
+  if (beast && won && loot.length) {
+    const before = await getPity(d, pc.pid, 'war');
+    const chest = pityChest(loot, before, (it) => legendaryHoard(it, BEAST_NAMED[beast.enc], `${t.id}:${it.uid}`));
+    loot = chest.items;
+    pity = { before, after: chest.count };
+  }
 
   const stmts: D1PreparedStatement[] = [
     d
@@ -369,6 +379,7 @@ async function applyAttack(pc: PlayerCtx, t: TicketRow, result: ReturnType<typeo
     }
   };
   heroStmts(res.attacker, true);
+  if (pity && pity.after !== pity.before) stmts.push(pityStmt(d, pc.pid, 'war', pity.after, G, now));
   for (const it of loot) {
     stmts.push(d.prepare(`INSERT INTO online_items (uid, season_id, player_id, data, created_at) SELECT ?1, ?2, ?3, ?4, ?5 WHERE ${G}`).bind(it.uid, t.season_id, pc.pid, JSON.stringify(it), now));
   }

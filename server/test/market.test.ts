@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { marketFee } from '../src/economy/catalog';
+import { salvageValue, type Item } from '../../src/data/items';
 import { currentSeason } from '../src/online/store';
 import { resetRateLimits } from '../src/rateLimit';
 import { DB, fresh, getJson, giveDrachmae, join, placeArmy, post, sameShard, setPurse, shardRow, type Player } from './onlineHelpers';
@@ -170,5 +171,30 @@ describe('town marketplace', () => {
     expect(p2.body.listings.length).toBeGreaterThanOrEqual(5);
     // Gold, recruits and unknown resources cannot be listed.
     expect((await post('/api/online/market/list', s.token, { town, kind: 'resource', ref: 'gold', qty: 1, currency: 'drachmae', price: 10 })).status).toBe(400);
+  });
+});
+
+describe('bound gear', () => {
+  it('is refused by the marketplace and salvaged for a quarter of its worth in gold, once', async () => {
+    const s = await join(960051, 'Keeper');
+    const town = await toTown(s);
+    const season = await currentSeason(DB());
+    const named = { uid: `bound_${s.playerId}`, def: 'aegis_of_zeus', rarity: 'legendary', cond: 100 };
+    await DB().prepare('INSERT INTO online_items (uid, season_id, player_id, data, created_at) VALUES (?1, ?2, ?3, ?4, 0)').bind(named.uid, season.id, s.playerId, JSON.stringify(named)).run();
+    const l = await post<{ error: { code: string } }>('/api/online/market/list', s.token, { town, kind: 'item', ref: named.uid, currency: 'gold', price: 500 });
+    expect(l.status).toBe(409);
+    expect(l.body.error.code).toBe('bound_item');
+    const gold0 = (await profile(s)).resources.gold;
+    const r = await post<{ salvaged: boolean; gold: number }>('/api/online/salvage', s.token, { uid: named.uid });
+    expect(r.body).toMatchObject({ salvaged: true, gold: salvageValue(named as Item) });
+    expect((await profile(s)).resources.gold).toBe(gold0 + salvageValue(named as Item));
+    expect((await profile(s)).stash.map((x) => x.uid)).not.toContain(named.uid);
+    // a retry pays nothing more
+    const again = await post<{ salvaged: boolean; gold: number }>('/api/online/salvage', s.token, { uid: named.uid });
+    expect(again.body).toMatchObject({ salvaged: false, gold: 0 });
+    expect((await profile(s)).resources.gold).toBe(gold0 + salvageValue(named as Item));
+    // ordinary gear is sold on the marketplace, not salvaged
+    const uid = await stashItem(s);
+    expect((await post<{ error: { code: string } }>('/api/online/salvage', s.token, { uid })).body.error.code).toBe('not_bound');
   });
 });

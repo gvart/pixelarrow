@@ -12,6 +12,7 @@
  *   after the end). A player who reconnects gets duel_start with
  *   `resume: true` and every sealed turn again; the client fast-forwards.
  */
+import type { Item } from '../data/items';
 import type { ServerMsg } from '../online/protocol';
 import type { HeroXp } from './ladder';
 import type { DuelMode, League } from './rating';
@@ -55,6 +56,8 @@ export interface MatchReport {
   league: { before: League | null; after: League | null } | null;
   placements: { played: number; of: number } | null;
   xp: HeroXp[];
+  /** The item a won duel dropped into the duel stash (docs/DUELS.md "Spoils"), or null; missing in reports from before spoils. */
+  spoils?: Item | null;
 }
 
 export type DuelLiveServerMsg =
@@ -76,4 +79,6 @@ export interface AsyncReport {
   league: { before: League | null; after: League | null };
   placements: { played: number; of: number };
   xp: HeroXp[];
+  /** The item a won duel dropped into the duel stash (docs/DUELS.md "Spoils"), or null; missing in reports from before spoils. */
+  spoils?: Item | null;
 }

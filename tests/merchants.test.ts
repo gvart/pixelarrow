@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getMap } from '../src/online/world';
 import { CONSUMABLE_IDS, CONSUMABLES } from '../src/data/consumables';
 import { ITEMS } from '../src/data/items';
+import { setPieces } from '../src/data/sets';
 import {
   BASE_GEAR,
   capKey,
@@ -14,6 +15,7 @@ import {
   nextReset,
   offerPrice,
   POST_GOODS,
+  REALM_SETS,
   regionOf,
   REGIONS,
   SPECIALTIES,
@@ -101,10 +103,32 @@ describe('merchant stock', () => {
   it('trading posts carry rarer stock: all regional goods and their own at rare, an epic in the rotating slot', () => {
     const s = merchantStock(W, seed, post.loc, post.kind, DAY);
     const region = s.filter((o) => o.slot === 'region');
-    const want = new Set([...SPECIALTIES[regionOf(W, post.loc)], ...POST_GOODS[post.kind]]);
+    const realm = regionOf(W, post.loc);
+    const rareSet = REALM_SETS[realm].rare;
+    const want = new Set([...SPECIALTIES[realm], ...POST_GOODS[post.kind], ...(rareSet ? setPieces(rareSet) : [])]);
     expect(new Set(region.map((o) => o.ref))).toEqual(want);
     for (const o of region) expect(o.rarity).toBe('rare');
     expect(s.find((o) => o.slot === 'rare')!.rarity).toBe('epic');
+  });
+
+  it("trading posts: the realm's rare set always, its epic set in the epic slot one day in three, never a named item", () => {
+    let setDays = 0;
+    const days = 300;
+    for (let d = 0; d < days; d++) {
+      const day = new Date(Date.UTC(2026, 0, 1) + d * 86_400_000).toISOString().slice(0, 10);
+      const s = merchantStock(W, seed, post.loc, post.kind, day);
+      const epic = s.find((o) => o.slot === 'rare')!;
+      expect(epic.rarity).toBe('epic');
+      expect(ITEMS[epic.ref].named).toBeFalsy();
+      if (ITEMS[epic.ref].set) {
+        expect(ITEMS[epic.ref].set).toBe(REALM_SETS[regionOf(W, post.loc)].epic);
+        setDays++;
+      }
+    }
+    expect(setDays / days).toBeGreaterThan(0.25);
+    expect(setDays / days).toBeLessThan(0.42);
+    // towns sell no set pieces
+    for (const o of merchantStock(W, seed, town, 'town', DAY)) if (o.kind === 'item') expect(ITEMS[o.ref].set).toBeFalsy();
   });
 
   it('prices: the holder discount, the holder cut, cap keys', () => {

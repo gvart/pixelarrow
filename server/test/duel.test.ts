@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Hero } from '../../src/data/units';
 import type { Item } from '../../src/data/items';
-import { DUEL_RULES, catalogue, dailyOffers, gearPrice, recruitPrice, utcDay } from '../../src/duel/rules';
+import { DUEL_RULES, catalogue, dailyOffers, gearPrice, recruitPrice, sellPrice, utcDay } from '../../src/duel/rules';
+import { setPieces } from '../../src/data/sets';
 import { LADDER, chestReward, ladderFloor, ladderStars } from '../../src/duel/ladder';
 import type { BattleSetup } from '../../src/sim/types';
 import { devLogin } from './helpers';
@@ -146,6 +147,30 @@ describe('duel shop', () => {
     expect((await post('/api/duel/shop/sell', token, { uid: b.body.item.uid, requestId: reqId() })).status).toBe(404);
   });
 
+  it('bound gear is never sold, only salvaged, for the same quarter of its shop price, once per request', async () => {
+    const { token, pid } = await open(9123);
+    const named = { uid: `d${pid}_fleece`, def: 'golden_fleece', rarity: 'legendary', cond: 100 };
+    await DB().prepare('INSERT INTO duel_items (uid, player_id, data, created_at) VALUES (?1, ?2, ?3, 0)').bind(named.uid, pid, JSON.stringify(named)).run();
+    const sell = await post<{ error: { code: string } }>('/api/duel/shop/sell', token, { uid: named.uid, requestId: reqId() });
+    expect(sell.status).toBe(409);
+    expect(sell.body.error.code).toBe('bound_item');
+    const plain = (await getJson<DuelProfile>('/api/duel/profile', token)).body;
+    const glory0 = plain.glory;
+    const id = reqId();
+    const s = await post<{ glory: number; replayed: boolean; profile: DuelProfile }>('/api/duel/shop/salvage', token, { uid: named.uid, requestId: id });
+    expect(s.status).toBe(200);
+    expect(s.body.glory).toBe(sellPrice(named as Item));
+    expect(s.body.profile.glory).toBe(glory0 + s.body.glory);
+    expect(s.body.profile.stash.some((i) => i.uid === named.uid)).toBe(false);
+    const again = await post<{ replayed: boolean; profile: DuelProfile }>('/api/duel/shop/salvage', token, { uid: named.uid, requestId: id });
+    expect(again.body.replayed).toBe(true);
+    expect(again.body.profile.glory).toBe(s.body.profile.glory);
+    const dory = { uid: `d${pid}_dory`, def: 'dory', rarity: 'rare', cond: 100 };
+    await DB().prepare('INSERT INTO duel_items (uid, player_id, data, created_at) VALUES (?1, ?2, ?3, 0)').bind(dory.uid, pid, JSON.stringify(dory)).run();
+    const notBound = await post<{ error: { code: string } }>('/api/duel/shop/salvage', token, { uid: dory.uid, requestId: reqId() });
+    expect(notBound.body.error.code).toBe('not_bound');
+  });
+
   it('daily offers sell once per player and day', async () => {
     const { token } = await open(9122);
     await DB().prepare('UPDATE duel_profiles SET glory = 10000 WHERE player_id = (SELECT id FROM players WHERE telegram_id = 9122)').run();
@@ -286,12 +311,13 @@ describe('ladder stars and chapter chests', () => {
     expect(locked.status).toBe(409);
     expect(locked.body.error.code).toBe('chest_locked');
     expect((await post('/api/duel/ladder/chest', token, { chapter: 6, tier: 1 })).status).toBe(400);
-    // three stars on every floor of chapter 1: the top chest holds a rare-or-better item
+    // three stars on every floor of chapter 1: the top chest holds a piece of the Agoge of Sparta
     for (let f = 1; f <= 10; f++) await DB().prepare('INSERT INTO duel_ladder_stars (player_id, floor, stars, updated_at) VALUES (?1, ?2, 3, 0)').bind(pid, f).run();
     const t3 = await post<Chest>('/api/duel/ladder/chest', token, { chapter: 1, tier: 3 });
     expect(t3.status).toBe(200);
     expect(t3.body.glory).toBe(chestReward(1, 3).glory);
-    expect(['rare', 'epic', 'legendary']).toContain(t3.body.item!.rarity);
+    expect(t3.body.item!.rarity).toBe('rare');
+    expect(setPieces('agoge')).toContain(t3.body.item!.def);
     expect(t3.body.profile.stash.some((i) => i.uid === t3.body.item!.uid)).toBe(true);
     const t3again = await post<Chest>('/api/duel/ladder/chest', token, { chapter: 1, tier: 3 });
     expect(t3again.body.replayed).toBe(true);

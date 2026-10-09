@@ -21,6 +21,8 @@ import { DEFAULT_FORMATIONS, scopeHero } from '../online/rules';
 import { onlineBattleSetup } from '../online/battle';
 import type { BattleSetup } from '../sim/types';
 import { DUEL_RULES, heroPoints, teamPoints } from './rules';
+import { SETS } from '../data/sets';
+import { CHAPTER_SET, LADDER_NAMED, SOURCES, armyPick, legendaryHoard, pieceDefs, pityChest } from '../game/sources';
 
 export const LADDER = {
   floors: 50,
@@ -45,7 +47,7 @@ export const LADDER = {
     { base: 120, perChapter: 80 },
     { base: 200, perChapter: 120 },
   ] as readonly { base: number; perChapter: number }[],
-  /** The tier whose chest also holds a guaranteed item (rare or better). */
+  /** The tier whose chest also holds a piece of the chapter's set (src/game/sources.ts CHAPTER_SET). */
   chestItemTier: 3,
 };
 
@@ -167,6 +169,8 @@ export interface LadderPayout {
   heroes: Hero[];
   xp: HeroXp[];
   drop: Item | null;
+  /** The duel bad-luck counter after this battle (boss floors' first-clear drops count, src/game/sources.ts pityChest). */
+  pity: number;
   /** Stars this battle earned (0 for a loss) and the share of team points lost. */
   stars: number;
   lost: number;
@@ -192,11 +196,20 @@ export function duelHeroXp(result: Pick<BattleResult, 'units'>, team: Hero[], wo
   return { heroes, xp };
 }
 
+/** What the army a ladder drop follows is, and the duel bad-luck counter (both optional: none and 0). */
+export interface DropContext {
+  classes?: readonly string[];
+  pity?: number;
+}
+
 /**
  * What a verified ladder battle pays: hero XP always; on a win Glory (first
- * clear, or farm Glory up to `farmLeft`), account XP and maybe an item.
+ * clear, or farm Glory up to `farmLeft`), account XP and maybe an item. The
+ * boss floors 30, 40 and 50 may drop their named item (LADDER_NAMED); a boss
+ * floor's first-clear drop is a beast chest for the bad-luck counter. Drops
+ * follow the army (`ctx.classes`).
  */
-export function ladderPayout(floor: Floor, result: BattleResult, team: Hero[], cleared: number, farmLeft: number, seed: number, ids: IdSource, prefix: string): LadderPayout {
+export function ladderPayout(floor: Floor, result: BattleResult, team: Hero[], cleared: number, farmLeft: number, seed: number, ids: IdSource, prefix: string, ctx: DropContext = {}): LadderPayout {
   const rng = new Rng((seed ^ 0x2c1b3c6d) >>> 0 || 1);
   const won = result.winner === 0;
   const firstClear = won && floor.floor > cleared;
@@ -210,14 +223,23 @@ export function ladderPayout(floor: Floor, result: BattleResult, team: Hero[], c
   }
   const accountXp = won ? floor.reward.xp : Math.round(floor.reward.xp / 3);
   let drop: Item | null = null;
-  if (firstClear || (won && rng.chance(LADDER.farmDropChance))) {
+  const named = LADDER_NAMED[floor.floor];
+  if (won && named && rng.chance(firstClear ? SOURCES.ladderNamed.first : SOURCES.ladderNamed.replay)) {
+    drop = makeItem(rng, ids, named, 'legendary', 100);
+  } else if (firstClear || (won && rng.chance(LADDER.farmDropChance))) {
     const rarity: Rarity = firstClear && floor.boss ? rollBeastRarity(rng) : firstClear ? atLeast(rollRarity(rng, floor.tier), 'uncommon') : rollRarity(rng, floor.tier);
-    const def = rng.pick(BASE_ITEMS);
+    const def = armyPick(rng, BASE_ITEMS, ctx.classes ?? []);
     drop = makeItem(rng, ids, def.id, rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
-    drop.uid = `${prefix}${drop.uid}`;
   }
+  let pity = ctx.pity ?? 0;
+  if (drop && firstClear && floor.boss) {
+    const chest = pityChest([drop], pity, (it) => legendaryHoard(it, named ? [named] : [], `${seed}`));
+    drop = chest.items[0];
+    pity = chest.count;
+  }
+  if (drop) drop.uid = `${prefix}${drop.uid}`;
   const lost = lostShare(result, team);
-  return { won, firstClear, glory, capped, accountXp, heroes, xp, drop, stars: ladderStars(won, lost), lost };
+  return { won, firstClear, glory, capped, accountXp, heroes, xp, drop, pity, stars: ladderStars(won, lost), lost };
 }
 
 // ------------------------------------------------------------------ stars and chapters
@@ -283,14 +305,15 @@ export function chapterMaxStars(chapter: number): number {
 
 export interface ChestReward {
   glory: number;
-  /** A guaranteed item of at least this rarity (only the top tier). */
+  /** The rarity of the item it holds, a piece of the chapter's set (only the top tier). */
   item: Rarity | null;
 }
 
 /** What a chapter chest holds (tier 1..3). */
 export function chestReward(chapter: number, tier: number): ChestReward {
   const g = LADDER.chestGlory[tier - 1];
-  return { glory: g.base + g.perChapter * (chapter - 1), item: tier === LADDER.chestItemTier ? 'rare' : null };
+  const set = CHAPTER_SET[Math.max(1, Math.min(CHAPTERS, chapter))];
+  return { glory: g.base + g.perChapter * (chapter - 1), item: tier === LADDER.chestItemTier ? SETS[set].rarity : null };
 }
 
 export type ChestState = 'locked' | 'ready' | 'claimed';
@@ -305,13 +328,16 @@ export function validChest(chapter: number, tier: number): boolean {
   return Number.isInteger(chapter) && Number.isInteger(tier) && chapter >= 1 && chapter <= CHAPTERS && tier >= 1 && tier <= CHEST_TIERS;
 }
 
-/** The top-tier chest's item: rare or better, rarer in later chapters (deterministic by seed). */
-export function chestItem(seed: number, ids: IdSource, prefix: string, chapter: number): Item {
+/**
+ * The top-tier chest's item: a piece of the chapter's set (CHAPTER_SET: the
+ * rare sets in chapters 1-3, the epic ones in 4-5), following the army's
+ * `classes` (deterministic by seed).
+ */
+export function chestItem(seed: number, ids: IdSource, prefix: string, chapter: number, classes: readonly string[] = []): Item {
   const rng = new Rng((seed ^ 0x5bd1e995) >>> 0 || 1);
-  const c = Math.max(1, Math.min(CHAPTERS, chapter)) - 1;
-  const rarity = rng.weighted<Rarity>([['rare', 70 - 10 * c], ['epic', 25 + 8 * c], ['legendary', 5 + 2 * c]]);
-  const def = rng.pick(BASE_ITEMS);
-  const it = makeItem(rng, ids, def.id, rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
+  const set = CHAPTER_SET[Math.max(1, Math.min(CHAPTERS, chapter))];
+  const def = armyPick(rng, pieceDefs(set), classes);
+  const it = makeItem(rng, ids, def.id, SETS[set].rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
   it.uid = `${prefix}${it.uid}`;
   return it;
 }

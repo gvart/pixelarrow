@@ -6,7 +6,8 @@ threats and lines that break when morale breaks. Lead a band of heroes across
 a procedurally generated coast, fight a seasonal online war for a shared map
 with your clan, or take a persistent duel army up the ranked ladders. Built
 with Phaser 3, TypeScript and Vite as a **Telegram Mini App** (it also runs in
-any browser). All art and sound are generated in code; there are no image or
+any browser). The icons are drawn art, shipped as two atlases in `public/icons`.
+All other art and all sound are generated in code; there are no other image or
 audio files.
 
 **Play:** https://pixelarrow.app
@@ -32,8 +33,6 @@ audio files.
   renderers follow.
 - [docs/ITEMS.md](docs/ITEMS.md): item design (not built yet): rarity with
   random stats, powers, sets, named legendaries and where items come from.
-- [docs/icons/README.md](docs/icons/README.md): every icon in the game, its
-  meaning and the Gemini prompts and tile-sheet layout for redrawing them.
 - [docs/OPS.md](docs/OPS.md): monitoring, analytics, backups, restore, the
   admin panel.
 - [docs/ROADMAP.md](docs/ROADMAP.md): architecture, invariants and open

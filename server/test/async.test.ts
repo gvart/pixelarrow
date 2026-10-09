@@ -288,8 +288,8 @@ describe('ranked seasons', () => {
     await Promise.all([rollRatings(DB(), p.pid, Date.now()), rollRatings(DB(), p.pid, Date.now()), getJson('/api/duel/season', p.token)]);
     const s = await getJson<{ rewards: { ladder: string; league: string; glory: number; cosmetic: string }[]; title: { league: string } | null; live: { league: { id: string } | null; peak: unknown } }>('/api/duel/season', p.token);
     expect(s.body.rewards.sort((a, b) => a.ladder.localeCompare(b.ladder))).toEqual([
-      { season: cur() - 1, ladder: 'async', league: 'gold', glory: SEASON.rewards.gold.glory * SEASON.asyncShare, cosmetic: 'duel_emblem_gold' },
-      { season: cur() - 1, ladder: 'live', league: 'strategos', glory: SEASON.rewards.strategos.glory, cosmetic: 'duel_banner_strategos' },
+      { season: cur() - 1, ladder: 'async', league: 'gold', glory: SEASON.rewards.gold.glory * SEASON.asyncShare, cosmetic: 'duel_emblem_gold', pick: null },
+      { season: cur() - 1, ladder: 'live', league: 'strategos', glory: SEASON.rewards.strategos.glory, cosmetic: 'duel_banner_strategos', pick: 'sacred_band' },
     ]);
     expect(s.body.title).toEqual({ league: 'strategos', season: cur() - 1 });
     expect(s.body.live.peak).toBeNull();
@@ -303,8 +303,25 @@ describe('ranked seasons', () => {
     // the cosmetics are in the wallet (account-wide) and can be shown
     const eq = await post('/api/economy/cosmetics/equip', p.token, { slot: 'banner', id: 'duel_banner_strategos' });
     expect(eq.status).toBe(200);
-    // seen: the popup does not come back; the title stays
+    // seen: the popup comes back only for the Sacred Band piece still to pick
     await post('/api/duel/season/seen', p.token);
+    const seen = await getJson<{ rewards: { ladder: string; pick: string | null }[] }>('/api/duel/season', p.token);
+    expect(seen.body.rewards.map((r) => [r.ladder, r.pick])).toEqual([['live', 'sacred_band']]);
+    const bad = await post<{ error: { code: string } }>('/api/duel/season/pick', p.token, { season: cur() - 1, ladder: 'live', def: 'agoge_dory' });
+    expect(bad.body.error.code).toBe('not_in_set');
+    const none = await post<{ error: { code: string } }>('/api/duel/season/pick', p.token, { season: cur() - 1, ladder: 'async', def: 'theban_helm' });
+    expect(none.body.error.code).toBe('no_pick');
+    const picks = await Promise.all([
+      post<{ item: { uid: string; def: string; rarity: string }; replayed: boolean }>('/api/duel/season/pick', p.token, { season: cur() - 1, ladder: 'live', def: 'theban_helm' }),
+      post<{ item: { uid: string; def: string; rarity: string }; replayed: boolean }>('/api/duel/season/pick', p.token, { season: cur() - 1, ladder: 'live', def: 'band_shield' }),
+    ]);
+    // two racing picks: one piece, and both answer with it
+    expect(picks[0].body.item).toEqual(picks[1].body.item);
+    expect(picks.filter((r) => !r.body.replayed).length).toBeLessThanOrEqual(1);
+    expect(['theban_helm', 'band_shield']).toContain(picks[0].body.item.def);
+    expect(picks[0].body.item.rarity).toBe('epic');
+    const stash = await DB().prepare("SELECT data FROM duel_items WHERE player_id = ?1 AND uid LIKE '%ss%'").bind(p.pid).all<{ data: string }>();
+    expect(stash.results.length).toBe(1);
     const after = await getJson<{ rewards: unknown[]; title: { league: string } }>('/api/duel/season', p.token);
     expect(after.body.rewards).toEqual([]);
     expect(after.body.title.league).toBe('strategos');

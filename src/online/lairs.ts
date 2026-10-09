@@ -20,7 +20,8 @@ import type { Hero } from '../data/units';
 import type { BattleResult, BattleSetup } from '../sim/types';
 import type { Item } from '../data/items';
 import { makeItem, rollBeastRarity } from '../game/heroes';
-import { BASE_ITEMS } from '../data/items';
+import { BASE_ITEMS, itemDef } from '../data/items';
+import { BEAST_NAMED, BOSS_SET, SOURCES, armyPick, pieceDefs } from '../game/sources';
 
 export const BEAST_RULES = {
   /** A slain lair beast returns after this long (if the region fell back to the neutrals). */
@@ -209,18 +210,58 @@ export function bossLootPool(): string[] {
  * rarity from rollBeastRarity, all seeded by the boss and the player so the
  * split is the same however often it runs (idempotent).
  */
-export function bossLoot(boss: EncounterId, shardKey: string, pid: number, share: number, uidPrefix: string): Item[] {
+export function bossLoot(boss: EncounterId, shardKey: string, pid: number, share: number, uidPrefix: string, classes: readonly string[] = []): Item[] {
   if (share < BEAST_RULES.minShare) return [];
   const n = Math.max(1, Math.round(share * BEAST_RULES.bossItems));
   const rng = new Rng(hashString(`${shardKey}:${boss}:loot:${pid}`));
-  const pool = bossLootPool();
+  const pool = bossLootPool().map(itemDef);
   const ids = { nextId: 1 };
   const out: Item[] = [];
   for (let i = 0; i < n; i++) {
-    const it = makeItem(rng, ids, rng.pick(pool), rollBeastRarity(rng), 100);
+    const it = makeItem(rng, ids, armyPick(rng, pool, classes).id, rollBeastRarity(rng), 100);
     it.uid = `${uidPrefix}${i}`;
     out.push(it);
   }
   return out;
 }
 
+
+export type BossChestKind = 'set' | 'named' | 'epic' | 'legendary';
+
+export interface BossChestInput {
+  /** Item defs the player owns this season (stash and heroes): the set pieces they already have. */
+  owned: ReadonlySet<string>;
+  /** The player already got this boss's named item this season (a second one becomes an epic). */
+  namedHad: boolean;
+  /** The war bad-luck counter (src/game/sources.ts pityChest). */
+  pity: number;
+  classes?: readonly string[];
+}
+
+/**
+ * The chest of a contributor with at least SOURCES.bossChest.minShare of a
+ * slain world boss's damage (on top of the hoard split): a piece of the
+ * boss's legendary set the player does not own yet (40%, while there is
+ * one), the boss's named item (10%, once per season), else an epic piece. A
+ * chest without a legendary counts on the bad-luck counter; when it is due,
+ * the chest is legendary (a missing set piece, else the named item, else a
+ * legendary piece). Seeded by the boss and the player (idempotent).
+ */
+export function bossChest(boss: EncounterId, shardKey: string, pid: number, uid: string, o: BossChestInput): { item: Item; kind: BossChestKind; pity: number } {
+  const rng = new Rng(hashString(`${shardKey}:${boss}:chest:${pid}`) || 1);
+  const set = BOSS_SET[boss];
+  const missing = set ? pieceDefs(set).filter((d) => !o.owned.has(d.id)) : [];
+  const named = BEAST_NAMED[boss][0];
+  const forced = o.pity >= SOURCES.pity;
+  const r = rng.next();
+  const classes = o.classes ?? [];
+  const pool = bossLootPool().map(itemDef);
+  let kind: BossChestKind;
+  let def: string;
+  if ((forced || r < SOURCES.bossChest.set) && missing.length) (kind = 'set'), (def = armyPick(rng, missing, classes).id);
+  else if ((forced || (r >= SOURCES.bossChest.set && r < SOURCES.bossChest.set + SOURCES.bossChest.named)) && named && !o.namedHad) (kind = 'named'), (def = named);
+  else (kind = forced ? 'legendary' : 'epic'), (def = armyPick(rng, pool, classes).id);
+  const item = makeItem(rng, { nextId: 1 }, def, kind === 'epic' ? 'epic' : 'legendary', 100);
+  item.uid = uid;
+  return { item, kind, pity: kind === 'epic' ? o.pity + 1 : 0 };
+}

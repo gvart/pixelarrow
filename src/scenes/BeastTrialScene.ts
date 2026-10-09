@@ -96,7 +96,7 @@ export class BeastTrialScene extends BaseScene {
 
   fight(enc: EncounterId): void {
     const seed = randomSeed();
-    const enemy = beastEnemy(enc, beastLevel(enc), seed, state.campaign.data);
+    const enemy = beastEnemy(enc, beastLevel(enc), seed, state.campaign.data, state.campaign.armyClasses());
     const site: BattleSite = { base: enc === 'kraken' ? 'beach' : enc === 'cyclops' || enc === 'titan' ? 'hills' : 'plain', river: false, coast: enc === 'kraken', rocky: false, woods: 0 };
     state.pending = { enemy, seed, label: encounterName(enc), site };
     this.scene.start('Battle');

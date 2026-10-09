@@ -13,6 +13,8 @@
  *  - 'dim': a flat muted grey silhouette, its parts in three greys (disabled).
  */
 
+import { drawIconBitmap } from './iconBitmaps';
+
 /** Gradient stops top-left -> bottom-right: highlight, body, shade. */
 type Tone = [string, string, string];
 
@@ -117,7 +119,12 @@ export function iconParts(parts: IconPart[] | string): IconPart[] {
 /**
  * Paint an icon (`parts`, 24 x 24 box) into a new n x n canvas.
  */
-export function paintIcon(_name: string, parts: IconPart[] | string, look: IconLook, n: number): HTMLCanvasElement {
+export function paintIcon(name: string, parts: IconPart[] | string, look: IconLook, n: number): HTMLCanvasElement {
+  // the drawn icon when the atlas has it (src/art/iconBitmaps.ts); `name` is a UI icon name,
+  // `camp_<id>` for camp buildings, or a full atlas id such as `power:aegis`
+  const id = name.includes(':') ? name : name.startsWith('camp_') ? `camp:${name.slice(5)}` : `ui:${name}`;
+  const bmp = drawIconBitmap(id, n, { look });
+  if (bmp) return bmp;
   const canvas = document.createElement('canvas');
   canvas.width = n;
   canvas.height = n;

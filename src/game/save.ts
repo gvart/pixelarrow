@@ -88,6 +88,8 @@ export interface SaveData {
   savedAt?: number;
   /** Heroes whose gear their class may no longer use was moved to the stash (v5 class limits): shown once, then cleared. */
   gearMoved?: string[];
+  /** Beast chests in a row without a legendary (bad-luck protection, src/game/sources.ts pityChest); missing = 0. */
+  pity?: number;
 }
 
 type Migration = (d: Record<string, unknown>) => Record<string, unknown>;

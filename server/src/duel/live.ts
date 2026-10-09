@@ -15,7 +15,9 @@ import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../../../src/
 import { Rng } from '../../../src/sim/rng';
 import { onlineBattleSetup } from '../../../src/online/battle';
 import { randomSite } from '../../../src/world/battlefield';
-import { DUEL_RULES, accountLevel, teamProblem } from '../../../src/duel/rules';
+import { DUEL_RULES, accountLevel, duelSpoils, teamProblem, utcDay } from '../../../src/duel/rules';
+import { armyClasses } from '../../../src/game/sources';
+import type { Item } from '../../../src/data/items';
 import { idleRating, seasonId, type Ladder } from '../../../src/duel/season';
 import { rollRatings } from './season';
 import { duelHeroXp } from '../../../src/duel/ladder';
@@ -24,7 +26,7 @@ import {
 } from '../../../src/duel/rating';
 import type { LiveMatchRef, MatchEnd, MatchReport } from '../../../src/duel/protocol';
 import { randomToken } from '../online/store';
-import { getDuelProfile, heroProgressStmts, loadDuelHeroes, loadoutFor, loadoutHeroes, type DuelProfileRow } from './store';
+import { duelPrefix, getDuelProfile, heroProgressStmts, loadDuelHeroes, loadoutFor, loadoutHeroes, type DuelProfileRow } from './store';
 import type { FormationType } from '../../../src/sim/formation';
 
 /** A live match row older than this is dead (its DuelDO is gone): it no longer blocks the queue. */
@@ -184,6 +186,8 @@ export async function settleMatch(db: D1Database, m: MatchInit, o: MatchOutcome,
   if (m.mode === 'ranked') for (const p of m.players) await rollRatings(db, p, now);
   const [ratings, current] = await Promise.all([Promise.all(m.players.map((p) => getRating(db, p))), Promise.all(m.players.map((p) => loadDuelHeroes(db, p)))]);
   const queue = await Promise.all(m.players.map((p) => getQueueState(db, p)));
+  const profiles = await Promise.all(m.players.map((p) => getDuelProfile(db, p)));
+  const day = utcDay(now);
   const rated = m.mode === 'ranked' && o.end !== 'void';
   const nonce = randomToken(8);
   const G = `EXISTS (SELECT 1 FROM duel_matches WHERE id = '${m.id.replace(/[^0-9a-f]/g, '')}' AND apply_nonce = '${nonce}')`;
@@ -208,6 +212,14 @@ export async function settleMatch(db: D1Database, m: MatchInit, o: MatchOutcome,
           .prepare(`UPDATE duel_profiles SET glory = glory + ?2, xp = xp + ?3, battles = battles + 1, wins = wins + ?4, rev = rev + 1, updated_at = ?5 WHERE player_id = ?1 AND ${G}`)
           .bind(pid, pay.glory, pay.accountXp, score === 1 ? 1 : 0, now),
       );
+    }
+    // spoils of a won duel: the first ranked win of the UTC day always drops one
+    let spoils: Item | null = null;
+    if (score === 1 && !abandoned) {
+      const firstWin = m.mode === 'ranked' && (profiles[side]?.spoils_day ?? -1) !== day;
+      spoils = duelSpoils(m.seed, side, m.mode, firstWin, armyClasses(current[side].map((h) => h.hero)), `${duelPrefix(pid)}sp${m.id.slice(0, 12)}`);
+      if (spoils) stmts.push(db.prepare(`INSERT OR IGNORE INTO duel_items (uid, player_id, data, created_at) SELECT ?1, ?2, ?3, ?4 WHERE ${G}`).bind(spoils.uid, pid, JSON.stringify(spoils), now));
+      if (firstWin) stmts.push(db.prepare(`UPDATE duel_profiles SET spoils_day = ?2 WHERE player_id = ?1 AND ${G}`).bind(pid, day));
     }
     let rating: MatchReport['rating'] = null;
     let league: MatchReport['league'] = null;
@@ -264,6 +276,7 @@ export async function settleMatch(db: D1Database, m: MatchInit, o: MatchOutcome,
       league,
       placements,
       xp,
+      spoils,
     });
   }
   const pair = reports as [MatchReport, MatchReport];

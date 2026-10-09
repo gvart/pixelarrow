@@ -115,7 +115,7 @@ export interface ItemDef {
   power?: string;
   /** Fixed random stats of a named legendary, as steps (src/data/affixes.ts). */
   fixed?: Partial<Record<string, number>>;
-  /** Never traded on the marketplace or sold to merchants. */
+  /** Never traded on the marketplace or sold to merchants (named legendaries, legendary set pieces): salvaged instead. */
   bound?: boolean;
   /** Named extras the battle runs (src/sim/powers.ts): fraction of missile damage taken off; accuracy enemy missiles lose against the wearer. */
   missileWard?: number;
@@ -455,25 +455,25 @@ const defs: ItemDef[] = [
   { id: 'theban_linothorax', name: 'Theban linothorax', slot: 'armor', art: 'linothorax', tier: 3, value: 210,
     mods: { armor: 5.5, speed: -0.04, stamina: -5 }, desc: 'Set: Sacred Band of Thebes. Linen faced with bronze plates and scales. Most of a cuirass for less weight.', material: 'bronze', set: 'sacred_band' },
   { id: 'pelian_ash', name: 'Pelian ash', slot: 'weapon', weaponKind: 'spear', art: 'spear', tier: 3, value: 84,
-    mods: { dmg: 6.8, reach: 2, atkTime: 1.35, chargeBonus: 0.45 }, desc: 'Set: Arms of Achilles. A long, plain ash shaft: outreaches the dory, hits a little softer.', material: 'wood', set: 'achilles' },
+    mods: { dmg: 6.8, reach: 2, atkTime: 1.35, chargeBonus: 0.45 }, desc: 'Set: Arms of Achilles. A long, plain ash shaft: outreaches the dory, hits a little softer.', material: 'wood', set: 'achilles', bound: true },
   { id: 'achilles_shield', name: 'Shield of Achilles', slot: 'shield', shieldKind: 'hoplon', art: 'hoplon', tier: 3, value: 480, shieldWall: true,
-    mods: { block: 0.54, armor: 2, speed: -0.06, stamina: -8, morale: 6 }, desc: 'Set: Arms of Achilles. Silver-faced aspis of the royal guard.', material: 'silver', set: 'achilles' },
+    mods: { block: 0.54, armor: 2, speed: -0.06, stamina: -8, morale: 6 }, desc: 'Set: Arms of Achilles. Silver-faced aspis of the royal guard.', material: 'silver', set: 'achilles', bound: true },
   { id: 'achilles_helm', name: 'Helm of Achilles', slot: 'helmet', art: 'attic', tier: 3, value: 285,
-    mods: { armor: 4, morale: 6 }, desc: 'Set: Arms of Achilles. Plumed parade helm of the royal guard.', material: 'bronze', set: 'achilles' },
+    mods: { armor: 4, morale: 6 }, desc: 'Set: Arms of Achilles. Plumed parade helm of the royal guard.', material: 'bronze', set: 'achilles', bound: true },
   { id: 'hephaestean_cuirass', name: 'Hephaestean cuirass', slot: 'armor', art: 'cuirass', tier: 3, value: 360,
-    mods: { armor: 6.5, speed: -0.08, stamina: -10, morale: 4 }, desc: 'Set: Arms of Achilles. Sculpted bronze. The look of a hero.', material: 'bronze', set: 'achilles' },
+    mods: { armor: 6.5, speed: -0.08, stamina: -10, morale: 4 }, desc: 'Set: Arms of Achilles. Sculpted bronze. The look of a hero.', material: 'bronze', set: 'achilles', bound: true },
   { id: 'thetis_anklet', name: 'Anklet of Thetis', slot: 'trinket', art: 'none', tier: 3, value: 240,
-    mods: { morale: 8, hp: 8 }, desc: 'Set: Arms of Achilles. Heavy gold neck-ring of a king among Celts. +morale, +HP.', material: 'gold', set: 'achilles' },
+    mods: { morale: 8, hp: 8 }, desc: 'Set: Arms of Achilles. Heavy gold neck-ring of a king among Celts. +morale, +HP.', material: 'gold', set: 'achilles', bound: true },
   { id: 'alexander_kopis', name: 'Kopis of Alexander', slot: 'weapon', weaponKind: 'sword', art: 'kopis', tier: 3, value: 195,
-    mods: { dmg: 9.5, reach: 1.15, atkTime: 1.1, blockPierce: 0.05 }, desc: 'Set: Panoply of Alexander. Forward-curved chopping sword.', material: 'iron', set: 'alexander' },
+    mods: { dmg: 9.5, reach: 1.15, atkTime: 1.1, blockPierce: 0.05 }, desc: 'Set: Panoply of Alexander. Forward-curved chopping sword.', material: 'iron', set: 'alexander', bound: true },
   { id: 'ilion_shield', name: 'Shield of Ilion', slot: 'shield', shieldKind: 'hoplon', art: 'hoplon', tier: 3, value: 120, shieldWall: true,
-    mods: { block: 0.45, armor: 1, speed: -0.07, stamina: -10 }, desc: 'Set: Panoply of Alexander. Great round bronze-faced shield. Enables the shield wall.', material: 'bronze', set: 'alexander' },
+    mods: { block: 0.45, armor: 1, speed: -0.07, stamina: -10 }, desc: 'Set: Panoply of Alexander. Great round bronze-faced shield. Enables the shield wall.', material: 'bronze', set: 'alexander', bound: true },
   { id: 'lion_scalp_helm', name: 'Lion-scalp helm', slot: 'helmet', art: 'thracian', tier: 3, value: 150,
-    mods: { armor: 3, morale: 2, stamina: 3 }, desc: 'Set: Panoply of Alexander. Tall forward-curling crown and cheek pieces.', material: 'bronze', set: 'alexander' },
+    mods: { armor: 3, morale: 2, stamina: 3 }, desc: 'Set: Panoply of Alexander. Tall forward-curling crown and cheek pieces.', material: 'bronze', set: 'alexander', bound: true },
   { id: 'issus_linothorax', name: 'Linothorax of Issus', slot: 'armor', art: 'linothorax', tier: 3, value: 180,
-    mods: { armor: 4, speed: -0.02, morale: 2 }, desc: 'Set: Panoply of Alexander. Glued linen in bright meander borders. Proud and light.', material: 'linen', set: 'alexander' },
+    mods: { armor: 4, speed: -0.02, morale: 2 }, desc: 'Set: Panoply of Alexander. Glued linen in bright meander borders. Proud and light.', material: 'linen', set: 'alexander', bound: true },
   { id: 'bucephalus_bit', name: 'Bit of Bucephalus', slot: 'trinket', art: 'none', tier: 3, value: 135,
-    mods: { chargeBonus: 0.15 }, desc: 'Set: Panoply of Alexander. Poseidon Hippios gives the charge its weight. +charge.', material: 'bronze', set: 'alexander' },
+    mods: { chargeBonus: 0.15 }, desc: 'Set: Panoply of Alexander. Poseidon Hippios gives the charge its weight. +charge.', material: 'bronze', set: 'alexander', bound: true },
   // ---- named legendaries (docs/ITEMS.md "Named legendaries"): fixed random stats and power
   { id: 'herakles_club', name: 'Club of Herakles', slot: 'weapon', weaponKind: 'club', art: 'club', tier: 3, value: 30,
     mods: { dmg: 6.5, reach: 1, atkTime: 1.15, moraleShock: 0.5 }, desc: 'Wild olive, torn from the ground at Nemea.', material: 'wood', named: true, bound: true, power: 'terror', fixed: { dmg: 3, atkSpeed: 2, accuracy: 2, moraleShock: 2 } },
@@ -581,6 +581,18 @@ function baseMods(item: Item): StatMods {
   // Rare+ ranged gear carries extra ammunition.
   if (out.ammo && normalizeRarity(item.rarity) !== 'common') out.ammo = Math.round(out.ammo * (r + 0.05));
   return out;
+}
+
+/** Named legendaries and legendary set pieces: never on the marketplace or sold to a merchant, only salvaged. */
+export function isBound(it: Pick<Item, 'def'>): boolean {
+  return !!ITEMS[it.def]?.bound;
+}
+
+/** What salvaging a bound item pays (gold, or Glory in duels): a quarter of its value. */
+export const SALVAGE_SHARE = 0.25;
+
+export function salvageValue(item: Item): number {
+  return Math.max(1, Math.floor(itemValue(item) * SALVAGE_SHARE));
 }
 
 export function itemValue(item: Item): number {

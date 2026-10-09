@@ -19,7 +19,7 @@ import {
 import { cycle } from '../game/gear';
 import { isApiError, type Currency, type EconomyCatalog, type MarketListing, type MarketQuery, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
-import { ITEM_LIST, itemValue, normalizeItem, type Item } from '../data/items';
+import { ITEM_LIST, isBound, itemValue, normalizeItem, type Item } from '../data/items';
 import { CONSUMABLES, CONSUMABLE_IDS, type ConsumableId } from '../data/consumables';
 import { hapticNotify } from '../platform/telegram';
 import { uiCoin } from '../audio/hooks';
@@ -568,7 +568,8 @@ export class MarketScene extends BaseScene {
 
   private sellables(b: Base): Sellable[] {
     const out: Sellable[] = [];
-    for (const it of b.profile?.stash ?? []) out.push({ kind: 'item', item: normalizeItem(it) });
+    // bound gear is never traded (it is salvaged from the army screen instead)
+    for (const it of b.profile?.stash ?? []) if (!isBound(it)) out.push({ kind: 'item', item: normalizeItem(it) });
     for (const r of RESOURCES) {
       const have = Math.floor(b.profile?.resources[r] ?? 0);
       if (have > 0) out.push({ kind: 'resource', id: r, have });
