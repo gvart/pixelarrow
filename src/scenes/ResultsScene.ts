@@ -15,11 +15,11 @@ import Phaser from 'phaser';
 import { LAUREL, addGridImage } from '../art/menuSprites';
 import { BaseScene } from './BaseScene';
 import { ScrollArea, addIcon, addText, tappable, Button } from '../ui/kit';
-import { ItemIcon, Label, ScrollList, StatBar, addEmptyState, addScrollHint, openModal, showTooltip, toast, subjectName } from '../ui/widgets';
+import { ItemIcon, Label, ScrollList, StatBar, addScrollHint, openModal, showTooltip, toast, subjectName } from '../ui/widgets';
 import { uiFrame, uiId } from '../ui/layout';
 import { ellipsize, wrapText } from '../ui/textfit';
 import { MOSAIC, RARITY_INK } from '../ui/tokens';
-import { GAP, MButton, ScreenFrame, SegmentedSwitch, StatTile, SWITCH_H, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
+import { GAP, addParchmentEmpty, MButton, ScreenFrame, SegmentedSwitch, StatTile, SWITCH_H, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
 import { COLOR, RARITY_COLOR, RARITY_GLOW, SIZE } from '../ui/theme';
 import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
@@ -391,7 +391,7 @@ export class ResultsScene extends BaseScene {
     const r = this.report;
     if (r.heroes.length === 0) {
       this.pageLayer!.add(mosaicImage(this, this.box.x + 4, this.top, this.box.w - 8, this.bottom - this.top, 'parchment'));
-      this.pageLayer!.add(addEmptyState(this, this.box.x + 6, this.top + 2, this.box.w - 12, this.bottom - this.top - 4, { icon: 'people', hint: t('results.noHeroes') }));
+      this.pageLayer!.add(addParchmentEmpty(this, this.box.x + 6, this.top + 2, this.box.w - 12, this.bottom - this.top - 4, { icon: 'people', hint: t('results.noHeroes') }));
       return;
     }
     if (animate) this.xpStart = this.time.now + 300;
@@ -488,7 +488,7 @@ export class ResultsScene extends BaseScene {
     if (r.loot.length === 0) {
       const hint = r.result === 'victory' || r.result === 'draw' ? t('results.noSpoilsWin') : r.result === 'retreat' ? t('results.noSpoilsRetreat') : t('results.noSpoilsLoss');
       this.pageLayer!.add(mosaicImage(this, this.box.x + 4, top, this.box.w - 8, this.bottom - top, 'parchment'));
-      this.pageLayer!.add(addEmptyState(this, this.box.x + 6, top + 2, this.box.w - 12, this.bottom - top - 4, { icon: 'coin', title: t('results.tab.spoils'), hint }));
+      this.pageLayer!.add(addParchmentEmpty(this, this.box.x + 6, top + 2, this.box.w - 12, this.bottom - top - 4, { icon: 'coin', title: t('results.tab.spoils'), hint }));
       return;
     }
     this.counter = addText(this, this.box.x + this.box.w / 2, top + 1, '', 'pInk', 0.5);

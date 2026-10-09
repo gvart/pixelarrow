@@ -18,7 +18,7 @@ import { haptic, hapticNotify } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
 import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
-import { ellipsize, measureText, LINE_H } from './textfit';
+import { ellipsize, fitCinzelLabel, measureText, LINE_H } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
 import { RS } from '../platform/renderScale';
 import { ACCENT, MOSAIC, RESOURCES, TEXT } from './tokens';
@@ -239,6 +239,29 @@ export function addText(
 
 /** Fonts drawn with a 1 px drop shadow (one pixel wider). */
 export const SHADOW_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['light', 'gold', 'title', 'onAccent', 'rCream', 'rGold', 'rOff']);
+
+/** The Inter font that reads on the same surface as a Cinzel one (cream on stone, ink on a lit block, gold on dark). */
+const INTER_OF: Partial<Record<FontKey, FontKey>> = { rCream: 'light', rOff: 'dim', rInk: 'pInk', rGold: 'gold' };
+
+export interface FittedLabel {
+  text: string;
+  /** The font to draw `text` in: the Cinzel one, or its Inter twin. */
+  font: FontKey;
+  size: number;
+  /** The text was cut with "…" (what is shown is not the whole label). */
+  truncated: boolean;
+}
+
+/**
+ * The one rule for a Cinzel label in a box `room` UI px wide (see `fitCinzelLabel`): the largest of `sizes`
+ * (descending) at which the capitals fit; else the same label in Inter at the smallest size; only then cut
+ * with "…". `upper` writes the capitals (default `toUpperCase`; the battle keys double the word spaces).
+ */
+export function fitCinzel(label: string, font: FontKey, room: number, sizes: readonly number[], upper?: (s: string) => string): FittedLabel {
+  const inter = INTER_OF[font] ?? font;
+  const r = fitCinzelLabel(label, room, sizes, SHADOW_FONTS.has(font), SHADOW_FONTS.has(inter), upper);
+  return { text: r.text, font: r.inter ? inter : font, size: r.size, truncated: r.truncated };
+}
 
 /**
  * Shortens a one-line text until it fits the width, ending it with "…". The
@@ -484,7 +507,6 @@ export class Button extends Phaser.GameObjects.Container {
     // the Telegram star keeps its own colours on the purchase blue; the lit bronze keeps the bronze icons
     const variant = !this.enabled ? 'D' : b === 'btnBuy' || b === 'btnBronzeOn' ? '' : 'L';
     const font = this.labelFont();
-    const shadow = SHADOW_FONTS.has(font);
     const hasIcon = !!this.opts.icon;
     const hasLabel = !!this.opts.label;
     const stacked = hasIcon && hasLabel && this.h >= 26 && !this.opts.inline && !this.opts.iconOnly;
@@ -492,13 +514,17 @@ export class Button extends Phaser.GameObjects.Container {
     const size0 = stacked || this.opts.small ? 6 : 7;
     let size = size0;
     const caps = hasLabel ? this.opts.label!.toUpperCase() : '';
-    const wide = (str: string, sz: number) => measureText(str, shadow, sz, 'roman');
+    // the font the label is drawn in: Cinzel, or its Inter twin once the capitals do not fit at the smallest size
+    let df: FontKey = font;
+    const wide = (str: string, sz: number) => measureText(str, SHADOW_FONTS.has(df), sz, df === font ? 'roman' : 'body');
     this.truncated = false;
     const fit = (maxW: number) => {
-      size = [size0, size0 - 0.5, size0 - 1, 5.5].filter((s, i, a) => s >= 5.5 && a.indexOf(s) === i).find((s) => wide(caps, s) <= maxW) ?? 5.5;
-      const out = ellipsize(caps, maxW, shadow, size, 'roman');
-      this.truncated = out !== caps;
-      return out;
+      const sizes = [size0, size0 - 0.5, size0 - 1, 5.5].filter((s, i, a) => s >= 5.5 && a.indexOf(s) === i);
+      const fl = fitCinzel(this.opts.label!, font, maxW, sizes);
+      size = fl.size;
+      df = fl.font;
+      this.truncated = fl.truncated;
+      return fl.text;
     };
     const lineH = () => (LINE_H * size) / 7;
     const ty = () => Math.round((this.h - 1 - lineH()) / 2);
@@ -515,7 +541,7 @@ export class Button extends Phaser.GameObjects.Container {
       const room = this.w - tx - 4;
       this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
       const label = fit(room);
-      this.labelText = addText(scene, tx, Math.round((this.h - 16) / 2) - 1, label, font, 0).setFontSize(size);
+      this.labelText = addText(scene, tx, Math.round((this.h - 16) / 2) - 1, label, df, 0).setFontSize(size);
       const subFont: FontKey = !this.enabled ? 'rOff' : font === 'rInk' ? 'pSec' : 'rCream';
       const sub = addText(scene, tx, Math.round((this.h - 16) / 2) + 8, ellipsize(this.opts.sub, room, SHADOW_FONTS.has(subFont), 5), subFont, 0).setFontSize(5);
       uiFrame(sub, this, this.w, this.h);
@@ -524,7 +550,7 @@ export class Button extends Phaser.GameObjects.Container {
       // icon above label
       this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);
       const label = fit(this.w - 4);
-      this.labelText = addText(scene, this.w / 2, this.h - 11, label, font, 0.5).setFontSize(size);
+      this.labelText = addText(scene, this.w / 2, this.h - 11, label, df, 0.5).setFontSize(size);
       this.content.add([this.iconImg, this.labelText]);
     } else if (hasIcon && hasLabel) {
       // the icon stays while the label keeps at least size 6.5; below that the icon goes (the words matter more)
@@ -532,11 +558,11 @@ export class Button extends Phaser.GameObjects.Container {
       const withIcon = [size0, size0 - 0.5, size0 - 1, 6.5].some((z) => z >= 6.5 && wide(caps, z) <= room);
       if (!withIcon) {
         const label = fit(this.w - 6);
-        this.labelText = addText(scene, this.w / 2, ty(), label, font, 0.5).setFontSize(size);
+        this.labelText = addText(scene, this.w / 2, ty(), label, df, 0.5).setFontSize(size);
         this.content.add(this.labelText);
       } else {
         const label = fit(room);
-        this.labelText = addText(scene, 0, 0, label, font, 0).setFontSize(size);
+        this.labelText = addText(scene, 0, 0, label, df, 0).setFontSize(size);
         const total = 12 + 3 + wide(label, size);
         const x0 = Math.round((this.w - total) / 2);
         this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
@@ -545,7 +571,7 @@ export class Button extends Phaser.GameObjects.Container {
       }
     } else if (hasLabel) {
       const label = fit(this.w - 6);
-      this.labelText = addText(scene, this.w / 2, ty(), label, font, 0.5).setFontSize(size);
+      this.labelText = addText(scene, this.w / 2, ty(), label, df, 0.5).setFontSize(size);
       this.content.add(this.labelText);
     }
     if (this.labelText) uiFrame(this.labelText, this, this.w, this.h);

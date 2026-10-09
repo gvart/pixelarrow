@@ -7,7 +7,7 @@
  */
 import Phaser from 'phaser';
 import type { MosaicStyle } from '../../art/mosaicUi';
-import { addIcon, scaleIcon, ICON_PX } from '../kit';
+import { addIcon, fitCinzel, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
 import { motion, tweenTo } from '../motion';
 import { MOSAIC, MOTION } from '../tokens';
@@ -128,18 +128,18 @@ export class MButton extends Phaser.GameObjects.Container {
     const padX = hero ? Math.round(this.h * 0.62) + 2 : 7;
     const room = this.w - padX * 2;
     const label = this.o.label.toUpperCase();
-    // the largest size that fits (down to 6); with an icon that costs the label its size (< 6.5) the icon goes
+    // the largest size that fits (down to 5.5), then the word in Inter, then cut; with an icon that costs the label its size (< 6.5) the icon goes
     const start = this.h >= 30 ? 9 : this.h >= 26 ? 8 : 7;
     const sizes = [start, start - 0.5, start - 1, start - 1.5, start - 2, 5.5].filter((s) => s >= 5.5);
     const withIcon = !!this.o.icon && (sizes.find((s) => mw(label, font, s) <= room - ICON_PX - 3) ?? 0) >= 6.5;
     const hasIcon = withIcon;
     const iconW = hasIcon ? ICON_PX + 3 : 0;
-    const size = sizes.find((s) => mw(label, font, s) <= room - iconW) ?? 5.5;
-    const text = fit(label, font, size, room - iconW);
-    this.truncated = text !== label;
-    const tw = mw(text, font, size);
+    const fl = fitCinzel(this.o.label, font, room - iconW, sizes);
+    const { size, text } = fl;
+    this.truncated = fl.truncated;
+    const tw = mw(text, fl.font, size);
     const x0 = Math.round((this.w - (iconW + tw)) / 2);
-    const t = mtext(scene, x0 + iconW, midY(this.h - 1, size) - 0, text, font, { size, box: { owner: this, w: this.w, h: this.h } });
+    const t = mtext(scene, x0 + iconW, midY(this.h - 1, size) - 0, text, fl.font, { size, box: { owner: this, w: this.w, h: this.h } });
     put(this.content, this.w, this.h, t);
     if (hasIcon) {
       const ic = addIcon(scene, x0, Math.round((this.h - ICON_PX) / 2) - 1, this.o.icon!, v === 'disabled' ? 'D' : v === 'purchase' ? '' : 'L');
@@ -190,16 +190,15 @@ export class StoneTile extends Phaser.GameObjects.Container {
     const k = this.h >= 54 ? 2.2 : this.h >= 44 ? 1.8 : 1.4;
     const isz = ICON_PX * k;
     const font: FontKey = off ? 'rOff' : 'rCream';
-    const label = o.label.toUpperCase();
-    const size = [7, 6.5, 6, 5.5, 5].find((s) => mw(label, font, s) <= this.w - 6) ?? 5;
-    const text = fit(label, font, size, this.w - 6);
+    const fl = fitCinzel(o.label, font, this.w - 6, [7, 6.5, 6, 5.5]);
+    const { size, text } = fl;
     const block = isz + 3 + 8;
     const top = Math.round((this.h - 1 - block) / 2);
     const ic = scaleIcon(addIcon(scene, 0, 0, o.icon, off ? 'D' : v === 'terracotta' || v === 'glaze' ? 'L' : ''), k);
     ic.setPosition(Math.round((this.w - ic.displayWidth) / 2), top);
     if (off) ic.setAlpha(0.7);
     P(ic);
-    P(mtext(scene, this.w / 2, top + isz + 3, text, font, { size, align: 0.5, box: { owner: this, w: this.w, h: this.h } }));
+    P(mtext(scene, this.w / 2, top + isz + 3, text, fl.font, { size, align: 0.5, box: { owner: this, w: this.w, h: this.h } }));
     if (o.badge !== undefined && o.badge !== 0) this.add(new MBadge(scene, this.w - 5, 5, o.badge));
     let cap = 0;
     if (off) {
@@ -213,7 +212,7 @@ export class StoneTile extends Phaser.GameObjects.Container {
       w: this.w,
       h: this.h,
       onTap: () => o.onClick?.(),
-      tip: o.tip ?? (text !== label ? o.label : undefined),
+      tip: o.tip ?? (fl.truncated ? o.label : undefined),
       disabled: () => o.disabled,
     });
     uiId(this, o.id ?? `tile:${o.label}`);
@@ -348,16 +347,17 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
       const sx = pad + i * this.segW;
       const seg = scene.add.container(sx, 0);
       const picked = () => this.sel === opt.id;
-      const font: FontKey = picked() ? 'rInk' : 'rGold';
-      const label = opt.label.toUpperCase();
       const iconW = opt.icon ? ICON_PX + 2 : 0;
-      const size = [7, 6, 5.5].find((s) => mw(label, 'rGold', s) <= this.segW - iconW - 6) ?? 5.5;
-      const text = fit(label, font, size, this.segW - iconW - 6);
+      // capitals while they fit (down to 5.5), then the word in Inter, then cut
+      const fl = fitCinzel(opt.label, 'rGold', this.segW - iconW - 6, [7, 6, 5.5]);
+      const inter = fl.font !== 'rGold';
+      const font: FontKey = inter ? (picked() ? 'pInk' : 'gold') : picked() ? 'rInk' : 'rGold';
+      const { size, text } = fl;
       const x0 = Math.round((this.segW - (iconW + mw(text, font, size))) / 2);
       const t = mtext(scene, x0 + iconW, midY(this.h - 1, size), text, font, { size, box: { owner: this, w: this.w, h: this.h } });
       seg.add(t);
       if (opt.icon) seg.add(addIcon(scene, x0, Math.round((this.h - ICON_PX) / 2) - 1, opt.icon, picked() ? '' : 'D'));
-      (seg as Phaser.GameObjects.Container & { tx?: Phaser.GameObjects.BitmapText; ic?: string }).tx = t;
+      Object.assign(seg, { tx: t, inter });
       this.add(seg);
       this.segs.push(seg);
       const hit = scene.add.container(sx, 0);
@@ -382,8 +382,8 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
     const changed = this.sel !== id;
     this.sel = this.o.options[i].id;
     this.segs.forEach((seg, k) => {
-      const t = (seg as unknown as { tx: Phaser.GameObjects.BitmapText }).tx;
-      t.setFont(`font_${k === i ? 'rInk' : 'rGold'}`);
+      const { tx: t, inter } = seg as unknown as { tx: Phaser.GameObjects.BitmapText; inter: boolean };
+      t.setFont(`font_${inter ? (k === i ? 'pInk' : 'gold') : k === i ? 'rInk' : 'rGold'}`);
       seg.getAll().forEach((o) => {
         if (o instanceof Phaser.GameObjects.Image) o.setTexture(`icon${k === i ? '' : 'D'}_${this.o.options[k].icon}`);
       });

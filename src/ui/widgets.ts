@@ -10,8 +10,8 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { scaleIcon, Button, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
-import { fadeTexture, inkFontKey, inkify } from './inkSkin';
+import { Button, fitCinzel, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
+import { fadeTexture, inkFontKey } from './inkSkin';
 import { ACCENT, MOSAIC, MOTION } from './tokens';
 import { tweenTo } from './motion';
 import { uiFrame, uiId, worldRect } from './layout';
@@ -417,13 +417,11 @@ class TabItem extends Phaser.GameObjects.Container {
       return;
     }
     const room = this.w - 8 - (icon ? 15 : 0);
-    const caps = this.opts.label;
-    const shadow = SHADOW_FONTS.has(font);
-    const wide = (str: string, sz: number) => measureText(str, shadow, sz, 'roman');
-    // Cinzel caps are wide: step the size down before the label is cut
-    const size = [size0, 6.5, 6, 5.5].filter((z) => z <= size0).find((z) => wide(caps, z) <= room) ?? 5.5;
-    const label = ellipsize(caps, room, shadow, size, 'roman');
-    this.truncated = label !== caps;
+    // Cinzel caps are wide: step the size down, then write the word in Inter, before the label is cut
+    const fl = fitCinzel(this.opts.label, font, room, [size0, 6.5, 6, 5.5].filter((z) => z <= size0), (x) => x);
+    const { size, text: label, font: df } = fl;
+    const wide = (str: string, sz: number) => measureText(str, SHADOW_FONTS.has(df), sz, df === font ? 'roman' : 'body');
+    this.truncated = fl.truncated;
     // too narrow for words: the icon alone (the label on long-press)
     if (icon && this.truncated && room < 22) {
       this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, icon, variant);
@@ -436,7 +434,7 @@ class TabItem extends Phaser.GameObjects.Container {
       this.iconImg = addIcon(scene, x0, Math.round((this.h - 12) / 2), icon, variant);
       this.add(this.iconImg);
     }
-    this.labelText = addText(scene, x0 + (icon ? 15 : 0), Math.round((this.h - (LINE_H * size) / 7) / 2) - 1, label, font).setFontSize(size);
+    this.labelText = addText(scene, x0 + (icon ? 15 : 0), Math.round((this.h - (LINE_H * size) / 7) / 2) - 1, label, df).setFontSize(size);
     uiFrame(this.labelText, this, this.w, this.h);
     this.add(this.labelText);
   }
@@ -954,8 +952,6 @@ export class Card extends Phaser.GameObjects.Container {
     this.o = o;
     this.expanded = !!o.expanded;
     scene.add.existing(this);
-    // renderBody and the like are written for dark surfaces: skin what they add
-    inkify(this);
     this.build();
   }
 
@@ -1188,49 +1184,6 @@ export function confirmDialog(scene: UiScene, o: ConfirmDialogOpts): Phaser.Game
       },
     }),
   );
-  return c;
-}
-
-// ================================================================== empty state
-
-export interface EmptyStateOpts {
-  icon?: string;
-  title?: string;
-  /** What to do next (wrapped, at most 4 lines). */
-  hint: string;
-  action?: { label: string; onClick: () => void; icon?: string };
-}
-
-/** Centered explanation for an empty list: icon, title, what to do next, an optional action. */
-export function addEmptyState(scene: Phaser.Scene, x: number, y: number, w: number, h: number, o: EmptyStateOpts): Phaser.GameObjects.Container {
-  const c = scene.add.container(Math.round(x), Math.round(y));
-  const titleH = 12;
-  const actionH = o.action ? SIZE.btnH + 8 : 0;
-  // Fit the height: drop the icon first, then hint lines (never the action).
-  let showIcon = !!o.icon;
-  let lines = 4;
-  let wr = wrapText(o.hint, w - 12, lines);
-  const total = () => (showIcon ? 28 : 0) + titleH + wr.lines.length * LINE_H + actionH;
-  if (total() > h) showIcon = false;
-  while (total() > h && lines > 1) wr = wrapText(o.hint, w - 12, --lines);
-  let cy = Math.max(0, Math.round((h - total()) / 2));
-  if (showIcon && o.icon) {
-    const ic = scaleIcon(addIcon(scene, w / 2 - 12, cy, o.icon, 'D'), 2);
-    c.add(ic);
-    cy += 28;
-  }
-  // an empty or closed state is not an error: its title in the heading face, not the error red
-  c.add(addText(scene, w / 2, cy, ellipsize(o.title ?? t('kit.empty.title'), w - 8, false, 7, 'head'), 'headL', 0.5));
-  cy += titleH;
-  const hint = addText(scene, w / 2, cy, wr.lines.join('\n'), 'sec', 0.5);
-  hint.setCenterAlign();
-  c.add(hint);
-  cy += wr.lines.length * LINE_H + 8;
-  if (o.action) {
-    const bw = Math.min(w - 12, Math.max(90, measureText(o.action.label) + 30));
-    c.add(new Button(scene, (w - bw) / 2, cy, bw, SIZE.btnH, { label: o.action.label, icon: o.action.icon, variant: 'primary', onClick: o.action.onClick }));
-  }
-  scene.add.existing(c);
   return c;
 }
 

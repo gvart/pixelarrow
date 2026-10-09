@@ -91,7 +91,7 @@ export class ArmyScene extends BaseScene {
     this.screen({ back: () => this.goBack() });
     const shell = addSubShell(this, { title: t('hub.army'), back: () => this.goBack(), id: 'army.topbar', scroll: false });
     this.box = shell.content;
-    addSyncBadge(this, this.ui, shell.frame.topBar.x + shell.frame.topBar.w - 17 - (TAP + GAP), shell.frame.topBar.y + 6);
+    addSyncBadge(this, this.ui, shell.frame.topBar.x + shell.frame.topBar.w - 17 - (TAP + GAP * 2), shell.frame.topBar.y + 6);
     this.shell = shell;
     this.drag = new DragDrop(this);
     this.events.once('shutdown', () => this.clearBody());

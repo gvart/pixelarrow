@@ -1,8 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { SectionTitle, SECTION_TITLE_H, ParchmentRow, addHubShell } from '../ui/mosaic';
-import { beastThumb, encounterName } from '../ui/beastInfo';
+import { beastLevel, beastThumb, encounterName } from '../ui/beastInfo';
 import { ENCOUNTER_IDS, WORLD_BOSSES } from '../data/beasts';
-import { beastLevel } from './BeastTrialScene';
 import { t, type TKey } from '../i18n';
 
 const ROW_H = 30;

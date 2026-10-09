@@ -19,12 +19,17 @@ import { renderStage } from '../art/sheetArt';
 import { renderFrame } from '../art/paperdoll';
 import { Pix } from '../art/pixels';
 import { ENCOUNTERS, MYTHS, WORLD_BOSSES, type EncounterId } from '../data/beasts';
+import { beastLevelFor } from '../game/beasts';
+import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
 import type { UIMetrics } from './kit';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
 /** A size x size thumbnail of the beast (cropped to the figure, scaled down to fit). */
+/** The beast's level against the field army (Codex rows, the trial list and panel, the trial fight). */
+export const beastLevel = (enc: EncounterId): number => beastLevelFor(enc, state.campaign.fitHeroes());
+
 export function beastThumb(scene: Phaser.Scene, enc: EncounterId, size: number): string {
   const key = `myth_thumb_${enc}_${size}`;
   if (scene.textures.exists(key)) return key;

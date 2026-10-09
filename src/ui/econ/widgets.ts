@@ -4,9 +4,11 @@
  * offline / closed" states (built on the kit's empty state).
  */
 import Phaser from 'phaser';
-import { addIcon, addPanel, addText, registerUiAssets } from '../kit';
-import { addEmptyState, subjectName } from '../widgets';
-import { ellipsize, measureText } from '../textfit';
+import { addIcon, addText, registerUiAssets } from '../kit';
+import { subjectName } from '../widgets';
+import { addParchmentEmpty } from '../mosaic/EmptyState';
+import { mosaicImage, mtext } from '../mosaic/base';
+import { measureText } from '../textfit';
 import type { CosmeticInfo, EconomyCatalog, PassReward } from '../../platform/api';
 import type { EconState } from '../../game/economy';
 import { t, tOr } from '../../i18n';
@@ -71,17 +73,16 @@ export function addPurse(scene: Phaser.Scene, parent: Phaser.GameObjects.Contain
   return used;
 }
 
-/** The unavailable states as an empty state with a Retry action (not outside Telegram). */
+/** The unavailable states as an empty state with a Retry action (not outside Telegram), or the loading line, on a parchment well. */
 export function addEconState(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, s: EconState | 'loading', onRetry: () => void): void {
+  parent.add(mosaicImage(scene, x, y, w, h, 'parchmentWell'));
   if (s === 'loading') {
-    parent.add(addPanel(scene, x, y, w, h, 'cardLocked'));
-    const tx = addText(scene, x + w / 2, y + h / 2 - 4, ellipsize(t('econ.loading'), w - 8), 'sec', 0.5);
+    const tx = mtext(scene, x + w / 2, y + h / 2 - 4, t('econ.loading'), 'pSec', { align: 0.5, maxW: w - 8 });
     parent.add(tx);
     scene.tweens.add({ targets: tx, alpha: { from: 1, to: 0.35 }, duration: 500, yoyo: true, repeat: -1 });
     return;
   }
   const title = s === 'outside' ? t('econ.outside') : s === 'offline' ? t('econ.offline') : s === 'closed' ? t('econ.closed') : t('econ.error');
   const hint = s === 'outside' ? t('econ.outsideHint') : s === 'offline' ? t('econ.offlineHint') : s === 'closed' ? t('econ.closedHint') : t('econ.offlineHint');
-  parent.add(addPanel(scene, x, y, w, h, 'cardLocked'));
-  parent.add(addEmptyState(scene, x + 2, y + 2, w - 4, h - 4, { icon: s === 'outside' ? 'flag' : 'tent', title, hint, action: s === 'outside' ? undefined : { label: t('econ.retry'), icon: 'repair', onClick: onRetry } }));
+  parent.add(addParchmentEmpty(scene, x + 2, y + 2, w - 4, h - 4, { icon: s === 'outside' ? 'flag' : 'tent', title, hint, action: s === 'outside' ? undefined : { label: t('econ.retry'), icon: 'repair', onClick: onRetry } }));
 }

@@ -32,7 +32,7 @@ import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { ScrollArea, addIcon, scaleIcon, tappable } from '../../ui/kit';
 import { addModeBanner } from '../../ui/modeArt';
-import { StashGrid, DragDrop, addGroupBadge, addStars, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, type StashState } from '../../ui/sheet';
+import { DragDrop, addGroupBadge, addStars, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, type StashState } from '../../ui/sheet';
 import { ItemIcon, confirmDialog, showTooltip, toast, Badge } from '../../ui/widgets';
 import { LINE_H, ellipsize, measureText, wrapText } from '../../ui/textfit';
 import { uiId } from '../../ui/layout';
@@ -43,7 +43,7 @@ import { uiCoin } from '../../audio/hooks';
 import { motion } from '../../ui/motion';
 import { addChestSprite } from '../../art/menuSprites';
 import {
-  MBar, MButton, MIconButton, FrescoBanner, addPill, addRarityPill, rarityInk, ParchmentCard, SECTION_TITLE_H, SectionTitle, SegmentedSwitch, MChip, addHubShell, addSubShell, addTipLine, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H,
+  MBar, MButton, MIconButton, MStashGrid, FrescoBanner, addPill, addRarityPill, rarityInk, ParchmentCard, SECTION_TITLE_H, SectionTitle, SegmentedSwitch, MChip, addHubShell, addSubShell, addTipLine, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H,
   MBadge, type MButtonOpts,
 } from '../../ui/mosaic';
 import { hapticNotify } from '../../platform/telegram';
@@ -211,7 +211,7 @@ export class DuelScene extends BaseScene {
   private mainSpec: MainAction | null = null;
   /** Which page the scroll belongs to (its scroll is kept only on a rebuild of the same page). */
   private listKey = '';
-  private stash: StashGrid | null = null;
+  private stash: MStashGrid | null = null;
   private stashState: StashState = defaultStashState();
   private drag!: DragDrop;
   /** Glory as last shown (the chip counts from it to a new value). */
@@ -2514,7 +2514,7 @@ export class DuelScene extends BaseScene {
       const sy = box.y + y;
       const sh = box.h - y - 1;
       this.body.add(mosaicImage(this, box.x + 1, sy, w, sh, 'topBar'));
-      this.stash = new StashGrid(this, this.body, box.x + 3, sy + 2, w - 4, sh - 4, {
+      this.stash = new MStashGrid(this, this.body, box.x + 3, sy + 2, w - 4, sh - 4, {
         items: () => p.stash,
         state: this.stashState,
         onTap: (it) => this.openSell(it),

@@ -11,7 +11,7 @@ import { rollRarity } from '../src/game/heroes';
 import { Rng } from '../src/sim/rng';
 import { allStrings, detectLang, langFromTag, LANGS, pluralForm, setLang, t, table, keyOfText, type Lang } from '../src/i18n';
 import { EN } from '../src/i18n/en';
-import { ellipsize, measureText, missingGlyphs, wrapText } from '../src/ui/textfit';
+import { ellipsize, fitCinzelLabel, measureText, missingGlyphs, wrapText } from '../src/ui/textfit';
 import { checkLayout, type UiElement } from '../src/ui/layoutCheck';
 
 const hash = (p: Pix) => {
@@ -252,5 +252,25 @@ describe('wrapText on tiny widths', () => {
     expect(r.truncated).toBe(true);
     expect(wrapText('15 Drachmae', measureText('Drachmae')).lines).toEqual(['15', 'Drachmae']);
     expect(wrapText('15 Drachmae', measureText('Drachmae')).truncated).toBe(false);
+  });
+});
+
+describe('fitCinzelLabel', () => {
+  const sizes = [7, 6.5, 6, 5.5];
+  it('keeps the capitals at the largest size that fits', () => {
+    const r = fitCinzelLabel('Wallet', 200, sizes, true);
+    expect(r).toMatchObject({ text: 'WALLET', inter: false, size: 7, truncated: false });
+  });
+  it('shrinks to the smallest size first, then switches to Inter at that size, then cuts', () => {
+    const caps5 = measureText('WALLET', true, 5.5, 'roman');
+    const tight = fitCinzelLabel('Wallet', caps5, sizes, true);
+    expect(tight).toMatchObject({ inter: false, size: 5.5 });
+    // a width the capitals miss at 5.5 but the Inter word fits: Inter, same size, not cut
+    const inter = measureText('Wallet', false, 5.5);
+    const r = fitCinzelLabel('Wallet', Math.max(inter, caps5 - 1), sizes, true);
+    if (caps5 - 1 >= inter) expect(r).toMatchObject({ text: 'Wallet', inter: true, size: 5.5, truncated: false });
+    const cut = fitCinzelLabel('Wallet', inter - 3, sizes, true);
+    expect(cut).toMatchObject({ inter: true, size: 5.5, truncated: true });
+    expect(cut.text.endsWith('…')).toBe(true);
   });
 });

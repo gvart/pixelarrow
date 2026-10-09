@@ -1,5 +1,5 @@
 /**
- * UI kit gallery (debug): every component of src/ui/widgets.ts on three tabs.
+ * UI kit gallery (debug): the components of src/ui/widgets.ts, the v3 pieces and the v4 mosaic kit (src/ui/mosaic/) on tabs.
  * Not linked from the menu; open it with `?scene=Kit` or from a script
  * (`__game.scene.start('Kit')`). The layout check visits it, so the kit
  * itself stays within the rules (docs/UI_KIT.md).
@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addText } from '../ui/kit';
-import { Badge, Card, CountUp, Grid, ItemIcon, Label, ScrollList, StatBar, Tabs, addEmptyState, confirmDialog, stackCards, toast, type IconSubject } from '../ui/widgets';
+import { Badge, Card, CountUp, Grid, ItemIcon, Label, ScrollList, StatBar, Tabs, confirmDialog, stackCards, toast, type IconSubject } from '../ui/widgets';
 import { ScrollArea } from '../ui/kit';
 import { addScrollHint } from '../ui/widgets';
 import { ITEM_LIST, RARITIES } from '../data/items';
@@ -17,7 +17,8 @@ import { t } from '../i18n';
 import { HEADER_H, InfoChip, Pager, ProgressBar, ScreenHeader, Stepper, Tile, Toggle, addLocked, addTipLine, confirmPurchase, layChips, openSheet, purchaseButton, resourceChip } from '../ui/v3';
 import { SURFACE } from '../ui/tokens';
 import { ellipsize } from '../ui/textfit';
-import { BottomPanel, FrescoBanner, MButton, MChip, ParchmentCard, ParchmentRow, ProfileCard, QuestCard, ScreenFrame, SectionTitle, SegmentedSwitch, StoneTile, TabBar, TAB_H, TopBar, ROW_H, SECTION_TITLE_H, SWITCH_H, type TabId } from '../ui/mosaic';
+import { buildParts } from './kit/mosaicParts';
+import { BottomPanel, FrescoBanner, addSubShell, addParchmentEmpty, MButton, MChip, ParchmentCard, ParchmentRow, ProfileCard, QuestCard, ScreenFrame, SectionTitle, SegmentedSwitch, StoneTile, TabBar, TAB_H, TopBar, ROW_H, SECTION_TITLE_H, SWITCH_H, type TabId } from '../ui/mosaic';
 
 interface KitData {
   tab?: number;
@@ -38,10 +39,12 @@ export class KitScene extends BaseScene {
     this.screen({ back: () => this.scene.start('Menu') });
     const { VW } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, this.m.VH, SURFACE.bg).setOrigin(0, 0));
+    // the sub-screen shell demo (tab 6) is a whole page of its own: no gallery title or tabs under it
+    if (this.tab === 6) return this.show(6);
     this.ui.add(addText(this, VW / 2, 6, 'UI KIT', 'head', 0.5));
     // a narrow canvas fits five 44 pt tabs no more: it keeps the three newest pages (the rest open with `data.tab`)
-    const pages = VW >= 150 ? [0, 1, 2, 3, 4] : [0, 3, 4];
-    const names = ['Controls', 'Items', 'Lists', 'V3', 'Mosaic'];
+    const pages = VW >= 190 ? [0, 1, 2, 3, 4, 5] : [3, 4, 5];
+    const names = ['Controls', 'Items', 'Lists', 'V3', 'Mosaic', 'Parts'];
     const tabs = new Tabs(this, 6, 18, VW - 12, pages.map((i) => names[i]), { selected: Math.max(0, pages.indexOf(this.tab)), onChange: (i) => this.show(pages[i]) });
     this.ui.add(tabs);
     this.show(this.tab);
@@ -58,7 +61,9 @@ export class KitScene extends BaseScene {
     else if (i === 1) this.items(this.page);
     else if (i === 2) this.lists(this.page);
     else if (i === 3) this.v3(this.page);
-    else this.mosaic(this.page);
+    else if (i === 4) this.mosaic(this.page);
+    else if (i === 5) this.parts(this.page);
+    else this.shell(this.page);
   }
 
   /** The v3 component layer (src/ui/v3.ts): header, chips, tip, tiles, switches, progress, locked state, pager, real money. */
@@ -98,6 +103,29 @@ export class KitScene extends BaseScene {
     c.add(new Button(this, Math.floor(w / 2) + 2, y, w - Math.floor(w / 2) - 2, 26, { label: 'Open a sheet', onClick: () => openSheet(this, { title: 'Bottom sheet', h: 90 }) }));
     y += 30;
     area.setContentHeight(y + 4);
+  }
+
+  /** The rest of the shared v4 parts (src/scenes/kit/mosaicParts.ts), each in its states, on a parchment page. */
+  private parts(p: Phaser.GameObjects.Container): void {
+    const { VW, VH } = this.m;
+    const frame = new ScreenFrame(this, VW, VH, { y: 46 });
+    p.add(frame);
+    p.add(new TopBar(this, frame.topBar, { title: 'Parts' }));
+    const c0 = frame.content;
+    const area = new ScrollArea(this, p, c0.x + 4, c0.y + 3, c0.w - 8, c0.h - 3, this.m.S);
+    this.cleanup.push(() => area.destroy());
+    area.setContentHeight(buildParts(this, area, c0.w - 8 - 4, () => this.scene.restart({ tab: 6 })));
+  }
+
+  /** The sub-screen shell (addSubShell): frame, back arrow, plaque, gear and a scroll area. Back returns to the Parts page. */
+  private shell(p: Phaser.GameObjects.Container): void {
+    const sh = addSubShell(this, { title: 'Sub-screen', back: () => this.scene.restart({ tab: 5 }), parent: p });
+    sh.area.content.add(new SectionTitle(this, 0, 2, sh.w, 'addSubShell'));
+    const note = new ParchmentCard(this, 0, SECTION_TITLE_H + 6, sh.w, 40);
+    note.add(addText(this, 6, 8, 'Back arrow, plaque, gear; no tab bar.', 'pInk', 0, sh.w - 12));
+    sh.area.content.add(note);
+    sh.area.setContentHeight(SECTION_TITLE_H + 52);
+    this.cleanup.push(() => sh.area.destroy());
   }
 
   /** The v4 "Mosaic & Parchment" components (src/ui/mosaic/): a screen frame with a top bar, every component in its states, the tab bar at the bottom. */
@@ -294,6 +322,6 @@ export class KitScene extends BaseScene {
       id: () => 'kit.row',
     });
     this.cleanup.push(() => list.destroy());
-    p.add(addEmptyState(this, 6, 48 + h + 4, VW - 12, VH - 54 - h - 4, { icon: 'tent', title: 'Empty stash', hint: 'Win battles to take loot from the field.', action: { label: 'Find a fight', onClick: () => toast(this, 'Off to war') } }));
+    p.add(addParchmentEmpty(this, 6, 48 + h + 4, VW - 12, VH - 54 - h - 4, { icon: 'tent', title: 'Empty stash', hint: 'Win battles to take loot from the field.', action: { label: 'Find a fight', onClick: () => toast(this, 'Off to war') } }));
   }
 }

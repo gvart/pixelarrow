@@ -6,6 +6,7 @@ import { makeHero } from '../src/game/heroes';
 import { ENCOUNTER_IDS, MYTHS, mythHeroes, encounterOf, type EncounterId } from '../src/data/beasts';
 import { applyBattleConsumable } from '../src/data/consumables';
 import { computeStats } from '../src/sim/stats';
+import { beastLevelFor } from '../src/game/beasts';
 import { runBeast } from '../src/dev/beastBalance';
 import type { ClassId } from '../src/data/classes';
 import type { Hero } from '../src/data/units';
@@ -427,5 +428,14 @@ describe('beast hoards', () => {
     const n = Array.from({ length: 1400 }, (_, i) => bandBeast(i)).filter(Boolean).length;
     expect(n).toBeGreaterThan(60);
     expect(n).toBeLessThan(160);
+  });
+});
+
+describe('beast level', () => {
+  it('is a little above the army average, more for a world boss, never below 2', () => {
+    const army = [{ level: 3 }, { level: 5 }];
+    expect(beastLevelFor('hydra', army)).toBe(5);
+    expect(beastLevelFor('titan', army)).toBe(7);
+    expect(beastLevelFor('hydra', [])).toBe(2);
   });
 });

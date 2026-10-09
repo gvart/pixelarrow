@@ -17,12 +17,32 @@ import { MOSAIC } from './tokens';
 import { RS } from '../platform/renderScale';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { uiFrame, uiId } from './layout';
-import type { StripSlot } from './strategos';
 
 /** Height of the top bar (UI px). */
 export const TOP_H = 46;
 
 /** A slot of the top bar as a kit button: icon over word, primary terracotta, selected lit bronze. */
+/** One slot of the battle's command strip (a KeyButton: Back-or-Flee | the one primary | Army-or-More). */
+export interface StripSlot {
+  label: string;
+  icon?: string;
+  onClick?: () => void;
+  /** Cannot right now, and why (grey dither; a tap says why). */
+  off?: string;
+  /** Long-press explanation. */
+  tip?: string;
+  /** Count bubble in the corner (0 hides it). */
+  badge?: number | string;
+  /** Layout-check / script id. */
+  id?: string;
+  /** Selected look for a toggle (bronze-rimmed parchment), e.g. Pause while paused. */
+  selected?: boolean;
+  /** Middle slot only: not the red primary (a toggle or a secondary wide action). */
+  secondary?: boolean;
+  /** Destructive (dark wine): confirm first in `onClick`. */
+  destructive?: boolean;
+}
+
 function slotButton(scene: Phaser.Scene, x: number, y: number, w: number, h: number, s: StripSlot, primary: boolean, plain: boolean): KeyButton {
   return new KeyButton(scene, x, y, w, h, {
     label: s.label,

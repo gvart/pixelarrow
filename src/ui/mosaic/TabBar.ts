@@ -5,7 +5,7 @@
  * War medallion glows). Each tab is the hub of its mode; badges are red counts.
  */
 import Phaser from 'phaser';
-import { addIcon, scaleIcon } from '../kit';
+import { addIcon, fitCinzel, scaleIcon } from '../kit';
 import { uiId } from '../layout';
 import { pulse } from '../motion';
 import { t } from '../../i18n';
@@ -80,10 +80,11 @@ export class TabBar extends Phaser.GameObjects.Container {
       this.page.add(c);
       if (sel) c.add(mosaicImage(scene, slot.x + 1, -3, slot.w - 2, TAB_H + 3, 'tabSel'));
       const font = sel ? 'rInk' : 'rCream';
-      const label = t(tab.key).toUpperCase();
       const room = slot.w - 5;
       const ly = TAB_H - 14;
-      const text = mtext(scene, cx, ly, label, font, { size, align: 0.5, maxW: room, box: { owner: this, w: this.w, h: TAB_H } });
+      // the label that does not fit as capitals at this size is written in Inter instead (then cut as a last resort)
+      const fl = fitCinzel(t(tab.key), font, room, [size]);
+      const text = mtext(scene, cx, ly, fl.text, fl.font, { size, align: 0.5, maxW: room, box: { owner: this, w: this.w, h: TAB_H } });
       if (war) {
         const d = lay.medallionD;
         const glow = Math.round(d * MEDALLION_GLOW);

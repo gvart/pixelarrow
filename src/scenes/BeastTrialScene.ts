@@ -8,19 +8,12 @@ import { BaseScene } from './BaseScene';
 import { ScrollArea } from '../ui/kit';
 import { Label } from '../ui/widgets';
 import { ParchmentRow, ScreenFrame, TopBar } from '../ui/mosaic';
-import { beastThumb, encounterName, openBeastSheet } from '../ui/beastInfo';
+import { beastLevel, beastThumb, encounterName, openBeastSheet } from '../ui/beastInfo';
 import { ENCOUNTER_IDS, WORLD_BOSSES, type EncounterId } from '../data/beasts';
 import { beastEnemy } from '../game/beasts';
 import { state, randomSeed } from '../state';
 import { t, type TKey } from '../i18n';
 import type { BattleSite } from '../world/battlefield';
-
-/** The beast's level against this army: a little above its average. */
-export function beastLevel(enc: EncounterId): number {
-  const fit = state.campaign.fitHeroes();
-  const avg = fit.reduce((a, h) => a + h.level, 0) / Math.max(1, fit.length);
-  return Math.max(2, Math.round(avg) + (WORLD_BOSSES.includes(enc) ? 3 : 1));
-}
 
 interface TrialData {
   /** The scene Back returns to (default: the Menu). */

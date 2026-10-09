@@ -99,3 +99,26 @@ export function wrapsWhole(str: string, maxW: number, maxLines = 0, shadow = fal
 
 /** Line height of the pixel font in UI pixels (glyphs 7-8 px + spacing). */
 export const LINE_H = 10;
+
+export interface FittedCinzel {
+  text: string;
+  /** The label is written in Inter (the capitals did not fit at the smallest size). */
+  inter: boolean;
+  size: number;
+  /** Cut with "…". */
+  truncated: boolean;
+}
+
+/**
+ * The rule for a Cinzel label in `room` UI px: the largest of `sizes` (descending) at which its capitals fit;
+ * else the same label in Inter (original case) at the smallest size; only then cut with "…".
+ * `shadow` / `interShadow`: the Cinzel / Inter font draws a drop shadow (one pixel wider).
+ */
+export function fitCinzelLabel(label: string, room: number, sizes: readonly number[], shadow = false, interShadow = false, upper: (s: string) => string = (s) => s.toUpperCase()): FittedCinzel {
+  const caps = upper(label);
+  const size = sizes.find((z) => measureText(caps, shadow, z, 'roman') <= room);
+  if (size !== undefined) return { text: caps, inter: false, size, truncated: false };
+  const min = sizes[sizes.length - 1];
+  const text = ellipsize(label, room, interShadow, min);
+  return { text, inter: true, size: min, truncated: text !== label };
+}

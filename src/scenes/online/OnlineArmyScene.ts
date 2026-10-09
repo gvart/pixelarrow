@@ -7,8 +7,8 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { addIcon, addText } from '../../ui/kit';
-import { MButton, type MButtonVariant, MChip, SegmentedSwitch, SWITCH_H, TAP, mosaicImage, addSubShell, openParchmentSheet, addPill } from '../../ui/mosaic';
-import { ScrollList, addEmptyState, confirmDialog, toast } from '../../ui/widgets';
+import { MStashGrid, addParchmentEmpty, MButton, type MButtonVariant, MChip, SegmentedSwitch, SWITCH_H, TAP, mosaicImage, addSubShell, openParchmentSheet, addPill } from '../../ui/mosaic';
+import { ScrollList, confirmDialog, toast } from '../../ui/widgets';
 import { uiId } from '../../ui/layout';
 import { ellipsize } from '../../ui/textfit';
 import { SIZE, COLOR } from '../../ui/theme';
@@ -16,7 +16,7 @@ import { MOSAIC } from '../../ui/tokens';
 import { ensureFonts } from '../../ui/fonts';
 import {
   equipRefusal,
-  DragDrop, ROMAN, Stage, StashGrid, addGroupBadge, addSlotTile, addStars, className, defaultStashState, groupName, itemName,
+  DragDrop, ROMAN, Stage, addGroupBadge, addSlotTile, addStars, className, defaultStashState, groupName, itemName,
   openClassCard, openItemCard, roleColor, roleName, roleTraits, uiBoundsOf, type StashState,
 } from '../../ui/sheet';
 import { addEconState } from '../../ui/econ/widgets';
@@ -48,7 +48,7 @@ export class OnlineArmyScene extends BaseScene {
   private head!: Phaser.GameObjects.Container;
   private body!: Phaser.GameObjects.Container;
   private list: ScrollList | null = null;
-  private stash: StashGrid | null = null;
+  private stash: MStashGrid | null = null;
   private stashState: StashState = defaultStashState();
   private drag!: DragDrop;
   private slotObjs = new Map<Slot, Phaser.GameObjects.GameObject>();
@@ -304,7 +304,7 @@ export class OnlineArmyScene extends BaseScene {
     const VW = this.cw;
     const heroes = this.rosterHeroes(p);
     if (!heroes.length) {
-      this.body.add(addEmptyState(this, 4, y, VW - 8, h, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint') }));
+      this.body.add(addParchmentEmpty(this, 4, y, VW - 8, h, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint') }));
       return;
     }
     this.list = new ScrollList(this, this.body, 4, y, VW - 8, h, {
@@ -399,7 +399,7 @@ export class OnlineArmyScene extends BaseScene {
 
   private buildStash(p: ProfileView, y: number, h: number): void {
     const VW = this.cw;
-    this.stash = new StashGrid(this, this.body, 4, y, VW - 8, h, {
+    this.stash = new MStashGrid(this, this.body, 4, y, VW - 8, h, {
       items: () => p.stash,
       state: this.stashState,
       hero: () => this.selected()?.hero,

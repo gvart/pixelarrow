@@ -8,12 +8,22 @@
  */
 import type { Hero } from '../data/units';
 import { BASE_ITEMS, itemDef, type Item, type Slot } from '../data/items';
-import { ENCOUNTERS, LAIR_BEASTS, mythHeroes, type EncounterId } from '../data/beasts';
+import { ENCOUNTERS, LAIR_BEASTS, WORLD_BOSSES, mythHeroes, type EncounterId } from '../data/beasts';
 import { Rng } from '../sim/rng';
 import { makeItem, rollBeastRarity, type IdSource } from './heroes';
 import { BEAST_NAMED, HOARD_SETS, SOURCES, armyPick, pieceDefs } from './sources';
 import type { EnemyArmy } from './enemy';
 import { armyPower } from './enemy';
+
+/**
+ * A beast's level against an army: a little above its average (three above for a
+ * world boss). The one rule behind the level the Codex lists, the Beast trial
+ * shows and the trial fight uses.
+ */
+export function beastLevelFor(enc: EncounterId, heroes: readonly Pick<Hero, 'level'>[]): number {
+  const avg = heroes.reduce((a, h) => a + h.level, 0) / Math.max(1, heroes.length);
+  return Math.max(2, Math.round(avg) + (WORLD_BOSSES.includes(enc) ? 3 : 1));
+}
 
 const HOARD_SLOTS: Slot[] = ['weapon', 'armor', 'helmet', 'shield', 'trinket'];
 

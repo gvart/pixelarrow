@@ -5,7 +5,6 @@ import { perkSlots } from '../data/perks';
 import { confirmNewCampaign, openSettings } from '../ui/settings';
 import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
 import { addSyncBadge } from '../ui/online';
-import { ofCount } from '../ui/strategos';
 import { FrescoBanner, MButton, ProfileCard, QuestCard, StoneTile, addHubShell, goTab } from '../ui/mosaic';
 import { t } from '../i18n';
 
@@ -65,7 +64,7 @@ export class MenuScene extends BaseScene {
     const done = steps.filter((s) => s.done).length;
     const next = steps.find((s) => !s.done);
     if (next) {
-      const quest = add(new QuestCard(this, 1, y, w, { title: t('menu.firstSteps', { done: ofCount(done, steps.length) }), total: steps.length, done, next: next.text, id: 'menu.quest' }));
+      const quest = add(new QuestCard(this, 1, y, w, { title: t('menu.firstSteps', { done: t('strat.ofCount', { a: done, b: steps.length }) }), total: steps.length, done, next: next.text, id: 'menu.quest' }));
       y += quest.h + GAP;
     }
 

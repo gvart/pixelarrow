@@ -4,7 +4,7 @@ import { Meter, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from 
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
 import { GroupCard } from '../ui/battlePanel';
-import type { StripSlot } from '../ui/strategos';
+import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
 import { HintPill, MED_H, MED_W, Medallion, TOP_H, TopBar, type TopBarOpts } from '../ui/battleHud';

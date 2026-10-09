@@ -9,7 +9,7 @@
 import Phaser from 'phaser';
 import type { MosaicStyle } from '../../art/mosaicUi';
 import { LINE_H } from '../../art/vectorFont';
-import { ICON_PX, addIcon, type FontKey } from '../kit';
+import { ICON_PX, addIcon, fitCinzel, type FontKey } from '../kit';
 import { uiId } from '../layout';
 import { MOSAIC } from '../tokens';
 import { MBadge, TAP, centeredFace, fit, makePressable, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
@@ -136,14 +136,18 @@ export class KeyButton extends Phaser.GameObjects.Container {
     }
     const room = this.w - 4;
     // Cinzel is drawn in capitals (its lower case spaces badly in the bitmap face); a button too narrow
-    // for that at a readable size writes the word in Inter instead
-    const capsLabel = caps(this.o.label);
+    // for that at the smallest size writes the word in Inter instead, then cuts it (`plain` writes Inter at once)
     const lead = !stack && icon ? ICON_PX + 2 : 0;
-    const capSize = [7, 6.5, 6, 5.5].find((z) => mw(capsLabel, font, z) <= room - lead);
-    const inter = !!this.o.plain || capSize === undefined;
-    const face: FontKey = inter ? (!this.enabled ? 'dim' : this.lit ? 'pInk' : 'light') : font;
-    const label = inter ? this.o.label : capsLabel;
-    const size = inter ? [6.5, 6, 5.5, 5].find((z) => mw(label, face, z) <= room - lead) ?? 5 : capSize!;
+    const interFont: FontKey = !this.enabled ? 'dim' : this.lit ? 'pInk' : 'light';
+    const fl = this.o.plain
+      ? (() => {
+          const size = [6.5, 6, 5.5].find((z) => mw(this.o.label, interFont, z) <= room - lead) ?? 5.5;
+          const text = fit(this.o.label, interFont, size, room - lead);
+          return { text, font: interFont, size, truncated: text !== this.o.label };
+        })()
+      : fitCinzel(this.o.label, font, room - lead, [7, 6.5, 6, 5.5], caps);
+    const { size, font: face } = fl;
+    const label = fl.text;
     const showIcon = !!icon && (stack || size >= 6);
     const text = fit(label, face, size, room - (showIcon && !stack ? lead : 0));
     const tw = mw(text, face, size);

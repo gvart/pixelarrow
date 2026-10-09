@@ -4,16 +4,16 @@ How screens look and are built. The rules come from docs/DESIGN_V2.md ("UI",
 "UX principles", "Localization"); this page says which code implements them.
 Read it before touching a screen.
 
-- `src/ui/kit.ts`: fonts, panels, `Button`, `Meter`, `ScrollArea`, `tappable`, `addText`, `fitText`.
-- `src/ui/widgets.ts`: tabs, lists, cards, grid, item icons, tooltip, toast, badge, stat bar, count-up, modal, confirm dialog, empty state, label, first-time hint.
-- `src/ui/v3.ts` + `src/ui/tokens.ts` + `src/ui/motion.ts`: the current screen components, design tokens and motion ("v3 components").
-- `src/ui/strategos.ts`: the situation bar, command strip, chips, rows, tips ("Screen chrome").
+- `src/ui/mosaic/`: the v4 "Mosaic & Parchment" kit: every screen is built from it (see "Components").
+- `src/ui/kit.ts`: fonts, panels, the legacy `Button`, `Meter`, `ScrollArea`, `tappable`, `addText`, `fitText`, `fitCinzel`.
+- `src/ui/widgets.ts`: tabs, lists, grid, item icons, tooltip, toast, badge, stat bar, count-up, `openModal`, confirm dialog, label, first-time hint (the legacy parts the sheets are still built from).
+- `src/ui/v3.ts` + `src/ui/tokens.ts` + `src/ui/motion.ts`: the v3 pieces still in use, design tokens and motion.
 - `src/ui/battleHud.ts`: the battle HUD ("Battle HUD").
 - `src/ui/theme.ts`: rarity and battle-category colours, sizes (`SIZE`, touch rules), `STRAT`.
 - `src/ui/textfit.ts`: measuring and fitting text (pure, unit-tested).
 - `src/ui/layout.ts` + `src/ui/layoutCheck.ts`: the layout registry and rules; `scripts/layout-check.mjs` runs them.
 - `src/i18n/`: `t()`, English and Russian tables.
-- Gallery: `/?scene=Kit` (`src/scenes/KitScene.ts`) shows every component; its V3 tab the v3 pieces.
+- Gallery: `/?scene=Kit` (`src/scenes/KitScene.ts`): tabs Controls, Items, Lists, V3, **Mosaic** and **Parts** (every shared v4 component in its states; the sub-screen shell opens from Parts).
 
 Coordinates and sizes are **UI pixels** inside the scene's scaled UI root
 (`this.ui`, scale `S` = 2..4, see `uiMetrics`). One UI pixel is `S` CSS
@@ -168,20 +168,18 @@ confirmation sheet.
 
 ## Screen chrome
 
-Every screen tells the player **what is happening and what to do next**,
-has **one primary (terracotta) action**, and puts Back in one place.
+Every screen tells the player **what is happening and what to do next**, has
+**one primary (terracotta) action**, and puts Back in one place. Three shells,
+all drawn on the stone frame with the top bar (`TopBar`: plaque, back arrow,
+gear):
 
-- **v3 screens** (Home, Duels, Hero sheet, Shop / Pass / Wallet, Settings,
-  Beasts) use a `ScreenHeader` on top.
-- **Strategos screens** (World, Online war map, Army) use a `SituationBar`
-  on top (one plain sentence, then labelled numbers) and a `CommandStrip` at
-  the bottom (Back left, the one action in the middle, Army / More right).
-  Hero, Shop and Duels keep a `CommandStrip` under their header for the
-  primary action.
-- The isometric camp (`CampScene`) keeps its own strips: title and purse on
-  top, the info sentence and the action row (Muster, Loot, End day, Strike)
-  at the bottom.
-- Settlement, Results, Market and FirstRun keep their own chrome.
+| Shell | Use for | Has |
+| --- | --- | --- |
+| `addHubShell` (hub.ts) | a mode hub: Campaign, Duels, War, Codex, Shop | frame, top bar with the gear, scroll area, **tab bar** (`goTab` navigates), no back arrow |
+| `addSubShell` (subShell.ts) | every sub-screen: Army, Hero, Settlement, Clan, Merchant, Duels' Team / Shop pages | frame, top bar with a back arrow (outside Telegram) and the gear, **no tab bar**; `scroll: false` leaves the content box (`content`) to the screen; `retitle()` swaps the plaque text |
+| `addSubShell({ map: true })` | a full-screen map window: World, Camp | no frame: the top bar on its own stone strip over the map |
+
+Both framed shells are built by `buildPage` (frame, top bar, scroll area), so a hub and a sub-screen differ only in the tab bar and the back arrow.
 
 Rules:
 
@@ -191,42 +189,32 @@ Rules:
   else its short form (both lead the long-press tip).
 - **Selection is bronze, action is terracotta.** Nothing else is coloured
   for emphasis.
-- **Cannot = grey with a reason.** A disabled button, chip or strip slot says
-  why on tap (an `'info'` toast, not an error), or long-press. Lock reasons
-  are never red.
-- **Tips are part of the screen.** `addTip` panels stay until tapped and are
-  remembered in `settings.seenHints`; `addTipLine` is the compact v3 tip.
-
-### Strategos components (`src/ui/strategos.ts`, `STRAT` in theme.ts)
-
-| Component | API | Use for |
-| --- | --- | --- |
-| `SituationBar` | `new SituationBar(scene, VW, { sentence, numbers, urgent, compact, left, right, id })`, `.setSentence(s, urgent)`, `.setNumbers(nums)`, `.bottom` | one plain sentence, then `SitNumber`s (`{ icon, value, word, tip, font }`). Words drop from the right when narrow; numbers never truncate. Setters rebuild only what changed. Height `STRAT.sitH` 40 (30 compact, below `STRAT.compactVH` 300). |
-| `CommandStrip` | `new CommandStrip(scene, VW, VH, { left, main, right, extra, why })`, `.set(opts)`, `.top`, `.buttons` | the bottom strip (`STRAT.stripH` 34). `main` is the one primary; `secondary: true` for a toggle, `selected` for one in force; `extra` a fourth narrow slot. A `StripSlot` with `off` is grey and says why; `badge` adds a count. Swap actions with `set()`. Drops its Back slot inside Telegram. |
-| `Chip` | `new Chip(scene, x, y, w, { icon, label, selected, off, corner, tip, id, onClick, chevron })`, `.setCorner(text)`, `.setBlocked(reason)` | small buttons with a word: shapes, abilities, filters. Selected = bronze rim. |
-| `ListRow` | `new ListRow(scene, x, y, w, { label, sub, icon, onClick, badge, off, selected, primary, id }, h = 26)` | a destination with a line of context under it. |
-| `addTip` | `addTip(scene, parent, id, x, y, text, { w, arrow, ax, ay, vw })` | a persistent onboarding tip with a chevron toward its target. |
-| `addChecklist` | `addChecklist(scene, parent, x, y, w, title, [{ text, done }])` | "First steps · 2 of 4". |
-| `addFocusRing` | `addFocusRing(scene, parent, x, y, w, h)` | the pulsing bronze glow round the next thing to tap. |
-| `addNumbers` | `addNumbers(scene, parent, x, y, w, nums)` | the labelled-numbers row on its own. |
+- **Cannot = grey with a reason.** A disabled button, chip or slot says why on
+  tap (an `'info'` toast, not an error), or long-press. Lock reasons are never red.
+- **Loading, empty and unavailable states are parchment** (`addParchmentEmpty`,
+  `addEconState`): never a dark well on the page.
+- **One way to close a sheet:** the X (shade tap and Back also close it). A
+  decision (`shadeCloses: false`) has no X: its buttons answer it.
+- **Tips are part of the screen.** `addTipLine` is the one tip: flat on the
+  page or `card: true`; `dismissId` adds the X and remembers it in `settings.seenHints`.
 
 ### Navigation
 
 - `src/platform/nav.ts` is one stack wired to Telegram's BackButton; every
   scene registers its `back`.
-- Inside Telegram the header BackButton is the only Back: the command strip
-  drops its Back slot. Outside Telegram the `ScreenHeader` draws one back
-  arrow instead. Never both.
+- Inside Telegram the header BackButton is the only Back: the shells draw no
+  arrow (`showInGameBack()`). Outside Telegram the top bar draws one back arrow
+  instead. Never both.
 - Tab hierarchy, one look per level, never a third level:
-  - **Top level: segmented** (`Tabs`, a sliding bronze thumb): the sections of
+  - **Top level: segmented** (`SegmentedSwitch`, a sliding thumb): the sections of
     a screen (Ladder | Arena; Shop | Pass | Wallet; Stats | Gear | Perks | Skills).
   - **Sub level: underline** (`UnderlineTabs`, a sliding underline): the pages
     of one section (Today | Gear | Sell; Live | Legend).
   - **Entity pickers: cards** (a row of `card` / `cardSel` panels): choosing
     *which one* (Team presets 1 / 2 / 3, the floors of a chapter).
-  - Filters are quiet ghost chips, lit (`style: 'buttonSel'`) only while they
-    filter (the stash's slot, rarity and sort).
-- Hero sheet: a `Pager` (chevrons, "2 / 8", swipe) to step through heroes.
+  - Filters are quiet stone buttons, lit (bronze) only while they filter (the
+    stash's slot, rarity and sort).
+- Hero sheet: an `MPager` (chevrons, "2 / 8", swipe) to step through heroes.
 
 ### Motion
 
@@ -255,93 +243,65 @@ worse), the text carries its unit ("+0.2 s") and, for times, the word
 repeating the value. Deltas name what they compare with ("vs Timon's
 composite bow").
 
-## v3 components
-
-The v3 screens (Home, Duels, Hero sheet, Shop / Pass / Wallet, Settings,
-Beasts) are built from `src/ui/v3.ts` on the tokens of `src/ui/tokens.ts`.
-
-- **One header** per screen: `new ScreenHeader(scene, VW, { title, back, actions, chips, note })`.
-  `back` draws an arrow only outside Telegram (inside, its BackButton runs the
-  same handler through nav.ts). Header actions always carry a word under the
-  icon; `active: true` lights the one whose view is on screen ("you are
-  here": Duels → Team / Shop). `chips` (InfoChip options, e.g.
-  `resourceChipOpts('glory', n)`) sit in the band right of the title: words
-  drop before chips do, and what still does not fit is in `header.overflow`
-  for the screen to lay under the header. `note`: a small muted line under
-  the title (the demo marker).
-- `fitChips(scene, opts, w)`: chips that fit together (words drop from the
-  last chip first; a `lead` label such as "Warband" stays).
-- `ToggleChip`: on/off at a glance (filled lit bronze, the icon in colour with
-  a gold check badge, vs an outline with the icon dimmed).
-- `openLegend(scene, title, items)`: a "what the symbols mean" sheet;
-  `addLegend(...)` (sheet.ts): a tap target over one symbol that explains it
-  (rank diamonds, the sync cloud). Never over another tap target: rows use
-  the legend sheet instead.
-- `addMedallion(scene, parent, x, y, d, icon, 'learned' | 'available' | 'locked')`:
-  a skill or perk as its battle medallion (Skills and Perks tabs).
-- Dismissing a tip uses the neutral `xmark`; the red `close` cross means a
-  problem (over a cap).
-- **Resources**: `resourceChip(scene, x, y, 'glory' | 'gold' | 'drachmae' | 'stars' | 'power' | 'wins' | 'xp', value)`;
-  one icon and colour each, a tap explains it, `setValue` counts. For gold
-  pass `tipKey` (`res.tip.gold.campaign` / `res.tip.gold.war`).
-- **Real money**: `purchaseButton(...)` (Telegram blue, the Telegram star, "N
-  Stars") and always `confirmPurchase(...)` first.
-- **Tips** instead of banners: `addTipLine(..., { text, tone, dismissId })`;
-  `warn` (red) only for a real problem.
-- **Locked**: `addLocked(...)` (lock, muted reason, progress, how) instead of
-  a mode's live stats.
-- **Tabs**: `Tabs` is the first level; `UnderlineTabs` the second. Never a third.
-- **Lists** fade at their edges (`addScrollHint(..., color)` / `ScrollList`'s
-  `fade`): pass the colour behind the list.
-- `Tile` (big destination), `Toggle`, `Stepper`, `ProgressBar`, `Pager` +
-  `addSwipe`, `openSheet` (bottom sheet), `flyReward`, `addClaimGlow`,
-  `addCard`, `addSection`, `InfoChip` / `layChips`.
-- Buttons: `variant: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'purchase'`.
-- Fonts: `head` / `headL` for titles; `ink`, `sec`, `muted` for text;
-  `reward`, `glory`, `premium`, `xp`, `power`, `stars` for their resources;
-  `good` / `bad` for better / worse.
-
-### Shared overlays on parchment (UI v4)
-
-Modals, bottom sheets, confirm dialogs, the settings sheet, item cards, tabs, expandable cards, count-up tiles,
-tooltips, toasts, badges, the legacy `Button` and the strategos chrome are drawn in the v4 "Mosaic & Parchment"
-look (docs/redesign/V4_SPEC.md) with the same APIs: parchment sheets with a Cinzel title over a rule and a
-bronze close X (`addSheetTitle`), stone plaques for tooltips and toasts, terracotta / bronze / grey stone /
-wine (destructive) / blue (purchase) buttons with Cinzel labels.
-
-Content built for dark surfaces keeps working inside them: `src/ui/inkSkin.ts` `inkify(container)` re-skins what
-is added to a modal, a sheet, a `ParchmentCard` or a `BottomPanel` (light font keys become their ink forms, dark
-`panel_*` textures become parchment wells and cards, scroll-list fades melt into parchment). A component that
-draws its own dark surface calls `ownSkin(obj)` to be left alone.
-
 ## Components
 
-| Component | API (short) | Use for |
-| --- | --- | --- |
-| `Button` | `new Button(scene, x, y, w, h, { label, icon, variant, style, onClick, tip, disabledReason, id })` | every tappable action. One `'primary'` per screen; `'destructive'` confirms first. `setEnabled(false, reason)`: a tap says why. Long-press shows `tip` (or the full label if it was shortened). Press state, click sound and haptic built in. Labels that do not fit end in "…". |
-| `Tabs` | `new Tabs(scene, x, y, w, labels, { selected, onChange, icons })`, `.select(i)`, `.badge(i, n)` | sections of one screen (Hero: Stats \| Gear \| Perks \| Skills). |
-| `UnderlineTabs` | as `Tabs` | the second level under a `Tabs`. |
-| `ScrollList` | `new ScrollList(scene, parent, x, y, w, h, { count, rowH, render(i, row, w, h, area), onTap, tip, id, fade })`, `.setCount(n)`, `.refresh()`, `.scrollToIndex(i)` | long collections. Momentum, edge fades, **virtualised**: only rows near the viewport exist, so `render` must build a row from its index alone. |
-| `Grid` | `new Grid(scene, parent, x, y, w, h, { count, cell, render(i, c, size, area), onTap, tip })` | inventories: as many columns as fit, on a virtualised `ScrollList`. |
-| `Card` | `new Card(scene, x, y, w, { title, subtitle, icon, right, body or renderBody, onToggle, area })`, `stackCards(cards, y0)` | compact rows that expand on tap. Re-stack in `onToggle`. |
-| `ItemIcon` | `new ItemIcon(scene, x, y, { item } or { consumable: id } or { resource: id }, { size = 24, onTap, tip, qty, selected, area })` | any item or good: its icon, rarity frame, glow for Rare+, sparkles for Legendary. Long-press: name, rarity, slot. |
-| `StatBar` | `new StatBar(scene, x, y, w, { label, max, color, tip, format, lowerIsBetter })`, `.set(value, preview?)` | stats; `preview` shows an equip's change in green or red. |
-| `CountUp` | `new CountUp(scene, x, y, w, h, { icon, label, value, prefix, suffix, duration, delay })`, `.start()` | result tiles. |
-| `Badge` | `new Badge(scene, x, y, n)`, `.setCount(n)` | counts on tabs / buttons (hidden at 0). |
-| `Label` / `addLabel` | `new Label(scene, x, y, text, { maxW, maxLines = 1, font, align, expandable })` | text that might not fit: wraps to `maxLines`, ends in "…", tap shows all. |
-| `showTooltip` | `showTooltip(scene, text, anchorObject)` | explanations; long-press on kit pieces calls it. |
-| `toast` | `toast(scene, text, 'info' or 'good' or 'bad')` | short feedback; `'bad'` only for real problems. |
-| `firstTimeHint` | `firstTimeHint(scene, 'army', text)` | the once-per-screen first-visit hint (`settings.seenHints`). |
-| `openModal` | `openModal(scene, { title, w, h, onClose, shadeCloses })` → `{ c, x, y, w, h, body, close }` | any dialog: blocking shade, Telegram Back closes it, layout-check layer. Height is clamped to the screen: long content goes in a `ScrollList` in `body`. A tap that goes down and up on the shade closes it like Back; pass `shadeCloses: false` where that would skip a decision or lose input (confirms, tutorial steps, battle results, forced choices, forms, unasked popups). |
-| `confirmDialog` | `confirmDialog(scene, { title, body, ok, cancel, destructive, onOk, onCancel })` | yes/no. Cancel left, OK right. Every destructive action goes through it. Outside taps do nothing; Back cancels. |
-| `addEmptyState` | `addEmptyState(scene, x, y, w, h, { icon, title, hint, action })` | empty lists: what to do next, optionally with a primary action. |
-| `tappable` | `tappable(obj, area, onTap, tip?)` | custom tap targets: ignores drags inside a scroll area, click and haptic, long-press tip. |
-| `PanelButton` | `new PanelButton(scene, x, y, w, h, { icon, label, cat, selected, primary, tip, disabledReason, show, onClick })`, `.setCooldown(f)`, `.setBadge(s)` | battle commands and category tabs (`src/ui/battlePanel.ts`), tinted by battle category. |
-| `GroupCard` | `new GroupCard(scene, x, y, w, h, onTap, tip)`, `.setInfo({ numeral, men, hp, morale, orderIcon, portrait, name, orderWord, selected, routed })` | a group in the battle sheet; narrow and wide layouts. |
+### The v4 kit (`src/ui/mosaic/`)
 
-Older helpers (`addPanel`, `addScroll`, `addText`, `fitText`, `Meter`,
-`ScrollArea`, `confirmModal`) still work; `ScrollArea` + `addScrollHint` is the
-non-virtualised list for mixed content.
+One component per job. Positions are UI px; every control is at least 22 UI px
+(44 pt) and says why it is off on tap. Text is Inter (numbers tabular) or
+Cinzel capitals; **a Cinzel label shrinks to its smallest size, then switches
+to Inter at that size, then ends in "..."** (`fitCinzel` in kit.ts, used by
+`MButton`, `SegmentedSwitch`, `TabBar`, `StoneTile`, `KeyButton`, the legacy
+`Button` and `Tabs`).
+
+| Job | Component | Use for |
+| --- | --- | --- |
+| Shells | `ScreenFrame`, `TopBar`, `TabBar`, `addHubShell`, `addSubShell` | see "Screen chrome". `TabBar`: five mode tabs, War the raised medallion. |
+| Buttons | `MButton` (`primary`, `primaryHero`, `secondary`, `neutral`, `disabled`, `purchase`) | every labelled action. One terracotta per screen; real money is `purchase` (blue). |
+| Icon buttons | `MIconButton` (`secondary`, `neutral`, `primary`, `selected`, `lit`, `disabled`; `badge`, `count`, `text`, `off`) | a square button with one icon or a short glyph (`+`, `III`): rename, filters, the map's build rail. `selected` = lit parchment, `lit` = bronze with a gold rim. |
+| Battle keys | `KeyButton` | the battle HUD's compact command keys (`lit` = the order in force). |
+| Map buttons | `RoundButton` | the war map's round buttons under a disc. |
+| Action bars | `MActionBar` (`surface: 'stone'` on map screens, `'parchment'` on party sub-screens) | the actions at the foot of a screen: `set([{ label, icon, primary, off, selected, iconOnly, ... }])`; `top` is where the content above ends. Stone: one row, labels give way to squares; parchment: wraps to rows. |
+| Switches | `SegmentedSwitch`, `addSwitchBadge` | the sections of a screen. |
+| Sheets | `openParchmentSheet` (`dock: 'center'` or `'bottom'`, `actions`, `shadeCloses`, `closeButton`) | every modal and sheet: title over a rule, X, `body` to fill, action row (`actionRows`: one row, the primary alone, else one per row). `BottomPanel`: the in-place sheet of the war map's hex panel. |
+| Cards and rows | `ParchmentCard`, `ParchmentRow`, `ProfileCard`, `QuestCard`, `OfferCard`, `SectionTitle`, `addRowFace`, `addPortraitWell` | content on parchment. |
+| Banners | `FrescoBanner` (`image`, `pixelKey` or `art`) | the bronze riveted frame round a painted image, a pixel illustration or art you draw. |
+| Tiles | `StoneTile` (`stone`, `terracotta`, `glaze`, `bronze`), `StatTile` | a destination; a counted-up number with its label. |
+| Chips | `MChip` (`tall`, `progress`, `setValue`), `ChipRow`, `SituationLine` | icon + number pills; a row of them; the map's sentence over chips. |
+| Pills | `addPill` (coloured: role, level, league), `addRarityPill` | a word in a small plate. |
+| Meters | `MBar` (`label`, `right`, `preview`, `rightTone`, `tip`) | a bar with a label and value; `preview` shows pending points as a gain or loss. |
+| Tips | `addTipLine` (`tone`, `card`, `dismissId`) | the one contextual tip. |
+| States | `addParchmentEmpty`, `addEconState` (loading, offline, closed) | empty and unavailable states on a parchment well. |
+| Party parts | `GearSlot`, `mountSlot`, `slotGrid`, `MPager`, `MStashGrid`, `addNiche` | Army / Hero / Settlement. |
+| Text | `rarityInk(scene, rarity)`, `mtext`, `mw`, `fit` | item names in their rarity ink; fitted one-line text. |
+
+Pick: a hub gets `addHubShell`; anything you reach from it gets `addSubShell`;
+a question or a detail is a sheet, not a screen; actions live in a `MActionBar`
+(or a `MButton` in the content), icons alone in `MIconButton`.
+
+### Legacy parts
+
+Content built before v4 (`src/ui/widgets.ts`, `kit.ts`, `sheet.ts`, `v3.ts`) is
+still used inside modals and sheets: `Button`, `Tabs`, `ScrollList`, `Grid`,
+`ItemIcon`, `StatBar`, `Meter`, `Label`, `Toggle`, `Stepper`, `showTooltip`,
+`toast`, `confirmDialog`, `openItemCard`, `openClassCard`. `openModal` and
+`openSheet` are `openParchmentSheet` with `skin: true`: `src/ui/inkSkin.ts`
+`inkify(container)` re-inks what they hold (light font keys become their ink
+forms, dark `panel_*` textures parchment wells, list fades melt into
+parchment). Only those two sheets use it; v4 screens and their parts use the
+`p*` / `r*` ink font keys directly. A part that draws its own dark surface
+calls `ownSkin(obj)`.
+
+| Piece | API (short) | Use for |
+| --- | --- | --- |
+| `openModal`, `openSheet` | `{ title, w, h, onClose, shadeCloses }` → `{ c, x, y, w, h, body, close }` | dialogs and bottom sheets from legacy content. Long content goes in a `ScrollList` in `body`. `shadeCloses: false` for confirms, tutorial steps, forced choices and forms. |
+| `confirmDialog` | `{ title, body, ok, cancel, destructive, onOk, onCancel }` | yes/no. Cancel left, OK right; every destructive action goes through it. |
+| `ScrollList`, `Grid` | `{ count, rowH / cell, render(i, ...) }` | long collections, virtualised: `render` builds a row from its index alone. |
+| `ItemIcon` | `{ item } / { consumable } / { resource }` | any item or good in its rarity frame. |
+| `tappable` | `tappable(obj, area, onTap, tip?)` | custom tap targets (ignore drags in a scroll area, click, haptic, long-press tip). |
+| `showTooltip`, `toast`, `firstTimeHint` | | explanations; short feedback (`'bad'` only for real problems); the once-per-screen hint. |
+
+Older helpers (`addPanel`, `addScroll`, `addText`, `fitText`, `confirmModal`) still work.
 
 ### Onboarding pieces
 
@@ -364,12 +324,12 @@ reward, modes).
 | `Stage` | `src/ui/sheet.ts` | the hero's figure in his gear on a lit stage. |
 | `addSlotTile`, `addMountTile` | `src/ui/sheet.ts` | equipment slots. |
 | `openItemCard` | `src/ui/sheet.ts` | the item card; with `hero` it is the compare popup. |
-| `StashGrid` | `src/ui/sheet.ts` | stash grid with filters, sort, upgrade arrows, empty states. |
+| `MStashGrid` | `src/ui/mosaic/StashGrid.ts` | stash grid with filters, sort, upgrade arrows, empty states. |
 | `DragDrop` | `src/ui/sheet.ts` | long-press a stash cell and drop it on a slot. |
 | `openClassCard` | `src/ui/sheet.ts` | a recruit's class: figure, role, strong / weak, stats, hire. |
-| `addChip`, `addStars`, `addGroupBadge`, `addTabBadge` | `src/ui/sheet.ts` | pills, rank stars, group badges, tab counts. |
-| `rarityFont(r)` | `src/ui/fonts.ts` | item names in their rarity colour. |
-| `addPurse`, `addEconState` | `src/ui/econ/widgets.ts` | balances in a top bar; outside-Telegram / offline / closed states. |
+| `addStars`, `addGroupBadge`, `addTabBadge` | `src/ui/sheet.ts` | rank stars, group badges, tab counts. |
+| `rarityInk(scene, r)` | `src/ui/mosaic/rarityInk.ts` | item names in their rarity ink on parchment (`rarityFont(r)` in `src/ui/fonts.ts` is the light form for dark stone). |
+| `addPurse`, `addEconState` | `src/ui/econ/widgets.ts` | balances in a top bar; loading / outside-Telegram / offline / closed states on a parchment well. |
 | `pickBattleConsumable(scene)` | `src/ui/econ/consumablePicker.ts` | the one-per-battle consumable picker: resolves an id, `null` (none) or `undefined` (closed). |
 
 The pure logic behind them is unit-tested: `src/game/gear.ts` (stats, compare
@@ -508,20 +468,13 @@ lost (warband, stash, gold, map) and what is kept.
   buttons by label (`Fight!`, `Play`, `Leave`...) and ability medallions by
   icon.
 
-### Strategos screens
+### Map and party screens
 
 ```
-Army (ArmyScene)       SITUATION (points to spend, wounds · men / hurt / gold) · hero head with
-                       slots · Roster | Stash tabs · STRIP: Map or Town | Sheet (badge) | Dismiss
-Online (OnlineScene)   SITUATION (marching / income waiting / energy / season · resources) · map
-                       · region panel (actions in rows of whole words) · STRIP: Army | Collect | Duels | Clan
-World (WorldScene)     SITUATION ("Day 3, 09:00 · Road, safe. Tap the map to march…" · gold / fit
-                       men / food · days / supplies) · map · STRIP: Menu | Camp | Stop or Rest | Party
+Army (ArmyScene)       sub-screen shell · hero head with slots · Roster | Stash switch · MActionBar (parchment): Map or Town | Sheet (badge) | Dismiss
+Online (OnlineScene)   hub shell (War) · the hex map in the frame's window · BottomPanel (the hex's actions) · tab bar
+World (WorldScene)     map shell (top bar strip) · SituationLine (sentence + chips) · map · MActionBar (stone): Camp | Rest or Stop | Party
 ```
-
-To move a screen onto this chrome: replace its top bar with a `SituationBar`,
-its bottom buttons with a `CommandStrip`, any tab row of actions with chips,
-and keep the content between `sit.bottom` and `strip.top`.
 
 ## Layout check
 

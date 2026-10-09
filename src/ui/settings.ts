@@ -77,7 +77,7 @@ const REBUILD_ON_LANG = new Set(['Menu', 'Codex', 'World', 'Settlement', 'Army',
 const open = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
 
 /**
- * The settings sheet (slides up; Back, a tap outside or Close shut it):
+ * The settings sheet (slides up; Back, a tap outside or the X shut it):
  * sections with switches, steppers and the language as a segmented control.
  * `onClose` runs when it closes.
  */
@@ -88,10 +88,10 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
   const rowH = 24;
   const step = rowH + SIZE.gap;
   const w = Math.min(VW - 8, 240);
-  const want = 26 + ROWS.length * step + 8 + SIZE.btnH + 14;
+  const want = 26 + ROWS.length * step + 14;
   const m = openSheet(scene, { title: t('settings.title'), w, h: Math.min(want, VH - 12), onClose });
   const { c, body } = m;
-  const listH = body.h - SIZE.btnH - 8;
+  const listH = body.h;
   let list: ScrollList | null = null;
   list = new ScrollList(scene, c, body.x, body.y, body.w, listH, {
     count: ROWS.length,
@@ -206,7 +206,6 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
       }
     },
   });
-  c.add(new Button(scene, body.x, body.y + body.h - SIZE.btnH, body.w, SIZE.btnH, { label: t('common.close'), variant: 'ghost', id: 'settings.close', onClick: () => m.close() }));
   open.set(scene, c);
   c.once('destroy', () => {
     if (open.get(scene) === c) open.delete(scene);

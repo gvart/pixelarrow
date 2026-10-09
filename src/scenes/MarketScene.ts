@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addIcon, addPanel, addText, type FontKey } from '../ui/kit';
-import { Grid, ItemIcon, ScrollList, addEmptyState, confirmDialog, openModal, showTooltip, subjectName, toast, type IconSubject } from '../ui/widgets';
+import { Grid, ItemIcon, ScrollList, confirmDialog, openModal, showTooltip, subjectName, toast, type IconSubject } from '../ui/widgets';
 import { uiId } from '../ui/layout';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import { MOSAIC } from '../ui/tokens';
 import { makePressable } from '../ui/mosaic/base';
 import { SIZE } from '../ui/theme';
 import { ensureFonts, rarityFont } from '../ui/fonts';
-import { GAP, MButton, MChip, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
+import { GAP, addParchmentEmpty, MButton, MChip, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
 import { bigItemIcon, itemName, openItemCard } from '../ui/sheet';
 import { econ, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
@@ -270,7 +270,7 @@ export class MarketScene extends BaseScene {
     }
     if (!this.listings.length) {
       this.page.add(mosaicImage(this, x0, y, w, h, 'parchment'));
-      this.page.add(addEmptyState(this, x0 + 2, y + 2, w - 4, h - 4, { icon: 'coin', title: t('market.empty'), hint: t('market.emptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
+      this.page.add(addParchmentEmpty(this, x0 + 2, y + 2, w - 4, h - 4, { icon: 'coin', title: t('market.empty'), hint: t('market.emptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
       return;
     }
     const rows = this.listings.length + (this.next !== null ? 1 : 0);
@@ -508,7 +508,7 @@ export class MarketScene extends BaseScene {
     const h = this.pageBottom() - y;
     if (!mine.listings.length) {
       this.page.add(mosaicImage(this, x0, y, w, h, 'parchment'));
-      this.page.add(addEmptyState(this, x0 + 2, y + 2, w - 4, h - 4, { icon: 'flag', title: t('market.mineEmpty'), hint: t('market.mineEmptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
+      this.page.add(addParchmentEmpty(this, x0 + 2, y + 2, w - 4, h - 4, { icon: 'flag', title: t('market.mineEmpty'), hint: t('market.mineEmptyHint'), action: { label: t('market.tab.sell'), icon: 'coin', onClick: () => ((this.tab = 'sell'), this.render(), void this.refreshTab()) } }));
       return;
     }
     const now = Date.now();
@@ -589,7 +589,7 @@ export class MarketScene extends BaseScene {
     const list = this.sellables(b);
     if (!list.length) {
       this.page.add(mosaicImage(this, x0, top, w, bottom - top, 'parchment'));
-      this.page.add(addEmptyState(this, x0 + 2, top + 2, w - 4, bottom - top - 4, { icon: 'coin', title: t('market.sellEmpty'), hint: t('market.sellEmptyHint') }));
+      this.page.add(addParchmentEmpty(this, x0 + 2, top + 2, w - 4, bottom - top - 4, { icon: 'coin', title: t('market.sellEmpty'), hint: t('market.sellEmptyHint') }));
       return;
     }
     this.page.add(mtext(this, x0 + w / 2, top + 1, t('market.sellHint'), 'pSec', { size: 6.5, align: 0.5, maxW: w }));
