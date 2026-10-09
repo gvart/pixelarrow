@@ -62,6 +62,7 @@ export const BEASTS_EN = {
   'boss.hp': 'HP {hp} / {max}',
   'boss.top': 'Top damage',
   'boss.you': 'You: {dmg}',
+  'boss.chest': 'Your chest: {name}',
   'boss.attack': 'Raid it',
   'boss.dead': 'Slain! Loot shared by damage.',
   'boss.none': 'No damage yet. Be the first.',

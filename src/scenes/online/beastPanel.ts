@@ -16,6 +16,7 @@ import type { EncounterId } from '../../data/beasts';
 import { t } from '../../i18n';
 import type { UIMetrics } from '../../ui/kit';
 import type { Modal } from '../../ui/widgets';
+import { itemName } from '../../ui/sheet';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
@@ -31,6 +32,7 @@ export function bossLines(b: BossView): string[] {
   } else out.push(t('boss.none'));
   if (b.clans.length) out.push(b.clans.slice(0, 2).map((c) => `[${c.tag}] ${num(c.damage)}`).join('  '));
   out.push(`${t('boss.you', { dmg: num(b.you.damage) })} (${t('boss.raids', { n: b.you.raids })})`);
+  if (b.you.chest) out.push(t('boss.chest', { name: itemName(b.you.chest.item) }));
   out.push(t('boss.segment', { s: b.segment }));
   return out;
 }

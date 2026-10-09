@@ -12,7 +12,7 @@ import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
-import { itemDef, SLOTS, type Item, type Slot } from '../../../src/data/items';
+import { isBound, itemDef, salvageValue, SLOTS, type Item, type Slot } from '../../../src/data/items';
 import { equipBlocker, equipBlockerText, equipInto, unequipInto } from '../../../src/game/gear';
 import { FORMATION_TYPES, type FormationType } from '../../../src/sim/formation';
 import { siteName } from '../../../src/world/battlefield';
@@ -552,6 +552,29 @@ online.post('/equip', async (c) => {
     ),
   ]);
   return c.json({ hero, stash: await loadItems(pc.db, pc.season.id, pc.pid) });
+});
+
+/**
+ * Salvages a bound stash item (named legendaries, legendary set pieces: never
+ * listed or sold, docs/ITEMS.md "Bound items") for a quarter of its value in
+ * gold. Idempotent: the gold is paid only while the item is still there, and
+ * a retry after it is gone answers `salvaged: false`.
+ */
+online.post('/salvage', async (c) => {
+  limit(c, 'salvage', 60);
+  const pc = await player(c);
+  const body = await readJson(c, z.object({ uid: z.string().max(80) }), 1024);
+  const it = (await loadItems(pc.db, pc.season.id, pc.pid)).find((i) => i.uid === body.uid);
+  if (!it) return c.json({ salvaged: false, gold: 0, profile: await profileView(pc) });
+  if (!isBound(it)) throw new ApiError(409, 'not_bound', 'Only bound gear is salvaged: sell it on the marketplace instead');
+  const gold = salvageValue(it);
+  const has = `EXISTS (SELECT 1 FROM online_items WHERE uid = ?3 AND season_id = ?1 AND player_id = ?2)`;
+  const res = await pc.db.batch([
+    pc.db.prepare(`UPDATE online_profiles SET gold = gold + ?4, rev = rev + 1, updated_at = ?5 WHERE season_id = ?1 AND player_id = ?2 AND ${has}`).bind(pc.season.id, pc.pid, it.uid, gold, pc.now),
+    pc.db.prepare('DELETE FROM online_items WHERE uid = ?1 AND season_id = ?2 AND player_id = ?3').bind(it.uid, pc.season.id, pc.pid),
+  ]);
+  const done = res[0].meta.changes === 1;
+  return c.json({ salvaged: done, gold: done ? gold : 0, profile: await profileView(await player(c)) });
 });
 
 const ArmyBody = z.object({ groups: z.record(HeroId, z.number().int().min(0).max(3)).optional(), formations: Formations.optional(), reserve: z.record(HeroId, z.boolean()).optional() });
