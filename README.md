@@ -26,6 +26,8 @@ audio files.
   requirements.
 - [docs/DUELS.md](docs/DUELS.md): duels: the duel army, ladder, ranked live
   and async, seasons, the duel shop and the war-map merchants.
+- [docs/screens/](docs/screens/README.md): screenshots of every screen, grouped
+  by flow, with what each one does (a reference for redesigns).
 - [docs/UI_KIT.md](docs/UI_KIT.md): how screens look and are built, and the
   layout check.
 - [docs/ART_STYLE.md](docs/ART_STYLE.md): the art style the procedural
