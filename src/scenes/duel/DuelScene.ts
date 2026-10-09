@@ -1768,7 +1768,7 @@ export class DuelScene extends BaseScene {
     const sentence = !a
       ? t('duels.sit.loading')
       : !a.unlocked
-        ? t('duels.sit.raidLocked', { n: a.unlockLevel, l: p.level })
+        ? t('duels.sit.raidLocked', { n: a.unlockLevel, l: levelProgress(p.xp).level })
         : !a.defence
           ? t('duels.sit.raidNoDefence')
           : a.attacks.left <= 0
@@ -2347,7 +2347,7 @@ export class DuelScene extends BaseScene {
         const { cls: id, level } = DUEL_CLASSES[i];
         const sample = duelRecruit(7 + i, { nextId: 1 }, 'sample_', id, []);
         const cls = CLASSES[id];
-        const locked = p.level < level;
+        const locked = levelProgress(p.xp).level < level;
         const price = recruitPrice(id);
         const pw = rw - 3;
         row.add(addPanel(this, 0, 0, pw, rh - 2, locked ? 'inset' : 'button'));
