@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { sweepPanels, uiMetrics, type UIMetrics } from '../ui/kit';
-import { registerScreen, navLayer, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
+import { registerScreen, navLayer, navMotion, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
+import { motion } from '../ui/motion';
+import { MOTION } from '../ui/tokens';
 import { openSettings } from '../ui/settings';
 import { renderGround } from '../art/ground';
 
@@ -40,10 +42,32 @@ export abstract class BaseScene extends Phaser.Scene {
     });
     // the screen before this one is gone and this one is built: free the big panels nothing shows any more
     this.events.once('update', () => sweepPanels(this.game));
+    this.enterMotion();
   }
+
+  /**
+   * The screen enters: a short slide (from the right when drilling down, from
+   * the left after Back) with a fade, 200 ms ease-out. A relayout (new screen
+   * size) and reduced motion enter at once.
+   */
+  private enterMotion(): void {
+    const back = navMotion.back;
+    navMotion.back = false;
+    if (motion.reduced || this.relayingOut) return;
+    const ui = this.ui;
+    const dx = (back ? -6 : 6) * this.m.S;
+    ui.x = dx;
+    ui.alpha = 0;
+    this.tweens.add({ targets: ui, x: 0, alpha: 1, duration: MOTION.slide, ease: 'Cubic.easeOut' });
+  }
+
+  /** Set while the scene restarts for a new screen size (no entry motion then). */
+  protected relayingOut = false;
 
   /** Default: rebuild the scene with the same data. */
   protected onResized(): void {
+    this.relayingOut = true;
+    this.events.once('create', () => (this.relayingOut = false));
     this.scene.restart(this.sys.settings.data);
   }
 

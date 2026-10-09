@@ -38,6 +38,13 @@ export function tweenTo(scene: Phaser.Scene, targets: object | object[], props: 
   return scene.tweens.add({ targets, ...props, duration, delay: o.delay ?? 0, ease: o.ease ?? 'Cubic.easeOut', onComplete: o.onComplete, onUpdate: o.onUpdate });
 }
 
+/** A page that just replaced another (a tab switch) fades in: a crossfade, 180 ms. */
+export function fadeIn(scene: Phaser.Scene, target: { alpha: number }, duration = 180): void {
+  if (motion.reduced) return;
+  target.alpha = 0;
+  scene.tweens.add({ targets: target, alpha: 1, duration, ease: 'Cubic.easeOut' });
+}
+
 /** A gentle endless pulse of `prop` between `from` and `to` (claimable rewards, the current floor). Off under reduced motion. */
 export function pulse(scene: Phaser.Scene, target: object, prop: string, from: number, to: number, duration = 900): Phaser.Tweens.Tween | null {
   if (motion.reduced) return null;

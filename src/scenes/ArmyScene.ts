@@ -154,7 +154,7 @@ export class ArmyScene extends BaseScene {
     const backLabel = this.back.from === 'Settlement' ? t('army.town') : this.back.from === 'Camp' ? t('army.camp') : t('army.map');
     this.strip.set({
       left: { label: backLabel, icon: 'map', id: 'army.back', onClick: () => this.goBack() },
-      main: { label: t('army.sheet'), icon: 'star', badge: pend ? '!' : 0, tip: pend ? `${t('army.sheetTip')} ${t('army.pending')}.` : t('army.sheetTip'), id: 'army.sheet', off: h ? undefined : t('army.noHeroes'), onClick: () => this.openHero() },
+      main: { label: t('army.sheet'), icon: 'people', badge: pend ? '!' : 0, tip: pend ? `${t('army.sheetTip')} ${t('army.pending')}.` : t('army.sheetTip'), id: 'army.sheet', off: h ? undefined : t('army.noHeroes'), onClick: () => this.openHero() },
       extra: this.compact && h ? { label: ROMAN[h.group], tip: `${t('army.group')}: ${groupName(h.group)}. ${t('army.groupTip')}`, id: 'army.group', onClick: () => this.setGroup((h.group + 1) % 4) } : null,
       right: { label: t('army.dismiss'), icon: 'skull', destructive: true, id: 'army.dismiss', off: c.heroes.length > 1 ? undefined : t('army.dismissLast'), onClick: () => this.dismiss() },
     });

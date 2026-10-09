@@ -9,6 +9,7 @@ import { SIZE } from '../ui/theme';
 import { CommandStrip } from '../ui/strategos';
 import { InfoChip, ScreenHeader, addSection, addTipLine, confirmPurchase, flyReward, layChips, purchaseButton, resourceChip, ProgressBar, addClaimGlow } from '../ui/v3';
 import { ACCENT, ROLE, SURFACE } from '../ui/tokens';
+import { fadeIn } from '../ui/motion';
 import { walletOverdrawn } from '../game/economy';
 import { ensureFonts } from '../ui/fonts';
 import { addChip, frameScrollTexts } from '../ui/sheet';
@@ -159,6 +160,7 @@ export class ShopScene extends BaseScene {
       icons: ['shop', 'pass', 'drachma'],
       onChange: (i) => {
         this.tab = TABS[i];
+        fadeIn(this, this.page);
         this.buildPage();
       },
     });

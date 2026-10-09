@@ -371,7 +371,7 @@ export class OnlineArmyScene extends BaseScene {
     const bw = Math.floor((VW - 8 - mapW - n * SIZE.gap) / n);
     this.body.add(new Button(this, 4, y, bw, 30, { label: t('army.recruit'), icon: 'plus', id: 'oarmy.recruit', onClick: () => this.openRecruit(p) }));
     this.body.add(new Button(this, 4 + bw + SIZE.gap, y, bw, 30, { label: t('oarmy.market'), icon: 'coin', id: 'oarmy.market', onClick: () => this.scene.start('Market', { back: { scene: 'OnlineArmy' } }) }));
-    this.body.add(new Button(this, 4 + 2 * (bw + SIZE.gap), y, bw, 30, { label: t('shop.title'), icon: 'star', id: 'oarmy.shop', onClick: () => this.scene.start('Shop', { back: { scene: 'OnlineArmy' } }) }));
+    this.body.add(new Button(this, 4 + 2 * (bw + SIZE.gap), y, bw, 30, { label: t('shop.title'), icon: 'shop', id: 'oarmy.shop', onClick: () => this.scene.start('Shop', { back: { scene: 'OnlineArmy' } }) }));
     this.body.add(new Button(this, VW - 4 - mapW, y, mapW, 30, { icon: 'map', label: t('army.map'), iconOnly: true, variant: 'primary', id: 'oarmy.map', onClick: () => this.back() }));
   }
 

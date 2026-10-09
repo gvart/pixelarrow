@@ -8,6 +8,7 @@ import { SIZE, COLOR } from '../ui/theme';
 import { CommandStrip } from '../ui/strategos';
 import { InfoChip, Pager, ProgressBar, ScreenHeader, addClaimGlow, addSection, addSwipe, addTipLine, layChips } from '../ui/v3';
 import { ACCENT, RESOURCES, SURFACE } from '../ui/tokens';
+import { fadeIn } from '../ui/motion';
 import { ensureFonts } from '../ui/fonts';
 import {
   DragDrop, Stage, StashGrid, addChip, frameScrollTexts, addMountTile, addSlotTile, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
@@ -264,6 +265,7 @@ export class HeroScene extends BaseScene {
 
   private setTab(tab: Tab): void {
     this.tab = tab;
+    fadeIn(this, this.page);
     this.buildPage();
   }
 
@@ -585,12 +587,12 @@ export class HeroScene extends BaseScene {
     c.add(new Button(this, x + 6, by, bw, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
     const learn = new Button(this, x + w - 6 - bw, by, bw, SIZE.btnH, {
       label: known ? t('hero.perk.learned') : t('hero.perk.learn'),
-      icon: known ? 'check' : 'star',
+      icon: known ? 'check' : 'aura',
       variant: 'primary',
       id: 'hero.perk.learn',
       onClick: () => {
         m.close();
-        confirmDialog(this, { title: t('hero.perk.learnTitle', { name }), body: t('hero.perk.learnBody'), ok: t('hero.perk.learn'), cancel: t('common.cancel'), okIcon: 'star', onOk: () => this.takePerk(p.id) });
+        confirmDialog(this, { title: t('hero.perk.learnTitle', { name }), body: t('hero.perk.learnBody'), ok: t('hero.perk.learn'), cancel: t('common.cancel'), okIcon: 'check', onOk: () => this.takePerk(p.id) });
       },
     });
     if (known || blocker) learn.setEnabled(false, known ? t('hero.perk.learned') : blockerText(blocker!, tree, tier));
@@ -630,7 +632,7 @@ export class HeroScene extends BaseScene {
       if (p.aura && !s.auras.includes(p.aura)) rows.push({ kind: 'aura', id: p.aura, has: false, source: when });
     });
     if (!rows.length) {
-      this.page.add(addEmptyState(this, 4, top, VW - 8, this.pageBottom() - top, { icon: 'bash', title: t('hero.noAbilities'), hint: t('hero.noAbilitiesHint'), action: { label: t('hero.tab.perks'), icon: 'star', onClick: () => this.tabs?.select(2) } }));
+      this.page.add(addEmptyState(this, 4, top, VW - 8, this.pageBottom() - top, { icon: 'bash', title: t('hero.noAbilities'), hint: t('hero.noAbilitiesHint'), action: { label: t('hero.tab.perks'), icon: 'aura', onClick: () => this.tabs?.select(2) } }));
       return;
     }
     const area = this.scrollArea(top, this.pageBottom() - top);

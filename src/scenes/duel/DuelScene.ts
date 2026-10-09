@@ -36,6 +36,7 @@ import {
   InfoChip, ProgressBar, ScreenHeader, addCard, addClaimGlow, addLocked, addTipLine, layChips, openSheet, resourceChip, type HeaderAction,
 } from '../../ui/v3';
 import { ACCENT, RESOURCES, SURFACE, TEXT } from '../../ui/tokens';
+import { fadeIn } from '../../ui/motion';
 import {
   DragDrop, StashGrid, addChip, addGroupBadge, addStars, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName,
   type StashState,
@@ -397,6 +398,7 @@ export class DuelScene extends BaseScene {
     if (this.blocked()) return;
     this.mode = mode;
     this.tab = mode;
+    fadeIn(this, this.body);
     if (mode === 'ranked') return this.openArena('home');
     if (this.profile && this.st === 'ready') this.buildBody();
   }
@@ -416,6 +418,8 @@ export class DuelScene extends BaseScene {
    */
   protected onResized(): void {
     this.relayout = true;
+    this.relayingOut = true;
+    this.events.once('create', () => (this.relayingOut = false));
     this.scene.restart({ tab: this.tab, mode: this.mode, shop: this.shopTab, arena: this.arenaTab, board: this.board, preview: this.src.demo } satisfies DuelSceneData);
   }
 
@@ -822,7 +826,7 @@ export class DuelScene extends BaseScene {
     // the next floor (short screens: the strip's Fight and the glowing tile say it)
     if (!this.compact) {
       if (done) {
-        B.add(addEmptyState(this, cx, y, cw, 40, { icon: 'star', title: t('duels.ladderDone'), hint: t('duels.ladderDoneHint', { n: LADDER.floors }) }));
+        B.add(addEmptyState(this, cx, y, cw, 40, { icon: 'trophy', title: t('duels.ladderDone'), hint: t('duels.ladderDoneHint', { n: LADDER.floors }) }));
         y += 46;
       } else {
         const ch = 58;
@@ -1071,7 +1075,7 @@ export class DuelScene extends BaseScene {
     const gl = t('duels.note.glory', { n: r.glory });
     const gw = 24 + 4 + measureText(gl) * 1.5;
     const gx = Math.round(x + w / 2 - gw / 2);
-    c.add(scaleIcon(addIcon(this, gx, y, 'star'), 2));
+    c.add(scaleIcon(addIcon(this, gx, y, 'laurel'), 2));
     c.add(addText(this, gx + 28, y + 6, gl, 'gold').setScale(1.5));
     y += 30;
     const it = r.item;
@@ -2367,7 +2371,7 @@ export class DuelScene extends BaseScene {
         }
         const b = new Button(this, narrow ? tx : pw - bw - 3, narrow ? 24 : 4, bw, narrow ? 22 : 24, {
           label: `${price}`,
-          icon: 'star',
+          icon: 'laurel',
           inline: true,
           id: 'duel.hire',
           tip: t('duels.hireTip', { name: className(sample), n: price }),
@@ -2649,7 +2653,7 @@ export class DuelScene extends BaseScene {
       item: sample(o),
       title: t('duels.shopItem'),
       worth: false,
-      actions: [{ label: sold ? t('duels.soldOut') : t('duels.buyFor', { n: o.price }), icon: 'star', variant: 'primary', id: 'duel.buyCard', disabled: sold ? t('duels.soldOut') : p.glory < o.price ? t('duels.noGlory') : undefined, onClick: () => this.buy(o) }],
+      actions: [{ label: sold ? t('duels.soldOut') : t('duels.buyFor', { n: o.price }), icon: 'laurel', variant: 'primary', id: 'duel.buyCard', disabled: sold ? t('duels.soldOut') : p.glory < o.price ? t('duels.noGlory') : undefined, onClick: () => this.buy(o) }],
     });
   }
 
@@ -2667,7 +2671,7 @@ export class DuelScene extends BaseScene {
       actions: [
         {
           label: t('duels.sell', { n: price }),
-          icon: 'star',
+          icon: 'laurel',
           id: 'duel.sell',
           onClick: () =>
             confirmDialog(this, {

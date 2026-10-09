@@ -108,6 +108,7 @@ const SCREENS = [
   { id: 'kit-controls', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 0 }), wait(p, 1500)) },
   { id: 'kit-items', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 1 }), wait(p, 700)) },
   { id: 'kit-lists', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 2 }), wait(p, 700)) },
+  { id: 'kit-v3', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 3 }), wait(p, 700)) },
   // the shop with the API down (503): the "closed" state
   { id: 'menu-shop', owner: 'B', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openShop(); return 1;'), wait(p, 1200)) },
   // economy screens on the in-memory demo economy (src/ui/econ/demo.ts)

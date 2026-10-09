@@ -123,7 +123,7 @@ export class ResultsScene extends BaseScene {
     const W = VW - 12;
     this.tabs = new Tabs(this, 6, ty, W, PAGES.map((p) => t(`results.tab.${p}` as TKey)), {
       selected: PAGES.indexOf(this.page),
-      icons: W >= 200 ? ['star', 'people', 'coin'] : undefined,
+      icons: W >= 200 ? ['trophy', 'people', 'chest'] : undefined,
       ids: PAGES.map((p) => `results.tab.${p}`),
       onChange: (i) => this.showPage(PAGES[i]),
     });
@@ -287,8 +287,8 @@ export class ResultsScene extends BaseScene {
       { icon: 'hourglass', key: 'time', value: r.duration, text: formatDuration(r.duration) },
       { icon: 'swords', key: 'kills', value: r.kills },
       { icon: 'skull', key: 'losses', value: r.losses, font: r.losses > 0 ? 'red' : 'ink' },
-      r.glory !== undefined ? { icon: 'star', key: 'glory', value: r.glory, prefix: '+', font: 'good' } : { icon: 'coin', key: 'gold', value: r.gold, prefix: '+', font: 'good' },
-      { icon: 'star', key: 'xp', value: r.xp, prefix: '+', font: 'good' },
+      r.glory !== undefined ? { icon: 'laurel', key: 'glory', value: r.glory, prefix: '+', font: 'good' } : { icon: 'coin', key: 'gold', value: r.gold, prefix: '+', font: 'good' },
+      { icon: 'xp', key: 'xp', value: r.xp, prefix: '+', font: 'good' },
     ];
     tiles.forEach((tl, i) => {
       const row = Math.floor(i / 3);
@@ -339,7 +339,7 @@ export class ResultsScene extends BaseScene {
   }
 
   private iconOr(name: string): string {
-    return this.textures.exists(`icon_${name}`) ? name : 'star';
+    return this.textures.exists(`icon_${name}`) ? name : 'info';
   }
 
   /** The hero of the battle: portrait in a gold frame, name, class, kills and damage. */
@@ -369,8 +369,8 @@ export class ResultsScene extends BaseScene {
     const tx = fx + fs + 6;
     const tw = w - tx - 6;
     const ty = y + Math.max(4, Math.round((h - 41) / 2));
-    c.add(addIcon(this, tx, ty - 2, 'star'));
-    c.add(addText(this, tx + 14, ty, ellipsize(t('results.mvp'), tw - 14), 'red'));
+    c.add(addIcon(this, tx, ty - 2, 'laurel'));
+    c.add(addText(this, tx + 14, ty, ellipsize(t('results.mvp'), tw - 14, false, 7, 'head'), 'head'));
     const cls = mvp.hero ? heroClass(mvp.hero) : null;
     c.add(addText(this, tx, ty + 11, ellipsize(mvp.name, tw), 'ink'));
     if (cls) c.add(addText(this, tx, ty + 21, ellipsize(tOr(`class.${cls.id}.name`, cls.name), tw), 'dim'));
@@ -560,9 +560,9 @@ export class ResultsScene extends BaseScene {
     c.removeAll(true);
     const area = this.pageArea;
     if (!this.revealed.has(i)) {
-      // face down: a dark card with a gold star
+      // face down: a dark card with a chest
       c.add(addPanel(this, 0, 0, w, h, 'dark'));
-      c.add(addIcon(this, Math.round((w - 12) / 2), Math.round((h - 12) / 2), 'star', 'D'));
+      c.add(addIcon(this, Math.round((w - 12) / 2), Math.round((h - 12) / 2), 'chest', 'D'));
       return;
     }
     const it = this.report.loot[i];

@@ -118,8 +118,9 @@ export function attachWebApp(wa: TgWebApp): void {
   });
   safe(() => {
     if (wa.isVersionAtLeast?.('6.1')) {
-      wa.setHeaderColor?.('#2b1d1a');
-      wa.setBackgroundColor?.('#2b1d1a');
+      // the game's own dark identity (src/ui/tokens.ts SURFACE.bg), not the Telegram theme
+      wa.setHeaderColor?.('#14100c');
+      wa.setBackgroundColor?.('#14100c');
     }
   });
   const v8 = !!wa.isVersionAtLeast?.('8.0');
