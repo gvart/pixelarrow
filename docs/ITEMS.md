@@ -1,9 +1,12 @@
 # Items: rarity, random stats, powers, sets and sources
 
-Status: **partly built** (branch `items/system`): random stats, requirements,
-class limits, the 43 new items, set stat bonuses and the item card are in;
-powers and set special lines in battle, the new drop sources and duel points
-are next. Where this page and the code differ, the code wins.
+Status: **partly built**. Step 1 (random stats, requirements, class limits,
+the 43 new items, set stat bonuses, the item card) and step 2 (powers, set
+special lines and the named items' extras in battle, `src/sim/powers.ts`;
+the rebalance below) are in. Step 3 is next: drop sources for set pieces and
+named items, loot weighted to the army's classes, per-duel spoils, bad-luck
+protection and duel point costs. Where this page and the code differ, the
+code wins.
 
 Before this work an item's rarity only multiplied its
 base stats (×1 to ×1.6, `RARITY_MULT` in `src/data/items.ts`), so a
@@ -26,8 +29,8 @@ With them the game has **178 items**.
 | Rare | +2 random stats |
 | Epic | +3 random stats and 1 **power** (grade I) |
 | Legendary | +4 random stats and 1 **power** (grade II) |
-| Random stats | rolled from the slot's pool, never the same stat twice on an item; each rolls 1-2 **steps** (epic and legendary 2-3) |
-| Base stats | still scale with rarity, but less: ×1, 1.05, 1.10, 1.15, 1.20 (was up to ×1.6): the random stats and the power carry the difference |
+| Random stats | rolled from the slot's pool, never the same stat twice on an item; each rolls 1-2 **steps** |
+| Base stats | still scale with rarity, but less: ×1, 1.03, 1.06, 1.07, 1.08 (was up to ×1.6): the random stats and the power carry the difference |
 | Powers | 16 proc and aura effects (double hit at a blood price, attack speed on kill, max-HP sunder...), in two grades |
 | Sets | 3 rare sets (3 pieces), 3 epic sets (4 pieces), 2 legendary sets (5 pieces); bonuses at 2, 3, 4, 5 pieces |
 | Named legendaries | 12 fixed items with a fixed power and story, each from one boss |
@@ -145,13 +148,16 @@ Gear a hero lacks the stats for stays on with the soft penalty. Duel respec
 | Rarity | Colour | Base stats | Random stats | Steps per stat | Power | Duel points |
 | --- | --- | --- | --- | --- | --- | --- |
 | Common | grey | ×1.00 | 0 | - | - | 0 |
-| Uncommon | green | ×1.05 | 1 | 1-2 | - | 1 |
-| Rare | blue | ×1.10 | 2 | 1-2 | - | 2 |
-| Epic | purple | ×1.15 | 3 | 2-3 | grade I | 4 |
-| Legendary | gold | ×1.20 | 4 | 2-3 | grade II | 6 |
-| Named legendary | gold, red gem on the frame | ×1.20 | fixed | fixed | fixed, grade II | 7 |
+| Uncommon | green | ×1.03 | 1 | 1-2 | - | 1 |
+| Rare | blue | ×1.06 | 2 | 1-2 | - | 2 |
+| Epic | purple | ×1.07 | 3 | 1-2 | grade I | 4 |
+| Legendary | gold | ×1.08 | 4 | 1-2 | grade II | 6 |
+| Named legendary | gold, red gem on the frame | ×1.08 | fixed | fixed | fixed, grade II | 7 |
 
-Steps are rolled per stat, so two rares of the same base item differ. A step
+Steps are rolled per stat, so two rares of the same base item differ (step 2
+first had epic and legendary at 2-3 steps and base stats up to ×1.20; the
+rebalance against the targets below brought both down, `AFFIX_STEPS` and
+`RARITY_MULT`). A step
 is a fixed size per stat (table below); storing steps instead of values lets
 balance retune a stat without touching saves.
 
@@ -201,10 +207,10 @@ Examples (base stats already scaled by rarity):
 
 | Item | Rolls |
 | --- | --- |
-| Uncommon Xiphos | dmg 8.4, reach 1.1, attack 1.0 s; **Swift** +6% attack speed (2 steps) |
-| Rare Hoplon | block 0.50, armour 1.1; **Stalwart** +4% block (2), **Brave** +3 morale (1) |
-| Epic Kopis of Frenzy | dmg 10.9; **Keen** +1.5 dmg (3), **Hooking** +4% block pierce (2), **True** +3% accuracy (2); power **Battle Frenzy I** |
-| Legendary Composite bow of Twin Shot | missile dmg up 20%; **Deadly** +1.8 (3), **Far** +0.8 range (2), **Plenty** +6 arrows (3), **Piercing** +6% armour pierce (2); power **Twin Shot II** |
+| Uncommon Xiphos | dmg 8.2, reach 1.1, attack 1.0 s; **Swift** +6% attack speed (2 steps) |
+| Rare Hoplon | block 0.48, armour 1.1; **Stalwart** +4% block (2), **Brave** +3 morale (1) |
+| Epic Kopis of Frenzy | dmg 10.2; **Keen** +1.0 dmg (2), **Hooking** +4% block pierce (2), **True** +1.5% accuracy (1); power **Battle Frenzy I** |
+| Legendary Composite bow of Twin Shot | missile dmg up 8%; **Deadly** +1.2 (2), **Far** +0.8 range (2), **Plenty** +4 arrows (2), **Piercing** +3% armour pierce (1); power **Twin Shot II** |
 
 ## Powers
 
@@ -217,22 +223,28 @@ server verification still match. A proc shows its power icon over the hero
 
 | Power | Slots | Grade I (epic) | Grade II (legendary) |
 | --- | --- | --- | --- |
-| **Blood Price** | melee weapon | 12% chance on hit: the hit does double damage, and the wearer loses 5% of max HP (never below 1) | 18% chance, same cost |
-| **Battle Frenzy** | weapon, trinket | on a kill: +20% attack speed for 6 s (refreshes, does not stack) | +30% attack speed for 6 s |
-| **Sunder** | weapon | 10% chance on hit: the target's max HP drops by 10% for 8 s (its HP is capped to the new max) | 15% chance, max HP -15% for 8 s |
-| **Rend Armour** | weapon | 15% chance on hit: target armour -2 for 6 s, stacks twice | 25% chance, armour -3, stacks twice |
-| **Second Wind** | armour, trinket | once per battle, when HP drops below 30%: heal 20% of max HP and +30 stamina | heal 30% and +50 stamina |
-| **Aegis** | shield | every 12 s the next frontal or side hit is blocked for sure | every 8 s |
-| **Retribution** | armour, shield | melee attackers take 15% of the damage they deal back | 25% back |
-| **Wolf's Hunger** | melee weapon | heal 6% of the damage dealt | heal 10% |
-| **Terror** | weapon, helmet | on a kill: enemies within 3 units lose 8 morale | lose 12 morale |
-| **Steadfast** | helmet, trinket | aura: allies within 3 units take 10% less morale damage | 15% less |
-| **Eagle Eye** | ranged weapon | 15% chance a missile ignores block | 25% chance |
-| **Twin Shot** | ranged weapon | 10% chance to loose a second missile for free (no ammo) | 15% chance |
-| **Unshaken** | armour, helmet | charges cannot stun the wearer; charge damage taken -20% | -35% |
-| **Momentum** | spear or lance, shield, trinket | charge impact damage +25% and charge stun +0.3 s | +40% and +0.5 s |
-| **Last Stand** | armour, trinket | below 25% HP: +20% damage and the wearer cannot rout | +35% damage |
-| **Executioner** | weapon | +30% damage against targets below 30% HP | +50% |
+| **Blood Price** | melee weapon | 8% chance on hit: the hit does double damage, and the wearer loses 5% of max HP (never below 1) | 10% chance, same cost |
+| **Battle Frenzy** | weapon, trinket | on a kill: +20% attack speed (and shot speed) for 6 s (refreshes, does not stack) | +25% for 6 s |
+| **Sunder** | weapon | 8% chance on hit: the target's max HP drops by 10% for 8 s (its HP is capped to the new max) | 10% chance, max HP -12% for 8 s |
+| **Rend Armour** | weapon | 10% chance on hit: target armour -1.5 for 6 s, stacks twice | 12% chance, armour -2, stacks twice |
+| **Second Wind** | armour, trinket | once per battle, when HP drops below 30%: heal 15% of max HP and +30 stamina | heal 20% and +40 stamina |
+| **Aegis** | shield | every 16 s the next frontal or side hit (blow or missile) is blocked for sure | every 13 s |
+| **Retribution** | armour, shield | melee attackers take 8% of the damage they deal back (armour does not stop it) | 10% back |
+| **Wolf's Hunger** | melee weapon | heal 5% of the damage dealt | heal 7% |
+| **Terror** | weapon, helmet | on a kill: enemies within 3 units of the fallen lose 4 morale | lose 5 morale |
+| **Steadfast** | helmet, trinket | aura: allies within 3 units (the wearer too) take 5% less morale damage | 7% less |
+| **Eagle Eye** | ranged weapon | 15% chance a missile ignores block | 20% chance |
+| **Twin Shot** | ranged weapon | 10% chance to loose a second missile for free (no ammo) | 13% chance |
+| **Unshaken** | armour, helmet | charges (and a beast's charge or leap) cannot stun the wearer; charge damage taken -20% | -30% |
+| **Momentum** | spear or lance, shield, trinket | charge impact damage +25% and charge stun +0.3 s | +35% and +0.4 s |
+| **Last Stand** | armour, trinket | below 25% HP: +20% damage and the wearer cannot rout | +30% damage |
+| **Executioner** | weapon | +30% damage against targets below 30% HP | +40% |
+
+The first numbers (grade I up to 12% Blood Price, Terror 8 / 12 morale,
+Steadfast 10% / 15%, Retribution 15% / 25%...) made an epic kit win 95%
+against common; the morale powers (Terror, Steadfast) and Retribution,
+Aegis and Blood Price weighed most and were cut hardest. `powerReport` in
+`src/dev/rarityBalance.ts` shows what each one adds.
 
 Powers that read HP, armour or morale work on beasts too; a beast's max HP
 can be sundered at most once at a time.
@@ -299,7 +311,7 @@ Source: Celtic trading posts (epic slot); beast hoards (epic drops); duel ladder
 | --- | --- |
 | 2 | +1.5 melee damage |
 | 3 | +8% attack speed |
-| 4 | War Cry: at battle start enemies within 4 units lose 10 morale; the wearer's charges +20% morale shock |
+| 4 | War Cry: the first time the foe comes within 4 units, the enemies there lose 10 morale (once per battle); the wearer's charges +20% morale shock |
 
 | Piece | Slot | Built on | Looks like |
 | --- | --- | --- | --- |
@@ -383,7 +395,7 @@ Source: world boss: the Titan (one piece per victorious raid for contributors, s
 ## Named legendaries
 
 Twelve fixed items, each from one boss. Always legendary, fixed stats (their
-base item at ×1.20, four fixed random stats picked to fit the story, plus the
+base item at ×1.08, four fixed random stats picked to fit the story, plus the
 extra effect below) and a fixed grade II power. They are rare enough that
 copies are not limited in an army; world bosses give at most one copy of
 their named item per player per season (see Sources).
@@ -402,6 +414,16 @@ their named item per player per season (see Sources).
 | **Golden Fleece** (`golden_fleece`) | Trinket | Gold stag plaque | Second Wind | +10% bonus XP | duel ladder floor 50 boss | Taken from Colchis by Jason. |
 | **Helm of Hades** (`helm_of_hades`) | Helmet | Iron Boeotian helm | Steadfast | enemy missiles -30% accuracy against the wearer | duel ladder floor 40 boss | The Cap of Darkness. |
 | **Harpe of Perseus** (`harpe_of_perseus`) | Weapon | Sica | Blood Price | +5% attack speed | duel ladder floor 30 boss | The sickle that took the Gorgon's head. |
+
+In battle the two extras that are not plain stats are `ItemDef.missileWard`
+(the pelt: missiles and hurled boulders deal 40% less) and `ItemDef.shroud`
+(the helm: enemy missiles aim with 0.30 less accuracy at the wearer); like a
+power, they work only while the wearer meets the item's requirements.
+
+Set special lines run in `src/sim/powers.ts` with their numbers in
+`SET_RULES` (`src/data/sets.ts`). War Cry sounds when the lines close rather
+than at the start: armies deploy 8 or more units apart, so a cry "at battle
+start within 4 units" would never reach anyone.
 
 ## Where items come from
 
@@ -464,7 +486,20 @@ Details:
 - A legendary 5-piece set bonus beats a fifth random legendary item by about
   as much as one more legendary item.
 
-## Code changes (when we build it)
+Measured with `npm run balance` (the rarity mirror, `src/dev/rarityBalance.ts`;
+level 5 / level 10; "Now" at 400 seeds per cell, the first two columns at 120):
+
+| Rarity | Target | Step 1 (no powers in battle) | Powers on, step 1 numbers | Now |
+| --- | --- | --- | --- | --- |
+| Uncommon | 58% | 65 / 60 | 65 / 60 | 58 / 58 |
+| Rare | 66% | 70 / 72 | 70 / 72 | 68 / 64 |
+| Epic | 76% | 83 / 75 | 95 / 92 | 77 / 73 |
+| Legendary | 85% | 96 / 97 | 99 / 100 | 88 / 86 |
+
+Without their powers the epic kit now wins 67 / 66% and the legendary kit
+78 / 77%: a full set of powers is worth about 10 points.
+
+## Code changes (steps 1 and 2 built; sources, spoils and duel points are step 3)
 
 - `src/data/items.ts`: `Item` gets `aff?: string` (steps, compact: `"atkSpeed:2,hp:1"`)
   and `pow?: PowerId`; `ItemDef` gets `set?`, `named?`, `power?`, `fixed?`
@@ -480,9 +515,13 @@ Details:
 - `itemMods(item)` adds the affix values; `StatMods` gets `atkSpeed`,
   `goldBonus`, `durable`, `koChance`, `moraleLoss`. `src/sim/stats.ts`
   collects powers (best grade per power) and set counts into `CombatStats`.
-- `src/sim/battle.ts`: power hooks (on hit, on being hit, on kill, on low HP,
-  timers) with per-unit power state; procs draw from the battle RNG; a `proc`
-  event for the FX.
+- `src/sim/powers.ts` (`PowerSystem`, created only when a unit carries a
+  power, a set special or a named extra): power hooks (on hit, on being hit,
+  on kill, on low HP, timers, auras) with per-unit power state in
+  `Battle.hash()`; procs draw from the battle RNG; a `proc` event, and the
+  renderer floats the power's icon over the hero (`PROC_ICON` in
+  `src/ui/battleFx.ts`: vector stand-ins until the atlas's `power:<id>`
+  icons are wired in).
 - `makeItem` rolls affixes and the power from its seeded RNG, so every
   existing source (ladder, chests, merchants, campaign loot) gets them for
   free; sources above add the set and named rolls and the pity counter.

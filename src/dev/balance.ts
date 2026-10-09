@@ -10,6 +10,8 @@
  *    swordsmen who either join the front ('front') or hit the enemy's rear ('rear').
  *  - terrain: mirror battles of identical armies on a hill held by one side,
  *    across a river with a ford, and on generated battlefields of every kind.
+ *  - rarity: a full kit at each rarity against the same army all common
+ *    (src/dev/rarityBalance.ts; powerReport there weighs single powers).
  */
 import { generateEnemyArmy } from '../game/enemy';
 import { armySpec } from '../game/armySpec';
@@ -24,6 +26,7 @@ import { TERRAIN } from '../data/terrain';
 import { SITE_BASES, generateBattlefield, type BattleSite } from '../world/battlefield';
 import { classReport } from './classBalance';
 import { beastReport } from './beastBalance';
+import { rarityReport } from './rarityBalance';
 
 export interface MatchedResult {
   winner: Side | -1;
@@ -369,5 +372,7 @@ export function balanceReport(n = 200): string {
   for (const r of terrainImpact(tk)) lines.push(`  ${r.label.padEnd(36)} win ${pct(Math.round(r.win * tk), tk).padStart(4)}  loss ${pct(Math.round(r.loss * tk), tk).padStart(4)}  median ${f1(r.seconds)} s`);
   lines.push(classReport(Math.max(8, Math.round(n / 16))));
   lines.push(beastReport(Math.max(20, Math.round(n / 5))));
+  // docs/ITEMS.md "Balance targets": uncommon 58%, rare 66%, epic 76%, legendary 85%
+  lines.push(rarityReport(Math.max(40, Math.round(n * 0.6))));
   return lines.join('\n');
 }

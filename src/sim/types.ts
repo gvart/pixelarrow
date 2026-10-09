@@ -2,6 +2,7 @@ import type { CombatStats } from './stats';
 import type { Formation, FormationType } from './formation';
 import type { AbilityId } from '../data/perks';
 import type { TerrainGrid } from './terrain';
+import type { ProcId } from './powers';
 
 export type Side = 0 | 1;
 export type UnitState = 'ready' | 'routing' | 'dead' | 'fled';
@@ -170,6 +171,8 @@ export type SimEvent =
   | { type: 'ability'; tick: number; unit: number; ability: AbilityId; targets: number[] }
   /** A mythical beast's signature move (src/sim/myth.ts); (x, y) where, (tx, ty) towards, dur in ticks for things in flight. */
   | { type: 'myth'; tick: number; unit: number; act: MythAct; x: number; y: number; tx: number; ty: number; dur: number; targets: number[] }
+  /** An item power or a set special fired (src/sim/powers.ts); targets = units it touched. */
+  | { type: 'proc'; tick: number; unit: number; power: ProcId; targets: number[] }
   /** The war horn: the whole army rallies. */
   | { type: 'horn'; tick: number; side: Side; targets: number[] }
   | { type: 'end'; tick: number; winner: Side | -1 };

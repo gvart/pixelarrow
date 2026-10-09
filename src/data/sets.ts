@@ -35,9 +35,26 @@ export const SETS: Record<string, SetDef> = {
   alexander: S('alexander', 'Panoply of Alexander', 'legendary', [{ pieces: 2, mods: { morale: 8 } }, { pieces: 3, mods: { speed: 0.08 } }, { pieces: 4, mods: { chargeBonus: 0.15 } }, { pieces: 5, special: 'born_to_rule' }]),
 };
 
+/**
+ * Numbers of the special lines (src/sim/powers.ts runs them). Radii in field
+ * units; fractions are damage, block or damage-taken multipliers.
+ */
+export const SET_RULES = {
+  /** War Cry: the first time the foe comes within `radius`, enemies there lose `morale`; the wearer's charges shock +`shock`. */
+  warCry: { radius: 4, morale: 10, shock: 0.2 },
+  /** Rain of Arrows: every `every`-th shot looses `arrows` more. */
+  rain: { every: 5, arrows: 2 },
+  /** Bond of the Band: per other wearer within `radius` (up to `max`). */
+  bond: { radius: 3, dmg: 0.04, block: 0.03, max: 4 },
+  /** Heel of Achilles: damage taken from the front and side, and from behind. */
+  heel: { front: 0.5, rear: 1.5 },
+  /** Born to Rule: allies within `radius` deal +`dmg` and count +`morale` against routing. */
+  born: { radius: 4, dmg: 0.1, morale: 10 },
+};
+
 /** What a set's special line does (item card; translations in src/i18n/data.ru.ts `setsp.<id>`). */
 export const SET_SPECIAL_TEXT: Record<SetSpecial, string> = {
-  war_cry: 'War Cry: at battle start enemies within 4 lose 10 morale; charges +20% shock',
+  war_cry: 'War Cry: when the foe first comes within 4, enemies there lose 10 morale; charges +20% shock',
   rain_of_arrows: 'Rain of Arrows: every 5th shot looses 2 more arrows',
   bond_of_the_band: 'Bond of the Band: +4% damage and +3% block per set ally within 3 (up to 4)',
   heel_of_achilles: 'Heel of Achilles: -50% damage from front and side, +50% from behind',
