@@ -29,6 +29,8 @@ With them the game has **178 items**.
 | Sources | common to epic from battles and shops, epic sets from trading posts, beasts and late ladder chests, legendaries and named items only from beasts, world bosses and ladder bosses |
 | Duels | everything works in duels (powers are deterministic in the seeded sim); the point budget prices rarity, named items and set bonuses |
 | Trading | named legendaries and legendary set pieces are **bound**: never on the marketplace |
+| Requirements | every item needs attribute points (STR, AGI, END, WIL) by tier and rarity; short of them it still works, weaker (soft penalty) |
+| Class limits | each class can use only its weapon families, shield types and armour weight (hard rule) |
 
 ## Anatomy of an item
 
@@ -44,6 +46,91 @@ An owned item is:
 The name shows the strongest random stat as a word in front and the power
 at the end: *Keen Iron xiphos*, *Swift Kopis of Frenzy*. Set pieces and named
 legendaries keep their own name.
+
+## Requirements and class limits
+
+### Attribute requirements
+
+Heroes have four attributes (STR, AGI, END, WIL), start at 4-7 by class, gain
+2 points a level and cap at 15, so a level-10 hero reaches about 13-15 in his
+main attribute. Every item now asks for some of them.
+
+| Item | Main attribute | Second attribute |
+| --- | --- | --- |
+| Spears, lances, axes, clubs and maces, longswords, falx, rhomphaia | STR | - |
+| Short swords, curved swords (kopis, falcata, makhaira, sica) | AGI | STR |
+| Bows, slings, javelins | AGI | - |
+| Big and long shields | STR | END |
+| Light shields (pelte, buckler, caetra) | AGI | - |
+| Medium armour | END | - |
+| Heavy armour | END | STR |
+| Closed helmets (Corinthian, Attic, Chalcidian, Thracian, Phrygian, Illyrian, Boeotian, Montefortino and kin) | END | - |
+| Caps, hoods, felt pilos, light armour | none at tier 1, else END | - |
+| Trinkets | none at tier 1, else WIL | - |
+
+Main requirement = **5 / 7 / 9** by item tier 1 / 2 / 3, **+0 / +0 / +1 / +2 / +3**
+for common / uncommon / rare / epic / legendary. Rare set pieces need 9, epic
+set pieces 11, legendary set pieces and named legendaries 13. The second
+attribute needs 3 less than the main one.
+
+Examples: a common Dory needs STR 5 (any recruit); a legendary Sauroter dory
+STR 12; Pelian ash STR 13; a Hephaestean cuirass END 13 and STR 10.
+
+**Soft penalty.** A hero short of a requirement can still equip the item;
+each missing point takes 10% off all its stats (base and random, at most
+-70%), and while any point is missing its power and its set count are off.
+The item card shows the requirement in red and the penalty; the equip and
+compare views show the real numbers. Enemy and bot heroes are generated with
+the attributes their gear needs.
+
+### Class limits
+
+A class can equip only its weapon families, shield types and armour up to its
+weight. This is a hard rule: the item cannot be equipped (the button says
+which classes can). Helmets and trinkets are open to every class.
+
+| Class | Weapon families | Shields | Armour up to |
+| --- | --- | --- | --- |
+| Militia | spear, club, javelins, sling | long | light |
+| Spartan hoplite | spear | big | heavy |
+| Thureophoros | short sword, curved sword, short spear | long | medium |
+| Celtic swordsman | longsword, short sword | long | heavy |
+| Thracian rhomphaia | rhomphaia | - | heavy |
+| Cretan archer | bow | - | medium |
+| Rhodian slinger | sling | - | light |
+| Peltast javelineer | javelins | light | light |
+| Scythian horse archer | short bow | - | heavy |
+| Peltast | javelins, short spear | light | light |
+| Thracian falx | falx | - | light |
+| Gallic warband | axe, longsword, club | long | light |
+| Fanatic | club, axe, short sword, curved sword | light | light |
+| Companion cavalry | lance, curved sword | - | heavy |
+| Thessalian horse | javelins, short sword | light | medium |
+| Scythed chariot | curved sword, short sword, axe | - | heavy |
+| Royal guard, Sacred Band | spear | big | heavy |
+
+Families: **spear** (dory family, hasta, sarissa), **short spear** (longche,
+Celtic leaf spear), **lance** (xyston, kontos), **javelins**, **short sword**
+(xiphos family, akinakes, gladius), **curved sword** (kopis, falcata,
+makhaira, sica), **longsword**, **axe** (axes, labrys), **club** (club, mace),
+**falx**, **rhomphaia**, **sling**, **bow**, **short bow** (Scythian,
+gorytos). Shields: **big** (hoplon family), **long** (oval family), **light**
+(pelte, buckler, caetra). Armour weight: **light** (leather, hide, felt,
+quilted, spolas), **medium** (the linothorax family except plated, horn scale,
+the Immortal's scale coat), **heavy** (scale, mail and cuirass families,
+plated linothorax).
+
+These come from each class's current starting kit, so no class loses its
+own gear. Set pieces and named items follow the same rules (the Arms of
+Achilles fit hoplites and guards, Brennus's warband the Celtic swordsman).
+
+**Loot follows the army.** 70% of weapon, shield and armour drops and shop
+offers fit a class in the player's army (duel army or war army), 30% are
+any item (to sell, or for future recruits).
+
+**Existing heroes.** On load, gear a hero's class may not use moves to the
+stash with a one-time note; gear he lacks the stats for stays on with the
+soft penalty. Duel respec (20 Glory × level) stays as it is.
 
 ## Rarity tiers
 
@@ -373,6 +460,11 @@ Details:
   / 1.20. New tables `AFFIXES`, `POWERS`, `SETS` (new file
   `src/data/affixes.ts`). New base items for the 43 set pieces and named
   items.
+- Requirements and limits: `ItemDef` gets `family` and `weight` (from the
+  tables above), requirements are computed from tier, rarity and family;
+  `ClassDef` gets `weapons`, `shields`, `armor`. `equipInto` refuses a
+  class-limited item (UI explains), `itemMods(item, hero)` applies the soft
+  penalty; loot and shop rolls take the army's classes.
 - `itemMods(item)` adds the affix values; `StatMods` gets `atkSpeed`,
   `goldBonus`, `durable`, `koChance`, `moraleLoss`. `src/sim/stats.ts`
   collects powers (best grade per power) and set counts into `CombatStats`.
