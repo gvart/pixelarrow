@@ -19,6 +19,7 @@ import { hashString } from '../sim/rng';
 import { itemDef, rarityRank, type Item, type ItemDef, type ItemMaterial, type ItemPaint } from '../data/items';
 import { EMBLEM_BITMAPS } from './emblems';
 import { P, hex, mix } from './palette';
+import { drawIconBitmap, itemIconId } from './iconBitmaps';
 
 /** Drawing space edge: 16 UI px of icon = 64 units. */
 export const ICON_UNITS = 64;
@@ -3202,6 +3203,12 @@ export function renderItemIconHD(item: Item, px: number): HTMLCanvasElement {
   const r = rarityRank(item.rarity);
   const n = Math.max(8, Math.round(px));
   const u = n / ICON_UNITS;
+  // the drawn icon (docs/icons/README.md), when the atlas is loaded: the same sheen and finish
+  const bmp = drawIconBitmap(itemIconId(def), n, { shadow: false, fill: 0.9 });
+  if (bmp) {
+    if (r >= 1) sheen(bmp.getContext('2d')!, r, u);
+    return finishItemIcon(bmp, n, r, [[46, 14]], hashString(def.id));
+  }
   // the item is drawn on its own layer so the shadow and the glow come from its silhouette
   const layer = document.createElement('canvas');
   layer.width = n;
@@ -3239,17 +3246,32 @@ export function renderItemIconHD(item: Item, px: number): HTMLCanvasElement {
     }
   }
   // uncommon and up: a soft sheen over the whole piece (brighter the rarer)
-  if (r >= 1) {
-    g.save();
-    g.globalCompositeOperation = 'source-atop';
-    const gr = g.createLinearGradient(8, 8, 56, 56);
-    gr.addColorStop(0, `rgba(255,245,220,${0.08 + r * 0.03})`);
-    gr.addColorStop(0.45, 'rgba(255,245,220,0)');
-    g.fillStyle = gr;
-    g.fillRect(0, 0, ICON_UNITS, ICON_UNITS);
-    g.restore();
-  }
+  if (r >= 1) sheen(g, r, 1);
 
+  return finishItemIcon(layer, n, r, c.glints, c.v);
+}
+
+/** Uncommon and up: a soft sheen over the whole piece, brighter the rarer (`k` canvas px per box unit; 1 when the context is already scaled). */
+function sheen(g: CanvasRenderingContext2D, r: number, k: number): void {
+  g.save();
+  g.scale(k, k);
+  g.globalCompositeOperation = 'source-atop';
+  const gr = g.createLinearGradient(8, 8, 56, 56);
+  gr.addColorStop(0, `rgba(255,245,220,${0.08 + r * 0.03})`);
+  gr.addColorStop(0.45, 'rgba(255,245,220,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, ICON_UNITS, ICON_UNITS);
+  g.restore();
+}
+
+/**
+ * The rarity finish and the drop shadow round an item drawn on `layer` (n x n):
+ * legendary glow, shadow, and for rare and up a glint at the first of
+ * `glints` (box units), legendary sparkles besides.
+ */
+function finishItemIcon(layer: HTMLCanvasElement, n: number, r: number, glints: [number, number][], v: number): HTMLCanvasElement {
+  const u = n / ICON_UNITS;
+  const c = { glints, v };
   const out = document.createElement('canvas');
   out.width = n;
   out.height = n;

@@ -90,8 +90,9 @@ export const FX_ICON_PX = 14;
  * A floating ability / level-up icon: the smooth UI icon (src/art/vectorIcons.ts)
  * painted at `n` device px, to be shown scaled down to FX_ICON_PX world px.
  */
-export function renderFxIcon(parts: IconPart[], n: number): HTMLCanvasElement {
-  return paintIcon('fx', parts, 'full', n);
+export function renderFxIcon(parts: IconPart[], n: number, id = 'fx'): HTMLCanvasElement {
+  // `id`: the drawn icon to use when the atlas has it (a UI icon name or an atlas id)
+  return paintIcon(id, parts, 'full', n);
 }
 
 /** Confetti flake (2x2) and a square particle in a solid colour. */

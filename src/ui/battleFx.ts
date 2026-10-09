@@ -12,6 +12,7 @@ import { RS } from '../platform/renderScale';
 import { ABILITIES, AURAS, AURA_IDS, type AbilityId, type AuraId } from '../data/perks';
 import { willRadius } from '../sim/stats';
 import type { ProcId } from '../sim/powers';
+import { POWER_IDS } from '../data/affixes';
 import type { SimUnit } from '../sim/types';
 
 const RING_FRAMES = 8;
@@ -81,12 +82,14 @@ export function registerFxTextures(scene: Phaser.Scene): void {
   const fxN = FX_ICON_PX * RS * 3;
   for (const id of Object.keys(ABILITIES) as AbilityId[]) {
     const def = ABILITIES[id];
-    scene.textures.addCanvas(`fxicon_${id}`, renderFxIcon(VECTOR_ICONS[def.icon] ?? VECTOR_ICONS.star, fxN))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    scene.textures.addCanvas(`fxicon_${id}`, renderFxIcon(VECTOR_ICONS[def.icon] ?? VECTOR_ICONS.star, fxN, def.icon))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
   }
   for (const [id, icon] of Object.entries(PROC_ICON)) {
-    scene.textures.addCanvas(`fxicon_power_${id}`, renderFxIcon(VECTOR_ICONS[icon] ?? VECTOR_ICONS.star, fxN))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    // a power's own drawn icon (power:<id>); set specials keep their stand-in UI icon
+    const drawn = (POWER_IDS as string[]).includes(id) ? `power:${id}` : icon;
+    scene.textures.addCanvas(`fxicon_power_${id}`, renderFxIcon(VECTOR_ICONS[icon] ?? VECTOR_ICONS.star, fxN, drawn))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
   }
-  scene.textures.addCanvas('fxicon_levelup', renderFxIcon(VECTOR_ICONS.star, fxN))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  scene.textures.addCanvas('fxicon_levelup', renderFxIcon(VECTOR_ICONS.star, fxN, 'star'))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
 }
 
 export class BattleFx {

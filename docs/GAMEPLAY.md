@@ -600,8 +600,10 @@ retried with backoff. Outside Telegram (no `initData`) nothing is requested.
 
 ## Art pipeline (`src/art`)
 
-Everything is generated at boot from code; there are no image files. The look
-is specified in [ART_STYLE.md](ART_STYLE.md).
+Everything but the icons is generated at boot from code. The icons are drawn
+art in two atlases (`public/icons`, see [icons/README.md](icons/README.md)),
+with the code-drawn icons as the fallback. The look is specified in
+[ART_STYLE.md](ART_STYLE.md).
 
 - `model3d.ts`: a small software renderer. Figures are posed as 3D primitives
   in metres and ray-cast per pixel through the battle camera (2:1 dimetric),

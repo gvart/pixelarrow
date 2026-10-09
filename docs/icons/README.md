@@ -1064,6 +1064,19 @@ Cells, in reading order:
 Cells 9 to 16: leave empty (plain magenta).
 ```
 
+## Waiting for art
+
+Icons added to the game after the sheets were drawn. They show their old
+code-drawn version until a drawing arrives. Generate them with the
+single-icon prompt below and send them named by ID (`ui_wargold.png`).
+
+- `ui:wargold`: war gold, the online season's purse (campaign gold is
+  `ui:coin` and must look different). Shape: a bronze stater coin, face-on,
+  thick rim, stamped with a dark hoplite helmet in profile.
+- `ui:xmark`: a neutral close or dismiss cross for hiding tips (not the red
+  `ui:close` of an error). Shape: a thick grey stone X with a small top-left
+  gleam.
+
 ## Single-icon prompt
 
 For re-rolling one icon that came out wrong. Paste the global prompt's
@@ -1076,6 +1089,26 @@ no frame, no shadow on the background.
 The icon: <shape to draw, from the sheet table>.
 It must match the other icons of the set: same outline, lighting and level of detail.
 ```
+
+## In the game
+
+The cut icons ship as two atlases in `public/icons/`:
+- `ui.png` holds UI, camp, sync badges and powers at 64 px.
+- `items.png` holds items, trinkets and goods at 96 px.
+
+Both are 8-bit PNGs with a JSON frame list. `BootScene` loads them and
+`src/art/iconBitmaps.ts` hands the frames to the icon painters. An icon with
+no frame falls back to its code-drawn version. The cream look on buttons and
+the grey disabled look are made from the bitmap's brightness. Item rarity
+finishes (sheen, glint, legendary glow and sparkles) are drawn over it.
+
+To replace or add icons:
+1. Put the sheets (`sheet_N.jpg`, 4 × 4 cells on magenta) in one folder.
+2. Run `npm run icons -- <folder>`. It cuts the sheets by the cell map above,
+   keys out the magenta and repacks the atlases (`scripts/dev/icons/`, needs
+   Python 3 with Pillow, numpy, scipy and imagequant).
+3. Check the cut icons on the QA sheets it writes, then run `npm test`
+   (`tests/iconAtlas.test.ts` checks that every icon has art).
 
 ## ID reference
 

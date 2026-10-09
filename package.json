@@ -12,7 +12,8 @@
     "shots": "node scripts/dev/screenshots.mjs",
     "balance": "node scripts/dev/balance.mjs",
     "fonts:metrics": "node scripts/dev/font-metrics.mjs",
-    "map:build": "node scripts/buildMap.ts maps-src/westmed.json"
+    "map:build": "node scripts/buildMap.ts maps-src/westmed.json",
+    "icons": "python3 -I scripts/dev/icons/icons.py"
   },
   "dependencies": {
     "@fontsource/cormorant-sc": "^5.3.0",

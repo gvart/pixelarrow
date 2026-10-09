@@ -9,6 +9,7 @@ import { showTooltip } from './widgets';
 import { uiId } from './layout';
 import { t, type TKey } from '../i18n';
 import { hex, P } from '../art/palette';
+import { drawIconBitmap } from '../art/iconBitmaps';
 import { BAND_COLORS, PARTY_FH, PARTY_FINIAL, PARTY_FRAMES, PARTY_FW, renderPartyFigure } from '../art/worldArt';
 import { online } from '../platform/cloud';
 import { SUPPORTER_BANNER, type SyncStatus } from '../platform/online';
@@ -111,10 +112,12 @@ export function registerOnlineAssets(scene: Phaser.Scene): void {
   if (scene.textures.exists('sync_synced')) return;
   const K = panelK(scene);
   const add = (key: string, c: HTMLCanvasElement) => scene.textures.addCanvas(key, c)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
-  add('sync_synced', cloudIcon(K, ['#fffaf0', '#d8cbb0'], 'check', 0x4f8a3a));
-  add('sync_syncing', cloudIcon(K, ['#fffaf0', '#d8cbb0'], 'arrow', 0x3f6ea8));
-  add('sync_offline', cloudIcon(K, ['#c8bcaa', '#8f826d'], 'cross', 0xb4483a));
-  add('supporter_banner', bannerIcon(K));
+  // the drawn badges (src/art/iconBitmaps.ts) in the same boxes, else the vector ones
+  const drawn = (id: string, w: number, h: number) => drawIconBitmap(`chrome:${id}`, 0, { w: w * K, h: h * K, fill: 1, shadow: false });
+  add('sync_synced', drawn('sync_synced', 12, 7) ?? cloudIcon(K, ['#fffaf0', '#d8cbb0'], 'check', 0x4f8a3a));
+  add('sync_syncing', drawn('sync_syncing', 12, 7) ?? cloudIcon(K, ['#fffaf0', '#d8cbb0'], 'arrow', 0x3f6ea8));
+  add('sync_offline', drawn('sync_offline', 12, 7) ?? cloudIcon(K, ['#c8bcaa', '#8f826d'], 'cross', 0xb4483a));
+  add('supporter_banner', drawn('supporter_banner', 8, 12) ?? bannerIcon(K));
 }
 
 const SYNC_TEXTURE: Record<SyncStatus, string> = {
