@@ -1,0 +1,25 @@
+src/ui/mosaic/ParchmentSheet.ts
+  s_1934d7c234e5b1::t_d1f805283db350 98
+src/ui/mosaic/meters.ts
+  s_1934d7c234e5b1::t_f077916e2179d6 27-28,70-80
+src/ui/mosaic/base.ts
+  s_1934d7c234e5b1::t_42ab80c20d545f 10,57-69
+src/scenes/HeroScene.ts
+  s_1934d7c234e5b1::t_f077916e2179d6 239,259,477
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5f18be8dbf62e29abb754b78404e9bfb6ba9fb81",
+  "prompts": {},
+  "sessions": {
+    "s_1934d7c234e5b1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d39328de-c77f-462f-b9ee-81a255a8912b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
