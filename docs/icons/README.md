@@ -6,9 +6,11 @@ with Gemini and swap into the game. Today all of them are painted in code
 `src/art/goodsIcons.ts`, `src/ui/online.ts`); the new art replaces them one
 for one, keeping the IDs.
 
-**237 icons on 15 sheets of 16.** That includes all 135 items of
-`src/data/items.ts`, each with its own picture: today the 135 items share 58
-pictures (every spear is the same spear). Each sheet below has its exact cell
+**296 icons on 19 sheets of 16.** That includes all 135 items of
+`src/data/items.ts`, each with its own picture (today they share 58: every
+spear is the same spear), plus the 43 new items and 16 power icons designed
+in [../ITEMS.md](../ITEMS.md) (sets, named legendaries, powers; marked
+"New"). Each sheet below has its exact cell
 map, a short description of what each icon means in the game, the shape to
 draw, and a ready-to-paste prompt.
 
@@ -21,12 +23,13 @@ draw, and a ready-to-paste prompt.
    current icons in the exact same cells, on the same magenta) and add
    *"Use the attached image only as a layout and subject reference: same
    object in the same cell. Redraw every icon from scratch at much higher
-   quality."* On the item sheets (07-15) the reference still shows
-   today's shared pictures, so several cells look alike there: the text wins.
+   quality."* On the item sheets (07-19) the reference still shows
+   today's shared pictures, and new items and powers show the closest
+   existing icon, so several cells look alike there: the text wins.
 4. Check the result against the cell map: right object in the right cell,
    nothing crossing a cell edge, flat magenta background, no text. Re-roll
    single bad icons with the single-icon prompt at the end of this file.
-5. Save as `sheet-01.png` ... `sheet-15.png` (PNG, 1024 x 1024) and send them
+5. Save as `sheet-01.png` ... `sheet-19.png` (PNG, 1024 x 1024) and send them
    over. Single re-rolled icons: name the file by the icon ID, e.g.
    `ui_hold.png`.
 
@@ -118,7 +121,7 @@ File: `sheet-01.png`. Current icons in the same cells: [current/sheet-01.png](cu
 Sheet prompt:
 
 ```text
-Sheet 01 of 15: battle orders and speed.
+Sheet 01 of 19: battle orders and speed.
 Cells, in reading order:
 1. (row 1, column 1) An upright heater-shaped shield, dark iron rim, bronze face, a round steel boss in the centre, front view.
 2. (row 1, column 2) A thick bronze arrow pointing straight up, a smaller gold arrow inlaid in its centre.
@@ -166,7 +169,7 @@ File: `sheet-02.png`. Current icons in the same cells: [current/sheet-02.png](cu
 Sheet prompt:
 
 ```text
-Sheet 02 of 15: formations and unit status.
+Sheet 02 of 19: formations and unit status.
 Cells, in reading order:
 1. (row 1, column 1) Seen from above: round tokens arranged in a triangle pointing up, one red token at the apex, then two and three bronze tokens below.
 2. (row 1, column 2) Seen from above: eight round tokens scattered loosely with wide irregular gaps, two red ones at the front, the rest bronze.
@@ -214,7 +217,7 @@ File: `sheet-03.png`. Current icons in the same cells: [current/sheet-03.png](cu
 Sheet prompt:
 
 ```text
-Sheet 03 of 15: equipment slots, auras and navigation.
+Sheet 03 of 19: equipment slots, auras and navigation.
 Cells, in reading order:
 1. (row 1, column 1) A bronze Greek helmet, front view, T-shaped face opening, a red horsehair crest on top.
 2. (row 1, column 2) Two short swords crossed in an X, steel blades, gold cross-guards, leather grips, bronze pommels.
@@ -262,7 +265,7 @@ File: `sheet-04.png`. Current icons in the same cells: [current/sheet-04.png](cu
 Sheet prompt:
 
 ```text
-Sheet 04 of 15: tools and menus.
+Sheet 04 of 19: tools and menus.
 Cells, in reading order:
 1. (row 1, column 1) An iron cog wheel with a bronze hub.
 2. (row 1, column 2) A round bronze disc with a bold ivory lowercase letter i.
@@ -310,7 +313,7 @@ File: `sheet-05.png`. Current icons in the same cells: [current/sheet-05.png](cu
 Sheet prompt:
 
 ```text
-Sheet 05 of 15: modes and currencies.
+Sheet 05 of 19: modes and currencies.
 Cells, in reading order:
 1. (row 1, column 1) A stepped stone tower of three tiers with a red pennant on top.
 2. (row 1, column 2) A grey stone amphitheatre facade with two rows of dark arches and a small red flag on top.
@@ -358,7 +361,7 @@ File: `sheet-06.png`. Current icons in the same cells: [current/sheet-06.png](cu
 Sheet prompt:
 
 ```text
-Sheet 06 of 15: camp, status badges and resources.
+Sheet 06 of 19: camp, status badges and resources.
 Cells, in reading order:
 1. (row 1, column 1) A golden paw print, four toes and a pad.
 2. (row 1, column 2) An iron anvil standing on a wooden block.
@@ -406,7 +409,7 @@ File: `sheet-07.png`. Current icons in the same cells: [current/sheet-07.png](cu
 Sheet prompt:
 
 ```text
-Sheet 07 of 15: goods and weapons.
+Sheet 07 of 19: goods and weapons.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -460,7 +463,7 @@ File: `sheet-08.png`. Current icons in the same cells: [current/sheet-08.png](cu
 Sheet prompt:
 
 ```text
-Sheet 08 of 15: weapons.
+Sheet 08 of 19: weapons.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -514,7 +517,7 @@ File: `sheet-09.png`. Current icons in the same cells: [current/sheet-09.png](cu
 Sheet prompt:
 
 ```text
-Sheet 09 of 15: weapons.
+Sheet 09 of 19: weapons.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -568,7 +571,7 @@ File: `sheet-10.png`. Current icons in the same cells: [current/sheet-10.png](cu
 Sheet prompt:
 
 ```text
-Sheet 10 of 15: weapons and shields.
+Sheet 10 of 19: weapons and shields.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -622,7 +625,7 @@ File: `sheet-11.png`. Current icons in the same cells: [current/sheet-11.png](cu
 Sheet prompt:
 
 ```text
-Sheet 11 of 15: shields and helmets.
+Sheet 11 of 19: shields and helmets.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -676,7 +679,7 @@ File: `sheet-12.png`. Current icons in the same cells: [current/sheet-12.png](cu
 Sheet prompt:
 
 ```text
-Sheet 12 of 15: helmets and armour.
+Sheet 12 of 19: helmets and armour.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -730,7 +733,7 @@ File: `sheet-13.png`. Current icons in the same cells: [current/sheet-13.png](cu
 Sheet prompt:
 
 ```text
-Sheet 13 of 15: armour.
+Sheet 13 of 19: armour.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -784,7 +787,7 @@ File: `sheet-14.png`. Current icons in the same cells: [current/sheet-14.png](cu
 Sheet prompt:
 
 ```text
-Sheet 14 of 15: armour and trinkets.
+Sheet 14 of 19: armour and trinkets.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -810,7 +813,7 @@ Cells, in reading order:
 16. (row 4, column 4) Four small ivory knucklebones (astragali) scattered.
 ```
 
-## Sheet 15: Trinkets
+## Sheet 15: Trinkets and set pieces
 
 File: `sheet-15.png`. Current icons in the same cells: [current/sheet-15.png](current/sheet-15.png)
 
@@ -831,11 +834,14 @@ File: `sheet-15.png`. Current icons in the same cells: [current/sheet-15.png](cu
 | 11 | R3 C3 | 512-767, 512-767 | `trinket:gold_torc` | Trinket, tier 3: **Gold torc**. Heavy gold neck-ring of a king among Celts. +morale, +HP. | a thick twisted gold torc, an open ring with round gold ends at the bottom |
 | 12 | R3 C4 | 768-1023, 512-767 | `trinket:gold_stag` | Trinket, tier 3: **Gold stag plaque**. Shield badge of a steppe lord: a stag with folded legs. +charge, +morale, +HP. | a rectangular gold plaque with an embossed stag |
 | 13 | R4 C1 | 0-255, 768-1023 | `trinket:pythian_token` | Trinket, tier 3: **Pythian crown**. Laurel from Delphi, given to a victor of the games. +35% XP, +morale. | a victor's crown of dark green bay leaves bound with silver |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:agoge_dory` | New. Weapon, rare set piece 1/3 of **Agoge of Sparta**: **Agoge dory**. | a long spear with a dark iron head and a crimson ribbon tied below the head |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:agoge_pilos` | New. Helmet, rare set piece 2/3 of **Agoge of Sparta**: **Agoge pilos**. | a conical bronze pilos helmet with a crimson band round the rim |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:crimson_exomis` | New. Armour, rare set piece 3/3 of **Agoge of Sparta**: **Crimson exomis**. | a crimson linen tunic worn off one shoulder, a leather belt, small bronze shoulder brooch |
 
 Sheet prompt:
 
 ```text
-Sheet 15 of 15: trinkets.
+Sheet 15 of 19: trinkets and set pieces.
 Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
 upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
 Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
@@ -856,7 +862,206 @@ Cells, in reading order:
 11. (row 3, column 3) A thick twisted gold torc, an open ring with round gold ends at the bottom.
 12. (row 3, column 4) A rectangular gold plaque with an embossed stag.
 13. (row 4, column 1) A victor's crown of dark green bay leaves bound with silver.
-Cells 14 to 16: leave empty (plain magenta).
+14. (row 4, column 2) A long spear with a dark iron head and a crimson ribbon tied below the head.
+15. (row 4, column 3) A conical bronze pilos helmet with a crimson band round the rim.
+16. (row 4, column 4) A crimson linen tunic worn off one shoulder, a leather belt, small bronze shoulder brooch.
+```
+
+## Sheet 16: Powers
+
+File: `sheet-16.png`. Current icons in the same cells: [current/sheet-16.png](current/sheet-16.png)
+
+![Sheet 16, current icons](current/sheet-16.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `power:blood_price` | New. Power **Blood Price** (melee weapon): 12% chance on hit: the hit does double damage, and the wearer loses 5% of max HP (never below 1). | a bronze sword blade with a single red drop falling from its tip onto a cracked red heart |
+| 2 | R1 C2 | 256-511, 0-255 | `power:frenzy` | New. Power **Battle Frenzy** (weapon, trinket): on a kill: +20% attack speed for 6 s (refreshes, does not stack). | an iron axe with three orange speed streaks behind it |
+| 3 | R1 C3 | 512-767, 0-255 | `power:sunder` | New. Power **Sunder** (weapon): 10% chance on hit: the target's max HP drops by 10% for 8 s (its HP is capped to the new max). | a red heart split by a jagged crack, a bronze blade through the crack |
+| 4 | R1 C4 | 768-1023, 0-255 | `power:rend` | New. Power **Rend Armour** (weapon): 15% chance on hit: target armour -2 for 6 s, stacks twice. | a bronze breastplate with a deep jagged crack across it |
+| 5 | R2 C1 | 0-255, 256-511 | `power:second_wind` | New. Power **Second Wind** (armour, trinket): once per battle, when HP drops below 30%: heal 20% of max HP and +30 stamina. | a green heart wrapped in a swirl of white wind |
+| 6 | R2 C2 | 256-511, 256-511 | `power:aegis` | New. Power **Aegis** (shield): every 12 s the next frontal or side hit is blocked for sure. | a round bronze shield with a glowing pale-blue rim of light |
+| 7 | R2 C3 | 512-767, 256-511 | `power:retribution` | New. Power **Retribution** (armour, shield): melee attackers take 15% of the damage they deal back. | a round bronze shield covered in short sharp spikes |
+| 8 | R2 C4 | 768-1023, 256-511 | `power:hunger` | New. Power **Wolf's Hunger** (melee weapon): heal 6% of the damage dealt. | a grey wolf's head in profile with bared fangs and a red drop |
+| 9 | R3 C1 | 0-255, 512-767 | `power:terror` | New. Power **Terror** (weapon, helmet): on a kill: enemies within 3 units lose 8 morale. | a screaming Gorgon face with snake hair, front view |
+| 10 | R3 C2 | 256-511, 512-767 | `power:steadfast` | New. Power **Steadfast** (helmet, trinket): aura: allies within 3 units take 10% less morale damage. | a red banner on a pole with a small bronze shield emblem and short gold rays around it |
+| 11 | R3 C3 | 512-767, 512-767 | `power:eagle_eye` | New. Power **Eagle Eye** (ranged weapon): 15% chance a missile ignores block. | an eagle's golden eye framed by a bronze arrowhead |
+| 12 | R3 C4 | 768-1023, 512-767 | `power:twin_shot` | New. Power **Twin Shot** (ranged weapon): 10% chance to loose a second missile for free (no ammo). | two arrows flying side by side to the upper right |
+| 13 | R4 C1 | 0-255, 768-1023 | `power:unshaken` | New. Power **Unshaken** (armour, helmet): charges cannot stun the wearer; charge damage taken -20%. | a bronze column standing firm with gold impact lines breaking against it |
+| 14 | R4 C2 | 256-511, 768-1023 | `power:momentum` | New. Power **Momentum** (spear or lance, shield, trinket): charge impact damage +25% and charge stun +0.3 s. | a charging bull's head, horns forward, with speed lines |
+| 15 | R4 C3 | 512-767, 768-1023 | `power:last_stand` | New. Power **Last Stand** (armour, trinket): below 25% HP: +20% damage and the wearer cannot rout. | a bronze helmet with red flames rising behind it |
+| 16 | R4 C4 | 768-1023, 768-1023 | `power:executioner` | New. Power **Executioner** (weapon): +30% damage against targets below 30% HP. | a heavy iron axe blade over an ivory skull |
+
+Sheet prompt:
+
+```text
+Sheet 16 of 19: powers.
+Powers are effect symbols shown on item cards and over a hero in battle when the power triggers:
+one bold symbolic motif each, readable at 24 px, same style as the other UI icons.
+Cells, in reading order:
+1. (row 1, column 1) A bronze sword blade with a single red drop falling from its tip onto a cracked red heart.
+2. (row 1, column 2) An iron axe with three orange speed streaks behind it.
+3. (row 1, column 3) A red heart split by a jagged crack, a bronze blade through the crack.
+4. (row 1, column 4) A bronze breastplate with a deep jagged crack across it.
+5. (row 2, column 1) A green heart wrapped in a swirl of white wind.
+6. (row 2, column 2) A round bronze shield with a glowing pale-blue rim of light.
+7. (row 2, column 3) A round bronze shield covered in short sharp spikes.
+8. (row 2, column 4) A grey wolf's head in profile with bared fangs and a red drop.
+9. (row 3, column 1) A screaming Gorgon face with snake hair, front view.
+10. (row 3, column 2) A red banner on a pole with a small bronze shield emblem and short gold rays around it.
+11. (row 3, column 3) An eagle's golden eye framed by a bronze arrowhead.
+12. (row 3, column 4) Two arrows flying side by side to the upper right.
+13. (row 4, column 1) A bronze column standing firm with gold impact lines breaking against it.
+14. (row 4, column 2) A charging bull's head, horns forward, with speed lines.
+15. (row 4, column 3) A bronze helmet with red flames rising behind it.
+16. (row 4, column 4) A heavy iron axe blade over an ivory skull.
+```
+
+## Sheet 17: Set pieces
+
+File: `sheet-17.png`. Current icons in the same cells: [current/sheet-17.png](current/sheet-17.png)
+
+![Sheet 17, current icons](current/sheet-17.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `item:fox_alopekis` | New. Helmet, rare set piece 1/3 of **Peltast of Thrace**: **Fox-skin alopekis**. | a Thracian cap of red fox fur, the fox's head on the brow and its tail hanging behind |
+| 2 | R1 C2 | 256-511, 0-255 | `item:peltast_crescent` | New. Shield, rare set piece 2/3 of **Peltast of Thrace**: **Peltast's crescent**. | a crescent pelte shield painted with a black-and-ochre eye pattern |
+| 3 | R1 C3 | 512-767, 0-255 | `item:thracian_darts` | New. Weapon, rare set piece 3/3 of **Peltast of Thrace**: **Thracian darts**. | three short javelins with red-dyed leather throwing thongs |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:gortyn_bow` | New. Weapon, rare set piece 1/3 of **Cretan Bowman**: **Bow of Gortyn**. | a horn-backed Cretan bow with gold tip caps, an arrow nocked |
+| 5 | R2 C1 | 0-255, 256-511 | `item:cretan_cap` | New. Helmet, rare set piece 2/3 of **Cretan Bowman**: **Cretan archer's cap**. | a pale felt skullcap with a short brim and a single dark feather |
+| 6 | R2 C2 | 256-511, 256-511 | `item:gortyn_string` | New. Trinket, rare set piece 3/3 of **Cretan Bowman**: **Gortyn bowstring**. | a coiled spare bowstring of twisted sinew tied with a small bronze tag |
+| 7 | R2 C3 | 512-767, 256-511 | `item:brennus_blade` | New. Weapon, epic set piece 1/4 of **Warband of Brennus**: **Brennus's blade**. | a long Celtic sword with a gold hilt shaped like a little man with outstretched arms |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:boar_crest_helm` | New. Helmet, epic set piece 2/4 of **Warband of Brennus**: **Boar-crest helm**. | a round bronze Celtic helmet with a bronze boar figure standing on top |
+| 9 | R3 C1 | 0-255, 512-767 | `item:brennus_mail` | New. Armour, epic set piece 3/4 of **Warband of Brennus**: **Brennus's mail**. | an iron mail shirt with a shoulder cape fastened by a gold boar-head clasp |
+| 10 | R3 C2 | 256-511, 512-767 | `item:spiral_shield` | New. Shield, epic set piece 4/4 of **Warband of Brennus**: **Spiral-boss shield**. | a tall oval Celtic shield painted red, a bronze boss and swirling three-armed bronze fittings |
+| 11 | R3 C3 | 512-767, 512-767 | `item:immortal_bow` | New. Weapon, epic set piece 1/4 of **Immortals of Persia**: **Immortal's bow**. | a Persian composite bow with a gold-wrapped grip and a gold tassel |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:immortal_scale` | New. Armour, epic set piece 2/4 of **Immortals of Persia**: **Immortal's scale coat**. | a long coat of small gold-and-bronze scales, a blue embroidered hem below |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:immortal_tiara` | New. Helmet, epic set piece 3/4 of **Immortals of Persia**: **Immortal's tiara**. | a soft deep-blue felt Persian hood with gold embroidery and lappets |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:golden_apple` | New. Trinket, epic set piece 4/4 of **Immortals of Persia**: **Golden apple**. | a golden apple-shaped spear butt hanging from a short loop |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:theban_dory` | New. Weapon, epic set piece 1/4 of **Sacred Band of Thebes**: **Theban dory**. | a long spear with a bronze head, a bronze butt-spike and a white ribbon |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:band_shield` | New. Shield, epic set piece 2/4 of **Sacred Band of Thebes**: **Shield of the Band**. | a round bronze aspis with a black face and the gold club of Herakles |
+
+Sheet prompt:
+
+```text
+Sheet 17 of 19: set pieces.
+Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
+Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
+top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
+Cells, in reading order:
+1. (row 1, column 1) A Thracian cap of red fox fur, the fox's head on the brow and its tail hanging behind.
+2. (row 1, column 2) A crescent pelte shield painted with a black-and-ochre eye pattern.
+3. (row 1, column 3) Three short javelins with red-dyed leather throwing thongs.
+4. (row 1, column 4) A horn-backed Cretan bow with gold tip caps, an arrow nocked.
+5. (row 2, column 1) A pale felt skullcap with a short brim and a single dark feather.
+6. (row 2, column 2) A coiled spare bowstring of twisted sinew tied with a small bronze tag.
+7. (row 2, column 3) A long Celtic sword with a gold hilt shaped like a little man with outstretched arms.
+8. (row 2, column 4) A round bronze Celtic helmet with a bronze boar figure standing on top.
+9. (row 3, column 1) An iron mail shirt with a shoulder cape fastened by a gold boar-head clasp.
+10. (row 3, column 2) A tall oval Celtic shield painted red, a bronze boss and swirling three-armed bronze fittings.
+11. (row 3, column 3) A Persian composite bow with a gold-wrapped grip and a gold tassel.
+12. (row 3, column 4) A long coat of small gold-and-bronze scales, a blue embroidered hem below.
+13. (row 4, column 1) A soft deep-blue felt Persian hood with gold embroidery and lappets.
+14. (row 4, column 2) A golden apple-shaped spear butt hanging from a short loop.
+15. (row 4, column 3) A long spear with a bronze head, a bronze butt-spike and a white ribbon.
+16. (row 4, column 4) A round bronze aspis with a black face and the gold club of Herakles.
+```
+
+## Sheet 18: Set pieces and named legendaries
+
+File: `sheet-18.png`. Current icons in the same cells: [current/sheet-18.png](current/sheet-18.png)
+
+![Sheet 18, current icons](current/sheet-18.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `item:theban_helm` | New. Helmet, epic set piece 3/4 of **Sacred Band of Thebes**: **Theban helm**. | a bronze Corinthian helmet with a black-and-white crest |
+| 2 | R1 C2 | 256-511, 0-255 | `item:theban_linothorax` | New. Armour, epic set piece 4/4 of **Sacred Band of Thebes**: **Theban linothorax**. | a white linothorax with a bronze chest plate bearing the club of Herakles |
+| 3 | R1 C3 | 512-767, 0-255 | `item:pelian_ash` | New. Weapon, legendary set piece 1/5 of **Arms of Achilles**: **Pelian ash**. | a massive dark ash-wood spear with a long gold-bronze head glowing faintly |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:achilles_shield` | New. Shield, legendary set piece 2/5 of **Arms of Achilles**: **Shield of Achilles**. | a round gold-bronze shield engraved with rings of tiny scenes around a central gold star |
+| 5 | R2 C1 | 0-255, 256-511 | `item:achilles_helm` | New. Helmet, legendary set piece 3/5 of **Arms of Achilles**: **Helm of Achilles**. | a gold Attic helmet with a towering gold horsehair crest |
+| 6 | R2 C2 | 256-511, 256-511 | `item:hephaestean_cuirass` | New. Armour, legendary set piece 4/5 of **Arms of Achilles**: **Hephaestean cuirass**. | a gold-and-bronze muscle cuirass with glowing ember-orange seams |
+| 7 | R2 C3 | 512-767, 256-511 | `item:thetis_anklet` | New. Trinket, legendary set piece 5/5 of **Arms of Achilles**: **Anklet of Thetis**. | a gold anklet set with pearls and a small sea shell |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:alexander_kopis` | New. Weapon, legendary set piece 1/5 of **Panoply of Alexander**: **Kopis of Alexander**. | a kopis with a gold lion-head hilt and a bright steel blade |
+| 9 | R3 C1 | 0-255, 512-767 | `item:ilion_shield` | New. Shield, legendary set piece 2/5 of **Panoply of Alexander**: **Shield of Ilion**. | an old round bronze shield, dented and worn, a gold Athena head in the centre |
+| 10 | R3 C2 | 256-511, 512-767 | `item:lion_scalp_helm` | New. Helmet, legendary set piece 3/5 of **Panoply of Alexander**: **Lion-scalp helm**. | an iron helmet shaped like a lion's head, jaws open over the brow, two white plumes |
+| 11 | R3 C3 | 512-767, 512-767 | `item:issus_linothorax` | New. Armour, legendary set piece 4/5 of **Panoply of Alexander**: **Linothorax of Issus**. | a white-and-gold linothorax with a gold Gorgon face on the chest and gold scales on the belly |
+| 12 | R3 C4 | 768-1023, 512-767 | `item:bucephalus_bit` | New. Trinket, legendary set piece 5/5 of **Panoply of Alexander**: **Bit of Bucephalus**. | a gold horse bit with ox-head cheek pieces |
+| 13 | R4 C1 | 0-255, 768-1023 | `item:herakles_club` | New. Weapon, named legendary: **Club of Herakles** (Nemean Lion). Wild olive, torn from the ground at Nemea. | a huge knotted olive-wood club wrapped with a strip of golden lion hide |
+| 14 | R4 C2 | 256-511, 768-1023 | `item:nemean_pelt` | New. Armour, named legendary: **Nemean lion pelt** (Nemean Lion). No arrow ever pierced it. | a golden lion skin worn as a cloak, the lion's head as a hood and its paws knotted on the chest |
+| 15 | R4 C3 | 512-767, 768-1023 | `item:philoctetes_bow` | New. Weapon, named legendary: **Bow of Philoctetes** (Hydra). Herakles' bow; the arrows still carry the Hydra's venom. | a great recurved bow, a serpent coiled round the grip, an arrow with a green-black stained head |
+| 16 | R4 C4 | 768-1023, 768-1023 | `item:minotaur_horn` | New. Trinket, named legendary: **Horn of the Minotaur** (Minotaur). Cut from the bull of the labyrinth. | a huge dark bull horn bound with gold bands, hanging from a cord |
+
+Sheet prompt:
+
+```text
+Sheet 18 of 19: set pieces and named legendaries.
+Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
+Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
+top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
+Cells, in reading order:
+1. (row 1, column 1) A bronze Corinthian helmet with a black-and-white crest.
+2. (row 1, column 2) A white linothorax with a bronze chest plate bearing the club of Herakles.
+3. (row 1, column 3) A massive dark ash-wood spear with a long gold-bronze head glowing faintly.
+4. (row 1, column 4) A round gold-bronze shield engraved with rings of tiny scenes around a central gold star.
+5. (row 2, column 1) A gold Attic helmet with a towering gold horsehair crest.
+6. (row 2, column 2) A gold-and-bronze muscle cuirass with glowing ember-orange seams.
+7. (row 2, column 3) A gold anklet set with pearls and a small sea shell.
+8. (row 2, column 4) A kopis with a gold lion-head hilt and a bright steel blade.
+9. (row 3, column 1) An old round bronze shield, dented and worn, a gold Athena head in the centre.
+10. (row 3, column 2) An iron helmet shaped like a lion's head, jaws open over the brow, two white plumes.
+11. (row 3, column 3) A white-and-gold linothorax with a gold Gorgon face on the chest and gold scales on the belly.
+12. (row 3, column 4) A gold horse bit with ox-head cheek pieces.
+13. (row 4, column 1) A huge knotted olive-wood club wrapped with a strip of golden lion hide.
+14. (row 4, column 2) A golden lion skin worn as a cloak, the lion's head as a hood and its paws knotted on the chest.
+15. (row 4, column 3) A great recurved bow, a serpent coiled round the grip, an arrow with a green-black stained head.
+16. (row 4, column 4) A huge dark bull horn bound with gold bands, hanging from a cord.
+```
+
+## Sheet 19: Named legendaries
+
+File: `sheet-19.png`. Current icons in the same cells: [current/sheet-19.png](current/sheet-19.png)
+
+![Sheet 19, current icons](current/sheet-19.png)
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `item:cyclops_hammer` | New. Weapon, named legendary: **Hammer of the Cyclopes** (Cyclops). Struck the thunderbolts of Zeus. | a heavy bronze smith's hammer on a short haft, glowing orange cracks in its head |
+| 2 | R1 C2 | 256-511, 0-255 | `item:harpy_helm` | New. Helmet, named legendary: **Harpy-wing helm** (Harpies). Feathers that fell like knives. | a bronze helmet with two grey-and-black feathered wings swept back from its sides |
+| 3 | R1 C3 | 512-767, 0-255 | `item:chimera_cuirass` | New. Armour, named legendary: **Chimera-hide cuirass** (Chimera). Lion, goat and serpent; it still smells of fire. | a cuirass of red-and-gold reptile scales with a lion-mane collar |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:poseidon_trident` | New. Weapon, named legendary: **Trident of Poseidon** (Kraken). Fished from the beast's jaws. | a bronze trident with three barbed prongs, sea-green patina, on a long shaft |
+| 5 | R2 C1 | 0-255, 256-511 | `item:aegis_of_zeus` | New. Shield, named legendary: **Aegis of Zeus** (Titan). Goatskin of Amaltheia with the Gorgon's head. | a round shield of golden goatskin with a Gorgon face in the centre and a rim of small snakes |
+| 6 | R2 C2 | 256-511, 256-511 | `item:golden_fleece` | New. Trinket, named legendary: **Golden Fleece** (duel ladder floor 50 boss). Taken from Colchis by Jason. | a small folded golden ram's fleece, the ram's head and horns showing, hanging from a cord |
+| 7 | R2 C3 | 512-767, 256-511 | `item:helm_of_hades` | New. Helmet, named legendary: **Helm of Hades** (duel ladder floor 40 boss). The Cap of Darkness. | a dark iron helmet wreathed in black smoke with empty black eye holes |
+| 8 | R2 C4 | 768-1023, 256-511 | `item:harpe_of_perseus` | New. Weapon, named legendary: **Harpe of Perseus** (duel ladder floor 30 boss). The sickle that took the Gorgon's head. | a pale silver sickle-sword: a straight blade with a hook curving back near the tip |
+
+Sheet prompt:
+
+```text
+Sheet 19 of 19: named legendaries.
+Weapons are drawn diagonally across the cell: grip / butt at the lower left, tip / blade at the
+upper right, at the same 45 degree angle (bows stand upright, slings hang). Shields, helmets and armour are front views, upright.
+Trinkets are small jewellery objects; when hanging from a cord, the cord's two ends go up to the
+top of the icon area.
+Items of one family (several spears, several helmets...) must be clearly different from each
+other at a glance: follow each cell's shape, material and colour exactly.
+Cells, in reading order:
+1. (row 1, column 1) A heavy bronze smith's hammer on a short haft, glowing orange cracks in its head.
+2. (row 1, column 2) A bronze helmet with two grey-and-black feathered wings swept back from its sides.
+3. (row 1, column 3) A cuirass of red-and-gold reptile scales with a lion-mane collar.
+4. (row 1, column 4) A bronze trident with three barbed prongs, sea-green patina, on a long shaft.
+5. (row 2, column 1) A round shield of golden goatskin with a Gorgon face in the centre and a rim of small snakes.
+6. (row 2, column 2) A small folded golden ram's fleece, the ram's head and horns showing, hanging from a cord.
+7. (row 2, column 3) A dark iron helmet wreathed in black smoke with empty black eye holes.
+8. (row 2, column 4) A pale silver sickle-sword: a straight blade with a hook curving back near the tip.
+Cells 9 to 16: leave empty (plain magenta).
 ```
 
 ## Single-icon prompt
@@ -881,6 +1086,7 @@ It must match the other icons of the set: same outline, lighting and level of de
 | `chrome:` | `src/ui/online.ts`, texture keys `sync_*`, `supporter_banner` | not square: draw the cloud wide and the banner tall inside the cell |
 | `goods:` | `src/art/goodsIcons.ts` (`renderGoodsIconHD`) | resources and battle consumables |
 | `item:` | `src/data/items.ts` item ID (today drawn by `src/art/itemIconsHD.ts` from the item's `art` key) | one picture per item; rarity frames, glow and sparkles stay in code |
+| `power:` | new: `POWERS` in docs/ITEMS.md, texture key `power_<id>` | shown on item cards and as battle FX when it triggers |
 | `trinket:` | `src/data/items.ts` item ID (`slot: 'trinket'`) | |
 
 Rules that still hold for the new art (docs/UI_KIT.md "One icon, one meaning"):
