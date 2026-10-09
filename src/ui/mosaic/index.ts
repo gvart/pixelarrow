@@ -13,3 +13,8 @@ export { BottomPanel, type BottomPanelOpts } from './BottomPanel';
 export { MBadge, mosaicImage, mosaicTexture, mtext, mw, fit, TAP, GAP } from './base';
 export { addCover, preloadRasters, hasRaster, RASTERS } from './raster';
 export { addHubShell, goTab, type HubShell } from './hub';
+export { MBar, StatChip, type MBarOpts, type StatChipOpts } from './meters';
+export { addSubShell, type SubShell, type SubShellOpts } from './subShell';
+export { addTipLine, tipHidden, type TipLineOpts } from './tips';
+export { openParchmentSheet, sheetActionsH, SHEET_TITLE_H, SHEET_ACTION_H, type ParchmentSheetOpts, type ParchmentSheetHandle } from './ParchmentSheet';
+export { MIconButton, type MIconButtonOpts, type MIconButtonVariant } from './iconButton';
