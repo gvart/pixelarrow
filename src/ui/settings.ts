@@ -96,7 +96,6 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
   list = new ScrollList(scene, c, body.x, body.y, body.w, listH, {
     count: ROWS.length,
     rowH,
-    fade: 0x2e241b,
     render: (i, row, rw) => {
       const r = ROWS[i];
       if (r.kind === 'section') {

@@ -13,11 +13,12 @@ import { UI_ICONS } from '../art/uiIcons';
 import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
 import { renderIcon } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
+import { renderMosaic, type MosaicStyle } from '../art/mosaicUi';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
 import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
-import { ellipsize, measureText } from './textfit';
+import { ellipsize, measureText, LINE_H } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
 import { RS } from '../platform/renderScale';
 import { ACCENT, MOSAIC, RESOURCES, TEXT } from './tokens';
@@ -28,7 +29,9 @@ export type FontKey =
   // v3 (src/ui/tokens.ts): secondary and muted text, text on accents, the resource colours, errors
   | 'sec' | 'muted' | 'onAccent' | 'reward' | 'glory' | 'premium' | 'bad' | 'xp' | 'power' | 'stars' | 'headL' | 'wargold'
   // v4 Mosaic (MOSAIC in tokens.ts): Inter ink on parchment (p*) and Cinzel caps (r*): ink on parchment, cream on terracotta / bronze / teal / stone, gold on dark stone
-  | 'pInk' | 'pSec' | 'pMuted' | 'pOff' | 'pGood' | 'pBad' | 'rInk' | 'rCream' | 'rGold' | 'rOff';
+  | 'pInk' | 'pSec' | 'pMuted' | 'pOff' | 'pGood' | 'pBad' | 'rInk' | 'rCream' | 'rGold' | 'rOff'
+  // ink forms of the v3 colours, for text on parchment (src/ui/inkSkin.ts maps the light-on-dark keys to these): headings in the head face, reward gold, xp, Drachmae
+  | 'hInk' | 'pGold' | 'pXp' | 'pPremium';
 
 export interface UIMetrics {
   S: number;
@@ -78,8 +81,12 @@ const FONT_COLORS: Record<FontKey, [number, number | undefined]> = {
   rCream: [MOSAIC.cream, 0x2a0f08],
   rGold: [MOSAIC.gold, 0x0c0907],
   rOff: [MOSAIC.offText, 0x2e2a25],
+  hInk: [MOSAIC.ink, undefined],
+  pGold: [MOSAIC.inkGold, undefined],
+  pXp: [MOSAIC.inkXp, undefined],
+  pPremium: [MOSAIC.inkPremium, undefined],
 };
-const FONT_FACE: Partial<Record<FontKey, Face>> = { head: 'head', headL: 'head', rInk: 'roman', rCream: 'roman', rGold: 'roman', rOff: 'roman' };
+const FONT_FACE: Partial<Record<FontKey, Face>> = { head: 'head', headL: 'head', hInk: 'head', rInk: 'roman', rCream: 'roman', rGold: 'roman', rOff: 'roman' };
 
 /**
  * Register a bitmap font `key` drawn from a vector face (src/art/vectorFont.ts)
@@ -182,6 +189,21 @@ export function sweepPanels(game: Phaser.Game): number {
 /** An image of a panel texture, scaled to UI px (origin top-left). */
 export function panelImage(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle): Phaser.GameObjects.Image {
   return scene.add.image(x, y, panelTexture(scene, w, h, style)).setOrigin(0, 0).setScale(1 / panelK(scene));
+}
+
+/** Texture key of a v4 surface (the same cache as src/ui/mosaic/base.ts `mosaicTexture`). */
+export function mosaicPanelTexture(scene: Phaser.Scene, w: number, h: number, style: MosaicStyle): string {
+  w = Math.max(4, Math.round(w));
+  h = Math.max(4, Math.round(h));
+  const K = panelK(scene);
+  const key = `panel_mosaic_${style}_${w}x${h}@${K}`;
+  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderMosaic(style, w, h, K))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  return key;
+}
+
+/** An image of a v4 surface, scaled to UI px (origin top-left). */
+export function mosaicPanelImage(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: MosaicStyle): Phaser.GameObjects.Image {
+  return scene.add.image(Math.round(x), Math.round(y), mosaicPanelTexture(scene, w, h, style)).setOrigin(0, 0).setScale(1 / panelK(scene));
 }
 
 export function addPanel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle = 'parch'): Phaser.GameObjects.Image {
@@ -359,7 +381,7 @@ export class Button extends Phaser.GameObjects.Container {
     this.enabled = opts.style !== 'buttonOff';
     this.face = scene.add.container(this.w / 2, this.h / 2);
     this.add(this.face);
-    this.bg = panelImage(scene, -this.w / 2, -this.h / 2, this.w, this.h, this.baseStyle());
+    this.bg = mosaicPanelImage(scene, -this.w / 2, -this.h / 2, this.w, this.h, this.baseStyle());
     this.face.add(this.bg);
     this.content = scene.add.container(-this.w / 2, -this.h / 2);
     this.face.add(this.content);
@@ -382,7 +404,7 @@ export class Button extends Phaser.GameObjects.Container {
         this.release(true);
       });
       if (!this.enabled) return;
-      this.bg.setTexture(panelTexture(scene, this.w, this.h, this.downStyle()));
+      this.bg.setTexture(mosaicPanelTexture(scene, this.w, this.h, this.downStyle()));
       // the face sinks onto its lip and gives a little under the finger
       this.content.y = -this.h / 2 + 2;
       if (!motion.reduced) this.face.setScale(0.97);
@@ -431,25 +453,26 @@ export class Button extends Phaser.GameObjects.Container {
     return undefined;
   }
 
-  /** Primary = terracotta, selected = lit bronze, destructive = stone, else bronze. */
-  private baseStyle(): SmoothStyle {
-    if (!this.enabled) return 'buttonOff';
-    if (this.opts.variant === 'purchase') return 'buttonBuy';
-    if (this.opts.variant === 'primary') return 'buttonSel';
-    if (this.opts.variant === 'ghost' && !this.selected) return 'buttonGhost';
-    if (this.selected) return 'buttonOn';
-    if (this.opts.variant === 'destructive') return 'buttonDanger';
-    return 'button';
+  /** v4 looks: primary = terracotta, selected = lit bronze, destructive = dark wine, ghost = grey stone, else bronze; disabled = flat grey stone. */
+  private baseStyle(): MosaicStyle {
+    if (!this.enabled) return 'btnStone';
+    if (this.opts.variant === 'purchase') return 'btnBuy';
+    if (this.opts.variant === 'primary') return 'btnPrimary';
+    if (this.selected) return 'btnBronzeOn';
+    if (this.opts.variant === 'ghost') return 'btnNeutral';
+    if (this.opts.variant === 'destructive') return 'btnDanger';
+    return 'btnBronze';
   }
 
-  private downStyle(): SmoothStyle {
+  private downStyle(): MosaicStyle {
     const b = this.baseStyle();
-    return b === 'buttonSel' ? 'buttonSelDown' : b === 'buttonOn' ? 'buttonOnDown' : b === 'buttonDanger' ? 'buttonDangerDown' : b === 'buttonBuy' ? 'buttonBuyDown' : b === 'buttonGhost' ? 'buttonGhostDown' : 'buttonDown';
+    return b === 'btnPrimary' ? 'btnPrimaryDown' : b === 'btnBuy' ? 'btnBuyDown' : b === 'btnDanger' ? 'btnDangerDown' : b === 'btnNeutral' ? 'btnNeutralDown' : b === 'btnBronze' ? 'btnBronzeDown' : b;
   }
 
-  private isLight(): boolean {
+  /** The label font on this surface: cream on the dark faces, ink on the lit bronze, faded on grey stone. */
+  private labelFont(): FontKey {
     const b = this.baseStyle();
-    return b === 'buttonSel' || b === 'buttonDanger' || b === 'buttonOn' || b === 'buttonBuy';
+    return b === 'btnStone' ? 'rOff' : b === 'btnBronzeOn' ? 'rInk' : 'rCream';
   }
 
   private build(): void {
@@ -457,24 +480,28 @@ export class Button extends Phaser.GameObjects.Container {
     this.labelText = undefined;
     this.iconImg = undefined;
     const scene = this.scene;
-    const light = this.isLight();
-    // the Telegram star keeps its own colours on the purchase blue
-    const variant = this.opts.variant === 'purchase' && this.enabled ? '' : light ? 'L' : this.enabled ? '' : 'D';
-    const font: FontKey = !this.enabled ? 'dim' : light ? 'light' : this.opts.font ?? 'ink';
+    const b = this.baseStyle();
+    // the Telegram star keeps its own colours on the purchase blue; the lit bronze keeps the bronze icons
+    const variant = !this.enabled ? 'D' : b === 'btnBuy' || b === 'btnBronzeOn' ? '' : 'L';
+    const font = this.labelFont();
     const shadow = SHADOW_FONTS.has(font);
     const hasIcon = !!this.opts.icon;
     const hasLabel = !!this.opts.label;
     const stacked = hasIcon && hasLabel && this.h >= 26 && !this.opts.inline && !this.opts.iconOnly;
-    // words under an icon, and small buttons, use the smaller text size
-    const size = stacked || this.opts.small ? 6 : 7;
-    const lh = (8 * size) / 7;
+    // words under an icon, and small buttons, use the smaller text size; Cinzel caps are wide, so a label steps down to 5.5 before it is cut
+    const size0 = stacked || this.opts.small ? 6 : 7;
+    let size = size0;
+    const caps = hasLabel ? this.opts.label!.toUpperCase() : '';
+    const wide = (str: string, sz: number) => measureText(str, shadow, sz, 'roman');
     this.truncated = false;
     const fit = (maxW: number) => {
-      const full = this.opts.label!;
-      const out = ellipsize(full, maxW, shadow, size);
-      this.truncated = out !== full;
+      size = [size0, size0 - 0.5, size0 - 1, 5.5].filter((s, i, a) => s >= 5.5 && a.indexOf(s) === i).find((s) => wide(caps, s) <= maxW) ?? 5.5;
+      const out = ellipsize(caps, maxW, shadow, size, 'roman');
+      this.truncated = out !== caps;
       return out;
     };
+    const lineH = () => (LINE_H * size) / 7;
+    const ty = () => Math.round((this.h - 1 - lineH()) / 2);
     const iconCentered = () => {
       this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
       this.content.add(this.iconImg);
@@ -487,39 +514,45 @@ export class Button extends Phaser.GameObjects.Container {
       const tx = x0 + 15;
       const room = this.w - tx - 4;
       this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
-      this.labelText = addText(scene, tx, Math.round((this.h - 16) / 2) - 1, fit(room), font, 0).setFontSize(7);
-      const subFont: FontKey = !this.enabled ? 'dim' : light ? 'light' : 'dim';
+      const label = fit(room);
+      this.labelText = addText(scene, tx, Math.round((this.h - 16) / 2) - 1, label, font, 0).setFontSize(size);
+      const subFont: FontKey = !this.enabled ? 'rOff' : font === 'rInk' ? 'pSec' : 'rCream';
       const sub = addText(scene, tx, Math.round((this.h - 16) / 2) + 8, ellipsize(this.opts.sub, room, SHADOW_FONTS.has(subFont), 5), subFont, 0).setFontSize(5);
       uiFrame(sub, this, this.w, this.h);
       this.content.add([this.iconImg, this.labelText, sub]);
     } else if (hasIcon && hasLabel && this.h >= 26 && !this.opts.inline) {
       // icon above label
       this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);
-      this.labelText = addText(scene, this.w / 2, this.h - 11, fit(this.w - 4), font, 0.5).setFontSize(size);
+      const label = fit(this.w - 4);
+      this.labelText = addText(scene, this.w / 2, this.h - 11, label, font, 0.5).setFontSize(size);
       this.content.add([this.iconImg, this.labelText]);
     } else if (hasIcon && hasLabel) {
+      // the icon stays while the label keeps at least size 6.5; below that the icon goes (the words matter more)
       const room = this.w - 6 - 15;
-      const label = fit(room);
-      if (this.truncated && room < 20) {
-        // no room for words: icon only, the label becomes the long-press tip
-        iconCentered();
+      const withIcon = [size0, size0 - 0.5, size0 - 1, 6.5].some((z) => z >= 6.5 && wide(caps, z) <= room);
+      if (!withIcon) {
+        const label = fit(this.w - 6);
+        this.labelText = addText(scene, this.w / 2, ty(), label, font, 0.5).setFontSize(size);
+        this.content.add(this.labelText);
       } else {
+        const label = fit(room);
         this.labelText = addText(scene, 0, 0, label, font, 0).setFontSize(size);
-        const total = 12 + 3 + measureText(label, shadow, size);
+        const total = 12 + 3 + wide(label, size);
         const x0 = Math.round((this.w - total) / 2);
         this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
-        this.labelText.setPosition(x0 + 15, (this.h - lh) / 2 - 1);
+        this.labelText.setPosition(x0 + 15, ty());
         this.content.add([this.iconImg, this.labelText]);
       }
     } else if (hasLabel) {
-      this.labelText = addText(scene, this.w / 2, (this.h - lh) / 2 - 1, fit(this.w - 6), font, 0.5).setFontSize(size);
+      const label = fit(this.w - 6);
+      this.labelText = addText(scene, this.w / 2, ty(), label, font, 0.5).setFontSize(size);
       this.content.add(this.labelText);
     }
     if (this.labelText) uiFrame(this.labelText, this, this.w, this.h);
   }
 
   private refreshBg(): void {
-    this.bg.setTexture(panelTexture(this.scene, this.w, this.h, this.baseStyle()));
+    this.bg.setTexture(mosaicPanelTexture(this.scene, this.w, this.h, this.baseStyle()));
   }
 
   get isEnabled(): boolean {

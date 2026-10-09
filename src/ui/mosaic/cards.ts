@@ -5,6 +5,7 @@
  */
 import Phaser from 'phaser';
 import { addIcon, scaleIcon } from '../kit';
+import { inkify } from '../inkSkin';
 import { uiId } from '../layout';
 
 import { MOSAIC, SPACE } from '../tokens';
@@ -36,6 +37,8 @@ export class ParchmentCard extends Phaser.GameObjects.Container {
     this.add(mosaicImage(scene, 0, 0, this.w, this.h, o.selected ? 'parchmentSel' : 'parchment'));
     if (o.id) uiId(this, o.id);
     scene.add.existing(this);
+    // legacy light-on-dark text and panels added to the card are re-skinned for parchment (src/ui/inkSkin.ts)
+    inkify(this);
   }
 }
 

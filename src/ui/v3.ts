@@ -16,13 +16,14 @@
  *   money: Telegram blue, "Stars", always confirmed), `flyReward`.
  */
 import Phaser from 'phaser';
-import { Button, addIcon, addText, panelImage, panelK, panelTexture, scaleIcon, tappable, uiMetrics, SHADOW_FONTS, type FontKey } from './kit';
+import { Button, addIcon, addText, mosaicPanelImage, panelImage, panelK, panelTexture, scaleIcon, tappable, uiMetrics, SHADOW_FONTS, type FontKey } from './kit';
 import { RS } from '../platform/renderScale';
 import { renderMedallion } from '../art/smoothUi';
-import { hintStore, showTooltip, shadeTap, type Modal, type UiScene } from './widgets';
+import { hintStore, showTooltip, shadeTap, addSheetTitle, type Modal, type UiScene } from './widgets';
+import { inkify, ownSkin } from './inkSkin';
 import { uiBlocker, uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
-import { ACCENT, MOTION, RESOURCES, SURFACE, TEXT, type ResourceId } from './tokens';
+import { ACCENT, MOSAIC, MOTION, RESOURCES, SURFACE, type ResourceId } from './tokens';
 import { motion, pulse, tweenTo } from './motion';
 import { navLayer, showInGameBack } from '../platform/nav';
 import { haptic } from '../platform/telegram';
@@ -56,8 +57,6 @@ export function addSection(scene: Phaser.Scene, parent: C, x: number, y: number,
 // ================================================================== header
 
 export const HEADER_H = 30;
-/** The title's scale when chips share the band (a little smaller, so two chips fit on a phone). */
-const TITLE_K_CHIPS = 1.12;
 
 export interface HeaderAction {
   icon: string;
@@ -106,11 +105,10 @@ export class ScreenHeader extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, w: number, o: HeaderOpts) {
     super(scene, 0, 0);
     this.w = Math.round(w);
-    this.add(panelImage(scene, 0, 0, this.w, this.h, 'header'));
-    this.add(scene.add.rectangle(0, this.h - 1, this.w, 1, SURFACE.line).setOrigin(0, 0));
+    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'topBar'));
     let x = 6;
     if (o.back && showInGameBack()) {
-      const b = new Button(scene, 3, 3, 26, 24, { icon: 'chevL', label: t('v3.back'), iconOnly: true, variant: 'ghost', id: `${o.id ?? 'header'}.back`, onClick: o.back });
+      const b = new Button(scene, 3, 3, 26, 24, { icon: 'chevL', label: t('v3.back'), iconOnly: true, variant: 'secondary', id: `${o.id ?? 'header'}.back`, onClick: o.back });
       this.add(b);
       this.buttons.push(b);
       x = 33;
@@ -121,7 +119,7 @@ export class ScreenHeader extends Phaser.GameObjects.Container {
     for (const a of [...(o.actions ?? [])].reverse()) {
       const bw = Math.max(withChips ? 28 : 30, Math.min(48, measureText(a.label, false, 6) + 8));
       right -= bw;
-      const b = new Button(scene, right, 2, bw, 26, { icon: a.icon, label: a.label, variant: 'ghost', style: a.active ? 'buttonSel' : undefined, id: a.id, tip: a.tip, onClick: a.onClick });
+      const b = new Button(scene, right, 2, bw, 26, { icon: a.icon, label: a.label, variant: 'secondary', style: a.active ? 'buttonSel' : undefined, id: a.id, tip: a.tip, onClick: a.onClick });
       this.add(b);
       this.buttons.push(b);
       if (a.active) this.add(scene.add.rectangle(right + 4, this.h - 3, bw - 8, 2, ACCENT.goldHi).setOrigin(0, 0));
@@ -131,7 +129,7 @@ export class ScreenHeader extends Phaser.GameObjects.Container {
     // chips: whole where they fit, else without their words, else left for the screen (the title keeps ~ 56 UI px)
     const chipOpts = o.chips ?? [];
     if (chipOpts.length) {
-      const minTitle = Math.min(56, measureText(o.title, false, 7, 'head') * TITLE_K_CHIPS + 4);
+      const minTitle = Math.min(56, measureText(o.title, true, 8, 'roman') + 4);
       const room = right - x - minTitle - 4;
       const gap = 3;
       const widthOf = (c: InfoChipOpts, words: boolean) => InfoChip.measure(words ? c : { ...c, word: undefined, lead: undefined });
@@ -155,8 +153,9 @@ export class ScreenHeader extends Phaser.GameObjects.Container {
       right = cx;
     }
     const tw = right - x - 4;
-    const k = withChips ? TITLE_K_CHIPS : 1.25;
-    const title = addText(scene, x, o.note ? 4 : withChips ? 9 : 8, ellipsize(o.title, tw / k, false, 7, 'head'), 'headL').setScale(k);
+        // Cinzel gold on the stone band
+    const tsize = withChips ? 8 : 9;
+    const title = addText(scene, x, o.note ? 4 : withChips ? 8 : 8, ellipsize(o.title, tw, true, tsize, 'roman'), 'rGold').setFontSize(tsize);
     uiFrame(title, this, this.w, this.h);
     this.add(title);
     if (o.note) {
@@ -164,7 +163,7 @@ export class ScreenHeader extends Phaser.GameObjects.Container {
       uiFrame(nt, this, this.w, this.h);
       this.add(nt);
       if (o.noteTip) {
-        const z = scene.add.zone(x, 0, Math.min(tw, Math.max(nt.width, title.displayWidth)) + 4, this.h).setOrigin(0, 0).setInteractive();
+        const z = scene.add.zone(x, 0, Math.min(tw, Math.max(nt.width, title.width)) + 4, this.h).setOrigin(0, 0).setInteractive();
         uiId(z, `${o.id ?? 'header'}.note`);
         tappable(z, null, () => showTooltip(scene, o.noteTip!, z));
         this.add(z);
@@ -248,7 +247,7 @@ export class InfoChip extends Phaser.GameObjects.Container {
     const ww = o.word ? measureText(o.word) + 4 : 0;
     this.w = Math.round(iw + vw + ww + 6);
     this.opts = { label: [o.lead, valueStr, o.word].filter(Boolean).join(' ') };
-    this.add(panelImage(scene, 0, 0, this.w, this.h, 'chip'));
+    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'chipStone'));
     if (o.icon) this.add(addIcon(scene, 3, Math.round((this.h - 12) / 2), o.icon));
     const ty = Math.round((this.h - 9) / 2) + 1;
     if (o.lead) {
@@ -279,6 +278,7 @@ export class InfoChip extends Phaser.GameObjects.Container {
       if (o.id) uiId(this, o.id);
       tappable(this, null, () => (o.onTap ? o.onTap() : showTooltip(scene, o.tip!, this)));
     }
+    ownSkin(this);
     scene.add.existing(this);
   }
 
@@ -463,9 +463,9 @@ export class ProgressBar extends Phaser.GameObjects.Container {
     const h = this.barH;
     const r = Math.min(2, h / 2);
     g.clear();
-    g.fillStyle(0x000000, 0.7);
+    g.fillStyle(MOSAIC.stone0, 0.85);
     g.fillRoundedRect(0, y, this.w, h, r);
-    g.lineStyle(0.5, SURFACE.rim, 0.6);
+    g.lineStyle(0.6, MOSAIC.parchEdge, 0.9);
     g.strokeRoundedRect(0, y, this.w, h, r);
     const fw = Math.round((this.w - 2) * f);
     if (fw > 0) {
@@ -547,16 +547,16 @@ export class Toggle extends Phaser.GameObjects.Container {
     const tw = 30;
     const th = 14;
     g.clear();
-    g.fillStyle(0x000000, 0.6);
+    g.fillStyle(0x000000, 0.5);
     g.fillRoundedRect(tx, ty + 1, tw, th, 7);
-    g.fillStyle(this.isOn ? 0xb08a4e : 0x0e0b08, 1);
+    g.fillStyle(this.isOn ? MOSAIC.bronze : MOSAIC.stone1, 1);
     g.fillRoundedRect(tx, ty, tw, th, 7);
-    g.lineStyle(1, this.isOn ? SURFACE.rimHi : SURFACE.rim, this.isOn ? 0.9 : 0.6);
+    g.lineStyle(1, this.isOn ? MOSAIC.goldHi : MOSAIC.meanderLo, this.isOn ? 0.95 : 0.9);
     g.strokeRoundedRect(tx + 0.5, ty + 0.5, tw - 1, th - 1, 6.5);
     const kx = tx + 7 + this.k.x * (tw - 14);
     g.fillStyle(0x000000, 0.5);
     g.fillCircle(kx + 0.5, ty + 7.8, 5.6);
-    g.fillStyle(this.isOn ? TEXT.onAccent : 0x8a7d69, 1);
+    g.fillStyle(this.isOn ? MOSAIC.cream : MOSAIC.slabHi, 1);
     g.fillCircle(kx, ty + 7, 5.4);
     g.fillStyle(0xffffff, 0.35);
     g.fillCircle(kx - 1.5, ty + 5.2, 1.8);
@@ -589,8 +589,8 @@ export class Stepper extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, private o: StepperOpts) {
     super(scene, Math.round(x), Math.round(y));
     this.v = o.value;
-    this.add(panelImage(scene, 22, 2, 26, 18, 'well'));
-    this.txt = addText(scene, 35, 7, '', 'ink', 0.5);
+    this.add(mosaicPanelImage(scene, 22, 2, 26, 18, 'parchmentWell'));
+    this.txt = addText(scene, 35, 7, '', 'pInk', 0.5);
     uiFrame(this.txt, this, this.w, this.h);
     this.add(this.txt);
     const id = o.id ?? o.label;
@@ -696,15 +696,9 @@ export function openSheet(scene: UiScene, o: SheetOpts): Modal {
   const y = VH - h;
   const box = scene.add.container(0, 0);
   c.add(box);
-  box.add(panelImage(scene, x, y, w, h + 10, 'cardRaised'));
-  // the grabber
-  box.add(scene.add.rectangle(Math.round(VW / 2 - 12), y + 4, 24, 2, SURFACE.rim, 0.9).setOrigin(0, 0));
+  box.add(mosaicPanelImage(scene, x, y, w, h + 10, 'sheet'));
   let top = y + 10;
-  if (o.title) {
-    const tt = addText(scene, VW / 2, y + 10, ellipsize(o.title, (w - 20) / 1.15, false, 7, 'head'), 'head', 0.5).setScale(1.15);
-    box.add(tt);
-    top = y + 26;
-  }
+  if (o.title) top = addSheetTitle(scene, box, x, y, w, o.title, o.shadeCloses !== false ? () => close() : undefined);
   let closed = false;
   const close = () => {
     if (closed) return;
@@ -715,6 +709,8 @@ export function openSheet(scene: UiScene, o: SheetOpts): Modal {
   };
   if (o.shadeCloses !== false) shadeTap(shade, { x, y, w, h }, close);
   navLayer(c, close, scene);
+  // the content is built for dark surfaces: skin it for the parchment as it arrives
+  inkify(box);
   // slide in
   if (!motion.reduced) {
     box.y = h + 12;
@@ -994,13 +990,10 @@ export class ToggleChip extends Phaser.GameObjects.Container {
     };
     const g = scene.add.graphics();
     if (o.on) {
-      L(panelImage(scene, 0, 0, this.w, this.h, 'cardSel'));
+      L(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'btnBronzeOn'));
     } else {
-      // outline only: a dark fill and a muted rim, so ON (filled) and OFF never look alike
-      g.fillStyle(SURFACE.sunken, 0.9);
-      g.fillRoundedRect(0.5, 0.5, this.w - 1, this.h - 1, 4);
-      g.lineStyle(1, SURFACE.rim, 0.75);
-      g.strokeRoundedRect(0.5, 0.5, this.w - 1, this.h - 1, 4);
+      // outline only: a dark stone track and a muted rim, so ON (the lit bronze) and OFF never look alike
+      L(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'track'));
     }
     L(g);
     // the mode's icon (in colour when on), with a gold check badge on its corner when on
@@ -1024,9 +1017,10 @@ export class ToggleChip extends Phaser.GameObjects.Container {
     }
     L(mark);
     const tx = ix + 12 + 6;
-    const lt = addText(scene, tx, Math.round((this.h - 9) / 2) + 1, ellipsize(o.label, this.w - tx - 4), o.on ? 'ink' : 'muted');
+    const lt = addText(scene, tx, Math.round((this.h - 9) / 2) + 1, ellipsize(o.label, this.w - tx - 4), o.on ? 'pInk' : 'muted');
     uiFrame(lt, this, this.w, this.h);
     L(lt);
+    ownSkin(this);
     if (o.off) this.setAlpha(0.55);
     this.setSize(this.w, this.h);
     this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);

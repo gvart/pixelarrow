@@ -15,7 +15,7 @@ export type MosaicStyle =
   | 'page' | 'topBar' | 'frame'
   | 'paper' | 'parchment' | 'parchmentSel' | 'parchmentWell' | 'sheet'
   | 'plaque'
-  | 'btnPrimary' | 'btnPrimaryDown' | 'btnHero' | 'btnHeroDown' | 'btnBronze' | 'btnBronzeDown' | 'btnNeutral' | 'btnNeutralDown' | 'btnStone' | 'btnBuy' | 'btnBuyDown'
+  | 'btnPrimary' | 'btnPrimaryDown' | 'btnHero' | 'btnHeroDown' | 'btnBronze' | 'btnBronzeDown' | 'btnNeutral' | 'btnNeutralDown' | 'btnStone' | 'btnBuy' | 'btnBuyDown' | 'btnDanger' | 'btnDangerDown' | 'btnBronzeOn'
   | 'tileStone' | 'tileTerra' | 'tileGlaze' | 'tileBronze' | 'tileOff'
   | 'fresco' | 'track' | 'trackSel' | 'segDone' | 'segOpen' | 'questTrack'
   | 'tabBar' | 'tabSel' | 'medallion' | 'medallionSel'
@@ -473,6 +473,10 @@ const BTN: Record<string, BtnLook> = {
   btnNeutralDown: { hi: M.slab, mid: M.slabLo, lo: M.slabLo, rimHi: M.bronze, rimLo: 0x2a1c0c, pressed: true },
   btnBuy: { hi: ACCENT.purchaseHi, mid: ACCENT.purchase, lo: ACCENT.purchaseLo, rimHi: 0xc8e8ff, rimLo: 0x0a2436, gloss: true },
   btnBuyDown: { hi: ACCENT.purchase, mid: ACCENT.purchaseLo, lo: ACCENT.purchaseLo, rimHi: 0x9cd0f0, rimLo: 0x0a2436, gloss: true, pressed: true },
+  // shared overlays: a clear danger (dark wine, bronze rim) and the lit "picked" bronze
+  btnDanger: { hi: M.wineHi, mid: M.wine, lo: M.wineLo, rimHi: M.bronzeHi, rimLo: 0x1c0a10 },
+  btnDangerDown: { hi: M.wine, mid: M.wineLo, lo: M.wineLo, rimHi: M.bronze, rimLo: 0x1c0a10, pressed: true },
+  btnBronzeOn: { hi: 0xe6c288, mid: M.bronzeHi, lo: 0xb98d52, rimHi: M.goldHi, rimLo: M.meanderLo, brushed: true },
 };
 
 function renderButton(w: number, h: number, K: number, style: string): HTMLCanvasElement {
@@ -1045,6 +1049,7 @@ export function renderMosaic(style: MosaicStyle, w: number, h: number, K: number
     case 'sheet': return renderParchment(w, h, K, style, { sheet: true });
     case 'plaque': return renderPlaque(w, h, K);
     case 'btnPrimary': case 'btnPrimaryDown': case 'btnHero': case 'btnHeroDown':
+    case 'btnDanger': case 'btnDangerDown': case 'btnBronzeOn':
     case 'btnBronze': case 'btnBronzeDown': case 'btnNeutral': case 'btnNeutralDown': case 'btnBuy': case 'btnBuyDown':
       return renderButton(w, h, K, style);
     case 'btnStone': return renderButtonOff(w, h, K);
