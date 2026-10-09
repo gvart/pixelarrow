@@ -74,14 +74,39 @@ swapping its texture).
 | `dark`, `tooltip` | deeper stone, bronze rim | tips, hint pill, banners, plates |
 | `inset`, `slot`, `tab` | stone well, faint rim | wells, cards, unselected tabs |
 | `slotSel` | lit bronze rim | the selected card or slot |
-| `card`, `cardRaised`, `cardSel`, `cardLocked`, `well`, `track` / `thumb`, `header`, `chip` | v3 materials | v3 screens |
-| `button` | bronze bevel, 2 px lip | every secondary action |
-| `buttonSel` | terracotta | **the** primary action (`variant: 'primary'`) |
+| `card`, `cardRaised`, `cardSel`, `cardLocked`, `well`, `track` / `thumb`, `header`, `chip` | v3 materials: mottled stone with grain and a top-left bevel; wells sunken | v3 screens |
+| `header`, `bar`, `stage` | wood planks; `header` carries a Greek-key trim along its bottom, `bar` (the command strip) along its top | screen header, bottom strip, the hero's stage band |
+| `button` | brushed bronze with patina, bevel, 2 px lip | every secondary action |
+| `buttonSel` | lacquered terracotta (gloss band, hot spot, convex shade) in a bronze ring | **the** primary action (`variant: 'primary'`) |
 | `buttonOn`, `tabSel` | lit bronze | selected toggle / tab / the order in force |
 | `buttonGhost` | flat | `variant: 'ghost'` |
 | `buttonBuy` | Telegram blue | `variant: 'purchase'` (real money) |
 | `buttonDanger` | quiet stone | destructive (confirm first) |
 | `buttonOff` | flat dark stone | cannot, with a reason |
+
+Materials (iteration 2) are flags on a style's look in `smoothUi.ts`:
+`mottle` (cloudy stone), `grain`, `bevel` (light top-left, shade bottom-right;
+negative = sunken), `brushed` (bronze streaks), `patina` (verdigris flecks),
+`gloss` (lacquer), `planks`, `meander` / `meanderTop`. Each panel size is
+drawn once and cached; nothing is drawn per frame.
+
+### Pixel art in menus
+
+The menus carry the game's pixel art, not only icons
+(`src/art/menuSprites.ts`, `src/ui/modeArt.ts`), drawn 1 art px = 1 UI px
+with nearest filtering:
+
+- **Portraits** (`addPortrait`) in every roster row: Team, the floor
+  sheet's enemy army, the search lineup.
+- **Chests** (`addChestSprite`): closed and grey (locked), closed and hopping
+  (ready), open and empty (claimed), open on its gold (the reward popup).
+- **Mode banners** (`addModeBanner(scene, parent, x, y, w, 26, mode)`): a dusk
+  strip under the header: the ladder's stepped tower with torches, the
+  arena's colosseum with pennants, the market stall (Duels shop, Shop,
+  merchants), the beasts' cave. Torches and pennants step through their
+  frames (`idleFrames`); still under Reduce motion. Not on short screens
+  (VH < 330).
+- **Laurel branches** (`LAUREL`) round a victory.
 
 ### Tokens
 
@@ -116,16 +141,25 @@ versions (`itemIconsHD.ts`, `goodsIcons.ts`). Every new icon follows it:
 
 ### One icon, one meaning
 
-`RESOURCES` in tokens.ts: gold `coin`, Glory `laurel`, Drachmae `drachma`,
-Telegram Stars `tgstar` (always with the word "Stars"), power `power`, wins
-`trophy`, XP `xp`. `RESERVED_ICONS` adds the gold star (only a ladder floor
-rating), `podium` (leaderboards), `lock` and `shop`. A test fails if two
+`RESOURCES` in tokens.ts: campaign gold `coin`, war gold `wargold` (a bronze
+stater stamped with a helmet), Glory `laurel`, Drachmae `drachma`, Telegram
+Stars `tgstar` (always with the word "Stars"), power `power`, wins `trophy`,
+XP `xp`. `RESERVED_ICONS` adds the gold star (only a ladder floor rating),
+`podium` (leaderboards), `lock`, `shop` and the mode icons. A test fails if two
 resources share an icon or a colour.
 
-Campaign gold (`SaveData.gold`) and the war season's gold are different
-balances: label them ("Campaign gold", "war gold"). Real money is its own
-colour (Telegram blue, never terracotta), always reads "N Stars" and always
-opens a confirmation sheet.
+`MODE_ICON` in tokens.ts is the one icon of each mode on every screen (tabs,
+cards, Team "Use for", banners): campaign `march`, ladder `ladder`, arena
+`arena`, raids and their defence `raid` (the torch), online `map`, beasts
+`beast`. A test keeps the Duels screen on it. Actions never borrow a resource
+icon: buying is `shop`, selling `amphora`, spoils `chest`.
+
+Campaign gold (`SaveData.gold`) and the war season's gold
+(`profile.resources.gold`) are different balances with different icons and
+names: "gold" in the campaign, "war gold" everywhere online (merchants, the
+market, the war map, the season pass). Real money is its own colour (Telegram
+blue, never terracotta), always reads "N Stars" and always opens a
+confirmation sheet.
 
 ## Screen chrome
 
@@ -178,8 +212,15 @@ Rules:
 - Inside Telegram the header BackButton is the only Back: the command strip
   drops its Back slot. Outside Telegram the `ScreenHeader` draws one back
   arrow instead. Never both.
-- At most two tab levels: `Tabs` (segmented, sliding thumb) on top,
-  `UnderlineTabs` (sliding underline) under it.
+- Tab hierarchy, one look per level, never a third level:
+  - **Top level: segmented** (`Tabs`, a sliding bronze thumb): the sections of
+    a screen (Ladder | Arena; Shop | Pass | Wallet; Stats | Gear | Perks | Skills).
+  - **Sub level: underline** (`UnderlineTabs`, a sliding underline): the pages
+    of one section (Today | Gear | Sell; Live | Legend).
+  - **Entity pickers: cards** (a row of `card` / `cardSel` panels): choosing
+    *which one* (Team presets 1 / 2 / 3, the floors of a chapter).
+  - Filters are quiet ghost chips, lit (`style: 'buttonSel'`) only while they
+    filter (the stash's slot, rarity and sort).
 - Hero sheet: a `Pager` (chevrons, "2 / 8", swipe) to step through heroes.
 
 ### Motion
@@ -192,7 +233,11 @@ turns them into instant changes. Durations are `MOTION` in tokens.ts.
 - Tabs: the indicator slides (200 ms, ease-out). Sheets slide up over a
   fading backdrop (240 ms). Screens slide in (from the left after Back).
 - Numbers count up; progress fills; claimable rewards pulse; a claimed reward
-  flies into its chip (`flyReward`).
+  flies into its chip (`flyReward`: pass Drachmae, chest Glory, which the
+  header holds back until the chest popup closes).
+- A ready chest hops (`hop`); opening one shakes it, swaps it open on its
+  gold, bursts sparks and counts its Glory up. Header torches and pennants
+  step through frames (`idleFrames`). The search page's rings widen.
 - No object is created per frame: pulses are tweens on existing objects;
   scroll fades redraw only on scroll.
 
@@ -210,10 +255,27 @@ composite bow").
 The v3 screens (Home, Duels, Hero sheet, Shop / Pass / Wallet, Settings,
 Beasts) are built from `src/ui/v3.ts` on the tokens of `src/ui/tokens.ts`.
 
-- **One header** per screen: `new ScreenHeader(scene, VW, { title, back, actions })`.
+- **One header** per screen: `new ScreenHeader(scene, VW, { title, back, actions, chips, note })`.
   `back` draws an arrow only outside Telegram (inside, its BackButton runs the
   same handler through nav.ts). Header actions always carry a word under the
-  icon.
+  icon; `active: true` lights the one whose view is on screen ("you are
+  here": Duels → Team / Shop). `chips` (InfoChip options, e.g.
+  `resourceChipOpts('glory', n)`) sit in the band right of the title: words
+  drop before chips do, and what still does not fit is in `header.overflow`
+  for the screen to lay under the header. `note`: a small muted line under
+  the title (the demo marker).
+- `fitChips(scene, opts, w)`: chips that fit together (words drop from the
+  last chip first; a `lead` label such as "Warband" stays).
+- `ToggleChip`: on/off at a glance (filled lit bronze, the icon in colour with
+  a gold check badge, vs an outline with the icon dimmed).
+- `openLegend(scene, title, items)`: a "what the symbols mean" sheet;
+  `addLegend(...)` (sheet.ts): a tap target over one symbol that explains it
+  (rank diamonds, the sync cloud). Never over another tap target: rows use
+  the legend sheet instead.
+- `addMedallion(scene, parent, x, y, d, icon, 'learned' | 'available' | 'locked')`:
+  a skill or perk as its battle medallion (Skills and Perks tabs).
+- Dismissing a tip uses the neutral `xmark`; the red `close` cross means a
+  problem (over a cap).
 - **Resources**: `resourceChip(scene, x, y, 'glory' | 'gold' | 'drachmae' | 'stars' | 'power' | 'wins' | 'xp', value)`;
   one icon and colour each, a tap explains it, `setValue` counts. For gold
   pass `tipKey` (`res.tip.gold.campaign` / `res.tip.gold.war`).
@@ -345,40 +407,58 @@ to make things fit):
 
 `MenuScene`: a cinematic stage on top where the player's own men fight a
 looping skirmish (`src/scenes/menu/MenuBattle.ts`) under the title; then the
-save's card (who, where, campaign gold, campaign battles won), the one primary
-action (Continue the march), the three modes as `Tile`s (Duels, Online,
-Beasts; a locked part says when it opens), the utility row (Shop, New
-campaign, Settings) and the first-steps checklist.
+save's card (who, where, campaign gold, campaign battles won, "Warband N":
+the campaign roster, not the Duels army), the one primary action (Continue
+the march; Begin the march without a save), the three modes as `Tile`s
+(Duels, Online, Beasts; a locked part says when it opens), the utility row
+(Shop, Settings) and the first-steps checklist. New campaign lives in
+Settings → Account, a quiet destructive row whose confirmation says what is
+lost (warband, stash, gold, map) and what is kept.
 
 ### Duels
 
 `DuelScene` (rules in docs/DUELS.md):
 
-- **Header**: title, Glory and a duel level badge with its XP bar; on the
-  right **Team** (a "!" while a fighting hero has points or a perk to spend)
-  and **Shop**. On short screens (`STRAT.compactVH`) they move to the
-  switch's row.
+- **Header**: title, then Glory and the duel level (with its XP line) as
+  chips in the band, then **Team** (a "!" while a fighting hero has points or
+  a perk to spend) and **Shop**, lit while their view is open. Leaderboards
+  and the raid picks drop Team and Shop so their titles fit. Under the header
+  the mode's banner (tower, colosseum, market stall).
 - **Ladder | Arena** switch (the two modes). Team, Shop, the raid picks and a
   leaderboard are full views with a title and back that return where the
   player came from. Back on a mode leaves for the menu.
-- **Ladder**: the next floor card (Fight floor N is the strip's primary), the
-  farm Glory left today, then chapters of five-floor tiles (number, a skull
-  on the boss, 0-3 stars, a lock beyond the next floor) with three chests
-  each (dim, glowing when ready, ticked once claimed). A tap on a floor opens
-  its card; a locked one says what opens it.
+- **Ladder**: a compact next-floor card (medallion, reward, the team against
+  the cap with a tick or a cross; a tap opens the sheet; Fight floor N is the
+  strip's primary), the farm Glory left today, then chapters of five-floor
+  tiles (number, replay Glory "+13" on cleared ones, a skull on the boss,
+  high-contrast star slots, a lock beyond the next floor) with three pixel
+  chests each (grey, hopping when ready, open once claimed; a tap on a
+  closed one previews its reward and the stars it needs). The floor sheet:
+  reward, your team (tick / cross) vs the enemy vs the cap, the stars rule,
+  then "Enemy army · N" and the enemy as portrait rows.
 - **Arena**: the season line, then two cards: **Live PvP** (league or
-  placements, record, what a win pays or why it is closed, Find match
-  (primary) and Unranked) and **Raids** (raids left, the defence team, Raid,
-  the raid log). Each card's trophy opens its leaderboard (top 50, your row
-  pinned). The search and the opponent found take the page.
-- **Team**: preset chips (bronze = edited; "+" while fewer than five), rename,
-  duplicate, delete (confirmed, not the last), "Use for: Ladder / Arena /
-  Defence" toggles, points against the budget, the heroes, the bench. Strip:
-  Back, Recruit, Dismiss.
+  placements, record, "Win +30 · Loss +10 Glory", Find match (primary) and
+  Unranked) and **Raids** (raids left, the defence team, Raid, the raid log).
+  Locked at the same duel level, one card says so ("Unlocks at Duel Lv 5:
+  Ranked matches and Raids", one bar). Each card's Top opens its leaderboard
+  (medals for the podium, league crests, your row pinned). The search takes
+  the page: rings that widen with the search range, the clock, a bar that
+  fills until anyone will do (from `RANKED.window`), copy per mode, your
+  lineup in portraits. Navigation waits during the search (Cancel is on the
+  strip); a tap elsewhere says why.
+- **Team**: "Duel heroes: N" (the Duels army, apart from the campaign
+  warband) with a Symbols legend, preset cards (bronze = edited; "+" while
+  fewer than five), rename, duplicate, delete (confirmed, not the last),
+  "Use for" toggle chips with the mode icons, points against the budget, the
+  heroes, the bench. Strip: Recruit. Dismiss is on the hero sheet (bench
+  only, confirmed).
 - **Shop**: Today / Gear / Sell; offer cards with the item, rarity and slot,
-  price, up to three stats with deltas against what the team wears
-  (`offerSummary`), and Buy (off with the reason when Glory is short). Two
-  columns where wide enough.
+  price, up to three stats with deltas against the same slot and weapon
+  class on a hero who would use it ("vs Doros's Dory spear (Common)";
+  `offerSummary`, `heroUses`), and Buy (off with the reason when Glory is
+  short). "Compare with" opens a sheet: best user in the team, or one hero
+  (items he would not use say "Not for Lysander" and fall back). Sell shows
+  each item's price on its cell. Two columns where wide enough.
 
 ### Battle HUD
 

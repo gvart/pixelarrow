@@ -242,4 +242,15 @@ describe('wrapText on tiny widths', () => {
     expect(r.lines.length).toBeLessThanOrEqual(3);
     expect(wrapText('W', 1).lines).toEqual(['W']);
   });
+
+  it('never breaks inside a word (P0: "15 Drachm / ae" in the season pass)', () => {
+    const w = measureText('Drachm');
+    const r = wrapText('15 Drachmae', w);
+    // no line is a fragment of a word: every line is whole words, or one word cut with "…"
+    for (const l of r.lines) expect(l.endsWith('…') || l.split(' ').every((x) => ['15', 'Drachmae'].includes(x))).toBe(true);
+    expect(r.lines.join(' ')).not.toContain('Drachm ae');
+    expect(r.truncated).toBe(true);
+    expect(wrapText('15 Drachmae', measureText('Drachmae')).lines).toEqual(['15', 'Drachmae']);
+    expect(wrapText('15 Drachmae', measureText('Drachmae')).truncated).toBe(false);
+  });
 });

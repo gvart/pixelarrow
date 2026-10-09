@@ -92,7 +92,10 @@ export const RARITY_TEXT = { common: 0xd2ccc0, uncommon: 0x9ed67c, rare: 0x8dbaf
  * kit icon (src/art/vectorIcons.ts / uiIcons.ts).
  */
 export const RESOURCES = {
+  /** Campaign gold (SaveData.gold). */
   gold: { icon: 'coin', color: 0xf0c24a },
+  /** War gold: the online season's purse (profile.resources.gold), never mixed with campaign gold. */
+  wargold: { icon: 'wargold', color: 0xe39a6b },
   glory: { icon: 'laurel', color: 0x9fd27a },
   drachmae: { icon: 'drachma', color: ACCENT.premium },
   stars: { icon: 'tgstar', color: ACCENT.tgStar },
@@ -102,6 +105,22 @@ export const RESOURCES = {
 } as const;
 export type ResourceId = keyof typeof RESOURCES;
 
+/**
+ * One icon per game mode, used on every screen that names the mode (tabs,
+ * cards, team "Use for" chips, headers). Raids and the raid defence are one
+ * mode (the defence is who holds off raids): both the torch.
+ */
+export const MODE_ICON = {
+  campaign: 'march',
+  ladder: 'ladder',
+  arena: 'arena',
+  raid: 'raid',
+  defence: 'raid',
+  online: 'map',
+  beasts: 'beast',
+} as const;
+export type ModeId = keyof typeof MODE_ICON;
+
 /** Icons reserved for one meaning each (a resource, a mode): never reused for anything else. */
 export const RESERVED_ICONS: Record<string, string> = {
   ...Object.fromEntries(Object.entries(RESOURCES).map(([k, v]) => [v.icon, `resource:${k}`])),
@@ -109,6 +128,9 @@ export const RESERVED_ICONS: Record<string, string> = {
   podium: 'leaderboard',
   lock: 'locked',
   shop: 'shop',
+  ladder: 'mode:ladder',
+  arena: 'mode:arena',
+  raid: 'mode:raid',
 };
 
 // ================================================================== type, spacing, motion

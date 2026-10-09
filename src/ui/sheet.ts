@@ -55,7 +55,7 @@ export function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: 
  * A hero's rank as bronze pips (diamonds): the gold star belongs to ladder
  * floor ratings only (docs/UI_KIT.md "One icon, one meaning"). Returns the width.
  */
-export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, n: number, max = 5): number {
+export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, n: number, max = 5, legend?: { area?: ScrollArea | null }): number {
   const g = scene.add.graphics();
   for (let i = 0; i < max; i++) {
     const cx = Math.round(x + i * 8) + 3.5;
@@ -68,17 +68,36 @@ export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Contain
     if (i < n) {
       g.fillStyle(0xf8e4b8, 0.8);
       g.fillPoints([{ x: cx, y: cy - 3.5 }, { x: cx + 1.2, y: cy - 1.4 }, { x: cx - 1.2, y: cy - 1.4 }], true);
+    } else {
+      g.lineStyle(0.6, 0x8a7a62, 0.8);
+      g.strokePoints(pts, true);
     }
   }
   parent.add(g);
+  // what the diamonds mean, on tap (a touch target round them)
+  if (legend) addLegend(scene, parent, x - 4, y - 8, max * 8 + 7, 22, t('legend.rank', { n, max }), legend.area ?? null, 'legend.rank');
   return max * 8 - 1;
 }
 
-/** A round group badge with its roman numeral (12 x 12, numeral beside it when `label`). */
-export function addGroupBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, group: number): void {
+/** A round group badge with its roman numeral (12 x 12). With `legend`, a tap says which battle group it is. */
+export function addGroupBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, group: number, legend?: { area?: ScrollArea | null }): void {
   parent.add(scene.add.image(Math.round(x), Math.round(y), tex(scene, `gbadge_${group}`, () => renderGroupBadge(group))).setOrigin(0, 0));
   const n = ROMAN[group] ?? '?';
   parent.add(addText(scene, Math.round(x + 6), Math.round(y + 2), n, 'light', 0.5));
+  if (legend) addLegend(scene, parent, x - 5, y - 5, 22, 22, t('legend.group', { n, name: tOr(`group.${group}`, n) }), legend.area ?? null, 'legend.group');
+}
+
+/**
+ * An invisible tap target over a symbol that explains it (a legend on tap:
+ * rank diamonds, group numerals, the sync cloud). Inside a scroll list pass
+ * its area so a drag does not count as a tap.
+ */
+export function addLegend(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, text: string, area: ScrollArea | null = null, id = 'legend'): Phaser.GameObjects.Zone {
+  const z = scene.add.zone(Math.round(x), Math.round(y), w, h).setOrigin(0, 0).setInteractive();
+  uiId(z, id);
+  tappable(z, area, () => showTooltip(scene, text, z));
+  parent.add(z);
+  return z;
 }
 
 /** A coloured pill with light text (role, status). Returns its width. */
@@ -533,6 +552,8 @@ export interface StashGridOpts {
   empty?: { title: string; hint: string };
   cell?: number;
   selected?: () => string | null;
+  /** A small label on each cell (the Duels Sell tab: what the item fetches). */
+  price?: (it: Item) => { text: string; font: FontKey } | null;
 }
 
 /**
@@ -592,7 +613,8 @@ export class StashGrid {
           icon: f === 'all' ? 'people' : SLOT_ICON[f],
           iconOnly: true,
           label: f === 'all' ? t('stash.all') : t(`slot.${f}` as TKey),
-          style: st.slot === f ? 'buttonSel' : 'button',
+          variant: 'ghost',
+          style: st.slot === f ? 'buttonSel' : undefined,
           id: `filter:${f}`,
           onClick: () => this.set({ slot: f }),
         });
@@ -608,6 +630,9 @@ export class StashGrid {
         new Button(scene, bx, cy, bw, SIZE.btnH, {
           label: st.slot === 'all' ? t('stash.all') : t(`slot.${st.slot}` as TKey),
           icon: st.slot === 'all' ? undefined : SLOT_ICON[st.slot],
+          variant: 'ghost',
+          small: true,
+          style: st.slot === 'all' ? undefined : 'buttonSel',
           id: 'filter:slot',
           tip: t('stash.slotTip'),
           onClick: () => this.set({ slot: cycle(SLOT_FILTERS, st.slot) }),
@@ -618,6 +643,9 @@ export class StashGrid {
     this.c.add(
       new Button(scene, bx, cy, bw, SIZE.btnH, {
         label: st.rarity === 'all' ? t('stash.anyRarity') : t(`rarity.${st.rarity}` as TKey),
+        variant: 'ghost',
+        small: true,
+        style: st.rarity === 'all' ? undefined : 'buttonSel',
         id: 'filter:rarity',
         font: st.rarity === 'all' ? 'ink' : rarityFont(st.rarity),
         tip: t('stash.rarityTip'),
@@ -628,6 +656,10 @@ export class StashGrid {
     this.c.add(
       new Button(scene, bx, cy, x + w - bx, SIZE.btnH, {
         label: t(`stash.sort.${st.sort}` as TKey),
+        icon: 'scales',
+        inline: true,
+        variant: 'ghost',
+        small: true,
         id: 'filter:sort',
         tip: t('stash.sortTip'),
         onClick: () => this.set({ sort: cycle(STASH_SORTS, st.sort) }),
@@ -661,6 +693,12 @@ export class StashGrid {
         const ic = new ItemIcon(scene, 0, 0, { item: it }, { size, area, selected: sel, tip: false, onTap: () => this.o.drag?.dragging || this.o.onTap(it) });
         cc.add(ic);
         cc.add(new Meter(scene, 3, size - 4, size - 6, 2, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100));
+        const pr = this.o.price?.(it);
+        if (pr) {
+          const pt = addText(scene, size - 2, 1, pr.text, pr.font, 1).setFontSize(5.5);
+          const bg = scene.add.rectangle(size - 3 - pt.width, 1, pt.width + 2, 7, 0x000000, 0.65).setOrigin(0, 0);
+          cc.add([bg, pt]);
+        }
         if (hero && isUpgrade(hero, it)) {
           const g = scene.add.graphics();
           g.fillStyle(0x1d140f, 1);

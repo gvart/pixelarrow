@@ -15,7 +15,7 @@ import { ITEM_LIST, itemDef, itemMods, itemValue, type Item, type Rarity, type S
 import { ATTR_IDS, ATTR_MAX, PERKS, POINTS_PER_LEVEL, perkBlocker, type Attrs, type PerkId } from '../data/perks';
 import type { Hero } from '../data/units';
 import { makeHero, makeItem, type IdSource } from '../game/heroes';
-import { itemModLines } from '../game/gear';
+import { compareCandidates, itemModLines } from '../game/gear';
 import { scopeHero } from '../online/rules';
 
 export const DUEL_RULES = {
@@ -306,10 +306,14 @@ export interface OfferStatLine {
 
 export interface OfferSummary {
   slot: Slot;
-  /** The best item (by value) the given heroes wear in that slot, compared against; null when none. */
+  /** The item compared against (same slot and weapon class, on a hero who would use the offer); null when that hero's slot is empty or nobody would use it. */
   vs: Item | null;
-  /** Who wears `vs`. */
+  /** Who wears `vs` (or whose empty slot it fills); null when no hero in the team would use the offer. */
   vsHeroId: string | null;
+  /** The picked hero would not use this item (an archer and a spear): compared against the best user instead. */
+  pickedCannot: boolean;
+  /** The heroes who would use it (the "Compare with" choices for this item). */
+  users: string[];
   /** The 2-3 main stats of the offer. */
   lines: OfferStatLine[];
 }
@@ -330,25 +334,29 @@ function fmtDelta(key: keyof StatMods, d: number): string {
 
 /**
  * The shop card's compare data: the offer's main stats (at most `max`, the
- * item card's order) and the change against the best item the `heroes` (the
- * player's current team) wear in the same slot.
+ * item card's order) and the change against what a hero who would use it
+ * wears in that slot (src/game/gear.ts `heroUses`: a spear is compared with a
+ * spearman's spear, never with an archer's bow). `against` picks that hero;
+ * when he would not use the item, or none is picked, the best item (by value)
+ * among the users is the one.
  */
 export function offerSummary(offer: Pick<ShopOffer, 'def' | 'rarity'>, heroes: readonly Hero[], max = 3, against?: string | null): OfferSummary {
   const def = itemDef(offer.def);
   const slot = def.slot;
   const it: Item = { uid: 'offer', def: offer.def, rarity: offer.rarity, cond: 100 };
+  const users = compareCandidates(heroes, def);
   let vs: Item | null = null;
   let vsHeroId: string | null = null;
-  // one hero picked by the player: against what he wears there (nothing: the full values)
   const one = against ? heroes.find((h) => h.id === against) : undefined;
-  if (one) {
+  const pickedCannot = !!one && !users.includes(one);
+  if (one && !pickedCannot) {
     vs = one.equip[slot] ?? null;
     vsHeroId = one.id;
   } else
-    for (const h of heroes) {
+    for (const h of users) {
       const e = h.equip[slot];
-      if (e && (!vs || itemValue(e) > itemValue(vs))) {
-        vs = e;
+      if (!vsHeroId || (e && (!vs || itemValue(e) > itemValue(vs)))) {
+        vs = e ?? null;
         vsHeroId = h.id;
       }
     }
@@ -359,7 +367,7 @@ export function offerSummary(offer: Pick<ShopOffer, 'def' | 'rarity'>, heroes: r
     const better = deltaText === '' ? null : (delta > 0) !== LOWER_BETTER.includes(l.key);
     return { key: l.key, value: l.value, text: l.text, delta, deltaText, better, isNew: !(l.key in other) || (other[l.key] ?? 0) === 0 };
   });
-  return { slot, vs, vsHeroId, lines };
+  return { slot, vs, vsHeroId, pickedCannot, users: users.map((h) => h.id), lines };
 }
 
 /** Seconds, not points: these modifiers are times. */

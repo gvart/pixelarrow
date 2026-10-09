@@ -26,7 +26,7 @@ import { motion } from './motion';
 export type FontKey =
   | 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good' | 'head'
   // v3 (src/ui/tokens.ts): secondary and muted text, text on accents, the resource colours, errors
-  | 'sec' | 'muted' | 'onAccent' | 'reward' | 'glory' | 'premium' | 'bad' | 'xp' | 'power' | 'stars' | 'headL';
+  | 'sec' | 'muted' | 'onAccent' | 'reward' | 'glory' | 'premium' | 'bad' | 'xp' | 'power' | 'stars' | 'headL' | 'wargold';
 
 export interface UIMetrics {
   S: number;
@@ -63,6 +63,7 @@ const FONT_COLORS: Record<FontKey, [number, number | undefined]> = {
   xp: [RESOURCES.xp.color, undefined],
   power: [RESOURCES.power.color, undefined],
   stars: [RESOURCES.stars.color, undefined],
+  wargold: [RESOURCES.wargold.color, undefined],
   // titles: Cormorant SC in the primary text colour
   headL: [TEXT.primary, undefined],
 };

@@ -68,7 +68,7 @@ export interface CampPanelOpts {
   onClose?: () => void;
 }
 
-const RES_ICON: Record<keyof Resources, string> = { gold: 'coin', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
+const RES_ICON: Record<keyof Resources, string> = { gold: 'wargold', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
 /** Tile edge of the camp zone grid (UI px). */
 const TILE = 30;
 /** Ground above and below the plot grid (UI px). */

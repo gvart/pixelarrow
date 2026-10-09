@@ -39,6 +39,17 @@ export interface Settings {
   reduceMotion?: boolean;
 }
 
+/**
+ * The settings a new campaign starts with: every player preference carries
+ * over (language, sound and volumes, haptics, reduce motion, pause rules, the
+ * analytics choice, hints and tutorial progress); none of them belongs to the
+ * campaign. Before iteration 2 only the tutorial and the coach marks did, so
+ * "New campaign" silently reset the rest (analytics back on included).
+ */
+export function carrySettings(prev: Partial<Settings> | undefined, fresh: Settings): Settings {
+  return { ...fresh, ...(prev ?? {}) };
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   pauseContact: true,
   pauseFlank: true,

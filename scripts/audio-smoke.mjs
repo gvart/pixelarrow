@@ -89,7 +89,7 @@ async function run(label, { noAudio }) {
   if (!noAudio) {
     // a battle: deployment music, the battle track, effects under the voice cap, the result stinger
     await tapLabel('Menu', 'Close');
-    await tapLabel('Menu', 'New campaign');
+    await tapLabel('Menu', 'Begin the march');
     await wait(2500);
     check(`[${label}] world map plays the menu music`, (await dbg()).want === 'menu');
     await ev(() => {

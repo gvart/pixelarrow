@@ -23,6 +23,8 @@ export interface HeroSource {
   takePerk(heroId: string, id: PerkId): boolean;
   /** Optional respec (price shown on the Stats tab). */
   respec?: { price(h: Hero): number; currency: string; run(heroId: string): boolean };
+  /** Optional dismiss from the sheet (destructive: the sheet confirms first). `blocked` says why not, or null. */
+  dismiss?: { blocked(heroId: string): string | null; run(heroId: string): Promise<boolean> };
   /** Leave the sheet. */
   back(scene: Phaser.Scene, heroId: string, from: Record<string, unknown>): void;
   /** Server-backed sources redraw the sheet when the answer arrives or a change fails. */

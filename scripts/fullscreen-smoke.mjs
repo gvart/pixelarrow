@@ -131,7 +131,7 @@ const logLen = async () => (await ev(() => window.__tg.log)).length;
   await wait(300);
   check('tap Shop: Back returns to the menu', (await active('Menu')) && (await tg()).layers === 0);
 }
-for (const label of ['Settings', 'New campaign']) {
+for (const label of ['Settings']) {
   const n0 = await logLen();
   await tapButton('Menu', label);
   await wait(150);

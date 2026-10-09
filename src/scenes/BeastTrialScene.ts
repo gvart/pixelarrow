@@ -7,6 +7,7 @@
 import { BaseScene } from './BaseScene';
 import { addPanel, addText } from '../ui/kit';
 import { ScreenHeader, addTipLine } from '../ui/v3';
+import { addModeBanner } from '../ui/modeArt';
 import { ROLE, SURFACE } from '../ui/tokens';
 import { addChip } from '../ui/sheet';
 import { ScrollList } from '../ui/widgets';
@@ -35,6 +36,11 @@ export class BeastTrialScene extends BaseScene {
     const x = 6;
     const w = VW - 12;
     let y = hdr.bottom + 4;
+    // the beasts' cave: where you are, before any word
+    if (VH >= 330) {
+      addModeBanner(this, this.ui, x, y - 2, w, 26, 'beasts');
+      y += 26 + 2;
+    }
     const tip = addTipLine(this, this.ui, x, y, w, { text: t('trial.sub'), icon: 'beast', dismissId: 'trial.what' });
     if (tip) y += tip + 4;
     const ids = ENCOUNTER_IDS;
@@ -55,8 +61,8 @@ export class BeastTrialScene extends BaseScene {
         const lw = addChip(this, row, rw - 6, 5, lv, boss ? ROLE.beast : 0x3a2f25, 70, true);
         row.add(addText(this, 46, 6, ellipsize(encounterName(enc), rw - 46 - lw - 10, false, 7, 'head'), 'head'));
         // how it fights, on two lines (never cut mid-thought where it fits)
-        const hint = wrapText(t(`myth.${enc}.hint1` as TKey), rw - 52, 2, false, 6.5);
-        row.add(addText(this, 46, 19, hint.lines.join('\n'), 'sec').setFontSize(6.5));
+        const hint = wrapText(t(`myth.${enc}.hint1` as TKey), rw - 52, 3, false, 6);
+        row.add(addText(this, 46, 18, hint.lines.join('\n'), 'sec').setFontSize(6).setLineSpacing(-1.5));
       },
     });
     this.events.once('shutdown', () => this.list?.destroy());

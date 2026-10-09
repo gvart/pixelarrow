@@ -138,3 +138,11 @@ describe('wallet warning', () => {
     expect(walletOverdrawn({ drachmae: -60 })).toBe(true);
   });
 });
+
+describe('pass XP explainer (iteration 2)', () => {
+  it('matches the server catalogue', async () => {
+    const { PASS } = await import('../server/src/economy/catalog');
+    const { PASS_XP } = await import('../src/game/economy');
+    expect({ ...PASS.xp, perTier: PASS.xpPerTier }).toEqual({ ...PASS_XP });
+  });
+});

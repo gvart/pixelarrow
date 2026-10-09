@@ -19,6 +19,7 @@ import { OCAMP_EN } from './camp.en';
 import { STRAT_EN } from './strat.en';
 import { CAMPSCENE_EN } from './campscene.en';
 import { V3_EN } from './v3.en';
+import { V4_EN } from './v4.en';
 
 export const EN = {
   // ---- shared words
@@ -93,6 +94,8 @@ export const EN = {
   'menu.noSave': 'No campaign saved yet: start a new one.',
   'menu.tip.gold': 'Campaign gold in your treasury',
   'menu.tip.army': 'Heroes in your army',
+  'menu.warband': 'Warband',
+  'menu.tip.warband': { one: 'Your campaign warband: {n} man. Duels have their own heroes (Duels → Team).', other: 'Your campaign warband: {n} men. Duels have their own heroes (Duels → Team).' },
   'menu.tip.day': 'Days on campaign',
   'menu.tip.record': 'Campaign battles won / fought',
 
@@ -295,4 +298,5 @@ export const EN = {
   ...STRAT_EN,
   // ---- the v3 UI: resources, shared components, redesigned screens (v3.en.ts)
   ...V3_EN,
+  ...V4_EN,
 } as const;

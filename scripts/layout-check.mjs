@@ -20,6 +20,7 @@
 //   --jobs 4             parallel browser contexts   --no-shots                 skip screenshots
 //   --shard 3/10         only every 10th configuration, starting with the 3rd (CI runs 10 shards in parallel)
 //   --split 2            split each configuration's screens into 2 contiguous runs (each in its own context, in parallel)
+//   --dpr 3              device pixel ratio of the screenshots (default 1)
 //   --verbose            print every violation with its detail
 //   --no-retry           do not re-run screens with new violations (by default a new violation must show twice)
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -40,6 +41,7 @@ const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780').split(',')
 const LANGS = opt('langs', 'en,ru').split(',');
 const INSETS = opt('insets', 'plain,tg').split(',');
 const JOBS = Number(opt('jobs', '4'));
+const DPR = Number(opt('dpr', '1'));
 const [SHARD, SHARDS] = opt('shard', '1/1').split('/').map(Number);
 const SPLIT = Math.max(1, Number(opt('split', '1')));
 const TG = { safeTop: 59, contentTop: 46, safeBottom: 34 };
@@ -174,6 +176,7 @@ const SCREENS = [
     ['duel-ranked', { tab: 'ranked', arena: 'home' }, ''],
     ['duel-ranked-locked', { tab: 'ranked', arena: 'home', demoXp: 0 }, ''],
     ['duel-searching', { tab: 'ranked', arena: 'home' }, "s.src.findDelayMs = 1e8; s.findMatch('ranked');"],
+    ['duel-searching-unranked', { tab: 'ranked', arena: 'home' }, "s.src.findDelayMs = 1e8; s.findMatch('unranked');"],
     ['duel-found', { tab: 'ranked', arena: 'home' }, "s.src.findDelayMs = 0; s.foundHoldMs = 1e8; s.findMatch('ranked');"],
     // raids (the async defence ladder): the defender picks, the defence, the log; the leaderboards
     ['duel-raid', { tab: 'ranked', arena: 'raid' }, ''],
@@ -692,7 +695,7 @@ function seededRandom() {
 
 async function runConfig(browser, cfg, screens) {
   const [W, H] = cfg.size;
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true });
   await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
   await ctx.addInitScript(seededRandom);
   // a full-screen Telegram with the insets already reported

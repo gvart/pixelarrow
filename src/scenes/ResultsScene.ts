@@ -12,6 +12,7 @@
  * offline battle (state.last), or with { report, done } for online battles.
  */
 import Phaser from 'phaser';
+import { LAUREL, addGridImage } from '../art/menuSprites';
 import { BaseScene } from './BaseScene';
 import { Button, ScrollArea, addIcon, addPanel, addText, tappable } from '../ui/kit';
 import { CountUp, ItemIcon, Label, ScrollList, StatBar, Tabs, addEmptyState, addScrollHint, openModal, showTooltip, toast, subjectName } from '../ui/widgets';
@@ -180,12 +181,19 @@ export class ResultsScene extends BaseScene {
     this.ui.add(c);
     const w = Math.min(VW - 12, 220);
     const win = r.result === 'victory';
-    c.add(addPanel(this, -w / 2, -h / 2, w, h, win ? 'buttonSel' : 'dark'));
-    // a gold rim for a victory
+    // a victory: a raised bronze plaque between two gilded laurel branches (terracotta stays for the next action)
+    c.add(addPanel(this, -w / 2, -h / 2, w, h, win ? 'cardSel' : 'dark'));
     const rim = this.add.graphics();
-    rim.lineStyle(1, win ? 0xf0c860 : 0x8c2f25, 1);
+    rim.lineStyle(1, win ? 0xf0c860 : 0x8c2f25, win ? 0.6 : 1);
     rim.strokeRect(-w / 2 + 2.5, -h / 2 + 2.5, w - 5, h - 5);
     c.add(rim);
+    if (win && h >= 30) {
+      const k = Math.min(2, Math.floor((h - 6) / LAUREL.length));
+      const lh = LAUREL.length * k;
+      const lw = LAUREL[0].length * k;
+      c.add(addGridImage(this, -w / 2 + 6, -lh / 2, 'laurel', LAUREL, { scale: k }));
+      c.add(addGridImage(this, w / 2 - 6 - lw, -lh / 2, 'laurel', LAUREL, { scale: k }).setFlipX(true));
+    }
     const title = addText(this, 0, -h / 2 + 5, t(`results.${r.result}` as TKey), win ? 'gold' : 'light', 0.5);
     title.setFontSize(14);
     uiFrame(title, c, w, h, -w / 2, -h / 2);
@@ -256,7 +264,7 @@ export class ResultsScene extends BaseScene {
     const b = this.primary;
     if (!b) return;
     if (this.page !== 'spoils' && r.loot.length > 0 && !this.seen.has('spoils')) {
-      b.setLabel(t('results.toSpoils')).setIcon('coin');
+      b.setLabel(t('results.toSpoils')).setIcon('chest');
     } else if (r.picks > 0) {
       b.setLabel(`${t('results.take')} ${this.chosen.size}/${r.picks}`).setIcon('check');
     } else b.setLabel(t('results.continue')).setIcon('check');
