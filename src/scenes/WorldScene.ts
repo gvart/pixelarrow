@@ -4,9 +4,8 @@ import Phaser from 'phaser';
 import { RS, camZoom, zoomUnits } from '../platform/renderScale';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addText } from '../ui/kit';
+import { MActionBar, MSquareButton, SituationLine, TOPBAR_H, addMapTopBar, mosaicImage, mtext, type BarSlot, type SituationChip } from '../ui/mosaic';
 import { t } from '../i18n';
-import { CommandStrip, SituationBar, type CommandStripOpts, type SitNumber, type StripSlot } from '../ui/strategos';
-import { STRAT } from '../ui/theme';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import {
   BAND_COLORS, MAPC, PARTY_FH, PARTY_FOOT, PARTY_FRAMES, PARTY_FW, STRUCT_FRAMES, STRUCT_FX, STRUCT_LIFT, STRUCT_PAD, WTILE, renderBoat, renderCampZone,
@@ -70,11 +69,13 @@ export class WorldScene extends BaseScene {
   private marker!: Phaser.GameObjects.Image;
   private night!: Phaser.GameObjects.Rectangle;
   private hud!: Phaser.GameObjects.Container;
-  private sit: SituationBar | null = null;
+  private sit: SituationLine | null = null;
+  private topC!: Phaser.GameObjects.Container;
+  private topKey = '';
   private sitKey = '';
-  private strip: CommandStrip | null = null;
+  private strip: MActionBar | null = null;
   private stripKey = '';
-  private followBtn!: Button;
+  private followBtn!: MSquareButton;
   private dialog: Phaser.GameObjects.Container | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
   private waiting = false;
@@ -867,45 +868,63 @@ export class WorldScene extends BaseScene {
     const H = this.hud;
     H.removeAll(true);
     const { VW, VH } = this.m;
-    // the situation bar: where we are and what is up, numbers with words; follow and sync under it
-    this.sit = new SituationBar(this, VW, { sentence: '', compact: VH < STRAT.compactVH, id: 'world.situation' });
+    // the top bar (back arrow, day and place), then the situation line and its chips under it
+    this.topC = this.add.container(0, 0);
+    H.add(this.topC);
+    this.topKey = '';
+    this.sit = new SituationLine(this, 4, TOPBAR_H + 2, VW - 8, { compact: VH < 240, id: 'world.situation' });
     H.add(this.sit);
-    this.followBtn = new Button(this, VW - 27, this.sit.h + 3, 24, 22, { icon: 'eye', iconOnly: true, label: t('battle.strip.follow'), style: this.follow ? 'buttonSel' : 'button', tip: t('battle.tip.follow'), id: 'world.follow', onClick: () => this.toggleFollow() });
-    H.add(this.followBtn);
-    addSyncBadge(this, H, 8, this.sit.h + 8);
-    this.strip = new CommandStrip(this, VW, VH, this.stripOpts());
+    this.buildFollow();
+    addSyncBadge(this, H, 8, this.sit.y + this.sit.h + 8);
+    this.strip = new MActionBar(this, VW, VH);
     H.add(this.strip);
+    this.strip.set(this.stripSlots());
     this.refreshHud();
   }
 
-  /** The command strip: Menu | Camp (or Place) | Rest / Stop | Party. */
-  private stripOpts(): CommandStripOpts {
+  /** The follow-the-party eye under the situation line, at the right. */
+  private buildFollow(): void {
+    this.followBtn?.destroy();
+    const sit = this.sit!;
+    this.followBtn = new MSquareButton(this, this.m.VW - 4 - 24, sit.y + sit.h + 3, 24, { icon: 'eye', label: t('battle.strip.follow'), selected: this.follow, tip: t('battle.tip.follow'), id: 'world.follow', onClick: () => this.toggleFollow() });
+    this.hud.add(this.followBtn);
+  }
+
+  /** The top bar: the back arrow to the Campaign hub (Menu) and "Day N - place". */
+  private buildTop(title: string): void {
+    this.topC.removeAll(true);
+    addMapTopBar(this, this.topC, this.m.VW, {
+      title,
+      id: 'world.topbar',
+      back: this.inGameBack ? () => (this.placing ? this.cancelPlacing() : this.leaveToMenu()) : undefined,
+    });
+  }
+
+  /** The command strip: Camp (or Cancel / Place) | Rest / Stop | Party. The way back is the top bar's arrow. */
+  private stripSlots(): BarSlot[] {
     const camp = state.campaign;
     const pending = camp.data.heroes.some((h) => h.points > 0 || h.perks.length < perkSlots(h.level));
-    const party: StripSlot = { label: t('world.strip.party'), icon: 'people', badge: pending ? '!' : 0, tip: t('world.strip.partyTip'), id: 'world.party', onClick: () => this.scene.start('Army', { from: 'World' }) };
-    const menu: StripSlot = { label: t('strat.menu'), icon: 'back', id: 'world.menu', onClick: () => this.leaveToMenu() };
+    const party: BarSlot = { label: t('world.strip.party'), icon: 'people', badge: pending ? '!' : 0, tip: t('world.strip.partyTip'), id: 'world.party', onClick: () => this.scene.start('Army', { from: 'World' }) };
     if (this.placing) {
-      return {
-        left: { label: t('common.cancel'), icon: 'close', id: 'world.cancel', onClick: () => this.cancelPlacing() },
-        main: { label: t('world.strip.place'), icon: 'check', id: 'world.place', onClick: () => this.confirmPlacing() },
-      };
+      return [
+        { label: t('common.cancel'), icon: 'close', id: 'world.cancel', onClick: () => this.cancelPlacing() },
+        { label: t('world.strip.place'), icon: 'check', primary: true, id: 'world.place', onClick: () => this.confirmPlacing() },
+      ];
     }
     if (this.w.camp) {
-      return {
-        left: menu,
-        main: { label: t('world.strip.camp'), icon: 'tent', tip: t('world.strip.enterTip'), id: 'world.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) },
-        extra: this.waiting
+      return [
+        { label: t('world.strip.camp'), icon: 'tent', primary: true, tip: t('world.strip.enterTip'), id: 'world.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) },
+        this.waiting
           ? { label: t('battle.strip.pause'), icon: 'pause', selected: true, tip: t('world.strip.restTip'), id: 'world.rest', onClick: () => this.setWaiting(false) }
           : { label: t('world.strip.rest'), icon: 'hourglass', tip: t('world.strip.restTip'), id: 'world.rest', onClick: () => this.setWaiting(true) },
-        right: party,
-      };
+        party,
+      ];
     }
-    return {
-      left: menu,
-      main: { label: t('world.strip.camp'), icon: 'tent', secondary: true, tip: t('world.strip.campTip'), id: 'world.camp', onClick: () => this.makeCamp() },
-      extra: this.w.moving ? { label: t('world.strip.stop'), icon: 'hold', id: 'world.stop', onClick: () => this.stopTravel() } : null,
-      right: party,
-    };
+    return [
+      { label: t('world.strip.camp'), icon: 'tent', tip: t('world.strip.campTip'), id: 'world.camp', onClick: () => this.makeCamp() },
+      ...(this.w.moving ? [{ label: t('world.strip.stop'), icon: 'hold', id: 'world.stop', onClick: () => this.stopTravel() }] : []),
+      party,
+    ];
   }
 
   refreshHud(): void {
@@ -941,22 +960,26 @@ export class WorldScene extends BaseScene {
       hint = t('world.sit.lowFood');
       urgent = true;
     }
-    const nums: SitNumber[] = [
-      { icon: 'coin', value: `${camp.data.gold}`, word: t('strat.gold') },
-      { icon: 'people', value: `${mouths - wounded}/${mouths}`, word: t('strat.menWord', { n: mouths }) },
-      { icon: 'food', value: `${Math.floor(this.w.food)}`, word: this.w.starving ? t('world.starvingWord') : t('world.foodWord', { d: days < 1 ? '<1' : `${Math.floor(days)}` }), font: this.w.starving ? 'red' : 'ink' },
-      { icon: 'wood', value: `${Math.floor(this.w.supplies)}`, word: t('world.suppliesWord') },
+    const chips: SituationChip[] = [
+      { icon: 'coin', value: `${camp.data.gold}`, id: 'world.gold' },
+      { icon: 'people', value: `${mouths - wounded}/${mouths}`, id: 'world.men' },
+      { icon: 'food', short: `${Math.floor(this.w.food)}${this.w.starving ? '!' : ''}`, value: this.w.starving ? `${Math.floor(this.w.food)}!` : `${Math.floor(this.w.food)} (${days < 1 ? '<1' : Math.floor(days)}${t('mosaic.cmap.dayShort')})`, id: 'world.food' },
+      { icon: 'wood', value: `${Math.floor(this.w.supplies)}`, id: 'world.supplies' },
     ];
-    const key = `${where}|${hint}|${urgent}|${nums.map((n) => n.value + n.word).join(',')}`;
+    const topTitle = t('mosaic.cmap.title', { d: day, region });
+    if (topTitle !== this.topKey) {
+      this.topKey = topTitle;
+      this.buildTop(topTitle);
+    }
+    const key = `${where}|${hint}|${urgent}|${chips.map((n) => n.value).join(',')}`;
     if (key !== this.sitKey) {
       this.sitKey = key;
-      this.sit.setSentence(`${where} ${hint}`, urgent);
-      this.sit.setNumbers(nums);
+      this.sit.set(`${where} ${hint}`, urgent, chips);
     }
     const stripKey = `${!!this.placing}|${!!this.w.camp}|${this.waiting}|${this.w.moving}`;
     if (stripKey !== this.stripKey) {
       this.stripKey = stripKey;
-      this.strip?.set(this.stripOpts());
+      this.strip?.set(this.stripSlots());
     }
   }
 
@@ -974,19 +997,19 @@ export class WorldScene extends BaseScene {
 
   private toggleFollow(): void {
     this.follow = !this.follow;
-    this.followBtn.setSelected(this.follow);
+    this.buildFollow();
   }
 
   private showBanner(msg: string, ms: number): void {
     this.banner?.destroy();
     const { VW } = this.m;
     const c = this.add.container(0, 0);
-    // under the situation bar and its follow button
-    const by = (this.sit?.h ?? STRAT.sitH) + 30;
-    const t = addText(this, VW / 2, by + 5, ellipsize(msg, VW - 30), 'red', 0.5);
-    const wdt = Math.min(VW - 8, Math.max(80, t.width + 20));
-    c.add(addPanel(this, Math.round((VW - wdt) / 2), by, wdt, 18, 'parch'));
-    c.add(t);
+    // under the situation line and its follow button
+    const by = (this.sit ? this.sit.y + this.sit.h : TOPBAR_H) + 30;
+    const txt = mtext(this, VW / 2, by + 5, msg, 'pBad', { align: 0.5, maxW: VW - 30 });
+    const wdt = Math.min(VW - 8, Math.max(80, txt.width + 20));
+    c.add(mosaicImage(this, Math.round((VW - wdt) / 2), by, wdt, 18, 'parchment'));
+    c.add(txt);
     this.ui.add(c);
     this.banner = c;
     this.time.delayedCall(ms, () => {

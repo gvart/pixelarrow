@@ -10,7 +10,9 @@
  * a step is forced.
  */
 import Phaser from 'phaser';
-import { Button, addPanel, addText } from '../kit';
+import { addText } from '../kit';
+import { MButton, mosaicImage } from '../mosaic';
+import { MOSAIC } from '../tokens';
 import { uiBlocker, uiId } from '../layout';
 import { wrapText, LINE_H } from '../textfit';
 import { SIZE } from '../theme';
@@ -143,7 +145,7 @@ export class OnlineCoach {
     this.bubble.removeAll(true);
     this.arrow.clear();
     const w = Math.min(VW - 16, 176);
-    const lines = wrapText(text, w - 14, 6, true).lines;
+    const lines = wrapText(text, w - 14, 6).lines;
     const h = 7 + lines.length * LINE_H + (button ? SIZE.btnH + 6 : 3);
     // above the target when it sits low, else below; never on it
     let y: number;
@@ -159,19 +161,19 @@ export class OnlineCoach {
     const zone = s.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     uiBlocker(uiId(zone, 'coach.bubble'));
     this.bubble.add(zone);
-    this.bubble.add(addPanel(s, x, y, w, h, 'tooltip'));
-    this.bubble.add(addText(s, x + 7, y + 5, lines.join('\n'), 'light'));
+    this.bubble.add(mosaicImage(s, x, y, w, h, 'parchment'));
+    this.bubble.add(addText(s, x + 7, y + 5, lines.join('\n'), 'pInk'));
     if (button) {
       const last = ONLINE_COACH.indexOf(this.step!) === ONLINE_COACH.length - 1;
       const bw = 64;
-      this.bubble.add(new Button(s, x + w - bw - 4, y + h - SIZE.btnH - 4, bw, SIZE.btnH, { label: t(last ? 'coach.done' : 'coach.next'), icon: 'check', id: 'coach.next', onClick: () => this.advance() }));
+      this.bubble.add(new MButton(s, x + w - bw - 4, y + h - SIZE.btnH - 4, bw, SIZE.btnH, { label: t(last ? 'coach.done' : 'coach.next'), icon: 'check', variant: 'primary', id: 'coach.next', onClick: () => this.advance() }));
       // where we are: 2 / 7
-      this.bubble.add(addText(s, x + 7, y + h - 17, `${ONLINE_COACH.indexOf(this.step!) + 1} / ${ONLINE_COACH.length}`, 'gold'));
+      this.bubble.add(addText(s, x + 7, y + h - 17, `${ONLINE_COACH.indexOf(this.step!) + 1} / ${ONLINE_COACH.length}`, 'pSec'));
     }
     if (at) {
       // the arrow from the bubble to the target
       const ax = Math.round(Math.max(x + 8, Math.min(x + w - 8, cx)));
-      this.arrow.fillStyle(0x2a1a16, 0.95);
+      this.arrow.fillStyle(MOSAIC.parch, 1);
       if (below) this.arrow.fillTriangle(ax - 5, y + 1, ax + 5, y + 1, ax, y - 6);
       else this.arrow.fillTriangle(ax - 5, y + h - 1, ax + 5, y + h - 1, ax, y + h + 6);
     }
