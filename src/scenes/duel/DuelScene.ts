@@ -2296,7 +2296,7 @@ export class DuelScene extends BaseScene {
           id: `duel.pick.${def}`,
           onClick: () => {
             m.close();
-            void this.act(() => this.src.seasonPick(r.season, r.ladder, def), (res) => t('duels.reward.picked', { name: itemName(res.item) })).then(() => (this.season = null));
+            void this.act(() => this.src.seasonPick(r.season, r.ladder, def), (res) => t('duels.reward.picked', { name: itemName(res.item) })).then(() => this.loadSeason());
           },
         }),
       );
