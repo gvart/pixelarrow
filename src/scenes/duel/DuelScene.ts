@@ -33,9 +33,10 @@ import { SIZE, BRONZE, STRAT, RARITY_COLOR } from '../../ui/theme';
 import { ensureFonts, rarityFont } from '../../ui/fonts';
 import { Chip, CommandStrip, addFocusRing, addNumbers, type CommandStripOpts } from '../../ui/strategos';
 import {
-  InfoChip, ProgressBar, ScreenHeader, ToggleChip, openLegend, addCard, resourceChipOpts, type InfoChipOpts, addClaimGlow, addLocked, addTipLine, layChips, openSheet, type HeaderAction,
+  InfoChip, ProgressBar, ScreenHeader, ToggleChip, flyReward, openLegend, addCard, resourceChipOpts, type InfoChipOpts, addClaimGlow, addLocked, addTipLine, layChips, openSheet, type HeaderAction,
 } from '../../ui/v3';
-import { ACCENT, MODE_ICON, RESOURCES, ROLE, SURFACE, TEXT } from '../../ui/tokens';
+import { ACCENT, MODE_ICON, MOTION, RESOURCES, ROLE, SURFACE, TEXT } from '../../ui/tokens';
+import { uiCoin } from '../../audio/hooks';
 import { fadeIn, hop, motion } from '../../ui/motion';
 import { addChestSprite } from '../../art/menuSprites';
 import { addModeBanner } from '../../ui/modeArt';
@@ -265,6 +266,10 @@ export class DuelScene extends BaseScene {
   private topY = 0;
   /** Glory as last shown (the chip counts from it to a new value). */
   private shownGlory: number | null = null;
+  /** Glory the header keeps showing while a reward is on screen (it flies in when the popup closes). */
+  private heldGlory: number | null = null;
+  /** The header's Glory chip (the target of a reward's fly-in). */
+  private gloryChip: InfoChip | null = null;
   /** The fixed bottom strip: Back and the one red action of the view. */
   private strip!: CommandStrip;
   private stripOpts: CommandStripOpts = {};
@@ -612,11 +617,12 @@ export class DuelScene extends BaseScene {
       return;
     }
     // Glory counts to its new value after a change
-    const glory = hdr.chips.find((c) => c.opts.label.includes(t('res.glory'))) ?? hdr.chips[0];
-    if (glory && this.shownGlory !== null && this.shownGlory !== p.glory) {
-      glory.setValue(p.glory);
+    const glory = hdr.chips.find((c) => c.opts.label.includes(t('res.glory'))) ?? hdr.chips[0] ?? null;
+    this.gloryChip = glory;
+    if (this.heldGlory === null) {
+      if (glory && this.shownGlory !== null && this.shownGlory !== p.glory) glory.setValue(p.glory);
+      this.shownGlory = p.glory;
     }
-    this.shownGlory = p.glory;
     // chips that did not fit the band (narrow screens): a row of their own
     if (hdr.overflow.length) {
       layChips(this.head, hdr.overflow.map((o) => new InfoChip(this, 0, 0, o)), this.cx, this.topY, this.cw);
@@ -629,7 +635,7 @@ export class DuelScene extends BaseScene {
   private chipOpts(p: DuelProfileView): InfoChipOpts[] {
     const lp = levelProgress(p.xp);
     const chips: InfoChipOpts[] = [
-      resourceChipOpts('glory', this.shownGlory ?? p.glory, { word: true, id: 'duel.glory' }),
+      resourceChipOpts('glory', this.heldGlory ?? this.shownGlory ?? p.glory, { word: true, id: 'duel.glory' }),
       { icon: 'xp', value: t('dv.lvShort', { n: lp.level }), progress: lp.need ? lp.into / lp.need : 1, onTap: () => this.openLevel(), id: 'duel.level' },
     ];
     return chips;
@@ -1109,11 +1115,24 @@ export class DuelScene extends BaseScene {
 
   /** Claims a ready chest: the reward popup once the server answers. */
   async claimChest(ch: number, tier: number): Promise<void> {
+    // the header keeps the old Glory until the chest is opened and its coins fly in
+    this.heldGlory = this.profile?.glory ?? null;
     const r = await this.act(() => this.src.ladderChest(ch, tier));
     if (r && this.sys.isActive()) {
       hapticNotify('success');
       this.openChestReward(r);
-    }
+    } else this.releaseGlory();
+  }
+
+  /** The held Glory goes to the header: flying from (x, y) when given, else it just counts. */
+  private releaseGlory(from?: { x: number; y: number }): void {
+    const p = this.profile;
+    this.heldGlory = null;
+    if (!p || !this.sys.isActive()) return;
+    const chip = this.gloryChip;
+    if (chip?.active && from) flyReward(this, 'laurel', from.x, from.y, chip, p.glory);
+    else chip?.active && chip.setValue(p.glory);
+    this.shownGlory = p.glory;
   }
 
   /** What a chest held: its Glory and (the 30-star chest) an item; a tap on the item opens its card. */
@@ -1121,14 +1140,49 @@ export class DuelScene extends BaseScene {
     const { VW, VH } = this.m;
     const w = Math.min(VW - 12, 200);
     const inner = w - 16;
-    const m = openModal(this, { title: t('duels.chest.title', { n: r.chapter }), w, h: Math.min(VH - 12, 26 + 30 + (r.item ? 36 : 0) + SIZE.btnH + 18) });
+    const art = 3;
+    const ah = 13 * art;
+    let chestAt = { x: VW / 2, y: VH / 2 };
+    const m = openModal(this, { title: t('duels.chest.title', { n: r.chapter }), w, h: Math.min(VH - 12, 26 + ah + 8 + 26 + (r.item ? 36 : 0) + SIZE.btnH + 18), onClose: () => this.releaseGlory(chestAt) });
     const { c, x } = m;
     let y = m.y + 26;
-    const gl = t('duels.note.glory', { n: r.glory });
-    const gw = 24 + 4 + measureText(gl) * 1.5;
+    // the chest: closed, it shakes, it opens on its gold (instantly under reduced motion)
+    const cx = Math.round(x + w / 2 - 8 * art);
+    chestAt = { x: cx + 8 * art, y: y + ah / 2 };
+    const closed = addChestSprite(this, cx, y, 'ready', art);
+    const open = addChestSprite(this, cx, y, 'full', art).setVisible(false);
+    c.add([closed, open]);
+    const sparks = Array.from({ length: 10 }, (_, i) => {
+      const sq = this.add.rectangle(cx + 8 * art, y + 5 * art, 2, 2, i % 3 ? ACCENT.goldHi : 0xfff2a8).setVisible(false);
+      c.add(sq);
+      return sq;
+    });
+    y += ah + 8;
+    const gw = 24 + 4 + measureText(`+${r.glory}`) * 1.5;
     const gx = Math.round(x + w / 2 - gw / 2);
     c.add(scaleIcon(addIcon(this, gx, y, 'laurel'), 2));
-    c.add(addText(this, gx + 28, y + 6, gl, 'gold').setScale(1.5));
+    const gt = addText(this, gx + 28, y + 6, `+${r.glory}`, 'glory').setScale(1.5);
+    c.add(gt);
+    const reveal = () => {
+      if (!closed.active) return;
+      closed.setVisible(false);
+      open.setVisible(true);
+      uiCoin();
+      if (motion.reduced) return;
+      sparks.forEach((sq, i) => {
+        const a = (i / sparks.length) * Math.PI * 2;
+        sq.setVisible(true);
+        this.tweens.add({ targets: sq, x: sq.x + Math.cos(a) * 26, y: sq.y + Math.sin(a) * 18 - 8, alpha: 0, duration: 520, ease: 'Cubic.easeOut' });
+      });
+      const n = { v: 0 };
+      this.tweens.add({ targets: n, v: r.glory, duration: MOTION.countUp, ease: 'Cubic.easeOut', onUpdate: () => gt.active && gt.setText(`+${Math.round(n.v)}`) });
+      this.tweens.add({ targets: open, y: { from: open.y - 3, to: open.y }, duration: 220, ease: 'Bounce.easeOut' });
+    };
+    if (motion.reduced) reveal();
+    else {
+      gt.setText('+0');
+      this.tweens.add({ targets: closed, x: { from: closed.x - 1.5, to: closed.x + 1.5 }, duration: 60, yoyo: true, repeat: 4, onComplete: reveal });
+    }
     y += 30;
     const it = r.item;
     if (it) {

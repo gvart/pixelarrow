@@ -55,29 +55,32 @@ export const CHEST_CLOSED: Grid = [
   '.kkkkkkkkkkkkkk.',
 ];
 
-/** Open chest full of gold (the moment of claiming), 16 x 13. */
+/** Open chest, lid thrown back, gold heaped over the rim (the moment of claiming), 16 x 15. */
 export const CHEST_FULL: Grid = [
-  '.kkkkkkkkkkkkkk.',
-  'kWWWWWWWWWWWWWWk',
-  'kddddddddddddddk',
-  'kbbbbbbbbbbbbbbk',
-  'krgGggGgggGggGrk',
-  'kgGgggGgggGgggGk',
+  '..kkkkkkkkkkkk..',
+  '.kWWWWWWWWWWWWk.',
+  '.kddddddddddddk.',
+  '.kdrrrrrrrrrrdk.',
+  'kkbbbbbbbbbbbbkk',
+  'krrGgGrrgGgrGgrk',
+  'kGgggGgGgggGggGk',
   'kbbbbbbbbbbbbbbk',
   'kwwwwwkBBkwwwwwk',
   'kWwwwwkbbkwwwwWk',
   'kwwwwwwkkwwwwwwk',
   'kbbwwwwwwwwwwbbk',
+  'kwwwwwwwwwwwwwwk',
   'kddddddddddddddk',
   '.kkkkkkkkkkkkkk.',
 ];
 
-/** Open and empty (claimed), 16 x 13. */
+/** Open and empty (claimed), 16 x 15. */
 export const CHEST_EMPTY: Grid = [
-  '.kkkkkkkkkkkkkk.',
-  'kWWWWWWWWWWWWWWk',
-  'kddddddddddddddk',
-  'kbbbbbbbbbbbbbbk',
+  '..kkkkkkkkkkkk..',
+  '.kWWWWWWWWWWWWk.',
+  '.kddddddddddddk.',
+  '.kdrrrrrrrrrrdk.',
+  'kkbbbbbbbbbbbbkk',
   'krrrrrrrrrrrrrrk',
   'krrrrrrrrrrrrrrk',
   'kbbbbbbbbbbbbbbk',
@@ -85,6 +88,7 @@ export const CHEST_EMPTY: Grid = [
   'kWwwwwkbbkwwwwWk',
   'kwwwwwwkkwwwwwwk',
   'kbbwwwwwwwwwwbbk',
+  'kwwwwwwwwwwwwwwk',
   'kddddddddddddddk',
   '.kkkkkkkkkkkkkk.',
 ];
@@ -158,9 +162,14 @@ export function addGridImage(scene: Phaser.Scene, x: number, y: number, key: str
   return scene.add.image(Math.round(x), Math.round(y), tk).setOrigin(0, 0).setScale(o.scale ?? 1);
 }
 
-/** The chest in its ladder state: locked (closed, grey), ready (closed, full colour), claimed (open, empty). */
+/**
+ * The chest in its ladder state: locked (closed, grey), ready (closed, full
+ * colour), claimed (open, empty), full (open on its gold). (x, y) is the top
+ * of a closed chest: the open ones (2 px taller, the lid up) grow upwards.
+ */
 export function addChestSprite(scene: Phaser.Scene, x: number, y: number, st: 'locked' | 'ready' | 'claimed' | 'full', scale = 1): Phaser.GameObjects.Image {
-  if (st === 'claimed') return addGridImage(scene, x, y, 'chest_empty', CHEST_EMPTY, { scale });
-  if (st === 'full') return addGridImage(scene, x, y, 'chest_full', CHEST_FULL, { scale });
+  const up = (CHEST_FULL.length - CHEST_CLOSED.length) * scale;
+  if (st === 'claimed') return addGridImage(scene, x, y - up, 'chest_empty', CHEST_EMPTY, { scale });
+  if (st === 'full') return addGridImage(scene, x, y - up, 'chest_full', CHEST_FULL, { scale });
   return addGridImage(scene, x, y, 'chest_closed', CHEST_CLOSED, { dim: st === 'locked', scale });
 }
