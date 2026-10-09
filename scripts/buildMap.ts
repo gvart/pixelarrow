@@ -1,5 +1,5 @@
 /**
- * Season map compiler (docs/MAP_V3.md): turns a hand-authored source in
+ * Season map compiler (docs/DESIGN_V2.md "Map"): turns a hand-authored source in
  * `maps-src/<id>.json` (coastline polygons in lon/lat, terrain hints, rivers,
  * named places, tribal districts and sea zones) into the runtime map JSON
  * `src/online/maps/<id>.json` (format in src/online/mapSchema.ts).

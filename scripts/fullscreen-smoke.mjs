@@ -4,197 +4,29 @@
 // indicator 34 px; the insets arrive late (after ready()) like on a real
 // device. Checks the canvas sits inside the safe area on every screen, that
 // Back / Settings / closing confirmation follow the screens, and saves
-// docs/screenshots/29-fullscreen-safe-area.png (menu, map, army, battle with
+// shots/29-fullscreen-safe-area.png (git-ignored; menu, map, army, battle with
 // the fake overlays drawn on top).
 // Usage: node scripts/fullscreen-smoke.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
-import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir } from './lib/harness.mjs';
+import { fakeTelegram } from './lib/fakeTelegram.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
-const out = process.argv[3] ?? 'docs/screenshots';
-mkdirSync(out, { recursive: true });
+const out = shotsDir('', process.argv[3]);
 const W = 390;
 const H = 844;
 const INSETS = { safeTop: 59, contentTop: 46, safeBottom: 34 };
 
-let failures = 0;
-const check = (name, ok, detail = '') => {
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${detail}`);
-  if (!ok) failures++;
-};
-
-function fakeTelegram(ins) {
-  const store = new Map();
-  const log = [];
-  // One event bus for everything, like telegram-web-app.js: BackButton.onClick
-  // is onEvent('backButtonClicked'), SettingsButton.onClick is
-  // onEvent('settingsButtonClicked'); handlers run in a live loop.
-  const handlers = new Map();
-  const on = (ev, cb) => {
-    if (!handlers.has(ev)) handlers.set(ev, []);
-    const a = handlers.get(ev);
-    if (!a.includes(cb)) a.push(cb);
-  };
-  const off = (ev, cb) => {
-    const a = handlers.get(ev) || [];
-    const i = a.indexOf(cb);
-    if (i >= 0) a.splice(i, 1);
-  };
-  const emit = (ev, arg) => {
-    const a = handlers.get(ev) || [];
-    for (let i = 0; i < a.length; i++) {
-      try {
-        a[i].call(wa, arg);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-  // Telegram re-reports the viewport and the safe areas whenever its header
-  // changes (Close <-> Back, the ⋯ menu): several times, asynchronously and
-  // with unchanged values; the window gets a resize event too.
-  const relayoutBurst = () => {
-    for (const ms of [16, 60, 150, 300]) {
-      setTimeout(() => {
-        emit('viewportChanged', { isStateStable: ms >= 150 });
-        emit('contentSafeAreaChanged');
-        emit('safeAreaChanged');
-        if (ms === 60) dispatchEvent(new Event('resize'));
-      }, ms);
-    }
-  };
-  // Telegram's left pill reads "Back" while the BackButton is shown, else "Close".
-  const pill = () => {
-    const el = document.getElementById('tg-pill');
-    if (el) el.textContent = wa.BackButton.isVisible ? '‹ Back' : '✕ Close';
-  };
-  const btn = (ev, name) => ({
-    isVisible: false,
-    show() {
-      const was = this.isVisible;
-      this.isVisible = true;
-      log.push(name + '.show');
-      pill();
-      if (!was) relayoutBurst();
-      return this;
-    },
-    hide() {
-      const was = this.isVisible;
-      this.isVisible = false;
-      log.push(name + '.hide');
-      pill();
-      if (was) relayoutBurst();
-      return this;
-    },
-    onClick(cb) {
-      on(ev, cb);
-      return this;
-    },
-    offClick(cb) {
-      off(ev, cb);
-      return this;
-    },
-  });
-  const wa = {
-    initData: 'query_id=AA&user=%7B%22id%22%3A1%2C%22first_name%22%3A%22Ana%22%7D&auth_date=1&hash=00',
-    initDataUnsafe: { user: { first_name: 'Ana' } },
-    version: '8.0',
-    platform: 'ios',
-    colorScheme: 'dark',
-    themeParams: {},
-    isFullscreen: false,
-    isExpanded: false,
-    isClosingConfirmationEnabled: false,
-    safeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
-    contentSafeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
-    isVersionAtLeast: (v) => parseFloat(v) <= 8.0,
-    ready() { log.push('ready'); },
-    expand() { log.push('expand'); wa.isExpanded = true; },
-    setHeaderColor() {},
-    setBackgroundColor() {},
-    disableVerticalSwipes() { log.push('disableVerticalSwipes'); },
-    lockOrientation() { log.push('lockOrientation'); },
-    enableClosingConfirmation() { wa.isClosingConfirmationEnabled = true; },
-    disableClosingConfirmation() { wa.isClosingConfirmationEnabled = false; },
-    requestFullscreen() {
-      log.push('requestFullscreen');
-      // Like a phone: full screen first, the insets a moment later and in
-      // pieces (device safe area, then Telegram's controls), with viewport
-      // events in between and repeated afterwards.
-      setTimeout(() => {
-        wa.isFullscreen = true;
-        wa.isExpanded = true;
-        emit('fullscreenChanged');
-        emit('viewportChanged', { isStateStable: false });
-      }, 50);
-      setTimeout(() => {
-        wa.safeAreaInset = { top: ins.safeTop, bottom: ins.safeBottom, left: 0, right: 0 };
-        emit('safeAreaChanged');
-        emit('viewportChanged', { isStateStable: false });
-      }, 250);
-      setTimeout(() => {
-        wa.contentSafeAreaInset = { top: ins.contentTop, bottom: 0, left: 0, right: 0 };
-        emit('contentSafeAreaChanged');
-        emit('viewportChanged', { isStateStable: true });
-      }, 400);
-      setTimeout(relayoutBurst, 700);
-    },
-    onEvent: on,
-    offEvent: off,
-    HapticFeedback: { impactOccurred() {}, notificationOccurred() {}, selectionChanged() { log.push('selection'); } },
-    BackButton: btn('backButtonClicked', 'back'),
-    SettingsButton: btn('settingsButtonClicked', 'settings'),
-    CloudStorage: {
-      getItem: (k, cb) => setTimeout(() => cb(null, store.get(k) ?? '')),
-      setItem: (k, v, cb) => setTimeout(() => (store.set(k, v), cb?.(null, true))),
-      removeItem: (k, cb) => setTimeout(() => (store.delete(k), cb?.(null, true))),
-    },
-  };
-  window.Telegram = { WebApp: wa };
-  window.__tg = {
-    log,
-    pressBack: () => emit('backButtonClicked'),
-    pressSettings: () => emit('settingsButtonClicked'),
-    backHandlers: () => (handlers.get('backButtonClicked') || []).length,
-    relayoutBurst,
-  };
-  // Draw what Telegram and iOS put over the webview, on top of everything.
-  addEventListener('DOMContentLoaded', () => {
-    const box = (css, html = '') => {
-      const d = document.createElement('div');
-      d.style.cssText = 'position:fixed;left:0;right:0;z-index:99;pointer-events:none;font:600 15px -apple-system,system-ui,sans-serif;color:#fff;' + css;
-      d.innerHTML = html;
-      document.body.appendChild(d);
-    };
-    setTimeout(pill, 0);
-    box(`top:0;height:${ins.safeTop}px;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:space-between;padding:0 28px;box-sizing:border-box`, '<span>9:41</span><span>5G ▮</span>');
-    box(
-      `top:${ins.safeTop}px;height:${ins.contentTop}px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;box-sizing:border-box`,
-      '<span id="tg-pill" style="background:rgba(30,50,80,.85);border-radius:16px;padding:6px 14px">✕ Close</span><span style="background:rgba(30,50,80,.85);border-radius:16px;padding:6px 14px">⌄ ⋯</span>',
-    );
-    box(`bottom:0;height:${ins.safeBottom}px;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center`, '<span style="width:134px;height:5px;border-radius:3px;background:#fff"></span>');
-  });
-}
-
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
-// no Vite HMR socket: a source edit elsewhere must not reload the page mid-run (the script runs against a live dev server)
-await ctx.routeWebSocket((u) => u.searchParams.has('token'), () => {});
+const browser = await launch();
+const ctx = await phoneContext(browser, { viewport: { width: W, height: H } });
 const page = await ctx.newPage();
-const errors = [];
-page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
-page.on('pageerror', (e) => errors.push(e.message));
-await ctx.addInitScript(fakeTelegram, INSETS);
+const errors = captureErrors(page, { ignoreNetwork: true });
+// a phone in Telegram: full screen on request, the insets late, header changes re-report the viewport
+await ctx.addInitScript(fakeTelegram, { insets: INSETS, fullscreen: 'request', relayout: true, overlays: true });
 await page.route('**/api/**', (r) => r.fulfill({ status: 503, body: '{"error":"down"}', contentType: 'application/json' }));
 await page.goto(base + '#tgWebAppVersion=8.0&tgWebAppPlatform=ios');
 await page.waitForTimeout(3000);
 
-const ev = (fn, arg) => page.evaluate(fn, arg);
-const wait = (ms) => page.waitForTimeout(ms);
-const active = (k) => ev((key) => window.__game.scene.isActive(key), k);
-const call = (key, fn) => ev(([k, f]) => new Function('s', f)(window.__game.scene.getScene(k)), [key, fn]);
-const start = (key, data) => ev(([k, d]) => window.__game.scene.getScenes(true).forEach((s) => s.scene.start(k, d)), [key, data ?? {}]);
+const { ev, wait, active, call, start, swipe, btn } = makePageApi(page);
 const tg = () => ev(() => ({ back: window.Telegram.WebApp.BackButton.isVisible, settings: window.Telegram.WebApp.SettingsButton.isVisible, handlers: window.__tg.backHandlers(), confirm: window.Telegram.WebApp.isClosingConfirmationEnabled, layers: window.__nav.layers() }));
 const pressBack = async () => {
   await ev(() => window.__tg.pressBack());
@@ -262,22 +94,9 @@ await start('Menu');
 await wait(1500);
 /** Finger tap (touchstart/touchend at one point) on a kit Button by label. */
 const tapButton = async (key, label) => {
-  const p = await ev(
-    ([k, l]) => {
-      const s = window.__game.scene.getScene(k);
-      let b = null;
-      const walk = (list) => list.forEach((o) => (o.opts && o.opts.label && o.opts.label.startsWith(l) && o.visible && (b = o), o.list && walk(o.list)));
-      walk(s.children.list);
-      if (!b) return null;
-      const m = b.getWorldTransformMatrix();
-      const c = document.querySelector('#game canvas').getBoundingClientRect();
-      const k2 = c.width / window.__game.scale.width;
-      return { x: c.left + (m.tx + (b.w * m.scaleX) / 2) * k2, y: c.top + (m.ty + (b.h * m.scaleY) / 2) * k2 };
-    },
-    [key, label],
-  );
+  const p = await btn(key, label);
   if (!p) throw new Error(`no button ${label} in ${key}`);
-  await page.touchscreen.tap(p.x, p.y);
+  await page.touchscreen.tap(p[0], p[1]);
 };
 /** Mark the scene's current UI root; a restart replaces it. */
 const probe = (key) => ev((k) => ((window.__game.scene.getScene(k).ui.__probe = 1), 1), key);
@@ -372,22 +191,6 @@ await wait(1500);
 await checkLayout('battle');
 // ---- touch controls inside the safe area (real touch events, canvas offset by the insets)
 check('battle: one-time controls hint shown', await call('Battle', 'return !!s.hint;'));
-const cdp = await ctx.newCDPSession(page);
-const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], i) => ({ x, y, id: i })) });
-/** One finger along a polyline of page points. */
-const swipe = async (points, steps = 8) => {
-  await touch('touchStart', [points[0]]);
-  for (let k = 1; k < points.length; k++) {
-    const [x0, y0] = points[k - 1];
-    const [x1, y1] = points[k];
-    for (let i = 1; i <= steps; i++) {
-      await touch('touchMove', [[x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps]]);
-      await wait(16);
-    }
-  }
-  await touch('touchEnd', []);
-  await wait(250);
-};
 await page.touchscreen.tap(W / 2, H / 2);
 await wait(300);
 check('battle: hint dismissed by a tap and remembered', await call('Battle', 'return !s.hint && window.__state.campaign.data.settings.seenGestureHint;'));
@@ -484,6 +287,4 @@ await comp.setContent(
 await comp.screenshot({ path: `${out}/29-fullscreen-safe-area.png` });
 console.log('saved', `${out}/29-fullscreen-safe-area.png`);
 
-await browser.close();
-console.log(failures ? `${failures} FAILED` : 'ALL PASS');
-process.exit(failures ? 1 : 0);
+await finish({ browser });

@@ -1,30 +1,21 @@
 // Screenshots of the war map on the local demo shard (src/online/demoShard.ts;
-// no backend needed): docs/screenshots/39-war-table-map.png, 40-hex-panel.png and
-// 41-fog-and-armies.png. (23-online-map.png comes from scripts/online-e2e.mjs, on a real server.)
-// Usage: node scripts/war-table-shots.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
-import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+// no backend needed): shots/39-war-table-map.png, 40-hex-panel.png and
+// 41-fog-and-armies.png (git-ignored). (23-online-map.png comes from scripts/online-e2e.mjs, on a real server.)
+// Usage: node scripts/dev/war-table-shots.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, shotsDir } from '../lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
-const out = process.argv[3] ?? 'docs/screenshots';
-mkdirSync(out, { recursive: true });
+const out = shotsDir('', process.argv[3]);
 
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+const browser = await launch();
+const ctx = await phoneContext(browser, { prep: false });
 const page = await ctx.newPage();
-const errors = [];
-page.on('pageerror', (e) => errors.push(e.message));
-await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"code":"not_configured","message":"down"}}' }));
+const errors = captureErrors(page, { console: false });
+await apiDown(page);
 await page.goto(base);
-const ev = (fn, arg) => page.evaluate(fn, arg);
-const until = async (fn, ms = 10000) => {
-  for (let t = 0; t < ms; t += 150) {
-    if (await ev(fn)) return true;
-    await page.waitForTimeout(150);
-  }
-  return false;
-};
+const api = makePageApi(page);
+const ev = api.ev;
+const until = (fn, ms = 10000) => api.untilPage(fn, ms, 150);
 await until(() => !!window.__game && window.__game.scene.isActive('Menu'), 15000);
 await ev(() => {
   const s = window.__state.campaign?.data.settings;

@@ -1,30 +1,20 @@
-// Screenshots of the mythical beasts (docs/screenshots/46-50).
-// Usage: node scripts/beast-shots.mjs [baseUrl] [outDir] [only]   (needs a running dev server)
+// Screenshots of the mythical beasts (shots/46-50, git-ignored).
+// Usage: node scripts/dev/beast-shots.mjs [baseUrl] [outDir] [only]   (needs a running dev server; default outDir: shots/)
 // Stages Beast trial battles with a sensible army (both sides bot-driven), runs
 // them until the signature move is on screen, pauses and saves the frame; then
 // the world boss raid panel and a beast lair on the war-table map.
-import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { launch, phoneContext, captureErrors, until as poll, shotsDir } from '../lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
-const out = process.argv[3] ?? 'docs/screenshots';
+const out = shotsDir('', process.argv[3]);
 const only = process.argv[4];
-mkdirSync(out, { recursive: true });
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+const browser = await launch();
+const ctx = await phoneContext(browser, { prep: false });
 const page = await ctx.newPage();
-const problems = [];
-page.on('console', (m) => m.type() === 'error' && problems.push(`[console.error] ${m.text()}`));
-page.on('pageerror', (e) => problems.push(`[pageerror] ${e.message}`));
+const problems = captureErrors(page, { prefix: true });
 const wait = (ms) => page.waitForTimeout(ms);
-const until = async (fn, arg, ms = 30000) => {
-  for (let t = 0; t < ms; t += 100) {
-    if (await page.evaluate(fn, arg)) return true;
-    await wait(100);
-  }
-  return false;
-};
+/** Polls a page function (with `arg`) until it is truthy. */
+const until = (fn, arg, ms = 30000) => poll(() => page.evaluate(fn, arg), ms, 100);
 
 await page.goto(base + '?lang=en');
 await page.evaluate(() => localStorage.clear());

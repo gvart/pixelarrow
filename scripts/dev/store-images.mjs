@@ -1,26 +1,18 @@
 // Renders the Telegram store images from the game's own procedural art
-// (store.html / src/dev/store.ts) and saves them to docs/store/.
-// Usage: node scripts/store-images.mjs [outDir]
+// (store.html / src/dev/store.ts) and saves them to shots/store/ (git-ignored).
+// Usage: node scripts/dev/store-images.mjs [outDir]
 // Starts its own Vite dev server; uses the preinstalled Chromium (PLAYWRIGHT_BROWSERS_PATH).
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
-import { mkdirSync } from 'node:fs';
+import { withViteAndBrowser, shotsDir } from '../lib/harness.mjs';
 
-const out = process.argv[2] ?? 'docs/store';
-mkdirSync(out, { recursive: true });
-
-const server = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'warn' });
-await server.listen();
-const base = server.resolvedUrls.local[0];
+const out = shotsDir('store', process.argv[2]);
 
 const shots = [
   { img: 'cover', file: 'cover-640x360.png', w: 640, h: 360 },
   { img: 'botpic', file: 'botpic-640x640.png', w: 640, h: 640 },
 ];
 
-const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined });
 const problems = [];
-try {
+await withViteAndBrowser(async ({ base, browser }) => {
   for (const s of shots) {
     // deviceScaleFactor 1: the canvas is already at the final pixel size.
     const ctx = await browser.newContext({ viewport: { width: s.w, height: s.h }, deviceScaleFactor: 1 });
@@ -35,10 +27,7 @@ try {
     console.log('saved', `${out}/${s.file}`);
     await ctx.close();
   }
-} finally {
-  await browser.close();
-  await server.close();
-}
+});
 if (problems.length) {
   console.error(problems.join('\n'));
   process.exit(1);

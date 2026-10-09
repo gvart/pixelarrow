@@ -1,36 +1,23 @@
 // Drives the game through every screen in a portrait mobile viewport and saves screenshots.
-// Usage: node scripts/screenshots.mjs [baseUrl] [outDir]
+// Usage: node scripts/dev/screenshots.mjs [baseUrl] [outDir]   (npm run shots; default outDir: shots/, git-ignored)
 // Requires a running dev/preview server. Uses the preinstalled Chromium (PLAYWRIGHT_BROWSERS_PATH).
 // Some shots stage the campaign through the debug handles (more heroes, perks,
 // a band placed next to the party) so every feature is visible; real play is untouched.
-import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { launch, phoneContext, captureErrors, makePageApi, shotsDir } from '../lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
-const out = process.argv[3] ?? 'docs/screenshots';
-mkdirSync(out, { recursive: true });
+const out = shotsDir('', process.argv[3]);
 
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+const browser = await launch();
+const ctx = await phoneContext(browser, { prep: false });
 const page = await ctx.newPage();
-const problems = [];
-page.on('console', (m) => {
-  if (m.type() === 'error') problems.push(`[console.error] ${m.text()}`);
-});
-page.on('pageerror', (e) => problems.push(`[pageerror] ${e.message}`));
+const problems = captureErrors(page, { prefix: true });
 
-const wait = (ms) => page.waitForTimeout(ms);
+const { wait, call, active, start: scene } = makePageApi(page);
 const shot = async (name) => {
   await page.screenshot({ path: `${out}/${name}.png` });
   console.log('saved', `${out}/${name}.png`);
 };
-const scene = (key, data) => page.evaluate(([k, d]) => window.__game.scene.getScenes(true).forEach((s) => s.scene.start(k, d)), [key, data ?? {}]);
-const call = (key, fn) => page.evaluate(([k, f]) => {
-  const s = window.__game.scene.getScene(k);
-  return new Function('s', f)(s);
-}, [key, fn]);
-const active = (k) => page.evaluate((key) => window.__game.scene.isActive(key), k);
 
 // Procedural sprite sheets (/preview.html, served by the dev server and the build)
 try {

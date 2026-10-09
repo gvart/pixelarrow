@@ -1,6 +1,6 @@
 /**
  * Headless balance harness (no Phaser). `npm run balance` runs it through
- * scripts/balance.mjs; tests reuse the scenarios with fewer seeds.
+ * scripts/dev/balance.mjs; tests reuse the scenarios with fewer seeds.
  *
  * Scenarios:
  *  - matched: a fresh starting army vs the bot army generated for it, both

@@ -1,13 +1,11 @@
 // Renders sample WAVs of the procedural audio offline (OfflineAudioContext in
-// headless Chromium, via audio.html / src/dev/audio.ts) into docs/audio-samples/.
-// Usage: node scripts/audio-samples.mjs [outDir]
+// headless Chromium, via audio.html / src/dev/audio.ts) into shots/audio/ (git-ignored).
+// Usage: node scripts/dev/audio-samples.mjs [outDir]
 // Starts its own Vite dev server; uses the preinstalled Chromium (PLAYWRIGHT_BROWSERS_PATH).
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
+import { withViteAndBrowser, shotsDir } from '../lib/harness.mjs';
 
-const out = process.argv[2] ?? 'docs/audio-samples';
-mkdirSync(out, { recursive: true });
+const out = shotsDir('audio', process.argv[2]);
 const RATE = 16000;
 const samples = [
   ['sfx', 'clash', 0.6],
@@ -36,13 +34,9 @@ function wav(pcm, rate) {
   return Buffer.concat([h, pcm]);
 }
 
-const server = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'warn' });
-await server.listen();
-const base = server.resolvedUrls.local[0];
-const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined });
 const problems = [];
 let total = 0;
-try {
+await withViteAndBrowser(async ({ base, browser }) => {
   const page = await browser.newPage();
   page.on('pageerror', (e) => problems.push(e.message));
   page.on('console', (m) => m.type() === 'error' && problems.push(m.text()));
@@ -61,10 +55,7 @@ try {
     total += data.length;
     console.log('saved', file, `${(data.length / 1024).toFixed(0)} KB`, `peak ${(peak / 327.67).toFixed(0)}%`);
   }
-} finally {
-  await browser.close();
-  await server.close();
-}
+});
 console.log(`total ${(total / 1024).toFixed(0)} KB`);
 if (problems.length) {
   console.error(problems.join('\n'));

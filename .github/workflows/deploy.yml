@@ -49,18 +49,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+      # server/ (Worker API, bundles ../src/sim)
+      - uses: ./.github/actions/server-setup
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
-      # server/ (Worker API, bundles ../src/sim)
-      - run: npm ci
-        working-directory: server
       - run: npx tsc --noEmit
         working-directory: server
       - run: npx vitest run
@@ -89,10 +83,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: layout-screenshots-${{ matrix.shard }}
-          path: docs/screenshots/layout
+          path: shots/layout
           retention-days: 14
 
-  # ---- touch smoke tests (README "Screenshots and smoke test")
+  # ---- touch smoke tests (README "Browser checks")
   smoke:
     needs: build
     runs-on: ubuntu-latest
@@ -114,17 +108,11 @@ jobs:
       url: https://pixelarrow.app
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+      - uses: ./.github/actions/server-setup
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
-      - run: npm ci
-        working-directory: server
 
       # wrangler.deploy.json = wrangler.jsonc with the D1 id filled in from the
       # D1_DATABASE_ID Actions variable (or secret), or without the D1 binding

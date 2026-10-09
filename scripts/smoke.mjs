@@ -3,120 +3,15 @@
 // battle -> back to the map -> recruit in a village -> spend a stat point and
 // take perks -> equip from the stash -> use an ability in battle; plus the touch controls (pan vs order, drag to move, the facing knob to turn, tap to move) and pinch zoom.
 // Usage: node scripts/smoke.mjs [baseUrl]
-import { chromium } from 'playwright';
+import { launch, phoneContext, captureErrors, makePageApi, check, finish } from './lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
-/**
- * The canvas renders at device pixels (src/platform/renderScale.ts RS): game
- * px (scale.width, getBounds(), camera projections, UI px * m.S) are CSS px *
- * RS. Touches and page.mouse are CSS px. `__css(x, y)` maps game px to page
- * (CSS) px through the canvas rect, `__gamePt(x, y)` back, `__rs()` is RS.
- * Also: no Vite HMR socket, so a source edit elsewhere cannot reload the page
- * mid-run (the scripts run against a live dev server).
- */
-async function prepContext(c) {
-  await c.routeWebSocket((u) => u.searchParams.has('token'), () => {});
-  await c.addInitScript(() => {
-    const geo = () => {
-      const r = window.__game.canvas.getBoundingClientRect();
-      return { r, k: r.width / window.__game.scale.width };
-    };
-    window.__css = (x, y) => { const { r, k } = geo(); return [r.left + x * k, r.top + y * k]; };
-    window.__gamePt = (x, y) => { const { r, k } = geo(); return [(x - r.left) / k, (y - r.top) / k]; };
-    window.__rs = () => 1 / geo().k;
-  });
-}
-await prepContext(ctx);
+const browser = await launch();
+const ctx = await phoneContext(browser);
 const page = await ctx.newPage();
-const errors = [];
-page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-page.on('pageerror', (e) => errors.push(e.message));
-const cdp = await ctx.newCDPSession(page);
-const wait = (ms) => page.waitForTimeout(ms);
-const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], i) => ({ x, y, id: i })) });
-/**
- * A tap: touchstart now, touchend one animation frame later, dispatched inside
- * the page. In headless software WebGL the game runs at a few frames a second,
- * and CDP touches (each acknowledged only after the renderer handled it) then
- * arrive several frames apart: a 60 ms tap became 400-600 ms of game time and
- * read as a long-press (450 ms: the tooltip, no click). That was the
- * intermittent "battle started" / "ability used" failure, not a game bug.
- * Gestures (drags, pinch) still go through CDP.
- */
-async function tap(x, y) {
-  await ev(
-    ([tx, ty]) =>
-      new Promise((done) => {
-        const c = window.__game.canvas;
-        const touch = new Touch({ identifier: 7, target: c, clientX: tx, clientY: ty, pageX: tx, pageY: ty, screenX: tx, screenY: ty });
-        const fire = (type) =>
-          c.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [touch], targetTouches: type === 'touchend' ? [] : [touch], changedTouches: [touch], bubbles: true, cancelable: true }));
-        fire('touchstart');
-        requestAnimationFrame(() => {
-          fire('touchend');
-          requestAnimationFrame(() => done(true));
-        });
-      }),
-    [x, y],
-  );
-  await wait(150);
-}
-async function drag(x0, y0, x1, y1, steps = 10) {
-  await touch('touchStart', [[x0, y0]]);
-  for (let i = 1; i <= steps; i++) {
-    await touch('touchMove', [[x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps]]);
-    await wait(16);
-  }
-  await touch('touchEnd', []);
-  await wait(250);
-}
-const ev = (fn, arg) => page.evaluate(fn, arg);
-let failures = 0;
-const check = (name, ok, detail = '') => {
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${detail}`);
-  if (!ok) failures++;
-};
-const active = (key) => ev((k) => window.__game.scene.isActive(k), key);
-async function until(fn, ms = 15000, step = 250) {
-  for (let t = 0; t < ms; t += step) {
-    if (await fn()) return true;
-    await wait(step);
-  }
-  return false;
-}
-
-/** Page (CSS px) centre of the first Button in a scene matching a label, icon or layout id (searches containers). */
-async function btn(sceneKey, match) {
-  return ev(([k, m]) => {
-    const s = window.__game.scene.getScene(k);
-    const found = [];
-    const walk = (list) => {
-      for (const o of list) {
-        if (o.visible && ((m.id && o.__uiId === m.id) || (o.opts && ((m.label && o.opts.label && o.opts.label.toUpperCase().startsWith(m.label.toUpperCase())) || (m.icon && o.opts.icon === m.icon))))) found.push(o);
-        if (o.list) walk(o.list);
-      }
-    };
-    walk(s.children.list);
-    const b = found[m.index ?? found.length - 1];
-    if (!b) return null;
-    const r = b.getBounds();
-    return window.__css(r.centerX, r.centerY);
-  }, [sceneKey, match]);
-}
-async function tapBtn(sceneKey, match) {
-  // state-based: wait for the button to exist (a screen may still be building)
-  let p = null;
-  await until(async () => (p = await btn(sceneKey, match)) !== null, 4000, 100);
-  if (!p) {
-    console.log(`  (no button ${JSON.stringify(match)} in ${sceneKey})`);
-    return false;
-  }
-  await tap(p[0], p[1]);
-  return true;
-}
+const errors = captureErrors(page);
+// taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
+const { ev, wait, touch, tap, swipe, pinch, active, until, btn, tapBtn } = makePageApi(page, { tapWait: 150, step: 250, btnIndex: -1, btnWaitMs: 4000 });
 
 await page.goto(base);
 await ev(() => localStorage.clear());
@@ -196,7 +91,7 @@ async function ambush(melee = false) {
     p.idle = 0;
     p.power = s.info.power * 1.4; // strong enough to hunt us
     // a melee band for the shield-bash check: skirmishers or riders can keep out of reach for the
-    // whole run, and the check needs a man in front of the basher (scripts/screenshots.mjs stages the same)
+    // whole run, and the check needs a man in front of the basher (scripts/dev/screenshots.mjs stages the same)
     if (melee) {
       p.kind = 'raiders';
       p.culture = 'celtic';
@@ -229,20 +124,6 @@ const geo = (pts, frame = true) =>
     const P = (a, b) => (frame ? [f.cx - f.fy * a - f.fx * b, f.cy + f.fx * a - f.fy * b] : [f.cx + a, f.cy + b]);
     return { sel: s.selGroup, f: { ...f }, zoom: cam.zoom, scroll: [cam.scrollX, cam.scrollY], z: s.sim.deployZone(0), pts: pts.map(([a, b]) => toScreen(P(a, b))) };
   }, [pts, frame]);
-/** One finger along a polyline of screen points (touchStart .. touchEnd). */
-async function swipe(points, steps = 8) {
-  await touch('touchStart', [points[0]]);
-  for (let k = 1; k < points.length; k++) {
-    const [x0, y0] = points[k - 1];
-    const [x1, y1] = points[k];
-    for (let i = 1; i <= steps; i++) {
-      await touch('touchMove', [[x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps]]);
-      await wait(16);
-    }
-  }
-  await touch('touchEnd', []);
-  await wait(250);
-}
 const orders = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
 let G0 = await geo([]);
 check('a group is selected in deployment', G0.sel >= 0);
@@ -347,13 +228,7 @@ check('tap-to-move faces the enemy', F.fy < -0.5, JSON.stringify([F.fx.toFixed(2
 
 // pinch to zoom in
 const z0 = await ev(() => window.__game.scene.getScene('Battle').cameras.main.zoom);
-await touch('touchStart', [[150, 300], [240, 300]]);
-for (let i = 1; i <= 8; i++) {
-  await touch('touchMove', [[150 - i * 12, 300], [240 + i * 12, 300]]);
-  await wait(16);
-}
-await touch('touchEnd', []);
-await wait(400);
+await pinch(150, 240, 300, 12);
 const z1 = await ev(() => window.__game.scene.getScene('Battle').cameras.main.zoom);
 check('pinch zoom', z1 > z0, `${z0} -> ${z1}`);
 
@@ -519,5 +394,4 @@ check('ability used from the battle bar', used.includes('bash'), JSON.stringify(
 await tapBtn('Battle', { id: 'battle.play' }); // unpause
 await wait(1500);
 check('no console errors', errors.length === 0, errors.join(' | '));
-await browser.close();
-process.exit(failures ? 1 : 0);
+await finish({ browser });

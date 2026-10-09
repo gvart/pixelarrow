@@ -3,7 +3,7 @@
  * filtered noise bursts, swept oscillators, inharmonic "bronze" partials,
  * Karplus-Strong plucked strings and a soft-clip waveshaper for grit.
  * Everything takes a BaseAudioContext, so the same code renders live and
- * offline (OfflineAudioContext, see scripts/audio-samples.mjs).
+ * offline (OfflineAudioContext, see scripts/dev/audio-samples.mjs).
  */
 export type Ctx = BaseAudioContext;
 

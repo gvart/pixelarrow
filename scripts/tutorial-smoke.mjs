@@ -5,101 +5,25 @@
 // flank), then the reward (gold + a common item) and the modes screen. Also:
 // an interrupted tutorial is offered again (resume), skip asks first and sticks,
 // and a finished tutorial is not offered again.
-// Saves docs/screenshots/42-tutorial-narrator.png, 43-tutorial-gesture.png, 44-first-run.png.
+// Saves shots/42-tutorial-narrator.png, 43-tutorial-gesture.png, 44-first-run.png
+// (git-ignored; $SHOTS overrides the folder).
 // Usage: node scripts/tutorial-smoke.mjs [baseUrl]
-import { chromium } from 'playwright';
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, shotsDir, until as untilNode } from './lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
-const shots = process.env.SHOTS ?? 'docs/screenshots';
-const browser = await chromium.launch();
-let failures = 0;
-const check = (name, ok, detail = '') => {
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${detail}`);
-  if (!ok) failures++;
-};
+const shots = shotsDir();
+const browser = await launch();
 
-/**
- * The canvas renders at device pixels (src/platform/renderScale.ts RS): game
- * px (scale.width, getBounds(), camera projections, UI px * m.S) are CSS px *
- * RS. Touches and page.mouse are CSS px. `__css(x, y)` maps game px to page
- * (CSS) px through the canvas rect, `__gamePt(x, y)` back, `__rs()` is RS.
- * Also: no Vite HMR socket, so a source edit elsewhere cannot reload the page
- * mid-run (the scripts run against a live dev server).
- */
-async function prepContext(c) {
-  await c.routeWebSocket((u) => u.searchParams.has('token'), () => {});
-  await c.addInitScript(() => {
-    const geo = () => {
-      const r = window.__game.canvas.getBoundingClientRect();
-      return { r, k: r.width / window.__game.scale.width };
-    };
-    window.__css = (x, y) => { const { r, k } = geo(); return [r.left + x * k, r.top + y * k]; };
-    window.__gamePt = (x, y) => { const { r, k } = geo(); return [(x - r.left) / k, (y - r.top) / k]; };
-    window.__rs = () => 1 / geo().k;
-  });
-}
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await prepContext(ctx);
+// a first launch: the onboarding is on
+const ctx = await phoneContext(browser, { noFirstRun: false });
 const page = await ctx.newPage();
-const errors = [];
-page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
-page.on('pageerror', (e) => (errors.push(e.message), console.log('PAGE ERROR', e.message)));
-await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"code":"not_configured","message":"down"}}' }));
-const cdp = await ctx.newCDPSession(page);
-const wait = (ms) => page.waitForTimeout(ms);
-const ev = (fn, arg) => page.evaluate(fn, arg);
-const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], i) => ({ x, y, id: i })) });
-async function tap(x, y) {
-  await touch('touchStart', [[x, y]]);
-  await wait(60);
-  await touch('touchEnd', []);
-  await wait(250);
-}
+const errors = captureErrors(page, { ignoreNetwork: true, echo: true });
+await apiDown(page);
+// taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
+const { ev, wait, tap, swipe: swipe0, pinch, until, active, tapLabel: tapBtn } = makePageApi(page, { tapWait: 250, step: 200 });
 /** One finger along a polyline of screen points. */
-async function swipe(points, steps = 8) {
-  await touch('touchStart', [points[0]]);
-  await wait(30);
-  for (let k = 1; k < points.length; k++) {
-    const [x0, y0] = points[k - 1];
-    const [x1, y1] = points[k];
-    for (let i = 1; i <= steps; i++) {
-      await touch('touchMove', [[x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps]]);
-      await wait(16);
-    }
-  }
-  await touch('touchEnd', []);
-  await wait(300);
-}
-async function until(fn, ms = 15000, step = 200) {
-  for (let t = 0; t < ms; t += step) {
-    if (await fn()) return true;
-    await wait(step);
-  }
-  return false;
-}
-const active = (k) => ev((key) => window.__game.scene.isActive(key), k);
-/** Page (CSS px) centre of a visible kit button by its (English) label. */
-async function btn(sceneKey, label) {
-  return ev(([k, l]) => {
-    const s = window.__game.scene.getScene(k);
-    let hit = null;
-    const walk = (list) => {
-      for (const o of list) {
-        if (!hit && o.opts && o.visible && o.opts.label && o.opts.label.toUpperCase().startsWith(l.toUpperCase())) hit = o;
-        if (o.list) walk(o.list);
-      }
-    };
-    walk(s.children.list);
-    if (!hit) return null;
-    const r = hit.getBounds();
-    return window.__css(r.centerX, r.centerY);
-  }, [sceneKey, label]);
-}
-async function tapBtn(sceneKey, label) {
-  const p = await btn(sceneKey, label);
-  if (p) await tap(p[0], p[1]);
-  return !!p;
-}
+const swipe = (points, steps = 8) => swipe0(points, { steps, hold: 30, after: 300 });
+
 /** The tutorial's state. */
 const tut = () =>
   ev(() => {
@@ -178,13 +102,7 @@ check('pan done', await doneWith('pan'));
 
 // pinch zoom
 check('zoom step', await talkingAt('zoom', 8000));
-await touch('touchStart', [[170, 360], [220, 360]]);
-for (let i = 1; i <= 8; i++) {
-  await touch('touchMove', [[170 - i * 10, 360], [220 + i * 10, 360]]);
-  await wait(16);
-}
-await touch('touchEnd', []);
-await wait(400);
+await pinch(170, 220, 360, 10);
 check('pinch done', await doneWith('zoom'));
 
 // the formation drag: carry the hoplites to the flag
@@ -275,19 +193,13 @@ check('coach mark: tapping the ringed neighbour opens it and goes on', await unt
 
 // ------------------------------------------------------------------ resume and skip
 
-const ctx2 = await browser.newContext({ viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await prepContext(ctx2);
+const ctx2 = await phoneContext(browser, { noFirstRun: false, viewport: { width: 375, height: 667 } });
 const p2 = await ctx2.newPage();
-p2.on('pageerror', (e) => errors.push(e.message));
-await p2.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
-const ev2 = (fn, arg) => p2.evaluate(fn, arg);
-const until2 = async (fn, ms = 15000) => {
-  for (let t = 0; t < ms; t += 200) {
-    if (await ev2(fn)) return true;
-    await p2.waitForTimeout(200);
-  }
-  return false;
-};
+captureErrors(p2, { into: errors, console: false });
+await apiDown(p2, '{}');
+const api2 = makePageApi(p2, { tapWait: 0 });
+const ev2 = api2.ev;
+const until2 = (fn, ms = 15000) => untilNode(() => ev2(fn), ms, 200);
 await p2.goto(base);
 await until2(() => window.__game?.scene.isActive('FirstRun'));
 await ev2(() => window.__game.scene.getScene('FirstRun').startTutorial());
@@ -313,10 +225,7 @@ const skipAt = await ev2(() => {
   const r = hit.getBounds();
   return window.__css(r.centerX, r.centerY);
 });
-const cdp2 = await ctx2.newCDPSession(p2);
-await cdp2.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: skipAt[0], y: skipAt[1], id: 0 }] });
-await p2.waitForTimeout(60);
-await cdp2.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+await api2.tap(skipAt[0], skipAt[1]);
 check('skipped: the modes screen', await until2(() => window.__game.scene.isActive('FirstRun') && window.__game.scene.getScene('FirstRun').mode === 'modes', 5000));
 check('skip is saved', await ev2(() => window.__state.campaign.data.settings.tutorial.status === 'skipped'));
 await p2.waitForTimeout(800);
@@ -325,6 +234,4 @@ check('skipped: not offered again', await until2(() => window.__game?.scene.isAc
 await ctx2.close();
 
 check('no page errors', errors.length === 0, errors.slice(0, 5).join(' | '));
-await browser.close();
-console.log(failures ? `TUTORIAL SMOKE FAILED (${failures})` : 'TUTORIAL SMOKE PASSED');
-process.exit(failures ? 1 : 0);
+await finish({ browser, pass: 'TUTORIAL SMOKE PASSED', fail: (n) => `TUTORIAL SMOKE FAILED (${n})` });

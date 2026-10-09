@@ -1,0 +1,16 @@
+name: Server setup
+description: >
+  Node 22 with the npm cache keyed on server/package-lock.json, and the
+  server's dependencies (npm ci in server/: the Worker, its tests and the
+  pinned wrangler).
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: server/package-lock.json
+    - run: npm ci
+      shell: bash
+      working-directory: server

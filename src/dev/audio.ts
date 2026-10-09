@@ -1,7 +1,7 @@
 /**
  * Sound preview (audio.html): play every effect and track live, and
  * `window.renderSample(kind, id, seconds, rate)` for offline renders
- * (scripts/audio-samples.mjs writes docs/audio-samples/*.wav with it).
+ * (scripts/dev/audio-samples.mjs writes shots/audio/*.wav with it).
  */
 import { AudioEngine } from '../audio/engine';
 import { MusicPlayer, TRACKS, type StingerId, type TrackId } from '../audio/music';

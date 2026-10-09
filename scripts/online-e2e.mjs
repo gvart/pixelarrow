@@ -3,35 +3,24 @@
 // hex (server-verified, with the 15 s timed deployment and the battle report),
 // they form a clan through an invite link, and fight a live lockstep duel
 // (deployment orders withheld from the opponent until go, one side readied by
-// its countdown). Saves docs/screenshots/23-online-map.png, 24-clan.png
-// and 25-duel.png.
+// its countdown). Saves shots/23-online-map.png, 24-clan.png and 25-duel.png
+// (git-ignored).
 //
 // Needs: `npm run dev` in server/ (wrangler dev on :8787 with DEV_AUTH=1 in
 // .dev.vars and migrations applied) and `VITE_DEV_AUTH=1 npx vite` (proxying
 // /api and /ws to :8787). Usage: node scripts/online-e2e.mjs [viteUrl] [outDir]
-import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir, until as untilBase } from './lib/harness.mjs';
 
 const base = (process.argv[2] ?? 'http://localhost:5173/').replace(/\/?$/, '/');
-const out = process.argv[3] ?? 'docs/screenshots';
-mkdirSync(out, { recursive: true });
+const out = shotsDir('', process.argv[3]);
 const ids = [Math.floor(Date.now() / 1000) % 100000 + 200000, Math.floor(Date.now() / 1000) % 100000 + 300000];
 
-let failures = 0;
-const check = (name, ok, detail = '') => {
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${detail}`);
-  if (!ok) failures++;
-};
-
-const browser = await chromium.launch();
+const browser = await launch();
 
 async function player(devuser, extra = '') {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-  await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+  const ctx = await phoneContext(browser);
   const page = await ctx.newPage();
-  const errors = [];
-  page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
-  page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
+  const errors = captureErrors(page, { ignoreNetwork: true, stack: true });
   // E2E_DEBUG=1: log the duel traffic on the shard socket (not presence or army moves).
   if (process.env.E2E_DEBUG) {
     page.on('websocket', (ws) => {
@@ -44,77 +33,19 @@ async function player(devuser, extra = '') {
       ws.on('close', () => console.log(`  [${devuser}] socket closed`));
     });
   }
-  const cdp = await ctx.newCDPSession(page);
-  const p = { page, ctx, cdp, errors, devuser };
+  // Two players in software WebGL run at ~5 fps: taps are dispatched inside the page (harness.mjs tap).
+  const p = { page, ctx, errors, devuser, api: makePageApi(page, { tapWait: 250, step: 200 }) };
   await page.goto(`${base}?devuser=${devuser}${extra}`);
   await page.waitForTimeout(2500);
   return p;
 }
 
 const ev = (p, fn, arg) => p.page.evaluate(fn, arg);
-const active = (p, k) => ev(p, (key) => window.__game.scene.isActive(key), k);
-async function until(fn, ms = 15000, step = 200) {
-  for (let t = 0; t < ms; t += step) {
-    if (await fn()) return true;
-    await new Promise((r) => setTimeout(r, step));
-  }
-  return false;
-}
-/**
- * A tap on the canvas, dispatched inside the page: touchstart now, touchend one
- * animation frame later. Two players in software WebGL run at ~5 fps; touches
- * sent from outside (CDP) then arrive several frames apart and read as a
- * long-press (450 ms of game time), or both in one frame.
- */
-async function tap(p, x, y) {
-  await ev(
-    p,
-    ([tx, ty]) =>
-      new Promise((done) => {
-        const c = window.__game.canvas;
-        const touch = new Touch({ identifier: 7, target: c, clientX: tx, clientY: ty, pageX: tx, pageY: ty, screenX: tx, screenY: ty });
-        const fire = (type) =>
-          c.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [touch], targetTouches: type === 'touchend' ? [] : [touch], changedTouches: [touch], bubbles: true, cancelable: true }));
-        fire('touchstart');
-        requestAnimationFrame(() => {
-          fire('touchend');
-          requestAnimationFrame(() => done(true));
-        });
-      }),
-    [x, y],
-  );
-  await p.page.waitForTimeout(250);
-}
-/** Taps the first visible Button in a scene whose label starts with `label`. */
-async function tapBtn(p, sceneKey, label, last = false) {
-  const pos = await ev(p, ([k, m, l]) => {
-    const s = window.__game.scene.getScene(k);
-    const found = [];
-    const walk = (list) => {
-      for (const o of list) {
-        if (o.opts && o.visible && o.opts.label && o.opts.label.toUpperCase().startsWith(m.toUpperCase())) found.push(o);
-        if (o.list) walk(o.list);
-      }
-    };
-    walk(s.children.list);
-    const b = l ? found[found.length - 1] : found[0];
-    if (!b) return null;
-    const r = b.getBounds();
-    return [r.centerX, r.centerY];
-  }, [sceneKey, label, last]);
-  if (!pos) {
-    const labels = await ev(p, (k) => {
-      const o2 = [];
-      const walk = (list) => list.forEach((o) => (o.opts && o2.push(`${o.opts.label}:${o.visible}`), o.list && walk(o.list)));
-      walk(window.__game.scene.getScene(k).children.list);
-      return o2.join(', ');
-    }, sceneKey);
-    console.log(`  (no button "${label}" in ${sceneKey}: ${labels})`);
-    return false;
-  }
-  await tap(p, pos[0], pos[1]);
-  return true;
-}
+const until = (fn, ms = 15000, step = 200) => untilBase(fn, ms, step);
+const active = (p, k) => p.api.active(k);
+const tap = (p, x, y) => p.api.tap(x, y);
+/** Taps the first (or with `last`, the last) visible Button in a scene whose label starts with `label`. */
+const tapBtn = (p, sceneKey, label, last = false) => p.api.tapBtn(sceneKey, { label, index: last ? -1 : 0 });
 const phase = (p) => ev(p, () => window.__game.scene.getScene('Battle')?.sim?.phase ?? null);
 /** The post-battle report on screen (Results scene). */
 const report = (p) =>
@@ -129,20 +60,14 @@ async function leaveReport(p) {
       const b = window.__game.scene.getScene('Results').primary;
       if (!b?.visible) return null;
       const r = b.getBounds();
-      return [r.centerX, r.centerY];
+      return window.__css(r.centerX, r.centerY);
     });
     if (pos) await tap(p, pos[0], pos[1]);
     if (await until(() => active(p, 'Online'), 4000)) return true;
   }
   return false;
 }
-const sceneText = (p, k) =>
-  ev(p, (key) => {
-    const outT = [];
-    const walk = (list) => list.forEach((o) => (o.text !== undefined && outT.push(o.text), o.list && walk(o.list)));
-    walk(window.__game.scene.getScene(key).children.list);
-    return outT.join(' ').toUpperCase();
-  }, k);
+const sceneText = (p, k) => p.api.sceneText(k);
 
 // ---------------------------------------------------------------- join
 const A = await player(ids[0]);
@@ -286,6 +211,4 @@ check('B lost, server verified', !!rb && rb.result !== 'victory' && rb.verified 
 for (const p of [A, B]) check(`[${p.devuser}] report -> back to the map`, await leaveReport(p));
 
 for (const p of [A, B]) check(`[${p.devuser}] no page errors`, p.errors.length === 0, p.errors.join(' | '));
-await browser.close();
-console.log(failures ? `${failures} FAILED` : 'ALL PASS');
-process.exit(failures ? 1 : 0);
+await finish({ browser });

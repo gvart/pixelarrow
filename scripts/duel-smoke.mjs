@@ -12,39 +12,19 @@
 // Continue after a report lands on the hub (not the menu), a new screen size
 // keeps the view and the queue search, and the hub is drawn after every match.
 // Usage: node scripts/duel-smoke.mjs [baseUrl]   (needs a running dev/preview server)
-import { chromium } from 'playwright';
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish } from './lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
 
-let failures = 0;
-const check = (name, ok, detail = '') => {
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${detail}`);
-  if (!ok) failures++;
-};
-
-const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await ctx.addInitScript(() => (window.__noFirstRun = true));
-// no Vite HMR socket: a source edit elsewhere must not reload the page mid-run (the script runs against a live dev server)
-await ctx.routeWebSocket((u) => u.searchParams.has('token'), () => {});
+const browser = await launch();
+const ctx = await phoneContext(browser);
 const page = await ctx.newPage();
-const errors = [];
-page.on('pageerror', (e) => errors.push(e.message));
-page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
-await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"code":"not_configured","message":"down"}}' }));
+const errors = captureErrors(page, { ignoreNetwork: true });
+await apiDown(page);
 await page.route('**/telegram.org/**', (r) => r.abort());
 
-const ev = (fn, arg) => page.evaluate(fn, arg);
-const call = (key, body) => ev(([k, f]) => new Function('s', f)(window.__game.scene.getScene(k)), [key, body]);
-const active = (k) => ev((key) => window.__game.scene.isActive(key), k);
+const { ev, call, active, untilPage: until } = makePageApi(page);
 const shown = () => call('Duel', "return window.__game.scene.getScenes(true).map((x) => x.scene.key).join('+') === 'Duel' && s.st === 'ready' && s.body.list.length > 3;");
-const until = async (fn, ms = 8000) => {
-  for (let t = 0; t < ms; t += 150) {
-    if (await ev(fn)) return true;
-    await page.waitForTimeout(150);
-  }
-  return false;
-};
 
 await page.goto(base, { timeout: 60000 });
 check('menu', await until(() => !!window.__game && window.__game.scene.isActive('Menu'), 20000));
@@ -236,6 +216,4 @@ check('[hub] a resize keeps the view and the queue search', rl.search && rl.tab 
 await call('Duel', 's.cancelSearch(); return 1;');
 
 check('no page errors', errors.length === 0, errors.join(' | '));
-await browser.close();
-console.log(failures ? `${failures} FAILED` : 'ALL PASS');
-process.exit(failures ? 1 : 0);
+await finish({ browser });

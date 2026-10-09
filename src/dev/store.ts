@@ -3,7 +3,7 @@
  * Everything is composed from the game's own procedural generators (iso ground,
  * paper-doll soldiers, blood decals, aura rings, parchment scroll, pixel font)
  * at a small base resolution and scaled up with nearest-neighbour.
- * Captured by scripts/store-images.mjs into docs/store/.
+ * Captured by scripts/dev/store-images.mjs into shots/store/.
  */
 import { renderFrame, dollGeom, type DollSpec } from '../art/paperdoll';
 import { renderGround, renderBlood, renderShadow } from '../art/ground';

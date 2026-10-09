@@ -11,5 +11,5 @@ test-results
 # Agent worktrees (local only)
 .claude/worktrees/
 
-# Layout check screenshots (scripts/layout-check.mjs); only index.md is committed
-docs/screenshots/layout/*/
+# Screenshots and other generated media from scripts/ (smokes, layout check, scripts/dev tools)
+/shots/
