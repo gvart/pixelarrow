@@ -646,8 +646,10 @@ export interface ScrollListOpts {
   id?: (i: number) => string;
   /** Rows built beyond the viewport on each side (default 2). */
   overscan?: number;
-  /** Draw the scrollbar / chevron hint (default true). */
+  /** Draw the scroll hint (edge fades and thumb; default true). */
   hint?: boolean;
+  /** The colour behind the list, that the edge fades melt into (default FADE_DEFAULT). */
+  fade?: number;
 }
 
 /**
@@ -673,7 +675,7 @@ export class ScrollList {
     this.o = { gap: SIZE.gap, overscan: 2, hint: true, ...o };
     this.area = new ScrollArea(scene, parent, x, y, w, h, metrics(scene).S);
     this.area.onScroll(() => this.sync());
-    if (this.o.hint) this.hint = addScrollHint(scene, parent, this.area);
+    if (this.o.hint) this.hint = addScrollHint(scene, parent, this.area, this.o.fade);
     this.setCount(o.count);
   }
 

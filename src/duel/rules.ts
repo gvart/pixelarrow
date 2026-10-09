@@ -298,6 +298,8 @@ export interface OfferStatLine {
   delta: number;
   /** Delta formatted with its sign ("+1.2", "-5%"); "" when unchanged. */
   deltaText: string;
+  /** The compared item has no such stat (the delta is the whole value: shown as "new", not twice). */
+  isNew?: boolean;
   /** Better for the wearer, worse, or null when unchanged. */
   better: boolean | null;
 }
@@ -331,25 +333,46 @@ function fmtDelta(key: keyof StatMods, d: number): string {
  * item card's order) and the change against the best item the `heroes` (the
  * player's current team) wear in the same slot.
  */
-export function offerSummary(offer: Pick<ShopOffer, 'def' | 'rarity'>, heroes: readonly Hero[], max = 3): OfferSummary {
+export function offerSummary(offer: Pick<ShopOffer, 'def' | 'rarity'>, heroes: readonly Hero[], max = 3, against?: string | null): OfferSummary {
   const def = itemDef(offer.def);
   const slot = def.slot;
   const it: Item = { uid: 'offer', def: offer.def, rarity: offer.rarity, cond: 100 };
   let vs: Item | null = null;
   let vsHeroId: string | null = null;
-  for (const h of heroes) {
-    const e = h.equip[slot];
-    if (e && (!vs || itemValue(e) > itemValue(vs))) {
-      vs = e;
-      vsHeroId = h.id;
+  // one hero picked by the player: against what he wears there (nothing: the full values)
+  const one = against ? heroes.find((h) => h.id === against) : undefined;
+  if (one) {
+    vs = one.equip[slot] ?? null;
+    vsHeroId = one.id;
+  } else
+    for (const h of heroes) {
+      const e = h.equip[slot];
+      if (e && (!vs || itemValue(e) > itemValue(vs))) {
+        vs = e;
+        vsHeroId = h.id;
+      }
     }
-  }
   const other: StatMods = vs ? itemMods({ ...vs, cond: 100 }) : {};
   const lines = itemModLines(it).slice(0, Math.max(0, max)).map((l): OfferStatLine => {
     const delta = Math.round((l.value - (other[l.key] ?? 0)) * 100) / 100;
     const deltaText = fmtDelta(l.key, delta);
     const better = deltaText === '' ? null : (delta > 0) !== LOWER_BETTER.includes(l.key);
-    return { key: l.key, value: l.value, text: l.text, delta, deltaText, better };
+    return { key: l.key, value: l.value, text: l.text, delta, deltaText, better, isNew: !(l.key in other) || (other[l.key] ?? 0) === 0 };
   });
   return { slot, vs, vsHeroId, lines };
+}
+
+/** Seconds, not points: these modifiers are times. */
+const TIME_MODS: (keyof StatMods)[] = ['atkTime', 'shotTime'];
+
+/**
+ * How a compare line is drawn (docs/UI_V3.md "Stat deltas"): the arrow follows
+ * the number (up when it grows), the colour follows the verdict (better /
+ * worse), the text carries its unit ("+0.2 s") and, for times, the word that
+ * says what it means ("slower"). Null when nothing changes.
+ */
+export function deltaParts(l: Pick<OfferStatLine, 'key' | 'delta' | 'deltaText' | 'better'>): { up: boolean; better: boolean; text: string; note: 'slower' | 'faster' | null } | null {
+  if (!l.deltaText || l.better === null) return null;
+  const time = TIME_MODS.includes(l.key);
+  return { up: l.delta > 0, better: l.better, text: time ? `${l.deltaText} s` : l.deltaText, note: time ? (l.delta > 0 ? 'slower' : 'faster') : null };
 }

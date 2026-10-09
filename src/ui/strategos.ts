@@ -211,7 +211,7 @@ export class CommandStrip extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, w: number, vh: number, o: CommandStripOpts) {
     super(scene, 0, vh - STRAT.stripH);
     this.w = Math.round(w);
-    this.add(addPanel(scene, 0, 0, this.w, this.h, 'parch'));
+    this.add(addPanel(scene, 0, 0, this.w, this.h, 'header'));
     this.add(scene.add.rectangle(0, 0, this.w, 1, BRONZE.dark).setOrigin(0, 0));
     this.slots = scene.add.container(0, 0);
     this.add(this.slots);
@@ -220,9 +220,9 @@ export class CommandStrip extends Phaser.GameObjects.Container {
     this.set(o);
   }
 
-  /** Top edge of the strip in screen UI px (content must end above it). */
+  /** Top edge of the strip in screen UI px (content must end above it); the bottom of the screen while the strip is empty and hidden. */
   get top(): number {
-    return this.y;
+    return this.visible ? this.y : this.y + this.h;
   }
 
   set(o: CommandStripOpts): this {
@@ -248,6 +248,8 @@ export class CommandStrip extends Phaser.GameObjects.Container {
         id: s.id,
         variant: s.destructive ? 'destructive' : kind === 'main' && !s.secondary && !s.selected ? 'primary' : 'secondary',
         style: s.selected ? 'buttonSel' : undefined,
+        // the wide middle action reads best with its icon beside the words
+        inline: kind === 'main' ? true : undefined,
       };
       const b = stacked ? new StackButton(scene, x, by, w, bh, opts) : new Button(scene, x, by, w, bh, opts);
       if (s.off) b.setEnabled(false, s.off);
@@ -261,6 +263,8 @@ export class CommandStrip extends Phaser.GameObjects.Container {
     if (o.main) mk(mainX, mainEnd - mainX, o.main, false, 'main');
     if (o.extra) mk(this.w - 4 - side - SIZE.gap - side, side, o.extra, true, 'extra');
     if (o.right) mk(this.w - 4 - side, side, o.right, true, 'right');
+    // nothing to offer: no empty bar at the bottom (the page gets the room)
+    this.setVisible(!!(o.left || o.main || o.right || o.extra));
     const why = o.why ?? o.main?.off;
     if (why && o.main) {
       // the reason sits just above the strip, on the field / page
