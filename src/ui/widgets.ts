@@ -13,7 +13,7 @@ import Phaser from 'phaser';
 import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addScroll, addText, longPress, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
 import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
-import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, glows } from './theme';
+import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, STRAT, glows } from './theme';
 import { renderGlow, renderRarityFrame } from '../art/uiTextures';
 import { type GoodsKind } from '../art/goodsIcons';
 import { goodsTexture } from './econ/textures';
@@ -110,16 +110,21 @@ const toasts = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
 
 export type ToastKind = 'info' | 'good' | 'bad';
 
-/** A short message at the top of the screen that fades away (one at a time). */
-export function toast(scene: Phaser.Scene, text: string, kind: ToastKind = 'info', ms = 2200): Phaser.GameObjects.Container {
+/**
+ * A short message that fades away (one at a time): at the top of the screen,
+ * or (`at: 'bottom'`) just above the command strip, clear of the situation
+ * sentence.
+ */
+export function toast(scene: Phaser.Scene, text: string, kind: ToastKind = 'info', ms = 2200, at: 'top' | 'bottom' = 'top'): Phaser.GameObjects.Container {
   toasts.get(scene)?.destroy();
-  const { VW } = metrics(scene);
+  const { VW, VH } = metrics(scene);
   const maxW = Math.min(VW - 16, 200);
   const wrap = wrapText(text, maxW - 14, 3, true);
   const tw = Math.max(...wrap.lines.map((l) => measureText(l, true)), 10);
   const w = Math.min(maxW, tw + 14);
   const h = wrap.lines.length * LINE_H + 10;
-  const c = scene.add.container(Math.round((VW - w) / 2), 6);
+  const y = at === 'bottom' ? Math.max(6, VH - STRAT.stripH - h - 14) : 6;
+  const c = scene.add.container(Math.round((VW - w) / 2), y);
   overlayRoot(scene).add(c);
   c.add(addPanel(scene, 0, 0, w, h, 'tooltip'));
   if (kind !== 'info') c.add(scene.add.rectangle(2, 2, 2, h - 4, kind === 'good' ? COLOR.good : COLOR.bad).setOrigin(0, 0));
@@ -127,8 +132,8 @@ export function toast(scene: Phaser.Scene, text: string, kind: ToastKind = 'info
   txt.setCenterAlign();
   c.add(txt);
   c.setAlpha(0);
-  c.y = 0;
-  scene.tweens.add({ targets: c, alpha: 1, y: 6, duration: 140, ease: 'Quad.easeOut' });
+  c.y = y - 6;
+  scene.tweens.add({ targets: c, alpha: 1, y, duration: 140, ease: 'Quad.easeOut' });
   scene.time.delayedCall(ms, () => {
     if (!c.scene) return;
     scene.tweens.add({ targets: c, alpha: 0, duration: 220, onComplete: () => c.destroy() });
@@ -146,12 +151,16 @@ export const hintStore: { seen: () => string[]; mark: (id: string) => void } = {
   mark: () => {},
 };
 
-/** Show `text` once per screen id (first visit), as a longer toast. Returns whether it showed. */
+/**
+ * Show `text` once per screen id (first visit), as a longer toast near the
+ * bottom (the top holds the screen's situation sentence). Returns whether it
+ * showed.
+ */
 export function firstTimeHint(scene: Phaser.Scene, id: string, text: string): boolean {
   const seen = hintStore.seen();
   if (seen.includes(id) || seen.includes('*')) return false;
   hintStore.mark(id);
-  toast(scene, text, 'info', 4500);
+  toast(scene, text, 'info', 4500, 'bottom');
   return true;
 }
 
@@ -454,9 +463,13 @@ export function addScrollHint(scene: Phaser.Scene, parent: Phaser.GameObjects.Co
     bob += 0.12;
     if (area.maxScrollY > 0) draw();
   };
+  const off = () => {
+    scene.events.off('update', tick);
+    scene.events.off('shutdown', off);
+  };
   scene.events.on('update', tick);
-  g.once('destroy', () => scene.events.off('update', tick));
-  scene.events.once('shutdown', () => scene.events.off('update', tick));
+  g.once('destroy', off);
+  scene.events.once('shutdown', off);
   draw();
   return g;
 }

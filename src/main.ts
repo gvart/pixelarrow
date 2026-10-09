@@ -82,6 +82,10 @@ online.canAdopt = () =>
 online.onAdopt = async (data) => {
   await state.adoptRemote(data);
   refreshLang();
+  // The duel screens show the server's duel army, not the campaign: they stay (a match just
+  // played must not end on the menu).
+  const hero = game.scene.getScene('Hero') as HeroScene;
+  if (game.scene.isActive('Duel') || (game.scene.isActive('Hero') && !hero.campaignArmy)) return;
   game.scene.getScenes(true).forEach((s) => s.scene.start('Menu'));
 };
 // Upload right away when the app is backgrounded or closed.

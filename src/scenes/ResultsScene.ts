@@ -56,6 +56,8 @@ export class ResultsScene extends BaseScene {
   chosen = new Set<string>();
   private report!: BattleReport;
   private done: (() => void) | null = null;
+  /** finish() ran for this report: a second Continue / Back must not leave twice (an online report would land in the campaign's Army). */
+  private left = false;
   private page: Page = 'summary';
   private pageLayer: Phaser.GameObjects.Container | null = null;
   private pageArea: ScrollArea | null = null;
@@ -86,6 +88,7 @@ export class ResultsScene extends BaseScene {
   create(data: ResultsData = {}): void {
     this.initUi();
     this.done = data.done ?? null;
+    this.left = false;
     this.pageLayer = null;
     this.pageArea = null;
     this.heroList = null;
@@ -677,6 +680,8 @@ export class ResultsScene extends BaseScene {
   // ------------------------------------------------------------------ leave
 
   finish(): void {
+    if (this.left) return;
+    this.left = true;
     if (this.done) {
       const d = this.done;
       this.done = null;

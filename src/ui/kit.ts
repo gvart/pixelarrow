@@ -609,6 +609,7 @@ export class ScrollArea {
     scene.input.on('pointerup', onUp);
     scene.input.on('wheel', onWheel);
     scene.events.on('update', onUpdate);
+    const onShutdown = () => this.cleanup();
     this.cleanup = () => {
       liveAreas.delete(this);
       scene.input.off('pointerdown', onDown);
@@ -616,8 +617,10 @@ export class ScrollArea {
       scene.input.off('pointerup', onUp);
       scene.input.off('wheel', onWheel);
       scene.events.off('update', onUpdate);
+      // a list rebuilt on every tab switch must not pile up shutdown listeners
+      scene.events.off('shutdown', onShutdown);
     };
-    scene.events.once('shutdown', () => this.cleanup());
+    scene.events.once('shutdown', onShutdown);
     liveAreas.add(this);
   }
 

@@ -66,6 +66,11 @@ export class HeroScene extends BaseScene {
     super('Hero');
   }
 
+  /** Showing the campaign's army (not a server-backed one, e.g. the duel army). */
+  get campaignArmy(): boolean {
+    return this.src === campaignHeroes;
+  }
+
   create(data: HeroData): void {
     this.initUi();
     ensureFonts(this);

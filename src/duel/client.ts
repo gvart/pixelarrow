@@ -244,6 +244,9 @@ export interface DuelSource {
 
 const outside = () => new ApiError(0, 'outside', 'Available in Telegram');
 
+/** After Cancel, how long the queue socket waits for a match the server was already making. */
+const CANCEL_WAIT_MS = 5000;
+
 /** The real API through the signed-in client. */
 export class ApiDuelSource implements DuelSource {
   readonly demo = false;
@@ -332,13 +335,20 @@ export class ApiDuelSource implements DuelSource {
   queue(mode: DuelMode, on: (e: QueueEvent) => void): () => void {
     const sock = new ShardSocket<MatchmakerServerMsg, MatchmakerClientMsg>('/ws/duel', 4000);
     let over = false;
+    let cancelled = false;
     const stop = () => {
+      if (over) return;
       over = true;
       off();
       setTimeout(() => sock.close(), 300);
     };
     const off = sock.on((m) => {
       if (over) return;
+      // after Cancel only a match the server was already making still counts (it must be played, or it is abandoned)
+      if (cancelled && m.type !== 'match_found') {
+        if (m.type === 'unqueued') stop();
+        return;
+      }
       if (m.type === 'mm_welcome') {
         if (m.match) {
           // already in a match: rejoin it instead
@@ -356,9 +366,11 @@ export class ApiDuelSource implements DuelSource {
       if (!over) sock.open();
     })();
     return () => {
-      if (over) return;
-      sock.send({ type: 'cancel' });
-      stop();
+      if (over || cancelled) return;
+      cancelled = true;
+      // the server answers `unqueued`, or nothing when it is pairing this player already (match_found follows)
+      if (!sock.send({ type: 'cancel' })) return stop();
+      setTimeout(stop, CANCEL_WAIT_MS);
     };
   }
 }

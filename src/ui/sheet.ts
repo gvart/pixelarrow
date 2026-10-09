@@ -363,6 +363,8 @@ export interface ItemCardOpts {
   notes?: { text: string; font?: FontKey }[];
   actions: CardAction[];
   title?: string;
+  /** Show the gold value line (default true; off where gold means nothing, e.g. the Glory-only duel shop). */
+  worth?: boolean;
 }
 
 const deltaText = (d: StatDelta): string => `${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`;
@@ -405,8 +407,10 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   c.add(addText(scene, tx, cy + 10, ellipsize(`${t(`rarity.${rarity}` as TKey)} · ${t(`slot.${def.slot}` as TKey)}${def.twoHanded ? ` · ${t('stash.twoHanded')}` : ''}`, tw), 'dim'));
   c.add(new Meter(scene, tx, cy + 22, Math.max(20, tw - 46), 4, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100));
   c.add(addText(scene, tx + Math.max(20, tw - 46) + 3, cy + 20, `${Math.round(it.cond)}%`, it.cond < 34 ? 'red' : 'ink'));
-  c.add(scaleIcon(addIcon(scene, tx - 1, cy + 28, 'coin'), 0.75));
-  c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }), tw - 10), 'dim'));
+  if (o.worth !== false) {
+    c.add(scaleIcon(addIcon(scene, tx - 1, cy + 28, 'coin'), 0.75));
+    c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }), tw - 10), 'dim'));
+  }
   cy += headH;
   // ---- scrolling body (compare, stats, description, notes)
   const viewH = y + h - 8 - footH - cy;
