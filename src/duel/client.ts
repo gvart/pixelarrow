@@ -9,7 +9,7 @@ import { online } from '../platform/cloud';
 import { ApiError, newRequestId } from '../platform/api';
 import type { Hero } from '../data/units';
 import { itemDef, type Item, type Slot } from '../data/items';
-import { equipFromStash, unequipInto } from '../game/gear';
+import { equipBlocker, equipBlockerText, equipFromStash, unequipInto } from '../game/gear';
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type Attrs } from '../data/perks';
 import type { ClassId } from '../data/classes';
 import type { FormationType } from '../sim/formation';
@@ -569,6 +569,8 @@ export class DemoDuelSource implements DuelSource {
       const i = this.p.stash.findIndex((x) => x.uid === itemUid);
       if (i < 0) throw new ApiError(404, 'not_found', 'No such item in your stash');
       if (itemDef(this.p.stash[i].def).slot !== slot) throw new ApiError(400, 'bad_request', 'Wrong slot');
+      const block = equipBlocker(h, this.p.stash[i]);
+      if (block) throw new ApiError(400, 'class_gear', equipBlockerText(block));
       equipFromStash(h.equip, this.p.stash, i);
     } else unequipInto(h.equip, slot, this.p.stash);
     return { profile: this.view() };

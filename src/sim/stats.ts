@@ -1,4 +1,7 @@
 import { itemDef, itemMods, SLOTS, type StatMods, type WeaponKind, type ShieldKind } from '../data/items';
+import { itemPower, type ItemPower } from '../data/affixes';
+import { classGearBlocker, shortfall } from '../data/gearRules';
+import { activeBonuses, type SetSpecial } from '../data/sets';
 import { TRAITS } from '../data/traits';
 import { BASE, type Hero } from '../data/units';
 import { isMythId } from '../data/beasts';
@@ -65,6 +68,10 @@ export interface CombatStats {
   armorPierce?: number;
   /** A mythical beast or a part of one (src/data/beasts.ts MythId): src/sim/myth.ts runs it. */
   boss?: string;
+  /** Item powers the hero carries (best grade per power, src/data/affixes.ts). */
+  powers?: ItemPower[];
+  /** Special effects of complete-enough item sets (src/data/sets.ts). */
+  setSpecials?: SetSpecial[];
 }
 
 /** Radius bonus from Will for auras and shouts. */
@@ -81,7 +88,7 @@ export function collectMods(hero: Hero): StatMods[] {
   const mods: StatMods[] = [];
   for (const slot of SLOTS) {
     const it = hero.equip[slot];
-    if (it) mods.push(itemMods(it));
+    if (it) mods.push(itemMods(it, hero.attrs));
   }
   for (const t of hero.traits) mods.push(TRAITS[t].mods);
   return mods;
@@ -140,9 +147,13 @@ export function computeStats(hero: Hero): CombatStats {
   const cls = heroClass(hero);
   if (cls.kind === 'animal' && cls.beastStats) return beastStats(hero, cls);
   const lvl = hero.level;
-  const weapon = hero.equip.weapon ? itemDef(hero.equip.weapon.def) : undefined;
-  const shieldItem = hero.equip.shield;
-  const shieldDef = shieldItem ? itemDef(shieldItem.def) : undefined;
+  // gear the class may not use is as good as not worn (docs/ITEMS.md "Class limits")
+  const usable = (slot: 'weapon' | 'shield') => {
+    const it = hero.equip[slot];
+    return it && !classGearBlocker(cls.id, itemDef(it.def)) ? itemDef(it.def) : undefined;
+  };
+  const weapon = usable('weapon');
+  const shieldDef = usable('shield');
   const shieldUsable = !!shieldDef && !weapon?.twoHanded;
 
   const s: CombatStats = {
@@ -178,11 +189,23 @@ export function computeStats(hero: Hero): CombatStats {
   };
 
   let speedMod = 0;
+  let atkSpeed = 0;
+  const setCount = new Map<string, number>();
+  const powers = new Map<string, ItemPower>();
   for (const slot of SLOTS) {
     const it = hero.equip[slot];
     if (!it) continue;
+    // gear the hero's class may not use does nothing (docs/ITEMS.md "Class limits")
+    if (classGearBlocker(cls.id, itemDef(it.def))) continue;
+    // a set piece counts, and a power works, only while its requirements are met
+    const met = shortfall(hero.attrs, it.def, it.rarity) === 0;
+    const set = itemDef(it.def).set;
+    if (set && met) setCount.set(set, (setCount.get(set) ?? 0) + 1);
     if (slot === 'shield' && !shieldUsable) continue;
-    const m = itemMods(it);
+    const m = itemMods(it, hero.attrs);
+    atkSpeed += m.atkSpeed ?? 0;
+    const pow = met ? itemPower(it) : null;
+    if (pow && (powers.get(pow.id)?.grade ?? -1) < pow.grade) powers.set(pow.id, pow);
     // Weapon defines reach / timing absolutely; everything else is additive.
     if (slot === 'weapon') {
       if (m.reach !== undefined) s.reach = m.reach;
@@ -194,6 +217,20 @@ export function computeStats(hero: Hero): CombatStats {
     speedMod += m.speed ?? 0;
     if (slot === 'weapon' && m.armorPierce) s.armorPierce = m.armorPierce;
   }
+  // set bonuses: stat lines add like gear, special lines run in the battle
+  const specials: SetSpecial[] = [];
+  for (const [set, n] of setCount) {
+    for (const b of activeBonuses(set, n)) {
+      if (b.special) specials.push(b.special);
+      if (!b.mods) continue;
+      addCommon(s, b.mods);
+      s.dmg += b.mods.dmg ?? 0;
+      speedMod += b.mods.speed ?? 0;
+      atkSpeed += b.mods.atkSpeed ?? 0;
+    }
+  }
+  if (specials.length) s.setSpecials = specials;
+  if (powers.size) s.powers = [...powers.values()];
   for (const t of hero.traits) {
     const def = TRAITS[t];
     addCommon(s, def.mods);
@@ -245,7 +282,7 @@ export function computeStats(hero: Hero): CombatStats {
   speedMod += agi * E.agiSpeed;
   s.accuracy += agi * E.agiAccuracy;
   const tempo = Math.max(0.6, 1 - agi * E.agiTempo);
-  s.atkTime *= tempo;
+  s.atkTime *= tempo / (1 + atkSpeed);
   s.shotTime *= tempo;
   s.stamina += end * E.endStamina;
   s.koChance += end * E.endKo;
@@ -294,6 +331,8 @@ function addCommon(s: CombatStats, m: StatMods): void {
   s.chargeBonus += m.chargeBonus ?? 0;
   s.moraleShock += m.moraleShock ?? 0;
   s.xpBonus += m.xpBonus ?? 0;
+  s.koChance += m.koChance ?? 0;
+  if (m.steady) s.moraleLoss *= Math.max(0.3, 1 - m.steady);
 }
 
 /** Rough combat power of a hero, used to scale the bot's army. */

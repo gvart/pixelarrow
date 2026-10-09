@@ -11,7 +11,8 @@
 import { Rng } from '../sim/rng';
 import { CLASSES, type ClassId } from '../data/classes';
 import type { Culture } from '../data/names';
-import { ITEM_LIST, itemDef, itemMods, itemValue, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
+import { BASE_ITEMS, itemDef, itemMods, itemValue, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
+import { freezeRolls } from '../data/affixes';
 import { ATTR_IDS, ATTR_MAX, PERKS, POINTS_PER_LEVEL, perkBlocker, type Attrs, type PerkId } from '../data/perks';
 import type { Hero } from '../data/units';
 import { makeHero, makeItem, type IdSource } from '../game/heroes';
@@ -243,7 +244,7 @@ export interface ShopOffer {
 /** The fixed catalogue: every item at the shop rarities. */
 export function catalogue(): ShopOffer[] {
   const out: ShopOffer[] = [];
-  for (const d of ITEM_LIST) for (const r of DUEL_RULES.shopRarities) out.push({ id: `${d.id}:${r}`, def: d.id, rarity: r, price: gearPrice(d.id, r) });
+  for (const d of BASE_ITEMS) for (const r of DUEL_RULES.shopRarities) out.push({ id: `${d.id}:${r}`, def: d.id, rarity: r, price: gearPrice(d.id, r) });
   return out;
 }
 
@@ -255,7 +256,7 @@ export function utcDay(ms: number): number {
 /** Today's offers: three rare items and one epic, 20% off, the same for everyone on a UTC day. */
 export function dailyOffers(day: number): ShopOffer[] {
   const rng = new Rng((day * 2654435761) >>> 0 || 1);
-  const pool = ITEM_LIST.filter((d) => d.value >= 25);
+  const pool = BASE_ITEMS.filter((d) => d.value >= 25);
   const picked = new Set<string>();
   const out: ShopOffer[] = [];
   while (out.length < DUEL_RULES.dailyOffers && picked.size < pool.length) {
@@ -283,7 +284,13 @@ export function shopItem(seed: number, ids: IdSource, prefix: string, offer: Sho
   const rng = new Rng(seed >>> 0 || 1);
   const it = makeItem(rng, ids, offer.def, offer.rarity, 100, rng.pick(['greek', 'phoenician', 'celtic'] as const));
   it.uid = `${prefix}${it.uid}`;
-  return it;
+  // the random stats and power shown on the offer card
+  return freezeRolls(it, offerUid(offer));
+}
+
+/** The uid an offer's preview item rolls its random stats under. */
+export function offerUid(offer: Pick<ShopOffer, 'def' | 'rarity'> & { id?: string }): string {
+  return `offer_${offer.id ?? `${offer.def}:${offer.rarity}`}`;
 }
 
 // ------------------------------------------------------------------ shop compare
@@ -340,10 +347,10 @@ function fmtDelta(key: keyof StatMods, d: number): string {
  * when he would not use the item, or none is picked, the best item (by value)
  * among the users is the one.
  */
-export function offerSummary(offer: Pick<ShopOffer, 'def' | 'rarity'>, heroes: readonly Hero[], max = 3, against?: string | null): OfferSummary {
+export function offerSummary(offer: Pick<ShopOffer, 'def' | 'rarity'> & { id?: string }, heroes: readonly Hero[], max = 3, against?: string | null): OfferSummary {
   const def = itemDef(offer.def);
   const slot = def.slot;
-  const it: Item = { uid: 'offer', def: offer.def, rarity: offer.rarity, cond: 100 };
+  const it: Item = { uid: offerUid(offer), def: offer.def, rarity: offer.rarity, cond: 100 };
   const users = compareCandidates(heroes, def);
   let vs: Item | null = null;
   let vsHeroId: string | null = null;

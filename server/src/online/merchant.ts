@@ -28,6 +28,7 @@ import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
 import { capKey, holderCut, merchantAt, merchantDay, merchantStock, MERCHANT, nextReset, offerPrice, regionOf, type Offer } from '../../../src/online/merchants';
 import { makeItem } from '../../../src/game/heroes';
+import { freezeRolls } from '../../../src/data/affixes';
 import { Rng, hashString } from '../../../src/sim/rng';
 import type { Culture } from '../../../src/data/names';
 import { balance, balanceSql, ensureWallet, walletMove } from '../economy/wallet';
@@ -179,7 +180,8 @@ merchant.post('/buy', async (c) => {
   const cut = holder ? holderCut(offer) : 0;
   const key = capKey(offer);
   const consumable = offer.kind === 'consumable';
-  const item = consumable ? null : { ...makeItem(new Rng(hashString(body.requestId) || 1), { nextId: 1 }, offer.ref, offer.rarity, 100, cultureOf(pc, h)), uid: `${heroPrefix(pc.season.id, pid)}m${body.requestId}` };
+  // the random stats and power the merchant card showed (MerchantScene previews under `offer_<id>`)
+  const item = consumable ? null : freezeRolls({ ...makeItem(new Rng(hashString(body.requestId) || 1), { nextId: 1 }, offer.ref, offer.rarity, 100, cultureOf(pc, h)), uid: `${heroPrefix(pc.season.id, pid)}m${body.requestId}` }, `offer_${offer.id}`);
 
   const nonce = randomToken(8);
   const G = `EXISTS (SELECT 1 FROM merchant_orders WHERE player_id = ${pid | 0} AND request_id = '${body.requestId}' AND nonce = '${nonce}')`;

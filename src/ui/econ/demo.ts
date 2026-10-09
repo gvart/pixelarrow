@@ -6,7 +6,7 @@
  */
 import { ApiError, type BuyResult, type ConsumableKey, type EconomyCatalog, type MarketListing, type MarketListRequest, type MarketQuery, type SeasonPassInfo, type WalletInfo } from '../../platform/api';
 import { CONSUMABLES, CONSUMABLE_IDS } from '../../data/consumables';
-import { ITEM_LIST, RARITIES, itemValue, normalizeRarity, type Item } from '../../data/items';
+import { BASE_ITEMS, RARITIES, itemValue, normalizeRarity, type Item } from '../../data/items';
 import { marketFee } from '../../game/economy';
 import type { ProfileView } from '../../online/client';
 import type { Hero } from '../../data/units';
@@ -145,7 +145,7 @@ export class DemoEconSource implements EconSource {
       income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, regions: 6 },
     };
     // market: a spread of items, goods and consumables from other players, two of mine
-    const items = ITEM_LIST.filter((_, i) => i % 3 === 0);
+    const items = BASE_ITEMS.filter((_, i) => i % 3 === 0);
     items.forEach((d, i) => {
       const rarity = RARITIES[(i * 7) % 5];
       const item: Item = { uid: `m${i}`, def: d.id, rarity, cond: 60 + ((i * 13) % 41) };

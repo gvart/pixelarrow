@@ -70,13 +70,22 @@ describe('campaign', () => {
   it('equips items and enforces two-handed weapons', () => {
     const c = Campaign.fresh(9);
     const h = c.data.heroes[0];
-    const bow = { uid: 'test-bow', def: 'bow', rarity: 'common' as const, cond: 100 };
-    c.data.stash.push(bow);
-    const shield = h.equip.shield!;
-    expect(c.equip(h.id, 'test-bow')).toBe(true);
-    expect(h.equip.weapon!.uid).toBe('test-bow');
+    // companions carry a two-handed lance or a big shield (with a side sword)
+    h.cls = 'companion';
+    h.equip.shield = { uid: 'test-hoplon', def: 'hoplon', rarity: 'common', cond: 100 };
+    c.data.stash.push({ uid: 'test-xyston', def: 'xyston', rarity: 'common', cond: 100 });
+    expect(c.equip(h.id, 'test-xyston')).toBe(true);
+    expect(h.equip.weapon!.uid).toBe('test-xyston');
     expect(h.equip.shield).toBeUndefined();
-    expect(c.data.stash.some((i) => i.uid === shield.uid)).toBe(true);
+    expect(c.data.stash.some((i) => i.uid === 'test-hoplon')).toBe(true);
+  });
+
+  it('refuses gear the hero\'s class may not use', () => {
+    const c = Campaign.fresh(9);
+    const h = c.data.heroes.find((x) => x.cls === 'hoplite')!;
+    c.data.stash.push({ uid: 'test-bow', def: 'bow', rarity: 'common', cond: 100 });
+    expect(c.equip(h.id, 'test-bow')).toBe(false);
+    expect(c.data.stash.some((i) => i.uid === 'test-bow')).toBe(true);
   });
 
   it('recruits cost gold and respect the army cap', () => {

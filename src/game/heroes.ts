@@ -1,4 +1,5 @@
 /** Hero and item factories (campaign layer, deterministic given an Rng). */
+import { requirements } from '../data/gearRules';
 import { itemDef, type Item, type ItemPaint, type Rarity } from '../data/items';
 import { NAMES, freeName, type Culture } from '../data/names';
 import { POSITIVE_TRAITS, type TraitId } from '../data/traits';
@@ -118,6 +119,16 @@ export function rollAttrs(rng: Rng, arch: Archetype): Attrs {
 export function autoDevelop(h: Hero): void {
   const c = heroCls(h);
   const order: AttrId[] = c.growth.length ? c.growth : ['end', 'str', 'agi', 'wil'];
+  // first what the gear asks for (docs/ITEMS.md "Attribute requirements"), then the class's way
+  for (const it of Object.values(h.equip)) {
+    if (!it) continue;
+    for (const q of requirements(it.def, it.rarity)) {
+      while (h.points > 0 && h.attrs[q.attr] < Math.min(q.n, ATTR_MAX)) {
+        h.attrs[q.attr]++;
+        h.points--;
+      }
+    }
+  }
   let i = ATTR_IDS.reduce((acc, k) => acc + h.attrs[k], 0);
   let guard = 0;
   while (h.points > 0 && guard++ < 200) {

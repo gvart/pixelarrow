@@ -1,9 +1,10 @@
 /** Post-battle outcome: loot from enemies you actually killed, gold, XP, permadeath. */
-import { itemDef, rarityRank, SLOTS, type Item, type Slot } from '../data/items';
+import { itemDef, itemMods, rarityRank, SLOTS, type Item, type Slot } from '../data/items';
 import { TRAITS } from '../data/traits';
 import type { Hero } from '../data/units';
 import { Rng } from '../sim/rng';
 import type { BattleResult, UnitResult, Wear } from '../sim/types';
+import { gearTotal } from './gear';
 import { grantXp } from './heroes';
 
 export interface HeroOutcome {
@@ -52,7 +53,8 @@ const WEAR_SLOT: Partial<Record<Slot, keyof Wear>> = { weapon: 'weapon', shield:
 export function applyWear(item: Item, slot: Slot, wear: Wear): void {
   const k = WEAR_SLOT[slot];
   if (!k) return;
-  item.cond = Math.max(0, Math.round(item.cond - wear[k]));
+  const durable = Math.min(0.75, itemMods(item).durable ?? 0);
+  item.cond = Math.max(0, Math.round(item.cond - wear[k] * (1 - durable)));
 }
 
 /** Items carried by enemies that the player's side killed, with battle wear applied. */
@@ -94,6 +96,7 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
   const outcomes: HeroOutcome[] = [];
   const survivors: Hero[] = [];
   let lost = 0;
+  let goldBonus = 0;
   for (const h of player) {
     const u = units.get(h.id);
     if (!u) {
@@ -110,7 +113,8 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
       const it = h.equip[slot];
       if (it) applyWear(it, slot, u.wear);
     }
-    const xpBonus = (h.equip.trinket ? itemDef(h.equip.trinket.def).mods.xpBonus ?? 0 : 0) + h.traits.reduce((a, t) => a + (TRAITS[t].mods.xpBonus ?? 0), 0);
+    const xpBonus = gearTotal(h, 'xpBonus') + h.traits.reduce((a, t) => a + (TRAITS[t].mods.xpBonus ?? 0), 0);
+    goldBonus += gearTotal(h, 'goldBonus');
     // Men who ran off the field lose a little XP; an ordered retreat is no disgrace.
     const wounded = u.state === 'dead' && u.ko;
     const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' && !retreated ? -6 : 0)) * (1 + xpBonus) * (wounded ? 0.5 : 1));
@@ -124,7 +128,8 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
     survivors.push(h);
   }
   // A retreat earns only the bounty for enemies already slain: no field to strip.
-  const gold = (retreated ? 0 : 20) + enemyKilled * 12 + (victory ? 60 : draw ? 20 : 0);
+  // Gilded gear of the survivors adds to the battle's gold (at most +50%).
+  const gold = Math.round(((retreated ? 0 : 20) + enemyKilled * 12 + (victory ? 60 : draw ? 20 : 0)) * (1 + Math.min(0.5, goldBonus)));
   const picks = retreated ? 0 : lootPicks(result.winner, player.length, lost);
   const loot = picks > 0 ? lootPool(result, enemies) : [];
   return {

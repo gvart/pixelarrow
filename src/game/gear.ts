@@ -7,6 +7,7 @@
 import { itemDef, itemMods, itemValue, normalizeRarity, rarityRank, SLOTS, type Item, type ItemDef, type Rarity, type Slot, type StatMods, type WeaponKind } from '../data/items';
 import type { Equipment, Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
+import { classGearBlocker, type ClassGearBlock } from '../data/gearRules';
 import { computeStats, heroClass, heroPower, type CombatStats } from '../sim/stats';
 
 // ------------------------------------------------------------------ stats shown on a sheet
@@ -88,6 +89,30 @@ export function changedDeltas(cur: CombatStats, next: CombatStats): StatDelta[] 
   return statDeltas(cur, next).filter((d) => d.better !== null);
 }
 
+/**
+ * Why `h` may not equip `item` (docs/ITEMS.md "Class limits"): 'weapon',
+ * 'shield' or 'armor' when his class does not use that kind, 'none' when the
+ * class wears no gear (animals). Null when he may.
+ */
+export function equipBlocker(h: Pick<Hero, 'cls' | 'arch' | 'culture' | 'equip'>, item: Pick<Item, 'def'>): ClassGearBlock | null {
+  return classGearBlocker(heroClass(h as Hero).id, itemDef(item.def));
+}
+
+/** One line for an equip refusal. */
+export function equipBlockerText(block: ClassGearBlock): string {
+  return block === 'none' ? 'This hero wears no gear' : `This class cannot use this ${block === 'armor' ? 'armour' : block}`;
+}
+
+/** Sum of one stat over everything a hero wears (rarity, random stats and requirement penalty applied). */
+export function gearTotal(h: Pick<Hero, 'equip' | 'attrs'>, key: keyof StatMods): number {
+  let sum = 0;
+  for (const slot of SLOTS) {
+    const it = h.equip[slot];
+    if (it) sum += itemMods(it, h.attrs)[key] ?? 0;
+  }
+  return sum;
+}
+
 // ------------------------------------------------------------------ equipping
 
 /**
@@ -131,10 +156,12 @@ export function heroWeaponKinds(h: Hero): Set<WeaponKind> {
  * Whether a hero would actually equip an item (compare lines, "best in
  * team"): a weapon of a kind he fights with (a spear for a spearman, never
  * for an archer); a shield only beside a one-handed weapon and when his class
- * carries one; helmets, armour and trinkets fit everyone. Any hero *can* wear
- * anything; this is who it is *for*.
+ * carries one; helmets, armour and trinkets fit everyone. Never an item his
+ * class may not equip (docs/ITEMS.md "Class limits"), when `def` is a full
+ * item definition.
  */
-export function heroUses(h: Hero, def: Pick<ItemDef, 'slot' | 'weaponKind'>): boolean {
+export function heroUses(h: Hero, def: Pick<ItemDef, 'slot' | 'weaponKind'> & Partial<ItemDef>): boolean {
+  if (def.id && equipBlocker(h, { def: def.id })) return false;
   if (def.slot === 'weapon') return !!def.weaponKind && heroWeaponKinds(h).has(def.weaponKind);
   if (def.slot === 'shield') {
     const held = h.equip.weapon ? itemDef(h.equip.weapon.def) : null;
@@ -225,7 +252,8 @@ export function compareItem(h: Hero, item: Item): Comparison {
 const MOD_ORDER: [keyof StatMods, number, boolean?][] = [
   ['dmg', 1], ['rangedDmg', 1], ['range', 1], ['reach', 2], ['atkTime', 2], ['shotTime', 2], ['ammo', 0], ['accuracy', 0, true], ['block', 0, true],
   ['blockPierce', 0, true], ['armorPierce', 0, true], ['armor', 1], ['hp', 0], ['morale', 0], ['stamina', 0], ['speed', 0, true],
-  ['chargeBonus', 2], ['moraleShock', 2], ['xpBonus', 0, true],
+  ['chargeBonus', 2], ['moraleShock', 2], ['atkSpeed', 0, true], ['steady', 0, true], ['xpBonus', 0, true], ['koChance', 0, true],
+  ['goldBonus', 0, true], ['durable', 0, true],
 ];
 
 export interface ModLine {
@@ -237,9 +265,9 @@ export interface ModLine {
   good: boolean;
 }
 
-/** The modifiers of an item instance (rarity and condition applied), for its card. */
-export function itemModLines(it: Item): ModLine[] {
-  const m = itemMods(it);
+/** The modifiers of an item instance (rarity, condition, random stats and, with the wearer's attributes, the requirement penalty), for its card. */
+export function itemModLines(it: Item, attrs?: Hero['attrs']): ModLine[] {
+  const m = itemMods(it, attrs);
   const out: ModLine[] = [];
   for (const [k, dp, pct] of MOD_ORDER) {
     const v = m[k];

@@ -16,11 +16,15 @@ import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ens
 import { cosmeticLoadout } from '../game/cosmetics';
 import { renderStage, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
 import { ANIM, attackLength, dollFromHero, dollGeom, weaponClass } from '../art/paperdoll';
-import { itemDef, itemValue, normalizeRarity, SLOTS, type Item, type Slot } from '../data/items';
+import { itemDef, itemValue, normalizeRarity, SLOTS, type Item, type Slot, type StatMods } from '../data/items';
+import { POWERS, itemPower, powerText } from '../data/affixes';
+import { SETS, SET_SPECIAL_TEXT, setPieces } from '../data/sets';
+import { classesFor, gearPenalty, requirements, shortfall } from '../data/gearRules';
+import { CLASSES, type ClassId } from '../data/classes';
 import type { Hero } from '../data/units';
 import { computeStats, heroClass } from '../sim/stats';
 import {
-  compareItem, cycle, fmtStat, isUpgrade, itemModLines, queryStash, RARITY_FILTERS, SLOT_FILTERS, STASH_SORTS, STATS, shoots,
+  compareItem, cycle, equipBlocker, fmtStat, isUpgrade, itemModLines, queryStash, RARITY_FILTERS, SLOT_FILTERS, STASH_SORTS, STATS, shoots,
   type RarityFilter, type SlotFilter, type StashSort, type StatDelta, type StatId,
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
@@ -410,6 +414,61 @@ const deltaText = (d: StatDelta): string => {
   return d.id === 'atkTime' ? `${n} s ${t(d.delta > 0 ? 'dv.slower' : 'dv.faster')}` : n;
 };
 
+/** Percent stats in set bonus lines. */
+const PCT_KEYS = new Set<string>(['accuracy', 'block', 'blockPierce', 'armorPierce', 'speed', 'steady', 'atkSpeed', 'xpBonus', 'koChance', 'goldBonus', 'durable']);
+
+function modsText(m: StatMods): string {
+  return Object.entries(m)
+    .map(([k, v]) => `${v! > 0 ? '+' : ''}${PCT_KEYS.has(k) ? `${Math.round(v! * 100)}%` : `${Math.round(v! * 10) / 10}`} ${tOr(`mod.${k}`, k)}`)
+    .join(', ');
+}
+
+/**
+ * The item card's rule lines (docs/ITEMS.md): its power, its set and the
+ * bonuses the hero has lit, what it asks for (red when the hero is short, with
+ * the penalty) and which classes may use it (red when the hero's may not).
+ */
+export function itemRuleLines(it: Item, hero: Hero | undefined, w: number): { text: string; font: FontKey }[] {
+  const def = itemDef(it.def);
+  const out: { text: string; font: FontKey }[] = [];
+  const add = (text: string, font: FontKey, max = 2) => {
+    for (const l of wrapText(text, w, max).lines) out.push({ text: l, font });
+  };
+  const pow = itemPower(it);
+  if (pow) {
+    add(t('item.power', { name: tOr(`power.${pow.id}.name`, POWERS[pow.id].name) }), rarityFont(it.rarity), 1);
+    add(powerText(pow, tOr(`power.${pow.id}.text`, POWERS[pow.id].text), t('item.sec')), 'ink');
+  }
+  if (def.set && SETS[def.set]) {
+    const set = SETS[def.set];
+    const pieces = setPieces(set.id);
+    const worn = hero ? Object.values(hero.equip).filter((x) => x && itemDef(x.def).set === set.id && shortfall(hero.attrs, x.def, x.rarity) === 0).length : 0;
+    add(t('item.set', { name: tOr(`set.${set.id}.name`, set.name), n: worn, of: pieces.length }), 'ink', 1);
+    for (const bn of set.bonuses) {
+      const text = bn.special ? tOr(`setsp.${bn.special}`, SET_SPECIAL_TEXT[bn.special]) : modsText(bn.mods ?? {});
+      add(`${bn.pieces}: ${text}`, worn >= bn.pieces ? 'good' : 'dim');
+    }
+  }
+  const reqs = requirements(it.def, it.rarity);
+  if (reqs.length) {
+    const list = reqs.map((q) => `${t(`attr.${q.attr}.short` as TKey)} ${q.n}`).join(' · ');
+    const miss = shortfall(hero?.attrs, it.def, it.rarity);
+    add(t('item.needs', { list }), miss > 0 ? 'red' : 'dim', 1);
+    if (miss > 0) add(t('item.short', { n: miss, p: Math.round(gearPenalty(miss) * 100) }), 'red');
+  }
+  if (def.slot === 'weapon' || def.slot === 'shield' || def.slot === 'armor') {
+    const blocked = hero ? equipBlocker(hero, it) : null;
+    if (blocked && hero) add(t('item.classBlocked', { cls: className(hero) }), 'red', 1);
+    else if (!hero) add(t('item.for', { list: classesFor(def).map((c) => tOr(`class.${c}.name`, CLASSES[c as ClassId].name)).join(', ') }), 'dim');
+  }
+  return out;
+}
+
+/** Why `h` may not equip `it` as a translated line (the equip button's reason), or undefined. */
+export function equipRefusal(h: Hero, it: Item): string | undefined {
+  return equipBlocker(h, it) ? t('item.classBlocked', { cls: className(h) }) : undefined;
+}
+
 /**
  * The item card: big icon in its rarity frame, name in the rarity colour,
  * rarity and slot, condition, value, every stat. With a hero (and the item
@@ -427,13 +486,14 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   // ---- measure the content
   const cmp = o.hero && !o.equipped ? compareItem(o.hero, it) : null;
   const changed = cmp ? cmp.deltas.filter((d) => d.better !== null) : [];
-  const mods = itemModLines(it);
+  const mods = itemModLines(it, o.hero?.attrs);
   const desc = wrapText(tOr(`item.${def.id}.desc`, def.desc), inner - 4, 3);
   const notes = o.notes ?? [];
+  const rules = itemRuleLines(it, o.hero, inner - 4);
   const headH = 40;
   const cmpH = cmp ? 30 + Math.max(1, changed.length) * 11 + (cmp.displaced.length ? 10 : 0) + 4 : 0;
   const modsH = 12 + Math.ceil(mods.length / 2) * 10 + 4;
-  const bodyH = cmpH + modsH + desc.lines.length * LINE_H + 4 + notes.length * LINE_H;
+  const bodyH = cmpH + modsH + rules.length * LINE_H + (rules.length ? 4 : 0) + desc.lines.length * LINE_H + 4 + notes.length * LINE_H;
   const footH = o.actions.length ? SIZE.btnH + 10 : 0;
   const want = 26 + headH + bodyH + footH + 8;
   const m = openModal(scene, { title: o.title ?? (cmp ? t('stash.compare') : t('stash.item')), w, h: Math.min(want, VH - 12) });
@@ -497,6 +557,11 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     b.add(addText(scene, mx, my, ellipsize(tOr(`mod.${ml.key}`, ml.key), colW - val.width - 8), 'dim'));
   });
   by += Math.ceil(mods.length / 2) * 10 + 4;
+  for (const r of rules) {
+    b.add(addText(scene, 0, by, r.text, r.font));
+    by += LINE_H;
+  }
+  if (rules.length) by += 4;
   if (desc.lines.length) {
     b.add(addText(scene, 0, by, desc.lines.join('\n'), 'ink'));
     by += desc.lines.length * LINE_H + 4;

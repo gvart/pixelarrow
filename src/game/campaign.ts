@@ -3,7 +3,7 @@
  * the screens perform on them (equip, hire, buy, heal, level up, encounters).
  */
 import { RARITIES, itemDef, itemValue, normalizeRarity, type Item, type Slot } from '../data/items';
-import { equipFromStash, unequipInto } from './gear';
+import { equipBlocker, equipFromStash, unequipInto } from './gear';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
 import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/perks';
 import { Rng } from '../sim/rng';
@@ -276,7 +276,7 @@ export class Campaign {
   equip(heroId: string, itemUid: string): boolean {
     const h = this.hero(heroId);
     const idx = this.data.stash.findIndex((i) => i.uid === itemUid);
-    if (!h || idx < 0) return false;
+    if (!h || idx < 0 || equipBlocker(h, this.data.stash[idx])) return false;
     equipFromStash(h.equip, this.data.stash, idx);
     return true;
   }

@@ -448,7 +448,7 @@ export class MarketScene extends BaseScene {
     const subjects: { s: IconSubject; ref: string }[] = [
       ...RESOURCES.map((r) => ({ s: { resource: r } as IconSubject, ref: r })),
       ...CONSUMABLE_IDS.map((id) => ({ s: { consumable: id } as IconSubject, ref: id })),
-      ...ITEM_LIST.map((d) => ({ s: { item: { uid: `f_${d.id}`, def: d.id, rarity: 'common' as const, cond: 100 } } as IconSubject, ref: d.id })),
+      ...ITEM_LIST.filter((d) => !d.bound).map((d) => ({ s: { item: { uid: `f_${d.id}`, def: d.id, rarity: 'common' as const, cond: 100 } } as IconSubject, ref: d.id })),
     ];
     const by = m.y + m.h - 8 - SIZE.btnH;
     const grid = new Grid(this, m.c, m.body.x, m.body.y, m.body.w, by - 4 - m.body.y, {

@@ -7,7 +7,7 @@
  * rollBeastRarity: the only regular source of Legendary gear.
  */
 import type { Hero } from '../data/units';
-import { ITEM_LIST, type Slot } from '../data/items';
+import { BASE_ITEMS, type Slot } from '../data/items';
 import { ENCOUNTERS, LAIR_BEASTS, mythHeroes, type EncounterId } from '../data/beasts';
 import { Rng } from '../sim/rng';
 import { makeItem, rollBeastRarity, type IdSource } from './heroes';
@@ -18,7 +18,7 @@ const HOARD_SLOTS: Slot[] = ['weapon', 'armor', 'helmet', 'shield', 'trinket'];
 
 /** Gear a beast's hoard may hold: the better half of each slot. */
 export function hoardPool(slot: Slot): string[] {
-  return ITEM_LIST.filter((d) => d.slot === slot && d.tier >= 2).map((d) => d.id);
+  return BASE_ITEMS.filter((d) => d.slot === slot && d.tier >= 2).map((d) => d.id);
 }
 
 /** Heroes of an encounter at a level, the body (or the first flock members) carrying `items` pieces of hoard. */

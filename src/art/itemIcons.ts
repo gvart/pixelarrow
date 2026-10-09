@@ -276,6 +276,9 @@ function gearDetail(px: Pix, id: string): void {
     case 'thureos':
       // a horizontal iron boss strip
       px.rect(cx - 2, cy, 5, 1, P.iron[1]);
+      break;    case 'chimera_cuirass':
+      // the lion-mane collar
+      px.rect(cx - 3, y0 + 1, 7, 1, P.gold);
       break;
   }
 }
