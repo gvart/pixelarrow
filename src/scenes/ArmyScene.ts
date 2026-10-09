@@ -11,13 +11,13 @@ import { ensureFonts, FONT_RED_LIGHT } from '../ui/fonts';
 import {
   equipRefusal,
   DragDrop, ROMAN, Stage, StashGrid, addChip, addGroupBadge, addMountTile, addSlotTile, addStars, addTabBadge, className, defaultStashState,
-  groupName, itemName, openItemCard, roleColor, uiBoundsOf, type StashState,
+  groupName, itemName, openItemCard, saleText, roleColor, uiBoundsOf, type StashState,
 } from '../ui/sheet';
 import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
 import { state } from '../state';
 import { scrapValue } from '../game/campaign';
-import { itemDef, itemValue, SLOTS, type Item, type Slot } from '../data/items';
+import { itemDef, SLOTS, type Item, type Slot } from '../data/items';
 import { MAX_ARMY, type Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
 import { heroClass } from '../sim/stats';
@@ -424,12 +424,12 @@ export class ArmyScene extends BaseScene {
     const cost = camp.repairCost(it);
     const actions = [];
     if (this.inTown()) {
-      const val = itemValue(it);
+      const s = saleText(it);
       actions.push({
-        label: t('stash.sell', { n: val }),
+        label: s.label,
         icon: 'coin',
         id: 'stash.sell',
-        onClick: () => confirmDialog(this, { title: t('stash.sellTitle', { name: itemName(it) }), body: t('stash.sellBody', { n: val }), ok: t('stash.sell', { n: val }), cancel: t('common.cancel'), onOk: () => this.sell(it, val) }),
+        onClick: () => confirmDialog(this, { title: s.title, body: s.body, ok: s.label, cancel: t('common.cancel'), onOk: () => this.sell(it, s.value) }),
       });
     }
     if (this.back.from === 'Camp') {
@@ -487,10 +487,11 @@ export class ArmyScene extends BaseScene {
   }
 
   private sell(it: Item, val: number): void {
+    const done = saleText(it).done;
     state.campaign.sell(it.uid, val);
     haptic('medium');
     uiCoin();
-    toast(this, t('stash.sold', { n: val }), 'good');
+    toast(this, done, 'good');
     void state.save();
     this.refresh();
   }

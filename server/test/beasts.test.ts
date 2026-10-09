@@ -34,7 +34,7 @@ interface BossInfo {
   parts: number[];
   status: string;
   top: { player: number; damage: number }[];
-  you: { damage: number; raids: number; loot: { share: number; items: { rarity: string }[] } | null };
+  you: { damage: number; raids: number; loot: { share: number; items: { rarity: string }[] } | null; chest?: { kind: string; item: unknown } | null };
 }
 
 describe('beast lairs', () => {
@@ -147,6 +147,8 @@ describe('world bosses', () => {
       .prepare('INSERT INTO world_boss_damage (season_id, shard_id, boss, player_id, clan_id, damage, raids, updated_at) VALUES (?1, ?2, ?3, ?4, NULL, 3000, 4, ?5)')
       .bind(season.id, a.profile.shard.id, site.boss, b.playerId, Date.now())
       .run();
+    // b's war bad-luck counter is due: their chest is legendary
+    await DB().prepare("INSERT INTO loot_pity (player_id, track, count, updated_at) VALUES (?1, 'war', 8, 0)").bind(b.playerId).run();
     const t = await post<Ticket>('/api/online/boss/start', a.token, { boss: site.boss });
     expect(t.status).toBe(200);
     const run = play(t.body.setup);
@@ -167,6 +169,19 @@ describe('world bosses', () => {
     expect(await items(b.playerId)).toBe(nB);
     const mine = v1.body.bosses.find((x) => x.boss === site.boss)!;
     expect(mine.status).toBe('dead');
+    // a chest for every contributor of at least 5% of the damage, once: b's is legendary (the counter was due) and resets it
+    const chests = await DB().prepare('SELECT player_id, kind, item FROM world_boss_chests WHERE boss = ?1 ORDER BY player_id').bind(site.boss).all<{ player_id: number; kind: string; item: string }>();
+    const share = (mine.you.loot?.share ?? 0) as number;
+    expect(chests.results.map((r) => r.player_id)).toEqual(share >= 0.95 ? [b.playerId] : [a.playerId, b.playerId].sort((x, y) => x - y));
+    const bc = chests.results.find((r) => r.player_id === b.playerId)!;
+    expect(['set', 'named', 'legendary']).toContain(bc.kind);
+    expect((JSON.parse(bc.item) as { rarity: string }).rarity).toBe('legendary');
+    expect(mine.you.chest!.item).toEqual(JSON.parse(bc.item));
+    expect(await items(b.playerId)).toBe(nB);
+    const inStash = await DB().prepare("SELECT COUNT(*) AS n FROM online_items WHERE player_id = ?1 AND uid LIKE '%wbc%'").bind(b.playerId).first<{ n: number }>();
+    expect(inStash!.n).toBe(1);
+    const pity = await DB().prepare("SELECT count FROM loot_pity WHERE player_id = ?1 AND track = 'war'").bind(b.playerId).first<{ count: number }>();
+    expect(pity!.count).toBe(0);
     expect(mine.you.loot!.share).toBeGreaterThan(0.5);
     for (const it of mine.you.loot!.items) expect(['rare', 'epic', 'legendary']).toContain(it.rarity);
     const trophies = await DB().prepare("SELECT COUNT(*) AS n FROM entitlements WHERE product_id LIKE 'trophy_%' AND player_id IN (?1, ?2)").bind(a.playerId, b.playerId).first<{ n: number }>();

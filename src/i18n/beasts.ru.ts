@@ -56,6 +56,7 @@ export const BEASTS_RU: Record<keyof typeof BEASTS_EN, string> = {
   'boss.hp': 'ОЗ {hp} / {max}',
   'boss.top': 'Больше всех урона',
   'boss.you': 'Вы: {dmg}',
+  'boss.chest': 'Ваш сундук: {name}',
   'boss.attack': 'В набег',
   'boss.dead': 'Повержен! Добыча делится по урону.',
   'boss.none': 'Урона ещё нет. Будьте первым.',

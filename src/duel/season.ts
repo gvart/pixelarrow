@@ -14,6 +14,7 @@
  *   (`pickCandidates`); 10 rated attacks a UTC day, never the same defender
  *   twice within 24 h. Defenders move at half rate (`defenceRating`).
  */
+import { SEASON_SET } from '../game/sources';
 import { Rng } from '../sim/rng';
 import type { BattleSetup } from '../sim/types';
 import type { FormationType } from '../sim/formation';
@@ -113,14 +114,20 @@ export interface SeasonReward {
   league: LeagueId;
   glory: number;
   cosmetic: string;
+  /** A set the player picks one piece of (live Strategos and Legend: the Sacred Band), or null. */
+  pick: string | null;
 }
+
+/** Leagues whose live season reward includes a piece of SEASON_SET of the player's choice. */
+export const PICK_LEAGUES: LeagueId[] = ['strategos', 'legend'];
 
 /** What a season pays on a ladder by its peak rating (null: never placed in it, nothing to pay). */
 export function seasonReward(peak: number | null, ladder: Ladder): SeasonReward | null {
   if (peak === null || !Number.isFinite(peak)) return null;
   const league = leagueOf(peak).id;
   const r = SEASON.rewards[league];
-  return { league, glory: ladder === 'async' ? Math.round(r.glory * SEASON.asyncShare) : r.glory, cosmetic: r.cosmetic };
+  const pick = ladder === 'live' && PICK_LEAGUES.includes(league) ? SEASON_SET : null;
+  return { league, glory: ladder === 'async' ? Math.round(r.glory * SEASON.asyncShare) : r.glory, cosmetic: r.cosmetic, pick };
 }
 
 /** The better of two leagues (titles take the best peak of the season). */

@@ -18,7 +18,8 @@ ladder ("Raids"), monthly seasons and leaderboards, and the map merchants.
   there.
 - Server: `server/src/duel/` (routes, `MatchmakerDO`, `DuelDO`, settlement,
   raids, seasons), `server/src/online/merchant.ts`; API in server/README.md
-  "Duels". Migrations 0007-0010 and 0014.
+  "Duels". Migrations 0007-0010, 0014 and 0015 (spoils, the bad-luck counter,
+  the season pick).
 - Client: `src/scenes/duel/DuelScene.ts` (Menu → Duels; layout in
   docs/UI_KIT.md "Duels"), the hero sheet on the duel army
   (`src/duel/heroSource.ts`), live matches through `src/duel/match.ts`, the
@@ -85,8 +86,11 @@ win.
 - **Hero cost** = round(class price / 10 × (1 + (level − 1) / 9)): a
   hoplite costs 10 at level 1 and 20 at level 10, an archer 5 and 10, a
   Companion 16 and 32. The trade is "few veterans or many recruits".
-- **Item cost** by rarity: common 0, uncommon 1, rare 2, epic 4, legendary 6.
-  Cosmetics cost nothing.
+- **Item cost** by rarity: common 0, uncommon 1, rare 2, epic 4, legendary 6;
+  a named legendary 7. Each active set bonus line a hero wears costs 1 more
+  (pieces count as in battle: his class may use them and he meets their
+  requirements), so a full legendary set on one hero costs 34. Cosmetics
+  cost nothing (docs/ITEMS.md "Duel fairness").
 - **Ranked budget:** 150 points for everyone.
 - **Unranked** uses the same budget. **Ladder** floors set their own: 56 + 4 ×
   floor (60 on floor 1, 150 from floor 23 on).
@@ -103,9 +107,16 @@ win.
   `src/game/enemy.ts`, fitted to 70% of the floor's budget on floor 1 rising
   to 115% on floor 50 (bosses +15%). Only the battle seed is random.
 - **First clear:** 40 + 8 × floor Glory (bosses double), account XP and a
-  guaranteed item (uncommon or better; epic or better on a boss).
+  guaranteed item (uncommon or better; on a boss rare or better from the
+  beast table, and on floors 30 / 40 / 50 a 25% chance of the floor's named
+  legendary: Harpe of Perseus, Helm of Hades, Golden Fleece). A boss's
+  first-clear drop counts on the duel bad-luck counter: after 8 without a
+  legendary the next one is legendary.
   **Replays** of cleared floors: 10 + floor Glory, XP and a 25% drop chance
-  (the farm loop). Farm Glory is capped at 300 a UTC day; XP is not.
+  (the farm loop; won replays of floors 30 / 40 / 50 drop the named item 2%
+  of the time). Farm Glory is capped at 300 a UTC day; XP is not. Drops
+  follow the duel army: 70% of weapons, shields and armour fit a class of
+  the roster.
 - Ladder battles follow the online battle rules (15 s deployment, no pause)
   and are verified by server replay (seed + order log) before anything is
   granted. Every hero earns XP win or lose; nobody is hurt.
@@ -117,8 +128,18 @@ win.
   fled, from the server's replay. The best per floor is kept.
 - **Chapters** of 10 floors, the boss last. **Chests** at 10 / 20 / 30
   chapter stars, each claimed once: Glory 60 / 120 / 200 in chapter 1, +40 /
-  +80 / +120 per later chapter; the 30-star chest also holds a rare-or-better
-  item (rare 70%, epic 25%, legendary 5% in chapter 1, rarer later).
+  +80 / +120 per later chapter; the 30-star chest also holds a set piece:
+  Agoge of Sparta, Peltast of Thrace and Cretan Bowman (rare) in chapters
+  1-3, Warband of Brennus and Immortals of Persia (epic) in chapters 4-5.
+
+### Spoils
+
+- A won duel may drop an item into the duel stash: unranked 8%, ranked 12%,
+  raids half the ranked chance (6%); common 50 / uncommon 35 / rare 15. The
+  first ranked live win of each UTC day always drops one, at least uncommon.
+  Rolled on the server from the match seed and the side (`duelSpoils`,
+  `SPOILS` in `src/duel/rules.ts`), so a settlement that runs twice drops the
+  same item once; the match and raid reports show it.
 
 ### Unranked queue
 
@@ -186,7 +207,10 @@ win.
   passed, RD at least 150, peak cleared). Rewards by the season's **peak
   league** per ladder: Glory Bronze 50, Silver 100, Gold 180, Hoplite 280,
   Strategos 400, Legend 600 (raids pay half), a league cosmetic (not for
-  sale) and a title shown on the boards and the season popup.
+  sale) and a title shown on the boards and the season popup. A live
+  Strategos or Legend peak also gives a **Sacred Band piece of the player's
+  choice** (epic): the season popup asks for it (`POST /season/pick`) and
+  comes back until it is chosen.
 - **Leaderboards:** the running season's placed players, top 50: live,
   raids, and Legend (exact ratings); your own rank below the list. Players
   who have not opened the duels in a new month appear once they do.
@@ -208,7 +232,9 @@ win.
     once each per UTC day). Legendary gear only drops on the ladder. Each
     offer shows up to 3 main stats against the best item the team wears in
     that slot (`offerSummary`).
-  - **Selling:** a stash item back for a quarter of its shop price.
+  - **Selling:** a stash item back for a quarter of its shop price. Bound
+    gear (named legendaries, legendary set pieces) is never sold, only
+    salvaged for the same quarter (`/shop/salvage`).
   - **Respec** (hero sheet → Stats): 20 Glory × level.
   - League cosmetics are season rewards only; nothing in the duel shop gives
     power for Drachmae.
@@ -248,11 +274,12 @@ and `/paysupport` compliance). Cosmetics apply in both modes.
 ## Server outline
 
 - **D1:** `duel_profiles` (Glory, account XP, ladder progress, the daily farm
-  counter), `duel_heroes`, `duel_items`, `duel_tickets` (ladder battles and
-  raids), `duel_orders` (Glory spends by request id), `duel_ratings`,
-  `duel_queue_state`, `duel_matches`, `duel_loadouts`, `duel_defences`,
-  `duel_attacks` (raids and the raid log), `duel_season_rewards`,
-  `duel_ladder_stars`, `duel_ladder_chests`.
+  counter, the day of the last first-win spoil), `duel_heroes`, `duel_items`,
+  `duel_tickets` (ladder battles and raids), `duel_orders` (Glory spends by
+  request id), `duel_ratings`, `duel_queue_state`, `duel_matches`,
+  `duel_loadouts`, `duel_defences`, `duel_attacks` (raids and the raid log),
+  `duel_season_rewards` (with the set piece to pick), `duel_ladder_stars`,
+  `duel_ladder_chests`, `loot_pity` (track `duel`).
 - **Durable Objects:** `MatchmakerDO` (queue, pairing, live presence) and
   `DuelDO` (one per live match). Friendly duels stay on the shard `RegionDO`.
 - **Routes:** `/api/duel/*` and `/ws/duel`. Every change is server-side,

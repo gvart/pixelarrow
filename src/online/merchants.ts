@@ -14,7 +14,9 @@
  */
 import { hashString } from '../sim/rng';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../data/consumables';
-import { ITEMS, type Rarity } from '../data/items';
+import { BASE_ITEMS, ITEMS, type Rarity } from '../data/items';
+import { setPieces } from '../data/sets';
+import { SOURCES } from '../game/sources';
 import type { WorldGraph } from './world';
 
 export const MERCHANT = {
@@ -54,16 +56,29 @@ export const POST_GOODS: Record<PostKind, string[]> = {
   crossroads: ['xyston', 'chalcidian', 'laurel', 'herakles_knot', 'pilum', 'gladius', 'hasta', 'legion_scutum', 'triple_disc', 'dolabra', 'bulla'],
 };
 
+/**
+ * The sets a realm's trading posts carry (docs/ITEMS.md "Where items come
+ * from"): every piece of its rare set at rare, and one UTC day in
+ * SOURCES.postSetDays its epic slot is a piece of its epic set.
+ */
+export const REALM_SETS: Record<Region, { rare: string | null; epic: string }> = {
+  attica: { rare: 'agoge', epic: 'sacred_band' },
+  thessaly: { rare: 'agoge', epic: 'sacred_band' },
+  thrace: { rare: 'peltast', epic: 'brennus' },
+  crete: { rare: 'cretan', epic: 'immortals' },
+  gaul: { rare: null, epic: 'brennus' },
+  phoenicia: { rare: 'cretan', epic: 'immortals' },
+  scythia: { rare: 'peltast', epic: 'immortals' },
+};
+
 /** Basic gear every merchant may carry (a few each day). */
 export const BASE_GEAR = [
   'dory', 'xiphos', 'longche', 'javelins', 'sling', 'hoplon', 'thureos', 'pilos', 'cap', 'leather', 'linothorax', 'pelte',
   'club', 'axe', 'buckler', 'ash_dory', 'shepherd_sling', 'ankyle', 'hide_shield', 'felt_pilos', 'quilted',
 ];
 
-/** Candidates of the daily rare slot: every finer piece of gear. */
-export const RARE_POOL = Object.values(ITEMS)
-  .filter((d) => d.tier >= 2)
-  .map((d) => d.id);
+/** Candidates of the daily rare slot: every finer piece of gear (set pieces come only from REALM_SETS). */
+export const RARE_POOL = BASE_ITEMS.filter((d) => d.tier >= 2).map((d) => d.id);
 
 export interface Offer {
   /** Stable within a day: `c:<consumable>` or `i:<item def>:<rarity>`. */
@@ -142,8 +157,10 @@ function gearOffer(def: string, rarity: Rarity, slot: Offer['slot']): Offer {
  * Everything a merchant sells on a UTC day (`day` = YYYY-MM-DD). Towns: the
  * consumables, `baseGear` basic pieces, two regional specialties (uncommon)
  * and one rare. Trading posts: the same consumables and basic gear, every
- * regional specialty plus their harbour or crossroads goods (rare) and an
- * epic in the rotating slot.
+ * regional specialty plus their harbour or crossroads goods and the realm's
+ * rare set (rare), and an epic in the rotating slot, one day in
+ * SOURCES.postSetDays a piece of the realm's epic set. The stock is the same
+ * for every player (no per-player state), so it does not follow the army.
  */
 export function merchantStock(world: WorldGraph, seed: number, loc: number, kind: MerchantKind, day: string): Offer[] {
   const key = `${seed}:${loc}:${day}`;
@@ -152,12 +169,15 @@ export function merchantStock(world: WorldGraph, seed: number, loc: number, kind
     return { id: `c:${id}`, kind: 'consumable', ref: id, rarity: c.use === 'battle' ? 'rare' : 'uncommon', slot: 'base', gold: c.gold ?? 0, drachmae: c.drachmae, dailyCap: c.dailyCap };
   });
   for (const def of pickSome(BASE_GEAR, MERCHANT.baseGear, `${key}:base`)) out.push(gearOffer(def, 'common', 'base'));
-  const region = SPECIALTIES[regionOf(world, loc)];
+  const realm = regionOf(world, loc);
+  const region = SPECIALTIES[realm];
   const post = kind !== 'town';
-  const specials = post ? [...new Set([...region, ...POST_GOODS[kind]])] : pickSome(region, 2, `${key}:region`);
+  const sets = REALM_SETS[realm];
+  const specials = post ? [...new Set([...region, ...POST_GOODS[kind], ...(sets.rare ? setPieces(sets.rare) : [])])] : pickSome(region, 2, `${key}:region`);
   for (const def of specials) out.push(gearOffer(def, post ? 'rare' : 'uncommon', 'region'));
+  const setDay = post && hashString(`${key}:setday`) % SOURCES.postSetDays === 0;
   const rare = pickSome(
-    RARE_POOL.filter((d) => !specials.includes(d)),
+    setDay ? setPieces(sets.epic) : RARE_POOL.filter((d) => !specials.includes(d)),
     1,
     `${key}:rare`,
   )[0];

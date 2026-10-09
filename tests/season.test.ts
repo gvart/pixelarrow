@@ -48,10 +48,10 @@ describe('soft reset and inactivity', () => {
 describe('season rewards', () => {
   it('pays by the peak league: Glory (async half), the league cosmetic; nothing without a peak', () => {
     expect(seasonReward(null, 'live')).toBeNull();
-    expect(seasonReward(1150, 'live')).toEqual({ league: 'bronze', glory: SEASON.rewards.bronze.glory, cosmetic: 'duel_emblem_bronze' });
-    expect(seasonReward(1450, 'live')).toEqual({ league: 'gold', glory: 180, cosmetic: 'duel_emblem_gold' });
-    expect(seasonReward(1450, 'async')).toEqual({ league: 'gold', glory: 90, cosmetic: 'duel_emblem_gold' });
-    expect(seasonReward(2300, 'live')).toEqual({ league: 'legend', glory: 600, cosmetic: 'duel_banner_legend' });
+    expect(seasonReward(1150, 'live')).toEqual({ league: 'bronze', glory: SEASON.rewards.bronze.glory, cosmetic: 'duel_emblem_bronze', pick: null });
+    expect(seasonReward(1450, 'live')).toEqual({ league: 'gold', glory: 180, cosmetic: 'duel_emblem_gold', pick: null });
+    expect(seasonReward(1450, 'async')).toEqual({ league: 'gold', glory: 90, cosmetic: 'duel_emblem_gold', pick: null });
+    expect(seasonReward(2300, 'live')).toEqual({ league: 'legend', glory: 600, cosmetic: 'duel_banner_legend', pick: 'sacred_band' });
     // every league pays more than the one below, and every reward is a whole number on both ladders
     const g = RANKED.leagues.map((l) => SEASON.rewards[l.id].glory);
     expect([...g].sort((a, b) => a - b)).toEqual(g);

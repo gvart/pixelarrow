@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { Button, addIcon, addPanel, addText } from '../../ui/kit';
-import { ScrollList, Tabs, addEmptyState, openModal, toast } from '../../ui/widgets';
+import { ScrollList, Tabs, addEmptyState, confirmDialog, openModal, toast } from '../../ui/widgets';
 import { uiId } from '../../ui/layout';
 import { ellipsize } from '../../ui/textfit';
 import { SIZE, COLOR } from '../../ui/theme';
@@ -22,7 +22,7 @@ import { addPortrait } from '../../ui/sprites';
 import { dollFromHero } from '../../art/paperdoll';
 import { P } from '../../art/palette';
 import { hapticNotify } from '../../platform/telegram';
-import { itemDef, normalizeEquip, normalizeItem, SLOTS, type Item, type Slot } from '../../data/items';
+import { isBound, itemDef, normalizeEquip, normalizeItem, salvageValue, SLOTS, type Item, type Slot } from '../../data/items';
 import type { Hero } from '../../data/units';
 import { heroClass } from '../../sim/stats';
 import { Rng } from '../../sim/rng';
@@ -422,10 +422,29 @@ export class OnlineArmyScene extends BaseScene {
       item: it,
       hero: oh?.hero,
       actions: [
-        { label: t('oarmy.market'), icon: 'coin', id: 'oarmy.sell', onClick: () => this.scene.start('Market', { tab: 'sell', back: { scene: 'OnlineArmy' } }) },
+        isBound(it) ? this.salvageAction(it) : { label: t('oarmy.market'), icon: 'coin', id: 'oarmy.sell', onClick: () => this.scene.start('Market', { tab: 'sell', back: { scene: 'OnlineArmy' } }) },
         ...(oh ? [{ label: t('stash.equip'), icon: 'check', variant: 'primary' as const, id: 'stash.equip', disabled: equipRefusal(oh.hero, it), onClick: () => this.equip(it) }] : []),
       ],
     });
+  }
+
+  /** Bound gear is never traded: it is salvaged for a quarter of its worth in gold (docs/ITEMS.md "Bound items"). */
+  private salvageAction(it: Item) {
+    const n = salvageValue(it);
+    const label = t('stash.salvage', { n });
+    return {
+      label,
+      icon: 'coin' as const,
+      id: 'oarmy.salvage',
+      onClick: () =>
+        confirmDialog(this, {
+          title: t('stash.salvageTitle', { name: itemName(it) }),
+          body: t('stash.salvageBody', { n }),
+          ok: label,
+          cancel: t('common.cancel'),
+          onOk: () => void this.act(() => onlineApi.salvage(it.uid), t('stash.salvaged', { n })),
+        }),
+    };
   }
 
   private equip(it: Item): void {

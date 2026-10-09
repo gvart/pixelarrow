@@ -175,6 +175,17 @@ describe('a ranked match (DuelDO)', () => {
     expect(theirs.glory).toBe(RANKED.glory.ranked.loss);
     expect(mine.xp.length).toBeGreaterThan(0);
     expect(mine.league).toEqual({ before: null, after: null }); // placements
+    // spoils: the first ranked win of the UTC day always drops an item (at least uncommon) into the winner's duel stash
+    const winnerPid = mine === ra ? a.pid : b.pid;
+    if (winner === 0 || winner === 1) {
+      expect(mine.spoils).toBeTruthy();
+      expect(mine.spoils!.rarity).not.toBe('common');
+      expect(theirs.spoils ?? null).toBeNull();
+      const kept = await DB().prepare('SELECT COUNT(*) AS n FROM duel_items WHERE player_id = ?1 AND uid = ?2').bind(winnerPid, mine.spoils!.uid).first<{ n: number }>();
+      expect(kept!.n).toBe(1);
+      const day = await DB().prepare('SELECT spoils_day FROM duel_profiles WHERE player_id = ?1').bind(winnerPid).first<{ spoils_day: number }>();
+      expect(day!.spoils_day).toBe(Math.floor(Date.now() / 86_400_000));
+    }
     const row = await DB().prepare('SELECT status, verified, ending, delta_a, orders FROM duel_matches WHERE id = ?1').bind(match).first<{ status: string; verified: number; ending: string; delta_a: number; orders: string }>();
     expect(row).toMatchObject({ status: 'done', verified: 1, ending: 'battle' });
     expect(JSON.parse(row!.orders).length).toBeGreaterThan(0);
@@ -186,6 +197,8 @@ describe('a ranked match (DuelDO)', () => {
     const again = await settleMatch(DB(), init!, { end: 'battle', winner: 0, verified: true, ticks: 1, hash: 'x', log: [], deployOrders: 0, abandoned: [false, false] } as MatchOutcome, Date.now());
     expect(again[ra.side]).toEqual(ra);
     expect([await glory(a), await glory(b)]).toEqual(before);
+    const spoils = await DB().prepare("SELECT COUNT(*) AS n FROM duel_items WHERE uid LIKE ?1").bind(`%sp${match.slice(0, 12)}`).first<{ n: number }>();
+    expect(spoils!.n).toBe(winner === 0 || winner === 1 ? 1 : 0);
     const rating = await DB().prepare("SELECT games, rating FROM duel_ratings WHERE player_id = ?1 AND ladder = 'live'").bind(a.pid).first<{ games: number; rating: number }>();
     expect(rating!.games).toBe(1);
     // a socket opened after the end gets the report again

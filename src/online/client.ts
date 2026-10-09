@@ -170,7 +170,7 @@ export interface BossView {
   segment: number;
   top: { player: number; name: string; clan: string | null; damage: number; raids: number }[];
   clans: { clan: number; tag: string; name: string; damage: number }[];
-  you: { damage: number; raids: number; loot: { share: number; items: Item[] } | null };
+  you: { damage: number; raids: number; loot: { share: number; items: Item[] } | null; chest?: { kind: string; item: Item } | null };
 }
 
 export interface RaidTicket {
@@ -265,6 +265,8 @@ export const onlineApi = {
   collect: () => req<{ collected: Resources; regions: number; resources: Resources }>('POST', '/collect', {}),
   recruit: (archetype: Archetype) => req<{ hero: Hero }>('POST', '/recruit', { archetype }),
   equip: (heroId: string, slot: Slot, itemUid: string | null) => req<{ hero: Hero; stash: Item[] }>('POST', '/equip', { heroId, slot, itemUid }),
+  /** Salvages a bound stash item for a quarter of its worth in gold (never listed or sold). */
+  salvage: (uid: string) => req<{ salvaged: boolean; gold: number; profile: ProfileView }>('POST', '/salvage', { uid }),
   army: (groups: Record<string, number>, formations?: FormationType[], reserve?: Record<string, boolean>) => req<{ ok: true }>('POST', '/army', reserve ? { groups, formations, reserve } : { groups, formations }),
   /** consumable: at most one battle consumable (src/data/consumables.ts), spent when the ticket is created. */
   attackStart: (loc: number, consumable?: string) => req<AttackTicket>('POST', '/attack/start', consumable ? { loc, consumable } : { loc }),

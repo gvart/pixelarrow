@@ -1325,6 +1325,7 @@ export class BattleScene extends BaseScene {
     const heroes = camp.data.heroes;
     const pending = state.pending!;
     const { outcome, survivors } = resolveBattle(res, heroes, this.enemyHeroes, camp.random());
+    camp.beastPity(outcome, this.enemyHeroes);
     const alive = new Set(survivors.map((h) => h.id));
     const fallen = heroes.filter((h) => !alive.has(h.id));
     camp.data.heroes = survivors;
