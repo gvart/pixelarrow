@@ -15,11 +15,11 @@
  */
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { scaleIcon, Button, addIcon, addPanel, addText } from '../ui/kit';
+import { scaleIcon, addIcon, addText } from '../ui/kit';
 import { confirmDialog, openModal, toast, ScrollList, type Modal } from '../ui/widgets';
-import { SIZE } from '../ui/theme';
-import { ensureFonts } from '../ui/fonts';
 import { ellipsize } from '../ui/textfit';
+import { CHIP_ROW_H, ChipRow, MActionBar, MButton, ParchmentRow, MIconButton, TOPBAR_H, actionBarH, addMapTopBar, mosaicImage, type SituationChip } from '../ui/mosaic';
+import { ensureFonts } from '../ui/fonts';
 import { uiIgnore } from '../ui/layout';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { state } from '../state';
@@ -64,8 +64,9 @@ export interface CampSceneData {
 
 const RES_ICON: Record<keyof Resources, string> = { gold: 'wargold', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
 const FIELD_ICON: Record<StructureId, string> = { tent: 'tent', fire: 'fire', palisade: 'wall', forge: 'anvil', training: 'swords' };
-const TOP_H = 36;
-const BOT_H = 50;
+const BAND_H = CHIP_ROW_H + 4;
+const TOP_H = TOPBAR_H + BAND_H;
+const BOT_H = actionBarH(true);
 const COL_W = 28;
 /** Sprites rendered once per game (textures are shared by every scene). */
 const sprites = new Map<string, { ox: number; oy: number; w: number; h: number }>();
@@ -88,8 +89,12 @@ export class CampScene extends BaseScene {
   private life: CampIsoLife | null = null;
   private tint!: Phaser.GameObjects.Rectangle;
   private hud!: Phaser.GameObjects.Container;
-  private infoText!: Phaser.GameObjects.BitmapText;
-  private clockText!: Phaser.GameObjects.BitmapText;
+  private bar!: MActionBar;
+  private chips: ChipRow | null = null;
+  private topC!: Phaser.GameObjects.Container;
+  private topKey = '';
+  private chipKey = '';
+  private infoKey = '';
   private zoom = 1;
   private gesture: { id: number; sx: number; sy: number; wx: number; wy: number; moved: boolean } | null = null;
   // field
@@ -165,7 +170,7 @@ export class CampScene extends BaseScene {
     });
     if (this.d.mode === 'online') {
       this.buildHud();
-      this.infoText.setText(t('hex.scouting'));
+      this.setInfo(t('hex.scouting'));
       this.timer = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.tick() });
       void this.fetch();
     } else {
@@ -650,37 +655,28 @@ export class CampScene extends BaseScene {
     H.removeAll(true);
     const { VW, VH } = this.m;
     const S = this.m.S;
-    // top strip
-    const topKey = `ci_strip_${VW}x${TOP_H}`;
-    if (!this.textures.exists(topKey)) this.textures.addCanvas(topKey, Iso.renderStrip(VW, TOP_H).toCanvas());
-    H.add(this.add.image(0, 0, topKey).setOrigin(0, 0));
-    let x = 5;
-    if (this.inGameBack) {
-      H.add(new Button(this, 3, 4, 24, 24, { icon: 'back', iconOnly: true, label: t('common.back'), onClick: () => this.goBack(), id: 'camp.back' }));
-      x = 31;
-    }
+    // top bar: the way back and the day / the camp; the purse sits on a stone band under it as chips
     const field = this.d.mode === 'field';
-    const title = field ? `${t('cs.title')} - ${this.regionName()}` : (this.d.name ?? t('cs.title'));
-    this.clockText = addText(this, x, 5, '', 'red');
-    H.add(this.clockText);
-    H.add(addText(this, x, 18, ellipsize(title, Math.min(84, VW - x - 100)), 'dim'));
-    // zoom (eye) top right
-    H.add(new Button(this, VW - 27, 4, 24, 24, { icon: 'eye', iconOnly: true, label: t('cs.zoom'), style: this.zoom > 1 ? 'buttonSel' : 'button', onClick: () => this.toggleZoom(), id: 'camp.zoom' }));
-    // resources: to the right of the clock, two rows
-    const rx = x + 66;
-    this.purseRow(H, rx, 5, VW - rx - 30, 18);
-    // the column toolbar
+    this.topC = this.add.container(0, 0);
+    H.add(this.topC);
+    this.topKey = '';
+    H.add(mosaicImage(this, 0, TOPBAR_H, VW, BAND_H, 'topBar'));
+    this.chips = null;
+    this.chipKey = '';
+    this.infoKey = '';
+    // the column toolbar: the structures to build, then the zoom
     const colX = VW - COL_W + 1;
-    const colY = TOP_H + 2;
-    const colH = VH - TOP_H - BOT_H - 4;
-    const colKey = `ci_col_${colH}`;
-    if (!this.textures.exists(colKey)) this.textures.addCanvas(colKey, Iso.renderColumn(COL_W - 2, colH).toCanvas());
-    H.add(this.add.image(colX, colY, colKey).setOrigin(0, 0));
+    const colY = TOP_H;
+    const colH = VH - TOP_H - BOT_H;
+    H.add(mosaicImage(this, colX, colY, COL_W - 2, colH, 'topBar'));
     const bw = 22;
     const bx = colX + Math.floor((COL_W - 2 - bw) / 2);
-    // five structures down the shaft: under the capital when there is room, tight on short screens (4 pt between targets)
-    const top = colH >= 5 * bw + 4 * SIZE.gap + 24 ? 14 : 3;
-    const gap = Math.max(2, Math.min(6, Math.floor((colH - top - 8 - 5 * bw) / 4)));
+    // five structures and the zoom down the shaft; tight on short screens (4 pt between targets)
+    // the zoom takes the last slot of the shaft when it fits, else it floats at the map's top right
+    const zoomInRail = colH >= 6 * bw + 5 * 2 + 3;
+    const slots = zoomInRail ? 6 : 5;
+    const top = colH >= slots * bw + (slots - 1) * 3 + 24 ? 14 : 1;
+    const gap = Math.max(2, Math.min(6, Math.floor((colH - top - 2 - slots * bw) / (slots - 1))));
     let by = colY + top;
     if (field) {
       const w = state.campaign.world;
@@ -689,19 +685,18 @@ export class CampScene extends BaseScene {
         const n = countBuilt(c, d.id);
         const why = n >= d.max ? t('cs.built') : w.supplies < d.cost ? t('cs.needSupplies', { n: d.cost }) : !freeSpot(w.map, c, d.id) ? t('cs.noRoom') : undefined;
         const on = this.placing?.id === d.id;
-        const btn = new Button(this, bx, by, bw, bw, {
-          icon: FIELD_ICON[d.id],
-          iconOnly: true,
-          label: `${d.name} (${d.cost})`,
-          tip: `${d.name}: ${d.desc}. ${d.cost} ${t('cs.suppliesWord')}, ${d.hours}h`,
-          style: on ? 'buttonSel' : 'button',
-          disabledReason: why,
-          onClick: () => (on ? this.cancelPlacing() : this.startPlacing(d.id)),
-          id: `camp.build.${d.id}`,
-        });
-        if (why && !on) btn.setEnabled(false, why);
-        H.add(btn);
-        if (d.max > 1 || n) H.add(addText(this, bx + bw - 2, by + bw - 10, `${n}`, 'red', 1));
+        H.add(
+          new MIconButton(this, bx, by, bw, {
+            icon: FIELD_ICON[d.id],
+            label: `${d.name} (${d.cost})`,
+            tip: `${d.name}: ${d.desc}. ${d.cost} ${t('cs.suppliesWord')}, ${d.hours}h`,
+            selected: on,
+            off: why && !on ? why : undefined,
+            count: d.max > 1 || n ? `${n}` : undefined,
+            onClick: () => (on ? this.cancelPlacing() : this.startPlacing(d.id)),
+            id: `camp.build.${d.id}`,
+          }),
+        );
         by += bw + gap;
       }
     } else {
@@ -711,78 +706,72 @@ export class CampScene extends BaseScene {
         const built = camp?.buildings.find((b) => b.kind === k);
         const on = camp ? (built ? this.slot === built.slot && !this.kind : this.kind === k) : false;
         const afford = v ? canAfford(v.resources, campLevelCost(k, 1).cost) : false;
-        const btn = new Button(this, bx, by, bw, bw, {
-          icon: `camp_${k}`,
-          iconOnly: true,
-          label: t(`ocamp.b.${k}` as TKey),
-          tip: `${t(`ocamp.b.${k}` as TKey)}: ${t(`ocamp.d.${k}` as TKey)}`,
-          style: on ? 'buttonSel' : 'button',
-          onClick: () => this.pickKind(k),
-          id: `camp.pick.${k}`,
-        });
-        if (!camp) btn.setEnabled(false, t('ocamp.why.notCamp'));
-        H.add(btn);
-        if (built) H.add(addText(this, bx + bw - 2, by + bw - 10, `${built.building ?? built.level}`, on ? 'light' : 'red', 1));
-        else if (camp && !afford) H.add(scaleIcon(addIcon(this, bx + bw - 9, by + bw - 9, 'coin', 'D'), 0.5));
+        H.add(
+          new MIconButton(this, bx, by, bw, {
+            icon: `camp_${k}`,
+            label: t(`ocamp.b.${k}` as TKey),
+            tip: `${t(`ocamp.b.${k}` as TKey)}: ${t(`ocamp.d.${k}` as TKey)}`,
+            selected: on,
+            off: camp ? undefined : t('ocamp.why.notCamp'),
+            count: built ? `${built.building ?? built.level}` : undefined,
+            onClick: () => this.pickKind(k),
+            id: `camp.pick.${k}`,
+          }),
+        );
+        if (!built && camp && !afford) H.add(scaleIcon(addIcon(this, bx + bw - 9, by + bw - 9, 'coin', 'D'), 0.5));
         by += bw + gap;
       }
     }
+    const zx = zoomInRail ? bx : colX - bw - 3;
+    const zy = zoomInRail ? by : TOP_H + 3;
+    H.add(new MIconButton(this, zx, zy, bw, { icon: 'eye', label: t('cs.zoom'), selected: this.zoom > 1, onClick: () => this.toggleZoom(), id: 'camp.zoom' }));
     // bottom strip: the info line and the actions
-    const botY = VH - BOT_H;
-    const botKey = `ci_strip_${VW}x${BOT_H}`;
-    if (!this.textures.exists(botKey)) this.textures.addCanvas(botKey, Iso.renderStrip(VW, BOT_H).toCanvas());
-    H.add(this.add.image(0, botY, botKey).setOrigin(0, 0));
-    this.infoText = addText(this, 6, botY + 5, '', 'ink', 0, VW - 12);
-    H.add(this.infoText);
-    const row = this.actions();
-    const ry = botY + 19;
-    // icon-only buttons take 26 px; the rest share what is left
-    const fixed = row.filter((b) => b.iconOnly).length * (26 + SIZE.gap);
-    const flex = row.length - row.filter((b) => b.iconOnly).length;
-    const fw = Math.floor((VW - 8 - fixed - SIZE.gap * Math.max(0, flex - 1)) / Math.max(1, flex));
-    let bx0 = 4;
-    for (const b of row) {
-      const bw = b.iconOnly ? 26 : fw;
-      const btn = new Button(this, bx0, ry, bw, SIZE.btnH, { label: b.label, icon: b.icon, iconOnly: b.iconOnly, variant: b.primary ? 'primary' : undefined, onClick: b.onClick, disabledReason: b.why, tip: b.tip ?? b.label, id: b.id });
-      if (b.why) btn.setEnabled(false, b.why);
-      H.add(btn);
-      bx0 += bw + SIZE.gap;
-    }
+    this.bar = new MActionBar(this, VW, VH, { info: true });
+    H.add(this.bar);
+    this.bar.set(
+      this.actions().map((b) => ({ label: b.label, icon: b.icon, iconOnly: b.iconOnly, primary: b.primary, onClick: b.onClick, off: b.why, tip: b.tip ?? b.label, id: b.id })),
+    );
     void S;
     this.refreshHud();
   }
 
-  /** "[coin] 120 [food] 33 ..." as far as it fits. */
-  private purseRow(H: Phaser.GameObjects.Container, x: number, y: number, w: number, y2?: number): void {
-    let cx = x;
-    let cy = y;
-    const put = (icon: string, txt: string, font: 'ink' | 'red' = 'ink') => {
-      const tw = 13 + txt.length * 6 + 5;
-      if (cx + tw > x + w) {
-        if (y2 === undefined || cy === y2) return;
-        cy = y2;
-        cx = x;
-      }
-      H.add(addIcon(this, cx, cy - 2, icon));
-      H.add(addText(this, cx + 13, cy, txt, font));
-      cx += tw;
-    };
+  /** The top bar: the back arrow and the title ("Day 1 - 08:00" in the field, the camp's name online). */
+  private setTop(title: string): void {
+    if (title === this.topKey) return;
+    this.topKey = title;
+    this.topC.removeAll(true);
+    addMapTopBar(this, this.topC, this.m.VW, { title, id: 'camp.topbar', back: this.inGameBack ? () => this.goBack() : undefined });
+  }
+
+  /** The purse as chips on the stone band under the top bar. */
+  private setChips(): void {
+    const chips: SituationChip[] = [];
     if (this.d.mode === 'field') {
       const c = state.campaign;
       const w = c.world;
-      put('coin', `${c.data.gold}`);
-      put('food', `${Math.floor(w.food)}`, w.starving ? 'red' : 'ink');
-      put('wood', `${Math.floor(w.supplies)}`);
-      const men = `${c.fitHeroes().length}/${c.data.heroes.length}`;
-      put('people', men);
-      // second row: nothing (the clock sits under the title)
+      chips.push({ icon: 'coin', value: `${c.data.gold}`, id: 'camp.gold' });
+      chips.push({ icon: 'food', value: `${Math.floor(w.food)}${w.starving ? '!' : ''}`, id: 'camp.food' });
+      chips.push({ icon: 'wood', value: `${Math.floor(w.supplies)}`, id: 'camp.supplies' });
+      chips.push({ icon: 'people', value: `${c.fitHeroes().length}/${c.data.heroes.length}`, id: 'camp.men' });
     } else if (this.cv) {
       const r = this.cv.resources;
       for (const k of RESOURCE_KEYS) {
-        if (k === 'recruits' && w < 120) continue;
-        put(RES_ICON[k], k === 'recruits' ? `${Math.floor(r[k] * 10) / 10}` : fmtNum(r[k]));
+        if (k === 'recruits' && this.m.VW < 200) continue;
+        chips.push({ icon: RES_ICON[k], value: k === 'recruits' ? `${Math.floor(r[k] * 10) / 10}` : fmtNum(r[k]), id: `camp.res.${k}` });
       }
     }
+    const key = chips.map((c) => `${c.icon}${c.value}`).join('|');
+    if (key === this.chipKey) return;
+    this.chipKey = key;
+    this.chips?.destroy();
+    this.chips = new ChipRow(this, 4, TOPBAR_H + 2, this.m.VW - 8, chips, 'stone');
+    this.hud.add(this.chips);
+  }
+
+  private setInfo(text: string): void {
+    if (text === this.infoKey) return;
+    this.infoKey = text;
+    this.bar.setInfo(text);
   }
 
   private regionName(): string {
@@ -834,16 +823,16 @@ export class CampScene extends BaseScene {
   }
 
   refreshHud(): void {
-    if (!this.clockText?.active) return;
-    const { VW } = this.m;
+    if (!this.bar?.active) return;
     if (this.d.mode === 'field') {
       const w = state.campaign.world;
       const s = w.s;
       const day = Math.floor(s.time / 24) + 1;
       const h = Math.floor(s.time % 24);
-      this.clockText.setText(ellipsize(t('cs.day', { d: day, h: String(h).padStart(2, '0') }), 90));
+      this.setTop(t('mosaic.cmap.clock', { d: day, h: String(h).padStart(2, '0') }));
+      this.setChips();
       const c = w.camp;
-      let info = t('cs.hint');
+      let info = `${this.regionName()}. ${t('cs.hint')}`;
       if (this.placing) info = t('cs.placeHint', { name: STRUCTURES[this.placing.id].name });
       else if (this.selected !== null && c?.built[Number(this.selected)]) {
         const b = c.built[Number(this.selected)];
@@ -854,13 +843,14 @@ export class CampScene extends BaseScene {
         const net = fx.forage * 24 - mouths;
         info = t('cs.campLine', { heal: w.healRate().toFixed(1), food: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
       }
-      this.infoText.setText(ellipsize(info, VW - 12));
+      this.setInfo(info);
       this.applyTint();
       return;
     }
     const v = this.cv;
     const camp = this.camp();
-    this.clockText.setText(camp ? (camp.home ? t('ocamp.kind.home') : t('ocamp.kind.forward')) : t('ocamp.kind.plot'));
+    this.setTop([camp ? (camp.home ? t('ocamp.kind.home') : t('ocamp.kind.forward')) : t('ocamp.kind.plot'), this.d.name].filter(Boolean).join(' · '));
+    this.setChips();
     if (!v) return;
     let info = '';
     if (!camp) info = t('ocamp.claimInfo', { n: v.forward.n, max: v.forward.max });
@@ -873,7 +863,7 @@ export class CampScene extends BaseScene {
       } else if (this.kind) info = `${t(`ocamp.b.${this.kind}` as TKey)}: ${effectText(this.kind, 1, 0)} · ${costLine(this.kind, 1)}`;
       else info = t('ocamp.empty');
     }
-    this.infoText.setText(ellipsize(info, VW - 12));
+    this.setInfo(info);
   }
 
   // ================================================================ field actions
@@ -1034,17 +1024,17 @@ export class CampScene extends BaseScene {
     this.modal = md;
     const { x, w: mw } = md;
     let y = md.body.y;
-    if (!list.length) md.c.add(addText(this, VW / 2, y + 8, t('cs.temperNone'), 'dim', 0.5));
+    if (!list.length) md.c.add(new ParchmentRow(this, x + 6, y, mw - 12, { title: t('cs.temperNone'), id: 'camp.temper.none' }, 24));
     for (const e of list) {
       const def = itemDef(e.item.def);
-      md.c.add(addPanel(this, x + 6, y, mw - 12, rowH, 'inset'));
-      md.c.add(addText(this, x + 10, y + 4, ellipsize(`${def.name} (${e.item.rarity})`, mw - 80), 'ink'));
-      md.c.add(addText(this, x + 10, y + 15, ellipsize(`${e.who} - ${e.cost.supplies} ${t('cs.suppliesWord')}`, mw - 80), 'dim'));
       const can = w.supplies >= e.cost.supplies && camp.data.gold >= e.cost.gold;
-      const b = new Button(this, x + mw - 62, y + 3, 54, rowH - 6, {
+      const rowW = mw - 12 - 49;
+      md.c.add(new ParchmentRow(this, x + 6, y, rowW, { title: `${def.name} (${e.item.rarity})`, subtitle: `${e.who} - ${e.cost.supplies} ${t('cs.suppliesWord')}`, id: `camp.temper.row:${def.name}` }, rowH));
+      const b = new MButton(this, x + 6 + rowW + 3, y, 46, rowH, {
         label: `${e.cost.gold}`,
         icon: 'coin',
-        variant: can ? 'primary' : 'secondary',
+        variant: can ? 'secondary' : 'disabled',
+        disabledReason: w.supplies < e.cost.supplies ? t('cs.needSupplies', { n: e.cost.supplies }) : t('stash.noGold'),
         id: 'camp.temper',
         onClick: () => {
           if (!camp.temper(e.item)) return;
@@ -1055,7 +1045,6 @@ export class CampScene extends BaseScene {
           void state.save();
         },
       });
-      b.setEnabled(can, w.supplies < e.cost.supplies ? t('cs.needSupplies', { n: e.cost.supplies }) : t('stash.noGold'));
       md.c.add(b);
       y += rowH + 2;
     }
@@ -1094,9 +1083,10 @@ export class CampScene extends BaseScene {
       const mm = this.musterList;
       const field = fieldIds(mm);
       let y = b.y;
+      content.add(mosaicImage(this, b.x - 3, y - 2, b.w + 6, 12, 'chipStone'));
       content.add(addText(this, b.x, y, t('cs.formation', { n: field.length, max: MUSTER.fieldCap }), 'red'));
       content.add(addText(this, b.x + b.w, y, t('cs.inCamp', { n: mm.length - field.length }), 'dim', 1));
-      y += 12;
+      y += 14;
       // per unit type: name, field / total, - +
       const rows = classRows(mm);
       const rowH = 24;
@@ -1106,10 +1096,9 @@ export class CampScene extends BaseScene {
         rowH,
         render: (i, row, rw) => {
           const r = rows[i];
-          row.add(addText(this, 2, 7, ellipsize(clsName(r.cls), rw - 110), 'ink'));
-          row.add(addText(this, rw - 58, 7, `${r.field}/${r.total}${r.wounded ? ` (${r.wounded})` : ''}`, 'dim', 1));
-          const minus = new Button(this, rw - 54, 0, 24, rowH, { label: '-', small: true, tip: t('cs.reserve'), id: `camp.muster.minus.${r.cls}`, onClick: () => this.shift(r.cls, -1, render) });
-          const plus = new Button(this, rw - 26, 0, 24, rowH, { label: '+', small: true, tip: t('cs.field'), id: `camp.muster.plus.${r.cls}`, onClick: () => this.shift(r.cls, 1, render) });
+          row.add(new ParchmentRow(this, 0, 1, rw - 56, { title: clsName(r.cls), value: `${r.field}/${r.total}${r.wounded ? ` (${r.wounded})` : ''}`, id: `camp.muster.row.${r.cls}` }, rowH - 2));
+          const minus = new MButton(this, rw - 54, 0, 24, rowH, { label: '-', variant: 'secondary', tip: t('cs.reserve'), id: `camp.muster.minus.${r.cls}`, onClick: () => this.shift(r.cls, -1, render) });
+          const plus = new MButton(this, rw - 26, 0, 24, rowH, { label: '+', variant: 'secondary', tip: t('cs.field'), id: `camp.muster.plus.${r.cls}`, onClick: () => this.shift(r.cls, 1, render) });
           if (r.field <= 0) minus.setEnabled(false, t('cs.why.none'));
           if (r.field >= r.total - r.wounded) plus.setEnabled(false, t('cs.why.wounded'));
           row.add([minus, plus]);
@@ -1118,8 +1107,9 @@ export class CampScene extends BaseScene {
       });
       frameScrollTexts(typeList.area, b.w);
       y += listH + 4;
+      content.add(mosaicImage(this, b.x - 3, y - 2, b.w + 6, 12, 'chipStone'));
       content.add(addText(this, b.x, y, ellipsize(t('cs.menHint'), b.w), 'dim'));
-      y += 11;
+      y += 13;
       // every man: tap to flip between the formation and the camp
       const fieldSet = new Set(field);
       const listH2 = Math.max(26, b.y + b.h - y - 2);
@@ -1129,9 +1119,7 @@ export class CampScene extends BaseScene {
         render: (i, row, rw) => {
           const hh = mm[i];
           const st = hh.wounded ? t('cs.wounded') : fieldSet.has(hh.id) ? t('cs.field') : t('cs.reserve');
-          const font = hh.wounded ? 'red' : fieldSet.has(hh.id) ? 'good' : 'dim';
-          row.add(addText(this, 2, 6, ellipsize(`${hh.name} · ${clsName(hh.cls)} ${hh.level}`, rw - 66), 'ink'));
-          row.add(addText(this, rw - 3, 6, st, font, 1));
+          row.add(new ParchmentRow(this, 0, 0, rw, { title: `${hh.name} · ${clsName(hh.cls)} ${hh.level}`, value: st, selected: fieldSet.has(hh.id) && !hh.wounded, id: `camp.muster.manrow.${i}` }, 22));
         },
         onTap: (i) => {
           const r = toggleReserve(this.musterList, mm[i].id);
