@@ -277,7 +277,7 @@ export class PowerSystem {
       this.proc(by, 'frenzy');
     }
     const te = s.pow.get('terror');
-    if (te) {
+    if (te && this.b.isAlive(by)) {
       const r2 = (te.extra ?? 0) ** 2;
       const hit: number[] = [];
       for (const e of this.b.units) {
@@ -322,7 +322,8 @@ export class PowerSystem {
   afterDamage(t: SimUnit, by: SimUnit, dmg: number, ranged: boolean): void {
     const s = this.st[t.id];
     const rt = s.pow.get('retribution');
-    if (rt && !ranged && by !== t && by.side !== t.side && this.b.isAlive(by)) {
+    // only a man still standing hits back: a blow that killed him is not returned
+    if (rt && !ranged && by !== t && by.side !== t.side && this.b.isAlive(by) && this.b.isAlive(t)) {
       // a flat share of the blow: armour does not stop it, and it never reflects again
       const back = dmg * (rt.value ?? 0);
       by.hp -= back;

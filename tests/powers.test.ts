@@ -180,6 +180,13 @@ describe('powers in battle', () => {
     expect(procs(r.b, 'retribution')).toHaveLength(1);
   });
 
+  it('Retribution: a blow that kills the wearer is not returned', () => {
+    const r = blow({}, { powers: ['retribution'] }, (_b, _u, t) => (t.hp = 0.1));
+    expect(r.t.state).toBe('dead');
+    expect(r.u.hp).toBe(r.u.stats.maxHp);
+    expect(procs(r.b, 'retribution')).toHaveLength(0);
+  });
+
   it("Wolf's Hunger: heals a share of the damage dealt", () => {
     const r = blow({ powers: ['hunger'] }, {}, (_b, u) => (u.hp = 10));
     expect(r.u.hp).toBeCloseTo(10 + r.lost * g('hunger').value!, 6);
