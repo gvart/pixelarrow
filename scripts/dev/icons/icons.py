@@ -4,7 +4,7 @@ Cut the artist's icon sheets into the game's icon atlases (docs/icons/README.md)
     npm run icons -- <sheets dir> [--qa <dir>]
 
 <sheets dir> holds sheet_1.jpg ... sheet_N.jpg: 4 x 4 cells on flat magenta, the
-cell order of the README's sheet tables. Every cell becomes one transparent icon,
+cell order of the README's sheet tables. An id on a later sheet (re-rolls) wins. Every cell becomes one transparent icon,
 packed into public/icons/ui.png (UI, camp, sync badges, powers at 64 px) and
 public/icons/items.png (items, trinkets, goods at 96 px), each with its JSON frame
 list for Phaser. QA contact sheets (each icon on a checkerboard with its id) go to
@@ -205,7 +205,8 @@ def main():
     mapping = read_map(os.path.join(ROOT, 'docs', 'icons', 'README.md'))
     icons = previous_icons(out_dir)
     icons.update(cut_sheets(src, mapping))
-    ids = [i for v in mapping.values() for i in v if i in icons]
+    # an id on a later sheet (re-rolls, sheet 20) replaced its earlier cell in cut_sheets; list it once
+    ids = list(dict.fromkeys(i for v in mapping.values() for i in v if i in icons))
     pack(icons, [i for i in ids if i.startswith(UI_PREFIX)], UI_PX, out_dir, 'ui')
     pack(icons, [i for i in ids if not i.startswith(UI_PREFIX)], ITEM_PX, out_dir, 'items')
     qa_sheets(mapping, icons, qa)

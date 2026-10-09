@@ -15,7 +15,7 @@ interface Atlas {
 const ATLAS: Record<'ui' | 'items', Atlas> = { ui: JSON.parse(uiJson), items: JSON.parse(itemsJson) };
 
 /** Icons with no drawn art yet: their vector icon is used. Keep in step with docs/icons/README.md "Waiting for art". */
-const WAITING_FOR_ART = ['ui:wargold', 'ui:xmark'];
+const WAITING_FOR_ART: string[] = [];
 
 describe('drawn icon atlases (public/icons, docs/icons/README.md)', () => {
   const ui = ATLAS.ui.frames;
@@ -39,7 +39,8 @@ describe('drawn icon atlases (public/icons, docs/icons/README.md)', () => {
 
   it('match the atlas list in docs/icons/README.md, frames inside the sheet', () => {
     const ids = [...readme.matchAll(/^\| \d+ \| R\d C\d \| [^|]+\| `([^`]+)` \|/gm)].map((m) => m[1]);
-    expect(ids.length).toBe(296);
+    // sheet 20 re-rolls some ids of earlier sheets: 298 distinct icons
+    expect(new Set(ids).size).toBe(298);
     for (const id of ids) expect(ui[id] ?? items[id], id).toBeDefined();
     for (const [name, f] of [['ui', ui], ['items', items]] as const) {
       const meta = ATLAS[name].meta.size;

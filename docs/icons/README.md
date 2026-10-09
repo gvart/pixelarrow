@@ -6,7 +6,7 @@ with Gemini and swap into the game. Today all of them are painted in code
 `src/art/goodsIcons.ts`, `src/ui/online.ts`); the new art replaces them one
 for one, keeping the IDs.
 
-**296 icons on 19 sheets of 16.** That includes all 135 items of
+**298 icons on 20 sheets of 16** (sheet 20 also re-rolls six earlier icons). That includes all 135 items of
 `src/data/items.ts`, each with its own picture (today they share 58: every
 spear is the same spear), plus the 43 new items and 16 power icons designed
 in [../ITEMS.md](../ITEMS.md) (sets, named legendaries, powers; marked
@@ -1064,18 +1064,26 @@ Cells, in reading order:
 Cells 9 to 16: leave empty (plain magenta).
 ```
 
+## Sheet 20: Added later and re-rolls
+
+File: `sheet-20.png`. Icons added to the game after the first sheets, and re-rolls. Later sheets win: an id here replaces its cell on an earlier sheet.
+
+| Cell | Row, col | Pixel box (x, y) | ID | Meaning in the game | Shape to draw |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R1 C1 | 0-255, 0-255 | `ui:wargold` | War gold, the online season's purse (campaign gold is `ui:coin`). | a bronze coin, face-on, thick rim, stamped with a dark Corinthian hoplite helmet in profile |
+| 2 | R1 C2 | 256-511, 0-255 | `ui:xmark` | Neutral close / dismiss (hide a tip), not the red `ui:close` of an error. | a thick X of two crossed grey stone bars, rounded ends, a small gleam |
+| 3 | R1 C3 | 512-767, 0-255 | `item:negau` | Helmet: Negau helm (re-roll of sheet 11). | an Etruscan Negau helmet: deep bronze bowl, raised ridge over the top, low flat brim |
+| 4 | R1 C4 | 768-1023, 0-255 | `item:thracian_darts` | Weapon, set piece: Thracian darts (re-roll of sheet 17, whole shafts). | three short javelins, diagonal, red-dyed leather throwing thongs, whole shafts inside the cell |
+| 5 | R2 C1 | 0-255, 256-511 | `ui:copy` | Copy (re-roll of sheet 4, no writing). | two overlapping blank sheets, grey behind, ivory in front with three plain lines |
+| 6 | R2 C2 | 256-511, 256-511 | `ui:pass` | Season pass (re-roll of sheet 4, no writing). | a plain parchment ticket with notched edges and a red wax seal with ribbon tails |
+| 7 | R2 C3 | 512-767, 256-511 | `ui:log` | Raid log (re-roll of sheet 4, no writing). | an open papyrus scroll, wooden rollers top and bottom, five plain lines |
+| 8 | R2 C4 | 768-1023, 256-511 | `ui:flag` | Clan, banner, claim (re-roll of sheet 4, plain cloth). | a plain red swallow-tailed pennant on a wooden pole with a gold ball finial |
+
 ## Waiting for art
 
-Icons added to the game after the sheets were drawn. They show their old
-code-drawn version until a drawing arrives. Generate them with the
-single-icon prompt below and send them named by ID (`ui_wargold.png`).
-
-- `ui:wargold`: war gold, the online season's purse (campaign gold is
-  `ui:coin` and must look different). Shape: a bronze stater coin, face-on,
-  thick rim, stamped with a dark hoplite helmet in profile.
-- `ui:xmark`: a neutral close or dismiss cross for hiding tips (not the red
-  `ui:close` of an error). Shape: a thick grey stone X with a small top-left
-  gleam.
+None right now. An icon added to the game later shows its code-drawn version
+until a drawing arrives: list it here, add it to a new sheet (a table like
+sheet 20) and generate it with the prompts above.
 
 ## Single-icon prompt
 
