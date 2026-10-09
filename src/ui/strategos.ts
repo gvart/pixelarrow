@@ -18,13 +18,16 @@
  * layout check through the kit's Button / addText.
  */
 import Phaser from 'phaser';
-import { Button, addIcon, addPanel, addText, longPress, panelImage, panelTexture as panelTextureOf, tappable, type ButtonOpts, type FontKey } from './kit';
+import { Button, addIcon, addText, longPress, mosaicPanelImage, mosaicPanelTexture, tappable, type ButtonOpts, type FontKey } from './kit';
+import { inkify } from './inkSkin';
 import { Badge, hintStore } from './widgets';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
-import { BRONZE, SIZE, STRAT } from './theme';
+import { SIZE, STRAT } from './theme';
+import { MOSAIC } from './tokens';
 import { addGoodsIcon } from './econ/textures';
 import { ICONS } from '../art/icons';
+import type { MosaicStyle } from '../art/mosaicUi';
 import { t } from '../i18n';
 import { hasNativeBack } from '../platform/telegram';
 
@@ -115,10 +118,11 @@ export class SituationBar extends Phaser.GameObjects.Container {
     this.w = Math.round(w);
     this.h = o.compact ? STRAT.sitHCompact : STRAT.sitH;
     this.o = o;
-    this.add(addPanel(scene, 0, 0, this.w, this.h, 'parch'));
-    this.add(scene.add.rectangle(0, this.h - 1, this.w, 1, BRONZE.dark).setOrigin(0, 0));
+    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'parchment'));
     this.numbersC = scene.add.container(0, 0);
     this.add(this.numbersC);
+    // the numbers are laid out with the kit's light-on-dark fonts: ink them for the parchment
+    inkify(this);
     uiId(this, o.id ?? 'situation');
     scene.add.existing(this);
     this.setSentence(o.sentence, o.urgent);
@@ -144,7 +148,7 @@ export class SituationBar extends Phaser.GameObjects.Container {
     const lines = this.o.compact ? 1 : 2;
     const wr = wrapText(sentence, this.textW, lines);
     wr.lines.forEach((l, i) => {
-      const txt = addText(this.scene, this.textLeft, 4 + i * LINE_H, l, urgent ? 'red' : 'ink');
+      const txt = addText(this.scene, this.textLeft, 4 + i * LINE_H, l, urgent ? 'pBad' : 'pInk');
       uiFrame(txt, this, this.w, this.h);
       this.add(txt);
       this.sentenceTexts.push(txt);
@@ -211,8 +215,7 @@ export class CommandStrip extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, w: number, vh: number, o: CommandStripOpts) {
     super(scene, 0, vh - STRAT.stripH);
     this.w = Math.round(w);
-    this.add(addPanel(scene, 0, 0, this.w, this.h, 'bar'));
-    this.add(scene.add.rectangle(0, 0, this.w, 1, BRONZE.dark).setOrigin(0, 0));
+    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'tabBar'));
     this.slots = scene.add.container(0, 0);
     this.add(this.slots);
     uiId(this, 'strip');
@@ -312,7 +315,7 @@ export class Chip extends Button {
   private run?: () => void;
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, o: ChipOpts) {
-    super(scene, x, y, w, 22, { label: o.chevron ? `${o.label} >` : o.label, icon: o.icon, onClick: undefined, tip: o.tip, disabledReason: o.off, id: o.id ?? o.label });
+    super(scene, x, y, w, 22, { label: o.chevron ? `${o.label} >` : o.label, icon: o.icon, onClick: undefined, tip: o.tip, disabledReason: o.off, id: o.id ?? o.label, variant: 'ghost', style: o.selected ? 'buttonSel' : undefined, small: true });
     this.run = o.onClick;
     this.setOnClick(() => {
       if (this.blocked) {
@@ -322,13 +325,7 @@ export class Chip extends Button {
       this.run?.();
     });
     if (o.off) this.setEnabled(false, o.off);
-    if (o.selected) {
-      const g = scene.add.graphics();
-      g.lineStyle(1, BRONZE.main, 1);
-      g.strokeRect(1.5, 1.5, this.w - 3, this.h - 3);
-      this.add(g);
-    }
-    this.cornerText = addText(scene, this.w - 3, 1, o.corner ?? '', 'gold', 1);
+    this.cornerText = addText(scene, this.w - 3, 1, o.corner ?? '', o.selected ? 'pInk' : 'gold', 1);
     uiFrame(this.cornerText, this, this.w, this.h);
     this.add(this.cornerText);
   }
@@ -380,44 +377,42 @@ export class ListRow extends Phaser.GameObjects.Container {
     this.w = Math.round(w);
     this.h = h;
     this.opts = { label: o.label, icon: o.icon };
-    const style = o.off ? 'buttonOff' : o.primary ? 'buttonSel' : 'button';
-    this.bg = panelImage(scene, 0, 0, this.w, this.h, style);
+    // parchment rows with ink; the one primary is terracotta, an unavailable one flat grey stone
+    const style: MosaicStyle = o.off ? 'btnStone' : o.primary ? 'btnPrimary' : o.selected ? 'parchmentSel' : 'parchment';
+    this.bg = mosaicPanelImage(scene, 0, 0, this.w, this.h, style);
     this.add(this.bg);
-    const light = !!o.primary && !o.off;
-    const font: FontKey = o.off ? 'dim' : light ? 'light' : 'ink';
+    const caps = !!o.off || !!o.primary;
+    const font: FontKey = o.off ? 'rOff' : o.primary ? 'rCream' : 'pInk';
+    const subFont: FontKey = o.off ? 'rOff' : o.primary ? 'light' : 'pMuted';
+    const label = caps ? o.label.toUpperCase() : o.label;
+    const fitLabel = (str: string, w: number) => (caps ? ellipsize(str, w, true, 7, 'roman') : ellipsize(str, w));
     let tx = 6;
     if (o.icon) {
-      this.add(addIcon(scene, 6, Math.round((this.h - 12) / 2), o.icon, o.off ? 'D' : light ? 'L' : ''));
+      this.add(addIcon(scene, 6, Math.round((this.h - 12) / 2), o.icon, o.off ? 'D' : o.primary ? 'L' : ''));
       tx = 22;
     }
-    const chev = addText(scene, this.w - 6, Math.round((this.h - 8) / 2), '>', light ? 'light' : 'dim', 1);
+    const chev = addText(scene, this.w - 6, Math.round((this.h - 8) / 2), '>', o.off ? 'rOff' : o.primary ? 'light' : 'pMuted', 1);
     this.add(chev);
     uiFrame(chev, this, this.w, this.h);
     const badgeW = o.badge ? 16 : 0;
     const tw = this.w - tx - 14 - badgeW;
     if (o.sub) {
-      const a = addText(scene, tx, 4, ellipsize(o.label, tw, light), font);
-      const b = addText(scene, tx, 14, ellipsize(o.sub, tw), light ? 'light' : 'dim');
+      const a = addText(scene, tx, 4, fitLabel(label, tw), font);
+      const b = addText(scene, tx, 14, ellipsize(o.sub, tw, !!o.primary || !!o.off, o.off ? 6 : 7, o.off ? 'roman' : 'body'), subFont).setFontSize(o.off ? 6 : 7);
       uiFrame(a, this, this.w, this.h);
       uiFrame(b, this, this.w, this.h);
       this.add([a, b]);
     } else {
-      const a = addText(scene, tx, Math.round((this.h - 8) / 2), ellipsize(o.label, tw, light), font);
+      const a = addText(scene, tx, Math.round((this.h - 8) / 2), fitLabel(label, tw), font);
       uiFrame(a, this, this.w, this.h);
       this.add(a);
     }
     if (o.badge) this.add(new Badge(scene, this.w - 18, this.h / 2, o.badge));
-    if (o.selected) {
-      const g = scene.add.graphics();
-      g.lineStyle(1, BRONZE.main, 1);
-      g.strokeRect(1.5, 1.5, this.w - 3, this.h - 3);
-      this.add(g);
-    }
     this.setSize(this.w, this.h);
     this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
     uiId(this, o.id ?? `row:${o.label}`);
-    this.on('pointerdown', () => !o.off && this.bg.setTexture(panelTextureOf(scene, this.w, this.h, o.primary ? 'buttonSelDown' : 'buttonDown')));
-    const up = () => this.scene && this.bg.setTexture(panelTextureOf(scene, this.w, this.h, style));
+    this.on('pointerdown', () => !o.off && this.bg.setTexture(mosaicPanelTexture(scene, this.w, this.h, o.primary ? 'btnPrimaryDown' : 'parchmentSel')));
+    const up = () => this.scene && this.bg.setTexture(mosaicPanelTexture(scene, this.w, this.h, style));
     this.on('pointerup', up);
     this.on('pointerout', up);
     tappable(this, null, () => {
@@ -436,11 +431,11 @@ export class ListRow extends Phaser.GameObjects.Container {
 /** The bronze glow round the next thing to tap (onboarding): three nested rims that pulse. */
 export function addFocusRing(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics();
-  g.lineStyle(1, BRONZE.hi, 1);
+  g.lineStyle(1, MOSAIC.goldHi, 1);
   g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3);
-  g.lineStyle(1, BRONZE.main, 1);
+  g.lineStyle(1, MOSAIC.meander, 1);
   g.strokeRect(x - 2.5, y - 2.5, w + 5, h + 5);
-  g.lineStyle(1, BRONZE.dark, 1);
+  g.lineStyle(1, MOSAIC.meanderLo, 1);
   g.strokeRect(x - 3.5, y - 3.5, w + 7, h + 7);
   parent.add(g);
   scene.tweens.add({ targets: g, alpha: { from: 1, to: 0.45 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
@@ -483,12 +478,12 @@ export function addTip(scene: Phaser.Scene, parent: Phaser.GameObjects.Container
   x = Math.max(4, Math.min(x, vw - 4 - w));
   const c = scene.add.container(Math.round(x), Math.round(y));
   parent.add(c);
-  c.add(addPanel(scene, 0, 0, w, h, 'tooltip'));
+  c.add(mosaicPanelImage(scene, 0, 0, w, h, 'chipStone'));
   const txt = addText(scene, 5, 4, wr.lines.join('\n'), 'light');
   uiFrame(txt, c, w, h);
   c.add(txt);
   const g = scene.add.graphics();
-  g.fillStyle(0x1d140f, 1);
+  g.fillStyle(MOSAIC.stone2, 1);
   if (o.arrow === 'down') for (let i = 0; i < 4; i++) g.fillRect((o.ax ?? w / 2) - (3 - i), h + i, (3 - i) * 2 + 1, 1);
   if (o.arrow === 'up') for (let i = 0; i < 4; i++) g.fillRect((o.ax ?? w / 2) - i, -1 - i, i * 2 + 1, 1);
   if (o.arrow === 'left') for (let i = 0; i < 4; i++) g.fillRect(-1 - i, (o.ay ?? h / 2) - i, 1, i * 2 + 1);
@@ -517,15 +512,14 @@ export function addChecklist(scene: Phaser.Scene, parent: Phaser.GameObjects.Con
   const h = 14 + items.length * 10 + 2;
   const c = scene.add.container(Math.round(x), Math.round(y));
   parent.add(c);
-  c.add(addPanel(scene, 0, 0, w, h, 'tooltip'));
-  const tt = addText(scene, 5, 3, ellipsize(title, w - 10, true), 'light');
+  c.add(mosaicPanelImage(scene, 0, 0, w, h, 'parchment'));
+  const tt = addText(scene, 5, 3, ellipsize(title, w - 10, false, 7, 'roman'), 'rInk');
   uiFrame(tt, c, w, h);
   c.add(tt);
   items.forEach((it, i) => {
-    const ic = addIcon(scene, 5, 12 + i * 10, it.done ? 'check' : 'eye', 'L');
-    if (it.done) ic.setTint(0xa8e088);
+    const ic = addIcon(scene, 5, 12 + i * 10, it.done ? 'check' : 'eye', it.done ? '' : 'D');
     c.add(ic);
-    const txt = addText(scene, 19, 14 + i * 10, ellipsize(it.text, w - 24, true), it.done ? 'dim' : 'light');
+    const txt = addText(scene, 19, 14 + i * 10, ellipsize(it.text, w - 24), it.done ? 'pMuted' : 'pInk');
     uiFrame(txt, c, w, h);
     c.add(txt);
   });

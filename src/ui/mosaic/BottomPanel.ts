@@ -12,6 +12,7 @@ import { uiId } from '../layout';
 import { GAP, TAP, makePressable, mosaicImage, mtext, mw } from './base';
 import { MButton, type MButtonOpts } from './controls';
 import { addIcon, scaleIcon } from '../kit';
+import { inkify } from '../inkSkin';
 import type { Box } from './ScreenFrame';
 
 export interface BottomPanelOpts {
@@ -83,6 +84,7 @@ export class BottomPanel extends Phaser.GameObjects.Container {
     });
     uiId(this, o.id ?? 'bottompanel');
     scene.add.existing(this);
+    inkify(this);
     if (o.animate === false || motion.reduced) return;
     const y = this.y;
     this.y = y + 14;

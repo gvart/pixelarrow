@@ -6,7 +6,7 @@
  * drop from the stash onto equipment slots.
  */
 import Phaser from 'phaser';
-import { scaleIcon, Button, Meter, ScrollArea, addIcon, addPanel, addText, tappable, type FontKey } from './kit';
+import { scaleIcon, Button, Meter, ScrollArea, addIcon, addText, mosaicPanelImage, tappable, type FontKey } from './kit';
 import { Badge, ItemIcon, Grid, addEmptyState, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
@@ -265,12 +265,12 @@ export function addSlotTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Cont
     parent.add(cm);
     return ic;
   }
-  const bg = addPanel(scene, x, y, size, size, o.selected ? 'slotSel' : 'slot');
+  const bg = mosaicPanelImage(scene, x, y, size, size, o.selected ? 'parchmentSel' : 'parchmentWell');
   bg.setInteractive();
   uiId(bg, `slot:${slot}`);
   tappable(bg, o.area ?? null, o.onTap, t(`slot.${slot}` as TKey));
   parent.add(bg);
-  parent.add(addIcon(scene, x + Math.round((size - 12) / 2), y + Math.round((size - 12) / 2), SLOT_ICON[slot], o.selected ? 'L' : 'D'));
+  parent.add(addIcon(scene, x + Math.round((size - 12) / 2), y + Math.round((size - 12) / 2), SLOT_ICON[slot], o.selected ? '' : 'D'));
   return bg;
 }
 
@@ -278,7 +278,7 @@ export function addSlotTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Cont
 export function addMountTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, hero: Hero, size: number = SIZE.cell): void {
   const cls = heroClass(hero);
   if (!cls.mount) return;
-  const bg = addPanel(scene, x, y, size, size, 'slot');
+  const bg = mosaicPanelImage(scene, x, y, size, size, 'parchmentWell');
   bg.setInteractive();
   uiId(bg, 'slot:mount');
   const name = tOr(`mount.${cls.mount}`, cls.mount);
@@ -519,7 +519,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   const b = area.content;
   let by = 0;
   if (cmp && o.hero) {
-    b.add(addPanel(scene, 0, by, inner, cmpH - 4, 'inset'));
+    b.add(mosaicPanelImage(scene, 0, by, inner, cmpH - 4, 'parchmentWell'));
     const eq = cmp.equipped;
     b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }), inner - 8), 'dim'));
     if (eq) {
@@ -734,7 +734,7 @@ export class StashGrid {
     const gh = y + h - cy;
     const all = this.o.items();
     this.list = queryStash(all, st);
-    this.c.add(addPanel(scene, x, cy, w, gh, 'inset'));
+    this.c.add(mosaicPanelImage(scene, x, cy, w, gh, 'parchmentWell'));
     if (!this.list.length) {
       const filtered = all.length > 0;
       this.c.add(

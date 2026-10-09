@@ -10,8 +10,9 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { scaleIcon, Button, ScrollArea, addIcon, addPanel, addText, longPress, panelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
-import { ACCENT, MOTION, SURFACE } from './tokens';
+import { scaleIcon, Button, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
+import { fadeTexture, inkFontKey, inkify } from './inkSkin';
+import { ACCENT, MOSAIC, MOTION } from './tokens';
 import { tweenTo } from './motion';
 import { uiBlocker, uiFrame, uiId, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
@@ -89,7 +90,7 @@ export function showTooltip(scene: Phaser.Scene, text: string, anchor: Phaser.Ga
   if (y < 4) y = Math.round(Math.min(VH - 4 - h, a.y + a.h + 3));
   const c = scene.add.container(x, y);
   overlayRoot(scene).add(c);
-  c.add(addPanel(scene, 0, 0, w, h, 'tooltip'));
+  c.add(mosaicPanelImage(scene, 0, 0, w, h, 'chipStone'));
   const txt = addText(scene, w / 2, 5, wrap.lines.join('\n'), 'light', 0.5);
   txt.setCenterAlign();
   uiFrame(txt, c as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, w, h);
@@ -128,7 +129,7 @@ export function toast(scene: Phaser.Scene, text: string, kind: ToastKind = 'info
   const y = at === 'bottom' ? Math.max(6, VH - STRAT.stripH - h - 14) : 6;
   const c = scene.add.container(Math.round((VW - w) / 2), y);
   overlayRoot(scene).add(c);
-  c.add(addPanel(scene, 0, 0, w, h, 'tooltip'));
+  c.add(mosaicPanelImage(scene, 0, 0, w, h, 'chipStone'));
   if (kind !== 'info') c.add(scene.add.rectangle(2, 2, 2, h - 4, kind === 'good' ? COLOR.good : COLOR.bad).setOrigin(0, 0));
   const txt = addText(scene, w / 2, 5, wrap.lines.join('\n'), 'light', 0.5);
   txt.setCenterAlign();
@@ -176,7 +177,7 @@ export class Badge extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, count: number | string = 0) {
     super(scene, Math.round(x), Math.round(y));
     this.bg = scene.add.graphics();
-    this.txt = addText(scene, 0, -4, '', 'light', 0.5);
+    this.txt = addText(scene, 0, -4, '', 'onAccent', 0.5);
     this.add([this.bg, this.txt]);
     uiFrame(this.txt, this, 40, 12, -20, -6);
     scene.add.existing(this);
@@ -190,10 +191,12 @@ export class Badge extends Phaser.GameObjects.Container {
     this.txt.setText(s);
     const w = Math.max(9, measureText(s, true) + 5);
     this.bg.clear();
-    this.bg.fillStyle(0x2a1a16, 1);
+    this.bg.fillStyle(0x1a0d06, 1);
     this.bg.fillRoundedRect(-w / 2 - 1, -6, w + 2, 12, 5);
-    this.bg.fillStyle(0xb8382a, 1);
+    this.bg.fillStyle(ACCENT.dangerFill, 1);
     this.bg.fillRoundedRect(-w / 2, -5, w, 10, 4);
+    this.bg.lineStyle(0.6, MOSAIC.goldHi, 0.8);
+    this.bg.strokeRoundedRect(-w / 2, -5, w, 10, 4);
     return this;
   }
 }
@@ -253,9 +256,9 @@ export class StatBar extends Phaser.GameObjects.Container {
     const by = 14;
     const g = this.g;
     g.clear();
-    g.fillStyle(0x2a1a16, 1);
+    g.fillStyle(MOSAIC.parchEdge, 1);
     g.fillRect(0, by, bw, 6);
-    g.fillStyle(0x6b4a40, 1);
+    g.fillStyle(MOSAIC.segOpen, 1);
     g.fillRect(1, by + 1, bw - 2, 4);
     const has = preview !== undefined && Math.abs(preview - value) > 1e-6;
     const lo = has ? Math.min(value, preview!) : value;
@@ -313,7 +316,7 @@ export class CountUp extends Phaser.GameObjects.Container {
     this.w = Math.round(w);
     this.h = Math.round(h);
     this.o = o;
-    this.add(addPanel(scene, 0, 0, this.w, this.h, 'inset'));
+    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'parchmentWell'));
     let top = 3;
     if (o.icon && this.h >= 34) {
       this.add(addIcon(scene, (this.w - 12) / 2, 2, o.icon));
@@ -321,11 +324,11 @@ export class CountUp extends Phaser.GameObjects.Container {
     }
     const final = `${o.prefix ?? ''}${o.value}${o.suffix ?? ''}`;
     this.big = measureText(final, false, 14) <= this.w - 6 && this.h - 10 - top >= 20;
-    this.num = addText(scene, this.w / 2, top, `${o.prefix ?? ''}0${o.suffix ?? ''}`, o.font ?? 'ink', 0.5);
+    this.num = addText(scene, this.w / 2, top, `${o.prefix ?? ''}0${o.suffix ?? ''}`, inkFontKey(o.font ?? 'ink'), 0.5);
     if (this.big) this.num.setFontSize(14);
     uiFrame(this.num, this, this.w, this.h);
     this.add(this.num);
-    const lab = addText(scene, this.w / 2, this.h - 10, ellipsize(o.label, this.w - 4), 'dim', 0.5);
+    const lab = addText(scene, this.w / 2, this.h - 10, ellipsize(o.label, this.w - 4), 'pMuted', 0.5);
     uiFrame(lab, this, this.w, this.h);
     this.add(lab);
     uiId(this, `countup:${o.label}`);
@@ -396,16 +399,16 @@ class TabItem extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  /** Redraw in the selected or plain look. */
+  /** Redraw in the selected or plain look: Cinzel, ink on the lit block, gold on the stone track. */
   paint(on: boolean, onFont: FontKey, offFont: FontKey): void {
     this.labelText?.destroy();
     this.iconImg?.destroy();
     this.labelText = null;
     this.iconImg = null;
     const scene = this.scene;
-    const size = this.look.size ?? 7;
+    const size0 = this.look.size ?? 7;
     const font = on ? onFont : offFont;
-    const variant = on ? (onFont === 'onAccent' || onFont === 'light' ? 'L' : '') : 'D';
+    const variant = on && font === 'rInk' ? '' : on ? 'L' : 'D';
     const icon = this.look.icon;
     if (icon && this.look.iconOnly) {
       this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, icon, variant);
@@ -414,22 +417,26 @@ class TabItem extends Phaser.GameObjects.Container {
       return;
     }
     const room = this.w - 8 - (icon ? 15 : 0);
-    const label = ellipsize(this.opts.label, room, SHADOW_FONTS.has(font), size);
-    this.truncated = label !== this.opts.label;
+    const caps = this.opts.label;
+    const shadow = SHADOW_FONTS.has(font);
+    const wide = (str: string, sz: number) => measureText(str, shadow, sz, 'roman');
+    // Cinzel caps are wide: step the size down before the label is cut
+    const size = [size0, 6.5, 6, 5.5].filter((z) => z <= size0).find((z) => wide(caps, z) <= room) ?? 5.5;
+    const label = ellipsize(caps, room, shadow, size, 'roman');
+    this.truncated = label !== caps;
     // too narrow for words: the icon alone (the label on long-press)
     if (icon && this.truncated && room < 22) {
       this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, icon, variant);
       this.add(this.iconImg);
       return;
     }
-    const tw = measureText(label, SHADOW_FONTS.has(font), size);
-    const total = (icon ? 15 : 0) + tw;
+    const total = (icon ? 15 : 0) + wide(label, size);
     const x0 = Math.round((this.w - total) / 2);
     if (icon) {
       this.iconImg = addIcon(scene, x0, Math.round((this.h - 12) / 2), icon, variant);
       this.add(this.iconImg);
     }
-    this.labelText = addText(scene, x0 + (icon ? 15 : 0), Math.round((this.h - 9) / 2), label, font).setFontSize(size);
+    this.labelText = addText(scene, x0 + (icon ? 15 : 0), Math.round((this.h - (LINE_H * size) / 7) / 2) - 1, label, font).setFontSize(size);
     uiFrame(this.labelText, this, this.w, this.h);
     this.add(this.labelText);
   }
@@ -453,9 +460,9 @@ export class Tabs extends Phaser.GameObjects.Container {
     this.w = Math.round(w);
     this.sel = o.selected ?? 0;
     const n = labels.length;
-    this.add(panelImage(scene, 0, 0, this.w, this.h, 'track'));
+    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'track'));
     this.tw = (this.w - 4) / n;
-    this.thumb = panelImage(scene, 0, 2, Math.round(this.tw), this.h - 4, 'thumb');
+    this.thumb = mosaicPanelImage(scene, 0, 2, Math.round(this.tw), this.h - 4, 'trackSel');
     this.thumb.x = Math.round(2 + this.sel * this.tw);
     this.add(this.thumb);
     labels.forEach((label, i) => {
@@ -473,7 +480,7 @@ export class Tabs extends Phaser.GameObjects.Container {
   }
 
   private paint(): void {
-    this.items.forEach((it, k) => it.paint(k === this.sel, 'onAccent', 'sec'));
+    this.items.forEach((it, k) => it.paint(k === this.sel, 'rInk', 'rGold'));
   }
 
   select(i: number, notify = true): void {
@@ -487,7 +494,8 @@ export class Tabs extends Phaser.GameObjects.Container {
   /** Badge on a tab (e.g. points to spend). */
   badge(i: number, count: number | string): Badge {
     const it = this.items[i];
-    const badge = new Badge(this.scene, it.x + it.w - 5, 3, count);
+    // on the corner, clear of the label
+    const badge = new Badge(this.scene, it.x + it.w - 4, -1, count);
     this.add(badge);
     return badge;
   }
@@ -511,14 +519,14 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
     this.sel = o.selected ?? 0;
     const n = labels.length;
     const tw = this.w / n;
-    this.add(scene.add.rectangle(0, this.h - 1, this.w, 1, SURFACE.line).setOrigin(0, 0));
+    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'track'));
     labels.forEach((label, i) => {
       const it = new TabItem(scene, Math.round(i * tw) + 1.5, 0, Math.round(tw) - 3, this.h, label, { icon: o.icons?.[i], iconOnly: !!o.iconOnly && !!o.icons?.[i], id: o.ids?.[i] }, () => this.select(i));
       this.items.push(it);
       this.add(it);
     });
     const it = this.items[this.sel];
-    this.bar = scene.add.rectangle(it.x + 6, this.h - 2, it.w - 12, 2, ACCENT.gold).setOrigin(0, 0);
+    this.bar = scene.add.rectangle(it.x + 6, this.h - 3, it.w - 12, 2, MOSAIC.goldHi).setOrigin(0, 0);
     this.add(this.bar);
     this.paint();
     scene.add.existing(this);
@@ -529,7 +537,7 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
   }
 
   private paint(): void {
-    this.items.forEach((it, k) => it.paint(k === this.sel, 'ink', 'sec'));
+    this.items.forEach((it, k) => it.paint(k === this.sel, 'rCream', 'rGold'));
   }
 
   select(i: number, notify = true): void {
@@ -543,7 +551,7 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
 
   badge(i: number, count: number | string): Badge {
     const it = this.items[i];
-    const badge = new Badge(this.scene, it.x + it.w - 5, 4, count);
+    const badge = new Badge(this.scene, it.x + it.w - 4, -1, count);
     this.add(badge);
     return badge;
   }
@@ -553,29 +561,6 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
 
 /** Colour the edge fades melt into by default (the stone of the pages); v3 screens pass their own. */
 export const FADE_DEFAULT = 0x1f1913;
-
-/** A vertical gradient from `color` (opaque, top) to transparent (bottom), w x h UI px, cached per size. */
-function fadeTexture(scene: Phaser.Scene, w: number, h: number, color: number): string {
-  const K = Math.max(2, Math.ceil(metrics(scene).S));
-  const key = `fade_${color.toString(16)}_${Math.round(w)}x${Math.round(h)}@${K}`;
-  if (!scene.textures.exists(key)) {
-    const c = document.createElement('canvas');
-    c.width = Math.max(2, Math.round(w * K));
-    c.height = Math.max(2, Math.round(h * K));
-    const g = c.getContext('2d')!;
-    const r = (color >> 16) & 255;
-    const gg = (color >> 8) & 255;
-    const bb = color & 255;
-    const grad = g.createLinearGradient(0, 0, 0, c.height);
-    grad.addColorStop(0, `rgba(${r},${gg},${bb},1)`);
-    grad.addColorStop(0.45, `rgba(${r},${gg},${bb},0.75)`);
-    grad.addColorStop(1, `rgba(${r},${gg},${bb},0)`);
-    g.fillStyle = grad;
-    g.fillRect(0, 0, c.width, c.height);
-    scene.textures.addCanvas(key, c)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
-  }
-  return key;
-}
 
 /**
  * The scroll hint of long lists (docs/UI_KIT.md "v3 components"): soft fades at the top and
@@ -969,6 +954,8 @@ export class Card extends Phaser.GameObjects.Container {
     this.o = o;
     this.expanded = !!o.expanded;
     scene.add.existing(this);
+    // renderBody and the like are written for dark surfaces: skin what they add
+    inkify(this);
     this.build();
   }
 
@@ -990,13 +977,13 @@ export class Card extends Phaser.GameObjects.Container {
       if (o.renderBody) bodyH = o.renderBody(body, this.w - 12);
       else if (o.body) {
         const wr = wrapText(o.body, this.w - 12);
-        body.add(addText(scene, 0, 0, wr.lines.join('\n'), 'ink'));
+        body.add(addText(scene, 0, 0, wr.lines.join('\n'), 'pInk'));
         bodyH = wr.lines.length * LINE_H;
       }
       bodyH += 6;
     }
     this.h = H + bodyH;
-    this.add(addPanel(scene, 0, 0, this.w, this.h, this.expanded ? 'parch' : 'inset'));
+    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, this.expanded ? 'parchment' : 'parchmentWell'));
     let tx = 6;
     if (o.icon) {
       if (typeof o.icon === 'string') this.add(addIcon(scene, 6, 8, o.icon));
@@ -1006,14 +993,14 @@ export class Card extends Phaser.GameObjects.Container {
     const chevW = 10;
     let rightW = 0;
     if (o.right) {
-      const r = addText(scene, this.w - chevW - 4, o.subtitle ? 5 : 10, o.right, 'ink', 1);
+      const r = addText(scene, this.w - chevW - 4, o.subtitle ? 5 : 10, o.right, 'pInk', 1);
       rightW = r.width + 4;
       this.add(r);
     }
     const tw = this.w - tx - chevW - 6 - rightW;
-    this.add(addText(scene, tx, o.subtitle ? 5 : 10, ellipsize(o.title, tw), 'red'));
-    if (o.subtitle) this.add(addText(scene, tx, 16, ellipsize(o.subtitle, tw), 'dim'));
-    this.add(addText(scene, this.w - 9, 10, this.expanded ? '-' : '+', 'ink', 0));
+    this.add(addText(scene, tx, o.subtitle ? 5 : 10, ellipsize(o.title, tw, false, 7, 'head'), 'hInk'));
+    if (o.subtitle) this.add(addText(scene, tx, 16, ellipsize(o.subtitle, tw), 'pMuted'));
+    this.add(addText(scene, this.w - 9, 10, this.expanded ? '-' : '+', 'pInk', 0));
     if (this.expanded) this.add(body);
     else body.destroy();
     const z = scene.add.zone(0, 0, this.w, H).setOrigin(0, 0).setInteractive();
@@ -1089,6 +1076,28 @@ export function addLabel(scene: Phaser.Scene, x: number, y: number, str: string,
 
 // ================================================================== modal
 
+/**
+ * The Cinzel title of a modal or sheet over a fine rule, with a bronze close X at the right when `onClose` is
+ * given (the title stays centred on the box). Returns the y where the body starts.
+ */
+export function addSheetTitle(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, title: string, onClose?: () => void): number {
+  const side = onClose ? 26 : 8;
+  const room = w - side * 2;
+  const font: FontKey = 'rInk';
+  const size = [9, 8.5, 8, 7.5, 7, 6.5, 6].find((z) => measureText(title, false, z, 'roman') <= room) ?? 6;
+  const txt = addText(scene, x + w / 2, y + 9, ellipsize(title, room, false, size, 'roman'), font, 0.5).setFontSize(size);
+  uiFrame(txt, parent as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, w, 24, x, y);
+  parent.add(txt);
+  const g = scene.add.graphics();
+  g.lineStyle(0.7, MOSAIC.parchEdge, 0.7);
+  g.lineBetween(x + side, y + 21, x + w - side, y + 21);
+  parent.add(g);
+  if (onClose) {
+    parent.add(new Button(scene, x + w - 25, y + 1, 22, 22, { icon: 'xmark', label: t('mosaic.close'), iconOnly: true, variant: 'secondary', id: 'sheet.close', onClick: onClose }));
+  }
+  return y + 26;
+}
+
 export interface ModalOpts {
   title?: string;
   /** Width (default: min(VW - 16, 200)). */
@@ -1153,11 +1162,10 @@ export function openModal(scene: UiScene, o: ModalOpts): Modal {
   const h = Math.min(o.h, VH - 16);
   const x = Math.round((VW - w) / 2);
   const y = Math.round((VH - h) / 2);
-  c.add(panelImage(scene, x, y, w, h, 'cardRaised'));
+  c.add(mosaicPanelImage(scene, x, y, w, h, 'sheet'));
   let top = y + 8;
   if (o.title) {
-    c.add(addText(scene, VW / 2, y + 10, ellipsize(o.title, (w - 20) / 1.1, false, 7, 'head'), 'head', 0.5).setScale(1.1));
-    top = y + 26;
+    top = addSheetTitle(scene, c, x, y, w, o.title, o.shadeCloses !== false ? () => close() : undefined);
   }
   let closed = false;
   const close = () => {
@@ -1168,6 +1176,8 @@ export function openModal(scene: UiScene, o: ModalOpts): Modal {
   };
   if (o.shadeCloses !== false) shadeTap(shade, { x, y, w, h }, close);
   navLayer(c, close, scene);
+  // the content is built for dark surfaces: skin it for the parchment as it arrives
+  inkify(c);
   return { c, x, y, w, h, body: { x: x + 8, y: top, w: w - 16, h: y + h - 8 - top }, close };
 }
 

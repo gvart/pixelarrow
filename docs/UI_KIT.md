@@ -296,6 +296,19 @@ Beasts) are built from `src/ui/v3.ts` on the tokens of `src/ui/tokens.ts`.
   `reward`, `glory`, `premium`, `xp`, `power`, `stars` for their resources;
   `good` / `bad` for better / worse.
 
+### Shared overlays on parchment (UI v4)
+
+Modals, bottom sheets, confirm dialogs, the settings sheet, item cards, tabs, expandable cards, count-up tiles,
+tooltips, toasts, badges, the legacy `Button` and the strategos chrome are drawn in the v4 "Mosaic & Parchment"
+look (docs/redesign/V4_SPEC.md) with the same APIs: parchment sheets with a Cinzel title over a rule and a
+bronze close X (`addSheetTitle`), stone plaques for tooltips and toasts, terracotta / bronze / grey stone /
+wine (destructive) / blue (purchase) buttons with Cinzel labels.
+
+Content built for dark surfaces keeps working inside them: `src/ui/inkSkin.ts` `inkify(container)` re-skins what
+is added to a modal, a sheet, a `ParchmentCard` or a `BottomPanel` (light font keys become their ink forms, dark
+`panel_*` textures become parchment wells and cards, scroll-list fades melt into parchment). A component that
+draws its own dark surface calls `ownSkin(obj)` to be left alone.
+
 ## Components
 
 | Component | API (short) | Use for |

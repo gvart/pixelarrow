@@ -132,6 +132,10 @@ export const MOSAIC = {
   inkDisabled: 0x6e5a3b,
   inkGood: 0x33581d,
   inkBad: 0x8f2818,
+  /** Reward gold, Experience and Drachmae as ink on parchment (shared overlays). */
+  inkGold: 0x5e3f00,
+  inkXp: 0x1f4f7a,
+  inkPremium: 0x56389a,
   /** Cream text on terracotta, bronze, teal and stone. */
   cream: 0xfdf3de,
   /** Terracotta (the primary action). */
@@ -142,6 +146,10 @@ export const MOSAIC = {
   bronze: 0x7d5b30,
   bronzeHi: 0xc9a066,
   bronzeLo: 0x4a3419,
+  /** Dark wine: the destructive button (an action that destroys something). */
+  wine: 0x5e1a28,
+  wineHi: 0x8a2a36,
+  wineLo: 0x3e101c,
   /** Teal: the title plaque, the glaze tile and the tab bar. */
   teal: 0x1f4f52,
   tealHi: 0x2f7270,
@@ -286,9 +294,13 @@ export const CONTRAST_PAIRS: { fg: number; bg: number; min: number; what: string
     { fg: MOSAIC.inkDisabled, bg, min: 3, what: 'disabled ink on parchment' },
     { fg: MOSAIC.inkGood, bg, min: 4.5, what: 'success ink on parchment' },
     { fg: MOSAIC.inkBad, bg, min: 4.5, what: 'danger ink on parchment' },
+    { fg: MOSAIC.inkGold, bg, min: 4.5, what: 'reward ink on parchment' },
+    { fg: MOSAIC.inkXp, bg, min: 4.5, what: 'xp ink on parchment' },
+    { fg: MOSAIC.inkPremium, bg, min: 4.5, what: 'drachmae ink on parchment' },
     ...Object.entries(RARITY_INK).map(([r, fg]) => ({ fg, bg, min: 4.5, what: `rarity ${r} on parchment` })),
   ]),
   { fg: MOSAIC.ink, bg: MOSAIC.well, min: 4.5, what: 'ink in a parchment well' },
+  ...[MOSAIC.inkGood, MOSAIC.inkBad, MOSAIC.inkMuted, MOSAIC.inkGold, MOSAIC.inkXp, MOSAIC.inkPremium].map((fg) => ({ fg, bg: MOSAIC.well, min: 4.5, what: 'ink colour in a parchment well' })),
   { fg: MOSAIC.inkSec, bg: MOSAIC.well, min: 4.5, what: 'secondary ink in a parchment well' },
   ...[MOSAIC.terra, MOSAIC.terraLo].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on terracotta' })),
   ...[MOSAIC.bronze, MOSAIC.bronzeLo].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on bronze' })),
@@ -303,6 +315,8 @@ export const CONTRAST_PAIRS: { fg: number; bg: number; min: number; what: string
   { fg: MOSAIC.cream, bg: MOSAIC.bronzeLo, min: 4.5, what: 'cream on bronze tile' },
   { fg: MOSAIC.gold, bg: MOSAIC.tabBar, min: 4.5, what: 'gold on the tab bar' },
   { fg: MOSAIC.offText, bg: MOSAIC.off, min: 3, what: 'disabled label on grey stone' },
+  ...[MOSAIC.wine, MOSAIC.wineLo].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on destructive wine' })),
+  ...[MOSAIC.bronzeHi, 0xb98d52].map((bg) => ({ fg: MOSAIC.ink, bg, min: 4.5, what: 'ink on the lit bronze button' })),
   { fg: MOSAIC.cream, bg: ACCENT.purchase, min: 4.5, what: 'cream on purchase blue' },
   { fg: MOSAIC.ink, bg: MOSAIC.segDone, min: 4.5, what: 'check on a done quest segment' },
   { fg: TEXT.onAccent, bg: ACCENT.primary, min: 4.5, what: 'primary button label' },
