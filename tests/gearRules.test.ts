@@ -52,3 +52,47 @@ describe('attribute requirements', () => {
     expect(shortfall(undefined, 'sauroter_dory', 'legendary')).toBe(0);
   });
 });
+
+describe('class limits in play', () => {
+  it('generated, tutorial and duel-starter armies only carry gear their class may use', async () => {
+    const { tutorialBattle } = await import('../src/game/tutorial');
+    const { standardArmy } = await import('../src/game/heroes');
+    const { starterDuelRoster } = await import('../src/duel/rules');
+    const { equipBlocker } = await import('../src/game/gear');
+    const { Rng } = await import('../src/sim/rng');
+    const t = tutorialBattle();
+    const heroes = [...t.heroes, ...t.enemyHeroes, ...standardArmy(new Rng(3), { nextId: 1 }), ...starterDuelRoster(5, { nextId: 1 }, 'd_')];
+    for (const h of heroes) {
+      if (CLASSES[h.cls as keyof typeof CLASSES]?.kind === 'animal') continue;
+      for (const it of Object.values(h.equip)) if (it) expect(equipBlocker(h, it), `${h.cls} ${it.def}`).toBeNull();
+    }
+  });
+
+  it('the sim ignores gear the class may not use', async () => {
+    const { computeStats } = await import('../src/sim/stats');
+    const { makeHero } = await import('../src/game/heroes');
+    const { Rng } = await import('../src/sim/rng');
+    const h = makeHero(new Rng(2), { nextId: 1 }, 'greek', 'hoplite' as never, 3, 1);
+    const without = { ...h, equip: { ...h.equip } };
+    delete without.equip.weapon;
+    h.equip.weapon = { uid: 'b', def: 'bow', rarity: 'common', cond: 100 };
+    const s = computeStats(h);
+    expect(s.weapon).toBe('none');
+    expect(s.range).toBe(computeStats(without).range);
+    expect(s.dmg).toBeCloseTo(computeStats(without).dmg);
+  });
+
+  it('save v4 -> v5 moves gear the class may not use to the stash', async () => {
+    const { Campaign } = await import('../src/game/campaign');
+    const { migrate } = await import('../src/game/save');
+    const c = Campaign.fresh(4);
+    const raw = JSON.parse(JSON.stringify(c.data));
+    raw.v = 4;
+    const h = raw.heroes.find((x: { cls: string }) => x.cls === 'hoplite');
+    h.equip.weapon = { uid: 'old-bow', def: 'bow', rarity: 'rare', cond: 90 };
+    const out = migrate(raw)!;
+    expect(out.heroes.find((x) => x.id === h.id)!.equip.weapon).toBeUndefined();
+    expect(out.stash.some((i) => i.uid === 'old-bow')).toBe(true);
+    expect(out.gearMoved).toEqual([h.name]);
+  });
+});

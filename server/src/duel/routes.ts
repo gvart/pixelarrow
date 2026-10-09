@@ -23,7 +23,7 @@ import { emit, emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { limit } from '../online/context';
 import { randomToken, randomU32 } from '../online/store';
 import { itemDef, SLOTS, type Item, type Slot } from '../../../src/data/items';
-import { equipInto, unequipInto } from '../../../src/game/gear';
+import { equipBlocker, equipBlockerText, equipInto, unequipInto } from '../../../src/game/gear';
 import { ATTR_IDS } from '../../../src/data/perks';
 import { isClassId, type ClassId } from '../../../src/data/classes';
 import type { Hero } from '../../../src/data/units';
@@ -194,6 +194,8 @@ duel.post('/equip', async (c) => {
     if (!taken) throw new ApiError(404, 'not_found', 'No such item in your stash');
     const def = itemDef(taken.def);
     if (def.slot !== body.slot) throw badRequest(`${def.name} does not go in the ${body.slot} slot`);
+    const block = equipBlocker(hero, taken);
+    if (block) throw new ApiError(400, 'class_gear', equipBlockerText(block));
     toStash.push(...equipInto(hero.equip, taken));
   } else if (!unequipInto(hero.equip, body.slot, toStash)) return c.json({ profile: await view(x) });
   const G = duelRevGuard(x.pid, x.p.rev + 1);

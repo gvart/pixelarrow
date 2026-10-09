@@ -4,7 +4,7 @@
  * a refused change reloads the profile and says why (src/scenes/heroSource.ts).
  */
 import { itemDef } from '../data/items';
-import { equipFromStash, unequipInto } from '../game/gear';
+import { equipBlocker, equipFromStash, unequipInto } from '../game/gear';
 import type { Hero } from '../data/units';
 import { ATTR_IDS, ATTR_MAX, perkBlocker, type AttrId } from '../data/perks';
 import type { HeroSource } from '../scenes/heroSource';
@@ -72,7 +72,7 @@ export class DuelHeroSource implements HeroSource {
   equip(heroId: string, uid: string): boolean {
     const h = this.hero(heroId);
     const i = this.profile.stash.findIndex((x) => x.uid === uid);
-    if (!h || i < 0) return false;
+    if (!h || i < 0 || equipBlocker(h, this.profile.stash[i])) return false;
     const it = equipFromStash(h.equip, this.profile.stash, i);
     this.send(this.src.equip(heroId, itemDef(it.def).slot, uid));
     return true;

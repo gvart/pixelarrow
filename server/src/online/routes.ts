@@ -13,7 +13,7 @@ import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
 import { itemDef, SLOTS, type Item, type Slot } from '../../../src/data/items';
-import { equipInto, unequipInto } from '../../../src/game/gear';
+import { equipBlocker, equipBlockerText, equipInto, unequipInto } from '../../../src/game/gear';
 import { FORMATION_TYPES, type FormationType } from '../../../src/sim/formation';
 import { siteName } from '../../../src/world/battlefield';
 import type { RegionKind } from '../../../src/online/mapSchema';
@@ -536,6 +536,8 @@ online.post('/equip', async (c) => {
     if (!taken) throw new ApiError(404, 'not_found', 'No such item in your stash');
     const def = itemDef(taken.def);
     if (def.slot !== body.slot) throw badRequest(`${def.name} does not go in the ${body.slot} slot`);
+    const block = equipBlocker(hero, taken);
+    if (block) throw new ApiError(400, 'class_gear', equipBlockerText(block));
     toStash.push(...equipInto(hero.equip, taken));
   } else if (!unequipInto(hero.equip, body.slot, toStash)) return c.json({ hero, stash });
   const g = revGuard(pc.season.id, pc.pid, pc.profile.rev + 1);

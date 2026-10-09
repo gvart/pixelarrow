@@ -7,6 +7,7 @@
 import { itemDef, itemMods, itemValue, normalizeRarity, rarityRank, SLOTS, type Item, type Rarity, type Slot, type StatMods } from '../data/items';
 import type { Equipment, Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
+import { classGearBlocker, type ClassGearBlock } from '../data/gearRules';
 import { computeStats, heroClass, heroPower, type CombatStats } from '../sim/stats';
 
 // ------------------------------------------------------------------ stats shown on a sheet
@@ -86,6 +87,20 @@ export function statDeltas(cur: CombatStats, next: CombatStats, ids?: StatId[]):
 /** Only the stats that change. */
 export function changedDeltas(cur: CombatStats, next: CombatStats): StatDelta[] {
   return statDeltas(cur, next).filter((d) => d.better !== null);
+}
+
+/**
+ * Why `h` may not equip `item` (docs/ITEMS.md "Class limits"): 'weapon',
+ * 'shield' or 'armor' when his class does not use that kind, 'none' when the
+ * class wears no gear (animals). Null when he may.
+ */
+export function equipBlocker(h: Pick<Hero, 'cls' | 'arch' | 'culture' | 'equip'>, item: Pick<Item, 'def'>): ClassGearBlock | null {
+  return classGearBlocker(heroClass(h as Hero).id, itemDef(item.def));
+}
+
+/** One line for an equip refusal. */
+export function equipBlockerText(block: ClassGearBlock): string {
+  return block === 'none' ? 'This hero wears no gear' : `This class cannot use this ${block === 'armor' ? 'armour' : block}`;
 }
 
 /** Sum of one stat over everything a hero wears (rarity, random stats and requirement penalty applied). */

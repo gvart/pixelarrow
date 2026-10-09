@@ -3,13 +3,15 @@
  * small value limits (Telegram CloudStorage allows 4096 chars per key).
  */
 import { ITEMS, normalizeRarity, RARITIES, type Item } from '../data/items';
+import { classGearBlocker } from '../data/gearRules';
+import { classOfHero } from '../data/classes';
 import type { LangSetting } from '../i18n';
 import type { Hero } from '../data/units';
 import { defaultAttrs, PERKS, POINTS_PER_LEVEL } from '../data/perks';
 import { World, type WorldSave } from '../world/world';
 import type { TutorialProgress } from './tutorial';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export interface Settings {
   pauseContact: boolean;
@@ -73,6 +75,8 @@ export interface SaveData {
    */
   seq?: number;
   savedAt?: number;
+  /** Heroes whose gear their class may no longer use was moved to the stash (v5 class limits): shown once, then cleared. */
+  gearMoved?: string[];
 }
 
 type Migration = (d: Record<string, unknown>) => Record<string, unknown>;
@@ -103,6 +107,24 @@ const migrations: Record<number, Migration> = {
     for (const h of (d.heroes as Hero[]) ?? []) for (const it of Object.values(h?.equip ?? {})) fix(it);
     for (const it of (d.stash as unknown[]) ?? []) fix(it);
     return { ...d, v: 4 };
+  },
+  // v4 let any hero wear anything; v5 limits weapons, shields and armour by class
+  // (docs/ITEMS.md "Class limits"): what a hero's class may not use goes to the stash.
+  4: (d) => {
+    const stash = [...((d.stash as Item[]) ?? [])];
+    const moved: string[] = [];
+    for (const h of (d.heroes as Hero[]) ?? []) {
+      if (!h?.equip) continue;
+      const cls = classOfHero({ cls: h.cls, arch: h.arch, culture: h.culture, weaponDef: h.equip.weapon?.def });
+      for (const slot of Object.keys(h.equip) as (keyof Hero['equip'])[]) {
+        const it = h.equip[slot];
+        if (!it || !ITEMS[it.def] || !classGearBlocker(cls, ITEMS[it.def])) continue;
+        stash.push(it);
+        delete h.equip[slot];
+        if (!moved.includes(h.name)) moved.push(h.name);
+      }
+    }
+    return { ...d, v: 5, stash, ...(moved.length ? { gearMoved: moved } : {}) };
   },
 };
 

@@ -10,20 +10,21 @@ import { Battle } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import type { Hero } from '../data/units';
 
-function army(seed: number, rarity: Rarity): Hero[] {
+function army(seed: number, rarity: Rarity, level: number): Hero[] {
   const heroes = standardArmy(new Rng(seed), { nextId: 1 });
   for (const h of heroes) {
-    setBotLevel(h, 5);
-    h.perks = [];
+    // gear first, so the bot spends its points on what the gear asks for
     for (const it of Object.values(h.equip)) if (it) { it.rarity = rarity; it.cond = 100; }
+    setBotLevel(h, level);
+    h.perks = [];
   }
   return heroes;
 }
 
 /** Side 0 in `rarity` gear against the same army in common gear: 1 win, 0 loss, 0.5 draw. */
-export function runRarity(seed: number, rarity: Rarity): number {
-  const a = army(seed, rarity);
-  const b = army(seed, 'common');
+export function runRarity(seed: number, rarity: Rarity, level = 5): number {
+  const a = army(seed, rarity, level);
+  const b = army(seed, 'common', level);
   b.forEach((h, i) => (h.id = `m${i}`));
   const flip = seed % 2 === 1;
   const armies = flip ? [armySpec(b, true), armySpec(a, true)] : [armySpec(a, true), armySpec(b, true)];
@@ -35,11 +36,14 @@ export function runRarity(seed: number, rarity: Rarity): number {
   return (flip ? w === 1 : w === 0) ? 1 : 0;
 }
 
-export function rarityReport(n = 60): string {
+export function rarityReport(n = 60, levels = [5, 10]): string {
   const rows = RARITIES.slice(1).map((r) => {
-    let s = 0;
-    for (let i = 0; i < n; i++) s += runRarity(7000 + i, r);
-    return `  ${r.padEnd(10)} ${(100 * s / n).toFixed(0)}% vs common`;
+    const cells = levels.map((lv) => {
+      let s = 0;
+      for (let i = 0; i < n; i++) s += runRarity(7000 + i, r, lv);
+      return `L${lv} ${(100 * s / n).toFixed(0).padStart(3)}%`;
+    });
+    return `  ${r.padEnd(10)} ${cells.join('  ')}`;
   });
-  return ['Rarity mirror (level 5, full kit at a rarity vs all common)', ...rows].join('\n');
+  return ['Rarity mirror (full kit at a rarity vs the same army all common)', ...rows].join('\n');
 }

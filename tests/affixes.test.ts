@@ -83,3 +83,35 @@ describe('powers', () => {
     expect(itemDisplayName(it)).toBe('Keen Kopis of Blood Price');
   });
 });
+
+describe('sets', () => {
+  it('every set has its pieces, at the rarity normalizeItem enforces', async () => {
+    const { SETS, setPieces } = await import('../src/data/sets');
+    const { FIXED_RARITY, normalizeItem } = await import('../src/data/items');
+    for (const s of Object.values(SETS)) {
+      expect(FIXED_RARITY[s.id]).toBe(s.rarity);
+      const pieces = setPieces(s.id);
+      expect(pieces.length).toBe(Math.max(...s.bonuses.map((b) => b.pieces)));
+      expect(normalizeItem({ uid: 'x', def: pieces[0], rarity: 'common' as const, cond: 100 }).rarity).toBe(s.rarity);
+    }
+    expect(normalizeItem({ uid: 'x', def: 'golden_fleece', rarity: 'rare' as const, cond: 100 }).rarity).toBe('legendary');
+  });
+
+  it('count only pieces whose requirements are met, and add their bonus lines', async () => {
+    const { computeStats } = await import('../src/sim/stats');
+    const { makeHero } = await import('../src/game/heroes');
+    const { Rng } = await import('../src/sim/rng');
+    const h = makeHero(new Rng(1), { nextId: 1 }, 'greek', 'hoplite' as never, 5, 1);
+    h.equip = {
+      weapon: { uid: 'a', def: 'pelian_ash', rarity: 'legendary', cond: 100 },
+      shield: { uid: 'b', def: 'achilles_shield', rarity: 'legendary', cond: 100 },
+      helmet: { uid: 'c', def: 'achilles_helm', rarity: 'legendary', cond: 100 },
+      armor: { uid: 'd', def: 'hephaestean_cuirass', rarity: 'legendary', cond: 100 },
+      trinket: { uid: 'e', def: 'thetis_anklet', rarity: 'legendary', cond: 100 },
+    };
+    h.attrs = { str: 15, agi: 5, end: 15, wil: 15 };
+    expect(computeStats(h).setSpecials).toEqual(['heel_of_achilles']);
+    h.attrs = { str: 5, agi: 5, end: 5, wil: 5 };
+    expect(computeStats(h).setSpecials).toBeUndefined();
+  });
+});

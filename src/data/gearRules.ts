@@ -80,8 +80,10 @@ export const CLASS_GEAR: Readonly<Record<string, ClassGear>> = {
   sacred_band: G(['spear'], ['big'], 'heavy'),
 };
 
+export type ClassGearBlock = 'weapon' | 'shield' | 'armor' | 'none';
+
 /** Why `cls` may not equip `def` (a short reason key), or null if it may. */
-export function classGearBlocker(cls: string, def: ItemDef): 'weapon' | 'shield' | 'armor' | 'none' | null {
+export function classGearBlocker(cls: string, def: ItemDef): ClassGearBlock | null {
   if (def.slot === 'helmet' || def.slot === 'trinket') return CLASS_GEAR[cls] ? null : 'none';
   const g = CLASS_GEAR[cls];
   if (!g) return 'none';

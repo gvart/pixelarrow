@@ -31,9 +31,19 @@ export function normalizeRarity(r: unknown): Rarity {
   return LEGACY_RARITY[r] ?? 'common';
 }
 
-/** Map a stored item's legacy rarity in place (server rows, old saves). Returns the item. */
-export function normalizeItem<T extends { rarity: Rarity } | null | undefined>(it: T): T {
-  if (it && (it.rarity as string) !== normalizeRarity(it.rarity)) it.rarity = normalizeRarity(it.rarity);
+/** Rarity a set piece or named legendary always has (null for other items). */
+export const FIXED_RARITY: Record<string, Rarity> = { agoge: 'rare', peltast: 'rare', cretan: 'rare', brennus: 'epic', immortals: 'epic', sacred_band: 'epic', achilles: 'legendary', alexander: 'legendary' };
+
+/**
+ * Map a stored item's legacy rarity in place (server rows, old saves); set
+ * pieces and named legendaries always have their own rarity. Returns the item.
+ */
+export function normalizeItem<T extends { rarity: Rarity; def?: string } | null | undefined>(it: T): T {
+  if (!it) return it;
+  if ((it.rarity as string) !== normalizeRarity(it.rarity)) it.rarity = normalizeRarity(it.rarity);
+  const def = it.def ? ITEMS[it.def] : undefined;
+  const fixed = def?.named ? 'legendary' : def?.set ? FIXED_RARITY[def.set] : undefined;
+  if (fixed && it.rarity !== fixed) it.rarity = fixed;
   return it;
 }
 
