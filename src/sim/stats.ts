@@ -280,11 +280,14 @@ export function computeStats(hero: Hero): CombatStats {
   let scythe = 0;
   // Perks: stat mods like traits, plus abilities, auras and hooks.
   let ammoMult = 1;
+  // A perk's extra range needs a missile weapon: path B can put Longshot on a
+  // peltast with a spear, who must stay a melee man (abilities.md R1).
+  const missile = s.range > 0;
   for (const id of hero.perks ?? []) {
     const p = PERKS[id];
     if (!p) continue;
     if (p.mods) {
-      addCommon(s, p.mods);
+      addCommon(s, missile || !p.mods.range ? p.mods : { ...p.mods, range: 0 });
       s.dmg += p.mods.dmg ?? 0;
       s.reach += p.mods.reach ?? 0;
       speedMod += p.mods.speed ?? 0;
