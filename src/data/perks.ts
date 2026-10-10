@@ -116,7 +116,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   },
   aimed: {
     id: 'aimed', name: 'Aimed Volley', short: 'Aimed', icon: 'eye', cooldown: 20, color: 0x80c8a0, groupMode: 'one',
-    desc: 'Every shooter of the group in range of the focused group looses three careful shots at it: +25% accuracy, +20% damage.',
+    desc: 'Every shooter of the group in range of the focused group looses one careful shot at it: +25% accuracy, +20% damage.',
   },
   recharge: {
     id: 'recharge', name: 'Wheel and Re-charge', short: 'Wheel', icon: 'charge', cooldown: 25, color: 0xe8d090, groupMode: 'one',
@@ -170,7 +170,7 @@ export const ABILITY_RULES = {
   sunderTicks: 72,
   sunderArmor: 2,
   // Aimed Volley: free shots per shooter at the focused group
-  aimedShots: 3,
+  aimedShots: 1,
   aimedAccuracy: 0.25,
   aimedDamage: 1.2,
   // Wheel and Re-charge: break off, regroup, then charge with a bonus
