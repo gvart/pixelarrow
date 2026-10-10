@@ -13,3 +13,10 @@ test-results
 
 # Screenshots and other generated media from scripts/ (smokes, layout check, scripts/dev tools)
 /shots/
+
+# v5: raw Gemini downloads stay on disk in the v5 worktree, never in git (processed outputs and contact sheets are committed)
+/docs/v5/gemini/**/*.png
+/docs/v5/gemini/**/*.jpg
+/docs/v5/gemini/**/*.jpeg
+/docs/v5/gemini/**/*.webp
+!/docs/v5/gemini/**/processed/**
