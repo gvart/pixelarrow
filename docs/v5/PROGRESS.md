@@ -5,16 +5,15 @@ Main line: local branch `v5`, checked out in `/Users/v.gladis/Workspace/Personal
 Framework paths for agent prompts: `F=/Users/v.gladis/Workspace/Personal/pixelarrow/.claude/worktrees/sd-69ad2c` → `$F/.claude/skills/<name>/SKILL.md` and `$F/.claude/agents/<name>.md`.
 Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads into `docs/v5/gemini/` are approved for the whole run. Only the `assets` agent may use Chrome.
 
-## Phase: 1 done → 2 Vision and direction (started 2026-10-10)
+## Phase: 2 nearly done (art bible running) → 3 Plan starting
 
 ## Running agents
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
 | art-bible | S2-ART-BIBLE: design/art/art-bible.md, docs/v5/art/ASSET_PIPELINE.md + scripts/art/, ASSET_LIST.md, Gemini templates in ASSET_LOG | art-bible, create-game-assets, asset-spec, asset-audit | art-director, technical-artist | worktree-agent | running |
-| ux-ia | S2-UX-IA (done, awaiting merge): design/ux/, docs/v5/ux/ (24 screens, ELEMENT_MAP 331 old elements: 12 removed with reasons, 68 new; hub directions A Fresco Hall, B War Table, C Muster Roll) | ux-design, game-ui-ux, ux-review | ux-designer, accessibility-specialist | worktree-agent-af44c43de8953248d | merging |
-| sim-version | S4-SIM-VERSION (done, awaiting merge): SIM_VERSION=1, client+server, migration 0016, ADR-0001 | architecture-decision, tdd, dev-story, security-audit | network-programmer, lead-programmer | s4-sim-version | merging |
-| p4-spike | S4-P4-UPGRADE (V5-025 gated; was S2-P4-SPIKE): attempt Phaser 4 upgrade in its worktree, measure, write docs/v5/spike/P4.md + design/adr/ADR-0003 | phaser-core, architecture-decision, performance-optimization | technical-director, engine-programmer | worktree-agent (see report) | running (merge docs always; code only on UPGRADE) |
+| p4-docs | V5-028 STAY on 3.90: cherry-pick 58ed8e3, 87429c5, 38caa71, 37577bc from worktree-agent-a87171f35a803abef (no Phaser 4 code) | — | integrator | — | queued for integrator |
+| fixer-1 | S4-FIXER-1 (done): online-e2e.mjs fixed (ALL PASS), design/accessibility-requirements.md (A11Y-01..22) | smoke-check | qa-tester, accessibility-specialist | worktree-agent-ab9dbe29ce9ef3b1a | queued for integrator |
 
 ## Merged into v5
 
@@ -26,6 +25,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 94c0472 merge: S2-VISION (part 1): AUDIT.md, VISION.md, game-concept.md, 8 GDDs (ai-doctrines, formations-orders, abilities, campaign-arc, campaign-events, field-works, controls, battle-readability), entities registry, PROPOSALS P-1..P-3. Gates: tsc ok, vitest 525/525.
 - 5bf6ae2 merge: S2-VISION part 2: GDD review fixes + GDD_REVIEW.md (consistency-check CONCERNS: balance targets not yet measured). Gates: tsc ok, vitest 525/525.
 - 81aa8e0 merge: S4-FIX-SAVES: two-slot atomic saves, no silent wipe (px_corrupt), battle stands once begun, scene.start data (B1/B2, 26 call sites), Losses (B4). Plus 2f55742, a legacy main-layout save test. Gates: tsc, vitest 557, build, layout 0 new, smoke, tutorial-smoke, duel-smoke all pass.
+- 06b6841 merge: S2-UX-IA (design/ux/, docs/v5/ux/). abd8e1a merge: S4-SIM-VERSION (client+server, migration 0016, ADR-0001). Gates: tsc, vitest 564, server 196, build, layout 0 new, smoke 43, duel 54, online 26.
 
 ## Queue (next)
 
