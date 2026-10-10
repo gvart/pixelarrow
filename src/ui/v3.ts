@@ -24,7 +24,7 @@ import { ownSkin } from './inkSkin';
 import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
-import { ACCENT, MOSAIC, MOTION, RESOURCES, SURFACE, type ResourceId } from './tokens';
+import { ACCENT, MOSAIC, MOTION, RESOURCES, SURFACE, TEXT_MIN, type ResourceId } from './tokens';
 import { motion, pulse, tweenTo } from './motion';
 import { showInGameBack } from '../platform/nav';
 import { haptic } from '../platform/telegram';
@@ -34,6 +34,17 @@ import { t, type TKey } from '../i18n';
 type C = Phaser.GameObjects.Container;
 
 // ================================================================== surfaces
+
+/**
+ * Makes a v3 control (a container drawn from its top-left corner, 0..w x 0..h) tappable over exactly what it
+ * draws. Phaser tests a container's hit area at the local point plus the container's display origin (half its
+ * size once sized), so the rectangle is placed at that origin as Phaser reports it, not at an assumed w/2, h/2
+ * (the container-origin quirk, MECH §3). layout-check's tap probe holds every control to it.
+ */
+export function hitBox(c: Phaser.GameObjects.Container, w: number, h: number): void {
+  c.setSize(w, h);
+  c.setInteractive(new Phaser.Geom.Rectangle(c.displayOriginX, c.displayOriginY, w, h), Phaser.Geom.Rectangle.Contains);
+}
 
 /** A material surface (riveted card, raised card, selected, locked, well) added to `parent`. */
 export function addCard(scene: Phaser.Scene, parent: C, x: number, y: number, w: number, h: number, style: SmoothStyle = 'card'): Phaser.GameObjects.Image {
@@ -160,7 +171,7 @@ export class ScreenHeader extends Phaser.GameObjects.Container {
     uiFrame(title, this, this.w, this.h);
     this.add(title);
     if (o.note) {
-      const nt = addText(scene, x, 20, ellipsize(o.note, tw, false, 5.5), 'muted').setFontSize(5.5);
+      const nt = addText(scene, x, 20, ellipsize(o.note, tw, false, TEXT_MIN), 'muted').setFontSize(TEXT_MIN);
       uiFrame(nt, this, this.w, this.h);
       this.add(nt);
       if (o.noteTip) {
@@ -274,8 +285,7 @@ export class InfoChip extends Phaser.GameObjects.Container {
       this.add(g);
     }
     if (o.tip || o.onTap) {
-      this.setSize(this.w, this.h);
-      this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+      hitBox(this, this.w, this.h);
       if (o.id) uiId(this, o.id);
       tappable(this, null, () => (o.onTap ? o.onTap() : showTooltip(scene, o.tip!, this)));
     }
@@ -519,8 +529,7 @@ export class Toggle extends Phaser.GameObjects.Container {
     this.g = scene.add.graphics();
     this.add(this.g);
     this.draw();
-    this.setSize(this.w, this.h);
-    this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+    hitBox(this, this.w, this.h);
     uiId(this, o.id ?? `toggle:${o.label}`);
     if (o.disabled) this.setAlpha(0.45);
     tappable(this, null, () => {
@@ -863,16 +872,15 @@ export class Tile extends Phaser.GameObjects.Container {
     L(lt);
     let truncated = label !== o.label;
     if (showSub) {
-      const sub = ellipsize(o.sub!, this.w - 8, false, 6);
+      const sub = ellipsize(o.sub!, this.w - 8, false, TEXT_MIN);
       truncated ||= sub !== o.sub;
-      const st = addText(scene, this.w / 2, cy + 10, sub, o.locked ? 'muted' : 'sec', 0.5).setFontSize(6);
+      const st = addText(scene, this.w / 2, cy + 10, sub, o.locked ? 'muted' : 'sec', 0.5).setFontSize(TEXT_MIN);
       uiFrame(st, this, this.w, this.h);
       L(st);
     }
     if (o.locked) L(addIcon(scene, this.w - 15, 3, 'lock', 'D'));
     if (o.badge !== undefined && o.badge !== 0) this.add(new BadgeDot(scene, this.w - 6, 6, o.badge));
-    this.setSize(this.w, this.h);
-    this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+    hitBox(this, this.w, this.h);
     uiId(this, o.id ?? `tile:${o.label}`);
     const press = (on: boolean) => {
       if (!this.scene || o.locked) return;
@@ -989,8 +997,7 @@ export class ToggleChip extends Phaser.GameObjects.Container {
     L(lt);
     ownSkin(this);
     if (o.off) this.setAlpha(0.55);
-    this.setSize(this.w, this.h);
-    this.setInteractive(new Phaser.Geom.Rectangle(this.w / 2, this.h / 2, this.w, this.h), Phaser.Geom.Rectangle.Contains);
+    hitBox(this, this.w, this.h);
     uiId(this, o.id ?? `togglechip:${o.label}`);
     const press = (down: boolean) => face.setScale(down && !motion.reduced && !o.off ? 0.96 : 1);
     this.on('pointerdown', () => press(true));
