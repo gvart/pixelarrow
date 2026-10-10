@@ -11,7 +11,6 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| planner | Phase 3 plan (done, awaiting merge): docs/v5/plan/ EPICS, STORIES (86), SPRINTS (25 waves), ANSWERS A-1..A-43; production/epics/ | create-epics, create-stories, sprint-plan, scope-check, estimate, router | producer, technical-director | worktree-agent-a2af43163385d8ac0 | merging |
 | st-01 | Wave 1 ST-01: freeze v1 sim, SIM_VERSION 2 scaffold (see STORIES.md) | per story row | per story row | worktree-agent (see report) | running |
 | in-01 | Wave 1 IN-01: battle input layer (see STORIES.md) | per story row (input-systems, phaser-core, …) | per story row | worktree-agent (see report) | running |
 | art-bible | S2-ART-BIBLE: design/art/art-bible.md, docs/v5/art/ASSET_PIPELINE.md + scripts/art/, ASSET_LIST.md, Gemini templates in ASSET_LOG | art-bible, create-game-assets, asset-spec, asset-audit | art-director, technical-artist | worktree-agent | running |
@@ -28,6 +27,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 81aa8e0 merge: S4-FIX-SAVES: two-slot atomic saves, no silent wipe (px_corrupt), battle stands once begun, scene.start data (B1/B2, 26 call sites), Losses (B4). Plus 2f55742, a legacy main-layout save test. Gates: tsc, vitest 557, build, layout 0 new, smoke, tutorial-smoke, duel-smoke all pass.
 - 06b6841 merge: S2-UX-IA (design/ux/, docs/v5/ux/). abd8e1a merge: S4-SIM-VERSION (client+server, migration 0016, ADR-0001). Gates: tsc, vitest 564, server 196, build, layout 0 new, smoke 43, duel 54, online 26.
 - 05d8382 merge: S4-FIXER-1 (online-e2e fixed, A11Y-01..22). e31108c, c0a90ad, a92ab8f, 5145a6c: P4 spike docs, layout tween wait, bench, ADR-0003 Rejected (abandoned Phaser 4 code tip is 37577bc258dcdbe2f3085ec48806aff87067b332). Gates: tsc, vitest 564, build, layout 0, smoke, online-e2e 34 all pass.
+- 9033e07 merge: Phase 3 plan (docs/v5/plan/, production/epics/). Gates: tsc, vitest 564.
 
 ## Queue (next)
 
