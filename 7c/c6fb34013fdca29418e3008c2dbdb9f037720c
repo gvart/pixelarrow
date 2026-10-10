@@ -1,0 +1,35 @@
+src/world/world.ts
+  s_697bdc25a7c420::t_112ffb2a1d5fe5 1225
+  s_697bdc25a7c420::t_86c7477cf6f6bd 1165
+  s_697bdc25a7c420::t_5625b9d6d0d8e1 1180-1181
+  s_697bdc25a7c420::t_87b45dfa365829 730-731,733
+  s_697bdc25a7c420::t_5fe8b941109929 822
+  s_697bdc25a7c420::t_198f996e3a065c 765-768
+  s_697bdc25a7c420::t_9b8c453bb36d0a 830,832
+  s_697bdc25a7c420::t_c92f3744249341 25-28,66-71,165-167,174-175
+  s_697bdc25a7c420::t_5d6cf5304a9000 1195,1197-1198,1203,1207
+  s_697bdc25a7c420::t_7c4c96c14de62c 614-615,621,623,626-630,633
+  s_697bdc25a7c420::t_f66baf1934dcbf 917-1137
+  s_697bdc25a7c420::t_cfec7a2c464839 297-298
+  s_697bdc25a7c420::t_cfbd9da351c76a 238-261
+  s_697bdc25a7c420::t_66474403b45cf5 29
+  s_697bdc25a7c420::t_523b4445153a74 1213,1215
+  s_697bdc25a7c420::t_4c704b4af90028 1318-1319
+  s_697bdc25a7c420::t_eed2f4d65acd91 262,1138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7cc6fb34013fdca29418e3008c2dbdb9f037720c",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
