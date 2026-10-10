@@ -61,4 +61,20 @@ Fake Telegram (Bot API 8.0, iOS, overlays on, so the left pill reads "Close" or 
 
 ## Gates (2026-10-11, production build via `vite preview`)
 
-See the final report: tsc, vitest, vite build, layout-check, the four smokes and the HUB-01 walk.
+- `npx tsc --noEmit`: clean.
+- `npx vitest run`: 82 files, 955 tests passed. `tests/nav.test.ts` has 13 new tests, and `tests/tabLabels.test.ts` (new) has 3.
+- `npx vite build`: OK.
+- `node scripts/layout-check.mjs --no-shots`: 24 configurations x 150 screens, **passed**, 1771 distinct violations, 0 new. The check reports `online-coach-clan|text-size|*` as fixed but still allowlisted. That entry is F-group and not HUB-01's (`scripts/layout-allowlist.json` is not in this story's files), so it was left in place for its owner.
+- Smokes:
+  - `smoke.mjs`: ALL PASS.
+  - `tutorial-smoke.mjs`: PASSED.
+  - `duel-smoke.mjs`: ALL PASS.
+  - `online-smoke.mjs`: ALL PASS.
+  - `fullscreen-smoke.mjs` (the Telegram BackButton): ALL PASS.
+- The HUB-01 touch walk (a scratch Playwright script with the fake Telegram, the BackButton pressed through `__tg.pressBack()`): 165 checks, all passed, at 390x844 and 360x780 in en and ru. It covers:
+  - every tab from every hub;
+  - the Shop door;
+  - Settings on a hub;
+  - Duels Team → Back → Ladder;
+  - the War hex panel closed by Back;
+  - World, Army (from the hub and from World) and Settlement Back targets.
