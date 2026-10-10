@@ -1,0 +1,20 @@
+docs/v5/stories/HUB-01/NOTES.md
+  s_697bdc25a7c420::t_48a3eba95adf53 32
+  s_697bdc25a7c420::t_1f21a140bb29b5 1-31,33-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e0abf91586a0d7c298285af2cd31fb5e17fd3a85",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
