@@ -12,13 +12,13 @@ describe('ladder doctrines (AI-03)', () => {
     // chapter 1 is all steady; every later chapter keeps its doctrine on some floors
     expect(got.slice(0, 10).every((d) => d === 'steady')).toBe(true);
     for (let c = 2; c <= 5; c++) expect(got.slice((c - 1) * 10, c * 10 - 1), `chapter ${c}`).toContain(CHAPTER_DOCTRINE[c - 1]);
-    // the table as measured (docs/v5/balance/AI-03.md)
+    // the table as measured (docs/v5/balance/AI-03.md, re-measured in AB-02.md)
     expect(got.join(' ')).toBe(
       'steady steady steady steady steady steady steady steady steady steady ' +
-        'fury fury swarm steady fury swarm swarm fury rush steady ' +
+        'swarm fury swarm steady fury swarm steady steady rush steady ' +
         'rush rush rush swarm hammer swarm rush rush swarm steady ' +
-        'steady hammer hammer hammer hammer hammer hammer fury rush steady ' +
-        'swarm steady fury hammer hammer steady fury steady hammer steady',
+        'steady hammer hammer swarm steady hammer hammer rush rush steady ' +
+        'steady steady fury hammer hammer steady rush steady hammer steady',
     );
     expect(chapterOf(25)).toBe(3);
   });
@@ -61,14 +61,14 @@ describe('ladder doctrines (AI-03)', () => {
   });
 
   it('a floor, doctrine included, is a pure function of its number', () => {
-    const a = ladderFloor(17);
-    const b = ladderFloor(17);
+    const a = ladderFloor(16);
+    const b = ladderFloor(16);
     expect(b).toEqual(a);
     expect(a.doctrine).toBe('swarm');
   });
 
   it('the setup carries the doctrine on the bot side only (client and server build it with the same function)', () => {
-    const floor = ladderFloor(34);
+    const floor = ladderFloor(33);
     const setup = ladderSetup(1234, ladderFloor(1).heroes, floor.formations, floor);
     expect(setup.armies[1].bot).toBe(true);
     expect(setup.armies[1].doctrine).toBe('hammer');
