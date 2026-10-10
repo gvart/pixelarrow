@@ -1,0 +1,22 @@
+server/src/battle.ts
+  s_697bdc25a7c420::t_23ced27d539bf9 22,223-238
+  s_697bdc25a7c420::t_d2fb28c7c56068 21,38-43,45-47,105-106,118-121,145,154-158
+server/test/battleSchema.test.ts
+  s_697bdc25a7c420::t_1681bb11b94cb2 1-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7e2463f773ea26ed531d08e444283395804e1d7a",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
