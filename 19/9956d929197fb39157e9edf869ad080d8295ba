@@ -1,0 +1,27 @@
+tests/layoutCheckConfig.test.ts
+  s_697bdc25a7c420::t_3b44df08a17a64 3,17-22
+  s_697bdc25a7c420::t_4ef3f3a12f6162 2
+  s_697bdc25a7c420::t_89f7bf1d40af1e 1,4-16,23-24
+scripts/layout-allowlist.json
+  s_697bdc25a7c420::t_452f7381aa1c7d 2-21
+scripts/layout-check.mjs
+  s_697bdc25a7c420::t_319736cfbb3b8b 3,40,135,141
+  s_697bdc25a7c420::t_3dbc7540b09970 879
+  s_697bdc25a7c420::t_bd98fb3427786a 891-893
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "199956d929197fb39157e9edf869ad080d8295ba",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
