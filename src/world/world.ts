@@ -213,7 +213,7 @@ export const CAPTAIN_RULES = {
   /** Bands of this gear tier and up have a captain (CAPTAIN_MIN_TIER). */
   minTier: 2,
   /** His level over the band's, capped at MAX_LEVEL (CAPTAIN_LEVEL_BONUS). */
-  levelBonus: 2,
+  levelBonus: 0,
   /** Hours a band that retreated stays away (ESCAPE_IDLE_H). */
   escapeIdleH: 3,
   /** `escaped` stops counting here (ESCAPE_CAP). */
@@ -1022,7 +1022,7 @@ export function hasCaptain(p: PartyState): boolean {
  * The band's captain (ai-doctrines.md R6), or null when it has none. He comes
  * from the band's seed alone, apart from the rank and file, so he is the same
  * man however many of his band have fallen: a band that retreats comes back
- * with the same captain. He fights in the main line at the band's level + 2,
+ * with the same captain. He fights in the main line at the band's level (+ levelBonus),
  * with no item below uncommon (rare from tier 3), and carries the captain's
  * mark (src/sim/stats.ts CAPTAIN_STATS).
  */

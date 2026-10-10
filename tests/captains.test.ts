@@ -50,7 +50,7 @@ function result(enemies: Hero[], captain: 'ready' | 'dead' | 'ko', dead: number,
 }
 
 describe('captains (ai-doctrines.md R6)', () => {
-  it('a band of tier 2 or more has one captain: in the main line, band level + 2, no item below uncommon', () => {
+  it('a band of tier 2 or more has one captain: in the main line, band level + levelBonus, no item below uncommon', () => {
     const p = band();
     const army = partyArmy(p, { nextId: 1 });
     expect(army.heroes).toHaveLength(p.size);
@@ -62,7 +62,7 @@ describe('captains (ai-doctrines.md R6)', () => {
     for (const it of Object.values(cap.equip)) if (it) expect(rarityRank(it.rarity)).toBeGreaterThanOrEqual(1);
     // rare from tier 3, and the level cap holds
     const t3 = bandCaptain(band({ tier: 3, level: 9 }), { nextId: 1 })!;
-    expect(t3.level).toBe(10);
+    expect(t3.level).toBe(Math.min(10, 9 + CAPTAIN_RULES.levelBonus));
     for (const it of Object.values(t3.equip)) if (it) expect(rarityRank(it.rarity)).toBeGreaterThanOrEqual(2);
     // names stay unique in the band
     expect(new Set(army.heroes.map((h) => h.name)).size).toBe(army.heroes.length);
@@ -142,8 +142,8 @@ describe('the bounty (R6.4, F3)', () => {
     const c1 = withBand(p1);
     const e1 = partyArmy(p1, c1.data).heroes;
     const won = outcome({ gold: 50 });
-    expect(c1.afterPartyBattle(p1.id, won, result(e1, 'dead', 1), e1)).toMatchObject({ captain: 'killed', bounty: captainBounty(p1.level + 2) });
-    expect(won.gold).toBe(50 + captainBounty(p1.level + 2));
+    expect(c1.afterPartyBattle(p1.id, won, result(e1, 'dead', 1), e1)).toMatchObject({ captain: 'killed', bounty: captainBounty(p1.level + CAPTAIN_RULES.levelBonus) });
+    expect(won.gold).toBe(50 + captainBounty(p1.level + CAPTAIN_RULES.levelBonus));
     expect(c1.world.party(p1.id)).toBeUndefined();
 
     const p2 = band({ id: 901 });
