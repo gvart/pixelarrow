@@ -1,0 +1,24 @@
+server/test/orbFeintReplay.test.ts
+  s_697bdc25a7c420::t_361ea4ea841384 101
+  s_697bdc25a7c420::t_7bc4825f0e267a 1-100,102-104
+server/src/battle.ts
+  s_697bdc25a7c420::t_4356c280aa2026 40-41
+src/sim/types.ts
+  s_697bdc25a7c420::t_61c57c6c3cba73 10-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e7f47870baa441699aefaf1659f9c3d827fe0ff9",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
