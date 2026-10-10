@@ -1,0 +1,23 @@
+src/ui/mosaic/Niche.ts
+  s_697bdc25a7c420::t_b795e20264f458 33-34,39,41,43
+src/scenes/duel/duelParts.ts
+  s_697bdc25a7c420::t_b795e20264f458 78,80,83,85
+src/ui/sheet.ts
+  s_697bdc25a7c420::t_b795e20264f458 79,81,84,87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9ced424c8e16ef065eae71e14798ad137140562a",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
