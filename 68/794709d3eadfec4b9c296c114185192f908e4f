@@ -1,0 +1,27 @@
+src/dev/ordersBalance.ts
+  s_697bdc25a7c420::t_da71768d332e68 1-12
+src/dev/balance.ts
+  s_697bdc25a7c420::t_8ce17f68b37270 15-17,33-49,397-401
+src/dev/doctrineBalance.ts
+  s_697bdc25a7c420::t_da71768d332e68 1-13
+src/dev/worksBalance.ts
+  s_697bdc25a7c420::t_da71768d332e68 1-12
+src/dev/arcBalance.ts
+  s_697bdc25a7c420::t_da71768d332e68 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "68794709d3eadfec4b9c296c114185192f908e4f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
