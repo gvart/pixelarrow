@@ -5,8 +5,8 @@ import { NAMES, freeName, type Culture } from '../data/names';
 import { POSITIVE_TRAITS, type TraitId } from '../data/traits';
 import { MAX_LEVEL, TUNIC_COLORS, xpToNext, type Hero, type Look } from '../data/units';
 import {
-  ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, heroTree, perkBlocker, perkSlots,
-  type AttrId, type Attrs,
+  ATTR_IDS, ATTR_MAX, PERKS, POINTS_PER_LEVEL, heroPaths, perkBlocker, perkSlots,
+  type AttrId, type Attrs, type PerkId,
 } from '../data/perks';
 import { CLASSES, LEGACY_ARCH, classOfHero, isClassId, type ClassDef, type ClassId } from '../data/classes';
 import { Rng } from '../sim/rng';
@@ -115,8 +115,14 @@ export function rollAttrs(rng: Rng, arch: Archetype): Attrs {
   return a;
 }
 
+/** What autoDevelop needs to know about the hero's army. */
+export interface DevelopContext {
+  /** The army already has a standard bearer: take path A at the standard_bearer tier. */
+  standard?: boolean;
+}
+
 /** Spend unspent points and free perk slots the way the hero's class would. */
-export function autoDevelop(h: Hero): void {
+export function autoDevelop(h: Hero, ctx: DevelopContext = {}): void {
   const c = heroCls(h);
   const order: AttrId[] = c.growth.length ? c.growth : ['end', 'str', 'agi', 'wil'];
   // first what the gear asks for (docs/ITEMS.md "Attribute requirements"), then the class's way
@@ -137,25 +143,40 @@ export function autoDevelop(h: Hero): void {
     h.attrs[k]++;
     h.points--;
   }
-  pickPerks(h);
+  pickPerks(h, ctx);
 }
 
-/** Take the next perks down the hero's class tree. */
-function pickPerks(h: Hero): void {
+/**
+ * The option a bot takes at a tier (abilities.md R6), with no RNG so ladder
+ * floors stay pure functions: B when it is the family's signature active
+ * (tier 2) and grants an ability, or when it carries the standard and the
+ * army has none; A otherwise. The new B ids do nothing until AB-02 / AB-03
+ * wire their effects, so until then bots keep the old A chain.
+ */
+export function botPathChoice(tier: readonly PerkId[], index: number, ctx: DevelopContext = {}): PerkId {
+  const b = tier[1] ? PERKS[tier[1]] : undefined;
+  if (b && index === 1 && b.ability) return b.id;
+  if (b?.standard && !ctx.standard) return b.id;
+  return tier[0];
+}
+
+/** Take one option per open tier down the hero's class paths. */
+function pickPerks(h: Hero, ctx: DevelopContext): void {
   const cls = heroCls(h).id;
-  for (const id of heroTree({ cls })) {
-    if (h.perks.length >= perkSlots(h.level)) break;
+  heroPaths({ cls }).forEach((tier, i) => {
+    if (h.perks.length >= perkSlots(h.level) || tier.some((p) => h.perks.includes(p))) return;
+    const id = botPathChoice(tier, i, ctx);
     if (perkBlocker({ level: h.level, perks: h.perks, cls }, id) === null) h.perks.push(id);
-  }
+  });
 }
 
 /** Bot heroes: attributes and perks follow from class and level alone. */
-export function setBotLevel(h: Hero, level: number): void {
+export function setBotLevel(h: Hero, level: number, ctx: DevelopContext = {}): void {
   h.level = Math.max(1, Math.min(MAX_LEVEL, level));
   h.attrs = { ...heroCls(h).attrs };
   h.points = (h.level - 1) * POINTS_PER_LEVEL;
   h.perks = [];
-  autoDevelop(h);
+  autoDevelop(h, ctx);
 }
 
 export function rollRarity(rng: Rng, tier: number): Rarity {
@@ -178,7 +199,7 @@ export function rollBeastRarity(rng: Rng): Rarity {
  * already in the same army: the new hero's name will differ from all of
  * theirs. `group` defaults to the class's battle group.
  */
-export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: Archetype, level: number, tier: number, group?: number, roster: readonly { name: string }[] = []): Hero {
+export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: Archetype, level: number, tier: number, group?: number, roster: readonly { name: string; perks?: readonly PerkId[] }[] = []): Hero {
   const clsId = toClass(archetype);
   const cls = CLASSES[clsId];
   const beast = cls.kind === 'animal';
@@ -215,7 +236,8 @@ export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: A
     cls: clsId,
   };
   hero.points = (hero.level - 1) * POINTS_PER_LEVEL;
-  if (hero.level > 1) autoDevelop(hero);
+  // one standard per army (abilities.md R5): the roster says whether it already has a bearer
+  if (hero.level > 1) autoDevelop(hero, { standard: roster.some((r) => r.perks?.some((p) => PERKS[p]?.standard)) });
   if (beast) return hero;
   const t = Math.max(1, Math.min(3, tier));
   const levy = clsId === 'militia';
