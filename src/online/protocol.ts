@@ -40,6 +40,15 @@ export { DEPLOY_MS } from './deployClock';
  */
 export const DEPLOY_GRACE_MS = 3000;
 
+/**
+ * A client whose sim version the server does not take (design/adr/ADR-0001):
+ * HTTP 426 with this error code, or on a socket an `error` frame with this
+ * code followed by a close with SIM_VERSION_CLOSE. The client asks the player
+ * to reload and stops reconnecting.
+ */
+export const SIM_VERSION_REJECTED = 'sim_version_unsupported';
+export const SIM_VERSION_CLOSE = 4426;
+
 export interface PresencePlayer {
   id: number;
   name: string;
