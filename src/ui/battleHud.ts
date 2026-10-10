@@ -470,20 +470,149 @@ export function noTargetInRange(sim: HudSim, gid: number): boolean {
   return true;
 }
 
-/** The cards' "Out of range" (PLAY B6): Shoot on and no target in range for more than 3 s. Full targeting is CT-02. */
+/**
+ * The cards' "Out of range" (controls.md R3.4; PLAY B6): Shoot on, and either
+ * the focused group is out of every shooter's range (the sim's
+ * `focusOutOfRange`, at once) or no enemy has been in range for more than 3 s.
+ */
 export class OutOfRange {
   private since = new Map<number, number>();
 
   /** `now`: battle time in seconds. */
   check(sim: HudSim, gid: number, now: number): boolean {
+    const g = sim.groups[gid];
+    const focusFar = !!g?.fireAtWill && !g.routed && g.focusOutOfRange === true;
     if (!noTargetInRange(sim, gid)) {
       this.since.delete(gid);
-      return false;
+      return focusFar;
     }
     const t0 = this.since.get(gid) ?? now;
     this.since.set(gid, t0);
-    return now - t0 > NO_TARGET_S;
+    return focusFar || now - t0 > NO_TARGET_S;
   }
+}
+
+// ---- targeting (CT-02, controls.md R3)
+
+/** A group that can shoot now: a man still fighting with missiles left (missile or hybrid groups). */
+export function isMissileGroup(sim: HudSim, gid: number): boolean {
+  return sim.activeMembers(gid).some((u) => u.stats.range > 0 && u.ammo > 0);
+}
+
+/** What a tap on an enemy of group `foe` does for the selected group `gid` (R3.1, R3.2). */
+export type EnemyTap = { kind: 'attack' } | { kind: 'focus'; target: number };
+
+/** Melee groups attack; missile groups focus on that group, and a tap on the focused group again clears it (-1). */
+export function enemyTap(sim: HudSim, gid: number, foe: number): EnemyTap {
+  if (!isMissileGroup(sim, gid)) return { kind: 'attack' };
+  return { kind: 'focus', target: (sim.groups[gid]?.focus ?? -1) === foe ? -1 : foe };
+}
+
+/** The centre of a group's men still fighting; null when none is. */
+export function groupCentre(sim: HudSim, gid: number): { x: number; y: number } | null {
+  const mem = sim.activeMembers(gid);
+  if (!mem.length) return null;
+  return { x: mem.reduce((a, u) => a + u.x, 0) / mem.length, y: mem.reduce((a, u) => a + u.y, 0) / mem.length };
+}
+
+/** The median weapon range (paces) of a group's men with missiles left; 0 when it has none. */
+export function medianRange(sim: HudSim, gid: number): number {
+  const r = sim
+    .activeMembers(gid)
+    .filter((u) => u.stats.range > 0 && u.ammo > 0)
+    .map((u) => u.stats.range)
+    .sort((a, b) => a - b);
+  if (!r.length) return 0;
+  const m = r.length >> 1;
+  return r.length % 2 ? r[m] : (r[m - 1] + r[m]) / 2;
+}
+
+/**
+ * The range ring (R3.3): `n` field points round the group's centre at its
+ * median range, each pushed out by the sim's downhill bonus toward it. Null
+ * for a group that cannot shoot.
+ */
+export function rangeRing(sim: HudSim, gid: number, n = 48): { x: number; y: number }[] | null {
+  const c = groupCentre(sim, gid);
+  const r = medianRange(sim, gid);
+  if (!c || r <= 0) return null;
+  const from = { x: c.x, y: c.y } as SimUnit;
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const dx = Math.cos(a);
+    const dy = Math.sin(a);
+    const rr = r + sim.rangeBonus(from, { x: c.x + dx * r, y: c.y + dy * r } as SimUnit);
+    pts.push({ x: c.x + dx * rr, y: c.y + dy * rr });
+  }
+  return pts;
+}
+
+/** What "Advance to range" walks toward: the focused group's centre, else the nearest enemy standing. */
+export function rangeTarget(sim: HudSim, gid: number): { x: number; y: number } | null {
+  const c = groupCentre(sim, gid);
+  const g = sim.groups[gid];
+  if (!c || !g) return null;
+  const focus = g.focus ?? -1;
+  if (focus >= 0) {
+    const ready = sim.members(focus).filter((u) => u.state === 'ready');
+    if (ready.length) return { x: ready.reduce((a, u) => a + u.x, 0) / ready.length, y: ready.reduce((a, u) => a + u.y, 0) / ready.length };
+  }
+  let best: SimUnit | null = null;
+  let bestD = Infinity;
+  for (const e of sim.units) {
+    if (e.side === g.side || e.state !== 'ready') continue;
+    const d = Math.hypot(e.x - c.x, e.y - c.y);
+    if (d < bestD) {
+      bestD = d;
+      best = e;
+    }
+  }
+  return best ? { x: best.x, y: best.y } : null;
+}
+
+/** "Advance to range" stops the group's centre at this share of its median range from the target (R3.4). */
+export const ADVANCE_RANGE_K = 0.9;
+
+/**
+ * The `form` that "Advance to range" sends (R3.4): the group's centre moves
+ * straight toward the target until it is at 90% of the median range (or 80%
+ * of the way there when it is that close already), facing the target. Null:
+ * nothing to walk to.
+ */
+export function advanceToRange(sim: HudSim, gid: number): { cx: number; cy: number; fx: number; fy: number } | null {
+  const c = groupCentre(sim, gid);
+  const t = rangeTarget(sim, gid);
+  const r = medianRange(sim, gid);
+  if (!c || !t || r <= 0) return null;
+  const dx = c.x - t.x;
+  const dy = c.y - t.y;
+  const d = Math.hypot(dx, dy);
+  if (d < 1e-6) return null;
+  const want = Math.min(ADVANCE_RANGE_K * r, d * 0.8);
+  return { cx: t.x + (dx / d) * want, cy: t.y + (dy / d) * want, fx: -dx / d, fy: -dy / d };
+}
+
+/** Narrowest order key (UI px): the 44 pt touch target. */
+export const KEY_MIN_W = 22;
+
+/**
+ * Widths of the order bar's keys (controls.md R9: labels are never
+ * ellipsized). Equal when every label fits an equal share at `size`; else
+ * each key gets its label's width and the rest is shared out, so a long word
+ * ("Стрелять" at 360, "Advance" at 320) keeps its room.
+ */
+export function orderKeyWidths(labels: readonly string[], total: number, gap: number, size = 5.5): number[] {
+  const n = labels.length;
+  if (!n) return [];
+  const room = total - gap * (n - 1);
+  const need = labels.map((l) => Math.max(KEY_MIN_W, measureText(l, true, size) + 4));
+  const even = Math.floor(room / n);
+  if (need.every((w) => w <= even)) return labels.map(() => even);
+  const spare = Math.max(0, room - need.reduce((a, w) => a + w, 0));
+  const each = Math.floor(spare / n);
+  let rest = spare - each * n;
+  return need.map((w) => w + each + (rest-- > 0 ? 1 : 0));
 }
 
 /**
