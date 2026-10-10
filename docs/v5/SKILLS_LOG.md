@@ -20,3 +20,7 @@
 | ST-02 | st-02 (per card) | save-systems: refuse newer saves, one migration per version, a fixture per version; architecture-decision: ADR-0002; tdd | OK: found the old-client wipe risk |
 | FO-01 | fo-01 (per card) | tdd through orders and the hash; balance-check: each value vs its GDD target, misses named; team-combat edge cases; values kept in RULES | OK |
 | ST-02b | st-02b | tdd, save-systems, security-audit (atomic guard, bounded v), network-programmer | OK after one clarification |
+| AI-01 | ai-01 (ai-programmer, per card) | game-ai: decision separate from motion, doctrine as data; balance-check: every value vs target, misses named; tdd | OK: misses accepted (V5-037-style) |
+| ST-02c | st-02c | save-systems: backups, never overwrite without a choice; tdd: red first | OK |
+| LF-02 | lf-02 (economy-designer, gameplay-programmer) | quick-design: practice-fight GDD first; balance-check: loot columns before and after; tdd: 40-repeat test | OK |
+| S4-FIXER-2 | fixer-2 | tdd; security-audit: bounded to existing, unexpired tickets; network-programmer | OK |
