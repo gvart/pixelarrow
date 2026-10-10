@@ -428,6 +428,8 @@ duelSeason.get('/async/replay/:id', async (c) => {
     setup: JSON.parse(a.setup) as BattleSetup,
     orders: JSON.parse(a.orders ?? '[]') as LoggedOrder[],
     deployOrders: a.deploy_orders,
+    /** The rules it was fought under: a client running other rules cannot replay it faithfully. */
+    simVersion: a.sim_version,
     winner: a.winner,
     ticks: a.ticks,
     at: a.finished_at,
