@@ -3,9 +3,14 @@
  *
  * A press is resolved twice, because one finger can still become either
  * gesture (src/ui/input/gestures.ts decides which):
- * - `grab`: what a DRAG from here would take hold of. The selected group's
- *   facing knob turns it; its soldiers, slots or placement marker move it.
- *   When both are in reach the closer one wins (a tie goes to the knob).
+ * - `grab`: what a DRAG from here would take hold of (controls.md R1.1):
+ *   1. a man of ANOTHER own group under the finger (the nearest man in tap
+ *      reach): nothing, so the press selects his group on a tap and pans on
+ *      a drag. This beats the knob drawn over him (PLAY C1); the knob still
+ *      turns from its outer edge, beyond his reach;
+ *   2. the selected group's facing knob turns it; its soldiers, slots or
+ *      placement marker move it. When both are in reach the closer one wins
+ *      (a tie goes to the knob).
  * - `tap`: what a TAP here means. First match wins:
  *   1. a floating group tag (a map marker): select its group;
  *   2. the nearest visible man within reach (a horse is a longer target):
@@ -37,6 +42,8 @@ export interface HitUnit {
 export interface HitState {
   /** The side the player commands. */
   me: number;
+  /** The selected group (-1: none). Its men are not "another group" to the grab. */
+  sel: number;
   /** The selection can take a formation drag now (a commandable group or soldier is selected). */
   grabbable: boolean;
   /** Screen points of the selected group's body: its soldiers, slots and placement marker. */
@@ -70,6 +77,8 @@ const d2 = (a: Pt, b: Pt) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 /** What a drag from this point would grab: the knob (turn), the body (move) or nothing. */
 export function grabAt(s: HitState, p: Pt): DragKind | null {
   if (!s.grabbable) return null;
+  const man = nearestMan(s, p);
+  if (man && man.side === s.me && man.group !== s.sel) return null;
   let body = Infinity;
   for (const q of s.body) body = Math.min(body, d2(q, p));
   const knob = s.knob ? d2(s.knob, p) : Infinity;
@@ -78,9 +87,8 @@ export function grabAt(s: HitState, p: Pt): DragKind | null {
   return body < r2 ? 'move' : null;
 }
 
-/** What a tap on this point means. */
-export function tapAt(s: HitState, p: Pt): TapHit {
-  for (const t of s.tags) if (Math.hypot(t.x - p.x, t.y - p.y) <= s.tagR) return { kind: 'tag', gid: t.gid };
+/** The visible man nearest the point within tap reach, or null. */
+function nearestMan(s: HitState, p: Pt): HitUnit | null {
   let best: HitUnit | null = null;
   let bestD = s.unitR;
   for (const u of s.units) {
@@ -91,6 +99,13 @@ export function tapAt(s: HitState, p: Pt): TapHit {
       best = u;
     }
   }
+  return best;
+}
+
+/** What a tap on this point means. */
+export function tapAt(s: HitState, p: Pt): TapHit {
+  for (const t of s.tags) if (Math.hypot(t.x - p.x, t.y - p.y) <= s.tagR) return { kind: 'tag', gid: t.gid };
+  const best = nearestMan(s, p);
   if (best) return { kind: best.side === s.me ? 'own' : 'enemy', unit: best.id, group: best.group };
   return { kind: 'ground' };
 }

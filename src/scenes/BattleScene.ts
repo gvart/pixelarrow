@@ -144,8 +144,13 @@ const DRAG_PX = px(10);
 const GRAB_PX = px(30);
 /** Tap radius (screen px) of a floating group tag (a 44 pt target). */
 const TAG_PX = px(20);
-/** Tap radius of a man on the field, in device px (unlike the radii above it is not scaled by RS). */
-const UNIT_TAP_PX = 30;
+/**
+ * Tap radius of a man on the field: a 44 pt target (controls.md R1.1, R11). It
+ * also decides when another group's man under the finger beats the knob, which
+ * keeps grabbing out to GRAB_PX beyond him. (Was 30 device px, unscaled: 10 pt
+ * of radius on a 3x phone. V5-034.)
+ */
+const UNIT_TAP_PX = px(22);
 
 export class BattleScene extends BaseScene {
   private sim!: Battle;
@@ -1536,7 +1541,7 @@ export class BattleScene extends BaseScene {
       units.push({ id: u.id, side: u.side, group: u.group, big: v.big, ...scr(v.spr.x, v.spr.y - v.tall * 0.45) });
     }
     const tags = [...this.tagPos].map(([gid, q]) => ({ gid, x: q.x * S, y: q.y * S }));
-    const hs: HitState = { me: this.me, grabbable: false, body: [], knob: null, tags, units, grabR: GRAB_PX, tagR: TAG_PX, unitR: UNIT_TAP_PX };
+    const hs: HitState = { me: this.me, sel: this.selGroup, grabbable: false, body: [], knob: null, tags, units, grabR: GRAB_PX, tagR: TAG_PX, unitR: UNIT_TAP_PX };
     if (this.selGroup < 0 || this.sim.phase === 'ended' || !this.canCommand()) return hs;
     const grp = this.sim.groups[this.selGroup];
     if (!grp || grp.disbanded) return hs;
