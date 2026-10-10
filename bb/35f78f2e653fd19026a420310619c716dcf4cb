@@ -1,0 +1,27 @@
+tests/stateReplace.test.ts
+  s_697bdc25a7c420::t_594a6d2ba9c41a 1-105
+src/state.ts
+  s_697bdc25a7c420::t_d936d11ac92fc3 3,52,87-91,109-114,129-130,156,164-165
+src/i18n/en.ts
+  s_697bdc25a7c420::t_d936d11ac92fc3 100
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_d936d11ac92fc3 86
+src/scenes/MenuScene.ts
+  s_697bdc25a7c420::t_d936d11ac92fc3 108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bb35f78f2e653fd19026a420310619c716dcf4cb",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
