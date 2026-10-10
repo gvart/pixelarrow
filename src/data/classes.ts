@@ -8,7 +8,7 @@
  *    is a horseman with whatever lance and helmet he carries; gear never turns
  *    a footman into a rider. MOUNTS below holds what the animal adds (speed,
  *    HP, charge, footprint, turning and braking),
- *  - his own five-perk tree (`tree`, tier 0..4 at levels 2/4/6/8/10),
+ *  - his own perk paths (`tree`: tiers 0..4 at levels 2/4/6/8/10, two options each),
  *  - his attributes at recruitment and how bots develop him (`attrs`, `growth`),
  *  - how he is drawn (`art`: cloak, trousers, bare chest, tunic colours).
  *
@@ -23,7 +23,7 @@
  * exactly as before (the sim only reads the derived CombatStats).
  */
 import type { StatMods } from './items';
-import { registerClassTree, type Attrs, type AttrId, type PerkId } from './perks';
+import { registerClassTree, type Attrs, type AttrId, type PerkPath } from './perks';
 import type { Culture } from './names';
 import { MYTHS, MYTH_IDS, type MythId } from './beasts';
 
@@ -131,7 +131,12 @@ export interface ClassDef {
   routAt?: number;
   attrs: Attrs;
   growth: AttrId[];
-  tree: PerkId[];
+  /**
+   * Perk paths: five tiers (levels 2/4/6/8/10) of [A, B]; a hero takes one of
+   * each (design/gdd/abilities.md R1). A is the perk of the old linear chain,
+   * so a perk taken before the paths is always an A pick.
+   */
+  tree: PerkPath[];
   kit: Kit;
   /** Cultures whose towns recruit the class (empty: never recruited). */
   cultures: Culture[];
@@ -152,7 +157,7 @@ const defs: ClassDef[] = [
     id: 'militia', name: 'Militia', short: 'Levy', role: 'levy', cost: 60, group: 0,
     desc: 'Farmers with spears and clubs. Cheap, brittle, many.',
     mods: { morale: -6 }, attrs: A(5, 5, 5, 5), growth: ['end', 'str', 'agi', 'wil'],
-    tree: ['drilled', 'shield_bash', 'phalangite', 'rally_cry', 'unbreakable'],
+    tree: [['drilled', 'shield_drill'], ['shield_bash', 'push'], ['phalangite', 'iron_discipline'], ['rally_cry', 'standard_bearer'], ['unbreakable', 'warlord']],
     kit: { weapon: [['dory', 'club', 'javelins', 'sling', 'ash_dory'], ['dory', 'longche', 'lancea'], ['longche', 'lancea']], shield: [['', 'thureos', 'hide_shield'], ['thureos', 'hide_shield'], ['thureos', 'gerron']], helmet: [[], ['cap', 'felt_pilos', 'wolfskin_cap'], ['pilos', 'konos', 'bronze_skullcap']] },
     cultures: ['greek', 'phoenician', 'celtic'], art: { tunics: ['tunicWhite', 'tunicOchre', 'tunicGreen'] },
   },
@@ -161,7 +166,7 @@ const defs: ClassDef[] = [
     id: 'hoplite', name: 'Spartan hoplite', short: 'Hoplt', role: 'heavy', cost: 100, group: 0,
     desc: 'Dory and aspis. The wall: braces against charges, holds the line.',
     mods: { morale: 8, block: 0.03 }, attrs: A(5, 4, 6, 5), growth: ['end', 'str', 'wil', 'end', 'str', 'agi'],
-    tree: ['shield_drill', 'shield_bash', 'phalangite', 'steady_presence', 'unbreakable'],
+    tree: [['shield_drill', 'drilled'], ['shield_bash', 'push'], ['phalangite', 'iron_discipline'], ['steady_presence', 'standard_bearer'], ['unbreakable', 'warlord']],
     kit: {
       weapon: [['dory'], ['dory', 'bronze_dory'], ['bronze_dory', 'sauroter_dory']], shield: [['hoplon'], ['hoplon', 'boeotian_shield'], ['hoplon', 'aspis', 'spartan_aspis']],
       helmet: [['pilos', 'corinthian'], ['corinthian', 'chalcidian', 'apulo_corinthian'], ['corinthian', 'crested_chalcidian']], armor: [['linothorax'], ['linothorax', 'cuirass', 'painted_linothorax', 'bell_cuirass'], ['cuirass', 'plated_linothorax']],
@@ -172,7 +177,7 @@ const defs: ClassDef[] = [
     id: 'thureophoros', name: 'Thureophoros', short: 'Thuro', role: 'heavy', cost: 85, group: 0,
     desc: 'Oval thureos and sword. Quicker than hoplites, good in broken ground.',
     mods: { speed: 0.05, stamina: 10 }, attrs: A(6, 5, 5, 4), growth: ['str', 'agi', 'end', 'str', 'wil', 'agi'],
-    tree: ['shield_drill', 'shield_bash', 'iron_discipline', 'rally_cry', 'warlord'],
+    tree: [['shield_drill', 'drilled'], ['shield_bash', 'push'], ['iron_discipline', 'phalangite'], ['rally_cry', 'standard_bearer'], ['warlord', 'unbreakable']],
     kit: {
       weapon: [['xiphos', 'longche'], ['kopis', 'longche', 'iron_xiphos', 'makhaira'], ['kopis', 'falcata', 'gladius']], shield: [['thureos'], ['thureos', 'punic_shield'], ['thureos', 'celtic_shield', 'scutum']],
       helmet: [['pilos', 'montefortino'], ['montefortino', 'chalcidian', 'iron_pilos', 'illyrian'], ['chalcidian', 'hellenistic']], armor: [['leather'], ['linothorax', 'scaled_linothorax'], ['linothorax', 'scale', 'hamata']],
@@ -183,7 +188,7 @@ const defs: ClassDef[] = [
     id: 'celt_sword', name: 'Celtic swordsman', short: 'Celt', role: 'heavy', cost: 80, group: 0,
     desc: 'Long sword, tall shield and mail. A hard first rush.',
     mods: { chargeBonus: 0.25, moraleShock: 0.15, morale: -2 }, attrs: A(6, 5, 5, 4), growth: ['str', 'agi', 'end', 'str', 'wil', 'agi'],
-    tree: ['brawler', 'shield_bash', 'bloodlust', 'rally_cry', 'warlord'],
+    tree: [['brawler', 'zealot'], ['shield_bash', 'warcry'], ['bloodlust', 'reaping_blow'], ['rally_cry', 'standard_bearer'], ['warlord', 'unbreakable']],
     kit: {
       weapon: [['longsword'], ['longsword'], ['longsword', 'falcata', 'chieftain_sword']], shield: [['thureos'], ['celtic_shield'], ['celtic_shield', 'bossed_shield']],
       helmet: [['', 'montefortino'], ['montefortino', 'coolus'], ['montefortino', 'horned_helm']], armor: [['', 'leather'], ['mail', 'leather', 'hide_jerkin'], ['mail', 'noble_mail']],
@@ -194,7 +199,7 @@ const defs: ClassDef[] = [
     id: 'rhomphaia', name: 'Thracian rhomphaia', short: 'Rhomph', role: 'heavy', cost: 85, group: 0,
     desc: 'Two-handed long blade: cuts through shield walls, no shield of his own.',
     mods: { hp: 4, moraleShock: 0.1 }, attrs: A(7, 4, 5, 4), growth: ['str', 'end', 'str', 'agi', 'wil', 'str'],
-    tree: ['shield_breaker', 'berserk', 'reaping_blow', 'bloodlust', 'warlord'],
+    tree: [['shield_breaker', 'brawler'], ['berserk', 'sunder'], ['reaping_blow', 'iron_discipline'], ['bloodlust', 'rally_cry'], ['warlord', 'unbreakable']],
     kit: { weapon: [['rhomphaia'], ['rhomphaia'], ['rhomphaia']], helmet: [['thracian'], ['thracian', 'phrygian'], ['thracian', 'gilded_thracian']], armor: [['leather', 'spolas'], ['linothorax', 'scale'], ['scale']] },
     cultures: ['greek'], art: { tunics: ['tunicOchre', 'tunicRed'], trousers: 'trouserBrown', cloak: 'cloakBrown' },
   },
@@ -203,7 +208,7 @@ const defs: ClassDef[] = [
     id: 'archer', name: 'Cretan archer', short: 'Archr', role: 'ranged', cost: 50, group: 1,
     desc: 'The longest bow: bleeds slow heavy infantry from afar.',
     mods: { accuracy: 0.06, range: 1 }, attrs: A(4, 7, 4, 5), growth: ['agi', 'wil', 'agi', 'end', 'agi', 'str'],
-    tree: ['longshot', 'volley', 'deep_quiver', 'eagle_eye', 'skirmish_master'],
+    tree: [['longshot', 'fleet'], ['volley', 'aimed'], ['deep_quiver', 'lead_bullets'], ['eagle_eye', 'steady_presence'], ['skirmish_master', 'warlord']],
     kit: { weapon: [['bow'], ['cretan_bow', 'persian_bow'], ['cretan_bow']], helmet: [[], ['cap', 'felt_pilos'], ['pilos']], armor: [[], ['leather', 'quilted'], ['leather']] },
     cultures: ['greek', 'phoenician'], art: { tunics: ['tunicWhite', 'tunicOchre'] },
   },
@@ -211,7 +216,7 @@ const defs: ClassDef[] = [
     id: 'slinger', name: 'Rhodian slinger', short: 'Sling', role: 'ranged', cost: 50, group: 1,
     desc: 'Lead bullets at long range; plenty of them.',
     mods: { accuracy: 0.04 }, attrs: A(4, 7, 4, 5), growth: ['agi', 'wil', 'agi', 'end', 'agi', 'str'],
-    tree: ['lead_bullets', 'volley', 'deep_quiver', 'eagle_eye', 'skirmish_master'],
+    tree: [['lead_bullets', 'fleet'], ['volley', 'aimed'], ['deep_quiver', 'longshot'], ['eagle_eye', 'steady_presence'], ['skirmish_master', 'warlord']],
     kit: { weapon: [['sling'], ['rhodian_sling', 'balearic_sling', 'staff_sling'], ['rhodian_sling', 'achaean_sling']], helmet: [[], [], ['cap', 'wolfskin_cap']] },
     cultures: ['greek', 'phoenician', 'celtic'], art: { tunics: ['tunicWhite', 'tunicBlue', 'tunicOchre'] },
   },
@@ -219,7 +224,7 @@ const defs: ClassDef[] = [
     id: 'javelineer', name: 'Peltast javelineer', short: 'Javln', role: 'ranged', cost: 45, group: 1,
     desc: 'A bundle of heavy javelins and a pelte: short range, hard hits.',
     mods: { speed: 0.06, ammo: 1 }, attrs: A(4, 6, 5, 5), growth: ['agi', 'end', 'str', 'agi', 'wil', 'end'],
-    tree: ['fleet', 'volley', 'deep_quiver', 'eagle_eye', 'skirmish_master'],
+    tree: [['fleet', 'longshot'], ['volley', 'aimed'], ['deep_quiver', 'lead_bullets'], ['eagle_eye', 'steady_presence'], ['skirmish_master', 'warlord']],
     kit: { weapon: [['javelins'], ['javelins', 'saunion', 'gaesum'], ['saunion', 'pilum', 'soliferrum']], shield: [['pelte'], ['pelte', 'caetra'], ['pelte', 'bronze_pelte']], helmet: [[], ['cap', 'wolfskin_cap'], ['thracian']], armor: [[], [], ['leather']] },
     cultures: ['greek', 'phoenician', 'celtic'], art: { tunics: ['tunicOchre', 'tunicGreen', 'tunicWhite'] },
   },
@@ -227,7 +232,7 @@ const defs: ClassDef[] = [
     id: 'horse_archer', name: 'Scythian horse archer', short: 'HArch', role: 'ranged', cost: 75, group: 1, mount: 'horse', power: 1.25,
     desc: 'Shoots from the saddle on the move; never lets the enemy close.',
     mods: { accuracy: -0.04, hp: -4 }, attrs: A(4, 7, 5, 4), growth: ['agi', 'end', 'agi', 'wil', 'agi', 'str'],
-    tree: ['horsemanship', 'volley', 'parthian_shot', 'eagle_eye', 'skirmish_master'],
+    tree: [['horsemanship', 'fleet'], ['volley', 'aimed'], ['parthian_shot', 'ride_down'], ['eagle_eye', 'standard_bearer'], ['skirmish_master', 'warlord']],
     kit: { weapon: [['scythian_bow'], ['scythian_bow'], ['scythian_bow', 'gorytos_bow']], helmet: [['scythian_hood'], ['scythian_hood', 'persian_tiara'], ['scythian_hood']], armor: [[], ['leather', 'felt_coat'], ['leather', 'scale', 'horn_scale']] },
     cultures: ['phoenician', 'celtic'], art: { tunics: ['tunicRed', 'tunicOchre', 'tunicGreen'], trousers: 'checkRed' },
   },
@@ -236,7 +241,7 @@ const defs: ClassDef[] = [
     id: 'peltast', name: 'Peltast', short: 'Pelt', role: 'light', cost: 65, group: 3,
     desc: 'Fast spear-and-pelte skirmisher: runs down archers, throws a pair.',
     mods: { speed: 0.12, stamina: 10 }, attrs: A(5, 6, 5, 4), growth: ['agi', 'str', 'end', 'agi', 'wil', 'str'],
-    tree: ['fleet', 'volley', 'brawler', 'rally_cry', 'skirmish_master'],
+    tree: [['fleet', 'longshot'], ['volley', 'aimed'], ['brawler', 'lead_bullets'], ['rally_cry', 'steady_presence'], ['skirmish_master', 'warlord']],
     kit: { weapon: [['javelins', 'longche'], ['saunion', 'longche'], ['saunion']], shield: [['pelte'], ['pelte', 'caetra'], ['pelte', 'thureos', 'bronze_pelte']], helmet: [[], ['thracian', 'cap'], ['thracian', 'phrygian']], armor: [[], ['leather'], ['leather']] },
     cultures: ['greek', 'celtic'], art: { tunics: ['tunicOchre', 'tunicRed', 'tunicBlue'], cloak: 'cloakBrown' },
   },
@@ -244,7 +249,7 @@ const defs: ClassDef[] = [
     id: 'falx', name: 'Thracian falx', short: 'Falx', role: 'light', cost: 75, group: 3,
     desc: 'Sickle-blade shock trooper: hooks shields aside, light and quick.',
     mods: { chargeBonus: 0.15, speed: 0.05 }, attrs: A(6, 6, 4, 4), growth: ['str', 'agi', 'str', 'end', 'wil', 'agi'],
-    tree: ['brawler', 'berserk', 'shield_breaker', 'bloodlust', 'warlord'],
+    tree: [['brawler', 'zealot'], ['berserk', 'sunder'], ['shield_breaker', 'reaping_blow'], ['bloodlust', 'rally_cry'], ['warlord', 'unbreakable']],
     kit: { weapon: [['falx'], ['falx'], ['falx']], helmet: [['thracian', ''], ['thracian'], ['thracian', 'gilded_thracian']], armor: [[], ['leather', 'hide_jerkin'], ['leather']] },
     cultures: ['greek', 'celtic'], art: { tunics: ['tunicRed', 'tunicOchre'], trousers: 'trouserBrown', cloak: 'cloakBrown' },
   },
@@ -253,7 +258,7 @@ const defs: ClassDef[] = [
     desc: 'Bare-chested rush with axe or sword: terrifying, but tires and breaks.',
     mods: { chargeBonus: 0.45, moraleShock: 0.25, morale: -4, stamina: -10, speed: 0.06 }, moraleLoss: 1.1,
     attrs: A(7, 5, 4, 4), growth: ['str', 'agi', 'str', 'end', 'wil', 'str'],
-    tree: ['brawler', 'berserk', 'bloodlust', 'rally_cry', 'warlord'],
+    tree: [['brawler', 'zealot'], ['berserk', 'warcry'], ['bloodlust', 'reaping_blow'], ['rally_cry', 'standard_bearer'], ['warlord', 'unbreakable']],
     kit: { weapon: [['axe', 'longsword', 'club'], ['axe', 'longsword'], ['longsword']], shield: [['thureos', 'hide_shield'], ['celtic_shield'], ['celtic_shield']], helmet: [[], [], ['montefortino', 'coolus']] },
     cultures: ['celtic'], art: { bare: true, trousers: 'checkGreen' },
   },
@@ -262,7 +267,7 @@ const defs: ClassDef[] = [
     desc: 'Cultist who does not break. Little armour, no fear.',
     mods: { hp: -4, morale: 10, speed: 0.06, chargeBonus: 0.2 }, moraleLoss: 0.65, routAt: 0.15,
     attrs: A(6, 5, 4, 6), growth: ['str', 'wil', 'agi', 'str', 'end', 'wil'],
-    tree: ['zealot', 'berserk', 'bloodlust', 'rally_cry', 'unbreakable'],
+    tree: [['zealot', 'brawler'], ['berserk', 'warcry'], ['bloodlust', 'reaping_blow'], ['rally_cry', 'standard_bearer'], ['unbreakable', 'warlord']],
     kit: { weapon: [['club', 'axe', 'xiphos'], ['axe', 'kopis', 'sica', 'bronze_mace'], ['kopis', 'labrys']], shield: [['', 'buckler'], ['buckler'], ['buckler']] },
     cultures: [], art: { bare: true, tunics: ['tunicWhite'], cloak: 'cloakBlack' },
   },
@@ -271,7 +276,7 @@ const defs: ClassDef[] = [
     id: 'companion', name: 'Companion cavalry', short: 'Compn', role: 'cavalry', cost: 160, group: 3, mount: 'horse', power: 1.45,
     desc: 'Lance and horse: shatters flanks and rears, rides down the routing. Never charge braced spears head on.',
     mods: { morale: 8 }, attrs: A(6, 5, 5, 5), growth: ['str', 'wil', 'end', 'agi', 'str', 'end'],
-    tree: ['horsemanship', 'lance_charge', 'ride_down', 'rally_cry', 'warlord'],
+    tree: [['horsemanship', 'fleet'], ['lance_charge', 'recharge'], ['ride_down', 'reaping_blow'], ['rally_cry', 'standard_bearer'], ['warlord', 'skirmish_master']],
     kit: { weapon: [['xyston'], ['xyston'], ['xyston', 'kontos']], helmet: [['boeotian'], ['boeotian'], ['boeotian', 'iron_boeotian']], armor: [['linothorax'], ['linothorax', 'cuirass'], ['cuirass', 'iron_cuirass']] },
     cultures: ['greek'], art: { tunics: ['tunicOchre', 'tunicRed'], cloak: 'cloakPurple' },
   },
@@ -279,7 +284,7 @@ const defs: ClassDef[] = [
     id: 'thessalian', name: 'Thessalian horse', short: 'Thess', role: 'cavalry', cost: 115, group: 3, mount: 'horse', power: 1.35,
     desc: 'Fast light horse: javelins, then the chase. Screens and pursues.',
     mods: { speed: 0.08 }, attrs: A(5, 6, 5, 4), growth: ['agi', 'str', 'end', 'agi', 'wil', 'str'],
-    tree: ['horsemanship', 'volley', 'ride_down', 'lance_charge', 'skirmish_master'],
+    tree: [['horsemanship', 'fleet'], ['volley', 'recharge'], ['ride_down', 'parthian_shot'], ['lance_charge', 'standard_bearer'], ['skirmish_master', 'warlord']],
     kit: { weapon: [['javelins'], ['javelins', 'saunion'], ['saunion']], shield: [['buckler'], ['buckler'], ['buckler']], helmet: [['boeotian', 'pilos'], ['boeotian'], ['boeotian', 'iron_boeotian']], armor: [[], ['leather', 'spolas'], ['linothorax', 'painted_linothorax']] },
     cultures: ['greek', 'phoenician'], art: { tunics: ['tunicBlue', 'tunicWhite'], cloak: 'cloakBlue' },
   },
@@ -287,7 +292,7 @@ const defs: ClassDef[] = [
     id: 'chariot', name: 'Scythed chariot', short: 'Chart', role: 'cavalry', cost: 260, group: 3, mount: 'chariot', power: 1.5,
     desc: 'Two horses and scythed wheels: cuts through loose ranks on open ground; wrecks in woods and stones.',
     mods: { armor: 1, morale: 18 }, moraleLoss: 0.8, attrs: A(5, 6, 5, 4), growth: ['agi', 'str', 'end', 'wil', 'agi', 'str'],
-    tree: ['horsemanship', 'lance_charge', 'scythe_master', 'ride_down', 'warlord'],
+    tree: [['horsemanship', 'fleet'], ['lance_charge', 'scythe'], ['scythe_master', 'reaping_blow'], ['ride_down', 'rally_cry'], ['warlord', 'skirmish_master']],
     kit: { weapon: [['kopis', 'akinakes'], ['kopis', 'sagaris'], ['falcata']], helmet: [['pilos', 'persian_tiara'], ['montefortino', 'negau'], ['chalcidian']], armor: [['leather'], ['linothorax', 'persian_scale'], ['scale', 'iron_scale']] },
     cultures: ['phoenician'], art: { tunics: ['tunicRed', 'tunicOchre'] },
   },
@@ -295,7 +300,7 @@ const defs: ClassDef[] = [
     id: 'royal_guard', name: 'Royal guard', short: 'Guard', role: 'elite', cost: 130, group: 0,
     desc: 'Picked men with silver shields: the best armour and nerve in the line.',
     mods: { hp: 8, morale: 12, block: 0.03 }, attrs: A(6, 5, 6, 6), growth: ['end', 'str', 'wil', 'str', 'end', 'agi'],
-    tree: ['shield_drill', 'shield_bash', 'iron_discipline', 'steady_presence', 'warlord'],
+    tree: [['shield_drill', 'drilled'], ['shield_bash', 'bond'], ['iron_discipline', 'phalangite'], ['steady_presence', 'standard_bearer'], ['warlord', 'unbreakable']],
     kit: { weapon: [['bronze_dory'], ['bronze_dory'], ['bronze_dory']], shield: [['argyraspis'], ['argyraspis'], ['argyraspis']], helmet: [['attic'], ['attic'], ['attic']], armor: [['cuirass'], ['cuirass'], ['cuirass']] },
     cultures: ['greek'], art: { tunics: ['tunicRed'], cloak: 'cloakPurple' },
   },
@@ -303,7 +308,7 @@ const defs: ClassDef[] = [
     id: 'sacred_band', name: 'Sacred Band', short: 'Sacrd', role: 'elite', cost: 125, group: 0,
     desc: 'Three hundred pairs sworn to each other: they hold when others run.',
     mods: { hp: 4, morale: 18 }, moraleLoss: 0.7, attrs: A(6, 5, 5, 7), growth: ['wil', 'str', 'end', 'wil', 'agi', 'str'],
-    tree: ['shield_drill', 'shield_bash', 'phalangite', 'rally_cry', 'unbreakable'],
+    tree: [['shield_drill', 'drilled'], ['shield_bash', 'bond'], ['phalangite', 'iron_discipline'], ['rally_cry', 'standard_bearer'], ['unbreakable', 'warlord']],
     kit: { weapon: [['bronze_dory'], ['bronze_dory'], ['bronze_dory']], shield: [['aspis'], ['aspis'], ['aspis']], helmet: [['corinthian'], ['corinthian'], ['corinthian']], armor: [['linothorax'], ['cuirass'], ['cuirass']] },
     cultures: ['greek'], art: { tunics: ['tunicWhite'], cloak: 'cloakBlue' },
   },

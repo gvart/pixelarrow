@@ -132,6 +132,23 @@ export const DATA_RU: Record<string, string> = {
   'perk.ride_down.desc': '+50% урона бегущим, +0,2 страха.',
   'perk.scythe_master.name': 'Мастер кос',
   'perk.scythe_master.desc': 'Косы на колёсах режут на 40% глубже.',
+  // path B options (AB-01; their effects land in AB-02 and AB-03)
+  'perk.push.name': 'Натиск копий',
+  'perk.push.desc': 'Умение: первый ряд теснит врага и сбивает его с ног.',
+  'perk.bond.name': 'Священные узы',
+  'perk.bond.desc': 'Умение: связанные клятвой делят удары по духу.',
+  'perk.warcry.name': 'Боевой клич',
+  'perk.warcry.desc': 'Умение: клич, от которого дрогнет враг впереди.',
+  'perk.sunder.name': 'Сокрушение',
+  'perk.sunder.desc': 'Умение: сломать защиту и доспех врага впереди.',
+  'perk.aimed.name': 'Прицельный залп',
+  'perk.aimed.desc': 'Умение: каждый стрелок рядом бьёт по выбранному отряду.',
+  'perk.recharge.name': 'Отход и новый удар',
+  'perk.recharge.desc': 'Умение: всадники выходят из боя, строятся и бьют сильнее.',
+  'perk.scythe.name': 'Проход с косами',
+  'perk.scythe.desc': 'Умение: колесница проносится сквозь ряды врага.',
+  'perk.standard_bearer.name': 'Знаменосец',
+  'perk.standard_bearer.desc': 'Несёт знамя войска: рядом союзники держатся твёрже.',
 
   // abilities and auras
   'ability.bash.name': 'Удар щитом',

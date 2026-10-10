@@ -224,4 +224,25 @@ describe('determinism with abilities', () => {
   it('perk mirror battles are reproducible', () => {
     expect(runMirror(9, ['berserk'], 'melee')).toBe(runMirror(9, ['berserk'], 'melee'));
   });
+
+  it('a battle with path-B picks replays to the same hash, and B differs from A (AB-01)', () => {
+    const army = (path: 'A' | 'B'): Hero[] => {
+      const rng = new Rng(21);
+      const ids = { nextId: 1 };
+      const out = [0, 1, 2, 3].map(() => hero(rng, ids, 'hoplite', ['shield_drill', 'shield_bash', 'phalangite'], 6));
+      out.push(hero(rng, ids, 'peltast', ['fleet', 'volley', 'brawler'], 6, 1));
+      for (const h of out) h.perks = path === 'A' ? h.perks : h.perks.map((p) => ({ shield_drill: 'drilled', phalangite: 'iron_discipline', fleet: 'longshot', brawler: 'lead_bullets' } as Partial<Record<PerkId, PerkId>>)[p] ?? p);
+      return out;
+    };
+    const run = (path: 'A' | 'B') => {
+      const foe = army('A').map((h, i) => ({ ...h, id: `f${i}` }));
+      const bt = new Battle({ seed: 77, armies: [armySpec(army(path), true), armySpec(foe, true)], timeLimit: 120 });
+      bt.startBattle();
+      for (let t = 0; t < bt.timeLimitTicks + 10 && bt.phase !== 'ended'; t++) bt.step();
+      return bt.hash();
+    };
+    expect(army('B')[0].perks).toEqual(['drilled', 'shield_bash', 'iron_discipline']);
+    expect(run('B')).toBe(run('B'));
+    expect(run('B')).not.toBe(run('A'));
+  });
 });
