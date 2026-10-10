@@ -243,7 +243,8 @@ describe('focus fire (formations-orders.md R4)', () => {
 });
 
 describe('orders balance rows (src/dev/ordersBalance.ts)', () => {
-  it('prints the FO-01 rows against their GDD targets', () => {
+  // the seeded balance battles of ordersRows(4): seconds idle, several times that under load
+  it('prints the FO-01 rows against their GDD targets', { timeout: 120_000 }, () => {
     const rows = ordersRows(4);
     expect(rows.map((r) => r.target)).toEqual(expect.arrayContaining(['flanker >= 52%', '>= 30%']));
   });
