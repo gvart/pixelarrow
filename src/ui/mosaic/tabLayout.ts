@@ -8,8 +8,8 @@
  * and one size for all five. Cinzel capitals at Display S (7), then 6.5, when
  * all five fit; else Inter in sentence case (the text face's own case) at 7,
  * then 6.5 (6 only where nothing larger fits: English at 320 px). Never a mix
- * ("Campaign" beside "DUELS"). Short i18n forms (P7, MENU-3) would keep Cinzel
- * on narrow phones too; they are HUB-01's (the i18n files are not this story's). Slots follow their labels: a long
+ * ("Campaign" beside "DUELS"). No short forms: a tab carries the same name at
+ * every width (V5-063). Slots follow their labels: a long
  * label takes a wider slot, the two sides stay equal so the medallion stays
  * centred.
  */

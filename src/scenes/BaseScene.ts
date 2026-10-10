@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { sweepPanels, uiMetrics, type UIMetrics } from '../ui/kit';
-import { registerScreen, navLayer, navMotion, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
+import { registerScreen, navLayer, navMotion, screenOpts, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
 import { motion } from '../ui/motion';
 import { MOTION } from '../ui/tokens';
 import { openSettings } from '../ui/settings';
@@ -73,11 +73,13 @@ export abstract class BaseScene extends Phaser.Scene {
 
   /**
    * Register this scene as a navigation screen. `back` goes back one level
-   * (omit / null on a root screen: Telegram then shows Close). Telegram's ⋯ →
-   * Settings opens the settings modal unless `settings` overrides it.
+   * (omit / null on a root screen: Telegram then shows Close). A tab hub is
+   * always a root (`screenOpts`, ia.md §6): its sub-views declare their own
+   * Back through the shells (`hubView`). Telegram's ⋯ → Settings opens the
+   * settings modal unless `settings` overrides it.
    */
   protected screen(opts: ScreenOpts): void {
-    registerScreen(this, { settings: () => openSettings(this), ...opts });
+    registerScreen(this, screenOpts(this.scene.key, { settings: () => openSettings(this), ...opts }));
   }
 
   /** @deprecated use screen({ back }). */

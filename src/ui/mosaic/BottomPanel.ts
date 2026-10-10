@@ -2,6 +2,7 @@
  * BottomPanel: the v4 bottom sheet (V4_SPEC "Bottom panel", the war map's hex
  * panel): a parchment sheet rising above the tab bar with a Cinzel title, a
  * close X, a body area for lines of text, and an action row of buttons.
+ * An optional sheet (ia.md §6): Back and Telegram's BackButton close it, as the X does.
  */
 import Phaser from 'phaser';
 import { FRAME_T } from '../../art/mosaicUi';
@@ -9,6 +10,7 @@ import { t } from '../../i18n';
 import { motion, tweenTo } from '../motion';
 import { MOTION, SPACE } from '../tokens';
 import { uiId } from '../layout';
+import { navLayer } from '../../platform/nav';
 import { GAP, TAP, makePressable, mosaicImage, mtext, mw } from './base';
 import { MButton, type MButtonOpts } from './controls';
 import { addIcon, scaleIcon } from '../kit';
@@ -56,6 +58,7 @@ export class BottomPanel extends Phaser.GameObjects.Container {
   readonly area: Box;
   readonly buttons: MButton[] = [];
   private closed = false;
+  private unlayer: () => void;
 
   /**
    * @param bottom Y of the panel's bottom edge (the top of the tab bar, or the frame's lower edge).
@@ -83,6 +86,7 @@ export class BottomPanel extends Phaser.GameObjects.Container {
     });
     uiId(this, o.id ?? 'bottompanel');
     scene.add.existing(this);
+    this.unlayer = navLayer(this, () => this.close(), scene);
     if (o.animate === false || motion.reduced) return;
     const y = this.y;
     this.y = y + 14;
@@ -94,6 +98,7 @@ export class BottomPanel extends Phaser.GameObjects.Container {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    this.unlayer();
     this.o.onClose?.();
     tweenTo(this.scene, this, { y: this.y + 14, alpha: 0 }, MOTION.fade, { onComplete: () => this.destroy() });
   }
