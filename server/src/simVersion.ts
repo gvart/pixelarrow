@@ -17,18 +17,20 @@ export { SIM_VERSION };
  * The oldest client rules still accepted. Raise it to turn stale clients away
  * (they get 426 `sim_version_unsupported` and a "please reload" message);
  * every version from here to SIM_VERSION needs an entry in REPLAYERS.
+ * 2 since FO-01, the first rule change of sim train 2 (ADR-0001 step 3,
+ * V5-033): v1 clients get 426 and the reload message.
  */
-export const MIN_SIM_VERSION = 1;
+export const MIN_SIM_VERSION = 2;
 
 /**
  * The oldest client rules a live socket (/ws/*) still accepts (V5-033). Live
  * lockstep pairs only clients of the same version (the shard's DuelHub, the
- * MatchmakerDO queue, the DuelDO join), so v1 and v2 clients can share the
- * server while the rules are identical. The first rule-changing train-2 story
- * raises this AND MIN_SIM_VERSION to 2 in the same commit as the rule change
- * (ADR-0001, "Adding a version").
+ * MatchmakerDO queue, the DuelDO join). It was 1 while v1 and v2 rules were
+ * identical; FO-01, the first rule-changing train-2 story, raised it and
+ * MIN_SIM_VERSION to 2 (ADR-0001, "Adding a version"), so a v1 socket now
+ * gets an error frame and close 4426.
  */
-export const SOCKET_MIN_SIM_VERSION = 1;
+export const SOCKET_MIN_SIM_VERSION = 2;
 
 /** Clients from before versioning send nothing: they run version 1. */
 export const LEGACY_SIM_VERSION = 1;

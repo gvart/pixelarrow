@@ -1,7 +1,11 @@
 import { env, SELF } from 'cloudflare:test';
 import { vi } from 'vitest';
+import { SIM_VERSION } from '../../src/sim/version';
 
 export const BASE = 'https://test.pixelarrow.local';
+
+/** Battle calls that carry `simVersion`; like today's client, tests send SIM_VERSION unless the body names the key (even as undefined). */
+const VERSIONED = /\/(start|submit|verify)$/;
 
 export function api(path: string, init: RequestInit & { token?: string; json?: unknown } = {}): Promise<Response> {
   const headers = new Headers(init.headers);
@@ -9,7 +13,9 @@ export function api(path: string, init: RequestInit & { token?: string; json?: u
   let body = init.body;
   if (init.json !== undefined) {
     headers.set('content-type', 'application/json');
-    body = JSON.stringify(init.json);
+    const j = init.json;
+    const versioned = VERSIONED.test(path) && j !== null && typeof j === 'object' && !Array.isArray(j) && !('simVersion' in j);
+    body = JSON.stringify(versioned ? { ...j, simVersion: SIM_VERSION } : j);
   }
   return SELF.fetch(`${BASE}${path}`, { ...init, headers, body });
 }

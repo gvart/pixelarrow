@@ -44,17 +44,20 @@ function rejection(v: number | undefined): ApiError {
 }
 
 describe('sim version resolution', () => {
-  it('the window is 1..2: v2 is current, v1 stays for the grace window', () => {
+  it('the window is 2..2: FO-01 changed the rules, so the floor rose to 2', () => {
     expect(SIM_VERSION).toBe(2);
-    expect(MIN_SIM_VERSION).toBe(1);
+    expect(MIN_SIM_VERSION).toBe(2);
   });
 
-  it('accepts a v1 client during the grace window', () => {
-    expect(resolveSimVersion(1)).toBe(1);
+  it('refuses a v1 client (426, reload)', () => {
+    const e = rejection(1);
+    expect(e.status).toBe(426);
+    expect(e.code).toBe('sim_version_unsupported');
+    expect(e.extra).toMatchObject({ simVersion: 1, min: 2, max: SIM_VERSION });
   });
 
-  it('a missing version is a client from before versioning: v1', () => {
-    expect(resolveSimVersion(undefined)).toBe(1);
+  it('a missing version is a client from before versioning: v1, refused', () => {
+    expect(rejection(undefined).extra).toMatchObject({ simVersion: 1, min: 2 });
   });
 
   it('accepts the current version', () => {
@@ -124,33 +127,29 @@ describe('battle tickets record and replay the sim version (duel ladder)', () =>
     expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: SIM_VERSION, status: 'used' });
   });
 
-  it('a v1 client still gets a ticket during the grace window, and its submission verifies (frozen v1 sim)', async () => {
+  it('a v1 client gets no ticket (426, reload)', async () => {
     const { token } = await openDuellist(9705);
-    const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: 1 });
-    expect(t.status).toBe(200);
-    expect((await ticketVersion(t.body.ticket)).sim_version).toBe(1);
-    const r = await post('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: 1, ...play(t.body.setup) });
-    expect(r.status).toBe(200);
-    expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: 1, status: 'used' });
+    const t = await post<Err>('/api/duel/ladder/start', token, { floor: 1, simVersion: 1 });
+    expect(t.status).toBe(426);
+    expect(t.body.error.code).toBe('sim_version_unsupported');
   });
 
-  it('a v1 ticket issued before the deploy is still verified after it (v2 server, v1 submission)', async () => {
+  it('a v1 submission is refused with 426 and leaves its ticket open', async () => {
     const { token } = await openDuellist(9706);
     const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: SIM_VERSION });
     // as if the row predates the bump (migration 0016 default)
     await DB().prepare('UPDATE duel_tickets SET sim_version = 1 WHERE id = ?1').bind(t.body.ticket).run();
-    const r = await post('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: 1, ...play(t.body.setup) });
-    expect(r.status).toBe(200);
-    expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: 1, status: 'used' });
+    const r = await post<Err>('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: 1, ...play(t.body.setup) });
+    expect(r.status).toBe(426);
+    expect(r.body.error.code).toBe('sim_version_unsupported');
+    expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: 1, status: 'open' });
   });
 
-  it('the old client payload shape (no simVersion anywhere) is still accepted, as v1', async () => {
+  it('the old client payload shape (no simVersion anywhere) is refused as v1', async () => {
     const { token } = await openDuellist(9702);
-    const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1 });
-    expect(t.status).toBe(200);
-    expect((await ticketVersion(t.body.ticket)).sim_version).toBe(1);
-    const r = await post('/api/duel/ladder/submit', token, { ticket: t.body.ticket, ...play(t.body.setup) });
-    expect(r.status).toBe(200);
+    const t = await post<Err>('/api/duel/ladder/start', token, { floor: 1, simVersion: undefined });
+    expect(t.status).toBe(426);
+    expect(t.body.error.code).toBe('sim_version_unsupported');
   });
 
   it('an unknown version gets no ticket, and its submission is refused without closing the ticket', async () => {
@@ -201,19 +200,21 @@ describe('war attacks carry the sim version', () => {
 describe('live sockets carry the sim version (?sim=)', () => {
   beforeEach(fresh);
 
-  it('while the socket floor is 1, v2, v1 (sim=1) and a client that sends no version all get in', async () => {
-    expect(SOCKET_MIN_SIM_VERSION).toBe(1);
+  it('the socket floor is 2: v2 gets in; v1 (sim=1) and a client that sends no version get an error frame and close 4426', async () => {
+    expect(SOCKET_MIN_SIM_VERSION).toBe(2);
     const p = await join(9721);
-    for (const path of [`/ws/online?sim=${SIM_VERSION}`, '/ws/online?sim=1', '/ws/online']) {
-      const ws = await wsPath(p.token, path);
-      expect((await ws.next('welcome')).type, path).toBe('welcome');
-      ws.ws.close(1000);
-    }
+    const ok = await wsPath(p.token, `/ws/online?sim=${SIM_VERSION}`);
+    expect((await ok.next('welcome')).type).toBe('welcome');
+    ok.ws.close(1000);
     const { token } = await openDuellist(9725);
-    for (const path of ['/ws/duel?sim=1', '/ws/duel']) {
-      const ws = await wsPath(token, path);
-      expect((await ws.next('mm_welcome')).type, path).toBe('mm_welcome');
-      ws.ws.close(1000);
+    const okDuel = await wsPath(token, `/ws/duel?sim=${SIM_VERSION}`);
+    expect((await okDuel.next('mm_welcome')).type).toBe('mm_welcome');
+    okDuel.ws.close(1000);
+    for (const [tok, path] of [[p.token, '/ws/online?sim=1'], [p.token, '/ws/online'], [token, '/ws/duel?sim=1'], [token, '/ws/duel']]) {
+      const ws = await wsPath(tok, path, { legacy: true });
+      const closed = new Promise<number>((resolve) => ws.ws.addEventListener('close', (e) => resolve(e.code)));
+      expect(await ws.next('error'), path).toMatchObject({ code: SIM_VERSION_REJECTED });
+      expect(await closed, path).toBe(SIM_VERSION_CLOSE);
     }
   });
 
@@ -221,17 +222,17 @@ describe('live sockets carry the sim version (?sim=)', () => {
     for (const raw of ['1', undefined]) {
       const e = (() => {
         try {
-          socketSimVersion(raw, 2);
+          socketSimVersion(raw);
         } catch (err) {
           return err as ApiError;
         }
-        throw new Error(`sim=${raw} was accepted under floor 2`);
+        throw new Error(`sim=${raw} was accepted under the floor`);
       })();
       expect(e.status).toBe(426);
       expect(e.code).toBe(SIM_VERSION_REJECTED);
       expect(e.extra).toMatchObject({ simVersion: 1, min: 2, max: SIM_VERSION });
     }
-    expect(socketSimVersion('2', 2)).toBe(2);
+    expect(socketSimVersion('2')).toBe(2);
   });
 
   it('an unknown version gets an error frame and close 4426, not a lobby', async () => {
@@ -276,18 +277,17 @@ describe('POST /api/battle/verify carries the sim version', () => {
     expect(await res.json()).toMatchObject({ match: true, simVersion: SIM_VERSION });
   });
 
-  it('a v1 client battle verifies with the frozen v1 sim', async () => {
+  it('a v1 client battle is refused with 426 before any replay', async () => {
     const { token } = await devLogin(4105);
     const res = await api('/api/battle/verify', { method: 'POST', token, json: v1body({ simVersion: 1 }) });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ match: true, simVersion: 1 });
+    expect(res.status).toBe(426);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('sim_version_unsupported');
   });
 
-  it('the old client payload (no simVersion) is still accepted, as v1', async () => {
+  it('the old client payload (no simVersion) is refused as v1', async () => {
     const { token } = await devLogin(4102);
-    const res = await api('/api/battle/verify', { method: 'POST', token, json: v1body() });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ match: true, simVersion: 1 });
+    const res = await api('/api/battle/verify', { method: 'POST', token, json: v1body({ simVersion: undefined }) });
+    expect(res.status).toBe(426);
   });
 
   it('an unknown version is refused with 426 before any replay', async () => {
