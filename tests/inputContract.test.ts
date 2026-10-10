@@ -6,6 +6,8 @@
 import { describe, expect, it } from 'vitest';
 import { TEXT_MIN_PT, checkLayout, type UiElement } from '../src/ui/layoutCheck';
 import { HOVER_MS, canHover, hoverTip, type HoverPointer, type HoverTarget } from '../src/ui/hover';
+import allowlist from '../scripts/layout-allowlist.json';
+import layoutCheckSrc from '../scripts/layout-check.mjs?raw';
 
 const el = (id: string, kind: UiElement['kind'], x: number, y: number, w: number, h: number, extra: Partial<UiElement> = {}): UiElement => {
   const rect = { x, y, w, h };
@@ -176,5 +178,26 @@ describe('hover tips (A11Y-15)', () => {
     f.emit('pointerover');
     f.advance(HOVER_MS);
     expect(shown).toEqual([]);
+  });
+});
+
+// ------------------------------------------------------------------ allowlist
+
+describe('layout allowlist (AC1: existing violations, each with its owning story)', () => {
+  const groups = allowlist as unknown as Record<'A' | 'B' | 'C' | 'F', string[]> & { stories: Record<string, string> };
+  const keys = [...groups.A, ...groups.B, ...groups.C, ...groups.F];
+
+  it('names the owning story of every entry, the foundation group too', () => {
+    for (const k of keys) expect(groups.stories[k], k).toMatch(/^[A-Z]+-\d{2}$/);
+  });
+
+  it('allows a whole screen only for the text-size floor; touch size, spacing and the tap probe stay per element', () => {
+    for (const k of keys.filter((x) => x.endsWith('|*'))) expect(k.split('|')[1], k).toBe('text-size');
+    for (const k of groups.F) expect(k.split('|')[1], k).toBe('text-size');
+  });
+
+  it('the script knows the F group and per-screen entries', () => {
+    expect(layoutCheckSrc).toMatch(/const GROUPS = \['A', 'B', 'C', 'F'\]/);
+    expect(layoutCheckSrc).toMatch(/PER_SCREEN = new Set\(\['text-size'\]\)/);
   });
 });
