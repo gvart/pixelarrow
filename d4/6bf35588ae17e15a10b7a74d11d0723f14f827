@@ -1,0 +1,20 @@
+docs/v5/art/ASSET_PIPELINE.md
+  s_697bdc25a7c420::t_a643682671919a 1-180
+  s_697bdc25a7c420::t_2365e96dc6d84f 181-183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d46bf35588ae17e15a10b7a74d11d0723f14f827",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
