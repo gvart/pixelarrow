@@ -61,9 +61,9 @@ Fake Telegram (Bot API 8.0, iOS, overlays on, so the left pill reads "Close" or 
 ## Gates (2026-10-11, production build via `vite preview`)
 
 - `npx tsc --noEmit`: clean.
-- `npx vitest run`: 82 files, 955 tests passed. `tests/nav.test.ts` has 13 new tests.
+- `npx vitest run`: 81 files, 952 tests passed (after V5-063). `tests/nav.test.ts` has 13 new tests.
 - `npx vite build`: OK.
-- `node scripts/layout-check.mjs --no-shots`: 24 configurations x 150 screens, **passed**, 1771 distinct violations, 0 new. The check reports `online-coach-clan|text-size|*` as fixed but still allowlisted. That entry is F-group and not HUB-01's (`scripts/layout-allowlist.json` is not in this story's files), so it was left in place for its owner.
+- `node scripts/layout-check.mjs --no-shots`: 24 configurations x 150 screens, **passed**, 1776 distinct violations, 0 new (after V5-063). The check reports `online-coach-clan|text-size|*` as fixed but still allowlisted. That entry is F-group and not HUB-01's (`scripts/layout-allowlist.json` is not in this story's files), so it was left in place for its owner.
 - Smokes:
   - `smoke.mjs`: ALL PASS.
   - `tutorial-smoke.mjs`: PASSED.
