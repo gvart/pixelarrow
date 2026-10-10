@@ -9,7 +9,7 @@ import { t } from '../i18n';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import {
   BAND_COLORS, MAPC, PARTY_FH, PARTY_FOOT, PARTY_FRAMES, PARTY_FW, STRUCT_FRAMES, STRUCT_FX, STRUCT_LIFT, STRUCT_PAD, WTILE, renderBoat, renderCampZone,
-  renderDust, renderMarker, renderNamePlate, renderPartyFigure, renderPlaceTile, renderStructure,
+  renderDust, renderMarker, renderNamePlate, renderPartyFigure, renderStructure,
 } from '../art/worldArt';
 import { renderWorldMap, type SiteArt, type WorldMapArt } from '../art/overlandMap';
 import { OverlandLife } from '../ui/overlandLife';
@@ -22,11 +22,10 @@ import { addSyncBadge, playerPartyTexture } from '../ui/online';
 import { perkSlots } from '../data/perks';
 import { dangerAt, isWater, regionName, type SettlementDef } from '../world/map';
 import { siteAt } from '../world/battlefield';
-import { STRUCTURES, campEffects, footprint, placeCheck, type StructureId } from '../world/camp';
+import { STRUCTURES, campEffects, footprint, type StructureId } from '../world/camp';
 import { THREAT_COLOR, THREAT_LABEL, WORLD_RULES, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
 import { confirmDialog } from '../ui/widgets';
 import { CampLife } from '../ui/campLife';
-import { renderScaffold } from '../art/campArt';
 
 /** Game hours per real second while travelling / waiting. */
 const TRAVEL_SPEED = 1.6;
@@ -105,15 +104,9 @@ export class WorldScene extends BaseScene {
   private campObjs: Phaser.GameObjects.GameObject[] = [];
   private campBorder: { x: number; y: number }[] = [];
   private campG!: Phaser.GameObjects.Graphics;
-  private antPhase = 0;
-  private antTimer = 0;
   private campAnim: { spr: Phaser.GameObjects.Image; keys: string[]; period: number }[] = [];
   private campZoneKey = '';
   private life: CampLife | null = null;
-  /** A structure going up: scaffold stages, then the built art. */
-  private construct: { id: StructureId; x: number; y: number; t0: number; stage?: number; spr?: Phaser.GameObjects.Image } | null = null;
-  private placing: { id: StructureId; x: number; y: number } | null = null;
-  private ghost: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('World');
@@ -135,9 +128,6 @@ export class WorldScene extends BaseScene {
     this.campAnim = [];
     this.campZoneKey = '';
     this.life = null;
-    this.construct = null;
-    this.placing = null;
-    this.ghost = [];
     this.fogAnim = new Set();
     this.settlementObjs = new Map();
     this.sit = null;
@@ -168,8 +158,6 @@ export class WorldScene extends BaseScene {
       this.textures.addCanvas('wm_boat', renderBoat().toCanvas());
       const dust = this.textures.addCanvas('wm_dust', renderDust().toCanvas())!;
       for (let f = 0; f < 3; f++) dust.add(f, 0, f * 16, 0, 16, 12);
-      this.textures.addCanvas('wm_tile_ok', renderPlaceTile(true).toCanvas());
-      this.textures.addCanvas('wm_tile_bad', renderPlaceTile(false).toCanvas());
     }
     if (!this.textures.exists('wm_band_player')) {
       for (const [k, c] of Object.entries(BAND_COLORS)) {
@@ -214,7 +202,7 @@ export class WorldScene extends BaseScene {
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
     this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => this.setZoom(Math.round(zoomUnits(cam.zoom)) + (dy > 0 ? -1 : 1)));
-    this.screen({ back: () => (this.placing ? this.cancelPlacing() : this.leaveToMenu()) });
+    this.screen({ back: () => this.leaveToMenu() });
     this.events.once('shutdown', () => void state.save());
 
     // Discoveries made outside the map (none expected) are not replayed.
@@ -367,7 +355,7 @@ export class WorldScene extends BaseScene {
 
   update(_t: number, delta: number): void {
     const camp = state.campaign;
-    const busy = this.dialog || this.cine || this.placing;
+    const busy = this.dialog || this.cine;
     if (!busy && (this.w.moving || this.waiting || this.w.s.destParty >= 0)) {
       const rate = this.waiting ? WAIT_SPEED : TRAVEL_SPEED;
       const hours = Math.min(0.25, delta / 1000) * rate;
@@ -576,20 +564,10 @@ export class WorldScene extends BaseScene {
     let forge: { x: number; y: number } | null = null;
     let yard: { x: number; y: number } | null = null;
     const tents: { x: number; y: number }[] = [];
-    const cons = this.construct;
     for (const b of c.built) {
       const d = STRUCTURES[b.id];
       const look = b.id === 'tent' ? tentN++ : 0;
       const footY = (b.y + d.h) * S - 1;
-      if (cons && cons.id === b.id && cons.x === b.x && cons.y === b.y) {
-        const spr = this.add.image(b.x * S - 1, b.y * S - STRUCT_LIFT[b.id], this.scaffoldKey(b.id, 0)).setOrigin(0, 0).setDepth(footY);
-        this.layer.add(spr);
-        this.campObjs.push(spr);
-        cons.spr = spr;
-        life.figure(1, b.x * S - 3, footY + 1, 'smith', false);
-        life.sparks(b.x * S + 1, footY - 3, 6, () => life.striking(b.x * S - 3, footY + 1));
-        continue;
-      }
       const keys = Array.from({ length: STRUCT_FRAMES[b.id] }, (_, f) => this.structKey(b.id, f, look));
       // the drill yard is ground: the men drill on it, so it sorts by its top edge
       const spr = this.add.image(b.x * S - STRUCT_PAD[b.id], b.y * S - STRUCT_LIFT[b.id], keys[0]).setOrigin(0, 0).setDepth(b.id === 'training' ? b.y * S + 2 : footY);
@@ -681,20 +659,11 @@ export class WorldScene extends BaseScene {
     return key;
   }
 
-  /** The construction scaffold of a structure at a stage (0..2). */
-  private scaffoldKey(id: StructureId, stage: number): string {
-    const key = `wm_scaf_${id}_${stage}`;
-    const d = STRUCTURES[id];
-    if (!this.textures.exists(key)) this.textures.addCanvas(key, renderScaffold(d.w * WTILE, d.h * WTILE, STRUCT_LIFT[id], stage).toCanvas());
-    return key;
-  }
-
   private drawCampBorder(): void {
     const g = this.campG;
     g.clear();
-    const ph = this.antPhase;
     for (const p of this.campBorder) {
-      if ((p.x + p.y + ph) % 2 !== 0) continue;
+      if ((p.x + p.y) % 2 !== 0) continue;
       g.fillStyle(MAPC.plotDot, 1);
       g.fillRect(p.x, p.y, 1, 1);
     }
@@ -706,31 +675,6 @@ export class WorldScene extends BaseScene {
       if (a.spr.texture.key !== k) a.spr.setTexture(k);
     }
     this.life?.update(now, delta);
-    // construction: pegs -> frame -> planks -> built (with dust at each step)
-    const cons = this.construct;
-    if (cons) {
-      const t = now - cons.t0;
-      const stage = t < 380 ? 0 : t < 820 ? 1 : 2;
-      if (t >= 1250) {
-        this.construct = null;
-        this.renderCamp();
-        for (const [x, y] of footprint(cons.id, cons.x, cons.y)) this.puff(x * WTILE + 4, y * WTILE + 4);
-      } else if (cons.spr?.active && stage !== cons.stage) {
-        cons.stage = stage;
-        cons.spr.setTexture(this.scaffoldKey(cons.id, stage));
-        const d = STRUCTURES[cons.id];
-        this.puff(cons.x * WTILE + (d.w * WTILE) / 2, (cons.y + d.h) * WTILE - 2);
-      }
-    }
-    // marching ants while building
-    if (this.placing && this.campBorder.length) {
-      this.antTimer += delta;
-      if (this.antTimer >= 120) {
-        this.antTimer = 0;
-        this.antPhase = (this.antPhase + 1) % 2;
-        this.drawCampBorder();
-      }
-    }
   }
 
   private makeCamp(): void {
@@ -772,78 +716,6 @@ export class WorldScene extends BaseScene {
       },
       onCancel: () => this.setWaiting(was),
     });
-  }
-
-  // Structures are placed in the camp scene (src/scenes/CampScene.ts); the map keeps the ghost for a placement in progress.
-
-  private cancelPlacing(): void {
-    this.placing = null;
-    this.drawGhost();
-    this.antPhase = 0;
-    this.drawCampBorder();
-    this.buildHud();
-  }
-
-  private drawGhost(): void {
-    for (const o of this.ghost) o.destroy();
-    this.ghost = [];
-    const p = this.placing;
-    const c = this.w.camp;
-    if (!p || !c) return;
-    const chk = placeCheck(this.w.map, c, p.id, p.x, p.y);
-    for (const t of chk.tiles) {
-      const img = this.add.image(t.x * WTILE, t.y * WTILE, t.ok ? 'wm_tile_ok' : 'wm_tile_bad').setOrigin(0, 0).setDepth(D_GHOST);
-      this.layer.add(img);
-      this.ghost.push(img);
-    }
-    const key = this.structKey(p.id, 0);
-    const spr = this.add.image(p.x * WTILE - STRUCT_PAD[p.id], p.y * WTILE - STRUCT_LIFT[p.id], key).setOrigin(0, 0).setDepth(D_GHOST + 1).setAlpha(0.6).setTint(chk.ok ? 0x7fd0e0 : 0xe08088);
-    this.layer.add(spr);
-    this.ghost.push(spr);
-  }
-
-  /** Move the placement ghost so the footprint centres on tile (tx, ty). */
-  private moveGhost(tx: number, ty: number): void {
-    const p = this.placing;
-    if (!p) return;
-    const d = STRUCTURES[p.id];
-    const nx = tx - Math.floor((d.w - 1) / 2);
-    const ny = ty - Math.floor((d.h - 1) / 2);
-    if (nx === p.x && ny === p.y) return;
-    p.x = nx;
-    p.y = ny;
-    this.drawGhost();
-  }
-
-  private confirmPlacing(): void {
-    const p = this.placing;
-    if (!p) return;
-    const why = this.w.build(p.id, p.x, p.y);
-    if (why) {
-      hapticNotify('error');
-      this.showBanner(why, 1400);
-      return;
-    }
-    const d = STRUCTURES[p.id];
-    this.placing = null;
-    this.drawGhost();
-    this.construct = { id: p.id, x: p.x, y: p.y, t0: this.time.now };
-    this.renderCamp();
-    for (const [x, y] of footprint(p.id, p.x, p.y)) this.puff(x * WTILE + 4, y * WTILE + 4);
-    hapticNotify('success');
-    this.passTime(d.hours);
-    this.buildHud();
-    this.showBanner(`${d.name} built (${d.hours}h)`, 1600);
-    void state.save();
-  }
-
-  /** Let `hours` pass at once (building work); a band may turn up meanwhile. */
-  private passTime(hours: number): void {
-    const r = this.w.advance(hours, this.info, true);
-    state.campaign.tickWorld(r.hours);
-    const ev = r.events[0];
-    if (ev?.type === 'encounter') this.openEncounter(ev.party, ev.byPlayer);
-    this.refreshHud();
   }
 
   /** Build dust: a three-frame cream puff. */
@@ -899,21 +771,15 @@ export class WorldScene extends BaseScene {
       title,
       id: 'world.topbar',
       actions: [],
-      back: this.inGameBack ? () => (this.placing ? this.cancelPlacing() : this.leaveToMenu()) : undefined,
+      back: this.inGameBack ? () => this.leaveToMenu() : undefined,
     });
   }
 
-  /** The command strip: Camp (or Cancel / Place) | Rest / Stop | Party. The way back is the top bar's arrow. */
+  /** The command strip: Camp | Rest / Stop | Party. The way back is the top bar's arrow. */
   private stripSlots(): BarSlot[] {
     const camp = state.campaign;
     const pending = camp.data.heroes.some((h) => h.points > 0 || h.perks.length < perkSlots(h.level));
     const party: BarSlot = { label: t('world.strip.party'), icon: 'people', badge: pending ? '!' : 0, tip: t('world.strip.partyTip'), id: 'world.party', onClick: () => this.scene.start('Army', { from: 'World' }) };
-    if (this.placing) {
-      return [
-        { label: t('common.cancel'), icon: 'close', id: 'world.cancel', onClick: () => this.cancelPlacing() },
-        { label: t('world.strip.place'), icon: 'check', primary: true, id: 'world.place', onClick: () => this.confirmPlacing() },
-      ];
-    }
     if (this.w.camp) {
       return [
         { label: t('world.strip.camp'), icon: 'tent', primary: true, tip: t('world.strip.enterTip'), id: 'world.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) },
@@ -946,8 +812,7 @@ export class WorldScene extends BaseScene {
     let hint = t('world.sit.hint');
     let urgent = false;
     const c = this.w.camp;
-    if (this.placing) hint = t('world.sit.placing');
-    else if (c) {
+    if (c) {
       const fx = campEffects(this.w.map, c);
       const net = fx.forage * 24 - mouths;
       hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: this.w.healRate().toFixed(1), net: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
@@ -979,7 +844,7 @@ export class WorldScene extends BaseScene {
       this.sitKey = key;
       this.sit.set(`${where} ${hint}`, urgent, chips);
     }
-    const stripKey = `${!!this.placing}|${!!this.w.camp}|${this.waiting}|${this.w.moving}`;
+    const stripKey = `${!!this.w.camp}|${this.waiting}|${this.w.moving}`;
     if (stripKey !== this.stripKey) {
       this.stripKey = stripKey;
       this.strip?.set(this.stripSlots());
@@ -1064,11 +929,6 @@ export class WorldScene extends BaseScene {
       cam.setZoom(z);
       return;
     }
-    // hover (mouse): the placement ghost follows the pointer
-    if (this.placing && !p.isDown && !p.wasTouch) {
-      const wp = cam.getWorldPoint(p.x, p.y);
-      this.moveGhost(Math.floor(wp.x / WTILE), Math.floor(wp.y / WTILE));
-    }
     const g = this.gesture;
     if (!g || p.id !== g.id || !p.isDown) return;
     if (g.mode === 'pending' && Math.abs(p.x - g.sx) + Math.abs(p.y - g.sy) > 12 * RS) g.mode = 'pan';
@@ -1106,11 +966,6 @@ export class WorldScene extends BaseScene {
     if (this.cine) return;
     const tx = Math.floor(x / WTILE);
     const ty = Math.floor(y / WTILE);
-    if (this.placing) {
-      this.moveGhost(tx, ty);
-      haptic('light');
-      return;
-    }
     const c = this.w.camp;
     if (c) {
       const m = this.w.map;
