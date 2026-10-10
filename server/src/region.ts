@@ -19,6 +19,7 @@ import { emitForPlayer } from './telemetry/analytics';
 import { logError } from './telemetry/log';
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './env';
+import { forwardedSimVersion, LEGACY_SIM_VERSION } from './simVersion';
 import { DuelHub, HUB_PREFIX, type Out } from './online/duel';
 import type { ClientMsg, PresencePlayer } from '../../src/online/protocol';
 import type { Hero } from '../../src/data/units';
@@ -48,6 +49,8 @@ export interface PresenceInfo {
 
 interface Attachment extends PresenceInfo {
   joinedAt: number;
+  /** The socket's sim version (`x-sim-version`; absent in attachments from before V5-033 = v1). */
+  sim?: number;
 }
 
 interface ShardMeta {
@@ -78,6 +81,7 @@ export class RegionDO extends DurableObject<Env> {
       randomId: () => randomToken(8),
       randomSeed: () => randomU32(),
       online: (pid) => this.ctx.getWebSockets(`p:${pid}`).some((w) => w.deserializeAttachment() !== null),
+      simOf: (pid) => this.simOf(pid),
       buildDuel: (a, b, seed, picks) => this.buildDuel(a, b, seed, picks),
       release: (a, b, picks) => this.giveBack([a.id, b.id], picks),
       record: async (d, r) => {
@@ -341,7 +345,7 @@ export class RegionDO extends DurableObject<Env> {
     const [client, server] = [pair[0], pair[1]];
     const already = this.ctx.getWebSockets(`p:${id}`).length > 0;
     this.ctx.acceptWebSocket(server, [`p:${id}`]);
-    const me: Attachment = { id, name, joinedAt: Date.now() };
+    const me: Attachment = { id, name, joinedAt: Date.now(), sim: forwardedSimVersion(request.headers) };
     server.serializeAttachment(me);
 
     server.send(JSON.stringify({ type: 'welcome', region, you: { id, name }, players: this.online() }));
@@ -422,6 +426,17 @@ export class RegionDO extends DurableObject<Env> {
 
   async webSocketError(ws: WebSocket): Promise<void> {
     this.leave(ws);
+  }
+
+  /** The sim version of the player's newest open socket (a reload replaces the old one). */
+  private simOf(pid: number): number {
+    let sim = LEGACY_SIM_VERSION;
+    let at = -1;
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) {
+      const a = ws.deserializeAttachment() as Attachment | null;
+      if (a && a.joinedAt >= at) [sim, at] = [a.sim ?? LEGACY_SIM_VERSION, a.joinedAt];
+    }
+    return sim;
   }
 
   private lookup(pid: number): PresencePlayer | null {

@@ -90,7 +90,8 @@ All [SERVER] changes ship together as one train per version (V5-019), never as o
 ### The server's window
 `server/src/simVersion.ts` accepts `MIN_SIM_VERSION..SIM_VERSION`. Today that is 1..1.
 - HTTP outside the window gets **426 `sim_version_unsupported`** with `{simVersion, min, max}`.
-- A socket must run exactly `SIM_VERSION`. Live lockstep has no grace window, because mixed builds would desync. Otherwise the gateway opens the socket only to send `{type:'error', code:'sim_version_unsupported'}` and close it with 4426. A browser cannot read an HTTP error on an upgrade.
+- A socket must run a version in `SOCKET_MIN_SIM_VERSION..SIM_VERSION` (V5-033; a missing `?sim=` is 1). Otherwise the gateway opens the socket only to send `{type:'error', code:'sim_version_unsupported'}` and close it with 4426. A browser cannot read an HTTP error on an upgrade.
+- The gateway forwards the socket's version as `x-sim-version`. Live lockstep pairs only clients of the same version, because mixed rules would desync: the shard's DuelHub refuses a challenge between versions (`sim_version_mismatch`), the MatchmakerDO pairs within each version (`pairBySimVersion`), the match records its version, and the DuelDO refuses a join under other rules (409).
 - The client (`errorText` in `src/online/client.ts` and `ShardSocket`) shows the localized `online.reloadForUpdate` message and stops reconnecting.
 
 ### Recording and dispatch
@@ -132,7 +133,8 @@ sockets: /ws/*?sim=n ──▶ n == SIM_VERSION ? upgrade : error frame + close 
 3. Keep `MIN_SIM_VERSION = 1` for a grace window. It must be at least one ticket TTL (10 minutes) plus the time for clients to pick up the new build. During the window:
    - v1 tickets issued before the deploy replay with the frozen v1 sim.
    - A v1 client asking for a new ticket still gets one, but its setup is built by the v2 server code. Unless the train leaves setup building untouched, raise the *start* floor to 2 at once: either a second constant or `MIN_SIM_VERSION = 2` right after the ticket TTL.
-   - Live sockets accept only v2. v1 players see the reload message, and a live duel in flight at the deploy ends by the relay's normal timeout or forfeit rules.
+   - Live sockets keep `SOCKET_MIN_SIM_VERSION = 1` while v1 and v2 rules are identical (V5-033): today's clients send no `?sim=` and have no reload UI, so a refusal would break their duels for nothing. Duels pair only equal versions.
+   - **The first rule-changing story raises both floors, `MIN_SIM_VERSION` (new tickets) and `SOCKET_MIN_SIM_VERSION`, to 2 in the same commit as the rule change.** That closes the rule-shopping gap (a client picking v1 rules for a new ticket) and the setup-building drift above. Tickets already issued under v1 still replay with the frozen sim until the v1 copy is retired.
 4. Deploy the server and the client together (`docs/OPS.md`).
 
 ### Retiring a version

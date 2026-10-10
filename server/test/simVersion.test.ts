@@ -1,16 +1,38 @@
 import { beforeEach, describe, expect, inject, it } from 'vitest';
-import type { BattleSetup } from '../../src/sim/types';
+import type { BattleSetup, LoggedOrder } from '../../src/sim/types';
 import { SELF } from 'cloudflare:test';
 import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from '../../src/online/protocol';
 import { newRelay } from '../src/online/relay';
 import { DB, fresh, freeNeighbour, join, openDuellist, play, post, wsPath, type Ticket } from './onlineHelpers';
 import { SIM_VERSION } from '../../src/sim/version';
-import { replayBattle } from '../src/battle';
-import { MIN_SIM_VERSION, resolveSimVersion } from '../src/simVersion';
+import { REPLAYERS, replayBattle } from '../src/battle';
+import { Battle } from '../../src/sim/battle';
+import { BattleV1 } from '../src/sims/v1';
+import replayV1 from '../../tests/fixtures/replay-v1.json';
+import { MIN_SIM_VERSION, resolveSimVersion, SOCKET_MIN_SIM_VERSION, socketSimVersion } from '../src/simVersion';
+import { DuelHub, type Out } from '../src/online/duel';
+import { pairBySimVersion, type Waiting } from '../src/duel/matchmaker';
+import { onlineBattleSetup } from '../../src/online/battle';
+import { DEFAULT_FORMATIONS, starterOnlineArmy } from '../../src/online/rules';
 import { ApiError } from '../src/errors';
 import { api, BASE, devLogin } from './helpers';
 
 const fx = inject('battleFixture');
+
+/** Battles recorded under SIM_VERSION 1, before the v2 bump (never regenerated; ADR-0001). */
+interface RecordedBattle {
+  name: string;
+  setup: BattleSetup;
+  orders: LoggedOrder[];
+  deployOrders: number;
+  winner: 0 | 1 | -1;
+  ticks: number;
+  retreated: 0 | 1 | null;
+  hash: string;
+}
+const recorded = (replayV1 as unknown as { battles: RecordedBattle[] }).battles;
+/** The one recorded battle with a human (non-bot) side and an order log. */
+const v1fx = recorded.find((b) => b.name === 'standard-4242')!;
 
 function rejection(v: number | undefined): ApiError {
   try {
@@ -22,9 +44,13 @@ function rejection(v: number | undefined): ApiError {
 }
 
 describe('sim version resolution', () => {
-  it('today the window is exactly version 1', () => {
-    expect(SIM_VERSION).toBe(1);
+  it('the window is 1..2: v2 is current, v1 stays for the grace window', () => {
+    expect(SIM_VERSION).toBe(2);
     expect(MIN_SIM_VERSION).toBe(1);
+  });
+
+  it('accepts a v1 client during the grace window', () => {
+    expect(resolveSimVersion(1)).toBe(1);
   });
 
   it('a missing version is a client from before versioning: v1', () => {
@@ -51,10 +77,31 @@ describe('sim version resolution', () => {
 });
 
 describe('replay dispatch by sim version', () => {
-  it('replays v1 exactly like the unversioned call', () => {
-    const v1 = replayBattle(fx.setup, fx.orders, fx.deployOrders, 1);
-    expect(v1.summary).toMatchObject({ winner: fx.winner, ticks: fx.ticks, hash: fx.hash });
-    expect(replayBattle(fx.setup, fx.orders, fx.deployOrders).summary.hash).toBe(fx.hash);
+  it('REPLAYERS holds the frozen v1 sim and the current sim as v2, and nothing else', () => {
+    expect(Object.keys(REPLAYERS).map(Number)).toEqual([1, 2]);
+    expect(REPLAYERS[1](structuredClone(v1fx.setup))).toBeInstanceOf(BattleV1);
+    expect(REPLAYERS[2](structuredClone(v1fx.setup))).toBeInstanceOf(Battle);
+    expect(BattleV1).not.toBe(Battle);
+  });
+
+  it('every version in the window has a replayer', () => {
+    for (let v = MIN_SIM_VERSION; v <= SIM_VERSION; v++) expect(REPLAYERS[v], `v${v}`).toBeTypeOf('function');
+  });
+
+  for (const r of recorded) {
+    it(`the frozen v1 sim replays the recorded v1 battle ${r.name} to its hash (in workerd)`, () => {
+      const out = replayBattle(structuredClone(r.setup), r.orders, r.deployOrders, 1);
+      expect(out.summary).toMatchObject({ winner: r.winner, ticks: r.ticks, retreated: r.retreated, hash: r.hash });
+    });
+
+    it(`no rule change yet: v2 replays ${r.name} to the v1 hash`, () => {
+      const out = replayBattle(structuredClone(r.setup), r.orders, r.deployOrders, 2);
+      expect(out.summary).toMatchObject({ winner: r.winner, ticks: r.ticks, retreated: r.retreated, hash: r.hash });
+    });
+  }
+
+  it('an unversioned replay is v1', () => {
+    expect(replayBattle(structuredClone(v1fx.setup), v1fx.orders, v1fx.deployOrders).summary.hash).toBe(v1fx.hash);
   });
 
   it('refuses a version it has no sim for', () => {
@@ -67,7 +114,7 @@ describe('battle tickets record and replay the sim version (duel ladder)', () =>
   type Err = { error: { code: string } };
   const ticketVersion = async (id: string) => (await DB().prepare('SELECT sim_version, status FROM duel_tickets WHERE id = ?1').bind(id).first<{ sim_version: number; status: string }>())!;
 
-  it('a versioned round trip: the ticket records the version, the submission replays with it', async () => {
+  it('a v2 client gets a v2 ticket, and its submission replays with v2', async () => {
     const { token } = await openDuellist(9701);
     const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: SIM_VERSION });
     expect(t.status).toBe(200);
@@ -75,6 +122,26 @@ describe('battle tickets record and replay the sim version (duel ladder)', () =>
     const r = await post('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: SIM_VERSION, ...play(t.body.setup) });
     expect(r.status).toBe(200);
     expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: SIM_VERSION, status: 'used' });
+  });
+
+  it('a v1 client still gets a ticket during the grace window, and its submission verifies (frozen v1 sim)', async () => {
+    const { token } = await openDuellist(9705);
+    const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: 1 });
+    expect(t.status).toBe(200);
+    expect((await ticketVersion(t.body.ticket)).sim_version).toBe(1);
+    const r = await post('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: 1, ...play(t.body.setup) });
+    expect(r.status).toBe(200);
+    expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: 1, status: 'used' });
+  });
+
+  it('a v1 ticket issued before the deploy is still verified after it (v2 server, v1 submission)', async () => {
+    const { token } = await openDuellist(9706);
+    const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: SIM_VERSION });
+    // as if the row predates the bump (migration 0016 default)
+    await DB().prepare('UPDATE duel_tickets SET sim_version = 1 WHERE id = ?1').bind(t.body.ticket).run();
+    const r = await post('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: 1, ...play(t.body.setup) });
+    expect(r.status).toBe(200);
+    expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: 1, status: 'used' });
   });
 
   it('the old client payload shape (no simVersion anywhere) is still accepted, as v1', async () => {
@@ -134,13 +201,37 @@ describe('war attacks carry the sim version', () => {
 describe('live sockets carry the sim version (?sim=)', () => {
   beforeEach(fresh);
 
-  it('the current version and a client that sends none (v1) get in', async () => {
+  it('while the socket floor is 1, v2, v1 (sim=1) and a client that sends no version all get in', async () => {
+    expect(SOCKET_MIN_SIM_VERSION).toBe(1);
     const p = await join(9721);
-    for (const path of [`/ws/online?sim=${SIM_VERSION}`, '/ws/online']) {
+    for (const path of [`/ws/online?sim=${SIM_VERSION}`, '/ws/online?sim=1', '/ws/online']) {
       const ws = await wsPath(p.token, path);
-      expect((await ws.next('welcome')).type).toBe('welcome');
+      expect((await ws.next('welcome')).type, path).toBe('welcome');
       ws.ws.close(1000);
     }
+    const { token } = await openDuellist(9725);
+    for (const path of ['/ws/duel?sim=1', '/ws/duel']) {
+      const ws = await wsPath(token, path);
+      expect((await ws.next('mm_welcome')).type, path).toBe('mm_welcome');
+      ws.ws.close(1000);
+    }
+  });
+
+  it('a socket below the floor is refused with 426 (the gateway turns it into close 4426)', () => {
+    for (const raw of ['1', undefined]) {
+      const e = (() => {
+        try {
+          socketSimVersion(raw, 2);
+        } catch (err) {
+          return err as ApiError;
+        }
+        throw new Error(`sim=${raw} was accepted under floor 2`);
+      })();
+      expect(e.status).toBe(426);
+      expect(e.code).toBe(SIM_VERSION_REJECTED);
+      expect(e.extra).toMatchObject({ simVersion: 1, min: 2, max: SIM_VERSION });
+    }
+    expect(socketSimVersion('2', 2)).toBe(2);
   });
 
   it('an unknown version gets an error frame and close 4426, not a lobby', async () => {
@@ -163,11 +254,20 @@ describe('live sockets carry the sim version (?sim=)', () => {
   it('a live duel replays with the version it was created under', () => {
     const d = newRelay('d1', [1, 2], ['a', 'b'], fx.setup, 0);
     expect(d.simVersion).toBe(SIM_VERSION);
+    expect(d.simVersion).toBe(2);
   });
 });
 
 describe('POST /api/battle/verify carries the sim version', () => {
   const body = (extra: Record<string, unknown> = {}) => ({ setup: fx.setup, orders: fx.orders, deployOrders: fx.deployOrders, claim: { winner: fx.winner, ticks: fx.ticks, hash: fx.hash }, ...extra });
+  /** A battle recorded under v1: its claim must hold under the frozen v1 sim. */
+  const v1body = (extra: Record<string, unknown> = {}) => ({
+    setup: v1fx.setup,
+    orders: v1fx.orders,
+    deployOrders: v1fx.deployOrders,
+    claim: { winner: v1fx.winner, ticks: v1fx.ticks, retreated: v1fx.retreated, hash: v1fx.hash },
+    ...extra,
+  });
 
   it('a versioned round trip replays with that version', async () => {
     const { token } = await devLogin(4101);
@@ -176,9 +276,16 @@ describe('POST /api/battle/verify carries the sim version', () => {
     expect(await res.json()).toMatchObject({ match: true, simVersion: SIM_VERSION });
   });
 
+  it('a v1 client battle verifies with the frozen v1 sim', async () => {
+    const { token } = await devLogin(4105);
+    const res = await api('/api/battle/verify', { method: 'POST', token, json: v1body({ simVersion: 1 }) });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ match: true, simVersion: 1 });
+  });
+
   it('the old client payload (no simVersion) is still accepted, as v1', async () => {
     const { token } = await devLogin(4102);
-    const res = await api('/api/battle/verify', { method: 'POST', token, json: body() });
+    const res = await api('/api/battle/verify', { method: 'POST', token, json: v1body() });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ match: true, simVersion: 1 });
   });
@@ -195,5 +302,61 @@ describe('POST /api/battle/verify carries the sim version', () => {
     for (const simVersion of ['1', 1.5, -1]) {
       expect((await api('/api/battle/verify', { method: 'POST', token, json: body({ simVersion }) })).status).toBe(400);
     }
+  });
+});
+
+describe('live duels pair only clients of the same sim version (V5-033)', () => {
+  const W = (pid: number, sim: number | undefined): Waiting => ({ pid, name: `p${pid}`, mode: 'unranked', rating: 1500, games: 0, since: 0, sim });
+
+  it('the duel queue never pairs v1 with v2', () => {
+    expect(pairBySimVersion([W(1, 1), W(2, 2)], 0)).toEqual([]);
+    expect(pairBySimVersion([W(1, 1), W(2, 2), W(3, 2), W(4, undefined)], 0).map((p) => p.map((w) => w.pid).sort())).toEqual(
+      expect.arrayContaining([[1, 4], [2, 3]]),
+    );
+  });
+
+  function hub(sims: Record<number, number>) {
+    const p0 = starterOnlineArmy(1, { nextId: 1 }, 'a_');
+    const p1 = starterOnlineArmy(2, { nextId: 1 }, 'b_');
+    let n = 0;
+    return new DuelHub({
+      now: () => 0,
+      randomId: () => `id${n++}`,
+      randomSeed: () => 4242,
+      online: () => true,
+      simOf: (pid) => sims[pid],
+      buildDuel: async (_a, _b, seed) => ({
+        setup: onlineBattleSetup(seed, { heroes: p0, formations: DEFAULT_FORMATIONS, bot: false }, { heroes: p1, formations: DEFAULT_FORMATIONS, bot: false }, null),
+        heroes: [p0, p1],
+      }),
+    });
+  }
+  const A = { id: 1, name: 'A' };
+  const B = { id: 2, name: 'B' };
+  const lookup = (id: number) => (id === 1 ? A : id === 2 ? B : null);
+  const errors = (out: Out[]) => out.filter((o) => o.msg.type === 'error').map((o) => (o.msg as { code?: string }).code);
+
+  it('a shard challenge between v1 and v2 is refused with sim_version_mismatch', async () => {
+    const h = hub({ 1: 1, 2: 2 });
+    expect(errors(await h.handle(A, { type: 'challenge', to: 2 } as never, lookup))).toEqual(['sim_version_mismatch']);
+    expect(h.challenges.size).toBe(0);
+  });
+
+  it('a challenge accepted after one side reloaded onto other rules is refused, not started', async () => {
+    const sims: Record<number, number> = { 1: 1, 2: 1 };
+    const h = hub(sims);
+    const sent = await h.handle(A, { type: 'challenge', to: 2 } as never, lookup);
+    const id = (sent.find((o) => o.msg.type === 'challenge_sent')!.msg as { id: string }).id;
+    sims[2] = 2;
+    expect(errors(await h.handle(B, { type: 'challenge_reply', id, accept: true } as never, lookup))).toEqual(['sim_version_mismatch']);
+    expect(h.duels.size).toBe(0);
+  });
+
+  it('same-version players duel under their own version', async () => {
+    const h = hub({ 1: 1, 2: 1 });
+    const sent = await h.handle(A, { type: 'challenge', to: 2 } as never, lookup);
+    const id = (sent.find((o) => o.msg.type === 'challenge_sent')!.msg as { id: string }).id;
+    await h.handle(B, { type: 'challenge_reply', id, accept: true } as never, lookup);
+    expect([...h.duels.values()].map((d) => d.simVersion)).toEqual([1]);
   });
 });
