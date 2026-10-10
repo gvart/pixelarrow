@@ -10,10 +10,12 @@ import { crop, blank, paste, resizeNearest, flatten } from './lib/ops.mjs';
 import { findAsset, stagedPath } from './lib/manifest.mjs';
 
 const args = process.argv.slice(2);
-const a = findAsset(args[0]);
-const maxVar = Number(args[args.indexOf('--max') + 1] || 18);
+// ad hoc: --file <png> --slice l,t,r,b (a frame not in the manifest yet)
+const opt = (n) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : undefined);
+const a = opt('file') ? { id: args[0], slice: opt('slice').split(',').map(Number) } : findAsset(args[0]);
+const maxVar = Number(opt('max') || 18);
 if (!a.slice) throw new Error(`${a.id} has no "slice" insets in the manifest`);
-const p = stagedPath(a);
+const p = opt('file') ?? stagedPath(a);
 if (!existsSync(p)) {
   console.log(`NOT ASSESSED ${a.id}: no staged file`);
   process.exit(3);
