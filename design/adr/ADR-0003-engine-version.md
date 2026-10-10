@@ -1,7 +1,7 @@
-# ADR-0003: Engine version — Phaser 4.2 for v5
+# ADR-0003: Engine version — stay on Phaser 3.90 for v5
 
 ## Status
-Proposed
+Rejected (the Phaser 4.2.1 upgrade failed its merge gate, V5-025, on 2026-10-10). v5 stays on Phaser 3.90.
 
 ## Date
 2026-10-10
@@ -12,6 +12,26 @@ Proposed
 ## Decision Makers
 - Author: engine spike (S2-P4-SPIKE), acting for the technical-director.
 - Approver: the user, through the Director. Only the technical-director may move this ADR to Accepted, and only after the user confirms.
+
+## Gate outcome (2026-10-10)
+The Director accepted the upgrade conditionally (V5-025) behind 5 gates. Gate 1, sheet-open time, failed:
+
+| Measurement | 4.2.1 vs 3.90 |
+|---|---|
+| First Settings-sheet open, software GL | 1.43x |
+| First Settings-sheet open, GPU + 4x CPU throttle | 2.01x |
+| First Settings-sheet open, GPU + 6x CPU throttle | 1.87x |
+| Hub open | 1.18–1.36x |
+
+The cause is a single 400–450 ms first-draw frame inside Phaser 4's renderer. Shader precompile, mask pre-warm and batch pre-touch did not remove it.
+
+What held up:
+- Warm sheet opens are 0.96–1.06x.
+- Battle FPS under throttling is equal or better.
+
+The **decision is therefore Alternative 1: stay on Phaser 3.90 for v5.** The spike branch keeps the working v4 port for a later attempt. Evidence: `docs/v5/spike/P4.md`, "Gate result".
+
+The original proposal follows, kept for the record.
 
 ## Summary
 v5 must choose between staying on Phaser 3.90, the last Phaser 3 release, and moving to Phaser 4 (decision V5-005). A bounded spike moved the game to phaser 4.2.1 in under two hours: three small fixes, no runtime errors, and visual parity on the screens checked. So this ADR proposes upgrading now, before v5 gameplay work starts. A short parity pass must finish before the upgrade merges.
@@ -56,7 +76,7 @@ pixelarrow runs on Phaser 3.90, the final Phaser 3 release. Phaser 4 is the main
 
 ## Decision
 
-**UPGRADE to Phaser 4 (`phaser@^4.2.1`) now, as the first engine story of v5.** Merge the spike branch once the parity pass in "Verification Required" is green. If that pass finds a problem that cannot be fixed within 2 days, stay on 3.90 for v5. See Alternative 1.
+_Original proposal, rejected at the gate. See "Gate outcome"._ **UPGRADE to Phaser 4 (`phaser@^4.2.1`) now, as the first engine story of v5.** Merge the spike branch once the parity pass in "Verification Required" is green. If that pass finds a problem that cannot be fixed within 2 days, stay on 3.90 for v5. See Alternative 1.
 
 ### Architecture Diagram
 ```
