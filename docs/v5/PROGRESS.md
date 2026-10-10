@@ -13,18 +13,20 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 | --- | --- | --- | --- | --- | --- |
 | audit-ui | S1-AUDIT-UI: every scene shot at 390/360/320 → docs/v5/audit/UI.md, NAV.md, shots/ | ux-review, game-ui-ux | ux-designer, accessibility-specialist | worktree-agent | running |
 | audit-play | S1-AUDIT-PLAY: tutorial, campaign battle, duel and war played through → docs/v5/audit/PLAY.md, play/ | playtest-report, input-systems, game-feel | qa-tester, game-designer | worktree-agent | running |
-| audit-mech | S1-AUDIT-MECH: systems, balance baseline, Phaser 4 risk → docs/v5/audit/MECHANICS.md, docs/v5/balance/ | balance-check, game-ai, rpg | systems-designer, economy-designer | worktree-agent | running |
+| p4-spike | S2-P4-SPIKE: attempt Phaser 4 upgrade in its worktree, measure, write docs/v5/spike/P4.md + design/adr/ADR-0003 | phaser-core, architecture-decision, performance-optimization | technical-director, engine-programmer | worktree-agent (see report) | running (merge docs always; code only on UPGRADE) |
 
 ## Merged into v5
 
 - 7510360 docs(v5): director state files and initial decisions
 - f9b8929 merge: S0-SETUP: 39 systems in design/gdd/systems-index.md, stage Production (CONCERNS: no GDDs or ADRs). Gates: tsc ok, vitest 525/525.
+- b829290 merge: S1-AUDIT-MECH: MECHANICS.md and balance BASELINE (104/306 class pairings lopsided, elites lose to cheap shock, loot resale beats battle pay). Gates: tsc ok, vitest 525/525.
 
 ## Queue (next)
 
 1. Merge each finished audit and setup branch through an `integrator` agent (docs-only, so the gates are a quick tsc plus a test sanity run).
 2. S1-AUDIT-SYNTH: one agent merges UI, PLAY and MECHANICS into `docs/v5/AUDIT.md`, area by area with severity.
-3. Phase 2 in parallel:
+3. Phase 4 fix stories (V5-011, V5-012): save-migration overwrite, permadeath escape, Beast Trial farm, sim versioning.
+4. Phase 2 in parallel:
    - VISION: /brainstorm with creative-director and game-designer → VISION.md, then a /quick-design GDD per expansion.
    - ART+UX: /art-bible and /ux-design IA and screen-flow map, with art-director and ux-designer.
    - P4-SPIKE: technical-director on the Phaser 4 decision (V5-005).
@@ -33,6 +35,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 ## Blockers
 
 none
+
+## Cleanup pending
+
+- Worktree `agent-a58dc3e9cd4628579` and branch `worktree-agent-a58dc3e9cd4628579` (already merged in b829290) are still locked by the harness. Retry `git worktree remove` + `git branch -d` next tick.
 
 ## Next tick
 
