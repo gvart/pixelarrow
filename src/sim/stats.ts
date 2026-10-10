@@ -78,6 +78,29 @@ export interface CombatStats {
   shroud?: number;
 }
 
+/**
+ * A band captain (design/gdd/ai-doctrines.md R6). The band builder marks the
+ * enemy hero (src/world/world.ts bandCaptain); the mark travels with the hero
+ * into the battle marker, so the derived stats below are the same on every
+ * replay of the battle.
+ */
+export type CaptainMark = { captain?: boolean };
+
+/** Whether a hero is a band captain. */
+export function isCaptain(hero: object): boolean {
+  return (hero as CaptainMark).captain === true;
+}
+
+/**
+ * What a captain gets on top of his level and gear (world.ts bandCaptain):
+ * the nerve of the man who holds the band together. His standard (aura,
+ * Raise, banner loss: abilities.md R5) is a sim rule that comes with AB-03,
+ * which reads `UnitSpec.captain`. Steady Presence as a stand-in was tried and
+ * made a captain worth +23 points against the +5..+10 target
+ * (docs/v5/balance/AI-02.md).
+ */
+export const CAPTAIN_STATS = { morale: 10 };
+
 /** Radius bonus from Will for auras and shouts. */
 export function willRadius(s: { will: number }): number {
   return (s.will - ATTR_BASE) * ATTR_EFFECT.wilRadius;
@@ -277,6 +300,7 @@ export function computeStats(hero: Hero): CombatStats {
   }
   if (pursuit) s.pursuit = pursuit;
   if (scythe) s.scythe = scythe;
+  if (isCaptain(hero)) s.morale += CAPTAIN_STATS.morale;
   // Attributes: each point away from ATTR_BASE shifts the derived stats.
   const a = hero.attrs ?? defaultAttrs();
   const E = ATTR_EFFECT;

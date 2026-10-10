@@ -9,10 +9,12 @@
 import { bandBeast, beastEnemy } from '../game/beasts';
 import { Rng, hashString } from '../sim/rng';
 import type { Culture } from '../data/names';
-import { BASE_ITEMS, itemValue, type Item, type ItemDef } from '../data/items';
+import { BASE_ITEMS, RARITIES, itemValue, rarityRank, type Item, type ItemDef } from '../data/items';
 import { RECRUIT_COST, type Hero } from '../data/units';
 import { buildArmy, type ArmyMix, type EnemyArmy } from '../game/enemy';
-import { makeHero, makeItem, rollRarity, type IdSource } from '../game/heroes';
+import { makeHero, makeItem, rollRarity, setBotLevel, type IdSource } from '../game/heroes';
+import { dedupeNames } from '../data/names';
+import { heroPower, type CaptainMark } from '../sim/stats';
 import { armyPick, bandSetPieces } from '../game/sources';
 import { CLASSES, townClasses, type ClassId } from '../data/classes';
 import {
@@ -52,7 +54,7 @@ export interface PartyState {
   ty: number;
   /** Hours it stays put / leaves the player alone (after a fight or an escape). */
   idle: number;
-  /** Men who got away from a battle it retreated from (ai-doctrines.md); missing = 0. */
+  /** Times it retreated from a battle with the player (ai-doctrines.md R8), at most CAPTAIN_RULES.escapeCap; missing = 0. */
   escaped?: number;
   /** Its captain was killed or captured (ai-doctrines.md); missing = false. */
   captainDead?: boolean;
@@ -180,6 +182,24 @@ export const WORLD_RULES = {
   healTown: 3,
   healGoldPerHour: 1,
 };
+
+/** Band captains and escapes (design/gdd/ai-doctrines.md R6, R8 and Tuning Knobs). */
+export const CAPTAIN_RULES = {
+  /** Bands of this gear tier and up have a captain (CAPTAIN_MIN_TIER). */
+  minTier: 2,
+  /** His level over the band's, capped at MAX_LEVEL (CAPTAIN_LEVEL_BONUS). */
+  levelBonus: 2,
+  /** Hours a band that retreated stays away (ESCAPE_IDLE_H). */
+  escapeIdleH: 3,
+  /** `escaped` stops counting here (ESCAPE_CAP). */
+  escapeCap: 3,
+};
+
+/** The band's main-line class, which its captain fights as. */
+function captainClass(p: PartyState): ClassId {
+  if (p.kind === 'bandits') return 'thureophoros';
+  return p.culture === 'celtic' ? 'celt_sword' : 'hoplite';
+}
 
 const BAND_NAMES: Record<BandKind, string> = { bandits: 'Bandits', raiders: 'Galatae raiders', mercs: 'Mercenaries' };
 // The host's army is AR-04's; until then a host band (never spawned yet) fields raiders.
@@ -760,7 +780,11 @@ export class World {
     if (this.s.destParty === id) this.stop();
   }
 
-  /** A band that lost men in a fight it won: smaller, and it rests a while. */
+  /**
+   * A band that lost men but kept the field (or got away): smaller, and it
+   * rests a while. It stays the same band (MECH C4): same seed, so the same
+   * beast or the same men, and the same captain while he lives.
+   */
   weakenParty(id: number, lost: number, idleHours: number): void {
     const p = this.party(id);
     if (!p) return;
@@ -769,7 +793,6 @@ export class World {
       this.removeParty(id);
       return;
     }
-    p.seed = (p.seed * 1664525 + 1013904223) >>> 0 || 1;
     p.power = partyArmy(p, { nextId: 1 }).power;
     p.idle = idleHours;
     this.aiRoutes.delete(id);
@@ -890,17 +913,50 @@ function makeRecruit(def: SettlementDef, key: string, ids: IdSource, roster: rea
   return { hero, price: CLASSES[cls].cost - 40 + 35 * (level - 1) + Math.round(gear / 3) };
 }
 
+/** Whether the band fields a captain (ai-doctrines.md R6): tier 2 and up, a band of men, and he still lives. */
+export function hasCaptain(p: PartyState): boolean {
+  return p.tier >= CAPTAIN_RULES.minTier && !p.captainDead && !(p.kind !== 'mercs' && bandBeast(p.seed));
+}
+
+/**
+ * The band's captain (ai-doctrines.md R6), or null when it has none. He comes
+ * from the band's seed alone, apart from the rank and file, so he is the same
+ * man however many of his band have fallen: a band that retreats comes back
+ * with the same captain. He fights in the main line at the band's level + 2,
+ * with no item below uncommon (rare from tier 3), and carries the captain's
+ * mark (src/sim/stats.ts CAPTAIN_STATS).
+ */
+export function bandCaptain(p: PartyState, ids: IdSource): Hero | null {
+  if (!hasCaptain(p)) return null;
+  const rng = new Rng((p.seed ^ 0x6a09e667) >>> 0 || 1);
+  const h = makeHero(rng, ids, p.culture, captainClass(p), 1, p.tier, 0);
+  setBotLevel(h, p.level + CAPTAIN_RULES.levelBonus);
+  const floor = p.tier >= 3 ? 2 : 1;
+  for (const it of Object.values(h.equip)) if (it && rarityRank(it.rarity) < floor) it.rarity = RARITIES[floor];
+  (h as Hero & CaptainMark).captain = true;
+  return h;
+}
+
 /**
  * The band's army, generated from its seed (identical at every call for the
  * same army `classes`, which a beast's hoard follows). Tier-3 bands now and
- * then carry a rare set piece (src/game/sources.ts bandSetPieces).
+ * then carry a rare set piece (src/game/sources.ts bandSetPieces). A band with
+ * a captain is the captain plus `size - 1` men.
  */
 export function partyArmy(p: PartyState, ids: IdSource, classes: readonly string[] = []): EnemyArmy {
   // Now and then a lair's band is a mythical beast (src/game/beasts.ts): a rare encounter.
   const beast = p.kind !== 'mercs' ? bandBeast(p.seed) : null;
   if (beast) return beastEnemy(beast, Math.max(2, p.level + 1), p.seed, ids, classes);
-  const army = buildArmy(new Rng(p.seed), ids, { culture: p.culture, count: p.size, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false });
+  const captain = bandCaptain(p, ids);
+  const req = { culture: p.culture, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false } as const;
+  const count = p.size - (captain ? 1 : 0);
+  const army = count > 0 ? buildArmy(new Rng(p.seed), ids, { ...req, count }) : { ...buildArmy(new Rng(p.seed), ids, { ...req, count: 1 }), heroes: [] };
   bandSetPieces(army.heroes, army.culture, p.tier, p.seed);
+  if (!captain) return army;
+  army.heroes.unshift(captain);
+  // he keeps his name; a rank-and-file man who shares it takes another
+  dedupeNames(army.heroes);
+  army.power = army.targetPower = army.heroes.reduce((a, h) => a + heroPower(h), 0);
   return army;
 }
 

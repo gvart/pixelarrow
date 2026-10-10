@@ -14,7 +14,9 @@ import { dedupeNames } from '../data/names';
 import { campaignIdFor, DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
 import { armyPower, type EnemyArmy } from './enemy';
 import type { Outcome } from './loot';
-import { World, WORLD_RULES, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
+import { CAPTAIN_RULES, World, WORLD_RULES, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
+import { isCaptain } from '../sim/stats';
+import type { BattleResult } from '../sim/types';
 import { CAMP_RULES, FOOD_RULES, campEffects } from '../world/camp';
 import { MUSTER, fieldHeroes } from './muster';
 
@@ -24,6 +26,28 @@ export function scrapValue(it: Item): number {
 }
 
 export const START_GOLD = 60;
+
+/** A captain's bounty (ai-doctrines.md F3): BOUNTY_BASE + BOUNTY_PER_LV x his level. */
+export const BOUNTY = { base: 15, perLevel: 5 };
+/** The victory bonus src/game/loot.ts resolveBattle pays; a band that retreats does not pay it (R8). */
+export const WIN_GOLD = 60;
+
+/** Gold for a captain of `level` killed or captured; `mult` is a band's bountyMult (campaign-events.md, 1..3). */
+export function captainBounty(level: number, mult = 1): number {
+  return Math.round((BOUNTY.base + BOUNTY.perLevel * level) * mult);
+}
+
+/** What became of the band's captain in a battle. */
+export type CaptainFate = 'none' | 'alive' | 'killed' | 'captured';
+
+/** What a battle against a band paid and did beyond the plain outcome (ai-doctrines.md R6, R8). */
+export interface PartySpoils {
+  /** The band quit the field: a victory without the win bonus, and the band gets away weakened. */
+  enemyRetreated: boolean;
+  captain: CaptainFate;
+  /** Gold for the captain (already in the outcome's gold); 0 = none. */
+  bounty: number;
+}
 
 export class Campaign {
   data: SaveData;
@@ -394,14 +418,52 @@ export class Campaign {
 
   /**
    * After a battle against a band: a victory destroys it; otherwise it keeps
-   * what is left and both sides break off for a few hours.
+   * what is left and both sides break off for a few hours. `result` and
+   * `enemies` (the sim's result and the band's heroes) settle its captain and
+   * a retreat (ai-doctrines.md R6, R8):
+   * - a captain killed, or knocked out on a field the player holds, is gone
+   *   for good (`captainDead`); on a win he pays his bounty and his weapon is
+   *   an extra loot pick, offered first. So the bounty is paid once.
+   * - a band that retreats is beaten but not destroyed: no win bonus, it
+   *   loses its fallen and gets away (`escaped`), its captain with it if he lives.
+   * Mutates the outcome's gold and loot (the gold is already in the purse).
    */
-  afterPartyBattle(partyId: number, outcome: Outcome): void {
+  afterPartyBattle(partyId: number, outcome: Outcome, result?: BattleResult, enemies: readonly Hero[] = []): PartySpoils {
     const w = this.world;
     const p: PartyState | undefined = w.party(partyId);
+    const enemyRetreated = outcome.victory && result?.retreated === 1;
+    const captain = enemies.find((h) => isCaptain(h));
+    const unit = captain && result?.units.find((u) => u.side === 1 && u.heroId === captain.id);
+    const fate: CaptainFate = !captain ? 'none' : unit?.state !== 'dead' ? 'alive' : !unit.ko ? 'killed' : outcome.victory ? 'captured' : 'alive';
+    let bounty = 0;
+    if (enemyRetreated) {
+      // the win bonus goes, kill gold stays (scaled by the gilded-gear bonus like the rest)
+      const base = 20 + outcome.enemyKilled * 12;
+      const cut = outcome.gold - Math.round((outcome.gold * base) / (base + WIN_GOLD));
+      outcome.gold -= cut;
+      this.data.gold -= cut;
+    }
+    if (captain && outcome.victory && (fate === 'killed' || fate === 'captured')) {
+      bounty = captainBounty(captain.level);
+      outcome.gold += bounty;
+      this.data.gold += bounty;
+      const weapon = captain.equip.weapon;
+      if (weapon) {
+        const at = outcome.loot.findIndex((it) => it.uid === weapon.uid);
+        const item = at >= 0 ? outcome.loot.splice(at, 1)[0] : (JSON.parse(JSON.stringify(weapon)) as typeof weapon);
+        outcome.loot.unshift(item);
+        outcome.picks = Math.min(outcome.picks + 1, outcome.loot.length);
+      }
+    }
     if (p) {
-      if (outcome.victory) w.removeParty(partyId);
-      else w.weakenParty(partyId, outcome.enemyKilled, 3);
+      if (fate === 'killed' || fate === 'captured') p.captainDead = true;
+      if (outcome.victory && !enemyRetreated) w.removeParty(partyId);
+      else if (enemyRetreated) {
+        const fallen = result!.units.filter((u) => u.side === 1 && u.state === 'dead').length;
+        w.weakenParty(partyId, fallen, CAPTAIN_RULES.escapeIdleH);
+        const left = w.party(partyId);
+        if (left) left.escaped = Math.min(CAPTAIN_RULES.escapeCap, (left.escaped ?? 0) + 1);
+      } else w.weakenParty(partyId, outcome.enemyKilled, 3);
     }
     w.s.safeUntil = w.s.time + (outcome.victory ? 0.5 : 3);
     // A destroyed army: three volunteers find the commander at the starting town.
@@ -413,5 +475,6 @@ export class Campaign {
       w.s.y = st.y + 0.5;
       w.s.safeUntil = w.s.time + 4;
     }
+    return { enemyRetreated, captain: fate, bounty };
   }
 }

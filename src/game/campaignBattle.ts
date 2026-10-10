@@ -86,7 +86,7 @@ export function settleBattle(camp: Campaign, pending: PendingBattle, sim: Battle
   camp.data.gold += outcome.gold;
   camp.data.fought++;
   if (outcome.victory) camp.data.won++;
-  if (pending.partyId !== undefined) camp.afterPartyBattle(pending.partyId, outcome);
+  if (pending.partyId !== undefined) camp.afterPartyBattle(pending.partyId, outcome, sim.result(), enemyHeroes);
   else if (survivors.length === 0) {
     for (let i = 0; i < 3; i++) camp.data.heroes.push(makeHero(camp.random(), camp.data, 'greek', 'raw', 1, 1, i < 2 ? 0 : 1, camp.data.heroes));
   }
