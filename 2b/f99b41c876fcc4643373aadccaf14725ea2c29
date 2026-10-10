@@ -1,0 +1,31 @@
+src/data/doctrines.ts
+  s_697bdc25a7c420::t_168aad3703d05c 58-59,78
+src/sim/ai.ts
+  s_697bdc25a7c420::t_9621fa4431969e 485-489,537
+tests/aiDoctrines.test.ts
+  s_697bdc25a7c420::t_65b05be97c798c 11,197-203
+  s_697bdc25a7c420::t_8c8dbc94ad4ac8 204-205
+tests/simTypes.test.ts
+  s_697bdc25a7c420::t_65b05be97c798c 92
+src/dev/doctrineBalance.ts
+  s_697bdc25a7c420::t_168aad3703d05c 53-57,59,64-65,92,114-116,118-122
+  s_697bdc25a7c420::t_2931ff910eb52f 3-5,9-10,13-14,16-52,58,60-63,76-91,93-100,103-113,117,123
+  s_697bdc25a7c420::t_cdc218ffe5f267 15
+  s_697bdc25a7c420::t_dbf23931d8fc9f 8,11-12,66-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2bf99b41c876fcc4643373aadccaf14725ea2c29",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
