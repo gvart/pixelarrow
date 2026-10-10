@@ -80,6 +80,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 ## Blockers
 
+- DISK: only a few GB free on the Mac (the user's other data fills about 434 GB). v5 follows the V5-057 disk guard. If free space drops under 2 GB, pause new code agents and tell the user.
+
 - (resolved 2026-10-10: the user allowed automatic downloads for gemini.google.com; the assets queue resumed with assets-3)
 
 ## Cleanup pending
