@@ -126,11 +126,11 @@ export async function loadUiFonts({ timeoutMs = 6000 } = {}): Promise<Face[]> {
  * never outgrows the box the layout gave it. Word spaces and tabular digits
  * keep their metric advance either way.
  */
-function glyphAdvances(face: Face, K: number, ready: boolean, drawnWidth: (ch: string) => number): number[] {
-  return UI_CHARS.map((ch) => {
+function glyphAdvances(face: Face, K: number, ready: boolean, drawn: readonly number[]): number[] {
+  return UI_CHARS.map((ch, i) => {
     const metric = Math.max(0, advance(ch, face)) * K;
     if (ready || ch === ' ' || DIGITS.includes(ch)) return metric;
-    return Math.min(metric, drawnWidth(ch));
+    return Math.min(metric, drawn[i]);
   });
 }
 
@@ -164,7 +164,8 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   ctx.font = cssFont(face, f.px * K);
-  const xAdv = glyphAdvances(face, K, faceReady(face), (ch) => ctx.measureText(ch).width);
+  const drawn = chars.map((ch) => ctx.measureText(ch).width);
+  const xAdv = glyphAdvances(face, K, faceReady(face), drawn);
   const cells = chars.map((ch) => Math.ceil(Math.max(0, advance(ch, face)) * K) + pad * 2);
   const maxW = 1024;
   let x = 0;
@@ -195,12 +196,18 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
       ctx.rect(p.x, p.y, cells[i], cellH);
       ctx.clip();
     }
+    // a fallback glyph wider than its advance is narrowed to fit, so letters never overlap
+    const sx = ch !== ' ' && drawn[i] > xAdv[i] + 0.5 ? xAdv[i] / drawn[i] : 1;
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.scale(sx, 1);
     if (shadow !== undefined) {
       ctx.fillStyle = hex(shadow);
-      ctx.fillText(ch, bx + K * 0.5, by + K * 0.5);
+      ctx.fillText(ch, (K * 0.5) / sx, K * 0.5);
     }
     ctx.fillStyle = hex(color);
-    ctx.fillText(ch, bx, by);
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
     if (face === 'roman') ctx.restore();
     glyphs.push({ ch, x: p.x, y: p.y, w: cells[i], h: cellH, xOffset: -pad, yOffset: -above, xAdvance: xAdv[i] });
   });

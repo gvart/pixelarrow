@@ -25,17 +25,31 @@ interface FakeFace { family: string; weight: string; status: string }
 /** A DOM stand-in: a canvas whose text is `drawn` (Cinzel's real widths or the fallback's), and a font set. */
 function fakeDom(drawn: 'cinzel' | 'fallback', faces: FakeFace[] = [], load: () => Promise<unknown> = async () => []) {
   const width = (ch: string, px: number) => ((drawn === 'cinzel' ? ROMAN_METRICS.adv[ch] : FALLBACK[ch]) ?? 500) * px / 1000;
+  const stack: number[] = [];
   const ctx = {
     font: '',
     fillStyle: '',
     textBaseline: '',
+    sx: 1,
+    /** Ink width of every glyph drawn, after the horizontal scale. */
+    ink: new Map<string, number>(),
     measureText(s: string) {
       const px = Number(/([\d.]+)px/.exec(this.font)?.[1] ?? 10);
       return { width: [...s].reduce((w, ch) => w + width(ch, px), 0) };
     },
-    fillText() {},
-    save() {},
-    restore() {},
+    fillText(ch: string) {
+      this.ink.set(ch, this.measureText(ch).width * this.sx);
+    },
+    save() {
+      stack.push(this.sx);
+    },
+    restore() {
+      this.sx = stack.pop() ?? 1;
+    },
+    translate() {},
+    scale(x: number) {
+      this.sx *= x;
+    },
     beginPath() {},
     rect() {},
     clip() {},
@@ -45,7 +59,7 @@ function fakeDom(drawn: 'cinzel' | 'fallback', faces: FakeFace[] = [], load: () 
     createElement: () => ({ width: 0, height: 0, getContext: () => ctx }),
     fonts: { check: () => drawn === 'cinzel' && loaded(), load, [Symbol.iterator]: () => faces[Symbol.iterator]() },
   };
-  return { width };
+  return { width, ctx };
 }
 
 afterEach(() => {
@@ -86,6 +100,14 @@ describe('Cinzel bitmap atlas: words never split (OI-1)', () => {
     fakeDom('fallback');
     const { glyphs } = renderVectorAtlas(0x3a2414, undefined, 4, 'roman');
     for (const g of glyphs) if (advance(g.ch, 'roman') >= 0) expect(g.xAdvance).toBeLessThanOrEqual(advance(g.ch, 'roman') * 4 + 1e-6);
+  });
+
+  it('a fallback glyph wider than its advance is narrowed to fit: letters never overlap', () => {
+    const { ctx } = fakeDom('fallback');
+    const { glyphs } = renderVectorAtlas(0x3a2414, undefined, 4, 'roman');
+    // the fake fallback draws unknown glyphs (Cyrillic, symbols) half an em wide, wider than many advances
+    expect(glyphs.some((g) => ctx.measureText(g.ch).width > g.xAdvance + 0.5)).toBe(true);
+    for (const g of glyphs) if (g.ch !== ' ') expect(ctx.ink.get(g.ch)!, g.ch).toBeLessThanOrEqual(g.xAdvance + 0.5);
   });
 
   it('word spaces and tabular digits keep their metric advance in a fallback', () => {
