@@ -1,0 +1,23 @@
+design/gdd/systems-index.md
+  s_697bdc25a7c420::t_564ca614fb0752 280
+  s_697bdc25a7c420::t_4e5bceed604f8b 1-149,151-171,173-279,281-299,302-311
+  s_697bdc25a7c420::t_9b1e6cc2438d26 150
+  s_697bdc25a7c420::t_a5f43072e57181 172
+  s_697bdc25a7c420::t_06afa234d7b862 300-301
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3f31afdd74c19d0d073d36775a840f12e64bbb93",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
