@@ -30,6 +30,7 @@ import {
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
 import { ROLE } from './tokens';
+import { arrangeActions } from './mosaic/overlays';
 
 export const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
 export const ROMAN = ['I', 'II', 'III', 'IV'];
@@ -564,13 +565,17 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     by += LINE_H;
   }
   area.setContentHeight(by);
-  // ---- actions (primary on the right, under the thumb)
+  // ---- actions: primary on the right, under the thumb; a destructive one never beside it (A11Y-08)
   if (o.actions.length) {
     const n = o.actions.length;
     const fy = y + h - 8 - SIZE.btnH;
-    const bw = Math.floor((inner - (n - 1) * SIZE.gap) / n);
-    o.actions.forEach((a, i) => {
-      const btn = new Button(scene, bx + i * (bw + SIZE.gap), fy, i === n - 1 ? inner - i * (bw + SIZE.gap) : bw, SIZE.btnH, {
+    const { order, gaps } = arrangeActions(o.actions.map((a) => (a.variant === 'primary' || a.variant === 'destructive' ? a.variant : 'other')), SIZE.gap);
+    const bw = Math.floor((inner - gaps.reduce((s, g) => s + g, 0)) / n);
+    let ax = bx;
+    order.forEach((ai, i) => {
+      const a = o.actions[ai];
+      if (i > 0) ax += bw + gaps[i - 1];
+      const btn = new Button(scene, ax, fy, i === n - 1 ? bx + inner - ax : bw, SIZE.btnH, {
         label: a.label,
         icon: a.icon,
         variant: a.variant ?? 'secondary',
@@ -747,12 +752,11 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
   }
   area.setContentHeight(by);
   frameScrollTexts(area, inner);
+  // the hire action alone in the footer: the X, Back and a tap outside close the card (one close affordance, G5)
   if (o.action) {
     const a = o.action;
     const fy = y + m.h - 8 - SIZE.btnH;
-    const bw = Math.floor((inner - SIZE.gap) / 2);
-    c.add(new Button(scene, bx, fy, bw, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
-    const btn = new Button(scene, bx + bw + SIZE.gap, fy, inner - bw - SIZE.gap, SIZE.btnH, {
+    const btn = new Button(scene, bx, fy, inner, SIZE.btnH, {
       label: a.label,
       icon: a.icon,
       variant: a.variant ?? 'primary',

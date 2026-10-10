@@ -10,8 +10,8 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { Button, fitCinzel, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
-import { fadeTexture, inkFontKey } from './inkSkin';
+import { Button, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
+import { fadeTexture, inkFontKey, ownSkin } from './inkSkin';
 import { ACCENT, MOSAIC, MOTION } from './tokens';
 import { tweenTo } from './motion';
 import { uiFrame, uiId, worldRect } from './layout';
@@ -23,6 +23,8 @@ import { goodsTexture } from './econ/textures';
 import { itemDef, normalizeRarity, type Item, type Rarity } from '../data/items';
 import { ensureItemIcon, fitItemIcon } from './sprites';
 import { openParchmentSheet } from './mosaic/ParchmentSheet';
+import { toastY, type OverlayKind, type Rect } from './mosaic/overlays';
+import { badgeText, switchLabelStyle } from './mosaic/policy';
 import { haptic } from '../platform/telegram';
 import { sfx } from '../audio';
 import { t, tOr } from '../i18n';
@@ -113,10 +115,42 @@ const toasts = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
 
 export type ToastKind = 'info' | 'good' | 'bad';
 
+/** Layout ids of the bars a toast keeps clear of: the screen's top bar (v4 TopBar, v3 header, the battle HUD) and its bottom bar. */
+const TOP_BAR = /(^|[.:])(topbar|header|top)$/;
+const BOTTOM_BAR = /(^|[.:])(tabbar|strip)$/;
+/** Variants of a primary call to action (MButton, the v3 Button, KeyButton). */
+const PRIMARY = new Set(['primary', 'primaryHero', 'purchase']);
+
 /**
- * A short message that fades away (one at a time): at the top of the screen,
- * or (`at: 'bottom'`) just above the command strip, clear of the situation
- * sentence.
+ * What a toast must keep clear of on `scene` (F-03 AC4), in UI px: the lower edge of the top bar, the upper
+ * edge of the bottom bar, and the primary CTAs on screen. Without bars, the old margins: 2 px from the top,
+ * the battle command strip at the bottom.
+ */
+function toastRoom(scene: Phaser.Scene, VH: number): { top: number; bottom: number; avoid: Rect[] } {
+  let top = 2;
+  let bottom = VH - STRAT.stripH - 10;
+  const avoid: Rect[] = [];
+  const walk = (list: Phaser.GameObjects.GameObject[]) => {
+    for (const o of list) {
+      const a = o as unknown as { visible?: boolean; __uiId?: string; variant?: string; opts?: { variant?: string }; o?: { variant?: string }; list?: Phaser.GameObjects.GameObject[] };
+      if (a.visible === false) continue;
+      const id = a.__uiId ?? '';
+      if (TOP_BAR.test(id) || BOTTOM_BAR.test(id)) {
+        const r = uiBounds(scene, o);
+        if (TOP_BAR.test(id) && r.y < VH / 3) top = Math.max(top, r.y + r.h);
+        else if (BOTTOM_BAR.test(id) && r.y > VH / 2) bottom = Math.min(bottom, r.y);
+      } else if (PRIMARY.has(a.variant ?? a.opts?.variant ?? a.o?.variant ?? '')) avoid.push(uiBounds(scene, o));
+      if (a.list) walk(a.list);
+    }
+  };
+  walk(overlayRoot(scene).list);
+  return { top, bottom, avoid };
+}
+
+/**
+ * A short message that fades away (one at a time, newer replaces; P14): under the screen's top bar, or
+ * (`at: 'bottom'`) just above its bottom bar or command strip. Either way it never covers the top bar or a
+ * primary CTA (it steps past them, story F-03 AC4).
  */
 export function toast(scene: Phaser.Scene, text: string, kind: ToastKind = 'info', ms = 2200, at: 'top' | 'bottom' = 'top'): Phaser.GameObjects.Container {
   toasts.get(scene)?.destroy();
@@ -126,8 +160,9 @@ export function toast(scene: Phaser.Scene, text: string, kind: ToastKind = 'info
   const tw = Math.max(...wrap.lines.map((l) => measureText(l, true)), 10);
   const w = Math.min(maxW, tw + 14);
   const h = wrap.lines.length * LINE_H + 10;
-  const y = at === 'bottom' ? Math.max(6, VH - STRAT.stripH - h - 14) : 6;
-  const c = scene.add.container(Math.round((VW - w) / 2), y);
+  const x = Math.round((VW - w) / 2);
+  const y = toastY({ h, x, w, at, ...toastRoom(scene, VH) });
+  const c = scene.add.container(x, y);
   overlayRoot(scene).add(c);
   c.add(mosaicPanelImage(scene, 0, 0, w, h, 'chipStone'));
   if (kind !== 'info') c.add(scene.add.rectangle(2, 2, 2, h - 4, kind === 'good' ? COLOR.good : COLOR.bad).setOrigin(0, 0));
@@ -184,12 +219,12 @@ export class Badge extends Phaser.GameObjects.Container {
     this.setCount(count);
   }
 
-  /** Number (0 hides it; > 99 shows 99+) or a short mark like "!". */
+  /** A count of things to act on (0 hides it; > 99 shows 99+); anything else (the old "!") is a plain dot (G11, `badgeText`). */
   setCount(n: number | string): this {
-    const s = typeof n === 'number' ? (n > 99 ? '99+' : `${n}`) : n;
-    this.setVisible(!(n === 0 || s === ''));
-    this.txt.setText(s);
-    const w = Math.max(9, measureText(s, true) + 5);
+    const s = badgeText(n);
+    this.setVisible(s !== null);
+    this.txt.setText(s ?? '');
+    const w = s ? Math.max(9, measureText(s, true) + 5) : 7;
     this.bg.clear();
     this.bg.fillStyle(0x1a0d06, 1);
     this.bg.fillRoundedRect(-w / 2 - 1, -6, w + 2, 12, 5);
@@ -374,6 +409,27 @@ export interface TabsOpts {
   ids?: string[];
 }
 
+/** The Inter face of a Cinzel font key (same colour), for a row that leaves Cinzel. */
+const INTER_OF: Partial<Record<FontKey, FontKey>> = { rCream: 'light', rOff: 'dim', rInk: 'pInk', rGold: 'gold' };
+
+/** The one label style of a row of tabs: Cinzel capitals while every label fits, else Inter in sentence case, never both (art bible 7.2, MENU-3). */
+type RowStyle = { face: 'roman' | 'body'; size: number; icons: boolean };
+
+/**
+ * The style every label of a Tabs / UnderlineTabs row shares (`switchLabelStyle`: Cinzel 7, 6.5, then the
+ * same without icons, then Inter); measured with the shadowed face so either state fits.
+ */
+function tabRowStyle(items: readonly TabItem[], fonts: readonly FontKey[]): RowStyle {
+  const shadow = (face: 'roman' | 'body') => fonts.some((f) => SHADOW_FONTS.has(face === 'roman' ? f : INTER_OF[f] ?? f));
+  const labelled = items.filter((it) => !it.iconOnly);
+  // the labels are drawn as given: the Cinzel atlas sets lower case as small caps, so measure what is drawn
+  const asGiven = new Map(labelled.map((it) => [it.opts.label.toUpperCase(), it.opts.label]));
+  return switchLabelStyle(
+    labelled.map((it) => ({ label: it.opts.label, room: it.room(true), bare: it.room(false) })),
+    (text, face, size) => measureText(face === 'roman' ? asGiven.get(text) ?? text : text, shadow(face), size, face),
+  );
+}
+
 /**
  * One segment of a Tabs / UnderlineTabs row: a tap target with an icon and a
  * label. Carries `opts.label` (scripts find tabs by it) and an id for the
@@ -387,7 +443,7 @@ class TabItem extends Phaser.GameObjects.Container {
   private iconImg: Phaser.GameObjects.Image | null = null;
   private truncated = false;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, label: string, private look: { icon?: string; iconOnly?: boolean; id?: string; size?: number }, onTap: () => void) {
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, label: string, private look: { icon?: string; iconOnly?: boolean; id?: string }, onTap: () => void) {
     super(scene, Math.round(x), Math.round(y));
     this.w = Math.round(w);
     this.h = h;
@@ -399,32 +455,47 @@ class TabItem extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  /** Redraw in the selected or plain look: Cinzel, ink on the lit block, gold on the stone track. */
-  paint(on: boolean, onFont: FontKey, offFont: FontKey): void {
+  /** Only the icon is drawn (the label is the tip). */
+  get iconOnly(): boolean {
+    return !!this.look.icon && !!this.look.iconOnly;
+  }
+
+  /** Width left for the label, with or without the icon beside it. */
+  room(withIcon: boolean): number {
+    // 2 UI px of track on each side: the label gets all the room the segment has
+    return this.w - 4 - (withIcon && this.look.icon ? 15 : 0);
+  }
+
+  /**
+   * Redraw in the selected or plain look in the row's one style (`tabRowStyle`): Cinzel (small caps), ink on the
+   * lit block and gold on the stone track, or the same colours in Inter. A label that still does not fit is
+   * cut, with the whole label on long-press.
+   */
+  paint(on: boolean, onFont: FontKey, offFont: FontKey, style: RowStyle): void {
     this.labelText?.destroy();
     this.iconImg?.destroy();
     this.labelText = null;
     this.iconImg = null;
     const scene = this.scene;
-    const size0 = this.look.size ?? 7;
     const font = on ? onFont : offFont;
     const variant = on && font === 'rInk' ? '' : on ? 'L' : 'D';
-    const icon = this.look.icon;
-    if (icon && this.look.iconOnly) {
-      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, icon, variant);
+    if (this.iconOnly) {
+      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, this.look.icon!, variant);
       this.add(this.iconImg);
       this.truncated = true;
       return;
     }
-    const room = this.w - 8 - (icon ? 15 : 0);
-    // Cinzel caps are wide: step the size down, then write the word in Inter, before the label is cut
-    const fl = fitCinzel(this.opts.label, font, room, [size0, 6.5, 6, 5.5].filter((z) => z <= size0), (x) => x);
-    const { size, text: label, font: df } = fl;
-    const wide = (str: string, sz: number) => measureText(str, SHADOW_FONTS.has(df), sz, df === font ? 'roman' : 'body');
-    this.truncated = fl.truncated;
+    const icon = style.icons ? this.look.icon : undefined;
+    const room = this.room(!!icon);
+    const df = style.face === 'roman' ? font : INTER_OF[font] ?? font;
+    const size = style.size;
+    const full = this.opts.label;
+    const wide = (str: string, sz: number) => measureText(str, SHADOW_FONTS.has(df), sz, style.face);
+    const label = ellipsize(full, room, SHADOW_FONTS.has(df), size, style.face);
+    this.truncated = label !== full;
     // too narrow for words: the icon alone (the label on long-press)
-    if (icon && this.truncated && room < 22) {
-      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, icon, variant);
+    if (this.look.icon && this.truncated && this.room(true) < 22) {
+      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2, this.look.icon, variant);
       this.add(this.iconImg);
       return;
     }
@@ -452,6 +523,7 @@ export class Tabs extends Phaser.GameObjects.Container {
   private thumb: Phaser.GameObjects.Image;
   private sel: number;
   private tw: number;
+  private style: RowStyle;
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, labels: string[], private o: TabsOpts = {}) {
     super(scene, Math.round(x), Math.round(y));
@@ -469,7 +541,10 @@ export class Tabs extends Phaser.GameObjects.Container {
       this.items.push(it);
       this.add(it);
     });
+    this.style = tabRowStyle(this.items, ['rInk', 'rGold']);
     this.paint();
+    // the switch draws its own dark track: a parchment sheet must not re-ink its labels (gold on the track)
+    ownSkin(this);
     scene.add.existing(this);
   }
 
@@ -478,7 +553,7 @@ export class Tabs extends Phaser.GameObjects.Container {
   }
 
   private paint(): void {
-    this.items.forEach((it, k) => it.paint(k === this.sel, 'rInk', 'rGold'));
+    this.items.forEach((it, k) => it.paint(k === this.sel, 'rInk', 'rGold', this.style));
   }
 
   select(i: number, notify = true): void {
@@ -510,6 +585,7 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
   private items: TabItem[] = [];
   private bar: Phaser.GameObjects.Rectangle;
   private sel: number;
+  private style: RowStyle;
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, labels: string[], private o: TabsOpts = {}) {
     super(scene, Math.round(x), Math.round(y));
@@ -526,7 +602,9 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
     const it = this.items[this.sel];
     this.bar = scene.add.rectangle(it.x + 6, this.h - 3, it.w - 12, 2, MOSAIC.goldHi).setOrigin(0, 0);
     this.add(this.bar);
+    this.style = tabRowStyle(this.items, ['rCream', 'rGold']);
     this.paint();
+    ownSkin(this);
     scene.add.existing(this);
   }
 
@@ -535,7 +613,7 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
   }
 
   private paint(): void {
-    this.items.forEach((it, k) => it.paint(k === this.sel, 'rCream', 'rGold'));
+    this.items.forEach((it, k) => it.paint(k === this.sel, 'rCream', 'rGold', this.style));
   }
 
   select(i: number, notify = true): void {
@@ -1085,6 +1163,8 @@ export interface ModalOpts {
    * lose progress: yes/no confirms, tutorial steps, forced choices, forms.
    */
   shadeCloses?: boolean;
+  /** A sheet (default) or a yes/no confirm (V5-029: one sheet plus one confirm on screen). */
+  kind?: OverlayKind;
 }
 
 export interface Modal {
@@ -1160,7 +1240,7 @@ export function confirmDialog(scene: UiScene, o: ConfirmDialogOpts): Phaser.Game
   const h = 26 + wr.lines.length * LINE_H + (wr.lines.length ? 8 : 0) + SIZE.btnH + 12;
   let done = false;
   // explicit decisions stay explicit: an outside tap does not cancel
-  const m = openModal(scene, { title: o.title ?? t('kit.confirm.title'), w, h, shadeCloses: false, onClose: () => !done && o.onCancel?.() });
+  const m = openModal(scene, { title: o.title ?? t('kit.confirm.title'), w, h, shadeCloses: false, kind: 'confirm', onClose: () => !done && o.onCancel?.() });
   const { c, x, y } = m;
   if (wr.lines.length) {
     const body = addText(scene, VW / 2, y + 26, wr.lines.join('\n'), 'ink', 0.5);
