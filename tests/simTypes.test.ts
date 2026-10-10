@@ -47,8 +47,8 @@ describe('sim train 2 declarations', () => {
   });
 
   it.each<[string, Order]>([
-    ['face', { kind: 'face', group: 0, fx: 1, fy: 0 }],
-    ['focus', { kind: 'focus', group: 0, target: 3 }],
+    // face and focus landed in FO-01 (tests/orders.test.ts); a focus on an own group is still a no-op.
+    ['focus on an own group', { kind: 'focus', group: 0, target: 3 }],
     ['work', { kind: 'work', type: 'stakes', x: 5, y: 5, fx: 0, fy: 1 }],
     ['unwork', { kind: 'unwork', x: 5, y: 5 }],
   ])('logs and ignores a %s order in battle (hash unchanged)', (_name, order) => {
