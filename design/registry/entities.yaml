@@ -5,12 +5,12 @@
 entities:
   - name: standard bearer
     source: design/gdd/abilities.md
-    attributes: { aura_radius: 4, morale_damage_reduction: 0.15, stacks_with_steady_presence: false, raise_uses_per_battle: 1, raise_radius: 6, raise_restore: 0.20, banner_loss_self: -12, banner_loss_enemy: 5, banner_loss_radius: 6, per_army: 1, passes_on_death: false }
+    attributes: { aura_radius: 4, morale_damage_reduction: 0.15, stacks_with_steady_presence: false, raise_uses_per_battle: 1, raise_radius: 6, raise_restore: 0.20, banner_loss_self: -12, banner_loss_enemy: 5, banner_loss_radius: 6, halves_cohesion: true, per_army: 1, passes_on_death: false }
     referenced_by: [ai-doctrines.md, formations-orders.md, battle-readability.md, campaign-arc.md]
     revised: 2026-10-10
   - name: captain
     source: design/gdd/ai-doctrines.md
-    attributes: { min_band_tier: 2, level_bonus: 2, is_standard_bearer: true, bounty: "40 + 15*L", lair_garrisons_always: true }
+    attributes: { min_band_tier: 2, level_bonus: 2, is_standard_bearer: true, bounty: "15 + 5*L (x bountyMult)", ko_captured: true, lair_garrisons_always: true }
     referenced_by: [abilities.md, campaign-arc.md, campaign-events.md, battle-readability.md]
     revised: 2026-10-10
   - name: doctrine
@@ -40,7 +40,7 @@ entities:
     revised: 2026-10-10
   - name: signature actives
     source: design/gdd/abilities.md
-    attributes: { ids: [push, bond, warcry, sunder, aimed, wheel, scythe], plus: standard, total_ability_ids: 12 }
+    attributes: { ids: [push, bond, warcry, sunder, aimed, recharge, scythe], plus: standard, total_ability_ids: 12 }
     referenced_by: [ai-doctrines.md, controls.md, battle-readability.md, docs/v5/VISION.md]
     revised: 2026-10-10
   - name: field work cells
@@ -79,7 +79,8 @@ constants:
     unit: integer (1 = shipped sim)
   - name: v5 campaign save bump
     source: docs/v5/VISION.md
-    value: "SAVE_VERSION after S4-FIX-SAVES + 1 (expected 7)"
+    value: "SAVE_VERSION = (S4-FIX-SAVES version) + 1"
+    source_note: defined in design/gdd/campaign-arc.md Save impact
   - name: COHESION_SELF / COHESION_NEAR / COHESION_RADIUS
     source: design/gdd/formations-orders.md
     value: "-10 / -5 / 6"
@@ -113,3 +114,21 @@ constants:
   - name: decisions per first campaign battle (target)
     source: docs/v5/VISION.md
     value: ">= 8"
+  - name: new SimEvents (train 2)
+    source: design/gdd/formations-orders.md
+    value: "cohesion{side,group,targets} · disordered{group,untilTick} · armyBreak{side} (F-O R7); standardLost{side,unit} (abilities R5); stakesBreak{unit,x,y} (field-works R2)"
+    revised: 2026-10-10
+  - name: GARRISON_STAKES
+    source: design/gdd/field-works.md
+    value: 2
+    unit: stakes segments per lair garrison (keyed to the lair, not the doctrine)
+  - name: TIER3_DAY / TIER3_LAIRS
+    source: design/gdd/campaign-arc.md
+    value: "50 / 2"
+  - name: retreatAt for garrisons and the host
+    source: design/gdd/campaign-arc.md
+    value: 0
+  - name: ESCAPE_IDLE_H
+    source: design/gdd/ai-doctrines.md
+    value: 3
+    unit: game hours

@@ -37,10 +37,11 @@ The aesthetics are Fantasy (a company saga) and Challenge (a goal).
 2. `START_GOLD` stays 60. `FOOD_RULES.startFood` goes from 24 to **40**, which is 5 days for 8 men.
 3. **Bands near the start are resized.** Bandits are `size = BANDIT_MIN + round(danger × 5) + int(0..2)` with `BANDIT_MIN` = **5** (today 3). Raiders and mercenaries are unchanged.
 4. **A destroyed army** gets **5 volunteers** (today 3) at the starting town: 3 raw spearmen and 2 raw skirmishers (`campaign.ts` about L406).
-5. **First world-map visit**: 2 coach marks, reusing the online coach system (`src/ui/tutorial/onlineCoach.ts`):
+5. **Catch-up floor**: whenever the army has fewer than `VOLUNTEER_FLOOR` (5) men, the starting town and every village offer up to 3 raw volunteers at `VOLUNTEER_FLOOR_COST` (20 g) each, on top of their normal stock.
+6. **First world-map visit**: 2 coach marks, reusing the online coach system (`src/ui/tutorial/onlineCoach.ts`):
    - "Weaker bands (green plates) are safe fights. Grow before you hunt lairs."
    - "Towns hire and heal. Camp to rest."
-6. **Empty groups**: only groups with men show cards (controls.md R1). With 8 men, groups I, II and IV are filled and III Reserve is empty, so it's hidden until it's assigned.
+7. **Empty groups**: only groups with men show cards (controls.md R1). With 8 men, groups I, II and IV are filled and III Reserve is empty, so it's hidden until it's assigned.
 
 ### R2. Lairs become targets
 
@@ -65,14 +66,14 @@ The aesthetics are Fantasy (a company saga) and Challenge (a goal).
    - its bands still on the map remain, but no longer get new members;
    - it drops a **lair hoard** (R6);
    - the map shows a burnt-lair icon.
-5. **Defeat or retreat**: the garrison loses the men killed (`garrisonLost += killed`), and regrows 1 man per 24 h up to full. The lair stays.
+5. **Defeat, or the player's retreat**: the lair stays, `lost += killed`, and it regrows 1 man per 24 h up to full. A garrison never retreats itself (R4). If the garrison's captain died, the next-highest hero is promoted to captain on regrowth.
 6. A lair can be assaulted at any time. The power plate is the warning.
 
 ### R3. Tier 3 and late scaling (MECH C3)
 
-- `lairTier = 2`. It becomes **3** once `lairsFallen ≥ 2` or `days ≥ TIER3_DAY` (30).
+- `lairTier = 2`. It becomes **3** once `lairsFallen ≥ 2` or `days ≥ TIER3_DAY` (**50**; about 60 battles at 1.2 per day, inside the arc's 60–90).
 - Band tier: today's rule, plus **tier 3** when `danger > 0.85`, or when `lairsFallen ≥ 2` and the band is raiders or mercenaries.
-- The band caps rise: size 18 → **22**, level 8 → **10** (`world.ts:660-673`).
+- The band caps rise: size 18 → **22**, level 8 → **10** (`src/world/world.ts:681` and `:683`).
 - Tier 3 makes the existing rare set pieces (Agoge, Peltast, Cretan) reachable offline through `bandSetPieces` (I2).
 
 ### R4. Arc doctrines
@@ -84,11 +85,15 @@ The aesthetics are Fantasy (a company saga) and Challenge (a goal).
 | Galatae war camp garrison | rush | yes |
 | The Tyrant's host | hammer | "the Tyrant", level 10, legendary weapon |
 
+Garrisons and the host have `retreatAt` forced to 0. They fight to the end, so a lair falls and the arc is won only by a real victory. They never get the enemy-retreated outcome (ai-doctrines.md R8).
+
+The map has 6 lairs, each one of the three kinds above, so this table covers all six.
+
 ### R5. The Tyrant's host (the end state, MECH C2)
 
-1. When `lairsFallen = ARC_LAIRS` (6), the event `hostMusters` fires (campaign-events.md shows it as a narrative card).
+1. When `lairsFallen = ARC_LAIRS` (6), the arc calls `setFlag('host_musters')`. That makes the campaign-events.md card `host_musters` (trigger `flag`) due, and it shows as a narrative card.
 2. A unique band, `kind: 'host'`, spawns at the town farthest from the start, and **marches toward the starting town**, 1.2× normal band speed. It's always visible on the map (no fog for it).
-   - Size: `min(32, 1.25 × playerFieldMen)`.
+   - Size: `min(32, ceil(1.25 × R))`, where R is the player's **fit roster** (all heroes who aren't wounded), counted once when `host_musters` fires. It isn't recomputed from deployed men, so fielding fewer men doesn't shrink it.
    - Level: 8–10 (seeded).
    - Tier 3, culture mixed (the hammer doctrine with Phoenician cavalry).
 3. If the host reaches the starting town, the campaign isn't lost. The town is **sacked**: its recruits and market close for 5 days, and the host turns back toward its own town and marches again.
@@ -105,7 +110,8 @@ The aesthetics are Fantasy (a company saga) and Challenge (a goal).
 | --- | --- |
 | Tier-3 bands | the existing `bandSetPieces` (4% of rare pieces become rare set pieces) |
 | Lair hoard | a chest of 3 picks: `rollRarity(tier 3)` with **one guaranteed epic**; 25% chance the epic is an epic set piece (Brennus, Immortals or Sacred Band, by lair culture); it counts on the campaign pity counter |
-| The Tyrant's host | one **legendary set piece**: Arms of Achilles (Greek-leaning host) or Panoply of Alexander (otherwise), seeded per campaign. Further wins against reborn hosts in the post-game drop the missing pieces, one per win, up to the full 5. |
+| The Tyrant's host | one **legendary set piece**: Arms of Achilles (Greek-leaning host) or Panoply of Alexander (otherwise), seeded per campaign. |
+| Post-game reborn lair (victory) | **only** one missing piece of the campaign's legendary set, until all 5 are owned. After that, nothing. It drops no hoard and doesn't touch pity. Reborn lairs reappear every 10 days, which is the cooldown. There are no reborn hosts. |
 | Ladder named items | stay duel-only (unchanged) |
 
 ### R7. Level pacing (MECH C6)
@@ -127,12 +133,12 @@ G = GARRISON_BASE + round(danger × GARRISON_DANGER)
 ### F2. Host size
 
 ```
-H = min(32, ceil(1.25 × P))
+H = min(32, ceil(1.25 × R))
 ```
 
-P is the player's fielded men (8–20). H = **10–25**, and 32 is the sim's safe cap (64 per side).
+R is the fit roster when `host_musters` fires (1–20). H = **2–25**, and 32 is the sim's safe cap (64 per side).
 
-**Example**: P = 16 gives H = 20.
+**Example**: R = 16 gives H = 20.
 
 ### F3. Garrison regrowth
 
@@ -156,7 +162,7 @@ G_now = min(G, G − lost + floor(hoursSince / 24))
 | --- | --- | --- |
 | ai-doctrines.md | uses | garrison and host doctrines, captains, bounty |
 | field-works.md | uses | the `palisade` cell kind for assault terrain |
-| campaign-events.md | uses / is used by | `hostMusters` and `lairFallen` events; event flags can weaken a garrison (the "deserter's map") |
+| campaign-events.md | uses / is used by | sets the `host_musters` flag. Event effects can weaken a garrison (the "deserter's map"). |
 | abilities.md | uses | the Tyrant is a standard bearer (R5) |
 | controls.md | uses | the Assault sheet follows the encounter-sheet pattern |
 | battle-readability.md | uses | the Results "why" line, and the Victory variant |
@@ -169,7 +175,7 @@ G_now = min(G, G − lost + floor(hoursSince / 24))
 | --- | --- | --- |
 | ai-doctrines.md | R4 doctrine mapping, R6 captains | uses |
 | field-works.md | R1 `palisade` cell | uses |
-| campaign-events.md | R2 world flags, `hostMusters` | provides events to / reads flags from |
+| campaign-events.md | R2 world flags, R6 `host_musters` | provides events to / reads flags from |
 | abilities.md | R5 standard | uses |
 
 ## Tuning Knobs
@@ -181,7 +187,8 @@ G_now = min(G, G − lost + floor(hoursSince / 24))
 | BANDIT_MIN | 5 | 3–6 | curve | `src/world/world.ts` |
 | VOLUNTEERS | 5 | 3–6 | gate | `src/game/campaign.ts` |
 | GARRISON_BASE / DANGER | 10 / 6 | 8–14 / 4–8 | curve | new `src/data/arc.ts` |
-| TIER3_DAY / TIER3_LAIRS | 30 / 2 | 20–45 / 1–3 | gate | `src/data/arc.ts` |
+| TIER3_DAY / TIER3_LAIRS | 50 / 2 | 35–70 / 1–3 | gate | `src/data/arc.ts` |
+| VOLUNTEER_FLOOR / COST | 5 / 20 g | 3–6 / 10–40 | gate | `src/game/campaign.ts` |
 | Band caps (size / level) | 22 / 10 | 18–24 / 8–10 | curve | `src/world/world.ts` |
 | ARC_LAIRS | 6 | 4–6 | gate | `src/data/arc.ts` |
 | HOST_MULT / HOST_SPEED | 1.25 / 1.2 | 1.0–1.5 / 1–1.5 | curve | `src/data/arc.ts` |
@@ -205,13 +212,13 @@ G_now = min(G, G − lost + floor(hoursSince / 24))
 
 ## Save impact
 
-**The v5 campaign save bump** (SAVE_VERSION after S4-FIX-SAVES; expected v7):
+**The v5 campaign save bump.** This is the one definition, and the other GDDs reference it: `SAVE_VERSION = (S4-FIX-SAVES version) + 1`. The shipped code has `SAVE_VERSION = 5`.
 
 - `WorldSave.lairs: Record<number, { fallen: boolean; lost: number; lostAt: number }>`.
 - `WorldSave.arc: { stage: 'lairs' | 'host' | 'won' | 'post'; hostParty?: number; sackedUntil?: number }`.
 - `PartyState.kind` gains `'host'`, and `SettlementState` gains `reborn?: boolean`.
 
-**Migration**: fill the defaults (above). New campaigns get the R1 opening. Migration is covered by a fixture test on a real v6 save.
+**Migration**: fill the defaults (above). New campaigns get the R1 opening. Migration is covered by a fixture test on a real save at the S4-FIX-SAVES version.
 
 ## Balance targets (`npm run balance`)
 
@@ -221,19 +228,19 @@ There are new harness rows (`arcBalance`), plus a playtest.
 | --- | --- |
 | The 8-man starter army vs a bandit band at danger 0.1–0.3 (the "even" plate) | the player wins **55–70%** |
 | Real decisions in the first campaign battle (PLAY method) | **≥ 8** |
-| Lair assault: an army at 1.0× garrison power, attacker vs palisade defender | the attacker wins **38–48%** (a defended position) |
+| Lair assault: an army at 1.0× garrison power vs palisade + rampart + `GARRISON_STAKES` (2) | the attacker wins **38–48%**. Re-derived after the stakes fix: a held ridge is worth +12 to +18 pts today and is retuned to 62–68%. Two gates funnel the attack like a ford, which is about even (46/54). The rampart's cover adds a few points against missiles. Stakes mostly cost cavalry, and garrison attackers are mostly foot. That's a net defender edge of +5 to +12. If it's measured below 38%, lower `GARRISON_STAKES` first. |
 | Lair assault: an army at 1.3× | **≥ 60%** |
 | Host vs a "prepared" army (16 men, average level 7, rare kit) | **40–55%** |
 | Arc length (a scripted campaign sim, if built; otherwise a playtest estimate) | **60–90 battles** to the host |
-| Gold per even win | still 225–305 g (the BASELINE band); hoards add a one-time 6 chests |
+| Gold per even win | 225–305 g (the BASELINE band), **+10 to +20%** on wins against a captained band (bounty). Hoards add a one-time 6 chests. Endgame sink: retrain and works only, so **the forge reroll stays a known gap** (deferred). |
 
 ## Acceptance Criteria
 
 - [ ] A new campaign starts with 8 heroes in groups I, II and IV, and 40 food. An old save keeps its heroes.
 - [ ] Lairs can be assaulted. Victory marks them fallen and stops their spawns. Defeat lets them regrow.
-- [ ] Tier-3 bands appear after 2 lairs or day 30, and rare set pieces drop offline.
+- [ ] Tier-3 bands appear after 2 lairs or day 50, and rare set pieces drop offline.
 - [ ] The host spawns after the 6th lair, marches, can sack the start town, and can be beaten. Victory sets `'won'` and drops a legendary set piece.
-- [ ] Migration from the S4 save version to the v5 bump keeps every field (a fixture test).
+- [ ] Migration from the S4-FIX-SAVES version to `(S4-FIX-SAVES version) + 1` keeps every field (a fixture test).
 - [ ] *Experiential*: a playtester can say what the campaign's goal is after 10 minutes.
 
 ## Files touched

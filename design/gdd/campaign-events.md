@@ -15,7 +15,7 @@ Events never change battle rules. They are **offline only**, so they need no ser
 
 ## Player Fantasy
 
-"Deserters on the road, asking to join. Four free spears. But their old captain will come looking for them..."
+"Deserters on the road, asking to join. Two free spears. But their old captain will come looking for them..."
 
 The aesthetics are Narrative and Fantasy, with Autonomy.
 
@@ -50,13 +50,13 @@ The list is closed. A new effect needs a GDD update.
 | `wound(target, hours)` | the existing wound model |
 | `heal(all)` | heal every wound |
 | `item(rarity, kind?)` | `rollRarity` or a set piece by culture, into the stash |
-| `spawnBand(kind, mods)` | `mods`: size×, level+, `captain: true`, `hunts: true` (chases the player whatever the power ratio), `doctrine?` |
+| `spawnBand(kind, mods)` | `mods`: size×, level+, `captain: true`, `hunts: true` (chases the player whatever the power ratio), `doctrine?`, `bountyMult?` (default 1; multiplies the ai-doctrines.md F3 bounty) |
 | `weakenGarrison(lairId \| 'nearest', n)` | campaign-arc.md R2 |
 | `reveal(lairId \| 'nearest' \| radius)` | lifts fog |
 | `retrain(free)` | one free perk retrain (abilities.md R7) |
 | `priceMod(settlementId, pct, days)` | a market or recruit price change |
 | `closeSettlement(id, days)` | |
-| `nextBattle(bonus)` | `bonus` is `+1 loot pick`, `+50% XP` or `+50% gold`. These are **post-battle rewards only**, never sim inputs. |
+| `nextBattle(bonus)` | `bonus` is `+1 loot pick`, `+50% XP` or `+50% gold`. These are **post-battle rewards only**, never sim inputs. `+50% gold` applies after the `goldBonus` cap, to battle gold only, not to the bounty or to loot. |
 | `setFlag(name, value?)`, `clearFlag(name)` | |
 
 ### R3. Triggers and frequency
@@ -107,9 +107,9 @@ The deck has 24 events, of which 12 are specified here. The other 12 are written
 | `ares_wrath` | flag | Make amends (−60 g) / Bear it (2 random wounds, 24 h) | |
 | `plague_town` | arrive_town | Leave at once / Stay and help (−20 food, +XP to all, a 30% wound risk) / Pay the physician (−50 g, the town gets 10% off for 5 days) | |
 | `caravan` | arrive_town | Escort (a raider band spawns on your route in 1 day; win → +80 g and an uncommon item) / Decline | `caravan_escort` |
-| `rival_challenge` | march, day ≥ 6 | Accept (a rival mercs band with a captain spawns and hunts; its bounty is doubled) / Refuse (−10% recruit prices are lost in this region for 5 days) | `rival_beaten` boosts later recruit offers |
-| `rival_returns` | march | Fight / Evade (a flee roll) | `cond`: any `PartyState.escaped ≥ 1` (ai-doctrines.md R8); the escaped band and its captain come back as hunters |
-| `oracle` | arrive_village, unique | Pay 40 g (one free retrain) / Ask about the lairs (reveal the nearest lair) / Leave | |
+| `rival_challenge` | march, day ≥ 6 | Accept (a rival mercs band with a captain spawns and hunts; `bountyMult: 2`) / Refuse (−10% recruit prices are lost in this region for 5 days) | `rival_beaten` boosts later recruit offers |
+| `rival_returns` | march | Fight / Evade (a flee roll) | `cond`: any `PartyState.escaped ≥ 1` (ai-doctrines.md R8). The escaped band and its captain come back as hunters, **regrown to full size**. |
+| `oracle` | arrive_village, unique | Pay 40 g (one retrain) / Ask about the lairs (reveal the nearest lair) / Leave | |
 | `deserter_map` | camp | Buy the map (−25 g: reveal the nearest lair and `weakenGarrison(nearest, 3)`) / Refuse | read by the arc |
 | `ford_toll` | march, near a river | Pay (−15 g) / Force the ford (a bandit band of 0.8× power attacks) | |
 | `host_musters` | flag (arc) | Narrative card, one choice: "To arms" | campaign-arc.md R5 |
@@ -141,7 +141,9 @@ E_raw is the uncapped expected events per day. The `min(1, …)` is the daily ca
 
 ### F2. Event EV (the dev check)
 
-For each choice, `EV_c` = Σ(effect value), with fixed weights: 1 gold = 1, 1 food = 2, 1 man = 60, 1 wound-hour = −1, a flag = 0 (and the expected follow-up is listed separately). A choice is **dominated** if another choice of the same event is ≥ in every component and > in at least one.
+For each choice, `EV_c` = Σ(effect value), with fixed weights: 1 gold = 1, 1 food = 2, 1 man = 60, 1 wound-hour = −1, a flag = 0 (the expected follow-up is listed separately).
+
+A `spawnBand` is valued as `p_win × (win gold + bountyMult × bounty) − expected deaths × 60`. `p_win` and `expected deaths` come from the band's power ratio, using the BASELINE even-fight figures (about 2 deaths at 1.0×). A choice is **dominated** if another choice of the same event is ≥ in every component and > in at least one.
 
 ## Edge Cases
 
@@ -170,6 +172,7 @@ For each choice, `EV_c` = Σ(effect value), with fixed weights: 1 gold = 1, 1 fo
 | campaign-arc.md | R2 garrison, R5 host | uses |
 | ai-doctrines.md | R6 captains, R8 `escaped` | uses |
 | abilities.md | R7 retrain | uses |
+| controls.md | BottomPanel sheet pattern | uses |
 
 ## Tuning Knobs
 

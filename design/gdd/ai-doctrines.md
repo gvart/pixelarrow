@@ -40,7 +40,7 @@ interface Doctrine {
   hillFlank: boolean;     // attacker sends flank group round a held hill instead of waiting
   skirmishRetire: number; // paces of threat at which skirmishers retire (today 5)
   shieldwallWhenShot: boolean;
-  preferShape: FormationType; // main line shape at deploy
+  preferShape: FormationType; // main-line shape at deploy (see "Shape per group" below)
   feint: boolean;         // light groups may use the 'feint' order (formations-orders.md)
   focusMissiles: boolean; // missile groups focus enemy missile groups first (formations-orders.md 'focus')
   retreatAt: number;      // fraction of own men lost (dead+routed+fled) at which the bot retreats; 0 = never
@@ -65,11 +65,23 @@ The `steady` values reproduce today's constants exactly.
 | hillFlank | false | true | true | true | false |
 | skirmishRetire | 5 | 3 | 6 | 7 | 2 |
 | shieldwallWhenShot | true | false | true | false | false |
-| preferShape | line | wedge | line | loose (line for its spears) | wedge |
+| preferShape | line | wedge | line | skirmish | wedge |
 | feint | false | false | true | true | false |
 | focusMissiles | false | false | true | true | false |
 | retreatAt | 0 | 0 | 0.6 | 0.45 | 0 |
 | jitter | 0 | 0.15 | 0.15 | 0.2 | 0.1 |
+
+**Shape per group in a mixed army.** `preferShape` applies only to the **main-line** role. The other roles take their shape from the role, whatever the doctrine:
+
+| Role | Shape |
+| --- | --- |
+| skirmish | `skirmish` |
+| reserve | `line` |
+| flank (foot) | `wedge` for `rush` and `fury`, otherwise `line` |
+| cavalry, horse archers | as today (`wedge` / `skirmish`) |
+| beasts | unchanged |
+
+If `preferShape` is `skirmish` but the main line holds shielded spearmen (hoplite, thureophoros, militia), that group uses `line`.
 
 In plain words:
 
@@ -111,8 +123,9 @@ The army builder chooses, in `src/game/enemy.ts` (`buildArmy` gets a `doctrine` 
 `ai.ts` reads every timer and threshold from `this.doctrine` instead of from module constants. The constants stay, exported, as the `steady` defaults. Each doctrine field changes behaviour in one place:
 
 - `hillFlank`: an attacking bot facing a held hill sends its flank group round the hill once `flankAtS` has passed, instead of waiting up to `holdHillS`. This fixes the ridge outlier.
-- `retreatAt`: when the losses reach it **and** the bot is not winning (its strength share is below 0.45), the bot issues `{ kind: 'retreat' }`. That ends the battle as a bot defeat with an **enemy-retreated** flag (R8). It fixes A3.
+- `retreatAt`: when the losses reach it **and** the bot is not winning (its strength share is below 0.45), the bot issues `{ kind: 'retreat' }`. **Lair garrisons and the Tyrant's host never retreat**: their `retreatAt` is forced to 0 (campaign-arc.md R4). Only field bands retreat. That ends the battle as a bot defeat with an **enemy-retreated** flag (R8). It fixes A3.
 - `feint` and `focusMissiles` issue the new orders from formations-orders.md (`feint`, `focus`).
+- **Stand-off** (`swarm`, `hammer`): if the enemy has held still for 20 s or more behind works, or in an orb, the bot's press timer is suspended. Its missile groups focus the holders and keep shooting until their ammo runs out, and only then does it press. That stops turtling from being free.
 - Every bot turn of a group uses `face` (formations-orders.md R1), not `form`, so turning no longer stops a charge. This fixes MECH B2 for the bot.
 
 ### R6. Captains
@@ -123,7 +136,7 @@ The army builder chooses, in `src/game/enemy.ts` (`buildArmy` gets a `doctrine` 
    - `UnitSpec.captain = true` marks him.
 2. A captain is a **standard bearer** for his army, and abilities.md R5 applies in full: the standard aura, Raise the standard, and banner loss when he falls. This is the one shared "standard" rule, so there are no captain-specific morale numbers.
 3. A captain carries his class signature active (abilities.md R3) as well as Raise the standard. The bot uses both under the abilities.md bot rules.
-4. **Bounty.** If the captain is dead or knocked out when the player wins (or when the bot retreats), the player gets:
+4. **Bounty.** If the captain is dead or knocked out when the player wins (or when the bot retreats), the player gets the following. A knocked-out captain is **captured**: `captainDead = true`, and he leaves the band, so a bounty is paid at most once per captain.
    - `bounty = BOUNTY_BASE + BOUNTY_PER_LV × captainLevel` gold;
    - one extra loot pick, which is guaranteed to be the captain's weapon.
 
@@ -136,10 +149,10 @@ The army builder chooses, in `src/game/enemy.ts` (`buildArmy` gets a `doctrine` 
 
 ### R8. The outcome when the enemy retreats
 
-`report.ts` gains `enemyRetreated: boolean`. In the campaign the outcome counts as a victory (win gold, loot picks under the victory rules from killed men), but the band is **weakened**, not destroyed:
+`report.ts` gains `enemyRetreated: boolean`. In the campaign the outcome counts as a victory, but it pays **without the 60 g win bonus**: only kill gold plus loot picks under the victory rules, from killed men. The band is **weakened**, not destroyed:
 
 - it calls `weakenParty`, with the C4 fix: it keeps its seed and removes the dead;
-- it flees, with `idle` set to 6 h;
+- it flees, with `idle` set to `ESCAPE_IDLE_H` (default **3 h**, today's post-fight value);
 - if its captain survived, he stays with the band. The band is marked as having escaped (`PartyState.escaped += 1`), which campaign-events.md reads for the "rival returns" event.
 
 ## Formulas
@@ -156,9 +169,9 @@ pressAfter = min(D.pressAfterS, PRESS_BASE_S + PRESS_PER_MAN_S × n)
 | PRESS_BASE_S | float s | 2–8 (default 4) | knob |
 | PRESS_PER_MAN_S | float s | 0.5–2 (default 1.5) | knob |
 | n | int | 1–64 | the bot side's active men at battle start |
-| pressAfter | float s | 5.5–30 | the result, bounded by D.pressAfterS |
+| pressAfter | float s | 2.5–30 (5.5–30 at the defaults) | the result, bounded by D.pressAfterS |
 
-**Output range.** At least 5.5 s (n = 1). At most `D.pressAfterS`: for `steady`, 25 s from n ≥ 14.
+**Output range.** At the defaults, from 5.5 s (n = 1) up to `D.pressAfterS`. For `steady` that's 25 s from n ≥ 14. Across the knob ranges, the minimum is 2.5 s (2 + 0.5 × 1).
 
 **Worked examples** (`steady`):
 
@@ -191,7 +204,7 @@ Every timer is drawn once, in a fixed field order, at `BotAI` construction, so t
 bounty = BOUNTY_BASE + BOUNTY_PER_LV × L
 ```
 
-The defaults are 40 + 15·L, with L in 3–10. That gives **85–190 gold**, about one battle's pay, so it's worth a target choice without breaking the economy (E1).
+The defaults are 15 + 5·L, with L in 3–10. That gives **30–65 gold**, about 0.3–0.6× a win's battle gold, plus the guaranteed weapon pick. That's enough to make the captain a target without becoming the economy's main source of gold (E1). A holism review cut it from 40 + 15·L.
 
 ## Edge Cases
 
@@ -214,7 +227,7 @@ The defaults are 40 + 15·L, with L in 3–10. That gives **85–190 gold**, abo
 | controls.md | is used by | encounter and deployment info surfaces (doctrine tell) |
 | campaign-arc.md | is used by | lair-garrison and final-host doctrine assignment; captains in garrisons |
 | campaign-events.md | is used by | reads `PartyState.escaped` for "rival returns"; the "rival challenge" event spawns a captain band |
-| field-works.md | is used by | bots attacking works obey `hillFlank`-style detours; fury ignores stakes |
+| field-works.md | is used by | attacking bots path through works by terrain speed, with no special routing (field-works.md R6). The garrison stakes are keyed to the lair, not the doctrine. |
 | #11 Enemy army generation (`src/game/enemy.ts`) | modifies | `buildArmy({doctrine, captain})` |
 | #32 Verification / #34 Lockstep | constrains | sim train 2, zod schema |
 
@@ -239,8 +252,10 @@ All knobs live in `src/data/doctrines.ts`. There is no `assets/data/`, so data l
 | PRESS_PER_MAN_S | 1.5 | 0.5–2 | feel | big armies keep their manoeuvre time |
 | CAPTAIN_LEVEL_BONUS | 2 | 1–3 | curve | a captain should be the best man on the field |
 | CAPTAIN_MIN_TIER | 2 | 2–3 | gate | the first bands stay simple |
-| BOUNTY_BASE / BOUNTY_PER_LV | 40 / 15 | 20–60 / 5–20 | curve | about one battle's pay |
+| BOUNTY_BASE / BOUNTY_PER_LV | 15 / 5 | 10–30 / 3–10 | curve | about 0.3–0.6× battle gold |
+| bountyMult (per band, set by events) | 1 | 1–3 | curve | campaign-events.md `spawnBand` mod |
 | ESCAPE_CAP | 3 | 1–5 | gate | stops endless retreats |
+| ESCAPE_IDLE_H | 3 | 1–6 | gate | today's post-fight idle |
 
 ## Touch UI needs
 
@@ -268,7 +283,7 @@ All knobs live in `src/data/doctrines.ts`. There is no `assets/data/`, so data l
 ## Save impact
 
 - `PartyState.escaped?: number` (default 0) and `PartyState.captainDead?: boolean` (default false), both read with defaults.
-- They're included in the **one v5 campaign save bump** (the SAVE_VERSION after S4-FIX-SAVES). Validation allows the optional fields. No data is rewritten.
+- They're included in the **one v5 campaign save bump** (`SAVE_VERSION = (S4-FIX-SAVES version) + 1`, defined once in campaign-arc.md "Save impact"). Validation allows the optional fields. No data is rewritten.
 - The doctrine itself is **derived** (band kind plus culture) and never saved.
 
 ## Balance targets (`npm run balance`)
@@ -287,7 +302,7 @@ New harness rows go in `src/dev/balance.ts` (`doctrineMatrix`), at 400 seeds.
 
 ## Acceptance Criteria
 
-- [ ] With `doctrine` missing or `steady`, a fixed set of v1 battle logs replays to identical hashes (except where other train-2 features are present).
+- [ ] The `steady` doctrine reproduces today's `ai.ts` timer values (unit test against the shipped constants: 5, 14, 25, 8, 70, 50, 55). `SIM_VERSION` doesn't exist yet. It's a prerequisite (V5-012), and this train can't ship before it.
 - [ ] Every doctrine field is read from `src/data/doctrines.ts`, and no timer literal remains in `ai.ts` outside the `steady` defaults.
 - [ ] The doctrine and captain fields round-trip through the server zod and the replay (a server test).
 - [ ] A 5v5 campaign battle reaches contact in 15 s or less (a balance row plus a playtest).

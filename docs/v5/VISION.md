@@ -152,7 +152,7 @@ The train ships only after **V5-012** (versioning plumbing) has landed. It conta
 - the field-work and assault terrain cells;
 - the army-break rule.
 
-Offline-only work ships independently of the train: the event deck, the arc's overland parts, controls and readability (presentation only). Campaign save changes are batched into **one save bump**: `SAVE_VERSION` + 1 after S4-FIX-SAVES, so expected **v7** if S4 takes v6.
+Offline-only work ships independently of the train: the event deck, the arc's overland parts, controls and readability (presentation only). Campaign save changes are batched into **one save bump**: `SAVE_VERSION = (S4-FIX-SAVES version) + 1`. campaign-arc.md "Save impact" defines it.
 
 **Suggested order**
 

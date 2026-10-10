@@ -63,7 +63,7 @@ The aesthetic is Competence: the controls disappear.
    - Tap the same enemy again, or tap the reticle chip on the card, to clear it.
 3. **Range ring.** While a missile group is selected, a dashed ring at its median weapon range is drawn around the group's centre (with the +0.8 range per height level shooting downhill).
 4. **Out of range** (fixes C4):
-   - the group has *Shoot* on and focus out of range, or no enemy in range for more than 3 s;
+   - the group has *Shoot* on, and either `focusOutOfRange` is true or `noTargetS` > 3. Both sim states are defined in formations-orders.md R4. This GDD owns the HUD condition.
    - its card shows **"Out of range"** with an arrow glyph;
    - the *Shoot* key shows a hollow state;
    - a one-tap **"Advance to range"** chip appears on the card, which issues a `form` to the nearest point that puts the focus (or the nearest enemy) at 90% of range.
@@ -142,7 +142,13 @@ The `online` getter in `BattleScene.ts` splits into `realtimeLocked`:
 | Ranked async raids | no (leaderboard integrity) | 1× |
 | War-map attacks (neutrals, garrisons, beasts, bosses) | no (DESIGN_V2, unchanged) | 1× |
 
-Ladder verification replays the seed and the order log by tick, so pausing doesn't change the replay. **A server change is needed** for the **ticket TTL**: ladder tickets become valid for `LADDER_TICKET_MIN` (30 min, from 10).
+Ladder verification replays the seed and the order log by tick, so pausing doesn't change the replay. **A server change is needed** for the **ticket TTL**: ladder tickets become valid for `LADDER_TICKET_MIN` (30 min, from 10). If the ticket expires mid-battle, the client shows the remaining time from 5 min out, and an expired run is still verified but grants no rewards. It is not refreshed per order.
+
+### R10b. Attention budget (holism review W4)
+
+- **Progressive unlock in the campaign.** Feint and Orb appear after the player's **3rd battle**, each introduced once by a coach card. Works appear after the first camp is pitched. Duels and war show everything from the start, because those players already finished the campaign tutorial.
+- **Live online** (`realtimeLocked`): there is no "Then…" chip and no "Advance to range" chip. Undo stays. Fewer simultaneous controls when you can't pause.
+- **The budget**: at most 4 kinds of interactive control on screen at once. In battle those are the order bar, the cards, at most 3 medallions and Undo/Then. Readouts (glyphs, arcs, chips) don't count, but they follow battle-readability.md sizing.
 
 ### R11. Accessibility (Standard tier, V5-013)
 
@@ -208,6 +214,9 @@ If the unsnapped value is below 0.75, use z = 1 plus the edge arrow.
 | abilities.md | R4 medallions | uses |
 | field-works.md | R3 `work` order | uses |
 | battle-readability.md | R1 morale glyphs, R2 badges | uses |
+| ai-doctrines.md | R7 doctrine chip | uses |
+| campaign-arc.md | R2 Assault sheet | is used by |
+| campaign-events.md | R4 event card | is used by |
 
 ## Tuning Knobs
 
