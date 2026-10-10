@@ -11,6 +11,7 @@ import { setHaptics } from './platform/telegram';
 import { online } from './platform/cloud';
 import { newProgress } from './game/tutorial';
 import { setReducedMotion } from './ui/motion';
+import { resolveAbandoned } from './game/campaignBattle';
 
 /** Longest the boot screen waits for the cloud save before starting with the local one. */
 const PULL_WAIT_MS = 6000;
@@ -94,7 +95,10 @@ class GameState {
     if (!data && !failure) this.campaign.data.settings.tutorial = newProgress();
     setHaptics(this.campaign.data.settings.haptics);
     setReducedMotion(this.campaign.data.settings.reduceMotion);
-    if (!data) await this.save();
+    // The app was closed during a campaign battle: it is fought out now, and stands (V5-011).
+    this.last = resolveAbandoned(this.campaign);
+    if (this.last) this.notice = 'battle.abandoned';
+    if (!data || this.last) await this.save();
   }
 
   private async writeLocal(data: SaveData): Promise<void> {

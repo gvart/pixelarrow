@@ -10,6 +10,7 @@ import type { Hero } from '../data/units';
 import { defaultAttrs, PERKS, POINTS_PER_LEVEL } from '../data/perks';
 import { World, type WorldSave } from '../world/world';
 import type { TutorialProgress } from './tutorial';
+import { validMarker, type BattleMarker } from './campaignBattle';
 
 export const SAVE_VERSION = 5;
 
@@ -90,6 +91,11 @@ export interface SaveData {
   gearMoved?: string[];
   /** Beast chests in a row without a legendary (bad-luck protection, src/game/sources.ts pityChest); missing = 0. */
   pity?: number;
+  /**
+   * A campaign battle that has begun and not yet been applied (V5-011, no
+   * version bump: optional). The next boot fights it out (src/game/campaignBattle.ts).
+   */
+  battle?: BattleMarker;
 }
 
 type Migration = (d: Record<string, unknown>) => Record<string, unknown>;
@@ -208,6 +214,7 @@ function validate(d: Record<string, unknown>): LoadFailure | null {
   d.fought = typeof d.fought === 'number' ? d.fought : 0;
   if (typeof d.seq !== 'number' || !Number.isFinite(d.seq)) delete d.seq;
   if (typeof d.savedAt !== 'number' || !Number.isFinite(d.savedAt)) delete d.savedAt;
+  if (d.battle !== undefined && !validMarker(d.battle)) delete d.battle;
   return null;
 }
 

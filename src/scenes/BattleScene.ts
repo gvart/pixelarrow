@@ -30,10 +30,7 @@ import type { BattleSource } from '../online/battleSource';
 import { createDeployClock, foeIsReady, markStarted, pressReady, secondsLeft, tickDeploy, urgent, type DeployAction, type DeployClock } from '../online/deployClock';
 import { reportBattle, snapshotSetup } from '../platform/verify';
 import { generateEnemyArmy } from '../game/enemy';
-import { armySpec } from '../game/armySpec';
-import { resolveBattle } from '../game/loot';
 import { lastBattle, unitStats } from '../game/report';
-import { makeHero } from '../game/heroes';
 import { GROUP_NAMES, type Hero } from '../data/units';
 import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
@@ -46,7 +43,7 @@ import { sfx } from '../audio';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { rallyRadius } from '../sim/stats';
 import { BOULDER_GEOM, TREE_GEOM, renderBoulder, renderGlint, renderSparkle, renderTree } from '../art/terrainArt';
-import { generateBattlefield, randomSite } from '../world/battlefield';
+import { campaignSetup, markBattle, settleBattle } from '../game/campaignBattle';
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
 import { t, tOr, type TKey } from '../i18n';
@@ -327,10 +324,7 @@ export class BattleScene extends BaseScene {
       this.enemyHeroes = pending.enemy.heroes;
       // Wounded heroes sit this one out.
       heroes = camp.fitHeroes();
-      // The battlefield comes from the place on the map where the armies met.
-      const site = pending.site ?? randomSite(new Rng(pending.seed ^ 0x51735c1));
-      const terrain = generateBattlefield(pending.seed, site);
-      setup = { seed: pending.seed, armies: [armySpec(heroes, false), armySpec(this.enemyHeroes, true)], terrain };
+      setup = campaignSetup(pending, heroes);
     }
     const terrain: TerrainGrid = setup.terrain ?? { w: 0, h: 0, cells: 'flat' };
     this.verifySetup = this.src || this.tutorialData ? null : snapshotSetup(setup);
@@ -1321,24 +1315,8 @@ export class BattleScene extends BaseScene {
       this.src.onFinish(this.sim, this.deployOrders ?? 0);
       return;
     }
-    const camp = state.campaign;
-    const res = this.sim.result();
     reportBattle(this.verifySetup, this.sim, this.deployOrders);
-    const heroes = camp.data.heroes;
-    const pending = state.pending!;
-    const { outcome, survivors } = resolveBattle(res, heroes, this.enemyHeroes, camp.random());
-    camp.beastPity(outcome, this.enemyHeroes);
-    const alive = new Set(survivors.map((h) => h.id));
-    const fallen = heroes.filter((h) => !alive.has(h.id));
-    camp.data.heroes = survivors;
-    camp.data.gold += outcome.gold;
-    camp.data.fought++;
-    if (outcome.victory) camp.data.won++;
-    if (pending.partyId !== undefined) camp.afterPartyBattle(pending.partyId, outcome);
-    else if (survivors.length === 0) {
-      for (let i = 0; i < 3; i++) camp.data.heroes.push(makeHero(camp.random(), camp.data, 'greek', 'raw', 1, 1, i < 2 ? 0 : 1, camp.data.heroes));
-    }
-    state.last = { outcome, enemy: pending.enemy, fallen, partyId: pending.partyId, label: pending.label, ticks: this.sim.tick, stats: lastBattle.stats, before: lastBattle.heroes };
+    state.last = settleBattle(state.campaign, state.pending!, this.sim, this.enemyHeroes, lastBattle.heroes);
     state.pending = null;
     void state.save();
     this.scene.start('Results');
@@ -2800,6 +2778,11 @@ export class BattleScene extends BaseScene {
 
   private onBattleStarted(): void {
     if (this.sim.phase === 'deploy') this.sim.startBattle();
+    // A campaign battle stands once it begins: closing the app now does not void it (V5-011).
+    if (!this.src && !this.tutorialData && state.pending) {
+      markBattle(state.campaign, state.pending, lastBattle.heroes, this.sim.orderLog.slice(0, this.deployOrders ?? this.sim.orderLog.length));
+      void state.save();
+    }
     // a "leave the deployment?" dialog still open no longer applies (its Leave would quit the battle)
     this.leaveDialog?.destroy();
     this.leaveDialog = null;

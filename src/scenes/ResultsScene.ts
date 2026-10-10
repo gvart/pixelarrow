@@ -108,6 +108,11 @@ export class ResultsScene extends BaseScene {
       this.scene.start('Army');
       return;
     }
+    // Reopened after the app closed mid-battle: the battle was fought out (V5-011).
+    if (!data.report && state.notice === 'battle.abandoned') {
+      toast(this, t('battle.abandoned'), 'info', 7000);
+      state.notice = null;
+    }
     const fresh = this.report !== report;
     this.report = report;
     if (fresh) {
