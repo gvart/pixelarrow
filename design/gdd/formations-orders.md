@@ -48,14 +48,15 @@ The aesthetic is Challenge.
 2. **No flanks**:
    - for a unit in `orb`, `hitDirection` returns **front** whenever the attacker is outside the ring;
    - an attacker inside the ring (a breach) uses the normal rule.
-3. **Costs**:
+3. **Costs** (V5-041 dropped the melee damage ×0.85):
    - speed ×0.4;
-   - melee damage ×0.85;
    - missile men in an orb shoot at ×0.7 accuracy;
    - it can't charge: `charge` changes the shape to `line` first, at the group's facing;
    - no shield-wall bonus.
 4. Bracing works. Riders cannot form an orb: the button is disabled with a reason.
-5. Slot layout: ring radius `r = max(1.2, n × 0.32)` paces (Formulas, F1).
+5. Slot layout: ring radius `r = max(1.2, n × 0.12)` paces (Formulas, F1): shoulder to shoulder.
+6. **The ring contracts** (V5-041). When a man of the orb falls or breaks, the orb re-slots its men at once on the smaller ring, so the far-side men close up the threatened arc and the ring stays closed. Slots are matched to men in order round the centre (deterministic).
+7. **Role** (V5-041): all-round defence against flanks, the rear and riders. It is the wrong answer to a frontal line, but must not be useless.
 
 ### R3. Feint (`order: 'feint'`)
 
@@ -116,12 +117,12 @@ r = max(R_MIN, n × R_PER_MAN)
 | --- | --- | --- | --- |
 | n | int | 1–64 | active men in the group |
 | R_MIN | float | 1.2 | the minimum radius in paces |
-| R_PER_MAN | float | 0.25–0.4 (0.32) | knob |
-| r | float | 1.2–10.2 | the ring radius. The 2-deep rule above 24 men caps it at 10.2 (n = 64). |
+| R_PER_MAN | float | 0.1–0.4 (0.12) | knob (FO-02 tuning: 0.32 left the ring 2 paces apart and beaten by any attack) |
+| r | float | 1.2–3.84 | the ring radius. The 2-deep rule above 24 men caps it at 3.84 (n = 64). |
 
-Above 24 men the ring doubles its depth: the radius is computed for `ceil(n/2)`. With that, r is at most 10.2 at n = 64.
+Above 24 men the ring doubles its depth: the radius is computed for `ceil(n/2)`. With that, r is at most 3.84 at n = 64.
 
-**Examples**: n = 8 → 2.56; n = 16 → 5.12; n = 40 → 6.4 (2-deep).
+**Examples**: n = 8 → 1.2 (R_MIN); n = 16 → 1.92; n = 40 → 2.4 (2-deep).
 
 ### F2. Army break test
 
@@ -189,8 +190,8 @@ The knobs live in `RULES` in `src/sim/battle.ts`, moved to `src/data/rules.ts` i
 | --- | --- | --- | --- | --- |
 | FORM_RESET_DIST | 2 paces | 1–4 | feel | small nudges keep the order |
 | TURN_RATE_DEG (foot / horse) | 90 / 60 °/s | 45–180 | feel | a wheel is a commitment |
-| ORB speed / dmg / acc | 0.4 / 0.85 / 0.7 | 0.3–0.6 / 0.7–0.95 / 0.5–0.9 | curve | a hard defence with a real cost |
-| R_PER_MAN | 0.32 | 0.25–0.4 | feel | ring density |
+| ORB speed / acc | 0.4 / 0.7 | 0.3–0.6 / 0.5–0.9 | curve | a hard defence with a real cost (no melee damage cost, V5-041) |
+| R_PER_MAN | 0.12 | 0.1–0.4 | feel | ring density |
 | FEINT_S / FEINT_CD_S | 4 / 30 s | 2–6 / 20–60 | gate | bait timing |
 | FEINT charge bonus | +0.3 | 0–0.5 | curve | the payoff |
 | DISORDER_S / block | 3 s / −15% | 2–5 / −5 to −25% | curve | the cost of pursuing |
@@ -225,8 +226,9 @@ None. These are sim rules and transient battle state only. Settings are unchange
 | --- | --- |
 | Matched reference vs bot (both may use the new orders) | 45–55% (from 55%) |
 | 6 hoplites + 2 Companions flanking vs equal-cost hoplites, defender answers with `face` | the flanker still wins **≥ 52%**: face slows a flank, it doesn't erase it |
-| Same, defender in orb | the defender wins **55–65%**, but takes ≥ 30% longer to finish the fight |
-| Orb vs an equal army in line, open field | the orb **loses 35–45%**: it's a defence, not a dominant shape |
+| Same, defender in orb (orb vs riders) | the defender wins **≥ 55%** (V5-041) |
+| Orb vs a flank or rear attack (5 front + 3 rear vs 8 holding) | the defender wins **55–70%** (V5-041) |
+| Orb vs an equal army in line, frontal | the orb side wins **20–35%**: the wrong answer, but not useless (V5-041) |
 | Feint bait: 4 peltasts feint vs 6 swordsmen pursuing | the peltasts' side gains **≥ 8 pts** over a plain Withdraw |
 | Focus on enemy slingers (6 archers vs 6 slingers + 6 hoplites) | slingers silenced **≥ 30% sooner** than nearest-target fire |
 | Cohesion on vs off: first-rout to second-rout gap (median) | shrinks by **20–40%** |
