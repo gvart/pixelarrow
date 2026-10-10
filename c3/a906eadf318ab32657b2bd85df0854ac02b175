@@ -1,0 +1,65 @@
+src/ui/mosaic/ActionBar.ts
+  s_697bdc25a7c420::t_de88c3eb5e8ebe 21,25,51
+src/art/mosaicUi.ts
+  s_697bdc25a7c420::t_3c8b2fc4d32f23 473-476
+  s_697bdc25a7c420::t_0bb5f7545cfd80 637-642
+  s_697bdc25a7c420::t_8e114cdbb596cb 920,922-923
+  s_697bdc25a7c420::t_1d88a1f70c4cf2 454,487-490
+  s_697bdc25a7c420::t_05ff2e17f697ce 491
+src/ui/mosaic/SituationLine.ts
+  s_697bdc25a7c420::t_12494913dfef46 10,34-36,38,41,49
+  s_697bdc25a7c420::t_d17ee97a88ca19 42-44
+src/ui/mosaic/iconButton.ts
+  s_697bdc25a7c420::t_8f305ee215f039 4-6,13,120-126
+src/ui/kit.ts
+  s_697bdc25a7c420::t_c4e33005599a60 25,28
+  s_697bdc25a7c420::t_2f307a86abaaf9 690-692,696-697,715,719-722,836,840-848,850-854,857,861,865-868,881
+  s_697bdc25a7c420::t_1fe3def525b87f 24,482,514,518-520,528
+  s_697bdc25a7c420::t_940058f50a9fdf 849,855-856,858-860,862-864
+  s_697bdc25a7c420::t_2ed7be3a012e96 515-516,538,548,557,574
+  s_697bdc25a7c420::t_5dac7c4bec6410 29
+src/ui/mosaic/EmptyState.ts
+  s_697bdc25a7c420::t_e8faf4ce142b39 9,15-17,31,34,36,45-46
+src/ui/mosaic/KeyButton.ts
+  s_697bdc25a7c420::t_de88c3eb5e8ebe 4-5
+src/ui/mosaic/RoundButton.ts
+  s_697bdc25a7c420::t_2d7e83ba5d0b6a 9,25-27
+src/ui/mosaic/policy.ts
+  s_697bdc25a7c420::t_d17ee97a88ca19 45-46,53-55
+  s_697bdc25a7c420::t_aaabf96a96f8b9 71-73,75-83
+  s_697bdc25a7c420::t_fb56b7adaa879a 1-44,47-52,56-70,74,84-92
+src/ui/mosaic/controls.ts
+  s_697bdc25a7c420::t_902b633bd44721 383-384
+  s_697bdc25a7c420::t_4ea0f1c940aa73 440-441
+  s_697bdc25a7c420::t_2d281e37474880 17,362-363,371,376-377,379-381,386-388,393-403,427
+  s_697bdc25a7c420::t_aaabf96a96f8b9 364-370,375
+  s_697bdc25a7c420::t_dbf923bf021627 15,204,216-217,219-220
+  s_697bdc25a7c420::t_61bf4b9dc5c3c3 71,272-273,330-331
+  s_697bdc25a7c420::t_d573901a1b88e1 50
+  s_697bdc25a7c420::t_93f87b2aa709b6 3-8,26-31,137-138,142-146,156
+  s_697bdc25a7c420::t_c4e33005599a60 16,22-23
+  s_697bdc25a7c420::t_96281af1cd752e 218
+  s_697bdc25a7c420::t_04390ba25aba1a 282-283,286
+src/ui/mosaic/base.ts
+  s_697bdc25a7c420::t_96281af1cd752e 52,54-55,65-66
+  s_697bdc25a7c420::t_1c44681fc9ffde 164-165
+  s_697bdc25a7c420::t_c4e33005599a60 16-18
+  s_697bdc25a7c420::t_b0149d5cfd633a 151-155
+  s_697bdc25a7c420::t_60bce104162db1 13,68,70,140-143,147,149-150,156-163,166-168,170-175,177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c3a906eadf318ab32657b2bd85df0854ac02b175",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
