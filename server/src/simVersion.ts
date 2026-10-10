@@ -19,6 +19,8 @@ export { SIM_VERSION };
  * every version from here to SIM_VERSION needs an entry in REPLAYERS.
  * 2 since FO-01, the first rule change of sim train 2 (ADR-0001 step 3,
  * V5-033): v1 clients get 426 and the reload message.
+ * It gates new tickets only: a submission of an existing, unexpired ticket
+ * replays under the ticket's own version (duel/verify.ts, ADR-0001 "In-flight tickets").
  */
 export const MIN_SIM_VERSION = 2;
 

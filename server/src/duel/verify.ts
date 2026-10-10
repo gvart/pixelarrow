@@ -5,9 +5,9 @@
  * claimed counts.
  */
 import { z } from 'zod';
-import { LIMITS, LoggedOrderSchema, replayBattle } from '../battle';
+import { LIMITS, LoggedOrderSchema, REPLAYERS, replayBattle } from '../battle';
 import { ApiError } from '../errors';
-import { resolveSimVersion, SimVersionField } from '../simVersion';
+import { LEGACY_SIM_VERSION, resolveSimVersion, SimVersionField } from '../simVersion';
 import type { BattleSetup, LoggedOrder } from '../../../src/sim/types';
 
 export const SubmitBody = z.object({
@@ -28,8 +28,14 @@ export interface IssuedBattle {
 }
 
 /**
- * Replays a submission with the ticket's sim version. A version this server
- * does not take is 426 `sim_version_unsupported` and leaves the ticket open.
+ * Replays a submission with the ticket's sim version. The MIN_SIM_VERSION
+ * floor is for new tickets only: a client running the version its ticket was
+ * issued under (an old client with no `simVersion` finishing a v1 ticket from
+ * before a raise) is replayed with REPLAYERS[that version], as long as this
+ * server still has it (ADR-0001, "In-flight tickets"). Callers pass only
+ * tickets that exist, are open and unexpired (ticketPreamble). Otherwise a
+ * version this server does not take is 426 `sim_version_unsupported` and
+ * leaves the ticket open.
  * On a rejection `reject(claim, result)` closes the ticket first, then the
  * ApiError is thrown (409 `sim_version_mismatch` when the client runs another
  * version than the ticket was issued under, 422 `sim_rejected`, or
@@ -42,7 +48,8 @@ export async function verifyBattle(
   mismatchMessage = 'The battle did not replay as reported; it does not count',
 ): Promise<Replayed> {
   const claimJson = JSON.stringify(body.claim);
-  const simVersion = resolveSimVersion(body.simVersion);
+  const requested = body.simVersion ?? LEGACY_SIM_VERSION;
+  const simVersion = requested === issued.simVersion && REPLAYERS[requested] ? requested : resolveSimVersion(body.simVersion);
   if (simVersion !== issued.simVersion) {
     await reject(claimJson, JSON.stringify({ simVersion, ticket: issued.simVersion }));
     throw new ApiError(409, 'sim_version_mismatch', 'This battle was started under another game version; it does not count', { simVersion, ticket: issued.simVersion });

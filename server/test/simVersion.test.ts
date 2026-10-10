@@ -15,6 +15,7 @@ import { pairBySimVersion, type Waiting } from '../src/duel/matchmaker';
 import { onlineBattleSetup } from '../../src/online/battle';
 import { DEFAULT_FORMATIONS, starterOnlineArmy } from '../../src/online/rules';
 import { ApiError } from '../src/errors';
+import { verifyBattle as verifySubmission, type Submission } from '../src/duel/verify';
 import { api, BASE, devLogin } from './helpers';
 
 const fx = inject('battleFixture');
@@ -33,6 +34,13 @@ interface RecordedBattle {
 const recorded = (replayV1 as unknown as { battles: RecordedBattle[] }).battles;
 /** The one recorded battle with a human (non-bot) side and an order log. */
 const v1fx = recorded.find((b) => b.name === 'standard-4242')!;
+
+/** An old (v1) client's submission: the same orders as play(), with the claim the frozen v1 sim gives. */
+function playV1(setup: BattleSetup) {
+  const p = play(setup);
+  const s = replayBattle(structuredClone(setup), p.orders as LoggedOrder[], p.deployOrders, 1).summary;
+  return { ...p, claim: { winner: s.winner as 0 | 1 | -1, ticks: s.ticks, hash: s.hash } };
+}
 
 function rejection(v: number | undefined): ApiError {
   try {
@@ -112,6 +120,58 @@ describe('replay dispatch by sim version', () => {
   });
 });
 
+describe('in-flight tickets replay under the version they were issued with', () => {
+  const v1body = (simVersion?: number): Submission => ({
+    simVersion,
+    ticket: '0'.repeat(32),
+    orders: v1fx.orders,
+    deployOrders: v1fx.deployOrders,
+    claim: { winner: v1fx.winner, ticks: v1fx.ticks, hash: v1fx.hash },
+  });
+  /** Runs `fn` while counting calls to REPLAYERS[v]. */
+  async function countReplays(v: number, fn: () => Promise<unknown>): Promise<number> {
+    const table = REPLAYERS as Record<number, (typeof REPLAYERS)[number]>;
+    const orig = table[v];
+    let n = 0;
+    table[v] = (setup) => (n++, orig(setup));
+    try {
+      await fn();
+    } finally {
+      table[v] = orig;
+    }
+    return n;
+  }
+  const keepOpen = async () => {
+    throw new Error('the ticket must not be closed');
+  };
+
+  it('an old client (no version) on a v1 ticket is replayed by the frozen v1 sim, below the floor', async () => {
+    expect(MIN_SIM_VERSION).toBeGreaterThan(1);
+    const n = await countReplays(1, async () => {
+      const out = await verifySubmission({ setup: structuredClone(v1fx.setup), simVersion: 1 }, v1body(), keepOpen);
+      expect(out.summary.hash).toBe(v1fx.hash);
+    });
+    expect(n).toBe(1);
+  });
+
+  it('a v2 client on a v1 ticket is a 409 mismatch, and the ticket is closed', async () => {
+    let closed = false;
+    const e = await verifySubmission({ setup: structuredClone(v1fx.setup), simVersion: 1 }, v1body(SIM_VERSION), async () => void (closed = true)).catch((x: ApiError) => x);
+    expect(e).toMatchObject({ status: 409, code: 'sim_version_mismatch' });
+    expect(closed).toBe(true);
+  });
+
+  it('an old client on a v2 ticket is a 426 and the ticket stays open', async () => {
+    const e = await verifySubmission({ setup: structuredClone(v1fx.setup), simVersion: SIM_VERSION }, v1body(), keepOpen).catch((x: ApiError) => x);
+    expect(e).toMatchObject({ status: 426, code: 'sim_version_unsupported' });
+  });
+
+  it('a ticket version this server has no sim for is not replayed (426, open)', async () => {
+    const e = await verifySubmission({ setup: structuredClone(v1fx.setup), simVersion: 0 }, v1body(0), keepOpen).catch((x: ApiError) => x);
+    expect(e).toMatchObject({ status: 426, code: 'sim_version_unsupported' });
+  });
+});
+
 describe('battle tickets record and replay the sim version (duel ladder)', () => {
   beforeEach(fresh);
   type Err = { error: { code: string } };
@@ -134,15 +194,48 @@ describe('battle tickets record and replay the sim version (duel ladder)', () =>
     expect(t.body.error.code).toBe('sim_version_unsupported');
   });
 
-  it('a v1 submission is refused with 426 and leaves its ticket open', async () => {
+  it('an old client (no simVersion) finishes a v1 ticket issued before the raise: replayed with the frozen v1 sim, resolved', async () => {
     const { token } = await openDuellist(9706);
     const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: SIM_VERSION });
-    // as if the row predates the bump (migration 0016 default)
+    // as if the row predates the raise (migration 0016 default)
     await DB().prepare('UPDATE duel_tickets SET sim_version = 1 WHERE id = ?1').bind(t.body.ticket).run();
-    const r = await post<Err>('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: 1, ...play(t.body.setup) });
+    const r = await post<{ replayed?: boolean }>('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: undefined, ...playV1(t.body.setup) });
+    expect(r.status).toBe(200);
+    expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: 1, status: 'used' });
+  });
+
+  it('an old client cannot finish a v1 ticket after it expired (410, no replay)', async () => {
+    const { token } = await openDuellist(9707);
+    const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: SIM_VERSION });
+    await DB().prepare('UPDATE duel_tickets SET sim_version = 1, expires_at = 1 WHERE id = ?1').bind(t.body.ticket).run();
+    const r = await post<Err>('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: undefined, ...playV1(t.body.setup) });
+    expect(r.status).toBe(410);
+    expect(r.body.error.code).toBe('ticket_expired');
+  });
+
+  it('an old client cannot submit a ticket that does not exist (404)', async () => {
+    const { token } = await openDuellist(9708);
+    const r = await post<Err>('/api/duel/ladder/submit', token, { ticket: '0'.repeat(32), simVersion: undefined, ...playV1(fx.setup) });
+    expect(r.status).toBe(404);
+  });
+
+  it('a v2 client submitting a v1 ticket is void (409 sim_version_mismatch)', async () => {
+    const { token } = await openDuellist(9709);
+    const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: SIM_VERSION });
+    await DB().prepare('UPDATE duel_tickets SET sim_version = 1 WHERE id = ?1').bind(t.body.ticket).run();
+    const r = await post<Err>('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: SIM_VERSION, ...play(t.body.setup) });
+    expect(r.status).toBe(409);
+    expect(r.body.error.code).toBe('sim_version_mismatch');
+    expect((await ticketVersion(t.body.ticket)).status).toBe('rejected');
+  });
+
+  it('an old client submitting a v2 ticket is refused with 426 and leaves the ticket open', async () => {
+    const { token } = await openDuellist(9710);
+    const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 1, simVersion: SIM_VERSION });
+    const r = await post<Err>('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: undefined, ...play(t.body.setup) });
     expect(r.status).toBe(426);
     expect(r.body.error.code).toBe('sim_version_unsupported');
-    expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: 1, status: 'open' });
+    expect(await ticketVersion(t.body.ticket)).toMatchObject({ sim_version: SIM_VERSION, status: 'open' });
   });
 
   it('the old client payload shape (no simVersion anywhere) is refused as v1', async () => {
@@ -187,6 +280,24 @@ describe('war attacks carry the sim version', () => {
     expect(sub.status).toBe(200);
     const row = await DB().prepare('SELECT sim_version, status FROM battle_tickets WHERE id = ?1').bind(t.body.ticket).first();
     expect(row).toMatchObject({ sim_version: SIM_VERSION, status: 'used' });
+  });
+
+  it('an attack started on v1 before the raise still resolves for the old client (frozen v1 replay)', async () => {
+    const p = await join(9713);
+    const t = await post<Ticket>('/api/online/attack/start', p.token, { loc: await freeNeighbour(p), simVersion: SIM_VERSION });
+    expect(t.status).toBe(200);
+    await DB().prepare('UPDATE battle_tickets SET sim_version = 1 WHERE id = ?1').bind(t.body.ticket).run();
+    const sub = await post('/api/online/attack/submit', p.token, { ticket: t.body.ticket, simVersion: undefined, ...playV1(t.body.setup) });
+    expect(sub.status).toBe(200);
+    const row = await DB().prepare('SELECT sim_version, status FROM battle_tickets WHERE id = ?1').bind(t.body.ticket).first();
+    expect(row).toMatchObject({ sim_version: 1, status: 'used' });
+  });
+
+  it('an old client cannot start a new attack (426, reload)', async () => {
+    const p = await join(9714);
+    const t = await post<{ error: { code: string } }>('/api/online/attack/start', p.token, { loc: await freeNeighbour(p), simVersion: undefined });
+    expect(t.status).toBe(426);
+    expect(t.body.error.code).toBe('sim_version_unsupported');
   });
 
   it('an unknown version cannot start an attack', async () => {

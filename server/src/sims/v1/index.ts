@@ -7,6 +7,7 @@
  * server replays v1 tickets and duels with it, and tests/fixtures/replay-v1.json
  * pins its hashes (tests/simVersion.test.ts, server/test/simVersion.test.ts).
  * Only server/src/battle.ts REPLAYERS and those tests import it. Delete the
- * whole folder, with its REPLAYERS entry, when MIN_SIM_VERSION rises past 1.
+ * whole folder, with its REPLAYERS entry, no sooner than one ticket TTL after
+ * MIN_SIM_VERSION rose past 1 (in-flight v1 tickets still replay with it).
  */
 export { Battle as BattleV1 } from './sim/battle';

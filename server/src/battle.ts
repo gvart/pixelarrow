@@ -240,8 +240,9 @@ interface ReplayableBattle {
 /**
  * The sim of every version this server can replay (design/adr/ADR-0001).
  * 1: the frozen v4 rules (./sims/v1, read-only). 2: today's src/sim.
- * Every version from MIN_SIM_VERSION to SIM_VERSION needs an entry; drop an
- * entry and its frozen copy together when MIN_SIM_VERSION passes it.
+ * Every version from MIN_SIM_VERSION to SIM_VERSION needs an entry. An entry
+ * below the floor still replays in-flight tickets of its version; drop it and
+ * its frozen copy together no sooner than one ticket TTL after the floor rise.
  */
 export const REPLAYERS: Readonly<Record<number, (setup: BattleSetup) => ReplayableBattle>> = {
   1: (setup) => new BattleV1(setup as unknown as BattleSetupV1),
