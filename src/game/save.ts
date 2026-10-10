@@ -8,11 +8,15 @@ import { classOfHero } from '../data/classes';
 import type { LangSetting } from '../i18n';
 import type { Hero } from '../data/units';
 import { defaultAttrs, PERKS, POINTS_PER_LEVEL } from '../data/perks';
-import { World, type WorldSave } from '../world/world';
+import { ARC_STAGES, FLAGS_CAP, JOURNAL_CAP, World, v6WorldDefaults, type ArcState, type LairState, type WorldSave } from '../world/world';
 import type { TutorialProgress } from './tutorial';
 import { validMarker, type BattleMarker } from './campaignBattle';
 
-export const SAVE_VERSION = 5;
+/**
+ * v6 is the one v5-train bump (ST-02, design/adr/ADR-0002-save-migration.md):
+ * every field the train needs is declared now, and feature stories add none.
+ */
+export const SAVE_VERSION = 6;
 
 export interface Settings {
   pauseContact: boolean;
@@ -40,6 +44,12 @@ export interface Settings {
   analytics: boolean;
   /** Reduce motion (src/ui/motion.ts); missing = follow the system's prefers-reduced-motion. */
   reduceMotion?: boolean;
+  /** Accessibility (controls.md): no screen shake, no full-screen flashes, mirrored battle controls; missing = off. */
+  reduceShake?: boolean;
+  reduceFlash?: boolean;
+  leftHand?: boolean;
+  /** The last offline battle speed (0.5..3); missing = 1. */
+  battleSpeed?: number;
 }
 
 /**
@@ -145,6 +155,9 @@ const migrations: Record<number, Migration> = {
     }
     return { ...d, v: 5, stash, ...(moved.length ? { gearMoved: moved } : {}) };
   },
+  // v5 had no campaign arc, lairs or events (the v5 train, ADR-0002): they start
+  // at their defaults; the army, gold and everything else are kept (V5-020).
+  5: (d) => ({ ...d, v: 6, world: d.world && typeof d.world === 'object' ? { ...v6WorldDefaults(), ...d.world } : d.world }),
 };
 
 /**
@@ -205,17 +218,72 @@ function validate(d: Record<string, unknown>): LoadFailure | null {
   if (!w || typeof w.seed !== 'number' || typeof w.time !== 'number' || !Array.isArray(w.parties) || !Array.isArray(w.places)) {
     d.world = World.fresh(((d.rng as number) ^ 0x7f4a7c15) >>> 0 || 1);
   }
+  repairV6World(d.world as WorldSave);
   for (const it of d.stash as unknown[]) {
     const bad = itemProblem(it);
     if (bad) return bad;
   }
   d.settings = { ...DEFAULT_SETTINGS, ...((d.settings as object) ?? {}) };
+  repairV6Settings(d.settings as Settings);
   d.won = typeof d.won === 'number' ? d.won : 0;
   d.fought = typeof d.fought === 'number' ? d.fought : 0;
   if (typeof d.seq !== 'number' || !Number.isFinite(d.seq)) delete d.seq;
   if (typeof d.savedAt !== 'number' || !Number.isFinite(d.savedAt)) delete d.savedAt;
   if (d.battle !== undefined && !validMarker(d.battle)) delete d.battle;
   return null;
+}
+
+const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
+
+/** Numeric entries of a string -> number map, the first `cap` kept. */
+function numberMap(x: unknown, cap = Infinity): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!isObj(x)) return out;
+  for (const [k, v] of Object.entries(x)) {
+    if (Object.keys(out).length >= cap) break;
+    if (isNum(v)) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * The v6 world fields (ADR-0002): a missing or malformed value takes its
+ * default, and a malformed entry is dropped, rather than losing the save.
+ */
+function repairV6World(w: WorldSave): void {
+  const lairs: Record<number, LairState> = {};
+  if (isObj(w.lairs)) {
+    for (const [k, v] of Object.entries(w.lairs)) {
+      if (isObj(v) && typeof v.fallen === 'boolean' && isNum(v.lost) && isNum(v.lostAt)) lairs[Number(k)] = { fallen: v.fallen, lost: v.lost, lostAt: v.lostAt };
+    }
+  }
+  w.lairs = lairs;
+  const a = w.arc as Partial<ArcState> | undefined;
+  const arc: ArcState = { stage: a && ARC_STAGES.includes(a.stage!) ? a.stage! : 'lairs' };
+  if (a && arc.stage === a.stage) {
+    if (isNum(a.hostParty)) arc.hostParty = a.hostParty;
+    if (isNum(a.sackedUntil)) arc.sackedUntil = a.sackedUntil;
+  }
+  w.arc = arc;
+  w.flags = numberMap(w.flags, FLAGS_CAP);
+  w.eventCd = numberMap(w.eventCd);
+  const t = w.eventsToday as unknown;
+  w.eventsToday = Array.isArray(t) && t.length === 2 && isNum(t[0]) && isNum(t[1]) ? [t[0], t[1]] : [0, 0];
+  const e = w.pendingEvent as unknown;
+  if (e !== undefined && !(isObj(e) && typeof e.id === 'string' && isNum(e.seed))) delete w.pendingEvent;
+  w.journal = (Array.isArray(w.journal) ? w.journal : []).filter((j): j is string => typeof j === 'string').slice(-JOURNAL_CAP);
+  for (const p of w.parties) {
+    if (p.escaped !== undefined && !(isNum(p.escaped) && p.escaped >= 0)) delete p.escaped;
+    if (p.captainDead !== undefined && typeof p.captainDead !== 'boolean') delete p.captainDead;
+  }
+  for (const s of w.places) if (s && s.reborn !== undefined && typeof s.reborn !== 'boolean') delete s.reborn;
+}
+
+/** The v6 settings (controls.md): optional, dropped when malformed so the default applies. */
+function repairV6Settings(s: Settings): void {
+  for (const k of ['reduceShake', 'reduceFlash', 'leftHand'] as const) if (s[k] !== undefined && typeof s[k] !== 'boolean') delete s[k];
+  if (s.battleSpeed !== undefined && !(isNum(s.battleSpeed) && s.battleSpeed >= 0.5 && s.battleSpeed <= 3)) delete s.battleSpeed;
 }
 
 export function serialize(s: SaveData): string {
