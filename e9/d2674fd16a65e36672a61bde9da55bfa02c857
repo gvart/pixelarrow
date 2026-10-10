@@ -1,0 +1,20 @@
+production/qa/qa-plan-v5.md
+  s_697bdc25a7c420::t_2bb22c73dc7ce2 1-276,278-294,296-630
+  s_697bdc25a7c420::t_b9e250906f6fb9 277,295
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e9d2674fd16a65e36672a61bde9da55bfa02c857",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
