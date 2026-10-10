@@ -50,10 +50,12 @@ export const BEASTS_EN = {
   // ---- the Beast trial (offline)
   'menu.trial': 'Beasts',
   'trial.title': 'Beast trial',
-  'trial.sub': 'Fight any beast with your army',
+  'trial.sub': 'Practice against any beast with your army: no spoils, no losses.',
   'trial.fight': 'Fight it',
   'trial.empty': 'Your army has no fit men. Rest them in a town first.',
   'trial.tip': 'Tap a beast to see how it fights and what beats it.',
+  'results.practice': 'Practice: no spoils',
+  'results.noSpoilsPractice': 'Practice gives no spoils, and nobody was lost: your army is as it was.',
   // ---- the war horn in battle
   'battle.horn': 'Horn',
   'battle.horn.tip': 'War horn: the whole army rallies at once, even men already running. Once per horn.',
