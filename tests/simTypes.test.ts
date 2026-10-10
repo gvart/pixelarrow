@@ -68,9 +68,10 @@ describe('sim train 2 declarations', () => {
     expect(b.hash()).toBe(reference.hash());
   });
 
-  it('plays a setup with doctrine, works and a captain exactly like one without', () => {
+  // The doctrine is live since AI-01 (tests/aiDoctrines.test.ts); a steady one stays inert.
+  it('plays a setup with a steady doctrine, works and a captain exactly like one without', () => {
     const setup = base();
-    setup.armies[1].doctrine = 'fury';
+    setup.armies[1].doctrine = 'steady';
     setup.armies[0].works = { stakes: 2, ditch: 1, laager: 0 };
     setup.armies[1].units[0].captain = true;
     const b = play(setup);

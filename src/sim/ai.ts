@@ -7,12 +7,25 @@
 import type { Battle } from './battle';
 import { Rng } from './rng';
 import { presetFrontage, rightOf } from './formation';
-import type { Side, SimGroup, SimUnit } from './types';
+import type { DoctrineId, Side, SimGroup, SimUnit } from './types';
 import { rallyRadius } from './stats';
 import { clamp } from '../util/math';
+import { DOCTRINES, RETREAT_SHARE, SKIRMISH_RIDER_EXTRA, battleTimers, doctrineOf, type Doctrine, type DoctrineTimers } from '../data/doctrines';
 
+/**
+ * The steady defaults. Every doctrine timer and threshold is read from the
+ * army's doctrine (src/data/doctrines.ts, ai-doctrines.md R1); these names
+ * stay exported as the steady values, today's AI.
+ */
 /** Seconds without any combat before the bot commits everything to an attack. */
-export const PRESS_IDLE_S = 8;
+export const PRESS_IDLE_S = DOCTRINES.steady.pressIdleS;
+/** A line holding a hill under missiles gives it up after this long. */
+export const HILL_SHOT_S = 22;
+/** Riders wait this long for the lines to meet (or less when the enemy shoots). */
+export const CAV_WAIT_S = 10;
+export const CAV_SHOOTER_WAIT_S = 3;
+/** Animals leave their lair by this time at the latest. */
+export const BEAST_WAIT_S = 45;
 
 interface GroupMemo {
   stage: number;
@@ -50,17 +63,22 @@ export const CAV_MELEE_S = 4;
 export const CAV_REGROUP_S = 3;
 
 /** Seconds a bot line will hold a hill (or wait at a contested ford) before it gives up and attacks. */
-export const HOLD_HILL_S = 50;
-export const FORD_WAIT_S = 55;
+export const HOLD_HILL_S = DOCTRINES.steady.holdHillS;
+export const FORD_WAIT_S = DOCTRINES.steady.fordWaitS;
 
 export class BotAI {
   readonly side: Side;
   private rng: Rng;
   private memo = new Map<number, GroupMemo>();
+  /** The army's doctrine (ai-doctrines.md); missing = steady. */
+  readonly doctrine: Doctrine;
+  /** This battle's timers: jittered (F2) and, for the press, capped for small armies (F1). Set by deploy. */
+  timers!: DoctrineTimers;
 
-  constructor(side: Side, seed: number) {
+  constructor(side: Side, seed: number, doctrine?: DoctrineId) {
     this.side = side;
     this.rng = new Rng(seed);
+    this.doctrine = doctrineOf(doctrine);
   }
 
   private mem(g: SimGroup): GroupMemo {
@@ -73,6 +91,10 @@ export class BotAI {
   }
 
   deploy(b: Battle): void {
+    // F1, F2: drawn once, before any other draw of the bot's RNG.
+    const men = b.units.filter((u) => u.side === this.side && u.state === 'ready').length;
+    this.timers = battleTimers(this.doctrine, men, () => this.rng.next());
+    const shape = this.doctrine.preferShape;
     for (const g of b.sideGroups(this.side)) {
       const n = b.activeMembers(g.id).length;
       if (n === 0) continue;
@@ -88,12 +110,15 @@ export class BotAI {
         }
       }
       const shields = b.activeMembers(g.id).filter((u) => u.stats.canShieldWall).length;
-      if (g.role === 'main' && shields >= n * 0.7 && this.rng.chance(0.5)) {
+      if (g.role === 'main' && shape !== 'line') {
+        // R2 "Shape per group": shielded spearmen keep a line rather than open into skirmish order.
+        b.issue(this.side, { kind: 'preset', group: g.id, type: shape === 'skirmish' && shields >= n * 0.5 ? 'line' : shape });
+      } else if (g.role === 'main' && shields >= n * 0.7 && this.rng.chance(0.5)) {
         b.issue(this.side, { kind: 'preset', group: g.id, type: 'shieldwall' });
       } else if (g.role === 'skirmish') {
         b.issue(this.side, { kind: 'preset', group: g.id, type: 'skirmish' });
       } else if (g.role === 'flank') {
-        b.issue(this.side, { kind: 'preset', group: g.id, type: this.rng.chance(0.5) ? 'wedge' : 'column' });
+        b.issue(this.side, { kind: 'preset', group: g.id, type: shape === 'wedge' || this.rng.chance(0.5) ? 'wedge' : 'column' });
       } else if (g.role === 'reserve') {
         b.issue(this.side, { kind: 'preset', group: g.id, type: 'line' });
       }
@@ -194,6 +219,10 @@ export class BotAI {
     if ((b.tick + this.side * 5) % 10 !== 0) return;
     const enemies = b.units.filter((u) => u.side !== this.side && u.state === 'ready');
     if (enemies.length === 0) return;
+    if (this.shouldRetreat(b)) {
+      b.issue(this.side, { kind: 'retreat' });
+      return;
+    }
     this.thinkAbilities(b);
     // A mythical beast across the field: fight it as a hunt, not a battle line (src/sim/myth.ts).
     if (b.myth && enemies.some((e) => e.stats.boss !== undefined)) {
@@ -212,7 +241,8 @@ export class BotAI {
     let lastAction = 0;
     for (const u of b.units) lastAction = Math.max(lastAction, u.lastAttackTick, u.lastShotTick, u.lastHitTick, u.lastBlockTick);
     const idle = (b.tick - lastAction) / 20;
-    if (t > 25 && idle > PRESS_IDLE_S) {
+    const T = this.timers;
+    if (t > T.pressAfterS && idle > T.pressIdleS) {
       for (const g of myGroups) {
         const mem = b.activeMembers(g.id);
         if (mem.length === 0 || g.routed) continue;
@@ -220,7 +250,7 @@ export class BotAI {
         if (b.special && groupKind(mem) === 'horse_archers') continue;
         const c = centroid(mem);
         const near = nearest(enemies, c.x, c.y);
-        if (g.role === 'main' && g.order === 'hold' && t < HOLD_HILL_S && near.d < 12 && this.holdsHill(b, mem, ec)) continue;
+        if (g.role === 'main' && g.order === 'hold' && t < T.holdHillS && near.d < 12 && this.holdsHill(b, mem, ec)) continue;
         this.mem(g).stage = 9; // committed: the role logic below just keeps charging
         if (g.order !== 'charge') {
           this.face(b, g, near.u.x, near.u.y);
@@ -428,6 +458,42 @@ export class BotAI {
     }
   }
 
+  /**
+   * R5 retreatAt: the bot quits the field once its losses (dead, routing or
+   * fled) reach the doctrine's share and it is not winning (its share of the
+   * men still fighting is below RETREAT_SHARE). 0 = never.
+   */
+  private shouldRetreat(b: Battle): boolean {
+    const at = this.doctrine.retreatAt;
+    if (at <= 0) return false;
+    let mine = 0;
+    let lost = 0;
+    let ready = 0;
+    let foes = 0;
+    for (const u of b.units) {
+      if (u.side !== this.side) {
+        if (u.state === 'ready') foes++;
+        continue;
+      }
+      mine++;
+      if (u.state === 'ready') ready++;
+      else lost++;
+    }
+    return mine > 0 && lost >= mine * at && ready < (ready + foes) * RETREAT_SHARE;
+  }
+
+  /** The enemy stands on high ground above our line (the ridge case). */
+  private enemyHoldsHill(b: Battle, mem: SimUnit[], ec: { x: number; y: number }): boolean {
+    if (!b.terrain) return false;
+    const theirs = b.heightAt(ec.x, ec.y);
+    return theirs >= 0.75 && theirs >= this.groupHeight(b, mem) + 0.75;
+  }
+
+  /** A flank group of ours has swung in. With none, the line waits out its patience (holdHillS). */
+  private flankIn(b: Battle): boolean {
+    return b.sideGroups(this.side).some((g) => g.role === 'flank' && !g.routed && (g.contact || (this.memo.get(g.id)?.stage ?? 0) >= 2));
+  }
+
   private face(b: Battle, g: SimGroup, tx: number, ty: number, then?: 'advance' | 'charge'): void {
     const f = g.formation;
     let dx = tx - f.cx;
@@ -443,15 +509,16 @@ export class BotAI {
 
   private thinkMain(b: Battle, g: SimGroup, mem: SimUnit[], near: Near, ec: { x: number; y: number }, t: number, m: GroupMemo): void {
     if (g.routed) return;
+    const T = this.timers;
     const recentMissiles = mem.some((u) => b.tick - u.lastHitTick < 40 || b.tick - u.lastBlockTick < 40);
     const wall = () => {
-      if (recentMissiles && !g.shieldWall && mem.some((u) => u.stats.canShieldWall)) b.issue(this.side, { kind: 'shieldwall', group: g.id, on: true });
+      if (this.doctrine.shieldwallWhenShot && recentMissiles && !g.shieldWall && mem.some((u) => u.stats.canShieldWall)) b.issue(this.side, { kind: 'shieldwall', group: g.id, on: true });
     };
     if (g.order === 'hold' && !g.contact) {
       // Hold the high ground and let the enemy climb, unless he will not come
       // (shooting at us from below) or it has gone on too long.
       const hill = this.holdsHill(b, mem, ec) || (near.d < 4 && this.groupHeight(b, mem) >= 0.75 && b.heightAt(near.u.x, near.u.y) < this.groupHeight(b, mem));
-      if (t >= 5 && hill && t < HOLD_HILL_S && !(recentMissiles && t > 22 && near.d > 6)) {
+      if (t >= T.lineWaitS && hill && t < T.holdHillS && !(recentMissiles && t > HILL_SHOT_S && near.d > 6)) {
         wall();
         return;
       }
@@ -460,7 +527,13 @@ export class BotAI {
         wall();
         return;
       }
-      if (t >= 5) {
+      // hillFlank (R5): do not climb into a held hill; let the missiles and the
+      // flank work first, until a flank group is in, or the doctrine's patience ends.
+      if (this.doctrine.hillFlank && t < T.holdHillS && this.enemyHoldsHill(b, mem, ec) && !this.flankIn(b)) {
+        wall();
+        return;
+      }
+      if (t >= T.lineWaitS) {
         this.face(b, g, ec.x, ec.y);
         b.issue(this.side, { kind: 'order', group: g.id, order: 'advance' });
       } else wall();
@@ -479,7 +552,7 @@ export class BotAI {
           if (e.side === this.side || e.state !== 'ready') continue;
           if ((e.y - ford.y) * (f.cy - ford.y) < 0 && Math.abs(e.y - ford.y) < 6 && Math.abs(e.x - ford.x) < 8) held = true;
         }
-        if (held && bankDist < 6 && t < FORD_WAIT_S && m.fordWait >= 0) {
+        if (held && bankDist < 6 && t < T.fordWaitS && m.fordWait >= 0) {
           m.fordWait = b.tick + 20 * 6;
           b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
           return;
@@ -500,7 +573,8 @@ export class BotAI {
 
   private thinkSkirmish(b: Battle, g: SimGroup, mem: SimUnit[], near: Near, main: SimGroup | undefined, m: GroupMemo): void {
     const ammo = mem.reduce((a, u) => a + u.ammo, 0);
-    const meleeThreat = near.u.stats.role !== 'ranged' && near.d < (b.special && near.u.stats.mount ? 9 : 5);
+    const retire = this.doctrine.skirmishRetire + (b.special && near.u.stats.mount ? SKIRMISH_RIDER_EXTRA : 0);
+    const meleeThreat = near.u.stats.role !== 'ranged' && near.d < retire;
     if (m.stage === 0 && (ammo === 0 || meleeThreat)) {
       m.stage = 1;
       if (main) {
@@ -595,7 +669,7 @@ export class BotAI {
       const enemyEngaged = b.groups.some((eg) => eg.side !== this.side && eg.contact);
       const shotAt = mem.some((u) => b.tick - u.lastHitTick < 40);
       const shooters = enemies.some((e) => e.stats.role !== 'melee');
-      if (t > 10 || (main && main.contact) || enemyEngaged || near.d < 7 || shotAt || (shooters && t > 3)) {
+      if (t > CAV_WAIT_S || (main && main.contact) || enemyEngaged || near.d < 7 || shotAt || (shooters && t > CAV_SHOOTER_WAIT_S)) {
         m.stage = 1;
         m.since = b.tick;
       } else return;
@@ -810,12 +884,12 @@ export class BotAI {
   private thinkBeasts(b: Battle, g: SimGroup, mem: SimUnit[], near: Near, t: number): void {
     if (g.order === 'charge') return;
     const hurt = mem.some((u) => b.tick - u.lastHitTick < 40);
-    if (hurt || near.d < 11 || t > 45) b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
+    if (hurt || near.d < 11 || t > BEAST_WAIT_S) b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
   }
 
   private thinkFlank(b: Battle, g: SimGroup, near: Near, ec: { x: number; y: number }, main: SimGroup | undefined, m: GroupMemo, t: number, enemies: SimUnit[]): void {
     if (m.stage === 0) {
-      if (t > 14 || (main && main.contact) || near.d < 4) m.stage = 1;
+      if (t > this.timers.flankAtS || (main && main.contact) || near.d < 4) m.stage = 1;
       else return;
     }
     if (m.stage === 1) {
@@ -853,9 +927,9 @@ export class BotAI {
         const all = b.members(main.id);
         const act = b.activeMembers(main.id);
         const avgMorale = act.reduce((a, u) => a + u.morale / u.stats.morale, 0) / Math.max(1, act.length);
-        wavering = main.contact && (avgMorale < 0.65 || act.length < all.length * 0.75);
+        wavering = main.contact && (avgMorale < this.doctrine.reserveWaver || act.length < all.length * 0.75);
       } else wavering = true;
-      if (wavering || enemyRouted || t > 70 || near.d < 3) {
+      if (wavering || enemyRouted || t > this.timers.reserveAtS || near.d < 3) {
         m.stage = 1;
         this.face(b, g, near.u.x, near.u.y);
         b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
