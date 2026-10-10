@@ -29,3 +29,12 @@ The contract is [ADR-0005](../../../../design/adr/ADR-0005-ui-kit.md). This file
 ## Shots
 
 `before-*` show v5 at b874988 and `after-*` show this branch. Both come from a production build (`vite preview`, fonts loaded), DPR 2, plain insets. The screens are the menu hub, the Duels hub (ladder), the Kit (`kit-controls`: tab 0; `kit-mosaic`: the hub demo with the tab bar), the shop's cosmetic dialog (Close) and the duel hero (Dismiss), each at 390x844, 360x780 and 320x640, in en and ru.
+
+## Gates (2026-10-10, production build via `vite preview`)
+
+- `npx tsc --noEmit`: clean.
+- `npx vitest run`: 76 files, 855 tests passed. `tests/mosaic.test.ts` has 14 tests; 11 of them are new. The heavy `aiDoctrines` balance row once timed out under machine load (V5-053) and passed on its own.
+- `npx vite build`: OK.
+- `node scripts/layout-check.mjs`: 24 configurations x 150 screens, **passed**: 6 distinct violations, all already allowlisted, 0 new. On the way there the full run caught two regressions. The Russian shop's count badge overlapped "ПРОПУСК", so segment labels now sit 1 UI px lower and the switch badge sits higher. World chips showed "2…" at 320x568, so ChipRow now measures like MChip and numbers are never cut.
+- `node scripts/smoke.mjs`: ALL PASS (42). The first run lost the Army "Sheet" tap: a badge dot made only of Graphics broke its button's `getBounds()`. The badge now carries a clear box.
+- `node scripts/tutorial-smoke.mjs`: PASSED (48).
