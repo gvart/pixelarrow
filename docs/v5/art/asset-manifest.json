@@ -1223,6 +1223,351 @@
    "template": "T-SPLASH",
    "subject": "a hoplite phalanx with locked shields on a beach at dawn, seen from low, ships and a temple on the headland behind; empty sky in the top third for the logo",
    "slot": "BootScene (audit BOOT-1) and FirstRun offer background (audit FR-1); full-bleed cover, 9:19.5, keep the subject in the central 320x568-CSS safe area. Exception to the x6 rule: x2 CSS (soft painting, full screen)"
+  },
+  {
+   "id": "ART-057",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_doctrine_steady.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_steady",
+   "template": "T-ICON",
+   "subject": "a tortoise with a domed bronze-plated shell, walking steadily, head forward",
+   "slot": "Doctrine steady (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-058",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_doctrine_rush.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_rush",
+   "template": "T-ICON",
+   "subject": "a ram's head with heavy curled horns, lowered to butt",
+   "slot": "Doctrine rush (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-059",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_doctrine_hammer.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_hammer",
+   "template": "T-ICON",
+   "subject": "a heavy war hammer with a long wooden haft and a spiked bronze head",
+   "slot": "Doctrine hammer (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-060",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_doctrine_swarm.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_swarm",
+   "template": "T-ICON",
+   "subject": "a single striped hornet with spread wings and a sting",
+   "slot": "Doctrine swarm (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-061",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_doctrine_fury.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_fury",
+   "template": "T-ICON",
+   "subject": "a roaring lion's head with a flaming red-gold mane",
+   "slot": "Doctrine fury (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-062",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_active_push.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:push",
+   "template": "T-ICON",
+   "subject": "two level pike heads driving into an enemy round shield that tilts back",
+   "slot": "Signature active push, Push of Pike (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-063",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_active_bond.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:bond",
+   "template": "T-ICON",
+   "subject": "two forearms in bronze bracers, hands clasped at the wrist",
+   "slot": "Signature active bond, Sacred Bond (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-064",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_active_warcry.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:warcry",
+   "template": "T-ICON",
+   "subject": "a bearded warrior's head in side profile, shouting, with curved sound strokes from the open mouth",
+   "slot": "Signature active warcry, War-cry (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-065",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_active_sunder.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:sunder",
+   "template": "T-ICON",
+   "subject": "a curved falx blade splitting a round wooden shield",
+   "slot": "Signature active sunder, Sunder (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-066",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_active_aimed.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:aimed",
+   "template": "T-ICON",
+   "subject": "a drawn recurved bow with three arrows nocked together",
+   "slot": "Signature active aimed, Aimed Volley (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-067",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_active_recharge.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:recharge",
+   "template": "T-ICON",
+   "subject": "a horse's head turning, circled by a curved U-turn arrow",
+   "slot": "Signature active recharge, Wheel and Re-charge (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-068",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_active_scythe.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:scythe",
+   "template": "T-ICON",
+   "subject": "a spoked chariot wheel with a long curved scythe blade on its hub",
+   "slot": "Signature active scythe, Scythe Run (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-069",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_standard.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:standard",
+   "template": "T-ICON",
+   "subject": "an army standard: a pole with a crossbar, topped by a bronze sixteen-ray sun disc, two ribbons",
+   "slot": "The Standard (abilities.md R5): Raise the standard medallion, standard_bearer perk card, bearer badge (AB-03, F-04)"
+  },
+  {
+   "id": "ART-070",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_works.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:works",
+   "template": "T-ICON",
+   "subject": "an iron-shod digging spade crossed with a sharpened wooden stake",
+   "slot": "Field works (field-works.md): the Works button and tray in deployment (FW-03)"
+  },
+  {
+   "id": "ART-071",
+   "status": "needed",
+   "preview": null,
+   "file": "icon_captain.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:captain",
+   "template": "T-ICON",
+   "subject": "a tall transverse red horsehair crest on its curved bronze holder, no helmet",
+   "slot": "Band captain (ai-doctrines.md R6): captain row of the encounter sheet and band plate crest (AI-02, WLD-01)"
   }
  ]
 }
