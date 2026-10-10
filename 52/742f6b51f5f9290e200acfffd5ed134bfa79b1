@@ -1,0 +1,39 @@
+server/src/duel/async.ts
+  s_697bdc25a7c420::t_2dc476f47623bb 41,141-142,188,200,228-229
+  s_697bdc25a7c420::t_1e018eada1599f 270
+server/migrations/0016_sim_version.sql
+  s_697bdc25a7c420::t_5187068d6d2b99 1-7
+server/src/online/bosses.ts
+  s_697bdc25a7c420::t_ffb989aa20a2a7 24,238-239,250,300-302,305
+  s_697bdc25a7c420::t_2dc476f47623bb 66-67,334
+server/src/simVersion.ts
+  s_697bdc25a7c420::t_e6bec4a252e51f 1-48
+server/src/battle.ts
+  s_697bdc25a7c420::t_f5494748cdd253 22,145-146,200-213,247-248,260,262,265,275
+server/src/duel/routes.ts
+  s_697bdc25a7c420::t_1e018eada1599f 519
+  s_697bdc25a7c420::t_2dc476f47623bb 21,440-441,474-475,495-496
+server/src/online/attack.ts
+  s_697bdc25a7c420::t_2dc476f47623bb 93-94,294
+  s_697bdc25a7c420::t_ffb989aa20a2a7 19,128-129,155,247-249,252
+server/src/index.ts
+  s_697bdc25a7c420::t_0f9be026529ebb 105
+server/src/duel/verify.ts
+  s_697bdc25a7c420::t_1e018eada1599f 10,14-15,24-29,31-35,39,45-49,52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "52742f6b51f5f9290e200acfffd5ed134bfa79b1",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
