@@ -1,0 +1,43 @@
+design/ux/screens-campaign.md
+  s_697bdc25a7c420::t_6cf8a389fce670 226-227
+  s_697bdc25a7c420::t_d33a491e8e706a 36-40,221,267,360
+design/ux/hud.md
+  s_697bdc25a7c420::t_d33a491e8e706a 200
+  s_697bdc25a7c420::t_d44f33474f49b7 27,44,46,64,73-76,84-85,89-91,94-110,116,120-121,129,137,142,148,174-175,201-211,220-222,227-228,252-254
+docs/v5/ux/ELEMENT_MAP.md
+  s_697bdc25a7c420::t_279edce8ccf502 260,269,272,338,523-526,533-535,537
+docs/v5/ux/HUB_DIRECTIONS.md
+  s_697bdc25a7c420::t_279edce8ccf502 41,59,77,91,106
+design/ux/screen-flow.md
+  s_697bdc25a7c420::t_6cf8a389fce670 44
+  s_697bdc25a7c420::t_96322dea020a8d 117,120,123-124,126,134,137-138,149,169,179-186
+  s_697bdc25a7c420::t_ce85e25876d831 147
+  s_697bdc25a7c420::t_8d755b05fadc07 148
+design/ux/screens-modes.md
+  s_697bdc25a7c420::t_a840e3321e61be 255-280
+  s_697bdc25a7c420::t_d33a491e8e706a 22,27,36,45,132-134,200,204,217
+docs/v5/ux/ANSWERS.md
+  s_697bdc25a7c420::t_d33a491e8e706a 63
+design/ux/interaction-patterns.md
+  s_697bdc25a7c420::t_6cf8a389fce670 54
+  s_697bdc25a7c420::t_279edce8ccf502 42-44,82,86,98-109
+  s_697bdc25a7c420::t_dee586a2b743a9 110
+design/ux/ia.md
+  s_697bdc25a7c420::t_8eb293ab752b1c 16-20,39,58,66,79,87-88,92,103-104,122-124,127,136-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "617ad1d0094c6d3a5c5a23dd4ebcd8ba2ec6bda7",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
