@@ -16,6 +16,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { LIMITS, replayBattle } from '../battle';
 import { SubmitBody, verifyBattle } from '../duel/verify';
+import { resolveSimVersion, SimVersionField } from '../simVersion';
 import { battleTicketView, closeBattleTicket, loadOwnTicket, requireOpenTicket, ticketPreamble } from '../tickets';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
@@ -89,6 +90,8 @@ export function siegeWins(row: RegionRow | null | undefined, pid: number, now: n
 
 interface TicketRow {
   id: string;
+  /** The sim version it was issued under (0016_sim_version.sql). */
+  sim_version: number;
   season_id: number;
   shard_id: number;
   player_id: number;
@@ -122,6 +125,8 @@ const StartBody = z.object({
   consumable: z.string().max(40).nullable().optional(),
   /** Rejected when it names more than one: one consumable per battle. */
   consumables: z.array(z.string().max(40)).max(10).optional(),
+  /** The client's SIM_VERSION; absent = a client from before versioning (v1). */
+  simVersion: SimVersionField,
 });
 
 /** The single battle consumable an attack/duel request names (400 for several or a non-battle one). */
@@ -147,6 +152,7 @@ attack.post('/start', async (c) => {
   limit(c, 'attack', 12);
   const pc = await player(c);
   const body = await readJson(c, StartBody, 8 * 1024);
+  const simVersion = resolveSimVersion(body.simVersion);
   const consumable = pickConsumable(body.consumable, body.consumables);
   const target = body.loc;
   if (!pc.shard.world.has(target)) throw badRequest('No such region');
@@ -238,12 +244,12 @@ attack.post('/start', async (c) => {
   const res = await pc.db.batch([
     pc.db
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, defender_id, region_version, created_at, expires_at, consumable)
-         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
-         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 16}`).join(',')}) AND busy_until > ?13)
+        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, defender_id, region_version, created_at, expires_at, consumable, sim_version)
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16
+         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 17}`).join(',')}) AND busy_until > ?13)
            AND (?15 IS NULL OR EXISTS (SELECT 1 FROM online_consumables WHERE season_id = ?2 AND player_id = ?4 AND consumable_id = ?15 AND qty >= 1))`,
       )
-      .bind(id, pc.season.id, pc.shard.id, pc.pid, target, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), kind, row?.owner_id ?? null, row?.version ?? 0, now, expiresAt, consumable, ...busy),
+      .bind(id, pc.season.id, pc.shard.id, pc.pid, target, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), kind, row?.owner_id ?? null, row?.version ?? 0, now, expiresAt, consumable, simVersion, ...busy),
     pc.db.prepare(`UPDATE online_heroes SET busy_ticket = ?1, busy_until = ?2 WHERE id IN (${ph}) AND ${g}`).bind(id, expiresAt, ...busy),
     pc.db
       .prepare(`UPDATE online_profiles SET energy = ?3, energy_at = ?4, rev = rev + 1 WHERE season_id = ?1 AND player_id = ?2 AND ${g}`)
@@ -285,7 +291,7 @@ attack.post('/submit', async (c) => {
 
   // The server's own replay of the ticket's setup is the only truth.
   const setup = JSON.parse(t.setup) as BattleSetup;
-  const out = await verifyBattle(setup, body, (claim, result) => closeTicket(pc, t, 'rejected', { claim, result }), 'The battle did not replay as reported; the attack is void');
+  const out = await verifyBattle({ setup, simVersion: t.sim_version }, body, (claim, result) => closeTicket(pc, t, 'rejected', { claim, result }), 'The battle did not replay as reported; the attack is void');
   const s = out.summary;
 
   const result = await applyAttack(pc, t, out.result, s, claimJson);

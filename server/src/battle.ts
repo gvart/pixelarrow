@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { Battle, TICK_RATE } from '../../src/sim/battle';
 import { FORMATION_TYPES } from '../../src/sim/formation';
 import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../../src/sim/types';
+import { resolveSimVersion, SimVersionField } from './simVersion';
 
 export const LIMITS = {
   maxUnitsPerSide: 64,
@@ -141,6 +142,8 @@ export const LoggedOrderSchema = z.object({
 });
 
 export const VerifyBody = z.object({
+  /** The client's src/sim/version.ts SIM_VERSION; absent = a client from before versioning (v1). */
+  simVersion: SimVersionField,
   setup: Setup,
   orders: z.array(LoggedOrderSchema).max(LIMITS.maxOrders),
   /** How many leading log entries were issued during deployment (before startBattle). */
@@ -194,9 +197,20 @@ function summarize(b: Battle): ReplayOutcome {
   };
 }
 
-/** Re-runs a battle headless. Throws if the sim rejects the setup. */
-export function replayBattle(setup: BattleSetup, log: LoggedOrder[], deployOrders?: number): ReplayOutcome {
-  const b = new Battle(setup);
+/**
+ * The sim of every version this server can replay (design/adr/ADR-0001).
+ * Version 1 is today's src/sim. When SIM_VERSION 2 ships, the v1 sim is
+ * frozen into its own module and stays here until MIN_SIM_VERSION passes it.
+ */
+const REPLAYERS: Record<number, (setup: BattleSetup) => Battle> = {
+  1: (setup) => new Battle(setup),
+};
+
+/** Re-runs a battle headless with the rules of `simVersion`. Throws if the sim rejects the setup or the version is unknown. */
+export function replayBattle(setup: BattleSetup, log: LoggedOrder[], deployOrders?: number, simVersion = 1): ReplayOutcome {
+  const make = REPLAYERS[simVersion];
+  if (!make) throw new Error(`No sim version ${simVersion} on this server`);
+  const b = make(setup);
   const human = (side: Side) => !setup.armies[side].bot;
   const orders = log.map((o, i) => ({ ...o, i })).filter((o) => human(o.side));
   const nDeploy = deployOrders ?? leadingTickZero(log);
@@ -230,6 +244,8 @@ function leadingTickZero(log: LoggedOrder[]): number {
 
 export interface VerifyResponse {
   match: boolean;
+  /** The sim version the server replayed with. */
+  simVersion: number;
   mismatches: string[];
   server: BattleSummary;
   /** Simulation steps run. */
@@ -241,10 +257,12 @@ export interface VerifyResponse {
   elapsedMs: number;
 }
 
+/** Throws 426 `sim_version_unsupported` for a version outside the window (before any replay). */
 export function verifyBattle(req: VerifyRequest): VerifyResponse {
+  const simVersion = resolveSimVersion(req.simVersion);
   const t0 = performance.now();
   // The schema checks shape and ranges; the sim's own types are the source of truth.
-  const out = replayBattle(req.setup as unknown as BattleSetup, req.orders as LoggedOrder[], req.deployOrders);
+  const out = replayBattle(req.setup as unknown as BattleSetup, req.orders as LoggedOrder[], req.deployOrders, simVersion);
   const elapsedMs = performance.now() - t0;
   const s = out.summary;
   const mismatches: string[] = [];
@@ -254,5 +272,5 @@ export function verifyBattle(req: VerifyRequest): VerifyResponse {
     mismatches.push(`retreated: claimed ${req.claim.retreated}, server ${s.retreated}`);
   }
   if (req.claim.hash !== undefined && req.claim.hash !== s.hash) mismatches.push(`hash: claimed ${req.claim.hash}, server ${s.hash}`);
-  return { match: mismatches.length === 0, mismatches, server: s, ticksSimulated: s.ticks, elapsedMs };
+  return { match: mismatches.length === 0, simVersion, mismatches, server: s, ticksSimulated: s.ticks, elapsedMs };
 }

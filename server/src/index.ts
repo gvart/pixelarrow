@@ -102,6 +102,7 @@ app.post('/api/battle/verify', requireAuth, async (c) => {
   try {
     return c.json(verifyBattle(req));
   } catch (e) {
+    if (e instanceof ApiError) throw e; // 426 sim_version_unsupported
     throw new ApiError(422, 'sim_rejected', `The simulation rejected this battle: ${(e as Error).message ?? e}`);
   }
 });
