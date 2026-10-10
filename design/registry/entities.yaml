@@ -1,0 +1,115 @@
+# Entity registry: cross-GDD facts (first population, S2-VISION 2026-10-10).
+# Only facts that appear in more than one GDD are registered (/consistency-check Phase 6).
+# The `source` GDD owns the value; the others must match it.
+
+entities:
+  - name: standard bearer
+    source: design/gdd/abilities.md
+    attributes: { aura_radius: 4, morale_damage_reduction: 0.15, stacks_with_steady_presence: false, raise_uses_per_battle: 1, raise_radius: 6, raise_restore: 0.20, banner_loss_self: -12, banner_loss_enemy: 5, banner_loss_radius: 6, per_army: 1, passes_on_death: false }
+    referenced_by: [ai-doctrines.md, formations-orders.md, battle-readability.md, campaign-arc.md]
+    revised: 2026-10-10
+  - name: captain
+    source: design/gdd/ai-doctrines.md
+    attributes: { min_band_tier: 2, level_bonus: 2, is_standard_bearer: true, bounty: "40 + 15*L", lair_garrisons_always: true }
+    referenced_by: [abilities.md, campaign-arc.md, campaign-events.md, battle-readability.md]
+    revised: 2026-10-10
+  - name: doctrine
+    source: design/gdd/ai-doctrines.md
+    attributes: { ids: [steady, rush, hammer, swarm, fury], default: steady }
+    referenced_by: [campaign-arc.md, field-works.md, battle-readability.md, controls.md, campaign-events.md]
+    revised: 2026-10-10
+  - name: orb
+    source: design/gdd/formations-orders.md
+    attributes: { formation_type_id: orb, flanks: none, speed: 0.4, melee_damage: 0.85, missile_accuracy: 0.7, riders_allowed: false }
+    referenced_by: [controls.md, ai-doctrines.md, field-works.md, abilities.md]
+    revised: 2026-10-10
+  - name: feint
+    source: design/gdd/formations-orders.md
+    attributes: { order_id: feint, duration_s: 4, cooldown_s: 30, eligibility: "all men role light|ranged or mounted", ui_key_replaces: Withdraw }
+    referenced_by: [controls.md, ai-doctrines.md, battle-readability.md]
+    revised: 2026-10-10
+  - name: focus
+    source: design/gdd/formations-orders.md
+    attributes: { order_kind: focus, missile_only: true, clears_when_target_gone: true }
+    referenced_by: [controls.md, abilities.md, ai-doctrines.md, battle-readability.md]
+    revised: 2026-10-10
+  - name: face
+    source: design/gdd/formations-orders.md
+    attributes: { order_kind: face, keeps_order: true, sent_by_knob_in: battle }
+    referenced_by: [controls.md, ai-doctrines.md, abilities.md]
+    revised: 2026-10-10
+  - name: signature actives
+    source: design/gdd/abilities.md
+    attributes: { ids: [push, bond, warcry, sunder, aimed, wheel, scythe], plus: standard, total_ability_ids: 12 }
+    referenced_by: [ai-doctrines.md, controls.md, battle-readability.md, docs/v5/VISION.md]
+    revised: 2026-10-10
+  - name: field work cells
+    source: design/gdd/field-works.md
+    attributes: { kinds: [stakes, ditch, laager, palisade, rampart], codes: [x, d, L, P, p], works_max: 3, works_caught: 1, online_allowance_v5: 0 }
+    referenced_by: [campaign-arc.md, controls.md, ai-doctrines.md, battle-readability.md]
+    revised: 2026-10-10
+  - name: starter army
+    source: design/gdd/campaign-arc.md
+    attributes: { size: 8, composition: "4 hoplites (I), 2 peltasts (IV), 2 slingers (II)", start_food: 40, start_gold: 60, volunteers_on_wipe: 5 }
+    referenced_by: [docs/v5/VISION.md, design/gdd/game-concept.md, controls.md]
+    revised: 2026-10-10
+
+formulas:
+  - name: press time
+    source: design/gdd/ai-doctrines.md
+    variables: [D.pressAfterS, PRESS_BASE_S, PRESS_PER_MAN_S, n]
+    output_range: "5.5 s .. D.pressAfterS"
+  - name: army break
+    source: design/gdd/formations-orders.md
+    variables: [A, S0, E, ARMY_BREAK_SHARE, ARMY_BREAK_RATIO]
+    output_range: boolean
+  - name: cohesion shock
+    source: design/gdd/formations-orders.md
+    variables: [base, aura]
+    output_range: "-2.5 .. -10 morale"
+  - name: events per battle
+    source: design/gdd/campaign-events.md
+    variables: [h_march, r_m, v, r_a, c, r_c, w, r_b, B_day]
+    output_range: "target 0.3 .. 0.5"
+
+constants:
+  - name: SIM_VERSION (v5 train)
+    source: docs/v5/VISION.md
+    value: 2
+    unit: integer (1 = shipped sim)
+  - name: v5 campaign save bump
+    source: docs/v5/VISION.md
+    value: "SAVE_VERSION after S4-FIX-SAVES + 1 (expected 7)"
+  - name: COHESION_SELF / COHESION_NEAR / COHESION_RADIUS
+    source: design/gdd/formations-orders.md
+    value: "-10 / -5 / 6"
+    unit: morale / morale / paces
+  - name: MAX_MEDALLIONS
+    source: design/gdd/abilities.md
+    value: 3
+  - name: minimum active cooldown
+    source: docs/v5/VISION.md
+    value: 12
+    unit: s
+  - name: UNDO_S
+    source: design/gdd/controls.md
+    value: 3
+    unit: s
+  - name: queue depth ("Then…")
+    source: design/gdd/controls.md
+    value: 1
+  - name: AUTO_PAUSE_MERGE_S
+    source: design/gdd/controls.md
+    value: 5
+    unit: s
+  - name: BANNER_TTL_S
+    source: design/gdd/battle-readability.md
+    value: 6
+    unit: s
+  - name: LADDER_TICKET_MIN
+    source: design/gdd/controls.md
+    value: 30
+    unit: min
+  - name: decisions per first campaign battle (target)
+    source: docs/v5/VISION.md
+    value: ">= 8"
