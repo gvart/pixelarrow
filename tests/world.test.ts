@@ -157,9 +157,9 @@ describe('world simulation', () => {
 });
 
 describe('campaign on the map', () => {
-  it('starts with three heroes and little gold, capped at 20', () => {
+  it('starts with the 8-man opening and little gold, capped at 20', () => {
     const c = Campaign.fresh(40);
-    expect(c.data.heroes.length).toBe(3);
+    expect(c.data.heroes.length).toBe(8);
     expect(c.data.gold).toBeLessThanOrEqual(80);
     c.data.gold = 1e6;
     while (c.recruit()) { /* fill */ }

@@ -183,6 +183,17 @@ export const WORLD_RULES = {
   healGoldPerHour: 1,
 };
 
+/** The smallest bandit band (campaign-arc.md R1.3): sized for the 8-man opening. */
+export const BANDIT_MIN = 5;
+
+/**
+ * Volunteers (campaign-arc.md R1.4, R1.5). A destroyed army gets `destroyed`
+ * raw men at the starting town. While the army has fewer than `floor` men,
+ * the starting town and every village offer `floorOffer` raw volunteers at
+ * `floorCost` on top of their stock (recruit indices from `floorIndex`).
+ */
+export const VOLUNTEER_RULES = { destroyed: 5, floor: 5, floorOffer: 3, floorCost: 20, floorIndex: 100 };
+
 /** Band captains and escapes (design/gdd/ai-doctrines.md R6, R8 and Tuning Knobs). */
 export const CAPTAIN_RULES = {
   /** Bands of this gear tier and up have a captain (CAPTAIN_MIN_TIER). */
@@ -738,7 +749,7 @@ export class World {
     let level: number;
     let tier: number;
     if (kind === 'bandits') {
-      size = 3 + Math.round(danger * 5) + r.int(0, 2);
+      size = BANDIT_MIN + Math.round(danger * 5) + r.int(0, 2);
       level = 1 + Math.round(danger * 2 + days * 0.04);
       tier = danger > 0.7 ? 2 : 1;
     } else if (kind === 'raiders') {
@@ -833,7 +844,19 @@ export class World {
       if (st.bought.includes(i)) continue;
       out.push({ index: i, ...makeRecruit(def, `${base}:r${i}`, { nextId: 1 }, roster) });
     }
+    if (this.offersFloor(id, roster)) {
+      for (let i = 0; i < VOLUNTEER_RULES.floorOffer; i++) {
+        const index = VOLUNTEER_RULES.floorIndex + i;
+        if (!st.bought.includes(index)) out.push({ index, ...makeFloorVolunteer(def, `${base}:f${i}`, { nextId: 1 }, roster) });
+      }
+    }
     return out;
+  }
+
+  /** The volunteer floor (R1.5): an army under VOLUNTEER_RULES.floor men, at the starting town or a village. */
+  private offersFloor(id: number, roster: readonly Hero[]): boolean {
+    const def = this.map.settlements[id];
+    return roster.length < VOLUNTEER_RULES.floor && (def.kind === 'village' || id === this.map.start);
   }
 
   /** Hire volunteer `index`: returns the hero (with real ids) and its price, or null. */
@@ -841,7 +864,14 @@ export class World {
     const def = this.map.settlements[id];
     const st = this.placeState(id);
     if (!def || st.bought.includes(index)) return null;
-    const r = makeRecruit(def, `${this.s.seed}:${id}:${st.epoch}:r${index}`, ids, roster);
+    const key = `${this.s.seed}:${id}:${st.epoch}`;
+    if (index >= VOLUNTEER_RULES.floorIndex) {
+      const i = index - VOLUNTEER_RULES.floorIndex;
+      if (i >= VOLUNTEER_RULES.floorOffer || !this.offersFloor(id, roster)) return null;
+      st.bought.push(index);
+      return makeFloorVolunteer(def, `${key}:f${i}`, ids, roster);
+    }
+    const r = makeRecruit(def, `${key}:r${index}`, ids, roster);
     st.bought.push(index);
     return r;
   }
@@ -911,6 +941,11 @@ function makeRecruit(def: SettlementDef, key: string, ids: IdSource, roster: rea
   let gear = 0;
   for (const it of Object.values(hero.equip)) if (it) gear += itemValue(it);
   return { hero, price: CLASSES[cls].cost - 40 + 35 * (level - 1) + Math.round(gear / 3) };
+}
+
+/** A raw volunteer of the floor (R1.5): a level-1 levy of the place's people at VOLUNTEER_RULES.floorCost. */
+function makeFloorVolunteer(def: SettlementDef, key: string, ids: IdSource, roster: readonly Hero[]): { hero: Hero; price: number } {
+  return { hero: makeHero(new Rng(hashString(key)), ids, def.culture, 'raw', 1, 1, undefined, roster), price: VOLUNTEER_RULES.floorCost };
 }
 
 /** Whether the band fields a captain (ai-doctrines.md R6): tier 2 and up, a band of men, and he still lives. */

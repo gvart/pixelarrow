@@ -9,12 +9,12 @@ import { equipBlocker, equipFromStash, unequipInto } from './gear';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
 import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/perks';
 import { Rng } from '../sim/rng';
-import { grantXp, makeHero, makeItem, starterParty } from './heroes';
+import { grantXp, makeHero, makeItem, openingParty } from './heroes';
 import { dedupeNames } from '../data/names';
 import { campaignIdFor, DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
 import { armyPower, type EnemyArmy } from './enemy';
 import type { Outcome } from './loot';
-import { CAPTAIN_RULES, World, WORLD_RULES, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
+import { CAPTAIN_RULES, VOLUNTEER_RULES, World, WORLD_RULES, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
 import { isCaptain } from '../sim/stats';
 import type { BattleResult } from '../sim/types';
 import { CAMP_RULES, FOOD_RULES, campEffects } from '../world/camp';
@@ -64,7 +64,7 @@ export class Campaign {
   static fresh(seed: number): Campaign {
     const ids = { nextId: 1 };
     const rng = new Rng(seed);
-    const heroes = starterParty(rng, ids);
+    const heroes = openingParty(rng, ids);
     const stash: Item[] = [makeItem(rng, ids, 'pilos', 'common', 70), makeItem(rng, ids, 'owl_amulet', 'common', 100)];
     const data: SaveData = {
       v: SAVE_VERSION,
@@ -78,6 +78,7 @@ export class Campaign {
       settings: { ...DEFAULT_SETTINGS },
       world: World.fresh((seed ^ 0x7f4a7c15) >>> 0 || 1),
     };
+    data.world.food = FOOD_RULES.openingFood;
     data.campaignId = campaignIdFor(data.world.seed);
     return new Campaign(data);
   }
@@ -466,9 +467,9 @@ export class Campaign {
       } else w.weakenParty(partyId, outcome.enemyKilled, 3);
     }
     w.s.safeUntil = w.s.time + (outcome.victory ? 0.5 : 3);
-    // A destroyed army: three volunteers find the commander at the starting town.
+    // A destroyed army: five volunteers find the commander at the starting town (R1.4): three spearmen in I, two skirmishers in II.
     if (this.data.heroes.length === 0) {
-      for (let i = 0; i < 3; i++) this.data.heroes.push(makeHero(this.rng, this.data, 'greek', 'raw', 1, 1, i < 2 ? 0 : 1, this.data.heroes));
+      for (let i = 0; i < VOLUNTEER_RULES.destroyed; i++) this.data.heroes.push(makeHero(this.rng, this.data, 'greek', 'raw', 1, 1, i < 3 ? 0 : 1, this.data.heroes));
       const st = w.settlement(w.map.start)!;
       w.stop();
       w.s.x = st.x + 0.5;
