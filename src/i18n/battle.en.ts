@@ -280,4 +280,9 @@ export const BATTLE_EN = {
   'battle.left.short': '{n} left',
   // replaces battle.sit.quiet (strat.en.ts), which still named the removed radial ring (BTL-10, IN-01)
   'battle.sit.idle': 'Tap a group, then an order below.',
+  // battle.sit.marching without "Contact soon": that part shows only with an enemy near, for 6 s (PLAY B5, LF-01)
+  'battle.sit.moving': '{group} {order}.',
+  // a group card with Shoot on and no enemy in reach (PLAY B6, controls.md R3.4)
+  'battle.state.outOfRange': 'Out of range',
+  'battle.stateShort.outOfRange': 'out of range',
 } as const;
