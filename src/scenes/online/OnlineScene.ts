@@ -189,14 +189,14 @@ type Gesture = { mode: 'pending' | 'pan'; id: number; sx: number; sy: number; lx
 
 const RES_ICON: Record<keyof Resources, string> = { gold: 'wargold', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
 
-/** The HUD chips: every resource plus energy, each wide enough for a compact number ("12.4K", WAR-1), in as few rows as that allows. */
+/** The HUD chips: every resource plus energy, each wide enough for a compact number ("12.4K", WAR-1), in as few rows as that allows (at most 2, so the map keeps its room on short screens). */
 const CHIP_COUNT = RESOURCE_KEYS.length + 1;
 const CHIP_GAP = 2;
-const CHIP_PAD = 4;
+const CHIP_PAD = 2;
 function chipGrid(w: number): { cols: number; rows: number; cw: number; h: number } {
   const need = ICON_PX + 3 + CHIP_PAD + Math.ceil(mw('12.4K', 'ink', 6));
   let cols = CHIP_COUNT;
-  while (cols > 1 && Math.floor((w - CHIP_GAP * (cols - 1)) / cols) < need) cols--;
+  while (cols > Math.ceil(CHIP_COUNT / 2) && Math.floor((w - CHIP_GAP * (cols - 1)) / cols) < need) cols--;
   const rows = Math.ceil(CHIP_COUNT / cols);
   cols = Math.ceil(CHIP_COUNT / rows);
   return { cols, rows, cw: Math.floor((w - CHIP_GAP * (cols - 1)) / cols), h: rows * TAP + (rows - 1) * CHIP_GAP };
