@@ -1,0 +1,28 @@
+src/ui/mosaic/TabBar.ts
+  s_697bdc25a7c420::t_47ca1f2b2c236a 4-7,10,14-15,71-74,83-84,86-88
+  s_697bdc25a7c420::t_e7f48d4da7f73e 105-106
+src/ui/mosaic/index.ts
+  s_697bdc25a7c420::t_1d88a1f70c4cf2 9-10
+src/ui/mosaic/tabLayout.ts
+  s_697bdc25a7c420::t_e38ded5ad86de8 41-43,103
+  s_697bdc25a7c420::t_f3c3264e6b82c5 2-6,13-14,18,47-48,66-71,73-77,80-81,94-102,104-106,109-112,114,128-140,143-176
+  s_697bdc25a7c420::t_c9ff2b2dc08ed1 113,115-127
+  s_697bdc25a7c420::t_3f685ef113b0ac 39-40,44-46,107-108
+  s_697bdc25a7c420::t_2c6630f8faa685 7-12,141-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9aa3b3c13823b4350e2015052741a7fc4b15b16a",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
