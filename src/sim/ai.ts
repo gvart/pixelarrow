@@ -306,7 +306,9 @@ export class BotAI {
   /**
    * Heroes use their abilities through the same logged orders a player issues:
    * bash the man in front, fury when the fight is on, a shout when friends
-   * waver, a volley when several missile-men have targets.
+   * waver, a volley when several missile-men have targets. The signature
+   * actives follow abilities.md R6 (Wheel and Re-charge is the cavalry
+   * logic's, in thinkCavalry).
    */
   private thinkAbilities(b: Battle): void {
     if (b.horns[this.side] > 0) {
@@ -322,9 +324,14 @@ export class BotAI {
       }
       if (alive > 0 && (routing >= Math.max(2, alive * 0.25) || nerve / Math.max(1, alive - routing) < 0.42)) b.issue(this.side, { kind: 'horn' });
     }
+    const aimed = new Set<number>(); // one Aimed Volley per group per think (groupMode 'one')
     for (const u of b.units) {
       if (u.side !== this.side || u.state !== 'ready' || u.abil.length === 0) continue;
       for (const id of u.abil) {
+        if (id === 'aimed') {
+          if (!aimed.has(u.group) && this.thinkAimed(b, u)) aimed.add(u.group);
+          continue;
+        }
         if (!b.abilityReady(u, id)) continue;
         let use = false;
         switch (id) {
@@ -353,10 +360,70 @@ export class BotAI {
             use = shaken >= 3;
             break;
           }
+          case 'push':
+            // in frontal melee with a foe who is not braced (abilityReady checks both)
+            use = true;
+            break;
+          case 'sunder':
+            use = u.engaged && this.rng.chance(0.5); // as the bash
+            break;
+          case 'bond': {
+            // the group is in melee and its nerve is going: morale share below 0.6
+            const g = b.groups[u.group];
+            const mem = b.activeMembers(u.group);
+            const share = mem.reduce((a, m) => a + m.morale / Math.max(1, m.stats.morale), 0) / Math.max(1, mem.length);
+            use = g.contact && share < 0.6;
+            break;
+          }
+          case 'warcry':
+            // at first contact, or when the enemy within 5 is wavering
+            use = b.groups[u.group].contact || b.warcryTargets(u).some((e) => e.morale < e.stats.morale * 0.5);
+            break;
+          case 'scythe':
+            use = b.scytheVictims(u) >= 3;
+            break;
+          case 'recharge':
+            break; // thinkCavalry: riders locked in melee too long
         }
         if (use) b.issue(this.side, { kind: 'ability', unit: u.id, ability: id });
       }
     }
+  }
+
+  /**
+   * Aimed Volley (abilities.md R6): with at least 2 shooters of the group in
+   * range of one enemy group. It needs a focus: a group with one uses it; a
+   * group without one focuses that enemy group for the volley and clears the
+   * focus again (doctrines with focusMissiles prefer enemy missile-men).
+   */
+  private thinkAimed(b: Battle, u: SimUnit): boolean {
+    if (b.phase !== 'battle' || u.stun > 0 || b.abilityCooldown(u, 'aimed') !== 0) return false;
+    const g = b.groups[u.group];
+    const focus = g.focus ?? -1;
+    if (focus >= 0) {
+      if (b.aimedShooters(u).length < 2) return false;
+      b.issue(this.side, { kind: 'ability', unit: u.id, ability: 'aimed' });
+      return true;
+    }
+    let best = -1;
+    let bestScore = 0;
+    for (const eg of b.groups) {
+      if (eg.side === this.side || eg.disbanded) continue;
+      const n = b.aimedShooters(u, eg.id).length;
+      if (n < 2) continue;
+      const mem = b.activeMembers(eg.id);
+      const missile = mem.length > 0 && mem.filter((e) => e.stats.role !== 'melee').length * 2 >= mem.length;
+      const score = n + (this.doctrine.focusMissiles && missile ? 100 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        best = eg.id;
+      }
+    }
+    if (best < 0) return false;
+    b.issue(this.side, { kind: 'focus', group: g.id, target: best });
+    b.issue(this.side, { kind: 'ability', unit: u.id, ability: 'aimed' });
+    b.issue(this.side, { kind: 'focus', group: g.id, target: -1 });
+    return true;
   }
 
   /**
@@ -696,6 +763,16 @@ export class BotAI {
       // The foe in front is not breaking: pull out and charge again (a horse standing still is just a big target).
       const foes = enemies.filter((e) => (e.x - c.x) ** 2 + (e.y - c.y) ** 2 < 9);
       const breaking = foes.length > 0 && foes.reduce((a, e) => a + e.morale / e.stats.morale, 0) / foes.length < 0.4;
+      // Locked in melee too long (abilities.md R6): a Wheel and Re-charge if a rider has it ready,
+      // on the same terms as the plain pull-out below (not while the foe breaks, nor with the riders' nerve gone).
+      const wheel = stuck && !breaking && morale > 0.3 ? mem.find((u) => b.abilityReady(u, 'recharge')) : undefined;
+      if (wheel) {
+        b.issue(this.side, { kind: 'ability', unit: wheel.id, ability: 'recharge' });
+        // then regroup as after a pull-out (CAV_REGROUP_S: the bot gives the riders time to turn and form) and pick the next charge
+        m.stage = 3;
+        m.since = b.tick;
+        return;
+      }
       if (stuck && !breaking && morale > 0.3) {
         // Pull out the way we came and regroup for another charge.
         const ex = near.u.x;
