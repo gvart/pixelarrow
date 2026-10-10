@@ -1,0 +1,23 @@
+server/test/online-social.test.ts
+  s_697bdc25a7c420::t_49671b25b8192f 3,391
+server/test/ranked.test.ts
+  s_697bdc25a7c420::t_49671b25b8192f 10,288
+server/test/onlineHelpers.ts
+  s_697bdc25a7c420::t_731a08ace8b56e 4,232-233,235,237-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b0bad6ff3f8f517589e6855289119a5f1a724759",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
