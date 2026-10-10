@@ -1,0 +1,20 @@
+design/gdd/ai-doctrines.md
+  s_697bdc25a7c420::t_0f16a3d17ec3db 32,57
+  s_697bdc25a7c420::t_536c34869180d3 1-31,33-56,58-306
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3f0200b7cb4aa8d94af14d882740178bb2715d35",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
