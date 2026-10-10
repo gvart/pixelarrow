@@ -1,0 +1,23 @@
+src/ui/mosaic/overlays.ts
+  s_697bdc25a7c420::t_cc18f251b56cfa 1-16,18-20,22,24-63,65-84,86-98
+  s_697bdc25a7c420::t_c4be73ddfe333a 21,23
+  s_697bdc25a7c420::t_4fcaa5be08450c 17,64,85
+tests/overlays.test.ts
+  s_697bdc25a7c420::t_b89c215c79a5c2 1-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "512da64a164e14c4f9e3c4b365cfe22df52079f1",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
