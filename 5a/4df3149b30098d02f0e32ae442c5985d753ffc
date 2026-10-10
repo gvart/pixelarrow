@@ -1,0 +1,21 @@
+src/sim/version.ts
+  s_697bdc25a7c420::t_acf48f2d22fa9e 1-13
+src/online/protocol.ts
+  s_697bdc25a7c420::t_26430779e75c63 43-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5a4df3149b30098d02f0e32ae442c5985d753ffc",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
