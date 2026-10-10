@@ -276,11 +276,13 @@ export class BeastView {
       v.spr.setAlpha(Math.max(0.35, 1 - dead * 0.2));
     }
     if (u.state !== 'dead') v.spr.setAlpha(1);
-    const frame = Number(v.spr.frame.name);
+    // Off a signature move the scene has already shown the battle frame (BattleScene.showFrame,
+    // from the shared atlases). v.key is a figure id, not a texture: setting it showed Phaser's
+    // missing-texture square in place of the beast (UI audit BTL-2).
     if (sp >= 0) {
       ensureDollRow(this.scene, p.sp, v.dir);
-      if (v.spr.texture.key !== p.sp || frame !== dollFrame(v.dir, sp)) v.spr.setTexture(p.sp, dollFrame(v.dir, sp));
-    } else if (v.spr.texture.key !== v.key) v.spr.setTexture(v.key, frame);
+      if (v.spr.texture.key !== p.sp || Number(v.spr.frame.name) !== dollFrame(v.dir, sp)) v.spr.setTexture(p.sp, dollFrame(v.dir, sp));
+    }
     if (lift) {
       v.spr.setY(v.spr.y - Math.round(lift));
       v.spr.setDepth(v.spr.depth + 2000);

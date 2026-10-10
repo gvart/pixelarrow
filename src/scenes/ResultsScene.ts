@@ -28,6 +28,7 @@ import { state } from '../state';
 import { itemDef, itemMods, normalizeRarity, rarityRank, type Item, type StatMods } from '../data/items';
 import { xpToNext, MAX_LEVEL, type Hero } from '../data/units';
 import { takeLoot } from '../game/loot';
+import { practiceOf, type Practice } from '../game/campaignBattle';
 import { fmtClock } from '../util/format';
 import { buildReport, type BattleReport, type HeroLine, type UnitStat } from '../game/report';
 import { heroClass } from '../sim/stats';
@@ -86,6 +87,8 @@ export class ResultsScene extends BaseScene {
   private confetti: { r: Phaser.GameObjects.Rectangle; x: number; y: number; vx: number; vy: number; life: number }[] = [];
   private top = 0;
   private bottom = 0;
+  /** A Trial fight (Practice): no spoils, and Continue returns to the beast's sheet. */
+  private practice: Practice | undefined;
 
   constructor() {
     super('Results');
@@ -94,6 +97,7 @@ export class ResultsScene extends BaseScene {
   create(data: ResultsData = {}): void {
     this.initUi();
     this.done = data.done ?? null;
+    this.practice = data.report ? undefined : practiceOf(state.last);
     this.left = false;
     this.pageLayer = null;
     this.pageArea = null;
@@ -130,7 +134,16 @@ export class ResultsScene extends BaseScene {
     this.buildBanner(bannerH);
     const x0 = this.box.x + 4;
     const W = this.box.w - 8;
-    const ty = this.box.y + 4 + bannerH + subH + 6;
+    let ty = this.box.y + 4 + bannerH + subH + 6;
+    // Reopened after the app closed mid-battle: the battle was fought out (V5-011).
+    // In the layout under the banner, not a toast over it (it covered the header).
+    if (!data.report && state.notice === 'battle.abandoned') {
+      const note = new Label(this, this.box.x + this.box.w / 2, ty - 2, t('battle.abandoned'), { maxW: W - 4, maxLines: 4, font: 'pSec', align: 0.5 });
+      uiId(note, 'results.abandoned');
+      this.ui.add(note);
+      ty += note.h + 4;
+      state.notice = null;
+    }
     this.tabs = new SegmentedSwitch(this, x0, ty, W, {
       options: PAGES.map((p) => ({ id: p, label: t(`results.tab.${p}` as TKey), icon: W >= 156 ? (p === 'summary' ? 'trophy' : p === 'heroes' ? 'people' : 'chest') : undefined })),
       selected: this.page,
@@ -147,11 +160,6 @@ export class ResultsScene extends BaseScene {
     if (fresh) {
       if (report.gold > 0) this.time.delayedCall(700, uiCoin);
       hapticNotify(report.result === 'victory' ? 'success' : report.result === 'draw' ? 'warning' : 'error');
-    }
-    // Reopened after the app closed mid-battle: the battle was fought out (V5-011).
-    if (!data.report && state.notice === 'battle.abandoned') {
-      toast(this, t('battle.abandoned'), 'info', 7000);
-      state.notice = null;
     }
   }
 
@@ -212,6 +220,7 @@ export class ResultsScene extends BaseScene {
     c.add(uiFrame(mtext(this, 0, Math.round(-(size * 11) / 14 - 1), word, 'rCream', { size, align: 0.5, maxW: w - 40 }), c, w, h, -w / 2, -h / 2));
     const sub: string[] = [r.vs];
     if (r.verified !== null) sub.push(t(r.verified ? 'results.verified' : 'results.unverified'));
+    if (this.practice) sub.push(t('results.practice'));
     this.ui.add(mtext(this, cx, this.box.y + 4 + h + 4, sub.join(' · '), 'pSec', { size: 6.5, align: 0.5, maxW: this.box.w - 12, box: { owner: this.ui, w: this.m.VW, h: this.m.VH } }));
     if (!this.seen.has('summary')) {
       // drop in, bounce, then a shine sweeps across
@@ -491,7 +500,9 @@ export class ResultsScene extends BaseScene {
     const r = this.report;
     const top = this.top;
     if (r.loot.length === 0) {
-      const hint = r.result === 'victory' || r.result === 'draw' ? t('results.noSpoilsWin') : r.result === 'retreat' ? t('results.noSpoilsRetreat') : t('results.noSpoilsLoss');
+      const hint = this.practice
+        ? t('results.noSpoilsPractice')
+        : r.result === 'victory' || r.result === 'draw' ? t('results.noSpoilsWin') : r.result === 'retreat' ? t('results.noSpoilsRetreat') : t('results.noSpoilsLoss');
       this.pageLayer!.add(mosaicImage(this, this.box.x + 4, top, this.box.w - 8, this.bottom - top, 'parchment'));
       this.pageLayer!.add(addParchmentEmpty(this, this.box.x + 6, top + 2, this.box.w - 12, this.bottom - top - 4, { icon: 'coin', title: t('results.tab.spoils'), hint }));
       return;
@@ -712,7 +723,9 @@ export class ResultsScene extends BaseScene {
       void state.save();
     }
     this.chosen.clear();
-    if (last?.partyId !== undefined) this.scene.start('World', {});
+    const practice = practiceOf(last);
+    if (practice) this.scene.start('BeastTrial', { from: practice.from, open: practice.enc });
+    else if (last?.partyId !== undefined) this.scene.start('World', {});
     else this.scene.start('Army', { from: 'World' });
   }
 
