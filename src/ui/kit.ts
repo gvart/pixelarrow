@@ -24,6 +24,7 @@ import { RS } from '../platform/renderScale';
 import { ACCENT, MOSAIC, RESOURCES, TEXT, TEXT_MIN } from './tokens';
 import { scrollCue } from './mosaic/policy';
 import { motion } from './motion';
+import { hoverTip } from './hover';
 
 export { scrollCue };
 
@@ -335,7 +336,8 @@ export interface ButtonOpts {
 /** Long-press and feedback hooks; widgets.ts installs the tooltip and toast. */
 export const longPress = {
   ms: 450,
-  show: null as null | ((scene: Phaser.Scene, text: string, anchor: Phaser.GameObjects.GameObject) => void),
+  /** Shows a tip; may return the tooltip object (hover closes it when the mouse leaves). */
+  show: null as null | ((scene: Phaser.Scene, text: string, anchor: Phaser.GameObjects.GameObject) => unknown),
   toast: null as null | ((scene: Phaser.Scene, text: string) => void),
 };
 
@@ -458,6 +460,8 @@ export class Button extends Phaser.GameObjects.Container {
       this.opts.onClick?.();
     });
     this.once('destroy', () => this.pressTimer?.remove());
+    // a mouse resting on the button shows the long-press tip (A11Y-15)
+    hoverTip(this, () => this.tipText(), (text) => longPress.show?.(scene, text, this));
     scene.add.existing(this);
   }
 
@@ -924,4 +928,6 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
     onTap();
   });
   obj.once('destroy', stop);
+  // a mouse resting on it shows the same tip (A11Y-15)
+  if (tip) hoverTip(obj, tip, (text) => longPress.show?.(scene, text, obj));
 }
