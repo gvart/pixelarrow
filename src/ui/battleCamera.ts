@@ -18,8 +18,13 @@ export interface Box {
   y1: number;
 }
 
-/** controls.md "Tuning Knobs": the lowest opening zoom (zoom units, 1 = the old 1x). */
-export const OPEN_ZOOM_MIN = 0.75;
+/**
+ * controls.md "Tuning Knobs" OPEN_ZOOM_MIN (range 0.5-1): the lowest opening
+ * zoom (zoom units, 1 = the old 1x). Set to 1, not the GDD's 0.75: at 0.75 a man
+ * is ~25 px tall, below the readability floor (PLAY R5, smoke "a man is at
+ * least 30 px tall"). Armies that do not fit at 1x get the enemy arrow (CT-05).
+ */
+export const OPEN_ZOOM_MIN = 1;
 /** The opening never zooms closer than this. */
 export const OPEN_ZOOM_MAX = 1;
 /** F2 snaps the opening zoom to quarter steps. */
@@ -72,13 +77,13 @@ export function isOnScreen(p: Pt, view: Box): boolean {
  * the player's army and the edge arrow points at the enemy).
  * `viewW`/`viewH` are the visible field band in 1x px (CSS px); `armies` is in world px.
  */
-export function openingFrame(viewW: number, viewH: number, armies: Box): { zoom: number; fits: boolean } {
+export function openingFrame(viewW: number, viewH: number, armies: Box, min = OPEN_ZOOM_MIN): { zoom: number; fits: boolean } {
   const w = Math.max(1, armies.x1 - armies.x0);
   const h = Math.max(1, armies.y1 - armies.y0);
   const raw = Math.min(viewW / w, viewH / h);
-  if (raw < OPEN_ZOOM_MIN) return { zoom: 1, fits: false };
+  if (raw < min) return { zoom: 1, fits: false };
   const z = Math.floor(Math.min(OPEN_ZOOM_MAX, raw) / OPEN_ZOOM_STEP + 1e-9) * OPEN_ZOOM_STEP;
-  return { zoom: Math.max(OPEN_ZOOM_MIN, z), fits: true };
+  return { zoom: Math.max(min, z), fits: true };
 }
 
 /**

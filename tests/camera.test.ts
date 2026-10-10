@@ -10,9 +10,13 @@ describe('opening frame (controls.md R7, F2)', () => {
     expect(f).toEqual({ zoom: 1, fits: true });
   });
 
-  it('zooms out, snapped down to 0.25, when both armies fit only below 1x', () => {
+  it('F2 with the GDD minimum 0.75: zooms out, snapped down to 0.25, when both armies fit only below 1x', () => {
     // raw fit = 390 / 480 = 0.81 -> 0.75
-    expect(openingFrame(390, 600, box(0, 0, 480, 300))).toEqual({ zoom: 0.75, fits: true });
+    expect(openingFrame(390, 600, box(0, 0, 480, 300), 0.75)).toEqual({ zoom: 0.75, fits: true });
+  });
+
+  it('the shipped minimum is 1x (readability): armies that fit only below 1x get the arrow', () => {
+    expect(openingFrame(390, 600, box(0, 0, 480, 300))).toEqual({ zoom: 1, fits: false });
   });
 
   it('never zooms closer than 1x, however small the armies', () => {
@@ -21,7 +25,7 @@ describe('opening frame (controls.md R7, F2)', () => {
 
   it('falls back to 1x and an edge arrow when both armies do not fit at 0.75x', () => {
     // raw fit = 390 / 600 = 0.65 < 0.75
-    expect(openingFrame(390, 600, box(0, 0, 600, 300))).toEqual({ zoom: 1, fits: false });
+    expect(openingFrame(390, 600, box(0, 0, 600, 300), 0.75)).toEqual({ zoom: 1, fits: false });
   });
 
   it('a typical deployment on a 24x36 field fits at 0.75x on a 390x844 phone (K1)', () => {
@@ -38,7 +42,7 @@ describe('opening frame (controls.md R7, F2)', () => {
     ].map(([x, y]) => isoToScreen(x, y));
     const armies = boxOf(pts, 10, 44, 4)!;
     const view = { w: 390, h: 844 - 46 - 300 }; // field band between the bars
-    const f = openingFrame(view.w, view.h, armies);
+    const f = openingFrame(view.w, view.h, armies, 0.75);
     expect(f.fits).toBe(true);
     expect(f.zoom).toBeGreaterThanOrEqual(0.75);
     // and at that zoom the box is inside the view

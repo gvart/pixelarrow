@@ -520,7 +520,7 @@ export class BattleScene extends BaseScene {
 
   /**
    * The opening frame (controls.md R7, F2): both armies in view if that fits
-   * at 0.75x or closer (never closer than 1x); otherwise 1x on the player's
+   * at OPEN_ZOOM_MIN (1x, see battleCamera.ts); otherwise 1x on the player's
    * army, and the edge arrow points at the enemy (updatePointers).
    * Enemy men still hidden (online deployment) count as their zone's centre.
    */
@@ -560,8 +560,8 @@ export class BattleScene extends BaseScene {
 
   /**
    * The camera's bounds: the ground, stretched under the HUD bars so the
-   * field's edge still reaches the visible band at any zoom (a 0.75x opening,
-   * a short phone): what the stretch adds lies under the opaque bars.
+   * field's edge still reaches the visible band on a short phone, whose sheet
+   * is taller than the ground's margin: what the stretch adds lies under the opaque bars.
    */
   private fitBounds(): void {
     const cam = this.cameras.main;
@@ -1538,8 +1538,7 @@ export class BattleScene extends BaseScene {
           cam.panEffect.reset();
           break;
         case 'pinch': {
-          // the opening frame may stand below 1x (F2): a pinch starts from there, and its end snaps to whole steps
-          const z = Phaser.Math.Clamp(e.zoom, Math.min(camZoom(1), this.gestures.pinch?.z0 ?? camZoom(1)), camZoom(3));
+          const z = Phaser.Math.Clamp(e.zoom, camZoom(1), camZoom(3));
           cam.setZoom(z);
           cam.scrollX -= e.dx / z;
           cam.scrollY -= e.dy / z;
