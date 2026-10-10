@@ -224,7 +224,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'results.siege': 'Осада {wins}/{needed}: идёт новая волна',
   'results.tip.time': 'Сколько длился бой',
   'results.tip.kills': 'Сколько врагов убило ваше войско',
-  'results.tip.losses': 'Герои, павшие навсегда',
+  'results.tip.losses': 'Ваши воины, сражённые в битве (кто погиб навсегда, видно в списке)',
   'results.tip.gold': 'Заработанное золото',
   'results.tip.glory': 'Заработанная слава: валюта дуэлей',
   'results.tip.xp': 'Опыт, разделённый между выжившими',

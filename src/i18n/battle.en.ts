@@ -237,7 +237,7 @@ export const BATTLE_EN = {
   'results.siege': 'Siege {wins}/{needed}: they send another wave',
   'results.tip.time': 'How long the battle lasted',
   'results.tip.kills': 'Enemies your army slew',
-  'results.tip.losses': 'Heroes who died for good',
+  'results.tip.losses': 'Your men struck down in the battle (the list shows who died for good)',
   'results.tip.gold': 'Gold earned',
   'results.tip.glory': 'Glory earned: the duel currency',
   'results.tip.xp': 'Experience shared by the survivors',
