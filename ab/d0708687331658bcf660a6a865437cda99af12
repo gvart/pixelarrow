@@ -1,0 +1,34 @@
+src/game/campaign.ts
+  s_697bdc25a7c420::t_76603feb8565fe 12,17,67,81,470,472
+tests/opening.test.ts
+  s_697bdc25a7c420::t_1282f81566b015 1-10,12-54,56-186
+  s_697bdc25a7c420::t_72024475f48aa0 55
+  s_697bdc25a7c420::t_04ea539124c048 11
+src/world/camp.ts
+  s_697bdc25a7c420::t_acb4226874dc4b 92,94-95
+src/world/world.ts
+  s_697bdc25a7c420::t_a374e02e8c9897 186-196
+  s_697bdc25a7c420::t_e6b9f7c0419bca 946-950
+  s_697bdc25a7c420::t_b241a3a0147b02 847-852,856-861,867-874
+  s_697bdc25a7c420::t_7c0a533c1909db 752
+tests/world.test.ts
+  s_697bdc25a7c420::t_8ba25ae7e65e23 160,162
+src/game/heroes.ts
+  s_697bdc25a7c420::t_d5472cd3096d05 299-320
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "abd0708687331658bcf660a6a865437cda99af12",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
