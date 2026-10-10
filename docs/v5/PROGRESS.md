@@ -11,11 +11,11 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| f-02 | W2 F-02: kit controls, enabled never grey, tab bar casing, F-01 AC4 layout half | per card | per card | worktree-agent | running |
-| ab-02 | W8 AB-02: 7 signature actives, perk strengths (owns the mirror target), re-measure ladder | per card | per card | worktree-agent | running |
-| ct-03 | W8 CT-03: undo (3 s battle, 10-step deploy), online-safe | per card | per card | worktree-agent | running |
-| assets-3 | AS-02 finish: the 9 remaining busts (Chrome owner) | create-game-assets, asset-audit, chrome-browser | art-director, technical-artist | worktree-agent | running |
-| ar-01 | W8 AR-01: 8-man opening, existing saves unchanged, smoke hero count | per card | per card | worktree-agent | running |
+| in-02 | W8 IN-02: menu input contract + layout-check text-size rule | per card | per card | worktree-agent-aabb19ca85883d142 | running |
+| (merge) | F-06 worktree-agent-a1896078ef1899ab7 (dead code, −767 lines) | — | integrator | — | merging |
+| ab-03 | W9 AB-03: the Standard | per card | per card | worktree-agent | running |
+| ct-05 | W9 CT-05: battle camera | per card | per card | worktree-agent | running |
+| assets-4 | AS-03: icons (Chrome owner) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
 
@@ -46,6 +46,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - d07282b merge: F-01 tokens + font-load fix. Gates: vitest 800/801 (a load timeout, passes alone), layout 0 new, smoke flaked once then 42/42, tutorial pass.
 - b988138 CT-02, 9f9e594 AB-01, b874988 AI-03. Gates: vitest 845, server 294, layout 0 new, all smokes pass; balance 55%.
 - 6abf00a merge: S4-FIXER-3 (load-robust smoke, heavy-test timeouts). smoke 3/3 in a row, vitest 845.
+- 5821511 F-02; 884d5c1 AR-01; c1b0241 AS-02 (21 busts); 5209dbd CT-03; 73a2d33 AB-02; 332b516 F-03. Gates: vitest 926, server 296, layout 0 new, smokes pass (smoke flaked once at 'battle against the band'); balance 54%, lairs 43/58/53.
 
 ## Queue (next)
 
@@ -77,6 +78,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 17. Layout check now takes about 50 min under load (24 configs); integrators should allow for it.
 
 18. Follow-ups: RU pause banner truncates at 320 (BTL/RD story); duel ladder 'Team pts · cap' truncates and floors hidden at 320 (DUE); tab-bar 'Campaign' casing inconsistent (F-02).
+
+19. smoke.mjs still flakes at 'battle against the band' (seen after AR-01 starter bands); a QA fixer is queued. World: the 'Your camp: tap Build' banner points to a removed Build button (WLD story).
 
 ## Blockers
 
