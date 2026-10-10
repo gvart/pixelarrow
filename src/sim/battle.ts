@@ -2496,7 +2496,8 @@ export class Battle {
       if (!g.routed && routing > 0 && gone / mem.length >= 0.5) {
         g.routed = true;
         this.events.push({ type: 'rout', tick: this.tick, side: g.side, group: g.id });
-        if (this.tick >= (this.shockAt[g.id] ?? 0)) this.cohesionShock(g);
+        // Not against a myth beast: those fights keep their own fear rules (FO-03 decision; see docs/v5/balance/FO-03.md).
+        if (!this.myth && this.tick >= (this.shockAt[g.id] ?? 0)) this.cohesionShock(g);
       } else if (g.routed && gone / mem.length < 0.5) {
         g.routed = false;
       }

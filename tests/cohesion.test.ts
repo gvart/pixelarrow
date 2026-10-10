@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { armySpec } from '../src/game/armySpec';
 import { classSquad } from '../src/dev/classBalance';
+import { mythHeroes } from '../src/data/beasts';
 import { runDeadFight } from '../src/dev/ordersBalance';
 import { Battle, RULES, TICK_RATE } from '../src/sim/battle';
 import { Rng } from '../src/sim/rng';
@@ -158,6 +159,22 @@ describe('cohesion shock (R5, F3)', () => {
     const shocks = ev.filter((e) => e.type === 'cohesion');
     expect(shocks).toHaveLength(2);
     expect(shocks[1].tick - shocks[0].tick).toBeGreaterThanOrEqual(RULES.cohesionCooldownS * TICK_RATE);
+  });
+
+  it('is not given in a fight against a myth beast, which keeps its own fear rules', () => {
+    const rng = new Rng(3);
+    const ids = { nextId: 1 };
+    const men = armySpec([...classSquad(rng, ids, 'hoplite', 6, 3, 0), ...classSquad(rng, ids, 'hoplite', 4, 3, 1)], false);
+    const b = new Battle({ seed: 3, armies: [men, armySpec(mythHeroes('cyclops', 5), true)] });
+    expect(b.myth).not.toBeNull();
+    form(b, 0, 0, 6, 30, -1);
+    form(b, 0, 1, 10, 30, -1);
+    b.startBattle();
+    const ev = run(b, 2);
+    breakGroup(b);
+    run(b, 20, ev);
+    expect(ev.some((e) => e.type === 'rout' && e.side === 0)).toBe(true);
+    expect(ev.some((e) => e.type === 'cohesion')).toBe(false);
   });
 });
 
