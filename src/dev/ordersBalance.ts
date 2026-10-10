@@ -20,10 +20,22 @@
  *    6 Celtic swordsmen (human, the swordsmen charge the peltasts). When a
  *    swordsman closes to 5 paces the peltasts feint, or plainly withdraw
  *    (`fallback`). Win rate of the peltasts' side, feint minus withdraw.
+ *
+ * FO-03 rows (cohesion and army break), on balance.ts's matched battle (a
+ * starting army vs its matched bot, both bot-driven), under three rule sets:
+ * all on, cohesion off (army break on), and both off (the rules before FO-03):
+ *  - dead fights: the share of battles with one side at 2 active men or fewer
+ *    for more than 30 s, and the mean length;
+ *  - the gap from a side's first group rout to its second (median, battles
+ *    with a second rout; and censored at the battle's end);
+ *  - the cascade: further groups of the first-routed side that rout, each
+ *    within 10 s of the one before (median over battles with a rout).
  */
 import { armySpec } from '../game/armySpec';
+import { generateEnemyArmy } from '../game/enemy';
+import { standardArmy } from '../game/heroes';
 import { CLASSES } from '../data/classes';
-import { Battle, TICK_RATE } from '../sim/battle';
+import { Battle, RULES, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import type { Side } from '../sim/types';
 import type { BalanceRow } from './balance';
@@ -286,5 +298,114 @@ export function ordersRows(n: number): BalanceRow[] {
     { label: 'Slingers silenced, focus fire (share)', measured: share(focused), target: '-' },
     { label: 'Slingers silenced, nearest / focus (mean s)', measured: `${mN.toFixed(0)}/${mF.toFixed(0)}`, target: '-' },
     { label: 'Focus silences slingers sooner by', measured: pct(mN > 0 ? 1 - mF / mN : 0), target: '>= 30%' },
+    ...cohesionRows(k),
+  ];
+}
+
+/** Which FO-03 rules a harness battle runs with. */
+export type CohesionRules = 'on' | 'noCohesion' | 'off';
+
+/** Run `fn` with the FO-03 knobs switched off as `rules` says, then restore them. */
+function withCohesionRules<T>(rules: CohesionRules, fn: () => T): T {
+  const saved = { cohesionSelf: RULES.cohesionSelf, cohesionNear: RULES.cohesionNear, armyBreakShare: RULES.armyBreakShare };
+  if (rules !== 'on') {
+    RULES.cohesionSelf = 0;
+    RULES.cohesionNear = 0;
+  }
+  if (rules === 'off') RULES.armyBreakShare = 0; // no side is ever at or under 0 active men while it fights
+  try {
+    return fn();
+  } finally {
+    Object.assign(RULES, saved);
+  }
+}
+
+export interface DeadFight {
+  seconds: number;
+  /** Longest stretch (s) with one side at 2 active men or fewer while both still fight. */
+  tail: number;
+  /** Group routs of each side, in s. */
+  routs: [number[], number[]];
+  /** Side of the first group rout, -1 = none. */
+  firstSide: Side | -1;
+  winner: Side | -1;
+}
+
+/** balance.ts's matched battle (seed for seed), tracking the dead-fight tail and the group routs. */
+export function runDeadFight(seed: number, rules: CohesionRules = 'on'): DeadFight {
+  return withCohesionRules(rules, () => {
+    const ids = { nextId: 1 };
+    const heroes = standardArmy(new Rng(seed), ids);
+    const enemy = generateEnemyArmy(new Rng(seed ^ 0xa5a5a5a5), ids, heroes, 0).heroes;
+    const b = new Battle({ seed, armies: [armySpec(heroes, true), armySpec(enemy, true)] });
+    b.startBattle();
+    const routs: [number[], number[]] = [[], []];
+    let firstSide: Side | -1 = -1;
+    let run = 0;
+    let tail = 0;
+    for (let i = 0; i < b.timeLimitTicks + 10 && b.phase !== 'ended'; i++) {
+      b.step();
+      for (const e of b.drainEvents()) {
+        if (e.type !== 'rout') continue;
+        if (firstSide < 0) firstSide = e.side;
+        routs[e.side].push(e.tick / TICK_RATE);
+      }
+      const act = [0, 0];
+      for (const u of b.units) if (u.state === 'ready') act[u.side]++;
+      run = act[0] > 0 && act[1] > 0 && Math.min(act[0], act[1]) <= 2 ? run + 1 : 0;
+      tail = Math.max(tail, run);
+    }
+    return { seconds: b.tick / TICK_RATE, tail: tail / TICK_RATE, routs, firstSide, winner: b.winner ?? -1 };
+  });
+}
+
+const median = (xs: number[]) => {
+  if (!xs.length) return NaN;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length & 1 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+/** First-to-second group rout gap of the side that routed first: [gap or null, gap censored at the end]. */
+function routGap(r: DeadFight): [number | null, number] | null {
+  if (r.firstSide === -1) return null;
+  const xs = r.routs[r.firstSide];
+  return xs.length > 1 ? [xs[1] - xs[0], xs[1] - xs[0]] : [null, r.seconds - xs[0]];
+}
+
+/** Further groups of the first-routed side that rout, each within 10 s of the one before. */
+function cascade(r: DeadFight): number {
+  if (r.firstSide === -1) return 0;
+  const xs = r.routs[r.firstSide];
+  let n = 0;
+  for (let i = 1; i < xs.length && xs[i] - xs[i - 1] <= 10; i++) n++;
+  return n;
+}
+
+/** The FO-03 rows; `n` = seeds per rule set (balance.ts's matched seeds, 1000 + i). */
+export function cohesionRows(n: number): BalanceRow[] {
+  const sets = (['on', 'noCohesion', 'off'] as const).map((rules) => Array.from({ length: n }, (_, i) => runDeadFight(1000 + i, rules)));
+  const [on, noCoh, off] = sets;
+  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const dead = (rs: DeadFight[]) => rs.filter((r) => r.tail > 30).length / rs.length;
+  const len = (rs: DeadFight[]) => mean(rs.map((r) => r.seconds));
+  const gaps = (rs: DeadFight[]) => rs.map(routGap).filter((g): g is [number | null, number] => g !== null);
+  const seen = (rs: DeadFight[]) => median(gaps(rs).flatMap(([g]) => (g === null ? [] : [g])));
+  const cens = (rs: DeadFight[]) => median(gaps(rs).map(([, c]) => c));
+  const second = (rs: DeadFight[]) => gaps(rs).filter(([g]) => g !== null).length;
+  const shrink = (a: number, b: number) => pct(b > 0 ? 1 - a / b : 0);
+  const routed = (rs: DeadFight[]) => rs.filter((r) => r.firstSide >= 0);
+  const casc = (rs: DeadFight[]) => routed(rs).map(cascade);
+  const f1 = (x: number) => x.toFixed(1);
+  return [
+    { label: 'Dead fights (a side <= 2 men for > 30 s), on / off', measured: `${pct(dead(on))}/${pct(dead(off))}`, target: '<= 2%' },
+    { label: 'Mean length, on / off (s)', measured: `${f1(len(on))}/${f1(len(off))}`, target: `within 10% (${pct(len(on) / len(off) - 1)})` },
+    { label: 'Player win, on / off', measured: `${pct(on.filter((r) => r.winner === 0).length / n)}/${pct(off.filter((r) => r.winner === 0).length / n)}`, target: '45-55%' },
+    { label: 'First-to-second rout gap, cohesion on / off (s)', measured: `${f1(seen(on))}/${f1(seen(noCoh))}`, target: '-' },
+    { label: '  battles with a second rout, on / off', measured: `${second(on)}/${second(noCoh)}`, target: '-' },
+    { label: 'Rout gap shrinks with cohesion (median)', measured: shrink(seen(on), seen(noCoh)), target: '20-40%' },
+    { label: 'Same, censored at the battle end', measured: shrink(cens(on), cens(noCoh)), target: '(info)' },
+    { label: 'Cascade: more groups routing, median / max', measured: `${median(casc(on))}/${Math.max(0, ...casc(on))}`, target: '<= 2 (median)' },
+    { label: '  share of routs with a cascade over 2, on / off', measured: `${pct(casc(on).filter((c) => c > 2).length / Math.max(1, routed(on).length))}/${pct(casc(noCoh).filter((c) => c > 2).length / Math.max(1, routed(noCoh).length))}`, target: '-' },
   ];
 }
