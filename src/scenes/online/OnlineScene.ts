@@ -56,7 +56,7 @@ import { attackReport, duelReport } from '../../online/report';
 import { attackSubmission } from '../../online/battle';
 import { showReport } from '../ResultsScene';
 import { openBossInfo, openLairInfo, raidSource } from './beastPanel';
-import { demoCampSource, liveCampSource, openCampPanel } from './campPanel';
+import { demoCampSource, liveCampSource } from './campPanel';
 import type { CampSceneData } from '../CampScene';
 import { campPlotMarkers, type CampPlotMarker } from '../../online/camps';
 import { encounterName } from '../../ui/beastInfo';
@@ -862,23 +862,6 @@ export class OnlineScene extends BaseScene {
       back: { scene: 'Online', data: { focus: h, select: true, preview: demo ? 'map' : undefined } },
     };
     this.scene.start('Camp', data);
-  }
-
-  /** The old scroll panel of a camp (kept for the hex panel's quick look). */
-  openCampPanel(h: number): void {
-    this.closeModal();
-    this.modal = openCampPanel(this, {
-      loc: h,
-      name: this.world.has(h) ? this.world.info(h).name : `#${h}`,
-      source: this.demo ? demoCampSource(this.demo) : liveCampSource,
-      onChange: (v) => {
-        if (this.profile) this.profile.resources = v.resources;
-        void this.reload().catch(() => undefined);
-      },
-      onClose: () => {
-        this.modal = null;
-      },
-    });
   }
 
   /** Camps and camp plots in sight to the map renderer (when it draws them). */
