@@ -1185,8 +1185,7 @@ export class BattleScene extends BaseScene {
    */
   private drawTargeting(g: Phaser.GameObjects.Graphics, gid: number): void {
     const ring = rangeRing(this.sim, gid);
-    if (!ring) return;
-    const pts = ring.map((p) => isoToScreen(p.x, p.y));
+    const pts = ring?.map((p) => isoToScreen(p.x, p.y)) ?? [];
     for (const [w, color, a] of [[3, MOSAIC.ink, 0.85], [1.4, 0xf6ecd8, 0.95]] as const) {
       g.lineStyle(w, color, a);
       // every other segment of the ring: a dash
@@ -1199,8 +1198,9 @@ export class BattleScene extends BaseScene {
     if ((this.sim.groups[gid].focus ?? -1) < 0) return;
     const c = rangeTarget(this.sim, gid);
     if (!c) return;
+    // over the target group's heads
     const s = isoToScreen(c.x, c.y);
-    strokeReticle(this.knobG, s.x, s.y - 34, 7, 1.4);
+    strokeReticle(this.knobG, s.x, s.y - 52, 7, 1.4);
   }
 
   private dashRect(g: Phaser.GameObjects.Graphics, pts: [number, number][], color: number, alpha: number, on: number, off: number): void {
@@ -2615,6 +2615,7 @@ export class BattleScene extends BaseScene {
         orderWord: g.routed ? t('battle.order.routed') : this.sim.phase === 'deploy' ? t(`battle.formation.${g.formation.type}` as TKey) : far ? `${t('battle.state.outOfRange')} →` : t(`battle.order.${g.order}` as TKey),
         orderShort: g.routed ? t('battle.orderShort.routed') : this.sim.phase === 'deploy' ? t(`battle.formationShort.${g.formation.type}` as TKey) : far ? `${t('battle.stateShort.outOfRange')} →` : t(`battle.orderShort.${g.order}` as TKey),
         focus: this.sim.phase === 'battle' && !g.routed && (g.focus ?? -1) >= 0,
+        far,
         portrait: this.portraitOf(c.gid),
         selected: this.selGroup === c.gid,
         routed: g.routed,

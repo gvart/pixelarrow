@@ -598,22 +598,27 @@ export const KEY_MIN_W = 22;
 
 /**
  * Widths of the order bar's keys (controls.md R9: labels are never
- * ellipsized). Equal when every label fits an equal share at `size`; else
- * each key gets its label's width and the rest is shared out, so a long word
- * ("Стрелять" at 360, "Advance" at 320) keeps its room.
+ * ellipsized). At the largest of KeyButton's label sizes where the words
+ * fit: equal when every label fits an equal share; else each key gets its
+ * label's width and the rest is shared out, so a long word ("Стрелять" at
+ * 360, "Advance" at 320) keeps its room and the row keeps one type size.
  */
-export function orderKeyWidths(labels: readonly string[], total: number, gap: number, size = 5.5): number[] {
+export function orderKeyWidths(labels: readonly string[], total: number, gap: number): number[] {
   const n = labels.length;
   if (!n) return [];
   const room = total - gap * (n - 1);
-  const need = labels.map((l) => Math.max(KEY_MIN_W, measureText(l, true, size) + 4));
   const even = Math.floor(room / n);
-  const spare = room - need.reduce((a, w) => a + w, 0);
-  // every word fits an equal share, or not even the bare widths fit the bar (then KeyButton shortens)
-  if (need.every((w) => w <= even) || spare < 0) return labels.map(() => even);
-  const each = Math.floor(spare / n);
-  let rest = spare - each * n;
-  return need.map((w) => w + each + (rest-- > 0 ? 1 : 0));
+  for (const size of [6.5, 6, 5.5]) {
+    const need = labels.map((l) => Math.max(KEY_MIN_W, measureText(l, true, size) + 4));
+    if (need.every((w) => w <= even)) return labels.map(() => even);
+    const spare = room - need.reduce((a, w) => a + w, 0);
+    if (spare < 0) continue;
+    const each = Math.floor(spare / n);
+    let rest = spare - each * n;
+    return need.map((w) => w + each + (rest-- > 0 ? 1 : 0));
+  }
+  // not even the bare widths fit the bar: equal keys, and KeyButton shortens
+  return labels.map(() => even);
 }
 
 /**

@@ -368,6 +368,8 @@ export interface GroupCardInfo {
   routed: boolean;
   /** Its missiles focus on an enemy group: a reticle on the card (controls.md R3.2; A11Y-04). */
   focus?: boolean;
+  /** Shoot on and out of range (controls.md R3.4): a compact card with no room for the words keeps "→". */
+  far?: boolean;
 }
 
 /**
@@ -430,7 +432,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
 
   setInfo(i: GroupCardInfo): this {
     this.info = i;
-    const key = [i.numeral, i.men, i.orderIcon, i.portrait ? dollKey(i.portrait) : '', i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort, !!i.focus].join('|');
+    const key = [i.numeral, i.men, i.orderIcon, i.portrait ? dollKey(i.portrait) : '', i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort, !!i.focus, !!i.far].join('|');
     if (key !== this.key) {
       this.key = key;
       this.rebuild();
@@ -503,7 +505,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
       if (i.focus) this.add(reticle(s, this.w - 8, 7, 4.5));
       else if (i.orderIcon) this.add(addIcon(s, this.w - 14, 1, i.orderIcon, light ? 'L' : i.routed || i.men === 0 ? 'D' : ''));
       text(x, 2, firstFit([`${i.numeral} ${i.name}`, i.shortName && `${i.numeral} ${i.shortName}`, i.numeral], tw, false, 'roman'), fontA, 0, tw);
-      text(x, 11, firstFit([i.orderWord && `${i.men} ${i.orderWord}`, i.orderShort && `${i.men} ${i.orderShort}`, `${i.men}`], tw, SHADOW_FONTS.has(fontB)), fontB, 0, tw);
+      text(x, 11, firstFit([i.orderWord && `${i.men} ${i.orderWord}`, i.orderShort && `${i.men} ${i.orderShort}`, i.far && `${i.men} →`, `${i.men}`], tw, SHADOW_FONTS.has(fontB)), fontB, 0, tw);
     } else if (x > 3) {
       // narrow: the numeral over the portrait's corner, the order icon and the men beside it
       text(3, ph - 6, i.numeral, fontA, 0, 18);
@@ -553,7 +555,10 @@ export class GroupCard extends Phaser.GameObjects.Container {
     // a focus: its reticle in the top right corner, the name keeps clear of it
     if (i.focus) this.add(reticle(s, this.w - 8, 7, 4.5));
     const nameW = tw - (nx - x) - (i.focus ? 12 : 0);
-    const name = addText(s, nx, 2.5, ellipsize(caps(i.name ?? i.numeral), nameW, false, head, 'roman'), i.men === 0 || i.routed ? 'pOff' : 'rInk', 0).setFontSize(head);
+    // the short name when the whole one does not fit beside the reticle
+    const full = caps(i.name ?? i.numeral);
+    const short = i.focus && i.shortName && measureText(full, false, head, 'roman') > nameW ? caps(i.shortName) : full;
+    const name = addText(s, nx, 2.5, ellipsize(short, nameW, false, head, 'roman'), i.men === 0 || i.routed ? 'pOff' : 'rInk', 0).setFontSize(head);
     uiFrame(name, this, this.w, this.h);
     const subSize = 5.5;
     const sub = firstFit([i.orderWord && `${t('strat.men', { n: i.men })} · ${i.orderWord}`, i.orderShort && `${i.men} · ${i.orderShort}`, `${i.men}`], tw / (subSize / 7), false);
