@@ -7,7 +7,7 @@ import { GroupCard } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { HintPill, MED_H, MED_W, Medallion, TOP_H, TopBar, type TopBarOpts } from '../ui/battleHud';
+import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, groupNumeral, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -55,7 +55,6 @@ import { tutorialBattle } from '../game/tutorial';
 // World pixels come from the 2:1 isometric projection in src/art/iso.ts.
 const MARGIN_X = 200; // grass beyond the field's screen bounds
 const MARGIN_Y = 300; // generous: a portrait viewport at zoom 1 is taller than the field
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 /** A live duel more than this many sealed turns behind catches up, at most CATCH_UP_STEPS sim steps a frame. */
 const CATCH_UP_TURNS = 4;
 const CATCH_UP_STEPS = 120;
@@ -2138,10 +2137,7 @@ export class BattleScene extends BaseScene {
 
   /** Group cards in the sheet: two per row, at most two rows. */
   private sheetGroups(): { g: Battle['groups'][number]; numeral: string }[] {
-    const deploy = this.sim.phase === 'deploy';
-    const groups = this.sim.groups.filter((g) => g.side === this.me && !g.disbanded && (this.sim.members(g.id).length > 0 || deploy) && !g.individual);
-    const indiv = this.sim.groups.filter((g) => g.side === this.me && g.individual && !g.disbanded && this.sim.activeMembers(g.id).length > 0);
-    return [...groups.map((g, i) => ({ g, numeral: ROMAN[i] ?? `${i + 1}` })), ...indiv.map((g) => ({ g, numeral: '*' }))].slice(0, 4);
+    return cardGroups(this.sim, this.me, this.sim.phase === 'deploy').map(({ gid, numeral }) => ({ g: this.sim.groups[gid], numeral }));
   }
 
   private cardRows(): number {
@@ -2521,14 +2517,12 @@ export class BattleScene extends BaseScene {
     const cam = this.cameras.main;
     const S = this.m.S;
     const seen = new Set<number>();
-    let idx = 0;
     this.tagPos.clear();
     for (const g of this.sim.groups) {
       if (g.side !== this.me || g.disbanded) continue;
       const mem = this.sim.activeMembers(g.id);
-      const label = g.individual ? '*' : ROMAN[idx] ?? '?';
-      if (!g.individual) idx++;
       if (mem.length === 0) continue;
+      const label = groupNumeral(this.sim.groups, g.id);
       seen.add(g.id);
       // Tag floats above the group's centre (mean position), clear of the front rank.
       let cx = 0;

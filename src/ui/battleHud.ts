@@ -17,6 +17,7 @@ import { MOSAIC } from './tokens';
 import { RS } from '../platform/renderScale';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { uiFrame, uiId } from './layout';
+import type { SimGroup, SimUnit } from '../sim/types';
 
 /** Height of the top bar (UI px). */
 export const TOP_H = 46;
@@ -395,4 +396,43 @@ export class Medallion extends Phaser.GameObjects.Container {
       this.badge.add([g, n]);
     }
   }
+}
+
+// ---- HUD rules (pure: no Phaser, tested in tests/battleLiveFixes.test.ts)
+
+/** The group numerals, as on the cards and the field badges. */
+export const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+
+/** What the HUD rules read from the battle (a `Battle` fits). */
+export interface HudSim {
+  groups: readonly SimGroup[];
+  members(gid: number): readonly SimUnit[];
+  activeMembers(gid: number): readonly SimUnit[];
+}
+
+/**
+ * A group's numeral, fixed for the whole battle: its place among its side's
+ * formed groups, counting the empty ones (sim groups are never removed), so
+ * the card and the field badge always agree (PLAY B3). Men fighting alone: '*'.
+ */
+export function groupNumeral(groups: readonly SimGroup[], gid: number): string {
+  const g = groups[gid];
+  if (!g || g.individual) return '*';
+  let i = 0;
+  for (const o of groups) {
+    if (o.id === gid) break;
+    if (o.side === g.side && !o.individual) i++;
+  }
+  return ROMAN[i] ?? `${i + 1}`;
+}
+
+/**
+ * The bottom sheet's group cards, in order, with their numerals: the side's
+ * formed groups (empty ones only while deploying), then the men fighting alone
+ * ('*'); at most four.
+ */
+export function cardGroups(sim: HudSim, side: number, deploy: boolean): { gid: number; numeral: string }[] {
+  const groups = sim.groups.filter((g) => g.side === side && !g.disbanded && (sim.members(g.id).length > 0 || deploy) && !g.individual);
+  const indiv = sim.groups.filter((g) => g.side === side && g.individual && !g.disbanded && sim.activeMembers(g.id).length > 0);
+  return [...groups, ...indiv].slice(0, 4).map((g) => ({ gid: g.id, numeral: groupNumeral(sim.groups, g.id) }));
 }
