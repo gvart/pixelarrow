@@ -11,7 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| st-01 | Wave 1 ST-01 (done after the V5-033 rework): frozen v1 sim in server/src/sims/v1, SIM_VERSION=2, REPLAYERS {1,2}, version-paired live matches | per story row | per story row | worktree-agent-ab1cc5efdf92dad48 | merging |
+| lf-01 | Wave 2 LF-01: live fixes B3/B5/B6 (see STORIES.md) | per story row | per story row | worktree-agent | running |
+| st-03 | Wave 2 ST-03: train types + zod declared up front (see STORIES.md) | per story row | per story row | worktree-agent | running |
 | art-bible | S2-ART-BIBLE: design/art/art-bible.md, docs/v5/art/ASSET_PIPELINE.md + scripts/art/, ASSET_LIST.md, Gemini templates in ASSET_LOG | art-bible, create-game-assets, asset-spec, asset-audit | art-director, technical-artist | worktree-agent | running |
 
 ## Merged into v5
@@ -28,6 +29,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 05d8382 merge: S4-FIXER-1 (online-e2e fixed, A11Y-01..22). e31108c, c0a90ad, a92ab8f, 5145a6c: P4 spike docs, layout tween wait, bench, ADR-0003 Rejected (abandoned Phaser 4 code tip is 37577bc258dcdbe2f3085ec48806aff87067b332). Gates: tsc, vitest 564, build, layout 0, smoke, online-e2e 34 all pass.
 - 9033e07 merge: Phase 3 plan (docs/v5/plan/, production/epics/). Gates: tsc, vitest 564.
 - dda6caf merge: IN-01 battle input layer (src/ui/input hitTest + gestures; radial ring removed; ADR-0004). e67b2ee shrinks the IN-01 shots (8.5 MB → 2.5 MB). Gates: tsc, vitest 592, build, layout 0, smoke, tutorial-smoke, duel-smoke pass.
+- 4f0f172 merge: ST-01 (frozen v1 sim, SIM_VERSION 2, REPLAYERS, version-paired matches). Gates: tsc, vitest 602, server 215, build, layout 0, smoke 42, duel 53, online 25, online-e2e 34; balance identical to baseline (200 seeds: 54/46, median 85 s).
 
 ## Queue (next)
 
@@ -42,7 +44,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 5. Small fixer: update scripts/online-e2e.mjs (it looks for an 'Online' button that is now 'War'). The Results abandoned-battle notice overlaps the header (fold into the Results rebuild). Write design/accessibility-requirements.md (Standard tier, from the ux-ia review). B3, B5, B6 go to the controls/HUD stories. 'Hero of the battle with 0 kills' is a design call for the Results rebuild.
 
 6. TUT story: remove the no-op `showRing()` from src/ui/tutorial and any ring copy (V5-034). Orphaned i18n key `battle.sit.quiet` in strat.* to clean up.
-7. Agent prompts: screenshots are JPEG ≤150 KB each. The machine is heavily loaded, so stagger heavy layout-check runs.
+7. online-e2e setup: API_PROXY must be a full URL (http://localhost:8797), and .dev.vars comes from server/.dev.vars.example with DEV_AUTH=1 (delete it afterwards).
+8. Agent prompts: screenshots are JPEG ≤150 KB each. The machine is heavily loaded, so stagger heavy layout-check runs.
 
 ## Blockers
 
