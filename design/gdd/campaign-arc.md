@@ -37,7 +37,7 @@ The aesthetics are Fantasy (a company saga) and Challenge (a goal).
 2. `START_GOLD` stays 60. `FOOD_RULES.startFood` goes from 24 to **40**, which is 5 days for 8 men.
 3. **Bands near the start are resized.** Bandits are `size = BANDIT_MIN + round(danger × 5) + int(0..2)` with `BANDIT_MIN` = **5** (today 3). Raiders and mercenaries are unchanged.
 4. **A destroyed army** gets **5 volunteers** (today 3) at the starting town: 3 raw spearmen and 2 raw skirmishers (`campaign.ts` about L406).
-5. **First world-map visit**: 2 coach marks, reusing the `OnlineCoach` system (`src/scenes/online/*`):
+5. **First world-map visit**: 2 coach marks, reusing the online coach system (`src/ui/tutorial/onlineCoach.ts`):
    - "Weaker bands (green plates) are safe fights. Grow before you hunt lairs."
    - "Towns hire and heal. Camp to rest."
 6. **Empty groups**: only groups with men show cards (controls.md R1). With 8 men, groups I, II and IV are filled and III Reserve is empty, so it's hidden until it's assigned.
