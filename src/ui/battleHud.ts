@@ -406,8 +406,84 @@ export const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 /** What the HUD rules read from the battle (a `Battle` fits). */
 export interface HudSim {
   groups: readonly SimGroup[];
+  units: readonly SimUnit[];
   members(gid: number): readonly SimUnit[];
   activeMembers(gid: number): readonly SimUnit[];
+  /** Extra missile range shooting downhill. */
+  rangeBonus(s: SimUnit, t: SimUnit): number;
+}
+
+/** The hint says "Contact soon" only with an enemy this close to the selected group (paces; battle-readability R4). */
+export const CONTACT_SOON_PACES = 6;
+/** ...and for at most this long (s of battle time), so it never goes stale (PLAY B5). */
+export const CONTACT_SOON_S = 6;
+
+/** Distance (paces) from a group's men still fighting to the nearest enemy standing; Infinity when there is none. */
+export function nearestFoe(sim: HudSim, gid: number): number {
+  let best = Infinity;
+  for (const u of sim.activeMembers(gid)) {
+    for (const e of sim.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      best = Math.min(best, Math.hypot(e.x - u.x, e.y - u.y));
+    }
+  }
+  return best;
+}
+
+/** Whether the situation hint may say "Contact soon" for the selected group: an enemy within 6 paces, for 6 s at most. */
+export class ContactSoon {
+  private gid = -1;
+  private since = 0;
+
+  /** `now`: battle time in seconds. */
+  check(sim: HudSim, gid: number, now: number): boolean {
+    if (nearestFoe(sim, gid) > CONTACT_SOON_PACES) {
+      this.gid = -1;
+      return false;
+    }
+    if (this.gid !== gid) {
+      this.gid = gid;
+      this.since = now;
+    }
+    return now - this.since < CONTACT_SOON_S;
+  }
+}
+
+/** Shoot on with no target in range for longer than this (s of battle time): the card says "Out of range" (controls.md R3.4). */
+export const NO_TARGET_S = 3;
+
+/**
+ * Whether a group has Shoot on and men with missiles left, none of whom has a
+ * standing enemy in range (the sim's own range test, uphill bonus included).
+ */
+export function noTargetInRange(sim: HudSim, gid: number): boolean {
+  const g = sim.groups[gid];
+  if (!g?.fireAtWill || g.routed) return false;
+  const shooters = sim.activeMembers(gid).filter((u) => u.ammo > 0 && u.stats.range > 0);
+  if (!shooters.length) return false;
+  for (const s of shooters) {
+    for (const e of sim.units) {
+      if (e.side === s.side || e.state !== 'ready') continue;
+      if (Math.hypot(e.x - s.x, e.y - s.y) <= s.stats.range + sim.rangeBonus(s, e)) return false;
+    }
+  }
+  return true;
+}
+
+/** The cards' "Out of range" (PLAY B6): Shoot on and no target in range for more than 3 s. Full targeting is CT-02. */
+export class OutOfRange {
+  private since = new Map<number, number>();
+
+  /** `now`: battle time in seconds. */
+  check(sim: HudSim, gid: number, now: number): boolean {
+    if (!noTargetInRange(sim, gid)) {
+      this.since.delete(gid);
+      return false;
+    }
+    const t0 = this.since.get(gid) ?? now;
+    this.since.set(gid, t0);
+    return now - t0 > NO_TARGET_S;
+  }
 }
 
 /**

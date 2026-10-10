@@ -265,4 +265,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'battle.ready.short': 'Готово',
   'battle.left.short': 'ещё {n}',
   'battle.sit.idle': 'Коснитесь отряда, затем приказа внизу.',
+  'battle.sit.moving': '{group} {order}.',
+  'battle.state.outOfRange': 'Вне досягаемости',
+  'battle.stateShort.outOfRange': 'далеко',
 };

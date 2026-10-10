@@ -7,7 +7,7 @@ import { GroupCard } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, groupNumeral, type TopBarOpts } from '../ui/battleHud';
+import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, groupNumeral, ContactSoon, OutOfRange, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -205,6 +205,9 @@ export class BattleScene extends BaseScene {
   /** The "leave the deployment?" dialog while it is open (closed when the battle starts under it). */
   private leaveDialog: Phaser.GameObjects.Container | null = null;
   private hudDirty = true;
+  /** The hint's "Contact soon" (B5) and the cards' "Out of range" (B6) clocks. */
+  private contactSoon = new ContactSoon();
+  private outOfRange = new OutOfRange();
   private groupList: ScrollList | null = null;
   private fx!: BattleFx;
   /** Mythical beasts on screen (src/ui/beastView.ts); null without beasts. */
@@ -288,6 +291,8 @@ export class BattleScene extends BaseScene {
     this.netText = '';
     this.shapeOpen = false;
     this.sitKey = '';
+    this.contactSoon = new ContactSoon();
+    this.outOfRange = new OutOfRange();
     this.ordersBuilt = '';
     this.countdown = null;
     this.lastTickSound = -1;
@@ -2096,7 +2101,8 @@ export class BattleScene extends BaseScene {
       else if (sel && !sel.disbanded && sim.activeMembers(sel.id).length > 0) {
         const numeral = this.cards.find((c) => c.gid === sel.id)?.numeral ?? '';
         const name = sel.individual ? sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim();
-        sentence = t('battle.sit.marching', { group: name, order: sel.routed ? t('battle.order.routed') : t(`battle.order.${sel.order}` as TKey) });
+        const soon = this.contactSoon.check(sim, sel.id, sim.tick / TICK_RATE);
+        sentence = t(soon ? 'battle.sit.marching' : 'battle.sit.moving', { group: name, order: sel.routed ? t('battle.order.routed') : t(`battle.order.${sel.order}` as TKey) });
       } else sentence = this.online ? t('battle.sit.online') : t('battle.sit.idle');
       this.top.setTime(fmtClock(Math.floor(sim.tick / TICK_RATE)), this.speed > 1 ? t('battle.num.fast') : this.online ? t('battle.strip.live') : t('battle.top.time'));
       this.top.setRow({ ours, theirs, you: t('battle.top.you'), foe: t('battle.top.foe') });
@@ -2482,6 +2488,7 @@ export class BattleScene extends BaseScene {
       const all = this.sim.members(c.gid);
       const hp = all.reduce((a, u) => a + Math.max(0, u.state === 'ready' || u.state === 'routing' ? u.hp : 0), 0) / Math.max(1, all.reduce((a, u) => a + u.stats.maxHp, 0));
       const mo = mem.reduce((a, u) => a + u.morale / Math.max(1, u.stats.morale), 0) / Math.max(1, mem.length);
+      const far = this.sim.phase === 'battle' && this.outOfRange.check(this.sim, c.gid, this.sim.tick / TICK_RATE);
       c.card.setInfo({
         numeral: c.numeral,
         men: mem.length,
@@ -2490,8 +2497,8 @@ export class BattleScene extends BaseScene {
         orderIcon: g.routed ? 'flag' : g.shieldWall ? 'wall' : g.order,
         name: g.individual ? this.sim.members(c.gid)[0]?.name : groupName(g.name),
         shortName: g.individual ? undefined : groupName(g.name, true),
-        orderWord: g.routed ? t('battle.order.routed') : this.sim.phase === 'deploy' ? t(`battle.formation.${g.formation.type}` as TKey) : t(`battle.order.${g.order}` as TKey),
-        orderShort: g.routed ? t('battle.orderShort.routed') : this.sim.phase === 'deploy' ? t(`battle.formationShort.${g.formation.type}` as TKey) : t(`battle.orderShort.${g.order}` as TKey),
+        orderWord: g.routed ? t('battle.order.routed') : this.sim.phase === 'deploy' ? t(`battle.formation.${g.formation.type}` as TKey) : far ? t('battle.state.outOfRange') : t(`battle.order.${g.order}` as TKey),
+        orderShort: g.routed ? t('battle.orderShort.routed') : this.sim.phase === 'deploy' ? t(`battle.formationShort.${g.formation.type}` as TKey) : far ? t('battle.stateShort.outOfRange') : t(`battle.orderShort.${g.order}` as TKey),
         portrait: this.portraitOf(c.gid),
         selected: this.selGroup === c.gid,
         routed: g.routed,
