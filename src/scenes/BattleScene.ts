@@ -1186,7 +1186,7 @@ export class BattleScene extends BaseScene {
   private drawTargeting(g: Phaser.GameObjects.Graphics, gid: number): void {
     const ring = rangeRing(this.sim, gid);
     const pts = ring?.map((p) => isoToScreen(p.x, p.y)) ?? [];
-    for (const [w, color, a] of [[3, MOSAIC.ink, 0.85], [1.4, 0xf6ecd8, 0.95]] as const) {
+    for (const [w, color, a] of [[3, MOSAIC.ink, 0.85], [1.4, MOSAIC.cream, 0.95]] as const) {
       g.lineStyle(w, color, a);
       // every other segment of the ring: a dash
       for (let i = 0; i < pts.length; i += 2) {
@@ -2316,8 +2316,9 @@ export class BattleScene extends BaseScene {
       VW - 8,
       SIZE.gap,
     );
-    // one face for the whole row: capitals when every word fits as such, else Inter
-    const plain = orders.some((o, i) => mw(caps(o.label), 'rCream', 5.5) > keyW[i] - 4);
+    // one face for the whole row: capitals when every word fits an equal share as such, else Inter (as before CT-02)
+    const even = Math.floor((VW - 8 - SIZE.gap * (orders.length - 1)) / orders.length);
+    const plain = orders.some((o) => mw(caps(o.label), 'rCream', 5.5) > even - 4);
     let kx = 4;
     orders.forEach((o, i) => {
       const bw = keyW[i];

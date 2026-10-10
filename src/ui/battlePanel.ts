@@ -607,7 +607,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
 
 /**
  * The focus reticle (controls.md R3.2): a ring with four ticks across it, in
- * gold over a dark ink outline, so it reads on parchment and on the lightest
+ * cream over a dark ink outline (the range ring's look), so it reads on parchment and on the lightest
  * and darkest ground alike (A11Y-03), and as a shape, not a colour (A11Y-04).
  * `w`: the gold line's width.
  */
@@ -618,7 +618,7 @@ export function strokeReticle(g: Phaser.GameObjects.Graphics, cx: number, cy: nu
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) g.lineBetween(cx + dx * r * 0.45, cy + dy * r * 0.45, cx + dx * r * 1.45, cy + dy * r * 1.45);
   };
   pass(w * 2.4, MOSAIC.ink);
-  pass(w, MOSAIC.meanderHi);
+  pass(w, MOSAIC.cream);
 }
 
 /** The focus reticle as its own object (a group card's corner). */
