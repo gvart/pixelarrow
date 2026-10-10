@@ -76,7 +76,7 @@ New order: `{ kind: 'work'; type: 'stakes' | 'ditch' | 'laager'; x: number; y: n
    At most `WORKS_MAX` (3) segments.
 2. **Time to dig**: when a band **caught** the player (it chased and made contact on the march), the allowance is capped at **1** segment. When the player attacked, or was in camp, the full allowance applies.
 3. Supplies are spent only for segments **actually placed** when the battle starts. Undoing one refunds it.
-4. Lair garrisons get a free allowance: hammer and steady garrisons get 2 stakes; swarm and rush get none. The bot places them across its front by the rule in R6.
+4. **Lair garrisons** get their own allowance, keyed to the **lair**, not to the doctrine: every lair garrison (and every reborn lair) gets `GARRISON_STAKES` = **2 stakes** segments, free. They're placed in front of the palisade's gate gaps by the rule in R6. The final host is a field army, not a garrison, so it gets none. Field bands get no works in v5, whatever their doctrine.
 5. **Duels and war: allowance 0 in v5.** Works are a campaign feature. The order kind is still part of the sim, so a later season can enable it by data.
 
 ### R5. Readability (P2)
@@ -89,11 +89,12 @@ New order: `{ kind: 'work'; type: 'stakes' | 'ditch' | 'laager'; x: number; y: n
 
 The bot places works in its deployment zone, at the end of its deploy step:
 
-- **Stakes**: centred on the flank facing the enemy's cavalry group. Without one, in front of its skirmishers.
+- **Stakes** (field bots, if a later season gives them an allowance): centred on the flank facing the enemy's cavalry group. Without one, in front of its skirmishers.
+- **Garrison stakes**: one segment in front of each palisade gate gap, 2 paces out, facing the attacker's zone.
 - **Ditch**: along its main line's front, two paces ahead.
 - **Laager**: never in v5.
 
-Doctrines without works ignore them. Attacking bots path through works by terrain speed (no special routing). The `fury` doctrine charges straight through.
+Doctrines don't decide whether works exist (R4). They only decide how bots attack through them. Attacking bots path through works by terrain speed (no special routing). The `fury` doctrine charges straight through.
 
 ## Formulas
 
@@ -135,7 +136,7 @@ The constraint is s + d + l ≤ 3 (or 1 when caught). The maximum is 45 supplies
 | System / GDD | Direction | Contract |
 | --- | --- | --- |
 | campaign-arc.md | is used by | `palisade` and `rampart` cells for assault fields; garrison allowances |
-| ai-doctrines.md | uses | the doctrine decides the garrison allowance and bot placement |
+| ai-doctrines.md | uses | bots attack through works by doctrine (`fury` charges straight through); the garrison allowance is keyed to the lair, not the doctrine |
 | controls.md | uses | the works placement gesture, ghosts and undo |
 | battle-readability.md | uses | the art and the "broken on the stakes" banner and burst |
 | formations-orders.md | interacts | the orb inside a laager; the feint bait over a ditch (disorder stacks with scatter) |
@@ -162,7 +163,7 @@ The knobs live in `src/data/terrain.ts` (cells) and a new `WORKS` table in the s
 | Segment length (stakes / ditch / laager) | 3 / 3 / 2 | 2–4 | feel | readable at 1× |
 | Supply costs | 6 / 8 / 15 | 4–20 | curve | camp supplies matter |
 | WORKS_MAX / WORKS_CAUGHT | 3 / 1 | 2–4 / 0–2 | gate | preparation vs ambush |
-| Garrison allowance | 2 stakes | 0–3 | curve | assault difficulty |
+| GARRISON_STAKES | 2 | 0–3 | curve | assault difficulty; keyed to the lair (R4.4) |
 
 ## Touch UI needs
 

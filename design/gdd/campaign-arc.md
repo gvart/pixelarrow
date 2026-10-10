@@ -56,6 +56,7 @@ The aesthetics are Fantasy (a company saga) and Challenge (a goal).
 2. **Tapping a lair** on the map opens the **Assault** sheet: garrison size, power plate, doctrine and tell, captain, and the reward preview (a hoard chest icon). The choices are Assault or Leave. A lair can't be ransomed or fled from: you choose to attack it.
 3. **The assault battle.** `generateBattlefield(seed, site, { assault: true })`:
    - places a **palisade** line (the field-works.md cell kind `palisade`) across the defender's deployment front, with **2 gate gaps** of 3 cells each at seeded positions;
+   - the garrison gets **2 stakes** segments in front of its gates (field-works.md R4.4, `GARRISON_STAKES`), whatever its doctrine;
    - the defender deploys behind it;
    - the attacker's deployment zone is normal.
 4. **Victory** destroys the lair:
