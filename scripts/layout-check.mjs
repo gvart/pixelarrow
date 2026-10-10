@@ -6,10 +6,17 @@
 //   - interactive elements overlap (or sit closer than 4 pt),
 //   - text overflows its box or overlaps other text, or is cut at the side of a scroll area,
 //   - an element falls outside the safe area (the canvas),
-//   - a touch target is smaller than 44 pt.
+//   - a touch target is smaller than 44 pt (A11Y-06),
+//   - text that carries meaning is under 13 CSS px = 6.5 UI px (A11Y-09; map labels are exempt),
+//   - a tap where a control is drawn misses its hit area (the tap probe: every interactive
+//     element, v3 buttons included, is pressed at its centre and towards each corner through
+//     Phaser's own hit test; MECH §3).
+// The rules are src/ui/layoutCheck.ts (unit-tested in tests/ui.test.ts, tests/inputContract.test.ts).
 // Element bounds come from the game's debug UI registry (window.__layout,
 // src/ui/layout.ts). Known violations are listed with an owner in
-// scripts/layout-allowlist.json; anything not listed fails the run.
+// scripts/layout-allowlist.json; anything not listed fails the run. An entry
+// `screen|check|*` allows that check on the whole screen (used for the text-size floor,
+// which arrived after the screens: one entry per screen, owned by the screen's story).
 // Screenshots: shots/layout/<lang>-<plain|tg>/<WxH>/<screen>.png and a summary
 // in shots/layout/index.md (git-ignored; CI uploads shots/layout as an artifact).
 //
@@ -36,6 +43,50 @@ const opt = (n, d) => {
 const base = args.find((a) => /^https?:/.test(a)) ?? 'http://localhost:5173/';
 const outDir = shotsDir('layout');
 const allowPath = join(root, 'scripts/layout-allowlist.json');
+/** Allowlist groups: A, B, C by screen owner; F only for checks added after the foundation screens (text-size). */
+const GROUPS = ['A', 'B', 'C', 'F'];
+/** Checks allowlisted per screen (`screen|check|*`) rather than per element. */
+const PER_SCREEN = new Set(['text-size']);
+/** The story that owns a screen's fixes (docs/v5/plan/STORIES.md), for new allowlist entries: first matching prefix. */
+const STORY_OF = [
+  ['kit-', 'F-05'],
+  ['menu-settings', 'DLG-01'],
+  ['menu-reset', 'DLG-01'],
+  ['menu-shop', 'SHP-01'],
+  ['shop', 'SHP-01'],
+  ['consumable-picker', 'SHP-01'],
+  ['menu', 'HUB-02'],
+  ['codex', 'CDX-01'],
+  ['trial', 'CDX-01'],
+  ['online-army', 'WAR-01'],
+  ['online-clan', 'WAR-02'],
+  ['merchant-', 'WAR-02'],
+  ['online', 'WAR-01'],
+  ['duel-board', 'DUE-02'],
+  ['duel-raid', 'DUE-02'],
+  ['duel-defence', 'DUE-02'],
+  ['duel-search', 'DUE-02'],
+  ['duel-found', 'DUE-02'],
+  ['duel-ranked', 'DUE-02'],
+  ['duel-season', 'DUE-02'],
+  ['duel-', 'DUE-01'],
+  ['market-', 'MKT-01'],
+  ['world', 'WLD-01'],
+  ['camp', 'CMP-01'],
+  ['fire', 'CMP-01'],
+  ['army', 'ARM-01'],
+  ['stash-', 'ARM-01'],
+  ['hero', 'HERO-01'],
+  ['village', 'SET-01'],
+  ['town-', 'SET-01'],
+  ['recruits', 'SET-01'],
+  ['results', 'RES-01'],
+  ['inspect', 'RES-01'],
+  ['battle-', 'BTL-01'],
+  ['tutorial-', 'TUT-02'],
+  ['first-run', 'TUT-01'],
+];
+const storyOf = (key) => STORY_OF.find(([p]) => key.startsWith(p))?.[1];
 
 const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780,320x640').split(',').map((s) => s.split('x').map(Number));
 const LANGS = opt('langs', 'en,ru').split(',');
@@ -847,8 +898,11 @@ for (const r of runs) {
 }
 const allow = existsSync(allowPath) ? JSON.parse(readFileSync(allowPath, 'utf8')) : {};
 const allowed = new Map();
-for (const owner of ['A', 'B', 'C']) for (const k of allow[owner] ?? []) allowed.set(k, owner);
-let fresh = [...found.keys()].filter((k) => !allowed.has(k)).sort();
+for (const owner of GROUPS) for (const k of allow[owner] ?? []) allowed.set(k, owner);
+/** `screen|check|*` of a key. */
+const wildOf = (k) => k.split('|').slice(0, 2).join('|') + '|*';
+const isAllowed = (k) => allowed.has(k) || allowed.has(wildOf(k));
+let fresh = [...found.keys()].filter((k) => !isAllowed(k)).sort();
 const flaky = [];
 if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   // Timing differs on slow machines (CI): a new violation only counts when the
@@ -872,27 +926,31 @@ if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   fresh = fresh.filter((k) => again.has(k));
 }
 const partial = configs.length < allConfigs || allConfigs < 20 || screens.length < SCREENS.length;
-const stale = [...allowed.keys()].filter((k) => !found.has(k) && screens.some((s) => k.startsWith(s.id + '|'))).sort();
+const foundWild = new Set([...found.keys()].map(wildOf));
+const stale = [...allowed.keys()].filter((k) => !(k.endsWith('|*') ? foundWild.has(k) : found.has(k)) && screens.some((s) => k.startsWith(s.id + '|'))).sort();
 
 if (flag('update-allowlist')) {
   const out = {
-    _doc: 'Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids.',
+    _doc: 'Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps; F = foundation screens (UI kit, menu, onboarding), only for the text-size floor. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids, or screen|check|* for a check on the whole screen (text-size).',
     A: [],
     B: [],
     C: [],
+    F: [],
   };
   for (const [k, f] of found) {
-    if (f.owner === 'F') continue; // the foundation screens must stay clean
-    out[f.owner].push(k);
+    const check = k.split('|')[1];
+    // the foundation screens must stay clean, apart from checks added after them
+    if (f.owner === 'F' && !PER_SCREEN.has(check)) continue;
+    out[f.owner].push(PER_SCREEN.has(check) ? wildOf(k) : k);
   }
   // keep entries of screens not run this time
   for (const [k, owner] of allowed) if (!found.has(k) && !screens.some((s) => k.startsWith(s.id + '|'))) out[owner].push(k);
-  for (const o of ['A', 'B', 'C']) out[o] = [...new Set(out[o])].sort();
-  // the story that owns each entry's fix: kept for entries still listed
-  const kept = new Set([...out.A, ...out.B, ...out.C]);
-  out.stories = Object.fromEntries(Object.entries(allow.stories ?? {}).filter(([k]) => kept.has(k)));
+  for (const o of GROUPS) out[o] = [...new Set(out[o])].sort();
+  // the story that owns each entry's fix: kept for entries still listed, new ones from the screen
+  const kept = [...out.A, ...out.B, ...out.C, ...out.F];
+  out.stories = Object.fromEntries(kept.map((k) => [k, allow.stories?.[k] ?? storyOf(k)]).filter(([, s]) => s));
   writeFileSync(allowPath, JSON.stringify(out, null, 2) + '\n');
-  console.log(`allowlist written: A ${out.A.length}, B ${out.B.length}, C ${out.C.length}`);
+  console.log(`allowlist written: A ${out.A.length}, B ${out.B.length}, C ${out.C.length}, F ${out.F.length}`);
 }
 
 // ------------------------------------------------------------------ index
@@ -919,7 +977,7 @@ const md = [
   `| --- | --- | ${variants.map(() => '---').join(' | ')} |`,
   ...SCREENS.filter((s) => counts[s.id]).map((s) => `| ${s.id} | ${s.owner} | ${variants.map((v) => counts[s.id][v] ?? '-').join(' | ')} |`),
   '',
-  `Distinct violations: ${found.size} (allowlisted ${[...found.keys()].filter((k) => allowed.has(k)).length}, new ${fresh.length}).`,
+  `Distinct violations: ${found.size} (allowlisted ${[...found.keys()].filter(isAllowed).length}, new ${fresh.length}).`,
   '',
 ];
 if (!partial) writeFileSync(join(outDir, 'index.md'), md.join('\n'));
