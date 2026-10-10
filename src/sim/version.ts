@@ -14,10 +14,11 @@
  *
  * Grace window (ADR-0001 step 3): the server keeps MIN_SIM_VERSION = 1, so
  * v1 tickets issued before the v2 deploy still verify (replayed by the frozen
- * sim) and v1 clients still get tickets over HTTP. Live sockets take only v2.
- * Raise MIN_SIM_VERSION to 2, and delete server/src/sims/v1 with its REPLAYERS
- * entry, once the longest ticket TTL has passed after the deploy and clients
- * have reloaded; at the latest, in the same change as the first train-2 rule
- * that alters how the server builds setups.
+ * sim) and v1 clients still get tickets over HTTP. Sockets keep
+ * SOCKET_MIN_SIM_VERSION = 1 too (V5-033), and live duels pair only clients
+ * of the same version. The first rule-changing train-2 story raises BOTH
+ * floors (MIN_SIM_VERSION and SOCKET_MIN_SIM_VERSION) to 2 in the same commit
+ * as the rule change. Delete server/src/sims/v1 with its REPLAYERS entry once
+ * the longest ticket TTL has passed after that.
  */
 export const SIM_VERSION = 2;
