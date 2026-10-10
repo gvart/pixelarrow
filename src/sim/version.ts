@@ -8,6 +8,8 @@
  * still replay the versions it accepts.
  *
  * 1: the rules as of v4 (the first versioned sim; clients that send no
- *    version run these).
+ *    version run these). Frozen in server/src/sims/v1 for replays.
+ * 2: sim train 2 (V5-019): every v5 rule change ships under this number, with
+ *    no further bump. Until its first rule lands it plays exactly like 1.
  */
-export const SIM_VERSION = 1;
+export const SIM_VERSION = 2;

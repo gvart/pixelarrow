@@ -20,6 +20,8 @@ import { Battle, TICK_RATE } from '../../src/sim/battle';
 import { FORMATION_TYPES } from '../../src/sim/formation';
 import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../../src/sim/types';
 import { resolveSimVersion, SimVersionField } from './simVersion';
+import { BattleV1 } from './sims/v1';
+import type { BattleSetup as BattleSetupV1 } from './sims/v1/sim/types';
 
 export const LIMITS = {
   maxUnitsPerSide: 64,
@@ -172,7 +174,7 @@ export interface ReplayOutcome {
   result: BattleResult;
 }
 
-function summarize(b: Battle): ReplayOutcome {
+function summarize(b: ReplayableBattle): ReplayOutcome {
   const result = b.result();
   const sides = [0, 1].map((side) => {
     const us = result.units.filter((u) => u.side === side);
@@ -197,13 +199,18 @@ function summarize(b: Battle): ReplayOutcome {
   };
 }
 
+/** The part of a sim build replayBattle drives; every frozen version keeps this shape. */
+type ReplayableBattle = Battle | BattleV1;
+
 /**
  * The sim of every version this server can replay (design/adr/ADR-0001).
- * Version 1 is today's src/sim. When SIM_VERSION 2 ships, the v1 sim is
- * frozen into its own module and stays here until MIN_SIM_VERSION passes it.
+ * 1: the frozen v4 rules (./sims/v1, read-only). 2: today's src/sim.
+ * Every version from MIN_SIM_VERSION to SIM_VERSION needs an entry; drop an
+ * entry and its frozen copy together when MIN_SIM_VERSION passes it.
  */
-const REPLAYERS: Record<number, (setup: BattleSetup) => Battle> = {
-  1: (setup) => new Battle(setup),
+export const REPLAYERS: Readonly<Record<number, (setup: BattleSetup) => ReplayableBattle>> = {
+  1: (setup) => new BattleV1(setup as unknown as BattleSetupV1),
+  2: (setup) => new Battle(setup),
 };
 
 /** Re-runs a battle headless with the rules of `simVersion`. Throws if the sim rejects the setup or the version is unknown. */
