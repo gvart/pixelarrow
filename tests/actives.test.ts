@@ -10,7 +10,7 @@ import { Rng } from '../src/sim/rng';
 import { armySpec } from '../src/game/armySpec';
 import { classSquad } from '../src/dev/classBalance';
 import { CLASSES, type ClassId } from '../src/data/classes';
-import { ABILITIES, ABILITY_IDS, ABILITY_RULES, AURA_RULES, AURAS, PERKS, type AbilityId, type PerkId } from '../src/data/perks';
+import { ABILITIES, ABILITY_IDS, ABILITY_RULES, AURA_RULES, AURAS, MAX_MEDALLIONS, PERKS, rankMedallions, type AbilityId, type PerkId } from '../src/data/perks';
 import { botPathChoice } from '../src/game/heroes';
 import type { Hero } from '../src/data/units';
 import type { Side, SimEvent, SimUnit } from '../src/sim/types';
@@ -87,6 +87,20 @@ describe('signature active data (abilities.md R3)', () => {
     expect(archers.every((u) => bt.abilityReady(u, 'volley'))).toBe(true);
     bt.issue(0, { kind: 'ability', unit: archers[0].id, ability: 'volley' });
     for (const u of archers) expect(bt.abilityCooldown(u, 'volley'), `archer ${u.id}`).toBeGreaterThan(0);
+  });
+
+  it('medallion budget (R4): at most 3 shown, ranked ready, then holders, then the shortest cooldown', () => {
+    expect(MAX_MEDALLIONS).toBe(3);
+    const order = rankMedallions([
+      { id: 'rally', ready: true, holders: 1 },
+      { id: 'push', ready: false, holders: 6 },
+      { id: 'bash', ready: true, holders: 4 },
+      { id: 'warcry', ready: true, holders: 4 },
+      { id: 'sunder', ready: true, holders: 4 },
+    ]);
+    // ready first; among four holders bash (12 s) before sunder (30 s) before war-cry (40 s)
+    expect(order).toEqual(['bash', 'sunder', 'warcry', 'rally', 'push']);
+    expect(order.slice(0, MAX_MEDALLIONS)).toEqual(['bash', 'sunder', 'warcry']);
   });
 
   it('the four re-tuned actives and three auras carry the R2 magnitudes', () => {

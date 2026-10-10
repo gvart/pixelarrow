@@ -186,6 +186,27 @@ export const ABILITY_RULES = {
   scytheMorale: 8,
 };
 
+/** At most this many ability medallions show for a selection; the rest go behind a "more" chevron (abilities.md R4). */
+export const MAX_MEDALLIONS = 3;
+
+/** A selection's ability for the medallion rail: whether a holder can use it now, and how many hold it. */
+export interface MedallionEntry {
+  id: AbilityId;
+  ready: boolean;
+  holders: number;
+}
+
+/**
+ * The medallion order (abilities.md R4): ready first, then the most holders,
+ * then the shortest cooldown; ties keep ABILITY_IDS order. The first
+ * MAX_MEDALLIONS show on the rail.
+ */
+export function rankMedallions(entries: readonly MedallionEntry[]): AbilityId[] {
+  return [...entries]
+    .sort((a, b) => Number(b.ready) - Number(a.ready) || b.holders - a.holders || ABILITIES[a.id].cooldown - ABILITIES[b.id].cooldown || ABILITY_IDS.indexOf(a.id) - ABILITY_IDS.indexOf(b.id))
+    .map((e) => e.id);
+}
+
 // ---------------------------------------------------------------- auras
 
 export type AuraId = 'steady' | 'eagle' | 'warlord';
