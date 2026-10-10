@@ -1,0 +1,32 @@
+src/i18n/data.ru.ts
+  s_697bdc25a7c420::t_008f6a6874009e 157
+tests/actives.test.ts
+  s_697bdc25a7c420::t_e92005c5a18ca4 73,77,407,412-415
+  s_697bdc25a7c420::t_008f6a6874009e 98
+src/dev/classBalance.ts
+  s_697bdc25a7c420::t_ffd7d1022bdfde 50-60,65-68,83,88,265,269,286
+tests/perkPaths.test.ts
+  s_697bdc25a7c420::t_e92005c5a18ca4 193-196,199,206,210
+tests/classes.test.ts
+  s_697bdc25a7c420::t_e92005c5a18ca4 91,93
+src/game/heroes.ts
+  s_697bdc25a7c420::t_dd4aeb6d978458 150-156,158
+src/data/perks.ts
+  s_697bdc25a7c420::t_008f6a6874009e 90,141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1a8406643f15b2753c2a734a92c421a0bca2db3e",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
