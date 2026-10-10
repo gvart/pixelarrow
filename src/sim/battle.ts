@@ -1035,8 +1035,8 @@ export class Battle {
   /**
    * The ready enemy man in front within reach that Push of Pike or Sunder
    * would strike (abilities.md R3). For a push he may not stand braced in a
-   * shield wall facing the pusher, nor be a rider, a chariot or a myth beast
-   * (a man cannot shove a horse back).
+   * shield wall facing the pusher, nor be a rider or a chariot (a man cannot
+   * shove a horse back); a myth beast is staggered but not moved.
    */
   frontFoe(u: SimUnit, push: boolean): SimUnit | null {
     const reach = Math.max(ABILITY_RULES.pushRange, u.stats.reach);
@@ -1048,7 +1048,7 @@ export class Battle {
       if (d > reach + u.rad + e.rad) continue;
       const front = this.facingDot(u, e);
       if (front < 0.3) continue;
-      if (push && (e.stats.boss !== undefined || e.stats.mount !== undefined || (this.braces(this.groups[e.group]) && e.stats.canShieldWall && this.facingDot(e, u) > 0.3))) continue;
+      if (push && (e.stats.mount !== undefined || (this.braces(this.groups[e.group]) && e.stats.canShieldWall && this.facingDot(e, u) > 0.3))) continue;
       const score = front - d + (e.id === u.targetId ? 0.5 : 0);
       if (score > bestScore) {
         bestScore = score;
@@ -1246,7 +1246,7 @@ export class Battle {
         const t = this.frontFoe(u, true);
         if (!t) return false;
         u.lastAttackTick = this.tick;
-        this.shove(t, u, R.pushShove);
+        if (t.stats.boss === undefined) this.shove(t, u, R.pushShove); // a myth beast is staggered, not moved
         this.stagger[t.id] = this.tick + R.pushStagger;
         t.cooldown = Math.max(t.cooldown, R.pushStagger);
         t.momentum = 0;
