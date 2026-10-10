@@ -117,7 +117,7 @@ export class ArmyScene extends BaseScene {
     void state.save();
     if (this.back.from === 'Settlement') this.scene.start('Settlement', { id: this.back.id });
     else if (this.back.from === 'Camp') this.scene.start('Camp', { mode: 'field' });
-    else this.scene.start(this.back.from ?? 'World');
+    else this.scene.start(this.back.from ?? 'World', {});
   }
 
   openHero(tab?: string): void {

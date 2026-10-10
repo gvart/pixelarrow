@@ -137,11 +137,15 @@ describe('save', () => {
     await writeSave(kv, c.data);
     const back = await readSave(kv);
     expect(back).toEqual(c.data);
-    // Shrinking a save removes stale parts.
+    // Shrinking a save removes stale parts (saves alternate between two slots,
+    // the other one is the backup: after two small saves both hold the small one).
     const small = Campaign.fresh(5);
     await writeSave(kv, small.sync());
     expect(await readSave(kv)).toEqual(small.data);
-    expect([...kv.store.keys()].filter((k) => k.startsWith('px_part_')).length).toBe(chunk(serialize(small.data)).length);
+    await writeSave(kv, small.sync());
+    const n = chunk(serialize(small.data)).length;
+    expect([...kv.store.keys()].filter((k) => k.startsWith('px_part_')).length).toBe(n);
+    expect([...kv.store.keys()].filter((k) => k.startsWith('px_part1_')).length).toBe(n);
     await clearSave(kv);
     expect(kv.store.size).toBe(0);
   });

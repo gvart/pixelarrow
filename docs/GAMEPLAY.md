@@ -126,6 +126,16 @@ invariants in [ROADMAP.md](ROADMAP.md).
   (`src/sim/stats.ts`). Hit points refill between battles; knock-outs leave wounds (above).
 - **Permadeath:** heroes killed in battle are removed with their gear.
   Recruits are hired in villages and towns (see above).
+- **Abandoned battles** (V5-011, `src/game/campaignBattle.ts`): a campaign
+  battle (a band, a beast trial or a skirmish; not online duels or war) stands
+  from the moment you press Fight. The save records it then (the enemy, the
+  field, the men who marched in and the deployment orders). If the app closes
+  before the battle ends, the next launch fights it out with the orders you
+  gave before it began and nothing after, then applies the result like any
+  other: deaths, wounds, XP, gold and the band, and opens its report. It is
+  deterministic, so reopening cannot reroll it, and it can never be better
+  than playing the battle out without touching anything. Leaving during
+  deployment is still free.
 - **Traits** (`src/data/traits.ts`): Veteran, Steady, Swift, Brute, Keen-eyed,
   Stalwart, Tough and the negative Skittish. Heroes may gain a trait at levels
   3, 5 and 8 (Skittish turns into Steady).
@@ -576,6 +586,25 @@ split into ≤3800-character chunks (`px_part_N` + `px_meta`) because Telegram
 CloudStorage values are limited to 4096 chars. Inside Telegram the save goes
 to CloudStorage and is mirrored to localStorage; in a normal browser
 localStorage is used.
+
+**Crash safety and failed loads (V5-011).** Saves alternate between two part
+slots (`px_part_N`, `px_part1_N`); `px_meta` `{v, n, s, pn}` is written last
+and points at the current slot, so a kill mid-write leaves a complete save, and
+the other slot is the last good save, used when the current one is damaged. A
+save that still cannot be loaded is never silently replaced:
+
+- its raw text is first kept under `px_corrupt` / `px_corrupt_N` (the first
+  such backup is kept; `readBackup` in save.ts reads it back);
+- a save from a **newer** build (a higher version, or items this build does not
+  know) makes the session read-only: nothing is written locally or uploaded,
+  and the menu asks the player to reopen the game to update. A server copy from
+  a newer build is held, never pushed over (`saveSync.ts` `hold`);
+- a **corrupt** save with no usable backup, mirror or cloud copy starts a new
+  campaign, and the menu says the old save was kept.
+
+Removing an item def therefore needs a migration that drops or replaces it;
+otherwise saves holding it load as "newer". The `battle` field is the
+battle-in-progress marker (see "Abandoned battles").
 
 ## Cloud save (`src/platform`)
 

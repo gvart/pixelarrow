@@ -7,7 +7,7 @@
  * this storage last agreed with and the save `seq` it agreed on. A local save
  * whose `seq` is past `meta.seq` has changes the server has not seen.
  */
-import { migrate, type SaveData } from '../game/save';
+import { migrateResult, type SaveData } from '../game/save';
 
 export interface SyncMeta {
   /** Server revision last read or written successfully. */
@@ -39,9 +39,21 @@ export function remoteSaveData(data: unknown): SaveData | null {
   if (!data || typeof data !== 'object') return null;
   try {
     // migrate() mutates while validating; work on a copy.
-    return migrate(JSON.parse(JSON.stringify(data)));
+    const r = migrateResult(JSON.parse(JSON.stringify(data)));
+    return r.ok ? r.data : null;
   } catch {
     return null;
+  }
+}
+
+/** A server blob written by a newer build (V5-011): this build must not overwrite it. */
+export function remoteIsNewer(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+  try {
+    const r = migrateResult(JSON.parse(JSON.stringify(data)));
+    return !r.ok && r.reason === 'newer';
+  } catch {
+    return false;
   }
 }
 
@@ -51,7 +63,9 @@ export type LoadDecision =
   /** Local copy wins (or the server has none): upload it on top of `revision`. */
   | { action: 'push'; revision: number }
   /** Already in sync. */
-  | { action: 'none'; revision: number };
+  | { action: 'none'; revision: number }
+  /** The server copy is from a newer build: neither adopt nor overwrite it; stop uploading. */
+  | { action: 'hold'; revision: number };
 
 /**
  * What to do after `GET /api/save` at boot.
@@ -59,10 +73,12 @@ export type LoadDecision =
  * - no local save -> adopt the server's;
  * - server moved past what we last saw: adopt it, unless we also have unsynced
  *   local progress, in which case the more-played copy wins;
- * - server unchanged: push if we have unsynced progress.
+ * - server unchanged: push if we have unsynced progress;
+ * - server copy from a newer build: hold (never overwrite it).
  */
 export function decideOnLoad(local: SaveData | null, meta: SyncMeta | null, remote: { revision: number; data: unknown }): LoadDecision {
   const rev = Math.max(0, remote.revision | 0);
+  if (remoteIsNewer(remote.data)) return { action: 'hold', revision: rev };
   const rdata = remote.data == null ? null : remoteSaveData(remote.data);
   if (!rdata) return local ? { action: 'push', revision: rev } : { action: 'none', revision: rev };
   if (!local) return { action: 'adopt', data: rdata, revision: rev };
@@ -77,8 +93,9 @@ export function decideOnLoad(local: SaveData | null, meta: SyncMeta | null, remo
   return { action: 'push', revision: rev };
 }
 
-/** On a 409 during play: which copy survives. Ties keep the local one. */
-export function resolveConflict(local: SaveData, remoteData: unknown): 'local' | 'remote' {
+/** On a 409 during play: which copy survives. Ties keep the local one; a newer build's copy holds. */
+export function resolveConflict(local: SaveData, remoteData: unknown): 'local' | 'remote' | 'hold' {
+  if (remoteIsNewer(remoteData)) return 'hold';
   const r = remoteSaveData(remoteData);
   if (!r) return 'local';
   return compareSaves(r, local) > 0 ? 'remote' : 'local';

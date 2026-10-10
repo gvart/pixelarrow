@@ -58,7 +58,7 @@ export class SettlementScene extends BaseScene {
     this.id = data?.id ?? w.s.inside;
     const def = w.settlement(this.id);
     if (!def || def.kind === 'lair') {
-      this.scene.start('World');
+      this.scene.start('World', {});
       return;
     }
     w.s.inside = this.id;
@@ -148,7 +148,7 @@ export class SettlementScene extends BaseScene {
     w.s.inside = -1;
     w.s.safeUntil = Math.max(w.s.safeUntil, w.s.time + 0.5);
     void state.save();
-    this.scene.start('World');
+    this.scene.start('World', {});
   }
 
   private refresh(): void {

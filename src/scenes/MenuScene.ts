@@ -6,6 +6,7 @@ import { confirmNewCampaign, openSettings } from '../ui/settings';
 import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
 import { addSyncBadge } from '../ui/online';
 import { FrescoBanner, MButton, ProfileCard, QuestCard, StoneTile, addHubShell, goTab } from '../ui/mosaic';
+import { toast } from '../ui/widgets';
 import { t } from '../i18n';
 
 const GAP = 4;
@@ -102,6 +103,12 @@ export class MenuScene extends BaseScene {
     y += camp.totalH + 4;
     area.setContentHeight(y);
 
+    // What happened to the save at boot (V5-011), once.
+    if (state.notice) {
+      toast(this, t(state.notice), state.notice === 'battle.abandoned' ? 'info' : 'bad', 7000);
+      state.notice = null;
+    }
+
     // Opened from a bot message's "Open in the game" (startapp=settings).
     if (data?.settings === 'notify') this.openNotifications();
   }
@@ -157,11 +164,11 @@ export class MenuScene extends BaseScene {
   private continueCampaign(): void {
     const w = state.campaign.world;
     if (w.s.inside >= 0) this.scene.start('Settlement', { id: w.s.inside });
-    else this.scene.start('World');
+    else this.scene.start('World', {});
   }
 
   private newCampaign(): void {
-    void state.reset().then(() => this.scene.start('World'));
+    void state.reset().then(() => this.scene.start('World', {}));
   }
 
   /** "New campaign?" (the shared confirmation; Settings → Account opens the same). */

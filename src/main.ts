@@ -92,7 +92,7 @@ online.onAdopt = async (data) => {
   // campaign's army) or its report must not be cut short by the menu
   const sourced = (key: string) => game.scene.isActive(key) && !!(game.scene.getScene(key).sys.settings.data as { source?: unknown; done?: unknown } | undefined)?.[key === 'Battle' ? 'source' : 'done'];
   if (sourced('Battle') || sourced('Results')) return;
-  game.scene.getScenes(true).forEach((s) => s.scene.start('Menu'));
+  game.scene.getScenes(true).forEach((s) => s.scene.start('Menu', {}));
 };
 // Upload right away when the app is backgrounded or closed.
 document.addEventListener('visibilitychange', () => {

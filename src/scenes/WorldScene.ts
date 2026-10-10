@@ -1025,7 +1025,7 @@ export class WorldScene extends BaseScene {
 
   private leaveToMenu(): void {
     void state.save();
-    this.scene.start('Menu');
+    this.scene.start('Menu', {});
   }
 
   private enterSettlement(id: number): void {
@@ -1289,6 +1289,6 @@ export class WorldScene extends BaseScene {
     const beast = encounterOf(enemy.heroes);
     state.pending = { enemy, seed: randomSeed(), partyId, label: beast ? encounterName(beast) : p.name, site: siteAt(this.w.map, this.w.s.x, this.w.s.y) };
     void state.save();
-    this.scene.start('Battle');
+    this.scene.start('Battle', {});
   }
 }

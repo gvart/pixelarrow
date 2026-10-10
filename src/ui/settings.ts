@@ -228,6 +228,6 @@ export function confirmNewCampaign(scene: UiScene): Phaser.GameObjects.Container
     cancel: t('common.cancel'),
     ok: t('menu.resetOk'),
     destructive: true,
-    onOk: () => void state.reset().then(() => scene.scene.start('World')),
+    onOk: () => void state.reset().then(() => scene.scene.start('World', {})),
   });
 }

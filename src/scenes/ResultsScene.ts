@@ -105,7 +105,7 @@ export class ResultsScene extends BaseScene {
     this.confetti = [];
     const report = data.report ?? this.offlineReport();
     if (!report) {
-      this.scene.start('Army');
+      this.scene.start('Army', {});
       return;
     }
     const fresh = this.report !== report;
@@ -147,6 +147,11 @@ export class ResultsScene extends BaseScene {
     if (fresh) {
       if (report.gold > 0) this.time.delayedCall(700, uiCoin);
       hapticNotify(report.result === 'victory' ? 'success' : report.result === 'draw' ? 'warning' : 'error');
+    }
+    // Reopened after the app closed mid-battle: the battle was fought out (V5-011).
+    if (!data.report && state.notice === 'battle.abandoned') {
+      toast(this, t('battle.abandoned'), 'info', 7000);
+      state.notice = null;
     }
   }
 
@@ -707,7 +712,7 @@ export class ResultsScene extends BaseScene {
       void state.save();
     }
     this.chosen.clear();
-    if (last?.partyId !== undefined) this.scene.start('World');
+    if (last?.partyId !== undefined) this.scene.start('World', {});
     else this.scene.start('Army', { from: 'World' });
   }
 

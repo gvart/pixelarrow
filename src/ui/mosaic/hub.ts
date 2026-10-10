@@ -14,10 +14,10 @@ import { buildPage, type UiScene } from './subShell';
 /** Open the hub of a mode. */
 export function goTab(scene: Phaser.Scene, id: TabId): void {
   switch (id) {
-    case 'campaign': return void scene.scene.start('Menu');
+    case 'campaign': return void scene.scene.start('Menu', {});
     case 'duels': return void scene.scene.start('Duel', {});
     case 'war': return void scene.scene.start('Online', {});
-    case 'codex': return void scene.scene.start('Codex');
+    case 'codex': return void scene.scene.start('Codex', {});
     case 'shop': return void scene.scene.start('Shop', {});
   }
 }

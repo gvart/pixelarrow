@@ -86,6 +86,32 @@ describe('post-battle report', () => {
     expect(resultFor(1, 0, 0)).toBe('retreat');
   });
 
+  it('Losses counts every man struck down, in a duel too (B4)', () => {
+    const hero = (id: string) => ({ id, name: id, level: 1, xp: 0 }) as never;
+    const stat = (heroId: string, side: 0 | 1, dead: boolean, ko = false): UnitStat => ({ heroId, side, kills: 0, dmg: 0, dead, ko, killedBy: dead ? 1 - side : -1 }) as UnitStat;
+    // a duel (no permadeath, no outcomes): all six of mine fell
+    const mine = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const duel = buildReport({ result: 'defeat', vs: 'vs Bot', ticks: 600, side: 0, stats: [...mine.map((id) => stat(id, 0, true)), stat('x', 1, false)], heroes: mine.map(hero) });
+    expect(duel.losses).toBe(6);
+    // a campaign defeat: one knocked out (wounded, lives), two fled, one dead for good
+    const camp = buildReport({
+      result: 'defeat',
+      vs: 'vs Bandits',
+      ticks: 600,
+      side: 0,
+      stats: [stat('a', 0, true, true), stat('b', 0, false), stat('c', 0, false), stat('d', 0, true), stat('x', 1, false)],
+      heroes: ['a', 'b', 'c', 'd'].map(hero),
+      outcomes: [
+        { heroId: 'a', name: 'a', died: false, wounded: true, fled: false, kills: 0, xp: 6, levelsGained: 0 },
+        { heroId: 'b', name: 'b', died: false, fled: true, kills: 0, xp: 6, levelsGained: 0 },
+        { heroId: 'c', name: 'c', died: false, fled: true, kills: 0, xp: 6, levelsGained: 0 },
+        { heroId: 'd', name: 'd', died: true, fled: false, kills: 0, xp: 0, levelsGained: 0 },
+      ] as never,
+    });
+    expect(camp.losses).toBe(2);
+    expect(camp.heroes.filter((h) => h.died)).toHaveLength(1);
+  });
+
   it('numbers of a real battle: kills, losses, gold, XP and the per-hero rows', () => {
     const { setup, player, enemy } = standardSetup(77, true);
     const b = new Battle(setup);
@@ -97,7 +123,7 @@ describe('post-battle report', () => {
     expect(r.duration).toBe(Math.round(b.tick / TICK_RATE));
     expect(r.kills).toBe(outcome.enemyKilled);
     expect(r.enemyTotal).toBe(outcome.enemyTotal);
-    expect(r.losses).toBe(outcome.lost);
+    expect(r.losses).toBe(stats.filter((s) => s.side === 0 && s.dead).length);
     expect(r.gold).toBe(outcome.gold);
     expect(r.xp).toBe(outcome.heroes.reduce((a, h) => a + h.xp, 0));
     expect(r.heroes).toHaveLength(player.length);

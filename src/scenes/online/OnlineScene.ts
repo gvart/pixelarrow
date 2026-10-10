@@ -304,7 +304,7 @@ export class OnlineScene extends BaseScene {
     if (this.modal) return this.closeModal();
     if (this.selected) return this.select(null);
     if (!this.demo) shardSocket.close();
-    this.scene.start('Menu');
+    this.scene.start('Menu', {});
   }
 
 
