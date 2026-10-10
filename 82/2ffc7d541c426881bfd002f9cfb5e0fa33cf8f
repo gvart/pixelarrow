@@ -1,0 +1,21 @@
+scripts/online-e2e.mjs
+  s_697bdc25a7c420::t_c63c973025c22c 134-139,158
+  s_697bdc25a7c420::t_9b304af60fa0bd 147,175-176
+  s_697bdc25a7c420::t_76d71d6bf14169 77-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "822ffc7d541c426881bfd002f9cfb5e0fa33cf8f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
