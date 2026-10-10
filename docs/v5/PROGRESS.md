@@ -14,7 +14,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 | ab-01 | W7 AB-01: perk paths (client+server duel rules) | per card | per card | worktree-agent | running |
 | ct-02 | W7 CT-02: targeting + RU Shoot label | per card | per card | worktree-agent | running |
 | f-01 | W1 F-01: tokens, Cinzel/Inter, split-word fix | per card | per card | worktree-agent | running |
-| assets-2 | AS-02 PARTIAL: 12/21 busts staged (docs/v5/gemini/AS-02/processed); 9 blocked (Chrome download block) | — | — | worktree-agent-ab1676d0c1f1d1180 | merging partial |
+| ai-03 | W7 AI-03: ladder and war doctrines | per card | per card | worktree-agent | running |
 | ct-02 | W7 CT-02: targeting, plus the RU 'Стрел…' truncation | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -42,6 +42,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - e25819c FO-02, 1c882d5 QA-01, f8401ef smoke harness names failing checks, aefbd1f CT-01. Gates: vitest 768, server 277, layout 0, all smokes pass; balance 54%.
 - 44048f9 merge: S2-ART-BIBLE; 8760935 merge: LF-03 (24 layout configs incl. 320x640). Gates: vitest 771, layout 0 new (6 allowlisted), smoke 41, online 25, contrast 38/38.
 - 04768e2 merge: AS-01 hub mockups (pick A); 9e67140 merge: FO-03 cohesion and army break. Gates: vitest 790, server 281, smokes pass; balance 55%, mean 81 s. c786115 untracks raw Gemini images (V5-049).
+- 830a365 merge: AS-02 partial (12/21 busts staged). Gates: vitest 790.
 
 ## Queue (next)
 
