@@ -88,19 +88,20 @@ describe('old saves keep their army (V5-020)', () => {
 });
 
 describe('bandits near the start (R1.3)', () => {
-  it(`bandit bands are at least BANDIT_MIN (${BANDIT_MIN}) strong`, () => {
-    expect(BANDIT_MIN).toBe(6); // the top of the GDD range 3-6 (docs/v5/balance/AR-01.md)
+  it('every new bandit band has at least 5 men (they spawn at a lair, danger >= 0.35)', () => {
     let bandits = 0;
     for (let seed = 1; seed <= 12; seed++) {
       const w = new World(World.fresh(seed));
       for (let i = 0; i < 40; i++) w.spawnParty('lair');
       for (const p of w.s.parties.filter((q) => q.kind === 'bandits')) {
         bandits++;
-        expect(p.size).toBeGreaterThanOrEqual(BANDIT_MIN);
+        expect(p.size).toBeGreaterThanOrEqual(5);
         expect(p.size).toBeLessThanOrEqual(18);
       }
     }
     expect(bandits).toBeGreaterThan(20);
+    // the size formula's base (AR-01 kept it, docs/v5/balance/AR-01.md)
+    expect(BANDIT_MIN).toBe(3);
   });
 });
 

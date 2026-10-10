@@ -183,8 +183,13 @@ export const WORLD_RULES = {
   healGoldPerHour: 1,
 };
 
-/** The smallest bandit band (campaign-arc.md R1.3; GDD default 5, range 3-6): 6 puts the 8-man opening at 55-70% against the Even plate (docs/v5/balance/AR-01.md). */
-export const BANDIT_MIN = 6;
+/**
+ * The base of a bandit band's size (campaign-arc.md R1.3; GDD default 5, range 3-6).
+ * Kept at 3: bandits spawn at their lair, where danger is 0.35 at least (0.66-1.0
+ * on real maps), so every new bandit band already has 5 men or more, and a
+ * bigger base only makes the opening's first fights worse (docs/v5/balance/AR-01.md).
+ */
+export const BANDIT_MIN = 3;
 
 /**
  * Volunteers (campaign-arc.md R1.4, R1.5). A destroyed army gets `destroyed`
