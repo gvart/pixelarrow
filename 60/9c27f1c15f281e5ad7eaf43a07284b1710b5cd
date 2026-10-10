@@ -1,0 +1,21 @@
+package.json
+  s_697bdc25a7c420::t_08fd2bd817dce8 21
+package-lock.json
+  s_697bdc25a7c420::t_1d8fb2e3aa5f4a 14,1154-1156,1159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "609c27f1c15f281e5ad7eaf43a07284b1710b5cd",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
