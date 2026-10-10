@@ -105,9 +105,12 @@ describe('replay dispatch by sim version', () => {
       expect(out.summary).toMatchObject({ winner: r.winner, ticks: r.ticks, retreated: r.retreated, hash: r.hash });
     });
 
-    it(`no rule change yet: v2 replays ${r.name} to the v1 hash`, () => {
-      const out = replayBattle(structuredClone(r.setup), r.orders, r.deployOrders, 2);
-      expect(out.summary).toMatchObject({ winner: r.winner, ticks: r.ticks, retreated: r.retreated, hash: r.hash });
+    it(`v2 replays ${r.name} deterministically under its own rules (FO-03 changed them)`, () => {
+      // FO-03 (cohesion, army break) is the first train-2 rule that changes
+      // bot-only battles; the recorded v2 fixture comes with ST-04.
+      const out = replayBattle(structuredClone(r.setup), r.orders, r.deployOrders, 2).summary;
+      expect(replayBattle(structuredClone(r.setup), r.orders, r.deployOrders, 2).summary).toEqual(out);
+      expect(out.ticks).toBeGreaterThan(0);
     });
   }
 
