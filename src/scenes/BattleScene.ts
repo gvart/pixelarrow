@@ -3,7 +3,7 @@ import { BaseScene } from './BaseScene';
 import { Meter, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
-import { GroupCard } from '../ui/battlePanel';
+import { GroupCard, numeralBadge, orderBadgeW, orderBarPlate } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
@@ -2151,7 +2151,8 @@ export class BattleScene extends BaseScene {
 
   /** Group cards in the sheet: two per row, at most two rows. */
   private sheetGroups(): { g: Battle['groups'][number]; numeral: string }[] {
-    return cardGroups(this.sim, this.me, this.sim.phase === 'deploy').map(({ gid, numeral }) => ({ g: this.sim.groups[gid], numeral }));
+    // only groups with men get a card, in deployment too (controls.md R1.4)
+    return cardGroups(this.sim, this.me, false).map(({ gid, numeral }) => ({ g: this.sim.groups[gid], numeral }));
   }
 
   private cardRows(): number {
@@ -2239,13 +2240,21 @@ export class BattleScene extends BaseScene {
       if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), b);
       cx -= SIZE.gap;
     }
-    const title = deploy ? t('battle.shape.chip') : sel ? t('battle.orders.title', { group: selName }) : '';
+    // in battle the selected group's numeral badge, in its colour, leads the line (controls.md R1.3)
+    const badge = !deploy && sel ? groupNumeral(this.sim.groups, sel.id) : '';
+    let tx = 6;
+    if (badge) {
+      this.hud.add(numeralBadge(this, 4, y + 1, SHEET_HEAD_H - 4, badge));
+      tx = 4 + orderBadgeW(badge) + 4;
+    }
+    const barName = badge && sel && !sel.individual ? groupName(sel.name) : selName;
+    const title = deploy ? t('battle.shape.chip') : sel ? t('battle.orders.title', { group: barName }) : '';
     if (title) {
       // the whole line (a size down when it must), else only the group's name
-      const room = cx - 10;
+      const room = cx - tx - 4;
       const size = [6.5, 6, 5.5].find((z) => mw(caps(title), 'rGold', z) <= room);
-      const line = size ? title : !deploy && sel ? selName : title;
-      this.hud.add(mtext(this, 6, y + 3 + (size === 5.5 ? 0.5 : 0), caps(line), 'rGold', { size: size ?? 6.5, maxW: room }));
+      const line = size ? title : !deploy && sel ? barName : title;
+      this.hud.add(mtext(this, tx, y + 3 + (size === 5.5 ? 0.5 : 0), caps(line), 'rGold', { size: size ?? 6.5, maxW: room }));
     }
     y += SHEET_HEAD_H + 3;
     // the row: Fight (deployment) or the five orders (battle)
@@ -2264,6 +2273,8 @@ export class BattleScene extends BaseScene {
       this.hud.add(hint);
       return;
     }
+    // the bar wears the selected group's colour (its numeral badge heads the line above; controls.md R1.3, PLAY C3)
+    this.hud.add(orderBarPlate(this, 4, y, VW - 8, SHEET_ORDERS_H, groupNumeral(this.sim.groups, sel!.id)));
     const n = orders.length;
     const bw = Math.floor((VW - 8 - SIZE.gap * (n - 1)) / n);
     // one face for the whole row: capitals when every word fits as such, else Inter
