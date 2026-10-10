@@ -12,8 +12,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
 | ai-01 | W3 AI-01: AI doctrines (design/gdd/ai-doctrines.md) | per SPRINTS W3 card | per card | worktree-agent | running |
-| fo-01 | W3 FO-01: face + focus orders (design/gdd/formations-orders.md) | per SPRINTS W3 card | per card | worktree-agent | running |
-| st-02 | W4 ST-02: the one v5 save bump (all train fields, 8-man new campaigns) | per SPRINTS W4 card | per card | worktree-agent | running |
+| fo-01 | W3 FO-01 (done): face, form keeps order under 2 paces, focus fire; balance in docs/v5/balance/FO-01.md | per card | per card | fo-01 | merging + raise sim floors to 2 |
+| st-02b | ST-02b (done): cloud downgrade guard (409 save_version_downgrade) | save-systems, security-audit, tdd | network-programmer, security-engineer | worktree-agent-a7419c997201c09df | merge after FO-01 |
 | art-bible | S2-ART-BIBLE: design/art/art-bible.md, docs/v5/art/ASSET_PIPELINE.md + scripts/art/, ASSET_LIST.md, Gemini templates in ASSET_LOG | art-bible, create-game-assets, asset-spec, asset-audit | art-director, technical-artist | worktree-agent | running |
 
 ## Merged into v5
@@ -33,6 +33,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 4f0f172 merge: ST-01 (frozen v1 sim, SIM_VERSION 2, REPLAYERS, version-paired matches). Gates: tsc, vitest 602, server 215, build, layout 0, smoke 42, duel 53, online 25, online-e2e 34; balance identical to baseline (200 seeds: 54/46, median 85 s).
 - 87df59b merge: LF-01 (B3 numerals, B5 Contact soon, B6 Out of range). Gates: tsc, vitest 611, build, layout 0, smoke 42, tutorial 48, duel 53.
 - 3f89673 merge: ST-03 (train-2 types and zod; balance identical). Gates: tsc, vitest 620, server 243, build, online-smoke 25, duel 53.
+- 94a1b59 merge: ST-02 save v6 + ADR-0002. Gates: tsc, vitest 645, build, layout 0, smoke 42, tutorial 48.
 
 ## Queue (next)
 
@@ -53,6 +54,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 10. RULE: the integrator of the FIRST rule-changing merge (AI-01 or FO-01) raises MIN_SIM_VERSION and SOCKET_MIN_SIM_VERSION to 2 in that merge (V5-033).
 11. Next after these: FO-02 (orb + feint, after FO-01), LF-02 (Beast Trial farm), then W5+ per SPRINTS. F-01, F-02, F-03 and AS-01..04 are blocked on the art-bible merge (asked art-bible for status).
+
+12. ST-02c (PRE-RELEASE): the v6 client prefers the cloud copy when cloud.v ≥ local.v and the campaigns differ (V5-036).
 
 ## Blockers
 

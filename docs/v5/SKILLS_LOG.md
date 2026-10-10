@@ -17,3 +17,6 @@
 | ST-01 | st-01 (network-programmer, lead-programmer) | architecture-decision: ADR-0001 cutover steps; security-audit: rule-shopping risk found (D2); tdd: mutated the frozen copy to prove the gate fires | Sent back once for V5-033 (backward compatibility) |
 | LF-01 | lf-01 (per story) | tdd: one failing test per bug; bug-report: PLAY repro replayed; game-ui-ux: pure HUD rules, 390/360 en+ru; phaser-core: clocks reset in create | OK: 1 shot spot-checked |
 | ST-03 | st-03 (per story) | security-audit: bounded zod, found the orb crash; balance-check: identical before and after; network-programmer: backward-compatible messages | OK |
+| ST-02 | st-02 (per card) | save-systems: refuse newer saves, one migration per version, a fixture per version; architecture-decision: ADR-0002; tdd | OK: found the old-client wipe risk |
+| FO-01 | fo-01 (per card) | tdd through orders and the hash; balance-check: each value vs its GDD target, misses named; team-combat edge cases; values kept in RULES | OK |
+| ST-02b | st-02b | tdd, save-systems, security-audit (atomic guard, bounded v), network-programmer | OK after one clarification |
