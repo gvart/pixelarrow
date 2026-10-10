@@ -91,8 +91,13 @@ describe('battle schema: sim train 2', () => {
     const plain = replayBattle(copy(fx.setup), fx.orders, fx.deployOrders, simVersion).summary;
     const side = fx.orders.find((o) => o.side === 0)!;
     const extra: LoggedOrder[] = [
-      { tick: side.tick, side: 0, order: { kind: 'face', group: 0, fx: 0, fy: 1 } },
-      { tick: side.tick, side: 0, order: { kind: 'focus', group: 0, target: 1 } },
+      // face and focus have rules on sim 2 since FO-01 (server/test/ordersReplay.test.ts); v1 still ignores them.
+      ...(simVersion === 1
+        ? ([
+            { tick: side.tick, side: 0, order: { kind: 'face', group: 0, fx: 0, fy: 1 } },
+            { tick: side.tick, side: 0, order: { kind: 'focus', group: 0, target: 1 } },
+          ] satisfies LoggedOrder[])
+        : []),
       { tick: side.tick, side: 0, order: { kind: 'work', type: 'stakes', x: 3, y: 3, fx: 0, fy: 1 } },
       { tick: side.tick, side: 0, order: { kind: 'unwork', x: 3, y: 3 } },
     ];
