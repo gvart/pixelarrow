@@ -14,13 +14,12 @@ import { BASE_ITEMS, type Item, type Rarity } from '../data/items';
 import type { Hero } from '../data/units';
 import { TRAITS } from '../data/traits';
 import { gearTotal } from '../game/gear';
-import { buildArmy, doctrineFor, type ArmyMix } from '../game/enemy';
+import { buildArmy, type ArmyMix } from '../game/enemy';
 import { grantXp, makeItem, rollBeastRarity, rollRarity, setBotLevel, type IdSource } from '../game/heroes';
 import { randomSite, type BattleSite } from '../world/battlefield';
 import { DEFAULT_FORMATIONS, scopeHero } from '../online/rules';
 import { onlineBattleSetup } from '../online/battle';
 import { DEFAULT_DOCTRINE, type BattleSetup, type DoctrineId } from '../sim/types';
-import type { Culture } from '../data/names';
 import { DUEL_RULES, heroPoints, teamPoints } from './rules';
 import { SETS } from '../data/sets';
 import { CHAPTER_SET, LADDER_NAMED, SOURCES, armyPick, legendaryHoard, pieceDefs, pityChest } from '../game/sources';
@@ -78,13 +77,28 @@ export interface Floor {
 export const CHAPTER_DOCTRINE: readonly DoctrineId[] = ['steady', 'swarm', 'rush', 'hammer', 'fury'];
 
 /**
- * A floor's doctrine (ai-doctrines.md R4): a chapter floor fights its
- * chapter's doctrine; a boss floor fights in its army's own school, the
- * mercenaries' culture rule (greek steady, phoenician hammer, celtic rush).
+ * Floors that do not fight their chapter's doctrine (V5-052: no floor may get
+ * more than 5 pts easier or harder than before doctrines). Each one fought its
+ * chapter doctrine outside that band against its own steady mirror, so it got
+ * the closest doctrine that stays inside it, or steady when none did
+ * (400 seeds, docs/v5/balance/AI-03.md). Re-measure after any sim change.
  */
-export function floorDoctrine(floor: number, culture: Culture): DoctrineId {
-  if (isBoss(floor)) return doctrineFor('mercs', culture);
-  return CHAPTER_DOCTRINE[chapterOf(floor) - 1] ?? DEFAULT_DOCTRINE;
+const FLOOR_DOCTRINE: Readonly<Record<number, DoctrineId>> = {
+  11: 'fury', 12: 'fury', 14: 'steady', 15: 'fury', 18: 'fury', 19: 'rush',
+  24: 'swarm', 25: 'hammer', 26: 'swarm', 29: 'swarm',
+  31: 'steady', 38: 'fury', 39: 'rush',
+  41: 'swarm', 42: 'steady', 44: 'hammer', 45: 'hammer', 46: 'steady', 48: 'steady', 49: 'hammer',
+};
+
+/**
+ * A floor's doctrine (ai-doctrines.md R4): its chapter's doctrine unless
+ * FLOOR_DOCTRINE says otherwise. Boss floors fight steady, not the GDD's
+ * culture rule: a celtic (rush) boss on floor 10 fell from 29% to 15% against
+ * its mirror, outside V5-052's ±5 pts.
+ */
+export function floorDoctrine(floor: number): DoctrineId {
+  if (isBoss(floor)) return DEFAULT_DOCTRINE;
+  return FLOOR_DOCTRINE[floor] ?? CHAPTER_DOCTRINE[chapterOf(floor) - 1] ?? DEFAULT_DOCTRINE;
 }
 
 export function isBoss(floor: number): boolean {
@@ -120,8 +134,7 @@ export function ladderFloor(floor: number): Floor {
   // A full army at the floor's level, fitted to its point target: men leave
   // first (flankers and reserves go before the line), then levels; levels
   // rise (at most two above the floor's) only while under the target.
-  const army = buildArmy(rng, ids, { count: DUEL_RULES.teamMax, level, tier, targetPower: 0, mix, tune: false });
-  const heroes = army.heroes;
+  const heroes = buildArmy(rng, ids, { count: DUEL_RULES.teamMax, level, tier, targetPower: 0, mix, tune: false }).heroes;
   for (const h of heroes) setBotLevel(h, level);
   const minMen = Math.min(DUEL_RULES.teamMax, 3 + Math.floor(f / 6));
   for (let guard = 0; guard < 200; guard++) {
@@ -153,7 +166,7 @@ export function ladderFloor(floor: number): Floor {
     site: randomSite(rng),
     points: teamPoints(heroes),
     reward: floorReward(f),
-    doctrine: floorDoctrine(f, army.culture),
+    doctrine: floorDoctrine(f),
   };
 }
 
@@ -166,6 +179,8 @@ export function ladderFloor(floor: number): Floor {
 export function ladderSetup(seed: number, team: Hero[], formations: FormationType[], floor: Floor): BattleSetup {
   const setup = onlineBattleSetup(seed, { heroes: team, formations, bot: false }, { heroes: floor.heroes, formations: floor.formations, bot: true }, floor.site);
   setup.armies[1].doctrine = floor.doctrine ?? DEFAULT_DOCTRINE;
+  // A ladder floor is a fight to the end: its bot never retreats (V5-052).
+  setup.armies[1].holdField = true;
   return setup;
 }
 

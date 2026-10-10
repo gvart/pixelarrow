@@ -6,7 +6,7 @@ import { ladderFloor, ladderSetup } from '../../src/duel/ladder';
 import { neutralDoctrine, NEUTRAL_MIX } from '../../src/online/neutralDoctrine';
 import { DEFENDERS } from '../../src/online/defenders';
 import { worldBossSites } from '../../src/online/lairs';
-import { replayBattle } from '../src/battle';
+import { replayBattle, VerifyBody } from '../src/battle';
 import { SIM_VERSION } from '../../src/sim/version';
 import { DB, fresh, freeNeighbour, join, must, openDuellist, placeArmy, play, post, shardRow, type Ticket } from './onlineHelpers';
 
@@ -64,14 +64,15 @@ describe('war attacks carry the neutrals’ doctrine (AI-03)', () => {
 describe('ladder tickets carry the floor doctrine (AI-03)', () => {
   beforeEach(fresh);
 
-  it('a chapter-2 floor is fought under swarm, built the same as the client builds it, and verifies', async () => {
+  it('a chapter-2 floor (13) is fought under swarm, built the same as the client builds it, and verifies', async () => {
     const { token, pid } = await openDuellist(97311);
-    await DB().prepare('UPDATE duel_profiles SET ladder_cleared = 10 WHERE player_id = ?1').bind(pid).run();
-    const t = await post<{ ticket: string; setup: BattleSetup; team: Parameters<typeof ladderSetup>[1] }>('/api/duel/ladder/start', token, { floor: 11, simVersion: SIM_VERSION });
+    await DB().prepare('UPDATE duel_profiles SET ladder_cleared = 12 WHERE player_id = ?1').bind(pid).run();
+    const t = await post<{ ticket: string; setup: BattleSetup; team: Parameters<typeof ladderSetup>[1] }>('/api/duel/ladder/start', token, { floor: 13, simVersion: SIM_VERSION });
     expect(t.status).toBe(200);
     expect(t.body.setup.armies[1].doctrine).toBe('swarm');
+    expect(t.body.setup.armies[1].holdField).toBe(true); // V5-052: a ladder floor never retreats
     // the shared builder on the client gives the very same setup from the same seed and team
-    const floor = ladderFloor(11);
+    const floor = ladderFloor(13);
     const mine = ladderSetup(t.body.setup.seed, t.body.team, t.body.setup.armies[0].groups.map((g) => g.formation), floor);
     expect(mine.armies[1]).toEqual(t.body.setup.armies[1]);
     expect(mine.terrain).toEqual(t.body.setup.terrain);
@@ -87,6 +88,7 @@ describe('ladder tickets carry the floor doctrine (AI-03)', () => {
     // as if issued by the pre-AI-03 server to a v1 client: no doctrine field, sim_version 1
     const old = structuredClone(t.body.setup);
     delete old.armies[1].doctrine;
+    delete old.armies[1].holdField;
     await DB().prepare('UPDATE duel_tickets SET sim_version = 1, setup = ?2 WHERE id = ?1').bind(t.body.ticket, JSON.stringify(old)).run();
     const p = play(old);
     const s = replayBattle(structuredClone(old), p.orders as LoggedOrder[], p.deployOrders, 1).summary;
@@ -96,12 +98,29 @@ describe('ladder tickets carry the floor doctrine (AI-03)', () => {
     expect(row).toMatchObject({ status: 'used', sim_version: 1 });
   });
 
+  it('validation keeps holdField (missing = absent, plays like false)', () => {
+    const floor = ladderFloor(15);
+    const setup = ladderSetup(77, ladderFloor(1).heroes, floor.formations, floor);
+    expect(VerifyBody.parse({ setup, orders: [], claim: { winner: 0, ticks: 1 } }).setup.armies[1].holdField).toBe(true);
+    const bad = structuredClone(setup) as unknown as { armies: { holdField?: unknown }[] };
+    bad.armies[1].holdField = 'yes';
+    expect(VerifyBody.safeParse({ setup: bad, orders: [], claim: { winner: 0, ticks: 1 } }).success).toBe(false);
+  });
+
+  it('v2 replays a holdField ladder setup to the hash of a local run', () => {
+    const floor = ladderFloor(35); // hammer
+    const setup = ladderSetup(4243, ladderFloor(1).heroes, floor.formations, floor);
+    const p = play(setup);
+    expect(replayBattle(structuredClone(setup), p.orders as LoggedOrder[], p.deployOrders, SIM_VERSION).summary.hash).toBe(p.claim.hash);
+  });
+
   it('the frozen v1 sim replays a ladder setup the same with or without the doctrine', () => {
-    const floor = ladderFloor(41); // fury
+    const floor = ladderFloor(43); // fury
     const setup = ladderSetup(4242, ladderFloor(1).heroes, floor.formations, floor);
     expect(setup.armies[1].doctrine).toBe('fury');
     const bare = structuredClone(setup);
     delete bare.armies[1].doctrine;
+    delete bare.armies[1].holdField;
     const p = play(bare);
     const a = replayBattle(structuredClone(setup), p.orders as LoggedOrder[], p.deployOrders, 1).summary;
     const b = replayBattle(structuredClone(bare), p.orders as LoggedOrder[], p.deployOrders, 1).summary;
