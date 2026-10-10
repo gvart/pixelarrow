@@ -76,6 +76,12 @@ export interface CombatStats {
   missileWard?: number;
   /** Accuracy enemy missiles lose against the wearer (the Helm of Hades). */
   shroud?: number;
+  /**
+   * May carry the army's standard (abilities.md R5): the `standard_bearer`
+   * perk, or a band captain (ai-doctrines.md R6). The battle picks one bearer
+   * per side. Missing = no.
+   */
+  standard?: boolean;
 }
 
 /**
@@ -93,9 +99,9 @@ export function isCaptain(hero: object): boolean {
 
 /**
  * What a captain gets on top of his level and gear (world.ts bandCaptain):
- * the nerve of the man who holds the band together. His standard (aura,
- * Raise, banner loss: abilities.md R5) is a sim rule that comes with AB-03,
- * which reads `UnitSpec.captain`. Steady Presence as a stand-in was tried and
+ * the nerve of the man who holds the band together. He also carries the
+ * band's standard (`CombatStats.standard`; the aura, Raise and banner loss of
+ * abilities.md R5 are sim rules in src/sim/battle.ts). Steady Presence as a stand-in was tried and
  * made a captain worth +23 points against the +5..+10 target
  * (docs/v5/balance/AI-02.md).
  */
@@ -300,10 +306,14 @@ export function computeStats(hero: Hero): CombatStats {
     if (p.bloodlust) s.bloodlust = true;
     if (p.pursuit) pursuit += p.pursuit;
     if (p.scythe) scythe += p.scythe;
+    if (p.standard || id === 'standard_bearer') s.standard = true;
   }
   if (pursuit) s.pursuit = pursuit;
   if (scythe) s.scythe = scythe;
-  if (isCaptain(hero)) s.morale += CAPTAIN_STATS.morale;
+  if (isCaptain(hero)) {
+    s.morale += CAPTAIN_STATS.morale;
+    s.standard = true;
+  }
   // Attributes: each point away from ATTR_BASE shifts the derived stats.
   const a = hero.attrs ?? defaultAttrs();
   const E = ATTR_EFFECT;
