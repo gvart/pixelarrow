@@ -1,0 +1,49 @@
+src/scenes/duel/DuelScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 333,2755
+tests/sceneStart.test.ts
+  s_697bdc25a7c420::t_6f0fc5333af8d3 1-52
+src/scenes/MenuScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 167,171
+src/scenes/ResultsScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 108,715
+src/scenes/FirstRunScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 57,255
+src/scenes/WorldScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 1028,1292
+src/ui/mosaic/hub.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 17,20
+src/scenes/online/OnlineScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 307
+src/scenes/CampScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 178,198,1001
+src/scenes/SettlementScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 61,151
+src/main.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 95
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 1322,1354
+src/scenes/ArmyScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 120
+src/ui/settings.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 231
+src/scenes/BeastTrialScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 38,95
+src/scenes/KitScene.ts
+  s_697bdc25a7c420::t_023a4306bbabf4 39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "920b0611a7a74a7f96c8da70ae4fe19711189ae3",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
