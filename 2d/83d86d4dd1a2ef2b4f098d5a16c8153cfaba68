@@ -1,0 +1,23 @@
+design/ux/ia.md
+  s_697bdc25a7c420::t_117b702ac7f341 64,118,126
+  s_697bdc25a7c420::t_70a94ebbdac690 1-63,65-117,119-125,127-129
+docs/v5/ux/ANSWERS.md
+  s_697bdc25a7c420::t_bbad60aaec2a6e 1-62,64-89
+  s_697bdc25a7c420::t_117b702ac7f341 63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2d83d86d4dd1a2ef2b4f098d5a16c8153cfaba68",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
