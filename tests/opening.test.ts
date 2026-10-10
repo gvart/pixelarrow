@@ -89,7 +89,7 @@ describe('old saves keep their army (V5-020)', () => {
 
 describe('bandits near the start (R1.3)', () => {
   it(`bandit bands are at least BANDIT_MIN (${BANDIT_MIN}) strong`, () => {
-    expect(BANDIT_MIN).toBe(5);
+    expect(BANDIT_MIN).toBe(6); // the top of the GDD range 3-6 (docs/v5/balance/AR-01.md)
     let bandits = 0;
     for (let seed = 1; seed <= 12; seed++) {
       const w = new World(World.fresh(seed));

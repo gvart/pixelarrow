@@ -183,8 +183,8 @@ export const WORLD_RULES = {
   healGoldPerHour: 1,
 };
 
-/** The smallest bandit band (campaign-arc.md R1.3): sized for the 8-man opening. */
-export const BANDIT_MIN = 5;
+/** The smallest bandit band (campaign-arc.md R1.3; GDD default 5, range 3-6): 6 puts the 8-man opening at 55-70% against the Even plate (docs/v5/balance/AR-01.md). */
+export const BANDIT_MIN = 6;
 
 /**
  * Volunteers (campaign-arc.md R1.4, R1.5). A destroyed army gets `destroyed`
