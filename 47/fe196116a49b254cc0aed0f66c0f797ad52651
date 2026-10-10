@@ -1,0 +1,23 @@
+src/scenes/ResultsScene.ts
+  s_697bdc25a7c420::t_a6d14118235010 31,90-91,100,137-146,223,503-505,726-728
+src/i18n/beasts.en.ts
+  s_697bdc25a7c420::t_55c9b54b49e711 53,57-58
+src/i18n/beasts.ru.ts
+  s_697bdc25a7c420::t_55c9b54b49e711 49,53-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "47fe196116a49b254cc0aed0f66c0f797ad52651",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
