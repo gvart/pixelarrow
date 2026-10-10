@@ -14,6 +14,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 | f-02 | W2 F-02: kit controls, enabled never grey, tab bar casing, F-01 AC4 layout half | per card | per card | worktree-agent | running |
 | ab-02 | W8 AB-02: 7 signature actives, perk strengths (owns the mirror target), re-measure ladder | per card | per card | worktree-agent | running |
 | ct-03 | W8 CT-03: undo (3 s battle, 10-step deploy), online-safe | per card | per card | worktree-agent | running |
+| assets-3 | AS-02 finish: the 9 remaining busts (Chrome owner) | create-game-assets, asset-audit, chrome-browser | art-director, technical-artist | worktree-agent | running |
 | ar-01 | W8 AR-01: 8-man opening, existing saves unchanged, smoke hero count | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -79,7 +80,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 ## Blockers
 
-- **Chrome blocks further downloads from gemini.google.com** (likely the per-site 'automatic downloads' setting) after 14 files. Needs the USER to allow automatic downloads for gemini.google.com in Chrome (a browser setting; agents must not change it). Until then the Gemini queue is paused: 9 busts (fanatic, companion, thessalian, chariot, royal_guard, sacred_band, wolf, boar, bear) and AS-03+ icons/frescoes. Code stories continue.
+- (resolved 2026-10-10: the user allowed automatic downloads for gemini.google.com; the assets queue resumed with assets-3)
 
 ## Cleanup pending
 
