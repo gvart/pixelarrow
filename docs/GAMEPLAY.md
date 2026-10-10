@@ -127,7 +127,7 @@ invariants in [ROADMAP.md](ROADMAP.md).
 - **Permadeath:** heroes killed in battle are removed with their gear.
   Recruits are hired in villages and towns (see above).
 - **Abandoned battles** (V5-011, `src/game/campaignBattle.ts`): a campaign
-  battle (a band, a beast trial or a skirmish; not online duels or war) stands
+  battle (a band or a skirmish; not a Beast Trial, online duels or war) stands
   from the moment you press Fight. The save records it then (the enemy, the
   field, the men who marched in and the deployment orders). If the app closes
   before the battle ends, the next launch fights it out with the orders you
@@ -574,6 +574,32 @@ XP per survivor: 12 + 10 per kill (+12 for a win), modified by XP bonuses;
 knocked-out heroes get half. The results screen animates every survivor's XP
 bar; a level-up flashes the bar, pops the level and a "Level up!" stamp and
 throws confetti.
+
+## Beast Trial (practice)
+
+`src/scenes/BeastTrialScene.ts`, `src/game/campaignBattle.ts` (`trialBattle`),
+design: `design/gdd/practice-fight.md` (LF-02, V5-011). From the Codex, tap a
+beast, then *Fight it*: the campaign army fights that beast at the level the
+Codex shows (the army's average +1, a world boss +3), on the beast's own
+field (the Kraken on a beach, the Cyclops and the Titan in hills), with a
+fresh seed each time.
+
+A Trial fight is **practice**: it changes nothing in the campaign.
+
+- No spoils: the beast carries no hoard, so there is nothing to loot; no gold;
+  the beast hoard pity counter does not move.
+- No losses: nobody dies or is wounded, nobody gains XP or levels, gear does
+  not wear; the battle and win counters do not move.
+- It is never saved as a battle in progress: closing the app mid-fight just
+  ends it.
+- Results show the fight as it went (time, kills, who fell) under
+  "Practice: no spoils", with 0 gold and 0 XP; *Onward* returns to the beast's
+  sheet.
+
+Beast hoards (rare, epic and legendary gear, the named items and pity) come
+only from real fights: overland beast bands and online lairs and world bosses.
+Before v5 the Trial paid them out with no cost or risk (35 legendaries per 100
+won Trials; `docs/v5/balance/LF-02.md`).
 
 ## Saves
 
