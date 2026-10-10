@@ -1,6 +1,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { expect } from 'vitest';
 import { Battle } from '../../src/sim/battle';
+import { SIM_VERSION } from '../../src/sim/version';
 import type { BattleSetup, Order } from '../../src/sim/types';
 import { getMap, WorldGraph } from '../../src/online/world';
 import { rleEncode } from '../../src/online/mapSchema';
@@ -228,9 +229,13 @@ export function wsOnline(token: string): Promise<WsClient> {
  * A socket on any /ws/* path (a region, the shard, the duel queue, a duel
  * match). The session token goes in the Sec-WebSocket-Protocol header
  * (`auth: 'protocol'`, the default) or in `?token=` (`auth: 'query'`).
+ * Like the real client it sends `?sim=SIM_VERSION`; `sim: null` sends none
+ * (a client from before versioning).
  */
-export async function wsPath(token: string, path: string, opts: { auth?: 'protocol' | 'query' } = {}): Promise<WsClient> {
+export async function wsPath(token: string, path: string, opts: { auth?: 'protocol' | 'query'; sim?: number | null } = {}): Promise<WsClient> {
   const headers: Record<string, string> = { upgrade: 'websocket' };
+  const sim = opts.sim === undefined ? SIM_VERSION : opts.sim;
+  if (sim !== null && !/[?&]sim=/.test(path)) path += `${path.includes('?') ? '&' : '?'}sim=${sim}`;
   let url = `${BASE}${path}`;
   if (opts.auth === 'query') url += `${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
   else headers['sec-websocket-protocol'] = `pixelarrow.v1, ${token}`;

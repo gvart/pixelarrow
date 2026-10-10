@@ -7,6 +7,7 @@
 import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Battle } from '../../src/sim/battle';
+import { SIM_VERSION } from '../../src/sim/version';
 import type { BattleSetup } from '../../src/sim/types';
 import { Lockstep } from '../../src/online/lockstep';
 import type { DuelStart, ServerMsg } from '../../src/online/protocol';
@@ -284,7 +285,7 @@ describe('a ranked match (DuelDO)', () => {
     const b = await duellist(980402, { level5: true });
     const c = await duellist(980403);
     const match = await matched(a, b);
-    const res = await (await import('cloudflare:test')).SELF.fetch(`https://test.pixelarrow.local/ws/duel/${match}`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${c.token}` } });
+    const res = await (await import('cloudflare:test')).SELF.fetch(`https://test.pixelarrow.local/ws/duel/${match}?sim=${SIM_VERSION}`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${c.token}` } });
     expect(res.status).toBe(403);
     // neither connects: past the join window the match is void, both abandoned, nobody rated
     await runInDurableObject(duelStub(match), (i: DuelDO) => {
