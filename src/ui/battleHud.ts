@@ -608,8 +608,9 @@ export function orderKeyWidths(labels: readonly string[], total: number, gap: nu
   const room = total - gap * (n - 1);
   const need = labels.map((l) => Math.max(KEY_MIN_W, measureText(l, true, size) + 4));
   const even = Math.floor(room / n);
-  if (need.every((w) => w <= even)) return labels.map(() => even);
-  const spare = Math.max(0, room - need.reduce((a, w) => a + w, 0));
+  const spare = room - need.reduce((a, w) => a + w, 0);
+  // every word fits an equal share, or not even the bare widths fit the bar (then KeyButton shortens)
+  if (need.every((w) => w <= even) || spare < 0) return labels.map(() => even);
   const each = Math.floor(spare / n);
   let rest = spare - each * n;
   return need.map((w) => w + each + (rest-- > 0 ? 1 : 0));

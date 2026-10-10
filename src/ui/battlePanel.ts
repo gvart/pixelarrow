@@ -366,6 +366,8 @@ export interface GroupCardInfo {
   portrait: DollSpec | null;
   selected: boolean;
   routed: boolean;
+  /** Its missiles focus on an enemy group: a reticle on the card (controls.md R3.2; A11Y-04). */
+  focus?: boolean;
 }
 
 /**
@@ -428,7 +430,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
 
   setInfo(i: GroupCardInfo): this {
     this.info = i;
-    const key = [i.numeral, i.men, i.orderIcon, i.portrait ? dollKey(i.portrait) : '', i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort].join('|');
+    const key = [i.numeral, i.men, i.orderIcon, i.portrait ? dollKey(i.portrait) : '', i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort, !!i.focus].join('|');
     if (key !== this.key) {
       this.key = key;
       this.rebuild();
@@ -497,7 +499,9 @@ export class GroupCard extends Phaser.GameObjects.Container {
       // over "7 ADVANCING", each line the longest form that fits whole
       // ("II SKIRM." / "7 ADV" / "II" / "7"): never an ellipsis
       const tw = room - (i.orderIcon ? 13 : 0);
-      if (i.orderIcon) this.add(addIcon(s, this.w - 14, 1, i.orderIcon, light ? 'L' : i.routed || i.men === 0 ? 'D' : ''));
+      // a focus shows its reticle where the order icon goes (the order is in words on the line below)
+      if (i.focus) this.add(reticle(s, this.w - 8, 7, 4.5));
+      else if (i.orderIcon) this.add(addIcon(s, this.w - 14, 1, i.orderIcon, light ? 'L' : i.routed || i.men === 0 ? 'D' : ''));
       text(x, 2, firstFit([`${i.numeral} ${i.name}`, i.shortName && `${i.numeral} ${i.shortName}`, i.numeral], tw, false, 'roman'), fontA, 0, tw);
       text(x, 11, firstFit([i.orderWord && `${i.men} ${i.orderWord}`, i.orderShort && `${i.men} ${i.orderShort}`, `${i.men}`], tw, SHADOW_FONTS.has(fontB)), fontB, 0, tw);
     } else if (x > 3) {
@@ -546,7 +550,10 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const nx = cx + r + 2;
     const tw = this.w - x - 3;
     const head = 5.6;
-    const name = addText(s, nx, 2.5, ellipsize(caps(i.name ?? i.numeral), tw - (nx - x), false, head, 'roman'), i.men === 0 || i.routed ? 'pOff' : 'rInk', 0).setFontSize(head);
+    // a focus: its reticle in the top right corner, the name keeps clear of it
+    if (i.focus) this.add(reticle(s, this.w - 8, 7, 4.5));
+    const nameW = tw - (nx - x) - (i.focus ? 12 : 0);
+    const name = addText(s, nx, 2.5, ellipsize(caps(i.name ?? i.numeral), nameW, false, head, 'roman'), i.men === 0 || i.routed ? 'pOff' : 'rInk', 0).setFontSize(head);
     uiFrame(name, this, this.w, this.h);
     const subSize = 5.5;
     const sub = firstFit([i.orderWord && `${t('strat.men', { n: i.men })} · ${i.orderWord}`, i.orderShort && `${i.men} · ${i.orderShort}`, `${i.men}`], tw / (subSize / 7), false);
@@ -591,6 +598,29 @@ export class GroupCard extends Phaser.GameObjects.Container {
     bar(this.h - 8, i.hp, MOSAIC.terra);
     bar(this.h - 5, i.morale, i.routed ? MOSAIC.inkDisabled : MOSAIC.teal);
   }
+}
+
+/**
+ * The focus reticle (controls.md R3.2): a ring with four ticks across it, in
+ * gold over a dark ink outline, so it reads on parchment and on the lightest
+ * and darkest ground alike (A11Y-03), and as a shape, not a colour (A11Y-04).
+ * `w`: the gold line's width.
+ */
+export function strokeReticle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, w = 1): void {
+  const pass = (lw: number, color: number) => {
+    g.lineStyle(lw, color, 1);
+    g.strokeCircle(cx, cy, r);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) g.lineBetween(cx + dx * r * 0.45, cy + dy * r * 0.45, cx + dx * r * 1.45, cy + dy * r * 1.45);
+  };
+  pass(w * 2.4, MOSAIC.ink);
+  pass(w, MOSAIC.meanderHi);
+}
+
+/** The focus reticle as its own object (a group card's corner). */
+export function reticle(scene: Phaser.Scene, cx: number, cy: number, r: number): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics();
+  strokeReticle(g, cx, cy, r * 0.8, 0.9);
+  return g;
 }
 
 /** The colour of a man fighting alone ('*'), who has no group colour: neutral stone. */
