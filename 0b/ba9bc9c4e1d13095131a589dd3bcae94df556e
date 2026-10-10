@@ -1,0 +1,24 @@
+src/dev/classBalance.ts
+  s_697bdc25a7c420::t_afaa95e1c48dc0 149-279
+  s_697bdc25a7c420::t_ce8c021d391bd2 70,75
+  s_697bdc25a7c420::t_03a8b76a6648b7 357
+  s_697bdc25a7c420::t_5ff922c430d701 86,89-94
+  s_697bdc25a7c420::t_55cbaa9fabd55a 15-17,20,22
+  s_697bdc25a7c420::t_8f2f3e229e050c 50-51,54-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0bba9bc9c4e1d13095131a589dd3bcae94df556e",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
