@@ -14,17 +14,24 @@ const errors = captureErrors(page);
 // Under load (many agents, CI) the game runs at a few frames a second: every step waits on a state
 // with a generous deadline, never on a fixed sleep (a screen still building, a scene not started yet).
 const { ev, wait, touch, tap, swipe, pinch, active, until, btn, tapBtn } = makePageApi(page, { tapWait: 150, step: 250, btnIndex: -1, btnWaitMs: 15000 });
+/** A check the steps after it build on (a screen open, a battle running): on a FAIL the run stops here, named, instead of failing on in a wrong state (it crashed in openStashItem with no Hero screen open). */
+async function need(name, ok, detail = '') {
+  check(name, ok, detail);
+  if (ok) return;
+  console.log(`ABORT after "${name}": the remaining steps depend on it`);
+  await finish({ browser });
+}
 
 await page.goto(base);
 await ev(() => localStorage.clear());
 await page.goto(base);
 // boot is slow under load: wait for the game object and its menu (a fixed 2.5 s sleep failed, unnamed, on window.__rs())
-check('menu active', await until(() => ev(() => !!window.__game?.scene.isActive('Menu')), 60000));
+await need('menu active', await until(() => ev(() => !!window.__game?.scene.isActive('Menu')), 60000));
 const RS = await ev(() => window.__rs());
 
 // ---- new campaign
 await tapBtn('Menu', { label: 'Begin the march' });
-check('world map via Begin the march', await until(() => active('World'), 30000));
+await need('world map via Begin the march', await until(() => active('World'), 30000));
 const start = await ev(() => {
   const c = window.__state.campaign;
   return { heroes: c.data.heroes.length, gold: c.data.gold, x: c.world.s.x, y: c.world.s.y, t: c.world.s.time };
@@ -102,16 +109,23 @@ async function ambush(melee = false) {
       p.kind = 'raiders';
       p.culture = 'celtic';
     }
+    // Only the staged band may attack. The starter zone (AR-01, World.spawnStarterBands) puts 2-3
+    // small bands 5-11 tiles from the starting town, where this staging happens, at a seed-dependent
+    // spot: one often stood 1-3 tiles off, and when it reached contact first (World.checkContact
+    // takes the first band in reach) the encounter, and then the battle, was against it, not the
+    // staged band ("battle against the band" failed). A band with idle time neither moves nor attacks.
+    for (const q of w.s.parties) if (q !== p) q.idle = 1e9;
   }, melee);
   await tapBtn('World', { label: 'Camp' });
   // game time runs slower than the wall clock when frames are slow (software GL on CI runners)
   return until(() => ev(() => !!window.__game.scene.getScene('World').dialog), 60000);
 }
-check('band attacks: encounter dialog', await ambush());
+await need('band attacks: encounter dialog', await ambush());
 const bandId = await ev(() => window.__state.campaign.world.s.parties[0].id);
 await tapBtn('World', { label: 'Attack' });
-check('Attack opens the deployment', await until(() => active('Battle'), 30000));
-check('battle against the band', await ev(() => window.__state.pending && window.__state.pending.partyId) === bandId);
+await need('Attack opens the deployment', await until(() => active('Battle'), 30000));
+const fought = await ev(() => window.__state.pending?.partyId);
+check('battle against the band', fought === bandId, JSON.stringify({ bandId, fought }));
 
 // ---- touch controls in deployment (field coords projected through the battle camera)
 check('one-time controls hint on the first deployment', await until(() => ev(() => !!window.__game.scene.getScene('Battle').hint), 15000));
@@ -256,7 +270,7 @@ const z1 = await ev(() => window.__game.scene.getScene('Battle').cameras.main.zo
 check('pinch zoom', z1 > z0, `${z0} -> ${z1}`);
 
 await tapBtn('Battle', { id: 'battle.fight' });
-check('battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
+await need('battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
 // fast-forward: the band is worn out (test staging), the sim runs to the end.
 // The player's few men are made unbreakable too: they only hold their ground,
 // and a big band could otherwise wear down their nerve (not their hit points)
@@ -279,7 +293,7 @@ const ff = await ev(() => {
   }
   return { winner: s.sim.winner, tick: s.sim.tick, retreated: s.sim.retreated };
 });
-check('results screen', await until(() => active('Results'), 60000), JSON.stringify(ff));
+await need('results screen', await until(() => active('Results'), 60000), JSON.stringify(ff));
 // the report is built after the scene starts: wait for it rather than a fixed 1.5 s (it threw on an undefined report)
 await until(() => ev(() => !!window.__game.scene.getScene('Results').report), 20000);
 check('report: victory banner and count-up tiles', await ev(() => { const s = window.__game.scene.getScene('Results'); return s.report?.result === 'victory' && s.report.kills > 0; }));
@@ -290,7 +304,7 @@ if (await btn('Results', { icon: 'chest' })) {
   check('report: spoils page with loot cards', await until(() => ev(() => { const s = window.__game.scene.getScene('Results'); return s.page === 'spoils' && s.revealed.size > 0; }), 15000));
 }
 await tapBtn('Results', { icon: 'check' });
-check('back on the map after the battle', await until(() => active('World'), 30000));
+await need('back on the map after the battle', await until(() => active('World'), 30000));
 const gone = await ev((id) => ({ gone: !window.__state.campaign.world.party(id), victory: window.__state.last?.outcome?.victory, parties: window.__state.campaign.world.s.parties.map((p) => p.id) }), bandId);
 check('defeated band is gone', gone.gone, JSON.stringify({ bandId, ...gone }));
 
@@ -328,7 +342,7 @@ const vpos = await ev((id) => {
   return window.__css(((v.x * 8 + 4) - cam.worldView.x) * cam.zoom, (v.y * 8 - cam.worldView.y) * cam.zoom);
 }, village.id);
 await tap(vpos[0], vpos[1]);
-check('entered the village', await until(() => active('Settlement'), 30000));
+await need('entered the village', await until(() => active('Settlement'), 30000));
 await wait(400);
 const before = await ev(() => ({ n: window.__state.campaign.data.heroes.length, gold: window.__state.campaign.data.gold }));
 await tapBtn('Settlement', { icon: 'coin', index: 0 });
@@ -344,9 +358,9 @@ await ev(() => {
   h.wound = 0; // make sure he fights in the next battle
 });
 await tapBtn('Settlement', { label: 'Army' });
-check('army screen', await until(() => active('Army'), 15000));
+await need('army screen', await until(() => active('Army'), 15000));
 await tapBtn('Army', { label: 'Sheet' });
-check('hero screen', await until(() => active('Hero'), 15000));
+await need('hero screen', await until(() => active('Hero'), 15000));
 const hero0 = await ev(() => { const h = window.__state.campaign.data.heroes[0]; return { str: h.attrs.str, id: h.id }; });
 await tapBtn('Hero', { label: '+', index: 0 });
 await tapBtn('Hero', { label: 'Confirm' });
@@ -390,14 +404,14 @@ await wait(400);
 await tapBtn('Army', { label: 'Town' });
 await wait(400);
 await tapBtn('Settlement', { label: 'Leave' });
-check('left the village', await until(() => active('World'), 15000));
-check('second encounter', await ambush(true));
+await need('left the village', await until(() => active('World'), 15000));
+await need('second encounter', await ambush(true));
 await tapBtn('World', { label: 'Attack' });
 // the staging below steps the sim only in the 'battle' phase: unchecked 5 s waits here let it run in deployment
 // under load (no steps, no contact), which failed "shield basher in contact" and then "ability used"
-check('second deployment', await until(() => active('Battle'), 30000));
+await need('second deployment', await until(() => active('Battle'), 30000));
 await tapBtn('Battle', { id: 'battle.fight' });
-check('second battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
+await need('second battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
 // run until the shield-basher has a man in front of him, then pause and select him
 const ready = await ev((hid) => {
   const s = window.__game.scene.getScene('Battle');
