@@ -105,7 +105,7 @@ export class MenuScene extends BaseScene {
 
     // What happened to the save at boot (V5-011), once.
     if (state.notice) {
-      toast(this, t(state.notice), state.notice === 'battle.abandoned' ? 'info' : 'bad', 7000);
+      toast(this, t(state.notice), state.notice === 'battle.abandoned' || state.notice === 'save.replaced' ? 'info' : 'bad', 7000);
       state.notice = null;
     }
 

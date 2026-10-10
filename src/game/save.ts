@@ -106,6 +106,25 @@ export interface SaveData {
    * version bump: optional). The next boot fights it out (src/game/campaignBattle.ts).
    */
   battle?: BattleMarker;
+  /**
+   * Which campaign this is (ST-02c, V5-036; optional, no version bump). New
+   * campaigns get it at creation, a save without one gets it on its next save;
+   * until then campaignIdOf derives the same value from the map seed, so two
+   * devices holding one legacy campaign agree on it.
+   */
+  campaignId?: string;
+  /** The campaign this one replaced ("New campaign"): its successor may overwrite it in the cloud. */
+  prevCampaignId?: string;
+}
+
+/** The id of the campaign whose map grows from `worldSeed` (a crypto-random seed per campaign, never changed). */
+export function campaignIdFor(worldSeed: number): string {
+  return `w${(worldSeed >>> 0).toString(36)}`;
+}
+
+/** Which campaign a save belongs to: its stored id, else the one its map seed gives. */
+export function campaignIdOf(s: SaveData): string {
+  return s.campaignId ?? campaignIdFor(s.world.seed);
 }
 
 type Migration = (d: Record<string, unknown>) => Record<string, unknown>;
@@ -230,6 +249,7 @@ function validate(d: Record<string, unknown>): LoadFailure | null {
   if (typeof d.seq !== 'number' || !Number.isFinite(d.seq)) delete d.seq;
   if (typeof d.savedAt !== 'number' || !Number.isFinite(d.savedAt)) delete d.savedAt;
   if (d.battle !== undefined && !validMarker(d.battle)) delete d.battle;
+  for (const k of ['campaignId', 'prevCampaignId']) if (d[k] !== undefined && typeof d[k] !== 'string') delete d[k];
   return null;
 }
 
@@ -435,6 +455,38 @@ export async function backupRaw(kv: KV, raw: string, reason: LoadFailure, at = D
   for (let i = 0; i < parts.length; i++) await kv.set(CORRUPT_PART(i), parts[i]);
   await kv.set(CORRUPT_META, JSON.stringify({ n: parts.length, at, reason }));
   return true;
+}
+
+/** Where the local campaign is kept when the cloud's different campaign replaces it at boot (ST-02c). */
+const REPLACED_META = 'px_replaced';
+const REPLACED_PART = (i: number) => `px_replaced_${i}`;
+
+/** Keeps a campaign that is about to be replaced; the latest one replaced is kept. */
+export async function keepReplaced(kv: KV, s: SaveData, at = Date.now()): Promise<void> {
+  const parts = chunk(serialize(s));
+  let old = 0;
+  try {
+    old = (JSON.parse((await kv.get(REPLACED_META)) ?? '{}') as { n?: number }).n ?? 0;
+  } catch {
+    /* an unreadable record: overwritten below */
+  }
+  for (let i = 0; i < parts.length; i++) await kv.set(REPLACED_PART(i), parts[i]);
+  await kv.set(REPLACED_META, JSON.stringify({ n: parts.length, at }));
+  for (let i = parts.length; i < old; i++) await kv.remove(REPLACED_PART(i));
+}
+
+/** The campaign kept by keepReplaced (null if none). */
+export async function readReplaced(kv: KV): Promise<{ at: number; data: SaveData } | null> {
+  try {
+    const m = JSON.parse((await kv.get(REPLACED_META)) ?? 'null') as { n: number; at: number } | null;
+    if (!m) return null;
+    const parts: (string | null)[] = [];
+    for (let i = 0; i < m.n; i++) parts.push(await kv.get(REPLACED_PART(i)));
+    const data = deserialize(unchunk(parts));
+    return data ? { at: m.at, data } : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function clearSave(kv: KV): Promise<void> {

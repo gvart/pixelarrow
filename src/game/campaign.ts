@@ -11,7 +11,7 @@ import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/
 import { Rng } from '../sim/rng';
 import { grantXp, makeHero, makeItem, starterParty } from './heroes';
 import { dedupeNames } from '../data/names';
-import { DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
+import { campaignIdFor, DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
 import { armyPower, type EnemyArmy } from './enemy';
 import type { Outcome } from './loot';
 import { World, WORLD_RULES, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
@@ -54,6 +54,7 @@ export class Campaign {
       settings: { ...DEFAULT_SETTINGS },
       world: World.fresh((seed ^ 0x7f4a7c15) >>> 0 || 1),
     };
+    data.campaignId = campaignIdFor(data.world.seed);
     return new Campaign(data);
   }
 
