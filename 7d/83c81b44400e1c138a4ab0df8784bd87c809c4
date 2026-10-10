@@ -1,0 +1,23 @@
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_edce90b9ade4f1 523,563-564,1541
+src/ui/battleCamera.ts
+  s_697bdc25a7c420::t_edce90b9ade4f1 21-27,80,84,86
+tests/camera.test.ts
+  s_697bdc25a7c420::t_edce90b9ade4f1 13,15-19,28,45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7d83c81b44400e1c138a4ab0df8784bd87c809c4",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
