@@ -4,9 +4,61 @@ Owner: the `assets` agent (the only agent that touches Chrome). Other stories ad
 
 ## Queue
 
-(empty: AS-01 moved to Done. Next: AS-02 busts.)
+### AS-02 remainder: 9 class busts (blocked 2026-10-10)
+
+Not made yet: ART-024 fanatic, ART-025 companion, ART-026 thessalian, ART-027 chariot, ART-028 royal_guard, ART-029 sacred_band, ART-030 wolf, ART-031 boar, ART-032 bear. The fanatic was generated and looked right, but its file could not be saved (see "Limit hit" under AS-02 in Done). Resume in the same way, with the same seed attached and the subjects listed in the AS-02 entry. The 3 Nikias portraits named in the story row were not in this run's brief, so they are not queued here.
 
 ## Done
+
+### AS-02 Class busts, first 12 of 21 (2026-10-10)
+
+**Tool.** gemini.google.com, model "Gemini 3.1 Pro", in one chat. Each prompt was typed as "Create an image…" with no tool picker. Every output is a 2048x2048 JPEG.
+
+**Raws.** Per V5-049 the raws are not in this branch. They are in `/Users/v.gladis/Workspace/Personal/pixelarrow/.claude/worktrees/sd-69ad2c/docs/v5/gemini/AS-02/`, which is gitignored and never deleted. They were briefly committed here, then removed with `git rm --cached`. **Processed** (`process.mjs`, kind painted, cover at anchor 0.5/0.25, area downscale to 288x288, opaque): `docs/v5/gemini/AS-02/processed/bust_<class>.png`, 12 files, 1.9 MB. These are copies of `docs/v5/art/staging/`, which is ignored. **Contact sheet:** `docs/v5/art/AS-02-contact.jpg` (146 KB). It shows each bust at 192, 40 and 21 px beside the game's own sprite from `preview.html`.
+
+**Family seed.** Following the ASSET_LOG Templates, `bust_hoplite` was made first from T-STYLE + T-BUST. The prompt added "It shows a CLASS of soldier (a type), not a named hero" (V5-045) and "eyes looking toward the viewer's left". It was approved, and a 1024 px copy was then attached to **every** later prompt as the style reference.
+
+**Family prompt (F + SUBJECT + G).** It is T-STYLE + T-BUST in condensed form, with the reference sentence from Templates added:
+
+```
+Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject. It is one of a matching set of soldier-CLASS portraits for a mobile strategy game (a type of soldier, not a named hero). STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white. Light from the upper left, shadows to the lower right. Hand-painted illustration, not a photo, not a 3D render. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, borders or frames, modern objects, extra limbs, duplicated figures, cropped heads. SUBJECT: {SUBJECT}. FRAMING (same as the reference): head and shoulders, front three-quarter view, turned slightly to the viewer's left, eyes on the upper third of the image, the top of the headgear or hair 6 to 10 percent below the top edge, shoulders cut by the bottom edge, the whole face and headgear inside the central circle; the headgear silhouette and the one listed prop are the clearest, most contrasting shapes. BACKGROUND: the same plain dark warm umber with a soft lighter glow behind the head, no scenery. EXPRESSION: composed, alert, mouth closed, eyes toward the viewer's left. ASPECT: square 1:1, highest resolution available.
+```
+
+**Subjects follow the game kit (`src/data/classes.ts`) where the art bible §5.2 or the manifest disagree** (story AC 1: "matches its class kit in the game sprite"). Each was checked against the class's sprite in `preview.html?s=6`. Deviations from the bible's table:
+- **thureophoros:** the kit has pilos/montefortino, not Boeotian. Painted as a conical bronze pilos, which is also distinct from the Celt's Montefortino.
+- **sacred_band:** the kit and sprite show a Corinthian helmet with a black crest, a blue cloak and a blue aspis with a gold club, not a Boeotian helmet.
+- **royal_guard:** the kit is an Attic helmet and the sprite has a red crest. The bible's white plumes are kept as an extra.
+- **thessalian:** the kit is a Boeotian helmet. The bible's petasos is kept: the brim reads the same and it stays distinct from the Companion.
+
+These last three are queued, not made. The bible's "no two classes share a headgear silhouette" rule cannot fully hold for hoplite and sacred_band, which are both Corinthian in the kit. The plan is to tell them apart by crest colour and cloak (red and red, against black and blue). The art-director should decide whether §5.2 follows the kit.
+
+| # | ART | Raw (v5 worktree) | SUBJECT | Verdict | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 013 | `ART-013_bust_hoplite_1.jpg` | T-STYLE + T-BUST: a Spartan hoplite, bronze Corinthian helmet with a tall red transverse horsehair crest, red cloak, the bronze rim of a round aspis shield at the shoulder | **Accepted (seed)** | The crest is drawn front-to-back rather than transverse, but it reads red at 21 px. Its top is about 5% below the edge, so it is not cropped. No text or extra limbs. |
+| 2 | 012 | `ART-012_bust_militia_1.jpg` | a Greek levy militiaman, a farmer-soldier: a brown felt cap (pilos), plain undyed ochre wool tunic, no armour, a short wooden spear with an iron head held upright at his shoulder | **Accepted** | |
+| 3 | 014 | `ART-014_bust_thureophoros_1.jpg` | a Hellenistic thureophoros: plain conical bronze pilos helmet with no crest, dark hair, blue-grey linen tunic, the upper edge of a tall OVAL thureos shield, cream with a red pattern and a vertical spine | **Accepted** | Matches the sprite: blue tunic, cream shield with red pattern. |
+| 4 | 015 | `ART-015_bust_celt_sword_1.jpg` | a Celtic swordsman: iron Montefortino helmet with a top knob and cheek guards, long drooping moustache, bronze torc, green checked cloak over mail, hilt and upper blade of a long sword | **Accepted** | The helmet has a small nasal, which is not historical. The checked cloak matches the sprite's `checkGreen`. |
+| 5 | 016 | `ART-016_bust_rhomphaia_1.jpg` | a Thracian rhomphaia warrior: tall bronze Phrygian-style helmet curving forward, cheek guards, brown fox-fur cloak, ochre tunic, the long curved blade of a two-handed rhomphaia over the shoulder; no shield | **Accepted** | |
+| 6 | 017 | `ART-017_bust_archer_1.jpg` | a Cretan archer: bare head, short dark curly hair, cream linen tunic, leather quiver strap, fletchings and the bow tip above the shoulder | **Accepted** | |
+| 7 | 018 | `ART-018_bust_slinger_1.jpg` | a Rhodian slinger: bare head, short straight brown hair, short beard, white tunic, pouch of stones on a strap, a braided sling wound round his raised wrist | **Accepted** | One raised hand, anatomically correct. |
+| 8 | 019 | `ART-019_bust_javelineer_1.jpg` | a Thracian javelineer: grey wolfskin cap (alopekis) with the animal's ears, light green tunic, exactly two javelins over the shoulder | **Accepted** | The kit's `wolfskin_cap`. The full wolf head is a strong silhouette, and the human face keeps it apart from `bust_wolf`. |
+| 9 | 020 | `ART-020_bust_horse_archer_1.jpg` | a Scythian horse archer: tall pointed felt hood with ear flaps tied under the chin, red embroidered kaftan, gorytos bow case with a short recurved bow | **Accepted** | Red matches the sprite tunic. |
+| 10 | 021 | `ART-021_bust_peltast_1.jpg` | a Thracian peltast: open-faced bronze Thracian helmet, forward-curving crown, short peak, cheek guards, brown cloak, crescent wicker pelte | **Rejected** | Its helmet silhouette is the same tall forward-curled crown as the rhomphaia (#5), which breaks bible §3 "no two classes share a headgear silhouette". |
+| 11 | 021 | `ART-021_bust_peltast_2.jpg` | as #10 but: a LOW, ROUNDED open-faced bronze helmet hugging the skull, short brim-like peak, long cheek guards; NO tall crown, NO curving tip, NO crest; the crescent pelte is the main prop | **Accepted** | Distinct from the rhomphaia. The two horns of the pelte read clearly. |
+| 12 | 022 | `ART-022_bust_falx_1.jpg` | a Thracian falx warrior: bare head, long dark hair, full beard, brown wool cloak over a red tunic, the inward-curved blade of a two-handed falx over his shoulder | **Accepted** | |
+| 13 | 023 | `ART-023_bust_gallic_1.jpg` | a Gallic warband warrior: limed pale spiky hair, long moustache, bare chest with blue woad swirls, bronze torc, the upper edge of a long oval shield with an iron boss | **Accepted** | |
+| 14 | 024 | (not saved) | a cult fanatic: shaved head, grey ash on face and scalp, fierce stare, torn white tunic, black cloak, a short curved bronze knife raised; expression: intense, mouth closed (the bible's one grimace exception); EXCLUDE adds blood | **Looked right, not saved** | Seen in the chat: bald, ash-grey, knife raised, black cloak, no text. Download blocked (below). |
+
+**Totals:** 14 renders, 12 accepted, 1 rejected and regenerated (peltast: a headgear silhouette clash), and 1 not saved (fanatic). No render had text, extra limbs or modern objects. Faces share one "family" look because every render had the seed attached, and that is intended.
+
+**Pipeline.** `process.mjs` and then `check.mjs` gave PASS ×12: 288x288, opaque, name. `preview.mjs ART-013` gave **NOT ASSESSED** (exit 3): manifest `preview` is null, because no game slot loads `bust_*` yet (ASSET_LIST "not wired", OI-6). `promote.mjs ART-013 --looked` was **REFUSED** (no preview record). So **nothing was promoted**, and `public/` is untouched. All 12 are staged in `processed/` with status **NOT ASSESSED** until a UI story (HUB-02, ARM-01, HERO-01, or the recruit/Codex screens) wires `RASTERS` keys and the per-scene lazy load (OI-4). Then `preview.mjs` and `promote.mjs` can be run on these exact files.
+
+**Side-by-side with the sprite.** Sprites roll their gear per hero: the preview militia, for example, has no cap and carries a thureos. Each bust shows the kit's signature item instead (the tier-1 or tier-2 headgear and the class weapon), and none shows gear outside the kit.
+
+**Limit hit.** After the 14th render, Gemini's "Download full size image" fetched the image (network 200) but no file reached `~/Downloads`. It failed three times, by script click and by real click. This looks like Chrome's per-site "automatic multiple downloads" block. Changing it is a browser setting, so it was left alone, and two workarounds were denied by the permission system: a localhost receiver, and a second tab to inspect. Following the brief, Gemini use stopped there. No CAPTCHA or quota message appeared. To resume, the owner allows multiple downloads for gemini.google.com in Chrome, then the 9 in the Queue are run.
+
+**Housekeeping.** An earlier version of the helper script moved an older, unrelated Gemini file (an icon sheet from 2026-10-09) out of `~/Downloads` by mistake. It was put back as `~/Downloads/Gemini_Generated_Image_restored-from-oct09.jpg`.
+
 
 ### AS-01 Hub mockup directions A, B, C (2026-10-10)
 
