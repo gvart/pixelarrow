@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, inject, it } from 'vitest';
 import type { BattleSetup } from '../../src/sim/types';
-import { DB, fresh, freeNeighbour, join, openDuellist, play, post, type Ticket } from './onlineHelpers';
+import { SELF } from 'cloudflare:test';
+import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from '../../src/online/protocol';
+import { newRelay } from '../src/online/relay';
+import { DB, fresh, freeNeighbour, join, openDuellist, play, post, wsPath, type Ticket } from './onlineHelpers';
 import { SIM_VERSION } from '../../src/sim/version';
 import { replayBattle } from '../src/battle';
 import { MIN_SIM_VERSION, resolveSimVersion } from '../src/simVersion';
 import { ApiError } from '../src/errors';
-import { api, devLogin } from './helpers';
+import { api, BASE, devLogin } from './helpers';
 
 const fx = inject('battleFixture');
 
@@ -125,6 +128,41 @@ describe('war attacks carry the sim version', () => {
     const t = await post<{ error: { code: string } }>('/api/online/attack/start', p.token, { loc: await freeNeighbour(p), simVersion: SIM_VERSION + 1 });
     expect(t.status).toBe(426);
     expect(t.body.error.code).toBe('sim_version_unsupported');
+  });
+});
+
+describe('live sockets carry the sim version (?sim=)', () => {
+  beforeEach(fresh);
+
+  it('the current version and a client that sends none (v1) get in', async () => {
+    const p = await join(9721);
+    for (const path of [`/ws/online?sim=${SIM_VERSION}`, '/ws/online']) {
+      const ws = await wsPath(p.token, path);
+      expect((await ws.next('welcome')).type).toBe('welcome');
+      ws.ws.close(1000);
+    }
+  });
+
+  it('an unknown version gets an error frame and close 4426, not a lobby', async () => {
+    const p = await join(9722);
+    for (const path of [`/ws/online?sim=${SIM_VERSION + 1}`, `/ws/duel?sim=${SIM_VERSION + 1}`]) {
+      const ws = await wsPath(p.token, path);
+      const closed = new Promise<number>((resolve) => ws.ws.addEventListener('close', (e) => resolve(e.code)));
+      expect(await ws.next('error')).toMatchObject({ code: SIM_VERSION_REJECTED });
+      expect(await closed).toBe(SIM_VERSION_CLOSE);
+      expect(ws.msgs.map((m) => m.type)).toEqual(['error']);
+    }
+  });
+
+  it('a malformed version is refused before the upgrade', async () => {
+    const p = await join(9723);
+    const res = await SELF.fetch(`${BASE}/ws/online?sim=abc`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${p.token}` } });
+    expect(res.status).toBe(400);
+  });
+
+  it('a live duel replays with the version it was created under', () => {
+    const d = newRelay('d1', [1, 2], ['a', 'b'], fx.setup, 0);
+    expect(d.simVersion).toBe(SIM_VERSION);
   });
 });
 
