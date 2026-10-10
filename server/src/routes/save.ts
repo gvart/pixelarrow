@@ -17,10 +17,12 @@ import { ApiError } from '../errors';
 import { db, requireAuth } from '../middleware';
 
 export const MAX_SAVE_BYTES = 512 * 1024;
+export const MAX_SAVE_VERSION = 1000;
 
 const PutBody = z.object({
   revision: z.number().int().min(0),
-  data: z.looseObject({ v: z.number().int().min(1) }),
+  // `v` is the client's SAVE_VERSION (6 in v5); the cap keeps a tampered blob from locking the slot via the downgrade guard.
+  data: z.looseObject({ v: z.number().int().min(1).max(MAX_SAVE_VERSION) }),
 });
 
 interface SaveRow {

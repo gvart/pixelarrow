@@ -96,7 +96,7 @@ describe('save version downgrade guard (ST-02b)', () => {
   it('rejects malformed versions without touching the stored save', async () => {
     const { token } = await devLogin(107);
     expect((await put(token, 0, { v: 6, gold: 7 })).status).toBe(200);
-    for (const v of ['6', 6.5, 0, -1, null, 1e300, { n: 6 }]) {
+    for (const v of ['6', 6.5, 0, -1, null, 1001, 1e300, { n: 6 }]) {
       const res = await put(token, 1, { v, gold: 0 });
       expect(res.status).toBe(400);
       expect(await res.json()).toMatchObject({ error: { code: 'bad_request' } });
