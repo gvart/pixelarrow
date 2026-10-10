@@ -192,6 +192,15 @@ export const WORLD_RULES = {
 export const BANDIT_MIN = 3;
 
 /**
+ * The starter zone (V5-054, campaign-arc.md R1.3): `count` bandit bands of
+ * danger `danger`, `ring` tiles from the starting town, sized
+ * `min + round(danger x 5) + int(0..2)` (the GDD's BANDIT_MIN 5) at level
+ * 1 + round(danger x 2). Gear `tier` 2 (so a captain) puts the 8-man opening
+ * at about 60% against them; tier 1 was 91% (docs/v5/balance/AR-01.md).
+ */
+export const STARTER_BANDS = { count: [2, 3] as [number, number], ring: [5, 11] as [number, number], danger: [0.1, 0.3] as [number, number], min: 5, tier: 2 };
+
+/**
  * Volunteers (campaign-arc.md R1.4, R1.5). A destroyed army gets `destroyed`
  * raw men at the starting town. While the army has fewer than `floor` men,
  * the starting town and every village offer `floorOffer` raw volunteers at
@@ -400,8 +409,12 @@ export class World {
     return null;
   }
 
-  /** A new world: the party stands in the starting town; a few bands roam. */
-  static fresh(seed: number): WorldSave {
+  /**
+   * A new world: the party stands in the starting town; a few bands roam.
+   * `starters` adds the starter zone (STARTER_BANDS): only a new campaign
+   * asks for it, never a migrated save.
+   */
+  static fresh(seed: number, starters = false): WorldSave {
     const map = generateMap(seed);
     const st = map.settlements[map.start];
     const s: WorldSave = {
@@ -423,6 +436,7 @@ export class World {
     };
     const w = new World(s, map);
     for (let i = 0; i < 9; i++) w.spawnParty(i % 4 === 3 ? 'town' : 'lair');
+    if (starters) w.spawnStarterBands();
     w.sync();
     return s;
   }
@@ -787,6 +801,52 @@ export class World {
     p.power = partyArmy(p, { nextId: 1 }).power;
     this.s.parties.push(p);
     return p;
+  }
+
+  /**
+   * The starter zone (V5-054): small bandit bands of the GDD's danger 0.1-0.3
+   * (campaign-arc.md R1.3) a few tiles from the starting town, independent of
+   * the lairs. Their own seeded Rng, so the world's other bands are unchanged.
+   * They roam around the starting town (home) and never respawn.
+   */
+  spawnStarterBands(): void {
+    const B = STARTER_BANDS;
+    const r = new Rng((this.s.seed ^ 0x3c6ef372) >>> 0 || 1);
+    const home = this.map.settlements[this.map.start];
+    const from = { x: home.x, y: home.y };
+    const count = r.int(B.count[0], B.count[1]);
+    for (let n = 0, tries = 0; n < count && tries < 60; tries++) {
+      const a = r.range(0, Math.PI * 2);
+      const d = r.range(B.ring[0], B.ring[1]);
+      const at = this.nearestPassable(Math.floor(home.x + Math.cos(a) * d), Math.floor(home.y + Math.sin(a) * d), 2);
+      if (!at || Math.max(Math.abs(at.x - home.x), Math.abs(at.y - home.y)) < B.ring[0]) continue;
+      if (this.s.parties.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < 4)) continue;
+      if (!this.path(from, at, 4000)) continue;
+      const danger = r.range(B.danger[0], B.danger[1]);
+      let seed = (r.next() * 4294967296) >>> 0 || 1;
+      while (bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
+      const p: PartyState = {
+        id: this.s.nextParty++,
+        kind: 'bandits',
+        name: BAND_NAMES.bandits,
+        culture: home.culture,
+        x: at.x + 0.5,
+        y: at.y + 0.5,
+        size: B.min + Math.round(danger * 5) + r.int(0, 2),
+        power: 0,
+        level: 1 + Math.round(danger * 2),
+        tier: B.tier,
+        seed,
+        home: home.id,
+        mode: 'wander',
+        tx: at.x,
+        ty: at.y,
+        idle: r.range(0, 1),
+      };
+      p.power = partyArmy(p, { nextId: 1 }).power;
+      this.s.parties.push(p);
+      n++;
+    }
   }
 
   removeParty(id: number): void {

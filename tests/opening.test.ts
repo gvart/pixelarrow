@@ -11,7 +11,8 @@ import { deserialize, migrate, type SaveData } from '../src/game/save';
 import { openingParty, starterParty, toClass } from '../src/game/heroes';
 import { starterOnlineArmy } from '../src/online/rules';
 import { FOOD_RULES } from '../src/world/camp';
-import { BANDIT_MIN, VOLUNTEER_RULES, World } from '../src/world/world';
+import { BANDIT_MIN, STARTER_BANDS, VOLUNTEER_RULES, World } from '../src/world/world';
+import { bandBeast } from '../src/game/beasts';
 import type { Outcome } from '../src/game/loot';
 import { Rng } from '../src/sim/rng';
 
@@ -102,6 +103,44 @@ describe('bandits near the start (R1.3)', () => {
     expect(bandits).toBeGreaterThan(20);
     // the size formula's base (AR-01 kept it, docs/v5/balance/AR-01.md)
     expect(BANDIT_MIN).toBe(3);
+  });
+});
+
+describe('the starter zone (V5-054)', () => {
+  const starters = (c: Campaign) => c.world.s.parties.filter((p) => p.home === c.world.map.start && p.kind === 'bandits');
+
+  it('a new campaign has 2-3 small bandit bands of danger 0.1-0.3 near the starting town', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const c = Campaign.fresh(seed);
+      const st = c.world.map.settlements[c.world.map.start];
+      const bands = starters(c);
+      expect(bands.length).toBeGreaterThanOrEqual(STARTER_BANDS.count[0]);
+      expect(bands.length).toBeLessThanOrEqual(STARTER_BANDS.count[1]);
+      for (const p of bands) {
+        expect(Math.hypot(p.x - st.x, p.y - st.y)).toBeLessThanOrEqual(STARTER_BANDS.ring[1] + 4);
+        expect(Math.max(Math.abs(Math.floor(p.x) - st.x), Math.abs(Math.floor(p.y) - st.y))).toBeGreaterThanOrEqual(STARTER_BANDS.ring[0]);
+        // 5 + round(0.1..0.3 x 5) + 0..2, level 1 + round(0.1..0.3 x 2)
+        expect(p.size).toBeGreaterThanOrEqual(6);
+        expect(p.size).toBeLessThanOrEqual(9);
+        expect([1, 2]).toContain(p.level);
+        expect(p.tier).toBe(STARTER_BANDS.tier);
+        expect(bandBeast(p.seed)).toBeNull();
+      }
+    }
+  });
+
+  it('is deterministic per world and leaves the lair bands as they were', () => {
+    const a = Campaign.fresh(9).world.s.parties;
+    expect(Campaign.fresh(9).world.s.parties).toEqual(a);
+    const seed = Campaign.fresh(9).data.world.seed;
+    const plain = World.fresh(seed).parties;
+    expect(a.slice(0, plain.length)).toEqual(plain);
+  });
+
+  it('is never added to an existing world (a migrated save gets none)', () => {
+    const w = World.fresh(1234);
+    const start = new World(w).map.start;
+    expect(w.parties.some((p) => p.home === start)).toBe(false);
   });
 });
 

@@ -5,9 +5,10 @@
  * AR-01 (the opening, R1): an army against a bandit band, both sides
  * bot-driven on a campaign battlefield, the way a campaign battle is set up
  * (src/game/campaignBattle.ts campaignSetup). Two kinds of band:
- *  - start: the bandit bands a new world really has (World.fresh). Bandits
+ *  - start: the lair bandit bands a new world has (World.fresh). Bandits
  *    spawn at their lair, where danger is 0.66-1.0 on real maps.
- *  - gdd: the GDD's scenario, a band of danger 0.1-0.3 (which no lair has).
+ *  - starter: the starter zone's bands near the starting town (V5-054,
+ *    World.spawnStarterBands), the first fights of a new campaign.
  * Armies: the 8-man opening, the old three-man start, and the five
  * volunteers of a destroyed army. Bands that are a beast (src/game/beasts.ts
  * bandBeast) are left out: the rows measure men against men.
@@ -23,10 +24,7 @@ import { Battle } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import { heroPower } from '../sim/stats';
 import { generateBattlefield, randomSite } from '../world/battlefield';
-import { BANDIT_MIN, VOLUNTEER_RULES, partyArmy, threatLevel, type PartyState } from '../world/world';
-
-/** The GDD's "even" scenario: a band of danger 0.1-0.3, on the day of the first fights. */
-export const GDD_DANGER = { min: 0.1, max: 0.3, day: 2 };
+import { VOLUNTEER_RULES, partyArmy, type PartyState } from '../world/world';
 
 export type OpeningArmy = 'opening' | 'old3' | 'volunteers';
 
@@ -37,23 +35,10 @@ export interface OpeningFight {
   bandSize: number;
 }
 
-/** A bandit band of danger 0.1-0.3, sized like World.spawnParty. */
-export function gddBand(seed: number): PartyState {
-  const r = new Rng(seed ^ 0x2545f491);
-  const danger = r.range(GDD_DANGER.min, GDD_DANGER.max);
-  let bandSeed = (r.next() * 4294967296) >>> 0 || 1;
-  while (bandBeast(bandSeed)) bandSeed = (bandSeed * 2654435761 + 1) >>> 0 || 1;
-  return {
-    id: 1, kind: 'bandits', name: 'Bandits', culture: r.pick(['greek', 'phoenician', 'celtic'] as const), x: 0, y: 0,
-    size: Math.min(18, BANDIT_MIN + Math.round(danger * 5) + r.int(0, 2)), power: 0,
-    level: Math.min(8, 1 + Math.round(danger * 2 + GDD_DANGER.day * 0.04)), tier: 1,
-    seed: bandSeed, home: 0, mode: 'wander', tx: 0, ty: 0, idle: 0,
-  };
-}
-
-/** The bandit bands (not beasts) of a new campaign's world. */
-export function startBands(seed: number): PartyState[] {
-  return Campaign.fresh(seed).world.s.parties.filter((p) => p.kind === 'bandits' && !bandBeast(p.seed));
+/** A new campaign's bandit bands (not beasts): `starter` = the starter zone's (home: the starting town), else the lairs'. */
+export function startBands(seed: number, starter = false): PartyState[] {
+  const w = Campaign.fresh(seed).world;
+  return w.s.parties.filter((p) => p.kind === 'bandits' && !bandBeast(p.seed) && (p.home === w.map.start) === starter);
 }
 
 function army(kind: OpeningArmy, rng: Rng, ids: IdSource): Hero[] {
@@ -87,22 +72,23 @@ function rowOf(label: string, r: OpeningFight[], target: string): BalanceRow {
 }
 
 /**
- * `n` sets the sample: n/4 new worlds (about two bandit bands each) and n GDD
- * bands. The GDD target is the 8-man opening against an Even plate
- * (threatLevel 2, power x0.85-1.15).
+ * `n` sets the sample: n/4 new worlds (two or three starter bands and about
+ * two lair bandit bands each). The GDD target (R1, V5-054) is
+ * the 8-man opening against the starter zone's bands.
  */
 export function arcRows(n: number): BalanceRow[] {
   const worlds = Math.max(4, Math.round(n / 4));
   const start: { seed: number; band: PartyState }[] = [];
-  for (let s = 1; s <= worlds; s++) for (const band of startBands(s)) start.push({ seed: (band.seed ^ s) >>> 0 || 1, band });
-  const gdd = Array.from({ length: n }, (_, i) => ({ seed: 7000 + i, band: gddBand(7000 + i) }));
+  const starter: { seed: number; band: PartyState }[] = [];
+  for (let s = 1; s <= worlds; s++) {
+    for (const band of startBands(s)) start.push({ seed: (band.seed ^ s) >>> 0 || 1, band });
+    for (const band of startBands(s, true)) starter.push({ seed: (band.seed ^ s) >>> 0 || 1, band });
+  }
   const run = (set: typeof start, kind: OpeningArmy) => set.map((x) => runOpening(x.seed, x.band, kind));
   const openStart = run(start, 'opening');
-  const even = (r: OpeningFight[]) => r.filter((x) => threatLevel(x.ratio) === 2);
   return [
-    rowOf('8-man opening vs start bandits', openStart, '55-70% (R1)'),
-    rowOf('8-man opening vs start bandits, Even plate', even(openStart), '55-70% (R1)'),
-    rowOf('8-man opening vs GDD bandits (danger 0.1-0.3)', run(gdd, 'opening'), 'none (no lair is this safe)'),
+    rowOf('8-man opening vs starter-zone bandits', run(starter, 'opening'), '55-70% (R1, V5-054)'),
+    rowOf('8-man opening vs lair bandits at the start', openStart, 'none (Strong plate mostly)'),
     rowOf('before: 3-man start vs start bandits', run(start, 'old3'), 'none (reference)'),
     rowOf('5 volunteers (destroyed army) vs start bandits', run(start, 'volunteers'), 'none stated'),
   ];

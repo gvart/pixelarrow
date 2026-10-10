@@ -76,7 +76,7 @@ export class Campaign {
       won: 0,
       fought: 0,
       settings: { ...DEFAULT_SETTINGS },
-      world: World.fresh((seed ^ 0x7f4a7c15) >>> 0 || 1),
+      world: World.fresh((seed ^ 0x7f4a7c15) >>> 0 || 1, true),
     };
     data.world.food = FOOD_RULES.openingFood;
     data.campaignId = campaignIdFor(data.world.seed);
