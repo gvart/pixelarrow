@@ -1,0 +1,25 @@
+src/world/world.ts
+  s_697bdc25a7c420::t_97c6603e3968f6 186-187
+src/dev/arcBalance.ts
+  s_697bdc25a7c420::t_0e0abd35cf464a 3-12,15-22,25-59,62-63,65-74,88
+  s_697bdc25a7c420::t_83c59027a31834 23,75-87,89-96
+  s_697bdc25a7c420::t_aa776828555b13 60-61,64
+tests/opening.test.ts
+  s_697bdc25a7c420::t_97c6603e3968f6 92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "89b33688bb26d48f607a4d576d70328ebe35dfe1",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
