@@ -26,7 +26,7 @@ The aesthetics are Challenge (mastery) and Discovery.
 The record lives in `src/data/doctrines.ts`, which is shared data that both the client and the server import:
 
 ```ts
-type DoctrineId = 'steady' | 'rush' | 'hammer' | 'swarm' | 'zealot';
+type DoctrineId = 'steady' | 'rush' | 'hammer' | 'swarm' | 'fury';
 interface Doctrine {
   id: DoctrineId;
   lineWaitS: number;      // main line holds before advancing (today 5, ai.ts `t >= 5`)
@@ -52,7 +52,7 @@ interface Doctrine {
 
 The `steady` values reproduce today's constants exactly.
 
-| Field | steady (today) | rush | hammer | swarm | zealot |
+| Field | steady (today) | rush | hammer | swarm | fury |
 | --- | --- | --- | --- | --- | --- |
 | lineWaitS | 5 | 0 | 8 | 3 | 0 |
 | flankAtS | 14 | 6 | 18 | 10 | 8 |
@@ -77,7 +77,7 @@ In plain words:
 - **rush**: charges at once in a wedge, flanks early, never retreats.
 - **hammer** (the Punic school): holds and skirmishes, then sends a cavalry hammer onto your flank at about 45 s, and retreats at 60% losses.
 - **swarm**: skirmishes and feints, and retreats when it is losing.
-- **zealot**: an all-in frenzy that never retreats and doesn't brace.
+- **fury**: an all-in frenzy that never retreats and doesn't brace.
 
 ### R3. Small-army opening (fixes PLAY P1)
 
@@ -98,10 +98,10 @@ The army builder chooses, in `src/game/enemy.ts` (`buildArmy` gets a `doctrine` 
 | Campaign bandits, pirates, hill tribes | swarm |
 | Campaign raiders (Galatae) | rush |
 | Campaign mercenaries | by culture: greek → steady, phoenician → hammer, celtic → rush |
-| Cultists (neutral mix) | zealot |
+| Cultists (neutral mix) | fury |
 | Outlaws, deserters | steady |
 | Lair garrisons and the final host | campaign-arc.md R4 |
-| Duel ladder floor `f` | chapter `c = ceil(f/10)`: 1 steady, 2 swarm, 3 rush, 4 hammer, 5 zealot; boss floors use the culture rule |
+| Duel ladder floor `f` | chapter `c = ceil(f/10)`: 1 steady, 2 swarm, 3 rush, 4 hammer, 5 fury; boss floors use the culture rule |
 | War-map neutral defenders | the same mapping by mix (server-built setups) |
 | Async raid defence (ranked) | the defender's chosen doctrine for their defence preset; default steady (optional, Alpha tier, see Online impact) |
 | A player-side bot (balance harness, auto-battle) | steady |
@@ -199,7 +199,7 @@ The defaults are 40 + 15·L, with L in 3–10. That gives **85–190 gold**, abo
 - **Retreat on the last tick, or when the player has already won**: the end check runs first, so retreat is ignored once the battle has ended.
 - **The captain is detached or alone in a group**: the aura and banner-loss rules still apply by distance (abilities.md R5).
 - **The captain is the band's only man**: he can still be captured or killed, and the bounty applies.
-- **Doctrine `zealot` with cavalry**: `feint` is false, so the cavalry uses the plain charge loop.
+- **Doctrine `fury` with cavalry**: `feint` is false, so the cavalry uses the plain charge loop.
 - **Both sides are bots with different doctrines** (harness, war neutrals vs neutrals): each `BotAI` reads its own army's doctrine.
 - **Live PvP**: humans have no doctrine, and the field is ignored for non-bot armies.
 - **A band beaten by retreat repeatedly**: `escaped` is capped at 3. At 3, the band's `retreatAt` is treated as 0 (it fights to the end).
@@ -214,7 +214,7 @@ The defaults are 40 + 15·L, with L in 3–10. That gives **85–190 gold**, abo
 | controls.md | is used by | encounter and deployment info surfaces (doctrine tell) |
 | campaign-arc.md | is used by | lair-garrison and final-host doctrine assignment; captains in garrisons |
 | campaign-events.md | is used by | reads `PartyState.escaped` for "rival returns"; the "rival challenge" event spawns a captain band |
-| field-works.md | is used by | bots attacking works obey `hillFlank`-style detours; zealot ignores stakes |
+| field-works.md | is used by | bots attacking works obey `hillFlank`-style detours; fury ignores stakes |
 | #11 Enemy army generation (`src/game/enemy.ts`) | modifies | `buildArmy({doctrine, captain})` |
 | #32 Verification / #34 Lockstep | constrains | sim train 2, zod schema |
 
@@ -279,7 +279,7 @@ New harness rows go in `src/dev/balance.ts` (`doctrineMatrix`), at 400 seeds.
 | --- | --- |
 | Reference army (steady) vs each doctrine | the reference wins **40–60%** against each |
 | Doctrine median battle length | 60–150 s; rush ≤ 90 s; hammer and swarm ≥ 80 s |
-| Counter script vs doctrine (rush ← brace and hold; hammer ← reserve faced to the flank or orb; swarm ← fast advance and cavalry; zealot ← missile focus and feint) | the counter beats the doctrine by **≥ 8 points** more than the naive script does |
+| Counter script vs doctrine (rush ← brace and hold; hammer ← reserve faced to the flank or orb; swarm ← fast advance and cavalry; fury ← missile focus and feint) | the counter beats the doctrine by **≥ 8 points** more than the naive script does |
 | 5v5 level-1 armies, first contact | **≤ 15 s** (from 33 s) |
 | Ridge defender vs attacker (attacker doctrine with hillFlank) | **62–68%** (from 74%) |
 | Captain present vs absent (same band) | the captain adds **+5 to +10 points** to the band |
