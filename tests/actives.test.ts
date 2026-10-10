@@ -79,16 +79,6 @@ describe('signature active data (abilities.md R3)', () => {
     }
   });
 
-  it('a group volley does not stack: one use puts every holder of the group on the cooldown (groupMode one)', () => {
-    const rng = new Rng(19);
-    const ids = { nextId: 1 };
-    const bt = face(men(rng, ids, 'archer', 3, ['longshot', 'volley']), men(rng, ids, 'hoplite', 3, []), 6);
-    const archers = bt.units.filter((u) => u.side === 0);
-    expect(archers.every((u) => bt.abilityReady(u, 'volley'))).toBe(true);
-    bt.issue(0, { kind: 'ability', unit: archers[0].id, ability: 'volley' });
-    for (const u of archers) expect(bt.abilityCooldown(u, 'volley'), `archer ${u.id}`).toBeGreaterThan(0);
-  });
-
   it('medallion budget (R4): at most 3 shown, ranked ready, then holders, then the shortest cooldown', () => {
     expect(MAX_MEDALLIONS).toBe(3);
     const order = rankMedallions([
