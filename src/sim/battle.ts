@@ -33,6 +33,9 @@ import type {
 } from './types';
 import { BotAI } from './ai';
 import { ABILITIES, ABILITY_RULES, AURAS, AURA_IDS, AURA_RULES, type AbilityId } from '../data/perks';
+
+/** The seven signature actives (abilities.md R3, AB-02): their state is hashed only in battles that have one. */
+const SIGNATURE: readonly AbilityId[] = ['push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe'];
 import { rallyRadius, willRadius, type CombatStats } from './stats';
 import { Terrain, cellHash } from './terrain';
 import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
@@ -237,6 +240,22 @@ export class Battle {
   /** Each side's army-break state at the last one-second check, and whether its event went out (R6). */
   private broken: [boolean, boolean] = [false, false];
   private brokeOnce: [boolean, boolean] = [false, false];
+  /**
+   * Signature actives (abilities.md R3, AB-02), by unit id: the tick each timed
+   * effect ends. stagger: Push of Pike; sunder: Sunder; shock: a War-cry's
+   * allies; bond: Sacred Bond; charge: a Re-charge's bonus. Missing = none.
+   */
+  private stagger: number[] = [];
+  private sunderT: number[] = [];
+  private shockT: number[] = [];
+  private bondT: number[] = [];
+  private chargeT: number[] = [];
+  /** Wheel and Re-charge by group id: the tick the regrouped riders charge again. */
+  private regroupAt: number[] = [];
+  /** A chariot's Scythe Run by unit id: paces left and the enemies already cut. */
+  private runs: ({ left: number; hit: Set<number> } | undefined)[] = [];
+  /** Some unit holds a signature active (their state then joins the hash). */
+  private readonly actives: boolean;
   /** Some unit is not a man-sized disc (riders, chariots, bears): per-unit radii apply. */
   readonly big: boolean;
   /** Riders or animals take part (the bot then uses its cavalry / beast tactics). */
@@ -368,6 +387,7 @@ export class Battle {
       }
     });
     for (const u of this.units) if (!this.beast(u)) this.startMen[u.side]++;
+    this.actives = this.units.some((u) => u.abil.some((a) => SIGNATURE.includes(a)));
     if (hasPowers(allStats)) this.pw = new PowerSystem(this);
   }
 
@@ -744,6 +764,13 @@ export class Battle {
         if (i < 0 || !this.abilityReady(u, o.ability)) return;
         if (!this.useAbility(u, o.ability)) return;
         u.abilCd[i] = Math.round(ABILITIES[o.ability].cooldown * TICK_RATE * u.stats.cdMult);
+        if (ABILITIES[o.ability].groupMode === 'one' && SIGNATURE.includes(o.ability)) {
+          // a group-wide signature active does not stack: every holder of the group waits out the cooldown
+          for (const a of this.units) {
+            const k = a.group === u.group && a !== u ? a.abil.indexOf(o.ability) : -1;
+            if (k >= 0) a.abilCd[k] = Math.max(a.abilCd[k], Math.round(ABILITIES[o.ability].cooldown * TICK_RATE * a.stats.cdMult));
+          }
+        }
         return;
       }
       case 'assign': {
@@ -981,7 +1008,123 @@ export class Battle {
         return u.berserk <= 0;
       case 'rally':
         return true;
+      case 'push':
+        return u.engaged && this.frontFoe(u, true) !== null;
+      case 'sunder':
+        return this.frontFoe(u, false) !== null;
+      case 'bond':
+        return this.bondMates(u).length >= 2;
+      case 'warcry':
+        return this.warcryTargets(u).length > 0;
+      case 'aimed':
+        return this.aimedShooters(u).length > 0;
+      case 'recharge':
+        return u.stats.mount !== undefined && !this.regrouping(u.group) && (u.engaged || this.nearestEnemyDist(u.side, u.x, u.y) <= ABILITY_RULES.rechargeRange);
+      case 'scythe':
+        return u.stats.mount === 'chariot' && this.runs[u.id] === undefined && this.scythePathClear(u);
     }
+    return false;
+  }
+
+  /** Whether a timed active effect (stagger, sunder, ...) is on for unit id. */
+  private on(ends: number[], id: number): boolean {
+    return (ends[id] ?? 0) > this.tick;
+  }
+
+  /**
+   * The ready enemy man in front within reach that Push of Pike or Sunder
+   * would strike (abilities.md R3). For a push he may not stand braced in a
+   * shield wall facing the pusher, nor be a rider, a chariot or a myth beast
+   * (a man cannot shove a horse back).
+   */
+  frontFoe(u: SimUnit, push: boolean): SimUnit | null {
+    const reach = Math.max(ABILITY_RULES.pushRange, u.stats.reach);
+    let best: SimUnit | null = null;
+    let bestScore = -Infinity;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      const d = Math.sqrt((e.x - u.x) ** 2 + (e.y - u.y) ** 2);
+      if (d > reach + u.rad + e.rad) continue;
+      const front = this.facingDot(u, e);
+      if (front < 0.3) continue;
+      if (push && (e.stats.boss !== undefined || e.stats.mount !== undefined || (this.braces(this.groups[e.group]) && e.stats.canShieldWall && this.facingDot(e, u) > 0.3))) continue;
+      const score = front - d + (e.id === u.targetId ? 0.5 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /** Sacred Bond holders standing within bondRadius of u, u included (abilities.md R3). */
+  bondMates(u: SimUnit): SimUnit[] {
+    const r2 = ABILITY_RULES.bondRadius ** 2;
+    return this.units.filter((a) => a.side === u.side && a.state === 'ready' && a.abil.includes('bond') && (a.x - u.x) ** 2 + (a.y - u.y) ** 2 <= r2);
+  }
+
+  /** Enemies a War-cry would shake: ready men within warcryRadius in front of u. */
+  warcryTargets(u: SimUnit): SimUnit[] {
+    const r2 = ABILITY_RULES.warcryRadius ** 2;
+    return this.units.filter((e) => e.side !== u.side && e.state === 'ready' && (e.x - u.x) ** 2 + (e.y - u.y) ** 2 <= r2 && this.facingDot(u, e) > 0);
+  }
+
+  /**
+   * Shooters of u's group who would loose in an Aimed Volley, each with the
+   * nearest ready man of the target group in range (abilities.md R3). The
+   * target group is the group's focus (formations-orders.md R4) unless one is
+   * given (the bot weighs a group before it focuses it).
+   */
+  aimedShooters(u: SimUnit, target = this.groups[u.group].focus ?? -1): { s: SimUnit; t: SimUnit }[] {
+    const out: { s: SimUnit; t: SimUnit }[] = [];
+    if (target < 0) return out;
+    for (const s of this.units) {
+      if (s.group !== u.group || s.state !== 'ready' || s.ammo <= 0 || s.stats.range <= 0 || s.stun > 0) continue;
+      let t: SimUnit | null = null;
+      let td = Infinity;
+      for (const e of this.units) {
+        if (e.group !== target || e.state !== 'ready') continue;
+        const d = Math.sqrt((e.x - s.x) ** 2 + (e.y - s.y) ** 2);
+        if (d <= s.stats.range + this.rangeBonus(s, e) && d > 1.4 && d < td) {
+          td = d;
+          t = e;
+        }
+      }
+      if (t) out.push({ s, t });
+    }
+    return out;
+  }
+
+  /** Riders of this group are regrouping for a Re-charge. */
+  regrouping(groupId: number): boolean {
+    return (this.regroupAt[groupId] ?? 0) > this.tick;
+  }
+
+  /** A Scythe Run's 6 paces ahead stay on the field and clear of rocks and sea (abilities.md R3). */
+  private scythePathClear(u: SimUnit): boolean {
+    for (let d = 0.5; d <= ABILITY_RULES.scytheRun + 1e-9; d += 0.5) {
+      const x = u.x + u.fx * d;
+      const y = u.y + u.fy * d;
+      if (x < u.rad || y < u.rad || x > this.width - u.rad || y > this.height - u.rad) return false;
+      if (this.terrain && this.terrain.blocked(x, y)) return false;
+    }
+    return true;
+  }
+
+  /** Ready enemies within scytheWidth of a Scythe Run's path ahead of u (the bot runs at 3 or more). */
+  scytheVictims(u: SimUnit): number {
+    const L = ABILITY_RULES.scytheRun;
+    let n = 0;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      const dx = e.x - u.x;
+      const dy = e.y - u.y;
+      const along = dx * u.fx + dy * u.fy;
+      if (along < 0 || along > L) continue;
+      const across = Math.abs(dx * u.fy - dy * u.fx);
+      if (across <= ABILITY_RULES.scytheWidth + e.rad) n++;
+    }
+    return n;
   }
 
   /** The enemy a shield bash would hit: a ready man close in front. */
@@ -1097,9 +1240,172 @@ export class Battle {
         }
         break;
       }
+      case 'push': {
+        // Push of Pike: the foe is shoved back and staggered (no blow, half block), and shaken.
+        const t = this.frontFoe(u, true);
+        if (!t) return false;
+        u.lastAttackTick = this.tick;
+        this.shove(t, u, R.pushShove);
+        this.stagger[t.id] = this.tick + R.pushStagger;
+        t.cooldown = Math.max(t.cooldown, R.pushStagger);
+        t.momentum = 0;
+        t.morale -= R.pushMorale * this.ml(t);
+        this.contactEvent(this.groups[u.group]);
+        targets.push(t.id);
+        break;
+      }
+      case 'sunder': {
+        // Sunder: the man in front loses his block and some armour for a while.
+        const t = this.frontFoe(u, false);
+        if (!t) return false;
+        u.lastAttackTick = this.tick;
+        this.sunderT[t.id] = this.tick + R.sunderTicks;
+        this.contactEvent(this.groups[u.group]);
+        targets.push(t.id);
+        break;
+      }
+      case 'bond': {
+        // Sacred Bond: every holder within bondRadius is bonded (the group's holders then wait out the cooldown).
+        const mates = this.bondMates(u);
+        if (mates.length < 2) return false;
+        for (const a of mates) {
+          this.bondT[a.id] = this.tick + R.bondTicks;
+          targets.push(a.id);
+        }
+        break;
+      }
+      case 'warcry': {
+        // War-cry: the enemy in front loses heart (more out of a shield wall); allies close by hit with more shock.
+        const foes = this.warcryTargets(u);
+        if (foes.length === 0) return false;
+        for (const e of foes) {
+          const wall = this.groups[e.group].shieldWall && e.stats.canShieldWall;
+          e.morale -= R.warcryMorale * (wall ? 1 : R.warcryOpen) * this.ml(e);
+          targets.push(e.id);
+        }
+        const r2 = R.warcryAllyRadius ** 2;
+        for (const a of this.units) {
+          if (a.side === u.side && a.state === 'ready' && (a.x - u.x) ** 2 + (a.y - u.y) ** 2 <= r2) this.shockT[a.id] = this.tick + R.warcryTicks;
+        }
+        break;
+      }
+      case 'aimed': {
+        // Aimed Volley: each shooter of the group in range looses one careful shot at the focused group, from a reserve sheaf.
+        const shooters = this.aimedShooters(u);
+        if (shooters.length === 0) return false;
+        for (const { s, t } of shooters) {
+          this.shoot(s, t, R.aimedDamage, R.aimedAccuracy);
+          s.ammo++;
+          targets.push(s.id);
+        }
+        break;
+      }
+      case 'recharge': {
+        // Wheel and Re-charge: the riders break off at once and ride back to regroup; their next charge lands harder.
+        const g = this.groups[u.group];
+        const riders = this.activeMembers(g.id).filter((a) => a.stats.mount !== undefined);
+        const c = this.centroid(g.id);
+        if (riders.length === 0 || !c) return false;
+        let foe: SimUnit | null = null;
+        let fd = Infinity;
+        for (const e of this.units) {
+          if (e.side === u.side || e.state !== 'ready') continue;
+          const d = (e.x - c.x) ** 2 + (e.y - c.y) ** 2;
+          if (d < fd) {
+            fd = d;
+            foe = e;
+          }
+        }
+        let ax = foe ? c.x - foe.x : -g.formation.fx;
+        let ay = foe ? c.y - foe.y : -g.formation.fy;
+        const al = Math.sqrt(ax * ax + ay * ay);
+        if (al < 1e-6) {
+          ax = -g.formation.fx;
+          ay = -g.formation.fy;
+        } else {
+          ax /= al;
+          ay /= al;
+        }
+        const f = g.formation;
+        f.cx = clamp(c.x + ax * R.rechargeBack, 1, this.width - 1);
+        f.cy = clamp(c.y + ay * R.rechargeBack, 1, this.height - 1);
+        f.fx = -ax;
+        f.fy = -ay;
+        g.shieldWall = false;
+        g.order = 'fallback';
+        g.fallbackLeft = R.rechargeBack;
+        this.faceTo[g.id] = undefined;
+        this.regroupAt[g.id] = this.tick + R.rechargeRegroup;
+        this.reassign(g.id);
+        for (const a of riders) {
+          a.engaged = false;
+          a.targetId = -1;
+          a.momentum = 0;
+          this.chargeT[a.id] = this.tick + R.rechargeTicks;
+          targets.push(a.id);
+        }
+        break;
+      }
+      case 'scythe':
+        // Scythe Run: the chariot drives scytheRun paces along its facing (runScythe, each tick).
+        if (this.runs[u.id] !== undefined) return false;
+        this.runs[u.id] = { left: R.scytheRun, hit: new Set() };
+        targets.push(u.id);
+        break;
     }
     this.events.push({ type: 'ability', tick: this.tick, unit: u.id, ability: id, targets });
     return true;
+  }
+
+  /**
+   * One tick of a Scythe Run (abilities.md R3): the chariot drives on at the
+   * gallop along its facing; every enemy within scytheWidth of its path is cut
+   * once (base damage x scytheDamage) and shaken (not a beast). Braced spears
+   * in front stop the run with a balk.
+   */
+  private runScythe(u: SimUnit): void {
+    const R = ABILITY_RULES;
+    const run = this.runs[u.id]!;
+    const m = MOUNTS[u.stats.mount!];
+    const top = u.stats.speed * m.gallop;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      const r = u.rad + e.rad + 0.15;
+      if ((e.x - u.x) ** 2 + (e.y - u.y) ** 2 > r * r || this.facingDot(u, e) < 0.3) continue;
+      if (e.stats.weapon === 'spear' && e.stats.canShieldWall && this.braces(this.groups[e.group]) && this.facingDot(e, u) > 0.3) {
+        this.runs[u.id] = undefined;
+        u.stun = MOUNTED_RULES.balkStun;
+        u.spd = 0;
+        u.momentum = 0;
+        u.morale -= MOUNTED_RULES.balkMorale * this.ml(u);
+        this.events.push({ type: 'impact', tick: this.tick, unit: u.id, by: e.id });
+        return;
+      }
+    }
+    const step = Math.min(run.left, top * DT * (this.terrain ? this.groundSpeed(u) : 1));
+    const x0 = u.x;
+    const y0 = u.y;
+    this.moveUnit(u, u.fx * step, u.fy * step);
+    u.x = clamp(u.x, u.rad, this.width - u.rad);
+    u.y = clamp(u.y, u.rad, this.height - u.rad);
+    u.vx = u.x - x0;
+    u.vy = u.y - y0;
+    u.spd = top;
+    u.momentum = RULES.chargeMomentumTicks;
+    u.engaged = false;
+    const moved = Math.sqrt(u.vx * u.vx + u.vy * u.vy);
+    run.left -= step;
+    for (const e of this.units) {
+      if (e.side === u.side || !this.isAlive(e) || run.hit.has(e.id)) continue;
+      const w = R.scytheWidth + e.rad;
+      if ((e.x - u.x) ** 2 + (e.y - u.y) ** 2 > w * w) continue;
+      run.hit.add(e.id);
+      if (!this.beast(e)) e.morale -= R.scytheMorale * this.ml(e);
+      this.contactEvent(this.groups[u.group]);
+      this.applyDamage(e, u, u.stats.dmg * R.scytheDamage * this.rng.range(0.8, 1.2), this.hitDirection(e, u.x, u.y), false, 1);
+    }
+    if (m.scythe > 0) this.scythes(u, m, top);
+    if (run.left <= 1e-6 || moved < step * 0.25) this.runs[u.id] = undefined;
   }
 
   /** Recompute which auras touch which units (every half second). */
@@ -1117,6 +1423,32 @@ export class Battle {
         }
       }
     }
+  }
+
+  /** Bonded men (Sacred Bond on) within bondRadius of t, t included. */
+  private bonded(t: SimUnit): SimUnit[] {
+    const r2 = ABILITY_RULES.bondRadius ** 2;
+    return this.units.filter((a) => a.side === t.side && a.state === 'ready' && this.on(this.bondT, a.id) && (a.x - t.x) ** 2 + (a.y - t.y) ** 2 <= r2);
+  }
+
+  /** F1: morale damage to a bonded man is split equally among the bonded men in range (the total is kept). */
+  private bondShare(t: SimUnit, md: number): void {
+    const mates = this.bonded(t);
+    const share = md / Math.max(1, mates.length);
+    for (const a of mates) a.morale -= share;
+  }
+
+  /** A bonded man does not break while the bonded men around him still average above their rout line (abilities.md R3). */
+  private bondHolds(u: SimUnit): boolean {
+    const mates = this.bonded(u);
+    if (mates.length < 2) return false;
+    let m = 0;
+    let r = 0;
+    for (const a of mates) {
+      m += a.morale;
+      r += a.stats.morale * (a.stats.routAt ?? RULES.routFraction);
+    }
+    return m > r;
   }
 
   /** Morale damage multiplier for a unit (traits, perks, Will, Steady Presence). */
@@ -1423,7 +1755,13 @@ export class Battle {
       return;
     }
     if (u.state === 'routing') {
+      if (this.actives) this.runs[u.id] = undefined;
       this.updateRouting(u);
+      return;
+    }
+    if (this.actives && this.runs[u.id] !== undefined) {
+      this.runScythe(u);
+      this.updateMorale(u, 0);
       return;
     }
 
@@ -1980,7 +2318,7 @@ export class Battle {
       }
       routAt -= r.bonus;
     }
-    if (u.morale < routAt && u.state === 'ready') this.rout(u);
+    if (u.morale < routAt && u.state === 'ready' && !(this.actives && this.on(this.bondT, u.id) && this.bondHolds(u))) this.rout(u);
   }
 
   private rout(u: SimUnit): void {
@@ -2049,6 +2387,7 @@ export class Battle {
   /** Probability that target t blocks an attack from the given direction. */
   blockChance(t: SimUnit, dir: HitDir, pierce: number, missile: boolean): number {
     if (t.stats.shield === 'none' || t.state !== 'ready' || dir === 'rear' || t.daze > 0) return 0;
+    if (this.actives && this.on(this.sunderT, t.id)) return 0; // Sundered: his guard is broken
     const g = this.groups[t.group];
     let b = t.stats.block;
     if (dir === 'side') b *= RULES.sideBlockFactor;
@@ -2063,6 +2402,7 @@ export class Battle {
     if (missile) b *= RULES.missileBlockFactor;
     b *= this.fatigue(t);
     if (t.berserk > 0) b *= ABILITY_RULES.berserkBlock;
+    if (this.actives && this.on(this.stagger, t.id)) b *= ABILITY_RULES.pushBlock; // staggered by a Push of Pike
     if (this.pw) b += this.pw.blockBonus(t);
     b -= pierce;
     return clamp(b, 0, 0.85);
@@ -2077,6 +2417,8 @@ export class Battle {
     u.lastAttackTick = this.tick;
     u.stamina = Math.max(0, u.stamina - 3);
     u.wear.weapon += 0.12;
+    // A Wheel and Re-charge: the riders break away with no free hits against them while they regroup (abilities.md R3).
+    if (this.actives && t.stats.mount !== undefined && this.regrouping(t.group)) return;
     const dir = this.hitDirection(t, u.x, u.y);
     this.contactEvent(g);
     this.contactEvent(tg);
@@ -2134,6 +2476,7 @@ export class Battle {
     if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.meleeDown;
     else if (hd < 0) dmg *= 1 + hd * HEIGHT_RULES.meleeUp;
     let moraleMult = 1 + u.stats.moraleShock + (fury ? ABILITY_RULES.berserkShock : 0);
+    if (this.actives && this.on(this.shockT, u.id)) moraleMult += ABILITY_RULES.warcryShock; // a War-cry's allies
     // Momentum, Unshaken and War Cry's shock bend a charge's impact
     const ch = impact && this.pw ? this.pw.charge(u, t) : null;
     if (ch) {
@@ -2143,7 +2486,10 @@ export class Battle {
     if (impact && rider) {
       // A mounted charge: the faster the horse, the harder the blow.
       const sr = clamp(u.spd / Math.max(0.1, this.gallopSpeed(u)), 0.4, 1.15);
-      dmg *= RULES.chargeImpact + u.stats.chargeBonus * 0.6 * sr;
+      // a Wheel and Re-charge: the first charge after the regroup lands harder
+      const re = this.actives && this.on(this.chargeT, u.id) ? ABILITY_RULES.rechargeBonus : 0;
+      if (re > 0) this.chargeT[u.id] = 0;
+      dmg *= RULES.chargeImpact + (u.stats.chargeBonus + re) * 0.6 * sr;
       if (this.terrain) dmg *= this.terrain.at(u.x, u.y).cavCharge;
       if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.chargeDown;
       moraleMult += 0.8;
@@ -2241,6 +2587,7 @@ export class Battle {
       raw = this.pw.dmgIn(t, raw, dir);
       armor = Math.max(0, armor - this.pw.rended(t));
     }
+    if (this.actives && this.on(this.sunderT, t.id)) armor = Math.max(0, armor - ABILITY_RULES.sunderArmor);
     if (ap) armor *= 1 - ap;
     const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + armor));
     t.hp -= dmg;
@@ -2248,7 +2595,9 @@ export class Battle {
     t.wear.armor += 0.5;
     t.wear.helmet += 0.3;
     by.dmgDealt += dmg;
-    t.morale -= dmg * RULES.moraleFromDamage * RULES.dirMorale[dir] * this.ml(t) * moraleMult * (ranged ? 0.8 : 1) * (t.stats.kind === 'animal' ? MOUNTED_RULES.beastPain : 1);
+    const md = dmg * RULES.moraleFromDamage * RULES.dirMorale[dir] * this.ml(t) * moraleMult * (ranged ? 0.8 : 1) * (t.stats.kind === 'animal' ? MOUNTED_RULES.beastPain : 1);
+    if (this.actives && t.state === 'ready' && this.on(this.bondT, t.id)) this.bondShare(t, md);
+    else t.morale -= md;
     this.events.push({ type: 'hit', tick: this.tick, unit: t.id, by: by.id, dmg, dir, ranged });
     if (dir !== 'front' && t.state === 'ready') {
       const g = this.groups[t.group];
@@ -2660,7 +3009,13 @@ export class Battle {
       mix(u.daze);
       for (const c of u.abilCd) mix(c);
       if (u.stats.mount) mix(u.spd);
+      if (this.actives) {
+        // signature actives (AB-02): the timed effects still running, and a Scythe Run's paces left
+        for (const ends of [this.stagger, this.sunderT, this.shockT, this.bondT, this.chargeT]) mix(Math.max(0, (ends[u.id] ?? 0) - this.tick));
+        mix(this.runs[u.id]?.left ?? -1);
+      }
     }
+    if (this.actives) for (const g of this.groups) mix(Math.max(0, (this.regroupAt[g.id] ?? 0) - this.tick));
     if (this.hornSetup) {
       mix(this.horns[0]);
       mix(this.horns[1]);
