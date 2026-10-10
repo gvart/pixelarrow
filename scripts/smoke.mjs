@@ -29,7 +29,7 @@ const start = await ev(() => {
   const c = window.__state.campaign;
   return { heroes: c.data.heroes.length, gold: c.data.gold, x: c.world.s.x, y: c.world.s.y, t: c.world.s.time };
 });
-check('new campaign: three heroes, little gold', start.heroes === 3 && start.gold <= 80, JSON.stringify(start));
+check('new campaign: the 8-man opening, little gold', start.heroes === 8 && start.gold <= 80, JSON.stringify(start));
 
 // ---- march: tap a passable spot a few tiles away
 const findTarget = () => ev(() => {

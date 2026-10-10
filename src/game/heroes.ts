@@ -296,7 +296,28 @@ export function standardArmy(rng: Rng, ids: IdSource): Hero[] {
   return heroes;
 }
 
-/** A new campaign: a veteran hoplite, a young hoplite and a peltast. */
+/**
+ * A new campaign (design/gdd/campaign-arc.md R1, V5-020): eight men at the
+ * tutorial's scale. Four hoplites in group I (the first a level-2 veteran),
+ * two slingers in II and two peltasts in IV; III Reserve stays empty.
+ */
+export function openingParty(rng: Rng, ids: IdSource): Hero[] {
+  const heroes: Hero[] = [];
+  for (let i = 0; i < 4; i++) heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0, heroes));
+  for (let i = 0; i < 2; i++) heroes.push(makeHero(rng, ids, 'greek', 'slinger', 1, 1, 1, heroes));
+  for (let i = 0; i < 2; i++) heroes.push(makeHero(rng, ids, 'greek', 'peltast', 1, 1, 3, heroes));
+  paintPhalanx(rng, heroes);
+  heroes[0].traits = ['veteran'];
+  heroes[0].level = 2;
+  heroes[0].points = 2;
+  return heroes;
+}
+
+/**
+ * The old three-man start (a veteran hoplite, a young hoplite and a peltast):
+ * the base of the online starter army (src/online/rules.ts starterOnlineArmy).
+ * A new campaign starts with `openingParty`.
+ */
 export function starterParty(rng: Rng, ids: IdSource): Hero[] {
   const heroes: Hero[] = [];
   heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0, heroes));
