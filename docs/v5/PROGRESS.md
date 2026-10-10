@@ -11,9 +11,9 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| hub-01 | W9 HUB-01: tab bar + Back contract | per card | per card | worktree-agent | running |
-| assets-5 | AS-04: frescoes + vignettes (Chrome owner) | per card | per card | worktree-agent | running |
-| ct-05 | W9 CT-05: battle camera | per card | per card | worktree-agent | running |
+| (merge) | HUB-01 worktree-agent-a18faf43e2dc793ae, AS-05 worktree-agent-acc0a30d4c6a7ffbb, EV-01 worktree-agent-a32a78e11291434d5 | — | integrator | — | merging |
+| ct-04 | W10 CT-04: order previews + Then queue | per card | per card | worktree-agent | running |
+| assets-7 | AS-06: expansion pixel art (Chrome owner) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
 
@@ -48,6 +48,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 48b60d7 merge: F-06 dead code (−780 lines). Gates: vitest 926, layout 0 new, smokes pass.
 - fb8a4da AS-03 icons staged; 8cd866f IN-02 menu input contract. Gates: vitest 941, layout 0 new, smokes pass.
 - 244be6c fixer-4 smoke determinism; 94f7c4d AB-03 the Standard; 9065e2c captain levelBonus 0 (captain +8). Gates: vitest 958, server 298, layout 0 new, smoke 2/2, all smokes pass; balance 54%, lairs 43/58/53.
+- 322b6d0 CT-05 battle camera; 9716188 AS-04 frescoes (campaign fresco promoted). Gates: vitest 975, layout 0 new, smokes pass.
 
 ## Queue (next)
 
@@ -81,6 +82,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 18. Follow-ups: RU pause banner truncates at 320 (BTL/RD story); duel ladder 'Team pts · cap' truncates and floors hidden at 320 (DUE); tab-bar 'Campaign' casing inconsistent (F-02).
 
 19. smoke.mjs still flakes at 'battle against the band' (seen after AR-01 starter bands); a QA fixer is queued. World: the 'Your camp: tap Build' banner points to a removed Build button (WLD story).
+
+20. ORDER: the event card UI (World/Settlement) must merge BEFORE EV-02 (V5-064). HUB-02 starts once HUB-01 merges.
 
 ## Blockers
 
