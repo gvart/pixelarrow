@@ -23,10 +23,11 @@ import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
 import { requireAuth } from '../middleware';
 import type { Hero } from '../../../src/data/units';
-import type { BattleSetup } from '../../../src/sim/types';
+import { DEFAULT_DOCTRINE, type BattleSetup } from '../../../src/sim/types';
 import { ABANDON_MS, neutralDefenders, RESPAWN_MS, SIEGE_DECAY_MS, WINS_TO_CLAIM } from '../../../src/online/defenders';
 import { militia, ONLINE_RULES, DEFAULT_FORMATIONS } from '../../../src/online/rules';
 import { onlineBattleSetup, resolveAttack } from '../../../src/online/battle';
+import { neutralDoctrine, withDoctrine } from '../../../src/online/neutralDoctrine';
 import { limit, player, regionKey, shardStub, type PlayerCtx } from './context';
 import { applyBattleConsumable, BATTLE_CONSUMABLES, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import { attackXp, passXpStmt } from '../economy/pass';
@@ -224,12 +225,17 @@ attack.post('/start', async (c) => {
   const id = randomToken(16);
   const seed = randomU32();
   const expiresAt = now + ONLINE_RULES.ticketTtlMs;
+  // Neutrals fight in their kind's doctrine (ai-doctrines.md R4); beasts, militia and garrisons steady.
+  const doctrine = kind === 'npc' ? neutralDoctrine(pc.shard.seed, pc.shard.world.info(target)) : DEFAULT_DOCTRINE;
   const setup = withConsumables(
-    onlineBattleSetup(
-      seed,
-      { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false },
-      { heroes: defenders, formations: defFormations, bot: true },
-      info.site,
+    withDoctrine(
+      onlineBattleSetup(
+        seed,
+        { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false },
+        { heroes: defenders, formations: defFormations, bot: true },
+        info.site,
+      ),
+      doctrine,
     ),
     [consumable, null],
   );

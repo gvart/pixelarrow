@@ -56,6 +56,8 @@ export interface ArmySpec {
   horn?: number;
   /** The bot's doctrine (ai-doctrines.md). Missing = DEFAULT_DOCTRINE. */
   doctrine?: DoctrineId;
+  /** The bot fights to the end: its doctrine's retreatAt is treated as 0 (ladder floors, V5-052). Missing = false. */
+  holdField?: boolean;
   /** Field works this side may place in deployment (field-works.md R3). Missing = none. */
   works?: WorksAllowance;
 }
