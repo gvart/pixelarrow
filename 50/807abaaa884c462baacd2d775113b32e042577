@@ -1,0 +1,27 @@
+design/ux/hud.md
+  s_697bdc25a7c420::t_e9db26b76d2005 1-220
+design/ux/screens-campaign.md
+  s_697bdc25a7c420::t_bd2916411212ac 1-445
+design/ux/interaction-patterns.md
+  s_697bdc25a7c420::t_0499f5a09c7d6f 1-123
+design/ux/screens-modes.md
+  s_697bdc25a7c420::t_c08a2b921841bb 1-255
+design/ux/screen-flow.md
+  s_697bdc25a7c420::t_f3c443e395f53f 1-177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "50807abaaa884c462baacd2d775113b32e042577",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
