@@ -1,0 +1,21 @@
+src/ui/battleCamera.ts
+  s_697bdc25a7c420::t_c27e4297fe85b7 1-119
+tests/camera.test.ts
+  s_697bdc25a7c420::t_04a31e90be0248 1-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "91cffe354c9200e8aac50dff56c7c1a47d5ce761",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
