@@ -1,0 +1,20 @@
+docs/v5/spike/p4/bench.mjs
+  s_697bdc25a7c420::t_ce3e94361fed26 17,36-39,64-68,97
+  s_697bdc25a7c420::t_c94aff159c1d26 1-16,18-35,40-63,69-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "38caa719349fe858f314b647bc67de0116c92b3b",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
