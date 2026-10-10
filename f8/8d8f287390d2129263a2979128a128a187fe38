@@ -1,0 +1,24 @@
+src/dev/ordersBalance.ts
+  s_697bdc25a7c420::t_a6dab75b82435a 134-144,159-164
+  s_697bdc25a7c420::t_7dcb71429232fb 145-158
+  s_697bdc25a7c420::t_73760a7da97bdb 15-18,250-251,257-258,278-281
+  s_697bdc25a7c420::t_4d3ce34a611734 133
+tests/feint.test.ts
+  s_697bdc25a7c420::t_386d89944a4ce2 209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f88d8f287390d2129263a2979128a128a187fe38",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
