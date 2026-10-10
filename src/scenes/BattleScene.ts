@@ -2098,7 +2098,7 @@ export class BattleScene extends BaseScene {
         const numeral = this.cards.find((c) => c.gid === sel.id)?.numeral ?? '';
         const name = sel.individual ? sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim();
         sentence = t('battle.sit.marching', { group: name, order: sel.routed ? t('battle.order.routed') : t(`battle.order.${sel.order}` as TKey) });
-      } else sentence = this.online ? t('battle.sit.online') : t('battle.sit.quiet');
+      } else sentence = this.online ? t('battle.sit.online') : t('battle.sit.idle');
       this.top.setTime(fmtClock(Math.floor(sim.tick / TICK_RATE)), this.speed > 1 ? t('battle.num.fast') : this.online ? t('battle.strip.live') : t('battle.top.time'));
       this.top.setRow({ ours, theirs, you: t('battle.top.you'), foe: t('battle.top.foe') });
     }

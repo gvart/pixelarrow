@@ -278,4 +278,6 @@ export const BATTLE_EN = {
   'battle.orders.none': 'Tap a group to give it orders',
   'battle.ready.short': 'Ready',
   'battle.left.short': '{n} left',
+  // replaces battle.sit.quiet (strat.en.ts), which still named the removed radial ring (BTL-10, IN-01)
+  'battle.sit.idle': 'Tap a group, then an order below.',
 } as const;
