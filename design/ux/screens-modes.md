@@ -22,7 +22,7 @@ Shared rules (layout, touch targets, states, text, colour, data, transitions, ac
 │ [ Beasts 6 ][ Doctrines 2/4 ]        │ segmented (Doctrines appears after the first one is met)
 │ ┌[art] Lernaean Hydra       Lv 7  ›┐ │ row: art 2×, name, 2-line hint, state
 │ │ Five heads strike on long necks;  │ │
-│ │ fire stops the regrowth. ✓ Defeated│ │
+│ │ each is a target of its own. ✓ Defeated│
 │ └───────────────────────────────────┘ │
 │ ┌[sil] ? Not met              🔒  ›┐ │
 ├──────────────────────────────────────┤
