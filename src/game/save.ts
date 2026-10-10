@@ -141,34 +141,54 @@ const migrations: Record<number, Migration> = {
   },
 };
 
+/**
+ * Why a save could not be loaded: `corrupt` (unreadable or invalid) or `newer`
+ * (written by a newer build: a higher version, or items this build does not
+ * know). A `newer` save must never be overwritten by this build.
+ */
+export type LoadFailure = 'corrupt' | 'newer';
+
 export function migrate(raw: unknown): SaveData | null {
-  if (!raw || typeof raw !== 'object') return null;
+  const r = migrateResult(raw);
+  return r.ok ? r.data : null;
+}
+
+export function migrateResult(raw: unknown): { ok: true; data: SaveData } | { ok: false; reason: LoadFailure } {
+  if (!raw || typeof raw !== 'object') return { ok: false, reason: 'corrupt' };
   let d = raw as Record<string, unknown>;
   let v = typeof d.v === 'number' ? d.v : 0;
-  if (v < 1 || v > SAVE_VERSION) return null;
+  if (v > SAVE_VERSION) return { ok: false, reason: 'newer' };
+  if (v < 1) return { ok: false, reason: 'corrupt' };
   while (v < SAVE_VERSION) {
     const m = migrations[v];
-    if (!m) return null;
+    if (!m) return { ok: false, reason: 'corrupt' };
     d = m(d);
     v = d.v as number;
   }
-  return validate(d) ? (d as unknown as SaveData) : null;
+  const bad = validate(d);
+  return bad ? { ok: false, reason: bad } : { ok: true, data: d as unknown as SaveData };
 }
 
-function validItem(i: unknown): i is Item {
-  if (!i || typeof i !== 'object') return false;
+/** Why an item is unusable: null if fine, `newer` for a def this build does not know. */
+function itemProblem(i: unknown): LoadFailure | null {
+  if (!i || typeof i !== 'object') return 'corrupt';
   const it = i as Item;
   // Legacy tier names (synced from an older client or server) are mapped, not rejected.
   if (typeof it.rarity === 'string' && !RARITIES.includes(it.rarity)) it.rarity = normalizeRarity(it.rarity);
-  return typeof it.uid === 'string' && typeof it.def === 'string' && !!ITEMS[it.def] && RARITIES.includes(it.rarity) && typeof it.cond === 'number';
+  if (typeof it.uid !== 'string' || typeof it.def !== 'string' || !RARITIES.includes(it.rarity) || typeof it.cond !== 'number') return 'corrupt';
+  return ITEMS[it.def] ? null : 'newer';
 }
 
-function validate(d: Record<string, unknown>): boolean {
-  if (typeof d.gold !== 'number' || !Array.isArray(d.heroes) || !Array.isArray(d.stash)) return false;
-  if (typeof d.nextId !== 'number' || typeof d.rng !== 'number') return false;
+/** Checks and repairs a migrated save in place; returns why it is unusable, or null. */
+function validate(d: Record<string, unknown>): LoadFailure | null {
+  if (typeof d.gold !== 'number' || !Array.isArray(d.heroes) || !Array.isArray(d.stash)) return 'corrupt';
+  if (typeof d.nextId !== 'number' || typeof d.rng !== 'number') return 'corrupt';
   for (const h of d.heroes as Hero[]) {
-    if (!h || typeof h.id !== 'string' || typeof h.level !== 'number' || !h.equip || !h.look) return false;
-    for (const it of Object.values(h.equip)) if (it && !validItem(it)) return false;
+    if (!h || typeof h.id !== 'string' || typeof h.level !== 'number' || !h.equip || !h.look) return 'corrupt';
+    for (const it of Object.values(h.equip)) {
+      const bad = it ? itemProblem(it) : null;
+      if (bad) return bad;
+    }
     // Tolerate partial progression data rather than losing the save.
     if (!h.attrs || typeof h.attrs.str !== 'number') h.attrs = defaultAttrs();
     if (typeof h.points !== 'number') h.points = 0;
@@ -179,13 +199,16 @@ function validate(d: Record<string, unknown>): boolean {
   if (!w || typeof w.seed !== 'number' || typeof w.time !== 'number' || !Array.isArray(w.parties) || !Array.isArray(w.places)) {
     d.world = World.fresh(((d.rng as number) ^ 0x7f4a7c15) >>> 0 || 1);
   }
-  for (const it of d.stash as unknown[]) if (!validItem(it)) return false;
+  for (const it of d.stash as unknown[]) {
+    const bad = itemProblem(it);
+    if (bad) return bad;
+  }
   d.settings = { ...DEFAULT_SETTINGS, ...((d.settings as object) ?? {}) };
   d.won = typeof d.won === 'number' ? d.won : 0;
   d.fought = typeof d.fought === 'number' ? d.fought : 0;
   if (typeof d.seq !== 'number' || !Number.isFinite(d.seq)) delete d.seq;
   if (typeof d.savedAt !== 'number' || !Number.isFinite(d.savedAt)) delete d.savedAt;
-  return true;
+  return null;
 }
 
 export function serialize(s: SaveData): string {
@@ -222,47 +245,129 @@ export interface KV {
   remove(key: string): Promise<void>;
 }
 
+/*
+ * Storage layout (V5-011). Two slots of parts, `px_part_N` (slot 0, also the
+ * layout before V5-011) and `px_part1_N` (slot 1), and a meta record
+ * `px_meta` {v, n, s, pn} that points at the current slot `s` (n parts) and
+ * remembers the previous slot's part count `pn`. A save writes the *other*
+ * slot, then flips the meta: killed at any point, the meta still points at a
+ * complete save, and the slot it does not point at is the last good save
+ * (the backup a damaged current slot falls back to).
+ */
 const META = 'px_meta';
-const PART = (i: number) => `px_part_${i}`;
+const PART = (slot: number, i: number) => (slot ? `px_part1_${i}` : `px_part_${i}`);
+/** Where a save that could not be loaded is kept, raw, before anything else is written. */
+const CORRUPT_META = 'px_corrupt';
+const CORRUPT_PART = (i: number) => `px_corrupt_${i}`;
 
-export async function writeSave(kv: KV, s: SaveData): Promise<void> {
-  const parts = chunk(serialize(s));
-  const oldMeta = await kv.get(META);
-  // Write parts first, then the meta record that points at them.
-  for (let i = 0; i < parts.length; i++) await kv.set(PART(i), parts[i]);
-  await kv.set(META, JSON.stringify({ v: s.v, n: parts.length }));
-  if (oldMeta) {
-    try {
-      const old = JSON.parse(oldMeta) as { n: number };
-      for (let i = parts.length; i < old.n; i++) await kv.remove(PART(i));
-    } catch {
-      /* ignore */
-    }
-  }
+interface Meta {
+  v: number;
+  n: number;
+  /** Current slot (missing: 0, the single-slot layout). */
+  s?: number;
+  /** Parts in the other slot (missing: no backup). */
+  pn?: number;
 }
 
-export async function readSave(kv: KV): Promise<SaveData | null> {
-  const metaText = await kv.get(META);
-  if (!metaText) return null;
+function parseMeta(text: string | null): Meta | null {
+  if (!text) return null;
   try {
-    const meta = JSON.parse(metaText) as { n: number };
-    const parts: (string | null)[] = [];
-    for (let i = 0; i < meta.n; i++) parts.push(await kv.get(PART(i)));
-    return deserialize(unchunk(parts));
+    const m = JSON.parse(text) as Meta;
+    return m && typeof m.n === 'number' && m.n >= 0 ? m : null;
   } catch {
     return null;
   }
 }
 
-export async function clearSave(kv: KV): Promise<void> {
+export async function writeSave(kv: KV, s: SaveData): Promise<void> {
+  const parts = chunk(serialize(s));
+  const old = parseMeta(await kv.get(META));
+  // The slot the meta does not point at: overwriting it leaves the current save intact.
+  const slot = old ? 1 - (old.s ?? 0) : 0;
+  for (let i = 0; i < parts.length; i++) await kv.set(PART(slot, i), parts[i]);
+  await kv.set(META, JSON.stringify({ v: s.v, n: parts.length, s: slot, ...(old ? { pn: old.n } : {}) }));
+  // Parts left over in this slot from a longer save.
+  for (let i = parts.length; i < (old?.pn ?? 0); i++) await kv.remove(PART(slot, i));
+}
+
+export type ReadResult =
+  | { kind: 'ok'; data: SaveData; fromBackup?: boolean }
+  | { kind: 'empty' }
+  /** `raw` is what was stored (null when not even that could be read), kept for the backup. */
+  | { kind: 'bad'; reason: LoadFailure; raw: string | null };
+
+async function readSlot(kv: KV, slot: number, n: number): Promise<{ text: string; r: ReturnType<typeof migrateResult> }> {
+  const parts: (string | null)[] = [];
+  for (let i = 0; i < n; i++) parts.push(await kv.get(PART(slot, i)));
+  const text = parts.map((p) => p ?? '').join('');
+  const whole = unchunk(parts);
+  if (whole === null) return { text, r: { ok: false, reason: 'corrupt' } };
+  try {
+    return { text, r: migrateResult(JSON.parse(whole)) };
+  } catch {
+    return { text, r: { ok: false, reason: 'corrupt' } };
+  }
+}
+
+/**
+ * Reads the save: the current slot, else (if it is damaged) the backup slot.
+ * A save from a newer build is reported as such and never falls back: the
+ * older backup would then be saved over it.
+ */
+export async function readSaveResult(kv: KV): Promise<ReadResult> {
   const metaText = await kv.get(META);
-  if (metaText) {
-    try {
-      const meta = JSON.parse(metaText) as { n: number };
-      for (let i = 0; i < meta.n; i++) await kv.remove(PART(i));
-    } catch {
-      /* ignore */
-    }
+  if (!metaText) return { kind: 'empty' };
+  const meta = parseMeta(metaText);
+  if (!meta) return { kind: 'bad', reason: 'corrupt', raw: metaText };
+  const slot = meta.s ?? 0;
+  const cur = await readSlot(kv, slot, meta.n);
+  if (cur.r.ok) return { kind: 'ok', data: cur.r.data };
+  if (cur.r.reason === 'corrupt' && meta.pn) {
+    const prev = await readSlot(kv, 1 - slot, meta.pn);
+    if (prev.r.ok) return { kind: 'ok', data: prev.r.data, fromBackup: true };
+  }
+  return { kind: 'bad', reason: cur.r.reason, raw: cur.text };
+}
+
+export async function readSave(kv: KV): Promise<SaveData | null> {
+  const r = await readSaveResult(kv);
+  return r.kind === 'ok' ? r.data : null;
+}
+
+/** The raw save kept by backupRaw (null if none). */
+export async function readBackup(kv: KV): Promise<{ at: number; reason: LoadFailure; raw: string } | null> {
+  const meta = await kv.get(CORRUPT_META);
+  if (!meta) return null;
+  try {
+    const m = JSON.parse(meta) as { n: number; at: number; reason: LoadFailure };
+    const parts: (string | null)[] = [];
+    for (let i = 0; i < m.n; i++) parts.push(await kv.get(CORRUPT_PART(i)));
+    const raw = unchunk(parts);
+    return raw === null ? null : { at: m.at, reason: m.reason, raw };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keeps a save that could not be loaded, raw, under its own keys, before the
+ * game writes anything. One backup: the first is kept (the oldest progress);
+ * a later failure does not replace it.
+ */
+export async function backupRaw(kv: KV, raw: string, reason: LoadFailure, at = Date.now()): Promise<boolean> {
+  if (await kv.get(CORRUPT_META)) return false;
+  const parts = chunk(raw);
+  for (let i = 0; i < parts.length; i++) await kv.set(CORRUPT_PART(i), parts[i]);
+  await kv.set(CORRUPT_META, JSON.stringify({ n: parts.length, at, reason }));
+  return true;
+}
+
+export async function clearSave(kv: KV): Promise<void> {
+  const meta = parseMeta(await kv.get(META));
+  if (meta) {
+    const slot = meta.s ?? 0;
+    for (let i = 0; i < meta.n; i++) await kv.remove(PART(slot, i));
+    for (let i = 0; i < (meta.pn ?? 0); i++) await kv.remove(PART(1 - slot, i));
   }
   await kv.remove(META);
 }
