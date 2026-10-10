@@ -79,7 +79,7 @@ These do not need a bump: rendering, the HUD, audio, i18n, the camera, presentat
 All [SERVER] changes ship together as one train per version (V5-019), never as one bump per feature.
 
 ### The wire protocol
-- `src/sim/version.ts` exports `SIM_VERSION` (1 = the v4 rules, today's sim).
+- `src/sim/version.ts` exports `SIM_VERSION` (1 = the v4 rules, frozen in `server/src/sims/v1`; 2 = today's sim, since FO-01).
 - HTTP: these calls take an optional `simVersion`:
   - `/api/battle/verify`;
   - the start and submit calls of war attacks (`/api/online/attack/*`), boss raids (`/api/online/boss/*`), ladder floors (`/api/duel/ladder/*`) and async raids (`/api/duel/async/*`).
@@ -88,8 +88,9 @@ All [SERVER] changes ship together as one train per version (V5-019), never as o
 - No version at all means version 1 (`LEGACY_SIM_VERSION`).
 
 ### The server's window
-`server/src/simVersion.ts` accepts `MIN_SIM_VERSION..SIM_VERSION`. Today that is 1..1.
+`server/src/simVersion.ts` accepts `MIN_SIM_VERSION..SIM_VERSION` for new tickets. Today that is 2..2 (FO-01, V5-033); `REPLAYERS` still holds 1 and 2.
 - HTTP outside the window gets **426 `sim_version_unsupported`** with `{simVersion, min, max}`.
+- The floor applies to new tickets and sockets only (see "In-flight tickets" below).
 - A socket must run a version in `SOCKET_MIN_SIM_VERSION..SIM_VERSION` (V5-033; a missing `?sim=` is 1). Otherwise the gateway opens the socket only to send `{type:'error', code:'sim_version_unsupported'}` and close it with 4426. A browser cannot read an HTTP error on an upgrade.
 - The gateway forwards the socket's version as `x-sim-version`. Live lockstep pairs only clients of the same version, because mixed rules would desync: the shard's DuelHub refuses a challenge between versions (`sim_version_mismatch`), the MatchmakerDO pairs within each version (`pairBySimVersion`), the match records its version, and the DuelDO refuses a join under other rules (409).
 - The client (`errorText` in `src/online/client.ts` and `ShardSocket`) shows the localized `online.reloadForUpdate` message and stops reconnecting.
@@ -98,6 +99,14 @@ All [SERVER] changes ship together as one train per version (V5-019), never as o
 - `battle_tickets`, `duel_tickets`, `duel_attacks` and `duel_matches` store `sim_version` (migration 0016). Rows from before the migration default to 1.
 - A ticket is issued under the client's version. Its submission must run the same version. Otherwise it gets **409 `sim_version_mismatch`** and the ticket is rejected, because the setup was built for other rules.
 - A submission whose version the server cannot take gets 426, and the ticket stays open.
+
+### In-flight tickets
+A floor raise must not void battles already in progress. A submission whose version equals its ticket's `sim_version` replays with `REPLAYERS[ticket version]` even when that version is below `MIN_SIM_VERSION` (`verifyBattle` in `server/src/duel/verify.ts`). In practice: a player who started a war attack, raid, ladder floor or async raid on the old client (no `simVersion`, so v1) before the deploy can still finish it on that client.
+- Only tickets that exist, belong to the player, are open and unexpired qualify (`ticketPreamble` runs first: 404, 409 `ticket_used`, 410 `ticket_expired`). Tickets live 10 minutes, so the exception ends one TTL after the raise.
+- A new ticket or socket from an old client still gets 426.
+- The mismatch rule is unchanged: a v2 submission against a v1 ticket is 409 `sim_version_mismatch`, and an old client submitting a v2 ticket gets 426 (ticket open).
+- It needs the ticket's version in `REPLAYERS`; a version the server no longer has falls back to the window check.
+- `/api/battle/verify` has no ticket, so the floor always applies there.
 - `replayBattle(setup, log, deployOrders, simVersion)` dispatches through `REPLAYERS` (version → sim factory) in `server/src/battle.ts`. An unknown version throws.
 - A live duel's relay state carries `simVersion`. The DuelDO persists it, and the end-of-duel replay uses it.
 - `/api/duel/async/replay/:id` returns `simVersion`, so a viewer can tell a replay fought under other rules.
@@ -139,7 +148,7 @@ sockets: /ws/*?sim=n ──▶ n == SIM_VERSION ? upgrade : error frame + close 
 
 ### Retiring a version
 - Set `MIN_SIM_VERSION` to the new floor. Stale clients then get 426 and the reload message.
-- Remove that version's `REPLAYERS` entry and its frozen copy in the same change. A `REPLAYERS` key below `MIN_SIM_VERSION` is dead code.
+- Keep that version's `REPLAYERS` entry and its frozen copy for at least one ticket TTL after the floor rise is deployed, so in-flight tickets still replay ("In-flight tickets"). Remove both together in a later change; only then is a key below `MIN_SIM_VERSION` dead code.
 - Stored async replays of a retired version keep their `sim_version`. Clients must label them, or decline to replay them, instead of replaying under other rules. Per formations-orders.md, "Old replays (SIM_VERSION 1) are rejected by version".
 
 ## Alternatives Considered
