@@ -25,6 +25,7 @@ import { SPACING, formationSlots, rightOf, type FormationType } from '../sim/for
 import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import { hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
+import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf } from '../ui/input/undo';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import type { TerrainGrid } from '../sim/terrain';
 import type { BattleSource } from '../online/battleSource';
@@ -174,6 +175,13 @@ export class BattleScene extends BaseScene {
   private selUnit = -1;
   /** One- and two-finger gestures on the field (src/ui/input/gestures.ts); the scene only routes pointer events to it. */
   private gestures = new GestureRecognizer(DRAG_PX);
+  /** Undo (controls.md R4): a stack in deployment, the last order for UNDO_S in battle. Undo issues inverse orders. */
+  private deployUndo = new UndoHistory(DEPLOY_UNDO_DEPTH);
+  private battleUndo = new UndoHistory(1, UNDO_S * 1000);
+  /** The battle Undo chip on screen (null when none): rebuilt when the step appears or expires. */
+  private undoChip: KeyButton | null = null;
+  /** Whether a battle undo was live when the HUD was last built. */
+  private undoLive = false;
   /** The formation drag under way (move or turn), from its first drag event to the lift. */
   private drag: DragState | null = null;
   private dragPreview: { cx: number; cy: number; fx: number; fy: number; frontage: number; type: FormationType; n: number; label: string } | null = null;
@@ -280,6 +288,10 @@ export class BattleScene extends BaseScene {
     this.selGroup = -1;
     this.selUnit = -1;
     this.gestures.reset();
+    this.deployUndo.clear();
+    this.battleUndo.clear();
+    this.undoChip = null;
+    this.undoLive = false;
     this.drag = null;
     this.dragPreview = null;
     this.dragLabel = null;
@@ -666,6 +678,7 @@ export class BattleScene extends BaseScene {
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
+    if (this.undoLive || this.battleUndo.size) this.updateUndoChip();
     if (this.hudDirty) this.refreshHud();
   }
 
@@ -1933,7 +1946,7 @@ export class BattleScene extends BaseScene {
     const stop = Math.max(0, l - 1.2);
     const f = grp.formation;
     this.command({ kind: 'form', group: -1, cx: cx + fx * stop, cy: cy + fy * stop, fx, fy, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
-    this.command({ kind: 'order', group: -1, order: 'charge' });
+    this.command({ kind: 'order', group: -1, order: 'charge' }, true);
     this.showBanner(t('battle.banner.attack', { name: target.name }), 1200);
   }
 
@@ -1947,22 +1960,104 @@ export class BattleScene extends BaseScene {
    * Issue an order to the current selection (group -1 = selected). A selected
    * individual hero is detached into its own group first.
    */
-  private command(o: Order): void {
+  private command(o: Order, join = false): void {
     if (this.selGroup < 0) return;
     let gid = this.selGroup;
+    let solo = -1;
     if (this.selUnit >= 0) {
       const u = this.sim.units[this.selUnit];
       const g = this.sim.groups[u.group];
       // (A duel cannot know the new group's id before the relay applies the detach: command the group.)
-      if (!g.individual && !this.src?.lockstep) this.order({ kind: 'detach', unit: u.id });
+      if (!g.individual && !this.src?.lockstep) {
+        this.order({ kind: 'detach', unit: u.id });
+        solo = u.id;
+      }
       gid = u.group;
       this.selGroup = gid;
     }
     const withGroup = { ...o, group: gid } as Order;
+    // undoing an order that detached a man sends him back to his group
+    this.recordUndo(withGroup, solo >= 0 ? [{ kind: 'rejoin', unit: solo }] : inverseOf(withGroup, this.sim), join);
     this.order(withGroup);
     haptic('medium');
     this.hudDirty = true;
     this.buildHud();
+  }
+
+  // ---- undo (controls.md R4): inverse orders, through order() like any other (the log, the server and the relay see only orders)
+
+  /** Remember how to undo `o` (null: it cannot be). In battle a new order replaces the last one's undo. */
+  private recordUndo(o: Order, inverse: Order[] | null, join = false): void {
+    if (this.sim.phase === 'ended') return;
+    const h = this.sim.phase === 'deploy' ? this.deployUndo : this.battleUndo;
+    if (!inverse) {
+      if (!join) h.clear();
+      return;
+    }
+    h.push(inverse, groupsOf(o, this.sim), this.time.now, join);
+  }
+
+  /** The battle step still undoable: in time, and its group still stands (else the chip goes). */
+  private liveBattleUndo(): boolean {
+    if (this.sim.phase !== 'battle') return false;
+    const s = this.battleUndo.peek(this.time.now);
+    if (!s) return false;
+    const stands = s.groups.some((gid) => {
+      const g = this.sim.groups[gid];
+      if (!g) return false;
+      // a detached man's step names his solo group: it stands while he does
+      return !g.disbanded && !g.routed && this.sim.activeMembers(gid).length > 0;
+    });
+    if (!stands) this.battleUndo.clear();
+    return stands;
+  }
+
+  /** Undo the last step: the last order in battle (within UNDO_S), else the last deployment change. */
+  private undo(): void {
+    const deploy = this.sim.phase === 'deploy';
+    if (!deploy && !this.liveBattleUndo()) return;
+    const step = (deploy ? this.deployUndo : this.battleUndo).pop(this.time.now);
+    if (!step) {
+      if (deploy) toast(this, t('undo.why.none'));
+      return;
+    }
+    for (const o of step.orders) {
+      this.order(o);
+      if (o.kind === 'assign') this.syncHeroGroup(o.unit);
+      if (o.kind === 'rejoin' && this.selUnit === o.unit) {
+        this.selGroup = this.sim.units[o.unit].homeGroup;
+        this.selUnit = -1;
+      }
+    }
+    if (deploy) {
+      for (const v of this.views) {
+        v.px = v.u.x;
+        v.py = v.u.y;
+      }
+    }
+    haptic('medium');
+    this.showBanner(t(deploy ? 'undo.banner.deploy' : 'undo.banner.done'), 900);
+    this.hudDirty = true;
+    this.buildHud();
+  }
+
+  /** Offline: a man's group in the deployment is his group in the army (saved), as the Groups sheet does. */
+  private syncHeroGroup(unit: number): void {
+    if (this.src) return;
+    const u = this.sim.units[unit];
+    const gi = this.sim.groups.filter((g) => g.side === this.me && !g.individual).findIndex((g) => g.id === u.group);
+    if (gi < 0 || gi > 3) return;
+    this.views[unit].hero.group = gi;
+    void state.save();
+  }
+
+  /** Keep the battle Undo chip in step with its 3 s window (it fades for the last half second). */
+  private updateUndoChip(): void {
+    if (this.liveBattleUndo() !== this.undoLive) {
+      this.buildHud();
+      return;
+    }
+    if (this.undoChip) this.undoChip.setAlpha(this.battleUndo.left(this.time.now) < 500 ? 0.55 : 1);
   }
 
   private firstPlayerGroup(): number {
@@ -2023,6 +2118,8 @@ export class BattleScene extends BaseScene {
 
   buildHud(): void {
     this.hud.removeAll(true);
+    this.undoChip = null;
+    this.undoLive = this.liveBattleUndo();
     this.cards = [];
     this.abilityBtns = [];
     this.followBtn = null;
@@ -2300,12 +2397,14 @@ export class BattleScene extends BaseScene {
         : { icon: 'swords', label: t('battle.fight'), tip: t('battle.tip.fight'), id: 'battle.fight', onClick: () => this.startFight() };
       // the one primary of the deployment: the hero button (grey stone while the online ready is waiting)
       this.hud.add(new MButton(this, 4, y, VW - 8, SHEET_ORDERS_H, { icon: main.icon, label: main.label, tip: main.tip, id: main.id, variant: main.off ? 'disabled' : 'primaryHero', disabledReason: main.off, onClick: main.onClick }));
+      this.buildTargetChips(null);
       return;
     }
     const orders = this.orderKeys();
     if (!orders.length) {
       const hint = addText(this, VW / 2, y + 9, t('battle.orders.none'), 'dim', 0.5).setFontSize(6);
       this.hud.add(hint);
+      this.buildTargetChips(null);
       return;
     }
     // the bar wears the selected group's colour (its numeral badge heads the line above; controls.md R1.3, PLAY C3)
@@ -2362,13 +2461,19 @@ export class BattleScene extends BaseScene {
    * group has a focus (a tap clears it), and "To range" while it idles out of
    * range (not in live battles, R10b).
    */
-  private buildTargetChips(sel: Battle['groups'][number]): void {
-    if (this.shapeOpen || !this.canCommand()) return;
-    const chips: { icon: string; label: string; tip: string; id: string; onClick: () => void }[] = [];
-    if ((sel.focus ?? -1) >= 0) {
+  private buildTargetChips(sel: Battle['groups'][number] | null): void {
+    if (this.shapeOpen) return;
+    const chips: { icon: string; label: string; tip: string; id: string; off?: string; onClick: () => void }[] = [];
+    // deployment: Undo always there, greyed with its reason while empty (R4.2); online too, it is orders like any other
+    if (this.sim.phase === 'deploy') {
+      chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.deploy'), id: 'battle.undo', off: this.deployUndo.size ? undefined : t('undo.why.none'), onClick: () => this.undo() });
+    }
+    // Undo leads the chip row for 3 s after an order (controls.md R4.1; live online too: it is an order)
+    else if (this.undoLive) chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.battle'), id: 'battle.undo', onClick: () => this.undo() });
+    if (sel && this.canCommand() && (sel.focus ?? -1) >= 0) {
       chips.push({ icon: 'close', label: t('target.chip.focus'), tip: t('target.tip.focus'), id: 'battle.target.clear', onClick: () => this.setFocus(-1) });
     }
-    if (this.far.has(sel.id) && !this.online) {
+    if (sel && this.canCommand() && this.far.has(sel.id) && !this.online) {
       chips.push({ icon: 'advance', label: t('target.chip.advance'), tip: t('target.tip.advance'), id: 'battle.target.advance', onClick: () => this.advanceToRange() });
     }
     if (!chips.length) return;
@@ -2377,9 +2482,10 @@ export class BattleScene extends BaseScene {
     let x = 4;
     for (const c of chips) {
       const w = Math.ceil(mw(c.label, 'light', 6.5)) + ICON_PX + 12;
-      const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, onClick: c.onClick });
+      const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, disabledReason: c.off, onClick: c.onClick });
       this.hud.add(b);
-      this.cmdBtns.set(c.id.slice('battle.'.length), b);
+      if (c.id === 'battle.undo') this.undoChip = this.sim.phase === 'battle' ? b : null;
+      else this.cmdBtns.set(c.id.slice('battle.'.length), b);
       x += w + SIZE.gap;
     }
   }
@@ -2821,6 +2927,7 @@ export class BattleScene extends BaseScene {
     this.leaveDialog?.destroy();
     this.leaveDialog = null;
     if (this.dclock) markStarted(this.dclock);
+    this.deployUndo.clear();
     this.shapeOpen = false;
     this.setFollow(true);
     hapticNotify('success');
@@ -2836,6 +2943,27 @@ export class BattleScene extends BaseScene {
       this.showBanner(t('battle.why.resetOnline'), 1500);
       return;
     }
+    // "reset all" is global: it asks first (controls.md R4.3, A11Y-08)
+    if (this.overlay) return;
+    const c = confirmDialog(this, {
+      title: t('undo.reset.title'),
+      body: t('undo.reset.body'),
+      ok: t('undo.reset.ok'),
+      okIcon: 'repair',
+      cancel: t('common.stay'),
+      destructive: true,
+      onOk: () => {
+        this.overlay = null;
+        if (this.sim.phase === 'deploy') this.doResetDeploy();
+      },
+    });
+    this.overlay = c;
+    c.once('destroy', () => this.overlay === c && (this.overlay = null));
+  }
+
+  private doResetDeploy(): void {
+    // autoDeploy is a jump outside the order log: the undo steps before it no longer describe the field
+    this.deployUndo.clear();
     this.sim.autoDeploy(this.me);
     for (const v of this.views) {
       v.px = v.u.x;
@@ -2969,11 +3097,10 @@ export class BattleScene extends BaseScene {
             id: `battle.groups.chip${gi}`,
             onClick: () => {
               if (area.moved || on) return;
-              this.order({ kind: 'assign', unit: u.id, group: g.id });
-              if (!this.src) {
-                hero.group = gi;
-                void state.save();
-              }
+              const assign: Order = { kind: 'assign', unit: u.id, group: g.id };
+              this.recordUndo(assign, inverseOf(assign, this.sim));
+              this.order(assign);
+              this.syncHeroGroup(u.id);
               for (const v of this.views) {
                 v.px = v.u.x;
                 v.py = v.u.y;
