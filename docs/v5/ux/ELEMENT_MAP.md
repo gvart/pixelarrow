@@ -257,7 +257,7 @@ Story S2-UX-IA, 2026-10-10. The guard against feature loss: every element in [au
 | E180 | Deployment: Men → Assign groups | deployment panel **Groups** | Moved + Renamed |
 | E181 | Battle: Pause/Play | Z1 top bar | Kept |
 | E182 | Battle: speed 1×/2×/3× | Z1; + 0.5× | Kept |
-| E183 | Battle: Flee → retreat confirm | **⋯ battle menu** → Retreat confirm | Moved |
+| E183 | Battle: Flee → retreat confirm | **⋯ battle menu** "Retreat" → Retreat confirm (one word, ia §5) | Moved + Renamed |
 | E184 | Online: Follow/Watch | Z2 eye | Moved |
 | E185 | Online: Flee | ⋯ menu | Moved |
 | E186 | Clock / men count / deploy countdown | Z1 | Kept |
@@ -266,10 +266,10 @@ Story S2-UX-IA, 2026-10-10. The guard against feature loss: every element in [au
 | E189 | Hint pill | Z3, info glyph | Kept |
 | E190 | Banners (deploy, contact, flanked, routing, victory…) | Z3, 6 s TTL, one at a time | Kept |
 | E191 | Ability medallions (Horn and unit abilities, cooldowns) | Z5 rail, ≤ 3 + more | Moved |
-| E192 | Group cards (portrait, numeral, name, men · order, HP and morale bars) | Z7; glyph + labelled H/M + state line; only groups with men | Kept |
+| E192 | Group cards (portrait, numeral, name, men · order, HP and morale bars) | Z7: portrait, numeral, name, men kept; + glyph, labelled H/M, state line (the order moves into it); only groups with men; under 360 wide the portrait and name drop (numeral, glyph, men stay) | Kept |
 | E193 | Header "Orders · group" | order bar numeral badge in group colour (controls R1.3) | Moved |
 | E194 | Shape chip → Shape sheet (Line/Column/Wedge/Loose/Wall) | deployment panel + selection; Shape sheet + **Orb** | Kept |
-| E195 | Reset (deployment) | deployment panel "Reset all" + confirm | Kept |
+| E195 | Reset (deployment) | **⋯ battle menu** "Reset all" + confirm (away from FIGHT!) | Moved |
 | E196 | Alone / Rejoin (single soldier) | selected-soldier panel | Kept |
 | E197 | Fight! / Ready | deployment panel primary | Kept |
 | E198 | Orders Advance, Charge, Hold, Shoot, Back | Z8 order bar; "Back" → **Withdraw** (Feint when eligible) | Renamed |
@@ -335,7 +335,7 @@ Story S2-UX-IA, 2026-10-10. The guard against feature loss: every element in [au
 | E243 | Browse Find… (item picker) + clear ✕ | Market | Kept |
 | E244 | Browse rows → listing card → buy confirm | Market; expired = disabled | Kept |
 | E245 | Browse Show more; empty state | Market | Kept |
-| E246 | Mine: n/max open; rows with status; withdraw ✕ → confirm | Market › Mine | Kept |
+| E246 | Mine: n/max open; rows with status; withdraw ✕ → confirm | Market › Mine; "Cancel listing" | Renamed |
 | E247 | Sell grid (stash, resources, consumables) | Market › Sell | Kept |
 | E248 | Sell form: quantity, currency toggle, price stepper, fee, you get, town picker, List | Market sell sheet; numeric entry (P23), town list sheet | Kept |
 
@@ -520,17 +520,21 @@ Story S2-UX-IA, 2026-10-10. The guard against feature loss: every element in [au
 | N62 | Inspect (i) toggle | Battle deployment panel | controls.md R11 |
 | N63 | Coach cards for Feint, Orb, Works | Battle | controls.md R10b |
 | N64 | Hourglass Paused pill with merged reasons | Battle Z3 | battle-readability.md R4, controls.md R6.3 |
+| N65 | Zoom key (single-pointer zoom) | Battle Z2, World, War, Camp | WCAG SC 2.5.1 (review fix) |
+| N66 | Facing pips (tap the knob, tap a direction) | Battle field | WCAG SC 2.5.1 (review fix) |
+| N67 | Tap-a-cell + ✓ work placement | Battle deployment | WCAG SC 2.5.1 (review fix) |
+| N68 | Crest glyph on owned and clan hexes | War map | G13 (review fix) |
 
 ## 3. Counts
 
 | Status | Count | Rows |
 | --- | --- | --- |
 | Old elements mapped | **331** | E001-E331 |
-| — Kept in place (incl. restyled, changed behaviour) | 269 | |
-| — Moved (incl. "Moved + Renamed" and the now-reachable Dismiss) | 42 | |
-| — Renamed in place | 8 | |
+| — Kept in place (incl. restyled, changed behaviour) | 267 | |
+| — Moved (incl. "Moved + Renamed" and the now-reachable Dismiss) | 43 | |
+| — Renamed in place | 9 | |
 | — **Removed** | **12** rows, 11 reasons | see below |
-| New elements | **64** | N01-N64 |
+| New elements | **68** | N01-N68 |
 
 **Removed, with reasons (12 rows):**
 1. E069 Beast trial top bar: the screen is retired (V5-015); the beast sheet moved to Codex.

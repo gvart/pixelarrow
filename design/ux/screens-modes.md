@@ -19,12 +19,12 @@ Shared rules (layout, touch targets, states, text, colour, data, transitions, ac
 ```
 ┌──────────────────────────────────────┐
 │ [ ]        ▓ CODEX ▓            [⚙] │
-│ [ Beasts 6 ][ Doctrines 2/4 ]        │ segmented (Doctrines appears after the first one is met)
+│ [ Beasts 8 ][ Doctrines 2/5 ]        │ segmented (Doctrines appears after the first one is met)
 │ ┌[art] Lernaean Hydra       Lv 7  ›┐ │ row: art 2×, name, 2-line hint, state
 │ │ Five heads strike on long necks;  │ │
 │ │ each is a target of its own. ✓ Defeated│
 │ └───────────────────────────────────┘ │
-│ ┌[sil] ? Not met              🔒  ›┐ │
+│ ┌[art] Chimera              Lv 6  ›┐ │
 ├──────────────────────────────────────┤
 │ Campaign  Duels  (WAR)  Codex  Shop  │
 └──────────────────────────────────────┘
@@ -33,7 +33,7 @@ Shared rules (layout, touch targets, states, text, colour, data, transitions, ac
 | Element | Old ref | New place / note |
 | --- | --- | --- |
 | Hub shell, title "Codex" | CDX | same; book icon in the tab (MENU-3) |
-| Section "Beasts", one row per beast: thumbnail, name, hint, Level / World boss | CDX, CDX-2, CDX-3 | 2× art, **2-line hint**, one title size, state "Not met / Seen / Defeated ✓" (glyph + text) |
+| Section "Beasts", one row per beast: thumbnail, name, hint, Level / World boss | CDX, CDX-2, CDX-3 | 2× art, **2-line hint**, one title size; all beasts named as today; a "Defeated ✓" mark is **proposed** (Director decision) |
 | Beast trial top bar, back, sub line "Fight any beast with your army" | TRL | **retired screen**; the sub line moves into the beast sheet as the Trial's caption |
 | Beast trial rows (same as Codex rows) | TRL, D3 | **removed, redundant**: identical to the Codex rows |
 | **Beast sheet**: stage art, "Beast lair / World boss · Level n", How it fights (bullets), Counter, Loot | TRL sheet, TRL-2 | moved intact to Codex; real bullet glyphs; flat sheet; X only |
@@ -42,7 +42,7 @@ Shared rules (layout, touch targets, states, text, colour, data, transitions, ac
 | **Doctrines section**: one row per doctrine met (icon, name, one-line tell); unmet as "? Unknown doctrine" | ai-doctrines.md "Codex" | new |
 | **Doctrine sheet**: tells, counters, the band kinds that use it | ai-doctrines.md | new; opened from the list or a "Codex ›" door |
 
-- **States.** nothing met (all silhouettes; entries still open) · beasts only (Doctrines segment hidden until one is met) · Trial disabled (no fit men: reason) · opened through a door (the sheet's X returns to the door's screen).
+- **States.** beasts only (Doctrines segment hidden until one is met) · Trial disabled (no fit men: reason) · opened through a door (the sheet's X returns to the door's screen).
 - **Touch.** Rows ≥ 60 pt; the segmented control 44 pt; Trial fight full width in the sheet's action row.
 - **Data.** beasts (`src/data/beasts.ts`), Codex seen/defeated flags (campaign save; new optional field), doctrine unlocks (ai-doctrines.md).
 - **Events.** `codex:open {id}`, `trial:start {beast}`.
@@ -129,7 +129,9 @@ Rings, timer, range bar, team card, **Cancel** (the only exit; back arrow hidden
 
 | Element | Old ref | New place / note |
 | --- | --- | --- |
-| Hub shell, ⚙, War tab | WAR | **no back arrow** (D12) |
+| Hub shell (plaque "PIXELARROW", as today), ⚙, War tab | WAR | **no back arrow** (D12) |
+| Hex ownership on the map | WAR, G13 | owned and clan hexes carry a small crest glyph, not only a tint |
+| Zoom key | WCAG 2.5.1 | magnifier on the rail; steps through zoom levels |
 | States loading / unavailable / join | WAR, WAR-5 | unavailable: "Open in Telegram" primary; the empty HUD band hidden |
 | Situation line; chips war gold, food, wood, bronze, recruits, energy (tap = tip) | WAR, WAR-1 | **compact numbers (1.2K), icon chips, 2 rows if needed; never "…"** (the audit's one blocker) |
 | March bar (countdown, Halt) | WAR | same |
@@ -195,11 +197,11 @@ Rings, timer, range bar, team card, **Cancel** (the only exit; back arrow hidden
 
 | Element | Old ref | New place / note |
 | --- | --- | --- |
-| Top bar "Market", back → (origin), default **Shop hub** | MKT, N4 | default origin changes from War to Shop |
+| Top bar "Market", back → (origin): Shop hub or War army; deep link or no origin → **Shop hub** | MKT, N4 | default origin changes from War to Shop |
 | Chips war gold, Drachmae | MKT | same |
 | Tabs Browse · Mine · Sell | MKT | same |
 | Browse: Kind / Currency / Sort, Find…, clear ✕; rows → listing card → buy confirm; Show more; empty | MKT, MKT-1, MKT-2 | filters open **option sheets**; expired listings use the disabled style with "Expired" or are hidden |
-| Mine: "n/max open", rows with status, withdraw ✕ → confirm | MKT | same |
+| Mine: "n/max open", rows with status, ✕ **Cancel listing** → confirm | MKT | renamed from "withdraw" (ia.md §5) |
 | Sell: grid → sell form (quantity, currency toggle, price stepper, fee, you get, town picker, List) | MKT, MKT-3, MKT-5 | numeric entry + ×1/×2/×5 presets; ✓ on the selected currency; town list sheet; laid out from the sheet width |
 
 - **States.** loading · offline · outside ("Open in Telegram") · empty browse ("Nothing listed · Sell something") · max listings.
@@ -212,7 +214,7 @@ Rings, timer, range bar, team card, **Cancel** (the only exit; back arrow hidden
 
 | Element | Old ref | New place / note |
 | --- | --- | --- |
-| Hub shell "Shop"; back only when opened with `back` | SHP | same |
+| Hub shell "Shop" | SHP | **always a root**: doors (War army Shop, "Need n Dr", deep link) switch tabs; no back arrow (ia.md §1.2) |
 | Drachmae chip → Wallet; fresco; tabs Shop · Pass (claim badge) · Wallet | SHP, SHP-5 | painted fresco |
 | States loading / outside / offline / closed / error + Retry | SHP, SHP-4 | card skeleton; outside: "Open in Telegram" |
 | Shop: tip; cosmetics per slot (Equipped / Owned / price / locked with source) → cosmetic dialog (preview, Equip / Take off / Open Pass / Open Duels / Buy / Need n Dr); consumables note | SHP, SHP-2 | dialog: X only, price once, bronze secondary |
@@ -249,6 +251,32 @@ Tabs Controls / Items / Lists / V3 / Mosaic / Parts (+ Shell demo); taps toast; 
 | Close: X, tap outside, Back | MENU settings | same |
 
 - **Acceptance.** No two X buttons are ever visible; every enabled button is bronze; the three new accessibility toggles persist across reloads.
+
+## Appendix: data, events and text limits for the compact specs
+
+This table completes the compact blocks in both spec files (C-1, C-2, C-5 … C-8, M-1 … M-15). "Update" is what triggers a re-render; nothing polls. The UI owns none of this state.
+
+| Spec | Data (owner system) | Update | Null / missing | Events fired | Text limits (en; ru +40%) |
+| --- | --- | --- | --- | --- | --- |
+| C-1 Boot | boot routing (`main.ts`, `deeplink.ts`) | once | → Campaign hub | — | status line ≤ 32 |
+| C-2 First run | onboarding flags (save) | per step | offer step | `tutorial:start`, `firstrun:mode {mode}` | mode pitch ≤ 60 |
+| C-5 Camp | camp state (#21 world camp / online camp API) | on action, on day end | field: back to World; online: error + Retry | existing camp actions | build row name ≤ 18, reason ≤ 40 |
+| C-6 Settlement | settlement stock, prices, wounded (#20) | on enter, on action | empty states per tab | existing hire/buy/sell/rest; `retrain:open` | trait ≤ 40 (wraps), price chip ≤ 6 digits |
+| C-7 Army | heroes, stash (#16, #17) | on change event | empty roster / stash states | existing equip/dismiss | name ≤ 16, class full name ≤ 14 |
+| C-8 Hero | hero, perks (#16, abilities.md) | on change event | "—" for a missing stat | `perk:take`, `perk:retrain {tier}` | perk name ≤ 20, description in the sheet |
+| M-1 Codex | beasts (`src/data/beasts.ts`), doctrine unlocks (ai-doctrines.md) | on enter | Doctrines segment hidden | `codex:open {id}`, `trial:start {beast}` | hint 2 lines, ≤ 90 |
+| M-2 Duels hub | duel profile, ladder, arena (`src/duel/*`, server) | on load; after a fight; Retry | skeleton → error/offline/outside states | existing `duel:*` | floor label ≤ 10, season line wraps |
+| M-3/M-4 Team, Armoury | duel roster, presets, shop (server) | on load, on action | empty preset; "Nothing today" | existing | preset name ≤ 16 |
+| M-5/M-6/M-7 | boards, raid candidates, matchmaking (server) | on load, on poll by the existing search loop | empty / error states | existing | name ≤ 16 |
+| M-8 War hub | season map, resources, march, hex (`src/online/*`, server) | on load, on server push, on action | skeleton; unavailable; join | existing `online:*`; `codex:open` from the boss panel | chip numbers compact (≤ 5 chars: "12.4K"), region ≤ 20 |
+| M-9 War army | online army, stash (server) | on load, on action | empty roster; error | existing | as C-7 |
+| M-10 Clan | clan (server) | on load, on action | no clan; offline; error | existing | clan name ≤ 24, tag ≤ 5 |
+| M-11 Merchant | merchant stock (server) | on load, on buy | error | existing | description 2 lines |
+| M-12 Market | listings (server) | on load, on filter, on action | empty; max listings | existing; `market:cancel` | item name 2 lines |
+| M-13 Shop | catalogue, pass, wallet (server, Telegram Stars) | on load, on purchase callback | skeleton; outside; closed | existing purchase events | pack label fixed size, ≤ 14 |
+| M-15 Settings | settings (save `Settings`, controls.md new fields) | on toggle | defaults | existing `settings:*` | row label ≤ 28 |
+
+**Acceptance for the two network hubs** (M-2, M-8), in addition to their blocks: the skeleton appears within 300 ms of the tab tap; an offline state shows Retry and keeps the tab bar; at 320x568 nothing in the head is ellipsized in en or ru.
 
 ## Open Questions
 1. Codex seen/defeated flags need a small optional save field; owned by the save story (no migration: optional with a default).

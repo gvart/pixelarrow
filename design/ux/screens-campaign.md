@@ -33,7 +33,11 @@ These hold on every screen in this file and in [screens-modes.md](screens-modes.
 
 **Accessibility.** Long-press is never the only path: wherever details exist, a visible (i) or chevron opens them, and mouse hover shows the same tip (G15). Haptics on select and confirm (setting). Contrast pairs from `tokens.ts` CONTRAST_PAIRS (4.5:1 text, 3:1 UI).
 
-**Input completeness (touch + mouse).** Every action reachable by tap; hover = long-press tip; wheel scrolls lists and zooms maps; no drag-only action (drag to slot also has tap-select-then-tap-slot).
+**Input completeness (touch + mouse).** Every action reachable by tap; hover = long-press tip; wheel scrolls lists and zooms maps; no drag-only or pinch-only action: drag to slot also has tap-select-then-tap-slot, and every pinch-zoom map (World, War, Battle, Camp) has a **zoom key** (magnifier; each tap steps to the next zoom) (WCAG SC 2.5.1).
+
+**Performance and resolution (every screen).** A screen is interactive within 300 ms of the tap that opens it (local data) or shows its skeleton within 300 ms (network data). Every screen passes the layout check at 390x844, 360x780, 320x640 and 320x568 in en and ru with no must-show text ellipsized.
+
+**Stacking.** At most one sheet plus one confirm; anything else opens as a nested page inside the sheet (ia.md §6).
 
 ---
 
@@ -214,13 +218,13 @@ Child of the Campaign hub. Children: Settlement, Field camp, Army, Battle; sheet
 | Top bar "Day n · Region", back → hub | WLD top bar | + ⚙ (D9) + **"Lairs n/6" chip** → Arc sheet |
 | Situation line + hint | WLD | adds "next: {town}" (WLD-4) |
 | Chips gold, men fit/total, food (days), supplies | WLD, WLD-5 | one order everywhere |
-| Follow toggle (eye), sync badge | WLD | eye stays; sync badge only on error |
+| Follow toggle (eye), sync badge | WLD | eye stays; + zoom key; sync badge only on error |
 | Action bar: Camp (pitch / open), Stop or Rest/Pause, Party (count) → Army | WLD | Party badge is a count (G11) |
 | Banners (spotted, found town, camp, ransom, no way there…) | WLD, WLD-6 | i18n; 6 s TTL |
 | Discovery pan | WLD | same |
 | Strike-camp confirm | WLD | Mosaic confirm with scrim |
-| Encounter sheet: band name, figure, threat + men, culture/level, mood, your army, advice; Attack / Take ransom / Let them go or Flee n% | WLD, WLD-2 | **Mosaic decision sheet** (ia.md §6): band art in a niche, threat chip with icon; **doctrine row** (icon, name, tell, "Codex ›") and **captain row** (name, level, crest) (ai-doctrines.md) |
-| **Assault sheet** | campaign-arc.md R2.2 | new optional sheet: garrison art, size, power plate, threat chip, doctrine row, captain row, reward chest; Assault (primary) / Leave; X |
+| Encounter sheet: band name, figure, threat + men, culture/level, mood, your army, advice; Attack / Take ransom / Let them go or Flee n% | WLD, WLD-2 | **Mosaic decision sheet** (ia.md §6): band art in a niche, threat chip with icon; **doctrine row** (icon, name, tell, (i) → the doctrine's Codex text as a page inside the sheet) and **captain row** (name, level, crest) (ai-doctrines.md) |
+| **Assault sheet** | campaign-arc.md R2.2 | new optional sheet: garrison art, size, power plate, threat chip, doctrine row with (i) page, captain row, reward chest; Assault (primary) / Leave; X |
 | **Event card** | campaign-events.md R4 | new decision sheet: vignette, title, ≤ 280-char body, 2-3 choices (one terracotta, others bronze), cost chips (icon + number); map paused under a dim scrim |
 | **Arc sheet** (Lairs · Journal) | campaign-arc.md, campaign-events.md | new: Lairs list (name, state: standing n men / fallen ✓ / reborn, tap = centre map); Journal (last 20 lines) |
 | **Coach marks** (2, first visit) | campaign-arc.md R1.6 | new, reuse the online coach system; placed away from the action bar |
@@ -260,7 +264,7 @@ Threat = icon + colour; lair state = icon + text; cost chips = icon + number; th
 Event body ≤ 280 chars, choice labels ≤ 24 chars (campaign-events.md R5); encounter tell ≤ 60 chars; band names wrap.
 
 ### Acceptance Criteria
-- [ ] The Encounter, Assault and Event sheets fit at 320x640 with no truncation, en and ru.
+- [ ] The Encounter, Assault and Event sheets fit at 320x640 and 320x568 with no truncation, en and ru (layout check fixtures `event-card`, `assault-sheet`, `encounter-sheet`).
 - [ ] System Back on the Encounter picks "Let them go", or shakes and highlights Flee when the band hunts.
 - [ ] The Lairs chip opens the Arc sheet; tapping a lair centres the map on it.
 - [ ] Killing the app with an event open reopens the same card.
@@ -353,7 +357,7 @@ Event body ≤ 280 chars, choice labels ≤ 24 chars (campaign-events.md R5); en
 | Tabs (badges) Stats · Gear · Perks · Skills | HRO | Stats default |
 | Stats: points header, STR/AGI/END/WIL with −/+, derived bars with preview, Record, Traits, Respec (duel) | HRO, HRO-3 | description under the name, full width; bronze steppers |
 | Gear: stash grid + drag to slot | HRO, HRO-6 | kept (equip context), same component as Army › Stash |
-| Perks: tier tree → perk modal (Learn + confirm) | HRO | **tiers become rows of two cards A/B** (abilities.md Touch UI); a free point pulses both cards; tap → sheet with details and "Take {name}?" |
+| Perks: tier tree → perk modal (Learn + confirm) | HRO | **tiers become rows of two cards A/B** (abilities.md Touch UI); a free point pulses both cards; tap → sheet with details and "Take {name}?"; the taken card shows ✓ "Taken", the other is dimmed **and** labelled "Not taken" |
 | **Retrain mode** (Retrain button on taken tiers, cost 40 g × tier, or "1 free retrain" from the Oracle) | abilities.md R7, campaign-events.md | new; only from the Drillmaster or with a free retrain |
 | Skills: abilities and auras with cooldowns; empty → Perks | HRO | lists the hero's signature active and the standard if any (abilities.md) |
 | Action bar: Undo / Confirm n (pending); Dismiss (duel source) | HRO, HRO-7 | Dismiss bronze |

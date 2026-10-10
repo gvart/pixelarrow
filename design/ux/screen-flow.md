@@ -41,7 +41,7 @@ Every screen, how you get in, how you get out, and where Back goes. "Back" means
 | S24 | Kit (debug, `?scene=Kit`) | `Kit` | debug, unlinked | M-14 |
 | — | ~~Beast trial list~~ | `BeastTrial` | **retired**, merged into S11 (ia.md §4) | — |
 
-**Sheets** (owner screen in brackets): Settings + its pages Notifications, About, New-campaign confirm [any]; sync-adopt notice [S03]; Encounter, **Assault**, **Event card**, **Arc sheet (Lairs · Journal)**, Strike-camp confirm [S04]; Build drawer, Temper, Muster, Strike confirm [S05]; Recruit card, Item card, Sell confirm, Buy confirm [S06]; Item card / compare, Dismiss confirm [S07]; Perk sheet, **Retrain confirm**, Dismiss confirm [S08]; Assign groups, Shape, **Works tray**, **"more" medallions**, **Battle menu (⋯)**, Leave confirm, Retreat confirm, Tutorial skip confirm, **Doctrine popover** [S09]; Inspect [S10]; **Beast sheet**, **Doctrine sheet** [S11]; Level, Floor, Chest preview, Defence, Raid log, Season reward [S12]; Preset manage, Recruit, Dismiss confirm [S13]; Compare-with [S14]; Hex panel, Lobby, Boss/lair info, Attack result, Challenge popup, Coach marks [S18]; Recruit, Item card [S19]; Member manage, Join offer, Found-clan prompt [S20]; Offer item card, Buy confirm [S21]; Listing card, Buy confirm, Withdraw confirm, Sell form, Town picker [S22]; Cosmetic dialog, Buy confirm, Unlock premium, XP sheet, Purchase confirm [S23]. **Bold** = new in v5.
+**Sheets** (owner screen in brackets): Settings + its pages Notifications, About, New-campaign confirm [any]; sync-adopt notice [S03]; Encounter, **Assault**, **Event card**, **Arc sheet (Lairs · Journal)**, Strike-camp confirm [S04]; Build drawer, Temper, Muster, Strike confirm [S05]; Recruit card, Item card, Sell confirm, Buy confirm [S06]; Item card / compare, Dismiss confirm [S07]; Perk sheet, **Retrain confirm**, Dismiss confirm [S08]; Assign groups, Shape, **Works tray**, **"more" medallions**, **Battle menu (⋯)**, Leave confirm, Retreat confirm, Tutorial skip confirm, **Doctrine popover** [S09]; **doctrine (i) page** inside the Encounter and Assault sheets [S04]; Inspect [S10]; **Beast sheet**, **Doctrine sheet** [S11]; Level, Floor, Chest preview, Defence, Raid log, Season reward [S12]; Preset manage, Recruit, Dismiss confirm [S13]; Compare-with [S14]; Hex panel, Lobby, Boss/lair info, Attack result, Challenge popup, Coach marks [S18]; Recruit, Item card [S19]; Member manage, Join offer, Found-clan prompt [S20]; Offer item card, Buy confirm [S21]; Listing card, Buy confirm, Cancel-listing confirm, Sell form, Town picker [S22]; Cosmetic dialog, Buy confirm, Unlock premium, XP sheet, Purchase confirm [S23]. **Bold** = new in v5.
 
 ## 2. Flow map
 
@@ -114,16 +114,16 @@ Tab switches between the five hubs are omitted (every hub ↔ every hub).
 | --- | --- | --- | --- | --- |
 | S01 Boot | app start | FirstRun (first run) · Duels (live duel rejoin) · deep link target · Kit (`?scene=Kit`) · Campaign hub | — (nothing tappable) | localized line + logo (BOOT-1) |
 | S02 First run | Boot (first run) | Battle tutorial (Tutorial / Resume) · World or Settlement (Campaign card) · Duels hub (Duels card) · War hub (War card) | offer, resume: Close (root) · reward → modes · modes → Campaign hub | three mode cards (FR-3); Skip becomes a text link (FR-2) |
-| S03 Campaign hub | tab · Boot · FirstRun back · sync adopt (with notice) · Settings New campaign | World / Settlement (Continue) · Army (Army tile) · Army › Stash (Stash tile) · Field camp (Camp tile) · Settings (⚙) · tabs | root (Close) | status line adds "Lairs n/6"; sync badge only on error (MENU-4) |
+| S03 Campaign hub | tab · Boot · FirstRun back · sync adopt (with notice) | World / Settlement (Continue) · Army (Army tile) · Army › Stash (Stash tile) · Field camp (Camp tile) · Settings (⚙) · tabs | root (Close) | status line adds "Lairs n/6"; sync badge only on error (MENU-4) |
 | S04 World | Hub Continue · Settlement Leave/back · Camp back/Strike · Results Onward · Battle Leave (band fight) | Army (Party) · Field camp (Camp) · Settlement (arrive/tap) · Battle (Encounter Attack, Assault) · Arc sheet (chip) · Settings (⚙) | Campaign hub | Encounter and Assault are Mosaic decision sheets; arc chip; ⚙ added (D9) |
 | S05 Field camp | Hub Camp tile · World Camp | World (back, Strike, encounter on End day) · Army › Stash (Loot) · Settings | World | title "Field camp"; Build drawer (CMP-1) |
-| S05 War camp | War hex Camp action | War army › Stash (Loot) · War hub (back) | War hub {focus} | title "War camp" + kind sub-title (D7) |
+| S05 War camp | War hex Camp action | War army › Stash (Loot; its Back returns here) · War hub (back) | War hub {focus} | title "War camp" + kind sub-title (D7) |
 | S06 Settlement | World (arrive, tap the town you stand on) · Hub Continue (inside) | World (Leave) · Army (Army) · Army pick → Hero retrain (Drillmaster, towns) · Recruit/Item cards | World | Leave becomes bronze (SET-3); town "Services" tab with the Drillmaster |
 | S07 Army | Hub Army/Stash tiles · World Party · Settlement Army · Camp Loot · Drillmaster (pick mode) | Hero (Sheet, 2nd tap) · Dismiss confirm · item cards | (origin): Hub / World / Settlement / Field camp | **footer back removed**; Back always to the origin (N3, D8) |
-| S08 Hero | Army (Sheet, 2nd tap) · Duels Team row · Drillmaster pick | Perk sheet · Retrain confirm · Dismiss confirm | (origin): Army {heroId} / Duels Team / Settlement (retrain) | pager below the niche (HRO-4) |
-| S09 Battle | World (Attack, Assault) · Codex Trial fight · FirstRun tutorial · Settings Tutorial Replay · Duels (floor, raid, match) · War (Attack, Raid it) | Results (end, retreat) · (origin) (Leave in deployment) · FirstRun (tutorial skip/finish) | battle menu (⋯) | Leave in deployment returns to the **origin**, never to Army without data (N2) |
+| S08 Hero | Army (Sheet, 2nd tap) · Duels Team row · Drillmaster pick | Perk sheet · Retrain confirm · Dismiss confirm | (origin): Army {heroId} (incl. Army pick mode, whose own Back then returns to the Settlement) / Duels Team | pager below the niche (HRO-4) |
+| S09 Battle | World (Attack, Assault) · Codex Trial fight · FirstRun tutorial · Settings Tutorial Replay · Duels (floor, raid, match) · War (Attack, Raid it) | Results (end, retreat) · (origin) (Leave in deployment) · tutorial skip/finish: FirstRun on the first run; a **replay** from Settings returns to the screen Settings was opened from | battle menu (⋯); in the tutorial ⋯ shows Skip tutorial, not Retreat | Leave in deployment returns to the **origin**, never to Army without data (N2) |
 | S10 Results | Battle | (origin) via Onward | Spoils tab first if unseen, then Onward (N8) | Victory variant; why line; trial → Codex (N1) |
-| S11 Codex | tab · War boss panel "Codex ›" · Encounter/Assault doctrine row "Codex ›" · Results (trial) | Beast sheet → Battle (Trial fight) · Doctrine sheet | root (Close); a sheet opened through a door closes back to the door's screen | absorbs BeastTrial (V5-015) |
+| S11 Codex | tab · War boss panel "Codex ›" (tab switch, sheet open) · Results (trial, sheet open) | Beast sheet → Battle (Trial fight) · Doctrine sheet | root (Close); a sheet's X lands on the Codex hub | absorbs BeastTrial (V5-015) |
 | S12 Duels hub | tab · Boot (rejoin) · Shop cosmetic "Open Duels" · Results (duel) | Team · Armoury · Board · Raid picks · Search · Battle (Fight floor, Raid) · sheets | root (Close); **no back arrow** (D12) | Team/Armoury in one row with the chips (DUE-1); "Open in Telegram" when outside (DUE-9) |
 | S13 Team | Duels hub Team | Hero (row) · Recruit · Dismiss (bench row, new) | Duels hub (the view it came from) | no Armoury cross-link (D11); preset tools in a sheet (DUE-5) |
 | S14 Armoury | Duels hub Armoury | Compare-with sheet · buy/sell confirms | Duels hub | renamed from "Shop" (D2) |
@@ -131,11 +131,11 @@ Tab switches between the five hubs are omitted (every hub ↔ every hub).
 | S16 Raid picks | Arena Raid | Battle (Raid {name}) | Arena | — |
 | S17 Search / Found | Arena Find match | Battle (found) · Arena (Cancel) | **Cancel only**, no back arrow (N5) | — |
 | S18 War hub | tab · Boot deep links · Results (war) · every War sub-screen's back | War army (Army, Garrison) · Clan (Clan, invite) · Merchant · War camp · Battle (Attack, Raid it) · Codex (boss panel "Codex ›") · sheets | root (Close); a modal or selection closes first | **no back arrow** (D12); "Open in Telegram" when outside (N7) |
-| S19 War army | War hub Army · hex Garrison · War camp Loot | Market · Shop · Recruit sheet | War hub {focus} | 3-button footer (OAR-2); garrison picker mode keeps Station |
+| S19 War army | War hub Army · hex Garrison · War camp Loot | Market · Shop · Recruit sheet | (origin): War hub {focus}, or War camp when opened from its Loot | 3-button footer (OAR-2); garrison picker mode keeps Station |
 | S20 Clan | War hub Clan · pending invite · deep link `clan` | Telegram share (Invite) · Member manage | War hub | i18n (CLN-1) |
 | S21 Merchant | War hex Merchant | buy confirms | War hub {focus, select} | — |
-| S22 Market | **Shop hub Market card (new)** · War army Market · stash item Market · deep link `market` | listing, sell form, confirms | (origin): Shop / War army / Campaign hub (deep link) | default origin becomes the Shop hub, not War (one less hop, N4) |
-| S23 Shop hub | tab · War army Shop · "Need n Dr" · deep link `wallet` | Market (card) · Duels hub (cosmetic Open Duels) · Telegram Stars payment | root (Close); when opened as a sub-screen with `back`, Back → origin | Market card; pinned season card (SHP-1) |
+| S22 Market | **Shop hub Market card (new)** · War army Market · stash item Market · deep link `market` | listing, sell form, confirms | (origin): Shop hub / War army; the deep link and any missing origin → **Shop hub** | default origin becomes the Shop hub, not War (one less hop, N4) |
+| S23 Shop hub | tab · War army Shop (tab switch) · "Need n Dr" (tab switch to Wallet) · deep link `wallet` | Market (card) · Duels hub (cosmetic Open Duels) · Telegram Stars payment | root (Close), always: no back arrow even through a door | Market card; pinned season card (SHP-1) |
 | S24 Kit | `?scene=Kit` only | — | Campaign hub | unchanged, unlinked |
 
 ## 4. Decision sheets: what Back does
@@ -143,9 +143,10 @@ Tab switches between the five hubs are omitted (every hub ↔ every hub).
 | Sheet | Choices | Back = | Shown on the sheet |
 | --- | --- | --- | --- |
 | Encounter (World) | Attack (primary) · Take ransom · Let them go / Flee n% | "Let them go"; if the band hunts you: shake + highlight Flee | "They won't let you go" when it applies |
-| Assault (World) | Assault (primary) · Leave | Leave (optional sheet, it has an X) | — |
 | Event card (World) | 2-3 choices, one free (campaign-events.md R4.5) | the free choice, after a confirm "Choose: {label}?" | never auto-picks a costed choice |
-| Leave deployment / Retreat / Reset all / Dismiss / New campaign / Strike camp / Withdraw listing / Skip tutorial | Confirm (destructive) · Cancel | Cancel | — |
+| Leave deployment / Retreat / Reset all / Dismiss / New campaign / Strike camp / Cancel listing / Skip tutorial | Confirm (destructive) · Cancel | Cancel | — |
+
+The **Assault** sheet is not a decision sheet: it is optional (X, Back and tap outside = Leave).
 
 ## 5. Dead-end check
 
@@ -165,7 +166,7 @@ Every screen and state, and its way out. A "✓" means checked against this docu
 | Hero, last hero dismissed | blocked: Dismiss disabled on the last fit hero with a reason | ✓ |
 | Battle, any phase | battle menu (⋯): Leave / Flee; Results at the end | ✓ |
 | Results, any tab | Onward always visible | ✓ |
-| Codex, nothing met yet | rows show "Not met" silhouettes; entries still open (lore + Trial) | ✓ |
+| Codex, no doctrine met yet | Beasts segment only; every beast entry opens (lore + Trial) | ✓ |
 | Duels hub: loading / offline / closed / error / outside | Retry; outside: "Open in Telegram"; tabs stay | ✓ |
 | Duels search | Cancel | ✓ |
 | War hub: loading / unavailable / join | Retry / "Open in Telegram" / Join; tabs stay | ✓ |
@@ -175,3 +176,11 @@ Every screen and state, and its way out. A "✓" means checked against this docu
 | Cloud-sync adopt | lands on the Campaign hub with a notice (N9) | ✓ |
 
 **NAV.md findings closed:** N1 (§4 ia, S10), N2 (S09), N3 (S07), N4 (S22), N5 (S17), N6 (§4), N7 (S12, S18), N8 (S10), N9 (§5), N10 (S13); D1 (origin-derived back), D2 (ia §5), D3 (ia §4), D4 (one home, ia §3), D5 (S22), D6 (one Army template, C-7), D7 (S05), D8 (ia §5), D9 (⚙ everywhere), D10 (S02), D11 (S13), D12 (hubs).
+
+## 6. Acceptance Criteria
+
+- [ ] Every edge in §3 is reproducible in a build, and Back from each multi-door screen returns to the screen that opened it.
+- [ ] Every state in §5 shows its exit at 320x568.
+- [ ] Market opened from the bot deep link returns to the Shop hub.
+- [ ] A Trial fight from a War "Codex ›" door ends on the Codex beast sheet, with the Codex tab lit.
+- [ ] A tutorial replay from Settings returns to the screen Settings was opened from.

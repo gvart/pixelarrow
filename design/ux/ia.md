@@ -13,8 +13,11 @@ This is the map of the game: which tabs exist, which screen is the **home** of e
 ## 1. Principles
 
 1. **One home per thing, many doors.** Every object or action has exactly one screen where it is shown in full and changed. Other screens may link there (a door), or show a read-only summary, but never a second editor. *(Fixes NAV D3, D4, D6.)*
-2. **Tabs are modes; hubs are roots.** The five tabs are the five things you can *do*. A hub has no back arrow; Telegram shows Close. *(V4_SPEC, NAV D12.)*
-3. **Back always returns to the origin.** Every push carries `back: { scene, data }`. Back labels never name a place; the arrow is the only back. *(NAV N1-N3, D8.)*
+2. **Tabs are modes; hubs are roots.** The five tabs are the five things you can *do*. A hub has no back arrow, ever; Telegram shows Close. A door into a hub (War army → Shop, "Need n Dr", a deep link) **switches tabs**; it never pushes the hub as a sub-screen. *(V4_SPEC, NAV D12.)*
+3. **Back returns to where you came from.** Two kinds of screen:
+   - **Single-parent** screens have one way in, so Back goes to that parent: World → Campaign hub, Settlement → World, Field camp → World, War camp → War hub, Clan → War hub, Merchant → War hub, Duels views → the Duels hub view they came from.
+   - **Multi-door** screens return to the **origin** passed in `back: { scene, data }`: Army, Hero, War army, Market, Battle, Results, and every sheet opened through a door.
+   Back labels never name a place; the arrow (or Telegram's BackButton) is the only back. *(NAV N1-N3, D8.)*
 4. **≤ 2 taps from a hub to the mode's main action** (march, fight a floor, find a match, collect, buy). *(P3.)*
 5. **No dead ends.** Every screen and every state (empty, error, offline, outside Telegram) has an exit and a next action. *(NAV §3.)*
 6. **Honesty.** Only features in the code or a merged GDD. *(V4_SPEC, memory "verify mockups".)*
@@ -33,7 +36,7 @@ Global, from every top bar: ⚙ Settings (sheet). Telegram ⋯ › Settings is a
 | --- | --- | --- | --- |
 | **Campaign** | Campaign hub (`Menu`) | "Where is my company, and what next?" | Continue the march → World map |
 | **Duels** | Duels hub (`Duel`), views Ladder · Arena | "Can I climb today?" | Fight floor n / Find match |
-| **War** (centre medallion) | War hub (`Online`), the season map | "What does my war army need?" | Collect / tap a hex → March or Attack |
+| **War** (centre medallion) | War hub (`Online`), the season map; plaque "PIXELARROW" as today | "What does my war army need?" | Collect / tap a hex → March or Attack |
 | **Codex** | Codex hub (`Codex`) | "What is this enemy, and how do I beat it?" | Open an entry → Trial fight (beasts) |
 | **Shop** | Shop hub (`Shop`), pages Shop · Pass · Wallet | "What can I buy or claim?" | Claim (Pass) / Buy |
 
@@ -52,7 +55,7 @@ The tabs are unchanged from v4 (locked with the owner). What changes is what liv
 | Field camp (structures, muster, temper, end day) | **Field camp** | Hub Camp tile · World Camp | — |
 | Town services (hire, buy, sell, rest, drillmaster) | **Settlement** | World (arrive or tap) · Hub Continue (when inside) | — |
 | Beasts (lore, how it fights, counter, loot) and the **Trial fight** | **Codex › Beast sheet** | Codex list · War boss/lair panel "Codex ›" | — |
-| Enemy doctrines (tells, counters) | **Codex › Doctrine sheet** | Codex list · Encounter and Assault sheet "Codex ›" (doctrine row) | Battle doctrine chip (tell + counters popover) |
+| Enemy doctrines (tells, counters) | **Codex › Doctrine sheet** | Codex list | Encounter and Assault doctrine row (i) page; battle doctrine chip popover (same text) |
 | Duel team, presets, bench | **Duels › Team** | Duels hub Team button | — |
 | Glory gear | **Duels › Armoury** (renamed from "Shop") | Duels hub Armoury button | — |
 | War army, war stash, garrison | **War army** (`OnlineArmy`) | War hub Army · hex Garrison · Camp Loot (war) | — |
@@ -60,7 +63,7 @@ The tabs are unchanged from v4 (locked with the owner). What changes is what liv
 | Clan | **Clan** | War hub Clan · pending invite · bot deep link | — |
 | Map merchants | **Merchant** | War hex Merchant action | — |
 | Player market | **Market** | **Shop hub › Shop "Market" card (new door)** · War army Market · stash item Market · bot deep link | — |
-| Cosmetics, Pass, Drachmae | **Shop hub** (Shop · Pass · Wallet) | Shop tab · War army Shop · "Need n Dr" → Wallet · bot deep link | Drachmae chips (Market, Merchant) |
+| Cosmetics, Pass, Drachmae | **Shop hub** (Shop · Pass · Wallet) | Shop tab · War army Shop (tab switch) · "Need n Dr" → Wallet page (tab switch) · bot deep link | Drachmae chips (Market, Merchant) |
 | Settings, notifications, about, new campaign | **Settings sheet** (pages, not stacked modals) | ⚙ in every top bar · battle menu (⋯) · Telegram ⋯ · bot deep link | — |
 | Tutorial | **Battle (tutorial)** | First run · Settings › Tutorial Replay | Hub First-steps card |
 
@@ -73,7 +76,7 @@ Codex hub ──tap beast──▶ Beast sheet (Codex) ──Trial fight──�
    │                         ▲                                                                     (same entry, "Defeated ✓")
    └─tap doctrine─▶ Doctrine sheet
 War hub ─hex/boss panel─ "Codex ›" ─────┘  (read only; the War action stays Raid it / Attack in War)
-Encounter / Assault sheet ─ doctrine row "Codex ›" ─▶ Doctrine sheet (back = the sheet you came from)
+Encounter / Assault sheet ─ doctrine row (i) ─▶ the same doctrine text, as a page inside the sheet (no navigation)
 ```
 
 | Link | From | To | Kind | Why |
@@ -81,12 +84,12 @@ Encounter / Assault sheet ─ doctrine row "Codex ›" ─▶ Doctrine sheet (ba
 | L1 | Codex beast row | Beast sheet | navigation | the one home of a beast |
 | L2 | Beast sheet "Trial fight" | Battle (beast, practice) | action | the Trial lives *in* the entry; no separate list |
 | L3 | Results (trial) Onward | Beast sheet | return | fixes N1 |
-| L4 | War boss / lair panel "Codex ›" | Beast sheet (read, with Trial) | door | learn before you raid; the War action stays in War |
-| L5 | Encounter / Assault sheet doctrine row "Codex ›" | Doctrine sheet | door | ai-doctrines.md: Codex doctrine list |
+| L4 | War boss / lair panel "Codex ›" | **switches to the Codex tab** with the Beast sheet open | door | learn before you raid; the War action stays in War. The sheet's X lands on the Codex hub; the War tab brings the player back. |
+| L5 | Encounter / Assault sheet doctrine row "(i)" | the doctrine's Codex text as a **nested page inside the sheet** (back chevron returns to the encounter) | inline | the player must still answer the encounter; leaving the map mid-decision is not allowed |
 | — | Codex → War, Codex → Campaign | none | — | the encyclopedia never sends you into a mode |
 
 **Rules.**
-- Codex entries show a **state** without colour alone: "Not met" (silhouette + lock), "Seen", "Defeated ✓". Doctrines are hidden until first fought (ai-doctrines.md), shown as "? Unknown doctrine" rows so the player knows there is more.
+- Beasts are always listed by name (as today). Doctrines are hidden until first fought (ai-doctrines.md), shown as "? Unknown doctrine" rows (a lock glyph + text) so the player knows there is more. A "Defeated ✓" mark on beasts is **proposed** (needs a small optional save flag; Director decision, REVIEW.md).
 - The Trial's rule line comes from VISION ("Practice: no spoils"); if V5-011's fix picks a cooldown, the sub-line shows it instead.
 - Trial fight is disabled with a reason when the army has no fit men (as today).
 - Deep links to `BeastTrial` (none exist today) would route to `Codex {open}`.
@@ -97,6 +100,8 @@ Encounter / Assault sheet ─ doctrine row "Codex ›" ─▶ Doctrine sheet (ba
 | --- | --- | --- | --- |
 | Duels "Shop" (top bar "SHOP") | **Armoury** | Duels view | collides with the Shop tab (D2, DUE-8) |
 | Battle order "Back" | **Withdraw** (Feint for eligible groups) | Battle order bar | V5-024, controls.md R9 |
+| Battle "Flee" (top bar) | **Retreat** (⋯ menu, its confirm and the Results banner use the same word) | Battle | one term per action; "Flee n%" stays on the map Encounter, where it is a different action |
+| Market "withdraw" a listing | **Cancel listing** | Market › Mine | "Withdraw" now belongs to the battle order |
 | Battle "Men" | **Groups** | Battle deployment | controls.md R1.4 |
 | Camp (both) | **Field camp** / **War camp** | Camp top bar | D7 |
 | Town tab "Rest" | **Services** (towns); villages keep "Rest" | Settlement | holds the drillmaster (abilities.md R7) |
@@ -114,11 +119,12 @@ Shop, Market, Merchant and the town's Buy tab keep their names: each is distinct
 | Sub-screen | pops to `back` | — | — |
 | Optional sheet (info, item, recruit card, Assault, Settings) | closes the sheet | **yes**, top right; no footer CLOSE when another action exists (G5) | closes |
 | Decision sheet (Encounter, Event card, Leave/Flee/Reset confirm) | the least committal choice (see screen-flow §4) | no | nothing |
-| Nested page inside a sheet (Notifications, About) | back chevron inside the sheet; never a 2nd stacked modal (G6, MENU-8) | — | closes the sheet |
-| Battle | opens the **battle menu** (⋯: Settings, Flee or Leave); offline it pauses | — | — |
+| Nested page inside a sheet (Notifications, About, a doctrine page in the Encounter, Settings inside the battle menu) | back chevron inside the sheet; never a 2nd stacked sheet (G6, MENU-8) | — | closes the sheet |
+| Confirm over a sheet (buy, sell, retrain, choose an event option) | Cancel | — | nothing |
+| Battle | opens the **battle menu** (⋯: Settings, Retreat or Leave; tutorial: Skip tutorial); offline it pauses | — | — |
 | Search (Duels) | Cancel only; the back arrow is hidden (N5) | — | — |
 
-Every modal sits on a **45% basalt scrim** (G6).
+**Stacking rule:** at most **one sheet plus one confirm** on screen. Anything else that would open from a sheet replaces the sheet's content as a nested page. Every modal sits on a **45% basalt scrim** (G6).
 
 ## 7. What moved, at a glance
 
@@ -127,3 +133,11 @@ Every modal sits on a **45% basalt scrim** (G6).
 - **New doors:** Market from the Shop hub; Codex from War boss panels and from doctrine rows; Drillmaster row in towns.
 - **Removed doors:** Army footer back; back arrows on the Duels and War hubs; Team ↔ Armoury cross-links; the Duels search back arrow.
 - The full element-by-element ledger is `docs/v5/ux/ELEMENT_MAP.md`.
+
+## 8. Acceptance Criteria
+
+- [ ] No hub ever shows a back arrow, including when reached from a door (tab switch).
+- [ ] Every multi-door screen's Back returns to the screen that opened it (test each door listed in §3).
+- [ ] At most one sheet and one confirm are ever on screen at once.
+- [ ] No screen is titled "Beast trial" and the Trial fight is only in the Codex beast sheet.
+- [ ] Every thing in §3 has exactly one editing screen (manual audit per release).

@@ -39,6 +39,9 @@ Each pattern: when to use, when not, states, accessibility, implementation note.
 | P23 | Numeric entry | new: NumberSheet (presets + keypad) |
 | P24 | Coach mark | online coach system |
 | P25 | Scrim | Scrim (45% basalt) |
+| P26 | Text input | the HTML prompt (`textInput.ts`) restyled |
+| — | Slider | **not used**: steppers (P6) and numeric entry (P23) replace sliders on touch |
+| — | Battle controls (order key, medallion, group card, Undo/Then chip, facing pips) | specified in [hud.md](hud.md) §D, not repeated here |
 
 ## Patterns
 
@@ -48,7 +51,7 @@ Each pattern: when to use, when not, states, accessibility, implementation note.
 
 **P3 Disabled + reason.** Grey stone, faded icon, and a one-line reason under it or a toast on tap ("Need 40 g"). Never red. Never without a reason (DESIGN_V2 UX, controls.md R4.4).
 
-**P4 Destructive.** Bronze with a warning glyph (skull, flag) and **always** a confirm sheet (P12) whose confirm is the danger style. Used for Flee, Leave deployment, Reset all, Dismiss, New campaign, Strike camp, Withdraw listing, Kick, Leave clan, Skip tutorial. Hiring uses P14 Undo instead (controls.md R4.3). Never adjacent to the primary (≥ 16 pt).
+**P4 Destructive.** Bronze with a warning glyph (skull, flag) and **always** a confirm sheet (P12) whose confirm is the danger style. Used for Retreat, Leave deployment, Reset all, Dismiss, New campaign, Strike camp, Cancel listing, Kick, Leave clan, Skip tutorial. Hiring uses P14 Undo instead (controls.md R4.3). Never adjacent to the primary (≥ 16 pt).
 
 **P5 Toggle.** Track + knob + "On/Off" text (not colour only). 44 pt row.
 
@@ -76,11 +79,11 @@ Each pattern: when to use, when not, states, accessibility, implementation note.
 
 **P17 Chip.** Icon + number (Inter, tabular). Compact numbers (1.2K, 34M) instead of ellipsis (WAR-1). The same chip order everywhere: gold, men, food, supplies (campaign); war gold, food, wood, bronze, recruits, energy (war).
 
-**P18 Badge.** A count, red, only for actionable states (unspent points, claimable rewards, pending invites). No "!" badges (G11). One per destination.
+**P18 Badge.** A count, red, only for actionable states (unspent points, claimable rewards, pending invites). Red is allowed here because an actionable badge is an alert (V4_SPEC "Red badges allowed"; G3). No "!" badges (G11). One per destination.
 
 **P19 Tab bar.** Five tabs, icon + Cinzel label ≥ 6.5 UI px; the selected tab is the parchment block; War is the raised medallion with a glyph and its label in the bar (MENU-2). Hubs only.
 
-**P20 Top bar and Back.** Back arrow left on sub-screens only; it pops to `back`. Plaque title centre. ⚙ right on every screen except Battle (⋯ there). Inside Telegram the arrow hides and the BackButton does the same thing.
+**P20 Top bar and Back.** Back arrow left on sub-screens only, never on hubs (doors into a hub switch tabs); hidden during Duels search, where Cancel is the exit. It pops to the parent or the origin (ia.md §1.3). Plaque title centre. ⚙ right on every screen except Battle (⋯ there). Inside Telegram the arrow hides and the BackButton does the same thing.
 
 **P21 Collapsing head.** A sub-screen's fixed head (hero card, Hero niche, Duels chips) collapses to a 1-line header after 24 pt of scroll; a fade + chevron marks clipped content (G9).
 
@@ -91,6 +94,19 @@ Each pattern: when to use, when not, states, accessibility, implementation note.
 **P24 Coach mark.** One card at a time, placed opposite the controls it explains, never covering them (WAR-6); "Got it" dismisses; shown once.
 
 **P25 Scrim.** 45% basalt under every sheet and confirm (G6).
+
+**P26 Text input.** For Clan name and tag, Market "Find…". A sheet with a labelled field, the character limit shown ("12/24"), the keyboard's own Done, and two 44 pt buttons (Cancel bronze, OK primary), localized (CLN-3). Validation errors in text under the field, never colour only.
+
+## When not to use, and states (patterns not covered above)
+
+| Pattern | Not for | States | Accessibility |
+| --- | --- | --- | --- |
+| P5 Toggle | choices with more than 2 values (use P7) | off, on, disabled + reason | "On/Off" text beside the track |
+| P7 Segmented | more than 4 options (use P8) | default, selected (rim + ✓), disabled | selection not by fill alone |
+| P9 List row | actions that change state on one tap without a confirm or undo | default, selected (rim), pressed, disabled + reason | 52 pt min; 2-line sub-line |
+| P17 Chip | anything tappable without a tip (a chip is read-only unless it has an (i)) | default, warning (icon + text, e.g. low food) | icon + number, never number alone |
+| P18 Badge | information that needs no action | count 1-99, "99+" | count, not colour |
+| P19 Tab bar | sub-screens | default, selected (parchment block), badge | label always visible |
 
 ## Animation Standards
 
