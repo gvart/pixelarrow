@@ -35,11 +35,11 @@ The machine-readable source is `docs/v5/art/asset-manifest.json`. The tables bel
 | Class busts | 21 |
 | Narrator portrait | 3 |
 | Beast plates | 8 |
-| Icons (atlas icons_ui) | 8 |
+| Icons (atlas icons_ui) | 23 |
 | Reward art: chests | 3 |
 | Reward art: laurels | 1 |
 | Splash key art | 1 |
-| **Total** | **56** |
+| **Total** | **71** |
 
 ### Frescoes (mode banners) (5)
 
@@ -109,7 +109,7 @@ The machine-readable source is `docs/v5/art/asset-manifest.json`. The tables bel
 | ART-042 | `plate_kraken.jpg` | 288x288 | painted | T-PLATE | the Kraken, giant tentacles rising from a stormy sea around a beach | CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter kraken) | not wired |
 | ART-043 | `plate_titan.jpg` | 288x288 | painted | T-PLATE | a Titan, a giant of the old gods made of stone and bronze, hurling two boulders | CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter titan) | not wired |
 
-### Icons (atlas icons_ui) (8)
+### Icons (atlas icons_ui) (23)
 
 | ID | File | Size px | Kind | Template | Subject | Slot in code | Preview |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -121,6 +121,21 @@ The machine-readable source is `docs/v5/art/asset-manifest.json`. The tables bel
 | ART-049 | `icon_helmet.png` (frame `ui:helmet`) | 160x160 | icon | T-ICON | a bronze Corinthian helmet with a red crest | Campaign hub Army tile (26.4 UI px: the 64 px cell blurs) | menu |
 | ART-050 | `icon_chest.png` (frame `ui:chest`) | 160x160 | icon | T-ICON | a wooden chest with bronze bands, closed | Campaign hub Stash tile (26.4 UI px) | menu |
 | ART-051 | `icon_tent.png` (frame `ui:tent`) | 160x160 | icon | T-ICON | a canvas army tent with a pennant | Campaign hub Camp tile (26.4 UI px) | menu |
+| ART-057 | `icon_doctrine_steady.png` (frame `ui:doctrine_steady`) | 160x160 | icon | T-ICON | a tortoise with a domed bronze-plated shell, walking steadily, head forward | Doctrine steady (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01) | not wired |
+| ART-058 | `icon_doctrine_rush.png` (frame `ui:doctrine_rush`) | 160x160 | icon | T-ICON | a ram's head with heavy curled horns, lowered to butt | Doctrine rush (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01) | not wired |
+| ART-059 | `icon_doctrine_hammer.png` (frame `ui:doctrine_hammer`) | 160x160 | icon | T-ICON | a heavy war hammer with a long wooden haft and a spiked bronze head | Doctrine hammer (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01) | not wired |
+| ART-060 | `icon_doctrine_swarm.png` (frame `ui:doctrine_swarm`) | 160x160 | icon | T-ICON | a single striped hornet with spread wings and a sting | Doctrine swarm (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01) | not wired |
+| ART-061 | `icon_doctrine_fury.png` (frame `ui:doctrine_fury`) | 160x160 | icon | T-ICON | a roaring lion's head with a flaming red-gold mane | Doctrine fury (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01) | not wired |
+| ART-062 | `icon_active_push.png` (frame `ui:push`) | 160x160 | icon | T-ICON | two level pike heads driving into an enemy round shield that tilts back | Signature active push, Push of Pike (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04) | not wired |
+| ART-063 | `icon_active_bond.png` (frame `ui:bond`) | 160x160 | icon | T-ICON | two forearms in bronze bracers, hands clasped at the wrist | Signature active bond, Sacred Bond (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04) | not wired |
+| ART-064 | `icon_active_warcry.png` (frame `ui:warcry`) | 160x160 | icon | T-ICON | a bearded warrior's head in side profile, shouting, with curved sound strokes from the open mouth | Signature active warcry, War-cry (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04) | not wired |
+| ART-065 | `icon_active_sunder.png` (frame `ui:sunder`) | 160x160 | icon | T-ICON | a curved falx blade splitting a round wooden shield | Signature active sunder, Sunder (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04) | not wired |
+| ART-066 | `icon_active_aimed.png` (frame `ui:aimed`) | 160x160 | icon | T-ICON | a drawn recurved bow with three arrows nocked together | Signature active aimed, Aimed Volley (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04) | not wired |
+| ART-067 | `icon_active_recharge.png` (frame `ui:recharge`) | 160x160 | icon | T-ICON | a horse's head turning, circled by a curved U-turn arrow | Signature active recharge, Wheel and Re-charge (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04) | not wired |
+| ART-068 | `icon_active_scythe.png` (frame `ui:scythe`) | 160x160 | icon | T-ICON | a spoked chariot wheel with a long curved scythe blade on its hub | Signature active scythe, Scythe Run (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04) | not wired |
+| ART-069 | `icon_standard.png` (frame `ui:standard`) | 160x160 | icon | T-ICON | an army standard: a pole with a crossbar, topped by a bronze sixteen-ray sun disc, two ribbons | The Standard (abilities.md R5): Raise the standard medallion, standard_bearer perk card, bearer badge (AB-03, F-04) | not wired |
+| ART-070 | `icon_works.png` (frame `ui:works`) | 160x160 | icon | T-ICON | an iron-shod digging spade crossed with a sharpened wooden stake | Field works (field-works.md): the Works button and tray in deployment (FW-03) | not wired |
+| ART-071 | `icon_captain.png` (frame `ui:captain`) | 160x160 | icon | T-ICON | a tall transverse red horsehair crest on its curved bronze holder, no helmet | Band captain (ai-doctrines.md R6): captain row of the encounter sheet and band plate crest (AI-02, WLD-01) | not wired |
 
 ### Reward art: chests (3)
 
