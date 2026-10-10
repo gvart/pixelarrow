@@ -110,6 +110,17 @@ So the refusal path protects v6 saves only from builds that contain it. `main` d
 - A feature needs a field nobody declared: optional + default + validation, or a logged bump (R4).
 - The release rule is skipped: stale `main` bundles overwrite v6 saves. The server guard removes this risk.
 
+## Addendum: campaign identity (ST-02c, V5-036)
+
+The server guard stops a `main` bundle from uploading its v5 save over a v6 cloud save. It cannot stop the second step: `main` resets the device's local save to a fresh campaign, and a v6 client on that device later migrates it to v6 and uploads it (both copies are v6, and with the same base revision the PUT succeeds whatever the `seq`).
+
+- **Id.** `SaveData.campaignId?: string` (optional, no bump). `Campaign.fresh` sets it; `GameState.save` stamps a save that lacks one. The value is `campaignIdFor(world.seed)` = `"w" + seed in base 36`. The world seed is already a per-campaign id: it comes from a crypto-random seed, is never reassigned, and the map is regenerated from it. Deriving the id (rather than drawing a random one) means two devices holding the same legacy campaign compute the same id before either has stamped it, and `main`'s fresh campaign, which has its own random seed, gets a different one. `campaignIdOf(s)` = `s.campaignId ?? campaignIdFor(s.world.seed)`. Once stamped, the id no longer depends on the seed. No heuristic is needed.
+- **Rule** (`otherCampaign`, `src/platform/saveSync.ts`): the cloud copy is another campaign when its raw `v` ≥ the local `v`, the ids differ, and the local save's `prevCampaignId` is not the cloud id. "New campaign" records the campaign it replaced in `prevCampaignId`, so a deliberate restart keeps the seq/revision rules.
+- **Boot** (`decideOnLoad`): another campaign → `adopt`, whatever the `seq`s. `GameState.load` keeps the local campaign under `px_replaced` / `px_replaced_N` (the latest replaced, in both stores) before writing the cloud copy, and shows the notice `save.replaced`.
+- **During play** (`resolveConflict`, a 409 after an offline boot): another campaign → `hold`. Nothing is uploaded this session, and the next boot adopts the cloud copy.
+- **Unchanged:** the same campaign on several devices, a cloud copy at a lower version, no cloud copy, a cloud copy from a newer build.
+- **Behaviour change, accepted:** a device that still plays an old campaign after "New campaign" was started on another device gets the new one on its next boot (today, the more-played copy won). The old one is kept in `px_replaced`. There is no restore UI for `px_replaced` yet, as with `px_corrupt`.
+
 ## GDD Requirements Addressed
 - campaign-arc.md "Save impact" and AC "Migration … keeps every field (a fixture test)".
 - campaign-events.md "Save impact" and "Size" (64 flags, 20 journal entries).
