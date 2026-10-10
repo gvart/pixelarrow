@@ -29,13 +29,14 @@ import { ApiError } from '../errors';
 import { requireAuth } from '../middleware';
 import type { Hero } from '../../../src/data/units';
 import type { Item } from '../../../src/data/items';
-import type { BattleSetup } from '../../../src/sim/types';
+import { DEFAULT_DOCTRINE, type BattleSetup } from '../../../src/sim/types';
 import { ENCOUNTERS, trophyId, type EncounterId } from '../../../src/data/beasts';
 import { SOURCES, armyClasses } from '../../../src/game/sources';
 import { getPity, pityStmt } from '../loot';
 import { BEAST_RULES, applyBossState, bossChest, bossDefenders, bossLoot, bossMaxHp, segmentOutcome, worldBossSites, type BossSite } from '../../../src/online/lairs';
 import { DEFAULT_FORMATIONS, ONLINE_RULES } from '../../../src/online/rules';
 import { onlineBattleSetup, resolveAttack } from '../../../src/online/battle';
+import { withDoctrine } from '../../../src/online/neutralDoctrine';
 import { CONSUMABLES } from '../../../src/data/consumables';
 import { limit, player, type PlayerCtx } from './context';
 import { ev, later, notify, type NotifyEvent } from '../notify/outbox';
@@ -283,7 +284,11 @@ bosses.post('/start', async (c) => {
   const info = staticRegion(pc.shard, site.loc);
   const setup = withConsumables(
     applyBossState(
-      onlineBattleSetup(seed, { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false }, { heroes: defenders, formations: [...DEFAULT_FORMATIONS], bot: true }, info.site),
+      // a world boss is a beast: its doctrine is the default one (ai-doctrines.md R2, beasts unchanged)
+      withDoctrine(
+        onlineBattleSetup(seed, { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false }, { heroes: defenders, formations: [...DEFAULT_FORMATIONS], bot: true }, info.site),
+        DEFAULT_DOCTRINE,
+      ),
       hp0,
       ENCOUNTERS[site.boss].segment ?? 120,
     ),
