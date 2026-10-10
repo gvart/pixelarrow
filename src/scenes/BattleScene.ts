@@ -2463,13 +2463,15 @@ export class BattleScene extends BaseScene {
    */
   private buildTargetChips(sel: Battle['groups'][number] | null): void {
     if (this.shapeOpen) return;
+    // the scripted tutorial has no Undo: its lesson keeps the field clear (TUT stories may introduce it)
+    const undo = !this.tutorial;
     const chips: { icon: string; label: string; tip: string; id: string; off?: string; onClick: () => void }[] = [];
     // deployment: Undo always there, greyed with its reason while empty (R4.2); online too, it is orders like any other
-    if (this.sim.phase === 'deploy') {
+    if (undo && this.sim.phase === 'deploy') {
       chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.deploy'), id: 'battle.undo', off: this.deployUndo.size ? undefined : t('undo.why.none'), onClick: () => this.undo() });
     }
     // Undo leads the chip row for 3 s after an order (controls.md R4.1; live online too: it is an order)
-    else if (this.undoLive) chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.battle'), id: 'battle.undo', onClick: () => this.undo() });
+    else if (undo && this.undoLive) chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.battle'), id: 'battle.undo', onClick: () => this.undo() });
     if (sel && this.canCommand() && (sel.focus ?? -1) >= 0) {
       chips.push({ icon: 'close', label: t('target.chip.focus'), tip: t('target.tip.focus'), id: 'battle.target.clear', onClick: () => this.setFocus(-1) });
     }
