@@ -6,7 +6,8 @@
 export { ScreenFrame, TOPBAR_H, type Box, type ScreenFrameOpts } from './ScreenFrame';
 export { TopBar, type TopAction, type TopBarOpts } from './TopBar';
 export { TabBar, type TabBarOpts } from './TabBar';
-export { MODE_TABS, TAB_H, MEDALLION_RISE, tabLayout, type TabId, type TabLayout } from './tabLayout';
+export { MODE_TABS, TAB_H, MEDALLION_RISE, tabLayout, tabSlotWidths, fitTabLabels, TAB_LABEL_STYLES, type TabId, type TabLayout, type TabLabelStyle, type TabLabelFit } from './tabLayout';
+export { badgeText, wrapWords, chipText, buttonLabelSizes, switchLabelStyle, scrollCue } from './policy';
 export { addRowFace, addPortraitWell, ParchmentCard, SectionTitle, SECTION_TITLE_H, ProfileCard, QuestCard, FrescoBanner, ParchmentRow, ROW_H, type ParchmentCardOpts, type ProfileCardOpts, type StatLine, type QuestCardOpts, type FrescoBannerOpts, type ParchmentRowOpts } from './cards';
 export { addSwitchBadge, MButton, StoneTile, MChip, SegmentedSwitch, SWITCH_H, type MButtonOpts, type MButtonVariant, type StoneTileOpts, type StoneTileVariant, type MChipOpts, type SegmentedSwitchOpts, type SwitchOption } from './controls';
 export { KeyButton, caps, type KeyButtonOpts, type KeyVariant } from './KeyButton';

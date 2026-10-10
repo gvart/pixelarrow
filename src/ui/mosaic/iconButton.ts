@@ -1,16 +1,16 @@
 /**
  * MIconButton: the square v4 button carrying one icon (rename, copy, delete, a
  * slot filter, the camp's muster / build rail, the follow toggle, the tutorial
- * skip) or a short glyph (+, -, a group numeral: `text`). Bronze (secondary), stone (neutral), terracotta (primary), a lit
- * parchment block (selected), a lit bronze block with a gold rim (lit) or flat
- * grey (disabled, with a reason shown on tap). Its label is the long-press text
+ * skip) or a short glyph (+, -, a group numeral: `text`). Bronze (secondary), dark bronze (neutral: never grey,
+ * audit G2), terracotta (primary), a lit parchment block (selected), a lit bronze block with a gold rim (lit) or
+ * flat grey with a small lock (disabled, with a reason shown on tap). Its label is the long-press text
  * and what scripts find it by. At least 22 UI px (44 pt).
  */
 import Phaser from 'phaser';
 import type { MosaicStyle } from '../../art/mosaicUi';
 import { addIcon, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
-import { MOSAIC } from '../tokens';
+import { MOSAIC, TEXT_MIN } from '../tokens';
 import { MBadge, TAP, centeredFace, makePressable, midY, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
 
 export type MIconButtonVariant = 'secondary' | 'neutral' | 'primary' | 'selected' | 'lit' | 'disabled';
@@ -117,7 +117,13 @@ export class MIconButton extends Phaser.GameObjects.Container {
       g.strokeRect(1.5, 1.5, this.w - 3, this.h - 3);
       put(this.face, this.w, this.h, g);
     }
-    if (this.o.count) put(this.face, this.w, this.h, mtext(scene, this.w - 3, this.h - 9, this.o.count, 'rCream', { size: 5.5, align: 1, box: { owner: this, w: this.w, h: this.h } }));
+    if (this.o.count) put(this.face, this.w, this.h, mtext(scene, this.w - 3, this.h - 10, this.o.count, 'rCream', { size: TEXT_MIN, align: 1, box: { owner: this, w: this.w, h: this.h } }));
+    else if (v === 'disabled') {
+      // a small lock in the corner: the state is not grey alone (G13, art bible 7.3)
+      const lock = scaleIcon(addIcon(scene, 0, 0, 'lock', 'D'), 0.6);
+      lock.setPosition(this.w - lock.displayWidth - 1.5, this.h - lock.displayHeight - 1.5);
+      put(this.face, this.w, this.h, lock);
+    }
     const b = this.o.badge;
     if (b !== undefined && b !== 0 && this.enabled) this.face.add(new MBadge(scene, this.w / 2 - 3, -this.h / 2 + 3, b));
   }

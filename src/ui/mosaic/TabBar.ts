@@ -1,16 +1,18 @@
 /**
  * TabBar: the v4 mode navigation (V4_SPEC "Navigation"): Campaign, Duels, WAR
  * (the centre: a round bronze shield rising above the bar), Codex, Shop. Dark
- * teal stone with a gold top rim; the selected tab is a block of parchment (the
- * War medallion glows). Each tab is the hub of its mode; badges are red counts.
+ * teal stone with a gold top rim; the selected tab is a block of parchment with
+ * a bronze rim and ink label (the War medallion glows). Each tab is the hub of
+ * its mode; badges are red counts. The five labels share one face, case and size
+ * (`fitTabLabels`, ADR-0005): Cinzel capitals when they all fit, else Inter.
  */
 import Phaser from 'phaser';
-import { addIcon, fitCinzel, scaleIcon } from '../kit';
+import { addIcon, scaleIcon, type FontKey } from '../kit';
 import { uiId } from '../layout';
 import { pulse } from '../motion';
 import { t } from '../../i18n';
-import { MBadge, makePressable, mosaicImage, mtext, mw } from './base';
-import { MEDALLION_RISE, MODE_TABS, TAB_H, tabLayout, type TabId } from './tabLayout';
+import { MBadge, fit, makePressable, mosaicImage, mtext, mw } from './base';
+import { MEDALLION_RISE, MODE_TABS, TAB_H, fitTabLabels, tabLayout, type TabId } from './tabLayout';
 import { MEDALLION_GLOW } from '../../art/mosaicUi';
 
 export interface TabBarOpts {
@@ -20,7 +22,6 @@ export interface TabBarOpts {
 }
 
 const ICON_K = 1.5;
-const LABEL_SIZES = [6, 5.5, 5, 4.5, 4];
 
 export { MODE_TABS, type TabId };
 
@@ -67,10 +68,10 @@ export class TabBar extends Phaser.GameObjects.Container {
   private build(): void {
     const scene = this.scene;
     this.page.removeAll(true);
-    const lay = tabLayout(this.w, MODE_TABS.length);
-    // one size for all five labels: the largest at which the longest still fits its slot
-    const room0 = lay.slots[0].w - 5;
-    const size = LABEL_SIZES.find((s) => MODE_TABS.every((tab) => mw(t(tab.key).toUpperCase(), 'rCream', s) <= room0)) ?? LABEL_SIZES[LABEL_SIZES.length - 1];
+    // one face, case and size for all five labels; the slots follow them (the medallion stays centred)
+    const labels = fitTabLabels(this.w, MODE_TABS.map((tab) => t(tab.key)), (str, face, z) => mw(str, face === 'roman' ? 'rCream' : 'light', z));
+    const lay = tabLayout(this.w, MODE_TABS.length, labels.slots ?? undefined);
+    const { face, size } = labels.style;
     MODE_TABS.forEach((tab, i) => {
       const slot = lay.slots[i];
       const sel = tab.id === this.current;
@@ -79,12 +80,12 @@ export class TabBar extends Phaser.GameObjects.Container {
       const c = scene.add.container(0, 0);
       this.page.add(c);
       if (sel) c.add(mosaicImage(scene, slot.x + 1, -3, slot.w - 2, TAB_H + 3, 'tabSel'));
-      const font = sel ? 'rInk' : 'rCream';
-      const room = slot.w - 5;
+      const font: FontKey = face === 'roman' ? (sel ? 'rInk' : 'rCream') : sel ? 'pInk' : 'light';
+      const room = slot.w - 2;
       const ly = TAB_H - 14;
-      // the label that does not fit as capitals at this size is written in Inter instead (then cut as a last resort)
-      const fl = fitCinzel(t(tab.key), font, room, [size]);
-      const text = mtext(scene, cx, ly, fl.text, fl.font, { size, align: 0.5, maxW: room, box: { owner: this, w: this.w, h: TAB_H } });
+      // labels.slots is null only when no style fits (a bar narrower than any phone): then cut, as a last resort
+      const str = labels.slots ? labels.texts[i] : fit(labels.texts[i], font, size, room);
+      const text = mtext(scene, cx, ly, str, font, { size, align: 0.5, box: { owner: this, w: this.w, h: TAB_H } });
       if (war) {
         const d = lay.medallionD;
         const glow = Math.round(d * MEDALLION_GLOW);
@@ -101,7 +102,8 @@ export class TabBar extends Phaser.GameObjects.Container {
       // touch area: the slot, or the medallion's whole diameter rising above the bar (2 UI px short of its top, to keep clear of the frame's content)
       const hit = scene.add.container(slot.hitX, war ? -MEDALLION_RISE + 2 : 0);
       const hh = war ? TAB_H + MEDALLION_RISE - 2 : TAB_H;
-      makePressable(hit, { w: slot.hitW, h: hh, onTap: () => scene.time.delayedCall(0, () => this.o.onSelect(tab.id)), tip: t(tab.key) });
+      // pressed: the tab dims while held (tabs are never disabled: every mode hub opens, and says itself what is locked)
+      makePressable(hit, { w: slot.hitW, h: hh, onTap: () => scene.time.delayedCall(0, () => this.o.onSelect(tab.id)), tip: t(tab.key), down: () => c.setAlpha(0.7), up: () => c.setAlpha(1) });
       uiId(hit, `tab.${tab.id}`);
       Object.assign(hit, { opts: { label: t(tab.key) } });
       this.page.add(hit);

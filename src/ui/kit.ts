@@ -21,8 +21,11 @@ import { t } from '../i18n';
 import { ellipsize, fitCinzelLabel, measureText, LINE_H } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
 import { RS } from '../platform/renderScale';
-import { ACCENT, MOSAIC, RESOURCES, TEXT } from './tokens';
+import { ACCENT, MOSAIC, RESOURCES, TEXT, TEXT_MIN } from './tokens';
+import { scrollCue } from './mosaic/policy';
 import { motion } from './motion';
+
+export { scrollCue };
 
 export type FontKey =
   | 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good' | 'head'
@@ -476,7 +479,7 @@ export class Button extends Phaser.GameObjects.Container {
     return undefined;
   }
 
-  /** v4 looks: primary = terracotta, selected = lit bronze, destructive = dark wine, ghost = grey stone, else bronze; disabled = flat grey stone. */
+  /** v4 looks: primary = terracotta, selected = lit bronze, destructive = dark wine, ghost = dark bronze (never grey: grey means disabled), else bronze; disabled = flat grey stone with a lock. */
   private baseStyle(): MosaicStyle {
     if (!this.enabled) return 'btnStone';
     if (this.opts.variant === 'purchase') return 'btnBuy';
@@ -507,11 +510,14 @@ export class Button extends Phaser.GameObjects.Container {
     // the Telegram star keeps its own colours on the purchase blue; the lit bronze keeps the bronze icons
     const variant = !this.enabled ? 'D' : b === 'btnBuy' || b === 'btnBronzeOn' ? '' : 'L';
     const font = this.labelFont();
-    const hasIcon = !!this.opts.icon;
     const hasLabel = !!this.opts.label;
+    const hasIcon = !!this.opts.icon;
+    // a disabled button with words draws a lock in its icon's place: its state is not grey alone (art bible 7.3, G13)
+    const iconName = !this.enabled && hasLabel && !this.opts.iconOnly ? 'lock' : this.opts.icon;
     const stacked = hasIcon && hasLabel && this.h >= 26 && !this.opts.inline && !this.opts.iconOnly;
-    // words under an icon, and small buttons, use the smaller text size; Cinzel caps are wide, so a label steps down to 5.5 before it is cut
-    const size0 = stacked || this.opts.small ? 6 : 7;
+    // words under an icon, and small buttons, use the smaller text size (never under TEXT_MIN, A11Y-09); Cinzel caps are wide, so a
+    // label steps down to TEXT_MIN, then is written in Inter, before it is cut
+    const size0 = stacked || this.opts.small ? TEXT_MIN : 7;
     let size = size0;
     const caps = hasLabel ? this.opts.label!.toUpperCase() : '';
     // the font the label is drawn in: Cinzel, or its Inter twin once the capitals do not fit at the smallest size
@@ -519,7 +525,7 @@ export class Button extends Phaser.GameObjects.Container {
     const wide = (str: string, sz: number) => measureText(str, SHADOW_FONTS.has(df), sz, df === font ? 'roman' : 'body');
     this.truncated = false;
     const fit = (maxW: number) => {
-      const sizes = [size0, size0 - 0.5, size0 - 1, 5.5].filter((s, i, a) => s >= 5.5 && a.indexOf(s) === i);
+      const sizes = [size0, size0 - 0.5, TEXT_MIN].filter((s, i, a) => s >= TEXT_MIN && a.indexOf(s) === i);
       const fl = fitCinzel(this.opts.label!, font, maxW, sizes);
       size = fl.size;
       df = fl.font;
@@ -529,7 +535,7 @@ export class Button extends Phaser.GameObjects.Container {
     const lineH = () => (LINE_H * size) / 7;
     const ty = () => Math.round((this.h - 1 - lineH()) / 2);
     const iconCentered = () => {
-      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
+      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2 - 1, iconName!, variant);
       this.content.add(this.iconImg);
     };
     if (hasIcon && (!hasLabel || this.opts.iconOnly)) {
@@ -539,7 +545,7 @@ export class Button extends Phaser.GameObjects.Container {
       const x0 = 5;
       const tx = x0 + 15;
       const room = this.w - tx - 4;
-      this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
+      this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, iconName!, variant);
       const label = fit(room);
       this.labelText = addText(scene, tx, Math.round((this.h - 16) / 2) - 1, label, df, 0).setFontSize(size);
       const subFont: FontKey = !this.enabled ? 'rOff' : font === 'rInk' ? 'pSec' : 'rCream';
@@ -548,7 +554,7 @@ export class Button extends Phaser.GameObjects.Container {
       this.content.add([this.iconImg, this.labelText, sub]);
     } else if (hasIcon && hasLabel && this.h >= 26 && !this.opts.inline) {
       // icon above label
-      this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);
+      this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, iconName!, variant);
       const label = fit(this.w - 4);
       this.labelText = addText(scene, this.w / 2, this.h - 11, label, df, 0.5).setFontSize(size);
       this.content.add([this.iconImg, this.labelText]);
@@ -565,7 +571,7 @@ export class Button extends Phaser.GameObjects.Container {
         this.labelText = addText(scene, 0, 0, label, df, 0).setFontSize(size);
         const total = 12 + 3 + wide(label, size);
         const x0 = Math.round((this.w - total) / 2);
-        this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
+        this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, iconName!, variant);
         this.labelText.setPosition(x0 + 15, ty());
         this.content.add([this.iconImg, this.labelText]);
       }
@@ -681,9 +687,14 @@ export function scrollAllAreas(v: number): number {
   return n;
 }
 
+/** Height of the scroll cue's shade, UI px. */
+export const SCROLL_CUE_H = 10;
+
 export class ScrollArea {
   readonly content: Phaser.GameObjects.Container;
   private maskG: Phaser.GameObjects.Graphics;
+  /** The scroll cue: a shade at a clipped edge and a chevron (drawn over the content, never taking taps). */
+  private cue: Phaser.GameObjects.Graphics | null = null;
   private scroll = 0;
   private maxScroll = 0;
   private vel = 0;
@@ -701,9 +712,14 @@ export class ScrollArea {
     private w: number,
     private h: number,
     S: number,
+    opts: { cue?: boolean } = {},
   ) {
     this.content = scene.add.container(x, y);
     parent.add(this.content);
+    if (opts.cue !== false) {
+      this.cue = scene.add.graphics();
+      parent.add(this.cue);
+    }
     this.maskG = scene.make.graphics({}, false);
     this.maskG.fillStyle(0xffffff);
     this.maskG.fillRect(x * S, y * S, w * S, h * S);
@@ -817,7 +833,37 @@ export class ScrollArea {
     if (next === this.scroll && !force) return;
     this.scroll = next;
     this.content.y = Math.round(this.y - this.scroll);
+    this.drawCue();
     for (const cb of this.listeners) cb(this.scroll, this.maxScroll);
+  }
+
+  /** Shade the edge that hides content, with a chevron at the bottom one (G9: a clipped list says there is more). */
+  private drawCue(): void {
+    const g = this.cue;
+    if (!g || !g.scene) return;
+    g.clear();
+    const { above, below } = scrollCue(this.scroll, this.maxScroll);
+    const bands = 5;
+    const step = SCROLL_CUE_H / bands;
+    for (let i = 0; i < bands; i++) {
+      const a = 0.035 * (bands - i);
+      g.fillStyle(0x1a0d06, a);
+      if (above) g.fillRect(this.x, this.y + i * step, this.w, step);
+      if (below) g.fillRect(this.x, this.y + this.h - (i + 1) * step, this.w, step);
+    }
+    if (below) {
+      // a chevron in a dark disc at the bottom right (where the eye looks for a scroll bar; clear of centred text)
+      const cx = this.x + this.w - 6;
+      const cy = this.y + this.h - 6;
+      g.fillStyle(0x1a0d06, 0.75);
+      g.fillCircle(cx, cy, 4.5);
+      g.lineStyle(1.1, MOSAIC.cream, 1);
+      g.beginPath();
+      g.moveTo(cx - 2.3, cy - 1);
+      g.lineTo(cx, cy + 1.3);
+      g.lineTo(cx + 2.3, cy - 1);
+      g.strokePath();
+    }
   }
 
   get scrollY(): number {
@@ -832,6 +878,7 @@ export class ScrollArea {
     liveAreas.delete(this);
     this.cleanup();
     this.maskG.destroy();
+    this.cue?.destroy();
   }
 }
 

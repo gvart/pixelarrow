@@ -1,25 +1,34 @@
 /**
  * Controls of the v4 UI: MButton (the one terracotta primary, bronze secondary,
- * stone neutral, grey disabled, blue purchase), StoneTile, MChip and
- * SegmentedSwitch. Positions are UI px; every control is >= 22 UI px (44 pt)
- * in its touch area, scales on press unless motion is reduced and says why it
- * is disabled on tap.
+ * dark bronze neutral, lit bronze for the toggle in force, flat grey disabled,
+ * blue purchase), StoneTile, MChip and SegmentedSwitch. Positions are UI px;
+ * every control is >= 22 UI px (44 pt) in its touch area, scales on press
+ * unless motion is reduced and says why it is disabled on tap. Grey means
+ * disabled only (art bible 4.2, ADR-0005): a disabled button is flat and shows
+ * a lock, never just a colour.
  */
 import Phaser from 'phaser';
 import type { MosaicStyle } from '../../art/mosaicUi';
 import { addIcon, fitCinzel, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
 import { motion, tweenTo } from '../motion';
-import { MOSAIC, MOTION } from '../tokens';
-import { wrapText } from '../textfit';
-import { MBadge, TAP, centeredFace, fit, makePressable, midY, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
+import { MOSAIC, MOTION, TEXT_MIN, lineHeight } from '../tokens';
+import { buttonLabelSizes, chipText, switchLabelStyle } from './policy';
+import { MBadge, TAP, centeredFace, fit, wrapWords, makePressable, midY, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
 
 type Scene = Phaser.Scene;
 type FontKey = import('../kit').FontKey;
 
+export { buttonLabelSizes, chipText, switchLabelStyle };
+
 // ================================================================== MButton
 
-export type MButtonVariant = 'primary' | 'primaryHero' | 'secondary' | 'neutral' | 'disabled' | 'purchase';
+/**
+ * primary: the one terracotta action of a screen; primaryHero: its chevron form; secondary: bronze, any
+ * other action; neutral: dark bronze, a quiet action (Close, Flee, Dismiss, Undo; never grey: audit G2);
+ * lit: the toggle in force (lit bronze, ink label); disabled: flat grey with a lock; purchase: Telegram Stars.
+ */
+export type MButtonVariant = 'primary' | 'primaryHero' | 'secondary' | 'neutral' | 'lit' | 'disabled' | 'purchase';
 
 export interface MButtonOpts {
   label: string;
@@ -38,6 +47,7 @@ const BTN_STYLE: Record<MButtonVariant, [MosaicStyle, MosaicStyle]> = {
   primaryHero: ['btnHero', 'btnHeroDown'],
   secondary: ['btnBronze', 'btnBronzeDown'],
   neutral: ['btnNeutral', 'btnNeutralDown'],
+  lit: ['btnBronzeOn', 'btnLitDown'],
   disabled: ['btnStone', 'btnStone'],
   purchase: ['btnBuy', 'btnBuyDown'],
 };
@@ -58,7 +68,7 @@ export class MButton extends Phaser.GameObjects.Container {
 
   constructor(scene: Scene, x: number, y: number, w: number, h: number, private o: MButtonOpts) {
     super(scene, Math.round(x), Math.round(y));
-    this.w = Math.round(w);
+    this.w = Math.max(TAP, Math.round(w));
     this.h = Math.max(TAP, Math.round(h));
     this.variant = o.variant ?? 'primary';
     this.enabled = this.variant !== 'disabled';
@@ -124,15 +134,16 @@ export class MButton extends Phaser.GameObjects.Container {
     this.bg = put(this.face, this.w, this.h, mosaicImage(scene, 0, 0, this.w, this.h, BTN_STYLE[v][0]));
     this.content = scene.add.container(0, 0);
     this.face.add(this.content);
-    const font: FontKey = v === 'disabled' ? 'rOff' : 'rCream';
+    const off = v === 'disabled';
+    const font: FontKey = off ? 'rOff' : v === 'lit' ? 'rInk' : 'rCream';
     const padX = hero ? Math.round(this.h * 0.62) + 2 : 7;
     const room = this.w - padX * 2;
     const label = this.o.label.toUpperCase();
-    // the largest size that fits (down to 5.5), then the word in Inter, then cut; with an icon that costs the label its size (< 6.5) the icon goes
-    const start = this.h >= 30 ? 9 : this.h >= 26 ? 8 : 7;
-    const sizes = [start, start - 0.5, start - 1, start - 1.5, start - 2, 5.5].filter((s) => s >= 5.5);
-    const withIcon = !!this.o.icon && (sizes.find((s) => mw(label, font, s) <= room - ICON_PX - 3) ?? 0) >= 6.5;
-    const hasIcon = withIcon;
+    // the largest size that fits (down to 6.5), then the word in Inter, then cut; an icon that would cost the label
+    // its size goes. A disabled button shows a lock in the icon's place, so its state is not colour alone (G13).
+    const sizes = buttonLabelSizes(this.h);
+    const icon = off ? 'lock' : this.o.icon;
+    const hasIcon = !!icon && sizes.some((s) => mw(label, font, s) <= room - ICON_PX - 3);
     const iconW = hasIcon ? ICON_PX + 3 : 0;
     const fl = fitCinzel(this.o.label, font, room - iconW, sizes);
     const { size, text } = fl;
@@ -142,7 +153,7 @@ export class MButton extends Phaser.GameObjects.Container {
     const t = mtext(scene, x0 + iconW, midY(this.h - 1, size) - 0, text, fl.font, { size, box: { owner: this, w: this.w, h: this.h } });
     put(this.content, this.w, this.h, t);
     if (hasIcon) {
-      const ic = addIcon(scene, x0, Math.round((this.h - ICON_PX) / 2) - 1, this.o.icon!, v === 'disabled' ? 'D' : v === 'purchase' ? '' : 'L');
+      const ic = addIcon(scene, x0, Math.round((this.h - ICON_PX) / 2) - 1, icon!, off ? 'D' : v === 'purchase' || v === 'lit' ? '' : 'L');
       put(this.content, this.w, this.h, ic);
     }
     const b = this.o.badge;
@@ -190,7 +201,7 @@ export class StoneTile extends Phaser.GameObjects.Container {
     const k = this.h >= 54 ? 2.2 : this.h >= 44 ? 1.8 : 1.4;
     const isz = ICON_PX * k;
     const font: FontKey = off ? 'rOff' : 'rCream';
-    const fl = fitCinzel(o.label, font, this.w - 6, [7, 6.5, 6, 5.5]);
+    const fl = fitCinzel(o.label, font, this.w - 6, [7, TEXT_MIN]);
     const { size, text } = fl;
     const block = isz + 3 + 8;
     const top = Math.round((this.h - 1 - block) / 2);
@@ -202,9 +213,11 @@ export class StoneTile extends Phaser.GameObjects.Container {
     if (o.badge !== undefined && o.badge !== 0) this.add(new MBadge(scene, this.w - 5, 5, o.badge));
     let cap = 0;
     if (off) {
-      const lines = wrapText(o.disabled!, this.w, 3, false, 6).lines;
-      lines.forEach((l, i) => this.add(mtext(scene, this.w / 2, this.h + 2 + i * 8, l, 'pSec', { size: 6, align: 0.5 })));
-      cap = 2 + lines.length * 8;
+      // the reason, at the smallest meaningful size (A11Y-09), wrapped, never cut (G14)
+      const lh = Math.ceil(lineHeight(TEXT_MIN));
+      const lines = wrapWords(o.disabled!, this.w, (x) => mw(x, 'pSec', TEXT_MIN));
+      lines.forEach((l, i) => this.add(mtext(scene, this.w / 2, this.h + 2 + i * lh, l, 'pSec', { size: TEXT_MIN, align: 0.5 })));
+      cap = 2 + lines.length * lh;
     }
     this.totalH = this.h + cap;
     makePressable(this, {
@@ -256,7 +269,8 @@ export class MChip extends Phaser.GameObjects.Container {
     super(scene, Math.round(x), Math.round(y));
     const tapable = !!o.onClick;
     this.h = tapable || o.tall ? TAP : CHIP_H;
-    this.w = o.w ?? MChip.width(o);
+    // a chip that acts is a touch target: >= 22 UI px (44 pt) both ways (A11Y-06)
+    this.w = tapable ? Math.max(TAP, o.w ?? MChip.width(o)) : o.w ?? MChip.width(o);
     const stone = o.surface === 'stone';
     const val = String(o.value);
     this.opts = { label: val, icon: o.icon };
@@ -265,11 +279,11 @@ export class MChip extends Phaser.GameObjects.Container {
     put(face, this.w, this.h, mosaicImage(scene, 0, 0, this.w, this.h, stone ? 'chipStone' : 'chipParch'));
     const iconW = o.icon ? ICON_PX + 3 : 0;
     const font: FontKey = stone ? 'ink' : 'pInk';
-    // the number keeps its size while it fits, then shrinks (to 6) before it is cut
+    // the number keeps its size while it fits, then shrinks (to 6.5), then is written short (12K); a number is
+    // never cut (G14): only a word that does not fit even then ends in "…"
     const room = this.w - (o.pad ?? 10) - iconW;
     const big = o.tall ? 8 : 7;
-    const size = [big, 7, 6.5, 6].filter((z) => z <= big).find((z) => mw(val, font, z) <= room) ?? 6;
-    const text = fit(val, font, size, room);
+    const { text, size } = chipText(val, room, big, (str, z) => mw(str, font, z));
     const bar = o.progress !== undefined;
     const x0 = Math.round((this.w - (iconW + mw(text, font, size))) / 2);
     if (o.icon) put(face, this.w, this.h, addIcon(scene, x0, bar ? 2 : Math.round((this.h - ICON_PX) / 2) - 1, o.icon));
@@ -313,6 +327,8 @@ export interface SwitchOption {
   id: string;
   label: string;
   icon?: string;
+  /** Not available, and why: a faded label with a lock; a tap says why (art bible 7.3). */
+  off?: string;
 }
 
 export interface SegmentedSwitchOpts {
@@ -343,25 +359,48 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
     this.add(mosaicImage(scene, 0, 0, this.w, this.h, 'track'));
     this.thumb = mosaicImage(scene, pad, pad, this.segW, this.h - pad * 2, 'trackSel');
     this.add(this.thumb);
-    o.options.slice(0, n).forEach((opt, i) => {
+    const opts = o.options.slice(0, n);
+    // one face, case and size for every segment (as the tab bar): Cinzel capitals while all fit, else Inter
+    const style = switchLabelStyle(
+      opts.map((opt) => ({ label: opt.label, room: this.segW - (opt.icon || opt.off ? ICON_PX + 2 : 0) - 6, bare: this.segW - (opt.off ? ICON_PX + 2 : 0) - 6 })),
+      (str, face, z) => mw(str, face === 'roman' ? 'rGold' : 'gold', z),
+    );
+    // the lock of an unavailable segment always stays; other icons go when the labels need their room
+    const iconOf = (opt: SwitchOption) => (opt.off ? 'lock' : style.icons ? opt.icon : undefined);
+    const room = (opt: SwitchOption) => this.segW - (iconOf(opt) ? ICON_PX + 2 : 0) - 6;
+    opts.forEach((opt, i) => {
       const sx = pad + i * this.segW;
       const seg = scene.add.container(sx, 0);
       const picked = () => this.sel === opt.id;
-      const iconW = opt.icon ? ICON_PX + 2 : 0;
-      // capitals while they fit (down to 5.5), then the word in Inter, then cut
-      const fl = fitCinzel(opt.label, 'rGold', this.segW - iconW - 6, [7, 6, 5.5]);
-      const inter = fl.font !== 'rGold';
+      const icon = iconOf(opt);
+      const iconW = icon ? ICON_PX + 2 : 0;
+      const inter = style.face === 'body';
       const font: FontKey = inter ? (picked() ? 'pInk' : 'gold') : picked() ? 'rInk' : 'rGold';
-      const { size, text } = fl;
+      const size = style.size;
+      const str = inter ? opt.label : opt.label.toUpperCase();
+      const text = mw(str, font, size) <= room(opt) ? str : fit(str, font, size, room(opt));
       const x0 = Math.round((this.segW - (iconW + mw(text, font, size))) / 2);
-      const t = mtext(scene, x0 + iconW, midY(this.h - 1, size), text, font, { size, box: { owner: this, w: this.w, h: this.h } });
+      // 1 UI px under the middle: a count badge on the track's top corner keeps clear of a label that spans the segment
+      const t = mtext(scene, x0 + iconW, midY(this.h - 1, size) + 1, text, font, { size, box: { owner: this, w: this.w, h: this.h } });
       seg.add(t);
-      if (opt.icon) seg.add(addIcon(scene, x0, Math.round((this.h - ICON_PX) / 2) - 1, opt.icon, picked() ? '' : 'D'));
+      if (icon) seg.add(addIcon(scene, x0, Math.round((this.h - ICON_PX) / 2) - 1, icon, picked() ? '' : 'D'));
+      // a segment that is not available is faded with a lock (its state is not colour alone)
+      if (opt.off) seg.setAlpha(0.6);
       Object.assign(seg, { tx: t, inter });
       this.add(seg);
       this.segs.push(seg);
       const hit = scene.add.container(sx, 0);
-      makePressable(hit, { w: this.segW, h: this.h, inset: 1, onTap: () => this.pick(opt.id, true) });
+      makePressable(hit, {
+        w: this.segW,
+        h: this.h,
+        inset: 1,
+        onTap: () => this.pick(opt.id, true),
+        // pressed: the segment dims while held
+        down: () => seg.setAlpha(0.7),
+        up: () => seg.setAlpha(opt.off ? 0.6 : 1),
+        disabled: () => opt.off,
+        tip: text !== str ? opt.label : undefined,
+      });
       uiId(hit, `${o.id ?? 'switch'}.${opt.id}`);
       Object.assign(hit, { opts: { label: opt.label } });
       hit.add(scene.add.rectangle(0, 0, this.segW, this.h, 0, 0).setOrigin(0, 0));
@@ -385,7 +424,7 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
       const { tx: t, inter } = seg as unknown as { tx: Phaser.GameObjects.BitmapText; inter: boolean };
       t.setFont(`font_${inter ? (k === i ? 'pInk' : 'gold') : k === i ? 'rInk' : 'rGold'}`);
       seg.getAll().forEach((o) => {
-        if (o instanceof Phaser.GameObjects.Image) o.setTexture(`icon${k === i ? '' : 'D'}_${this.o.options[k].icon}`);
+        if (o instanceof Phaser.GameObjects.Image) o.setTexture(`icon${k === i ? '' : 'D'}_${this.o.options[k].off ? 'lock' : this.o.options[k].icon}`);
       });
     });
     const tx = 1 + i * this.segW;
@@ -398,5 +437,6 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
 /** A round count badge on a tab of a SegmentedSwitch (`i` of `n` segments across `w`). */
 export function addSwitchBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, n: number, i: number, count: number | string): void {
   const segW = Math.floor((w - 2) / n);
-  parent.add(new MBadge(scene, x + 1 + (i + 1) * segW - 5, y + 1, count));
+  // on the track's top edge, clear of the segment's label (a label can now span the whole segment)
+  parent.add(new MBadge(scene, x + 1 + (i + 1) * segW - 5, y - 2, count));
 }

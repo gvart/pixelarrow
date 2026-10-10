@@ -18,11 +18,11 @@ import { MIconButton } from './iconButton';
 import { actionRows } from './BottomPanel';
 
 export interface BarSlot extends MButtonOpts {
-  /** Cannot right now, and why (grey stone; a tap says why). */
+  /** Cannot right now, and why (flat grey with a lock; a tap says why). */
   off?: string;
   /** The one terracotta primary of the state. */
   primary?: boolean;
-  /** A toggle that is on (stone instead of bronze). */
+  /** A toggle that is on (lit bronze with an ink label instead of bronze). */
   selected?: boolean;
   /** A square icon-only button (the label is its tip); stone surface only. */
   iconOnly?: boolean;
@@ -48,7 +48,7 @@ export const actionBarH = (info: boolean): number => (info ? 46 : ROW_H);
 
 /** The variant a slot is drawn in. */
 function variantOf(s: BarSlot): MButtonVariant {
-  return s.variant ?? (s.off ? 'disabled' : s.primary ? 'primary' : s.selected ? 'neutral' : 'secondary');
+  return s.variant ?? (s.off ? 'disabled' : s.primary ? 'primary' : s.selected ? 'lit' : 'secondary');
 }
 
 export class MActionBar extends Phaser.GameObjects.Container {
