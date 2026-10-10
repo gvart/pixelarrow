@@ -7,6 +7,7 @@ import type { Hero } from '../src/data/units';
 function army(n: number, wounded = 0): Campaign {
   const c = Campaign.fresh(77);
   c.data.gold = 10_000;
+  c.data.heroes.length = Math.min(c.data.heroes.length, n); // the 8-man opening (AR-01) is more than some of these armies
   while (c.data.heroes.length < n) c.recruit();
   c.data.heroes.forEach((h, i) => {
     h.group = i % 4;
