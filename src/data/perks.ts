@@ -116,7 +116,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   },
   aimed: {
     id: 'aimed', name: 'Aimed Volley', short: 'Aimed', icon: 'eye', cooldown: 20, color: 0x80c8a0, groupMode: 'one',
-    desc: 'Every shooter of the group in range of the focused group looses one careful shot at it: +25% accuracy, +20% damage.',
+    desc: 'Every shooter of the group in range of the focused group looses three careful shots at it: +25% accuracy, +20% damage.',
   },
   recharge: {
     id: 'recharge', name: 'Wheel and Re-charge', short: 'Wheel', icon: 'charge', cooldown: 25, color: 0xe8d090, groupMode: 'one',
@@ -169,7 +169,8 @@ export const ABILITY_RULES = {
   // Sunder: no block and lighter armour for a while
   sunderTicks: 72,
   sunderArmor: 2,
-  // Aimed Volley: one free shot per shooter at the focused group
+  // Aimed Volley: free shots per shooter at the focused group
+  aimedShots: 3,
   aimedAccuracy: 0.25,
   aimedDamage: 1.2,
   // Wheel and Re-charge: break off, regroup, then charge with a bonus
@@ -292,7 +293,7 @@ const perkList: PerkDef[] = [
   { id: 'rally_cry', tree: 'warrior', tier: 3, name: 'Rally Cry', desc: 'Ability: a shout that steadies and rallies.', ability: 'rally' },
   { id: 'warlord', tree: 'warrior', tier: 4, name: 'Warlord', desc: 'Aura: nearby allies strike harder.', aura: 'warlord' },
   // Class perks (their tier is the usual one; the class tree decides the order)
-  { id: 'drilled', tree: 'hoplite', tier: 0, classOnly: true, name: 'Drilled', desc: '+5 morale, +4% block.', mods: { morale: 5, block: 0.04 } },
+  { id: 'drilled', tree: 'hoplite', tier: 0, classOnly: true, name: 'Drilled', desc: '+9 morale, +6% block.', mods: { morale: 9, block: 0.06 } },
   { id: 'iron_discipline', tree: 'hoplite', tier: 2, classOnly: true, name: 'Iron Discipline', desc: '+6 morale, 20% less morale damage.', mods: { morale: 6 }, moraleLoss: 0.8 },
   { id: 'shield_breaker', tree: 'warrior', tier: 0, classOnly: true, name: 'Shield Breaker', desc: '+10% shield pierce, +1 damage.', mods: { blockPierce: 0.1, dmg: 1 } },
   { id: 'reaping_blow', tree: 'warrior', tier: 2, classOnly: true, name: 'Reaping Blow', desc: '+2.5 damage, +0.15 morale shock.', mods: { dmg: 2.5, moraleShock: 0.15 } },

@@ -79,6 +79,16 @@ describe('signature active data (abilities.md R3)', () => {
     }
   });
 
+  it('a group volley does not stack: one use puts every holder of the group on the cooldown (groupMode one)', () => {
+    const rng = new Rng(19);
+    const ids = { nextId: 1 };
+    const bt = face(men(rng, ids, 'archer', 3, ['longshot', 'volley']), men(rng, ids, 'hoplite', 3, []), 6);
+    const archers = bt.units.filter((u) => u.side === 0);
+    expect(archers.every((u) => bt.abilityReady(u, 'volley'))).toBe(true);
+    bt.issue(0, { kind: 'ability', unit: archers[0].id, ability: 'volley' });
+    for (const u of archers) expect(bt.abilityCooldown(u, 'volley'), `archer ${u.id}`).toBeGreaterThan(0);
+  });
+
   it('the four re-tuned actives and three auras carry the R2 magnitudes', () => {
     expect(ABILITY_RULES.bashDaze).toBe(50); // 2.5 s
     expect(ABILITY_RULES.dazeDamage).toBe(1.25);
@@ -255,7 +265,7 @@ describe('War-cry', () => {
 });
 
 describe('Aimed Volley', () => {
-  it('needs a focus; every shooter in range looses one free, careful shot at the focused group', () => {
+  it('needs a focus; every shooter in range looses aimedShots free, careful shots at the focused group', () => {
     const rng = new Rng(12);
     const ids = { nextId: 1 };
     const bt = face(men(rng, ids, 'archer', 3, ['longshot', 'aimed']), men(rng, ids, 'hoplite', 3, []), 6);
@@ -268,7 +278,7 @@ describe('Aimed Volley', () => {
     bt.drainEvents();
     bt.issue(0, { kind: 'ability', unit: u.id, ability: 'aimed' });
     const ev = bt.drainEvents();
-    expect(ev.filter((e) => e.type === 'shot').length).toBe(3);
+    expect(ev.filter((e) => e.type === 'shot').length).toBe(3 * ABILITY_RULES.aimedShots);
     expect(bt.units.filter((x) => x.side === 0).map((x) => x.ammo)).toEqual(ammo);
     expect(abilityEvents(ev, 'aimed')[0].targets.length).toBe(3);
   });
@@ -380,7 +390,7 @@ describe('Scythe Run', () => {
         // the rule: a run starts only with 3 or more in the path
         const ready = bt.units.filter((u) => u.side === 0 && bt.abilityReady(u, 'scythe')).map((u) => bt.scytheVictims(u));
         bt.step();
-        for (const e of abilityEvents(bt.drainEvents(), 'scythe')) {
+        if (abilityEvents(bt.drainEvents(), 'scythe').length > 0) {
           used = true;
           expect(Math.max(...ready)).toBeGreaterThanOrEqual(3);
         }

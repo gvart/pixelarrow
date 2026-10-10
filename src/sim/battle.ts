@@ -764,8 +764,8 @@ export class Battle {
         if (i < 0 || !this.abilityReady(u, o.ability)) return;
         if (!this.useAbility(u, o.ability)) return;
         u.abilCd[i] = Math.round(ABILITIES[o.ability].cooldown * TICK_RATE * u.stats.cdMult);
-        if (ABILITIES[o.ability].groupMode === 'one' && SIGNATURE.includes(o.ability)) {
-          // a group-wide signature active does not stack: every holder of the group waits out the cooldown
+        if (ABILITIES[o.ability].groupMode === 'one') {
+          // shouts and volleys do not stack (groupMode 'one'): every holder of the group waits out the cooldown (AB-02)
           for (const a of this.units) {
             const k = a.group === u.group && a !== u ? a.abil.indexOf(o.ability) : -1;
             if (k >= 0) a.abilCd[k] = Math.max(a.abilCd[k], Math.round(ABILITIES[o.ability].cooldown * TICK_RATE * a.stats.cdMult));
@@ -1290,12 +1290,14 @@ export class Battle {
         break;
       }
       case 'aimed': {
-        // Aimed Volley: each shooter of the group in range looses one careful shot at the focused group, from a reserve sheaf.
+        // Aimed Volley: each shooter of the group in range looses aimedShots careful shots at the focused group, from a reserve sheaf.
         const shooters = this.aimedShooters(u);
         if (shooters.length === 0) return false;
         for (const { s, t } of shooters) {
-          this.shoot(s, t, R.aimedDamage, R.aimedAccuracy);
-          s.ammo++;
+          for (let k = 0; k < R.aimedShots; k++) {
+            this.shoot(s, t, R.aimedDamage, R.aimedAccuracy);
+            s.ammo++;
+          }
           targets.push(s.id);
         }
         break;
