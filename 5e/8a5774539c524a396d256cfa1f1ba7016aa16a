@@ -1,0 +1,29 @@
+server/src/duel/verify.ts
+  s_697bdc25a7c420::t_3789d86100cec4 8,10,31-38,51-52
+server/src/battle.ts
+  s_697bdc25a7c420::t_92c3ca72e4077d 243-245
+server/src/sims/v1/index.ts
+  s_697bdc25a7c420::t_92c3ca72e4077d 10-11
+server/src/simVersion.ts
+  s_697bdc25a7c420::t_d7ebe41863210e 22-23
+server/test/simVersion.test.ts
+  s_697bdc25a7c420::t_5b6acfd65fb34f 38-44,197,200,202-235,238,285-301
+  s_697bdc25a7c420::t_4dc36ecef79377 18,123-174
+  s_697bdc25a7c420::t_905dead736ff7e 302
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5e8a5774539c524a396d256cfa1f1ba7016aa16a",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
