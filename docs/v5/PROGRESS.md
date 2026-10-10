@@ -11,6 +11,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
+| f-02 | W2 F-02: kit controls, enabled never grey, tab bar casing, F-01 AC4 layout half | per card | per card | worktree-agent | running |
+| ab-02 | W8 AB-02: 7 signature actives, perk strengths (owns the mirror target), re-measure ladder | per card | per card | worktree-agent | running |
+| ct-03 | W8 CT-03: undo (3 s battle, 10-step deploy), online-safe | per card | per card | worktree-agent | running |
+| ar-01 | W8 AR-01: 8-man opening, existing saves unchanged, smoke hero count | per card | per card | worktree-agent | running |
 
 ## Merged into v5
 
@@ -40,6 +44,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 830a365 merge: AS-02 partial (12/21 busts staged). Gates: vitest 790.
 - d07282b merge: F-01 tokens + font-load fix. Gates: vitest 800/801 (a load timeout, passes alone), layout 0 new, smoke flaked once then 42/42, tutorial pass.
 - b988138 CT-02, 9f9e594 AB-01, b874988 AI-03. Gates: vitest 845, server 294, layout 0 new, all smokes pass; balance 55%.
+- 6abf00a merge: S4-FIXER-3 (load-robust smoke, heavy-test timeouts). smoke 3/3 in a row, vitest 845.
 
 ## Queue (next)
 
