@@ -14,7 +14,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 | ab-01 | W7 AB-01: perk paths (client+server duel rules) | per card | per card | worktree-agent | running |
 | ct-02 | W7 CT-02: targeting + RU Shoot label | per card | per card | worktree-agent | running |
 | f-01 | W1 F-01: tokens, Cinzel/Inter, split-word fix | per card | per card | worktree-agent | running |
-| assets-2 | AS-02: 21 class busts via Gemini (Chrome owner) | create-game-assets, asset-spec, asset-audit, art-bible, chrome-browser | art-director, technical-artist | worktree-agent (built on AS-01) | running |
+| assets-2 | AS-02 PARTIAL: 12/21 busts staged (docs/v5/gemini/AS-02/processed); 9 blocked (Chrome download block) | — | — | worktree-agent-ab1676d0c1f1d1180 | merging partial |
 | ct-02 | W7 CT-02: targeting, plus the RU 'Стрел…' truncation | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -74,7 +74,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 ## Blockers
 
-none
+- **Chrome blocks further downloads from gemini.google.com** (likely the per-site 'automatic downloads' setting) after 14 files. Needs the USER to allow automatic downloads for gemini.google.com in Chrome (a browser setting; agents must not change it). Until then the Gemini queue is paused: 9 busts (fanatic, companion, thessalian, chariot, royal_guard, sacred_band, wolf, boar, bear) and AS-03+ icons/frescoes. Code stories continue.
 
 ## Cleanup pending
 
