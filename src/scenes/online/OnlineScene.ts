@@ -12,7 +12,7 @@
 import { RS } from '../../platform/renderScale';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { Meter, addIcon, addText, tappable } from '../../ui/kit';
+import { ICON_PX, Meter, addIcon, addText, tappable } from '../../ui/kit';
 import { ScrollList, firstTimeHint, showTooltip, toast, type Modal } from '../../ui/widgets';
 import { COLOR } from '../../ui/theme';
 import { MOSAIC, SPACE } from '../../ui/tokens';
@@ -188,6 +188,19 @@ function previewSource(d: DemoShard): Source {
 type Gesture = { mode: 'pending' | 'pan'; id: number; sx: number; sy: number; lx: number; ly: number } | null;
 
 const RES_ICON: Record<keyof Resources, string> = { gold: 'wargold', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
+
+/** The HUD chips: every resource plus energy, each wide enough for a compact number ("12.4K", WAR-1), in as few rows as that allows. */
+const CHIP_COUNT = RESOURCE_KEYS.length + 1;
+const CHIP_GAP = 2;
+const CHIP_PAD = 4;
+function chipGrid(w: number): { cols: number; rows: number; cw: number; h: number } {
+  const need = ICON_PX + 3 + CHIP_PAD + Math.ceil(mw('12.4K', 'ink', 6));
+  let cols = CHIP_COUNT;
+  while (cols > 1 && Math.floor((w - CHIP_GAP * (cols - 1)) / cols) < need) cols--;
+  const rows = Math.ceil(CHIP_COUNT / cols);
+  cols = Math.ceil(CHIP_COUNT / rows);
+  return { cols, rows, cw: Math.floor((w - CHIP_GAP * (cols - 1)) / cols), h: rows * TAP + (rows - 1) * CHIP_GAP };
+}
 
 export class OnlineScene extends BaseScene {
   private view: View = { kind: 'loading', msg: '' };
@@ -438,7 +451,7 @@ export class OnlineScene extends BaseScene {
     const { VW, VH } = this.m;
     const c = { x: FRAME_T, y: FRAME_T + TOPBAR_H, w: VW - FRAME_T * 2, h: VH - TAB_H - TAB_FRAME_GAP - FRAME_T * 2 - TOPBAR_H };
     this.sit = { x: c.x + 2, y: c.y + 2, w: c.w - 4, h: SIT_H };
-    this.chips = { x: this.sit.x, y: this.sit.y + this.sit.h + 3, w: this.sit.w, h: TAP };
+    this.chips = { x: this.sit.x, y: this.sit.y + this.sit.h + 3, w: this.sit.w, h: chipGrid(this.sit.w).h };
     const wy = this.chips.y + this.chips.h + 3;
     this.win = { x: c.x + 2, y: wy, w: c.w - 4, h: c.y + c.h - 2 - wy };
     this.frame = new ScreenFrame(this, VW, VH, { tabBar: TAB_H, window: this.win });
@@ -554,14 +567,14 @@ export class OnlineScene extends BaseScene {
       const sl = wrapText(sentence, sit.w - 16, 2).lines;
       const sy = sit.y + Math.round((sit.h - sl.length * LINE_H) / 2);
       sl.forEach((l, i) => H.add(mtext(this, sit.x + sit.w / 2, sy + i * LINE_H, l, 'pInk', { align: 0.5, maxW: sit.w - 12 })));
-      // ---- the resource chips: war gold, food, wood, bronze, (recruits on a wide screen), energy
-      const keys = (this.m.VW >= 200 ? RESOURCE_KEYS : RESOURCE_KEYS.filter((k) => k !== 'recruits')) as (keyof Resources)[];
-      const items = keys.map((k) => ({ icon: RES_ICON[k], value: k === 'recruits' ? `${Math.floor(p.resources[k])}` : fmtNum(p.resources[k]), tip: `${t(`res.${k}` as TKey)}: ${Math.floor(p.resources[k])}` }));
+      // ---- the resource chips: war gold, food, wood, bronze, recruits, energy; compact numbers, in 2 rows on a narrow screen (WAR-1)
+      const items = RESOURCE_KEYS.map((k) => ({ icon: RES_ICON[k], value: fmtNum(p.resources[k]), tip: `${t(`res.${k}` as TKey)}: ${Math.floor(p.resources[k])}` }));
       items.push({ icon: 'bolt', value: `${energy}`, tip: t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }) });
-      const cgap = 2;
-      const cw = Math.floor((chips.w - cgap * (items.length - 1)) / items.length);
+      const { cols, cw } = chipGrid(chips.w);
       items.forEach((it, i) => {
-        const chip: MChip = new MChip(this, chips.x + i * (cw + cgap), chips.y, { icon: it.icon, value: it.value, surface: 'stone', w: cw, pad: 4, tip: it.tip, onClick: () => showTooltip(this, it.tip, chip), id: `online.chip.${it.icon}` });
+        const cx = chips.x + (i % cols) * (cw + CHIP_GAP);
+        const cy = chips.y + Math.floor(i / cols) * (TAP + CHIP_GAP);
+        const chip: MChip = new MChip(this, cx, cy, { icon: it.icon, value: it.value, surface: 'stone', w: cw, pad: CHIP_PAD, tip: it.tip, onClick: () => showTooltip(this, it.tip, chip), id: `online.chip.${it.icon}` });
         H.add(chip);
       });
     }
