@@ -190,17 +190,19 @@ describe('autoDevelop (R6): deterministic, no RNG', () => {
     }
   });
 
-  it('takes A where B is not live yet (signature actives land in AB-02, the standard in AB-03)', () => {
-    expect(bot('hoplite', 10).perks).toEqual(OLD_TREES.hoplite);
-    expect(bot('companion', 10).perks).toEqual(OLD_TREES.companion);
+  it('takes the tier-2 signature active (live since AB-02) and A where B is not live yet (the standard lands in AB-03)', () => {
+    const withActive = (id: ClassId) => OLD_TREES[id]!.map((p, t) => (t === 1 ? CLASSES[id].tree[1][1] : p));
+    expect(bot('hoplite', 10).perks).toEqual(withActive('hoplite'));
+    expect(bot('hoplite', 10).perks[1]).toBe('push');
+    expect(bot('companion', 10).perks).toEqual(withActive('companion'));
+    expect(bot('companion', 10).perks[1]).toBe('recharge');
   });
 
   it('takes the tier-2 B once it grants an active, and standard_bearer only when the army has none', () => {
-    const push = PERKS.push;
+    expect(PERKS.push.ability).toBe('push');
     const std = PERKS.standard_bearer;
     try {
-      // stand-ins for AB-02 / AB-03 wiring the effects
-      push.ability = 'bash';
+      // a stand-in for AB-03 wiring the standard
       std.standard = true;
       const first = bot('hoplite', 10);
       expect(first.perks).toEqual(['shield_drill', 'push', 'phalangite', 'standard_bearer', 'unbreakable']);
@@ -216,7 +218,6 @@ describe('autoDevelop (R6): deterministic, no RNG', () => {
       expect(a.perks).toContain('standard_bearer');
       expect(b.perks).not.toContain('standard_bearer');
     } finally {
-      delete push.ability;
       delete std.standard;
     }
   });

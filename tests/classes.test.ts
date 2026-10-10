@@ -88,9 +88,9 @@ describe('unit classes (data)', () => {
     expect(perkBlocker(h, 'shield_drill')).toBe('Another class');
     expect(perkBlocker({ level: 3, perks: [], cls: 'hoplite' }, 'shield_drill')).toBeNull();
     expect(PERK_LEVELS).toHaveLength(5);
-    // bots walk down their own tree (path A while the B options are not wired: AB-02, AB-03)
+    // bots walk down their own tree: path A, but the tier-2 signature active (AB-02; the standard waits for AB-03)
     const c = hero('companion', 10);
-    expect(c.perks).toEqual(CLASSES.companion.tree.map((t) => t[0]));
+    expect(c.perks).toEqual(CLASSES.companion.tree.map((t, i) => t[i === 1 ? 1 : 0]));
   });
 });
 
