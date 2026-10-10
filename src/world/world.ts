@@ -28,9 +28,12 @@ import {
 
 export type PartyMode = 'wander' | 'chase' | 'flee';
 
+/** A roaming band's kind: the map's band kinds, plus the endgame host (campaign-arc.md). */
+export type PartyKind = BandKind | 'host';
+
 export interface PartyState {
   id: number;
-  kind: BandKind;
+  kind: PartyKind;
   name: string;
   culture: Culture;
   x: number;
@@ -49,6 +52,10 @@ export interface PartyState {
   ty: number;
   /** Hours it stays put / leaves the player alone (after a fight or an escape). */
   idle: number;
+  /** Men who got away from a battle it retreated from (ai-doctrines.md); missing = 0. */
+  escaped?: number;
+  /** Its captain was killed or captured (ai-doctrines.md); missing = false. */
+  captainDead?: boolean;
 }
 
 /** Per-settlement state: which recruits / wares of the current stock epoch are gone. */
@@ -56,7 +63,39 @@ export interface SettlementState {
   epoch: number;
   bought: number[];
   sold: number[];
+  /** A sacked settlement that has been rebuilt (campaign-arc.md); missing = false. */
+  reborn?: boolean;
 }
+
+/** A lair's assault state (campaign-arc.md), keyed by settlement id. */
+export interface LairState {
+  fallen: boolean;
+  /** Garrison men lost to assaults, and when (hours) the last one was lost. */
+  lost: number;
+  lostAt: number;
+}
+
+export type ArcStage = 'lairs' | 'host' | 'won' | 'post';
+export const ARC_STAGES: readonly ArcStage[] = ['lairs', 'host', 'won', 'post'];
+
+/** Where the campaign arc stands (campaign-arc.md). */
+export interface ArcState {
+  stage: ArcStage;
+  /** The host's party id while it marches. */
+  hostParty?: number;
+  /** The start town is sacked until this time (hours). */
+  sackedUntil?: number;
+}
+
+/** A campaign event drawn and saved before it is shown (campaign-events.md). */
+export interface PendingEvent {
+  id: string;
+  seed: number;
+}
+
+/** Save size caps (campaign-events.md "Size"): flag keys, and journal entries (the most recent kept). */
+export const FLAGS_CAP = 64;
+export const JOURNAL_CAP = 20;
 
 export interface WorldSave {
   seed: number;
@@ -88,6 +127,24 @@ export interface WorldSave {
   supplies?: number;
   /** The field camp the party has pitched, if any. */
   camp?: CampState | null;
+  // ---- v6 (ST-02, ADR-0002): declared for the v5 train, filled with defaults by the save migration
+  /** Lairs assaulted so far, by settlement id. */
+  lairs: Record<number, LairState>;
+  arc: ArcState;
+  /** Event flags (campaign-events.md), at most FLAGS_CAP keys. */
+  flags: Record<string, number>;
+  /** Event id -> the day it may next be drawn. */
+  eventCd: Record<string, number>;
+  /** [day, events drawn that day]. */
+  eventsToday: [number, number];
+  pendingEvent?: PendingEvent;
+  /** Event ids and choice keys, the last JOURNAL_CAP. */
+  journal: string[];
+}
+
+/** The v6 world fields of a campaign that has not touched them (new campaigns and migrated saves). */
+export function v6WorldDefaults(): Pick<WorldSave, 'lairs' | 'arc' | 'flags' | 'eventCd' | 'eventsToday' | 'journal'> {
+  return { lairs: {}, arc: { stage: 'lairs' }, flags: {}, eventCd: {}, eventsToday: [0, 0], journal: [] };
 }
 
 export type WorldEvent =
@@ -125,7 +182,8 @@ export const WORLD_RULES = {
 };
 
 const BAND_NAMES: Record<BandKind, string> = { bandits: 'Bandits', raiders: 'Galatae raiders', mercs: 'Mercenaries' };
-const BAND_MIX: Record<BandKind, ArmyMix> = { bandits: 'bandits', raiders: 'raiders', mercs: 'mercs' };
+// The host's army is AR-04's; until then a host band (never spawned yet) fields raiders.
+const BAND_MIX: Record<PartyKind, ArmyMix> = { bandits: 'bandits', raiders: 'raiders', mercs: 'mercs', host: 'raiders' };
 
 export function partySpeed(size: number): number {
   return WORLD_RULES.speed * Math.max(0.7, 1 - WORLD_RULES.sizeSlow * size);
@@ -325,6 +383,7 @@ export class World {
       rng: (seed ^ 0x51ed270b) >>> 0 || 1,
       lastSpawn: 0,
       safeUntil: 0,
+      ...v6WorldDefaults(),
     };
     const w = new World(s, map);
     for (let i = 0; i < 9; i++) w.spawnParty(i % 4 === 3 ? 'town' : 'lair');
