@@ -14,7 +14,7 @@ export const rgbToHex = ([r, g, b]) => '#' + [r, g, b].map((v) => v.toString(16)
  * within `soft` more it gets partial alpha (anti-aliased edges of painted art). Every kept pixel is
  * despilled: magenta tint (R and B both above G) is pulled back toward its neighbours' hue.
  */
-export function keyOut(img, { key = '#ff00ff', tol = 60, soft = 60, hard = false } = {}) {
+export function keyOut(img, { key = "#ff00ff", tol = 60, soft = 60, hard = false, fringe = 3 } = {}) {
   const [kr, kg, kb] = hexToRgb(key);
   const out = { w: img.w, h: img.h, data: new Uint8Array(img.data) };
   const d = out.data;
@@ -26,13 +26,37 @@ export function keyOut(img, { key = '#ff00ff', tol = 60, soft = 60, hard = false
     }
     if (!hard && dist < tol + soft) d[i + 3] = Math.round(d[i + 3] * ((dist - tol) / soft));
     else if (hard && dist < tol + soft) d[i + 3] = 0;
-    // despill: magenta fringe has R and B well above G
+  }
+  // despill the edge band (`fringe` px next to transparency): a generator blends the outline into the
+  // magenta, so edge pixels are opaque but tinted (R and B both above G). Pull R and B down to G.
+  const band = edgeBand(out, fringe);
+  for (const i of band) {
     const spill = Math.min(d[i], d[i + 2]) - d[i + 1];
-    if (spill > 0 && d[i + 3] < 255) {
+    if (spill > 0) {
       d[i] -= spill;
       d[i + 2] -= spill;
     }
   }
+  return out;
+}
+
+/** Byte offsets of visible pixels within `r` px (4-neighbour steps) of a transparent or partial pixel. */
+export function edgeBand(img, r = 2) {
+  const { w, h, data } = img;
+  let front = [];
+  const dist = new Int16Array(w * h).fill(-1);
+  for (let p = 0; p < w * h; p++) if (data[p * 4 + 3] < 255) (dist[p] = 0), front.push(p);
+  for (let step = 1; step <= r; step++) {
+    const next = [];
+    for (const p of front) {
+      const x = p % w, y = (p - x) / w;
+      for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1])
+        if (q >= 0 && dist[q] < 0) (dist[q] = step), next.push(q);
+    }
+    front = next;
+  }
+  const out = [];
+  for (let p = 0; p < w * h; p++) if (dist[p] >= 0 && data[p * 4 + 3] > 0) out.push(p * 4);
   return out;
 }
 
@@ -168,12 +192,18 @@ export function alphaStats(img) {
   return { clear, partial, opaque };
 }
 
-/** Visible pixels still close to the key colour (a failed key-out leaves a magenta fringe). */
+/**
+ * Magenta left behind by a failed key-out: visible pixels close to the key anywhere, plus edge-band
+ * pixels (next to transparency) with a magenta tint (R and B both well above G, R close to B).
+ * Interior purples (an epic gem, a plum cloak) are not counted: only the edge band is hue-tested.
+ */
 export function keyResidue(img, { key = '#ff00ff', tol = 90 } = {}) {
   const [kr, kg, kb] = hexToRgb(key);
-  let n = 0;
-  for (let i = 0; i < img.data.length; i += 4) if (img.data[i + 3] > 24 && Math.hypot(img.data[i] - kr, img.data[i + 1] - kg, img.data[i + 2] - kb) < tol) n++;
-  return n;
+  const d = img.data;
+  const hits = new Set();
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 24 && Math.hypot(d[i] - kr, d[i + 1] - kg, d[i + 2] - kb) < tol) hits.add(i);
+  for (const i of edgeBand(img, 1)) if (d[i + 3] > 24 && d[i] - d[i + 1] > 40 && d[i + 2] - d[i + 1] > 40 && Math.abs(d[i] - d[i + 2]) < 50) hits.add(i);
+  return hits.size;
 }
 
 /** Snap every opaque pixel to the nearest palette colour (RGB distance, weighted for the eye). */
@@ -238,15 +268,17 @@ export function detectGrid(img, { min = 2, max = 32 } = {}) {
     }
     return best;
   };
-  let best = { n: 1, share: 0, px: 0, py: 0 };
+  // A true grid of n puts nearly all edge energy on its lines; so do its divisors (n/2, n/4), while
+  // its multiples (2n) catch only about half. So: the LARGEST n whose share is close to the best.
+  const cands = [];
   for (let n = min; n <= max; n++) {
     const sx = score(edgesX, n);
     const sy = score(edgesY, n);
-    // a true grid puts nearly all edge energy on its lines; expected share by chance is 1/n
-    const lift = ((sx.share + sy.share) / 2) * n;
-    if (lift > best.share * 1.02) best = { n, share: lift, px: sx.phase, py: sy.phase, fit: (sx.share + sy.share) / 2 };
+    cands.push({ n, px: sx.phase, py: sy.phase, fit: (sx.share + sy.share) / 2 });
   }
-  return best;
+  const top = Math.max(...cands.map((c) => c.fit));
+  if (top < 0.6) return { n: 1, px: 0, py: 0, fit: top };
+  return cands.filter((c) => c.fit >= top * 0.9).pop();
 }
 
 /** Downsample an upscaled pixel-art image by its block size: each cell takes its most common colour. */
