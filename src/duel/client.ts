@@ -16,6 +16,7 @@ import type { ClassId } from '../data/classes';
 import type { FormationType } from '../sim/formation';
 import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../sim/types';
 import { Rng } from '../sim/rng';
+import { SIM_VERSION } from '../sim/version';
 import { DEFAULT_FORMATIONS } from '../online/rules';
 import {
   DUEL_RULES, accountLevel, cleanPresetName, classUnlockLevel, developHero, duelRecruit, findOffer, recruitPrice, respecHero, respecPrice, sellPrice, shopItem,
@@ -340,10 +341,10 @@ export class ApiDuelSource implements DuelSource {
     return this.req<WithProfile<{ glory: number }>>('POST', '/shop/salvage', { uid, requestId: newRequestId() });
   }
   ladderStart(floor: number) {
-    return this.req<LadderTicket>('POST', '/ladder/start', { floor });
+    return this.req<LadderTicket>('POST', '/ladder/start', { floor, simVersion: SIM_VERSION });
   }
   ladderSubmit(ticket: string, sub: LadderSubmission) {
-    return this.req<LadderReport>('POST', '/ladder/submit', { ticket, ...sub });
+    return this.req<LadderReport>('POST', '/ladder/submit', { ticket, ...sub, simVersion: SIM_VERSION });
   }
   ladderAbandon(ticket: string) {
     return this.req('POST', '/ladder/abandon', { ticket });
@@ -370,10 +371,10 @@ export class ApiDuelSource implements DuelSource {
     return this.req<AsyncView>('GET', '/async');
   }
   asyncStart(defender: number) {
-    return this.req<AsyncTicket>('POST', '/async/start', { defender });
+    return this.req<AsyncTicket>('POST', '/async/start', { defender, simVersion: SIM_VERSION });
   }
   asyncSubmit(ticket: string, sub: LadderSubmission) {
-    return this.req<WithProfile<{ report: AsyncReport; replayed?: boolean }>>('POST', '/async/submit', { ticket, ...sub });
+    return this.req<WithProfile<{ report: AsyncReport; replayed?: boolean }>>('POST', '/async/submit', { ticket, ...sub, simVersion: SIM_VERSION });
   }
   asyncAbandon(ticket: string) {
     return this.req('POST', '/async/abandon', { ticket });

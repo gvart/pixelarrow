@@ -110,6 +110,7 @@ export const EN = {
   'online.reaching': 'Reaching the realm...',
   'online.raising': 'Raising your army...',
   'online.unavailable': 'Online unavailable',
+  'online.reloadForUpdate': 'A new version of the game is out. Please reload the game to keep playing online.',
   'online.offlineStill': 'The campaign is still yours to play offline.',
   'online.backToMenu': 'Back to menu',
   'online.join': 'Join',

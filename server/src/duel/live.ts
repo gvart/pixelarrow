@@ -10,6 +10,7 @@
  * other statement is guarded by that nonce (and bumps duel_profiles.rev), so a
  * match pays exactly once however often settleMatch runs.
  */
+import { SIM_VERSION } from '../simVersion';
 import type { Hero } from '../../../src/data/units';
 import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../../../src/sim/types';
 import { Rng } from '../../../src/sim/rng';
@@ -155,8 +156,8 @@ export async function createMatch(db: D1Database, mode: DuelMode, a: { pid: numb
   const setup = onlineBattleSetup(seed, { heroes: ta.heroes, formations: ta.formations, bot: false }, { heroes: tb.heroes, formations: tb.formations, bot: false }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
   const init: MatchInit = { id: randomToken(16), mode, seed, players: [a.pid, b.pid], names: [a.name, b.name], setup, heroes: [ta.heroes, tb.heroes], createdAt: now };
   await db
-    .prepare('INSERT INTO duel_matches (id, mode, seed, player_a, player_b, setup, teams, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)')
-    .bind(init.id, mode, seed, a.pid, b.pid, JSON.stringify(setup), JSON.stringify(init.heroes), now)
+    .prepare('INSERT INTO duel_matches (id, mode, seed, player_a, player_b, setup, teams, created_at, sim_version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)')
+    .bind(init.id, mode, seed, a.pid, b.pid, JSON.stringify(setup), JSON.stringify(init.heroes), now, SIM_VERSION)
     .run();
   return { init };
 }

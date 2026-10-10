@@ -12,7 +12,9 @@ import type { BattleSetup, LoggedOrder } from '../sim/types';
 import type { Archetype } from '../game/heroes';
 import type { RegionKind } from './mapSchema';
 import type { Resources } from './rules';
-import type { ClientMsg, PresencePlayer, ServerMsg } from './protocol';
+import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED, type ClientMsg, type PresencePlayer, type ServerMsg } from './protocol';
+import { SIM_VERSION } from '../sim/version';
+import { t } from '../i18n';
 import type { BattleSite } from '../world/battlefield';
 import type { MerchantKind, Offer, PostKind, Region } from './merchants';
 import type { CampMarker, CampView } from './camps';
@@ -269,14 +271,14 @@ export const onlineApi = {
   salvage: (uid: string) => req<{ salvaged: boolean; gold: number; profile: ProfileView }>('POST', '/salvage', { uid }),
   army: (groups: Record<string, number>, formations?: FormationType[], reserve?: Record<string, boolean>) => req<{ ok: true }>('POST', '/army', reserve ? { groups, formations, reserve } : { groups, formations }),
   /** consumable: at most one battle consumable (src/data/consumables.ts), spent when the ticket is created. */
-  attackStart: (loc: number, consumable?: string) => req<AttackTicket>('POST', '/attack/start', consumable ? { loc, consumable } : { loc }),
+  attackStart: (loc: number, consumable?: string) => req<AttackTicket>('POST', '/attack/start', consumable ? { loc, consumable, simVersion: SIM_VERSION } : { loc, simVersion: SIM_VERSION }),
   attackSubmit: (ticket: string, orders: LoggedOrder[], deployOrders: number, claim: { winner: number; ticks: number; hash: string }) =>
-    req<AttackResult>('POST', '/attack/submit', { ticket, orders, deployOrders, claim }, 30_000),
+    req<AttackResult>('POST', '/attack/submit', { ticket, orders, deployOrders, claim, simVersion: SIM_VERSION }, 30_000),
   attackAbandon: (ticket: string) => req<{ ok: true }>('POST', '/attack/abandon', { ticket }),
   bosses: () => req<{ now: number; bosses: BossView[] }>('GET', '/boss'),
-  raidStart: (boss: string, consumable?: string) => req<RaidTicket>('POST', '/boss/start', consumable ? { boss, consumable } : { boss }),
+  raidStart: (boss: string, consumable?: string) => req<RaidTicket>('POST', '/boss/start', consumable ? { boss, consumable, simVersion: SIM_VERSION } : { boss, simVersion: SIM_VERSION }),
   raidSubmit: (ticket: string, orders: LoggedOrder[], deployOrders: number, claim: { winner: number; ticks: number; hash: string }) =>
-    req<RaidResult>('POST', '/boss/submit', { ticket, orders, deployOrders, claim }, 30_000),
+    req<RaidResult>('POST', '/boss/submit', { ticket, orders, deployOrders, claim, simVersion: SIM_VERSION }, 30_000),
   raidAbandon: (ticket: string) => req<{ ok: true }>('POST', '/boss/abandon', { ticket }),
   clanMine: () => req<{ clan: ClanView | null; role: ClanMember['role'] | null }>('GET', '/clans/mine'),
   clanCreate: (name: string, tag: string) => req<{ clan: ClanView; role: string }>('POST', '/clans', { name, tag }),
@@ -314,11 +316,17 @@ export function explain(e: unknown): { reason: 'offline' | 'unconfigured' | 'err
 
 /** Short user-facing message of a failed call. */
 export function errorText(e: unknown): string {
+  if (e instanceof ApiError && e.code === SIM_VERSION_REJECTED) return t('online.reloadForUpdate');
   if (e instanceof ApiError) return e.status === 0 || e.status >= 500 ? 'The server is unreachable' : e.message;
   return e instanceof Error ? e.message : 'Something went wrong';
 }
 
 export type { PresencePlayer, BattleSite };
+
+/** A socket path with the client's sim version (`?sim=`): the server refuses sockets of another version. */
+export function simSocketPath(path: string): string {
+  return `${path}${path.includes('?') ? '&' : '?'}sim=${SIM_VERSION}`;
+}
 
 // ------------------------------------------------------------------ shard socket
 
@@ -429,7 +437,7 @@ export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> 
     const token = online.api.token;
     if (!token) return;
     const base = online.api.base || location.origin;
-    const url = base.replace(/^http/, 'ws') + this.path;
+    const url = base.replace(/^http/, 'ws') + simSocketPath(this.path);
     let ws: WebSocket;
     try {
       ws = new WebSocket(url, ['pixelarrow.v1', token]);
@@ -453,6 +461,8 @@ export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> 
         return;
       }
       const m = msg as unknown as ServerMsg;
+      // the server's text is English and technical: the player reads the reload advice in their language
+      if (m.type === 'error' && m.code === SIM_VERSION_REJECTED) m.message = t('online.reloadForUpdate');
       if (m.type === 'welcome') {
         this.me = m.you;
         this.players = m.players;
@@ -467,9 +477,15 @@ export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> 
         }
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (e) => {
       this.ws = null;
       this.connected = false;
+      // refused for its sim version: only a reload helps, so stop knocking
+      if (e.code === SIM_VERSION_CLOSE) {
+        this.wanted = false;
+        this.stopBeat();
+        return;
+      }
       if (this.wanted) this.schedule();
     };
     ws.onerror = () => {

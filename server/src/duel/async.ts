@@ -38,6 +38,7 @@ import { getRating, leagueText, loadTeam, rowLeague, type RatingRow } from './li
 import { leaderboard, markRewardsSeen, pickSeasonPiece, rollRatings, seasonView, type Board } from './season';
 import { duelCtx as ctx, duelPrefix, duelProfileView, getDuelProfile, heroProgressStmts, loadDuelHeroes, syncDefence, type DuelCtx as Ctx } from './store';
 import { SubmitBody, verifyBattle } from './verify';
+import { resolveSimVersion, SimVersionField } from '../simVersion';
 import { requireOpenTicket, ticketPreamble } from '../tickets';
 
 export const duelSeason = new Hono<AppEnv>();
@@ -137,6 +138,8 @@ duelSeason.get('/async', async (c) => {
 
 interface AttackRow {
   id: string;
+  /** The sim version it was issued under (0016_sim_version.sql). */
+  sim_version: number;
   attacker: number;
   defender: number;
   day: number;
@@ -182,7 +185,7 @@ async function attackView(x: Ctx, a: AttackRow, extra: Record<string, unknown> =
   };
 }
 
-const StartBody = z.object({ defender: z.number().int().min(1) });
+const StartBody = z.object({ defender: z.number().int().min(1), simVersion: SimVersionField });
 
 /**
  * Starts an attack on one of the offered defenders with the arena team: the
@@ -194,6 +197,7 @@ duelSeason.post('/async/start', async (c) => {
   limit(c, 'duel_async', 20);
   const x = await ctx(c);
   const body = await readJson(c, StartBody, 1024);
+  const simVersion = resolveSimVersion(body.simVersion);
   if (accountLevel(x.p.xp) < DUEL_RULES.rankedLevel) throw new ApiError(409, 'locked', `Raids unlock at duel level ${DUEL_RULES.rankedLevel}`, { level: DUEL_RULES.rankedLevel });
   const open = await openAttack(x);
   if (open && open.defender === body.defender) return c.json(await attackView(x, open, { resumed: true }));
@@ -221,8 +225,8 @@ duelSeason.post('/async/start', async (c) => {
   const seed = randomU32();
   const setup = asyncSetup(seed, team.heroes, team.formations, defence, JSON.parse(def.formations) as FormationType[]);
   await x.db
-    .prepare('INSERT INTO duel_attacks (id, attacker, defender, day, seed, setup, team, defence, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)')
-    .bind(id, x.pid, body.defender, utcDay(x.now), seed, JSON.stringify(setup), JSON.stringify(team.heroes), def.heroes, x.now, x.now + ASYNC.ticketTtlMs)
+    .prepare('INSERT INTO duel_attacks (id, attacker, defender, day, seed, setup, team, defence, created_at, expires_at, sim_version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)')
+    .bind(id, x.pid, body.defender, utcDay(x.now), seed, JSON.stringify(setup), JSON.stringify(team.heroes), def.heroes, x.now, x.now + ASYNC.ticketTtlMs, simVersion)
     .run();
   const a = (await x.db.prepare('SELECT * FROM duel_attacks WHERE id = ?1').bind(id).first<AttackRow>())!;
   return c.json(await attackView(x, a));
@@ -263,7 +267,7 @@ duelSeason.post('/async/submit', async (c) => {
   const claimJson = JSON.stringify(body.claim);
   const replay = await ticketPreamble(a, claimJson, x.now, 'raid', () => closeAttack(x, a, 'abandoned'));
   if (replay) return c.json({ report: JSON.parse(replay) as AsyncReport, replayed: true, profile: await duelProfileView(x.db, x.pid, x.now) });
-  const out = await verifyBattle(JSON.parse(a.setup) as BattleSetup, body, (claim) => closeAttack(x, a, 'rejected', claim));
+  const out = await verifyBattle({ setup: JSON.parse(a.setup) as BattleSetup, simVersion: a.sim_version }, body, (claim) => closeAttack(x, a, 'rejected', claim));
   const s = out.summary;
 
   await rollRatings(x.db, x.pid, x.now);
@@ -424,6 +428,8 @@ duelSeason.get('/async/replay/:id', async (c) => {
     setup: JSON.parse(a.setup) as BattleSetup,
     orders: JSON.parse(a.orders ?? '[]') as LoggedOrder[],
     deployOrders: a.deploy_orders,
+    /** The rules it was fought under: a client running other rules cannot replay it faithfully. */
+    simVersion: a.sim_version,
     winner: a.winner,
     ticks: a.ticks,
     at: a.finished_at,
