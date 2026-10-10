@@ -1,0 +1,25 @@
+docs/v5/stories/CT-01/play.mjs
+  s_697bdc25a7c420::t_3400f5737e63a2 150-151,154,158
+  s_697bdc25a7c420::t_c362b320ed7b25 72,113-116,120,145-149
+  s_697bdc25a7c420::t_d6a6a0c3f35e3c 1-22,24-45,53-54,57-71,73-87,89-92,94-112,117-119,121-132,134-138,140-144,152-153,155,157,159-164,166-175
+  s_697bdc25a7c420::t_6c5d821d019359 156,165
+  s_697bdc25a7c420::t_a939cfa4b1c49a 46-52,55-56,88,133,139
+  s_697bdc25a7c420::t_a0379859f7ab2f 23
+  s_697bdc25a7c420::t_b229b6a6f6d719 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2d235794ac9c5c969c6a1ce2ea51bed535d3b09d",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
