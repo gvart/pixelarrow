@@ -7,8 +7,8 @@ import type { ProcId } from './powers';
 export type Side = 0 | 1;
 export type UnitState = 'ready' | 'routing' | 'dead' | 'fled';
 /**
- * Group orders. `feint` is declared for sim train 2 (formations-orders.md R3)
- * and is implemented by FO-02; until then the sim has no rule for it.
+ * Group orders. `feint` is sim train 2 (formations-orders.md R3, FO-02): an
+ * ineligible group ignores it.
  */
 export const GROUP_ORDERS = ['hold', 'advance', 'charge', 'fallback', 'feint'] as const;
 export type GroupOrder = (typeof GROUP_ORDERS)[number];

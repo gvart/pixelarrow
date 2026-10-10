@@ -37,9 +37,8 @@ const num = z.number().finite().min(-1e7).max(1e7);
 const int = z.number().int().min(-1).max(1e6);
 /**
  * The sim's own list, so a shape enters the schema only with its rules: `orb`
- * (formations-orders.md R2) arrives when FO-02 adds it to FORMATION_TYPES.
- * Today's sim throws on a shape it has no slots for, which a live relay would
- * forward to the opponent.
+ * (formations-orders.md R2) arrived with FO-02. The frozen v1 sim throws on
+ * an orb; verify paths turn that into 422 `sim_rejected`.
  */
 const formationType = z.enum(FORMATION_TYPES as [string, ...string[]]);
 const groupOrder = z.enum(GROUP_ORDERS);
