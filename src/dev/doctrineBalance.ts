@@ -2,11 +2,18 @@
  * Doctrine balance (headless): the rows of design/gdd/ai-doctrines.md
  * "Balance targets" that AI-01 owns: the reference army vs each doctrine,
  * battle length, first contact of small armies, and the ridge with a
- * hillFlank attacker. Counter scripts and captains come with AI-02.
+ * hillFlank attacker. AI-02 adds the captain rows: a band with and without
+ * its captain, the kill-captain script, and the bounty against battle gold.
+ * The counter-script rows (ai-doctrines.md "Counter script vs doctrine")
+ * have no story yet.
  */
 import type { BalanceRow } from './balance';
 import { hillGrid } from './balance';
 import { generateEnemyArmy } from '../game/enemy';
+import { partyArmy, type PartyState } from '../world/world';
+import { captainBounty } from '../game/campaign';
+import { resolveBattle } from '../game/loot';
+import { isCaptain, type CaptainMark } from '../sim/stats';
 import { armySpec } from '../game/armySpec';
 import { setBotLevel, standardArmy } from '../game/heroes';
 import type { Hero } from '../data/units';
@@ -88,6 +95,94 @@ export function runRidge(seed: number, doctrine: DoctrineId): DoctrineFight & { 
   return { ...r, defenderWon: r.winner === hero };
 }
 
+/** The band of the captain rows: tier-2 mercenaries (a captained band), `culture` picks the doctrine. */
+export function captainBand(seed: number, culture: 'greek' | 'phoenician' | 'celtic' = 'greek', captainDead = false): PartyState {
+  return {
+    id: 1, kind: 'mercs', name: 'Mercenaries', culture, x: 0, y: 0, size: CAPTAIN_BAND.size, power: 0, level: CAPTAIN_BAND.level, tier: 2,
+    seed: (seed * 2654435761) >>> 0 || 1, home: 0, mode: 'wander', tx: 0, ty: 0, idle: 0, captainDead,
+  };
+}
+
+/** Band and player of the captain rows, set so the reference wins about half the time. */
+export const CAPTAIN_BAND = { size: 10, level: 3, playerLevel: 3 };
+
+/** The reference army's men who go for the captain: the swordsman (a thureophoros) and the peltasts. */
+const STRIKE_TEAM = ['thureophoros', 'peltast'];
+
+/** How the player's side treats the captain: plain bot, a strike team on him, or the same team on another man. */
+export type CaptainScript = 'ignore' | 'kill' | 'decoy';
+
+export interface CaptainFight extends DoctrineFight {
+  /** The player's side won. */
+  won: boolean;
+  /** The captain fell (dead or knocked out); false without one. */
+  captainDown: boolean;
+  /** Gold the win paid (resolveBattle) and the bounty on top; 0 on a loss. */
+  gold: number;
+  bounty: number;
+}
+
+/**
+ * The reference army (starting army at CAPTAIN_BAND.playerLevel, steady bot)
+ * against a captained band, with or without its captain (`captainDead`).
+ * `script` 'kill': the swordsman and the two peltasts leave the line as
+ * individuals at the start and are sent at the captain every half second
+ * (ai-doctrines.md fantasy: "send the peltasts round to kill their chief");
+ * 'decoy' sends the same men at the man of his group nearest to him instead.
+ */
+export function runCaptain(seed: number, withCaptain: boolean | 'plain', script: CaptainScript = 'ignore', culture: 'greek' | 'phoenician' | 'celtic' = 'greek'): CaptainFight {
+  const ids = { nextId: 1 };
+  const mine = standardArmy(new Rng(seed), ids);
+  for (const h of mine) setBotLevel(h, CAPTAIN_BAND.playerLevel);
+  const band = partyArmy(captainBand(seed, culture, !withCaptain), ids);
+  if (withCaptain === 'plain') {
+    // the same man in his place, without the captain's mark, level and gear
+    const c = band.heroes[0] as Hero & CaptainMark;
+    delete c.captain;
+    setBotLevel(c, CAPTAIN_BAND.level);
+    for (const it of Object.values(c.equip)) if (it) it.rarity = 'common';
+  }
+  const b = new Battle({ seed, armies: [armySpec(mine, true), { ...armySpec(band.heroes, true), doctrine: band.doctrine }] });
+  const capId = band.heroes.findIndex((h) => isCaptain(h));
+  const cap = capId >= 0 ? b.units.find((u) => u.side === 1 && u.heroId === band.heroes[capId].id) : undefined;
+  b.startBattle();
+  // the strike team leaves the line at first contact, when the captain stands in the enemy's front
+  const team = script === 'ignore' ? [] : b.units.filter((u) => u.side === 0 && STRIKE_TEAM.includes(u.stats.cls ?? ''));
+  let contact = -1;
+  for (let i = 0; i < b.timeLimitTicks + 10 && b.phase !== 'ended'; i++) {
+    if (cap && team.length && contact >= 0 && b.tick % 10 === 0) {
+      let target = cap.state === 'ready' ? cap : undefined;
+      if (target && script === 'decoy') {
+        let best = Infinity;
+        target = undefined;
+        for (const e of b.units) {
+          if (e.side !== 1 || e === cap || e.state !== 'ready' || e.group !== cap.group) continue;
+          const d = (e.x - cap.x) ** 2 + (e.y - cap.y) ** 2;
+          if (d < best) [best, target] = [d, e];
+        }
+      }
+      for (const u of team) {
+        if (u.state !== 'ready' || !target) continue;
+        if (!b.groups[u.group].individual) b.issue(0, { kind: 'detach', unit: u.id });
+        const dx = target.x - u.x;
+        const dy = target.y - u.y;
+        const d = Math.hypot(dx, dy) || 1;
+        b.issue(0, { kind: 'form', group: u.group, cx: target.x, cy: target.y, fx: dx / d, fy: dy / d, frontage: 1 });
+        b.issue(0, { kind: 'order', group: u.group, order: 'charge' });
+      }
+    }
+    b.step();
+    for (const e of b.drainEvents()) if (e.type === 'contact' && contact < 0) contact = e.tick / TICK_RATE;
+  }
+  const res = b.result();
+  const won = res.winner === 0;
+  const cu = cap ? res.units.find((u) => u.side === 1 && u.heroId === cap.heroId) : undefined;
+  const captainDown = cu?.state === 'dead';
+  const gold = won ? resolveBattle(res, mine, band.heroes, new Rng(seed)).outcome.gold : 0;
+  const bounty = won && captainDown && capId >= 0 ? captainBounty(band.heroes[capId].level) : 0;
+  return { winner: res.winner, seconds: b.tick / TICK_RATE, contact, retreated: res.retreated === 1, won, captainDown, gold, bounty };
+}
+
 /** The doctrine the ridge row's attacker fights with (a hillFlank doctrine, R5). */
 export const RIDGE_ATTACKER: DoctrineId = 'rush';
 
@@ -120,5 +215,34 @@ export function doctrineRows(n: number): BalanceRow[] {
     const won = pct(rg.filter((x) => x.defenderWon).length, rk);
     rows.push({ label: `Ridge defender vs ${d} attacker (hillFlank)`, measured: won, target: d === RIDGE_ATTACKER ? '62-68% (from 74%)' : '(info)' });
   }
+  rows.push(...captainRows(n));
+  return rows;
+}
+
+const pts = (x: number) => `${x >= 0 ? '+' : ''}${Math.round(x * 100)} pts`;
+
+/**
+ * The captain rows (ai-doctrines.md "Balance targets", F3; campaign-arc.md
+ * gold target): what a captain adds to his band, what killing him is worth,
+ * and what his bounty adds to a win's gold. `n` seeds per row.
+ */
+export function captainRows(n: number): BalanceRow[] {
+  const run = (w: boolean | 'plain', s: CaptainScript = 'ignore') => Array.from({ length: n }, (_, i) => runCaptain(3000 + i, w, s));
+  const winRate = (r: CaptainFight[]) => r.filter((x) => x.won).length / Math.max(1, r.length);
+  const plain = run('plain');
+  const ignore = run(true);
+  const kill = run(true, 'kill');
+  const decoy = run(true, 'decoy');
+  const down = (r: CaptainFight[]) => pct(r.filter((x) => x.captainDown).length, r.length);
+  const rows: BalanceRow[] = [];
+  rows.push({ label: `Captain present vs absent (band wins ${pct(Math.round((1 - winRate(ignore)) * n), n)} vs ${pct(Math.round((1 - winRate(plain)) * n), n)})`, measured: pts(winRate(plain) - winRate(ignore)), target: '+5..+10 pts' });
+  rows.push({ label: `Kill-captain vs ignore-captain script (captain falls ${down(kill)} vs ${down(ignore)})`, measured: pts(winRate(kill) - winRate(ignore)), target: '>= +6 pts' });
+  rows.push({ label: '  kill-captain vs the same team on another man', measured: pts(winRate(kill) - winRate(decoy)), target: '(info)' });
+  // the bounty against the gold of the same wins (resolveBattle: kill gold + the 60 g win bonus)
+  const wins = [...ignore, ...kill].filter((x) => x.won);
+  const paid = wins.filter((x) => x.bounty > 0);
+  const share = (r: CaptainFight[]) => r.reduce((a, x) => a + x.bounty, 0) / Math.max(1, r.reduce((a, x) => a + x.gold, 0));
+  rows.push({ label: `Bounty when paid, share of that win's gold (${paid.length} of ${wins.length} wins)`, measured: `${Math.round(share(paid) * 100)}%`, target: '30-60% (F3)' });
+  rows.push({ label: '  bounty over every win against a captained band', measured: `+${Math.round(share(wins) * 100)}%`, target: '+10..+20% (arc)' });
   return rows;
 }
