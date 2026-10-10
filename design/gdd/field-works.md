@@ -41,7 +41,7 @@ These are added to `TerrainKind` and `TERRAIN` in `src/data/terrain.ts`. Each on
 
 1. **Ditch.** A melee hit **against a man standing in a ditch** from a man not in a ditch does **×1.2 damage**: the defender strikes down from the lip. It's applied in `applyDamage` beside the height factor, and doesn't stack with height: the larger of the two applies.
 2. **Stakes.**
-   - A charge whose path crosses a stakes cell loses its charge momentum (the charge bonus is reset to 0).
+   - A charge whose path crosses a stakes cell loses its charge momentum (the charge bonus is reset to 0). The sim emits `{ type: 'stakesBreak'; tick; unit; x; y }` once per unit per crossing, where (x, y) is the stakes cell. It's a new `SimEvent`, output only and not hashed.
    - Mounted units entering a stakes cell take a hit at 0.5× of their own charge damage (impaled), once per unit per crossing.
 3. **Laager and palisade** are blocked like rocks: men slide along them, and slots on them move.
 4. **Rampart** is generated only behind a palisade (campaign-arc.md R2). It gives the defenders cover from missiles and a better brace.
@@ -83,7 +83,7 @@ New order: `{ kind: 'work'; type: 'stakes' | 'ditch' | 'laager'; x: number; y: n
 
 - Each work has distinct iso art that reads at 1× zoom: pointed stake rows, a dark trench, wagons, a timber palisade, an earthen rampart.
 - The deployment long-press tooltip lists its effects. There's also an (i) button, because long-press is never the only path (G15).
-- A charge stopped by stakes shows a "Broken on the stakes" banner, plus a splinter burst (battle-readability.md R4).
+- A charge stopped by stakes (the `stakesBreak` event, R2) shows a "Broken on the stakes" banner, plus a splinter burst (battle-readability.md R4).
 
 ### R6. Bot placement
 
@@ -94,7 +94,7 @@ The bot places works in its deployment zone, at the end of its deploy step:
 - **Ditch**: along its main line's front, two paces ahead.
 - **Laager**: never in v5.
 
-Doctrines don't decide whether works exist (R4). They only decide how bots attack through them. Attacking bots path through works by terrain speed (no special routing). The `fury` doctrine charges straight through.
+Doctrines don't decide whether works exist (R4). They only decide how bots attack through them. Attacking bots path through works by terrain speed (no special routing).
 
 ## Formulas
 
@@ -136,10 +136,10 @@ The constraint is s + d + l ≤ 3 (or 1 when caught). The maximum is 45 supplies
 | System / GDD | Direction | Contract |
 | --- | --- | --- |
 | campaign-arc.md | is used by | `palisade` and `rampart` cells for assault fields; garrison allowances |
-| ai-doctrines.md | uses | bots attack through works by doctrine (`fury` charges straight through); the garrison allowance is keyed to the lair, not the doctrine |
-| controls.md | uses | the works placement gesture, ghosts and undo |
-| battle-readability.md | uses | the art and the "broken on the stakes" banner and burst |
-| formations-orders.md | interacts | the orb inside a laager; the feint bait over a ditch (disorder stacks with scatter) |
+| ai-doctrines.md | uses | bot placement (R6). Attacking bots path by terrain speed, with no special routing. The garrison allowance is keyed to the lair, not the doctrine. |
+| controls.md | is used by | the works placement gesture, ghosts and undo |
+| battle-readability.md | is used by | renders the `stakesBreak` event: the "broken on the stakes" banner and burst |
+| formations-orders.md | uses / is used by | the orb inside a laager. Stakes vs the feint bait: pursuers drawn across stakes lose their charge momentum (R2) and are disordered (formations-orders.md R3). The two effects stack. |
 | #21 Field camp (`src/world/camp.ts`) | uses | the supplies economy |
 | #32 / #34 server | constrains | zod: the `work` / `unwork` kinds, `ArmySpec.works`, the terrain codes |
 
@@ -149,7 +149,9 @@ The constraint is s + d + l ≤ 3 (or 1 when caught). The maximum is 45 supplies
 | --- | --- | --- |
 | campaign-arc.md | R2 assault terrain | is used by |
 | ai-doctrines.md | R2 doctrine table, R5 bot behaviour | uses |
-| controls.md | R6 deployment tools | rendered by |
+| controls.md | R7 deployment tools | rendered by |
+| battle-readability.md | R4 juice tiers (`stakesBreak`) | rendered by |
+| formations-orders.md | R2 orb, R3 feint bait | uses / is used by |
 
 ## Tuning Knobs
 
@@ -194,6 +196,7 @@ None new. `WorldSave.supplies` already exists, and spending it is an ordinary sa
 | Companions charging through stakes into braced hoplites | the riders' charge damage is −80% or more; the hoplites still win (already 100%) |
 | Reference army with 3 works (defending) vs matched bot | **≤ 62%**: works help but don't dominate |
 | Ridge plus 3 works | **≤ 70%** (the ridge itself is retuned by ai-doctrines.md to 62–68%) |
+| Ridge plus 3 works plus an orb reserve (the turtle) | **≤ 70%**. Swarm and hammer bots answer with a stand-off (ai-doctrines.md R5). |
 | Ditch line vs a swordsman assault | the defender gains **+6 to +12 pts** |
 | Lair assault at 1.0× power (palisade plus 2 stakes) | 38–48% for the attacker (campaign-arc.md) |
 

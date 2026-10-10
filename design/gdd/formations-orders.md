@@ -60,13 +60,14 @@ The aesthetic is Challenge.
 ### R3. Feint (`order: 'feint'`)
 
 1. **Eligible**: a group whose men are **all** light infantry, missile men or riders. In code that's `ClassDef.role` `'light'` or `'ranged'`, or a class with a `mount`, in `src/data/classes.ts`. No new tag is needed.
-   - In the UI, the order key "Fall back" becomes "Feint" for an eligible group.
+   - In the UI, the order key **"Withdraw"** becomes "Feint" for an eligible group.
    - The server rejects a `feint` sent for an ineligible group: the order is ignored and logged.
 2. **Behaviour**:
    - The group falls back at full speed for `FEINT_S` (4 s), without the fallback order's morale cost: it's planned, not panicked.
    - It then **halts, turns about and gets `charge`** with a +0.3 charge bonus for its first blow.
-3. **The bait.** An enemy group that pursues a feinting group, meaning it moved more than 3 paces toward it during the feint, ends up **disordered** for 3 s: −15% block and its slots scatter by ±0.3. It is drawn as a ragged line (battle-readability.md).
+3. **The bait.** An enemy group **pursues** if, during the feint, it has an `advance` or `charge` order whose target (its attack target, or else its nearest enemy group) is the feinting group, **and** it moved more than 3 paces toward that group. A pursuing group ends up **disordered** for 3 s: −15% block and its slots scatter by ±0.3. It is drawn as a ragged line (battle-readability.md). The sim emits `{ type: 'disordered'; tick; group; untilTick }` once, when the disorder starts.
 4. **Cooldown**: per group, `FEINT_CD_S` (30 s).
+5. **Visible intent (P2).** A feinting group shows a **feint marker** (a curved arrow) on its badge for both sides (battle-readability.md R2). An enemy feint is never hidden information.
 
 ### R4. Focus fire (`{ kind: 'focus'; group: number; target: number }`) (MECH J2)
 
@@ -74,7 +75,11 @@ The aesthetic is Challenge.
 2. Missile and hybrid men in the group pick targets **within range** from the focused group first. A target is in the focused group if the target man's group id equals `focus`, and the closest such man is chosen. If no member of the focused group is in range, they fall back to the nearest target, which is today's rule.
 3. Focus clears automatically when the focused group is gone: all dead, routed or fled.
 4. Melee men ignore focus. A tap on an enemy with a melee group selected keeps today's attack behaviour.
-5. The `out of range` flag (`g.focusOutOfRange`, read-only state for the HUD) is true when `focus` is set and no man of the group has a focused target in range. controls.md and battle-readability.md show it (fixes C4).
+5. Two read-only sim states for the HUD (fixes C4):
+   - `g.focusOutOfRange`: true when `focus` is set and no man of the group has a focused target in range;
+   - `g.noTargetS`: seconds the group has had shooting on with **no** enemy in range (0 while any target is in range).
+
+   This GDD owns only these two sim states. **controls.md R3.4 owns the HUD condition.** battle-readability.md R3 and R5 read the same two states.
 
 ### R5. Group cohesion (MECH B3)
 
@@ -82,17 +87,22 @@ When a group's `routed` flag sets, which is the existing rule at `battle.ts` abo
 
 - every **non-routing** member of that group takes **COHESION_SELF** (−10) morale;
 - every unit of the same side whose group centre is within **COHESION_RADIUS** (6 paces) of the routed group's centre takes **COHESION_NEAR** (−5) morale;
-- both are **halved** for a unit under Steady Presence or a standard aura (abilities.md R5);
+- both are **halved** for a unit inside a **standard aura** (abilities.md R5 owns this rule; Steady Presence doesn't halve them);
 - the shock fires once per group per routed-flag rising edge. A group that rallies and routs again triggers it again, at most once every 10 s.
+- each shock emits `{ type: 'cohesion'; tick; side; group; targets: number[] }` (`side`, `group` = the routed group, `targets` = the shaken unit ids), where `group` is the routed group and `targets` the shaken units. It's a new member of the `SimEvent` union in `src/sim/types.ts`.
 
 ### R6. Army break (PLAY P2)
 
 Each second (every 20 ticks), for each side, take the counts of active men: alive, not routing, not fled, not knocked out.
 
 - A side **breaks** when `active ≤ ARMY_BREAK_SHARE × startMen` **and** `active × ARMY_BREAK_RATIO ≤ enemyActive`. The defaults are 25%, and the enemy having at least 3× the active men.
-- A broken side's active men lose **ARMY_BREAK_DRAIN** (4) morale per second, and cannot rally while the condition holds.
+- A broken side's active men lose **ARMY_BREAK_DRAIN** (4) morale per second, and cannot rally while the condition holds. **Army break overrides Raise the standard** (abilities.md R5.3): a broken side's Raise restores morale but turns no routers back.
 - The rule never applies before the first contact, and never to beasts (`kind === 'animal'` units and myth bosses keep their own rules).
-- An `armyBreak` event `{ side }` is emitted once, for the HUD (battle-readability.md R4) and the "why we lost" line.
+- An `{ type: 'armyBreak'; tick; side }` event is emitted once, for the HUD (battle-readability.md R4) and the "why we lost" line.
+
+### R7. Events this GDD adds
+
+The `SimEvent` union in `src/sim/types.ts` (the director's "BattleEvent"; `SimEvent` is its real name) gains `cohesion` (R5), `disordered` (R3) and `armyBreak` (R6). Like every existing event, they are outputs drained by the renderer, and they are not part of `Battle.hash()`. battle-readability.md R4 consumes them.
 
 ## Formulas
 
@@ -107,7 +117,7 @@ r = max(R_MIN, n × R_PER_MAN)
 | n | int | 1–64 | active men in the group |
 | R_MIN | float | 1.2 | the minimum radius in paces |
 | R_PER_MAN | float | 0.25–0.4 (0.32) | knob |
-| r | float | 1.2–20.5 | the ring radius |
+| r | float | 1.2–10.2 | the ring radius. The 2-deep rule above 24 men caps it at 10.2 (n = 64). |
 
 Above 24 men the ring doubles its depth: the radius is computed for `ceil(n/2)`. With that, r is at most 10.2 at n = 64.
 
@@ -132,7 +142,7 @@ broken = contact ∧ (A ≤ s × S0) ∧ (A × k ≤ E)
 ### F3. Cohesion shock
 
 ```
-ΔM = base × (aura ? 0.5 : 1)
+ΔM = base × (inStdAura ? 0.5 : 1)
 ```
 
 `base` is −10 (own group) or −5 (a near group). The result is −2.5 to −10 per event. Against a routAt of 25% of about 60 morale (15), one shock alone never routs a healthy man. It tips the wavering ones, which is the intent: a cascade, not a wipe.
@@ -157,8 +167,8 @@ broken = contact ∧ (A ≤ s × S0) ∧ (A × k ≤ E)
 | controls.md | is used by | the knob sends `face`; enemy tap → `focus`; the Feint key; the Orb button |
 | battle-readability.md | is used by | renders `focusOutOfRange`, the disordered state, the cohesion and armyBreak events |
 | ai-doctrines.md | is used by | bots use face, orb, feint, focus |
-| abilities.md | uses | standard / Steady Presence halving (R5); the `wheel` active builds on R1 |
-| field-works.md | is used by | an orb inside a laager; stakes vs the feint bait |
+| abilities.md | uses / is used by | the standard-aura halving of cohesion shocks (abilities.md R5 owns it); the `recharge` active builds on R1 |
+| field-works.md | uses / is used by | an orb inside a laager. Stakes vs the feint bait: pursuers drawn across stakes lose their charge momentum (field-works.md R2) and are disordered (R3). The two effects stack. |
 | #6 Battle simulation core | modifies | `applyOrder`, `hitDirection`, target selection, `updateGroups`, end check |
 | #32 / #34 server and lockstep | constrains | zod: the new `kind`s `face`, `focus`; the `order` enum adds `feint`; the `FormationType` enum adds `orb` |
 
@@ -167,7 +177,7 @@ broken = contact ∧ (A ≤ s × S0) ∧ (A × k ≤ E)
 | Target GDD | Specific Element Referenced | Nature |
 | --- | --- | --- |
 | controls.md | R2 drag to order, R3 targeting | rendered by |
-| battle-readability.md | R2 badges, R4 events | rendered by |
+| battle-readability.md | R2 badges, R4 events (`cohesion`, `disordered`, `armyBreak`, R7) | rendered by |
 | abilities.md | R5 Standard aura | uses |
 | ai-doctrines.md | R2 `feint` / `focusMissiles` fields | is used by |
 
@@ -191,7 +201,7 @@ The knobs live in `RULES` in `src/sim/battle.ts`, moved to `src/data/rules.ts` i
 
 - **The knob in battle sends `face`.** A ghost of the old facing stays until release (C1).
 - **The Shape sheet** gains **Orb**: an icon of a ring of shields plus a label. It's disabled for riders, with a reason on tap.
-- **Order bar**: "Fall back" is renamed "Withdraw" (BTL-5, D8). It becomes **Feint** for eligible groups, with a distinct icon (a curved arrow), plus the cooldown sweep.
+- **Order bar**: the key is labelled **"Withdraw"** (renamed from today's "Back", BTL-5, D8). It becomes **Feint** for eligible groups, with a distinct icon (a curved arrow), plus the cooldown sweep.
 - **Focus**: with a missile group selected, tapping an enemy group shows a target reticle on that group's badge. Tapping it again or tapping empty ground clears it (controls.md R3).
 - **Range ring** for a selected missile group, and an "out of range" line on its card (controls.md R5, battle-readability.md R3).
 
@@ -220,6 +230,7 @@ None. These are sim rules and transient battle state only. Settings are unchange
 | Feint bait: 4 peltasts feint vs 6 swordsmen pursuing | the peltasts' side gains **≥ 8 pts** over a plain Withdraw |
 | Focus on enemy slingers (6 archers vs 6 slingers + 6 hoplites) | slingers silenced **≥ 30% sooner** than nearest-target fire |
 | Cohesion on vs off: first-rout to second-rout gap (median) | shrinks by **20–40%** |
+| Stacked shocks: captain or bearer killed while an adjacent group routs (banner loss −12, cohesion −10 / −5) | the cascade spreads to **≤ 2 more groups** in the median battle |
 | Battles with one side having ≤ 2 men for > 30 s | **≤ 2%** (from today's long tails); mean length within ±10% of the baseline |
 | Archer and slinger round-robin mean | ≥ 40% (from 36 / 34%) with focus fire |
 

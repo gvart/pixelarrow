@@ -26,7 +26,7 @@ The aesthetics are Expression and Fantasy, with Challenge.
 
 ### R1. Perk paths
 
-1. `ClassDef.tree` changes from `PerkId[5]` to `[PerkId, PerkId][5]`, meaning `[A, B]` per tier. A is today's perk at that tier.
+1. `ClassDef.tree` changes from `PerkId[]` (`src/data/classes.ts:134`, five entries per class) to five `[PerkId, PerkId]` pairs, meaning `[A, B]` per tier. A is today's perk at that tier.
 2. At a perk level (2, 4, 6, 8, 10; `PERK_LEVELS` is unchanged) the hero takes **one** of A or B for that tier.
    - Prerequisite: **any** perk of the previous tier, not a specific one.
    - `perkBlocker` checks the tier, the level and the free slot. A second pick in the same tier is refused ("Path chosen").
@@ -40,7 +40,7 @@ The aesthetics are Expression and Fantasy, with Challenge.
 | Shock (Celt, Gaul, fanatic) | `zealot` / `brawler` (the other one) | **`warcry`** War-cry | `reaping_blow` | **`standard_bearer`** | `unbreakable` |
 | Breakers (falx, rhomphaia) | `brawler` | **`sunder`** Sunder | `bloodlust` | `rally_cry` | `unbreakable` |
 | Missile (archer, slinger, javelineer, peltast) | `fleet` / `longshot` (the other one) | **`aimed`** Aimed Volley | `parthian_shot` (rider) / `lead_bullets` (foot) | `steady_presence` | `warlord` |
-| Horse (Companion, Thessalian, horse archer) | `fleet` | **`wheel`** Wheel and Re-charge (horse archer: `aimed`) | `lance_charge` / `ride_down` (the other one) | `standard_bearer` | `skirmish_master` / `warlord` (the other one) |
+| Horse (Companion, Thessalian, horse archer) | `fleet` | **`recharge`** Wheel and Re-charge (horse archer: `aimed`) | `lance_charge` / `ride_down` (the other one) | `standard_bearer` | `skirmish_master` / `warlord` (the other one) |
 | Chariot | `fleet` | **`scythe`** Scythe Run | `lance_charge` | `rally_cry` | `skirmish_master` |
 
    - "(the other one)" means the B option is whichever of the two listed perks the class's A is not.
@@ -57,7 +57,7 @@ Today every perk is worth 0–5 points. Target: **5–10 points each**.
 | Volley | 2 free shots | **3** free shots |
 | Berserk | 8 s | unchanged (+5 pts already) |
 | Rally Cry | +35% morale, radius 4 | **+40%**, radius 4 |
-| Steady Presence | −20% morale damage, +1/s | unchanged (+4) |
+| Steady Presence | −20% morale damage, +1/s, radius 3.5 | unchanged (+4), radius 3.5 |
 | Eagle Eye | +12% acc, +15% missile damage, radius 5 | **+15% acc, +30% damage, radius 6** (dead today at 0 points) |
 | Warlord | +12% melee damage | **+15%** |
 
@@ -72,7 +72,7 @@ These are new `AbilityId`s. Each is a `{kind:'ability'}` order, validated by the
 | `warcry` | War-cry | shock | 30 s | Enemies within 5 paces in front lose 8 morale (×1.5 if they are not in a shield wall). Allies within 4 get +0.2 charge shock for 6 s. `groupMode: 'one'`. | an enemy within 5 |
 | `sunder` | Sunder | breakers | 18 s | The target in front loses **all block** and −3 armour for 6 s. | an enemy within reach, in front |
 | `aimed` | Aimed Volley | missile | 20 s | Every shooter in the group within range of the **focused** group (formations-orders.md R4) looses one shot at it with +25% accuracy and +20% damage. `groupMode: 'one'`. | `focus` set, and at least 1 shooter in range |
-| `wheel` | Wheel and Re-charge | horse | 25 s | The riders disengage at once with no free hits against them, regroup for 2 s, and their next charge has **+0.4 charge bonus**. | riders in melee, or within 6 of an enemy |
+| `recharge` | Wheel and Re-charge | horse | 25 s | The riders disengage at once with no free hits against them, regroup for 2 s, and their next charge has **+0.4 charge bonus**. | riders in melee, or within 6 of an enemy |
 | `scythe` | Scythe Run | chariot | 30 s | The chariot drives 6 paces along its facing. Every enemy within 0.8 of the path takes a hit (base damage ×0.8) and −8 morale. Braced spears in the path stop the run (a braced bounce). | the path is clear of rocks or sea |
 
 ### R4. The medallion budget (P3 anti-pillar)
@@ -91,12 +91,12 @@ This is the shared rule, and ai-doctrines.md R6 uses it for captains.
    - Radius `STD_RADIUS` (4 paces), plus the WIL radius bonus.
    - Allies inside take **−15% morale damage**. This does **not** stack with Steady Presence: the larger reduction applies.
    - They also regain +0.5 morale/s while not in melee.
-   - Cohesion shocks are halved (formations-orders.md R5).
-3. **Raise the standard** (the active `standard`, **once per battle**): allies within 6 paces regain 20% of max morale, and routing men within 6 turn back if their morale is at or above 30%.
+   - Cohesion shocks are halved (formations-orders.md R5). **abilities.md owns this halving rule**, and only the standard aura grants it.
+3. **Raise the standard** (the active `standard`, **once per battle**): allies within 6 paces regain 20% of max morale, and routing men within 6 turn back if their morale is at or above 30%. On a side whose army has broken (formations-orders.md R6), Raise restores morale but turns no routers back: army break wins.
 4. **Banner loss.** When the bearer dies or is knocked out:
    - own units within `BANNER_LOSS_RADIUS` (6) lose `BANNER_LOSS_SELF` (12) morale;
    - enemy units within 6 gain `BANNER_LOSS_ENEMY` (+5);
-   - a `standardLost` event is emitted.
+   - a `{ type: 'standardLost'; tick; side; unit }` event is emitted (a new `SimEvent`, output only, not hashed).
 
    **The standard does not pass to another hero**: losing it is the cost.
 5. The bearer is drawn with a banner sprite. This is the readability requirement (battle-readability.md R2).
@@ -113,7 +113,7 @@ This is the shared rule, and ai-doctrines.md R6 uses it for captains.
 | `warcry` | at first contact, or the enemy within 5 is wavering |
 | `sunder` | under the same condition as bash |
 | `aimed` | focus is set and ≥ 2 shooters are in range (a doctrine with `focusMissiles` sets focus) |
-| `wheel` | riders have been locked in melee longer than `CAV_MELEE_S` |
+| `recharge` | riders have been locked in melee longer than `CAV_MELEE_S` |
 | `scythe` | ≥ 3 enemies lie in the path |
 | `standard` | ≥ 3 allies within 6 are routing |
 
@@ -164,7 +164,7 @@ With tiers 1–5 that's **40–200 gold**.
 
 | System / GDD | Direction | Contract |
 | --- | --- | --- |
-| formations-orders.md | uses | `focus` for `aimed`; cohesion halving reads the standard aura; `wheel` builds on R1 face/turn |
+| formations-orders.md | uses / is used by | `focus` for `aimed`; cohesion halving reads the standard aura; `recharge` builds on R1 face/turn |
 | ai-doctrines.md | is used by | captains are standard bearers; bot ability rules (R6) |
 | controls.md | is used by | the medallion budget, "more" sheet, reasons on tap |
 | battle-readability.md | is used by | the banner sprite, the `standardLost` event, the ability flash ring |
@@ -182,6 +182,7 @@ With tiers 1–5 that's **40–200 gold**.
 | controls.md | R4 medallions | rendered by |
 | battle-readability.md | R2 badges, R4 events | rendered by |
 | campaign-events.md | "Oracle" | is used by |
+| campaign-arc.md | R4 the Tyrant, R7 level pacing | is used by |
 
 ## Tuning Knobs
 
@@ -232,7 +233,7 @@ The knobs live in `src/data/perks.ts` (`ABILITIES`, perk magnitudes) and `RULES`
 | Standard vs none (reference army) | **+5 to +8 pts** |
 | Bearer killed at 30 s vs not | the losing side's rout comes **≥ 15% sooner** |
 | Royal guard / Sacred Band round-robin mean (with bond) | **≥ 46%**, and no cell against shock infantry above 85% (with the R1 re-cost story) |
-| Companion flank test (6 hoplites + 2 Companions) with `wheel` | **≥ 58%** (from 54%) |
+| Companion flank test (6 hoplites + 2 Companions) with `recharge` | **≥ 58%** (from 54%) |
 | Chariot vs militia with `scythe` | **≥ 30%** (from 0%) |
 | Archer and slinger mean with `aimed` + focus | **≥ 40%** |
 
