@@ -1,0 +1,61 @@
+server/src/sims/v1/sim/rng.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-68
+server/src/sims/v1/index.ts
+  s_697bdc25a7c420::t_4e5d77a3637bde 1-12
+server/src/sims/v1/sim/powers.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-426
+server/src/sims/v1/data/beasts.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-321
+server/src/sims/v1/data/classes.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-387
+server/src/sims/v1/sim/ai.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-923
+server/src/sims/v1/data/affixes.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-273
+server/src/sims/v1/sim/terrain.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-138
+server/src/sims/v1/sim/battle.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-2196
+server/src/sims/v1/sim/types.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-221
+server/src/sims/v1/data/gearRules.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-161
+server/src/sims/v1/data/units.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-71
+server/src/sims/v1/data/items.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-605
+server/src/sims/v1/data/sets.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-72
+server/src/sims/v1/data/traits.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-28
+server/src/sims/v1/sim/stats.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-355
+server/src/sims/v1/data/names.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-56
+server/src/sims/v1/util/math.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-11
+server/src/sims/v1/data/perks.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-279
+server/src/sims/v1/sim/myth.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-1285
+server/src/sims/v1/data/terrain.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-84
+server/src/sims/v1/sim/formation.ts
+  s_697bdc25a7c420::t_6db80bbbe8ed05 1-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5c60ea1cc186d63cbb260d94769de53b4370002a",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
