@@ -1,0 +1,23 @@
+tests/captains.test.ts
+  s_697bdc25a7c420::t_8369ab6def240f 1-82,85-132,135-251
+  s_697bdc25a7c420::t_252a916d3b9a83 83-84,133-134
+server/test/captains.test.ts
+  s_697bdc25a7c420::t_0fbaf9b2267e04 55
+  s_697bdc25a7c420::t_185d979e7980c3 1-54,56-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "770f4b389c1741fab982d45f0f0805dba37fc7b1",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
