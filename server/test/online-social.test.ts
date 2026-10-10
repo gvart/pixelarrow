@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Battle } from '../../src/sim/battle';
-import { SIM_VERSION } from '../../src/sim/version';
 import { Lockstep } from '../../src/online/lockstep';
 import { DEPLOY_GRACE_MS, DEPLOY_MS, type DuelStart, type ServerMsg } from '../../src/online/protocol';
 import { DuelHub, type Out } from '../src/online/duel';
@@ -388,7 +387,7 @@ describe('live duel over WebSocket', () => {
     expect((await SELF.fetch(`${BASE}/ws/online`, { headers: { upgrade: 'websocket' } })).status).toBe(401);
     const { devLogin } = await import('./helpers');
     const n = await devLogin(8199);
-    expect((await SELF.fetch(`${BASE}/ws/online?sim=${SIM_VERSION}&token=${encodeURIComponent(n.token)}`, { headers: { upgrade: 'websocket' } })).status).toBe(409);
+    expect((await SELF.fetch(`${BASE}/ws/online?token=${encodeURIComponent(n.token)}`, { headers: { upgrade: 'websocket' } })).status).toBe(409);
     expect((await api('/api/online/status', { token: n.token })).status).toBe(200);
   });
 });
