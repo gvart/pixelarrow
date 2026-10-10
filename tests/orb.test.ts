@@ -54,11 +54,11 @@ describe('orb geometry (F1)', () => {
 
   it.each([
     [1, 1, ORB.rMin],
-    [8, 8, 2.56],
-    [16, 16, 5.12],
-    [24, 24, 7.68],
-    [40, 20, 6.4],
-    [64, 32, 10.24],
+    [8, 8, Math.max(ORB.rMin, 8 * ORB.rPerMan)],
+    [16, 16, 16 * ORB.rPerMan],
+    [24, 24, 24 * ORB.rPerMan],
+    [40, 20, 20 * ORB.rPerMan],
+    [64, 32, 32 * ORB.rPerMan],
   ])('n = %i: %i men in the outer ring at radius %f', (n, outer, r) => {
     const o = orbRings(n);
     expect(o.outer).toBe(outer);
@@ -148,6 +148,28 @@ describe('orb rules (R2)', () => {
     expect(b.groups[0].order).toBe('charge');
     expect(b.groups[0].formation.type).toBe('line');
     expect(b.groups[0].formation.fy).toBe(-1);
+  });
+
+  it('contracts when a man falls: the ring re-slots at once on a smaller radius (V5-041)', () => {
+    const b = new Battle(setupOf(3, [['hoplite', 16, 0]], [['hoplite', 6, 0]]));
+    form(b, 0, 0, 12, 24, -1);
+    b.issue(0, { kind: 'preset', group: 0, type: 'orb' });
+    b.startBattle();
+    steps(b, 3); // off the 40-tick re-slot beat
+    const f = b.groups[0].formation;
+    const radius = () => {
+      const m = b.activeMembers(0);
+      return Math.max(...m.map((u) => Math.sqrt((b.slotPos(u).x - f.cx) ** 2 + (b.slotPos(u).y - f.cy) ** 2)));
+    };
+    const before = radius();
+    const front = b.activeMembers(0).reduce((a, m) => (m.y < a.y ? m : a));
+    const foe = b.activeMembers(G1)[0];
+    for (const v of b.activeMembers(0).filter((u) => u.y < f.cy)) b.kill(v, foe); // the threatened arc falls
+    expect(front.state).toBe('dead');
+    steps(b, 1);
+    expect(radius()).toBeLessThan(before - 0.5);
+    // The ring is closed again: someone stands on the front slot.
+    expect(b.activeMembers(0).some((u) => b.slotPos(u).y < f.cy - radius() + 0.2)).toBe(true);
   });
 
   it('takes no shield wall', () => {

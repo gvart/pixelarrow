@@ -30,7 +30,7 @@ export const SPACING: Record<FormationType, { file: number; rank: number }> = {
   wedge: { file: 1.0, rank: 1.2 },
   skirmish: { file: 1.9, rank: 1.8 },
   shieldwall: { file: 0.8, rank: 1.15 },
-  // The orb (formations-orders.md R2): `file` is the gap round the ring (2 pi x R_PER_MAN), `rank` the gap between its two rings.
+  // The orb (formations-orders.md R2): `rank` is the gap between its two rings; `file` stays above 1.05 so the renderer gives each man his own plate (no straight rank strips).
   orb: { file: 2.0, rank: 1.1 },
 };
 
@@ -41,7 +41,7 @@ export const SPACING: Record<FormationType, { file: number; rank: number }> = {
  */
 export const ORB = {
   rMin: 1.2,
-  rPerMan: 0.32,
+  rPerMan: 0.12,
   twoDeep: 24,
 };
 

@@ -95,7 +95,6 @@ export const RULES = {
   turnRateHorse: 60,
   /** formations-orders.md R2 (FO-02): the orb's costs. Riders cannot form it; bracing still works. */
   orbSpeed: 0.4,
-  orbDamage: 0.85,
   orbAccuracy: 0.7,
   /** formations-orders.md R3 (FO-02): a feint runs back for feintS, then turns and charges; one per feintCdS per group. */
   feintS: 4,
@@ -210,6 +209,8 @@ export class Battle {
   private disorder: ({ from: number; until: number } | undefined)[] = [];
   /** Men whose first blow after a feint's turn-about lands harder (R3.2). */
   private feintBlow = new Set<number>();
+  /** Orb groups that lost a man this tick: the ring contracts at the end of the tick (V5-041). */
+  private orbLoss = new Set<number>();
   /** Some unit is not a man-sized disc (riders, chariots, bears): per-unit radii apply. */
   readonly big: boolean;
   /** Riders or animals take part (the bot then uses its cavalry / beast tactics). */
@@ -885,6 +886,22 @@ export class Battle {
     return d !== undefined && this.tick < d.until;
   }
 
+  /** Note an orb man falling or breaking (V5-041). */
+  private orbLost(u: SimUnit): void {
+    if (u.state === 'ready' && this.groups[u.group].formation.type === 'orb') this.orbLoss.add(u.group);
+  }
+
+  /**
+   * The ring contracts (V5-041): an orb that lost a man re-slots its men at
+   * once on a smaller ring, so the men round the ring close the gap in the
+   * threatened arc instead of leaving it open until the next re-slot.
+   */
+  private contractOrbs(): void {
+    if (this.orbLoss.size === 0) return;
+    for (const id of [...this.orbLoss].sort((a, b) => a - b)) if (this.groups[id].formation.type === 'orb') this.reassign(id);
+    this.orbLoss.clear();
+  }
+
   /** Bracing works in the orb as in a shield wall (R2.4). */
   private braces(g: SimGroup): boolean {
     return g.shieldWall || g.formation.type === 'orb';
@@ -1245,6 +1262,7 @@ export class Battle {
     this.separate();
     this.myth?.afterMove();
     this.updateProjectiles();
+    this.contractOrbs();
     this.updateGroupStates();
     this.checkEnd();
   }
@@ -1932,6 +1950,7 @@ export class Battle {
   }
 
   private rout(u: SimUnit): void {
+    this.orbLost(u);
     u.state = 'routing';
     u.engaged = false;
     u.momentum = 0;
@@ -2072,7 +2091,6 @@ export class Battle {
       return;
     }
     let dmg = u.stats.dmg * this.rng.range(0.8, 1.2) * RULES.dirDamage[dir];
-    if (g.formation.type === 'orb') dmg *= RULES.orbDamage;
     if (this.feintBlow.delete(u.id)) dmg *= 1 + RULES.feintBlow; // the first blow after a feint's turn-about
     if (fury) dmg *= ABILITY_RULES.berserkDamage;
     if (u.aura & AURAS.warlord.bit) dmg *= AURA_RULES.warlordDamage;
@@ -2213,6 +2231,7 @@ export class Battle {
   /** @internal also used by src/sim/powers.ts (Retribution) */
   kill(t: SimUnit, by: SimUnit): void {
     if (this.myth && t.state === 'dead') return;
+    this.orbLost(t);
     t.hp = 0;
     t.state = 'dead';
     t.engaged = false;
