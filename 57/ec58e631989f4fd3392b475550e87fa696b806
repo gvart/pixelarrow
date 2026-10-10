@@ -1,0 +1,23 @@
+docs/v5/DECISIONS.md
+  s_697bdc25a7c420::t_cdcde6d46dc658 37-38
+docs/v5/PROGRESS.md
+  s_697bdc25a7c420::t_fff44773d755e5 30
+docs/v5/SKILLS_LOG.md
+  s_697bdc25a7c420::t_350b1a88acea37 13-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "57ec58e631989f4fd3392b475550e87fa696b806",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
