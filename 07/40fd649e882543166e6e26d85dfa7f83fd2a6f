@@ -1,0 +1,48 @@
+scripts/art/preview.mjs
+  s_697bdc25a7c420::t_9b66e3e1fe0031 1-45,57,60-91
+  s_697bdc25a7c420::t_94eac0fc2307ff 46-56,58-59
+scripts/art/promote.mjs
+  s_697bdc25a7c420::t_ad0f8acf3893f0 1-52
+scripts/art/lib/override-hook.mjs
+  s_697bdc25a7c420::t_0c78c803d4755e 1-39
+scripts/art/process.mjs
+  s_697bdc25a7c420::t_c520decd87868b 1-8,11-27,30-32,39-50,52-58,60-63,65-83
+  s_697bdc25a7c420::t_6140c286b7328e 35-38
+  s_697bdc25a7c420::t_00e018909f4b27 10
+  s_697bdc25a7c420::t_91a791fe053688 9,33-34,51,59,64
+  s_697bdc25a7c420::t_35bf50dd7fb8c7 28-29
+scripts/art/lib/manifest.mjs
+  s_697bdc25a7c420::t_5380cd631c0154 1-30
+scripts/art/check.mjs
+  s_697bdc25a7c420::t_8f38f3ab05a04f 1-79
+scripts/art/atlas.mjs
+  s_697bdc25a7c420::t_f618909c79f450 1-58
+scripts/art/nineslice.mjs
+  s_697bdc25a7c420::t_0823e0ed0ce5ba 1-76
+scripts/art/list.mjs
+  s_697bdc25a7c420::t_0a5e62cacb0237 1-27
+scripts/art/lib/ops.mjs
+  s_697bdc25a7c420::t_91a791fe053688 17,30,32
+  s_697bdc25a7c420::t_f1dc284e1c0429 271-273,277,279-281
+  s_697bdc25a7c420::t_057561ec8ccef5 29,31,33,35,43-59
+  s_697bdc25a7c420::t_45d0235de21c19 195-199,202-206
+  s_697bdc25a7c420::t_0fb0f29669444d 60-62
+docs/v5/art/.gitignore
+  s_697bdc25a7c420::t_ebcaf11f4676e2 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0740fd649e882543166e6e26d85dfa7f83fd2a6f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
