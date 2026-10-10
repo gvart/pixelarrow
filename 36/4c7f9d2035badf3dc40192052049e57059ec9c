@@ -1,0 +1,23 @@
+src/sim/battle.ts
+  s_697bdc25a7c420::t_c2c153df58b506 33,35,42-43,238-250,333-346,355-361,530,532,610,880-885
+  s_697bdc25a7c420::t_84607d0ef1b7a2 697-698,923-1082,2010,2863-2866,3423-3431,3443-3444
+tests/works.test.ts
+  s_697bdc25a7c420::t_0d1a1366e25620 304
+  s_697bdc25a7c420::t_258e8cd593b3d8 1-303,305-308
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "364c7f9d2035badf3dc40192052049e57059ec9c",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
