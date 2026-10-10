@@ -764,6 +764,9 @@ async function runConfig(browser, cfg, screens) {
     try {
       await ev(page, (n) => window.__reseed(n), [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
       await sc.run(page);
+      // let finite tweens end (a sheet sliding in, a fade): on a slow software renderer they can
+      // outlast the screen's fixed wait, and a half-open sheet reads as "outside the safe area"
+      await until(page, () => window.__game.scene.getScenes(true).every((s) => s.tweens.getTweens().every((t) => !t.isPlaying() || t.loop === -1 || t.data.some((d) => d.repeat === -1))), 3000);
       // let tooltips / toasts from staging fade, then measure
       const r = await ev(page, () => {
         const x = window.__layout.check();
