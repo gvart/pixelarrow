@@ -8,6 +8,7 @@ import { buildArmy, doctrineFor, generateEnemyArmy } from '../src/game/enemy';
 import { armySpec } from '../src/game/armySpec';
 import { standardArmy } from '../src/game/heroes';
 import { standardSetup } from './helpers';
+import { doctrineRows } from '../src/dev/doctrineBalance';
 import aiSource from '../src/sim/ai.ts?raw';
 
 function withDoctrine(seed: number, doctrine?: DoctrineId): BattleSetup {
@@ -191,5 +192,14 @@ describe('first contact (AC 3)', () => {
       sum += contact < 0 ? 120 : contact;
     }
     expect(sum / n).toBeLessThanOrEqual(15);
+  });
+});
+
+describe('the doctrine balance rows', () => {
+  it('prints a row per doctrine target', () => {
+    const rows = doctrineRows(2);
+    for (const id of DOCTRINE_IDS) expect(rows.some((r) => r.label.includes(`vs ${id}`))).toBe(true);
+    expect(rows.some((r) => r.label.includes('first contact'))).toBe(true);
+    expect(rows.some((r) => r.label.startsWith('Ridge defender'))).toBe(true);
   });
 });

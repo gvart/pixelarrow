@@ -55,6 +55,8 @@ export const RETREAT_SHARE = 0.45;
  * reserveWaver: the GDD's table gives steady 0.5, but today's ai.ts commits
  * the reserve below 0.65 mean morale; steady keeps 0.65 and every doctrine
  * is shifted by the same +0.15 so the gaps between them stay as designed.
+ * swarm lineWaitS is 10, not the GDD's 3: its line lets the skirmishers work
+ * first; at 3 the reference won only 29% against it (target 40-60%, AI-01).
  */
 export const DOCTRINES: Record<DoctrineId, Doctrine> = {
   steady: {
@@ -73,7 +75,7 @@ export const DOCTRINES: Record<DoctrineId, Doctrine> = {
     feint: true, focusMissiles: true, retreatAt: 0.6, jitter: 0.15,
   },
   swarm: {
-    id: 'swarm', lineWaitS: 3, flankAtS: 10, pressAfterS: 20, pressIdleS: 10, reserveAtS: 60, reserveWaver: 0.65,
+    id: 'swarm', lineWaitS: 10, flankAtS: 10, pressAfterS: 20, pressIdleS: 10, reserveAtS: 60, reserveWaver: 0.65,
     holdHillS: 30, fordWaitS: 40, hillFlank: true, skirmishRetire: 7, shieldwallWhenShot: false, preferShape: 'skirmish',
     feint: true, focusMissiles: true, retreatAt: 0.45, jitter: 0.2,
   },

@@ -482,6 +482,11 @@ export class BotAI {
     return mine > 0 && lost >= mine * at && ready < (ready + foes) * RETREAT_SHARE;
   }
 
+  /** hillFlank (R5): the main line will not climb into a held hill yet. */
+  private refusesHill(b: Battle, mem: SimUnit[], ec: { x: number; y: number }, t: number): boolean {
+    return this.doctrine.hillFlank && t < this.timers.holdHillS && this.enemyHoldsHill(b, mem, ec) && !this.flankIn(b);
+  }
+
   /** The enemy stands on high ground above our line (the ridge case). */
   private enemyHoldsHill(b: Battle, mem: SimUnit[], ec: { x: number; y: number }): boolean {
     if (!b.terrain) return false;
@@ -529,7 +534,7 @@ export class BotAI {
       }
       // hillFlank (R5): do not climb into a held hill; let the missiles and the
       // flank work first, until a flank group is in, or the doctrine's patience ends.
-      if (this.doctrine.hillFlank && t < T.holdHillS && this.enemyHoldsHill(b, mem, ec) && !this.flankIn(b)) {
+      if (this.refusesHill(b, mem, ec, t)) {
         wall();
         return;
       }
