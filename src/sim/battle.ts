@@ -194,6 +194,43 @@ export const MOUNTED_RULES = {
   chariotWeight: 0.15,
 };
 
+/**
+ * The Standard (design/gdd/abilities.md R5, F2; AB-03; sim train 2). One per
+ * army: a band's captain (UnitSpec.captain), else the highest-level hero with
+ * `standard_bearer` (ties to the lower unit id). Only battles with a bearer
+ * use these rules, so every other battle plays and hashes as before.
+ */
+export const STANDARD_RULES = {
+  /** STD_RADIUS, plus the bearer's Will radius bonus. */
+  radius: 4,
+  /** Morale damage taken inside the aura (R_std 0.15); Steady Presence's 0.8 wins where both apply (F2). */
+  moraleLoss: 0.85,
+  /** Morale a second regained inside the aura while not in melee. */
+  regen: 0.5,
+  /** Cohesion shocks inside the aura (formations-orders.md F3; V5-024). */
+  shock: 0.5,
+  /** Raise the standard, once per battle: allies within raiseRadius regain raiseMorale of their max morale; routers at or above raiseTurn of it turn back. */
+  raiseRadius: 6,
+  raiseMorale: 0.2,
+  raiseTurn: 0.3,
+  /** The bot raises it once this many allies within raiseRadius are routing (R6). */
+  raiseRouting: 3,
+  /** Banner loss: BANNER_LOSS_RADIUS, BANNER_LOSS_SELF, BANNER_LOSS_ENEMY. */
+  lossRadius: 6,
+  lossSelf: 12,
+  lossEnemy: 5,
+  /**
+   * The bearer's slot priority in his group (slotPriority: 0 spear wall, 1-2
+   * blades and javelins, 3 bows): behind the front rank, ahead of the
+   * missile men. In the front rank he fell in 37% of the reference mirrors and
+   * the standard was worth -1 pt; here 9% and +4 (docs/v5/balance/AB-03.md).
+   */
+  rank: 2.5,
+};
+
+/** The `ability` order id of Raise the standard (abilities.md R5.3). It is no AbilityId: the bearer is derived, not a perk's active. */
+export const RAISE_STANDARD = 'standard';
+
 export type Phase = 'deploy' | 'battle' | 'ended';
 
 export class Battle {
@@ -267,6 +304,17 @@ export class Battle {
   /** War horns left per side (a battle consumable); [0, 0] for setups without. */
   horns: [number, number] = [0, 0];
   private readonly hornSetup: boolean;
+  /** Each side's standard bearer (a unit id), -1 = none (abilities.md R5). */
+  private readonly bearers: [number, number] = [-1, -1];
+  /** Some side has a standard: its rules run and its state joins the hash. */
+  private readonly std: boolean;
+  /** Raise the standard used, and the standard lost, per side. */
+  private raised: [boolean, boolean] = [false, false];
+  private stdLost: [boolean, boolean] = [false, false];
+  /** By unit id: 1 = inside his side's standing standard aura (as of the last aura update). */
+  private stdIn: number[] = [];
+  /** The sides a bot plays (it raises the standard by R6). */
+  private readonly botSide: [boolean, boolean] = [false, false];
 
   constructor(setup: BattleSetup) {
     this.seed = setup.seed >>> 0;
@@ -281,6 +329,8 @@ export class Battle {
     this.big = mythic || allStats.some((st) => typeof st.radius === 'number' && st.radius !== UNIT_RADIUS && st.radius > 0.05 && st.radius < 2);
     this.horns = [Math.max(0, Math.min(3, setup.armies[0].horn ?? 0)) | 0, Math.max(0, Math.min(3, setup.armies[1].horn ?? 0)) | 0];
     this.hornSetup = setup.armies[0].horn !== undefined || setup.armies[1].horn !== undefined;
+    /** Candidates for each side's standard, by unit id: 2 = a captain, 1 = a `standard_bearer`. */
+    const carries: number[] = [];
 
     setup.armies.forEach((army, sideIdx) => {
       const side = sideIdx as Side;
@@ -319,6 +369,7 @@ export class Battle {
         // Unknown mounts or animal kinds (newer clients) fall back to a man on foot.
         if (s.mount !== undefined && !(s.mount in MOUNTS)) delete s.mount;
         if (s.kind !== undefined && s.kind !== 'animal') delete s.kind;
+        carries[this.units.length] = spec.captain === true ? 2 : s.standard === true ? 1 : 0;
         this.units.push({
           id: this.units.length,
           heroId: spec.heroId,
@@ -381,12 +432,21 @@ export class Battle {
       this.autoDeploy(side);
       if (mythic && sideIdx === 1 && !this.myth) (this as { myth: MythSystem | null }).myth = new MythSystem(this);
       if (army.bot) {
+        this.botSide[side] = true;
         const bot = new BotAI(side, this.seed ^ (0x5bd1e995 * (side + 1)), army.doctrine, army.holdField === true);
         this.bots.push(bot);
         bot.deploy(this);
       }
     });
     for (const u of this.units) if (!this.beast(u)) this.startMen[u.side]++;
+    // one standard per army (R5.1): the captain, else the highest-level bearer, ties to the lower id
+    for (const u of this.units) {
+      const c = carries[u.id];
+      if (!c || this.beast(u)) continue;
+      const cur = this.bearers[u.side] >= 0 ? this.units[this.bearers[u.side]] : null;
+      if (!cur || c > carries[cur.id] || (c === carries[cur.id] && u.level > cur.level)) this.bearers[u.side] = u.id;
+    }
+    this.std = this.bearers[0] >= 0 || this.bearers[1] >= 0;
     this.actives = this.units.some((u) => u.abil.some((a) => SIGNATURE.includes(a)));
     if (hasPowers(allStats)) this.pw = new PowerSystem(this);
   }
@@ -760,6 +820,10 @@ export class Battle {
       case 'ability': {
         const u = this.units[o.unit];
         if (!u || u.side !== side) return;
+        if ((o.ability as string) === RAISE_STANDARD) {
+          if (u.id === this.bearers[side]) this.raiseStandard(side);
+          return;
+        }
         const i = u.abil.indexOf(o.ability);
         if (i < 0 || !this.abilityReady(u, o.ability)) return;
         if (!this.useAbility(u, o.ability)) return;
@@ -985,6 +1049,95 @@ export class Battle {
     }
     for (const g of this.groups) if (g.side === side && !g.disbanded) this.reassign(g.id);
     this.events.push({ type: 'horn', tick: this.tick, side, targets });
+  }
+
+  // ---------------------------------------------------------------- the standard
+
+  /** A side's standard bearer while the standard stands (alive, not lost), else null (abilities.md R5). */
+  standardBearer(side: Side): SimUnit | null {
+    const id = this.bearers[side];
+    return id >= 0 && !this.stdLost[side] ? this.units[id] : null;
+  }
+
+  /** Whether the side may still Raise the standard: once per battle, by a bearer standing in the fight. */
+  canRaise(side: Side): boolean {
+    const b = this.standardBearer(side);
+    return this.phase === 'battle' && !this.raised[side] && !!b && b.state === 'ready' && b.stun <= 0;
+  }
+
+  /** Whether the side has raised its standard this battle. */
+  standardRaised(side: Side): boolean {
+    return this.raised[side];
+  }
+
+  /** Whether a man stands inside his side's standard aura (as of the last aura update). */
+  inStandard(u: SimUnit): boolean {
+    return this.std && this.stdIn[u.id] === 1;
+  }
+
+  /**
+   * Raise the standard (R5.3), once per battle: allies within raiseRadius of
+   * the bearer regain raiseMorale of their max morale, and routers left at or
+   * above raiseTurn of it turn back. A broken army's routers stay routed:
+   * army break wins (formations-orders.md R6).
+   */
+  private raiseStandard(side: Side): boolean {
+    if (!this.canRaise(side)) return false;
+    const b = this.units[this.bearers[side]];
+    this.raised[side] = true;
+    const R = STANDARD_RULES;
+    const r2 = R.raiseRadius * R.raiseRadius;
+    const regroup = new Set<number>();
+    for (const a of this.units) {
+      if (a.side !== side || !this.isAlive(a) || this.beast(a)) continue;
+      if ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 > r2) continue;
+      a.morale = Math.max(a.morale, Math.min(a.stats.morale, a.morale + a.stats.morale * R.raiseMorale));
+      if (a.state === 'routing' && this.canRally(a) && a.morale >= a.stats.morale * R.raiseTurn) {
+        a.state = 'ready';
+        a.momentum = 0;
+        this.events.push({ type: 'rally', tick: this.tick, unit: a.id });
+        regroup.add(a.group);
+      }
+    }
+    for (const g of regroup) this.reassign(g);
+    return true;
+  }
+
+  /** The bot raises its standard once raiseRouting allies near the bearer are routing (abilities.md R6). */
+  private botRaise(): void {
+    for (const side of [0, 1] as Side[]) {
+      if (!this.botSide[side] || !this.canRaise(side)) continue;
+      const b = this.units[this.bearers[side]];
+      const r2 = STANDARD_RULES.raiseRadius * STANDARD_RULES.raiseRadius;
+      let routing = 0;
+      for (const a of this.units) {
+        if (a.side === side && a.state === 'routing' && !this.beast(a) && (a.x - b.x) ** 2 + (a.y - b.y) ** 2 <= r2) routing++;
+      }
+      if (routing >= STANDARD_RULES.raiseRouting) this.raiseStandard(side);
+    }
+  }
+
+  /**
+   * Banner loss (R5.4), once per side: the bearer died or was knocked out.
+   * His own men within lossRadius lose lossSelf morale, the enemy's gain
+   * lossEnemy, and the standard is gone for the battle (it passes to nobody).
+   */
+  private checkBanner(): void {
+    for (const side of [0, 1] as Side[]) {
+      const id = this.bearers[side];
+      if (id < 0 || this.stdLost[side] || this.units[id].state !== 'dead') continue;
+      const b = this.units[id];
+      this.stdLost[side] = true;
+      const R = STANDARD_RULES;
+      const r2 = R.lossRadius * R.lossRadius;
+      for (const o of this.units) {
+        if (o.side === side) this.stdIn[o.id] = 0;
+        if (o.state !== 'ready' || this.beast(o) || (o.x - b.x) ** 2 + (o.y - b.y) ** 2 > r2) continue;
+        if (o.side === side) o.morale -= R.lossSelf;
+        else o.morale = Math.max(o.morale, Math.min(o.stats.morale, o.morale + R.lossEnemy));
+      }
+      this.events.push({ type: 'standardLost', tick: this.tick, side, unit: id });
+    }
   }
 
   // ---------------------------------------------------------------- abilities
@@ -1426,6 +1579,21 @@ export class Battle {
         }
       }
     }
+    if (this.std) this.updateStandardAura();
+  }
+
+  /** R5.2: the standard aura around a standing bearer (suspended while he routs; it follows him when detached). */
+  private updateStandardAura(): void {
+    for (const u of this.units) this.stdIn[u.id] = 0;
+    for (const side of [0, 1] as Side[]) {
+      const b = this.standardBearer(side);
+      if (!b || b.state !== 'ready') continue;
+      const r2 = (STANDARD_RULES.radius + willRadius(b.stats)) ** 2;
+      for (const a of this.units) {
+        if (a.side !== side || a.state !== 'ready') continue;
+        if ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 <= r2) this.stdIn[a.id] = 1;
+      }
+    }
   }
 
   /** Bonded men (Sacred Bond on) within bondRadius of t, t included. */
@@ -1454,9 +1622,14 @@ export class Battle {
     return m > r;
   }
 
-  /** Morale damage multiplier for a unit (traits, perks, Will, Steady Presence). */
+  /**
+   * Morale damage multiplier for a unit (traits, perks, Will, Steady Presence,
+   * the standard). F2: Steady Presence and the standard do not stack; the
+   * larger reduction (Steady's) applies.
+   */
   ml(u: SimUnit): number {
-    return u.stats.moraleLoss * (u.aura & AURAS.steady.bit ? AURA_RULES.steadyMoraleLoss : 1) * (this.pw ? this.pw.ml(u) : 1);
+    const aura = u.aura & AURAS.steady.bit ? AURA_RULES.steadyMoraleLoss : this.std && this.stdIn[u.id] === 1 ? STANDARD_RULES.moraleLoss : 1;
+    return u.stats.moraleLoss * aura * (this.pw ? this.pw.ml(u) : 1);
   }
 
   /**
@@ -1540,7 +1713,7 @@ export class Battle {
     const f = g.formation;
     if (f.type === 'orb') this.orbR[groupId] = orbRings(mem.length).r;
     const slots = formationSlots(f, mem.length);
-    const cands = mem.map((u) => ({ id: u.id, x: u.x, y: u.y, priority: slotPriority(u) }));
+    const cands = mem.map((u) => ({ id: u.id, x: u.x, y: u.y, priority: this.std && u.id === this.bearers[u.side] ? STANDARD_RULES.rank : slotPriority(u) }));
     const map = assignSlots(f, cands, slots);
     const r = rightOf(f.fx, f.fy);
     for (const u of mem) {
@@ -1617,6 +1790,7 @@ export class Battle {
     this.tick++;
 
     for (const bot of this.bots) bot.think(this);
+    if (this.std && this.tick % 10 === 0) this.botRaise();
     if (this.tick % 10 === 1) this.updateAuras();
     this.pw?.tick();
 
@@ -1631,6 +1805,7 @@ export class Battle {
     this.myth?.afterMove();
     this.updateProjectiles();
     this.contractOrbs();
+    if (this.std) this.checkBanner();
     this.updateGroupStates();
     if (this.tick % TICK_RATE === 0) this.updateArmyBreak();
     this.checkEnd();
@@ -2278,6 +2453,9 @@ export class Battle {
     if (u.aura & AURAS.steady.bit && u.morale < u.stats.morale) {
       u.morale = Math.min(u.stats.morale, u.morale + AURA_RULES.steadyRegen * DT);
     }
+    if (this.std && this.stdIn[u.id] === 1 && !u.engaged && u.morale < u.stats.morale) {
+      u.morale = Math.min(u.stats.morale, u.morale + STANDARD_RULES.regen * DT);
+    }
     if (u.engaged && this.tick % 10 === 0) {
       let allies = 0;
       let enemies = 0;
@@ -2858,11 +3036,12 @@ export class Battle {
 
   /**
    * The standard-aura hook of the cohesion shock (formations-orders.md F3,
-   * V5-024): 0.5 for a man inside a standard aura, else 1. The standard comes
-   * with AB-03; until then no man stands in one. Pure: no state changes.
+   * V5-024): STANDARD_RULES.shock (0.5) for a man inside his side's standard
+   * aura, else 1. abilities.md R5.2 owns the halving; nothing else grants it.
+   * Pure: no state changes.
    */
-  shockFactor(_u: SimUnit): number {
-    return 1;
+  shockFactor(u: SimUnit): number {
+    return this.std && this.stdIn[u.id] === 1 ? STANDARD_RULES.shock : 1;
   }
 
   /** The centre of a group's living men (standing or running), or null. */
@@ -3022,6 +3201,15 @@ export class Battle {
     if (this.hornSetup) {
       mix(this.horns[0]);
       mix(this.horns[1]);
+    }
+    if (this.std) {
+      // the standard (AB-03): who carries it, whether it was raised or lost, and who stands in its aura
+      for (const side of [0, 1] as Side[]) {
+        mix(this.bearers[side]);
+        mix(this.raised[side] ? 1 : 0);
+        mix(this.stdLost[side] ? 1 : 0);
+      }
+      for (const u of this.units) mix(this.stdIn[u.id] ?? 0);
     }
     this.myth?.hash(mix);
     this.pw?.hash(mix);
