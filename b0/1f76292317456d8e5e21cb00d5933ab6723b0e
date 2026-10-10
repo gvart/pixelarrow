@@ -1,0 +1,27 @@
+docs/v5/balance/AI-02.md
+  s_697bdc25a7c420::t_f66d60043ae6ee 1-41
+src/dev/doctrineBalance.ts
+  s_697bdc25a7c420::t_35fff77aaaeafb 16,107,140-143,171
+  s_697bdc25a7c420::t_afdf08c43d0e01 184,218-244
+  s_697bdc25a7c420::t_f505e86e4ebb91 109-110
+  s_697bdc25a7c420::t_ba325fe059eff4 245-246
+  s_697bdc25a7c420::t_e055e642accb30 111,149-150,153,166
+  s_697bdc25a7c420::t_09eea6c048ca75 5-8,13-15,98-106,108,112-137,144-148,151-152,154-165,167-170,172-183
+  s_697bdc25a7c420::t_5290f2f29ba2d4 138-139,185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b01f76292317456d8e5e21cb00d5933ab6723b0e",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
