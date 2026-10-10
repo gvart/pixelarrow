@@ -51,7 +51,7 @@ function replay(c: ReturnType<typeof playClient>) {
 describe('the standard: server replay (AB-03)', () => {
   it('a raised standard replays to the client hash', () => {
     const c = playClient(43);
-    expect(c.orders.some((o) => o.order.kind === 'ability' && o.order.ability === RAISE_STANDARD)).toBe(true);
+    expect(c.orders.some((o) => o.order.kind === 'ability' && (o.order.ability as string) === RAISE_STANDARD)).toBe(true);
     expect(replay(c)).toMatchObject({ winner: c.winner, ticks: c.ticks, hash: c.hash });
   });
 

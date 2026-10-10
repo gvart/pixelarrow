@@ -105,7 +105,8 @@ describe('battle schema: sim train 2', () => {
     const orders = [...fx.orders.slice(0, i), ...extra, ...fx.orders.slice(i)];
     const deployOrders = fx.deployOrders + (i <= fx.deployOrders ? extra.length : 0);
     const parsed = VerifyBody.parse({ ...body(fx.setup, orders), deployOrders });
-    parsed.setup.armies[1].units[0].captain = true;
+    // the captain carries the standard on sim 2 since AB-03 (server/test/standardReplay.test.ts); v1 still ignores him
+    if (simVersion === 1) parsed.setup.armies[1].units[0].captain = true;
     const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders, simVersion).summary;
     expect(out).toEqual(plain);
   });
