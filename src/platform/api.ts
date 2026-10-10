@@ -205,6 +205,8 @@ export interface VerifyClaim {
 }
 
 export interface VerifyRequest {
+  /** src/sim/version.ts SIM_VERSION (the server replays with these rules). */
+  simVersion?: number;
   setup: unknown;
   orders: unknown[];
   deployOrders?: number;

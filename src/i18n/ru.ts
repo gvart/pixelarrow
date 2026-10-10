@@ -92,6 +92,7 @@ export const RU: Table = {
   'online.reaching': 'Связь с царством...',
   'online.raising': 'Собираем войско...',
   'online.unavailable': 'Сеть недоступна',
+  'online.reloadForUpdate': 'Вышла новая версия игры. Перезапустите игру, чтобы играть по сети.',
   'online.offlineStill': 'Кампания доступна и без сети.',
   'online.backToMenu': 'В меню',
   'online.join': 'Вступить',
