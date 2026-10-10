@@ -18,7 +18,8 @@
 import { z } from 'zod';
 import { Battle, TICK_RATE } from '../../src/sim/battle';
 import { FORMATION_TYPES } from '../../src/sim/formation';
-import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../../src/sim/types';
+import { DEFAULT_DOCTRINE, DOCTRINE_IDS, GROUP_ORDERS, WORK_TYPES, WORKS_MAX } from '../../src/sim/types';
+import type { BattleResult, BattleSetup, LoggedOrder, Order, Side } from '../../src/sim/types';
 import { resolveSimVersion, SimVersionField } from './simVersion';
 import { BattleV1 } from './sims/v1';
 import type { BattleSetup as BattleSetupV1 } from './sims/v1/sim/types';
@@ -34,7 +35,16 @@ export const LIMITS = {
 
 const num = z.number().finite().min(-1e7).max(1e7);
 const int = z.number().int().min(-1).max(1e6);
+/**
+ * The sim's own list, so a shape enters the schema only with its rules: `orb`
+ * (formations-orders.md R2) arrives when FO-02 adds it to FORMATION_TYPES.
+ * Today's sim throws on a shape it has no slots for, which a live relay would
+ * forward to the opponent.
+ */
 const formationType = z.enum(FORMATION_TYPES as [string, ...string[]]);
+const groupOrder = z.enum(GROUP_ORDERS);
+const workType = z.enum(WORK_TYPES);
+const worksCount = z.number().int().min(0).max(WORKS_MAX);
 
 /** CombatStats: required numeric core; extra/new fields pass through untouched. */
 const CombatStats = z.looseObject({
@@ -92,6 +102,8 @@ const Army = z.object({
         stats: CombatStats,
         /** World bosses carry their wounds between clan attacks (absent = full HP). */
         hp0: num.min(0).optional(),
+        /** The band's captain, a standard bearer (ai-doctrines.md R6). */
+        captain: z.boolean().default(false),
       }),
     )
     .min(1)
@@ -103,6 +115,10 @@ const Army = z.object({
   bot: z.boolean(),
   /** War horns carried (a battle consumable): each is one army-wide rally (the `horn` order). */
   horn: z.number().int().min(0).max(3).optional(),
+  /** The bot's doctrine (ai-doctrines.md); absent = steady, today's AI. */
+  doctrine: z.enum(DOCTRINE_IDS).default(DEFAULT_DOCTRINE),
+  /** Field works allowance in segments (field-works.md R3); absent = none. */
+  works: z.object({ stakes: worksCount, ditch: worksCount, laager: worksCount }).optional(),
 });
 
 const Setup = z.object({
@@ -126,7 +142,7 @@ const Setup = z.object({
 export const OrderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('form'), group: int, cx: num, cy: num, fx: num, fy: num, frontage: num, type: formationType.optional() }),
   z.object({ kind: z.literal('preset'), group: int, type: formationType }),
-  z.object({ kind: z.literal('order'), group: int, order: z.enum(['hold', 'advance', 'charge', 'fallback']) }),
+  z.object({ kind: z.literal('order'), group: int, order: groupOrder }),
   z.object({ kind: z.literal('shieldwall'), group: int, on: z.boolean().optional() }),
   z.object({ kind: z.literal('loose'), group: int, on: z.boolean().optional() }),
   z.object({ kind: z.literal('detach'), unit: int }),
@@ -135,6 +151,11 @@ export const OrderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ability'), unit: int, ability: z.string().max(32) }),
   z.object({ kind: z.literal('retreat') }),
   z.object({ kind: z.literal('horn') }),
+  // Sim train 2 (src/sim/types.ts Order): logged and ignored until each feature lands.
+  z.object({ kind: z.literal('face'), group: int, fx: num, fy: num }),
+  z.object({ kind: z.literal('focus'), group: int, target: int }),
+  z.object({ kind: z.literal('work'), type: workType, x: num, y: num, fx: num, fy: num }),
+  z.object({ kind: z.literal('unwork'), x: num, y: num }),
 ]);
 
 export const LoggedOrderSchema = z.object({
@@ -199,8 +220,22 @@ function summarize(b: ReplayableBattle): ReplayOutcome {
   };
 }
 
-/** The part of a sim build replayBattle drives; every frozen version keeps this shape. */
-type ReplayableBattle = Battle | BattleV1;
+/**
+ * The part of a sim build replayBattle drives; every frozen version keeps this shape.
+ * `issue` takes today's Order: a frozen sim has no case for an order kind newer
+ * than itself, so it logs and ignores it, like today's sim before a feature lands.
+ */
+interface ReplayableBattle {
+  readonly phase: string;
+  readonly tick: number;
+  readonly timeLimitTicks: number;
+  issue(side: Side, order: Order): void;
+  startBattle(): void;
+  step(): void;
+  drainEvents(): unknown;
+  result(): BattleResult;
+  hash(): string;
+}
 
 /**
  * The sim of every version this server can replay (design/adr/ADR-0001).

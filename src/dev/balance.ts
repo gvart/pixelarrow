@@ -12,6 +12,9 @@
  *    across a river with a ford, and on generated battlefields of every kind.
  *  - rarity: a full kit at each rarity against the same army all common
  *    (src/dev/rarityBalance.ts; powerReport there weighs single powers).
+ *  - sim train 2: doctrines, orders, field works and the campaign arc
+ *    (src/dev/doctrineBalance.ts, ordersBalance.ts, worksBalance.ts,
+ *    arcBalance.ts). Each prints its section only once its story adds rows.
  */
 import { generateEnemyArmy } from '../game/enemy';
 import { armySpec } from '../game/armySpec';
@@ -27,6 +30,23 @@ import { SITE_BASES, generateBattlefield, type BattleSite } from '../world/battl
 import { classReport } from './classBalance';
 import { beastReport } from './beastBalance';
 import { rarityReport } from './rarityBalance';
+import { doctrineRows } from './doctrineBalance';
+import { ordersRows } from './ordersBalance';
+import { worksRows } from './worksBalance';
+import { arcRows } from './arcBalance';
+
+/** One row of a sim train 2 harness module: what was measured, against the GDD's target. */
+export interface BalanceRow {
+  label: string;
+  measured: string;
+  target: string;
+}
+
+/** A titled section, or nothing while the module has no rows (the report stays unchanged). */
+function rowSection(title: string, rows: BalanceRow[]): string[] {
+  if (!rows.length) return [];
+  return [title, ...rows.map((r) => `  ${r.label.padEnd(44)} ${r.measured.padStart(8)}  target ${r.target}`)];
+}
 
 export interface MatchedResult {
   winner: Side | -1;
@@ -374,5 +394,10 @@ export function balanceReport(n = 200): string {
   lines.push(beastReport(Math.max(20, Math.round(n / 5))));
   // docs/ITEMS.md "Balance targets": uncommon 58%, rare 66%, epic 76%, legendary 85%
   lines.push(rarityReport(Math.max(40, Math.round(n * 0.6))));
+  const dk = n * 2; // ai-doctrines.md: 400 seeds at the default run
+  lines.push(...rowSection(`Doctrines (ai-doctrines.md), ${dk} seeds per row`, doctrineRows(dk)));
+  lines.push(...rowSection(`Orders (formations-orders.md), ${n} seeds per row`, ordersRows(n)));
+  lines.push(...rowSection(`Field works (field-works.md), ${n} seeds per row`, worksRows(n)));
+  lines.push(...rowSection(`Campaign arc (campaign-arc.md), ${n} seeds per row`, arcRows(n)));
   return lines.join('\n');
 }

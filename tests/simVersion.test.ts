@@ -13,8 +13,9 @@ import { ApiDuelSource } from '../src/duel/client';
 import { setLang, t } from '../src/i18n';
 import { reportBattle } from '../src/platform/verify';
 import { Battle } from '../src/sim/battle';
-import type { BattleSetup, LoggedOrder } from '../src/sim/types';
+import type { BattleSetup } from '../src/sim/types';
 import { BattleV1 } from '../server/src/sims/v1';
+import type { LoggedOrder as LoggedOrderV1 } from '../server/src/sims/v1/sim/types';
 import replayV1 from './fixtures/replay-v1.json';
 
 afterEach(() => {
@@ -135,7 +136,7 @@ describe('a version rejection asks the player to reload', () => {
 interface RecordedBattle {
   name: string;
   setup: BattleSetup;
-  orders: LoggedOrder[];
+  orders: LoggedOrderV1[];
   deployOrders: number;
   winner: 0 | 1 | -1;
   ticks: number;
