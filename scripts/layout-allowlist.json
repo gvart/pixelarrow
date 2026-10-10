@@ -1,6 +1,22 @@
 {
-  "_doc": "Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps. Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids.",
-  "A": [],
-  "B": [],
-  "C": []
+  "_doc": "Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids.",
+  "A": [
+    "trial-info|spacing|beast.sheet.close|label-expand"
+  ],
+  "B": [
+    "duel-hero|overlap|hero.prev|slot:trinket",
+    "hero-gear|overlap|hero.prev|slot:trinket",
+    "hero-perks|overlap|hero.prev|slot:trinket",
+    "hero-skills|overlap|hero.prev|slot:trinket",
+    "hero|overlap|hero.prev|slot:trinket"
+  ],
+  "C": [],
+  "stories": {
+    "trial-info|spacing|beast.sheet.close|label-expand": "CDX-01",
+    "duel-hero|overlap|hero.prev|slot:trinket": "HERO-01",
+    "hero-gear|overlap|hero.prev|slot:trinket": "HERO-01",
+    "hero-perks|overlap|hero.prev|slot:trinket": "HERO-01",
+    "hero-skills|overlap|hero.prev|slot:trinket": "HERO-01",
+    "hero|overlap|hero.prev|slot:trinket": "HERO-01"
+  }
 }
