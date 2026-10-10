@@ -1,0 +1,26 @@
+src/i18n/battle.ru.ts
+  s_697bdc25a7c420::t_02bfd5ed9833cc 227
+tests/battleReport.test.ts
+  s_697bdc25a7c420::t_10f9cbff902a0f 89-114
+  s_697bdc25a7c420::t_02bfd5ed9833cc 126
+src/i18n/battle.en.ts
+  s_697bdc25a7c420::t_02bfd5ed9833cc 240
+src/game/report.ts
+  s_697bdc25a7c420::t_02bfd5ed9833cc 161-164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2ea5b81365e4503e16e6760b6b14e8615664898f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
