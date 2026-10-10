@@ -5,12 +5,15 @@ Main line: local branch `v5`, checked out in `/Users/v.gladis/Workspace/Personal
 Framework paths for agent prompts: `F=/Users/v.gladis/Workspace/Personal/pixelarrow/.claude/worktrees/sd-69ad2c` → `$F/.claude/skills/<name>/SKILL.md` and `$F/.claude/agents/<name>.md`.
 Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads into `docs/v5/gemini/` are approved for the whole run. Only the `assets` agent may use Chrome.
 
-## Phase: 3 plan done → Wave 1 (ST-01, IN-01 running; F-01 and AS-01 wait for the art-bible merge)
+## Phase: 4–6 build, waves W1–W5 in progress (F-*/AS-* blocked on the art bible)
 
 ## Running agents
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
+| fo-02 | W4 FO-02: orb + feint | per card | per card | worktree-agent | running |
+| ct-01 | W5 CT-01: soldier beats knob, knob sends face | per card | per card | worktree-agent | running |
+| ai-02 | W5 AI-02: band captains, bounty | per card | per card | worktree-agent | running |
 | ai-01 | W3 AI-01: AI doctrines (design/gdd/ai-doctrines.md) | per SPRINTS W3 card | per card | worktree-agent | running |
 | art-bible | S2-ART-BIBLE: design/art/art-bible.md, docs/v5/art/ASSET_PIPELINE.md + scripts/art/, ASSET_LIST.md, Gemini templates in ASSET_LOG | art-bible, create-game-assets, asset-spec, asset-audit | art-director, technical-artist | worktree-agent | running |
 
@@ -34,6 +37,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 94a1b59 merge: ST-02 save v6 + ADR-0002. Gates: tsc, vitest 645, build, layout 0, smoke 42, tutorial 48.
 - ddc7927 merge: FO-01; 6f34a10 raises sim floors to 2; 5fde11c merge: ST-02b cloud downgrade guard. Gates: vitest 663, server 251, layout 0, online-e2e 34, balance as in FO-01.md.
 - d7ddceb merge: AI-01 doctrines; 6108bbd merge: ST-02c campaignId; 4854c12 merge: LF-02 Trial is practice + beast texture fix + Results notice. Gates: vitest 708, server 256, layout 0, smoke/tutorial/duel/online pass (smoke flaked once, 1 check). Balance matched 54%.
+- 45be15b merge: S4-FIXER-2 in-flight tickets (V5-040). Gates: vitest 708, server 266, online 25, duel 53, online-e2e 34.
 
 ## Queue (next)
 
@@ -57,7 +61,6 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 12. ST-02c (PRE-RELEASE): the v6 client prefers the cloud copy when cloud.v ≥ local.v and the campaigns differ (V5-036).
 
-13. fixer-2 (done, merge next): in-flight v1 tickets replay after the floor raise (V5-040), branch worktree-agent-ae994b4ae1f0264bd.
 14. smoke.mjs flaked once (1 unnamed check) under load. If it repeats, a QA story makes smoke print the failing check name.
 15. docs/ITEMS.md:461 still lists the Trial as a hoard source (docs owner). 'Leave during deployment goes to Army' goes to CT-01/BTL-01.
 
