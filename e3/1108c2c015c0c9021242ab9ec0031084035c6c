@@ -1,0 +1,29 @@
+design/adr/ADR-0003-engine-version.md
+  s_697bdc25a7c420::t_3517c1bb5528c6 1-83,85-110,112-149
+  s_697bdc25a7c420::t_7718cd1235dedb 84
+  s_697bdc25a7c420::t_1cc1c5f92cfdb4 111
+docs/v5/spike/P4.md
+  s_697bdc25a7c420::t_a0d2637fda113e 1-24,26-28,32-39,41-52,54,56,72-90,92-118
+  s_697bdc25a7c420::t_b299f1e33be118 40
+  s_697bdc25a7c420::t_9b3beffed473de 25,29-31
+  s_697bdc25a7c420::t_a8377f9ebbfecb 53,55,57-71
+  s_697bdc25a7c420::t_7b7add0f14a25f 91
+docs/v5/spike/p4/probe.mjs
+  s_697bdc25a7c420::t_cd49593448a872 1-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e31108c2c015c0c9021242ab9ec0031084035c6c",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
