@@ -82,7 +82,29 @@ export const RULES = {
   retreatRoutDeath: 0.6,
   retreatContactDeath: 0.35,
   retreatWoundedExtra: 0.15,
+  /**
+   * formations-orders.md R1 (FO-01): a `form` whose centre moves at least this
+   * far (paces) is a new position and resets the order to hold; a smaller
+   * move keeps it.
+   */
+  formResetDist: 2,
+  /** formations-orders.md R1: most a moving group's facing turns, in degrees per second (a group with a rider turns at the horse rate). */
+  turnRateFoot: 90,
+  turnRateHorse: 60,
 };
+
+/**
+ * cos and sin of a small angle in degrees, from their Taylor series: plain
+ * arithmetic, so client and server get the same bits (no Math.cos).
+ */
+function smallTurn(deg: number): { c: number; s: number } {
+  const r = (deg * Math.PI) / 180;
+  const r2 = r * r;
+  return { c: 1 - (r2 / 2) * (1 - (r2 / 12) * (1 - r2 / 30)), s: r * (1 - (r2 / 6) * (1 - (r2 / 20) * (1 - r2 / 42))) };
+}
+/** One tick's turn at each rate (RULES.turnRateFoot / turnRateHorse). */
+const TURN_FOOT = smallTurn(RULES.turnRateFoot / TICK_RATE);
+const TURN_HORSE = smallTurn(RULES.turnRateHorse / TICK_RATE);
 
 /**
  * Riders, chariots and animals (unit classes). Only units with a `mount` or
@@ -155,6 +177,10 @@ export class Battle {
   private nextProjId = 1;
   private bots: BotAI[] = [];
   private firstContact: [boolean, boolean] = [false, false];
+  /** A `face` still turning a moving group, by group id (formations-orders.md R1). */
+  private faceTo: ({ fx: number; fy: number } | undefined)[] = [];
+  /** Per tick, per group: 1 = has a man who can shoot, 2 = an enemy in range, 4 = a focused enemy in range. */
+  private shotScan: number[] = [];
   /** Some unit is not a man-sized disc (riders, chariots, bears): per-unit radii apply. */
   readonly big: boolean;
   /** Riders or animals take part (the bot then uses its cavalry / beast tactics). */
@@ -524,8 +550,13 @@ export class Battle {
           const z = this.deployZone(side);
           g.formation.cy = clamp(g.formation.cy, z.y0, z.y1);
         }
-        if (g.order !== 'hold') g.order = 'hold';
-        g.fallbackLeft = 0;
+        // A big move is a new position (hold); a nudge keeps the order (formations-orders.md R1.2).
+        const moved = Math.sqrt((g.formation.cx - prevF.cx) ** 2 + (g.formation.cy - prevF.cy) ** 2);
+        if (g.order !== 'hold' && moved >= RULES.formResetDist) {
+          g.order = 'hold';
+          g.fallbackLeft = 0;
+        }
+        this.faceTo[g.id] = undefined;
         this.reassign(g.id);
         if (this.phase === 'deploy') this.snapToSlots(g.id);
         return;
@@ -553,6 +584,33 @@ export class Battle {
           // Charging javelin-men throw on the way in.
           for (const u of this.activeMembers(g.id)) if (u.stats.role === 'hybrid' && u.ammo > 0) g.fireAtWill = true;
         }
+        return;
+      }
+      case 'face': {
+        // Turn the group and keep its order (formations-orders.md R1.1). A holding
+        // group turns at once; a moving one wheels at the turn rate (updateGroups).
+        if (!groupOk(o.group)) return;
+        const g = this.groups[o.group];
+        const len = Math.sqrt(o.fx * o.fx + o.fy * o.fy);
+        if (g.routed || !(len > 1e-6) || !Number.isFinite(len)) return;
+        if (this.phase === 'battle' && g.order !== 'hold') {
+          this.faceTo[g.id] = { fx: o.fx / len, fy: o.fy / len };
+          return;
+        }
+        this.faceTo[g.id] = undefined;
+        g.formation.fx = o.fx / len;
+        g.formation.fy = o.fy / len;
+        this.reassign(g.id);
+        if (this.phase === 'deploy') this.snapToSlots(g.id);
+        return;
+      }
+      case 'focus': {
+        // Missile men shoot at this enemy group first; -1 clears (formations-orders.md R4).
+        if (!groupOk(o.group)) return;
+        const g = this.groups[o.group];
+        const t = this.groups[o.target];
+        if (o.target === -1) g.focus = -1;
+        else if (t && t.side !== side && !t.disbanded) g.focus = o.target;
         return;
       }
       case 'shieldwall': {
@@ -988,7 +1046,9 @@ export class Battle {
       for (const g of this.groups) if (!g.disbanded && !g.individual) this.reassign(g.id);
     }
     this.updateGroups();
+    this.shotScan = this.groups.map(() => 0);
     for (const u of this.units) this.updateUnit(u);
+    this.updateFocus();
     this.separate();
     this.myth?.afterMove();
     this.updateProjectiles();
@@ -1005,6 +1065,8 @@ export class Battle {
       let pace = Infinity;
       for (const u of mem) pace = Math.min(pace, this.walkSpeed(u, g));
       g.contact = mem.some((u) => u.engaged);
+      const want = this.faceTo[g.id];
+      if (want) this.wheel(g, mem, want);
       if (g.order === 'advance' || g.order === 'charge') {
         if (!g.contact) {
           // Stop the formation anchor when the front is close to the enemy.
@@ -1023,6 +1085,34 @@ export class Battle {
         if (g.fallbackLeft <= 0) g.order = 'hold';
       }
     }
+  }
+
+  /**
+   * One tick of a `face` on a moving group (formations-orders.md R1.4): the
+   * formation pivots on its centre at the turn rate. A group in melee does not
+   * turn (its men keep facing their foes); a group that has stopped finishes
+   * the turn at once, as a `face` on a holding group does.
+   */
+  private wheel(g: SimGroup, mem: SimUnit[], want: { fx: number; fy: number }): void {
+    const f = g.formation;
+    const moving = g.order !== 'hold';
+    if (moving && g.contact) return;
+    const turn = mem.some((u) => u.stats.mount !== undefined) ? TURN_HORSE : TURN_FOOT;
+    const dot = f.fx * want.fx + f.fy * want.fy;
+    if (!moving || dot >= turn.c) {
+      f.fx = want.fx;
+      f.fy = want.fy;
+      this.faceTo[g.id] = undefined;
+      this.reassign(g.id);
+      return;
+    }
+    // Turn the short way round (a half turn goes clockwise).
+    const s = f.fx * want.fy - f.fy * want.fx >= 0 ? turn.s : -turn.s;
+    const nx = f.fx * turn.c - f.fy * s;
+    const ny = f.fx * s + f.fy * turn.c;
+    const l = Math.sqrt(nx * nx + ny * ny);
+    f.fx = nx / l;
+    f.fy = ny / l;
   }
 
   private nearestEnemyDist(side: Side, x: number, y: number): number {
@@ -1078,6 +1168,10 @@ export class Battle {
     let nearestD = Infinity;
     let melee: SimUnit | null = null;
     let meleeScore = -Infinity;
+    // Focus fire (formations-orders.md R4): the closest ready man of the focused group.
+    const focusG = g.focus ?? -1;
+    let focusT: SimUnit | null = null;
+    let focusD = Infinity;
     const reach0 = u.stats.reach + UNIT_RADIUS * 2;
     const myth = this.myth;
     for (const e of this.units) {
@@ -1091,6 +1185,10 @@ export class Battle {
       if (e.state === 'ready' && d < nearestD) {
         nearestD = d;
         nearest = e;
+      }
+      if (e.group === focusG && e.state === 'ready' && d < focusD) {
+        focusD = d;
+        focusT = e;
       }
       if (vis === 2 && d <= (this.big ? u.stats.reach + u.rad + e.rad : reach0)) {
         // Prefer enemies in front of us, then the closest; ready over routing.
@@ -1111,6 +1209,14 @@ export class Battle {
       return;
     }
     const mount = this.mountOf(u);
+    // Who is in range this tick (the shot below, and the group's HUD states).
+    let nearIn = false;
+    let focusIn = false;
+    if (u.ammo > 0 && u.stats.range > 0) {
+      nearIn = nearest !== null && nearestD <= u.stats.range + (this.terrain ? this.rangeBonus(u, nearest) : 0);
+      focusIn = focusT !== null && focusD <= u.stats.range + (this.terrain ? this.rangeBonus(u, focusT) : 0);
+      this.shotScan[g.id] |= 1 | (nearIn ? 2 : 0) | (focusIn ? 4 : 0);
+    }
 
     const slot = this.slotPos(u);
     let moveX = 0;
@@ -1150,8 +1256,8 @@ export class Battle {
       // Riders shoot (or throw) on the move, and even while falling back.
       const mobile = mount !== null && u.stats.range > 0;
       if (canShoot && nearest && (g.order !== 'fallback' || mobile) && (slotD < 0.8 || g.role === 'skirmish' || g.order === 'charge' || mobile)) {
-        const range = u.stats.range + (this.terrain ? this.rangeBonus(u, nearest) : 0);
-        if (nearestD <= range && nearestD > 1.4) shootTarget = nearest;
+        if (focusIn && focusD > 1.4) shootTarget = focusT;
+        else if (nearIn && nearestD > 1.4) shootTarget = nearest;
       }
       if (shootTarget && mobile) {
         // A Parthian shot: no need to face the target or to stop.
@@ -2070,6 +2176,25 @@ export class Battle {
         u.x = p.x;
         u.y = p.y;
       }
+    }
+  }
+
+  /**
+   * Focus upkeep and the two HUD states (formations-orders.md R4.3, R4.5):
+   * focus clears once the focused group has no man left standing;
+   * focusOutOfRange = focus set and no shooter of the group has a focused man
+   * in range; noTargetS = seconds with shooting on and no enemy in range.
+   */
+  private updateFocus(): void {
+    const ready = this.groups.map(() => 0);
+    for (const u of this.units) if (u.state === 'ready') ready[u.group]++;
+    for (const g of this.groups) {
+      if (g.disbanded) continue;
+      if (g.focus !== undefined && g.focus >= 0 && ready[g.focus] === 0) g.focus = -1;
+      const s = this.shotScan[g.id];
+      const shooters = (s & 1) !== 0;
+      g.focusOutOfRange = (g.focus ?? -1) >= 0 && shooters && (s & 4) === 0;
+      g.noTargetS = g.fireAtWill && shooters && (s & 2) === 0 ? (g.noTargetS ?? 0) + DT : 0;
     }
   }
 
