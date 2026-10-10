@@ -75,10 +75,14 @@ export class BotAI {
   /** This battle's timers: jittered (F2) and, for the press, capped for small armies (F1). Set by deploy. */
   timers!: DoctrineTimers;
 
-  constructor(side: Side, seed: number, doctrine?: DoctrineId) {
+  /** Never retreats whatever the doctrine says (ArmySpec.holdField, V5-052). */
+  readonly holdField: boolean;
+
+  constructor(side: Side, seed: number, doctrine?: DoctrineId, holdField = false) {
     this.side = side;
     this.rng = new Rng(seed);
     this.doctrine = doctrineOf(doctrine);
+    this.holdField = holdField;
   }
 
   private mem(g: SimGroup): GroupMemo {
@@ -464,7 +468,7 @@ export class BotAI {
    * men still fighting is below RETREAT_SHARE). 0 = never.
    */
   private shouldRetreat(b: Battle): boolean {
-    const at = this.doctrine.retreatAt;
+    const at = this.holdField ? 0 : this.doctrine.retreatAt;
     if (at <= 0) return false;
     let mine = 0;
     let lost = 0;

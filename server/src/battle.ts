@@ -116,6 +116,8 @@ const Army = z.object({
   horn: z.number().int().min(0).max(3).optional(),
   /** The bot's doctrine (ai-doctrines.md); absent = steady, today's AI. */
   doctrine: z.enum(DOCTRINE_IDS).default(DEFAULT_DOCTRINE),
+  /** The bot never retreats (ladder floors, V5-052); absent = false. */
+  holdField: z.boolean().optional(),
   /** Field works allowance in segments (field-works.md R3); absent = none. */
   works: z.object({ stakes: worksCount, ditch: worksCount, laager: worksCount }).optional(),
 });

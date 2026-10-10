@@ -362,7 +362,7 @@ export class Battle {
       this.autoDeploy(side);
       if (mythic && sideIdx === 1 && !this.myth) (this as { myth: MythSystem | null }).myth = new MythSystem(this);
       if (army.bot) {
-        const bot = new BotAI(side, this.seed ^ (0x5bd1e995 * (side + 1)), army.doctrine);
+        const bot = new BotAI(side, this.seed ^ (0x5bd1e995 * (side + 1)), army.doctrine, army.holdField === true);
         this.bots.push(bot);
         bot.deploy(this);
       }
