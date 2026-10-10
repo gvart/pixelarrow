@@ -28,3 +28,5 @@
 | FO-02 | fo-02 | team-combat edge cases; balance-check: stopped at the ruling's bound; tdd | OK after V5-041 |
 | QA-01 | qa-01 (qa-lead, qa-tester) | qa-plan: risk per epic; regression-suite; smoke-check: found the flake cause | OK |
 | CT-01 | ct-01 (gameplay-programmer, ux-designer) | input-systems: soldier beats knob, 44 pt targets; game-ui-ux: colour plus numeral (not colour only); tdd | OK: 1 shot spot-checked |
+| S2-ART-BIBLE | art-bible (art-director, technical-artist) | art-bible: all 9 sections, conflicts surfaced (one deviation: no sub-agents, logged); create-game-assets: inventory first, manifest, native-size in-game check; asset-spec; asset-audit: PASS/FAIL/NOT ASSESSED, gates seen failing first | OK: D-4 overruled (V5-045) |
+| LF-03 | lf-03 (ui-programmer, qa-tester) | game-ui-ux: compact numbers instead of hiding, safe area at 320x568 in TG; smoke-check | OK: 1 shot spot-checked |
