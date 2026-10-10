@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { armySpec } from '../src/game/armySpec';
 import { classSquad } from '../src/dev/classBalance';
+import { ordersRows, runFeintBait } from '../src/dev/ordersBalance';
 import { Battle, RULES, TICK_RATE } from '../src/sim/battle';
 import { Rng } from '../src/sim/rng';
 import type { ClassId } from '../src/data/classes';
@@ -199,6 +200,13 @@ describe('the bait: pursuers become disordered (R3.3)', () => {
     }
     expect(events.some((e) => e.type === 'disordered')).toBe(false);
     expect(b.disordered(G1)).toBe(false);
+  });
+
+  it('the bait pays: on a few seeds the peltasts side does better feinting than withdrawing (balance row)', () => {
+    const seeds = [24000, 24001, 24002, 24003, 24004, 24005, 24006, 24007];
+    const sum = (feint: boolean) => seeds.reduce((a, s) => a + runFeintBait(s, feint), 0);
+    expect(sum(true)).toBeGreaterThan(sum(false));
+    expect(ordersRows(4).map((r) => r.target)).toEqual(expect.arrayContaining(['>= 8 pts', '55-65%', '35-45%']));
   });
 
   it('is deterministic: replaying the order log gives the same hash', () => {
