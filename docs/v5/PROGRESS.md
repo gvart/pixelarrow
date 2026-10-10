@@ -14,7 +14,6 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 | fo-02 | W4 FO-02: orb + feint | per card | per card | worktree-agent | running |
 | ct-01 | W5 CT-01: soldier beats knob, knob sends face | per card | per card | worktree-agent | running |
 | ai-02 | W5 AI-02: band captains, bounty | per card | per card | worktree-agent | running |
-| ai-01 | W3 AI-01: AI doctrines (design/gdd/ai-doctrines.md) | per SPRINTS W3 card | per card | worktree-agent | running |
 | art-bible | S2-ART-BIBLE: design/art/art-bible.md, docs/v5/art/ASSET_PIPELINE.md + scripts/art/, ASSET_LIST.md, Gemini templates in ASSET_LOG | art-bible, create-game-assets, asset-spec, asset-audit | art-director, technical-artist | worktree-agent | running |
 
 ## Merged into v5
