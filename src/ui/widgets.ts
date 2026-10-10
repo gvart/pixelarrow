@@ -11,7 +11,7 @@
  */
 import Phaser from 'phaser';
 import { Button, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
-import { fadeTexture, inkFontKey } from './inkSkin';
+import { fadeTexture, inkFontKey, ownSkin } from './inkSkin';
 import { ACCENT, MOSAIC, MOTION } from './tokens';
 import { tweenTo } from './motion';
 import { uiFrame, uiId, worldRect } from './layout';
@@ -422,9 +422,11 @@ type RowStyle = { face: 'roman' | 'body'; size: number; icons: boolean };
 function tabRowStyle(items: readonly TabItem[], fonts: readonly FontKey[]): RowStyle {
   const shadow = (face: 'roman' | 'body') => fonts.some((f) => SHADOW_FONTS.has(face === 'roman' ? f : INTER_OF[f] ?? f));
   const labelled = items.filter((it) => !it.iconOnly);
+  // the labels are drawn as given: the Cinzel atlas sets lower case as small caps, so measure what is drawn
+  const asGiven = new Map(labelled.map((it) => [it.opts.label.toUpperCase(), it.opts.label]));
   return switchLabelStyle(
     labelled.map((it) => ({ label: it.opts.label, room: it.room(true), bare: it.room(false) })),
-    (text, face, size) => measureText(text, shadow(face), size, face),
+    (text, face, size) => measureText(face === 'roman' ? asGiven.get(text) ?? text : text, shadow(face), size, face),
   );
 }
 
@@ -460,11 +462,12 @@ class TabItem extends Phaser.GameObjects.Container {
 
   /** Width left for the label, with or without the icon beside it. */
   room(withIcon: boolean): number {
-    return this.w - 8 - (withIcon && this.look.icon ? 15 : 0);
+    // 2 UI px of track on each side: the label gets all the room the segment has
+    return this.w - 4 - (withIcon && this.look.icon ? 15 : 0);
   }
 
   /**
-   * Redraw in the selected or plain look in the row's one style (`tabRowStyle`): Cinzel capitals, ink on the
+   * Redraw in the selected or plain look in the row's one style (`tabRowStyle`): Cinzel (small caps), ink on the
    * lit block and gold on the stone track, or the same colours in Inter. A label that still does not fit is
    * cut, with the whole label on long-press.
    */
@@ -486,7 +489,7 @@ class TabItem extends Phaser.GameObjects.Container {
     const room = this.room(!!icon);
     const df = style.face === 'roman' ? font : INTER_OF[font] ?? font;
     const size = style.size;
-    const full = style.face === 'roman' ? this.opts.label.toUpperCase() : this.opts.label;
+    const full = this.opts.label;
     const wide = (str: string, sz: number) => measureText(str, SHADOW_FONTS.has(df), sz, style.face);
     const label = ellipsize(full, room, SHADOW_FONTS.has(df), size, style.face);
     this.truncated = label !== full;
@@ -540,6 +543,8 @@ export class Tabs extends Phaser.GameObjects.Container {
     });
     this.style = tabRowStyle(this.items, ['rInk', 'rGold']);
     this.paint();
+    // the switch draws its own dark track: a parchment sheet must not re-ink its labels (gold on the track)
+    ownSkin(this);
     scene.add.existing(this);
   }
 
@@ -599,6 +604,7 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
     this.add(this.bar);
     this.style = tabRowStyle(this.items, ['rCream', 'rGold']);
     this.paint();
+    ownSkin(this);
     scene.add.existing(this);
   }
 
