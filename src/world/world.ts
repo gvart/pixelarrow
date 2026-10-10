@@ -22,6 +22,11 @@ import {
   type BandKind, type SettlementDef, type WorldMap,
 } from './map';
 import { findPath, type Tile } from './path';
+import {
+  EVENT_DECK, EVENT_RULES, EV_KEY, eligibleEvents, pickEvent,
+  type BandMods, type EventBandKind, type EventCtx, type EventDef, type EventTrigger,
+} from '../data/events';
+import { DOCTRINE_IDS, type DoctrineId } from '../sim/types';
 import { hash3 } from './noise';
 import {
   CAMP_RULES, FOOD_RULES, STRUCTURES, campBlocker, campEffects, campRefund, campZone, countBuilt, placeCheck,
@@ -58,6 +63,12 @@ export interface PartyState {
   escaped?: number;
   /** Its captain was killed or captured (ai-doctrines.md); missing = false. */
   captainDead?: boolean;
+  /** Spawned by an event to hunt the player whatever the power ratio (campaign-events.md R2); missing = false. */
+  hunts?: boolean;
+  /** Multiplies its captain's bounty (campaign-events.md R2, 1..3); missing = 1. Read with bountyMultOf. */
+  bountyMult?: number;
+  /** A doctrine an event forced on it; missing = the one its mix and culture give. */
+  doctrine?: DoctrineId;
 }
 
 /** Per-settlement state: which recruits / wares of the current stock epoch are gone. */
@@ -151,13 +162,17 @@ export function v6WorldDefaults(): Pick<WorldSave, 'lairs' | 'arc' | 'flags' | '
 
 export type WorldEvent =
   | { type: 'encounter'; party: number; byPlayer: boolean }
-  | { type: 'arrive'; settlement: number };
+  | { type: 'arrive'; settlement: number }
+  /** A campaign event was drawn and is pending (campaign-events.md R4): the map stays paused until it is resolved. */
+  | { type: 'event'; id: string };
 
 export interface PlayerInfo {
   power: number;
   size: number;
   /** Heroes who eat (the whole roster, wounded too); defaults to size. */
   mouths?: number;
+  /** The purse, for event conditions (`minGold`); missing = 0. */
+  gold?: number;
 }
 
 export const WORLD_RULES = {
@@ -220,6 +235,31 @@ export const CAPTAIN_RULES = {
   escapeCap: 3,
 };
 
+/** The largest and most seasoned a roaming band gets. */
+export const BAND_CAPS = { size: 18, level: 8 };
+
+/** A new band's men, level and gear tier by kind, the danger where it forms and the date (draws from `r`). */
+function bandShape(kind: BandKind, danger: number, days: number, r: Rng): { size: number; level: number; tier: number } {
+  if (kind === 'bandits') return { size: BANDIT_MIN + Math.round(danger * 5) + r.int(0, 2), level: 1 + Math.round(danger * 2 + days * 0.04), tier: danger > 0.7 ? 2 : 1 };
+  if (kind === 'raiders') return { size: 5 + Math.round(danger * 7) + r.int(0, 3), level: 1 + Math.round(danger * 3 + days * 0.05), tier: danger > 0.5 ? 2 : 1 };
+  return { size: 6 + Math.round(danger * 6) + r.int(0, 4), level: 2 + Math.round(danger * 2 + days * 0.05), tier: 2 };
+}
+
+/** The roll rate of each trigger (R3); a due flag event always fires. */
+function eventRate(t: EventTrigger): number {
+  const r = EVENT_RULES.rate;
+  return t === 'march' ? r.march : t === 'camp' ? r.camp : t === 'after_battle' ? r.afterBattle : t === 'flag' ? 1 : r.arrive;
+}
+
+function clampBountyMult(m: number): number {
+  return Number.isFinite(m) ? Math.max(1, Math.min(3, m)) : 1;
+}
+
+/** A band's bounty multiplier (campaign-events.md R2), 1 unless an event set one; a malformed save value reads as 1. */
+export function bountyMultOf(p: Pick<PartyState, 'bountyMult'>): number {
+  return typeof p.bountyMult === 'number' ? clampBountyMult(p.bountyMult) : 1;
+}
+
 /** The band's main-line class, which its captain fights as. */
 function captainClass(p: PartyState): ClassId {
   if (p.kind === 'bandits') return 'thureophoros';
@@ -254,6 +294,8 @@ export class World {
   route: { x: number; y: number }[] = [];
   private aiRoutes = new Map<number, { x: number; y: number }[]>();
   private aiThink = new Map<number, number>();
+  /** The event deck draws come from (campaign-events.md); tests swap in their own. */
+  deck: readonly EventDef[] = EVENT_DECK;
 
   /** Explored tiles (1 = no fog). */
   readonly explored: Uint8Array;
@@ -569,17 +611,26 @@ export class World {
    */
   advance(hours: number, player: PlayerInfo, waiting = false): { events: WorldEvent[]; hours: number } {
     const events: WorldEvent[] = [];
+    // An event card is open (R4.2): no time passes until it is resolved.
+    if (this.s.pendingEvent) return { events: [{ type: 'event', id: this.s.pendingEvent.id }], hours: 0 };
     let done = 0;
     const STEP = 0.05;
     while (done < hours - 1e-9 && events.length === 0) {
       const h = Math.min(STEP, hours - done);
       done += h;
+      const t0 = this.s.time;
       this.s.time += h;
+      const marching = !waiting && this.route.length > 0;
       if (!waiting) this.movePlayer(h, player, events);
       this.eat(h, player);
-      if (events.length) break;
+      if (events.length) {
+        const a = events[0];
+        if (a.type === 'arrive') this.arrivalEvent(a.settlement, player, events);
+        break;
+      }
       this.updateParties(h, player);
       this.checkContact(player, events);
+      if (events.length === 0) this.timedEvents(t0, marching, waiting, player, events);
       if (this.s.time - this.s.lastSpawn >= WORLD_RULES.spawnEvery) {
         this.s.lastSpawn = this.s.time;
         if (this.s.parties.length < Math.min(WORLD_RULES.maxParties, 9 + Math.floor(this.days / 2))) this.spawnParty(this.rng.chance(0.25) ? 'town' : 'lair');
@@ -676,8 +727,10 @@ export class World {
     const ratio = p.power / Math.max(1, player.power);
     const walled = !!this.camp && campEffects(this.map, this.camp).fortified;
     const visible = d < WORLD_RULES.vision && this.s.inside < 0 && this.s.time >= this.s.safeUntil && !walled;
+    // An event's hunters (campaign-events.md R2) chase whatever the power ratio, from farther off.
+    const hunting = !!p.hunts && d < WORLD_RULES.vision * 2 && this.s.inside < 0 && this.s.time >= this.s.safeUntil && !walled;
     let mode: PartyMode = 'wander';
-    if (visible && ratio >= WORLD_RULES.chaseRatio) mode = 'chase';
+    if ((visible && ratio >= WORLD_RULES.chaseRatio) || hunting) mode = 'chase';
     else if (visible && ratio < WORLD_RULES.fleeRatio) mode = 'flee';
     else if (p.mode !== 'wander' && d < WORLD_RULES.vision + 2 && this.s.inside < 0 && this.s.time >= this.s.safeUntil) mode = p.mode;
     if (mode === 'chase') {
@@ -709,7 +762,10 @@ export class World {
     // Pick a new place to go: around home for bands, between towns for mercenaries.
     const home = this.map.settlements[p.home];
     let goal: Tile | null = null;
-    if (p.kind === 'mercs' && this.rng.chance(0.6)) {
+    if (p.hunts) {
+      // out of range, a hunter still heads for where the party is
+      goal = this.nearestPassable(Math.floor(this.s.x) + this.rng.int(-3, 3), Math.floor(this.s.y) + this.rng.int(-3, 3), 3);
+    } else if (p.kind === 'mercs' && this.rng.chance(0.6)) {
       const towns = this.map.settlements.filter((s) => s.kind !== 'lair');
       const t = this.rng.pick(towns);
       goal = this.nearestPassable(t.x + this.rng.int(-2, 2), t.y + this.rng.int(-2, 2), 3);
@@ -762,24 +818,8 @@ export class World {
     const at = this.nearestPassable(home.x + this.rng.int(-2, 2), home.y + this.rng.int(-2, 2), 4);
     if (!at) return null;
     const danger = dangerAt(this.map, home.x, home.y);
-    const days = this.days;
     const r = this.rng;
-    let size: number;
-    let level: number;
-    let tier: number;
-    if (kind === 'bandits') {
-      size = BANDIT_MIN + Math.round(danger * 5) + r.int(0, 2);
-      level = 1 + Math.round(danger * 2 + days * 0.04);
-      tier = danger > 0.7 ? 2 : 1;
-    } else if (kind === 'raiders') {
-      size = 5 + Math.round(danger * 7) + r.int(0, 3);
-      level = 1 + Math.round(danger * 3 + days * 0.05);
-      tier = danger > 0.5 ? 2 : 1;
-    } else {
-      size = 6 + Math.round(danger * 6) + r.int(0, 4);
-      level = 2 + Math.round(danger * 2 + days * 0.05);
-      tier = 2;
-    }
+    const { size, level, tier } = bandShape(kind, danger, this.days, r);
     const p: PartyState = {
       id: this.s.nextParty++,
       kind,
@@ -787,9 +827,9 @@ export class World {
       culture: kind === 'raiders' ? 'celtic' : kind === 'mercs' ? r.pick(['greek', 'phoenician', 'celtic'] as const) : home.culture,
       x: at.x + 0.5,
       y: at.y + 0.5,
-      size: Math.min(18, size),
+      size: Math.min(BAND_CAPS.size, size),
       power: 0,
-      level: Math.min(8, level),
+      level: Math.min(BAND_CAPS.level, level),
       tier,
       seed: (r.next() * 4294967296) >>> 0 || 1,
       home: home.id,
@@ -874,6 +914,228 @@ export class World {
     this.aiRoutes.delete(id);
   }
 
+  // ---------------------------------------------------------------- events (campaign-events.md)
+
+  /** Whole game days since the campaign began (day 0 is the first). */
+  get today(): number {
+    return Math.floor(this.s.time / 24);
+  }
+
+  /** What event conditions are checked against. */
+  eventCtx(player: PlayerInfo): EventCtx {
+    let escaped = 0;
+    for (const p of this.s.parties) escaped = Math.max(escaped, p.escaped ?? 0);
+    return {
+      day: this.today,
+      danger: dangerAt(this.map, this.s.x, this.s.y),
+      flags: this.s.flags,
+      men: player.mouths ?? player.size,
+      gold: player.gold ?? 0,
+      arcStage: this.s.arc.stage,
+      escaped,
+    };
+  }
+
+  /**
+   * Check `trigger` (R3): within the pacing cap, a roll at the trigger's rate,
+   * then a weighted pick among the eligible events. A hit is written to
+   * `pendingEvent` at once, so the caller's next save holds it before the card
+   * shows (R4.1). The roll is seeded by the world seed, the trigger and `key`
+   * (where and when the check happens), not by frame timing: the same save and
+   * the same actions draw the same events. Returns the event id or null.
+   */
+  tryEvent(trigger: EventTrigger, key: string, player: PlayerInfo): string | null {
+    const s = this.s;
+    if (s.pendingEvent || this.deck.length === 0) return null;
+    const day = this.today;
+    const drawn = s.eventsToday[0] === day ? s.eventsToday[1] : 0;
+    if (drawn >= EVENT_RULES.perDay) return null;
+    if (trigger !== 'flag' && (s.eventCd[EV_KEY.gap] ?? -Infinity) > s.time / 24) return null;
+    const rng = new Rng(hashString(`${s.seed}:ev:${trigger}:${key}`));
+    if (!rng.chance(eventRate(trigger))) return null;
+    const def = pickEvent(eligibleEvents(this.deck, trigger, this.eventCtx(player), s.eventCd, s.seed), rng);
+    if (!def) return null;
+    s.pendingEvent = { id: def.id, seed: (rng.next() * 4294967296) >>> 0 || 1 };
+    s.eventCd[def.id] = def.unique ? EVENT_RULES.usedDay : day + def.cooldownDays;
+    s.eventsToday = [day, drawn + 1];
+    s.eventCd[EV_KEY.gap] = (s.time + EVENT_RULES.minGapH) / 24;
+    this.pruneCooldowns();
+    return def.id;
+  }
+
+  /** Arriving at a village or town (R3): at most one arrival event per settlement per EVENT_RULES.arriveCdDays. */
+  private arrivalEvent(sid: number, player: PlayerInfo, events: WorldEvent[]): void {
+    const def = this.map.settlements[sid];
+    if (!def || def.kind === 'lair' || this.deck.length === 0) return;
+    const k = EV_KEY.arrive(sid);
+    if ((this.s.eventCd[k] ?? -Infinity) > this.today) return;
+    const id = this.tryEvent(def.kind === 'town' ? 'arrive_town' : 'arrive_village', `${sid}:${Math.round(this.s.time * 20)}`, player);
+    if (!id) return;
+    this.s.eventCd[k] = this.today + EVENT_RULES.arriveCdDays;
+    events.push({ type: 'event', id });
+  }
+
+  /**
+   * The checks of a step on the map (R3): a due flag event; a march check each
+   * time the clock passes a multiple of EVENT_RULES.marchEveryH while the party
+   * travels; a camp check each midnight spent in camp. Inside a settlement
+   * nothing fires (only arrivals do).
+   */
+  private timedEvents(t0: number, marching: boolean, waiting: boolean, player: PlayerInfo, events: WorldEvent[]): void {
+    if (this.deck.length === 0 || this.s.inside >= 0 || this.s.pendingEvent) return;
+    const t1 = this.s.time;
+    const crossed = (every: number) => Math.floor(t1 / every) > Math.floor(t0 / every);
+    const flags = this.s.flags;
+    let id: string | null = null;
+    if (this.deck.some((d) => d.trigger === 'flag' && d.after && d.after.flag in flags)) id = this.tryEvent('flag', `d${this.today}`, player);
+    if (!id && marching && !this.camp && crossed(EVENT_RULES.marchEveryH)) id = this.tryEvent('march', `m${Math.floor(t1 / EVENT_RULES.marchEveryH)}`, player);
+    if (!id && waiting && this.camp && crossed(24)) id = this.tryEvent('camp', `c${this.today}`, player);
+    if (id) events.push({ type: 'event', id });
+  }
+
+  /** Drop cooldowns that have run out (and the price changes that went with them), to keep the save small. */
+  private pruneCooldowns(): void {
+    const cd = this.s.eventCd;
+    for (const [k, until] of Object.entries(cd)) {
+      if (until > this.s.time / 24) continue;
+      delete cd[k];
+      if (k.startsWith('@price:')) delete this.s.flags[k];
+    }
+  }
+
+  /** The event is resolved (or dropped): the map runs again. */
+  clearPendingEvent(): void {
+    delete this.s.pendingEvent;
+  }
+
+  /** Add a journal line (event id and choice key), keeping the last JOURNAL_CAP. */
+  logJournal(line: string): void {
+    this.s.journal.push(line);
+    if (this.s.journal.length > JOURNAL_CAP) this.s.journal.splice(0, this.s.journal.length - JOURNAL_CAP);
+  }
+
+  hasFlag(name: string): boolean {
+    return name in this.s.flags;
+  }
+
+  /**
+   * Set a world flag (default value: today, which `flag` events count their
+   * delay from). The arc sets `host_musters` this way (campaign-arc.md R5).
+   * A new key past FLAGS_CAP is refused (false).
+   */
+  setFlag(name: string, value = this.today): boolean {
+    const f = this.s.flags;
+    if (!(name in f) && Object.keys(f).length >= FLAGS_CAP) return false;
+    f[name] = value;
+    return true;
+  }
+
+  clearFlag(name: string): void {
+    delete this.s.flags[name];
+  }
+
+  /** The price factor an event put on a settlement's recruits and wares (priceMod); 1 when none. */
+  priceMult(sid: number): number {
+    const k = EV_KEY.price(sid);
+    if ((this.s.eventCd[k] ?? -Infinity) <= this.s.time / 24) return 1;
+    return Math.max(0, 1 + (this.s.flags[k] ?? 0) / 100);
+  }
+
+  /** Put a price change of `pct` % on a settlement for `days` (priceMod). */
+  setPriceMod(sid: number, pct: number, days: number): void {
+    const k = EV_KEY.price(sid);
+    if (!this.setFlag(k, pct)) return;
+    this.s.eventCd[k] = this.s.time / 24 + days;
+  }
+
+  /** A settlement an event closed (closeSettlement): no recruits, no market. */
+  isClosed(sid: number): boolean {
+    return (this.s.eventCd[EV_KEY.closed(sid)] ?? -Infinity) > this.s.time / 24;
+  }
+
+  closeSettlement(sid: number, days: number): void {
+    this.s.eventCd[EV_KEY.closed(sid)] = this.s.time / 24 + days;
+  }
+
+  /** The nearest lair to the party: `standing` skips fallen ones, `unknown` prefers one still in the fog. */
+  nearestLair(opts: { standing?: boolean; unknown?: boolean } = {}): SettlementDef | null {
+    const lairs = this.map.settlements.filter((st) => st.kind === 'lair' && !(opts.standing && this.s.lairs[st.id]?.fallen));
+    const fogged = opts.unknown ? lairs.filter((st) => !this.s.found!.includes(st.id)) : [];
+    let best: SettlementDef | null = null;
+    let bd = Infinity;
+    for (const st of fogged.length ? fogged : lairs) {
+      const d = Math.hypot(st.x + 0.5 - this.s.x, st.y + 0.5 - this.s.y);
+      if (d < bd) {
+        bd = d;
+        best = st;
+      }
+    }
+    return best;
+  }
+
+  /** A lair's garrison loses `n` men (weakenGarrison, campaign-arc.md R2): they count as lost now. */
+  weakenGarrison(lairId: number, n: number): void {
+    const def = this.map.settlements[lairId];
+    if (!def || def.kind !== 'lair') return;
+    const prev = this.s.lairs[lairId];
+    this.s.lairs[lairId] = { fallen: prev?.fallen ?? false, lost: (prev?.lost ?? 0) + n, lostAt: this.s.time };
+  }
+
+  /** Lift the fog over a settlement and its surroundings. */
+  revealSettlement(sid: number): void {
+    const st = this.map.settlements[sid];
+    if (st) this.reveal(st.x + 0.5, st.y + 0.5, 3.5);
+  }
+
+  /**
+   * A band an event sends (spawnBand, R2): 5-8 tiles from the party on a
+   * reachable tile (else at the nearest lair or town), sized like a band of its
+   * kind there, then scaled by `mods`. A hunting band chases the party
+   * whatever the power ratio. Positions and men come from `rng` (the event's).
+   */
+  spawnEventBand(kind: EventBandKind, mods: BandMods, rng: Rng): PartyState | null {
+    const me = this.tileOf(this.s.x, this.s.y);
+    let at: Tile | null = null;
+    for (let i = 0; i < 12 && !at; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const d = rng.range(5, 8);
+      const t = this.nearestPassable(Math.floor(this.s.x + Math.cos(a) * d), Math.floor(this.s.y + Math.sin(a) * d), 2);
+      if (t && this.path(me, t, 4000)) at = t;
+    }
+    const homes = this.map.settlements.filter((st) => st.kind !== 'village');
+    const dist = (st: SettlementDef) => Math.hypot(st.x - me.x, st.y - me.y);
+    const home = homes.reduce((b, st) => (dist(st) < dist(b) ? st : b), homes[0]);
+    if (!at) at = this.nearestPassable(home.x, home.y, 4);
+    if (!at) return null;
+    const shape = bandShape(kind, dangerAt(this.map, at.x, at.y), this.days, rng);
+    let seed = (rng.next() * 4294967296) >>> 0 || 1;
+    while (mods.captain && kind !== 'mercs' && bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
+    const p: PartyState = {
+      id: this.s.nextParty++,
+      kind,
+      name: BAND_NAMES[kind],
+      culture: kind === 'raiders' ? 'celtic' : kind === 'mercs' ? rng.pick(['greek', 'phoenician', 'celtic'] as const) : home.culture,
+      x: at.x + 0.5,
+      y: at.y + 0.5,
+      size: Math.max(1, Math.min(BAND_CAPS.size, Math.round(shape.size * (mods.size ?? 1)))),
+      power: 0,
+      level: Math.max(1, Math.min(BAND_CAPS.level, shape.level + (mods.level ?? 0))),
+      tier: mods.captain ? Math.max(CAPTAIN_RULES.minTier, shape.tier) : shape.tier,
+      seed,
+      home: home.id,
+      mode: mods.hunts ? 'chase' : 'wander',
+      tx: at.x,
+      ty: at.y,
+      idle: 0,
+    };
+    if (mods.hunts) p.hunts = true;
+    if (mods.bountyMult !== undefined) p.bountyMult = clampBountyMult(mods.bountyMult);
+    if (mods.doctrine) p.doctrine = mods.doctrine;
+    p.power = partyArmy(p, { nextId: 1 }).power;
+    this.s.parties.push(p);
+    return p;
+  }
+
   // ---------------------------------------------------------------- settlements
 
   private placeState(id: number): SettlementState {
@@ -900,7 +1162,7 @@ export class World {
   /** Volunteers on offer (deterministic for the settlement and stock epoch). */
   recruits(id: number, roster: readonly Hero[]): Recruit[] {
     const def = this.map.settlements[id];
-    if (!def || def.kind === 'lair') return [];
+    if (!def || def.kind === 'lair' || this.isClosed(id)) return [];
     const st = this.placeState(id);
     const base = `${this.s.seed}:${id}:${st.epoch}`;
     const count = def.kind === 'village' ? 1 + Math.floor(hashFrac(base + ':n') * 3) : 2 + Math.floor(hashFrac(base + ':n') * 3);
@@ -915,6 +1177,8 @@ export class World {
         if (!st.bought.includes(index)) out.push({ index, ...makeFloorVolunteer(def, `${base}:f${i}`, { nextId: 1 }, roster) });
       }
     }
+    const m = this.priceMult(id);
+    if (m !== 1) for (const r of out) r.price = Math.round(r.price * m);
     return out;
   }
 
@@ -928,24 +1192,27 @@ export class World {
   hire(id: number, index: number, ids: IdSource, roster: readonly Hero[]): { hero: Hero; price: number } | null {
     const def = this.map.settlements[id];
     const st = this.placeState(id);
-    if (!def || st.bought.includes(index)) return null;
+    if (!def || st.bought.includes(index) || this.isClosed(id)) return null;
     const key = `${this.s.seed}:${id}:${st.epoch}`;
+    const m = this.priceMult(id);
+    const priced = (r: { hero: Hero; price: number }) => (m === 1 ? r : { hero: r.hero, price: Math.round(r.price * m) });
     if (index >= VOLUNTEER_RULES.floorIndex) {
       const i = index - VOLUNTEER_RULES.floorIndex;
       if (i >= VOLUNTEER_RULES.floorOffer || !this.offersFloor(id, roster)) return null;
       st.bought.push(index);
-      return makeFloorVolunteer(def, `${key}:f${i}`, ids, roster);
+      return priced(makeFloorVolunteer(def, `${key}:f${i}`, ids, roster));
     }
     const r = makeRecruit(def, `${key}:r${index}`, ids, roster);
     st.bought.push(index);
-    return r;
+    return priced(r);
   }
 
   /** Market wares in a town (deterministic per stock epoch and army: weapons, shields and armour follow its `classes`). */
   wares(id: number, classes: readonly string[] = []): Ware[] {
     const def = this.map.settlements[id];
-    if (!def || def.kind !== 'town') return [];
+    if (!def || def.kind !== 'town' || this.isClosed(id)) return [];
     const st = this.placeState(id);
+    const m = this.priceMult(id);
     const rng = new Rng(hashString(`${this.s.seed}:${id}:${st.epoch}:market`));
     const pool = marketPool(rng);
     const out: Ware[] = [];
@@ -955,7 +1222,7 @@ export class World {
       const item = makeItem(rng, ids, d.id, rollRarity(rng, 2), rng.range(70, 100), def.culture);
       item.uid = `w${id}_${st.epoch}_${i}`;
       if (st.sold.includes(i)) continue;
-      out.push({ index: i, item, price: Math.round(itemValue(item) * 1.5) });
+      out.push({ index: i, item, price: Math.round(itemValue(item) * 1.5 * m) });
     }
     return out;
   }
@@ -1048,7 +1315,8 @@ export function partyArmy(p: PartyState, ids: IdSource, classes: readonly string
   const beast = p.kind !== 'mercs' ? bandBeast(p.seed) : null;
   if (beast) return beastEnemy(beast, Math.max(2, p.level + 1), p.seed, ids, classes);
   const captain = bandCaptain(p, ids);
-  const req = { culture: p.culture, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false } as const;
+  const forced = p.doctrine && (DOCTRINE_IDS as readonly string[]).includes(p.doctrine) ? { doctrine: p.doctrine } : {};
+  const req = { culture: p.culture, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false, ...forced } as const;
   const count = p.size - (captain ? 1 : 0);
   const army = count > 0 ? buildArmy(new Rng(p.seed), ids, { ...req, count }) : { ...buildArmy(new Rng(p.seed), ids, { ...req, count: 1 }), heroes: [] };
   bandSetPieces(army.heroes, army.culture, p.tier, p.seed);
