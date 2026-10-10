@@ -15,6 +15,9 @@
  *  - signature actives (abilities.md R3, AB-02): each active's mirror
  *    (activeImpact), the GDD's level-4 target rows, and the same-class A vs B
  *    mirror per perk tier (pathMirror; run on demand, not in the report).
+ *  - the Standard (abilities.md R5, AB-03): the reference army with a bearer
+ *    against its copy without one, and the bearer killed at 30 s
+ *    (standardMirror, standardReport).
  */
 import { armySpec } from '../game/armySpec';
 import { makeHero, setBotLevel, standardArmy } from '../game/heroes';
@@ -368,5 +371,84 @@ export function classReport(n = 12): string {
   }
   lines.push(`  over 60%: ${over.join(', ') || 'none'}`);
   lines.push(activeReport(Math.max(40, n * 25), k));
+  lines.push(standardReport(Math.max(40, n * 25)));
   return lines.join('\n');
+}
+
+/** 'none': no standard on either side; 'std': side A's first man carries one; 'killed': and he is killed at STANDARD_KILL_S. */
+export type StandardArm = 'none' | 'std' | 'killed';
+/** abilities.md "Bearer killed at 30 s vs not". */
+export const STANDARD_KILL_S = 30;
+
+export interface StandardRun {
+  /** 1 = side A (the bearer's) won, 0.5 = a draw. */
+  win: number;
+  /** Seconds from STANDARD_KILL_S to side A's first group rout after it (censored at the battle's end); -1 = the battle was over or A had routed by then. */
+  rout: number;
+  /** Side A's standard was lost (the bearer fell). */
+  lost: boolean;
+  /** Side A raised its standard. */
+  raised: boolean;
+}
+
+/**
+ * The Standard mirror (abilities.md "Balance targets"): the level-4 reference
+ * army (perks cleared, as runActiveMirror) against its copy; side A's first
+ * man (the veteran hoplite of the main line) takes `standard_bearer`. Both
+ * bot-driven (each bot raises its standard by R6), sides alternated.
+ */
+export function standardMirror(seed: number, arm: StandardArm): StandardRun {
+  const rng = new Rng(seed);
+  const ids = { nextId: 1 };
+  const a = standardArmy(rng, ids);
+  for (const h of a) {
+    setBotLevel(h, 4);
+    h.perks = [];
+  }
+  const b: Hero[] = JSON.parse(JSON.stringify(a));
+  b.forEach((h, i) => (h.id = `m${i}`));
+  if (arm !== 'none') a[0].perks.push('standard_bearer');
+  const side: Side = (seed & 1) as Side;
+  const bt = new Battle({ seed, armies: side === 0 ? [armySpec(a, true), armySpec(b, true)] : [armySpec(b, true), armySpec(a, true)] });
+  bt.startBattle();
+  const killAt = STANDARD_KILL_S * TICK_RATE;
+  let routedEarly = false;
+  let rout = -1;
+  let lost = false;
+  for (let i = 0; i < bt.timeLimitTicks + 10 && bt.phase !== 'ended'; i++) {
+    if (bt.tick === killAt && arm === 'killed') {
+      const bearer = bt.standardBearer(side);
+      const foe = bt.units.find((u) => u.side !== side && bt.isAlive(u));
+      if (bearer && foe && bt.isAlive(bearer)) bt.kill(bearer, foe);
+    }
+    bt.step();
+    for (const e of bt.drainEvents()) {
+      if (e.type === 'standardLost' && e.side === side) lost = true;
+      if (e.type !== 'rout' || e.side !== side) continue;
+      if (e.tick <= killAt) routedEarly = true;
+      else if (rout < 0) rout = (e.tick - killAt) / TICK_RATE;
+    }
+  }
+  const raised = bt.standardRaised(side);
+  if (rout < 0 && bt.tick > killAt) rout = (bt.tick - killAt) / TICK_RATE;
+  return { win: bt.winner === side ? 1 : bt.winner === -1 ? 0.5 : 0, rout: routedEarly || bt.tick <= killAt ? -1 : rout, lost, raised };
+}
+
+/** The AB-03 section of the report: standard vs none (+5..+8 pts) and the bearer killed at 30 s (rout >= 15% sooner). */
+export function standardReport(n: number, seed0 = 15000): string {
+  const runs = (arm: StandardArm) => Array.from({ length: n }, (_, i) => standardMirror(seed0 + i, arm));
+  const none = runs('none');
+  const std = runs('std');
+  const killed = runs('killed');
+  const win = (r: StandardRun[]) => r.reduce((m, x) => m + x.win, 0) / r.length;
+  // the rout rows compare the same seeds: those where side A still stood unrouted at 30 s in both arms
+  const both = std.map((x, i) => [x.rout, killed[i].rout]).filter(([p, q]) => p >= 0 && q >= 0);
+  const mean = (k: 0 | 1) => both.reduce((m, x) => m + x[k], 0) / Math.max(1, both.length);
+  const sooner = both.length ? 1 - mean(1) / mean(0) : NaN;
+  const pts = (w: number) => `${w >= 0.5 ? '+' : ''}${Math.round(w * 100 - 50)} pts`;
+  return [
+    `The Standard (abilities.md R5), level-4 reference army mirror, ${n} seeds each`,
+    `  Standard vs none                           win ${pct(win(std)).padStart(4)}  (${pts(win(std))}; mirror with none ${pct(win(none))}); target +5..+8 pts`,
+    `  Bearer killed at ${STANDARD_KILL_S} s: his side's first rout after it   ${mean(1).toFixed(1)} s vs ${mean(0).toFixed(1)} s (${Math.round(sooner * 100)}% sooner, ${both.length} seeds); win ${pct(win(killed))}; target >= 15% sooner`,
+  ].join('\n');
 }

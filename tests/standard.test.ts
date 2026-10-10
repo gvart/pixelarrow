@@ -107,6 +107,14 @@ describe('the bearer (R5.1)', () => {
     expect(new Battle(setup).standardBearer(1)).toBeNull();
   });
 
+  it('the bearer stands behind the front rank of his group', () => {
+    const b = camp();
+    const mem = b.members(0);
+    const deepest = Math.max(...mem.map((u) => u.slotDep));
+    expect(b.units[0].slotDep).toBe(deepest);
+    expect(mem.some((u) => u.slotDep < deepest - 0.1)).toBe(true);
+  });
+
   it('an army without one has no standard: no aura, no Raise', () => {
     const b = camp({ bearer: [] });
     expect(b.standardBearer(0)).toBeNull();

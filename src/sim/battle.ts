@@ -219,6 +219,13 @@ export const STANDARD_RULES = {
   lossRadius: 6,
   lossSelf: 12,
   lossEnemy: 5,
+  /**
+   * The bearer's slot priority in his group (slotPriority: 0 spear wall, 1-2
+   * blades and javelins, 3 bows): behind the front rank, ahead of the
+   * missile men. In the front rank he fell in 37% of the reference mirrors and
+   * the standard was worth -1 pt; here 9% and +4 (docs/v5/balance/AB-03.md).
+   */
+  rank: 2.5,
 };
 
 /** The `ability` order id of Raise the standard (abilities.md R5.3). It is no AbilityId: the bearer is derived, not a perk's active. */
@@ -1058,6 +1065,11 @@ export class Battle {
     return this.phase === 'battle' && !this.raised[side] && !!b && b.state === 'ready' && b.stun <= 0;
   }
 
+  /** Whether the side has raised its standard this battle. */
+  standardRaised(side: Side): boolean {
+    return this.raised[side];
+  }
+
   /** Whether a man stands inside his side's standard aura (as of the last aura update). */
   inStandard(u: SimUnit): boolean {
     return this.std && this.stdIn[u.id] === 1;
@@ -1701,7 +1713,7 @@ export class Battle {
     const f = g.formation;
     if (f.type === 'orb') this.orbR[groupId] = orbRings(mem.length).r;
     const slots = formationSlots(f, mem.length);
-    const cands = mem.map((u) => ({ id: u.id, x: u.x, y: u.y, priority: slotPriority(u) }));
+    const cands = mem.map((u) => ({ id: u.id, x: u.x, y: u.y, priority: this.std && u.id === this.bearers[u.side] ? STANDARD_RULES.rank : slotPriority(u) }));
     const map = assignSlots(f, cands, slots);
     const r = rightOf(f.fx, f.fy);
     for (const u of mem) {
