@@ -11,8 +11,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | art-bible worktree-agent-a5051118a1944b5c1 @1bdd82b + LF-03 worktree-agent-a3b8813161293ab62 | — | integrator | — | merging |
-| fo-03 | W6 FO-03: cohesion and army break | per card | per card | worktree-agent | running |
+| ab-01 | W7 AB-01: perk paths (client+server duel rules) | per card | per card | worktree-agent | running |
+| ct-02 | W7 CT-02: targeting + RU Shoot label | per card | per card | worktree-agent | running |
+| f-01 | W1 F-01: tokens, Cinzel/Inter, split-word fix | per card | per card | worktree-agent | running |
+| assets-2 | AS-02: 21 class busts via Gemini (Chrome owner) | create-game-assets, asset-spec, asset-audit, art-bible, chrome-browser | art-director, technical-artist | worktree-agent (built on AS-01) | running |
 | ct-02 | W7 CT-02: targeting, plus the RU 'Стрел…' truncation | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -38,6 +40,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 45be15b merge: S4-FIXER-2 in-flight tickets (V5-040). Gates: vitest 708, server 266, online 25, duel 53, online-e2e 34.
 - 93ad712 merge: AI-02 captains. Gates: vitest 720, server 268, layout 0, smokes pass; balance 54%.
 - e25819c FO-02, 1c882d5 QA-01, f8401ef smoke harness names failing checks, aefbd1f CT-01. Gates: vitest 768, server 277, layout 0, all smokes pass; balance 54%.
+- 44048f9 merge: S2-ART-BIBLE; 8760935 merge: LF-03 (24 layout configs incl. 320x640). Gates: vitest 771, layout 0 new (6 allowlisted), smoke 41, online 25, contrast 38/38.
+- 04768e2 merge: AS-01 hub mockups (pick A); 9e67140 merge: FO-03 cohesion and army break. Gates: vitest 790, server 281, smokes pass; balance 55%, mean 81 s. c786115 untracks raw Gemini images (V5-049).
 
 ## Queue (next)
 
@@ -65,6 +69,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 15. docs/ITEMS.md:461 still lists the Trial as a hoard source (docs owner). 'Leave during deployment goes to Army' goes to CT-01/BTL-01.
 
 16. After the art merge: F-01 (tokens and type, fix OI-1 split words) and AS-01 (assets agent, Chrome/Gemini hub mockups A/B/C, then AS-02 busts). Earlier note: FO-03 (cohesion, army break; after FO-02), CT-02 (targeting; after CT-01; also fixes the RU 'Стрел…' truncation), AB-01 (perk paths), AI-03 (ladder/war doctrines). Machine load is about 39: keep at most 3 code agents plus 1 integrator.
+
+17. Layout check now takes about 50 min under load (24 configs); integrators should allow for it.
 
 ## Blockers
 

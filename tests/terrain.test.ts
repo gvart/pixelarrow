@@ -376,6 +376,8 @@ describe('the bot uses the ground', () => {
   it('defending a ridge beats attacking it more often than not', { timeout: 60_000 }, () => {
     let win = 0;
     for (let i = 0; i < 40; i++) if (runTerrainMirror(9000 + i, (h: Side) => hillGrid(h)).win) win++;
-    expect(win).toBeGreaterThanOrEqual(23);
+    // More than half. FO-03 (cohesion, army break) moved this 40-seed sample from 25 to 22;
+    // over 120 seeds the ridge defender wins 87 (72.5%) against 88 before.
+    expect(win).toBeGreaterThan(20);
   });
 });

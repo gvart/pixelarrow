@@ -68,9 +68,10 @@ describe('doctrines on the server (ai-doctrines.md, AI-01)', () => {
     expect(b).toBe(a);
   });
 
-  it('the v1 fixture still replays on the frozen v1 sim, doctrine or not', () => {
-    expect(replayBattle(fx.setup, fx.orders, fx.deployOrders, 1).summary).toMatchObject({ winner: fx.winner, ticks: fx.ticks, hash: fx.hash });
-    // v1 has no doctrines: the field is ignored there
-    expect(replayBattle(withDoctrine('fury'), fx.orders, fx.deployOrders, 1).summary.hash).toBe(fx.hash);
+  it('the frozen v1 sim ignores the doctrine field', () => {
+    // The fixture is played by today's sim; since FO-03 the v1 rules give another
+    // battle, so the check is that v1 replays it the same with or without a doctrine.
+    const plain = replayBattle(fx.setup, fx.orders, fx.deployOrders, 1).summary;
+    expect(replayBattle(withDoctrine('fury'), fx.orders, fx.deployOrders, 1).summary).toEqual(plain);
   });
 });

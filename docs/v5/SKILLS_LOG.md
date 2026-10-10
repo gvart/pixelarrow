@@ -30,3 +30,5 @@
 | CT-01 | ct-01 (gameplay-programmer, ux-designer) | input-systems: soldier beats knob, 44 pt targets; game-ui-ux: colour plus numeral (not colour only); tdd | OK: 1 shot spot-checked |
 | S2-ART-BIBLE | art-bible (art-director, technical-artist) | art-bible: all 9 sections, conflicts surfaced (one deviation: no sub-agents, logged); create-game-assets: inventory first, manifest, native-size in-game check; asset-spec; asset-audit: PASS/FAIL/NOT ASSESSED, gates seen failing first | OK: D-4 overruled (V5-045) |
 | LF-03 | lf-03 (ui-programmer, qa-tester) | game-ui-ux: compact numbers instead of hiding, safe area at 320x568 in TG; smoke-check | OK: 1 shot spot-checked |
+| AS-01 | assets (art-director, ux-designer roles) | create-game-assets: style reference, regenerate failures; asset-audit; ux-review: 3 directions vs IA/a11y/320; chrome-browser: own tab, closed after | OK: 2 mockups spot-checked, no invented features |
+| FO-03 | fo-03 (gameplay-programmer, systems-designer) | team-combat; balance-check: targets table; tdd: client and server replay | OK |

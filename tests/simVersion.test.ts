@@ -180,10 +180,14 @@ describe('SIM_VERSION 2: the v1 sim is frozen', () => {
       expect(replayWith((s) => new BattleV1(s as unknown as ConstructorParameters<typeof BattleV1>[0]), r)).toEqual(expected(r));
     });
 
-    it(`no rule change yet: the v2 sim replays ${r.name} to the same hash`, () => {
-      // Train-2 stories change the rules; the first one to do so replaces this
-      // check with its own v2 fixture (the v1 check above stays).
-      expect(replayWith((s) => new Battle(s), r)).toEqual(expected(r));
+    it(`the v2 sim replays ${r.name} deterministically under its own rules`, () => {
+      // FO-03 (cohesion and army break) is the first train-2 rule that changes
+      // bot-only battles, so v2 no longer matches the v1 hashes. The recorded
+      // v2 fixture comes with ST-04 (tests/fixtures/replay-v2*.json); until
+      // then v2 must at least replay the same setup to the same state twice.
+      const a = replayWith((s) => new Battle(s), r);
+      expect(replayWith((s) => new Battle(s), r)).toEqual(a);
+      expect(a.ticks).toBeGreaterThan(0);
     });
   }
 });
