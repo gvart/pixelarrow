@@ -284,5 +284,5 @@ export const BATTLE_EN = {
   'battle.sit.moving': '{group} {order}.',
   // a group card with Shoot on and no enemy in reach (PLAY B6, controls.md R3.4)
   'battle.state.outOfRange': 'Out of range',
-  'battle.stateShort.outOfRange': 'too far',
+  'battle.stateShort.outOfRange': 'out of range',
 } as const;
