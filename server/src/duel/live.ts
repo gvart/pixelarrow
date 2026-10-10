@@ -141,6 +141,8 @@ export interface MatchInit {
   setup: BattleSetup;
   heroes: [Hero[], Hero[]];
   createdAt: number;
+  /** The sim version both players were paired under (absent in matches from before V5-033 = SIM_VERSION 1). */
+  simVersion?: number;
 }
 
 /**
@@ -148,16 +150,16 @@ export interface MatchInit {
  * field from the seed) and records it as live. Null with the players whose
  * team cannot fight any more.
  */
-export async function createMatch(db: D1Database, mode: DuelMode, a: { pid: number; name: string }, b: { pid: number; name: string }, seed: number, now: number): Promise<{ init: MatchInit } | { bad: number[] }> {
+export async function createMatch(db: D1Database, mode: DuelMode, a: { pid: number; name: string }, b: { pid: number; name: string }, seed: number, now: number, simVersion = SIM_VERSION): Promise<{ init: MatchInit } | { bad: number[] }> {
   const teams = await Promise.all([loadTeam(db, a.pid), loadTeam(db, b.pid)]);
   const bad = [a, b].filter((_, i) => 'problem' in teams[i]).map((p) => p.pid);
   if (bad.length) return { bad };
   const [ta, tb] = teams as DuelTeam[];
   const setup = onlineBattleSetup(seed, { heroes: ta.heroes, formations: ta.formations, bot: false }, { heroes: tb.heroes, formations: tb.formations, bot: false }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
-  const init: MatchInit = { id: randomToken(16), mode, seed, players: [a.pid, b.pid], names: [a.name, b.name], setup, heroes: [ta.heroes, tb.heroes], createdAt: now };
+  const init: MatchInit = { id: randomToken(16), mode, seed, players: [a.pid, b.pid], names: [a.name, b.name], setup, heroes: [ta.heroes, tb.heroes], createdAt: now, simVersion };
   await db
     .prepare('INSERT INTO duel_matches (id, mode, seed, player_a, player_b, setup, teams, created_at, sim_version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)')
-    .bind(init.id, mode, seed, a.pid, b.pid, JSON.stringify(setup), JSON.stringify(init.heroes), now, SIM_VERSION)
+    .bind(init.id, mode, seed, a.pid, b.pid, JSON.stringify(setup), JSON.stringify(init.heroes), now, simVersion)
     .run();
   return { init };
 }

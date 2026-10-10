@@ -16,6 +16,7 @@ import { BATTLE_CONSUMABLES, type ConsumableId } from '../../../src/data/consuma
 import type { Hero } from '../../../src/data/units';
 import type { BattleSetup, Side } from '../../../src/sim/types';
 import { CHALLENGE_TTL_MS, type ClientMsg, type PresencePlayer, type ServerMsg } from '../../../src/online/protocol';
+import { SIM_MISMATCH_MESSAGE, SIM_VERSION } from '../simVersion';
 import { newRelay, relayMessage, relayTick, startMsg, type DuelState, type Out } from './relay';
 
 export { DEPLOY_KINDS, type DuelState, type Out } from './relay';
@@ -52,6 +53,8 @@ export interface DuelDeps {
   /** Persist a finished duel (battle_log). */
   record?(d: DuelState, result: Extract<ServerMsg, { type: 'duel_result' }>): Promise<void> | void;
   online(pid: number): boolean;
+  /** The sim version the player's socket runs (absent: everyone runs SIM_VERSION). Duels pair only equal versions (V5-033). */
+  simOf?(pid: number): number;
 }
 
 export class DuelHub {
@@ -103,6 +106,10 @@ export class DuelHub {
     }
   }
 
+  private simOf(pid: number): number {
+    return this.deps.simOf?.(pid) ?? SIM_VERSION;
+  }
+
   busy(pid: number): boolean {
     return this.byPlayer.has(pid);
   }
@@ -151,6 +158,7 @@ export class DuelHub {
         if (!to || !this.deps.online(to.id)) return err('That player is not online', 'unavailable');
         if (to.id === me.id) return err('You cannot challenge yourself');
         if (this.busy(me.id) || this.busy(to.id)) return err('Someone is already in a duel', 'busy');
+        if (this.simOf(me.id) !== this.simOf(to.id)) return err(SIM_MISMATCH_MESSAGE, 'sim_version_mismatch');
         for (const c of this.challenges.values()) if (c.from.id === me.id) return err('You already have an open challenge', 'busy');
         const c: Challenge = { id: this.deps.randomId(), from: me, to, at: this.deps.now(), consumable: pick };
         this.challenges.set(c.id, c);
@@ -174,6 +182,12 @@ export class DuelHub {
         }
         const mine = duelConsumable(msg.consumable);
         if (mine === undefined) return err('At most one battle consumable per duel', 'bad_consumable');
+        const sim = this.simOf(c.from.id);
+        if (sim !== this.simOf(me.id)) {
+          this.challenges.delete(c.id);
+          out.push({ to: c.from.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } });
+          return err(SIM_MISMATCH_MESSAGE, 'sim_version_mismatch');
+        }
         if (!this.deps.online(c.from.id) || this.busy(c.from.id) || this.busy(me.id)) {
           this.challenges.delete(c.id);
           out.push({ to: me.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } }, { to: c.from.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } });
@@ -189,7 +203,7 @@ export class DuelHub {
           out.push({ to: me.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } }, { to: c.from.id, msg: { type: 'challenge_closed', id: c.id, reason: 'unavailable' } });
           return out;
         }
-        const d = newRelay(this.deps.randomId(), [c.from.id, c.to.id], [c.from.name, c.to.name], built.setup, this.deps.now());
+        const d = newRelay(this.deps.randomId(), [c.from.id, c.to.id], [c.from.name, c.to.name], built.setup, this.deps.now(), undefined, sim);
         this.duels.set(d.id, d);
         this.byPlayer.set(d.players[0], d.id);
         this.byPlayer.set(d.players[1], d.id);

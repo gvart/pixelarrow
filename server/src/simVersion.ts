@@ -20,6 +20,16 @@ export { SIM_VERSION };
  */
 export const MIN_SIM_VERSION = 1;
 
+/**
+ * The oldest client rules a live socket (/ws/*) still accepts (V5-033). Live
+ * lockstep pairs only clients of the same version (the shard's DuelHub, the
+ * MatchmakerDO queue, the DuelDO join), so v1 and v2 clients can share the
+ * server while the rules are identical. The first rule-changing train-2 story
+ * raises this AND MIN_SIM_VERSION to 2 in the same commit as the rule change
+ * (ADR-0001, "Adding a version").
+ */
+export const SOCKET_MIN_SIM_VERSION = 1;
+
 /** Clients from before versioning send nothing: they run version 1. */
 export const LEGACY_SIM_VERSION = 1;
 
@@ -27,12 +37,12 @@ export const LEGACY_SIM_VERSION = 1;
 export const SimVersionField = z.number().int().min(0).max(1_000_000).optional();
 
 /** 426 `sim_version_unsupported`: the client must reload (an old build) or the server is behind (a newer build). */
-function unsupported(version: number): ApiError {
+function unsupported(version: number, min = MIN_SIM_VERSION): ApiError {
   const message =
     version > SIM_VERSION
       ? 'This game version is newer than the server. Please reload the game.'
       : 'Your game version is out of date. Please reload the game to keep playing online.';
-  return new ApiError(426, SIM_VERSION_REJECTED, message, { simVersion: version, min: MIN_SIM_VERSION, max: SIM_VERSION });
+  return new ApiError(426, SIM_VERSION_REJECTED, message, { simVersion: version, min, max: SIM_VERSION });
 }
 
 /** The version a client runs, or 426 `sim_version_unsupported` when this server cannot take it. */
@@ -46,14 +56,23 @@ const SocketSimParam = z.string().regex(/^\d{1,7}$/).transform(Number).optional(
 
 /**
  * The `?sim=` parameter of a socket upgrade (absent: a pre-versioning client,
- * v1); 400 when malformed. Live lockstep has no grace window: both players
- * and the relay's replay must run the same rules, so a socket must run
- * exactly SIM_VERSION.
+ * v1); 400 when malformed, 426 outside SOCKET_MIN_SIM_VERSION..SIM_VERSION.
+ * Both players and the relay's replay must run the same rules, so live duels
+ * pair only sockets of the same version.
  */
-export function socketSimVersion(raw: string | undefined): number {
+export function socketSimVersion(raw: string | undefined, min = SOCKET_MIN_SIM_VERSION): number {
   const parsed = SocketSimParam.safeParse(raw);
   if (!parsed.success) throw new ApiError(400, 'bad_request', 'Bad sim version');
   const version = parsed.data ?? LEGACY_SIM_VERSION;
-  if (version !== SIM_VERSION) throw unsupported(version);
+  if (version < min || version > SIM_VERSION) throw unsupported(version, min);
   return version;
 }
+
+/** The socket's sim version as the gateway forwards it to a Durable Object (`x-sim-version`; absent = v1). */
+export function forwardedSimVersion(headers: Headers): number {
+  const v = Number(headers.get('x-sim-version'));
+  return Number.isSafeInteger(v) && v > 0 ? v : LEGACY_SIM_VERSION;
+}
+
+/** 409 `sim_version_mismatch` text for a live duel between clients of different rules. */
+export const SIM_MISMATCH_MESSAGE = 'That player runs another game version. One of you needs to reload the game.';
