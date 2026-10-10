@@ -9,7 +9,6 @@ import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '
 import { MOSAIC } from '../ui/tokens';
 import { HintPill, MED_H, MED_W, Medallion, TOP_H, TopBar, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
-import { RadialOrders, type RadialOrder } from '../ui/radialOrders';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
@@ -24,6 +23,8 @@ import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import { SPACING, formationSlots, rightOf, type FormationType } from '../sim/formation';
 import { KNOB_PACES, dragMove, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
+import { hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
+import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import type { TerrainGrid } from '../sim/terrain';
 import type { BattleSource } from '../online/battleSource';
@@ -125,20 +126,18 @@ const STANDARD_RAMP = [
   [0xcc7677, 0xb83d4a, 0xa12735, 0x5e2427],
 ];
 
-type Gesture = {
-  mode: 'pending' | 'pan' | 'formation' | 'info';
-  id: number;
-  sx: number;
-  sy: number;
-  lx: number;
-  ly: number;
-  wx0: number;
-  wy0: number;
-  /** Pressed on the selected group or its marker (move) or on its facing knob (turn): a drag is a formation order. */
-  grab: DragKind | null;
-  /** Formation drag state, created on the first drag. */
-  drag: DragState | null;
-} | null;
+/** An order key of the bottom sheet's order row. */
+interface OrderKey {
+  key: string;
+  icon: string;
+  label: string;
+  tip: string;
+  /** The order in force. */
+  selected: boolean;
+  /** Cannot now: why (a tap says it). */
+  off?: string;
+  onTap: () => void;
+}
 
 /** Finger travel (screen px) before a press becomes a drag: below it a lift is a tap. */
 const DRAG_PX = px(10);
@@ -146,6 +145,8 @@ const DRAG_PX = px(10);
 const GRAB_PX = px(30);
 /** Tap radius (screen px) of a floating group tag (a 44 pt target). */
 const TAG_PX = px(20);
+/** Tap radius of a man on the field, in device px (unlike the radii above it is not scaled by RS). */
+const UNIT_TAP_PX = 30;
 
 export class BattleScene extends BaseScene {
   private sim!: Battle;
@@ -165,8 +166,10 @@ export class BattleScene extends BaseScene {
   private acc = 0;
   private selGroup = -1;
   private selUnit = -1;
-  private gesture: Gesture = null;
-  private pinch: { d0: number; z0: number; cx: number; cy: number } | null = null;
+  /** One- and two-finger gestures on the field (src/ui/input/gestures.ts); the scene only routes pointer events to it. */
+  private gestures = new GestureRecognizer(DRAG_PX);
+  /** The formation drag under way (move or turn), from its first drag event to the lift. */
+  private drag: DragState | null = null;
   private dragPreview: { cx: number; cy: number; fx: number; fy: number; frontage: number; type: FormationType; n: number; label: string } | null = null;
   private dragLabel: Phaser.GameObjects.BitmapText | null = null;
   private hint: Phaser.GameObjects.Container | null = null;
@@ -189,12 +192,10 @@ export class BattleScene extends BaseScene {
   private top: TopBar | null = null;
   private hintPill: HintPill | null = null;
   private sitKey = '';
-  private ring: RadialOrders | null = null;
-  private ringKey = '';
-  /** The tutorial hides the ring during its field steps. */
-  private ringHidden = false;
+  /** What the order row was built for (ordersKey): the HUD is rebuilt when it changes. */
+  private ordersBuilt = '';
   private cards: { gid: number; card: GroupCard; numeral: string }[] = [];
-  /** Order, shape and ability controls by key (ring buttons, shape rows, ability chips): the tutorial lights them. */
+  /** Order, shape and ability controls by key (order keys, shape rows, ability chips): the tutorial lights them. */
   private cmdBtns = new Map<string, Phaser.GameObjects.Container>();
   /** The shape chip under 'formation' and the first ability chip under 'abilities' (the tutorial's fallbacks). */
   private tabBtns = new Map<BattleCategory, Phaser.GameObjects.Container>();
@@ -267,8 +268,8 @@ export class BattleScene extends BaseScene {
     this.acc = 0;
     this.selGroup = -1;
     this.selUnit = -1;
-    this.gesture = null;
-    this.pinch = null;
+    this.gestures.reset();
+    this.drag = null;
     this.dragPreview = null;
     this.dragLabel = null;
     this.hint = null;
@@ -288,8 +289,7 @@ export class BattleScene extends BaseScene {
     this.netText = '';
     this.shapeOpen = false;
     this.sitKey = '';
-    this.ringKey = '';
-    this.ringHidden = false;
+    this.ordersBuilt = '';
     this.countdown = null;
     this.lastTickSound = -1;
     this.src = data?.source ?? null;
@@ -582,8 +582,8 @@ export class BattleScene extends BaseScene {
 
   /** Smoothly track the fighting while following. */
   private updateCamera(delta: number): void {
-    // a paused field stays still under the finger: orders and the ring are given on a fixed view
-    if (!this.follow || this.sim.phase !== 'battle' || this.pinch || this.paused) return;
+    // a paused field stays still under the finger: orders are given on a fixed view
+    if (!this.follow || this.sim.phase !== 'battle' || this.gestures.pinch || this.paused) return;
     const cam = this.cameras.main;
     const t0 = this.focusPoint();
     const vp = this.fieldViewport();
@@ -652,7 +652,6 @@ export class BattleScene extends BaseScene {
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
-    this.placeRing();
     if (this.hudDirty) this.refreshHud();
   }
 
@@ -1391,7 +1390,10 @@ export class BattleScene extends BaseScene {
   // ===================================================================== input
 
   /*
-   * Touch controls (deployment and battle, also online raids and live duels):
+   * Touch controls (deployment and battle, also online raids and live duels).
+   * Gestures are recognised by src/ui/input/gestures.ts and a press is
+   * resolved by the pure hit-test in src/ui/input/hitTest.ts (ADR-0004); the
+   * scene only routes Phaser's pointer events there and carries out the result:
    * - one finger on empty ground: a drag pans the camera (always, even with a
    *   group selected); a tap moves the selected group there (see tap());
    *   a long press in deployment explains the terrain;
@@ -1401,109 +1403,98 @@ export class BattleScene extends BaseScene {
    *   comes only from the formation buttons;
    * - two fingers: pinch zoom and pan, never an order (cancels a pending one).
    */
+  private downPointers(): Ptr[] {
+    return this.input.manager.pointers.filter((q) => q.isDown);
+  }
+
   private onDown(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]): void {
-    const down = this.input.manager.pointers.filter((q) => q.isDown);
-    if (down.length >= 2) {
-      // second finger: pinch/pan, cancel any formation drag
-      this.cancelGesture();
-      const [a, b] = down;
-      this.pinch = { d0: Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y), z0: this.cameras.main.zoom, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
-      this.setFollow(false);
-      return;
-    }
-    const grab = this.grabAt(p.x, p.y);
-    // the facing knob wins over a ring button lying on it: a press there turns the group
-    const ringOnly = over.length > 0 && !!this.ring && over.every((o) => (o as Phaser.GameObjects.GameObject & { parentContainer?: unknown }).parentContainer === this.ring);
-    if ((over.length > 0 && !(ringOnly && grab === 'turn')) || this.overlay || this.hint) {
-      this.gesture = null;
-      return;
-    }
-    const w = this.cameras.main.getWorldPoint(p.x, p.y);
-    const g: NonNullable<Gesture> = { mode: 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y, wx0: w.x, wy0: w.y, grab, drag: null };
-    this.gesture = g;
-    this.holdTimer?.remove();
-    this.holdTimer = null;
-    if (this.sim.phase === 'deploy' && !grab) {
-      // long press on the ground in deployment: what is this terrain?
-      this.holdTimer = holdTimer(this, longPress.ms, () => {
-        if (this.gesture !== g || g.mode !== 'pending') return;
-        g.mode = 'info';
-        this.showTerrainInfo(g.wx0, g.wy0, g.sx, g.sy);
-      });
-    }
+    const cam = this.cameras.main;
+    const evs = this.gestures.down(p, this.downPointers(), cam.zoom, () => {
+      const w = cam.getWorldPoint(p.x, p.y);
+      // a HUD control, a dialog or the controls hint under the finger takes the press
+      const blocked = over.length > 0 || !!this.overlay || !!this.hint;
+      return { blocked, grab: blocked ? null : hitTest(this.hitState(), p).grab, at: { x: w.x, y: w.y } };
+    });
+    this.onGestures(evs);
   }
 
   private onMove(p: Phaser.Input.Pointer): void {
-    const cam = this.cameras.main;
-    if (this.pinch) {
-      const down = this.input.manager.pointers.filter((q) => q.isDown);
-      if (down.length < 2) return;
-      const [a, b] = down;
-      const d = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
-      const cx = (a.x + b.x) / 2;
-      const cy = (a.y + b.y) / 2;
-      const z = Phaser.Math.Clamp(this.pinch.z0 * (d / Math.max(1, this.pinch.d0)), camZoom(1), camZoom(3));
-      cam.setZoom(z);
-      cam.scrollX -= (cx - this.pinch.cx) / z;
-      cam.scrollY -= (cy - this.pinch.cy) / z;
-      this.pinch.cx = cx;
-      this.pinch.cy = cy;
-      return;
-    }
-    const g = this.gesture;
-    if (!g || p.id !== g.id || !p.isDown) return;
-    const moved = Math.abs(p.x - g.sx) + Math.abs(p.y - g.sy);
-    if (g.mode === 'pending' && moved > DRAG_PX) {
-      if (g.grab && this.selGroup >= 0 && this.canCommand()) {
-        g.mode = 'formation';
-        this.setFollow(false); // the field must stay put under the finger
-        g.drag ??= this.startDrag(g, g.grab);
-      } else {
-        g.mode = 'pan';
-      }
-    }
-    if (g.mode === 'pan') {
-      this.setFollow(false);
-      cam.scrollX -= (p.x - g.lx) / cam.zoom;
-      cam.scrollY -= (p.y - g.ly) / cam.zoom;
-      this.tutorialEvent({ kind: 'pan', px: Math.hypot(p.x - g.lx, p.y - g.ly) / RS });
-    } else if (g.mode === 'formation' && g.drag) {
-      const w = cam.getWorldPoint(p.x, p.y);
-      const f = screenToIso(w.x, w.y);
-      this.dragFeedback(dragMove(g.drag, f.x, f.y));
-      this.updateDragPreview(g.drag);
-    }
-    g.lx = p.x;
-    g.ly = p.y;
+    this.onGestures(this.gestures.move(p, this.downPointers(), () => this.selGroup >= 0 && this.canCommand()));
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
-    if (this.pinch) {
-      const down = this.input.manager.pointers.filter((q) => q.isDown);
-      if (down.length < 2) {
-        const z0 = this.pinch.z0;
-        this.pinch = null;
-        this.setZoom(Math.round(zoomUnits(this.cameras.main.zoom)));
-        if (Math.abs(this.cameras.main.zoom - z0) > 0.05) this.tutorialEvent({ kind: 'zoom' });
-      }
-      this.gesture = null;
-      return;
-    }
-    const g = this.gesture;
-    this.gesture = null;
-    this.holdTimer?.remove();
-    this.holdTimer = null;
-    this.hideTerrainInfo();
-    if (!g || p.id !== g.id) return;
-    if (g.mode === 'pending') {
-      this.dragPreview = null;
-      this.tap(p);
-    } else if (g.mode === 'formation' && g.drag) {
-      const plan = dragPlan(g.drag);
-      this.dragPreview = null;
-      if (plan) {
-        this.command({ kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage });
-        this.tutorialEvent({ kind: 'sling', carried: plan.kind === 'move', aimed: plan.kind === 'turn', fx: plan.fx, fy: plan.fy, group: this.selGroup });
+    this.onGestures(this.gestures.up(p, this.downPointers()));
+  }
+
+  /** Carry out what the gesture recogniser made of a pointer event. */
+  private onGestures(evs: GestureEvent[]): void {
+    const cam = this.cameras.main;
+    for (const e of evs) {
+      switch (e.type) {
+        case 'pinch-start':
+          this.cancelGesture();
+          this.setFollow(false);
+          break;
+        case 'pinch': {
+          const z = Phaser.Math.Clamp(e.zoom, camZoom(1), camZoom(3));
+          cam.setZoom(z);
+          cam.scrollX -= e.dx / z;
+          cam.scrollY -= e.dy / z;
+          break;
+        }
+        case 'pinch-end':
+          this.setZoom(Math.round(zoomUnits(cam.zoom)));
+          if (Math.abs(cam.zoom - e.z0) > 0.05) this.tutorialEvent({ kind: 'zoom' });
+          break;
+        case 'press': {
+          this.holdTimer?.remove();
+          this.holdTimer = null;
+          const g = e.press;
+          // long press on the ground in deployment: what is this terrain?
+          if (this.sim.phase === 'deploy' && !g.grab) {
+            this.holdTimer = holdTimer(this, longPress.ms, () => {
+              if (this.gestures.hold(g)) this.showTerrainInfo(g.at.x, g.at.y, g.sx, g.sy);
+            });
+          }
+          break;
+        }
+        case 'pan':
+          this.setFollow(false);
+          cam.scrollX -= e.dx / cam.zoom;
+          cam.scrollY -= e.dy / cam.zoom;
+          this.tutorialEvent({ kind: 'pan', px: Math.hypot(e.dx, e.dy) / RS });
+          break;
+        case 'drag-start':
+          this.setFollow(false); // the field must stay put under the finger
+          this.drag = this.startDrag(e.at, e.kind);
+          break;
+        case 'drag-move': {
+          if (!this.drag) break;
+          const w = cam.getWorldPoint(e.x, e.y);
+          const f = screenToIso(w.x, w.y);
+          this.dragFeedback(dragMove(this.drag, f.x, f.y));
+          this.updateDragPreview(this.drag);
+          break;
+        }
+        case 'release':
+          this.holdTimer?.remove();
+          this.holdTimer = null;
+          this.hideTerrainInfo();
+          break;
+        case 'tap':
+          this.dragPreview = null;
+          this.tap(e.x, e.y);
+          break;
+        case 'drag-end': {
+          const plan = this.drag ? dragPlan(this.drag) : null;
+          this.drag = null;
+          this.dragPreview = null;
+          if (plan) {
+            this.command({ kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage });
+            this.tutorialEvent({ kind: 'sling', carried: plan.kind === 'move', aimed: plan.kind === 'turn', fx: plan.fx, fy: plan.fy, group: this.selGroup });
+          }
+          break;
+        }
       }
     }
   }
@@ -1517,7 +1508,7 @@ export class BattleScene extends BaseScene {
 
   /** Drop any pending or half-done one-finger gesture (a second finger came down). */
   private cancelGesture(): void {
-    this.gesture = null;
+    this.drag = null;
     this.dragPreview = null;
     this.holdTimer?.remove();
     this.holdTimer = null;
@@ -1525,33 +1516,43 @@ export class BattleScene extends BaseScene {
   }
 
   /**
-   * What a press at this screen point grabs: the facing knob of the selected
-   * group (turn), its soldiers or placement marker (move), or nothing. When
-   * both are in reach, the closer one wins.
+   * The field as the hit-test sees it now, in screen px through the battle
+   * camera: the men a tap can pick, the group tags, and the selection's body
+   * and facing knob a drag can grab (only while it can take orders).
    */
-  private grabAt(px: number, py: number): DragKind | null {
-    if (this.selGroup < 0 || this.sim.phase === 'ended' || !this.canCommand()) return null;
-    const grp = this.sim.groups[this.selGroup];
-    if (!grp || grp.disbanded) return null;
+  private hitState(): HitState {
     const cam = this.cameras.main;
-    const d2 = (wx: number, wy: number) => ((wx - cam.worldView.x) * cam.zoom - px) ** 2 + ((wy - cam.worldView.y) * cam.zoom - py) ** 2;
+    const scr = (wx: number, wy: number): Pt => ({ x: (wx - cam.worldView.x) * cam.zoom, y: (wy - cam.worldView.y) * cam.zoom });
+    const S = this.m.S;
+    const hide = this.hideFoes();
+    const units: HitState['units'] = [];
+    for (const v of this.views) {
+      const u = v.u;
+      if (u.state === 'dead' || u.state === 'fled' || (hide && u.side === this.foe)) continue;
+      units.push({ id: u.id, side: u.side, group: u.group, big: v.big, ...scr(v.spr.x, v.spr.y - v.tall * 0.45) });
+    }
+    const tags = [...this.tagPos].map(([gid, q]) => ({ gid, x: q.x * S, y: q.y * S }));
+    const hs: HitState = { me: this.me, grabbable: false, body: [], knob: null, tags, units, grabR: GRAB_PX, tagR: TAG_PX, unitR: UNIT_TAP_PX };
+    if (this.selGroup < 0 || this.sim.phase === 'ended' || !this.canCommand()) return hs;
+    const grp = this.sim.groups[this.selGroup];
+    if (!grp || grp.disbanded) return hs;
+    hs.grabbable = true;
     const solo = this.selUnit >= 0 && !grp.individual;
     const members = solo ? [this.sim.units[this.selUnit]] : this.sim.activeMembers(grp.id);
     const ids = new Set(members.map((u) => u.id));
-    let body = Infinity;
-    for (const v of this.views) if (ids.has(v.u.id)) body = Math.min(body, d2(v.spr.x, v.spr.y - v.tall / 2), d2(v.spr.x, v.spr.y));
+    for (const v of this.views) if (ids.has(v.u.id)) hs.body.push(scr(v.spr.x, v.spr.y - v.tall / 2), scr(v.spr.x, v.spr.y));
     if (!solo) {
       for (const s of [...this.sim.groupSlots(grp.id), { x: grp.formation.cx, y: grp.formation.cy }]) {
         const w = isoToScreen(s.x, s.y);
-        body = Math.min(body, d2(w.x, w.y));
+        hs.body.push(scr(w.x, w.y));
       }
     }
     const k = this.knobOf();
-    const kw = k ? isoToScreen(k.x, k.y) : null;
-    const knob = kw ? d2(kw.x, kw.y) : Infinity;
-    const r2 = GRAB_PX * GRAB_PX;
-    if (knob < r2 && knob <= body) return 'turn';
-    return body < r2 ? 'move' : null;
+    if (k) {
+      const kw = isoToScreen(k.x, k.y);
+      hs.knob = scr(kw.x, kw.y);
+    }
+    return hs;
   }
 
   /** The selected group's (or soldier's) anchor and facing, its centre and its facing knob, in field coordinates. */
@@ -1576,9 +1577,9 @@ export class BattleScene extends BaseScene {
     return fr ? { x: fr.cx + fr.fx * KNOB_PACES, y: fr.cy + fr.fy * KNOB_PACES } : null;
   }
 
-  private startDrag(g: NonNullable<Gesture>, kind: DragKind): DragState {
+  private startDrag(at: Pt, kind: DragKind): DragState {
     const fr = this.selectedFrame()!;
-    const press = screenToIso(g.wx0, g.wy0);
+    const press = screenToIso(at.x, at.y);
     // thresholds are in paces at the default zoom (1: a pace is 36 px across a tile) and scale with zoom
     const k = 1 / zoomUnits(this.cameras.main.zoom);
     haptic('light');
@@ -1795,75 +1796,41 @@ export class BattleScene extends BaseScene {
     this.infoTip = null;
   }
 
-  private tap(p: Phaser.Input.Pointer): void {
-    const cam = this.cameras.main;
-    const w = cam.getWorldPoint(p.x, p.y);
-    // a floating group tag (a map marker) selects its group
-    const S = this.m.S;
-    for (const [gid, pos] of this.tagPos) {
-      if (Math.hypot(pos.x * S - p.x, pos.y * S - p.y) <= TAG_PX) {
-        const g = this.sim.groups[gid];
-        this.selGroup = gid;
-        this.selUnit = g.individual ? this.sim.activeMembers(gid)[0]?.id ?? -1 : -1;
-        haptic('light');
-        this.buildHud();
-        return;
-      }
-    }
-    // nearest unit in screen space
-    let best: SimUnit | null = null;
-    let bestD = 30;
-    const hide = this.hideFoes();
-    for (const v of this.views) {
-      const u = v.u;
-      if (u.state === 'dead' || u.state === 'fled' || (hide && u.side === this.foe)) continue;
-      const sx = (v.spr.x - cam.worldView.x) * cam.zoom;
-      const sy = (v.spr.y - v.tall * 0.45 - cam.worldView.y) * cam.zoom;
-      if (v.big) {
-        // a horse is a long target: accept a touch anywhere on its body
-        const dd = Math.sqrt((sx - p.x) ** 2 + ((sy - p.y) * 1.6) ** 2) * 0.7;
-        if (dd < bestD) {
-          bestD = dd;
-          best = u;
-        }
-        continue;
-      }
-      const d = Math.sqrt((sx - p.x) ** 2 + (sy - p.y) ** 2);
-      if (d < bestD) {
-        bestD = d;
-        best = u;
-      }
-    }
-    if (best && best.side === this.me) {
-      const g = this.sim.groups[best.group];
-      if (g.individual) {
-        this.selGroup = g.id;
-        this.selUnit = best.id;
-      } else if (this.selGroup === best.group && this.selUnit !== best.id) {
-        this.selUnit = best.id;
-      } else if (this.selUnit === best.id) {
-        this.selUnit = -1;
-      } else {
-        this.selGroup = best.group;
-        this.selUnit = -1;
-      }
+  /** A tap on the field (screen px): select, attack or move, as the hit-test resolves it. */
+  private tap(x: number, y: number): void {
+    const hit = hitTest(this.hitState(), { x, y }).tap;
+    if (hit.kind === 'tag') {
+      // a floating group tag (a map marker) selects its group
+      const g = this.sim.groups[hit.gid];
+      this.selGroup = hit.gid;
+      this.selUnit = g.individual ? this.sim.activeMembers(hit.gid)[0]?.id ?? -1 : -1;
       haptic('light');
       this.buildHud();
       return;
     }
-    if (best && best.side === this.foe) {
+    if (hit.kind === 'own') {
+      const sel = tapSelect({ group: this.selGroup, unit: this.selUnit }, { id: hit.unit, group: hit.group }, this.sim.groups[hit.group].individual);
+      this.selGroup = sel.group;
+      this.selUnit = sel.unit;
+      haptic('light');
+      this.buildHud();
+      return;
+    }
+    if (hit.kind === 'enemy') {
+      const foe = this.sim.units[hit.unit];
       if (this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
-        this.attackUnit(best);
+        this.attackUnit(foe);
       } else {
-        const h = this.enemyHeroes.find((x) => x.id === best!.heroId);
+        const h = this.enemyHeroes.find((q) => q.id === foe.heroId);
         const wpn = h?.equip.weapon ? itemName(h.equip.weapon.def) : t('battle.unarmed');
-        this.showBanner(`${best.name} - ${wpn}`, 1800);
+        this.showBanner(`${foe.name} - ${wpn}`, 1800);
       }
       return;
     }
     if (this.selGroup >= 0 && this.canCommand()) {
       const grp = this.sim.groups[this.selGroup];
       const f = grp.formation;
+      const w = this.cameras.main.getWorldPoint(x, y);
       const fp = screenToIso(w.x, w.y);
       const face = this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy };
       this.command({ kind: 'form', group: -1, cx: fp.x, cy: fp.y, fx: face.x, fy: face.y, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
@@ -2018,7 +1985,6 @@ export class BattleScene extends BaseScene {
     this.countdown = null;
     this.top = null;
     this.hintPill = null;
-    this.ring = null;
     this.sitKey = '';
     this.buildSheet();
     this.buildTop();
@@ -2193,7 +2159,7 @@ export class BattleScene extends BaseScene {
     const deploy = this.sim.phase === 'deploy';
     // what the order row is built for, on every path (no selection draws no row): refreshHud rebuilds the HUD
     // whenever this differs, so a stale key would rebuild it forever (a stack overflow freezing the game loop)
-    this.ringKey = this.ordersKey();
+    this.ordersBuilt = this.ordersKey();
     const y0 = this.stripTop();
     this.hud.add(mosaicImage(this, -2, y0, VW + 4, VH - y0 + 4, 'topBar'));
     const rim = this.add.graphics();
@@ -2282,7 +2248,7 @@ export class BattleScene extends BaseScene {
       this.hud.add(new MButton(this, 4, y, VW - 8, SHEET_ORDERS_H, { icon: main.icon, label: main.label, tip: main.tip, id: main.id, variant: main.off ? 'disabled' : 'primaryHero', disabledReason: main.off, onClick: main.onClick }));
       return;
     }
-    const orders = this.ringOrders();
+    const orders = this.orderKeys();
     if (!orders.length) {
       const hint = addText(this, VW / 2, y + 9, t('battle.orders.none'), 'dim', 0.5).setFontSize(6);
       this.hud.add(hint);
@@ -2348,11 +2314,10 @@ export class BattleScene extends BaseScene {
     if (!tabs.has('abilities') && first) tabs.set('abilities', first);
   }
 
-  // ---- the radial ring (no longer shown: the orders live in the bottom sheet)
+  // ---- the order row of the bottom sheet
 
-
-  /** Orders the ring offers the selection, with their state now. */
-  private ringOrders(): RadialOrder[] {
+  /** The order keys for the selection, with their state now. */
+  private orderKeys(): OrderKey[] {
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
     if (!sel || this.sim.phase !== 'battle') return [];
     const mem = this.selectedUnits();
@@ -2362,7 +2327,7 @@ export class BattleScene extends BaseScene {
     const shooters = mem.filter((u) => u.stats.range > 0);
     const ammo = shooters.some((u) => u.ammo > 0);
     const shootWhy = why ?? (shooters.length === 0 ? t('battle.why.noMissiles') : !ammo ? t('battle.why.outOfAmmo') : undefined);
-    const orders: RadialOrder[] = [
+    const orders: OrderKey[] = [
       { key: 'advance', icon: 'advance', label: t('battle.ring.advance'), tip: t('battle.tip.radialAdvance'), selected: sel.order === 'advance', off: why, onTap: order('advance') },
       { key: 'charge', icon: 'charge', label: t('battle.ring.charge'), tip: t('battle.tip.radialCharge'), selected: sel.order === 'charge', off: why, onTap: order('charge') },
       { key: 'hold', icon: 'hold', label: t('battle.ring.hold'), tip: t('battle.tip.radialHold'), selected: sel.order === 'hold', off: why, onTap: order('hold') },
@@ -2370,56 +2335,6 @@ export class BattleScene extends BaseScene {
       { key: 'fallback', icon: 'fallback', label: t('battle.ring.back'), tip: t('battle.tip.radialBack'), selected: sel.order === 'fallback', off: why, onTap: order('fallback') },
     ];
     return orders;
-  }
-
-
-  /** Where the ring may sit: the field between the left column, the chrome and the tutorial's narrator. */
-  private ringBounds(): { x0: number; y0: number; x1: number; y1: number } {
-    const { VW } = this.m;
-    let y0 = this.topH();
-    let y1 = this.stripTop() - (this.selUnit >= 0 ? 27 : 0);
-    const n = this.tutorial?.narratorRect();
-    if (n) {
-      if (n.y + n.h / 2 < this.m.VH / 2) y0 = Math.max(y0, n.y + n.h);
-      else y1 = Math.min(y1, n.y);
-    }
-    return { x0: 4, y0, x1: VW - 4 - MED_W, y1 };
-  }
-
-  /** The selected group's centre on screen -> the ring (every frame; hidden while a finger pans or drags). */
-  private placeRing(): void {
-    const r = this.ring;
-    if (!r) return;
-    const busy = !!this.pinch || (!!this.gesture && this.gesture.mode !== 'pending') || !!this.overlay || this.ringHidden;
-    r.setShown(!busy);
-    if (busy) return;
-    const mem = this.selUnit >= 0 ? [this.sim.units[this.selUnit]] : this.sim.activeMembers(this.selGroup);
-    if (!mem.length) return;
-    const cam = this.cameras.main;
-    const S = this.m.S;
-    let cx = 0;
-    let cy = 0;
-    for (const u of mem) {
-      cx += u.x;
-      cy += u.y;
-    }
-    cx /= mem.length;
-    cy /= mem.length;
-    const c = isoToScreen(cx, cy);
-    // the ring sits a little behind the group (against its facing) so its buttons leave the facing knob clear
-    const fr = this.selectedFrame();
-    let ox = 0;
-    let oy = 0;
-    if (fr) {
-      const f = isoToScreen(cx + fr.fx, cy + fr.fy);
-      const dx = f.x - c.x;
-      const dy = f.y - c.y;
-      const l = Math.hypot(dx, dy) || 1;
-      ox = (-dx / l) * 22;
-      oy = (-dy / l) * 22;
-    }
-    if (this.tutorial) r.setBounds(this.ringBounds());
-    r.place(((c.x - cam.worldView.x) * cam.zoom) / S + ox, ((c.y - 10 - cam.worldView.y) * cam.zoom) / S + oy);
   }
 
   /** The shape sheet (deployment and battle): five shapes with one line of meaning each. */
@@ -2477,7 +2392,7 @@ export class BattleScene extends BaseScene {
     }
   }
 
-  /** Open or close the shape sheet (the other categories have no sheet: orders live on the ring, abilities in their row). */
+  /** Open or close the shape sheet (the other categories have no sheet: orders live in the order row, abilities in their row). */
   openCategory(cat: BattleCategory | null): void {
     if (cat === 'formation') this.shapeOpen = !this.shapeOpen;
     else this.shapeOpen = false;
@@ -2587,7 +2502,7 @@ export class BattleScene extends BaseScene {
       });
     }
     // the order row shows the order in force: rebuild when that changes (orders are rare events)
-    if (this.sim.phase === 'battle' && this.ordersKey() !== this.ringKey) {
+    if (this.sim.phase === 'battle' && this.ordersKey() !== this.ordersBuilt) {
       this.buildHud();
       return;
     }
@@ -3014,9 +2929,8 @@ export class BattleScene extends BaseScene {
       },
       setPaused: (p: boolean) => s.setPaused(p),
       hideBanner: () => s.hideBanner(),
-      showRing: (on: boolean) => {
-        s.ringHidden = !on;
-      },
+      // the radial ring is gone (IN-01, ADR-0004): nothing on the field to show or hide
+      showRing: () => {},
       fieldTop: () => s.topH(),
       panelTop: () => s.m.VH - s.panelHeight(),
       toUi: (x: number, y: number) => {
