@@ -24,6 +24,6 @@ The ADRs are [ADR-0004](../../../../design/adr/ADR-0004-input-layer.md) (input l
 - `npx tsc --noEmit`: clean.
 - `npx vitest run`: 81 files, 941 tests passed (`tests/inputContract.test.ts`: 15 new tests).
 - `npx vite build`: OK.
-- `node scripts/layout-check.mjs --no-shots`: 24 configurations x 150 screens, **passed**, 0 new. That is 1776 distinct violations, 1770 of them text-size, covered by 98 per-screen entries; the other 6 are the old entries. No `tap` violation anywhere.
+- `node scripts/layout-check.mjs --no-shots`: 24 configurations x 150 screens, **passed**, 0 new. That is 1776 distinct violations, 1770 of them text-size, covered by 92 per-screen entries; the other 6 are the old entries. No `tap` violation anywhere.
 - `node scripts/smoke.mjs`: ALL PASS (45). `node scripts/tutorial-smoke.mjs`: PASSED (48).
 - Hover, checked by hand in Playwright on the Kit's v3 tab with a mouse. The tab labels, the volume stepper and the pager arrows show their long-press tip after 500 ms, and the tip closes when the mouse leaves.
