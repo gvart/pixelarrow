@@ -106,10 +106,13 @@ export const MOSAIC = {
   slab: 0x6e6860,
   slabHi: 0x8c857a,
   slabLo: 0x4c4741,
-  /** Disabled button / tile faces and their label. */
+  /** Disabled button / tile faces and their label (grey means disabled only, art bible 4.2). */
   off: 0x5f5a53,
   offHi: 0x75706a,
-  offText: 0xd6cebf,
+  /** v5: lighter, so a disabled label still reads (5.06:1 on `off`). */
+  offText: 0xe4ddd0,
+  /** Alerts only: the count badge disc (with a cream ring on stone) and error marks. */
+  alert: 0xb3261e,
   /** The meander band: gold-ochre on dark stone. */
   meander: 0xb48f4a,
   meanderHi: 0xdcb86e,
@@ -163,6 +166,52 @@ export const MOSAIC = {
 /** Rarity labels darkened to read on parchment. */
 export const RARITY_INK = { common: 0x4f483f, uncommon: 0x33581d, rare: 0x1f478a, epic: 0x62298a, legendary: 0x6e4600 } as const;
 
+/**
+ * Battle groups I-IV (art bible 4.2, D-6): ochre, olive, slate-teal, plum, each
+ * always shown with its cream numeral. No red group: red is for alerts.
+ */
+export const GROUP_COLOR = [0x8a5a12, 0x3f6b25, 0x2b5d6b, 0x5b3a7a] as const;
+
+/**
+ * Colour roles (art bible 4.2): what each colour means, one job each. Screens
+ * pick a role, not a hue. Grey is only `disabled`; red only `alert`, `badge`
+ * and `error` (tests/tokens.test.ts holds both rules).
+ */
+export const COLOR_ROLE = {
+  /** The single primary action of a screen. */
+  primary: MOSAIC.terra,
+  /** Every other enabled action: secondary, neutral, Close, Flee, Dismiss, steppers, unselected filters. */
+  secondary: MOSAIC.bronze,
+  /** Disabled controls only, always with a reason line or a lock. */
+  disabled: MOSAIC.off,
+  disabledText: MOSAIC.offText,
+  /** Destructive actions (with a confirm). */
+  destructive: MOSAIC.wine,
+  /** Real money (Telegram Stars) only. */
+  purchase: ACCENT.purchase,
+  /** Errors, losses and alerts: the alert disc, the count badge, error ink on parchment. */
+  alert: MOSAIC.alert,
+  badge: MOSAIC.alert,
+  error: MOSAIC.inkBad,
+  /** Rewards, Glory, chests, laurels; gold titles on stone. */
+  reward: MOSAIC.gold,
+  rewardInk: MOSAIC.inkGold,
+  /** Plaques and navigation. */
+  plaque: MOSAIC.teal,
+  nav: MOSAIC.tabBar,
+  /** Text: ink on parchment, cream on fills. */
+  text: MOSAIC.ink,
+  textSecondary: MOSAIC.inkSec,
+  onFill: MOSAIC.cream,
+  /** Gains, better stats. */
+  gain: MOSAIC.inkGood,
+  group1: GROUP_COLOR[0],
+  group2: GROUP_COLOR[1],
+  group3: GROUP_COLOR[2],
+  group4: GROUP_COLOR[3],
+} as const;
+export type ColorRole = keyof typeof COLOR_ROLE;
+
 // ================================================================== resources
 
 /**
@@ -215,23 +264,48 @@ export const RESERVED_ICONS: Record<string, string> = {
 // ================================================================== type, spacing, motion
 
 /**
- * Type scale (BitmapText font sizes; the kit's base size is 7 = 8 UI px em).
- * Display: Cormorant SC titles; body and numbers: Inter with tabular digits.
+ * Type scale (art bible 7.2), in kit units: BitmapText font sizes, where the
+ * base size 7 is 14 CSS px at the 390 reference (1 unit = 2 CSS px).
+ * Display sizes are Cinzel 700 in CAPS only (`TYPE_FACE.display`); body,
+ * captions, names and every number are Inter with tabular digits.
  */
 export const TYPE = {
-  /** Big numbers (balances, the floor medallion). */
-  display: 12,
-  /** Screen titles. */
-  title: 9,
-  /** Card titles, section headings. */
-  heading: 7.5,
+  /** Display L: the screen plaque. */
+  displayL: 10,
+  /** Display M: card titles in caps, primary buttons. */
+  displayM: 8,
+  /** Display S: tabs, small buttons. */
+  displayS: 7,
   /** Body text. */
   body: 7,
-  /** Captions, chips, words under icons. */
-  caption: 6,
-  /** Tiny plates (never body text). */
+  /** Captions, chips, words under icons: the smallest meaningful text (A11Y-09). */
+  caption: 6.5,
+  // ---- older names, kept as aliases
+  /** Big numbers (balances, the floor medallion). */
+  display: 12,
+  /** Screen titles (= displayL). */
+  title: 10,
+  /** Card titles, section headings (= displayM). */
+  heading: 8,
+  /** Decorative plates and flourishes only, never text that carries meaning (A11Y-09 exempts them). */
   micro: 5.5,
 } as const;
+
+/** Smallest size (kit units, 6.5 = 13 CSS px) of any text that carries meaning (A11Y-09, audit G10). */
+export const TEXT_MIN = 6.5;
+/** Smallest size of Cinzel display caps (7 = 14 CSS px). */
+export const DISPLAY_MIN = 7;
+/** Line height is 9/7 of the size; negative line spacing is never allowed. */
+export const LINE_RATIO = 9 / 7;
+/** Line height (kit units) of text at `size`. */
+export const lineHeight = (size: number): number => size * LINE_RATIO;
+
+/**
+ * Which face each kind of text uses (src/art/vectorFont.ts Face). `display` is
+ * Cinzel and is set in CAPS only (Cinzel's lower case is small caps and reads
+ * as noise at 7 units); mixed-case names and long titles go in `text`.
+ */
+export const TYPE_FACE = { display: 'roman', text: 'body' } as const;
 
 /** Spacing in UI px (4 pt grid at S = 2). */
 export const SPACE = { xs: 2, sm: 4, md: 6, lg: 10, xl: 14 } as const;
@@ -314,7 +388,16 @@ export const CONTRAST_PAIRS: { fg: number; bg: number; min: number; what: string
   ...[MOSAIC.stone1, MOSAIC.stone2, MOSAIC.stone3].map((bg) => ({ fg: TEXT.primary, bg, min: 4.5, what: 'number on stone chip' })),
   { fg: MOSAIC.cream, bg: MOSAIC.bronzeLo, min: 4.5, what: 'cream on bronze tile' },
   { fg: MOSAIC.gold, bg: MOSAIC.tabBar, min: 4.5, what: 'gold on the tab bar' },
-  { fg: MOSAIC.offText, bg: MOSAIC.off, min: 3, what: 'disabled label on grey stone' },
+  { fg: MOSAIC.offText, bg: MOSAIC.off, min: 4.5, what: 'disabled label on grey stone (still readable)' },
+  // ---- v5 (art bible 4.3, docs/v5/art/palette.json): badges, groups, edges
+  { fg: MOSAIC.cream, bg: MOSAIC.alert, min: 4.5, what: 'alert badge count' },
+  { fg: MOSAIC.gold, bg: MOSAIC.teal, min: 4.5, what: 'gold title on the plaque' },
+  ...GROUP_COLOR.map((bg, i) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: `group ${i + 1} numeral` })),
+  ...[MOSAIC.terra, MOSAIC.bronze, MOSAIC.off].map((fg) => ({ fg, bg: MOSAIC.parch, min: 3, what: 'button edge on parchment' })),
+  { fg: MOSAIC.parch, bg: MOSAIC.page, min: 3, what: 'parchment card on the basalt page' },
+  { fg: MOSAIC.parchEdge, bg: MOSAIC.parch, min: 3, what: 'card inked edge, dividers' },
+  { fg: MOSAIC.alert, bg: MOSAIC.parch, min: 3, what: 'alert badge on parchment' },
+  { fg: MOSAIC.cream, bg: MOSAIC.stone2, min: 3, what: 'alert badge on stone: its cream ring' },
   ...[MOSAIC.wine, MOSAIC.wineLo].map((bg) => ({ fg: MOSAIC.cream, bg, min: 4.5, what: 'cream on destructive wine' })),
   ...[MOSAIC.bronzeHi, 0xb98d52].map((bg) => ({ fg: MOSAIC.ink, bg, min: 4.5, what: 'ink on the lit bronze button' })),
   { fg: MOSAIC.cream, bg: ACCENT.purchase, min: 4.5, what: 'cream on purchase blue' },
