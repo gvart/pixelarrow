@@ -1,0 +1,34 @@
+server/test/simVersion.test.ts
+  s_697bdc25a7c420::t_46523aaa03108e 12-16,204-205,207-217,220-232,234,307-361
+  s_697bdc25a7c420::t_bf4b131ec1b55c 362
+server/src/duel/duelDO.ts
+  s_697bdc25a7c420::t_3ef3cdf78a2e18 30,119,143-144
+server/src/duel/live.ts
+  s_697bdc25a7c420::t_64c022a64c5dae 144-145,153,159,162
+server/src/duel/matchmaker.ts
+  s_697bdc25a7c420::t_c9004ad0e7c485 22,34-35,42-53,88,143,168,176
+server/src/index.ts
+  s_697bdc25a7c420::t_a5b8bc599a800f 135-136,143,145,153
+server/src/online/duel.ts
+  s_697bdc25a7c420::t_4442c63f8c6c21 19,56-57,109-112,161,185-190,206
+server/src/region.ts
+  s_697bdc25a7c420::t_3e21c3328d109f 22,52-53,84,348,431-441
+server/src/simVersion.ts
+  s_697bdc25a7c420::t_c3b39a860dc555 23-32,40,45,59-61,63,67,70-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8bf19de82ac08cfc18c56aba8a0ae4a50c935456",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
