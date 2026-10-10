@@ -1,0 +1,20 @@
+src/sim/stats.ts
+  s_697bdc25a7c420::t_0ad84af1dda754 81-94,101,103
+  s_697bdc25a7c420::t_35fff77aaaeafb 95-100,102,303
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e8144060fb803af81e6abb923d553a95c4d652d5",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
