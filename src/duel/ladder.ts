@@ -14,12 +14,13 @@ import { BASE_ITEMS, type Item, type Rarity } from '../data/items';
 import type { Hero } from '../data/units';
 import { TRAITS } from '../data/traits';
 import { gearTotal } from '../game/gear';
-import { buildArmy, type ArmyMix } from '../game/enemy';
+import { buildArmy, doctrineFor, type ArmyMix } from '../game/enemy';
 import { grantXp, makeItem, rollBeastRarity, rollRarity, setBotLevel, type IdSource } from '../game/heroes';
 import { randomSite, type BattleSite } from '../world/battlefield';
 import { DEFAULT_FORMATIONS, scopeHero } from '../online/rules';
 import { onlineBattleSetup } from '../online/battle';
-import type { BattleSetup } from '../sim/types';
+import { DEFAULT_DOCTRINE, type BattleSetup, type DoctrineId } from '../sim/types';
+import type { Culture } from '../data/names';
 import { DUEL_RULES, heroPoints, teamPoints } from './rules';
 import { SETS } from '../data/sets';
 import { CHAPTER_SET, LADDER_NAMED, SOURCES, armyPick, legendaryHoard, pieceDefs, pityChest } from '../game/sources';
@@ -66,6 +67,24 @@ export interface Floor {
   /** Points of the enemy army (shown to the player). */
   points: number;
   reward: { firstGlory: number; farmGlory: number; xp: number };
+  /** How the floor's bot fights (floorDoctrine); missing (old data) = steady. */
+  doctrine: DoctrineId;
+}
+
+/**
+ * The doctrine of each ladder chapter (design/gdd/ai-doctrines.md R4): the
+ * enemy's play gets harder to read as the player climbs.
+ */
+export const CHAPTER_DOCTRINE: readonly DoctrineId[] = ['steady', 'swarm', 'rush', 'hammer', 'fury'];
+
+/**
+ * A floor's doctrine (ai-doctrines.md R4): a chapter floor fights its
+ * chapter's doctrine; a boss floor fights in its army's own school, the
+ * mercenaries' culture rule (greek steady, phoenician hammer, celtic rush).
+ */
+export function floorDoctrine(floor: number, culture: Culture): DoctrineId {
+  if (isBoss(floor)) return doctrineFor('mercs', culture);
+  return CHAPTER_DOCTRINE[chapterOf(floor) - 1] ?? DEFAULT_DOCTRINE;
 }
 
 export function isBoss(floor: number): boolean {
@@ -101,7 +120,8 @@ export function ladderFloor(floor: number): Floor {
   // A full army at the floor's level, fitted to its point target: men leave
   // first (flankers and reserves go before the line), then levels; levels
   // rise (at most two above the floor's) only while under the target.
-  const heroes = buildArmy(rng, ids, { count: DUEL_RULES.teamMax, level, tier, targetPower: 0, mix, tune: false }).heroes;
+  const army = buildArmy(rng, ids, { count: DUEL_RULES.teamMax, level, tier, targetPower: 0, mix, tune: false });
+  const heroes = army.heroes;
   for (const h of heroes) setBotLevel(h, level);
   const minMen = Math.min(DUEL_RULES.teamMax, 3 + Math.floor(f / 6));
   for (let guard = 0; guard < 200; guard++) {
@@ -133,12 +153,20 @@ export function ladderFloor(floor: number): Floor {
     site: randomSite(rng),
     points: teamPoints(heroes),
     reward: floorReward(f),
+    doctrine: floorDoctrine(f, army.culture),
   };
 }
 
-/** The battle of a ladder ticket: the player's team (side 0) against the floor's bots (side 1) on its field. */
+/**
+ * The battle of a ladder ticket: the player's team (side 0) against the
+ * floor's bots (side 1, under the floor's doctrine) on its field. Built by the
+ * server and stored in the ticket, so an old ticket keeps the setup it was
+ * issued with (ADR-0001).
+ */
 export function ladderSetup(seed: number, team: Hero[], formations: FormationType[], floor: Floor): BattleSetup {
-  return onlineBattleSetup(seed, { heroes: team, formations, bot: false }, { heroes: floor.heroes, formations: floor.formations, bot: true }, floor.site);
+  const setup = onlineBattleSetup(seed, { heroes: team, formations, bot: false }, { heroes: floor.heroes, formations: floor.formations, bot: true }, floor.site);
+  setup.armies[1].doctrine = floor.doctrine ?? DEFAULT_DOCTRINE;
+  return setup;
 }
 
 /** The floors a player may fight: every cleared floor and the next one. */
