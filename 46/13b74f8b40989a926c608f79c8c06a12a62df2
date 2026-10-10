@@ -1,0 +1,27 @@
+docs/v5/art/palette.json
+  s_697bdc25a7c420::t_0f7b4c7531b445 81
+  s_697bdc25a7c420::t_2fd0f68f6dff36 1-77,79-80,82-95
+  s_697bdc25a7c420::t_2489ce31b6cf5a 78
+scripts/art/lib/ops.mjs
+  s_697bdc25a7c420::t_81519aed8b16b1 1-311
+scripts/art/contrast.mjs
+  s_697bdc25a7c420::t_9e1a326e0c6de1 1-50
+scripts/art/lib/png.mjs
+  s_697bdc25a7c420::t_53c07ddaac1977 1-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4613b74f8b40989a926c608f79c8c06a12a62df2",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
