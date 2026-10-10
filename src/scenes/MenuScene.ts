@@ -164,11 +164,11 @@ export class MenuScene extends BaseScene {
   private continueCampaign(): void {
     const w = state.campaign.world;
     if (w.s.inside >= 0) this.scene.start('Settlement', { id: w.s.inside });
-    else this.scene.start('World');
+    else this.scene.start('World', {});
   }
 
   private newCampaign(): void {
-    void state.reset().then(() => this.scene.start('World'));
+    void state.reset().then(() => this.scene.start('World', {}));
   }
 
   /** "New campaign?" (the shared confirmation; Settings → Account opens the same). */

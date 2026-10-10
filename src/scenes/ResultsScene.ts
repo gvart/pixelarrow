@@ -105,7 +105,7 @@ export class ResultsScene extends BaseScene {
     this.confetti = [];
     const report = data.report ?? this.offlineReport();
     if (!report) {
-      this.scene.start('Army');
+      this.scene.start('Army', {});
       return;
     }
     // Reopened after the app closed mid-battle: the battle was fought out (V5-011).
@@ -712,7 +712,7 @@ export class ResultsScene extends BaseScene {
       void state.save();
     }
     this.chosen.clear();
-    if (last?.partyId !== undefined) this.scene.start('World');
+    if (last?.partyId !== undefined) this.scene.start('World', {});
     else this.scene.start('Army', { from: 'World' });
   }
 

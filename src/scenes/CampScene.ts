@@ -175,7 +175,7 @@ export class CampScene extends BaseScene {
       void this.fetch();
     } else {
       if (!state.campaign.world.camp) {
-        this.scene.start('World');
+        this.scene.start('World', {});
         return;
       }
       this.rebuild();
@@ -195,7 +195,7 @@ export class CampScene extends BaseScene {
 
   private goBack(): void {
     if (this.d.mode === 'online') this.scene.start(this.d.back?.scene ?? 'Online', this.d.back?.data ?? { focus: this.d.loc });
-    else this.scene.start('World');
+    else this.scene.start('World', {});
   }
 
   // ================================================================ sprites
@@ -998,7 +998,7 @@ export class CampScene extends BaseScene {
         const got = w.breakCamp();
         void state.save();
         if (got > 0) toast(this, t('cs.struck', { n: got }), 'good');
-        this.scene.start('World');
+        this.scene.start('World', {});
       },
     });
   }

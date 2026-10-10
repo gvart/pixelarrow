@@ -330,7 +330,7 @@ export class DuelScene extends BaseScene {
   private back(): void {
     if (Date.now() - this.openedAt < BACK_GUARD_MS) return;
     if (this.subView && !this.search && !this.found && this.profile && this.st === 'ready') return this.up();
-    this.scene.start('Menu');
+    this.scene.start('Menu', {});
   }
 
   /** The view's back arrow: a full view goes back to the mode it was opened from (a leaderboard or the raid picks to the Arena). */
@@ -2752,7 +2752,7 @@ export function backToDuel(game: Phaser.Game, data: DuelSceneData): void {
   } catch (e) {
     console.error('[duel] the hub failed to open', e);
     game.scene.stop('Duel');
-    game.scene.start('Menu');
+    game.scene.start('Menu', {});
   }
 }
 

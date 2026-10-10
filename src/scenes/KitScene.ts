@@ -36,7 +36,7 @@ export class KitScene extends BaseScene {
   create(data: KitData): void {
     this.initUi();
     this.tab = data?.tab ?? 0;
-    this.screen({ back: () => this.scene.start('Menu') });
+    this.screen({ back: () => this.scene.start('Menu', {}) });
     const { VW } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, this.m.VH, SURFACE.bg).setOrigin(0, 0));
     // the sub-screen shell demo (tab 6) is a whole page of its own: no gallery title or tabs under it

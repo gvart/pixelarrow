@@ -1319,7 +1319,7 @@ export class BattleScene extends BaseScene {
     state.last = settleBattle(state.campaign, state.pending!, this.sim, this.enemyHeroes, lastBattle.heroes);
     state.pending = null;
     void state.save();
-    this.scene.start('Results');
+    this.scene.start('Results', {});
   }
 
   private confirmLeaveDeploy(): void {
@@ -1351,7 +1351,7 @@ export class BattleScene extends BaseScene {
     }
     const p = state.pending;
     if (p && p.partyId !== undefined) this.scene.start('World', { encounter: p.partyId });
-    else this.scene.start('Army');
+    else this.scene.start('Army', {});
   }
 
   /** Visuals for an ability: icon popping above the user, bursts, waves, sparkles. */

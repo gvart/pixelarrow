@@ -54,7 +54,7 @@ export class FirstRunScene extends BaseScene {
     this.dialog = null;
     this.initUi();
     const root = this.mode === 'offer' || this.mode === 'resume';
-    const back = root ? null : () => this.scene.start('Menu');
+    const back = root ? null : () => this.scene.start('Menu', {});
     this.screen({ back });
     ensureNarratorTextures(this);
     ensureFonts(this);
@@ -252,6 +252,6 @@ export class FirstRunScene extends BaseScene {
     state.hasSave = true;
     const w = state.campaign.world;
     if (w.s.inside >= 0) this.scene.start('Settlement', { id: w.s.inside });
-    else this.scene.start('World');
+    else this.scene.start('World', {});
   }
 }

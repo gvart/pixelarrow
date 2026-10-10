@@ -35,7 +35,7 @@ export class BeastTrialScene extends BaseScene {
   create(data?: TrialData): void {
     this.initUi();
     this.from = data?.from ?? 'Menu';
-    const back = () => this.scene.start(this.from);
+    const back = () => this.scene.start(this.from, {});
     this.screen({ back });
     const { VW, VH, S } = this.m;
     const frame = new ScreenFrame(this, VW, VH);
@@ -92,6 +92,6 @@ export class BeastTrialScene extends BaseScene {
     const enemy = beastEnemy(enc, beastLevel(enc), seed, state.campaign.data, state.campaign.armyClasses());
     const site: BattleSite = { base: enc === 'kraken' ? 'beach' : enc === 'cyclops' || enc === 'titan' ? 'hills' : 'plain', river: false, coast: enc === 'kraken', rocky: false, woods: 0 };
     state.pending = { enemy, seed, label: encounterName(enc), site };
-    this.scene.start('Battle');
+    this.scene.start('Battle', {});
   }
 }
