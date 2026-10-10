@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { armySpec } from '../src/game/armySpec';
 import { classSquad } from '../src/dev/classBalance';
+import { ordersRows, runFocusSlingers } from '../src/dev/ordersBalance';
 import { Battle, RULES, TICK_RATE } from '../src/sim/battle';
 import { Rng } from '../src/sim/rng';
 import type { ClassId } from '../src/data/classes';
@@ -238,6 +239,19 @@ describe('focus fire (formations-orders.md R4)', () => {
     b.issue(0, { kind: 'focus', group: 1, target: G1 });
     b.issue(0, { kind: 'focus', group: 1, target: -1 });
     expect(b.groups[1].focus).toBe(-1);
+  });
+});
+
+describe('orders balance rows (src/dev/ordersBalance.ts)', () => {
+  it('prints the FO-01 rows against their GDD targets', () => {
+    const rows = ordersRows(4);
+    expect(rows.map((r) => r.target)).toEqual(expect.arrayContaining(['flanker >= 52%', '>= 30%']));
+  });
+
+  it('focus fire silences reserve slingers sooner than nearest fire (a few seeds)', () => {
+    const seeds = [22001, 22005, 22007, 22009];
+    const t = (focus: boolean) => seeds.reduce((a, s) => a + runFocusSlingers(s, focus), 0);
+    expect(t(true)).toBeLessThan(t(false) * 0.7);
   });
 });
 

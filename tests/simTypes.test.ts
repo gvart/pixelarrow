@@ -16,7 +16,6 @@ import {
   type SimEvent,
 } from '../src/sim/types';
 import { doctrineRows } from '../src/dev/doctrineBalance';
-import { ordersRows } from '../src/dev/ordersBalance';
 import { worksRows } from '../src/dev/worksBalance';
 import { arcRows } from '../src/dev/arcBalance';
 import { standardSetup } from './helpers';
@@ -89,9 +88,8 @@ describe('sim train 2 declarations', () => {
     expect(events.map((e) => e.type)).toEqual(['cohesion', 'disordered', 'armyBreak', 'stakesBreak', 'standardLost']);
   });
 
-  it('the train 2 harness modules have no rows until their stories land', () => {
+  it('the train 2 harness modules have no rows until their stories land (orders: FO-01, tests/orders.test.ts)', () => {
     expect(doctrineRows(4)).toEqual([]);
-    expect(ordersRows(4)).toEqual([]);
     expect(worksRows(4)).toEqual([]);
     expect(arcRows(4)).toEqual([]);
   });
