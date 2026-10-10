@@ -1,0 +1,27 @@
+src/online/neutralDoctrine.ts
+  s_697bdc25a7c420::t_69f334911ee967 1-41
+server/test/neutrals.test.ts
+  s_697bdc25a7c420::t_dda817fcae2cb8 1-74,78-92,94-110
+  s_697bdc25a7c420::t_d30cd66a73873b 93
+  s_697bdc25a7c420::t_e9083ec0f75fbe 75-77
+server/src/online/bosses.ts
+  s_697bdc25a7c420::t_eab4779870b51c 32,39,287-291
+server/src/online/attack.ts
+  s_697bdc25a7c420::t_eab4779870b51c 26,30,228-229,231-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e5455509663b2c495ad96de8662cf77191133ff9",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
