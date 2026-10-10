@@ -41,8 +41,9 @@ describe('unit classes (data)', () => {
         continue;
       }
       expect(c.tree).toHaveLength(5);
-      expect(new Set(c.tree).size).toBe(5);
-      for (const p of c.tree) expect(PERKS[p], `${c.id}: ${p}`).toBeTruthy();
+      // five tiers of [A, B] (AB-01, tests/perkPaths.test.ts)
+      expect(new Set(c.tree.flat()).size).toBe(10);
+      for (const p of c.tree.flat()) expect(PERKS[p], `${c.id}: ${p}`).toBeTruthy();
     }
     expect(SOLDIER_CLASSES.length).toBe(18);
   });
@@ -87,9 +88,9 @@ describe('unit classes (data)', () => {
     expect(perkBlocker(h, 'shield_drill')).toBe('Another class');
     expect(perkBlocker({ level: 3, perks: [], cls: 'hoplite' }, 'shield_drill')).toBeNull();
     expect(PERK_LEVELS).toHaveLength(5);
-    // bots walk down their own tree
+    // bots walk down their own tree (path A while the B options are not wired: AB-02, AB-03)
     const c = hero('companion', 10);
-    expect(c.perks).toEqual(CLASSES.companion.tree);
+    expect(c.perks).toEqual(CLASSES.companion.tree.map((t) => t[0]));
   });
 });
 
