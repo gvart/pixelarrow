@@ -22,7 +22,7 @@ import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import { SPACING, formationSlots, rightOf, type FormationType } from '../sim/formation';
-import { KNOB_PACES, dragMove, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
+import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import { hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
@@ -1499,7 +1499,8 @@ export class BattleScene extends BaseScene {
           this.drag = null;
           this.dragPreview = null;
           if (plan) {
-            this.command({ kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage });
+            // the knob sends `face` in battle, which keeps the order (controls.md R2.2)
+            this.command(dragOrder(plan, this.sim.phase));
             this.tutorialEvent({ kind: 'sling', carried: plan.kind === 'move', aimed: plan.kind === 'turn', fx: plan.fx, fy: plan.fy, group: this.selGroup });
           }
           break;
@@ -1592,7 +1593,9 @@ export class BattleScene extends BaseScene {
     // thresholds are in paces at the default zoom (1: a pace is 36 px across a tile) and scale with zoom
     const k = 1 / zoomUnits(this.cameras.main.zoom);
     haptic('light');
-    return dragStart(kind, fr, press.x, press.y, k);
+    // in battle the knob sends `face`, which turns a group about its anchor: the preview pivots there too
+    const g = kind === 'turn' && this.sim.phase === 'battle' ? { ...fr, px: undefined, py: undefined } : fr;
+    return dragStart(kind, g, press.x, press.y, k);
   }
 
   /** Light haptic tick when the facing snaps to a straight field direction. */

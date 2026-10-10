@@ -17,10 +17,17 @@
  * Cancel (no order): a move lifted back within CANCEL of its start point, or a
  * turn that changed the facing by less than TURN_MIN_DEG.
  *
+ * The order a drag sends (dragOrder, controls.md R2.2): a move is a `form`; a
+ * turn is a `form` in deployment and a `face` in battle, which turns the group
+ * and keeps its order (a charge goes on). `face` turns a holding group about
+ * its anchor, so in battle the scene leaves the pivot unset (the anchor).
+ *
  * All distances are multiplied by the scale `k` the scene passes (1 / camera
  * zoom), so the gestures feel the same on screen at any zoom.
  */
 import { rightOf } from '../sim/formation';
+import type { Phase } from '../sim/battle';
+import type { Order } from '../sim/types';
 import { clamp } from '../util/math';
 
 /** The facing knob (the turn handle) sits this many paces ahead of the front-rank centre. */
@@ -165,4 +172,13 @@ export function dragPath(kind: DragKind, g: DragGroup, path: [number, number][],
   const s = dragStart(kind, g, path[0][0], path[0][1], k);
   for (const [x, y] of path.slice(1)) dragMove(s, x, y);
   return dragPlan(s);
+}
+
+/**
+ * The order lifting the finger sends for this plan (group -1: the scene's
+ * command() fills in the selection). A turn in battle is `face`.
+ */
+export function dragOrder(plan: DragPlan, phase: Phase): Order {
+  if (plan.kind === 'turn' && phase === 'battle') return { kind: 'face', group: -1, fx: plan.fx, fy: plan.fy };
+  return { kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage };
 }
