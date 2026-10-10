@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boxOf, centreOf, edgePointer, followCentre, isOnScreen, openingFrame, union, type Box } from '../src/ui/battleCamera';
+import { boxOf, centreOf, edgePointer, followCentre, isOnScreen, keepInView, openingFrame, union, type Box } from '../src/ui/battleCamera';
 import { isoToScreen } from '../src/art/iso';
 
 const box = (x0: number, y0: number, x1: number, y1: number): Box => ({ x0, y0, x1, y1 });
@@ -36,7 +36,7 @@ describe('opening frame (controls.md R7, F2)', () => {
       [8, 13],
       [16, 13],
     ].map(([x, y]) => isoToScreen(x, y));
-    const armies = boxOf(pts, 10, 44, 4);
+    const armies = boxOf(pts, 10, 44, 4)!;
     const view = { w: 390, h: 844 - 46 - 300 }; // field band between the bars
     const f = openingFrame(view.w, view.h, armies);
     expect(f.fits).toBe(true);
@@ -86,6 +86,13 @@ describe('follow (controls.md R8.1)', () => {
     expect(followCentre(null, null, { x: 7, y: 8 }, view, 20)).toEqual({ x: 7, y: 8 });
     const c = followCentre(null, box(1000, 1000, 1010, 1010), { x: 0, y: 0 }, view, 20);
     expect(isOnScreen(centreOf(box(1000, 1000, 1010, 1010)), { x0: c.x - 200, y0: c.y - 150, x1: c.x + 200, y1: c.y + 150 })).toBe(true);
+  });
+
+  it('the hard keep stops a lagging camera from losing a fast group', () => {
+    // the eased camera is still at x = 0; the group already ran to 300..340
+    const c = keepInView({ x: 0, y: 0 }, box(300, -10, 340, 10), view, 0);
+    expect(c.x).toBe(340 - view.w / 2);
+    expect(keepInView({ x: 5, y: 6 }, null, view, 0)).toEqual({ x: 5, y: 6 });
   });
 
   it('a melee alone is centred as before', () => {

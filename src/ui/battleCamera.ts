@@ -26,6 +26,8 @@ export const OPEN_ZOOM_MAX = 1;
 export const OPEN_ZOOM_STEP = 0.25;
 /** Follow keeps the selected group this far (world px at 1x) inside the view's edge. */
 export const FOLLOW_MARGIN = 24;
+/** How fast (world px/s) follow may pull the view to keep the selected group in it: well above any man's run at 3x. */
+export const FOLLOW_CATCH_UP = 1500;
 /** An edge pointer sits this far (UI px) inside the field band. */
 export const POINTER_INSET = 22;
 /** Two taps on the same group card within this many ms centre the camera on it (R8.2). */
@@ -87,7 +89,16 @@ export function openingFrame(viewW: number, viewH: number, armies: Box): { zoom:
  */
 export function followCentre(melee: Box | null, group: Box | null, fallback: Pt, view: { w: number; h: number }, margin: number): Pt {
   const both = melee ? union(melee, group)! : null;
-  const c = both ? centreOf(both) : { ...fallback };
+  return keepInView(both ? centreOf(both) : { ...fallback }, group, view, margin);
+}
+
+/**
+ * Move a camera centre `c` the least it takes to keep the whole `group` box
+ * `margin` inside a `view` (world px) around it; a group bigger than the view
+ * is centred. Follow eases toward followCentre, then applies this hard (margin
+ * 0), so a fast group never outruns the smoothing.
+ */
+export function keepInView(c: Pt, group: Box | null, view: { w: number; h: number }, margin: number): Pt {
   if (!group) return c;
   const keep = (v: number, lo: number, hi: number, half: number): number => {
     const min = hi - half + margin; // the centre at least this far along, or the group's far edge is cut
