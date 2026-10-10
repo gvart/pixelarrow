@@ -109,6 +109,25 @@ export const RULES = {
   disorderS: 3,
   disorderBlock: 0.15,
   disorderScatter: 0.3,
+  /**
+   * formations-orders.md R5, F3 (FO-03): when a group's routed flag rises, its
+   * standing men lose cohesionSelf morale and every standing man of its side
+   * whose group centre is within cohesionRadius paces loses cohesionNear. One
+   * shock per group per cohesionCooldownS.
+   */
+  cohesionSelf: 10,
+  cohesionNear: 5,
+  cohesionRadius: 6,
+  cohesionCooldownS: 10,
+  /**
+   * formations-orders.md R6, F2 (FO-03): checked once a second after the first
+   * contact. A side breaks when its active men are at most armyBreakShare of
+   * its men at the start and the enemy has at least armyBreakRatio times as
+   * many; its active men then lose armyBreakDrain morale a second and cannot rally.
+   */
+  armyBreakShare: 0.25,
+  armyBreakRatio: 3,
+  armyBreakDrain: 4,
 };
 
 /**
@@ -211,6 +230,13 @@ export class Battle {
   private feintBlow = new Set<number>();
   /** Orb groups that lost a man this tick: the ring contracts at the end of the tick (V5-041). */
   private orbLoss = new Set<number>();
+  /** The tick each group may next give a cohesion shock (R5). */
+  private shockAt: number[] = [];
+  /** Men (not beasts) on each side at the start, for the army-break test (R6). */
+  private startMen: [number, number] = [0, 0];
+  /** Each side's army-break state at the last one-second check, and whether its event went out (R6). */
+  private broken: [boolean, boolean] = [false, false];
+  private brokeOnce: [boolean, boolean] = [false, false];
   /** Some unit is not a man-sized disc (riders, chariots, bears): per-unit radii apply. */
   readonly big: boolean;
   /** Riders or animals take part (the bot then uses its cavalry / beast tactics). */
@@ -341,6 +367,7 @@ export class Battle {
         bot.deploy(this);
       }
     });
+    for (const u of this.units) if (!this.beast(u)) this.startMen[u.side]++;
     if (hasPowers(allStats)) this.pw = new PowerSystem(this);
   }
 
@@ -916,7 +943,10 @@ export class Battle {
     const targets: number[] = [];
     for (const a of this.units) {
       if (a.side !== side || !this.isAlive(a)) continue;
-      if (a.state === 'routing') {
+      if (a.state === 'routing' && !this.canRally(a)) {
+        // a broken army's horn restores heart but turns no routers back (R6)
+        a.morale = Math.max(a.morale, a.stats.morale * HORN_RULES.rallyTo);
+      } else if (a.state === 'routing') {
         a.state = 'ready';
         a.momentum = 0;
         a.morale = Math.max(a.morale, a.stats.morale * HORN_RULES.rallyTo);
@@ -1050,7 +1080,10 @@ export class Battle {
         for (const a of this.units) {
           if (a.side !== u.side || !this.isAlive(a)) continue;
           if ((a.x - u.x) ** 2 + (a.y - u.y) ** 2 > r2) continue;
-          if (a.state === 'routing') {
+          if (a.state === 'routing' && !this.canRally(a)) {
+            // a broken army: the rally restores heart but turns no routers back (R6)
+            a.morale = Math.max(a.morale, a.stats.morale * (RULES.rallyFraction + 0.1));
+          } else if (a.state === 'routing') {
             a.state = 'ready';
             a.momentum = 0;
             a.morale = Math.max(a.morale, a.stats.morale * (RULES.rallyFraction + 0.1));
@@ -1264,6 +1297,7 @@ export class Battle {
     this.updateProjectiles();
     this.contractOrbs();
     this.updateGroupStates();
+    if (this.tick % TICK_RATE === 0) this.updateArmyBreak();
     this.checkEnd();
   }
 
@@ -1887,7 +1921,7 @@ export class Battle {
       u.engaged = false;
       return;
     }
-    if (u.morale >= u.stats.morale * RULES.rallyFraction && nearD > 5 && u.stats.kind !== 'animal') {
+    if (u.morale >= u.stats.morale * RULES.rallyFraction && nearD > 5 && u.stats.kind !== 'animal' && this.canRally(u)) {
       u.state = 'ready';
       u.momentum = 0;
       this.events.push({ type: 'rally', tick: this.tick, unit: u.id });
@@ -2462,9 +2496,95 @@ export class Battle {
       if (!g.routed && routing > 0 && gone / mem.length >= 0.5) {
         g.routed = true;
         this.events.push({ type: 'rout', tick: this.tick, side: g.side, group: g.id });
+        if (this.tick >= (this.shockAt[g.id] ?? 0)) this.cohesionShock(g);
       } else if (g.routed && gone / mem.length < 0.5) {
         g.routed = false;
       }
+    }
+  }
+
+  /**
+   * The standard-aura hook of the cohesion shock (formations-orders.md F3,
+   * V5-024): 0.5 for a man inside a standard aura, else 1. The standard comes
+   * with AB-03; until then no man stands in one. Pure: no state changes.
+   */
+  shockFactor(_u: SimUnit): number {
+    return 1;
+  }
+
+  /** The centre of a group's living men (standing or running), or null. */
+  private groupCentre(groupId: number): { x: number; y: number } | null {
+    let x = 0;
+    let y = 0;
+    let n = 0;
+    for (const u of this.units) {
+      if (u.group !== groupId || !this.isAlive(u)) continue;
+      x += u.x;
+      y += u.y;
+      n++;
+    }
+    return n === 0 ? null : { x: x / n, y: y / n };
+  }
+
+  /** formations-orders.md R5: a group just routed; shake its standing men and the groups near it. */
+  private cohesionShock(g: SimGroup): void {
+    this.shockAt[g.id] = this.tick + RULES.cohesionCooldownS * TICK_RATE;
+    const c = this.groupCentre(g.id);
+    const near: boolean[] = [];
+    if (c) {
+      const r2 = RULES.cohesionRadius * RULES.cohesionRadius;
+      for (const o of this.groups) {
+        if (o.side !== g.side || o.id === g.id || o.disbanded) continue;
+        const oc = this.groupCentre(o.id);
+        near[o.id] = !!oc && (oc.x - c.x) ** 2 + (oc.y - c.y) ** 2 <= r2;
+      }
+    }
+    const targets: number[] = [];
+    for (const u of this.units) {
+      if (u.side !== g.side || u.state !== 'ready') continue;
+      const base = u.group === g.id ? RULES.cohesionSelf : near[u.group] ? RULES.cohesionNear : 0;
+      if (base <= 0) continue;
+      u.morale -= base * this.shockFactor(u);
+      targets.push(u.id);
+    }
+    this.events.push({ type: 'cohesion', tick: this.tick, side: g.side, group: g.id, targets });
+  }
+
+  /** Beasts (animals, myth bosses) keep their own morale rules: they never break (R6). */
+  private beast(u: SimUnit): boolean {
+    return u.stats.kind === 'animal' || u.stats.boss !== undefined;
+  }
+
+  /** Whether a side's army is broken (formations-orders.md R6), as of the last one-second check. */
+  isBroken(side: Side): boolean {
+    return this.broken[side];
+  }
+
+  /** A routing man may turn back: not while his army is broken (R6). */
+  private canRally(u: SimUnit): boolean {
+    return !this.broken[u.side] || this.beast(u);
+  }
+
+  /** formations-orders.md R6, F2: the once-a-second army-break test and its morale drain. */
+  private updateArmyBreak(): void {
+    const contact = this.firstContact[0] || this.firstContact[1];
+    const men: [number, number] = [0, 0];
+    const all: [number, number] = [0, 0];
+    for (const u of this.units) {
+      if (u.state !== 'ready') continue;
+      all[u.side]++;
+      if (!this.beast(u)) men[u.side]++;
+    }
+    for (const side of [0, 1] as Side[]) {
+      const a = men[side];
+      this.broken[side] =
+        contact && a > 0 && a <= RULES.armyBreakShare * this.startMen[side] && a * RULES.armyBreakRatio <= all[1 - side];
+      if (!this.broken[side]) continue;
+      if (!this.brokeOnce[side]) {
+        this.brokeOnce[side] = true;
+        this.events.push({ type: 'armyBreak', tick: this.tick, side });
+      }
+      for (const u of this.units) if (u.side === side && u.state === 'ready' && !this.beast(u)) u.morale -= RULES.armyBreakDrain;
     }
   }
 
