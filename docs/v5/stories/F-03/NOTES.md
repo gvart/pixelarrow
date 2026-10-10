@@ -30,6 +30,11 @@ Builds on [ADR-0005](../../../../design/adr/ADR-0005-ui-kit.md) (F-02). The rule
 
 What to look for: the X is gone where a footer Close exists (shop, perk sheet) and the footer Close is gone from the recruit card; the Settings language row is all Cinzel at a readable size in ru; the Kit tabs are one style; the Army SHEET badge is a dot, not "!".
 
-## Gates
+## Gates (2026-10-10, production build via `vite preview`)
 
-See the final report (filled after the run).
+- `npx tsc --noEmit`: clean.
+- `npx vitest run`: 77 files, 871 tests passed (`tests/overlays.test.ts`: 16 new; two of its rules were mutated and the tests failed, then restored).
+- `npx vite build`: OK.
+- `node scripts/layout-check.mjs`: 24 configurations x 150 screens: 6 distinct violations, all already allowlisted, **0 new**. One screen (ru plain 390x844 `online-hex-own`) failed to stage because the disk was full (ENOSPC, other agents' files); re-run alone it passed with 0 violations.
+- `node scripts/smoke.mjs`: ALL PASS (45).
+- `node scripts/tutorial-smoke.mjs`: PASSED (48).
