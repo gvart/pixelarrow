@@ -1,0 +1,20 @@
+docs/v5/balance/AB-01.md
+  s_697bdc25a7c420::t_8345aa0198f735 39-49
+  s_697bdc25a7c420::t_b853f836d3ebf2 1-38,50-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1b9158ead35b33bcce588d0dce0a43d816090986",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
