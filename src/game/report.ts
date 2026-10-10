@@ -79,6 +79,10 @@ export interface BattleReport {
   online: 'attack' | 'duel' | null;
   /** Extra lines (siege progress, "hex taken", friendly duel). */
   notes: string[];
+  /** The enemy quit the field (ai-doctrines.md R8): a victory without the win bonus. */
+  enemyRetreated: boolean;
+  /** Gold for a band captain killed or captured (ai-doctrines.md R6), part of `gold`; 0 = none. */
+  bounty: number;
 }
 
 /** Per-unit numbers of a finished battle. */
@@ -124,6 +128,9 @@ export interface ReportInput {
   verified?: boolean | null;
   online?: 'attack' | 'duel' | null;
   notes?: string[];
+  /** The side that ordered a retreat (the sim's `retreated`); the enemy's is a victory for `side`. */
+  retreated?: Side | null;
+  bounty?: number;
 }
 
 export function buildReport(i: ReportInput): BattleReport {
@@ -180,7 +187,14 @@ export function buildReport(i: ReportInput): BattleReport {
     verified: i.verified ?? null,
     online: i.online ?? null,
     notes: i.notes ?? [],
+    enemyRetreated: enemyRetreated(i.side, i.retreated),
+    bounty: i.bounty ?? 0,
   };
+}
+
+/** Whether the other side retreated, seen from `side` (ai-doctrines.md R8). */
+export function enemyRetreated(side: Side, retreated?: number | null): boolean {
+  return retreated !== undefined && retreated !== null && retreated !== side;
 }
 
 /** The result word for a winner seen from `side` (a retreat ordered by `side` is its own result). */
