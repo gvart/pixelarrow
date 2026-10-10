@@ -12,11 +12,10 @@
  *    are down or running, focused on the slingers vs nearest-target fire.
  *
  * FO-02 rows:
- *  - flank vs orb: the flank battle above, but every defender group a rider
- *    threatens from off its facing forms an orb. Defender win rate, and the
- *    mean battle length against the same battles with no answer.
- *  - orb vs line: 6 hoplites + 4 archers holding (human) vs the same army
- *    (bot), in orb vs in line. Win rate of the holding side.
+ *  - orb vs riders: the flank battle above, but every defender group a rider
+ *    threatens from off its facing forms an orb. Defender win rate.
+ *  - orb vs a flank-and-rear attack (runOrbRear) and vs an equal line,
+ *    frontal (runOrbVsLine), each against the same army holding in line.
  *  - feint bait: 8 hoplites + 4 peltasts (human, holding) vs 6 hoplites +
  *    6 Celtic swordsmen (human, the swordsmen charge the peltasts). When a
  *    swordsman closes to 5 paces the peltasts feint, or plainly withdraw
@@ -132,6 +131,38 @@ export function runOrbVsLine(seed: number, orb: boolean): number {
 }
 
 /**
+ * Orb vs a flank-and-rear attack: 8 hoplites holding (in orb, or in line for
+ * the reference) are attacked by 8 hoplites, 5 advancing on the front and 3
+ * charging the rear. Both human, scripted. Returns the defender's result.
+ */
+export function runOrbRear(seed: number, orb: boolean): number {
+  const rng = new Rng(seed);
+  const ids = { nextId: 1 };
+  const att = armySpec([...classSquad(rng, ids, 'hoplite', 5, 3, 0), ...classSquad(rng, ids, 'hoplite', 3, 3, 3)], false);
+  const def = armySpec(classSquad(rng, ids, 'hoplite', 8, 3, 0), false);
+  const bt = new Battle({ seed, armies: [att, def] });
+  bt.startBattle();
+  // Teleport the groups into place (as the classic flank test does).
+  const place = (side: Side, gid: number, cy: number, fy: number, frontage: number) => {
+    bt.issue(side, { kind: 'form', group: gid, cx: 12, cy, fx: 0, fy, frontage });
+    for (const u of bt.activeMembers(gid)) {
+      const p = bt.slotPos(u);
+      u.x = p.x;
+      u.y = p.y;
+      u.fy = fy;
+    }
+  };
+  if (orb) bt.issue(1, { kind: 'preset', group: 4, type: 'orb' });
+  place(1, 4, 16, 1, 8);
+  place(0, 0, 23, -1, 5);
+  place(0, 3, 8, 1, 3);
+  bt.issue(0, { kind: 'order', group: 0, order: 'advance' });
+  bt.issue(0, { kind: 'order', group: 3, order: 'charge' });
+  for (let i = 0; i < bt.timeLimitTicks + 10 && bt.phase !== 'ended'; i++) bt.step();
+  return bt.winner === 1 ? 1 : bt.winner === -1 ? 0.5 : 0;
+}
+
+/**
  * The feint bait: 8 hoplites + 4 peltasts in front (side A, holding) vs
  * 6 hoplites (advancing) + 6 Celtic swordsmen charging the peltasts (side B),
  * both scripted. When a swordsman comes within 5 paces of a peltast, the
@@ -207,24 +238,24 @@ export function ordersRows(n: number): BalanceRow[] {
   let plain = 0;
   let faced = 0;
   let orbed = 0;
-  let plainS = 0;
-  let orbS = 0;
   for (let i = 0; i < k; i++) {
     const p = runFlankAnswer(21000 + i, 'none');
     const o = runFlankAnswer(21000 + i, 'orb');
     plain += p.win;
-    plainS += p.s;
     faced += runFlankFace(21000 + i, true);
     orbed += o.win;
-    orbS += o.s;
   }
   let orbLine = 0;
   let lineLine = 0;
+  let orbRear = 0;
+  let lineRear = 0;
   let baitF = 0;
   let baitW = 0;
   for (let i = 0; i < k; i++) {
     orbLine += runOrbVsLine(23000 + i, true);
     lineLine += runOrbVsLine(23000 + i, false);
+    orbRear += runOrbRear(25000 + i, true);
+    lineRear += runOrbRear(25000 + i, false);
     baitF += runFeintBait(24000 + i, true);
     baitW += runFeintBait(24000 + i, false);
   }
@@ -244,10 +275,10 @@ export function ordersRows(n: number): BalanceRow[] {
   return [
     { label: 'Flank, defender reserve answers with face', measured: pct(faced / k), target: 'flanker >= 52%' },
     { label: 'Flank, same battle without face (reference)', measured: pct(plain / k), target: '-' },
-    { label: 'Flank, defender answers with orb: defender wins', measured: pct(1 - orbed / k), target: '55-65%' },
-    { label: 'Flank, orb answer lengthens the battle by', measured: pct(plainS > 0 ? orbS / plainS - 1 : 0), target: '>= 30%' },
-    { label: 'Flank, mean length no answer / orb (s)', measured: `${(plainS / k).toFixed(0)}/${(orbS / k).toFixed(0)}`, target: '-' },
-    { label: 'Orb vs equal army in line: orb side wins', measured: pct(orbLine / k), target: '35-45%' },
+    { label: 'Orb vs riders: flank answered with orb, defender wins', measured: pct(1 - orbed / k), target: '>= 55%' },
+    { label: 'Orb vs flank-and-rear attack: defender wins', measured: pct(orbRear / k), target: '55-70%' },
+    { label: 'Same attack on a line (reference)', measured: pct(lineRear / k), target: '-' },
+    { label: 'Orb vs equal line, frontal: orb side wins', measured: pct(orbLine / k), target: '20-35%' },
     { label: 'Same army holding in line (reference)', measured: pct(lineLine / k), target: '-' },
     { label: 'Feint bait: peltasts side wins, feint / withdraw', measured: `${pct(baitF / k)}/${pct(baitW / k)}`, target: '-' },
     { label: 'Feint bait gain over a plain withdraw', measured: `${Math.round(((baitF - baitW) / k) * 100)} pts`, target: '>= 8 pts' },

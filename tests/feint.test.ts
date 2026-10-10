@@ -206,7 +206,7 @@ describe('the bait: pursuers become disordered (R3.3)', () => {
     const seeds = [24000, 24001, 24002, 24003, 24004, 24005, 24006, 24007];
     const sum = (feint: boolean) => seeds.reduce((a, s) => a + runFeintBait(s, feint), 0);
     expect(sum(true)).toBeGreaterThan(sum(false));
-    expect(ordersRows(4).map((r) => r.target)).toEqual(expect.arrayContaining(['>= 8 pts', '55-65%', '35-45%']));
+    expect(ordersRows(4).map((r) => r.target)).toEqual(expect.arrayContaining(['>= 8 pts', '>= 55%', '55-70%', '20-35%']));
   });
 
   it('is deterministic: replaying the order log gives the same hash', () => {
