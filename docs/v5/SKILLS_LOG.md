@@ -24,3 +24,7 @@
 | ST-02c | st-02c | save-systems: backups, never overwrite without a choice; tdd: red first | OK |
 | LF-02 | lf-02 (economy-designer, gameplay-programmer) | quick-design: practice-fight GDD first; balance-check: loot columns before and after; tdd: 40-repeat test | OK |
 | S4-FIXER-2 | fixer-2 | tdd; security-audit: bounded to existing, unexpired tickets; network-programmer | OK |
+| AI-02 | ai-02 (ai-programmer, systems-designer, economy-designer) | game-ai, rpg: lasting flags (captainDead, escaped); balance-check: misses named; tdd | OK |
+| FO-02 | fo-02 | team-combat edge cases; balance-check: stopped at the ruling's bound; tdd | OK after V5-041 |
+| QA-01 | qa-01 (qa-lead, qa-tester) | qa-plan: risk per epic; regression-suite; smoke-check: found the flake cause | OK |
+| CT-01 | ct-01 (gameplay-programmer, ux-designer) | input-systems: soldier beats knob, 44 pt targets; game-ui-ux: colour plus numeral (not colour only); tdd | OK: 1 shot spot-checked |

@@ -11,9 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| fo-02 | W4 FO-02: orb + feint | per card | per card | worktree-agent | running |
-| ct-01 | W5 CT-01: soldier beats knob, knob sends face | per card | per card | worktree-agent | running |
-| ai-02 | W5 AI-02: band captains, bounty | per card | per card | worktree-agent | running |
+| lf-03 | W7 LF-03: war blockers, 320x640 in layout check, OnlineArmy fixture | per card | per card | worktree-agent | running |
+| (merge queue) | FO-02 worktree-agent-a015de051a9c3d651, QA-01 worktree-agent-ae95ef62dbf75c5a2, CT-01 worktree-agent-a5bc2352f7e41a67f, plus the harness.mjs failing-check-name fix | — | integrator | — | merging |
 | art-bible | S2-ART-BIBLE: design/art/art-bible.md, docs/v5/art/ASSET_PIPELINE.md + scripts/art/, ASSET_LIST.md, Gemini templates in ASSET_LOG | art-bible, create-game-assets, asset-spec, asset-audit | art-director, technical-artist | worktree-agent | running |
 
 ## Merged into v5
@@ -37,6 +36,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - ddc7927 merge: FO-01; 6f34a10 raises sim floors to 2; 5fde11c merge: ST-02b cloud downgrade guard. Gates: vitest 663, server 251, layout 0, online-e2e 34, balance as in FO-01.md.
 - d7ddceb merge: AI-01 doctrines; 6108bbd merge: ST-02c campaignId; 4854c12 merge: LF-02 Trial is practice + beast texture fix + Results notice. Gates: vitest 708, server 256, layout 0, smoke/tutorial/duel/online pass (smoke flaked once, 1 check). Balance matched 54%.
 - 45be15b merge: S4-FIXER-2 in-flight tickets (V5-040). Gates: vitest 708, server 266, online 25, duel 53, online-e2e 34.
+- 93ad712 merge: AI-02 captains. Gates: vitest 720, server 268, layout 0, smokes pass; balance 54%.
 
 ## Queue (next)
 
@@ -62,6 +62,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 14. smoke.mjs flaked once (1 unnamed check) under load. If it repeats, a QA story makes smoke print the failing check name.
 15. docs/ITEMS.md:461 still lists the Trial as a hoard source (docs owner). 'Leave during deployment goes to Army' goes to CT-01/BTL-01.
+
+16. Next ready after the merge queue: FO-03 (cohesion, army break; after FO-02), CT-02 (targeting; after CT-01; also fixes the RU 'Стрел…' truncation), AB-01 (perk paths), AI-03 (ladder/war doctrines). Machine load is about 39: keep at most 3 code agents plus 1 integrator.
 
 ## Blockers
 
