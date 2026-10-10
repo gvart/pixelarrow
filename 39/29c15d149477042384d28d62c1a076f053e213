@@ -1,0 +1,24 @@
+src/art/vectorFont.ts
+  s_697bdc25a7c420::t_e4dd13d6458953 164-167
+  s_697bdc25a7c420::t_719a24986b9620 181
+  s_697bdc25a7c420::t_4b2bafa0bcd956 72-134
+  s_697bdc25a7c420::t_84062b4bf0837c 205
+tests/vectorFont.test.ts
+  s_697bdc25a7c420::t_c4f577cc9ddfc8 1-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3929c15d149477042384d28d62c1a076f053e213",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
