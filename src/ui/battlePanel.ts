@@ -10,8 +10,10 @@
  * check the same way (a container with w / h, texts framed by it).
  */
 import { RS } from '../platform/renderScale';
-import { mosaicImage } from './mosaic/base';
+import { mosaicImage, mw } from './mosaic/base';
 import { caps } from './mosaic/KeyButton';
+import { ROMAN } from './battleHud';
+import { GROUP_COLOR } from '../art/sheetArt';
 import { MOSAIC } from './tokens';
 import Phaser from 'phaser';
 import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelK, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
@@ -589,4 +591,52 @@ export class GroupCard extends Phaser.GameObjects.Container {
     bar(this.h - 8, i.hp, MOSAIC.terra);
     bar(this.h - 5, i.morale, i.routed ? MOSAIC.inkDisabled : MOSAIC.teal);
   }
+}
+
+/** The colour of a man fighting alone ('*'), who has no group colour: neutral stone. */
+export const NO_GROUP_COLOR = 0x8a7a6a;
+
+/** A group's battle colour from its numeral (I red, II green, III blue, IV bronze: the army sheet's). */
+export function numeralColour(numeral: string): number {
+  return GROUP_COLOR[ROMAN.indexOf(numeral)] ?? NO_GROUP_COLOR;
+}
+
+/** Width (UI px) of a group's numeral badge (numeralBadge). */
+export function orderBadgeW(numeral: string): number {
+  return Math.max(16, Math.ceil(mw(numeral, 'rGold', 6.5)) + 8);
+}
+
+/**
+ * The order bar's plate (controls.md R1.3, PLAY C3): the selected group's
+ * colour round and between the keys, inside an ink rim. Drawn under the keys
+ * (`w` x `h` is their row); numeralBadge names the group beside it, so the
+ * colour is never the only sign (A11Y-04).
+ */
+export function orderBarPlate(scene: Phaser.Scene, x: number, y: number, w: number, h: number, numeral: string): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics({ x: Math.round(x), y: Math.round(y) });
+  g.fillStyle(MOSAIC.ink, 1);
+  g.fillRoundedRect(-2.5, -2.5, w + 5, h + 5, 3);
+  g.fillStyle(numeralColour(numeral), 1);
+  g.fillRoundedRect(-1.5, -1.5, w + 3, h + 3, 2.5);
+  return g;
+}
+
+/** A group's numeral on a stone plate framed in its colour (the order bar's badge), `h` tall. */
+export function numeralBadge(scene: Phaser.Scene, x: number, y: number, h: number, numeral: string): Phaser.GameObjects.Container {
+  const c = scene.add.container(Math.round(x), Math.round(y));
+  const w = orderBadgeW(numeral);
+  const g = scene.add.graphics();
+  g.fillStyle(MOSAIC.ink, 1);
+  g.fillRoundedRect(0, 0, w, h, 2.5);
+  g.fillStyle(numeralColour(numeral), 1);
+  g.fillRoundedRect(1, 1, w - 2, h - 2, 2);
+  g.fillStyle(MOSAIC.stone1, 1);
+  g.fillRoundedRect(3, 3, w - 6, h - 6, 1.5);
+  c.add(g);
+  const num = addText(scene, w / 2, h / 2 - 3.6, numeral, 'rGold', 0.5).setFontSize(6.5);
+  uiFrame(num, c, w, h);
+  c.add(num);
+  c.setSize(w, h);
+  uiId(c, 'battle.orders.group');
+  return c;
 }

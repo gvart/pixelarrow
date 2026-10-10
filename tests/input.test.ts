@@ -8,6 +8,7 @@ import { GestureRecognizer, type GestureEvent, type PressProbe, type Ptr } from 
 function state(over: Partial<HitState> = {}): HitState {
   return {
     me: 0,
+    sel: 0,
     grabbable: true,
     body: [
       { x: 90, y: 200 },
@@ -55,12 +56,12 @@ describe('hitTest: what a drag grabs', () => {
     expect(grabAt(state({ knob: null, body: [] }), { x: 100, y: 140 })).toBeNull();
   });
 
-  // Today's priority: a press on the knob turns the selected group even over another group's man (PLAY C1).
-  // CT-01 changes this to "the soldier wins" (controls.md R1.1); this test pins the behaviour IN-01 preserves.
-  it('keeps the pre-CT-01 priority: the knob wins over another group standing under it', () => {
+  // CT-01 changed IN-01's "the knob wins" to controls.md R1.1: another group's man under the finger
+  // beats the knob (PLAY C1). The full priority is in tests/hitTest.test.ts.
+  it('another group standing under the knob wins: the press selects it and never turns', () => {
     const s = state({ knob: { x: 200, y: 195 } });
     const h = hitTest(s, { x: 200, y: 196 });
-    expect(h.grab).toBe('turn');
+    expect(h.grab).toBeNull();
     expect(h.tap).toEqual({ kind: 'own', unit: 3, group: 1 });
   });
 });

@@ -3,7 +3,7 @@ import { BaseScene } from './BaseScene';
 import { Meter, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
-import { GroupCard } from '../ui/battlePanel';
+import { GroupCard, numeralBadge, orderBadgeW, orderBarPlate } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
@@ -22,7 +22,7 @@ import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
 import { SPACING, formationSlots, rightOf, type FormationType } from '../sim/formation';
-import { KNOB_PACES, dragMove, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
+import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import { hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
@@ -144,8 +144,13 @@ const DRAG_PX = px(10);
 const GRAB_PX = px(30);
 /** Tap radius (screen px) of a floating group tag (a 44 pt target). */
 const TAG_PX = px(20);
-/** Tap radius of a man on the field, in device px (unlike the radii above it is not scaled by RS). */
-const UNIT_TAP_PX = 30;
+/**
+ * Tap radius of a man on the field: a 44 pt target (controls.md R1.1, R11). It
+ * also decides when another group's man under the finger beats the knob, which
+ * keeps grabbing out to GRAB_PX beyond him. (Was 30 device px, unscaled: 10 pt
+ * of radius on a 3x phone. V5-034.)
+ */
+const UNIT_TAP_PX = px(22);
 
 export class BattleScene extends BaseScene {
   private sim!: Battle;
@@ -1494,7 +1499,8 @@ export class BattleScene extends BaseScene {
           this.drag = null;
           this.dragPreview = null;
           if (plan) {
-            this.command({ kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage });
+            // the knob sends `face` in battle, which keeps the order (controls.md R2.2)
+            this.command(dragOrder(plan, this.sim.phase));
             this.tutorialEvent({ kind: 'sling', carried: plan.kind === 'move', aimed: plan.kind === 'turn', fx: plan.fx, fy: plan.fy, group: this.selGroup });
           }
           break;
@@ -1536,7 +1542,7 @@ export class BattleScene extends BaseScene {
       units.push({ id: u.id, side: u.side, group: u.group, big: v.big, ...scr(v.spr.x, v.spr.y - v.tall * 0.45) });
     }
     const tags = [...this.tagPos].map(([gid, q]) => ({ gid, x: q.x * S, y: q.y * S }));
-    const hs: HitState = { me: this.me, grabbable: false, body: [], knob: null, tags, units, grabR: GRAB_PX, tagR: TAG_PX, unitR: UNIT_TAP_PX };
+    const hs: HitState = { me: this.me, sel: this.selGroup, grabbable: false, body: [], knob: null, tags, units, grabR: GRAB_PX, tagR: TAG_PX, unitR: UNIT_TAP_PX };
     if (this.selGroup < 0 || this.sim.phase === 'ended' || !this.canCommand()) return hs;
     const grp = this.sim.groups[this.selGroup];
     if (!grp || grp.disbanded) return hs;
@@ -1587,7 +1593,9 @@ export class BattleScene extends BaseScene {
     // thresholds are in paces at the default zoom (1: a pace is 36 px across a tile) and scale with zoom
     const k = 1 / zoomUnits(this.cameras.main.zoom);
     haptic('light');
-    return dragStart(kind, fr, press.x, press.y, k);
+    // in battle the knob sends `face`, which turns a group about its anchor: the preview pivots there too
+    const g = kind === 'turn' && this.sim.phase === 'battle' ? { ...fr, px: undefined, py: undefined } : fr;
+    return dragStart(kind, g, press.x, press.y, k);
   }
 
   /** Light haptic tick when the facing snaps to a straight field direction. */
@@ -2143,7 +2151,8 @@ export class BattleScene extends BaseScene {
 
   /** Group cards in the sheet: two per row, at most two rows. */
   private sheetGroups(): { g: Battle['groups'][number]; numeral: string }[] {
-    return cardGroups(this.sim, this.me, this.sim.phase === 'deploy').map(({ gid, numeral }) => ({ g: this.sim.groups[gid], numeral }));
+    // only groups with men get a card, in deployment too (controls.md R1.4)
+    return cardGroups(this.sim, this.me, false).map(({ gid, numeral }) => ({ g: this.sim.groups[gid], numeral }));
   }
 
   private cardRows(): number {
@@ -2231,13 +2240,21 @@ export class BattleScene extends BaseScene {
       if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), b);
       cx -= SIZE.gap;
     }
-    const title = deploy ? t('battle.shape.chip') : sel ? t('battle.orders.title', { group: selName }) : '';
+    // in battle the selected group's numeral badge, in its colour, leads the line (controls.md R1.3)
+    const badge = !deploy && sel ? groupNumeral(this.sim.groups, sel.id) : '';
+    let tx = 6;
+    if (badge) {
+      this.hud.add(numeralBadge(this, 4, y + 1, SHEET_HEAD_H - 4, badge));
+      tx = 4 + orderBadgeW(badge) + 4;
+    }
+    const barName = badge && sel && !sel.individual ? groupName(sel.name) : selName;
+    const title = deploy ? t('battle.shape.chip') : sel ? t('battle.orders.title', { group: barName }) : '';
     if (title) {
       // the whole line (a size down when it must), else only the group's name
-      const room = cx - 10;
+      const room = cx - tx - 4;
       const size = [6.5, 6, 5.5].find((z) => mw(caps(title), 'rGold', z) <= room);
-      const line = size ? title : !deploy && sel ? selName : title;
-      this.hud.add(mtext(this, 6, y + 3 + (size === 5.5 ? 0.5 : 0), caps(line), 'rGold', { size: size ?? 6.5, maxW: room }));
+      const line = size ? title : !deploy && sel ? barName : title;
+      this.hud.add(mtext(this, tx, y + 3 + (size === 5.5 ? 0.5 : 0), caps(line), 'rGold', { size: size ?? 6.5, maxW: room }));
     }
     y += SHEET_HEAD_H + 3;
     // the row: Fight (deployment) or the five orders (battle)
@@ -2256,6 +2273,8 @@ export class BattleScene extends BaseScene {
       this.hud.add(hint);
       return;
     }
+    // the bar wears the selected group's colour (its numeral badge heads the line above; controls.md R1.3, PLAY C3)
+    this.hud.add(orderBarPlate(this, 4, y, VW - 8, SHEET_ORDERS_H, groupNumeral(this.sim.groups, sel!.id)));
     const n = orders.length;
     const bw = Math.floor((VW - 8 - SIZE.gap * (n - 1)) / n);
     // one face for the whole row: capitals when every word fits as such, else Inter
