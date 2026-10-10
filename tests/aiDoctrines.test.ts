@@ -196,7 +196,8 @@ describe('first contact (AC 3)', () => {
 });
 
 describe('the doctrine balance rows', () => {
-  it('prints a row per doctrine target', () => {
+  // dozens of seeded battles (doctrineRows floors most rows at 40 seeds): ~10 s idle, 36 s seen under load
+  it('prints a row per doctrine target', { timeout: 120_000 }, () => {
     const rows = doctrineRows(2);
     for (const id of DOCTRINE_IDS) expect(rows.some((r) => r.label.includes(`vs ${id}`))).toBe(true);
     expect(rows.some((r) => r.label.includes('first contact'))).toBe(true);

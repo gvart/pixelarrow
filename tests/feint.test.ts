@@ -202,7 +202,8 @@ describe('the bait: pursuers become disordered (R3.3)', () => {
     expect(b.disordered(G1)).toBe(false);
   });
 
-  it('the bait pays: on a few seeds the peltasts side does better feinting than withdrawing (balance row)', () => {
+  // 16 seeded battles plus ordersRows(4): seconds idle, several times that under load
+  it('the bait pays: on a few seeds the peltasts side does better feinting than withdrawing (balance row)', { timeout: 120_000 }, () => {
     const seeds = [24000, 24001, 24002, 24003, 24004, 24005, 24006, 24007];
     const sum = (feint: boolean) => seeds.reduce((a, s) => a + runFeintBait(s, feint), 0);
     expect(sum(true)).toBeGreaterThan(sum(false));
