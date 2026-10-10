@@ -15,7 +15,6 @@ import {
   type Order,
   type SimEvent,
 } from '../src/sim/types';
-import { doctrineRows } from '../src/dev/doctrineBalance';
 import { worksRows } from '../src/dev/worksBalance';
 import { arcRows } from '../src/dev/arcBalance';
 import { standardSetup } from './helpers';
@@ -67,9 +66,10 @@ describe('sim train 2 declarations', () => {
     expect(b.hash()).toBe(reference.hash());
   });
 
-  it('plays a setup with doctrine, works and a captain exactly like one without', () => {
+  // The doctrine is live since AI-01 (tests/aiDoctrines.test.ts); a steady one stays inert.
+  it('plays a setup with a steady doctrine, works and a captain exactly like one without', () => {
     const setup = base();
-    setup.armies[1].doctrine = 'fury';
+    setup.armies[1].doctrine = 'steady';
     setup.armies[0].works = { stakes: 2, ditch: 1, laager: 0 };
     setup.armies[1].units[0].captain = true;
     const b = play(setup);
@@ -88,8 +88,8 @@ describe('sim train 2 declarations', () => {
     expect(events.map((e) => e.type)).toEqual(['cohesion', 'disordered', 'armyBreak', 'stakesBreak', 'standardLost']);
   });
 
-  it('the train 2 harness modules have no rows until their stories land (orders: FO-01, tests/orders.test.ts)', () => {
-    expect(doctrineRows(4)).toEqual([]);
+  // Orders landed with FO-01 (tests/orders.test.ts), doctrine with AI-01 (tests/aiDoctrines.test.ts).
+  it('the train 2 harness modules have no rows until their stories land', () => {
     expect(worksRows(4)).toEqual([]);
     expect(arcRows(4)).toEqual([]);
   });

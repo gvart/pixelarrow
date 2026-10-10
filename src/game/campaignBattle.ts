@@ -30,7 +30,7 @@ export function campaignSetup(pending: PendingBattle, heroes: Hero[]): BattleSet
   // The battlefield comes from the place on the map where the armies met.
   const site = pending.site ?? randomSite(new Rng(pending.seed ^ 0x51735c1));
   const terrain = generateBattlefield(pending.seed, site);
-  return { seed: pending.seed, armies: [armySpec(heroes, false), armySpec(pending.enemy.heroes, true)], terrain };
+  return { seed: pending.seed, armies: [armySpec(heroes, false), { ...armySpec(pending.enemy.heroes, true), doctrine: pending.enemy.doctrine }], terrain };
 }
 
 /** Record that the battle has begun (save afterwards): from now on its outcome stands. */

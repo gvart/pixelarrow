@@ -5,12 +5,15 @@ import { Rng } from '../sim/rng';
 import { heroPower } from '../sim/stats';
 import { makeHero, rollRarity, setBotLevel, type IdSource } from './heroes';
 import { CLASSES, type ClassId } from '../data/classes';
+import { DEFAULT_DOCTRINE, type DoctrineId } from '../sim/types';
 
 export interface EnemyArmy {
   culture: Culture;
   heroes: Hero[];
   power: number;
   targetPower: number;
+  /** How its bot fights (ai-doctrines.md R4); derived from the mix and culture. Missing = steady. */
+  doctrine?: DoctrineId;
 }
 
 /** Bot army strength relative to the player (before the victory ramp); tuned with `npm run balance`. */
@@ -51,6 +54,25 @@ export interface ArmyRequest {
   mix?: ArmyMix;
   /** false: keep the army as generated (its natural power), no level/gear nudging. */
   tune?: boolean;
+  /** Force a doctrine; missing = chosen by doctrineFor(mix, culture). */
+  doctrine?: DoctrineId;
+}
+
+/** The mixes whose doctrine does not depend on culture (ai-doctrines.md R4); the rest play steady. */
+const MIX_DOCTRINE: Partial<Record<ArmyMix, DoctrineId>> = {
+  bandits: 'swarm',
+  pirates: 'swarm',
+  hill_tribe: 'swarm',
+  raiders: 'rush',
+  cultists: 'fury',
+};
+/** Mercenaries fight in their own school. */
+const MERC_DOCTRINE: Record<Culture, DoctrineId> = { greek: 'steady', phoenician: 'hammer', celtic: 'rush' };
+
+/** Which doctrine an army of this mix and culture fights with (ai-doctrines.md R4). */
+export function doctrineFor(mix: ArmyMix, culture: Culture): DoctrineId {
+  if (mix === 'mercs') return MERC_DOCTRINE[culture] ?? DEFAULT_DOCTRINE;
+  return MIX_DOCTRINE[mix] ?? DEFAULT_DOCTRINE;
 }
 
 export function armyPower(heroes: Hero[]): number {
@@ -169,5 +191,6 @@ export function buildArmy(rng: Rng, ids: IdSource, req: ArmyRequest): EnemyArmy 
     } else break;
     power = armyPower(heroes);
   }
-  return { culture, heroes, power, targetPower: req.tune === false ? power : targetPower };
+  const doctrine = req.doctrine ?? doctrineFor(mix, culture);
+  return { culture, heroes, power, targetPower: req.tune === false ? power : targetPower, doctrine };
 }
