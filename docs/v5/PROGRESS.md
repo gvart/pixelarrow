@@ -11,7 +11,6 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| setup | S0-SETUP: /adopt, /project-stage-detect, /map-systems → docs/v5/setup/, design/, $F/project.yaml | adopt, project-stage-detect, map-systems | producer, technical-director | worktree-agent (see report) | running |
 | audit-ui | S1-AUDIT-UI: every scene shot at 390/360/320 → docs/v5/audit/UI.md, NAV.md, shots/ | ux-review, game-ui-ux | ux-designer, accessibility-specialist | worktree-agent | running |
 | audit-play | S1-AUDIT-PLAY: tutorial, campaign battle, duel and war played through → docs/v5/audit/PLAY.md, play/ | playtest-report, input-systems, game-feel | qa-tester, game-designer | worktree-agent | running |
 | audit-mech | S1-AUDIT-MECH: systems, balance baseline, Phaser 4 risk → docs/v5/audit/MECHANICS.md, docs/v5/balance/ | balance-check, game-ai, rpg | systems-designer, economy-designer | worktree-agent | running |
@@ -19,6 +18,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 ## Merged into v5
 
 - 7510360 docs(v5): director state files and initial decisions
+- f9b8929 merge: S0-SETUP: 39 systems in design/gdd/systems-index.md, stage Production (CONCERNS: no GDDs or ADRs). Gates: tsc ok, vitest 525/525.
 
 ## Queue (next)
 
