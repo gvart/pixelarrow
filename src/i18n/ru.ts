@@ -15,6 +15,7 @@ import { V4_RU } from './v4.ru';
 import { MOSAIC_RU } from './mosaic.ru';
 import { MOSAIC_CMAP_RU } from './mosaic.campaignmap.ru';
 import { MOSAIC_WAR_RU } from './mosaic.war.ru';
+import { TARGETING_RU } from './targeting.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -290,4 +291,5 @@ export const RU: Table = {
   ...MOSAIC_RU,
   ...MOSAIC_CMAP_RU,
   ...MOSAIC_WAR_RU,
+  ...TARGETING_RU,
 };

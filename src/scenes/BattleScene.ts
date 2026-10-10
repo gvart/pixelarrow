@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { Meter, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
+import { ICON_PX, Meter, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
-import { GroupCard, numeralBadge, orderBadgeW, orderBarPlate } from '../ui/battlePanel';
+import { GroupCard, numeralBadge, orderBadgeW, orderBarPlate, strokeReticle } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, groupNumeral, ContactSoon, OutOfRange, type TopBarOpts } from '../ui/battleHud';
+import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -135,6 +135,8 @@ interface OrderKey {
   selected: boolean;
   /** Cannot now: why (a tap says it). */
   off?: string;
+  /** On, but idle (Shoot out of range): drawn hollow, a rim round an unlit face (controls.md R3.4). */
+  hollow?: boolean;
   onTap: () => void;
 }
 
@@ -213,6 +215,8 @@ export class BattleScene extends BaseScene {
   /** The hint's "Contact soon" (B5) and the cards' "Out of range" (B6) clocks. */
   private contactSoon = new ContactSoon();
   private outOfRange = new OutOfRange();
+  /** Groups whose card says "Out of range" now (refreshHud; the order row and the chips read it). */
+  private far = new Set<number>();
   private groupList: ScrollList | null = null;
   private fx!: BattleFx;
   /** Mythical beasts on screen (src/ui/beastView.ts); null without beasts. */
@@ -298,6 +302,7 @@ export class BattleScene extends BaseScene {
     this.sitKey = '';
     this.contactSoon = new ContactSoon();
     this.outOfRange = new OutOfRange();
+    this.far = new Set();
     this.ordersBuilt = '';
     this.countdown = null;
     this.lastTickSound = -1;
@@ -1087,6 +1092,7 @@ export class BattleScene extends BaseScene {
       if (!grp || grp.disbanded) return;
       const slots = this.sim.groupSlots(grp.id);
       drawSlots(slots, grp.formation.fx, grp.formation.fy, 0x7fa9a8, 0.6);
+      if (this.sim.phase === 'battle') this.drawTargeting(g, grp.id);
       // the facing arrow and its knob: drag the knob to turn the group
       const fr = this.canCommand() && this.sim.phase !== 'ended' ? this.selectedFrame() : null;
       if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85);
@@ -1170,6 +1176,31 @@ export class BattleScene extends BaseScene {
     g.fillCircle(k.x, k.y, 6);
     g.fillStyle(0xfff4c0, a);
     g.fillCircle(k.x - 1, k.y - 2, 2);
+  }
+
+  /**
+   * A selected missile group's range ring (dashed, cream on an ink outline so
+   * it reads on any ground: A11Y-03) and the reticle over its focus target,
+   * on top of the men (controls.md R3.2, R3.3).
+   */
+  private drawTargeting(g: Phaser.GameObjects.Graphics, gid: number): void {
+    const ring = rangeRing(this.sim, gid);
+    const pts = ring?.map((p) => isoToScreen(p.x, p.y)) ?? [];
+    for (const [w, color, a] of [[3, MOSAIC.ink, 0.85], [1.4, MOSAIC.cream, 0.95]] as const) {
+      g.lineStyle(w, color, a);
+      // every other segment of the ring: a dash
+      for (let i = 0; i < pts.length; i += 2) {
+        const p = pts[i];
+        const q = pts[(i + 1) % pts.length];
+        g.lineBetween(p.x, p.y, q.x, q.y);
+      }
+    }
+    if ((this.sim.groups[gid].focus ?? -1) < 0) return;
+    const c = rangeTarget(this.sim, gid);
+    if (!c) return;
+    // over the target group's heads
+    const s = isoToScreen(c.x, c.y);
+    strokeReticle(this.knobG, s.x, s.y - 52, 7, 1.4);
   }
 
   private dashRect(g: Phaser.GameObjects.Graphics, pts: [number, number][], color: number, alpha: number, on: number, off: number): void {
@@ -1831,7 +1862,11 @@ export class BattleScene extends BaseScene {
     if (hit.kind === 'enemy') {
       const foe = this.sim.units[hit.unit];
       if (this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
-        this.attackUnit(foe);
+        // missile groups focus their fire on the tapped group, melee groups attack (controls.md R3.1, R3.2)
+        const gid = this.selUnit >= 0 ? this.sim.units[this.selUnit].group : this.selGroup;
+        const act = enemyTap(this.sim, gid, foe.group);
+        if (act.kind === 'focus') this.setFocus(act.target);
+        else this.attackUnit(foe);
       } else {
         const h = this.enemyHeroes.find((q) => q.id === foe.heroId);
         const wpn = h?.equip.weapon ? itemName(h.equip.weapon.def) : t('battle.unarmed');
@@ -2275,31 +2310,91 @@ export class BattleScene extends BaseScene {
     }
     // the bar wears the selected group's colour (its numeral badge heads the line above; controls.md R1.3, PLAY C3)
     this.hud.add(orderBarPlate(this, 4, y, VW - 8, SHEET_ORDERS_H, groupNumeral(this.sim.groups, sel!.id)));
-    const n = orders.length;
-    const bw = Math.floor((VW - 8 - SIZE.gap * (n - 1)) / n);
-    // one face for the whole row: capitals when every word fits as such, else Inter
-    const plain = orders.some((o) => mw(caps(o.label), 'rCream', 5.5) > bw - 4);
+    // a long word gets a wider key rather than an ellipsis (controls.md R9: "Стрелять" at 360, "Advance" at 320)
+    const keyW = orderKeyWidths(
+      orders.map((o) => o.label),
+      VW - 8,
+      SIZE.gap,
+    );
+    // one face for the whole row: capitals when every word fits an equal share as such, else Inter (as before CT-02)
+    const even = Math.floor((VW - 8 - SIZE.gap * (orders.length - 1)) / orders.length);
+    const plain = orders.some((o) => mw(caps(o.label), 'rCream', 5.5) > even - 4);
+    let kx = 4;
     orders.forEach((o, i) => {
-      const b = new KeyButton(this, 4 + i * (bw + SIZE.gap), y, bw, SHEET_ORDERS_H, {
+      const bw = keyW[i];
+      const b = new KeyButton(this, kx, y, bw, SHEET_ORDERS_H, {
         icon: o.icon,
         label: o.label,
         tip: o.tip,
         id: `battle.cmd.${o.key}`,
         variant: 'bronze',
-        lit: o.selected,
+        lit: o.selected && !o.hollow,
         plain,
         disabledReason: o.off,
         onClick: () => o.onTap(),
       });
       this.hud.add(b);
       this.cmdBtns.set(o.key, b);
+      // on but idle out of range: a hollow key, a gold rim round an unlit face (controls.md R3.4)
+      if (o.hollow) {
+        const g = this.add.graphics();
+        g.lineStyle(1, MOSAIC.ink, 1);
+        g.strokeRoundedRect(kx + 0.5, y + 0.5, bw - 1, SHEET_ORDERS_H - 1, 2.5);
+        g.lineStyle(1.2, MOSAIC.meanderHi, 1);
+        g.strokeRoundedRect(kx + 1.6, y + 1.6, bw - 3.2, SHEET_ORDERS_H - 3.2, 2);
+        this.hud.add(g);
+      }
+      kx += bw + SIZE.gap;
     });
+    this.buildTargetChips(sel!);
   }
 
   /** What the order row shows (rebuilt when it changes: orders are rare events). */
   private ordersKey(): string {
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
-    return sel ? `${sel.order}|${sel.fireAtWill}|${this.selectedUnits().length > 0}|${sel.formation.type}` : '';
+    return sel ? `${sel.order}|${sel.fireAtWill}|${this.selectedUnits().length > 0}|${sel.formation.type}|${sel.focus ?? -1}|${this.far.has(sel.id)}|${this.selUnit}` : '';
+  }
+
+  // ---- targeting (controls.md R3): the Focus and "Advance to range" chips above the sheet
+
+  /**
+   * Above the sheet, left of the medallions: "Focus ✕" while the selected
+   * group has a focus (a tap clears it), and "To range" while it idles out of
+   * range (not in live battles, R10b).
+   */
+  private buildTargetChips(sel: Battle['groups'][number]): void {
+    if (this.shapeOpen || !this.canCommand()) return;
+    const chips: { icon: string; label: string; tip: string; id: string; onClick: () => void }[] = [];
+    if ((sel.focus ?? -1) >= 0) {
+      chips.push({ icon: 'close', label: t('target.chip.focus'), tip: t('target.tip.focus'), id: 'battle.target.clear', onClick: () => this.setFocus(-1) });
+    }
+    if (this.far.has(sel.id) && !this.online) {
+      chips.push({ icon: 'advance', label: t('target.chip.advance'), tip: t('target.tip.advance'), id: 'battle.target.advance', onClick: () => this.advanceToRange() });
+    }
+    if (!chips.length) return;
+    const h = SHEET_HEAD_H;
+    const y = (this.selUnit >= 0 ? this.stripTop() - 27 : this.stripTop()) - 2 - h;
+    let x = 4;
+    for (const c of chips) {
+      const w = Math.ceil(mw(c.label, 'light', 6.5)) + ICON_PX + 12;
+      const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, onClick: c.onClick });
+      this.hud.add(b);
+      this.cmdBtns.set(c.id.slice('battle.'.length), b);
+      x += w + SIZE.gap;
+    }
+  }
+
+  /** Focus the selected group's missiles on enemy group `target` (-1 clears; formations-orders.md R4). */
+  private setFocus(target: number): void {
+    this.command({ kind: 'focus', group: -1, target });
+    this.showBanner(t(target >= 0 ? 'target.banner.focus' : 'target.banner.clear'), 1200);
+  }
+
+  /** "Advance to range": walk the group to 90% of its median range from the focus or the nearest enemy (R3.4). */
+  private advanceToRange(): void {
+    const f = advanceToRange(this.sim, this.selGroup);
+    if (!f) return;
+    this.command({ kind: 'form', group: -1, cx: f.cx, cy: f.cy, fx: f.fx, fy: f.fy, frontage: this.sim.groups[this.selGroup].formation.frontage });
   }
 
   // ---- abilities: medallions down the field's right edge
@@ -2352,7 +2447,7 @@ export class BattleScene extends BaseScene {
       { key: 'advance', icon: 'advance', label: t('battle.ring.advance'), tip: t('battle.tip.radialAdvance'), selected: sel.order === 'advance', off: why, onTap: order('advance') },
       { key: 'charge', icon: 'charge', label: t('battle.ring.charge'), tip: t('battle.tip.radialCharge'), selected: sel.order === 'charge', off: why, onTap: order('charge') },
       { key: 'hold', icon: 'hold', label: t('battle.ring.hold'), tip: t('battle.tip.radialHold'), selected: sel.order === 'hold', off: why, onTap: order('hold') },
-      { key: 'loose', icon: 'throw', label: t('battle.ring.shoot'), tip: t('battle.tip.radialShoot'), selected: sel.fireAtWill && ammo, off: shootWhy, onTap: () => this.toggleThrow() },
+      { key: 'loose', icon: 'throw', label: t('battle.ring.shoot'), tip: t('battle.tip.radialShoot'), selected: sel.fireAtWill && ammo, hollow: sel.fireAtWill && ammo && this.far.has(sel.id), off: shootWhy, onTap: () => this.toggleThrow() },
       { key: 'fallback', icon: 'fallback', label: t('battle.ring.back'), tip: t('battle.tip.radialBack'), selected: sel.order === 'fallback', off: why, onTap: order('fallback') },
     ];
     return orders;
@@ -2508,6 +2603,8 @@ export class BattleScene extends BaseScene {
       const hp = all.reduce((a, u) => a + Math.max(0, u.state === 'ready' || u.state === 'routing' ? u.hp : 0), 0) / Math.max(1, all.reduce((a, u) => a + u.stats.maxHp, 0));
       const mo = mem.reduce((a, u) => a + u.morale / Math.max(1, u.stats.morale), 0) / Math.max(1, mem.length);
       const far = this.sim.phase === 'battle' && this.outOfRange.check(this.sim, c.gid, this.sim.tick / TICK_RATE);
+      if (far) this.far.add(c.gid);
+      else this.far.delete(c.gid);
       c.card.setInfo({
         numeral: c.numeral,
         men: mem.length,
@@ -2516,8 +2613,10 @@ export class BattleScene extends BaseScene {
         orderIcon: g.routed ? 'flag' : g.shieldWall ? 'wall' : g.order,
         name: g.individual ? this.sim.members(c.gid)[0]?.name : groupName(g.name),
         shortName: g.individual ? undefined : groupName(g.name, true),
-        orderWord: g.routed ? t('battle.order.routed') : this.sim.phase === 'deploy' ? t(`battle.formation.${g.formation.type}` as TKey) : far ? t('battle.state.outOfRange') : t(`battle.order.${g.order}` as TKey),
-        orderShort: g.routed ? t('battle.orderShort.routed') : this.sim.phase === 'deploy' ? t(`battle.formationShort.${g.formation.type}` as TKey) : far ? t('battle.stateShort.outOfRange') : t(`battle.orderShort.${g.order}` as TKey),
+        orderWord: g.routed ? t('battle.order.routed') : this.sim.phase === 'deploy' ? t(`battle.formation.${g.formation.type}` as TKey) : far ? `${t('battle.state.outOfRange')} →` : t(`battle.order.${g.order}` as TKey),
+        orderShort: g.routed ? t('battle.orderShort.routed') : this.sim.phase === 'deploy' ? t(`battle.formationShort.${g.formation.type}` as TKey) : far ? `${t('battle.stateShort.outOfRange')} →` : t(`battle.orderShort.${g.order}` as TKey),
+        focus: this.sim.phase === 'battle' && !g.routed && (g.focus ?? -1) >= 0,
+        far,
         portrait: this.portraitOf(c.gid),
         selected: this.selGroup === c.gid,
         routed: g.routed,

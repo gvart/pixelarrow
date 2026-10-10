@@ -23,6 +23,7 @@ import { V4_EN } from './v4.en';
 import { MOSAIC_EN } from './mosaic.en';
 import { MOSAIC_CMAP_EN } from './mosaic.campaignmap.en';
 import { MOSAIC_WAR_EN } from './mosaic.war.en';
+import { TARGETING_EN } from './targeting.en';
 
 export const EN = {
   // ---- shared words
@@ -311,4 +312,6 @@ export const EN = {
   ...MOSAIC_EN,
   ...MOSAIC_CMAP_EN,
   ...MOSAIC_WAR_EN,
+  // ---- battle targeting: focus fire, Advance to range (targeting.en.ts)
+  ...TARGETING_EN,
 } as const;
