@@ -6,6 +6,7 @@ import { Rng } from '../sim/rng';
 import type { BattleResult, UnitResult, Wear } from '../sim/types';
 import { gearTotal } from './gear';
 import { grantXp } from './heroes';
+import { NEXT_BATTLE } from '../data/events';
 
 export interface HeroOutcome {
   heroId: string;
@@ -136,6 +137,39 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
     outcome: { victory, draw, retreated, gold, picks: Math.min(picks, loot.length), loot, heroes: outcomes, enemyKilled, enemyTotal: enemyUnits.length, lost },
     survivors,
   };
+}
+
+/** The `nextBattle` bonuses an event left for the next battle (campaign-events.md R2). */
+export interface BattleBonus {
+  pick?: boolean;
+  xp?: boolean;
+  gold?: boolean;
+}
+
+/**
+ * Apply `nextBattle` bonuses to a settled outcome (post-battle rewards only,
+ * never sim inputs): +1 loot pick (up to the pool), +50% XP to each survivor,
+ * +50% gold. The gold bonus is on the battle's gold as resolveBattle paid it,
+ * so after the goldBonus cap, and the caller applies it before any bounty.
+ * Mutates the outcome and the heroes; returns the extra gold for the purse.
+ */
+export function applyBattleBonus(outcome: Outcome, heroes: readonly Hero[], bonus: BattleBonus, rng: Rng): number {
+  let extra = 0;
+  if (bonus.gold) {
+    extra = Math.round(outcome.gold * NEXT_BATTLE.gold);
+    outcome.gold += extra;
+  }
+  if (bonus.pick) outcome.picks = Math.min(outcome.picks + NEXT_BATTLE.picks, outcome.loot.length);
+  if (bonus.xp) {
+    for (const o of outcome.heroes) {
+      const h = o.died ? undefined : heroes.find((x) => x.id === o.heroId);
+      const add = Math.round(o.xp * NEXT_BATTLE.xp);
+      if (!h || add <= 0) continue;
+      o.levelsGained += grantXp(h, add, rng);
+      o.xp += add;
+    }
+  }
+  return extra;
 }
 
 /** Validate and apply a loot selection. Returns the chosen items (at most `picks`). */

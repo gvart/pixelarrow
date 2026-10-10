@@ -13,8 +13,12 @@ import { grantXp, makeHero, makeItem, openingParty } from './heroes';
 import { dedupeNames } from '../data/names';
 import { campaignIdFor, DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
 import { armyPower, type EnemyArmy } from './enemy';
-import type { Outcome } from './loot';
-import { CAPTAIN_RULES, VOLUNTEER_RULES, World, WORLD_RULES, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
+import { applyBattleBonus, type BattleBonus, type Outcome } from './loot';
+import { CAPTAIN_RULES, VOLUNTEER_RULES, World, WORLD_RULES, bountyMultOf, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
+import { BASE_ITEMS } from '../data/items';
+import { armyPick } from './sources';
+import { hashString } from '../sim/rng';
+import { EV_KEY, eventById, type Effect, type EventChoice, type EventDef, type EventTarget, type NextBattleBonus, type PlaceRef } from '../data/events';
 import { isCaptain } from '../sim/stats';
 import type { BattleResult } from '../sim/types';
 import { CAMP_RULES, FOOD_RULES, campEffects } from '../world/camp';
@@ -147,7 +151,7 @@ export class Campaign {
 
   playerInfo(): PlayerInfo {
     const fit = this.fitHeroes();
-    return { power: armyPower(fit), size: fit.length, mouths: this.data.heroes.length };
+    return { power: armyPower(fit), size: fit.length, mouths: this.data.heroes.length, gold: this.data.gold };
   }
 
   // ------------------------------------------------------------- time & healing
@@ -444,8 +448,11 @@ export class Campaign {
       outcome.gold -= cut;
       this.data.gold -= cut;
     }
+    // an event's nextBattle bonus (campaign-events.md R2): on the battle's gold, before the bounty
+    const bonus = this.takeBattleBonus();
+    if (bonus) this.data.gold += applyBattleBonus(outcome, this.data.heroes, bonus, this.rng);
     if (captain && outcome.victory && (fate === 'killed' || fate === 'captured')) {
-      bounty = captainBounty(captain.level);
+      bounty = captainBounty(captain.level, p ? bountyMultOf(p) : 1);
       outcome.gold += bounty;
       this.data.gold += bounty;
       const weapon = captain.equip.weapon;
@@ -476,6 +483,204 @@ export class Campaign {
       w.s.y = st.y + 0.5;
       w.s.safeUntil = w.s.time + 4;
     }
+    // the after-battle trigger (campaign-events.md R3): a won campaign battle
+    if (outcome.victory) w.tryEvent('after_battle', `b${this.data.fought}:${partyId}`, this.playerInfo());
     return { enemyRetreated, captain: fate, bounty };
   }
+
+  // ------------------------------------------------------------- events (campaign-events.md R2, R4)
+
+  /**
+   * The event waiting for the player's choice, with each choice's blocker
+   * (R4.4), or null. An id the deck no longer has (content changed in an
+   * update) is dropped, so the map never stays paused on it.
+   */
+  pendingEvent(): { def: EventDef; seed: number; choices: { key: string; blocked: ChoiceBlock | null }[] } | null {
+    const w = this.world;
+    const pe = w.s.pendingEvent;
+    if (!pe) return null;
+    const def = eventById(w.deck, pe.id);
+    if (!def) {
+      w.clearPendingEvent();
+      return null;
+    }
+    return { def, seed: pe.seed, choices: def.choices.map((c) => ({ key: c.key, blocked: this.choiceBlocker(c) })) };
+  }
+
+  /** Why a choice can't be taken (R4.4): a cost the purse or the stores can't pay, or no room for recruits. */
+  choiceBlocker(c: EventChoice): ChoiceBlock | null {
+    const w = this.world;
+    for (const e of c.cost ?? []) {
+      if (e.k === 'gold' && e.n < 0 && this.data.gold < -e.n) return { why: 'gold', need: -e.n, have: this.data.gold };
+      if (e.k === 'food' && e.n < 0 && w.food < -e.n) return { why: 'food', need: -e.n, have: Math.floor(w.food) };
+      if (e.k === 'supplies' && e.n < 0 && w.supplies < -e.n) return { why: 'supplies', need: -e.n, have: Math.floor(w.supplies) };
+    }
+    const recruits = [...(c.cost ?? []), ...c.effects].some((e) => e.k === 'recruit');
+    if (recruits && this.data.heroes.length >= MAX_ARMY) return { why: 'room', need: MAX_ARMY, have: this.data.heroes.length };
+    return null;
+  }
+
+  /**
+   * Resolve the pending event with choice `key` (R4.3): the cost is paid, the
+   * chance rolled from the event's seed, the effects (or the failure) applied,
+   * the event cleared and the journal written. Everything random comes from the
+   * seed and the choice, so a reload with the event open gives the same
+   * outcome. Returns null if there is no such event or choice, or it's blocked.
+   * The caller saves.
+   */
+  chooseEvent(key: string): EventResolution | null {
+    const pe = this.pendingEvent();
+    const choice = pe?.def.choices.find((c) => c.key === key);
+    if (!pe || !choice || this.choiceBlocker(choice)) return null;
+    const rng = new Rng(hashString(`${pe.seed}:${key}`));
+    const notes: string[] = [];
+    for (const e of choice.cost ?? []) this.applyEffect(e, rng, notes);
+    const ok = !choice.chance || rng.chance(choice.chance.p);
+    for (const e of ok ? choice.effects : choice.chance!.fail) this.applyEffect(e, rng, notes);
+    const w = this.world;
+    w.clearPendingEvent();
+    w.logJournal(ok ? `${pe.def.id}:${key}` : `${pe.def.id}:${key}:fail`);
+    return { id: pe.def.id, key, ok, notes };
+  }
+
+  /** One effect of the closed vocabulary (R2). A refusal (no room, nothing to target) goes into `notes`. */
+  private applyEffect(e: Effect, rng: Rng, notes: string[]): void {
+    const w = this.world;
+    const d = this.data;
+    switch (e.k) {
+      case 'gold':
+        d.gold = Math.max(0, d.gold + e.n);
+        return;
+      case 'food':
+        w.addFood(e.n);
+        return;
+      case 'supplies':
+        w.addSupplies(e.n);
+        return;
+      case 'recruit': {
+        const n = Math.min(e.n, MAX_ARMY - d.heroes.length);
+        if (n < e.n) notes.push('room');
+        const culture = this.nearestPlace().culture;
+        for (let i = 0; i < n; i++) d.heroes.push(makeHero(rng, d, culture, e.cls, e.level, 1, undefined, d.heroes));
+        return;
+      }
+      case 'xp':
+        for (const h of this.targets(e.target, rng, false)) grantXp(h, e.n, rng);
+        return;
+      case 'wound': {
+        const hit = this.targets(e.target, rng, true);
+        if (hit.length === 0) notes.push('no_target');
+        for (const h of hit) h.wound = Math.max(h.wound ?? 0, e.hours);
+        return;
+      }
+      case 'heal':
+        for (const h of d.heroes) h.wound = 0;
+        return;
+      case 'item': {
+        const pool = BASE_ITEMS.filter((x) => x.tier <= 2 && (!e.slot || x.slot === e.slot));
+        if (pool.length === 0) return;
+        const def = armyPick(rng, pool, this.armyClasses());
+        d.stash.push(makeItem(rng, d, def.id, e.rarity, 100, this.nearestPlace().culture));
+        return;
+      }
+      case 'spawnBand':
+        if (!w.spawnEventBand(e.kind, e.mods, rng)) notes.push('no_spawn');
+        return;
+      case 'weakenGarrison': {
+        const id = e.lair === 'nearest' ? w.nearestLair({ standing: true })?.id : e.lair;
+        if (id !== undefined) w.weakenGarrison(id, e.n);
+        return;
+      }
+      case 'reveal':
+        if (typeof e.at === 'object') w.reveal(w.s.x, w.s.y, e.at.radius);
+        else {
+          const id = e.at === 'nearest' ? w.nearestLair({ unknown: true })?.id : e.at;
+          if (id !== undefined) w.revealSettlement(id);
+        }
+        return;
+      case 'retrain':
+        w.setFlag(EV_KEY.retrain, this.freeRetrains() + 1);
+        return;
+      case 'priceMod':
+        w.setPriceMod(this.placeOf(e.place), e.pct, e.days);
+        return;
+      case 'closeSettlement':
+        w.closeSettlement(this.placeOf(e.place), e.days);
+        return;
+      case 'nextBattle':
+        w.setFlag(EV_KEY.next(e.bonus), 1);
+        return;
+      case 'setFlag':
+        if (!w.setFlag(e.name, e.value)) notes.push('flags_full');
+        return;
+      case 'clearFlag':
+        w.clearFlag(e.name);
+        return;
+    }
+  }
+
+  /** The heroes an effect lands on: everyone, one at random, or the lowest level. `fitOnly` skips the wounded (a wound falls on a fit man). */
+  private targets(t: EventTarget, rng: Rng, fitOnly: boolean): Hero[] {
+    const pool = fitOnly ? this.data.heroes.filter((h) => (h.wound ?? 0) <= 0) : this.data.heroes;
+    if (pool.length === 0) return [];
+    if (t === 'all') return pool;
+    if (t === 'one_random') return [rng.pick(pool)];
+    return [pool.reduce((a, h) => (h.level < a.level ? h : a), pool[0])];
+  }
+
+  /** The settlement the party is in, else the nearest one. */
+  private nearestPlace() {
+    const w = this.world;
+    const inside = w.settlement(w.s.inside);
+    if (inside) return inside;
+    const all = w.map.settlements;
+    const dist = (s: (typeof all)[number]) => Math.hypot(s.x + 0.5 - w.s.x, s.y + 0.5 - w.s.y);
+    return all.reduce((b, s) => (dist(s) < dist(b) ? s : b), all[0]);
+  }
+
+  private placeOf(p: PlaceRef): number {
+    return p === 'here' ? this.nearestPlace().id : p;
+  }
+
+  /** Free perk retrains events have granted (abilities.md R7); the drillmaster spends them with useFreeRetrain. */
+  freeRetrains(): number {
+    return this.world.s.flags[EV_KEY.retrain] ?? 0;
+  }
+
+  useFreeRetrain(): boolean {
+    const n = this.freeRetrains();
+    if (n <= 0) return false;
+    if (n === 1) this.world.clearFlag(EV_KEY.retrain);
+    else this.world.setFlag(EV_KEY.retrain, n - 1);
+    return true;
+  }
+
+  /** The nextBattle bonuses waiting (R2), cleared as the battle takes them; null when none. */
+  private takeBattleBonus(): BattleBonus | null {
+    const w = this.world;
+    const bonus: BattleBonus = {};
+    let any = false;
+    for (const b of ['pick', 'xp', 'gold'] as NextBattleBonus[]) {
+      if (!w.hasFlag(EV_KEY.next(b))) continue;
+      bonus[b] = true;
+      any = true;
+      w.clearFlag(EV_KEY.next(b));
+    }
+    return any ? bonus : null;
+  }
+}
+
+/** Why an event choice is disabled (R4.4): the UI shows the reason, e.g. "No room (20/20)". */
+export interface ChoiceBlock {
+  why: 'gold' | 'food' | 'supplies' | 'room';
+  need: number;
+  have: number;
+}
+
+/** What resolving an event did: `ok` false when its chance failed; `notes` are refusals (`room`, `no_target`, `no_spawn`, `flags_full`). */
+export interface EventResolution {
+  id: string;
+  key: string;
+  ok: boolean;
+  notes: string[];
 }
