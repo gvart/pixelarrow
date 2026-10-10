@@ -193,6 +193,10 @@ export class Online {
         this.setStatus('synced');
         return dec.data;
       }
+      if (dec.action === 'hold') {
+        this.hold();
+        return null;
+      }
       if (dec.action === 'push') {
         this.meta = { revision: dec.revision, seq: stored?.seq ?? -1 };
         if (local) this.queuePush(local, 0);
@@ -207,6 +211,16 @@ export class Online {
     }
   }
 
+  /** The server holds a save from a newer build (V5-011): nothing is uploaded for the rest of the session. */
+  private held = false;
+  private hold(): void {
+    this.held = true;
+    this.pending = null;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.setStatus('offline');
+  }
+
   /** Boot gave up waiting: ignore whatever the in-flight pull returns. */
   abandonPull(): void {
     this.pullGen++;
@@ -214,7 +228,7 @@ export class Online {
 
   /** Called after every local save: uploads the latest data after a quiet period. */
   queuePush(data: SaveData, delayMs = this.d.debounceMs ?? 4000): void {
-    if (!this.available) return;
+    if (!this.available || this.held) return;
     this.pending = data;
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
@@ -268,7 +282,7 @@ export class Online {
       if (isApiError(e) && e.status === 409 && e.code === 'save_conflict') {
         if (await this.resolve409(body, seq)) {
           this.pushFails = 0;
-          this.setStatus(this.pending ? 'syncing' : 'synced');
+          if (!this.held) this.setStatus(this.pending ? 'syncing' : 'synced');
           return;
         }
       }
@@ -282,7 +296,12 @@ export class Online {
   private async resolve409(local: SaveData, seq: number): Promise<boolean> {
     try {
       const remote = await this.d.api.getSave();
-      const winner = this.canAdopt() ? resolveConflict(local, remote.data) : 'local';
+      const verdict = resolveConflict(local, remote.data);
+      if (verdict === 'hold') {
+        this.hold();
+        return true;
+      }
+      const winner = this.canAdopt() ? verdict : 'local';
       if (winner === 'remote') {
         const rdata = remoteSaveData(remote.data)!;
         await this.storeMeta({ revision: remote.revision, seq: seqOf(rdata) });

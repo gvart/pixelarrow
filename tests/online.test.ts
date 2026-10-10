@@ -3,7 +3,7 @@ import { ApiClient, ApiError, type FetchLike } from '../src/platform/api';
 import { Online, SUPPORTER_BANNER, type OnlineDeps } from '../src/platform/online';
 import { compareSaves, decideOnLoad, parseSyncMeta, resolveConflict, SYNC_META_KEY } from '../src/platform/saveSync';
 import { Campaign } from '../src/game/campaign';
-import type { KV, SaveData } from '../src/game/save';
+import { SAVE_VERSION, type KV, type SaveData } from '../src/game/save';
 
 function memoryKV(): KV & { store: Map<string, string> } {
   const store = new Map<string, string>();
@@ -163,6 +163,37 @@ describe('save sync decisions', () => {
     expect(parseSyncMeta('nope')).toBeNull();
     expect(parseSyncMeta('{"revision":"3"}')).toBeNull();
     expect(parseSyncMeta(null)).toBeNull();
+  });
+});
+
+describe('a server save from a newer build is never overwritten (V5-011)', () => {
+  const newer = () => ({ ...save(40), v: SAVE_VERSION + 1 });
+
+  it('boot holds instead of pushing over it, and a 409 against it holds too', () => {
+    expect(decideOnLoad(save(10), null, { revision: 5, data: newer() })).toEqual({ action: 'hold', revision: 5 });
+    expect(decideOnLoad(null, null, { revision: 5, data: newer() })).toEqual({ action: 'hold', revision: 5 });
+    expect(resolveConflict(save(6), newer())).toBe('hold');
+  });
+
+  it('after a hold, local saves are not uploaded this session', async () => {
+    const srv = fakeServer({ save: { revision: 4, data: newer() } });
+    const { online } = makeOnline(srv.fetch);
+    expect(await online.pullOnLoad(save(10))).toBeNull();
+    online.queuePush(save(11));
+    await tick();
+    await online.flush();
+    expect(srv.st.puts).toHaveLength(0);
+    expect((srv.st.data as SaveData).v).toBe(SAVE_VERSION + 1);
+  });
+
+  it('a newer save pushed by another device during play is not overwritten on a 409', async () => {
+    const srv = fakeServer({ save: { revision: 4, data: newer() } });
+    const { online } = makeOnline(srv.fetch);
+    await online.signIn();
+    online.queuePush(save(90)); // base revision 0 -> conflict
+    await online.flush();
+    expect(srv.st.puts).toHaveLength(0);
+    expect((srv.st.data as SaveData).v).toBe(SAVE_VERSION + 1);
   });
 });
 
