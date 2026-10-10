@@ -11,11 +11,9 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| in-02 | W8 IN-02: menu input contract + layout-check text-size rule | per card | per card | worktree-agent-aabb19ca85883d142 | running |
-| (merge) | F-06 worktree-agent-a1896078ef1899ab7 (dead code, −767 lines) | — | integrator | — | merging |
+| (merge) | AS-03 worktree-agent-a38f39527bebe34f0 + IN-02 worktree-agent-aabb19ca85883d142 | — | integrator | — | merging |
 | ab-03 | W9 AB-03: the Standard | per card | per card | worktree-agent | running |
 | ct-05 | W9 CT-05: battle camera | per card | per card | worktree-agent | running |
-| assets-4 | AS-03: icons (Chrome owner) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
 
@@ -47,6 +45,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - b988138 CT-02, 9f9e594 AB-01, b874988 AI-03. Gates: vitest 845, server 294, layout 0 new, all smokes pass; balance 55%.
 - 6abf00a merge: S4-FIXER-3 (load-robust smoke, heavy-test timeouts). smoke 3/3 in a row, vitest 845.
 - 5821511 F-02; 884d5c1 AR-01; c1b0241 AS-02 (21 busts); 5209dbd CT-03; 73a2d33 AB-02; 332b516 F-03. Gates: vitest 926, server 296, layout 0 new, smokes pass (smoke flaked once at 'battle against the band'); balance 54%, lairs 43/58/53.
+- 48b60d7 merge: F-06 dead code (−780 lines). Gates: vitest 926, layout 0 new, smokes pass.
 
 ## Queue (next)
 
