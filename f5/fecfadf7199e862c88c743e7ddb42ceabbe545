@@ -1,0 +1,20 @@
+docs/v5/ux/ELEMENT_MAP.md
+  s_697bdc25a7c420::t_f45965d3c2aa42 1-528,533-534,536-548
+  s_697bdc25a7c420::t_8e6ade56ff9d2d 529-532,535
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f5fecfadf7199e862c88c743e7ddb42ceabbe545",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
