@@ -9,7 +9,9 @@
 import { Rng } from './rng';
 import {
   assignSlots,
+  FORMATION_TYPES,
   formationSlots,
+  orbRings,
   presetFrontage,
   rightOf,
   type Formation,
@@ -34,7 +36,7 @@ import { ABILITIES, ABILITY_RULES, AURAS, AURA_IDS, AURA_RULES, type AbilityId }
 import { rallyRadius, willRadius, type CombatStats } from './stats';
 import { Terrain, cellHash } from './terrain';
 import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
-import { MOUNTS, type MountDef } from '../data/classes';
+import { CLASSES, MOUNTS, type MountDef } from '../data/classes';
 import { MythSystem, hasMyth } from './myth';
 import { PowerSystem, hasPowers } from './powers';
 import { HORN_RULES } from '../data/beasts';
@@ -91,6 +93,22 @@ export const RULES = {
   /** formations-orders.md R1: most a moving group's facing turns, in degrees per second (a group with a rider turns at the horse rate). */
   turnRateFoot: 90,
   turnRateHorse: 60,
+  /** formations-orders.md R2 (FO-02): the orb's costs. Riders cannot form it; bracing still works. */
+  orbSpeed: 0.4,
+  orbAccuracy: 0.7,
+  /** formations-orders.md R3 (FO-02): a feint runs back for feintS, then turns and charges; one per feintCdS per group. */
+  feintS: 4,
+  feintCdS: 30,
+  /** The feint's run back, as a multiple of the group's walk (men run, as when catching up their slots). */
+  feintPace: 1.4,
+  /** Extra damage of each man's first blow after the turn-about (+0.3 charge bonus). */
+  feintBlow: 0.3,
+  /** A group counts as pursuing once it has moved this far (paces) toward the feinting group. */
+  feintPursuit: 3,
+  /** A pursuer is disordered for disorderS: its block falls by disorderBlock and its men stand off their slots by up to disorderScatter. */
+  disorderS: 3,
+  disorderBlock: 0.15,
+  disorderScatter: 0.3,
 };
 
 /**
@@ -181,6 +199,18 @@ export class Battle {
   private faceTo: ({ fx: number; fy: number } | undefined)[] = [];
   /** Per tick, per group: 1 = has a man who can shoot, 2 = an enemy in range, 4 = a focused enemy in range. */
   private shotScan: number[] = [];
+  /** The orb's outer ring radius by group id, set when its slots are assigned (formations-orders.md R2). */
+  private orbR: number[] = [];
+  /** A running feint by group id: the turn-about tick and, per enemy group, where it stood and whether it pursued (R3). */
+  private feints: ({ turnAt: number; watch: Map<number, { x: number; y: number; on: boolean }> } | undefined)[] = [];
+  /** The tick each group may feint again (R3.4). */
+  private feintCd: number[] = [];
+  /** Disorder by group id: [from tick, until tick) (R3.3). */
+  private disorder: ({ from: number; until: number } | undefined)[] = [];
+  /** Men whose first blow after a feint's turn-about lands harder (R3.2). */
+  private feintBlow = new Set<number>();
+  /** Orb groups that lost a man this tick: the ring contracts at the end of the tick (V5-041). */
+  private orbLoss = new Set<number>();
   /** Some unit is not a man-sized disc (riders, chariots, bears): per-unit radii apply. */
   readonly big: boolean;
   /** Riders or animals take part (the bot then uses its cavalry / beast tactics). */
@@ -293,6 +323,8 @@ export class Battle {
       // Javelin groups keep their throws until ordered; pure missile groups loose at will.
       for (const g of this.groups) {
         if (g.side !== side) continue;
+        // A shape the sim has no slots for, or riders in an orb (R2.4), stands in a line.
+        if (!FORMATION_TYPES.includes(g.formation.type) || (g.formation.type === 'orb' && !this.canOrb(g.id))) g.formation.type = 'line';
         const mem = this.members(g.id);
         const hybrids = mem.filter((u) => u.stats.role === 'hybrid').length;
         const ranged = mem.filter((u) => u.stats.role === 'ranged').length;
@@ -463,6 +495,12 @@ export class Battle {
     const r = rightOf(f.fx, f.fy);
     let x = f.cx + r.x * u.slotLat - f.fx * u.slotDep;
     let y = f.cy + r.y * u.slotLat - f.fy * u.slotDep;
+    const dis = this.disorder[u.group];
+    if (dis !== undefined && this.tick < dis.until) {
+      // A disordered group's men stand off their slots (R3.3).
+      x += (cellHash(u.id, dis.from) - 0.5) * 2 * RULES.disorderScatter;
+      y += (cellHash(dis.from, u.id + 7919) - 0.5) * 2 * RULES.disorderScatter;
+    }
     const t = this.terrain;
     if (t) {
       // Trees, water and stones break up the ranks: each man finds his own footing.
@@ -530,7 +568,8 @@ export class Battle {
           fx /= len;
           fy /= len;
         }
-        const type = o.type ?? g.formation.type;
+        // An unknown shape, or an orb for riders (R2.4), keeps the current shape.
+        const type = o.type && FORMATION_TYPES.includes(o.type) && (o.type !== 'orb' || this.canOrb(g.id)) ? o.type : g.formation.type;
         const n = Math.max(1, this.activeMembers(g.id).length);
         const prevF = g.formation;
         g.formation = {
@@ -545,7 +584,7 @@ export class Battle {
           g.formation.fs = prevF.fs;
           g.formation.rs = prevF.rs;
         }
-        if (o.type) g.shieldWall = o.type === 'shieldwall';
+        if (o.type) g.shieldWall = type === 'shieldwall';
         if (this.phase === 'deploy') {
           const z = this.deployZone(side);
           g.formation.cy = clamp(g.formation.cy, z.y0, z.y1);
@@ -562,7 +601,8 @@ export class Battle {
         return;
       }
       case 'preset': {
-        if (!groupOk(o.group)) return;
+        if (!groupOk(o.group) || !FORMATION_TYPES.includes(o.type)) return;
+        if (o.type === 'orb' && !this.canOrb(o.group)) return;
         const g = this.groups[o.group];
         const n = Math.max(1, this.activeMembers(g.id).length);
         g.formation = { ...g.formation, type: o.type, frontage: presetFrontage(o.type, n) };
@@ -577,13 +617,11 @@ export class Battle {
       case 'order': {
         if (!groupOk(o.group)) return;
         const g = this.groups[o.group];
-        g.order = o.order;
-        if (o.order === 'fallback') g.fallbackLeft = 5;
-        if (o.order === 'charge' || o.order === 'fallback') g.shieldWall = false;
-        if (o.order === 'charge') {
-          // Charging javelin-men throw on the way in.
-          for (const u of this.activeMembers(g.id)) if (u.stats.role === 'hybrid' && u.ammo > 0) g.fireAtWill = true;
+        if (o.order === 'feint') {
+          this.startFeint(g);
+          return;
         }
+        this.setOrder(g, o.order);
         return;
       }
       case 'face': {
@@ -593,7 +631,8 @@ export class Battle {
         const g = this.groups[o.group];
         const len = Math.sqrt(o.fx * o.fx + o.fy * o.fy);
         if (g.routed || !(len > 1e-6) || !Number.isFinite(len)) return;
-        if (this.phase === 'battle' && g.order !== 'hold') {
+        // The orb has no front to wheel (R1): it turns on the spot.
+        if (this.phase === 'battle' && g.order !== 'hold' && g.formation.type !== 'orb') {
           this.faceTo[g.id] = { fx: o.fx / len, fy: o.fy / len };
           return;
         }
@@ -616,7 +655,7 @@ export class Battle {
       case 'shieldwall': {
         if (!groupOk(o.group)) return;
         const g = this.groups[o.group];
-        g.shieldWall = o.on ?? !g.shieldWall;
+        g.shieldWall = (o.on ?? !g.shieldWall) && g.formation.type !== 'orb'; // the orb has no shield-wall bonus (R2.3)
         if (g.shieldWall && g.order === 'charge') g.order = 'hold';
         return;
       }
@@ -690,6 +729,7 @@ export class Battle {
         for (const gid of [old, o.group]) {
           const g = this.groups[gid];
           const n = Math.max(1, this.activeMembers(gid).length);
+          if (g.formation.type === 'orb' && !this.canOrb(gid)) g.formation.type = 'line'; // a rider joined (R2.4)
           g.formation.frontage = presetFrontage(g.formation.type, n);
           this.reassign(gid);
           this.snapToSlots(gid);
@@ -697,6 +737,174 @@ export class Battle {
         return;
       }
     }
+  }
+
+  /** Set a group order (the `order` order, and a feint's turn-about). */
+  private setOrder(g: SimGroup, order: SimGroup['order']): void {
+    g.order = order;
+    if (order === 'fallback') g.fallbackLeft = 5;
+    if (order === 'charge' || order === 'fallback') g.shieldWall = false;
+    if (order === 'charge') {
+      // The orb cannot charge: it opens into a line at its facing first (R2.3).
+      if (g.formation.type === 'orb') {
+        g.formation.type = 'line';
+        g.formation.frontage = presetFrontage('line', Math.max(1, this.activeMembers(g.id).length));
+        this.reassign(g.id);
+      }
+      // Charging javelin-men throw on the way in.
+      for (const u of this.activeMembers(g.id)) if (u.stats.role === 'hybrid' && u.ammo > 0) g.fireAtWill = true;
+    }
+  }
+
+  // ------------------------------------------------------- the orb and the feint
+
+  /** Riders cannot form an orb (formations-orders.md R2.4). */
+  canOrb(groupId: number): boolean {
+    return !this.units.some((u) => u.group === groupId && u.stats.mount !== undefined);
+  }
+
+  /**
+   * Whether a group may feint (R3.1): every man standing is light infantry, a
+   * missile man or a rider, by his class (`ClassDef.role` light or ranged, or a
+   * mount). A man without a known class counts by his stats: a rider or a
+   * missile or javelin man.
+   */
+  canFeint(groupId: number): boolean {
+    const mem = this.activeMembers(groupId);
+    if (mem.length === 0) return false;
+    return mem.every((u) => {
+      if (u.stats.mount !== undefined) return true;
+      const cls = u.stats.cls;
+      if (cls !== undefined && Object.prototype.hasOwnProperty.call(CLASSES, cls)) {
+        const c = CLASSES[cls as keyof typeof CLASSES];
+        return c.role === 'light' || c.role === 'ranged' || c.mount !== undefined;
+      }
+      return u.stats.kind === undefined && u.stats.role !== 'melee';
+    });
+  }
+
+  /** Whether a feint order would be obeyed now: in battle, eligible, not routed, off cooldown. */
+  feintReady(groupId: number): boolean {
+    const g = this.groups[groupId];
+    return !!g && this.phase === 'battle' && !g.routed && !g.disbanded && this.tick >= (this.feintCd[groupId] ?? 0) && this.canFeint(groupId);
+  }
+
+  /**
+   * The feint (R3.2): run back for feintS at full speed, then turn about and
+   * charge. An ineligible, routed or cooling-down group ignores it; the order
+   * stays in orderLog, which is the log the server replays and stores.
+   */
+  private startFeint(g: SimGroup): void {
+    if (!this.feintReady(g.id)) return;
+    g.order = 'feint';
+    g.fallbackLeft = 0;
+    g.shieldWall = false;
+    this.faceTo[g.id] = undefined;
+    this.feintCd[g.id] = this.tick + RULES.feintCdS * TICK_RATE;
+    const watch = new Map<number, { x: number; y: number; on: boolean }>();
+    for (const e of this.groups) {
+      if (e.side === g.side || e.disbanded) continue;
+      const c = this.centroid(e.id);
+      if (c) watch.set(e.id, { x: c.x, y: c.y, on: false });
+    }
+    this.feints[g.id] = { turnAt: this.tick + RULES.feintS * TICK_RATE, watch };
+  }
+
+  /** Mean position of a group's men standing, or null. */
+  private centroid(groupId: number): { x: number; y: number } | null {
+    let x = 0;
+    let y = 0;
+    let n = 0;
+    for (const u of this.units) {
+      if (u.group !== groupId || u.state !== 'ready') continue;
+      x += u.x;
+      y += u.y;
+      n++;
+    }
+    return n === 0 ? null : { x: x / n, y: y / n };
+  }
+
+  /** The enemy group whose men stand nearest, centre to centre, to (x, y); ties go to the lower id. */
+  private nearestEnemyGroup(side: Side, x: number, y: number, cent: ({ x: number; y: number } | null)[]): number {
+    let best = -1;
+    let bestD = Infinity;
+    for (const e of this.groups) {
+      if (e.side === side || e.disbanded) continue;
+      const c = cent[e.id];
+      if (!c) continue;
+      const d = (c.x - x) ** 2 + (c.y - y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = e.id;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * One tick of a running feint (R3.2, R3.3). An enemy group pursues if it has
+   * an advance or charge order, the feinting group is its nearest enemy group,
+   * and it has moved more than feintPursuit paces toward it. At the turn-about
+   * the group charges, each man's first blow lands harder, and every pursuer is
+   * disordered for disorderS (one `disordered` event each).
+   */
+  private updateFeint(g: SimGroup, cent: ({ x: number; y: number } | null)[]): void {
+    const ft = this.feints[g.id];
+    if (!ft) return;
+    if (g.order !== 'feint') {
+      this.feints[g.id] = undefined; // another order cancelled it
+      return;
+    }
+    const me = cent[g.id];
+    if (me) {
+      for (const [id, w] of ft.watch) {
+        const e = this.groups[id];
+        if (w.on || (e.order !== 'advance' && e.order !== 'charge')) continue;
+        const c = cent[id];
+        if (!c || this.nearestEnemyGroup(e.side, c.x, c.y, cent) !== g.id) continue;
+        const tx = me.x - w.x;
+        const ty = me.y - w.y;
+        const tl = Math.sqrt(tx * tx + ty * ty);
+        if (tl > 1e-6 && ((c.x - w.x) * tx + (c.y - w.y) * ty) / tl > RULES.feintPursuit) w.on = true;
+      }
+    }
+    if (this.tick < ft.turnAt) return;
+    this.feints[g.id] = undefined;
+    this.setOrder(g, 'charge');
+    for (const u of this.activeMembers(g.id)) this.feintBlow.add(u.id);
+    const until = this.tick + RULES.disorderS * TICK_RATE;
+    for (const [id, w] of ft.watch) {
+      if (!w.on || this.groups[id].disbanded) continue;
+      this.disorder[id] = { from: this.tick, until };
+      this.events.push({ type: 'disordered', tick: this.tick, group: id, untilTick: until });
+    }
+  }
+
+  /** Whether a group is disordered now (R3.3). */
+  disordered(groupId: number): boolean {
+    const d = this.disorder[groupId];
+    return d !== undefined && this.tick < d.until;
+  }
+
+  /** Note an orb man falling or breaking (V5-041). */
+  private orbLost(u: SimUnit): void {
+    if (u.state === 'ready' && this.groups[u.group].formation.type === 'orb') this.orbLoss.add(u.group);
+  }
+
+  /**
+   * The ring contracts (V5-041): an orb that lost a man re-slots its men at
+   * once on a smaller ring, so the men round the ring close the gap in the
+   * threatened arc instead of leaving it open until the next re-slot.
+   */
+  private contractOrbs(): void {
+    if (this.orbLoss.size === 0) return;
+    for (const id of [...this.orbLoss].sort((a, b) => a - b)) if (this.groups[id].formation.type === 'orb') this.reassign(id);
+    this.orbLoss.clear();
+  }
+
+  /** Bracing works in the orb as in a shield wall (R2.4). */
+  private braces(g: SimGroup): boolean {
+    return g.shieldWall || g.formation.type === 'orb';
   }
 
   // ---------------------------------------------------------------- the war horn
@@ -962,6 +1170,7 @@ export class Battle {
     const mem = this.activeMembers(groupId);
     if (mem.length === 0) return;
     const f = g.formation;
+    if (f.type === 'orb') this.orbR[groupId] = orbRings(mem.length).r;
     const slots = formationSlots(f, mem.length);
     const cands = mem.map((u) => ({ id: u.id, x: u.x, y: u.y, priority: slotPriority(u) }));
     const map = assignSlots(f, cands, slots);
@@ -982,8 +1191,9 @@ export class Battle {
       const p = this.slotPos(u);
       u.x = clamp(p.x, 0.3, this.width - 0.3);
       u.y = clamp(p.y, 0.3, this.height - 0.3);
-      u.fx = g.formation.fx;
-      u.fy = g.formation.fy;
+      const o = this.outward(u, g);
+      u.fx = o ? o.x : g.formation.fx;
+      u.fy = o ? o.y : g.formation.fy;
     }
     this.myth?.arrange();
   }
@@ -1052,13 +1262,16 @@ export class Battle {
     this.separate();
     this.myth?.afterMove();
     this.updateProjectiles();
+    this.contractOrbs();
     this.updateGroupStates();
     this.checkEnd();
   }
 
   private updateGroups(): void {
+    const cent = this.feints.some((f) => f !== undefined) ? this.groups.map((g) => this.centroid(g.id)) : [];
     for (const g of this.groups) {
       if (g.disbanded) continue;
+      if (this.feints[g.id]) this.updateFeint(g, cent);
       const mem = this.activeMembers(g.id);
       if (mem.length === 0) continue;
       const f = g.formation;
@@ -1083,6 +1296,11 @@ export class Battle {
         f.cy = clamp(f.cy - f.fy * step, 0.5, this.height - 0.5);
         g.fallbackLeft -= step;
         if (g.fallbackLeft <= 0) g.order = 'hold';
+      } else if (g.order === 'feint') {
+        // Run back at full speed, clamped to the field (R3.2; the turn-about is in updateFeint).
+        const step = pace * RULES.feintPace * DT;
+        f.cx = clamp(f.cx - f.fx * step, 0.5, this.width - 0.5);
+        f.cy = clamp(f.cy - f.fy * step, 0.5, this.height - 0.5);
       }
     }
   }
@@ -1129,9 +1347,21 @@ export class Battle {
     return u.stamina < RULES.lowStamina ? 0.75 : 1;
   }
 
+  /** In an orb a man faces away from its centre (R2.1); null in any other shape. */
+  private outward(u: SimUnit, g: SimGroup): { x: number; y: number } | null {
+    const f = g.formation;
+    if (f.type !== 'orb') return null;
+    const r = rightOf(f.fx, f.fy);
+    const x = r.x * u.slotLat - f.fx * u.slotDep;
+    const y = r.y * u.slotLat - f.fy * u.slotDep;
+    const l = Math.sqrt(x * x + y * y);
+    return l > 1e-6 ? { x: x / l, y: y / l } : null;
+  }
+
   private walkSpeed(u: SimUnit, g: SimGroup): number {
     let s = u.stats.speed * this.fatigue(u);
     if (g.shieldWall && u.stats.canShieldWall) s *= RULES.shieldWallSpeed;
+    if (g.formation.type === 'orb') s *= RULES.orbSpeed;
     if (u.berserk > 0) s *= 1.1;
     if (this.terrain) s *= this.groundSpeed(u);
     return s;
@@ -1222,16 +1452,19 @@ export class Battle {
     let moveX = 0;
     let moveY = 0;
     let speed = this.walkSpeed(u, g);
-    let faceX = g.formation.fx;
-    let faceY = g.formation.fy;
+    const out = this.outward(u, g);
+    let faceX = out ? out.x : g.formation.fx;
+    let faceY = out ? out.y : g.formation.fy;
     let running = false;
+    // Falling back or feinting: men leave the melee and do not stop to shoot or turn (R3.2).
+    const back = g.order === 'fallback' || g.order === 'feint';
 
     // A chariot at speed does not stop to fight: it drives on through (scythes, a blow in passing).
     // So does a rider at the gallop among men with no shield wall to stop him: he rides them down and wheels back.
     const driveThrough =
       mount !== null && g.order === 'charge' && (mount.id === 'chariot' || u.spd > 1.5) && (mount.id === 'chariot' || (melee !== null && melee.stats.kind !== 'animal' && !melee.stats.mount && (melee.stats.shield === 'none' || melee.stats.role !== 'melee')));
     if (driveThrough && melee && u.cooldown <= 0 && this.facingDot(u, melee) > -0.2) this.meleeAttack(u, melee);
-    if (melee && g.order !== 'fallback' && !driveThrough) {
+    if (melee && !back && !driveThrough) {
       u.targetId = melee.id;
       faceX = melee.x - u.x;
       faceY = melee.y - u.y;
@@ -1255,7 +1488,7 @@ export class Battle {
       let shootTarget: SimUnit | null = null;
       // Riders shoot (or throw) on the move, and even while falling back.
       const mobile = mount !== null && u.stats.range > 0;
-      if (canShoot && nearest && (g.order !== 'fallback' || mobile) && (slotD < 0.8 || g.role === 'skirmish' || g.order === 'charge' || mobile)) {
+      if (canShoot && nearest && (!back || mobile) && (slotD < 0.8 || g.role === 'skirmish' || g.order === 'charge' || mobile)) {
         if (focusIn && focusD > 1.4) shootTarget = focusT;
         else if (nearIn && nearestD > 1.4) shootTarget = nearest;
       }
@@ -1299,6 +1532,12 @@ export class Battle {
         moveY = slotDy;
         if (g.order === 'fallback') {
           speed *= 0.6; // walk backwards, keep facing
+        } else if (g.order === 'feint') {
+          // The feint: turn and run (the turn-about faces the enemy again).
+          speed = u.stats.speed * this.fatigue(u) * RULES.feintPace;
+          if (this.terrain) speed *= this.groundSpeed(u);
+          faceX = slotDx;
+          faceY = slotDy;
         } else if (slotD > 2.5 && g.order !== 'hold') {
           speed = u.stats.speed * this.fatigue(u) * 1.4;
           if (this.terrain) speed *= this.groundSpeed(u);
@@ -1306,12 +1545,12 @@ export class Battle {
         } else if (slotD > 1.5) {
           speed *= 1.25;
         }
-        if (g.order !== 'fallback' && slotD > 1.2) {
+        if (!back && slotD > 1.2) {
           faceX = slotDx;
           faceY = slotDy;
         }
         // Wheel to face a close threat
-        if (nearest && nearestD < 3 && g.order !== 'fallback') {
+        if (nearest && nearestD < 3 && !back) {
           faceX = nearest.x - u.x;
           faceY = nearest.y - u.y;
         }
@@ -1683,7 +1922,7 @@ export class Battle {
     if (this.special && this.tick % 10 === 0 && u.stats.kind !== 'animal' && !u.stats.mount) {
       // Men on foot dread horses close by, unless they stand in a wall of spears.
       const g = this.groups[u.group];
-      if (!(g.shieldWall && u.stats.weapon === 'spear' && u.stats.canShieldWall)) {
+      if (!(this.braces(g) && u.stats.weapon === 'spear' && u.stats.canShieldWall)) {
         let horses = 0;
         for (const e of this.units) {
           if (e.side === u.side || e.state !== 'ready' || !e.stats.mount) continue;
@@ -1711,6 +1950,7 @@ export class Battle {
   }
 
   private rout(u: SimUnit): void {
+    this.orbLost(u);
     u.state = 'routing';
     u.engaged = false;
     u.momentum = 0;
@@ -1757,6 +1997,12 @@ export class Battle {
 
   /** Direction an attack from (ax, ay) lands on target t, judged by t's facing. */
   hitDirection(t: SimUnit, ax: number, ay: number): HitDir {
+    // The orb has no flanks (R2.2): any blow from outside the ring lands on its front; a breach uses the normal rule.
+    const tg = this.groups[t.group];
+    if (tg.formation.type === 'orb' && t.state === 'ready' && !tg.individual) {
+      const f = tg.formation;
+      if ((ax - f.cx) ** 2 + (ay - f.cy) ** 2 > (this.orbR[tg.id] ?? 0) ** 2) return 'front';
+    }
     const dx = ax - t.x;
     const dy = ay - t.y;
     const d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1779,6 +2025,7 @@ export class Battle {
       if (d.noWall) wall = false;
     }
     if (wall) b += RULES.shieldWallBlock;
+    if (this.disordered(t.group)) b -= RULES.disorderBlock;
     if (missile) b *= RULES.missileBlockFactor;
     b *= this.fatigue(t);
     if (t.berserk > 0) b *= ABILITY_RULES.berserkBlock;
@@ -1803,7 +2050,7 @@ export class Battle {
     const impact = u.momentum >= RULES.chargeMomentumTicks;
     const rider = u.stats.mount ? MOUNTS[u.stats.mount] : null;
     // A horse shies from the points of a braced spear wall in front of it.
-    const shy = rider !== null && !impact && t.stats.weapon === 'spear' && tg.shieldWall && t.stats.canShieldWall && dir === 'front';
+    const shy = rider !== null && !impact && t.stats.weapon === 'spear' && this.braces(tg) && t.stats.canShieldWall && dir === 'front';
     if (!this.rng.chance(RULES.meleeHit + (t.stamina < RULES.lowStamina ? 0.08 : 0) + (rider && impact ? 0.15 : 0) - (shy ? MOUNTED_RULES.shyHit : 0))) {
       u.momentum = 0;
       if (rider) u.spd *= MOUNTED_RULES.impactKeep + 0.3;
@@ -1811,7 +2058,7 @@ export class Battle {
     }
     // Trees and water break up a braced wall: its men cannot set their spears together.
     const tGround = this.terrain ? this.terrain.at(t.x, t.y) : TERRAIN.open;
-    const braced = tg.shieldWall && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3 && !tGround.noWall && tGround.braceMult >= 0.5;    if (impact && braced) {
+    const braced = this.braces(tg) && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3 && !tGround.noWall && tGround.braceMult >= 0.5;    if (impact && braced) {
       // The charge breaks on a braced wall: the attacker is checked and winded.
       u.stun = RULES.bracedBounceStun;
       u.stamina = Math.max(0, u.stamina - 8);
@@ -1844,6 +2091,7 @@ export class Battle {
       return;
     }
     let dmg = u.stats.dmg * this.rng.range(0.8, 1.2) * RULES.dirDamage[dir];
+    if (this.feintBlow.delete(u.id)) dmg *= 1 + RULES.feintBlow; // the first blow after a feint's turn-about
     if (fury) dmg *= ABILITY_RULES.berserkDamage;
     if (u.aura & AURAS.warlord.bit) dmg *= AURA_RULES.warlordDamage;
     if (t.daze > 0) dmg *= ABILITY_RULES.dazeDamage;
@@ -1983,6 +2231,7 @@ export class Battle {
   /** @internal also used by src/sim/powers.ts (Retribution) */
   kill(t: SimUnit, by: SimUnit): void {
     if (this.myth && t.state === 'dead') return;
+    this.orbLost(t);
     t.hp = 0;
     t.state = 'dead';
     t.engaged = false;
@@ -2028,6 +2277,7 @@ export class Battle {
     const lead = dur * 0.6;
     const eagle = (u.aura & AURAS.eagle.bit) !== 0;
     let acc = Math.min(0.97, u.stats.accuracy + accBonus + (eagle ? AURA_RULES.eagleAccuracy : 0));
+    if (this.groups[u.group].formation.type === 'orb') acc *= RULES.orbAccuracy;
     if (this.pw) acc = Math.max(0.1, acc - this.pw.shroud(t));
     let spread = (1 - acc) * (0.35 + d * 0.09);
     if (u.stats.mount && u.spd > 1) spread *= MOUNTED_RULES.movingScatter;

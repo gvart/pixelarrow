@@ -177,7 +177,7 @@ describe('SIM_VERSION 2: the v1 sim is frozen', () => {
 
   for (const r of v1.battles) {
     it(`the frozen v1 copy replays ${r.name} to the recorded hash`, () => {
-      expect(replayWith((s) => new BattleV1(s), r)).toEqual(expected(r));
+      expect(replayWith((s) => new BattleV1(s as unknown as ConstructorParameters<typeof BattleV1>[0]), r)).toEqual(expected(r));
     });
 
     it(`no rule change yet: the v2 sim replays ${r.name} to the same hash`, () => {
