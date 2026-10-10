@@ -154,7 +154,7 @@ export const DATA_RU: Record<string, string> = {
   'ability.bash.name': 'Удар щитом',
   'ability.bash.desc': 'Удар щитом в стоящего напротив: оглушён 1,5 с, затем ошеломлён (без блока, +25% урона) 2,5 с.',
   'ability.volley.name': 'Залп',
-  'ability.volley.desc': 'Все стрелки в 6 шагах дают по три выстрела разом: +30% урона, точнее.',
+  'ability.volley.desc': 'Все стрелки в 6 шагах дают по два выстрела разом: +30% урона, точнее.',
   'ability.berserk.name': 'Берсерк',
   'ability.berserk.desc': '8 с ярости: +50% урона, быстрее, страшные удары, не бежит; но блок и броня хуже. Потом устаёт.',
   'ability.rally.name': 'Боевой клич',

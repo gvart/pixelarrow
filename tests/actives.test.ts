@@ -70,12 +70,11 @@ describe('signature active data (abilities.md R3)', () => {
     expect(ABILITIES.recharge.groupMode).toBe('one');
   });
 
-  it('each family signature perk grants its active, and bots take it at tier 2 (R6)', () => {
+  it('each family signature perk grants its active; bots develop path A for now (V5-056)', () => {
     for (const id of SIGNATURE) expect(PERKS[id as PerkId].ability).toBe(id);
     for (const c of Object.values(CLASSES)) {
       if (c.tree.length < 2) continue;
-      const t2 = c.tree[1];
-      expect(botPathChoice(t2, 1), c.id).toBe(SIGNATURE.includes(t2[1] as AbilityId) ? t2[1] : t2[0]);
+      expect(botPathChoice(c.tree[1], 1), c.id).toBe(c.tree[1][0]);
     }
   });
 
@@ -96,7 +95,7 @@ describe('signature active data (abilities.md R3)', () => {
   it('the four re-tuned actives and three auras carry the R2 magnitudes', () => {
     expect(ABILITY_RULES.bashDaze).toBe(50); // 2.5 s
     expect(ABILITY_RULES.dazeDamage).toBe(1.25);
-    expect(ABILITY_RULES.volleyShots).toBe(3);
+    expect(ABILITY_RULES.volleyShots).toBe(2); // R2's 3 shots, stacked per man, broke the beast lairs (V5-056)
     expect(ABILITY_RULES.rallyMorale).toBe(0.4);
     expect(AURA_RULES.eagleAccuracy).toBe(0.15);
     expect(AURA_RULES.eagleDamage).toBe(1.3);
@@ -405,15 +404,15 @@ describe('Scythe Run', () => {
 });
 
 describe('determinism with the signature actives', () => {
-  /** Both sides bot-driven, every family at level 4 (bots take the tier-2 active, R6). */
+  /** Both sides bot-driven, every family at level 4 holding its tier-2 active (bots use what they hold, R6). */
   function mixed(seed: number): Battle {
     const rng = new Rng(seed);
     const ids = { nextId: 1 };
     const side = (): Hero[] => [
-      ...classSquad(rng, ids, 'hoplite', 3, 4, 0), ...classSquad(rng, ids, 'sacred_band', 2, 4, 0),
-      ...classSquad(rng, ids, 'archer', 3, 4, 1),
-      ...classSquad(rng, ids, 'gallic', 2, 4, 2), ...classSquad(rng, ids, 'falx', 2, 4, 2),
-      ...classSquad(rng, ids, 'companion', 2, 4, 3), ...classSquad(rng, ids, 'chariot', 1, 4, 3),
+      ...men(rng, ids, 'hoplite', 3, ['shield_drill', 'push'], 0), ...men(rng, ids, 'sacred_band', 2, ['shield_drill', 'bond'], 0),
+      ...men(rng, ids, 'archer', 3, ['longshot', 'aimed'], 1),
+      ...men(rng, ids, 'gallic', 2, ['brawler', 'warcry'], 2), ...men(rng, ids, 'falx', 2, ['brawler', 'sunder'], 2),
+      ...men(rng, ids, 'companion', 2, ['horsemanship', 'recharge'], 3), ...men(rng, ids, 'chariot', 1, ['horsemanship', 'scythe'], 3),
     ];
     return new Battle({ seed, armies: [armySpec(side(), true), armySpec(side(), true)] });
   }

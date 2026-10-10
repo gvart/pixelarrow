@@ -147,15 +147,16 @@ export function autoDevelop(h: Hero, ctx: DevelopContext = {}): void {
 }
 
 /**
- * The option a bot takes at a tier (abilities.md R6), with no RNG so ladder
- * floors stay pure functions: B when it is the family's signature active
- * (tier 2) and grants an ability, or when it carries the standard and the
- * army has none; A otherwise. The new B ids do nothing until AB-02 / AB-03
- * wire their effects, so until then bots keep the old A chain.
+ * The option a bot takes at a tier, with no RNG so ladder floors stay pure
+ * functions: path A, the pre-AB-02 chain (V5-056: the tier-2 signature
+ * actives stay with players' heroes for now; bot and lair armies taking them
+ * broke the beast lairs and the ladder floors). B only when it carries the
+ * standard and the army has none (AB-03). A hero whose B pick is already
+ * made keeps it: pickPerks fills open tiers only, so a bot still uses the
+ * actives it holds (R6).
  */
-export function botPathChoice(tier: readonly PerkId[], index: number, ctx: DevelopContext = {}): PerkId {
+export function botPathChoice(tier: readonly PerkId[], _index: number, ctx: DevelopContext = {}): PerkId {
   const b = tier[1] ? PERKS[tier[1]] : undefined;
-  if (b && index === 1 && b.ability) return b.id;
   if (b?.standard && !ctx.standard) return b.id;
   return tier[0];
 }

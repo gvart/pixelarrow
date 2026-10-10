@@ -190,26 +190,24 @@ describe('autoDevelop (R6): deterministic, no RNG', () => {
     }
   });
 
-  it('takes the tier-2 signature active (live since AB-02) and A where B is not live yet (the standard lands in AB-03)', () => {
-    const withActive = (id: ClassId) => OLD_TREES[id]!.map((p, t) => (t === 1 ? CLASSES[id].tree[1][1] : p));
-    expect(bot('hoplite', 10).perks).toEqual(withActive('hoplite'));
-    expect(bot('hoplite', 10).perks[1]).toBe('push');
-    expect(bot('companion', 10).perks).toEqual(withActive('companion'));
-    expect(bot('companion', 10).perks[1]).toBe('recharge');
+  it('takes path A, the signature actives included (V5-056: bots keep the pre-AB-02 chain for now)', () => {
+    expect(PERKS.push.ability).toBe('push');
+    expect(bot('hoplite', 10).perks).toEqual(OLD_TREES.hoplite);
+    expect(bot('companion', 10).perks).toEqual(OLD_TREES.companion);
   });
 
-  it('takes the tier-2 B once it grants an active, and standard_bearer only when the army has none', () => {
+  it('takes standard_bearer only when it carries the standard and the army has none', () => {
     expect(PERKS.push.ability).toBe('push');
     const std = PERKS.standard_bearer;
     try {
       // a stand-in for AB-03 wiring the standard
       std.standard = true;
       const first = bot('hoplite', 10);
-      expect(first.perks).toEqual(['shield_drill', 'push', 'phalangite', 'standard_bearer', 'unbreakable']);
+      expect(first.perks).toEqual(['shield_drill', 'shield_bash', 'phalangite', 'standard_bearer', 'unbreakable']);
       const second = bot('hoplite', 10);
       second.perks = [];
       autoDevelop(second, { standard: true });
-      expect(second.perks).toEqual(['shield_drill', 'push', 'phalangite', 'steady_presence', 'unbreakable']);
+      expect(second.perks).toEqual(['shield_drill', 'shield_bash', 'phalangite', 'steady_presence', 'unbreakable']);
       // makeHero reads the roster: the second bearer-capable hero of an army takes A
       const rng = new Rng(9);
       const ids = { nextId: 1 };

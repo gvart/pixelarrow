@@ -87,7 +87,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   },
   volley: {
     id: 'volley', name: 'Volley', short: 'Volley', icon: 'volley', cooldown: 20, color: 0x9ad0e8, groupMode: 'one',
-    desc: 'Every missile-man within 6 paces looses three free shots at once: +30% damage, tighter aim.',
+    desc: 'Every missile-man within 6 paces looses two free shots at once: +30% damage, tighter aim.',
   },
   berserk: {
     id: 'berserk', name: 'Berserk', short: 'Bersrk', icon: 'berserk', cooldown: 40, color: 0xe04030, groupMode: 'all',
@@ -138,7 +138,7 @@ export const ABILITY_RULES = {
   bashDamage: 3,
   bashMorale: 6,
   volleyRadius: 6,
-  volleyShots: 3,
+  volleyShots: 2,
   volleyDamage: 1.3,
   volleyAccuracy: 0.1,
   berserkTicks: 160,

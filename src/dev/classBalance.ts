@@ -47,12 +47,25 @@ export interface DuelResult {
   seconds: number;
 }
 
-/** Equal-cost battle of class a vs class b; A plays side (seed & 1). Level 4 and up brings the tier-2 signature actives. */
-export function runClassDuel(seed: number, a: ClassId, b: ClassId, budget = 800, terrain?: TerrainGrid, level = 3): DuelResult {
+/** Heroes with their tier-2 pick switched to the class's signature active (B), as a player would develop them (AB-02 rows). */
+export function withActive(hs: Hero[]): Hero[] {
+  for (const h of hs) {
+    const t2 = CLASSES[h.cls as ClassId]?.tree[1];
+    if (t2) h.perks = h.perks.map((p) => (p === t2[0] ? t2[1] : p));
+  }
+  return hs;
+}
+
+/** Equal-cost battle of class a vs class b; A plays side (seed & 1). `active`: both sides take the tier-2 signature active (level 4 and up). */
+export function runClassDuel(seed: number, a: ClassId, b: ClassId, budget = 800, terrain?: TerrainGrid, level = 3, active = false): DuelResult {
   const rng = new Rng(seed);
   const ids = { nextId: 1 };
   const sa = classSquad(rng, ids, a, countFor(a, budget), level);
   const sb = classSquad(rng, ids, b, countFor(b, budget), level);
+  if (active) {
+    withActive(sa);
+    withActive(sb);
+  }
   const aSide: Side = (seed & 1) as Side;
   const armies = aSide === 0 ? [armySpec(sa, true), armySpec(sb, true)] : [armySpec(sb, true), armySpec(sa, true)];
   const bt = new Battle({ seed, armies: armies as [ReturnType<typeof armySpec>, ReturnType<typeof armySpec>], terrain });
@@ -67,12 +80,12 @@ export function runClassDuel(seed: number, a: ClassId, b: ClassId, budget = 800,
  * (both sides) cycle through them, so one man more or less from rounding
  * does not decide the matchup.
  */
-export function duelRate(a: ClassId, b: ClassId, n: number, seed0 = 9000, budget: number | number[] = 800, level = 3): { rate: number; seconds: number } {
+export function duelRate(a: ClassId, b: ClassId, n: number, seed0 = 9000, budget: number | number[] = 800, level = 3, active = false): { rate: number; seconds: number } {
   const budgets = Array.isArray(budget) ? budget : [budget];
   let s = 0;
   let t = 0;
   for (let i = 0; i < n; i++) {
-    const r = runClassDuel(seed0 + i, a, b, budgets[Math.floor(i / 2) % budgets.length], undefined, level);
+    const r = runClassDuel(seed0 + i, a, b, budgets[Math.floor(i / 2) % budgets.length], undefined, level, active);
     s += r.score;
     t += r.seconds;
   }
@@ -249,11 +262,11 @@ export function pathMirror(cls: ClassId, tier: number, n: number, seed0 = 31000)
   return { a: wa / n, b: wb / n };
 }
 
-/** Mean equal-cost win rate of a class against every other soldier class, at a level. */
+/** Mean equal-cost win rate of a class against every other soldier class, at a level, every side holding its tier-2 active. */
 export function classMean(a: ClassId, n: number, level: number): number {
   const ids = (Object.keys(CLASSES) as ClassId[]).filter((c) => CLASSES[c].kind !== 'animal' && c !== a);
   let s = 0;
-  ids.forEach((b, j) => (s += duelRate(a, b, n, 26000 + j * 31, RR_BUDGETS, level).rate));
+  ids.forEach((b, j) => (s += duelRate(a, b, n, 26000 + j * 31, RR_BUDGETS, level, true).rate));
   return s / ids.length;
 }
 
@@ -270,7 +283,7 @@ export function activeReport(n: number, k: number): string {
   }
   lines.push(`Level-4 target rows, ${k} seeds each`);
   lines.push(`  Cavalry on the flank, Companions with recharge ${pct(fb / k).padStart(4)}  (Lance Charge instead: ${pct(fa / k)}); target >= 58%`);
-  lines.push(`  Chariots vs militia (scythe)                ${pct(duelRate('chariot', 'militia', k, 9000, 800, 4).rate).padStart(4)}  target >= 30%`);
+  lines.push(`  Chariots vs militia (scythe)                ${pct(duelRate('chariot', 'militia', k, 9000, 800, 4, true).rate).padStart(4)}  target >= 30%`);
   const rr = Math.max(4, Math.round(k / 3));
   const means = (['archer', 'slinger', 'royal_guard', 'sacred_band'] as ClassId[]).map((c) => `${CLASSES[c].short} ${pct(classMean(c, rr, 4))}`);
   lines.push(`  Equal-cost means at level 4 (${rr} seeds per pair): ${means.join(', ')}; target archer/slinger >= 40%, Guard/Sacred Band >= 46% (AB-03)`);
