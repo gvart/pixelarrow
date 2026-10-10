@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { ICON_PX, Meter, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
+import { ICON_PX, Meter, addIcon, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, openModal, toast, Label, type Modal } from '../ui/widgets';
-import { GroupCard, numeralBadge, orderBadgeW, orderBarPlate, strokeReticle } from '../ui/battlePanel';
+import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, strokeReticle } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
@@ -26,6 +26,8 @@ import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, type DragEvents, 
 import { hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
 import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf } from '../ui/input/undo';
+import { CARD_DOUBLE_TAP_MS, FOLLOW_MARGIN, POINTER_INSET, RECENTRE_MS, FOLLOW_CATCH_UP, boxOf, centreOf, edgePointer, followCentre, keepInView, openingFrame, type Box } from '../ui/battleCamera';
+import { motion } from '../ui/motion';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import type { TerrainGrid } from '../sim/terrain';
 import type { BattleSource } from '../online/battleSource';
@@ -202,6 +204,12 @@ export class BattleScene extends BaseScene {
   private hud!: Phaser.GameObjects.Container;
   private tags!: Phaser.GameObjects.Container;
   private tagMap = new Map<number, Phaser.GameObjects.Container>();
+  /** Edge pointers (CT-05): 'group' to the selected group, 'foe' to the enemy in deployment. */
+  private pointerMap = new Map<'group' | 'foe', Phaser.GameObjects.Container>();
+  /** Width (UI px) of the medallion rail on the field's right edge (0 without one): pointers stay clear of it. */
+  private railW = 0;
+  /** The last group card tap, for the double tap that centres on the group (R8.2). */
+  private lastCardTap: { gid: number; at: number } | null = null;
   private tagPos = new Map<number, { x: number; y: number }>();
   private top: TopBar | null = null;
   private hintPill: HintPill | null = null;
@@ -281,6 +289,8 @@ export class BattleScene extends BaseScene {
     this.views = [];
     this.decals = [];
     this.tagMap = new Map();
+    this.pointerMap = new Map();
+    this.lastCardTap = null;
     this.tagPos = new Map();
     this.paused = false;
     this.speed = 1;
@@ -509,34 +519,57 @@ export class BattleScene extends BaseScene {
   }
 
   /**
-   * Default camera: a readable zoom (at least 2x; more if both armies fit),
-   * centred on the player's army, nudged toward the enemy.
+   * The opening frame (controls.md R7, F2): both armies in view if that fits
+   * at 0.75x or closer (never closer than 1x); otherwise 1x on the player's
+   * army, and the edge arrow points at the enemy (updatePointers).
+   * Enemy men still hidden (online deployment) count as their zone's centre.
    */
   private frameArmies(): void {
     const cam = this.cameras.main;
-    let x0 = Infinity;
-    let y0 = Infinity;
-    let x1 = -Infinity;
-    let y1 = -Infinity;
+    const hidden = this.hideFoes();
+    const pts: Pt[] = [];
     for (const u of this.sim.units) {
-      if (u.state === 'fled' || u.state === 'dead') continue;
-      const p = isoToScreen(u.x, u.y);
-      x0 = Math.min(x0, p.x - 10);
-      x1 = Math.max(x1, p.x + 10);
-      y0 = Math.min(y0, p.y - 44);
-      y1 = Math.max(y1, p.y + 4);
+      if (u.state === 'fled' || u.state === 'dead' || (hidden && u.side !== this.me)) continue;
+      pts.push(isoToScreen(u.x, u.y));
     }
-    if (!isFinite(x0)) return;
+    if (hidden) pts.push(this.foeCentre());
+    const armies = boxOf(pts, 10, 44, 4);
+    if (!armies) return;
     const vp = this.fieldViewport();
-    // the zoom is chosen for the whole width (the group cards overlay the field's edge); the centring skips them
-    const availW = this.scale.width / RS;
-    const availH = (vp.bottom - vp.top) / RS;
-    const fit = Math.floor(Math.min(availW / (x1 - x0), availH / (y1 - y0)));
-    // 1x shows a man ~25 px tall on a 390-wide phone; closer if both armies fit
-    const z = Phaser.Math.Clamp(Math.max(1, fit), 1, 2);
-    cam.setZoom(camZoom(z));
-    const t0 = this.focusPoint();
+    const f = openingFrame(this.scale.width / RS, (vp.bottom - vp.top) / RS, armies);
+    cam.setZoom(camZoom(f.zoom));
+    this.fitBounds();
+    const t0 = f.fits ? centreOf(armies) : this.focusPoint();
     this.centerCam(t0.x, t0.y);
+  }
+
+  /** Where the enemy stands (world px): their men's centre, or their zone's while the men are hidden. */
+  private foeCentre(): Pt {
+    if (!this.hideFoes()) {
+      const b = boxOf(
+        this.sim.units.filter((u) => u.side !== this.me && u.state === 'ready').map((u) => isoToScreen(u.x, u.y)),
+        0,
+        20,
+        0,
+      );
+      if (b) return centreOf(b);
+    }
+    const z = this.sim.deployZone(this.foe);
+    return isoToScreen(this.sim.width / 2, (z.y0 + z.y1) / 2);
+  }
+
+  /**
+   * The camera's bounds: the ground, stretched under the HUD bars so the
+   * field's edge still reaches the visible band at any zoom (a 0.75x opening,
+   * a short phone): what the stretch adds lies under the opaque bars.
+   */
+  private fitBounds(): void {
+    const cam = this.cameras.main;
+    const fb = isoFieldBounds(this.sim.width, this.sim.height);
+    const vp = this.fieldViewport();
+    const top = Math.max(MARGIN_Y, vp.top / cam.zoom + 40);
+    const bottom = Math.max(MARGIN_Y, (this.scale.height - vp.bottom) / cam.zoom + 40);
+    cam.setBounds(fb.x0 - MARGIN_X, fb.y0 - top, fb.x1 - fb.x0 + MARGIN_X * 2, fb.y1 - fb.y0 + top + bottom);
   }
 
   /** Centre the camera on a world point inside the visible band between the HUD bars. */
@@ -606,18 +639,31 @@ export class BattleScene extends BaseScene {
     this.followBtn?.setSelected(on);
   }
 
-  /** Smoothly track the fighting while following. */
+  /**
+   * Smoothly track the fighting while following: the melee plus the selected
+   * group, never losing the group (controls.md R8.1, battleCamera.followCentre).
+   */
   private updateCamera(delta: number): void {
     // a paused field stays still under the finger: orders are given on a fixed view
     if (!this.follow || this.sim.phase !== 'battle' || this.gestures.pinch || this.paused) return;
     const cam = this.cameras.main;
-    const t0 = this.focusPoint();
     const vp = this.fieldViewport();
+    const engaged = this.sim.units.filter((u) => u.state === 'ready' && u.engaged);
+    const melee = engaged.length >= 2 ? boxOf(engaged.map((u) => isoToScreen(u.x, u.y)), 10, 44, 4) : null;
+    const group = boxOf(this.selectedUnits().map((u) => isoToScreen(u.x, u.y)), 10, 44, 4);
+    const view = { w: this.scale.width / cam.zoom, h: (vp.bottom - vp.top) / cam.zoom };
+    const t0 = followCentre(melee, group, this.focusPoint(), view, FOLLOW_MARGIN);
     const offX = (this.scale.width / 2 - (vp.left + this.scale.width) / 2) / cam.zoom;
     const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
     const cur = { x: cam.midPoint.x - offX, y: cam.midPoint.y - offY };
     const k = 1 - Math.exp((-delta / 1000) * 2.2);
-    this.centerCam(cur.x + (t0.x - cur.x) * k, cur.y + (t0.y - cur.y) * k);
+    // eased toward the frame, then pulled (fast, but not a jump) to keep the selected group in view:
+    // smoothing alone let a running group outrun the camera (K2)
+    const eased = { x: cur.x + (t0.x - cur.x) * k, y: cur.y + (t0.y - cur.y) * k };
+    const held = keepInView(eased, group, view, 0);
+    const step = Math.min(1, (FOLLOW_CATCH_UP * (delta / 1000)) / Math.max(1e-6, Math.hypot(held.x - eased.x, held.y - eased.y)));
+    const next = { x: eased.x + (held.x - eased.x) * step, y: eased.y + (held.y - eased.y) * step };
+    this.centerCam(next.x, next.y);
   }
 
   protected onResized(): void {
@@ -668,6 +714,7 @@ export class BattleScene extends BaseScene {
       this.handleEvents(this.sim.drainEvents());
     }
     const alpha = this.sim.phase === 'battle' && !this.paused ? Math.min(1, this.acc / DT) : 1;
+    this.fitBounds();
     this.updateCamera(delta);
     this.fx.update(this.paused ? 0 : delta);
     pumpDolls(this.sim.phase === 'battle' && !this.paused ? 4 : 8);
@@ -678,6 +725,7 @@ export class BattleScene extends BaseScene {
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
+    this.updatePointers();
     if (this.undoLive || this.battleUndo.size) this.updateUndoChip();
     if (this.hudDirty) this.refreshHud();
   }
@@ -1487,9 +1535,11 @@ export class BattleScene extends BaseScene {
         case 'pinch-start':
           this.cancelGesture();
           this.setFollow(false);
+          cam.panEffect.reset();
           break;
         case 'pinch': {
-          const z = Phaser.Math.Clamp(e.zoom, camZoom(1), camZoom(3));
+          // the opening frame may stand below 1x (F2): a pinch starts from there, and its end snaps to whole steps
+          const z = Phaser.Math.Clamp(e.zoom, Math.min(camZoom(1), this.gestures.pinch?.z0 ?? camZoom(1)), camZoom(3));
           cam.setZoom(z);
           cam.scrollX -= e.dx / z;
           cam.scrollY -= e.dy / z;
@@ -1513,6 +1563,7 @@ export class BattleScene extends BaseScene {
         }
         case 'pan':
           this.setFollow(false);
+          cam.panEffect.reset();
           cam.scrollX -= e.dx / cam.zoom;
           cam.scrollY -= e.dy / cam.zoom;
           this.tutorialEvent({ kind: 'pan', px: Math.hypot(e.dx, e.dy) / RS });
@@ -2124,6 +2175,7 @@ export class BattleScene extends BaseScene {
     this.abilityBtns = [];
     this.followBtn = null;
     this.cmdBtns.clear();
+    this.railW = 0;
     this.tabBtns.clear();
     this.heroInfo = null;
     this.countdown = null;
@@ -2322,11 +2374,17 @@ export class BattleScene extends BaseScene {
         all.length === 1 ? VW - 8 : cw,
         SHEET_CARD_H,
         () => {
-          if (this.selGroup === g.id && this.selUnit < 0) this.selGroup = -1;
+          // a double tap on a card centres the camera on its group (R8.2) and leaves it selected
+          const now = this.time.now;
+          const twice = this.lastCardTap?.gid === g.id && now - this.lastCardTap.at < CARD_DOUBLE_TAP_MS;
+          this.lastCardTap = twice ? null : { gid: g.id, at: now };
+          if (twice) this.selGroup = g.id;
+          else if (this.selGroup === g.id && this.selUnit < 0) this.selGroup = -1;
           else this.selGroup = g.id;
           this.selUnit = g.individual ? this.sim.members(g.id)[0]?.id ?? -1 : -1;
           this.shapeOpen = false;
           this.buildHud();
+          if (twice) this.recentre('group');
         },
         () => this.cardTip(g.id, numeral),
       );
@@ -2525,6 +2583,7 @@ export class BattleScene extends BaseScene {
     let y = TOP_H + (this.followBtn && !this.online ? 30 : 6);
     const bottom = this.stripTop() - (this.selUnit >= 0 ? 29 : 2);
     const tabs = this.tabBtns;
+    this.railW = MED_W + 4;
     for (const d of defs) {
       if (y + MED_H > bottom) break;
       const m = new Medallion(this, x, y, { icon: d.icon, label: d.label, sub: d.sub, tip: d.tip, id: `battle.cmd.${d.key}`, onClick: d.run });
@@ -2796,6 +2855,98 @@ export class BattleScene extends BaseScene {
         this.tagMap.delete(gid);
       }
     }
+  }
+
+  /**
+   * Edge pointers (controls.md R8.2, R7): the selected group's numeral at the
+   * field band's edge, toward it, while it is off screen; in deployment also
+   * the enemy arrow. A tap centres the camera there.
+   */
+  private updatePointers(): void {
+    const cam = this.cameras.main;
+    const { S, VW, VH } = this.m;
+    const rect: Box = { x0: 0, y0: this.topH() + (this.followBtn && !this.online ? 28 : 0), x1: VW - this.railW, y1: VH - this.panelHeight() - 6 };
+    let first: Pt | null = null;
+    const place = (key: 'group' | 'foe', at: Pt | null, label: string, colour: number, icon?: string, tip = colour): void => {
+      const e = at && !this.ending && !this.overlay ? edgePointer({ x: ((at.x - cam.worldView.x) * cam.zoom) / S, y: ((at.y - cam.worldView.y) * cam.zoom) / S }, rect, POINTER_INSET) : null;
+      // two pointers never overlap: the second steps along its edge, toward the band's middle
+      if (e && first && Math.hypot(e.x - first.x, e.y - first.y) < 30) {
+        const side = Math.abs(e.x - rect.x0 - POINTER_INSET) < 1 || Math.abs(rect.x1 - POINTER_INSET - e.x) < 1;
+        if (side) e.y = first.y + (first.y > (rect.y0 + rect.y1) / 2 ? -30 : 30);
+        else e.x = first.x + (first.x > (rect.x0 + rect.x1) / 2 ? -30 : 30);
+      }
+      if (e) first = e;
+      let c = this.pointerMap.get(key);
+      if (!e) {
+        c?.setVisible(false);
+        return;
+      }
+      if (!c || c.getData('label') !== label) {
+        c?.destroy();
+        c = this.makePointer(key, label, colour, icon, tip);
+      }
+      c.setVisible(true).setPosition(Math.round(e.x), Math.round(e.y));
+      (c.getData('arrow') as Phaser.GameObjects.Graphics).setRotation(e.angle);
+    };
+    const numeral = this.selUnit >= 0 ? '*' : this.selGroup >= 0 ? groupNumeral(this.sim.groups, this.selGroup) : '';
+    place('group', this.groupCentre(), numeral, numeralColour(numeral));
+    // the enemy's: a dark disc, the swords and the enemy zone's red arrow (group I is red too)
+    place('foe', this.sim.phase === 'deploy' ? this.foeCentre() : null, 'foe', MOSAIC.ink, 'swords', 0xe07060);
+  }
+
+  /** The selection's centre (world px), or null without one. */
+  private groupCentre(): Pt | null {
+    const b = boxOf(this.selectedUnits().map((u) => isoToScreen(u.x, u.y)), 0, 20, 0);
+    return b && centreOf(b);
+  }
+
+  /** One edge pointer: a disc (numeral or icon) with an arrow toward its target; a 44 pt tap target. */
+  private makePointer(key: 'group' | 'foe', label: string, colour: number, icon: string | undefined, tip: number): Phaser.GameObjects.Container {
+    const c = this.add.container(0, 0);
+    const arrow = this.add.graphics();
+    arrow.fillStyle(MOSAIC.ink, 1);
+    arrow.fillTriangle(9, -7, 20, 0, 9, 7);
+    arrow.fillStyle(tip, 1);
+    arrow.fillTriangle(10, -5, 17.5, 0, 10, 5);
+    const disc = this.add.graphics();
+    disc.fillStyle(MOSAIC.ink, 1);
+    disc.fillCircle(0, 0, 12);
+    disc.fillStyle(colour, 1);
+    disc.fillCircle(0, 0, 11);
+    disc.fillStyle(MOSAIC.stone1, 1);
+    disc.fillCircle(0, 0, 8.5);
+    c.add([arrow, disc]);
+    if (icon) c.add(addIcon(this, -ICON_PX / 2, -ICON_PX / 2, icon));
+    else c.add(addText(this, 0, -3.6, label, 'rGold', 0.5).setFontSize(6.5));
+    c.setData('label', label);
+    c.setData('arrow', arrow);
+    c.setSize(44, 44).setInteractive();
+    uiId(c, `battle.pointer.${key}`);
+    let down: { x: number; y: number } | null = null;
+    c.on('pointerdown', (p: Phaser.Input.Pointer) => (down = { x: p.x, y: p.y }));
+    c.on('pointerout', () => (down = null));
+    c.on('pointerup', (p: Phaser.Input.Pointer) => {
+      const d = down;
+      down = null;
+      if (!d || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
+      haptic('light');
+      this.recentre(key);
+    });
+    this.tags.add(c);
+    this.pointerMap.set(key, c);
+    return c;
+  }
+
+  /** Centre the camera on the selected group or the enemy (a pointer tap, a card double tap); instant under Reduce motion. */
+  private recentre(key: 'group' | 'foe'): void {
+    const at = key === 'group' ? this.groupCentre() : this.foeCentre();
+    if (!at) return;
+    const cam = this.cameras.main;
+    const vp = this.fieldViewport();
+    const offX = (this.scale.width / 2 - (vp.left + this.scale.width) / 2) / cam.zoom;
+    const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
+    if (motion.reduced) cam.centerOn(at.x + offX, at.y + offY);
+    else cam.pan(at.x + offX, at.y + offY, RECENTRE_MS, 'Cubic.easeOut', true);
   }
 
   private toggleFollow(): void {
