@@ -5,6 +5,7 @@
  * a bronze rim and ink label (the War medallion glows). Each tab is the hub of
  * its mode; badges are red counts. The five labels share one face, case and size
  * (`fitTabLabels`, ADR-0005): Cinzel capitals when they all fit, else Inter.
+ * A hub's tab bar makes its view a root (HUB-01, `hubView`).
  */
 import Phaser from 'phaser';
 import { addIcon, scaleIcon, type FontKey } from '../kit';
@@ -14,6 +15,7 @@ import { t } from '../../i18n';
 import { MBadge, fit, makePressable, mosaicImage, mtext, mw } from './base';
 import { MEDALLION_RISE, MODE_TABS, TAB_H, fitTabLabels, tabLayout, type TabId } from './tabLayout';
 import { MEDALLION_GLOW } from '../../art/mosaicUi';
+import { hubView } from '../../platform/nav';
 
 export interface TabBarOpts {
   active?: TabId;
@@ -48,6 +50,8 @@ export class TabBar extends Phaser.GameObjects.Container {
     uiId(this, 'tabbar');
     this.build();
     scene.add.existing(this);
+    // a hub's tab bar is on screen: this view is the root (no Back; Telegram shows Close)
+    hubView(scene, null);
   }
 
   /** Select a tab (no callback). */
@@ -69,7 +73,7 @@ export class TabBar extends Phaser.GameObjects.Container {
     const scene = this.scene;
     this.page.removeAll(true);
     // one face, case and size for all five labels; the slots follow them (the medallion stays centred)
-    const labels = fitTabLabels(this.w, MODE_TABS.map((tab) => t(tab.key)), (str, face, z) => mw(str, face === 'roman' ? 'rCream' : 'light', z));
+    const labels = fitTabLabels(this.w, MODE_TABS.map((tab) => t(tab.key)), (str, face, z) => mw(str, face === 'roman' ? 'rCream' : 'light', z), MODE_TABS.map((tab) => t(tab.short ?? tab.key)));
     const lay = tabLayout(this.w, MODE_TABS.length, labels.slots ?? undefined);
     const { face, size } = labels.style;
     MODE_TABS.forEach((tab, i) => {
