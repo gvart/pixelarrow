@@ -11,7 +11,7 @@ Every screen, how you get in, how you get out, and where Back goes. "Back" means
 
 ## 1. Screen register
 
-**24 screens** (full-screen destinations) and **47 sheets** (overlays that keep the screen under them). The specs are in [screens-campaign.md](screens-campaign.md) (C-) and [screens-modes.md](screens-modes.md) (M-). The Battle HUD is in [hud.md](hud.md).
+**24 screens** (full-screen destinations) and **68 sheets and pages** (overlays that keep the screen under them). The specs are in [screens-campaign.md](screens-campaign.md) (C-) and [screens-modes.md](screens-modes.md) (M-). The Battle HUD is in [hud.md](hud.md).
 
 | ID | Screen | Scene (code) | Kind | Spec |
 | --- | --- | --- | --- | --- |
