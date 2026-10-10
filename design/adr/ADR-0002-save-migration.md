@@ -121,3 +121,10 @@ So the refusal path protects v6 saves only from builds that contain it. `main` d
 - `src/game/save.ts`, `src/world/world.ts` (`v6WorldDefaults`, `FLAGS_CAP`, `JOURNAL_CAP`)
 - `tests/saveMigration.test.ts`; fixtures `tests/fixtures/saves/v5-played-b88eadd.json`, `v6-82d71f9.json`
 - ADR-0001 (the same "plumbing first, then the bump" ordering)
+
+## Release order (ST-02b)
+The server guard now exists: `PUT /api/save` answers **409 `save_version_downgrade`** and keeps the stored copy when the stored `version` is above the upload's `data.v` (atomic in the `UPDATE` predicate, reported before `save_conflict`). A `main` client treats that code as a plain failure and retries with backoff (max 5 min), never reaching its overwrite path; the v5 client holds sync for the session.
+
+1. **Server guard first, or in the same deploy as the client.** Never let a v6 save reach the cloud before the guard is live.
+2. **Client refusal path and `SAVE_VERSION` 6 together** (one v5 release), as above.
+3. **No rollback to the `main` bundle without a restore plan.** The guard protects the cloud copy only: a `main` bundle still replaces the *local* v6 save on that device with a new campaign. A v6 client booting afterwards on that device sees an unchanged cloud revision and does not re-adopt it; once the new campaign's `seq` passes the synced one, its push (same version, so allowed) overwrites the cloud. Before any rollback, have a way to restore (e.g. a server-side copy of each player's last v6 blob, or forcing an adopt) and roll back to a build with the refusal path, never to `main`.
