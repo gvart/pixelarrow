@@ -23,6 +23,7 @@
  *   rebuild the battle (duel_start, the deployment, go, every sealed turn).
  */
 import { OrderSchema, replayBattle, type ReplayOutcome } from '../battle';
+import { LEGACY_SIM_VERSION, SIM_VERSION } from '../simVersion';
 import type { Hero } from '../../../src/data/units';
 import type { BattleSetup, LoggedOrder, Order, Side } from '../../../src/sim/types';
 import {
@@ -49,6 +50,8 @@ export interface DuelState {
   players: [number, number];
   names: [string, string];
   setup: BattleSetup;
+  /** The sim version both clients run (the socket gate admits only SIM_VERSION); absent in state saved before versioning = 1. */
+  simVersion?: number;
   phase: 'deploy' | 'battle' | 'ended';
   log: LoggedOrder[];
   deployOrders: number;
@@ -82,12 +85,13 @@ export interface RelayStep {
  */
 export const DEPLOY_KINDS: ReadonlySet<Order['kind']> = new Set(['form', 'preset', 'order', 'shieldwall', 'loose', 'assign']);
 
-export function newRelay(id: string, players: [number, number], names: [string, string], setup: BattleSetup, now: number, deployMs = DEPLOY_MS): DuelState {
+export function newRelay(id: string, players: [number, number], names: [string, string], setup: BattleSetup, now: number, deployMs = DEPLOY_MS, simVersion = SIM_VERSION): DuelState {
   return {
     id,
     players,
     names,
     setup,
+    simVersion,
     phase: 'deploy',
     log: [],
     deployOrders: 0,
@@ -204,7 +208,7 @@ export function relayMessage(d: DuelState, side: Side, msg: RelayMsg): RelayStep
     }
     case 'end': {
       if (d.phase !== 'battle') return { out: [] };
-      const replay = replayBattle(d.setup, d.log, d.deployOrders);
+      const replay = replayBattle(d.setup, d.log, d.deployOrders, d.simVersion ?? LEGACY_SIM_VERSION);
       const r = replay.summary;
       if (r.ticks > d.next * TURN_TICKS) return error('The battle is not over yet', 'too_early');
       const mismatches: string[] = [];

@@ -15,6 +15,8 @@ import { save } from './routes/save';
 import { entitlements, shop } from './routes/shop';
 import { webhook } from './routes/webhook';
 import { WS_PROTOCOL } from './region';
+import { socketSimVersion } from './simVersion';
+import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from '../../src/online/protocol';
 import { online } from './online/routes';
 import { economy } from './economy/routes';
 import { duel } from './duel/routes';
@@ -107,12 +109,42 @@ app.post('/api/battle/verify', requireAuth, async (c) => {
   }
 });
 
-/** Session token from ?token=... or Sec-WebSocket-Protocol: pixelarrow.v1, <token>. */
+/** A socket the server will not serve (a sim version it does not run): opened only to say why, then closed. */
+class SocketRefused extends Error {
+  constructor(
+    readonly reason: ApiError,
+    readonly protocol: string | null,
+  ) {
+    super(reason.message);
+  }
+}
+
+/** The browser cannot read an HTTP error on an upgrade, so the refusal is an `error` frame and close SIM_VERSION_CLOSE. */
+function refuseSocket(r: SocketRefused): Response {
+  const [client, server] = Object.values(new WebSocketPair());
+  server.accept();
+  server.send(JSON.stringify({ type: 'error', code: r.reason.code, message: r.reason.message }));
+  server.close(SIM_VERSION_CLOSE, r.reason.code);
+  const headers = new Headers();
+  if (r.protocol) headers.set('sec-websocket-protocol', r.protocol);
+  return new Response(null, { status: 101, webSocket: client, headers });
+}
+
+/**
+ * Session token from ?token=... or Sec-WebSocket-Protocol: pixelarrow.v1, <token>.
+ * `?sim=` must be this server's SIM_VERSION (absent: v1); otherwise the socket is refused.
+ */
 async function wsSession(c: Context<AppEnv>) {
   if (c.req.header('upgrade')?.toLowerCase() !== 'websocket') throw new ApiError(426, 'upgrade_required', 'Expected a WebSocket upgrade');
   const protocols = (c.req.header('sec-websocket-protocol') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const fromProtocol = protocols.includes(WS_PROTOCOL) ? protocols.find((p) => p !== WS_PROTOCOL) : undefined;
   const session = await sessionFromToken(c.env, fromProtocol ?? c.req.query('token') ?? null);
+  try {
+    socketSimVersion(c.req.query('sim'));
+  } catch (e) {
+    if (e instanceof ApiError && e.code === SIM_VERSION_REJECTED) throw new SocketRefused(e, fromProtocol ? WS_PROTOCOL : null);
+    throw e;
+  }
   const headers = new Headers(c.req.raw.headers);
   headers.set('x-player-id', String(session.pid));
   headers.set('x-player-name', session.name);
@@ -171,6 +203,7 @@ app.all('/api/*', () => {
 app.all('*', async (c) => (c.env.ASSETS ? c.env.ASSETS.fetch(c.req.raw) : c.json(errorBody('not_found', 'Not found'), 404)));
 
 app.onError((err, c) => {
+  if (err instanceof SocketRefused) return refuseSocket(err);
   if (err instanceof ApiError) {
     if (err.status >= 500) log('warn', 'api_error', { status: err.status, code: err.code, method: c.req.method, path: c.req.routePath, message: err.message });
     return c.json(errorBody(err.code, err.message, err.extra), err.status as 400);

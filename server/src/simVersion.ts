@@ -26,23 +26,34 @@ export const LEGACY_SIM_VERSION = 1;
 /** The wire field (optional: today's live clients do not send it). Range checks are resolveSimVersion's. */
 export const SimVersionField = z.number().int().min(0).max(1_000_000).optional();
 
+/** 426 `sim_version_unsupported`: the client must reload (an old build) or the server is behind (a newer build). */
+function unsupported(version: number): ApiError {
+  const message =
+    version > SIM_VERSION
+      ? 'This game version is newer than the server. Please reload the game.'
+      : 'Your game version is out of date. Please reload the game to keep playing online.';
+  return new ApiError(426, SIM_VERSION_REJECTED, message, { simVersion: version, min: MIN_SIM_VERSION, max: SIM_VERSION });
+}
+
 /** The version a client runs, or 426 `sim_version_unsupported` when this server cannot take it. */
 export function resolveSimVersion(v: number | undefined): number {
   const version = v ?? LEGACY_SIM_VERSION;
-  if (version < MIN_SIM_VERSION || version > SIM_VERSION) {
-    const message =
-      version > SIM_VERSION
-        ? 'This battle was made by a newer game version than the server runs. Please reload the game.'
-        : 'Your game version is out of date. Please reload the game to keep playing online.';
-    throw new ApiError(426, SIM_VERSION_REJECTED, message, { simVersion: version, min: MIN_SIM_VERSION, max: SIM_VERSION });
-  }
+  if (version < MIN_SIM_VERSION || version > SIM_VERSION) throw unsupported(version);
   return version;
 }
 
-/** The `?sim=` parameter of a socket upgrade (absent: a pre-versioning client). */
+const SocketSimParam = z.string().regex(/^\d{1,7}$/).transform(Number).optional();
+
+/**
+ * The `?sim=` parameter of a socket upgrade (absent: a pre-versioning client,
+ * v1); 400 when malformed. Live lockstep has no grace window: both players
+ * and the relay's replay must run the same rules, so a socket must run
+ * exactly SIM_VERSION.
+ */
 export function socketSimVersion(raw: string | undefined): number {
-  if (raw === undefined) return resolveSimVersion(undefined);
-  const parsed = SimVersionField.safeParse(Number(raw));
-  if (!parsed.success || !/^\d+$/.test(raw)) throw new ApiError(400, 'bad_request', 'Bad sim version');
-  return resolveSimVersion(parsed.data);
+  const parsed = SocketSimParam.safeParse(raw);
+  if (!parsed.success) throw new ApiError(400, 'bad_request', 'Bad sim version');
+  const version = parsed.data ?? LEGACY_SIM_VERSION;
+  if (version !== SIM_VERSION) throw unsupported(version);
+  return version;
 }
