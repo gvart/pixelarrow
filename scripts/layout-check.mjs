@@ -1,6 +1,6 @@
 // Layout check (docs/DESIGN_V2.md "UX principles", docs/UI_KIT.md "Layout check").
 //
-// Visits every screen at 320x568, 375x667, 390x844, 430x932 and 360x780, in a
+// Visits every screen at 320x568, 375x667, 390x844, 430x932, 360x780 and 320x640, in a
 // plain browser and inside a fake full-screen Telegram (safe-area insets: top
 // 59 + 46, bottom 34), in English and Russian, and fails when
 //   - interactive elements overlap (or sit closer than 4 pt),
@@ -37,7 +37,7 @@ const base = args.find((a) => /^https?:/.test(a)) ?? 'http://localhost:5173/';
 const outDir = shotsDir('layout');
 const allowPath = join(root, 'scripts/layout-allowlist.json');
 
-const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780').split(',').map((s) => s.split('x').map(Number));
+const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780,320x640').split(',').map((s) => s.split('x').map(Number));
 const LANGS = opt('langs', 'en,ru').split(',');
 const INSETS = opt('insets', 'plain,tg').split(',');
 const JOBS = Number(opt('jobs', '4'));
@@ -132,13 +132,13 @@ const SCREENS = [
     id,
     owner: 'B',
     run: async (p) => {
-      await start(p, 'OnlineArmy', id === 'online-army-garrison' ? { garrison: { q: 1, r: 0 } } : { tab });
+      await start(p, 'OnlineArmy', id === 'online-army-garrison' ? { garrison: 1 } : { tab });
       await wait(p, 600);
       await call(
         p,
         'OnlineArmy',
         `const c = window.__state.campaign.data; const now = Date.now();
-         const heroes = c.heroes.slice(0, 8).map((h, i) => ({ hero: h, garrison: i === 3 ? { q: 1, r: 0 } : null, woundedUntil: i === 5 ? now + 3600e3 : 0, busy: i === 6 }));
+         const heroes = c.heroes.slice(0, 8).map((h, i) => ({ hero: h, garrison: i === 3 ? 1 : null, woundedUntil: i === 5 ? now + 3600e3 : 0, busy: i === 6 }));
          s.fetchData({ season: { id: 3, startedAt: now, endsAt: now + 864e5 }, shard: { id: 1, radius: 34 }, now, resources: { gold: 1240, food: 380, wood: 210, bronze: 95, recruits: 3 }, energy: 72, energyMax: 100, home: { q: 0, r: 0 }, army: { q: 0, r: 0, marching: false, dest: null, arriveAt: null }, formations: [], heroes, stash: c.stash, clan: null, battles: 4, wins: 3, income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, hexes: 3 } });
          ${after} return 1;`,
       );
@@ -876,7 +876,7 @@ const stale = [...allowed.keys()].filter((k) => !found.has(k) && screens.some((s
 
 if (flag('update-allowlist')) {
   const out = {
-    _doc: 'Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps. Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids.',
+    _doc: 'Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids.',
     A: [],
     B: [],
     C: [],
@@ -888,6 +888,9 @@ if (flag('update-allowlist')) {
   // keep entries of screens not run this time
   for (const [k, owner] of allowed) if (!found.has(k) && !screens.some((s) => k.startsWith(s.id + '|'))) out[owner].push(k);
   for (const o of ['A', 'B', 'C']) out[o] = [...new Set(out[o])].sort();
+  // the story that owns each entry's fix: kept for entries still listed
+  const kept = new Set([...out.A, ...out.B, ...out.C]);
+  out.stories = Object.fromEntries(Object.entries(allow.stories ?? {}).filter(([k]) => kept.has(k)));
   writeFileSync(allowPath, JSON.stringify(out, null, 2) + '\n');
   console.log(`allowlist written: A ${out.A.length}, B ${out.B.length}, C ${out.C.length}`);
 }

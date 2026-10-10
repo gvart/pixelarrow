@@ -197,7 +197,9 @@ export class OnlineArmyScene extends BaseScene {
     let slotY: number;
     let ss: number;
     if (!compact) {
-      const sw = 58;
+      // four 44 pt group keys must fit beside the stage: on a narrow screen the stage gives up the width (OAR-1)
+      const groupsW = 4 * TAP + 3 * SIZE.gap;
+      const sw = Math.max(44, Math.min(58, VW - 14 - groupsW));
       const sh = 80;
       L.add(new Stage(this, 4, y0, sw, sh, h, { scale: 1 }));
       const tx = 4 + sw + 5;
