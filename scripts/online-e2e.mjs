@@ -74,7 +74,8 @@ const A = await player(ids[0]);
 const B = await player(ids[1]);
 for (const p of [A, B]) {
   check(`[${p.devuser}] menu`, await active(p, 'Menu'));
-  await tapBtn(p, 'Menu', 'Online');
+  // the War medallion in the mode tab bar (by its layout id, not its label)
+  await p.api.tapBtn('Menu', { id: 'tab.war' });
   check(`[${p.devuser}] online scene`, await until(() => active(p, 'Online'), 5000));
   await until(async () => (await sceneText(p, 'Online')).includes('JOIN'), 8000);
   await tapBtn(p, 'Online', 'Join');
@@ -130,7 +131,12 @@ await tapBtn(A, 'OnlineArmy', 'Hire'); // the recruit sheet: one Hire button per
 check('recruited a hero on the server', await until(() => ev(A, (n) => window.__game.scene.getScene('OnlineArmy').profile?.heroes.length === n + 1, before), 8000));
 
 // ---------------------------------------------------------------- clan via invite link
-await ev(A, () => window.__game.scene.getScene('Online').scene.start('OnlineClan', {}));
+// (from the army screen: stop every running scene, then open the clan page)
+await ev(A, () => {
+  const g = window.__game;
+  for (const s of g.scene.getScenes(true)) g.scene.stop(s.scene.key);
+  g.scene.start('OnlineClan', {});
+});
 await until(() => active(A, 'OnlineClan'), 5000);
 await until(async () => (await sceneText(A, 'OnlineClan')).includes('FOUND A CLAN'), 8000);
 await tapBtn(A, 'OnlineClan', 'Found a clan');
@@ -138,7 +144,7 @@ await A.page.waitForSelector('#px-prompt input[name=name]');
 await A.page.fill('#px-prompt input[name=name]', `Lambda ${ids[0] % 1000}`);
 await A.page.fill('#px-prompt input[name=tag]', `L${ids[0] % 1000}`);
 await A.page.click('#px-prompt button[type=submit]');
-check('clan founded', await until(async () => (await sceneText(A, 'OnlineClan')).includes('HEXES - LEADER'), 8000));
+check('clan founded', await until(async () => (await sceneText(A, 'OnlineClan')).includes('REGIONS - LEADER'), 8000));
 await tapBtn(A, 'OnlineClan', 'Invite');
 check('invite link made', await until(() => ev(A, () => !!window.__game.scene.getScene('OnlineClan').lastInvite), 5000));
 const invite = await ev(A, () => window.__game.scene.getScene('OnlineClan').lastInvite);
@@ -149,7 +155,7 @@ check('invite link opens the clan screen', await until(() => active(B, 'OnlineCl
 await until(async () => (await sceneText(B, 'OnlineClan')).includes('CLAN INVITE'), 8000);
 await tapBtn(B, 'OnlineClan', 'Join', true);
 check('B joined the clan', await until(async () => (await sceneText(B, 'OnlineClan')).includes('MEMBER'), 8000));
-await ev(A, () => window.__game.scene.getScene('OnlineClan').scene.restart());
+await ev(A, () => void window.__game.scene.getScene('OnlineClan').scene.restart());
 await until(async () => (await sceneText(A, 'OnlineClan')).includes(`DEV${ids[1]}`), 8000);
 await A.page.waitForTimeout(500);
 await A.page.screenshot({ path: `${out}/24-clan.png` });
@@ -166,7 +172,8 @@ for (const p of [A, B]) {
 }
 check('both online in the shard', await until(() => ev(A, () => (window.__shard?.players?.length ?? 0) >= 2), 8000));
 await A.page.waitForTimeout(2000);
-await tapBtn(A, 'Online', 'Duels');
+// the Lobby button at the map's right edge (the tab bar has a Duels tab too, so not by label)
+await A.api.tapBtn('Online', { id: 'online.bar.duels' });
 await A.page.waitForTimeout(600);
 await tapBtn(A, 'Online', 'Challenge');
 check('challenge delivered', await until(async () => (await sceneText(B, 'Online')).includes('CHALLENGES YOU'), 8000));
