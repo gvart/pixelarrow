@@ -97,6 +97,7 @@ export const EN = {
   'menu.noSave': 'No campaign saved yet: start a new one.',
   'save.corrupt': 'Your save could not be read. A copy of it was kept, and a new campaign has begun.',
   'save.newer': 'Your save is from a newer version of the game. Close and reopen the game to update it. Until then, nothing is saved.',
+  'save.replaced': 'Your cloud campaign was restored; the other one was kept as a backup.',
   'battle.abandoned': 'The game closed during a battle, so the battle was fought out with the orders you gave before it began.',
   'menu.tip.gold': 'Campaign gold in your treasury',
   'menu.tip.army': 'Heroes in your army',
