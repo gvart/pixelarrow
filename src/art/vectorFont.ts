@@ -69,11 +69,69 @@ function naturalAdvance(ch: string, face: Face): number {
 /** Every character with metrics (the set the UI may use). */
 export const UI_CHARS: readonly string[] = Object.keys(BODY_METRICS.adv);
 
-/** Load the bundled faces before any atlas is drawn (canvas text does not wait for fonts). */
-export async function loadUiFonts(): Promise<void> {
-  if (typeof document === 'undefined' || !document.fonts) return;
-  const sample = 'AaЖж09';
-  await Promise.all((Object.keys(FACES) as Face[]).map((f) => document.fonts.load(cssFont(f, 20), sample).catch(() => [])));
+/**
+ * The bundled families each face draws with, and a sample of what it draws
+ * from each (Cinzel has no Cyrillic: the roman face's comes from Cormorant SC).
+ */
+const FAMILIES: Record<Face, { family: string; weight: string; sample: string }[]> = {
+  body: [{ family: 'Inter', weight: '500', sample: 'Aa09Жж' }],
+  head: [{ family: 'Cormorant SC', weight: '700', sample: 'Aa09Жж' }],
+  roman: [
+    { family: 'Cinzel', weight: '700', sample: 'Aa09' },
+    { family: 'Cormorant SC', weight: '700', sample: 'Жж' },
+  ],
+};
+
+/**
+ * True when the canvas draws `face` with the bundled fonts themselves, not a
+ * fallback. `document.fonts.check` alone is not enough: it also answers true
+ * when no @font-face of the family exists at all.
+ */
+export function faceReady(face: Face): boolean {
+  if (typeof document === 'undefined' || !document.fonts) return false;
+  const faces = [...(document.fonts as unknown as Iterable<FontFace>)];
+  return FAMILIES[face].every(
+    ({ family, weight, sample }) =>
+      faces.some((f) => f.family.replace(/["']/g, '') === family && String(f.weight) === weight && f.status === 'loaded') &&
+      document.fonts.check(`${weight} 20px '${family}'`, sample),
+  );
+}
+
+/**
+ * Load the bundled faces before any atlas is drawn (canvas text does not wait
+ * for fonts), then check that each really is the bundled font. Waits at most
+ * `timeoutMs` (a slow or offline Telegram webview must still boot) and returns
+ * the faces that are not ready: their atlases advance by the fallback's own
+ * widths (glyphAdvances), so words still never split.
+ */
+export async function loadUiFonts({ timeoutMs = 6000 } = {}): Promise<Face[]> {
+  if (typeof document === 'undefined' || !document.fonts) return [];
+  const all = Object.keys(FAMILIES) as Face[];
+  const loads = all.flatMap((f) => FAMILIES[f].map(({ family, weight, sample }) => document.fonts.load(`${weight} 20px '${family}'`, sample).catch(() => [])));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([Promise.all(loads), new Promise((r) => (timer = setTimeout(r, timeoutMs)))]);
+  clearTimeout(timer);
+  const missing = all.filter((f) => !faceReady(f));
+  if (missing.length) console.warn(`UI fonts not loaded (${missing.join(', ')}): the text atlases use a fallback face`);
+  return missing;
+}
+
+/**
+ * The pen advance (atlas px) of every UI character in the atlas of `face`.
+ * The atlas must advance by the width of the face the canvas actually draws:
+ * a fallback serif placed in Cinzel-wide slots is the "Strat egos" split (OI-1).
+ * With the bundled face loaded its widths equal the metric table the layout
+ * measures (src/ui/textfit.ts), so the metric advance stays. With a fallback
+ * each letter advances by its drawn width, capped at the metric one so text
+ * never outgrows the box the layout gave it. Word spaces and tabular digits
+ * keep their metric advance either way.
+ */
+function glyphAdvances(face: Face, K: number, ready: boolean, drawnWidth: (ch: string) => number): number[] {
+  return UI_CHARS.map((ch) => {
+    const metric = Math.max(0, advance(ch, face)) * K;
+    if (ready || ch === ' ' || DIGITS.includes(ch)) return metric;
+    return Math.min(metric, drawnWidth(ch));
+  });
 }
 
 export interface VectorGlyph {
@@ -103,6 +161,10 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
   const below = Math.ceil(Math.max(LINE_H - BASELINE, f.px * 0.35) * K) + pad;
   const cellH = above + Math.ceil(BASELINE * K) + below;
   const chars = UI_CHARS;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
+  ctx.font = cssFont(face, f.px * K);
+  const xAdv = glyphAdvances(face, K, faceReady(face), (ch) => ctx.measureText(ch).width);
   const cells = chars.map((ch) => Math.ceil(Math.max(0, advance(ch, face)) * K) + pad * 2);
   const maxW = 1024;
   let x = 0;
@@ -116,10 +178,9 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
     pos.push({ x, y });
     x += w;
   }
-  const canvas = document.createElement('canvas');
+  // (resizing the canvas resets its context: set the font again)
   canvas.width = maxW;
   canvas.height = y + cellH;
-  const ctx = canvas.getContext('2d')!;
   ctx.font = cssFont(face, f.px * K);
   ctx.textBaseline = 'alphabetic';
   const glyphs: VectorGlyph[] = [];
@@ -141,7 +202,7 @@ export function renderVectorAtlas(color: number, shadow: number | undefined, K: 
     ctx.fillStyle = hex(color);
     ctx.fillText(ch, bx, by);
     if (face === 'roman') ctx.restore();
-    glyphs.push({ ch, x: p.x, y: p.y, w: cells[i], h: cellH, xOffset: -pad, yOffset: -above, xAdvance: advance(ch, face) * K });
+    glyphs.push({ ch, x: p.x, y: p.y, w: cells[i], h: cellH, xOffset: -pad, yOffset: -above, xAdvance: xAdv[i] });
   });
   return { canvas, glyphs, lineH: (LINE_H + 1) * K, size: BASE_SIZE * K };
 }
