@@ -1,0 +1,36 @@
+src/game/campaignBattle.ts
+  s_697bdc25a7c420::t_95f31d95d69c4f 1-93
+src/state.ts
+  s_697bdc25a7c420::t_13e630009610ec 14,98-101
+src/game/save.ts
+  s_697bdc25a7c420::t_13e630009610ec 13,94-98,217
+tests/abandonedBattle.test.ts
+  s_697bdc25a7c420::t_6896fe857fe402 51,104
+  s_697bdc25a7c420::t_c3daf656c05b12 1-50,52-103,105-120
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_a3005146fb6739 46
+  s_697bdc25a7c420::t_396741cc78f749 327,1319,2781-2785
+docs/GAMEPLAY.md
+  s_697bdc25a7c420::t_3df70f2b823af9 590-608
+  s_697bdc25a7c420::t_cc2a6ef466a680 129-138
+src/scenes/BootScene.ts
+  s_697bdc25a7c420::t_f307ec27cfb2ad 80-81
+src/scenes/ResultsScene.ts
+  s_697bdc25a7c420::t_f307ec27cfb2ad 111-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a7a6a678b1405aa9f40d15953237dcb0b94fc8bd",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
