@@ -55,7 +55,7 @@ export const BEASTS_EN = {
   'trial.empty': 'Your army has no fit men. Rest them in a town first.',
   'trial.tip': 'Tap a beast to see how it fights and what beats it.',
   'results.practice': 'Practice: no spoils',
-  'results.noSpoilsPractice': 'Practice gives no spoils, and nobody was lost: your army is as it was.',
+  'results.noSpoilsPractice': 'Practice gives no spoils and costs no men: whoever fell in practice is back with the army.',
   // ---- the war horn in battle
   'battle.horn': 'Horn',
   'battle.horn.tip': 'War horn: the whole army rallies at once, even men already running. Once per horn.',
