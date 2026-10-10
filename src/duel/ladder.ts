@@ -81,13 +81,14 @@ export const CHAPTER_DOCTRINE: readonly DoctrineId[] = ['steady', 'swarm', 'rush
  * more than 5 pts easier or harder than before doctrines). Each one fought its
  * chapter doctrine outside that band against its own steady mirror, so it got
  * the closest doctrine that stays inside it, or steady when none did
- * (400 seeds, docs/v5/balance/AI-03.md). Re-measure after any sim change.
+ * (400 seeds, docs/v5/balance/AI-03.md; re-measured for AB-02 in AB-02.md).
+ * Re-measure after any sim change.
  */
 const FLOOR_DOCTRINE: Readonly<Record<number, DoctrineId>> = {
-  11: 'fury', 12: 'fury', 14: 'steady', 15: 'fury', 18: 'fury', 19: 'rush',
+  12: 'fury', 14: 'steady', 15: 'fury', 17: 'steady', 18: 'steady', 19: 'rush',
   24: 'swarm', 25: 'hammer', 26: 'swarm', 29: 'swarm',
-  31: 'steady', 38: 'fury', 39: 'rush',
-  41: 'swarm', 42: 'steady', 44: 'hammer', 45: 'hammer', 46: 'steady', 48: 'steady', 49: 'hammer',
+  31: 'steady', 34: 'swarm', 35: 'steady', 38: 'rush', 39: 'rush',
+  41: 'steady', 42: 'steady', 44: 'hammer', 45: 'hammer', 46: 'steady', 47: 'rush', 48: 'steady', 49: 'hammer',
 };
 
 /**

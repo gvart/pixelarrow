@@ -64,7 +64,11 @@ interface BattleState {
 }
 const battles = new WeakMap<Battle, BattleState>();
 
-const ABILITY_SFX: Record<AbilityId, SfxId> = { bash: 'bash', volley: 'volley', berserk: 'berserk', rally: 'rallyCry' };
+const ABILITY_SFX: Record<AbilityId, SfxId> = {
+  bash: 'bash', volley: 'volley', berserk: 'berserk', rally: 'rallyCry',
+  // the signature actives (AB-02) borrow the nearest existing sound until audio gives them their own
+  push: 'bash', bond: 'rallyCry', warcry: 'battlecry', sunder: 'clashHeavy', aimed: 'volley', recharge: 'hooves', scythe: 'impact',
+};
 const MISSILE_SFX: Record<string, SfxId> = { arrow: 'arrow', javelin: 'javelin', stone: 'sling' };
 
 /**
