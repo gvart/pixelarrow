@@ -1,0 +1,19 @@
+tests/fixtures/saves/v5-played-b88eadd.json
+  s_697bdc25a7c420::t_c9bde9beee8bcf 1-638
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c1ab80aa39c502722bc5358f518bcab77f692d2e",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
