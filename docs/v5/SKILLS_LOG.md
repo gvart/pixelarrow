@@ -32,3 +32,7 @@
 | LF-03 | lf-03 (ui-programmer, qa-tester) | game-ui-ux: compact numbers instead of hiding, safe area at 320x568 in TG; smoke-check | OK: 1 shot spot-checked |
 | AS-01 | assets (art-director, ux-designer roles) | create-game-assets: style reference, regenerate failures; asset-audit; ux-review: 3 directions vs IA/a11y/320; chrome-browser: own tab, closed after | OK: 2 mockups spot-checked, no invented features |
 | FO-03 | fo-03 (gameplay-programmer, systems-designer) | team-combat; balance-check: targets table; tdd: client and server replay | OK |
+| F-01 | f-01 (ui-programmer, a11y, art-director) | design-system: tokens by role, contrast pairs tested; game-ui-ux; tdd: split-word repro; phaser-core | OK: 1 shot spot-checked |
+| CT-02 | ct-02 (gameplay-programmer, ux-designer) | input-systems: tap to focus, 44 pt buttons; game-ui-ux: no colour-only state (hollow key and arrow text) | OK: 1 shot spot-checked |
+| AB-01 | ab-01 | rpg: path choice, retrain; save-systems: no-bump mapping; balance-check: miss logged; tdd | OK (V5-051) |
+| AI-03 | ai-03 | game-ai; security-audit; tdd | Sent back once (V5-052) |

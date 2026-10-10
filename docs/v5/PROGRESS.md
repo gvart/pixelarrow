@@ -11,11 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| ab-01 | W7 AB-01: perk paths (client+server duel rules) | per card | per card | worktree-agent | running |
-| ct-02 | W7 CT-02: targeting + RU Shoot label | per card | per card | worktree-agent | running |
-| f-01 | W1 F-01: tokens, Cinzel/Inter, split-word fix | per card | per card | worktree-agent | running |
-| ai-03 | W7 AI-03: ladder and war doctrines | per card | per card | worktree-agent | running |
-| ct-02 | W7 CT-02: targeting, plus the RU 'Стрел…' truncation | per card | per card | worktree-agent | running |
+| (merge) | CT-02 worktree-agent-a4afc014f6e7cc0ec, AB-01 worktree-agent-a76eb9b66762b8ca4, AI-03 worktree-agent-a6d654ef0b12236b2 | — | integrator | — | merging |
+| fixer-3 | S4-FIXER-3: flaky tests under load (aiDoctrines row timeout, smoke knob check) | tdd, test-flakiness | qa-tester | worktree-agent | running |
 
 ## Merged into v5
 
@@ -43,6 +40,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 44048f9 merge: S2-ART-BIBLE; 8760935 merge: LF-03 (24 layout configs incl. 320x640). Gates: vitest 771, layout 0 new (6 allowlisted), smoke 41, online 25, contrast 38/38.
 - 04768e2 merge: AS-01 hub mockups (pick A); 9e67140 merge: FO-03 cohesion and army break. Gates: vitest 790, server 281, smokes pass; balance 55%, mean 81 s. c786115 untracks raw Gemini images (V5-049).
 - 830a365 merge: AS-02 partial (12/21 busts staged). Gates: vitest 790.
+- d07282b merge: F-01 tokens + font-load fix. Gates: vitest 800/801 (a load timeout, passes alone), layout 0 new, smoke flaked once then 42/42, tutorial pass.
 
 ## Queue (next)
 
@@ -72,6 +70,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 16. After the art merge: F-01 (tokens and type, fix OI-1 split words) and AS-01 (assets agent, Chrome/Gemini hub mockups A/B/C, then AS-02 busts). Earlier note: FO-03 (cohesion, army break; after FO-02), CT-02 (targeting; after CT-01; also fixes the RU 'Стрел…' truncation), AB-01 (perk paths), AI-03 (ladder/war doctrines). Machine load is about 39: keep at most 3 code agents plus 1 integrator.
 
 17. Layout check now takes about 50 min under load (24 configs); integrators should allow for it.
+
+18. Follow-ups: RU pause banner truncates at 320 (BTL/RD story); duel ladder 'Team pts · cap' truncates and floors hidden at 320 (DUE); tab-bar 'Campaign' casing inconsistent (F-02).
 
 ## Blockers
 
