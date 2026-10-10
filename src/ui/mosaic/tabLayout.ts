@@ -8,9 +8,8 @@
  * and one size for all five. Cinzel capitals at Display S (7), then 6.5, when
  * all five fit; else Inter in sentence case (the text face's own case) at 7,
  * then 6.5 (6 only where nothing larger fits: English at 320 px). Never a mix
- * ("Campaign" beside "DUELS"). Before leaving Cinzel the bar tries the i18n
- * short forms (P7, MENU-3; HUB-01): "MARCH" for "CAMPAIGN" keeps English in
- * Cinzel below 390 px. Slots follow their labels: a long
+ * ("Campaign" beside "DUELS"). No short forms: a tab carries the same name at
+ * every width (V5-063). Slots follow their labels: a long
  * label takes a wider slot, the two sides stay equal so the medallion stays
  * centred.
  */
@@ -21,8 +20,8 @@ import { DISPLAY_MIN, MODE_ICON, TEXT_MIN } from '../tokens';
 export type TabId = 'campaign' | 'duels' | 'war' | 'codex' | 'shop';
 
 /** The five mode tabs in order: their icon and the i18n key of the label. Campaign wears its MODE_ICON, Codex (the beasts) the beasts' one; War is the medallion (no icon), so no mode icon is borrowed. */
-export const MODE_TABS: readonly { id: TabId; icon: string; key: TKey; short?: TKey }[] = [
-  { id: 'campaign', icon: MODE_ICON.campaign, key: 'tab.campaign', short: 'nav.tab.campaign.short' },
+export const MODE_TABS: readonly { id: TabId; icon: string; key: TKey }[] = [
+  { id: 'campaign', icon: MODE_ICON.campaign, key: 'tab.campaign' },
   { id: 'duels', icon: 'swords', key: 'tab.duels' },
   { id: 'war', icon: 'shield', key: 'tab.war' },
   { id: 'codex', icon: MODE_ICON.beasts, key: 'tab.codex' },
@@ -163,17 +162,11 @@ export interface TabLabelFit {
 /**
  * The one style all five labels share in a bar `VW` wide: the first of TAB_LABEL_STYLES at which every label
  * fits its slot. `measure(text, face, size)` is the width in UI px (the drawn font's, with its shadow).
- * `short`: the labels' i18n short forms (P7); when the full labels leave Cinzel, the short ones are tried in
- * Cinzel first (abbreviate rather than change case, MENU-3). Inter always writes the full labels.
  */
-export function fitTabLabels(VW: number, labels: readonly string[], measure: (text: string, face: 'roman' | 'body', size: number) => number, short?: readonly string[]): TabLabelFit {
-  const roman = TAB_LABEL_STYLES.filter((st) => st.face === 'roman');
-  const body = TAB_LABEL_STYLES.filter((st) => st.face !== 'roman');
-  const abbrev = short && short.length === labels.length && short.some((l, i) => l !== labels[i]);
-  const tries: [TabLabelStyle, readonly string[]][] = [...roman.map((st) => [st, labels] as [TabLabelStyle, readonly string[]]), ...(abbrev ? roman.map((st) => [st, short] as [TabLabelStyle, readonly string[]]) : []), ...body.map((st) => [st, labels] as [TabLabelStyle, readonly string[]])];
+export function fitTabLabels(VW: number, labels: readonly string[], measure: (text: string, face: 'roman' | 'body', size: number) => number): TabLabelFit {
   let last: TabLabelFit | null = null;
-  for (const [style, ls] of tries) {
-    const texts = ls.map((l) => tabLabelText(l, style));
+  for (const style of TAB_LABEL_STYLES) {
+    const texts = labels.map((l) => tabLabelText(l, style));
     const widths = texts.map((t) => measure(t, style.face, style.size));
     const slots = tabSlotWidths(VW, widths);
     last = { style, texts, widths, slots };

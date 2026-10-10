@@ -73,7 +73,7 @@ export class TabBar extends Phaser.GameObjects.Container {
     const scene = this.scene;
     this.page.removeAll(true);
     // one face, case and size for all five labels; the slots follow them (the medallion stays centred)
-    const labels = fitTabLabels(this.w, MODE_TABS.map((tab) => t(tab.key)), (str, face, z) => mw(str, face === 'roman' ? 'rCream' : 'light', z), MODE_TABS.map((tab) => t(tab.short ?? tab.key)));
+    const labels = fitTabLabels(this.w, MODE_TABS.map((tab) => t(tab.key)), (str, face, z) => mw(str, face === 'roman' ? 'rCream' : 'light', z));
     const lay = tabLayout(this.w, MODE_TABS.length, labels.slots ?? undefined);
     const { face, size } = labels.style;
     MODE_TABS.forEach((tab, i) => {

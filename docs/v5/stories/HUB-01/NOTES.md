@@ -24,13 +24,13 @@ The contract is [ia.md](../../../../design/ux/ia.md) §1, §2 and §6 and [scree
   - `none`: Boot.
 
   `resolveBack(scene, origin)` resolves a target. `tests/nav.test.ts` parses screen-flow.md and checks two things. All 24 screens of the register have a rule, and each rule matches the screen's Back column. It also checks that Back reaches a tab root from every screen without a loop (no dead ends, §5).
-- **Tab labels (F-02 decision 2, P7, MENU-3).** `fitTabLabels` tries the i18n short forms in Cinzel before it falls back to Inter. English reads **MARCH** for CAMPAIGN at 360 and 320 px, and CAMPAIGN at 390. Russian has no shorter word than "Поход", so it keeps F-02's behaviour: Cinzel down to 360, Inter at 320. New i18n namespace `nav.*` (`src/i18n/nav.en.ts`, `nav.ru.ts`).
+- **Tab labels: unchanged (V5-063).** A short "MARCH" form was tried and then dropped by the Director's ruling V5-063: a tab carries the same name at every width. Below 390 px all five tabs use F-02's fallback (Inter in sentence case). The `nav.*` i18n strings were removed.
 
 ## Decisions
 
 1. **Enforced centrally, not per scene.** Scene files belong to other stories: OnlineScene is F-06's this wave, and Duel, Shop and Market belong to DUE-01, SHP-01 and MKT-01. So the hub rule lives where every scene passes through, in `BaseScene.screen()` and the shells. The scenes' own `back()` code for hubs is now unreachable through Back. Their owners can delete it: `ShopScene.leave`/`backTo`, the Menu branch of `OnlineScene.back` and of `DuelScene.back`.
 2. **The War hex selection closes through the panel's layer**, not through a scene callback. The panel's close already clears the selection (`onClose`). No path is lost: the X, a second tap on the hex and Back all still deselect.
-3. **"March" is the short English label.** Russian already calls the tab "Поход" (a march). The hub's main action is "Begin / Continue the march", so the word points at the same thing. It is used only where CAMPAIGN does not fit in Cinzel. A phone never shows both.
+3. **Tab names (superseded by V5-063).** "Campaign" at every width. Below 390 px the five tabs switch together to Inter in sentence case, as F-02 set it.
 4. **Merchant is single-parent (War hub).** ia.md §1.3 says so. The scene passes the hex focus as data. screen-flow S21 writes "War hub {focus, select}".
 5. **The Company row (V5-047) is HUB-02's.** V5-047 names HUB-01, but the row lives in the Campaign hub (`MenuScene.ts`), which HUB-02 owns. HUB-01's files do not include it.
 6. **Toast placement (F-03 decision 5): not moved.** P14 puts toasts at the bottom. On hubs that would put them over the tab bar's medallion, and on Battle over the command strip. This needs one decision covering both. Left for BTL-01 or FL-01.
@@ -55,14 +55,13 @@ These Back gaps remain. The contract records the target each one should have.
 
 Fake Telegram (Bot API 8.0, iOS, overlays on, so the left pill reads "Close" or "‹ Back"), production build.
 
-- `en-360-menu.jpg`: the Campaign hub at 360 px. Close in the header. The tab labels are Cinzel, with MARCH.
 - `en-390-duel-team.jpg`: Duels › Team, a hub sub-view. "‹ Back" in the header, no tab bar.
 - `ru-360-war-panel.jpg`: the War hub with a hex panel open. "‹ Back" closes the panel, and the hub is a root again.
 
 ## Gates (2026-10-11, production build via `vite preview`)
 
 - `npx tsc --noEmit`: clean.
-- `npx vitest run`: 82 files, 955 tests passed. `tests/nav.test.ts` has 13 new tests, and `tests/tabLabels.test.ts` (new) has 3.
+- `npx vitest run`: 82 files, 955 tests passed. `tests/nav.test.ts` has 13 new tests.
 - `npx vite build`: OK.
 - `node scripts/layout-check.mjs --no-shots`: 24 configurations x 150 screens, **passed**, 1771 distinct violations, 0 new. The check reports `online-coach-clan|text-size|*` as fixed but still allowlisted. That entry is F-group and not HUB-01's (`scripts/layout-allowlist.json` is not in this story's files), so it was left in place for its owner.
 - Smokes:
