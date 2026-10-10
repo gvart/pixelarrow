@@ -1,6 +1,7 @@
 /**
  * Beast trial (offline): fight any mythical beast or world boss with the
- * campaign army, to learn how it fights without the online server. A v4
+ * campaign army, to learn how it fights without the online server. It is
+ * Practice: nothing is won or lost (design/gdd/practice-fight.md). A v4
  * sub-screen (back arrow, no tab bar): a row for each beast; a tap opens its
  * panel (how it fights, what beats it) with the Fight button.
  */
@@ -10,10 +11,9 @@ import { Label } from '../ui/widgets';
 import { ParchmentRow, ScreenFrame, TopBar } from '../ui/mosaic';
 import { beastLevel, beastThumb, encounterName, openBeastSheet } from '../ui/beastInfo';
 import { ENCOUNTER_IDS, WORLD_BOSSES, type EncounterId } from '../data/beasts';
-import { beastEnemy } from '../game/beasts';
+import { trialBattle } from '../game/campaignBattle';
 import { state, randomSeed } from '../state';
 import { t, type TKey } from '../i18n';
-import type { BattleSite } from '../world/battlefield';
 
 interface TrialData {
   /** The scene Back returns to (default: the Menu). */
@@ -87,11 +87,10 @@ export class BeastTrialScene extends BaseScene {
     });
   }
 
+  /** A Trial fight is Practice: no spoils, no losses (design/gdd/practice-fight.md). */
   fight(enc: EncounterId): void {
-    const seed = randomSeed();
-    const enemy = beastEnemy(enc, beastLevel(enc), seed, state.campaign.data, state.campaign.armyClasses());
-    const site: BattleSite = { base: enc === 'kraken' ? 'beach' : enc === 'cyclops' || enc === 'titan' ? 'hills' : 'plain', river: false, coast: enc === 'kraken', rocky: false, woods: 0 };
-    state.pending = { enemy, seed, label: encounterName(enc), site };
+    state.pending = trialBattle(state.campaign, enc, this.from, randomSeed(), encounterName(enc));
+    // explicit data: a bare start would replay the last battle's data (PLAY B1)
     this.scene.start('Battle', {});
   }
 }
