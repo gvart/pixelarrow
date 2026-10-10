@@ -1,0 +1,26 @@
+src/dev/classBalance.ts
+  s_697bdc25a7c420::t_8c1741442162c8 18-20,374,377-387,392-416,418-425,427-431,433,435-454
+  s_697bdc25a7c420::t_63ea599ca6bd80 388-391,417,426,434
+  s_697bdc25a7c420::t_6c33c94b2b0c1f 432
+src/sim/battle.ts
+  s_697bdc25a7c420::t_d703b88725f297 1068-1072
+  s_697bdc25a7c420::t_ca816b3bbc9702 222-228,1716
+tests/standard.test.ts
+  s_697bdc25a7c420::t_53cc11f05aa07f 110-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cd9f0cc6d14c232ce187e846a9ca4b5e81c02ec5",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
