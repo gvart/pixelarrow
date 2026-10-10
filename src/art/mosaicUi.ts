@@ -451,7 +451,7 @@ function renderPlaque(w: number, h: number, K: number): HTMLCanvasElement {
 
 // ================================================================== buttons
 
-interface BtnLook {
+export interface BtnLook {
   hi: number;
   mid: number;
   lo: number;
@@ -470,8 +470,10 @@ const BTN: Record<string, BtnLook> = {
   btnHeroDown: { hi: M.terra, mid: M.terraLo, lo: M.terraLo, rimHi: M.meander, rimLo: M.meanderLo, gloss: true, pressed: true, hero: true },
   btnBronze: { hi: M.bronzeHi, mid: M.bronze, lo: M.bronzeLo, rimHi: M.meanderHi, rimLo: 0x2a1c0c, brushed: true },
   btnBronzeDown: { hi: M.bronze, mid: M.bronzeLo, lo: M.bronzeLo, rimHi: M.meander, rimLo: 0x2a1c0c, brushed: true, pressed: true },
-  btnNeutral: { hi: M.slabHi, mid: M.slab, lo: M.slabLo, rimHi: M.bronzeHi, rimLo: 0x2a1c0c },
-  btnNeutralDown: { hi: M.slab, mid: M.slabLo, lo: M.slabLo, rimHi: M.bronze, rimLo: 0x2a1c0c, pressed: true },
+  // the quiet action (Close, Flee, Dismiss, Undo, an unpicked filter): dark bronze, raised like every
+  // enabled button. It was grey cut stone, which read as disabled (audit G2; grey means disabled only)
+  btnNeutral: { hi: M.bronze, mid: M.bronzeLo, lo: M.bronzeLo, rimHi: M.bronzeHi, rimLo: 0x2a1c0c, brushed: true },
+  btnNeutralDown: { hi: M.bronzeLo, mid: M.bronzeLo, lo: M.bronzeLo, rimHi: M.bronze, rimLo: 0x2a1c0c, brushed: true, pressed: true },
   btnLit: { hi: M.goldHi, mid: M.meanderHi, lo: M.meander, rimHi: 0xfff6d8, rimLo: M.meanderLo, gloss: true },
   btnLitDown: { hi: M.meanderHi, mid: M.meander, lo: M.meander, rimHi: M.goldHi, rimLo: M.meanderLo, gloss: true, pressed: true },
   btnBuy: { hi: ACCENT.purchaseHi, mid: ACCENT.purchase, lo: ACCENT.purchaseLo, rimHi: 0xc8e8ff, rimLo: 0x0a2436, gloss: true },
@@ -481,6 +483,11 @@ const BTN: Record<string, BtnLook> = {
   btnDangerDown: { hi: M.wine, mid: M.wineLo, lo: M.wineLo, rimHi: M.bronze, rimLo: 0x1c0a10, pressed: true },
   btnBronzeOn: { hi: 0xe6c288, mid: M.bronzeHi, lo: 0xb98d52, rimHi: M.goldHi, rimLo: M.meanderLo, brushed: true },
 };
+
+/** The colours of a raised button surface (null for the flat disabled one): what tests/mosaic.test.ts holds to "grey means disabled only". */
+export function buttonLook(style: MosaicStyle): Readonly<BtnLook> | null {
+  return BTN[style] ?? null;
+}
 
 function renderButton(w: number, h: number, K: number, style: string): HTMLCanvasElement {
   const look = BTN[style];
@@ -627,9 +634,12 @@ function renderTile(w: number, h: number, K: number, style: string): HTMLCanvasE
   const lip = K * 1.4;
   const fh = H - lip;
   const r = K * 3.2;
-  rrPath(ctx, 0, lip, W, fh, r);
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fill();
+  // a disabled tile is flat: no drop shadow (art bible 7.3)
+  if (!off) {
+    rrPath(ctx, 0, lip, W, fh, r);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fill();
+  }
   rrPath(ctx, 0, 0, W, fh, r);
   ctx.fillStyle = vgrad(ctx, 0, fh, [[0, css(look.hi)], [0.5, css(look.mid)], [1, css(look.lo)]]);
   ctx.fill();
@@ -907,9 +917,10 @@ function renderTabSel(w: number, h: number, K: number): HTMLCanvasElement {
     ctx.stroke();
   }
   ctx.restore();
+  // a bronze rim: the selected tab is more than a lighter block (art bible 7.3, audit G13)
   wobblyPath(ctx, W, H + K * 4, K * 1.4, K * 0.6, K * 6, seeded(w, h, 'tabSel'));
-  ctx.lineWidth = Math.max(1, K * 0.8);
-  ctx.strokeStyle = css(M.parchEdge, 0.8);
+  ctx.lineWidth = Math.max(1, K * 1.2);
+  ctx.strokeStyle = css(M.bronze);
   ctx.stroke();
   return canvas;
 }
