@@ -1,0 +1,29 @@
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_646ec74f13df86 10
+  s_697bdc25a7c420::t_170699b57a34ed 2525
+  s_697bdc25a7c420::t_4978e68afdcd17 2140
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_510b8d1f3c56f3 437
+  s_697bdc25a7c420::t_f26725d4b194d3 414-429
+  s_697bdc25a7c420::t_4be41646fcd17c 20
+  s_697bdc25a7c420::t_af7e3fc27d87ad 400-413,430-436,438
+tests/battleLiveFixes.test.ts
+  s_697bdc25a7c420::t_0b87594e75c5de 1-44,46-57,59-64
+  s_697bdc25a7c420::t_f53de4f9d33191 45,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "78ae4eb72cf6289cef2ef6cc6851d3821ecc8f62",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
