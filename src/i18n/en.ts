@@ -46,6 +46,7 @@ import { RESULTS_EN } from './results.en';
 import { WORLD_V5_EN } from './world.v5.en';
 import { CAMP_V5_EN } from './camp.v5.en';
 import { SETTLEMENT_EN } from './settlement.en';
+import { ARC_EN } from './arc.en';
 
 export const EN = {
   // ---- shared words
@@ -373,4 +374,6 @@ export const EN = {
   ...RESULTS_EN,
   // ---- the v5 Settlement (settlement.en.ts)
   ...SETTLEMENT_EN,
+  // ---- the campaign arc on the world map (arc.en.ts)
+  ...ARC_EN,
 } as const;

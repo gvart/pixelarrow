@@ -3,11 +3,11 @@ import { encounterName } from '../ui/beastInfo';
 import Phaser from 'phaser';
 import { RS, camZoom, zoomUnits } from '../platform/renderScale';
 import { BaseScene } from './BaseScene';
-import { addIcon, addText } from '../ui/kit';
-import { MActionBar, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, GAP, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
+import { addIcon, addText, scaleIcon } from '../ui/kit';
+import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
-import { wrapsWhole } from '../ui/textfit';
-import { TEXT_MIN } from '../ui/tokens';
+import { LINE_H, wrapText, wrapsWhole } from '../ui/textfit';
+import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import {
   BAND_COLORS, MAPC, PARTY_FH, PARTY_FOOT, PARTY_FRAMES, PARTY_FW, STRUCT_FRAMES, STRUCT_FX, STRUCT_LIFT, STRUCT_PAD, WTILE, renderBoat, renderCampZone,
   renderDust, renderMarker, renderNamePlate, renderPartyFigure, renderStructure,
@@ -28,11 +28,18 @@ import { siteAt } from '../world/battlefield';
 import { STRUCTURES, campEffects, footprint, type StructureId } from '../world/camp';
 import { THREAT_COLOR, WORLD_RULES, hasCaptain, partyArmy, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
 import { isCaptain } from '../sim/stats';
-import { confirmDialog } from '../ui/widgets';
+import { confirmDialog, hintStore } from '../ui/widgets';
 import { CampLife } from '../ui/campLife';
-import { uiId } from '../ui/layout';
+import { uiBlocker, uiId } from '../ui/layout';
 import { motion } from '../ui/motion';
-import { openEventCard, openJournalSheet, type EventCardHandle } from '../ui/sheets/eventCard';
+import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
+import { openAssaultSheet, type AssaultChoiceKey, type AssaultHandle } from '../ui/sheets/assault';
+import { openArcSheet, type ArcHandle, type ArcLairRow, type ArcTab } from '../ui/sheets/arcSheet';
+import { Spotlight, type Rect } from '../ui/tutorial/spotlight';
+import { SIZE } from '../ui/theme';
+import { ARC_LAIRS } from '../data/arc';
+import { LAIR_HOARD } from '../game/sources';
+import { startLairAssault } from '../game/campaignBattle';
 import { openEncounterSheet, worldGlyph, type EncounterChoice, type EncounterHandle } from '../ui/sheets/encounter';
 
 /** Game hours per real second while travelling / waiting. */
@@ -74,6 +81,9 @@ export function campWhy(why: string): string {
 
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** A lair's name (world/map.ts names lairs in English), in words of the current language. */
+export const lairName = (name: string): string => tOr(`arc.lairName.${name}`, name);
+
 interface BandView {
   p: PartyState;
   spr: Phaser.GameObjects.Sprite;
@@ -90,6 +100,17 @@ type Gesture = { mode: 'pending' | 'pan'; id: number; sx: number; sy: number; lx
 let fogCache: { seed: number; painter: FogPainter; vis: Float32Array } | null = null;
 /** The painted map, its sea mask, sites and sea lanes, per seed. */
 let mapCache: { seed: number; art: WorldMapArt } | null = null;
+/** The Tyrant's host on the map: a plum tunic under a gold banner (worldArt's BAND_COLORS has no host). */
+const HOST_TUNIC = 0x5a2d6a;
+/** Tiles from a lair within which the army can strike it; farther, the Assault sheet marches there first. */
+const ASSAULT_REACH = 2.5;
+/** What the arc news has told on this map (lairs burnt, stage, sack), so a return from battle tells only what changed. */
+let arcSeen: { seed: number; fallen: number; stage: string; sacked: boolean } | null = null;
+/** The first-visit coach marks (campaign-arc.md R1.6), in order; seen once (settings.seenHints). */
+const COACH = ['goal', 'bands', 'towns'] as const;
+const COACH_HINT = 'coach.world';
+/** The Arc sheet's lair rows, in this order. */
+const ROW_ORDER: Record<ArcLairRow['state'], number> = { standing: 0, reborn: 1, burnt: 2, unknown: 3 };
 
 export class WorldScene extends BaseScene {
   private w!: World;
@@ -115,6 +136,22 @@ export class WorldScene extends BaseScene {
   dialog: EncounterHandle | null = null;
   /** The open event card (campaign-events.md R4): the map is paused while it is up. */
   private eventCard: EventCardHandle | null = null;
+  /** The open Assault sheet (campaign-arc.md R2.2) and Arc sheet: the map is paused under both. */
+  assaultSheet: AssaultHandle | null = null;
+  arcSheet: ArcHandle | null = null;
+  /** The lair the army marches on to assault: its Assault sheet opens again on arrival (-1: none). */
+  assaultTarget = -1;
+  /** Lair plates on the map (garrison, burnt, reborn) by lair id, with what they were drawn for. */
+  private lairViews = new Map<number, { c: Phaser.GameObjects.Container; key: string; ash?: Phaser.GameObjects.Ellipse }>();
+  private lairHour = -1;
+  private hostG!: Phaser.GameObjects.Graphics;
+  private arcChip: MChip | null = null;
+  private arcKey = '';
+  /** Arc news waiting for the banner (one at a time). */
+  private news: string[] = [];
+  private newsAt = 0;
+  /** The first-visit coach marks while they run. */
+  private coach: { step: number; spot: Spotlight; layer: Phaser.GameObjects.Container; bubble: Phaser.GameObjects.Container } | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
   private waiting = false;
   private follow = true;
@@ -156,6 +193,16 @@ export class WorldScene extends BaseScene {
     this.encounter = null;
     this.dialog = null;
     this.eventCard = null;
+    this.assaultSheet = null;
+    this.arcSheet = null;
+    this.assaultTarget = -1;
+    this.lairViews = new Map();
+    this.lairHour = -1;
+    this.arcChip = null;
+    this.arcKey = '';
+    this.news = [];
+    this.newsAt = 0;
+    this.coach = null;
     this.banner = null;
     this.waiting = false;
     this.follow = true;
@@ -207,7 +254,15 @@ export class WorldScene extends BaseScene {
         for (let f = 0; f < PARTY_FRAMES; f++) tex.add(f, 0, f * PARTY_FW, 0, PARTY_FW, PARTY_FH);
       }
     }
+    if (!this.textures.exists('wm_band_host')) {
+      const tex = this.textures.addCanvas('wm_band_host', renderPartyFigure(HOST_TUNIC, P.gold).toCanvas())!;
+      for (let f = 0; f < PARTY_FRAMES; f++) tex.add(f, 0, f * PARTY_FW, 0, PARTY_FW, PARTY_FH);
+    }
     for (const s of m.settlements) this.addSettlement(s);
+    this.refreshLairs();
+    // the host's march line, over the fog like the host itself
+    this.hostG = this.add.graphics().setDepth(D_FOG + 1);
+    this.layer.add(this.hostG);
     this.campG = this.add.graphics().setDepth(-59000);
     this.layer.add(this.campG);
     this.renderCamp();
@@ -250,6 +305,10 @@ export class WorldScene extends BaseScene {
     this.w.discoveries = [];
     this.renderWorld(0);
     if (data?.encounter !== undefined && this.w.party(data.encounter)) this.openEncounter(data.encounter, true);
+    // back from an assault's deployment without fighting: the lair's sheet again (a garrison's id is -1 - lair id)
+    else if (data?.encounter !== undefined && data.encounter < 0) this.openAssault(-1 - data.encounter);
+    this.arcNews();
+    if (this.coachDue()) this.startCoach();
   }
 
   protected onResized(): void {
@@ -264,7 +323,7 @@ export class WorldScene extends BaseScene {
     const objs: Phaser.GameObjects.GameObject[] = [];
     // dark ink on a light plate (WLD-3: the old red-on-pink town label was under 3:1)
     const font = s.kind === 'lair' ? 'pSec' : 'pInk';
-    const label = addText(this, Math.round(x), y + 2, s.name, font, 0.5);
+    const label = addText(this, Math.round(x), y + 2, s.kind === 'lair' ? lairName(s.name) : s.name, font, 0.5);
     const pw = Math.ceil(label.width) + 6;
     const pkey = `wm_plate_${s.kind}_${pw}`;
     if (!this.textures.exists(pkey)) this.textures.addCanvas(pkey, renderNamePlate(pw, s.kind).toCanvas());
@@ -398,8 +457,8 @@ export class WorldScene extends BaseScene {
   update(_t: number, delta: number): void {
     const camp = state.campaign;
     // a pending event always has its card (R4.2: no time passes until it is answered); an encounter goes first
-    if (!this.eventCard && !this.encounter && this.w.s.pendingEvent) this.openEvent();
-    const busy = this.encounter || this.cine || this.eventCard;
+    if (!this.eventCard && !this.encounter && !this.assaultSheet && !this.coach && this.w.s.pendingEvent) this.openEvent();
+    const busy = this.encounter || this.cine || this.eventCard || this.assaultSheet || this.arcSheet || this.coach;
     if (!busy && (this.w.moving || this.waiting || this.w.s.destParty >= 0)) {
       const rate = this.waiting ? WAIT_SPEED : TRAVEL_SPEED;
       const hours = Math.min(0.25, delta / 1000) * rate;
@@ -420,8 +479,14 @@ export class WorldScene extends BaseScene {
         this.openEncounter(ev.party, ev.byPlayer);
       }
       if (ev?.type === 'event' && !this.encounter) this.openEvent();
+      this.arrivedAtLair();
+      if (Math.floor(this.w.s.time) !== this.lairHour) {
+        this.refreshLairs();
+        this.arcNews();
+      }
       this.refreshHud();
     }
+    this.drainNews();
     this.drainDiscoveries();
     this.updateFog(delta);
     this.renderWorld(delta);
@@ -510,7 +575,11 @@ export class WorldScene extends BaseScene {
         this.bands.set(p.id, v);
       }
       v.p = p;
-      if (v.key !== key) {
+      if (v.key !== key && p.kind === 'host') {
+        v.key = key;
+        v.plate.removeAll(true);
+        this.drawPlate(v.plate, `${p.size}`, lvl, true, 'host');
+      } else if (v.key !== key) {
         v.key = key;
         v.plate.removeAll(true);
         // the men on the threat colour, with the threat's shape (G13) and the captain's crest (ai-doctrines.md)
@@ -530,10 +599,13 @@ export class WorldScene extends BaseScene {
       else if (p.x > v.lastX + 0.01) v.flip = false;
       const walking = Math.abs(p.x - v.lastX) > 1e-4 && !this.encounter;
       v.lastX = p.x;
-      const vis = this.explored(p.x, p.y);
-      v.spr.setVisible(vis).setPosition(Math.round(bx), Math.round(by) + 2).setDepth(by + 3).setFlipX(v.flip).setFrame(walking ? Math.floor(now / 160 + p.id) % PARTY_FRAMES : 0);
-      v.shadow.setVisible(vis).setPosition(Math.round(bx), Math.round(by) + 2).setDepth(by + 2);
-      v.plate.setVisible(vis).setPosition(Math.round(bx), Math.round(by) - 20).setDepth(by + 4);
+      // the host is always on the map, over the fog (R5.2)
+      const host = p.kind === 'host';
+      const vis = host || this.explored(p.x, p.y);
+      const lift = host ? D_FOG + 2 - by : 0;
+      v.spr.setVisible(vis).setPosition(Math.round(bx), Math.round(by) + 2).setDepth(by + 3 + lift).setFlipX(v.flip).setFrame(walking ? Math.floor(now / 160 + p.id) % PARTY_FRAMES : 0);
+      v.shadow.setVisible(vis).setPosition(Math.round(bx), Math.round(by) + 2).setDepth(by + 2 + lift);
+      v.plate.setVisible(vis).setPosition(Math.round(bx), Math.round(by) - 20).setDepth(by + 4 + lift);
       v.spr.setAlpha(p.idle > 0 ? 0.75 : 1);
     }
     for (const [id, v] of this.bands) {
@@ -543,6 +615,7 @@ export class WorldScene extends BaseScene {
       v.plate.destroy();
       this.bands.delete(id);
     }
+    this.drawHostLine(now);
     this.mapLife?.update(now, this.cameras.main.worldView, this.cameras.main.zoom);
     this.renderCampAnim(now, _delta);
     // camera follow (eased, snapped to whole pixels)
@@ -798,7 +871,9 @@ export class WorldScene extends BaseScene {
     this.sit = new SituationLine(this, 4, TOPBAR_H + 2, VW - 8, { compact: VH < 240, id: 'world.situation' });
     H.add(this.sit);
     this.buildFollow();
-    this.syncBadge(H, 8, this.sit.y + this.sit.h + 8);
+    this.arcKey = '';
+    this.refreshArcChip();
+    this.syncBadge(H, 8 + (this.arcChip ? this.arcChip.w + 4 : 0), this.sit.y + this.sit.h + 8);
     this.strip = new MActionBar(this, VW, VH);
     H.add(this.strip);
     this.strip.set(this.stripSlots());
@@ -829,7 +904,7 @@ export class WorldScene extends BaseScene {
     this.hud.add(this.followBtn);
   }
 
-  /** The top bar: the back arrow to the Campaign hub (Menu), "Day N · place", the journal and ⚙ (D9). */
+  /** The top bar: the back arrow to the Campaign hub (Menu), "Day N · place" and ⚙ (D9). The journal is the Arc sheet's second tab. */
   private buildTop(title: string): void {
     this.topC.removeAll(true);
     addSubShell(this, {
@@ -837,8 +912,7 @@ export class WorldScene extends BaseScene {
       parent: this.topC,
       title,
       id: 'world.topbar',
-      // the journal (campaign-events.md "Journal"); WLD-02 moves it into the Arc sheet behind the arc chip
-      actions: [{ icon: 'log', label: t('evc.journal'), onClick: () => this.openJournal() }, gearAction(this)],
+      actions: [gearAction(this)],
       back: this.inGameBack ? () => this.leaveToMenu() : undefined,
     });
   }
@@ -877,7 +951,7 @@ export class WorldScene extends BaseScene {
     // the top bar says the day and the place; the line says the hour, the danger and what to do. On a narrow
     // screen where "Day n · place" would be cut beside the journal and ⚙, the day moves to the line.
     const fullTitle = t('mosaic.cmap.title', { d: day, region });
-    const side = 2 * (TAP + GAP) - GAP + 2;
+    const side = TAP + 2;
     const dayUp = mw(fullTitle.toUpperCase(), 'rCream', TEXT_MIN) <= this.m.VW - side * 2 - 12;
     const topTitle = dayUp ? fullTitle : region;
     const danger = t(d < 0.3 ? 'world.safe' : d < 0.6 ? 'world.risky' : 'world.wild');
@@ -922,6 +996,7 @@ export class WorldScene extends BaseScene {
       this.sitKey = key;
       this.sit.set(sentence, urgent, chips);
     }
+    this.refreshArcChip();
     const stripKey = `${!!this.w.camp}|${this.waiting}|${this.w.moving}`;
     if (stripKey !== this.stripKey) {
       this.stripKey = stripKey;
@@ -1020,7 +1095,7 @@ export class WorldScene extends BaseScene {
       this.pinch = { d0: Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y), z0: this.cameras.main.zoom, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
       return;
     }
-    if (over.length > 0 || this.encounter || this.eventCard) {
+    if (over.length > 0 || this.encounter || this.eventCard || this.assaultSheet || this.arcSheet || this.coach) {
       this.gesture = null;
       return;
     }
@@ -1072,7 +1147,8 @@ export class WorldScene extends BaseScene {
 
   /** Tap at world pixel (x, y): a band, a settlement, or a spot to march to. */
   tapWorld(x: number, y: number): void {
-    if (this.cine) return;
+    if (this.cine || this.coach) return;
+    this.assaultTarget = -1;
     const tx = Math.floor(x / WTILE);
     const ty = Math.floor(y / WTILE);
     const c = this.w.camp;
@@ -1091,12 +1167,21 @@ export class WorldScene extends BaseScene {
     let band: PartyState | null = null;
     let bd = 9;
     for (const p of this.w.s.parties) {
-      if (!this.explored(p.x, p.y)) continue;
+      if (!this.explored(p.x, p.y) && p.kind !== 'host') continue;
       const d = Math.hypot(p.x * WTILE - x, p.y * WTILE - 4 - y);
       if (d < bd) {
         bd = d;
         band = p;
       }
+    }
+    // bands gather at their lair: a tap on a standing lair's picture or its garrison plate is the lair,
+    // unless it is right on a band's figure
+    const lair = this.lairAt(x, y);
+    if (lair >= 0 && (!band || bd > 4)) {
+      this.setWaiting(false);
+      haptic('light');
+      this.openAssault(lair);
+      return;
     }
     if (band) {
       const ratio = band.power / Math.max(1, this.info.power);
@@ -1122,8 +1207,13 @@ export class WorldScene extends BaseScene {
     }
     this.setWaiting(false);
     if (set) {
-      if (set.kind === 'lair') {
-        this.showBanner(t('wld.lairTap', { name: set.name }));
+      if (set.kind === 'lair' && !this.w.lairFallen(set.id)) {
+        // a standing lair is a target (R2.2): its Assault sheet
+        haptic('light');
+        this.openAssault(set.id);
+        return;
+      } else if (set.kind === 'lair') {
+        this.showBanner(t('arc.bn.ashes', { name: lairName(set.name) }));
         this.w.setDestination(set.x, set.y + 1);
       } else if (Math.floor(this.w.s.x) === set.x && Math.floor(this.w.s.y) === set.y) {
         this.enterSettlement(set.id);
@@ -1176,9 +1266,367 @@ export class WorldScene extends BaseScene {
     });
   }
 
+  /** The journal: the Arc sheet on its Journal tab (scripts and the layout check call this). */
   openJournal(): void {
-    if (this.eventCard || this.encounter) return;
-    openJournalSheet(this);
+    this.openArc('journal');
+  }
+
+  // ================================================================ the campaign arc (campaign-arc.md; WLD-02)
+
+  /**
+   * A plate on the map (as a band's): the men on the threat colour with the threat's shape (G13), and at the
+   * right the captain's crest; a reborn lair adds a skull, the host a gold-rimmed plum plate with its banner.
+   */
+  private drawPlate(c: Phaser.GameObjects.Container, label: string, lvl: number, crest: boolean, mark?: 'host' | 'reborn'): void {
+    const tw = label.length * 5 + 3;
+    const lead = mark ? 8 : 0;
+    const wdt = tw + 9 + lead + (crest ? 8 : 0);
+    const x0 = -Math.round(wdt / 2);
+    if (mark === 'host') {
+      c.add(this.add.rectangle(0, 1, wdt + 4, 13, P.gold).setOrigin(0.5, 1));
+      c.add(this.add.rectangle(0, 0, wdt + 2, 11, HOST_TUNIC).setOrigin(0.5, 1));
+    }
+    c.add(this.add.rectangle(0, 0, wdt, 9, P.outline).setOrigin(0.5, 1));
+    c.add(this.add.rectangle(0, -1, wdt - 2, 7, THREAT_COLOR[lvl]).setOrigin(0.5, 1));
+    if (mark) c.add(scaleIcon(addIcon(this, x0 + 1, -9, mark === 'host' ? 'standard' : 'skull'), 7 / 12));
+    c.add(this.add.image(x0 + 2 + lead, -8, worldGlyph(this, lvl)).setOrigin(0, 0));
+    c.add(addText(this, x0 + lead + 8 + tw / 2, -9, label, 'title', 0.5));
+    if (crest) c.add(this.add.image(x0 + wdt - 8, -8, worldGlyph(this, 'crest')).setOrigin(0, 0));
+  }
+
+  /**
+   * The lairs on the map ("Touch UI needs"): a standing lair shows its garrison plate (men, threat colour and
+   * shape, the captain's crest; a skull on a reborn lair), a burnt lair its ashes and a flame. Redrawn only
+   * when a garrison, its threat or a lair's state changes (checked every game hour and on each visit).
+   */
+  refreshLairs(): void {
+    this.lairHour = Math.floor(this.w.s.time);
+    const power = Math.max(1, state.campaign.playerInfo().power);
+    for (const st of this.w.map.settlements) {
+      if (st.kind !== 'lair') continue;
+      const burnt = this.w.lairFallen(st.id);
+      const g = burnt ? null : this.w.garrison(st.id);
+      const lvl = g ? threatLevel(g.power / power) : 0;
+      const reborn = this.w.isReborn(st.id);
+      const key = burnt ? 'burnt' : g ? `${g.size}_${lvl}_${reborn ? 1 : 0}` : 'empty';
+      let v = this.lairViews.get(st.id);
+      if (v?.key === key) continue;
+      if (!v) {
+        v = { c: this.add.container(0, 0), key: '' };
+        this.layer.add(v.c);
+        this.lairViews.set(st.id, v);
+      }
+      v.key = key;
+      v.c.removeAll(true);
+      v.ash?.destroy();
+      v.ash = undefined;
+      // under the lair's name plate: its bands gather on the lair itself, their plates above it
+      const site = this.siteOf(st.id);
+      const lx = Math.round(site ? site.lx : st.x * WTILE + WTILE / 2);
+      const ly = Math.round(site ? site.ly + 2 : st.y * WTILE + WTILE / 2 + 6) + 22;
+      v.c.setPosition(lx, ly).setDepth(ly + 3);
+      if (burnt) {
+        // ashes over the lair's picture, and a flame on a dark plate
+        const cx = site ? site.x + site.w / 2 : st.x * WTILE + WTILE / 2;
+        const cy = site ? site.y + site.h * 0.55 : st.y * WTILE;
+        // (on the ground: under the bands that still gather there)
+        v.ash = this.add.ellipse(Math.round(cx), Math.round(cy), Math.round((site?.w ?? 16) * 0.85), Math.round((site?.h ?? 12) * 0.6), 0x2a2018, 0.5).setDepth(Math.round(cy) - 8);
+        this.layer.add(v.ash);
+        v.c.add(this.add.rectangle(0, 0, 12, 11, P.outline).setOrigin(0.5, 1));
+        v.c.add(scaleIcon(addIcon(this, -4, -10, 'fire'), 8 / 12));
+      } else if (g) this.drawPlate(v.c, `${g.size}`, lvl, true, reborn ? 'reborn' : undefined);
+    }
+  }
+
+  /** The standing, found lair whose picture, name or garrison plate holds world pixel (x, y); -1 for none. */
+  private lairAt(x: number, y: number): number {
+    for (const st of this.w.map.settlements) {
+      if (st.kind !== 'lair' || this.w.lairFallen(st.id) || !this.w.isExplored(st.x, st.y)) continue;
+      const site = this.siteOf(st.id);
+      // the picture down to the garrison plate under the name plate (refreshLairs)
+      const box = site ? { x: site.x, y: site.y, w: site.w, h: Math.max(site.h, site.ly + 26 - site.y) } : { x: st.x * WTILE - 6, y: st.y * WTILE - 8, w: 20, h: 40 };
+      if (x >= box.x && x < box.x + box.w && y >= box.y && y < box.y + box.h) return st.id;
+    }
+    return -1;
+  }
+
+  /** The host's dotted march line to its goal (R5.2: "a dotted march line to the starting town"), over the fog. */
+  private drawHostLine(now: number): void {
+    const g = this.hostG;
+    g.clear();
+    const h = this.w.s.arc.stage === 'host' ? this.w.host : null;
+    if (!h) return;
+    const ax = h.x * WTILE;
+    const ay = h.y * WTILE;
+    const bx = (h.tx + 0.5) * WTILE;
+    const by = (h.ty + 0.5) * WTILE;
+    const n = Math.round(Math.hypot(bx - ax, by - ay));
+    const phase = Math.floor(now / 200) % 5;
+    for (let i = 8; i < n; i++) {
+      if ((i + 5 - phase) % 5 !== 0) continue;
+      const x = Math.round(ax + ((bx - ax) * i) / n);
+      const y = Math.round(ay + ((by - ay) * i) / n);
+      g.fillStyle(MAPC.shade, 0.4);
+      g.fillRect(x, y + 1, 2, 2);
+      g.fillStyle(0x7a1c18, 1);
+      g.fillRect(x - 1, y, 2, 2);
+    }
+    g.fillStyle(0x7a1c18, 1);
+    g.fillRect(Math.round(bx) - 3, Math.round(by) - 3, 6, 1);
+    g.fillRect(Math.round(bx) - 3, Math.round(by) + 2, 6, 1);
+  }
+
+  /** The arc chip's face for the arc stage: the lairs burnt, then the host to stop, then the win. */
+  private arcChipFace(): { icon: string; value: string } {
+    if (this.w.s.arc.stage === 'host') return { icon: 'standard', value: t('arc.chip.host') };
+    if (this.w.postGame) return { icon: 'laurel', value: t('arc.chip.won') };
+    return { icon: 'fire', value: t('arc.chip.lairs', { n: Math.min(ARC_LAIRS, this.w.lairsFallen), total: ARC_LAIRS }) };
+  }
+
+  /** The arc chip under the situation line, at the left (the eye is at the right): it states the goal and opens the Arc sheet. */
+  private refreshArcChip(): void {
+    const f = this.arcChipFace();
+    const key = `${f.icon}|${f.value}`;
+    if (key === this.arcKey && this.arcChip?.active) return;
+    this.arcKey = key;
+    this.arcChip?.destroy();
+    const sit = this.sit!;
+    const chip = new MChip(this, 4, sit.y + sit.h + 3, { icon: f.icon, value: f.value, surface: 'stone', onClick: () => this.openArc() });
+    uiId(chip, 'world.arc');
+    this.hud.add(chip);
+    this.arcChip = chip;
+  }
+
+  /** The Arc sheet (Lairs and Journal tabs). */
+  openArc(tab: ArcTab = 'lairs'): void {
+    if (this.eventCard || this.encounter || this.assaultSheet || this.arcSheet || this.coach) return;
+    const w = this.w;
+    const m = w.map;
+    const start = m.settlements[m.start];
+    const towns = m.settlements.filter((st) => st.kind === 'town');
+    const near = (st: SettlementDef) => towns.reduce((b, q) => (Math.hypot(q.x - st.x, q.y - st.y) < Math.hypot(b.x - st.x, b.y - st.y) ? q : b), towns[0])?.name ?? null;
+    const rows: ArcLairRow[] = m.settlements
+      .filter((st) => st.kind === 'lair')
+      .map((st): ArcLairRow => {
+        const burnt = w.lairFallen(st.id);
+        const found = burnt || w.isExplored(st.x, st.y);
+        const state = burnt ? 'burnt' : !found ? 'unknown' : w.isReborn(st.id) ? 'reborn' : 'standing';
+        return { id: st.id, name: lairName(st.name), near: found ? near(st) : null, state, men: w.garrisonSize(st.id) };
+      })
+      // the targets first, then what is done, then what is still to find
+      .sort((a, b) => ROW_ORDER[a.state] - ROW_ORDER[b.state] || a.id - b.id);
+    const host = w.s.arc.stage === 'host' ? w.host : null;
+    const goal = w.postGame ? t('arc.goal.won') : host ? t('arc.goal.host', { town: start.name }) : t('arc.goal.lairs', { total: ARC_LAIRS });
+    const sackDays = w.isSacked(m.start) ? Math.ceil(((w.s.arc.sackedUntil ?? 0) - w.s.time) / 24) : 0;
+    const handle = openArcSheet(
+      this,
+      { goal, sacked: sackDays > 0 ? t('arc.sacked', { town: start.name, n: sackDays }) : null, host: host ? { men: host.size, town: start.name } : null, rows, journal: w.s.journal, onFocus: (id) => this.focusOn(id) },
+      tab,
+      () => {
+        if (this.arcSheet === handle) this.arcSheet = null;
+      },
+    );
+    this.arcSheet = handle;
+  }
+
+  /** Centre the map on lair `id` (or the host, -1): the camera stops following the army. */
+  focusOn(id: number): void {
+    const h = id === -1 ? this.w.host : null;
+    const st = id >= 0 ? this.w.map.settlements[id] : null;
+    const x = h ? h.x * WTILE : st ? st.x * WTILE + WTILE / 2 : null;
+    const y = h ? h.y * WTILE : st ? st.y * WTILE + WTILE / 2 : null;
+    if (x === null || y === null) return;
+    if (this.follow) this.toggleFollow();
+    this.cameras.main.pan(x, y, motion.reduced ? 0 : 500, 'Sine.easeInOut', true);
+  }
+
+  /** The Assault sheet of lair `lairId` (R2.2): its garrison, doctrine, captain and hoard; Assault or Leave. */
+  openAssault(lairId: number): void {
+    if (this.eventCard || this.encounter || this.assaultSheet || this.coach) return;
+    const camp = state.campaign;
+    const w = this.w;
+    const st = w.map.settlements[lairId];
+    if (!st || st.kind !== 'lair' || w.lairFallen(lairId)) return;
+    this.arcSheet?.close();
+    this.info = camp.playerInfo();
+    const g = w.garrison(lairId);
+    const lvl = g ? threatLevel(g.power / Math.max(1, this.info.power)) : 0;
+    // the garrison as the battle will build it (a throwaway id source: nothing in the save moves)
+    const army = g ? partyArmy(g, { nextId: 1 }, camp.armyClasses()) : null;
+    const captain = army?.heroes.find((h) => isCaptain(h));
+    const handle = openAssaultSheet(
+      this,
+      {
+        title: lairName(st.name),
+        tex: st.name === 'Pirate cove' ? 'wm_band_pirates' : `wm_band_${st.band ?? 'bandits'}`,
+        lvl,
+        color: THREAT_COLOR[lvl],
+        men: g?.size ?? 0,
+        culture: cap(tOr(`culture.${st.culture}`, CULTURE_LABEL[st.culture])),
+        level: g?.level ?? 0,
+        doctrine: army ? (army.doctrine ?? 'steady') : null,
+        captain: captain ? { name: captain.name, level: captain.level } : null,
+        reborn: w.isReborn(lairId),
+        burnt: Math.min(ARC_LAIRS, w.lairsFallen),
+        total: ARC_LAIRS,
+        picks: LAIR_HOARD.picks,
+        inReach: Math.hypot(w.s.x - (st.x + 0.5), w.s.y - (st.y + 0.5)) <= ASSAULT_REACH,
+        fit: camp.fitHeroes().length,
+        wounded: camp.wounded().length,
+        onPick: (k) => this.assaultChoice(lairId, k),
+      },
+      () => {
+        if (this.assaultSheet === handle) this.assaultSheet = null;
+      },
+    );
+    this.assaultSheet = handle;
+  }
+
+  private assaultChoice(lairId: number, k: AssaultChoiceKey): void {
+    const camp = state.campaign;
+    const st = this.w.map.settlements[lairId];
+    if (k === 'leave') return;
+    if (k === 'march') {
+      if (this.w.camp) {
+        this.strikeCamp(() => this.assaultChoice(lairId, 'march'));
+        return;
+      }
+      this.setWaiting(false);
+      if (!this.w.setDestination(st.x, st.y + 1)) {
+        hapticNotify('error');
+        this.showBanner(t('wld.noWay'), true);
+        return;
+      }
+      this.assaultTarget = lairId;
+      haptic('light');
+      if (!this.follow) this.toggleFollow();
+      this.refreshHud();
+      return;
+    }
+    const pending = k === 'assault' ? startLairAssault(camp, lairId, randomSeed()) : null;
+    if (!pending) {
+      // no garrison left (R2 Edge Cases): the lair falls on contact, without a battle; its hoard goes to the stash
+      const items = camp.razeLair(lairId);
+      camp.data.stash.push(...items);
+      hapticNotify('success');
+      this.refreshLairs();
+      this.arcNews();
+      void state.save();
+      this.refreshHud();
+      return;
+    }
+    // the garrison's id (-1 - lair id) as the band: the battle comes back to the map, never to a band on it
+    state.pending = { ...pending, partyId: -1 - lairId };
+    void state.save();
+    this.scene.start('Battle', {});
+  }
+
+  /** The army has reached the lair it marched on: its Assault sheet again. */
+  private arrivedAtLair(): void {
+    const id = this.assaultTarget;
+    if (id < 0 || this.w.moving || this.encounter || this.eventCard) return;
+    const st = this.w.map.settlements[id];
+    this.assaultTarget = -1;
+    if (st && Math.hypot(this.w.s.x - (st.x + 0.5), this.w.s.y - (st.y + 0.5)) <= ASSAULT_REACH) this.openAssault(id);
+  }
+
+  /**
+   * The arc's news as banners (C-4 states): a lair burnt since the last look, the host on the march, the
+   * start town sacked, and once the world reaches tier 3 (AR-03's optional notice) that the bands wear bronze.
+   */
+  private arcNews(): void {
+    const w = this.w;
+    const m = w.map;
+    const now = { seed: m.seed, fallen: w.lairsFallen, stage: w.s.arc.stage, sacked: w.isSacked(m.start) };
+    const was = arcSeen?.seed === m.seed ? arcSeen : null;
+    arcSeen = now;
+    const start = m.settlements[m.start];
+    if (was && now.fallen > was.fallen) {
+      const last = m.settlements.filter((st) => st.kind === 'lair' && w.lairFallen(st.id)).sort((a, b) => (w.s.lairs[b.id]?.lostAt ?? 0) - (w.s.lairs[a.id]?.lostAt ?? 0))[0];
+      if (last) this.news.push(t('arc.bn.burnt', { name: lairName(last.name), n: Math.min(ARC_LAIRS, now.fallen), total: ARC_LAIRS }));
+    }
+    if (now.stage === 'host' && was?.stage !== 'host') this.news.push(t('arc.bn.host', { town: start.name }));
+    if (now.sacked && !was?.sacked) this.news.push(t('arc.sacked', { town: start.name, n: Math.ceil(((w.s.arc.sackedUntil ?? 0) - w.s.time) / 24) }));
+    if (w.lairTier === 3 && !w.hasFlag('arc_tier3') && w.setFlag('arc_tier3')) this.news.push(t('arc.bn.tier3'));
+  }
+
+  /** One piece of news at a time, each for 3.5 s (the banner keeps the last for its 6 s). */
+  private drainNews(): void {
+    if (!this.news.length || this.cine || this.coach || this.encounter || this.eventCard || this.assaultSheet || this.arcSheet || this.time.now < this.newsAt) return;
+    this.newsAt = this.time.now + 3500;
+    this.showBanner(this.news.shift()!);
+  }
+
+  // ---------------------------------------------------------------- first-visit coach marks (R1.6, O4)
+
+  private coachDue(): boolean {
+    const seen = hintStore.seen();
+    return !seen.includes('*') && !seen.includes(COACH_HINT) && !(window as { __noFirstRun?: boolean }).__noFirstRun;
+  }
+
+  /** The coach mark now on screen (scripts): 'goal', 'bands', 'towns' or null. */
+  get coachStep(): (typeof COACH)[number] | null {
+    return this.coach ? COACH[this.coach.step] : null;
+  }
+
+  /** Run the coach marks from `step` (scripts and screenshots force one). */
+  startCoach(step = 0): void {
+    this.coach?.layer.destroy();
+    const layer = this.add.container(0, 0);
+    this.ui.add(layer);
+    const spot = new Spotlight(this, layer);
+    const bubble = this.add.container(0, 0);
+    layer.add(bubble);
+    this.coach = { step, spot, layer, bubble };
+    this.showCoach();
+  }
+
+  private showCoach(): void {
+    const c = this.coach!;
+    const id = COACH[c.step];
+    const chip = this.arcChip;
+    const at: Rect | null = id === 'goal' && chip ? { x: chip.x - 2, y: chip.y - 2, w: chip.w + 4, h: chip.h + 4 } : null;
+    c.spot.show({ hole: at, dim: 0.45, ring: !!at, block: true });
+    c.bubble.removeAll(true);
+    const { VW, VH } = this.m;
+    const w = Math.min(VW - 16, 176);
+    const lines = wrapText(t(`arc.coach.${id}` as TKey), w - 14, 6).lines;
+    const h = 7 + lines.length * LINE_H + SIZE.btnH + 6;
+    // under the chip for the goal, else in the middle of the map: never on the action bar
+    const y = Math.round(at ? at.y + at.h + 8 : (VH - h) / 2);
+    const x = Math.round((VW - w) / 2);
+    const zone = this.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
+    uiBlocker(uiId(zone, 'world.coach'));
+    c.bubble.add(zone);
+    c.bubble.add(mosaicImage(this, x, y, w, h, 'parchment'));
+    c.bubble.add(addText(this, x + 7, y + 5, lines.join('\n'), 'pInk'));
+    if (at) {
+      const ax = Math.round(Math.max(x + 8, Math.min(x + w - 8, at.x + at.w / 2)));
+      const g = this.add.graphics();
+      g.fillStyle(MOSAIC.parch, 1);
+      g.fillTriangle(ax - 5, y + 1, ax + 5, y + 1, ax, y - 6);
+      c.bubble.add(g);
+    }
+    const last = c.step === COACH.length - 1;
+    const bw = 64;
+    c.bubble.add(new MButton(this, x + w - bw - 4, y + h - SIZE.btnH - 4, bw, SIZE.btnH, { label: t(last ? 'coach.done' : 'coach.next'), icon: 'check', variant: 'primary', id: 'coach.next', onClick: () => this.nextCoach() }));
+    c.bubble.add(addText(this, x + 7, y + h - 17, `${c.step + 1} / ${COACH.length}`, 'pSec'));
+  }
+
+  /** Next coach mark; after the last, they are seen for good. */
+  nextCoach(): void {
+    const c = this.coach;
+    if (!c) return;
+    haptic('light');
+    if (c.step < COACH.length - 1) {
+      c.step++;
+      this.showCoach();
+      return;
+    }
+    c.layer.destroy();
+    this.coach = null;
+    hintStore.mark(COACH_HINT);
+    void state.save();
   }
 
   // ================================================================ encounters

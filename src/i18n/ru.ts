@@ -38,6 +38,7 @@ import { RESULTS_RU } from './results.ru';
 import { WORLD_V5_RU } from './world.v5.ru';
 import { CAMP_V5_RU } from './camp.v5.ru';
 import { SETTLEMENT_RU } from './settlement.ru';
+import { ARC_RU } from './arc.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -337,4 +338,5 @@ export const RU: Table = {
   ...CAMP_V5_RU,
   ...RESULTS_RU,
   ...SETTLEMENT_RU,
+  ...ARC_RU,
 };
