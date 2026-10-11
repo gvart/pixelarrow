@@ -303,6 +303,8 @@ describe('why-line rules (R5), one recorded fixture per rule', () => {
   it("a win by enemy retreat says 'They withdrew at {t}'; our retreat keeps the cause before it", () => {
     const log = fixture([contact(10), retreat(83, 1)]);
     expect(say(whyLine(log, 0, 'victory', { enemyRetreated: true }))).toBe('They withdrew at 1:23.');
+    // the log alone tells it (an offline report has no `retreated`)
+    expect(say(whyLine(log, 0, 'victory'))).toBe('They withdrew at 1:23.');
     const ours = fixture([contact(10), flanked(30, 0, 1), rout(35, 0, 1), retreat(50, 0), armyBreak(60, 0)]);
     expect(say(whyLine(ours, 0, 'retreat'))).toBe('Group II was flanked and broke. We withdrew at 0:50.');
     // what came after the retreat order is not its cause

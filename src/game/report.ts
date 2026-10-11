@@ -454,10 +454,8 @@ export function whyLine(log: BattleLog | null, side: Side, result: ReportResult,
   }
   if (result === 'defeat') return [(log && cause(log, side, false, caps)) || { key: 'why.lost.held', params: {} }];
   // a victory
-  if (o.enemyRetreated) {
-    const r = log?.events.find((e) => e.type === 'retreat' && e.side === foe);
-    return [{ key: 'why.won.withdrew', params: { t: clock(r ? r.tick : log?.ticks ?? 0) } }];
-  }
+  const fled = log?.events.find((e) => e.type === 'retreat' && e.side === foe);
+  if (o.enemyRetreated || fled) return [{ key: 'why.won.withdrew', params: { t: clock(fled ? fled.tick : log?.ticks ?? 0) } }];
   if (!log) return [];
   return [cause(log, foe, true, caps) || { key: 'why.won.held', params: {} }];
 }
