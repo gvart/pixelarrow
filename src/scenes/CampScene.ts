@@ -1372,7 +1372,8 @@ export class CampScene extends BaseScene {
         }
         const why = w.supplies < e.cost.supplies ? t('cs.needSupplies', { n: e.cost.supplies }) : camp.data.gold < e.cost.gold ? t('cmp.temper.noGold', { n: e.cost.gold }) : undefined;
         row.add(
-          new MButton(this, rw - btnW - 3, by, btnW, BTN_H, {
+          // on the narrowest screens the button gives way to the cost line (its label shrinks, never the numbers)
+          new MButton(this, rw - Math.min(btnW, rw - x - 5) - 3, by, Math.min(btnW, rw - x - 5), BTN_H, {
             label: t('cmp.temper.do'),
             variant: why ? 'disabled' : 'secondary',
             disabledReason: why,
