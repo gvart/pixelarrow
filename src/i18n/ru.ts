@@ -27,6 +27,8 @@ import { HERO_RU } from './hero.ru';
 import { SETTINGS_RU } from './settings.ru';
 import { CODEX_RU } from './codex.ru';
 import { WHY_RU } from './why.ru';
+import { EVENTS_RU } from './events.ru';
+import { EVENTCARD_RU } from './eventcard.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -315,4 +317,7 @@ export const RU: Table = {
   ...SETTINGS_RU,
   ...CODEX_RU,
   ...WHY_RU,
+  // ---- overland events: the deck's text (events.ru.ts) and the event card and journal (eventcard.ru.ts)
+  ...EVENTS_RU,
+  ...EVENTCARD_RU,
 };

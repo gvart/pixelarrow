@@ -35,6 +35,8 @@ import { HERO_EN } from './hero.en';
 import { SETTINGS_EN } from './settings.en';
 import { CODEX_EN } from './codex.en';
 import { WHY_EN } from './why.en';
+import { EVENTS_EN } from './events.en';
+import { EVENTCARD_EN } from './eventcard.en';
 
 export const EN = {
   // ---- shared words
@@ -345,4 +347,7 @@ export const EN = {
   ...CODEX_EN,
   // ---- the Results why-line (why.en.ts)
   ...WHY_EN,
+  // ---- overland events: the deck's text (events.en.ts) and the event card and journal (eventcard.en.ts)
+  ...EVENTS_EN,
+  ...EVENTCARD_EN,
 } as const;

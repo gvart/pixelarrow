@@ -1,0 +1,52 @@
+/**
+ * Russian strings of the event card and the journal (EV-03): the same keys and
+ * {params} as eventcard.en.ts. Spread into ru.ts.
+ */
+import type { Entry } from './index';
+import type { EVENTCARD_EN } from './eventcard.en';
+
+export const EVENTCARD_RU: Record<keyof typeof EVENTCARD_EN, Entry> = {
+  'evc.journal': 'Журнал',
+  'evc.journalTip': 'Последние 20 событий и ваш выбор',
+  'evc.journalEmpty': 'Событий пока не было. Они ждут вас в походе, в городах, в лагере и после битв.',
+  'evc.failed': 'Вышло плохо',
+  'evc.chooseQ': 'Сделать этот выбор?',
+  'evc.chooseBody': '{label}. Это ничего не стоит.',
+  'evc.chooseNo': 'К карточке',
+  'evc.fx.gold': '{n} золота',
+  'evc.fx.food': '{n} еды',
+  'evc.fx.supplies': '{n} припасов',
+  'evc.fx.recruit': { one: '+{n} воин в войско', few: '+{n} воина в войско', many: '+{n} воинов в войско', other: '+{n} воина в войско' },
+  'evc.fx.xp.all': '+{n} опыта всем',
+  'evc.fx.xp.one_random': '+{n} опыта одному',
+  'evc.fx.xp.lowest': '+{n} опыта новичку',
+  'evc.fx.wound.all': 'Все ранены на {h} ч',
+  'evc.fx.wound.one_random': 'Один ранен на {h} ч',
+  'evc.fx.wound.lowest': 'Новичок ранен на {h} ч',
+  'evc.fx.heal': 'Все раны залечены',
+  'evc.fx.item': 'Предмет: {rarity}',
+  'evc.fx.band.bandits': 'Бой с разбойниками',
+  'evc.fx.band.raiders': 'Бой с налётчиками',
+  'evc.fx.band.mercs': 'Бой с наёмниками',
+  'evc.fx.band.captain': 'у них капитан',
+  'evc.fx.band.hunts': 'они охотятся на вас',
+  'evc.fx.band.bounty': 'награда x{n}',
+  'evc.fx.reveal.lair': 'Логово найдено',
+  'evc.fx.reveal.radius': 'Округа разведана',
+  'evc.fx.retrain': 'Бесплатная смена навыка',
+  'evc.fx.price': 'Цены в городе {p}% на {d} дн.',
+  'evc.fx.closed': 'Город закрыт на {d} дн.',
+  'evc.fx.next.xp': 'Следующий бой: +50% опыта',
+  'evc.fx.next.gold': 'Следующий бой: +50% золота',
+  'evc.fx.next.pick': 'Следующий бой: +1 трофей',
+  'evc.fx.none': 'Ни прибыли, ни потерь',
+  'evc.fx.chance': 'Удача: {p}%',
+  'evc.fx.else': 'Иначе:',
+  'evc.block.gold': 'Нужно {need} золота (есть {have})',
+  'evc.block.food': 'Нужно {need} еды (есть {have})',
+  'evc.block.supplies': 'Нужно {need} припасов (есть {have})',
+  'evc.block.room': 'В войске нет места ({have}/{need})',
+  'evc.note.room': 'Войско полно: не все смогли вступить.',
+  'evc.note.no_target': 'Некому было это принять.',
+  'evc.note.no_spawn': 'Отряд так и не нашёл вас.',
+};
