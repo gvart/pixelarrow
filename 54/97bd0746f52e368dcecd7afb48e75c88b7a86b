@@ -1,0 +1,33 @@
+tests/worldMap.test.ts
+  s_697bdc25a7c420::t_c42b63bef0e493 1-92
+src/scenes/WorldScene.ts
+  s_697bdc25a7c420::t_30df27c8412a59 33,1080,1131,1139-1156
+  s_697bdc25a7c420::t_f1badb82b978b9 51-76
+  s_697bdc25a7c420::t_78982ac148bbd2 798,805-820,829,838,846-848
+  s_697bdc25a7c420::t_3affa09e778984 9,23-24
+  s_697bdc25a7c420::t_fbef47eb6f4735 872,886,904,915-917,920,929-953,1159
+  s_697bdc25a7c420::t_7fce62e8abfc22 34,1157-1158
+  s_697bdc25a7c420::t_d63bf43486b951 7,10,874-881
+  s_697bdc25a7c420::t_2298d20a62cf1f 262-263,750,752,754
+  s_697bdc25a7c420::t_4034caae9c8afc 498-499,513,515-517,520-522
+  s_697bdc25a7c420::t_20ce70153fde24 367,380,732,740,761,972-973,979-984,986,989,1081,1100,1123,1212,1237
+  s_697bdc25a7c420::t_23593da40144e9 6,8,26,29-30,36,112-113
+  s_697bdc25a7c420::t_d75324f4d6e80c 1184,1188,1197-1203,1205-1207,1209,1220-1222,1224,1230-1232,1234,1247-1269
+  s_697bdc25a7c420::t_0b8d0a741dfab0 954,1160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5497bd0746f52e368dcecd7afb48e75c88b7a86b",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
