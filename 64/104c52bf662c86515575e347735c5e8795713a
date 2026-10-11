@@ -1,0 +1,23 @@
+src/world/world.ts
+  s_697bdc25a7c420::t_aff35c0df24be9 31
+  s_697bdc25a7c420::t_5e0f45e46d3317 851,853
+  s_697bdc25a7c420::t_45ec8dddc2bb74 1117-1203
+src/game/enemy.ts
+  s_697bdc25a7c420::t_3f4ec7dee6cf9d 24-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "64104c52bf662c86515575e347735c5e8795713a",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
