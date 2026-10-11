@@ -29,6 +29,7 @@ import { CODEX_RU } from './codex.ru';
 import { WHY_RU } from './why.ru';
 import { EVENTS_RU } from './events.ru';
 import { EVENTCARD_RU } from './eventcard.ru';
+import { SHOP_V5_RU } from './shop.v5.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -319,4 +320,5 @@ export const RU: Table = {
   // ---- overland events: the deck's text (events.ru.ts) and the event card and journal (eventcard.ru.ts)
   ...EVENTS_RU,
   ...EVENTCARD_RU,
+  ...SHOP_V5_RU,
 };

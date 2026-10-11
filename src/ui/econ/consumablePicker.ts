@@ -15,7 +15,8 @@
  */
 import Phaser from 'phaser';
 import { Button, addPanel, addText } from '../kit';
-import { ItemIcon, openModal, type UiScene } from '../widgets';
+import { ItemIcon, type UiScene } from '../widgets';
+import { openParchmentSheet } from '../mosaic/ParchmentSheet';
 import { uiId } from '../layout';
 import { ellipsize, wrapText, LINE_H } from '../textfit';
 import { SIZE } from '../theme';
@@ -62,7 +63,8 @@ function openPicker(scene: UiScene, held: ConsumableId[], inv: Partial<Record<st
     m.close();
     resolve(v);
   };
-  const m = openModal(scene, { title: title ?? t('cons.title'), w, h: Math.min(VH - 12, 26 + hint.lines.length * LINE_H + 6 + listH + SIZE.btnH + 16), onClose: () => !done && ((done = true), resolve(undefined)) });
+  // no X: "No consumable" and "Use" close it (one close affordance, G5), and the title keeps its whole width
+  const m = openParchmentSheet(scene, { title: title ?? t('cons.title'), w, h: Math.min(VH - 12, 26 + hint.lines.length * LINE_H + 6 + listH + SIZE.btnH + 16), skin: true, closeButton: false, onClose: () => !done && ((done = true), resolve(undefined)) });
   const { c, x } = m;
   let y = m.y + 24;
   c.add(addText(scene, x + 8, y, hint.lines.join('\n'), 'dim'));
