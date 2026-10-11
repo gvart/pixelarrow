@@ -1,0 +1,24 @@
+src/ui/sheets/eventCard.ts
+  s_697bdc25a7c420::t_a87e39440d40fb 242-243,283-286
+  s_697bdc25a7c420::t_a72a5e49532479 115-127,311
+  s_697bdc25a7c420::t_1070db600e942c 66,333,392
+tests/eventCard.test.ts
+  s_697bdc25a7c420::t_1070db600e942c 51
+  s_697bdc25a7c420::t_1ffd709b38c3b0 13,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "32538d7445f285d9f06f088dd3c0583cc2874aa6",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
