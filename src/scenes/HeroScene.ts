@@ -9,6 +9,7 @@ import { addMedallion, addSwipe } from '../ui/v3';
 import { ACCENT, MOSAIC, MOTION, RESOURCES, TEXT_MIN } from '../ui/tokens';
 import { fadeIn, pulse } from '../ui/motion';
 import { ensureFonts } from '../ui/fonts';
+import { makePressable } from '../ui/mosaic/base';
 import {
   equipRefusal,
   DragDrop, Stage, addLegend, frameScrollTexts, addStars, className, defaultStashState, itemName, openItemCard, roleColor, roleName,
@@ -28,7 +29,7 @@ import { computeStats, heroClass } from '../sim/stats';
 import { STATS, fmtStat, heroStars, powerRating, previewAttrs, sheetStats } from '../game/gear';
 import {
   MActionBar, GAP, GearSlot, MButton, MChip, MStashGrid, PAGER_W, MBar, MPager, SegmentedSwitch, SectionTitle, SECTION_TITLE_H, MIconButton, SWITCH_H, TAP,
-  addNiche, slotGrid, addParchmentEmpty, mw, wrapWords, addSubShell, addSwitchBadge, mosaicImage, mountSlot, mtext, openParchmentSheet, SHEET_TITLE_H,
+  addNiche, slotGrid, addParchmentEmpty, mw, wrapWords, MBadge, addSubShell, addSwitchBadge, mosaicImage, mountSlot, mtext, openParchmentSheet, SHEET_TITLE_H,
   type Box, type MButtonOpts, type FramedSubShell,
 } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
@@ -71,7 +72,6 @@ export class HeroScene extends BaseScene {
   private box!: Box;
   private head!: C;
   private page!: C;
-  private switcher: SegmentedSwitch | null = null;
   private sticky: C | null = null;
   private clip: Phaser.GameObjects.Zone | null = null;
   private bar: MActionBar | null = null;
@@ -85,6 +85,8 @@ export class HeroScene extends BaseScene {
   private pageTop = 0;
   private ox = 0;
   private cw = 0;
+  /** The tab bar's width: the scroll area's whole width, so every label fits uncut (V5-063). */
+  private tabW = 0;
   /** The page: head, tabs and the tab's content scroll as one. */
   private outer: ScrollArea | null = null;
 
@@ -117,7 +119,6 @@ export class HeroScene extends BaseScene {
     this.pending = { str: 0, agi: 0, end: 0, wil: 0 };
     this.areas = [];
     this.stash = null;
-    this.switcher = null;
     this.sticky = null;
     this.clip = null;
     this.bar = null;
@@ -187,14 +188,17 @@ export class HeroScene extends BaseScene {
     const cut = h ? this.titleName(h) : (this.shell.retitle(t('hero.title')), false);
     this.refreshBar();
     const top = b.y + 4;
-    const vx = b.x + 4;
-    const vw = b.w - 8;
+    // the scroll area reaches 2 px from the frame so the tab bar can take its whole width (ru "Умения" uncut at 320);
+    // everything else keeps the 4 px inset (ox = 2)
+    const vx = b.x + 2;
+    const vw = b.w - 4;
     const bottom = this.bottomEdge();
     const outer = new ScrollArea(this, this.ui, vx, top, vw, bottom - top, this.m.S);
     this.outer = outer;
     addScrollHint(this, this.ui, outer, MOSAIC.parch);
-    this.ox = 0;
-    this.cw = vw - 3;
+    this.ox = 2;
+    this.cw = vw - 7;
+    this.tabW = vw;
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     outer.content.add([this.head, this.page]);
@@ -205,13 +209,13 @@ export class HeroScene extends BaseScene {
     let top0 = 0;
     if (cut) {
       const nl = classLines(h.name, this.cw - 4, 8);
-      nl.forEach((l, i) => this.head.add(mtext(this, this.ox + this.cw / 2, i * 11, l, 'rInk', { size: 8, align: 0.5, box: { owner: this.head, w: this.cw, h: 100000 } })));
+      nl.forEach((l, i) => this.head.add(mtext(this, this.ox + this.cw / 2, i * 11, l, 'rInk', { size: 8, align: 0.5, box: { owner: this.head, w: this.tabW, h: 100000 } })));
       top0 = nl.length * 11 + 3;
     }
     const ey = this.compact ? this.headCompact(h, top0) : this.headFull(h, top0);
     // tabs, badged with what there is to spend (the badges stand above the track: clear of the slots)
     this.tabsY = ey + 5;
-    this.switcher = this.addTabs(this.head, this.ox, this.tabsY, 'hero.tab', h);
+    this.addTabs(this.head, 0, this.tabsY, 'hero.tab', h);
     this.pageTop = this.tabsY + SWITCH_H + 4;
     this.buildPage();
     // the tabs stay pinned under the top bar once the head has scrolled away; the layout check's viewport shrinks under them
@@ -252,19 +256,49 @@ export class HeroScene extends BaseScene {
     return true;
   }
 
-  /** The four tabs with their count badges (points on Stats, perk points on Perks). */
-  private addTabs(parent: C, x: number, y: number, id: string, h: Hero): SegmentedSwitch {
-    const sw = new SegmentedSwitch(this, x, y, this.cw, {
+  /**
+   * The four tabs with their count badges (points on Stats, perk points on Perks). Equal segments while every
+   * label fits them; on a canvas too narrow for that (ru at 274 px) each tab gets its label's width instead,
+   * so no label is ever cut (V5-063: a tab keeps its name at every width).
+   */
+  private addTabs(parent: C, x: number, y: number, id: string, h: Hero): void {
+    const perkFree = Math.max(0, perkSlots(h.level) - h.perks.length);
+    const counts: (number | null)[] = [h.points > 0 ? h.points : null, null, perkFree > 0 ? perkFree : null, null];
+    const sw = new SegmentedSwitch(this, x, y, this.tabW, {
       options: TABS.map((k) => ({ id: k, label: t(`hero.tab.${k}` as TKey), icon: this.compact ? TAB_ICON[k] : undefined })),
       selected: this.tab,
       onChange: (k) => this.setTab(k as Tab),
       id,
     });
-    parent.add(sw);
-    const perkFree = Math.max(0, perkSlots(h.level) - h.perks.length);
-    if (h.points > 0) addSwitchBadge(this, parent, x, y, this.cw, 4, 0, h.points);
-    if (perkFree > 0) addSwitchBadge(this, parent, x, y, this.cw, 4, 2, perkFree);
-    return sw;
+    const cut = (c: C): boolean => c.list.some((o) => (o instanceof Phaser.GameObjects.BitmapText && o.text.endsWith('…')) || (o instanceof Phaser.GameObjects.Container && cut(o)));
+    if (!cut(sw)) {
+      parent.add(sw);
+      counts.forEach((n, i) => n && addSwitchBadge(this, parent, x, y, this.tabW, 4, i, n));
+      return;
+    }
+    sw.destroy();
+    const labels = TABS.map((k) => t(`hero.tab.${k}` as TKey));
+    const widths = tabWidths(labels.map((l) => mw(l, 'pInk', TEXT_MIN)), this.tabW - 2);
+    const bar = this.add.container(x, y);
+    bar.add(mosaicImage(this, 0, 0, this.tabW, SWITCH_H, 'track'));
+    let sx = 1;
+    TABS.forEach((k, i) => {
+      const on = this.tab === k;
+      const w = widths[i];
+      if (on) bar.add(mosaicImage(this, sx, 1, w, SWITCH_H - 2, 'trackSel'));
+      const lw = mw(labels[i], on ? 'pInk' : 'gold', TEXT_MIN);
+      bar.add(mtext(this, Math.round(sx + (w - lw) / 2), Math.round((SWITCH_H - 8) / 2), labels[i], on ? 'pInk' : 'gold', { size: TEXT_MIN, box: { owner: bar, w: this.tabW, h: SWITCH_H } }));
+      const hit = this.add.container(sx, 0);
+      hit.add(this.add.rectangle(0, 0, w, SWITCH_H, 0, 0).setOrigin(0, 0));
+      makePressable(hit, { w, h: SWITCH_H, inset: 1, onTap: () => k !== this.tab && this.setTab(k) });
+      uiId(hit, `${id}.${k}`);
+      Object.assign(hit, { opts: { label: labels[i] } });
+      bar.add(hit);
+      if (counts[i]) bar.add(new MBadge(this, sx + w - 5, -2, counts[i]!));
+      sx += w;
+    });
+    uiId(bar, id);
+    parent.add(bar);
   }
 
   /** Power, the wounded line; the niche between two columns of slots, the pager under it; class, role, traits, XP. Returns the y under it. */
@@ -312,7 +346,7 @@ export class HeroScene extends BaseScene {
     const stageH = 72;
     const tx = x0 + sw + 5;
     const tw = x0 + cw - tx;
-    const box = { owner: this.head, w: cw, h: 100000 };
+    const box = { owner: this.head, w: this.tabW, h: 100000 };
     // the class name beside the niche; a word too long for the column (THUREOPHOROS on a 274 px canvas) takes the full width above it
     const fitsIn = (ls: string[], size: number) => ls.every((l) => mw(l, 'rInk', size) <= tw);
     const size = fitsIn(classLines(className(h), tw, 7), 7) ? 7 : TEXT_MIN;
@@ -334,10 +368,13 @@ export class HeroScene extends BaseScene {
     else {
       ty += 15;
       armyPill(this, L, tx, ty, role, roleColor(cls.role), tw);
+      // a long role name wraps inside its pill onto a second line
+      if (armyPillW(role) > tw) ty += LH;
     }
     ty += 16;
     addStars(this, L, tx, ty, heroStars(h), 5, { area: this.outer });
-    ty += 12;
+    // the stars explain themselves on tap: their touch target reaches 14 below them
+    ty += 18;
     y += stageH + 3;
     const pager = this.pagerOpts();
     if (pager) {
@@ -385,7 +422,7 @@ export class HeroScene extends BaseScene {
     // hurt: the one thing worth a line of its own (points and perks are badges on their tabs)
     if (h.wound > 0) {
       L.add(addIcon(this, x0 + 2, y - 1, 'heart'));
-      L.add(mtext(this, x0 + 16, y + 1, t('hero.woundedTip', { h: Math.ceil(h.wound) }), 'pBad', { size: TEXT_MIN, maxW: cw - 18, box: { owner: this.head, w: cw, h: 100000 } }));
+      L.add(mtext(this, x0 + 16, y + 1, t('hero.woundedTip', { h: Math.ceil(h.wound) }), 'pBad', { size: TEXT_MIN, maxW: cw - 18, box: { owner: this.head, w: this.tabW, h: 100000 } }));
       y += 12;
     }
     return y;
@@ -394,7 +431,7 @@ export class HeroScene extends BaseScene {
   /** Class, role pill and traits, then the XP bar (full layout). Returns the y under them. */
   private identity(h: Hero, cls: ReturnType<typeof heroClass>, x: number, y: number, w: number): number {
     const L = this.head;
-    const box = { owner: this.head, w: this.cw, h: 100000 };
+    const box = { owner: this.head, w: this.tabW, h: 100000 };
     const cl = classLines(className(h), w, 8);
     cl.forEach((l, i) => L.add(mtext(this, x, y + i * 11, l, 'rInk', { size: 8, box })));
     y += cl.length * 11 + 1;
@@ -1066,7 +1103,7 @@ export class HeroScene extends BaseScene {
           icon: 'bash',
           title: t('hero.noAbilities'),
           hint: t('hero.noAbilitiesHint'),
-          action: { label: t('hero.tab.perks'), onClick: () => this.switcher?.pick('perks', true) },
+          action: { label: t('hero.tab.perks'), onClick: () => this.setTab('perks') },
         }),
       );
       this.outer?.setContentHeight(top + 94);
@@ -1151,6 +1188,14 @@ export class HeroScene extends BaseScene {
 /** The class name in Cinzel, wrapped to at most two lines by the face it is drawn in. */
 function classLines(name: string, w: number, size: number): string[] {
   return wrapWords(name, w, (x) => mw(x, 'rInk', size)).slice(0, 2);
+}
+
+/** Tab widths for labels `lw` wide across `total`: each its label plus an equal share of what is left. */
+export function tabWidths(lw: readonly number[], total: number): number[] {
+  const spare = Math.max(0, total - lw.reduce((a, b) => a + b, 0));
+  const ws = lw.map((w) => Math.floor(w + spare / lw.length));
+  ws[ws.length - 1] += total - ws.reduce((a, b) => a + b, 0);
+  return ws;
 }
 
 function perkIcon(p: PerkDef): string {
