@@ -17,7 +17,9 @@ import { MOSAIC } from './tokens';
 import { RS } from '../platform/renderScale';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { uiFrame, uiId } from './layout';
-import type { SimGroup, SimUnit } from '../sim/types';
+import type { Side, SimGroup, SimUnit } from '../sim/types';
+import { TICK_RATE } from '../sim/battle';
+import { t } from '../i18n';
 
 /** Height of the top bar (UI px). */
 export const TOP_H = 46;
@@ -671,4 +673,97 @@ export function cardGroups(sim: HudSim, side: number, deploy: boolean): { gid: n
   const groups = sim.groups.filter((g) => g.side === side && !g.disbanded && (sim.members(g.id).length > 0 || deploy) && !g.individual);
   const indiv = sim.groups.filter((g) => g.side === side && g.individual && !g.disbanded && sim.activeMembers(g.id).length > 0);
   return [...groups, ...indiv].slice(0, 4).map((g) => ({ gid: g.id, numeral: groupNumeral(sim.groups, g.id) }));
+}
+
+// ---- morale glyph and badge markers (RD-01, battle-readability.md R1-R3)
+
+/** A group's morale state (R1); null: no glyph (beasts, nobody left). */
+export type MoraleState = 'steady' | 'wavering' | 'routing';
+
+/** F2: wavering when at least this share of the non-routing men... */
+export const WAVER_SHARE = 1 / 3;
+/** ...are below this share of their max morale. */
+export const WAVER_MORALE = 0.5;
+
+/** The glyph of each state: shapes that read without colour (A11Y-04; src/art/vectorIcons.ts). */
+export const MORALE_GLYPH: Record<MoraleState, string> = {
+  steady: 'morale_steady',
+  wavering: 'morale_wavering',
+  routing: 'morale_routing',
+};
+
+/** The glyph's tint by state (R1: ink, amber, red; red is an alert, G3). Steady keeps the glyph's own cream and ink. */
+export const MORALE_TINT: Record<MoraleState, number> = {
+  steady: 0xffffff,
+  wavering: 0xf0a830,
+  routing: 0xf05a40,
+};
+
+/** Beasts (animals, myth bosses) keep their own HP and state UI: no morale glyph. */
+function isBeast(u: Pick<SimUnit, 'stats'>): boolean {
+  return u.stats.kind === 'animal' || u.stats.boss !== undefined;
+}
+
+/**
+ * The morale state of a group (R1, F2), pure: routing on the group's routed
+ * flag or its army's break; wavering when at least a third of its men still
+ * standing (not routing) are below half their max morale; else steady. Null
+ * for beasts and for a group with nobody alive.
+ */
+export function groupState(routed: boolean, men: readonly Pick<SimUnit, 'state' | 'morale' | 'stats'>[], armyBroken = false): MoraleState | null {
+  const alive = men.filter((u) => u.state === 'ready' || u.state === 'routing');
+  if (!alive.length || alive.every(isBeast)) return null;
+  if (routed || armyBroken) return 'routing';
+  const standing = alive.filter((u) => u.state === 'ready');
+  const shaken = standing.filter((u) => u.morale < WAVER_MORALE * u.stats.morale).length;
+  return shaken >= Math.ceil(standing.length * WAVER_SHARE) ? 'wavering' : 'steady';
+}
+
+/** The card's "Flanked!" lasts this long after a `flanked` event (R3; FLANK_ARC_S). */
+export const FLANK_CARD_S = 2;
+
+/** What the readout reads from the battle beyond the HUD rules (a `Battle` fits). */
+export interface ReadoutSim extends HudSim {
+  tick: number;
+  phase: string;
+  isBroken(side: Side): boolean;
+  standardBearer(side: Side): SimUnit | null;
+  disordered(gid: number): boolean;
+}
+
+/** A group's glyph and markers for its field badge and its card. */
+export interface GroupReadout {
+  state: MoraleState | null;
+  /** Its man carries the side's standing Standard (abilities.md R5). */
+  standard: boolean;
+  /** ...and he is the band's captain: the crest (ai-doctrines.md R6). */
+  captain: boolean;
+  /** For FLANK_CARD_S after a flanked event (R3). */
+  flanked: boolean;
+  /** Drawn by a feint, for its 3 s (formations-orders.md R3). */
+  disordered: boolean;
+}
+
+/** The readout of group `gid`; `isCaptain` tells a band captain (the scene knows the heroes). */
+export function groupReadout(sim: ReadoutSim, gid: number, isCaptain: (u: SimUnit) => boolean = () => false): GroupReadout {
+  const g = sim.groups[gid];
+  if (!g) return { state: null, standard: false, captain: false, flanked: false, disordered: false };
+  const bearer = sim.standardBearer(g.side);
+  const standard = !!bearer && bearer.group === gid && (bearer.state === 'ready' || bearer.state === 'routing');
+  return {
+    state: groupState(g.routed, sim.members(gid), sim.isBroken(g.side)),
+    standard,
+    captain: standard && isCaptain(bearer!),
+    flanked: sim.phase !== 'deploy' && sim.tick - g.lastFlankEvent < FLANK_CARD_S * TICK_RATE,
+    disordered: sim.disordered(gid),
+  };
+}
+
+/** R3: the bars read "HP" / "MOR" the first BAR_LABEL_SEEN battles, then one letter. */
+export const BAR_LABEL_SEEN = 3;
+
+/** The bar labels for the `seen`-th battle with cards (1-based). */
+export function barLabels(seen: number): { long: boolean; hp: string; mor: string } {
+  const long = seen <= BAR_LABEL_SEEN;
+  return long ? { long, hp: t('battle.stat.hp'), mor: t('battle.stat.mor') } : { long, hp: t('readout.bar.h'), mor: t('readout.bar.m') };
 }

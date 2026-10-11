@@ -444,14 +444,35 @@ export const VECTOR_ICONS: Record<string, IconPart[]> = {
     { d: 'M15.5 3.1L3 4.2L6.4 6.8L2.6 9.6L11.4 10Z', tone: 'cream' },
     { d: 'M13.4 4.6L6.2 5.2', tone: 'ink', detail: true, w: 0.8 },
   ],
+  // badge markers (battle-readability.md R2), code-drawn per V5-066: the captain's crest, a
+  // Corinthian helmet under a red horsehair plume
+  marker_crest: [
+    { d: 'M5 21.6V13.4C5 8.9 8.1 6.4 12 6.4C15.9 6.4 19 8.9 19 13.4V21.6H15.4V16.4H8.6V21.6Z', tone: 'bronze' },
+    { d: 'M2.6 9.6C3.6 4 7.6 1.8 12 1.8C16.4 1.8 20.4 4 21.4 9.6C19 7.2 15.8 5.8 12 5.8C8.2 5.8 5 7.2 2.6 9.6Z', tone: 'red' },
+    { d: 'M8.6 13.4H15.4', tone: 'ink', detail: true, w: 1.4 },
+    { d: 'M12 13.4V16.2', tone: 'ink', detail: true, w: 1.2 },
+    { d: 'M7 11L9 8.8', tone: 'gleam', detail: true, w: 1 },
+  ],
+  // the Standard (abilities.md R5): a square red cloth with a bronze sun disc on a pole
+  marker_standard: [
+    { d: 'M4.4 3H6.6V22.4H4.4Z', tone: 'wood' },
+    { d: 'M6.6 4H20.4V16H6.6Z', tone: 'red' },
+    { d: 'M10.5 10A3 3 0 1 1 16.5 10A3 3 0 1 1 10.5 10Z', tone: 'gold' },
+    { d: 'M3.9 2.6A1.6 1.6 0 1 1 7.1 2.6A1.6 1.6 0 1 1 3.9 2.6Z', tone: 'gold' },
+  ],
+  // disordered (formations-orders.md R3): a ragged, broken line
+  marker_disordered: [
+    { d: 'M1.8 13.6L6 7.6L10 14.6L14 6.8L18 13.6L22.2 8.6V12.8L18 18.2L14 11.4L10 19.2L6 12.2L1.8 18Z', tone: 'clay' },
+  ],
 };
 
 /**
  * Simple geometric glyphs that stay vector (art bible 7.4, create-game-assets: "prefer
  * vector for simple geometric symbols"): no atlas frame is ever made for them, and the
- * atlas test fails if one appears. The battle HUD tints them by state (RD-01).
+ * atlas test fails if one appears. The battle HUD tints the morale glyphs by state; the
+ * markers (crest, Standard, disordered) keep their colours (RD-01).
  */
-export const VECTOR_GLYPHS: readonly string[] = ['morale_steady', 'morale_wavering', 'morale_routing'];
+export const VECTOR_GLYPHS: readonly string[] = ['morale_steady', 'morale_wavering', 'morale_routing', 'marker_crest', 'marker_standard', 'marker_disordered'];
 
 /** Camp building icons, keyed like CAMP_ICONS in src/art/campArt.ts (same box and rules). */
 export const VECTOR_CAMP_ICONS: Record<string, IconPart[]> = {
