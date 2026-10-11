@@ -1,0 +1,34 @@
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_a39434cde20b72 1267,2272-2302,2327
+  s_697bdc25a7c420::t_f30668b6809cdd 10,743,761-762,2054,2056-2058,2479-2481
+  s_697bdc25a7c420::t_376b19f36d3e8b 2052-2053
+  s_697bdc25a7c420::t_b217f0d5842838 2859
+  s_697bdc25a7c420::t_1bd02ce040da04 1154,1169,1171-1173,1185-1214,1227-1265
+  s_697bdc25a7c420::t_81430121f4e125 24,62-67,1266,2262-2266,2360-2365,2372-2377,2426-2427
+  s_697bdc25a7c420::t_b49c43bb75e7f8 2834,2839-2847,2856,2858,2862-2866,2930-2934,2939-2943,3100-3101,3110-3112
+  s_697bdc25a7c420::t_b3cb2bc3aa32bc 28-29,194-209,328-334
+  s_697bdc25a7c420::t_48a3c0120d9212 2129-2140,2144,2155,2161-2261,2267-2271,2303-2326
+  s_697bdc25a7c420::t_5248c9a63d8882 1268,2328
+tests/orderQueue.test.ts
+  s_697bdc25a7c420::t_a1005f49a8d835 224-233
+  s_697bdc25a7c420::t_3f86d36c5b6c3d 6,14-19,235
+  s_697bdc25a7c420::t_e74e0a71a30b68 20,234
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_602ea29ce0f9c8 574-598
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8e3a55f312ca3582598e9602eda2197f283b6743",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
