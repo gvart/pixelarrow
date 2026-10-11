@@ -17,10 +17,13 @@ import { MOSAIC_CMAP_RU } from './mosaic.campaignmap.ru';
 import { MOSAIC_WAR_RU } from './mosaic.war.ru';
 import { TARGETING_RU } from './targeting.ru';
 import { UNDO_RU } from './undo.ru';
+import { READOUT_RU } from './readout.ru';
 import { QUEUE_RU } from './queue.ru';
 import { HUB_RU } from './hub.ru';
 import { FIRSTRUN_RU } from './firstrun.ru';
 import { ARMY_V5_RU } from './army.v5.ru';
+import { HERO_RU } from './hero.ru';
+import { SETTINGS_RU } from './settings.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -298,8 +301,12 @@ export const RU: Table = {
   ...MOSAIC_WAR_RU,
   ...TARGETING_RU,
   ...UNDO_RU,
+  // ---- the battle readout: morale glyph, bar labels, Flanked! (readout.ru.ts)
+  ...READOUT_RU,
   ...QUEUE_RU,
   ...HUB_RU,
   ...FIRSTRUN_RU,
   ...ARMY_V5_RU,
+  ...HERO_RU,
+  ...SETTINGS_RU,
 };

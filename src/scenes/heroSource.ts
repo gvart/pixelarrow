@@ -7,7 +7,7 @@
  */
 import type { Hero } from '../data/units';
 import type { Item, Slot } from '../data/items';
-import type { AttrId, PerkId } from '../data/perks';
+import { PERK_LEVELS, heroPaths, retrainCost, retrainPerks, type AttrId, type PerkId } from '../data/perks';
 import { state } from '../state';
 
 export interface HeroSource {
@@ -23,6 +23,19 @@ export interface HeroSource {
   takePerk(heroId: string, id: PerkId): boolean;
   /** Optional respec (price shown on the Stats tab). */
   respec?: { price(h: Hero): number; currency: string; run(heroId: string): boolean };
+  /**
+   * Optional perk retrain (abilities.md R7, F3): a town drillmaster (paid, `retrainCost`) or a free
+   * retrain an event granted. `run` switches tier `tier` (0..4) to its other option, paying first.
+   */
+  retrain?: {
+    /** Free retrains owed. */
+    free(): number;
+    /** Gold to pay with. */
+    gold(): number;
+    /** Gold a paid retrain of tier `tier` (0..4) costs. */
+    cost(tier: number): number;
+    run(heroId: string, tier: number, paid: boolean): boolean;
+  };
   /** Optional dismiss from the sheet (destructive: the sheet confirms first). `blocked` says why not, or null. */
   dismiss?: { blocked(heroId: string): string | null; run(heroId: string): Promise<boolean> };
   /** Leave the sheet. */
@@ -55,10 +68,42 @@ export const campaignHeroes: HeroSource = {
   takePerk(heroId, id) {
     return saved(state.campaign.takePerk(heroId, id));
   },
+  retrain: {
+    free: () => state.campaign.freeRetrains(),
+    gold: () => state.campaign.data.gold,
+    cost: (tier) => retrainCost(tier + 1),
+    run(heroId, tier, paid) {
+      const c = state.campaign;
+      const h = c.data.heroes.find((x) => x.id === heroId);
+      const next = h ? retrainPerks(h, tier) : null;
+      if (!h || !next) return false;
+      if (paid) {
+        const cost = retrainCost(tier + 1);
+        if (c.data.gold < cost) return false;
+        c.data.gold -= cost;
+      } else if (!c.useFreeRetrain()) return false;
+      h.perks = next;
+      return saved(true);
+    },
+  },
   back(scene, heroId, from) {
     scene.scene.start('Army', { ...from, heroId });
   },
 };
+
+/** One perk tier as the hero sheet shows it: both options (path A, B), what he took, the level it opens at. */
+export interface PerkTier {
+  tier: number;
+  level: number;
+  opts: readonly PerkId[];
+  /** The option he took, or null. */
+  taken: PerkId | null;
+}
+
+/** The hero's perk tiers (abilities.md R1): his class's [A, B] pairs, or one perk per tier for a classless (old) hero. */
+export function heroTiers(h: { cls?: string; perks: readonly PerkId[] }): PerkTier[] {
+  return heroPaths(h, h.perks[0]).map((opts, tier) => ({ tier, level: PERK_LEVELS[tier], opts, taken: opts.find((p) => h.perks.includes(p)) ?? null }));
+}
 
 function saved(ok: boolean): boolean {
   if (ok) void state.save();

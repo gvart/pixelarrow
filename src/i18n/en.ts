@@ -25,10 +25,13 @@ import { MOSAIC_CMAP_EN } from './mosaic.campaignmap.en';
 import { MOSAIC_WAR_EN } from './mosaic.war.en';
 import { TARGETING_EN } from './targeting.en';
 import { UNDO_EN } from './undo.en';
+import { READOUT_EN } from './readout.en';
 import { QUEUE_EN } from './queue.en';
 import { HUB_EN } from './hub.en';
 import { FIRSTRUN_EN } from './firstrun.en';
 import { ARMY_V5_EN } from './army.v5.en';
+import { HERO_EN } from './hero.en';
+import { SETTINGS_EN } from './settings.en';
 
 export const EN = {
   // ---- shared words
@@ -321,6 +324,8 @@ export const EN = {
   ...TARGETING_EN,
   // ---- undo: the battle chip, deployment undo, the Reset-all confirm (undo.en.ts)
   ...UNDO_EN,
+  // ---- the battle readout: morale glyph, bar labels, Flanked! (readout.en.ts)
+  ...READOUT_EN,
   // ---- the order queue: Then…, paused staging (queue.en.ts)
   ...QUEUE_EN,
   ...HUB_EN,
@@ -328,4 +333,7 @@ export const EN = {
   ...FIRSTRUN_EN,
   // ---- the v5 Army screen (army.v5.en.ts)
   ...ARMY_V5_EN,
+  // ---- the v5 Hero screen (hero.en.ts)
+  ...HERO_EN,
+  ...SETTINGS_EN,
 } as const;

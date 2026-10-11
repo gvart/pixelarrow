@@ -11,10 +11,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | EV-02 worktree-agent-a1490b0a6d40676b9 (deck OFF) + AR-02 worktree-agent-a0b8dbb63c1841cc0 (inert until wired) | — | integrator | — | merging |
-| ec-02 | W13 EC-02: item power cap | per card | per card | worktree-agent | running |
-| hero-01 | W13 HERO-01: Hero screen | per card | per card | worktree-agent | running |
-| rd-01 | W11 RD-01: morale glyph + group cards | per card | per card | worktree-agent | running |
+| (merge) | EC-02 worktree-agent-ad71f9aa766d6be4d + DLG-01 worktree-agent-a172558a5b877cf8e | — | integrator | — | merging |
+| ct-07 | W13 CT-07: orb/feint keys + Raise Standard key + attention budget | per card | per card | worktree-agent | running |
+| cdx-01 | W15 CDX-01: Codex (beasts home, Trial fight, doctrines) | per card | per card | worktree-agent | running |
+| ec-05 | EC-05 structural balance (V5-069) | balance-check, team-combat, game-ai, tdd | systems-designer, ai-programmer, economy-designer | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -57,6 +57,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - c3db469 F-04 icon atlas; 762b363 FW-02 works allowance. Gates: vitest 1067, server 301, layout 0 new, smokes pass; balance 54%, lairs 43/58/53.
 - 12a0d21 HUB-02 Campaign hub; 67c0220 TUT-01 first run; 6327f10 drop 22 clean allowlist entries. Gates: vitest 1084, layout 0 new, all 5 smokes pass.
 - 2d205b1 EC-04; 9b954e6 AR-03; e8dc83a ARM-01. Gates: vitest 1105, server 304, layout 0 new, smokes pass (main smoke flaked once at load ~42); balance 54%, lairs 43/58/53.
+- 7fddc2f EV-02 deck (OFF); ea8321c AR-02 lair assault rules. Gates: vitest 1132, server 304, smokes pass; layout: 1 world-encounter text-overlap flake at ru 320x568 (passes alone 3/3); balance 54%, lairs 43/58/53, assault 39%.
+- aa8af63 RD-01 readability; 0963bf5 HERO-01 Hero screen. Gates: vitest 1155, layout 0 new (known violations down to 1063 from 1776), smokes pass.
 
 ## Queue (next)
 
@@ -100,6 +102,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 23. EC-05 (new, V5-069): structural balance after the W13–W14 sim stories, before ST-04.
 
 24. AR-02 handoffs: campaignBattle.ts must pass garrison works + holdField, the pending battle gets a lairId, settling calls afterLairAssault (FW-03 or WLD-02); WLD-02 builds the assault sheet, burnt lair and the 'Lairs n/6' chip. Walls make garrisons weaker (bots sally out), so the bot fix goes to EC-05. Load average ~42, so parallelism is capped at 3 code agents plus 1 integrator.
+
+25. CT-07 must add the player's Raise-Standard key (RD-01 finding: only bots can raise it). The world-encounter text-overlap at ru 320x568 is a load-only flake, so watch it in WLD-01.
+
+26. Follow-ups: the RU string setsp.bond_of_the_band still says +4%/+3% (localization fix); settings.newCampaign string unused.
 
 ## Blockers
 
