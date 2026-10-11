@@ -12,16 +12,16 @@
 import { RS } from '../../platform/renderScale';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { ICON_PX, Meter, addIcon, addText, tappable } from '../../ui/kit';
+import { ICON_PX, Meter, addIcon, tappable } from '../../ui/kit';
 import { ScrollList, firstTimeHint, showTooltip, toast, type Modal } from '../../ui/widgets';
 import { COLOR } from '../../ui/theme';
-import { MOSAIC, SPACE } from '../../ui/tokens';
+import { MOSAIC, SPACE, TEXT_MIN, lineHeight } from '../../ui/tokens';
 import { FRAME_T } from '../../art/mosaicUi';
-import { BottomPanel, MButton, MChip, RoundButton, ScreenFrame, TAB_H, TAP, TOPBAR_H, TabBar, TopBar, goTab, mosaicImage, mtext, mw, type Box, type MButtonOpts, type RoundButtonOpts, type TabId } from '../../ui/mosaic';
+import { BottomPanel, KeyButton, MButton, MChip, ScreenFrame, TAB_H, TAP, TOPBAR_H, TabBar, TopBar, goTab, mosaicImage, mtext, mw, wrapWords, type Box, type KeyButtonOpts, type MButtonOpts, type TabId } from '../../ui/mosaic';
 import { TAB_FRAME_GAP } from '../../ui/mosaic/tabLayout';
 import { openSettings } from '../../ui/settings';
 import { SHEET_TITLE_H, openParchmentSheet } from '../../ui/mosaic';
-import { LINE_H, measureText, wrapText } from '../../ui/textfit';
+import { LINE_H } from '../../ui/textfit';
 import { uiId, worldRect } from '../../ui/layout';
 import { haptic, hapticNotify } from '../../platform/telegram';
 import { getMap, hasMap, type WorldGraph } from '../../online/world';
@@ -46,15 +46,16 @@ import type { LiveArmyMsg, PresencePlayer, ServerMsg } from '../../online/protoc
 import type { Battle } from '../../sim/battle';
 import { ONLINE_RULES, RESOURCE_KEYS, type Resources } from '../../online/rules';
 import { planMarch, type MarchPlan } from '../../online/marchPlan';
-import { regionActions, type Act } from '../../online/regionActions';
+import { regionActions, type Act, type ActId } from '../../online/regionActions';
 import { demoShard, type DemoShard } from '../../online/demoShard';
-import { ParchmentMapView, clampCenter, snapZoom, zoomLimits, zoomStep, type WorldMapView } from './regionMapView';
+import { ParchmentMapView, clampCenter, otherColor, snapZoom, zoomCycle, zoomLimits, zoomStep, type WorldMapView } from './regionMapView';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
 import { fmtDuration, fmtNum } from '../../util/format';
 import { attackReport, duelReport } from '../../online/report';
 import { attackSubmission } from '../../online/battle';
 import { showReport } from '../ResultsScene';
+import { ResultTile, type ResultTileOpts } from '../../ui/results/tile';
 import { openBossInfo, openLairInfo, raidSource } from './beastPanel';
 import { demoCampSource, liveCampSource } from './campPanel';
 import type { CampSceneData } from '../CampScene';
@@ -65,7 +66,8 @@ import { OnlineCoach, coachDue, type CoachHost } from '../../ui/tutorial/onlineC
 import type { CoachId } from '../../game/tutorial';
 
 /** Layout (UI pixels). */
-const SIT_H = 24;
+/** The situation strip: up to three lines of 6.5 (a sentence is never cut, A11Y-10) beside Collect. */
+const SIT_H = 28;
 const MARCH_H = 24;
 const STATE_BTN_H = 24;
 const GAP = 3;
@@ -93,10 +95,23 @@ function packRows(specs: MButtonOpts[], w: number): MButtonOpts[][] {
   if (cur.length) out.push(cur);
   return out;
 }
+/** The hex panel's actions always in this order, whatever the state (C8: March and Attack never swap places). */
+export const ACT_ORDER: readonly ActId[] = ['march', 'attack', 'collect', 'garrison'];
+
+/**
+ * The panel's actions in their fixed places: a passable hex always shows March (disabled "Your army is here"
+ * when the army stands on it) so Attack does not move into its place after a march (C8).
+ */
+export function panelActs(acts: Act[], passable: boolean): Act[] {
+  const out = [...acts];
+  if (passable && !out.some((a) => a.id === 'march')) out.push({ id: 'march', enabled: false, reason: 'here' });
+  return out.sort((a, b) => ACT_ORDER.indexOf(a.id) - ACT_ORDER.indexOf(b.id));
+}
+
 /** Fonts of the hex panel's lines (on parchment). */
 const PANEL_FONT = { ink: 'pInk', dim: 'pSec', red: 'pBad', good: 'pGood' } as const;
 
-type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string } | { kind: 'join' } | { kind: 'map' };
+type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string; outside: boolean } | { kind: 'join' } | { kind: 'map' };
 
 /** Staged states of the preview map (layout check, screenshots). */
 export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result' | 'lair' | 'lairInfo' | 'boss' | 'bossInfo' | 'market' | 'post' | 'camp';
@@ -202,6 +217,31 @@ function chipGrid(w: number): { cols: number; rows: number; cw: number; h: numbe
   return { cols, rows, cw: Math.floor((w - CHIP_GAP * (cols - 1)) / cols), h: rows * TAP + (rows - 1) * CHIP_GAP };
 }
 
+/** Height of a labelled rail key (icon over its label), UI px. */
+const KEY_H = 30;
+const RAIL_PAD = 2;
+
+/**
+ * The stone rail's layout for `labels` in `avail` UI px of height: labelled keys (icon over an Inter label at
+ * 6.5, never cut) in one column when they fit; else icon-only keys (the label is the long-press text, as the
+ * tab bar does on the narrowest screens, V5-068), in one column or, when even that is too tall, two.
+ */
+export function railLayout(labels: string[], avail: number): { w: number; h: number; keyW: number; keyH: number; labels: boolean; keys: { x: number; y: number }[] } {
+  const n = labels.length;
+  const col = (keyW: number, keyH: number, cols: number) => {
+    const rows = Math.ceil(n / cols);
+    const keys = labels.map((_, i) => ({ x: RAIL_PAD + (i % cols) * (keyW + GAP), y: RAIL_PAD + Math.floor(i / cols) * (keyH + GAP) }));
+    return { w: cols * keyW + (cols - 1) * GAP + RAIL_PAD * 2, h: rows * keyH + (rows - 1) * GAP + RAIL_PAD * 2, keyW, keyH, keys };
+  };
+  const labelW = Math.max(TAP + 14, ...labels.map((l) => Math.ceil(mw(l, 'light', TEXT_MIN)) + 8));
+  const big = col(labelW, KEY_H, 1);
+  if (big.h <= avail) return { ...big, labels: true };
+  // icon-only: one column, or one row across the top when the hex panel or the march bar leaves little
+  const one = col(TAP, TAP, 1);
+  if (one.h <= avail) return { ...one, labels: false };
+  return { ...col(TAP, TAP, n), labels: false };
+}
+
 export class OnlineScene extends BaseScene {
   private view: View = { kind: 'loading', msg: '' };
   profile: ProfileView | null = null;
@@ -235,6 +275,8 @@ export class OnlineScene extends BaseScene {
   private uiRects: Box[] = [];
   /** The hex whose panel last slid in (a rebuild of the same panel does not slide again). */
   private animatedFor: number | null = null;
+  /** The stone rail of the map keys (WAR-2), UI px: the coach card stays clear of it (WAR-6). */
+  private rail: Box | null = null;
   /** The open hex panel has its own Collect (so the map's is left out). */
   private panelCollect = false;
   private chipText: Phaser.GameObjects.BitmapText | null = null;
@@ -267,6 +309,7 @@ export class OnlineScene extends BaseScene {
     this.lobbyOpen = false;
     this.boardBuilt = false;
     this.coach = null;
+    this.rail = null;
     this.chipText = null;
     this.demo = this.data0.preview ? demoShard() : null;
     this.src = this.demo ? previewSource(this.demo) : liveSource;
@@ -313,11 +356,17 @@ export class OnlineScene extends BaseScene {
     this.scene.restart({ focus: this.map ? this.cameraHex() : undefined, preview: this.data0.preview });
   }
 
+  /** Back on the hub (a tab root, D12): it closes what is open (a sheet, then the selection) and never leaves the War tab. */
   private back(): void {
     if (this.modal) return this.closeModal();
-    if (this.selected) return this.select(null);
-    if (!this.demo) shardSocket.close();
-    this.scene.start('Menu', {});
+    if (this.selected !== null) return this.select(null);
+  }
+
+  /** Try the server again from the unavailable state. */
+  private retry(): void {
+    this.view = { kind: 'loading', msg: t('online.reaching') };
+    this.render();
+    void this.boot();
   }
 
 
@@ -328,7 +377,7 @@ export class OnlineScene extends BaseScene {
       const ok = await checkOnline();
       if (!this.sys.isActive()) return;
       if (!ok.ok) {
-        this.view = { kind: 'unavailable', msg: t('online.unavailable'), detail: ok.message };
+        this.view = { kind: 'unavailable', msg: t('online.unavailable'), detail: ok.message, outside: ok.reason === 'outside' };
         return this.render();
       }
     }
@@ -356,7 +405,7 @@ export class OnlineScene extends BaseScene {
   private fail(e: unknown): void {
     if (!this.sys.isActive()) return;
     const x = explain(e);
-    this.view = { kind: 'unavailable', msg: t('online.unavailable'), detail: x.message };
+    this.view = { kind: 'unavailable', msg: t('online.unavailable'), detail: x.message, outside: false };
     this.render();
   }
 
@@ -505,32 +554,34 @@ export class OnlineScene extends BaseScene {
     }
   }
 
-  /** Loading / unavailable / join: a parchment card in the map window of the hub shell. */
+  /**
+   * Loading / unavailable / join: a parchment card over the whole hub content (the empty situation band is not
+   * left above it, WAR-5). The tab bar is the way out; unavailable offers Retry (outside Telegram it says where
+   * the war runs instead), join has Join.
+   */
   private renderState(): void {
-    const win = this.win;
-    const H = this.hud;
-    H.add(mosaicImage(this, win.x, win.y, win.w, win.h, 'paper'));
-    const v = this.view;
-    const w = Math.min(win.w - 12, 190);
-    const x = Math.round(win.x + (win.w - w) / 2);
-    const room = Math.max(2, Math.floor((this.frame.content.h - 12 - 30 - 10 - STATE_BTN_H - 12) / LINE_H));
-    let lines: string[] = [];
-    let title = t('online.title');
-    const buttons: { label: string; icon: string; primary?: boolean; onClick: () => void }[] = [];
-    if (v.kind === 'loading') {
-      lines = wrapText(v.msg, w - 20, Math.min(3, room)).lines;
-      buttons.push({ label: t('common.back'), icon: 'back', onClick: () => this.back() });
-    } else if (v.kind === 'unavailable') {
-      title = v.msg;
-      lines = wrapText(`${v.detail} ${t('online.offlineStill')}`, w - 20, Math.min(6, room)).lines;
-      buttons.push({ label: t('online.backToMenu'), icon: 'back', primary: true, onClick: () => this.back() });
-    } else if (v.kind === 'join') {
-      lines = wrapText(t('online.joinBody'), w - 20, room).lines;
-      buttons.push({ label: t('common.back'), icon: 'back', onClick: () => this.back() });
-      buttons.push({ label: t('online.join'), icon: 'flag', primary: true, onClick: () => void this.joinSeason() });
-    }
-    const h = Math.min(this.frame.content.h - 8, 30 + lines.length * LINE_H + 10 + STATE_BTN_H + 12);
     const area = this.frame.content;
+    const H = this.hud;
+    H.add(mosaicImage(this, area.x, area.y, area.w, area.h, 'paper'));
+    const v = this.view;
+    const w = Math.min(area.w - 12, 200);
+    const x = Math.round(area.x + (area.w - w) / 2);
+    const lh = lineHeight(TEXT_MIN);
+    const room = Math.max(2, Math.floor((area.h - 12 - 30 - 10 - STATE_BTN_H - 12) / lh));
+    let body = '';
+    let title = t('online.title');
+    const buttons: MButtonOpts[] = [];
+    if (v.kind === 'loading') body = v.msg;
+    else if (v.kind === 'unavailable') {
+      title = v.msg;
+      body = v.outside ? t('war5.outsideHint') : `${v.detail} ${t('war5.offlineHint')}`;
+      if (!v.outside) buttons.push({ label: t('econ.retry'), icon: 'repair', variant: 'primary', id: 'online.retry', onClick: () => this.retry() });
+    } else if (v.kind === 'join') {
+      body = t('online.joinBody');
+      buttons.push({ label: t('online.join'), icon: 'flag', variant: 'primary', id: 'online.join', onClick: () => void this.joinSeason() });
+    }
+    const lines = wrapWords(body, w - 20, (str) => mw(str, 'pInk', TEXT_MIN)).slice(0, room);
+    const h = Math.min(area.h - 8, 30 + lines.length * lh + 10 + (buttons.length ? STATE_BTN_H + 12 : 0));
     const y = area.y + Math.round((area.h - h) / 2);
     const card = this.add.container(x, y);
     H.add(card);
@@ -538,12 +589,13 @@ export class OnlineScene extends BaseScene {
     const box = { owner: card, w, h };
     const size = [9, 8.5, 8, 7.5, 7].find((z) => mw(title, 'rInk', z) <= w - 16) ?? 7;
     card.add(mtext(this, w / 2, 10, title, 'rInk', { size, align: 0.5, maxW: w - 16, box }));
-    lines.forEach((l, i) => card.add(mtext(this, w / 2, 30 + i * LINE_H, l, 'pInk', { align: 0.5, maxW: w - 12, box })));
-    const bw = buttons.length > 1 ? Math.floor((w - 12 - GAP) / 2) : Math.min(w - 12, 120);
-    buttons.forEach((b, i) => {
-      const bx = buttons.length > 1 ? 6 + i * (bw + GAP) : Math.round((w - bw) / 2);
-      card.add(new MButton(this, bx, h - STATE_BTN_H - 9, bw, STATE_BTN_H, { label: b.label, icon: b.icon, variant: b.primary ? 'primary' : 'secondary', onClick: b.onClick }));
+    lines.forEach((l, i) => {
+      const tx = mtext(this, w / 2, 30 + i * lh, l, 'pInk', { size: TEXT_MIN, align: 0.5, maxW: w - 12, box });
+      card.add(tx);
+      if (v.kind === 'loading') this.tweens.add({ targets: tx, alpha: { from: 1, to: 0.4 }, duration: 600, yoyo: true, repeat: -1 });
     });
+    const bw = Math.min(w - 12, 120);
+    buttons.forEach((b) => card.add(new MButton(this, Math.round((w - bw) / 2), h - STATE_BTN_H - 9, bw, STATE_BTN_H, b)));
   }
 
   private buildHud(): void {
@@ -556,17 +608,44 @@ export class OnlineScene extends BaseScene {
     const pend = p.income.pending;
     const pendSum = RESOURCE_KEYS.reduce((a, k) => a + pend[k], 0);
     let sentence: string;
-    if (p.army.marching && p.army.arriveAt) sentence = t('online.sit.marching', { t: fmtDuration(p.army.arriveAt - this.board.armies.serverTime(Date.now())) });
-    else if (pendSum >= 1) sentence = t('online.sit.collect');
+    // income first: Collect sits beside it, and the march bar already counts the march down
+    if (pendSum >= 1) sentence = t('war5.sit.collect');
+    else if (p.army.marching && p.army.arriveAt) sentence = t('online.sit.marching', { t: fmtDuration(p.army.arriveAt - this.board.armies.serverTime(Date.now())) });
     else if (energy < ONLINE_RULES.energyPerAttack) sentence = t('online.sit.energy', { n: ONLINE_RULES.energyPerHour });
     else sentence = `${t('online.sit.season', { n: p.season.id, d: days })}. ${t('online.sit.hex')}`;
     // ---- the hex panel first (its own primary wins over Collect); on a short screen it covers the situation line and the chips, which are then left out
-    if (this.selected) this.buildPanel();
+    if (this.selected !== null) this.buildPanel();
     if (!(this.panel && this.panelTop < chips.y + chips.h + 1)) {
+      // the situation strip: the sentence, and Collect at its right end (WAR-4: never over the map or a region plate)
       H.add(mosaicImage(this, sit.x, sit.y, sit.w, sit.h, 'parchment'));
-      const sl = wrapText(sentence, sit.w - 16, 2).lines;
-      const sy = sit.y + Math.round((sit.h - sl.length * LINE_H) / 2);
-      sl.forEach((l, i) => H.add(mtext(this, sit.x + sit.w / 2, sy + i * LINE_H, l, 'pInk', { align: 0.5, maxW: sit.w - 12 })));
+      const collectLabel = t('online.bar.collect');
+      const cwid = Math.max(TAP * 2, mw(collectLabel.toUpperCase(), 'rCream', 7) + 30);
+      // only while income waits (the panel's own Collect wins when it is open)
+      const collectHere = pendSum >= 1 && !(this.panel && this.panelCollect);
+      const textW = sit.w - 12 - (collectHere ? cwid + 4 : 0);
+      const lh = lineHeight(TEXT_MIN);
+      const all = wrapWords(sentence, textW, (str) => mw(str, 'pInk', TEXT_MIN));
+      const sl = all.slice(0, 3);
+      const sy = sit.y + Math.round((sit.h - sl.length * lh) / 2);
+      sl.forEach((l, i) => H.add(mtext(this, sit.x + 6 + textW / 2, sy + i * lh, l, 'pInk', { size: TEXT_MIN, align: 0.5, maxW: textW })));
+      // a sentence longer than the strip: the whole of it on tap or long-press
+      const z = this.add.zone(sit.x, sit.y, textW + 8, sit.h).setOrigin(0, 0).setInteractive();
+      uiId(z, 'online.situation');
+      tappable(z, null, () => showTooltip(this, sentence, { x: sit.x, y: sit.y, w: textW + 8, h: sit.h }), sentence);
+      if (all.length > 3) H.add(z);
+      else z.destroy();
+      if (collectHere) {
+        H.add(
+          new MButton(this, sit.x + sit.w - cwid - 1, sit.y + Math.round((sit.h - TAP) / 2), cwid, TAP, {
+            label: collectLabel,
+            icon: 'wargold',
+            variant: this.selected !== null ? 'secondary' : 'primary',
+            tip: `${t('online.bar.collectTip')}: ${resLine(pend)}`,
+            id: 'online.bar.collect',
+            onClick: () => void this.collect(),
+          }),
+        );
+      }
       // ---- the resource chips: war gold, food, wood, bronze, recruits, energy; compact numbers, in 2 rows on a narrow screen (WAR-1)
       const items = RESOURCE_KEYS.map((k) => ({ icon: RES_ICON[k], value: fmtNum(p.resources[k]), tip: `${t(`res.${k}` as TKey)}: ${Math.floor(p.resources[k])}` }));
       items.push({ icon: 'bolt', value: `${energy}`, tip: t('online.energyTip', { n: energy, max: p.energyMax, rate: ONLINE_RULES.energyPerHour }) });
@@ -587,63 +666,61 @@ export class OnlineScene extends BaseScene {
       const bw = win.w - 4;
       H.add(mosaicImage(this, bx, by, bw, MARCH_H, 'parchment'));
       this.uiRects.push({ x: bx, y: by, w: bw, h: MARCH_H });
-      const hw = Math.max(44, mw(t('online.halt'), 'rCream', 7) + 18);
+      const hw = Math.max(44, mw(t('online.halt').toUpperCase(), 'rCream', 7) + 18);
       H.add(new MButton(this, bx + bw - hw - 2, by + 1, hw, TAP, { label: t('online.halt'), variant: 'secondary', tip: t('online.haltTip'), onClick: () => void this.halt(), id: 'online.halt' }));
-      H.add(addIcon(this, bx + 6, by + 7, 'clock'));
-      this.chipText = addText(this, bx + 20, by + 8, '', 'pInk');
+      H.add(addIcon(this, bx + 6, by + 6, 'clock'));
+      this.chipText = mtext(this, bx + 20, by + Math.round((MARCH_H - lineHeight(TEXT_MIN)) / 2), '', 'pInk', { size: TEXT_MIN });
       H.add(this.chipText);
       const room = bw - hw - 30;
       const upd = () => {
         if (!this.chipText?.scene || !this.profile?.army.arriveAt) return;
         const left = this.profile.army.arriveAt - this.board.armies.serverTime(Date.now());
         const s = t('online.marching', { t: fmtDuration(left) });
-        this.chipText.setText(s.length && measureText(s) > room ? fmtDuration(left) : s);
+        this.chipText.setText(mw(s, 'pInk', TEXT_MIN) > room ? fmtDuration(left) : s);
       };
       upd();
       this.chipTimer?.remove();
       this.chipTimer = this.time.addEvent({ delay: 1000, loop: true, callback: upd });
     }
-    // ---- the round map buttons at the right edge: Army, Clan, Lobby, Region map
+    // ---- the stone rail at the right edge: Army, Clan, Lobby, Centre, Zoom as labelled keys (WAR-2)
     const online = this.demo ? 3 : shardSocket.players.filter((x) => x.id !== shardSocket.me?.id).length;
-    const specs: RoundButtonOpts[] = [
-      { icon: 'people', label: t('online.bar.army'), tip: t('online.bar.armyTip'), id: 'online.bar.army', onClick: () => !this.demo && this.scene.start('OnlineArmy', {}) },
-      { icon: 'flag', label: t('online.bar.clan'), tip: t('online.bar.clanTip'), id: 'online.bar.clan', onClick: () => !this.demo && this.scene.start('OnlineClan', {}) },
-      { icon: 'swords', label: t('war.lobby'), tip: t('online.bar.duelsTip'), id: 'online.bar.duels', badge: online, onClick: () => this.openLobby() },
-      { icon: 'map', label: t('war.regionMap'), tip: t('online.centre'), id: 'online.centre', onClick: () => this.centerOn(this.profile!.army.loc, true) },
+    const zl = zoomLimits(this.m.S);
+    const keys: KeyButtonOpts[] = [
+      { icon: 'people', label: t('war5.rail.army'), tip: t('online.bar.armyTip'), id: 'online.bar.army', onClick: () => !this.demo && this.leaveFor('OnlineArmy', { back: { scene: 'Online', data: {} } }) },
+      { icon: 'flag', label: t('war5.rail.clan'), tip: t('online.bar.clanTip'), id: 'online.bar.clan', onClick: () => !this.demo && this.leaveFor('OnlineClan', {}) },
+      { icon: 'swords', label: t('war5.rail.lobby'), tip: t('online.bar.duelsTip'), id: 'online.bar.duels', badge: online, onClick: () => this.openLobby() },
+      { icon: 'map', label: t('war5.rail.centre'), tip: t('online.centre'), id: 'online.centre', onClick: () => this.centerOn(this.profile!.army.loc, true) },
+      { icon: 'eye', label: t('war5.rail.zoom'), tip: t('war5.rail.zoomTip'), id: 'online.zoom', lit: this.cameras.main.zoom > zl.start + 1e-3, onClick: () => this.zoomKey() },
     ];
-    const top = win.y + 4 + (marching ? MARCH_H + 2 : 0);
-    const avail = bottom - top - 2;
-    let showLabel = true;
-    let pitch = RoundButton.size({}).h + GAP;
-    let n = Math.min(specs.length, Math.floor((avail + GAP) / pitch));
-    if (n < specs.length) {
-      showLabel = false;
-      pitch = RoundButton.size({ showLabel: false }).h + GAP;
-      n = Math.min(specs.length, Math.floor((avail + GAP) / pitch));
-    }
-    const rw = RoundButton.size({ showLabel }).w;
-    specs.slice(0, Math.max(0, n)).forEach((s, i) => {
-      const b = new RoundButton(this, win.x + win.w - rw - 2, top + i * pitch, { ...s, showLabel });
-      H.add(b);
-      this.uiRects.push({ x: b.x, y: b.y, w: b.w, h: b.h });
+    const top = win.y + 3 + (marching ? MARCH_H + 2 : 0);
+    const rail = railLayout(keys.map((k) => k.label), bottom - top - 3);
+    const rx = win.x + win.w - rail.w - 3;
+    H.add(mosaicImage(this, rx, top, rail.w, rail.h, 'tabBar'));
+    this.rail = { x: rx, y: top, w: rail.w, h: rail.h };
+    this.uiRects.push(this.rail);
+    keys.forEach((k, i) => {
+      const at = rail.keys[i];
+      H.add(new KeyButton(this, rx + at.x, top + at.y, rail.keyW, rail.keyH, { ...k, variant: 'bronze', plain: true, iconOnly: !rail.labels }));
     });
-    // ---- Collect: the primary while income waits (a secondary under an open hex panel, whose own primary wins)
-    const collectLabel = t('online.bar.collect');
-    const cwid = Math.max(60, mw(collectLabel.toUpperCase(), 'rCream', 7) + 34);
-    if (!(this.panel && this.panelCollect) && bottom - win.y >= TAP + 6 + (marching ? MARCH_H : 0)) {
-      const cb = new MButton(this, win.x + 4, bottom - TAP - 4, cwid, TAP, {
-        label: collectLabel,
-        icon: 'wargold',
-        variant: pendSum < 1 ? 'disabled' : this.selected ? 'secondary' : 'primary',
-        tip: `${t('online.bar.collectTip')}: ${resLine(pend)}`,
-        id: 'online.bar.collect',
-        disabledReason: pendSum >= 1 ? undefined : t('online.collectNone'),
-        onClick: () => void this.collect(),
-      });
-      H.add(cb);
-      this.uiRects.push({ x: cb.x, y: cb.y, w: cb.w, h: cb.h });
-    }
     this.coach?.refresh();
+  }
+
+  /** Open one of the hub's own screens (it comes back here; the shard socket stays for duel challenges). */
+  private leaveFor(key: string, data: object): void {
+    this.scene.start(key, data);
+  }
+
+  /** The zoom key: the next of overview / normal / close, about the centre of the free map area. */
+  private zoomKey(): void {
+    const cam = this.cameras.main;
+    const z = zoomCycle(cam.zoom, zoomLimits(this.m.S));
+    const { top, bottom } = this.mapArea();
+    haptic('light');
+    this.zoomAt(z / cam.zoom, (this.win.x + this.win.w / 2) * this.m.S, ((top + bottom) / 2) * this.m.S);
+    this.hud.removeAll(true);
+    this.panel = null;
+    this.uiRects = [];
+    this.buildHud();
   }
 
   /** Free map area between the march bar and the panel / the window's lower edge, in UI px. */
@@ -740,7 +817,7 @@ export class OnlineScene extends BaseScene {
     }
     // ---- actions
     const acts: Act[] = d
-      ? regionActions({
+      ? panelActs(regionActions({
           owner: view.owner,
           ours: d.ours,
           mine: d.mine,
@@ -755,7 +832,7 @@ export class OnlineScene extends BaseScene {
           marching: p.army.marching,
           energy: p.energy,
           plan: this.plan ?? { ok: false, reason: 'unknown' },
-        })
+        }), view.occupant !== 'none')
       : [];
     // a lair or a world boss: its info panel (how it fights, the raid) on one more button
     const beastBtn = !!d && (!!d.lair || !!this.bossAt(h));
@@ -768,6 +845,9 @@ export class OnlineScene extends BaseScene {
     if (merchantBtn) specs.push({ label: t('hex.act.merchant'), icon: 'amphora', variant: 'secondary', tip: t('hex.merchantTip'), onClick: () => this.openMerchant(h), id: 'online.act.merchant' });
     if (campBtn) specs.push({ label: t('hex.act.camp'), icon: 'tent', variant: 'secondary', tip: t('hex.campTip'), onClick: () => this.openCamp(h), id: 'online.act.camp' });
     if (beastBtn) specs.push({ label: t('hex.act.beast'), icon: 'beast', variant: 'secondary', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' });
+    // learn before you raid (ia.md L4): the beast's Codex page, one door away
+    const enc = this.beastAt(h);
+    if (enc) specs.push({ label: t('war5.codex'), variant: 'secondary', tip: t('war5.codexTip'), onClick: () => this.openCodex(enc), id: 'online.act.codex' });
     for (const a of acts) {
       const spec = this.actSpec(a, h);
       specs.push({
@@ -879,6 +959,20 @@ export class OnlineScene extends BaseScene {
     this.scene.start('Merchant', { loc: h, demo: !!this.demo, back: { scene: 'Online', data: { focus: h, select: true, preview: this.demo ? 'map' : undefined } } });
   }
 
+  /** The beast of a lair or a world boss on hex h (null when there is none). */
+  private beastAt(h: number): EncounterId | null {
+    const boss = this.bossAt(h);
+    if (boss) return boss.boss as EncounterId;
+    return this.selected === h && this.detail?.lair ? (this.detail.lair.enc as EncounterId) : null;
+  }
+
+  /** The Codex tab with the beast's sheet open (ia.md L4: a door; the War tab brings the player back). */
+  openCodex(enc: EncounterId): void {
+    this.closeModal();
+    if (!this.demo) shardSocket.close();
+    this.scene.start('Codex', { open: enc });
+  }
+
   private bossAt(h: number): BossView | null {
     return this.bosses.find((b) => b.loc === h) ?? null;
   }
@@ -890,17 +984,23 @@ export class OnlineScene extends BaseScene {
     if (!p) return;
     this.closeModal();
     const boss = this.bossAt(h);
+    const onClose = () => {
+      if (this.modal === md) this.modal = null;
+    };
+    let md: Modal | null = null;
     if (boss) {
       const why = boss.status === 'dead' ? t('boss.why.dead') : (p.army.loc !== h && !this.world.adjacent(p.army.loc, h)) || p.army.marching ? t('boss.why.far') : undefined;
-      this.modal = openBossInfo(this, boss, { raid: () => void this.raid(boss), disabled: why });
-      return;
+      md = openBossInfo(this, boss, { raid: () => void this.raid(boss), disabled: why, codex: () => this.openCodex(boss.boss as EncounterId), onClose });
+    } else if (d?.lair) {
+      const lair = d.lair;
+      md = openLairInfo(this, lair.enc as EncounterId, lair.level, {
+        returnsIn: !lair.home && lair.returnsAt ? fmtDuration(lair.returnsAt - Date.now()) : undefined,
+        attack: lair.home ? { run: () => void this.attack(h), disabled: d.canAttack ? undefined : t('boss.why.far') } : undefined,
+        codex: () => this.openCodex(lair.enc as EncounterId),
+        onClose,
+      });
     }
-    if (!d?.lair) return;
-    const lair = d.lair;
-    this.modal = openLairInfo(this, lair.enc as EncounterId, lair.level, {
-      returnsIn: !lair.home && lair.returnsAt ? fmtDuration(lair.returnsAt - Date.now()) : undefined,
-      attack: lair.home ? { run: () => void this.attack(h), disabled: d.canAttack ? undefined : t('boss.why.far') } : undefined,
-    });
+    this.modal = md;
   }
 
   private async raid(b: BossView): Promise<void> {
@@ -1014,18 +1114,32 @@ export class OnlineScene extends BaseScene {
     m?.close();
   }
 
-  /** A parchment sheet with centred lines of text and a Close button. */
-  private infoModal(title: string, lines: string[]): void {
+  /** A parchment sheet with centred lines of text and a Close button (an X would be a second close, G5). */
+  private infoModal(title: string, lines: string[], tiles: (ResultTileOpts & { tip: string })[] = []): void {
     const { VW } = this.m;
     this.closeModal();
-    const w = Math.min(VW - 16, 200);
-    const wrapped = lines.flatMap((l) => wrapText(l, w - 28, 3).lines);
-    const h = SHEET_TITLE_H + 6 + wrapped.length * LINE_H + 10 + TAP + 10;
-    const md = openParchmentSheet(this, { closeButton: false, title, w, h, onClose: () => this.modal === md && (this.modal = null) });
+    const w = Math.min(VW - 16, 220);
+    const lh = lineHeight(TEXT_MIN);
+    const wrapped = lines.flatMap((l) => wrapWords(l, w - 28, (str) => mw(str, 'pInk', TEXT_MIN)).slice(0, 3));
+    const tileH = 44;
+    const tilesH = tiles.length ? tileH + 8 : 0;
+    const h = SHEET_TITLE_H + 6 + tilesH + wrapped.length * lh + 10 + TAP + 10;
+    const md = openParchmentSheet(this, { closeButton: false, title, w, h, onClose: () => this.modal === md && (this.modal = null), id: 'online.result' });
     this.modal = md;
-    wrapped.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + 2 + i * LINE_H, l, 'pInk', { align: 0.5, maxW: md.body.w })));
+    // the Results screen's tiles: the numbers first, each with its icon and label
+    if (tiles.length) {
+      const tw = Math.floor((md.body.w - GAP * (tiles.length - 1)) / tiles.length);
+      tiles.forEach((o, i) => {
+        const tile = new ResultTile(this, md.body.x + i * (tw + GAP), md.body.y + 2, tw, tileH, o);
+        // its (i): the whole sentence on tap
+        tile.setInteractive(new Phaser.Geom.Rectangle(tw / 2, tileH / 2, tw, tileH), Phaser.Geom.Rectangle.Contains);
+        tappable(tile, null, () => showTooltip(this, o.tip, { x: tile.x, y: tile.y, w: tw, h: tileH }), o.tip);
+        md.c.add(tile);
+      });
+    }
+    wrapped.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + 2 + tilesH + i * lh, l, 'pInk', { size: TEXT_MIN, align: 0.5, maxW: md.body.w })));
     const bw = Math.min(md.body.w, 100);
-    md.c.add(new MButton(this, Math.round((VW - bw) / 2), md.y + md.h - TAP - 10, bw, TAP, { label: t('common.close'), icon: 'check', variant: 'primary', onClick: () => this.closeModal() }));
+    md.c.add(new MButton(this, Math.round((VW - bw) / 2), md.y + md.h - TAP - 10, bw, TAP, { label: t('common.close'), icon: 'check', variant: 'primary', id: 'online.result.close', onClick: () => this.closeModal() }));
   }
 
   private showAttackResult(r: AttackResult | { error: string }): void {
@@ -1034,19 +1148,24 @@ export class OnlineScene extends BaseScene {
       return;
     }
     const title = r.captured ? t('result.taken') : r.won ? t('result.victory') : t('result.defeat');
+    const wounded = r.attacker.heroes.filter((h) => h.wounded).length;
+    const tiles: (ResultTileOpts & { tip: string })[] = [
+      { icon: 'skull', label: t('war5.res.slain'), value: r.defender.dead, format: (v) => `${Math.round(v)}/${r.defender.total}`, id: 'online.result.slain', tip: t('result.slain', { dead: r.defender.dead, total: r.defender.total }) },
+      { icon: 'wargold', label: t('war5.res.gold'), value: r.gold, prefix: '+', tone: 'good', id: 'online.result.gold', tip: t('result.gold', { n: r.gold }) },
+      r.loot.length
+        ? { icon: 'amphora', label: t('war5.res.loot'), value: r.loot.length, tone: 'good', id: 'online.result.loot', tip: t('result.loot', { n: r.loot.length }) }
+        : { icon: 'cross', label: t('war5.res.wounded'), value: wounded, tone: wounded ? 'bad' : 'ink', id: 'online.result.wounded', tip: t('result.wounded', { n: wounded }) },
+    ];
     const out: string[] = [];
     if (r.siege && r.won && !r.captured) out.push(t('result.wave', { wins: r.siege.wins, needed: r.siege.needed }));
-    out.push(t('result.slain', { dead: r.defender.dead, total: r.defender.total }));
-    out.push(r.plunder.gold ? t('result.goldPlunder', { n: r.gold, p: r.plunder.gold }) : t('result.gold', { n: r.gold }));
-    if (r.loot.length) out.push(t('result.loot', { n: r.loot.length }));
+    if (r.plunder.gold) out.push(t('result.goldPlunder', { n: r.gold, p: r.plunder.gold }));
     const fallen = r.attacker.heroes.filter((h) => h.died).map((h) => h.name);
     if (fallen.length) out.push(t('result.fallen', { names: fallen.join(', ') }));
-    const wounded = r.attacker.heroes.filter((h) => h.wounded).length;
-    if (wounded) out.push(t('result.wounded', { n: wounded }));
+    if (wounded && r.loot.length) out.push(t('result.wounded', { n: wounded }));
     const lv = r.attacker.heroes.filter((h) => h.levelsGained > 0).map((h) => h.name);
     if (lv.length) out.push(t('result.levelUp', { names: lv.join(', ') }));
     out.push(t('result.verified'));
-    this.infoModal(title, out);
+    this.infoModal(title, out, tiles.map((o) => ({ ...o, duration: 0 })));
     hapticNotify(r.won ? 'success' : 'error');
   }
 
@@ -1112,57 +1231,72 @@ export class OnlineScene extends BaseScene {
     return shardSocket.players.filter((p) => p.id !== shardSocket.me?.id);
   }
 
+  /** The duel lobby (WAR-8): who is online, each with a crest, Challenge / Cancel / Busy; the X, Back or a tap outside close it. */
   openLobby(): void {
     const { VW, VH } = this.m;
     this.closeModal();
     const others = this.lobbyPlayers();
     const rows = Math.max(1, others.length);
-    const w = Math.min(VW - 16, 200);
-    const rowH = TAP + 4;
-    const noteL = wrapText(t('duel.lobbyNote'), w - 28, 3).lines;
-    const listH = Math.min(rows * (rowH + GAP), Math.max(rowH, VH - 16 - SHEET_TITLE_H - 18 - TAP - 30 - noteL.length * LINE_H));
-    const h = SHEET_TITLE_H + 4 + listH + 6 + noteL.length * LINE_H + 8 + TAP + 10;
-    const md = openParchmentSheet(this, { closeButton: false, title: t('duel.lobby'), w, h, onClose: () => {
-      if (this.modal === md) this.modal = null;
-      this.lobbyOpen = false;
-    } });
+    const w = Math.min(VW - 16, 220);
+    const rowH = TAP + 6;
+    const lh = lineHeight(TEXT_MIN);
+    const noteL = wrapWords(t('duel.lobbyNote'), w - 28, (str) => mw(str, 'pSec', TEXT_MIN)).slice(0, 3);
+    const listH = Math.min(rows * (rowH + GAP), Math.max(rowH, VH - 16 - SHEET_TITLE_H - 24 - noteL.length * lh));
+    const h = SHEET_TITLE_H + 4 + listH + 6 + noteL.length * lh + 12;
+    const md = openParchmentSheet(this, {
+      title: t('duel.lobby'),
+      w,
+      h,
+      id: 'online.lobby',
+      onClose: () => {
+        if (this.modal === md) this.modal = null;
+        this.lobbyOpen = false;
+      },
+    });
     this.modal = md;
     this.lobbyOpen = true;
     const connected = this.demo ? true : shardSocket.connected;
     if (!connected || !others.length) {
       const msg = !connected ? t('duel.connecting') : t('duel.nobody');
-      wrapText(msg, w - 28, 2).lines.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + 8 + i * LINE_H, l, 'pSec', { align: 0.5, maxW: md.body.w })));
+      wrapWords(msg, w - 28, (str) => mw(str, 'pSec', TEXT_MIN))
+        .slice(0, 2)
+        .forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + 8 + i * lh, l, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: md.body.w })));
     } else {
-      new ScrollList(this, md.c, md.body.x, md.body.y, md.body.w, listH, {
+      const list = new ScrollList(this, md.c, md.body.x, md.body.y, md.body.w, listH, {
         count: others.length,
         rowH,
+        fade: MOSAIC.parch,
         render: (i, row, rw, rh) => {
           const pl = others[i];
+          const box = { owner: row, w: rw, h: rh };
           row.add(mosaicImage(this, 0, 0, rw, rh, 'parchment'));
           const pending = this.challenge?.to.id === pl.id;
           const label = pl.busy ? t('duel.busy') : pending ? t('duel.cancel') : t('duel.challenge');
-          const bw = Math.min(rw - 50, Math.max(60, mw(label.toUpperCase(), 'rCream', 7) + 18));
-          row.add(mtext(this, 7, Math.round((rh - LINE_H) / 2), pl.name, 'pInk', { maxW: rw - bw - 18 }));
-          const b = new MButton(this, rw - bw - 2, Math.round((rh - TAP) / 2), bw, TAP, {
-            label,
-            variant: pl.busy ? 'disabled' : pending ? 'primary' : 'secondary',
-            disabledReason: pl.busy ? t('duel.busy') : undefined,
-            onClick: () => {
-              if (this.demo) {
-                toast(this, t('online.preview'));
-                return;
-              }
-              if (pending && this.challenge) shardSocket.send({ type: 'challenge_cancel', id: this.challenge.id });
-              else shardSocket.send({ type: 'challenge', to: pl.id });
-            },
-          });
-          row.add(b);
+          const bw = Math.min(rw - 60, Math.max(60, mw(label.toUpperCase(), 'rCream', 7) + 18));
+          const cs = rh - 10;
+          addCrest(this, row, 5, 5, cs, pl.id, pl.name);
+          row.add(mtext(this, 5 + cs + 6, Math.round((rh - 9) / 2), pl.name, 'rInk', { size: 7, maxW: rw - bw - 18 - cs, box }));
+          row.add(
+            new MButton(this, rw - bw - 3, Math.round((rh - TAP) / 2), bw, TAP, {
+              label,
+              variant: pl.busy ? 'disabled' : pending ? 'primary' : 'secondary',
+              disabledReason: pl.busy ? t('duel.busy') : undefined,
+              id: `online.lobby.${pl.id}`,
+              onClick: () => {
+                if (this.demo) {
+                  toast(this, t('online.preview'));
+                  return;
+                }
+                if (pending && this.challenge) shardSocket.send({ type: 'challenge_cancel', id: this.challenge.id });
+                else shardSocket.send({ type: 'challenge', to: pl.id });
+              },
+            }),
+          );
         },
       });
+      md.c.once('destroy', () => list.destroy());
     }
-    noteL.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + listH + 6 + i * LINE_H, l, 'pSec', { align: 0.5, maxW: md.body.w })));
-    const bw = Math.min(md.body.w, 100);
-    md.c.add(new MButton(this, Math.round((VW - bw) / 2), md.y + h - TAP - 10, bw, TAP, { label: t('common.close'), icon: 'check', variant: 'secondary', onClick: () => this.closeModal() }));
+    noteL.forEach((l, i) => md.c.add(mtext(this, VW / 2, md.body.y + listH + 6 + i * lh, l, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: md.body.w })));
   }
 
   // ------------------------------------------------------------------ coach marks
@@ -1220,6 +1354,7 @@ export class OnlineScene extends BaseScene {
         return { x: Math.round(r.x / S), y: Math.round(r.y / S), w: Math.round(r.w / S), h: Math.round(r.h / S) };
       },
       busy: () => !!this.modal || this.view.kind !== 'map',
+      rail: () => this.rail,
     };
   }
 
@@ -1356,6 +1491,32 @@ export class OnlineScene extends BaseScene {
     haptic('light');
     this.select(this.selected === h ? null : h);
   }
+}
+
+/** A player's crest (WAR-8): a shield in his land's colour with his initial, so a name is never the only mark. */
+function addCrest(scene: Phaser.Scene, c: Phaser.GameObjects.Container, x: number, y: number, s: number, id: number, name: string): void {
+  const g = scene.add.graphics();
+  const shield = (inset: number) => {
+    const l = x + inset;
+    const r = x + s - inset;
+    const top = y + inset;
+    const mid = y + s * 0.55;
+    const tip = y + s - inset;
+    g.beginPath();
+    g.moveTo(l, top);
+    g.lineTo(r, top);
+    g.lineTo(r, mid);
+    g.lineTo((l + r) / 2, tip);
+    g.lineTo(l, mid);
+    g.closePath();
+    g.fillPath();
+  };
+  g.fillStyle(0x1a0d06, 1);
+  shield(0);
+  g.fillStyle(otherColor(id), 1);
+  shield(1.2);
+  c.add(g);
+  c.add(mtext(scene, x + s / 2, y + Math.round(s * 0.18), (name.trim()[0] ?? '?').toUpperCase(), 'rCream', { size: 7, align: 0.5 }));
 }
 
 /** A region's marker on screen (UI px). */
