@@ -457,7 +457,7 @@ export class WorldScene extends BaseScene {
   update(_t: number, delta: number): void {
     const camp = state.campaign;
     // a pending event always has its card (R4.2: no time passes until it is answered); an encounter goes first
-    if (!this.eventCard && !this.encounter && !this.assaultSheet && this.w.s.pendingEvent) this.openEvent();
+    if (!this.eventCard && !this.encounter && !this.assaultSheet && !this.coach && this.w.s.pendingEvent) this.openEvent();
     const busy = this.encounter || this.cine || this.eventCard || this.assaultSheet || this.arcSheet || this.coach;
     if (!busy && (this.w.moving || this.waiting || this.w.s.destParty >= 0)) {
       const rate = this.waiting ? WAIT_SPEED : TRAVEL_SPEED;
