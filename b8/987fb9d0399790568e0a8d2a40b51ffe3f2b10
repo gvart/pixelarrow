@@ -1,0 +1,21 @@
+src/dev/eventBalance.ts
+  s_697bdc25a7c420::t_6f373e257a69a8 1-281,286-287,289-364
+  s_697bdc25a7c420::t_763ff47c23f177 283-285,288
+  s_697bdc25a7c420::t_32961fe1d54488 282
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b8987fb9d0399790568e0a8d2a40b51ffe3f2b10",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
