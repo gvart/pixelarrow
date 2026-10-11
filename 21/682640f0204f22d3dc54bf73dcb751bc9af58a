@@ -1,0 +1,21 @@
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_99d91803d9b3f1 417-418
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_69ef3d0856a460 2526-2527,2534,3032,3224,3282
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "21682640f0204f22d3dc54bf73dcb751bc9af58a",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
