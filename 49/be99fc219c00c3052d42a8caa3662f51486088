@@ -1,0 +1,21 @@
+src/game/campaignBattle.ts
+  s_697bdc25a7c420::t_af6f24cf014482 141-144,149
+src/state.ts
+  s_697bdc25a7c420::t_af6f24cf014482 40-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "49be99fc219c00c3052d42a8caa3662f51486088",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
