@@ -1,0 +1,46 @@
+scripts/layout-allowlist.json
+  s_697bdc25a7c420::t_56cfc3daf15df4 43
+src/i18n/settlement.en.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 1-30
+docs/v5/art/asset-manifest.json
+  s_697bdc25a7c420::t_56cfc3daf15df4 139,153,161,175,183,197,205,219,227,241,249,263
+tests/settlement.test.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 1-95
+src/data/eventDeck.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 30-32,34
+src/ui/sheets/recruit.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 1-228
+src/ui/mosaic/controls.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 12,16,352-354,363-367,369-372,374-380,384-386,396,408,420,444-449
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 39,337
+src/i18n/settlement.ru.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 1-44
+src/scenes/SettlementScene.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 3,6,8,10-11,20-22,26-27,31,37-50,86-88,101-119,122,129-130,133,148,151,176,199,205,249,256,258,265-281,286,294-305,309,316-318,323-325,327,337-344,353,355-358,362,364-367,375-382,390,397,401,418,423,427-430,443-458,514,516-521,525-526,528-536,538-587,591-593,595-601,607-608,610-612,615-619,621-623,626-628
+src/ui/mosaic/policy.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 86-132
+tests/switchLayout.test.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 1-46
+docs/v5/ASSET_LOG.md
+  s_697bdc25a7c420::t_56cfc3daf15df4 23-29
+  s_697bdc25a7c420::t_e8d197094088ea 30
+src/i18n/en.ts
+  s_697bdc25a7c420::t_56cfc3daf15df4 47,371-372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7605ad7dd410ac8078e608b93802337974da0e9f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
