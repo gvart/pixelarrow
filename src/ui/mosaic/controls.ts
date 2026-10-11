@@ -9,11 +9,11 @@
  */
 import Phaser from 'phaser';
 import type { MosaicStyle } from '../../art/mosaicUi';
-import { addIcon, fitCinzel, scaleIcon, ICON_PX } from '../kit';
+import { addIcon, fitCinzel, panelK, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
 import { motion, tweenTo } from '../motion';
 import { MOSAIC, MOTION, TEXT_MIN, lineHeight } from '../tokens';
-import { buttonLabelSizes, chipText, switchLabelStyle } from './policy';
+import { buttonLabelSizes, chipText, switchLabelStyle, switchLayout } from './policy';
 import { MBadge, TAP, centeredFace, fit, wrapWords, makePressable, midY, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
 
 type Scene = Phaser.Scene;
@@ -349,7 +349,9 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
   private sel: string;
   private thumb: Phaser.GameObjects.Image;
   private segs: Phaser.GameObjects.Container[] = [];
-  private segW: number;
+  /** Each segment's left edge and width (equal while every label fits; else sized to the labels, V5-063). */
+  private segX: number[] = [];
+  private segWs: number[] = [];
 
   constructor(scene: Scene, x: number, y: number, w: number, private o: SegmentedSwitchOpts) {
     super(scene, Math.round(x), Math.round(y));
@@ -357,21 +359,31 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
     const n = Math.min(4, Math.max(2, o.options.length));
     this.sel = o.selected;
     const pad = 1;
-    this.segW = Math.floor((this.w - pad * 2) / n);
-    this.add(mosaicImage(scene, 0, 0, this.w, this.h, 'track'));
-    this.thumb = mosaicImage(scene, pad, pad, this.segW, this.h - pad * 2, 'trackSel');
-    this.add(this.thumb);
     const opts = o.options.slice(0, n);
-    // one face, case and size for every segment (as the tab bar): Cinzel capitals while all fit, else Inter
-    const style = switchLabelStyle(
-      opts.map((opt) => ({ label: opt.label, room: this.segW - (opt.icon || opt.off ? ICON_PX + 2 : 0) - 6, bare: this.segW - (opt.off ? ICON_PX + 2 : 0) - 6 })),
+    // one face, case and size for every segment (as the tab bar): Cinzel capitals while all fit, else Inter;
+    // a label that does not fit an equal segment widens its own, so no tab name is cut
+    const style = switchLayout(
+      opts.map((opt) => ({ label: opt.label, icon: !!opt.icon, lock: !!opt.off })),
+      this.w - pad * 2,
       (str, face, z) => mw(str, face === 'roman' ? 'rGold' : 'gold', z),
+      ICON_PX + 2,
+      6,
+      // the hit area is inset 1 UI px each side and must stay a full touch target
+      TAP + 2,
     );
+    this.segWs = style.widths;
+    let acc = pad;
+    this.segX = style.widths.map((sw) => ((acc += sw), acc - sw));
+    this.add(mosaicImage(scene, 0, 0, this.w, this.h, 'track'));
+    const i0 = Math.max(0, opts.findIndex((p) => p.id === this.sel));
+    this.thumb = mosaicImage(scene, this.segX[i0], pad, this.segWs[i0], this.h - pad * 2, 'trackSel');
+    this.add(this.thumb);
     // the lock of an unavailable segment always stays; other icons go when the labels need their room
     const iconOf = (opt: SwitchOption) => (opt.off ? 'lock' : style.icons ? opt.icon : undefined);
-    const room = (opt: SwitchOption) => this.segW - (iconOf(opt) ? ICON_PX + 2 : 0) - 6;
     opts.forEach((opt, i) => {
-      const sx = pad + i * this.segW;
+      const sx = this.segX[i];
+      const segW = this.segWs[i];
+      const room = (opt: SwitchOption) => segW - (iconOf(opt) ? ICON_PX + 2 : 0) - 6;
       const seg = scene.add.container(sx, 0);
       const picked = () => this.sel === opt.id;
       const icon = iconOf(opt);
@@ -381,7 +393,7 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
       const size = style.size;
       const str = inter ? opt.label : opt.label.toUpperCase();
       const text = mw(str, font, size) <= room(opt) ? str : fit(str, font, size, room(opt));
-      const x0 = Math.round((this.segW - (iconW + mw(text, font, size))) / 2);
+      const x0 = Math.round((segW - (iconW + mw(text, font, size))) / 2);
       // 1 UI px under the middle: a count badge on the track's top corner keeps clear of a label that spans the segment
       const t = mtext(scene, x0 + iconW, midY(this.h - 1, size) + 1, text, font, { size, box: { owner: this, w: this.w, h: this.h } });
       seg.add(t);
@@ -393,7 +405,7 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
       this.segs.push(seg);
       const hit = scene.add.container(sx, 0);
       makePressable(hit, {
-        w: this.segW,
+        w: segW,
         h: this.h,
         inset: 1,
         onTap: () => this.pick(opt.id, true),
@@ -405,7 +417,7 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
       });
       uiId(hit, `${o.id ?? 'switch'}.${opt.id}`);
       Object.assign(hit, { opts: { label: opt.label } });
-      hit.add(scene.add.rectangle(0, 0, this.segW, this.h, 0, 0).setOrigin(0, 0));
+      hit.add(scene.add.rectangle(0, 0, segW, this.h, 0, 0).setOrigin(0, 0));
       this.add(hit);
     });
     this.pick(this.sel, false);
@@ -429,8 +441,12 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
         if (o instanceof Phaser.GameObjects.Image) o.setTexture(`icon${k === i ? '' : 'D'}_${this.o.options[k].off ? 'lock' : this.o.options[k].icon}`);
       });
     });
-    const tx = 1 + i * this.segW;
-    if (this.thumb.x !== tx) tweenTo(this.scene, this.thumb, { x: tx }, MOTION.tab);
+    const tx = this.segX[i];
+    // segments of one width slide the thumb; a thumb that changes width is redrawn in place
+    if (Math.abs(this.thumb.displayWidth - this.segWs[i]) > 0.5) {
+      this.thumb.setTexture(mosaicTexture(this.scene, this.segWs[i], this.h - 2, 'trackSel')).setScale(1 / panelK(this.scene));
+      this.thumb.x = tx;
+    } else if (this.thumb.x !== tx) tweenTo(this.scene, this.thumb, { x: tx }, MOTION.tab);
     if (notify && changed) this.o.onChange(this.sel);
     return this;
   }

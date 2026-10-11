@@ -83,6 +83,53 @@ export function switchLabelStyle(
   return { face: 'body', size: TEXT_MIN, icons: false };
 }
 
+/** A segment of a switch as `switchLayout` sizes it: its label, whether it has an icon, whether that icon is a lock (always kept). */
+export interface SwitchItem {
+  label: string;
+  icon: boolean;
+  lock?: boolean;
+}
+
+/**
+ * The segments' widths and their one label style across `total` UI px (V5-063: a tab keeps its whole name
+ * at every width). The styles of `switchLabelStyle` in its order (Cinzel 7, 6.5, without icons, then
+ * Inter): for each, equal segments when every label fits one, else segments as wide as their labels
+ * (and icons) with the leftover space shared equally; the next style only when neither fits. Only when
+ * no style fits even label-sized is a label cut (the widths then follow the labels' share of the room). `iconW`: an icon and
+ * its gap; `pad`: the segment's inner margin, both sides together; `min`: the narrowest a segment may be
+ * (its touch target).
+ */
+export function switchLayout(
+  items: readonly SwitchItem[],
+  total: number,
+  measure: (text: string, face: 'roman' | 'body', size: number) => number,
+  iconW: number,
+  pad = 6,
+  min = 0,
+): { face: 'roman' | 'body'; size: number; icons: boolean; widths: number[] } {
+  const n = items.length;
+  const seg = Math.floor(total / n);
+  const text = (it: SwitchItem, face: 'roman' | 'body') => (face === 'roman' ? it.label.toUpperCase() : it.label);
+  const need = (st: { face: 'roman' | 'body'; size: number; icons: boolean }) =>
+    items.map((it) => Math.max(min, Math.ceil(measure(text(it, st.face), st.face, st.size)) + ((st.icons && it.icon) || it.lock ? iconW : 0) + pad));
+  const share = (ws: number[]): number[] => {
+    const sum = ws.reduce((a, b) => a + b, 0);
+    // too little room even so: every segment keeps its minimum, the rest goes by how much more each label needs
+    const out = sum <= total ? ws.map((w) => Math.floor(w + (total - sum) / n)) : ws.map((w) => Math.floor(min + ((w - min) * (total - n * min)) / Math.max(1, sum - n * min)));
+    out[n - 1] += total - out.reduce((a, b) => a + b, 0);
+    return out;
+  };
+  for (const face of ['roman', 'body'] as const)
+    for (const icons of [true, false])
+      for (const size of [7, TEXT_MIN]) {
+        const ws = need({ face, size, icons });
+        if (ws.every((w) => w <= seg)) return { face, size, icons, widths: items.map(() => seg) };
+        if (ws.reduce((a, b) => a + b, 0) <= total) return { face, size, icons, widths: share(ws) };
+      }
+  const last = { face: 'body' as const, size: TEXT_MIN, icons: false };
+  return { ...last, widths: share(need(last)) };
+}
+
 /**
  * The scroll cue of a clipped list (G9): which edges hide content. `below` while the list is not at its
  * end, `above` once it has scrolled; 1 UI px of slack so a rounding remainder shows no cue.
