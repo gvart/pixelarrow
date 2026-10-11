@@ -1,0 +1,23 @@
+src/dev/worksBalance.ts
+  s_697bdc25a7c420::t_498a758faaaa32 108,205
+  s_697bdc25a7c420::t_7aafd56c2ed5d7 26-28,43,229,306-307
+  s_697bdc25a7c420::t_ade1884a3c3907 57-70,110,207
+  s_697bdc25a7c420::t_79d13482bc3a82 23-25,29-31,35-36,40-42,213-228,230-238,240-249,293-305,308-311
+  s_697bdc25a7c420::t_bb06b90ca93f79 239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8294ade3cd6fda965d027a911ead4497eb3d1f69",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
