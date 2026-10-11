@@ -36,17 +36,18 @@ const sets = (d: EventDef) => d.choices.flatMap((c) => [...(c.cost ?? []), ...c.
 const reads = (d: EventDef) => [...(d.after ? [d.after.flag] : []), ...(d.cond.flags ?? [])];
 
 describe('the flag (V5-064, V5-070)', () => {
-  it('ships off: the live deck is empty and the engine default draws nothing', () => {
-    expect(EVENT_DECK_ENABLED).toBe(false);
-    expect(liveDeck()).toEqual([]);
+  it('ships on since EV-03 (the event card): the world draws from the starter deck', () => {
+    expect(EVENT_DECK_ENABLED).toBe(true);
+    expect(liveDeck()).toBe(STARTER_DECK);
+    expect(liveDeck(false)).toEqual([]);
     expect(EVENT_DECK).toEqual([]);
-    expect(liveDeck(true)).toBe(STARTER_DECK);
+    expect(Campaign.fresh(11).world.deck).toBe(STARTER_DECK);
   });
 
-  it('off: a world given liveDeck() marches exactly like one with no deck, and no event is ever pending', () => {
+  it('off: a world given liveDeck(false) marches exactly like one with no deck, and no event is ever pending', () => {
     const a = Campaign.fresh(11);
     const b = Campaign.fresh(11);
-    a.world.deck = liveDeck();
+    a.world.deck = liveDeck(false);
     b.world.deck = [];
     const to = farTown(a);
     a.world.setDestination(to.x, to.y);

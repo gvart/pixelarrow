@@ -26,6 +26,7 @@ import { STRUCTURES, campEffects, footprint, type StructureId } from '../world/c
 import { THREAT_COLOR, THREAT_LABEL, WORLD_RULES, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
 import { confirmDialog } from '../ui/widgets';
 import { CampLife } from '../ui/campLife';
+import { openEventCard, openJournalSheet, type EventCardHandle } from '../ui/sheets/eventCard';
 
 /** Game hours per real second while travelling / waiting. */
 const TRAVEL_SPEED = 1.6;
@@ -76,6 +77,8 @@ export class WorldScene extends BaseScene {
   private stripKey = '';
   private followBtn!: MIconButton;
   private dialog: Phaser.GameObjects.Container | null = null;
+  /** The open event card (campaign-events.md R4): the map is paused while it is up. */
+  private eventCard: EventCardHandle | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
   private waiting = false;
   private follow = true;
@@ -115,6 +118,7 @@ export class WorldScene extends BaseScene {
   create(data: { encounter?: number }): void {
     this.bands = new Map();
     this.dialog = null;
+    this.eventCard = null;
     this.banner = null;
     this.waiting = false;
     this.follow = true;
@@ -355,7 +359,9 @@ export class WorldScene extends BaseScene {
 
   update(_t: number, delta: number): void {
     const camp = state.campaign;
-    const busy = this.dialog || this.cine;
+    // a pending event always has its card (R4.2: no time passes until it is answered); an encounter goes first
+    if (!this.eventCard && !this.dialog && this.w.s.pendingEvent) this.openEvent();
+    const busy = this.dialog || this.cine || this.eventCard;
     if (!busy && (this.w.moving || this.waiting || this.w.s.destParty >= 0)) {
       const rate = this.waiting ? WAIT_SPEED : TRAVEL_SPEED;
       const hours = Math.min(0.25, delta / 1000) * rate;
@@ -375,6 +381,7 @@ export class WorldScene extends BaseScene {
         this.setWaiting(false);
         this.openEncounter(ev.party, ev.byPlayer);
       }
+      if (ev?.type === 'event' && !this.dialog) this.openEvent();
       this.refreshHud();
     }
     this.drainDiscoveries();
@@ -387,7 +394,7 @@ export class WorldScene extends BaseScene {
     const s = this.w.s;
     const px = s.x * WTILE;
     const py = s.y * WTILE;
-    const moving = this.w.moving && !this.dialog && !this.cine;
+    const moving = this.w.moving && !this.dialog && !this.cine && !this.eventCard;
     if (moving && this.w.route.length) {
       const dx = this.w.route[0].x - s.x;
       if (dx < -0.05) this.flip = true;
@@ -770,7 +777,8 @@ export class WorldScene extends BaseScene {
       parent: this.topC,
       title,
       id: 'world.topbar',
-      actions: [],
+      // the journal (campaign-events.md "Journal"); WLD-02 moves it into the Arc sheet behind the arc chip
+      actions: [{ icon: 'log', label: t('evc.journal'), onClick: () => this.openJournal() }],
       back: this.inGameBack ? () => this.leaveToMenu() : undefined,
     });
   }
@@ -911,7 +919,7 @@ export class WorldScene extends BaseScene {
       this.pinch = { d0: Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y), z0: this.cameras.main.zoom, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
       return;
     }
-    if (over.length > 0 || this.dialog) {
+    if (over.length > 0 || this.dialog || this.eventCard) {
       this.gesture = null;
       return;
     }
@@ -1027,6 +1035,26 @@ export class WorldScene extends BaseScene {
     haptic('light');
     if (!this.follow) this.toggleFollow();
     this.refreshHud();
+  }
+
+  // ================================================================ events (campaign-events.md R4)
+
+  /** Show the pending event's card. The march (or the rest in camp) carries on once it is answered. */
+  openEvent(): void {
+    if (this.eventCard) return;
+    this.eventCard = openEventCard(this, {
+      onDone: () => {
+        this.eventCard = null;
+        this.info = state.campaign.playerInfo();
+        this.stripKey = '';
+        this.refreshHud();
+      },
+    });
+  }
+
+  openJournal(): void {
+    if (this.eventCard || this.dialog) return;
+    openJournalSheet(this);
   }
 
   // ================================================================ encounters

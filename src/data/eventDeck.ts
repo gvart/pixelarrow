@@ -23,7 +23,7 @@
 import { fx, type EventDef } from './events';
 
 /** The deck is live only when this is true. EV-03 (the event card) sets it (V5-070). */
-export const EVENT_DECK_ENABLED = false;
+export const EVENT_DECK_ENABLED = true;
 
 /**
  * The oracle's paid choice is a free perk retrain (abilities.md R7), spent at

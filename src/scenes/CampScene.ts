@@ -17,6 +17,7 @@ import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { scaleIcon, addIcon, addText } from '../ui/kit';
 import { confirmDialog, openModal, toast, ScrollList, type Modal } from '../ui/widgets';
+import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
 import { ellipsize } from '../ui/textfit';
 import { CHIP_ROW_H, ChipRow, MActionBar, MButton, ParchmentRow, MIconButton, TOPBAR_H, actionBarH, addSubShell, mosaicImage, type SituationChip } from '../ui/mosaic';
 import { ensureFonts } from '../ui/fonts';
@@ -109,6 +110,7 @@ export class CampScene extends BaseScene {
   private busy = false;
   private timer: Phaser.Time.TimerEvent | null = null;
   private modal: Modal | null = null;
+  private eventCard: EventCardHandle | null = null;
   private musterList: MusterHero[] = [];
 
   constructor() {
@@ -125,6 +127,7 @@ export class CampScene extends BaseScene {
     this.kind = null;
     this.busy = false;
     this.modal = null;
+    this.eventCard = null;
     this.placed = [];
     this.ghostObjs = [];
     this.layout = null;
@@ -181,7 +184,21 @@ export class CampScene extends BaseScene {
       this.rebuild();
       this.buildHud();
       this.centerCamp();
+      this.openEvent();
     }
+  }
+
+  /** The pending event's card over the camp (a camp night, campaign-events.md R3); it comes back until answered. */
+  private openEvent(): void {
+    if (this.eventCard || this.d.mode !== 'field') return;
+    this.eventCard = openEventCard(this, {
+      onDone: () => {
+        this.eventCard = null;
+        if (!this.scene.isActive()) return;
+        this.refreshHud();
+        if (state.campaign.world.s.pendingEvent) this.time.delayedCall(0, () => this.openEvent());
+      },
+    });
   }
 
   update(time: number, delta: number): void {
@@ -902,10 +919,11 @@ export class CampScene extends BaseScene {
     this.rebuild();
     this.puffAt(p.x, p.y, d.w, d.h);
     hapticNotify('success');
-    this.passTime(d.hours);
+    const passed = this.passTime(d.hours);
     this.buildHud();
     toast(this, t('cs.builtIn', { name: d.name, h: d.hours }), 'good');
     void state.save();
+    if (passed === 'event') this.openEvent();
   }
 
   private constructIndex(): number {
@@ -943,8 +961,11 @@ export class CampScene extends BaseScene {
     haptic('medium');
   }
 
-  /** Let `hours` pass in camp (building, the night); an encounter sends the party back to the map. */
-  private passTime(hours: number): boolean {
+  /**
+   * Let `hours` pass in camp (building, the night); an encounter sends the party back to the map. An
+   * event stops the clock (R4.2): the night ends there and its card opens over the camp.
+   */
+  private passTime(hours: number): boolean | 'event' {
     const c = state.campaign;
     const w = c.world;
     const r = w.advance(hours, c.playerInfo(), true);
@@ -956,7 +977,7 @@ export class CampScene extends BaseScene {
       return false;
     }
     this.refreshHud();
-    return true;
+    return w.s.pendingEvent ? 'event' : true;
   }
 
   /** End the day: the camp rests until dawn (06:00), hour by hour, healing and foraging. */
@@ -972,14 +993,16 @@ export class CampScene extends BaseScene {
       fillAlpha: 0.85,
       duration: 350,
       onComplete: () => {
-        let ok = true;
-        for (let i = 0; i < hours && ok; i++) ok = this.passTime(1);
+        let ok: boolean | 'event' = true;
+        for (let i = 0; i < hours && ok === true; i++) ok = this.passTime(1);
         if (!ok) return;
         void state.save();
         this.rebuild();
         this.buildHud();
         this.hud.setVisible(true);
-        toast(this, t('cs.dawn', { d: Math.floor(w.s.time / 24) + 1 }), 'info');
+        // an event in the night: its card, and no dawn yet (End day again rests on to dawn)
+        if (ok === 'event') this.openEvent();
+        else toast(this, t('cs.dawn', { d: Math.floor(w.s.time / 24) + 1 }), 'info');
         this.tweens.add({ targets: veil, fillAlpha: 0, duration: 500, onComplete: () => veil.destroy() });
       },
     });

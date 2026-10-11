@@ -70,6 +70,8 @@ const STORY_OF = [
   ['duel-season', 'DUE-02'],
   ['duel-', 'DUE-01'],
   ['market-', 'MKT-01'],
+  ['world-event', 'EV-03'],
+  ['world-journal', 'EV-03'],
   ['world', 'WLD-01'],
   ['camp', 'CMP-01'],
   ['fire', 'CMP-01'],
@@ -330,6 +332,41 @@ const SCREENS = [
     },
   },
   { id: 'world', owner: 'C', run: async (p) => (await start(p, 'World'), wait(p, 1500)) },
+  // the event card (EV-03, campaign-events.md R4): the longest body with a gamble, and three choices with costs; the journal full
+  ...[
+    ['world-event', 'deserters'],
+    ['world-event-costs', 'plague_town'],
+  ].map(([id, evId]) => ({
+    id,
+    owner: 'C',
+    run: async (p) => {
+      await ev(p, (e) => {
+        const w = window.__state.campaign.world;
+        w.stop();
+        w.s.safeUntil = 1e9;
+        w.s.pendingEvent = { id: e, seed: 7 };
+      }, evId);
+      await start(p, 'World');
+      await until(p, () => !!window.__game.scene.getScene('World').eventCard, 8000);
+      return wait(p, 600);
+    },
+  })),
+  {
+    id: 'world-journal',
+    owner: 'C',
+    run: async (p) => {
+      await ev(p, () => {
+        const w = window.__state.campaign.world;
+        delete w.s.pendingEvent; // the card fixtures above leave one pending
+        const lines = ['deserters:take', 'shrine_ares:offer', 'plague_town:help:fail', 'caravan:escort', 'rival_challenge:refuse'];
+        for (let i = 0; i < 20; i++) w.logJournal(lines[i % lines.length]);
+      });
+      await start(p, 'World');
+      await wait(p, 1200);
+      await call(p, 'World', 's.openJournal(); return 1;');
+      return wait(p, 500);
+    },
+  },
   {
     id: 'world-encounter',
     owner: 'C',

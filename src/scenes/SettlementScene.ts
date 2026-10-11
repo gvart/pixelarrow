@@ -22,6 +22,7 @@ import { itemModLines } from '../game/gear';
 import { MOSAIC } from '../ui/tokens';
 import { MActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, FrescoBanner, addParchmentEmpty, addSubShell, addPill, addPortraitWell, addRowFace, mtext, mw, rarityInk, type MButtonOpts } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
+import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
 
 type Tab = 'recruits' | 'market' | 'sell' | 'rest';
 
@@ -45,6 +46,7 @@ export class SettlementScene extends BaseScene {
   private bodyBottom = 0;
   private chipsY = 0;
   private restArea: ScrollArea | null = null;
+  private eventCard: EventCardHandle | null = null;
 
   constructor() {
     super('Settlement');
@@ -115,6 +117,22 @@ export class SettlementScene extends BaseScene {
     this.bodyBottom = bar.top - 3;
     this.events.once('shutdown', () => this.clearBody());
     this.refresh();
+    // an arrival event (campaign-events.md R3) is answered before the page is used (screens-campaign.md C-6)
+    this.eventCard = null;
+    this.openEvent();
+  }
+
+  /** The pending event's card over the page; it comes back until the event is answered (no soft-lock). */
+  private openEvent(): void {
+    if (this.eventCard) return;
+    this.eventCard = openEventCard(this, {
+      onDone: () => {
+        this.eventCard = null;
+        if (!this.scene.isActive()) return;
+        this.refresh();
+        if (state.campaign.world.s.pendingEvent) this.time.delayedCall(0, () => this.openEvent());
+      },
+    });
   }
 
   /** The settlement over the plain, at the frame's inside size and the screen's pixel density. */
