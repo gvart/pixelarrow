@@ -1,0 +1,29 @@
+src/duel/ladder.ts
+  s_697bdc25a7c420::t_c65c277e70ebdd 89,91,101
+  s_697bdc25a7c420::t_0be4c6f6cbd362 84-85
+  s_697bdc25a7c420::t_4e85ce96e12faf 90
+  s_697bdc25a7c420::t_77bff834e6866f 161
+  s_697bdc25a7c420::t_32ebc70730380e 96-100,102
+  s_697bdc25a7c420::t_f83b5ddf3dab33 95
+tests/ladderDoctrine.test.ts
+  s_697bdc25a7c420::t_4e85ce96e12faf 19
+  s_697bdc25a7c420::t_aac8b72cc2cf93 15
+  s_697bdc25a7c420::t_f298256ba014ef 18,20
+  s_697bdc25a7c420::t_85c6cf2dd9a200 26-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6c98015a9512154c3d685d3568e36e68cd2b53c4",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
