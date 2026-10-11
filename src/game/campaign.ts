@@ -12,7 +12,7 @@ import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/
 import { Rng } from '../sim/rng';
 import { grantXp, makeHero, makeItem, openingParty } from './heroes';
 import { dedupeNames } from '../data/names';
-import { campaignIdFor, DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
+import { DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
 import { armyPower, garrisonWorks, type EnemyArmy } from './enemy';
 import { siteAt, type BattleSite } from '../world/battlefield';
 import { applyBattleBonus, type BattleBonus, type Outcome } from './loot';
@@ -122,7 +122,6 @@ export class Campaign {
       world: World.fresh((seed ^ 0x7f4a7c15) >>> 0 || 1, true),
     };
     data.world.food = FOOD_RULES.openingFood;
-    data.campaignId = campaignIdFor(data.world.seed);
     return new Campaign(data);
   }
 
