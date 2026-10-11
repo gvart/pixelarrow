@@ -407,7 +407,8 @@ check('equipped a helmet from the stash', helm.on === 'smoke_helm' && !helm.inSt
 // ---- use the ability in battle
 await ev(() => window.__game.scene.getScene('Hero').back());
 await wait(400);
-await tapBtn('Army', { label: 'Town' });
+// the Army has no footer back (N3, ARM-01): its top-bar back returns to the town that opened it
+await tapBtn('Army', { id: 'army.topbar.back' });
 await wait(400);
 await tapBtn('Settlement', { label: 'Leave' });
 await need('left the village', await until(() => active('World'), 15000));
