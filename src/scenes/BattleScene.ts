@@ -7,7 +7,7 @@ import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, str
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, type TopBarOpts } from '../ui/battleHud';
+import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, type BadgeSpec, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -46,7 +46,7 @@ import { openSettings } from '../ui/settings';
 import { battleAudio, uiError } from '../audio/hooks';
 import { sfx } from '../audio';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
-import { rallyRadius } from '../sim/stats';
+import { isCaptain, rallyRadius } from '../sim/stats';
 import { BOULDER_GEOM, TREE_GEOM, renderBoulder, renderGlint, renderSparkle, renderTree } from '../art/terrainArt';
 import { campaignSetup, markBattle, settleBattle } from '../game/campaignBattle';
 import { HEIGHT_RULES } from '../data/terrain';
@@ -3116,6 +3116,8 @@ export class BattleScene extends BaseScene {
         portrait: this.portraitOf(c.gid),
         selected: this.selGroup === c.gid,
         routed: g.routed,
+        // RD-01: the morale glyph, the Standard and "Flanked!" (battle-readability.md R1, R3)
+        ...groupReadout(this.sim, c.gid),
       });
     }
     // the order row shows the order in force: rebuild when that changes (orders are rare events)
@@ -3139,11 +3141,15 @@ export class BattleScene extends BaseScene {
     const S = this.m.S;
     const seen = new Set<number>();
     this.tagPos.clear();
+    // RD-01: every group wears a badge (R2): ours tappable with its numeral, the enemy's a glyph plate
+    const focused = new Set(this.sim.groups.filter((o) => o.side === this.me && o.fireAtWill && !o.routed).map((o) => o.focus ?? -1));
+    const alpha = badgeAlpha(zoomUnits(cam.zoom));
     for (const g of this.sim.groups) {
-      if (g.side !== this.me || g.disbanded) continue;
+      if (g.disbanded) continue;
       const mem = this.sim.activeMembers(g.id);
       if (mem.length === 0) continue;
-      const label = groupNumeral(this.sim.groups, g.id);
+      const mine = g.side === this.me;
+      const label = mine ? groupNumeral(this.sim.groups, g.id) : '';
       seen.add(g.id);
       // Tag floats above the group's centre (mean position), clear of the front rank.
       let cx = 0;
@@ -3161,22 +3167,23 @@ export class BattleScene extends BaseScene {
       const sy = (top - 46 - cam.worldView.y) * cam.zoom;
       let tag = this.tagMap.get(g.id);
       const sel = this.selGroup === g.id;
-      if (!tag || tag.getData('label') !== label || tag.getData('sel') !== sel) {
+      const spec: BadgeSpec = { numeral: label, mine, selected: sel, readout: groupReadout(this.sim, g.id, (u) => isCaptain(this.views[u.id].hero)), focused: !mine && focused.has(g.id) };
+      if (!tag || tag.getData('key') !== badgeKey(spec)) {
         tag?.destroy();
-        tag = this.add.container(0, 0);
-        const w = Math.ceil(mw(label, 'rCream', 6.5)) + 9;
-        const plate = mosaicImage(this, -w / 2, -6, w, 13, sel ? 'btnLit' : 'btnBronze');
-        tag.add(plate);
-        tag.add(addText(this, 0, -3.4, label, sel ? 'rInk' : 'rCream', 0.5).setFontSize(6.5));
-        tag.setData('label', label);
-        tag.setData('sel', sel);
+        const made = fieldBadge(this, spec);
+        if (!made) {
+          this.tagMap.delete(g.id);
+          continue;
+        }
+        tag = made;
         this.tags.add(tag);
         this.tagMap.set(g.id, tag);
       }
       const tx = Math.round(sx / S);
       const ty = Math.round(Math.max(this.topH() + 6, sy / S));
-      tag.setPosition(tx, ty);
-      this.tagPos.set(g.id, { x: tx, y: ty });
+      tag.setPosition(tx, ty).setAlpha(alpha);
+      // only our badges are tap targets (a tap selects the group)
+      if (mine) this.tagPos.set(g.id, { x: tx, y: ty });
     }
     for (const [gid, tag] of this.tagMap) {
       if (!seen.has(gid)) {
