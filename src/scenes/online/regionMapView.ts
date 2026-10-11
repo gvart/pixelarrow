@@ -83,6 +83,9 @@ export interface WorldMapView {
 }
 
 /** Territory colours. */
+/** The tint of the unexplored parchment around the map (WAR-3: toned, not a white band). */
+export const FOG_TONE = 0xd9c8aa;
+
 export const TERRITORY = { mine: 0x3f78c0, clan: 0x2ea89a, others: [0xb83a2c, 0x8a4aa0, 0xc8762a, 0xa02f5a, 0xb89a2c, 0x7a5a48, 0x6a3a8a, 0x9a6a3a] };
 
 export function territoryColor(map: Pick<MapView, 'you'>, r: Pick<RegionView, 'owner' | 'clan'>): number | null {
@@ -92,8 +95,35 @@ export function territoryColor(map: Pick<MapView, 'you'>, r: Pick<RegionView, 'o
   return otherColor(r.clan ?? r.owner);
 }
 
+/**
+ * The crest a region's plate carries (G13, N68): your land and your clan's land show a small shield, not only
+ * a tint, so ownership never rests on colour alone. Others' land keeps the colour pip.
+ */
+export function plateCrest(map: Pick<MapView, 'you'>, r: Pick<RegionView, 'owner' | 'clan'>): 'mine' | 'clan' | null {
+  if (r.owner === null) return null;
+  if (r.owner === map.you.id) return 'mine';
+  if (map.you.clan !== null && r.clan === map.you.clan) return 'clan';
+  return null;
+}
+
+/** A name plate `w` wide for text, with the owner's pip or crest at its left end (11 px tall). */
+function crestPlatePix(w: number, accent: number | null, crest: 'mine' | 'clan' | null): Pix {
+  if (!crest || accent === null) return platePix(w + (accent !== null ? 6 : 0), 11, accent);
+  const p = platePix(w + 8, 11, null);
+  // a shield 5 x 7 in the owner's colour on a dark rim; the clan's is split with cream
+  const x0 = 5;
+  const rows = ['.#####.', '#ooooo#', '#ooooo#', '#ooooo#', '#ooooo#', '.#ooo#.', '..#o#..', '...#...'];
+  rows.forEach((row, j) =>
+    [...row].forEach((ch, i) => {
+      if (ch === '#') p.set(x0 + i, 1 + j, 0x2a1a10);
+      else if (ch === 'o') p.set(x0 + i, 1 + j, crest === 'clan' && i >= 4 ? 0xf0e2c0 : accent);
+    }),
+  );
+  return p;
+}
+
 /** A stable colour for another player's (or clan's) land and armies. */
-function otherColor(id: number): number {
+export function otherColor(id: number): number {
   return TERRITORY.others[Math.abs(Math.imul(id, 2654435761)) % TERRITORY.others.length];
 }
 
@@ -118,6 +148,15 @@ export function zoomStep(z: number, dir: 1 | -1, lim: { min: number; max: number
   if (dir > 0) return ok.find((v) => v > z + 1e-3) ?? ok[ok.length - 1];
   for (let i = ok.length - 1; i >= 0; i--) if (ok[i] < z - 1e-3) return ok[i];
   return ok[0];
+}
+
+/**
+ * The zoom key's next level (WCAG 2.5.1: pinch is never the only way): overview, the start zoom, close, then
+ * round again. Every level is pixel-clean and inside the limits.
+ */
+export function zoomCycle(z: number, lim: { min: number; max: number; start: number }): number {
+  const levels = [...new Set([snapZoom(lim.start / 4, lim), snapZoom(lim.start, lim), snapZoom(lim.start * 2, lim)])].sort((a, b) => a - b);
+  return levels.find((v) => v > z + 1e-3) ?? levels[0];
 }
 
 /** Keeps the camera centre on the map. */
@@ -159,8 +198,8 @@ interface LabelObj {
   y: number;
   plate: Phaser.GameObjects.Image;
   text: Phaser.GameObjects.BitmapText;
-  /** Owner pip on the plate (text shifted right). */
-  acc: boolean;
+  /** The owner's mark on the plate (a colour pip, or the crest of your own and your clan's land): the text shifts right by this, plate px. */
+  acc: number;
   /** Zoom it was laid out for. */
   z: number;
   /** Crowded out by a more important label at this zoom. */
@@ -321,7 +360,8 @@ export class ParchmentMapView implements WorldMapView {
     const st: MapState = { fog: new Uint8Array(this.world.map.w * this.world.map.h).fill(1), owner: new Map() };
     const key = this.addTex(bakeChunk(this.fields, st, 1, 0, 0, T, T));
     const pad = 4096;
-    this.margin = this.scene.add.tileSprite(-pad, -pad, this.fields.W + 2 * pad, this.fields.H + 2 * pad, key).setOrigin(0, 0);
+    // toned (WAR-3): the unexplored parchment reads as paper, not as a white band over the map
+    this.margin = this.scene.add.tileSprite(-pad, -pad, this.fields.W + 2 * pad, this.fields.H + 2 * pad, key).setOrigin(0, 0).setTint(FOG_TONE);
     this.groundOverview.addAt(this.margin, 0);
   }
 
@@ -388,18 +428,20 @@ export class ParchmentMapView implements WorldMapView {
       if (r.kind === 'sea') continue;
       const v = this.regions.get(r.id);
       if (!v) continue;
-      const text = addText(this.scene, 0, 0, r.name, r.kind === 'capital' ? 'red' : 'ink', 0.5);
+      // ink on the parchment plate (WAR-2: the old cream letters vanished on a pale plate)
+      const text = addText(this.scene, 0, 0, r.name, r.kind === 'capital' ? 'pBad' : 'pInk', 0.5);
       const w = Math.ceil(text.width) + 6;
       const accent = territoryColor(map, v);
-      const pk = `${this.prefix}plate_${w}_${accent ?? 'n'}`;
-      if (!this.scene.textures.exists(pk)) this.scene.textures.addCanvas(pk, platePix(w + (accent !== null ? 6 : 0), 11, accent).toCanvas());
+      const crest = plateCrest(map, v);
+      const pk = `${this.prefix}plate_${w}_${accent ?? 'n'}_${crest ?? ''}`;
+      if (!this.scene.textures.exists(pk)) this.scene.textures.addCanvas(pk, crestPlatePix(w, accent, crest).toCanvas());
       const plate = this.scene.add.image(0, 0, pk).setOrigin(0.5, 0);
       text.setOrigin(0.5, 0);
       this.labelC.add([plate, text]);
       const pl = this.fields.placedOf(r.id);
       const x = pl ? Math.round(pl.x + pl.w / 2) : r.label[0];
       const y = pl ? pl.y + pl.h + (r.kind === 'capital' ? 0 : -2) : r.label[1] + 12;
-      this.labels.push({ loc: r.id, rank: RANK[r.kind] ?? 3, x, y, plate, text, acc: accent !== null, z: -1, hide: false });
+      this.labels.push({ loc: r.id, rank: RANK[r.kind] ?? 3, x, y, plate, text, acc: crest ? 4 : accent !== null ? 3 : 0, z: -1, hide: false });
     }
   }
 
@@ -417,7 +459,7 @@ export class ParchmentMapView implements WorldMapView {
         l.hide = true;
       }
       for (const l of order) {
-        const acc = l.acc ? 3 : 0;
+        const acc = l.acc;
         const w = l.plate.width * k;
         const h = 11 * k;
         const y = Math.round(l.y + (k - 1) * 4);
