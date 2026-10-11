@@ -109,6 +109,8 @@ let arcSeen: { seed: number; fallen: number; stage: string; sacked: boolean } | 
 /** The first-visit coach marks (campaign-arc.md R1.6), in order; seen once (settings.seenHints). */
 const COACH = ['goal', 'bands', 'towns'] as const;
 const COACH_HINT = 'coach.world';
+/** The Arc sheet's lair rows, in this order. */
+const ROW_ORDER: Record<ArcLairRow['state'], number> = { standing: 0, reborn: 1, burnt: 2, unknown: 3 };
 
 export class WorldScene extends BaseScene {
   private w!: World;
@@ -140,7 +142,7 @@ export class WorldScene extends BaseScene {
   /** The lair the army marches on to assault: its Assault sheet opens again on arrival (-1: none). */
   assaultTarget = -1;
   /** Lair plates on the map (garrison, burnt, reborn) by lair id, with what they were drawn for. */
-  private lairViews = new Map<number, { c: Phaser.GameObjects.Container; key: string }>();
+  private lairViews = new Map<number, { c: Phaser.GameObjects.Container; key: string; ash?: Phaser.GameObjects.Ellipse }>();
   private lairHour = -1;
   private hostG!: Phaser.GameObjects.Graphics;
   private arcChip: MChip | null = null;
@@ -1172,6 +1174,15 @@ export class WorldScene extends BaseScene {
         band = p;
       }
     }
+    // bands gather at their lair: a tap on a standing lair's picture or its garrison plate is the lair,
+    // unless it is right on a band's figure
+    const lair = this.lairAt(x, y);
+    if (lair >= 0 && (!band || bd > 4)) {
+      this.setWaiting(false);
+      haptic('light');
+      this.openAssault(lair);
+      return;
+    }
     if (band) {
       const ratio = band.power / Math.max(1, this.info.power);
       this.showBanner(t('wld.bandTap', { name: bandName(band.name), men: t('wld.enc.men', { n: band.size }), threat: t(`wld.threat.${threatLevel(ratio)}` as TKey).toLowerCase() }));
@@ -1307,18 +1318,36 @@ export class WorldScene extends BaseScene {
       }
       v.key = key;
       v.c.removeAll(true);
+      v.ash?.destroy();
+      v.ash = undefined;
+      // under the lair's name plate: its bands gather on the lair itself, their plates above it
       const site = this.siteOf(st.id);
-      const sw = site ? site.w : 16;
-      const sh = site ? site.h : 12;
-      const top = site ? site.y : st.y * WTILE - 6;
-      v.c.setPosition(Math.round(site ? site.x + sw / 2 : st.x * WTILE + WTILE / 2), Math.round(top)).setDepth((site ? site.ly : top + sh) + 3);
+      const lx = Math.round(site ? site.lx : st.x * WTILE + WTILE / 2);
+      const ly = Math.round(site ? site.ly + 2 : st.y * WTILE + WTILE / 2 + 6) + 22;
+      v.c.setPosition(lx, ly).setDepth(ly + 3);
       if (burnt) {
-        // ashes over the lair's picture, and a flame on a dark plate above it
-        v.c.add(this.add.ellipse(0, Math.round(sh * 0.6), Math.round(sw * 0.85), Math.round(sh * 0.6), 0x2a2018, 0.5));
+        // ashes over the lair's picture, and a flame on a dark plate
+        const cx = site ? site.x + site.w / 2 : st.x * WTILE + WTILE / 2;
+        const cy = site ? site.y + site.h * 0.55 : st.y * WTILE;
+        // (on the ground: under the bands that still gather there)
+        v.ash = this.add.ellipse(Math.round(cx), Math.round(cy), Math.round((site?.w ?? 16) * 0.85), Math.round((site?.h ?? 12) * 0.6), 0x2a2018, 0.5).setDepth(Math.round(cy) - 8);
+        this.layer.add(v.ash);
         v.c.add(this.add.rectangle(0, 0, 12, 11, P.outline).setOrigin(0.5, 1));
         v.c.add(scaleIcon(addIcon(this, -4, -10, 'fire'), 8 / 12));
       } else if (g) this.drawPlate(v.c, `${g.size}`, lvl, true, reborn ? 'reborn' : undefined);
     }
+  }
+
+  /** The standing, found lair whose picture, name or garrison plate holds world pixel (x, y); -1 for none. */
+  private lairAt(x: number, y: number): number {
+    for (const st of this.w.map.settlements) {
+      if (st.kind !== 'lair' || this.w.lairFallen(st.id) || !this.w.isExplored(st.x, st.y)) continue;
+      const site = this.siteOf(st.id);
+      // the picture down to the garrison plate under the name plate (refreshLairs)
+      const box = site ? { x: site.x, y: site.y, w: site.w, h: Math.max(site.h, site.ly + 26 - site.y) } : { x: st.x * WTILE - 6, y: st.y * WTILE - 8, w: 20, h: 40 };
+      if (x >= box.x && x < box.x + box.w && y >= box.y && y < box.y + box.h) return st.id;
+    }
+    return -1;
   }
 
   /** The host's dotted march line to its goal (R5.2: "a dotted march line to the starting town"), over the fog. */
@@ -1378,18 +1407,20 @@ export class WorldScene extends BaseScene {
     const near = (st: SettlementDef) => towns.reduce((b, q) => (Math.hypot(q.x - st.x, q.y - st.y) < Math.hypot(b.x - st.x, b.y - st.y) ? q : b), towns[0])?.name ?? null;
     const rows: ArcLairRow[] = m.settlements
       .filter((st) => st.kind === 'lair')
-      .map((st) => {
+      .map((st): ArcLairRow => {
         const burnt = w.lairFallen(st.id);
         const found = burnt || w.isExplored(st.x, st.y);
         const state = burnt ? 'burnt' : !found ? 'unknown' : w.isReborn(st.id) ? 'reborn' : 'standing';
         return { id: st.id, name: lairName(st.name), near: found ? near(st) : null, state, men: w.garrisonSize(st.id) };
-      });
+      })
+      // the targets first, then what is done, then what is still to find
+      .sort((a, b) => ROW_ORDER[a.state] - ROW_ORDER[b.state] || a.id - b.id);
     const host = w.s.arc.stage === 'host' ? w.host : null;
     const goal = w.postGame ? t('arc.goal.won') : host ? t('arc.goal.host', { town: start.name }) : t('arc.goal.lairs', { total: ARC_LAIRS });
     const sackDays = w.isSacked(m.start) ? Math.ceil(((w.s.arc.sackedUntil ?? 0) - w.s.time) / 24) : 0;
     const handle = openArcSheet(
       this,
-      { goal, sacked: sackDays > 0 ? t('arc.sacked', { town: start.name, n: sackDays }) : null, host: host ? { men: host.size } : null, rows, journal: w.s.journal, onFocus: (id) => this.focusOn(id) },
+      { goal, sacked: sackDays > 0 ? t('arc.sacked', { town: start.name, n: sackDays }) : null, host: host ? { men: host.size, town: start.name } : null, rows, journal: w.s.journal, onFocus: (id) => this.focusOn(id) },
       tab,
       () => {
         if (this.arcSheet === handle) this.arcSheet = null;
@@ -1521,7 +1552,7 @@ export class WorldScene extends BaseScene {
 
   /** One piece of news at a time, each for 3.5 s (the banner keeps the last for its 6 s). */
   private drainNews(): void {
-    if (!this.news.length || this.cine || this.coach || this.time.now < this.newsAt) return;
+    if (!this.news.length || this.cine || this.coach || this.encounter || this.eventCard || this.assaultSheet || this.arcSheet || this.time.now < this.newsAt) return;
     this.newsAt = this.time.now + 3500;
     this.showBanner(this.news.shift()!);
   }

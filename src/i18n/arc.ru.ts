@@ -24,7 +24,7 @@ export const ARC_RU: Record<keyof typeof ARC_EN, Entry> = {
     many: '{town} разграблен: ни найма, ни рынка ещё {n} дней.',
     other: '{town} разграблен: ни найма, ни рынка ещё {n} дня.',
   },
-  'arc.host.row': { one: 'Войско Тирана · {n} боец', few: 'Войско Тирана · {n} бойца', many: 'Войско Тирана · {n} бойцов', other: 'Войско Тирана · {n} бойца' },
+  'arc.host.row': { one: '{n} боец · идёт на {town}', few: '{n} бойца · идёт на {town}', many: '{n} бойцов · идёт на {town}', other: '{n} бойца · идёт на {town}' },
   'arc.lair.standing': { one: 'Стоит · {n} боец', few: 'Стоит · {n} бойца', many: 'Стоит · {n} бойцов', other: 'Стоит · {n} бойца' },
   'arc.lair.reborn': { one: 'Возродилось · {n} боец', few: 'Возродилось · {n} бойца', many: 'Возродилось · {n} бойцов', other: 'Возродилось · {n} бойца' },
   'arc.lair.burnt': 'Сожжено',

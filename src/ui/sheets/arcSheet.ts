@@ -38,7 +38,7 @@ export interface ArcModel {
   /** "{town} is sacked..." while the start town burns. */
   sacked: string | null;
   /** The host's row while it marches. */
-  host: { men: number } | null;
+  host: { men: number; town: string } | null;
   rows: ArcLairRow[];
   /** Journal lines (world.ts logJournal), oldest first. */
   journal: readonly string[];
@@ -105,7 +105,7 @@ function lairsPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Ar
   y += para(scene, c, 0, y, m.goal, 'pInk', w) + 3;
   if (m.sacked) y += para(scene, c, 0, y, m.sacked, 'pBad', w, SMALL) + 3;
   y += para(scene, c, 0, y, t('arc.lair.tapHint'), 'pSec', w, SMALL) + 4;
-  if (m.host) y += row(scene, c, y, w, 'standard', t('wld.band.host'), t('arc.host.row', { n: m.host.men }), 'arc.host', () => focus(-1)) + 3;
+  if (m.host) y += row(scene, c, y, w, 'standard', t('wld.band.host'), t('arc.host.row', { n: m.host.men, town: m.host.town }), 'arc.host', () => focus(-1)) + 3;
   for (const r of m.rows) {
     const sub = r.near ? `${stateLine(r)} · ${t('arc.lair.near', { town: r.near })}` : stateLine(r);
     y += row(scene, c, y, w, STATE_ICON[r.state], r.name, sub, `arc.lair.${r.id}`, r.state === 'unknown' ? null : () => focus(r.id)) + 3;

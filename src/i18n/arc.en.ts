@@ -21,7 +21,7 @@ export const ARC_EN = {
   'arc.goal.host': "The Tyrant's host marches on {town}. Beat it in battle to win the campaign.",
   'arc.goal.won': 'The Tyrant is beaten. The world goes on: reborn lairs rise again to be burnt.',
   'arc.sacked': { one: '{town} is sacked: no recruits or market for {n} day.', other: '{town} is sacked: no recruits or market for {n} days.' },
-  'arc.host.row': { one: "The Tyrant's host · {n} man", other: "The Tyrant's host · {n} men" },
+  'arc.host.row': { one: '{n} man · marching on {town}', other: '{n} men · marching on {town}' },
   'arc.lair.standing': { one: 'Standing · {n} man', other: 'Standing · {n} men' },
   'arc.lair.reborn': { one: 'Reborn · {n} man', other: 'Reborn · {n} men' },
   'arc.lair.burnt': 'Burnt',
