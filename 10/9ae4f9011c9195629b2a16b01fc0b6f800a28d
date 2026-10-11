@@ -1,0 +1,43 @@
+src/ui/econ/consumablePicker.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 18-19,66-67
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 32,323
+src/i18n/shop.v5.ru.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 1-12
+tests/shopParity.test.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 1-105
+src/i18n/en.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 40,353-354
+tests/shop-parity.before.json
+  s_697bdc25a7c420::t_01d11d2e5d16f2 1-507
+docs/v5/art/asset-manifest.json
+  s_697bdc25a7c420::t_01d11d2e5d16f2 85-92
+src/i18n/shop.v5.en.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 1-13
+src/scenes/ShopScene.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 4-9,19-20,28-29,35-42,58-65,88-91,102-103,165,167,190,224-228,255,257-260,269,277-278,300-304,311-312,314-324,333,337-374,454-457,459,469-471,474-500,502-505,508,510,512,514,516,518,520-527,530,532-533,535-545,547-548,551-554,556-560,562-569,574,580-585,590-591,593,602-605,610,612,615-617,621-624,628-630,632,639-644,646,649,652,654-657,660-689,746-754,771,773-774,783-784,786-801,803
+src/ui/econ/shopModel.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 1-72
+src/ui/econ/shopParts.ts
+  s_697bdc25a7c420::t_01d11d2e5d16f2 1-315
+docs/v5/stories/SHP-01/NOTES.md
+  s_697bdc25a7c420::t_01d11d2e5d16f2 1-57
+docs/v5/ASSET_LOG.md
+  s_697bdc25a7c420::t_01d11d2e5d16f2 11-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "109ae4f9011c9195629b2a16b01fc0b6f800a28d",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
