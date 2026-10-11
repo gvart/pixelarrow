@@ -7,7 +7,7 @@ import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, str
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, type TopBarOpts } from '../ui/battleHud';
+import { HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -21,11 +21,12 @@ import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
 import { Battle, DT, TICK_RATE } from '../sim/battle';
 import { Rng } from '../sim/rng';
-import { SPACING, formationSlots, rightOf, type FormationType } from '../sim/formation';
+import { SPACING, formationSlots, presetFrontage, rightOf, type FormationType } from '../sim/formation';
 import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import { hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
-import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf } from '../ui/input/undo';
+import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf, type UndoStep } from '../ui/input/undo';
+import { StagedPlan, TAP_GHOST_MS, THEN_CHIP_S, ThenQueue, type ThenKey } from '../ui/orderQueue';
 import { CARD_DOUBLE_TAP_MS, FOLLOW_MARGIN, POINTER_INSET, RECENTRE_MS, FOLLOW_CATCH_UP, boxOf, centreOf, edgePointer, followCentre, keepInView, openingFrame, type Box } from '../ui/battleCamera';
 import { motion } from '../ui/motion';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
@@ -58,6 +59,12 @@ import { tutorialBattle } from '../game/tutorial';
 // World pixels come from the 2:1 isometric projection in src/art/iso.ts.
 const MARGIN_X = 200; // grass beyond the field's screen bounds
 const MARGIN_Y = 300; // generous: a portrait viewport at zoom 1 is taller than the field
+
+/** The order key's name for a queued "Then…" step (the same words as the order bar). */
+function thenLabel(k: ThenKey): string {
+  const key: Record<ThenKey, TKey> = { advance: 'battle.ring.advance', charge: 'battle.ring.charge', hold: 'battle.ring.hold', loose: 'battle.ring.shoot', fallback: 'battle.ring.back' };
+  return t(key[k]);
+}
 /** A live duel more than this many sealed turns behind catches up, at most CATCH_UP_STEPS sim steps a frame. */
 const CATCH_UP_TURNS = 4;
 const CATCH_UP_STEPS = 120;
@@ -184,6 +191,22 @@ export class BattleScene extends BaseScene {
   private undoChip: KeyButton | null = null;
   /** Whether a battle undo was live when the HUD was last built. */
   private undoLive = false;
+  /** The one-step "Then…" queue (controls.md R6.2): client-side, it fires as an ordinary order on arrival. */
+  private thenQ = new ThenQueue();
+  /** The group a move was just ordered for, and when: the Then… chip shows for THEN_CHIP_S (offline only, R10b). */
+  private thenOffer: { gid: number; at: number } | null = null;
+  /** Then… was tapped: the next order key for this group is queued on arrival (-1: not arming). */
+  private thenArming = -1;
+  /** Whether the Then… chip was on screen when the HUD was last built. */
+  private thenLive = false;
+  /** Undo steps that stand for arming a Then… (undoing one clears the queued step, R4.1). */
+  private thenSteps = new WeakSet<UndoStep>();
+  /** Paused staging (controls.md R6.1): orders given while paused offline, issued on Play at the resume tick. */
+  private plan = new StagedPlan();
+  /** The ✕ on each staged group's ghost (removes that group's staged orders). */
+  private ghostBtns = new Map<number, KeyButton>();
+  /** The tap-move preview (R5): the path line and the destination ghost, until `until` (ms). */
+  private tapGhost: { gid: number; from: { x: number; y: number }; cx: number; cy: number; fx: number; fy: number; frontage: number; type: FormationType; n: number; until: number } | null = null;
   /** The formation drag under way (move or turn), from its first drag event to the lift. */
   private drag: DragState | null = null;
   private dragPreview: { cx: number; cy: number; fx: number; fy: number; frontage: number; type: FormationType; n: number; label: string } | null = null;
@@ -302,6 +325,13 @@ export class BattleScene extends BaseScene {
     this.battleUndo.clear();
     this.undoChip = null;
     this.undoLive = false;
+    this.thenQ.reset();
+    this.thenOffer = null;
+    this.thenArming = -1;
+    this.thenLive = false;
+    this.plan.clear();
+    this.ghostBtns.clear();
+    this.tapGhost = null;
     this.drag = null;
     this.dragPreview = null;
     this.dragLabel = null;
@@ -710,6 +740,7 @@ export class BattleScene extends BaseScene {
       }
       if (catchUp) this.acc = Math.min(this.acc, DT);
       this.hudDirty = true;
+      this.fireThen();
     } else if (this.sim.phase === 'ended') {
       this.handleEvents(this.sim.drainEvents());
     }
@@ -727,6 +758,8 @@ export class BattleScene extends BaseScene {
     this.updateTags();
     this.updatePointers();
     if (this.undoLive || this.battleUndo.size) this.updateUndoChip();
+    if (this.thenLive !== this.thenChipLive()) this.buildHud();
+    this.updateGhostBtns();
     if (this.hudDirty) this.refreshHud();
   }
 
@@ -1118,7 +1151,7 @@ export class BattleScene extends BaseScene {
       zone(this.foe, 0xe07060, 0xa83a2c, this.hideFoes() ? 0.16 : 0.08);
       zone(this.me, 0xf6ecd8, 0x4a6b8a, 0.12);
     }
-    const drawSlots = (slots: { x: number; y: number }[], fx: number, fy: number, color: number, a: number) => {
+    const drawSlots = (slots: { x: number; y: number }[], fx: number, fy: number, color: number, a: number, dashed = false) => {
       const r = rightOf(fx, fy);
       const hw = 0.36;
       const hd = 0.4;
@@ -1133,9 +1166,11 @@ export class BattleScene extends BaseScene {
           return [Math.round(p.x), Math.round(p.y)] as [number, number];
         });
         // a translucent cyan-grey cell per soldier: together they read as the formation's lattice
-        g.fillStyle(color, a * 0.3);
+        g.fillStyle(color, a * (dashed ? 0.15 : 0.3));
         g.fillPoints(corners.map(([x, y]) => new Phaser.Math.Vector2(x, y)), true);
-        this.dashRect(g, corners, color, a, 1, 0);
+        // a ghost (a staged or a previewed position) has a dashed outline over a dark one, to read on any ground (A11Y-03)
+        if (dashed) this.dashRect(g, corners, 0x2a1d14, a * 0.7, 3, 0);
+        this.dashRect(g, corners, color, a, dashed ? 2 : 1, dashed ? 1 : 0);
       }
     };
     if (this.dragPreview) {
@@ -1147,7 +1182,36 @@ export class BattleScene extends BaseScene {
       return;
     }
     this.placeDragLabel(null);
-    if (this.sim.phase === 'battle') this.drawMoveOrders(g);
+    if (this.sim.phase === 'battle') {
+      this.drawMoveOrders(g);
+      // the tap-move preview (R5): a path line from the group to a ghost at the destination, for TAP_GHOST_MS
+      const tg = this.tapGhost;
+      if (tg && this.time.now < tg.until) {
+        const a = isoToScreen(tg.from.x, tg.from.y);
+        const b = isoToScreen(tg.cx, tg.cy);
+        this.pathLine(g, a, b, 0xfff4c0, 0.9);
+        drawSlots(formationSlots({ type: tg.type, cx: tg.cx, cy: tg.cy, fx: tg.fx, fy: tg.fy, frontage: tg.frontage }, tg.n), tg.fx, tg.fy, 0xfff4c0, 0.85, true);
+      } else this.tapGhost = null;
+      // the plan while paused (R6.1): each staged group's ghost (dashed), its facing, and a staged Charge's arrow (R5)
+      if (this.plan.size) {
+        for (const gid of this.plan.groups()) {
+          const f = this.stagedFormation(gid);
+          const n = this.sim.activeMembers(gid).length;
+          if (f && n > 0) {
+            drawSlots(formationSlots(f, n), f.fx, f.fy, 0xfff4c0, 0.9, true);
+            this.drawFacingKnob(this.knobG, f.cx, f.cy, f.fx, f.fy, 0xfff4c0, 0.5);
+          }
+          if (this.plan.last(gid, 'order')?.order === 'charge') {
+            const from = f && n > 0 ? (() => {
+              const sl = formationSlots(f, n);
+              return { x: sl.reduce((q, p) => q + p.x, 0) / sl.length, y: sl.reduce((q, p) => q + p.y, 0) / sl.length };
+            })() : undefined;
+            const c = chargeTarget(this.sim, gid, from);
+            if (c) this.chargeArrow(g, isoToScreen(c.from.x, c.from.y), isoToScreen(c.to.x, c.to.y));
+          }
+        }
+      }
+    }
     if (this.selGroup >= 0) {
       const grp = this.sim.groups[this.selGroup];
       if (!grp || grp.disbanded) return;
@@ -1157,6 +1221,48 @@ export class BattleScene extends BaseScene {
       // the facing arrow and its knob: drag the knob to turn the group
       const fr = this.canCommand() && this.sim.phase !== 'ended' ? this.selectedFrame() : null;
       if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85);
+    }
+  }
+
+  /** A straight dotted path line (the tap-move preview), on a dark under-dot so it reads on light ground. */
+  private pathLine(g: Phaser.GameObjects.Graphics, a: { x: number; y: number }, b: { x: number; y: number }, color: number, alpha: number): void {
+    const len = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    for (let k = 4; k < len - 2; k += 3) {
+      const x = Math.round(a.x + ((b.x - a.x) * k) / len);
+      const y = Math.round(a.y + ((b.y - a.y) * k) / len);
+      g.fillStyle(0x2a1d14, alpha * 0.7);
+      g.fillRect(x - 1, y - 1, 3, 3);
+      g.fillStyle(color, alpha);
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+
+  /**
+   * The staged Charge preview (R5): an arrow from the group to the enemy group
+   * it will hit, in the alert colour on an ink outline, with chevrons along it
+   * so it is not colour only (A11Y-03, A11Y-04).
+   */
+  private chargeArrow(g: Phaser.GameObjects.Graphics, a: { x: number; y: number }, b: { x: number; y: number }): void {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 8) return;
+    const ux = dx / d;
+    const uy = dy / d;
+    // stop short of the target's centre, so the head sits at their front
+    const end = { x: a.x + ux * Math.max(6, d - 10), y: a.y + uy * Math.max(6, d - 10) };
+    const chev = (cx: number, cy: number, s: number) => {
+      g.lineBetween(cx - ux * s - uy * s, cy - uy * s + ux * s, cx, cy);
+      g.lineBetween(cx - ux * s + uy * s, cy - uy * s - ux * s, cx, cy);
+    };
+    for (const [w, c, al] of [
+      [3, 0x2a1d14, 0.8],
+      [1.4, 0xe07060, 1],
+    ] as const) {
+      g.lineStyle(w, c, al);
+      g.lineBetween(a.x, a.y, end.x, end.y);
+      chev(end.x, end.y, 5);
+      for (let k = 14; k < d - 22; k += 14) chev(a.x + ux * k, a.y + uy * k, 3);
     }
   }
 
@@ -1943,7 +2049,13 @@ export class BattleScene extends BaseScene {
       const w = this.cameras.main.getWorldPoint(x, y);
       const fp = screenToIso(w.x, w.y);
       const face = this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy };
+      const solo = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
+      const from = solo ? { x: solo.x, y: solo.y } : groupCentre(this.sim, this.selGroup);
+      const n = this.selUnit >= 0 && !grp.individual ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
       this.command({ kind: 'form', group: -1, cx: fp.x, cy: fp.y, fx: face.x, fy: face.y, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
+      // the tap-move preview: a path line and a ghost at the destination for TAP_GHOST_MS (R5)
+      const l = Math.hypot(face.x, face.y) || 1;
+      if (from) this.tapGhost = { gid: this.selGroup, from, cx: fp.x, cy: fp.y, fx: face.x / l, fy: face.y / l, frontage: n === 1 ? 1 : f.frontage, type: n === 1 ? 'line' : f.type, n, until: this.time.now + TAP_GHOST_MS };
       this.tutorialEvent({ kind: 'tapmove' });
     }
   }
@@ -2014,11 +2126,22 @@ export class BattleScene extends BaseScene {
     if (this.selGroup < 0) return;
     let gid = this.selGroup;
     let solo = -1;
+    const detach = this.selUnit >= 0 && !this.sim.groups[this.sim.units[this.selUnit].group].individual && !this.src?.lockstep;
+    // paused offline: hold the order in the plan, issued on Play (R6.1); a soldier's detach is not staged (his new group has no id yet)
+    if (this.staging() && !detach) {
+      if (this.selUnit >= 0) gid = this.selGroup = this.sim.units[this.selUnit].group;
+      this.plan.add({ ...o, group: gid } as Order);
+      this.afterCommand(o, gid, join);
+      this.showBanner(t('queue.banner.staged', { n: this.plan.size }), 1400);
+      haptic('medium');
+      this.hudDirty = true;
+      this.buildHud();
+      return;
+    }
     if (this.selUnit >= 0) {
       const u = this.sim.units[this.selUnit];
-      const g = this.sim.groups[u.group];
       // (A duel cannot know the new group's id before the relay applies the detach: command the group.)
-      if (!g.individual && !this.src?.lockstep) {
+      if (detach) {
         this.order({ kind: 'detach', unit: u.id });
         solo = u.id;
       }
@@ -2029,9 +2152,178 @@ export class BattleScene extends BaseScene {
     // undoing an order that detached a man sends him back to his group
     this.recordUndo(withGroup, solo >= 0 ? [{ kind: 'rejoin', unit: solo }] : inverseOf(withGroup, this.sim), join);
     this.order(withGroup);
+    this.afterCommand(o, gid, join);
     haptic('medium');
     this.hudDirty = true;
     this.buildHud();
+  }
+
+  // ---- the order queue (controls.md R5, R6; CT-04): staging while paused, the one-step Then…, previews
+
+  /** Paused offline in battle: orders go to the plan, not the sim (R6.1). Never online: those battles never pause. */
+  private staging(): boolean {
+    return this.paused && !this.online && !this.tutorial && this.sim.phase === 'battle';
+  }
+
+  /** Then… is offered: offline battles only (R10b: live online shows no Then chip), not in the scripted tutorial. */
+  private thenAllowed(): boolean {
+    return !this.online && !this.tutorial && this.sim.phase === 'battle';
+  }
+
+  /** After an order to `gid`: a move clears its queued step and offers Then… for THEN_CHIP_S; anything else ends the offer. */
+  private afterCommand(o: Order, gid: number, join: boolean): void {
+    if (this.sim.phase !== 'battle') return;
+    this.thenArming = -1;
+    if (o.kind === 'form') {
+      // a new move order clears the queue (R6.2), and the tap-move preview follows a tap (R5)
+      this.thenQ.clear(gid);
+      this.thenOffer = this.thenAllowed() ? { gid, at: this.time.now } : null;
+    } else if (join || this.thenOffer?.gid === gid) this.thenOffer = null;
+  }
+
+  /** The Then… chip is live: just after a move of the selected group (or while it is arming). */
+  private thenChipLive(): boolean {
+    if (!this.thenAllowed() || this.selGroup < 0) return false;
+    if (this.thenArming >= 0) return this.thenArming === this.selGroup;
+    const o = this.thenOffer;
+    return !!o && o.gid === this.selGroup && this.time.now - o.at < THEN_CHIP_S * 1000 && this.sim.activeMembers(o.gid).length > 0;
+  }
+
+  /** Tap Then…: arm (the next order key is queued), or disarm on a second tap. */
+  private toggleThen(): void {
+    if (this.thenArming >= 0) {
+      this.thenArming = -1;
+      this.hideBanner();
+    } else {
+      this.thenArming = this.selGroup;
+      this.showBanner(t('queue.banner.arm'), 0);
+    }
+    haptic('light');
+    this.buildHud();
+  }
+
+  /** An order key while Then… is armed: queue it on arrival for that group (one step, R6.2). */
+  private queueThen(key: ThenKey): void {
+    const gid = this.thenArming;
+    this.thenArming = -1;
+    this.thenOffer = null;
+    if (gid < 0) return;
+    this.thenQ.arm(gid, key, this.sim);
+    // Undo clears the queued step (R4.1): an undo step with no orders of its own
+    if (!this.staging()) {
+      this.battleUndo.push([], [gid], this.time.now);
+      const step = this.battleUndo.peek(this.time.now);
+      if (step) this.thenSteps.add(step);
+    }
+    this.showBanner(t('queue.banner.queued', { order: thenLabel(key) }), 1400);
+    haptic('medium');
+    this.hudDirty = true;
+    this.buildHud();
+  }
+
+  /** Cancel the queued step of the selected group (its "→ Charge" chip). */
+  private cancelThen(gid: number): void {
+    if (!this.thenQ.clear(gid)) return;
+    this.showBanner(t('queue.banner.cancel'), 1200);
+    haptic('light');
+    this.hudDirty = true;
+    this.buildHud();
+  }
+
+  /** Each frame while the battle runs: a queued step whose group has arrived (F1) is issued as an ordinary order now. */
+  private fireThen(): void {
+    if (!this.thenQ.size || this.sim.phase !== 'battle' || this.paused) return;
+    const due = this.thenQ.due(this.sim);
+    if (!due.length) return;
+    for (const o of due) {
+      this.recordUndo(o, inverseOf(o, this.sim));
+      this.order(o);
+      const key: ThenKey = o.kind === 'loose' ? 'loose' : o.kind === 'order' && o.order !== 'feint' ? o.order : 'hold';
+      this.showBanner(t('queue.banner.fired', { order: thenLabel(key) }), 1200);
+    }
+    haptic('medium');
+    this.hudDirty = true;
+    this.buildHud();
+  }
+
+  /** Play: the plan's orders go to the sim in the order given, at the resume tick (the tick they would have had while paused). */
+  private flushPlan(): void {
+    if (!this.plan.size) return;
+    for (const o of this.plan.flush()) this.order(o);
+    // the plan is given: its steps are not one order to take back
+    this.battleUndo.clear();
+    this.showBanner(t('queue.banner.issued'), 900);
+  }
+
+  /** Clear plan, or remove one group's staged orders (the ✕ on its ghost). */
+  private clearPlan(gid = -1): void {
+    if (gid < 0) this.plan.clear();
+    else this.plan.removeGroup(gid);
+    this.clearPlanFeedback(t(gid < 0 ? 'queue.banner.cleared' : 'queue.banner.removed'));
+  }
+
+  private clearPlanFeedback(msg: string): void {
+    this.showBanner(msg, 900);
+    haptic('medium');
+    this.hudDirty = true;
+    this.buildHud();
+  }
+
+  /** Keep a ✕ on each staged group's ghost (a 44 pt key, R6.1 "a ✕ on each ghost"), following the camera. */
+  private updateGhostBtns(): void {
+    const want = this.staging() ? this.plan.groups() : [];
+    for (const [gid, b] of this.ghostBtns) {
+      if (!want.includes(gid) || !b.active) {
+        if (b.active) b.destroy();
+        this.ghostBtns.delete(gid);
+      }
+    }
+    if (!want.length) return;
+    const cam = this.cameras.main;
+    const S = this.m.S;
+    for (const gid of want) {
+      const f = this.stagedFormation(gid);
+      const n = this.sim.activeMembers(gid).length;
+      // no move staged: the ✕ sits over the group itself
+      const sl = f && n > 0 ? formationSlots(f, n) : this.sim.activeMembers(gid);
+      if (!sl.length) continue;
+      const w = isoToScreen(sl.reduce((q, p) => q + p.x, 0) / sl.length, sl.reduce((q, p) => q + p.y, 0) / sl.length);
+      const x = Math.round(((w.x - cam.worldView.x) * cam.zoom) / S) - 11;
+      const y = Math.round(((w.y - cam.worldView.y) * cam.zoom) / S) - 34;
+      let b = this.ghostBtns.get(gid);
+      if (!b) {
+        b = new KeyButton(this, x, y, 22, 22, { label: t('queue.tip.ghost'), tip: t('queue.tip.ghost'), icon: 'close', iconOnly: true, variant: 'stone', id: `battle.plan.ghost.${groupNumeral(this.sim.groups, gid)}`, onClick: () => this.clearPlan(gid) });
+        this.tags.add(b);
+        this.ghostBtns.set(gid, b);
+      }
+      b.setPosition(x, y);
+    }
+  }
+
+  /** Where the plan puts group `gid`: its formation with the staged form, face and shape applied (null: no move staged). */
+  private stagedFormation(gid: number): { cx: number; cy: number; fx: number; fy: number; frontage: number; type: FormationType } | null {
+    const g = this.sim.groups[gid];
+    if (!g) return null;
+    const f = { cx: g.formation.cx, cy: g.formation.cy, fx: g.formation.fx, fy: g.formation.fy, frontage: g.formation.frontage, type: g.formation.type };
+    let moved = false;
+    for (const o of this.plan.orders) {
+      if (!('group' in o) || o.group !== gid) continue;
+      if (o.kind === 'form') {
+        const l = Math.hypot(o.fx, o.fy);
+        Object.assign(f, { cx: o.cx, cy: o.cy, frontage: o.frontage }, l > 1e-6 ? { fx: o.fx / l, fy: o.fy / l } : {}, o.type ? { type: o.type } : {});
+        moved = true;
+      } else if (o.kind === 'face') {
+        const l = Math.hypot(o.fx, o.fy) || 1;
+        f.fx = o.fx / l;
+        f.fy = o.fy / l;
+        moved = true;
+      } else if (o.kind === 'preset') {
+        f.type = o.type;
+        f.frontage = presetFrontage(o.type, Math.max(1, this.sim.activeMembers(gid).length));
+        moved = true;
+      }
+    }
+    return moved ? f : null;
   }
 
   // ---- undo (controls.md R4): inverse orders, through order() like any other (the log, the server and the relay see only orders)
@@ -2065,10 +2357,22 @@ export class BattleScene extends BaseScene {
   /** Undo the last step: the last order in battle (within UNDO_S), else the last deployment change. */
   private undo(): void {
     const deploy = this.sim.phase === 'deploy';
+    // paused with a plan: Undo takes back the newest staged order (R6.1)
+    if (this.staging() && this.plan.size) {
+      this.plan.pop();
+      this.clearPlanFeedback(t('queue.banner.removed'));
+      return;
+    }
     if (!deploy && !this.liveBattleUndo()) return;
     const step = (deploy ? this.deployUndo : this.battleUndo).pop(this.time.now);
     if (!step) {
       if (deploy) toast(this, t('undo.why.none'));
+      return;
+    }
+    // undoing a Then… clears the queued step (R4.1)
+    if (this.thenSteps.has(step)) {
+      for (const g of step.groups) this.thenQ.clear(g);
+      this.clearPlanFeedback(t('queue.banner.cancel'));
       return;
     }
     for (const o of step.orders) {
@@ -2119,6 +2423,8 @@ export class BattleScene extends BaseScene {
 
   setPaused(p: boolean): void {
     if (p && this.online) return; // online battles never pause
+    // Play issues the staged plan at the resume tick (controls.md R6.1)
+    if (!p && this.paused) this.flushPlan();
     this.paused = p;
     this.refreshStrip();
     this.hudDirty = true;
@@ -2170,6 +2476,9 @@ export class BattleScene extends BaseScene {
     this.hud.removeAll(true);
     this.undoChip = null;
     this.undoLive = this.liveBattleUndo();
+    // Then… arms one group: selecting another lets it go
+    if (this.thenArming >= 0 && this.thenArming !== this.selGroup) this.thenArming = -1;
+    this.thenLive = this.thenChipLive();
     this.cards = [];
     this.abilityBtns = [];
     this.followBtn = null;
@@ -2522,13 +2831,20 @@ export class BattleScene extends BaseScene {
     if (this.shapeOpen) return;
     // the scripted tutorial has no Undo: its lesson keeps the field clear (TUT stories may introduce it)
     const undo = !this.tutorial;
-    const chips: { icon: string; label: string; tip: string; id: string; off?: string; onClick: () => void }[] = [];
+    const chips: { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; onClick: () => void }[] = [];
     // deployment: Undo always there, greyed with its reason while empty (R4.2); online too, it is orders like any other
     if (undo && this.sim.phase === 'deploy') {
       chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.deploy'), id: 'battle.undo', off: this.deployUndo.size ? undefined : t('undo.why.none'), onClick: () => this.undo() });
     }
-    // Undo leads the chip row for 3 s after an order (controls.md R4.1; live online too: it is an order)
-    else if (undo && this.undoLive) chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.battle'), id: 'battle.undo', onClick: () => this.undo() });
+    // Undo leads the chip row for 3 s after an order (controls.md R4.1; live online too: it is an order); paused, it takes back a planned order
+    else if (undo && (this.undoLive || (this.staging() && this.plan.size > 0))) chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.battle'), id: 'battle.undo', onClick: () => this.undo() });
+    // Then… next to Undo for 3 s after a move (R6.2; offline only, R10b); lit while it waits for the order key
+    if (this.thenLive) chips.push({ icon: 'march', label: t('queue.chip.then'), tip: t('queue.tip.then'), id: 'battle.then', lit: this.thenArming >= 0, onClick: () => this.toggleThen() });
+    // the selected group's queued step: "→ Charge", a tap cancels it
+    const queued = sel ? this.thenQ.get(sel.id) : null;
+    if (sel && queued) chips.push({ icon: 'close', label: t('queue.chip.queued', { order: thenLabel(queued) }), tip: t('queue.tip.queued'), id: 'battle.then.cancel', onClick: () => this.cancelThen(sel.id) });
+    // paused with a plan: Clear plan (R6.1)
+    if (this.staging() && this.plan.size > 0) chips.push({ icon: 'close', label: t('queue.chip.clear'), tip: t('queue.tip.clear'), id: 'battle.plan.clear', onClick: () => this.clearPlan() });
     if (sel && this.canCommand() && (sel.focus ?? -1) >= 0) {
       chips.push({ icon: 'close', label: t('target.chip.focus'), tip: t('target.tip.focus'), id: 'battle.target.clear', onClick: () => this.setFocus(-1) });
     }
@@ -2537,11 +2853,17 @@ export class BattleScene extends BaseScene {
     }
     if (!chips.length) return;
     const h = SHEET_HEAD_H;
-    const y = (this.selUnit >= 0 ? this.stripTop() - 27 : this.stripTop()) - 2 - h;
+    let y = (this.selUnit >= 0 ? this.stripTop() - 27 : this.stripTop()) - 2 - h;
     let x = 4;
+    // a chip that would run under the medallion rail starts a row above (CT-04: no chip is dropped)
+    const right = this.m.VW - (this.abilityDefs().length ? MED_W + 4 : 0) - 2;
     for (const c of chips) {
       const w = Math.ceil(mw(c.label, 'light', 6.5)) + ICON_PX + 12;
-      const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, disabledReason: c.off, onClick: c.onClick });
+      if (x > 4 && x + w > right) {
+        x = 4;
+        y -= h + SIZE.gap;
+      }
+      const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, lit: c.lit, disabledReason: c.off, onClick: c.onClick });
       this.hud.add(b);
       if (c.id === 'battle.undo') this.undoChip = this.sim.phase === 'battle' ? b : null;
       else this.cmdBtns.set(c.id.slice('battle.'.length), b);
@@ -2605,16 +2927,20 @@ export class BattleScene extends BaseScene {
     const mem = this.selectedUnits();
     const can = mem.length > 0;
     const why = can ? undefined : t('battle.why.noMen');
-    const order = (o: 'hold' | 'advance' | 'charge' | 'fallback') => () => this.command({ kind: 'order', group: -1, order: o });
+    // Then… armed: the key is queued on arrival instead (R6.2)
+    const arming = this.thenArming === sel.id;
+    const order = (o: 'hold' | 'advance' | 'charge' | 'fallback') => () => (arming ? this.queueThen(o) : this.command({ kind: 'order', group: -1, order: o }));
+    // paused: the keys show the plan's order for the group (R6.1)
+    const now = this.plan.last(sel.id, 'order')?.order ?? sel.order;
     const shooters = mem.filter((u) => u.stats.range > 0);
     const ammo = shooters.some((u) => u.ammo > 0);
     const shootWhy = why ?? (shooters.length === 0 ? t('battle.why.noMissiles') : !ammo ? t('battle.why.outOfAmmo') : undefined);
     const orders: OrderKey[] = [
-      { key: 'advance', icon: 'advance', label: t('battle.ring.advance'), tip: t('battle.tip.radialAdvance'), selected: sel.order === 'advance', off: why, onTap: order('advance') },
-      { key: 'charge', icon: 'charge', label: t('battle.ring.charge'), tip: t('battle.tip.radialCharge'), selected: sel.order === 'charge', off: why, onTap: order('charge') },
-      { key: 'hold', icon: 'hold', label: t('battle.ring.hold'), tip: t('battle.tip.radialHold'), selected: sel.order === 'hold', off: why, onTap: order('hold') },
-      { key: 'loose', icon: 'throw', label: t('battle.ring.shoot'), tip: t('battle.tip.radialShoot'), selected: sel.fireAtWill && ammo, hollow: sel.fireAtWill && ammo && this.far.has(sel.id), off: shootWhy, onTap: () => this.toggleThrow() },
-      { key: 'fallback', icon: 'fallback', label: t('battle.ring.back'), tip: t('battle.tip.radialBack'), selected: sel.order === 'fallback', off: why, onTap: order('fallback') },
+      { key: 'advance', icon: 'advance', label: t('battle.ring.advance'), tip: t('battle.tip.radialAdvance'), selected: now === 'advance', off: why, onTap: order('advance') },
+      { key: 'charge', icon: 'charge', label: t('battle.ring.charge'), tip: t('battle.tip.radialCharge'), selected: now === 'charge', off: why, onTap: order('charge') },
+      { key: 'hold', icon: 'hold', label: t('battle.ring.hold'), tip: t('battle.tip.radialHold'), selected: now === 'hold', off: why, onTap: order('hold') },
+      { key: 'loose', icon: 'throw', label: t('battle.ring.shoot'), tip: t('battle.tip.radialShoot'), selected: (this.plan.last(sel.id, 'loose')?.on ?? sel.fireAtWill) && ammo, hollow: sel.fireAtWill && ammo && this.far.has(sel.id), off: shootWhy, onTap: () => (arming ? this.queueThen('loose') : this.toggleThrow()) },
+      { key: 'fallback', icon: 'fallback', label: t('battle.ring.back'), tip: t('battle.tip.radialBack'), selected: now === 'fallback', off: why, onTap: order('fallback') },
     ];
     return orders;
   }
@@ -2771,6 +3097,8 @@ export class BattleScene extends BaseScene {
       const far = this.sim.phase === 'battle' && this.outOfRange.check(this.sim, c.gid, this.sim.tick / TICK_RATE);
       if (far) this.far.add(c.gid);
       else this.far.delete(c.gid);
+      const q = this.sim.phase === 'battle' ? this.thenQ.get(c.gid) : null;
+      const queued = q ? thenLabel(q) : '';
       c.card.setInfo({
         numeral: c.numeral,
         men: mem.length,
@@ -2779,8 +3107,9 @@ export class BattleScene extends BaseScene {
         orderIcon: g.routed ? 'flag' : g.shieldWall ? 'wall' : g.order,
         name: g.individual ? this.sim.members(c.gid)[0]?.name : groupName(g.name),
         shortName: g.individual ? undefined : groupName(g.name, true),
-        orderWord: g.routed ? t('battle.order.routed') : this.sim.phase === 'deploy' ? t(`battle.formation.${g.formation.type}` as TKey) : far ? `${t('battle.state.outOfRange')} →` : t(`battle.order.${g.order}` as TKey),
-        orderShort: g.routed ? t('battle.orderShort.routed') : this.sim.phase === 'deploy' ? t(`battle.formationShort.${g.formation.type}` as TKey) : far ? `${t('battle.stateShort.outOfRange')} →` : t(`battle.orderShort.${g.order}` as TKey),
+        // a queued Then… step reads "→ Charge" after the order in force (R6.2), on the short form too
+        orderWord: (g.routed ? t('battle.order.routed') : this.sim.phase === 'deploy' ? t(`battle.formation.${g.formation.type}` as TKey) : far ? `${t('battle.state.outOfRange')} →` : t(`battle.order.${g.order}` as TKey)) + (queued ? ` → ${queued}` : ''),
+        orderShort: queued && !g.routed ? `→ ${queued}` : g.routed ? t('battle.orderShort.routed') : this.sim.phase === 'deploy' ? t(`battle.formationShort.${g.formation.type}` as TKey) : far ? `${t('battle.stateShort.outOfRange')} →` : t(`battle.orderShort.${g.order}` as TKey),
         focus: this.sim.phase === 'battle' && !g.routed && (g.focus ?? -1) >= 0,
         far,
         portrait: this.portraitOf(c.gid),

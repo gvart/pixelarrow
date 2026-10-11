@@ -3,13 +3,20 @@
  * R6, F1). Both are client-side and reach the sim only as ordinary orders at
  * real ticks, so the order log replays to the same battle (ADR-0001).
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { armySpec } from '../src/game/armySpec';
 import { classSquad } from '../src/dev/classBalance';
 import { Battle, TICK_RATE } from '../src/sim/battle';
 import { Rng } from '../src/sim/rng';
 import type { BattleSetup, Order } from '../src/sim/types';
 import { ARRIVE_DIST, STILL_S, StagedPlan, ThenQueue, thenOrder } from '../src/ui/orderQueue';
+
+// battleHud draws with Phaser; the preview maths under test does not
+vi.mock('phaser', () => {
+  class C {}
+  return { default: { GameObjects: { Container: C, Image: C, Text: C, Graphics: C, Rectangle: C }, Scene: C } };
+});
+const { chargeTarget } = await import('../src/ui/battleHud');
 
 function setup(seed: number): BattleSetup {
   const rng = new Rng(seed);
@@ -212,5 +219,17 @@ describe('the "Then…" queue (controls.md R6.2, F1)', () => {
   it('Shoot queues "Shoot on"; the other keys are group orders', () => {
     expect(thenOrder(2, 'loose')).toEqual({ kind: 'loose', group: 2, on: true });
     expect(thenOrder(2, 'fallback')).toEqual({ kind: 'order', group: 2, order: 'fallback' });
+  });
+});
+
+describe('the staged Charge preview (controls.md R5)', () => {
+  it('points from the group (or where the plan puts it) to the nearest enemy group, centre to centre', () => {
+    const b = started();
+    const c = chargeTarget(b, 0)!;
+    expect(c.group).toBe(4);
+    expect(c.from).toEqual(centre(b, 0));
+    expect(c.to).toEqual(centre(b, 4));
+    const moved = chargeTarget(b, 0, { x: 3, y: 10 })!;
+    expect(moved.from).toEqual({ x: 3, y: 10 });
   });
 });
