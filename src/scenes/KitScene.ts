@@ -256,9 +256,9 @@ export class KitScene extends BaseScene {
     add(new SegmentedSwitch(this, 0, y, w, { options: [{ id: 'a', label: 'Gear' }, { id: 'b', label: 'Perks' }, { id: 'c', label: 'Skills' }], selected: 'b', onChange: (id) => toast(this, id) }));
     y += SWITCH_H + G + 2;
     for (const o of [
-      { icon: 'helmet', title: 'Next: Floor 5', subtitle: 'Team 43 pts, cap 76', value: '+80', onClick: () => toast(this, 'Row') },
-      { icon: 'people', title: 'Selected row', subtitle: 'The one you picked', selected: true, badge: 2, onClick: () => toast(this, 'Row') },
-      { icon: 'lock', title: 'Chapter 2', subtitle: 'Clear floor 10 to open', disabled: 'Clear floor 10 to open' },
+      { icon: 'helmet', title: 'Next: Floor 5', value: '+80', onClick: () => toast(this, 'Row') },
+      { icon: 'people', title: 'Selected row', selected: true, badge: 2, onClick: () => toast(this, 'Row') },
+      { icon: 'lock', title: 'Chapter 2', disabled: 'Clear floor 10 to open' },
       { title: 'A row with a very long title that cannot fit on one line', value: '12', onClick: () => toast(this, 'Row') },
     ] as const) {
       add(new ParchmentRow(this, 0, y, w, { ...o }));
