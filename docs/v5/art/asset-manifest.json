@@ -1160,7 +1160,7 @@
   {
    "id": "ART-053",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/chest_open_empty.png", "screens": ["results-empty"]},
    "file": "chest_open_empty.png",
    "cat": "chest",
    "kind": "cutout",
@@ -1202,7 +1202,7 @@
   {
    "id": "ART-055",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/laurel_branch.png", "screens": ["results", "results-arc"]},
    "file": "laurel_branch.png",
    "cat": "laurel",
    "kind": "cutout",
