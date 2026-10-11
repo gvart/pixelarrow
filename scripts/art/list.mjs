@@ -8,7 +8,7 @@ import { loadManifest, ROOT } from './lib/manifest.mjs';
 const path = join(ROOT, 'docs/v5/art/ASSET_LIST.md');
 const md = readFileSync(path, 'utf8');
 const { assets } = loadManifest();
-const TITLES = { fresco: 'Frescoes (mode banners)', vignette: 'Settlement vignettes', bust: 'Class busts', portrait: 'Narrator portrait', plate: 'Beast plates', icon: 'Icons (atlas icons_ui)', chest: 'Reward art: chests', laurel: 'Reward art: laurels', splash: 'Splash key art' };
+const TITLES = { fresco: 'Frescoes (mode banners)', vignette: 'Settlement vignettes', bust: 'Class busts', portrait: 'Narrator portrait', plate: 'Beast plates', icon: 'Icons (atlas icons_ui)', chest: 'Reward art: chests', laurel: 'Reward art: laurels', splash: 'Splash key art', tile: 'World pixel art: field works', crest: 'World pixel art: battle markers' };
 const out = [];
 const counts = [];
 for (const cat of Object.keys(TITLES)) {
