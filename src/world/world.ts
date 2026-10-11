@@ -15,10 +15,10 @@ import { buildArmy, type ArmyMix, type EnemyArmy } from '../game/enemy';
 import { makeHero, makeItem, rollRarity, setBotLevel, type IdSource } from '../game/heroes';
 import { dedupeNames } from '../data/names';
 import { heroPower, type CaptainMark } from '../sim/stats';
-import { armyPick, bandSetPieces } from '../game/sources';
+import { arcSet, armyPick, bandSetPieces } from '../game/sources';
 import { CLASSES, townClasses, type ClassId } from '../data/classes';
 import {
-  MIN_TRAVEL_COST, dangerAt, generateMap, passable, travelCost,
+  MIN_TRAVEL_COST, dangerAt, generateMap, passable, townsFarthestFirst, travelCost,
   type BandKind, type SettlementDef, type WorldMap,
 } from './map';
 import { findPath, type Tile } from './path';
@@ -28,7 +28,7 @@ import {
 } from '../data/events';
 import { DOCTRINE_IDS, type DoctrineId } from '../sim/types';
 import { hash3 } from './noise';
-import { GARRISON } from '../data/arc';
+import { GARRISON, HOST, POST_GAME, SACK_DAYS } from '../data/arc';
 import {
   CAMP_RULES, FOOD_RULES, STRUCTURES, campBlocker, campEffects, campRefund, campZone, countBuilt, placeCheck,
   type CampState, type StructureId,
@@ -296,8 +296,8 @@ function captainClass(p: PartyState): ClassId {
 }
 
 const BAND_NAMES: Record<BandKind, string> = { bandits: 'Bandits', raiders: 'Galatae raiders', mercs: 'Mercenaries' };
-// The host's army is AR-04's; until then a host band (never spawned yet) fields raiders.
-const BAND_MIX: Record<PartyKind, ArmyMix> = { bandits: 'bandits', raiders: 'raiders', mercs: 'mercs', host: 'raiders' };
+// The host's army is hostArmy's (partyArmy never reads its entry here).
+const BAND_MIX: Record<PartyKind, ArmyMix> = { bandits: 'bandits', raiders: 'raiders', mercs: 'mercs', host: 'mercs' };
 
 export function partySpeed(size: number): number {
   return WORLD_RULES.speed * Math.max(0.7, 1 - WORLD_RULES.sizeSlow * size);
@@ -670,6 +670,7 @@ export class World {
       this.updateParties(h, player);
       this.checkContact(player, events);
       if (events.length === 0) this.timedEvents(t0, marching, waiting, player, events);
+      this.riseReborn();
       if (this.s.time - this.s.lastSpawn >= WORLD_RULES.spawnEvery) {
         this.s.lastSpawn = this.s.time;
         if (this.s.parties.length < Math.min(WORLD_RULES.maxParties, 9 + Math.floor(this.days / 2))) this.spawnParty(this.rng.chance(0.25) ? 'town' : 'lair');
@@ -762,6 +763,7 @@ export class World {
   }
 
   private thinkParty(p: PartyState, player: PlayerInfo): void {
+    if (p.kind === 'host') return this.thinkHost(p);
     const d = Math.sqrt((p.x - this.s.x) ** 2 + (p.y - this.s.y) ** 2);
     const ratio = p.power / Math.max(1, player.power);
     const walled = !!this.camp && campEffects(this.map, this.camp).fortified;
@@ -824,7 +826,8 @@ export class World {
   private moveParty(p: PartyState, h: number): void {
     const route = this.aiRoutes.get(p.id);
     if (!route || route.length === 0) return;
-    const mult = p.mode === 'chase' ? 1.05 : p.mode === 'flee' ? 1.0 : 0.75;
+    // the host marches at HOST.speed x a band's roaming pace (0.75)
+    const mult = p.kind === 'host' ? 0.75 * HOST.speed : p.mode === 'chase' ? 1.05 : p.mode === 'flee' ? 1.0 : 0.75;
     let budget = h * partySpeed(p.size) * mult * (p.kind === 'raiders' ? 1.05 : 1);
     while (budget > 0 && route.length > 0) {
       const wp = route[0];
@@ -856,7 +859,7 @@ export class World {
     const kind: BandKind = from === 'town' ? 'mercs' : home.band ?? 'bandits';
     const at = this.nearestPassable(home.x + this.rng.int(-2, 2), home.y + this.rng.int(-2, 2), 4);
     if (!at) return null;
-    const danger = dangerAt(this.map, home.x, home.y);
+    const danger = this.danger(home.x, home.y);
     const r = this.rng;
     const { size, level, tier } = bandShape(kind, danger, this.days, this.lairsFallen, r);
     const p: PartyState = {
@@ -966,7 +969,7 @@ export class World {
     for (const p of this.s.parties) escaped = Math.max(escaped, p.escaped ?? 0);
     return {
       day: this.today,
-      danger: dangerAt(this.map, this.s.x, this.s.y),
+      danger: this.danger(this.s.x, this.s.y),
       flags: this.s.flags,
       men: player.mouths ?? player.size,
       gold: player.gold ?? 0,
@@ -1089,7 +1092,7 @@ export class World {
 
   /** A settlement an event closed (closeSettlement): no recruits, no market. */
   isClosed(sid: number): boolean {
-    return (this.s.eventCd[EV_KEY.closed(sid)] ?? -Infinity) > this.s.time / 24;
+    return (this.s.eventCd[EV_KEY.closed(sid)] ?? -Infinity) > this.s.time / 24 || this.isSacked(sid);
   }
 
   closeSettlement(sid: number, days: number): void {
@@ -1127,7 +1130,7 @@ export class World {
   /** The full strength of lair `id`'s garrison (F1): GARRISON.base + round(danger x GARRISON.danger). */
   garrisonFull(id: number): number {
     const st = this.map.settlements[id];
-    return GARRISON.base + Math.round(dangerAt(this.map, st.x, st.y) * GARRISON.danger);
+    return GARRISON.base + Math.round(this.danger(st.x, st.y) * GARRISON.danger);
   }
 
   /** Men the garrison has lost and not yet regrown (F3): one comes back every GARRISON.regrowH hours since the last loss. */
@@ -1178,7 +1181,7 @@ export class World {
     const st = this.map.settlements[id];
     const size = this.garrisonSize(id);
     if (!st || size <= 0) return null;
-    const danger = dangerAt(this.map, st.x, st.y);
+    const danger = this.danger(st.x, st.y);
     let seed = hashString(`${this.s.seed}:garrison:${id}:${this.s.lairs[id]?.lostAt ?? 0}`) || 1;
     while (bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
     const p: PartyState = {
@@ -1201,6 +1204,183 @@ export class World {
     };
     p.power = partyArmy(p, { nextId: 1 }).power * GARRISON.plate;
     return p;
+  }
+
+  // ---------------------------------------------------------------- the host and the end state (campaign-arc.md R5)
+
+  /** The campaign is won (R5.4): the host has fallen, the world goes on. */
+  get postGame(): boolean {
+    return this.s.arc.stage === 'won' || this.s.arc.stage === 'post';
+  }
+
+  /** Danger at (x, y): the map's, plus POST_GAME.danger once the campaign is won (R5.4), at most 1. */
+  danger(x: number, y: number): number {
+    const d = dangerAt(this.map, x, y);
+    return this.postGame ? Math.min(1, d + POST_GAME.danger) : d;
+  }
+
+  /** The Tyrant's host on the map, or null (none has mustered, or it has fallen). */
+  get host(): PartyState | null {
+    const id = this.s.arc.hostParty;
+    return this.s.parties.find((p) => p.kind === 'host' && (id === undefined || p.id === id)) ?? this.s.parties.find((p) => p.kind === 'host') ?? null;
+  }
+
+  /**
+   * The host musters (R5.1, R5.2, F2): `min(HOST.cap, ceil(HOST.mult x R))`
+   * men, R the fit `roster` now, at the town farthest from the start that
+   * can march on it (preferring one HOST.minDist tiles from the party), and
+   * it marches on the starting town. The arc stage becomes 'host' and the
+   * `host_musters` flag is set, which makes its narrative card due. Its men,
+   * level and seed come from the world seed alone. Null if no town is left
+   * to muster at (the arc is unchanged).
+   */
+  musterHost(roster: number): PartyState | null {
+    const m = this.map;
+    const start = m.settlements[m.start];
+    const goal = this.nearestPassable(start.x, start.y, 4);
+    const towns = townsFarthestFirst(m);
+    let home: SettlementDef | null = null;
+    let at: Tile | null = null;
+    for (const near of [false, true]) {
+      for (const t of towns) {
+        if (!near && Math.hypot(t.x + 0.5 - this.s.x, t.y + 0.5 - this.s.y) < HOST.minDist) continue;
+        const a = this.nearestPassable(t.x, t.y, 4);
+        if (a && goal && this.path(a, goal)) {
+          home = t;
+          at = a;
+          break;
+        }
+      }
+      if (home) break;
+    }
+    if (!home || !at) {
+      home = towns[0] ?? null;
+      at = home ? this.nearestPassable(home.x, home.y, 4) : null;
+    }
+    if (!home || !at) return null;
+    const rng = new Rng(hashString(`${this.s.seed}:host`) || 1);
+    let seed = (rng.next() * 4294967296) >>> 0 || 1;
+    while (bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
+    const p: PartyState = {
+      id: this.s.nextParty++,
+      kind: 'host',
+      name: "The Tyrant's host",
+      culture: arcSet(this.s.seed) === 'achilles' ? 'greek' : 'phoenician',
+      x: at.x + 0.5,
+      y: at.y + 0.5,
+      size: hostSize(roster),
+      power: 0,
+      level: rng.int(HOST.level[0], HOST.level[1]),
+      tier: HOST.tier,
+      seed,
+      home: home.id,
+      mode: 'wander',
+      tx: start.x,
+      ty: start.y,
+      idle: 0,
+      doctrine: 'hammer',
+    };
+    p.power = partyArmy(p, { nextId: 1 }).power;
+    for (const q of this.s.parties.filter((q) => q.kind === 'host')) this.removeParty(q.id);
+    this.s.parties.push(p);
+    this.s.arc = { stage: 'host', hostParty: p.id };
+    this.setFlag('host_musters');
+    return p;
+  }
+
+  /**
+   * The host marches (R5.2, R5.3): to the starting town, which it sacks on
+   * arrival, then back to its own town, then on the starting town again. Its
+   * goal tile is kept in tx / ty, so a reload resumes the same march.
+   */
+  private thinkHost(p: PartyState): void {
+    const m = this.map;
+    const start = m.settlements[m.start];
+    const home = m.settlements[p.home] ?? start;
+    const near = (st: SettlementDef) => Math.hypot(p.x - (st.x + 0.5), p.y - (st.y + 0.5)) < 1.6;
+    const toStart = p.tx === start.x && p.ty === start.y;
+    if (toStart && near(start)) {
+      this.sackStart();
+      p.tx = home.x;
+      p.ty = home.y;
+      this.aiRoutes.delete(p.id);
+    } else if (!toStart && near(home)) {
+      p.tx = start.x;
+      p.ty = start.y;
+      this.aiRoutes.delete(p.id);
+    }
+    const route = this.aiRoutes.get(p.id);
+    if (route && route.length > 0) return;
+    const goal = this.nearestPassable(p.tx, p.ty, 4) ?? { x: p.tx, y: p.ty };
+    const r = this.path(this.tileOf(p.x, p.y), goal);
+    // no road there: it marches straight at it
+    this.aiRoutes.set(p.id, r && r.length > 1 ? r.slice(1) : [{ x: goal.x + 0.5, y: goal.y + 0.5 }]);
+  }
+
+  /**
+   * The host sacks the starting town (R5.3): its recruits and market close
+   * for SACK_DAYS. A town still burning isn't sacked again, so it reopens
+   * SACK_DAYS after each sack (Edge Cases).
+   */
+  sackStart(): void {
+    if (!this.isSacked(this.map.start)) this.s.arc.sackedUntil = this.s.time + SACK_DAYS * 24;
+  }
+
+  /** Whether settlement `sid` is the sacked starting town (R5.3). */
+  isSacked(sid: number): boolean {
+    return sid === this.map.start && (this.s.arc.sackedUntil ?? -Infinity) > this.s.time;
+  }
+
+  /**
+   * The host has fallen (R5.4): the arc is 'won', and the post-game begins.
+   * The reborn lairs' clocks start now, so they rise POST_GAME.rebornDays
+   * from today. The caller drops the set piece.
+   */
+  winArc(): void {
+    const h = this.host;
+    if (h) this.removeParty(h.id);
+    this.s.arc = { stage: 'won' };
+    for (const id of this.rebornSpots()) {
+      const l = this.s.lairs[id];
+      if (l?.fallen) l.lostAt = this.s.time;
+    }
+  }
+
+  /** The victory screen has been seen (R5.4): 'won' becomes 'post'. Both are the post-game. */
+  continueArc(): void {
+    if (this.s.arc.stage === 'won') this.s.arc = { ...this.s.arc, stage: 'post' };
+  }
+
+  /** The lairs that are reborn in the post-game (R5.4): POST_GAME.reborn of the map's lairs, picked by the world seed. */
+  rebornSpots(): number[] {
+    const lairs = this.map.settlements.filter((st) => st.kind === 'lair').map((st) => st.id);
+    const rng = new Rng(hashString(`${this.s.seed}:reborn`) || 1);
+    for (let i = lairs.length - 1; i > 0; i--) {
+      const j = rng.int(0, i);
+      [lairs[i], lairs[j]] = [lairs[j], lairs[i]];
+    }
+    return lairs.slice(0, POST_GAME.reborn).sort((a, b) => a - b);
+  }
+
+  /** Whether lair `id` is a reborn lair of the post-game (R5.4, R6: it drops only a missing set piece). */
+  isReborn(id: number): boolean {
+    return !!this.s.places[id]?.reborn;
+  }
+
+  /**
+   * In the post-game a reborn spot that has lain burnt POST_GAME.rebornDays
+   * rises again (R5.4, R6): a standing lair at full strength that sends out
+   * bands. Razing it again restarts the cooldown.
+   */
+  private riseReborn(): void {
+    if (!this.postGame) return;
+    for (const id of this.rebornSpots()) {
+      const l = this.s.lairs[id];
+      if (!l?.fallen || this.s.time < l.lostAt + POST_GAME.rebornDays * 24) continue;
+      this.s.lairs[id] = { fallen: false, lost: 0, lostAt: this.s.time };
+      const place = (this.s.places[id] ??= { epoch: -1, bought: [], sold: [] });
+      place.reborn = true;
+    }
   }
 
   /** Lift the fog over a settlement and its surroundings. */
@@ -1229,7 +1409,7 @@ export class World {
     const home = homes.reduce((b, st) => (dist(st) < dist(b) ? st : b), homes[0]);
     if (!at) at = this.nearestPassable(home.x, home.y, 4);
     if (!at) return null;
-    const shape = bandShape(kind, dangerAt(this.map, at.x, at.y), this.days, this.lairsFallen, rng);
+    const shape = bandShape(kind, this.danger(at.x, at.y), this.days, this.lairsFallen, rng);
     let seed = (rng.next() * 4294967296) >>> 0 || 1;
     while (mods.captain && kind !== 'mercs' && bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
     const p: PartyState = {
@@ -1426,6 +1606,50 @@ export function bandCaptain(p: PartyState, ids: IdSource): Hero | null {
   return h;
 }
 
+/** The host's size for a fit roster of `roster` men (F2): min(HOST.cap, ceil(HOST.mult x R)), R at least 1. */
+export function hostSize(roster: number): number {
+  return Math.min(HOST.cap, Math.ceil(HOST.mult * Math.max(1, Math.floor(roster) || 1)));
+}
+
+/**
+ * The Tyrant (R4, R5.2): the host's captain, a standard bearer of its
+ * leaning culture, level HOST.tyrantLevel, nothing below rare and a
+ * legendary weapon. From the host's seed alone, like a band's captain.
+ */
+function tyrant(p: PartyState, ids: IdSource): Hero {
+  const rng = new Rng((p.seed ^ 0x6a09e667) >>> 0 || 1);
+  const h = makeHero(rng, ids, p.culture, 'hoplite', 1, HOST.tier, 0);
+  setBotLevel(h, HOST.tyrantLevel);
+  for (const it of Object.values(h.equip)) if (it && rarityRank(it.rarity) < 2) it.rarity = RARITIES[2];
+  if (h.equip.weapon) h.equip.weapon.rarity = 'legendary';
+  h.name = 'The Tyrant';
+  (h as Hero & CaptainMark).captain = true;
+  return h;
+}
+
+/**
+ * The Tyrant's host (R5.2): the Tyrant while he lives, then its men, from
+ * its seed. HOST.leanShare of them are of its leaning culture and the rest
+ * of the other (Greek or Phoenician), each a mercenary line at the host's
+ * level and tier, so Phoenician cavalry rides with a Greek host. It fights
+ * `hammer` and holds the field (R4).
+ */
+function hostArmy(p: PartyState, ids: IdSource): EnemyArmy {
+  const lead = hasCaptain(p) ? tyrant(p, ids) : null;
+  const men = Math.max(0, p.size - (lead ? 1 : 0));
+  const lean = Math.min(20, Math.ceil(men * HOST.leanShare));
+  const other: Culture = p.culture === 'greek' ? 'phoenician' : 'greek';
+  const rng = new Rng(p.seed);
+  const req = { level: p.level, tier: p.tier, targetPower: 0, mix: 'mercs', tune: false, doctrine: 'hammer' } as const;
+  const heroes: Hero[] = [];
+  if (lean > 0) heroes.push(...buildArmy(rng, ids, { ...req, culture: p.culture, count: lean }).heroes);
+  if (men - lean > 0) heroes.push(...buildArmy(rng, ids, { ...req, culture: other, count: men - lean }).heroes);
+  if (lead) heroes.unshift(lead);
+  dedupeNames(heroes);
+  const power = heroes.reduce((a, h) => a + heroPower(h), 0);
+  return { culture: p.culture, heroes, power, targetPower: power, doctrine: 'hammer', holdField: true };
+}
+
 /**
  * The band's army, generated from its seed (identical at every call for the
  * same army `classes`, which a beast's hoard follows). Tier-3 bands now and
@@ -1433,6 +1657,7 @@ export function bandCaptain(p: PartyState, ids: IdSource): Hero | null {
  * a captain is the captain plus `size - 1` men.
  */
 export function partyArmy(p: PartyState, ids: IdSource, classes: readonly string[] = []): EnemyArmy {
+  if (p.kind === 'host') return hostArmy(p, ids);
   // Now and then a lair's band is a mythical beast (src/game/beasts.ts): a rare encounter.
   const beast = p.kind !== 'mercs' ? bandBeast(p.seed) : null;
   if (beast) return beastEnemy(beast, Math.max(2, p.level + 1), p.seed, ids, classes);

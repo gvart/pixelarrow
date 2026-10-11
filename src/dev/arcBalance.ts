@@ -19,13 +19,16 @@
  * multiple of a real lair garrison's power (Campaign.garrisonEnemy) attacks
  * it on its assault field (palisade, rampart, the garrison's stakes), both
  * sides bot-driven, the garrison holding the field.
- * The host comes with AR-04.
+ * AR-04 (R5, `hostRows`): the Tyrant's host, mustered by a real world for a
+ * fit roster of 16, against the GDD's "prepared" army (16 Greek line men,
+ * level 7, tier-3 gear all rare), both bot-driven on a campaign field, the
+ * host holding it.
  */
 import type { BalanceRow } from './balance';
 import { armySpec } from '../game/armySpec';
 import { bandBeast } from '../game/beasts';
 import { Campaign } from '../game/campaign';
-import { makeHero, openingParty, starterParty, type IdSource } from '../game/heroes';
+import { makeHero, openingParty, setBotLevel, starterParty, type IdSource } from '../game/heroes';
 import { MAX_LEVEL, xpToNext, type Hero } from '../data/units';
 import { itemDef, itemValue, type Item } from '../data/items';
 import { buildArmy } from '../game/enemy';
@@ -35,7 +38,7 @@ import { Battle } from '../sim/battle';
 import { Rng, hashString } from '../sim/rng';
 import { heroPower } from '../sim/stats';
 import { generateBattlefield, randomSite } from '../world/battlefield';
-import { VOLUNTEER_RULES, World, partyArmy, type PartyState } from '../world/world';
+import { VOLUNTEER_RULES, World, hostSize, partyArmy, type PartyState } from '../world/world';
 
 export type OpeningArmy = 'opening' | 'old3' | 'volunteers';
 
@@ -108,6 +111,51 @@ export function arcRows(n: number): BalanceRow[] {
     rowOf('5 volunteers (destroyed army) vs start bandits', run(start, 'volunteers'), 'none stated'),
     ...lateRows(n),
     ...assaultRows(n),
+    ...hostRows(n),
+  ];
+}
+
+// ------------------------------------------------------------------ AR-04: the Tyrant's host (R5)
+
+/** The host world `worldSeed` musters for a fit roster of `roster` (every lair razed first). */
+export function musteredHost(worldSeed: number, roster: number): PartyState {
+  const w = new World(World.fresh(worldSeed));
+  for (const st of w.map.settlements) if (st.kind === 'lair') w.razeLair(st.id);
+  return w.musterHost(roster)!;
+}
+
+/** The GDD's prepared army (Balance targets): `men` Greek line men at `level`, gear of `tier`, every piece rare. */
+export function preparedArmy(seed: number, ids: IdSource, men = 16, level = 7, tier = 3): Hero[] {
+  const heroes = buildArmy(new Rng(seed ^ 0x2545f491), ids, { culture: 'greek', count: men, level, tier, targetPower: 0, mix: 'line', tune: false }).heroes;
+  for (const h of heroes) {
+    setBotLevel(h, level);
+    for (const it of Object.values(h.equip)) if (it) it.rarity = 'rare';
+  }
+  return heroes;
+}
+
+/** One battle: the prepared army (bot-driven) against the host of world `worldSeed`, which holds the field. */
+export function runHost(worldSeed: number, roster = 16, men = 16, level = 7): OpeningFight {
+  const host = musteredHost(worldSeed, roster);
+  const ids = { nextId: 1 };
+  const seed = hashString(`host:${worldSeed}`) || 1;
+  const foe = partyArmy(host, ids);
+  const mine = preparedArmy(seed, ids, men, level);
+  const terrain = generateBattlefield(seed, randomSite(new Rng(seed ^ 0x51735c1)));
+  const b = new Battle({ seed, armies: [armySpec(mine, true), { ...armySpec(foe.heroes, true), doctrine: foe.doctrine, holdField: foe.holdField }], terrain });
+  b.startBattle();
+  for (let i = 0; i < b.timeLimitTicks + 10 && b.phase !== 'ended'; i++) b.step();
+  const power = (hs: Hero[]) => hs.reduce((a, h) => a + heroPower(h), 0);
+  return { won: b.winner === 0, ratio: power(foe.heroes) / power(mine), bandSize: foe.heroes.length };
+}
+
+/** The host rows (R5, Balance targets): `n` fights, one per world. */
+export function hostRows(n: number): BalanceRow[] {
+  const worlds = Array.from({ length: Math.max(4, n) }, (_, i) => i + 1);
+  return [
+    rowOf('host (R 16) vs the prepared army (16 men, level 7, rare kit)', worlds.map((s) => runHost(s)), '40-55% (R5)'),
+    rowOf('host (R 20) vs 20 prepared men (reference)', worlds.slice(0, Math.max(4, Math.round(n / 2))).map((s) => runHost(s, 20, 20)), 'none (a full roster)'),
+    { label: 'host size for a fit roster of 8 / 16 / 20', measured: `${hostSize(8)} / ${hostSize(16)} / ${hostSize(20)}`, target: 'min(32, ceil(HOST_MULT x R)), HOST_MULT 1.0 (F2, AR-04)' },
   ];
 }
 

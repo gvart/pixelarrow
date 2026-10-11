@@ -348,6 +348,13 @@ export function dangerAt(m: WorldMap, x: number, y: number): number {
   return Math.max(0.05, Math.min(1, dStart * 0.75 + lair * 0.35));
 }
 
+/** The towns other than the starting town, farthest from it first (campaign-arc.md R5: the host musters at the first it can march from). */
+export function townsFarthestFirst(m: WorldMap): SettlementDef[] {
+  const s = m.settlements[m.start];
+  const d = (t: SettlementDef) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2;
+  return m.settlements.filter((t) => t.kind === 'town' && t.id !== m.start).sort((a, b) => d(b) - d(a) || a.id - b.id);
+}
+
 export function regionName(m: WorldMap, x: number, y: number): string {
   const tx = Math.max(0, Math.min(m.w - 1, Math.floor(x)));
   const ty = Math.max(0, Math.min(m.h - 1, Math.floor(y)));

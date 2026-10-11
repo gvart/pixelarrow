@@ -4,8 +4,8 @@
  */
 import { RARITIES, isBound, itemDef, itemValue, normalizeRarity, salvageValue, type Item, type Slot } from '../data/items';
 import { encounterOf } from '../data/beasts';
-import { GARRISON } from '../data/arc';
-import { BEAST_NAMED, armyClasses, lairHoard, legendaryHoard, pityChest } from './sources';
+import { ARC_LAIRS, GARRISON } from '../data/arc';
+import { BEAST_NAMED, arcSet, arcSetPiece, armyClasses, lairHoard, legendaryHoard, pityChest } from './sources';
 import { equipBlocker, equipFromStash, unequipInto } from './gear';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
 import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/perks';
@@ -128,8 +128,52 @@ export class Campaign {
 
   /** The overland world (map regenerated from the seed on first use). */
   get world(): World {
-    if (!this._world) this._world = new World(this.data.world);
+    if (!this._world) {
+      this._world = new World(this.data.world);
+      this.checkArc();
+    }
     return this._world;
+  }
+
+  // ------------------------------------------------------------- the arc's end (campaign-arc.md R5)
+
+  /** Heroes who aren't wounded: the fit roster R the host is sized from (F2). */
+  fitRoster(): number {
+    return this.data.heroes.filter((h) => (h.wound ?? 0) <= 0).length;
+  }
+
+  /**
+   * Keep the arc moving (R5.1): once ARC_LAIRS lairs have fallen the host
+   * musters, sized from the fit roster now. A save whose arc is at 'host'
+   * with no host on the map (an older or damaged save) musters it again, so
+   * no campaign is stuck short of its end. Runs when the world is first
+   * loaded and whenever a lair falls.
+   */
+  checkArc(): void {
+    const w = this.world;
+    const stage = w.s.arc.stage;
+    if ((stage === 'lairs' && w.lairsFallen >= ARC_LAIRS) || (stage === 'host' && !w.host)) w.musterHost(this.fitRoster());
+  }
+
+  /** The victory screen was seen (R5.4): the post-game goes on ('won' becomes 'post'). */
+  continueArc(): void {
+    this.world.continueArc();
+  }
+
+  /**
+   * A piece of the campaign's legendary set the army doesn't own yet (R6), as
+   * a legendary item, keyed by `key` (where it dropped); null once all five
+   * are owned. It is not counted on the pity counter.
+   */
+  arcPiece(key: string): Item | null {
+    const w = this.world;
+    const owned = new Set<string>(this.data.stash.map((it) => it.def));
+    for (const h of this.data.heroes) for (const it of Object.values(h.equip)) if (it) owned.add(it.def);
+    const set = arcSet(w.s.seed);
+    const def = arcSetPiece(set, owned, `${w.s.seed >>> 0}:${key}`);
+    if (!def) return null;
+    const rng = new Rng(hashString(`${w.s.seed >>> 0}:${key}:arcitem`) || 1);
+    return makeItem(rng, this.data, def, 'legendary', 100, set === 'achilles' ? 'greek' : 'phoenician');
   }
 
   /** Rng for campaign-level randomness; state is written back into the save. */
@@ -421,7 +465,8 @@ export class Campaign {
 
   canSurrender(partyId: number): boolean {
     const p = this.world.party(partyId);
-    return !!p && p.power / Math.max(1, this.playerInfo().power) < WORLD_RULES.surrenderRatio;
+    // the host never lays down its arms: the arc is won only in battle (R4)
+    return !!p && p.kind !== 'host' && p.power / Math.max(1, this.playerInfo().power) < WORLD_RULES.surrenderRatio;
   }
 
   /** A hopelessly outmatched band lays down its arms: ransom and a little XP, no battle. */
@@ -508,7 +553,14 @@ export class Campaign {
     const w = this.world;
     if (w.map.settlements[lairId]?.kind !== 'lair' || w.lairFallen(lairId)) return [];
     w.razeLair(lairId);
-    return this.lairHoard(lairId);
+    // a reborn lair of the post-game (R6): only a missing piece of the legendary set, no hoard, no pity
+    if (w.isReborn(lairId)) {
+      const piece = this.arcPiece(`reborn:${lairId}:${Math.floor(w.s.time)}`);
+      return piece ? [piece] : [];
+    }
+    const hoard = this.lairHoard(lairId);
+    this.checkArc();
+    return hoard;
   }
 
   /**
@@ -549,7 +601,9 @@ export class Campaign {
   afterPartyBattle(partyId: number, outcome: Outcome, result?: BattleResult, enemies: readonly Hero[] = []): PartySpoils {
     const w = this.world;
     const p: PartyState | undefined = w.party(partyId);
-    const enemyRetreated = outcome.victory && result?.retreated === 1;
+    const host = p?.kind === 'host';
+    // the host holds the field (R4); should it break all the same, the field is won outright
+    const enemyRetreated = outcome.victory && result?.retreated === 1 && !host;
     const captain = enemies.find((h) => isCaptain(h));
     const unit = captain && result?.units.find((u) => u.side === 1 && u.heroId === captain.id);
     const fate: CaptainFate = !captain ? 'none' : unit?.state !== 'dead' ? 'alive' : !unit.ko ? 'killed' : outcome.victory ? 'captured' : 'alive';
@@ -578,7 +632,10 @@ export class Campaign {
     }
     if (p) {
       if (fate === 'killed' || fate === 'captured') p.captainDead = true;
-      if (outcome.victory && !enemyRetreated) w.removeParty(partyId);
+      if (host && outcome.victory) this.winArc(outcome);
+      // a host that beat the army keeps marching, weakened by its dead (R5.5); it is beaten only in battle
+      else if (host) w.weakenParty(partyId, Math.min(outcome.enemyKilled, p.size - 1), 3);
+      else if (outcome.victory && !enemyRetreated) w.removeParty(partyId);
       else if (enemyRetreated) {
         const fallen = result!.units.filter((u) => u.side === 1 && u.state === 'dead').length;
         w.weakenParty(partyId, fallen, CAPTAIN_RULES.escapeIdleH);
@@ -599,6 +656,19 @@ export class Campaign {
     // the after-battle trigger (campaign-events.md R3): a won campaign battle
     if (outcome.victory) w.tryEvent('after_battle', `b${this.data.fought}:${partyId}`, this.playerInfo());
     return { enemyRetreated, captain: fate, bounty };
+  }
+
+  /**
+   * The host has fallen (R5.4): the arc is 'won', and one piece of the
+   * campaign's legendary set (arcPiece) goes first in the loot as an extra
+   * pick, ahead of the Tyrant's weapon. Mutates the outcome's loot.
+   */
+  private winArc(outcome: Outcome): void {
+    this.world.winArc();
+    const piece = this.arcPiece('host');
+    if (!piece) return;
+    outcome.loot.unshift(piece);
+    outcome.picks = Math.min(outcome.picks + 1, outcome.loot.length);
   }
 
   // ------------------------------------------------------------- field works (field-works.md R4)
