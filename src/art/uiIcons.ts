@@ -9,6 +9,8 @@
  * are used for nothing else (src/ui/tokens.ts RESOURCES).
  */
 import type { IconPart } from './iconStyle';
+import { VECTOR_ICONS } from './vectorIcons';
+import { V5_ICON_FALLBACK } from './iconBitmaps';
 
 const f = (n: number) => +n.toFixed(2);
 
@@ -286,3 +288,7 @@ export const UI_ICONS: Record<string, IconPart[]> = {
     { d: 'M9.4 11V18.8M12 11V18.8M14.6 11V18.8', tone: 'ink', detail: true, w: 1 },
   ],
 };
+
+// The v5 icon keys (iconBitmaps V5_ICON_FALLBACK): the vector form is only the fallback when
+// the atlas fails to load, the stand-in's shape, so the key exists as `icon_<key>`.
+for (const [key, was] of Object.entries(V5_ICON_FALLBACK)) UI_ICONS[key] = UI_ICONS[was] ?? VECTOR_ICONS[was];

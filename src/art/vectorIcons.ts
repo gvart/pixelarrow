@@ -426,7 +426,32 @@ export const VECTOR_ICONS: Record<string, IconPart[]> = {
     { d: 'M4.3 12A7.7 7.7 0 1 1 19.7 12A7.7 7.7 0 1 1 4.3 12Z', tone: 'silver' },
     { d: 'M12 6L17.4 16.4L6.6 16.4ZM9.4 14.4L14.6 14.4L12 9.9Z', tone: 'ink', detail: true, fill: true },
   ],
+  // morale state glyphs (battle-readability.md R1): shapes that read without colour; drawn
+  // light so the caller's tint (ink, amber, red by state) carries the colour
+  morale_steady: [
+    { d: 'M12 2.2l8.4 3v6.4c0 5.1-3.5 8.9-8.4 10.4C7.1 20.5 3.6 16.7 3.6 11.6V5.2z', tone: 'cream' },
+    { d: 'M12 8.4A2.6 2.6 0 1 1 12 13.6A2.6 2.6 0 1 1 12 8.4Z', tone: 'stone', detail: true, fill: true },
+    { d: 'M6.2 6.6L8.4 5.8', tone: 'gleam', detail: true, w: 1 },
+  ],
+  // the same shield split by a zigzag crack (a hole through it)
+  morale_wavering: [
+    { d: 'M12 2.2l8.4 3v6.4c0 5.1-3.5 8.9-8.4 10.4C7.1 20.5 3.6 16.7 3.6 11.6V5.2zM12.9 2.7L10.7 8.2L13.7 11.2L11 15.8L12.6 21.2L10.9 21.3L9.3 15.8L11.7 11.2L8.7 8.2L11.1 2.6Z', tone: 'cream' },
+    { d: 'M6.2 6.6L8.4 5.8', tone: 'gleam', detail: true, w: 1 },
+  ],
+  // a falling standard, its torn pennant streaming back: the group is fleeing
+  morale_routing: [
+    { d: 'M4 21L5.4 21.6L16.2 3.4L14.8 2.8Z', tone: 'stone' },
+    { d: 'M15.5 3.1L3 4.2L6.4 6.8L2.6 9.6L11.4 10Z', tone: 'cream' },
+    { d: 'M13.4 4.6L6.2 5.2', tone: 'ink', detail: true, w: 0.8 },
+  ],
 };
+
+/**
+ * Simple geometric glyphs that stay vector (art bible 7.4, create-game-assets: "prefer
+ * vector for simple geometric symbols"): no atlas frame is ever made for them, and the
+ * atlas test fails if one appears. The battle HUD tints them by state (RD-01).
+ */
+export const VECTOR_GLYPHS: readonly string[] = ['morale_steady', 'morale_wavering', 'morale_routing'];
 
 /** Camp building icons, keyed like CAMP_ICONS in src/art/campArt.ts (same box and rules). */
 export const VECTOR_CAMP_ICONS: Record<string, IconPart[]> = {

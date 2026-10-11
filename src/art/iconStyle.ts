@@ -13,7 +13,7 @@
  *  - 'dim': a flat muted grey silhouette, its parts in three greys (disabled).
  */
 
-import { drawIconBitmap } from './iconBitmaps';
+import { BACKED_FILL, drawIconBitmap, paintIconBacking } from './iconBitmaps';
 
 /** Gradient stops top-left -> bottom-right: highlight, body, shade. */
 type Tone = [string, string, string];
@@ -117,22 +117,25 @@ export function iconParts(parts: IconPart[] | string): IconPart[] {
 }
 
 /**
- * Paint an icon (`parts`, 24 x 24 box) into a new n x n canvas.
+ * Paint an icon (`parts`, 24 x 24 box) into a new n x n canvas. `backing` sits it on
+ * the light disc icons need over dark stone (iconBitmaps ICON_BACKING, V5-059).
  */
-export function paintIcon(name: string, parts: IconPart[] | string, look: IconLook, n: number): HTMLCanvasElement {
+export function paintIcon(name: string, parts: IconPart[] | string, look: IconLook, n: number, o: { backing?: boolean } = {}): HTMLCanvasElement {
   // the drawn icon when the atlas has it (src/art/iconBitmaps.ts); `name` is a UI icon name,
   // `camp_<id>` for camp buildings, or a full atlas id such as `power:aegis`
   const id = name.includes(':') ? name : name.startsWith('camp_') ? `camp:${name.slice(5)}` : `ui:${name}`;
-  const bmp = drawIconBitmap(id, n, { look });
+  const bmp = drawIconBitmap(id, n, { look, backing: o.backing });
   if (bmp) return bmp;
   const canvas = document.createElement('canvas');
   canvas.width = n;
   canvas.height = n;
   const ctx = canvas.getContext('2d')!;
+  if (o.backing) paintIconBacking(ctx, n, n);
   const k = n / 24;
-  // a little inset so the outline and shadow stay inside the canvas
-  ctx.translate(n * 0.04, n * 0.02);
-  ctx.scale(k * 0.92, k * 0.92);
+  // a little inset so the outline and shadow stay inside the canvas (and the disc's rim)
+  const fit = o.backing ? BACKED_FILL : 0.92;
+  ctx.translate(o.backing ? (n * (1 - fit)) / 2 : n * 0.04, o.backing ? (n * (1 - fit)) / 2 : n * 0.02);
+  ctx.scale(k * fit, k * fit);
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   const list = iconParts(parts).map((p) => ({ ...p, path: new Path2D(p.d) }));
