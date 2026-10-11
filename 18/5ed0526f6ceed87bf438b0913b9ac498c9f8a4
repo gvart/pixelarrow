@@ -1,0 +1,21 @@
+src/duel/ladder.ts
+  s_697bdc25a7c420::t_cb05f90e7cea54 92
+tests/ladderDoctrine.test.ts
+  s_697bdc25a7c420::t_cb05f90e7cea54 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "185ed0526f6ceed87bf438b0913b9ac498c9f8a4",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
