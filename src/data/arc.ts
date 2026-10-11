@@ -25,3 +25,26 @@ export const ARC_LAIRS = 6;
  * WORKS_OUT paces in front of its gates and still inside its deployment zone.
  */
 export const ASSAULT = { gates: 2, gateW: 3, rampartRows: 1 };
+
+/**
+ * The Tyrant's host (R5, F2, Tuning Knobs HOST_MULT / HOST_SPEED). When the
+ * last lair falls it musters `min(cap, ceil(mult x R))` men, R the fit roster
+ * then (at least 1), at a level of `level[0]..level[1]` (seeded), gear tier
+ * `tier`, its men `leanShare` of the host's leaning culture and the rest the
+ * other (Greek-leaning when the campaign's legendary set is Achilles', else
+ * Phoenician), fighting `hammer`. Its captain, the Tyrant, is level
+ * `tyrantLevel` with a legendary weapon. It marches `speed` x a band's pace
+ * from the town farthest from the start (at least `minDist` tiles away when
+ * it can) toward the starting town, and never leaves the field.
+ */
+export const HOST = { mult: 1.25, cap: 32, level: [8, 10] as [number, number], tier: 3, leanShare: 2 / 3, tyrantLevel: 10, speed: 1.2, minDist: 30 };
+
+/** A sacked starting town keeps its recruits and market shut this many days (R5.3). */
+export const SACK_DAYS = 5;
+
+/**
+ * The post-game (R5.4): danger rises by `danger` (capped at 1); `reborn`
+ * fallen lairs, picked per world, rise again `rebornDays` after the host
+ * falls and `rebornDays` after each time they are razed (the cooldown).
+ */
+export const POST_GAME = { danger: 0.2, reborn: 2, rebornDays: 10 };
