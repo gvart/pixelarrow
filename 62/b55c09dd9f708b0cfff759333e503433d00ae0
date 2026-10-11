@@ -1,0 +1,36 @@
+src/i18n/en.ts
+  s_697bdc25a7c420::t_ca4b295742ec20 40,360-361
+src/ui/input/pace.ts
+  s_697bdc25a7c420::t_2e1e7a16e99b27 1-60
+src/i18n/pace.ru.ts
+  s_697bdc25a7c420::t_ca4b295742ec20 1-14
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_660eaa99f50f9d 27-29,192-198,351,356-364,441-446,460,609,1621,1624,2342,2603,2613,2711,2748,2758,2768,2805-2809,2838,3190,4114,4116-4121,4237,4252,4259
+  s_697bdc25a7c420::t_cfdd522010cbfd 618-620,817,2819-2837
+  s_697bdc25a7c420::t_de6c0046621e32 2839
+tests/ladderPause.test.ts
+  s_697bdc25a7c420::t_2bec888ab6121d 1-172
+src/duel/client.ts
+  s_697bdc25a7c420::t_3b36bb129ce0e1 25,176-177,212-213,304-313,315-322,366-367,757-758,764,772-796
+  s_697bdc25a7c420::t_518bfd98747455 314,368
+src/i18n/pace.en.ts
+  s_697bdc25a7c420::t_ca4b295742ec20 1-17
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_ca4b295742ec20 32,329
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "62b55c09dd9f708b0cfff759333e503433d00ae0",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
