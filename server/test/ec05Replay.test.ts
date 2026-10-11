@@ -9,24 +9,21 @@ import { replayBattle, VerifyBody } from '../src/battle';
 import { Battle } from '../../src/sim/battle';
 import { SIM_VERSION } from '../../src/sim/version';
 import { armySpec } from '../../src/game/armySpec';
-import { Campaign } from '../../src/game/campaign';
 import { classSquad } from '../../src/dev/classBalance';
-import { assaultCases } from '../../src/dev/arcBalance';
 import { generateBattlefield } from '../../src/world/battlefield';
 import { Rng } from '../../src/sim/rng';
 import type { BattleSetup, LoggedOrder } from '../../src/sim/types';
 
+/** A garrison like a lair's (swarm, never retreats, 2 stakes) behind the assault field's palisade. */
 function assaultSetup(seed: number): BattleSetup {
-  const x = assaultCases(1)[seed % 3];
-  const c = Campaign.fresh(x.world);
-  const foe = c.garrisonEnemy(x.lair)!;
   const rng = new Rng(seed);
   const ids = { nextId: 1 };
   const mine = [...classSquad(rng, ids, 'hoplite', 8, 4, 0), ...classSquad(rng, ids, 'archer', 4, 4, 1), ...classSquad(rng, ids, 'companion', 2, 4, 3)];
+  const garrison = armySpec([...classSquad(rng, ids, 'militia', 8, 4, 0), ...classSquad(rng, ids, 'slinger', 4, 4, 1), ...classSquad(rng, ids, 'gallic', 2, 4, 3)], true);
   return {
     seed,
-    armies: [armySpec(mine, false), { ...armySpec(foe.heroes, true), doctrine: foe.doctrine, holdField: foe.holdField, works: foe.works }],
-    terrain: generateBattlefield(seed, { ...c.assaultSite(x.lair), assault: true }),
+    armies: [armySpec(mine, false), { ...garrison, doctrine: 'swarm', holdField: true, works: { stakes: 2, ditch: 0, laager: 0 } }],
+    terrain: generateBattlefield(seed, { base: 'plain', river: false, coast: false, rocky: false, woods: 0.1, assault: true }),
   };
 }
 
