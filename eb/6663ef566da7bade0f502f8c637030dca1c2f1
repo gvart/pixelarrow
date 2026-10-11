@@ -1,0 +1,21 @@
+tests/eventDeck.test.ts
+  s_697bdc25a7c420::t_13a3c14e714598 1-66,70,75,81-86,88-140,143-144,153-223
+  s_697bdc25a7c420::t_33ccc14ef82d1e 67-69,72-74,76-80
+  s_697bdc25a7c420::t_adcc5c7c7569a9 71,87,141-142,145-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "eb6663ef566da7bade0f502f8c637030dca1c2f1",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
