@@ -1,0 +1,25 @@
+src/art/iconBitmaps.ts
+  s_697bdc25a7c420::t_1579c937d88f70 58-84
+  s_697bdc25a7c420::t_69e704d0749260 44
+src/art/uiIcons.ts
+  s_697bdc25a7c420::t_37044677f67b02 13
+  s_697bdc25a7c420::t_647660c722e256 292-293
+tests/iconAtlas.test.ts
+  s_697bdc25a7c420::t_e18d48a52086e3 7,12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "039a8f57e82afe9c578e7d3956b4c102f21b7cfd",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
