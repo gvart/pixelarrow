@@ -776,7 +776,7 @@ export function barLabels(seen: number): { long: boolean; hp: string; mor: strin
 export function moraleGlyph(scene: Phaser.Scene, cx: number, cy: number, size: number, state: MoraleState): Phaser.GameObjects.Image {
   const img = scene.add.image(cx, cy, `icon_${MORALE_GLYPH[state]}`).setDisplaySize(size, size);
   if (state !== 'steady') img.setTint(MORALE_TINT[state]);
-  if (state === 'wavering') pulse(scene, img, 'alpha', 1, 0.45, 500);
+  if (state === 'wavering' && pulse(scene, img, 'alpha', 1, 0.45, 500)) img.once('destroy', () => scene.tweens.killTweensOf(img));
   return img;
 }
 
