@@ -8,6 +8,14 @@ Empty. (The AS-02 remainder, ART-024 to ART-032, was made on 2026-10-10 and move
 
 ## Done
 
+### SET-01 promotion: the 6 settlement vignettes ART-006 to ART-011 (2026-10-11)
+
+**Slot.** The Settlement page banner (`SettlementScene`, a `FrescoBanner` over the content width, 78 UI px tall, 58 below 380 UI px of height, 38 below 300), texture `ui_vignette_<kind>_<culture>` loaded in `SettlementScene.preload` from `ui/vignette_<kind>_<culture>.jpg` on the first visit to a place of that kind and people. Until it loads (or if it is missing) the old map-tile art is drawn. It replaces the upscaled map tile (audit SET-1). Manifest `preview`: towns on `town-recruits` and `town-rest`, villages on `village`.
+
+**Pipeline.** Staged from `docs/v5/gemini/AS-04/processed/vignette_*.png`; `check.mjs` 6 PASS (1032x420, opaque). `preview.mjs` exit 0 for all 6 at 390x844, 360x780 and 320x640. The layout fixtures only enter Greek places (the start town Rhegion, the village Pylos), so the Greek sheets show the asset itself; the Phoenician and Celtic four were also looked at in the real game by a scratch Playwright run that entered a town and a village of each people at the same three sizes, en and ru: slot filled, sharp, no clash with the frame or the title.
+
+**Budget.** At quality 82 the files were 137 to 141 KB (budget 130): the manifest sets `"quality": 76` (Greek towns and villages, Phoenician town) and 70 (Celtic town, Phoenician and Celtic villages). `check.mjs --shipped`: 6 PASS, 120 to 128 KB.
+
 ### SHP-01 promotion: the shop fresco ART-004 (2026-10-11)
 
 **Slot.** The Shop hub's banner (`ShopScene` header, a `FrescoBanner` 30 UI px tall over the full content width, shown when the content box is 280 UI px or taller), texture `ui_fresco_shop` loaded in `ShopScene.preload` from `ui/fresco_shop.jpg`. It replaces the procedural pixel stall (`modeArt` "shop", SHP-5). Manifest `preview`: `ui/fresco_shop.jpg` on `shop-shop`, `shop-pass`, `shop-wallet`.

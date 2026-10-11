@@ -136,7 +136,7 @@
   {
    "id": "ART-006",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/vignette_town_greek.jpg", "screens": ["town-recruits", "town-rest"]},
    "file": "vignette_town_greek.jpg",
    "cat": "vignette",
    "kind": "painted",
@@ -150,6 +150,7 @@
    ],
    "dest": "public/ui/",
    "budgetKB": 130,
+   "quality": 76,
    "template": "T-VIGNETTE",
    "subject": "a walled town, Hellenic: whitewashed walls, terracotta roofs, a small Doric temple, olive trees",
    "slot": "SettlementScene.ts:81 FrescoBanner (kind town, culture greek): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
@@ -157,7 +158,7 @@
   {
    "id": "ART-007",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/vignette_town_phoenician.jpg", "screens": ["town-recruits", "town-rest"]},
    "file": "vignette_town_phoenician.jpg",
    "cat": "vignette",
    "kind": "painted",
@@ -171,6 +172,7 @@
    ],
    "dest": "public/ui/",
    "budgetKB": 130,
+   "quality": 76,
    "template": "T-VIGNETTE",
    "subject": "a walled town, Carthaginian: flat-roofed ochre mudbrick, palm trees, a harbour with purple awnings",
    "slot": "SettlementScene.ts:81 FrescoBanner (kind town, culture phoenician): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
@@ -178,7 +180,7 @@
   {
    "id": "ART-008",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/vignette_town_celtic.jpg", "screens": ["town-recruits", "town-rest"]},
    "file": "vignette_town_celtic.jpg",
    "cat": "vignette",
    "kind": "painted",
@@ -192,6 +194,7 @@
    ],
    "dest": "public/ui/",
    "budgetKB": 130,
+   "quality": 70,
    "template": "T-VIGNETTE",
    "subject": "a walled town, Galatian: round thatched houses, a timber palisade, oak woods",
    "slot": "SettlementScene.ts:81 FrescoBanner (kind town, culture celtic): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
@@ -199,7 +202,7 @@
   {
    "id": "ART-009",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/vignette_village_greek.jpg", "screens": ["village"]},
    "file": "vignette_village_greek.jpg",
    "cat": "vignette",
    "kind": "painted",
@@ -213,6 +216,7 @@
    ],
    "dest": "public/ui/",
    "budgetKB": 130,
+   "quality": 76,
    "template": "T-VIGNETTE",
    "subject": "a small farming village, Hellenic: whitewashed walls, terracotta roofs, a small Doric temple, olive trees",
    "slot": "SettlementScene.ts:81 FrescoBanner (kind village, culture greek): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
@@ -220,7 +224,7 @@
   {
    "id": "ART-010",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/vignette_village_phoenician.jpg", "screens": ["village"]},
    "file": "vignette_village_phoenician.jpg",
    "cat": "vignette",
    "kind": "painted",
@@ -234,6 +238,7 @@
    ],
    "dest": "public/ui/",
    "budgetKB": 130,
+   "quality": 70,
    "template": "T-VIGNETTE",
    "subject": "a small farming village, Carthaginian: flat-roofed ochre mudbrick, palm trees, a harbour with purple awnings",
    "slot": "SettlementScene.ts:81 FrescoBanner (kind village, culture phoenician): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
@@ -241,7 +246,7 @@
   {
    "id": "ART-011",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/vignette_village_celtic.jpg", "screens": ["village"]},
    "file": "vignette_village_celtic.jpg",
    "cat": "vignette",
    "kind": "painted",
@@ -255,6 +260,7 @@
    ],
    "dest": "public/ui/",
    "budgetKB": 130,
+   "quality": 70,
    "template": "T-VIGNETTE",
    "subject": "a small farming village, Galatian: round thatched houses, a timber palisade, oak woods",
    "slot": "SettlementScene.ts:81 FrescoBanner (kind village, culture celtic): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
