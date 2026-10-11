@@ -1,0 +1,24 @@
+tests/itemCap.test.ts
+  s_697bdc25a7c420::t_bfe05cc08c06ae 1-53
+src/dev/rarityBalance.ts
+  s_697bdc25a7c420::t_6f0d7b26692583 172-173,176
+  s_697bdc25a7c420::t_81a7419b9eadd9 57-58
+  s_697bdc25a7c420::t_ea04903353ccb8 8-13,79-106,112-171,174-175,177
+  s_697bdc25a7c420::t_efcbc32e3d6d38 107-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "16bfe218996957bfa4316a56a734e089311a3eeb",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
