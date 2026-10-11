@@ -49,7 +49,29 @@ export const LADDER = {
   ] as readonly { base: number; perChapter: number }[],
   /** The tier whose chest also holds a piece of the chapter's set (src/game/sources.ts CHAPTER_SET). */
   chestItemTier: 3,
+  /**
+   * Minutes a ladder ticket stays open (controls.md R10 LADDER_TICKET_MIN,
+   * V5-021): a ladder battle may pause, so it gets longer than the 10 min of
+   * the other tickets. A run submitted later is still verified but pays nothing.
+   */
+  ticketMin: 30,
+  /** The battle shows the ticket's time left from this many minutes out (controls.md R10). */
+  countdownMin: 5,
 };
+
+/** How long a ladder ticket stays open, in ms (server and demo). */
+export const LADDER_TICKET_TTL_MS = LADDER.ticketMin * 60_000;
+
+/**
+ * A ladder ticket's clock at `now` (both in ms on the same clock): seconds
+ * left (0 once past), whether the battle shows the countdown (the last
+ * `countdownMin` minutes) and whether the ticket has expired (a run reported
+ * then is verified but pays nothing).
+ */
+export function ticketClock(expiresAt: number, now: number): { secs: number; show: boolean; expired: boolean } {
+  const ms = expiresAt - now;
+  return { secs: Math.max(0, Math.ceil(ms / 1000)), show: ms <= LADDER.countdownMin * 60_000, expired: ms < 0 };
+}
 
 const MIXES: ArmyMix[] = ['bandits', 'line', 'raiders', 'hill_tribe', 'mercs', 'pirates', 'deserters', 'cultists', 'line', 'garrison'];
 
