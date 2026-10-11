@@ -1,0 +1,24 @@
+src/scenes/MarketScene.ts
+  s_697bdc25a7c420::t_c367a619b7be68 67,70,72
+  s_697bdc25a7c420::t_4b3f41c5f8586d 335-336,676
+  s_697bdc25a7c420::t_b776aca9a0c19a 670-671,685-686
+  s_697bdc25a7c420::t_f862c100b4bf36 27,53-58,60-61,63-66,68-69,71,73,76-81,438,446-447,455,458-459,464-467,495,668-669,683-684
+docs/v5/stories/MKT-01/NOTES.md
+  s_697bdc25a7c420::t_ea9976043685f1 10-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "82ca742cdff1fde790f0559dd6c00c9bb1a2462a",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
