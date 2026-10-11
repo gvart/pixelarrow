@@ -32,6 +32,7 @@ import { EVENTS_RU } from './events.ru';
 import { EVENTCARD_RU } from './eventcard.ru';
 import { SHOP_V5_RU } from './shop.v5.ru';
 import { MARKET_RU } from './market.ru';
+import { WORLD_V5_RU } from './world.v5.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -325,4 +326,5 @@ export const RU: Table = {
   ...EVENTCARD_RU,
   ...SHOP_V5_RU,
   ...MARKET_RU,
+  ...WORLD_V5_RU,
 };
