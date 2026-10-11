@@ -1,0 +1,25 @@
+src/i18n/en.ts
+  s_697bdc25a7c420::t_23f212c0f52f1a 45,366-367
+src/i18n/arc.ru.ts
+  s_697bdc25a7c420::t_e413e724bbe0c6 1-53
+src/i18n/arc.en.ts
+  s_697bdc25a7c420::t_efe30e0a3e7ec0 1-53
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_23f212c0f52f1a 37,333
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fb14e43605fae3dd4011c94bb9902337cc4aa300",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
