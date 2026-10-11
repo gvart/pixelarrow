@@ -1008,9 +1008,9 @@ export class DuelScene extends BaseScene {
     const r = chestReward(ch, tier);
     const need = LADDER.chestStars[tier - 1];
     const have = chapterStars(p.ladder.stars, ch);
-    const w = Math.min(this.m.VW - 12, 230);
+    const w = Math.min(this.m.VW - 4, 230);
     const bodyH = 36 + (st === 'locked' ? 18 + 4 + LINE_H : LINE_H);
-    const m = openParchmentSheet(this, { title: t('dv.chestTitle', { ch, n: need }), w, h: SHEET_PAD + bodyH, id: 'duel.chestSheet' });
+    const m = openParchmentSheet(this, { title: this.sheetTitle(t('dv.chestTitle', { ch, n: need }), t('duels.chapter', { n: ch }), w), w, h: SHEET_PAD + bodyH, id: 'duel.chestSheet' });
     const { c, body: b } = m;
     let y = b.y;
     c.add(mosaicImage(this, b.x, y, 36, 30, 'parchmentWell'));
@@ -1025,6 +1025,12 @@ export class DuelScene extends BaseScene {
       y += 15 + 4;
       ptext(this, c, b.x, y, t('dv.chestHow', { n: need - have }), 'sec', { maxW: b.w });
     } else ptext(this, c, b.x, y, t('duels.chest.claimed'), 'muted', { maxW: b.w });
+  }
+
+  /** A sheet's title, or its short form where the long one would drop under 6.5 on a `w`-wide sheet (the X and margins take 52). */
+  private sheetTitle(full: string, short: string, w: number): string {
+    const room = Math.min(w, this.m.VW - 16) - 52;
+    return measureText(full, false, TEXT_MIN, 'roman') <= room ? full : short;
   }
 
   /** Claims a ready chest: the reward popup once the server answers. */
@@ -1067,12 +1073,12 @@ export class DuelScene extends BaseScene {
   /** What a chest held: its Glory and (the 30-star chest) an item; a tap on the item opens its card. */
   openChestReward(r: ChestClaim): void {
     const { VW } = this.m;
-    const w = Math.min(VW - 12, 210);
+    const w = Math.min(VW - 4, 210);
     const art = 3;
     const ah = 13 * art;
     let chestAt = { x: VW / 2, y: this.m.VH / 2 };
     const actions: MButtonOpts[] = [{ label: t('duels.reward.ok'), variant: 'primary', id: 'duel.chest.ok', onClick: () => m.close() }];
-    const m = openParchmentSheet(this, { title: t('duels.chest.title', { n: r.chapter }), w, h: SHEET_PAD + 8 + ah + 8 + 22 + (r.item ? 38 : 0) + sheetActionsH(actions, w), actions, id: 'duel.rewardSheet', onClose: () => this.releaseGlory(chestAt) });
+    const m = openParchmentSheet(this, { title: this.sheetTitle(t('duels.chest.title', { n: r.chapter }), t('duels.chapter', { n: r.chapter }), w), w, h: SHEET_PAD + 8 + ah + 8 + 22 + (r.item ? 38 : 0) + sheetActionsH(actions, w), actions, id: 'duel.rewardSheet', onClose: () => this.releaseGlory(chestAt) });
     const { c, body: b } = m;
     let y = b.y + 8;
     // the chest: closed, it shakes, it opens on its gold (instantly under reduced motion)
