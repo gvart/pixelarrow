@@ -759,7 +759,7 @@
   {
    "id": "ART-036",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/beasts/plate_hydra.jpg", "screens": ["codex", "codex-beast"]},
    "file": "plate_hydra.jpg",
    "cat": "plate",
    "kind": "painted",
@@ -780,7 +780,7 @@
   {
    "id": "ART-037",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/beasts/plate_cyclops.jpg", "screens": ["codex"]},
    "file": "plate_cyclops.jpg",
    "cat": "plate",
    "kind": "painted",
@@ -801,7 +801,7 @@
   {
    "id": "ART-038",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/beasts/plate_harpies.jpg", "screens": ["codex"]},
    "file": "plate_harpies.jpg",
    "cat": "plate",
    "kind": "painted",
@@ -822,7 +822,7 @@
   {
    "id": "ART-039",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/beasts/plate_nemean_lion.jpg", "screens": ["codex"]},
    "file": "plate_nemean_lion.jpg",
    "cat": "plate",
    "kind": "painted",
@@ -843,7 +843,7 @@
   {
    "id": "ART-040",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/beasts/plate_minotaur.jpg", "screens": ["codex"]},
    "file": "plate_minotaur.jpg",
    "cat": "plate",
    "kind": "painted",
@@ -864,7 +864,7 @@
   {
    "id": "ART-041",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/beasts/plate_chimera.jpg", "screens": ["codex"]},
    "file": "plate_chimera.jpg",
    "cat": "plate",
    "kind": "painted",
@@ -885,7 +885,7 @@
   {
    "id": "ART-042",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/beasts/plate_kraken.jpg", "screens": ["codex"]},
    "file": "plate_kraken.jpg",
    "cat": "plate",
    "kind": "painted",
@@ -906,7 +906,7 @@
   {
    "id": "ART-043",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/beasts/plate_titan.jpg", "screens": ["codex"]},
    "file": "plate_titan.jpg",
    "cat": "plate",
    "kind": "painted",
@@ -1244,7 +1244,7 @@
   {
    "id": "ART-057",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
    "file": "icon_doctrine_steady.png",
    "cat": "icon",
    "kind": "icon",
@@ -1267,7 +1267,7 @@
   {
    "id": "ART-058",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
    "file": "icon_doctrine_rush.png",
    "cat": "icon",
    "kind": "icon",
@@ -1290,7 +1290,7 @@
   {
    "id": "ART-059",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
    "file": "icon_doctrine_hammer.png",
    "cat": "icon",
    "kind": "icon",
@@ -1313,7 +1313,7 @@
   {
    "id": "ART-060",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
    "file": "icon_doctrine_swarm.png",
    "cat": "icon",
    "kind": "icon",
@@ -1336,7 +1336,7 @@
   {
    "id": "ART-061",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
    "file": "icon_doctrine_fury.png",
    "cat": "icon",
    "kind": "icon",
