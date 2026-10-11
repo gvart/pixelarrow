@@ -11,10 +11,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | SHP-01 worktree-agent-a1f630f4bdc1c5e54, NOCOMPAT worktree-agent-ab0bb15b329ab8ff5, MKT-01 worktree-agent-af589a68c791967cd | — | integrator | — | merging |
-| fw-03 | W14 FW-03: works tray + campaign works/assault wiring | per card | per card | worktree-agent | running |
-| war-02 | W19 WAR-02: Clan + Merchant | per card | per card | worktree-agent | running |
-| wld-01 | W16 WLD-01: World map | per card | per card | worktree-agent | running |
+| (merge) | WAR-02 worktree-agent-a93954caa6d92d57d, WLD-01 worktree-agent-a8f0b8c64d3d8a109, FW-03 worktree-agent-a978fa7c878da99d8 | — | integrator | — | merging |
+| set-01 | W16 SET-01: Settlement | per card | per card | worktree-agent | running |
+| cmp-01 | W17 CMP-01: Camp | per card | per card | worktree-agent | running |
+| res-01 | W17 RES-01: Results | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -65,6 +65,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 5fc127f RD-03 why-line; 8075b8f AR-04 host + end state; 2b7bf4a ST-04 train 2 closed (13 v2 fixtures; Chromium hash parity 13/13). Gates: vitest 1276, server 340, layout 0 new (812 known), smokes pass; balance 53%, lairs 43/58/53, assault 45%, host 49%.
 - b4bda4a V5-074: no live users, backward compatibility dropped.
 - f752a6f EV-03 event card + journal, deck ON. Gates: vitest 1283/1284 (simTypes load timeout), layout 0 new (812 known), smokes pass.
+- 77f5d29 S4-NOCOMPAT (−11.5k lines); 109ae4f SHP-01; a6b5963 MKT-01; 31e6023 simTypes timeout. Gates: vitest 1221, server 299, layout 0 new (686 known), smokes pass (battle checks flake only under load); balance 53%, lairs 43/58/53; replay-hash Chromium 13/13.
 
 ## Queue (next)
 
@@ -120,6 +121,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 29. Handoffs: RD-03 wraps Battle.prototype.drainEvents (BTL-01 should replace it with an explicit call); the RU enemy culture name is untranslated on Results; offline bounty dropped by settleBattle (RES-01); AR-04 host + AR-02 assaults need campaignSetup holdField/works plus WLD-02 map wiring; RES-01 Victory variant for arc 'won'.
 
 30. WLD-01 handoffs: RU 'ROAD' terrain untranslated in the World header and status; status line truncated; event card portrait placeholder. eventBalance rows aren't in `npm run balance` (src/dev/balance.ts).
+
+31. Follow-ups: works tray subtitles at 6 px (BTL-01 text floor); captain names in Latin letters in RU (localization pass); event card portrait placeholder (eventCard.ts); pinch-zoom key A11Y-14 and the fog-edge next-town marker on World not built; unused strat strings world.sit.placing and world.strip.place.
 
 ## Blockers
 
