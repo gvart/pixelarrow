@@ -10,8 +10,8 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { ScrollArea, addIcon, addText, scaleIcon, type FontKey } from '../../ui/kit';
-import { MButton, MChip, SECTION_TITLE_H as SectionTitle_H, SectionTitle, mosaicImage, TAP, addSubShell } from '../../ui/mosaic';
-import { MOSAIC } from '../../ui/tokens';
+import { MButton, MChip, SECTION_TITLE_H as SectionTitle_H, SectionTitle, mosaicImage, mtext, TAP, addSubShell } from '../../ui/mosaic';
+import { MOSAIC, TEXT_MIN, lineHeight } from '../../ui/tokens';
 import { ItemIcon, addScrollHint, confirmDialog, subjectName, toast } from '../../ui/widgets';
 import { ellipsize, wrapText, LINE_H } from '../../ui/textfit';
 import { SIZE } from '../../ui/theme';
@@ -68,6 +68,9 @@ function demoSource(h: number, stage?: 'held' | 'far'): Source {
     },
   };
 }
+
+/** Line pitch of 6.5 UI px text (TEXT_MIN, A11Y-09). */
+const LH = Math.ceil(lineHeight(TEXT_MIN));
 
 type Section = MerchantOffer['slot'];
 const SECTIONS: Section[] = ['base', 'region', 'rare'];
@@ -226,7 +229,19 @@ export class MerchantScene extends BaseScene {
     const descText = consumable ? tOr(`consumable.${o.ref}.desc`, CONSUMABLES[o.ref as ConsumableId]?.desc ?? '') : `${tOr(`rarity.${o.rarity}`, o.rarity)} · ${tOr(`slot.${def?.slot}`, def?.slot ?? '')} · ${tOr(`item.${o.ref}.desc`, def?.desc ?? '')}`;
     const tx = 32;
     const desc = wrapText(descText, w - tx - 4, 2);
-    const rowH = 30 + desc.lines.length * LINE_H + TAP + 4;
+    const capped = o.bought >= o.dailyCap;
+    const prices: [Currency, number | null][] = [
+      ['gold', o.price.gold],
+      ['drachmae', o.price.drachmae],
+    ];
+    const shown = prices.filter(([, p]) => p !== null);
+    const listOf = (cur: Currency) => (cur === 'gold' ? o.gold : o.drachmae);
+    // the discount is said once, in the info card; here the list price is struck through over its button (MER-1)
+    const struck = shown.some(([cur, p]) => listOf(cur) !== null && listOf(cur) !== p);
+    const struckH = struck ? LH : 0;
+    // a capped row says why under its buttons (MER-2)
+    const reasonH = capped ? LH + 2 : 0;
+    const rowH = 30 + desc.lines.length * LINE_H + struckH + TAP + 4 + reasonH;
     c.add(mosaicImage(this, 0, y, w, rowH, capped0(o) ? 'parchmentWell' : 'parchment'));
     const name = this.offerName(o);
     const subject = consumable ? { consumable: o.ref } : { item: this.preview(o) };
@@ -237,22 +252,26 @@ export class MerchantScene extends BaseScene {
       }),
     );
     c.add(addText(this, tx, y + 4, ellipsize(name, w - tx - 4), consumable ? 'pInk' : rarityFont(o.rarity)));
-    const capped = o.bought >= o.dailyCap;
     c.add(addText(this, tx, y + 15, ellipsize(t('merchant.today', { n: o.bought, cap: o.dailyCap }), w - tx - 4), capped ? 'pMuted' : 'pGood'));
     c.add(addText(this, tx, y + 27, desc.lines.join('\n'), 'pSec'));
-    const by = y + rowH - TAP - 4;
-    const prices: [Currency, number | null][] = [
-      ['gold', o.price.gold],
-      ['drachmae', o.price.drachmae],
-    ];
-    const shown = prices.filter(([, p]) => p !== null);
+    const by = y + rowH - TAP - 4 - reasonH;
     const bw = Math.floor((w - 8 - (shown.length - 1) * SIZE.gap) / Math.max(1, shown.length));
     shown.forEach(([cur, price], i) => {
       const p = price as number;
-      const list = cur === 'gold' ? o.gold : o.drachmae;
-      const b = new MButton(this, 4 + i * (bw + SIZE.gap), by, bw, TAP, {
+      const list = listOf(cur);
+      const bx = 4 + i * (bw + SIZE.gap);
+      if (list !== null && list !== p) {
+        const lt = mtext(this, bx + bw / 2, by - LH, `${list}`, 'pMuted', { size: TEXT_MIN, align: 0.5 });
+        const strike = this.add.graphics();
+        strike.lineStyle(0.8, MOSAIC.inkMuted, 1);
+        // through the middle of the digits (the text box also holds the line gap under them)
+        const sy = by - LH + Math.round(TEXT_MIN * 0.5 * 10) / 10;
+        strike.lineBetween(lt.x - lt.width / 2 - 1, sy, lt.x + lt.width / 2 + 1, sy);
+        c.add([lt, strike]);
+      }
+      const b = new MButton(this, bx, by, bw, TAP, {
         variant: cur === 'gold' ? 'secondary' : 'purchase',
-        label: list !== null && list !== p ? `${p} (-${Math.round(v.discountRate * 100)}%)` : `${p}`,
+        label: `${p}`,
         icon: currencyIcon(cur),
         id: `merchant.buy.${o.id}.${cur}`,
         tip: `${name}: ${priceText(p, cur)}. ${cur === 'gold' ? t('shop.goldTip') : t('shop.drTip')}`,
@@ -263,6 +282,7 @@ export class MerchantScene extends BaseScene {
       if (why) b.setEnabled(false, why);
       c.add(b);
     });
+    if (capped) c.add(mtext(this, w / 2, by + TAP + 3, t('econ.dailyCap'), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: w - 8 }));
     return rowH;
   }
 

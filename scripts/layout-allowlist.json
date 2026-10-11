@@ -48,8 +48,7 @@
     "village|text-size|*"
   ],
   "C": [
-    "camp-temper|text-size|*",
-    "online-clan|text-size|*"
+    "camp-temper|text-size|*"
   ],
   "F": [
     "kit-mosaic|text-size|*",
@@ -106,7 +105,6 @@
     "town-rest|text-size|*": "SET-01",
     "village|text-size|*": "SET-01",
     "camp-temper|text-size|*": "CMP-01",
-    "online-clan|text-size|*": "WAR-02",
     "kit-mosaic|text-size|*": "F-05",
     "tutorial-fight|text-size|*": "TUT-02",
     "tutorial-loose|text-size|*": "TUT-02",
