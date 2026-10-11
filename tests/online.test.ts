@@ -37,8 +37,6 @@ function fakeServer(opts: { down?: number; save?: { revision: number; data: unkn
     if (!authed) return json(401, { error: { code: 'unauthorized', message: 'no' } });
     if (url === '/api/save' && method === 'GET') return json(200, { revision: st.revision, version: 3, data: st.data, updatedAt: 1 });
     if (url === '/api/save' && method === 'PUT') {
-      const storedV = (st.data as { v?: number } | null)?.v ?? 0;
-      if (storedV > body.data.v) return json(409, { error: { code: 'save_version_downgrade', message: 'newer', version: storedV, revision: st.revision } });
       if (body.revision !== st.revision) return json(409, { error: { code: 'save_conflict', message: 'conflict', revision: st.revision } });
       st.revision++;
       st.data = body.data;
@@ -196,48 +194,6 @@ describe('a server save from a newer build is never overwritten (V5-011)', () =>
     await online.flush();
     expect(srv.st.puts).toHaveLength(0);
     expect((srv.st.data as SaveData).v).toBe(SAVE_VERSION + 1);
-  });
-});
-
-describe('a 409 save_version_downgrade from the server (ST-02b)', () => {
-  const newer = () => ({ ...save(40), v: SAVE_VERSION + 1 });
-
-  it('holds: one PUT, no fetch-and-retry, no retry later, local state kept', async () => {
-    const srv = fakeServer({ save: { revision: 4, data: newer() } });
-    const { online, kv } = makeOnline(srv.fetch);
-    const onAdopt = vi.fn();
-    online.onAdopt = onAdopt;
-    await online.signIn();
-    online.queuePush(save(9, { v: SAVE_VERSION }));
-    await online.flush();
-    online.queuePush(save(10));
-    await tick();
-    await online.flush();
-    expect(srv.calls.filter((c) => c.endsWith('/api/save'))).toEqual(['PUT /api/save']);
-    expect(onAdopt).not.toHaveBeenCalled();
-    expect(kv.store.has(SYNC_META_KEY)).toBe(false);
-    expect(online.status).toBe('offline');
-    expect((srv.st.data as SaveData).v).toBe(SAVE_VERSION + 1);
-  });
-
-  it('holds when the re-upload after a save_conflict meets a newer save', async () => {
-    const srv = fakeServer({ save: { revision: 4, data: save(8) } });
-    // The server copy is replaced by a newer build between the GET and the re-upload.
-    const fetch: FetchLike = async (url, init) => {
-      const res = await srv.fetch(url, init);
-      if (url === '/api/save' && (init?.method ?? 'GET') === 'GET') srv.st.data = newer();
-      return res;
-    };
-    const { online } = makeOnline(fetch);
-    await online.signIn();
-    online.queuePush(save(9));
-    await online.flush();
-    online.queuePush(save(10));
-    await tick();
-    await online.flush();
-    expect(srv.calls.filter((c) => c.endsWith('/api/save'))).toEqual(['PUT /api/save', 'GET /api/save', 'PUT /api/save']);
-    expect(srv.st.puts).toHaveLength(0);
-    expect(online.status).toBe('offline');
   });
 });
 

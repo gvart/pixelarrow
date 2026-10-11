@@ -77,7 +77,7 @@ Authenticated routes take `Authorization: Bearer <token>`.
 | POST | `/api/auth/telegram` | – | body `{ "initData": "<Telegram.WebApp.initData>" }` (or the raw string). Returns `{ token, expiresAt, player }`. Token lifetime 7 days. |
 | GET | `/api/me` | ✓ | `{ player, session }` |
 | GET | `/api/save` | ✓ | `{ revision, version, data, updatedAt }`; `revision: 0, data: null` if none |
-| PUT | `/api/save` | ✓ | body `{ revision: <last revision you saw>, data: <SaveData, must have numeric v> }` → `{ revision }`, or **409** `save_conflict` with the current `revision`, or **409** `save_version_downgrade` (stored `version` above `data.v`; the stored save is kept). Max 512 KB. |
+| PUT | `/api/save` | ✓ | body `{ revision: <last revision you saw>, data: <SaveData, must have numeric v> }` → `{ revision }`, or **409** `save_conflict` with the current `revision`. Max 512 KB. |
 | POST | `/api/battle/verify` | ✓ | see below |
 | GET | `/api/shop/products` | – | Stars products: the Drachmae packs (`kind: 'drachmae'`, `drachmae`) and the legacy `supporter_banner` |
 | POST | `/api/shop/invoice` | ✓ | body `{ productId }` → `{ link }` (Stars invoice link); 409 if an entitlement is already owned |
