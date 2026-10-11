@@ -1596,7 +1596,7 @@
   {
    "id": "ART-072",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "world/tile_stakes.png", "screens": ["battle-works-field"]},
    "file": "tile_stakes.png",
    "cat": "tile",
    "kind": "pixel",
@@ -1616,7 +1616,7 @@
   {
    "id": "ART-073",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "world/tile_ditch.png", "screens": ["battle-works-field"]},
    "file": "tile_ditch.png",
    "cat": "tile",
    "kind": "pixel",
@@ -1636,7 +1636,7 @@
   {
    "id": "ART-074",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "world/tile_laager.png", "screens": ["battle-works-field"]},
    "file": "tile_laager.png",
    "cat": "tile",
    "kind": "pixel",
@@ -1656,7 +1656,7 @@
   {
    "id": "ART-075",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "world/tile_palisade.png", "screens": ["battle-assault"]},
    "file": "tile_palisade.png",
    "cat": "tile",
    "kind": "pixel",
@@ -1676,7 +1676,7 @@
   {
    "id": "ART-076",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "world/tile_rampart.png", "screens": ["battle-assault"]},
    "file": "tile_rampart.png",
    "cat": "tile",
    "kind": "pixel",

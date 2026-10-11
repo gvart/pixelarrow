@@ -3,12 +3,14 @@
  * colours per terrain kind (painted into the ground texture by ground.ts),
  * stepped height shading with contour lips, water with ripples and ford
  * stones, plus upright sprites (trees, boulders, water glints) that the scene
- * depth-sorts among the soldiers.
+ * depth-sorts among the soldiers, and the field works' pixel sprites
+ * (field-works.md R5; AS-06, wired by FW-03).
  */
 import { mix } from './palette';
 import { BAYER4, Pix, hash2, valueNoise } from './pixels';
 import { Scene, ramp, type Material } from './model3d';
 import type { Terrain } from '../sim/terrain';
+import { isoToScreen } from './iso';
 
 const RAMP = {
   forestFloor: [0x7d7a3e, 0x6e6c38, 0x605c32, 0x534c2c, 0x463e27],
@@ -332,4 +334,94 @@ export function renderSparkle(): Pix {
   px.set(1, 2, 0xc8d4d8, 160);
   px.set(1, 1, 0xf8f6ee);
   return px;
+}
+
+// ---------------------------------------------------------------- field works (field-works.md R5)
+
+/** The kinds of cell drawn with a works sprite. */
+export type WorkArtKind = 'stakes' | 'ditch' | 'laager' | 'palisade' | 'rampart';
+
+/**
+ * The works' pixel sprites (AS-06, ART-072..076; public/world/), drawn at 1x
+ * with their feet on the bottom vertex of their footprint. Each runs along
+ * field +x (screen down-right) and is flipped for a line along field y. A
+ * laager is one wagon per 2-cell segment; the ditch is a ground decal under
+ * the men; the others are depth-sorted with them, like trees.
+ */
+export const WORK_ART: Record<WorkArtKind, { key: string; url: string; decal: boolean }> = {
+  stakes: { key: 'tile_stakes', url: 'world/tile_stakes.png', decal: false },
+  ditch: { key: 'tile_ditch', url: 'world/tile_ditch.png', decal: true },
+  laager: { key: 'tile_laager', url: 'world/tile_laager.png', decal: false },
+  palisade: { key: 'tile_palisade', url: 'world/tile_palisade.png', decal: false },
+  rampart: { key: 'tile_rampart', url: 'world/tile_rampart.png', decal: false },
+};
+
+/** One works sprite: texture key, the screen point of its feet (origin 0.5, 1), its mirror and whether it lies under the men. */
+export interface WorkSprite {
+  kind: WorkArtKind;
+  key: string;
+  x: number;
+  y: number;
+  flip: boolean;
+  decal: boolean;
+}
+
+/** A field and its grid (cells across and down, the field in paces). */
+export interface WorkArtGrid {
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+}
+
+/** Screen x of the footprint's middle and y of its lowest vertex: where a sprite's feet stand. */
+function footOf(cells: readonly number[], g: WorkArtGrid): { x: number; y: number } {
+  const cw = g.width / g.w;
+  const ch = g.height / g.h;
+  let mx = 0;
+  let my = 0;
+  let by = -Infinity;
+  for (const i of cells) {
+    const ix = i % g.w;
+    const iy = Math.floor(i / g.w);
+    mx += (ix + 0.5) * cw;
+    my += (iy + 0.5) * ch;
+    by = Math.max(by, isoToScreen((ix + 1) * cw, (iy + 1) * ch).y);
+  }
+  return { x: Math.round(isoToScreen(mx / cells.length, my / cells.length).x), y: Math.round(by) };
+}
+
+/**
+ * The sprites for a field's works: the placed segments (`segs`, Battle.works():
+ * one sprite per cell, one wagon per laager segment) and the ground's own
+ * palisade and rampart cells (`walls`, an assault field; campaign-arc.md R2).
+ */
+export function workSprites(
+  segs: readonly { type: 'stakes' | 'ditch' | 'laager'; cells: readonly number[] }[],
+  walls: readonly { i: number; kind: 'palisade' | 'rampart' }[],
+  g: WorkArtGrid,
+): WorkSprite[] {
+  const out: WorkSprite[] = [];
+  const add = (kind: WorkArtKind, cells: readonly number[], flip: boolean) => {
+    const a = WORK_ART[kind];
+    out.push({ kind, key: a.key, ...footOf(cells, g), flip, decal: a.decal });
+  };
+  for (const s of segs) {
+    // the line runs along field y when its cells share a column
+    const flip = s.cells.length > 1 && s.cells[0] % g.w === s.cells[1] % g.w;
+    if (s.type === 'laager') add('laager', s.cells, flip);
+    else for (const i of s.cells) add(s.type, [i], flip);
+  }
+  const kindAt = new Map(walls.map((c) => [c.i, c.kind]));
+  for (const c of walls) {
+    const x = c.i % g.w;
+    const y = Math.floor(c.i / g.w);
+    const same = (dx: number, dy: number) => {
+      const nx = x + dx;
+      const ny = y + dy;
+      return nx >= 0 && ny >= 0 && nx < g.w && ny < g.h && kindAt.get(ny * g.w + nx) === c.kind;
+    };
+    add(c.kind, [c.i], !same(1, 0) && !same(-1, 0) && (same(0, 1) || same(0, -1)));
+  }
+  return out;
 }

@@ -8,6 +8,12 @@ Empty. (The AS-02 remainder, ART-024 to ART-032, was made on 2026-10-10 and move
 
 ## Done
 
+### FW-03 promotion: the five works sprites (2026-10-11)
+
+**Slots wired (FW-03).** `src/art/terrainArt.ts` `WORK_ART` and `workSprites`: one sprite per stakes, ditch, palisade or rampart cell and one wagon per 2-cell laager segment, feet on the lowest vertex of the footprint (origin 0.5, 1), flipped for a line along field y. The ditch is a decal under the men; the rest are depth-sorted with them. `BattleScene.preload` loads `public/world/tile_*.png`; placed segments are redrawn when `Battle.works()` changes, an assault field's palisade and rampart cells are drawn with the trees. Manifest `preview`: ART-072..074 on `battle-works-field` (a stakes line, a ditch and a laager laid in deployment), ART-075 and ART-076 on `battle-assault` (a lair assault's deployment with the garrison's stakes).
+
+**Pipeline (D-9).** Staged from `docs/v5/gemini/AS-06/processed/`; `check.mjs` PASS for all five. `preview.mjs` exit 0 for each (layout check clean at 390x844, 360x780, 320x640), with temporary copies of the other four in `public/world/` (the battle loads all five; a missing file is a console error in the check), then `promote.mjs --looked` shipped each over its copy (same bytes). DPR 3 sheets read: the stakes read as a pale stake row, the ditch as a dark trench under the men's feet, the wagon at chest height, the palisade as a wall above head height with the garrison behind it; crisp at 1x. `check --shipped` PASS (0.3 to 1.1 KB).
+
 ### SHP-01 promotion: the shop fresco ART-004 (2026-10-11)
 
 **Slot.** The Shop hub's banner (`ShopScene` header, a `FrescoBanner` 30 UI px tall over the full content width, shown when the content box is 280 UI px or taller), texture `ui_fresco_shop` loaded in `ShopScene.preload` from `ui/fresco_shop.jpg`. It replaces the procedural pixel stall (`modeArt` "shop", SHP-5). Manifest `preview`: `ui/fresco_shop.jpg` on `shop-shop`, `shop-pass`, `shop-wallet`.

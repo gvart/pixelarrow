@@ -83,6 +83,8 @@ const STORY_OF = [
   ['recruits', 'SET-01'],
   ['results', 'RES-01'],
   ['inspect', 'RES-01'],
+  ['battle-works', 'FW-03'],
+  ['battle-assault', 'FW-03'],
   ['battle-', 'BTL-01'],
   ['tutorial-', 'TUT-02'],
   ['first-run', 'TUT-01'],
@@ -642,6 +644,44 @@ const SCREENS = [
     },
   })),
   { id: 'battle-retreat', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.startFight(); s.openRetreat(); return 1;`), wait(p, 500)) },
+  // ---- field works (FW-03): the tray with a stakes line, a ditch and a laager laid; placing a ghost; a lair assault's walls
+  ...[
+    ['battle-works', `s.pickWork('stakes'); s.placeWork(); s.pickWork('ditch'); s.worksGhost.x -= 5; s.placeWork(); s.pickWork('laager'); s.worksGhost.x += 5; s.placeWork(); s.hideBanner(); s.buildHud();`],
+    ['battle-works-place', `s.pickWork('stakes'); s.worksGhost.x -= 3; s.hideBanner(); s.buildHud();`],
+    // the same works on the open field, tray closed (the works art preview, ASSET_PIPELINE step 6)
+    ['battle-works-field', `s.pickWork('stakes'); s.placeWork(); s.pickWork('ditch'); s.worksGhost.x -= 5; s.placeWork(); s.pickWork('laager'); s.worksGhost.x += 5; s.placeWork(); s.openWorks(false); s.hideBanner(); s.buildHud();`],
+  ].map(([id, body]) => ({
+    id,
+    owner: 'A',
+    run: async (p) => {
+      await ev(p, () => {
+        const w = window.__state.campaign.world;
+        w.s.supplies = 40;
+        w.setFlag('@works', 1);
+      });
+      await battle(p);
+      await call(p, 'Battle', `s.openWorks(true); ${body} return 1;`);
+      return wait(p, 500);
+    },
+  })),
+  {
+    id: 'battle-assault',
+    owner: 'A',
+    run: async (p) => {
+      // a lair assault as campaignBattle.startLairAssault builds it (the map's Assault sheet is WLD-02's)
+      await ev(p, () => {
+        const st = window.__state;
+        const c = st.campaign;
+        const lair = c.world.map.settlements.find((x) => x.kind === 'lair');
+        st.pending = { enemy: c.garrisonEnemy(lair.id), seed: 4242, label: lair.name, site: c.assaultSite(lair.id), lairId: lair.id, byPlayer: true };
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', {}));
+      });
+      await until(p, activeIs('Battle'));
+      await wait(p, 600);
+      await call(p, 'Battle', `s.hideBanner(); s.recentre('foe'); return 1;`);
+      return wait(p, 700);
+    },
+  },
   { id: 'battle-online-deploy', owner: 'A', run: async (p) => (await battle(p, 'attack'), wait(p, 900)) },
   { id: 'battle-duel-deploy', owner: 'A', run: async (p) => (await battle(p, 'duel'), await call(p, 'Battle', 's.startFight(); return 1;'), wait(p, 900)) },
   {
