@@ -4,7 +4,7 @@
  * I1, the free legendary farm), and no deaths, wounds or XP either.
  */
 import { describe, expect, it } from 'vitest';
-import trialSrc from '../src/scenes/BeastTrialScene.ts?raw';
+import trialSrc from '../src/scenes/CodexScene.ts?raw';
 import { Campaign } from '../src/game/campaign';
 import { beastEnemy } from '../src/game/beasts';
 import { campaignSetup, markBattle, practiceOf, resolveAbandoned, settleBattle, trialBattle } from '../src/game/campaignBattle';
@@ -119,7 +119,7 @@ describe('Practice: a Trial fight gives nothing and costs nothing (LF-02)', () =
   });
 });
 
-describe('BeastTrial starts the battle with explicit scene data (PLAY B1 root cause)', () => {
+describe('The Codex Trial fight starts the battle with explicit scene data (PLAY B1 root cause)', () => {
   it('fight() builds a practice battle and starts Battle with {}', () => {
     const fight = trialSrc.slice(trialSrc.indexOf('fight(enc: EncounterId)'));
     expect(fight).toContain('trialBattle(');

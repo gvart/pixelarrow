@@ -32,9 +32,9 @@ async function beastBattle(enc, file, moment, opts = {}) {
     Object.assign(st.campaign.data.settings, { seenGestureHint: true, pauseContact: false, pauseFlank: false, pauseRout: false, pauseDeath: false, dmgNumbers: false });
     const level = D.lairLevel(enc, 3);
     st.campaign.data.heroes = bb.compHeroes(bb.BEAST_COMPS[enc].good, level - 1, seed).map((h) => ({ ...h, id: `p_${h.id}` }));
-    window.__game.scene.getScenes(true).forEach((s) => s.scene.start('BeastTrial'));
+    window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Codex'));
   }, [enc, 77]);
-  await until(() => window.__game.scene.isActive('BeastTrial'));
+  await until(() => window.__game.scene.isActive('Codex'));
   await wait(300);
   await page.evaluate(async ([enc, seed0]) => {
     let seed = seed0;
@@ -42,7 +42,7 @@ async function beastBattle(enc, file, moment, opts = {}) {
     const G = await import('/src/game/beasts.ts');
     const BF = await import('/src/world/battlefield.ts');
     const T = await import('/src/data/terrain.ts');
-    const t = window.__game.scene.getScene('BeastTrial');
+    const t = window.__game.scene.getScene('Codex');
     const st = window.__state;
     // the field with the fewest trees and stones in the middle, so nothing hides the fight
     const site0 = { base: enc === 'kraken' ? 'beach' : 'plain', river: false, coast: enc === 'kraken', rocky: false, woods: 0 };
