@@ -1,0 +1,25 @@
+tests/fixtures/replay-v2.json
+  s_697bdc25a7c420::t_90866c60b01236 1
+tests/fixtures/replay-v2-offline.json
+  s_697bdc25a7c420::t_6bfd7b0f35c6a4 1
+tests/trainReplay.test.ts
+  s_697bdc25a7c420::t_6bfd7b0f35c6a4 258
+  s_697bdc25a7c420::t_701c5e662b8182 263,265-266,268
+  s_697bdc25a7c420::t_0bfc9b6c6afca8 1-257,259-262,264,267,269-356
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9cbed5034a5d1dfd8a184ddebfa5bab977542d80",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
