@@ -14,7 +14,7 @@ import { Rng } from '../src/sim/rng';
 import { VECTOR_GLYPHS } from '../src/art/vectorIcons';
 import { MOSAIC, contrast } from '../src/ui/tokens';
 import type { ClassId } from '../src/data/classes';
-import type { SimUnit, UnitState } from '../src/sim/types';
+import type { BattleSetup, SimUnit, UnitState } from '../src/sim/types';
 
 // battleHud.ts draws with Phaser; its HUD rules are pure. Phaser itself needs a browser.
 vi.mock('phaser', () => {
@@ -111,9 +111,9 @@ function battle(seed = 5): Battle {
   const rng = new Rng(seed);
   const ids = { nextId: 1 };
   const side = (spec: [ClassId, number, number][]) => armySpec(spec.flatMap(([c, n, g]) => classSquad(rng, ids, c, n, 3, g)), false);
-  const setup = { seed, armies: [side([['hoplite', 6, 0], ['hoplite', 4, 1]]), side([['hoplite', 6, 0]])] };
+  const setup: BattleSetup = { seed, armies: [side([['hoplite', 6, 0], ['hoplite', 4, 1]]), side([['hoplite', 6, 0]])] };
   // unit 0 carries side 0's standard
-  setup.armies[0].units[0].stats = { ...setup.armies[0].units[0].stats, standard: true };
+  setup.armies[0].units[0].stats.standard = true;
   return new Battle(setup);
 }
 
