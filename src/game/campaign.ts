@@ -20,7 +20,8 @@ import { armyPick } from './sources';
 import { hashString } from '../sim/rng';
 import { EV_KEY, eventById, type Effect, type EventChoice, type EventDef, type EventTarget, type NextBattleBonus, type PlaceRef } from '../data/events';
 import { isCaptain } from '../sim/stats';
-import type { BattleResult } from '../sim/types';
+import { WORK_TYPES, type BattleResult, type Side, type WorkType, type WorksAllowance } from '../sim/types';
+import { WORKS } from '../data/terrain';
 import { CAMP_RULES, FOOD_RULES, campEffects } from '../world/camp';
 import { MUSTER, fieldHeroes } from './muster';
 
@@ -39,6 +40,36 @@ export const WIN_GOLD = 60;
 /** Gold for a captain of `level` killed or captured; `mult` is a band's bountyMult (campaign-events.md, 1..3). */
 export function captainBounty(level: number, mult = 1): number {
   return Math.round((BOUNTY.base + BOUNTY.perLevel * level) * mult);
+}
+
+/**
+ * Field works in the campaign (field-works.md R4). The allowance a battle's
+ * ArmySpec.works carries: of each type, as many segments as the supplies
+ * would buy on their own, up to WORKS_MAX (WORKS_CAUGHT when a band caught
+ * the player). The sim also caps a side at WORKS_MAX segments in all.
+ */
+export function worksAllowance(supplies: number, caught = false): WorksAllowance {
+  const cap = caught ? WORKS.caught : WORKS.max;
+  const s = Number.isFinite(supplies) ? Math.max(0, supplies) : 0;
+  const out = { stakes: 0, ditch: 0, laager: 0 };
+  for (const t of WORK_TYPES) out[t] = Math.min(cap, Math.floor(s / WORKS.cost[t]));
+  return out;
+}
+
+/** Supplies the given segments cost (R4.1). */
+export function worksCost(placed: readonly { type: WorkType }[]): number {
+  return placed.reduce((a, w) => a + (WORKS.cost[w.type] ?? 0), 0);
+}
+
+/**
+ * Whether one more segment of `type` can go down, the segments `placed` so
+ * far already counted against the supplies (R4.1, R4.3) and the cap (R4.2).
+ * The tray asks this before it issues a `work` order: the sim knows the
+ * allowance per type, not the purse.
+ */
+export function canAffordWork(supplies: number, placed: readonly { type: WorkType }[], type: WorkType, caught = false): boolean {
+  if (placed.length >= (caught ? WORKS.caught : WORKS.max)) return false;
+  return worksCost(placed) + WORKS.cost[type] <= supplies;
 }
 
 /** What became of the band's captain in a battle. */
@@ -486,6 +517,40 @@ export class Campaign {
     // the after-battle trigger (campaign-events.md R3): a won campaign battle
     if (outcome.victory) w.tryEvent('after_battle', `b${this.data.fought}:${partyId}`, this.playerInfo());
     return { enemyRetreated, captain: fate, bounty };
+  }
+
+  // ------------------------------------------------------------- field works (field-works.md R4)
+
+  /**
+   * R4.2 "time to dig": a band caught the player when it chased him down on
+   * the march. When he attacked (`byPlayer`), or sat in a camp, he had time.
+   */
+  wasCaught(partyId: number, byPlayer: boolean): boolean {
+    if (byPlayer || this.world.camp) return false;
+    return this.world.party(partyId)?.mode === 'chase';
+  }
+
+  /** The player's works allowance for the next battle, from the supplies on hand (R4.1, R4.2). */
+  worksAllowance(caught = false): WorksAllowance {
+    return worksAllowance(this.world.supplies, caught);
+  }
+
+  /** Supplies left once the segments placed so far are paid for: the tray's header. An undone segment is simply no longer counted (R4.3). */
+  worksLeft(placed: readonly { side: Side; type: WorkType }[]): number {
+    return Math.max(0, this.world.supplies - worksCost(placed.filter((w) => w.side === 0)));
+  }
+
+  /**
+   * Pay for the player's works when the battle starts (R4.3): only the
+   * segments actually on the field (Battle.works(), side 0), so an undone one
+   * costs nothing. Never takes more than the supplies hold. Returns the
+   * supplies spent; the caller saves.
+   */
+  payWorks(placed: readonly { side: Side; type: WorkType }[]): number {
+    const w = this.world;
+    const cost = Math.min(w.supplies, worksCost(placed.filter((x) => x.side === 0)));
+    if (cost > 0) w.addSupplies(-cost);
+    return cost;
   }
 
   // ------------------------------------------------------------- events (campaign-events.md R2, R4)
