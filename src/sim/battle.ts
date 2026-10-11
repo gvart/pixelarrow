@@ -30,15 +30,17 @@ import type {
   SimEvent,
   SimGroup,
   SimUnit,
+  WorkType,
 } from './types';
+import { WORK_TYPES, WORKS_MAX } from './types';
 import { BotAI } from './ai';
 import { ABILITIES, ABILITY_RULES, AURAS, AURA_IDS, AURA_RULES, type AbilityId } from '../data/perks';
 
 /** The seven signature actives (abilities.md R3, AB-02): their state is hashed only in battles that have one. */
 const SIGNATURE: readonly AbilityId[] = ['push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe'];
 import { rallyRadius, willRadius, type CombatStats } from './stats';
-import { Terrain, cellHash } from './terrain';
-import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
+import { Terrain, cellHash, flatGrid } from './terrain';
+import { HEIGHT_RULES, TERRAIN, WORKS, type TerrainDef, type TerrainKind } from '../data/terrain';
 import { CLASSES, MOUNTS, type MountDef } from '../data/classes';
 import { MythSystem, hasMyth } from './myth';
 import { PowerSystem, hasPowers } from './powers';
@@ -233,6 +235,19 @@ export const RAISE_STANDARD = 'standard';
 
 export type Phase = 'deploy' | 'battle' | 'ended';
 
+/** Cell kinds placed by the `work` order (field-works.md R3). */
+const WORK_KINDS: readonly TerrainKind[] = WORK_TYPES;
+/** Grid codes of the works with special rules (stakes, ditch): a grid holding one runs the works rules from the start. */
+const RULED_CODES = [TERRAIN.stakes.code, TERRAIN.ditch.code];
+
+/** A placed work segment (field-works.md R3): its cells and the ground each one covered. */
+interface WorkSeg {
+  side: Side;
+  type: WorkType;
+  cells: number[];
+  under: TerrainKind[];
+}
+
 export class Battle {
   readonly width: number;
   readonly height: number;
@@ -315,6 +330,20 @@ export class Battle {
   private stdIn: number[] = [];
   /** The sides a bot plays (it raises the standard by R6). */
   private readonly botSide: [boolean, boolean] = [false, false];
+  /** Field works (field-works.md, FW-01): each side's allowance in segments (ArmySpec.works; missing = none). */
+  private readonly worksAllow: [Record<WorkType, number>, Record<WorkType, number>];
+  /** Work segments placed in deployment, in order. */
+  private segs: WorkSeg[] = [];
+  /**
+   * Stakes or a ditch are on the field (placed, or in the setup's grid): their
+   * rules run and the works state joins the hash. False in every other battle,
+   * so those play and hash exactly as before.
+   */
+  private worksOn = false;
+  /** By unit id: 1 = in a stakes cell at the end of the last tick (entering one starts a crossing, R2.2). */
+  private stakeIn: number[] = [];
+  /** Refused `work` / `unwork` orders and why (output only, not hashed; R3 "ignored and logged"). */
+  worksLog: { tick: number; side: Side; kind: 'work' | 'unwork'; reason: string }[] = [];
 
   constructor(setup: BattleSetup) {
     this.seed = setup.seed >>> 0;
@@ -323,6 +352,13 @@ export class Battle {
     this.height = setup.height ?? 36;
     this.timeLimitTicks = (setup.timeLimit ?? 300) * TICK_RATE;
     this.terrain = setup.terrain && typeof setup.terrain.cells === 'string' ? new Terrain(setup.terrain, this.width, this.height) : null;
+    this.worksOn = !!this.terrain && RULED_CODES.some((c) => setup.terrain!.cells.includes(c));
+    const allow = (side: Side): Record<WorkType, number> => {
+      const w = setup.armies[side].works;
+      const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(WORKS_MAX, Math.floor(v))) : 0);
+      return { stakes: n(w?.stakes), ditch: n(w?.ditch), laager: n(w?.laager) };
+    };
+    this.worksAllow = [allow(0), allow(1)];
     const allStats = setup.armies.flatMap((a) => a.units.map((u) => u.stats));
     this.special = allStats.some((st) => (st.mount !== undefined && st.mount in MOUNTS) || st.kind === 'animal');
     const mythic = hasMyth(allStats);
@@ -491,8 +527,9 @@ export class Battle {
   /** Movement multiplier of the ground a unit stands on (horses and chariots suffer more in rough ground). */
   private groundSpeed(u: SimUnit): number {
     if (!this.terrain) return 1;
-    const d = this.terrain.at(u.x, u.y);
+    let d = this.terrain.at(u.x, u.y);
     if (d.blocked) return 1;
+    if (this.worksOn && d.kind === 'stakes' && this.beast(u)) d = TERRAIN.rough; // beasts treat stakes as rough (field-works.md)
     if (u.stats.mount) return u.stats.mount === 'chariot' ? d.chariotSpeed : d.cavSpeed;
     return d.speed;
   }
@@ -570,7 +607,7 @@ export class Battle {
     }
     const tryAt = (mx: number, my: number): boolean => {
       if (mx === 0 && my === 0) return false;
-      if (t.blocked(u.x + mx, u.y + my)) return false;
+      if (t.blocked(u.x + mx, u.y + my) && !this.passesWork(u, u.x + mx, u.y + my)) return false;
       u.x += mx;
       u.y += my;
       u.vx = mx;
@@ -657,6 +694,8 @@ export class Battle {
     if (this.phase !== 'deploy') return;
     this.phase = 'battle';
     for (const g of this.groups) this.reassign(g.id);
+    // a man deployed in stakes has not crossed them (R2.2)
+    if (this.worksOn) for (const u of this.units) this.stakeIn[u.id] = this.terrain!.at(u.x, u.y).kind === 'stakes' ? 1 : 0;
   }
 
   private applyOrder(side: Side, o: Order): void {
@@ -838,6 +877,12 @@ export class Battle {
         }
         return;
       }
+      case 'work':
+        this.placeWork(side, o);
+        return;
+      case 'unwork':
+        this.removeWork(side, o.x, o.y);
+        return;
       case 'assign': {
         if (this.phase !== 'deploy') return;
         const u = this.units[o.unit];
@@ -873,6 +918,166 @@ export class Battle {
       // Charging javelin-men throw on the way in.
       for (const u of this.activeMembers(g.id)) if (u.stats.role === 'hybrid' && u.ammo > 0) g.fireAtWill = true;
     }
+  }
+
+  // ------------------------------------------------------------- field works
+
+  /**
+   * The cells of a work segment (field-works.md R3): centred on the cell
+   * under (x, y), laid across the facing (fx, fy), one cell per step. The
+   * facing snaps to the nearest of the 8 grid directions. With no grid yet,
+   * the field's own grid (one cell per pace) is used. null = off the grid.
+   */
+  private segmentCells(type: WorkType, x: number, y: number, fx: number, fy: number): number[] | null {
+    const t = this.terrain;
+    const gw = t ? t.w : Math.max(1, Math.round(this.width));
+    const gh = t ? t.h : Math.max(1, Math.round(this.height));
+    const len = Math.sqrt(fx * fx + fy * fy);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !(len > 1e-6) || !Number.isFinite(len)) return null;
+    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return null;
+    const r = rightOf(fx / len, fy / len);
+    const snap = (v: number) => (v >= SIN22 ? 1 : v <= -SIN22 ? -1 : 0);
+    const sx = snap(r.x);
+    const sy = snap(r.y);
+    const cx = Math.floor((x * gw) / this.width);
+    const cy = Math.floor((y * gh) / this.height);
+    const n = WORKS.length[type];
+    const out: number[] = [];
+    for (let k = -Math.floor((n - 1) / 2); out.length < n; k++) {
+      const ix = cx + sx * k;
+      const iy = cy + sy * k;
+      if (ix < 0 || iy < 0 || ix >= gw || iy >= gh) return null;
+      out.push(iy * gw + ix);
+    }
+    return out;
+  }
+
+  /** Why a `work` order would be refused now, or null if it is valid (R3). Public for the deployment ghost. */
+  workRefusal(side: Side, o: { type: WorkType; x: number; y: number; fx: number; fy: number }): string | null {
+    if (this.phase !== 'deploy') return 'phase';
+    if (!WORK_TYPES.includes(o.type)) return 'type';
+    let mine = 0;
+    let same = 0;
+    for (const g of this.segs) {
+      if (g.side !== side) continue;
+      mine++;
+      if (g.type === o.type) same++;
+    }
+    if (same >= this.worksAllow[side][o.type] || mine >= WORKS.max) return 'allowance';
+    const cells = this.segmentCells(o.type, o.x, o.y, o.fx, o.fy);
+    if (!cells) return 'bounds';
+    const z = this.deployZone(side);
+    const gw = this.terrain ? this.terrain.w : Math.max(1, Math.round(this.width));
+    const gh = this.terrain ? this.terrain.h : Math.max(1, Math.round(this.height));
+    for (const i of cells) {
+      const cy = (Math.floor(i / gw) + 0.5) * (this.height / gh);
+      if (cy < z.y0 || cy > z.y1) return 'zone';
+      const kind = this.terrain ? this.terrain.cellDef(i).kind : 'open';
+      if (WORK_KINDS.includes(kind)) return 'occupied';
+      if (!WORKS.ground.includes(kind)) return 'ground';
+    }
+    return null;
+  }
+
+  /** The `work` order: place a segment in deployment, or refuse and log it (R3). */
+  private placeWork(side: Side, o: { type: WorkType; x: number; y: number; fx: number; fy: number }): void {
+    const why = this.workRefusal(side, o);
+    if (why) {
+      this.worksLog.push({ tick: this.tick, side, kind: 'work', reason: why });
+      return;
+    }
+    // A field without a grid gets an open, flat one (one cell per pace) to hold the work.
+    if (!this.terrain) (this as { terrain: Terrain | null }).terrain = new Terrain(flatGrid(Math.max(1, Math.round(this.width)), Math.max(1, Math.round(this.height))), this.width, this.height);
+    const t = this.terrain!;
+    const cells = this.segmentCells(o.type, o.x, o.y, o.fx, o.fy)!;
+    const under = cells.map((i) => t.cellDef(i).kind);
+    for (const i of cells) t.setCell(i, o.type);
+    this.segs.push({ side, type: o.type, cells, under });
+    this.worksOn = true;
+    this.resnap();
+  }
+
+  /** The `unwork` order: remove this side's segment covering the cell under (x, y), in deployment (R3). */
+  private removeWork(side: Side, x: number, y: number): void {
+    const t = this.terrain;
+    const i = t && Number.isFinite(x) && Number.isFinite(y) ? t.index(x, y) : -1;
+    const k = this.phase !== 'deploy' ? -1 : this.segs.findIndex((g) => g.side === side && g.cells.includes(i));
+    if (k < 0) {
+      this.worksLog.push({ tick: this.tick, side, kind: 'unwork', reason: this.phase !== 'deploy' ? 'phase' : 'none' });
+      return;
+    }
+    const g = this.segs[k];
+    g.cells.forEach((c, j) => t!.setCell(c, g.under[j]));
+    this.segs.splice(k, 1);
+    this.resnap();
+  }
+
+  /** Men stand in their slots again after the ground changed under them (deployment). */
+  private resnap(): void {
+    for (const g of this.groups) if (!g.disbanded) this.snapToSlots(g.id);
+  }
+
+  /** Work segments on the field: side, type and cells (grid indices), for the renderer and the deployment tools. */
+  works(): readonly { side: Side; type: WorkType; cells: readonly number[] }[] {
+    return this.segs;
+  }
+
+  /** A myth boss walks through works (field-works.md "Beasts": its own movement rules). */
+  private passesWork(u: SimUnit, x: number, y: number): boolean {
+    return this.worksOn && u.stats.boss !== undefined && WORK_KINDS.includes(this.terrain!.at(x, y).kind);
+  }
+
+  /** A man standing in a ditch (the ditch factor, F1). */
+  private inDitch(u: SimUnit): boolean {
+    return this.terrain!.at(u.x, u.y).kind === 'ditch';
+  }
+
+  /**
+   * Stakes (R2.2, F2), once a tick after movement: a man who enters a stakes
+   * cell loses his charge momentum, and keeps none while he stands in it; a
+   * charge broken this way sends one `stakesBreak` per crossing. A rider who
+   * enters is impaled for IMPALE_MULT of his own charge blow and slowed to
+   * the horse's pace in stakes. Beasts and myth bosses ignore stakes.
+   */
+  private crossStakes(): void {
+    const t = this.terrain!;
+    for (const u of this.units) {
+      const i = t.index(u.x, u.y);
+      if (!this.isAlive(u) || t.cellDef(i).kind !== 'stakes') {
+        this.stakeIn[u.id] = 0;
+        continue;
+      }
+      const enter = this.stakeIn[u.id] !== 1;
+      this.stakeIn[u.id] = 1;
+      if (this.beast(u)) continue;
+      if (enter && u.momentum >= RULES.chargeMomentumTicks) {
+        const c = t.cellCenter(i);
+        this.events.push({ type: 'stakesBreak', tick: this.tick, unit: u.id, x: c.x, y: c.y });
+      }
+      u.momentum = 0;
+      const m = this.mountOf(u);
+      if (!m) continue;
+      const topOpen = u.stats.speed * m.gallop;
+      if (enter) {
+        // F2: half the blow this rider's charge would strike (x1.4+ impact at his speed)
+        const sr = clamp(u.spd / Math.max(0.1, topOpen), 0.4, 1.15);
+        const blow = u.stats.dmg * (RULES.chargeImpact + u.stats.chargeBonus * 0.6 * sr);
+        this.impale(u, blow * WORKS.impaleMult);
+      }
+      const pace = topOpen * (m.id === 'chariot' ? TERRAIN.stakes.chariotSpeed : TERRAIN.stakes.cavSpeed);
+      if (u.spd > pace) u.spd = pace;
+    }
+  }
+
+  /** A rider run onto the stakes: a hit through his armour that nobody is credited with (like a chariot crash). */
+  private impale(u: SimUnit, raw: number): void {
+    if (u.state !== 'ready' && u.state !== 'routing') return;
+    const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + u.stats.armor));
+    u.hp -= dmg;
+    u.lastHitTick = this.tick;
+    u.wear.armor += 0.5;
+    if (u.state === 'ready') u.morale -= dmg * RULES.moraleFromDamage * this.ml(u);
+    if (u.hp <= 0) this.crash(u);
   }
 
   // ------------------------------------------------------- the orb and the feint
@@ -1802,6 +2007,7 @@ export class Battle {
     for (const u of this.units) this.updateUnit(u);
     this.updateFocus();
     this.separate();
+    if (this.worksOn) this.crossStakes();
     this.myth?.afterMove();
     this.updateProjectiles();
     this.contractOrbs();
@@ -2654,7 +2860,10 @@ export class Battle {
     if (t.daze > 0) dmg *= ABILITY_RULES.dazeDamage;
     // High ground: blows from above land harder, blows from below weaker.
     const hd = this.terrain ? this.heightDiff(u.x, u.y, t.x, t.y) : 0;
-    if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.meleeDown;
+    if (this.worksOn && this.inDitch(t) && !this.inDitch(u)) {
+      // F1: a blow from the lip on a man in a ditch; the larger of it and the height factor applies
+      dmg *= Math.max(hd > 0 ? 1 + hd * HEIGHT_RULES.meleeDown : hd < 0 ? 1 + hd * HEIGHT_RULES.meleeUp : 1, WORKS.ditchMult);
+    } else if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.meleeDown;
     else if (hd < 0) dmg *= 1 + hd * HEIGHT_RULES.meleeUp;
     let moraleMult = 1 + u.stats.moraleShock + (fury ? ABILITY_RULES.berserkShock : 0);
     if (this.actives && this.on(this.shockT, u.id)) moraleMult += ABILITY_RULES.warcryShock; // a War-cry's allies
@@ -3211,6 +3420,15 @@ export class Battle {
       }
       for (const u of this.units) mix(this.stdIn[u.id] ?? 0);
     }
+    if (this.worksOn) {
+      // field works (FW-01): the segments placed and who stands in stakes
+      for (const g of this.segs) {
+        mix(g.side);
+        mix(WORK_TYPES.indexOf(g.type));
+        for (const c of g.cells) mix(c);
+      }
+      for (const u of this.units) mix(this.stakeIn[u.id] ?? 0);
+    }
     this.myth?.hash(mix);
     this.pw?.hash(mix);
     for (const p of this.projectiles) {
@@ -3222,6 +3440,8 @@ export class Battle {
 }
 
 const SIN60 = 0.8660254037844386;
+/** sin 22.5 degrees: a facing snaps to the nearest of the 8 grid directions (work segments). */
+const SIN22 = 0.3826834323650898;
 const DIAG = Math.SQRT1_2;
 /** Search directions for freePoint, in a fixed order (deterministic). */
 const DIRS8: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0], [DIAG, DIAG], [-DIAG, DIAG], [DIAG, -DIAG], [-DIAG, -DIAG]];

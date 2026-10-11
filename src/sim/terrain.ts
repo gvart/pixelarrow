@@ -122,6 +122,19 @@ export class Terrain {
   get cells(): number {
     return this.w * this.h;
   }
+
+  /** Cell index of grid cell (cx, cy), or -1 off the grid. */
+  cellIndex(cx: number, cy: number): number {
+    return cx < 0 || cy < 0 || cx >= this.w || cy >= this.h ? -1 : cy * this.w + cx;
+  }
+
+  /**
+   * Rewrite one cell's kind (a field work placed or removed in deployment,
+   * field-works.md R3). Heights, the ford and the river rows are unchanged.
+   */
+  setCell(i: number, kind: TerrainKind): void {
+    this.kind[i] = KIND_INDEX.get(kind)!;
+  }
 }
 
 /** An open, flat grid (useful for tests: it must behave exactly like no terrain). */

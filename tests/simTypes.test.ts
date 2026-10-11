@@ -15,7 +15,6 @@ import {
   type Order,
   type SimEvent,
 } from '../src/sim/types';
-import { worksRows } from '../src/dev/worksBalance';
 import { arcRows } from '../src/dev/arcBalance';
 import { standardSetup } from './helpers';
 
@@ -88,9 +87,8 @@ describe('sim train 2 declarations', () => {
     expect(events.map((e) => e.type)).toEqual(['cohesion', 'disordered', 'armyBreak', 'stakesBreak', 'standardLost']);
   });
 
-  // Orders landed with FO-01 (tests/orders.test.ts), doctrine with AI-01 (tests/aiDoctrines.test.ts).
+  // Orders landed with FO-01 (tests/orders.test.ts), doctrine with AI-01 (tests/aiDoctrines.test.ts), works with FW-01 (tests/works.test.ts).
   it('the train 2 harness modules have no rows until their stories land', () => {
-    expect(worksRows(4)).toEqual([]);
     // AR-01 landed the opening rows
     expect(arcRows(4).map((r) => r.target)).toContain('55-70% (R1, V5-054)');
   });

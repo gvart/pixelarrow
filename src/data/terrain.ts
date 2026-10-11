@@ -8,8 +8,23 @@
  * as before.
  */
 
-export type TerrainKind = 'open' | 'scrub' | 'forest' | 'water' | 'ford' | 'rough' | 'rocks' | 'sand' | 'sea';
-export const TERRAIN_KINDS: TerrainKind[] = ['open', 'scrub', 'forest', 'water', 'ford', 'rough', 'rocks', 'sand', 'sea'];
+export type TerrainKind =
+  | 'open'
+  | 'scrub'
+  | 'forest'
+  | 'water'
+  | 'ford'
+  | 'rough'
+  | 'rocks'
+  | 'sand'
+  | 'sea'
+  // field works (design/gdd/field-works.md R1): placed in deployment, or generated for lair assaults
+  | 'stakes'
+  | 'ditch'
+  | 'laager'
+  | 'palisade'
+  | 'rampart';
+export const TERRAIN_KINDS: TerrainKind[] = ['open', 'scrub', 'forest', 'water', 'ford', 'rough', 'rocks', 'sand', 'sea', 'stakes', 'ditch', 'laager', 'palisade', 'rampart'];
 
 export interface TerrainDef {
   kind: TerrainKind;
@@ -50,6 +65,12 @@ const defs: TerrainDef[] = [
   { kind: 'rocks', code: 'R', name: 'Rocks', desc: 'Impassable.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
   { kind: 'sand', code: 's', name: 'Beach', desc: 'Soft sand: a little slower.', speed: 0.85, blocked: false, cover: 0, scatter: 0, blockMult: 1, noWall: false, braceMult: 1, cavSpeed: 0.8, cavCharge: 0.85, chariotSpeed: 0.7, chariotDamage: 0 },
   { kind: 'sea', code: '~', name: 'Sea', desc: 'Impassable.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
+  // Field works (field-works.md R1). Appended after the old kinds, so every old grid keeps its cell indices.
+  { kind: 'stakes', code: 'x', name: 'Stakes', desc: 'Breaks charges: a charge that crosses it loses its momentum, and riders are impaled. Slow, no shield wall.', speed: 0.7, blocked: false, cover: 0, scatter: 0.15, blockMult: 0.9, noWall: true, braceMult: 0, cavSpeed: 0.3, cavCharge: 0, chariotSpeed: 0.2, chariotDamage: 6 },
+  { kind: 'ditch', code: 'd', name: 'Ditch', desc: 'Very slow, disordered, no shield wall. Men in it take x1.05 from blows struck from the lip.', speed: 0.45, blocked: false, cover: 0, scatter: 0.3, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0.35, cavCharge: 0.2, chariotSpeed: 0.15, chariotDamage: 5 },
+  { kind: 'laager', code: 'L', name: 'Wagon laager', desc: 'Impassable wall of wagons.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
+  { kind: 'palisade', code: 'P', name: 'Palisade', desc: 'Impassable timber wall.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
+  { kind: 'rampart', code: 'p', name: 'Rampart', desc: 'Earthen bank behind a palisade: cover from missiles, a better brace.', speed: 0.9, blocked: false, cover: 0.35, scatter: 0, blockMult: 1.1, noWall: false, braceMult: 1.2, cavSpeed: 0.8, cavCharge: 0.6, chariotSpeed: 0.6, chariotDamage: 0 },
 ];
 
 export const TERRAIN: Record<TerrainKind, TerrainDef> = Object.fromEntries(defs.map((d) => [d.kind, d])) as Record<TerrainKind, TerrainDef>;
@@ -60,6 +81,33 @@ export function terrainByCode(c: string): TerrainDef {
   for (const d of defs) if (d.code === c) return d;
   return TERRAIN.open;
 }
+
+/**
+ * Field works knobs (design/gdd/field-works.md "Tuning Knobs"). The sim reads
+ * the segment lengths, the ground a work may stand on, DITCH_MULT and
+ * IMPALE_MULT; the campaign reads the costs and the caps.
+ */
+export const WORKS = {
+  /** Cells per segment, laid across the facing (R3). */
+  length: { stakes: 3, ditch: 3, laager: 2 },
+  /** Ground a work may be placed on (R3). */
+  ground: ['open', 'scrub', 'sand', 'rough'] as TerrainKind[],
+  /**
+   * A melee blow from outside a ditch on a man in it (F1); never above the
+   * high-ground cap. 1.05 with the ditch's blockMult 1, below the GDD's first
+   * range (V5-065): at 1.2 / 0.75 a ditch swung an even fight by +47 pts.
+   */
+  ditchMult: 1.05,
+  /** A rider entering stakes takes this share of his own charge blow (F2). */
+  impaleMult: 0.5,
+  /** Supplies per segment (R4, F3). */
+  cost: { stakes: 6, ditch: 8, laager: 15 },
+  /** Segments per encounter, and when a band caught the player (R4.2). */
+  max: 3,
+  caught: 1,
+  /** Free stakes segments of every lair garrison (R4.4, V5-024). */
+  garrisonStakes: 2,
+};
 
 /**
  * High ground. Heights are whole levels 0..MAX_HEIGHT; the difference between
