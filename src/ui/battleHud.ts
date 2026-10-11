@@ -414,6 +414,8 @@ export class FacingPip extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, cx: number, cy: number, ang: number, id: string, label: string, onTap: () => void) {
     super(scene, Math.round(cx - PIP_D / 2), Math.round(cy - PIP_D / 2));
     const c = PIP_D / 2;
+    // the full 44 pt target, invisible: it gives the pip its bounds (scripts and the layout check measure them)
+    this.add(scene.add.rectangle(0, 0, PIP_D, PIP_D, 0x000000, 0).setOrigin(0, 0));
     const g = scene.add.graphics();
     g.fillStyle(MOSAIC.ink, 0.88);
     g.fillCircle(c, c, 8.5);

@@ -2523,15 +2523,15 @@ export class BattleScene extends BaseScene {
     this.setPaused(!this.paused);
   }
 
-  /** A message under the top bar (ms = 0: stays until replaced or hidden). */
-  showBanner(msg: string, ms: number): void {
+  /** A message under the top bar (ms = 0: stays until replaced or hidden); it wraps to `maxLines` (A11Y-10: never cut). */
+  showBanner(msg: string, ms: number, maxLines = 2): void {
     this.hideBanner();
     const { VW } = this.m;
     const c = this.add.container(0, 0);
     // under the top bar, in the hint's place (the hint hides while a banner shows)
     const left = 0;
     const maxW = VW - 60;
-    const lines = wrapText(msg, maxW - 12, 2).lines;
+    const lines = wrapText(msg, maxW - 12, maxLines).lines;
     const w = Math.max(60, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
     const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 2, false, 6).lines : [];
     const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6))) + 14 : 0;
@@ -3029,7 +3029,7 @@ export class BattleScene extends BaseScene {
     }
     this.order({ kind: 'ability', unit: b.id, ability: RAISE_STANDARD as AbilityId });
     haptic('heavy');
-    this.showBanner(r.note ? `${t('attn.std.banner', { name: b.name })} ${t(r.note)}` : t('attn.std.banner', { name: b.name }), 1600);
+    this.showBanner(r.note ? `${t('attn.std.banner', { name: b.name })} ${t(r.note)}` : t('attn.std.banner', { name: b.name }), 1600, 4);
     this.handleEvents(this.sim.drainEvents());
     this.hudDirty = true;
   }
@@ -3221,7 +3221,7 @@ export class BattleScene extends BaseScene {
     const seen = hintStore.seen();
     if (seen.includes(key) || seen.includes('*')) return;
     hintStore.mark(key);
-    this.showBanner(t(id === 'feint' ? 'attn.coach.feint' : 'attn.coach.orb'), 4500);
+    this.showBanner(t(id === 'feint' ? 'attn.coach.feint' : 'attn.coach.orb'), 4500, 4);
   }
 
   /** The shape sheet (deployment and battle): five shapes with one line of meaning each. */
@@ -3279,7 +3279,7 @@ export class BattleScene extends BaseScene {
             this.shapeOpen = false;
             this.buildHud();
             // V5-041: the orb is the wrong answer to a line coming head-on; say so as it is chosen (the order stands)
-            if (warn) this.showBanner(t('attn.orb.warn'), 2600);
+            if (warn) this.showBanner(t('attn.orb.warn'), 2600, 4);
           },
         },
         rowH,
