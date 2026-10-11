@@ -1,0 +1,21 @@
+src/data/classes.ts
+  s_697bdc25a7c420::t_8f3927f2b7a090 164
+  s_697bdc25a7c420::t_67001900530153 168
+  s_697bdc25a7c420::t_1c1469c3829286 324,330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "98161b8bc398739c042abaf9c293be2cbb57a4be",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
