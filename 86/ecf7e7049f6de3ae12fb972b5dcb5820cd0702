@@ -1,0 +1,23 @@
+tests/heroSheet.test.ts
+  s_697bdc25a7c420::t_6b4e06bbe54ef1 1-116
+src/scenes/heroSource.ts
+  s_697bdc25a7c420::t_8600caed74a31c 26-38,71-87
+  s_697bdc25a7c420::t_d1a51a2d33f30d 10,94-106
+  s_697bdc25a7c420::t_d996bd70a7960a 88,107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "86ecf7e7049f6de3ae12fb972b5dcb5820cd0702",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
