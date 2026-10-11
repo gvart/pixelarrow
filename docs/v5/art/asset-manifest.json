@@ -82,7 +82,14 @@
   {
    "id": "ART-004",
    "status": "needed",
-   "preview": null,
+   "preview": {
+    "url": "ui/fresco_shop.jpg",
+    "screens": [
+     "shop-shop",
+     "shop-pass",
+     "shop-wallet"
+    ]
+   },
    "file": "fresco_shop.jpg",
    "cat": "fresco",
    "kind": "painted",
