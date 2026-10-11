@@ -13,4 +13,10 @@ export const READOUT_EN = {
   'readout.tip.routing': 'Morale: routing (falling flag). The group is fleeing.',
   'readout.tip.bars': 'Bars: {hp} health, {mor} morale.',
   'readout.tip.standard': 'Carries the Standard (banner).',
+  // RD-02: field-event banners (battle-readability.md R4)
+  'readout.armyBreak.ours': 'Our army breaks!',
+  'readout.armyBreak.theirs': 'Their army breaks!',
+  'readout.disordered.ours': '{group} is disordered!',
+  'readout.disordered.theirs': 'Enemy {group} is disordered: strike now!',
+  'readout.shaken': 'The rout shakes {groups}',
 } as const;

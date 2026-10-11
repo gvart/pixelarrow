@@ -10,4 +10,9 @@ export const READOUT_RU: Record<keyof typeof READOUT_EN, string> = {
   'readout.tip.routing': 'Боевой дух: бегут (падающее знамя). Отряд обращён в бегство.',
   'readout.tip.bars': 'Полосы: {hp} здоровье, {mor} боевой дух.',
   'readout.tip.standard': 'Несёт штандарт (знамя).',
+  'readout.armyBreak.ours': 'Наше войско дрогнуло!',
+  'readout.armyBreak.theirs': 'Их войско дрогнуло!',
+  'readout.disordered.ours': '{group}: строй смешался!',
+  'readout.disordered.theirs': 'Строй врага смешался: {group}! Бейте!',
+  'readout.shaken': 'Бегство пошатнуло: {groups}',
 };

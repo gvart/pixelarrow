@@ -889,6 +889,7 @@ export function fieldBadge(scene: Phaser.Scene, b: BadgeSpec): Phaser.GameObject
     x += widths[i] + gap;
   });
   c.setData('key', badgeKey(b));
+  c.setData('w', w);
   return c;
 }
 

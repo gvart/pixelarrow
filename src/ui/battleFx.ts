@@ -14,6 +14,8 @@ import { willRadius } from '../sim/stats';
 import type { ProcId } from '../sim/powers';
 import { POWER_IDS } from '../data/affixes';
 import type { SimUnit } from '../sim/types';
+import { MOSAIC } from './tokens';
+import { arcChevrons, arcPath, type ArcShape } from './flankArc';
 
 const RING_FRAMES = 8;
 const MAX_PARTICLES = 240;
@@ -22,6 +24,13 @@ const MAX_NUMBERS = 24;
 const MAX_MOTES = 48;
 const DEPTH_RING = -75000;
 const DEPTH_FX = 96000;
+/** The cohesion ripple: the wavering amber (battleHud MORALE_TINT). */
+const RIPPLE_COLOR = 0xf0a830;
+/** The flank arcs (R4): flanked is the alert red with chevrons, the threat a dashed cream; both on an ink outline (A11Y-03). */
+const ARC_RED = 0xf05a40;
+/** Damage numbers (R4): 9 UI px for 600 ms. */
+export const DMG_NUMBER_PX = 9;
+export const DMG_NUMBER_S = 0.6;
 
 interface Particle {
   img: Phaser.GameObjects.Image;
@@ -169,7 +178,7 @@ export class BattleFx {
     this.floats.push({ obj: img, x, y, t: 0, dur: 1.1, rise: 14, live: true, scale });
   }
 
-  floatText(x: number, y: number, text: string, tint = 0xffffff, dur = 0.8): void {
+  floatText(x: number, y: number, text: string, tint = 0xffffff, dur = 0.8, size = 7): void {
     if (!this.showNumbers) return;
     let f = this.numbers.find((q) => !q.live);
     if (!f) {
@@ -184,7 +193,7 @@ export class BattleFx {
       }
     }
     const t = f.obj as Phaser.GameObjects.BitmapText;
-    t.setText(text).setTint(tint).setVisible(true).setAlpha(1);
+    t.setText(text).setFontSize(size).setTint(tint).setVisible(true).setAlpha(1);
     f.x = x + (Math.random() - 0.5) * 6;
     f.y = y;
     f.t = 0;
@@ -341,8 +350,38 @@ export class BattleFx {
     this.waves = this.waves.filter((w) => w.t < w.dur);
   }
 
+  /** A cohesion shock (R4): an amber ring rippling out over a shaken group, field radius r. */
+  ripple(x: number, y: number, r: number): void {
+    const rr = Math.round(r * 2) / 2;
+    const key = `ripple_${rr}`;
+    if (!this.scene.textures.exists(key)) this.scene.textures.addCanvas(key, renderAuraRing(rr, RIPPLE_COLOR, 0, RING_FRAMES).toCanvas());
+    const img = this.scene.add.image(Math.round(x), Math.round(y), key).setDepth(DEPTH_RING + 1);
+    this.layer.add(img);
+    this.waves.push({ img, x, y, t: 0, dur: 0.8 });
+  }
+
   /** Iso radius in pixels for a shout of field radius r (for placing sparkles). */
   static radiusPx(r: number): { rx: number; ry: number } {
     return isoEllipse(r);
+  }
+}
+
+/**
+ * A flank arc (R4, N15) around a field badge at (cx, cy), on the ellipse
+ * (rx, ry) in UI px: flanked is a solid alert-red arc with chevrons pointing
+ * in, the threat before contact a dashed cream one; each on an ink outline so
+ * it reads on any ground, and by its shape without colour (A11Y-04).
+ */
+export function drawFlankArc(g: Phaser.GameObjects.Graphics, cx: number, cy: number, rx: number, ry: number, a: ArcShape, alpha = 1): void {
+  const pts = arcPath(a, cx, cy, rx, ry, a.dashed ? 13 : 9);
+  const color = a.dashed ? MOSAIC.cream : ARC_RED;
+  for (const [w, c] of [[a.dashed ? 3 : 4, MOSAIC.ink], [a.dashed ? 1.4 : 2, color]] as const) {
+    g.lineStyle(w, c, alpha);
+    // the threat: every other segment, a dash
+    for (let i = 0; i + 1 < pts.length; i += a.dashed ? 2 : 1) g.lineBetween(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+    for (const ch of arcChevrons(a, cx, cy, rx, ry, 2)) {
+      g.lineBetween(ch.l.x, ch.l.y, ch.tip.x, ch.tip.y);
+      g.lineBetween(ch.tip.x, ch.tip.y, ch.r.x, ch.r.y);
+    }
   }
 }

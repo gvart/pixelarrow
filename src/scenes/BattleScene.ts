@@ -7,7 +7,7 @@ import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, str
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, type BadgeSpec, type TopBarOpts } from '../ui/battleHud';
+import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, type BadgeSpec, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -46,7 +46,8 @@ import { GROUP_NAMES, type Hero } from '../data/units';
 import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
-import { BattleFx } from '../ui/battleFx';
+import { BattleFx, DMG_NUMBER_PX, DMG_NUMBER_S, drawFlankArc } from '../ui/battleFx';
+import { FlankWatch, flankArc, flankThreats, type Vec } from '../ui/flankArc';
 import { BeastView } from '../ui/beastView';
 import { openSettings } from '../ui/settings';
 import { battleAudio, uiError } from '../audio/hooks';
@@ -229,7 +230,15 @@ export class BattleScene extends BaseScene {
   private dragPreview: { cx: number; cy: number; fx: number; fy: number; frontage: number; type: FormationType; n: number; label: string } | null = null;
   private dragLabel: Phaser.GameObjects.BitmapText | null = null;
   private hint: Phaser.GameObjects.Container | null = null;
-  private lastAutoPause = -9999;
+  /** RD-02: auto-pauses within 5 s merge into one pause and one banner. */
+  private pauseMerge = new AutoPauseMerge();
+  /** RD-02: a field banner's life (6 s or a false condition); null for other banners. */
+  private bannerLife: BannerLife | null = null;
+  /** RD-02: the red flank arcs, and the dashed threats (refreshed at threatAt, ms). */
+  private flankWatch = new FlankWatch();
+  private threats = new Map<number, Vec[]>();
+  private threatAt = 0;
+  private arcG!: Phaser.GameObjects.Graphics;
   private lastHaptic = 0;
   private enemyHeroes: Hero[] = [];
   private initialStrength: [number, number] = [1, 1];
@@ -405,6 +414,11 @@ export class BattleScene extends BaseScene {
     this.overlay = null;
     this.leaveDialog = null;
     this.banner = null;
+    this.bannerLife = null;
+    this.pauseMerge = new AutoPauseMerge();
+    this.flankWatch = new FlankWatch();
+    this.threats.clear();
+    this.threatAt = 0;
     this.follow = true;
     this.abilityBtns = [];
     this.infoTip = null;
@@ -588,6 +602,9 @@ export class BattleScene extends BaseScene {
     // Group tags float over the soldiers: map markers, tapped through the field's own gesture code.
     uiIgnore(this.tags);
     this.ui.add(this.tags);
+    // RD-02: flank arcs round our badges, under them
+    this.arcG = this.add.graphics();
+    this.tags.add(this.arcG);
     this.ui.add(this.hud);
     this.selGroup = this.firstPlayerGroup();
     this.buildHud();
@@ -815,6 +832,7 @@ export class BattleScene extends BaseScene {
       this.updateCountdown();
     }
     this.updateTicket();
+    if (this.bannerLife?.expired(this.time.now)) this.hideBanner();
     if (this.sim.phase === 'battle' && !this.paused) {
       this.acc += Math.min(0.25, delta / 1000) * this.speed;
       let steps = 0;
@@ -1524,15 +1542,19 @@ export class BattleScene extends BaseScene {
     const st = state.campaign.data.settings;
     battleAudio(this, this.sim, events, this.me);
     this.beasts?.events(events);
-    for (const e of events) {
+    // R4: a damage number only on a charge impact and a kill, 9 UI px for 600 ms
+    if (this.fx.showNumbers) {
+      for (const e of damageNumberHits(events)) {
+        const u = this.sim.units[e.unit];
+        const p = isoToScreen(u.x, u.y);
+        this.fx.floatText(p.x, p.y - this.views[e.unit].tall - 6, `${Math.max(1, Math.round(e.dmg))}`, u.side === this.me ? 0xff8070 : 0xfff4d8, DMG_NUMBER_S, DMG_NUMBER_PX);
+      }
+    }
+    for (const [i, e] of events.entries()) {
       switch (e.type) {
         case 'hit': {
           const u = this.sim.units[e.unit];
           if (e.dmg > 2 || Math.random() < 0.5) this.addBlood(u.x, u.y, false);
-          if (this.fx.showNumbers) {
-            const p = isoToScreen(u.x, u.y);
-            this.fx.floatText(p.x, p.y - this.views[e.unit].tall - 6, `${Math.max(1, Math.round(e.dmg))}`, u.side === this.me ? 0xff8070 : 0xfff4d8);
-          }
           if (u.side === this.me && this.time.now - this.lastHaptic > 120) {
             this.lastHaptic = this.time.now;
             haptic(e.dir === 'front' ? 'light' : 'medium');
@@ -1554,17 +1576,49 @@ export class BattleScene extends BaseScene {
           break;
         }
         case 'contact':
-          if (e.side === this.me && st.pauseContact) this.autoPause(t('battle.banner.contact'), true);
+          if (e.side === this.me && st.pauseContact) this.autoPause(t('battle.banner.contact'));
           break;
-        case 'flanked':
-          if (e.side === this.me && st.pauseFlank) this.autoPause(t('battle.banner.flanked', { group: this.groupLabel(e.group) }));
+        case 'flanked': {
+          if (e.side !== this.me) break;
+          // R4: the red arc on the side the blow came from
+          const from = this.flankFrom(events, i, e.group);
+          if (from) this.flankWatch.flanked(e.group, e.tick / TICK_RATE, from);
+          if (st.pauseFlank) this.autoPause(t('battle.banner.flanked', { group: this.groupLabel(e.group) }), () => this.groupStands(e.group));
           break;
-        case 'rout':
-          if (e.side === this.me) {
-            hapticNotify('error');
-            if (st.pauseRout) this.autoPause(t('battle.banner.routing', { group: this.groupLabel(e.group) }));
-            else this.showBanner(t('battle.banner.routing', { group: this.groupLabel(e.group) }), 2500);
-          } else this.showBanner(t('battle.banner.foeBreaks', { group: this.groupLabel(e.group) }), 2500);
+        }
+        case 'rout': {
+          const g = this.sim.groups[e.group];
+          if (e.side === this.me) hapticNotify('error');
+          // a broken army's routs are told by its army banner
+          if (this.sim.isBroken(e.side)) break;
+          if (e.side !== this.me) {
+            this.fieldBanner(t('battle.banner.foeBreaks', { group: this.groupLabel(e.group) }), 2500, () => g.routed);
+            break;
+          }
+          const shaken = this.shakenBy(events, e.group);
+          const msg = t('battle.banner.routing', { group: this.groupLabel(e.group) }) + (shaken ? `\n${t('readout.shaken', { groups: shaken })}` : '');
+          if (st.pauseRout) this.autoPause(msg, () => g.routed);
+          else this.fieldBanner(msg, 2500, () => g.routed, 3);
+          break;
+        }
+        case 'cohesion':
+          // R4: a ripple over each shaken neighbour
+          for (const gid of new Set(e.targets.map((id) => this.sim.units[id].group))) {
+            const c = gid === e.group ? null : groupCentre(this.sim, gid);
+            if (!c) continue;
+            const p = isoToScreen(c.x, c.y);
+            this.fx.ripple(p.x, p.y, 2.5);
+          }
+          break;
+        case 'disordered': {
+          const g = this.sim.groups[e.group];
+          if (!g) break;
+          const key = g.side === this.me ? 'readout.disordered.ours' : 'readout.disordered.theirs';
+          this.fieldBanner(t(key, { group: this.groupLabel(e.group) }), BANNER_TTL_S * 1000, () => this.sim.disordered(e.group), 3);
+          break;
+        }
+        case 'armyBreak':
+          this.fieldBanner(t(e.side === this.me ? 'readout.armyBreak.ours' : 'readout.armyBreak.theirs'), BANNER_TTL_S * 1000);
           break;
         case 'ability':
           this.abilityFx(e.unit, e.ability, e.targets);
@@ -1618,20 +1672,48 @@ export class BattleScene extends BaseScene {
     this.tweens.add({ targets: s, alpha: 0, duration: 180, onComplete: () => s.destroy() });
   }
 
-  /** Offline and on the ladder: stop the battle so the player can react. Real-time locked, the message just shows. */
-  private autoPause(msg: string, always = false): void {
+  /**
+   * Offline and on the ladder: stop the battle so the player can react. Reasons
+   * within 5 s of battle time merge into one pause and one banner (RD-02).
+   * Real-time locked, the message just shows.
+   */
+  private autoPause(msg: string, live?: () => boolean): void {
     if (this.tutorialData) return; // the tutorial pauses for itself
     if (this.realtimeLocked) {
-      this.showBanner(msg, 2200);
+      this.fieldBanner(msg, 2200, live);
       return;
     }
-    if (!always && this.time.now - this.lastAutoPause < 4000) {
-      this.showBanner(msg, 2200);
-      return;
+    if (this.pauseMerge.offer(this.sim.tick / TICK_RATE, { text: msg, live })) this.setPaused(true);
+    this.fieldBanner(this.pauseMerge.text(), BANNER_TTL_S * 1000, () => this.pauseMerge.live(), 4);
+  }
+
+  /** A field-event banner (R4): gone after `ttlMs` (6 s at most) or once `live` is false. */
+  private fieldBanner(msg: string, ttlMs: number, live?: () => boolean, maxLines = 2): void {
+    this.showBanner(msg, 0, maxLines);
+    this.bannerLife = new BannerLife(this.time.now, Math.min(ttlMs, BANNER_TTL_S * 1000), live);
+  }
+
+  /** Where the side or rear blow behind the `flanked` event at `i` came from (its striker, field). */
+  private flankFrom(events: SimEvent[], i: number, gid: number): Vec | null {
+    for (let k = i - 1; k >= 0; k--) {
+      const h = events[k];
+      if (h.type !== 'hit' || h.dir === 'front' || this.sim.units[h.unit]?.group !== gid) continue;
+      const by = this.sim.units[h.by];
+      return by ? { x: by.x, y: by.y } : null;
     }
-    this.lastAutoPause = this.time.now;
-    this.setPaused(true);
-    this.showBanner(msg, 0);
+    return null;
+  }
+
+  private groupStands(gid: number): boolean {
+    return !this.sim.groups[gid]?.routed && this.sim.activeMembers(gid).length > 0;
+  }
+
+  /** The numerals of our other groups the rout of `gid` shook (its `cohesion` event in this batch), or ''. */
+  private shakenBy(events: SimEvent[], gid: number): string {
+    const c = events.find((e) => e.type === 'cohesion' && e.group === gid);
+    if (!c || c.type !== 'cohesion') return '';
+    const gids = [...new Set(c.targets.map((id) => this.sim.units[id].group))].filter((g) => g !== gid);
+    return gids.map((g) => groupNumeral(this.sim.groups, g)).join(', ');
   }
 
   private onEnd(winner: number): void {
@@ -2643,6 +2725,7 @@ export class BattleScene extends BaseScene {
   }
 
   hideBanner(): void {
+    this.bannerLife = null;
     this.bannerTimer?.remove();
     this.bannerTimer = null;
     this.banner?.destroy();
@@ -3900,6 +3983,12 @@ export class BattleScene extends BaseScene {
     // RD-01: every group wears a badge (R2): ours tappable with its numeral, the enemy's a glyph plate
     const focused = new Set(this.sim.groups.filter((o) => o.side === this.me && o.fireAtWill && !o.routed).map((o) => o.focus ?? -1));
     const alpha = badgeAlpha(zoomUnits(cam.zoom));
+    this.arcG.clear();
+    if (this.sim.phase === 'battle' && this.time.now >= this.threatAt) {
+      this.threatAt = this.time.now + 200;
+      this.threats.clear();
+      for (const g of this.sim.groups) if (g.side === this.me) this.threats.set(g.id, flankThreats(this.sim, g.id));
+    }
     for (const g of this.sim.groups) {
       if (g.disbanded) continue;
       const mem = this.sim.activeMembers(g.id);
@@ -3940,6 +4029,7 @@ export class BattleScene extends BaseScene {
       tag.setPosition(tx, ty).setAlpha(alpha);
       // only our badges are tap targets (a tap selects the group)
       if (mine) this.tagPos.set(g.id, { x: tx, y: ty });
+      if (mine && this.sim.phase === 'battle') this.drawFlankArcs(g, { x: cx, y: cy }, tx, ty, (tag.getData('w') as number) ?? 24, alpha);
     }
     for (const [gid, tag] of this.tagMap) {
       if (!seen.has(gid)) {
@@ -3947,6 +4037,20 @@ export class BattleScene extends BaseScene {
         this.tagMap.delete(gid);
       }
     }
+  }
+
+  /**
+   * RD-02 (R4, N15): round our group's badge, the red arc with chevrons on the
+   * side it was just flanked from, else a dashed arc toward each enemy group
+   * heading into its flank or rear.
+   */
+  private drawFlankArcs(g: SimGroup, c: Vec, tx: number, ty: number, w: number, alpha: number): void {
+    const facing = { x: g.formation.fx, y: g.formation.fy };
+    const rx = w / 2 + 5;
+    const ry = BADGE_H / 2 + 6;
+    const hit = this.flankWatch.solid(g.id, this.sim.tick / TICK_RATE);
+    const from = hit ? [hit] : this.threats.get(g.id) ?? [];
+    for (const f of from) drawFlankArc(this.arcG, tx, ty + 0.5, rx, ry, flankArc(facing, c, f, !hit), alpha);
   }
 
   /**
