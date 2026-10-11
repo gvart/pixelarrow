@@ -1,0 +1,23 @@
+public/icons/ui.json
+  s_697bdc25a7c420::t_ce7a7f8d6c53e7 1
+docs/v5/art/asset-manifest.json
+  s_697bdc25a7c420::t_edde069276c416 762,783,804,825,846,867,888,909,1247,1270,1293,1316,1339
+src/art/iconBitmaps.ts
+  s_697bdc25a7c420::t_114d1881106b4e 47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3f2b9f7340b57eedcc6c8c0436e2bfb1b0d4f503",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
