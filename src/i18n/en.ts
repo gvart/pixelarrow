@@ -29,6 +29,7 @@ import { QUEUE_EN } from './queue.en';
 import { HUB_EN } from './hub.en';
 import { FIRSTRUN_EN } from './firstrun.en';
 import { ARMY_V5_EN } from './army.v5.en';
+import { HERO_EN } from './hero.en';
 
 export const EN = {
   // ---- shared words
@@ -328,4 +329,6 @@ export const EN = {
   ...FIRSTRUN_EN,
   // ---- the v5 Army screen (army.v5.en.ts)
   ...ARMY_V5_EN,
+  // ---- the v5 Hero screen (hero.en.ts)
+  ...HERO_EN,
 } as const;
