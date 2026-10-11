@@ -242,10 +242,14 @@ export function renderBoat(): Pix {
  * A settlement's name plate: a little parchment scroll with darker rolled caps
  * (the text goes on top as a bitmap font).
  */
+/**
+ * A settlement's name plate: a paper strip with rolled ends, inked by the scene in dark ink (WLD-3).
+ * A town's plate is a pale stone slab, a village's cream paper, a lair's rose: the kind shows in the plate too.
+ */
 export function renderNamePlate(w: number, kind: SettlementKind): Pix {
   const h = 10;
   const px = new Pix(w + 8, h + 2);
-  const paper = kind === 'lair' ? 0xe0bfaf : MAPC.parch[0];
+  const paper = kind === 'lair' ? 0xe0bfaf : kind === 'town' ? MAPC.stone[0] : MAPC.parch[0];
   const x0 = 4;
   for (let x = 0; x < w + 6; x++) px.set(x + 2, h + 1, MAPC.shade, 80);
   px.rect(x0, 0, w, h, paper);
@@ -265,6 +269,39 @@ export function renderNamePlate(w: number, kind: SettlementKind): Pix {
     px.set(cx + 1, h >> 1, 0x8e725c);
     px.set(cx + 3, h >> 1, 0x8e725c);
   }
+  return px;
+}
+
+/**
+ * The threat glyph on a band plate and the encounter's threat chip (G13: a shape beside the colour):
+ * two triangles down (weak), one down (weaker), two bars (even), one up (strong), two up (deadly). 5 x 7, in ink.
+ */
+export function renderThreatGlyph(lvl: number): Pix {
+  const px = new Pix(5, 7);
+  const ink = P.outline;
+  const tri = (y: number, up: boolean) => {
+    for (let r = 0; r < 3; r++) {
+      const half = up ? r : 2 - r;
+      for (let x = 2 - half; x <= 2 + half; x++) px.set(x, y + r, ink);
+    }
+  };
+  if (lvl === 2) {
+    px.hline(0, 4, 2, ink);
+    px.hline(0, 4, 4, ink);
+  } else if (lvl === 1 || lvl === 3) tri(2, lvl === 3);
+  else {
+    tri(0, lvl === 4);
+    tri(4, lvl === 4);
+  }
+  return px;
+}
+
+/** The captain's crest on a band plate (ai-doctrines.md "Band plate on the map"): a crested helmet, 7 x 7. */
+export function renderCrest(): Pix {
+  const rows = ['.oooo..', 'oggggo.', '.oooooo', 'ohhhhho', 'ohoohho', 'ohohoho', '.o...o.'];
+  const col: Record<string, number> = { o: P.outline, g: 0xc03028, h: 0xe0b860 };
+  const px = new Pix(7, 7);
+  rows.forEach((row, y) => [...row].forEach((ch, x) => ch !== '.' && px.set(x, y, col[ch])));
   return px;
 }
 
