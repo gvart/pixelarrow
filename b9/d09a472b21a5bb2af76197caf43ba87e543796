@@ -1,0 +1,25 @@
+src/i18n/clan.ru.ts
+  s_697bdc25a7c420::t_3edf99f15431cf 17
+src/i18n/clan.en.ts
+  s_697bdc25a7c420::t_3edf99f15431cf 21-22
+src/scenes/online/ClanScene.ts
+  s_697bdc25a7c420::t_3edf99f15431cf 215
+docs/v5/stories/WAR-02/NOTES.md
+  s_697bdc25a7c420::t_1c799025838d11 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b9d09a472b21a5bb2af76197caf43ba87e543796",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
