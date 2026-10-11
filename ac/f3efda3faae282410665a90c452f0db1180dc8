@@ -1,0 +1,23 @@
+docs/v5/ASSET_LOG.md
+  s_697bdc25a7c420::t_b9007c193d9f11 11-16
+docs/v5/stories/SHP-01/NOTES.md
+  s_697bdc25a7c420::t_a9f2be03593946 7
+  s_697bdc25a7c420::t_fd85f6aeac4ca1 39-44
+  s_697bdc25a7c420::t_be887b16d74a4f 1-6,8-38,45-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "acf3efda3faae282410665a90c452f0db1180dc8",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
