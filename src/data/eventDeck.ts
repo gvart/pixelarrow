@@ -27,9 +27,9 @@ export const EVENT_DECK_ENABLED = true;
 
 /**
  * The oracle's paid choice is a free perk retrain (abilities.md R7), spent at
- * a drillmaster (Campaign.useFreeRetrain). No screen spends it yet (SET-01),
- * so the oracle's weight is 0 until this is true: a card must not sell what
- * the game can't deliver.
+ * a town's Drillmaster (Settlement › Services, SET-01; Campaign.useFreeRetrain).
+ * While false the oracle's weight is 0: a card must not sell what the game
+ * can't deliver.
  */
 export const RETRAIN_SPENDABLE = true;
 
