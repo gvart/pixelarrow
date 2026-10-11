@@ -33,6 +33,7 @@ import { EVENTS_RU } from './events.ru';
 import { EVENTCARD_RU } from './eventcard.ru';
 import { SHOP_V5_RU } from './shop.v5.ru';
 import { MARKET_RU } from './market.ru';
+import { RESULTS_RU } from './results.ru';
 import { WORLD_V5_RU } from './world.v5.ru';
 
 export const RU: Table = {
@@ -329,4 +330,5 @@ export const RU: Table = {
   ...SHOP_V5_RU,
   ...MARKET_RU,
   ...WORLD_V5_RU,
+  ...RESULTS_RU,
 };
