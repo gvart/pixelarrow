@@ -1,0 +1,21 @@
+src/i18n/attention.en.ts
+  s_697bdc25a7c420::t_a84810694a0da2 17-18,25
+src/i18n/attention.ru.ts
+  s_697bdc25a7c420::t_a84810694a0da2 11-12,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7b1ecc1ac58b680577519723c381988b2e3cf828",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
