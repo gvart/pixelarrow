@@ -34,6 +34,17 @@ await need('menu active', await until(() => ev(() => !!window.__game?.scene.isAc
 // that window: wait until the menu is fully in before tapping.
 await need('menu entered', await until(() => ev(() => { const ui = window.__game.scene.getScene('Menu').ui; return ui.alpha === 1 && ui.x === 0; }), 15000, 100));
 const RS = await ev(() => window.__rs());
+// The event deck is on (EV-03): a card (after a battle, on arrival, on the march) waits for an answer and
+// pauses the map. Answer any card with its free choice and close the result, as a player would; the
+// event card itself is covered by its own play test and the layout check.
+await ev(() => setInterval(() => {
+  for (const k of ['World', 'Settlement', 'Camp']) {
+    const c = window.__game.scene.isActive(k) && window.__game.scene.getScene(k).eventCard;
+    if (c && !c.choose(c.freeKey)) c.close();
+  }
+}, 250));
+/** No event card open on `key` (the answer above takes a moment). */
+const noEventCard = (key) => until(() => ev((k) => !window.__game.scene.getScene(k).eventCard && !window.__state.campaign.world.s.pendingEvent, key), 10000, 100);
 
 // ---- new campaign
 await tapBtn('Menu', { label: 'Begin the march' });
@@ -311,6 +322,7 @@ if (await btn('Results', { icon: 'chest' })) {
 }
 await tapBtn('Results', { icon: 'check' });
 await need('back on the map after the battle', await until(() => active('World'), 30000));
+await noEventCard('World');
 const gone = await ev((id) => ({ gone: !window.__state.campaign.world.party(id), victory: window.__state.last?.outcome?.victory, parties: window.__state.campaign.world.s.parties.map((p) => p.id) }), bandId);
 check('defeated band is gone', gone.gone, JSON.stringify({ bandId, ...gone }));
 
@@ -349,6 +361,7 @@ const vpos = await ev((id) => {
 }, village.id);
 await tap(vpos[0], vpos[1]);
 await need('entered the village', await until(() => active('Settlement'), 30000));
+await noEventCard('Settlement');
 await wait(400);
 const before = await ev(() => ({ n: window.__state.campaign.data.heroes.length, gold: window.__state.campaign.data.gold }));
 await tapBtn('Settlement', { icon: 'coin', index: 0 });
