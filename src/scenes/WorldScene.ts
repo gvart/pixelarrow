@@ -110,7 +110,9 @@ export class WorldScene extends BaseScene {
   private stripKey = '';
   private followBtn!: MIconButton;
   /** The open encounter sheet (the map is paused while it is up). */
-  private dialog: EncounterHandle | null = null;
+  private encounter: EncounterHandle | null = null;
+  /** The same sheet once it has risen into place (scripts and the layout check wait for it). */
+  dialog: EncounterHandle | null = null;
   /** The open event card (campaign-events.md R4): the map is paused while it is up. */
   private eventCard: EventCardHandle | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
@@ -151,6 +153,7 @@ export class WorldScene extends BaseScene {
 
   create(data: { encounter?: number }): void {
     this.bands = new Map();
+    this.encounter = null;
     this.dialog = null;
     this.eventCard = null;
     this.banner = null;
@@ -395,8 +398,8 @@ export class WorldScene extends BaseScene {
   update(_t: number, delta: number): void {
     const camp = state.campaign;
     // a pending event always has its card (R4.2: no time passes until it is answered); an encounter goes first
-    if (!this.eventCard && !this.dialog && this.w.s.pendingEvent) this.openEvent();
-    const busy = this.dialog || this.cine || this.eventCard;
+    if (!this.eventCard && !this.encounter && this.w.s.pendingEvent) this.openEvent();
+    const busy = this.encounter || this.cine || this.eventCard;
     if (!busy && (this.w.moving || this.waiting || this.w.s.destParty >= 0)) {
       const rate = this.waiting ? WAIT_SPEED : TRAVEL_SPEED;
       const hours = Math.min(0.25, delta / 1000) * rate;
@@ -416,7 +419,7 @@ export class WorldScene extends BaseScene {
         this.setWaiting(false);
         this.openEncounter(ev.party, ev.byPlayer);
       }
-      if (ev?.type === 'event' && !this.dialog) this.openEvent();
+      if (ev?.type === 'event' && !this.encounter) this.openEvent();
       this.refreshHud();
     }
     this.drainDiscoveries();
@@ -429,7 +432,7 @@ export class WorldScene extends BaseScene {
     const s = this.w.s;
     const px = s.x * WTILE;
     const py = s.y * WTILE;
-    const moving = this.w.moving && !this.dialog && !this.cine && !this.eventCard;
+    const moving = this.w.moving && !this.encounter && !this.cine && !this.eventCard;
     if (moving && this.w.route.length) {
       const dx = this.w.route[0].x - s.x;
       if (dx < -0.05) this.flip = true;
@@ -525,7 +528,7 @@ export class WorldScene extends BaseScene {
       const by = p.y * WTILE;
       if (p.x < v.lastX - 0.01) v.flip = true;
       else if (p.x > v.lastX + 0.01) v.flip = false;
-      const walking = Math.abs(p.x - v.lastX) > 1e-4 && !this.dialog;
+      const walking = Math.abs(p.x - v.lastX) > 1e-4 && !this.encounter;
       v.lastX = p.x;
       const vis = this.explored(p.x, p.y);
       v.spr.setVisible(vis).setPosition(Math.round(bx), Math.round(by) + 2).setDepth(by + 3).setFlipX(v.flip).setFrame(walking ? Math.floor(now / 160 + p.id) % PARTY_FRAMES : 0);
@@ -1017,7 +1020,7 @@ export class WorldScene extends BaseScene {
       this.pinch = { d0: Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y), z0: this.cameras.main.zoom, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
       return;
     }
-    if (over.length > 0 || this.dialog || this.eventCard) {
+    if (over.length > 0 || this.encounter || this.eventCard) {
       this.gesture = null;
       return;
     }
@@ -1174,14 +1177,15 @@ export class WorldScene extends BaseScene {
   }
 
   openJournal(): void {
-    if (this.eventCard || this.dialog) return;
+    if (this.eventCard || this.encounter) return;
     openJournalSheet(this);
   }
 
   // ================================================================ encounters
 
   private closeDialog(): void {
-    this.dialog?.close();
+    this.encounter?.close();
+    this.encounter = null;
     this.dialog = null;
   }
 
@@ -1263,10 +1267,16 @@ export class WorldScene extends BaseScene {
         choices,
       },
       () => {
-        if (this.dialog === handle) this.dialog = null;
+        if (this.encounter !== handle) return;
+        this.encounter = null;
+        this.dialog = null;
       },
     );
-    this.dialog = handle;
+    this.encounter = handle;
+    // settled once the sheet has risen (sheetMotion: 200 ms, none under Reduce motion)
+    this.time.delayedCall(motion.reduced ? 0 : 250, () => {
+      if (this.encounter === handle) this.dialog = handle;
+    });
   }
 
   attack(partyId: number): void {
