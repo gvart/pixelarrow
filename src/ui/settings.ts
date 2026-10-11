@@ -22,6 +22,7 @@ import { openAbout, openNotifySettings, settingsSheetW } from './notifySettings'
 import { addSyncBadge } from './online';
 import { online } from '../platform/cloud';
 import { analyticsToggled } from '../platform/monitoring';
+import { SPEEDS, speedLabel, startSpeed } from './input/pace';
 
 type ToggleKey = { [K in keyof Settings]-?: Settings[K] extends boolean ? K : never }[keyof Settings];
 type Volume = 'musicVol' | 'sfxVol';
@@ -30,6 +31,7 @@ type Row =
   | { kind: 'toggle'; key: ToggleKey; label: TKey }
   | { kind: 'motion'; label: TKey }
   | { kind: 'volume'; key: Volume; label: TKey }
+  | { kind: 'speed'; label: TKey }
   | { kind: 'lang' }
   | { kind: 'tutorial'; label: TKey }
   | { kind: 'open'; what: 'notify' | 'about'; label: TKey }
@@ -44,8 +46,8 @@ interface UiScene extends Phaser.Scene {
 /**
  * Grouped: Audio, Language, Battle pauses, Accessibility, Account (M-15).
  * A setting gets a row only once the game honours it: Reduce shake, Reduce
- * flash, Left-hand and the default battle speed are saved (save v6) but wait
- * for the stories that read them (FL-01, BTL-01, CT-06).
+ * flash and Left-hand are saved (save v6) but wait for the stories that read
+ * them (FL-01, BTL-01). The battle speed (CT-06) is the speed battles open at.
  */
 export const ROWS: readonly Row[] = [
   { kind: 'section', label: 'settings.sec.audio' },
@@ -60,6 +62,7 @@ export const ROWS: readonly Row[] = [
   { kind: 'toggle', key: 'pauseFlank', label: 'settings.pauseFlank' },
   { kind: 'toggle', key: 'pauseRout', label: 'settings.pauseRout' },
   { kind: 'toggle', key: 'pauseDeath', label: 'settings.pauseDeath' },
+  { kind: 'speed', label: 'settings.battleSpeed' },
   { kind: 'section', label: 'settings.sec.access' },
   { kind: 'motion', label: 'settings.reduceMotion' },
   { kind: 'toggle', key: 'haptics', label: 'settings.haptics' },
@@ -138,7 +141,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         );
         return;
       }
-      const right = r.kind === 'volume' ? 74 : r.kind === 'sync' ? 30 : r.kind === 'tutorial' || r.kind === 'open' || r.kind === 'newCampaign' ? 70 : 38;
+      const right = r.kind === 'volume' || r.kind === 'speed' ? 74 : r.kind === 'sync' ? 30 : r.kind === 'tutorial' || r.kind === 'open' || r.kind === 'newCampaign' ? 70 : 38;
       // a label that does not fit goes onto two lines at the readable floor (6.5 UI px, A11Y-09; never cut)
       const room = rw - right - 10;
       const label = t(r.label);
@@ -198,6 +201,24 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
               s[k] = v;
               audio.refresh();
               if (k === 'sfxVol') audio.play('block');
+              void state.save();
+            },
+          }),
+        );
+      } else if (r.kind === 'speed') {
+        // the speed battles open at (A11Y-21); a battle that offers less opens at its fastest below it (src/ui/input/pace.ts)
+        const speeds = SPEEDS.offline;
+        row.add(
+          new Stepper(scene, rw - 4 - 70, 1, {
+            value: Math.max(0, speeds.indexOf(startSpeed('offline', s.battleSpeed))),
+            min: 0,
+            max: speeds.length - 1,
+            label: t(r.label),
+            id: 'settings.battleSpeed',
+            format: (i) => speedLabel(speeds[i]),
+            onChange: (i) => {
+              s.battleSpeed = speeds[i];
+              haptic('light');
               void state.save();
             },
           }),
