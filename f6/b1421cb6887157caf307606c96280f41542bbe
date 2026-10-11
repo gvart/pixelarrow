@@ -1,0 +1,20 @@
+scripts/art/atlas.mjs
+  s_697bdc25a7c420::t_873425605bad4f 22,84,92-96
+  s_697bdc25a7c420::t_ec3b7d700ea4c8 97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f6b1421cb6887157caf307606c96280f41542bbe",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
