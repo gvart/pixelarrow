@@ -41,6 +41,32 @@ export interface CoachHost {
   element(id: string): Rect | null;
   /** A modal is open (the coach waits). */
   busy(): boolean;
+  /** The stone rail of map keys: the card is placed opposite it, never over its keys (WAR-6). */
+  rail?(): Rect | null;
+}
+
+/**
+ * Where the coach card goes (UI px): above a low target, else below; with a rail, the card keeps to its left,
+ * and for a target on the rail itself it sits beside the rail at the target's height, the arrow pointing right.
+ */
+export function bubblePlace(at: Rect | null, w: number, h: number, VW: number, VH: number, rail: Rect | null): { x: number; y: number; w: number; side: 'above' | 'below' | 'left' } {
+  const right = rail ? rail.x - 6 : VW - 8;
+  const bw = Math.min(w, right - 8);
+  if (at && rail && at.x >= rail.x - 2) {
+    const y = Math.round(Math.max(4, Math.min(VH - 4 - h, at.y + at.h / 2 - h / 2)));
+    return { x: Math.round(right - bw), y, w: bw, side: 'left' };
+  }
+  let y: number;
+  let side: 'above' | 'below' = 'below';
+  if (!at) y = Math.round((VH - h) / 2);
+  else if (at.y + at.h / 2 > VH / 2) {
+    y = at.y - 8 - h;
+    side = 'above';
+  } else y = at.y + at.h + 8;
+  y = Math.max(4, Math.min(VH - 4 - h, y));
+  const cx = at ? at.x + at.w / 2 : VW / 2;
+  const x = Math.round(Math.max(8, Math.min(right - bw, cx - bw / 2)));
+  return { x, y, w: bw, side };
 }
 
 const TARGET: Partial<Record<CoachId, string>> = {
@@ -107,11 +133,11 @@ export class OnlineCoach {
         return { rect: r, hole: r, wait: false };
       }
       case 'collect': {
-        const r = h.element(t('online.bar.collect'));
+        const r = h.element('online.bar.collect');
         return { rect: r, hole: r, wait: false };
       }
       case 'clan': {
-        const r = h.element(t('online.bar.clan'));
+        const r = h.element('online.bar.clan');
         return { rect: r, hole: r, wait: false };
       }
       default:
@@ -144,20 +170,16 @@ export class OnlineCoach {
     const { VW, VH } = s.m;
     this.bubble.removeAll(true);
     this.arrow.clear();
-    const w = Math.min(VW - 16, 176);
-    const lines = wrapText(text, w - 14, 6).lines;
+    const rail = this.host.rail?.() ?? null;
+    // the card's width: what is left of the rail (opposite it, WAR-6), at most 176
+    const w0 = Math.min(VW - 16, 176, rail ? rail.x - 14 : VW);
+    const lines = wrapText(text, w0 - 14, 7).lines;
     const h = 7 + lines.length * LINE_H + (button ? SIZE.btnH + 6 : 3);
-    // above the target when it sits low, else below; never on it
-    let y: number;
-    let below = true;
-    if (!at) y = Math.round((VH - h) / 2);
-    else if (at.y + at.h / 2 > VH / 2) {
-      y = at.y - 8 - h;
-      below = false;
-    } else y = at.y + at.h + 8;
-    y = Math.max(4, Math.min(VH - 4 - h, y));
+    // above the target when it sits low, else below; beside the rail for a rail key; never on it
+    const pl = bubblePlace(at, w0, h, VW, VH, rail);
+    const { x, y, w } = pl;
+    const below = pl.side === 'below';
     const cx = at ? at.x + at.w / 2 : VW / 2;
-    const x = Math.round(Math.max(8, Math.min(VW - 8 - w, cx - w / 2)));
     const zone = s.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     uiBlocker(uiId(zone, 'coach.bubble'));
     this.bubble.add(zone);
@@ -170,7 +192,12 @@ export class OnlineCoach {
       // where we are: 2 / 7
       this.bubble.add(addText(s, x + 7, y + h - 17, `${ONLINE_COACH.indexOf(this.step!) + 1} / ${ONLINE_COACH.length}`, 'pSec'));
     }
-    if (at) {
+    if (at && pl.side === 'left') {
+      // the arrow from the card's right edge to the rail key
+      const ay = Math.round(Math.max(y + 8, Math.min(y + h - 8, at.y + at.h / 2)));
+      this.arrow.fillStyle(MOSAIC.parch, 1);
+      this.arrow.fillTriangle(x + w - 1, ay - 5, x + w - 1, ay + 5, x + w + 5, ay);
+    } else if (at) {
       // the arrow from the bubble to the target
       const ax = Math.round(Math.max(x + 8, Math.min(x + w - 8, cx)));
       this.arrow.fillStyle(MOSAIC.parch, 1);
