@@ -9,6 +9,6 @@ export const FIRSTRUN_RU: Record<keyof typeof FIRSTRUN_EN, string> = {
   'firstrun.skip': 'Пропустить обучение',
   'firstrun.ways': 'Три вида боя',
   'firstrun.pitch.campaign': 'Без сети. Ведите отряд вдоль побережья, бейте банды, растите героев.',
-  'firstrun.pitch.duels': 'Живые бои один на один: поднимайтесь в рейтинге на Арене.',
+  'firstrun.pitch.duels': 'Поднимайтесь по Башне этаж за этажом или бейтесь с живыми противниками на Арене.',
   'firstrun.pitch.war': 'Общая карта на сезон: захватывайте гексы, вступайте в клан.',
 };

@@ -12,6 +12,6 @@ export const FIRSTRUN_EN = {
   'firstrun.skip': 'Skip the tutorial',
   'firstrun.ways': 'Three ways to fight',
   'firstrun.pitch.campaign': 'Offline. Lead your company along the coast, fight bands, raise your heroes.',
-  'firstrun.pitch.duels': 'Live battles, one against one: climb the ladder in the Arena.',
+  'firstrun.pitch.duels': 'Climb the ladder floor by floor, or fight live opponents in the Arena.',
   'firstrun.pitch.war': 'A shared map for a season: take hexes, join a clan.',
 } as const;
