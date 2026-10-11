@@ -219,15 +219,21 @@ export class HeroScene extends BaseScene {
     this.ui.add(this.clip);
     uiClip(outer.content, this.clip);
     const pinH = SWITCH_H + 6;
-    const pin = this.add.container(vx, top);
-    pin.add(mosaicImage(this, 0, 0, vw, pinH, 'parchment'));
-    this.addTabs(pin, 0, 4, 'hero.pinTab', h);
-    this.ui.add(pin);
-    this.sticky = pin;
+    // the pinned copy exists only while the tabs have scrolled away (scripts and the layout check see one tab bar)
     const sync = (s: number) => {
-      if (!this.clip || !this.sticky) return;
+      if (!this.clip) return;
       const on = s > this.tabsY - 4;
-      this.sticky.setVisible(on);
+      if (on && !this.sticky) {
+        const pin = this.add.container(vx, top);
+        pin.add(mosaicImage(this, 0, 0, vw, pinH, 'parchment'));
+        this.addTabs(pin, 0, 4, 'hero.pinTab', h);
+        // just above the page, under the action bar and any sheet or card open over the screen
+        this.ui.addAt(pin, this.ui.getIndex(this.clip) + 1);
+        this.sticky = pin;
+      } else if (!on && this.sticky) {
+        this.sticky.destroy();
+        this.sticky = null;
+      }
       const mh = on ? pinH : 0;
       this.clip.setPosition(vx, top + mh).setSize(vw, bottom - top - mh);
     };
