@@ -12,7 +12,8 @@ import { Rng } from '../sim/rng';
 import { grantXp, makeHero, makeItem, openingParty } from './heroes';
 import { dedupeNames } from '../data/names';
 import { campaignIdFor, DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
-import { armyPower, type EnemyArmy } from './enemy';
+import { armyPower, garrisonWorks, type EnemyArmy } from './enemy';
+import { siteAt, type BattleSite } from '../world/battlefield';
 import { applyBattleBonus, type BattleBonus, type Outcome } from './loot';
 import { CAPTAIN_RULES, VOLUNTEER_RULES, World, WORLD_RULES, bountyMultOf, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
 import { BASE_ITEMS } from '../data/items';
@@ -82,6 +83,12 @@ export interface PartySpoils {
   captain: CaptainFate;
   /** Gold for the captain (already in the outcome's gold); 0 = none. */
   bounty: number;
+}
+
+/** What an assault on a lair did (campaign-arc.md R2.4, R2.5): the band's spoils, whether it fell, and its hoard (already first in the loot). */
+export interface LairSpoils extends PartySpoils {
+  fallen: boolean;
+  hoard: Item[];
 }
 
 export class Campaign {
@@ -467,6 +474,61 @@ export class Campaign {
     return r.items;
   }
 
+  // ------------------------------------------------------------- lair assaults (campaign-arc.md R2)
+
+  /**
+   * The army defending lair `lairId` against an assault (R2.1, R4): its
+   * garrison (World.garrison) with its captain and doctrine, the lair's free
+   * stakes (garrisonWorks, GARRISON_STAKES, keyed to the lair whatever the
+   * doctrine) and holdField, since a garrison never retreats. Its gear
+   * follows the army's classes like a band's. Null when the lair has fallen,
+   * isn't a lair, or has no men left (then razeLair, without a battle).
+   */
+  garrisonEnemy(lairId: number): EnemyArmy | null {
+    const p = this.world.garrison(lairId);
+    if (!p) return null;
+    return { ...partyArmy(p, this.data, this.armyClasses()), works: garrisonWorks(), holdField: true };
+  }
+
+  /** Where an assault on lair `lairId` is fought (R2.3): the lair's own ground, behind its palisade. */
+  assaultSite(lairId: number): BattleSite {
+    const st = this.world.map.settlements[lairId];
+    return { ...siteAt(this.world.map, st.x, st.y), assault: true };
+  }
+
+  /**
+   * Lair `lairId` falls (R2.4): it sends out no more bands, and its hoard
+   * (lairHoard, on the pity counter) is returned for the player to take. A
+   * standing lair only; otherwise nothing happens and nothing drops.
+   */
+  razeLair(lairId: number): Item[] {
+    const w = this.world;
+    if (w.map.settlements[lairId]?.kind !== 'lair' || w.lairFallen(lairId)) return [];
+    w.razeLair(lairId);
+    return this.lairHoard(lairId);
+  }
+
+  /**
+   * After an assault on lair `lairId` (R2.4, R2.5), with the sim's `result`
+   * and the garrison's heroes. The captain, his bounty and weapon, a pending
+   * event bonus and the aftermath settle as for a band (afterPartyBattle).
+   * Then a victory razes the lair and puts its hoard first in the loot, every
+   * piece an extra pick; a defeat or a retreat leaves it standing, its dead
+   * lost until they regrow. Mutates the outcome's gold and loot.
+   */
+  afterLairAssault(lairId: number, outcome: Outcome, result?: BattleResult, enemies: readonly Hero[] = []): LairSpoils {
+    const spoils = this.afterPartyBattle(-1, outcome, result, enemies);
+    if (!outcome.victory) {
+      const dead = result ? result.units.filter((u) => u.side === 1 && u.state === 'dead').length : outcome.enemyKilled;
+      this.world.loseGarrison(lairId, dead);
+      return { ...spoils, fallen: false, hoard: [] };
+    }
+    const hoard = this.razeLair(lairId);
+    outcome.loot.unshift(...hoard);
+    outcome.picks = Math.min(outcome.picks + hoard.length, outcome.loot.length);
+    return { ...spoils, fallen: true, hoard };
+  }
+
   /**
    * After a battle against a band: a victory destroys it; otherwise it keeps
    * what is left and both sides break off for a few hours. `result` and
@@ -478,6 +540,8 @@ export class Campaign {
    * - a band that retreats is beaten but not destroyed: no win bonus, it
    *   loses its fallen and gets away (`escaped`), its captain with it if he lives.
    * Mutates the outcome's gold and loot (the gold is already in the purse).
+   * A `partyId` with no band on the map (a lair's garrison, afterLairAssault)
+   * settles all of this but the band itself.
    */
   afterPartyBattle(partyId: number, outcome: Outcome, result?: BattleResult, enemies: readonly Hero[] = []): PartySpoils {
     const w = this.world;
