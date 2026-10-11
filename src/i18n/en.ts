@@ -14,6 +14,7 @@ import { EN_ARMY } from './en.army';
 import { BEASTS_EN } from './beasts.en';
 import { DUELS_EN } from './duels.en';
 import { MERCHANT_EN } from './merchant.en';
+import { CLAN_EN } from './clan.en';
 import { FIELDCAMP_EN } from './fieldcamp.en';
 import { OCAMP_EN } from './camp.en';
 import { STRAT_EN } from './strat.en';
@@ -313,6 +314,7 @@ export const EN = {
   ...BEASTS_EN,
   ...DUELS_EN,
   ...MERCHANT_EN,
+  ...CLAN_EN,
   ...FIELDCAMP_EN,
   ...OCAMP_EN,
   ...CAMPSCENE_EN,

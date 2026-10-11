@@ -6,6 +6,7 @@ import { RU_ARMY } from './ru.army';
 import { BEASTS_RU } from './beasts.ru';
 import { DUELS_RU } from './duels.ru';
 import { MERCHANT_RU } from './merchant.ru';
+import { CLAN_RU } from './clan.ru';
 import { FIELDCAMP_RU } from './fieldcamp.ru';
 import { OCAMP_RU } from './camp.ru';
 import { STRAT_RU } from './strat.ru';
@@ -294,6 +295,7 @@ export const RU: Table = {
   ...BEASTS_RU,
   ...DUELS_RU,
   ...MERCHANT_RU,
+  ...CLAN_RU,
   ...FIELDCAMP_RU,
   ...OCAMP_RU,
   ...CAMPSCENE_RU,
