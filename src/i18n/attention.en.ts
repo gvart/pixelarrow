@@ -14,15 +14,15 @@ export const ATTENTION_EN = {
   'battle.formation.orb': 'orb',
   'battle.formationShort.orb': 'orb',
   'attn.orb.why.riders': 'Riders cannot form an orb',
-  'attn.orb.warn': 'An orb loses head-on to a line. It is for riders and flank attacks.',
-  'attn.coach.orb': 'New shape: Orb. A ring with no flanks: strong against riders and flank attacks, weak head-on.',
+  'attn.orb.warn': 'An orb is weak head-on against a line: use it against riders and flanks.',
+  'attn.coach.orb': 'New: Orb. No flanks, weak head-on.',
   // the Feint (formations-orders.md R3)
   'battle.order.feint': 'feinting',
   'battle.orderShort.feint': 'feint',
   'attn.feint': 'Feint',
   'attn.tip.feint': 'Feigned retreat: run back for 4 s, then turn and charge. Enemies who chase are disordered. Once every 30 s.',
   'attn.tip.backCd': 'Fall back. Feint is ready again in {n} s.',
-  'attn.coach.feint': 'New order: Feint. Light troops run back, then turn and charge the enemies who chase them.',
+  'attn.coach.feint': 'New: Feint. Light troops fall back, then turn and charge.',
   // Raise the standard (abilities.md R5.3)
   'attn.std.name': 'Standard',
   'attn.std.sub': 'once',
