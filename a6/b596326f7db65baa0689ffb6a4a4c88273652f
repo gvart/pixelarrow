@@ -1,0 +1,31 @@
+scripts/layout-check.mjs
+  s_697bdc25a7c420::t_2e4633608f0518 334-364
+docs/v5/stories/MKT-01/NOTES.md
+  s_697bdc25a7c420::t_2e4633608f0518 1-83
+src/i18n/market.ru.ts
+  s_697bdc25a7c420::t_2e4633608f0518 1-21
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_2e4633608f0518 33,325
+src/i18n/market.en.ts
+  s_697bdc25a7c420::t_2e4633608f0518 1-24
+src/scenes/MarketScene.ts
+  s_697bdc25a7c420::t_2e4633608f0518 3-4,6-7,9-13,19,26-27,42,47-83,97-102,109,111-117,174,176-177,304-314,318-319,332,335-336,343,349-400,428-429,432-449,452-456,458-471,491-496,499,501-509,512-517,521-526,528-545,547-548,553,616,620,626,657-673,676,680,683-687,693,695,697,709,746,761-767,772-773,776-777,779-792,798,802-972
+src/i18n/en.ts
+  s_697bdc25a7c420::t_2e4633608f0518 41,356-357
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a6b596326f7db65baa0689ffb6a4a4c88273652f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
