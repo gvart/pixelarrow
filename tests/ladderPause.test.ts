@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LADDER, LADDER_TICKET_TTL_MS, ladderFloor, ladderSetup, ticketClock } from '../src/duel/ladder';
-import { DemoDuelSource, ladderDeadline } from '../src/duel/client';
+import { DemoDuelSource } from '../src/duel/client';
 import { SPEEDS, nextSpeed, paceMode, realtimeLocked, startSpeed } from '../src/ui/input/pace';
 import { StagedPlan } from '../src/ui/orderQueue';
 import { Battle, DT, TICK_RATE } from '../src/sim/battle';
@@ -58,15 +58,13 @@ describe('the ladder ticket clock (controls.md R10)', () => {
     expect(ticketClock(end, opened + 30 * MIN + 1)).toEqual({ secs: 0, show: true, expired: true });
   });
 
-  it('a ladder ticket marks its battle as a ladder floor, with the deadline on this device', async () => {
+  it('a ladder ticket carries its deadline on this device (an explicit field, DUE-01)', async () => {
     let now = 5_000_000;
     const src = new DemoDuelSource({ now: () => now });
     const tk = await src.ladderStart(1);
     expect(tk.expiresAt - tk.now!).toBe(30 * MIN);
-    const end = ladderDeadline(tk.setup)!;
-    expect(Math.abs(end - (Date.now() + 30 * MIN))).toBeLessThan(1000);
-    // any other setup is not a ladder battle
-    expect(ladderDeadline(JSON.parse(JSON.stringify(tk.setup)) as BattleSetup)).toBeNull();
+    // the source's clock is far from Date.now(): the deadline follows the device, not the server
+    expect(Math.abs(tk.deadline - (Date.now() + 30 * MIN))).toBeLessThan(1000);
     now += 29 * MIN;
     const ok = await src.ladderSubmit(tk.ticket, { orders: [], deployOrders: 0, claim: { winner: 0, ticks: 1, hash: '' } }, fight(tk.setup).result());
     expect(ok.expired).toBeUndefined();
