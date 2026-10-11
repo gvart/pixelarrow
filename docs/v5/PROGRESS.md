@@ -11,9 +11,11 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | HUB-01 worktree-agent-a18faf43e2dc793ae, AS-05 worktree-agent-acc0a30d4c6a7ffbb, EV-01 worktree-agent-a32a78e11291434d5 | — | integrator | — | merging |
+| (merge) | FW-01 fw-01-field-works + AS-06 worktree-agent-ad5994479c1c90552 | — | integrator | — | merging |
+| hub-02 | W10 HUB-02: Campaign hub (Fresco Hall) | per card | per card | worktree-agent | running |
+| f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
+| fixer-5 | smoke 'Begin the march' flake | test-flakiness | qa-tester | worktree-agent | running |
 | ct-04 | W10 CT-04: order previews + Then queue | per card | per card | worktree-agent | running |
-| assets-7 | AS-06: expansion pixel art (Chrome owner) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
 
@@ -49,6 +51,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - fb8a4da AS-03 icons staged; 8cd866f IN-02 menu input contract. Gates: vitest 941, layout 0 new, smokes pass.
 - 244be6c fixer-4 smoke determinism; 94f7c4d AB-03 the Standard; 9065e2c captain levelBonus 0 (captain +8). Gates: vitest 958, server 298, layout 0 new, smoke 2/2, all smokes pass; balance 54%, lairs 43/58/53.
 - 322b6d0 CT-05 battle camera; 9716188 AS-04 frescoes (campaign fresco promoted). Gates: vitest 975, layout 0 new, smokes pass.
+- 38a7c16 HUB-01; 89525bd AS-05; 489c63a EV-01. Gates: vitest 1012, layout 0 new, smokes pass (smoke flaked at 'Begin the march' under load); balance 54%.
 
 ## Queue (next)
 
