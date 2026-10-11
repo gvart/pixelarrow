@@ -1,0 +1,49 @@
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_c195249263bae5 23,304
+src/i18n/en.ts
+  s_697bdc25a7c420::t_c195249263bae5 31,329-330
+docs/v5/ASSET_LOG.md
+  s_697bdc25a7c420::t_e991407aa074ce 338-339
+docs/v5/art/asset-manifest.json
+  s_697bdc25a7c420::t_3c19aed08c5cd6 258,279,384,447
+docs/v5/stories/ARM-01/NOTES.md
+  s_697bdc25a7c420::t_4889e784630b05 1-40
+scripts/layout-check.mjs
+  s_697bdc25a7c420::t_1c4866a2ad6410 397-428
+scripts/smoke.mjs
+  s_697bdc25a7c420::t_ed72dbe291e4fe 410-411
+src/i18n/army.v5.en.ts
+  s_697bdc25a7c420::t_ed58a7c9c8d614 1-11
+src/i18n/army.v5.ru.ts
+  s_697bdc25a7c420::t_b23c429d91f71a 1-13
+src/scenes/ArmyScene.ts
+  s_697bdc25a7c420::t_da2ceb7493710f 3-5,8,11-12,17-19,21-22,29,33-34,38-43,46,49-50,52-58,65,74-83,91,93,95,104,109-110,114-115,120-121,124,126-132,135-140,142-186,188-213,216-220,222-226,231-232,235-238,240-242,245,257,260,266-269,271-274,279,287,295-296,305,313-335,338-343,345-374,376-382,384,387-395,397,400,402-403,412-414,428,433-434,445,455,457,461,471,477,508-509,517-519
+src/ui/army/busts.ts
+  s_697bdc25a7c420::t_0539a18ff37064 1-43
+src/ui/army/index.ts
+  s_697bdc25a7c420::t_da7db878121642 1-11
+src/ui/army/layout.ts
+  s_697bdc25a7c420::t_792b1a26013104 1-59
+src/ui/army/parts.ts
+  s_697bdc25a7c420::t_20c30c0a06677d 1-387
+src/ui/army/source.ts
+  s_697bdc25a7c420::t_b3cba3dd75a243 1-82
+tests/armyTemplate.test.ts
+  s_697bdc25a7c420::t_059a4b3f74e44e 1-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3ade281734b0985ec11216022894a7bd9a80f933",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
