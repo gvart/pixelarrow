@@ -11,11 +11,11 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | F-04 worktree-agent-ab031086d7c248111 + FW-02 worktree-agent-a07f30c373ae3b66e | — | integrator | — | merging |
-| hub-02 | W10 HUB-02 fixes (enabled tiles, tab label fit, V5-068) | per card | per card | worktree-agent-a656613e3d213b254 | running |
+| (merge) | HUB-02 worktree-agent-a656613e3d213b254 + TUT-01 worktree-agent-a288a683a1286a200 + 22 fixed allowlist entries | — | integrator | — | merging |
+| rd-01 | W11 RD-01: morale glyph + group cards | per card | per card | worktree-agent | running |
+| ar-03 | W12 AR-03: tier 3 bands + item sources | per card | per card | worktree-agent | running |
 | ec-04 | W12 EC-04: class re-cost + balance misses sweep | per card | per card | worktree-agent | running |
 | arm-01 | W12 ARM-01: Army screen rebuild | per card | per card | worktree-agent | running |
-| tut-01 | W11 TUT-01: first run / tutorial rebuild | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -55,6 +55,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 38a7c16 HUB-01; 89525bd AS-05; 489c63a EV-01. Gates: vitest 1012, layout 0 new, smokes pass (smoke flaked at 'Begin the march' under load); balance 54%.
 - c26021e FW-01 field works; 331331c AS-06 works art. Gates: vitest 1030, server 301, layout 0 new, smokes pass; balance 54%, lairs 43/58/53, ditch +9.
 - 38a3aa9 fixer-5 smoke menu fade; 69d43da CT-04 previews + Then queue + paused plan. Gates: vitest 1042, layout 0 new, all smokes pass.
+- c3db469 F-04 icon atlas; 762b363 FW-02 works allowance. Gates: vitest 1067, server 301, layout 0 new, smokes pass; balance 54%, lairs 43/58/53.
 
 ## Queue (next)
 
@@ -92,6 +93,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 20. ORDER: the event card UI (World/Settlement) must merge BEFORE EV-02 (V5-064). HUB-02 starts once HUB-01 merges.
 
 21. ui.png atlas grew 205→462 KB and loads at boot (F-04): per-screen loading goes to the perf story (OI-4).
+
+22. TUT-02 handoff (from TUT-01): remove showRing (battleTutorial.ts:81-82, :343, :409; BattleScene.ts:3661), tutorial army 4/2/2 with group IV, add focus/undo/Then/pause-planning steps, delete stale firstrun.* keys in tutorial.*. HERO-01: the commander name truncates on a 274 px canvas.
 
 ## Blockers
 
