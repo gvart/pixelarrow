@@ -1,0 +1,27 @@
+src/dev/arcBalance.ts
+  s_697bdc25a7c420::t_309355bf1ead20 25-29,34
+  s_697bdc25a7c420::t_869e04e0ea5318 105-135,140-165,168-172,174-183,186,188-189
+  s_697bdc25a7c420::t_9e58a26697a94d 184-185
+  s_697bdc25a7c420::t_8db13f02f419f0 136-139
+  s_697bdc25a7c420::t_58e0f30099d5ef 187
+  s_697bdc25a7c420::t_dc7ce792d17587 62-66
+  s_697bdc25a7c420::t_7cc7eed2d50668 173
+  s_697bdc25a7c420::t_247eddab8d067f 166-167
+  s_697bdc25a7c420::t_4633b9ec803458 15-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a460497f435711aee7afb0ae87fd05e91fc73470",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
