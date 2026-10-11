@@ -170,7 +170,9 @@ export class OnlineCoach {
     const { VW, VH } = s.m;
     this.bubble.removeAll(true);
     this.arrow.clear();
-    const rail = this.host.rail?.() ?? null;
+    // only a column rail at the right edge leaves room beside it (a row of keys across the top does not)
+    const r0 = this.host.rail?.() ?? null;
+    const rail = r0 && r0.h > r0.w && r0.x - 14 >= 120 ? r0 : null;
     // the card's width: what is left of the rail (opposite it, WAR-6), at most 176
     const w0 = Math.min(VW - 16, 176, rail ? rail.x - 14 : VW);
     const lines = wrapText(text, w0 - 14, 7).lines;
