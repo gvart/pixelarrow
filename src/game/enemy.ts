@@ -21,6 +21,11 @@ export interface EnemyArmy {
    * bands and the final host have none, whatever their doctrine. Missing = none.
    */
   works?: WorksAllowance;
+  /**
+   * Its bot fights to the end, passed as ArmySpec.holdField: a lair garrison
+   * never retreats (campaign-arc.md R4, V5-024). Missing = it may retreat.
+   */
+  holdField?: boolean;
 }
 
 /**

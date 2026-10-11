@@ -28,6 +28,7 @@ import {
 } from '../data/events';
 import { DOCTRINE_IDS, type DoctrineId } from '../sim/types';
 import { hash3 } from './noise';
+import { GARRISON } from '../data/arc';
 import {
   CAMP_RULES, FOOD_RULES, STRUCTURES, campBlocker, campEffects, campRefund, campZone, countBuilt, placeCheck,
   type CampState, type StructureId,
@@ -847,9 +848,9 @@ export class World {
     }
   }
 
-  /** A lair (or a town, for mercenaries) sends out a new band, sized by local danger and the date. */
+  /** A standing lair (or a town, for mercenaries) sends out a new band, sized by local danger and the date. A fallen lair sends none (campaign-arc.md R2.4). */
   spawnParty(from: 'lair' | 'town'): PartyState | null {
-    const homes = this.map.settlements.filter((s) => (from === 'lair' ? s.kind === 'lair' : s.kind === 'town' && s.id !== this.map.start));
+    const homes = this.map.settlements.filter((s) => (from === 'lair' ? s.kind === 'lair' && !this.lairFallen(s.id) : s.kind === 'town' && s.id !== this.map.start));
     if (homes.length === 0) return null;
     const home = this.rng.pick(homes);
     const kind: BandKind = from === 'town' ? 'mercs' : home.band ?? 'bandits';
@@ -1113,10 +1114,93 @@ export class World {
 
   /** A lair's garrison loses `n` men (weakenGarrison, campaign-arc.md R2): they count as lost now. */
   weakenGarrison(lairId: number, n: number): void {
-    const def = this.map.settlements[lairId];
-    if (!def || def.kind !== 'lair') return;
-    const prev = this.s.lairs[lairId];
-    this.s.lairs[lairId] = { fallen: prev?.fallen ?? false, lost: (prev?.lost ?? 0) + n, lostAt: this.s.time };
+    this.loseGarrison(lairId, n);
+  }
+
+  // ---------------------------------------------------------------- lair garrisons (campaign-arc.md R2, F1, F3)
+
+  /** Whether lair `id` has fallen to an assault (R2.4). */
+  lairFallen(id: number): boolean {
+    return !!this.s.lairs[id]?.fallen;
+  }
+
+  /** The full strength of lair `id`'s garrison (F1): GARRISON.base + round(danger x GARRISON.danger). */
+  garrisonFull(id: number): number {
+    const st = this.map.settlements[id];
+    return GARRISON.base + Math.round(dangerAt(this.map, st.x, st.y) * GARRISON.danger);
+  }
+
+  /** Men the garrison has lost and not yet regrown (F3): one comes back every GARRISON.regrowH hours since the last loss. */
+  private garrisonLost(id: number): number {
+    const l = this.s.lairs[id];
+    if (!l) return 0;
+    return Math.max(0, l.lost - Math.floor(Math.max(0, this.s.time - l.lostAt) / GARRISON.regrowH));
+  }
+
+  /** Men in lair `id`'s garrison now (F3); 0 for a fallen lair or a settlement that is not a lair. */
+  garrisonSize(id: number): number {
+    const st = this.map.settlements[id];
+    if (!st || st.kind !== 'lair' || this.lairFallen(id)) return 0;
+    return Math.max(0, this.garrisonFull(id) - this.garrisonLost(id));
+  }
+
+  /**
+   * Lair `id`'s garrison loses `n` men (an assault's dead, or an event's
+   * weakenGarrison; R2.5): what has regrown so far is kept, and the regrowth
+   * clock restarts now. A new clock also re-rolls the garrison's men from a
+   * new seed (garrison), so a captain who fell has been replaced by another.
+   */
+  loseGarrison(id: number, n: number): void {
+    const st = this.map.settlements[id];
+    if (!st || st.kind !== 'lair' || this.lairFallen(id) || !(n > 0)) return;
+    this.s.lairs[id] = { fallen: false, lost: Math.min(this.garrisonFull(id), this.garrisonLost(id) + n), lostAt: this.s.time };
+  }
+
+  /** Lair `id` falls (R2.4): it sends out no more bands. Its bands already out stay on the map. */
+  razeLair(id: number): void {
+    const st = this.map.settlements[id];
+    if (!st || st.kind !== 'lair') return;
+    this.s.lairs[id] = { fallen: true, lost: this.garrisonFull(id), lostAt: this.s.time };
+  }
+
+  /**
+   * Lair `id`'s garrison as a band (R2.1, F1, F3), for its power plate and its
+   * army (partyArmy): the men it has now, at level GARRISON.level +
+   * round(danger x levelDanger + days x levelDays), gear at the lair tier, so
+   * it always has a captain. The lair's band kind and culture give its mix and
+   * doctrine: bandit camps and pirate coves swarm, Galatae camps rush (R4).
+   * It is never a beast. Its id is -1 - lair id (it isn't a party on the
+   * map); its men come from the world seed, the lair and the time of its
+   * last loss. Null for a fallen lair, a settlement that is not a lair, or
+   * a garrison with no men left (it falls without a battle: razeLair).
+   */
+  garrison(id: number): PartyState | null {
+    const st = this.map.settlements[id];
+    const size = this.garrisonSize(id);
+    if (!st || size <= 0) return null;
+    const danger = dangerAt(this.map, st.x, st.y);
+    let seed = hashString(`${this.s.seed}:garrison:${id}:${this.s.lairs[id]?.lostAt ?? 0}`) || 1;
+    while (bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
+    const p: PartyState = {
+      id: -1 - id,
+      kind: st.band ?? 'bandits',
+      name: st.name,
+      culture: st.culture,
+      x: st.x + 0.5,
+      y: st.y + 0.5,
+      size,
+      power: 0,
+      level: Math.min(BAND_CAPS.level, GARRISON.level + Math.round(danger * GARRISON.levelDanger + this.days * GARRISON.levelDays)),
+      tier: this.lairTier,
+      seed,
+      home: id,
+      mode: 'wander',
+      tx: st.x,
+      ty: st.y,
+      idle: 0,
+    };
+    p.power = partyArmy(p, { nextId: 1 }).power;
+    return p;
   }
 
   /** Lift the fog over a settlement and its surroundings. */
