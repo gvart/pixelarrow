@@ -44,6 +44,7 @@ import { MARKET_EN } from './market.en';
 import { RESULTS_EN } from './results.en';
 import { WORLD_V5_EN } from './world.v5.en';
 import { CAMP_V5_EN } from './camp.v5.en';
+import { SETTLEMENT_EN } from './settlement.en';
 
 export const EN = {
   // ---- shared words
@@ -367,4 +368,6 @@ export const EN = {
   ...CAMP_V5_EN,
   // ---- the v5 Results (results.en.ts)
   ...RESULTS_EN,
+  // ---- the v5 Settlement (settlement.en.ts)
+  ...SETTLEMENT_EN,
 } as const;

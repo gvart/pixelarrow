@@ -40,12 +40,7 @@
     "duel-team|text-size|*",
     "online-army-recruit|text-size|*",
     "online-army-stash|text-size|*",
-    "online-army|text-size|*",
-    "town-market|text-size|*",
-    "town-recruit-card|text-size|*",
-    "town-recruits|text-size|*",
-    "town-rest|text-size|*",
-    "village|text-size|*"
+    "online-army|text-size|*"
   ],
   "C": [],
   "F": [
@@ -97,11 +92,6 @@
     "online-army-recruit|text-size|*": "WAR-01",
     "online-army-stash|text-size|*": "WAR-01",
     "online-army|text-size|*": "WAR-01",
-    "town-market|text-size|*": "SET-01",
-    "town-recruit-card|text-size|*": "SET-01",
-    "town-recruits|text-size|*": "SET-01",
-    "town-rest|text-size|*": "SET-01",
-    "village|text-size|*": "SET-01",
     "kit-mosaic|text-size|*": "F-05",
     "tutorial-fight|text-size|*": "TUT-02",
     "tutorial-loose|text-size|*": "TUT-02",
