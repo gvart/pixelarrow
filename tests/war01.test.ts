@@ -29,7 +29,7 @@ vi.mock('phaser', () => {
   };
 });
 const { panelActs, ACT_ORDER, railLayout } = await import('../src/scenes/online/OnlineScene');
-const { warArmyBack, warStatus, footerIcons } = await import('../src/scenes/online/OnlineArmyScene');
+const { warArmyBack, warStatus, footerWidths } = await import('../src/scenes/online/OnlineArmyScene');
 const { zoomCycle, zoomLimits, plateCrest } = await import('../src/scenes/online/regionMapView');
 const { bossBoard } = await import('../src/scenes/online/beastPanel');
 
@@ -155,8 +155,14 @@ describe('the War army', () => {
     const src = code(armySrc);
     expect(src).not.toContain("'oarmy.map'");
     for (const id of ['oarmy.recruit', 'oarmy.market', 'oarmy.shop', 'oarmy.station']) expect(src).toContain(`'${id}'`);
-    expect(footerIcons(['Recruit', 'Market', 'Shop'], 200)).toBe(true);
-    expect(footerIcons(['Recruit', 'Market', 'Shop'], 40)).toBe(false);
+    const wide = footerWidths(['Recruit', 'Market', 'Shop'], 200);
+    expect(wide.icons).toBe(true);
+    expect(wide.widths.reduce((a, x) => a + x, 0)).toBeLessThanOrEqual(200);
+    const narrow = footerWidths(['Recruit', 'Market', 'Shop'], 150);
+    expect(narrow.icons).toBe(false);
+    // the longest label gets the widest button, so the three keep one size
+    expect(narrow.widths[0]).toBeGreaterThan(narrow.widths[2]);
+    expect(narrow.widths.reduce((a, x) => a + x, 0)).toBeLessThanOrEqual(150);
   });
 
   it('food is the wheat, not a heart (OAR-3)', () => {

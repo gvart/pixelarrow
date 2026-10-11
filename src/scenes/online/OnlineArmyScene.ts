@@ -103,9 +103,23 @@ export function warStatus(oh: OwnedHeroView | undefined, now: number, regionName
   return null;
 }
 
-/** The footer's three buttons share one label size (OAR-2): icons only when every label keeps 7 with its icon in `bw`. */
-export function footerIcons(labels: string[], bw: number): boolean {
-  return labels.every((l) => mw(l.toUpperCase(), 'rCream', 7) + 12 + 14 <= bw);
+/**
+ * The footer's three buttons at one label size (OAR-2: "Recr…" beside "SHOP" before): each as wide as its
+ * capitals at 7 need, the rest shared out; icons only when all three keep them; when even the bare labels do
+ * not fit, widths in proportion to them so the three shrink alike.
+ */
+export function footerWidths(labels: string[], room: number): { icons: boolean; widths: number[] } {
+  const nat = (icon: boolean) => labels.map((l) => Math.ceil(mw(l.toUpperCase(), 'rCream', 7)) + 14 + (icon ? 14 : 0));
+  const share = (n: number[]) => {
+    const extra = Math.floor((room - n.reduce((a, x) => a + x, 0)) / n.length);
+    return n.map((x) => x + extra);
+  };
+  const withIcons = nat(true);
+  if (withIcons.reduce((a, x) => a + x, 0) <= room) return { icons: true, widths: share(withIcons) };
+  const bare = nat(false);
+  if (bare.reduce((a, x) => a + x, 0) <= room) return { icons: false, widths: share(bare) };
+  const sum = bare.reduce((a, x) => a + x, 0);
+  return { icons: false, widths: bare.map((x) => Math.floor((x * room) / sum)) };
 }
 
 export class OnlineArmyScene extends BaseScene {
@@ -448,10 +462,15 @@ export class OnlineArmyScene extends BaseScene {
       { label: t('oarmy.market'), icon: 'coin', variant: 'secondary', id: 'oarmy.market', onClick: () => this.scene.start('Market', { back: { scene: 'OnlineArmy' } }) },
       { label: t('shop.title'), icon: 'shop', variant: 'secondary', id: 'oarmy.shop', onClick: () => this.scene.start('Shop', { back: { scene: 'OnlineArmy' } }) },
     ];
-    const bw = Math.floor((b.w - 8 - GAP * 2) / 3);
-    const icons = footerIcons(specs.map((s) => s.label), bw);
-    // the primary on the thumb side is the convention; Recruit leads here as the screen's purpose (M-9) and the three keep their places
-    specs.forEach((s, i) => c.add(new MButton(this, 4 + i * (bw + GAP), 4, i === 2 ? b.w - 8 - 2 * (bw + GAP) : bw, 24, { ...s, icon: icons ? s.icon : undefined })));
+    const room = b.w - 8 - GAP * 2;
+    const f = footerWidths(specs.map((s) => s.label), room);
+    // Recruit leads as the screen's purpose (M-9); the three keep their places
+    let x = 4;
+    specs.forEach((s, i) => {
+      const w = i === 2 ? b.w - 4 - x : f.widths[i];
+      c.add(new MButton(this, x, 4, w, 24, { ...s, icon: f.icons ? s.icon : undefined }));
+      x += w + GAP;
+    });
     return c;
   }
 

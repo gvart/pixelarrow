@@ -104,17 +104,21 @@ function fill(scene: Phaser.Scene, c: Phaser.GameObjects.Container, enc: Encount
   const tx = T + 10;
   const tw = w - tx;
   const boss = o.boss;
-  c.add(mtext(scene, tx, 2, boss ? t('war5.boss.level', { n: o.level }) : t('war5.lair.level', { n: o.level }), 'pSec', { size: TEXT_MIN, maxW: tw, box }));
-  let y = T + 8;
+  // the kind and level beside the beast, on two lines when it needs them (never cut)
+  const sub = wrapWords(boss ? t('war5.boss.level', { n: o.level }) : t('war5.lair.level', { n: o.level }), tw, (x) => mw(x, 'pSec', TEXT_MIN)).slice(0, 2);
+  sub.forEach((l, i) => c.add(mtext(scene, tx, 2 + i * LH, l, 'pSec', { size: TEXT_MIN, maxW: tw, box })));
+  const hy = 2 + sub.length * LH + 2;
+  let y = Math.max(T + 8, hy + 26);
   if (boss) {
-    c.add(mtext(scene, tx, 13, t('boss.hp', { hp: num(boss.hp), max: num(boss.maxHp) }), 'rInk', { size: 7, maxW: tw, box }));
+    c.add(mtext(scene, tx, hy, t('boss.hp', { hp: num(boss.hp), max: num(boss.maxHp) }), 'rInk', { size: 7, maxW: tw, box }));
     const g = scene.add.graphics();
     const f = boss.maxHp > 0 ? Math.max(0, Math.min(1, boss.hp / boss.maxHp)) : 0;
     const pips = boss.parts;
     const bw = tw - (pips.length ? pips.length * 6 + 4 : 0);
-    g.fillStyle(0x2a1a16, 1).fillRect(tx, 26, bw, 6);
-    g.fillStyle(0xa83a2c, 1).fillRect(tx, 26, Math.round(bw * f), 6);
-    pips.forEach((alive, i) => g.fillStyle(alive > 0 ? 0x7a3a46 : 0x3a2a22, 1).fillRect(tx + bw + 4 + i * 6, 26, 5, 6));
+    const by = hy + 13;
+    g.fillStyle(0x2a1a16, 1).fillRect(tx, by, bw, 6);
+    g.fillStyle(0xa83a2c, 1).fillRect(tx, by, Math.round(bw * f), 6);
+    pips.forEach((alive, i) => g.fillStyle(alive > 0 ? 0x7a3a46 : 0x3a2a22, 1).fillRect(tx + bw + 4 + i * 6, by, 5, 6));
     c.add(g);
     // the leaderboard as a table: rank, player with the clan chip, damage at the right
     const rows = bossBoard(boss);
@@ -139,7 +143,11 @@ function fill(scene: Phaser.Scene, c: Phaser.GameObjects.Container, enc: Encount
       let cx = mw(`${t('war5.boss.clans')}:`, 'pSec', TEXT_MIN) + 4;
       for (const k of boss.clans.slice(0, 2)) {
         const label = `${num(k.damage)}`;
-        if (cx + 30 + mw(label, 'pInk', TEXT_MIN) > w) break;
+        // a clan that does not fit beside the first goes on the next line (never dropped)
+        if (cx + mw(k.tag, 'onAccent', TEXT_MIN) + 9 + mw(label, 'pInk', TEXT_MIN) > w) {
+          cx = 0;
+          y += LH + 4;
+        }
         cx += clanChip(scene, c, cx, y, k.tag) + 3;
         const v = mtext(scene, cx, y + 1, label, 'pInk', { size: TEXT_MIN, box });
         c.add(v);
