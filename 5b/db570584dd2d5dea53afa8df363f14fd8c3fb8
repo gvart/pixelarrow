@@ -1,0 +1,91 @@
+server/test/activesReplay.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 69,77
+server/src/online/attack.ts
+  s_697bdc25a7c420::t_b65b09c58c78c8 19,127,154,298
+  s_697bdc25a7c420::t_19821695177624 256
+server/test/ordersReplay.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 44
+server/src/simVersion.ts
+  s_697bdc25a7c420::t_09e5473b15845c 2,5-9,18,22,24,27,30-32,37-38,41
+server/src/duel/async.ts
+  s_697bdc25a7c420::t_b65b09c58c78c8 41,200,270
+  s_697bdc25a7c420::t_19821695177624 229
+server/test/cohesionReplay.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 50,58
+server/test/simVersion.test.ts
+  s_697bdc25a7c420::t_ccd103b71d59ba 1-4,6,11,17,19,23,26-29,32-37,41-42,46,49,51,57,60,62,67,73,77,80,90,98,101,110-111,116,127,130,137,139
+server/test/standardReplay.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 48
+server/test/itemCap.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 62
+server/src/duel/duelDO.ts
+  s_697bdc25a7c420::t_4716e24f97af47 118
+server/src/duel/matchmaker.ts
+  s_697bdc25a7c420::t_4716e24f97af47 73,128,153,161
+server/test/orbFeintReplay.test.ts
+  s_697bdc25a7c420::t_6b1ed8eb7d0287 5
+  s_697bdc25a7c420::t_76ee4a54121e0b 73
+server/src/online/bosses.ts
+  s_697bdc25a7c420::t_19821695177624 308
+  s_697bdc25a7c420::t_b65b09c58c78c8 24,237,249,337
+server/test/doctrine.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 56,65-66
+server/test/ec05Replay.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 75
+server/src/index.ts
+  s_697bdc25a7c420::t_a7ceab1a034fad 18,135,143
+server/src/duel/verify.ts
+  s_697bdc25a7c420::t_93477339dbd261 8,10,14,25-28,30-31,34,39,43
+tests/simVersion.test.ts
+  s_697bdc25a7c420::t_2da473f752bae2 15
+server/test/battle.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 17,20,30,33,49
+server/test/trainReplay.test.ts
+  s_697bdc25a7c420::t_b03e6f8d442d3d 65
+  s_697bdc25a7c420::t_76ee4a54121e0b 73,96
+  s_697bdc25a7c420::t_3fa4f014b87f29 4
+server/test/battleSchema.test.ts
+  s_697bdc25a7c420::t_7566ec5a19f7dd 7
+  s_697bdc25a7c420::t_c71b396ebfad8c 3-4,81-82,92
+server/src/region.ts
+  s_697bdc25a7c420::t_ed429125a12025 344
+server/src/battle.ts
+  s_697bdc25a7c420::t_5b5308050536e4 196
+  s_697bdc25a7c420::t_4820d59588573c 23,38,166,221-223,270,272,275,285
+  s_697bdc25a7c420::t_93477339dbd261 22
+server/test/worksReplay.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 54
+server/src/online/duel.ts
+  s_697bdc25a7c420::t_ed429125a12025 192
+server/src/duel/live.ts
+  s_697bdc25a7c420::t_4716e24f97af47 151,157,160
+server/README.md
+  s_697bdc25a7c420::t_12e465c03126e2 157-165,167-169
+src/sim/version.ts
+  s_697bdc25a7c420::t_2da473f752bae2 7,9-11,13-14
+server/src/duel/routes.ts
+  s_697bdc25a7c420::t_19821695177624 494
+  s_697bdc25a7c420::t_b65b09c58c78c8 21,473,517
+server/src/online/relay.ts
+  s_697bdc25a7c420::t_4716e24f97af47 85,207
+server/test/neutrals.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 96
+server/test/captains.test.ts
+  s_697bdc25a7c420::t_76ee4a54121e0b 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5bdb570584dd2d5dea53afa8df363f14fd8c3fb8",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
