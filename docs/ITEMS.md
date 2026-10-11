@@ -428,7 +428,9 @@ start within 4 units" would never reach anyone.
 
 | Source | Common | Uncommon | Rare | Epic | Legendary | Sets | Named |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Campaign battles (enemy gear, `rollRarity` by band tier) | yes | yes | yes | tier 2-3 | - | rare set pieces: 4% of the rare pieces tier-3 bands carry (Greek bands Agoge, javelin men Peltast, archers Cretan) | - |
+| Campaign battles (enemy gear, `rollRarity` by band tier; tier 3 from day 50 or 2 fallen lairs) | yes | yes | yes | tier 2-3 | - | rare set pieces: 4% of the rare pieces tier-3 bands carry (Greek bands Agoge, javelin men Peltast, archers Cretan) | - |
+| Campaign lair hoards (a fallen lair, once each) | yes | yes | yes | 1 sure | pity only | epic set pieces: 25% of the sure epic (the lair culture's set) | - |
+| Campaign arc: the host, then reborn lairs | - | - | - | - | - | one missing piece of the campaign's legendary set (Achilles or Alexander) | - |
 | Campaign and war-map beasts (`rollBeastRarity`: rare 50 / epic 35 / legendary 15) | - | - | yes | yes | yes | epic set pieces: 25% of epic drops | 20% of legendary drops are the beast's named item |
 | World bosses (Kraken, Titan) | - | - | - | yes | yes | legendary set pieces (below) | Kraken: Trident; Titan: Aegis |
 | War-map merchants, towns | basic | regional | 1 a day | - | - | - | - |
@@ -457,9 +459,25 @@ Details (numbers in `SOURCES`, `src/game/sources.ts`, and `SPOILS`,
   the time, swapped for its set's piece of that slot that the hero's class
   can use (`bandSetPieces`, seeded by the band): archers carry Cretan pieces,
   javelineers and peltasts Peltast pieces, the rest of a Greek band Agoge
-  pieces. Celtic and Phoenician line troops carry none.
-- **Beast hoards** (campaign bands, the Beast trial, war-map lairs:
-  `hoardItem`). 25% of epic drops are a piece of an epic set (Brennus,
+  pieces. Celtic and Phoenician line troops carry none. Tier-3 bands appear
+  offline from day 50 or once 2 lairs have fallen (`lairTier`, campaign-arc.md
+  R3): a new band forming where danger is over 0.85 is tier 3, and after 2
+  fallen lairs every raider and mercenary band too. About 0.08 rare set pieces
+  per tier-3 band of men, so about one in 12 tier-3 wins
+  (docs/v5/balance/AR-03.md).
+- **The campaign arc** (campaign-arc.md R6, `src/game/sources.ts`). A fallen
+  lair's hoard (`lairHoard`, `Campaign.lairHoard`) is a chest of 3 pieces of
+  tier-2-and-up gear, seeded by the world and the lair and following the
+  army: the first a sure epic, 25% of the time a piece of the lair culture's
+  epic set (Greek Sacred Band, Phoenician Immortals, Celtic Brennus); the
+  others `rollRarity(tier 3)`. It counts on the campaign pity counter. The
+  host and, after it, each reborn lair drop one piece of the campaign's
+  legendary set (`arcSet`: Achilles or Alexander, fixed per world) that the
+  player does not own yet (`arcSetPiece`), nothing once all five are owned.
+  These are the offline routes to set pieces now that the Beast Trial is
+  practice (V5-039).
+- **Beast hoards** (campaign beast bands, war-map lairs: `hoardItem`; the
+  Beast Trial is practice and drops nothing, V5-039). 25% of epic drops are a piece of an epic set (Brennus,
   Immortals, Sacred Band), 20% of legendary drops the beast's named item
   (into a free slot of its kind).
 - **Per-duel spoils.** A won unranked duel drops an item 8% of the time, a
@@ -485,8 +503,8 @@ Details (numbers in `SOURCES`, `src/game/sources.ts`, and `SPOILS`,
   legendary (its best piece turns legendary, the beast's named item 20% of
   the time; a world-boss chest gives a missing set piece, else the named
   item, else a legendary piece) and the counter resets; any legendary resets
-  it. The chests: a won beast battle's loot in the campaign (`pity` in the
-  save), a slain lair beast's hoard and a world-boss chest on the war map
+  it. The chests: a won beast battle's loot and a fallen lair's hoard in the
+  campaign (`pity` in the save), a slain lair beast's hoard and a world-boss chest on the war map
   (`loot_pity` track `war`, kept across war seasons), a ladder boss floor's
   first-clear drop in duels (track `duel`).
 - **Bound items.** Named legendaries and legendary set pieces (`bound: true`)
