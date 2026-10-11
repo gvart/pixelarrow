@@ -1,0 +1,28 @@
+docs/v5/ASSET_LOG.md
+  s_697bdc25a7c420::t_6d41593c417844 11-16
+docs/v5/art/ASSET_LIST.md
+  s_697bdc25a7c420::t_9e3f206bc718c2 166-170
+docs/v5/art/asset-manifest.json
+  s_697bdc25a7c420::t_cc2829191d0f05 1592,1612,1632
+  s_697bdc25a7c420::t_e0d3b240722b8d 1652,1672
+src/art/terrainArt.ts
+  s_697bdc25a7c420::t_6f2129d633fd4b 338-427
+  s_697bdc25a7c420::t_28aac0d33b43da 6-7
+  s_697bdc25a7c420::t_4b3b530bbd1364 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f8d8f435e3d0be8808ffaef136175cda3ef8c630",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
