@@ -34,6 +34,7 @@ import { ARMY_V5_EN } from './army.v5.en';
 import { HERO_EN } from './hero.en';
 import { SETTINGS_EN } from './settings.en';
 import { CODEX_EN } from './codex.en';
+import { SHOP_V5_EN } from './shop.v5.en';
 
 export const EN = {
   // ---- shared words
@@ -342,4 +343,6 @@ export const EN = {
   ...SETTINGS_EN,
   // ---- the v5 Codex: beasts and doctrines (codex.en.ts)
   ...CODEX_EN,
+  // ---- the v5 Shop hub (shop.v5.en.ts)
+  ...SHOP_V5_EN,
 } as const;
