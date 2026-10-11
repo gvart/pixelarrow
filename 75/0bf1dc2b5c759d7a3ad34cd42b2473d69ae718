@@ -1,0 +1,20 @@
+src/ui/sheets/arcSheet.ts
+  s_697bdc25a7c420::t_79c083a175e585 16,91-93,179,198
+  s_697bdc25a7c420::t_34e84e4006081a 1-15,17-90,94-178,180-197,199-215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "750bf1dc2b5c759d7a3ad34cd42b2473d69ae718",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
