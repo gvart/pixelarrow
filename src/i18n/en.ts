@@ -28,6 +28,7 @@ import { UNDO_EN } from './undo.en';
 import { QUEUE_EN } from './queue.en';
 import { HUB_EN } from './hub.en';
 import { FIRSTRUN_EN } from './firstrun.en';
+import { ARMY_V5_EN } from './army.v5.en';
 
 export const EN = {
   // ---- shared words
@@ -325,4 +326,6 @@ export const EN = {
   ...HUB_EN,
   // ---- Boot and the first-run screens (firstrun.en.ts)
   ...FIRSTRUN_EN,
+  // ---- the v5 Army screen (army.v5.en.ts)
+  ...ARMY_V5_EN,
 } as const;
