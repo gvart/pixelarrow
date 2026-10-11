@@ -3,10 +3,11 @@ import { encounterName } from '../ui/beastInfo';
 import Phaser from 'phaser';
 import { RS, camZoom, zoomUnits } from '../platform/renderScale';
 import { BaseScene } from './BaseScene';
-import { Button, addPanel, addText } from '../ui/kit';
-import { MActionBar, MIconButton, SituationLine, TOPBAR_H, addSubShell, mosaicImage, mtext, type BarSlot, type SituationChip } from '../ui/mosaic';
-import { t } from '../i18n';
-import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
+import { addIcon, addText } from '../ui/kit';
+import { MActionBar, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, GAP, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
+import { t, tOr, type TKey } from '../i18n';
+import { wrapsWhole } from '../ui/textfit';
+import { TEXT_MIN } from '../ui/tokens';
 import {
   BAND_COLORS, MAPC, PARTY_FH, PARTY_FOOT, PARTY_FRAMES, PARTY_FW, STRUCT_FRAMES, STRUCT_FX, STRUCT_LIFT, STRUCT_PAD, WTILE, renderBoat, renderCampZone,
   renderDust, renderMarker, renderNamePlate, renderPartyFigure, renderStructure,
@@ -19,14 +20,20 @@ import { state, randomSeed } from '../state';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { CULTURE_LABEL } from '../data/names';
 import { addSyncBadge, playerPartyTexture } from '../ui/online';
+import { online } from '../platform/cloud';
+import type { SyncStatus } from '../platform/online';
 import { perkSlots } from '../data/perks';
-import { dangerAt, isWater, regionName, type SettlementDef } from '../world/map';
+import { dangerAt, isWater, type SettlementDef, type WorldMap } from '../world/map';
 import { siteAt } from '../world/battlefield';
 import { STRUCTURES, campEffects, footprint, type StructureId } from '../world/camp';
-import { THREAT_COLOR, THREAT_LABEL, WORLD_RULES, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
+import { THREAT_COLOR, WORLD_RULES, hasCaptain, partyArmy, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
+import { isCaptain } from '../sim/stats';
 import { confirmDialog } from '../ui/widgets';
 import { CampLife } from '../ui/campLife';
+import { uiId } from '../ui/layout';
+import { motion } from '../ui/motion';
 import { openEventCard, openJournalSheet, type EventCardHandle } from '../ui/sheets/eventCard';
+import { openEncounterSheet, worldGlyph, type EncounterChoice, type EncounterHandle } from '../ui/sheets/encounter';
 
 /** Game hours per real second while travelling / waiting. */
 const TRAVEL_SPEED = 1.6;
@@ -40,6 +47,32 @@ const D_GHOST = D_FOG + 5;
 const campZoneAt = new Map<string, { x: number; y: number }>();
 /** Fog dissolve duration per tile (ms). */
 const FOG_FADE = 650;
+
+/** world/map.ts TERRAIN_NAMES, in words of the current language. */
+const TERRAIN_KEYS = ['deepSea', 'sea', 'shore', 'plain', 'scrub', 'forest', 'hills', 'mountains'] as const;
+
+/** Where the army stands, translated (world/map.ts regionName's rule: a road, a ford, else the terrain). */
+export function regionLabel(m: WorldMap, x: number, y: number): string {
+  const tx = Math.max(0, Math.min(m.w - 1, Math.floor(x)));
+  const ty = Math.max(0, Math.min(m.h - 1, Math.floor(y)));
+  const i = ty * m.w + tx;
+  const k = m.road[i] ? 'road' : m.river[i] ? 'ford' : TERRAIN_KEYS[m.terrain[i]] ?? 'plain';
+  return t(`wld.region.${k}` as TKey);
+}
+
+/** A band's name (world.ts BAND_NAMES; a lair garrison keeps its lair's proper name). */
+const BAND_KEYS: Record<string, TKey> = { Bandits: 'wld.band.bandits', 'Galatae raiders': 'wld.band.raiders', Mercenaries: 'wld.band.mercs', Pirates: 'wld.band.pirates', "The Tyrant's host": 'wld.band.host' };
+export const bandName = (name: string): string => (BAND_KEYS[name] ? t(BAND_KEYS[name]) : name);
+
+/** Why the army can't camp (world campBlocker's English reasons), in words of the current language. */
+export function campWhy(why: string): string {
+  const fixed: Record<string, TKey> = { 'Already camped': 'wld.camp.already', 'Not inside a settlement': 'wld.camp.inside', 'No ground to camp on': 'wld.camp.noGround', 'Too close to their camp': 'wld.camp.tooCloseLair', 'Too cramped to camp here': 'wld.camp.cramped' };
+  if (fixed[why]) return t(fixed[why]);
+  const near = /^Too close to (.+)$/.exec(why);
+  return near ? t('wld.camp.tooClose', { name: near[1] }) : why;
+}
+
+const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 interface BandView {
   p: PartyState;
@@ -76,7 +109,8 @@ export class WorldScene extends BaseScene {
   private strip: MActionBar | null = null;
   private stripKey = '';
   private followBtn!: MIconButton;
-  private dialog: Phaser.GameObjects.Container | null = null;
+  /** The open encounter sheet (the map is paused while it is up). */
+  private dialog: EncounterHandle | null = null;
   /** The open event card (campaign-events.md R4): the map is paused while it is up. */
   private eventCard: EventCardHandle | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
@@ -225,7 +259,8 @@ export class WorldScene extends BaseScene {
     const x = site ? site.lx : s.x * WTILE + WTILE / 2;
     const y = site ? site.ly + 2 : s.y * WTILE + WTILE / 2 + 6;
     const objs: Phaser.GameObjects.GameObject[] = [];
-    const font = s.kind === 'town' ? 'red' : s.kind === 'village' ? 'ink' : 'dim';
+    // dark ink on a light plate (WLD-3: the old red-on-pink town label was under 3:1)
+    const font = s.kind === 'lair' ? 'pSec' : 'pInk';
     const label = addText(this, Math.round(x), y + 2, s.name, font, 0.5);
     const pw = Math.ceil(label.width) + 6;
     const pkey = `wm_plate_${s.kind}_${pw}`;
@@ -329,7 +364,7 @@ export class WorldScene extends BaseScene {
     for (const id of ds) {
       const s = this.w.settlement(id);
       if (!s) continue;
-      if (s.kind === 'lair') this.showBanner(`Spotted: ${s.name}`, 1800);
+      if (s.kind === 'lair') this.showBanner(t('wld.spotted', { name: s.name }));
       else this.panQueue.push(id);
     }
     if (!this.cine) this.nextPan();
@@ -342,7 +377,7 @@ export class WorldScene extends BaseScene {
     const s = this.w.settlement(id)!;
     this.cine = true;
     hapticNotify('success');
-    this.showBanner(`We found ${s.name}.`.toUpperCase(), 2400);
+    this.showBanner(t('wld.found', { name: s.name }));
     const cam = this.cameras.main;
     cam.pan(s.x * WTILE + 4, s.y * WTILE, 900, 'Sine.easeInOut', true);
     this.time.delayedCall(1900, () => {
@@ -460,7 +495,8 @@ export class WorldScene extends BaseScene {
       let v = this.bands.get(p.id);
       const ratio = p.power / Math.max(1, this.info.power);
       const lvl = threatLevel(ratio);
-      const key = `${p.size}_${lvl}`;
+      const crest = hasCaptain(p);
+      const key = `${p.size}_${lvl}_${crest ? 1 : 0}`;
       if (!v) {
         const tex = p.name === 'Pirates' ? 'wm_band_pirates' : `wm_band_${p.kind}`;
         const shadow = this.add.ellipse(0, 0, 16, 5, MAPC.shade, 0.4);
@@ -474,11 +510,16 @@ export class WorldScene extends BaseScene {
       if (v.key !== key) {
         v.key = key;
         v.plate.removeAll(true);
+        // the men on the threat colour, with the threat's shape (G13) and the captain's crest (ai-doctrines.md)
         const label = `${p.size}`;
-        const wdt = label.length * 5 + 9;
+        const tw = label.length * 5 + 3;
+        const wdt = tw + 9 + (crest ? 8 : 0);
+        const x0 = -Math.round(wdt / 2);
         v.plate.add(this.add.rectangle(0, 0, wdt, 9, P.outline).setOrigin(0.5, 1));
         v.plate.add(this.add.rectangle(0, -1, wdt - 2, 7, THREAT_COLOR[lvl]).setOrigin(0.5, 1));
-        v.plate.add(addText(this, 0, -9, label, 'title', 0.5));
+        v.plate.add(this.add.image(x0 + 2, -8, worldGlyph(this, lvl)).setOrigin(0, 0));
+        v.plate.add(addText(this, x0 + 8 + tw / 2, -9, label, 'title', 0.5));
+        if (crest) v.plate.add(this.add.image(x0 + wdt - 8, -8, worldGlyph(this, 'crest')).setOrigin(0, 0));
       }
       const bx = p.x * WTILE;
       const by = p.y * WTILE;
@@ -688,7 +729,7 @@ export class WorldScene extends BaseScene {
     const why = this.w.makeCamp();
     if (why) {
       hapticNotify('error');
-      this.showBanner(why, 1600);
+      this.showBanner(campWhy(why), true);
       return;
     }
     hapticNotify('success');
@@ -696,7 +737,7 @@ export class WorldScene extends BaseScene {
     this.puff(this.w.camp!.x * WTILE + 4, this.w.camp!.y * WTILE + 4);
     this.setWaiting(true);
     this.buildHud();
-    this.showBanner('Camp pitched: build to rest better', 2200);
+    this.showBanner(t('wld.campPitched'));
     void state.save();
   }
 
@@ -706,18 +747,18 @@ export class WorldScene extends BaseScene {
     const was = this.waiting;
     this.setWaiting(false);
     const back = Math.floor(c.built.reduce((a, b) => a + STRUCTURES[b.id].cost, 0) / 2);
-    const lines = c.built.length ? [`The structures stay behind. ${back} supplies are salvaged.`] : ['Pack up and move on?'];
+    const lines = [c.built.length ? t('wld.strike.salvage', { n: back }) : t('wld.strike.pack')];
     confirmDialog(this, {
-      title: after ? 'Strike camp and march?' : 'Strike camp?',
+      title: t(after ? 'wld.strike.qMarch' : 'wld.strike.q'),
       lines,
-      ok: 'Strike',
+      ok: t('wld.strike.ok'),
       okIcon: 'tent',
       onOk: () => {
         const got = this.w.breakCamp();
         this.renderCamp();
         this.buildHud();
         haptic('light');
-        if (got > 0) this.showBanner(`Camp struck: +${got} supplies`, 1600);
+        if (got > 0) this.showBanner(t('wld.strike.done', { n: got }));
         void state.save();
         after?.();
       },
@@ -754,11 +795,27 @@ export class WorldScene extends BaseScene {
     this.sit = new SituationLine(this, 4, TOPBAR_H + 2, VW - 8, { compact: VH < 240, id: 'world.situation' });
     H.add(this.sit);
     this.buildFollow();
-    addSyncBadge(this, H, 8, this.sit.y + this.sit.h + 8);
+    this.syncBadge(H, 8, this.sit.y + this.sit.h + 8);
     this.strip = new MActionBar(this, VW, VH);
     H.add(this.strip);
     this.strip.set(this.stripSlots());
     this.refreshHud();
+  }
+
+  /** The cloud badge under the situation line, only while the cloud save fails (E093; as the Campaign hub's). */
+  private syncBadge(parent: Phaser.GameObjects.Container, x: number, y: number): void {
+    let badge: Phaser.GameObjects.Image | null = null;
+    const apply = (st: SyncStatus) => {
+      if (st === 'offline' && !badge?.active) badge = addSyncBadge(this, parent, x, y);
+      else if (st !== 'offline' && badge) {
+        badge.destroy();
+        badge = null;
+      }
+    };
+    apply(online.status);
+    const off = online.onStatus(apply);
+    this.events.once('shutdown', off);
+    parent.once('destroy', off);
   }
 
   /** The follow-the-party eye under the situation line, at the right. */
@@ -769,7 +826,7 @@ export class WorldScene extends BaseScene {
     this.hud.add(this.followBtn);
   }
 
-  /** The top bar: the back arrow to the Campaign hub (Menu) and "Day N - place". */
+  /** The top bar: the back arrow to the Campaign hub (Menu), "Day N · place", the journal and ⚙ (D9). */
   private buildTop(title: string): void {
     this.topC.removeAll(true);
     addSubShell(this, {
@@ -778,7 +835,7 @@ export class WorldScene extends BaseScene {
       title,
       id: 'world.topbar',
       // the journal (campaign-events.md "Journal"); WLD-02 moves it into the Arc sheet behind the arc chip
-      actions: [{ icon: 'log', label: t('evc.journal'), onClick: () => this.openJournal() }],
+      actions: [{ icon: 'log', label: t('evc.journal'), onClick: () => this.openJournal() }, gearAction(this)],
       back: this.inGameBack ? () => this.leaveToMenu() : undefined,
     });
   }
@@ -786,8 +843,9 @@ export class WorldScene extends BaseScene {
   /** The command strip: Camp | Rest / Stop | Party. The way back is the top bar's arrow. */
   private stripSlots(): BarSlot[] {
     const camp = state.campaign;
-    const pending = camp.data.heroes.some((h) => h.points > 0 || h.perks.length < perkSlots(h.level));
-    const party: BarSlot = { label: t('world.strip.party'), icon: 'people', badge: pending ? '!' : 0, tip: t('world.strip.partyTip'), id: 'world.party', onClick: () => this.scene.start('Army', { from: 'World' }) };
+    // the badge counts the men with points or a perk to take (G11)
+    const pending = camp.data.heroes.filter((h) => h.points > 0 || h.perks.length < perkSlots(h.level)).length;
+    const party: BarSlot = { label: t('world.strip.party'), icon: 'people', badge: pending, tip: t('world.strip.partyTip'), id: 'world.party', onClick: () => this.scene.start('Army', { from: 'World' }) };
     if (this.w.camp) {
       return [
         { label: t('world.strip.camp'), icon: 'tent', primary: true, tip: t('world.strip.enterTip'), id: 'world.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) },
@@ -811,13 +869,21 @@ export class WorldScene extends BaseScene {
     const day = Math.floor(s.time / 24) + 1;
     const h = Math.floor(s.time % 24);
     const d = dangerAt(this.w.map, s.x, s.y);
-    const region = regionName(this.w.map, s.x, s.y);
+    const region = regionLabel(this.w.map, s.x, s.y);
     const hh = `${String(h).padStart(2, '0')}:00${h >= 21 || h < 5 ? ` ${t('world.night')}` : ''}`;
-    const where = this.w.camp ? t('world.whereCamp', { d: day, h: hh, region }) : t('world.where', { d: day, h: hh, region, danger: t(d < 0.3 ? 'world.safe' : d < 0.6 ? 'world.risky' : 'world.wild') });
+    // the top bar says the day and the place; the line says the hour, the danger and what to do. On a narrow
+    // screen where "Day n · place" would be cut beside the journal and ⚙, the day moves to the line.
+    const fullTitle = t('mosaic.cmap.title', { d: day, region });
+    const side = 2 * (TAP + GAP) - GAP + 2;
+    const dayUp = mw(fullTitle.toUpperCase(), 'rCream', TEXT_MIN) <= this.m.VW - side * 2 - 12;
+    const topTitle = dayUp ? fullTitle : region;
+    const danger = t(d < 0.3 ? 'world.safe' : d < 0.6 ? 'world.risky' : 'world.wild');
+    const where = this.w.camp ? t(dayUp ? 'wld.whereCamp' : 'wld.whereCampDay', { d: day, h: hh }) : t(dayUp ? 'wld.where' : 'wld.whereDay', { d: day, h: hh, danger });
     const wounded = camp.wounded().length;
     const mouths = camp.data.heroes.length;
     const days = this.w.foodDays(mouths);
     let hint = t('world.sit.hint');
+    let idle = false;
     let urgent = false;
     const c = this.w.camp;
     if (c) {
@@ -835,28 +901,55 @@ export class WorldScene extends BaseScene {
     else if (days < 1.5) {
       hint = t('world.sit.lowFood');
       urgent = true;
-    }
+    } else idle = true;
     const chips: SituationChip[] = [
       { icon: 'coin', value: `${camp.data.gold}`, id: 'world.gold' },
       { icon: 'people', value: `${mouths - wounded}/${mouths}`, id: 'world.men' },
       { icon: 'food', short: `${Math.floor(this.w.food)}${this.w.starving ? '!' : ''}`, value: this.w.starving ? `${Math.floor(this.w.food)}!` : `${Math.floor(this.w.food)} (${days < 1 ? '<1' : Math.floor(days)}${t('mosaic.cmap.dayShort')})`, id: 'world.food' },
       { icon: 'wood', value: `${Math.floor(this.w.supplies)}`, id: 'world.supplies' },
     ];
-    const topTitle = t('mosaic.cmap.title', { d: day, region });
     if (topTitle !== this.topKey) {
       this.topKey = topTitle;
       this.buildTop(topTitle);
     }
-    const key = `${where}|${hint}|${urgent}|${chips.map((n) => n.value).join(',')}`;
+    const next = idle ? this.nextTown() : null;
+    const sentence = this.situation(where, hint, idle, next);
+    const key = `${sentence}|${urgent}|${chips.map((n) => n.value).join(',')}`;
     if (key !== this.sitKey) {
       this.sitKey = key;
-      this.sit.set(`${where} ${hint}`, urgent, chips);
+      this.sit.set(sentence, urgent, chips);
     }
     const stripKey = `${!!this.w.camp}|${this.waiting}|${this.w.moving}`;
     if (stripKey !== this.stripKey) {
       this.stripKey = stripKey;
       this.strip?.set(this.stripSlots());
     }
+  }
+
+  /**
+   * The situation sentence, never cut (A11Y-10): the hour and danger, the hint, and when idle the next town
+   * (WLD-4). What the line can't hold goes, least needed first: the next town, then the long hint.
+   */
+  private situation(where: string, hint: string, idle: boolean, next: string | null): string {
+    const sit = this.sit!;
+    const room = sit.w - 14;
+    const lines = this.m.VH < 240 ? 1 : 2;
+    const tries = [next ? `${where} ${t('wld.next', { name: next })} ${hint}` : '', `${where} ${hint}`, idle ? `${where} ${t('wld.hintShort')}` : '', hint];
+    return tries.find((x) => x && wrapsWhole(x, room, lines)) ?? hint;
+  }
+
+  /** The nearest town or village the army has found, other than the one it stands at (the next goal, WLD-4). */
+  private nextTown(): string | null {
+    const s = this.w.s;
+    let best: { name: string; d: number } | null = null;
+    for (const id of s.found ?? []) {
+      const st = this.w.settlement(id);
+      if (!st || st.kind === 'lair') continue;
+      const d = Math.hypot(st.x - s.x, st.y - s.y);
+      if (d < 3) continue;
+      if (!best || d < best.d) best = { name: st.name, d };
+    }
+    return best?.name ?? null;
   }
 
   private setWaiting(on: boolean): void {
@@ -876,19 +969,24 @@ export class WorldScene extends BaseScene {
     this.buildFollow();
   }
 
-  private showBanner(msg: string, ms: number): void {
+  /** A banner under the situation line for 6 s (C-4), wrapped, never cut (A11Y-10). Red ink only for a refusal (A11Y-05). */
+  private showBanner(msg: string, bad = false): void {
     this.banner?.destroy();
     const { VW } = this.m;
     const c = this.add.container(0, 0);
     // under the situation line and its follow button
     const by = (this.sit ? this.sit.y + this.sit.h : TOPBAR_H) + 30;
-    const txt = mtext(this, VW / 2, by + 5, msg, 'pBad', { align: 0.5, maxW: VW - 30 });
-    const wdt = Math.min(VW - 8, Math.max(80, txt.width + 20));
-    c.add(mosaicImage(this, Math.round((VW - wdt) / 2), by, wdt, 18, 'parchment'));
+    const font = bad ? 'pBad' : 'pInk';
+    const lines = wrapWords(msg, VW - 32, (q) => mw(q, font, 7));
+    const txt = mtext(this, VW / 2, by + 5, lines.join('\n'), font, { align: 0.5 });
+    txt.setCenterAlign();
+    const wdt = Math.min(VW - 8, Math.max(80, Math.max(...lines.map((l) => mw(l, font, 7))) + 20));
+    c.add(mosaicImage(this, Math.round((VW - wdt) / 2), by, wdt, 8 + lines.length * 10, 'parchment'));
     c.add(txt);
+    uiId(c, 'world.banner');
     this.ui.add(c);
     this.banner = c;
-    this.time.delayedCall(ms, () => {
+    this.time.delayedCall(6000, () => {
       if (this.banner === c) {
         c.destroy();
         this.banner = null;
@@ -979,7 +1077,8 @@ export class WorldScene extends BaseScene {
       const m = this.w.map;
       if (c.zone.includes(ty * m.w + tx)) {
         const b = c.built.find((q) => footprint(q.id, q.x, q.y).some(([fx, fy]) => fx === tx && fy === ty));
-        this.showBanner(b ? `${STRUCTURES[b.id].name}: ${STRUCTURES[b.id].desc}` : 'Your camp: tap Build to add to it', 1800);
+        // building happens in the field camp: the Camp button on the bar opens it (the old "tap Build" led nowhere)
+        this.showBanner(b ? t('wld.structInfo', { name: t(`wld.struct.${b.id}.name` as TKey), desc: t(`wld.struct.${b.id}.desc` as TKey) }) : t('wld.campHere'));
         return;
       }
       this.strikeCamp(() => this.tapWorld(x, y));
@@ -998,7 +1097,7 @@ export class WorldScene extends BaseScene {
     }
     if (band) {
       const ratio = band.power / Math.max(1, this.info.power);
-      this.showBanner(`${band.name}: ${band.size} men, ${THREAT_LABEL[threatLevel(ratio)]}`, 1800);
+      this.showBanner(t('wld.bandTap', { name: bandName(band.name), men: t('wld.enc.men', { n: band.size }), threat: t(`wld.threat.${threatLevel(ratio)}` as TKey).toLowerCase() }));
       this.setWaiting(false);
       this.w.setDestination(Math.floor(band.x), Math.floor(band.y), -1, band.id);
       haptic('light');
@@ -1021,7 +1120,7 @@ export class WorldScene extends BaseScene {
     this.setWaiting(false);
     if (set) {
       if (set.kind === 'lair') {
-        this.showBanner(`${set.name}: bands gather here`, 1600);
+        this.showBanner(t('wld.lairTap', { name: set.name }));
         this.w.setDestination(set.x, set.y + 1);
       } else if (Math.floor(this.w.s.x) === set.x && Math.floor(this.w.s.y) === set.y) {
         this.enterSettlement(set.id);
@@ -1029,12 +1128,34 @@ export class WorldScene extends BaseScene {
       } else this.w.setDestination(set.x, set.y, set.id);
     } else if (!this.w.setDestination(tx, ty)) {
       hapticNotify('error');
-      this.showBanner('No way there', 1200);
+      this.noWay(x, y);
       return;
     }
     haptic('light');
     if (!this.follow) this.toggleFollow();
     this.refreshHud();
+  }
+
+  /** "No way there" at the tap point (PLAY C7): a cross and the words, fading out. */
+  private noWay(wx: number, wy: number): void {
+    const cam = this.cameras.main;
+    const S = this.m.S;
+    const { VW } = this.m;
+    const ux = ((wx - cam.worldView.x) * cam.zoom) / S;
+    const uy = ((wy - cam.worldView.y) * cam.zoom) / S;
+    const c = this.add.container(0, 0);
+    const ic = addIcon(this, ux - 6, uy - 6, 'xmark');
+    const txt = mtext(this, 0, 0, t('wld.noWay'), 'pBad', { size: 7 });
+    const tw = txt.width + 8;
+    const bx = Math.round(Math.max(2, Math.min(VW - tw - 2, ux - tw / 2)));
+    const by = Math.round(uy + 8);
+    c.add(mosaicImage(this, bx, by, tw, 13, 'parchment'));
+    txt.setPosition(bx + 4, by + 3);
+    c.add([ic, txt]);
+    uiId(c, 'world.noWay');
+    this.ui.add(c);
+    if (motion.reduced) this.time.delayedCall(1300, () => c.destroy());
+    else this.tweens.add({ targets: c, alpha: 0, delay: 900, duration: 400, onComplete: () => c.destroy() });
   }
 
   // ================================================================ events (campaign-events.md R4)
@@ -1060,68 +1181,35 @@ export class WorldScene extends BaseScene {
   // ================================================================ encounters
 
   private closeDialog(): void {
-    this.dialog?.destroy();
+    this.dialog?.close();
     this.dialog = null;
   }
 
+  /** The encounter sheet (src/ui/sheets/encounter.ts): the band, its doctrine and captain, and the choices. */
   openEncounter(partyId: number, byPlayer: boolean, failedFlee = false): void {
     const camp = state.campaign;
     const p = this.w.party(partyId);
     if (!p) return;
     this.closeDialog();
     this.info = camp.playerInfo();
-    const { VW, VH } = this.m;
-    const c = this.add.container(0, 0);
-    this.ui.add(c);
-    this.dialog = c;
-    c.add(this.add.rectangle(0, 0, VW, VH, 0x000000, 0.5).setOrigin(0, 0).setInteractive());
-    const w = VW - 20;
-    const x = 10;
     const ratio = p.power / Math.max(1, this.info.power);
     const lvl = threatLevel(ratio);
-    const mood = failedFlee
-      ? 'They cut off your escape!'
-      : byPlayer
-        ? ratio < WORLD_RULES.surrenderRatio
-          ? 'Cornered, they throw down their arms.'
-          : 'You have caught up with them.'
-        : this.w.camp
-          ? 'They fall upon your camp!'
-          : 'They bar your way, weapons drawn!';
-    const advice = ratio > 1.15 ? 'A hard fight. Consider fleeing or resting.' : ratio < 0.85 ? 'You should win this one.' : 'An even match.';
-    // Lay the text out first (wrapped and fitted), then size the dialog around it.
-    const moodL = wrapText(mood, w - 56, 2).lines;
-    const adviceL = wrapText(advice, w - 12, 2).lines;
-    const armyY = Math.max(64, 46 + moodL.length * LINE_H + 4);
-    const adviceY = armyY + 14;
-    const h = adviceY + adviceL.length * LINE_H + 8 + 34;
-    const y = Math.max(4, Math.round(VH / 2 - h / 2 - 10));
-    c.add(addPanel(this, x, y, w, h, 'parch'));
-    c.add(addText(this, VW / 2, y + 7, ellipsize(p.name, w - 12), 'red', 0.5));
-    // the band's standard, large
-    const tex = p.name === 'Pirates' ? 'wm_band_pirates' : `wm_band_${p.kind}`;
-    c.add(this.add.image(x + 26, y + 58, tex, 0).setScale(3).setOrigin(0.5, 1));
-    c.add(this.add.rectangle(x + 50, y + 22, 8, 8, THREAT_COLOR[lvl]).setOrigin(0, 0).setStrokeStyle(1, P.outline));
-    c.add(addText(this, x + 62, y + 22, ellipsize(`${THREAT_LABEL[lvl]} - ${p.size} men`, w - 68), 'ink'));
-    c.add(addText(this, x + 50, y + 33, ellipsize(`${CULTURE_LABEL[p.culture]}, about Lv ${p.level}`, w - 56), 'dim'));
-    c.add(addText(this, x + 50, y + 46, moodL.join('\n'), 'ink'));
-    const fit = camp.fitHeroes().length;
-    const wounded = camp.wounded().length;
-    c.add(addText(this, x + 8, y + armyY, ellipsize(`Your army: ${fit} fit${wounded ? `, ${wounded} wounded` : ''}`, w - 16), 'dim'));
-    const adviceT = addText(this, VW / 2, y + adviceY, adviceL.join('\n'), ratio > 1.15 ? 'red' : 'ink', 0.5);
-    adviceT.setCenterAlign();
-    c.add(adviceT);
-    const buttons: { label: string; icon: string; sel?: boolean; cb: () => void }[] = [];
-    buttons.push({ label: 'Attack', icon: 'swords', sel: true, cb: () => this.attack(p.id) });
+    const mood = failedFlee ? 'cutOff' : byPlayer ? (ratio < WORLD_RULES.surrenderRatio ? 'surrender' : 'caught') : this.w.camp ? 'camp' : 'bar';
+    const advice = ratio > 1.15 ? 'hard' : ratio < 0.85 ? 'win' : 'even';
+    // the band's army as the battle will build it (a throwaway id source: nothing in the save moves)
+    const army = partyArmy(p, { nextId: 1 }, camp.armyClasses());
+    const beast = encounterOf(army.heroes);
+    const captain = beast ? undefined : army.heroes.find((h) => isCaptain(h));
+    const choices: EncounterChoice[] = [{ key: 'attack', label: t('wld.enc.attack'), icon: 'swords', onPick: () => this.attack(p.id) }];
     if (camp.canSurrender(p.id) && !failedFlee) {
-      buttons.push({
-        label: 'Take ransom',
+      choices.push({
+        key: 'ransom',
+        label: t('wld.enc.ransom'),
         icon: 'coin',
-        cb: () => {
+        onPick: () => {
           const g = camp.acceptSurrender(p.id);
-          this.closeDialog();
           hapticNotify('success');
-          this.showBanner(`They pay ${g} gold and scatter`, 2200);
+          this.showBanner(t('wld.ransomPaid', { n: g }));
           void state.save();
           this.refreshHud();
         },
@@ -1129,25 +1217,24 @@ export class WorldScene extends BaseScene {
     }
     if (!failedFlee) {
       if (byPlayer && ratio < WORLD_RULES.chaseRatio) {
-        buttons.push({
-          label: 'Let them go',
+        choices.push({
+          key: 'letGo',
+          label: t('wld.enc.letGo'),
           icon: 'back',
-          cb: () => {
+          onPick: () => {
             p.idle = 1;
             this.w.s.safeUntil = this.w.s.time + 1;
-            this.closeDialog();
           },
         });
       } else {
-        const chance = Math.round(camp.fleeChance(p.id) * 100);
-        buttons.push({
-          label: `Flee ${chance}%`,
+        choices.push({
+          key: 'flee',
+          label: t('wld.enc.flee', { p: Math.round(camp.fleeChance(p.id) * 100) }),
           icon: 'fallback',
-          cb: () => {
+          onPick: () => {
             if (camp.tryFlee(p.id)) {
-              this.closeDialog();
               hapticNotify('warning');
-              this.showBanner('You slip away!', 1800);
+              this.showBanner(t('wld.slipAway'));
               void state.save();
             } else {
               hapticNotify('error');
@@ -1157,11 +1244,29 @@ export class WorldScene extends BaseScene {
         });
       }
     }
-    // Back may only take the peaceful way out ("Let them go"); a band barring the road can't be dodged by it.
-    const out = buttons.find((b) => b.icon === 'back');
-    this.modalLayer(c, () => (out ? out.cb() : (hapticNotify('warning'), false)));
-    const bw = Math.floor((w - 12 - (buttons.length - 1) * 4) / buttons.length);
-    buttons.forEach((b, i) => c.add(new Button(this, x + 6 + i * (bw + 4), y + h - 34, bw, 28, { label: b.label, icon: b.icon, style: b.sel ? 'buttonSel' : 'button', onClick: b.cb })));
+    const handle = openEncounterSheet(
+      this,
+      {
+        title: beast ? encounterName(beast) : bandName(p.name),
+        tex: p.name === 'Pirates' ? 'wm_band_pirates' : `wm_band_${p.kind}`,
+        lvl,
+        color: THREAT_COLOR[lvl],
+        men: p.size,
+        culture: cap(tOr(`culture.${p.culture}`, CULTURE_LABEL[p.culture])),
+        level: p.level,
+        mood: t(`wld.enc.mood.${mood}` as TKey),
+        advice: t(`wld.enc.adv.${advice}` as TKey),
+        doctrine: beast ? null : (army.doctrine ?? 'steady'),
+        captain: captain ? { name: captain.name, level: captain.level } : null,
+        fit: camp.fitHeroes().length,
+        wounded: camp.wounded().length,
+        choices,
+      },
+      () => {
+        if (this.dialog === handle) this.dialog = null;
+      },
+    );
+    this.dialog = handle;
   }
 
   attack(partyId: number): void {
