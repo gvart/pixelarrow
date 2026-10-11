@@ -11,10 +11,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | EC-02 worktree-agent-ad71f9aa766d6be4d + DLG-01 worktree-agent-a172558a5b877cf8e | — | integrator | — | merging |
+| (merge) | EC-05 worktree-agent-abf388ac378ca5e54 | — | integrator | — | merging |
+| rd-03 | W14 RD-03: battle report + why-line on Results | per card | per card | worktree-agent | running |
 | ct-07 | W13 CT-07: orb/feint keys + Raise Standard key + attention budget | per card | per card | worktree-agent | running |
 | cdx-01 | W15 CDX-01: Codex (beasts home, Trial fight, doctrines) | per card | per card | worktree-agent | running |
-| ec-05 | EC-05 structural balance (V5-069) | balance-check, team-combat, game-ai, tdd | systems-designer, ai-programmer, economy-designer | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -59,6 +59,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 2d205b1 EC-04; 9b954e6 AR-03; e8dc83a ARM-01. Gates: vitest 1105, server 304, layout 0 new, smokes pass (main smoke flaked once at load ~42); balance 54%, lairs 43/58/53.
 - 7fddc2f EV-02 deck (OFF); ea8321c AR-02 lair assault rules. Gates: vitest 1132, server 304, smokes pass; layout: 1 world-encounter text-overlap flake at ru 320x568 (passes alone 3/3); balance 54%, lairs 43/58/53, assault 39%.
 - aa8af63 RD-01 readability; 0963bf5 HERO-01 Hero screen. Gates: vitest 1155, layout 0 new (known violations down to 1063 from 1776), smokes pass.
+- 78c81fe EC-02 item power cap; 299313b DLG-01 Settings. Gates: vitest 1166, server 306, layout 0 new (1037 known), smokes pass; balance 54%, lairs 43/58/53.
 
 ## Queue (next)
 
@@ -106,6 +107,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 25. CT-07 must add the player's Raise-Standard key (RD-01 finding: only bots can raise it). The world-encounter text-overlap at ru 320x568 is a load-only flake, so watch it in WLD-01.
 
 26. Follow-ups: the RU string setsp.bond_of_the_band still says +4%/+3% (localization fix); settings.newCampaign string unused.
+
+27. Next after EC-05 merges: ST-04 (close sim train 2). FW-03 waits for CT-07 (shared battle files).
 
 ## Blockers
 
