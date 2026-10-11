@@ -29,6 +29,7 @@ import { HERO_RU } from './hero.ru';
 import { SETTINGS_RU } from './settings.ru';
 import { CODEX_RU } from './codex.ru';
 import { WHY_RU } from './why.ru';
+import { PACE_RU } from './pace.ru';
 import { EVENTS_RU } from './events.ru';
 import { EVENTCARD_RU } from './eventcard.ru';
 import { SHOP_V5_RU } from './shop.v5.ru';
@@ -326,6 +327,7 @@ export const RU: Table = {
   ...SETTINGS_RU,
   ...CODEX_RU,
   ...WHY_RU,
+  ...PACE_RU,
   // ---- overland events: the deck's text (events.ru.ts) and the event card and journal (eventcard.ru.ts)
   ...EVENTS_RU,
   ...EVENTCARD_RU,

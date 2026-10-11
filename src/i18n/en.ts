@@ -37,6 +37,7 @@ import { HERO_EN } from './hero.en';
 import { SETTINGS_EN } from './settings.en';
 import { CODEX_EN } from './codex.en';
 import { WHY_EN } from './why.en';
+import { PACE_EN } from './pace.en';
 import { EVENTS_EN } from './events.en';
 import { EVENTCARD_EN } from './eventcard.en';
 import { SHOP_V5_EN } from './shop.v5.en';
@@ -357,6 +358,8 @@ export const EN = {
   ...CODEX_EN,
   // ---- the Results why-line (why.en.ts)
   ...WHY_EN,
+  // ---- pause and speed, the ladder ticket's countdown (pace.en.ts)
+  ...PACE_EN,
   // ---- overland events: the deck's text (events.en.ts) and the event card and journal (eventcard.en.ts)
   ...EVENTS_EN,
   ...EVENTCARD_EN,

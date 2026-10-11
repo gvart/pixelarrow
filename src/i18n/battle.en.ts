@@ -95,7 +95,6 @@ export const BATTLE_EN = {
   'battle.tip.loose': 'Loose order: fewer losses to missiles, weak in melee.',
   'battle.tip.wall': 'Lock shields: hard to break, slow to move.',
   'battle.tip.pause': 'Pause: give orders while time stands still',
-  'battle.tip.speed': 'Battle speed: 1x, 2x or 3x',
   'battle.tip.retreat': 'Sound the retreat: lose the battle, save the army',
   'battle.tip.follow': 'Camera follows the fighting',
   'battle.tip.strength': 'Strength of both armies: yours (blue) and the enemy\'s (red)',

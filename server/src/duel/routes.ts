@@ -19,7 +19,7 @@ import { db, requireAuth } from '../middleware';
 import { LIMITS } from '../battle';
 import { SubmitBody, verifyBattle } from './verify';
 import { checkSimVersion, SIM_VERSION, SimVersionField } from '../simVersion';
-import { closeTicketStmt, loadOwnTicket, requireOpenTicket, ticketPreamble, type TicketStatus } from '../tickets';
+import { closeTicketStmt, loadOwnTicket, requireOpenTicket, ticketExpired, ticketPreamble, type TicketStatus } from '../tickets';
 import { emit, emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { limit } from '../online/context';
 import { randomToken, randomU32 } from '../online/store';
@@ -36,7 +36,7 @@ import {
   DUEL_RULES, accountLevel, classUnlockLevel, developHero, duelRecruit, findOffer, freshGear, recruitPrice, respecHero, respecPrice,
   cleanPresetName, sellPrice, shopItem, teamProblem, utcDay,
 } from '../../../src/duel/rules';
-import { canFight, chestItem, chestReward, chestState, ladderFloor, ladderPayout, ladderSetup, validChest, CHAPTERS, CHEST_TIERS } from '../../../src/duel/ladder';
+import { canFight, chestItem, chestReward, chestState, ladderFloor, ladderPayout, ladderSetup, lostShare, validChest, CHAPTERS, CHEST_TIERS, LADDER_TICKET_TTL_MS } from '../../../src/duel/ladder';
 import { RANKED } from '../../../src/duel/rating';
 import { DEFAULT_FORMATIONS } from '../../../src/online/rules';
 import { getQueueState, getRating, liveMatchOf, matchReport, rowLeague } from './live';
@@ -451,12 +451,14 @@ interface TicketRow {
   finished_at: number | null;
 }
 
-function ticketView(t: TicketRow, extra: Record<string, unknown> = {}) {
+/** A ladder ticket for the client; `now` lets it count down the ticket on its own clock (controls.md R10). */
+function ticketView(t: TicketRow, now: number, extra: Record<string, unknown> = {}) {
   const floor = ladderFloor(t.floor);
   return {
     ticket: t.id,
     floor: t.floor,
     boss: floor.boss,
+    now,
     expiresAt: t.expires_at,
     setup: JSON.parse(t.setup) as BattleSetup,
     team: JSON.parse(t.team) as Hero[],
@@ -477,7 +479,7 @@ duel.post('/ladder/start', async (c) => {
     .bind(x.pid, x.now)
     .first<TicketRow>();
   // Same floor: resume (same seed, no fishing for a better one). Another floor: the open one is given up.
-  if (open && open.floor === body.floor) return c.json(ticketView(open, { resumed: true }));
+  if (open && open.floor === body.floor) return c.json(ticketView(open, x.now, { resumed: true }));
   if (open) await x.db.prepare("UPDATE duel_tickets SET status = 'abandoned', finished_at = ?2 WHERE id = ?1 AND status = 'open'").bind(open.id, x.now).run();
   const floor = ladderFloor(body.floor);
   const l = await loadoutFor(x.db, x.p, 'ladder');
@@ -491,10 +493,10 @@ duel.post('/ladder/start', async (c) => {
   const setup = ladderSetup(seed, team, l.formations, floor);
   await x.db
     .prepare('INSERT INTO duel_tickets (id, player_id, kind, floor, seed, setup, team, created_at, expires_at, sim_version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)')
-    .bind(id, x.pid, 'ladder', floor.floor, seed, JSON.stringify(setup), JSON.stringify(team), x.now, x.now + DUEL_RULES.ticketTtlMs, SIM_VERSION)
+    .bind(id, x.pid, 'ladder', floor.floor, seed, JSON.stringify(setup), JSON.stringify(team), x.now, x.now + LADDER_TICKET_TTL_MS, SIM_VERSION)
     .run();
   const t = (await x.db.prepare('SELECT * FROM duel_tickets WHERE id = ?1').bind(id).first<TicketRow>())!;
-  return c.json(ticketView(t));
+  return c.json(ticketView(t, x.now));
 });
 
 function loadTicket(x: Ctx, id: string): Promise<TicketRow> {
@@ -505,19 +507,59 @@ async function closeTicket(x: Ctx, t: TicketRow, status: 'rejected' | 'abandoned
   await closeTicketStmt(x.db, 'duel_tickets', t.id, status, x.now, claim, result).run();
 }
 
-/** Verifies a ladder battle by replay and pays it out (hero XP; Glory, account XP and maybe an item on a win). */
+/**
+ * Verifies a ladder battle by replay and pays it out (hero XP; Glory, account
+ * XP and maybe an item on a win). A ladder battle may pause, so its ticket
+ * lives LADDER.ticketMin minutes; a run reported after that is still verified
+ * (a false claim is void as ever) but pays nothing and changes no progress
+ * (`expired: true`, controls.md R10).
+ */
 duel.post('/ladder/submit', async (c) => {
   limit(c, 'duel_submit', 20);
   const x = await ctx(c);
   const body = await readJson(c, SubmitBody, LIMITS.maxBodyBytes);
   const t = await loadTicket(x, body.ticket);
   const claimJson = JSON.stringify(body.claim);
-  const replay = await ticketPreamble(t, claimJson, x.now, 'battle', () => closeTicket(x, t, 'abandoned'));
+  const replay = await ticketPreamble(t, claimJson, x.now, 'battle', () => closeTicket(x, t, 'abandoned'), 'battle', true);
   if (replay) return c.json({ ...JSON.parse(replay), replayed: true, profile: await view(x) });
   const out = await verifyBattle(JSON.parse(t.setup) as BattleSetup, body, (claim, result) => closeTicket(x, t, 'rejected', claim, result));
   const s = out.summary;
 
   const floor = ladderFloor(t.floor);
+  if (ticketExpired(t, x.now)) {
+    const prev = (await loadLadderStars(x.db, x.p)).stars[floor.floor - 1] ?? 0;
+    const late = {
+      floor: floor.floor,
+      boss: floor.boss,
+      won: s.winner === 0,
+      firstClear: false,
+      winner: s.winner,
+      ticks: s.ticks,
+      hash: s.hash,
+      glory: 0,
+      capped: 0,
+      accountXp: 0,
+      xp: [],
+      drop: null,
+      enemies: { dead: out.result.units.filter((u) => u.side === 1 && u.state === 'dead').length, total: floor.heroes.length },
+      stars: 0,
+      lost: Math.round(lostShare(out.result, JSON.parse(t.team) as Hero[]) * 1000) / 1000,
+      prevStars: prev,
+      bestStars: prev,
+      newBest: false,
+      expired: true,
+    };
+    const r = await x.db
+      .prepare("UPDATE duel_tickets SET status = 'used', claim = ?2, finished_at = ?3, won = 0, result = ?4 WHERE id = ?1 AND status = 'open'")
+      .bind(t.id, claimJson, x.now, JSON.stringify(late))
+      .run();
+    if (r.meta.changes !== 1) {
+      const again = await loadTicket(x, t.id);
+      if (again.status === 'used' && again.result && again.claim === claimJson) return c.json({ ...JSON.parse(again.result), replayed: true, profile: await view(x) });
+      throw new ApiError(409, 'ticket_used', 'This battle was already reported');
+    }
+    return c.json({ ...late, profile: await view(x) });
+  }
   const team = JSON.parse(t.team) as Hero[];
   const start = await reserveDuelIds(x.db, x.pid, 4);
   x.p = await requireDuelProfile(x.db, x.pid);

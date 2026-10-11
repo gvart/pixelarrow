@@ -94,17 +94,24 @@ export function requireOpenTicket(t: { status: TicketStatus }, noun: string): vo
  * otherwise 409 `ticket_used` ("This <usedNoun> was already reported"), 409
  * `ticket_closed`, or, past its expiry, `expire()` then 410 `ticket_expired`
  * ("Too late: the <noun> ticket expired"). Returns null when the ticket may be
- * settled.
+ * settled. With `lateOk` an expired open ticket may be settled too (the ladder:
+ * a late run is verified but pays nothing, controls.md R10); the caller checks
+ * `ticketExpired` itself.
  */
-export async function ticketPreamble(t: TicketState, claimJson: string, now: number, noun: string, expire: () => Promise<void>, usedNoun = noun): Promise<string | null> {
+export async function ticketPreamble(t: TicketState, claimJson: string, now: number, noun: string, expire: () => Promise<void>, usedNoun = noun, lateOk = false): Promise<string | null> {
   if (t.status === 'used') {
     if (t.claim === claimJson && t.result) return t.result;
     throw new ApiError(409, 'ticket_used', `This ${usedNoun} was already reported`);
   }
   requireOpenTicket(t, noun);
-  if (t.expires_at < now) {
+  if (!lateOk && ticketExpired(t, now)) {
     await expire();
     throw new ApiError(410, 'ticket_expired', `Too late: the ${noun} ticket expired`);
   }
   return null;
+}
+
+/** The ticket's time is up (a submission exactly at `expires_at` is still in time). */
+export function ticketExpired(t: { expires_at: number }, now: number): boolean {
+  return t.expires_at < now;
 }

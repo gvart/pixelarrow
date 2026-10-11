@@ -22,7 +22,7 @@ import {
   DUEL_RULES, accountLevel, cleanPresetName, classUnlockLevel, developHero, duelRecruit, findOffer, recruitPrice, respecHero, respecPrice, sellPrice, shopItem,
   starterDuelRoster, teamPoints, teamProblem, utcDay,
 } from './rules';
-import { canFight, chestItem, chestReward, chestState, duelHeroXp, ladderFloor, ladderPayout, ladderSetup, starsByFloor, validChest, type HeroXp } from './ladder';
+import { canFight, chestItem, chestReward, chestState, duelHeroXp, ladderFloor, ladderPayout, ladderSetup, lostShare, starsByFloor, ticketClock, validChest, LADDER_TICKET_TTL_MS, type HeroXp } from './ladder';
 import { RANKED, glicko2, leagueOf, matchPay, placed, scoreOf, type DuelMode, type League, type LeagueId, type Rating, type Score } from './rating';
 import type { AsyncReport, LiveMatchRef, MatchReport, MatchmakerClientMsg, MatchmakerServerMsg } from './protocol';
 import { ASYNC, SEASON, asyncSetup, attackPay, defenceRating, pickCandidates, seasonEnd, seasonId, seasonStart, type Ladder } from './season';
@@ -173,6 +173,8 @@ export interface LadderTicket {
   ticket: string;
   floor: number;
   boss: boolean;
+  /** The server's clock when it answered (the ticket's countdown runs on the device's clock from it). */
+  now?: number;
   expiresAt: number;
   setup: BattleSetup;
   team: Hero[];
@@ -207,6 +209,8 @@ export interface LadderReport {
   bestStars: number;
   /** This battle raised the floor's best. */
   newBest: boolean;
+  /** Reported after the ticket's LADDER.ticketMin minutes: verified, but it paid nothing (controls.md R10). */
+  expired?: boolean;
   replayed?: boolean;
   profile: DuelProfileView;
 }
@@ -297,6 +301,25 @@ export interface DuelSource {
 
 const outside = () => new ApiError(0, 'outside', 'Available in Telegram');
 
+/**
+ * Ladder battles may pause and speed up (controls.md R10, V5-021): the battle
+ * scene asks `ladderDeadline(source.setup)` whether its battle is a ladder
+ * floor and when its ticket runs out. ladderStart registers the ticket's
+ * setup object (the ladder's BattleSource passes it on as is) with the
+ * deadline on this device's clock, so a skewed phone clock cannot shorten it.
+ */
+const ladderDeadlines = new WeakMap<BattleSetup, number>();
+
+function registerLadder<T extends LadderTicket>(tk: T, serverNow: number): T {
+  if (tk?.setup && typeof tk.setup === 'object') ladderDeadlines.set(tk.setup, Date.now() + (tk.expiresAt - serverNow));
+  return tk;
+}
+
+/** When the ladder ticket of this battle setup runs out (Date.now() ms), or null: not a ladder battle. */
+export function ladderDeadline(setup: BattleSetup): number | null {
+  return ladderDeadlines.get(setup) ?? null;
+}
+
 /** After Cancel, how long the queue socket waits for a match the server was already making. */
 const CANCEL_WAIT_MS = 5000;
 
@@ -340,8 +363,9 @@ export class ApiDuelSource implements DuelSource {
   salvage(uid: string) {
     return this.req<WithProfile<{ glory: number }>>('POST', '/shop/salvage', { uid, requestId: newRequestId() });
   }
-  ladderStart(floor: number) {
-    return this.req<LadderTicket>('POST', '/ladder/start', { floor, simVersion: SIM_VERSION });
+  async ladderStart(floor: number) {
+    const tk = await this.req<LadderTicket>('POST', '/ladder/start', { floor, simVersion: SIM_VERSION });
+    return registerLadder(tk, tk?.now ?? Date.now());
   }
   ladderSubmit(ticket: string, sub: LadderSubmission) {
     return this.req<LadderReport>('POST', '/ladder/submit', { ticket, ...sub, simVersion: SIM_VERSION });
@@ -730,13 +754,14 @@ export class DemoDuelSource implements DuelSource {
       ticket: `demo${seed.toString(16).padStart(28, '0')}`,
       floor: floor.floor,
       boss: floor.boss,
-      expiresAt: this.clock() + DUEL_RULES.ticketTtlMs,
+      now: this.clock(),
+      expiresAt: this.clock() + LADDER_TICKET_TTL_MS,
       setup: ladderSetup(seed, JSON.parse(JSON.stringify(team)) as Hero[], this.preset(this.p.use.ladder).formations, floor),
       team: JSON.parse(JSON.stringify(team)) as Hero[],
       enemies: floor.heroes,
     };
     this.tickets.set(tk.ticket, tk);
-    return tk;
+    return registerLadder(tk, tk.now!);
   }
 
   async ladderSubmit(ticket: string, _sub: LadderSubmission, result: BattleResult) {
@@ -744,6 +769,31 @@ export class DemoDuelSource implements DuelSource {
     if (!tk) throw new ApiError(404, 'not_found', 'No such ticket');
     this.tickets.delete(ticket);
     const floor = ladderFloor(tk.floor);
+    if (ticketClock(tk.expiresAt, this.clock()).expired) {
+      // like the server: reported too late, the battle counts for nothing (controls.md R10)
+      const prev = this.p.ladder.stars[floor.floor - 1] ?? 0;
+      return {
+        floor: floor.floor,
+        boss: floor.boss,
+        won: result.winner === 0,
+        firstClear: false,
+        winner: result.winner,
+        ticks: result.ticks,
+        glory: 0,
+        capped: 0,
+        accountXp: 0,
+        xp: [],
+        drop: null,
+        enemies: { dead: result.units.filter((u) => u.side === 1 && u.state === 'dead').length, total: floor.heroes.length },
+        stars: 0,
+        lost: Math.round(lostShare(result, tk.team) * 1000) / 1000,
+        prevStars: prev,
+        bestStars: prev,
+        newBest: false,
+        expired: true,
+        profile: this.view(),
+      };
+    }
     const pay = ladderPayout(floor, result, tk.team, this.p.ladder.cleared, this.p.ladder.farmLeft, tk.setup.seed, this.ids, 'demo_');
     this.p.glory += pay.glory;
     this.p.xp += pay.accountXp;
