@@ -49,9 +49,9 @@ The machine-readable source is `docs/v5/art/asset-manifest.json`. The tables bel
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | ART-001 | `fresco_campaign.jpg` | 1080x480 | painted | T-FRESCO | hoplite column marching along a beach at dawn, ships beached behind, hills | MenuScene.ts:79 FrescoBanner: content width ~176 x (w/3.4..w/2.2) UI px, cover-cropped; keep the subject inside the central 3.4:1 band | menu |
 | ART-002 | `fresco_ladder.jpg` | 1032x168 | painted | T-FRESCO | a stepped stone tower of trials with torches on each terrace, warriors climbing | DuelScene.ts:726 mode banner (Ladder tab): inner (w-8) x 28 UI px, ~6:1; replaces procedural modeArt "ladder" | not wired |
-| ART-003 | `fresco_arena.jpg` | 1032x168 | painted | T-FRESCO | a stone arena with pennants, two champions facing each other, crowd on the tiers | DuelScene.ts:726 mode banner (Arena tab): inner (w-8) x 28 UI px, ~6:1; replaces procedural modeArt "arena" | not wired |
+| ART-003 | `fresco_arena.jpg` | 1032x168 | painted | T-FRESCO | a stone arena with pennants, two champions facing each other, crowd on the tiers | DuelScene.ts:726 mode banner (Arena tab): inner (w-8) x 28 UI px, ~6:1; replaces procedural modeArt "arena" | first-run-modes |
 | ART-004 | `fresco_shop.jpg` | 1032x132 | painted | T-FRESCO | an agora market stall under a striped awning, amphorae, bronze goods, a merchant | ShopScene.ts:161 mode banner: inner (w-8) x 22 UI px, ~7.6:1; replaces procedural modeArt "shop" | not wired |
-| ART-005 | `fresco_war.jpg` | 1032x432 | painted | T-FRESCO | rival armies encamped around a walled hill town, banners, smoke of camp fires | FirstRunScene.ts:73 "Online war" mode card (today icon only; card art to be wired, audit FR-3), 2.4:1 | not wired |
+| ART-005 | `fresco_war.jpg` | 1032x432 | painted | T-FRESCO | rival armies encamped around a walled hill town, banners, smoke of camp fires | FirstRunScene.ts:73 "Online war" mode card (today icon only; card art to be wired, audit FR-3), 2.4:1 | first-run-modes |
 
 ### Settlement vignettes (6)
 
@@ -157,7 +157,7 @@ The machine-readable source is `docs/v5/art/asset-manifest.json`. The tables bel
 
 | ID | File | Size px | Kind | Template | Subject | Slot in code | Preview |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| ART-056 | `splash_keyart.jpg` | 780x1688 | painted | T-SPLASH | a hoplite phalanx with locked shields on a beach at dawn, seen from low, ships and a temple on the headland behind; empty sky in the top third for the logo | BootScene (audit BOOT-1) and FirstRun offer background (audit FR-1); full-bleed cover, 9:19.5, keep the subject in the central 320x568-CSS safe area. Exception to the x6 rule: x2 CSS (soft painting, full screen) | not wired |
+| ART-056 | `splash_keyart.jpg` | 780x1688 | painted | T-SPLASH | a hoplite phalanx with locked shields on a beach at dawn, seen from low, ships and a temple on the headland behind; empty sky in the top third for the logo | BootScene (audit BOOT-1) and FirstRun offer background (audit FR-1); full-bleed cover, 9:19.5, keep the subject in the central 320x568-CSS safe area. Exception to the x6 rule: x2 CSS (soft painting, full screen) | first-run-offer, first-run-resume |
 
 ### World pixel art: field works (5)
 
