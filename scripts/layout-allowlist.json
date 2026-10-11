@@ -51,9 +51,7 @@
     "town-rest|text-size|*",
     "village|text-size|*"
   ],
-  "C": [
-    "camp-temper|text-size|*"
-  ],
+  "C": [],
   "F": [
     "kit-mosaic|text-size|*",
     "tutorial-fight|text-size|*",
@@ -112,7 +110,6 @@
     "town-recruits|text-size|*": "SET-01",
     "town-rest|text-size|*": "SET-01",
     "village|text-size|*": "SET-01",
-    "camp-temper|text-size|*": "CMP-01",
     "kit-mosaic|text-size|*": "F-05",
     "tutorial-fight|text-size|*": "TUT-02",
     "tutorial-loose|text-size|*": "TUT-02",

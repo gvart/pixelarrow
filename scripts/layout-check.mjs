@@ -429,6 +429,8 @@ const SCREENS = [
     ['camp-place', "s.startPlacing('tent');"],
     ['camp-muster', 's.openMuster();'],
     ['camp-temper', 's.openTemper();'],
+    ['camp-build', 's.openBuild();'],
+    ['camp-supplies', 's.openSupplies();'],
   ].map(([id, after]) => ({
     id,
     owner: 'C',
@@ -468,6 +470,18 @@ const SCREENS = [
       return wait(p, 500);
     },
   })),
+  // the War camp's Buildings list (CMP-01) on the demo shard's camp preview
+  {
+    id: 'camp-war-build',
+    owner: 'C',
+    run: async (p) => {
+      await start(p, 'Online', { preview: 'camp' });
+      await until(p, activeIs('Camp'), 25000);
+      await until(p, () => !!window.__game.scene.getScene('Camp').layout, 10000);
+      await call(p, 'Camp', 's.openBuild(); return 1;');
+      return wait(p, 600);
+    },
+  },
   { id: 'army', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World' }), wait(p, 900)) },
   { id: 'army-stash', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World', tab: 'stash' }), wait(p, 900)) },
   // the Army template's states (ARM-01): a full roster of 20 with a slinger selected, a wounded militiaman,

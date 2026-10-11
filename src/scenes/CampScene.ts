@@ -1,27 +1,31 @@
 /**
  * The camp: a full isometric scene (docs/ART_STYLE.md, art in
  * src/art/campIso.ts, layout in src/world/campLayout.ts) for both the
- * offline field camp (src/world/camp.ts) and the online camps
+ * offline Field camp (src/world/camp.ts) and the online War camp
  * (src/online/camps.ts). The clearing with its pavilion, tents, sheds, stall
  * and forge is a pannable world container: the ground is baked into one
  * texture, every structure is a cached sprite sorted by its feet, and the
  * life (src/ui/campIsoLife.ts) is a dozen figures, some animals, smoke and
- * sparks. Around it the UI of the reference: a resource strip on top, the
- * column toolbar of structures on the right (a placement ghost with its
- * valid / invalid footprint, construction stages and dust), and a parchment
- * strip below with the day clock, End day (field) / Rest (online), the
- * muster (who marches in the formation, who stays as the reserve) and the
- * loot. Portrait-first: everything fits 320 x 568 at scale 2.
+ * sparks. The chrome is the v5 map shell (design/ux/screens-campaign.md C-5,
+ * CMP-01), the same as the World map's: the top bar (back, "Field camp" /
+ * "War camp", gear), the parchment situation line (where and when, what the
+ * camp does, the purse as chips), a zoom key, and a two-row stone strip of
+ * labelled actions. Build opens the labelled Build drawer (name, cost, time,
+ * count, why not), which leads to the supplies and field-works page
+ * (field-works.md R4); the muster, the forge and the strike confirm are kit
+ * sheets. Portrait-first: everything fits 320 x 568 at scale 2.
  */
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { scaleIcon, addIcon, addText } from '../ui/kit';
-import { confirmDialog, openModal, toast, ScrollList, type Modal } from '../ui/widgets';
+import { ScrollArea, scaleIcon, addIcon } from '../ui/kit';
+import { confirmDialog, toast, ScrollList } from '../ui/widgets';
 import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
-import { ellipsize } from '../ui/textfit';
-import { CHIP_ROW_H, ChipRow, MActionBar, MButton, ParchmentRow, MIconButton, TOPBAR_H, actionBarH, addSubShell, mosaicImage, type SituationChip } from '../ui/mosaic';
+import { wrapsWhole } from '../ui/textfit';
+import { CHIP_ROW_H, ChipRow, MButton, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, openParchmentSheet, wrapWords, type MButtonVariant, type ParchmentSheetHandle, type SituationChip } from '../ui/mosaic';
 import { ensureFonts } from '../ui/fonts';
-import { uiIgnore } from '../ui/layout';
+import { uiId, uiIgnore } from '../ui/layout';
+import { TEXT_MIN, lineHeight } from '../ui/tokens';
+import { motion } from '../ui/motion';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
@@ -29,8 +33,9 @@ import { Pix } from '../art/pixels';
 import * as Iso from '../art/campIso';
 import { fieldLayout, onlineLayout, type IsoLayout, type IsoThing } from '../world/campLayout';
 import { STRUCTURES, STRUCTURE_LIST, campEffects, countBuilt, freeSpot, placeCheck, type StructureId } from '../world/camp';
-import { regionName } from '../world/map';
-import { CAMP_BUILDING_IDS, CAMP_RULES as OCAMP, RESOURCE_KEYS, campLevelCost, canAfford, type CampBuildingId, type Resources } from '../online/rules';
+import type { WorldMap } from '../world/map';
+import type { World } from '../world/world';
+import { CAMP_BUILDING_IDS, CAMP_RULES as OCAMP, RESOURCE_KEYS, campLevelCost, type CampBuildingId, type Resources } from '../online/rules';
 import { checkBuild, checkClaim, statesOf, type CampReason, type CampView, type CampsView } from '../online/camps';
 import { errorText } from '../online/client';
 import type { CampSource } from './online/campPanel';
@@ -40,10 +45,13 @@ import { dollFromHero, type DollSpec } from '../art/paperdoll';
 import { flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
 import { CampIsoLife, facingOf } from '../ui/campIsoLife';
 import type { Hero } from '../data/units';
-import { itemDef, type Item } from '../data/items';
+import { RARITIES, itemDef, normalizeRarity, type Item } from '../data/items';
 import { MUSTER, classRows, fieldIds, musterOf, reserveChanges, shiftClass, toggleReserve, type MusterHero, type MusterWhy } from '../game/muster';
+import { worksAllowance } from '../game/campaign';
+import { WORKS } from '../data/terrain';
+import { WORK_TYPES } from '../sim/types';
 import { CLASSES, type ClassId } from '../data/classes';
-import { frameScrollTexts } from '../ui/sheet';
+import { frameScrollTexts, itemName } from '../ui/sheet';
 import { fmtDuration, fmtNum } from '../util/format';
 import type { OwnedHeroView } from '../online/client';
 
@@ -65,10 +73,17 @@ export interface CampSceneData {
 
 const RES_ICON: Record<keyof Resources, string> = { gold: 'wargold', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
 const FIELD_ICON: Record<StructureId, string> = { tent: 'tent', fire: 'fire', palisade: 'wall', forge: 'anvil', training: 'swords' };
-const BAND_H = CHIP_ROW_H + 4;
-const TOP_H = TOPBAR_H + BAND_H;
-const BOT_H = actionBarH(true);
-const COL_W = 28;
+/** The action strip: two rows of 48 pt buttons, 8 pt apart (C-5 Touch). */
+const BTN_H = 24;
+const BAR_PAD = 4;
+const ROW_GAP = 4;
+/** The parchment reason line over the strip (War camp: why a button is off, CMP-6). */
+const WHY_H = 12;
+/** Drawer rows are 52 pt (C-5 Touch). */
+const ROW_H = 26;
+const ROW_GAP_LIST = 2;
+/** Line pitch of 6.5 UI px text (A11Y-09), with a pixel to spare so stacked lines never touch. */
+const LH = Math.ceil(lineHeight(TEXT_MIN)) + 1;
 /** Sprites rendered once per game (textures are shared by every scene). */
 const sprites = new Map<string, { ox: number; oy: number; w: number; h: number }>();
 
@@ -90,12 +105,14 @@ export class CampScene extends BaseScene {
   private life: CampIsoLife | null = null;
   private tint!: Phaser.GameObjects.Rectangle;
   private hud!: Phaser.GameObjects.Container;
-  private bar!: MActionBar;
-  private chips: ChipRow | null = null;
+  /** The action strip (two rows of labelled buttons). */
+  private bar: Phaser.GameObjects.Container | null = null;
+  private sit: SituationLine | null = null;
+  private sitKey = '';
+  /** Top of the open map under the situation line, UI px. */
+  private visTop = 0;
   private topC!: Phaser.GameObjects.Container;
   private topKey = '';
-  private chipKey = '';
-  private infoKey = '';
   private zoom = 1;
   private gesture: { id: number; sx: number; sy: number; wx: number; wy: number; moved: boolean } | null = null;
   // field
@@ -109,7 +126,7 @@ export class CampScene extends BaseScene {
   private kind: CampBuildingId | null = null;
   private busy = false;
   private timer: Phaser.Time.TimerEvent | null = null;
-  private modal: Modal | null = null;
+  private modal: ParchmentSheetHandle | null = null;
   private eventCard: EventCardHandle | null = null;
   private musterList: MusterHero[] = [];
 
@@ -136,12 +153,16 @@ export class CampScene extends BaseScene {
     this.gesture = null;
     this.animTimer = null;
     this.lastStages = '';
+    this.bar = null;
+    this.sit = null;
     this.initUi();
     ensureFonts(this);
     registerCampTextures(this, 30);
     const { VW, VH } = this.m;
     this.cameras.main.setBackgroundColor(0x2b1d1a);
-    this.view = { x: 0, y: TOP_H, w: VW, h: VH - TOP_H - BOT_H };
+    // the map fills the screen between the top bar and the action strip; the situation line floats over its top
+    this.view = { x: 0, y: TOPBAR_H, w: VW, h: VH - TOPBAR_H - this.barH() };
+    this.visTop = TOPBAR_H;
     // the pannable world under a mask of the viewport
     this.world = this.add.container(0, 0);
     this.ui.add(this.world);
@@ -152,7 +173,7 @@ export class CampScene extends BaseScene {
     // day / night tint over the viewport
     this.tint = this.add.rectangle(this.view.x, this.view.y, this.view.w, this.view.h, 0x1a1c48, 0).setOrigin(0, 0);
     this.ui.add(this.tint);
-    const zone = this.add.zone(this.view.x, this.view.y, this.view.w - COL_W, this.view.h).setOrigin(0, 0).setInteractive();
+    const zone = this.add.zone(this.view.x, this.view.y, this.view.w, this.view.h).setOrigin(0, 0).setInteractive();
     uiIgnore(zone);
     this.ui.add(zone);
     zone.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
@@ -173,7 +194,6 @@ export class CampScene extends BaseScene {
     });
     if (this.d.mode === 'online') {
       this.buildHud();
-      this.setInfo(t('hex.scouting'));
       this.timer = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.tick() });
       void this.fetch();
     } else {
@@ -357,6 +377,11 @@ export class CampScene extends BaseScene {
     const img = this.add.image(o.x - s.ox, o.y - s.oy, s.tex).setOrigin(0, 0).setDepth(this.depthOf(th)).setAlpha(0.62).setTint(okAll ? 0x7fd0e0 : 0xe08088);
     this.world.add(img);
     this.ghostObjs.push(img);
+    // valid or not is also a glyph over the ghost, never the tint alone (CMP-5, G13)
+    const mark = scaleIcon(addIcon(this, 0, 0, okAll ? 'check' : 'xmark'), 1.2).setOrigin(0.5, 1);
+    mark.setPosition(Math.round(o.x - s.ox + s.w / 2), Math.round(o.y - s.oy - 2)).setDepth(1e5);
+    this.world.add(mark);
+    this.ghostObjs.push(mark);
   }
 
   // ================================================================ life
@@ -558,7 +583,20 @@ export class CampScene extends BaseScene {
     const p = L.spots.pavilion;
     const c = n ? Iso.groundScreen(sx / n, sy / n) : Iso.groundScreen(p.x + 1.5, p.y + 2.5);
     this.world.setScale(this.zoom);
-    this.world.setPosition(Math.round(this.view.x + (this.view.w - COL_W) / 2 - c.x * this.zoom), Math.round(this.view.y + this.view.h / 2 - c.y * this.zoom + 10));
+    this.lookAt(c.x, c.y + 10);
+  }
+
+  /** The middle of the open map (under the situation line, above the strip), UI px. */
+  private visCentre(): { x: number; y: number } {
+    const bottom = this.view.y + this.view.h;
+    return { x: this.view.x + this.view.w / 2, y: Math.round((this.visTop + bottom) / 2) };
+  }
+
+  /** Pan so the world point (wx, wy) sits in the middle of the open map. */
+  private lookAt(wx: number, wy: number): void {
+    const c = this.visCentre();
+    this.world.setScale(this.zoom);
+    this.world.setPosition(Math.round(c.x - wx * this.zoom), Math.round(c.y - wy * this.zoom));
     this.clampPan();
   }
 
@@ -570,7 +608,7 @@ export class CampScene extends BaseScene {
     const minX = this.view.x + this.view.w - (g.pw - g.ox) * z - 20;
     const maxX = this.view.x + g.ox * z + 20;
     const minY = this.view.y + this.view.h - (g.ph - g.oy) * z - 20;
-    const maxY = this.view.y + g.oy * z + 60;
+    const maxY = this.visTop + g.oy * z + 60;
     this.world.x = Math.round(Phaser.Math.Clamp(this.world.x, Math.min(minX, maxX), Math.max(minX, maxX)));
     this.world.y = Math.round(Phaser.Math.Clamp(this.world.y, Math.min(minY, maxY), Math.max(minY, maxY)));
   }
@@ -578,8 +616,7 @@ export class CampScene extends BaseScene {
   private toggleZoom(): void {
     const L = this.layout;
     if (!L) return;
-    const cx = this.view.x + (this.view.w - COL_W) / 2;
-    const cy = this.view.y + this.view.h / 2;
+    const { x: cx, y: cy } = this.visCentre();
     const wx = (cx - this.world.x) / this.zoom;
     const wy = (cy - this.world.y) / this.zoom;
     this.zoom = this.zoom === 1 ? 2 : 1;
@@ -611,7 +648,7 @@ export class CampScene extends BaseScene {
     if (!g || p.id !== g.id || g.moved) return;
     const ux = p.x / this.m.S;
     const uy = p.y / this.m.S;
-    if (ux < this.view.x || ux > this.view.x + this.view.w - COL_W || uy < this.view.y || uy > this.view.y + this.view.h) return;
+    if (ux < this.view.x || ux > this.view.x + this.view.w || uy < this.visTop || uy > this.view.y + this.view.h) return;
     const wx = (ux - this.world.x) / this.zoom;
     const wy = (uy - this.world.y) / this.zoom;
     const tl = Iso.screenTile(wx, wy);
@@ -631,6 +668,7 @@ export class CampScene extends BaseScene {
         this.placing.x = nx;
         this.placing.y = ny;
         this.refreshGhost();
+        this.refreshHud();
         haptic('light');
         return;
       }
@@ -667,159 +705,150 @@ export class CampScene extends BaseScene {
 
   // ================================================================ HUD
 
+  /** Height of the action strip: two rows of buttons, and the War camp's reason line. */
+  private barH(): number {
+    return BAR_PAD * 2 + BTN_H * 2 + ROW_GAP + (this.d?.mode === 'online' ? WHY_H : 0);
+  }
+
   private buildHud(): void {
     const H = this.hud;
     H.removeAll(true);
     const { VW, VH } = this.m;
-    const S = this.m.S;
-    // top bar: the way back and the day / the camp; the purse sits on a stone band under it as chips
-    const field = this.d.mode === 'field';
+    // the top bar (back, the camp's name, gear), then the situation line with the purse, floating over the map
     this.topC = this.add.container(0, 0);
     H.add(this.topC);
     this.topKey = '';
-    H.add(mosaicImage(this, 0, TOPBAR_H, VW, BAND_H, 'topBar'));
-    this.chips = null;
-    this.chipKey = '';
-    this.infoKey = '';
-    // the column toolbar: the structures to build, then the zoom
-    const colX = VW - COL_W + 1;
-    const colY = TOP_H;
-    const colH = VH - TOP_H - BOT_H;
-    H.add(mosaicImage(this, colX, colY, COL_W - 2, colH, 'topBar'));
-    const bw = 22;
-    const bx = colX + Math.floor((COL_W - 2 - bw) / 2);
-    // five structures and the zoom down the shaft; tight on short screens (4 pt between targets)
-    // the zoom takes the last slot of the shaft when it fits, else it floats at the map's top right
-    const zoomInRail = colH >= 6 * bw + 5 * 2 + 3;
-    const slots = zoomInRail ? 6 : 5;
-    const top = colH >= slots * bw + (slots - 1) * 3 + 24 ? 14 : 1;
-    const gap = Math.max(2, Math.min(6, Math.floor((colH - top - 2 - slots * bw) / (slots - 1))));
-    let by = colY + top;
-    if (field) {
-      const w = state.campaign.world;
-      const c = w.camp!;
-      for (const d of STRUCTURE_LIST) {
-        const n = countBuilt(c, d.id);
-        const why = n >= d.max ? t('cs.built') : w.supplies < d.cost ? t('cs.needSupplies', { n: d.cost }) : !freeSpot(w.map, c, d.id) ? t('cs.noRoom') : undefined;
-        const on = this.placing?.id === d.id;
-        H.add(
-          new MIconButton(this, bx, by, bw, bw, {
-            icon: FIELD_ICON[d.id],
-            label: `${d.name} (${d.cost})`,
-            tip: `${d.name}: ${d.desc}. ${d.cost} ${t('cs.suppliesWord')}, ${d.hours}h`,
-            variant: on ? 'lit' : 'neutral',
-            off: why && !on ? why : undefined,
-            count: d.max > 1 || n ? `${n}` : undefined,
-            onClick: () => (on ? this.cancelPlacing() : this.startPlacing(d.id)),
-            id: `camp.build.${d.id}`,
-          }),
-        );
-        by += bw + gap;
-      }
-    } else {
-      const camp = this.camp();
-      const v = this.cv;
-      for (const k of CAMP_BUILDING_IDS) {
-        const built = camp?.buildings.find((b) => b.kind === k);
-        const on = camp ? (built ? this.slot === built.slot && !this.kind : this.kind === k) : false;
-        const afford = v ? canAfford(v.resources, campLevelCost(k, 1).cost) : false;
-        H.add(
-          new MIconButton(this, bx, by, bw, bw, {
-            icon: `camp_${k}`,
-            label: t(`ocamp.b.${k}` as TKey),
-            tip: `${t(`ocamp.b.${k}` as TKey)}: ${t(`ocamp.d.${k}` as TKey)}`,
-            variant: on ? 'lit' : 'neutral',
-            off: camp ? undefined : t('ocamp.why.notCamp'),
-            count: built ? `${built.building ?? built.level}` : undefined,
-            onClick: () => this.pickKind(k),
-            id: `camp.pick.${k}`,
-          }),
-        );
-        if (!built && camp && !afford) H.add(scaleIcon(addIcon(this, bx + bw - 9, by + bw - 9, 'coin', 'D'), 0.5));
-        by += bw + gap;
-      }
+    this.sit = new SituationLine(this, 4, TOPBAR_H + 2, VW - 8, { compact: VH < 240, id: 'camp.situation' });
+    H.add(this.sit);
+    this.sitKey = '';
+    this.visTop = this.sit.y + this.sit.h;
+    // the War camp's chips cannot share one row on the narrowest screens (Telegram at 320x568): the last ones
+    // get a parchment strip of their own under the card, so no number is ever cut (G14)
+    this.chips2 = null;
+    if (this.d.mode === 'online' && VW < 150) {
+      this.chips2 = this.add.container(4, this.visTop + 1);
+      this.chips2.add(mosaicImage(this, 0, 0, VW - 8, CHIP_ROW_H + 4, 'parchment'));
+      uiId(this.chips2, 'camp.chips2');
+      H.add(this.chips2);
+      this.visTop += CHIP_ROW_H + 5;
     }
-    const zx = zoomInRail ? bx : colX - bw - 3;
-    const zy = zoomInRail ? by : TOP_H + 3;
-    H.add(new MIconButton(this, zx, zy, bw, bw, { icon: 'eye', label: t('cs.zoom'), variant: this.zoom > 1 ? 'lit' : 'neutral', onClick: () => this.toggleZoom(), id: 'camp.zoom' }));
-    // bottom strip: the info line and the actions
-    this.bar = new MActionBar(this, VW, VH, { info: true });
-    H.add(this.bar);
-    this.bar.set(
-      this.actions().map((b) => ({ label: b.label, icon: b.icon, iconOnly: b.iconOnly, primary: b.primary, onClick: b.onClick, off: b.why, tip: b.tip ?? b.label, id: b.id })),
-    );
-    void S;
+    // a tap on the card is not a tap on the camp under it
+    const block = uiIgnore(this.add.zone(this.sit.x, this.sit.y, this.sit.w, this.visTop - this.sit.y).setOrigin(0, 0).setInteractive());
+    H.add(block);
+    // the zoom key (WCAG 2.5.1: pinch is never the only way)
+    H.add(new MIconButton(this, VW - 4 - TAP_KEY, this.visTop + 4, TAP_KEY, TAP_KEY, { icon: 'eye', label: t('cmp.zoom'), tip: t('cmp.zoomTip'), variant: this.zoom > 1 ? 'lit' : 'neutral', onClick: () => this.toggleZoom(), id: 'camp.zoom' }));
+    this.buildBar();
     this.refreshHud();
   }
 
-  /** The top bar: the back arrow and the title ("Day 1 - 08:00" in the field, the camp's name online). */
+  /** The stone strip: rows of labelled buttons; over it, on parchment, why the War camp's off buttons are off (CMP-6). */
+  private buildBar(): void {
+    const { VW, VH } = this.m;
+    const h = this.barH();
+    const c = this.add.container(0, VH - h);
+    this.bar = c;
+    this.hud.add(c);
+    c.add(mosaicImage(this, 0, 0, VW, h, 'tabBar'));
+    uiId(c, 'camp.strip');
+    const rows = this.actionRows();
+    const top = this.d.mode === 'online' ? WHY_H : 0;
+    if (top) {
+      c.add(mosaicImage(this, 0, 0, VW, WHY_H, 'parchment'));
+      const why = rows.flat().filter((sl) => sl.off);
+      const all = why.map((sl) => t('cmp.reason', { name: sl.label, why: sl.off! })).join(' · ');
+      const room = VW - 8;
+      const one = why.find((sl) => sl.primary) ?? why[0];
+      const text = !why.length ? '' : mw(all, 'pSec', TEXT_MIN) <= room ? all : t('cmp.reason', { name: one.label, why: one.off! });
+      if (text) c.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: room, box: { owner: c, w: VW, h: WHY_H } }));
+    }
+    // one row sits in the middle of the strip; two fill it
+    const inner = h - top - BAR_PAD * 2;
+    const used = rows.length * BTN_H + (rows.length - 1) * ROW_GAP;
+    let y = top + BAR_PAD + Math.round((inner - used) / 2);
+    for (const row of rows) {
+      this.layoutRow(c, row, y);
+      y += BTN_H + ROW_GAP;
+    }
+  }
+
+  /** A row of buttons across the strip: natural widths plus an equal share of what is left; icons go first when it is tight. */
+  private layoutRow(c: Phaser.GameObjects.Container, row: CampSlot[], y: number): void {
+    const room = this.m.VW - BAR_PAD * 2 - GAP_BTN * (row.length - 1);
+    const label = (sl: CampSlot) => mw(sl.label.toUpperCase(), sl.off ? 'rOff' : 'rCream', 7) + 14;
+    const withIcon = (sl: CampSlot) => label(sl) + (sl.icon ? 12 : 0);
+    const icons = row.reduce((a, sl) => a + withIcon(sl), 0) <= room;
+    const nat = row.map((sl) => (icons ? withIcon(sl) : label(sl)));
+    const sum = nat.reduce((a, n) => a + n, 0);
+    const share = Math.floor((room - sum) / row.length);
+    let x = BAR_PAD;
+    row.forEach((sl, i) => {
+      const w = i === row.length - 1 ? this.m.VW - BAR_PAD - x : Math.max(TAP_KEY, sum <= room ? nat[i] + share : Math.floor((nat[i] * room) / sum));
+      const variant: MButtonVariant = sl.off ? 'disabled' : sl.primary ? 'primary' : 'secondary';
+      c.add(new MButton(this, x, y, w, BTN_H, { label: sl.label, icon: icons ? sl.icon : undefined, variant, onClick: sl.onClick, disabledReason: sl.off, tip: sl.tip ?? sl.label, id: sl.id }));
+      x += w + GAP_BTN;
+    });
+  }
+
+  /** The top bar: the way back, "Field camp" / "War camp" and the gear (D9). */
   private setTop(title: string): void {
     if (title === this.topKey) return;
     this.topKey = title;
     this.topC.removeAll(true);
-    addSubShell(this, { map: true, parent: this.topC, title, id: 'camp.topbar', actions: [], back: this.inGameBack ? () => this.goBack() : undefined });
+    addSubShell(this, { map: true, parent: this.topC, title, id: 'camp.topbar', actions: [gearAction(this)], back: this.inGameBack ? () => this.goBack() : undefined });
   }
 
-  /** The purse as chips on the stone band under the top bar. */
-  private setChips(): void {
-    const chips: SituationChip[] = [];
-    if (this.d.mode === 'field') {
-      const c = state.campaign;
-      const w = c.world;
-      chips.push({ icon: 'coin', value: `${c.data.gold}`, id: 'camp.gold' });
-      chips.push({ icon: 'food', value: `${Math.floor(w.food)}${w.starving ? '!' : ''}`, id: 'camp.food' });
-      chips.push({ icon: 'wood', value: `${Math.floor(w.supplies)}`, id: 'camp.supplies' });
-      chips.push({ icon: 'people', value: `${c.fitHeroes().length}/${c.data.heroes.length}`, id: 'camp.men' });
-    } else if (this.cv) {
-      const r = this.cv.resources;
-      for (const k of RESOURCE_KEYS) {
-        if (k === 'recruits' && this.m.VW < 200) continue;
-        chips.push({ icon: RES_ICON[k], value: k === 'recruits' ? `${Math.floor(r[k] * 10) / 10}` : fmtNum(r[k]), id: `camp.res.${k}` });
-      }
+  /** The situation line: a sentence that is never cut (A11Y-10), and the purse as chips in one order (P17). */
+  private setSituation(tries: string[], chips: SituationChip[]): void {
+    const sit = this.sit;
+    if (!sit?.active) return;
+    const lines = this.m.VH < 240 ? 1 : 2;
+    const room = sit.w - 14;
+    const sentence = tries.find((x) => x && wrapsWhole(x, room, lines)) ?? tries[tries.length - 1];
+    const key = `${sentence}|${chips.map((c) => `${c.icon}${c.value}`).join(',')}`;
+    if (key === this.sitKey) return;
+    this.sitKey = key;
+    const c2 = this.chips2;
+    sit.set(sentence, false, c2 ? chips.slice(0, 2) : chips);
+    if (c2) {
+      c2.list.slice(1).forEach((o) => o.destroy());
+      c2.add(new ChipRow(this, 5, 2, this.m.VW - 18, chips.slice(2)));
     }
-    const key = chips.map((c) => `${c.icon}${c.value}`).join('|');
-    if (key === this.chipKey) return;
-    this.chipKey = key;
-    this.chips?.destroy();
-    this.chips = new ChipRow(this, 4, TOPBAR_H + 2, this.m.VW - 8, chips, 'stone');
-    this.hud.add(this.chips);
   }
 
-  private setInfo(text: string): void {
-    if (text === this.infoKey) return;
-    this.infoKey = text;
-    this.bar.setInfo(text);
-  }
+  /** The second row of the War camp's chips, on the narrowest screens. */
+  private chips2: Phaser.GameObjects.Container | null = null;
 
-  private regionName(): string {
-    const w = state.campaign.world;
-    return regionName(w.map, w.s.x, w.s.y);
-  }
-
-  private actions(): { label: string; icon: string; onClick: () => void; primary?: boolean; why?: string; tip?: string; id: string; iconOnly?: boolean }[] {
+  /** The actions, row by row. Field: Strike apart from End day (C-5: never next to the primary). */
+  private actionRows(): CampSlot[][] {
     if (this.d.mode === 'field') {
       if (this.placing) {
+        const why = this.placeWhy();
         return [
-          { label: t('common.cancel'), icon: 'close', onClick: () => this.cancelPlacing(), id: 'camp.cancel' },
-          { label: t('cs.place'), icon: 'check', onClick: () => this.confirmPlacing(), primary: true, id: 'camp.place' },
+          [
+            { label: t('common.cancel'), icon: 'close', onClick: () => this.cancelPlacing(), id: 'camp.cancel' },
+            { label: t('cs.place'), icon: 'check', onClick: () => this.confirmPlacing(), primary: true, off: why ?? undefined, id: 'camp.place' },
+          ],
         ];
       }
       return [
-        { label: t('cs.muster'), icon: 'people', iconOnly: true, onClick: () => this.openMuster(), id: 'camp.muster', tip: t('cs.musterTip') },
-        { label: t('cs.loot'), icon: 'amphora', iconOnly: true, onClick: () => this.openLoot(), id: 'camp.loot', tip: t('cs.lootTip') },
-        { label: t('cs.endDay'), icon: 'hourglass', onClick: () => this.endDay(), primary: true, id: 'camp.endDay', tip: t('cs.endDayTip') },
-        { label: t('cs.strike'), icon: 'tent', onClick: () => this.strike(), id: 'camp.strike' },
+        [
+          { label: t('cmp.strike'), icon: 'tent', onClick: () => this.strike(), tip: t('cmp.strikeTip'), id: 'camp.strike' },
+          { label: t('cmp.muster'), icon: 'people', onClick: () => this.openMuster(), id: 'camp.muster', tip: t('cs.musterTip') },
+          { label: t('cmp.loot'), icon: 'amphora', onClick: () => this.openLoot(), id: 'camp.loot', tip: t('cs.lootTip') },
+        ],
+        [
+          { label: t('cmp.build'), icon: 'anvil', onClick: () => this.openBuild(), id: 'camp.build', tip: t('cmp.buildTip') },
+          { label: t('cs.endDay'), icon: 'hourglass', onClick: () => this.endDay(), primary: true, id: 'camp.endDay', tip: t('cs.endDayTip') },
+        ],
       ];
     }
     const v = this.cv;
     const camp = this.camp();
-    if (!v) return [{ label: t('common.back'), icon: 'back', onClick: () => this.goBack(), id: 'camp.back2' }];
+    if (!v) return [[{ label: t('common.back'), icon: 'back', onClick: () => this.goBack(), id: 'camp.back2' }]];
+    const muster: CampSlot = { label: t('cmp.muster'), icon: 'people', onClick: () => this.openMuster(), id: 'camp.muster', tip: t('cs.musterTip') };
     if (!camp) {
       const check = checkClaim({ campPlot: true, mine: true, isCamp: false, forward: v.forward.n, armyHere: !v.army.marching && v.army.loc === this.d.loc, have: v.resources });
-      return [
-        { label: t('cs.muster'), icon: 'people', iconOnly: true, onClick: () => this.openMuster(), id: 'camp.muster' },
-        { label: t('ocamp.claim'), icon: 'tent', primary: true, why: check.ok ? undefined : this.why(check.reason), onClick: () => void this.run(() => this.d.source!.claim(this.d.loc!), t('ocamp.claimed')), id: 'camp.claim' },
-      ];
+      return [[muster, { label: t('ocamp.claim'), icon: 'tent', primary: true, off: check.ok ? undefined : this.why(check.reason), onClick: () => void this.run(() => this.d.source!.claim(this.d.loc!), t('ocamp.claimed')), id: 'camp.claim' }]];
     }
     const sel = camp.buildings.find((b) => b.slot === this.slot) ?? null;
     const kind = sel ? sel.kind : this.kind;
@@ -832,55 +861,305 @@ export class CampScene extends BaseScene {
     const why = !kind ? t('ocamp.empty') : check && !check.ok ? this.why(check.reason) : !check ? (sel?.building !== null ? this.why('busy') : this.why('maxLevel')) : undefined;
     const restWhy = v.army.marching || v.army.loc !== this.d.loc ? this.why('notHere') : camp.restAt ? t('ocamp.restIn', { t: fmtDuration(camp.restAt - this.nowServer()) }) : undefined;
     return [
-      { label: t('cs.muster'), icon: 'people', iconOnly: true, onClick: () => this.openMuster(), id: 'camp.muster', tip: t('cs.musterTip') },
-      { label: t('cs.loot'), icon: 'amphora', iconOnly: true, onClick: () => this.openLoot(), id: 'camp.loot', tip: t('cs.lootTip') },
-      { label: t('ocamp.rest'), icon: 'hourglass', why: restWhy, tip: t('ocamp.restTip', { e: OCAMP.restEnergy }), onClick: () => void this.run(() => this.d.source!.rest(this.d.loc!), (r) => t('ocamp.rested', { e: Math.floor((r as CampsView & { energy?: number }).energy ?? 0) })), id: 'camp.rest' },
-      { label, icon: upgrade ? 'plus' : 'anvil', primary: true, why, onClick: () => void this.build(kind!, upgrade ? null : this.slot), id: 'camp.build' },
+      [
+        muster,
+        { label: t('cmp.loot'), icon: 'amphora', onClick: () => this.openLoot(), id: 'camp.loot', tip: t('cs.lootTip') },
+        { label: t('ocamp.rest'), icon: 'hourglass', off: restWhy, tip: t('ocamp.restTip', { e: OCAMP.restEnergy }), onClick: () => void this.run(() => this.d.source!.rest(this.d.loc!), (r) => t('ocamp.rested', { e: Math.floor((r as CampsView & { energy?: number }).energy ?? 0) })), id: 'camp.rest' },
+      ],
+      [
+        { label: t('cmp.buildings'), icon: 'anvil', onClick: () => this.openBuild(), id: 'camp.buildings', tip: t('cmp.buildingsTip') },
+        { label, icon: upgrade ? 'plus' : 'anvil', primary: true, off: why, onClick: () => void this.build(kind!, upgrade ? null : this.slot), id: 'camp.build' },
+      ],
     ];
   }
 
+  /** The strip again, when what it offers changed (a timer, a reason). */
+  private refreshBar(): void {
+    const key = JSON.stringify(this.actionRows().map((r) => r.map((sl) => [sl.label, sl.off ?? ''])));
+    if (key === this.barKey && this.bar?.active) return;
+    this.barKey = key;
+    this.bar?.destroy();
+    this.buildBar();
+  }
+
+  private barKey = '';
+
   refreshHud(): void {
-    if (!this.bar?.active) return;
+    if (!this.sit?.active) return;
     if (this.d.mode === 'field') {
       const w = state.campaign.world;
       const s = w.s;
       const day = Math.floor(s.time / 24) + 1;
       const h = Math.floor(s.time % 24);
-      this.setTop(t('mosaic.cmap.clock', { d: day, h: String(h).padStart(2, '0') }));
-      this.setChips();
+      const hh = `${String(h).padStart(2, '0')}:00`;
+      this.setTop(t('cmp.field.title'));
+      const where = t('cmp.where', { d: day, h: this.isNight() ? t('cmp.night', { h: hh }) : hh, place: regionLabel(w.map, s.x, s.y) });
       const c = w.camp;
-      let info = `${this.regionName()}. ${t('cs.hint')}`;
-      if (this.placing) info = t('cs.placeHint', { name: STRUCTURES[this.placing.id].name });
-      else if (this.selected !== null && c?.built[Number(this.selected)]) {
+      const tries: string[] = [];
+      if (this.placing) {
+        const hint = t('cmp.place.hint', { name: structName(this.placing.id) });
+        const bad = this.placeWhy() ? ` ${t('cmp.place.bad')}` : '';
+        tries.push(`${hint}${bad}`, hint);
+      } else if (this.selected !== null && c?.built[Number(this.selected)]) {
         const b = c.built[Number(this.selected)];
-        info = `${STRUCTURES[b.id].name}: ${STRUCTURES[b.id].desc}`;
+        const line = t('cmp.selected', { name: structName(b.id), desc: structDesc(b.id) });
+        if (b.id === 'forge') tries.push(`${line} ${t('cmp.forgeHint')}`);
+        tries.push(`${where} ${line}`, line);
       } else if (c) {
         const fx = campEffects(w.map, c);
-        const mouths = state.campaign.data.heroes.length;
-        const net = fx.forage * 24 - mouths;
-        info = t('cs.campLine', { heal: w.healRate().toFixed(1), food: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
+        const net = fx.forage * 24 - state.campaign.data.heroes.length;
+        const p = { heal: w.healRate().toFixed(1), food: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` };
+        tries.push(`${where} ${t('cmp.line', p)} ${t('cmp.hint')}`, `${where} ${t('cmp.line', p)}`, `${where} ${t('cmp.lineShort', p)}`, t('cmp.lineShort', p));
       }
-      this.setInfo(info);
+      this.setSituation(tries, this.fieldChips());
+      this.refreshBar();
       this.applyTint();
       return;
     }
     const v = this.cv;
     const camp = this.camp();
-    this.setTop([camp ? (camp.home ? t('ocamp.kind.home') : t('ocamp.kind.forward')) : t('ocamp.kind.plot'), this.d.name].filter(Boolean).join(' · '));
-    this.setChips();
-    if (!v) return;
-    let info = '';
-    if (!camp) info = t('ocamp.claimInfo', { n: v.forward.n, max: v.forward.max });
+    this.setTop(t('cmp.war.title'));
+    const head = [camp ? (camp.home ? t('cmp.home') : t('cmp.forward')) : t('cmp.claimHead'), this.d.name].filter(Boolean).join(' · ');
+    const tries: string[] = [];
+    if (!v) tries.push(`${head}. ${t('hex.scouting')}`, t('hex.scouting'));
+    else if (!camp) tries.push(`${head}. ${t('ocamp.claimInfo', { n: v.forward.n, max: v.forward.max })}`, t('ocamp.claimInfo', { n: v.forward.n, max: v.forward.max }));
     else {
+      // the effect, then the cost on its own row (CMP-6)
       const sel = camp.buildings.find((b) => b.slot === this.slot) ?? null;
+      let what = t('ocamp.empty');
+      let cost = '';
       if (sel) {
-        info = `${t('ocamp.level', { name: t(`ocamp.b.${sel.kind}` as TKey), n: sel.level })}: ${sel.level > 0 ? effectText(sel.kind, sel.level, 0) : t(`ocamp.d.${sel.kind}` as TKey)}`;
-        if (sel.building !== null && sel.doneAt !== null) info = `${t(`ocamp.b.${sel.kind}` as TKey)} ${t('ocamp.building', { t: fmtDuration(Math.max(0, sel.doneAt - this.nowServer())) })}`;
-        else if (sel.level < OCAMP.maxLevel) info += ` · ${costLine(sel.kind, sel.level + 1)}`;
-      } else if (this.kind) info = `${t(`ocamp.b.${this.kind}` as TKey)}: ${effectText(this.kind, 1, 0)} · ${costLine(this.kind, 1)}`;
-      else info = t('ocamp.empty');
+        what = `${t('ocamp.level', { name: t(`ocamp.b.${sel.kind}` as TKey), n: sel.level })}: ${sel.level > 0 ? effectText(sel.kind, sel.level, 0) : t(`ocamp.d.${sel.kind}` as TKey)}`;
+        if (sel.building !== null && sel.doneAt !== null) what = `${t(`ocamp.b.${sel.kind}` as TKey)} ${t('ocamp.building', { t: fmtDuration(Math.max(0, sel.doneAt - this.nowServer())) })}`;
+        else if (sel.level < OCAMP.maxLevel) cost = costLine(sel.kind, sel.level + 1);
+      } else if (this.kind) {
+        what = `${t(`ocamp.b.${this.kind}` as TKey)}: ${effectText(this.kind, 1, 0)}`;
+        cost = costLine(this.kind, 1);
+      }
+      // on a narrow screen the effect stays and the cost goes (the Buildings list and the reason line carry it)
+      tries.push(cost ? `${head}. ${what}\n${cost}` : `${head}. ${what}`, cost ? `${what}\n${cost}` : what, what);
     }
-    this.setInfo(info);
+    this.setSituation(tries, this.warChips());
+    this.refreshBar();
+  }
+
+  /** Gold, men, food, supplies: the World's order (WLD-5, P17). */
+  private fieldChips(): SituationChip[] {
+    const c = state.campaign;
+    const w = c.world;
+    const mouths = c.data.heroes.length;
+    const days = w.foodDays(mouths);
+    const food = Math.floor(w.food);
+    return [
+      { icon: 'coin', value: `${c.data.gold}`, id: 'camp.gold' },
+      { icon: 'people', value: `${c.fitHeroes().length}/${mouths}`, id: 'camp.men' },
+      { icon: 'food', short: `${food}${w.starving ? '!' : ''}`, value: w.starving ? `${food}!` : `${food} (${days < 1 ? '<1' : Math.floor(days)}${t('mosaic.cmap.dayShort')})`, id: 'camp.food' },
+      { icon: 'wood', value: `${Math.floor(w.supplies)}`, id: 'camp.supplies' },
+    ];
+  }
+
+  /** War gold, food, wood, bronze, recruits (compact numbers, never cut). */
+  private warChips(): SituationChip[] {
+    const chips: SituationChip[] = [];
+    if (!this.cv) return chips;
+    const r = this.cv.resources;
+    for (const k of RESOURCE_KEYS) {
+      if (k === 'recruits' && this.m.VW < 200) continue;
+      chips.push({ icon: RES_ICON[k], value: k === 'recruits' ? `${Math.floor(r[k] * 10) / 10}` : fmtNum(r[k]), id: `camp.res.${k}` });
+    }
+    return chips;
+  }
+
+  /** Why the placement ghost cannot go down where it stands (localized), or null. */
+  private placeWhy(): string | null {
+    const p = this.placing;
+    const w = state.campaign.world;
+    if (!p || !w.camp) return null;
+    const why = fieldBuildWhy(w, p.id);
+    if (why) return why;
+    return placeCheck(w.map, w.camp, p.id, p.x, p.y).ok ? null : t('cmp.place.bad');
+  }
+
+  // ================================================================ the Build drawer
+
+  /** Build: a labelled list of what the camp can build (CMP-1); a row starts its placement (field) or picks it (War camp). */
+  openBuild(): void {
+    if (this.d.mode === 'online') {
+      this.openBuildings();
+      return;
+    }
+    const w = state.campaign.world;
+    const c = w.camp;
+    if (!c) return;
+    const rows = STRUCTURE_LIST.map((d) => {
+      const n = countBuilt(c, d.id);
+      const why = fieldBuildWhy(w, d.id);
+      return {
+        icon: FIELD_ICON[d.id],
+        title: structName(d.id),
+        meta: t('cmp.drawer.meta', { cost: d.cost, time: hoursText(d.hours) }),
+        more: why ? [why] : undefined,
+        right: t('cmp.drawer.count', { n, max: d.max }),
+        off: !!why,
+        why,
+        id: d.id,
+      };
+    });
+    const supplies = Math.floor(w.supplies);
+    const all = [...rows, { icon: 'works', title: t('cmp.drawer.works'), meta: t('cmp.drawer.worksMeta', { n: supplies }), right: '', off: false, why: null as string | null, id: 'works' as const }];
+    this.openList(t('cmp.drawer.title'), 'camp.drawer', all, (i, md) => {
+      const r = all[i];
+      if (r.id === 'works') {
+        md.close();
+        this.openSupplies();
+        return;
+      }
+      if (r.why) {
+        hapticNotify('error');
+        toast(this, r.why, 'bad');
+        return;
+      }
+      md.close();
+      this.startPlacing(r.id);
+    });
+  }
+
+  /** The War camp's buildings: level, the next level's cost and time, and why it cannot be built now. */
+  private openBuildings(): void {
+    const camp = this.camp();
+    const v = this.cv;
+    const now = this.nowServer();
+    const rows = CAMP_BUILDING_IDS.map((k) => {
+      const built = camp?.buildings.find((b) => b.kind === k) ?? null;
+      const next = built ? built.level + 1 : 1;
+      let why: string | null = null;
+      if (!camp || !v) why = t('ocamp.why.notCamp');
+      else {
+        const used = new Set(camp.buildings.map((b) => b.slot));
+        const free = Array.from({ length: camp.slots }, (_, j) => j).find((j) => !used.has(j)) ?? null;
+        const chk = built ? (built.level >= OCAMP.maxLevel ? null : checkBuild({ home: camp.home, buildings: statesOf(camp) }, k, null, v.resources, now)) : checkBuild({ home: camp.home, buildings: statesOf(camp) }, k, free, v.resources, now);
+        if (chk && !chk.ok) why = this.why(chk.reason);
+      }
+      const maxed = !!built && built.level >= OCAMP.maxLevel;
+      const lc = campLevelCost(k, next);
+      // the cost as icons and numbers (never cut), then the time and why not
+      const cost = maxed ? undefined : RESOURCE_KEYS.filter((r) => lc.cost[r] > 0).map((r) => ({ icon: RES_ICON[r], n: fmtNum(lc.cost[r]) }));
+      const more = [maxed ? '' : fmtDuration(lc.minutes * 60_000), why ?? ''].filter(Boolean);
+      return { icon: `camp_${k}`, title: t(`ocamp.b.${k}` as TKey), meta: maxed ? t('cmp.ob.max') : '', cost, more, right: built ? t('cmp.ob.level', { n: built.level }) : t('cmp.ob.none'), off: !camp, why, id: k };
+    });
+    this.openList(t('cmp.buildings'), 'camp.buildings', rows, (i, md) => {
+      if (!camp) {
+        toast(this, rows[i].why ?? t('ocamp.why.notCamp'), 'bad');
+        return;
+      }
+      md.close();
+      this.pickKind(rows[i].id);
+      toast(this, t('cmp.ob.picked', { name: rows[i].title }), 'info');
+    });
+  }
+
+  /** A sheet with a scrolling list of labelled rows (icon, name, a line or two of detail, a count at the right). */
+  private openList(title: string, id: string, rows: ListRow[], onTap: (i: number, md: ParchmentSheetHandle) => void): void {
+    const { VW, VH } = this.m;
+    const extra = Math.max(0, ...rows.map((r) => r.more?.length ?? 0));
+    const rowH = ROW_H + extra * LH - (extra ? 2 : 0);
+    const w = Math.min(VW - 12, 240);
+    const h = Math.min(VH - 12, 26 + rows.length * (rowH + ROW_GAP_LIST) + 14);
+    const md = openParchmentSheet(this, { title, w, h, id, onClose: () => (this.modal = null) });
+    this.modal = md;
+    const b = md.body;
+    const list = new ScrollList(this, md.c, b.x, b.y, b.w, b.h, {
+      count: rows.length,
+      rowH,
+      gap: ROW_GAP_LIST,
+      render: (i, row, rw) => this.drawRow(row, rw, rowH, rows[i]),
+      onTap: (i) => onTap(i, md),
+      id: (i) => `${id}.row.${rows[i].id}`,
+    });
+    frameScrollTexts(list.area, b.w);
+  }
+
+  /** One list row on parchment: an icon well, the name (Inter, never Cinzel-then-Inter per row, CMP-3), the detail, a count. */
+  private drawRow(row: Phaser.GameObjects.Container, rw: number, rh: number, r: ListRow): void {
+    row.add(mosaicImage(this, 0, 0, rw, rh, 'parchment'));
+    const th = ROW_H - 6;
+    let x0 = 4;
+    if (r.icon) {
+      row.add(mosaicImage(this, 3, Math.round((rh - th) / 2), th, th, 'parchmentWell'));
+      const ic = scaleIcon(addIcon(this, 0, 0, r.icon, r.off ? 'D' : ''), Math.min(1.4, (th - 4) / 12));
+      ic.setPosition(3 + Math.round((th - ic.displayWidth) / 2), Math.round((rh - th) / 2) + Math.round((th - ic.displayHeight) / 2));
+      row.add(ic);
+      x0 = th + 8;
+    }
+    const box = { owner: row, w: rw, h: rh };
+    const rightW = r.right ? mw(r.right, 'pInk', 7) + 6 : 0;
+    const y0 = Math.round((rh - (10 + LH * (1 + (r.more?.length ?? 0)))) / 2);
+    row.add(mtext(this, x0, y0, r.title, r.off ? 'pOff' : 'pInk', { maxW: rw - x0 - 4 - rightW, box }));
+    if (r.right) row.add(mtext(this, rw - 4, y0, r.right, 'pInk', { align: 1, box }));
+    if (r.cost) {
+      // icon and number per currency; tighter when four of them must share a narrow row
+      const room = rw - x0 - 4;
+      const natural = r.cost.reduce((a, c) => a + 10 + Math.ceil(mw(c.n, 'pInk', TEXT_MIN)) + 5, 0) - 5;
+      const tight = natural > room;
+      let x = x0;
+      for (const c of r.cost) {
+        row.add(scaleIcon(addIcon(this, x, y0 + 10 + (tight ? 1 : 0), c.icon), tight ? 0.6 : 0.7));
+        x += tight ? 8 : 10;
+        row.add(mtext(this, x, y0 + 10, c.n, 'pInk', { size: TEXT_MIN, box }));
+        x += Math.ceil(mw(c.n, 'pInk', TEXT_MIN)) + (tight ? 3 : 5);
+      }
+    } else row.add(mtext(this, x0, y0 + 10, r.meta, 'pSec', { size: TEXT_MIN, maxW: rw - x0 - 4, box }));
+    (r.more ?? []).forEach((l, i) => row.add(mtext(this, x0, y0 + 10 + LH * (i + 1), l, 'pSec', { size: TEXT_MIN, maxW: rw - x0 - 4, box })));
+  }
+
+  /** Supplies and field works (field-works.md R4): what the supplies buy for the next battle, and what each work costs. */
+  openSupplies(): void {
+    const w = state.campaign.world;
+    const { VW, VH } = this.m;
+    const sw = Math.min(VW - 12, 240);
+    const pad = 8;
+    // the scroll area's width, less a margin (the bitmap face runs a little wider than its measure)
+    const tw = sw - pad * 2 - 12;
+    const body = wrapWords(t('cmp.sup.body', { max: WORKS.max }), tw, (q) => mw(q, 'pSec', TEXT_MIN));
+    const more = wrapWords(t('cmp.sup.more'), tw, (q) => mw(q, 'pSec', TEXT_MIN));
+    const allow = worksAllowance(w.supplies);
+    const contentH = 12 + body.length * LH + 4 + WORK_TYPES.length * (ROW_H + ROW_GAP_LIST) + 2 + more.length * LH;
+    const h = Math.min(VH - 12, 26 + contentH + 8 + 24 + 10);
+    const md = openParchmentSheet(this, {
+      title: t('cmp.sup.title'),
+      w: sw,
+      h,
+      id: 'camp.supplies.sheet',
+      actions: [{ label: t('cmp.sup.back'), icon: 'anvil', variant: 'secondary', id: 'camp.supplies.build', onClick: () => (md.close(), this.openBuild()) }],
+      onClose: () => (this.modal = null),
+    });
+    this.modal = md;
+    const b = md.body;
+    const area = new ScrollArea(this, md.c, b.x, b.y, b.w, b.h, this.m.S);
+    const C = area.content;
+    let y = 0;
+    C.add(mtext(this, 0, y, t('cmp.sup.have', { n: Math.floor(w.supplies) }), 'pInk', { maxW: b.w }));
+    y += 12;
+    body.forEach((l) => {
+      C.add(mtext(this, 0, y, l, 'pSec', { size: TEXT_MIN }));
+      y += LH;
+    });
+    y += 4;
+    for (const k of WORK_TYPES) {
+      const row = this.add.container(0, y);
+      C.add(row);
+      const n = allow[k];
+      this.drawRow(row, b.w, ROW_H, { icon: '', title: t(`works.${k}.name` as TKey), meta: t('cmp.sup.row', { cost: WORKS.cost[k] }), right: n > 0 ? t('cmp.sup.can', { n }) : t('cmp.sup.none'), off: false, why: null, id: k });
+      uiId(row, `camp.supplies.${k}`);
+      y += ROW_H + ROW_GAP_LIST;
+    }
+    y += 2;
+    more.forEach((l) => {
+      C.add(mtext(this, 0, y, l, 'pSec', { size: TEXT_MIN }));
+      y += LH;
+    });
+    area.setContentHeight(y);
+    frameScrollTexts(area, b.w);
   }
 
   // ================================================================ field actions
@@ -894,6 +1173,12 @@ export class CampScene extends BaseScene {
     this.selected = null;
     this.rebuild();
     this.buildHud();
+    // the ghost in the middle of the view, never off screen (CMP-5)
+    const gh = this.layout?.things.find((th) => th.key.startsWith('ghost:'));
+    if (gh) {
+      const g = Iso.groundScreen(gh.x + gh.w / 2, gh.y + gh.h / 2);
+      this.lookAt(g.x, g.y);
+    }
     haptic('light');
   }
 
@@ -907,10 +1192,10 @@ export class CampScene extends BaseScene {
     const p = this.placing;
     if (!p) return;
     const w = state.campaign.world;
-    const why = w.build(p.id, p.x, p.y);
-    if (why) {
+    const why = this.placeWhy();
+    if (why || w.build(p.id, p.x, p.y)) {
       hapticNotify('error');
-      toast(this, why, 'bad');
+      toast(this, why ?? t('cmp.place.bad'), 'bad');
       return;
     }
     const d = STRUCTURES[p.id];
@@ -921,7 +1206,7 @@ export class CampScene extends BaseScene {
     hapticNotify('success');
     const passed = this.passTime(d.hours);
     this.buildHud();
-    toast(this, t('cs.builtIn', { name: d.name, h: d.hours }), 'good');
+    toast(this, t('cs.builtIn', { name: structName(p.id), h: d.hours }), 'good');
     void state.save();
     if (passed === 'event') this.openEvent();
   }
@@ -991,7 +1276,7 @@ export class CampScene extends BaseScene {
     this.tweens.add({
       targets: veil,
       fillAlpha: 0.85,
-      duration: 350,
+      duration: motion.reduced ? 0 : 350,
       onComplete: () => {
         let ok: boolean | 'event' = true;
         for (let i = 0; i < hours && ok === true; i++) ok = this.passTime(1);
@@ -1003,7 +1288,7 @@ export class CampScene extends BaseScene {
         // an event in the night: its card, and no dawn yet (End day again rests on to dawn)
         if (ok === 'event') this.openEvent();
         else toast(this, t('cs.dawn', { d: Math.floor(w.s.time / 24) + 1 }), 'info');
-        this.tweens.add({ targets: veil, fillAlpha: 0, duration: 500, onComplete: () => veil.destroy() });
+        this.tweens.add({ targets: veil, fillAlpha: 0, duration: motion.reduced ? 0 : 500, onComplete: () => veil.destroy() });
       },
     });
   }
@@ -1026,7 +1311,7 @@ export class CampScene extends BaseScene {
     });
   }
 
-  /** The forge: temper an equipped item one rarity step finer for supplies and gold. */
+  /** The forge: temper an equipped item one rarity step finer, for supplies and gold; one cost line per row, the rarity in words (CMP-4). */
   private openTemper(): void {
     const camp = state.campaign;
     const w = camp.world;
@@ -1039,38 +1324,74 @@ export class CampScene extends BaseScene {
     }
     items.sort((a, b) => itemDef(b.item.def).value - itemDef(a.item.def).value);
     const { VW, VH } = this.m;
-    const rowH = 28;
-    // as many rows as the screen holds (the finest gear first)
-    const list = items.slice(0, Math.max(1, Math.min(6, Math.floor((VH - 16 - 40) / (rowH + 2)))));
-    const h = 30 + Math.max(1, list.length) * (rowH + 2) + 10;
-    const md = openModal(this, { title: t('cs.temper'), w: Math.min(VW - 12, 220), h, onClose: () => (this.modal = null) });
+    // name, the rarity step and whose it is across the row (one line when it fits); under them the cost line beside
+    // the Temper button. The rows share one height, so a narrow screen gives every row the owner's own line.
+    const tw0 = Math.min(VW - 12, 240) - 16 - 8 - 4;
+    const ownLine = items.some((e) => {
+      const r = normalizeRarity(e.item.rarity);
+      const next = RARITIES[Math.min(RARITIES.length - 1, RARITIES.indexOf(r) + 1)];
+      return mw(`${t('cmp.temper.step', { from: t(`rarity.${r}` as TKey), to: t(`rarity.${next}` as TKey) })} · ${e.who}`, 'pSec', TEXT_MIN) > tw0 - 4;
+    });
+    const rowH = 3 + 10 + LH * (ownLine ? 2 : 1) + BTN_H + 4;
+    const sw = Math.min(VW - 12, 240);
+    const h = Math.min(VH - 12, 26 + Math.max(1, items.length) * (rowH + ROW_GAP_LIST) + 14);
+    const md = openParchmentSheet(this, { title: t('cmp.temper.title'), w: sw, h, id: 'camp.temper.sheet', onClose: () => (this.modal = null) });
     this.modal = md;
-    const { x, w: mw } = md;
-    let y = md.body.y;
-    if (!list.length) md.c.add(new ParchmentRow(this, x + 6, y, mw - 12, { title: t('cs.temperNone'), id: 'camp.temper.none' }, 24));
-    for (const e of list) {
-      const def = itemDef(e.item.def);
-      const can = w.supplies >= e.cost.supplies && camp.data.gold >= e.cost.gold;
-      const rowW = mw - 12 - 49;
-      md.c.add(new ParchmentRow(this, x + 6, y, rowW, { title: `${def.name} (${e.item.rarity})`, subtitle: `${e.who} - ${e.cost.supplies} ${t('cs.suppliesWord')}`, id: `camp.temper.row:${def.name}` }, rowH));
-      const b = new MButton(this, x + 6 + rowW + 3, y, 46, rowH, {
-        label: `${e.cost.gold}`,
-        icon: 'coin',
-        variant: can ? 'secondary' : 'disabled',
-        disabledReason: w.supplies < e.cost.supplies ? t('cs.needSupplies', { n: e.cost.supplies }) : t('stash.noGold'),
-        id: 'camp.temper',
-        onClick: () => {
-          if (!camp.temper(e.item)) return;
-          hapticNotify('success');
-          md.close();
-          toast(this, t('cs.tempered', { name: def.name }), 'good');
-          this.buildHud();
-          void state.save();
-        },
-      });
-      md.c.add(b);
-      y += rowH + 2;
+    const b = md.body;
+    if (!items.length) {
+      md.c.add(mtext(this, b.x, b.y + 4, t('cmp.temper.none'), 'pSec', { maxW: b.w }));
+      return;
     }
+    const btnW = Math.max(44, Math.ceil(mw(t('cmp.temper.do').toUpperCase(), 'rCream', 7)) + 14);
+    const list = new ScrollList(this, md.c, b.x, b.y, b.w, b.h, {
+      count: items.length,
+      rowH,
+      gap: ROW_GAP_LIST,
+      render: (i, row, rw) => {
+        const e = items[i];
+        const r = normalizeRarity(e.item.rarity);
+        const next = RARITIES[Math.min(RARITIES.length - 1, RARITIES.indexOf(r) + 1)];
+        const box = { owner: row, w: rw, h: rowH };
+        const tw = rw - 8;
+        row.add(mosaicImage(this, 0, 0, rw, rowH, 'parchment'));
+        row.add(mtext(this, 4, 3, itemName(e.item), 'pInk', { maxW: tw, box }));
+        // whose it is goes on the step line when it fits there, else on the cost line
+        const step = t('cmp.temper.step', { from: t(`rarity.${r}` as TKey), to: t(`rarity.${next}` as TKey) });
+        row.add(mtext(this, 4, 13, ownLine ? step : `${step} · ${e.who}`, 'pSec', { size: TEXT_MIN, maxW: tw, box }));
+        if (ownLine) row.add(mtext(this, 4, 13 + LH, e.who, 'pSec', { size: TEXT_MIN, maxW: tw, box }));
+        // the one cost line: supplies and gold, each with its icon
+        let x = 4;
+        const by = 13 + LH * (ownLine ? 2 : 1) + 1;
+        const cy = by + Math.round((BTN_H - 9) / 2);
+        for (const [icon, n, short] of [['wood', e.cost.supplies, w.supplies < e.cost.supplies], ['coin', e.cost.gold, camp.data.gold < e.cost.gold]] as const) {
+          row.add(scaleIcon(addIcon(this, x, cy, icon), 0.7));
+          x += 10;
+          const txt = mtext(this, x, cy + 1, `${n}`, short ? 'pBad' : 'pInk', { size: TEXT_MIN, box });
+          row.add(txt);
+          x += Math.ceil(mw(`${n}`, 'pInk', TEXT_MIN)) + 6;
+        }
+        const why = w.supplies < e.cost.supplies ? t('cs.needSupplies', { n: e.cost.supplies }) : camp.data.gold < e.cost.gold ? t('cmp.temper.noGold', { n: e.cost.gold }) : undefined;
+        row.add(
+          // on the narrowest screens the button gives way to the cost line (its label shrinks, never the numbers)
+          new MButton(this, rw - Math.min(btnW, rw - x - 5) - 3, by, Math.min(btnW, rw - x - 5), BTN_H, {
+            label: t('cmp.temper.do'),
+            variant: why ? 'disabled' : 'secondary',
+            disabledReason: why,
+            id: `camp.temper.do.${i}`,
+            onClick: () => {
+              if (!camp.temper(e.item)) return;
+              hapticNotify('success');
+              md.close();
+              toast(this, t('cs.tempered', { name: itemName(e.item) }), 'good');
+              this.buildHud();
+              void state.save();
+            },
+          }),
+        );
+      },
+      id: (i) => `camp.temper.row.${i}`,
+    });
+    frameScrollTexts(list.area, b.w);
   }
 
   // ================================================================ management
@@ -1080,17 +1401,21 @@ export class CampScene extends BaseScene {
     else this.scene.start('OnlineArmy', { tab: 'stash' });
   }
 
-  /** The muster: who marches in the formation, who stays in camp; +/- per unit type. */
+  /**
+   * The muster (CMP-3): per kind of man, how many march (bronze steppers), with a legend for the counts; then
+   * every man in two columns, Formation and Reserve; a tap moves him across. Ink on parchment, one face per row.
+   */
   private openMuster(): void {
     this.musterList = this.muster();
     const before = this.musterList.map((h) => ({ ...h }));
     const { VW, VH } = this.m;
-    const w = Math.min(VW - 12, 230);
-    const h = Math.min(VH - 12, 300);
-    const m = openModal(this, {
-      title: t('cs.musterTitle'),
+    const w = Math.min(VW - 12, 250);
+    const h = Math.min(VH - 12, 330);
+    const m = openParchmentSheet(this, {
+      title: t('cmp.muster.title'),
       w,
       h,
+      id: 'camp.muster.sheet',
       onClose: () => {
         this.modal = null;
         const changes = reserveChanges(before, this.musterList);
@@ -1101,62 +1426,93 @@ export class CampScene extends BaseScene {
     const b = m.body;
     const content = this.add.container(0, 0);
     m.c.add(content);
+    const legend = wrapWords(t('cmp.muster.legend'), b.w, (q) => mw(q, 'pSec', TEXT_MIN));
+    const tap = wrapWords(t('cmp.muster.tap'), b.w, (q) => mw(q, 'pSec', TEXT_MIN));
     const render = () => {
       content.removeAll(true);
       const mm = this.musterList;
       const field = fieldIds(mm);
+      const fieldSet = new Set(field);
       let y = b.y;
-      content.add(mosaicImage(this, b.x - 3, y - 2, b.w + 6, 12, 'chipStone'));
-      content.add(addText(this, b.x, y, t('cs.formation', { n: field.length, max: MUSTER.fieldCap }), 'red'));
-      content.add(addText(this, b.x + b.w, y, t('cs.inCamp', { n: mm.length - field.length }), 'dim', 1));
-      y += 14;
-      // per unit type: name, field / total, - +
+      legend.forEach((l) => {
+        content.add(mtext(this, b.x, y, l, 'pSec', { size: TEXT_MIN }));
+        y += LH;
+      });
+      y += 2;
+      // per kind: name, marching / all (resting), then - and + (bronze; grey only when they cannot act, with the reason)
       const rows = classRows(mm);
       const rowH = 24;
-      const listH = Math.max(30, Math.min(rows.length * (rowH + 2), Math.floor(h * 0.42)));
-      const typeList = new ScrollList(this, content, b.x, y, b.w, listH, {
+      const listH = Math.max(rowH, Math.min(rows.length * (rowH + ROW_GAP_LIST), Math.floor(b.h * 0.36)));
+      const kinds = new ScrollList(this, content, b.x, y, b.w, listH, {
         count: rows.length,
         rowH,
+        gap: ROW_GAP_LIST,
         render: (i, row, rw) => {
           const r = rows[i];
-          row.add(new ParchmentRow(this, 0, 1, rw - 56, { title: clsName(r.cls), value: `${r.field}/${r.total}${r.wounded ? ` (${r.wounded})` : ''}`, id: `camp.muster.row.${r.cls}` }, rowH - 2));
-          const minus = new MButton(this, rw - 54, 0, 24, rowH, { label: '-', variant: 'secondary', tip: t('cs.reserve'), id: `camp.muster.minus.${r.cls}`, onClick: () => this.shift(r.cls, -1, render) });
-          const plus = new MButton(this, rw - 26, 0, 24, rowH, { label: '+', variant: 'secondary', tip: t('cs.field'), id: `camp.muster.plus.${r.cls}`, onClick: () => this.shift(r.cls, 1, render) });
+          const sw = 24;
+          const face = rw - sw * 2 - 8;
+          row.add(mosaicImage(this, 0, 0, face, rowH, 'parchment'));
+          const box = { owner: row, w: face, h: rowH };
+          // the name over its count, so neither is cut at 320 (CMP-3)
+          const name = clsName(r.cls);
+          const size = mw(name, 'pInk', 7) <= face - 8 ? 7 : TEXT_MIN;
+          row.add(mtext(this, 4, 2, name, 'pInk', { size, maxW: face - 8, box }));
+          row.add(mtext(this, 4, 12, `${r.field}/${r.total}${r.wounded ? ` (${r.wounded})` : ''}`, 'pSec', { size: TEXT_MIN, box }));
+          const minus = new MButton(this, rw - sw * 2 - 4, 0, sw, rowH, { label: '-', variant: 'secondary', tip: t('cs.reserve'), id: `camp.muster.minus.${r.cls}`, onClick: () => this.shift(r.cls, -1, render) });
+          const plus = new MButton(this, rw - sw, 0, sw, rowH, { label: '+', variant: 'secondary', tip: t('cs.field'), id: `camp.muster.plus.${r.cls}`, onClick: () => this.shift(r.cls, 1, render) });
           if (r.field <= 0) minus.setEnabled(false, t('cs.why.none'));
           if (r.field >= r.total - r.wounded) plus.setEnabled(false, t('cs.why.wounded'));
           row.add([minus, plus]);
         },
         id: (i) => `camp.muster.type.${i}`,
       });
-      frameScrollTexts(typeList.area, b.w);
+      frameScrollTexts(kinds.area, b.w);
       y += listH + 4;
-      content.add(mosaicImage(this, b.x - 3, y - 2, b.w + 6, 12, 'chipStone'));
-      content.add(addText(this, b.x, y, ellipsize(t('cs.menHint'), b.w), 'dim'));
-      y += 13;
-      // every man: tap to flip between the formation and the camp
-      const fieldSet = new Set(field);
-      const listH2 = Math.max(26, b.y + b.h - y - 2);
-      const men = new ScrollList(this, content, b.x, y, b.w, listH2, {
-        count: mm.length,
-        rowH: 22,
-        render: (i, row, rw) => {
-          const hh = mm[i];
-          const st = hh.wounded ? t('cs.wounded') : fieldSet.has(hh.id) ? t('cs.field') : t('cs.reserve');
-          row.add(new ParchmentRow(this, 0, 0, rw, { title: `${hh.name} · ${clsName(hh.cls)} ${hh.level}`, value: st, selected: fieldSet.has(hh.id) && !hh.wounded, id: `camp.muster.manrow.${i}` }, 22));
-        },
-        onTap: (i) => {
-          const r = toggleReserve(this.musterList, mm[i].id);
-          if (!r.ok) {
-            toast(this, this.musterWhy(r.why), 'bad');
-            hapticNotify('error');
-            return;
-          }
-          haptic('light');
-          render();
-        },
-        id: (i) => `camp.muster.man.${i}`,
+      tap.forEach((l) => {
+        content.add(mtext(this, b.x, y, l, 'pSec', { size: TEXT_MIN }));
+        y += LH;
       });
-      frameScrollTexts(men.area, b.w);
+      y += 2;
+      // two columns: who marches, who stays
+      const colW = Math.floor((b.w - 4) / 2);
+      const cols: { x: number; title: string; men: MusterHero[]; id: string }[] = [
+        { x: b.x, title: t('cmp.muster.formation', { n: field.length, max: MUSTER.fieldCap }), men: mm.filter((x) => fieldSet.has(x.id) && !x.wounded), id: 'formation' },
+        { x: b.x + colW + 4, title: t('cmp.muster.reserve', { n: mm.length - field.length }), men: mm.filter((x) => !fieldSet.has(x.id) || x.wounded), id: 'reserve' },
+      ];
+      const listY = y + 11;
+      const colH = Math.max(rowH, b.y + b.h - listY - 2);
+      for (const col of cols) {
+        content.add(mtext(this, col.x, y, col.title, 'pInk', { maxW: colW }));
+        if (!col.men.length) {
+          content.add(mtext(this, col.x + 2, listY + 4, t('cmp.muster.empty'), 'pSec', { size: TEXT_MIN, maxW: colW - 4 }));
+          continue;
+        }
+        const men = new ScrollList(this, content, col.x, listY, colW, colH, {
+          count: col.men.length,
+          rowH: 10 + LH + 6,
+          gap: ROW_GAP_LIST,
+          render: (i, row, rw, rh) => {
+            const man = col.men[i];
+            row.add(mosaicImage(this, 0, 0, rw, rh, col.id === 'formation' ? 'parchmentSel' : 'parchment'));
+            const box = { owner: row, w: rw, h: rh };
+            row.add(mtext(this, 3, 3, man.name, 'pInk', { maxW: rw - 6, box }));
+            const sub = man.wounded ? t('cmp.muster.resting') : t('cmp.muster.man', { cls: clsName(man.cls), n: man.level });
+            row.add(mtext(this, 3, 13, sub, 'pSec', { size: TEXT_MIN, maxW: rw - 6, box }));
+          },
+          onTap: (i) => {
+            const r = toggleReserve(this.musterList, col.men[i].id);
+            if (!r.ok) {
+              toast(this, this.musterWhy(r.why), 'bad');
+              hapticNotify('error');
+              return;
+            }
+            haptic('light');
+            render();
+          },
+          id: (i) => `camp.muster.${col.id}.${i}`,
+        });
+        frameScrollTexts(men.area, colW);
+      }
     };
     render();
   }
@@ -1311,6 +1667,69 @@ export class CampScene extends BaseScene {
 }
 
 // ------------------------------------------------------------------ helpers
+
+/** UI px of a square key (48 pt). */
+const TAP_KEY = 24;
+/** Between two buttons of a row (8 pt). */
+const GAP_BTN = 4;
+
+/** A button of the action strip. */
+interface CampSlot {
+  label: string;
+  icon?: string;
+  onClick: () => void;
+  primary?: boolean;
+  /** Cannot right now, and why (grey; a tap says it; the War camp also writes it over the strip). */
+  off?: string;
+  tip?: string;
+  id: string;
+}
+
+/** A row of the Build drawer, the buildings list or the supplies page. */
+interface ListRow {
+  icon: string;
+  title: string;
+  meta: string;
+  /** More lines of detail under `meta` (time, why not). */
+  more?: string[];
+  /** The cost as icons and numbers, in place of `meta`. */
+  cost?: { icon: string; n: string }[];
+  right: string;
+  off: boolean;
+  why: string | null;
+  id: string;
+}
+
+export const structName = (id: StructureId): string => t(`wld.struct.${id}.name` as TKey);
+const structDesc = (id: StructureId): string => t(`wld.struct.${id}.desc` as TKey);
+
+/** Hours of work as "3 h" or "30 min". */
+export function hoursText(h: number): string {
+  return h < 1 ? t('cmp.minutes', { m: Math.round(h * 60) }) : t('cmp.hours', { h });
+}
+
+/** Why a structure cannot be built in the field camp right now (count, supplies, room), in the player's language; null when it can. */
+export function fieldBuildWhy(w: World, id: StructureId): string | null {
+  const c = w.camp;
+  if (!c) return t('ocamp.why.notCamp');
+  const d = STRUCTURES[id];
+  if (countBuilt(c, id) >= d.max) return t('cmp.drawer.why.full');
+  if (w.supplies < d.cost) return t('cmp.drawer.why.supplies', { n: d.cost });
+  if (!freeSpot(w.map, c, id)) return t('cmp.drawer.why.room');
+  return null;
+}
+
+/** world/map.ts TERRAIN_NAMES, in words of the current language (as the World map's top bar, WLD-01). */
+const TERRAIN_KEYS = ['deepSea', 'sea', 'shore', 'plain', 'scrub', 'forest', 'hills', 'mountains'] as const;
+
+/** Where the camp stands: a road, a ford, else the terrain. */
+function regionLabel(m: WorldMap, x: number, y: number): string {
+  const tx = Math.max(0, Math.min(m.w - 1, Math.floor(x)));
+  const ty = Math.max(0, Math.min(m.h - 1, Math.floor(y)));
+  const i = ty * m.w + tx;
+  const k = m.road[i] ? 'road' : m.river[i] ? 'ford' : TERRAIN_KEYS[m.terrain[i]] ?? 'plain';
+  return t(`wld.region.${k}` as TKey);
+}
 
 function costLine(kind: CampBuildingId, level: number): string {
   const c = campLevelCost(kind, level);
