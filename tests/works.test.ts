@@ -48,10 +48,10 @@ describe('cell kinds (R1)', () => {
     expect(TERRAIN_LIST.slice(0, 9).map((d) => d.kind)).toEqual(['open', 'scrub', 'forest', 'water', 'ford', 'rough', 'rocks', 'sand', 'sea']);
     expect(['x', 'd', 'L', 'P', 'p'].map((c) => terrainByCode(c).kind)).toEqual(['stakes', 'ditch', 'laager', 'palisade', 'rampart']);
     expect(TERRAIN.stakes).toMatchObject({ speed: 0.7, blocked: false, scatter: 0.15, blockMult: 0.9, noWall: true, braceMult: 0, cavSpeed: 0.3, cavCharge: 0, chariotSpeed: 0.2, chariotDamage: 6 });
-    expect(TERRAIN.ditch).toMatchObject({ speed: 0.45, scatter: 0.3, blockMult: 0.75, noWall: true, cavSpeed: 0.35, cavCharge: 0.2, chariotSpeed: 0.15, chariotDamage: 5 });
+    expect(TERRAIN.ditch).toMatchObject({ speed: 0.45, scatter: 0.3, blockMult: 1, noWall: true, cavSpeed: 0.35, cavCharge: 0.2, chariotSpeed: 0.15, chariotDamage: 5 });
     expect(TERRAIN.laager.blocked && TERRAIN.palisade.blocked).toBe(true);
     expect(TERRAIN.rampart).toMatchObject({ speed: 0.9, cover: 0.35, blockMult: 1.1, noWall: false, braceMult: 1.2, cavSpeed: 0.8, cavCharge: 0.6 });
-    expect(WORKS).toMatchObject({ ditchMult: 1.2, impaleMult: 0.5, length: { stakes: 3, ditch: 3, laager: 2 }, garrisonStakes: 2 });
+    expect(WORKS).toMatchObject({ ditchMult: 1.05, impaleMult: 0.5, length: { stakes: 3, ditch: 3, laager: 2 }, garrisonStakes: 2 });
   });
 
   it('laager and palisade block like rocks: nobody walks into them', () => {
@@ -159,7 +159,7 @@ function blow(terrain: TerrainGrid, a: [number, number], t: [number, number], se
 describe('the ditch factor (R2.1, F1)', () => {
   const lip: [number, number] = [12.5, 20.6];
   const pit: [number, number] = [12.5, 19.6];
-  it('a blow from the lip on a man in a ditch does x1.2', () => {
+  it('a blow from the lip on a man in a ditch does x DITCH_MULT (1.05, V5-065)', () => {
     const open = blow(flatGrid(24, 36), lip, pit);
     const ditch = blow(gridWith([[12, 19, 'd']]), lip, pit);
     expect(ditch / open).toBeCloseTo(WORKS.ditchMult, 6);
@@ -175,9 +175,9 @@ describe('the ditch factor (R2.1, F1)', () => {
     const open = blow(flatGrid(24, 36), lip, pit);
     // two levels up: 1.5 beats 1.2
     expect(blow(gridWith([[12, 19, 'd']], [[12, 20, 2]]), lip, pit) / open).toBeCloseTo(1 + 2 * HEIGHT_RULES.meleeDown, 6);
-    // one level up: 1.25 beats 1.2
+    // one level up: 1.25 beats 1.05
     expect(blow(gridWith([[12, 19, 'd']], [[12, 20, 1]]), lip, pit) / open).toBeCloseTo(1 + HEIGHT_RULES.meleeDown, 6);
-    // striking uphill into a raised ditch: 1.2 beats 0.8
+    // striking uphill into a raised ditch: 1.05 beats 0.8
     expect(blow(gridWith([[12, 19, 'd']], [[12, 19, 1]]), lip, pit) / open).toBeCloseTo(WORKS.ditchMult, 6);
   });
 });

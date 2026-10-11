@@ -32,14 +32,16 @@ These are added to `TerrainKind` and `TERRAIN` in `src/data/terrain.ts`. Each on
 | Kind | Code | Speed | Blocked | Cover | Scatter | Block | No wall | Brace | Horse speed / charge | Chariot speed / dmg |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `stakes` | `x` | 0.7 | no | 0 | 0.15 | 0.9 | yes | 0 | **0.3 / 0** | 0.2 / 6 |
-| `ditch` | `d` | 0.45 | no | 0 | 0.3 | 0.75 | yes | 0 | 0.35 / 0.2 | 0.15 / 5 |
+| `ditch` | `d` | 0.45 | no | 0 | 0.3 | **1** (V5-065; was 0.75) | yes | 0 | 0.35 / 0.2 | 0.15 / 5 |
 | `laager` | `L` | 0 | **yes** | 0 | 0 | 1 | yes | 0 | 0 / 0 | 0 / 0 |
 | `palisade` | `P` | 0 | **yes** | 0 | 0 | 1 | yes | 0 | 0 / 0 | 0 / 0 |
 | `rampart` | `p` | 0.9 | no | **0.35** | 0 | 1.1 | no | 1.2 | 0.8 / 0.6 | 0.6 / 0 |
 
 ### R2. Special rules
 
-1. **Ditch.** A melee hit **against a man standing in a ditch** from a man not in a ditch does **×1.2 damage**: the defender strikes down from the lip. It's applied in `applyDamage` beside the height factor, and doesn't stack with height: the larger of the two applies.
+1. **Ditch.** A melee hit **against a man standing in a ditch** from a man not in a ditch does **×1.05 damage** (DITCH_MULT; V5-065, was ×1.2): the defender strikes down from the lip. It's applied to melee blows beside the height factor (`meleeAttack`), and doesn't stack with height: the larger of the two applies.
+
+   > **V5-065 (FW-01 balance):** at ×1.2 with the ditch's block 0.75, a ditch swung an even fight (6 hoplites vs 7 swordsmen) by +47 pts, and even the weakest end of the first ranges (1.1 / 0.975) gave +17. The target (+6..+12) stands and the range moves: DITCH_MULT 1.05 with block 1 measures +9 (docs/v5/balance/FW-01.md).
 2. **Stakes.**
    - A charge whose path crosses a stakes cell loses its charge momentum (the charge bonus is reset to 0). The sim emits `{ type: 'stakesBreak'; tick; unit; x; y }` once per unit per crossing, where (x, y) is the stakes cell. It's a new `SimEvent`, output only and not hashed.
    - Mounted units entering a stakes cell take a hit at 0.5× of their own charge damage (impaled), once per unit per crossing.
@@ -101,7 +103,7 @@ Doctrines don't decide whether works exist (R4). They only decide how bots attac
 ### F1. Ditch factor
 
 ```
-dmg_mult_terrain = max(heightFactor, inDitch(target) ∧ ¬inDitch(attacker) ? 1.2 : 1)
+dmg_mult_terrain = max(heightFactor, inDitch(target) ∧ ¬inDitch(attacker) ? DITCH_MULT : 1)   // DITCH_MULT = 1.05 (V5-065)
 ```
 
 `heightFactor` is 0.6–1.5 (from the existing height rules). The output range is 0.6–1.5, so the ditch never exceeds the high-ground cap.
@@ -160,7 +162,7 @@ The knobs live in `src/data/terrain.ts` (cells) and a new `WORKS` table in the s
 | Knob | Default | Range | Category | Rationale |
 | --- | --- | --- | --- | --- |
 | Cell multipliers (R1) | table | ±30% | curve | the identity of each work |
-| DITCH_MULT | 1.2 | 1.1–1.3 | curve | under the high-ground cap |
+| DITCH_MULT | 1.05 | 1.0–1.1 | curve | under the high-ground cap; V5-065 moved it from 1.2 (1.1–1.3), with the ditch's block from 0.75 to 1 |
 | IMPALE_MULT | 0.5 | 0.3–0.8 | curve | stakes punish riders |
 | Segment length (stakes / ditch / laager) | 3 / 3 / 2 | 2–4 | feel | readable at 1× |
 | Supply costs | 6 / 8 / 15 | 4–20 | curve | camp supplies matter |
@@ -197,7 +199,7 @@ None new. `WorldSave.supplies` already exists, and spending it is an ordinary sa
 | Reference army with 3 works (defending) vs matched bot | **≤ 62%**: works help but don't dominate |
 | Ridge plus 3 works | **≤ 70%** (the ridge itself is retuned by ai-doctrines.md to 62–68%) |
 | Ridge plus 3 works plus an orb reserve (the turtle) | **≤ 70%**. Swarm and hammer bots answer with a stand-off (ai-doctrines.md R5). |
-| Ditch line vs a swordsman assault | the defender gains **+6 to +12 pts** |
+| Ditch line vs a swordsman assault (an even fight: 6 hoplites vs 7 swordsmen, V5-065) | the defender gains **+6 to +12 pts** |
 | Lair assault at 1.0× power (palisade plus 2 stakes) | 38–48% for the attacker (campaign-arc.md) |
 
 ## Acceptance Criteria

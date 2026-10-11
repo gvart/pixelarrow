@@ -214,7 +214,8 @@ export function worksRows(n: number): BalanceRow[] {
     const d0 = rate(n, (s) => runDitchLine(s, false, blades), 4700);
     const d1 = rate(n, (s) => runDitchLine(s, true, blades), 4700);
     rows.push({ label: `Ditch vs ${blades} swordsmen: defender, no ditch`, measured: pct(d0), target: '-' });
-    rows.push({ label: `Ditch vs ${blades} swordsmen: gain`, measured: pts(d1 - d0), target: '+6..+12 pts' });
+    // the even fight (7) is the target row (V5-065); 6 vs 6 starts at the defender's ceiling
+    rows.push({ label: `Ditch vs ${blades} swordsmen: gain`, measured: pts(d1 - d0), target: blades === 7 ? '+6..+12 pts' : '(info: ceiling)' });
   }
 
   for (const passive of [true, false]) {

@@ -67,7 +67,7 @@ const defs: TerrainDef[] = [
   { kind: 'sea', code: '~', name: 'Sea', desc: 'Impassable.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
   // Field works (field-works.md R1). Appended after the old kinds, so every old grid keeps its cell indices.
   { kind: 'stakes', code: 'x', name: 'Stakes', desc: 'Breaks charges: a charge that crosses it loses its momentum, and riders are impaled. Slow, no shield wall.', speed: 0.7, blocked: false, cover: 0, scatter: 0.15, blockMult: 0.9, noWall: true, braceMult: 0, cavSpeed: 0.3, cavCharge: 0, chariotSpeed: 0.2, chariotDamage: 6 },
-  { kind: 'ditch', code: 'd', name: 'Ditch', desc: 'Very slow, disordered, no shield wall. Men in it take x1.2 from blows struck from the lip.', speed: 0.45, blocked: false, cover: 0, scatter: 0.3, blockMult: 0.75, noWall: true, braceMult: 0, cavSpeed: 0.35, cavCharge: 0.2, chariotSpeed: 0.15, chariotDamage: 5 },
+  { kind: 'ditch', code: 'd', name: 'Ditch', desc: 'Very slow, disordered, no shield wall. Men in it take x1.05 from blows struck from the lip.', speed: 0.45, blocked: false, cover: 0, scatter: 0.3, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0.35, cavCharge: 0.2, chariotSpeed: 0.15, chariotDamage: 5 },
   { kind: 'laager', code: 'L', name: 'Wagon laager', desc: 'Impassable wall of wagons.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
   { kind: 'palisade', code: 'P', name: 'Palisade', desc: 'Impassable timber wall.', speed: 0, blocked: true, cover: 0, scatter: 0, blockMult: 1, noWall: true, braceMult: 0, cavSpeed: 0, cavCharge: 0, chariotSpeed: 0, chariotDamage: 0 },
   { kind: 'rampart', code: 'p', name: 'Rampart', desc: 'Earthen bank behind a palisade: cover from missiles, a better brace.', speed: 0.9, blocked: false, cover: 0.35, scatter: 0, blockMult: 1.1, noWall: false, braceMult: 1.2, cavSpeed: 0.8, cavCharge: 0.6, chariotSpeed: 0.6, chariotDamage: 0 },
@@ -92,8 +92,12 @@ export const WORKS = {
   length: { stakes: 3, ditch: 3, laager: 2 },
   /** Ground a work may be placed on (R3). */
   ground: ['open', 'scrub', 'sand', 'rough'] as TerrainKind[],
-  /** A melee blow from outside a ditch on a man in it (F1); never above the high-ground cap. */
-  ditchMult: 1.2,
+  /**
+   * A melee blow from outside a ditch on a man in it (F1); never above the
+   * high-ground cap. 1.05 with the ditch's blockMult 1, below the GDD's first
+   * range (V5-065): at 1.2 / 0.75 a ditch swung an even fight by +47 pts.
+   */
+  ditchMult: 1.05,
   /** A rider entering stakes takes this share of his own charge blow (F2). */
   impaleMult: 0.5,
   /** Supplies per segment (R4, F3). */
