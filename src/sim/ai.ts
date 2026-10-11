@@ -6,7 +6,7 @@
  */
 import type { Battle } from './battle';
 import { Rng } from './rng';
-import { presetFrontage, rightOf } from './formation';
+import { presetFrontage, rightOf, type FormationType } from './formation';
 import type { DoctrineId, Side, SimGroup, SimUnit, WorkType } from './types';
 import { rallyRadius } from './stats';
 import { clamp } from '../util/math';
@@ -74,6 +74,15 @@ export const STAND_OFF_S = 20;
 export const STAND_OFF_QUIET_S = 10;
 /** Paces in front of the line (or out from a palisade gate) that a bot lays its works (field-works.md R6). */
 export const WORKS_OUT = 2;
+/** EC-05: a garrison behind its palisade stays at its posts until an enemy comes within this many paces of the wall. */
+export const WALL_REACH = 2;
+/** EC-05 focus fire: a missile group focuses an enemy group whose centre is within its longest range plus this. */
+export const FOCUS_SLACK = 2;
+/** EC-05 orb: riders this close off a foot group's facing close it into an orb (FO-02's answer row: 8)... */
+export const ORB_HORSE_NEAR = 8;
+/** ...it opens again once no rider is this close, or enemy foot comes this close. */
+export const ORB_HORSE_LEAVE = 12;
+export const ORB_FOOT_NEAR = 6;
 
 export class BotAI {
   readonly side: Side;
@@ -139,6 +148,61 @@ export class BotAI {
     if (b.terrain) this.deployOnTerrain(b);
     // field-works.md R6: at the end of the deploy step. A side without an allowance issues nothing.
     placeWorks(b, this.side);
+    this.manWalls(b);
+  }
+
+  /**
+   * EC-05 (AR-02 finding 1): a side behind its own palisade (a lair garrison)
+   * mans it. Every group keeps a post inside the wall: the skirmishers form
+   * up behind the main line instead of out in front of the palisade, and the
+   * posts are where think() sends the groups back to while no enemy is inside.
+   */
+  private manWalls(b: Battle): void {
+    const gaps = gateGaps(b, this.side);
+    if (gaps.length === 0) return;
+    this.wallY = gaps[0].y;
+    const groups = b.sideGroups(this.side).filter((g) => b.activeMembers(g.id).length > 0);
+    const main = groups.find((g) => g.role === 'main');
+    for (const g of groups) {
+      if (g.role === 'skirmish' && main && this.outside(g.formation.cy, 0)) {
+        const mf = main.formation;
+        const n = b.activeMembers(g.id).length;
+        const depth = Math.ceil(b.activeMembers(main.id).length / Math.max(1, mf.frontage));
+        b.issue(this.side, { kind: 'form', group: g.id, cx: mf.cx, cy: mf.cy - mf.fy * (depth + 1), fx: mf.fx, fy: mf.fy, frontage: presetFrontage('skirmish', n), type: 'skirmish' });
+      }
+      const f = g.formation;
+      this.posts.set(g.id, { cx: f.cx, cy: f.cy, fx: f.fx, fy: f.fy, frontage: f.frontage });
+    }
+  }
+
+  /** y of our palisade (null: no walls to hold). */
+  private wallY: number | null = null;
+  /** Each group's post behind the palisade. */
+  private posts = new Map<number, { cx: number; cy: number; fx: number; fy: number; frontage: number }>();
+
+  /** A y outside our palisade (on the attacker's side of it), `margin` paces past it. */
+  private outside(y: number, margin: number): boolean {
+    if (this.wallY === null) return false;
+    return this.side === 1 ? y > this.wallY + margin : y < this.wallY - margin;
+  }
+
+  /**
+   * Behind the palisade with every enemy still outside it: each group goes
+   * back to its post and holds, the missile-men loose at will. Once an enemy
+   * is at a gate or inside, the usual tactics take over. True = handled.
+   */
+  private holdWalls(b: Battle, enemies: SimUnit[]): boolean {
+    if (this.wallY === null || enemies.some((e) => !this.outside(e.y, WALL_REACH))) return false;
+    for (const g of b.sideGroups(this.side)) {
+      const mem = b.activeMembers(g.id);
+      const post = this.posts.get(g.id);
+      if (mem.length === 0 || g.routed || g.individual || !post) continue;
+      const f = g.formation;
+      if ((f.cx - post.cx) ** 2 + (f.cy - post.cy) ** 2 > 1) b.issue(this.side, { kind: 'form', group: g.id, ...post, frontage: Math.min(post.frontage, mem.length) });
+      if (g.order !== 'hold') b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
+      if (!g.fireAtWill && mem.some((u) => u.stats.role !== 'melee' && u.ammo > 0)) b.issue(this.side, { kind: 'loose', group: g.id, on: true });
+    }
+    return true;
   }
 
   /**
@@ -244,6 +308,7 @@ export class BotAI {
       this.thinkHunt(b, enemies);
       return;
     }
+    if (this.holdWalls(b, enemies)) return;
     const t = b.tick / 20;
     const myGroups = b.sideGroups(this.side);
     const main = myGroups.find((g) => g.role === 'main' && b.activeMembers(g.id).length > 0);
@@ -284,6 +349,8 @@ export class BotAI {
       const near = nearest(enemies, c.x, c.y);
       const m = this.mem(g);
       if (standOff >= 0 && this.holdOff(b, g, mem, standOff)) continue;
+      if (standOff < 0) this.focusFire(b, g, mem, c, main);
+      if (this.ringAgainstHorse(b, g, mem, enemies)) continue;
       if (b.special) {
         const kind = groupKind(mem);
         if (kind === 'cavalry') {
@@ -655,6 +722,96 @@ export class BotAI {
     if (g.order !== 'hold') b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
     return true;
   }
+
+  /**
+   * EC-05 focus fire (formations-orders.md R4): a missile group shoots at one
+   * enemy group instead of whoever is nearest. Doctrines with focusMissiles
+   * pick the nearest enemy missile group within reach; otherwise, once our
+   * main line is fighting, the enemy group it fights. With neither, the focus
+   * is cleared (nearest fire).
+   */
+  private focusFire(b: Battle, g: SimGroup, mem: SimUnit[], c: { x: number; y: number }, main: SimGroup | undefined): void {
+    if (g.routed || g.individual) return;
+    let range = 0;
+    let shooters = 0;
+    for (const u of mem) {
+      if (u.stats.role === 'melee' || u.ammo <= 0) continue;
+      shooters++;
+      range = Math.max(range, u.stats.range);
+    }
+    if (shooters * 2 < mem.length) return;
+    const reach2 = (range + FOCUS_SLACK) ** 2;
+    const mc = main && main.contact ? centroid(b.activeMembers(main.id)) : null;
+    let target = -1;
+    let best = Infinity;
+    for (const eg of b.groups) {
+      if (eg.side === this.side || eg.disbanded || eg.routed) continue;
+      const em = b.activeMembers(eg.id);
+      if (em.length === 0) continue;
+      const ec = centroid(em);
+      if ((ec.x - c.x) ** 2 + (ec.y - c.y) ** 2 > reach2) continue;
+      let score = Infinity;
+      if (this.doctrine.focusMissiles && em.filter((e) => e.stats.role !== 'melee').length * 2 >= em.length) score = (ec.x - c.x) ** 2 + (ec.y - c.y) ** 2 - 1e6;
+      else if (mc && eg.contact) score = (ec.x - mc.x) ** 2 + (ec.y - mc.y) ** 2;
+      if (score < best) {
+        best = score;
+        target = eg.id;
+      }
+    }
+    if ((g.focus ?? -1) !== target) b.issue(this.side, { kind: 'focus', group: g.id, target });
+  }
+
+  /**
+   * EC-05 orb (V5-041): a foot group out of contact, with enemy riders coming
+   * at its flank or rear and no enemy on foot near its front, closes into an
+   * orb; it opens back into a line once the riders are gone or foot comes at
+   * it. Never against a frontal line. True = the group is in its orb and
+   * holds (the role logic is skipped).
+   */
+  private ringAgainstHorse(b: Battle, g: SimGroup, mem: SimUnit[], enemies: SimUnit[]): boolean {
+    const f = g.formation;
+    const missiles = mem.filter((u) => u.stats.role === 'ranged').length * 2 >= mem.length;
+    if (g.routed || g.individual || missiles || !b.canOrb(g.id)) return this.leaveOrb(b, g);
+    const ours = f.type === 'orb' && this.orbFrom.has(g.id);
+    // a group already fighting does not change shape, nor does an orb chosen at setup
+    if (!ours && (g.contact || f.type === 'orb')) return false;
+    const c = centroid(mem);
+    let flankHorse = false;
+    let nearHorse = false;
+    let foot = false;
+    for (const e of enemies) {
+      const dx = e.x - c.x;
+      const dy = e.y - c.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      if (e.stats.mount && e.stats.role !== 'ranged') {
+        if (d < ORB_HORSE_LEAVE) nearHorse = true;
+        if (d < ORB_HORSE_NEAR && (dx * f.fx + dy * f.fy) / d < Math.SQRT1_2) flankHorse = true;
+      } else if (!e.stats.mount && e.stats.kind !== 'animal' && d < ORB_FOOT_NEAR) foot = true;
+    }
+    if (ours) {
+      if (foot || !nearHorse) return this.leaveOrb(b, g);
+      if (g.order !== 'hold') b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
+      return true;
+    }
+    if (!flankHorse || foot) return false;
+    this.orbFrom.set(g.id, f.type);
+    b.issue(this.side, { kind: 'preset', group: g.id, type: 'orb' });
+    b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
+    return true;
+  }
+
+  /** Open an orb back into the shape it had (false: the role logic goes on). */
+  private leaveOrb(b: Battle, g: SimGroup): boolean {
+    const back = this.orbFrom.get(g.id);
+    // only an orb the bot closed: one chosen at setup is not the bot's to open
+    if (g.formation.type !== 'orb' || back === undefined) return false;
+    this.orbFrom.delete(g.id);
+    b.issue(this.side, { kind: 'preset', group: g.id, type: back });
+    return false;
+  }
+
+  /** The shape each group had before the bot closed it into an orb. */
+  private orbFrom = new Map<number, FormationType>();
 
   /** By enemy group id: where it stood and since when (the stand-off's stillness clock). */
   private still = new Map<number, { cx: number; cy: number; since: number }>();
