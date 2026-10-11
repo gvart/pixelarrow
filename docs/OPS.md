@@ -450,3 +450,105 @@ curl -s https://pixelarrow.app/api/admin/players/42/adjust -H "authorization: Be
   -H 'content-type: application/json' \
   -d '{"requestId":"comp-2026-10-07-42","currency":"drachmae","delta":100,"reason":"outage compensation"}'
 ```
+
+## Sim train releases (SIM_VERSION)
+
+Contract: `design/adr/ADR-0001-determinism-replay.md`. The server replays
+every online battle with the rules (`SIM_VERSION`) it was issued under, and
+turns away clients outside `MIN_SIM_VERSION..SIM_VERSION`
+(`server/src/simVersion.ts`). This section is the operator's runbook for
+shipping a rules version. Train 2 (v5) is the first one: what changed is in
+`docs/v5/balance/TRAIN2.md`.
+
+### What production runs before the v5 release
+
+`main` (the v4 client and Worker) has no versioning at all: no
+`src/sim/version.ts`, no migration 0016, no `simVersion` on the wire. Its sim
+is the one frozen in `server/src/sims/v1` (the frozen copy was taken at
+5145a6c, whose `src/sim` and `src/data` equal `main`'s apart from the new
+`version.ts`; `tests/fixtures/replay-v1.json` proves the copy replays v4
+battles to the same hash). So the v5 release ships the plumbing and rules
+version 2 in one deploy, with both floors at 2 (V5-033, V5-043):
+
+| | Before the deploy | After the deploy |
+| --- | --- | --- |
+| Accepted for a new ticket or socket | anything (no check) | v2 only (`MIN_SIM_VERSION` = `SOCKET_MIN_SIM_VERSION` = 2) |
+| A v4 client (sends no version, read as v1) starting a battle | ok | **426 `sim_version_unsupported`** (sockets: error frame, close 4426) |
+| A ticket issued before the deploy, submitted by the client that started it | replayed with the v4 sim | replayed with the frozen v1 sim (V5-040), same result |
+| A v2 client | — | everything works |
+
+### Deploy order
+
+Everything below is done by `.github/workflows/deploy.yml` on a push to
+`main` (or *Actions → Deploy → Run workflow*). Nobody deploys by hand, and
+nothing in this section is run from a laptop.
+
+1. **Gates** (CI): client typecheck, vitest (includes
+   `tests/trainReplay.test.ts`, the v2 fixtures in Node), build, the Worker
+   tests in workerd (includes `server/test/trainReplay.test.ts` and
+   `simVersion.test.ts`), the layout check and the smokes. Before merging to
+   `main`, also run the cross-engine check locally:
+   `node scripts/replay-hash.mjs` (Chromium and WebKit; a NOT RUN engine is
+   not a pass). Every engine must print `13/13 battles match`.
+2. **D1 migrations** (`0016_sim_version.sql`): four additive
+   `sim_version INTEGER NOT NULL DEFAULT 1` columns. Safe while the old
+   Worker still runs: the rows it writes in the gap default to 1, which is
+   what they are.
+3. **Worker and assets together** (`wrangler deploy`): the client bundle is
+   the Worker's static assets, so the new client and the new server go live
+   in one step. There is no order to get wrong between them, and no window
+   in which a v2 client talks to a v1 server.
+4. **Durable Objects** restart with the new code. Live duels in flight end
+   (ADR-0001: live lockstep has no grace window); their players see the
+   duel drop and can queue again after a reload.
+
+### Cutover runbook (the user's call, V5-043)
+
+- **T − 1 day:** post a notice in the game's Telegram channel: "An update
+  arrives on <date>. If online battles say the game is out of date, close
+  and reopen the app." (en and ru). v4 has no reload UI: after the deploy
+  its online battles fail with an error on the 426, and only a reopen picks
+  up the new bundle.
+- **T − 10 min:** nothing to drain. In-flight tickets survive the deploy
+  (below), and the floor cannot be raised gradually because v4 has no
+  version to raise it from.
+- **T (merge to `main`):** watch the workflow until the deploy job is
+  green. If a gate fails, nothing is deployed.
+- **T + 0..10 min (the ticket TTL):** tickets issued by the old Worker
+  finish. A player mid-way through a war attack, a boss raid, a ladder floor
+  or an async raid on the old client can still submit it; the ticket row
+  says `sim_version` 1 (the migration default), the client sends no version
+  (1), so `verifyBattle` replays it with `REPLAYERS[1]` even though 1 is
+  below the floor (V5-040, ADR-0001 "In-flight tickets"). A new ticket from
+  that client gets 426. Watch Workers Logs and the client errors
+  (Monitoring above): 422 `replay_mismatch` must not rise; a burst of 426
+  `sim_version_unsupported` is expected and falls as players reopen the app.
+- **T + 1 h:** in the admin panel's Errors tab, errors reported by the old
+  app version should fade within the day. Re-post the channel notice if
+  426s are still frequent.
+- **T + 24 h or later:** the frozen v1 sim may go. Remove
+  `server/src/sims/v1/` and `REPLAYERS[1]` in one change, no sooner than one
+  ticket TTL (10 min) after the deploy; a day leaves room for a rollback.
+  `tests/fixtures/replay-v1.json` and its tests go with it. Async replays
+  stored under v1 keep `sim_version` 1; the client labels them instead of
+  replaying them under v2 rules.
+
+### Rollback
+
+`npx wrangler rollback` (or re-running the deploy of the previous `main`
+commit) puts the v4 Worker and client back. Migration 0016 stays: its
+columns are additive and the v4 Worker ignores them. Tickets issued under v2
+and still open at the rollback replay with the v4 sim on the old Worker and
+mostly fail verification; that is at most 10 minutes of v2 tickets.
+Players on the v2 bundle get the v4 bundle on their next reopen.
+
+### The next rules change
+
+Once v2 is in production, any change that can alter a replay (ADR-0001
+"What needs a SIM_VERSION bump": `src/sim/**`, the data it reads, stat
+derivation, setup building, order kinds) is **version 3**: freeze `src/sim`
+as `server/src/sims/v2`, bump `SIM_VERSION`, record `replay-v3*.json`
+fixtures, and repeat this runbook. Before the v5 release, v2 may still
+change; then re-record the v2 fixtures on purpose
+(`RECORD_REPLAY_V2=1 npx vitest run tests/trainReplay.test.ts`) and review
+the diff.

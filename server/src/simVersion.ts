@@ -5,6 +5,11 @@
  * ticket, submission and verify call, and `?sim=` on their sockets. The
  * server accepts MIN_SIM_VERSION..SIM_VERSION and replays each battle with
  * the version it was played under (server/src/battle.ts REPLAYERS).
+ *
+ * Sim train 2 is closed (ST-04): its battles are pinned by
+ * tests/fixtures/replay-v2*.json in Node, workerd and the browsers. Once v2
+ * is in production, a change that alters a replay is version 3; the release
+ * steps are in docs/OPS.md "Sim train releases".
  */
 import { z } from 'zod';
 import { SIM_VERSION } from '../../src/sim/version';
