@@ -250,6 +250,8 @@ describe('why-line rules (R5), one recorded fixture per rule', () => {
     const flank = fixture([contact(10), flanked(38, 0, 0), rout(40, 0, 0), rout(70, 0, 1), armyBreak(71, 0)]);
     expect(keys(whyLine(flank, 0, 'defeat'))).toEqual(['why.lost.flanked']);
     expect(say(whyLine(fixture([contact(10), rout(40, 1, 2), rout(61, 1, 3), armyBreak(62, 1)]), 0, 'victory'))).toBe('Their army broke after 2 groups routed.');
+    // men fell faster than any group routed: no "after 0 groups"
+    expect(say(whyLine(fixture([contact(10), armyBreak(11, 0)]), 0, 'defeat'))).toBe('Our army broke as its men fell.');
   });
 
   it('focus fire won: our missiles were focused on the enemy group that broke first', () => {

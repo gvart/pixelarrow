@@ -427,7 +427,8 @@ function cause(log: BattleLog, loser: Side, won: boolean, captains: readonly str
   const brk = ev.find((e) => e.type === 'armyBreak' && e.side === loser);
   if (brk) {
     const n = ev.filter((e) => e.type === 'rout' && e.side === loser && e.tick <= brk.tick).length;
-    return { key: `${k}armyBreak`, params: { n } };
+    // men can fall faster than their groups rout: then no group count to give
+    return n > 0 ? { key: `${k}armyBreak`, params: { n } } : { key: `${k}armyFell`, params: {} };
   }
   return null;
 }
