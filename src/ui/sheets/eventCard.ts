@@ -63,7 +63,7 @@ export interface Token {
   br?: boolean;
 }
 
-const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `-${-n}` : '0');
 const gainFont = (n: number): FontKey => (n < 0 ? 'pBad' : 'pGood');
 
 /** One effect as a token, or null for the bookkeeping the player doesn't see (flags, the silent garrison cut: EV-02 decision 7). */
@@ -112,14 +112,19 @@ const tokens = (fx: readonly Effect[]): Token[] => fx.map(effectToken).filter((x
 
 /** What a choice does, in words: its cost, its effects, and for a gamble the odds and what happens if it fails. */
 export function choiceTokens(c: EventChoice): Token[] {
-  const out = [...tokens(c.cost ?? []), ...tokens(c.effects)];
-  if (c.chance) {
-    out.unshift({ icon: 'bolt', text: t('evc.fx.chance', { p: Math.round(c.chance.p * 100) }), font: 'pSec' });
-    if (!out.slice(1).length) out.push({ text: t('evc.fx.none'), font: 'pSec' });
-    const fail = tokens(c.chance.fail);
-    out.push({ text: t('evc.fx.else'), font: 'pSec', br: true }, ...(fail.length ? fail : [{ text: t('evc.fx.none'), font: 'pSec' as FontKey }]));
-  }
-  return out.length ? out : [{ text: t('evc.fx.none'), font: 'pSec' }];
+  const cost = tokens(c.cost ?? []);
+  const fx = tokens(c.effects);
+  if (!c.chance) return cost.length + fx.length ? [...cost, ...fx] : [{ text: t('evc.fx.none'), font: 'pSec' }];
+  // the cost is paid whatever happens; the odds come after it, then what a success and a failure bring
+  const none: Token = { text: t('evc.fx.none'), font: 'pSec' };
+  const fail = tokens(c.chance.fail);
+  return [
+    ...cost,
+    { icon: 'bolt', text: t('evc.fx.chance', { p: Math.round(c.chance.p * 100) }), font: 'pSec', br: cost.length > 0 },
+    ...(fx.length ? fx : [none]),
+    { text: t('evc.fx.else'), font: 'pSec', br: true },
+    ...(fail.length ? fail : [none]),
+  ];
 }
 
 export const blockText = (b: ChoiceBlock): string => t(`evc.block.${b.why}` as TKey, { need: b.need, have: b.have });
@@ -234,7 +239,8 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
   };
 
   const pick = (key: string): boolean => {
-    if (state_ !== 'card') return false;
+    // the card answers only its own event (a stale card never resolves another one)
+    if (state_ !== 'card' || camp.world.s.pendingEvent?.id !== def.id) return false;
     const res = camp.chooseEvent(key);
     if (!res) return false;
     result = res;
@@ -274,7 +280,10 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
       return false;
     }
     const label = choiceLabel(def.id, free.key);
-    confirmDialog(scene, { title: t('evc.chooseQ'), body: t('evc.chooseBody', { label }), ok: label, cancel: t('evc.chooseNo'), onOk: () => pick(free.key) });
+    // after Back has put this layer back (returning false): the confirm's own layer must sit above it
+    void Promise.resolve().then(() => {
+      if (state_ === 'card' && guard.scene) confirmDialog(scene, { title: t('evc.chooseQ'), body: t('evc.chooseBody', { label }), ok: label, cancel: t('evc.chooseNo'), onOk: () => pick(free.key) });
+    });
     return false;
   }, scene);
 
@@ -299,7 +308,7 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
   const top = s.body.y;
   const room = s.y + s.h - PAD - choicesH - top - 4;
   const area = new ScrollArea(scene, s.c, x, top, iw, Math.max(20, room), scene.m.S);
-  addNiche(scene, area.content, 0, 0, NICHE_W, NICHE_H);
+  addNiche(scene, area.content, 1, 0, NICHE_W - 1, NICHE_H);
   const ic = addIcon(scene, (NICHE_W - 12) / 2, NICHE_H - 17, TRIGGER_ICON[def.trigger] ?? 'log');
   area.content.add(ic);
   const contentH = Math.max(NICHE_H, para(scene, area.content, 0, 0, bodyText, iw, NICHE_W + 6, NICHE_H));
@@ -321,7 +330,7 @@ function openResult(scene: UiScene, def: EventDef, res: EventResolution, done: (
   const line = resultLine(def.id, res.key, res.ok);
   const happened = [...tokens(c.cost ?? []), ...tokens(res.ok ? c.effects : c.chance?.fail ?? [])];
   const notes = res.notes.map((n) => tOr(`evc.note.${n}`, '')).filter(Boolean);
-  const label = `› ${choiceLabel(def.id, res.key)}${res.ok ? '' : ` · ${t('evc.failed')}`}`;
+  const label = `${choiceLabel(def.id, res.key)}${res.ok ? '' : ` · ${t('evc.failed')}`}`;
   const actions = [{ label: t('menu.continue'), icon: 'check', variant: 'primary' as const, id: 'event.continue', onClick: () => s.close() }];
   const measure = (cc: Phaser.GameObjects.Container | null, x: number, y: number): number => {
     let yy = y;
@@ -380,7 +389,7 @@ export function openJournalSheet(scene: UiScene, onClose?: () => void): Parchmen
       const tl = wrapWords(e.title.toUpperCase(), iw, (q) => mw(q, 'rInk', BODY));
       if (c) c.add(mtext(scene, 0, y, tl.join('\n'), 'rInk', { size: BODY }));
       y += tl.length * 10 + 1;
-      const cl = wrapWords(`› ${e.choice}${e.ok ? '' : ` · ${t('evc.failed')}`}`, iw, (q) => mw(q, 'pSec', SMALL));
+      const cl = wrapWords(`${e.choice}${e.ok ? '' : ` · ${t('evc.failed')}`}`, iw, (q) => mw(q, 'pSec', SMALL));
       if (c) c.add(mtext(scene, 0, y, cl.join('\n'), 'pSec', { size: SMALL }));
       y += cl.length * TOK_H;
       if (e.result) y += para(scene, c, 0, y, e.result, iw);

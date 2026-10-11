@@ -10,6 +10,7 @@ import { Campaign } from '../src/game/campaign';
 import { deserialize, serialize } from '../src/game/save';
 import { setLang, LANGS } from '../src/i18n';
 import { state } from '../src/state';
+import { missingGlyphs } from '../src/ui/textfit';
 
 vi.mock('phaser', () => {
   class C {}
@@ -44,9 +45,10 @@ describe('the card reads in words (R4, A11Y: never colour only)', () => {
           for (const tk of toks) {
             expect(tk.text).not.toMatch(/evc\.|\{/);
             expect(tk.text.trim()).not.toBe('');
+            expect(missingGlyphs(tk.text)).toEqual([]);
           }
           // a cost is written with a minus, not only in red
-          for (const e of c.cost ?? []) if (e.k === 'gold') expect(toks.some((tk) => tk.icon === 'coin' && tk.text.includes('−'))).toBe(true);
+          for (const e of c.cost ?? []) if (e.k === 'gold') expect(toks.some((tk) => tk.icon === 'coin' && tk.text.startsWith('-'))).toBe(true);
         }
       }
     });
