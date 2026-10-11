@@ -31,7 +31,7 @@ export const EVENT_DECK_ENABLED = true;
  * so the oracle's weight is 0 until this is true: a card must not sell what
  * the game can't deliver.
  */
-export const RETRAIN_SPENDABLE = false;
+export const RETRAIN_SPENDABLE = true;
 
 /** One spawned-band fight the deck sends after the player: a mercenary captain with a fat bounty (rival_challenge, deserters_hunt). */
 const CAPTAIN_HUNT = { captain: true, hunts: true, bountyMult: 2 } as const;
