@@ -25,6 +25,7 @@ import { MOSAIC_CMAP_EN } from './mosaic.campaignmap.en';
 import { MOSAIC_WAR_EN } from './mosaic.war.en';
 import { TARGETING_EN } from './targeting.en';
 import { UNDO_EN } from './undo.en';
+import { WORKS_EN } from './works.en';
 import { READOUT_EN } from './readout.en';
 import { QUEUE_EN } from './queue.en';
 import { ATTENTION_EN } from './attention.en';
@@ -329,6 +330,8 @@ export const EN = {
   ...TARGETING_EN,
   // ---- undo: the battle chip, deployment undo, the Reset-all confirm (undo.en.ts)
   ...UNDO_EN,
+  // ---- field works: the Works tray and placement (works.en.ts)
+  ...WORKS_EN,
   // ---- the battle readout: morale glyph, bar labels, Flanked! (readout.en.ts)
   ...READOUT_EN,
   // ---- the order queue: Then…, paused staging (queue.en.ts)

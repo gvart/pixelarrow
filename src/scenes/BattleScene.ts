@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { ICON_PX, Meter, addIcon, addText, holdTimer, longPress, uiMetrics, type HoldTimer } from '../ui/kit';
+import { ICON_PX, Meter, addIcon, addText, holdTimer, longPress, scaleIcon, uiMetrics, type HoldTimer } from '../ui/kit';
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, hintStore, openModal, toast, Label, type Modal } from '../ui/widgets';
-import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, strokeReticle } from '../ui/battlePanel';
+import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, strokeReticle, worksTray } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
@@ -31,7 +31,8 @@ import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf, type UndoS
 import { StagedPlan, TAP_GHOST_MS, THEN_CHIP_S, ThenQueue, type ThenKey } from '../ui/orderQueue';
 import { CARD_DOUBLE_TAP_MS, FOLLOW_MARGIN, POINTER_INSET, RECENTRE_MS, FOLLOW_CATCH_UP, boxOf, centreOf, edgePointer, followCentre, keepInView, openingFrame, type Box } from '../ui/battleCamera';
 import { motion } from '../ui/motion';
-import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
+import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit, WorkType, WorksAllowance } from '../sim/types';
+import { cellAt, cellCentre, firstGhost, ghostWhy, layAgain, segmentAt, trayRows, turnFacing, workCells, type TrayRow, type WorkGhost, type WorkGrid, type WorkWhy } from '../ui/input/works';
 import type { TerrainGrid } from '../sim/terrain';
 import type { BattleSource } from '../online/battleSource';
 import { createDeployClock, foeIsReady, markStarted, pressReady, secondsLeft, tickDeploy, urgent, type DeployAction, type DeployClock } from '../online/deployClock';
@@ -41,7 +42,7 @@ import { lastBattle, unitStats } from '../game/report';
 import { GROUP_NAMES, type Hero } from '../data/units';
 import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
 import { BattleFx } from '../ui/battleFx';
 import { BeastView } from '../ui/beastView';
 import { openSettings } from '../ui/settings';
@@ -49,8 +50,8 @@ import { battleAudio, uiError } from '../audio/hooks';
 import { sfx } from '../audio';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { isCaptain, rallyRadius } from '../sim/stats';
-import { BOULDER_GEOM, TREE_GEOM, renderBoulder, renderGlint, renderSparkle, renderTree } from '../art/terrainArt';
-import { campaignSetup, markBattle, settleBattle } from '../game/campaignBattle';
+import { BOULDER_GEOM, TREE_GEOM, WORK_ART, renderBoulder, renderGlint, renderSparkle, renderTree, workSprites, type WorkSprite } from '../art/terrainArt';
+import { campaignSetup, markBattle, playerWorks, settleBattle } from '../game/campaignBattle';
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
 import { t, tOr, type TKey } from '../i18n';
@@ -167,6 +168,8 @@ const TAG_PX = px(20);
  * of radius on a 3x phone. V5-034.)
  */
 const UNIT_TAP_PX = px(22);
+/** World flag: a camp has been pitched in this campaign, so the Works tray stays unlocked (controls.md R10b). */
+const WORKS_SEEN_FLAG = '@works';
 
 export class BattleScene extends BaseScene {
   private sim!: Battle;
@@ -270,6 +273,21 @@ export class BattleScene extends BaseScene {
   private abilityBtns: { id: AbilityId; btn: Medallion }[] = [];
   /** The shape sheet is open. */
   private shapeOpen = false;
+  /** Field works (FW-03): the player's allowance this battle was set up with; null: the player has no works here. */
+  private works: { works: WorksAllowance; caught: boolean } | null = null;
+  /** The works tray is open (the Works chip is lit). */
+  private worksOpen = false;
+  /** The segment being placed (the ghost), or null. */
+  private worksGhost: WorkGhost | null = null;
+  /** A drag from the ghost is moving it (lifting lays it). */
+  private worksDrag = false;
+  /** A cell of the own segment selected for removal, or -1. */
+  private worksSel = -1;
+  /** The works sprites on the field, and what they were drawn for. */
+  private workArt: Phaser.GameObjects.Image[] = [];
+  private worksSig = '';
+  /** The ✓ / ✗ mark on the ghost (A11Y-04: validity is never colour only). */
+  private ghostMark: Phaser.GameObjects.Image | null = null;
   /** CT-07 (controls.md R10b): the gated controls this battle shows, fixed when it opens. */
   private unlocks: Unlocks = battleUnlocks({ kind: 'campaign', fought: 0, campPitched: false, realtimeLocked: false });
   /** The kinds of interactive control on screen (the attention budget, at most 4). */
@@ -329,6 +347,11 @@ export class BattleScene extends BaseScene {
     super('Battle');
   }
 
+  /** The works' pixel sprites (AS-06), once: a file that fails to load leaves its works drawn by the ghost outline only. */
+  preload(): void {
+    for (const a of Object.values(WORK_ART)) if (!this.textures.exists(a.key)) this.load.image(a.key, a.url);
+  }
+
   create(data: { fresh?: boolean; source?: BattleSource; tutorial?: TutorialStart }): void {
     this.views = [];
     this.decals = [];
@@ -372,6 +395,14 @@ export class BattleScene extends BaseScene {
     this.netBanner = false;
     this.netText = '';
     this.shapeOpen = false;
+    this.works = null;
+    this.worksOpen = false;
+    this.worksGhost = null;
+    this.worksDrag = false;
+    this.worksSel = -1;
+    this.workArt = [];
+    this.worksSig = '';
+    this.ghostMark = null;
     this.kinds = [];
     this.stdBtn = null;
     this.feintAt = new Map();
@@ -394,11 +425,13 @@ export class BattleScene extends BaseScene {
     this.initUi();
 
     const camp = state.campaign;
+    // Works unlock once a camp has been pitched (R10b), and stay: a camp standing now is remembered in a world flag
+    if (!this.src && !this.tutorialData && camp.data.world.camp) camp.world.setFlag(WORKS_SEEN_FLAG, 1);
     // the attention budget (CT-07, controls.md R10b): what this player has learned, read before this battle counts
     this.unlocks = battleUnlocks({
       kind: this.src ? 'online' : this.tutorialData ? 'tutorial' : 'campaign',
       fought: camp.data.fought,
-      campPitched: !!camp.data.world.camp,
+      campPitched: !!camp.data.world.camp || camp.world.hasFlag(WORKS_SEEN_FLAG),
       realtimeLocked: this.online,
     });
     this.leftHand = !!camp.data.settings.leftHand;
@@ -426,7 +459,9 @@ export class BattleScene extends BaseScene {
       this.enemyHeroes = pending.enemy.heroes;
       // Wounded heroes sit this one out.
       heroes = camp.fitHeroes();
-      setup = campaignSetup(pending, heroes);
+      // field works (field-works.md R4): an offline campaign feature, once unlocked (V5-022, R10b)
+      this.works = this.unlocks.works ? playerWorks(camp, pending) : null;
+      setup = campaignSetup(pending, heroes, this.works?.works);
     }
     const terrain: TerrainGrid = setup.terrain ?? { w: 0, h: 0, cells: 'flat' };
     this.verifySetup = this.src || this.tutorialData ? null : snapshotSetup(setup);
@@ -790,6 +825,7 @@ export class BattleScene extends BaseScene {
     flushDolls(this);
     this.beasts?.update(alpha, !!this.banner);
     this.renderProjectiles(alpha);
+    if (this.sim.phase === 'deploy') this.syncWorkArt();
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
@@ -1189,6 +1225,7 @@ export class BattleScene extends BaseScene {
       zone(this.foe, 0xe07060, 0xa83a2c, this.hideFoes() ? 0.16 : 0.08);
       zone(this.me, 0xf6ecd8, 0x4a6b8a, 0.12);
     }
+    this.drawWorks(g);
     const drawSlots = (slots: { x: number; y: number }[], fx: number, fy: number, color: number, a: number, dashed = false) => {
       const r = rightOf(fx, fy);
       const hw = 0.36;
@@ -1688,13 +1725,15 @@ export class BattleScene extends BaseScene {
       const w = cam.getWorldPoint(p.x, p.y);
       // a HUD control, a dialog or the controls hint under the finger takes the press
       const blocked = over.length > 0 || !!this.overlay || !!this.hint;
-      return { blocked, grab: blocked ? null : hitTest(this.hitState(), p).grab, at: { x: w.x, y: w.y } };
+      // placing a work: a drag from its ghost moves the ghost, anywhere else pans (FW-03)
+      const grab = blocked ? null : this.worksGhost ? this.ghostGrab(p) : hitTest(this.hitState(), p).grab;
+      return { blocked, grab, at: { x: w.x, y: w.y } };
     });
     this.onGestures(evs);
   }
 
   private onMove(p: Phaser.Input.Pointer): void {
-    this.onGestures(this.gestures.move(p, this.downPointers(), () => this.selGroup >= 0 && this.canCommand()));
+    this.onGestures(this.gestures.move(p, this.downPointers(), () => (this.worksGhost ? this.worksShown() : this.selGroup >= 0 && this.canCommand())));
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
@@ -1743,12 +1782,18 @@ export class BattleScene extends BaseScene {
           break;
         case 'drag-start':
           this.setFollow(false); // the field must stay put under the finger
-          this.drag = this.startDrag(e.at, e.kind);
+          if (this.worksGhost) this.worksDrag = true;
+          else this.drag = this.startDrag(e.at, e.kind);
           break;
         case 'drag-move': {
-          if (!this.drag) break;
           const w = cam.getWorldPoint(e.x, e.y);
           const f = screenToIso(w.x, w.y);
+          // the ghost follows the finger, snapping to cells
+          if (this.worksDrag) {
+            this.moveGhost(f.x, f.y);
+            break;
+          }
+          if (!this.drag) break;
           this.dragFeedback(dragMove(this.drag, f.x, f.y));
           this.updateDragPreview(this.drag);
           break;
@@ -1760,9 +1805,16 @@ export class BattleScene extends BaseScene {
           break;
         case 'tap':
           this.dragPreview = null;
+          if (this.worksTap(e.x, e.y)) break;
           this.tap(e.x, e.y);
           break;
         case 'drag-end': {
+          // lift to place (a ghost on invalid ground stays, and says why)
+          if (this.worksDrag) {
+            this.worksDrag = false;
+            this.placeWork();
+            break;
+          }
           const plan = this.drag ? dragPlan(this.drag) : null;
           this.drag = null;
           this.dragPreview = null;
@@ -1968,6 +2020,7 @@ export class BattleScene extends BaseScene {
     if (!this.textures.exists('sparkle')) this.textures.addCanvas('sparkle', renderSparkle().toCanvas());
     const seed = this.sim.seed;
     const h = (a: number, b: number) => ((Math.imul(a + 1, 73856093) ^ Math.imul(b + 7, 19349663) ^ seed) >>> 0) % 1000 / 1000;
+    const walls: { i: number; kind: 'palisade' | 'rampart' }[] = [];
     const place = (key: string, fx: number, fy: number, tree: boolean) => {
       const p = isoToScreen(fx, fy);
       const img = this.add.image(Math.round(p.x), Math.round(p.y), key).setOrigin(0.5, tree ? TREE_GEOM.footY / TREE_GEOM.h : BOULDER_GEOM.footY / BOULDER_GEOM.h).setDepth(p.y);
@@ -1988,8 +2041,12 @@ export class BattleScene extends BaseScene {
         place(`boulder_${i % 2}`, c.x + (h(i, 6) - 0.5) * 0.3, c.y + (h(i, 7) - 0.5) * 0.3, false);
       } else if (d.kind === 'water' || d.kind === 'sea') {
         this.waterCells.push(i);
+      } else if (d.kind === 'palisade' || d.kind === 'rampart') {
+        walls.push({ i, kind: d.kind });
       }
     }
+    // an assault field's palisade and rampart (campaign-arc.md R2), sorted with the men like the works
+    for (const s of workSprites([], walls, this.workGrid())) this.addWorkSprite(s);
     // a pool of shimmer sprites that hop between random spots on the water (docs/ART_STYLE.md §10)
     const n = Math.min(70, Math.ceil(this.waterCells.length * 0.8));
     for (let k = 0; k < n; k++) {
@@ -2596,6 +2653,7 @@ export class BattleScene extends BaseScene {
     this.buildMedallions();
     this.buildPips();
     if (this.shapeOpen) this.buildShapeSheet();
+    if (this.worksOpen && !this.worksGhost && this.worksShown()) this.buildWorksTray();
     // the selected soldier: who he is and how he fares, just above the sheet
     const u = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
     if (u) this.buildHeroInfo(u, this.stripTop() - 27);
@@ -2970,12 +3028,18 @@ export class BattleScene extends BaseScene {
     if (sel && this.canCommand() && (sel.focus ?? -1) >= 0) {
       chips.push({ icon: 'close', label: t('target.chip.focus'), tip: t('target.tip.focus'), id: 'battle.target.clear', onClick: () => this.setFocus(-1) });
     }
+    // field works (FW-03): the Works key beside Undo (the sheet's header has no room for a third chip at 320 without an
+    // ellipsis), then Place, Turn and Cancel while placing, or Remove for a selected work
+    if (this.worksShown()) chips.push({ icon: 'works', label: t('works.chip'), tip: t('works.tip.chip'), id: 'battle.works', lit: this.worksOpen, onClick: () => this.openWorks() });
+    chips.push(...this.worksChips());
     if (sel && this.canCommand() && this.far.has(sel.id) && this.unlocks.toRange) {
       chips.push({ icon: 'advance', label: t('target.chip.advance'), tip: t('target.tip.advance'), id: 'battle.target.advance', onClick: () => this.advanceToRange() });
     }
     if (!chips.length) return;
     const h = SHEET_HEAD_H;
-    let y = (this.selUnit >= 0 ? this.stripTop() - 27 : this.stripTop()) - 2 - h;
+    // above the works tray while it is open
+    const base = this.worksOpen && !this.worksGhost && this.worksShown() ? this.worksTrayTop() : this.selUnit >= 0 ? this.stripTop() - 27 : this.stripTop();
+    let y = base - 2 - h;
     // a chip that would run under the medallion rail starts a row above (CT-04: no chip is dropped); left-hand: the rail is on the left
     const rail = this.kinds.includes('medallions') && this.abilityDefs().length ? MED_W + 4 : 0;
     const x0 = this.leftHand ? rail + 2 : 4;
@@ -3318,7 +3382,319 @@ export class BattleScene extends BaseScene {
   openCategory(cat: BattleCategory | null): void {
     if (cat === 'formation') this.shapeOpen = !this.shapeOpen;
     else this.shapeOpen = false;
+    if (this.shapeOpen) this.closeWorks();
     this.buildHud();
+  }
+
+  // ---- field works (FW-03; field-works.md "Touch UI needs", R3-R5, controls.md R7): the tray, the ghost, placing and removing
+
+  /** The Works chip shows: the player has works in this battle (offline campaign, unlocked; V5-022, R10b) and it is still deployment. */
+  private worksShown(): boolean {
+    return !!this.works && this.sim.phase === 'deploy' && !this.src && !this.tutorialData;
+  }
+
+  /** The field's grid, as the sim lays segments on it (no grid: one cell per pace). */
+  private workGrid(): WorkGrid {
+    const tr = this.sim.terrain;
+    const { width, height } = this.sim;
+    return { w: tr ? tr.w : Math.max(1, Math.round(width)), h: tr ? tr.h : Math.max(1, Math.round(height)), width, height };
+  }
+
+  /** The tray's rows now: what each work costs, how many more can go down, or why not. */
+  private worksRows(): TrayRow[] {
+    const w = this.works!;
+    return trayRows({ supplies: state.campaign.world.supplies, placed: this.sim.works().filter((s) => s.side === this.me), allow: w.works, caught: w.caught });
+  }
+
+  private workWhyText(why: WorkWhy): string {
+    return t(`works.why.${why}` as TKey);
+  }
+
+  /** Why the ghost cannot go down now (the purse first, then the sim's own check), or null. */
+  private ghostWhy(): WorkWhy | null {
+    const g = this.worksGhost;
+    if (!g) return null;
+    return ghostWhy(
+      this.worksRows().find((r) => r.type === g.type),
+      this.sim.workRefusal(this.me, g),
+    );
+  }
+
+  /** The Works chip: open or close the tray. */
+  openWorks(open = !this.worksOpen): void {
+    this.closeWorks();
+    this.worksOpen = open && this.worksShown();
+    if (this.worksOpen) {
+      this.shapeOpen = false;
+      this.pips = null;
+    }
+    this.buildHud();
+  }
+
+  /** Close the tray and drop the ghost and the selection (no rebuild). */
+  private closeWorks(): void {
+    this.worksOpen = false;
+    this.worksGhost = null;
+    this.worksDrag = false;
+    this.worksSel = -1;
+  }
+
+  /** A row of the tray: its ghost appears across the front of the zone, to be moved, turned and placed. */
+  pickWork(type: WorkType): void {
+    const row = this.worksRows().find((r) => r.type === type);
+    if (!row || row.why) {
+      hapticNotify('error');
+      toast(this, this.workWhyText(row?.why ?? 'type'));
+      return;
+    }
+    this.worksGhost = firstGhost(type, this.sim.deployZone(this.me), this.sim.deployZone(this.foe), this.sim.width);
+    this.worksSel = -1;
+    hapticSelect();
+    this.showBanner(t('works.banner.pick'), 2200);
+    this.buildHud();
+  }
+
+  /** The (i) key of a tray row: what the work does (G15: never long-press only). */
+  private showWorkInfo(type: WorkType): void {
+    this.showBanner(t(`works.${type}.info` as TKey), 4500, 4);
+  }
+
+  /** Move the ghost to the cell under field point (x, y). */
+  private moveGhost(x: number, y: number): void {
+    const g = this.worksGhost;
+    const grid = this.workGrid();
+    const i = cellAt(x, y, grid);
+    if (!g || i < 0) return;
+    const c = cellCentre(i, grid);
+    if (c.x === g.x && c.y === g.y) return;
+    g.x = c.x;
+    g.y = c.y;
+    haptic('light');
+    if (!this.worksDrag) this.buildHud();
+  }
+
+  /** Turn the ghost an eighth of a turn (the single-tap alternative to turning it by its facing). */
+  turnWork(): void {
+    const g = this.worksGhost;
+    if (!g) return;
+    const f = turnFacing(g.fx, g.fy);
+    g.fx = f.x;
+    g.fy = f.y;
+    haptic('light');
+    this.buildHud();
+  }
+
+  /** Lay the ghost's segment: a `work` order, through order() like any other, undoable (field-works.md R3). */
+  placeWork(): void {
+    const g = this.worksGhost;
+    if (!g) return;
+    const why = this.ghostWhy();
+    if (why) {
+      hapticNotify('error');
+      toast(this, this.workWhyText(why));
+      return;
+    }
+    const o: Order = { kind: 'work', type: g.type, x: g.x, y: g.y, fx: g.fx, fy: g.fy };
+    const before = this.sim.works().length;
+    this.order(o);
+    if (this.sim.works().length === before) return;
+    this.recordUndo(o, inverseOf(o, this.sim));
+    this.afterWorks();
+    this.worksGhost = null;
+    haptic('medium');
+    this.showBanner(t('works.banner.placed', { name: t(`works.${g.type}.name` as TKey) }), 1200);
+    this.buildHud();
+  }
+
+  /** Take up the selected segment (its supplies are never charged); Undo lays it again. */
+  removeWork(): void {
+    const grid = this.workGrid();
+    const seg = this.sim.works()[segmentAt(this.sim.works(), this.me, this.worksSel)];
+    if (!seg) return;
+    const c = cellCentre(this.worksSel, grid);
+    const o: Order = { kind: 'unwork', x: c.x, y: c.y };
+    const again = layAgain(seg, grid);
+    this.order(o);
+    this.recordUndo(o, [again]);
+    this.afterWorks();
+    this.worksSel = -1;
+    haptic('medium');
+    this.showBanner(t('works.banner.removed', { name: t(`works.${seg.type}.name` as TKey) }), 1200);
+    this.buildHud();
+  }
+
+  /** The ground changed under the men (the sim resnaps them): no tween from where they stood; redraw the works. */
+  private afterWorks(): void {
+    for (const v of this.views) {
+      v.px = v.u.x;
+      v.py = v.u.y;
+    }
+    this.syncWorkArt();
+  }
+
+  /** A tap on the field while the tray is open: the ghost moves there, or an own work is selected. True if taken. */
+  private worksTap(x: number, y: number): boolean {
+    if (!this.worksOpen) return false;
+    const w = this.cameras.main.getWorldPoint(x, y);
+    const f = screenToIso(w.x, w.y);
+    if (this.worksGhost) {
+      this.moveGhost(f.x, f.y);
+      return true;
+    }
+    const cell = cellAt(f.x, f.y, this.workGrid());
+    const k = segmentAt(this.sim.works(), this.me, cell);
+    const sel = k >= 0 ? cell : -1;
+    if (sel < 0 && this.worksSel < 0) return false;
+    this.worksSel = sel;
+    if (k >= 0) {
+      hapticSelect();
+      this.showBanner(t('works.banner.selected', { name: t(`works.${this.sim.works()[k].type}.name` as TKey) }), 1800);
+    }
+    this.buildHud();
+    return k >= 0;
+  }
+
+  /** What a drag from this press grabs while placing: the ghost, within reach of any of its cells. */
+  private ghostGrab(p: Pt): DragKind | null {
+    const g = this.worksGhost;
+    if (!g) return null;
+    const grid = this.workGrid();
+    const cam = this.cameras.main;
+    for (const i of workCells(g.type, g.x, g.y, g.fx, g.fy, grid) ?? [cellAt(g.x, g.y, grid)]) {
+      const c = cellCentre(i, grid);
+      const s = isoToScreen(c.x, c.y);
+      const sx = (s.x - cam.worldView.x) * cam.zoom;
+      const sy = (s.y - cam.worldView.y) * cam.zoom;
+      if (Math.hypot(sx - p.x, sy - p.y) <= GRAB_PX) return 'move';
+    }
+    return null;
+  }
+
+  /** Height of the tray (its rows are the shape sheet's). */
+  private worksTrayH(): number {
+    return 16 + 3 * ((this.compact ? 22 : 24) + 3) - 3 + 6;
+  }
+
+  /**
+   * Top of the tray: just above the bottom sheet, but never so high that the
+   * chip row above it (Undo, Works) runs into the zoom key; on a short screen
+   * it comes down over the group cards instead.
+   */
+  private worksTrayTop(): number {
+    const floor = this.cornerY(true) + 22 + 4 + SHEET_HEAD_H + 4;
+    return Math.max(floor, this.stripTop() - 2 - this.worksTrayH());
+  }
+
+  /** The works tray, above the bottom sheet: supplies left, and a row per work with its (i). */
+  private buildWorksTray(): void {
+    const rows = this.worksRows().map((r) => {
+      const name = t(`works.${r.type}.name` as TKey);
+      const why = r.why ? this.workWhyText(r.why) : undefined;
+      return {
+        id: `battle.works.${r.type}`,
+        title: name,
+        subtitle: r.why ? t(`works.short.${r.why}` as TKey) : t('works.left', { n: r.left }),
+        value: t('works.cost', { n: r.cost }),
+        off: why,
+        selected: this.worksGhost?.type === r.type,
+        tip: t(`works.${r.type}.info` as TKey),
+        infoLabel: t('works.info', { name }),
+        onPick: () => this.pickWork(r.type),
+        onInfo: () => this.showWorkInfo(r.type),
+      };
+    });
+    const supplies = t('works.supplies', { n: Math.floor(state.campaign.worksLeft(this.sim.works())) });
+    const top = this.worksTrayTop();
+    const tray = worksTray(this, 4, top + this.worksTrayH(), this.m.VW - 8, this.compact ? 22 : 24, t('works.title'), supplies, rows, top);
+    this.hud.add(tray.c);
+    for (const [id, row] of tray.rows) this.cmdBtns.set(id.slice('battle.'.length), row);
+  }
+
+  /** The placing chips (Place, Turn, Cancel) or Remove for a selected work: above the sheet, after Undo. */
+  private worksChips(): { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; onClick: () => void }[] {
+    if (!this.worksShown() || !this.worksOpen) return [];
+    if (this.worksGhost) {
+      const why = this.ghostWhy();
+      return [
+        { icon: why ? 'xmark' : 'check', label: t('works.chip.place'), tip: t('works.tip.place'), id: 'battle.works.place', off: why ? this.workWhyText(why) : undefined, onClick: () => this.placeWork() },
+        { icon: 'march', label: t('works.chip.turn'), tip: t('works.tip.turn'), id: 'battle.works.turn', onClick: () => this.turnWork() },
+        { icon: 'close', label: t('works.chip.cancel'), tip: t('works.tip.cancel'), id: 'battle.works.cancel', onClick: () => this.cancelWork() },
+      ];
+    }
+    if (this.worksSel >= 0) return [{ icon: 'close', label: t('works.chip.remove'), tip: t('works.tip.remove'), id: 'battle.works.remove', onClick: () => this.removeWork() }];
+    return [];
+  }
+
+  /** Stop placing: back to the tray. */
+  cancelWork(): void {
+    this.worksGhost = null;
+    this.worksDrag = false;
+    this.buildHud();
+  }
+
+  /** Draw the works sprites again when the segments on the field changed (placed, taken up, undone, or laid by the bot). */
+  private syncWorkArt(): void {
+    const segs = this.sim.works();
+    const sig = segs.map((s) => `${s.type}:${s.cells.join('.')}`).join('|');
+    if (sig === this.worksSig) return;
+    this.worksSig = sig;
+    for (const img of this.workArt) img.destroy();
+    this.workArt = workSprites(segs, [], this.workGrid()).map((s) => this.addWorkSprite(s)).filter((i): i is Phaser.GameObjects.Image => !!i);
+  }
+
+  /** One works sprite on the field: feet on its footprint's lowest vertex; a ditch under the men, the rest sorted with them. */
+  private addWorkSprite(s: WorkSprite): Phaser.GameObjects.Image | null {
+    if (!this.textures.exists(s.key)) return null;
+    const img = this.add.image(s.x, s.y, s.key).setOrigin(0.5, 1).setFlipX(s.flip).setDepth(s.decal ? -90000 + s.y * 0.01 : s.y);
+    this.world.add(img);
+    return img;
+  }
+
+  /** The ghost (its cells, ✓ or ✗ on it: never colour only) and the selected work's outline, on the deployment boxes. */
+  private drawWorks(g: Phaser.GameObjects.Graphics): void {
+    const grid = this.workGrid();
+    const diamond = (i: number, fill: number, a: number, line: number) => {
+      const ix = i % grid.w;
+      const iy = Math.floor(i / grid.w);
+      const cw = grid.width / grid.w;
+      const ch = grid.height / grid.h;
+      const pts = [
+        [ix * cw, iy * ch],
+        [(ix + 1) * cw, iy * ch],
+        [(ix + 1) * cw, (iy + 1) * ch],
+        [ix * cw, (iy + 1) * ch],
+      ].map(([x, y]) => {
+        const p = isoToScreen(x, y);
+        return [Math.round(p.x), Math.round(p.y)] as [number, number];
+      });
+      g.fillStyle(fill, a);
+      g.fillPoints(pts.map(([x, y]) => new Phaser.Math.Vector2(x, y)), true);
+      this.dashRect(g, pts, 0x2a1d14, 0.8, 3, 0);
+      this.dashRect(g, pts, line, 1, 2, 1);
+    };
+    const gh = this.worksGhost;
+    let mark: { x: number; y: number; ok: boolean } | null = null;
+    if (gh && this.worksShown()) {
+      const ok = !this.ghostWhy();
+      const cells = workCells(gh.type, gh.x, gh.y, gh.fx, gh.fy, grid) ?? [cellAt(gh.x, gh.y, grid)].filter((i) => i >= 0);
+      for (const i of cells) diamond(i, ok ? 0x9fd8dc : 0xe07060, 0.45, ok ? 0xf6ecd8 : 0xffd0c0);
+      const p = isoToScreen(gh.x, gh.y);
+      mark = { x: p.x, y: p.y, ok };
+    }
+    const k = segmentAt(this.sim.works(), this.me, this.worksSel);
+    if (k >= 0 && this.worksShown()) for (const i of this.sim.works()[k].cells) diamond(i, 0xf2d27a, 0.35, 0xfff4c0);
+    // the ✓ / ✗ over the ghost's centre
+    if (!mark) {
+      this.ghostMark?.setVisible(false);
+      return;
+    }
+    const key = mark.ok ? 'check' : 'xmark';
+    if (!this.ghostMark || !this.ghostMark.active || this.ghostMark.getData('k') !== key) {
+      this.ghostMark?.destroy();
+      this.ghostMark = scaleIcon(addIcon(this, 0, 0, key, ''), 1.5).setOrigin(0.5, 0.5).setDepth(92001).setData('k', key);
+      this.world.add(this.ghostMark);
+    }
+    this.ghostMark.setPosition(Math.round(mark.x), Math.round(mark.y)).setVisible(true);
   }
 
   private blowHorn(): void {
@@ -3725,7 +4101,9 @@ export class BattleScene extends BaseScene {
     if (this.sim.phase === 'deploy') this.sim.startBattle();
     // A campaign battle stands once it begins: closing the app now does not void it (V5-011).
     if (!this.src && !this.tutorialData && state.pending) {
-      markBattle(state.campaign, state.pending, lastBattle.heroes, this.sim.orderLog.slice(0, this.deployOrders ?? this.sim.orderLog.length));
+      // field works are paid now, for the segments on the field only: an undone one cost nothing (field-works.md R4.3)
+      if (this.works) state.campaign.payWorks(this.sim.works());
+      markBattle(state.campaign, state.pending, lastBattle.heroes, this.sim.orderLog.slice(0, this.deployOrders ?? this.sim.orderLog.length), this.works?.works);
       void state.save();
     }
     // a "leave the deployment?" dialog still open no longer applies (its Leave would quit the battle)
@@ -3734,6 +4112,8 @@ export class BattleScene extends BaseScene {
     if (this.dclock) markStarted(this.dclock);
     this.deployUndo.clear();
     this.shapeOpen = false;
+    this.closeWorks();
+    this.syncWorkArt();
     this.setFollow(true);
     hapticNotify('success');
     this.netBanner = false;

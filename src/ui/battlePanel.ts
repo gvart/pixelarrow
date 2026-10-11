@@ -10,15 +10,16 @@
  * check the same way (a container with w / h, texts framed by it).
  */
 import { RS } from '../platform/renderScale';
-import { mosaicImage, mw } from './mosaic/base';
-import { caps } from './mosaic/KeyButton';
+import { mosaicImage, mtext, mw } from './mosaic/base';
+import { ParchmentRow } from './mosaic/cards';
+import { KeyButton, caps } from './mosaic/KeyButton';
 import { ROMAN, barLabels, markerGlyph, moraleGlyph, type MoraleState } from './battleHud';
 import { safeLocalStorage } from '../platform/storage';
 import { GROUP_COLOR } from '../art/sheetArt';
 import { MOSAIC } from './tokens';
 import Phaser from 'phaser';
 import { addIcon, addText, holdTimer, longPress, type HoldTimer, panelK, panelTexture, SHADOW_FONTS, type FontKey } from './kit';
-import { uiFrame, uiId } from './layout';
+import { uiBlocker, uiFrame, uiId } from './layout';
 import { addPortrait } from './sprites';
 import { dollKey, type DollSpec } from '../art/paperdoll';
 import { ellipsize, measureText } from './textfit';
@@ -770,4 +771,73 @@ export function numeralBadge(scene: Phaser.Scene, x: number, y: number, h: numbe
   c.setSize(w, h);
   uiId(c, 'battle.orders.group');
   return c;
+}
+
+/** One row of the works tray. */
+export interface WorksTrayRow {
+  id: string;
+  title: string;
+  subtitle: string;
+  /** The cost, at the right. */
+  value: string;
+  /** Greyed, and why (a tap says it). */
+  off?: string;
+  selected?: boolean;
+  tip: string;
+  /** The (i) key's label (its tip and what scripts find). */
+  infoLabel: string;
+  onPick: () => void;
+  onInfo: () => void;
+}
+
+/** Gap between the tray's rows (UI px), the sheet's. */
+const TRAY_GAP = 3;
+
+/**
+ * The works tray (field-works.md "Touch UI needs", FW-03): a panel of one
+ * row per work (name, what it does, cost, how many more or why not) under a
+ * header with the supplies left, each row with an (i) key, because a
+ * long-press is never the only way to read it (G15, A11Y-15). It sits on
+ * the field above the bottom sheet, which stays live; `bottom` is its lower
+ * edge, `minTop` the highest it may rise. Returns the panel, its top and the
+ * rows by id.
+ */
+export function worksTray(
+  scene: Phaser.Scene,
+  x: number,
+  bottom: number,
+  w: number,
+  rowH: number,
+  title: string,
+  supplies: string,
+  rows: WorksTrayRow[],
+  minTop: number,
+): { c: Phaser.GameObjects.Container; top: number; rows: Map<string, ParchmentRow> } {
+  const h = 16 + rows.length * (rowH + TRAY_GAP) - TRAY_GAP + 6;
+  const y = Math.max(minTop, bottom - h);
+  const c = scene.add.container(0, 0);
+  // the panel takes its own presses: the field under it is not tapped through
+  c.add(uiBlocker(scene.add.rectangle(x, y, w, h, 0x000000, 0.001).setOrigin(0, 0).setInteractive()));
+  c.add(mosaicImage(scene, x, y, w, h, 'sheet'));
+  const sw = Math.ceil(mw(supplies, 'rInk', 7));
+  c.add(mtext(scene, x + 6, y + 5, caps(title), 'rInk', { size: 7.5, maxW: w - 18 - sw }));
+  c.add(mtext(scene, x + w - 6, y + 5, supplies, 'rInk', { size: 7, align: 1, maxW: sw + 2 }));
+  const out = new Map<string, ParchmentRow>();
+  const keyW = Math.max(22, rowH);
+  let ry = y + 16;
+  for (const r of rows) {
+    const row = new ParchmentRow(
+      scene,
+      x + 4,
+      ry,
+      w - 8 - keyW - TRAY_GAP,
+      { title: r.title, subtitle: r.subtitle, value: r.value, selected: r.selected, disabled: r.off, tip: r.tip, id: r.id, onClick: r.onPick },
+      rowH,
+    );
+    c.add(row);
+    out.set(r.id, row);
+    c.add(new KeyButton(scene, x + w - 4 - keyW, ry, keyW, rowH, { icon: 'info', iconOnly: true, label: r.infoLabel, tip: r.tip, variant: 'stone', id: `${r.id}.info`, onClick: r.onInfo }));
+    ry += rowH + TRAY_GAP;
+  }
+  return { c, top: y, rows: out };
 }
