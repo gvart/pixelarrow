@@ -8,6 +8,14 @@ Empty. (The AS-02 remainder, ART-024 to ART-032, was made on 2026-10-10 and move
 
 ## Done
 
+### TUT-01 promotion: splash key art, War and Arena frescoes (2026-10-11)
+
+**Slots wired (TUT-01).** `src/scenes/FirstRunScene.ts` loads `ui/splash_keyart.jpg` (offer and resume, in a FrescoBanner above Nikias) and `ui/fresco_war.jpg` / `ui/fresco_arena.jpg` (the War and Duels mode cards, a strip up to 4:1, dropped below 22 UI px high). The manifest `preview` of ART-056, ART-005 and ART-003 now names those URLs and the `first-run-offer`, `first-run-resume` and `first-run-modes` screens. ART-003's own slot (the DuelScene Arena banner) is still unwired; the same file serves it when DUE-01 wires it.
+
+**Pipeline (D-9).** Staged files are the AS-04 processed PNGs (`docs/v5/gemini/AS-04/processed/`, copied into the ignored `docs/v5/art/staging/`); `check.mjs` PASS for all three. `preview.mjs` ran in the real game at 390x844, 360x780 and 320x640 with layout check exit 0, and every contact sheet was looked at (slot filled, no crop of heads, no clash with chrome) before `promote.mjs --looked`. ART-005 was previewed while the Arena card's file was a temporary local copy (the modes screen loads both; a missing file is a console error in the check); ART-003 was then previewed and promoted over it.
+
+**Budget.** The splash at the default JPEG quality 82 was 283 KB (budget 220): the manifest row now sets `"quality": 62`, shipped 195 KB. `check.mjs --shipped`: ART-056 PASS, ART-005 PASS (107 KB / 140), ART-003 PASS (57 KB / 90).
+
 ### AS-06 Expansion pixel art: field works, captain marker, standard banner (2026-10-11)
 
 **Scope.** The story row: works (stakes, ditch, wagon laager, palisade, rampart; field-works.md R5 "distinct iso art that reads at 1x zoom"), the captain marker (ai-doctrines.md R6: "a 10 px glyph" over his head) and the Standard bearer's banner (abilities.md R5.5, battle-readability.md R2). New manifest rows **ART-072 to ART-078** (`kind: pixel`, `dest: public/world/`, `preview: null`). Nothing invented: every row is a cell kind or marker named in those GDDs. The works sim (FW-01) and works art wiring (FW-03) are not in the code yet, so no game slot loads these files.

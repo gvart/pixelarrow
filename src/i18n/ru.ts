@@ -19,6 +19,7 @@ import { TARGETING_RU } from './targeting.ru';
 import { UNDO_RU } from './undo.ru';
 import { QUEUE_RU } from './queue.ru';
 import { HUB_RU } from './hub.ru';
+import { FIRSTRUN_RU } from './firstrun.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -298,4 +299,5 @@ export const RU: Table = {
   ...UNDO_RU,
   ...QUEUE_RU,
   ...HUB_RU,
+  ...FIRSTRUN_RU,
 };

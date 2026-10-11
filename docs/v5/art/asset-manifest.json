@@ -56,7 +56,12 @@
   {
    "id": "ART-003",
    "status": "needed",
-   "preview": null,
+   "preview": {
+    "url": "ui/fresco_arena.jpg",
+    "screens": [
+     "first-run-modes"
+    ]
+   },
    "file": "fresco_arena.jpg",
    "cat": "fresco",
    "kind": "painted",
@@ -98,7 +103,12 @@
   {
    "id": "ART-005",
    "status": "needed",
-   "preview": null,
+   "preview": {
+    "url": "ui/fresco_war.jpg",
+    "screens": [
+     "first-run-modes"
+    ]
+   },
    "file": "fresco_war.jpg",
    "cat": "fresco",
    "kind": "painted",
@@ -1206,8 +1216,15 @@
   {
    "id": "ART-056",
    "status": "needed",
-   "preview": null,
+   "preview": {
+    "url": "ui/splash_keyart.jpg",
+    "screens": [
+     "first-run-offer",
+     "first-run-resume"
+    ]
+   },
    "file": "splash_keyart.jpg",
+   "quality": 62,
    "cat": "splash",
    "kind": "painted",
    "size": [
