@@ -11,10 +11,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | EC-05 worktree-agent-abf388ac378ca5e54 | — | integrator | — | merging |
+| (merge) | CDX-01 worktree-agent-a1c740446e329fb65 + CT-07 worktree-agent-a65f3224a34faa936 | — | integrator | — | merging |
+| st-04 | W14 ST-04: close sim train 2 (v2 replay fixtures, cross-engine) | per card | per card | worktree-agent | running |
+| ar-04 | W15 AR-04: the host and the end state | per card | per card | worktree-agent | running |
 | rd-03 | W14 RD-03: battle report + why-line on Results | per card | per card | worktree-agent | running |
-| ct-07 | W13 CT-07: orb/feint keys + Raise Standard key + attention budget | per card | per card | worktree-agent | running |
-| cdx-01 | W15 CDX-01: Codex (beasts home, Trial fight, doctrines) | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -60,6 +60,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 7fddc2f EV-02 deck (OFF); ea8321c AR-02 lair assault rules. Gates: vitest 1132, server 304, smokes pass; layout: 1 world-encounter text-overlap flake at ru 320x568 (passes alone 3/3); balance 54%, lairs 43/58/53, assault 39%.
 - aa8af63 RD-01 readability; 0963bf5 HERO-01 Hero screen. Gates: vitest 1155, layout 0 new (known violations down to 1063 from 1776), smokes pass.
 - 78c81fe EC-02 item power cap; 299313b DLG-01 Settings. Gates: vitest 1166, server 306, layout 0 new (1037 known), smokes pass; balance 54%, lairs 43/58/53.
+- 9570d6f EC-05 structural balance. Gates: vitest 1175, server 309, layout 0 new, smokes pass; matched 53%, lairs 43/58/53, assault 45%.
 
 ## Queue (next)
 
@@ -109,6 +110,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 26. Follow-ups: the RU string setsp.bond_of_the_band still says +4%/+3% (localization fix); settings.newCampaign string unused.
 
 27. Next after EC-05 merges: ST-04 (close sim train 2). FW-03 waits for CT-07 (shared battle files).
+
+28. Follow-up: met doctrines are kept in localStorage (CDX-01), so move them to the save (cloud sync) in a later save-touching story. After CT-07 merges: FW-03, CT-06, BTL-01.
 
 ## Blockers
 
