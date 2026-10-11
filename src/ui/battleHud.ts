@@ -18,7 +18,7 @@ import { RS } from '../platform/renderScale';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { uiFrame, uiId } from './layout';
 import { pulse } from './motion';
-import type { Side, SimGroup, SimUnit } from '../sim/types';
+import type { Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import { TICK_RATE } from '../sim/battle';
 import { t } from '../i18n';
 
@@ -889,6 +889,7 @@ export function fieldBadge(scene: Phaser.Scene, b: BadgeSpec): Phaser.GameObject
     x += widths[i] + gap;
   });
   c.setData('key', badgeKey(b));
+  c.setData('w', w);
   return c;
 }
 
@@ -906,4 +907,85 @@ function strokeBadgeReticle(g: Phaser.GameObjects.Graphics, cx: number, cy: numb
 /** R2: the badge fades to 60% when the camera zoom is 2x or more, so it never hides the men. */
 export function badgeAlpha(zoom: number): number {
   return zoom >= 2 ? 0.6 : 1;
+}
+
+// ---- field banners, auto-pauses and damage numbers (RD-02, battle-readability.md R4)
+
+/** A field banner expires after this long (s), or earlier when its condition is false (R4, PLAY R4/B5). */
+export const BANNER_TTL_S = 6;
+/** Auto-pauses this close together (s of battle time) merge into one pause and one banner. */
+export const AUTOPAUSE_MERGE_S = 5;
+/** The merged banner lists at most this many reasons (the newest). */
+const MERGE_MAX = 3;
+
+/** How long a banner shown at `t0` (ms) stays: `ttlMs` at most, and only while `live` holds. */
+export class BannerLife {
+  constructor(
+    private t0: number,
+    private ttlMs = BANNER_TTL_S * 1000,
+    private live?: () => boolean,
+  ) {}
+
+  expired(now: number): boolean {
+    return now - this.t0 >= this.ttlMs || (!!this.live && !this.live());
+  }
+}
+
+/** Why the battle paused itself; `live` false once the reason no longer holds (none: it holds). */
+export interface PauseReason {
+  text: string;
+  live?: () => boolean;
+}
+
+/** Auto-pauses within AUTOPAUSE_MERGE_S merge: one pause, one banner listing the reasons. */
+export class AutoPauseMerge {
+  private at = -Infinity;
+  private reasons: PauseReason[] = [];
+
+  /** A reason at `now` (s of battle time): true when it starts a pause, false when it merges into the last one. */
+  offer(now: number, r: PauseReason): boolean {
+    if (now - this.at <= AUTOPAUSE_MERGE_S) {
+      if (!this.reasons.some((x) => x.text === r.text)) this.reasons.push(r);
+      return false;
+    }
+    this.at = now;
+    this.reasons = [r];
+    return true;
+  }
+
+  /** The banner: the newest reasons, one per line. */
+  text(): string {
+    return this.reasons
+      .slice(-MERGE_MAX)
+      .map((r) => r.text)
+      .join('\n');
+  }
+
+  /** Whether any listed reason still holds. */
+  live(): boolean {
+    return this.reasons.slice(-MERGE_MAX).some((r) => !r.live || r.live());
+  }
+}
+
+type HitEvent = Extract<SimEvent, { type: 'hit' }>;
+
+/** The hits that get a damage number (R4): only a charge impact's blow and a killing blow. */
+export function damageNumberHits(events: readonly SimEvent[]): HitEvent[] {
+  const impacts = new Set<string>();
+  const deaths = new Set<number>();
+  for (const e of events) {
+    if (e.type === 'impact') impacts.add(`${e.unit}:${e.by}`);
+    else if (e.type === 'death') deaths.add(e.unit);
+  }
+  const out: HitEvent[] = [];
+  const killed = new Set<number>();
+  // the last hit on a dead man is the killing blow
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.type !== 'hit') continue;
+    const kill = deaths.has(e.unit) && !killed.has(e.unit);
+    if (kill) killed.add(e.unit);
+    if (kill || impacts.has(`${e.unit}:${e.by}`)) out.push(e);
+  }
+  return out.reverse();
 }
