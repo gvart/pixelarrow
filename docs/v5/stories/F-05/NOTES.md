@@ -37,4 +37,12 @@ A pager at the top (‹ page n/12 ›; the middle button lists every page in a s
 
 ## Gates
 
-See the final report in the merge; the shots here are from a production build (`vite preview`), DPR 2.
+Production build via `vite preview`, 2026-10-12.
+
+- `npx tsc --noEmit`: clean for `src` and `tests`; `server/src` cannot resolve `zod` in this checkout (server deps not installed; not this story's files).
+- `npx vitest run`: 106 of 107 files, 1301 tests passed (`tests/kitCatalog.test.ts`: 9 new). `tests/ladderPause.test.ts` fails to load for the same missing `zod`.
+- `npx vite build`: OK.
+- `node scripts/layout-check.mjs --no-shots`: 24 configurations x 184 screens, **passed, 0 new**. 14 new Kit fixtures (`kit-tokens`, `kit-type`, `kit-states`, `kit-overlays`, `kit-icons`, `kit-army`, seven `kit-overlay-*` samples, `kit-pages`). `kit-mosaic|text-size|*` (owned by F-05) is cleared and removed; `kit-overlay-purchase|text-size|*` is new in the allowlist for SHP-01: the v3 purchase confirm's title drops under 6.5 in ru at 320x568 (Telegram insets), `src/ui/v3.ts`.
+- `node scripts/smoke.mjs`: ALL PASS (46).
+
+Shots (`kit-*.jpg`): DPR 2, 390x844 and 320x640, en and ru, each page looked at in both sizes and languages.
