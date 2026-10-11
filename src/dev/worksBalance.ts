@@ -20,15 +20,27 @@
  *    across the centre and stakes on both wings, 2 paces in front of the
  *    main line; the starting army holding its deployment (the passive row)
  *    and bot-driven (the matched row). Player win rate with and without.
+ *
+ * FW-02 rows (bot placement, R6, and the stand-off, ai-doctrines.md R5):
+ *  - ridge + 3 works: balance.ts's ridge mirror (level-4 armies, both
+ *    bot-driven, the attacker under RIDGE_ATTACKER as doctrineBalance's ridge
+ *    row), the ridge side carrying 2 stakes and a ditch that its bot lays by
+ *    R6. Ridge side win rate, with and without the works.
+ *  - the turtle: the ridge side human and holding still behind the same 3
+ *    works (laid by the same rule), its last 3 hoplites an orb reserve,
+ *    against a swarm, a hammer (both stand off, R5) and a steady bot.
  */
 import { armySpec } from '../game/armySpec';
 import { generateEnemyArmy } from '../game/enemy';
-import { standardArmy } from '../game/heroes';
+import { setBotLevel, standardArmy } from '../game/heroes';
+import { placeWorks } from '../sim/ai';
 import { CLASSES } from '../data/classes';
 import { Battle } from '../sim/battle';
 import { Rng } from '../sim/rng';
-import type { Order, Side, SimGroup } from '../sim/types';
-import type { BalanceRow } from './balance';
+import type { DoctrineId, Order, Side, SimGroup } from '../sim/types';
+import type { Hero } from '../data/units';
+import { hillGrid, type BalanceRow } from './balance';
+import { RIDGE_ATTACKER } from './doctrineBalance';
 import { classSquad } from './classBalance';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -41,6 +53,20 @@ const ALL = { stakes: 3, ditch: 3, laager: 3 };
  * 3.5 puts the row across their path (docs/v5/balance/FW-01.md).
  */
 const STAKES_OUT = 3.5;
+
+/**
+ * Take up the works a bot side laid by itself in deployment (field-works.md
+ * R6, FW-02), so a row lays exactly the works it names. Nothing random is
+ * drawn by placing or removing works, so the battle then plays as if the bot
+ * had laid none.
+ */
+function clearWorks(b: Battle, side: Side): void {
+  for (const w of [...b.works()]) {
+    if (w.side !== side) continue;
+    const c = b.terrain!.cellCenter(w.cells[0]);
+    b.issue(side, { kind: 'unwork', x: c.x, y: c.y });
+  }
+}
 
 /** Play a battle to its end; returns the side's result (1 win, 0.5 draw). */
 function finish(b: Battle, side: Side): number {
@@ -79,8 +105,9 @@ export function runFlankStakes(seed: number, stakes: boolean): number {
   const def = (1 - side) as Side;
   const mine = armySpec([...line, ...horse], true);
   const theirs = armySpec(other, true);
-  theirs.works = ALL;
+  if (stakes) theirs.works = ALL; // a bot without an allowance lays nothing (R6)
   const bt = new Battle({ seed, armies: side === 0 ? [mine, theirs] : [theirs, mine] });
+  clearWorks(bt, def);
   if (stakes) {
     const main = bt.sideGroups(def)[0];
     const riders = bt.sideGroups(side).find((g) => bt.activeMembers(g.id).some((u) => u.stats.mount))!;
@@ -175,11 +202,49 @@ export function runReferenceWorks(seed: number, works: boolean, passive = true):
   const heroes = standardArmy(new Rng(seed), ids);
   const enemy = generateEnemyArmy(new Rng(seed ^ 0xa5a5a5a5), ids, heroes, 0).heroes;
   const mine = armySpec(heroes, !passive);
-  mine.works = ALL;
+  if (works) mine.works = ALL;
   const b = new Battle({ seed, armies: [mine, armySpec(enemy, true)] });
+  clearWorks(b, 0);
   if (works) for (const o of referenceWorks(b, 0)) b.issue(0, o);
   b.startBattle();
   return finish(b, 0);
+}
+
+/** balance.ts's mirror army: the standard army at level 4, no perks. */
+function mirrorArmy(seed: number): Hero[] {
+  const heroes = standardArmy(new Rng(seed), { nextId: 1 });
+  for (const h of heroes) {
+    setBotLevel(h, 4);
+    h.perks = [];
+  }
+  return heroes;
+}
+
+/** The ridge side's works (R6): two stakes and a ditch. */
+export const RIDGE_WORKS = { stakes: 2, ditch: 1, laager: 0 };
+
+/**
+ * The ridge mirror (balance.ts runTerrainMirror, seeds 9000+): the side on
+ * the ridge (`seed` odd: side 1) gets RIDGE_WORKS when `works`. Not a
+ * `turtle`: both bot-driven, the ridge bot laying its works by R6. A `turtle`: the ridge side is human and holds still
+ * behind the works (laid by the same rule) with its last 3 hoplites in an
+ * orb reserve, against a bot of `attacker`. Returns the ridge side's result
+ * (a draw is half) and whether it was a draw.
+ */
+export function runRidgeWorks(seed: number, works: boolean, turtle = false, attacker: DoctrineId = 'steady'): { win: number; draw: boolean } {
+  const a = mirrorArmy(seed);
+  const b: Hero[] = JSON.parse(JSON.stringify(a));
+  b.forEach((h, i) => (h.id = `m${i}`));
+  const hero: Side = seed % 2 === 1 ? 1 : 0;
+  if (turtle) for (const h of a.slice(3, 6)) h.group = 2; // standardArmy: heroes 0-5 are the hoplites
+  const mine = armySpec(a, !turtle, turtle ? ['line', 'skirmish', 'orb', 'column'] : undefined);
+  if (works) mine.works = RIDGE_WORKS;
+  const theirs = { ...armySpec(b, true), doctrine: attacker };
+  const bt = new Battle({ seed, armies: hero === 0 ? [mine, theirs] : [theirs, mine], terrain: hillGrid(hero) });
+  if (turtle && works) placeWorks(bt, hero);
+  bt.startBattle();
+  const r = finish(bt, hero);
+  return { win: r, draw: bt.winner === -1 };
 }
 
 const rate = (n: number, f: (seed: number) => number, base: number) => {
@@ -224,6 +289,25 @@ export function worksRows(n: number): BalanceRow[] {
     const how = passive ? 'holding' : 'bot-driven';
     rows.push({ label: `Reference ${how}, no works: player wins`, measured: pct(r0), target: '-' });
     rows.push({ label: `Reference ${how}, 3 works: player wins`, measured: pct(r1), target: '<= 62%' });
+  }
+
+  // FW-02: the ridge with works the bot lays itself (R6), and the turtle (R5 stand-off)
+  const ridge = (works: boolean, turtle: boolean, attacker: DoctrineId) => {
+    let win = 0;
+    let draws = 0;
+    for (let i = 0; i < n; i++) {
+      const r = runRidgeWorks(9000 + i, works, turtle, attacker);
+      win += r.win;
+      if (r.draw) draws++;
+    }
+    return { win: win / n, draw: draws / n };
+  };
+  const drawn = (r: { win: number; draw: number }) => `${pct(r.win)} (draws ${pct(r.draw)})`;
+  rows.push({ label: `Ridge, no works, vs ${RIDGE_ATTACKER}: ridge side wins`, measured: drawn(ridge(false, false, RIDGE_ATTACKER)), target: '(62-68%, the ridge row)' });
+  rows.push({ label: `Ridge + 3 works laid by its bot (R6), vs ${RIDGE_ATTACKER}`, measured: drawn(ridge(true, false, RIDGE_ATTACKER)), target: '<= 70%' });
+  for (const d of ['swarm', 'hammer', 'steady'] as DoctrineId[]) {
+    const stand = d !== 'steady';
+    rows.push({ label: `Turtle (ridge + 3 works + orb) vs ${d}${stand ? ' (stand-off)' : ''}`, measured: drawn(ridge(true, true, d)), target: stand ? '<= 70%' : '(info: no stand-off)' });
   }
   return rows;
 }
