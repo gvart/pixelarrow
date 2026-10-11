@@ -19,7 +19,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { readImage, writeImage } from './lib/png.mjs';
-import { crop, blank, paste } from './lib/ops.mjs';
+import { crop, blank } from './lib/ops.mjs';
 import { loadManifest, STAGING, ROOT } from './lib/manifest.mjs';
 
 const args = process.argv.slice(2);
@@ -81,12 +81,18 @@ if (width > 4096 || height > 4096) {
 const sheet = blank(width, height);
 const json = { frames: {}, meta: { app: 'scripts/art/atlas.mjs', image: `${file}.png`, format: 'RGBA8888', size: { w: width, h: height }, scale: '1' } };
 for (const { id, im, x: px, y: py } of placed) {
-  paste(sheet, im, px, py);
+  blit(sheet, im, px, py);
   json.frames[id] = { frame: { x: px, y: py, w: im.w, h: im.h }, rotated: false, trimmed: false, spriteSourceSize: { x: 0, y: 0, w: im.w, h: im.h }, sourceSize: { w: im.w, h: im.h } };
 }
 mkdirSync(outDir, { recursive: true });
 writeImage(join(outDir, `${stem}.png`), sheet);
 writeFileSync(join(outDir, `${stem}.json`), JSON.stringify(json));
 const rel = outDir.replace(ROOT + '/', '');
+
+/** Copy src's RGBA into dst at (x, y). Not lib/ops paste(), which blends over the blank sheet:
+ * that darkens every soft edge (RGB times alpha) once per rebuild. */
+function blit(dst, src, x, y) {
+  for (let yy = 0; yy < src.h; yy++) dst.data.set(src.data.subarray(yy * src.w * 4, (yy + 1) * src.w * 4), ((y + yy) * dst.w + x) * 4);
+}
 
 console.log(`${name}: ${frames.size} frames (${refreshed} from masters, ${added} added, ${missing} without a master, ${staged} staged out), ${width}x${height} -> ${rel}/${stem}.{png,json}`);
