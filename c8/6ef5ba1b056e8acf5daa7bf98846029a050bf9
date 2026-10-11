@@ -1,0 +1,23 @@
+server/test/trainReplay.test.ts
+  s_697bdc25a7c420::t_20d934142f890d 57
+tests/trainReplay.test.ts
+  s_697bdc25a7c420::t_20d934142f890d 188,294,302,324,344,353
+  s_697bdc25a7c420::t_22d78f1f1f111d 40-41
+  s_697bdc25a7c420::t_be80b34da19894 275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c86ef5ba1b056e8acf5daa7bf98846029a050bf9",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
