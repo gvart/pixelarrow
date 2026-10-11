@@ -41,6 +41,7 @@ import { EVENTS_EN } from './events.en';
 import { EVENTCARD_EN } from './eventcard.en';
 import { SHOP_V5_EN } from './shop.v5.en';
 import { MARKET_EN } from './market.en';
+import { RESULTS_EN } from './results.en';
 import { WORLD_V5_EN } from './world.v5.en';
 import { CAMP_V5_EN } from './camp.v5.en';
 
@@ -364,4 +365,6 @@ export const EN = {
   ...MARKET_EN,
   ...WORLD_V5_EN,
   ...CAMP_V5_EN,
+  // ---- the v5 Results (results.en.ts)
+  ...RESULTS_EN,
 } as const;

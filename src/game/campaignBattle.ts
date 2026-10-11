@@ -138,13 +138,15 @@ export function settleBattle(camp: Campaign, pending: PendingBattle, sim: Battle
   camp.data.fought++;
   if (outcome.victory) camp.data.won++;
   const lairId = lairOf(pending);
-  if (lairId !== undefined) camp.afterLairAssault(lairId, outcome, sim.result(), enemyHeroes);
-  else if (pending.partyId !== undefined) camp.afterPartyBattle(pending.partyId, outcome, sim.result(), enemyHeroes);
+  // the captain's bounty and the lair's hoard ride on to Results (RES-01)
+  let spoils: { bounty: number; hoard?: unknown[] } | undefined;
+  if (lairId !== undefined) spoils = camp.afterLairAssault(lairId, outcome, sim.result(), enemyHeroes);
+  else if (pending.partyId !== undefined) spoils = camp.afterPartyBattle(pending.partyId, outcome, sim.result(), enemyHeroes);
   else if (survivors.length === 0) {
     for (let i = 0; i < 3; i++) camp.data.heroes.push(makeHero(camp.random(), camp.data, 'greek', 'raw', 1, 1, i < 2 ? 0 : 1, camp.data.heroes));
   }
   delete camp.data.battle;
-  return { outcome, enemy: pending.enemy, fallen, partyId: pending.partyId, label: pending.label, ticks: sim.tick, stats: unitStats(sim), before };
+  return { outcome, enemy: pending.enemy, fallen, partyId: pending.partyId, label: pending.label, ticks: sim.tick, stats: unitStats(sim), before, bounty: spoils?.bounty ?? 0, hoard: spoils?.hoard?.length ?? 0 };
 }
 
 /**

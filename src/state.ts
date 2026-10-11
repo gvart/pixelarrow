@@ -37,6 +37,9 @@ export interface LastBattle {
   ticks?: number;
   stats?: UnitStat[];
   before?: Hero[];
+  /** Gold for a band captain (part of the outcome's gold) and the lair hoard's pieces (first in the loot), for Results. */
+  bounty?: number;
+  hoard?: number;
 }
 
 class GameState {

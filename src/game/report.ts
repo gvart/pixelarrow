@@ -22,6 +22,8 @@ export interface UnitStat {
   dmg: number;
   dead: boolean;
   ko: boolean;
+  /** Left the field in a rout (alive, but out of the fight): a loss on Results (RES-01). */
+  fled?: boolean;
   /** Side that killed him (-1: not killed). */
   killedBy: number;
 }
@@ -101,6 +103,7 @@ export function unitStats(sim: Battle): UnitStat[] {
     dmg: Math.round(u.dmgDealt),
     dead: u.state === 'dead',
     ko: u.ko,
+    fled: u.state === 'fled',
     killedBy: u.killedBy,
   }));
 }
@@ -176,10 +179,10 @@ export function buildReport(i: ReportInput): BattleReport {
   // Order: the fallen last, otherwise by kills then damage.
   heroes.sort((a, b) => Number(a.died) - Number(b.died) || b.kills - a.kills || b.dmg - a.dmg);
   const kills = foes.filter((s) => s.dead && s.killedBy === i.side).length;
-  // Men struck down on the field (dead or knocked out), like Kills on the other side.
-  // Counting only the dead-for-good showed 0 in duels, which have no permadeath (B4);
+  // Men lost to the fight: dead, knocked out or fled (PLAY B4, RES-01).
+  // Counting only the dead-for-good showed 0 in duels, which have no permadeath;
   // who died for good is in the per-hero rows.
-  const losses = mine.filter((s) => s.dead).length;
+  const losses = mine.filter((s) => s.dead || s.fled).length;
   return {
     result: i.result,
     vs: i.vs,
