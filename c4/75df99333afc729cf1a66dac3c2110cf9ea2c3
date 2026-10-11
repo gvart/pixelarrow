@@ -1,0 +1,35 @@
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_2e53cab89f2774 41,341
+src/i18n/en.ts
+  s_697bdc25a7c420::t_2e53cab89f2774 49,377-378
+src/ui/sheets/assault.ts
+  s_697bdc25a7c420::t_2e53cab89f2774 1-288
+src/i18n/arc.en.ts
+  s_697bdc25a7c420::t_2e53cab89f2774 1-53
+src/i18n/arc.ru.ts
+  s_697bdc25a7c420::t_2e53cab89f2774 1-53
+src/ui/sheets/arcSheet.ts
+  s_697bdc25a7c420::t_2e53cab89f2774 1-215
+src/scenes/WorldScene.ts
+  s_697bdc25a7c420::t_2e53cab89f2774 6-7,9-10,31,33,35-42,84-86,103-113,139-154,196-205,257-260,262-265,308-311,326,460-461,482-486,489,578-582,602-608,618,874-876,907,915,954,999,1098,1150-1151,1170,1177-1185,1210-1216,1269,1271-1629
+scripts/dev/wld02-play.mjs
+  s_697bdc25a7c420::t_2e53cab89f2774 1-235
+tests/arcUi.test.ts
+  s_697bdc25a7c420::t_2e53cab89f2774 1-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c475df99333afc729cf1a66dac3c2110cf9ea2c3",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
