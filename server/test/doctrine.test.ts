@@ -4,7 +4,6 @@ import { Battle } from '../../src/sim/battle';
 import { DOCTRINE_IDS, type BattleSetup, type DoctrineId } from '../../src/sim/types';
 
 const fx = inject('battleFixture');
-const SIM_V2 = 2;
 
 /** The fixture's battle with the bot side fighting under `doctrine`. */
 function withDoctrine(doctrine?: DoctrineId): BattleSetup {
@@ -54,7 +53,7 @@ describe('doctrines on the server (ai-doctrines.md, AI-01)', () => {
       const setup = withDoctrine(id);
       const local = play(setup);
       const parsed = VerifyBody.parse({ setup, orders: fx.orders, claim: { winner: local.winner ?? -1, ticks: local.tick } });
-      const server = replayBattle(parsed.setup as unknown as BattleSetup, fx.orders, fx.deployOrders, SIM_V2).summary;
+      const server = replayBattle(parsed.setup as unknown as BattleSetup, fx.orders, fx.deployOrders).summary;
       expect(server).toMatchObject({ winner: local.winner, ticks: local.tick, hash: local.hash() });
       hashes.add(server.hash);
     }
@@ -63,15 +62,8 @@ describe('doctrines on the server (ai-doctrines.md, AI-01)', () => {
   });
 
   it('a setup without a doctrine replays like steady on v2', () => {
-    const a = replayBattle(withDoctrine(), fx.orders, fx.deployOrders, SIM_V2).summary.hash;
-    const b = replayBattle(withDoctrine('steady'), fx.orders, fx.deployOrders, SIM_V2).summary.hash;
+    const a = replayBattle(withDoctrine(), fx.orders, fx.deployOrders).summary.hash;
+    const b = replayBattle(withDoctrine('steady'), fx.orders, fx.deployOrders).summary.hash;
     expect(b).toBe(a);
-  });
-
-  it('the frozen v1 sim ignores the doctrine field', () => {
-    // The fixture is played by today's sim; since FO-03 the v1 rules give another
-    // battle, so the check is that v1 replays it the same with or without a doctrine.
-    const plain = replayBattle(fx.setup, fx.orders, fx.deployOrders, 1).summary;
-    expect(replayBattle(withDoctrine('fury'), fx.orders, fx.deployOrders, 1).summary).toEqual(plain);
   });
 });

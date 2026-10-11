@@ -2,13 +2,10 @@
  * FO-02: the server takes the orb and the feint through zod and replays a
  * client battle that uses both to the client's hash on sim 2. The zod shape
  * list comes from the sim's FORMATION_TYPES, so `orb` arrived with the rule.
- * A malformed shape is refused by zod, and an orb sent to the frozen v1 sim
- * (an in-flight v1 ticket) is a 422 rejection, not a crash.
+ * A malformed shape is refused by zod.
  */
 import { describe, expect, it } from 'vitest';
 import { OrderSchema, replayBattle, VerifyBody } from '../src/battle';
-import { verifyBattle } from '../src/duel/verify';
-import { ApiError } from '../src/errors';
 import { Battle } from '../../src/sim/battle';
 import { SIM_VERSION } from '../../src/sim/version';
 import { armySpec } from '../../src/game/armySpec';
@@ -73,7 +70,7 @@ describe('orb and feint: server replay (FO-02)', () => {
     const c = playClient(seed, ORDERS);
     expect(c.orders.some((o) => o.order.kind === 'order' && o.order.order === 'feint')).toBe(true);
     const parsed = VerifyBody.parse({ simVersion: SIM_VERSION, setup: c.setup, orders: c.orders, deployOrders: c.deployOrders, claim: { winner: c.winner, ticks: c.ticks, hash: c.hash } });
-    const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders, parsed.simVersion ?? 1).summary;
+    const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders).summary;
     expect(out).toMatchObject({ winner: c.winner, ticks: c.ticks, hash: c.hash });
   });
 
@@ -81,24 +78,5 @@ describe('orb and feint: server replay (FO-02)', () => {
     const withOrders = playClient(4242, ORDERS);
     const without = playClient(4242, ORDERS.filter(([, o]) => o.kind !== 'preset' && !(o.kind === 'order' && o.order === 'feint')));
     expect(withOrders.hash).not.toBe(without.hash);
-  });
-
-  it('an orb sent to the frozen v1 sim (an in-flight v1 ticket) is a 422 rejection, not a crash', async () => {
-    const c = playClient(77, ORDERS);
-    const setup = JSON.parse(JSON.stringify(c.setup)) as BattleSetup;
-    setup.armies[0].groups[1].formation = 'line'; // a v1 setup has no orb ...
-    const orders: LoggedOrder[] = [{ tick: 0, side: 0, order: { kind: 'preset', group: 0, type: 'orb' } }]; // ... but the client sends one
-    let rejected = 0;
-    const err = await verifyBattle(
-      { setup, simVersion: 1 },
-      { ticket: '0'.repeat(32), orders, deployOrders: 1, claim: { winner: 0, ticks: 1, hash: '0' } },
-      async () => {
-        rejected++;
-      },
-    ).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(ApiError);
-    expect((err as ApiError).status).toBe(422);
-    expect((err as ApiError).code).toBe('sim_rejected');
-    expect(rejected).toBe(1);
   });
 });

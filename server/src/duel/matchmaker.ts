@@ -19,7 +19,6 @@ import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { logError } from '../telemetry/log';
 import { randomU32 } from '../online/store';
-import { forwardedSimVersion, LEGACY_SIM_VERSION } from '../simVersion';
 import { pairQueue, type DuelMode, type QueueEntry } from '../../../src/duel/rating';
 import type { MatchmakerClientMsg, MatchmakerServerMsg } from '../../../src/duel/protocol';
 import { createMatch, getQueueState, liveMatchOf, queueCheck, rowLeague } from './live';
@@ -31,26 +30,12 @@ const MAX_MESSAGE = 4096;
 interface Attachment {
   id: number;
   name: string;
-  /** The socket's sim version (absent in attachments from before V5-033 = v1). */
-  sim?: number;
 }
 
 export interface Waiting extends QueueEntry {
   name: string;
   /** Rated games so far (the opponent sees a league only after placements). */
   games: number;
-  /** The client's sim version: only equal versions are paired (V5-033). Absent in queues saved before = v1. */
-  sim?: number;
-}
-
-/** pairQueue within each sim version: a live duel's two clients must run the same rules. */
-export function pairBySimVersion(queue: readonly Waiting[], now: number): [Waiting, Waiting][] {
-  const bySim = new Map<number, Waiting[]>();
-  for (const w of queue) {
-    const v = w.sim ?? LEGACY_SIM_VERSION;
-    bySim.set(v, [...(bySim.get(v) ?? []), w]);
-  }
-  return [...bySim.values()].flatMap((ws) => pairQueue(ws, now));
 }
 
 export class MatchmakerDO extends DurableObject<Env> {
@@ -85,7 +70,7 @@ export class MatchmakerDO extends DurableObject<Env> {
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server, [`p:${id}`]);
-    server.serializeAttachment({ id, name, sim: forwardedSimVersion(request.headers) } satisfies Attachment);
+    server.serializeAttachment({ id, name } satisfies Attachment);
     const now = Date.now();
     let match = null;
     let cooldownUntil = 0;
@@ -140,7 +125,7 @@ export class MatchmakerDO extends DurableObject<Env> {
         const check = await queueCheck(this.env.DB, me.id, mode, now);
         if (!check.ok) return this.deliver(me.id, { type: 'unqueued', reason: check.reason });
         this.queue = this.queue.filter((w) => w.pid !== me.id);
-        this.queue.push({ pid: me.id, name: me.name, mode, rating: check.rating.rating, games: check.rating.games, since: now, sim: me.sim ?? LEGACY_SIM_VERSION });
+        this.queue.push({ pid: me.id, name: me.name, mode, rating: check.rating.rating, games: check.rating.games, since: now });
         this.deliver(me.id, { type: 'queued', mode, since: now, now });
         await this.pair();
         await this.save();
@@ -165,7 +150,7 @@ export class MatchmakerDO extends DurableObject<Env> {
   private async pair(now = Date.now()): Promise<void> {
     const db = this.env.DB;
     if (!db) return;
-    const pairs = pairBySimVersion(this.queue.filter((w) => !this.pairing.has(w.pid)), now);
+    const pairs = pairQueue(this.queue.filter((w) => !this.pairing.has(w.pid)), now);
     for (const p of pairs) for (const w of p) this.pairing.add(w.pid);
     await Promise.all(
       pairs.map(async (p) => {
@@ -173,7 +158,7 @@ export class MatchmakerDO extends DurableObject<Env> {
           // side 0 by the seed: neither the longer wait nor the rating picks it
           const seed = randomU32();
           const [a, b] = seed & 1 ? [p[1], p[0]] : p;
-          const made = await createMatch(db, a.mode, { pid: a.pid, name: a.name }, { pid: b.pid, name: b.name }, seed, now, a.sim ?? LEGACY_SIM_VERSION);
+          const made = await createMatch(db, a.mode, { pid: a.pid, name: a.name }, { pid: b.pid, name: b.name }, seed, now);
           if ('bad' in made) {
             this.queue = this.queue.filter((w) => !made.bad.includes(w.pid));
             for (const pid of made.bad) this.deliver(pid, { type: 'unqueued', reason: 'no_team' });

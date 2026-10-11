@@ -1,7 +1,7 @@
 /**
  * ST-04: sim train 2 closes. Every battle of the v2 replay fixtures
  * (tests/fixtures/replay-v2*.json, recorded in Node by tests/trainReplay.test.ts)
- * replays inside workerd to the client's hash, through zod and REPLAYERS[2],
+ * replays inside workerd to the client's hash, through zod and replayBattle,
  * and the hash agrees with the recorded one at every checkpoint (every 100
  * ticks), so a cross-engine drift would show where it starts.
  *
@@ -12,7 +12,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { replayBattle, VerifyBody } from '../src/battle';
-import { MIN_SIM_VERSION } from '../src/simVersion';
 import { Battle } from '../../src/sim/battle';
 import { SIM_VERSION } from '../../src/sim/version';
 import type { BattleSetup, LoggedOrder } from '../../src/sim/types';
@@ -63,16 +62,15 @@ function checkpoints(rec: RecordedBattle): [number, string][] {
 }
 
 describe('sim train 2 replay fixtures in workerd (ST-04)', () => {
-  it('the fixtures are SIM_VERSION 2, the version this server takes for new tickets', () => {
+  it('the fixtures are SIM_VERSION 2, the version this server takes', () => {
     expect(ONLINE.simVersion).toBe(SIM_VERSION);
     expect(OFFLINE.simVersion).toBe(SIM_VERSION);
-    expect(MIN_SIM_VERSION).toBe(SIM_VERSION);
     expect(ALL.length).toBeGreaterThanOrEqual(13);
   });
 
   it.each(ALL.map((b) => [b.name, b] as const))('%s replays through zod to the client hash', (_n, rec) => {
     const parsed = VerifyBody.parse(claimOf(rec));
-    const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders, parsed.simVersion ?? 1).summary;
+    const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders).summary;
     expect(out).toMatchObject({ winner: rec.winner, ticks: rec.ticks, retreated: rec.retreated, hash: rec.hash });
   });
 
@@ -95,7 +93,7 @@ describe('sim train 2 replay fixtures in workerd (ST-04)', () => {
   it('a tampered all-features log does not replay to the claim', () => {
     const rec = ONLINE.battles[0];
     const orders = rec.orders.filter((o) => !(o.order.kind === 'order' && o.order.order === 'feint'));
-    const out = replayBattle(rec.setup, orders, rec.deployOrders, SIM_VERSION).summary;
+    const out = replayBattle(rec.setup, orders, rec.deployOrders).summary;
     expect(out.hash).not.toBe(rec.hash);
   });
 

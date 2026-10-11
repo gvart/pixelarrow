@@ -47,7 +47,7 @@ describe('cohesion and army break: server replay (FO-03)', () => {
     const c = playClient(seed);
     expect(c.events.some((e) => e.type === 'cohesion')).toBe(true);
     const parsed = VerifyBody.parse({ simVersion: SIM_VERSION, setup: c.setup, orders: c.orders, deployOrders: 0, claim: { winner: c.winner, ticks: c.ticks, hash: c.hash } });
-    const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders, parsed.simVersion ?? 1).summary;
+    const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders).summary;
     expect(out).toMatchObject({ winner: c.winner, ticks: c.ticks, hash: c.hash });
   });
 
@@ -55,7 +55,7 @@ describe('cohesion and army break: server replay (FO-03)', () => {
     const seeds = [11, 12, 13, 14, 15, 16, 17, 18];
     const c = seeds.map(playClient).find((x) => x.events.some((e) => e.type === 'armyBreak'));
     expect(c).toBeDefined();
-    const out = replayBattle(c!.setup, c!.orders, 0, SIM_VERSION).summary;
+    const out = replayBattle(c!.setup, c!.orders, 0).summary;
     expect(out).toMatchObject({ winner: c!.winner, ticks: c!.ticks, hash: c!.hash });
   });
 });

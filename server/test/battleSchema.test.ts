@@ -1,14 +1,13 @@
 /**
  * ST-03: the zod schema takes every sim train 2 order kind and setup field,
- * defaults the missing ones, still parses old logs, and the replay ignores
- * the new orders until their rules land (no hash change).
+ * defaults the missing ones, and the replay ignores the new orders until
+ * their rules land (no hash change).
  */
 import { describe, expect, inject, it } from 'vitest';
-import { LoggedOrderSchema, OrderSchema, replayBattle, VerifyBody } from '../src/battle';
+import { OrderSchema, replayBattle, VerifyBody } from '../src/battle';
 import { FORMATION_TYPES } from '../../src/sim/formation';
 import { DOCTRINE_IDS, GROUP_ORDERS, WORK_TYPES } from '../../src/sim/types';
 import type { BattleSetup, LoggedOrder } from '../../src/sim/types';
-import replayV1 from '../../tests/fixtures/replay-v1.json';
 
 const fx = inject('battleFixture');
 
@@ -78,26 +77,11 @@ describe('battle schema: sim train 2', () => {
     expect(VerifyBody.safeParse(body(setup)).success).toBe(false);
   });
 
-  it('still parses every recorded v1 log and its setup', () => {
-    const v1 = replayV1 as unknown as { battles: { setup: unknown; orders: unknown[] }[] };
-    expect(v1.battles.length).toBeGreaterThan(0);
-    for (const r of [...v1.battles, { setup: fx.setup, orders: fx.orders }]) {
-      expect(VerifyBody.safeParse(body(r.setup, r.orders)).success).toBe(true);
-      for (const o of r.orders) expect(LoggedOrderSchema.safeParse(o).success).toBe(true);
-    }
-  });
 
-  it.each([1, 2])('sim %i: replays the fixture to the same hash with the new orders and fields', (simVersion) => {
-    const plain = replayBattle(copy(fx.setup), fx.orders, fx.deployOrders, simVersion).summary;
+  it('replays the fixture to the same hash with the new orders that have no rules yet', () => {
+    const plain = replayBattle(copy(fx.setup), fx.orders, fx.deployOrders).summary;
     const side = fx.orders.find((o) => o.side === 0)!;
     const extra: LoggedOrder[] = [
-      // face and focus have rules on sim 2 since FO-01 (server/test/ordersReplay.test.ts); v1 still ignores them.
-      ...(simVersion === 1
-        ? ([
-            { tick: side.tick, side: 0, order: { kind: 'face', group: 0, fx: 0, fy: 1 } },
-            { tick: side.tick, side: 0, order: { kind: 'focus', group: 0, target: 1 } },
-          ] satisfies LoggedOrder[])
-        : []),
       { tick: side.tick, side: 0, order: { kind: 'work', type: 'stakes', x: 3, y: 3, fx: 0, fy: 1 } },
       { tick: side.tick, side: 0, order: { kind: 'unwork', x: 3, y: 3 } },
     ];
@@ -105,9 +89,7 @@ describe('battle schema: sim train 2', () => {
     const orders = [...fx.orders.slice(0, i), ...extra, ...fx.orders.slice(i)];
     const deployOrders = fx.deployOrders + (i <= fx.deployOrders ? extra.length : 0);
     const parsed = VerifyBody.parse({ ...body(fx.setup, orders), deployOrders });
-    // the captain carries the standard on sim 2 since AB-03 (server/test/standardReplay.test.ts); v1 still ignores him
-    if (simVersion === 1) parsed.setup.armies[1].units[0].captain = true;
-    const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders, simVersion).summary;
+    const out = replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders).summary;
     expect(out).toEqual(plain);
   });
 });

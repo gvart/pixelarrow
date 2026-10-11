@@ -11,7 +11,6 @@ import { bandCaptain, type PartyState } from '../../src/world/world';
 import type { BattleSetup } from '../../src/sim/types';
 
 const fx = inject('battleFixture');
-const SIM_V2 = 2;
 
 const BAND: PartyState = {
   id: 1, kind: 'mercs', name: 'Mercenaries', culture: 'greek', x: 0, y: 0, size: 8, power: 0, level: 3, tier: 2,
@@ -47,7 +46,7 @@ describe('band captains on the server (ai-doctrines.md R6, AI-02)', () => {
     const local = play(setup);
     const parsed = VerifyBody.parse({ setup, orders: fx.orders, claim: { winner: local.winner ?? -1, ticks: local.tick } });
     expect(parsed.setup.armies[1].units[0].captain).toBe(true);
-    const server = replayBattle(parsed.setup as unknown as BattleSetup, fx.orders, fx.deployOrders, SIM_V2).summary;
+    const server = replayBattle(parsed.setup as unknown as BattleSetup, fx.orders, fx.deployOrders).summary;
     expect(server).toMatchObject({ winner: local.winner, ticks: local.tick, hash: local.hash() });
   });
 

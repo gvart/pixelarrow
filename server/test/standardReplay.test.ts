@@ -45,7 +45,7 @@ function playClient(seed: number) {
 
 function replay(c: ReturnType<typeof playClient>) {
   const parsed = VerifyBody.parse({ simVersion: SIM_VERSION, setup: c.setup, orders: c.orders, deployOrders: 0, claim: { winner: c.winner, ticks: c.ticks, hash: c.hash } });
-  return replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders, parsed.simVersion ?? 1).summary;
+  return replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders).summary;
 }
 
 describe('the standard: server replay (AB-03)', () => {

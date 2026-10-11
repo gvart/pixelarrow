@@ -80,24 +80,6 @@ describe('ladder tickets carry the floor doctrine (AI-03)', () => {
     expect(r.status).toBe(200);
   });
 
-  it('an old v1 ticket stored without a doctrine still verifies (in-flight rule, V5-040)', async () => {
-    const { token, pid } = await openDuellist(97312);
-    await DB().prepare('UPDATE duel_profiles SET ladder_cleared = 10 WHERE player_id = ?1').bind(pid).run();
-    const t = await post<{ ticket: string; setup: BattleSetup }>('/api/duel/ladder/start', token, { floor: 11, simVersion: SIM_VERSION });
-    expect(t.status).toBe(200);
-    // as if issued by the pre-AI-03 server to a v1 client: no doctrine field, sim_version 1
-    const old = structuredClone(t.body.setup);
-    delete old.armies[1].doctrine;
-    delete old.armies[1].holdField;
-    await DB().prepare('UPDATE duel_tickets SET sim_version = 1, setup = ?2 WHERE id = ?1').bind(t.body.ticket, JSON.stringify(old)).run();
-    const p = play(old);
-    const s = replayBattle(structuredClone(old), p.orders as LoggedOrder[], p.deployOrders, 1).summary;
-    const r = await post('/api/duel/ladder/submit', token, { ticket: t.body.ticket, simVersion: undefined, ...p, claim: { winner: s.winner, ticks: s.ticks, hash: s.hash } });
-    expect(r.status).toBe(200);
-    const row = await DB().prepare('SELECT status, sim_version FROM duel_tickets WHERE id = ?1').bind(t.body.ticket).first<{ status: string; sim_version: number }>();
-    expect(row).toMatchObject({ status: 'used', sim_version: 1 });
-  });
-
   it('validation keeps holdField (missing = absent, plays like false)', () => {
     const floor = ladderFloor(15);
     const setup = ladderSetup(77, ladderFloor(1).heroes, floor.formations, floor);
@@ -111,19 +93,6 @@ describe('ladder tickets carry the floor doctrine (AI-03)', () => {
     const floor = ladderFloor(35); // hammer
     const setup = ladderSetup(4243, ladderFloor(1).heroes, floor.formations, floor);
     const p = play(setup);
-    expect(replayBattle(structuredClone(setup), p.orders as LoggedOrder[], p.deployOrders, SIM_VERSION).summary.hash).toBe(p.claim.hash);
-  });
-
-  it('the frozen v1 sim replays a ladder setup the same with or without the doctrine', () => {
-    const floor = ladderFloor(43); // fury
-    const setup = ladderSetup(4242, ladderFloor(1).heroes, floor.formations, floor);
-    expect(setup.armies[1].doctrine).toBe('fury');
-    const bare = structuredClone(setup);
-    delete bare.armies[1].doctrine;
-    delete bare.armies[1].holdField;
-    const p = play(bare);
-    const a = replayBattle(structuredClone(setup), p.orders as LoggedOrder[], p.deployOrders, 1).summary;
-    const b = replayBattle(structuredClone(bare), p.orders as LoggedOrder[], p.deployOrders, 1).summary;
-    expect(a).toEqual(b);
+    expect(replayBattle(structuredClone(setup), p.orders as LoggedOrder[], p.deployOrders).summary.hash).toBe(p.claim.hash);
   });
 });

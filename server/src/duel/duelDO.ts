@@ -27,7 +27,6 @@ import { DEPLOY_MS, type ClientMsg } from '../../../src/online/protocol';
 import type { LoggedOrder, Side } from '../../../src/sim/types';
 import { RANKED } from '../../../src/duel/rating';
 import type { DuelLiveServerMsg, MatchReport } from '../../../src/duel/protocol';
-import { forwardedSimVersion, LEGACY_SIM_VERSION, SIM_MISMATCH_MESSAGE } from '../simVersion';
 import { newRelay, relayMessage, relayResume, relayTick, startMsg, type DuelState, type Out, type RelayMsg } from '../online/relay';
 import { settleMatch, type MatchInit, type MatchOutcome } from './live';
 
@@ -116,7 +115,7 @@ export class DuelDO extends DurableObject<Env> {
     if (this.m) return { ok: this.m.id === m.id };
     const now = Date.now();
     this.m = m;
-    this.d = newRelay(m.id, m.players, m.names, m.setup, now, DEPLOY_MS + CONNECT_MS, m.simVersion ?? LEGACY_SIM_VERSION);
+    this.d = newRelay(m.id, m.players, m.names, m.setup, now, DEPLOY_MS + CONNECT_MS);
     // nobody is connected yet: the reconnect window is also the window to join
     this.away = [now, now];
     this.progress = [now, now];
@@ -140,8 +139,6 @@ export class DuelDO extends DurableObject<Env> {
     if (!m || !this.d) return new Response('No such match', { status: 404 });
     const side = m.players.indexOf(id) as Side | -1;
     if (side === -1) return new Response('Not your match', { status: 403 });
-    // a client reloaded onto other rules mid-match would desync the lockstep (V5-033)
-    if (forwardedSimVersion(request.headers) !== (this.d.simVersion ?? LEGACY_SIM_VERSION)) return new Response(SIM_MISMATCH_MESSAGE, { status: 409 });
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server, [`p:${id}`]);

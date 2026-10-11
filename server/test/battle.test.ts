@@ -1,7 +1,6 @@
 import { describe, expect, inject, it } from 'vitest';
 import { VerifyBody, replayBattle } from '../src/battle';
 import { Battle } from '../../src/sim/battle';
-import { SIM_VERSION } from '../../src/sim/version';
 import { generateBattlefield } from '../../src/world/battlefield';
 import { api, devLogin } from './helpers';
 
@@ -15,10 +14,10 @@ describe('battle verification', () => {
 
   it('replays identically inside workerd (adapter)', () => {
     // The fixture is played by today's sim (v2 since FO-03 changed its rules), so it replays as v2.
-    const out = replayBattle(fx.setup, fx.orders, fx.deployOrders, SIM_VERSION);
+    const out = replayBattle(fx.setup, fx.orders, fx.deployOrders);
     expect(out.summary).toMatchObject({ winner: fx.winner, ticks: fx.ticks, hash: fx.hash });
     // Deterministic across runs in the same isolate too.
-    expect(replayBattle(fx.setup, fx.orders, fx.deployOrders, SIM_VERSION).summary.hash).toBe(fx.hash);
+    expect(replayBattle(fx.setup, fx.orders, fx.deployOrders).summary.hash).toBe(fx.hash);
   });
 
   it('keeps the terrain grid through validation and replays a battle on it', () => {
@@ -28,10 +27,10 @@ describe('battle verification', () => {
     for (let t = 0; t < 20 * 400 && b.phase !== 'ended'; t++) b.step();
     const parsed = VerifyBody.parse({ setup, orders: [], claim: { winner: b.winner ?? -1, ticks: b.tick } });
     expect(parsed.setup.terrain?.cells).toBe(setup.terrain.cells);
-    const out = replayBattle(parsed.setup as unknown as typeof fx.setup, [], undefined, SIM_VERSION);
+    const out = replayBattle(parsed.setup as unknown as typeof fx.setup, [], undefined);
     expect(out.summary).toMatchObject({ ticks: b.tick, hash: b.hash() });
     // without the grid it is a different battle
-    expect(replayBattle(fx.setup, [], undefined, SIM_VERSION).summary.hash).not.toBe(b.hash());
+    expect(replayBattle(fx.setup, [], undefined).summary.hash).not.toBe(b.hash());
   });
 
   it('accepts riders, chariots and animals (class fields) and replays them', () => {
@@ -47,7 +46,7 @@ describe('battle verification', () => {
     for (let t = 0; t < 20 * 400 && b.phase !== 'ended'; t++) b.step();
     const parsed = VerifyBody.parse({ setup, orders: [], claim: { winner: b.winner ?? -1, ticks: b.tick } });
     expect((parsed.setup.armies[0].units[0].stats as Record<string, unknown>).mount).toBe('horse');
-    expect(replayBattle(parsed.setup as unknown as typeof fx.setup, [], undefined, SIM_VERSION).summary).toMatchObject({ ticks: b.tick, hash: b.hash() });
+    expect(replayBattle(parsed.setup as unknown as typeof fx.setup, [], undefined).summary).toMatchObject({ ticks: b.tick, hash: b.hash() });
     const bad = JSON.parse(JSON.stringify(setup));
     bad.armies[0].units[0].stats.radius = 9;
     expect(VerifyBody.safeParse({ setup: bad, orders: [], claim: { winner: 0, ticks: 1 } }).success).toBe(false);
