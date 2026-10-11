@@ -90,7 +90,6 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'battle.tip.loose': 'Россыпь: меньше потерь от стрел, слаба в рукопашной.',
   'battle.tip.wall': 'Сомкнуть щиты: трудно пробить, медленно идёт.',
   'battle.tip.pause': 'Пауза: отдавайте приказы, пока время стоит',
-  'battle.tip.speed': 'Скорость боя: 1x, 2x или 3x',
   'battle.tip.retreat': 'Трубить отступление: бой проигран, войско спасено',
   'battle.tip.follow': 'Камера следит за боем',
   'battle.tip.strength': 'Сила армий: ваша (синяя) и вражеская (красная)',
