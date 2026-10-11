@@ -1,0 +1,20 @@
+src/scenes/WorldScene.ts
+  s_697bdc25a7c420::t_4fcd5b0d0dc232 115
+  s_697bdc25a7c420::t_a086cabd496074 113-114,156,401-402,422,435,531,1023,1180,1187-1188,1270-1272,1275-1279
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b5db3fa66a76b84465f95d0f082aa4874746e2be",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
