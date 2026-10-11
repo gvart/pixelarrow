@@ -2,13 +2,17 @@
  * Pure logic behind the army, hero and stash screens (no Phaser): which stats
  * a character sheet shows, what equipping an item would change (the compare
  * popup's green / red deltas), stash filters and sorting, roster sorting,
- * stars and power rating. Unit-tested in tests/gear.test.ts.
+ * stars and power rating, and the Smith's forge reroll (EC-01). Unit-tested
+ * in tests/gear.test.ts and tests/forge.test.ts.
  */
 import { itemDef, itemMods, itemValue, normalizeRarity, rarityRank, SLOTS, type Item, type ItemDef, type Rarity, type Slot, type StatMods, type WeaponKind } from '../data/items';
 import type { Equipment, Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
 import { classGearBlocker, type ClassGearBlock } from '../data/gearRules';
 import { computeStats, heroClass, heroPower, type CombatStats } from '../sim/stats';
+import { AFFIX_STEPS, affixPool, encodeAffixes, itemAffixes, type AffixId } from '../data/affixes';
+import type { Rng } from '../sim/rng';
+import { forgeCost } from './economy';
 
 // ------------------------------------------------------------------ stats shown on a sheet
 
@@ -324,6 +328,81 @@ export function cycle<T>(list: readonly T[], cur: T): T {
 export function isUpgrade(h: Hero, it: Item): boolean {
   const c = compareItem(h, it);
   return c.power[1] > c.power[0] + 0.5;
+}
+
+// ------------------------------------------------------------------ the forge (EC-01, design/gdd/forge-reroll.md)
+
+/** Why the Smith will not reforge: a named legendary (fixed stats), no such random-stat line, too little gold. */
+export type ForgeRefusal = 'named' | 'noStats' | 'gold';
+
+/** An item the Smith takes (rule 2): it has a random stat and is not a named legendary. */
+export function forgeable(it: Item): boolean {
+  return !itemDef(it.def).named && itemAffixes(it).length > 0;
+}
+
+/** The line the forge sheet selects first (rule 3): the weakest, the last one on a tie. */
+export function forgeDefaultLine(it: Item): number {
+  const lines = itemAffixes(it);
+  let best = 0;
+  lines.forEach(([, n], i) => {
+    if (n <= lines[best][1]) best = i;
+  });
+  return best;
+}
+
+/** What line `line` can become (rule 4): the item's pool and weights, minus the stats of its other lines. */
+export function forgePool(it: Item, line: number): [AffixId, number][] {
+  const others = new Set(itemAffixes(it).filter((_, i) => i !== line).map(([k]) => k));
+  return affixPool(itemDef(it.def)).filter(([k]) => !others.has(k));
+}
+
+export interface ForgeResult {
+  line: number;
+  before: [AffixId, number];
+  after: [AffixId, number];
+  /** Gold paid. */
+  cost: number;
+}
+
+/**
+ * Reforge line `line` of `it` (rules 4-7; mutates `it.aff`, `purse.gold` and `rng`): the line is
+ * drawn again from `forgePool` with the rarity's steps, the other lines keep their order, and the
+ * price is paid. `rng` is the world RNG in the campaign. A refusal changes nothing, the RNG included.
+ */
+export function forgeReroll(purse: { gold: number }, it: Item, line: number, rng: Rng): ForgeResult | ForgeRefusal {
+  if (itemDef(it.def).named) return 'named';
+  const lines = itemAffixes(it);
+  if (!lines[line]) return 'noStats';
+  const cost = forgeCost(it);
+  if (purse.gold < cost) return 'gold';
+  const pool = forgePool(it, line);
+  const [lo, hi] = AFFIX_STEPS[rarityRank(it.rarity)];
+  const id = pool.length ? rng.weighted(pool) : lines[line][0];
+  const after: [AffixId, number] = [id, rng.int(lo, hi)];
+  const before = lines[line];
+  const next = lines.map((l, i) => (i === line ? after : l));
+  it.aff = encodeAffixes(next);
+  purse.gold -= cost;
+  return { line, before, after, cost };
+}
+
+/** An item the forge sheet lists, with the man who wears it (none: in the stash). */
+export interface ForgeCandidate {
+  item: Item;
+  hero?: Hero;
+}
+
+/** Everything the Smith would take (rule 2), worn and stashed, finest first: rarity, then tier, worn before stashed. */
+export function forgeCandidates(stash: readonly Item[], heroes: readonly Hero[]): ForgeCandidate[] {
+  const out: ForgeCandidate[] = [];
+  for (const h of heroes) for (const slot of SLOTS) {
+    const it = h.equip[slot];
+    if (it && forgeable(it)) out.push({ item: it, hero: h });
+  }
+  for (const it of stash) if (forgeable(it)) out.push({ item: it });
+  const key = (c: ForgeCandidate) => rarityRank(c.item.rarity) * 10 + itemDef(c.item.def).tier;
+  // stable: ties keep worn (army order, slot order) before stashed
+  return out.map((c, i) => [c, i] as const).sort((a, b) => key(b[0]) - key(a[0]) || a[1] - b[1]).map(([c]) => c);
 }
 
 // ------------------------------------------------------------------ roster

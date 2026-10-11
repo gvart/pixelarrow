@@ -3,10 +3,12 @@
  * server/README.md "Economy"): pass tier states and progress, the market fee
  * the seller sees, daily caps, price bounds, and how an API failure is shown.
  * The server stays the authority; these only decide what the UI says.
+ * Also the campaign Smith's forge prices (EC-01) and gold with thousands separators.
  * Unit-tested in tests/economy.test.ts.
  */
 import type { ApiError, EconomyCatalog, MarketListing, PassReward, SeasonPassInfo } from '../platform/api';
 import { DEFAULT_FEE_RATE, marketFee, rarityBounds } from './marketRules';
+import { itemDef, normalizeRarity, type Item, type Rarity } from '../data/items';
 
 export { DEFAULT_FEE_RATE, marketFee, rarityBounds };
 
@@ -158,3 +160,27 @@ export function walletOverdrawn(w: { drachmae: number }): boolean {
  * tests/economy.test.ts keeps the two equal): shown when the player taps the XP bar.
  */
 export const PASS_XP = { attack: 10, attackWin: 15, capture: 25, duel: 10, duelWin: 10, perTier: 100 } as const;
+
+// ------------------------------------------------------------------ the forge (EC-01, design/gdd/forge-reroll.md)
+
+/**
+ * The town Smith's price for reforging one random stat (rule 6): gold by the base item's tier, times
+ * the rarity's factor, rounded to 5. A tier-3 legendary is 240 g, about half a late win's gold.
+ */
+export const FORGE = {
+  base: { 1: 20, 2: 40, 3: 80 } as Readonly<Record<number, number>>,
+  rarity: { common: 0, uncommon: 1, rare: 1.5, epic: 2, legendary: 3 } as Readonly<Record<Rarity, number>>,
+} as const;
+
+/** Gold one reforge of `item` costs (0 for a common item: it has no random stat to reforge). */
+export function forgeCost(item: Pick<Item, 'def' | 'rarity'>): number {
+  const tier = Math.max(1, Math.min(3, itemDef(item.def).tier));
+  return Math.round((FORGE.base[tier] * FORGE.rarity[normalizeRarity(item.rarity)]) / 5) * 5;
+}
+
+/** A whole number with thousands separators: "12 450" in Russian (a no-break space), "12,450" in English. */
+export function groupDigits(n: number, lang: 'en' | 'ru'): string {
+  const v = Math.round(n);
+  const s = `${Math.abs(v)}`.replace(/\B(?=(\d{3})+(?!\d))/g, lang === 'ru' ? ' ' : ',');
+  return v < 0 ? `-${s}` : s;
+}
