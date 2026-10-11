@@ -304,6 +304,9 @@ export const INTENDED_COUNTERS: [ClassId, ClassId][] = [
   ['rhomphaia', 'hoplite'], ['falx', 'thureophoros'],
 ];
 
+/** The shock infantry of the elite-trap check (BASELINE R1): the classes the elites lost 92-100% to. */
+export const SHOCK_CLASSES: ClassId[] = ['celt_sword', 'rhomphaia', 'peltast', 'falx', 'gallic', 'fanatic'];
+
 export function classReport(n = 12): string {
   const lines: string[] = [];
   const k = Math.max(16, n * 2);
@@ -370,6 +373,16 @@ export function classReport(n = 12): string {
     }
   }
   lines.push(`  over 60%: ${over.join(', ') || 'none'}`);
+  // EC-04 targets (BASELINE R1, R3, J1)
+  let polar = 0;
+  for (const a of ids) for (const b of ids) if (a !== b && (rows[a][b] <= 0.04 || rows[a][b] >= 0.96)) polar++;
+  const shock = ids.filter((c) => SHOCK_CLASSES.includes(c));
+  const overShock = ids.flatMap((b) => shock.filter((s) => s !== b && rows[s][b] > 0.85).map((s) => `${CLASSES[s].short}>${CLASSES[b].short} ${pct(rows[s][b])}`));
+  const meanOf = (a: ClassId) => ids.reduce((m, b) => m + (a === b ? 0 : rows[a][b]), 0) / (ids.length - 1);
+  lines.push(`  lopsided cells (0-4% or 96-100%): ${polar} of ${ids.length * (ids.length - 1)}`);
+  lines.push(`  shock infantry over 85%: ${overShock.length} (${overShock.join(', ') || 'none'}); target none (EC-04 AC 1)`);
+  lines.push(`  militia vs Companion / Thessalian / chariot: ${(['companion', 'thessalian', 'chariot'] as ClassId[]).map((c) => pct(rows.militia[c])).join(' / ')}; target not 100% (EC-04 AC 2)`);
+  lines.push(`  means: archer ${pct(meanOf('archer'))}, slinger ${pct(meanOf('slinger'))} (target >= 40%); royal guard ${pct(meanOf('royal_guard'))}, Sacred Band ${pct(meanOf('sacred_band'))} (target >= 46%)`);
   lines.push(activeReport(Math.max(40, n * 25), k));
   lines.push(standardReport(Math.max(40, n * 25)));
   return lines.join('\n');
