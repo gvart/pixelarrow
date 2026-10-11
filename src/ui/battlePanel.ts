@@ -480,7 +480,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const s = this.scene;
     this.removeAll(true);
     this.bars = s.add.graphics();
-    if (this.w >= 70 && this.h < 40) {
+    if (this.w >= 56 && this.h < 40) {
       this.rebuildWide(i);
       return;
     }
@@ -694,7 +694,8 @@ function numeralPlate(scene: Phaser.Scene, x: number, y: number, numeral: string
   g.fillStyle(MOSAIC.stone1, 1);
   g.fillRoundedRect(1.6, 1.6, w - 3.2, h - 3.2, 1.2);
   const num = addText(scene, w / 2, h / 2 - 3.6, numeral, 'rGold', 0.5).setFontSize(CARD_TEXT);
-  uiFrame(num, c, w, h);
+  // the line box (9.3 tall at 6.5) runs past the 9-tall plate; the caps sit inside it
+  uiFrame(num, c, w, h + 4, 0, -2);
   c.add([g, num]);
   c.setSize(w, h);
   return c;
