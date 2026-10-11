@@ -1,0 +1,35 @@
+src/scenes/SettlementScene.ts
+  s_697bdc25a7c420::t_13b94461932b6d 591-595,597-608
+  s_697bdc25a7c420::t_0bfcd12d9f4582 25-27,596,652-690
+  s_697bdc25a7c420::t_14ebf8d7870b55 691
+src/ui/sheets/forge.ts
+  s_697bdc25a7c420::t_f8a25b3b90bb62 15,97
+  s_697bdc25a7c420::t_8005274cd35613 22,47-48,171,186
+  s_697bdc25a7c420::t_5cb64b50774f31 1-14,16-18,21,23-46,49-96,98-170,172-185,187-195,197-226,228-238,242-257
+  s_697bdc25a7c420::t_0b42ceac7c60c2 196
+  s_697bdc25a7c420::t_c479273dd277ff 19-20,227,239-241
+tests/forge.test.ts
+  s_697bdc25a7c420::t_082c90b5a5f840 211-217
+  s_697bdc25a7c420::t_8b9057ac80fdad 11
+  s_697bdc25a7c420::t_a3f772ed641f97 218-220
+src/game/gear.ts
+  s_697bdc25a7c420::t_9539722eb67e57 13
+  s_697bdc25a7c420::t_422d9e47233d0f 288-295
+  s_697bdc25a7c420::t_66fbcca5d36047 296-297
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0290e717741acc0da79c6d0609e1b827d9add012",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
