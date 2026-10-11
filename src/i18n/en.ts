@@ -25,6 +25,7 @@ import { MOSAIC_CMAP_EN } from './mosaic.campaignmap.en';
 import { MOSAIC_WAR_EN } from './mosaic.war.en';
 import { TARGETING_EN } from './targeting.en';
 import { UNDO_EN } from './undo.en';
+import { HUB_EN } from './hub.en';
 
 export const EN = {
   // ---- shared words
@@ -317,4 +318,5 @@ export const EN = {
   ...TARGETING_EN,
   // ---- undo: the battle chip, deployment undo, the Reset-all confirm (undo.en.ts)
   ...UNDO_EN,
+  ...HUB_EN,
 } as const;
