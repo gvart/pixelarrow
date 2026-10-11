@@ -571,6 +571,31 @@ export function rangeTarget(sim: HudSim, gid: number): { x: number; y: number } 
   return best ? { x: best.x, y: best.y } : null;
 }
 
+/**
+ * The staged Charge preview (controls.md R5, CT-04): from group `gid`'s centre
+ * (or `from`, where a staged move puts it) to the centre of the enemy group
+ * nearest it, centre to centre, ties to the lower id, as the sim picks. Null
+ * when no enemy group stands.
+ */
+export function chargeTarget(sim: HudSim, gid: number, from?: { x: number; y: number }): { from: { x: number; y: number }; to: { x: number; y: number }; group: number } | null {
+  const c = from ?? groupCentre(sim, gid);
+  const g = sim.groups[gid];
+  if (!c || !g) return null;
+  let best: { x: number; y: number; group: number } | null = null;
+  let bestD = Infinity;
+  for (const e of sim.groups) {
+    if (e.side === g.side || e.disbanded) continue;
+    const ec = groupCentre(sim, e.id);
+    if (!ec) continue;
+    const d = (ec.x - c.x) ** 2 + (ec.y - c.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = { ...ec, group: e.id };
+    }
+  }
+  return best ? { from: c, to: { x: best.x, y: best.y }, group: best.group } : null;
+}
+
 /** "Advance to range" stops the group's centre at this share of its median range from the target (R3.4). */
 export const ADVANCE_RANGE_K = 0.9;
 
