@@ -1,0 +1,31 @@
+/**
+ * Russian strings of the Results why-line (RD-03): the same keys and {params}
+ * as why.en.ts. Spread into ru.ts.
+ */
+import type { Entry } from './index';
+import type { WHY_EN } from './why.en';
+
+export const WHY_RU: Record<keyof typeof WHY_EN, Entry> = {
+  'why.lost.captain': 'Наш капитан пал на {t}, и строй дрогнул.',
+  'why.lost.standard': 'Мы потеряли знамя, и строй дрогнул.',
+  'why.lost.flanked': 'Отряд {g} обошли с фланга, и он бежал.',
+  'why.lost.flankedLine': 'Наш строй обошли с фланга, и он бежал.',
+  'why.lost.outnumbered': 'При столкновении нас было {a} против {b}.',
+  'why.lost.range': 'Наши стрелки почти весь бой не доставали до врага.',
+  'why.lost.cascade': 'Отряд {g} бежал, и бегство охватило весь строй.',
+  'why.lost.cascadeLine': 'Наш строй дрогнул, и бегство охватило всех.',
+  'why.lost.armyBreak': { one: 'Наше войско сломилось после бегства {n} отряда.', other: 'Наше войско сломилось после бегства {n} отрядов.' },
+  'why.lost.held': 'Их строй продержался дольше нашего.',
+  'why.won.captain': 'Мы сразили их капитана на {t}.',
+  'why.won.standard': 'Мы сбили их знамя на {t}, и их строй дрогнул.',
+  'why.won.flanked': 'Мы смяли их фланг на {t}.',
+  'why.won.focus': 'Наши сосредоточенные залпы сломили их строй на {t}.',
+  'why.won.outnumbered': 'При столкновении нас было {a} против {b}.',
+  'why.won.cascade': 'На {t} их бегство охватило весь строй.',
+  'why.won.armyBreak': { one: 'Их войско сломилось после бегства {n} отряда.', other: 'Их войско сломилось после бегства {n} отрядов.' },
+  'why.won.held': 'Наш строй продержался дольше их строя.',
+  'why.won.withdrew': 'Они отступили на {t}.',
+  'why.withdrew': 'Мы отступили на {t}.',
+  'why.draw': 'Ни один строй не дрогнул.',
+  'why.bounty': 'Награда за капитана: +{n} золота',
+};
