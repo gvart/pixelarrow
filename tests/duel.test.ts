@@ -171,7 +171,7 @@ describe('demo duel source', () => {
     expect(p.team).toHaveLength(6);
     const r = await src.recruit('archer');
     expect(r.profile.heroes).toHaveLength(7);
-    expect(r.profile.glory).toBe(DUEL_RULES.startGlory - 50);
+    expect(r.profile.glory).toBe(DUEL_RULES.startGlory - recruitPrice('archer'));
     await expect(src.recruit('companion')).rejects.toMatchObject({ code: 'locked' });
     const t = await src.team({ heroIds: [...r.profile.team, r.hero.id] });
     expect(t.profile.team).toHaveLength(7);

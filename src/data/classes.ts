@@ -140,7 +140,14 @@ export interface ClassDef {
   kit: Kit;
   /** Cultures whose towns recruit the class (empty: never recruited). */
   cultures: Culture[];
-  /** Recruitment price before level and gear, and the cost used by equal-cost balance matchups. */
+  /**
+   * Recruitment price before level and gear, and the cost used by equal-cost
+   * balance matchups. Duel budget points are round(cost / 10)
+   * (src/duel/rules.ts classPoints): EC-04 re-costed inside each class's
+   * rounding band (the Sacred Band alone dropped, 13 -> 12 points), so stored
+   * duel teams never cost more and ladder floors are unchanged
+   * (docs/v5/balance/EC-04.md).
+   */
   cost: number;
   /** Default battle group: 0 phalanx, 1 skirmish, 2 reserve, 3 flank. */
   group: number;
@@ -154,7 +161,7 @@ const A = (str: number, agi: number, end: number, wil: number): Attrs => ({ str,
 const defs: ClassDef[] = [
   // ------------------------------------------------------------- levy
   {
-    id: 'militia', name: 'Militia', short: 'Levy', role: 'levy', cost: 60, group: 0,
+    id: 'militia', name: 'Militia', short: 'Levy', role: 'levy', cost: 64, group: 0,
     desc: 'Farmers with spears and clubs. Cheap, brittle, many.',
     mods: { morale: -6 }, attrs: A(5, 5, 5, 5), growth: ['end', 'str', 'agi', 'wil'],
     tree: [['drilled', 'shield_drill'], ['shield_bash', 'push'], ['phalangite', 'iron_discipline'], ['rally_cry', 'standard_bearer'], ['unbreakable', 'warlord']],
@@ -205,7 +212,7 @@ const defs: ClassDef[] = [
   },
   // ------------------------------------------------------------- ranged
   {
-    id: 'archer', name: 'Cretan archer', short: 'Archr', role: 'ranged', cost: 50, group: 1,
+    id: 'archer', name: 'Cretan archer', short: 'Archr', role: 'ranged', cost: 47, group: 1,
     desc: 'The longest bow: bleeds slow heavy infantry from afar.',
     mods: { accuracy: 0.06, range: 1 }, attrs: A(4, 7, 4, 5), growth: ['agi', 'wil', 'agi', 'end', 'agi', 'str'],
     tree: [['longshot', 'fleet'], ['volley', 'aimed'], ['deep_quiver', 'lead_bullets'], ['eagle_eye', 'steady_presence'], ['skirmish_master', 'warlord']],
@@ -213,7 +220,7 @@ const defs: ClassDef[] = [
     cultures: ['greek', 'phoenician'], art: { tunics: ['tunicWhite', 'tunicOchre'] },
   },
   {
-    id: 'slinger', name: 'Rhodian slinger', short: 'Sling', role: 'ranged', cost: 50, group: 1,
+    id: 'slinger', name: 'Rhodian slinger', short: 'Sling', role: 'ranged', cost: 47, group: 1,
     desc: 'Lead bullets at long range; plenty of them.',
     mods: { accuracy: 0.04 }, attrs: A(4, 7, 4, 5), growth: ['agi', 'wil', 'agi', 'end', 'agi', 'str'],
     tree: [['lead_bullets', 'fleet'], ['volley', 'aimed'], ['deep_quiver', 'longshot'], ['eagle_eye', 'steady_presence'], ['skirmish_master', 'warlord']],
@@ -273,7 +280,7 @@ const defs: ClassDef[] = [
   },
   // ------------------------------------------------------------- cavalry and elites
   {
-    id: 'companion', name: 'Companion cavalry', short: 'Compn', role: 'cavalry', cost: 160, group: 3, mount: 'horse', power: 1.45,
+    id: 'companion', name: 'Companion cavalry', short: 'Compn', role: 'cavalry', cost: 155, group: 3, mount: 'horse', power: 1.45,
     desc: 'Lance and horse: shatters flanks and rears, rides down the routing. Never charge braced spears head on.',
     mods: { morale: 8 }, attrs: A(6, 5, 5, 5), growth: ['str', 'wil', 'end', 'agi', 'str', 'end'],
     tree: [['horsemanship', 'fleet'], ['lance_charge', 'recharge'], ['ride_down', 'reaping_blow'], ['rally_cry', 'standard_bearer'], ['warlord', 'skirmish_master']],
@@ -289,7 +296,7 @@ const defs: ClassDef[] = [
     cultures: ['greek', 'phoenician'], art: { tunics: ['tunicBlue', 'tunicWhite'], cloak: 'cloakBlue' },
   },
   {
-    id: 'chariot', name: 'Scythed chariot', short: 'Chart', role: 'cavalry', cost: 260, group: 3, mount: 'chariot', power: 1.5,
+    id: 'chariot', name: 'Scythed chariot', short: 'Chart', role: 'cavalry', cost: 255, group: 3, mount: 'chariot', power: 1.5,
     desc: 'Two horses and scythed wheels: cuts through loose ranks on open ground; wrecks in woods and stones.',
     mods: { armor: 1, morale: 18 }, moraleLoss: 0.8, attrs: A(5, 6, 5, 4), growth: ['agi', 'str', 'end', 'wil', 'agi', 'str'],
     tree: [['horsemanship', 'fleet'], ['lance_charge', 'scythe'], ['scythe_master', 'reaping_blow'], ['ride_down', 'rally_cry'], ['warlord', 'skirmish_master']],
@@ -297,7 +304,7 @@ const defs: ClassDef[] = [
     cultures: ['phoenician'], art: { tunics: ['tunicRed', 'tunicOchre'] },
   },
   {
-    id: 'royal_guard', name: 'Royal guard', short: 'Guard', role: 'elite', cost: 130, group: 0,
+    id: 'royal_guard', name: 'Royal guard', short: 'Guard', role: 'elite', cost: 125, group: 0,
     desc: 'Picked men with silver shields: the best armour and nerve in the line.',
     mods: { hp: 8, morale: 12, block: 0.03 }, attrs: A(6, 5, 6, 6), growth: ['end', 'str', 'wil', 'str', 'end', 'agi'],
     tree: [['shield_drill', 'drilled'], ['shield_bash', 'bond'], ['iron_discipline', 'phalangite'], ['steady_presence', 'standard_bearer'], ['warlord', 'unbreakable']],
@@ -305,7 +312,7 @@ const defs: ClassDef[] = [
     cultures: ['greek'], art: { tunics: ['tunicRed'], cloak: 'cloakPurple' },
   },
   {
-    id: 'sacred_band', name: 'Sacred Band', short: 'Sacrd', role: 'elite', cost: 125, group: 0,
+    id: 'sacred_band', name: 'Sacred Band', short: 'Sacrd', role: 'elite', cost: 115, group: 0,
     desc: 'Three hundred pairs sworn to each other: they hold when others run.',
     mods: { hp: 4, morale: 18 }, moraleLoss: 0.7, attrs: A(6, 5, 5, 7), growth: ['wil', 'str', 'end', 'wil', 'agi', 'str'],
     tree: [['shield_drill', 'drilled'], ['shield_bash', 'bond'], ['phalangite', 'iron_discipline'], ['rally_cry', 'standard_bearer'], ['unbreakable', 'warlord']],
@@ -314,13 +321,13 @@ const defs: ClassDef[] = [
   },
   // ------------------------------------------------------------- animals (neutral defenders)
   {
-    id: 'wolf', name: 'Wolf', short: 'Wolf', role: 'beast', cost: 50, group: 0, kind: 'animal', beast: 'wolf',
+    id: 'wolf', name: 'Wolf', short: 'Wolf', role: 'beast', cost: 53, group: 0, kind: 'animal', beast: 'wolf',
     desc: 'Hunts in packs: circles to a flank and bites the stragglers. Bolts when hurt.',
     beastStats: { hp: 30, dmg: 8, atkTime: 0.9, reach: 0.65, armor: 0, morale: 52, speed: 1.55, chargeBonus: 0.3, moraleShock: 0.1, radius: 0.3, routAt: 0.33, pack: true },
     mods: {}, attrs: A(5, 7, 5, 4), growth: [], tree: [], kit: {}, cultures: [], art: { coat: 'wolf' },
   },
   {
-    id: 'boar', name: 'Wild boar', short: 'Boar', role: 'beast', cost: 100, group: 0, kind: 'animal', beast: 'boar',
+    id: 'boar', name: 'Wild boar', short: 'Boar', role: 'beast', cost: 107, group: 0, kind: 'animal', beast: 'boar',
     desc: 'Charges straight in, tusks low. Thick hide; stubborn.',
     beastStats: { hp: 70, dmg: 15, atkTime: 1.2, reach: 0.7, armor: 3, morale: 60, speed: 1.3, chargeBonus: 0.9, moraleShock: 0.25, radius: 0.36, routAt: 0.3, pack: false },
     mods: {}, attrs: A(7, 5, 6, 5), growth: [], tree: [], kit: {}, cultures: [], art: { coat: 'boar' },
