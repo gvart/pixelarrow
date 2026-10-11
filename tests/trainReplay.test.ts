@@ -19,7 +19,6 @@
  * Without the variable this test plays every script again and fails on any
  * change, so a rule change cannot slip past them.
  */
-import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { Battle, RAISE_STANDARD } from '../src/sim/battle';
 import { SIM_VERSION } from '../src/sim/version';
@@ -38,7 +37,8 @@ import { DOCTRINE_IDS, type BattleSetup, type DoctrineId, type LoggedOrder, type
 import online from './fixtures/replay-v2.json';
 import offline from './fixtures/replay-v2-offline.json';
 
-const RECORD = process.env.RECORD_REPLAY_V2 === '1';
+// The client tsconfig has no Node types: reach process and node:fs untyped.
+const RECORD = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.RECORD_REPLAY_V2 === '1';
 /** A hash every CHECKPOINT ticks: when engines disagree, the first differing checkpoint brackets the cause. */
 export const CHECKPOINT = 100;
 const SIGNATURE: AbilityId[] = ['push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe'];
@@ -185,7 +185,7 @@ export function playClient(name: string, kind: RecordedBattle['kind'], setup: Ba
   const checkpoints: [number, string][] = [];
   while (b.phase !== 'ended' && b.tick <= b.timeLimitTicks + 1) {
     player(b);
-    if (b.phase === 'ended') break;
+    if ((b.phase as string) === 'ended') break;
     b.step();
     events.push(...b.drainEvents());
     if (b.tick % CHECKPOINT === 0) checkpoints.push([b.tick, b.hash()]);
@@ -272,6 +272,7 @@ function record(list: Scenario[]): RecordedBattle[] {
 const NOTE = 'Recorded with src/sim at SIM_VERSION 2 by tests/trainReplay.test.ts (ST-04). Regenerate only on purpose (RECORD_REPLAY_V2=1) and review the diff (ADR-0001).';
 
 if (RECORD) {
+  const { writeFileSync } = (await import('node:fs' as string)) as { writeFileSync(path: URL, data: string): void };
   const at = (f: string) => new URL(`./fixtures/${f}`, import.meta.url);
   writeFileSync(at('replay-v2.json'), JSON.stringify({ simVersion: SIM_VERSION, note: NOTE, battles: record(ONLINE) } satisfies Fixture) + '\n');
   writeFileSync(at('replay-v2-offline.json'), JSON.stringify({ simVersion: SIM_VERSION, note: `${NOTE} Offline only: field works are not in online setups.`, battles: record(OFFLINE) } satisfies Fixture) + '\n');
@@ -290,7 +291,7 @@ export function replayWithCheckpoints(rec: RecordedBattle): { winner: number; ti
   let next = 0;
   while (b.phase !== 'ended' && b.tick <= b.timeLimitTicks + 1) {
     while (next < battle.length && battle[next].tick === b.tick) b.issue(battle[next].side, battle[next++].order);
-    if (b.phase === 'ended') break;
+    if ((b.phase as string) === 'ended') break;
     b.step();
     b.drainEvents();
     if (b.tick % CHECKPOINT === 0) checkpoints.push([b.tick, b.hash()]);
@@ -298,7 +299,7 @@ export function replayWithCheckpoints(rec: RecordedBattle): { winner: number; ti
   return { winner: b.winner ?? -1, ticks: b.tick, hash: b.hash(), checkpoints };
 }
 
-const fixtures = { 'replay-v2.json': [online as Fixture, ONLINE], 'replay-v2-offline.json': [offline as Fixture, OFFLINE] } as const;
+const fixtures = { 'replay-v2.json': [online as unknown as Fixture, ONLINE], 'replay-v2-offline.json': [offline as unknown as Fixture, OFFLINE] } as const;
 
 describe.each(Object.entries(fixtures))('%s (ST-04)', (_file, [fx, scenarios]) => {
   it('is a SIM_VERSION 2 fixture with one battle per scenario', () => {
@@ -320,7 +321,7 @@ describe.each(Object.entries(fixtures))('%s (ST-04)', (_file, [fx, scenarios]) =
 });
 
 describe('replay-v2 coverage (ST-04 AC1)', () => {
-  const battles = [...(online as Fixture).battles, ...(offline as Fixture).battles];
+  const battles = [...(online as unknown as Fixture).battles, ...(offline as unknown as Fixture).battles];
   const union = (f: (b: RecordedBattle) => string[]) => new Set(battles.flatMap(f));
 
   it('covers face, focus, orb and feint, every active and the Standard', () => {
@@ -340,7 +341,7 @@ describe('replay-v2 coverage (ST-04 AC1)', () => {
   });
 
   it('has one log with everything at once, works and a captain included (offline)', () => {
-    const one = (offline as Fixture).battles[0];
+    const one = (offline as unknown as Fixture).battles[0];
     expect(one.coverage.works).toBeGreaterThan(0);
     expect(one.coverage.captain).toBe(true);
     expect(one.coverage.holdField).toBe(true);
@@ -349,7 +350,7 @@ describe('replay-v2 coverage (ST-04 AC1)', () => {
   });
 
   it('the online all-features log has every order, active, the Standard, cohesion and army break', () => {
-    const one = (online as Fixture).battles[0];
+    const one = (online as unknown as Fixture).battles[0];
     expect(broke(one)).toBe(true);
     expect(one.kind).toBe('ladder');
   });

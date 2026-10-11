@@ -54,7 +54,7 @@ function checkpoints(rec: RecordedBattle): [number, string][] {
   let next = 0;
   while (b.phase !== 'ended' && b.tick <= b.timeLimitTicks + 1) {
     while (next < battle.length && battle[next].tick === b.tick) b.issue(battle[next].side, battle[next++].order);
-    if (b.phase === 'ended') break;
+    if ((b.phase as string) === 'ended') break;
     b.step();
     b.drainEvents();
     if (b.tick % CHECKPOINT === 0) out.push([b.tick, b.hash()]);
