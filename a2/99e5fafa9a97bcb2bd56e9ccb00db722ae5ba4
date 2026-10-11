@@ -1,0 +1,23 @@
+tests/war01.test.ts
+  s_697bdc25a7c420::t_a188de7b80bf5e 32,158-165
+src/scenes/online/beastPanel.ts
+  s_697bdc25a7c420::t_a188de7b80bf5e 107-111,113,118-121,146-150
+src/scenes/online/OnlineArmyScene.ts
+  s_697bdc25a7c420::t_a188de7b80bf5e 106-122,465-473
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a299e5fafa9a97bcb2bd56e9ccb00db722ae5ba4",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
