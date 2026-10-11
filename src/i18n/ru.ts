@@ -26,6 +26,7 @@ import { ARMY_V5_RU } from './army.v5.ru';
 import { HERO_RU } from './hero.ru';
 import { SETTINGS_RU } from './settings.ru';
 import { CODEX_RU } from './codex.ru';
+import { MARKET_RU } from './market.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -313,4 +314,5 @@ export const RU: Table = {
   ...HERO_RU,
   ...SETTINGS_RU,
   ...CODEX_RU,
+  ...MARKET_RU,
 };
