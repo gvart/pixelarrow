@@ -1,0 +1,34 @@
+src/scenes/MenuScene.ts
+  s_697bdc25a7c420::t_67dec769b803ae 66
+  s_697bdc25a7c420::t_21ea9c972e023e 65
+  s_697bdc25a7c420::t_443318396d337b 94
+  s_697bdc25a7c420::t_dcdc18ba3fb26c 9-12
+  s_697bdc25a7c420::t_c63b72d64a3135 124-125
+  s_697bdc25a7c420::t_3c2d84304a6589 120
+  s_697bdc25a7c420::t_4344228ccd93df 4-5,17,20-25,38,41,49,51-61,67-68,87-88,92-93,95,99,108,122,127,134,147-158
+  s_697bdc25a7c420::t_88582637608e01 111-115
+  s_697bdc25a7c420::t_84aa9b1dcaf558 96-98,100,102,105-107,109,116-119,128-133
+  s_697bdc25a7c420::t_71eed9388bece2 83
+  s_697bdc25a7c420::t_56432eb7e46af5 90
+  s_697bdc25a7c420::t_ebba1f7027ba0c 44-46
+  s_697bdc25a7c420::t_2152716485dca9 101,103-104
+  s_697bdc25a7c420::t_35e7f10478c09d 91,159-160
+src/ui/mosaic/raster.ts
+  s_697bdc25a7c420::t_430b24f5998c1e 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8775fc8ce7d05915d13def5c49b52061617a19af",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
