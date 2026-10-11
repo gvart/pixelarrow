@@ -4,6 +4,7 @@
  */
 import { RARITIES, isBound, itemDef, itemValue, normalizeRarity, salvageValue, type Item, type Slot } from '../data/items';
 import { encounterOf } from '../data/beasts';
+import { GARRISON } from '../data/arc';
 import { BEAST_NAMED, armyClasses, lairHoard, legendaryHoard, pityChest } from './sources';
 import { equipBlocker, equipFromStash, unequipInto } from './gear';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
@@ -487,7 +488,9 @@ export class Campaign {
   garrisonEnemy(lairId: number): EnemyArmy | null {
     const p = this.world.garrison(lairId);
     if (!p) return null;
-    return { ...partyArmy(p, this.data, this.armyClasses()), works: garrisonWorks(), holdField: true };
+    const army = partyArmy(p, this.data, this.armyClasses());
+    // the garrison's plate (EC-05): its men's power x GARRISON.plate, as world.garrison shows it
+    return { ...army, power: army.power * GARRISON.plate, works: garrisonWorks(), holdField: true };
   }
 
   /** Where an assault on lair `lairId` is fought (R2.3): the lair's own ground, behind its palisade. */
