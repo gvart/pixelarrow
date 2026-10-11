@@ -86,7 +86,10 @@ export function fifthKey(s: {
   cdLeftS: number;
   /** Then… is arming: the key queues a step, and a feint cannot be queued. */
   arming: boolean;
+  /** The group is feinting now: its key stays Feint, lit. */
+  active?: boolean;
 }): { key: 'feint' | 'fallback'; cdLeftS: number } {
+  if (s.active && s.unlocked && !s.arming) return { key: 'feint', cdLeftS: 0 };
   if (!s.unlocked || !s.eligible || s.arming) return { key: 'fallback', cdLeftS: 0 };
   // cooling down: Withdraw stays at hand (no control is lost), and the key says when Feint is back
   if (!s.ready) return { key: 'fallback', cdLeftS: Math.ceil(Math.max(0, s.cdLeftS)) };
@@ -125,4 +128,29 @@ export function raiseState(s: {
             ? 'attn.std.why.stunned'
             : null;
   return { show: true, why, note: why === null && s.broken ? 'attn.std.note.broken' : null };
+}
+
+/** Within this many paces a line facing the group counts as "head-on" for the orb warning. */
+export const ORB_WARN_PACES = 14;
+
+/**
+ * V5-041: the orb is all-round defence and the wrong answer to a frontal line.
+ * True when the nearest enemy group within ORB_WARN_PACES stands in a line or
+ * a shield wall and faces this group (its facing within about 35 degrees of
+ * the bearing to us): the HUD then warns before the player commits to it.
+ */
+export function orbWarn(me: { x: number; y: number }, foes: readonly { x: number; y: number; fx: number; fy: number; type: string }[]): boolean {
+  let best: (typeof foes)[number] | null = null;
+  let bestD = ORB_WARN_PACES;
+  for (const f of foes) {
+    const d = Math.hypot(f.x - me.x, f.y - me.y);
+    if (d <= bestD) {
+      bestD = d;
+      best = f;
+    }
+  }
+  if (!best || (best.type !== 'line' && best.type !== 'shieldwall')) return false;
+  const d = Math.max(1e-6, bestD);
+  const dot = (best.fx * (me.x - best.x) + best.fy * (me.y - best.y)) / (d * (Math.hypot(best.fx, best.fy) || 1));
+  return dot >= 0.82;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FEINT_ORB_AFTER, KIND_BUDGET, battleUnlocks, fifthKey, raiseState, visibleKinds, type ControlKind } from '../src/ui/input/attention';
-import { FACING_DIRS, mirrorX, nextZoom, pipAt } from '../src/ui/input/singleTap';
+import { FEINT_ORB_AFTER, KIND_BUDGET, battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind } from '../src/ui/input/attention';
+import { FACING_DIRS, mirrorX, nextZoom, pipAt, pipSlot } from '../src/ui/input/singleTap';
 
 describe('attention budget: progressive unlock (controls.md R10b)', () => {
   const camp = (fought: number, campPitched = false) => battleUnlocks({ kind: 'campaign', fought, campPitched, realtimeLocked: false });
@@ -72,6 +72,25 @@ describe('the 5th order key: Withdraw or Feint (formations-orders.md R3)', () =>
   it('is Withdraw while Then… is arming (a feint cannot be queued on arrival)', () => {
     expect(fifthKey({ unlocked: true, eligible: true, ready: true, cdLeftS: 0, arming: true }).key).toBe('fallback');
   });
+
+  it('stays Feint (lit by the caller) while the group is feinting', () => {
+    expect(fifthKey({ unlocked: true, eligible: true, ready: false, cdLeftS: 28, arming: false, active: true }).key).toBe('feint');
+  });
+});
+
+describe('the orb warning (V5-041: help players not to orb against a frontal line)', () => {
+  const me = { x: 10, y: 10 };
+  it('warns when the nearest enemy is a line facing the group', () => {
+    expect(orbWarn(me, [{ x: 10, y: 2, fx: 0, fy: 1, type: 'line' }])).toBe(true);
+    expect(orbWarn(me, [{ x: 10, y: 2, fx: 0, fy: 1, type: 'shieldwall' }])).toBe(true);
+  });
+
+  it('does not warn against riders, skirmishers, a flank threat or a distant line', () => {
+    expect(orbWarn(me, [{ x: 10, y: 2, fx: 0, fy: 1, type: 'wedge' }])).toBe(false);
+    expect(orbWarn(me, [{ x: 10, y: 2, fx: 1, fy: 0, type: 'line' }])).toBe(false);
+    expect(orbWarn(me, [{ x: 10, y: -20, fx: 0, fy: 1, type: 'line' }])).toBe(false);
+    expect(orbWarn(me, [])).toBe(false);
+  });
 });
 
 describe('Raise the standard: the control for the army bearer (abilities.md R5.3)', () => {
@@ -107,6 +126,13 @@ describe('single-tap alternatives (A11Y-14) and left-hand mode (A11Y-16)', () =>
   it('offers eight unit facing directions', () => {
     expect(FACING_DIRS).toHaveLength(8);
     for (const d of FACING_DIRS) expect(Math.hypot(d.x, d.y)).toBeCloseTo(1);
+  });
+
+  it('spreads the eight pips evenly round the group in the 2:1 iso view', () => {
+    // isoToScreen: (x - y) * 2h, (x + y) * h
+    const slots = FACING_DIRS.map((d) => pipSlot(Math.atan2(d.x + d.y, 2 * (d.x - d.y))));
+    const deg = slots.map((a) => (Math.round((a * 180) / Math.PI) + 360) % 360).sort((a, b) => a - b);
+    expect(deg).toEqual([0, 45, 90, 135, 180, 225, 270, 315]);
   });
 
   it('a tap picks the nearest pip within reach, else none', () => {

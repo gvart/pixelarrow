@@ -41,6 +41,16 @@ export function pipAt(pips: readonly Pt[], p: Pt, r: number): number {
   return best;
 }
 
+/**
+ * Where a pip sits round the group (screen radians): its direction's true
+ * on-screen angle (`a`, through the 2:1 iso view) snapped to the nearest 45
+ * degrees, so the eight pips are evenly spread and never overlap, in the same
+ * order round the ring as the facings they turn to.
+ */
+export function pipSlot(a: number): number {
+  return Math.round(a / (Math.PI / 4)) * (Math.PI / 4);
+}
+
 /** Left-hand mode: a control at x (width w) on a VW-wide screen moves to the mirrored spot. */
 export function mirrorX(x: number, w: number, vw: number, leftHand: boolean): number {
   return leftHand ? vw - x - w : x;
