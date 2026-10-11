@@ -26,6 +26,7 @@ import { MOSAIC_WAR_EN } from './mosaic.war.en';
 import { TARGETING_EN } from './targeting.en';
 import { UNDO_EN } from './undo.en';
 import { QUEUE_EN } from './queue.en';
+import { FIRSTRUN_EN } from './firstrun.en';
 
 export const EN = {
   // ---- shared words
@@ -320,4 +321,6 @@ export const EN = {
   ...UNDO_EN,
   // ---- the order queue: Then…, paused staging (queue.en.ts)
   ...QUEUE_EN,
+  // ---- Boot and the first-run screens (firstrun.en.ts)
+  ...FIRSTRUN_EN,
 } as const;
