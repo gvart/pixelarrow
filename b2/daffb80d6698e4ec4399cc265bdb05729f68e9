@@ -1,0 +1,33 @@
+src/i18n/en.ts
+  s_697bdc25a7c420::t_0f6a2032572b9d 50,380-381
+src/i18n/duels.v5.ru.ts
+  s_697bdc25a7c420::t_e1c838a9f94083 24
+  s_697bdc25a7c420::t_457ba19e857c1b 8
+  s_697bdc25a7c420::t_8dd998e9a55516 6-7
+  s_697bdc25a7c420::t_eb01cade4d931d 23
+  s_697bdc25a7c420::t_9701402ae6b31b 1-5,9-22,26-29
+  s_697bdc25a7c420::t_65f7569786a80a 25
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_0f6a2032572b9d 42,343
+src/i18n/duels.v5.en.ts
+  s_697bdc25a7c420::t_eb01cade4d931d 31
+  s_697bdc25a7c420::t_457ba19e857c1b 14
+  s_697bdc25a7c420::t_8dd998e9a55516 12-13
+  s_697bdc25a7c420::t_d00ae4a8e01d07 1-11,15-30,32-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b2daffb80d6698e4ec4399cc265bdb05729f68e9",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
