@@ -3,7 +3,7 @@ import { generateMap, passable, travelCost, T, isWater } from '../src/world/map'
 import { findPath } from '../src/world/path';
 import { World, partyArmy, threatLevel } from '../src/world/world';
 import { Campaign } from '../src/game/campaign';
-import { chunk, deserialize, migrate, readSave, serialize, writeSave, SAVE_VERSION, type KV } from '../src/game/save';
+import { chunk, deserialize, readSave, serialize, writeSave, SAVE_VERSION, type KV } from '../src/game/save';
 import { MAX_ARMY } from '../src/data/units';
 import type { Outcome } from '../src/game/loot';
 
@@ -241,20 +241,5 @@ describe('save v3', () => {
     const kv = memoryKV();
     await writeSave(kv, c.data);
     expect(await readSave(kv)).toEqual(JSON.parse(serialize(c.data)));
-  });
-
-  it('migrates a v2 save: heroes get attributes and points, a world is generated', () => {
-    const c = Campaign.fresh(51);
-    const v2 = JSON.parse(serialize(c.sync()));
-    v2.v = 2;
-    delete v2.world;
-    v2.heroes = v2.heroes.map((h: Record<string, unknown>) => {
-      const { attrs: _a, points: _p, perks: _k, wound: _w, ...rest } = h;
-      return { ...rest, level: 3 };
-    });
-    const m = migrate(v2)!;
-    expect(m.v).toBe(SAVE_VERSION);
-    expect(m.world.parties.length).toBeGreaterThan(0);
-    expect(m.heroes.every((h) => h.attrs.str === 5 && h.points === 4 && h.perks.length === 0 && h.wound === 0)).toBe(true);
   });
 });

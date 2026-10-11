@@ -63,7 +63,6 @@ export const RU_ARMY: Record<keyof typeof EN_ARMY, Entry> = {
   'item.classBlocked': '{cls}: нельзя носить',
   'item.duelInert': 'Золото, выживание и прочность в дуэлях не действуют',
   'item.sec': 'с',
-  'army.gearMoved': 'Снаряжение не по классу убрано на склад: {names}',
 
   'attr.str': 'Сила',
   'attr.agi': 'Ловкость',

@@ -21,7 +21,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { LIMITS, replayBattle } from '../battle';
 import { SubmitBody, verifyBattle } from '../duel/verify';
-import { resolveSimVersion, SimVersionField } from '../simVersion';
+import { checkSimVersion, SIM_VERSION, SimVersionField } from '../simVersion';
 import { battleTicketView, closeBattleTicket, loadOwnTicket, requireOpenTicket, ticketPreamble, type TicketStatus } from '../tickets';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
@@ -64,8 +64,6 @@ interface BossRow {
 
 interface TicketRow {
   id: string;
-  /** The sim version it was issued under (0016_sim_version.sql). */
-  sim_version: number;
   season_id: number;
   shard_id: number;
   player_id: number;
@@ -236,7 +234,7 @@ const StartBody = z.object({
   heroIds: z.array(z.string().max(80)).max(ONLINE_RULES.maxArmy).optional(),
   consumable: z.string().max(40).nullable().optional(),
   consumables: z.array(z.string().max(40)).max(10).optional(),
-  /** The client's SIM_VERSION; absent = a client from before versioning (v1). */
+  /** The client's SIM_VERSION; anything else is 426. */
   simVersion: SimVersionField,
 });
 
@@ -248,7 +246,7 @@ bosses.post('/start', async (c) => {
   limit(c, 'raid', 12);
   const pc = await player(c);
   const body = await readJson(c, StartBody, 8 * 1024);
-  const simVersion = resolveSimVersion(body.simVersion);
+  checkSimVersion(body.simVersion);
   const consumable = pickConsumable(body.consumable, body.consumables);
   const site = siteOf(pc, body.boss);
   const now = pc.now;
@@ -307,7 +305,7 @@ bosses.post('/start', async (c) => {
          WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 15}`).join(',')}) AND busy_until > ?11)
            AND (?13 IS NULL OR EXISTS (SELECT 1 FROM online_consumables WHERE season_id = ?2 AND player_id = ?4 AND consumable_id = ?13 AND qty >= 1))`,
       )
-      .bind(id, pc.season.id, pc.shard.id, pc.pid, site.loc, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), row.version, now, expiresAt, consumable, simVersion, ...busy),
+      .bind(id, pc.season.id, pc.shard.id, pc.pid, site.loc, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), row.version, now, expiresAt, consumable, SIM_VERSION, ...busy),
     pc.db.prepare(`UPDATE online_heroes SET busy_ticket = ?1, busy_until = ?2 WHERE id IN (${ph}) AND ${g}`).bind(id, expiresAt, ...busy),
     pc.db.prepare(`UPDATE online_profiles SET energy = ?3, energy_at = ?4, rev = rev + 1 WHERE season_id = ?1 AND player_id = ?2 AND ${g}`).bind(pc.season.id, pc.pid, energy - BEAST_RULES.raidEnergy, now),
     ...(consumable
@@ -336,7 +334,7 @@ bosses.post('/submit', async (c) => {
   const replay = await ticketPreamble(t, claimJson, pc.now, 'raid', () => closeTicket(pc, t, 'abandoned'));
   if (replay) return c.json({ ...JSON.parse(replay), replayed: true });
   const setup = JSON.parse(t.setup) as BattleSetup;
-  const out = await verifyBattle({ setup, simVersion: t.sim_version }, body, (claim, result) => closeTicket(pc, t, 'rejected', { claim, result }), 'The raid did not replay as reported; it is void');
+  const out = await verifyBattle(setup, body, (claim, result) => closeTicket(pc, t, 'rejected', { claim, result }), 'The raid did not replay as reported; it is void');
   const s = out.summary;
   const res = await applyRaid(pc, t, out.result, s, setup, claimJson);
   if (res.killedNow) later(c, (async () => notify(c.env, await slainEvents(pc, t), { shard: pc.shard }))());

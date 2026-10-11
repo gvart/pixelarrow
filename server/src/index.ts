@@ -15,7 +15,7 @@ import { save } from './routes/save';
 import { entitlements, shop } from './routes/shop';
 import { webhook } from './routes/webhook';
 import { WS_PROTOCOL } from './region';
-import { socketSimVersion } from './simVersion';
+import { checkSocketSimVersion } from './simVersion';
 import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from '../../src/online/protocol';
 import { online } from './online/routes';
 import { economy } from './economy/routes';
@@ -132,17 +132,15 @@ function refuseSocket(r: SocketRefused): Response {
 
 /**
  * Session token from ?token=... or Sec-WebSocket-Protocol: pixelarrow.v1, <token>.
- * `?sim=` must be in SOCKET_MIN_SIM_VERSION..SIM_VERSION (absent: v1), else the socket is
- * refused; the version goes on to the Durable Object as `x-sim-version`.
+ * `?sim=` must be SIM_VERSION, else the socket is refused.
  */
 async function wsSession(c: Context<AppEnv>) {
   if (c.req.header('upgrade')?.toLowerCase() !== 'websocket') throw new ApiError(426, 'upgrade_required', 'Expected a WebSocket upgrade');
   const protocols = (c.req.header('sec-websocket-protocol') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const fromProtocol = protocols.includes(WS_PROTOCOL) ? protocols.find((p) => p !== WS_PROTOCOL) : undefined;
   const session = await sessionFromToken(c.env, fromProtocol ?? c.req.query('token') ?? null);
-  let sim: number;
   try {
-    sim = socketSimVersion(c.req.query('sim'));
+    checkSocketSimVersion(c.req.query('sim'));
   } catch (e) {
     if (e instanceof ApiError && e.code === SIM_VERSION_REJECTED) throw new SocketRefused(e, fromProtocol ? WS_PROTOCOL : null);
     throw e;
@@ -150,7 +148,6 @@ async function wsSession(c: Context<AppEnv>) {
   const headers = new Headers(c.req.raw.headers);
   headers.set('x-player-id', String(session.pid));
   headers.set('x-player-name', session.name);
-  headers.set('x-sim-version', String(sim));
   if (fromProtocol) headers.set('x-ws-protocol', WS_PROTOCOL);
   else headers.delete('x-ws-protocol');
   return { session, headers };

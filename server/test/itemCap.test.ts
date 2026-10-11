@@ -59,7 +59,7 @@ describe('item power cap on the server (EC-02)', () => {
     while (b.phase !== 'ended' && b.tick < b.timeLimitTicks + 10) b.step();
     const claim = { winner: b.winner, ticks: b.tick, hash: b.hash() };
     const body = VerifyBody.parse({ simVersion: SIM_VERSION, setup: pristine, orders: JSON.parse(JSON.stringify(b.orderLog)), deployOrders: 0, claim });
-    const r = replayBattle(body.setup as unknown as BattleSetup, body.orders as LoggedOrder[], body.deployOrders, body.simVersion ?? 1);
+    const r = replayBattle(body.setup as unknown as BattleSetup, body.orders as LoggedOrder[], body.deployOrders);
     expect(r.summary).toMatchObject(claim);
   });
 });

@@ -245,12 +245,10 @@ shield wall, no shield bash from the saddle).
 - Footprints: separation, reach and "outnumbered" counts use each unit's
   radius (a horse is worth ½ of a man in the outnumbered count, an animal
   ⅓).
-- **Determinism and old replays.** All of this is gated on `stats.mount` /
-  `stats.kind`: battles without mounts or animals run the exact old float
-  operations. `tests/legacy.test.ts` replays five battles recorded before
-  classes existed (`tests/fixtures/legacy-battles.json`) and checks their
-  mid-battle and final hashes. The server schema (`server/src/battle.ts`)
-  accepts the new optional stats.
+- **Determinism.** All of this is gated on `stats.mount` / `stats.kind`.
+  The sim train 2 replay fixtures (`tests/fixtures/replay-v2*.json`) pin
+  the hashes (ADR-0001). The server schema (`server/src/battle.ts`)
+  accepts the optional stats.
 
 ### Bot AI for classes (`src/sim/ai.ts`)
 

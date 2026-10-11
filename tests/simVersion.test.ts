@@ -12,11 +12,8 @@ import { errorText, onlineApi, ShardSocket, simSocketPath } from '../src/online/
 import { ApiDuelSource } from '../src/duel/client';
 import { setLang, t } from '../src/i18n';
 import { reportBattle } from '../src/platform/verify';
-import { Battle } from '../src/sim/battle';
+import type { Battle } from '../src/sim/battle';
 import type { BattleSetup } from '../src/sim/types';
-import { BattleV1 } from '../server/src/sims/v1';
-import type { LoggedOrder as LoggedOrderV1 } from '../server/src/sims/v1/sim/types';
-import replayV1 from './fixtures/replay-v1.json';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -125,69 +122,4 @@ describe('a version rejection asks the player to reload', () => {
       online.api.token = token;
     }
   });
-});
-
-/**
- * SIM_VERSION 2 (ST-01, ADR-0001 "Adding a version"): the v1 rules are frozen
- * into server/src/sims/v1 and the current sim becomes v2. Battles recorded
- * under v1 (tests/fixtures/replay-v1.json, never regenerated) must replay to
- * their recorded state under the frozen copy, forever.
- */
-interface RecordedBattle {
-  name: string;
-  setup: BattleSetup;
-  orders: LoggedOrderV1[];
-  deployOrders: number;
-  winner: 0 | 1 | -1;
-  ticks: number;
-  retreated: 0 | 1 | null;
-  mid: string;
-  hash: string;
-}
-const v1 = replayV1 as unknown as { simVersion: number; battles: RecordedBattle[] };
-
-/** The server's replay protocol (server/src/battle.ts replayBattle), for any sim build. */
-function replayWith(make: (setup: BattleSetup) => Battle | BattleV1, r: RecordedBattle) {
-  const b = make(JSON.parse(JSON.stringify(r.setup)));
-  for (const o of r.orders.slice(0, r.deployOrders)) if (!r.setup.armies[o.side].bot) b.issue(o.side, o.order);
-  b.startBattle();
-  const rest = r.orders.slice(r.deployOrders).filter((o) => !r.setup.armies[o.side].bot);
-  let next = 0;
-  let mid = '';
-  while (b.phase !== 'ended' && b.tick <= b.timeLimitTicks + 1) {
-    while (next < rest.length && rest[next].tick === b.tick) b.issue(rest[next].side, rest[next++].order);
-    b.step();
-    b.drainEvents();
-    if (b.tick === 600) mid = b.hash();
-  }
-  return { winner: b.winner ?? -1, ticks: b.tick, retreated: b.retreated ?? null, mid, hash: b.hash() };
-}
-
-const expected = (r: RecordedBattle) => ({ winner: r.winner, ticks: r.ticks, retreated: r.retreated, mid: r.mid, hash: r.hash });
-
-describe('SIM_VERSION 2: the v1 sim is frozen', () => {
-  it('the client runs version 2', () => {
-    expect(SIM_VERSION).toBe(2);
-  });
-
-  it('the fixture was recorded under v1 and covers terrain, classes, beasts and human orders', () => {
-    expect(v1.simVersion).toBe(1);
-    expect(v1.battles.map((b) => b.name)).toEqual(['standard-4242', 'terrain-bots-9', 'classes-bots-21', 'beast-hydra-11']);
-  });
-
-  for (const r of v1.battles) {
-    it(`the frozen v1 copy replays ${r.name} to the recorded hash`, () => {
-      expect(replayWith((s) => new BattleV1(s as unknown as ConstructorParameters<typeof BattleV1>[0]), r)).toEqual(expected(r));
-    });
-
-    it(`the v2 sim replays ${r.name} deterministically under its own rules`, () => {
-      // FO-03 (cohesion and army break) is the first train-2 rule that changes
-      // bot-only battles, so v2 no longer matches the v1 hashes. The recorded
-      // v2 fixture comes with ST-04 (tests/fixtures/replay-v2*.json); until
-      // then v2 must at least replay the same setup to the same state twice.
-      const a = replayWith((s) => new Battle(s), r);
-      expect(replayWith((s) => new Battle(s), r)).toEqual(a);
-      expect(a.ticks).toBeGreaterThan(0);
-    });
-  }
 });

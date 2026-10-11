@@ -279,10 +279,6 @@ export class Online {
       this.pushFails = 0;
       this.setStatus(this.pending ? 'syncing' : 'synced');
     } catch (e) {
-      if (isDowngrade(e)) {
-        this.hold();
-        return;
-      }
       if (isApiError(e) && e.status === 409 && e.code === 'save_conflict') {
         if (await this.resolve409(body, seq)) {
           this.pushFails = 0;
@@ -316,10 +312,8 @@ export class Online {
       const r = await this.d.api.putSave(remote.revision, local);
       await this.storeMeta({ revision: r.revision, seq });
       return true;
-    } catch (e) {
-      if (!isDowngrade(e)) return false;
-      this.hold();
-      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -412,9 +406,4 @@ export class Online {
         /* offline / not configured: ignore */
       });
   }
-}
-
-/** 409 `save_version_downgrade` (ST-02b): the server keeps a save from a newer build; never retry over it. */
-function isDowngrade(e: unknown): boolean {
-  return isApiError(e) && e.status === 409 && e.code === 'save_version_downgrade';
 }

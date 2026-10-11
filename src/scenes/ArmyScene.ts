@@ -91,13 +91,6 @@ export class ArmyScene extends BaseScene {
     this.events.once('shutdown', () => this.clearPage());
     this.refresh();
     if (!this.pick) firstTimeHint(this, 'army', t('stash.dragHint'));
-    // once after the class-limits update: gear some heroes' classes may no longer use went to the stash
-    const c = state.campaign;
-    if (c.data.gearMoved?.length) {
-      toast(this, t('army.gearMoved', { names: c.data.gearMoved.join(', ') }), 'info', 5000);
-      delete c.data.gearMoved;
-      void state.save();
-    }
   }
 
   private hero(): Hero | undefined {

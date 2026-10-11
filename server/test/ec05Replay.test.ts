@@ -72,7 +72,7 @@ function playClient(setup: BattleSetup, human: (b: Battle) => void = advanceThen
 
 function replay(c: ReturnType<typeof playClient>) {
   const parsed = VerifyBody.parse({ simVersion: SIM_VERSION, setup: c.setup, orders: c.orders, deployOrders: c.deployOrders, claim: { winner: c.winner, ticks: c.ticks, hash: c.hash } });
-  return replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders, parsed.simVersion ?? 1).summary;
+  return replayBattle(parsed.setup as unknown as BattleSetup, parsed.orders as LoggedOrder[], parsed.deployOrders).summary;
 }
 
 describe('EC-05 bot tactics: server replay', () => {

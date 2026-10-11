@@ -77,7 +77,7 @@ Authenticated routes take `Authorization: Bearer <token>`.
 | POST | `/api/auth/telegram` | – | body `{ "initData": "<Telegram.WebApp.initData>" }` (or the raw string). Returns `{ token, expiresAt, player }`. Token lifetime 7 days. |
 | GET | `/api/me` | ✓ | `{ player, session }` |
 | GET | `/api/save` | ✓ | `{ revision, version, data, updatedAt }`; `revision: 0, data: null` if none |
-| PUT | `/api/save` | ✓ | body `{ revision: <last revision you saw>, data: <SaveData, must have numeric v> }` → `{ revision }`, or **409** `save_conflict` with the current `revision`, or **409** `save_version_downgrade` (stored `version` above `data.v`; the stored save is kept). Max 512 KB. |
+| PUT | `/api/save` | ✓ | body `{ revision: <last revision you saw>, data: <SaveData, must have numeric v> }` → `{ revision }`, or **409** `save_conflict` with the current `revision`. Max 512 KB. |
 | POST | `/api/battle/verify` | ✓ | see below |
 | GET | `/api/shop/products` | – | Stars products: the Drachmae packs (`kind: 'drachmae'`, `drachmae`) and the legacy `supporter_banner` |
 | POST | `/api/shop/invoice` | ✓ | body `{ productId }` → `{ link }` (Stars invoice link); 409 if an entitlement is already owned |
@@ -154,21 +154,19 @@ update it if `BattleSetup`/`Order` change.
 ### Sim version
 
 Contract: `design/adr/ADR-0001-determinism-replay.md`. Every battle call
-takes an optional `simVersion` (`src/sim/version.ts` `SIM_VERSION`):
-`/api/battle/verify`, and the start and submit calls of attacks, boss raids,
-ladder floors and async raids. Sockets (`/ws/*`) take `?sim=`. Absent means
-version 1 (clients from before versioning).
+takes `simVersion` (`src/sim/version.ts` `SIM_VERSION`): `/api/battle/verify`,
+and the start and submit calls of attacks, boss raids, ladder floors and async
+raids. Sockets (`/ws/*`) take `?sim=`.
 
-- The server accepts `MIN_SIM_VERSION..SIM_VERSION` (`server/src/simVersion.ts`).
-  Anything else gets **426 `sim_version_unsupported`** (`{simVersion, min, max}`),
-  and the client asks the player to reload. A socket must run exactly
-  `SIM_VERSION`; otherwise it gets an `error` frame with that code and is
-  closed with code 4426.
+- The server runs one sim and takes exactly `SIM_VERSION`
+  (`server/src/simVersion.ts`). Anything else, or nothing, gets **426
+  `sim_version_unsupported`** (`{simVersion, expected}`), and the client asks
+  the player to reload. A socket gets an `error` frame with that code and is
+  closed with code 4426. A refused submission leaves its ticket open.
 - Tickets (`battle_tickets`, `duel_tickets`, `duel_attacks`) and `duel_matches`
-  store `sim_version`. A submission must run the ticket's version, otherwise
-  **409 `sim_version_mismatch`** and the ticket is rejected. A submission with
-  a version the server cannot take leaves the ticket open.
-- Replay goes through `REPLAYERS` in `server/src/battle.ts` (version → sim).
+  record the `sim_version` they were played under (migration 0016).
+- There is no older sim and no grace window (V5-074): a version bump voids
+  battles in flight.
 
 ### Telegram bot webhook & Stars payments
 

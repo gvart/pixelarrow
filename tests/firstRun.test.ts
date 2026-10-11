@@ -63,16 +63,6 @@ describe('first run is never forced on an existing player', () => {
     expect(firstRunEntry(state.campaign.data.settings)).toBeNull();
   });
 
-  it('every older save fixture is routed past first run too', async () => {
-    for (const [name, text] of Object.entries(FIXTURES)) {
-      stores.primary = new Map();
-      putRaw(text, (JSON.parse(text) as { v?: number }).v ?? 1);
-      await state.load();
-      expect(state.hasSave, name).toBe(true);
-      expect(firstRunEntry(state.campaign.data.settings), name).toBeNull();
-    }
-  });
-
   it('a player who finished or skipped the tutorial is not offered it again', () => {
     expect(firstRunEntry({ tutorial: { status: 'done', done: [], rewarded: true } })).toBeNull();
     expect(firstRunEntry({ tutorial: { status: 'skipped', done: ['intro'] } })).toBeNull();

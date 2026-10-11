@@ -18,7 +18,7 @@ import { ApiError, badRequest } from '../errors';
 import { db, requireAuth } from '../middleware';
 import { LIMITS } from '../battle';
 import { SubmitBody, verifyBattle } from './verify';
-import { resolveSimVersion, SimVersionField } from '../simVersion';
+import { checkSimVersion, SIM_VERSION, SimVersionField } from '../simVersion';
 import { closeTicketStmt, loadOwnTicket, requireOpenTicket, ticketPreamble, type TicketStatus } from '../tickets';
 import { emit, emitWithFirst, outcomeOf } from '../telemetry/analytics';
 import { limit } from '../online/context';
@@ -437,8 +437,6 @@ duel.post('/shop/salvage', stashOrder('salvage'));
 
 interface TicketRow {
   id: string;
-  /** The sim version it was issued under (0016_sim_version.sql). */
-  sim_version: number;
   player_id: number;
   floor: number;
   seed: number;
@@ -472,7 +470,7 @@ duel.post('/ladder/start', async (c) => {
   limit(c, 'duel_ladder', 20);
   const x = await ctx(c);
   const body = await readJson(c, z.object({ floor: z.number().int().min(1).max(1000), simVersion: SimVersionField }), 1024);
-  const simVersion = resolveSimVersion(body.simVersion);
+  checkSimVersion(body.simVersion);
   if (!canFight(body.floor, x.p.ladder_cleared)) throw new ApiError(409, 'floor_locked', 'Clear the floors below first');
   const open = await x.db
     .prepare("SELECT * FROM duel_tickets WHERE player_id = ?1 AND status = 'open' AND expires_at > ?2 ORDER BY created_at DESC LIMIT 1")
@@ -493,7 +491,7 @@ duel.post('/ladder/start', async (c) => {
   const setup = ladderSetup(seed, team, l.formations, floor);
   await x.db
     .prepare('INSERT INTO duel_tickets (id, player_id, kind, floor, seed, setup, team, created_at, expires_at, sim_version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)')
-    .bind(id, x.pid, 'ladder', floor.floor, seed, JSON.stringify(setup), JSON.stringify(team), x.now, x.now + DUEL_RULES.ticketTtlMs, simVersion)
+    .bind(id, x.pid, 'ladder', floor.floor, seed, JSON.stringify(setup), JSON.stringify(team), x.now, x.now + DUEL_RULES.ticketTtlMs, SIM_VERSION)
     .run();
   const t = (await x.db.prepare('SELECT * FROM duel_tickets WHERE id = ?1').bind(id).first<TicketRow>())!;
   return c.json(ticketView(t));
@@ -516,7 +514,7 @@ duel.post('/ladder/submit', async (c) => {
   const claimJson = JSON.stringify(body.claim);
   const replay = await ticketPreamble(t, claimJson, x.now, 'battle', () => closeTicket(x, t, 'abandoned'));
   if (replay) return c.json({ ...JSON.parse(replay), replayed: true, profile: await view(x) });
-  const out = await verifyBattle({ setup: JSON.parse(t.setup) as BattleSetup, simVersion: t.sim_version }, body, (claim, result) => closeTicket(x, t, 'rejected', claim, result));
+  const out = await verifyBattle(JSON.parse(t.setup) as BattleSetup, body, (claim, result) => closeTicket(x, t, 'rejected', claim, result));
   const s = out.summary;
 
   const floor = ladderFloor(t.floor);

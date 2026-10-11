@@ -4,8 +4,6 @@
  * GET  /api/save -> { revision, version, data, updatedAt }  (revision 0, data null: no save yet)
  * PUT  /api/save    { revision: <the revision the client last saw>, data: SaveData }
  *      -> 200 { revision: n+1, updatedAt }  or 409 { error: { code: 'save_conflict', revision: <current> } }
- *      or 409 { error: { code: 'save_version_downgrade', version: <stored>, revision: <current> } } when the
- *      stored save was written by a newer build (stored `version` > `data.v`); the stored copy is kept (ST-02b).
  *
  * v1 trusts the client's economy; the blob is only checked for size and shape.
  */
@@ -17,12 +15,10 @@ import { ApiError } from '../errors';
 import { db, requireAuth } from '../middleware';
 
 export const MAX_SAVE_BYTES = 512 * 1024;
-export const MAX_SAVE_VERSION = 1000;
 
 const PutBody = z.object({
   revision: z.number().int().min(0),
-  // `v` is the client's SAVE_VERSION (6 in v5); the cap keeps a tampered blob from locking the slot via the downgrade guard.
-  data: z.looseObject({ v: z.number().int().min(1).max(MAX_SAVE_VERSION) }),
+  data: z.looseObject({ v: z.number().int().min(1) }),
 });
 
 interface SaveRow {
@@ -61,23 +57,15 @@ save.put('/', async (c) => {
           .bind(pid, body.data.v, json, size, now)
           .run()
       : await d
-          .prepare('UPDATE saves SET revision = ?2, version = ?3, data = ?4, size = ?5, updated_at = ?6 WHERE player_id = ?1 AND revision = ?7 AND version <= ?3')
+          .prepare('UPDATE saves SET revision = ?2, version = ?3, data = ?4, size = ?5, updated_at = ?6 WHERE player_id = ?1 AND revision = ?7')
           .bind(pid, next, body.data.v, json, size, now, body.revision)
           .run();
 
   if (res.meta.changes !== 1) {
     const cur = await d
-      .prepare('SELECT revision, version, updated_at FROM saves WHERE player_id = ?1')
+      .prepare('SELECT revision, updated_at FROM saves WHERE player_id = ?1')
       .bind(pid)
-      .first<{ revision: number; version: number; updated_at: number }>();
-    // Checked before the revision: an old build answers save_conflict by re-uploading over the server copy.
-    if (cur && cur.version > body.data.v) {
-      throw new ApiError(409, 'save_version_downgrade', 'The stored save was written by a newer version of the game', {
-        version: cur.version,
-        revision: cur.revision,
-        updatedAt: cur.updated_at,
-      });
-    }
+      .first<{ revision: number; updated_at: number }>();
     throw new ApiError(409, 'save_conflict', 'The save was changed elsewhere; fetch it and merge or overwrite', {
       revision: cur?.revision ?? 0,
       updatedAt: cur?.updated_at ?? null,

@@ -1,6 +1,6 @@
 /** Global game state shared between scenes (no Phaser imports). */
 import { Campaign } from './game/campaign';
-import { backupRaw, campaignIdOf, carrySettings, keepReplaced, readSaveResult, writeSave, clearSave, type LoadFailure, type SaveData } from './game/save';
+import { backupRaw, carrySettings, readSaveResult, writeSave, clearSave, type LoadFailure, type SaveData } from './game/save';
 import type { Outcome } from './game/loot';
 import type { UnitStat } from './game/report';
 import type { EnemyArmy } from './game/enemy';
@@ -49,7 +49,7 @@ class GameState {
   /** The stored save is from a newer build: nothing is written this session (V5-011). */
   readOnly = false;
   /** A one-time message for the player about the save (an i18n key), shown and cleared by the next screen. */
-  notice: 'save.corrupt' | 'save.newer' | 'save.replaced' | 'battle.abandoned' | null = null;
+  notice: 'save.corrupt' | 'save.newer' | 'battle.abandoned' | null = null;
   private saving: Promise<void> = Promise.resolve();
   private dirty = false;
 
@@ -84,11 +84,6 @@ class GameState {
     const remote = await Promise.race([online.pullOnLoad(data), new Promise<null>((r) => setTimeout(() => r(null), PULL_WAIT_MS))]);
     if (!remote) online.abandonPull();
     if (remote) {
-      // The cloud holds another campaign (ST-02c): it wins, and the local one is kept.
-      if (data && campaignIdOf(data) !== campaignIdOf(remote)) {
-        await this.keepReplaced(data);
-        this.notice = 'save.replaced';
-      }
       data = remote;
       await this.writeLocal(remote);
     }
@@ -106,12 +101,6 @@ class GameState {
     if (!data || this.last) await this.save();
   }
 
-  private async keepReplaced(data: SaveData): Promise<void> {
-    const kv = gameKV();
-    await keepReplaced(kv.primary, data);
-    if (kv.mirror) await keepReplaced(kv.mirror, data);
-  }
-
   private async writeLocal(data: SaveData): Promise<void> {
     const kv = gameKV();
     await writeSave(kv.primary, data);
@@ -126,8 +115,6 @@ class GameState {
       if (!this.dirty) return;
       this.dirty = false;
       const data = this.campaign.sync();
-      // A save from before campaign ids gets its id now (ST-02c).
-      data.campaignId ??= campaignIdOf(data);
       data.seq = (data.seq ?? 0) + 1;
       data.savedAt = Date.now();
       await this.writeLocal(data);
@@ -153,7 +140,6 @@ class GameState {
     const kv = gameKV();
     const seq = this.campaign?.data.seq ?? 0;
     const prev = this.campaign?.data.settings;
-    const prevId = this.campaign ? campaignIdOf(this.campaign.data) : undefined;
     await clearSave(kv.primary);
     if (kv.mirror) await clearSave(kv.mirror);
     this.campaign = Campaign.fresh(randomSeed());
@@ -161,8 +147,6 @@ class GameState {
     this.campaign.data.settings = carrySettings(prev, this.campaign.data.settings);
     // Keep counting so the new campaign outranks the old one in cloud sync.
     this.campaign.data.seq = seq;
-    // The player chose to replace that campaign: this one may overwrite it in the cloud (ST-02c).
-    if (prevId) this.campaign.data.prevCampaignId = prevId;
     this.pending = null;
     this.last = null;
     this.hasSave = true;

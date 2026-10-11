@@ -114,15 +114,6 @@ describe('save', () => {
     expect(migrate({ v: 2, gold: 'x' })).toBeNull();
   });
 
-  it('migrates a v1 save', () => {
-    const c = Campaign.fresh(3);
-    const v1 = JSON.parse(serialize(c.sync()));
-    v1.v = 1;
-    delete v1.settings;
-    const migrated = migrate(v1)!;
-    expect(migrated.v).toBe(SAVE_VERSION);
-    expect(migrated.settings.haptics).toBe(true);
-  });
 
   it('chunks long saves under the CloudStorage value limit', async () => {
     const c = Campaign.fresh(4);

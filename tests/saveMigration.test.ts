@@ -1,7 +1,7 @@
 /**
- * ST-02: the one v5 campaign save bump (SAVE_VERSION 6, ADR-0002). Every field
- * the v5 train needs is declared here with a default; feature stories read and
- * write them and add no further bump.
+ * ST-02: the v5 campaign save format (SAVE_VERSION 6, ADR-0002), the baseline
+ * since V5-074. Every field the v5 train needs is declared here with a
+ * default; feature stories read and write them and add no further bump.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -13,20 +13,7 @@ import { FLAGS_CAP, JOURNAL_CAP, World, type PartyState, type WorldSave } from '
 import { MAX_ARMY } from '../src/data/units';
 import { PERKS } from '../src/data/perks';
 
-const FIXTURES = import.meta.glob<string>('./fixtures/saves/*.json', { eager: true, query: '?raw', import: 'default' });
-const PLAYED_V5 = Object.entries(FIXTURES).find(([f]) => f.includes('v5-played'))![1];
-
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
-
-/** Every value in `before` is in `after` unchanged (new keys in `after` are fine). */
-function expectKept(before: unknown, after: unknown, path = '$'): void {
-  if (before && typeof before === 'object' && !Array.isArray(before)) {
-    expect(after, path).toBeTypeOf('object');
-    for (const [k, v] of Object.entries(before)) expectKept(v, (after as Record<string, unknown>)[k], `${path}.${k}`);
-    return;
-  }
-  expect(after, path).toEqual(before);
-}
 
 /** Telegram CloudStorage: values up to 4096 chars, keys 1-128 chars of [A-Za-z0-9_-], at most 1024 keys. */
 function cloudStorageKV(): KV & { store: Map<string, string> } {
@@ -65,62 +52,10 @@ describe('SAVE_VERSION 6', () => {
   });
 });
 
-describe('every historical save migrates to v6 with defaults for every new field', () => {
-  for (const [file, text] of Object.entries(FIXTURES)) {
-    it(file, () => {
-      const raw = JSON.parse(text) as { v: number };
-      const out = migrate(JSON.parse(text))!;
-      expect(out).not.toBeNull();
-      expect(out.v).toBe(6);
-      if (raw.v >= 6) return;
-      expect(out.world).toMatchObject(V6_WORLD_DEFAULTS);
-      for (const p of out.world.parties) {
-        expect(p.escaped).toBeUndefined();
-        expect(p.captainDead).toBeUndefined();
-      }
-      for (const s of out.world.places) expect(s.reborn).toBeUndefined();
-      // the v6 save round-trips and a campaign runs on it
-      expect(deserialize(serialize(out))).toEqual(out);
-      expect(() => new Campaign(out).world).not.toThrow();
-    });
-  }
-});
-
-describe('a real v5 save keeps every field through the v5 -> v6 migration', () => {
-  for (const [file, text] of Object.entries(FIXTURES).filter(([f]) => /\/v5-/.test(f))) {
-    it(file, () => {
-      const before = JSON.parse(text) as Record<string, unknown>;
-      const after = migrate(JSON.parse(text))!;
-      const { v: _v, ...rest } = before;
-      expectKept(rest, after);
-    });
-  }
-
-  it('the played v5 save keeps its army, gold, map position, provisions, fog and settings', () => {
-    const before = JSON.parse(PLAYED_V5) as SaveData;
-    const after = migrate(JSON.parse(PLAYED_V5))!;
-    expect(after.heroes).toEqual(before.heroes);
-    expect(after.heroes.length).toBe(5); // V5-020: an existing save keeps its army
-    expect(after.gold).toBe(before.gold);
-    expect([after.world.x, after.world.y, after.world.time]).toEqual([before.world.x, before.world.y, before.world.time]);
-    expect(after.world.food).toBe(before.world.food);
-    expect(after.world.fog).toBe(before.world.fog);
-    expect(after.settings).toEqual(before.settings);
-    expect([after.seq, after.savedAt, after.pity]).toEqual([before.seq, before.savedAt, before.pity]);
-  });
-
-  it('through storage: a v5 two-slot save loads as v6 and the next write is v6', async () => {
-    const kv = cloudStorageKV();
-    await writeSave(kv, JSON.parse(PLAYED_V5) as SaveData);
-    expect(JSON.parse(kv.store.get('px_meta')!).v).toBe(5);
-    const r = await readSaveResult(kv);
-    expect(r.kind).toBe('ok');
-    if (r.kind !== 'ok') return;
-    expect(r.data.v).toBe(6);
-    await writeSave(kv, r.data);
-    expect(JSON.parse(kv.store.get('px_meta')!).v).toBe(6);
-    const again = await readSaveResult(kv);
-    expect(again.kind === 'ok' && again.data).toEqual(r.data);
+describe('there are no migrations: v6 is the baseline (V5-074)', () => {
+  it.each([5, 1, 0, undefined])('a save at version %s is corrupt (the corrupt-save backup path)', (v) => {
+    const d = { ...clone(Campaign.fresh(3).sync()), v };
+    expect(migrateResult(d)).toEqual({ ok: false, reason: 'corrupt' });
   });
 });
 
