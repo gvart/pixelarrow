@@ -61,14 +61,18 @@ const GREYS: number[] = [MOSAIC.off, MOSAIC.offHi, MOSAIC.slab, MOSAIC.slabHi, M
 const PHONES = [160, 170, 180, 187, 195, 215];
 
 describe('tab bar labels (art bible 7.2: one face, one case, one size)', () => {
-  it('all five share a style; Cinzel only in capitals, Inter only as written; never under 6.5 (HUB-02: English at 320 px too)', () => {
+  it('all five share a style; Cinzel only in capitals, Inter only as written; never under 6.5; icon-only (V5-068) only below 340 px', () => {
     for (const lang of LANGS) {
       setLang(lang);
       const labels = MODE_TABS.map((tab) => t(tab.key));
       for (const VW of PHONES) {
         const f = fitTabLabels(VW, labels, measure);
         const where = `${lang} VW ${VW}`;
-        expect(f.slots, where).not.toBeNull();
+        // V5-068: no style at 6.5 or more fits only on the narrowest bars; then the bar goes icon-only
+        if (!f.slots) {
+          expect(VW, where).toBeLessThan(170);
+          continue;
+        }
         if (f.style.face === 'roman') {
           expect(f.texts, where).toEqual(labels.map((l) => l.toUpperCase()));
           expect(f.style.size, where).toBeGreaterThanOrEqual(TEXT_MIN);
@@ -87,13 +91,14 @@ describe('tab bar labels (art bible 7.2: one face, one case, one size)', () => {
       const labels = MODE_TABS.map((tab) => t(tab.key));
       for (const VW of PHONES) {
         const f = fitTabLabels(VW, labels, measure);
-        const { slots, medallionD, medallionX } = tabLayout(VW, 5, f.slots!);
+        const { slots, medallionD, medallionX } = tabLayout(VW, 5, f.slots ?? undefined);
         const where = `${lang} VW ${VW}`;
         expect(slots[4].x + slots[4].w, where).toBe(VW);
         expect(Math.abs(medallionX + medallionD / 2 - VW / 2), where).toBeLessThanOrEqual(1);
         expect(medallionD, where).toBeGreaterThanOrEqual(30);
         slots.forEach((s, i) => {
-          expect(f.widths[i], `${where} label ${i}`).toBeLessThanOrEqual(s.w - 2);
+          // a label stays inside the selected block (1 UI px in from the slot) with 1 UI px to spare
+          if (f.slots) expect(f.widths[i], `${where} label ${i}`).toBeLessThanOrEqual(s.w - 4);
           expect(s.hitW, `${where} hit ${i}`).toBeGreaterThanOrEqual(22);
           if (i > 0) expect(s.hitX - (slots[i - 1].hitX + slots[i - 1].hitW), `${where} gap ${i}`).toBeGreaterThanOrEqual(TAB_GAP - 0.01);
         });
@@ -101,6 +106,18 @@ describe('tab bar labels (art bible 7.2: one face, one case, one size)', () => {
         expect(slots[2].hitX, where).toBeLessThanOrEqual(medallionX + 2);
         expect(slots[2].hitX + slots[2].hitW, where).toBeGreaterThanOrEqual(medallionX + medallionD - 2);
       }
+    }
+    setLang('en');
+  });
+
+  it('a 274 px Telegram canvas (VW 137) has no style at 6.5: icon-only but for the active tab (V5-068)', () => {
+    for (const lang of LANGS) {
+      setLang(lang);
+      const f = fitTabLabels(137, MODE_TABS.map((tab) => t(tab.key)), measure);
+      expect(f.slots, lang).toBeNull();
+      expect(f.style.size, lang).toBeGreaterThanOrEqual(TEXT_MIN);
+      // the active label always fits the bar, even the longest
+      for (const w of f.widths) expect(w + 4, lang).toBeLessThanOrEqual(137);
     }
     setLang('en');
   });

@@ -85,7 +85,8 @@ export class MenuScene extends BaseScene {
     }
 
     // ---- Army, Stash and Camp, built first: the fresco takes what they leave above the fold
-    // (no save yet: Army and Stash wait for the march to begin, C-3 "No save")
+    // (no save yet: Army and Stash wait for the march to begin, C-3 "No save"; live tiles are bronze,
+    // grey stone means disabled only: V5-046, C-3 colour roles)
     const tw = Math.floor((w - 2 * GAP) / 3);
     const th = Math.min(tw, compact ? 36 : 56);
     const lastW = w - 2 * (tw + GAP);
@@ -93,9 +94,9 @@ export class MenuScene extends BaseScene {
     const pending = state.hasSave ? pendingMen(c.heroes) : 0;
     const campOff = world.camp ? undefined : t('hub.pitchCamp');
     const tiles = [
-      new StoneTile(this, 1, 0, tw, th, { icon: 'helmet', label: t('hub.army'), badge: pending || undefined, disabled: noSave, caption: false, tip: t('hub.tip.army'), id: 'menu.army', onClick: () => this.scene.start('Army', { from: 'Menu' }) }),
+      new StoneTile(this, 1, 0, tw, th, { icon: 'helmet', label: t('hub.army'), variant: 'bronze', badge: pending || undefined, disabled: noSave, caption: false, tip: t('hub.tip.army'), id: 'menu.army', onClick: () => this.scene.start('Army', { from: 'Menu' }) }),
       new StoneTile(this, 1 + tw + GAP, 0, tw, th, { icon: 'chest', label: t('hub.stash'), variant: 'bronze', disabled: noSave, caption: false, tip: t('hub.tip.stash'), id: 'menu.stash', onClick: () => this.scene.start('Army', { from: 'Menu', tab: 'stash' }) }),
-      new StoneTile(this, 1 + 2 * (tw + GAP), 0, lastW, th, { icon: 'tent', label: t('hub.camp'), disabled: campOff, caption: false, tip: t('hub.tip.camp'), id: 'menu.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) }),
+      new StoneTile(this, 1 + 2 * (tw + GAP), 0, lastW, th, { icon: 'tent', label: t('hub.camp'), variant: 'bronze', disabled: campOff, caption: false, tip: t('hub.tip.camp'), id: 'menu.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) }),
     ];
     // the reasons of the disabled tiles, one line each across the row (the mockup's "Pitch camp on the map"):
     // under Army and Stash at the left, under Camp at the right

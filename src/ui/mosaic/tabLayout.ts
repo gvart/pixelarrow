@@ -7,9 +7,10 @@
  * Labels (art bible 7.2, interaction-patterns P19, ADR-0005): one face, one case
  * and one size for all five. Cinzel capitals at Display S (7), then 6.5, when
  * all five fit; else Inter in sentence case (the text face's own case) at 7,
- * then 6.5 (6 only where nothing larger fits: no phone of 320 px or more). Never a mix
- * ("Campaign" beside "DUELS"). No short forms: a tab carries the same name at
- * every width (V5-063). Slots follow their labels: a long
+ * then 6.5. Never a mix ("Campaign" beside "DUELS"). No short forms: a tab
+ * carries the same name at every width (V5-063). When not all five fit at 6.5
+ * (a 274 px Telegram canvas), every tab keeps its icon, the active one keeps its
+ * label and the others go icon-only, their name on long-press and hover (V5-068). Slots follow their labels: a long
  * label takes a wider slot, the two sides stay equal so the medallion stays
  * centred.
  */
@@ -36,14 +37,14 @@ export const MEDALLION_RISE = 16;
 export const TAB_FRAME_GAP = 10;
 /** Gap between neighbouring touch areas, UI px (the layout check wants 4 pt = 2 UI px). */
 export const TAB_GAP = 3;
-/** Room a label keeps in its slot, UI px (half on each side): two labels are >= 3 apart. The two end slots keep only the inner half (the bar's edge is not a label). */
-export const TAB_LABEL_PAD = 3;
+/** Room a label keeps in its slot, UI px (half on each side): inside the selected tab's block (1 UI px in from the slot) by 1 UI px, and two labels >= 4 apart. */
+export const TAB_LABEL_PAD = 4;
 /** Narrowest slot, UI px: its icon and a touch area of >= 22 after the gap; the medallion's neighbours also give up the strip it covers. */
 export const TAB_MIN_SLOT = 26;
 /** Extra width a neighbour of the medallion needs for the strip the medallion covers, UI px. */
-export const TAB_MEDALLION_SHARE = 2;
-/** Narrowest slot of the medallion, UI px (a medallion of 30 across: English labels keep 6.5 at 320 px, HUB-02). */
-export const MEDALLION_MIN_SLOT = 25;
+export const TAB_MEDALLION_SHARE = 3;
+/** Narrowest slot of the medallion, UI px (a medallion of 31 across). */
+export const MEDALLION_MIN_SLOT = 26;
 /** Widest medallion, UI px. */
 export const MEDALLION_MAX = 46;
 
@@ -100,8 +101,7 @@ export function tabLayout(VW: number, count = 5, widths?: readonly number[]): Ta
 export function tabSlotWidths(VW: number, labelW: readonly number[]): number[] | null {
   const n = labelW.length;
   const mid = Math.floor(n / 2);
-  const pad = (i: number) => (i === 0 || i === n - 1 ? TAB_LABEL_PAD / 2 : TAB_LABEL_PAD);
-  const need = labelW.map((w, i) => Math.max(Math.ceil(w) + pad(i), TAB_MIN_SLOT + (Math.abs(i - mid) === 1 ? TAB_MEDALLION_SHARE : 0)));
+  const need = labelW.map((w, i) => Math.max(Math.ceil(w) + TAB_LABEL_PAD, TAB_MIN_SLOT + (Math.abs(i - mid) === 1 ? TAB_MEDALLION_SHARE : 0)));
   const left = need.slice(0, mid);
   const right = need.slice(mid + 1);
   const sum = (a: number[]) => a.reduce((s, x) => s + x, 0);
@@ -143,8 +143,6 @@ export const TAB_LABEL_STYLES: readonly TabLabelStyle[] = [
   { face: 'roman', size: TEXT_MIN },
   { face: 'body', size: 7 },
   { face: 'body', size: TEXT_MIN },
-  // last resort, the 320 px phone in English: 'Campaign' does not fit at 6.5 with the medallion centred
-  { face: 'body', size: 6 },
 ];
 
 /** A label as the style writes it: capitals in Cinzel, the words as written in Inter. */
@@ -156,7 +154,7 @@ export interface TabLabelFit {
   style: TabLabelStyle;
   texts: string[];
   widths: number[];
-  /** Slot widths, or null when even the last style does not fit (equal slots then, labels cut). */
+  /** Slot widths, or null when even the last style does not fit: then the bar is icon-only but for the active tab (V5-068). */
   slots: number[] | null;
 }
 
