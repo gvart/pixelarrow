@@ -1,0 +1,20 @@
+src/art/vectorIcons.ts
+  s_697bdc25a7c420::t_896e7aff19bd83 429-446,449-454
+  s_697bdc25a7c420::t_20508e8b4028b1 455
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f87d534c99dc2d3bd0fd5ad936bfd147cc7feaf7",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
