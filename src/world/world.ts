@@ -1199,7 +1199,7 @@ export class World {
       ty: st.y,
       idle: 0,
     };
-    p.power = partyArmy(p, { nextId: 1 }).power;
+    p.power = partyArmy(p, { nextId: 1 }).power * GARRISON.plate;
     return p;
   }
 

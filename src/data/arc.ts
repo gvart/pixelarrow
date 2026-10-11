@@ -8,8 +8,12 @@
  * A lair's garrison (R2.1, F1, F3): `base + round(danger x danger)` men at
  * level `level + round(danger x levelDanger + days x levelDays)`, gear at the
  * world's lair tier. A beaten garrison regrows one man every `regrowH` hours.
+ * `plate` (EC-05): a garrison fights its walls and its doctrine better than
+ * its men's heroPower says (at 1.0x on open ground the attacker won 20%), so
+ * its power plate is the men's power x plate; an army at 1.0x of the plate
+ * takes the lair 38-48% of the time (R2).
  */
-export const GARRISON = { base: 10, danger: 6, level: 2, levelDanger: 3, levelDays: 0.04, regrowH: 24 };
+export const GARRISON = { base: 10, danger: 6, level: 2, levelDanger: 3, levelDays: 0.04, regrowH: 24, plate: 1.15 };
 
 /** Lairs on a map, all of which must fall before the host musters (R5). */
 export const ARC_LAIRS = 6;

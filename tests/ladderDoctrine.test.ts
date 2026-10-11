@@ -12,15 +12,24 @@ describe('ladder doctrines (AI-03)', () => {
     // chapter 1 is all steady; every later chapter keeps its doctrine on some floors
     expect(got.slice(0, 10).every((d) => d === 'steady')).toBe(true);
     for (let c = 2; c <= 5; c++) expect(got.slice((c - 1) * 10, c * 10 - 1), `chapter ${c}`).toContain(CHAPTER_DOCTRINE[c - 1]);
-    // the table as measured (docs/v5/balance/AI-03.md, re-measured in AB-02.md)
+    // the table as measured (docs/v5/balance/AI-03.md, re-measured in AB-02.md and EC-05.md)
     expect(got.join(' ')).toBe(
       'steady steady steady steady steady steady steady steady steady steady ' +
-        'swarm fury swarm steady fury swarm steady steady rush steady ' +
-        'rush rush rush swarm hammer swarm rush rush swarm steady ' +
-        'steady hammer hammer swarm steady hammer hammer rush rush steady ' +
-        'steady steady fury hammer hammer steady rush steady hammer steady',
+        'swarm fury swarm steady fury swarm steady fury rush steady ' +
+        'rush rush rush swarm hammer swarm rush rush steady steady ' +
+        'swarm hammer hammer swarm steady fury hammer rush rush steady ' +
+        'steady steady fury hammer steady steady rush steady hammer steady',
     );
     expect(chapterOf(25)).toBe(3);
+  });
+
+  it('floors 18 and 31 may rise one level more than the others to meet their point target (EC-05)', () => {
+    for (let f = 1; f <= LADDER.floors; f++) {
+      const level = 1 + Math.floor(((f - 1) * 9) / (LADDER.floors - 1));
+      const top = Math.max(...ladderFloor(f).heroes.map((h) => h.level));
+      expect(top, `floor ${f}`).toBeLessThanOrEqual(Math.min(10, level + (f === 18 || f === 31 ? 3 : 2)));
+      if (f === 18 || f === 31) expect(top, `floor ${f}`).toBe(level + 3);
+    }
   });
 
   it('a boss floor fights steady (V5-052: the culture rule made floor 10 too easy)', () => {
