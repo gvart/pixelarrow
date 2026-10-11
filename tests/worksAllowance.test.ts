@@ -271,6 +271,7 @@ describe('stand-off (ai-doctrines.md R5)', () => {
 
   it('no stand-off against a side that holds without works or an orb', () => {
     const r = turtle('swarm', 40, false, false);
-    expect(r.focus).toBe(false);
+    // no stand-off: the bot closes in (its missile-men may still focus the line they fight, EC-05)
+    expect(r.met).toBe(true);
   });
 });
