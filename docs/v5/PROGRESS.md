@@ -11,10 +11,9 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | EC-04 worktree-agent-a6fb1e8e0d700ce7c, AR-03 worktree-agent-ae1f99260864f9257, ARM-01 worktree-agent-a6186b77c87d57fb0 | — | integrator | — | merging |
-| ar-02 | W13 AR-02: lair assaults | per card | per card | worktree-agent | running |
+| (merge) | EV-02 worktree-agent-a1490b0a6d40676b9 (deck OFF) + AR-02 worktree-agent-a0b8dbb63c1841cc0 (inert until wired) | — | integrator | — | merging |
+| ec-02 | W13 EC-02: item power cap | per card | per card | worktree-agent | running |
 | hero-01 | W13 HERO-01: Hero screen | per card | per card | worktree-agent | running |
-| ev-02 | W11 EV-02: event deck (shipped DISABLED until EV-03, V5-070) | per card | per card | worktree-agent | running |
 | rd-01 | W11 RD-01: morale glyph + group cards | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
@@ -57,6 +56,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 38a3aa9 fixer-5 smoke menu fade; 69d43da CT-04 previews + Then queue + paused plan. Gates: vitest 1042, layout 0 new, all smokes pass.
 - c3db469 F-04 icon atlas; 762b363 FW-02 works allowance. Gates: vitest 1067, server 301, layout 0 new, smokes pass; balance 54%, lairs 43/58/53.
 - 12a0d21 HUB-02 Campaign hub; 67c0220 TUT-01 first run; 6327f10 drop 22 clean allowlist entries. Gates: vitest 1084, layout 0 new, all 5 smokes pass.
+- 2d205b1 EC-04; 9b954e6 AR-03; e8dc83a ARM-01. Gates: vitest 1105, server 304, layout 0 new, smokes pass (main smoke flaked once at load ~42); balance 54%, lairs 43/58/53.
 
 ## Queue (next)
 
@@ -98,6 +98,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 22. TUT-02 handoff (from TUT-01): remove showRing (battleTutorial.ts:81-82, :343, :409; BattleScene.ts:3661), tutorial army 4/2/2 with group IV, add focus/undo/Then/pause-planning steps, delete stale firstrun.* keys in tutorial.*. HERO-01: the commander name truncates on a 274 px canvas.
 
 23. EC-05 (new, V5-069): structural balance after the W13–W14 sim stories, before ST-04.
+
+24. AR-02 handoffs: campaignBattle.ts must pass garrison works + holdField, the pending battle gets a lairId, settling calls afterLairAssault (FW-03 or WLD-02); WLD-02 builds the assault sheet, burnt lair and the 'Lairs n/6' chip. Walls make garrisons weaker (bots sally out), so the bot fix goes to EC-05. Load average ~42, so parallelism is capped at 3 code agents plus 1 integrator.
 
 ## Blockers
 
