@@ -15,7 +15,11 @@
  * AR-03 (R3, R6, R7, `lateRows`): the tier-3 share of new bands by date and
  * lairs fallen, the rare set pieces tier-3 bands carry, their power and loot
  * against the same band at tier 2, lair hoards, and the level 6-10 pacing.
- * Lair assaults and the host come with AR-02 and AR-04.
+ * AR-02 (R2, `assaultRows`): lair assaults. A Greek line army tuned to a
+ * multiple of a real lair garrison's power (Campaign.garrisonEnemy) attacks
+ * it on its assault field (palisade, rampart, the garrison's stakes), both
+ * sides bot-driven, the garrison holding the field.
+ * The host comes with AR-04.
  */
 import type { BalanceRow } from './balance';
 import { armySpec } from '../game/armySpec';
@@ -28,7 +32,7 @@ import { buildArmy } from '../game/enemy';
 import { lateXpMult } from '../game/loot';
 import { lairHoard } from '../game/sources';
 import { Battle } from '../sim/battle';
-import { Rng } from '../sim/rng';
+import { Rng, hashString } from '../sim/rng';
 import { heroPower } from '../sim/stats';
 import { generateBattlefield, randomSite } from '../world/battlefield';
 import { VOLUNTEER_RULES, World, partyArmy, type PartyState } from '../world/world';
@@ -103,6 +107,119 @@ export function arcRows(n: number): BalanceRow[] {
     rowOf('before: 3-man start vs start bandits', run(start, 'old3'), 'none (reference)'),
     rowOf('5 volunteers (destroyed army) vs start bandits', run(start, 'volunteers'), 'none stated'),
     ...lateRows(n),
+    ...assaultRows(n),
+  ];
+}
+
+// ------------------------------------------------------------------ AR-02: lair assaults (R2)
+
+export interface AssaultOpts {
+  /** Attacker power over the garrison's (the power plate). */
+  mult: number;
+  /** The palisade and rampart (an assault field); false = the lair's open ground. Default true. */
+  walls?: boolean;
+  /** The garrison's GARRISON_STAKES; false = none, a number = that many segments. Default true. */
+  stakes?: boolean | number;
+  /** Companions make up a third of the attacker (the stakes' head-on check). */
+  horse?: boolean;
+  /** Campaign day (garrison level and the lair tier). Default: a new world's first morning. */
+  day?: number;
+}
+
+export interface AssaultFight extends OpeningFight {
+  /** stakesBreak events: charges broken on the garrison's stakes. */
+  breaks: number;
+  /** Stakes segments the garrison laid. */
+  stakes: number;
+  /** The garrison retreated (it must never). */
+  fled: boolean;
+  /** Riders among the attackers. */
+  riders: number;
+}
+
+/**
+ * The attacking army: Greek line, as many and as seasoned as the garrison,
+ * tuned to `target` power; with `horse` a third are Companions. buildArmy
+ * stops anywhere within -6%..+8% of its target, so a second build aims off by
+ * the first one's miss, which brings the plate close to the multiple asked.
+ */
+function assaultArmy(seed: number, men: number, level: number, tier: number, target: number, horse: boolean, ids: IdSource): Hero[] {
+  const build = (aim: number) => {
+    const rng = new Rng(seed ^ 0x2545f491);
+    const riders: Hero[] = [];
+    if (horse) for (let i = 0; i < Math.round(men / 3); i++) riders.push(makeHero(rng, ids, 'greek', 'companion', level, tier, 3, riders));
+    const rest = aim - riders.reduce((a, h) => a + heroPower(h), 0);
+    return [...buildArmy(rng, ids, { culture: 'greek', count: men - riders.length, level, tier, targetPower: rest, mix: 'line' }).heroes, ...riders];
+  };
+  const first = build(target);
+  const got = first.reduce((a, h) => a + heroPower(h), 0);
+  return build((target * target) / Math.max(1, got));
+}
+
+/** One assault: an army at `o.mult` of lair `lairId`'s garrison power (world `worldSeed`) attacks it, both bot-driven. */
+export function runAssault(worldSeed: number, lairId: number, o: AssaultOpts): AssaultFight {
+  const c = Campaign.fresh(worldSeed);
+  if (o.day !== undefined) c.world.s.time = o.day * 24;
+  const foe = c.garrisonEnemy(lairId)!;
+  const seed = hashString(`assault:${worldSeed}:${lairId}`) || 1;
+  const g = c.world.garrison(lairId)!;
+  const mine = assaultArmy(seed, g.size, g.level, g.tier, foe.power * o.mult, !!o.horse, c.data);
+  const site = { ...c.assaultSite(lairId), assault: o.walls !== false };
+  const b = new Battle({
+    seed,
+    armies: [armySpec(mine, true), { ...armySpec(foe.heroes, true), doctrine: foe.doctrine, holdField: foe.holdField, works: o.stakes === false ? undefined : typeof o.stakes === 'number' ? { stakes: o.stakes, ditch: 0, laager: 0 } : foe.works }],
+    terrain: generateBattlefield(seed, site),
+  });
+  b.startBattle();
+  let breaks = 0;
+  for (let i = 0; i < b.timeLimitTicks + 10 && b.phase !== 'ended'; i++) {
+    b.step();
+    for (const e of b.drainEvents()) if (e.type === 'stakesBreak') breaks++;
+  }
+  const power = (hs: Hero[]) => hs.reduce((a, h) => a + heroPower(h), 0);
+  return {
+    won: b.winner === 0,
+    ratio: power(foe.heroes) / power(mine),
+    bandSize: foe.heroes.length,
+    breaks,
+    stakes: b.works().filter((w) => w.side === 1).length,
+    fled: b.result().retreated === 1,
+    riders: mine.filter((h) => h.cls === 'companion').length,
+  };
+}
+
+/** Every lair of `worlds` new worlds: the assault sample. */
+export function assaultCases(worlds: number): { world: number; lair: number }[] {
+  const out: { world: number; lair: number }[] = [];
+  for (let s = 1; s <= worlds; s++) {
+    const w = new World(World.fresh(s));
+    for (const st of w.map.settlements) if (st.kind === 'lair') out.push({ world: s, lair: st.id });
+  }
+  return out;
+}
+
+function assaultRow(label: string, r: AssaultFight[], target: string): BalanceRow {
+  const row = rowOf(label, r, target);
+  const n = Math.max(1, r.length);
+  const extra = `stakes ${(r.reduce((a, x) => a + x.stakes, 0) / n).toFixed(1)}, breaks ${(r.reduce((a, x) => a + x.breaks, 0) / n).toFixed(1)}, fled ${r.filter((x) => x.fled).length}`;
+  return { ...row, label: `${row.label.slice(0, -1)}; ${extra})` };
+}
+
+/**
+ * The lair assault rows (R2.3, Balance targets): `n` fights a row, every lair
+ * of about n/6 worlds. The 1.0x row takes 2n: it sits near the bottom of its
+ * band, where one sample of 200 (about ±3.4 pts) can land either side of it.
+ */
+export function assaultRows(n: number): BalanceRow[] {
+  const all = assaultCases(Math.max(1, Math.ceil((2 * n) / 6)));
+  const run = (o: AssaultOpts, k = n) => all.slice(0, Math.max(2, k)).map((x) => runAssault(x.world, x.lair, o));
+  return [
+    assaultRow('lair assault at 1.0x (palisade, rampart, 2 stakes)', run({ mult: 1 }, 2 * n), '38-48% (R2)'),
+    assaultRow('lair assault at 1.3x', run({ mult: 1.3 }), '>= 60% (R2)'),
+    assaultRow('the same garrison at 1.0x on open ground (reference)', run({ mult: 1, walls: false, stakes: false }), 'none (the walls are worth +5..+12 pts to it)'),
+    assaultRow('lair assault at 1.0x without its stakes', run({ mult: 1, stakes: false }), 'none (what GARRISON_STAKES is worth)'),
+    assaultRow('lair assault at 1.0x, a third Companions', run({ mult: 1, horse: true }), 'none (stakes 2 paces out vs a head-on charge, FW-01)'),
+    assaultRow('the same, without stakes', run({ mult: 1, horse: true, stakes: false }), 'none (reference)'),
   ];
 }
 
