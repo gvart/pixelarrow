@@ -1,0 +1,21 @@
+docs/v5/stories/CDX-01/NOTES.md
+  s_697bdc25a7c420::t_21ee7a47c2811a 1-45
+docs/v5/ASSET_LOG.md
+  s_697bdc25a7c420::t_a4f7e1d0cf060f 11-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9d006c22105e35889c0f85796088e5368b31ae32",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
