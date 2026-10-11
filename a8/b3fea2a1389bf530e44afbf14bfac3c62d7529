@@ -1,0 +1,23 @@
+docs/v5/art/asset-manifest.json
+  s_697bdc25a7c420::t_2ce29e98bf4aa0 1571-1710
+scripts/art/list.mjs
+  s_697bdc25a7c420::t_fe22079b3fef23 11
+docs/v5/art/ASSET_LIST.md
+  s_697bdc25a7c420::t_c6591b065d8d91 42-44,162-178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a8b3fea2a1389bf530e44afbf14bfac3c62d7529",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
