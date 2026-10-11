@@ -17,6 +17,7 @@ import { MOSAIC } from './tokens';
 import { RS } from '../platform/renderScale';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { uiFrame, uiId } from './layout';
+import { pulse } from './motion';
 import type { Side, SimGroup, SimUnit } from '../sim/types';
 import { TICK_RATE } from '../sim/battle';
 import { t } from '../i18n';
@@ -766,4 +767,103 @@ export const BAR_LABEL_SEEN = 3;
 export function barLabels(seen: number): { long: boolean; hp: string; mor: string } {
   const long = seen <= BAR_LABEL_SEEN;
   return long ? { long, hp: t('battle.stat.hp'), mor: t('battle.stat.mor') } : { long, hp: t('readout.bar.h'), mor: t('readout.bar.m') };
+}
+
+/**
+ * A morale glyph (R1) centred on (cx, cy), `size` UI px: its state's shape in
+ * its tint; wavering pulses at 1 Hz unless motion is reduced (then static).
+ */
+export function moraleGlyph(scene: Phaser.Scene, cx: number, cy: number, size: number, state: MoraleState): Phaser.GameObjects.Image {
+  const img = scene.add.image(cx, cy, `icon_${MORALE_GLYPH[state]}`).setDisplaySize(size, size);
+  if (state !== 'steady') img.setTint(MORALE_TINT[state]);
+  if (state === 'wavering') pulse(scene, img, 'alpha', 1, 0.45, 500);
+  return img;
+}
+
+/** A badge marker (R2: the crest, the Standard, disordered) centred on (cx, cy), in its own colours. */
+export function markerGlyph(scene: Phaser.Scene, cx: number, cy: number, size: number, name: 'crest' | 'standard' | 'disordered'): Phaser.GameObjects.Image {
+  return scene.add.image(cx, cy, `icon_marker_${name}`).setDisplaySize(size, size);
+}
+
+/** What a field badge shows (R2): our numeral ('' on an enemy's), the glyph and the markers. */
+export interface BadgeSpec {
+  numeral: string;
+  /** Ours: the bronze plate (lit when selected); the enemy's: dark stone. */
+  mine: boolean;
+  selected: boolean;
+  readout: GroupReadout;
+  /** One of our missile groups focuses on it: the reticle (formations-orders.md R4). */
+  focused?: boolean;
+}
+
+/** The badge's cache key: rebuild only when what it shows changes. */
+export function badgeKey(b: BadgeSpec): string {
+  const r = b.readout;
+  return [b.numeral, b.mine, b.selected, r.state ?? '', r.standard, r.captain, r.disordered, !!b.focused].join('|');
+}
+
+/** The badge's plate height (UI px). */
+export const BADGE_H = 13;
+/** Glyphs on a badge (UI px). */
+const BADGE_GLYPH = 9;
+
+/**
+ * A group's field badge (R2), centred on its origin: on a bronze plate (ours;
+ * lit when selected) or a dark stone one (the enemy's), the numeral, the
+ * morale glyph, then the markers: the captain's crest or the Standard, the
+ * ragged line of a disordered group, the focus reticle. Shapes, each one,
+ * never a colour alone (A11Y-04). Null when there is nothing to show.
+ */
+export function fieldBadge(scene: Phaser.Scene, b: BadgeSpec): Phaser.GameObjects.Container | null {
+  const r = b.readout;
+  const parts: ((x: number) => Phaser.GameObjects.GameObject)[] = [];
+  const widths: number[] = [];
+  const push = (w: number, make: (x: number) => Phaser.GameObjects.GameObject) => {
+    widths.push(w);
+    parts.push(make);
+  };
+  if (b.numeral) {
+    const w = Math.ceil(mw(b.numeral, 'rCream', 6.5));
+    push(w, (x) => addText(scene, x + w / 2, -3.4, b.numeral, b.selected ? 'rInk' : 'rCream', 0.5).setFontSize(6.5));
+  }
+  if (r.state) push(BADGE_GLYPH, (x) => moraleGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH, r.state!));
+  if (r.captain) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'crest'));
+  else if (r.standard) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'standard'));
+  if (r.disordered) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'disordered'));
+  if (b.focused) {
+    push(BADGE_GLYPH, (x) => {
+      const g = scene.add.graphics();
+      strokeBadgeReticle(g, x + BADGE_GLYPH / 2, 0.5, 3.4);
+      return g;
+    });
+  }
+  if (!parts.length) return null;
+  const gap = 1.5;
+  const inner = widths.reduce((a, w) => a + w, 0) + gap * (widths.length - 1);
+  const w = Math.ceil(inner) + 8;
+  const c = scene.add.container(0, 0);
+  c.add(mosaicImage(scene, -w / 2, -6, w, BADGE_H, !b.mine ? 'btnStone' : b.selected ? 'btnLit' : 'btnBronze'));
+  let x = -inner / 2;
+  parts.forEach((make, i) => {
+    c.add(make(x));
+    x += widths[i] + gap;
+  });
+  c.setData('key', badgeKey(b));
+  return c;
+}
+
+/** The focus reticle on a badge: a ring with four ticks, cream over ink (the card's look, smaller). */
+function strokeBadgeReticle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number): void {
+  const pass = (lw: number, color: number) => {
+    g.lineStyle(lw, color, 1);
+    g.strokeCircle(cx, cy, r);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) g.lineBetween(cx + dx * r * 0.45, cy + dy * r * 0.45, cx + dx * r * 1.4, cy + dy * r * 1.4);
+  };
+  pass(2, MOSAIC.ink);
+  pass(0.9, MOSAIC.cream);
+}
+
+/** R2: the badge fades to 60% when the camera zoom is 2x or more, so it never hides the men. */
+export function badgeAlpha(zoom: number): number {
+  return zoom >= 2 ? 0.6 : 1;
 }

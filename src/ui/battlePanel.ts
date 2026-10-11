@@ -12,7 +12,8 @@
 import { RS } from '../platform/renderScale';
 import { mosaicImage, mw } from './mosaic/base';
 import { caps } from './mosaic/KeyButton';
-import { ROMAN } from './battleHud';
+import { ROMAN, barLabels, markerGlyph, moraleGlyph, type MoraleState } from './battleHud';
+import { safeLocalStorage } from '../platform/storage';
 import { GROUP_COLOR } from '../art/sheetArt';
 import { MOSAIC } from './tokens';
 import Phaser from 'phaser';
@@ -370,7 +371,42 @@ export interface GroupCardInfo {
   focus?: boolean;
   /** Shoot on and out of range (controls.md R3.4): a compact card with no room for the words keeps "→". */
   far?: boolean;
+  /** The morale glyph (battle-readability.md R1); null or missing: none (beasts, nobody left). */
+  state?: MoraleState | null;
+  /** Its man carries the Standard: the banner marker (R2; abilities.md R5). */
+  standard?: boolean;
+  /** "Flanked!" on the state line, for 2 s after a `flanked` event (R3). */
+  flanked?: boolean;
 }
+
+/** How many battles have shown group cards, this one included (R3: the bars' long labels the first 3). */
+const SEEN_KEY = 'pixelarrow:barLabelSeen';
+let seenScene: Phaser.Scene | null = null;
+let seenN = 1;
+
+/** The battle count for `scene`'s run: read and bumped once per run (a per-player convenience, kept in localStorage). */
+export function barsSeen(scene: Phaser.Scene): number {
+  if (seenScene === scene) return seenN;
+  seenScene = scene;
+  const ls = safeLocalStorage();
+  try {
+    seenN = (Number(ls?.getItem(SEEN_KEY)) || 0) + 1;
+    ls?.setItem(SEEN_KEY, String(seenN));
+  } catch {
+    seenN = 1;
+  }
+  scene.events.once('shutdown', () => {
+    if (seenScene === scene) seenScene = null;
+  });
+  return seenN;
+}
+
+/** Card text size (UI px): the readability floor (A11Y-09; battle-readability.md R3). */
+const CARD_TEXT = 6.5;
+/** The bars' height (R3: at least 5 UI px). */
+const BAR_H = 5;
+/** The morale glyph on a card (UI px). */
+const CARD_GLYPH = 9;
 
 /**
  * One group in the panel's strip: class portrait, numeral, men, current order,
@@ -383,8 +419,10 @@ export class GroupCard extends Phaser.GameObjects.Container {
   private key = '';
   private info: GroupCardInfo | null = null;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, onTap: () => void, tip: () => string) {
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, onTap: () => void, baseTip: () => string) {
     super(scene, Math.round(x), Math.round(y));
+    // the long-press explains the glyph and the bars too (R3: no "teal bar?")
+    const tip = () => [baseTip(), ...this.legend()].join('\n');
     this.w = Math.round(w);
     this.h = Math.round(h);
     this.bars = scene.add.graphics();
@@ -426,13 +464,9 @@ export class GroupCard extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  private wide = false;
-  /** Wide cards: where the bars start (right of the portrait). */
-  private barX = 4;
-
   setInfo(i: GroupCardInfo): this {
     this.info = i;
-    const key = [i.numeral, i.men, i.orderIcon, i.portrait ? dollKey(i.portrait) : '', i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort, !!i.focus, !!i.far].join('|');
+    const key = [i.numeral, i.men, i.orderIcon, i.portrait ? dollKey(i.portrait) : '', i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort, !!i.focus, !!i.far, i.state ?? '', !!i.standard, !!i.flanked].join('|');
     if (key !== this.key) {
       this.key = key;
       this.rebuild();
@@ -446,7 +480,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const s = this.scene;
     this.removeAll(true);
     this.bars = s.add.graphics();
-    if (this.w >= 80 && this.h < 40) {
+    if (this.w >= 70 && this.h < 40) {
       this.rebuildWide(i);
       return;
     }
@@ -457,7 +491,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
     const light = false;
     const fontA: FontKey = i.men === 0 || i.routed ? 'pOff' : 'rInk';
     const fontB: FontKey = i.men === 0 ? 'pOff' : 'pInk';
-    const ph = this.h - 11;
+    const ph = this.h - BAR_H - 4;
     const text = (x: number, y: number, str: string, font: FontKey, align: 0 | 0.5 | 1, maxW: number) => {
       const roman = font === 'rInk';
       const tx = addText(s, x, y, roman ? ellipsize(caps(str), maxW, false, 7, 'roman') : ellipsize(str, maxW, SHADOW_FONTS.has(font)), font, align);
@@ -476,6 +510,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
       const ot = addText(s, 3, 23, order, 'pSec', 0);
       uiFrame(ot, this, this.w, this.h);
       this.add(ot);
+      this.addBarRow(3, this.w - 3, this.h - BAR_H - 2.5, true);
       this.add(this.bars);
       return;
     }
@@ -486,6 +521,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
       const ot = addText(s, 3, 13, ellipsize(i.orderShort ?? '', tw, light), 'pSec', 0);
       uiFrame(ot, this, this.w, this.h);
       this.add(ot);
+      this.addBarRow(3, this.w - 3, this.h - BAR_H - 2.5, true);
       this.add(this.bars);
       return;
     }
@@ -516,93 +552,152 @@ export class GroupCard extends Phaser.GameObjects.Container {
       text(this.w / 2, 2, i.numeral, fontA, 0.5, this.w - 6);
       text(this.w / 2, 11, `${i.men}`, fontB, 0.5, this.w - 6);
     }
+    this.addBarRow(3, this.w - 3, this.h - BAR_H - 2.5, true);
     this.add(this.bars);
   }
 
   /**
-   * The bottom sheet's card (Bronze & Stone): a bronze numeral disc, the
-   * group's name, "7 men · Advancing", health and morale bars side by side.
+   * The bottom sheet's card (Bronze & Stone; battle-readability.md R3): the
+   * leading man's portrait with the numeral plate on its corner, the morale
+   * glyph and the group's name beside it, "7 men · Advancing" (or "Flanked!")
+   * under them, and the labelled health and morale bars across the foot.
+   * Markers (focus reticle, the Standard) in the top right corner.
    */
   private rebuildWide(i: GroupCardInfo): void {
     const s = this.scene;
-    this.wide = true;
     this.add(mosaicImage(s, 0, 0, this.w, this.h, i.selected ? 'parchmentSel' : 'parchment'));
     if (i.men === 0) this.add(s.add.rectangle(0, 0, this.w, this.h, MOSAIC.parchLo, 0.5).setOrigin(0, 0));
     if (i.selected) this.add(goldFrame(s, this.w, this.h));
-    // the leading man's living portrait at the left (room permitting), the bronze numeral disc beside the name
-    let x = 4;
-    this.barX = 4;
-    if (i.portrait && i.men > 0 && this.w >= 70) {
-      const ps = this.h - 4;
+    const barTop = this.h - BAR_H - 2.5;
+    // the leading man's portrait (room permitting) above the bars, the numeral plate on its corner
+    let x = 3;
+    let plateX = 1;
+    if (i.portrait && i.men > 0) {
+      const ps = Math.floor(barTop) - 3;
       this.add(addPortrait(s, i.portrait, 2, 2, { size: ps }));
       x = 2 + ps + 3;
-      this.barX = x;
+    } else plateX = 3;
+    const plate = numeralPlate(s, plateX, 1, i.numeral, i.selected);
+    this.add(plate);
+    if (x === 3) x = plateX + plate.width + 2;
+    const off = i.men === 0 || i.routed;
+    // the markers, right to left: the focus reticle, the Standard
+    let right = this.w - 3;
+    if (i.focus) {
+      this.add(reticle(s, this.w - 8, 7, 4.5));
+      right -= 11;
     }
-    const g = s.add.graphics();
-    const r = 4.5;
-    const cx = x + r;
-    const cy = 2.5 + r;
-    g.fillStyle(i.selected ? MOSAIC.meanderHi : MOSAIC.bronzeHi, 1);
-    g.fillCircle(cx, cy, r);
-    g.fillStyle(MOSAIC.stone1, 1);
-    g.fillCircle(cx, cy, r - 1);
-    this.add(g);
-    const num = addText(s, cx, cy - 3.2, i.numeral, 'rGold', 0.5).setFontSize(5);
-    this.add(num);
-    const nx = cx + r + 2;
-    const tw = this.w - x - 3;
-    const head = 5.6;
-    // a focus: its reticle in the top right corner, the name keeps clear of it
-    if (i.focus) this.add(reticle(s, this.w - 8, 7, 4.5));
-    const nameW = tw - (nx - x) - (i.focus ? 12 : 0);
-    // the short name when the whole one does not fit beside the reticle
-    const full = caps(i.name ?? i.numeral);
-    const short = i.focus && i.shortName && measureText(full, false, head, 'roman') > nameW ? caps(i.shortName) : full;
-    const name = addText(s, nx, 2.5, ellipsize(short, nameW, false, head, 'roman'), i.men === 0 || i.routed ? 'pOff' : 'rInk', 0).setFontSize(head);
+    if (i.standard) {
+      this.add(markerGlyph(s, right - 4.5, 6, 10, 'standard'));
+      right -= 11;
+    }
+    // the morale glyph leads the name (R1, R3)
+    let nx = x;
+    if (i.state) {
+      this.add(moraleGlyph(s, x + CARD_GLYPH / 2, 6, CARD_GLYPH, i.state));
+      nx += CARD_GLYPH + 2;
+    }
+    const nameW = right - nx;
+    const name = addText(s, nx, 1, firstFit([i.name, i.shortName, ''], nameW, false, 'roman'), off ? 'pOff' : 'rInk', 0).setFontSize(CARD_TEXT);
     uiFrame(name, this, this.w, this.h);
-    const subSize = 5.5;
-    const sub = firstFit([i.orderWord && `${t('strat.men', { n: i.men })} · ${i.orderWord}`, i.orderShort && `${i.men} · ${i.orderShort}`, `${i.men}`], tw / (subSize / 7), false);
-    const st = addText(s, x, 11.5, sub, 'pSec', 0).setFontSize(subSize);
+    // the state line: "Flanked!" for 2 s after a flank (R3), else the men and their order
+    const tw = this.w - x - 3;
+    const men = t('strat.men', { n: i.men });
+    const flank = !!i.flanked && !i.routed && i.men > 0;
+    const sub = flank
+      ? firstFit([`${men} · ${t('readout.flanked')}`, `${i.men} · ${t('readout.flanked')}`, t('readout.flanked')], tw, false)
+      : firstFit([i.orderWord && `${men} · ${i.orderWord}`, i.orderShort && `${i.men} · ${i.orderShort}`, i.far && `${i.men} →`, `${i.men}`], tw, false);
+    const st = addText(s, x, 9.5, sub, flank ? 'pBad' : off ? 'pOff' : 'pSec', 0).setFontSize(CARD_TEXT);
     uiFrame(st, this, this.w, this.h);
-    this.add([name, st, this.bars]);
+    this.add([name, st]);
+    this.addBarRow(3, this.w - 3, barTop);
+    this.add(this.bars);
+  }
+
+  /** Where drawBars fills the two bars: [x0, x1] each, and the row's top. */
+  private barGeom = { hp: [0, 0], mor: [0, 0], y: 0 };
+
+  /**
+   * The bars' row (R3): "HP [bar] MOR [bar]" the first 3 battles, then
+   * "H [bar] M [bar]": a word, never a colour alone, says which is which.
+   * `glyph`: the morale glyph leads the row (cards with no room by the numeral).
+   */
+  private addBarRow(x0: number, x1: number, y: number, glyph = false): void {
+    const s = this.scene;
+    const i = this.info!;
+    if (glyph && i.state) {
+      this.add(moraleGlyph(s, x0 + CARD_GLYPH / 2, y + BAR_H / 2, CARD_GLYPH, i.state));
+      x0 += CARD_GLYPH + 2;
+    }
+    const lab = barLabels(barsSeen(s));
+    const font: FontKey = i.men === 0 ? 'pOff' : 'pSec';
+    const gap = 4;
+    const half = (x1 - x0 - gap) / 2;
+    const put = (x: number, word: string): number => {
+      // the caps sit 1.8 below the line's top: centred on the 5-tall bar
+      const tx = addText(s, x, y - 1.8, word, font, 0).setFontSize(CARD_TEXT);
+      uiFrame(tx, this, this.w, this.h);
+      this.add(tx);
+      return x + Math.ceil(measureText(word, false, CARD_TEXT)) + 1.5;
+    };
+    this.barGeom = { hp: [put(x0, lab.hp), x0 + half], mor: [put(x0 + half + gap, lab.mor), x1], y };
   }
 
   private drawBars(): void {
     const i = this.info!;
     const g = this.bars;
     g.clear();
-    if (this.wide) {
-      const x0 = this.barX;
-      const y = this.h - 6;
-      const half = (this.w - x0 - 4 - 3) / 2;
-      const bar = (x: number, f: number, c: number) => {
-        g.fillStyle(MOSAIC.parchEdge, 1);
-        g.fillRoundedRect(x, y, half, 3.4, 1);
-        g.fillStyle(MOSAIC.wellLo, 1);
-        g.fillRoundedRect(x + 0.5, y + 0.5, half - 1, 2.4, 0.8);
-        const fw = (half - 1) * Math.max(0, Math.min(1, f));
-        if (fw > 0.3) {
-          g.fillStyle(c, 1);
-          g.fillRoundedRect(x + 0.5, y + 0.5, fw, 2.4, 0.8);
-        }
-      };
-      bar(x0, i.hp, MOSAIC.terra);
-      bar(x0 + half + 3, i.morale, i.routed ? MOSAIC.inkDisabled : MOSAIC.teal);
-      return;
-    }
-    const bw = this.w - 6;
-    const bar = (y: number, f: number, c: number) => {
+    const { y } = this.barGeom;
+    const bar = ([x0, x1]: number[], f: number, c: number) => {
+      const w = Math.max(4, x1 - x0);
       g.fillStyle(MOSAIC.parchEdge, 1);
-      g.fillRect(3, y, bw, 3);
-      const fw = Math.round((bw - 2) * Math.max(0, Math.min(1, f)));
-      if (fw > 0) {
+      g.fillRoundedRect(x0, y, w, BAR_H, 1.2);
+      g.fillStyle(MOSAIC.wellLo, 1);
+      g.fillRoundedRect(x0 + 0.7, y + 0.7, w - 1.4, BAR_H - 1.4, 0.9);
+      const fw = (w - 1.4) * Math.max(0, Math.min(1, f));
+      if (fw > 0.3) {
         g.fillStyle(c, 1);
-        g.fillRect(4, y + 1, fw, 1);
+        g.fillRoundedRect(x0 + 0.7, y + 0.7, fw, BAR_H - 1.4, 0.9);
       }
     };
-    bar(this.h - 8, i.hp, MOSAIC.terra);
-    bar(this.h - 5, i.morale, i.routed ? MOSAIC.inkDisabled : MOSAIC.teal);
+    bar(this.barGeom.hp, i.hp, MOSAIC.terra);
+    bar(this.barGeom.mor, i.morale, i.routed ? MOSAIC.inkDisabled : MOSAIC.teal);
   }
+
+  /** The long-press legend (R3): what the glyph and the bars mean, and the Standard. */
+  private legend(): string[] {
+    const i = this.info;
+    if (!i) return [];
+    const lab = barLabels(barsSeen(this.scene));
+    const out: string[] = [];
+    if (i.state) out.push(t(`readout.tip.${i.state}`));
+    if (i.standard) out.push(t('readout.tip.standard'));
+    out.push(t('readout.tip.bars', { hp: lab.hp, mor: lab.mor }));
+    return out;
+  }
+}
+
+/**
+ * A group's numeral on a small stone plate with a bronze rim (gold when its
+ * card is selected), 6.5 UI px caps: the card's numeral (R3), on the
+ * portrait's corner.
+ */
+function numeralPlate(scene: Phaser.Scene, x: number, y: number, numeral: string, selected: boolean): Phaser.GameObjects.Container {
+  const c = scene.add.container(Math.round(x), Math.round(y));
+  const w = Math.max(10, Math.ceil(mw(numeral, 'rGold', CARD_TEXT)) + 5);
+  const h = 9;
+  const g = scene.add.graphics();
+  g.fillStyle(MOSAIC.ink, 1);
+  g.fillRoundedRect(0, 0, w, h, 2);
+  g.fillStyle(selected ? MOSAIC.meanderHi : MOSAIC.bronzeHi, 1);
+  g.fillRoundedRect(0.6, 0.6, w - 1.2, h - 1.2, 1.8);
+  g.fillStyle(MOSAIC.stone1, 1);
+  g.fillRoundedRect(1.6, 1.6, w - 3.2, h - 3.2, 1.2);
+  const num = addText(scene, w / 2, h / 2 - 3.6, numeral, 'rGold', 0.5).setFontSize(CARD_TEXT);
+  uiFrame(num, c, w, h);
+  c.add([g, num]);
+  c.setSize(w, h);
+  return c;
 }
 
 /**
