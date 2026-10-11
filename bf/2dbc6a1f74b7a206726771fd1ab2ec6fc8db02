@@ -1,0 +1,27 @@
+src/i18n/market.ru.ts
+  s_697bdc25a7c420::t_1154a4f6be521c 18
+  s_697bdc25a7c420::t_9d40a0f76198cc 1-17,19-21
+src/i18n/en.ts
+  s_697bdc25a7c420::t_a0f815ec23facd 37,346-347
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_a0f815ec23facd 29,317
+src/i18n/market.en.ts
+  s_697bdc25a7c420::t_73e8350452957f 1-20,22-24
+  s_697bdc25a7c420::t_1154a4f6be521c 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bf2dbc6a1f74b7a206726771fd1ab2ec6fc8db02",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
