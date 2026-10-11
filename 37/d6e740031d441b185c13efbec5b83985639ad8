@@ -1,0 +1,25 @@
+design/adr/ADR-0001-determinism-replay.md
+  s_697bdc25a7c420::t_2189f440df7e60 4,10,16,27,36,50,78-79,82,84-89,92-95,99,102,104,111-113,116-117,119-122,126-127,129-130,136,148,152,156,163,168
+design/adr/ADR-0002-save-migration.md
+  s_697bdc25a7c420::t_d577e0571451b7 1,4,10,16,27,36,41,44,50-51,74-77,79,87-88,92,96,98-100,104,115-117
+docs/OPS.md
+  s_697bdc25a7c420::t_4c8e7c01b20549 456-460,463-466,468,470-471,480-482,484-485,490-491,495-502
+docs/GAMEPLAY.md
+  s_697bdc25a7c420::t_7f6289538a70ed 248-251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "37d6e740031d441b185c13efbec5b83985639ad8",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
