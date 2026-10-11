@@ -57,7 +57,6 @@ const STORY_OF = [
   ['consumable-picker', 'SHP-01'],
   ['menu', 'HUB-02'],
   ['codex', 'CDX-01'],
-  ['trial', 'CDX-01'],
   ['online-army', 'WAR-01'],
   ['online-clan', 'WAR-02'],
   ['merchant-', 'WAR-02'],
@@ -130,6 +129,9 @@ async function battle(p, online) {
   await wait(p, 600);
 }
 
+/** The doctrines the Codex has met (src/ui/sheets/doctrine.ts keeps them in local storage). */
+const codexMet = (p, ids) => ev(p, (ids) => localStorage.setItem('pixelarrow:codex.doctrines', JSON.stringify(ids)), ids);
+
 /** A won skirmish, run to the end: the report. */
 async function results(p) {
   await battle(p);
@@ -150,7 +152,11 @@ const SCREENS = [
   { id: 'menu-settings-notify', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openNotifications(true); return 1;'), wait(p, 500)) },
   { id: 'menu-settings-about', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openAboutPage(); return 1;'), wait(p, 400)) },
   { id: 'menu-reset', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.confirmReset(); return 1;'), wait(p, 400)) },
-  { id: 'codex', owner: 'F', run: async (p) => (await start(p, 'Codex'), wait(p, 700)) },
+  { id: 'codex', owner: 'F', run: async (p) => (await codexMet(p, []), await start(p, 'Codex'), wait(p, 900)) },
+  // the Codex (CDX-01): a beast sheet with the Trial fight, the Doctrines segment (four met, one locked), a doctrine sheet
+  { id: 'codex-beast', owner: 'F', run: async (p) => (await start(p, 'Codex', { open: 'hydra' }), wait(p, 900)) },
+  { id: 'codex-doctrines', owner: 'F', run: async (p) => (await codexMet(p, ['steady', 'rush', 'hammer', 'swarm']), await start(p, 'Codex', { seg: 'doctrines' }), wait(p, 900)) },
+  { id: 'codex-doctrine', owner: 'F', run: async (p) => (await codexMet(p, ['steady', 'rush', 'hammer', 'swarm', 'fury']), await start(p, 'Codex', { doctrine: 'fury' }), wait(p, 900)) },
   { id: 'kit-controls', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 0 }), wait(p, 1500)) },
   { id: 'kit-items', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 1 }), wait(p, 700)) },
   { id: 'kit-lists', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 2 }), wait(p, 700)) },
@@ -597,16 +603,14 @@ const SCREENS = [
       return wait(p, 3500);
     },
   },
-  // ---- mythical beasts (owner A): the Beast trial list, a beast's info panel, a beast battle with the boss bar
-  { id: 'trial', owner: 'A', run: async (p) => (await start(p, 'BeastTrial'), wait(p, 900)) },
-  { id: 'trial-info', owner: 'A', run: async (p) => (await start(p, 'BeastTrial'), await wait(p, 700), await call(p, 'BeastTrial', `s.open('hydra'); return 1;`), wait(p, 500)) },
+  // ---- mythical beasts (owner A): a beast battle with the boss bar, its Trial fight started from the Codex beast sheet
   {
     id: 'battle-beast',
     owner: 'A',
     run: async (p) => {
-      await start(p, 'BeastTrial');
+      await start(p, 'Codex');
       await wait(p, 600);
-      await call(p, 'BeastTrial', `s.fight('cyclops'); return 1;`);
+      await call(p, 'Codex', `s.fight('cyclops'); return 1;`);
       await until(p, activeIs('Battle'));
       await wait(p, 700);
       await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 6 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); s.buildHud(); return 1;`);

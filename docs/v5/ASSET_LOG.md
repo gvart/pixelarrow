@@ -8,6 +8,14 @@ Empty. (The AS-02 remainder, ART-024 to ART-032, was made on 2026-10-10 and move
 
 ## Done
 
+### CDX-01 promotion: the 8 beast plates and the 5 doctrine icons (2026-10-11)
+
+**Slots.** Plates: the Codex beast row art well (32 UI px) and the beast sheet header beside the figure (`src/ui/beastInfo.ts` SHIPPED_PLATES, lazy per scene). Doctrine icons: the Codex doctrine rows and the doctrine sheet (`ui:doctrine_*`). Manifest `preview`: plates on `codex` (hydra also `codex-beast`), icons on `codex-doctrines` and `codex-doctrine`.
+
+**Pipeline (D-9).** Staged from `docs/v5/gemini/AS-05/processed/` and `AS-03/processed/`; `check.mjs` 13 PASS. `preview.mjs` exit 0 for all 13 (layout check clean at 390x844, 360x780, 320x640); every DPR 3 sheet read: slots filled, sharp, heads whole (hydra's five heads, the titan's boulders), no clash with the row text or the chevron, one family. The plates were previewed with temporary copies of the other seven in `public/ui/beasts/` (each preview otherwise logs seven missing files), then `promote.mjs --looked` shipped each over its copy: 24-32 KB, `check --shipped` PASS (budget 35). Icons: `atlas.mjs icons_ui --src docs/v5/gemini/AS-03/processed --add ui:doctrine_* --out public/icons --looked` wrote the same bytes as the previewed staged atlas; the keys left `STAGED_ICONS`. `ui:doctrine_hammer` reads as a hammer at 20 UI px on parchment.
+
+**Fix.** `preview.mjs` served a staged atlas at `icons/icons_ui.png` while the game loads `icons/ui.png`, so atlas previews showed the stand-ins; it now overrides the path the game loads. The icon previews were run again after the fix.
+
 ### TUT-01 promotion: splash key art, War and Arena frescoes (2026-10-11)
 
 **Slots wired (TUT-01).** `src/scenes/FirstRunScene.ts` loads `ui/splash_keyart.jpg` (offer and resume, in a FrescoBanner above Nikias) and `ui/fresco_war.jpg` / `ui/fresco_arena.jpg` (the War and Duels mode cards, a strip up to 4:1, dropped below 22 UI px high). The manifest `preview` of ART-056, ART-005 and ART-003 now names those URLs and the `first-run-offer`, `first-run-resume` and `first-run-modes` screens. ART-003's own slot (the DuelScene Arena banner) is still unwired; the same file serves it when DUE-01 wires it.

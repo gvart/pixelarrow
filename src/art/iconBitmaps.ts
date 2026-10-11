@@ -44,13 +44,12 @@ export function registerIconFrames(src: CanvasImageSource, frames: Record<string
  * staged key draws its stand-in (V5_ICON_FALLBACK), the icon the slot shows today.
  *  - book: Codex tab (MENU-3); banner: Campaign tab (MENU-3); war: War medallion (MENU-2);
  *    season: Duels Arena season line (DUE-7);
- *  - doctrine_*: encounter sheet and battle doctrine chip (AI-01, WLD-01);
+ *  (doctrine_*: shipped by CDX-01, seen in the Codex doctrine rows and sheet)
  *  - push .. scythe: ability medallion and Perks card (AB-02); standard (AB-03); works (FW-03);
  *    captain: encounter captain row and band plate (AI-02, WLD-01).
  */
 export const STAGED_ICONS: readonly string[] = [
   'book', 'banner', 'war', 'season',
-  'doctrine_steady', 'doctrine_rush', 'doctrine_hammer', 'doctrine_swarm', 'doctrine_fury',
   'push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe',
   'standard', 'works', 'captain',
 ];

@@ -32,6 +32,7 @@ import { FIRSTRUN_EN } from './firstrun.en';
 import { ARMY_V5_EN } from './army.v5.en';
 import { HERO_EN } from './hero.en';
 import { SETTINGS_EN } from './settings.en';
+import { CODEX_EN } from './codex.en';
 
 export const EN = {
   // ---- shared words
@@ -336,4 +337,6 @@ export const EN = {
   // ---- the v5 Hero screen (hero.en.ts)
   ...HERO_EN,
   ...SETTINGS_EN,
+  // ---- the v5 Codex: beasts and doctrines (codex.en.ts)
+  ...CODEX_EN,
 } as const;

@@ -1,18 +1,20 @@
 /**
  * The beast info panel: a modal with the beast on a lit stage, how it fights
  * (mechanic hints), what beats it, its loot and (world bosses) the raid
- * status. Opened from the Beast trial list and from a lair or world boss hex
- * on the war-table map.
+ * status. Opened from the Codex (the beast sheet, with the Trial fight) and
+ * from a lair or world boss hex on the war-table map.
+ *
+ * Painted beast plates (AS-05, art bible plate family) are files
+ * public/ui/beasts/plate_<beast>.jpg, loaded on first use. Only plates that
+ * were checked in the game and promoted are listed (SHIPPED_PLATES): a beast
+ * without one shows its pixel figure, never a broken image.
  */
 import Phaser from 'phaser';
 import { Button, ScrollArea, addPanel, addText, type FontKey } from './kit';
 import { Label, addScrollHint, openModal, type Modal } from './widgets';
 import { SIZE } from './theme';
-import { FRAME_T } from '../art/mosaicUi';
-import { MOSAIC, MOTION, SPACE } from './tokens';
-import { uiBlocker } from './layout';
-import { BottomPanel, TOPBAR_H, caps, mosaicImage, mtext, type MButtonOpts } from './mosaic';
-import { actionRows } from './mosaic/BottomPanel';
+import { MOSAIC, TEXT_MIN } from './tokens';
+import { SHEET_TITLE_H, addCover, hasRaster, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, type MButtonOpts } from './mosaic';
 import { ellipsize } from './textfit';
 import { ensureDoll, dollFrame, dollOrigin } from './sprites';
 import { renderStage } from '../art/sheetArt';
@@ -26,10 +28,38 @@ import type { UIMetrics } from './kit';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
-/** A size x size thumbnail of the beast (cropped to the figure, scaled down to fit). */
 /** The beast's level against the field army (Codex rows, the trial list and panel, the trial fight). */
 export const beastLevel = (enc: EncounterId): number => beastLevelFor(enc, state.campaign.fitHeroes());
 
+/** Beasts whose painted plate is shipped under public/ui/beasts/ (tests/codex.test.ts checks the files). */
+export const SHIPPED_PLATES: ReadonlySet<EncounterId> = new Set<EncounterId>(['hydra', 'cyclops', 'harpies', 'nemean_lion', 'minotaur', 'chimera', 'kraken', 'titan']);
+export const plateKey = (enc: EncounterId): string => `plate_${enc}`;
+export const plateUrl = (enc: EncounterId): string => `ui/beasts/plate_${enc}.jpg`;
+
+/** Plates already asked for (a file that failed to load is not asked for again). */
+const askedPlates = new Set<string>();
+
+/** Load the shipped plates of `encs` not asked for yet; `done` runs once they arrive. False (and no `done`) when none was missing. */
+export function ensurePlates(scene: Phaser.Scene, encs: Iterable<EncounterId>, done: () => void): boolean {
+  const missing = [...new Set(encs)].filter((e) => SHIPPED_PLATES.has(e) && !askedPlates.has(e) && !hasRaster(scene, plateKey(e)));
+  if (!missing.length) return false;
+  for (const e of missing) {
+    askedPlates.add(e);
+    scene.load.image(plateKey(e), plateUrl(e));
+  }
+  scene.load.once(Phaser.Loader.Events.COMPLETE, () => {
+    if (scene.sys.isActive()) done();
+  });
+  scene.load.start();
+  return true;
+}
+
+/** The beast's painted plate if it is loaded, else null. */
+export function beastPlate(scene: Phaser.Scene, enc: EncounterId): string | null {
+  return SHIPPED_PLATES.has(enc) && hasRaster(scene, plateKey(enc)) ? plateKey(enc) : null;
+}
+
+/** A size x size thumbnail of the beast (cropped to the figure, scaled down to fit). */
 export function beastThumb(scene: Phaser.Scene, enc: EncounterId, size: number): string {
   const key = `myth_thumb_${enc}_${size}`;
   if (scene.textures.exists(key)) return key;
@@ -100,8 +130,10 @@ export interface BeastInfoOpts {
   extra?: string[];
   /** World bosses: the shared HP bar (and arms alive). */
   hp?: { v: number; max: number; pips?: boolean[] };
-  /** Primary action ("Fight it", "Raid it"); none = info only. */
+  /** Primary action ("Trial fight", "Raid it"); none = info only. */
   action?: { label: string; icon?: string; run: () => void; disabled?: string };
+  /** The beast sheet: a line over the action saying what it does (the reason replaces it when the action is off). */
+  caption?: string;
   onClose?: () => void;
 }
 
@@ -110,6 +142,8 @@ interface BeastInk {
   body: FontKey;
   dim: FontKey;
   good: FontKey;
+  /** The mark before each line of How it fights. */
+  bullet: string;
   /** A section heading. */
   heading: (scene: Phaser.Scene, x: number, y: number, str: string, maxW: number) => Phaser.GameObjects.BitmapText;
 }
@@ -118,6 +152,7 @@ const V3_INK: BeastInk = {
   body: 'ink',
   dim: 'dim',
   good: 'good',
+  bullet: '-',
   heading: (scene, x, y, str, maxW) => addText(scene, x, y, ellipsize(str, maxW, false, 7, 'head'), 'head'),
 };
 
@@ -125,19 +160,30 @@ const PARCHMENT_INK: BeastInk = {
   body: 'pInk',
   dim: 'pSec',
   good: 'pGood',
-  heading: (scene, x, y, str, maxW) => mtext(scene, x, y, caps(str), 'rInk', { size: 7, maxW }),
+  bullet: '•',
+  // one space between words (caps() doubles them for the wide-tracked plaques)
+  heading: (scene, x, y, str, maxW) => mtext(scene, x, y, str.toUpperCase(), 'rInk', { size: 7, maxW }),
 };
 
 /** The scrolled content of a beast panel into the area (width `w`). */
-function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: number, o: BeastInfoOpts, ink: BeastInk, wellStyle: 'inset' | 'parchmentWell'): void {
+function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: number, o: BeastInfoOpts, ink: BeastInk, wellStyle: 'inset' | 'flat'): void {
   const c = area.content;
   const world = WORLD_BOSSES.includes(enc);
+  const sheet = ink === PARCHMENT_INK;
   let y = 0;
   // a short sheet gives the stage less room so the words show
-  const stageH = ink === PARCHMENT_INK ? Math.max(44, Math.min(74, Math.round(area.bounds.h * 0.45))) : 74;
-  beastStage(scene, c, enc, 0, y, w, stageH);
+  const stageH = sheet ? Math.max(44, Math.min(74, Math.round(area.bounds.h * 0.4))) : 74;
+  // the sheet: the painted plate (what it is) beside the figure on its stage (how it looks in battle)
+  const plate = sheet ? beastPlate(scene, enc) : null;
+  let sx = 0;
+  if (plate) {
+    c.add(mosaicImage(scene, 0, y, stageH, stageH, 'parchmentWell'));
+    c.add(addCover(scene, 1, y + 1, stageH - 2, stageH - 2, plate));
+    sx = stageH + 4;
+  }
+  beastStage(scene, c, enc, sx, y, w - sx, stageH);
   y += stageH + 4;
-  const sub = `${world ? t('myth.info.worldBoss') : t('myth.info.lair')}${o.level ? ` - ${t('myth.info.level', { n: o.level })}` : ''}`;
+  const sub = `${world ? t('myth.info.worldBoss') : t('myth.info.lair')}${o.level ? `${sheet ? ' · ' : ' - '}${t('myth.info.level', { n: o.level })}` : ''}`;
   const subLabel = new Label(scene, 0, y, sub, { maxW: w, maxLines: 2, font: ink.dim, area });
   c.add(subLabel);
   y += subLabel.h + 3;
@@ -168,23 +214,23 @@ function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: nu
   c.add(ink.heading(scene, 0, y, t('myth.info.mechanics'), w));
   y += 11;
   for (let i = 1; i <= ENCOUNTERS[enc].hints; i++) {
-    const l = new Label(scene, 0, y, `- ${t(`myth.${enc}.hint${i}` as TKey)}`, { maxW: w, maxLines: 3, font: ink.body, area });
+    const l = new Label(scene, 0, y, `${ink.bullet} ${t(`myth.${enc}.hint${i}` as TKey)}`, { maxW: w, maxLines: sheet ? 5 : 3, font: ink.body, area });
     c.add(l);
     y += l.h + 2;
   }
-  const terror = new Label(scene, 0, y, `- ${t('myth.info.terror')}`, { maxW: w, maxLines: 2, font: ink.body, area });
+  const terror = new Label(scene, 0, y, `${ink.bullet} ${t('myth.info.terror')}`, { maxW: w, maxLines: sheet ? 4 : 2, font: ink.body, area });
   c.add(terror);
   y += terror.h + 5;
   c.add(ink.heading(scene, 0, y, t('myth.info.counters'), w));
   y += 11;
-  const ct = new Label(scene, 0, y, t(`myth.${enc}.counter` as TKey), { maxW: w, maxLines: 3, area, font: ink.good });
+  const ct = new Label(scene, 0, y, t(`myth.${enc}.counter` as TKey), { maxW: w, maxLines: sheet ? 5 : 3, area, font: ink.good });
   c.add(ct);
   y += ct.h + 5;
-  const loot = new Label(scene, 0, y, t('myth.info.loot'), { maxW: w, maxLines: 2, area, font: ink.dim });
+  const loot = new Label(scene, 0, y, t('myth.info.loot'), { maxW: w, maxLines: sheet ? 4 : 2, area, font: ink.dim });
   c.add(loot);
   y += loot.h + 4;
-  // a backdrop under the scrolled content: the text's own box for the layout check
-  c.addAt(wellStyle === 'inset' ? addPanel(scene, -2, -2, w + 4, y + 2, 'inset') : mosaicImage(scene, -2, -2, w + 4, y + 2, 'parchmentWell'), 0);
+  // a backdrop under the scrolled content (the War panel's dark inset); the parchment sheet stays flat (TRL-2)
+  if (wellStyle === 'inset') c.addAt(addPanel(scene, -2, -2, w + 4, y + 2, 'inset'), 0);
   area.setContentHeight(y);
 }
 
@@ -209,44 +255,38 @@ export function openBeastInfo(scene: UiScene, enc: EncounterId, o: BeastInfoOpts
 }
 
 /**
- * The v4 beast panel (Beast trial): a parchment sheet over the dimmed screen with the beast on its
- * stage, how it fights, what beats it and its drops, and Close / the primary action (Fight).
+ * The Codex beast sheet (M-1): a parchment sheet with the X (no footer Close, G5) over the dimmed screen:
+ * the beast's plate and figure, how it fights, what beats it and its drops, then the caption and the
+ * primary action (Trial fight) across the bottom. Back and the X close it; the screen under it stays.
  */
 export function openBeastSheet(scene: UiScene, enc: EncounterId, o: BeastInfoOpts = {}): { close: () => void } {
   const { VW, VH } = scene.m;
-  const root = scene.add.container(0, 0);
-  scene.ui.add(root);
-  const shade = uiBlocker(scene.add.rectangle(0, 0, VW, VH, 0x000000, 0.45).setOrigin(0, 0).setInteractive());
-  root.add(shade);
-  const w = VW - (FRAME_T + 2) * 2;
-  const top = FRAME_T + TOPBAR_H + 4;
-  const bottom = VH - FRAME_T - 2;
-  let panel: BottomPanel | null = null;
-  let area: ScrollArea | null = null;
-  const close = () => panel?.close();
-  const actions: MButtonOpts[] = [{ label: t('common.close'), icon: 'back', variant: 'secondary', onClick: close }];
-  if (o.action) actions.push({ label: o.action.label, icon: o.action.icon ?? 'swords', variant: o.action.disabled ? 'disabled' : 'primary', disabledReason: o.action.disabled, onClick: () => o.action!.run() });
-  const rows = actionRows(actions, w - SPACE.md * 2).length;
-  const chrome = SPACE.md + 20 + rows * 27 + SPACE.md * 2;
-  const bodyH = Math.max(60, Math.min(bottom - top - chrome, 300));
-  panel = new BottomPanel(scene, VW, bottom, {
-    title: encounterName(enc),
-    w,
-    bodyH,
-    actions,
-    animate: false,
-    id: 'beast.sheet',
-    onClose: () => {
-      area?.destroy();
-      o.onClose?.();
-      // after the panel's fade-out
-      scene.time.delayedCall(MOTION.fade + 40, () => root.scene && root.destroy());
-    },
-  });
-  root.add(panel);
-  shade.on('pointerup', close);
-  area = new ScrollArea(scene, root, panel.x + panel.area.x, panel.y + panel.area.y, panel.area.w, panel.area.h, scene.m.S);
-  fillBeastInfo(scene, area, enc, panel.area.w - 4, o, PARCHMENT_INK, 'parchmentWell');
-  addScrollHint(scene, root, area, MOSAIC.well);
-  return { close };
+  // docked: the full width (a long name keeps its title size beside the X at 320)
+  const w = VW - 8;
+  const actions: MButtonOpts[] = o.action
+    ? [{ label: o.action.label, icon: o.action.icon ?? 'swords', variant: o.action.disabled ? 'disabled' : 'primary', disabledReason: o.action.disabled, onClick: () => o.action!.run(), id: 'beast.sheet.action' }]
+    : [];
+  // the caption over the action: what a Trial fight is, or why it cannot be fought now
+  const caption = o.action?.disabled ?? o.caption;
+  const bw = w - 16;
+  const capSize = Math.max(TEXT_MIN, 7);
+  const capFont: FontKey = o.action?.disabled ? 'pInk' : 'pSec';
+  const capLines = caption ? wrapWords(caption, bw, (str) => mw(str, capFont, capSize)).slice(0, 3) : [];
+  const capH = capLines.length ? capLines.length * 10 + 4 : 0;
+  // as tall as its content (measured once off screen), at most the screen
+  const probe = scene.add.container(0, 0);
+  const pa = new ScrollArea(scene, probe, 0, 0, bw, 1000, scene.m.S);
+  fillBeastInfo(scene, pa, enc, bw - 4, o, PARCHMENT_INK, 'flat');
+  const contentH = pa.contentHeight;
+  pa.destroy();
+  probe.destroy();
+  const h = Math.min(VH - 12, SHEET_TITLE_H + contentH + 6 + capH + sheetActionsH(actions, w) + 8);
+  const s = openParchmentSheet(scene, { title: encounterName(enc), w, h, actions, dock: 'bottom', id: 'beast.sheet', onClose: o.onClose });
+  const b = s.body;
+  if (capLines.length) s.c.add(mtext(scene, b.x + b.w / 2, b.y + b.h - capH + 2, capLines.join('\n'), capFont, { size: capSize, align: 0.5 }).setCenterAlign());
+  const area = new ScrollArea(scene, s.c, b.x, b.y, b.w, b.h - capH - 2, scene.m.S);
+  fillBeastInfo(scene, area, enc, b.w - 4, o, PARCHMENT_INK, 'flat');
+  addScrollHint(scene, s.c, area, MOSAIC.parch);
+  s.c.once('destroy', () => area.destroy());
+  return { close: s.close };
 }

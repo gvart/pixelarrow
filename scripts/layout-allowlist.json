@@ -14,9 +14,7 @@
     "results-inspect|text-size|*",
     "results-online|text-size|*",
     "results-spoils|text-size|*",
-    "results|text-size|*",
-    "trial-info|spacing|beast.sheet.close|label-expand",
-    "trial|text-size|*"
+    "results|text-size|*"
   ],
   "B": [
     "consumable-picker|text-size|*",
@@ -60,7 +58,6 @@
     "online-clan|text-size|*"
   ],
   "F": [
-    "codex|text-size|*",
     "kit-mosaic|text-size|*",
     "tutorial-fight|text-size|*",
     "tutorial-loose|text-size|*",
@@ -85,8 +82,6 @@
     "results-online|text-size|*": "RES-01",
     "results-spoils|text-size|*": "RES-01",
     "results|text-size|*": "RES-01",
-    "trial-info|spacing|beast.sheet.close|label-expand": "CDX-01",
-    "trial|text-size|*": "CDX-01",
     "consumable-picker|text-size|*": "SHP-01",
     "duel-board-live|text-size|*": "DUE-02",
     "duel-board-raids|text-size|*": "DUE-02",
@@ -124,7 +119,6 @@
     "village|text-size|*": "SET-01",
     "camp-temper|text-size|*": "CMP-01",
     "online-clan|text-size|*": "WAR-02",
-    "codex|text-size|*": "CDX-01",
     "kit-mosaic|text-size|*": "F-05",
     "tutorial-fight|text-size|*": "TUT-02",
     "tutorial-loose|text-size|*": "TUT-02",
