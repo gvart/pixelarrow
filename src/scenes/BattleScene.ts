@@ -2623,14 +2623,14 @@ export class BattleScene extends BaseScene {
     // following the fight: a small eye at the field's top right (battle only); left-hand mode mirrors it (A11Y-16)
     const pillW = VW - 2 * 30;
     if (this.sim.phase === 'battle' && !this.online) {
-      const fb = new KeyButton(this, mirrorX(VW - 26, 22, VW, this.leftHand), TOP_H + 4, 22, 22, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), lit: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
+      const fb = new KeyButton(this, mirrorX(VW - 26, 22, VW, this.leftHand), this.cornerY(this.leftHand), 22, 22, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), lit: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
       this.hud.add(fb);
       this.followBtn = fb;
     }
     // the zoom key (A11Y-14): a single-tap alternative to the pinch, in the top corner away from the rail
     if (this.sim.phase !== 'ended') {
       const z = this.zoomTo || Math.round(zoomUnits(this.cameras.main.zoom));
-      this.zoomBtn = new KeyButton(this, mirrorX(4, 22, VW, this.leftHand), TOP_H + 4, 22, 22, { label: `${z}×`, tip: t('attn.tip.zoom'), id: 'battle.zoom', variant: 'bronze', plain: true, onClick: () => this.stepZoom() });
+      this.zoomBtn = new KeyButton(this, mirrorX(4, 22, VW, this.leftHand), this.cornerY(!this.leftHand), 22, 22, { label: `${z}×`, tip: t('attn.tip.zoom'), id: 'battle.zoom', variant: 'bronze', plain: true, onClick: () => this.stepZoom() });
       this.hud.add(this.zoomBtn);
     }
     this.hintPill = new HintPill(this, VW / 2, TOP_H + 4, pillW);
@@ -2642,6 +2642,11 @@ export class BattleScene extends BaseScene {
       this.countdown = { bar, shown: -1 };
       this.updateCountdown();
     }
+  }
+
+  /** Top of a field corner key (the eye, the zoom key): a beast battle's boss bar runs across the top left, so a key there sits under it. */
+  private cornerY(left: boolean): number {
+    return TOP_H + 4 + (left && this.beasts ? 24 : 0);
   }
 
   private topOpts(): TopBarOpts {
@@ -3054,7 +3059,7 @@ export class BattleScene extends BaseScene {
     const { VW } = this.m;
     // the rail runs down the right edge; left-hand mode mirrors it to the left (A11Y-16)
     const x = mirrorX(VW - MED_W - 2, MED_W, VW, this.leftHand);
-    let y = TOP_H + (this.followBtn && !this.online ? 30 : 6);
+    let y = (this.followBtn && !this.online ? this.cornerY(this.leftHand) + 26 : TOP_H + 6);
     const bottom = this.stripTop() - (this.selUnit >= 0 ? 29 : 2);
     const tabs = this.tabBtns;
     this.railW = MED_W + 4;
