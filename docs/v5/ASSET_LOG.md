@@ -8,6 +8,12 @@ Empty. (The AS-02 remainder, ART-024 to ART-032, was made on 2026-10-10 and move
 
 ## Done
 
+### RES-01 promotion: the laurel branch ART-055 and the open empty chest ART-053 (2026-10-11)
+
+**Slots wired (RES-01).** `src/ui/results/art.ts` loads `ui/laurel_branch.png` (texture `ui_laurel_branch`) and `ui/chest_open_empty.png` (`ui_chest_open_empty`) in `ResultsScene.preload`. The laurel is drawn inside both ends of the Results banner plaque, at most 36 UI px tall (the right branch is the left one mirrored; dimmed to 45% on a defeat), replacing the pixel `LAUREL` grid (audit RES-2). The chest heads the compact Spoils empty-state card, at most 56 UI px tall (audit RES-4). Manifest `preview`: ART-055 on `results` and `results-arc`, ART-053 on `results-empty` (two new layout-check fixtures). ART-052 and ART-054 stay for DUE-01's chest slots.
+
+**Pipeline (D-9).** Staged from `docs/v5/gemini/AS-05/processed/`; `check.mjs` PASS for both. `preview.mjs` exit 0 for both (layout check clean at 390x844, 360x780, 320x640), each previewed while the other file was a temporary copy in `dist/ui/`. The DPR 3 sheets were read: the branches are sharp and gilded on the teal plaque and stay clear of the word; the chest is whole, lid and lion lock visible, no fringe on the parchment. **Budget:** the processed chest was 134 KB (budget 90). It was re-encoded with adaptive PNG row filters and its RGB quantized in steps of 4 (alpha untouched; fully transparent pixels zeroed): 61 KB, 1816 colours, no visible banding on the sheet. That exact file was previewed again, then promoted. `promote.mjs --looked` shipped both; `check --shipped` PASS (laurel 33 KB / 50, chest 61 KB / 90).
+
 ### FW-03 promotion: the five works sprites (2026-10-11)
 
 **Slots wired (FW-03).** `src/art/terrainArt.ts` `WORK_ART` and `workSprites`: one sprite per stakes, ditch, palisade or rampart cell and one wagon per 2-cell laager segment, feet on the lowest vertex of the footprint (origin 0.5, 1), flipped for a line along field y. The ditch is a decal under the men; the rest are depth-sorted with them. `BattleScene.preload` loads `public/world/tile_*.png`; placed segments are redrawn when `Battle.works()` changes, an assault field's palisade and rampart cells are drawn with the trees. Manifest `preview`: ART-072..074 on `battle-works-field` (a stakes line, a ditch and a laager laid in deployment), ART-075 and ART-076 on `battle-assault` (a lair assault's deployment with the garrison's stakes).
