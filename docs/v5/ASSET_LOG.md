@@ -327,6 +327,8 @@ Create a NEW image, not an edit of the reference. Match the attached reference e
 
 **For the art-director.** §5.2 of the art bible still lists thessalian as "petasos hat", sacred_band as "Boeotian helm" and royal_guard as "gilded Thracian helm". The busts follow V5-050 and the kit instead (thessalian: petasos over the kit's Boeotian, which keeps it apart from the companion). The table should be updated in the next art story, as V5-050 says.
 
+**Promoted by ARM-01 (2026-10-11): 4 of 21.** The Army screen wires the bust slot (the class medallion in the hero card's niche, `src/ui/army/busts.ts`, V5-045: a class bust where a class is shown). Only the classes the layout-check fixtures show were checked in the game: ART-013 hoplite (`army`, `army-stash`), ART-012 militia (`army-wounded`), ART-018 slinger (`army-full`), ART-021 peltast (`army-pick`). `preview.mjs` PREVIEWED each (layout exit 0 at 390x844, 360x780, 320x640; DPR 3 sheets read: slot filled, no blur, heads whole, family match), `promote.mjs --looked` shipped them to `public/ui/busts/` (JPEG q82, 21-23 KB), `check.mjs --shipped` PASS. The other 17 stay staged until a screen shows their class.
+
 
 ### AS-01 Hub mockup directions A, B, C (2026-10-10)
 
