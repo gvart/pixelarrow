@@ -1,0 +1,45 @@
+src/ui/mosaic/cards.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 10-11,82-85,90-91,127,131-145,147,155,160-162,166,185-186,191-193,203-207,209,211-225,236,239,248-249
+src/scenes/MenuScene.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 4-5,9-12,17,20-25,38,41,44-46,49,51-61,65-68,83,87-89,91-110,112-121,123,125-126,128-135,148-159
+  s_697bdc25a7c420::t_5f6ea6cbbb5e8a 160-161
+tests/hub.test.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 1-69
+src/i18n/en.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 29,324
+src/i18n/hub.en.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 1-13
+src/i18n/hub.ru.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 1-8
+src/ui/mosaic/campaignHub.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 1-61
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 21,300
+src/ui/mosaic/controls.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 175-176,217
+src/ui/mosaic/raster.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 12
+src/ui/mosaic/tabLayout.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 10-13,40-41,157
+tests/mosaic.test.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 64,71-75,82,94,100-101,113-120
+  s_697bdc25a7c420::t_94c42a25c0962b 121-124
+src/ui/mosaic/TabBar.ts
+  s_697bdc25a7c420::t_366b9dc2f0571a 7-8,16,80-82,87-91,94-98,109,112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "12a0d21bd605b8362eec29c843d0ab3d8220a392",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
