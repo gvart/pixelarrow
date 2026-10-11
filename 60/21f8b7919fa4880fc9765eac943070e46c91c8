@@ -1,0 +1,23 @@
+tests/attention.test.ts
+  s_697bdc25a7c420::t_362330c3e4fc73 1-125
+src/ui/input/attention.ts
+  s_697bdc25a7c420::t_61b9f3b6677913 1-128
+src/ui/input/singleTap.ts
+  s_697bdc25a7c420::t_72f3f825fd9e23 1-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6021f8b7919fa4880fc9765eac943070e46c91c8",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
