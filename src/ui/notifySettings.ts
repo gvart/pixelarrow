@@ -1,19 +1,25 @@
 /**
  * Settings → Notifications (the bot's messages, per type, plus quiet hours)
- * and Settings → About (terms, privacy, refunds). Both are modals on top of
- * the settings list (src/ui/settings.ts).
+ * and Settings → About (terms, privacy, refunds). Both are pages of the
+ * settings sheet (src/ui/settings.ts, M-15): a sheet as wide as the settings
+ * that takes its place, with a back chevron instead of an X; the chevron, Back
+ * or a tap outside bring the settings back (the overlay stack, V5-029).
  *
  * The switches live on the server (/api/notify/settings, the same row the
- * bot's /settings command edits). Outside Telegram, or offline, the modal
+ * bot's /settings command edits). Outside Telegram, or offline, the page
  * says so and the switches stay disabled. `demo` (layout check, gallery)
  * uses in-memory data.
  */
 import Phaser from 'phaser';
 import { Button, addText, type UIMetrics } from './kit';
 import { Toggle } from './v3';
-import { ScrollList, openModal } from './widgets';
-import { ellipsize, wrapText, LINE_H } from './textfit';
+import { ScrollList, type Modal } from './widgets';
+import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { SIZE } from './theme';
+import { MOSAIC } from './tokens';
+import { uiFrame } from './layout';
+import { openParchmentSheet } from './mosaic/ParchmentSheet';
+import { MIconButton } from './mosaic/iconButton';
 import { online } from '../platform/cloud';
 import { NOTIFY_TYPES, type NotifySettings, type NotifyType } from '../platform/api';
 import { haptic, openExternalLink } from '../platform/telegram';
@@ -54,6 +60,37 @@ export function demoNotifySource(over: Partial<NotifySettings> = {}): NotifySour
   };
 }
 
+/** Width of the settings sheet and of its pages (they take each other's place). */
+export const settingsSheetW = (VW: number): number => Math.min(VW - 8, 240);
+
+/** Title sizes of a page, largest first; 6.5 UI px is the readable floor (A11Y-09). */
+const TITLE_SIZES = [9, 8.5, 8, 7.5, 7, 6.5];
+
+/**
+ * A page of the settings sheet: a docked sheet as wide as the settings, a back
+ * chevron at the left of its title and no X (one close affordance, G5).
+ * Closing it (chevron, Back, a tap outside) uncovers the settings again.
+ */
+export function openSettingsPage(scene: UiScene, o: { title: string; h: number; id: string; onClose?: () => void }): Modal {
+  const w = settingsSheetW(scene.m.VW);
+  const m = openParchmentSheet(scene, { w, h: o.h, dock: 'bottom', skin: true, closeButton: false, onClose: o.onClose, id: o.id });
+  const { c, x, y } = m;
+  c.add(new MIconButton(scene, x + 3, y + 1, 22, 22, { icon: 'chevL', label: t('common.back'), variant: 'secondary', id: `${o.id}.back`, onClick: () => m.close() }));
+  // centred like every sheet title; moved right of the chevron when it would not fit there at a readable size
+  const fit = (room: number) => TITLE_SIZES.find((z) => measureText(o.title, false, z, 'roman') <= room);
+  const centred = fit(w - 52);
+  const room = centred ? w - 52 : w - 34;
+  const cx = centred ? x + w / 2 : x + 26 + room / 2;
+  const txt = addText(scene, cx, y + 9, o.title, 'rInk', 0.5).setFontSize(centred ?? fit(room) ?? 6.5);
+  uiFrame(txt, c, room, 24, cx - room / 2, y);
+  c.add(txt);
+  const g = scene.add.graphics();
+  g.lineStyle(0.7, MOSAIC.parchEdge, 0.7);
+  g.lineBetween(x + 26, y + 21, x + w - 8, y + 21);
+  c.add(g);
+  return m;
+}
+
 type Row = { kind: 'type'; type: NotifyType } | { kind: 'quiet' };
 const ROWS: Row[] = [...NOTIFY_TYPES.map((type) => ({ kind: 'type' as const, type })), { kind: 'quiet' }];
 
@@ -63,10 +100,10 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
   const { VW, VH } = scene.m;
   const rowH = SIZE.btnH;
   const step = rowH + SIZE.gap;
-  const w = Math.min(VW - 16, 220);
+  const w = settingsSheetW(VW);
   const noteLines = 3;
   const want = 26 + noteLines * LINE_H + 6 + ROWS.length * step + 12;
-  const m = openModal(scene, { title: t('notify.title'), w, h: Math.min(want, VH - 16), onClose: opts.onClose });
+  const m = openSettingsPage(scene, { title: t('notify.title'), h: Math.min(want, VH - 12), id: 'notify', onClose: opts.onClose });
   const { c, x, y, h } = m;
   const iw = w - 16;
   let note: Phaser.GameObjects.GameObject | null = null;
@@ -135,12 +172,12 @@ const PAGES: { page: LegalPage; label: TKey }[] = [
 /** Settings → About: what the game is, the legal pages, where to get help with a purchase. */
 export function openAbout(scene: UiScene, onClose?: () => void): Phaser.GameObjects.Container {
   const { VW, VH } = scene.m;
-  const w = Math.min(VW - 16, 220);
+  const w = settingsSheetW(VW);
   const iw = w - 16;
   const note = wrapText(t('about.note'), iw, 6);
   const step = SIZE.btnH + SIZE.gap;
   const want = 26 + note.lines.length * LINE_H + 8 + PAGES.length * step + 12;
-  const m = openModal(scene, { title: t('about.title'), w, h: Math.min(want, VH - 16), onClose });
+  const m = openSettingsPage(scene, { title: t('about.title'), h: Math.min(want, VH - 12), id: 'about', onClose });
   const { c, x, y } = m;
   c.add(addText(scene, x + 8, y + 26, note.lines.join('\n'), 'ink'));
   let by = y + 26 + note.lines.length * LINE_H + 8;
