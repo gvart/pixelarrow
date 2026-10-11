@@ -1,0 +1,26 @@
+src/scenes/CodexScene.ts
+  s_697bdc25a7c420::t_e2608696e1d9f6 65-74
+  s_697bdc25a7c420::t_55898cf8efb050 192-193
+src/ui/beastInfo.ts
+  s_697bdc25a7c420::t_ae5940fe22399b 42-43,45,54
+  s_697bdc25a7c420::t_f6d503aca5566c 264-265
+  s_697bdc25a7c420::t_55898cf8efb050 284
+docs/v5/stories/CDX-01/NOTES.md
+  s_697bdc25a7c420::t_083cd879894ea5 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1b557a7fbfcd865f4df11e3fb60a42a6cc152e3b",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
