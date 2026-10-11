@@ -4,12 +4,12 @@ import manifestJson from '../docs/v5/art/asset-manifest.json?raw';
 import uiJson from '../public/icons/ui.json?raw';
 import itemsJson from '../public/icons/items.json?raw';
 import { VECTOR_ICONS, VECTOR_CAMP_ICONS, VECTOR_GLYPHS } from '../src/art/vectorIcons';
-import { UI_ICONS, V5_ICON_FALLBACK } from '../src/art/uiIcons';
+import { UI_ICONS } from '../src/art/uiIcons';
 import { ICONS } from '../src/art/icons';
 import { ITEM_LIST } from '../src/data/items';
 import { POWER_IDS } from '../src/data/affixes';
 import { CONSUMABLE_ICON_IDS, RESOURCE_ICON_IDS } from '../src/art/goodsIcons';
-import { ICON_BACKING, STAGED_ICONS, downscaleSteps, iconBackingDisc, registerIconFrames, resolveIconId } from '../src/art/iconBitmaps';
+import { ICON_BACKING, STAGED_ICONS, V5_ICON_FALLBACK, downscaleSteps, iconBackingDisc, registerIconFrames, resolveIconId } from '../src/art/iconBitmaps';
 
 /** The art bible's icon outline (section 7.4) and the dark stone of the top and tab bars (palette.json stone2). */
 const ICON_OUTLINE = '#2a1a12';

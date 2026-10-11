@@ -15,7 +15,6 @@
  * stand-in, the icon that slot shows today (STAGED_ICONS).
  */
 import type { IconLook } from './iconStyle';
-import { V5_ICON_FALLBACK } from './uiIcons';
 
 interface Frame {
   src: CanvasImageSource;
@@ -42,7 +41,7 @@ export function registerIconFrames(src: CanvasImageSource, frames: Record<string
  * v5 icon keys whose 160 px frame is staged, not shipped (docs/v5/ASSET_LOG.md AS-03). No
  * slot shows them yet: each slot's story wires its key, previews the staged atlas in the
  * real game (scripts/art/preview.mjs) and ships it, then removes the key here. Meanwhile a
- * staged key draws its stand-in (uiIcons V5_ICON_FALLBACK), the icon the slot shows today.
+ * staged key draws its stand-in (V5_ICON_FALLBACK), the icon the slot shows today.
  *  - book: Codex tab (MENU-3); banner: Campaign tab (MENU-3); war: War medallion (MENU-2);
  *    season: Duels Arena season line (DUE-7);
  *  - doctrine_*: encounter sheet and battle doctrine chip (AI-01, WLD-01);
@@ -55,6 +54,33 @@ export const STAGED_ICONS: readonly string[] = [
   'push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe',
   'standard', 'works', 'captain',
 ];
+
+/**
+ * The v5 icon keys (art bible 7.4, AS-03) and their stand-in: the icon the slot showed before
+ * (never a new design). A staged key draws the stand-in's frame; every key's vector fallback
+ * (uiIcons, when the atlas fails to load) is the stand-in's shape.
+ */
+export const V5_ICON_FALLBACK: Readonly<Record<string, string>> = {
+  book: 'log',
+  banner: 'flag',
+  war: 'shield',
+  season: 'hourglass',
+  doctrine_steady: 'hold',
+  doctrine_rush: 'charge',
+  doctrine_hammer: 'bash',
+  doctrine_swarm: 'f_skirm',
+  doctrine_fury: 'berserk',
+  push: 'shield',
+  bond: 'people',
+  warcry: 'horn',
+  sunder: 'bolt',
+  aimed: 'eye',
+  recharge: 'charge',
+  scythe: 'swords',
+  standard: 'flag',
+  works: 'repair',
+  captain: 'helmet',
+};
 
 /** The frame an icon id draws: its own, else its stand-in's while it is staged, else null. */
 export function resolveIconId(id: string): string | null {
