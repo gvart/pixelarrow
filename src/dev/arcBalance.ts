@@ -155,7 +155,7 @@ export function hostRows(n: number): BalanceRow[] {
   return [
     rowOf('host (R 16) vs the prepared army (16 men, level 7, rare kit)', worlds.map((s) => runHost(s)), '40-55% (R5)'),
     rowOf('host (R 20) vs 20 prepared men (reference)', worlds.slice(0, Math.max(4, Math.round(n / 2))).map((s) => runHost(s, 20, 20)), 'none (a full roster)'),
-    { label: 'host size for a fit roster of 8 / 16 / 20', measured: `${hostSize(8)} / ${hostSize(16)} / ${hostSize(20)}`, target: 'min(32, ceil(1.25 R)) (F2)' },
+    { label: 'host size for a fit roster of 8 / 16 / 20', measured: `${hostSize(8)} / ${hostSize(16)} / ${hostSize(20)}`, target: 'min(32, ceil(HOST_MULT x R)), HOST_MULT 1.0 (F2, AR-04)' },
   ];
 }
 
