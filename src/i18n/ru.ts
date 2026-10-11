@@ -18,6 +18,7 @@ import { MOSAIC_WAR_RU } from './mosaic.war.ru';
 import { TARGETING_RU } from './targeting.ru';
 import { UNDO_RU } from './undo.ru';
 import { QUEUE_RU } from './queue.ru';
+import { HUB_RU } from './hub.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -296,4 +297,5 @@ export const RU: Table = {
   ...TARGETING_RU,
   ...UNDO_RU,
   ...QUEUE_RU,
+  ...HUB_RU,
 };

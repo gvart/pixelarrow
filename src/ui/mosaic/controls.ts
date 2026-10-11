@@ -172,6 +172,8 @@ export interface StoneTileOpts {
   badge?: number | string;
   /** Not available, and why: flat grey with a faded icon and this caption under the tile. */
   disabled?: string;
+  /** false: no caption under a disabled tile (the caller shows the reason; a tap still says it). */
+  caption?: boolean;
   onClick?: () => void;
   tip?: string;
   id?: string;
@@ -212,7 +214,7 @@ export class StoneTile extends Phaser.GameObjects.Container {
     P(mtext(scene, this.w / 2, top + isz + 3, text, fl.font, { size, align: 0.5, box: { owner: this, w: this.w, h: this.h } }));
     if (o.badge !== undefined && o.badge !== 0) this.add(new MBadge(scene, this.w - 5, 5, o.badge));
     let cap = 0;
-    if (off) {
+    if (off && o.caption !== false) {
       // the reason, at the smallest meaningful size (A11Y-09), wrapped, never cut (G14)
       const lh = Math.ceil(lineHeight(TEXT_MIN));
       const lines = wrapWords(o.disabled!, this.w, (x) => mw(x, 'pSec', TEXT_MIN));

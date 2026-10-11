@@ -9,7 +9,7 @@ import { mosaicImage } from './base';
 
 /** Texture key -> file under public/ui/. */
 export const RASTERS: Record<string, string> = {
-  ui_banner_campaign: 'ui/banner_campaign.jpg',
+  ui_banner_campaign: 'ui/fresco_campaign.jpg',
   ui_portrait_leader: 'ui/portrait_leader.jpg',
 };
 
