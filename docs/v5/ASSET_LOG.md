@@ -8,6 +8,12 @@ Empty. (The AS-02 remainder, ART-024 to ART-032, was made on 2026-10-10 and move
 
 ## Done
 
+### SHP-01 promotion: the shop fresco ART-004 (2026-10-11)
+
+**Slot.** The Shop hub's banner (`ShopScene` header, a `FrescoBanner` 30 UI px tall over the full content width, shown when the content box is 280 UI px or taller), texture `ui_fresco_shop` loaded in `ShopScene.preload` from `ui/fresco_shop.jpg`. It replaces the procedural pixel stall (`modeArt` "shop", SHP-5). Manifest `preview`: `ui/fresco_shop.jpg` on `shop-shop`, `shop-pass`, `shop-wallet`.
+
+**Pipeline.** Staged from `docs/v5/gemini/AS-04/processed/fresco_shop.png`; `check.mjs` PASS (1032x132). `preview.mjs` exit 0 (layout check clean at 390x844, 360x780, 320x640); the three DPR 3 sheets were read: the slot is filled and sharp, the merchant's head, the bronze helmets and shields and the amphorae are inside the crop, the awning's edge shows at the top, the lambda shield on the ground stays outside the crop, no clash with the chip, the switch or the badge. At 320x640 the banner is not drawn (short box). `promote.mjs ART-004 --looked` shipped `public/ui/fresco_shop.jpg` (47 KB, `check --shipped` PASS, budget 80 KB).
+
 ### CDX-01 promotion: the 8 beast plates and the 5 doctrine icons (2026-10-11)
 
 **Slots.** Plates: the Codex beast row art well (32 UI px) and the beast sheet header beside the figure (`src/ui/beastInfo.ts` SHIPPED_PLATES, lazy per scene). Doctrine icons: the Codex doctrine rows and the doctrine sheet (`ui:doctrine_*`). Manifest `preview`: plates on `codex` (hydra also `codex-beast`), icons on `codex-doctrines` and `codex-doctrine`.
