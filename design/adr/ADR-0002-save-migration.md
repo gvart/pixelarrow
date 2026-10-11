@@ -1,19 +1,19 @@
-# ADR-0002: Campaign save migration and the one v5 bump (SAVE_VERSION 6)
+# ADR-0002: Campaign save format: SAVE_VERSION 6 as the baseline
 
 ## Status
-Accepted
+Accepted. Simplified by V5-074 (2026-10-11): the app has no players, so v6 is the baseline. The v1..v5 migrations, their fixtures, the cloud downgrade guard (ST-02b) and the campaign-identity adoption (ST-02c) were removed (S4-NOCOMPAT).
 
 ## Date
 2026-10-10
 
 ## Last Verified
-2026-10-10
+2026-10-11
 
 ## Decision Makers
 Autonomous v5 run (story ST-02; GDD review N4; decisions V5-011, V5-020, V5-026). The user was asleep and delegated the call.
 
 ## Summary
-The v5 train adds lairs, a campaign arc, overland events, captains and new settings to the campaign save. This ADR declares all of them at once as `SAVE_VERSION` 6 (S4-FIX-SAVES' version 5, plus one), with a pure v5 → v6 migration and load-time defaults, and it sets the rule that feature stories add no further bump. It also records how older clients treat a v6 save, and the release order that keeps them from wiping one.
+The v5 train adds lairs, a campaign arc, overland events, captains and new settings to the campaign save. This ADR declares all of them at once as `SAVE_VERSION` 6, with load-time defaults and repair, and it sets the rule that feature stories add no further bump. v6 is the baseline format: there are no migrations from older versions (V5-074), and a save this build cannot read takes the corrupt-save backup path.
 
 ## Engine Compatibility
 
@@ -24,7 +24,7 @@ The v5 train adds lairs, a campaign arc, overland events, captains and new setti
 | **Knowledge Risk** | LOW. No engine API. Telegram CloudStorage limits: values up to 4,096 chars, keys up to 128 chars, 1,024 keys. |
 | **References Consulted** | `design/gdd/campaign-arc.md`, `campaign-events.md`, `ai-doctrines.md`, `abilities.md`, `controls.md` ("Save impact"); `docs/v5/audit/MECHANICS.md` S1; `src/game/save.ts`; `src/platform/saveSync.ts`; `server/src/routes/save.ts` |
 | **Post-Cutoff APIs Used** | None |
-| **Verification Required** | `tests/saveMigration.test.ts`, `tests/saveRecovery.test.ts` (every fixture in `tests/fixtures/saves/` loads), `tests/stateLoad.test.ts` and `tests/legacySave.test.ts`. |
+| **Verification Required** | `tests/saveMigration.test.ts`, `tests/saveRecovery.test.ts` (the v6 fixture in `tests/fixtures/saves/` loads), `tests/stateLoad.test.ts`. |
 
 ## ADR Dependencies
 
@@ -33,22 +33,22 @@ The v5 train adds lairs, a campaign arc, overland events, captains and new setti
 | **Depends On** | S4-FIX-SAVES (V5-011): two-slot atomic writes, the corrupt-save backup and the `newer` refusal path. |
 | **Enables** | AI-02, AR-01..04, EV-01, FW-*, AB-01, DLG-01: they read and write the v6 fields. |
 | **Blocks** | None (written and accepted in ST-02). |
-| **Ordering Note** | **A build with the S4-FIX-SAVES refusal path must be live, and the old `main` bundle aged out, before any build that writes v6 reaches players.** See "Older clients" below. |
+| **Ordering Note** | None since V5-074: there are no older saves or clients to protect. |
 
 ## Context
 
 ### Problem Statement
-Five GDDs add save fields. Bumping per feature would mean five migrations, five windows in which an older client meets a newer save, and five chances to get it wrong. Per GDD review N4 the train gets exactly one bump, and it has to declare every field before the feature stories start (plan risk R4).
+Five GDDs add save fields. Bumping per feature would mean five schema changes and five chances to get one wrong. Per GDD review N4 the train gets exactly one bump, and it has to declare every field before the feature stories start (plan risk R4).
 
 ### Constraints
-- Live players hold saves at v1..v5 in localStorage, Telegram CloudStorage and the server. All must load.
+- There are no live players (V5-074), so no older save has to load.
 - The cloud copy is a JSON blob; the server only checks `v` is an integer and the size (512 KB).
 - CloudStorage is chunked into 3,800-char parts (`CHUNK_SIZE`), two slots plus a corrupt-save backup.
 - No new dependencies.
 
 ### Requirements
-- Every v1..v5 save migrates to v6 with a default for each new field, keeping everything else (V5-020: an existing army is kept).
-- A v6 save is refused, not overwritten, by a client built for v5.
+- A new campaign is written at v6 with a default for each new field.
+- A save from a newer build is refused, not overwritten (the `newer` path of S4-FIX-SAVES, kept).
 - Malformed v6 values are repaired on load rather than losing the save.
 
 ## Decision
@@ -71,11 +71,12 @@ Five GDDs add save fields. Bumping per feature would mean five migrations, five 
 
 The B-path perk ids need no field: they ride the bump because a v5 client's `filter(p in PERKS)` would silently drop them, and the version gate stops a v5 client from loading the save at all.
 
-### Migration and validation
-- `migrations[5]` is pure: `{ ...d, v: 6, world: { ...v6WorldDefaults(), ...d.world } }`. Defaults go under the existing world, so nothing a v5 save holds is replaced. v1..v4 reach it through the existing chain.
-- `World.fresh` spreads the same `v6WorldDefaults()`, so new campaigns and migrated saves start identical.
-- `validate` repairs every v6 value on every load (also for saves already at v6): a missing or malformed value takes its default, a malformed map or list entry is dropped, flags keep their first 64 keys and the journal its last 20, malformed optional party, settlement and settings fields are deleted. A save is never refused for a v6 field.
+### Loading and validation
+- `migrateResult` takes only `SAVE_VERSION`: a higher version is `newer` (read-only session, never overwritten); anything lower, or no version, is `corrupt`. A save that cannot be loaded is kept raw under `px_corrupt_*` before anything is written, and the player is told. The two-slot atomic writes (S4-FIX-SAVES) are unchanged.
+- `World.fresh` spreads `v6WorldDefaults()`, so every new campaign starts with the v6 fields.
+- `validate` repairs every v6 value on every load: a missing or malformed value takes its default, a malformed map or list entry is dropped, flags keep their first 64 keys and the journal its last 20, malformed optional party, settlement and settings fields are deleted. A save is never refused for a v6 field.
 - Optional fields stay optional and are read with defaults (`p.escaped ?? 0`); required world fields are always present after load.
+- A future bump adds its one migration (`n` → `n+1`) to `migrateResult`.
 
 ### No further bump in v5
 Feature stories use only these fields. A field found later must be optional, read with a default and pass the v6 validation, or the Director decides on a bump and logs it (plan risk R4).
@@ -83,43 +84,24 @@ Feature stories use only these fields. A field found later must be optional, rea
 ### Size
 A max-size v6 save (20 heroes with 10 perks each, 120 stash items, 15 lairs, 64 flags and 24 cooldowns with 24-char names, a full journal, every optional party and settlement field set) is 32,100 chars: 9 parts, each within 3,800 chars, and it round-trips through a KV that enforces the CloudStorage limits with both slots full. The v6 fields at their caps cost about 4,850 chars, under two parts.
 
-### Older clients and a v6 save (confirmed by running each build's code)
-
-| Client | Local v6 save | Cloud v6 save, local older save present |
-| --- | --- | --- |
-| v5 branch before ST-02 (S4-FIX-SAVES, `SAVE_VERSION` 5) | Refused as `newer`: read-only session, notice `save.newer`, raw copy kept under `px_corrupt_*`, **no key written**, nothing pushed. | `decideOnLoad` → `hold`, `resolveConflict` → `hold`: never overwritten. |
-| `main` (bd61069, the live v4, `SAVE_VERSION` 5, no refusal path) | `migrate` returns null, so it is taken for "no save": a new campaign is started and **saved over** `px_meta` and `px_part_*`, then pushed. | `remoteSaveData` is null, so `decideOnLoad` → `push` and a 409 resolves to `local`: **the cloud v6 save is overwritten.** |
-
-So the refusal path protects v6 saves only from builds that contain it. `main` does not (MECHANICS S1 is fixed on the v5 branch only). A `main` bundle can still boot after a v6 save exists in two ways: a WebView serving a cached old bundle, or a rollback (V5-026; after v6 a rollback wipes rather than showing the last pre-v5 save).
-
-**Release rule (the ordering note above):** ship the refusal path before v6, as ADR-0001 does for `SIM_VERSION`. Either release S4-FIX-SAVES at `SAVE_VERSION` 5 first and let old bundles age out, or ship v5 as one release and accept the window. A rollback from v6 to `main` must not be done; roll back to a build with the refusal path instead. Recommended follow-up (server, G-ONLINE): `PUT /api/save` refuses a body whose `v` is lower than the stored `version`, so a stale client can never overwrite a newer cloud save whatever it runs.
+### Cloud sync
+`PUT /api/save` is plain optimistic concurrency on `revision` (409 `save_conflict`). The client keeps the more-played copy (`seq`, then `savedAt`), and holds (uploads nothing for the session) when the cloud copy is from a newer build. The downgrade guard (ST-02b) and campaign-identity adoption (ST-02c) guarded a mixed-bundle release window that does not exist without players; they were removed with V5-074.
 
 ## Alternatives Considered
 - **One bump per feature story.** Simple locally, but five mixed-version windows and five migrations. Rejected (N4).
-- **No bump: every new field optional.** A v5 client would load a v6 save, drop B-path perks and arc state it does not know, and save the loss. Rejected: the version gate is what protects the data.
+- **No bump: every new field optional.** An older client would load a newer save, drop fields it does not know, and save the loss. Rejected: the version gate is what protects the data.
 - **Refuse a save with malformed v6 fields.** Loses a whole campaign over one bad flag. Rejected for repair-on-load.
-- **Shadow meta key so a v6 client can recover from a `main` overwrite.** It recovers the local copy, but cloud sync then adopts `main`'s new campaign anyway (it is the newer revision and the recovered copy is not dirty), so it needs `saveSync.ts` and server changes too. Deferred to the server guard above.
 
 ## Consequences
-- Positive: one migration, one mixed-version window, every downstream story unblocked on a fixed schema.
+- Positive: one schema, every downstream story unblocked on a fixed format.
 - Positive: saves are never lost to a malformed v6 value.
-- Negative: fields are declared before their features exist; a host band (`kind: 'host'`) fields raiders until AR-04 gives it an army.
-- Negative: the `main` client wipes a v6 save; the release rule above is the guard.
+- Positive: no migration chain, fixtures or release ordering to maintain (V5-074).
+- Negative: fields are declared before their features exist.
+- Negative: a save older than v6 cannot be read. None exist.
 
 ## Risks
 - A feature needs a field nobody declared: optional + default + validation, or a logged bump (R4).
-- The release rule is skipped: stale `main` bundles overwrite v6 saves. The server guard removes this risk.
-
-## Addendum: campaign identity (ST-02c, V5-036)
-
-The server guard stops a `main` bundle from uploading its v5 save over a v6 cloud save. It cannot stop the second step: `main` resets the device's local save to a fresh campaign, and a v6 client on that device later migrates it to v6 and uploads it (both copies are v6, and with the same base revision the PUT succeeds whatever the `seq`).
-
-- **Id.** `SaveData.campaignId?: string` (optional, no bump). `Campaign.fresh` sets it; `GameState.save` stamps a save that lacks one. The value is `campaignIdFor(world.seed)` = `"w" + seed in base 36`. The world seed is already a per-campaign id: it comes from a crypto-random seed, is never reassigned, and the map is regenerated from it. Deriving the id (rather than drawing a random one) means two devices holding the same legacy campaign compute the same id before either has stamped it, and `main`'s fresh campaign, which has its own random seed, gets a different one. `campaignIdOf(s)` = `s.campaignId ?? campaignIdFor(s.world.seed)`. Once stamped, the id no longer depends on the seed. No heuristic is needed.
-- **Rule** (`otherCampaign`, `src/platform/saveSync.ts`): the cloud copy is another campaign when its raw `v` ≥ the local `v`, the ids differ, and the local save's `prevCampaignId` is not the cloud id. "New campaign" records the campaign it replaced in `prevCampaignId`, so a deliberate restart keeps the seq/revision rules.
-- **Boot** (`decideOnLoad`): another campaign → `adopt`, whatever the `seq`s. `GameState.load` keeps the local campaign under `px_replaced` / `px_replaced_N` (the latest replaced, in both stores) before writing the cloud copy, and shows the notice `save.replaced`.
-- **During play** (`resolveConflict`, a 409 after an offline boot): another campaign → `hold`. Nothing is uploaded this session, and the next boot adopts the cloud copy.
-- **Unchanged:** the same campaign on several devices, a cloud copy at a lower version, no cloud copy, a cloud copy from a newer build.
-- **Behaviour change, accepted:** a device that still plays an old campaign after "New campaign" was started on another device gets the new one on its next boot (today, the more-played copy won). The old one is kept in `px_replaced`. There is no restore UI for `px_replaced` yet, as with `px_corrupt`.
+- Once there are players, the next bump needs its migration and a plan for stale bundles; revisit V5-074 then.
 
 ## GDD Requirements Addressed
 - campaign-arc.md "Save impact" and AC "Migration … keeps every field (a fixture test)".
@@ -130,12 +112,6 @@ The server guard stops a `main` bundle from uploading its v5 save over a v6 clou
 
 ## Related
 - `src/game/save.ts`, `src/world/world.ts` (`v6WorldDefaults`, `FLAGS_CAP`, `JOURNAL_CAP`)
-- `tests/saveMigration.test.ts`; fixtures `tests/fixtures/saves/v5-played-b88eadd.json`, `v6-82d71f9.json`
-- ADR-0001 (the same "plumbing first, then the bump" ordering)
-
-## Release order (ST-02b)
-The server guard now exists: `PUT /api/save` answers **409 `save_version_downgrade`** and keeps the stored copy when the stored `version` is above the upload's `data.v` (atomic in the `UPDATE` predicate, reported before `save_conflict`). A `main` client treats that code as a plain failure and retries with backoff (max 5 min), never reaching its overwrite path; the v5 client holds sync for the session.
-
-1. **Server guard first, or in the same deploy as the client.** Never let a v6 save reach the cloud before the guard is live.
-2. **Client refusal path and `SAVE_VERSION` 6 together** (one v5 release), as above.
-3. **No rollback to the `main` bundle without a restore plan.** The guard protects the cloud copy only: a `main` bundle still replaces the *local* v6 save on that device with a new campaign. A v6 client booting afterwards on that device sees an unchanged cloud revision and does not re-adopt it; once the new campaign's `seq` passes the synced one, the v6 client pushes that migrated campaign as v6, which the guard allows, and the cloud copy is replaced. A `main` client itself can never overwrite a v6 cloud save. Before any rollback, have a way to restore (e.g. a server-side copy of each player's last v6 blob, or forcing an adopt) and roll back to a build with the refusal path, never to `main`.
+- `tests/saveMigration.test.ts`; fixture `tests/fixtures/saves/v6-82d71f9.json`
+- ADR-0001 (the same single-version model for the sim)
+- `docs/v5/DECISIONS.md` V5-011, V5-020, V5-074
