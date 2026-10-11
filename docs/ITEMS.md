@@ -38,6 +38,7 @@ as are the 16 powers. With them the game has **178 items**.
 | Trading | named legendaries and legendary set pieces are **bound**: never on the marketplace |
 | Requirements | every item needs attribute points (STR, AGI, END, WIL) by tier and rarity; short of them it still works, weaker (soft penalty) |
 | Class limits | each class can use only its weapon families, shield types and armour weight (hard rule) |
+| Reforging | campaign only: a town's Smith redraws one chosen random stat for gold (20–240 g by tier and rarity); never above a drop's roll |
 
 ## Anatomy of an item
 
@@ -608,6 +609,31 @@ reference the cap is set against, the legendary kit is on its 85% target, and
 trimming them would weaken every legendary weapon and shield players own for
 about 1.5 points, so they are accepted and logged (EC-02.md).
 
+## Reforging at the Smith
+
+The campaign's endgame gold sink (EC-01, `design/gdd/forge-reroll.md`).
+
+- **Where**: the Smith row of every town's Services tab; open when the market
+  is shut or sacked. Campaign only: no Smith online, in duels or on the war map.
+- **What**: any worn or stashed item with a random stat (uncommon and finer,
+  set pieces included). Named legendaries keep their fixed stats.
+- **How**: the player picks one line. It is drawn again from the item's
+  normal pool (weights as at a drop) minus its other lines, with the rarity's
+  normal steps (1–2). The line's own stat can come back. The other lines (in
+  their order), the power, rarity, condition and value stay. The result is
+  stored in `aff`, so no save field is new.
+- **Price**: `round5(base[tier] × rarity)`, base 20 / 40 / 80 for tiers 1–3,
+  rarity ×1 / 1.5 / 2 / 3 for uncommon to legendary: 20 g for a tier-1
+  uncommon, 240 g for a tier-3 legendary. Flat, no cap, no refund.
+- **Determinism**: the world RNG draws (`World.rng`), and the game saves at
+  once, so an app kill can neither undo nor repeat a reforge.
+- **Power**: never above what a drop can roll. A full legendary kit with every
+  line at 2 steps beats the natural legendary kit 62 / 60% (L5 / L10), with the
+  best stats of each pool 69 / 66%: about 3.5 points an item, under the
+  10-point cap. Campaign gear never enters duels.
+- **Sink**: perfecting one line of a tier-3 legendary costs about 960 g or
+  more, 4+ wins of battle pay (`docs/v5/balance/EC-01.md`).
+
 ## Code changes (built)
 
 - `src/data/items.ts`: `Item` gets `aff?: string` (steps, compact: `"atkSpeed:2,hp:1"`)
@@ -660,7 +686,7 @@ about 1.5 points, so they are accepted and logged (EC-02.md).
 
 ## Open questions
 
-1. Rerolling: a forge that rerolls one random stat for gold (campaign / war)
-   or Glory (duels)? Not in this design; easy to add on top of steps.
+1. ~~Rerolling~~: answered by EC-01 for the campaign ("Reforging at the
+   Smith"). A war-map or duel variant (Glory) stays open; it needs the server.
 2. Should the war-map season reset take legendary set pieces with it (season
    items) or keep them like the duel army keeps its gear?

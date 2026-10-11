@@ -130,20 +130,20 @@ The values live in `src/game/economy.ts` (`FORGE`).
 
 ## Acceptance criteria
 
-- [ ] A reforge changes exactly the chosen line; the other lines, the power,
+- [x] A reforge changes exactly the chosen line; the other lines, the power,
       rarity, condition and value stay (test).
-- [ ] The new line is never a stat the item already has elsewhere, and its
+- [x] The new line is never a stat the item already has elsewhere, and its
       steps are within the rarity's range (test, many seeds).
-- [ ] The same world RNG state gives the same reforge; the RNG state advances
+- [x] The same world RNG state gives the same reforge; the RNG state advances
       and is saved (test).
-- [ ] The price follows the table; too little gold refuses with the reason,
+- [x] The price follows the table; too little gold refuses with the reason,
       and nothing changes (test).
-- [ ] Named legendaries and common items are not offered (test).
-- [ ] The Services tab of a town shows the Smith; the forge sheet shows the
+- [x] Named legendaries and common items are not offered (test).
+- [x] The Services tab of a town shows the Smith; the forge sheet shows the
       item before and after a reforge and a disabled state with its reason, in
       English and Russian at 390 and 320 wide; layout-check shows no new
       violations.
-- [ ] No regression: `npm run balance` anchors unchanged; old items without
+- [x] No regression: `npm run balance` anchors unchanged; old items without
       a stored `aff` keep their rolled stats until reforged.
 
 ## Affected systems
@@ -162,3 +162,17 @@ The values live in `src/game/economy.ts` (`FORGE`).
 
 No GDD covered rerolling. `docs/ITEMS.md` gets the rules ("Reforging at the
 Smith") and Open question 1 is closed.
+
+## Review — 2026-10-12 — Verdict: APPROVED
+
+`/design-review` lean, self-run (no specialist agents; the user was asleep).
+
+- **Completeness**: summary, motivation, options, rules, formulas with worked
+  values, knobs, balance, ACs and affected systems are all present for a quick spec.
+- **Boundaries**: the tier is clamped to 1–3; a common item costs 0 and is
+  never offered; when the pool minus the other lines is empty, the line keeps
+  its stat and only the steps are redrawn; a refusal draws nothing from the RNG.
+- **Consistency**: steps stay in `AFFIX_STEPS` (the V5-071 cap holds); no save
+  field (`aff` exists); the world RNG, as the story AC asks; campaign only (A-40).
+- **ACs**: each one is a test or a screenshot; none is a "feels" criterion.
+- **Scope**: S (one system, one formula, no ADR).
