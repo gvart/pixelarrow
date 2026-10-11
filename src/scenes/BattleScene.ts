@@ -3011,9 +3011,11 @@ export class BattleScene extends BaseScene {
     if (this.shapeOpen || !this.kinds.includes('chips')) return;
     // the scripted tutorial has no Undo: its lesson keeps the field clear (TUT stories may introduce it)
     const undo = !this.tutorial;
-    const chips: { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; onClick: () => void }[] = [];
+    const chips: { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; iconOnly?: boolean; onClick: () => void }[] = [];
+    // placing a work: only Place, Turn and Cancel, in one row (FW-03; a second row would climb into the top bar on short screens)
+    const placing = !!this.worksGhost && this.worksShown();
     // deployment: Undo always there, greyed with its reason while empty (R4.2); online too, it is orders like any other
-    if (undo && this.sim.phase === 'deploy') {
+    if (undo && this.sim.phase === 'deploy' && !placing) {
       chips.push({ icon: 'back', label: t('undo.chip'), tip: t('undo.tip.deploy'), id: 'battle.undo', off: this.deployUndo.size ? undefined : t('undo.why.none'), onClick: () => this.undo() });
     }
     // Undo leads the chip row for 3 s after an order (controls.md R4.1; live online too: it is an order); paused, it takes back a planned order
@@ -3030,7 +3032,7 @@ export class BattleScene extends BaseScene {
     }
     // field works (FW-03): the Works key beside Undo (the sheet's header has no room for a third chip at 320 without an
     // ellipsis), then Place, Turn and Cancel while placing, or Remove for a selected work
-    if (this.worksShown()) chips.push({ icon: 'works', label: t('works.chip'), tip: t('works.tip.chip'), id: 'battle.works', lit: this.worksOpen, onClick: () => this.openWorks() });
+    if (this.worksShown() && !placing) chips.push({ icon: 'works', label: t('works.chip'), tip: t('works.tip.chip'), id: 'battle.works', lit: this.worksOpen, onClick: () => this.openWorks() });
     chips.push(...this.worksChips());
     if (sel && this.canCommand() && this.far.has(sel.id) && this.unlocks.toRange) {
       chips.push({ icon: 'advance', label: t('target.chip.advance'), tip: t('target.tip.advance'), id: 'battle.target.advance', onClick: () => this.advanceToRange() });
@@ -3042,16 +3044,26 @@ export class BattleScene extends BaseScene {
     let y = base - 2 - h;
     // a chip that would run under the medallion rail starts a row above (CT-04: no chip is dropped); left-hand: the rail is on the left
     const rail = this.kinds.includes('medallions') && this.abilityDefs().length ? MED_W + 4 : 0;
-    const x0 = this.leftHand ? rail + 2 : 4;
-    const right = this.m.VW - (this.leftHand ? 0 : rail) - 2;
+    const x00 = this.leftHand ? rail + 2 : 4;
+    const right0 = this.m.VW - (this.leftHand ? 0 : rail) - 2;
+    let x0 = x00;
+    let right = right0;
+    // a short field: a row level with the zoom key starts beside it, never under it
+    const row = () => {
+      const level = y < this.cornerY(!this.leftHand) + 22 + SIZE.gap * 2;
+      x0 = level && !this.leftHand ? Math.max(x00, 4 + 22 + SIZE.gap * 2) : x00;
+      right = level && this.leftHand ? Math.min(right0, this.m.VW - 4 - 22 - SIZE.gap * 2) : right0;
+    };
+    row();
     let x = x0;
     for (const c of chips) {
-      const w = Math.ceil(mw(c.label, 'light', 6.5)) + ICON_PX + 12;
+      const w = c.iconOnly ? SHEET_HEAD_H : Math.ceil(mw(c.label, 'light', 6.5)) + ICON_PX + 12;
       if (x > x0 && x + w > right) {
-        x = x0;
         y -= h + SIZE.gap;
+        row();
+        x = x0;
       }
-      const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, lit: c.lit, disabledReason: c.off, onClick: c.onClick });
+      const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, lit: c.lit, iconOnly: c.iconOnly, disabledReason: c.off, onClick: c.onClick });
       this.hud.add(b);
       if (c.id === 'battle.undo') this.undoChip = this.sim.phase === 'battle' ? b : null;
       else this.cmdBtns.set(c.id.slice('battle.'.length), b);
@@ -3611,14 +3623,14 @@ export class BattleScene extends BaseScene {
   }
 
   /** The placing chips (Place, Turn, Cancel) or Remove for a selected work: above the sheet, after Undo. */
-  private worksChips(): { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; onClick: () => void }[] {
+  private worksChips(): { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; iconOnly?: boolean; onClick: () => void }[] {
     if (!this.worksShown() || !this.worksOpen) return [];
     if (this.worksGhost) {
       const why = this.ghostWhy();
       return [
         { icon: why ? 'xmark' : 'check', label: t('works.chip.place'), tip: t('works.tip.place'), id: 'battle.works.place', off: why ? this.workWhyText(why) : undefined, onClick: () => this.placeWork() },
         { icon: 'march', label: t('works.chip.turn'), tip: t('works.tip.turn'), id: 'battle.works.turn', onClick: () => this.turnWork() },
-        { icon: 'close', label: t('works.chip.cancel'), tip: t('works.tip.cancel'), id: 'battle.works.cancel', onClick: () => this.cancelWork() },
+        { icon: 'close', label: t('works.chip.cancel'), tip: t('works.tip.cancel'), id: 'battle.works.cancel', iconOnly: true, onClick: () => this.cancelWork() },
       ];
     }
     if (this.worksSel >= 0) return [{ icon: 'close', label: t('works.chip.remove'), tip: t('works.tip.remove'), id: 'battle.works.remove', onClick: () => this.removeWork() }];
