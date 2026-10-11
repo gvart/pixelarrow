@@ -1,0 +1,23 @@
+src/ui/mosaic/campaignHub.ts
+  s_697bdc25a7c420::t_109295b2faa763 44-46,53-55,57-60
+  s_697bdc25a7c420::t_4c2476173f8531 50
+  s_697bdc25a7c420::t_84fd7caa48f059 1-43,47-49,51-52,56,61
+tests/hub.test.ts
+  s_697bdc25a7c420::t_59d5246ec9ec3a 1-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8eb7077af03af12154a421b4c1434afb2c703128",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
