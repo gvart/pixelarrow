@@ -1,0 +1,25 @@
+src/world/battlefield.ts
+  s_697bdc25a7c420::t_20fcdf24f15adf 15-16
+  s_697bdc25a7c420::t_e46947790878eb 248-249
+  s_697bdc25a7c420::t_10ae2ab9e95f83 202-203
+  s_697bdc25a7c420::t_5b96076e0eec78 258-307
+  s_697bdc25a7c420::t_8509d4606760fd 32-33
+src/data/arc.ts
+  s_697bdc25a7c420::t_1f10fdc2cfce04 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b86fb6a992ab7645fd13e3cd3d4632770822ff63",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
