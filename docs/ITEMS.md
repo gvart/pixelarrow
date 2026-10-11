@@ -325,8 +325,8 @@ Source: trading posts of Crete, Phoenicia and Scythia (epic slot); beast hoards 
 
 | Pieces worn | Bonus |
 | --- | --- |
-| 2 | +5% accuracy |
-| 3 | +4 ammo |
+| 2 | +2% accuracy (was +5%, EC-02) |
+| 3 | +2 ammo (was +4, EC-02) |
 | 4 | Rain of Arrows: every 5th shot looses 2 extra arrows |
 
 | Piece | Slot | Built on | Looks like |
@@ -342,9 +342,9 @@ Source: trading posts of Attica and Thessaly (epic slot); beast hoards (epic dro
 
 | Pieces worn | Bonus |
 | --- | --- |
-| 2 | +8 morale |
-| 3 | +1.5 armour |
-| 4 | Bond of the Band: every other set wearer within 3 units gives +4% damage and +3% block (up to 4) |
+| 2 | +2 morale (was +8, EC-02) |
+| 3 | +0.25 armour (was +1.5, EC-02) |
+| 4 | Bond of the Band: every other set wearer within 3 units gives +2% damage and +1% block (up to 4; was +4% / +3%, EC-02) |
 
 | Piece | Slot | Built on | Looks like |
 | --- | --- | --- | --- |
@@ -359,9 +359,9 @@ Source: world boss: the Kraken (40% of the chests of its contributors with at le
 
 | Pieces worn | Bonus |
 | --- | --- |
-| 2 | +10 HP |
-| 3 | +1.2 melee damage |
-| 4 | +3 armour |
+| 2 | +3 HP (was +10, EC-02) |
+| 3 | +0.4 melee damage (was +1.2, EC-02) |
+| 4 | +1 armour (was +3, EC-02) |
 | 5 | Heel of Achilles: -50% damage from front and side hits; rear hits deal +50% |
 
 | Piece | Slot | Built on | Looks like |
@@ -394,24 +394,26 @@ Source: world boss: the Titan (40% of the chests of its contributors with at lea
 ## Named legendaries
 
 Twelve fixed items, each from one boss. Always legendary, fixed stats (their
-base item at ×1.08, four fixed random stats picked to fit the story, plus the
-extra effect below) and a fixed grade II power. They are rare enough that
+base item at ×1.08, up to four fixed random stats picked to fit the story, plus the
+extra effect below) and a fixed grade II power. Eight of them were trimmed
+under the item power cap (EC-02, see "Item power cap" below); the Extra
+column shows today's numbers. They are rare enough that
 copies are not limited in an army; world bosses give at most one copy of
 their named item per player per season (see Sources).
 
 | Item | Slot | Built on | Power (II) | Extra | Source | Story |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Club of Herakles** (`herakles_club`) | Weapon | Club | Terror | +10% morale shock | Nemean Lion | Wild olive, torn from the ground at Nemea. |
-| **Nemean lion pelt** (`nemean_pelt`) | Armour | Hide jerkin | Unshaken | -40% missile damage taken | Nemean Lion | No arrow ever pierced it. |
+| **Nemean lion pelt** (`nemean_pelt`) | Armour | Hide jerkin | Unshaken | -40% missile damage taken (fixed stats 10 → 5 steps) | Nemean Lion | No arrow ever pierced it. |
 | **Bow of Philoctetes** (`philoctetes_bow`) | Weapon | Composite bow | Sunder | +0.5 range | Hydra | Herakles' bow; the arrows still carry the Hydra's venom. |
-| **Horn of the Minotaur** (`minotaur_horn`) | Trinket | Boar tusk | Momentum | +6 HP | Minotaur | Cut from the bull of the labyrinth. |
+| **Horn of the Minotaur** (`minotaur_horn`) | Trinket | Boar tusk | Momentum | +6 HP (fixed stats 10 → 6 steps) | Minotaur | Cut from the bull of the labyrinth. |
 | **Hammer of the Cyclopes** (`cyclops_hammer`) | Weapon | Bronze mace | Rend Armour | +1 melee damage | Cyclops | Struck the thunderbolts of Zeus. |
-| **Harpy-wing helm** (`harpy_helm`) | Helmet | Chalcidian helm | Battle Frenzy | +3% move speed | Harpies | Feathers that fell like knives. |
-| **Chimera-hide cuirass** (`chimera_cuirass`) | Armour | Horn scale | Retribution | +1 armour | Chimera | Lion, goat and serpent; it still smells of fire. |
-| **Trident of Poseidon** (`poseidon_trident`) | Weapon | Hasta | Executioner | +0.04 charge bonus | Kraken | Fished from the beast's jaws. |
-| **Aegis of Zeus** (`aegis_of_zeus`) | Shield | Silver aspis | Aegis | +5 morale | Titan | Goatskin of Amaltheia with the Gorgon's head. |
-| **Golden Fleece** (`golden_fleece`) | Trinket | Gold stag plaque | Second Wind | +10% bonus XP | duel ladder floor 50 boss | Taken from Colchis by Jason. |
-| **Helm of Hades** (`helm_of_hades`) | Helmet | Iron Boeotian helm | Steadfast | enemy missiles -30% accuracy against the wearer | duel ladder floor 40 boss | The Cap of Darkness. |
+| **Harpy-wing helm** (`harpy_helm`) | Helmet | Chalcidian helm | Battle Frenzy | +3% move speed (fixed stats 10 → 3 steps) | Harpies | Feathers that fell like knives. |
+| **Chimera-hide cuirass** (`chimera_cuirass`) | Armour | Horn scale | Retribution | none (armour 5.5 → 4.5, the base's; fixed stats 10 → 2 steps) | Chimera | Lion, goat and serpent; it still smells of fire. |
+| **Trident of Poseidon** (`poseidon_trident`) | Weapon | Hasta | Executioner | a heavier haft: attack 1.25 s (the hasta's 1.15 s), charge bonus 0.35; fixed stats 9 → 1 step | Kraken | Fished from the beast's jaws. |
+| **Aegis of Zeus** (`aegis_of_zeus`) | Shield | Silver aspis | Aegis | none: hoplon block 0.45 and armour 1, +2 morale (was the silver aspis +5 morale); fixed stats 10 → 1 step | Titan | Goatskin of Amaltheia with the Gorgon's head. |
+| **Golden Fleece** (`golden_fleece`) | Trinket | Gold stag plaque | Second Wind | +10% bonus XP (base cut to +1 morale, +0.05 charge, no HP; fixed stats 10 → 4 steps) | duel ladder floor 50 boss | Taken from Colchis by Jason. |
+| **Helm of Hades** (`helm_of_hades`) | Helmet | Iron Boeotian helm | Steadfast | enemy missiles -30% accuracy against the wearer (armour 4 → 3; fixed stats 10 → 1 step) | duel ladder floor 40 boss | The Cap of Darkness. |
 | **Harpe of Perseus** (`harpe_of_perseus`) | Weapon | Sica | Blood Price | +5% attack speed | duel ladder floor 30 boss | The sickle that took the Gorgon's head. |
 
 In battle the two extras that are not plain stats are `ItemDef.missileWard`
@@ -553,6 +555,58 @@ level 5 / level 10; "Now" at 400 seeds per cell, the first two columns at 120):
 
 Without their powers the epic kit now wins 67 / 66% and the legendary kit
 78 / 77%: a full set of powers is worth about 10 points.
+
+## Item power cap
+
+GDD_REVIEW N16 (EC-02): gear must not drift toward "stats decide". **No
+single item may add more than 10 win-rate points.**
+
+How it is measured (`itemCapReport` in `src/dev/rarityBalance.ts`, printed
+under the rarity mirror by `npm run balance`): the reference army of the rarity
+mirror (six hoplites, a swordsman, two peltasts, a slinger, all common, level 5
+and level 10). Side 0 fits the item to every man whose class may use it; side 1
+is the same army without it. An item no man of that army can use (a bow, a
+Sacred Band piece) replaces the last four men with the class that wears it
+most, so the wearers stay part of a mixed army. A set is judged by its bonus
+lines: both sides wear the pieces, side 1 with the bonus switched off. The
+delta is the win rate minus 50. A row is OVER when it is more than one
+standard error (50/√n points) above the cap.
+
+| Rule | Value |
+| --- | --- |
+| Cap | +10 points at level 5 and level 10 |
+| Cases | a plain legendary in each slot (rolls vary by seed), each named legendary, each set's bonus |
+| Judged at | 400 seeds (1 SE 2.5 points); `npm run balance` prints 120 seeds (1 SE 4.6) |
+
+**Live items.** Item instances store only id, rarity, condition and rolls
+(steps); their stats are computed from this data whenever they are used. The
+re-tune therefore changes owned items at use time, on client and server alike,
+with no save or server change; nothing is deleted or rerolled. Players are told
+in the release notes (docs/v5/PROPOSALS.md, R-1).
+
+What changed (before → after, 400 seeds, level 5 / level 10):
+
+| Item | Before | After | Change |
+| --- | --- | --- | --- |
+| Trident of Poseidon | +24 / +26 | +9 / +10 | attack 1.15 → 1.25 s, charge 0.39 → 0.35, fixed {dmg 3, atkSpeed 2, accuracy 2, moraleShock 2} → {accuracy 1} |
+| Aegis of Zeus | +5 / +32 | -6 / +11 | block 0.54 → 0.45, armour 2 → 1, morale 11 → 2, fixed {block 3, armour 3, hp 2, morale 2} → {hp 1} |
+| Golden Fleece | +11 / +21 | +1 / +10 | morale 5 → 1, charge 0.15 → 0.05, HP 4 → 0, fixed {hp 3, morale 3, …} → {stamina 2, xp 2} |
+| Helm of Hades | +21 / +19 | +10 / +7 | armour 4 → 3, fixed {hp 3, armour 2, morale 3, steady 2} → {steady 1} |
+| Chimera-hide cuirass | +9 / +16 | +4 / +10 | armour 5.5 → 4.5, fixed {hp 3, armour 3, stamina 2, steady 2} → {stamina 2} |
+| Harpy-wing helm | +16 / +15 | +10 / +8 | fixed {hp 3, armour 2, morale 3, steady 2} → {hp 1, morale 1, steady 1} |
+| Horn of the Minotaur | +16 / +15 | +9 / +9 | fixed {hp 3, morale 3, …} → {hp 1, morale 1, stamina 2, xp 2} |
+| Nemean lion pelt | +15 / +11 | +10 / +6 | fixed {hp 3, armour 3, stamina 2, steady 2} → {hp 1, armour 1, stamina 2, steady 1} |
+| Sacred Band set | +3 / +26 | +3 / +9 | 2: morale 8 → 2; 3: armour 1.5 → 0.25; Bond +4% dmg / +3% block → +2% / +1% per ally |
+| Arms of Achilles set | +0 / +26 | +0 / +9 | 2: HP 10 → 3; 3: dmg 1.2 → 0.4; 4: armour 3 → 1 |
+| Immortals set | +1 / +13 | +1 / +9 | 2: accuracy 5% → 2%; 3: ammo 4 → 2 |
+
+Powers, random-stat steps and `RARITY_MULT` are unchanged, so plain items and
+the rarity mirror do not move. Two plain rows sit just above the cap: a
+legendary **weapon** (+13 / +9 at 400 seeds; +11.7 at level 5 over 1,200 seeds)
+and **shield** (+10 / +12; +11.3 at level 5 over 1,200 seeds). They are the
+reference the cap is set against, the legendary kit is on its 85% target, and
+trimming them would weaken every legendary weapon and shield players own for
+about 1.5 points, so they are accepted and logged (EC-02.md).
 
 ## Code changes (built)
 
