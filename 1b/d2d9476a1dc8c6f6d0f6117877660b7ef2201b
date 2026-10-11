@@ -1,0 +1,30 @@
+tests/switchLayout.test.ts
+  s_697bdc25a7c420::t_c800a1c36ac8c2 1-34,36-37,39-46
+  s_697bdc25a7c420::t_e984f3e3370879 35,38
+src/ui/mosaic/policy.ts
+  s_697bdc25a7c420::t_5294ac95650ca7 117-118
+  s_697bdc25a7c420::t_ccccdd6c6e666f 95-98,126
+  s_697bdc25a7c420::t_cb3385c8485178 86-94,101-107,109-113,115-116,119-125,127-132
+  s_697bdc25a7c420::t_c91baf70feb88a 99-100,108,114
+src/ui/mosaic/controls.ts
+  s_697bdc25a7c420::t_c91baf70feb88a 370
+  s_697bdc25a7c420::t_f5410c997d41da 16,352-354,363-367,369,374-380,384,386,396,408,420,444-449
+  s_697bdc25a7c420::t_9e74d1d77d0de0 371-372
+  s_697bdc25a7c420::t_c3e33196e461aa 12,385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1bd2d9476a1dc8c6f6d0f6117877660b7ef2201b",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
