@@ -1,0 +1,20 @@
+docs/v5/stories/MKT-01/NOTES.md
+  s_697bdc25a7c420::t_fc5b7e6d0e1153 1-61,63,78,81
+  s_697bdc25a7c420::t_3b1b0e9a71ff8a 62,64-77,79-80,82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c9b6fda553c79b3a02693a2457f046691ab5f4bd",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
