@@ -129,7 +129,7 @@ describe('post-battle report', () => {
     expect(r.duration).toBe(Math.round(b.tick / TICK_RATE));
     expect(r.kills).toBe(outcome.enemyKilled);
     expect(r.enemyTotal).toBe(outcome.enemyTotal);
-    expect(r.losses).toBe(stats.filter((s) => s.side === 0 && s.dead).length);
+    expect(r.losses).toBe(stats.filter((s) => s.side === 0 && (s.dead || s.fled)).length);
     expect(r.gold).toBe(outcome.gold);
     expect(r.xp).toBe(outcome.heroes.reduce((a, h) => a + h.xp, 0));
     expect(r.heroes).toHaveLength(player.length);
