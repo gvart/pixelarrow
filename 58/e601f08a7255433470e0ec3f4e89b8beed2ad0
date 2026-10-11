@@ -1,0 +1,20 @@
+src/ui/beastInfo.ts
+  s_697bdc25a7c420::t_30dbf79fef565b 17,269-284
+  s_697bdc25a7c420::t_25899c37be6a23 4-10,16,34-61,132,134-135,144-145,154,162-164,168,171,174-183,185,216,220,225,228,231-232,257-259,263-268,285-289
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "58e601f08a7255433470e0ec3f4e89b8beed2ad0",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
