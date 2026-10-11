@@ -1,0 +1,20 @@
+src/scenes/HeroScene.ts
+  s_697bdc25a7c420::t_a43da93515c8f2 222,224,226-229,232-236
+  s_697bdc25a7c420::t_78947db1b3dfe1 230-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1da31354e5a6edff556c08ca30ae8201521fdc7e",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
