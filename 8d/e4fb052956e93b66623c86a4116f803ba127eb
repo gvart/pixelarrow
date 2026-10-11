@@ -1,0 +1,20 @@
+tests/campScene.test.ts
+  s_697bdc25a7c420::t_c11dafeccde792 1-56,58-119,122-137
+  s_697bdc25a7c420::t_08b14efa813a18 57,120-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8de4fb052956e93b66623c86a4116f803ba127eb",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
