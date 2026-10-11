@@ -11,6 +11,7 @@ import { BaseScene } from '../BaseScene';
 import { ScrollArea, addIcon, scaleIcon, type FontKey } from '../../ui/kit';
 import { MButton, SECTION_TITLE_H, SHEET_TITLE_H, SectionTitle, TAP, addCover, addPortraitWell, addSubShell, hasRaster, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, type ParchmentSheetHandle } from '../../ui/mosaic';
 import { makePressable } from '../../ui/mosaic/base';
+import { openOverlays } from '../../ui/mosaic/ParchmentSheet';
 import { uiId } from '../../ui/layout';
 import { MOSAIC, TEXT_MIN, lineHeight } from '../../ui/tokens';
 import { wrapText } from '../../ui/textfit';
@@ -69,10 +70,6 @@ export class ClanScene extends BaseScene {
 
   constructor() {
     super('OnlineClan');
-  }
-
-  preload(): void {
-    if (!this.textures.exists(ART.key)) this.load.image(ART.key, ART.file);
   }
 
   create(): void {
@@ -172,22 +169,30 @@ export class ClanScene extends BaseScene {
       ['people', t('clan.how.size', { max: ONLINE_RULES.clanMaxMembers })],
     ].map(([icon, text]) => [icon, wrapText(text, tw, 3, false, TEXT_MIN).lines.join('\n')] as [string, string]);
     const bulletH = (s: string) => Math.max(14, s.split('\n').length * LH + 4);
-    const hint = wrapText(t('clan.none.hint'), b.w - 16, 3, false, TEXT_MIN).lines;
-    const textH = 14 + LH + 6 + bullets.reduce((a, [, s]) => a + bulletH(s), 0) + 4 + hint.length * LH + 8 + TAP + 8;
+    // on the smallest screens the hint, then the lead line, give way so Found a clan stays on the card
+    let hint = wrapText(t('clan.none.hint'), b.w - 16, 3, false, TEXT_MIN).lines;
+    let lead = true;
+    const need = () => 14 + (lead ? LH + 6 : 0) + bullets.reduce((a, [, s]) => a + bulletH(s), 0) + 4 + hint.length * LH + 8 + TAP + 8;
+    if (need() > b.h - 6) hint = [];
+    if (need() > b.h - 6) lead = false;
+    const textH = need();
     const artH = Math.max(0, Math.min(96, b.h - textH - 4));
     const cardH = Math.min(b.h, artH + textH);
     const c = this.add.container(0, 0);
     this.ui.add(c);
     c.add(mosaicImage(this, b.x, b.y, b.w, cardH, 'parchment'));
     let y = b.y + 3;
+    if (artH >= 40 && !this.textures.exists(ART.key)) this.loadArt();
     if (artH >= 40 && hasRaster(this, ART.key)) {
       c.add(addCover(this, b.x + 3, y, b.w - 6, artH - 3, ART.key));
       y += artH;
     } else y += 3;
     c.add(mtext(this, b.x + b.w / 2, y, t('clan.none.title'), 'rInk', { size: 8, align: 0.5, maxW: b.w - 12 }));
     y += 14;
-    c.add(mtext(this, b.x + b.w / 2, y, t('clan.none.lead'), 'pInk', { size: TEXT_MIN, align: 0.5, maxW: b.w - 12 }));
-    y += LH + 6;
+    if (lead) {
+      c.add(mtext(this, b.x + b.w / 2, y, t('clan.none.lead'), 'pInk', { size: TEXT_MIN, align: 0.5, maxW: b.w - 12 }));
+      y += LH + 6;
+    }
     for (const [icon, s] of bullets) {
       const h = bulletH(s);
       const ic = scaleIcon(addIcon(this, 0, 0, icon, ''), 1.1);
@@ -201,6 +206,14 @@ export class ClanScene extends BaseScene {
     y += hint.length * LH + 8;
     const bw = Math.min(b.w - 16, 130);
     c.add(new MButton(this, Math.round(b.x + (b.w - bw) / 2), y, bw, TAP, { label: t('clan.found'), icon: 'flag', variant: 'primary', id: 'clan.found', onClick: () => void this.create_() }));
+  }
+
+  /** Load the fresco once, after the screen is up (a preload would hold the scene back), then redraw (not under an open sheet: the art waits for the next draw). */
+  private loadArt(): void {
+    if (this.load.isLoading()) return;
+    this.load.image(ART.key, ART.file);
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => this.sys.isActive() && this.loaded && !this.clan && !openOverlays(this).length && this.render());
+    this.load.start();
   }
 
   /** In a clan: the banner (crest, name, men, land, rank; Leave), the members, Invite at the foot. */

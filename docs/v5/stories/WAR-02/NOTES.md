@@ -31,3 +31,15 @@ All 14 rows kept: E283 sub-shell + Back → War hub; E284 states (+ Retry); E285
 8. **The struck list price is drawn over the button**, centred on it: MButton has one label and no strike style.
 9. **`showJoin()`** is split from `offerJoin()` so the sheet can be staged without the API (screenshots).
 10. **Skills**: game-ui-ux, localize, phaser-core, dev-story, story-done followed; agents ui-programmer, ux-designer, accessibility-specialist, localization-lead read and applied as checklists (no sub-agents: the user was asleep and the orchestrator asked for decisions to be noted).
+11. **The fresco loads after the screen is up**, not in `preload()`: a preload held `create()` back under load and the layout check's staging hit an unbuilt scene. It never redraws over an open sheet (the join offer). On the smallest canvas (320x568 in Telegram) the hint, then the lead line, give way so Found a clan stays on the card.
+
+## Shots
+
+`before-*` (v5 at f752a6f) and `after-*` (this branch), production build, DPR 2, JPEG under 150 KB: Clan (en 390), no clan (ru 360), manage sheet (ru 320), Merchant (en 390, scrolled to the capped War horn after), Merchant (ru 320), and the found-a-clan form (en 320). The full set (13 states x 3 sizes x en/ru) was looked at during the work.
+
+## Gates (2026-10-11, production build via `vite preview`)
+
+- `npx tsc --noEmit`: clean. `npx vite build`: OK.
+- `npx vitest run`: 101 files, 1292 tests; 1291 pass in the full run and `tests/simTypes.test.ts` timed out under machine load (load average 65), then passed alone (8/8). `tests/clan.test.ts`: 8 new.
+- `node scripts/layout-check.mjs --no-shots`: full run 24 configs x 158 screens, 0 new apart from two on `online-clan-none` at ru-tg-320x568, fixed (decision 11); the Clan and Merchant screens re-run at all 24 configs: 0 violations. `online-clan|text-size|*` cleared.
+- `node scripts/online-smoke.mjs`: ALL PASS. `node scripts/online-e2e.mjs` (wrangler dev + DEV_AUTH, vite dev): ALL PASS (clan founded, invite, join, duel).
