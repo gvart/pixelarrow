@@ -1,0 +1,31 @@
+src/ui/results/arcVictory.ts
+  s_697bdc25a7c420::t_0f8cedb2b96a42 60-63,66-67,78-79
+  s_697bdc25a7c420::t_1a6de44db8e779 16
+  s_697bdc25a7c420::t_5c7526826426cc 1-15,17-59,68-77,80,82-107
+  s_697bdc25a7c420::t_034bd4f877660a 64-65,81
+src/ui/results/tile.ts
+  s_697bdc25a7c420::t_e898f3a4faeaf1 1-7,9-56,60-74,76-108
+  s_697bdc25a7c420::t_a3a334cbff4d76 8,75
+  s_697bdc25a7c420::t_9808f968efa221 57-59
+src/ui/results/chips.ts
+  s_697bdc25a7c420::t_9e4845dfe8fe71 1-13,17-18,20,22-24,27,30,33
+  s_697bdc25a7c420::t_5e78272fa7ebe1 14-16,19,21,25-26,28-29,31-32
+src/ui/results/art.ts
+  s_697bdc25a7c420::t_270fbd4d87f376 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "43204565888a2ef2feca08f19756d6d7ffecf5f7",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
