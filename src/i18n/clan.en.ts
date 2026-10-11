@@ -18,8 +18,7 @@ export const CLAN_EN = {
   // ---- the clan
   'clan.men': '{n}/{max} men',
   'clan.regions': { one: '{n} region', other: '{n} regions' },
-  // the header: `regions` stays plural here (online-e2e waits for "REGIONS - LEADER"; see the WAR-02 notes)
-  'clan.stats': '{men} - {r} regions - {role}',
+  'clan.stats': '{men} · {regions} · {role}',
   'clan.role.leader': 'Leader',
   'clan.role.officer': 'Officer',
   'clan.role.member': 'Member',

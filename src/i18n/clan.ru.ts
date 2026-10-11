@@ -14,7 +14,7 @@ export const CLAN_RU: Record<keyof typeof CLAN_EN, Entry> = {
   'clan.found': 'Основать клан',
   'clan.men': '{n}/{max} воинов',
   'clan.regions': { one: '{n} область', few: '{n} области', many: '{n} областей', other: '{n} области' },
-  'clan.stats': '{men} · {r} обл. · {role}',
+  'clan.stats': '{men} · {regions} · {role}',
   'clan.role.leader': 'Вождь',
   'clan.role.officer': 'Командир',
   'clan.role.member': 'Воин',

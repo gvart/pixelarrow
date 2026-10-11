@@ -21,7 +21,7 @@ All 14 rows kept: E283 sub-shell + Back → War hub; E284 states (+ Retry); E285
 
 ## Decisions
 
-1. **The en clan header keeps the old " - " and a plural "regions"** ("3/30 men - 1 regions - Leader"); ru uses " · " and "обл.". `scripts/online-e2e.mjs` waits for `REGIONS - LEADER` right after founding (one region) and is not this story's file; with "1 region" it failed. Member rows use the proper plural. Follow-up for QA-02: match the rank instead, then switch en to " · " and the plural.
+1. **Clan header plural (Director's call):** "1 region / N regions" (ru plural forms), " · " separators. `scripts/online-e2e.mjs` now matches a case-insensitive regex on region(s) ... leader instead of the old literal.
 2. **Server error messages are English**, so the screen shows `clan.err.<code>` and a generic line for unknown codes. The form checks the server's own rules first (name 3-24 letters, digits, spaces, `'`, `-`; tag 2-5 Latin letters or digits).
 3. **The form stays HTML** and joins the Back stack through `navLayer` with a stand-in for the container. Its signature is unchanged, so DuelScene's rename prompt gets the new look too (and localized defaults).
 4. **Leave lives in the banner**, not in the footer or at the end of the list: at the list's end it would sit right above Invite on a full clan.

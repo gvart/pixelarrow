@@ -225,7 +225,7 @@ export class ClanScene extends BaseScene {
     const lw = Math.max(64, Math.min(90, Math.round(w * 0.42)));
     const stats = t('clan.stats', {
       men: t('clan.men', { n: cl.members.length, max: ONLINE_RULES.clanMaxMembers }),
-      r: cl.regions,
+      regions: t('clan.regions', { n: cl.regions }),
       role: this.role ? roleName(this.role) : '',
     });
     const statsLines = wrapText(stats, w - crest - 18, 2, false, TEXT_MIN).lines;

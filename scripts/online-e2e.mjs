@@ -144,7 +144,7 @@ await A.page.waitForSelector('#px-prompt input[name=name]');
 await A.page.fill('#px-prompt input[name=name]', `Lambda ${ids[0] % 1000}`);
 await A.page.fill('#px-prompt input[name=tag]', `L${ids[0] % 1000}`);
 await A.page.click('#px-prompt button[type=submit]');
-check('clan founded', await until(async () => (await sceneText(A, 'OnlineClan')).includes('REGIONS - LEADER'), 8000));
+check('clan founded', await until(async () => /\bregions?\b.*\bleader\b/i.test(await sceneText(A, 'OnlineClan')), 8000));
 await tapBtn(A, 'OnlineClan', 'Invite');
 check('invite link made', await until(() => ev(A, () => !!window.__game.scene.getScene('OnlineClan').lastInvite), 5000));
 const invite = await ev(A, () => window.__game.scene.getScene('OnlineClan').lastInvite);
