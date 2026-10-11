@@ -36,8 +36,11 @@ export const ASSAULT = { gates: 2, gateW: 3, rampartRows: 1 };
  * `tyrantLevel` with a legendary weapon. It marches `speed` x a band's pace
  * from the town farthest from the start (at least `minDist` tiles away when
  * it can) toward the starting town, and never leaves the field.
+ * Tuned by AR-04 (docs/v5/balance/AR-04.md) to the GDD's 40-55% for a
+ * prepared army: `mult` 1.0 (the GDD's 1.25 measured 3%; its range is
+ * 1.0-1.5) and levels 7-9 (the GDD's 8-10 measured 31-35% at 1.0).
  */
-export const HOST = { mult: 1.25, cap: 32, level: [8, 10] as [number, number], tier: 3, leanShare: 2 / 3, tyrantLevel: 10, speed: 1.2, minDist: 30 };
+export const HOST = { mult: 1.0, cap: 32, level: [7, 9] as [number, number], tier: 3, leanShare: 2 / 3, tyrantLevel: 10, speed: 1.2, minDist: 30 };
 
 /** A sacked starting town keeps its recruits and market shut this many days (R5.3). */
 export const SACK_DAYS = 5;

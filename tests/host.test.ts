@@ -39,11 +39,10 @@ function musterAll(seed = 5): Campaign {
 }
 
 describe('the host musters (R5.1, R5.2, F2)', () => {
-  it('F2: min(32, ceil(1.25 x R)), R at least 1', () => {
-    expect(hostSize(16)).toBe(20);
-    expect(hostSize(8)).toBe(10);
-    expect(hostSize(0)).toBe(2);
-    expect(hostSize(20)).toBe(25);
+  it('F2: min(32, ceil(HOST_MULT x R)), R at least 1', () => {
+    for (const r of [1, 8, 16, 20]) expect(hostSize(r)).toBe(Math.min(HOST.cap, Math.ceil(HOST.mult * r)));
+    expect(hostSize(0)).toBe(hostSize(1));
+    expect(hostSize(16)).toBe(16); // AR-04 tuned HOST_MULT to 1.0 (the GDD's range is 1.0-1.5)
     expect(hostSize(40)).toBe(HOST.cap);
   });
 
