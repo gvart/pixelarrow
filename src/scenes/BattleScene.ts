@@ -3691,7 +3691,8 @@ export class BattleScene extends BaseScene {
     const key = mark.ok ? 'check' : 'xmark';
     if (!this.ghostMark || !this.ghostMark.active || this.ghostMark.getData('k') !== key) {
       this.ghostMark?.destroy();
-      this.ghostMark = scaleIcon(addIcon(this, 0, 0, key, ''), 1.5).setOrigin(0.5, 0.5).setDepth(92001).setData('k', key);
+      this.ghostMark = scaleIcon((mark.ok ? addIcon(this, 0, 0, 'check') : addIcon(this, 0, 0, 'xmark')), 1.5).setOrigin(0.5, 0.5).setDepth(92001);
+      this.ghostMark.setData('k', key);
       this.world.add(this.ghostMark);
     }
     this.ghostMark.setPosition(Math.round(mark.x), Math.round(mark.y)).setVisible(true);
