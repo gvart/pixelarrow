@@ -24,6 +24,7 @@ import { ITEM_LIST, isBound, itemValue, normalizeItem, type Item } from '../data
 import { CONSUMABLES, CONSUMABLE_IDS, type ConsumableId } from '../data/consumables';
 import { hapticNotify } from '../platform/telegram';
 import { resolveBack } from '../platform/nav';
+import { fmtDuration } from '../util/format';
 import { uiCoin } from '../audio/hooks';
 import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
@@ -49,25 +50,35 @@ const ROW_TX = 33;
 const NAME_LH = 9;
 const SUB_LH = 8.5;
 
-/** A list row's text: the name in at most two lines (M-12), then the facts, joined on one line or one per line. */
-type RowText = { name: string[]; sub: string[] };
+/**
+ * A list row's text. Compact: the name on one line beside the right-hand control, the facts under it.
+ * Stacked (a name that does not fit there): the name across the row's full width in as many lines as it
+ * takes, then the facts beside the control. A name is never cut (only a single word wider than the row).
+ */
+type RowText = { stacked: boolean; name: string[]; sub: string[]; h: number };
 
-/** Lay out a row's text: no fact is cut while it fits on a line of its own (G14); only a longer name's second line is cut. */
-function rowText(name: string, font: FontKey, facts: string[], nameW: number, subW: number): RowText {
-  const ls = wrapWords(name, nameW, (x) => mw(x, font));
-  const nm = (ls.length > 2 ? [ls[0], ls.slice(1).join(' ')] : ls).map((l) => fit(l, font, 7, nameW));
+/** Height of the right-hand control (price button, Cancel listing). */
+const SIDE_H = 24;
+
+/**
+ * Lay out a row's text: `beside` is the text width next to the right-hand control, `full` the width across
+ * the row. The facts share a line when they fit, else take one line each (G14).
+ */
+function rowText(name: string, font: FontKey, facts: string[], beside: number, full: number, stackedSubW = beside, compactSubW = beside): RowText {
   const joined = facts.join(' · ');
-  const sub = mw(joined, 'pSec', TEXT_MIN) <= subW ? [joined] : facts.map((f) => fit(f, 'pSec', TEXT_MIN, subW));
-  return { name: nm, sub };
+  const subOf = (w: number) => (mw(joined, 'pSec', TEXT_MIN) <= w ? [joined] : facts.map((f) => fit(f, 'pSec', TEXT_MIN, w)));
+  if (mw(name, font) <= beside && mw(joined, 'pSec', TEXT_MIN) <= compactSubW) return { stacked: false, name: [name], sub: [joined], h: Math.max(32, Math.ceil(NAME_LH + SUB_LH + 8)) };
+  const nm = wrapWords(name, full, (x) => mw(x, font)).map((l) => fit(l, font, 7, full));
+  const sub = subOf(stackedSubW);
+  return { stacked: true, name: nm, sub, h: Math.ceil(4 + nm.length * NAME_LH + 2 + Math.max(SIDE_H, sub.length * SUB_LH) + 4) };
 }
 
-function textHeight(rt: RowText): number {
-  return rt.name.length * NAME_LH + rt.sub.length * SUB_LH;
-}
-
-/** Row height for its text: 32 UI px (P9 with art), taller when a name or the facts take two lines. */
-function rowHeight(rt: RowText): number {
-  return Math.max(32, Math.ceil(textHeight(rt) + 8));
+/** Where a row's lower block (the facts and the right-hand control) starts and how tall it is, in a row `rh` tall. */
+function lowBlock(rt: RowText, rh: number): { top: number; h: number } {
+  if (!rt.stacked) return { top: 0, h: rh };
+  const off = Math.floor((rh - rt.h) / 2);
+  const top = off + 4 + rt.name.length * NAME_LH + 2;
+  return { top, h: Math.max(SIDE_H, rt.sub.length * SUB_LH) };
 }
 
 interface MarketData {
@@ -321,7 +332,8 @@ export class MarketScene extends BaseScene {
     const now = Date.now();
     const list = new ScrollList(this, this.page, x0, y, w, h, {
       count: rows,
-      rowH: Math.max(...this.listings.map((l) => rowHeight(this.browseRow(b, l, w, now).text))),
+      // ScrollList renders rows `w - 3` wide
+      rowH: Math.max(...this.listings.map((l) => this.browseRow(b, l, w - 3, now).text.h)),
       fade: MOSAIC.parch,
       render: (i, row, rw, rh, area) => {
         if (i === this.listings.length) {
@@ -421,10 +433,9 @@ export class MarketScene extends BaseScene {
     const ended = act === 'none';
     const label = ended ? t('market.expired') : `${l.price}`;
     const bw = Math.min(ended ? 64 : 56, Math.max(40, mw(label, 'rCream', 7) + ICON_W + 14));
-    const tw = rw - ROW_TX - bw - 8;
     const font = l.kind === 'item' ? rarityInk(this, l.rarity) : 'pInk';
     const left = timeLeft(l.expiresAt, now);
-    const text = rowText(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, font, [l.seller.name ?? '?', ended ? priceText(l.price, l.currency) : left.text], tw, tw);
+    const text = rowText(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, font, [l.seller.name ?? '?', ended ? priceText(l.price, l.currency) : fmtDuration(left.ms)], rw - ROW_TX - bw - 8, rw - ROW_TX - 4);
     return { act, can, label, bw, font, text };
   }
 
@@ -432,7 +443,8 @@ export class MarketScene extends BaseScene {
     row.add(mosaicImage(this, 0, 0, rw, rh, l.mine ? 'parchmentWell' : 'parchment'));
     row.add(new ItemIcon(this, 4, Math.round((rh - 24) / 2), this.subject(l), { size: 24, area, qty: l.qty, rarity: l.kind === 'item' ? undefined : 'common', onTap: () => this.openListing(b, l) }));
     const { act, can, label, bw, font, text } = this.browseRow(b, l, rw, now);
-    const pb = new MButton(this, rw - bw - 3, Math.round((rh - 24) / 2), bw, 24, act === 'none'
+    const low = lowBlock(text, rh);
+    const pb = new MButton(this, rw - bw - 3, Math.round(low.top + (low.h - SIDE_H) / 2), bw, SIDE_H, act === 'none'
       ? { label, variant: 'disabled', disabledReason: t('market.expiredHint'), id: 'market.price' }
       : { label, icon: currencyIcon(l.currency), variant: 'secondary', id: 'market.price', onClick: () => this.openListing(b, l) });
     if (act === 'buy' && !can) pb.setEnabled(false, t('econ.noFunds'));
@@ -440,13 +452,18 @@ export class MarketScene extends BaseScene {
     this.drawRowText(row, rw, rh, text, font);
   }
 
-  /** The name lines and sub-lines of a row, centred in its height. */
+  /** The name lines and fact lines of a row: centred (compact), or the name on top and the facts centred in the lower block. */
   private drawRowText(row: Phaser.GameObjects.Container, rw: number, rh: number, rt: RowText, font: FontKey): void {
     const box = { owner: row, w: rw, h: rh };
-    let y = Math.round((rh - textHeight(rt)) / 2);
+    const subH = rt.sub.length * SUB_LH;
+    let y = rt.stacked ? Math.floor((rh - rt.h) / 2) + 4 : Math.round((rh - rt.name.length * NAME_LH - subH) / 2);
     for (const line of rt.name) {
       row.add(mtext(this, ROW_TX, y, line, font, { box }));
       y += NAME_LH;
+    }
+    if (rt.stacked) {
+      const low = lowBlock(rt, rh);
+      y = Math.round(low.top + (low.h - subH) / 2) - 1;
     }
     for (const line of rt.sub) {
       row.add(mtext(this, ROW_TX, y + 1, line, 'pSec', { size: TEXT_MIN, box }));
@@ -475,7 +492,7 @@ export class MarketScene extends BaseScene {
     const notes: Note[] = [
       { text: `${priceText(l.price, l.currency)} · ${t('market.by', { name: l.seller.name ?? '?' })}`, font: 'red' },
       { text: t('market.town', { name: l.town.name }) },
-      { text: left.ms ? t('market.left', { t: left.text }) : t('market.expired') },
+      { text: left.ms ? t('market.left', { t: fmtDuration(left.ms) }) : t('market.expired') },
       { text: t('market.feeLine', { gets: sellerGets(l.price, b.cat.market.feeRate), fee: marketFee(l.price, b.cat.market.feeRate) }) },
     ];
     const can = canAfford(l, { gold: b.profile?.resources.gold ?? null, drachmae: b.wallet.drachmae });
@@ -648,20 +665,25 @@ export class MarketScene extends BaseScene {
       const stF = statusFont[status] ?? 'pOff';
       const stW = Math.min(60, mw(stT, stF, TEXT_MIN));
       const font = l.kind === 'item' ? rarityInk(this, l.rarity) : 'pInk';
-      const text = rowText(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, font, [priceText(l.price, l.currency), t('market.youGet', { n: sellerGets(l.price, b.cat.market.feeRate) })], right - stW - 4 - ROW_TX, right - ROW_TX);
+      const facts = [priceText(l.price, l.currency), t('market.youGet', { n: sellerGets(l.price, b.cat.market.feeRate) })];
+      const name = `${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`;
+      // the status sits at the end of the name's first line; the facts take the width left of the Cancel listing button
+      const text = rowText(name, font, facts, right - stW - 4 - ROW_TX, rw - ROW_TX - 8 - stW, right - ROW_TX, right - ROW_TX);
       return { status, act, bw, right, stT, stF, font, text };
     };
     const list = new ScrollList(this, this.page, x0, y, w, h, {
       count: mine.listings.length,
-      rowH: Math.max(...mine.listings.map((l) => rowHeight(lay(l, w).text))),
+      rowH: Math.max(...mine.listings.map((l) => lay(l, w - 3).text.h)),
       fade: MOSAIC.parch,
       render: (i, row, rw, rh, area) => {
         const l = mine.listings[i];
         const { status, act, bw, right, stT, stF, font, text } = lay(l, rw);
         row.add(mosaicImage(this, 0, 0, rw, rh, status === 'open' ? 'parchment' : 'parchmentWell'));
         row.add(new ItemIcon(this, 4, Math.round((rh - 24) / 2), this.subject(l), { size: 24, area, qty: l.qty, onTap: () => this.openListing(b, l) }));
-        if (act === 'cancel') row.add(this.clearButton(rw - bw - 3, Math.round((rh - FILTER_H) / 2), () => this.askCancel(l), 'market.cancelRow', t('market.cancelListing')));
-        row.add(mtext(this, right, Math.round((rh - textHeight(text)) / 2), stT, stF, { size: TEXT_MIN, align: 1, maxW: 60, box: { owner: row, w: rw, h: rh } }));
+        const low = lowBlock(text, rh);
+        if (act === 'cancel') row.add(this.clearButton(rw - bw - 3, Math.round(low.top + (low.h - FILTER_H) / 2), () => this.askCancel(l), 'market.cancelRow', t('market.cancelListing')));
+        const stY = text.stacked ? Math.floor((rh - text.h) / 2) + 4 : Math.round((rh - NAME_LH - SUB_LH) / 2);
+        row.add(mtext(this, text.stacked ? rw - 4 : right, stY, stT, stF, { size: TEXT_MIN, align: 1, maxW: 60, box: { owner: row, w: rw, h: rh } }));
         this.drawRowText(row, rw, rh, text, font);
       },
     });

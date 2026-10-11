@@ -7,7 +7,8 @@ Spec: [screens-modes.md](../../../../design/ux/screens-modes.md) M-12, [interact
 - **Back (AC2).** `leave()` uses `resolveBack('Market', origin)`: the screen that opened it (War army, a stash item, the Shop card once SHP-01 adds it), else the **Shop hub** (N4). Before, no origin went to the War hub.
 - **Browse filters (MKT-2, P8).** Kind, Currency and Sort name their value with an icon. A tap opens a docked option sheet listing every value; the one in force is lit with a ✓. Two columns while every label keeps its icon, else one.
 - **Expired listings (MKT-1).** An ended listing shows a disabled **Expired** button (lock, grey stone) whose tap says why. Its price moves to the sub-line. A live listing keeps its price button.
-- **Rows (V5-060, G14).** All text is 6.5 UI px or more. A name takes up to two lines (M-12 "item name 2 lines"). The facts (seller and time left; price and "you get") share a line when they fit, else take one line each, so none is cut. Rows grow from 32 to fit.
+- **Rows (V5-060, G14).** All text is 6.5 UI px or more. A name that does not fit beside the price button takes the full row width, in as many lines as it needs, and is never cut. The facts (seller and time left; price and "you get") go under it, beside the button. They share a line when they fit, else take one line each. Rows grow from 32 to fit.
+- **Time left is localized** (`fmtDuration`: "14 ч 20 мин"), in the rows and on the goods card.
 - **Listing card.** Goods use a kit parchment sheet: icon, name, description, notes, Buy (primary) or Cancel listing, X only (G5). Items keep the shared item card (`sheet.ts`). Notes are one fact per line, wrapped, never cut.
 - **Confirms.** Buy and Cancel listing stay `confirmDialog` (the kit's confirm overlay). **Withdraw is renamed Cancel listing** (ia.md §5).
 - **Sell form (MKT-3, MKT-5).** A parchment sheet laid out from its own body width. It shows:
