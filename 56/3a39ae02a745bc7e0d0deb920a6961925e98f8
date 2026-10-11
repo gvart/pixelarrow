@@ -1,0 +1,28 @@
+src/duel/ladder.ts
+  s_697bdc25a7c420::t_c7a10c174ebc6b 52-59,62-74
+  s_697bdc25a7c420::t_f89560c6526db5 75
+server/src/tickets.ts
+  s_697bdc25a7c420::t_416ba7de7bfc49 97-99,101,107,113-116
+  s_697bdc25a7c420::t_114e13b0195bef 117
+server/test/ladderTicket.test.ts
+  s_697bdc25a7c420::t_7ca188a667d553 1-108
+server/src/duel/routes.ts
+  s_697bdc25a7c420::t_1fb9aa028ef5d9 454-455,461,482,496,499,510-516,523,529-545,547-562
+  s_697bdc25a7c420::t_259b8280331dd9 22,39,546
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "563a39ae02a745bc7e0d0deb920a6961925e98f8",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
