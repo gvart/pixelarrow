@@ -11,10 +11,10 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | EV-03 worktree-agent-a7208d2a8a7d67ab2 (deck ON) | — | integrator | — | merging |
-| nocompat | S4-NOCOMPAT (V5-074): remove compat scaffolding | tech-debt, save-systems | lead-programmer | worktree-agent | running |
-| shp-01 | W16 SHP-01: Shop hub (no price changes) | per card | per card | worktree-agent | running |
-| mkt-01 | W18 MKT-01: Market | per card | per card | worktree-agent | running |
+| (merge) | SHP-01 worktree-agent-a1f630f4bdc1c5e54, NOCOMPAT worktree-agent-ab0bb15b329ab8ff5, MKT-01 worktree-agent-af589a68c791967cd | — | integrator | — | merging |
+| fw-03 | W14 FW-03: works tray + campaign works/assault wiring | per card | per card | worktree-agent | running |
+| war-02 | W19 WAR-02: Clan + Merchant | per card | per card | worktree-agent | running |
+| wld-01 | W16 WLD-01: World map | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -64,6 +64,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 5070ff7 CDX-01 Codex; 5a17ad9 CT-07 orb/feint/Raise Standard. Gates: vitest 1209, layout 0 new (822 known), all smokes pass.
 - 5fc127f RD-03 why-line; 8075b8f AR-04 host + end state; 2b7bf4a ST-04 train 2 closed (13 v2 fixtures; Chromium hash parity 13/13). Gates: vitest 1276, server 340, layout 0 new (812 known), smokes pass; balance 53%, lairs 43/58/53, assault 45%, host 49%.
 - b4bda4a V5-074: no live users, backward compatibility dropped.
+- f752a6f EV-03 event card + journal, deck ON. Gates: vitest 1283/1284 (simTypes load timeout), layout 0 new (812 known), smokes pass.
 
 ## Queue (next)
 
@@ -117,6 +118,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 28. Follow-up: met doctrines are kept in localStorage (CDX-01), so move them to the save (cloud sync) in a later save-touching story. After CT-07 merges: FW-03, CT-06, BTL-01.
 
 29. Handoffs: RD-03 wraps Battle.prototype.drainEvents (BTL-01 should replace it with an explicit call); the RU enemy culture name is untranslated on Results; offline bounty dropped by settleBattle (RES-01); AR-04 host + AR-02 assaults need campaignSetup holdField/works plus WLD-02 map wiring; RES-01 Victory variant for arc 'won'.
+
+30. WLD-01 handoffs: RU 'ROAD' terrain untranslated in the World header and status; status line truncated; event card portrait placeholder. eventBalance rows aren't in `npm run balance` (src/dev/balance.ts).
 
 ## Blockers
 
