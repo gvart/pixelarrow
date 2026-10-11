@@ -1,0 +1,26 @@
+src/scenes/online/OnlineArmyScene.ts
+  s_697bdc25a7c420::t_d959f00ca73a9f 546,586-587
+src/scenes/online/beastPanel.ts
+  s_697bdc25a7c420::t_3507310a7312e8 30
+src/scenes/online/OnlineScene.ts
+  s_697bdc25a7c420::t_d959f00ca73a9f 697-702,854,877-884,1153
+  s_697bdc25a7c420::t_e84a5622008a89 899-900
+  s_697bdc25a7c420::t_3507310a7312e8 569,626,1141,1262
+  s_697bdc25a7c420::t_4ae51f87d1d731 871-876
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7bd69f5b4372e90857b25b0abbd6112830b68004",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
