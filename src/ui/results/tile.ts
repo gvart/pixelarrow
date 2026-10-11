@@ -26,11 +26,26 @@ export interface ResultTileOpts {
   delay?: number;
   /** A tick sound while counting. */
   sound?: boolean;
+  /** The number's size, the same on every tile of a row (tileNumSize of the widest); default: its own fit. */
+  numSize?: number;
+  /** Compact tiles: the icon beside the label (the caller decides for the whole row, so all tiles match). */
+  iconBeside?: boolean;
   id: string;
 }
 
 const NUM_SIZES = [11, 10, 9, 8, 7, TEXT_MIN];
 const ICON = 12;
+
+/** The largest number size that fits a `w` x `h` tile (compact tiles keep clear of the (i) on both sides). */
+export function tileNumSize(text: string, w: number, h: number): number {
+  const roomy = h >= 44;
+  const avail = h - 4 - (roomy ? ICON + 1 : 0) - 9 - 2;
+  const room = roomy ? w - 8 : w - 22;
+  return NUM_SIZES.find((z) => mw(text, 'pInk', z) <= room && Math.round((z * 11) / 7) <= avail) ?? TEXT_MIN;
+}
+
+/** Whether a compact tile `w` wide has room for its icon beside `label`. */
+export const iconFits = (label: string, w: number): boolean => mw(label, 'pSec', TEXT_MIN) + ICON + 1 <= w - 6;
 
 export class ResultTile extends Phaser.GameObjects.Container {
   readonly w: number;
@@ -48,15 +63,12 @@ export class ResultTile extends Phaser.GameObjects.Container {
     const box = { owner: this as Phaser.GameObjects.Container, w: this.w, h: this.h };
     const final = this.shown(o.value);
     const labelW = mw(o.label, 'pSec', TEXT_MIN);
-    // roomy: icon, number, label stacked; compact: the icon beside the label, when both fit
+    // roomy: icon, number, label stacked; compact: the icon beside the label, when every tile has room for it
     const roomy = this.h >= 44;
-    const iconBeside = !roomy && labelW + ICON + 1 <= this.w - 6;
+    const iconBeside = !roomy && !!o.iconBeside && iconFits(o.label, this.w);
     const iconH = roomy ? ICON + 1 : 0;
     const rowH = 9;
-    const avail = this.h - 4 - iconH - rowH - 2;
-    // compact: the number shares the top row with the (i), so it keeps clear of it on both sides
-    const numRoom = roomy ? this.w - 8 : this.w - 22;
-    const size = NUM_SIZES.find((z) => mw(final, font, z) <= numRoom && Math.round((z * 11) / 7) <= avail) ?? TEXT_MIN;
+    const size = Math.min(o.numSize ?? Infinity, tileNumSize(final, this.w, this.h));
     const numH = Math.round((size * 11) / 7);
     let ty = Math.max(2, Math.round((this.h - (iconH + numH + 2 + rowH)) / 2));
     if (roomy) {

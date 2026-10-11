@@ -27,7 +27,7 @@ import { ellipsize, wrapText } from '../ui/textfit';
 import { MOSAIC, RARITY_INK } from '../ui/tokens';
 import { GAP, addParchmentEmpty, MButton, ScreenFrame, SegmentedSwitch, SWITCH_H, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
 import { TEXT_MIN, lineHeight } from '../ui/tokens';
-import { ResultTile } from '../ui/results/tile';
+import { ResultTile, iconFits, tileNumSize } from '../ui/results/tile';
 import { addNoteChip } from '../ui/results/chips';
 import { buildArcVictory } from '../ui/results/arcVictory';
 import { CHEST_EMPTY_KEY, LAUREL_KEY, addCutout, cutoutW, preloadResultsArt } from '../ui/results/art';
@@ -423,6 +423,9 @@ export class ResultsScene extends BaseScene {
       r.glory !== undefined ? { icon: 'laurel', key: 'glory', tip: 'results.tip.glory', value: r.glory, prefix: '+', tone: 'good' } : { icon: 'coin', key: 'gold', tip: 'results.tip.gold', value: r.gold, prefix: '+', tone: 'good' },
       { icon: 'xp', key: 'xp', tip: 'results.tip.xp', value: r.xp, prefix: '+', tone: 'good' },
     ];
+    const iconBeside = tiles.every((tl) => iconFits(t(`results.tile.${tl.key}` as TKey), tw));
+    // one number size for the whole set, so a long clock doesn't make its tile look smaller
+    const numSize = Math.min(...tiles.map((tl) => tileNumSize(`${tl.prefix ?? ''}${tl.clock ? fmtClock(tl.value) : tl.value}`, tw, th)));
     tiles.forEach((tl, i) => {
       const row = Math.floor(i / 3);
       const inRow = row === 0 ? 3 : tiles.length - 3;
@@ -431,7 +434,7 @@ export class ResultsScene extends BaseScene {
       const y = row * (th + gap);
       const label = t(`results.tile.${tl.key}` as TKey);
       // the clock counts in m:ss
-      const tile = new ResultTile(this, x, y, tw, th, { icon: this.iconOr(tl.icon), label, value: tl.value, prefix: tl.prefix, format: tl.clock ? fmtClock : undefined, tone: tl.tone, duration: animate ? 900 : 0, delay: animate ? 150 + i * 160 : 0, sound: animate && !tl.clock, id: `stat.${tl.key}` });
+      const tile = new ResultTile(this, x, y, tw, th, { icon: this.iconOr(tl.icon), label, value: tl.value, prefix: tl.prefix, format: tl.clock ? fmtClock : undefined, tone: tl.tone, duration: animate ? 900 : 0, delay: animate ? 150 + i * 160 : 0, sound: animate && !tl.clock, iconBeside, numSize, id: `stat.${tl.key}` });
       const tween = tile.start();
       if (tween) this.pageTweens.push(tween);
       c.add(tile);
@@ -740,7 +743,15 @@ export class ResultsScene extends BaseScene {
     name.setCenterAlign();
     uiFrame(name, c, w, h);
     c.add(name);
-    c.add(mtext(this, w / 2, 52, `${t(`rarity.${rar}` as TKey)} ${Math.round(it.cond)}%`, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: w - 8, box: { owner: c, w, h } }));
+    // rarity and condition on one line when they fit; else the condition goes to the top corner (a number is never cut, G14)
+    const rarW = t(`rarity.${rar}` as TKey);
+    const cond = `${Math.round(it.cond)}%`;
+    const both = `${rarW} ${cond}`;
+    if (mw(both, 'pSec', TEXT_MIN) <= w - 8) c.add(mtext(this, w / 2, 52, both, 'pSec', { size: TEXT_MIN, align: 0.5, box: { owner: c, w, h } }));
+    else {
+      c.add(mtext(this, w / 2, 52, rarW, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: w - 8, box: { owner: c, w, h } }));
+      c.add(mtext(this, 4, 3, cond, 'pSec', { size: TEXT_MIN, box: { owner: c, w, h } }));
+    }
     if (sel) c.add(addIcon(this, w - 15, 4, 'check'));
     const z = this.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive();
     uiId(z, `results.loot${i}`);
