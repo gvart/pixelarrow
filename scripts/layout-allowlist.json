@@ -14,11 +14,7 @@
     "battle-shapes|text-size|*",
     "battle-works-field|text-size|*",
     "battle-works-place|text-size|*",
-    "battle-works|text-size|*",
-    "results-inspect|text-size|*",
-    "results-online|text-size|*",
-    "results-spoils|text-size|*",
-    "results|text-size|*"
+    "battle-works|text-size|*"
   ],
   "B": [
     "duel-board-live|text-size|*",
@@ -79,10 +75,6 @@
     "battle-works-field|text-size|*": "BTL-01",
     "battle-works-place|text-size|*": "BTL-01",
     "battle-works|text-size|*": "BTL-01",
-    "results-inspect|text-size|*": "RES-01",
-    "results-online|text-size|*": "RES-01",
-    "results-spoils|text-size|*": "RES-01",
-    "results|text-size|*": "RES-01",
     "duel-board-live|text-size|*": "DUE-02",
     "duel-board-raids|text-size|*": "DUE-02",
     "duel-chest-item|text-size|*": "DUE-01",

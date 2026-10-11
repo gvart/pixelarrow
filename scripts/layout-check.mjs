@@ -696,6 +696,20 @@ const SCREENS = [
   { id: 'results', owner: 'A', run: async (p) => (await results(p), wait(p, 300)) },
   { id: 'results-heroes', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('heroes'); return 1;`), wait(p, 2500)) },
   { id: 'results-spoils', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('spoils'); return 1;`), wait(p, 3500)) },
+  // RES-01: the Spoils empty state (painted chest) and the arc's Victory variant (company roll, set piece)
+  { id: 'results-empty', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.report.loot.length = 0; s.report.picks = 0; s.showPage('spoils'); return 1;`), wait(p, 600)) },
+  {
+    id: 'results-arc',
+    owner: 'A',
+    run: async (p) => {
+      await results(p);
+      await call(p, 'Results', `const st = window.__state; window.__arcWas = st.campaign.world.s.arc; st.campaign.world.s.arc = { stage: 'won' }; st.last.partyId = 1; s.report.loot.unshift({ uid: 'arc1', def: 'achilles_helm', rarity: 'legendary', cond: 100 }); s.scene.restart({}); return 1;`);
+      await wait(p, 1500);
+      // the variant is on show: put the arc back so the later screens see the fixture's campaign
+      await call(p, 'Results', `window.__state.campaign.world.s.arc = window.__arcWas; return 1;`);
+      return wait(p, 200);
+    },
+  },
   {
     id: 'results-inspect',
     owner: 'A',
