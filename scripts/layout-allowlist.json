@@ -42,7 +42,7 @@
   ],
   "C": [],
   "F": [
-    "kit-mosaic|text-size|*",
+    "kit-overlay-purchase|text-size|*",
     "tutorial-fight|text-size|*",
     "tutorial-loose|text-size|*",
     "tutorial-move|text-size|*",
@@ -88,7 +88,7 @@
     "online-army-recruit|text-size|*": "WAR-01",
     "online-army-stash|text-size|*": "WAR-01",
     "online-army|text-size|*": "WAR-01",
-    "kit-mosaic|text-size|*": "F-05",
+    "kit-overlay-purchase|text-size|*": "SHP-01",
     "tutorial-fight|text-size|*": "TUT-02",
     "tutorial-loose|text-size|*": "TUT-02",
     "tutorial-move|text-size|*": "TUT-02",

@@ -168,6 +168,20 @@ const SCREENS = [
   { id: 'kit-mosaic', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 4 }), wait(p, 900)) },
   { id: 'kit-parts', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 5 }), wait(p, 1200)) },
   { id: 'kit-shell', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 6 }), wait(p, 700)) },
+  // F-05: the v5 design-system pages (src/scenes/kit/catalog.ts KIT_PAGES) and overlay samples opened from the Kit
+  { id: 'kit-tokens', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'tokens' }), wait(p, 1200)) },
+  { id: 'kit-type', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'type' }), wait(p, 900)) },
+  { id: 'kit-states', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'states' }), wait(p, 1200)) },
+  { id: 'kit-overlays', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'overlays' }), wait(p, 900)) },
+  { id: 'kit-icons', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'icons' }), wait(p, 1200)) },
+  { id: 'kit-army', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'army' }), wait(p, 1500)) },
+  // 'confirm-over' then 'destructive': a destructive confirm over the sheet that asked (one sheet plus one confirm)
+  ...[['sheet'], ['sheet-actions'], ['decision'], ['footer-close'], ['confirm-over', 'destructive'], ['item'], ['purchase']].map((samples) => ({
+    id: `kit-overlay-${samples[0]}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Kit', { page: 'overlays' }), await wait(p, 600), await call(p, 'Kit', `${samples.map((x) => `s.openSample(${JSON.stringify(x)});`).join(' ')} return 1;`), wait(p, 700)),
+  })),
+  { id: 'kit-pages', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'tokens' }), await wait(p, 600), await call(p, 'Kit', 's.pageList(); return 1;'), wait(p, 500)) },
   // the shop with the API down (503): the "closed" state
   { id: 'menu-shop', owner: 'B', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openShop(); return 1;'), wait(p, 1200)) },
   // economy screens on the in-memory demo economy (src/ui/econ/demo.ts)

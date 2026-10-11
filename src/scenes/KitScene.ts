@@ -1,13 +1,18 @@
 /**
- * UI kit gallery (debug): the components of src/ui/widgets.ts, the v3 pieces and the v4 mosaic kit (src/ui/mosaic/) on tabs.
- * Not linked from the menu; open it with `?scene=Kit` or from a script
- * (`__game.scene.start('Kit')`). The layout check visits it, so the kit
- * itself stays within the rules (docs/UI_KIT.md).
+ * The UI kit gallery (debug, story F-05): the whole v5 design system on pages, walked with the pager
+ * at the top (its middle button lists every page). The v5 pages show every token, type role, control
+ * in its variants x states, overlay, icon and morale glyph, and the Army template; the older pages
+ * keep the v4 mosaic parts and the legacy widgets (src/ui/widgets.ts, v3).
+ *
+ * Players never reach it: nothing in the game links here. Open it with `?scene=Kit` (BootScene),
+ * `?scene=Kit&kit=<page id>` (src/scenes/kit/catalog.ts) or from a script
+ * (`__game.scene.start('Kit', { page: 'states' })`, or `{ tab }` as before). The layout check visits
+ * every page (`kit-*`), so the kit itself stays within the rules (docs/UI_KIT.md).
  */
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { Button, addPanel, addText } from '../ui/kit';
-import { Badge, Card, CountUp, Grid, ItemIcon, Label, ScrollList, StatBar, Tabs, confirmDialog, stackCards, toast, type IconSubject } from '../ui/widgets';
+import { Badge, Card, CountUp, Grid, ItemIcon, Label, ScrollList, StatBar, confirmDialog, stackCards, toast, type IconSubject } from '../ui/widgets';
 import { ScrollArea } from '../ui/kit';
 import { addScrollHint } from '../ui/widgets';
 import { ITEM_LIST, RARITIES } from '../data/items';
@@ -18,11 +23,26 @@ import { HEADER_H, InfoChip, Pager, ProgressBar, ScreenHeader, Stepper, Tile, To
 import { SURFACE } from '../ui/tokens';
 import { ellipsize } from '../ui/textfit';
 import { buildParts } from './kit/mosaicParts';
-import { BottomPanel, FrescoBanner, addSubShell, addParchmentEmpty, MButton, MChip, ParchmentCard, ParchmentRow, ProfileCard, QuestCard, ScreenFrame, SectionTitle, SegmentedSwitch, StoneTile, TabBar, TAB_H, TopBar, ROW_H, SECTION_TITLE_H, SWITCH_H, type TabId } from '../ui/mosaic';
+import { KIT_PAGES, SHELL_TAB, kitTab, stepPage } from './kit/catalog';
+import { Cursor } from './kit/common';
+import { buildTokens, buildType } from './kit/tokensPage';
+import { buildStates } from './kit/statesPage';
+import { buildOverlays, openOverlaySample } from './kit/overlaysPage';
+import { buildIcons } from './kit/iconsPage';
+import { buildArmy } from './kit/armyPage';
+import { BottomPanel, FrescoBanner, addSubShell, addParchmentEmpty, GAP, MButton, MChip, MIconButton, ParchmentCard, ParchmentRow, ProfileCard, QuestCard, ScreenFrame, SectionTitle, SegmentedSwitch, StoneTile, TabBar, TAB_H, TAP, TopBar, ROW_H, SECTION_TITLE_H, SWITCH_H, openParchmentSheet, type TabId } from '../ui/mosaic';
 
 interface KitData {
   tab?: number;
+  /** A page id (catalog.ts KIT_PAGES); `tab` wins when both are given. */
+  page?: string;
 }
+
+/** The v5 pages: their builder on a framed parchment page. */
+const V5_PAGES: Record<number, (cur: Cursor) => void> = { 7: buildTokens, 8: buildType, 9: buildStates, 10: buildOverlays, 11: buildIcons, 12: buildArmy };
+
+/** Height of the pager row at the top, UI px. */
+const HEAD = 30;
 
 export class KitScene extends BaseScene {
   private page: Phaser.GameObjects.Container | null = null;
@@ -35,19 +55,42 @@ export class KitScene extends BaseScene {
 
   create(data: KitData): void {
     this.initUi();
-    this.tab = data?.tab ?? 0;
+    this.tab = kitTab(data, location.search);
     this.screen({ back: () => this.scene.start('Menu', {}) });
     const { VW } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, this.m.VH, SURFACE.bg).setOrigin(0, 0));
-    // the sub-screen shell demo (tab 6) is a whole page of its own: no gallery title or tabs under it
-    if (this.tab === 6) return this.show(6);
-    this.ui.add(addText(this, VW / 2, 6, 'UI KIT', 'head', 0.5));
-    // a narrow canvas fits five 44 pt tabs no more: it keeps the three newest pages (the rest open with `data.tab`)
-    const pages = VW >= 190 ? [0, 1, 2, 3, 4, 5] : [3, 4, 5];
-    const names = ['Controls', 'Items', 'Lists', 'V3', 'Mosaic', 'Parts'];
-    const tabs = new Tabs(this, 6, 18, VW - 12, pages.map((i) => names[i]), { selected: Math.max(0, pages.indexOf(this.tab)), onChange: (i) => this.show(pages[i]) });
-    this.ui.add(tabs);
+    // the sub-screen shell demo is a whole page of its own: no pager over it
+    if (this.tab === SHELL_TAB) return this.show(SHELL_TAB);
+    const name = KIT_PAGES.find((p) => p.tab === this.tab)?.name ?? '';
+    const n = KIT_PAGES.findIndex((p) => p.tab === this.tab) + 1;
+    const mid = VW - 12 - 2 * (TAP + GAP);
+    this.ui.add(new MIconButton(this, 6, 4, TAP, TAP, { icon: 'chevL', label: 'Previous page', variant: 'neutral', id: 'kit.prev', onClick: () => this.go(stepPage(this.tab, -1)) }));
+    this.ui.add(new MButton(this, 6 + TAP + GAP, 4, mid, TAP, { label: `${name} ${n}/${KIT_PAGES.length}`, variant: 'secondary', id: 'kit.pages', onClick: () => this.pageList() }));
+    this.ui.add(new MIconButton(this, VW - 6 - TAP, 4, TAP, TAP, { icon: 'chevR', label: 'Next page', variant: 'neutral', id: 'kit.next', onClick: () => this.go(stepPage(this.tab, 1)) }));
     this.show(this.tab);
+  }
+
+  /** Opens page `tab` (a restart, so the pager's title follows; a relayout keeps it). */
+  private go(tab: number): void {
+    this.scene.restart({ tab });
+  }
+
+  /** Every page in a sheet: a tap opens it. */
+  pageList(): void {
+    const w = Math.min(200, this.m.VW - 16);
+    const bw = Math.floor((w - 16 - GAP) / 2);
+    const rows = Math.ceil(KIT_PAGES.length / 2);
+    const m = openParchmentSheet(this, { title: 'UI kit', w, h: 26 + rows * (TAP + GAP) + 12, id: 'kit.pageList' });
+    KIT_PAGES.forEach((p, i) => {
+      const x = m.body.x + (i % 2) * (bw + GAP);
+      const y = m.body.y + Math.floor(i / 2) * (TAP + GAP);
+      m.c.add(new MButton(this, x, y, i % 2 ? m.body.w - bw - GAP : bw, TAP, { label: p.name, variant: p.tab === this.tab ? 'lit' : 'neutral', id: `kit.page.${p.id}`, onClick: () => (m.close(), this.go(p.tab)) }));
+    });
+  }
+
+  /** Opens an overlay sample of the Overlays page (scripts, the layout check). */
+  openSample(id: string): void {
+    openOverlaySample(this, id);
   }
 
   private show(i: number): void {
@@ -57,7 +100,8 @@ export class KitScene extends BaseScene {
     this.page?.destroy();
     this.page = this.add.container(0, 0);
     this.ui.add(this.page);
-    if (i === 0) this.controls(this.page);
+    if (V5_PAGES[i]) this.v5(this.page, V5_PAGES[i]);
+    else if (i === 0) this.controls(this.page);
     else if (i === 1) this.items(this.page);
     else if (i === 2) this.lists(this.page);
     else if (i === 3) this.v3(this.page);
@@ -66,10 +110,24 @@ export class KitScene extends BaseScene {
     else this.shell(this.page);
   }
 
+  /** A v5 page: the screen frame with a top bar naming the page, a parchment scroll area, the page's parts in it. */
+  private v5(p: Phaser.GameObjects.Container, build: (cur: Cursor) => void): void {
+    const { VW, VH } = this.m;
+    const frame = new ScreenFrame(this, VW, VH, { y: HEAD });
+    p.add(frame);
+    p.add(new TopBar(this, frame.topBar, { title: KIT_PAGES.find((x) => x.tab === this.tab)?.name ?? 'Kit' }));
+    const c0 = frame.content;
+    const area = new ScrollArea(this, p, c0.x + 4, c0.y + 3, c0.w - 8, c0.h - 3, this.m.S);
+    this.cleanup.push(() => area.destroy());
+    const cur = new Cursor(this, area, c0.w - 8 - 4);
+    build(cur);
+    cur.done();
+  }
+
   /** The v3 component layer (src/ui/v3.ts): header, chips, tip, tiles, switches, progress, locked state, pager, real money. */
   private v3(p: Phaser.GameObjects.Container): void {
     const { VW, VH } = this.m;
-    const top = 48;
+    const top = HEAD + 4;
     const area = new ScrollArea(this, p, 6, top, VW - 12, VH - top - 6, this.m.S);
     this.cleanup.push(() => area.destroy());
     addScrollHint(this, p, area, SURFACE.bg);
@@ -108,13 +166,13 @@ export class KitScene extends BaseScene {
   /** The rest of the shared v4 parts (src/scenes/kit/mosaicParts.ts), each in its states, on a parchment page. */
   private parts(p: Phaser.GameObjects.Container): void {
     const { VW, VH } = this.m;
-    const frame = new ScreenFrame(this, VW, VH, { y: 46 });
+    const frame = new ScreenFrame(this, VW, VH, { y: HEAD });
     p.add(frame);
     p.add(new TopBar(this, frame.topBar, { title: 'Parts' }));
     const c0 = frame.content;
     const area = new ScrollArea(this, p, c0.x + 4, c0.y + 3, c0.w - 8, c0.h - 3, this.m.S);
     this.cleanup.push(() => area.destroy());
-    area.setContentHeight(buildParts(this, area, c0.w - 8 - 4, () => this.scene.restart({ tab: 6 })));
+    area.setContentHeight(buildParts(this, area, c0.w - 8 - 4, () => this.scene.restart({ tab: SHELL_TAB })));
   }
 
   /** The sub-screen shell (addSubShell): frame, back arrow, plaque, gear and a scroll area. Back returns to the Parts page. */
@@ -131,7 +189,7 @@ export class KitScene extends BaseScene {
   /** The v4 "Mosaic & Parchment" components (src/ui/mosaic/): a screen frame with a top bar, every component in its states, the tab bar at the bottom. */
   private mosaic(p: Phaser.GameObjects.Container): void {
     const { VW, VH } = this.m;
-    const frame = new ScreenFrame(this, VW, VH, { tabBar: TAB_H, y: 46 });
+    const frame = new ScreenFrame(this, VW, VH, { tabBar: TAB_H, y: HEAD });
     p.add(frame);
     const bar = new TopBar(this, frame.topBar, { title: 'Pixelarrow', back: this.inGameBack ? () => toast(this, 'Back') : undefined, actions: [{ icon: 'gear', label: 'Settings', onClick: () => toast(this, 'Settings'), badge: 2 }] });
     p.add(bar);
@@ -198,9 +256,9 @@ export class KitScene extends BaseScene {
     add(new SegmentedSwitch(this, 0, y, w, { options: [{ id: 'a', label: 'Gear' }, { id: 'b', label: 'Perks' }, { id: 'c', label: 'Skills' }], selected: 'b', onChange: (id) => toast(this, id) }));
     y += SWITCH_H + G + 2;
     for (const o of [
-      { icon: 'helmet', title: 'Next: Floor 5', subtitle: 'Team 43 pts, cap 76', value: '+80', onClick: () => toast(this, 'Row') },
-      { icon: 'people', title: 'Selected row', subtitle: 'The one you picked', selected: true, badge: 2, onClick: () => toast(this, 'Row') },
-      { icon: 'lock', title: 'Chapter 2', subtitle: 'Clear floor 10 to open', disabled: 'Clear floor 10 to open' },
+      { icon: 'helmet', title: 'Next: Floor 5', value: '+80', onClick: () => toast(this, 'Row') },
+      { icon: 'people', title: 'Selected row', selected: true, badge: 2, onClick: () => toast(this, 'Row') },
+      { icon: 'lock', title: 'Chapter 2', disabled: 'Clear floor 10 to open' },
       { title: 'A row with a very long title that cannot fit on one line', value: '12', onClick: () => toast(this, 'Row') },
     ] as const) {
       add(new ParchmentRow(this, 0, y, w, { ...o }));
@@ -229,7 +287,7 @@ export class KitScene extends BaseScene {
 
   private controls(p: Phaser.GameObjects.Container): void {
     const { VW, VH } = this.m;
-    const top = 48;
+    const top = HEAD + 4;
     const area = new ScrollArea(this, p, 6, top, VW - 12, VH - top - 6, this.m.S);
     this.cleanup.push(() => area.destroy());
     const c = area.content;
@@ -300,7 +358,7 @@ export class KitScene extends BaseScene {
     ITEM_LIST.forEach((d, i) => subjects.push({ item: { uid: `k${i}`, def: d.id, rarity: RARITIES[i % RARITIES.length], cond: 100 } }));
     CONSUMABLE_ICON_IDS.forEach((id) => subjects.push({ consumable: id }));
     RESOURCE_ICON_IDS.forEach((id) => subjects.push({ resource: id }));
-    const grid = new Grid(this, p, 6, 48, VW - 12, VH - 54, {
+    const grid = new Grid(this, p, 6, HEAD + 4, VW - 12, VH - HEAD - 10, {
       count: subjects.length,
       render: (i, cell, _size, area) => cell.add(new ItemIcon(this, 0, 0, subjects[i], { area, qty: 'item' in subjects[i] ? undefined : 3 + i })),
     });
@@ -309,8 +367,8 @@ export class KitScene extends BaseScene {
 
   private lists(p: Phaser.GameObjects.Container): void {
     const { VW, VH } = this.m;
-    const h = Math.round((VH - 54) * 0.5);
-    const list = new ScrollList(this, p, 6, 48, VW - 12, h, {
+    const h = Math.round((VH - HEAD - 10) * 0.5);
+    const list = new ScrollList(this, p, 6, HEAD + 4, VW - 12, h, {
       count: 500,
       rowH: SIZE.rowH,
       render: (i, row, w, rh) => {
@@ -322,6 +380,6 @@ export class KitScene extends BaseScene {
       id: () => 'kit.row',
     });
     this.cleanup.push(() => list.destroy());
-    p.add(addParchmentEmpty(this, 6, 48 + h + 4, VW - 12, VH - 54 - h - 4, { icon: 'tent', title: 'Empty stash', hint: 'Win battles to take loot from the field.', action: { label: 'Find a fight', onClick: () => toast(this, 'Off to war') } }));
+    p.add(addParchmentEmpty(this, 6, HEAD + 8 + h, VW - 12, VH - HEAD - 14 - h, { icon: 'tent', title: 'Empty stash', hint: 'Win battles to take loot from the field.', action: { label: 'Find a fight', onClick: () => toast(this, 'Off to war') } }));
   }
 }
