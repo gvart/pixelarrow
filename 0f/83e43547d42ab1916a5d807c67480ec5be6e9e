@@ -1,0 +1,20 @@
+src/scenes/duel/DuelScene.ts
+  s_697bdc25a7c420::t_e33524dccf50c0 1011,1076
+  s_697bdc25a7c420::t_47c23ddd1be0ec 1013,1030-1035,1081
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0f83e43547d42ab1916a5d807c67480ec5be6e9e",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
