@@ -235,14 +235,42 @@ export const CAPTAIN_RULES = {
   escapeCap: 3,
 };
 
-/** The largest and most seasoned a roaming band gets. */
-export const BAND_CAPS = { size: 18, level: 8 };
+/** The largest and most seasoned a roaming band gets (campaign-arc.md R3; 18 / 8 before the arc). */
+export const BAND_CAPS = { size: 22, level: 10 };
 
-/** A new band's men, level and gear tier by kind, the danger where it forms and the date (draws from `r`). */
-function bandShape(kind: BandKind, danger: number, days: number, r: Rng): { size: number; level: number; tier: number } {
-  if (kind === 'bandits') return { size: BANDIT_MIN + Math.round(danger * 5) + r.int(0, 2), level: 1 + Math.round(danger * 2 + days * 0.04), tier: danger > 0.7 ? 2 : 1 };
-  if (kind === 'raiders') return { size: 5 + Math.round(danger * 7) + r.int(0, 3), level: 1 + Math.round(danger * 3 + days * 0.05), tier: danger > 0.5 ? 2 : 1 };
-  return { size: 6 + Math.round(danger * 6) + r.int(0, 4), level: 2 + Math.round(danger * 2 + days * 0.05), tier: 2 };
+/**
+ * Tier 3 and late scaling (campaign-arc.md R3, TIER3_DAY / TIER3_LAIRS). The
+ * world's lair tier is 2 until `lairs` lairs have fallen or day `day`. From
+ * then on a new band forms at gear tier 3 where danger is over `danger`, and,
+ * once `lairs` lairs have fallen, whenever it is raiders or mercenaries.
+ */
+export const TIER3_RULES = { day: 50, lairs: 2, danger: 0.85 };
+
+/** The world's lair tier (R3): 3 once TIER3_RULES.lairs lairs have fallen or from day TIER3_RULES.day, else 2. */
+export function lairTier(days: number, lairsFallen: number): 2 | 3 {
+  return lairsFallen >= TIER3_RULES.lairs || days >= TIER3_RULES.day ? 3 : 2;
+}
+
+/** Does a new band of `kind` forming at `danger` get gear tier 3 (R3)? Never while the lair tier is 2. */
+export function tier3Band(kind: BandKind, danger: number, days: number, lairsFallen: number): boolean {
+  if (lairTier(days, lairsFallen) < 3) return false;
+  return danger > TIER3_RULES.danger || (lairsFallen >= TIER3_RULES.lairs && (kind === 'raiders' || kind === 'mercs'));
+}
+
+/**
+ * A new band's men, level and gear tier by kind, the danger where it forms,
+ * the date and the lairs fallen (draws from `r`; the tier-3 rule draws
+ * nothing, so the world's random sequence is what it was before R3).
+ */
+function bandShape(kind: BandKind, danger: number, days: number, lairsFallen: number, r: Rng): { size: number; level: number; tier: number } {
+  const shape =
+    kind === 'bandits'
+      ? { size: BANDIT_MIN + Math.round(danger * 5) + r.int(0, 2), level: 1 + Math.round(danger * 2 + days * 0.04), tier: danger > 0.7 ? 2 : 1 }
+      : kind === 'raiders'
+        ? { size: 5 + Math.round(danger * 7) + r.int(0, 3), level: 1 + Math.round(danger * 3 + days * 0.05), tier: danger > 0.5 ? 2 : 1 }
+        : { size: 6 + Math.round(danger * 6) + r.int(0, 4), level: 2 + Math.round(danger * 2 + days * 0.05), tier: 2 };
+  if (tier3Band(kind, danger, days, lairsFallen)) shape.tier = 3;
+  return shape;
 }
 
 /** The roll rate of each trigger (R3); a due flag event always fires. */
@@ -494,6 +522,16 @@ export class World {
 
   get days(): number {
     return this.s.time / 24;
+  }
+
+  /** Lairs the player has destroyed (campaign-arc.md R2). */
+  get lairsFallen(): number {
+    return Object.values(this.s.lairs).filter((l) => l.fallen).length;
+  }
+
+  /** The world's lair tier now (campaign-arc.md R3). */
+  get lairTier(): 2 | 3 {
+    return lairTier(this.days, this.lairsFallen);
   }
 
   /** Hour of the day, 0..24. */
@@ -819,7 +857,7 @@ export class World {
     if (!at) return null;
     const danger = dangerAt(this.map, home.x, home.y);
     const r = this.rng;
-    const { size, level, tier } = bandShape(kind, danger, this.days, r);
+    const { size, level, tier } = bandShape(kind, danger, this.days, this.lairsFallen, r);
     const p: PartyState = {
       id: this.s.nextParty++,
       kind,
@@ -1107,7 +1145,7 @@ export class World {
     const home = homes.reduce((b, st) => (dist(st) < dist(b) ? st : b), homes[0]);
     if (!at) at = this.nearestPassable(home.x, home.y, 4);
     if (!at) return null;
-    const shape = bandShape(kind, dangerAt(this.map, at.x, at.y), this.days, rng);
+    const shape = bandShape(kind, dangerAt(this.map, at.x, at.y), this.days, this.lairsFallen, rng);
     let seed = (rng.next() * 4294967296) >>> 0 || 1;
     while (mods.captain && kind !== 'mercs' && bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
     const p: PartyState = {

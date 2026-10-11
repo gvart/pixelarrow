@@ -4,7 +4,7 @@
  */
 import { RARITIES, isBound, itemDef, itemValue, normalizeRarity, salvageValue, type Item, type Slot } from '../data/items';
 import { encounterOf } from '../data/beasts';
-import { BEAST_NAMED, armyClasses, legendaryHoard, pityChest } from './sources';
+import { BEAST_NAMED, armyClasses, lairHoard, legendaryHoard, pityChest } from './sources';
 import { equipBlocker, equipFromStash, unequipInto } from './gear';
 import { MAX_ARMY, RECRUIT_COST, type Hero } from '../data/units';
 import { ATTR_MAX, PERKS, perkBlocker, type AttrId, type PerkId } from '../data/perks';
@@ -450,6 +450,21 @@ export class Campaign {
     const r = pityChest(outcome.loot, this.data.pity ?? 0, (it) => legendaryHoard(it, BEAST_NAMED[enc], `${this.data.seq ?? 0}:${it.uid}`));
     outcome.loot = r.items;
     this.data.pity = r.count;
+  }
+
+  /**
+   * The hoard of the fallen lair `lairId` (campaign-arc.md R6, src/game/sources.ts
+   * lairHoard): seeded by the world and the lair, following the army. The chest
+   * counts on the campaign's bad-luck counter `data.pity` like a beast's, so a
+   * due counter turns its best piece legendary. The caller (the assault's
+   * victory) puts the items where the player takes them.
+   */
+  lairHoard(lairId: number): Item[] {
+    const lair = this.world.map.settlements[lairId];
+    const seed = `${this.world.s.seed >>> 0}:${lairId}`;
+    const r = pityChest(lairHoard(seed, lair.culture, this.data, this.armyClasses()), this.data.pity ?? 0, (it) => legendaryHoard(it, [], `${seed}:${it.uid}`));
+    this.data.pity = r.count;
+    return r.items;
   }
 
   /**
