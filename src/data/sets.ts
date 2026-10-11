@@ -29,9 +29,9 @@ export const SETS: Record<string, SetDef> = {
   peltast: S('peltast', 'Peltast of Thrace', 'rare', [{ pieces: 2, mods: { speed: 0.06 } }, { pieces: 3, mods: { ammo: 1, rangedDmg: 1.3 } }]),
   cretan: S('cretan', 'Cretan Bowman', 'rare', [{ pieces: 2, mods: { range: 0.6 } }, { pieces: 3, mods: { accuracy: 0.05, ammo: 4 } }]),
   brennus: S('brennus', 'Warband of Brennus', 'epic', [{ pieces: 2, mods: { dmg: 1.5 } }, { pieces: 3, mods: { atkSpeed: 0.08 } }, { pieces: 4, special: 'war_cry' }]),
-  immortals: S('immortals', 'Immortals of Persia', 'epic', [{ pieces: 2, mods: { accuracy: 0.05 } }, { pieces: 3, mods: { ammo: 4 } }, { pieces: 4, special: 'rain_of_arrows' }]),
-  sacred_band: S('sacred_band', 'Sacred Band of Thebes', 'epic', [{ pieces: 2, mods: { morale: 8 } }, { pieces: 3, mods: { armor: 1.5 } }, { pieces: 4, special: 'bond_of_the_band' }]),
-  achilles: S('achilles', 'Arms of Achilles', 'legendary', [{ pieces: 2, mods: { hp: 10 } }, { pieces: 3, mods: { dmg: 1.2 } }, { pieces: 4, mods: { armor: 3 } }, { pieces: 5, special: 'heel_of_achilles' }]),
+  immortals: S('immortals', 'Immortals of Persia', 'epic', [{ pieces: 2, mods: { accuracy: 0.02 } }, { pieces: 3, mods: { ammo: 2 } }, { pieces: 4, special: 'rain_of_arrows' }]),
+  sacred_band: S('sacred_band', 'Sacred Band of Thebes', 'epic', [{ pieces: 2, mods: { morale: 2 } }, { pieces: 3, mods: { armor: 0.25 } }, { pieces: 4, special: 'bond_of_the_band' }]),
+  achilles: S('achilles', 'Arms of Achilles', 'legendary', [{ pieces: 2, mods: { hp: 3 } }, { pieces: 3, mods: { dmg: 0.4 } }, { pieces: 4, mods: { armor: 1 } }, { pieces: 5, special: 'heel_of_achilles' }]),
   alexander: S('alexander', 'Panoply of Alexander', 'legendary', [{ pieces: 2, mods: { morale: 8 } }, { pieces: 3, mods: { speed: 0.08 } }, { pieces: 4, mods: { chargeBonus: 0.15 } }, { pieces: 5, special: 'born_to_rule' }]),
 };
 
@@ -45,7 +45,7 @@ export const SET_RULES = {
   /** Rain of Arrows: every `every`-th shot looses `arrows` more. */
   rain: { every: 5, arrows: 2 },
   /** Bond of the Band: per other wearer within `radius` (up to `max`). */
-  bond: { radius: 3, dmg: 0.04, block: 0.03, max: 4 },
+  bond: { radius: 3, dmg: 0.02, block: 0.01, max: 4 },
   /** Heel of Achilles: damage taken from the front and side, and from behind. */
   heel: { front: 0.5, rear: 1.5 },
   /** Born to Rule: allies within `radius` deal +`dmg` and count +`morale` against routing. */
@@ -56,7 +56,7 @@ export const SET_RULES = {
 export const SET_SPECIAL_TEXT: Record<SetSpecial, string> = {
   war_cry: 'War Cry: when the foe first comes within 4, enemies there lose 10 morale; charges +20% shock',
   rain_of_arrows: 'Rain of Arrows: every 5th shot looses 2 more arrows',
-  bond_of_the_band: 'Bond of the Band: +4% damage and +3% block per set ally within 3 (up to 4)',
+  bond_of_the_band: 'Bond of the Band: +2% damage and +1% block per set ally within 3 (up to 4)',
   heel_of_achilles: 'Heel of Achilles: -50% damage from front and side, +50% from behind',
   born_to_rule: 'Born to Rule: allies within 4 +10% damage and +10 morale; his group never routs while he stands',
 };
