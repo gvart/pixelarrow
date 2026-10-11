@@ -2091,12 +2091,15 @@ export class BattleScene extends BaseScene {
       return;
     }
     const hs = this.hitState();
-    // a tap on the knob opens the facing pips: the single-tap alternative to the knob drag (A11Y-14)
-    if (grabAt(hs, { x, y }) === 'turn') {
+    // the facing pips, the single-tap alternative to the knob drag (A11Y-14): a tap on the knob in battle, or
+    // (both phases) on the selected group's own field badge. In deployment a tap on the knob's spot stays a
+    // tap-move there (the ground under the knob is a common place to send the group a few paces forward)
+    const hit = hitTest(hs, { x, y }).tap;
+    const ownTag = hit.kind === 'tag' && hit.gid === this.selGroup && this.selUnit < 0;
+    if (ownTag || (this.sim.phase === 'battle' && grabAt(hs, { x, y }) === 'turn')) {
       this.openPips();
       return;
     }
-    const hit = hitTest(hs, { x, y }).tap;
     if (hit.kind === 'tag') {
       // a floating group tag (a map marker) selects its group
       const g = this.sim.groups[hit.gid];
