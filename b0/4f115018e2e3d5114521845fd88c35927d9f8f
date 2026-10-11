@@ -1,0 +1,26 @@
+src/online/battleSource.ts
+  s_697bdc25a7c420::t_2768c30a2b1608 43,45-51
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_2768c30a2b1608 440
+src/duel/client.ts
+  s_697bdc25a7c420::t_27aa3ece0799cf 179-184,310-312,359-360
+  s_697bdc25a7c420::t_474c838514fb28 745,754,756
+tests/ladderPause.test.ts
+  s_697bdc25a7c420::t_75717a868ec84b 3,61,66-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b04f115018e2e3d5114521845fd88c35927d9f8f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
