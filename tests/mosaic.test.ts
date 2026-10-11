@@ -61,7 +61,7 @@ const GREYS: number[] = [MOSAIC.off, MOSAIC.offHi, MOSAIC.slab, MOSAIC.slabHi, M
 const PHONES = [160, 170, 180, 187, 195, 215];
 
 describe('tab bar labels (art bible 7.2: one face, one case, one size)', () => {
-  it('all five share a style; Cinzel only in capitals, Inter only as written; never under 6.5 except English at 320 px', () => {
+  it('all five share a style; Cinzel only in capitals, Inter only as written; never under 6.5 (HUB-02: English at 320 px too)', () => {
     for (const lang of LANGS) {
       setLang(lang);
       const labels = MODE_TABS.map((tab) => t(tab.key));
@@ -75,7 +75,7 @@ describe('tab bar labels (art bible 7.2: one face, one case, one size)', () => {
         } else expect(f.texts, where).toEqual(labels);
         // the 390 reference phone keeps Cinzel capitals (P19) in both languages
         if (VW >= 195) expect(f.style.face, where).toBe('roman');
-        expect(f.style.size, where).toBeGreaterThanOrEqual(lang === 'en' && VW < 170 ? 6 : TEXT_MIN);
+        expect(f.style.size, where).toBeGreaterThanOrEqual(TEXT_MIN);
       }
     }
     setLang('en');
