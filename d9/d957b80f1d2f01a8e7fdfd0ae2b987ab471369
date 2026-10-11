@@ -1,0 +1,24 @@
+scripts/layout-allowlist.json
+  s_697bdc25a7c420::t_f4dd6618056c95 4,16-17,75,87-88
+  s_697bdc25a7c420::t_cc2829191d0f05 15,86
+scripts/layout-check.mjs
+  s_697bdc25a7c420::t_69f2516c4506ef 620-621
+  s_697bdc25a7c420::t_bc6d264c70c864 86-87
+  s_697bdc25a7c420::t_bb29e1d3e0db8a 616-619,622-653
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d9d957b80f1d2f01a8e7fdfd0ae2b987ab471369",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
