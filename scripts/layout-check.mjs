@@ -639,6 +639,29 @@ const SCREENS = [
       return wait(p, 500);
     },
   },
+  // the Smith's forge (EC-01): the item list, one item, and one the purse cannot pay for
+  ...[
+    ['town-forge', 1240, ''],
+    ['town-forge-item', 1240, 's.openForgeItem("lc-forge-1");'],
+    ['town-forge-poor', 100, 's.openForgeItem("lc-forge-1");'],
+  ].map(([id, gold, open]) => ({
+    id,
+    owner: 'B',
+    run: async (p) => {
+      await ev(p, (g) => {
+        const c = window.__state.campaign;
+        c.data.gold = g;
+        if (!c.data.stash.some((i) => i.uid === 'lc-forge-1')) {
+          c.data.stash.push({ uid: 'lc-forge-1', def: 'falcata', rarity: 'legendary', cond: 90 }, { uid: 'lc-forge-2', def: 'linothorax', rarity: 'rare', cond: 100 });
+          c.data.heroes[0].equip.helmet = { uid: 'lc-forge-3', def: c.data.heroes[0].equip.helmet?.def ?? 'pilos', rarity: 'epic', cond: 100 };
+        }
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Settlement', { id: c.world.map.start, tab: 'rest' }));
+      }, gold);
+      await wait(p, 800);
+      await call(p, 'Settlement', `s.openForge(); ${open} return 1;`);
+      return wait(p, 500);
+    },
+  })),
   // ---- battle (owner A): deployment, the command panel, group assignment, retreat, online rules, the report
   { id: 'battle-deploy', owner: 'A', run: async (p) => (await battle(p), wait(p, 700)) },
   {
