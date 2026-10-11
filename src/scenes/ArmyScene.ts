@@ -170,8 +170,6 @@ export class ArmyScene extends BaseScene {
     area.setScroll(keep);
     // the card collapsed to one line over the top of the page (P21); the layout check's viewport shrinks under it
     const h = this.hero();
-    // the selected man's painted class bust loads on first use; the card redraws when it arrives
-    if (h) ensureBusts(this, [heroClass(h).id], () => this.refresh());
     this.clip = uiIgnore(this.add.zone(vx, top, vw, bottom - top).setOrigin(0, 0));
     this.ui.add(this.clip);
     uiClip(area.content, this.clip);
@@ -271,6 +269,8 @@ export class ArmyScene extends BaseScene {
       selectedSlot: this.tab === 'stash' ? this.stashState.slot : null,
     });
     for (const [s, o] of r.slots) this.slotObjs.set(s, o);
+    // the painted class bust loads on first use and is drawn into this card when it arrives (no rebuild under a tap)
+    ensureBusts(this, [heroClass(h).id], r.addBust);
     return y0 + r.h + 4;
   }
 

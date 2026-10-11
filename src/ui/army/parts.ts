@@ -93,6 +93,8 @@ export interface HeadOpts {
 export interface HeadResult {
   h: number;
   slots: Map<Slot, GearSlot>;
+  /** Draw the class bust into the card once it has loaded (busts load on first use). */
+  addBust: () => void;
 }
 
 /**
@@ -111,7 +113,10 @@ export function addArmyHead(scene: Phaser.Scene, parent: C, x0: number, y0: numb
   const box = { owner: card, w: cw, h: 400 };
   card.add(new Stage(scene, P, P, nw, nh, h, { scale: 2 }));
   addNiche(scene, card, P, P, nw, nh);
-  addClassBust(scene, card, P + 2, P + 2, 20, cls.id);
+  const addBust = () => {
+    if (card.scene) addClassBust(scene, card, P + 2, P + 2, 20, cls.id);
+  };
+  addBust();
   const st = src.status(h);
   if (st) armyPill(scene, card, P + 2, P + nh - armyPillH(st.text, nw - 4) - 2, st.text, ACCENT.dangerFill, nw - 4);
   // the right column
@@ -194,7 +199,7 @@ export function addArmyHead(scene: Phaser.Scene, parent: C, x0: number, y0: numb
   card.addAt(mosaicImage(scene, 0, 0, cw, ch, 'parchment'), 0);
   box.h = ch;
   parent.add(card);
-  return { h: ch, slots };
+  return { h: ch, slots, addBust };
 }
 
 /**
@@ -274,10 +279,20 @@ export function addRosterRow(scene: Phaser.Scene, row: C, w: number, rh: number,
   const name = mtext(scene, x, 3, h.name, 'rInk', { size: 7, maxW: nameW, box });
   row.add(uiId(name, 'roster.name'));
   if (pend) row.add(new MBadge(scene, x + name.width + 9, 7, pend));
-  const sub = `${t('hero.level', { n: h.level })} · ${className(h)}`;
-  row.add(mtext(scene, x, 13, sub, 'pSec', { size: TEXT_MIN, maxW: right - pt.width - 4 - x, box }));
-  if (st) row.add(mtext(scene, x, 23, st.text, st.bad ? 'pBad' : 'pSec', { size: TEXT_MIN, maxW: right - pt.width - 4 - x, box }));
-  else addStars(scene, row, x, 24, heroStars(h));
+  // Lv and the full class name (ARM-4); when both do not fit, the class keeps the line and Lv moves down
+  const room = right - pt.width - 4 - x;
+  const lv = t('hero.level', { n: h.level });
+  const both = `${lv} · ${className(h)}`;
+  const lvBelow = mw(both, 'pSec', TEXT_MIN) > room;
+  row.add(mtext(scene, x, 13, lvBelow ? className(h) : both, 'pSec', { size: TEXT_MIN, maxW: room, box }));
+  let x3 = x;
+  if (lvBelow) {
+    const lt = mtext(scene, x, 23, lv, 'pSec', { size: TEXT_MIN, box });
+    row.add(lt);
+    x3 += lt.width + 4;
+  }
+  if (st) row.add(mtext(scene, x3, 23, st.text, st.bad ? 'pBad' : 'pSec', { size: TEXT_MIN, maxW: right - pt.width - 4 - x3, box }));
+  else addStars(scene, row, x3, 24, heroStars(h));
 }
 
 // ------------------------------------------------------------------ the footer
