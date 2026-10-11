@@ -7,7 +7,7 @@ import Phaser from 'phaser';
 import { Button, addIcon, addText, panelImage, type UIMetrics } from './kit';
 import { ScrollList, Tabs, confirmDialog } from './widgets';
 import { Stepper, Toggle, openSheet } from './v3';
-import { SURFACE } from './tokens';
+import { SURFACE, TEXT_MIN } from './tokens';
 import { motion, setReducedMotion } from './motion';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { SIZE } from './theme';
@@ -18,7 +18,9 @@ import { audio } from '../audio';
 import { t, type LangSetting, type TKey } from '../i18n';
 import { refreshLang } from './lang';
 import { canResume, progressOf } from '../game/tutorial';
-import { openAbout, openNotifySettings } from './notifySettings';
+import { openAbout, openNotifySettings, settingsSheetW } from './notifySettings';
+import { addSyncBadge } from './online';
+import { online } from '../platform/cloud';
 import { analyticsToggled } from '../platform/monitoring';
 
 type ToggleKey = { [K in keyof Settings]-?: Settings[K] extends boolean ? K : never }[keyof Settings];
@@ -31,15 +33,21 @@ type Row =
   | { kind: 'lang' }
   | { kind: 'tutorial'; label: TKey }
   | { kind: 'open'; what: 'notify' | 'about'; label: TKey }
-  | { kind: 'newCampaign'; label: TKey };
+  | { kind: 'sync'; label: TKey }
+  | { kind: 'newCampaign'; label: TKey; sub: TKey };
 
 interface UiScene extends Phaser.Scene {
   ui: Phaser.GameObjects.Container;
   m: UIMetrics;
 }
 
-/** Grouped: Audio, Language, Battle pauses, Accessibility, Account. */
-const ROWS: Row[] = [
+/**
+ * Grouped: Audio, Language, Battle pauses, Accessibility, Account (M-15).
+ * A setting gets a row only once the game honours it: Reduce shake, Reduce
+ * flash, Left-hand and the default battle speed are saved (save v6) but wait
+ * for the stories that read them (FL-01, BTL-01, CT-06).
+ */
+export const ROWS: readonly Row[] = [
   { kind: 'section', label: 'settings.sec.audio' },
   { kind: 'toggle', key: 'sound', label: 'settings.sound' },
   { kind: 'volume', key: 'musicVol', label: 'settings.music' },
@@ -56,11 +64,12 @@ const ROWS: Row[] = [
   { kind: 'motion', label: 'settings.reduceMotion' },
   { kind: 'toggle', key: 'haptics', label: 'settings.haptics' },
   { kind: 'section', label: 'settings.sec.account' },
+  { kind: 'sync', label: 'menu.cloudSave' },
   { kind: 'tutorial', label: 'settings.tutorial' },
   { kind: 'open', what: 'notify', label: 'settings.notifications' },
   { kind: 'open', what: 'about', label: 'settings.about' },
   { kind: 'toggle', key: 'analytics', label: 'settings.analytics' },
-  { kind: 'newCampaign', label: 'settings.newCampaign' },
+  { kind: 'newCampaign', label: 'menu.newCampaign', sub: 'settings.newCampaignSub' },
 ];
 const LANGS_SET: LangSetting[] = ['auto', 'en', 'ru'];
 /** One icon per section. */
@@ -87,7 +96,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
   const { VW, VH } = scene.m;
   const rowH = 24;
   const step = rowH + SIZE.gap;
-  const w = Math.min(VW - 8, 240);
+  const w = settingsSheetW(VW);
   const want = 26 + ROWS.length * step + 14;
   const m = openSheet(scene, { title: t('settings.title'), w, h: Math.min(want, VH - 12), onClose });
   const { c, body } = m;
@@ -129,12 +138,23 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         );
         return;
       }
-      const right = r.kind === 'volume' ? 74 : r.kind === 'tutorial' || r.kind === 'open' || r.kind === 'newCampaign' ? 70 : 38;
-      // a label that does not fit goes onto two smaller lines (never cut)
-      const room = rw - right - 6;
+      const right = r.kind === 'volume' ? 74 : r.kind === 'sync' ? 30 : r.kind === 'tutorial' || r.kind === 'open' || r.kind === 'newCampaign' ? 70 : 38;
+      // a label that does not fit goes onto two lines at the readable floor (6.5 UI px, A11Y-09; never cut)
+      const room = rw - right - 10;
       const label = t(r.label);
-      if (measureText(label) <= room - 4) row.add(addText(scene, 6, 8, label, 'ink'));
-      else row.add(addText(scene, 6, 3, wrapText(label, room - 4, 2, false, 6).lines.join('\n'), 'ink').setFontSize(6).setLineSpacing(-1.5));
+      let sub: Phaser.GameObjects.BitmapText | null = null;
+      if (r.kind === 'newCampaign' || r.kind === 'sync') {
+        // the name, and under it what it does (MENU-7) or the cloud save's state (MENU-4)
+        const big = measureText(label) <= room;
+        const name = addText(scene, 6, 2, big ? label : ellipsize(label, room, false, TEXT_MIN), 'ink');
+        row.add(big ? name : name.setFontSize(TEXT_MIN));
+        sub = addText(scene, 6, 12, t(r.kind === 'sync' ? `settings.sync.${online.status}` : r.sub), 'dim').setFontSize(TEXT_MIN);
+        row.add(sub);
+      } else if (measureText(label) <= room) row.add(addText(scene, 6, 8, label, 'ink'));
+      else {
+        const lines = wrapText(label, room, 2, false, TEXT_MIN).lines;
+        row.add(addText(scene, 6, lines.length > 1 ? 3 : 8, lines.join('\n'), 'ink').setFontSize(TEXT_MIN).setLineSpacing(-1.5));
+      }
       if (r.kind === 'toggle') {
         const k = r.key;
         row.add(
@@ -185,7 +205,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
       } else if (r.kind === 'tutorial') {
         // replay the guided battle (or resume an interrupted one); never from inside a battle
         const resume = canResume(progressOf(s));
-        const b = new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t(resume ? 'settings.tutorialResume' : 'settings.tutorialReplay'), icon: 'play', inline: true, variant: 'ghost', small: true, tip: t('settings.tutorialTip'), id: 'settings.tutorial' });
+        const b = new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t(resume ? 'settings.tutorialResume' : 'settings.tutorialReplay'), icon: 'play', inline: true, small: true, tip: t('settings.tutorialTip'), id: 'settings.tutorial' });
         const busy = ['Battle', 'Results'].includes(scene.sys.settings.key);
         if (busy) b.setEnabled(false, t('settings.tutorialBusy'));
         b.setOnClick(() => {
@@ -198,11 +218,17 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         const b = new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.newCampaignGo'), icon: 'flag', inline: true, variant: 'destructive', small: true, id: 'settings.newCampaign', tip: t('menu.row.new') });
         const busy = ['Battle', 'Results'].includes(scene.sys.settings.key) || !state.hasSave;
         if (busy) b.setEnabled(false, state.hasSave ? t('settings.tutorialBusy') : t('menu.noSave'));
-        b.setOnClick(() => (m.close(), confirmNewCampaign(scene)));
+        b.setOnClick(() => confirmNewCampaign(scene));
         row.add(b);
+      } else if (r.kind === 'sync' && sub) {
+        // the cloud at the right explains itself on tap; the state line follows the cloud save live
+        addSyncBadge(scene, row, rw - 4 - 20, 8);
+        const word = sub;
+        const off = online.onStatus((st) => word.active && word.setText(t(`settings.sync.${st}`)));
+        word.once('destroy', off);
       } else if (r.kind === 'open') {
         const what = r.what;
-        row.add(new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.open'), icon: 'chevR', inline: true, variant: 'ghost', small: true, id: `settings.open.${what}`, onClick: () => (what === 'notify' ? openNotifySettings(scene) : openAbout(scene)) }));
+        row.add(new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.open'), icon: 'chevR', inline: true, small: true, id: `settings.open.${what}`, onClick: () => (what === 'notify' ? openNotifySettings(scene) : openAbout(scene)) }));
       }
     },
   });

@@ -62,7 +62,6 @@
   "F": [
     "codex|text-size|*",
     "kit-mosaic|text-size|*",
-    "menu-settings|text-size|*",
     "tutorial-fight|text-size|*",
     "tutorial-loose|text-size|*",
     "tutorial-move|text-size|*",
@@ -127,7 +126,6 @@
     "online-clan|text-size|*": "WAR-02",
     "codex|text-size|*": "CDX-01",
     "kit-mosaic|text-size|*": "F-05",
-    "menu-settings|text-size|*": "DLG-01",
     "tutorial-fight|text-size|*": "TUT-02",
     "tutorial-loose|text-size|*": "TUT-02",
     "tutorial-move|text-size|*": "TUT-02",

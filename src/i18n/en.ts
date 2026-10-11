@@ -31,6 +31,7 @@ import { HUB_EN } from './hub.en';
 import { FIRSTRUN_EN } from './firstrun.en';
 import { ARMY_V5_EN } from './army.v5.en';
 import { HERO_EN } from './hero.en';
+import { SETTINGS_EN } from './settings.en';
 
 export const EN = {
   // ---- shared words
@@ -334,4 +335,5 @@ export const EN = {
   ...ARMY_V5_EN,
   // ---- the v5 Hero screen (hero.en.ts)
   ...HERO_EN,
+  ...SETTINGS_EN,
 } as const;
