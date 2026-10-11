@@ -30,7 +30,9 @@ import { xpToNext, MAX_LEVEL, type Hero } from '../data/units';
 import { takeLoot } from '../game/loot';
 import { practiceOf, type Practice } from '../game/campaignBattle';
 import { fmtClock } from '../util/format';
-import { buildReport, type BattleReport, type HeroLine, type UnitStat } from '../game/report';
+import { buildReport, lastBattle, whyLine, WHY_MAX_LINES, type BattleReport, type HeroLine, type UnitStat, type WhyPart } from '../game/report';
+import { TICK_RATE } from '../sim/battle';
+import { isCaptain } from '../sim/stats';
 import { heroClass } from '../sim/stats';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify } from '../platform/telegram';
@@ -135,6 +137,14 @@ export class ResultsScene extends BaseScene {
     const x0 = this.box.x + 4;
     const W = this.box.w - 8;
     let ty = this.box.y + 4 + bannerH + subH + 6;
+    // why it went this way (battle-readability.md R5): under the banner, wrapped, never cut
+    const why = this.whyText(data.report !== undefined);
+    if (why) {
+      const line = new Label(this, this.box.x + this.box.w / 2, ty - 2, why, { maxW: W - 4, maxLines: WHY_MAX_LINES, font: 'pInk', align: 0.5 });
+      uiId(line, 'results.why');
+      this.ui.add(line);
+      ty += line.h + 4;
+    }
     // Reopened after the app closed mid-battle: the battle was fought out (V5-011).
     // In the layout under the banner, not a toast over it (it covered the header).
     if (!data.report && state.notice === 'battle.abandoned') {
@@ -163,6 +173,19 @@ export class ResultsScene extends BaseScene {
     }
   }
 
+  /**
+   * The why-line text. An online report is built away from the scene that
+   * fought it, so it gets the line here from that battle's log (same length
+   * in seconds); otherwise the report's own line (a defeat's fallback at least).
+   */
+  private whyText(online: boolean): string {
+    const r = this.report;
+    let parts: WhyPart[] = r.why ?? [];
+    const log = lastBattle.log;
+    if (online && log && Math.round(log.ticks / TICK_RATE) === r.duration) parts = whyLine(log, lastBattle.side, r.result, { enemyRetreated: r.enemyRetreated });
+    return parts.map((p) => t(p.key as TKey, p.params)).join(' ');
+  }
+
   /** The offline battle that just ended (state.last), as a report. */
   private offlineReport(): BattleReport | null {
     const last = state.last;
@@ -189,6 +212,9 @@ export class ResultsScene extends BaseScene {
       gold: o.gold,
       loot: o.loot,
       picks: o.picks,
+      // this battle's log, if the battle just ended in this session (not a report reopened from a save)
+      log: lastBattle.log && lastBattle.log.ticks === last.ticks ? lastBattle.log : null,
+      captains: last.enemy.heroes.filter(isCaptain).map((h) => h.id),
     });
     (r as BattleReport & { src?: unknown }).src = last;
     return r;
@@ -349,7 +375,9 @@ export class ResultsScene extends BaseScene {
       }
       y += pop.h + 5;
     }
-    for (const n of r.notes) {
+    // the captain's bounty (ai-doctrines.md R6, V5-042), already part of the gold
+    const notes = r.bounty > 0 ? [t('why.bounty', { n: r.bounty }), ...r.notes] : r.notes;
+    for (const n of notes) {
       const lab = new Label(this, w / 2, y, n, { maxW: w - 4, maxLines: 2, font: 'pSec', align: 0.5, area });
       c.add(lab);
       y += lab.h + 3;
