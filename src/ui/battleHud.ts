@@ -401,6 +401,44 @@ export class Medallion extends Phaser.GameObjects.Container {
   }
 }
 
+/** A facing pip's touch target (UI px): 44 pt (A11Y-06). Its disc is smaller. */
+export const PIP_D = 22;
+
+/**
+ * A facing pip (A11Y-14, CT-07): tap the knob, then tap one of these to turn
+ * the group without dragging. An ink disc with a gold rim and a cream arrow
+ * pointing the way the group will face on screen (`ang`, radians), so it reads
+ * on any ground (A11Y-03) and by shape, not colour (A11Y-04). Placed by its centre.
+ */
+export class FacingPip extends Phaser.GameObjects.Container {
+  constructor(scene: Phaser.Scene, cx: number, cy: number, ang: number, id: string, label: string, onTap: () => void) {
+    super(scene, Math.round(cx - PIP_D / 2), Math.round(cy - PIP_D / 2));
+    const c = PIP_D / 2;
+    const g = scene.add.graphics();
+    g.fillStyle(MOSAIC.ink, 0.88);
+    g.fillCircle(c, c, 8.5);
+    g.lineStyle(1, MOSAIC.meanderHi, 1);
+    g.strokeCircle(c, c, 8.5);
+    const co = Math.cos(ang);
+    const si = Math.sin(ang);
+    const at = (f: number, l: number) => ({ x: c + co * f - si * l, y: c + si * f + co * l });
+    const [a, b, d] = [at(5.5, 0), at(-3.5, 4), at(-3.5, -4)];
+    g.fillStyle(0xfff4c0, 1);
+    g.fillTriangle(a.x, a.y, b.x, b.y, d.x, d.y);
+    this.add(g);
+    this.setSize(PIP_D, PIP_D);
+    this.setInteractive(new Phaser.Geom.Rectangle(PIP_D / 2, PIP_D / 2, PIP_D, PIP_D), Phaser.Geom.Rectangle.Contains);
+    uiId(this, id);
+    tappable(this, null, onTap, () => label);
+    scene.add.existing(this);
+  }
+
+  /** Follow the group (the camera may move while the pips are open). */
+  follow(cx: number, cy: number): void {
+    this.setPosition(Math.round(cx - PIP_D / 2), Math.round(cy - PIP_D / 2));
+  }
+}
+
 // ---- HUD rules (pure: no Phaser, tested in tests/battleLiveFixes.test.ts)
 
 /** The group numerals, as on the cards and the field badges. */
