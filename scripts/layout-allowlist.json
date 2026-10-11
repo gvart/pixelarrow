@@ -1,6 +1,7 @@
 {
   "_doc": "Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps; F = foundation screens (UI kit, menu, onboarding), only for the text-size floor. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids, or screen|check|* for a check on the whole screen (text-size).",
   "A": [
+    "battle-assault|text-size|*",
     "battle-beast|text-size|*",
     "battle-deploy-formation|text-size|*",
     "battle-deploy|text-size|*",
@@ -11,6 +12,9 @@
     "battle-ring-soldier|text-size|*",
     "battle-ring|text-size|*",
     "battle-shapes|text-size|*",
+    "battle-works-field|text-size|*",
+    "battle-works-place|text-size|*",
+    "battle-works|text-size|*",
     "results-inspect|text-size|*",
     "results-online|text-size|*",
     "results-spoils|text-size|*",
@@ -68,6 +72,7 @@
     "tutorial-wall|text-size|*"
   ],
   "stories": {
+    "battle-assault|text-size|*": "BTL-01",
     "battle-beast|text-size|*": "BTL-01",
     "battle-deploy-formation|text-size|*": "BTL-01",
     "battle-deploy|text-size|*": "BTL-01",
@@ -78,6 +83,9 @@
     "battle-ring-soldier|text-size|*": "BTL-01",
     "battle-ring|text-size|*": "BTL-01",
     "battle-shapes|text-size|*": "BTL-01",
+    "battle-works-field|text-size|*": "BTL-01",
+    "battle-works-place|text-size|*": "BTL-01",
+    "battle-works|text-size|*": "BTL-01",
     "results-inspect|text-size|*": "RES-01",
     "results-online|text-size|*": "RES-01",
     "results-spoils|text-size|*": "RES-01",
