@@ -24,6 +24,9 @@ import { Rng } from '../sim/rng';
 import { SPACING, formationSlots, presetFrontage, rightOf, type FormationType } from '../sim/formation';
 import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import { grabAt, hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
+import { SPEEDS, nextSpeed, paceMode, realtimeLocked, speedLabel, startSpeed, type PaceMode } from '../ui/input/pace';
+import { ladderDeadline } from '../duel/client';
+import { LADDER, ticketClock } from '../duel/ladder';
 import { battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind, type Unlocks } from '../ui/input/attention';
 import { FACING_DIRS, mirrorX, nextZoom, pipSlot } from '../ui/input/singleTap';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
@@ -186,6 +189,13 @@ export class BattleScene extends BaseScene {
   private decals: Phaser.GameObjects.Image[] = [];
   private paused = false;
   private speed = 1;
+  /** Who may pause and at what speeds (controls.md R10; src/ui/input/pace.ts). */
+  private pace: PaceMode = 'offline';
+  /** A ladder floor: when its ticket runs out (Date.now() ms), else null (CT-06). */
+  private ladderEnd: number | null = null;
+  /** The ladder ticket's seconds left last shown (-1: no countdown yet) and the banners given (1: soon, 2: expired). */
+  private ticketSecs = -1;
+  private ticketStage = 0;
   private acc = 0;
   private selGroup = -1;
   private selUnit = -1;
@@ -338,9 +348,18 @@ export class BattleScene extends BaseScene {
     return this.me === 0 ? 1 : 0;
   }
 
-  /** Online battles (attacks and duels) run in real time: no pause, no auto-pause, no speed-up. */
+  /** An online battle (attack, ladder floor or live duel): the server fixed its setup, a timed deployment. */
   private get online(): boolean {
     return !!this.src;
+  }
+
+  /**
+   * The battle cannot pause, auto-pause or change speed (controls.md R10):
+   * live duels, async raids and war-map attacks. Offline battles and the duel
+   * ladder (a bot, verified by replay after) may.
+   */
+  private get realtimeLocked(): boolean {
+    return realtimeLocked(this.pace);
   }
 
   constructor() {
@@ -419,6 +438,12 @@ export class BattleScene extends BaseScene {
     this.lastTickSound = -1;
     this.src = data?.source ?? null;
     this.tutorialData = !this.src && data?.tutorial ? data.tutorial : null;
+    this.ladderEnd = this.src ? ladderDeadline(this.src.setup) : null;
+    this.pace = paceMode(!!this.src, this.ladderEnd !== null);
+    // the saved battle speed (A11Y-21), within what this battle offers; the scripted tutorial runs at 1×
+    this.speed = this.tutorialData ? 1 : startSpeed(this.pace, state.campaign.data.settings.battleSpeed);
+    this.ticketSecs = -1;
+    this.ticketStage = 0;
     this.tutorial = null;
     this.me = this.src?.side ?? 0;
     this.dclock = this.src ? createDeployClock(this.src.lockstep ? 'duel' : 'attack') : null;
@@ -432,7 +457,7 @@ export class BattleScene extends BaseScene {
       kind: this.src ? 'online' : this.tutorialData ? 'tutorial' : 'campaign',
       fought: camp.data.fought,
       campPitched: !!camp.data.world.camp || camp.world.hasFlag(WORKS_SEEN_FLAG),
-      realtimeLocked: this.online,
+      realtimeLocked: this.realtimeLocked,
     });
     this.leftHand = !!camp.data.settings.leftHand;
     let heroes: Hero[];
@@ -581,7 +606,7 @@ export class BattleScene extends BaseScene {
       back: () => (this.tutorial ? this.tutorial.askSkip() : this.sim.phase === 'deploy' ? this.confirmLeaveDeploy() : this.openRetreat()),
       confirmClose: true,
       settings: () => {
-        if (this.sim.phase === 'battle' && !this.paused && !this.online) this.setPaused(true);
+        if (this.sim.phase === 'battle' && !this.paused && !this.realtimeLocked) this.setPaused(true);
         openSettings(this);
       },
     });
@@ -590,7 +615,9 @@ export class BattleScene extends BaseScene {
       return;
     }
     const where = terrain.name ? ` - ${terrain.name}` : '';
-    this.showBanner(`${t('battle.banner.deploy', { vs: this.vsLabel() })}${where}`, 3000);
+    // before the start, say whether this battle can pause (A11Y-18; controls.md R10)
+    const pace = this.realtimeLocked ? t('pace.locked') : this.pace === 'ladder' ? t('pace.ladder', { m: LADDER.ticketMin }) : '';
+    this.showBanner(`${t('battle.banner.deploy', { vs: this.vsLabel() })}${where}${pace ? `\n${pace}` : ''}`, pace ? 4500 : 3000, pace ? 4 : 2);
     this.showGestureHint();
   }
 
@@ -787,6 +814,7 @@ export class BattleScene extends BaseScene {
       this.runDeployActions(tickDeploy(this.dclock, Math.min(delta, 250)));
       this.updateCountdown();
     }
+    this.updateTicket();
     if (this.sim.phase === 'battle' && !this.paused) {
       this.acc += Math.min(0.25, delta / 1000) * this.speed;
       let steps = 0;
@@ -1590,10 +1618,10 @@ export class BattleScene extends BaseScene {
     this.tweens.add({ targets: s, alpha: 0, duration: 180, onComplete: () => s.destroy() });
   }
 
-  /** Offline only: stop the battle so the player can react. Online the message just shows. */
+  /** Offline and on the ladder: stop the battle so the player can react. Real-time locked, the message just shows. */
   private autoPause(msg: string, always = false): void {
     if (this.tutorialData) return; // the tutorial pauses for itself
-    if (this.online) {
+    if (this.realtimeLocked) {
       this.showBanner(msg, 2200);
       return;
     }
@@ -2311,7 +2339,7 @@ export class BattleScene extends BaseScene {
 
   /** Paused offline in battle: orders go to the plan, not the sim (R6.1). Never online: those battles never pause. */
   private staging(): boolean {
-    return this.paused && !this.online && !this.tutorial && this.sim.phase === 'battle';
+    return this.paused && !this.realtimeLocked && !this.tutorial && this.sim.phase === 'battle';
   }
 
   /** Then… is offered: offline battles only (R10b: live online shows no Then chip), not in the scripted tutorial. */
@@ -2572,7 +2600,7 @@ export class BattleScene extends BaseScene {
   // ===================================================================== HUD
 
   setPaused(p: boolean): void {
-    if (p && this.online) return; // online battles never pause
+    if (p && this.realtimeLocked) return; // live duels, raids and attacks never pause
     // Play issues the staged plan at the resume tick (controls.md R6.1)
     if (!p && this.paused) this.flushPlan();
     this.paused = p;
@@ -2582,7 +2610,7 @@ export class BattleScene extends BaseScene {
   }
 
   private togglePause(): void {
-    if (this.sim.phase !== 'battle' || this.online) return;
+    if (this.sim.phase !== 'battle' || this.realtimeLocked) return;
     this.setPaused(!this.paused);
   }
 
@@ -2680,7 +2708,7 @@ export class BattleScene extends BaseScene {
     this.hud.add(this.top);
     // following the fight: a small eye at the field's top right (battle only); left-hand mode mirrors it (A11Y-16)
     const pillW = VW - 2 * 30;
-    if (this.sim.phase === 'battle' && !this.online) {
+    if (this.sim.phase === 'battle' && !this.realtimeLocked) {
       const fb = new KeyButton(this, mirrorX(VW - 26, 22, VW, this.leftHand), this.cornerY(this.leftHand), 22, 22, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), lit: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
       this.hud.add(fb);
       this.followBtn = fb;
@@ -2717,7 +2745,7 @@ export class BattleScene extends BaseScene {
       };
     }
     const flee: StripSlot = { icon: 'flag', label: t('battle.strip.flee'), tip: t('battle.tip.retreat'), id: 'battle.retreat', off: ended ? t('battle.why.over') : undefined, destructive: !ended, onClick: () => this.openRetreat() };
-    if (this.online) {
+    if (this.realtimeLocked) {
       return {
         left: { icon: 'eye', label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), selected: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() },
         right: flee,
@@ -2727,7 +2755,7 @@ export class BattleScene extends BaseScene {
       left: this.paused
         ? { icon: 'play', label: t('battle.strip.play'), tip: t('battle.tip.pause'), id: 'battle.play', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() }
         : { icon: 'pause', label: t('battle.strip.pause'), tip: t('battle.tip.pause'), id: 'battle.pause', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() },
-      mid: { icon: 'fast', label: `${this.speed}×`, selected: this.speed > 1, tip: t('battle.tip.speed'), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
+      mid: { icon: 'fast', label: speedLabel(this.speed), selected: this.speed !== 1, tip: t('pace.tip.speed', { list: SPEEDS[this.pace].map(speedLabel).join(', ') }), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
       right: flee,
       // paused, Play is the one thing to do next
       primary: this.paused && !ended ? 'left' : undefined,
@@ -2737,7 +2765,7 @@ export class BattleScene extends BaseScene {
   /** Swap the top bar's actions (pause / play, speed) without rebuilding the HUD. */
   private refreshStrip(): void {
     this.top?.set(this.topOpts());
-    if (this.online && this.top?.buttons.left) this.followBtn = this.top.buttons.left;
+    if (this.realtimeLocked && this.top?.buttons.left) this.followBtn = this.top.buttons.left;
   }
 
   /** The sentence, the clock and the strength row for this moment (rebuilt only when they change). */
@@ -2774,8 +2802,11 @@ export class BattleScene extends BaseScene {
         const name = sel.individual ? sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim();
         const soon = this.contactSoon.check(sim, sel.id, sim.tick / TICK_RATE);
         sentence = t(soon ? 'battle.sit.marching' : 'battle.sit.moving', { group: name, order: sel.routed ? t('battle.order.routed') : t(`battle.order.${sel.order}` as TKey) });
-      } else sentence = this.online ? t('battle.sit.online') : t('battle.sit.idle');
-      this.top.setTime(fmtClock(Math.floor(sim.tick / TICK_RATE)), this.speed > 1 ? t('battle.num.fast') : this.online ? t('battle.strip.live') : t('battle.top.time'));
+      } else sentence = this.realtimeLocked ? t('battle.sit.online') : t('battle.sit.idle');
+      const tk = this.ticketSecs >= 0 && sim.phase === 'battle' ? this.ticketStage : 0;
+      // a ladder floor's last minutes: the clock counts down the ticket instead (controls.md R10)
+      if (tk) this.top.setTime(fmtClock(this.ticketSecs), t(tk === 2 ? 'pace.expiredShort' : 'pace.left'), true);
+      else this.top.setTime(fmtClock(Math.floor(sim.tick / TICK_RATE)), this.speed > 1 ? t('battle.num.fast') : this.speed < 1 ? t('pace.slow') : this.realtimeLocked ? t('battle.strip.live') : t('battle.top.time'));
       this.top.setRow({ ours, theirs, you: t('battle.top.you'), foe: t('battle.top.foe') });
     }
     const key = `${sentence}|${urgent}`;
@@ -2783,6 +2814,27 @@ export class BattleScene extends BaseScene {
     this.sitKey = key;
     // a banner (Paused, a message) sits where the hint goes: the hint waits
     this.hintPill.setText(this.banner ? '' : sentence, urgent);
+  }
+
+  /**
+   * A ladder floor's ticket (controls.md R10): from LADDER.countdownMin out the
+   * top bar counts it down, on this device's clock, paused or not; a banner
+   * when the countdown starts and when it runs out (the run is still reported
+   * and verified, but pays nothing).
+   */
+  private updateTicket(): void {
+    if (this.ladderEnd === null || this.sim.phase === 'ended' || this.ending) return;
+    const c = ticketClock(this.ladderEnd, Date.now());
+    if (!c.show) return;
+    if (c.secs !== this.ticketSecs) {
+      this.ticketSecs = c.secs;
+      this.hudDirty = true;
+    }
+    const stage = c.expired ? 2 : 1;
+    if (stage <= this.ticketStage) return;
+    this.ticketStage = stage;
+    this.hudDirty = true;
+    if (!this.netBanner) this.showBanner(stage === 2 ? t('pace.expired') : t('pace.soon', { m: Math.ceil(c.secs / 60) }), 4000);
   }
 
   /** Online deployment: seconds left in the top bar's clock and the draining bar. */
@@ -3135,7 +3187,7 @@ export class BattleScene extends BaseScene {
     const { VW } = this.m;
     // the rail runs down the right edge; left-hand mode mirrors it to the left (A11Y-16)
     const x = mirrorX(VW - MED_W - 2, MED_W, VW, this.leftHand);
-    let y = (this.followBtn && !this.online ? this.cornerY(this.leftHand) + 26 : TOP_H + 6);
+    let y = (this.followBtn && !this.realtimeLocked ? this.cornerY(this.leftHand) + 26 : TOP_H + 6);
     const bottom = this.stripTop() - (this.selUnit >= 0 ? 29 : 2);
     const tabs = this.tabBtns;
     this.railW = MED_W + 4;
@@ -4059,9 +4111,14 @@ export class BattleScene extends BaseScene {
     this.tutorialEvent({ kind: 'ability' });
   }
 
+  /** The speed key: the next speed this battle offers (pace.ts); the choice is the next battle's too (A11Y-21). */
   private toggleSpeed(): void {
-    if (this.online) return;
-    this.speed = this.speed === 1 ? 2 : this.speed === 2 ? 3 : 1;
+    if (this.realtimeLocked) return;
+    this.speed = nextSpeed(this.pace, this.speed);
+    if (!this.tutorialData) {
+      state.campaign.data.settings.battleSpeed = this.speed;
+      void state.save();
+    }
     this.refreshStrip();
     this.hudDirty = true;
   }
@@ -4177,7 +4234,7 @@ export class BattleScene extends BaseScene {
     if (this.tutorial) return this.tutorial.askSkip();
     if (this.sim.phase !== 'battle' || this.overlay) return;
     const wasPaused = this.paused;
-    if (!this.online) this.setPaused(true);
+    if (!this.realtimeLocked) this.setPaused(true);
     if (!this.netBanner) this.hideBanner();
     const sim = this.sim;
     const mine = sim.units.filter((u) => u.side === this.me && sim.isAlive(u));
@@ -4192,14 +4249,14 @@ export class BattleScene extends BaseScene {
       destructive: true,
       onOk: () => {
         this.overlay = null;
-        if (!this.online) this.setPaused(false);
+        if (!this.realtimeLocked) this.setPaused(false);
         this.order({ kind: 'retreat' });
         this.handleEvents(this.sim.drainEvents());
         this.buildHud();
       },
       onCancel: () => {
         this.overlay = null;
-        if (!this.online) this.setPaused(wasPaused);
+        if (!this.realtimeLocked) this.setPaused(wasPaused);
       },
     });
     this.overlay = c;
