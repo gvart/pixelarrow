@@ -1,0 +1,19 @@
+src/ui/tutorial/onlineCoach.ts
+  s_697bdc25a7c420::t_518b65b1c3de02 44-69,136,140,173-176,178-181,195-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fc524691920f8104a360a1a6e64e62edfc8e9bfe",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
