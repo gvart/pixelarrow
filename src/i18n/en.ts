@@ -37,6 +37,7 @@ import { CODEX_EN } from './codex.en';
 import { WHY_EN } from './why.en';
 import { EVENTS_EN } from './events.en';
 import { EVENTCARD_EN } from './eventcard.en';
+import { WORLD_V5_EN } from './world.v5.en';
 
 export const EN = {
   // ---- shared words
@@ -349,4 +350,5 @@ export const EN = {
   // ---- overland events: the deck's text (events.en.ts) and the event card and journal (eventcard.en.ts)
   ...EVENTS_EN,
   ...EVENTCARD_EN,
+  ...WORLD_V5_EN,
 } as const;
