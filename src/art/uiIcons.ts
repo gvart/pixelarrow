@@ -9,6 +9,7 @@
  * are used for nothing else (src/ui/tokens.ts RESOURCES).
  */
 import type { IconPart } from './iconStyle';
+import { VECTOR_ICONS } from './vectorIcons';
 
 const f = (n: number) => +n.toFixed(2);
 
@@ -286,3 +287,32 @@ export const UI_ICONS: Record<string, IconPart[]> = {
     { d: 'M9.4 11V18.8M12 11V18.8M14.6 11V18.8', tone: 'ink', detail: true, w: 1 },
   ],
 };
+
+/**
+ * The v5 icon keys (art bible 7.4, AS-03): their art is a 160 px frame in the ui atlas
+ * (`ui:<key>`, scripts/art/atlas.mjs). The vector form here is only the fallback when the
+ * atlas fails to load: the shape of the icon the slot showed before (a stand-in, never a
+ * new design), so the key exists as `icon_<key>` for its slot story to wire.
+ */
+export const V5_ICON_FALLBACK: Readonly<Record<string, string>> = {
+  book: 'log',
+  banner: 'flag',
+  war: 'shield',
+  season: 'hourglass',
+  doctrine_steady: 'hold',
+  doctrine_rush: 'charge',
+  doctrine_hammer: 'bash',
+  doctrine_swarm: 'f_skirm',
+  doctrine_fury: 'berserk',
+  push: 'shield',
+  bond: 'people',
+  warcry: 'horn',
+  sunder: 'bolt',
+  aimed: 'eye',
+  recharge: 'charge',
+  scythe: 'swords',
+  standard: 'flag',
+  works: 'repair',
+  captain: 'helmet',
+};
+for (const [key, was] of Object.entries(V5_ICON_FALLBACK)) UI_ICONS[key] = UI_ICONS[was] ?? VECTOR_ICONS[was];

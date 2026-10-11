@@ -8,8 +8,14 @@
  *
  * Ids are the atlas's: `ui:hold`, `camp:forge`, `chrome:sync_synced`,
  * `power:aegis`, `item:dory`, `trinket:owl_amulet`, `goods:gold`.
+ *
+ * v5 icons (art bible 7.4, 160 px cells) are built into ui.png by
+ * scripts/art/atlas.mjs from their 160 px masters. A frame ships only after it
+ * was seen in its real slot (D-9); until then its key is STAGED and draws its
+ * stand-in, the icon that slot shows today (STAGED_ICONS).
  */
 import type { IconLook } from './iconStyle';
+import { V5_ICON_FALLBACK } from './uiIcons';
 
 interface Frame {
   src: CanvasImageSource;
@@ -32,8 +38,81 @@ export function registerIconFrames(src: CanvasImageSource, frames: Record<string
   for (const [id, f] of Object.entries(frames)) FRAMES.set(id, { src, ...f });
 }
 
+/**
+ * v5 icon keys whose 160 px frame is staged, not shipped (docs/v5/ASSET_LOG.md AS-03). No
+ * slot shows them yet: each slot's story wires its key, previews the staged atlas in the
+ * real game (scripts/art/preview.mjs) and ships it, then removes the key here. Meanwhile a
+ * staged key draws its stand-in (uiIcons V5_ICON_FALLBACK), the icon the slot shows today.
+ *  - book: Codex tab (MENU-3); banner: Campaign tab (MENU-3); war: War medallion (MENU-2);
+ *    season: Duels Arena season line (DUE-7);
+ *  - doctrine_*: encounter sheet and battle doctrine chip (AI-01, WLD-01);
+ *  - push .. scythe: ability medallion and Perks card (AB-02); standard (AB-03); works (FW-03);
+ *    captain: encounter captain row and band plate (AI-02, WLD-01).
+ */
+export const STAGED_ICONS: readonly string[] = [
+  'book', 'banner', 'war', 'season',
+  'doctrine_steady', 'doctrine_rush', 'doctrine_hammer', 'doctrine_swarm', 'doctrine_fury',
+  'push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe',
+  'standard', 'works', 'captain',
+];
+
+/** The frame an icon id draws: its own, else its stand-in's while it is staged, else null. */
+export function resolveIconId(id: string): string | null {
+  if (FRAMES.has(id)) return id;
+  const key = id.startsWith('ui:') ? id.slice(3) : '';
+  const s = STAGED_ICONS.includes(key) ? `ui:${V5_ICON_FALLBACK[key]}` : '';
+  return s && FRAMES.has(s) ? s : null;
+}
+
 export function hasIconBitmap(id: string): boolean {
-  return typeof document !== 'undefined' && FRAMES.has(id);
+  return typeof document !== 'undefined' && resolveIconId(id) !== null;
+}
+
+/**
+ * Sizes to draw a `from` px bitmap through on its way to `to` px: halvings while the
+ * remaining ratio is above 2, then `to`. One bilinear step that skips more than half the
+ * pixels shimmers (art bible 8.6.3, OI-4); a 160 px cell drawn at 24 px goes 80, 40, 24.
+ */
+export function downscaleSteps(from: number, to: number): number[] {
+  const out: number[] = [];
+  let s = from;
+  while (s > to * 2) {
+    s = Math.round(s / 2);
+    out.push(s);
+  }
+  out.push(to);
+  return out;
+}
+
+/**
+ * The light disc an icon sits on over dark stone (V5-059): the painted icons' dark-brown
+ * outline is about 1.2:1 against stone, so on the top bar, the tab bar and medallions an
+ * icon gets this parchment ground (palette parch, parchEdge rim). On parchment it is not
+ * needed. Use `backing: true` (drawIconBitmap, iconStyle.paintIcon).
+ */
+export const ICON_BACKING = { fill: '#e7d6ad', rim: '#5a3d22' } as const;
+
+/** Geometry of the backing disc in a w x h canvas: centred, rim inside the canvas. */
+export function iconBackingDisc(w: number, h: number): { cx: number; cy: number; r: number; rimW: number } {
+  const rimW = Math.max(1, Math.min(w, h) * 0.05);
+  return { cx: w / 2, cy: h / 2, r: Math.min(w, h) / 2 - rimW / 2, rimW };
+}
+
+/** Fraction of the canvas an icon fills inside its backing disc. */
+export const BACKED_FILL = 0.7;
+
+/** Paint the backing disc into a canvas context. */
+export function paintIconBacking(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  const d = iconBackingDisc(w, h);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(d.cx, d.cy, d.r, 0, Math.PI * 2);
+  ctx.fillStyle = ICON_BACKING.fill;
+  ctx.fill();
+  ctx.lineWidth = d.rimW;
+  ctx.strokeStyle = ICON_BACKING.rim;
+  ctx.stroke();
+  ctx.restore();
 }
 
 /**
@@ -59,6 +138,8 @@ export interface BitmapOpts {
   fill?: number;
   /** A soft drop shadow down-right (default on, as the vector icons have). */
   shadow?: boolean;
+  /** Sit the icon on the light disc it needs over dark stone (ICON_BACKING); default fill BACKED_FILL. */
+  backing?: boolean;
 }
 
 /** Cream levels of the 'light' look (on terracotta and lit-bronze buttons), dark to bright. */
@@ -81,31 +162,61 @@ function ramp(stops: [number, number, number][], t: number): [number, number, nu
  * cream on a red button and grey when disabled. Null when there is no bitmap.
  */
 export function drawIconBitmap(id: string, n: number, o: BitmapOpts = {}): HTMLCanvasElement | null {
-  const f = FRAMES.get(id);
+  const rid = resolveIconId(id);
+  const f = rid ? FRAMES.get(rid) : undefined;
   if (!f || typeof document === 'undefined') return null;
   const W = Math.max(1, Math.round(o.w ?? n));
   const H = Math.max(1, Math.round(o.h ?? n));
   const look = o.look ?? 'full';
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
+  const canvas = newCanvas(W, H);
   const ctx = canvas.getContext('2d')!;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  const k = Math.min((W * (o.fill ?? 0.92)) / f.w, (H * (o.fill ?? 0.92)) / f.h);
+  const fill = o.fill ?? (o.backing ? BACKED_FILL : 0.92);
+  const k = Math.min((W * fill) / f.w, (H * fill) / f.h);
   const dw = f.w * k;
   const dh = f.h * k;
-  const dx = (W - dw) / 2 - W * 0.01;
-  const dy = (H - dh) / 2 - H * 0.02;
+  const dx = (W - dw) / 2 - (o.backing ? 0 : W * 0.01);
+  const dy = (H - dh) / 2 - (o.backing ? 0 : H * 0.02);
   if (o.shadow !== false && look !== 'dim') {
     ctx.shadowColor = look === 'light' ? 'rgba(30,8,4,0.4)' : 'rgba(0,0,0,0.5)';
     ctx.shadowOffsetX = Math.max(0.5, W * 0.02);
     ctx.shadowOffsetY = Math.max(0.5, H * 0.04);
     ctx.shadowBlur = Math.max(0.5, W * 0.03);
   }
-  ctx.drawImage(f.src, f.x, f.y, f.w, f.h, dx, dy, dw, dh);
-  if (look === 'full') return canvas;
-  // recolour by brightness: the shadow (drawn above) stays dark under the light look
+  const s = stepDown(f, dw);
+  ctx.drawImage(s.src, s.x, s.y, s.w, s.h, dx, dy, dw, dh);
+  if (look !== 'full') recolour(ctx, W, H, look);
+  if (!o.backing) return canvas;
+  const out = newCanvas(W, H);
+  const octx = out.getContext('2d')!;
+  paintIconBacking(octx, W, H);
+  octx.drawImage(canvas, 0, 0);
+  return out;
+}
+
+function newCanvas(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  return c;
+}
+
+/** The frame halved (downscaleSteps) until one more bilinear draw to width dw is at most 2x. */
+function stepDown(f: Frame, dw: number): { src: CanvasImageSource; x: number; y: number; w: number; h: number } {
+  let cur: { src: CanvasImageSource; x: number; y: number; w: number; h: number } = f;
+  for (const w of downscaleSteps(f.w, Math.max(1, Math.round(dw))).slice(0, -1)) {
+    const h = Math.max(1, Math.round((cur.h * w) / cur.w));
+    const c = newCanvas(w, h);
+    c.getContext('2d')!.drawImage(cur.src, cur.x, cur.y, cur.w, cur.h, 0, 0, w, h);
+    cur = { src: c, x: 0, y: 0, w, h };
+  }
+  return cur;
+}
+
+/** Recolour by brightness: the shadow (drawn with the icon) stays dark under the light look. */
+function recolour(ctx: CanvasRenderingContext2D, W: number, H: number, look: 'light' | 'dim'): void {
   const img = ctx.getImageData(0, 0, W, H);
   const p = img.data;
   const stops = look === 'light' ? LIGHT_RAMP : DIM_RAMP;
@@ -118,5 +229,4 @@ export function drawIconBitmap(id: string, n: number, o: BitmapOpts = {}): HTMLC
     p[i + 2] = b;
   }
   ctx.putImageData(img, 0, 0);
-  return canvas;
 }
