@@ -285,6 +285,8 @@ export class BattleScene extends BaseScene {
   /** The facing pips are open round this group (A11Y-14), or null. */
   private pips: { gid: number; btns: { pip: FacingPip; dir: Pt }[] } | null = null;
   private zoomBtn: KeyButton | null = null;
+  /** The zoom (whole units) the camera is settling at: what the zoom key says (0: read the camera). */
+  private zoomTo = 0;
   private lastSparkle = 0;
   /** Trees and boulders standing on the field (depth-sorted with the men). */
   private props: { img: Phaser.GameObjects.Image; x: number; y: number; tree: boolean }[] = [];
@@ -376,6 +378,7 @@ export class BattleScene extends BaseScene {
     this.feintBar = null;
     this.pips = null;
     this.zoomBtn = null;
+    this.zoomTo = 0;
     this.sitKey = '';
     this.contactSoon = new ContactSoon();
     this.outOfRange = new OutOfRange();
@@ -1780,8 +1783,8 @@ export class BattleScene extends BaseScene {
     if (target !== cam.zoom) this.setFollow(false);
     this.tweens.add({ targets: cam, zoom: target, duration: 120 });
     // the zoom key says the zoom it settles at
-    const label = `${Math.round(zoomUnits(target))}×`;
-    if (this.zoomBtn && this.zoomBtn.opts.label !== label) this.time.delayedCall(130, () => this.sys.isActive() && this.buildHud());
+    this.zoomTo = Math.round(zoomUnits(target));
+    if (this.zoomBtn && this.zoomBtn.opts.label !== `${this.zoomTo}×`) this.buildHud();
   }
 
   /** The zoom key (A11Y-14): 1x, 2x, 3x, then back to 1x, about the screen's centre. */
@@ -2626,7 +2629,7 @@ export class BattleScene extends BaseScene {
     }
     // the zoom key (A11Y-14): a single-tap alternative to the pinch, in the top corner away from the rail
     if (this.sim.phase !== 'ended') {
-      const z = Math.round(zoomUnits(this.cameras.main.zoom));
+      const z = this.zoomTo || Math.round(zoomUnits(this.cameras.main.zoom));
       this.zoomBtn = new KeyButton(this, mirrorX(4, 22, VW, this.leftHand), TOP_H + 4, 22, 22, { label: `${z}×`, tip: t('attn.tip.zoom'), id: 'battle.zoom', variant: 'bronze', plain: true, onClick: () => this.stepZoom() });
       this.hud.add(this.zoomBtn);
     }
