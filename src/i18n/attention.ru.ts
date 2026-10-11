@@ -1,0 +1,32 @@
+import type { ATTENTION_EN } from './attention.en';
+
+/** Russian twin of attention.en.ts. */
+export const ATTENTION_RU: Record<keyof typeof ATTENTION_EN, string> = {
+  'battle.cmd.orb': 'Круг',
+  'battle.shape.orb': 'без флангов; слаб в лоб',
+  'battle.tip.orb': 'Кольцо лицом наружу: ни флангов, ни тыла. Медленно и проигрывает строю в лоб. Против конницы и ударов с фланга.',
+  'battle.formation.orb': 'круг',
+  'battle.formationShort.orb': 'круг',
+  'attn.orb.why.riders': 'Конница не может встать в круг',
+  'attn.orb.warn': 'Круг слаб в лоб против строя: он против конницы и флангов.',
+  'attn.coach.orb': 'Новое: Круг. Без флангов, слаб в лоб.',
+  'battle.order.feint': 'ложно отступает',
+  'battle.orderShort.feint': 'финт',
+  'attn.feint': 'Финт',
+  'attn.tip.feint': 'Ложное отступление: 4 с бегут назад, потом разворачиваются и бьют. Погоня теряет строй. Раз в 30 с.',
+  'attn.tip.backCd': 'Отойти. Финт снова готов через {n} с.',
+  'attn.coach.feint': 'Новое: Финт. Лёгкие отходят, потом бьют погоню.',
+  'attn.std.name': 'Знамя',
+  'attn.std.sub': 'раз',
+  'attn.std.tip': 'Поднять знамя, раз за бой: союзники рядом со знаменосцем воспрянут духом, бегущие вернутся.',
+  'attn.std.banner': '{name} поднимает знамя!',
+  'attn.std.why.raised': 'Уже поднято: раз за бой',
+  'attn.std.why.lost': 'Знамя потеряно',
+  'attn.std.why.routing': 'Знаменосец бежит',
+  'attn.std.why.stunned': 'Знаменосец оглушён',
+  'attn.std.note.broken': 'Войско сломлено: дух вернёт, но бегущих не остановит',
+  'attn.zoom': 'Зум {n}×',
+  'attn.tip.zoom': 'Масштаб: каждое касание 1×, 2×, 3× (как щипок).',
+  'attn.pips.banner': 'Коснитесь направления',
+  'attn.pip': 'Лицом',
+};
