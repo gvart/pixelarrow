@@ -67,7 +67,6 @@ export const EN_ARMY = {
   'item.classBlocked': '{cls} cannot use this',
   'item.duelInert': 'Gold, survival and durability do nothing in duels',
   'item.sec': 's',
-  'army.gearMoved': 'Gear their class cannot use went to the stash: {names}',
 
   // ---- attributes
   'attr.str': 'Strength',

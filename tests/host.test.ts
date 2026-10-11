@@ -240,14 +240,6 @@ describe('saves (G-SAVE): live saves reach the host, and none is stuck or skips 
     expect(c.world.host).not.toBeNull();
   });
 
-  it('older saves (v5, v4) migrate and load at stage lairs', () => {
-    for (const tag of ['v5-played', 'v4-']) {
-      const c = new Campaign(deserialize(fixture(tag))!);
-      expect(c.world.s.arc.stage).toBe('lairs');
-      expect(c.world.host).toBeNull();
-    }
-  });
-
   it('a save past the threshold (every lair fallen, arc still at lairs) musters the host on load', () => {
     const c = Campaign.fresh(5);
     for (const st of lairs(c)) c.world.s.lairs[st.id] = { fallen: true, lost: 10, lostAt: 100 };

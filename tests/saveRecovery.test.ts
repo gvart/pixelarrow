@@ -15,13 +15,11 @@ function memKV(store = new Map<string, string>()): KV & { store: Map<string, str
 const FIXTURES = import.meta.glob<string>('./fixtures/saves/*.json', { eager: true, query: '?raw', import: 'default' });
 
 /**
- * Saves written by every shipped save version (V5-011). v2..v5 were produced by
- * running `Campaign.fresh(424242).sync()` on the commit that introduced that
- * version (the commit id is in the file name); v1 never shipped as its own
- * commit and is the v2 save minus what the v1->v2 migration adds.
+ * A v6 save (the baseline format, V5-074), produced by running
+ * `Campaign.fresh(424242).sync()` on the commit in the file name.
  */
-describe('every historical save version still loads', () => {
-  it('finds the fixtures', () => expect(Object.keys(FIXTURES).length).toBeGreaterThanOrEqual(5));
+describe('the save fixture loads', () => {
+  it('finds the fixture', () => expect(Object.keys(FIXTURES).length).toBeGreaterThanOrEqual(1));
   for (const [file, text] of Object.entries(FIXTURES)) {
     it(file, async () => {
       const raw = JSON.parse(text) as { v: number; heroes: unknown[]; gold: number };
@@ -130,19 +128,5 @@ describe('writes are crash-safe and keep the last good save as a backup', () => 
     expect(r.kind).toBe('ok');
     expect(r.kind === 'ok' && r.data.gold).toBe(100);
     expect(r.kind === 'ok' && r.fromBackup).toBe(true);
-  });
-
-  it('a save in the old single-slot layout is read, and the first new save keeps it as the backup', async () => {
-    const store = new Map<string, string>();
-    const old = bigSave(100);
-    const parts = chunk(serialize(old));
-    parts.forEach((p, i) => store.set(`px_part_${i}`, p));
-    store.set('px_meta', JSON.stringify({ v: old.v, n: parts.length }));
-    const kv = memKV(store);
-    expect((await readSave(kv))?.gold).toBe(100);
-    await writeSave(kv, bigSave(200));
-    expect((await readSave(kv))?.gold).toBe(200);
-    // the old parts are untouched: they are the backup now
-    parts.forEach((p, i) => expect(store.get(`px_part_${i}`)).toBe(p));
   });
 });

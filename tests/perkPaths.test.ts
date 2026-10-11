@@ -17,7 +17,7 @@ import { Rng } from '../src/sim/rng';
 import type { Hero } from '../src/data/units';
 
 const FIXTURES = import.meta.glob<string>('./fixtures/saves/*.json', { eager: true, query: '?raw', import: 'default' });
-const V5_SAVE = Object.entries(FIXTURES).find(([f]) => f.includes('v5-played'))![1];
+const V6_SAVE = Object.entries(FIXTURES).find(([f]) => f.includes('/v6-'))![1];
 
 /**
  * The linear trees before AB-01 (src/data/classes.ts at v5 4dea4d3): the
@@ -155,26 +155,9 @@ describe('duel and war validation (developHero, the server /develop route)', () 
   });
 });
 
-describe('old saves keep their A path (G-SAVE, no new bump)', () => {
-  it('a v5 save whose heroes walked the old chains loads with every perk intact, all A', () => {
-    const raw = JSON.parse(V5_SAVE) as { heroes: Hero[] };
-    const walked: Record<string, PerkId[]> = {};
-    for (const h of raw.heroes) {
-      const old = OLD_TREES[h.cls as ClassId]!;
-      h.level = 10;
-      h.perks = [...old];
-      walked[h.id] = old;
-    }
-    const d = migrate(raw)!;
-    expect(d).not.toBeNull();
-    for (const h of d.heroes) {
-      expect(h.perks).toEqual(walked[h.id]);
-      for (let t = 0; t < 5; t++) expect(perkPath(h, t), `${h.cls} tier ${t}`).toBe('A');
-    }
-  });
-
+describe('perks in a save', () => {
   it('B ids survive a save round trip (the v6 validation keeps every known perk)', () => {
-    const raw = JSON.parse(V5_SAVE) as { heroes: Hero[] };
+    const raw = JSON.parse(V6_SAVE) as { heroes: Hero[] };
     raw.heroes[0].level = 8;
     raw.heroes[0].perks = ['drilled', 'push', 'iron_discipline', 'standard_bearer'];
     expect(migrate(raw)!.heroes[0].perks).toEqual(['drilled', 'push', 'iron_discipline', 'standard_bearer']);

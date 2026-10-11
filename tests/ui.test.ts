@@ -5,8 +5,6 @@ import { renderGoodsIcon, CONSUMABLE_ICON_IDS, RESOURCE_ICON_IDS } from '../src/
 import { CONSUMABLE_IDS } from '../src/data/consumables';
 import { RESOURCE_KEYS } from '../src/online/rules';
 import type { Pix } from '../src/art/pixels';
-import { migrate, SAVE_VERSION } from '../src/game/save';
-import { Campaign } from '../src/game/campaign';
 import { rollRarity } from '../src/game/heroes';
 import { Rng } from '../src/sim/rng';
 import { allStrings, detectLang, langFromTag, LANGS, pluralForm, setLang, t, table, keyOfText, type Lang } from '../src/i18n';
@@ -68,20 +66,6 @@ describe('five rarity tiers', () => {
       counts[r] = (counts[r] ?? 0) + 1;
     }
     expect(Object.keys(counts).sort()).toEqual(['common', 'epic', 'rare', 'uncommon']);
-  });
-
-  it('a v3 save migrates to v4 with mapped rarities', () => {
-    const d = Campaign.fresh(42).sync() as unknown as Record<string, unknown>;
-    d.v = 3;
-    const heroes = d.heroes as { equip: Record<string, { rarity: string }> }[];
-    heroes[0].equip.weapon!.rarity = 'fine';
-    (d.stash as { rarity: string }[]).push({ uid: 'z1', def: 'xiphos', rarity: 'heroic', cond: 50 } as never);
-    const m = migrate(JSON.parse(JSON.stringify(d)))!;
-    expect(m).not.toBeNull();
-    expect(m.v).toBe(SAVE_VERSION);
-    expect(m.heroes[0].equip.weapon!.rarity).toBe('uncommon');
-    expect(m.stash.find((i) => i.uid === 'z1')!.rarity).toBe('epic');
-    expect(m.settings.lang).toBe('auto');
   });
 });
 
