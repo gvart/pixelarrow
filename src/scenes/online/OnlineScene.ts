@@ -566,7 +566,7 @@ export class OnlineScene extends BaseScene {
     const v = this.view;
     const w = Math.min(area.w - 12, 200);
     const x = Math.round(area.x + (area.w - w) / 2);
-    const lh = lineHeight(TEXT_MIN);
+    const lh = Math.ceil(lineHeight(TEXT_MIN));
     const room = Math.max(2, Math.floor((area.h - 12 - 30 - 10 - STATE_BTN_H - 12) / lh));
     let body = '';
     let title = t('online.title');
@@ -623,7 +623,7 @@ export class OnlineScene extends BaseScene {
       // only while income waits (the panel's own Collect wins when it is open)
       const collectHere = pendSum >= 1 && !(this.panel && this.panelCollect);
       const textW = sit.w - 12 - (collectHere ? cwid + 4 : 0);
-      const lh = lineHeight(TEXT_MIN);
+      const lh = Math.ceil(lineHeight(TEXT_MIN));
       const all = wrapWords(sentence, textW, (str) => mw(str, 'pInk', TEXT_MIN));
       const sl = all.slice(0, 3);
       const sy = sit.y + Math.round((sit.h - sl.length * lh) / 2);
@@ -694,6 +694,12 @@ export class OnlineScene extends BaseScene {
     ];
     const top = win.y + 3 + (marching ? MARCH_H + 2 : 0);
     const rail = railLayout(keys.map((k) => k.label), bottom - top - 3);
+    this.rail = null;
+    // a hex panel that leaves no map above it hides the rail until it closes (the panel is a layer over the hub)
+    if (rail.h > bottom - top - 3) {
+      this.coach?.refresh();
+      return;
+    }
     const rx = win.x + win.w - rail.w - 3;
     H.add(mosaicImage(this, rx, top, rail.w, rail.h, 'tabBar'));
     this.rail = { x: rx, y: top, w: rail.w, h: rail.h };
@@ -845,9 +851,7 @@ export class OnlineScene extends BaseScene {
     if (merchantBtn) specs.push({ label: t('hex.act.merchant'), icon: 'amphora', variant: 'secondary', tip: t('hex.merchantTip'), onClick: () => this.openMerchant(h), id: 'online.act.merchant' });
     if (campBtn) specs.push({ label: t('hex.act.camp'), icon: 'tent', variant: 'secondary', tip: t('hex.campTip'), onClick: () => this.openCamp(h), id: 'online.act.camp' });
     if (beastBtn) specs.push({ label: t('hex.act.beast'), icon: 'beast', variant: 'secondary', tip: t('hex.beastTip'), onClick: () => this.openBeast(h), id: 'online.act.beast' });
-    // learn before you raid (ia.md L4): the beast's Codex page, one door away
-    const enc = this.beastAt(h);
-    if (enc) specs.push({ label: t('war5.codex'), variant: 'secondary', tip: t('war5.codexTip'), onClick: () => this.openCodex(enc), id: 'online.act.codex' });
+    const at = specs.length;
     for (const a of acts) {
       const spec = this.actSpec(a, h);
       specs.push({
@@ -864,6 +868,20 @@ export class OnlineScene extends BaseScene {
     // the info rows sit in one tap area (full text on long-press)
     // the action rows: all in one row when the labels fit, else packed row by row (a label is never cut)
     const inner = VW - FRAME_T * 2 + 2 - SPACE.md * 2;
+    // March drops its time from the label (the tip keeps it) when that saves a row of buttons on a narrow screen
+    const mi = specs.findIndex((s) => s.id === 'online.act.march');
+    if (mi >= 0) {
+      const short = specs.map((s, i) => (i === mi ? { ...s, label: t('hex.act.march') } : s));
+      if (packRows(short, inner).length < packRows(specs, inner).length) specs.splice(0, specs.length, ...short);
+    }
+    // learn before you raid (ia.md L4): the beast's Codex page, one door away; here when it costs no extra row
+    // of buttons (the beast sheet always has it)
+    const enc = this.beastAt(h);
+    if (enc) {
+      const codex: MButtonOpts = { label: t('war5.codex'), variant: 'secondary', tip: t('war5.codexTip'), onClick: () => this.openCodex(enc), id: 'online.act.codex' };
+      const withCodex = [...specs.slice(0, at), codex, ...specs.slice(at)];
+      if (packRows(withCodex, inner).length <= packRows(specs, inner).length) specs.splice(at, 0, codex);
+    }
     const arows = packRows(specs, inner);
     const actH = arows.length ? arows.length * (ACT_H + GAP) - GAP + 3 : 0;
     // (on a short screen the lines that do not fit are left out; the long-press text has them all)
@@ -878,7 +896,8 @@ export class OnlineScene extends BaseScene {
         id: 'online.panel',
       });
     let panel = make(linesH);
-    const maxH = this.frame.content.h - 2;
+    // the panel's X keeps 4 pt clear of the top bar's gear (Telegram's 320x568 leaves the least room)
+    const maxH = this.frame.content.h - 12;
     if (panel.h > maxH) {
       const over = panel.h - maxH;
       panel.destroy();
@@ -1119,7 +1138,7 @@ export class OnlineScene extends BaseScene {
     const { VW } = this.m;
     this.closeModal();
     const w = Math.min(VW - 16, 220);
-    const lh = lineHeight(TEXT_MIN);
+    const lh = Math.ceil(lineHeight(TEXT_MIN));
     const wrapped = lines.flatMap((l) => wrapWords(l, w - 28, (str) => mw(str, 'pInk', TEXT_MIN)).slice(0, 3));
     const tileH = 44;
     const tilesH = tiles.length ? tileH + 8 : 0;
@@ -1131,6 +1150,7 @@ export class OnlineScene extends BaseScene {
       const tw = Math.floor((md.body.w - GAP * (tiles.length - 1)) / tiles.length);
       tiles.forEach((o, i) => {
         const tile = new ResultTile(this, md.body.x + i * (tw + GAP), md.body.y + 2, tw, tileH, o);
+        tile.setSize(tw, tileH);
         // its (i): the whole sentence on tap
         tile.setInteractive(new Phaser.Geom.Rectangle(tw / 2, tileH / 2, tw, tileH), Phaser.Geom.Rectangle.Contains);
         tappable(tile, null, () => showTooltip(this, o.tip, { x: tile.x, y: tile.y, w: tw, h: tileH }), o.tip);
@@ -1239,7 +1259,7 @@ export class OnlineScene extends BaseScene {
     const rows = Math.max(1, others.length);
     const w = Math.min(VW - 16, 220);
     const rowH = TAP + 6;
-    const lh = lineHeight(TEXT_MIN);
+    const lh = Math.ceil(lineHeight(TEXT_MIN));
     const noteL = wrapWords(t('duel.lobbyNote'), w - 28, (str) => mw(str, 'pSec', TEXT_MIN)).slice(0, 3);
     const listH = Math.min(rows * (rowH + GAP), Math.max(rowH, VH - 16 - SHEET_TITLE_H - 24 - noteL.length * lh));
     const h = SHEET_TITLE_H + 4 + listH + 6 + noteL.length * lh + 12;

@@ -543,7 +543,7 @@ export class OnlineArmyScene extends BaseScene {
     const cost = ONLINE_RULES.recruitCost;
     const w = Math.min(VW - 12, 220);
     const inner = w - 16;
-    const rowH = 44;
+    const rowH = 50;
     // the price (ink), then what you have (secondary), each on its own lines
     const costL = wrapText(t('oarmy.recruitCost', { gold: cost.gold, food: cost.food }), inner, 2, false, TEXT_MIN).lines;
     const haveL = wrapText(t('oarmy.youHave', { gold: Math.floor(p.resources.gold), food: Math.floor(p.resources.food), rec: Math.floor(p.resources.recruits) }), inner, 3, false, TEXT_MIN).lines;
@@ -583,8 +583,8 @@ export class OnlineArmyScene extends BaseScene {
         const tx = 38;
         const tw = rw - tx - bw - 8;
         row.add(mtext(this, tx, 3, className(hero), 'pInk', { size: 7, maxW: tw, box: rbox }));
-        armyPill(this, row, tx, 14, roleName(cls.role), roleColor(cls.role), tw);
-        row.add(mtext(this, tx, 30, `+${roleTraits(cls.role).good}`, 'pGood', { size: TEXT_MIN, maxW: tw, box: rbox }));
+        armyPill(this, row, tx, 13, roleName(cls.role), roleColor(cls.role), tw);
+        row.add(mtext(this, tx, 13 + armyPillH(roleName(cls.role), tw) + 2, `+${roleTraits(cls.role).good}`, 'pGood', { size: TEXT_MIN, maxW: tw, box: rbox }));
       },
     });
     c.once('destroy', () => list.destroy());

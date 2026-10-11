@@ -27,7 +27,7 @@ import { MOSAIC, TEXT_MIN, lineHeight } from '../../ui/tokens';
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
 const num = (n: number) => Math.round(n).toLocaleString('en-US');
-const LH = lineHeight(TEXT_MIN);
+const LH = Math.ceil(lineHeight(TEXT_MIN));
 
 /** One row of the boss's damage table. */
 export interface BoardRow {
