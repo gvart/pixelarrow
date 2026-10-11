@@ -147,6 +147,22 @@ describe('EC-05: the bot orb', () => {
     expect(orbs).toBeGreaterThan(0);
   });
 
+  it('a line with another group of its own close by keeps its shape (the orb is for a group left alone)', () => {
+    for (const seed of [31, 32, 33]) {
+      const rng = new Rng(seed);
+      const ids = { nextId: 1 };
+      const b = new Battle({ seed, armies: [armySpec(classSquad(rng, ids, 'companion', 4, 3, 0), false), armySpec([...classSquad(rng, ids, 'hoplite', 8, 3, 0), ...classSquad(rng, ids, 'hoplite', 3, 3, 2)], true)] });
+      const line = b.sideGroups(1)[0];
+      play(b, (bt) => {
+        const f = bt.groups[line.id].formation;
+        if (bt.tick === 1) for (const u of bt.units) if (u.side === 0) [u.x, u.y] = [f.cx + 6, f.cy - 1];
+        if (bt.tick === 2) bt.issue(0 as Side, { kind: 'form', group: 0, cx: f.cx + 6, cy: f.cy - 1, fx: -1, fy: 0, frontage: 2 });
+        if (bt.tick === 20 * 2) bt.issue(0 as Side, { kind: 'order', group: 0, order: 'charge' });
+        expect(bt.groups[line.id].formation.type).not.toBe('orb');
+      });
+    }
+  });
+
   it('never against a frontal line of foot', () => {
     for (const seed of [41, 42, 43, 44]) {
       const b = orbSetup(seed, false);

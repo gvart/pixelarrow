@@ -83,6 +83,12 @@ export const ORB_HORSE_NEAR = 8;
 /** ...it opens again once no rider is this close, or enemy foot comes this close. */
 export const ORB_HORSE_LEAVE = 12;
 export const ORB_FOOT_NEAR = 6;
+/** EC-05 orb: a group closes into an orb only with no enemy foot this close (riders alone, no line coming on). */
+export const ORB_FOOT_CLEAR = 12;
+/** ...nor with its own stakes this close: they already cover the flank. */
+export const ORB_STAKES_NEAR = 6;
+/** ...nor with another group of ours this close: the orb is for a group left on its own. */
+export const ORB_ALONE = 8;
 
 export class BotAI {
   readonly side: Side;
@@ -779,6 +785,7 @@ export class BotAI {
     let flankHorse = false;
     let nearHorse = false;
     let foot = false;
+    let footInSight = false;
     for (const e of enemies) {
       const dx = e.x - c.x;
       const dy = e.y - c.y;
@@ -786,18 +793,47 @@ export class BotAI {
       if (e.stats.mount && e.stats.role !== 'ranged') {
         if (d < ORB_HORSE_LEAVE) nearHorse = true;
         if (d < ORB_HORSE_NEAR && (dx * f.fx + dy * f.fy) / d < Math.SQRT1_2) flankHorse = true;
-      } else if (!e.stats.mount && e.stats.kind !== 'animal' && d < ORB_FOOT_NEAR) foot = true;
+      } else if (!e.stats.mount && e.stats.kind !== 'animal') {
+        if (d < ORB_FOOT_NEAR) foot = true;
+        if (d < ORB_FOOT_CLEAR) footInSight = true;
+      }
     }
     if (ours) {
       if (foot || !nearHorse) return this.leaveOrb(b, g);
       if (g.order !== 'hold') b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
       return true;
     }
-    if (!flankHorse || foot) return false;
+    if (!flankHorse || footInSight || this.stakesNear(b, c) || this.supported(b, g, c)) return false;
     this.orbFrom.set(g.id, f.type);
     b.issue(this.side, { kind: 'preset', group: g.id, type: 'orb' });
     b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
     return true;
+  }
+
+  /** Another group of ours stands within ORB_ALONE of a point: it covers the flank. */
+  private supported(b: Battle, g: SimGroup, c: { x: number; y: number }): boolean {
+    for (const og of b.sideGroups(this.side)) {
+      if (og.id === g.id || og.routed) continue;
+      const om = b.activeMembers(og.id);
+      if (om.length === 0) continue;
+      const oc = centroid(om);
+      if ((oc.x - c.x) ** 2 + (oc.y - c.y) ** 2 < ORB_ALONE ** 2) return true;
+    }
+    return false;
+  }
+
+  /** Our own stakes stand within ORB_STAKES_NEAR of a point: the flank is already covered. */
+  private stakesNear(b: Battle, c: { x: number; y: number }): boolean {
+    const t = b.terrain;
+    if (!t) return false;
+    for (const w of b.works()) {
+      if (w.side !== this.side || w.type !== 'stakes') continue;
+      for (const i of w.cells) {
+        const p = t.cellCenter(i);
+        if ((p.x - c.x) ** 2 + (p.y - c.y) ** 2 < ORB_STAKES_NEAR ** 2) return true;
+      }
+    }
+    return false;
   }
 
   /** Open an orb back into the shape it had (false: the role logic goes on). */

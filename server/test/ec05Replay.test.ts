@@ -35,14 +35,35 @@ function fieldSetup(seed: number): BattleSetup {
   return { seed, armies: [mine, { ...bot, doctrine: 'swarm' }] };
 }
 
-function playClient(setup: BattleSetup) {
+/** Human riders against a lone bot line (swarm: it waits 10 s before it moves). */
+function ringSetup(seed: number): BattleSetup {
+  const rng = new Rng(seed);
+  const ids = { nextId: 1 };
+  const riders = armySpec(classSquad(rng, ids, 'companion', 4, 3, 0), false);
+  const line = armySpec(classSquad(rng, ids, 'hoplite', 8, 3, 0), true);
+  return { seed, armies: [riders, { ...line, doctrine: 'swarm' }] };
+}
+
+/** The human advances at 1 s and charges at 20 s. */
+function advanceThenCharge(b: Battle): void {
+  if (b.tick === 20) for (const g of b.sideGroups(0)) b.issue(0, { kind: 'order', group: g.id, order: 'advance' });
+  if (b.tick === 20 * 20) for (const g of b.sideGroups(0)) b.issue(0, { kind: 'order', group: g.id, order: 'charge' });
+}
+
+/** The riders ride round to the line's right flank, then charge it. */
+function rideRound(b: Battle): void {
+  const f = b.sideGroups(1)[0].formation;
+  if (b.tick === 1) b.issue(0, { kind: 'form', group: 0, cx: f.cx + 7, cy: f.cy + 1, fx: -1, fy: 0, frontage: 2 });
+  if (b.tick === 20 * 9) b.issue(0, { kind: 'order', group: 0, order: 'charge' });
+}
+
+function playClient(setup: BattleSetup, human: (b: Battle) => void = advanceThenCharge) {
   const pristine = JSON.parse(JSON.stringify(setup)) as BattleSetup;
   const b = new Battle(setup);
   const deployOrders = b.orderLog.length;
   b.startBattle();
   while (b.phase !== 'ended' && b.tick < b.timeLimitTicks + 10) {
-    if (b.tick === 20) for (const g of b.sideGroups(0)) b.issue(0, { kind: 'order', group: g.id, order: 'advance' });
-    if (b.tick === 20 * 20) for (const g of b.sideGroups(0)) b.issue(0, { kind: 'order', group: g.id, order: 'charge' });
+    human(b);
     b.step();
   }
   const bot = b.orderLog.filter((o) => o.side === 1).map((o) => o.order);
@@ -63,9 +84,14 @@ describe('EC-05 bot tactics: server replay', () => {
     }
   });
 
-  it('a field battle where the bot focuses its fire and rings against riders replays to the client hash', () => {
-    const cs = [81, 82, 83, 84].map((s) => playClient(fieldSetup(s)));
+  it('a field battle where the bot focuses its fire replays to the client hash', () => {
+    const cs = [81, 82, 83].map((s) => playClient(fieldSetup(s)));
     expect(cs.some((c) => c.bot.some((o) => o.kind === 'focus'))).toBe(true);
+    for (const c of cs) expect(replay(c)).toMatchObject({ winner: c.winner, ticks: c.ticks, hash: c.hash });
+  });
+
+  it('a lone line ringing against riders on its flank replays to the client hash', () => {
+    const cs = [91, 92, 93, 94].map((s) => playClient(ringSetup(s), rideRound));
     expect(cs.some((c) => c.bot.some((o) => o.kind === 'preset' && o.type === 'orb'))).toBe(true);
     for (const c of cs) expect(replay(c)).toMatchObject({ winner: c.winner, ticks: c.ticks, hash: c.hash });
   });
