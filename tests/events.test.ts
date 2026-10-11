@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { Campaign, captainBounty } from '../src/game/campaign';
 import { EVENT_DECK, EVENT_RULES, EV_KEY, fx, type EventDef } from '../src/data/events';
+import { liveDeck } from '../src/data/eventDeck';
 import { deserialize, migrate, serialize } from '../src/game/save';
 import { FLAGS_CAP, JOURNAL_CAP, bountyMultOf, partyArmy } from '../src/world/world';
 import { applyBattleBonus, resolveBattle, type Outcome } from '../src/game/loot';
@@ -186,12 +187,13 @@ describe('event draw (R3)', () => {
     expect(c.world.food).toBe(food);
   });
 
-  it('the shipped deck is EV-02 content: until then nothing is drawn and the march is unchanged', () => {
+  it('the shipped deck is EV-02 content (live since EV-03); an empty deck draws nothing and leaves the march unchanged', () => {
     expect(EVENT_DECK).toEqual([]);
     const a = Campaign.fresh(5);
     const b = Campaign.fresh(5);
+    expect(a.world.deck).toBe(liveDeck());
+    a.world.deck = EVENT_DECK;
     b.world.deck = [];
-    expect(a.world.deck).toBe(EVENT_DECK);
     const [to] = legs(a);
     a.world.setDestination(to.x, to.y);
     b.world.setDestination(to.x, to.y);

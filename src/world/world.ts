@@ -23,11 +23,12 @@ import {
 } from './map';
 import { findPath, type Tile } from './path';
 import {
-  EVENT_DECK, EVENT_RULES, EV_KEY, eligibleEvents, pickEvent,
+  EVENT_RULES, EV_KEY, eligibleEvents, pickEvent,
   type BandMods, type EventBandKind, type EventCtx, type EventDef, type EventTrigger,
 } from '../data/events';
 import { DOCTRINE_IDS, type DoctrineId } from '../sim/types';
 import { hash3 } from './noise';
+import { liveDeck } from '../data/eventDeck';
 import { GARRISON, HOST, POST_GAME, SACK_DAYS } from '../data/arc';
 import {
   CAMP_RULES, FOOD_RULES, STRUCTURES, campBlocker, campEffects, campRefund, campZone, countBuilt, placeCheck,
@@ -323,8 +324,8 @@ export class World {
   route: { x: number; y: number }[] = [];
   private aiRoutes = new Map<number, { x: number; y: number }[]>();
   private aiThink = new Map<number, number>();
-  /** The event deck draws come from (campaign-events.md); tests swap in their own. */
-  deck: readonly EventDef[] = EVENT_DECK;
+  /** The event deck draws come from (campaign-events.md): the live starter deck (EV-03); tests swap in their own. */
+  deck: readonly EventDef[] = liveDeck();
 
   /** Explored tiles (1 = no fog). */
   readonly explored: Uint8Array;
