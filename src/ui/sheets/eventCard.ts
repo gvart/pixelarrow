@@ -212,12 +212,28 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
     const b = blocked.get(c.key);
     return b ? [{ icon: 'lock', text: blockText(b), font: 'pBad' as FontKey }, ...choiceTokens(c)] : choiceTokens(c);
   });
-  const rowH = rowTokens.map((tk) => BTN_H + 2 + layTokens(scene, null, 0, 0, iw, tk) + 4);
-  const choicesH = rowH.reduce((a, b) => a + b, 0);
   const bodyText = evText(def.id, 'body');
   const bodyH = Math.max(NICHE_H, para(scene, null, 0, 0, bodyText, iw, NICHE_W + 6, NICHE_H)) + 6;
   const maxH = VH - 12;
-  const h = Math.min(maxH, SHEET_TITLE_H + bodyH + choicesH + PAD * 2);
+  // Each button with its words under it; on a short screen (320x568 in Telegram) that leaves the body no
+  // room, so the words go into the scrolling text under the body, each under its choice's name, and the
+  // buttons stay fixed at the bottom (never a cut label, never a button under a scroll mask).
+  let rowH = rowTokens.map((tk) => BTN_H + 2 + layTokens(scene, null, 0, 0, iw, tk) + 4);
+  const tight = maxH - SHEET_TITLE_H - PAD * 2 - rowH.reduce((a, b) => a + b, 0) < Math.min(bodyH, 70);
+  if (tight) rowH = rowTokens.map(() => BTN_H + 4);
+  const choicesH = rowH.reduce((a, b) => a + b, 0);
+  /** In the tight layout: each choice's name and its words, under the body. */
+  const outcomes = (c: Phaser.GameObjects.Container | null, y0: number): number => {
+    let y = y0;
+    def.choices.forEach((ch, i) => {
+      const nl = wrapWords(choiceLabel(def.id, ch.key).toUpperCase(), iw, (q) => mw(q, 'rInk', SMALL));
+      if (c) c.add(mtext(scene, 0, y, nl.join('\n'), 'rInk', { size: SMALL }));
+      y += nl.length * TOK_H;
+      y += layTokens(scene, c, 1, y, iw - 2, rowTokens[i]) + 4;
+    });
+    return y - y0;
+  };
+  const h = Math.min(maxH, SHEET_TITLE_H + bodyH + (tight ? outcomes(null, 0) : 0) + choicesH + PAD * 2);
 
   let state_: 'card' | 'result' | 'closed' = 'card';
   let result: EventResolution | null = null;
@@ -300,7 +316,7 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
       onClick: () => void pick(c.key),
     });
     s.c.add(btn);
-    layTokens(scene, s.c, x + 1, cy + BTN_H + 2, iw - 2, rowTokens[i]);
+    if (!tight) layTokens(scene, s.c, x + 1, cy + BTN_H + 2, iw - 2, rowTokens[i]);
     cy += rowH[i];
   });
 
@@ -311,7 +327,8 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
   addNiche(scene, area.content, 1, 0, NICHE_W - 1, NICHE_H);
   const ic = addIcon(scene, (NICHE_W - 12) / 2, NICHE_H - 17, TRIGGER_ICON[def.trigger] ?? 'log');
   area.content.add(ic);
-  const contentH = Math.max(NICHE_H, para(scene, area.content, 0, 0, bodyText, iw, NICHE_W + 6, NICHE_H));
+  let contentH = Math.max(NICHE_H, para(scene, area.content, 0, 0, bodyText, iw, NICHE_W + 6, NICHE_H));
+  if (tight) contentH += 6 + outcomes(area.content, contentH + 6);
   area.setContentHeight(contentH + 2);
   if (contentH + 2 > room) addScrollHint(scene, s.c, area, MOSAIC.parch);
   s.c.once('destroy', () => area.destroy());
