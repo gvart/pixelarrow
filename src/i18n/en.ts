@@ -39,6 +39,7 @@ import { EVENTS_EN } from './events.en';
 import { EVENTCARD_EN } from './eventcard.en';
 import { SHOP_V5_EN } from './shop.v5.en';
 import { MARKET_EN } from './market.en';
+import { SETTLEMENT_EN } from './settlement.en';
 
 export const EN = {
   // ---- shared words
@@ -355,4 +356,6 @@ export const EN = {
   ...SHOP_V5_EN,
   // ---- the v5 Market (market.en.ts)
   ...MARKET_EN,
+  // ---- the v5 Settlement (settlement.en.ts)
+  ...SETTLEMENT_EN,
 } as const;
