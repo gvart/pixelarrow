@@ -1,0 +1,25 @@
+src/game/report.ts
+  s_697bdc25a7c420::t_8a7378f9841511 430-431
+src/i18n/why.ru.ts
+  s_697bdc25a7c420::t_b2d4da96e08002 18,27
+tests/battleReport.test.ts
+  s_697bdc25a7c420::t_e588acb1990bce 253-254
+src/i18n/why.en.ts
+  s_697bdc25a7c420::t_b2d4da96e08002 18,27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1e13a3bc3aba8117dd5f9c7d9d7a0e7737d5db87",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
