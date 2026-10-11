@@ -161,11 +161,11 @@ const A = (str: number, agi: number, end: number, wil: number): Attrs => ({ str,
 const defs: ClassDef[] = [
   // ------------------------------------------------------------- levy
   {
-    id: 'militia', name: 'Militia', short: 'Levy', role: 'levy', cost: 64, group: 0,
+    id: 'militia', name: 'Militia', short: 'Levy', role: 'levy', cost: 60, group: 0,
     desc: 'Farmers with spears and clubs. Cheap, brittle, many.',
     mods: { morale: -6 }, attrs: A(5, 5, 5, 5), growth: ['end', 'str', 'agi', 'wil'],
     tree: [['drilled', 'shield_drill'], ['shield_bash', 'push'], ['phalangite', 'iron_discipline'], ['rally_cry', 'standard_bearer'], ['unbreakable', 'warlord']],
-    kit: { weapon: [['dory', 'club', 'javelins', 'sling', 'ash_dory'], ['dory', 'longche', 'lancea'], ['longche', 'lancea']], shield: [['', 'thureos', 'hide_shield'], ['thureos', 'hide_shield'], ['thureos', 'gerron']], helmet: [[], ['cap', 'felt_pilos', 'wolfskin_cap'], ['pilos', 'konos', 'bronze_skullcap']] },
+    kit: { weapon: [['dory', 'club', 'javelins', 'sling', 'ash_dory'], ['dory', 'club', 'javelins', 'longche'], ['longche', 'lancea']], shield: [['', 'thureos', 'hide_shield'], ['thureos', 'hide_shield'], ['thureos', 'gerron']], helmet: [[], ['cap', 'felt_pilos', 'wolfskin_cap'], ['pilos', 'konos', 'bronze_skullcap']] },
     cultures: ['greek', 'phoenician', 'celtic'], art: { tunics: ['tunicWhite', 'tunicOchre', 'tunicGreen'] },
   },
   // ------------------------------------------------------------- heavy infantry
@@ -321,13 +321,13 @@ const defs: ClassDef[] = [
   },
   // ------------------------------------------------------------- animals (neutral defenders)
   {
-    id: 'wolf', name: 'Wolf', short: 'Wolf', role: 'beast', cost: 53, group: 0, kind: 'animal', beast: 'wolf',
+    id: 'wolf', name: 'Wolf', short: 'Wolf', role: 'beast', cost: 50, group: 0, kind: 'animal', beast: 'wolf',
     desc: 'Hunts in packs: circles to a flank and bites the stragglers. Bolts when hurt.',
     beastStats: { hp: 30, dmg: 8, atkTime: 0.9, reach: 0.65, armor: 0, morale: 52, speed: 1.55, chargeBonus: 0.3, moraleShock: 0.1, radius: 0.3, routAt: 0.33, pack: true },
     mods: {}, attrs: A(5, 7, 5, 4), growth: [], tree: [], kit: {}, cultures: [], art: { coat: 'wolf' },
   },
   {
-    id: 'boar', name: 'Wild boar', short: 'Boar', role: 'beast', cost: 107, group: 0, kind: 'animal', beast: 'boar',
+    id: 'boar', name: 'Wild boar', short: 'Boar', role: 'beast', cost: 100, group: 0, kind: 'animal', beast: 'boar',
     desc: 'Charges straight in, tusks low. Thick hide; stubborn.',
     beastStats: { hp: 70, dmg: 15, atkTime: 1.2, reach: 0.7, armor: 3, morale: 60, speed: 1.3, chargeBonus: 0.9, moraleShock: 0.25, radius: 0.36, routAt: 0.3, pack: false },
     mods: {}, attrs: A(7, 5, 6, 5), growth: [], tree: [], kit: {}, cultures: [], art: { coat: 'boar' },
