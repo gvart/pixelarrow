@@ -1336,7 +1336,7 @@ export class DuelScene extends BaseScene {
   /** "October · 24d 5h left" and the best league of the season; returns the y below. */
   private buildSeasonLine(c: Phaser.GameObjects.Container, x: number, y: number, w: number): number {
     const s = this.season;
-    c.add(addIcon(this, x + 1, y - 2, 'clock', 'D'));
+    c.add(addIcon(this, x + 1, y - 2, 'hourglass'));
     if (!s) {
       ptext(this, c, x + 16, y, '...', 'muted');
       return y + 14;
@@ -1796,6 +1796,27 @@ export class DuelScene extends BaseScene {
       xp: team.map((h, i) => ({ heroId: h.id, name: h.name, kills: i % 2, xp: 24 + (i % 2) * 10, levelsGained: 0, levelBefore: h.level, xpBefore: h.xp })),
     };
     showReport(this.game, raidReport(report, this.src.demo), () => backToDuel(this.game, { tab: 'ranked', arena: 'raid', preview: this.src.demo }));
+  }
+
+  /** Previews: the report of a won ladder floor (`expired`: reported after the 30-minute ticket, so it paid nothing), then the hub's toast. */
+  previewLadderResult(expired = true): void {
+    const p = this.profile;
+    if (!p) return;
+    const team = this.teamHeroes(p, 'ladder');
+    const n = Math.min(LADDER.floors, p.ladder.cleared + 1);
+    lastBattle.heroes = team.map((h) => JSON.parse(JSON.stringify(h)) as Hero);
+    lastBattle.side = 0;
+    lastBattle.stats = team.map((h, i) => ({ heroId: h.id, side: 0 as const, kills: i % 2, dmg: 18 + i * 7, dead: false, ko: false, killedBy: -1 }));
+    const f = ladderFloor(n);
+    const r: LadderReport = {
+      floor: n, boss: f.boss, won: true, firstClear: !expired, winner: 0, ticks: 20 * 64,
+      glory: expired ? 0 : f.reward.firstGlory, capped: 0, accountXp: expired ? 0 : f.reward.xp,
+      xp: team.map((h) => ({ heroId: h.id, name: h.name, kills: 0, xp: expired ? 0 : 20, levelsGained: 0, levelBefore: h.level, xpBefore: h.xp })),
+      drop: null, enemies: { dead: f.heroes.length, total: f.heroes.length }, stars: expired ? 0 : 3, lost: 0.1,
+      prevStars: 0, bestStars: expired ? 0 : 3, newBest: !expired, expired, profile: p,
+    };
+    const label = t('battle.vs', { name: f.boss ? t('duels.floorBoss', { n }) : t('duels.floor', { n }) });
+    showReport(this.game, ladderReport(r, label, this.src.demo), () => backToDuel(this.game, { tab: 'ladder', preview: this.src.demo, result: { glory: r.glory, won: r.won, floor: r.floor, first: r.firstClear, stars: r.stars, newBest: r.newBest, expired } }));
   }
 
   // ------------------------------------------------------------------ raids (async defence ladder)
@@ -2621,7 +2642,7 @@ export class DuelScene extends BaseScene {
     if (this.shopTab === 'offers') {
       offers = dailyOffers(p.day);
       const day = 86_400_000;
-      c.add(addIcon(this, 2, y - 2, 'clock', 'D'));
+      c.add(addIcon(this, 2, y - 2, 'hourglass'));
       ptext(this, c, 17, y, t('duels.offersIn', { t: leftText(day - (Date.now() % day)) }), 'sec', { maxW: w - 20 });
       y += 14;
     } else {
