@@ -5,7 +5,8 @@
  *
  * - Loot follows the army: a weapon, shield or armour a source picks fits a
  *   class of the player's army 70% of the time (`armyPick`).
- * - Set pieces: tier-3 campaign bands, beast hoards, ladder chapter chests,
+ * - Set pieces: tier-3 campaign bands, beast hoards, the campaign arc's lair
+ *   hoards and legendary set (campaign-arc.md R6), ladder chapter chests,
  *   trading posts, world-boss chests and the ranked season reward.
  * - Named legendaries: beasts, world bosses and the ladder's boss floors.
  * - Bad-luck protection (`pityChest`): beast and world-boss chests that are
@@ -18,6 +19,7 @@ import type { EncounterId } from '../data/beasts';
 import type { Culture } from '../data/names';
 import type { Hero } from '../data/units';
 import { Rng, hashString } from '../sim/rng';
+import { makeItem, rollRarity, type IdSource } from './heroes';
 
 export const SOURCES = {
   /** Share of weapon, shield and armour picks that fit a class of the player's army. */
@@ -135,6 +137,54 @@ export function bandSetPieces(heroes: Hero[], culture: Culture, tier: number, se
       h.equip[slot] = withDef(it, rng.pick(fits).id, SETS[set].rarity);
     }
   }
+}
+
+// ------------------------------------------------------------------ the campaign arc (campaign-arc.md R6)
+
+/** Lair hoards: `picks` items at `rollRarity(tier 3)`, the first a sure epic, which is a piece of the lair culture's epic set `set` of the time. */
+export const LAIR_HOARD = { picks: 3, set: 0.25 };
+
+/** The epic set of a lair's hoard, by the lair's culture. */
+export const LAIR_SET: Readonly<Record<Culture, string>> = { greek: 'sacred_band', phoenician: 'immortals', celtic: 'brennus' };
+
+/** The campaign's legendary sets: the host carries one, chosen per campaign. */
+export const ARC_SETS = ['achilles', 'alexander'] as const;
+export type ArcSet = (typeof ARC_SETS)[number];
+
+/**
+ * A fallen lair's hoard (R6): a chest of LAIR_HOARD.picks pieces of the
+ * better half of the gear (tier 2 and up), following the army's `classes`.
+ * The first is a sure epic, a piece of LAIR_SET[culture] LAIR_HOARD.set of
+ * the time; the others roll `rollRarity(tier 3)`. Seeded: the same lair of
+ * the same world gives the same chest. The caller counts it on the pity counter.
+ */
+export function lairHoard(seed: string, culture: Culture, ids: IdSource, classes: readonly string[] = []): Item[] {
+  const rng = new Rng(hashString(`${seed}:lairhoard`) || 1);
+  const pool = BASE_ITEMS.filter((d) => d.tier >= 2);
+  const out: Item[] = [];
+  for (let i = 0; i < LAIR_HOARD.picks; i++) {
+    if (i === 0 && rng.chance(LAIR_HOARD.set)) {
+      out.push(makeItem(rng, ids, armyPick(rng, pieceDefs(LAIR_SET[culture]), classes).id, 'epic', 100, culture));
+      continue;
+    }
+    out.push(makeItem(rng, ids, armyPick(rng, pool, classes).id, i === 0 ? 'epic' : rollRarity(rng, 3), 100, culture));
+  }
+  return out;
+}
+
+/** The legendary set the host of the campaign of world `worldSeed` carries (R6): Achilles for a Greek-leaning host, else Alexander, half and half by the seed. */
+export function arcSet(worldSeed: number): ArcSet {
+  return new Rng(hashString(`${worldSeed >>> 0}:arcset`) || 1).chance(0.5) ? 'achilles' : 'alexander';
+}
+
+/**
+ * A piece of the arc's legendary `set` that the player does not own yet (R6:
+ * the host's drop and, after it, each reborn lair's), picked by `seed`; null
+ * once all five are owned. `owned` holds the item defs in the stash and on the heroes.
+ */
+export function arcSetPiece(set: ArcSet, owned: ReadonlySet<string>, seed: string): string | null {
+  const missing = setPieces(set).filter((id) => !owned.has(id));
+  return missing.length ? new Rng(hashString(`${seed}:arcpiece`) || 1).pick(missing) : null;
 }
 
 /** An item turned into another def at a rarity (its random stats and power then roll from its uid for the new def). */
