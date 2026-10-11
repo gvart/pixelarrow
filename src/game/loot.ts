@@ -40,6 +40,19 @@ export interface Outcome {
   lost: number;
 }
 
+/**
+ * Level pacing (campaign-arc.md R7, XP_CURVE_L6PLUS): a hero of level
+ * `from` and up gains `mult` times the battle XP, which is the GDD's 32·L
+ * curve from level 6 on the shared 40·L one (40 / 32 = 1.25). Levels 6-10 take
+ * about 37 campaign battles instead of 46 (docs/v5/balance/AR-03.md).
+ */
+export const LATE_XP = { from: 6, mult: 1.25 };
+
+/** The XP multiplier of a hero at `level` (LATE_XP). */
+export function lateXpMult(level: number): number {
+  return level >= LATE_XP.from ? LATE_XP.mult : 1;
+}
+
 /** How many loot items the player may take. Better victories give more picks. */
 export function lootPicks(winner: number, playerTotal: number, playerDead: number): number {
   if (winner === -1) return 1;
@@ -118,7 +131,7 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
     goldBonus += gearTotal(h, 'goldBonus');
     // Men who ran off the field lose a little XP; an ordered retreat is no disgrace.
     const wounded = u.state === 'dead' && u.ko;
-    const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' && !retreated ? -6 : 0)) * (1 + xpBonus) * (wounded ? 0.5 : 1));
+    const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' && !retreated ? -6 : 0)) * (1 + xpBonus) * (wounded ? 0.5 : 1) * lateXpMult(h.level));
     h.kills += u.kills;
     h.battles++;
     const levelBefore = h.level;
