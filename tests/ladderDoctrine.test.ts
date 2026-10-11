@@ -18,7 +18,7 @@ describe('ladder doctrines (AI-03)', () => {
         'swarm fury swarm steady fury swarm steady fury rush steady ' +
         'rush rush rush swarm hammer swarm rush rush steady steady ' +
         'swarm hammer hammer swarm steady fury hammer rush rush steady ' +
-        'steady steady fury hammer hammer steady rush steady hammer steady',
+        'steady steady fury hammer steady steady rush steady hammer steady',
     );
     expect(chapterOf(25)).toBe(3);
   });

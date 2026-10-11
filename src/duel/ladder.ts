@@ -89,7 +89,7 @@ const FLOOR_DOCTRINE: Readonly<Record<number, DoctrineId>> = {
   12: 'fury', 14: 'steady', 15: 'fury', 17: 'steady', 18: 'fury', 19: 'rush',
   24: 'swarm', 25: 'hammer', 26: 'swarm', 29: 'steady',
   31: 'swarm', 34: 'swarm', 35: 'steady', 36: 'fury', 38: 'rush', 39: 'rush',
-  41: 'steady', 42: 'steady', 44: 'hammer', 45: 'hammer', 46: 'steady', 47: 'rush', 48: 'steady', 49: 'hammer',
+  41: 'steady', 42: 'steady', 44: 'hammer', 45: 'steady', 46: 'steady', 47: 'rush', 48: 'steady', 49: 'hammer',
 };
 
 /**
