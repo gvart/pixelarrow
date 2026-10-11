@@ -23,6 +23,7 @@ import { HUB_RU } from './hub.ru';
 import { FIRSTRUN_RU } from './firstrun.ru';
 import { ARMY_V5_RU } from './army.v5.ru';
 import { HERO_RU } from './hero.ru';
+import { CODEX_RU } from './codex.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -307,4 +308,5 @@ export const RU: Table = {
   ...FIRSTRUN_RU,
   ...ARMY_V5_RU,
   ...HERO_RU,
+  ...CODEX_RU,
 };
