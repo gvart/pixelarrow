@@ -19,6 +19,7 @@ import { TARGETING_RU } from './targeting.ru';
 import { UNDO_RU } from './undo.ru';
 import { READOUT_RU } from './readout.ru';
 import { QUEUE_RU } from './queue.ru';
+import { ATTENTION_RU } from './attention.ru';
 import { HUB_RU } from './hub.ru';
 import { FIRSTRUN_RU } from './firstrun.ru';
 import { ARMY_V5_RU } from './army.v5.ru';
@@ -303,6 +304,7 @@ export const RU: Table = {
   // ---- the battle readout: morale glyph, bar labels, Flanked! (readout.ru.ts)
   ...READOUT_RU,
   ...QUEUE_RU,
+  ...ATTENTION_RU,
   ...HUB_RU,
   ...FIRSTRUN_RU,
   ...ARMY_V5_RU,
