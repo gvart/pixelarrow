@@ -29,6 +29,7 @@ import { QUEUE_EN } from './queue.en';
 import { HUB_EN } from './hub.en';
 import { FIRSTRUN_EN } from './firstrun.en';
 import { ARMY_V5_EN } from './army.v5.en';
+import { SETTINGS_EN } from './settings.en';
 
 export const EN = {
   // ---- shared words
@@ -328,4 +329,5 @@ export const EN = {
   ...FIRSTRUN_EN,
   // ---- the v5 Army screen (army.v5.en.ts)
   ...ARMY_V5_EN,
+  ...SETTINGS_EN,
 } as const;
