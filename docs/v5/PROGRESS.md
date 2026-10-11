@@ -11,11 +11,11 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | HUB-02 worktree-agent-a656613e3d213b254 + TUT-01 worktree-agent-a288a683a1286a200 + 22 fixed allowlist entries | — | integrator | — | merging |
+| (merge) | EC-04 worktree-agent-a6fb1e8e0d700ce7c, AR-03 worktree-agent-ae1f99260864f9257, ARM-01 worktree-agent-a6186b77c87d57fb0 | — | integrator | — | merging |
+| ar-02 | W13 AR-02: lair assaults | per card | per card | worktree-agent | running |
+| hero-01 | W13 HERO-01: Hero screen | per card | per card | worktree-agent | running |
+| ev-02 | W11 EV-02: event deck (shipped DISABLED until EV-03, V5-070) | per card | per card | worktree-agent | running |
 | rd-01 | W11 RD-01: morale glyph + group cards | per card | per card | worktree-agent | running |
-| ar-03 | W12 AR-03: tier 3 bands + item sources | per card | per card | worktree-agent | running |
-| ec-04 | W12 EC-04: class re-cost + balance misses sweep | per card | per card | worktree-agent | running |
-| arm-01 | W12 ARM-01: Army screen rebuild | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -56,6 +56,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - c26021e FW-01 field works; 331331c AS-06 works art. Gates: vitest 1030, server 301, layout 0 new, smokes pass; balance 54%, lairs 43/58/53, ditch +9.
 - 38a3aa9 fixer-5 smoke menu fade; 69d43da CT-04 previews + Then queue + paused plan. Gates: vitest 1042, layout 0 new, all smokes pass.
 - c3db469 F-04 icon atlas; 762b363 FW-02 works allowance. Gates: vitest 1067, server 301, layout 0 new, smokes pass; balance 54%, lairs 43/58/53.
+- 12a0d21 HUB-02 Campaign hub; 67c0220 TUT-01 first run; 6327f10 drop 22 clean allowlist entries. Gates: vitest 1084, layout 0 new, all 5 smokes pass.
 
 ## Queue (next)
 
@@ -95,6 +96,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 21. ui.png atlas grew 205→462 KB and loads at boot (F-04): per-screen loading goes to the perf story (OI-4).
 
 22. TUT-02 handoff (from TUT-01): remove showRing (battleTutorial.ts:81-82, :343, :409; BattleScene.ts:3661), tutorial army 4/2/2 with group IV, add focus/undo/Then/pause-planning steps, delete stale firstrun.* keys in tutorial.*. HERO-01: the commander name truncates on a 274 px canvas.
+
+23. EC-05 (new, V5-069): structural balance after the W13–W14 sim stories, before ST-04.
 
 ## Blockers
 
