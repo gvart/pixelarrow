@@ -39,7 +39,9 @@ The machine-readable source is `docs/v5/art/asset-manifest.json`. The tables bel
 | Reward art: chests | 3 |
 | Reward art: laurels | 1 |
 | Splash key art | 1 |
-| **Total** | **71** |
+| World pixel art: field works | 5 |
+| World pixel art: battle markers | 2 |
+| **Total** | **78** |
 
 ### Frescoes (mode banners) (5)
 
@@ -156,5 +158,22 @@ The machine-readable source is `docs/v5/art/asset-manifest.json`. The tables bel
 | ID | File | Size px | Kind | Template | Subject | Slot in code | Preview |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | ART-056 | `splash_keyart.jpg` | 780x1688 | painted | T-SPLASH | a hoplite phalanx with locked shields on a beach at dawn, seen from low, ships and a temple on the headland behind; empty sky in the top third for the logo | BootScene (audit BOOT-1) and FirstRun offer background (audit FR-1); full-bleed cover, 9:19.5, keep the subject in the central 320x568-CSS safe area. Exception to the x6 rule: x2 CSS (soft painting, full screen) | not wired |
+
+### World pixel art: field works (5)
+
+| ID | File | Size px | Kind | Template | Subject | Slot in code | Preview |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| ART-072 | `tile_stakes.png` | 36x24 | pixel | T-PIXEL | a row of four sharpened pale-wood stakes slanting toward the enemy, on a strip of turned earth, along the iso diagonal | stakes cell (works kind x): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts) | not wired |
+| ART-073 | `tile_ditch.png` | 36x20 | pixel | T-PIXEL | a flat iso diamond of trampled earth cut by a dark trench along its long axis, a lit spoil lip on the far side | ditch cell (works kind d), a ground decal under the men: field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts) | not wired |
+| ART-074 | `tile_laager.png` | 72x52 | pixel | T-PIXEL | one heavy two-axle plank wagon with disc wheels and a rolled hide on top, its long side along the iso diagonal | laager segment (works kind L, one wagon per 2-cell segment): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts) | not wired |
+| ART-075 | `tile_palisade.png` | 36x48 | pixel | T-PIXEL | six sharpened upright logs lashed by a rope band, stepping down along the iso diagonal | palisade cell (kind P, lair assaults, campaign-arc.md R2): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts) | not wired |
+| ART-076 | `tile_rampart.png` | 36x24 | pixel | T-PIXEL | a raised iso block of packed earth with dry turf tufts on top, lit and shaded side faces | rampart cell (kind p, behind the palisade, campaign-arc.md R2): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts) | not wired |
+
+### World pixel art: battle markers (2)
+
+| ID | File | Size px | Kind | Template | Subject | Slot in code | Preview |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| ART-077 | `crest_captain.png` | 10x10 | pixel | T-PIXEL | a red transverse horsehair crest on a curved bronze holder (the 10 px captain glyph) | captain crest over an enemy captain (ai-doctrines.md R6, battle-readability.md R2); CODE-DRAWN: Gemini cannot hold a 10x10 grid (AS-06) | not wired |
+| ART-078 | `crest_standard.png` | 16x44 | pixel | T-PIXEL | the army Standard: pole and crossbar, bronze sun disc on top, a red square banner with a cream stripe and a fringe, two ribbons | banner over the Standard bearer (abilities.md R5.5, battle-readability.md R2), beside the 13x44 group standards of ground.ts renderStandard; CODE-DRAWN: Gemini overshot the 44 px grid 2.6x (AS-06) | not wired |
 
 <!-- list:end -->

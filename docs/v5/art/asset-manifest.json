@@ -1568,6 +1568,146 @@
    "template": "T-ICON",
    "subject": "a tall transverse red horsehair crest on its curved bronze holder, no helmet",
    "slot": "Band captain (ai-doctrines.md R6): captain row of the encounter sheet and band plate crest (AI-02, WLD-01)"
+  },
+  {
+   "id": "ART-072",
+   "status": "needed",
+   "preview": null,
+   "file": "tile_stakes.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    36,
+    24
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "a row of four sharpened pale-wood stakes slanting toward the enemy, on a strip of turned earth, along the iso diagonal",
+   "slot": "stakes cell (works kind x): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-073",
+   "status": "needed",
+   "preview": null,
+   "file": "tile_ditch.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    36,
+    20
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "a flat iso diamond of trampled earth cut by a dark trench along its long axis, a lit spoil lip on the far side",
+   "slot": "ditch cell (works kind d), a ground decal under the men: field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-074",
+   "status": "needed",
+   "preview": null,
+   "file": "tile_laager.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    72,
+    52
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "one heavy two-axle plank wagon with disc wheels and a rolled hide on top, its long side along the iso diagonal",
+   "slot": "laager segment (works kind L, one wagon per 2-cell segment): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-075",
+   "status": "needed",
+   "preview": null,
+   "file": "tile_palisade.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    36,
+    48
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "six sharpened upright logs lashed by a rope band, stepping down along the iso diagonal",
+   "slot": "palisade cell (kind P, lair assaults, campaign-arc.md R2): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-076",
+   "status": "needed",
+   "preview": null,
+   "file": "tile_rampart.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    36,
+    24
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "a raised iso block of packed earth with dry turf tufts on top, lit and shaded side faces",
+   "slot": "rampart cell (kind p, behind the palisade, campaign-arc.md R2): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-077",
+   "status": "code-drawn",
+   "preview": null,
+   "file": "crest_captain.png",
+   "cat": "crest",
+   "kind": "pixel",
+   "size": [
+    10,
+    10
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "a red transverse horsehair crest on a curved bronze holder (the 10 px captain glyph)",
+   "slot": "captain crest over an enemy captain (ai-doctrines.md R6, battle-readability.md R2); CODE-DRAWN: Gemini cannot hold a 10x10 grid (AS-06)"
+  },
+  {
+   "id": "ART-078",
+   "status": "code-drawn",
+   "preview": null,
+   "file": "crest_standard.png",
+   "cat": "crest",
+   "kind": "pixel",
+   "size": [
+    16,
+    44
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "the army Standard: pole and crossbar, bronze sun disc on top, a red square banner with a cream stripe and a fringe, two ribbons",
+   "slot": "banner over the Standard bearer (abilities.md R5.5, battle-readability.md R2), beside the 13x44 group standards of ground.ts renderStandard; CODE-DRAWN: Gemini overshot the 44 px grid 2.6x (AS-06)"
   }
  ]
 }
