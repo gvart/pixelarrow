@@ -1,0 +1,20 @@
+src/scenes/online/beastPanel.ts
+  s_697bdc25a7c420::t_4368f16c7ffe9c 23,71,82
+  s_697bdc25a7c420::t_2e3dbf0fb4c2a0 2-8,17,19-21,24-25,30,32-45,47,49-50,56-70,72-81,83-172,174-177,181-182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "75052bea237268261b00f971bae5370fd4bf4bd6",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
