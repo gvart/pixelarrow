@@ -10,7 +10,7 @@
  */
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { addText, addIcon } from '../ui/kit';
+import { addText, addIcon, ScrollArea } from '../ui/kit';
 import { ItemIcon, confirmDialog } from '../ui/widgets';
 import { ensureFonts } from '../ui/fonts';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
@@ -42,7 +42,7 @@ const BTN_H = 26;
 /** The Skip text link's touch height (44 pt). */
 const LINK_H = 22;
 /** A mode card's height (64 pt at least, C-2). */
-const MODE_H = 40;
+const MODE_H = 32;
 /** The painted key art (docs/v5/art/asset-manifest.json T-SPLASH); loaded here, so only a new player downloads it. */
 const SPLASH = 'ui_splash_keyart';
 
@@ -282,15 +282,21 @@ export class FirstRunScene extends BaseScene {
   /** One card per mode, in the tab bar's order and with its name and icon; the Campaign card is the lit one (the primary). */
   private buildModes(): void {
     const { x, w } = this.area;
-    let y = this.area.y + 4;
     const gap = SIZE.gap + 2;
-    const tx = 30;
+    // a screen too short for all three (320x568 inside Telegram) scrolls them
+    const top0 = this.area.y + 4;
+    const scroll = new ScrollArea(this, this.ui, x, top0, w, this.area.y + this.area.h - top0, this.m.S);
+    this.events.once('shutdown', () => scroll.destroy());
+    let y = 0;
+    // the icon sits in the title row, so the pitch has the card's whole width (a short screen keeps all three cards)
+    const px = 8;
+    const tx = 26;
     const cards = MODES.map((m) => {
-      const lines = wrapText(t(m.pitch), w - tx - 18, 0).lines;
-      return { m, lines, textH: Math.max(MODE_H, 20 + lines.length * LINE_H + 5) };
+      const lines = wrapText(t(m.pitch), w - px - 20, 0).lines;
+      return { m, lines, textH: Math.max(MODE_H, 20 + lines.length * LINE_H + 4) };
     });
     // the frescoes share what the words leave, up to a 4:1 strip each
-    const room = this.area.y + this.area.h - y - gap * (MODES.length - 1) - cards.reduce((s, c) => s + c.textH, 0);
+    const room = this.area.y + this.area.h - top0 - gap * (MODES.length - 1) - cards.reduce((s, c) => s + c.textH, 0);
     let artH = Math.min(Math.floor(room / MODES.length) - 3, Math.round((w - 6) / ART_ASPECT));
     if (artH < MIN_ART) artH = 0;
     for (const { m, lines, textH } of cards) {
@@ -298,22 +304,23 @@ export class FirstRunScene extends BaseScene {
       const label = t(tab.key);
       const top = artH ? artH + 3 : 0;
       const h = top + textH;
-      const card = new ParchmentCard(this, x, y, w, h, { id: `firstrun.mode.${m.id}`, selected: m.id === 'campaign' });
+      const card = new ParchmentCard(this, 0, y, w, h, { id: `firstrun.mode.${m.id}`, selected: m.id === 'campaign' });
       const face = this.add.container(0, 0);
       card.add(face);
       if (artH) face.add(new FrescoBanner(this, 3, 3, w - 6, artH, { image: m.art, id: `firstrun.mode.${m.id}.art` }));
-      face.add(addIcon(this, 9, top + Math.round((textH - 12) / 2), tab.icon));
-      face.add(mtext(this, tx, top + 7, label, 'rInk', { size: 7.5, maxW: w - tx - 18, box: { owner: card, w, h } }));
-      const body = addText(this, tx, top + 19, lines.join('\n'), 'pInk');
+      face.add(addIcon(this, px, top + 5, tab.icon));
+      face.add(mtext(this, tx, top + 7, label, 'rInk', { size: 7.5, maxW: w - tx - 20, box: { owner: card, w, h } }));
+      const body = addText(this, px, top + 19, lines.join('\n'), 'pInk');
       uiFrame(body, card, w, h);
       face.add(body);
       const chev = addIcon(this, w - 15, top + Math.round((textH - 12) / 2), 'chevR');
       face.add(chev);
-      makePressable(card, { w, h, onTap: () => this.openMode(m.id), tip: label });
+      makePressable(card, { w, h, onTap: () => !scroll.moved && this.openMode(m.id), tip: label });
       Object.assign(card, { opts: { label } });
-      this.ui.add(card);
-      y += h + SIZE.gap + 2;
+      scroll.content.add(card);
+      y += h + gap;
     }
+    scroll.setContentHeight(y - gap);
   }
 
   private openMode(id: 'campaign' | 'duels' | 'war'): void {
