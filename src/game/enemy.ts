@@ -5,7 +5,8 @@ import { Rng } from '../sim/rng';
 import { heroPower } from '../sim/stats';
 import { makeHero, rollRarity, setBotLevel, type IdSource } from './heroes';
 import { CLASSES, type ClassId } from '../data/classes';
-import { DEFAULT_DOCTRINE, type DoctrineId } from '../sim/types';
+import { DEFAULT_DOCTRINE, type DoctrineId, type WorksAllowance } from '../sim/types';
+import { WORKS } from '../data/terrain';
 
 export interface EnemyArmy {
   culture: Culture;
@@ -14,6 +15,21 @@ export interface EnemyArmy {
   targetPower: number;
   /** How its bot fights (ai-doctrines.md R4); derived from the mix and culture. Missing = steady. */
   doctrine?: DoctrineId;
+  /**
+   * Field works its bot lays in deployment (field-works.md R4.4, R6), passed
+   * as ArmySpec.works. Only lair garrisons have any (garrisonWorks); field
+   * bands and the final host have none, whatever their doctrine. Missing = none.
+   */
+  works?: WorksAllowance;
+}
+
+/**
+ * A lair garrison's works (R4.4, V5-024): GARRISON_STAKES stakes segments,
+ * free, keyed to the lair rather than the doctrine. Its bot lays them in
+ * front of the palisade's gate gaps (src/sim/ai.ts placeWorks).
+ */
+export function garrisonWorks(): WorksAllowance {
+  return { stakes: WORKS.garrisonStakes, ditch: 0, laager: 0 };
 }
 
 /** Bot army strength relative to the player (before the victory ramp); tuned with `npm run balance`. */

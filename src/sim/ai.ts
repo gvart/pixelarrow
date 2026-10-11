@@ -7,7 +7,7 @@
 import type { Battle } from './battle';
 import { Rng } from './rng';
 import { presetFrontage, rightOf } from './formation';
-import type { DoctrineId, Side, SimGroup, SimUnit } from './types';
+import type { DoctrineId, Side, SimGroup, SimUnit, WorkType } from './types';
 import { rallyRadius } from './stats';
 import { clamp } from '../util/math';
 import { DOCTRINES, RETREAT_SHARE, SKIRMISH_RIDER_EXTRA, battleTimers, doctrineOf, type Doctrine, type DoctrineTimers } from '../data/doctrines';
@@ -65,6 +65,15 @@ export const CAV_REGROUP_S = 3;
 /** Seconds a bot line will hold a hill (or wait at a contested ford) before it gives up and attacks. */
 export const HOLD_HILL_S = DOCTRINES.steady.holdHillS;
 export const FORD_WAIT_S = DOCTRINES.steady.fordWaitS;
+
+/** The doctrines that answer a turtle with a stand-off (ai-doctrines.md R5). */
+export const STAND_OFF_DOCTRINES: readonly DoctrineId[] = ['swarm', 'hammer'];
+/** Seconds the enemy must have held still, behind works or in an orb, before a stand-off (R5). */
+export const STAND_OFF_S = 20;
+/** A stand-off ends once our missile-men have loosed nothing for this long (out of reach, or out of ammo). */
+export const STAND_OFF_QUIET_S = 10;
+/** Paces in front of the line (or out from a palisade gate) that a bot lays its works (field-works.md R6). */
+export const WORKS_OUT = 2;
 
 export class BotAI {
   readonly side: Side;
@@ -128,6 +137,8 @@ export class BotAI {
       }
     }
     if (b.terrain) this.deployOnTerrain(b);
+    // field-works.md R6: at the end of the deploy step. A side without an allowance issues nothing.
+    placeWorks(b, this.side);
   }
 
   /**
@@ -246,7 +257,9 @@ export class BotAI {
     for (const u of b.units) lastAction = Math.max(lastAction, u.lastAttackTick, u.lastShotTick, u.lastHitTick, u.lastBlockTick);
     const idle = (b.tick - lastAction) / 20;
     const T = this.timers;
-    if (t > T.pressAfterS && idle > T.pressIdleS) {
+    // ai-doctrines.md R5 stand-off: against a turtle the press waits and the missile-men work.
+    const standOff = STAND_OFF_DOCTRINES.includes(this.doctrine.id) ? this.standOff(b, enemies) : -1;
+    if (standOff < 0 && t > T.pressAfterS && idle > T.pressIdleS) {
       for (const g of myGroups) {
         const mem = b.activeMembers(g.id);
         if (mem.length === 0 || g.routed) continue;
@@ -270,6 +283,7 @@ export class BotAI {
       const c = centroid(mem);
       const near = nearest(enemies, c.x, c.y);
       const m = this.mem(g);
+      if (standOff >= 0 && this.holdOff(b, g, mem, standOff)) continue;
       if (b.special) {
         const kind = groupKind(mem);
         if (kind === 'cavalry') {
@@ -569,6 +583,81 @@ export class BotAI {
   private flankIn(b: Battle): boolean {
     return b.sideGroups(this.side).some((g) => g.role === 'flank' && !g.routed && (g.contact || (this.memo.get(g.id)?.stage ?? 0) >= 2));
   }
+
+  /**
+   * R5 stand-off: the id of the enemy group to shoot at, or -1 when there is
+   * no stand-off. It holds while every enemy group still on its feet has
+   * stood on a hold order, out of contact and in the same place, for
+   * STAND_OFF_S or more, at least one of them behind works (its side placed
+   * any) or in an orb, and our missile-men still have something to throw.
+   * Called only for the stand-off doctrines; it issues no order and draws
+   * nothing, so it changes nothing until it fires.
+   */
+  private standOff(b: Battle, enemies: SimUnit[]): number {
+    const worked = b.works().some((s) => s.side !== this.side);
+    let target = -1;
+    let td = Infinity;
+    let all = true;
+    const mine = b.units.filter((u) => u.side === this.side && u.state === 'ready');
+    const mc = mine.length ? centroid(mine) : { x: b.width / 2, y: b.height / 2 };
+    for (const g of b.groups) {
+      if (g.side === this.side || g.disbanded || g.routed) continue;
+      const mem = enemies.filter((u) => u.group === g.id);
+      if (mem.length === 0) continue;
+      const f = g.formation;
+      const s = this.still.get(g.id);
+      if (g.order !== 'hold' || g.contact || !s || Math.abs(s.cx - f.cx) > 0.3 || Math.abs(s.cy - f.cy) > 0.3) {
+        this.still.set(g.id, { cx: f.cx, cy: f.cy, since: b.tick });
+        all = false;
+        continue;
+      }
+      if ((b.tick - s.since) / 20 < STAND_OFF_S) all = false;
+      if (!worked && f.type !== 'orb') continue;
+      const c = centroid(mem);
+      const d = (c.x - mc.x) ** 2 + (c.y - mc.y) ** 2;
+      if (d < td) {
+        td = d;
+        target = g.id;
+      }
+    }
+    if (this.standDone || !all || target < 0) {
+      this.standSince = -1;
+      return -1;
+    }
+    // it ends for good when the missiles are spent, or nobody has loosed for STAND_OFF_QUIET_S
+    // (the shooters can't reach the holders): only then does the bot press
+    if (this.standSince < 0) this.standSince = b.tick;
+    const shot = mine.reduce((a, u) => Math.max(a, u.lastShotTick), this.standSince);
+    if (!mine.some((u) => u.stats.role !== 'melee' && u.ammo > 0) || (b.tick - shot) / 20 > STAND_OFF_QUIET_S) {
+      this.standDone = true;
+      return -1;
+    }
+    return target;
+  }
+
+  /** Tick the current stand-off began (-1 = none), and whether it has ended for good (R5: then the bot presses). */
+  private standSince = -1;
+  private standDone = false;
+
+  /**
+   * One of our groups in a stand-off: missile groups focus the holders and go
+   * on with their own logic (true = handled here); everyone else out of
+   * contact stops where he is.
+   */
+  private holdOff(b: Battle, g: SimGroup, mem: SimUnit[], target: number): boolean {
+    if (g.routed || g.contact) return false;
+    const shooters = mem.filter((u) => u.stats.role !== 'melee' && u.ammo > 0).length;
+    if (shooters * 2 >= mem.length) {
+      if (g.focus !== target) b.issue(this.side, { kind: 'focus', group: g.id, target });
+      if (!g.fireAtWill) b.issue(this.side, { kind: 'loose', group: g.id, on: true });
+      return false;
+    }
+    if (g.order !== 'hold') b.issue(this.side, { kind: 'order', group: g.id, order: 'hold' });
+    return true;
+  }
+
+  /** By enemy group id: where it stood and since when (the stand-off's stillness clock). */
+  private still = new Map<number, { cx: number; cy: number; since: number }>();
 
   private face(b: Battle, g: SimGroup, tx: number, ty: number, then?: 'advance' | 'charge'): void {
     const f = g.formation;
@@ -1035,6 +1124,140 @@ export class BotAI {
       return;
     }
     if (g.order !== 'charge' && !g.contact) b.issue(this.side, { kind: 'order', group: g.id, order: 'charge' });
+  }
+}
+
+// ------------------------------------------------------------- field works (R6)
+
+/** Segments of a type this side may still place (the sim refuses 'allowance' first, wherever the segment would go). */
+function worksLeft(b: Battle, side: Side, type: WorkType): boolean {
+  return b.workRefusal(side, { type, x: b.width / 2, y: b.height / 2, fx: 0, fy: 1 }) !== 'allowance';
+}
+
+/** Place one segment at the first candidate the sim accepts; false if none is. */
+function tryWork(b: Battle, side: Side, type: WorkType, spots: { x: number; y: number; fx: number; fy: number }[]): boolean {
+  for (const p of spots) {
+    const o = { type, x: p.x, y: p.y, fx: p.fx, fy: p.fy };
+    if (b.workRefusal(side, o) !== null) continue;
+    b.issue(side, { kind: 'work', ...o });
+    return true;
+  }
+  return false;
+}
+
+/** A point `out` paces in front of a group's front rank, `lat` paces to its right, laid across its facing. */
+function before(g: SimGroup, lat: number, out: number): { x: number; y: number; fx: number; fy: number } {
+  const f = g.formation; // the anchor is the front rank's centre
+  return { x: f.cx - f.fy * lat + f.fx * out, y: f.cy + f.fx * lat + f.fy * out, fx: f.fx, fy: f.fy };
+}
+
+/** The same spot `out` paces out, then nearer the line (WORKS_OUT, 1.5, 1): the first one the zone and the ground allow. */
+function nearer(g: SimGroup, lat: number, out = WORKS_OUT): { x: number; y: number; fx: number; fy: number }[] {
+  return [out, out - 0.5, out - 1].map((o) => before(g, lat, o));
+}
+
+function halfFront(b: Battle, g: SimGroup): number {
+  const n = Math.min(g.formation.frontage, b.activeMembers(g.id).length);
+  return ((n - 1) * (g.formation.fs ?? 1)) / 2;
+}
+
+/**
+ * The gate gaps of this side's palisade (campaign-arc.md R2): the runs of
+ * open cells between palisade cells on the row holding most of them, in its
+ * own half of the field. Field coordinates of each gap's centre, widest first.
+ */
+function gateGaps(b: Battle, side: Side): { x: number; y: number; w: number }[] {
+  const t = b.terrain;
+  if (!t) return [];
+  const cw = b.width / t.w;
+  const ch = b.height / t.h;
+  let row = -1;
+  let most = 0;
+  for (let iy = 0; iy < t.h; iy++) {
+    const y = (iy + 0.5) * ch;
+    if (side === 1 ? y > b.height / 2 : y < b.height / 2) continue;
+    let n = 0;
+    for (let ix = 0; ix < t.w; ix++) if (t.cellDef(iy * t.w + ix).kind === 'palisade') n++;
+    if (n > most) {
+      most = n;
+      row = iy;
+    }
+  }
+  if (row < 0) return [];
+  const gaps: { x: number; y: number; w: number }[] = [];
+  let last = -1;
+  for (let ix = 0; ix < t.w; ix++) {
+    if (t.cellDef(row * t.w + ix).kind !== 'palisade') continue;
+    if (last >= 0 && ix - last > 1) gaps.push({ x: ((last + 1 + ix) / 2) * cw, y: (row + 0.5) * ch, w: ix - last - 1 });
+    last = ix;
+  }
+  return gaps.sort((p, q) => q.w - p.w || p.x - q.x);
+}
+
+/**
+ * field-works.md R6: a bot side lays the works its allowance (ArmySpec.works)
+ * gives it, at the end of its deploy step. Nothing is placed, and no order
+ * issued, without an allowance: in v5 only lair garrisons have one (R4.4),
+ * and duels and war have none (V5-022). It draws no random numbers.
+ *
+ * - Stakes behind a palisade: one segment in front of each gate gap, WORKS_OUT
+ *   paces out, facing the attacker.
+ * - Stakes in the field: across the corner of the main line facing the
+ *   enemy's horse (the FW-01 placement: half a pace beyond the line's end,
+ *   one out, laid diagonally); with no horse in sight, WORKS_OUT paces in
+ *   front of the skirmishers. More segments go on the line's wings, the
+ *   horse's side first.
+ * - Ditch: along the main line's front, WORKS_OUT paces ahead; more segments
+ *   to either side of the first.
+ * - Laager: never in v5.
+ * Exported so a harness can lay a human side's works by the same rule.
+ */
+export function placeWorks(b: Battle, side: Side): void {
+  if (b.phase !== 'deploy') return;
+  const stakes = worksLeft(b, side, 'stakes');
+  const ditch = worksLeft(b, side, 'ditch');
+  if (!stakes && !ditch) return;
+  const groups = b.sideGroups(side).filter((g) => b.activeMembers(g.id).length > 0);
+  const main = groups.find((g) => g.role === 'main') ?? groups[0];
+  const toward = side === 1 ? 1 : -1; // the attacker comes from this way along y
+  const gaps = stakes ? gateGaps(b, side) : [];
+  for (const gap of gaps) {
+    if (!worksLeft(b, side, 'stakes')) break;
+    tryWork(b, side, 'stakes', [WORKS_OUT, WORKS_OUT - 0.5, WORKS_OUT - 1, 0].map((o) => ({ x: gap.x, y: gap.y + toward * o, fx: 0, fy: toward })));
+  }
+  if (!main) return;
+  const f = main.formation;
+  const w = Math.max(3, halfFront(b, main) + 1);
+  if (stakes && gaps.length === 0) {
+    // the enemy's horse: the largest group of riders (none yet when this side deploys first)
+    let horse: SimGroup | null = null;
+    let hn = 0;
+    for (const g of b.groups) {
+      if (g.side === side || g.disbanded) continue;
+      const mem = b.activeMembers(g.id);
+      const k = groupKind(mem);
+      if ((k === 'cavalry' || k === 'horse_archers') && mem.length > hn) {
+        horse = g;
+        hn = mem.length;
+      }
+    }
+    // which end of the line faces them: the sign of their offset along the line's right
+    const s = horse ? ((horse.formation.cx - f.cx) * -f.fy + (horse.formation.cy - f.cy) * f.fx >= 0 ? 1 : -1) : 1;
+    if (horse) {
+      const p = before(main, s * (halfFront(b, main) + 0.5), 1);
+      tryWork(b, side, 'stakes', [{ ...p, fx: f.fx - f.fy * s, fy: f.fy + f.fx * s }, ...nearer(main, s * w)]);
+    } else {
+      const sk = groups.find((g) => g.role === 'skirmish');
+      if (sk) tryWork(b, side, 'stakes', nearer(sk, 0));
+    }
+    for (const lat of [s * w, -s * w]) {
+      if (!worksLeft(b, side, 'stakes')) break;
+      tryWork(b, side, 'stakes', nearer(main, lat));
+    }
+  }
+  for (const lat of [0, -3, 3]) {
+    if (!worksLeft(b, side, 'ditch')) break;
+    tryWork(b, side, 'ditch', nearer(main, lat));
   }
 }
 
