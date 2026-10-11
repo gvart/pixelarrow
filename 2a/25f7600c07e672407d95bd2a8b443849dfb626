@@ -1,0 +1,20 @@
+src/ui/army/parts.ts
+  s_697bdc25a7c420::t_bfca9838fb398c 116
+  s_697bdc25a7c420::t_e9c0f63280614a 137,139-144,217-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2a25f7600c07e672407d95bd2a8b443849dfb626",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
