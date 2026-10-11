@@ -13,7 +13,7 @@ import { uiId } from '../layout';
 import { pulse } from '../motion';
 import { t } from '../../i18n';
 import { MBadge, fit, makePressable, mosaicImage, mtext, mw } from './base';
-import { MEDALLION_RISE, MODE_TABS, TAB_H, fitTabLabels, tabLayout, type TabId } from './tabLayout';
+import { MEDALLION_RISE, MODE_TABS, TAB_H, TAB_LABEL_PAD, fitTabLabels, tabLayout, type TabId } from './tabLayout';
 import { MEDALLION_GLOW } from '../../art/mosaicUi';
 import { hubView } from '../../platform/nav';
 
@@ -80,7 +80,9 @@ export class TabBar extends Phaser.GameObjects.Container {
       const slot = lay.slots[i];
       const sel = tab.id === this.current;
       const war = tab.id === 'war';
-      const cx = slot.x + slot.w / 2;
+      // the end slots keep only the inner half of the label pad (tabSlotWidths): their labels sit that much inward
+      const inward = i === 0 ? TAB_LABEL_PAD / 4 : i === MODE_TABS.length - 1 ? -TAB_LABEL_PAD / 4 : 0;
+      const cx = slot.x + slot.w / 2 + inward;
       const c = scene.add.container(0, 0);
       this.page.add(c);
       if (sel) c.add(mosaicImage(scene, slot.x + 1, -3, slot.w - 2, TAB_H + 3, 'tabSel'));
