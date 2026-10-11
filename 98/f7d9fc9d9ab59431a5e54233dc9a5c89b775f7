@@ -1,0 +1,29 @@
+tests/saveMigration.test.ts
+  s_697bdc25a7c420::t_8608ef8b3b7aca 2-4,55-58
+tests/perkPaths.test.ts
+  s_697bdc25a7c420::t_91bf723dd08634 20,158,160
+tests/saveRecovery.test.ts
+  s_697bdc25a7c420::t_91bf723dd08634 18-19,21-22
+tests/world.test.ts
+  s_697bdc25a7c420::t_bc0082851b25a9 6
+src/game/save.ts
+  s_697bdc25a7c420::t_81383987167bfe 2
+  s_697bdc25a7c420::t_5a9ff3cdb1569b 8-9
+  s_697bdc25a7c420::t_4d6b212bbef5d1 119-123,126-127,129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "98f7d9fc9d9ab59431a5e54233dc9a5c89b775f7",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
