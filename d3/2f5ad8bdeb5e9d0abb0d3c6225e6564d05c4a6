@@ -1,0 +1,27 @@
+src/ui/econ/shopModel.ts
+  s_697bdc25a7c420::t_f17de53882e917 66
+  s_697bdc25a7c420::t_51db9d3862b714 1-65,67-72
+src/ui/econ/shopParts.ts
+  s_697bdc25a7c420::t_d6d39518e4b99b 99-102
+  s_697bdc25a7c420::t_664c6d720a4376 122-132,134-136,140-146
+  s_697bdc25a7c420::t_fd0bab8a0cb098 25
+  s_697bdc25a7c420::t_09a077f30de1bc 203-204,206-211,217-219,221-226,228-231,233-234,236-242,248,258-260,272,274-275,280-287,289-295
+  s_697bdc25a7c420::t_1182fa1524c63d 1-24,26-50,53,56-98,103-121,133,137-139,147-202,205,212-216,220,227,232,235,243-247,249-257,261-271,273,276-279,288,296-315
+  s_697bdc25a7c420::t_ccc49bf2d36517 51-52,54-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d32f5ad8bdeb5e9d0abb0d3c6225e6564d05c4a6",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
