@@ -11,9 +11,9 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| set-01 | W16 SET-01: Settlement | per card | per card | worktree-agent | running |
-| cmp-01 | W17 CMP-01: Camp | per card | per card | worktree-agent | running |
-| res-01 | W17 RES-01: Results | per card | per card | worktree-agent | running |
+| (merge) | SET-01 worktree-agent-ae6525d2fe4e54135, CT-06 worktree-agent-a63ffa3c2e1f7a3b6, WLD-02 worktree-agent-ae92c887fac85e565 | — | integrator | — | merging |
+| war-01 | W18 WAR-01: War hub | per card | per card | worktree-agent | running |
+| f-05 | W6 F-05: Kit scene | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -66,6 +66,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - f752a6f EV-03 event card + journal, deck ON. Gates: vitest 1283/1284 (simTypes load timeout), layout 0 new (812 known), smokes pass.
 - 77f5d29 S4-NOCOMPAT (−11.5k lines); 109ae4f SHP-01; a6b5963 MKT-01; 31e6023 simTypes timeout. Gates: vitest 1221, server 299, layout 0 new (686 known), smokes pass (battle checks flake only under load); balance 53%, lairs 43/58/53; replay-hash Chromium 13/13.
 - 1b62f48 WAR-02 Clan + Merchant; b323361 WLD-01 World map; 9c8c6c6 FW-03 works tray + assault wiring. Gates: vitest 1255, server 299, layout 0 new (752 known), 5 smokes, online-e2e 34/34; balance 53%, lairs 43/58/53, assault 45%.
+- 0aa9776 CMP-01 Camp; 3f82725 RES-01 Results. Gates: vitest 1276, server 299, layout 0 new (671 known), smokes pass (fullscreen flaked once under load); balance 53%, lairs 43/58/53, assault 45%.
 
 ## Queue (next)
 
@@ -125,6 +126,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 31. Follow-ups: works tray subtitles at 6 px (BTL-01 text floor); captain names in Latin letters in RU (localization pass); event card portrait placeholder (eventCard.ts); pinch-zoom key A11Y-14 and the fog-edge next-town marker on World not built; unused strat strings world.sit.placing and world.strip.place.
 
 32. Integrator rule: never disable git hooks (core.hooksPath). The repo has none today, so nothing was skipped. Port 5173 is held by a foreign long-running vite, so e2e uses another port. Next: WLD-02 (assault sheet, host, burnt lairs; startLairAssault exists), CT-06 (ladder pause), BTL-01, DUE-01/02, WAR-01, FL-01..04, EC-01, DLG-02, QA-02, F-05, F-07, RD-02, TUT-02, QA-03..06, EC-03.
+
+33. Follow-ups: the swarm doctrine tell says it retreats (contradicts garrisons holding): fix the doctrine text; hero and captain names in Latin letters in RU; DUE-01 should replace CT-06's ladder lookup with an explicit field and show 'expired' on the ladder report; DUEL_RULES.ticketTtlMs unused; wld.lairTap unused.
 
 ## Blockers
 
