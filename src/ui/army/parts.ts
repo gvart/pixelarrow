@@ -113,7 +113,7 @@ export function addArmyHead(scene: Phaser.Scene, parent: C, x0: number, y0: numb
   addNiche(scene, card, P, P, nw, nh);
   addClassBust(scene, card, P + 2, P + 2, 20, cls.id);
   const st = src.status(h);
-  if (st) armyPill(scene, card, P + 2, P + nh - PILL_H - 2, st.text, ACCENT.dangerFill, nw - 4);
+  if (st) armyPill(scene, card, P + 2, P + nh - armyPillH(st.text, nw - 4) - 2, st.text, ACCENT.dangerFill, nw - 4);
   // the right column
   const tx = P + nw + 7;
   const tw = cw - tx - P;
@@ -134,13 +134,14 @@ export function addArmyHead(scene: Phaser.Scene, parent: C, x0: number, y0: numb
     armyPill(scene, card, tx, y, role, roleColor(cls.role), tw);
     y += armyPillH(role, tw) + 3;
   }
-  const pw = mtext(scene, tx, y, t('hero.power', { n: powerRating(h) }), 'rInk', { size: 7, box });
+  const pw = mtext(scene, tx, y, t('hero.power', { n: powerRating(h) }), 'rInk', { size: 7, maxW: tw, box });
   card.add(pw);
-  if (pw.width + 4 + 39 <= tw) addStars(scene, card, tx + pw.width + 4, y + 1, heroStars(h), 5, {});
-  else addStars(scene, card, tx, (y += 10), heroStars(h), 5, {});
-  y += 10;
-  // groups, under the niche and the column
-  let gy = Math.max(P + nh, y) + 4;
+  // the rank stars explain themselves on tap: their touch target reaches 14 below them
+  const starsY = pw.width + 4 + 39 <= tw ? y + 1 : y + 11;
+  addStars(scene, card, starsY === y + 1 ? tx + pw.width + 4 : tx, starsY, heroStars(h), 5, {});
+  y = starsY + 10;
+  // groups, under the niche and the column (clear of the stars' touch target)
+  let gy = Math.max(P + nh + 4, y + 4, starsY + 17);
   if (o.onGroup) {
     const inner = cw - 2 * P;
     const gw = Math.max(TAP, Math.min(30, Math.floor((inner - 3 * GAP) / 4)));
@@ -212,12 +213,20 @@ export function addMiniHead(scene: Phaser.Scene, parent: C, x: number, y: number
   const right = w - 18;
   const pw = mtext(scene, right, 7, `${powerRating(h)}`, 'rInk', { size: 7, align: 1, box });
   c.add(pw);
-  const lv = t('hero.level', { n: h.level });
-  const lvX = right - pw.width - 4 - armyPillW(lv);
-  armyPill(scene, c, lvX, 5, lv, LV_FILL, 60);
   const nx = ps + 9;
-  c.add(mtext(scene, nx, 7, h.name, 'rInk', { size: 7, maxW: Math.max(20, lvX - nx - 4 - (src.pending(h) ? 12 : 0)), box }));
-  if (src.pending(h)) c.add(new MBadge(scene, lvX - 8, 6, src.pending(h)));
+  const pend = src.pending(h);
+  const badgeW = pend ? 16 : 0;
+  // the Lv pill only where the name keeps 40 px beside it
+  const lv = t('hero.level', { n: h.level });
+  let end = right - pw.width - 4;
+  if (end - armyPillW(lv) - 4 - nx - badgeW >= 40) {
+    end -= armyPillW(lv);
+    armyPill(scene, c, end, 5, lv, LV_FILL, 60);
+    end -= 4;
+  }
+  const name = mtext(scene, nx, 7, h.name, 'rInk', { size: 7, maxW: Math.max(8, end - nx - badgeW), box });
+  c.add(name);
+  if (pend) c.add(new MBadge(scene, nx + name.width + 9, 11, pend));
   // a chevron: "the whole card is above"
   const up = addIcon(scene, w - 15, (H - 12) / 2, 'chevL', 'D');
   up.setAngle(90).setOrigin(0.5).setPosition(w - 9, H / 2);
