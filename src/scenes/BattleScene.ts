@@ -1166,10 +1166,10 @@ export class BattleScene extends BaseScene {
           return [Math.round(p.x), Math.round(p.y)] as [number, number];
         });
         // a translucent cyan-grey cell per soldier: together they read as the formation's lattice
-        g.fillStyle(color, a * (dashed ? 0.15 : 0.3));
+        g.fillStyle(color, a * 0.3);
         g.fillPoints(corners.map(([x, y]) => new Phaser.Math.Vector2(x, y)), true);
         // a ghost (a staged or a previewed position) has a dashed outline over a dark one, to read on any ground (A11Y-03)
-        if (dashed) this.dashRect(g, corners, 0x2a1d14, a * 0.7, 3, 0);
+        if (dashed) this.dashRect(g, corners, 0x2a1d14, a * 0.8, 3, 0);
         this.dashRect(g, corners, color, a, dashed ? 2 : 1, dashed ? 1 : 0);
       }
     };
@@ -2284,12 +2284,13 @@ export class BattleScene extends BaseScene {
     for (const gid of want) {
       const f = this.stagedFormation(gid);
       const n = this.sim.activeMembers(gid).length;
-      // no move staged: the ✕ sits over the group itself
+      // behind the ghost (its arrows point ahead); no move staged: behind the group itself
       const sl = f && n > 0 ? formationSlots(f, n) : this.sim.activeMembers(gid);
       if (!sl.length) continue;
-      const w = isoToScreen(sl.reduce((q, p) => q + p.x, 0) / sl.length, sl.reduce((q, p) => q + p.y, 0) / sl.length);
+      const fr = f ?? this.sim.groups[gid].formation;
+      const w = isoToScreen(sl.reduce((q, p) => q + p.x, 0) / sl.length - fr.fx * 1.8, sl.reduce((q, p) => q + p.y, 0) / sl.length - fr.fy * 1.8);
       const x = Math.round(((w.x - cam.worldView.x) * cam.zoom) / S) - 11;
-      const y = Math.round(((w.y - cam.worldView.y) * cam.zoom) / S) - 34;
+      const y = Math.round(((w.y - cam.worldView.y) * cam.zoom) / S) - 11;
       let b = this.ghostBtns.get(gid);
       if (!b) {
         b = new KeyButton(this, x, y, 22, 22, { label: t('queue.tip.ghost'), tip: t('queue.tip.ghost'), icon: 'close', iconOnly: true, variant: 'stone', id: `battle.plan.ghost.${groupNumeral(this.sim.groups, gid)}`, onClick: () => this.clearPlan(gid) });
