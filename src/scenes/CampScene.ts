@@ -1324,7 +1324,15 @@ export class CampScene extends BaseScene {
     }
     items.sort((a, b) => itemDef(b.item.def).value - itemDef(a.item.def).value);
     const { VW, VH } = this.m;
-    const rowH = 10 + LH * 2 + 6;
+    // name, the rarity step and whose it is across the row (one line when it fits); under them the cost line beside
+    // the Temper button. The rows share one height, so a narrow screen gives every row the owner's own line.
+    const tw0 = Math.min(VW - 12, 240) - 16 - 8 - 4;
+    const ownLine = items.some((e) => {
+      const r = normalizeRarity(e.item.rarity);
+      const next = RARITIES[Math.min(RARITIES.length - 1, RARITIES.indexOf(r) + 1)];
+      return mw(`${t('cmp.temper.step', { from: t(`rarity.${r}` as TKey), to: t(`rarity.${next}` as TKey) })} · ${e.who}`, 'pSec', TEXT_MIN) > tw0 - 4;
+    });
+    const rowH = 3 + 10 + LH * (ownLine ? 2 : 1) + BTN_H + 4;
     const sw = Math.min(VW - 12, 240);
     const h = Math.min(VH - 12, 26 + Math.max(1, items.length) * (rowH + ROW_GAP_LIST) + 14);
     const md = openParchmentSheet(this, { title: t('cmp.temper.title'), w: sw, h, id: 'camp.temper.sheet', onClose: () => (this.modal = null) });
@@ -1344,13 +1352,17 @@ export class CampScene extends BaseScene {
         const r = normalizeRarity(e.item.rarity);
         const next = RARITIES[Math.min(RARITIES.length - 1, RARITIES.indexOf(r) + 1)];
         const box = { owner: row, w: rw, h: rowH };
-        const tw = rw - btnW - 10;
+        const tw = rw - 8;
         row.add(mosaicImage(this, 0, 0, rw, rowH, 'parchment'));
         row.add(mtext(this, 4, 3, itemName(e.item), 'pInk', { maxW: tw, box }));
-        row.add(mtext(this, 4, 13, t('cmp.temper.step', { from: t(`rarity.${r}` as TKey), to: t(`rarity.${next}` as TKey), who: e.who }), 'pSec', { size: TEXT_MIN, maxW: tw, box }));
+        // whose it is goes on the step line when it fits there, else on the cost line
+        const step = t('cmp.temper.step', { from: t(`rarity.${r}` as TKey), to: t(`rarity.${next}` as TKey) });
+        row.add(mtext(this, 4, 13, ownLine ? step : `${step} · ${e.who}`, 'pSec', { size: TEXT_MIN, maxW: tw, box }));
+        if (ownLine) row.add(mtext(this, 4, 13 + LH, e.who, 'pSec', { size: TEXT_MIN, maxW: tw, box }));
         // the one cost line: supplies and gold, each with its icon
         let x = 4;
-        const cy = 13 + LH;
+        const by = 13 + LH * (ownLine ? 2 : 1) + 1;
+        const cy = by + Math.round((BTN_H - 9) / 2);
         for (const [icon, n, short] of [['wood', e.cost.supplies, w.supplies < e.cost.supplies], ['coin', e.cost.gold, camp.data.gold < e.cost.gold]] as const) {
           row.add(scaleIcon(addIcon(this, x, cy, icon), 0.7));
           x += 10;
@@ -1358,10 +1370,9 @@ export class CampScene extends BaseScene {
           row.add(txt);
           x += Math.ceil(mw(`${n}`, 'pInk', TEXT_MIN)) + 6;
         }
-        row.add(mtext(this, x, cy + 1, `· ${e.who}`, 'pSec', { size: TEXT_MIN, maxW: Math.max(0, tw - x), box }));
         const why = w.supplies < e.cost.supplies ? t('cs.needSupplies', { n: e.cost.supplies }) : camp.data.gold < e.cost.gold ? t('cmp.temper.noGold', { n: e.cost.gold }) : undefined;
         row.add(
-          new MButton(this, rw - btnW - 3, Math.round((rowH - BTN_H) / 2), btnW, BTN_H, {
+          new MButton(this, rw - btnW - 3, by, btnW, BTN_H, {
             label: t('cmp.temper.do'),
             variant: why ? 'disabled' : 'secondary',
             disabledReason: why,
