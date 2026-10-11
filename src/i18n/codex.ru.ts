@@ -9,7 +9,7 @@ export const CODEX_RU: Record<keyof typeof CODEX_EN, Entry> = {
   'codex.trialFight': 'Пробный бой',
   'codex.trialCaption': 'Тренировка вашим войском: без добычи и без потерь.',
   'codex.unknown': '? Неизвестная доктрина',
-  'codex.unknownHint': 'Сразитесь с отрядом, который так воюет, чтобы узнать её.',
+  'codex.unknownHint': 'Сразитесь с таким отрядом, чтобы узнать её.',
   'codex.doc.tell': 'Примета',
   'codex.doc.how': 'Как сражается',
   'codex.doc.counter': 'Против неё',
