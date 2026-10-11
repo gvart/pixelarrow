@@ -1,0 +1,21 @@
+src/i18n/firstrun.ru.ts
+  s_697bdc25a7c420::t_ec352b1f23a37f 12
+src/i18n/firstrun.en.ts
+  s_697bdc25a7c420::t_ec352b1f23a37f 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f100c7e69942485771caa29ad3146e4d4948de8f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
