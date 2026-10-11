@@ -20,6 +20,7 @@ import { UNDO_RU } from './undo.ru';
 import { QUEUE_RU } from './queue.ru';
 import { HUB_RU } from './hub.ru';
 import { FIRSTRUN_RU } from './firstrun.ru';
+import { ARMY_V5_RU } from './army.v5.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -300,4 +301,5 @@ export const RU: Table = {
   ...QUEUE_RU,
   ...HUB_RU,
   ...FIRSTRUN_RU,
+  ...ARMY_V5_RU,
 };

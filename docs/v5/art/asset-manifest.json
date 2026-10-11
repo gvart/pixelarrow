@@ -255,7 +255,7 @@
   {
    "id": "ART-012",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_militia.jpg", "screens": ["army-wounded"]},
    "file": "bust_militia.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -276,7 +276,7 @@
   {
    "id": "ART-013",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_hoplite.jpg", "screens": ["army", "army-stash"]},
    "file": "bust_hoplite.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -381,7 +381,7 @@
   {
    "id": "ART-018",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_slinger.jpg", "screens": ["army-full"]},
    "file": "bust_slinger.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -444,7 +444,7 @@
   {
    "id": "ART-021",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_peltast.jpg", "screens": ["army-pick"]},
    "file": "bust_peltast.jpg",
    "cat": "bust",
    "kind": "painted",

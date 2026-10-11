@@ -394,6 +394,38 @@ const SCREENS = [
   })),
   { id: 'army', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World' }), wait(p, 900)) },
   { id: 'army-stash', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World', tab: 'stash' }), wait(p, 900)) },
+  // the Army template's states (ARM-01): a full roster of 20 with a slinger selected, a wounded militiaman,
+  // the Drillmaster's pick mode (a peltast), and an army with no one left
+  ...[
+    ['army-full', 'World', 4, (c) => {
+      c.data.gold = 9999;
+      for (let i = 0; i < 40 && c.data.heroes.length < 20; i++) c.recruit();
+      c.data.heroes.forEach((h, i) => (h.group = i % 4));
+    }],
+    ['army-wounded', 'Menu', 8, (c) => (c.data.heroes[8].wound = 14)],
+    ['army-pick', 'Settlement', 6, null],
+    ['army-empty', 'World', -1, (c) => (c.data.heroes.length = 0)],
+  ].map(([id, from, sel, prep]) => ({
+    id,
+    owner: 'B',
+    run: async (p) => {
+      await ev(
+        p,
+        ([f, s, pick, body]) => {
+          const c = window.__state.campaign;
+          // the staged campaign serves the screens after this one: put the army back when the Army closes
+          const snap = JSON.stringify({ heroes: c.data.heroes, gold: c.data.gold });
+          window.__armyRestore = () => Object.assign(c.data, JSON.parse(snap));
+          if (body) new Function('c', body)(c);
+          const data = { from: f, heroId: c.data.heroes[s]?.id, ...(f === 'Settlement' ? { id: c.world.map.start } : {}), ...(pick ? { pick: 'retrain' } : {}) };
+          window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Army', data));
+        },
+        [from, sel, id === 'army-pick', prep ? `(${prep})(c)` : null],
+      );
+      await wait(p, 900);
+      return ev(p, () => void window.__game.scene.getScene('Army').events.once('shutdown', window.__armyRestore));
+    },
+  })),
   {
     // the stash in a town: compare with sell, repair and equip
     id: 'army-town-item',

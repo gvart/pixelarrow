@@ -19,8 +19,6 @@
     "trial|text-size|*"
   ],
   "B": [
-    "army-stash|text-size|*",
-    "army|text-size|*",
     "consumable-picker|text-size|*",
     "duel-board-live|text-size|*",
     "duel-board-raids|text-size|*",
@@ -100,8 +98,6 @@
     "results|text-size|*": "RES-01",
     "trial-info|spacing|beast.sheet.close|label-expand": "CDX-01",
     "trial|text-size|*": "CDX-01",
-    "army-stash|text-size|*": "ARM-01",
-    "army|text-size|*": "ARM-01",
     "consumable-picker|text-size|*": "SHP-01",
     "duel-board-live|text-size|*": "DUE-02",
     "duel-board-raids|text-size|*": "DUE-02",
