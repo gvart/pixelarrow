@@ -11,8 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | RD-03 worktree-agent-a32d1ab57ea91c811, AR-04 worktree-agent-ace034da7c2d1005c, ST-04 worktree-agent-a0b5e7924dc4ee111 | — | integrator | — | merging |
-| ev-03 | W14 EV-03: event card + journal, deck ON | per card | per card | worktree-agent | running |
+| (merge) | EV-03 worktree-agent-a7208d2a8a7d67ab2 (deck ON) | — | integrator | — | merging |
+| nocompat | S4-NOCOMPAT (V5-074): remove compat scaffolding | tech-debt, save-systems | lead-programmer | worktree-agent | running |
 | shp-01 | W16 SHP-01: Shop hub (no price changes) | per card | per card | worktree-agent | running |
 | mkt-01 | W18 MKT-01: Market | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
@@ -62,6 +62,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 78c81fe EC-02 item power cap; 299313b DLG-01 Settings. Gates: vitest 1166, server 306, layout 0 new (1037 known), smokes pass; balance 54%, lairs 43/58/53.
 - 9570d6f EC-05 structural balance. Gates: vitest 1175, server 309, layout 0 new, smokes pass; matched 53%, lairs 43/58/53, assault 45%.
 - 5070ff7 CDX-01 Codex; 5a17ad9 CT-07 orb/feint/Raise Standard. Gates: vitest 1209, layout 0 new (822 known), all smokes pass.
+- 5fc127f RD-03 why-line; 8075b8f AR-04 host + end state; 2b7bf4a ST-04 train 2 closed (13 v2 fixtures; Chromium hash parity 13/13). Gates: vitest 1276, server 340, layout 0 new (812 known), smokes pass; balance 53%, lairs 43/58/53, assault 45%, host 49%.
+- b4bda4a V5-074: no live users, backward compatibility dropped.
 
 ## Queue (next)
 
