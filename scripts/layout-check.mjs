@@ -331,6 +331,37 @@ const SCREENS = [
       return wait(p, 400);
     },
   },
+  // MKT-01: the goods form (quantity row), a filter's option sheet and the numeric price entry
+  {
+    id: 'market-goods-form',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'sell' });
+      await wait(p, 1000);
+      await call(p, 'Market', `s.openSellForm(s.base, { kind: 'resource', id: 'wood', have: 340 }); return 1;`);
+      return wait(p, 400);
+    },
+  },
+  {
+    id: 'market-filter',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'browse' });
+      await wait(p, 900);
+      await call(p, 'Market', `s.openFilter('sort'); return 1;`);
+      return wait(p, 400);
+    },
+  },
+  {
+    id: 'market-price',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'sell' });
+      await wait(p, 1000);
+      await call(p, 'Market', `s.openNumberSheet({ title: 'Price', value: 21, min: 2, max: 5000, icon: 'wargold', presets: [1, 2, 5].map((n) => ({ label: 'x' + n, tip: 'x' + n, value: 21 * n })), info: (v) => 'You get ' + v, id: 'market.priceSheet', onDone: () => {} }); return 1;`);
+      return wait(p, 400);
+    },
+  },
   { id: 'world', owner: 'C', run: async (p) => (await start(p, 'World'), wait(p, 1500)) },
   // the event card (EV-03, campaign-events.md R4): the longest body with a gamble, and three choices with costs; the journal full
   ...[
