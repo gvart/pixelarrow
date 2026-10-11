@@ -155,26 +155,26 @@ thureophoros or Celtic swordsman by culture, animals by kind).
 
 | Class | Role | Cost | Cultures | Kit (recruit) | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Militia | levy | 60 | all | dory / club / javelins / sling | cheap, brittle; village recruits |
+| Militia | levy | 64 | all | dory / club / javelins / sling | cheap, brittle; village recruits |
 | Spartan hoplite | heavy | 100 | Greek | dory, hoplon, Corinthian | braced spear wall, the anti-cavalry line |
 | Thureophoros | heavy | 85 | Greek, Punic | xiphos or longche, thureos | flexible medium foot |
 | Celtic swordsman | heavy | 80 | Celtic | longsword, thureos, mail later | shock infantry |
 | Thracian rhomphaia | heavy | 85 | Greek | two-handed rhomphaia, no shield | shield breaker, weak to missiles |
-| Cretan archer | ranged | 50 | Greek, Punic | bow → Cretan bow | longest range, armour piercing |
-| Rhodian slinger | ranged | 50 | all | sling → Rhodian sling | most ammunition |
+| Cretan archer | ranged | 47 | Greek, Punic | bow → Cretan bow | longest range, armour piercing |
+| Rhodian slinger | ranged | 47 | all | sling → Rhodian sling | most ammunition |
 | Peltast javelineer | ranged | 45 | all | javelins, pelte | heavy short-range volleys |
 | Scythian horse archer | ranged (mounted) | 75 | Punic, Celtic | Scythian bow, hood | shoots on the move, kites |
 | Peltast | light | 65 | Greek, Celtic | javelins + longche, pelte | throws then closes; hunts archers |
 | Thracian falx | light | 75 | Greek, Celtic | falx | fast, hits hard, no shield |
 | Gallic warband | light | 70 | Celtic | axe / longsword, thureos | cheap fierce charge |
 | Fanatic | light | 70 | any (bands) | club / axe / kopis, buckler | hardly breaks (morale loss ×0.65) |
-| Companion cavalry | cavalry | 160 | Greek | xyston lance, Boeotian helmet | shock riders: flank and rear charges |
+| Companion cavalry | cavalry | 155 | Greek | xyston lance, Boeotian helmet | shock riders: flank and rear charges |
 | Thessalian horse | cavalry | 115 | Greek, Punic | javelins, buckler | lighter riders, throw then charge |
-| Scythed chariot | cavalry | 260 | Punic | kopis; scythed wheels | breaks loose foot, dies in rough ground |
-| Royal guard | elite | 130 | Greek | bronze dory, silver argyraspis, Attic | elite line |
-| Sacred Band | elite | 125 | Greek | bronze dory, aspis, Corinthian | elite line |
-| Wolf | beast | 50 | — | — | packs, flank, bolt when hurt |
-| Wild boar | beast | 100 | — | — | armoured charge |
+| Scythed chariot | cavalry | 255 | Punic | kopis; scythed wheels | breaks loose foot, dies in rough ground |
+| Royal guard | elite | 125 | Greek | bronze dory, silver argyraspis, Attic | elite line |
+| Sacred Band | elite | 115 | Greek | bronze dory, aspis, Corinthian | elite line |
+| Wolf | beast | 53 | — | — | packs, flank, bolt when hurt |
+| Wild boar | beast | 107 | — | — | armoured charge |
 | Brown bear | beast | 250 | — | — | cleaves and knocks men down |
 
 **Perk trees** — each class has its own five perks (tiers at levels 2, 4,
@@ -490,14 +490,20 @@ should be; symmetric fields stay even, and broken ground makes battles longer:
 | Companions vs archers | 81% |
 | Horse archers vs hoplites / vs Celtic swordsmen | 52% / 100% |
 | Scythed chariots vs militia (spears) | 0% |
-| Wolves / boars / a bear vs militia (budgets 600 and 900) | 54% / 54% / 50% |
+| Wolves / boars / a bear vs militia (budgets 600 and 900) | 56% / 52% / 62% |
 
 Class costs were fitted (`npm run balance`'s round robin, budgets 700 and
 900 so that rounding the head count does not decide a matchup) until every
-class's mean win rate against all others lies between 34% and 64%: Levy 54,
-hoplite 50, thureophoros 50, Celt 64, rhomphaia 50, archer 34, slinger 43,
-javelineer 64, horse archer 54, peltast 58, falx 40, Gaul 59, fanatic 46,
-Companion 43, Thessalian 51, chariot 41, royal guard 47, Sacred Band 52.
+class's mean win rate against all others lies between 34% and 64%. EC-04
+re-costed them (docs/v5/balance/EC-04.md); at 40 seeds per pair the means
+are Levy 48, hoplite 51, thureophoros 42, Celt 53, rhomphaia 50, archer 48,
+slinger 48, javelineer 45, horse archer 53, peltast 56, falx 40, Gaul 61,
+fanatic 51, Companion 52, Thessalian 52, chariot 53, royal guard 47, Sacred
+Band 50. A class's duel points are a tenth of its cost, rounded, and the
+re-cost stayed inside each rounding band except the Sacred Band (13 → 12
+points), so stored duel teams and ladder floors kept their points. Two
+pure-class results don't move with cost: the elite line still loses 80–100%
+to equal-cost shock infantry, and militia still beat every cavalry class.
 The intended counters hold: spears beat riders head on (hoplites over
 Companions / Thessalians / chariots 92–100%), riders beat missile men
 (Companions over archers / slingers / javelineers 69–92%), peltasts beat
