@@ -8,7 +8,7 @@ import { itemDef, itemValue, type Item } from '../src/data/items';
 import { AFFIX_STEPS, affixPool, itemAffixes, itemPower, type AffixId } from '../src/data/affixes';
 import { Rng } from '../src/sim/rng';
 import { FORGE, forgeCost, groupDigits } from '../src/game/economy';
-import { forgeCandidates, forgeDefaultLine, forgePool, forgeReroll, forgeable } from '../src/game/gear';
+import { affixLineText, forgeCandidates, forgeDefaultLine, forgePool, forgeReroll, forgeable } from '../src/game/gear';
 import { Campaign } from '../src/game/campaign';
 import { WIN_GOLD } from '../src/game/campaign';
 
@@ -205,6 +205,16 @@ describe('the gold sink (GDD "Formulas", docs/v5/balance/EC-01.md)', () => {
     expect(affixPool(itemDef('falcata')).length).toBe(6);
     expect(Math.round(tries)).toBe(4);
     expect(Math.round(gold)).toBe(960);
+  });
+});
+
+describe('a line as the sheet shows it', () => {
+  it('signed, in the stat unit, percentages as %', () => {
+    expect(affixLineText(item('falcata', 'rare'), 'dmg', 2)).toBe('+1');
+    expect(affixLineText(item('falcata', 'rare'), 'atkSpeed', 2)).toBe('+6%');
+    expect(affixLineText(item('falcata', 'rare'), 'blockPierce', 1)).toBe('+2%');
+    expect(affixLineText(item('linothorax', 'rare'), 'hp', 1)).toBe('+3');
+    expect(affixLineText(item('javelins', 'rare'), 'ammo', 2)).toBe('+2');
   });
 });
 

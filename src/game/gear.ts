@@ -10,7 +10,7 @@ import type { Equipment, Hero } from '../data/units';
 import { perkSlots } from '../data/perks';
 import { classGearBlocker, type ClassGearBlock } from '../data/gearRules';
 import { computeStats, heroClass, heroPower, type CombatStats } from '../sim/stats';
-import { AFFIX_STEPS, affixPool, encodeAffixes, itemAffixes, type AffixId } from '../data/affixes';
+import { AFFIXES, AFFIX_STEPS, affixPool, encodeAffixes, itemAffixes, type AffixId } from '../data/affixes';
 import type { Rng } from '../sim/rng';
 import { forgeCost } from './economy';
 
@@ -283,6 +283,16 @@ export function itemModLines(it: Item, attrs?: Hero['attrs']): ModLine[] {
     out.push({ key: k, value: v, text, good: base ? true : v > 0 });
   }
   return out;
+}
+
+/** One random-stat line as the forge sheet shows it: "+1", "+6%" (javelins carry 1 missile a step). */
+export function affixLineText(it: Pick<Item, 'def'>, id: AffixId, steps: number): string {
+  const step = id === 'ammo' && itemDef(it.def).weaponKind === 'javelins' ? 1 : AFFIXES[id].step;
+  const row = MOD_ORDER.find(([k]) => k === id);
+  const dp = row?.[1] ?? 1;
+  const shown = row?.[2] ? step * steps * 100 : step * steps;
+  const num = dp === 0 ? `${Math.round(shown)}` : shown.toFixed(dp).replace(/\.?0+$/, '');
+  return `+${num}${row?.[2] ? '%' : ''}`;
 }
 
 // ------------------------------------------------------------------ stash filters and sorting
