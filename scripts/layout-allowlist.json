@@ -35,10 +35,7 @@
     "duel-shop-offers|text-size|*",
     "duel-shop-sell|text-size|*",
     "duel-team-presets|text-size|*",
-    "duel-team|text-size|*",
-    "online-army-recruit|text-size|*",
-    "online-army-stash|text-size|*",
-    "online-army|text-size|*"
+    "duel-team|text-size|*"
   ],
   "C": [],
   "F": [
@@ -85,9 +82,6 @@
     "duel-shop-sell|text-size|*": "DUE-01",
     "duel-team-presets|text-size|*": "DUE-01",
     "duel-team|text-size|*": "DUE-01",
-    "online-army-recruit|text-size|*": "WAR-01",
-    "online-army-stash|text-size|*": "WAR-01",
-    "online-army|text-size|*": "WAR-01",
     "kit-overlay-purchase|text-size|*": "SHP-01",
     "tutorial-fight|text-size|*": "TUT-02",
     "tutorial-loose|text-size|*": "TUT-02",
