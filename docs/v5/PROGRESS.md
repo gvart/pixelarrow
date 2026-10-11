@@ -11,10 +11,11 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | CT-04 worktree-agent-a7acf94c0d8179eb8 + fixer-5 worktree-agent-a1fbca267494ceb9f | — | integrator | — | merging |
-| fw-02 | W11 FW-02: works allowance + bot placement | per card | per card | worktree-agent | running |
+| (merge) | F-04 worktree-agent-ab031086d7c248111 + FW-02 worktree-agent-a07f30c373ae3b66e | — | integrator | — | merging |
+| hub-02 | W10 HUB-02 fixes (enabled tiles, tab label fit, V5-068) | per card | per card | worktree-agent-a656613e3d213b254 | running |
+| ec-04 | W12 EC-04: class re-cost + balance misses sweep | per card | per card | worktree-agent | running |
+| arm-01 | W12 ARM-01: Army screen rebuild | per card | per card | worktree-agent | running |
 | tut-01 | W11 TUT-01: first run / tutorial rebuild | per card | per card | worktree-agent | running |
-| hub-02 | W10 HUB-02: Campaign hub (Fresco Hall) | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -53,6 +54,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 322b6d0 CT-05 battle camera; 9716188 AS-04 frescoes (campaign fresco promoted). Gates: vitest 975, layout 0 new, smokes pass.
 - 38a7c16 HUB-01; 89525bd AS-05; 489c63a EV-01. Gates: vitest 1012, layout 0 new, smokes pass (smoke flaked at 'Begin the march' under load); balance 54%.
 - c26021e FW-01 field works; 331331c AS-06 works art. Gates: vitest 1030, server 301, layout 0 new, smokes pass; balance 54%, lairs 43/58/53, ditch +9.
+- 38a3aa9 fixer-5 smoke menu fade; 69d43da CT-04 previews + Then queue + paused plan. Gates: vitest 1042, layout 0 new, all smokes pass.
 
 ## Queue (next)
 
@@ -88,6 +90,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 19. smoke.mjs still flakes at 'battle against the band' (seen after AR-01 starter bands); a QA fixer is queued. World: the 'Your camp: tap Build' banner points to a removed Build button (WLD story).
 
 20. ORDER: the event card UI (World/Settlement) must merge BEFORE EV-02 (V5-064). HUB-02 starts once HUB-01 merges.
+
+21. ui.png atlas grew 205→462 KB and loads at boot (F-04): per-screen loading goes to the perf story (OI-4).
 
 ## Blockers
 
