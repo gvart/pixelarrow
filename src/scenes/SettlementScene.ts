@@ -70,18 +70,6 @@ export class SettlementScene extends BaseScene {
     super('Settlement');
   }
 
-  /** The settlement's painted vignette, downloaded on the first visit to a place of that kind and people. */
-  preload(): void {
-    const w = state.campaign.world;
-    const data = this.sys.settings.data as { id?: number } | undefined;
-    const def = w.settlement(data?.id ?? w.s.inside);
-    if (!def || def.kind === 'lair') return;
-    const key = vignetteKey(def.kind, def.culture);
-    if (this.textures.exists(key) || askedVignettes.has(key)) return;
-    askedVignettes.add(key);
-    this.load.image(key, vignetteUrl(def.kind, def.culture));
-  }
-
   create(data: { id?: number; tab?: Tab }): void {
     this.initUi();
     ensureFonts(this);
@@ -114,8 +102,21 @@ export class SettlementScene extends BaseScene {
     // shorter on a short screen, so the tab's first rows (the Drillmaster in Services) stay in view
     const artH = compact ? 38 : VH < 380 ? 58 : 78;
     const vk = vignetteKey(def.kind, def.culture);
-    const art = hasRaster(this, vk) ? { image: vk } : { pixelKey: this.artTexture(def, this.aw - 8, artH - 8) };
-    this.ui.add(new FrescoBanner(this, this.ax, y, this.aw, artH, { ...art, label: def.name, id: 'town.art' }));
+    const artY = y;
+    const banner = (art: { image: string } | { pixelKey: string }) => new FrescoBanner(this, this.ax, artY, this.aw, artH, { ...art, label: def.name, id: 'town.art' });
+    const first = banner(hasRaster(this, vk) ? { image: vk } : { pixelKey: this.artTexture(def, this.aw - 8, artH - 8) });
+    this.ui.add(first);
+    // downloaded on the first visit to a place of this kind and people, without holding the page up
+    if (!hasRaster(this, vk) && !askedVignettes.has(vk)) {
+      askedVignettes.add(vk);
+      this.load.image(vk, vignetteUrl(def.kind, def.culture));
+      this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+        if (!this.sys.isActive() || !first.scene || !hasRaster(this, vk)) return;
+        this.ui.addAt(banner({ image: vk }), this.ui.getIndex(first));
+        first.destroy();
+      });
+      this.load.start();
+    }
     y += artH + 3;
     const people = tOr(`culture.${def.culture}`, CULTURE_LABEL[def.culture]);
     this.ui.add(mtext(this, b.x + b.w / 2, y + 1, t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: this.aw, box: { owner: this.ui, w: this.m.VW, h: VH } }));
