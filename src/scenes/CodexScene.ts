@@ -62,9 +62,16 @@ export class CodexScene extends BaseScene {
     this.shell = addHubShell(this, { title: t('tab.codex'), active: 'codex' });
     this.build();
     // the painted plates arrive after the first frame: rebuild the list with them
-    ensurePlates(this, ENCOUNTER_IDS, () => this.build());
-    if (data?.open && ENCOUNTER_IDS.includes(data.open)) this.openBeast(data.open);
-    else if (data?.doctrine && met.includes(data.doctrine)) this.openDoctrine(data.doctrine);
+    const door = () => {
+      if (data?.open && ENCOUNTER_IDS.includes(data.open)) this.openBeast(data.open);
+      else if (data?.doctrine && met.includes(data.doctrine)) this.openDoctrine(data.doctrine);
+    };
+    // a door straight to a beast's sheet waits for the plates, so its header has the painting
+    const loading = ensurePlates(this, ENCOUNTER_IDS, () => {
+      this.build();
+      door();
+    });
+    if (!loading) door();
   }
 
   /** The list of the current segment, under the switch (or the Beasts title before any doctrine is met). */
@@ -182,7 +189,8 @@ export class CodexScene extends BaseScene {
     // the hint in two lines; the full text is in the sheet
     const font: FontKey = 'pSec';
     const ls = wrapWords(o.hint, tw, (s) => mw(s, font, HINT));
-    const two = ls.length > 2 ? [ls[0], fit(ls.slice(1).join(' '), font, HINT, tw)] : ls;
+    // a single word wider than the line (ru at 320) is cut too, never drawn past the row
+    const two = (ls.length > 2 ? [ls[0], ls.slice(1).join(' ')] : ls).map((l) => fit(l, font, HINT, tw));
     const hint = mtext(this, tx, hy, two.join('\n'), font, { size: HINT });
     uiFrame(hint, r, w, RH);
     face.add(hint);

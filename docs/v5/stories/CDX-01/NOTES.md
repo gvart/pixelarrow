@@ -25,7 +25,7 @@ Shipped after `preview.mjs` (layout exit 0 at 390, 360, 320) and reading every D
 1. **Met doctrines live in local storage** (`pixelarrow:codex.doctrines`), not the save: the Codex save flags belong to the save story (screens-modes.md open question 1) and `save.ts` is not this story's. They are noted from the last battle each time the Codex opens (a Trial teaches none); `noteDoctrine()` is exported for WLD-01's encounter row and the battle chip. Knowledge is the player's, so it is not per campaign.
 2. **No "Defeated ✓" mark**: it is marked "proposed (Director decision)" and needs a save field.
 3. **Plate beside the pixel figure** on the beast sheet: the plate says what it is, the figure how it looks in battle (a 3:1 crop of a square plate would cut the heads).
-4. **The beast sheet is centred and as tall as its content**, with the X; the caption sits fixed over the button so the rule is always next to the action.
+4. **The beast sheet is docked at the bottom, full width, and as tall as its content**, with the X: centred, "Lernaean Hydra" fell under the text floor beside the X at 320x568 in Telegram. The caption sits fixed over the button so the rule is always next to the action. A door straight to a sheet (Results, `{ open }`) waits for the plates so the header has its painting.
 5. **Book icon not wired**: its slot is the tab bar (TabBar/tabLayout, not this story's files); it stays staged.
 6. **Doctrine texts** are under `doctrine.<id>.*` so the encounter row and battle chip can reuse them; counters follow the GDD balance table (rush ← brace, hammer ← reserve to the flank or orb, swarm ← fast advance and cavalry, fury ← missiles and feint); steady's is "strike a flank before the reserve commits".
 

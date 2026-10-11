@@ -39,10 +39,10 @@ export const plateUrl = (enc: EncounterId): string => `ui/beasts/plate_${enc}.jp
 /** Plates already asked for (a file that failed to load is not asked for again). */
 const askedPlates = new Set<string>();
 
-/** Load the shipped plates of `encs` not asked for yet; `done` runs once they arrive (not at all when none was missing). */
-export function ensurePlates(scene: Phaser.Scene, encs: Iterable<EncounterId>, done: () => void): void {
+/** Load the shipped plates of `encs` not asked for yet; `done` runs once they arrive. False (and no `done`) when none was missing. */
+export function ensurePlates(scene: Phaser.Scene, encs: Iterable<EncounterId>, done: () => void): boolean {
   const missing = [...new Set(encs)].filter((e) => SHIPPED_PLATES.has(e) && !askedPlates.has(e) && !hasRaster(scene, plateKey(e)));
-  if (!missing.length) return;
+  if (!missing.length) return false;
   for (const e of missing) {
     askedPlates.add(e);
     scene.load.image(plateKey(e), plateUrl(e));
@@ -51,6 +51,7 @@ export function ensurePlates(scene: Phaser.Scene, encs: Iterable<EncounterId>, d
     if (scene.sys.isActive()) done();
   });
   scene.load.start();
+  return true;
 }
 
 /** The beast's painted plate if it is loaded, else null. */
@@ -260,7 +261,8 @@ export function openBeastInfo(scene: UiScene, enc: EncounterId, o: BeastInfoOpts
  */
 export function openBeastSheet(scene: UiScene, enc: EncounterId, o: BeastInfoOpts = {}): { close: () => void } {
   const { VW, VH } = scene.m;
-  const w = VW - 16;
+  // docked: the full width (a long name keeps its title size beside the X at 320)
+  const w = VW - 8;
   const actions: MButtonOpts[] = o.action
     ? [{ label: o.action.label, icon: o.action.icon ?? 'swords', variant: o.action.disabled ? 'disabled' : 'primary', disabledReason: o.action.disabled, onClick: () => o.action!.run(), id: 'beast.sheet.action' }]
     : [];
@@ -279,7 +281,7 @@ export function openBeastSheet(scene: UiScene, enc: EncounterId, o: BeastInfoOpt
   pa.destroy();
   probe.destroy();
   const h = Math.min(VH - 12, SHEET_TITLE_H + contentH + 6 + capH + sheetActionsH(actions, w) + 8);
-  const s = openParchmentSheet(scene, { title: encounterName(enc), w, h, actions, id: 'beast.sheet', onClose: o.onClose });
+  const s = openParchmentSheet(scene, { title: encounterName(enc), w, h, actions, dock: 'bottom', id: 'beast.sheet', onClose: o.onClose });
   const b = s.body;
   if (capLines.length) s.c.add(mtext(scene, b.x + b.w / 2, b.y + b.h - capH + 2, capLines.join('\n'), capFont, { size: capSize, align: 0.5 }).setCenterAlign());
   const area = new ScrollArea(scene, s.c, b.x, b.y, b.w, b.h - capH - 2, scene.m.S);
