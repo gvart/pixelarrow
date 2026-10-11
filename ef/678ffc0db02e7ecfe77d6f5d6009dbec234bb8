@@ -1,0 +1,22 @@
+docs/GAMEPLAY.md
+  s_697bdc25a7c420::t_078938cf33cbf7 158,163-164,171,173-177,493,497-506
+src/data/classes.ts
+  s_697bdc25a7c420::t_bd42c5a999123c 143-149
+  s_697bdc25a7c420::t_1cbdbffe565e3e 150,164,215,223,283,299,307,315,324,330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ef678ffc0db02e7ecfe77d6f5d6009dbec234bb8",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
