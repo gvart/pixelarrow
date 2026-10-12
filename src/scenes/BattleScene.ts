@@ -270,10 +270,8 @@ export class BattleScene extends BaseScene {
   /** What the order row was built for (ordersKey): the HUD is rebuilt when it changes. */
   private ordersBuilt = '';
   private cards: { gid: number; card: GroupCard; numeral: string }[] = [];
-  /** Order, shape and ability controls by key (order keys, shape rows, ability chips): the tutorial lights them. */
+  /** Order, shape and ability controls by key (order keys, shape rows, medallions, chips): the tutorial lights them. */
   private cmdBtns = new Map<string, Phaser.GameObjects.Container>();
-  /** The shape chip under 'formation' and the first ability chip under 'abilities' (the tutorial's fallbacks). */
-  private tabBtns = new Map<BattleCategory, Phaser.GameObjects.Container>();
   private heroInfo: Phaser.GameObjects.Container | null = null;
   private banner: Phaser.GameObjects.Container | null = null;
   private bannerTimer: Phaser.Time.TimerEvent | null = null;
@@ -356,6 +354,10 @@ export class BattleScene extends BaseScene {
   /** The guided tutorial battle (src/ui/tutorial/battleTutorial.ts): set from the scene data, the controller after the HUD. */
   private tutorialData: TutorialStart | null = null;
   tutorial: BattleTutorial | null = null;
+  /** What the tutorial has taught so far (TUT-02): planning while paused, the Then… chip, Undo (off until its step); and whether the chips row and the edge pointers show now. */
+  private tutAllow = { plan: false, then: false, undo: false, chips: true };
+  /** The tutorial's clock for the 3 s Undo and Then… windows: it stands still while old Nikias waits for the player. */
+  private tutClock = 0;
 
   private get foe(): Side {
     return this.me === 0 ? 1 : 0;
@@ -457,6 +459,8 @@ export class BattleScene extends BaseScene {
     this.lastTickSound = -1;
     this.src = data?.source ?? null;
     this.tutorialData = !this.src && data?.tutorial ? data.tutorial : null;
+    this.tutAllow = { plan: false, then: false, undo: false, chips: true };
+    this.tutClock = 0;
     this.ladderEnd = this.src?.ladder?.deadline ?? null;
     this.pace = paceMode(!!this.src, this.ladderEnd !== null);
     // the saved battle speed (A11Y-21), within what this battle offers; the scripted tutorial runs at 1×
@@ -840,6 +844,7 @@ export class BattleScene extends BaseScene {
       this.updateCountdown();
     }
     this.updateTicket();
+    if (this.tutorialData && !this.tutorial?.holdsChips) this.tutClock += delta;
     if (this.bannerLife?.expired(this.time.now)) this.hideBanner();
     if (this.sim.phase === 'battle' && !this.paused) {
       this.acc += Math.min(0.25, delta / 1000) * this.speed;
@@ -2427,14 +2432,19 @@ export class BattleScene extends BaseScene {
 
   // ---- the order queue (controls.md R5, R6; CT-04): staging while paused, the one-step Then…, previews
 
-  /** Paused offline in battle: orders go to the plan, not the sim (R6.1). Never online: those battles never pause. */
+  /** Paused offline in battle: orders go to the plan, not the sim (R6.1). Never online: those battles never pause. The tutorial: only in its planning steps. */
   private staging(): boolean {
-    return this.paused && !this.realtimeLocked && !this.tutorial && this.sim.phase === 'battle';
+    return this.paused && !this.realtimeLocked && (!this.tutorialData || this.tutAllow.plan) && this.sim.phase === 'battle';
   }
 
-  /** Then… is offered: offline battles only (R10b: live online shows no Then chip), not in the scripted tutorial. */
+  /** Then… is offered: offline battles only (R10b: live online shows no Then chip); the tutorial, once its step comes. */
   private thenAllowed(): boolean {
-    return this.unlocks.then && !this.tutorial && this.sim.phase === 'battle';
+    return (this.tutorialData ? this.tutAllow.then : this.unlocks.then) && this.sim.phase === 'battle';
+  }
+
+  /** The clock of the Undo and Then… windows: the scene's, or in the tutorial one that stops while the narrator waits. */
+  private chipNow(): number {
+    return this.tutorialData ? this.tutClock : this.time.now;
   }
 
   /** After an order to `gid`: a move clears its queued step and offers Then… for THEN_CHIP_S; anything else ends the offer. */
@@ -2444,7 +2454,7 @@ export class BattleScene extends BaseScene {
     if (o.kind === 'form') {
       // a new move order clears the queue (R6.2), and the tap-move preview follows a tap (R5)
       this.thenQ.clear(gid);
-      this.thenOffer = this.thenAllowed() ? { gid, at: this.time.now } : null;
+      this.thenOffer = this.thenAllowed() ? { gid, at: this.chipNow() } : null;
     } else if (join || this.thenOffer?.gid === gid) this.thenOffer = null;
   }
 
@@ -2453,7 +2463,7 @@ export class BattleScene extends BaseScene {
     if (!this.thenAllowed() || this.selGroup < 0) return false;
     if (this.thenArming >= 0) return this.thenArming === this.selGroup;
     const o = this.thenOffer;
-    return !!o && o.gid === this.selGroup && this.time.now - o.at < THEN_CHIP_S * 1000 && this.sim.activeMembers(o.gid).length > 0;
+    return !!o && o.gid === this.selGroup && this.chipNow() - o.at < THEN_CHIP_S * 1000 && this.sim.activeMembers(o.gid).length > 0;
   }
 
   /** Tap Then…: arm (the next order key is queued), or disarm on a second tap. */
@@ -2478,8 +2488,8 @@ export class BattleScene extends BaseScene {
     this.thenQ.arm(gid, key, this.sim);
     // Undo clears the queued step (R4.1): an undo step with no orders of its own
     if (!this.staging()) {
-      this.battleUndo.push([], [gid], this.time.now);
-      const step = this.battleUndo.peek(this.time.now);
+      this.battleUndo.push([], [gid], this.chipNow());
+      const step = this.battleUndo.peek(this.chipNow());
       if (step) this.thenSteps.add(step);
     }
     this.showBanner(t('queue.banner.queued', { order: thenLabel(key) }), 1400);
@@ -2604,13 +2614,13 @@ export class BattleScene extends BaseScene {
       if (!join) h.clear();
       return;
     }
-    h.push(inverse, groupsOf(o, this.sim), this.time.now, join);
+    h.push(inverse, groupsOf(o, this.sim), this.chipNow(), join);
   }
 
   /** The battle step still undoable: in time, and its group still stands (else the chip goes). */
   private liveBattleUndo(): boolean {
     if (this.sim.phase !== 'battle') return false;
-    const s = this.battleUndo.peek(this.time.now);
+    const s = this.battleUndo.peek(this.chipNow());
     if (!s) return false;
     const stands = s.groups.some((gid) => {
       const g = this.sim.groups[gid];
@@ -2629,10 +2639,11 @@ export class BattleScene extends BaseScene {
     if (this.staging() && this.plan.size) {
       this.plan.pop();
       this.clearPlanFeedback(t('queue.banner.removed'));
+      this.tutorialEvent({ kind: 'undo' });
       return;
     }
     if (!deploy && !this.liveBattleUndo()) return;
-    const step = (deploy ? this.deployUndo : this.battleUndo).pop(this.time.now);
+    const step = (deploy ? this.deployUndo : this.battleUndo).pop(this.chipNow());
     if (!step) {
       if (deploy) toast(this, t('undo.why.none'));
       return;
@@ -2641,6 +2652,7 @@ export class BattleScene extends BaseScene {
     if (this.thenSteps.has(step)) {
       for (const g of step.groups) this.thenQ.clear(g);
       this.clearPlanFeedback(t('queue.banner.cancel'));
+      this.tutorialEvent({ kind: 'undo' });
       return;
     }
     for (const o of step.orders) {
@@ -2661,6 +2673,7 @@ export class BattleScene extends BaseScene {
     this.showBanner(t(deploy ? 'undo.banner.deploy' : 'undo.banner.done'), 900);
     this.hudDirty = true;
     this.buildHud();
+    this.tutorialEvent({ kind: 'undo' });
   }
 
   /** Offline: a man's group in the deployment is his group in the army (saved), as the Groups sheet does. */
@@ -2679,7 +2692,7 @@ export class BattleScene extends BaseScene {
       this.buildHud();
       return;
     }
-    if (this.undoChip) this.undoChip.setAlpha(this.battleUndo.left(this.time.now) < 500 ? 0.55 : 1);
+    if (this.undoChip) this.undoChip.setAlpha(this.battleUndo.left(this.chipNow()) < 500 ? 0.55 : 1);
   }
 
   private firstPlayerGroup(): number {
@@ -2701,7 +2714,9 @@ export class BattleScene extends BaseScene {
 
   private togglePause(): void {
     if (this.sim.phase !== 'battle' || this.realtimeLocked) return;
+    const play = this.paused;
     this.setPaused(!this.paused);
+    if (play) this.tutorialEvent({ kind: 'play' });
   }
 
   /** A message under the top bar (ms = 0: stays until replaced or hidden); it wraps to `maxLines` (A11Y-10: never cut). */
@@ -2761,7 +2776,6 @@ export class BattleScene extends BaseScene {
     const want: ControlKind[] = ['cards', 'orders', 'medallions', 'chips'];
     if (this.pips) want.push('pips');
     this.kinds = visibleKinds(want);
-    this.tabBtns.clear();
     this.heroInfo = null;
     this.countdown = null;
     this.top = null;
@@ -2946,7 +2960,8 @@ export class BattleScene extends BaseScene {
     if (key === this.sitKey) return;
     this.sitKey = key;
     // a banner (Paused, a message) sits where the hint goes: the hint waits
-    this.hintPill.setText(this.banner ? '' : sentence, tone);
+    // the tutorial hides the generic hint: old Nikias says what to do (hud.md, TUT-1)
+    this.hintPill.setText(this.banner || this.tutorialData ? '' : sentence, tone);
   }
 
   /**
@@ -3007,6 +3022,11 @@ export class BattleScene extends BaseScene {
     return Math.max(1, Math.ceil(this.sheetGroups().length / 2));
   }
 
+  /** Top of the sheet's header row (the shape chip, Groups) under the cards. */
+  private sheetHeadY(): number {
+    return this.stripTop() + 5 + this.cardRows() * (SHEET_CARD_H + SIZE.gap) - SIZE.gap + 4;
+  }
+
   /** Height of the bottom sheet. */
   private sheetH(): number {
     const cards = this.cardRows() * (SHEET_CARD_H + SIZE.gap) - SIZE.gap;
@@ -3057,7 +3077,7 @@ export class BattleScene extends BaseScene {
       this.cards.push({ gid: g.id, card, numeral });
     });
     // the header: whose orders, and the chips (shape; Groups in deployment, hud.md Z8; solo / join)
-    let y = y0 + 5 + this.cardRows() * (SHEET_CARD_H + SIZE.gap) - SIZE.gap + 4;
+    let y = this.sheetHeadY();
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
     const numeral = sel ? this.cards.find((c) => c.gid === sel.id)?.numeral ?? '' : '';
     const selName = sel ? (sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim()) : '';
@@ -3101,7 +3121,6 @@ export class BattleScene extends BaseScene {
       cx -= w;
       const b = new KeyButton(this, cx, y - 1, w, SHEET_HEAD_H, { icon: c.icon, label: label || c.label, iconOnly: !label, tip: c.tip, id: c.id, variant: 'bronze', lit: c.selected, disabledReason: c.off, onClick: c.onClick });
       this.hud.add(b);
-      if (c.id === 'battle.cat.formation') this.tabBtns.set('formation', b);
       if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), b);
       cx -= SIZE.gap;
     }
@@ -3127,8 +3146,10 @@ export class BattleScene extends BaseScene {
     }
     const orders = this.orderKeys();
     if (!orders.length) {
-      const hint = addText(this, VW / 2, y + 9, t('battle.orders.none'), 'dim', 0.5).setFontSize(6);
-      this.hud.add(hint);
+      // at the text floor (A11Y-09), on two lines when one is too wide (A11Y-10: never cut)
+      const none = t('battle.orders.none');
+      const two = mw(none, 'dim', 6.5) > VW - 12;
+      this.hud.add(mtext(this, VW / 2, y + (two ? 4 : 9), none, 'dim', { size: 6.5, maxW: VW - 12, wrap: true, align: 0.5 }));
       this.buildTargetChips(null);
       return;
     }
@@ -3200,8 +3221,10 @@ export class BattleScene extends BaseScene {
    */
   private buildTargetChips(sel: Battle['groups'][number] | null): void {
     if (this.shapeOpen || !this.kinds.includes('chips')) return;
-    // the scripted tutorial has no Undo: its lesson keeps the field clear (TUT stories may introduce it)
-    const undo = !this.tutorial;
+    // the tutorial keeps the field clear of the chips while a step needs the ground, and shows them when it teaches one
+    if (this.tutorialData && !this.tutAllow.chips) return;
+    // the tutorial shows Undo from its Undo step on (TUT-02): until then its lesson keeps the field clear
+    const undo = !this.tutorialData || this.tutAllow.undo;
     const chips: { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; iconOnly?: boolean; onClick: () => void }[] = [];
     // placing a work: only Place, Turn and Cancel, in one row (FW-03; a second row would climb into the top bar on short screens)
     const placing = !!this.worksGhost && this.worksShown();
@@ -3257,7 +3280,7 @@ export class BattleScene extends BaseScene {
       const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, lit: c.lit, iconOnly: c.iconOnly, disabledReason: c.off, onClick: c.onClick });
       this.hud.add(b);
       if (c.id === 'battle.undo') this.undoChip = this.sim.phase === 'battle' ? b : null;
-      else this.cmdBtns.set(c.id.slice('battle.'.length), b);
+      this.cmdBtns.set(c.id.slice('battle.'.length), b);
       x += w + SIZE.gap;
     }
   }
@@ -3328,7 +3351,6 @@ export class BattleScene extends BaseScene {
     const x = mirrorX(VW - MED_W - 2, MED_W, VW, this.leftHand);
     let y = this.followBtn ? this.cornerY(this.leftHand) + 26 : TOP_H + 6;
     const bottom = this.stripTop() - (this.selUnit >= 0 ? 29 : 2);
-    const tabs = this.tabBtns;
     this.railW = MED_W + 4;
     // at most 3 medallions (2 on a short field) and the "more" key for the rest (hud.md Z5)
     const { shown, more } = railLayout(defs.length, this.stripTop() - TOP_H, bottom - y);
@@ -3344,10 +3366,8 @@ export class BattleScene extends BaseScene {
       const rest = defs.slice(shown);
       const mk = new KeyButton(this, x, y, MED_W, MORE_H, { icon: 'more', label: t('battle.more.key'), tip: t('battle.more.tip'), id: 'battle.more', variant: 'bronze', plain: true, onClick: () => this.openMore(rest) });
       this.hud.add(mk);
+      this.cmdBtns.set('more', mk);
     }
-    // the tutorial lights the first ability when it asks for one
-    const first = this.cmdBtns.get(defs[0].key);
-    if (!tabs.has('abilities') && first) tabs.set('abilities', first);
   }
 
   /** The rail's overflow (hud.md Z5 "more"): a sheet of the other abilities. Offline it pauses while open. */
@@ -3938,8 +3958,10 @@ export class BattleScene extends BaseScene {
   private toggleThrow(): void {
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
     if (!sel) return;
-    const turningOn = !sel.fireAtWill;
-    this.command({ kind: 'loose', group: -1 });
+    // paused, the plan's Shoot is what the key shows: stage the explicit state, so the key lights (R6.1)
+    const staged = this.staging() ? this.plan.last(sel.id, 'loose')?.on : undefined;
+    const turningOn = !(staged ?? sel.fireAtWill);
+    this.command(this.staging() ? { kind: 'loose', group: -1, on: turningOn } : { kind: 'loose', group: -1 });
     if (turningOn && this.sim.phase === 'battle' && !this.missileTargetInRange()) toast(this, t('battle.why.noneInRange'));
   }
 
@@ -4146,7 +4168,8 @@ export class BattleScene extends BaseScene {
     const rect: Box = { x0: this.leftHand ? this.railW : 0, y0: this.topH() + (this.zoomBtn || this.followBtn ? 28 : 0), x1: VW - (this.leftHand ? 0 : this.railW), y1: VH - this.panelHeight() - 6 };
     let first: Pt | null = null;
     const place = (key: 'group' | 'foe', at: Pt | null, label: string, colour: number, icon?: string, tip = colour): void => {
-      const e = at && !this.ending && !this.overlay ? edgePointer({ x: ((at.x - cam.worldView.x) * cam.zoom) / S, y: ((at.y - cam.worldView.y) * cam.zoom) / S }, rect, POINTER_INSET) : null;
+      // the tutorial keeps the ground clear while a step needs it (as the chips: tutAllow.chips)
+      const e = at && !this.ending && !this.overlay && (!this.tutorialData || this.tutAllow.chips) ? edgePointer({ x: ((at.x - cam.worldView.x) * cam.zoom) / S, y: ((at.y - cam.worldView.y) * cam.zoom) / S }, rect, POINTER_INSET) : null;
       // two pointers never overlap: the second steps along its edge, toward the band's middle
       if (e && first && Math.hypot(e.x - first.x, e.y - first.y) < 30) {
         const side = Math.abs(e.x - rect.x0 - POINTER_INSET) < 1 || Math.abs(rect.x1 - POINTER_INSET - e.x) < 1;
@@ -4586,23 +4609,11 @@ export class BattleScene extends BaseScene {
         s.selUnit = -1;
         s.buildHud();
       },
-      get cat() {
-        return 'formation' as BattleCategory;
-      },
-      get catOpen() {
-        return s.shapeOpen;
-      },
-      get compact() {
-        return false;
-      },
       get cards() {
         return s.cards;
       },
       get cmdBtns() {
         return s.cmdBtns;
-      },
-      get tabBtns() {
-        return s.tabBtns;
       },
       get hud() {
         return s.hud;
@@ -4615,10 +4626,25 @@ export class BattleScene extends BaseScene {
       },
       setPaused: (p: boolean) => s.setPaused(p),
       hideBanner: () => s.hideBanner(),
-      // the radial ring is gone (IN-01, ADR-0004): nothing on the field to show or hide
-      showRing: () => {},
+      allow: (what: 'plan' | 'then' | 'undo' | 'chips', on: boolean) => {
+        if (s.tutAllow[what] === on) return;
+        s.tutAllow[what] = on;
+        s.buildHud();
+      },
+      get playBtn() {
+        return s.top?.buttons.pause ?? null;
+      },
+      get planned() {
+        return s.plan.orders;
+      },
+      queued: (gid: number) => s.thenQ.get(gid),
+      get thenArming() {
+        return s.thenArming;
+      },
+      badge: (gid: number) => s.tagMap.get(gid) ?? null,
       fieldTop: () => s.topH(),
       panelTop: () => s.m.VH - s.panelHeight(),
+      headTop: () => s.sheetHeadY() - 1,
       toUi: (x: number, y: number) => {
         const cam = s.cameras.main;
         const w = isoToScreen(x, y);
@@ -4628,6 +4654,14 @@ export class BattleScene extends BaseScene {
       frameArmies: () => {
         s.tweens.killTweensOf(s.cameras.main);
         s.frameArmies();
+      },
+      centreOn: (x: number, y: number, uiY?: number) => {
+        const cam = s.cameras.main;
+        s.tweens.killTweensOf(cam);
+        const p = isoToScreen(x, y);
+        if (uiY === undefined) return s.centerCam(p.x, p.y - 20);
+        // the point lands at height uiY of the screen (the field the narrator leaves free)
+        cam.centerOn(p.x, p.y - 20 + (s.scale.height / 2 - uiY * s.m.S) / cam.zoom);
       },
     };
   }
