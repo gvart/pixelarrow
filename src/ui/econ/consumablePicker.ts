@@ -68,7 +68,7 @@ function rowText(id: ConsumableId, qty: number, w: number): { name: string[]; qt
   const d = CONSUMABLES[id];
   const q = `×${fmtCount(qty)}`;
   const tx = w - PAD * 2 - ICON - PAD;
-  const name = wrapWords(tOr(`consumable.${id}.name`, d.name), tx - mw(q, 'pInk') - PAD, (s) => mw(s, 'rInk', 7));
+  const name = wrapWords(tOr(`consumable.${id}.name`, d.name), tx, (s) => mw(s, 'rInk', 7));
   const desc = wrapWords(tOr(`consumable.${id}.desc`, d.desc), tx, (s) => mw(s, 'pSec', DESC));
   return { name, qty: q, desc, h: Math.max(30, 6 + linesH(name.length) + 1 + linesH(desc.length, DESC) + 5) };
 }
@@ -131,10 +131,12 @@ function openPicker(scene: UiScene, held: ConsumableId[], inv: Partial<Record<st
       const on = sel === id;
       const r = scene.add.container(area ? 0 : x, ry);
       addRowFace(scene, r, inner, rt.h, on);
-      r.add(addGoodsIcon(scene, PAD, Math.round((rt.h - ICON) / 2), 'consumable', id, ICON));
+      // the held count sits under the icon, so the name has the row's whole width
+      const iy = Math.round((rt.h - ICON - 9) / 2);
+      r.add(addGoodsIcon(scene, PAD, iy, 'consumable', id, ICON));
+      r.add(mtext(scene, PAD + ICON / 2, iy + ICON + 1, rt.qty, 'pInk', { size: 7, align: 0.5 }));
       const tx = PAD + ICON + PAD;
       r.add(mtext(scene, tx, 6, rt.name.join('\n'), 'rInk', { size: 7 }));
-      r.add(mtext(scene, inner - PAD, 6, rt.qty, 'pInk', { size: 7, align: 1 }));
       r.add(mtext(scene, tx, 7 + linesH(rt.name.length), rt.desc.join('\n'), 'pSec', { size: DESC }));
       makePressable(r, {
         w: inner,
