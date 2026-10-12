@@ -213,6 +213,8 @@ export const DATA_RU: Record<string, string> = {
   'culture.greek': 'эллины',
   'culture.phoenician': 'карфагеняне',
   'culture.celtic': 'галаты',
+  // names given in code (src/i18n/names.ts heroName)
+  'name.tyrant': 'Тиран',
 
   // consumables
   'consumable.healing_salve.name': 'Целебная мазь',
