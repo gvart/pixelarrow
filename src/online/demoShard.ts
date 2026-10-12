@@ -18,6 +18,7 @@ import { ENCOUNTERS, MYTHS, mythHeroes } from '../data/beasts';
 import { bossMaxHp, lairAt, worldBossSites } from './lairs';
 import { DEFAULT_MAP_ID, getMap, type WorldGraph } from './world';
 import { t, type TKey } from '../i18n';
+import { demoName } from '../i18n/names';
 
 export const DEMO = { seed: 42, me: 101, mate: 102, rival: 201, raider: 202, clan: 7, rivalClan: 9 };
 
@@ -184,7 +185,7 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
     formations: ['line', 'skirmish', 'line', 'column'],
     heroes: heroes.map((hero, i) => ({ hero, garrison: i >= heroes.length - 1 ? me : null, woundedUntil: 0, busy: false, reserve: false })),
     stash: [],
-    clan: { id: DEMO.clan, name: 'Kites of Pella', tag: 'KIT', role: 'officer' },
+    clan: { id: DEMO.clan, name: demoName('Kites of Pella'), tag: 'KIT', role: 'officer' },
     battles: 14,
     wins: 11,
     income: { pending: R(46, 18, 12, 3, 0.4), regions: mine.length },
@@ -196,8 +197,8 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
     you: { id: DEMO.me, clan: DEMO.clan, home: me, army: profile.army },
     regions,
     armies,
-    players: { [DEMO.me]: 'Ana', [DEMO.mate]: 'Brasidas', [DEMO.rival]: 'Kleon', [DEMO.raider]: 'Phormion' },
-    clans: { [DEMO.clan]: { name: 'Kites of Pella', tag: 'KIT' }, [DEMO.rivalClan]: { name: 'Sons of Argos', tag: 'ARG' } },
+    players: { [DEMO.me]: demoName('Ana'), [DEMO.mate]: demoName('Brasidas'), [DEMO.rival]: demoName('Kleon'), [DEMO.raider]: demoName('Phormion') },
+    clans: { [DEMO.clan]: { name: demoName('Kites of Pella'), tag: 'KIT' }, [DEMO.rivalClan]: { name: demoName('Sons of Argos'), tag: 'ARG' } },
   };
   const markers = (tNow: number): CampMarker[] =>
     camps
@@ -224,14 +225,14 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
       killedAt: null,
       segment: ENCOUNTERS[boss].segment ?? 120,
       top: [
-        { player: DEMO.mate, name: 'Brasidas', clan: 'KIT', damage: 2140, raids: 6 },
-        { player: DEMO.rival, name: 'Kleon', clan: 'ARG', damage: 1630, raids: 5 },
-        { player: DEMO.me, name: 'Ana', clan: 'KIT', damage: 980, raids: 3 },
-        { player: DEMO.raider, name: 'Phormion', clan: null, damage: 410, raids: 2 },
+        { player: DEMO.mate, name: demoName('Brasidas'), clan: 'KIT', damage: 2140, raids: 6 },
+        { player: DEMO.rival, name: demoName('Kleon'), clan: 'ARG', damage: 1630, raids: 5 },
+        { player: DEMO.me, name: demoName('Ana'), clan: 'KIT', damage: 980, raids: 3 },
+        { player: DEMO.raider, name: demoName('Phormion'), clan: null, damage: 410, raids: 2 },
       ],
       clans: [
-        { clan: DEMO.clan, tag: 'KIT', name: 'Kites of Pella', damage: 3120 },
-        { clan: DEMO.rivalClan, tag: 'ARG', name: 'Sons of Argos', damage: 1630 },
+        { clan: DEMO.clan, tag: 'KIT', name: demoName('Kites of Pella'), damage: 3120 },
+        { clan: DEMO.rivalClan, tag: 'ARG', name: demoName('Sons of Argos'), damage: 1630 },
       ],
       you: { damage: 980, raids: 3, loot: null },
     };

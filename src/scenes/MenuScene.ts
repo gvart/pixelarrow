@@ -12,6 +12,8 @@ import { TEXT_MIN, lineHeight } from '../ui/tokens';
 import { RS } from '../platform/renderScale';
 import { toast } from '../ui/widgets';
 import { t } from '../i18n';
+import { heroName } from '../i18n/names';
+import { placeName } from '../i18n/places';
 
 const GAP = 4;
 const CTA_H = 30;
@@ -53,7 +55,7 @@ export class MenuScene extends BaseScene {
     const status = hubStatusLine({
       hasSave: state.hasSave,
       day: Math.floor(c.world.time / 24) + 1,
-      place: inside >= 0 ? world.settlement(inside)?.name : undefined,
+      place: inside >= 0 ? placeName(world.settlement(inside)?.name ?? '') || undefined : undefined,
       hurt: c.heroes.filter((h) => (h.wound ?? 0) > 0).length,
       lairsDown: lairs.filter((l) => world.s.lairs?.[l.id]?.fallen).length,
       lairs: lairs.length,
@@ -64,7 +66,7 @@ export class MenuScene extends BaseScene {
         portrait: 'ui_portrait_leader',
         portraitSize: compact ? 24 : w >= 180 ? 40 : 32,
         statsBelow: compact || 'auto',
-        name: state.hasSave && lead ? t('hub.leader', { name: lead.name }) : t('hub.newCampaign'),
+        name: state.hasSave && lead ? t('hub.leader', { name: heroName(lead.name) }) : t('hub.newCampaign'),
         subtitle: status,
         stats: [
           { icon: 'coin', text: t('hub.gold', { n: c.gold }), right: { icon: 'trophy', text: t('hub.trophies', { n: c.won }) } },

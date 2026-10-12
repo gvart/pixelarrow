@@ -125,7 +125,7 @@ async function battle(p, online) {
   if (!online) return;
   await ev(p, (mode) => {
     const s = window.__game.scene.getScene('Battle');
-    const source = { setup: s.verifySetup, heroes: s.views.map((v) => v.hero), side: 0, label: 'vs Brigands', opponent: 'Hektor', onFinish() {}, onLeave() {} };
+    const source = { setup: s.verifySetup, heroes: s.views.map((v) => v.hero), side: 0, label: new URL(location.href).searchParams.get('lang') === 'ru' ? 'против: Разбойники' : 'vs Brigands', opponent: 'Hektor', onFinish() {}, onLeave() {} };
     if (mode === 'duel')
       source.lockstep = { attach() {}, issue() {}, ready() {}, canStep: () => false, beforeStep() {}, status: () => null, aborted: () => null, opponentReady: () => true };
     s.scene.restart({ source });

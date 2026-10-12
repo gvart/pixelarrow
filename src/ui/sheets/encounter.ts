@@ -29,6 +29,7 @@ import { renderCrest, renderThreatGlyph } from '../../art/worldArt';
 import { P } from '../../art/palette';
 import type { DoctrineId } from '../../sim/types';
 import { t, type TKey } from '../../i18n';
+import { heroName } from '../../i18n/names';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
@@ -149,7 +150,7 @@ function mainPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Enc
     if (!m.doctrine) rule(y);
     y += m.doctrine ? 0 : 4;
     if (c) c.add(scene.add.image(x0 + 3, y + 1, worldGlyph(scene, 'crest')).setOrigin(0, 0).setScale(1.2));
-    y += para(scene, c, x0 + ROW_ICON + 5, y, t('wld.enc.captain', { name: m.captain.name, lv: m.captain.level }), 'pInk', w - ROW_ICON - 5) + 3;
+    y += para(scene, c, x0 + ROW_ICON + 5, y, t('wld.enc.captain', { name: heroName(m.captain.name), lv: m.captain.level }), 'pInk', w - ROW_ICON - 5) + 3;
   }
   rule(y);
   y += 4;

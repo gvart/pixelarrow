@@ -29,6 +29,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'battle.deploy.title': 'Расстановка',
   'battle.deploy.titleOnline': 'Расставьте войско',
   'battle.vs': 'против: {name}',
+  'battle.vsShort': 'против',
   'battle.opponent': 'противник',
   'battle.live': 'Онлайн',
   'battle.clock': 'Время',
@@ -140,7 +141,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'battle.why.waiting': 'Готов: ждём начала боя',
   'battle.why.resetOnline': 'Онлайн: перетащите отряды, чтобы расставить',
 
-  'battle.banner.deploy': 'Расстановка: {vs}',
+  'battle.banner.deploy': 'Расстановка — {vs}',
   'battle.banner.begins': 'Бой начался!',
   'battle.banner.paused': 'Пауза: отдайте приказы и продолжайте',
   'battle.banner.fallen': '{name} пал',

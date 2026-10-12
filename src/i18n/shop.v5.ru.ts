@@ -8,5 +8,5 @@ export const SHOP_V5_RU: Record<keyof typeof SHOP_V5_EN, Entry> = {
   'shop.v5.marketSub': 'Торговля с другими игроками: покупайте и продавайте за золото или драхмы.',
   'shop.v5.loading': 'Открываем лавку...',
   'shop.v5.bonus': '+{n}% бонус',
-  'shop.v5.xpHow': 'Как набрать XP',
+  'shop.v5.xpHow': 'Как набрать опыт',
 };

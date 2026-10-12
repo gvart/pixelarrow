@@ -20,6 +20,7 @@ import { GAP, GearSlot, MBadge, MButton, MIconButton, TAP, addNiche, addPortrait
 import { makePressable, wrapWords } from '../mosaic/base';
 import { navLayer } from '../../platform/nav';
 import { t } from '../../i18n';
+import { heroName } from '../../i18n/names';
 import { addClassBust } from './busts';
 import { SLOT_ORDER, footerLayout, groupNameBeside } from './layout';
 import type { ArmySource } from './source';
@@ -123,7 +124,7 @@ export function addArmyHead(scene: Phaser.Scene, parent: C, x0: number, y0: numb
   const tx = P + nw + 7;
   const tw = cw - tx - P;
   let y = P;
-  card.add(mtext(scene, tx, y, h.name, 'rInk', { size: 7.5, maxW: tw, box }));
+  card.add(mtext(scene, tx, y, heroName(h.name), 'rInk', { size: 7.5, maxW: tw, box }));
   y += 11;
   const cl = wrapText(className(h), tw, 2, false, TEXT_MIN).lines;
   cl.forEach((l, i) => card.add(mtext(scene, tx, y + i * ARMY_LH, l, 'pSec', { size: TEXT_MIN, box })));
@@ -229,7 +230,7 @@ export function addMiniHead(scene: Phaser.Scene, parent: C, x: number, y: number
     armyPill(scene, c, end, 5, lv, LV_FILL, 60);
     end -= 4;
   }
-  const name = mtext(scene, nx, 7, h.name, 'rInk', { size: 7, maxW: Math.max(8, end - nx - badgeW), box });
+  const name = mtext(scene, nx, 7, heroName(h.name), 'rInk', { size: 7, maxW: Math.max(8, end - nx - badgeW), box });
   c.add(name);
   if (pend) c.add(new MBadge(scene, nx + name.width + 9, 11, pend));
   // a chevron: "the whole card is above"
@@ -276,7 +277,7 @@ export function addRosterRow(scene: Phaser.Scene, row: C, w: number, rh: number,
   row.add(pt);
   const pend = src.pending(h);
   const nameW = right - 19 - x - (pend ? 16 : 0);
-  const name = mtext(scene, x, 3, h.name, 'rInk', { size: 7, maxW: nameW, box });
+  const name = mtext(scene, x, 3, heroName(h.name), 'rInk', { size: 7, maxW: nameW, box });
   row.add(uiId(name, 'roster.name'));
   if (pend) row.add(new MBadge(scene, x + name.width + 9, 7, pend));
   // Lv and the full class name (ARM-4); when both do not fit, the class keeps the line and Lv moves down

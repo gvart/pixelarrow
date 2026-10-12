@@ -25,6 +25,8 @@ import type { Hero } from '../../data/units';
 import { retrainPerks } from '../../data/perks';
 import type { Campaign } from '../../game/campaign';
 import { t, tOr, type TKey } from '../../i18n';
+import { localDecimals } from '../../i18n/numbers';
+import { heroName } from '../../i18n/names';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 type C = Phaser.GameObjects.Container;
@@ -171,7 +173,7 @@ function fill(scene: UiScene, c: C, o: RecruitSheetOpts, w: number, stageH: numb
     const d = STATS[id];
     const v = d.get(s);
     c.add(mtext(scene, 0, y, t(`stat.${id}` as TKey), 'pSec', { size: TEXT_MIN, maxW: labelW }));
-    const val = fmtStat(id, v);
+    const val = localDecimals(fmtStat(id, v));
     const vw = mw(val, 'pInk', TEXT_MIN);
     c.add(new Meter(scene, labelW, y + 4, Math.max(20, w - labelW - vw - 8), 4, COLOR.xp).setValue(v, d.max));
     c.add(mtext(scene, w, y, val, 'pInk', { size: TEXT_MIN, align: 1 }));
@@ -196,7 +198,7 @@ export function openRecruitSheet(scene: UiScene, o: RecruitSheetOpts): { close: 
   probe.destroy();
   const h = Math.min(VH - 12, SHEET_TITLE_H + contentH + PAD * 2 + SHEET_ACTION_H + 10);
   const s = openParchmentSheet(scene, {
-    title: o.hero.name,
+    title: heroName(o.hero.name),
     w,
     h,
     id: 'recruit.sheet',

@@ -28,6 +28,7 @@ import { fmtDuration } from '../util/format';
 import { uiCoin } from '../audio/hooks';
 import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
+import { placeName } from '../i18n/places';
 
 const FILTER_H = 24;
 /** Width of an icon and its gap in a button. */
@@ -491,7 +492,7 @@ export class MarketScene extends BaseScene {
     // one fact per line, wrapped rather than cut (G14): price and seller, town, time left, what the seller gets
     const notes: Note[] = [
       { text: `${priceText(l.price, l.currency)} · ${t('market.by', { name: l.seller.name ?? '?' })}`, font: 'red' },
-      { text: t('market.town', { name: l.town.name }) },
+      { text: t('market.town', { name: placeName(l.town.name) }) },
       { text: left.ms ? t('market.left', { t: fmtDuration(left.ms) }) : t('market.expired') },
       { text: t('market.feeLine', { gets: sellerGets(l.price, b.cat.market.feeRate), fee: marketFee(l.price, b.cat.market.feeRate) }) },
     ];
@@ -873,13 +874,13 @@ export class MarketScene extends BaseScene {
       const tn = towns[town];
       body.add(
         new MButton(this, x, cy, iw, TAP, {
-          label: tn ? t('market.town', { name: tn.name }) : t('market.noTown'),
+          label: tn ? t('market.town', { name: placeName(tn.name) }) : t('market.noTown'),
           icon: 'flag',
           variant: 'secondary',
           id: 'market.town',
           tip: t('market.noTownHint'),
           onClick: () => {
-            if (towns.length > 1) this.openOptions(t('market.townTitle'), towns.map((tw, i) => ({ id: i, label: tw.name, icon: 'flag' })), town, (i) => ((town = i), draw()), 'market.townSheet');
+            if (towns.length > 1) this.openOptions(t('market.townTitle'), towns.map((tw, i) => ({ id: i, label: placeName(tw.name), icon: 'flag' })), town, (i) => ((town = i), draw()), 'market.townSheet');
             else showTooltip(this, t('market.noTownHint'), body);
           },
         }),

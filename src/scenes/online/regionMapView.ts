@@ -18,6 +18,7 @@
 import Phaser from 'phaser';
 import type { MapView, RegionView } from '../../online/client';
 import { LiveArmies, routePoints } from '../../online/liveArmies';
+import { placeName } from '../../i18n/places';
 import { getMap, hasMap, type WorldGraph } from '../../online/world';
 import { addText } from '../../ui/kit';
 import type { Pix } from '../../art/pixels';
@@ -350,7 +351,7 @@ export class ParchmentMapView implements WorldMapView {
     } catch {
       /* private mode: no memory, no harm */
     }
-    if (fresh.length && this.onDiscover) this.onDiscover(fresh[0], this.world.info(fresh[0]).name);
+    if (fresh.length && this.onDiscover) this.onDiscover(fresh[0], placeName(this.world.info(fresh[0]).name));
   }
 
   /** Unexplored parchment around the map's edges. */
@@ -429,7 +430,7 @@ export class ParchmentMapView implements WorldMapView {
       const v = this.regions.get(r.id);
       if (!v) continue;
       // ink on the parchment plate (WAR-2: the old cream letters vanished on a pale plate)
-      const text = addText(this.scene, 0, 0, r.name, r.kind === 'capital' ? 'pBad' : 'pInk', 0.5);
+      const text = addText(this.scene, 0, 0, placeName(r.name), r.kind === 'capital' ? 'pBad' : 'pInk', 0.5);
       const w = Math.ceil(text.width) + 6;
       const accent = territoryColor(map, v);
       const crest = plateCrest(map, v);

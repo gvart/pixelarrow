@@ -3,6 +3,7 @@
  * tests/format.test.ts.
  */
 import { t } from '../i18n';
+import { localDecimals } from '../i18n/numbers';
 
 /** "1:05" from seconds (rounded, never negative). */
 export function fmtClock(sec: number): string {
@@ -21,13 +22,13 @@ export function fmtDuration(ms: number): string {
   return t('online.time.d', { d: Math.floor(h / 24), h: h % 24 });
 }
 
-/** Short time since `at`, for wallet history: "3d", "5h", "0m". */
+/** Short time since `at`, for wallet history: "3d", "5h", "0m" ("3 дн.", "5 ч", "0 мин"). */
 export function fmtAgo(at: number, now: number): string {
   const m = Math.max(0, Math.round((now - at) / 60_000));
-  if (m < 60) return `${m}m`;
+  if (m < 60) return t('online.time.m', { m });
   const h = Math.round(m / 60);
-  if (h < 48) return `${h}h`;
-  return `${Math.round(h / 24)}d`;
+  if (h < 48) return t('online.time.h', { h });
+  return t('online.time.dd', { d: Math.round(h / 24) });
 }
 
 /** "3h ago" of a time `ms` milliseconds in the past (localized, at least one minute). */
@@ -42,8 +43,9 @@ export function fmtAgoText(ms: number): string {
 export function fmtNum(n: number): string {
   const v = Math.floor(n);
   if (v < 1000) return `${v}`;
-  if (v < 10_000) return `${(Math.floor(v / 100) / 10).toString()}K`;
-  return `${Math.floor(v / 1000)}K`;
+  // "1.2K" in English, "1,2К" in Russian (a decimal comma, Cyrillic К)
+  if (v < 10_000) return t('num.k', { n: localDecimals((Math.floor(v / 100) / 10).toString()) });
+  return t('num.k', { n: Math.floor(v / 1000) });
 }
 
 /** A change with its sign, always: "+15", "-5", "0" (ASCII minus: the bundled faces have no U+2212). Rewards read as "Win +15 · Loss +5", never "a loss 5". */

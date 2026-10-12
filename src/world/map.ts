@@ -43,8 +43,8 @@ export interface WorldMap {
   start: number;
 }
 
-const TOWN_NAMES = ['Neapolis', 'Taras', 'Kroton', 'Syrakousai', 'Akragas', 'Massalia', 'Rhegion', 'Kyme', 'Elea', 'Selinous', 'Himera', 'Gela', 'Lokroi', 'Sybaris'];
-const VILLAGE_NAMES = ['Pylos', 'Assos', 'Aigai', 'Elatea', 'Kirrha', 'Oinoe', 'Halai', 'Phyle', 'Anthele', 'Dion', 'Skolos', 'Tanagra', 'Abai', 'Kalydon', 'Pheia', 'Krisa', 'Opous', 'Thisbe'];
+export const TOWN_NAMES = ['Neapolis', 'Taras', 'Kroton', 'Syrakousai', 'Akragas', 'Massalia', 'Rhegion', 'Kyme', 'Elea', 'Selinous', 'Himera', 'Gela', 'Lokroi', 'Sybaris'];
+export const VILLAGE_NAMES = ['Pylos', 'Assos', 'Aigai', 'Elatea', 'Kirrha', 'Oinoe', 'Halai', 'Phyle', 'Anthele', 'Dion', 'Skolos', 'Tanagra', 'Abai', 'Kalydon', 'Pheia', 'Krisa', 'Opous', 'Thisbe'];
 
 export function isWater(t: number): boolean {
   return t === T.deep || t === T.sea;

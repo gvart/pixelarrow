@@ -32,7 +32,6 @@ import { addNoteChip } from '../ui/results/chips';
 import { buildArcVictory } from '../ui/results/arcVictory';
 import { CHEST_EMPTY_KEY, LAUREL_KEY, addCutout, cutoutW, preloadResultsArt } from '../ui/results/art';
 import { arcPiece, backAction, companyRoll, isArcVictory, noteChips, pagesFor, spoilSections, vsName, type ResultsPage } from '../ui/results/model';
-import { bandName } from './WorldScene';
 import { COLOR, RARITY_COLOR, RARITY_GLOW, SIZE } from '../ui/theme';
 import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
@@ -52,6 +51,8 @@ import { haptic, hapticNotify } from '../platform/telegram';
 import { uiCoin, uiLevelUp } from '../audio/hooks';
 import { sfx } from '../audio';
 import { t, tOr, type TKey } from '../i18n';
+import { localDecimals } from '../i18n/numbers';
+import { foeName, heroName } from '../i18n/names';
 
 export interface ResultsData {
   /** Online battles bring their own report... */
@@ -276,7 +277,7 @@ export class ResultsScene extends BaseScene {
     if (cache) return cache;
     const r = buildReport({
       result: o.retreated ? 'retreat' : o.victory ? 'victory' : o.draw ? 'draw' : 'defeat',
-      vs: t('battle.vs', { name: vsName(last, bandName) }),
+      vs: t('battle.vs', { name: vsName(last, foeName) }),
       ticks: last.ticks ?? 0,
       side: 0,
       stats,
@@ -495,7 +496,7 @@ export class ResultsScene extends BaseScene {
     // Cinzel down to the 6.5 floor, then the same words in Inter (mtext)
     c.add(uiId(mtext(this, tx + 14, ty, mvpT, 'rInk', { size: 7, maxW: tw - 14, box }), 'results.mvp'));
     const cls = mvp.hero ? heroClass(mvp.hero) : null;
-    c.add(mtext(this, tx, ty + 11, mvp.name, 'pInk', { maxW: tw, box }));
+    c.add(mtext(this, tx, ty + 11, heroName(mvp.name), 'pInk', { maxW: tw, box }));
     if (cls) c.add(mtext(this, tx, ty + 21, tOr(`class.${cls.id}.name`, cls.name), 'pSec', { size: TEXT_MIN, maxW: tw, box }));
     c.add(mtext(this, tx, ty + (cls ? 31 : 21), t('results.mvpLine', { kills: t('results.kills', { n: mvp.kills }), dmg: mvp.dmg }), 'pGood', { size: TEXT_MIN, maxW: tw, box }));
     return y + h + 5;
@@ -533,7 +534,7 @@ export class ResultsScene extends BaseScene {
     const tw = w - tx - right - 4;
     const box = { owner: row, w, h: rh };
     const lvNow = this.levelOf(h);
-    row.add(mtext(this, tx, 4, h.name, h.died ? 'pOff' : 'pInk', { maxW: tw - 24, box }));
+    row.add(mtext(this, tx, 4, heroName(h.name), h.died ? 'pOff' : 'pInk', { maxW: tw - 24, box }));
     const lv = mtext(this, tx + tw, 4, t('battle.lv', { n: lvNow.level }), 'pSec', { align: 1, box });
     row.add(lv);
     const rx = w - 4;
@@ -810,7 +811,7 @@ export class ResultsScene extends BaseScene {
     let cy = Math.max(y + 28, ly + 26);
     // compare with the best item in that slot among the army
     const mine = this.bestEquipped(def.slot);
-    const vsText = mine ? t('results.inspect.vs', { name: `${mine.hero.name}: ${subjectName({ item: mine.item })}` }) : t('results.inspect.none', { slot: t(`slot.${def.slot}` as TKey).toLowerCase() });
+    const vsText = mine ? t('results.inspect.vs', { name: `${heroName(mine.hero.name)}: ${subjectName({ item: mine.item })}` }) : t('results.inspect.none', { slot: t(`slot.${def.slot}` as TKey).toLowerCase() });
     const vs = new Label(this, x, cy, vsText, { maxW: w, maxLines: 2, font: 'pMuted' });
     md.c.add(vs);
     cy += vs.h + 4;
@@ -823,7 +824,7 @@ export class ResultsScene extends BaseScene {
     let sy = 0;
     for (const k of keys) {
       const pct = PERCENT.has(k);
-      const fmt = (v: number) => (pct ? `${Math.round(v * 100)}%` : Number.isInteger(v) ? `${v}` : v.toFixed(1));
+      const fmt = (v: number) => (pct ? `${Math.round(v * 100)}%` : Number.isInteger(v) ? `${v}` : localDecimals(v.toFixed(1)));
       const d = (a[k] ?? 0) - (b[k] ?? 0);
       const delta = mine && Math.abs(d) > 1e-6 ? ` ${d > 0 ? '+' : '−'}${fmt(Math.abs(d))}` : '';
       const bar = new StatBar(this, 0, sy, w - 4, { label: `${t(`results.stat.${k}` as TKey)}${delta}`, max: STAT_MAX[k]!, format: fmt, lowerIsBetter: LOWER_BETTER.has(k), color: RARITY_COLOR[rar] });

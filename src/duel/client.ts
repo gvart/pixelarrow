@@ -7,6 +7,7 @@
  */
 import { online } from '../platform/cloud';
 import { t } from '../i18n';
+import { demoName } from '../i18n/names';
 import { ApiError, newRequestId } from '../platform/api';
 import type { Hero } from '../data/units';
 import { isBound, itemDef, type Item, type Slot } from '../data/items';
@@ -1049,11 +1050,11 @@ export class DemoDuelSource implements DuelSource {
     const rows: BoardRow[] = Array.from({ length: n }, (_, i) => {
       const rating = base - i * (board === 'legend' ? 60 : 38);
       const league = leagueOf(rating);
-      return { rank: i + 1, pid: 1000 + i, name: DEMO_NAMES[i % DEMO_NAMES.length] + (i >= DEMO_NAMES.length ? ` ${Math.floor(i / DEMO_NAMES.length) + 1}` : ''), league, rating: league.id === 'legend' ? rating : null, games: 30 + i };
+      return { rank: i + 1, pid: 1000 + i, name: demoName(DEMO_NAMES[i % DEMO_NAMES.length] + (i >= DEMO_NAMES.length ? ` ${Math.floor(i / DEMO_NAMES.length) + 1}` : '')), league, rating: league.id === 'legend' ? rating : null, games: 30 + i };
     });
     const mine = board === 'async' ? this.async.rating : this.rating;
     const league = leagueOf(mine.rating);
-    const me: BoardRow | null = board === 'legend' && league.id !== 'legend' ? null : { rank: board === 'async' ? 61 : 143, pid: 1, name: 'You', league, rating: league.id === 'legend' ? Math.round(mine.rating) : null, games: mine.games };
+    const me: BoardRow | null = board === 'legend' && league.id !== 'legend' ? null : { rank: board === 'async' ? 61 : 143, pid: 1, name: t('duels.board.you'), league, rating: league.id === 'legend' ? Math.round(mine.rating) : null, games: mine.games };
     return { board, season: { id, end: seasonEnd(id) }, rows, me };
   }
 
@@ -1062,7 +1063,7 @@ export class DemoDuelSource implements DuelSource {
     const foes = starterDuelRoster(seed, { nextId: 1 }, 'demo_foe_');
     const mine = JSON.parse(JSON.stringify(team)) as Hero[];
     const setup = onlineBattleSetup(seed, { heroes: mine, formations: this.preset(this.p.use.arena).formations, bot: false }, { heroes: foes, formations: [...DEFAULT_FORMATIONS], bot: true }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
-    const m: DemoMatch = { id: `demo${seed.toString(16)}`, mode, seed, setup, heroes: [mine, foes], names: ['You', 'Hektor'] };
+    const m: DemoMatch = { id: `demo${seed.toString(16)}`, mode, seed, setup, heroes: [mine, foes], names: [t('duels.board.you'), demoName('Hektor')] };
     this.matches.set(m.id, m);
     return m;
   }
@@ -1115,14 +1116,14 @@ class DemoAsync {
   log: AsyncLogEntry[] = [];
   /** Previews: an unseen season reward (the popup). */
   rewards: SeasonRewardView[] = [];
-  defenders = DEMO_NAMES.slice(0, 8).map((name, i) => ({ pid: 900 + i, name, rating: 1300 + i * 45, games: i === 0 ? 4 : 20 }));
+  defenders = DEMO_NAMES.slice(0, 8).map((name, i) => ({ pid: 900 + i, name: demoName(name), rating: 1300 + i * 45, games: i === 0 ? 4 : 20 }));
 
   constructor(now: number) {
     const H = 3_600_000;
     this.log = [
-      { id: 'd'.repeat(32), at: now - 2 * H, role: 'defence', pid: 901, name: 'Lysander', score: 1, delta: 4, glory: ASYNC.defence.glory.win },
-      { id: 'e'.repeat(32), at: now - 5 * H, role: 'attack', pid: 903, name: 'Kleon', score: 1, delta: 14, glory: ASYNC.glory.win },
-      { id: 'f'.repeat(32), at: now - 26 * H, role: 'defence', pid: 905, name: 'Iphicrates', score: 0, delta: -6, glory: 0 },
+      { id: 'd'.repeat(32), at: now - 2 * H, role: 'defence', pid: 901, name: demoName('Lysander'), score: 1, delta: 4, glory: ASYNC.defence.glory.win },
+      { id: 'e'.repeat(32), at: now - 5 * H, role: 'attack', pid: 903, name: demoName('Kleon'), score: 1, delta: 14, glory: ASYNC.glory.win },
+      { id: 'f'.repeat(32), at: now - 26 * H, role: 'defence', pid: 905, name: demoName('Iphicrates'), score: 0, delta: -6, glory: 0 },
     ];
   }
 }

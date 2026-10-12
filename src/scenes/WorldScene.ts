@@ -6,6 +6,9 @@ import { BaseScene } from './BaseScene';
 import { addIcon, addText, scaleIcon } from '../ui/kit';
 import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
+import { localDecimals } from '../i18n/numbers';
+import { bandName, lairName } from '../i18n/names';
+import { placeName } from '../i18n/places';
 import { LINE_H, wrapText, wrapsWhole } from '../ui/textfit';
 import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import {
@@ -67,22 +70,15 @@ export function regionLabel(m: WorldMap, x: number, y: number): string {
   return t(`wld.region.${k}` as TKey);
 }
 
-/** A band's name (world.ts BAND_NAMES; a lair garrison keeps its lair's proper name). */
-const BAND_KEYS: Record<string, TKey> = { Bandits: 'wld.band.bandits', 'Galatae raiders': 'wld.band.raiders', Mercenaries: 'wld.band.mercs', Pirates: 'wld.band.pirates', "The Tyrant's host": 'wld.band.host' };
-export const bandName = (name: string): string => (BAND_KEYS[name] ? t(BAND_KEYS[name]) : name);
-
 /** Why the army can't camp (world campBlocker's English reasons), in words of the current language. */
 export function campWhy(why: string): string {
   const fixed: Record<string, TKey> = { 'Already camped': 'wld.camp.already', 'Not inside a settlement': 'wld.camp.inside', 'No ground to camp on': 'wld.camp.noGround', 'Too close to their camp': 'wld.camp.tooCloseLair', 'Too cramped to camp here': 'wld.camp.cramped' };
   if (fixed[why]) return t(fixed[why]);
   const near = /^Too close to (.+)$/.exec(why);
-  return near ? t('wld.camp.tooClose', { name: near[1] }) : why;
+  return near ? t('wld.camp.tooClose', { name: placeName(near[1]) }) : why;
 }
 
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** A lair's name (world/map.ts names lairs in English), in words of the current language. */
-export const lairName = (name: string): string => tOr(`arc.lairName.${name}`, name);
 
 interface BandView {
   p: PartyState;
@@ -323,7 +319,7 @@ export class WorldScene extends BaseScene {
     const objs: Phaser.GameObjects.GameObject[] = [];
     // dark ink on a light plate (WLD-3: the old red-on-pink town label was under 3:1)
     const font = s.kind === 'lair' ? 'pSec' : 'pInk';
-    const label = addText(this, Math.round(x), y + 2, s.kind === 'lair' ? lairName(s.name) : s.name, font, 0.5);
+    const label = addText(this, Math.round(x), y + 2, s.kind === 'lair' ? lairName(s.name) : placeName(s.name), font, 0.5);
     const pw = Math.ceil(label.width) + 6;
     const pkey = `wm_plate_${s.kind}_${pw}`;
     if (!this.textures.exists(pkey)) this.textures.addCanvas(pkey, renderNamePlate(pw, s.kind).toCanvas());
@@ -426,7 +422,7 @@ export class WorldScene extends BaseScene {
     for (const id of ds) {
       const s = this.w.settlement(id);
       if (!s) continue;
-      if (s.kind === 'lair') this.showBanner(t('wld.spotted', { name: s.name }));
+      if (s.kind === 'lair') this.showBanner(t('wld.spotted', { name: lairName(s.name) }));
       else this.panQueue.push(id);
     }
     if (!this.cine) this.nextPan();
@@ -439,7 +435,7 @@ export class WorldScene extends BaseScene {
     const s = this.w.settlement(id)!;
     this.cine = true;
     hapticNotify('success');
-    this.showBanner(t('wld.found', { name: s.name }));
+    this.showBanner(t('wld.found', { name: placeName(s.name) }));
     const cam = this.cameras.main;
     cam.pan(s.x * WTILE + 4, s.y * WTILE, 900, 'Sine.easeInOut', true);
     this.time.delayedCall(1900, () => {
@@ -966,14 +962,14 @@ export class WorldScene extends BaseScene {
     if (c) {
       const fx = campEffects(this.w.map, c);
       const net = fx.forage * 24 - mouths;
-      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: this.w.healRate().toFixed(1), net: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
+      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: localDecimals(this.w.healRate().toFixed(1)), net: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
     } else if (this.w.starving) {
       hint = t('world.sit.starving');
       urgent = true;
     } else if (s.destParty >= 0) {
       const p = this.w.party(s.destParty);
-      hint = p ? t('world.sit.pursuing', { name: p.name }) : hint;
-    } else if (s.destSettlement >= 0) hint = t('world.sit.marchingTo', { name: this.w.settlement(s.destSettlement)?.name ?? '' });
+      hint = p ? t('world.sit.pursuing', { name: bandName(p.name) }) : hint;
+    } else if (s.destSettlement >= 0) hint = t('world.sit.marchingTo', { name: placeName(this.w.settlement(s.destSettlement)?.name ?? '') });
     else if (this.w.moving) hint = t('world.sit.marching');
     else if (days < 1.5) {
       hint = t('world.sit.lowFood');
@@ -1027,7 +1023,7 @@ export class WorldScene extends BaseScene {
       if (d < 3) continue;
       if (!best || d < best.d) best = { name: st.name, d };
     }
-    return best?.name ?? null;
+    return best ? placeName(best.name) : null;
   }
 
   private setWaiting(on: boolean): void {
@@ -1404,7 +1400,11 @@ export class WorldScene extends BaseScene {
     const m = w.map;
     const start = m.settlements[m.start];
     const towns = m.settlements.filter((st) => st.kind === 'town');
-    const near = (st: SettlementDef) => towns.reduce((b, q) => (Math.hypot(q.x - st.x, q.y - st.y) < Math.hypot(b.x - st.x, b.y - st.y) ? q : b), towns[0])?.name ?? null;
+    const near = (st: SettlementDef): string | null => {
+      const name = towns.reduce((b, q) => (Math.hypot(q.x - st.x, q.y - st.y) < Math.hypot(b.x - st.x, b.y - st.y) ? q : b), towns[0])?.name;
+      return name ? placeName(name) : null;
+    };
+    const town = placeName(start.name);
     const rows: ArcLairRow[] = m.settlements
       .filter((st) => st.kind === 'lair')
       .map((st): ArcLairRow => {
@@ -1416,11 +1416,11 @@ export class WorldScene extends BaseScene {
       // the targets first, then what is done, then what is still to find
       .sort((a, b) => ROW_ORDER[a.state] - ROW_ORDER[b.state] || a.id - b.id);
     const host = w.s.arc.stage === 'host' ? w.host : null;
-    const goal = w.postGame ? t('arc.goal.won') : host ? t('arc.goal.host', { town: start.name }) : t('arc.goal.lairs', { total: ARC_LAIRS });
+    const goal = w.postGame ? t('arc.goal.won') : host ? t('arc.goal.host', { town }) : t('arc.goal.lairs', { total: ARC_LAIRS });
     const sackDays = w.isSacked(m.start) ? Math.ceil(((w.s.arc.sackedUntil ?? 0) - w.s.time) / 24) : 0;
     const handle = openArcSheet(
       this,
-      { goal, sacked: sackDays > 0 ? t('arc.sacked', { town: start.name, n: sackDays }) : null, host: host ? { men: host.size, town: start.name } : null, rows, journal: w.s.journal, onFocus: (id) => this.focusOn(id) },
+      { goal, sacked: sackDays > 0 ? t('arc.sacked', { town, n: sackDays }) : null, host: host ? { men: host.size, town } : null, rows, journal: w.s.journal, onFocus: (id) => this.focusOn(id) },
       tab,
       () => {
         if (this.arcSheet === handle) this.arcSheet = null;
@@ -1540,13 +1540,13 @@ export class WorldScene extends BaseScene {
     const now = { seed: m.seed, fallen: w.lairsFallen, stage: w.s.arc.stage, sacked: w.isSacked(m.start) };
     const was = arcSeen?.seed === m.seed ? arcSeen : null;
     arcSeen = now;
-    const start = m.settlements[m.start];
+    const town = placeName(m.settlements[m.start].name);
     if (was && now.fallen > was.fallen) {
       const last = m.settlements.filter((st) => st.kind === 'lair' && w.lairFallen(st.id)).sort((a, b) => (w.s.lairs[b.id]?.lostAt ?? 0) - (w.s.lairs[a.id]?.lostAt ?? 0))[0];
       if (last) this.news.push(t('arc.bn.burnt', { name: lairName(last.name), n: Math.min(ARC_LAIRS, now.fallen), total: ARC_LAIRS }));
     }
-    if (now.stage === 'host' && was?.stage !== 'host') this.news.push(t('arc.bn.host', { town: start.name }));
-    if (now.sacked && !was?.sacked) this.news.push(t('arc.sacked', { town: start.name, n: Math.ceil(((w.s.arc.sackedUntil ?? 0) - w.s.time) / 24) }));
+    if (now.stage === 'host' && was?.stage !== 'host') this.news.push(t('arc.bn.host', { town }));
+    if (now.sacked && !was?.sacked) this.news.push(t('arc.sacked', { town, n: Math.ceil(((w.s.arc.sackedUntil ?? 0) - w.s.time) / 24) }));
     if (w.lairTier === 3 && !w.hasFlag('arc_tier3') && w.setFlag('arc_tier3')) this.news.push(t('arc.bn.tier3'));
   }
 

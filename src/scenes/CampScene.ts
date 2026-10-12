@@ -29,6 +29,8 @@ import { motion } from '../ui/motion';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
+import { localDecimals } from '../i18n/numbers';
+import { heroName } from '../i18n/names';
 import { Pix } from '../art/pixels';
 import * as Iso from '../art/campIso';
 import { fieldLayout, onlineLayout, type IsoLayout, type IsoThing } from '../world/campLayout';
@@ -908,7 +910,7 @@ export class CampScene extends BaseScene {
       } else if (c) {
         const fx = campEffects(w.map, c);
         const net = fx.forage * 24 - state.campaign.data.heroes.length;
-        const p = { heal: w.healRate().toFixed(1), food: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` };
+        const p = { heal: localDecimals(w.healRate().toFixed(1)), food: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` };
         tries.push(`${where} ${t('cmp.line', p)} ${t('cmp.hint')}`, `${where} ${t('cmp.line', p)}`, `${where} ${t('cmp.lineShort', p)}`, t('cmp.lineShort', p));
       }
       this.setSituation(tries, this.fieldChips());
@@ -965,7 +967,7 @@ export class CampScene extends BaseScene {
     const r = this.cv.resources;
     for (const k of RESOURCE_KEYS) {
       if (k === 'recruits' && this.m.VW < 200) continue;
-      chips.push({ icon: RES_ICON[k], value: k === 'recruits' ? `${Math.floor(r[k] * 10) / 10}` : fmtNum(r[k]), id: `camp.res.${k}` });
+      chips.push({ icon: RES_ICON[k], value: k === 'recruits' ? localDecimals(`${Math.floor(r[k] * 10) / 10}`) : fmtNum(r[k]), id: `camp.res.${k}` });
     }
     return chips;
   }
@@ -1319,7 +1321,7 @@ export class CampScene extends BaseScene {
     for (const h of camp.data.heroes) {
       for (const it of Object.values(h.equip)) {
         const cost = it ? camp.temperCost(it) : null;
-        if (it && cost) items.push({ item: it, who: h.name, cost });
+        if (it && cost) items.push({ item: it, who: heroName(h.name), cost });
       }
     }
     items.sort((a, b) => itemDef(b.item.def).value - itemDef(a.item.def).value);
@@ -1495,7 +1497,7 @@ export class CampScene extends BaseScene {
             const man = col.men[i];
             row.add(mosaicImage(this, 0, 0, rw, rh, col.id === 'formation' ? 'parchmentSel' : 'parchment'));
             const box = { owner: row, w: rw, h: rh };
-            row.add(mtext(this, 3, 3, man.name, 'pInk', { maxW: rw - 6, box }));
+            row.add(mtext(this, 3, 3, heroName(man.name), 'pInk', { maxW: rw - 6, box }));
             const sub = man.wounded ? t('cmp.muster.resting') : t('cmp.muster.man', { cls: clsName(man.cls), n: man.level });
             row.add(mtext(this, 3, 13, sub, 'pSec', { size: TEXT_MIN, maxW: rw - 6, box }));
           },

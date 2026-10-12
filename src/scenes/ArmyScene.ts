@@ -21,6 +21,8 @@ import {
   ARMY_LH, ARMY_ROW_H, ArmyFooter, addArmyHead, addMiniHead, addRosterRow, armyBack, campaignArmy, collapsed, ensureBusts, openOptionSheet, tappableRow, type ArmyOrigin, type ArmySource,
 } from '../ui/army';
 import { t, type TKey } from '../i18n';
+import { heroName } from '../i18n/names';
+import { placeName } from '../i18n/places';
 
 export { RARITY_COLOR } from '../ui/theme';
 
@@ -219,7 +221,7 @@ export class ArmyScene extends BaseScene {
     } else if (this.tab === 'stash') parts.push(this.src.stash().length ? t('army.sit.stash', { n: this.src.stash().length }) : t('army.sit.empty'));
     else {
       // what needs doing first: points to spend, then wounds, then the count
-      if (pend.length) parts.push(t('army.sit.pending', { n: pend.length, name: pend[0].name, more: pend.length - 1 }));
+      if (pend.length) parts.push(t('army.sit.pending', { n: pend.length, name: heroName(pend[0].name), more: pend.length - 1 }));
       if (hurt.length) parts.push(t('army.sit.hurt', { n: hurt.length }));
       if (!pend.length || !hurt.length) parts.push(t('army.sit.men', { n: heroes.length }));
       urgent = pend.length > 0;
@@ -271,7 +273,7 @@ export class ArmyScene extends BaseScene {
     const h = this.hero();
     if (!h || !this.src.setGroup(h.id, g)) return;
     haptic('light');
-    toast(this, t('army.groupSet', { name: h.name, group: groupName(g) }), 'good');
+    toast(this, t('army.groupSet', { name: heroName(h.name), group: groupName(g) }), 'good');
     this.refresh();
   }
 
@@ -291,7 +293,7 @@ export class ArmyScene extends BaseScene {
       item: it,
       hero: h,
       equipped: true,
-      notes: [{ text: t('stash.equippedBy', { name: h.name }) }],
+      notes: [{ text: t('stash.equippedBy', { name: heroName(h.name) }) }],
       actions: [
         { label: t('stash.unequip'), icon: 'back', id: 'stash.unequip', onClick: () => this.unequip(slot) },
         cost > 0
@@ -387,7 +389,7 @@ export class ArmyScene extends BaseScene {
       const d = (s.x - w.s.x) ** 2 + (s.y - w.s.y) ** 2;
       if (d < bd) (bd = d), (best = s);
     }
-    return best ? t('army5.emptyHint', { town: best.name }) : t('army5.emptyHintAny');
+    return best ? t('army5.emptyHint', { town: placeName(best.name) }) : t('army5.emptyHintAny');
   }
 
   /** First tap selects, a second tap opens the sheet; in pick mode one tap picks. */
@@ -501,7 +503,7 @@ export class ArmyScene extends BaseScene {
     const d = this.src.dismiss;
     if (!h || !d || d.blocked(h.id)) return;
     confirmDialog(this, {
-      title: t('army.dismissTitle', { name: h.name }),
+      title: t('army.dismissTitle', { name: heroName(h.name) }),
       body: t('army.dismissBody'),
       ok: t('army.dismiss'),
       cancel: t('common.cancel'),

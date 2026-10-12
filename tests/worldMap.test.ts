@@ -19,7 +19,8 @@ vi.mock('phaser', () => {
   class C {}
   return { default: { GameObjects: { Container: C, Image: C, Text: C, Graphics: C, Rectangle: C, Zone: C, Sprite: C, Layer: C }, Scene: C, Loader: { Events: {} } } };
 });
-const { regionLabel, bandName, campWhy } = await import('../src/scenes/WorldScene');
+const { regionLabel, campWhy } = await import('../src/scenes/WorldScene');
+const { bandName } = await import('../src/i18n/names');
 
 describe('the world map reads in both languages (WLD-6)', () => {
   it('ru has every key of en', () => {

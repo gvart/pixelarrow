@@ -24,8 +24,9 @@ import { itemDef, normalizeRarity, type Item } from '../../data/items';
 import type { Hero } from '../../data/units';
 import { affixLineText, forgeDefaultLine, type ForgeCandidate, type ForgeRefusal, type ForgeResult } from '../../game/gear';
 import { forgeCost } from '../../game/economy';
-import { fmtCount } from '../../i18n/numbers';
+import { fmtCount, localDecimals } from '../../i18n/numbers';
 import { t, tOr, type TKey } from '../../i18n';
+import { heroName } from '../../i18n/names';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 type C = Phaser.GameObjects.Container;
@@ -43,7 +44,7 @@ const PAD = 8;
 
 /** A line as text: "Damage +1". */
 export function forgeLineText(it: Item, [id, n]: [AffixId, number]): string {
-  return `${tOr(`mod.${id}`, id)} ${affixLineText(it, id, n)}`;
+  return `${tOr(`mod.${id}`, id)} ${localDecimals(affixLineText(it, id, n))}`;
 }
 
 /** Wrapped lines of `s` in `font` at `size` within `w` (never cut). */
@@ -83,7 +84,7 @@ function fillList(scene: UiScene, c: C, o: ForgeSheetOpts, w: number, onPick: (c
     const tx = IS + 8;
     const tw = w - tx - pw - 6;
     const name = lines(itemName(it), tw, rarityInk(scene, it.rarity), 7).slice(0, 2);
-    const sub = lines(cand.hero ? t('forge.worn', { name: cand.hero.name }) : t('forge.stash'), tw, 'pSec');
+    const sub = lines(cand.hero ? t('forge.worn', { name: heroName(cand.hero.name) }) : t('forge.stash'), tw, 'pSec');
     const rh = Math.max(TAP + 4, 6 + name.length * LINE_H + sub.length * Math.ceil((LINE_H * TEXT_MIN) / 7) + 4);
     const r = scene.add.container(0, y);
     const rb = { owner: r, w, h: rh };
@@ -153,14 +154,14 @@ function fillItem(scene: UiScene, c: C, o: ForgeItemOpts, w: number, st: ItemSta
   const name = lines(itemName(it), tw, ink, 7).slice(0, 2);
   c.add(mtext(scene, tx, 0, name.join('\n'), ink));
   let hy = name.length * LINE_H;
-  const meta = `${t(`rarity.${normalizeRarity(it.rarity)}` as TKey)} · ${t(`slot.${def.slot}` as TKey)} · ${o.hero ? t('forge.worn', { name: o.hero.name }) : t('forge.stash')}`;
+  const meta = `${t(`rarity.${normalizeRarity(it.rarity)}` as TKey)} · ${t(`slot.${def.slot}` as TKey)} · ${o.hero ? t('forge.worn', { name: heroName(o.hero.name) }) : t('forge.stash')}`;
   hy += para(scene, c, tx, hy, meta, 'pSec', tw);
   y = Math.max(IS, hy) + 6;
   y += para(scene, c, 0, y, t('forge.pick'), 'pSec', w) + 3;
   // the random-stat lines: label left (wraps, never cut), value right
   itemAffixes(it).forEach((ln, i) => {
     const fresh = st.last?.line === i;
-    const val = affixLineText(it, ln[0], ln[1]);
+    const val = localDecimals(affixLineText(it, ln[0], ln[1]));
     const vw = Math.ceil(mw(val, 'pInk', 7));
     const tag = fresh ? t('forge.new') : '';
     const tagW = tag ? Math.ceil(mw(tag, 'pGood', TEXT_MIN)) + 6 : 0;
