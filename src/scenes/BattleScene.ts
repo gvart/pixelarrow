@@ -32,7 +32,7 @@ import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gest
 import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf, type UndoStep } from '../ui/input/undo';
 import { StagedPlan, TAP_GHOST_MS, THEN_CHIP_S, ThenQueue, type ThenKey } from '../ui/orderQueue';
 import { CARD_DOUBLE_TAP_MS, FOLLOW_MARGIN, POINTER_INSET, RECENTRE_MS, FOLLOW_CATCH_UP, boxOf, centreOf, edgePointer, followCentre, keepInView, openingFrame, type Box } from '../ui/battleCamera';
-import { motion } from '../ui/motion';
+import { flashReduced, motion, shakeReduced } from '../ui/motion';
 import type { BattleSetup, Order, Side, SimEvent, SimGroup, SimUnit, WorkType, WorksAllowance } from '../sim/types';
 import { cellAt, cellCentre, firstGhost, ghostWhy, layAgain, segmentAt, trayRows, turnFacing, workCells, type TrayRow, type WorkGhost, type WorkGrid, type WorkWhy } from '../ui/input/works';
 import type { TerrainGrid } from '../sim/terrain';
@@ -45,7 +45,7 @@ import { GROUP_NAMES, type Hero } from '../data/units';
 import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
-import { BattleFx, DMG_NUMBER_PX, DMG_NUMBER_S, drawFlankArc } from '../ui/battleFx';
+import { BattleFx, DMG_NUMBER_PX, DMG_NUMBER_S, drawFlankArc, Juice, JUICE_TIERS, type JuiceKind } from '../ui/battleFx';
 import { FlankWatch, flankArc, flankThreats, type Vec } from '../ui/flankArc';
 import { BeastView } from '../ui/beastView';
 import { openSettings } from '../ui/settings';
@@ -75,6 +75,9 @@ function thenLabel(k: ThenKey): string {
 /** A live duel more than this many sealed turns behind catches up, at most CATCH_UP_STEPS sim steps a frame. */
 const CATCH_UP_TURNS = 4;
 const CATCH_UP_STEPS = 120;
+/** FL-01 (R4): the dust of an impact, a kill and a rout, sun-dried soil; the splinters of broken stakes. */
+const DUST = 0xd8bfa4;
+const SPLINTER = 0x9a6a3a;
 
 // HUD geometry (UI pixels, docs/UI_KIT.md "Battle HUD"): the top bar, the field, the ability
 // medallions down its right edge, the bottom sheet (group cards and orders).
@@ -286,6 +289,10 @@ export class BattleScene extends BaseScene {
   private far = new Set<number>();
   private groupList: ScrollList | null = null;
   private fx!: BattleFx;
+  /** Feel (FL-01, R4): shake trauma, hit-stop and flash pacing; presentation only. */
+  private juice = new Juice();
+  /** The shake offset now added to the main camera's scroll (world px), taken back next frame. */
+  private shook = { x: 0, y: 0 };
   /** Mythical beasts on screen (src/ui/beastView.ts); null without beasts. */
   private beasts: BeastView | null = null;
   /** Camera follows the fighting until the player pans or pinches. */
@@ -395,6 +402,8 @@ export class BattleScene extends BaseScene {
     this.tagPos = new Map();
     this.paused = false;
     this.speed = 1;
+    this.juice = new Juice();
+    this.shook = { x: 0, y: 0 };
     this.acc = 0;
     this.selGroup = -1;
     this.selUnit = -1;
@@ -543,6 +552,7 @@ export class BattleScene extends BaseScene {
     this.world.add(this.projG);
     this.fx = new BattleFx(this, this.world);
     this.fx.showNumbers = camp.data.settings.dmgNumbers;
+    this.feelSettings();
 
     const heroById = new Map<string, Hero>();
     for (const h of [...heroes, ...this.enemyHeroes]) heroById.set(h.id, h);
@@ -878,6 +888,8 @@ export class BattleScene extends BaseScene {
     const alpha = this.sim.phase === 'battle' && !this.paused ? Math.min(1, this.acc / DT) : 1;
     this.fitBounds();
     this.updateCamera(delta);
+    this.juice.frame(delta, this.sim.phase === 'battle' && !this.paused);
+    this.applyShake();
     this.fx.update(this.paused ? 0 : delta);
     pumpDolls(this.sim.phase === 'battle' && !this.paused ? 4 : 8);
     this.renderUnits(alpha);
@@ -1021,6 +1033,8 @@ export class BattleScene extends BaseScene {
         continue;
       }
       v.spr.setVisible(true);
+      // hit-stop (R4): the pose of a held group or man stays as it was drawn; the sim runs on underneath
+      if (this.juice.holds(u)) continue;
       const ix = Phaser.Math.Linear(v.px, u.x, alpha);
       const iy = Phaser.Math.Linear(v.py, u.y, alpha);
       const sp = isoToScreen(ix, iy);
@@ -1582,10 +1596,35 @@ export class BattleScene extends BaseScene {
         case 'death': {
           const u = this.sim.units[e.unit];
           this.addBlood(u.x, u.y, true);
+          // R4: a kill is the smallest tier, a puff (and its number); no shake
+          if (e.by >= 0) this.feel('kill', [], isoToScreen(u.x, u.y));
           if (u.side === this.me) {
             hapticNotify('warning');
             if (st.pauseDeath) this.autoPause(t('battle.banner.fallen', { name: u.name }));
           }
+          break;
+        }
+        case 'impact': {
+          // R4: a charge lands, dust on the contact line, a light shake, the two groups' sprites held 60 ms
+          const u = this.sim.units[e.unit];
+          const by = this.sim.units[e.by];
+          if (!u || !by) break;
+          const a = isoToScreen(u.x, u.y);
+          const b = isoToScreen(by.x, by.y);
+          this.feel('impact', [u.group, by.group], { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+          break;
+        }
+        case 'stakesBreak': {
+          const u = this.sim.units[e.unit];
+          this.feel('stakes', u ? [u.group] : [], isoToScreen(e.x, e.y), SPLINTER);
+          break;
+        }
+        case 'standardLost': {
+          const u = this.sim.units[e.unit];
+          if (!u) break;
+          const p = isoToScreen(u.x, u.y);
+          this.feel('standard', []);
+          this.fx.ripple(p.x, p.y, 2);
           break;
         }
         case 'contact':
@@ -1601,6 +1640,8 @@ export class BattleScene extends BaseScene {
         }
         case 'rout': {
           const g = this.sim.groups[e.group];
+          const c = groupCentre(this.sim, e.group);
+          this.feel('rout', [], c ? isoToScreen(c.x, c.y) : undefined);
           if (e.side === this.me) hapticNotify('error');
           // a broken army's routs are told by its army banner
           if (this.sim.isBroken(e.side)) break;
@@ -1631,6 +1672,8 @@ export class BattleScene extends BaseScene {
           break;
         }
         case 'armyBreak':
+          // R4: the biggest shake, on top of the rout that broke it
+          this.feel('armyBreak', []);
           this.fieldBanner(t(e.side === this.me ? 'readout.armyBreak.ours' : 'readout.armyBreak.theirs'), BANNER_TTL_S * 1000);
           break;
         case 'ability':
@@ -1794,6 +1837,9 @@ export class BattleScene extends BaseScene {
     const p = isoToScreen(u.x, u.y);
     const def = ABILITIES[id];
     this.fx.floatIcon(p.x, p.y - 44, `fxicon_${id}`);
+    // R4: a flash ring in the ability's colour (not under Reduce flash, and paced), a small shake, the holder held 40 ms
+    if (this.juice.flash()) this.fx.flashRing(p.x, p.y, def.color);
+    this.juice.hit('ability', [], [u.id]);
     if (u.side === this.me) haptic('heavy');
     switch (id) {
       case 'bash':
@@ -2901,9 +2947,47 @@ export class BattleScene extends BaseScene {
     return this.menu;
   }
 
-  /** Settings closed over the battle: a changed Left-hand setting (A11Y-16) moves the HUD at once. */
+  /** Reduce shake and Reduce flash (A11Y-13; missing = follow Reduce motion) and the speed, into the feel state. */
+  private feelSettings(): void {
+    const st = state.campaign.data.settings;
+    this.juice.shakeOff = shakeReduced(st);
+    this.juice.flashOff = flashReduced(st);
+    this.juice.speed = this.speed;
+  }
+
+  /**
+   * The shake (F1) on the main camera: last frame's offset comes off the
+   * scroll and this frame's goes on, so the follow camera never drifts with
+   * it. UI px → world px. Under Reduce shake, paused or at rest the offset is
+   * 0 and the scroll is left alone.
+   */
+  private applyShake(): void {
+    const cam = this.cameras.main;
+    const o = this.juice.offset();
+    if (!o.x && !o.y && !this.shook.x && !this.shook.y) return;
+    const k = this.m.S / cam.zoom;
+    const bx = cam.scrollX - this.shook.x;
+    const by = cam.scrollY - this.shook.y;
+    const nx = cam.useBounds ? cam.clampX(bx + o.x * k) : bx + o.x * k;
+    const ny = cam.useBounds ? cam.clampY(by + o.y * k) : by + o.y * k;
+    cam.setScroll(nx, ny);
+    this.shook = { x: nx - bx, y: ny - by };
+  }
+
+  /**
+   * A field event's feel (R4): its shake and hit-stop through the juice
+   * state, and its dust (`dust` particles, `color`) at a world-pixel point.
+   */
+  private feel(kind: JuiceKind, groups: number[], at?: { x: number; y: number }, color = DUST): void {
+    this.juice.hit(kind, groups);
+    const n = JUICE_TIERS[kind].dust;
+    if (at && n) this.fx.burst(at.x, at.y - 2, color, n, { speed: kind === 'rout' ? 26 : 16, up: 8, grav: 30, life: kind === 'rout' ? 0.9 : 0.5, small: kind === 'kill' });
+  }
+
+  /** Settings closed over the battle: Reduce shake and flash apply at once, and a changed Left-hand setting (A11Y-16) moves the HUD. */
   private settingsClosed(): void {
     if (!this.scene.isActive()) return;
+    this.feelSettings();
     const left = !!state.campaign.data.settings.leftHand;
     if (left === this.leftHand) return;
     this.leftHand = left;
@@ -4323,6 +4407,7 @@ export class BattleScene extends BaseScene {
   private toggleSpeed(): void {
     if (this.realtimeLocked) return;
     this.speed = nextSpeed(this.pace, this.speed);
+    this.juice.speed = this.speed;
     if (!this.tutorialData) {
       state.campaign.data.settings.battleSpeed = this.speed;
       void state.save();

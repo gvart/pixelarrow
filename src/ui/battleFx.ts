@@ -360,6 +360,15 @@ export class BattleFx {
     this.waves.push({ img, x, y, t: 0, dur: 0.8 });
   }
 
+  /** An ability's flash ring (R4): a ring in its colour bursting out from the holder; the caller paces it and drops it under Reduce flash. */
+  flashRing(x: number, y: number, color: number, r = 1.6): void {
+    const key = `flash_${color.toString(16)}_${r}`;
+    if (!this.scene.textures.exists(key)) this.scene.textures.addCanvas(key, renderAuraRing(r, color, 0, RING_FRAMES).toCanvas());
+    const img = this.scene.add.image(Math.round(x), Math.round(y), key).setDepth(DEPTH_RING + 2);
+    this.layer.add(img);
+    this.waves.push({ img, x, y, t: 0, dur: 0.35 });
+  }
+
   /** Iso radius in pixels for a shout of field radius r (for placing sparkles). */
   static radiusPx(r: number): { rx: number; ry: number } {
     return isoEllipse(r);
@@ -383,5 +392,157 @@ export function drawFlankArc(g: Phaser.GameObjects.Graphics, cx: number, cy: num
       g.lineBetween(ch.l.x, ch.l.y, ch.tip.x, ch.tip.y);
       g.lineBetween(ch.tip.x, ch.tip.y, ch.r.x, ch.r.y);
     }
+  }
+}
+
+// ------------------------------------------------------------ juice tiers (FL-01, battle-readability.md R4, F1)
+
+/** The field events that get feel, smallest first (R4). */
+export type JuiceKind = 'kill' | 'ability' | 'impact' | 'stakes' | 'standard' | 'rout' | 'armyBreak';
+
+export interface JuiceTier {
+  /** Shake trauma the event adds (F1), 0..1. */
+  trauma: number;
+  /** Hit-stop on the sprites of the groups involved, real ms at 1×. */
+  stopMs: number;
+  /** Dust or splinter particles at the spot (0: none). */
+  dust: number;
+  /** The same kind adds trauma at most once per this many real ms: a 20-man charge is one impact, not twenty. */
+  gapMs: number;
+}
+
+/**
+ * The tiers (R4): a kill < an ability < a charge impact < a rout < an army
+ * break. Shake only from an ability up; a kill is its damage number and a
+ * puff. The army break is the biggest single event (0.5, the top of the R4
+ * knob range) and it lands on a rout's 0.4, so a broken army reads as the
+ * battle's turning point.
+ */
+export const JUICE_TIERS: Record<JuiceKind, JuiceTier> = {
+  kill: { trauma: 0, stopMs: 0, dust: 3, gapMs: 0 },
+  ability: { trauma: 0.15, stopMs: 40, dust: 0, gapMs: 300 },
+  impact: { trauma: 0.2, stopMs: 60, dust: 6, gapMs: 300 },
+  stakes: { trauma: 0.2, stopMs: 60, dust: 8, gapMs: 300 },
+  standard: { trauma: 0.3, stopMs: 0, dust: 0, gapMs: 300 },
+  rout: { trauma: 0.4, stopMs: 0, dust: 14, gapMs: 300 },
+  armyBreak: { trauma: 0.5, stopMs: 0, dust: 0, gapMs: 0 },
+};
+
+/** F1: the offset at full trauma, UI px (6 at 390 wide; UI px scale with the width). */
+export const MAX_OFFSET = 6;
+/** F1: trauma lost per real second. */
+export const TRAUMA_DECAY = 1.5;
+/** Hit-stops start at most this often (real ms): at 4× a charge line is one stop, not a stutter. */
+export const HITSTOP_GAP_MS = 400;
+/** Flash rings start at most this often (real ms): 2.5 a second, under WCAG 2.3.1's three flashes. */
+export const FLASH_GAP_MS = 400;
+/** Shake noise lattice points per second: smooth, not a per-frame buzz. */
+const NOISE_HZ = 24;
+
+/** Smooth 1-D value noise in [-1, 1], seeded; presentation only (F1: never the sim RNG). */
+export function valueNoise(t: number, seed: number): number {
+  const at = (i: number): number => {
+    let h = Math.imul(i ^ Math.imul(seed, 0x27d4eb2d), 0x2c1b3c6d);
+    h = Math.imul(h ^ (h >>> 15), 0x297a2d39);
+    h ^= h >>> 13;
+    return ((h >>> 0) / 0xffffffff) * 2 - 1;
+  };
+  const i = Math.floor(t);
+  const f = t - i;
+  const s = f * f * (3 - 2 * f);
+  return at(i) * (1 - s) + at(i + 1) * s;
+}
+
+/**
+ * The battle's feel state (R4, F1): trauma shake, hit-stop and flash pacing.
+ * Pure: it knows nothing of the sim and never feeds it. The scene steps the
+ * sim on its own clock; `frozen` only holds the drawn pose of a group's
+ * sprites. Its clock runs on real time while the battle runs, so a pause
+ * stops every effect, and battle speed neither shortens a shake nor turns a
+ * fast fight into a strobe (the gaps are real time too).
+ */
+export class Juice {
+  /** Reduce shake (A11Y-13): the offset is always 0. */
+  shakeOff = false;
+  /** Reduce flash (A11Y-13): no flash rings. */
+  flashOff = false;
+  /** The battle speed (CT-06): a hit-stop is shorter at 2× and 4×, so the held sprites don't jump after it. */
+  speed = 1;
+  trauma = 0;
+  private clock = 0;
+  private running = false;
+  private last = new Map<JuiceKind, number>();
+  private stopAt = -Infinity;
+  private stopUntil = -Infinity;
+  private stopped = new Set<number>();
+  private stoppedUnits = new Set<number>();
+  private flashAt = -Infinity;
+
+  constructor(private seed = 7) {}
+
+  /** An event lands: adds its trauma (once per gap) and starts its hit-stop on `groups` (and single `units`). Returns whether it shook. */
+  hit(kind: JuiceKind, groups: readonly number[] = [], units: readonly number[] = []): boolean {
+    const tier = JUICE_TIERS[kind];
+    if (tier.stopMs > 0 && (groups.length || units.length)) this.stop(groups, units, tier.stopMs);
+    if (tier.trauma <= 0 || this.shakeOff) return false;
+    const prev = this.last.get(kind);
+    if (prev !== undefined && this.clock - prev < tier.gapMs) return false;
+    this.last.set(kind, this.clock);
+    this.trauma = Math.min(1, this.trauma + tier.trauma);
+    return true;
+  }
+
+  /** Hold the sprites of `groups` and `units` for `ms` (scaled down by speed). A stop already running takes the new ones in. */
+  private stop(groups: readonly number[], units: readonly number[], ms: number): void {
+    if (this.clock < this.stopUntil) {
+      for (const g of groups) this.stopped.add(g);
+      for (const u of units) this.stoppedUnits.add(u);
+      return;
+    }
+    if (this.clock - this.stopAt < HITSTOP_GAP_MS) return;
+    this.stopAt = this.clock;
+    this.stopUntil = this.clock + ms / Math.max(1, this.speed);
+    this.stopped = new Set(groups);
+    this.stoppedUnits = new Set(units);
+  }
+
+  /** May a flash ring play now? Off under Reduce flash; at most one per FLASH_GAP_MS. */
+  flash(): boolean {
+    if (this.flashOff || this.clock - this.flashAt < FLASH_GAP_MS) return false;
+    this.flashAt = this.clock;
+    return true;
+  }
+
+  /** Per frame: `running` is false while paused, deploying or over, and then nothing moves on. */
+  frame(dtMs: number, running: boolean): void {
+    this.running = running;
+    if (!running) return;
+    const dt = Math.min(100, Math.max(0, dtMs));
+    this.clock += dt;
+    this.trauma = Math.max(0, this.trauma - (TRAUMA_DECAY * dt) / 1000);
+  }
+
+  /** Is this group's pose held by a hit-stop? */
+  frozen(group: number): boolean {
+    return this.clock < this.stopUntil && this.stopped.has(group);
+  }
+
+  /** Is this man's pose held (his group's, or his own: an ability's holder)? */
+  holds(unit: { id: number; group: number }): boolean {
+    return this.clock < this.stopUntil && (this.stopped.has(unit.group) || this.stoppedUnits.has(unit.id));
+  }
+
+  /** The shake now (F1), UI px: MAX_OFFSET × trauma² × noise. Zero under Reduce shake and while not running. */
+  offset(): { x: number; y: number } {
+    if (this.shakeOff || !this.running || this.trauma <= 0) return { x: 0, y: 0 };
+    const k = MAX_OFFSET * this.trauma * this.trauma;
+    const t = (this.clock / 1000) * NOISE_HZ;
+    return { x: k * valueNoise(t, this.seed), y: k * valueNoise(t, this.seed + 1) };
+  }
+
+  /** The largest offset an event of `kind` alone can give, UI px (for tuning and tests). */
+  static peak(kind: JuiceKind): number {
+    const tr = JUICE_TIERS[kind].trauma;
+    return MAX_OFFSET * tr * tr;
   }
 }
