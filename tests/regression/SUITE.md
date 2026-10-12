@@ -35,6 +35,7 @@ the summary and never counted as a pass.
 | --- | --- | --- |
 | `doors.test.ts` | `doors.mjs` against `src/platform/nav.ts`: a door (or an ELSEWHERE reason) for every parent/origin screen; each expected landing equals `resolveBack`; the tabs in bar order; tapped layout ids still exist. | 2026-10-12 |
 | `sheetFixtures.test.ts` | Every opener exported from `src/ui/sheets/**` (derived) has a layout-check screen or a `sheet-layout.mjs` fixture; both scripts default to the four sizes and en, ru. | 2026-10-12 |
+| `tutorialExit.test.ts` | QA02-B1: a Settings replay returns to its screen, the first run goes to FirstRun, a first item shows its reward. | 2026-10-12 |
 | `suite.test.ts` | This manifest and `run.mjs` list every regression script and test file; every KNOWN bug id in the scripts is listed below. | 2026-10-12 |
 
 ### Existing tests this suite relies on (not moved)
@@ -55,7 +56,9 @@ the summary and never counted as a pass.
 
 | ID | Check | Repro | Owner |
 | --- | --- | --- | --- |
-| QA02-B1 | battle-kinds `[tutorial] a replay skipped from the Campaign hub returns there` | Campaign hub, Settings, Replay tutorial, Back, Skip: lands on FirstRun (modes), not the Campaign hub. screen-flow §3 S09 says a replay from Settings returns to the screen Settings was opened from. `battleTutorial.ts` askSkip and finish always start FirstRun. | TUT (Director to assign) |
+| (none open) | | | |
+
+Fixed: QA02-B1 (a Settings replay skipped or finished went to FirstRun, not the screen Settings was opened from; now `TutorialStart.back`, routed by `tutorialExit`). Its battle-kinds check is a plain assertion.
 
 ## Known gaps
 

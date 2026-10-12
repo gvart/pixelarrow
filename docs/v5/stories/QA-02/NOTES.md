@@ -18,7 +18,7 @@ Manifest: `tests/regression/SUITE.md`. Run: `npm run regression` (vite preview o
 
 ## Bugs found (not fixed: reported)
 
-- **QA02-B1** Replay tutorial from Settings, then Skip: lands on FirstRun (modes), not the screen Settings was opened from (screen-flow §3 S09). Repro: Campaign hub > Settings > Replay tutorial > Back > Skip. Cause: `src/ui/tutorial/battleTutorial.ts` askSkip and finish always `scene.start('FirstRun', …)`.
+- **QA02-B1 (fixed, Director's go)**: Settings passes `back` (its host scene and data) in the tutorial's start data; `tutorialExit` (src/game/tutorial.ts, pure, unit-tested) sends skip and finish there, a first item to its reward screen, the first run to FirstRun. Was: Replay tutorial from Settings, then Skip: lands on FirstRun (modes), not the screen Settings was opened from (screen-flow §3 S09). Repro: Campaign hub > Settings > Replay tutorial > Back > Skip. Cause: `src/ui/tutorial/battleTutorial.ts` askSkip and finish always `scene.start('FirstRun', …)`.
 - Dead code (not touched): `openJournalSheet` in `src/ui/sheets/eventCard.ts` has no caller since the journal became the Arc sheet's tab.
 
 ## Verification

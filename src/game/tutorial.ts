@@ -198,6 +198,22 @@ export function beginTutorial(p: TutorialProgress, replay = false): TutorialProg
   return { ...p, status: 'active', done: replay ? [] : [...p.done] };
 }
 
+/** A screen to go to: its scene key and start data. */
+export interface TutorialExit {
+  scene: string;
+  data: object;
+}
+
+/**
+ * Where the guided battle goes when it is skipped or finished (screen-flow §3 S09). A first item earned
+ * shows its reward screen; otherwise a replay started from Settings returns to `back`, the screen Settings
+ * was opened from, and a first-run tutorial goes on to the mode cards.
+ */
+export function tutorialExit(back: TutorialExit | undefined, reward?: Item | null): TutorialExit {
+  if (reward) return { scene: 'FirstRun', data: { mode: 'reward', item: reward } };
+  return back ?? { scene: 'FirstRun', data: { mode: 'modes' } };
+}
+
 export function markStep(p: TutorialProgress, id: TutStepId): TutorialProgress {
   return p.done.includes(id) ? p : { ...p, done: [...p.done, id] };
 }

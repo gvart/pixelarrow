@@ -11,7 +11,7 @@
 // the menu open (7d3e260; the raid ends with its menu up, the next battle must open its own),
 // a replayed last-battle setup (B1/B2), Back from a duel report leaving the hub.
 // Usage: node scripts/regression/battle-kinds.mjs [baseUrl]   (needs a running preview server)
-import { launch, check, known, until, baseUrl, openGame, settled, running, pressBack, startScene, tapId, need, flow, done } from './lib.mjs';
+import { launch, check, until, baseUrl, openGame, settled, running, pressBack, startScene, tapId, need, flow, done } from './lib.mjs';
 
 const base = baseUrl();
 const browser = await launch();
@@ -152,8 +152,8 @@ await flow('tutorial', async () => {
   const to = await until(async () => !(await api.active('Battle')), 15000, 200);
   const where = await running(api);
   check(`${n} skipping a replay leaves the battle`, to, JSON.stringify(where));
-  // QA02-B1: the tutorial's skip and finish always open FirstRun (battleTutorial.ts askSkip/finish)
-  known('QA02-B1', `${n} a replay skipped from the Campaign hub returns there (screen-flow S09)`, where.join('+') === 'Menu', JSON.stringify(where));
+  // QA02-B1 (fixed): skip used to open FirstRun whatever started the tutorial
+  check(`${n} a replay skipped from the Campaign hub returns there (screen-flow S09)`, where.join('+') === 'Menu', JSON.stringify(where));
 });
 
 // ---------------------------------------------------------------- duels: ladder floor, ranked match, raid (the in-memory demo army)
