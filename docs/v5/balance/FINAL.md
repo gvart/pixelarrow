@@ -4,6 +4,8 @@ Story FL-04 is the last balance check of v5. It re-runs `npm run balance -- 400`
 
 **Verdict: CONCERNS, with no drift and no degenerate strategy.** Every row matches the train-2 close (TRAIN2.md, ST-04) to the seed. Presentation moved nothing. The misses are the residuals already accepted in V5-071 and V5-073, plus the small edges TRAIN2 listed. No data change was needed, so none was made.
 
+> **BAL-02 update (after FL-04).** The user wants the whole v5 scope (V5-055), so story BAL-02 tuned the leftovers FL-04 had accepted for later. See "BAL-02: the leftovers, tuned" below the per-axis sections. It changes D3, D4 and D5 and adds D7–D14. The per-axis tables in sections 1–8 are FL-04's numbers. Where BAL-02 moved a row, the BAL-02 section has the new value.
+
 ## How it was measured
 
 | Item | Value |
@@ -216,15 +218,95 @@ The minotaur and the chimera have been at 29–33% since the v5 baseline (BASELI
 
 **Drift since the last tune: none.** No row changed, so the "fix in data" branch didn't apply. `src/data` is untouched, and the replay fixtures are untouched (13/13).
 
+## BAL-02: the leftovers, tuned
+
+Each fix is the smallest data or table change I could find. There are no changes to `src/sim`, and the economy and the forge are untouched. These numbers come from `npm run balance -- 400` on the BAL-02 branch, which took about 35 minutes under load. The probes used throwaway runtime patches of the data tables at the same seeds as the harness, and they weren't committed.
+
+### Before and after
+
+| Target | Before (FL-04) | After (BAL-02) | Target band | Change |
+| --- | --- | --- | --- | --- |
+| War-map minotaur, sensible / naive | 33% / 4% | **54% / 5%** | 45–60% | `MYTHS.minotaur.hp` 540 → 500 |
+| War-map chimera, sensible / naive | 29% / 0% | **55% / 0%** | 45–60% | `MYTHS.chimera.hp` 490 → 450 |
+| 8-man opening vs starter-zone bands | 72% (248 fights; 75% at 758) | **66%** (248; 67% at 758) | 55–70% | `STARTER_BANDS.danger` [0.1, 0.3] → [0.22, 0.3] |
+| Riders into stakes: charge damage | −76% | **−90%** (hoplites still win 100%) | ≤ −80% | stakes `cavSpeed` 0.3 → 0.25 |
+| Chariots vs militia with the scythe | 26% (50 seeds; 25% at 200) | **36%** (50; 33% at 200) | ≥ 30% | `ABILITY_RULES.scytheMorale` 8 → 12 |
+| Ladder floors within ±5 (committed harness, 300 seeds) | 48 of 50 (21 −6, 28 +7) | **49 of 50** (28 +7 at 300 seeds, **+4 at 1,000**) | all within ±5 | `FLOOR_DOCTRINE[21]` = hammer |
+| Ladder floors 29 / 31 / 36 (V5-073 exceptions) | +8 / −6 / −6 (EC-05's throwaway harness) | **−1 / +1 / +1** | ±5 | none. They measure in band on the committed harness. |
+
+**Why HP for the beasts.** The sensible army took 93–94% of each beast's HP and then routed. The beast wasn't wrong in kind; it just had a little too much to chew through before the army's nerve broke. HP is a cliff knob (40 HP is worth about 20 pts), so I checked 200 seeds too: 56 / 55%. At tiers 1, 2, 4 and 5 both beasts now follow the same curve as the hydra, cyclops and lion. The naive armies stay at 5 / 0%. The two beasts appear only on the war map, so the campaign lairs (40 / 58 / 56%) don't move.
+
+**Why danger for the opening.** The GDD's starter scenario is danger 0.1–0.3 (campaign-arc.md R1.3), and [0.22, 0.3] stays inside it. Placement and size come from the same RNG draws, so the bands are the same men. Only the level-2 share rises, from 25% to about 60%. The hardest cell (8 men, level 2) is 40–43%, and the softest (6 men, level 1) is 88–92%. No first fight gets close to AR-01's 13%. Base 6 men (39%) and danger [0.25, 0.3] (57%) were too harsh. The tutorial smoke test still wins.
+
+**Why cavSpeed for the stakes.** The GDD lets each cell multiplier move ±30%, and 0.25 is within that. A rider who gets through the stakes now arrives too slowly to land a real charge. Raising `impaleMult` to 0.65 or 0.8 changed nothing.
+
+### Every D2 residual (TRAIN2's list)
+
+| Residual | Now | Call | Reason |
+| --- | --- | --- | --- |
+| Riders into stakes −76% | −90% | **fixed** | above |
+| Chariot scythe 26% | 36% (33% at 200) | **fixed** | above. Bots take path A (`botPathChoice`), so they never hold the active. The ladder, the lairs and matched fights can't move. |
+| 8-man opening 72% | 66% | **fixed** | above |
+| Stakes on the threatened flank +8 | +7 | **left** | The gain depends on where one 3-cell segment lies on the flank arc, and the harness places it in one fixed spot. Neither stake potency (`impaleMult` 0.5–0.8) nor the cavSpeed fix moved it. In the design, one stakes segment punishes riders who go through it; it doesn't wall off a flank. Covering a flank takes a second segment, which the allowance (max 3) allows. |
+| Sacred Bond 0, Aimed Volley 0 | 0 / 0 | **left** | Bots fire them in only 32% and 50% of battles (`ai.ts` R6 rules: Bond waits until morale falls below 0.6, and Aimed needs 2 shooters in range). Shorter cooldowns (Bond 40 → 12 s, Aimed 20 → 12 s) change nothing. The other knobs are quoted in the player-facing text (10 s, 4 paces, +25% / +20%, one shot) in en and ru, which belong to LOC-01. These are player tools that a human fires at the right moment. Making the bot rule fire them more is sim code, and making the numbers stronger would overshoot when a player uses them well. Route to the next AI story. |
+| Wheel and Re-charge −1, Companion flank 54% | −1 / 54% (54% at 200 too) | **left** | `rechargeBack` 4–8, `rechargeRange` 8, `rechargeTicks` 600 and cooldown 18 s all stay at 48–55%. The recharge is used 2.2 times a battle, but the riders still take the hit. It is structural: a re-charge is only as good as the bot's choice of when to break off (`ai.ts`). |
+| Scythe Run mirror +3 | +3 (625 seeds) | **left** | One chariot in a ten-man mirror. Damage 0.8 → 1.2 doesn't move it, and the counter-row target (≥ 30%) is now met. |
+| Swarm reference 39% | 39% | **left** | 1 pt under at 800 seeds, within 1 SE. It isn't clearly out of band. A swarm change would also move ladder chapter 2 and three replay fixtures. |
+| Hammer / swarm lengths 65 / 59 s | same | **left** | Hammer and swarm are the doctrines meant to end a fight on a decisive blow or a harassment break; the bot retreats in 44% / 39% of them. Stretching them to 80 s would mean slower doctrine timers, which would also change their win rate and the ladder. The game-wide median (72 s) is in band. |
+| Cohesion length −15% | same | **left** | FO-03 meant cohesion to make routs cascade, and shorter battles are the visible result. The matched median is 72 s, inside GAMEPLAY's 55–150 s, and the rout-gap and cascade rows are met. |
+| Bounty share 24% / +3% | same | **left** | It's economy, and this story's invariant is that the economy is unchanged. The bounty belongs to the economy GDD that risk 1 already asks for. |
+
+### Ladder parity harness (D5 superseded)
+
+`npm run balance:ladder [-- N [FROM-TO]]` (`src/dev/ladderParity.ts`) makes the V5-052 scan reproducible. The anchor is frozen at the pre-EC-05 state, which is what the V5-073 numbers are measured against:
+- `src/dev/ladderParity/floors.frozen.json`: every floor's bot army, built by the code at 9570d6f^1;
+- `src/dev/ladderParity/ai.frozen.ts`: `src/sim/ai.ts` at 9570d6f^1, with only the import paths changed.
+
+For each floor and seed, two paired battles run on today's sim. In both, the challenger on side 0 is the frozen army, playing steady and fighting to the end under the frozen bot. In **ref**, the frozen floor plays under the frozen bot on its old field. In **now**, today's `ladderFloor` and `ladderSetup` play under today's bot. Δ is now − ref. Both arms seat their bots the same way, after both armies stand. `floorParity(floor, n, doctrine)` scans doctrines.
+
+The metric differs from EC-05's throwaway harness, whose challenger setup wasn't recorded. That is why 29 / 31 / 36 read −1 / +1 / +1 here, not +8 / −6 / −6. One paired SE on Δ is about 4 pts at 300 seeds and about 2 at 1,000.
+
+Scan at 300 seeds, after BAL-02: **49 of 50 within ±5** (595 s). Floor 21 was −6 as rush (−6 at 1,000 seeds). The doctrine scan at 1,000 seeds read steady −3, **hammer −2**, swarm −26 and fury +4, so floor 21 now fights hammer (AI-03's rule: the passing doctrine closest to 0). Floor 28 reads +7 at 300 seeds and **+4 at 1,000**, so it is inside the band, and the 300-seed figure is noise. Every other floor is within ±5. The edge floors are 18 (−5), 25 (+5) and 34 (+5).
+
+### Single-class cells (99 of 306)
+
+The 99 cells are 53 pairs at 96% or more plus 46 at 4% or less, so most decisive pairs are counted twice. I sorted the 53 winners at 25 seeds per pair (budgets 700 and 900):
+
+| Kind | Pairs | Examples | By design? |
+| --- | --- | --- | --- |
+| Intended counters (`INTENDED_COUNTERS`) | 10 | hoplite > Companion / Thessalian / chariot, Companion > archer / slinger / javelineer, Guard and Sacred Band > Companion | yes: rock-paper-scissors |
+| Same rule family, unlisted | 18 | Guard and Sacred Band > chariot, Sacred Band > Thessalian (spears beat riders); Companion and chariot > falx, rhomphaia and peltast (riders ride down unshielded foot); archer, slinger and javelineer > fanatic, falx and rhomphaia (missiles shred unshielded shock foot); horse archer > thureophoros and Celt (GAMEPLAY: horse archers bleed slow heavy foot); fanatic > the three mounted classes (BASELINE: the enemy-only cultist hard-counters cavalry) | yes |
+| Shock infantry > the elite line | 14 | Gaul, falx, peltast, Celt, rhomphaia and fanatic > hoplite, Guard and Sacred Band | accepted structural (V5-073: fewer elite men at equal cost, so a wider line wraps the ends) |
+| Other | 11 | hoplite > archer and javelineer, Guard > archer and javelineer, slinger, javelineer and horse archer > militia, horse archer > javelineer, chariot > Companion and Thessalian, rhomphaia > fanatic | shields beat missiles, missiles beat the unarmoured levy, and the chariot's weight beats lighter riders. All are consistent with the class identities. hoplite > archer reverses a harness-list entry (below). |
+
+**No GDD counter rule is broken.** Every counter that GAMEPLAY.md says "holds" still does: spears beat riders head on (96–100%), riders beat missile men (96%), peltasts beat archers (68%, softened on purpose by EC-04), and horse archers beat Celts and thureophoroi (96–100%).
+
+Three entries in the harness's own `INTENDED_COUNTERS` list are reversed: archer > hoplite 0%, slinger > hoplite 16% and horse archer > hoplite 40%. These pairs have been this way since BASELINE. The hoplon and the shield wall stop missiles by design (it is the hoplite's identity). In a one-class fight the missile men have no screen and nowhere to stand once the wall closes. The archer and slinger means (47 / 48%) and the mixed matched fights are in band. Fixing these three pairs would mean changing the missile-versus-shield rules for every battle, which is not a cheap data change. I propose that the systems designer either drop the three entries from `INTENDED_COUNTERS` or redefine them as "with a screen". I didn't change them, because the list is a design statement.
+
+### Invariants
+
+| Invariant | After | Status |
+| --- | --- | --- |
+| Matched fights about 53% (±3) | 54% (median 72 s) | held, identical to FL-04 |
+| Lairs 43 / 58 / 53 (±5) | 40 / 58 / 56% (80 seeds) | held, identical to FL-04 |
+| Lair assault at 1.0× about 45% / the host about 49% | 44% / 50% | held |
+| Economy and forge sink | battle pay, loot, hoard, events, forge: identical rows | held |
+| Rarity, item cap, doctrines, orders, works caps, events | identical rows | held |
+| Replay fixtures | **unchanged.** No BAL-02 change alters them: Node `trainReplay` 33/33, Chromium 13/13, and WebKit 26.0 13/13 via the installed 2242 build (`PW_WEBKIT_PATH`). No re-record was needed. OPS.md "The next rules change" would allow a deliberate one inside train 2 before the release. | held |
+
+Every BAL-02 change is train-2 data: beasts, terrain, perks, the ladder table and the starter zone. Under ADR-0001 these are rules changes. They ship inside train 2 before the release (OPS.md), so `SIM_VERSION` stays 2.
+
 ## Open risks
 
 1. **No Glory or offline-gold target.** The duel Glory flow and the campaign gold curve are computed, not judged. A post-v5 economy GDD should set targets (owner: economy-designer).
-2. **Ladder parity has no committed harness.** A future sim change can't re-run V5-052's parity scan. Owner: the first post-v5 sim story commits a frozen-copy harness under `src/dev/`.
+2. ~~Ladder parity has no committed harness.~~ **Closed by BAL-02:** `npm run balance:ladder` (D12). What remains: its frozen bot reads today's `src/data/doctrines.ts`, so a doctrine-table change shows in both arms and can partly hide itself. Re-measure a doctrine change with a doctrine scan too.
 3. **Mono-class matrix (99 lopsided cells)** matters only if a duel meta converges on single-class teams. Watch ranked telemetry after release (owner: systems-designer).
-4. **War-map minotaur and chimera** are hard for an army at level − 1. Clans can bring more men, but a solo player may find them walls. Owner: the post-v5 balance pass.
+4. ~~War-map minotaur and chimera are walls.~~ **Closed by BAL-02** (54 / 55%). HP is a cliff knob for a beast (40 HP is about 20 pts), so re-check both after any change to morale or terror.
 5. **Destroyed-army restart:** 5 volunteers win 0% against the start's lair bandits (×2.96). The start bands near the town are the intended road back; check this in QA-03's playthrough.
-6. **WebKit replay leg not run locally** (webkit-2215 missing); TRAIN2's 2242 run is the last WebKit evidence.
+6. ~~WebKit replay leg not run locally~~ BAL-02 ran it with `PW_WEBKIT_PATH` pointing at the installed 2242 build: 13/13. (webkit-2215 is still missing; TRAIN2's 2242 run is the last WebKit evidence.
 7. **Heavy runs under load:** the 400-seed run takes 34 minutes at a load average of about 25. Gates should keep using 200 seeds.
+8. **Bot-fired actives (Bond, Aimed, Recharge) measure about 0 in mirrors**, because the bot rarely fires them at a useful moment (BAL-02). A player who times them will get more. The next AI story should improve `ai.ts` R6 use, then re-measure. Owner: ai-programmer.
+9. **`INTENDED_COUNTERS` has three entries the class identities contradict** (archer, slinger and horse archer > hoplite). Owner: systems-designer (BAL-02 single-class cells).
 
 ## Decisions (made while the user was asleep; for the Director to copy to DECISIONS.md)
 
@@ -236,6 +318,14 @@ The minotaur and the chimera have been at 29–33% since the v5 baseline (BASELI
 | D4 | War-map minotaur 33% and chimera 29% (harness target about 45–60%) are accepted for v5, owned by the post-v5 balance pass. | Re-kit both beasts now | No GDD target, unchanged since baseline, war map only. |
 | D5 | Ladder parity is reported as **exact by determinism** rather than re-scanned: no input changed since the EC-05 scan, and the harness isn't in the repo. | Rebuild the frozen-copy harness | A rebuild would reproduce the same seeds. Committing a harness belongs with the next sim change (risk 2). |
 | D6 | `npm run balance` now prints the event-deck rows (`eventRows` from `src/dev/eventBalance.ts`). The full EV table stays behind the one-line command in that module's header. | A separate script | It closes the PROGRESS item 30 follow-up. It adds about 20 s, and every row is in band. |
+| D7 | **BAL-02 supersedes D3:** the starter zone draws danger from [0.22, 0.3], inside the GDD's 0.1–0.3. The 8-man opening goes 72% → 66% (248 fights) and 75% → 67% (758). The hardest starter cell is 40%. | Base 6 men (39%); [0.25, 0.3] (57%); leave it at 72% | It's the smallest knob that stays inside the GDD's scenario, and band sizes and placement don't change. |
+| D8 | **BAL-02 supersedes D4:** minotaur HP 540 → 500 and chimera 490 → 450. The war-map beasts go 33 / 29% → 54 / 55%, and the naive armies stay at 5 / 0%. | Re-kit the charge or the breath | The sensible army already took 93–94% of the HP before it routed. HP is the stat that was wrong, and no kit mechanic is involved. |
+| D9 | Stakes horse speed 0.3 → 0.25 (within ±30%), and the GDD table is updated. Riders into stakes go −76% → −90%. | `impaleMult` (no effect); a speed of 0.22 (−100%, a hard wall) | It meets the ≤ −80% target with the smallest change. |
+| D10 | Scythe Run morale shock 8 → 12. Chariots vs militia (scythe) go 26% → 36% at 50 seeds, and 25% → 33% at 200. | Scythe damage (no effect); a shorter cooldown | The number isn't in the ability text, and bots never hold it (path A). |
+| D11 | Ladder floor 21 fights hammer: Δ −6 as rush, −2 as hammer at 1,000 seeds. | Keep rush at −6 | This is AI-03's rule: the passing doctrine closest to 0. It's not a replay fixture floor. |
+| D12 | **BAL-02 supersedes D5:** the ladder parity harness is committed (`npm run balance:ladder`, `src/dev/ladderParity/` frozen at 9570d6f^1). On it, the V5-073 exceptions 29 / 31 / 36 read −1 / +1 / +1, and 49 of 50 floors are within ±5 at 300 seeds. Floor 28 is +7 at 300 and +4 at 1,000, so it's in band. | Re-anchor on today's ladder | A fixed anchor keeps the drift from adding up story after story. This is the anchor V5-073 was judged against. |
+| D13 | Residuals left with design reasons (BAL-02 table): flank stakes +7, Bond / Aimed 0, Recharge −1 and Companion flank 54%, Scythe mirror +3, swarm 39%, hammer / swarm lengths, cohesion length, bounty. The actives route to the next AI story. | Tune the bot-use rules now | That is sim code, and the other knobs are quoted in the player-facing text (LOC-01's files). The bounty is economy, which is held fixed. |
+| D14 | Single-class cells: 99 of 306 is rock-paper-scissors, the accepted shock-vs-elite cells or class identity. No GDD counter rule is broken, and no fix was made. `INTENDED_COUNTERS` should drop or reword archer / slinger / horse archer > hoplite. | Change the missile-versus-shield rules | That would be a global rule change for three one-class pairs. The means and the mixed armies are in band. |
 
 ## `npm run balance -- 400`: summary
 
