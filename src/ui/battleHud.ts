@@ -262,7 +262,7 @@ export class HintPill extends Phaser.GameObjects.Container {
     const s = this.scene;
     const size = HUD_TEXT;
     const textW = this.maxW - 22;
-    const lines = wrapText(sentence, textW, 2, false, size).lines;
+    const lines = wrapText(sentence, textW, 3, false, size).lines;
     const tw = Math.max(...lines.map((l) => measureText(l, false, size)));
     const w = Math.min(this.maxW, tw + 24);
     const lineH = 9;
