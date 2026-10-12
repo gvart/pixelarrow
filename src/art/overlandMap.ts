@@ -65,6 +65,44 @@ export interface WorldMapArt {
 }
 
 /** Building culture of a settlement on the overland map. */
+/** Map px around a settlement's drawn picture that still count as a tap on it (QAFIX-WORLD S4). */
+export const SITE_TAP_MARGIN = 4;
+
+/** A drawn pixel of `site`'s picture lies within `margin` map px of (x, y). */
+export function onSitePicture(site: SiteArt, x: number, y: number, margin = SITE_TAP_MARGIN): boolean {
+  const pix = site.sprite.pix;
+  const px = Math.floor(x - site.x);
+  const py = Math.floor(y - site.y);
+  if (px < -margin || py < -margin || px >= pix.w + margin || py >= pix.h + margin) return false;
+  for (let j = -margin; j <= margin; j++)
+    for (let i = -margin; i <= margin; i++) {
+      if (pix.inside(px + i, py + j) && pix.data[((py + j) * pix.w + px + i) * 4 + 3] > 0) return true;
+    }
+  return false;
+}
+
+/**
+ * The settlement a tap at map point (x, y) picks (QAFIX-WORLD S4): one whose
+ * drawn picture is under the finger, give or take SITE_TAP_MARGIN; one with no
+ * picture within 11 px of its tile. The nearest wins. The open ground around a
+ * town is ground (the party may camp there), not the town.
+ */
+export function pickSettlement(settlements: readonly SettlementDef[], sites: readonly SiteArt[], x: number, y: number, visible: (s: SettlementDef) => boolean): SettlementDef | null {
+  let best: SettlementDef | null = null;
+  let bd = Infinity;
+  for (const s of settlements) {
+    if (!visible(s)) continue;
+    const site = sites.find((q) => q.id === s.id && q.kind !== 'landmark');
+    const d = Math.hypot(s.x * WTILE + 4 - x, s.y * WTILE - y);
+    if (site ? !onSitePicture(site, x, y) : d >= 11) continue;
+    if (d < bd) {
+      bd = d;
+      best = s;
+    }
+  }
+  return best;
+}
+
 export function archOfSettlement(s: SettlementDef): Arch {
   if (s.culture === 'phoenician') return 'punic';
   if (s.culture === 'celtic') return 'celtic';

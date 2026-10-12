@@ -15,7 +15,7 @@ import {
   BAND_COLORS, MAPC, PARTY_FH, PARTY_FOOT, PARTY_FRAMES, PARTY_FW, STRUCT_FRAMES, STRUCT_FX, STRUCT_LIFT, STRUCT_PAD, WTILE, renderBoat, renderCampZone,
   renderDust, renderMarker, renderNamePlate, renderPartyFigure, renderStructure,
 } from '../art/worldArt';
-import { renderWorldMap, type SiteArt, type WorldMapArt } from '../art/overlandMap';
+import { pickSettlement, renderWorldMap, type SiteArt, type WorldMapArt } from '../art/overlandMap';
 import { OverlandLife } from '../ui/overlandLife';
 import { FOG_CHUNK, FogPainter } from '../art/fogArt';
 import { P } from '../art/palette';
@@ -1193,17 +1193,14 @@ export class WorldScene extends BaseScene {
       this.refreshHud();
       return;
     }
-    let set: SettlementDef | null = null;
-    let sd = 11;
-    for (const s of this.w.map.settlements) {
-      if (!this.w.isExplored(s.x, s.y)) continue;
-      let d = Math.hypot(s.x * WTILE + 4 - x, s.y * WTILE - y);
-      // anywhere on the town's (or village's) picture counts too
-      const site = this.siteOf(s.id);
-      if (site && x > site.x + 4 && x < site.x + site.w - 4 && y > site.y + 4 && y < site.y + site.h - 2) d = Math.min(d, 10);
-      if (d < sd) {
-        sd = d;
-        set = s;
+    // the town's (or village's) drawn picture or its name plate; the open ground beside it is ground (QAFIX-WORLD S4)
+    const visible = (s: SettlementDef) => this.w.isExplored(s.x, s.y);
+    let set = pickSettlement(this.w.map.settlements, this.sites, x, y, visible);
+    if (!set) {
+      for (const [id, objs] of this.settlementObjs) {
+        const s = this.w.map.settlements[id];
+        const plate = objs[0] as Phaser.GameObjects.Image | undefined;
+        if (s && visible(s) && plate?.getBounds().contains(x, y)) set = s;
       }
     }
     this.setWaiting(false);

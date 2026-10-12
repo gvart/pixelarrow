@@ -10,6 +10,7 @@ import type { Outcome } from '../src/game/loot';
 import { armyLine, encounterCopy } from '../src/game/encounter';
 import { setLang, t, tOr } from '../src/i18n';
 import { generateMap } from '../src/world/map';
+import { SITE_TAP_MARGIN, pickSettlement, renderWorldMap } from '../src/art/overlandMap';
 import { fmtSigned } from '../src/i18n/numbers';
 import { campaignSetup, settleBattle, startLairAssault, timedOut } from '../src/game/campaignBattle';
 import { emptyLog, whyLine } from '../src/game/report';
@@ -222,6 +223,43 @@ describe('S4: lair names vary within a campaign', () => {
       }
     }
     expect(galatae).toBeGreaterThan(40);
+  });
+});
+
+describe('S4: a town is tapped on its picture, not on the open ground beside it', () => {
+  it('only points within SITE_TAP_MARGIN px of the drawn town pick it; the town itself does', () => {
+    const m = generateMap(3);
+    const art = renderWorldMap(m);
+    const all = () => true;
+    let towns = 0;
+    for (const s of m.settlements.filter((q) => q.kind === 'town')) {
+      const site = art.sites.find((q) => q.id === s.id && q.kind !== 'landmark')!;
+      const pix = site.sprite.pix;
+      const opaqueNear = (x: number, y: number, r: number): boolean => {
+        for (let j = -r; j <= r; j++)
+          for (let i = -r; i <= r; i++) {
+            const px = Math.floor(x - site.x) + i;
+            const py = Math.floor(y - site.y) + j;
+            if (pix.inside(px, py) && pix.data[(py * pix.w + px) * 4 + 3] > 0) return true;
+          }
+        return false;
+      };
+      let hits = 0;
+      for (let y = site.y - 30; y < site.y + site.h + 30; y += 2)
+        for (let x = site.x - 30; x < site.x + site.w + 30; x += 2) {
+          if (pickSettlement(m.settlements, art.sites, x, y, all)?.id !== s.id) continue;
+          hits++;
+          expect(opaqueNear(x, y, SITE_TAP_MARGIN)).toBe(true);
+        }
+      expect(hits).toBeGreaterThan(100);
+      // the town's own tile is on its picture
+      expect(pickSettlement(m.settlements, art.sites, s.x * 8 + 4, s.y * 8 + 4, all)?.id).toBe(s.id);
+      // the old rule took the whole box: its empty corners are open ground now
+      const corner = [site.x + 2, site.y + site.h - 2] as const;
+      if (!opaqueNear(corner[0], corner[1], SITE_TAP_MARGIN)) expect(pickSettlement(m.settlements, art.sites, corner[0], corner[1], all)).toBeNull();
+      towns++;
+    }
+    expect(towns).toBeGreaterThan(2);
   });
 });
 
