@@ -237,9 +237,10 @@ describe('S4: lair names vary within a campaign', () => {
 });
 
 describe('S4: a town is tapped on its picture, not on the open ground beside it', () => {
-  it('only points within SITE_TAP_MARGIN px of the drawn settlement pick it, and the old area reached past it', () => {
+  it('the tap area is what is drawn on the settlement (not its plain ground) give or take SITE_TAP_MARGIN, with no holes; the old one reached past it', () => {
     const all = () => true;
     let open = 0;
+    let clearing = 0;
     let places = 0;
     for (const seed of [1, 2, 3, 4, 5, 6]) {
       const m = generateMap(seed);
@@ -247,26 +248,62 @@ describe('S4: a town is tapped on its picture, not on the open ground beside it'
       for (const s of m.settlements.filter((q) => q.kind !== 'lair')) {
         const site = art.sites.find((q) => q.id === s.id && q.kind !== 'landmark')!;
         const pix = site.sprite.pix;
-        const opaqueNear = (x: number, y: number, r: number): boolean => {
+        const body = site.sprite.body;
+        expect(body).toBeDefined();
+        const near = (x: number, y: number, r: number, solid: (k: number) => boolean): boolean => {
           for (let j = -r; j <= r; j++)
             for (let i = -r; i <= r; i++) {
               const px = Math.floor(x - site.x) + i;
               const py = Math.floor(y - site.y) + j;
-              if (pix.inside(px, py) && pix.data[(py * pix.w + px) * 4 + 3] > 0) return true;
+              if (pix.inside(px, py) && solid(py * pix.w + px)) return true;
             }
           return false;
         };
+        // its buildings, walls, fields and paving; the plain ground it is drawn on doesn't count
+        const drawnNear = (x: number, y: number, r: number) => near(x, y, r, (k) => body![k] > 0);
+        const paintedNear = (x: number, y: number, r: number) => near(x, y, r, (k) => pix.data[k * 4 + 3] > 0);
+        // the points the tap area leaves out, and which of them connect to the open ground outside
+        const x0 = site.x - 16;
+        const y0 = site.y - 16;
+        const bw = site.w + 32;
+        const bh = site.h + 32;
+        const tap = new Uint8Array(bw * bh);
+        for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) tap[j * bw + i] = pickSettlement(m.settlements, art.sites, x0 + i, y0 + j, all)?.id === s.id ? 1 : 0;
+        const outside = new Uint8Array(bw * bh);
+        const stack: number[] = [0];
+        outside[0] = 1;
+        while (stack.length) {
+          const k = stack.pop()!;
+          const i = k % bw;
+          const j = (k - i) / bw;
+          for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const ni = i + di;
+            const nj = j + dj;
+            if (ni < 0 || nj < 0 || ni >= bw || nj >= bh) continue;
+            const nk = nj * bw + ni;
+            if (outside[nk] || tap[nk]) continue;
+            outside[nk] = 1;
+            stack.push(nk);
+          }
+        }
         // the rule before QAFIX-WORLD: 11 px round the tile, or anywhere in the picture's box
         const oldHit = (x: number, y: number) => Math.hypot(s.x * 8 + 4 - x, s.y * 8 - y) < 11 || (x > site.x + 4 && x < site.x + site.w - 4 && y > site.y + 4 && y < site.y + site.h - 2);
-        for (let y = site.y - 16; y < site.y + site.h + 16; y++)
-          for (let x = site.x - 16; x < site.x + site.w + 16; x++) {
-            const near = opaqueNear(x, y, SITE_TAP_MARGIN);
-            const picked = pickSettlement(m.settlements, art.sites, x, y, all)?.id === s.id;
-            if (picked) expect(near).toBe(true);
-            if (oldHit(x, y) && !near) {
+        for (let j = 0; j < bh; j++)
+          for (let i = 0; i < bw; i++) {
+            const x = x0 + i;
+            const y = y0 + j;
+            const k = j * bw + i;
+            const drawn = drawnNear(x, y, SITE_TAP_MARGIN);
+            // no holes: a point left out is open ground that reaches the outside
+            if (!tap[k]) expect(outside[k]).toBe(1);
+            // picked: near something drawn, or ground walled in by it
+            if (tap[k]) expect(drawn || paintedNear(x, y, 0)).toBe(true);
+            if (oldHit(x, y) && !tap[k]) {
               open++;
-              expect(picked).toBe(false);
+              if (paintedNear(x, y, 0)) clearing++;
             }
+            // off the picture, only the margin round what is drawn
+            if (tap[k] && !paintedNear(x, y, 0)) expect(drawn).toBe(true);
           }
         // the settlement's own tile is on its picture
         expect(pickSettlement(m.settlements, art.sites, s.x * 8 + 4, s.y * 8 + 4, all)?.id).toBe(s.id);
@@ -274,8 +311,9 @@ describe('S4: a town is tapped on its picture, not on the open ground beside it'
       }
     }
     expect(places).toBeGreaterThan(50);
-    // the old tap area reached open ground; that ground is ground now
-    expect(open).toBeGreaterThan(100);
+    // the old tap area reached open ground, much of it the plain ground the settlement is drawn on; that ground is ground now
+    expect(open).toBeGreaterThan(1000);
+    expect(clearing).toBeGreaterThan(300);
   });
 });
 

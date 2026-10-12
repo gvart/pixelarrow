@@ -68,17 +68,60 @@ export interface WorldMapArt {
 /** Map px around a settlement's drawn picture that still count as a tap on it (QAFIX-WORLD S4). */
 export const SITE_TAP_MARGIN = 4;
 
-/** A drawn pixel of `site`'s picture lies within `margin` map px of (x, y). */
-export function onSitePicture(site: SiteArt, x: number, y: number, margin = SITE_TAP_MARGIN): boolean {
+const tapMasks = new WeakMap<SiteArt, Uint8Array>();
+
+/**
+ * `site`'s tap area, SITE_TAP_MARGIN px wider than its picture on every side:
+ * what is drawn on it (PropSprite.body: not the plain ground it stands on)
+ * grown by the margin, and any ground that leaves walled in (a square, a gap
+ * between houses), so the area has no holes. Made once per site.
+ */
+function tapMask(site: SiteArt): Uint8Array {
+  const hit = tapMasks.get(site);
+  if (hit) return hit;
+  const M = SITE_TAP_MARGIN;
   const pix = site.sprite.pix;
-  const px = Math.floor(x - site.x);
-  const py = Math.floor(y - site.y);
-  if (px < -margin || py < -margin || px >= pix.w + margin || py >= pix.h + margin) return false;
-  for (let j = -margin; j <= margin; j++)
-    for (let i = -margin; i <= margin; i++) {
-      if (pix.inside(px + i, py + j) && pix.data[((py + j) * pix.w + px + i) * 4 + 3] > 0) return true;
+  const body = site.sprite.body;
+  const w = pix.w + 2 * M;
+  const h = pix.h + 2 * M;
+  const solid = (x: number, y: number) => pix.inside(x, y) && (body ? body[y * pix.w + x] > 0 : pix.data[(y * pix.w + x) * 4 + 3] > 0);
+  const mask = new Uint8Array(w * h);
+  for (let y = 0; y < pix.h; y++)
+    for (let x = 0; x < pix.w; x++) {
+      if (!solid(x, y)) continue;
+      for (let j = 0; j <= 2 * M; j++) for (let i = 0; i <= 2 * M; i++) mask[(y + j) * w + x + i] = 1;
     }
-  return false;
+  // fill the holes: whatever the open ground round the edge can't reach
+  const out = new Uint8Array(w * h);
+  const stack: number[] = [];
+  const push = (k: number) => {
+    if (out[k] || mask[k]) return;
+    out[k] = 1;
+    stack.push(k);
+  };
+  for (let x = 0; x < w; x++) push(x), push((h - 1) * w + x);
+  for (let y = 0; y < h; y++) push(y * w), push(y * w + w - 1);
+  while (stack.length) {
+    const k = stack.pop()!;
+    const x = k % w;
+    if (x > 0) push(k - 1);
+    if (x < w - 1) push(k + 1);
+    if (k >= w) push(k - w);
+    if (k < w * (h - 1)) push(k + w);
+  }
+  for (let k = 0; k < mask.length; k++) if (!out[k]) mask[k] = 1;
+  tapMasks.set(site, mask);
+  return mask;
+}
+
+/** (x, y) is in `site`'s tap area (tapMask). */
+export function onSitePicture(site: SiteArt, x: number, y: number): boolean {
+  const M = SITE_TAP_MARGIN;
+  const px = Math.floor(x - site.x) + M;
+  const py = Math.floor(y - site.y) + M;
+  const w = site.sprite.pix.w + 2 * M;
+  if (px < 0 || py < 0 || px >= w || py >= site.sprite.pix.h + 2 * M) return false;
+  return tapMask(site)[py * w + px] > 0;
 }
 
 /**
