@@ -7,15 +7,11 @@
   "C": [],
   "F": [
     "kit-overlay-purchase|text-size|*",
-    "tutorial-loose|text-size|*",
-    "tutorial-move|text-size|*",
-    "tutorial-wall|text-size|*"
+    "tutorial-move|text-size|*"
   ],
   "stories": {
     "duel-shop-sell|text-size|*": "DUE-01",
     "kit-overlay-purchase|text-size|*": "SHP-01",
-    "tutorial-loose|text-size|*": "TUT-02",
-    "tutorial-move|text-size|*": "TUT-02",
-    "tutorial-wall|text-size|*": "TUT-02"
+    "tutorial-move|text-size|*": "TUT-02"
   }
 }

@@ -1,173 +1,280 @@
 // Tutorial smoke test with real touch events (CDP) in a portrait phone viewport.
 // A first launch offers the tutorial; the whole guided battle is played as old
-// Nikias asks (select, pan, pinch zoom, drag to move, Fight, tap to
-// move, shield wall, slingers loose, charge, Shield Bash, turning the line by its knob to a
-// flank), then the reward (gold + a common item) and the modes screen. Also:
-// an interrupted tutorial is offered again (resume), skip asks first and sticks,
-// and a finished tutorial is not offered again.
-// Saves shots/42-tutorial-narrator.png, 43-tutorial-gesture.png, 44-first-run.png
+// Nikias asks (TUT-02): select, pan, pinch zoom, drag to move, Undo, Fight; then,
+// paused, a plan (the slingers' Shoot, their focus on the javelin-men, Play), tap to
+// move with a queued Then… Charge, Shield Bash, the morale glyph, and the reserve
+// (IV) turned by its knob to the wave on its flank; then the reward (gold + a common
+// item) and the modes screen. The guided battle is played twice: on a 390x844 phone
+// and in Telegram full screen at 320x568 (the narrator must leave every lit control
+// clear and in reach there too).
+// At every step: the lit control is never under the narrator (TUT-1), and the step
+// is done by a tap or a drag on what is lit (nothing swallows it). Also: ✕ only hides
+// the bubble (its "Nikias" key brings it back) and "Skip" asks first (TUT-2); an
+// interrupted tutorial is offered again (resume), skip sticks, and a finished
+// tutorial is not offered again; the online coach marks.
+// Saves shots/42-tutorial-narrator.png, 43-tutorial-gesture.png, 44-first-run*.png
 // (git-ignored; $SHOTS overrides the folder).
 // Usage: node scripts/tutorial-smoke.mjs [baseUrl]
 import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, shotsDir, until as untilNode } from './lib/harness.mjs';
+import { fakeTelegram } from './lib/fakeTelegram.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
 const shots = shotsDir();
 const browser = await launch();
+const errors = [];
 
-// a first launch: the onboarding is on
-const ctx = await phoneContext(browser, { noFirstRun: false });
-const page = await ctx.newPage();
-const errors = captureErrors(page, { ignoreNetwork: true, echo: true });
-await apiDown(page);
-// taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
-const { ev, wait, tap, swipe: swipe0, pinch, until, active, tapLabel: tapBtn } = makePageApi(page, { tapWait: 250, step: 200 });
-/** One finger along a polyline of screen points. */
-const swipe = (points, steps = 8) => swipe0(points, { steps, hold: 30, after: 300 });
+/**
+ * The guided battle, start to reward. `tag` names the run in the checks; `main`
+ * also takes the screenshots and checks the reward and what follows it.
+ */
+async function guided(tag, ctxOpts, tg, main) {
+  const ctx = await phoneContext(browser, { noFirstRun: false, ...ctxOpts });
+  if (tg) await ctx.addInitScript(fakeTelegram, { insets: { safeTop: 59, contentTop: 46, safeBottom: 34 }, fullscreen: 'launch', languageCode: 'en' });
+  const page = await ctx.newPage();
+  captureErrors(page, { into: errors, ignoreNetwork: true, echo: true });
+  await apiDown(page);
+  await page.route('**/telegram.org/**', (r) => r.abort());
+  // taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
+  const { ev, wait, tap, swipe: swipe0, pinch, until, active, tapLabel: tapBtn } = makePageApi(page, { tapWait: 250, step: 200 });
+  /** One finger along a polyline of screen points. */
+  const swipe = (points, steps = 8) => swipe0(points, { steps, hold: 30, after: 300 });
+  const c = (name, ok, detail) => check(`${tag}: ${name}`, ok, detail);
 
-/** The tutorial's state. */
-const tut = () =>
-  ev(() => {
-    const s = window.__game?.scene.getScene('Battle');
-    const t = s?.tutorial;
-    if (!s || !s.sys.isActive() || !t) return null;
-    const h = t.spot.hole;
-    // the lit hole (UI px) as a page rect (CSS px)
-    const hole = h ? (([x, y], [x1, y1]) => ({ x, y, w: x1 - x, h: y1 - y }))(window.__css(h.x * s.m.S, h.y * s.m.S), window.__css((h.x + h.w) * s.m.S, (h.y + h.h) * s.m.S)) : null;
-    return { step: t.step, phase: t.phase, typing: t.narrator.typing, hole };
-  });
-const talkingAt = (id, ms = 30000) => until(async () => {
-  const x = await tut();
-  return !!x && x.step === id && x.phase === 'talk';
-}, ms);
-/** Tap the middle of the lit element until the step changes. */
-async function tapSpot(id, tries = 6) {
-  for (let i = 0; i < tries; i++) {
+  /** The tutorial's state: the step, the lit hole and the narrator (page CSS px). */
+  const tut = () =>
+    ev(() => {
+      const s = window.__game?.scene.getScene('Battle');
+      const t = s?.tutorial;
+      if (!s || !s.sys.isActive() || !t) return null;
+      const css = (r) => (r ? (([x, y], [x1, y1]) => ({ x, y, w: x1 - x, h: y1 - y }))(window.__css(r.x * s.m.S, r.y * s.m.S), window.__css((r.x + r.w) * s.m.S, (r.y + r.h) * s.m.S)) : null);
+      const n = t.narratorRect();
+      return { step: t.step, phase: t.phase, typing: t.narrator.typing, hole: css(t.spot.hole), narrator: css(n), folded: t.narrator.folded };
+    });
+  const talkingAt = (id, ms = 30000) => until(async () => {
     const x = await tut();
-    if (!x || x.step !== id || x.phase !== 'talk') return true;
-    if (x.hole) await tap(x.hole.x + x.hole.w / 2, x.hole.y + x.hole.h / 2);
-    await wait(350);
+    return !!x && x.step === id && x.phase === 'talk';
+  }, ms);
+  const meets = (a, b) => !!a && !!b && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  /** The lit control is never under the narrator (TUT-1, O2). */
+  const clear = async (id) => {
+    const x = await tut();
+    c(`${id}: the narrator leaves the lit control clear`, !!x && !meets(x.hole, x.narrator), JSON.stringify(x));
+  };
+  /** Tap the middle of the lit element until the step changes (each tap must reach it). */
+  async function tapSpot(id, tries = 6) {
+    for (let i = 0; i < tries; i++) {
+      const x = await tut();
+      if (!x || x.step !== id || x.phase !== 'talk') return true;
+      if (!meets(x.hole, x.narrator) && x.hole) await tap(x.hole.x + x.hole.w / 2, x.hole.y + x.hole.h / 2);
+      await wait(350);
+    }
+    const x = await tut();
+    return !x || x.step !== id || x.phase !== 'talk';
   }
-  const x = await tut();
-  return !x || x.step !== id || x.phase !== 'talk';
-}
-const doneWith = (id, ms = 4000) => until(async () => {
-  const x = await tut();
-  return !x || x.step !== id || x.phase !== 'talk';
-}, ms);
-/** A ghost demonstration's points (UI px) as page (CSS px) points. */
-const ghostPts = (fn) =>
-  ev((f) => {
+  const doneWith = (id, ms = 4000) => until(async () => {
+    const x = await tut();
+    return !x || x.step !== id || x.phase !== 'talk';
+  }, ms);
+  /** A ghost demonstration's points (UI px) as page (CSS px) points. */
+  const ghostPts = (fn) =>
+    ev((f) => {
+      const s = window.__game.scene.getScene('Battle');
+      const g = s.tutorial[f]();
+      return g ? g.pts.map((p) => window.__css(p.x * s.m.S, p.y * s.m.S)) : null;
+    }, fn);
+  /** A field point (paces) as a page point. */
+  const fieldPt = (fn) =>
+    ev((code) => {
+      const s = window.__game.scene.getScene('Battle');
+      const p = new Function('s', code)(s);
+      const u = s.tutorialHost().toUi(p.x, p.y);
+      return window.__css(u.x * s.m.S, u.y * s.m.S);
+    }, fn);
+  /** Tap a visible button of the Battle scene by its label (a sheet's row). */
+  const tapObj = async (label) => {
+    const at = await ev((l) => {
+      const s = window.__game.scene.getScene('Battle');
+      let hit = null;
+      const walk = (list) => list.forEach((o) => { if (((o.opts && o.opts.label === l) || (o.o && o.o.label === l)) && o.visible) hit = o; if (o.list) walk(o.list); });
+      walk(s.children.list);
+      if (!hit) return null;
+      const r = hit.getBounds();
+      return window.__css(r.centerX, r.centerY);
+    }, label);
+    if (at) await tap(at[0], at[1]);
+    return !!at;
+  };
+
+  // ---------------------------------------------------------------- first launch
+  await page.goto(`${base}${tg ? '#tgWebAppVersion=8.0&tgWebAppPlatform=ios' : ''}`);
+  await ev(() => localStorage.clear());
+  await page.reload();
+  c('first launch: the tutorial is offered', await until(() => active('FirstRun'), 15000));
+  c('offer screen', await ev(() => window.__game.scene.getScene('FirstRun').mode === 'offer'));
+  await wait(500);
+  if (main) await page.screenshot({ path: `${shots}/44-first-run.png` });
+  const gold0 = await ev(() => window.__state.campaign.data.gold);
+  c('Tutorial (recommended) starts the battle', (await tapBtn('FirstRun', 'Tutorial')) && (await until(() => active('Battle'), 8000)));
+  await until(async () => !!(await tut()), 8000);
+  c('narrator: intro', await talkingAt('intro', 8000));
+  // scripted touch events can stall under load; a stall must not read as the finger resting
+  await ev(() => { window.__game.scene.getScene('Battle').dwellMs = 5000; });
+  c('the generic hint is hidden: Nikias says what to do', await ev(() => (window.__game.scene.getScene('Battle').hintPill?.list.length ?? 0) === 0));
+
+  // intro (info): the first tap shows the whole line, the next goes on
+  const n0 = (await tut()).narrator;
+  await tap(n0.x + n0.w / 2, n0.y + n0.h - 6);
+  await wait(200);
+  if ((await tut()).step === 'intro') await tap(n0.x + n0.w / 2, n0.y + n0.h - 6);
+  c('select: hoplites card lit', await talkingAt('select', 8000));
+  await wait(1500);
+  if (main) await page.screenshot({ path: `${shots}/42-tutorial-narrator.png` });
+  await clear('select');
+  // ✕ only hides the bubble; its "Nikias" key brings the line back (TUT-2)
+  await tapObj('Hide');
+  c('✕ folds the bubble, the step goes on', await until(async () => { const x = await tut(); return !!x && x.folded && x.step === 'select' && x.phase === 'talk'; }, 3000));
+  await tapObj('Nikias');
+  c('the Nikias key brings him back', await until(async () => { const x = await tut(); return !!x && !x.folded && x.step === 'select'; }, 3000));
+  // a tap outside the lit card does nothing
+  const hs = (await tut()).hole;
+  await tap(hs.x + hs.w / 2, Math.max(hs.y - 60, (await tut()).narrator.y + (await tut()).narrator.h + 10));
+  c('blocked outside the spotlight', (await tut()).step === 'select');
+  c('select done: tapped the card', await tapSpot('select'));
+
+  // pan: one finger on empty ground
+  c('pan step', await talkingAt('pan', 8000));
+  const emptyPt = await ev(() => {
     const s = window.__game.scene.getScene('Battle');
-    const g = s.tutorial[f]();
-    return g ? g.pts.map((p) => window.__css(p.x * s.m.S, p.y * s.m.S)) : null;
-  }, fn);
+    const p = s.tutorial.emptySpot();
+    return window.__css(p.x * s.m.S, p.y * s.m.S);
+  });
+  await swipe([emptyPt, [emptyPt[0] + (emptyPt[0] > 160 ? -90 : 90), emptyPt[1] + 10]]);
+  c('pan done', await doneWith('pan'));
 
-// ------------------------------------------------------------------ first launch
+  // pinch zoom, in the lit field
+  c('zoom step', await talkingAt('zoom', 8000));
+  const hz = (await tut()).hole;
+  await pinch(hz.x + hz.w / 2 - 20, hz.x + hz.w / 2 + 20, hz.y + hz.h / 2, tg ? 30 : 60);
+  if (!(await doneWith('zoom', 1500))) await ev(() => window.__game.scene.getScene('Battle').stepZoom()); // the zoom key, the single-tap way (A11Y-14)
+  c('zoom done', await doneWith('zoom'));
 
-await page.goto(base);
-await ev(() => localStorage.clear());
-await page.goto(base);
-check('first launch: the tutorial is offered', await until(() => active('FirstRun'), 15000));
-check('offer screen', await ev(() => window.__game.scene.getScene('FirstRun').mode === 'offer'));
-await wait(500);
-await page.screenshot({ path: `${shots}/44-first-run.png` });
-const gold0 = await ev(() => window.__state.campaign.data.gold);
-check('Tutorial (recommended) starts the battle', (await tapBtn('FirstRun', 'Tutorial')) && (await until(() => active('Battle'), 8000)));
-await until(async () => !!(await tut()), 8000);
-check('narrator: intro', await talkingAt('intro', 8000));
-// scripted touch events can stall under load; a stall must not read as the finger resting
-await ev(() => { window.__game.scene.getScene('Battle').dwellMs = 5000; });
+  // the formation drag: carry the hoplites to the flag
+  c('move-drag step', await talkingAt('sling', 8000));
+  await ev(() => window.__game.scene.getScene('Battle').tutorial.narrator.finishTyping()); // the whole line in the screenshot
+  // the ghost hand half-way through its demonstration
+  await until(() => ev(() => { const g = window.__game.scene.getScene('Battle').tutorial.ghost; const t = window.__game.loop.time - g.start; return g.hands[0].visible && g.segs.length > 1 && t > g.segs[1].t0 + 150 && t < g.segs[1].t1; }), 12000, 50);
+  if (main) await page.screenshot({ path: `${shots}/43-tutorial-gesture.png` });
+  const sling = await ghostPts('slingDemo');
+  const o0 = await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
+  await swipe(sling, 10);
+  c('drag done (carried to the flag)', await doneWith('sling'), JSON.stringify(await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.slice(-1))));
+  c('the drag gave a formation order', (await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length)) > o0);
 
-// intro (info): the first tap shows the whole line, the next goes on
-await tap(195, 300);
-await wait(200);
-if ((await tut()).step === 'intro') await tap(195, 300);
-check('select: hoplites card lit', await talkingAt('select', 8000));
-await wait(1500);
-await page.screenshot({ path: `${shots}/42-tutorial-narrator.png` });
-// a tap outside the lit card does nothing
-await tap(195, 400);
-check('blocked outside the spotlight', (await tut()).step === 'select');
-check('select done: tapped the card', await tapSpot('select'));
+  // Undo: the lit chip takes the drag back
+  c('undo step', await talkingAt('undo', 8000));
+  await clear('undo');
+  const before = await ev(() => { const f = window.__game.scene.getScene('Battle').sim.groups[0].formation; return [f.cx, f.cy]; });
+  c('Undo done through the lit chip', await tapSpot('undo'));
+  c('Undo took the drag back', await ev((b) => { const f = window.__game.scene.getScene('Battle').sim.groups[0].formation; return Math.hypot(f.cx - b[0], f.cy - b[1]) > 0.5; }, before));
 
-// pan: one finger on empty ground
-check('pan step', await talkingAt('pan', 8000));
-const emptyPt = await ev(() => {
-  const s = window.__game.scene.getScene('Battle');
-  const p = s.tutorial.emptySpot();
-  return window.__css(p.x * s.m.S, p.y * s.m.S);
-});
-await swipe([emptyPt, [emptyPt[0] + (emptyPt[0] > 195 ? -100 : 100), emptyPt[1] + 20]]);
-check('pan done', await doneWith('pan'));
+  // Fight!
+  c('fight step', await talkingAt('fight', 8000));
+  await clear('fight');
+  c('Fight! starts the battle', await tapSpot('fight'));
+  c('battle running', (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle');
 
-// pinch zoom
-check('zoom step', await talkingAt('zoom', 8000));
-await pinch(170, 220, 360, 10);
-check('pinch done', await doneWith('zoom'));
+  // planning while paused: the slingers' Shoot and focus wait as a plan, Play gives it
+  c('loose step (battle paused)', await talkingAt('loose', 10000));
+  c('paused while the narrator talks', await ev(() => window.__game.scene.getScene('Battle').paused));
+  await clear('loose');
+  c('Shoot planned through the lit card and key', await tapSpot('loose', 8));
+  c('Shoot waits in the plan, not given yet', await ev(() => { const s = window.__game.scene.getScene('Battle'); return !s.sim.groups[1].fireAtWill && s.plan.orders.some((o) => o.kind === 'loose' && o.group === 1); }));
+  c('focus step', await talkingAt('focus', 8000));
+  const jav = await fieldPt(`const m = s.sim.activeMembers(5); return { x: m.reduce((a, u) => a + u.x, 0) / m.length, y: m.reduce((a, u) => a + u.y, 0) / m.length - 0.3 };`);
+  const hf = (await tut()).hole;
+  c('the javelin-men are in the lit field', !!hf && jav[0] > hf.x && jav[0] < hf.x + hf.w && jav[1] > hf.y && jav[1] < hf.y + hf.h, JSON.stringify({ jav, hf }));
+  await tap(jav[0], jav[1]);
+  c('focus planned by tapping the javelin-men', await doneWith('focus'), JSON.stringify(await ev(() => window.__game.scene.getScene('Battle').plan.orders)));
+  c('play step', await talkingAt('play', 8000));
+  await clear('play');
+  c('Play through the lit key', await tapSpot('play'));
+  c('the plan went out: Shoot on, focus on the javelin-men', await ev(() => { const g = window.__game.scene.getScene('Battle').sim.groups[1]; return g.fireAtWill && g.focus === 5; }));
 
-// the formation drag: carry the hoplites to the flag
-check('move-drag step', await talkingAt('sling', 8000));
-await ev(() => window.__game.scene.getScene('Battle').tutorial.narrator.finishTyping()); // the whole line in the screenshot
-// the ghost hand half-way through its demonstration
-await until(() => ev(() => { const g = window.__game.scene.getScene('Battle').tutorial.ghost; const t = window.__game.loop.time - g.start; return g.hands[0].visible && g.segs.length > 1 && t > g.segs[1].t0 + 150 && t < g.segs[1].t1; }), 12000, 50);
-await page.screenshot({ path: `${shots}/43-tutorial-gesture.png` });
-const sling = await ghostPts('slingDemo');
-const o0 = await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
-await swipe(sling, 10);
-check('drag done (carried to the flag)', await doneWith('sling'), JSON.stringify(await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.slice(-1))));
-check('the drag gave a formation order', (await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length)) > o0);
+  // tap to move: on the flag, then Then… and Charge
+  c('move step', await talkingAt('move', 10000));
+  const flag = await fieldPt('return s.tutorial.flag;');
+  await tap(flag[0], flag[1]);
+  c('tap to move done', await doneWith('move'));
+  c('then step', await talkingAt('then', 4000));
+  await clear('then');
+  c('Then… and Charge through the lit chip and key', await tapSpot('then', 8));
+  c('the charge is queued for the arrival', await ev(() => window.__game.scene.getScene('Battle').thenQ.get(0) === 'charge'));
 
-// Fight!
-check('fight step', await talkingAt('fight', 8000));
-check('Fight! starts the battle', await tapSpot('fight'));
-check('battle running', (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle');
+  // Shield Bash: its medallion, or on a short field the More key and the sheet's row
+  c('ability step (in melee)', await talkingAt('ability', 60000));
+  await clear('ability');
+  const bash = await ev(() => window.__game.scene.getScene('Battle').tutorialHost().cmdBtns.has('bash'));
+  if (bash) c('Shield Bash used', await tapSpot('ability', 8));
+  else {
+    const hm = (await tut()).hole;
+    await tap(hm.x + hm.w / 2, hm.y + hm.h / 2);
+    await wait(700);
+    const name = await ev(() => { const s = window.__game.scene.getScene('Battle'); return s.abilityDefs().find((d) => d.key === 'bash')?.label ?? 'Shield Bash'; });
+    c('Shield Bash used from the More sheet', (await tapObj(name)) && (await doneWith('ability')));
+  }
 
-// tap to move: on the flag
-check('move step (battle paused)', await talkingAt('move', 10000));
-check('paused while the narrator talks', await ev(() => window.__game.scene.getScene('Battle').paused));
-const flag = await ev(() => {
-  const s = window.__game.scene.getScene('Battle');
-  const f = s.tutorial.flag;
-  const p = s.tutorialHost().toUi(f.x, f.y);
-  return window.__css(p.x * s.m.S, p.y * s.m.S);
-});
-await tap(flag[0], flag[1]);
-check('tap to move done', await doneWith('move'));
+  // the morale glyph: lit on the enemy badge, a tap goes on
+  if (await talkingAt('morale', 40000)) {
+    await clear('morale');
+    const nm = (await tut()).narrator;
+    await tap(nm.x + nm.w / 2, nm.y + nm.h - 6);
+    await wait(200);
+    if ((await tut())?.step === 'morale') await tap(nm.x + nm.w / 2, nm.y + nm.h - 6);
+    c('morale: a tap goes on', await doneWith('morale'));
+  } else c('morale step (an enemy group wavers)', false, JSON.stringify(await tut()));
 
-// panel steps: the lit element each time (card, tab, command)
-for (const id of ['wall', 'loose', 'charge']) {
-  check(`${id} step`, await talkingAt(id, 15000));
-  check(`${id} done through the lit buttons`, await tapSpot(id, 8));
+  // the flank: pick the reserve (IV), swing its knob toward the wave on its flank (O3: an unengaged line)
+  c('flank step', await talkingAt('flank', 70000));
+  await clear('flank');
+  c('the reserve is not in melee', await ev(() => { const s = window.__game.scene.getScene('Battle'); return !s.sim.activeMembers(3).some((u) => u.engaged); }));
+  c('the wave on its flank shows an arc', await ev(() => window.__game.scene.getScene('Battle').threats.get(3)?.length > 0));
+  await tapSpot('flank', 1);
+  c('IV picked through its lit card', await until(() => ev(() => window.__game.scene.getScene('Battle').selGroup === 3), 3000));
+  await wait(400);
+  await clear('flank (the knob)');
+  const turn = await ghostPts('turnDemo');
+  await swipe(turn, 10);
+  c('IV turned to face the wave', await doneWith('flank'), JSON.stringify(await ev(() => window.__game.scene.getScene('Battle').sim.groups[3].formation)));
+
+  // fight it out (fast-forward)
+  await ev(() => { window.__game.scene.getScene('Battle').speed = 3; });
+  c('victory', await talkingAt('victory', 150000), JSON.stringify(await tut()));
+  await wait(1500);
+  const nv = (await tut()).narrator;
+  await tap(nv.x + nv.w / 2, nv.y + nv.h - 6);
+  await wait(200);
+  if (await active('Battle')) await tap(nv.x + nv.w / 2, nv.y + nv.h - 6);
+  c('reward screen', await until(() => ev(() => window.__game.scene.isActive('FirstRun') && window.__game.scene.getScene('FirstRun').mode === 'reward'), 8000));
+  const after = await ev(() => ({ gold: window.__state.campaign.data.gold, stash: window.__state.campaign.data.stash.map((i) => `${i.def}:${i.rarity}`), tut: window.__state.campaign.data.settings.tutorial }));
+  c('reward: gold', after.gold === gold0 + 60, `${gold0} -> ${after.gold}`);
+  c('reward: a common item', after.stash.includes('chalcidian:common'), after.stash.join(','));
+  c('tutorial done and saved', after.tut.status === 'done' && after.tut.rewarded === true);
+  if (main) {
+    await wait(1500);
+    c('Continue -> the two modes', (await tapBtn('FirstRun', 'Continue')) && (await until(() => ev(() => window.__game.scene.getScene('FirstRun').mode === 'modes'), 4000)));
+    await wait(800);
+    await page.screenshot({ path: `${shots}/44-first-run-modes.png` });
+    c('Campaign opens the map', (await tapBtn('FirstRun', 'Campaign')) && (await until(() => active('World'), 8000)));
+    await wait(800);
+    await page.reload();
+    c('done: no offer on the next launch', await until(() => active('Menu'), 15000));
+  }
+  return { ctx, page, ev, wait, tap, until, tapBtn };
 }
-check('ability step (in melee)', await talkingAt('ability', 40000));
-check('Shield Bash used', await tapSpot('ability', 8));
 
-// the flank: swing the facing knob toward the wave
-check('flank step', await talkingAt('flank', 70000));
-const turn = await ghostPts('turnDemo');
-await swipe(turn, 10);
-check('the line turned to face the flank', await doneWith('flank'), JSON.stringify(await ev(() => window.__game.scene.getScene('Battle').sim.groups[0].formation)));
-
-// fight it out (fast-forward)
-await ev(() => { window.__game.scene.getScene('Battle').speed = 3; });
-check('victory', await talkingAt('victory', 150000), JSON.stringify(await tut()));
-await wait(1500);
-await tap(195, 400);
-await wait(200);
-if (await active('Battle')) await tap(195, 400);
-check('reward screen', await until(() => ev(() => window.__game.scene.isActive('FirstRun') && window.__game.scene.getScene('FirstRun').mode === 'reward'), 8000));
-const after = await ev(() => ({ gold: window.__state.campaign.data.gold, stash: window.__state.campaign.data.stash.map((i) => `${i.def}:${i.rarity}`), tut: window.__state.campaign.data.settings.tutorial }));
-check('reward: gold', after.gold === gold0 + 60, `${gold0} -> ${after.gold}`);
-check('reward: a common item', after.stash.includes('chalcidian:common'), after.stash.join(','));
-check('tutorial done and saved', after.tut.status === 'done' && after.tut.rewarded === true);
-await wait(1500);
-check('Continue -> the two modes', (await tapBtn('FirstRun', 'Continue')) && (await until(() => ev(() => window.__game.scene.getScene('FirstRun').mode === 'modes'), 4000)));
-await wait(800);
-await page.screenshot({ path: `${shots}/44-first-run-modes.png` });
-check('Campaign opens the map', (await tapBtn('FirstRun', 'Campaign')) && (await until(() => active('World'), 8000)));
-await wait(800);
-await page.reload();
-check('done: no offer on the next launch', await until(() => active('Menu'), 15000));
+const run = await guided('390', {}, false, true);
+const { ev, wait, tap, until } = run;
+const page = run.page;
 
 // ------------------------------------------------------------------ online coach marks (local demo shard)
 
@@ -181,7 +288,7 @@ await coachOn('neutral', 'attack');
 check('coach mark: Attack explained', await ev(() => window.__game.scene.getScene('Online').coach?.current === 'attack'));
 await page.screenshot({ path: `${shots}/45-online-coach.png` });
 await coachOn('map', 'home');
-check('coach mark: Next goes on', (await tapBtn('Online', 'Next')) && (await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 3000)));
+check('coach mark: Next goes on', (await run.tapBtn('Online', 'Next')) && (await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 3000)));
 await coachOn('map', 'neighbour');
 const nb = await ev(() => {
   const s = window.__game.scene.getScene('Online');
@@ -190,6 +297,12 @@ const nb = await ev(() => {
 });
 await tap(nb[0], nb[1]);
 check('coach mark: tapping the ringed neighbour opens it and goes on', await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 5000), JSON.stringify(await ev(() => window.__game.scene.getScene('Online').selected)));
+await run.ctx.close();
+
+// ------------------------------------------------------------------ Telegram full screen at 320x568: the whole lesson again
+
+const small = await guided('320 TG', { viewport: { width: 320, height: 568 } }, true, false);
+await small.ctx.close();
 
 // ------------------------------------------------------------------ resume and skip
 
@@ -214,14 +327,23 @@ await p2.reload();
 check('interrupted: resume offered', await until2(() => window.__game?.scene.isActive('FirstRun') && window.__game.scene.getScene('FirstRun').mode === 'resume'));
 await ev2(() => window.__game.scene.getScene('FirstRun').startTutorial());
 check('resumed past the learned steps (pan next)', await until2(() => window.__game.scene.getScene('Battle')?.tutorial?.step === 'pan'), JSON.stringify(await ev2(() => window.__game.scene.getScene('Battle')?.tutorial?.plan)));
-// skip asks first
-await ev2(() => window.__game.scene.getScene('Battle').tutorial.askSkip());
+// the narrator's Skip asks first (TUT-2)
+await until2(() => window.__game.scene.getScene('Battle').tutorial.talking, 5000);
+const skipKey = await ev2(() => {
+  const s = window.__game.scene.getScene('Battle');
+  let hit = null;
+  const walk = (l) => l.forEach((o) => { if (o.opts && o.opts.label === 'Skip' && o.visible) hit = o; if (o.list) walk(o.list); });
+  walk(s.tutorial.overlay.list);
+  const r = hit.getBounds();
+  return window.__css(r.centerX, r.centerY);
+});
+await api2.tap(skipKey[0], skipKey[1]);
 check('skip asks first', await until2(() => window.__game.scene.getScene('Battle').tutorial.dialog !== null, 3000));
 const skipAt = await ev2(() => {
   const s = window.__game.scene.getScene('Battle');
   let hit = null;
   const walk = (l) => l.forEach((o) => { if (o.opts && o.opts.label === 'Skip' && o.visible) hit = o; if (o.list) walk(o.list); });
-  walk(s.children.list);
+  walk(s.tutorial.dialog.list);
   const r = hit.getBounds();
   return window.__css(r.centerX, r.centerY);
 });
