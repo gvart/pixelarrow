@@ -141,7 +141,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'battle.why.waiting': 'Готов: ждём начала боя',
   'battle.why.resetOnline': 'Онлайн: перетащите отряды, чтобы расставить',
 
-  'battle.banner.deploy': 'Расстановка: {vs}',
+  'battle.banner.deploy': 'Расстановка — {vs}',
   'battle.banner.begins': 'Бой начался!',
   'battle.banner.paused': 'Пауза: отдайте приказы и продолжайте',
   'battle.banner.fallen': '{name} пал',

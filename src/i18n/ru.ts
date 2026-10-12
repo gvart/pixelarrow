@@ -258,6 +258,7 @@ export const RU: Table = {
   'online.time.hm': '{h} ч {m} мин',
   'online.time.d': '{d} дн. {h} ч',
   'online.time.h': '{h} ч',
+  'num.k': '{n}К',
   'online.time.dd': '{d} дн.',
   'settings.title': 'Настройки',
   'settings.pauseContact': 'Пауза при первом контакте',

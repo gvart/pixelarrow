@@ -39,3 +39,16 @@ describe('localDecimals', () => {
     expect(localDecimals('10.5 > 8.5', 'en')).toBe('10.5 > 8.5');
   });
 });
+
+describe('fmtNum in Russian (LOC-01)', () => {
+  it('short thousands with a decimal comma and a Cyrillic К', async () => {
+    const { setLang } = await import('../src/i18n');
+    const { fmtNum } = await import('../src/util/format');
+    setLang('ru');
+    expect(fmtNum(1234)).toBe('1,2К');
+    expect(fmtNum(12_400)).toBe('12К');
+    expect(fmtNum(640)).toBe('640');
+    setLang('en');
+    expect(fmtNum(1234)).toBe('1.2K');
+  });
+});

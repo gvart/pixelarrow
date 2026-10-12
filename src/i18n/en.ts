@@ -273,6 +273,7 @@ export const EN = {
   'online.time.hm': '{h}h {m}m',
   'online.time.d': '{d}d {h}h',
   'online.time.h': '{h}h',
+  'num.k': '{n}K',
   'online.time.dd': '{d}d',
 
   // ---- settings

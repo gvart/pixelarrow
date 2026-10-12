@@ -3,6 +3,7 @@
  * tests/format.test.ts.
  */
 import { t } from '../i18n';
+import { localDecimals } from '../i18n/numbers';
 
 /** "1:05" from seconds (rounded, never negative). */
 export function fmtClock(sec: number): string {
@@ -42,8 +43,9 @@ export function fmtAgoText(ms: number): string {
 export function fmtNum(n: number): string {
   const v = Math.floor(n);
   if (v < 1000) return `${v}`;
-  if (v < 10_000) return `${(Math.floor(v / 100) / 10).toString()}K`;
-  return `${Math.floor(v / 1000)}K`;
+  // "1.2K" in English, "1,2К" in Russian (a decimal comma, Cyrillic К)
+  if (v < 10_000) return t('num.k', { n: localDecimals((Math.floor(v / 100) / 10).toString()) });
+  return t('num.k', { n: Math.floor(v / 1000) });
 }
 
 /** A change with its sign, always: "+15", "-5", "0" (ASCII minus: the bundled faces have no U+2212). Rewards read as "Win +15 · Loss +5", never "a loss 5". */
