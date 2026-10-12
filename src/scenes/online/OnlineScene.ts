@@ -1124,7 +1124,11 @@ export class OnlineScene extends BaseScene {
     }
     const tk = await this.act(() => onlineApi.attackStart(h));
     if (!tk || !this.sys.isActive()) return;
-    this.scene.start('Battle', { source: attackSource(this.game, tk, this.detail?.siege?.label ?? (tk.defenderKind === 'garrison' ? t('online.theGarrison') : t('online.theDefenders'))) });
+    // the siege label comes in English from the server: name the foe as the panel does
+    const view = this.detail?.region ?? this.board.known(h);
+    const raw = this.detail?.siege?.label;
+    const label = view?.lair ? encounterLabel(view.lair) : raw && view?.def ? tOr(`def.${view.def}`, raw) : raw;
+    this.scene.start('Battle', { source: attackSource(this.game, tk, label ?? (tk.defenderKind === 'garrison' ? t('online.theGarrison') : t('online.theDefenders'))) });
   }
 
   // ------------------------------------------------------------------ results
