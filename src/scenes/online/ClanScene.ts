@@ -183,8 +183,9 @@ export class ClanScene extends BaseScene {
     c.add(mosaicImage(this, b.x, b.y, b.w, cardH, 'parchment'));
     let y = b.y + 3;
     if (artH >= 40 && !this.textures.exists(ART.key)) this.loadArt();
-    if (artH >= 40 && hasRaster(this, ART.key)) {
-      c.add(addCover(this, b.x + 3, y, b.w - 6, artH - 3, ART.key));
+    // the art's slot is kept while it loads, so Found a clan does not jump down under a finger when it lands
+    if (artH >= 40) {
+      if (hasRaster(this, ART.key)) c.add(addCover(this, b.x + 3, y, b.w - 6, artH - 3, ART.key));
       y += artH;
     } else y += 3;
     c.add(mtext(this, b.x + b.w / 2, y, t('clan.none.title'), 'rInk', { size: 8, align: 0.5, maxW: b.w - 12 }));
