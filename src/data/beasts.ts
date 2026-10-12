@@ -167,13 +167,13 @@ export const MYTHS: Record<MythId, MythDef> = {
   }),
   minotaur: D({
     id: 'minotaur', name: 'Minotaur', desc: 'Bull-headed and huge: charges straight through lines. Braced spears stop the charge. Enraged when wounded.',
-    radius: 0.58, hp: 540, dmg: 34, atkTime: 1.5, reach: 1.15, armor: 5, morale: 400, speed: 0.9, missile: 1,
+    radius: 0.58, hp: 500, dmg: 34, atkTime: 1.5, reach: 1.15, armor: 5, morale: 400, speed: 0.9, missile: 1,
     terror: 0.32, terrorRadius: 3.5, weight: 0.06, tall: 46,
     sp: { chargeCd: 9, chargeSpeed: 3.4, chargeDmg: 22, chargeMin: 3.5, chargeMax: 12, enrageAt: 0.35, enrageTempo: 1.5, enrageDmg: 1.25, enrageSpeed: 1.3 },
   }),
   chimera: D({
     id: 'chimera', name: 'Chimera', desc: 'Lion, goat and serpent. Breathes fire in a cone, the goat head bleats it to fury, the serpent tail strikes at flankers.',
-    radius: 0.85, hp: 490, dmg: 22, atkTime: 1.4, reach: 1.1, armor: 3, morale: 400, speed: 0.85, missile: 1,
+    radius: 0.85, hp: 450, dmg: 22, atkTime: 1.4, reach: 1.1, armor: 3, morale: 400, speed: 0.85, missile: 1,
     terror: 0.35, terrorRadius: 4, weight: 0.04, tall: 44,
     sp: { breathCd: 9, breathRange: 4.6, breathCone: 0.55, breathDmg: 9, burnDps: 2.6, burnTime: 3, goatCd: 15, goatTime: 6, goatDmg: 1.3, tailCd: 2.2, tailDmg: 18 },
   }),

@@ -183,7 +183,7 @@ export const ABILITY_RULES = {
   scytheRun: 6,
   scytheWidth: 0.8,
   scytheDamage: 0.8, // x base melee damage
-  scytheMorale: 8,
+  scytheMorale: 12, // BAL-02: was 8; chariots vs militia 25% -> 33% (target >= 30%)
 };
 
 /** At most this many ability medallions show for a selection; the rest go behind a "more" chevron (abilities.md R4). */

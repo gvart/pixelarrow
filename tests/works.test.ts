@@ -47,7 +47,7 @@ describe('cell kinds (R1)', () => {
   it('the five works have their codes and the R1 multipliers; old kinds keep their indices', () => {
     expect(TERRAIN_LIST.slice(0, 9).map((d) => d.kind)).toEqual(['open', 'scrub', 'forest', 'water', 'ford', 'rough', 'rocks', 'sand', 'sea']);
     expect(['x', 'd', 'L', 'P', 'p'].map((c) => terrainByCode(c).kind)).toEqual(['stakes', 'ditch', 'laager', 'palisade', 'rampart']);
-    expect(TERRAIN.stakes).toMatchObject({ speed: 0.7, blocked: false, scatter: 0.15, blockMult: 0.9, noWall: true, braceMult: 0, cavSpeed: 0.3, cavCharge: 0, chariotSpeed: 0.2, chariotDamage: 6 });
+    expect(TERRAIN.stakes).toMatchObject({ speed: 0.7, blocked: false, scatter: 0.15, blockMult: 0.9, noWall: true, braceMult: 0, cavSpeed: 0.25, cavCharge: 0, chariotSpeed: 0.2, chariotDamage: 6 });
     expect(TERRAIN.ditch).toMatchObject({ speed: 0.45, scatter: 0.3, blockMult: 1, noWall: true, cavSpeed: 0.35, cavCharge: 0.2, chariotSpeed: 0.15, chariotDamage: 5 });
     expect(TERRAIN.laager.blocked && TERRAIN.palisade.blocked).toBe(true);
     expect(TERRAIN.rampart).toMatchObject({ speed: 0.9, cover: 0.35, blockMult: 1.1, noWall: false, braceMult: 1.2, cavSpeed: 0.8, cavCharge: 0.6 });

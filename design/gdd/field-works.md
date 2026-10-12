@@ -31,7 +31,7 @@ These are added to `TerrainKind` and `TERRAIN` in `src/data/terrain.ts`. Each on
 
 | Kind | Code | Speed | Blocked | Cover | Scatter | Block | No wall | Brace | Horse speed / charge | Chariot speed / dmg |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `stakes` | `x` | 0.7 | no | 0 | 0.15 | 0.9 | yes | 0 | **0.3 / 0** | 0.2 / 6 |
+| `stakes` | `x` | 0.7 | no | 0 | 0.15 | 0.9 | yes | 0 | **0.25 / 0** (BAL-02; was 0.3) | 0.2 / 6 |
 | `ditch` | `d` | 0.45 | no | 0 | 0.3 | **1** (V5-065; was 0.75) | yes | 0 | 0.35 / 0.2 | 0.15 / 5 |
 | `laager` | `L` | 0 | **yes** | 0 | 0 | 1 | yes | 0 | 0 / 0 | 0 / 0 |
 | `palisade` | `P` | 0 | **yes** | 0 | 0 | 1 | yes | 0 | 0 / 0 | 0 / 0 |

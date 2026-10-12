@@ -212,10 +212,12 @@ export const BANDIT_MIN = 3;
  * The starter zone (V5-054, campaign-arc.md R1.3): `count` bandit bands of
  * danger `danger`, `ring` tiles from the starting town, sized
  * `min + round(danger x 5) + int(0..2)` (the GDD's BANDIT_MIN 5) at level
- * 1 + round(danger x 2). Gear `tier` 2 (so a captain) puts the 8-man opening
- * at about 60% against them; tier 1 was 91% (docs/v5/balance/AR-01.md).
+ * 1 + round(danger x 2). Gear `tier` 2 (so a captain); tier 1 was 91%
+ * (docs/v5/balance/AR-01.md). Danger is drawn from the top of the GDD's
+ * 0.1-0.3 band (BAL-02): about 60% of the bands are level 2, which puts the
+ * 8-man opening at about 67% (it was 72-75% from 0.1).
  */
-export const STARTER_BANDS = { count: [2, 3] as [number, number], ring: [5, 11] as [number, number], danger: [0.1, 0.3] as [number, number], min: 5, tier: 2 };
+export const STARTER_BANDS = { count: [2, 3] as [number, number], ring: [5, 11] as [number, number], danger: [0.22, 0.3] as [number, number], min: 5, tier: 2 };
 
 /**
  * Volunteers (campaign-arc.md R1.4, R1.5). A destroyed army gets `destroyed`

@@ -1,9 +1,8 @@
 /**
  * Event deck balance (headless, EV-02): design/gdd/campaign-events.md F2 (the
  * EV table and the dominance check) and "Balance targets" (gold per battle,
- * events per battle), measured on the starter deck WITH THE FLAG ON. The
- * shipped deck is off (EVENT_DECK_ENABLED, V5-070), and `npm run balance`
- * doesn't import this module, so its report is unchanged. Run it with:
+ * events per battle), measured on the starter deck (live since EV-03).
+ * `npm run balance` prints eventRows (FL-04); the full EV table needs:
  *
  *   node -e "import('vite').then(async v => { const { module: m } = await v.runnerImport('/src/dev/eventBalance.ts', { root: process.cwd(), configFile: false, logLevel: 'error', server: { hmr: false } }); console.log(m.eventBalanceReport(200)); })"
  *
