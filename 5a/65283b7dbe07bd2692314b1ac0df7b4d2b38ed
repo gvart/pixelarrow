@@ -1,0 +1,30 @@
+src/ui/battlePanel.ts
+  s_697bdc25a7c420::t_f6e07f11572143 862
+  s_697bdc25a7c420::t_cd66ad711cc3a0 13-14,837-857,861,863-901
+  s_697bdc25a7c420::t_d2626fc267cf14 815,825,829
+  s_697bdc25a7c420::t_d8b36c76498459 858-860
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_a311b2d9e9e4f2 879-880,893-919,925,953-960
+tests/battleMenu.test.ts
+  s_697bdc25a7c420::t_1088a8bd901098 1-105
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_4204439d2d96ce 4083
+  s_697bdc25a7c420::t_d2626fc267cf14 6,8,3553
+  s_697bdc25a7c420::t_cd66ad711cc3a0 3558
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5a65283b7dbe07bd2692314b1ac0df7b4d2b38ed",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
