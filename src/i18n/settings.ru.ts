@@ -9,4 +9,7 @@ export const SETTINGS_RU: Record<keyof typeof SETTINGS_EN, string> = {
   'settings.sync.offline': 'Офлайн',
   // BTL-01 (A11Y-16, V5-072): кнопки боя под левую руку
   'settings.leftHand': 'Управление боем под левую руку',
+  // FL-01 (A11Y-13): без тряски экрана в бою; без вспышек
+  'settings.reduceShake': 'Меньше тряски экрана',
+  'settings.reduceFlash': 'Меньше вспышек',
 };
