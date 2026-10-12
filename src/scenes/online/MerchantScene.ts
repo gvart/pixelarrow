@@ -20,7 +20,7 @@ import { frameScrollTexts, openItemCard } from '../../ui/sheet';
 import { addEconState, currencyIcon, ensureEconIcons, priceText } from '../../ui/econ/widgets';
 import { econState, type EconState } from '../../game/economy';
 import { isApiError, newRequestId, type Currency } from '../../platform/api';
-import { onlineApi, type MerchantBuyResult, type MerchantOffer, type MerchantView } from '../../online/client';
+import { errorText, onlineApi, type MerchantBuyResult, type MerchantOffer, type MerchantView } from '../../online/client';
 import { demoShard } from '../../online/demoShard';
 import { capKey } from '../../online/merchants';
 import { CONSUMABLES, type ConsumableId } from '../../data/consumables';
@@ -338,7 +338,7 @@ export class MerchantScene extends BaseScene {
               : isApiError(e) && e.offline
                 ? t('econ.offline')
                 : isApiError(e)
-                  ? e.message
+                  ? errorText(e)
                   : t('econ.error');
       toast(this, msg, 'bad');
       return false;

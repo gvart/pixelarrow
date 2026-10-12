@@ -46,7 +46,8 @@ import {
   MBadge, TAP, buttonLabelSizes, type MButtonOpts,
 } from '../../ui/mosaic';
 import { ARMY_ROW_H, addGroupDisc, addRosterRow, armyPill, armyPillW, pendingPoints, type ArmySource } from '../../ui/army';
-import { FRESCO_H, fmtCount, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from './hubLayout';
+import { FRESCO_H, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from './hubLayout';
+import { fmtCount } from '../../i18n/numbers';
 import { hapticNotify } from '../../platform/telegram';
 import { RARITY_LABEL, SLOTS, isBound, itemDef, normalizeEquip, normalizeItem, type Item, type Slot } from '../../data/items';
 import type { Hero } from '../../data/units';
@@ -57,7 +58,7 @@ import { heroNeedsAttention } from '../../game/gear';
 import { lastBattle, type BattleReport } from '../../game/report';
 import type { BattleSource } from '../../online/battleSource';
 import type { Battle } from '../../sim/battle';
-import { errorText } from '../../online/client';
+import { apiErrorText, errorText } from '../../online/client';
 import {
   DUEL_CLASSES, DUEL_RULES, catalogue, classPoints, cleanPresetName, dailyOffers, deltaParts, duelRecruit, heroPoints, levelProgress, offerSummary, recruitPrice, sellPrice, teamPoints, teamProblem,
   type ShopOffer,
@@ -1768,7 +1769,7 @@ export class DuelScene extends BaseScene {
       this.search = null;
       if (e.type === 'error' || e.reason !== 'cancelled') {
         hapticNotify('error');
-        toast(this, e.type === 'error' ? e.message : t(`duels.unq.${e.reason}` as TKey), 'bad', 3000);
+        toast(this, e.type === 'error' ? apiErrorText(400, e.code ?? '', e.message) : t(`duels.unq.${e.reason}` as TKey), 'bad', 3000);
       }
       this.buildBody();
       void this.loadRanked();
