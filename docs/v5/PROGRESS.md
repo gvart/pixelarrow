@@ -11,9 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | DUE-01 worktree-agent-a79e5ab81715c7b6e | — | integrator | — | merging |
-| btl-01 | W16 BTL-01: battle HUD chrome | per card | per card | worktree-agent | running |
-| ec-01 | W19 EC-01: forge reroll | per card | per card | worktree-agent | running |
+| (merge) | EC-01 worktree-agent-a1ba9efa7af058119, BTL-01 worktree-agent-afb5d69338e60b31d | — | integrator | — | merging |
+| due-02 | W19 DUE-02: duel sub-screens | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -69,6 +68,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 0aa9776 CMP-01 Camp; 3f82725 RES-01 Results. Gates: vitest 1276, server 299, layout 0 new (671 known), smokes pass (fullscreen flaked once under load); balance 53%, lairs 43/58/53, assault 45%.
 - 7605ad7 SET-01; 4cadcf1 CT-06; c475df9 WLD-02; 56031f9 allowlist hygiene. Gates: vitest 1300, server 303, layout 0 new (524 distinct), all 5 smokes first-try, replay 13/13 chromium (webkit not installed); balance 53%, lairs 43/58/53. Load avg 27-50: balance 74 min.
 - 676cd87 F-05 Kit; 8f31f7c RD-02 flank arcs/banners; 2e41700 WAR-01 War hub. Gates: vitest 1353, server 303, layout 0 new (493 distinct, 184 screens), smokes pass (main smoke flaked once under load), online-e2e 35 PASS, replay 13/13 chromium; balance 53%, lairs 43/58/53, assault 45%.
+- 6848e5a DUE-01 Duels hub; dfb61e4 allowlist hygiene. Gates: vitest 1366, server 303, layout 0 new (382), smokes all pass, online-e2e 34/34 alone (timed out once under load), replay 13/13; balance 53%.
 
 ## Queue (next)
 
@@ -134,6 +134,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 34. Follow-ups: RU numbers use commas (WAR-01 boss sheet: 12,202), use spaces; ' - ' should be an en dash in RU boss copy; RU item card cuts 'Темп атаки'/'Прочность' at 320; Camp should pass `back` when opening the War army; feint and queued-step badge markers go to BTL-01; shake and hit-stop go to FL-01; webkit replay leg not runnable locally.
 
 35. Process: agents must stop their own dev servers (15 stale vite/vitest processes from finished agents killed 2026-10-12). Copy: the DUE-01 expired note sits next to the battle clock (1:04); say 'real time' or 'the ladder ticket ran out'. Use fmtCount (DUE-01) for RU numbers everywhere (WAR-01 boss sheet).
+
+36. Follow-ups: unify fmtCount (DUE-01) and groupDigits (EC-01) into one RU-aware formatter; use it in MChip gold and the item card; BTL-01 left compact group cards under 360 and the doctrine/ladder chips; 'ФАЛ.' abbreviation on the RU group card; an icon peeks behind the eye key on the RU battle HUD; the dev server returns 403 for fonts when node_modules is a symlink (agents use preview).
 
 ## Blockers
 
