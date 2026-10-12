@@ -42,9 +42,10 @@ export interface Settings {
   analytics: boolean;
   /** Reduce motion (src/ui/motion.ts); missing = follow the system's prefers-reduced-motion. */
   reduceMotion?: boolean;
-  /** Accessibility (controls.md): no screen shake, no full-screen flashes, mirrored battle controls; missing = off. */
+  /** Accessibility (controls.md R11, A11Y-13): no battle shake, no flash rings; missing = follow Reduce motion (src/ui/motion.ts). */
   reduceShake?: boolean;
   reduceFlash?: boolean;
+  /** Mirrored battle controls (A11Y-16); missing = off. */
   leftHand?: boolean;
   /** The last offline battle speed (0.5..3); missing = 1. */
   battleSpeed?: number;

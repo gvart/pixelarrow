@@ -8,7 +8,7 @@ import { Button, addIcon, addText, panelImage, type UIMetrics } from './kit';
 import { ScrollList, Tabs, confirmDialog } from './widgets';
 import { Stepper, Toggle, openSheet } from './v3';
 import { SURFACE, TEXT_MIN } from './tokens';
-import { motion, setReducedMotion } from './motion';
+import { flashReduced, motion, setReducedMotion, shakeReduced } from './motion';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { SIZE } from './theme';
 import { state } from '../state';
@@ -30,6 +30,7 @@ type Row =
   | { kind: 'section'; label: TKey }
   | { kind: 'toggle'; key: ToggleKey; label: TKey }
   | { kind: 'motion'; label: TKey }
+  | { kind: 'feel'; key: 'reduceShake' | 'reduceFlash'; label: TKey }
   | { kind: 'volume'; key: Volume; label: TKey }
   | { kind: 'speed'; label: TKey }
   | { kind: 'lang' }
@@ -45,8 +46,8 @@ interface UiScene extends Phaser.Scene {
 
 /**
  * Grouped: Audio, Language, Battle pauses, Accessibility, Account (M-15).
- * A setting gets a row only once the game honours it: Reduce shake and Reduce
- * flash are saved (save v6) but wait for FL-01. Left-hand (BTL-01) mirrors the
+ * A setting gets a row only once the game honours it. Reduce shake and Reduce
+ * flash (FL-01) follow Reduce motion until the player sets them. Left-hand (BTL-01) mirrors the
  * battle's medallion rail, eye and top bar. The battle speed (CT-06) is the
  * speed battles open at.
  */
@@ -66,6 +67,8 @@ export const ROWS: readonly Row[] = [
   { kind: 'speed', label: 'settings.battleSpeed' },
   { kind: 'section', label: 'settings.sec.access' },
   { kind: 'motion', label: 'settings.reduceMotion' },
+  { kind: 'feel', key: 'reduceShake', label: 'settings.reduceShake' },
+  { kind: 'feel', key: 'reduceFlash', label: 'settings.reduceFlash' },
   { kind: 'toggle', key: 'haptics', label: 'settings.haptics' },
   { kind: 'toggle', key: 'leftHand', label: 'settings.leftHand' },
   { kind: 'section', label: 'settings.sec.account' },
@@ -186,6 +189,21 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
             onChange: (on) => {
               s.reduceMotion = on;
               setReducedMotion(on);
+              void state.save();
+            },
+          }),
+        );
+      } else if (r.kind === 'feel') {
+        // A11Y-13: shows the Reduce motion value until set; a set value is kept
+        const k = r.key;
+        row.add(
+          new Toggle(scene, rw - 4 - 34, 1, {
+            on: k === 'reduceShake' ? shakeReduced(s) : flashReduced(s),
+            label: t(r.label),
+            id: `settings.toggle.${k}`,
+            onChange: (on) => {
+              s[k] = on;
+              haptic('light');
               void state.save();
             },
           }),
