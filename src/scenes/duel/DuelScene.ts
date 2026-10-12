@@ -1593,7 +1593,7 @@ export class DuelScene extends BaseScene {
   private defenceRow(parent: Phaser.GameObjects.Container, p: DuelProfileView, a: AsyncView, x: number, y: number, w: number): number {
     const def = a.defence;
     const label = def ? t('duels.raid.defence', { team: this.loadoutName(p, p.use.defence) }) : t('duels.raid.noDefence');
-    const sub = def ? t('duels.raid.defSub', { n: def.heroes, pts: def.points, w: a.defenceWins, d: a.defences }) : t('duels.raid.noDefenceSub');
+    const sub = def ? t('duels.raid.defSub', { n: def.heroes, pts: fmtCount(def.points), w: fmtCount(a.defenceWins), d: fmtCount(a.defences) }) : t('duels.raid.noDefenceSub');
     const tw = w - 22 - 18;
     const wl = wrapText(label, tw, 1);
     const ws = wrapText(sub, tw, 2);
@@ -1908,7 +1908,7 @@ export class DuelScene extends BaseScene {
           ? t('duels.sit.raidNoDefence')
           : a.attacks.left <= 0
             ? t('duels.sit.raidCapped')
-            : t('duels.sit.raid', { n: fmtCount(a.attacks.left), max: fmtCount(a.attacks.cap) });
+            : t('d5.sit.raid');
     const main: MainAction | null = a ? { label: pick && this.m.VW >= 170 ? t('duels.raid.go', { name: pick.name }) : t('duels.raid.attack'), icon: 'swords', id: 'duel.raid.attack', off: why, onClick: () => pick && void this.raid(pick.pid) } : null;
     const { area, c, w } = this.openShell(false, this.viewTitle(), main);
     let y = 2;

@@ -27,6 +27,10 @@ export const DUELS_V5_EN = {
   'd5.seasonOver': 'Season over',
   'd5.pickShort': 'Choose a piece',
   'd5.pickSet': 'Set: {set}',
+  // the raids left are on the row under the tip: the tip does not repeat them
+  'd5.sit.raid': 'Pick a defender and raid.',
+  // the demo's second preset (a player-typed name is never translated)
+  'd5.demoWall': 'Wall',
   // Team (M-3)
   'd5.roster': 'Duel army · {n}/{max}',
   'd5.rosterFull': 'The roster is full: dismiss someone from the bench first',

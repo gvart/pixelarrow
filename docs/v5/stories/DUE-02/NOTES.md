@@ -50,6 +50,7 @@ Spec: [screens-modes.md](../../../../design/ux/screens-modes.md) M-5, M-6, M-7. 
 3. **No per-player crest.** `BoardRow` carries only the league, so every row shows its league's crest. A crest per player would need a server field. This is a follow-up, not a guess.
 4. **Retry inside the card, not the fixed action.** The raid view's terracotta action stays "Raid" (disabled, with its reason). Retry is a bronze secondary (art bible 4.2).
 5. **Copy edits in `duels.v5.*.ts`.** DUE-01 created these files and it is done. The new keys (`d5.board*`, `d5.raidError`, `d5.seasonOver`, `d5.pickShort`, `d5.pickSet`) went there, next to the expired-note keys they sit beside.
+7. **Director review, Raids.** "Wall" was the demo's seeded preset name, not player-typed. The demo now seeds it through i18n (`d5.demoWall`: Wall / Стена; one line in `src/duel/client.ts`). Player-typed names are never translated. The tip no longer repeats the raids left (`d5.sit.raid`). The count stays on the row with the raid league, so that row is not empty and nothing moves into the header.
 6. **Telegram Back during a search is unchanged.** It still leaves for the Menu, as before. Only the in-game arrow is gone.
 
 ## Gates

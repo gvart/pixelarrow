@@ -6,6 +6,7 @@
  * API cannot be used; the screens turn that into a state (econState).
  */
 import { online } from '../platform/cloud';
+import { t } from '../i18n';
 import { ApiError, newRequestId } from '../platform/api';
 import type { Hero } from '../data/units';
 import { isBound, itemDef, type Item, type Slot } from '../data/items';
@@ -517,7 +518,7 @@ export class DemoDuelSource implements DuelSource {
       bought: [],
       loadouts: [
         { slot: 1, name: null, team: heroes.slice(0, 6).map((h) => h.id), formations: [...DEFAULT_FORMATIONS] },
-        ...(opts.fresh ? [] : [{ slot: 2, name: 'Wall', team: [heroes[0].id, heroes[1].id, heroes[6].id], formations: [...DEFAULT_FORMATIONS] }]),
+        ...(opts.fresh ? [] : [{ slot: 2, name: t('d5.demoWall'), team: [heroes[0].id, heroes[1].id, heroes[6].id], formations: [...DEFAULT_FORMATIONS] }]),
       ],
       loadout: 1,
       use: { ladder: 1, arena: 1, defence: opts.fresh ? 1 : 2 },
