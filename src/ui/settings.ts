@@ -233,7 +233,8 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         if (busy) b.setEnabled(false, t('settings.tutorialBusy'));
         b.setOnClick(() => {
           m.close();
-          scene.scene.start('Battle', { tutorial: { replay: !resume } });
+          // skip and finish come back here (screen-flow §3 S09)
+          scene.scene.start('Battle', { tutorial: { replay: !resume, back: { scene: scene.sys.settings.key, data: scene.sys.settings.data ?? {} } } });
         });
         row.add(b);
       } else if (r.kind === 'newCampaign') {

@@ -53,12 +53,14 @@ import {
   skipTutorial,
   stageTutorial,
   stepDef,
+  tutorialExit,
   waveAtPost,
   waveClose,
   WIN_REAIM_S,
   type TutObs,
   type TutStepId,
   TUT_STEPS,
+  type TutorialExit,
   type TutorialProgress,
 } from '../../game/tutorial';
 import { tutorialStep } from '../../audio/hooks';
@@ -161,6 +163,8 @@ const grow = (r: Rect, d: number): Rect => ({ x: r.x - d, y: r.y - d, w: r.w + d
 export interface TutorialStart {
   /** Start over (Settings -> Replay) instead of resuming. */
   replay?: boolean;
+  /** Where skip and finish return to: the screen Settings was opened from (a replay); none on the first run (FirstRun). */
+  back?: TutorialExit;
 }
 
 export class BattleTutorial {
@@ -199,10 +203,13 @@ export class BattleTutorial {
   private lastTime = -1;
   /** What the step lit last frame (the narrator moves when that changes: redock). */
   private targetKind: 'field' | 'rect' | 'none' | '' = '';
+  /** Where skip and finish go (TutorialStart.back). */
+  private readonly back: TutorialExit | undefined;
 
   constructor(host: TutorialHost, opts: TutorialStart = {}) {
     this.host = host;
     this.scene = host.scene;
+    this.back = opts.back;
     const st = state.campaign.data.settings;
     const prev = progressOf(st);
     this.progress = beginTutorial(opts.replay || prev.status !== 'active' ? { ...prev, done: [] } : prev, !!opts.replay);
@@ -928,7 +935,8 @@ export class BattleTutorial {
         state.campaign.data.settings.tutorial = skipTutorial(this.progress);
         track('tutorial_skip', { id: this.step ?? 'none', step: this.step ? tutStepNo(this.step) : 0 });
         void state.save();
-        this.scene.scene.start('FirstRun', { mode: 'modes' });
+        const to = tutorialExit(this.back);
+        this.scene.scene.start(to.scene, to.data);
       },
       onCancel: () => {
         this.dialog = null;
@@ -941,7 +949,7 @@ export class BattleTutorial {
 
   private restart(): void {
     this.phase = 'end';
-    this.scene.scene.restart({ tutorial: {} });
+    this.scene.scene.restart({ tutorial: { back: this.back } });
   }
 
   private finish(): void {
@@ -958,6 +966,7 @@ export class BattleTutorial {
     // the campaign exists now: Continue works from the menu
     state.hasSave = true;
     void state.save();
-    this.scene.scene.start('FirstRun', reward ? { mode: 'reward', item: reward } : { mode: 'modes' });
+    const to = tutorialExit(this.back, reward);
+    this.scene.scene.start(to.scene, to.data);
   }
 }
