@@ -11,9 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | TUT-02 worktree-agent-a95c9f0cc5b9addfa, FIXER-6 worktree-agent-ae289f5a535c34d8e | — | integrator | — | merging |
-| dlg-02 | W20 DLG-02: dialogue gaps | per card | per card | worktree-agent | running |
-| qa-02 | W20 QA-02: regression suite | per card | per card | worktree-agent | running |
+| (merge) | DLG-02 worktree-agent-a01dfb5986b393bd0, QA-02 worktree-agent-a7596ee45be4e2d11 | — | integrator | — | merging |
+| fl-01 | W21 FL-01: juice tiers | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -72,6 +71,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 6848e5a DUE-01 Duels hub; dfb61e4 allowlist hygiene. Gates: vitest 1366, server 303, layout 0 new (382), smokes all pass, online-e2e 34/34 alone (timed out once under load), replay 13/13; balance 53%.
 - 06894bc EC-01 forge; e0b79df BTL-01 battle HUD; 22a4dfb forge price moved to gear.ts (server typecheck); ac91a5d allowlist hygiene (tutorial text-size). Gates: vitest 1396, server 303, layout 0 new, smokes all pass, online-e2e 34/34 on rerun (first run timed out at the name prompt, the 3rd batch in a row: fixer-6), replay 13/13; balance 53%.
 - 74995a2 DUE-02 duel sub-screens. Gates: vitest 1402, server 303, layout 0 new (47 known), all smokes and online-e2e first try, replay 13/13; balance 53%.
+- f763d20 TUT-02 tutorial; e5b45ac FIXER-6 clan fresco slot. Gates: vitest 1403, server 303, layout 0 new (46 known, 197 screens), online-e2e first-try PASS, replay 13/13; balance 53%, host 49%. fullscreen-smoke flaked (facing knob, tap-to-move shape), passed on rerun.
 
 ## Queue (next)
 
@@ -141,6 +141,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 36. Follow-ups: unify fmtCount (DUE-01) and groupDigits (EC-01) into one RU-aware formatter; use it in MChip gold and the item card; BTL-01 left compact group cards under 360 and the doctrine/ladder chips; 'ФАЛ.' abbreviation on the RU group card; an icon peeks behind the eye key on the RU battle HUD; the dev server returns 403 for fonts when node_modules is a symlink (agents use preview).
 
 37. Follow-ups: battleHud medallion text under 6.5 (tutorial-move allowlist; owner FL/polish); Telegram Back during a duel search goes to the Menu (DUE-02 note).
+
+38. Follow-ups: fullscreen-smoke flakes on the facing knob and tap-to-move shape under load (2nd time); openJournalSheet in eventCard.ts is dead code (F-07); the duel challenge has no X, and Back sends a decline (DLG-02 decision).
 
 ## Blockers
 
