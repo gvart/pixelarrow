@@ -1,0 +1,21 @@
+docs/ROADMAP.md
+  s_697bdc25a7c420::t_9355b38b0440a2 138-142
+docs/v5/DECISIONS.md
+  s_697bdc25a7c420::t_2b1b69079217b4 81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "55c8ad9f9ed0de67164fe40c54b52ad2c2d7c4e5",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
