@@ -64,6 +64,40 @@ await flow('tabs', async () => {
   }
 });
 
+// ---------------------------------------------------------------- 1b. a tap during the entry fade (V5-067)
+// A fast player taps a screen in its first frames. The Campaign hub is restarted and its tweens are frozen
+// on its very first frame (before any tween step: the strictest point of the fade, inside 30 ms), then the
+// Codex tab is tapped where it settles (a finger going for the spot it knows). The tap must land.
+await flow('V5-067', async () => {
+  const frozen = await api.ev(
+    () =>
+      new Promise((done) => {
+        const s = window.__game.scene.getScene('Menu');
+        s.events.once('create', () => {
+          s.tweens.pauseAll();
+          done({ alpha: s.ui.alpha, x: s.ui.x, tweens: s.tweens.getTweensOf(s.ui).length });
+        });
+        window.__game.scene.getScenes(true).forEach((o) => o.scene.start('Menu', {}));
+      }),
+  );
+  need('V5-067: the hub restarts mid-fade (ui fading in, not yet at alpha 1)', frozen.tweens === 1 && frozen.alpha > 0 && frozen.alpha < 1, JSON.stringify(frozen));
+  const p = await api.ev(() => {
+    const s = window.__game.scene.getScene('Menu');
+    let hit = null;
+    const walk = (list) => list.forEach((o) => ((o.__uiId === 'tab.codex' && (hit = o)), o.list && walk(o.list)));
+    walk(s.children.list);
+    if (!hit) return null;
+    const r = hit.getBounds();
+    return window.__css(r.centerX - s.ui.x, r.centerY);
+  });
+  need('V5-067: the Codex tab is on the bar', !!p);
+  await api.tap(p[0], p[1]);
+  await api.ev(() => window.__game.scene.getScene('Menu').tweens.resumeAll());
+  check('V5-067: a tap on the first frame of the entry fade lands (Codex opens)', await ready('Codex'), JSON.stringify(await running(api)));
+  await tapId(api, 'Codex', 'tab.campaign');
+  need('V5-067: back on the Campaign hub', await ready('Menu'));
+});
+
 // ---------------------------------------------------------------- 2. the doors
 for (const d of DOORS) {
   await flow(d.name, async () => {
