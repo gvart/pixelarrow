@@ -82,8 +82,8 @@ describe('a version rejection asks the player to reload', () => {
     expect(errorText(e)).not.toBe(e.message);
   });
 
-  it('other errors keep their message', () => {
-    expect(errorText(new ApiError(409, 'ticket_used', 'This battle was already reported'))).toBe('This battle was already reported');
+  it('other errors show their own localized words (G12: never the server text)', () => {
+    expect(errorText(new ApiError(409, 'ticket_used', 'This battle was already reported'))).toBe(t('gap.err.ticket_used'));
   });
 
   it('a refused socket shows the reload message and stops reconnecting', () => {

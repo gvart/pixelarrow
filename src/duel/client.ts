@@ -446,8 +446,8 @@ export class ApiDuelSource implements DuelSource {
       if (m.type === 'match_found' || (m.type === 'unqueued' && m.reason !== 'cancelled')) stop();
     });
     void (async () => {
-      if (!online.available) return on({ type: 'error', message: 'Available in Telegram', code: 'outside' });
-      if (!(await online.signIn())) return on({ type: 'error', message: 'The server is unreachable', code: 'network' });
+      if (!online.available) return on({ type: 'error', message: t('gap.err.outside'), code: 'outside' });
+      if (!(await online.signIn())) return on({ type: 'error', message: t('gap.err.network'), code: 'network' });
       if (!over) sock.open();
     })();
     return () => {
