@@ -1,0 +1,31 @@
+src/ui/mosaic/index.ts
+  s_697bdc25a7c420::t_d45ed1a67449e4 12
+src/scenes/MarketScene.ts
+  s_697bdc25a7c420::t_d45ed1a67449e4 312,314,316-317
+  s_697bdc25a7c420::t_1b53b5f4b2c3a9 11
+src/ui/mosaic/StashGrid.ts
+  s_697bdc25a7c420::t_e395ef9c23ceea 15
+  s_697bdc25a7c420::t_d45ed1a67449e4 107,109,121,131-133
+src/ui/mosaic/controls.ts
+  s_697bdc25a7c420::t_5c1d10a0e2e456 12,69,71,112-113,115-123,164,181-183
+  s_697bdc25a7c420::t_b18661122e7acf 70,114,165
+  s_697bdc25a7c420::t_16d8212a0829b6 184-185
+src/ui/kit.ts
+  s_697bdc25a7c420::t_5c1d10a0e2e456 270-276
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7cd4294a91011474a72f29cc9d4bea288b74b6ee",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
