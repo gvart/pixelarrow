@@ -18,7 +18,9 @@ vi.mock('phaser', () => {
   class C {}
   return { default: { GameObjects: { Container: C, Image: C, Text: C, Graphics: C, Rectangle: C }, Scene: C } };
 });
-const { BADGE_H, FirstContact, cardGroups, declutterBadges, nextSelection } = await import('../src/ui/battleHud');
+const { BADGE_H, FirstContact, cardGroups, declutterBadges, endBannerKey, nextSelection } = await import('../src/ui/battleHud');
+const { timedOut } = await import('../src/game/campaignBattle');
+const { setLang, t } = await import('../src/i18n');
 
 function campaignBattle(seed = 7): Battle {
   const ids = { nextId: 1 };
@@ -173,5 +175,26 @@ describe('S3-10: field badges never stack', () => {
     ]);
     expect(at.get(1)).toEqual({ x: 50, y: 100 });
     expect(at.get(2)).toEqual({ x: 150, y: 100 });
+  });
+});
+
+describe('the battle-end banner on a campaign timeout (QAFIX-WORLD S3-4)', () => {
+  it('both armies standing at the time limit and not won: Stalemate, in en and ru', () => {
+    const b = campaignBattle();
+    b.startBattle();
+    b.tick = b.timeLimitTicks;
+    b.phase = 'ended';
+    expect(timedOut(b)).toBe(true);
+    expect(endBannerKey(1, 0, 1, timedOut(b))).toBe('battle.banner.draw');
+    expect(t('battle.banner.draw')).toBe('Stalemate');
+    setLang('ru');
+    expect(t('battle.banner.draw')).toBe('Ничья');
+    setLang('en');
+  });
+
+  it('a win stays a victory, a loss before the limit stays a defeat', () => {
+    expect(endBannerKey(0, 0, 1, true)).toBe('battle.banner.victory');
+    expect(endBannerKey(1, 0, 1, false)).toBe('battle.banner.defeat');
+    expect(endBannerKey(-1, 0, 1, false)).toBe('battle.banner.draw');
   });
 });

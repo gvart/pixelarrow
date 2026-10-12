@@ -1100,6 +1100,18 @@ export interface PauseReason {
 }
 
 /**
+ * The battle-end banner (QAFIX-WORLD S3-4): a campaign battle that ran out of
+ * time with both armies standing, and that the player did not win, is a draw
+ * ("Stalemate"), whatever the sim's strength tally named; else victory,
+ * defeat or (no winner) the draw.
+ */
+export function endBannerKey(winner: number, me: number, foe: number, stalemate: boolean): 'battle.banner.victory' | 'battle.banner.defeat' | 'battle.banner.draw' {
+  if (winner === me) return 'battle.banner.victory';
+  if (winner === foe && !stalemate) return 'battle.banner.defeat';
+  return 'battle.banner.draw';
+}
+
+/**
  * The "First contact!" auto-pause (QA-03 S3-9): once, at the first enemy blow
  * on our men (a missile, a rider, a spear: hit, block or kill) or at the sim's
  * melee `contact` for our side, whichever comes first. The sim's own `contact`

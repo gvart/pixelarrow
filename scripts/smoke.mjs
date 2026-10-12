@@ -177,8 +177,10 @@ check('deployment opens with both armies in view', framed.out === 0, JSON.string
 if (framed.zoom < 0.99) {
   await tapBtn('Battle', { id: 'battle.zoom' });
   check('the zoom key takes the overview to 1x', await until(() => ev(() => Math.abs(window.__game.scene.getScene('Battle').cameras.main.zoom / window.__rs() - 1) < 0.01), 5000, 100));
-  G0 = await geo([]);
 }
+// the opening frames both armies, so the group may sit near the bottom sheet: centre it, so a drag back stays on the field
+await ev(() => { const s = window.__game.scene.getScene('Battle'); const c = s.groupCentre(); if (c) s.centerCam(c.x, c.y); });
+G0 = await geo([]);
 /** Would a deployment drop of the selected group at (cx, cy) land as it is (true), or does the overlap guard slide it off another group (QA-03 S3-8)? */
 const dropsClear = (cx, cy) =>
   ev(([cx, cy]) => {
@@ -465,11 +467,15 @@ await tapBtn('World', { label: 'Attack' });
 await need('second deployment', await until(() => active('Battle'), 30000));
 await tapBtn('Battle', { id: 'battle.fight' });
 await need('second battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
-// run until the shield-basher has a man in front of him, then pause and select him
+// run until the shield-basher has a man in front of him, then pause and select him.
+// The fight must still be on when bash comes ready: as in the first battle's staging, our men never break
+// and the band never quits the field (a swarm band's bot withdraws at its doctrine's retreatAt, and either
+// ended the battle before contact: the flake of "shield basher in contact", then "ability used")
 const ready = await ev((hid) => {
   const s = window.__game.scene.getScene('Battle');
   const u = s.sim.units.find((x) => x.heroId === hid);
-  s.sim.units.filter((x) => x.side === 0).forEach((x) => { x.hp = x.stats.maxHp * 5; });
+  s.sim.units.filter((x) => x.side === 0).forEach((x) => { x.hp = x.stats.maxHp * 5; x.stats.moraleLoss = 0; x.morale = x.stats.morale; });
+  for (const b of s.sim.bots) if (b.side === 1) b.doctrine = { ...b.doctrine, retreatAt: 0 };
   for (const g of s.sim.groups) if (g.side === 0) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' });
   for (let i = 0; i < 20 * 90 && s.sim.phase === 'battle'; i++) {
     s.sim.step();
@@ -480,9 +486,9 @@ const ready = await ev((hid) => {
   s.selGroup = u.group;
   s.selUnit = u.id;
   s.buildHud();
-  return s.sim.abilityReady(u, 'bash');
+  return { ready: s.sim.abilityReady(u, 'bash'), phase: s.sim.phase, t: s.sim.tick / 20 };
 }, hero0.id);
-check('shield basher in contact', ready);
+check('shield basher in contact', ready.ready, JSON.stringify(ready));
 await wait(300);
 await tapBtn('Battle', { id: 'battle.cmd.bash' }); // the ability medallion
 const usedBash = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.some((o) => o.side === 0 && o.order.kind === 'ability' && o.order.ability === 'bash'));

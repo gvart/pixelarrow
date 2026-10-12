@@ -7,7 +7,7 @@ import { GroupCard, PanelRow, numeralBadge, numeralColour, orderBadgeW, orderBar
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
+import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, endBannerKey, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -55,7 +55,7 @@ import { openAbilitySheet, openBattleMenu, type BattleMenuHandle } from '../ui/s
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { isCaptain, rallyRadius } from '../sim/stats';
 import { BOULDER_GEOM, TREE_GEOM, WORK_ART, renderBoulder, renderGlint, renderSparkle, renderTree, workSprites, type WorkSprite } from '../art/terrainArt';
-import { campaignSetup, markBattle, playerWorks, settleBattle } from '../game/campaignBattle';
+import { campaignSetup, markBattle, playerWorks, practiceOf, settleBattle, timedOut } from '../game/campaignBattle';
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
 import { t, tOr, type TKey } from '../i18n';
@@ -1803,9 +1803,12 @@ export class BattleScene extends BaseScene {
   private onEnd(winner: number): void {
     if (this.ending) return;
     this.ending = true;
-    // the winners strike their victory pose (a cosmetic picks which)
-    this.victorySide = winner === 0 || winner === 1 ? winner : -1;
-    const msg = this.retreatMsg ?? (winner === this.me ? t('battle.banner.victory') : winner === this.foe ? t('battle.banner.defeat') : t('battle.banner.draw'));
+    // a campaign battle out of time with both armies standing is a draw unless we won (QAFIX-WORLD S3-4, settleBattle)
+    const stalemate = !this.src && !this.tutorialData && !!state.pending && !practiceOf(state.pending) && timedOut(this.sim);
+    const key = endBannerKey(winner, this.me, this.foe, stalemate);
+    // the winners strike their victory pose (a cosmetic picks which); a draw has none
+    this.victorySide = key !== 'battle.banner.draw' && (winner === 0 || winner === 1) ? winner : -1;
+    const msg = this.retreatMsg ?? t(key);
     this.showBanner(msg, 0);
     hapticNotify(winner === this.me ? 'success' : 'error');
     this.time.delayedCall(1800, () => this.finish());
