@@ -345,13 +345,17 @@ export function finishLog(sim: Battle): BattleLog {
   return observeBattle(sim, sim.events);
 }
 
-// Every battle the client runs drains its events through here once a frame.
-const drain = Battle.prototype.drainEvents;
-Battle.prototype.drainEvents = function (this: Battle): SimEvent[] {
-  const e = drain.call(this);
-  observeBattle(this, e);
+/**
+ * Drain the sim's events for the screen and note them in the battle's log
+ * (the why-line). Every battle the client draws drains through here once a
+ * frame (BattleScene); a plain `sim.drainEvents()` (balance runs, tests) logs
+ * nothing, and `finishLog` still picks up whatever was never drained.
+ */
+export function drainLogged(sim: Battle): SimEvent[] {
+  const e = sim.drainEvents();
+  observeBattle(sim, e);
   return e;
-};
+}
 
 const clock = (tick: number): string => fmtClock(tick / TICK_RATE);
 

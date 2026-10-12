@@ -3,6 +3,29 @@ import type { BATTLE_EN } from './battle.en';
 import type { Entry } from './index';
 
 export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
+  // ---- меню битвы (BTL-01; hud.md §D): кнопка ⋯ в верхней панели
+  'battle.menu.key': 'Меню',
+  'battle.menu.tip': 'Меню битвы: отступление, звук, настройки',
+  'battle.menu.title': 'Битва',
+  'battle.menu.retreat': 'Отступить',
+  'battle.menu.leave': 'Покинуть поле',
+  'battle.menu.resetAll': 'Сбросить всё',
+  'battle.menu.skip': 'Пропустить обучение',
+  'battle.menu.settings': 'Настройки',
+  'battle.menu.soundOn': 'Звук: вкл.',
+  'battle.menu.soundOff': 'Звук: выкл.',
+  'battle.menu.continues': 'Пока меню открыто, битва продолжается.',
+  'battle.more.key': 'Ещё',
+  'battle.more.tip': 'Остальные умения отряда',
+  'battle.more.title': 'Умения',
+  // кнопки приказов уже 360 (hud.md §I): значок и короткое слово, без обрезки
+  'battle.short.advance': 'Впер.',
+  'battle.short.charge': 'Атака',
+  'battle.short.hold': 'Стой',
+  'battle.short.shoot': 'Огонь',
+  'battle.short.back': 'Отход',
+  'battle.short.feint': 'Финт',
+  'battle.paused.pill': 'Пауза',
   'battle.deploy.title': 'Расстановка',
   'battle.deploy.titleOnline': 'Расставьте войско',
   'battle.vs': 'против: {name}',

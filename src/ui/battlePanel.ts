@@ -10,8 +10,8 @@
  * check the same way (a container with w / h, texts framed by it).
  */
 import { RS } from '../platform/renderScale';
-import { mosaicImage, mtext, mw } from './mosaic/base';
-import { ParchmentRow } from './mosaic/cards';
+import { centeredFace, makePressable, midY, mosaicImage, mtext, mw, put } from './mosaic/base';
+import { SPACE } from './tokens';
 import { KeyButton, caps } from './mosaic/KeyButton';
 import { ROMAN, barLabels, markerGlyph, moraleGlyph, type MoraleState } from './battleHud';
 import { safeLocalStorage } from '../platform/storage';
@@ -812,7 +812,8 @@ export function worksTray(
   supplies: string,
   rows: WorksTrayRow[],
   minTop: number,
-): { c: Phaser.GameObjects.Container; top: number; rows: Map<string, ParchmentRow> } {
+  shortTitle?: string,
+): { c: Phaser.GameObjects.Container; top: number; rows: Map<string, PanelRow> } {
   const h = 16 + rows.length * (rowH + TRAY_GAP) - TRAY_GAP + 6;
   const y = Math.max(minTop, bottom - h);
   const c = scene.add.container(0, 0);
@@ -820,24 +821,88 @@ export function worksTray(
   c.add(uiBlocker(scene.add.rectangle(x, y, w, h, 0x000000, 0.001).setOrigin(0, 0).setInteractive()));
   c.add(mosaicImage(scene, x, y, w, h, 'sheet'));
   const sw = Math.ceil(mw(supplies, 'rInk', 7));
-  c.add(mtext(scene, x + 6, y + 5, caps(title), 'rInk', { size: 7.5, maxW: w - 18 - sw }));
+  // the title whole (BTL-01: never cut): a size down to the text floor, else the short name (the Works key's)
+  const room = w - 18 - sw;
+  const head = (() => {
+    for (const tt of [title, shortTitle ?? title]) for (const z of [7.5, 7, 6.5]) if (mw(caps(tt), 'rInk', z) <= room) return { text: caps(tt), size: z };
+    return { text: caps(shortTitle ?? title), size: 6.5 };
+  })();
+  c.add(mtext(scene, x + 6, y + 5 + (7.5 - head.size) / 2, head.text, 'rInk', { size: head.size, maxW: room }));
   c.add(mtext(scene, x + w - 6, y + 5, supplies, 'rInk', { size: 7, align: 1, maxW: sw + 2 }));
-  const out = new Map<string, ParchmentRow>();
+  const out = new Map<string, PanelRow>();
   const keyW = Math.max(22, rowH);
   let ry = y + 16;
   for (const r of rows) {
-    const row = new ParchmentRow(
-      scene,
-      x + 4,
-      ry,
-      w - 8 - keyW - TRAY_GAP,
-      { title: r.title, subtitle: r.subtitle, value: r.value, selected: r.selected, disabled: r.off, tip: r.tip, id: r.id, onClick: r.onPick },
-      rowH,
-    );
+    const row = new PanelRow(scene, x + 4, ry, w - 8 - keyW - TRAY_GAP, rowH, { title: r.title, subtitle: r.subtitle, value: r.value, selected: r.selected, disabled: r.off, tip: r.tip, id: r.id, onClick: r.onPick });
     c.add(row);
     out.set(r.id, row);
     c.add(new KeyButton(scene, x + w - 4 - keyW, ry, keyW, rowH, { icon: 'info', iconOnly: true, label: r.infoLabel, tip: r.tip, variant: 'stone', id: `${r.id}.info`, onClick: r.onInfo }));
     ry += rowH + TRAY_GAP;
   }
   return { c, top: y, rows: out };
+}
+
+export interface TrayRowOpts {
+  title: string;
+  /** The quieter line under the title. */
+  subtitle?: string;
+  /** At the right (a cost). */
+  value?: string;
+  /** An icon in a well at the left (the shape sheet). */
+  icon?: string;
+  selected?: boolean;
+  /** Greyed, and why (a tap says it). */
+  disabled?: string;
+  tip?: string;
+  id?: string;
+  onClick?: () => void;
+}
+
+/** The second line's size: the text floor (A11Y-09), where the kit's ParchmentRow writes 6. */
+const TRAY_SUB = 6.5;
+
+/**
+ * A row of the battle's trays (the works tray, the shape sheet; BTL-01): the
+ * kit's parchment row (mosaic/cards.ts ParchmentRow) with its quieter line at
+ * the text floor (6.5 UI px, A11Y-09) instead of 6.
+ */
+export class PanelRow extends Phaser.GameObjects.Container {
+  readonly w: number;
+  readonly h: number;
+  readonly opts: { label: string };
+
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, o: TrayRowOpts) {
+    super(scene, Math.round(x), Math.round(y));
+    this.w = Math.round(w);
+    this.h = Math.max(22, Math.round(h));
+    this.opts = { label: o.title };
+    const off = !!o.disabled;
+    const face = centeredFace(scene, this.w, this.h);
+    this.add(face);
+    const P = <T extends Phaser.GameObjects.GameObject & { x: number; y: number }>(obj: T): T => put(face, this.w, this.h, obj);
+    P(mosaicImage(scene, 0, 0, this.w, this.h, o.selected ? 'parchmentSel' : 'parchment'));
+    let x0 = SPACE.md + 2;
+    if (o.icon) {
+      const th = this.h - SPACE.md * 2 + 2;
+      const ty0 = Math.round((this.h - th) / 2);
+      P(mosaicImage(scene, x0, ty0, th, th, 'parchmentWell'));
+      const ic = addIcon(scene, 0, 0, o.icon, off ? 'D' : '');
+      ic.setScale(Math.min(1.4, (th - 4) / 12) * (ic.scaleX || 1));
+      ic.setPosition(x0 + Math.round((th - ic.displayWidth) / 2), ty0 + Math.round((th - ic.displayHeight) / 2));
+      P(ic);
+      x0 += th + SPACE.md;
+    }
+    const rightW = o.value ? mw(o.value, 'pInk') + SPACE.md : 0;
+    const tw = this.w - x0 - SPACE.md - rightW;
+    const frame = { owner: this as Phaser.GameObjects.Container, w: this.w, h: this.h };
+    const two = !!o.subtitle;
+    const ty = two ? Math.round((this.h - 19.5) / 2) : midY(this.h, 7.5);
+    P(mtext(scene, x0, ty, o.title, off ? 'pOff' : 'rInk', { size: 7, maxW: tw, box: frame }));
+    if (two) P(mtext(scene, x0, ty + 10, o.subtitle!, off ? 'pOff' : 'pSec', { size: TRAY_SUB, maxW: tw, box: frame }));
+    if (o.value) P(mtext(scene, this.w - SPACE.md - 1, midY(this.h), o.value, off ? 'pOff' : 'pInk', { align: 1, maxW: rightW + 6, box: frame }));
+    if (off) P(scene.add.rectangle(0, 0, this.w, this.h, MOSAIC.parchLo, 0.45).setOrigin(0, 0));
+    if (o.onClick || off) makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick ?? (() => undefined), disabled: () => o.disabled, tip: o.tip });
+    uiId(this, o.id ?? `row:${o.title}`);
+    scene.add.existing(this);
+  }
 }

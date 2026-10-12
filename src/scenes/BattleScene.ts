@@ -3,11 +3,11 @@ import { BaseScene } from './BaseScene';
 import { ICON_PX, Meter, addIcon, addText, holdTimer, longPress, scaleIcon, uiMetrics, type HoldTimer } from '../ui/kit';
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, hintStore, openModal, toast, Label, type Modal } from '../ui/widgets';
-import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, strokeReticle, worksTray } from '../ui/battlePanel';
+import { GroupCard, PanelRow, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, strokeReticle, worksTray } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
-import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
+import { KeyButton, MButton, caps, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, type BadgeSpec, type TopBarOpts } from '../ui/battleHud';
+import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -40,7 +40,7 @@ import type { BattleSource } from '../online/battleSource';
 import { createDeployClock, foeIsReady, markStarted, pressReady, secondsLeft, tickDeploy, urgent, type DeployAction, type DeployClock } from '../online/deployClock';
 import { reportBattle, snapshotSetup } from '../platform/verify';
 import { generateEnemyArmy } from '../game/enemy';
-import { lastBattle, unitStats } from '../game/report';
+import { drainLogged, lastBattle, unitStats } from '../game/report';
 import { GROUP_NAMES, type Hero } from '../data/units';
 import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
@@ -50,7 +50,8 @@ import { FlankWatch, flankArc, flankThreats, type Vec } from '../ui/flankArc';
 import { BeastView } from '../ui/beastView';
 import { openSettings } from '../ui/settings';
 import { battleAudio, uiError } from '../audio/hooks';
-import { sfx } from '../audio';
+import { audio, sfx } from '../audio';
+import { openAbilitySheet, openBattleMenu, type BattleMenuHandle } from '../ui/sheets/battleMenu';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { isCaptain, rallyRadius } from '../sim/stats';
 import { BOULDER_GEOM, TREE_GEOM, WORK_ART, renderBoulder, renderGlint, renderSparkle, renderTree, workSprites, type WorkSprite } from '../art/terrainArt';
@@ -148,6 +149,8 @@ interface OrderKey {
   key: string;
   icon: string;
   label: string;
+  /** The word under 360 wide when the full ones do not fit (hud.md §I). */
+  short: string;
   tip: string;
   /** The order in force. */
   selected: boolean;
@@ -261,6 +264,8 @@ export class BattleScene extends BaseScene {
   private tagPos = new Map<number, { x: number; y: number }>();
   private top: TopBar | null = null;
   private hintPill: HintPill | null = null;
+  /** The open ⋯ battle menu (BTL-01), if any. */
+  private menu: BattleMenuHandle | null = null;
   private sitKey = '';
   /** What the order row was built for (ordersKey): the HUD is rebuilt when it changes. */
   private ordersBuilt = '';
@@ -410,6 +415,7 @@ export class BattleScene extends BaseScene {
     this.ending = false;
     this.victorySide = -1;
     this.retreatMsg = null;
+    this.menu = null;
     this.overlay = null;
     this.leaveDialog = null;
     this.banner = null;
@@ -605,6 +611,9 @@ export class BattleScene extends BaseScene {
     this.arcG = this.add.graphics();
     this.tags.add(this.arcG);
     this.ui.add(this.hud);
+    // the boss bar is HUD chrome (Z2): over the field badges, under the HUD's sheets
+    const bossBar = this.beasts?.barObject;
+    if (bossBar) this.ui.moveAbove(bossBar, this.tags);
     this.selGroup = this.firstPlayerGroup();
     this.buildHud();
     this.frameArmies();
@@ -623,7 +632,7 @@ export class BattleScene extends BaseScene {
       confirmClose: true,
       settings: () => {
         if (this.sim.phase === 'battle' && !this.paused && !this.realtimeLocked) this.setPaused(true);
-        openSettings(this);
+        openSettings(this, () => this.settingsClosed());
       },
     });
     if (this.tutorialData) {
@@ -851,7 +860,7 @@ export class BattleScene extends BaseScene {
         }
         ls?.beforeStep();
         this.sim.step();
-        this.handleEvents(this.sim.drainEvents());
+        this.handleEvents(drainLogged(this.sim));
         this.acc -= DT;
         steps++;
       }
@@ -859,7 +868,7 @@ export class BattleScene extends BaseScene {
       this.hudDirty = true;
       this.fireThen();
     } else if (this.sim.phase === 'ended') {
-      this.handleEvents(this.sim.drainEvents());
+      this.handleEvents(drainLogged(this.sim));
     }
     const alpha = this.sim.phase === 'battle' && !this.paused ? Math.min(1, this.acc / DT) : 1;
     this.fitBounds();
@@ -2705,17 +2714,17 @@ export class BattleScene extends BaseScene {
     const maxW = VW - 60;
     const lines = wrapText(msg, maxW - 12, maxLines).lines;
     const w = Math.max(60, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
-    const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 2, false, 6).lines : [];
-    const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6))) + 14 : 0;
+    const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 3, false, 6.5).lines : [];
+    const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6.5))) + 14 : 0;
     const bw = Math.min(maxW, Math.max(w, subW));
-    const h = lines.length * LINE_H + 8 + sub.length * 8;
+    const h = lines.length * LINE_H + 8 + Math.ceil((sub.length * LINE_H * 6.5) / 7);
     const x = Math.round(left + (VW - left - bw) / 2);
-    const y = this.topH() + 4;
+    const y = this.bannerTop();
     c.add(mosaicImage(this, x, y, bw, h, 'parchment'));
     const txt = addText(this, x + bw / 2, y + 4, lines.join('\n'), 'pInk', 0.5);
     txt.setCenterAlign();
     c.add(txt);
-    if (sub.length) c.add(addText(this, x + bw / 2, y + 4 + lines.length * LINE_H, sub.join('\n'), 'pSec', 0.5).setFontSize(6).setCenterAlign());
+    if (sub.length) c.add(addText(this, x + bw / 2, y + 4 + lines.length * LINE_H, sub.join('\n'), 'pSec', 0.5).setFontSize(6.5).setCenterAlign());
     this.ui.add(c);
     this.banner = c;
     this.hintPill?.setText('');
@@ -2790,7 +2799,7 @@ export class BattleScene extends BaseScene {
     this.hud.add(this.top);
     // following the fight: a small eye at the field's top right (battle only); left-hand mode mirrors it (A11Y-16)
     const pillW = VW - 2 * 30;
-    if (this.sim.phase === 'battle' && !this.realtimeLocked) {
+    if (this.sim.phase === 'battle') {
       const fb = new KeyButton(this, mirrorX(VW - 26, 22, VW, this.leftHand), this.cornerY(this.leftHand), 22, 22, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), lit: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
       this.hud.add(fb);
       this.followBtn = fb;
@@ -2801,7 +2810,7 @@ export class BattleScene extends BaseScene {
       this.zoomBtn = new KeyButton(this, mirrorX(4, 22, VW, this.leftHand), this.cornerY(!this.leftHand), 22, 22, { label: `${z}×`, tip: t('attn.tip.zoom'), id: 'battle.zoom', variant: 'bronze', plain: true, onClick: () => this.stepZoom() });
       this.hud.add(this.zoomBtn);
     }
-    this.hintPill = new HintPill(this, VW / 2, TOP_H + 4, pillW);
+    this.hintPill = new HintPill(this, VW / 2, this.bannerTop(), pillW);
     this.hud.add(this.hintPill);
     if (this.dclock && this.sim.phase === 'deploy') {
       // the online deployment's draining bar along the top bar's bottom edge
@@ -2812,42 +2821,84 @@ export class BattleScene extends BaseScene {
     }
   }
 
-  /** Top of a field corner key (the eye, the zoom key): a beast battle's boss bar runs across the top left, so a key there sits under it. */
-  private cornerY(left: boolean): number {
-    return TOP_H + 4 + (left && this.beasts ? 24 : 0);
+  /** Top of a field corner key (the eye, the zoom key): Z2 of hud.md §C; a beast battle's boss bar runs between them. */
+  private cornerY(_left: boolean): number {
+    return TOP_H + 4;
+  }
+
+  /** Top of Z3 (banners, the Paused pill, the hint): under the corner keys' row, so never over the boss bar (BTL-1). */
+  private bannerTop(): number {
+    return TOP_H + 4 + (this.beasts?.hasBar ? 24 : 0);
   }
 
   private topOpts(): TopBarOpts {
-    const deploy = this.sim.phase === 'deploy';
     const ended = this.sim.phase === 'ended';
-    if (deploy) {
-      return {
-        left: { icon: 'back', label: t('battle.strip.leave'), tip: t('battle.tip.leave'), id: 'battle.leave', onClick: () => this.confirmLeaveDeploy() },
-        right: { icon: 'people', label: t('battle.strip.men'), tip: t('battle.tip.groups'), id: 'battle.groups', onClick: () => this.openGroups() },
-      };
-    }
-    const flee: StripSlot = { icon: 'flag', label: t('battle.strip.flee'), tip: t('battle.tip.retreat'), id: 'battle.retreat', off: ended ? t('battle.why.over') : undefined, destructive: !ended, onClick: () => this.openRetreat() };
-    if (this.realtimeLocked) {
-      return {
-        left: { icon: 'eye', label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), selected: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() },
-        right: flee,
-      };
-    }
+    // Z1 (hud.md §C): the ⋯ battle menu holds Leave, Reset all, Retreat, Sound and Settings (ELEMENT_MAP E179, E183, E195, E208)
+    const menu: StripSlot = { icon: 'menu', label: t('battle.menu.key'), tip: t('battle.menu.tip'), id: 'battle.menu', onClick: () => this.openMenu() };
+    if (this.sim.phase === 'deploy' || this.realtimeLocked) return { menu, leftHand: this.leftHand };
     return {
-      left: this.paused
+      menu,
+      pause: this.paused
         ? { icon: 'play', label: t('battle.strip.play'), tip: t('battle.tip.pause'), id: 'battle.play', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() }
         : { icon: 'pause', label: t('battle.strip.pause'), tip: t('battle.tip.pause'), id: 'battle.pause', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() },
-      mid: { icon: 'fast', label: speedLabel(this.speed), selected: this.speed !== 1, tip: t('pace.tip.speed', { list: SPEEDS[this.pace].map(speedLabel).join(', ') }), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
-      right: flee,
+      speed: { icon: 'fast', label: speedLabel(this.speed), selected: this.speed !== 1, tip: t('pace.tip.speed', { list: SPEEDS[this.pace].map(speedLabel).join(', ') }), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
       // paused, Play is the one thing to do next
-      primary: this.paused && !ended ? 'left' : undefined,
+      primary: this.paused && !ended,
+      leftHand: this.leftHand,
     };
+  }
+
+  /**
+   * The ⋯ battle menu (hud.md §D, BTL-01). Opening it pauses an offline fight;
+   * closing it without a pick lets the fight run on as it was. Under
+   * `realtimeLocked` it never pauses and offers only Retreat and Sound (A11Y-18).
+   */
+  openMenu(): BattleMenuHandle | null {
+    if (this.menu && !this.menu.closed) return this.menu;
+    if (this.overlay) return null;
+    const fighting = this.sim.phase === 'battle';
+    const wasPaused = this.paused;
+    if (fighting && !this.paused && !this.realtimeLocked && !this.tutorial) this.setPaused(true);
+    const restore = () => {
+      if (fighting && !wasPaused && this.paused && this.sim.phase === 'battle') this.setPaused(false);
+    };
+    const st = state.campaign.data.settings;
+    this.menu = openBattleMenu(this, {
+      state: { phase: this.sim.phase === 'deploy' ? 'deploy' : fighting ? 'battle' : 'ended', realtimeLocked: this.realtimeLocked, tutorial: !!this.tutorial, online: !!this.src },
+      soundOn: () => st.sound !== false,
+      toggleSound: () => {
+        st.sound = st.sound === false;
+        audio.refresh();
+        void state.save();
+      },
+      onDismiss: restore,
+      onPick: (item) => {
+        if (item === 'retreat') {
+          // the retreat confirm pauses on its own and resumes on Stay
+          restore();
+          this.openRetreat();
+        } else if (item === 'leave') this.confirmLeaveDeploy();
+        else if (item === 'resetAll') this.resetDeploy();
+        else if (item === 'skip') this.tutorial?.askSkip();
+        // Settings keeps the fight paused while it is open (ELEMENT_MAP E208)
+        else openSettings(this, () => this.settingsClosed());
+      },
+    });
+    return this.menu;
+  }
+
+  /** Settings closed over the battle: a changed Left-hand setting (A11Y-16) moves the HUD at once. */
+  private settingsClosed(): void {
+    if (!this.scene.isActive()) return;
+    const left = !!state.campaign.data.settings.leftHand;
+    if (left === this.leftHand) return;
+    this.leftHand = left;
+    this.buildHud();
   }
 
   /** Swap the top bar's actions (pause / play, speed) without rebuilding the HUD. */
   private refreshStrip(): void {
     this.top?.set(this.topOpts());
-    if (this.realtimeLocked && this.top?.buttons.left) this.followBtn = this.top.buttons.left;
   }
 
   /** The sentence, the clock and the strength row for this moment (rebuilt only when they change). */
@@ -2856,7 +2907,7 @@ export class BattleScene extends BaseScene {
     const sim = this.sim;
     const deploy = sim.phase === 'deploy';
     let sentence: string;
-    let urgent = false;
+    let tone: HintTone = 'info';
     const mine = sim.units.filter((u) => u.side === this.me && sim.isAlive(u)).length;
     if (deploy) {
       sentence = this.src?.lockstep ? t('battle.sit.deployDuel') : this.src ? t('battle.sit.deployHidden') : t('battle.sit.deploy');
@@ -2873,11 +2924,11 @@ export class BattleScene extends BaseScene {
       if (sim.phase === 'ended') sentence = t('battle.sit.ended');
       else if (this.paused) {
         sentence = t('battle.sit.paused');
-        urgent = true;
+        tone = 'paused';
       } else if (engaged && ours - theirs > 25) sentence = t('battle.sit.winning');
       else if (engaged && theirs - ours > 25) {
         sentence = t('battle.sit.losing');
-        urgent = true;
+        tone = 'alert';
       } else if (engaged) sentence = t('battle.sit.contact', { ours, theirs });
       else if (sel && !sel.disbanded && sim.activeMembers(sel.id).length > 0) {
         const numeral = this.cards.find((c) => c.gid === sel.id)?.numeral ?? '';
@@ -2891,11 +2942,11 @@ export class BattleScene extends BaseScene {
       else this.top.setTime(fmtClock(Math.floor(sim.tick / TICK_RATE)), this.speed > 1 ? t('battle.num.fast') : this.speed < 1 ? t('pace.slow') : this.realtimeLocked ? t('battle.strip.live') : t('battle.top.time'));
       this.top.setRow({ ours, theirs, you: t('battle.top.you'), foe: t('battle.top.foe') });
     }
-    const key = `${sentence}|${urgent}`;
+    const key = `${sentence}|${tone}`;
     if (key === this.sitKey) return;
     this.sitKey = key;
     // a banner (Paused, a message) sits where the hint goes: the hint waits
-    this.hintPill.setText(this.banner ? '' : sentence, urgent);
+    this.hintPill.setText(this.banner ? '' : sentence, tone);
   }
 
   /**
@@ -3005,59 +3056,62 @@ export class BattleScene extends BaseScene {
       this.hud.add(card);
       this.cards.push({ gid: g.id, card, numeral });
     });
-    // the header: whose orders, and the chips (shape, reset / solo / join)
+    // the header: whose orders, and the chips (shape; Groups in deployment, hud.md Z8; solo / join)
     let y = y0 + 5 + this.cardRows() * (SHEET_CARD_H + SIZE.gap) - SIZE.gap + 4;
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
     const numeral = sel ? this.cards.find((c) => c.gid === sel.id)?.numeral ?? '' : '';
     const selName = sel ? (sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim()) : '';
-    const chips: { icon: string; label: string; tip: string; id: string; selected?: boolean; off?: string; onClick: () => void }[] = [];
+    const chips: { icon: string; label: string; short?: string; tip: string; id: string; selected?: boolean; off?: string; onClick: () => void }[] = [];
     const shapeOf = sel && !sel.disbanded ? sel.formation.type : null;
     const preset = PRESETS.find((p) => p[0] === shapeOf);
+    const shapeName = preset ? t(`battle.cmd.${preset[1]}` as TKey) : t('battle.shape.chip');
     chips.push({
       icon: preset ? preset[2] : 'f_line',
-      label: preset ? t('battle.orders.formation', { shape: t(`battle.cmd.${preset[1]}` as TKey) }) : t('battle.shape.chip'),
+      label: preset ? t('battle.orders.formation', { shape: shapeName }) : shapeName,
+      short: shapeName,
       selected: this.shapeOpen,
       off: sel && this.canCommand() ? undefined : t('battle.why.noGroup'),
       tip: t('battle.tip.cat.formation'),
       id: 'battle.cat.formation',
       onClick: () => this.openCategory('formation'),
     });
-    if (deploy && !this.online) chips.push({ icon: 'repair', label: t('battle.strip.reset'), tip: t('battle.tip.reset'), id: 'battle.reset', onClick: () => this.resetDeploy() });
+    // Reset all moved to the ⋯ menu, away from FIGHT! (A11Y-08); Groups took its place (ELEMENT_MAP E180)
+    if (deploy) chips.push({ icon: 'people', label: t('battle.groups'), tip: t('battle.tip.groups'), id: 'battle.groups', onClick: () => this.openGroups() });
     const u = !deploy && this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
     if (u && this.sim.groups[u.group].individual) chips.push({ icon: 'people', label: t('battle.ring.join'), tip: t('battle.tip.join'), id: 'battle.cmd.join', onClick: () => this.rejoin(u) });
     else if (u) chips.push({ icon: 'detach', label: t('battle.ring.solo'), tip: t('battle.tip.solo'), id: 'battle.cmd.solo', onClick: () => this.detach(u) });
+    // in battle the selected group's numeral badge, in its colour, leads the line (controls.md R1.3)
+    const badge = !deploy && sel ? groupNumeral(this.sim.groups, sel.id) : '';
+    const tx = badge ? 4 + orderBadgeW(badge) + 4 : 6;
+    const barName = badge && sel && !sel.individual ? groupName(sel.name) : selName;
+    // the header's words stay at the text floor (A11Y-09): the title keeps at least the group's name, the shape
+    // chip drops "Formation:" before that, and a chip that still does not fit shows its icon alone
+    const chipW = (label: string) => Math.min(112, Math.ceil(mw(caps(label), 'rCream', 6.5)) + 22);
+    const titleNeed = !deploy && sel ? tx + Math.ceil(mw(caps(barName), 'rGold', 6.5)) + 6 : 0;
+    const budget = VW - 4 - titleNeed - SIZE.gap * (chips.length - 1);
+    const labels = chips.map((c) => c.label);
+    const total = () => labels.reduce((a, l) => a + (l ? chipW(l) : SHEET_HEAD_H + 2), 0);
+    if (total() > budget && chips[0].short) labels[0] = chips[0].short;
+    for (let i = chips.length - 1; i >= 0 && total() > budget; i--) labels[i] = '';
     let cx = VW - 4;
-    // natural widths, squeezed (never under a touch target) to leave the title a little room
-    const nat = chips.map((c) => Math.min(112, Math.ceil(mw(caps(c.label), 'rCream', 6.5)) + 22));
-    const budget = VW - 8 - 60 - SIZE.gap * (chips.length - 1);
-    const sum = nat.reduce((a, n) => a + n, 0);
-    const widths = sum <= budget ? nat : nat.map((n) => Math.max(24, Math.floor((n * budget) / sum)));
-    chips.reverse();
-    widths.reverse();
-    for (const [ci, c] of chips.entries()) {
-      const w = widths[ci];
+    for (let ci = chips.length - 1; ci >= 0; ci--) {
+      const c = chips[ci];
+      const label = labels[ci];
+      const w = label ? chipW(label) : SHEET_HEAD_H + 2;
       cx -= w;
-      const b = new KeyButton(this, cx, y - 1, w, SHEET_HEAD_H, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', lit: c.selected, disabledReason: c.off, onClick: c.onClick });
+      const b = new KeyButton(this, cx, y - 1, w, SHEET_HEAD_H, { icon: c.icon, label: label || c.label, iconOnly: !label, tip: c.tip, id: c.id, variant: 'bronze', lit: c.selected, disabledReason: c.off, onClick: c.onClick });
       this.hud.add(b);
       if (c.id === 'battle.cat.formation') this.tabBtns.set('formation', b);
       if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), b);
       cx -= SIZE.gap;
     }
-    // in battle the selected group's numeral badge, in its colour, leads the line (controls.md R1.3)
-    const badge = !deploy && sel ? groupNumeral(this.sim.groups, sel.id) : '';
-    let tx = 6;
-    if (badge) {
-      this.hud.add(numeralBadge(this, 4, y + 1, SHEET_HEAD_H - 4, badge));
-      tx = 4 + orderBadgeW(badge) + 4;
-    }
-    const barName = badge && sel && !sel.individual ? groupName(sel.name) : selName;
-    const title = deploy ? t('battle.shape.chip') : sel ? t('battle.orders.title', { group: barName }) : '';
+    if (badge) this.hud.add(numeralBadge(this, 4, y + 1, SHEET_HEAD_H - 4, badge));
+    // the orphan "Shape" title of the deployment is gone (BTL-8): the chip says it
+    const title = !deploy && sel ? t('battle.orders.title', { group: barName }) : '';
     if (title) {
-      // the whole line (a size down when it must), else only the group's name
-      const room = cx - tx - 4;
-      const size = [6.5, 6, 5.5].find((z) => mw(caps(title), 'rGold', z) <= room);
-      const line = size ? title : !deploy && sel ? barName : title;
-      this.hud.add(mtext(this, tx, y + 3 + (size === 5.5 ? 0.5 : 0), caps(line), 'rGold', { size: size ?? 6.5, maxW: room }));
+      const room = cx - tx - 2;
+      const line = mw(caps(title), 'rGold', 6.5) <= room ? title : barName;
+      this.hud.add(mtext(this, tx, y + 3, caps(line), 'rGold', { size: 6.5, maxW: room }));
     }
     y += SHEET_HEAD_H + 3;
     // the row: Fight (deployment) or the five orders (battle)
@@ -3081,20 +3135,23 @@ export class BattleScene extends BaseScene {
     // the bar wears the selected group's colour (its numeral badge heads the line above; controls.md R1.3, PLAY C3)
     this.hud.add(orderBarPlate(this, 4, y, VW - 8, SHEET_ORDERS_H, groupNumeral(this.sim.groups, sel!.id)));
     // a long word gets a wider key rather than an ellipsis (controls.md R9: "Стрелять" at 360, "Advance" at 320)
-    const keyW = orderKeyWidths(
+    // at the text floor (hud.md §I): the full words when they fit, else the short ones ("Adv.", "Back off")
+    const { words, iconOnly } = orderLabels(
       orders.map((o) => o.label),
+      orders.map((o) => o.short),
       VW - 8,
       SIZE.gap,
     );
-    // one face for the whole row: capitals when every word fits an equal share as such, else Inter (as before CT-02)
-    const even = Math.floor((VW - 8 - SIZE.gap * (orders.length - 1)) / orders.length);
-    const plain = orders.some((o) => mw(caps(o.label), 'rCream', 5.5) > even - 4);
+    const keyW = iconOnly ? orders.map(() => Math.floor((VW - 8 - SIZE.gap * (orders.length - 1)) / orders.length)) : orderKeyWidths(words, VW - 8, SIZE.gap);
+    // one face for the whole row: capitals when every word fits its key as such, else Inter
+    const plain = words.some((w, i) => mw(caps(w), 'rCream', 6.5) > keyW[i] - 4);
     let kx = 4;
     orders.forEach((o, i) => {
       const bw = keyW[i];
       const b = new KeyButton(this, kx, y, bw, SHEET_ORDERS_H, {
         icon: o.icon,
-        label: o.label,
+        label: words[i],
+        iconOnly,
         tip: o.tip,
         id: `battle.cmd.${o.key}`,
         variant: 'bronze',
@@ -3251,7 +3308,7 @@ export class BattleScene extends BaseScene {
     this.order({ kind: 'ability', unit: b.id, ability: RAISE_STANDARD as AbilityId });
     haptic('heavy');
     this.showBanner(r.note ? `${t('attn.std.banner', { name: b.name })} ${t(r.note)}` : t('attn.std.banner', { name: b.name }), 1600, 4);
-    this.handleEvents(this.sim.drainEvents());
+    this.handleEvents(drainLogged(this.sim));
     this.hudDirty = true;
   }
 
@@ -3269,12 +3326,13 @@ export class BattleScene extends BaseScene {
     const { VW } = this.m;
     // the rail runs down the right edge; left-hand mode mirrors it to the left (A11Y-16)
     const x = mirrorX(VW - MED_W - 2, MED_W, VW, this.leftHand);
-    let y = (this.followBtn && !this.realtimeLocked ? this.cornerY(this.leftHand) + 26 : TOP_H + 6);
+    let y = this.followBtn ? this.cornerY(this.leftHand) + 26 : TOP_H + 6;
     const bottom = this.stripTop() - (this.selUnit >= 0 ? 29 : 2);
     const tabs = this.tabBtns;
     this.railW = MED_W + 4;
-    for (const d of defs) {
-      if (y + MED_H > bottom) break;
+    // at most 3 medallions (2 on a short field) and the "more" key for the rest (hud.md Z5)
+    const { shown, more } = railLayout(defs.length, this.stripTop() - TOP_H, bottom - y);
+    for (const d of defs.slice(0, shown)) {
       const m = new Medallion(this, x, y, { icon: d.icon, label: d.label, sub: d.sub, tip: d.tip, id: `battle.cmd.${d.key}`, onClick: d.run });
       this.hud.add(m);
       this.cmdBtns.set(d.key, m);
@@ -3282,9 +3340,33 @@ export class BattleScene extends BaseScene {
       if (d.key === 'standard') this.stdBtn = m;
       y += MED_H + 4;
     }
+    if (more) {
+      const rest = defs.slice(shown);
+      const mk = new KeyButton(this, x, y, MED_W, MORE_H, { icon: 'more', label: t('battle.more.key'), tip: t('battle.more.tip'), id: 'battle.more', variant: 'bronze', plain: true, onClick: () => this.openMore(rest) });
+      this.hud.add(mk);
+    }
     // the tutorial lights the first ability when it asks for one
     const first = this.cmdBtns.get(defs[0].key);
     if (!tabs.has('abilities') && first) tabs.set('abilities', first);
+  }
+
+  /** The rail's overflow (hud.md Z5 "more"): a sheet of the other abilities. Offline it pauses while open. */
+  private openMore(defs: ReturnType<BattleScene['abilityDefs']>): void {
+    if (this.overlay) return;
+    const fighting = this.sim.phase === 'battle';
+    const wasPaused = this.paused;
+    if (fighting && !this.paused && !this.realtimeLocked && !this.tutorial) this.setPaused(true);
+    const restore = () => {
+      if (fighting && !wasPaused && this.paused && this.sim.phase === 'battle') this.setPaused(false);
+    };
+    openAbilitySheet(this, {
+      items: defs.map((d) => ({ key: d.key, icon: d.icon, label: d.label, sub: d.sub })),
+      onDismiss: restore,
+      onPick: (key) => {
+        restore();
+        defs.find((d) => d.key === key)?.run();
+      },
+    });
   }
 
   // ---- the order row of the bottom sheet
@@ -3307,13 +3389,13 @@ export class BattleScene extends BaseScene {
     const fk = this.fifth(sel, arming);
     const fifth: OrderKey =
       fk.key === 'feint'
-        ? { key: 'feint', icon: 'back', label: t('attn.feint'), tip: t('attn.tip.feint'), selected: now === 'feint', off: why, onTap: () => (sel.order === 'feint' ? this.showBanner(t('attn.tip.feint'), 1600) : this.feint()) }
-        : { key: 'fallback', icon: 'fallback', label: t('battle.ring.back'), tip: fk.cdLeftS > 0 ? t('attn.tip.backCd', { n: fk.cdLeftS }) : t('battle.tip.radialBack'), selected: now === 'fallback', off: why, onTap: order('fallback') };
+        ? { key: 'feint', icon: 'back', label: t('attn.feint'), short: t('battle.short.feint'), tip: t('attn.tip.feint'), selected: now === 'feint', off: why, onTap: () => (sel.order === 'feint' ? this.showBanner(t('attn.tip.feint'), 1600) : this.feint()) }
+        : { key: 'fallback', icon: 'fallback', label: t('battle.ring.back'), short: t('battle.short.back'), tip: fk.cdLeftS > 0 ? t('attn.tip.backCd', { n: fk.cdLeftS }) : t('battle.tip.radialBack'), selected: now === 'fallback', off: why, onTap: order('fallback') };
     const orders: OrderKey[] = [
-      { key: 'advance', icon: 'advance', label: t('battle.ring.advance'), tip: t('battle.tip.radialAdvance'), selected: now === 'advance', off: why, onTap: order('advance') },
-      { key: 'charge', icon: 'charge', label: t('battle.ring.charge'), tip: t('battle.tip.radialCharge'), selected: now === 'charge', off: why, onTap: order('charge') },
-      { key: 'hold', icon: 'hold', label: t('battle.ring.hold'), tip: t('battle.tip.radialHold'), selected: now === 'hold', off: why, onTap: order('hold') },
-      { key: 'loose', icon: 'throw', label: t('battle.ring.shoot'), tip: t('battle.tip.radialShoot'), selected: (this.plan.last(sel.id, 'loose')?.on ?? sel.fireAtWill) && ammo, hollow: sel.fireAtWill && ammo && this.far.has(sel.id), off: shootWhy, onTap: () => (arming ? this.queueThen('loose') : this.toggleThrow()) },
+      { key: 'advance', icon: 'advance', label: t('battle.ring.advance'), short: t('battle.short.advance'), tip: t('battle.tip.radialAdvance'), selected: now === 'advance', off: why, onTap: order('advance') },
+      { key: 'charge', icon: 'charge', label: t('battle.ring.charge'), short: t('battle.short.charge'), tip: t('battle.tip.radialCharge'), selected: now === 'charge', off: why, onTap: order('charge') },
+      { key: 'hold', icon: 'hold', label: t('battle.ring.hold'), short: t('battle.short.hold'), tip: t('battle.tip.radialHold'), selected: now === 'hold', off: why, onTap: order('hold') },
+      { key: 'loose', icon: 'throw', label: t('battle.ring.shoot'), short: t('battle.short.shoot'), tip: t('battle.tip.radialShoot'), selected: (this.plan.last(sel.id, 'loose')?.on ?? sel.fireAtWill) && ammo, hollow: sel.fireAtWill && ammo && this.far.has(sel.id), off: shootWhy, onTap: () => (arming ? this.queueThen('loose') : this.toggleThrow()) },
       fifth,
     ];
     return orders;
@@ -3481,11 +3563,12 @@ export class BattleScene extends BaseScene {
           : type === 'orb' && !this.sim.canOrb(sel.id)
             ? t('attn.orb.why.riders')
             : undefined;
-      const row = new ParchmentRow(
+      const row = new PanelRow(
         this,
         x + 4,
         ry,
         w - 8,
+        rowH,
         {
           icon,
           title: t(`battle.cmd.${key}` as TKey),
@@ -3503,7 +3586,6 @@ export class BattleScene extends BaseScene {
             if (warn) this.showBanner(t('attn.orb.warn'), 2600, 4);
           },
         },
-        rowH,
       );
       c.add(row);
       this.cmdBtns.set(`form_${type}`, row);
@@ -3751,7 +3833,7 @@ export class BattleScene extends BaseScene {
     });
     const supplies = t('works.supplies', { n: Math.floor(state.campaign.worksLeft(this.sim.works())) });
     const top = this.worksTrayTop();
-    const tray = worksTray(this, 4, top + this.worksTrayH(), this.m.VW - 8, this.compact ? 22 : 24, t('works.title'), supplies, rows, top);
+    const tray = worksTray(this, 4, top + this.worksTrayH(), this.m.VW - 8, this.compact ? 22 : 24, t('works.title'), supplies, rows, top, t('works.chip'));
     this.hud.add(tray.c);
     for (const [id, row] of tray.rows) this.cmdBtns.set(id.slice('battle.'.length), row);
   }
@@ -4011,7 +4093,7 @@ export class BattleScene extends BaseScene {
       const sy = (top - 46 - cam.worldView.y) * cam.zoom;
       let tag = this.tagMap.get(g.id);
       const sel = this.selGroup === g.id;
-      const spec: BadgeSpec = { numeral: label, mine, selected: sel, readout: groupReadout(this.sim, g.id, (u) => isCaptain(this.views[u.id].hero)), focused: !mine && focused.has(g.id) };
+      const spec: BadgeSpec = { numeral: label, mine, selected: sel, readout: groupReadout(this.sim, g.id, (u) => isCaptain(this.views[u.id].hero)), focused: !mine && focused.has(g.id), feinting: mine && g.order === 'feint' && !g.routed, queued: mine && this.thenQ.get(g.id) !== null };
       if (!tag || tag.getData('key') !== badgeKey(spec)) {
         tag?.destroy();
         const made = fieldBadge(this, spec);
@@ -4209,7 +4291,7 @@ export class BattleScene extends BaseScene {
       users = [ready.slice().sort((a, b) => score(b) - score(a))[0]];
     }
     for (const u of users) this.order({ kind: 'ability', unit: u.id, ability: id });
-    this.handleEvents(this.sim.drainEvents());
+    this.handleEvents(drainLogged(this.sim));
     this.hudDirty = true;
     this.tutorialEvent({ kind: 'ability' });
   }
@@ -4354,7 +4436,7 @@ export class BattleScene extends BaseScene {
         this.overlay = null;
         if (!this.realtimeLocked) this.setPaused(false);
         this.order({ kind: 'retreat' });
-        this.handleEvents(this.sim.drainEvents());
+        this.handleEvents(drainLogged(this.sim));
         this.buildHud();
       },
       onCancel: () => {

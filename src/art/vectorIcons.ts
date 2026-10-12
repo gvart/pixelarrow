@@ -464,6 +464,30 @@ export const VECTOR_ICONS: Record<string, IconPart[]> = {
   marker_disordered: [
     { d: 'M1.8 13.6L6 7.6L10 14.6L14 6.8L18 13.6L22.2 8.6V12.8L18 18.2L14 11.4L10 19.2L6 12.2L1.8 18Z', tone: 'clay' },
   ],
+  // feinting (formations-orders.md R3; BTL-01): a U-turn arrow, the line falls back to turn again
+  marker_feint: [
+    { d: 'M19 21.5V10.5C19 6.4 15.9 3.5 12 3.5C8.1 3.5 5 6.4 5 10.5V13H1.5L7 20L12.5 13H9V10.5C9 8.6 10.3 7.5 12 7.5C13.7 7.5 15 8.6 15 10.5V21.5Z', tone: 'cream' },
+    { d: 'M17.4 10.2C17.2 7.4 15.1 5.3 12 5.1', tone: 'ink', detail: true, w: 0.9 },
+  ],
+  // a queued step (controls.md R6, "Then..."; BTL-01): a dotted path ending in an arrowhead
+  marker_queued: [
+    { d: 'M2 10.2H5.6V13.8H2Z M8 10.2H11.6V13.8H8Z', tone: 'cream' },
+    { d: 'M13.6 4.5L22.4 12L13.6 19.5Z', tone: 'cream' },
+  ],
+  // the battle menu key (hud.md Z1): three dots on a line
+  menu: [
+    { d: 'M2.6 12A2.6 2.6 0 1 1 7.8 12A2.6 2.6 0 1 1 2.6 12Z M9.4 12A2.6 2.6 0 1 1 14.6 12A2.6 2.6 0 1 1 9.4 12Z M16.2 12A2.6 2.6 0 1 1 21.4 12A2.6 2.6 0 1 1 16.2 12Z', tone: 'cream' },
+  ],
+  // Sound on/off (the battle menu, A11Y-18): a horn mouth and two sound waves
+  sound: [
+    { d: 'M2.5 8.5H7L13 3.5V20.5L7 15.5H2.5Z', tone: 'cream' },
+    { d: 'M15.6 8.4C16.7 9.3 17.3 10.6 17.3 12C17.3 13.4 16.7 14.7 15.6 15.6L16.9 17C18.4 15.7 19.3 13.9 19.3 12C19.3 10.1 18.4 8.3 16.9 7Z', tone: 'cream' },
+    { d: 'M18.4 5.2C20.3 6.9 21.5 9.3 21.5 12C21.5 14.7 20.3 17.1 18.4 18.8L19.7 20.2C22 18.2 23.5 15.3 23.5 12C23.5 8.7 22 5.8 19.7 3.8Z', tone: 'cream' },
+  ],
+  // "more" (the medallion rail's overflow, hud.md Z5): a chevron
+  more: [
+    { d: 'M8 3.5L16.5 12L8 20.5L5.2 17.7L10.9 12L5.2 6.3Z', tone: 'cream' },
+  ],
 };
 
 /**
@@ -472,7 +496,7 @@ export const VECTOR_ICONS: Record<string, IconPart[]> = {
  * atlas test fails if one appears. The battle HUD tints the morale glyphs by state; the
  * markers (crest, Standard, disordered) keep their colours (RD-01).
  */
-export const VECTOR_GLYPHS: readonly string[] = ['morale_steady', 'morale_wavering', 'morale_routing', 'marker_crest', 'marker_standard', 'marker_disordered'];
+export const VECTOR_GLYPHS: readonly string[] = ['morale_steady', 'morale_wavering', 'morale_routing', 'marker_crest', 'marker_standard', 'marker_disordered', 'marker_feint', 'marker_queued', 'menu', 'sound', 'more'];
 
 /** Camp building icons, keyed like CAMP_ICONS in src/art/campArt.ts (same box and rules). */
 export const VECTOR_CAMP_ICONS: Record<string, IconPart[]> = {

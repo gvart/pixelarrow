@@ -55,27 +55,42 @@ function slotButton(scene: Phaser.Scene, x: number, y: number, w: number, h: num
     tip: s.tip,
     disabledReason: s.off,
     id: s.id,
-    // Play is terracotta when it is the next thing to do; Flee is quiet grey stone; the rest bronze
+    // Play is terracotta when it is the next thing to do; the rest bronze
     variant: s.destructive ? 'stone' : primary ? 'primary' : 'bronze',
     lit: !!s.selected,
     plain,
   });
 }
 
+/** The HUD's text floor (A11Y-09: meaningful text >= 13 CSS px = 6.5 UI px). */
+export const HUD_TEXT = 6.5;
+
+/**
+ * Z1 of hud.md §C: the ⋯ battle menu at one end, Pause/Play and the speed at
+ * the other (offline only), the clock between them. Left-hand mode swaps the
+ * ends (hud.md §I: "the ⋯ moves right, Pause left").
+ */
 export interface TopBarOpts {
-  /** Pause / Play (offline), Watch (online). */
-  left: StripSlot;
+  /** The ⋯ key: the battle menu (always there). */
+  menu: StripSlot;
+  /** Pause / Play (offline). */
+  pause?: StripSlot | null;
   /** Speed (offline). */
-  mid?: StripSlot | null;
-  /** Retreat. */
-  right: StripSlot;
-  /** The slot that is the screen's one primary action (terracotta), if any. */
-  primary?: 'left' | 'mid' | 'right';
+  speed?: StripSlot | null;
+  /** Pause/Play is the one thing to do next (paused): terracotta. */
+  primary?: boolean;
+  /** Mirror the ends. */
+  leftHand?: boolean;
+}
+
+/** Width of a top bar key (UI px) for a bar `w` wide: a little slimmer on a narrow phone. */
+export function topKeyW(w: number): number {
+  return w < 170 ? 30 : 32;
 }
 
 export class TopBar extends Phaser.GameObjects.Container {
   readonly w: number;
-  readonly buttons: Partial<Record<'left' | 'mid' | 'right', KeyButton>> = {};
+  readonly buttons: Partial<Record<'menu' | 'pause' | 'speed', KeyButton>> = {};
   private slots: Phaser.GameObjects.Container;
   private timeText: Phaser.GameObjects.BitmapText;
   private wordText: Phaser.GameObjects.BitmapText;
@@ -94,7 +109,7 @@ export class TopBar extends Phaser.GameObjects.Container {
     this.timeText = addText(scene, 0, 4, '', 'ink', 0.5);
     this.timeText.setFontSize(13);
     this.wordText = addText(scene, 0, 21, '', 'dim', 0.5);
-    this.wordText.setFontSize(5.5);
+    this.wordText.setFontSize(HUD_TEXT);
     this.add([this.timeText, this.wordText]);
     this.row = scene.add.container(0, 0);
     this.add(this.row);
@@ -103,39 +118,44 @@ export class TopBar extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  /** Swap the slots (Pause for Play, Speed 2x to 3x) without rebuilding the bar. */
+  /** Swap the keys (Pause for Play, Speed 2x to 3x) without rebuilding the bar. */
   set(o: TopBarOpts): this {
-    const key = JSON.stringify([o.left, o.mid, o.right, o.primary], (_k, v) => (typeof v === 'function' ? undefined : v));
+    const key = JSON.stringify([o.menu, o.pause, o.speed, o.primary, o.leftHand], (_k, v) => (typeof v === 'function' ? undefined : v));
     // the callbacks close over the scene's live state, so equal slots can keep their buttons
     if (key === this.key) return this;
     this.key = key;
     this.slots.removeAll(true);
+    for (const k of Object.keys(this.buttons) as (keyof TopBar['buttons'])[]) delete this.buttons[k];
     const s = this.scene;
     const y = 4;
     const h = 26;
-    // narrow phones: slimmer slots leave the clock its room
-    const narrow = this.w < 170;
-    const bw = narrow ? 26 : 30;
-    const rw = narrow ? 36 : 42;
-    // one face for the bar: capitals when every word fits as such, else Inter
-    const fits = (slot: StripSlot, w: number) => mw(caps(slot.label), 'rCream', 5.5) <= w - 4;
-    const plain = !(fits(o.left, bw) && (!o.mid || fits(o.mid, bw)) && fits(o.right, rw));
-    this.buttons.left = slotButton(s, 4, y, bw, h, o.left, o.primary === 'left', plain);
-    this.slots.add(this.buttons.left);
-    let x0 = 4 + bw + 2;
-    if (o.mid) {
-      this.buttons.mid = slotButton(s, x0 + 1, y, bw, h, o.mid, o.primary === 'mid', plain);
-      this.slots.add(this.buttons.mid);
-      x0 += bw + 3;
-    } else delete this.buttons.mid;
-    this.buttons.right = slotButton(s, this.w - 4 - rw, y, rw, h, o.right, o.primary === 'right', plain);
-    this.slots.add(this.buttons.right);
-    const x1 = this.w - 4 - rw - 2;
-    this.clock = { x0, x1, size: narrow ? 10 : 12 };
+    const kw = topKeyW(this.w);
+    const gap = 3;
+    // one face for the bar: capitals when every word fits as such at the text floor, else Inter
+    const slots = [o.menu, o.pause, o.speed].filter((x): x is StripSlot => !!x);
+    const plain = !slots.every((slot) => mw(caps(slot.label), 'rCream', HUD_TEXT) <= kw - 4);
+    const control = [o.pause, o.speed].filter((x): x is StripSlot => !!x);
+    const controlW = control.length * kw + Math.max(0, control.length - 1) * gap;
+    // the menu at the left (right in left-hand mode), Pause and speed at the other end
+    const menuX = o.leftHand ? this.w - 4 - kw : 4;
+    const ctlX = o.leftHand ? 4 : this.w - 4 - controlW;
+    this.buttons.menu = slotButton(s, menuX, y, kw, h, o.menu, false, plain);
+    this.slots.add(this.buttons.menu);
+    control.forEach((slot, i) => {
+      const b = slotButton(s, ctlX + i * (kw + gap), y, kw, h, slot, slot === o.pause && !!o.primary, plain);
+      this.buttons[slot === o.pause ? 'pause' : 'speed'] = b;
+      this.slots.add(b);
+    });
+    // the clock in the room between the ends (centred on the bar when only the menu key is there)
+    const lead = kw + 2;
+    const tail = controlW ? controlW + 2 : lead;
+    const x0 = 4 + (o.leftHand ? tail : lead);
+    const x1 = this.w - 4 - (o.leftHand ? lead : tail);
+    this.clock = { x0, x1, size: x1 - x0 < 80 ? 10 : 12 };
     const cx = Math.round((x0 + x1) / 2);
     this.timeText.setX(cx);
     this.wordText.setX(cx);
-    // the clock and its word live between the slots, above the strength row
+    // the clock and its word live between the keys, above the strength row
     uiFrame(this.timeText, this, x1 - x0, TOP_H - 14, x0, 0);
     uiFrame(this.wordText, this, x1 - x0, TOP_H - 14, x0, 0);
     this.layoutClock();
@@ -146,10 +166,11 @@ export class TopBar extends Phaser.GameObjects.Container {
   private layoutClock(): void {
     const { x0, x1, size } = this.clock;
     this.timeText.setFontSize(size);
-    const wordY = 4 + (10 * size) / 7 + 0.5;
-    const wordSize = 5.5;
+    const wordY = 4 + (10 * size) / 7;
+    const wordSize = HUD_TEXT;
     this.wordText.setY(wordY);
-    const fitted = ellipsize(this.word, x1 - x0, false, wordSize);
+    // never cut (A11Y-10): a word that does not fit the room between the keys is left out, the clock reads alone
+    const fitted = measureText(this.word, false, wordSize) <= x1 - x0 - 2 ? this.word : '';
     if (this.wordText.text !== fitted) this.wordText.setText(fitted);
     this.wordText.setFontSize(wordSize);
   }
@@ -175,19 +196,19 @@ export class TopBar extends Phaser.GameObjects.Container {
     const s = this.scene;
     const y = 33;
     if ('text' in r) {
-      const t = addText(s, this.w / 2, y - 1, ellipsize(r.text, this.w - 12, false, 6), 'dim', 0.5);
-      t.setFontSize(6);
+      const t = addText(s, this.w / 2, y - 1.5, ellipsize(r.text, this.w - 12, false, HUD_TEXT), 'dim', 0.5);
+      t.setFontSize(HUD_TEXT);
       uiFrame(t, this, this.w, TOP_H);
       this.row.add(t);
       return this;
     }
     const left = `${r.you} ${r.ours}%`;
     const right = `${r.theirs}% ${r.foe}`;
-    const lw = measureText(left, false, 6);
-    const rw = measureText(right, false, 6);
-    const lt = addText(s, 6, y - 1, left, 'light', 0).setFontSize(6);
-    const rt = addText(s, this.w - 6, y - 1, right, 'light', 1).setFontSize(6);
-    const vs = addText(s, this.w / 2, y - 1, 'vs', 'gold', 0.5).setFontSize(5.5);
+    const lw = measureText(left, false, HUD_TEXT);
+    const rw = measureText(right, false, HUD_TEXT);
+    const lt = addText(s, 6, y - 1.5, left, 'light', 0).setFontSize(HUD_TEXT);
+    const rt = addText(s, this.w - 6, y - 1.5, right, 'light', 1).setFontSize(HUD_TEXT);
+    const vs = addText(s, this.w / 2, y - 1.5, 'vs', 'gold', 0.5).setFontSize(HUD_TEXT);
     for (const t of [lt, rt, vs]) uiFrame(t, this, this.w, TOP_H);
     const g = s.add.graphics();
     const bar = (x0: number, x1: number, f: number, color: number, fromRight: boolean) => {
@@ -202,8 +223,8 @@ export class TopBar extends Phaser.GameObjects.Container {
         g.fillRoundedRect(fromRight ? x0 + w - 1 - fw : x0 + 1, y + 1, fw, 3, 1);
       }
     };
-    bar(6 + lw + 4, this.w / 2 - 7, r.ours / 100, MOSAIC.bronzeHi, false);
-    bar(this.w / 2 + 7, this.w - 6 - rw - 4, r.theirs / 100, MOSAIC.terraHi, true);
+    bar(6 + lw + 4, this.w / 2 - 8, r.ours / 100, MOSAIC.bronzeHi, false);
+    bar(this.w / 2 + 8, this.w - 6 - rw - 4, r.theirs / 100, MOSAIC.terraHi, true);
     this.row.add([g, lt, rt, vs]);
     return this;
   }
@@ -224,8 +245,13 @@ export class HintPill extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  setText(sentence: string, urgent = false): this {
-    const key = `${sentence}|${urgent}`;
+  /**
+   * The sentence and its glyph (G3, BTL-4): an hourglass while paused, an
+   * info glyph for a hint, the red "!" only for an alert (the fight is going
+   * badly). Red ink only on an alert.
+   */
+  setText(sentence: string, tone: HintTone = 'info'): this {
+    const key = `${sentence}|${tone}`;
     if (key === this.key) return this;
     this.key = key;
     this.removeAll(true);
@@ -234,26 +260,30 @@ export class HintPill extends Phaser.GameObjects.Container {
       return this;
     }
     const s = this.scene;
-    const size = 6.5;
+    const size = HUD_TEXT;
     const textW = this.maxW - 22;
-    const lines = wrapText(sentence, textW, 2, false, size).lines;
+    const lines = wrapText(sentence, textW, 3, false, size).lines;
     const tw = Math.max(...lines.map((l) => measureText(l, false, size)));
     const w = Math.min(this.maxW, tw + 24);
     const lineH = 9;
     const h = 7 + lines.length * lineH;
     const x = Math.round(this.cx - w / 2);
     this.add(mosaicImage(s, x, 0, w, h, 'parchment'));
-    // the "!" disc: terracotta when it is urgent, bronze otherwise
-    const g = s.add.graphics();
-    g.fillStyle(urgent ? MOSAIC.terra : MOSAIC.bronze, 1);
-    g.fillCircle(x + 9, h / 2, 4.5);
-    g.lineStyle(0.6, MOSAIC.goldHi, 0.9);
-    g.strokeCircle(x + 9, h / 2, 4.5);
-    this.add(g);
-    const bang = addText(s, x + 9, h / 2 - 3.6, '!', 'rCream', 0.5).setFontSize(6.5);
-    this.add(bang);
+    if (tone === 'alert') {
+      const g = s.add.graphics();
+      g.fillStyle(MOSAIC.terra, 1);
+      g.fillCircle(x + 9, h / 2, 4.5);
+      g.lineStyle(0.6, MOSAIC.goldHi, 0.9);
+      g.strokeCircle(x + 9, h / 2, 4.5);
+      this.add(g);
+      this.add(addText(s, x + 9, h / 2 - 3.6, '!', 'rCream', 0.5).setFontSize(HUD_TEXT));
+    } else {
+      const glyph = addIcon(s, x + 9, h / 2, tone === 'paused' ? 'hourglass' : 'info').setOrigin(0.5);
+      glyph.setDisplaySize(10, 10);
+      this.add(glyph);
+    }
     lines.forEach((l, i) => {
-      const t = addText(s, x + 17, 3 + i * lineH, l, urgent ? 'pBad' : 'pInk', 0).setFontSize(size);
+      const t = addText(s, x + 17, 3 + i * lineH, l, tone === 'alert' ? 'pBad' : 'pInk', 0).setFontSize(size);
       uiFrame(t, this, w, h, x, 0);
       this.add(t);
     });
@@ -261,6 +291,9 @@ export class HintPill extends Phaser.GameObjects.Container {
     return this;
   }
 }
+
+/** The hint pill's glyph: info (a hint), paused (hourglass), alert (red "!"). */
+export type HintTone = 'info' | 'paused' | 'alert';
 
 export interface MedallionOpts {
   icon: string;
@@ -399,6 +432,26 @@ export class Medallion extends Phaser.GameObjects.Container {
       this.badge.add([g, n]);
     }
   }
+}
+
+/** The rail holds at most this many medallions (hud.md Z5; BTL-01 AC 4). */
+export const RAIL_MAX = 3;
+/** Under this field height (UI px, 420 pt) the rail holds 2 (hud.md §C Z5). */
+export const RAIL_SHORT_FIELD = 210;
+/** Height of the rail's "more" key (UI px, a 44 pt target). */
+export const MORE_H = 24;
+
+/**
+ * How many medallions the rail shows and whether the "more" key follows
+ * (hud.md Z5): at most RAIL_MAX, 2 on a short field, and only as many as fit
+ * `room` (UI px) together with the more key; the rest open from "more".
+ */
+export function railLayout(n: number, fieldH: number, room: number): { shown: number; more: boolean } {
+  const cap = fieldH < RAIL_SHORT_FIELD ? 2 : RAIL_MAX;
+  let shown = Math.min(n, cap);
+  const fits = (k: number) => k * (MED_H + 4) + (k < n ? MORE_H + 4 : 0) <= room;
+  while (shown > 0 && !fits(shown)) shown--;
+  return { shown, more: shown < n };
 }
 
 /** A facing pip's touch target (UI px): 44 pt (A11Y-06). Its disc is smaller. */
@@ -666,27 +719,41 @@ export const KEY_MIN_W = 22;
 
 /**
  * Widths of the order bar's keys (controls.md R9: labels are never
- * ellipsized). At the largest of KeyButton's label sizes where the words
- * fit: equal when every label fits an equal share; else each key gets its
- * label's width and the rest is shared out, so a long word ("Стрелять" at
- * 360, "Advance" at 320) keeps its room and the row keeps one type size.
+ * ellipsized), at the text floor (6.5 UI px, A11Y-09): equal when every
+ * label fits an equal share; else each key gets its label's width and the
+ * rest is shared out, so a long word keeps its room. Labels that do not fit
+ * even so get equal keys (orderLabels picks the short words before that).
  */
 export function orderKeyWidths(labels: readonly string[], total: number, gap: number): number[] {
   const n = labels.length;
   if (!n) return [];
   const room = total - gap * (n - 1);
   const even = Math.floor(room / n);
-  for (const size of [6.5, 6, 5.5]) {
-    const need = labels.map((l) => Math.max(KEY_MIN_W, measureText(l, true, size) + 4));
-    if (need.every((w) => w <= even)) return labels.map(() => even);
-    const spare = room - need.reduce((a, w) => a + w, 0);
-    if (spare < 0) continue;
-    const each = Math.floor(spare / n);
-    let rest = spare - each * n;
-    return need.map((w) => w + each + (rest-- > 0 ? 1 : 0));
-  }
-  // not even the bare widths fit the bar: equal keys, and KeyButton shortens
-  return labels.map(() => even);
+  const need = labels.map((l) => Math.max(KEY_MIN_W, Math.ceil(measureText(l, true, HUD_TEXT)) + 4));
+  if (need.every((w) => w <= even)) return labels.map(() => even);
+  const spare = room - need.reduce((a, w) => a + w, 0);
+  if (spare < 0) return labels.map(() => even);
+  const each = Math.floor(spare / n);
+  let rest = spare - each * n;
+  return need.map((w) => w + each + (rest-- > 0 ? 1 : 0));
+}
+
+/** Do `labels` fit an order bar `total` wide at the text floor? */
+export function orderLabelsFit(labels: readonly string[], total: number, gap: number): boolean {
+  const room = total - gap * (labels.length - 1);
+  return labels.reduce((a, l) => a + Math.max(KEY_MIN_W, Math.ceil(measureText(l, true, HUD_TEXT)) + 4), 0) <= room;
+}
+
+/**
+ * The order bar's words: the full ones when they fit at the text floor, else
+ * the short ones (hud.md §I); on a canvas too narrow even for those (Telegram
+ * full screen at 320x568, about 137 UI px) the keys show their icons alone,
+ * the word as the tip, as the tab bar does there (V5-068): never a word under
+ * the floor and never an ellipsis.
+ */
+export function orderLabels(full: readonly string[], short: readonly string[], total: number, gap: number): { words: string[]; iconOnly: boolean } {
+  if (orderLabelsFit(full, total, gap)) return { words: [...full], iconOnly: false };
+  return { words: [...short], iconOnly: !orderLabelsFit(short, total, gap) };
 }
 
 /**
@@ -820,8 +887,8 @@ export function moraleGlyph(scene: Phaser.Scene, cx: number, cy: number, size: n
   return img;
 }
 
-/** A badge marker (R2: the crest, the Standard, disordered) centred on (cx, cy), in its own colours. */
-export function markerGlyph(scene: Phaser.Scene, cx: number, cy: number, size: number, name: 'crest' | 'standard' | 'disordered'): Phaser.GameObjects.Image {
+/** A badge marker (R2: the crest, the Standard, disordered, feinting, a queued step) centred on (cx, cy), in its own colours. */
+export function markerGlyph(scene: Phaser.Scene, cx: number, cy: number, size: number, name: 'crest' | 'standard' | 'disordered' | 'feint' | 'queued'): Phaser.GameObjects.Image {
   return scene.add.image(cx, cy, `icon_marker_${name}`).setDisplaySize(size, size);
 }
 
@@ -834,12 +901,39 @@ export interface BadgeSpec {
   readout: GroupReadout;
   /** One of our missile groups focuses on it: the reticle (formations-orders.md R4). */
   focused?: boolean;
+  /** Ours, feinting (formations-orders.md R3): the U-turn marker (BTL-01). */
+  feinting?: boolean;
+  /** Ours, with a Then… step queued (controls.md R6.2): the dotted-arrow marker (BTL-01). */
+  queued?: boolean;
+}
+
+/** A field badge's markers, in hud.md §G priority order (the flank arc is drawn round the badge, not on it). */
+export type BadgeMarker = 'reticle' | 'crest' | 'standard' | 'disordered' | 'feint' | 'queued';
+
+/** At most this many markers on a badge besides the numeral and the glyph (hud.md §G visual budget). */
+export const BADGE_MARKERS_MAX = 2;
+
+/**
+ * The markers a badge shows (hud.md §G): by priority reticle, the
+ * captain's crest or the Standard, disordered, feinting, queued step; at
+ * most BADGE_MARKERS_MAX, so the badge stays small and readable at 320.
+ */
+export function badgeMarkers(b: BadgeSpec): BadgeMarker[] {
+  const r = b.readout;
+  const all: BadgeMarker[] = [];
+  if (b.focused) all.push('reticle');
+  if (r.captain) all.push('crest');
+  else if (r.standard) all.push('standard');
+  if (r.disordered) all.push('disordered');
+  if (b.feinting) all.push('feint');
+  if (b.queued) all.push('queued');
+  return all.slice(0, BADGE_MARKERS_MAX);
 }
 
 /** The badge's cache key: rebuild only when what it shows changes. */
 export function badgeKey(b: BadgeSpec): string {
   const r = b.readout;
-  return [b.numeral, b.mine, b.selected, r.state ?? '', r.standard, r.captain, r.disordered, !!b.focused].join('|');
+  return [b.numeral, b.mine, b.selected, r.state ?? '', badgeMarkers(b).join(',')].join('|');
 }
 
 /** The badge's plate height (UI px). */
@@ -867,15 +961,14 @@ export function fieldBadge(scene: Phaser.Scene, b: BadgeSpec): Phaser.GameObject
     push(w, (x) => addText(scene, x + w / 2, -3.4, b.numeral, b.selected ? 'rInk' : 'rCream', 0.5).setFontSize(6.5));
   }
   if (r.state) push(BADGE_GLYPH, (x) => moraleGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH, r.state!));
-  if (r.captain) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'crest'));
-  else if (r.standard) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'standard'));
-  if (r.disordered) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'disordered'));
-  if (b.focused) {
-    push(BADGE_GLYPH, (x) => {
-      const g = scene.add.graphics();
-      strokeBadgeReticle(g, x + BADGE_GLYPH / 2, 0.5, 3.4);
-      return g;
-    });
+  for (const m of badgeMarkers(b)) {
+    if (m === 'reticle')
+      push(BADGE_GLYPH, (x) => {
+        const g = scene.add.graphics();
+        strokeBadgeReticle(g, x + BADGE_GLYPH / 2, 0.5, 3.4);
+        return g;
+      });
+    else push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, m));
   }
   if (!parts.length) return null;
   const gap = 1.5;

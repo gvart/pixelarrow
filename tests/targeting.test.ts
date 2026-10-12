@@ -16,7 +16,7 @@ vi.mock('phaser', () => {
   class C {}
   return { default: { GameObjects: { Container: C, Image: C, Text: C, Graphics: C, Rectangle: C }, Scene: C } };
 });
-const { KEY_MIN_W, OutOfRange, advanceToRange, enemyTap, groupCentre, isMissileGroup, medianRange, noTargetInRange, orderKeyWidths, rangeRing } = await import('../src/ui/battleHud');
+const { KEY_MIN_W, OutOfRange, advanceToRange, enemyTap, groupCentre, isMissileGroup, medianRange, noTargetInRange, orderKeyWidths, orderLabels, rangeRing } = await import('../src/ui/battleHud');
 
 /** A started battle (armies at their deployment lines), the player's missile group and a melee group. */
 function started(seed = 7): { b: Battle; shooters: number; melee: number } {
@@ -153,22 +153,39 @@ describe('R3.4: Out of range on the card (B6 complete)', () => {
   });
 });
 
-describe('R9: order key labels are never cut, in en and ru, at 320, 360 and 390', () => {
+it('R9: a canvas too narrow for the short words (Telegram full screen at 320x568) shows the keys as icons', () => {
+  setLang('ru');
+  const full = ['battle.ring.advance', 'battle.ring.charge', 'battle.ring.hold', 'battle.ring.shoot', 'battle.ring.back'].map((k) => t(k as TKey));
+  const short = ['battle.short.advance', 'battle.short.charge', 'battle.short.hold', 'battle.short.shoot', 'battle.short.back'].map((k) => t(k as TKey));
+  expect(orderLabels(full, short, 137 - 8, 3).iconOnly).toBe(true);
+  setLang('en');
+});
+
+describe('R9: order key labels are never cut and never under the text floor, in en and ru, at 320, 360 and 390', () => {
   const KEYS: TKey[] = ['battle.ring.advance', 'battle.ring.charge', 'battle.ring.hold', 'battle.ring.shoot', 'battle.ring.back'];
+  const SHORT: TKey[] = ['battle.short.advance', 'battle.short.charge', 'battle.short.hold', 'battle.short.shoot', 'battle.short.back'];
+  const FEINT: [TKey, TKey] = ['attn.feint', 'battle.short.feint'];
   for (const lang of ['en', 'ru'] as const) {
     for (const css of [320, 360, 390]) {
       it(`${lang} at ${css}`, () => {
         setLang(lang);
-        const labels = KEYS.map((k) => t(k));
         // the bar: 4 UI px margins, 3 UI px gaps (1 UI px = 2 CSS px)
         const vw = Math.floor(css / 2);
-        const w = orderKeyWidths(labels, vw - 8, 3);
-        expect(w.reduce((a, x) => a + x, 0) + 3 * 4).toBeLessThanOrEqual(vw - 8);
-        labels.forEach((l, i) => {
-          expect(w[i]).toBeGreaterThanOrEqual(KEY_MIN_W);
-          // KeyButton writes Inter down to 5.5 in its width less 4
-          expect(measureText(l, true, 5.5)).toBeLessThanOrEqual(w[i] - 4);
-        });
+        for (const fifth of [KEYS[4], FEINT[0]]) {
+          const full = [...KEYS.slice(0, 4), fifth].map((k) => t(k));
+          const short = [...SHORT.slice(0, 4), fifth === KEYS[4] ? SHORT[4] : FEINT[1]].map((k) => t(k));
+          const { words: labels, iconOnly } = orderLabels(full, short, vw - 8, 3);
+          expect(iconOnly).toBe(false);
+          const w = orderKeyWidths(labels, vw - 8, 3);
+          expect(w.reduce((a, x) => a + x, 0) + 3 * 4).toBeLessThanOrEqual(vw - 8);
+          labels.forEach((l, i) => {
+            expect(w[i]).toBeGreaterThanOrEqual(KEY_MIN_W);
+            // KeyButton writes Inter at 6.5 (the floor) in its width less 4
+            expect(measureText(l, true, 6.5), l).toBeLessThanOrEqual(w[i] - 4);
+          });
+          // the full words at 390 (hud.md §I: short words only under 360)
+          if (css === 390) expect(labels).toEqual(full);
+        }
         setLang('en');
       });
     }
