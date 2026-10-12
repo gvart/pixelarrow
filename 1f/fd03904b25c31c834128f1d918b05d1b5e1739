@@ -1,0 +1,37 @@
+src/art/vectorIcons.ts
+  s_697bdc25a7c420::t_b47d8c4475b828 467-490,499
+src/i18n/strat.ru.ts
+  s_697bdc25a7c420::t_50e0113adec558 82
+src/i18n/battle.ru.ts
+  s_697bdc25a7c420::t_50e0113adec558 6-28
+src/i18n/strat.en.ts
+  s_697bdc25a7c420::t_50e0113adec558 87
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_e51ddf9d2ed91c 10,54-55,266-267,2717,2797,2808,2819-2826,2831-2833,2835-2836,2839,2841-2842,2846-2884,2896,2913,2917,2931,2935
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_dce645c01d943b 58,65-72,74-77,79-88,93,112,121,123,128,132-151,155,166-167,195-196,203-207,222-223
+  s_697bdc25a7c420::t_436d90b21786f1 244-250,259,268-280,282,291-292
+  s_697bdc25a7c420::t_ce0f5d30467651 293
+src/i18n/battle.en.ts
+  s_697bdc25a7c420::t_50e0113adec558 8-30
+src/ui/sheets/battleMenu.ts
+  s_697bdc25a7c420::t_8341273d76afba 1-150
+src/ui/beastView.ts
+  s_697bdc25a7c420::t_3beb8f54af142b 30-32,430-434,439-441,443,461,471
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1ffd03904b25c31c834128f1d918b05d1b5e1739",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
