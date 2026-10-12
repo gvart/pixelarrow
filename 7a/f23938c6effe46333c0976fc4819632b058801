@@ -1,0 +1,24 @@
+src/scenes/duel/duelParts.ts
+  s_697bdc25a7c420::t_e27e24dd0297ba 29
+  s_697bdc25a7c420::t_1782ca4d9c5590 8-11,379-390,392,398,405-406,408,410,413-414,418-430
+  s_697bdc25a7c420::t_f83c56babf6c42 393
+  s_697bdc25a7c420::t_20b047500122cf 28
+  s_697bdc25a7c420::t_a111e6227a533f 254-262,431
+  s_697bdc25a7c420::t_7506dd6f3a4e83 432
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7af23938c6effe46333c0976fc4819632b058801",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
