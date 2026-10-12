@@ -1,7 +1,7 @@
 # Regression Suite Manifest
 
 > Last updated: 2026-10-12 (QA-02)
-> Registered: 4 browser scripts, 3 unit guard files, plus the existing tests named below
+> Registered: 5 browser scripts, 3 unit guard files, plus the existing tests named below
 > Coverage: NOT ASSESSED as a percentage. No GDD-wide critical-path audit was run; this suite covers the
 > qa-plan-v5 §5.3 HIGH and MEDIUM items it owns and the bug classes fixed this run.
 
@@ -27,6 +27,7 @@ the summary and never counted as a pass.
 | `hub-flows.mjs` | The tab bar by real taps to all five hubs; each hub a root (Telegram Close, Back stays); every door in `doors.mjs` (22) opens its screen and Telegram Back lands on the screen-flow §3 target; one scene running after each step; a tap on the first frame of the Campaign hub's entry fade lands (V5-067, FL-02); no page errors. Classes: N2/N3 wrong origin, FIXER-5 tap lost in the entry fade, duel sub-view Back to the menu. | 2026-10-12 |
 | `battle-kinds.mjs` | Campaign band, Codex Trial (practice), tutorial replay, duel ladder, ranked, raid, war attack (source stub): own battle data (B1/B2), pace and the Pause key (A11Y-17), the ⋯ menu items and whether it pauses (A11Y-18, BTL-01), Back closes it, Results back to the origin (N1, N8). The raid ends with its menu open and the next battle must open its own (7d3e260). | 2026-10-12 |
 | `sheet-layout.mjs` | The v5 sheets layout-check does not stage (Arc lairs, Assault, abilities "more"), at 320x568, 320x640, 360x780, 390x844 in en and ru, through the game's own layout rules; a sheet that never shows fails. | 2026-10-12 |
+| `controls.mjs` | Controls answer taps (a finger tap at the centre, once still): every Settings switch flips its saved setting and saves (seq), and flips back; the language Tabs; the sheet's X; a sample per kit type: MButton (Begin the march, the battle menu's Sound), StoneTile (Army), MIconButton (a hero's group numeral), the tab bar (Duels), KeyButton (zoom, ⋯). Class: the F-07 Toggle that drew but had no hit box (7575ce6), invisible to the layout check and pixel diffs. | 2026-10-12 |
 | `run.mjs` | The runner (above). Also runs `scripts/replay-hash.mjs chromium` (the v2 replay fixtures in Chromium vs the Node hashes, qa-plan replayCrossEngine). | 2026-10-12 |
 
 ### Unit guards (`tests/regression/`)

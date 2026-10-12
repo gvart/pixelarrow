@@ -30,6 +30,7 @@ const SUITE = [
   { name: 'hub-flows', script: 'scripts/regression/hub-flows.mjs', args: ['BASE'], min: 10 },
   { name: 'battle-kinds', script: 'scripts/regression/battle-kinds.mjs', args: ['BASE'], min: 12 },
   { name: 'sheet-layout', script: 'scripts/regression/sheet-layout.mjs', args: ['BASE'], min: 10 },
+  { name: 'controls', script: 'scripts/regression/controls.mjs', args: ['BASE'], min: 10 },
   // the v2 replay fixtures hashed in Chromium against the Node hashes (ST-04; exit 2 = engine NOT RUN)
   { name: 'replay-hash', script: 'scripts/replay-hash.mjs', args: ['chromium'], min: 10 },
 ];

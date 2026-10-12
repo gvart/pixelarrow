@@ -68,6 +68,53 @@ export const startScene = (api, key, data = {}) => api.start(key, data);
 export const tapId = (api, scene, id) => api.tapBtn(scene, { id });
 
 /**
+ * Page point of a kit button (found by layout id) once it stands still: the same on two reads at least two
+ * game frames apart (a list a finger flung keeps gliding, a frame at a time; on a loaded machine for
+ * seconds). In a scroll list the point must also lie in the list's window: rows are built a little beyond
+ * it, under the clip, where a tap lands on whatever is drawn there. Null when it is not there once still.
+ */
+export async function steadyBtn(api, scene, id, ms = 15000) {
+  const read = () =>
+    api.ev(
+      ([k, id]) => {
+        const frame = window.__game.loop.frame;
+        let b = null;
+        const walk = (list) => list.forEach((o) => (o.visible && o.__uiId === id && (b = o), o.list && walk(o.list)));
+        walk(window.__game.scene.getScene(k).children.list);
+        if (!b) return { frame, p: null };
+        let r = b.getBounds();
+        // a container drawn with Graphics only (the Toggle) has no bounds: its own size through its transform
+        if (!r.width && b.w && b.h) {
+          const m = b.getWorldTransformMatrix();
+          const c = m.transformPoint(b.w / 2, b.h / 2);
+          r = { centerX: c.x, centerY: c.y };
+        }
+        // a scroll area's content sits in a container whose first child is the area's drag zone (src/ui/kit.ts ScrollArea)
+        let view = true;
+        for (let c = b.parentContainer; c; c = c.parentContainer) {
+          const zone = c.mask && c.parentContainer?.list.find((o) => o.type === 'Zone' && o.input && o.x === c.x);
+          if (!zone) continue;
+          const z = zone.getBounds();
+          view = r.centerY > z.top && r.centerY < z.bottom;
+          break;
+        }
+        return { frame, p: [...window.__css(r.centerX, r.centerY), view] };
+      },
+      [scene, id],
+    );
+  let a = await read();
+  for (let t = 0; t < ms; t += 200) {
+    await api.wait(200);
+    const b = await read();
+    if (b.frame - a.frame < 2) continue;
+    if (!a.p && !b.p) return null;
+    if (a.p && b.p && Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1]) < 0.5) return b.p[2] ? b.p.slice(0, 2) : null;
+    a = b;
+  }
+  return null;
+}
+
+/**
  * A check for a reported, still open game bug (listed in tests/regression/SUITE.md "Known bugs"). It does
  * not fail the run, but never reads as a pass either: it prints KNOWN with the bug id, and once the bug is
  * fixed it prints a PASS that asks for the mark to go, so the check becomes a plain one.

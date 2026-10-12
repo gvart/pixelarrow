@@ -9,6 +9,7 @@
 // Usage: node scripts/fullscreen-smoke.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
 import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
+import { settled } from './regression/lib.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
 const out = shotsDir('', process.argv[3]);
@@ -26,7 +27,11 @@ await page.route('**/api/**', (r) => r.fulfill({ status: 503, body: '{"error":"d
 await page.goto(base + '#tgWebAppVersion=8.0&tgWebAppPlatform=ios');
 await page.waitForTimeout(3000);
 
-const { ev, wait, active, call, start, swipe, btn } = makePageApi(page);
+const api = makePageApi(page);
+const { ev, wait, active, call, start, swipe, tap, btn } = api;
+/** Until `key` is in front, its art loaded and its entry motion over (scripts/regression/lib.mjs): a fixed wait loses on a loaded machine. */
+const ready = (key) => settled(api, key, 30000);
+await ready('Menu');
 const tg = () => ev(() => ({ back: window.Telegram.WebApp.BackButton.isVisible, settings: window.Telegram.WebApp.SettingsButton.isVisible, handlers: window.__tg.backHandlers(), confirm: window.Telegram.WebApp.isClosingConfirmationEnabled, layers: window.__nav.layers() }));
 const pressBack = async () => {
   await ev(() => window.__tg.pressBack());
@@ -91,7 +96,7 @@ await ev(async () => {
 // Telegram fires its header / viewport events (the BackButton appearing used
 // to trigger scale refresh -> 'resize' -> scene restart, closing every modal).
 await start('Menu');
-await wait(1500);
+await ready('Menu');
 /** Finger tap (touchstart/touchend at one point) on a kit Button by label. */
 const tapButton = async (key, label) => {
   const p = await btn(key, label);
@@ -121,14 +126,14 @@ const logLen = async () => (await ev(() => window.__tg.log)).length;
   // the shop is a mode tab: it stays, it is a root (Close, no Back), the Campaign tab returns to the menu
   const n0 = await logLen();
   await tapButton('Menu', 'Shop');
-  await wait(300);
+  await ready('Shop');
   await probe('Shop');
   const r = await stays('Shop', 0);
   check('tap Shop: the shop screen stays (no auto back)', r === '', r);
   const f = await backFlips(n0);
   check('tap Shop: no BackButton on a tab root', f === 0, `flips=${f}`);
   await tapButton('Shop', 'Campaign');
-  await wait(300);
+  await ready('Menu');
   check('tap Shop: the Campaign tab returns to the menu', (await active('Menu')) && (await tg()).layers === 0);
 }
 for (const label of ['Settings']) {
@@ -145,7 +150,7 @@ for (const label of ['Settings']) {
 }
 const n1 = await logLen();
 await tapButton('Menu', 'Continue');
-await wait(400);
+await ready('World');
 await probe('World');
 const rc = await stays('World', 0);
 check('tap Continue: the map stays (no auto back to the menu)', rc === '', rc);
@@ -156,7 +161,7 @@ check('map: Back -> menu', await active('Menu'));
 await wait(500);
 
 await start('World');
-await wait(2500);
+await ready('World');
 await checkLayout('map');
 t = await tg();
 check('map: Back shown, one handler', t.back && t.handlers === 1, JSON.stringify(t));
@@ -168,14 +173,14 @@ check('haptic selection on Back', (await ev(() => window.__tg.log)).includes('se
 
 // ---- army (from the map)
 await start('World');
-await wait(1500);
+await ready('World');
 await start('Army', { from: 'World' });
-await wait(800);
+await ready('Army');
 await checkLayout('army');
 check('army: no in-game back arrow', await noArrow('Army'));
 await shot('Army');
 await call('Army', 's.openHero(); return 1;');
-await wait(600);
+await ready('Hero');
 check('army -> hero', await active('Hero'));
 await pressBack();
 check('hero: Back -> army', await active('Army'));
@@ -187,7 +192,7 @@ await ev(() => {
   window.__state.pending = null;
   window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', { fresh: true }));
 });
-await wait(1500);
+await ready('Battle');
 await checkLayout('battle');
 // ---- touch controls inside the safe area (real touch events, canvas offset by the insets)
 check('battle: one-time controls hint shown', await call('Battle', 'return !!s.hint;'));
@@ -210,6 +215,65 @@ const bgeo = (pts) =>
       for (let x = c.left + (s.fieldViewport().left + 8) * k; !empty && x < c.width - 40; x += 20) if (own.every(([a, b]) => Math.hypot(a - x, b - y) > 90)) empty = [x, y];
     return { f: { ...f }, scroll: [cam.scrollX, cam.scrollY], empty, orders: s.sim.orderLog.length, pts: pts.map(([a, b]) => toPage([f.cx - f.fy * a - f.fx * b, f.cy + f.fx * a - f.fy * b])) };
   }, pts);
+/**
+ * The field after an order: the men step into their new places and shove a neighbour out of the way, and
+ * the sprites ease after them. Waits until the men (as the hit test sees them) stand still.
+ */
+const fieldStill = async () => {
+  const men = () => call('Battle', 'return JSON.stringify(s.hitState().units.map((u) => [Math.round(u.x), Math.round(u.y)]));');
+  let last = await men();
+  for (let i = 0; i < 40; i++) {
+    await wait(300);
+    const now = await men();
+    if (now === last) return true;
+    last = now;
+  }
+  return false;
+};
+/**
+ * The page point of the first candidate (right, back paces in the selected group's frame) where a press
+ * means `want`: 'turn' (the facing knob grabs it) or 'ground' (no man, no tag in reach: a tap moves the
+ * group). Mirrors src/ui/input/hitTest.ts on the scene's own hit state: a man of another own group in
+ * reach beats the knob (PLAY C1), and a neighbour the last order shoved can stand in reach of the knob's
+ * centre, so the press point is chosen, not assumed. Null when no candidate qualifies.
+ */
+const pickPt = (want, cands) =>
+  ev(([want, cands]) => {
+    const s = window.__game.scene.getScene('Battle');
+    const cam = s.cameras.main;
+    const c = document.querySelector('#game canvas').getBoundingClientRect();
+    const k = c.width / window.__game.scale.width;
+    const f = s.sim.groups[s.selGroup].formation;
+    const hs = s.hitState();
+    const man = (p) => {
+      let best = null;
+      let bd = hs.unitR;
+      for (const u of hs.units) {
+        const d = u.big ? Math.sqrt((u.x - p.x) ** 2 + ((u.y - p.y) * 1.6) ** 2) * 0.7 : Math.hypot(u.x - p.x, u.y - p.y);
+        if (d < bd) [bd, best] = [d, u];
+      }
+      return best;
+    };
+    const ok = (p) => {
+      const m = man(p);
+      if (want === 'ground') return !m && hs.tags.every((t) => Math.hypot(t.x - p.x, t.y - p.y) > hs.tagR);
+      if (!hs.knob || (m && m.side === hs.me && m.group !== hs.sel)) return false;
+      const kd = Math.hypot(hs.knob.x - p.x, hs.knob.y - p.y);
+      return kd < hs.grabR && hs.body.every((q) => kd <= Math.hypot(q.x - p.x, q.y - p.y));
+    };
+    for (const [a, b] of cands) {
+      const sp = s.project(f.cx - f.fy * a - f.fx * b, f.cy + f.fx * a - f.fy * b);
+      const p = { x: (sp.x - cam.worldView.x) * cam.zoom, y: (sp.y - cam.worldView.y) * cam.zoom };
+      if (ok(p)) return { ab: [a, b], page: [c.left + p.x * k, c.top + p.y * k] };
+    }
+    return null;
+  }, [want, cands]);
+/** Candidate points: `b0` .. `b1` paces back (negative: ahead), `a` paces right/left of the line. */
+const around = (b0, b1, step, as) => {
+  const out = [];
+  for (let b = b0; Math.abs(b - b0) <= Math.abs(b1 - b0) + 1e-9; b += step) for (const a of as) out.push([a, +b.toFixed(2)]);
+  return out;
+};
 const b0 = await bgeo([]);
 await swipe([b0.empty, [b0.empty[0] + 50, b0.empty[1] - 40]]);
 let b1 = await bgeo([]);
@@ -219,18 +283,24 @@ await swipe(b1.pts);
 const b2 = await bgeo([]);
 check('battle: dragging the group moves it forward', Math.hypot(b2.f.cx - (b1.f.cx + b1.f.fx * 2), b2.f.cy - (b1.f.cy + b1.f.fy * 2)) < 0.5 && b2.orders > b1.orders, JSON.stringify([b2.f.cx.toFixed(2), b2.f.cy.toFixed(2)]));
 check('battle: the move keeps facing and shape', b2.f.fx === b1.f.fx && b2.f.fy === b1.f.fy && b2.f.frontage === b1.f.frontage);
-// the facing knob is KNOB_PACES ahead of the front: swing it to the group's right
-const bk = await bgeo([[0, -3], [1.8, -2], [3.2, 0.3]]);
-await swipe(bk.pts);
+// the facing knob is KNOB_PACES ahead of the front: swing it to the group's right. The move above shoved
+// a man of the next group toward the knob; once the field is still, press where the knob takes the press
+check('battle: the field settles after the move', await fieldStill());
+const kp = await pickPt('turn', around(-3, -3.9, -0.15, [0, -0.3, 0.3, -0.6, 0.6]));
+check('battle: the facing knob can be grabbed clear of other groups', !!kp, JSON.stringify(kp));
+const bk = await bgeo([[1.8, -2], [3.2, 0.3]]);
+await swipe([kp?.page ?? bk.pts[0], ...bk.pts]);
 const b2t = await bgeo([]);
 check('battle: the facing knob turns the group toward the finger', b2t.f.fx * -bk.f.fy + b2t.f.fy * bk.f.fx > 0.9 && b2t.f.frontage === bk.f.frontage, JSON.stringify([b2t.f.fx.toFixed(2), b2t.f.fy.toFixed(2)]));
 await call('Battle', 's.frameArmies(); return 1;');
-await wait(200);
-const b3 = await bgeo([[0, -3]]);
-await page.touchscreen.tap(b3.pts[0][0], b3.pts[0][1]);
-await wait(300);
+await fieldStill();
+// a tap on bare ground (no man, no tag in reach), dispatched in the page: a CDP tap on a slow software-GL
+// frame can last past the 450 ms long press, which on deployment ground explains the terrain, no move
+const gp = await pickPt('ground', around(-3, -6, -0.5, [0, -1, 1, -2, 2]));
+const b3 = await bgeo([]);
+if (gp) await tap(gp.page[0], gp.page[1], 300);
 const b4 = await bgeo([]);
-check('battle: tap on the ground moves the group, shape kept', b4.orders > b3.orders && Math.hypot(b4.f.cx - b3.f.cx, b4.f.cy - b3.f.cy) > 1 && b4.f.frontage === b3.f.frontage, JSON.stringify([b4.f.cx.toFixed(2), b4.f.cy.toFixed(2)]));
+check('battle: tap on the ground moves the group, shape kept', !!gp && b4.orders > b3.orders && Math.hypot(b4.f.cx - b3.f.cx, b4.f.cy - b3.f.cy) > 1 && b4.f.frontage === b3.f.frontage, JSON.stringify([gp?.ab, b4.f.cx.toFixed(2), b4.f.cy.toFixed(2)]));
 
 check('deploy: no in-game back arrow', await noArrow('Battle'));
 t = await tg();

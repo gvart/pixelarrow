@@ -11,7 +11,7 @@
 // the menu open (7d3e260; the raid ends with its menu up, the next battle must open its own),
 // a replayed last-battle setup (B1/B2), Back from a duel report leaving the hub.
 // Usage: node scripts/regression/battle-kinds.mjs [baseUrl]   (needs a running preview server)
-import { launch, check, until, baseUrl, openGame, settled, running, pressBack, startScene, tapId, need, flow, done } from './lib.mjs';
+import { launch, check, until, baseUrl, openGame, settled, running, pressBack, startScene, tapId, steadyBtn, need, flow, done } from './lib.mjs';
 
 const base = baseUrl();
 const browser = await launch();
@@ -108,6 +108,9 @@ await flow('campaign', async () => {
   await paceAndMenu(n, OFFLINE);
   await closeMenu(n);
   check(`${n} won`, (await win()) === 'ended');
+  // the main thread held past the 6 s frame expiry (an app in the background, a slow phone): the next frame
+  // dropped battle frames still on screen and render threw for good (src/ui/sprites.ts sweepFrames)
+  await B('const t = performance.now(); while (performance.now() - t < 7000) {} return 1;');
   await leaveReport(n, 'World');
 });
 
@@ -132,10 +135,24 @@ await flow('tutorial', async () => {
   await startScene(api, 'Menu', {});
   need(`${n} Menu settles`, await settled(api, 'Menu'));
   await api.call('Menu', 's.openSettings(); return 1;');
-  // the Account section (with Replay tutorial) is below the fold: scroll the list with a finger until it shows
-  for (let i = 0; i < 6 && !(await api.btn('Menu', { id: 'settings.tutorial' })); i++) await api.swipe([[195, 640], [195, 260]], { steps: 10, after: 400 });
-  need(`${n} Settings > Replay tutorial tapped`, await tapId(api, 'Menu', 'settings.tutorial'));
-  need(`${n} the guided battle`, await battleUp());
+  // The Account section (with Replay tutorial) is below the fold: scroll the list with a finger until it shows.
+  // The fling glides on after the finger lifts, a frame at a time (seconds on a loaded machine), and rows are
+  // built a little below the list's window: a point read mid-glide, or under the clip, missed the button.
+  // Tap it once the list stands still with the button in its window; a tap that did not take is tried once more
+  let up = false;
+  let taps = 0;
+  for (let i = 0; i < 8 && !up && taps < 2; i++) {
+    const p = await steadyBtn(api, 'Menu', 'settings.tutorial');
+    if (!p) {
+      await api.swipe([[195, 640], [195, 260]], { steps: 10, after: 400 });
+      continue;
+    }
+    taps++;
+    await api.tap(p[0], p[1]);
+    up = await battleUp();
+  }
+  need(`${n} Settings > Replay tutorial tapped`, taps > 0);
+  need(`${n} the guided battle`, up, `taps=${taps}`);
   need(`${n} the narrator talks`, await until(() => B('return !!s.tutorial?.talking;'), 15000, 150));
   const info = await battleInfo();
   check(`${n} pace offline, a tutorial`, info.pace === 'offline' && info.tutorial, JSON.stringify(info));

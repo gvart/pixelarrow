@@ -22,8 +22,9 @@ async function need(name, ok, detail = '') {
   await finish({ browser });
 }
 
-await page.goto(base);
-await ev(() => localStorage.clear());
+// A fresh context starts with empty storage: one load. (It loaded, cleared localStorage and loaded again, but
+// a first launch writes its fresh campaign (GameState.load) once boot gets there; under load that write
+// landed after the clear, the reload found a save, and the menu offered Continue, not Begin the march.)
 await page.goto(base);
 // boot is slow under load: wait for the game object and its menu (a fixed 2.5 s sleep failed, unnamed, on window.__rs())
 await need('menu active', await until(() => ev(() => !!window.__game?.scene.isActive('Menu')), 60000));
