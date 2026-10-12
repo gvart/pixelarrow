@@ -11,7 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | FL-01 worktree-agent-a037d22daf4f1a2a0 | — | integrator | — | merging |
+| fl-02 | W22 FL-02: scene transitions | per card | per card | worktree-agent | running |
+| fl-03 | W22 FL-03: audio | per card | per card | worktree-agent | running |
 | f-07 | W22 F-07: retire v3, inkify, cleanup follow-ups | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
@@ -73,6 +74,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 74995a2 DUE-02 duel sub-screens. Gates: vitest 1402, server 303, layout 0 new (47 known), all smokes and online-e2e first try, replay 13/13; balance 53%.
 - f763d20 TUT-02 tutorial; e5b45ac FIXER-6 clan fresco slot. Gates: vitest 1403, server 303, layout 0 new (46 known, 197 screens), online-e2e first-try PASS, replay 13/13; balance 53%, host 49%. fullscreen-smoke flaked (facing knob, tap-to-move shape), passed on rerun.
 - 637175b DLG-02 dialogs and G12 errors; b7099d2 QA-02 regression suite and tutorial exit; b993953 regression sheet-layout waits 2 frames after a World restart. Gates: vitest 1422, server 303, layout 0 new (45 known), smokes all pass, regression 164 s PASS, online-e2e 34/34, replay 13/13; balance 53%.
+- 58dbd77 FL-01 juice tiers. Gates: vitest 1439, server 303, layout 0 new (45 known; run 1 had glTexture-null page errors on 4 en-tg configs at load ~115, clean alone), smokes and regression pass, online-e2e 35, replay 13/13; balance 53%.
 
 ## Queue (next)
 
@@ -144,6 +146,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 37. Follow-ups: battleHud medallion text under 6.5 (tutorial-move allowlist; owner FL/polish); Telegram Back during a duel search goes to the Menu (DUE-02 note).
 
 38. Follow-ups: fullscreen-smoke flakes on the facing knob and tap-to-move shape under load (2nd time); openJournalSheet in eventCard.ts is dead code (F-07); the duel challenge has no X, and Back sends a decline (DLG-02 decision).
+
+39. Watch: 'Cannot read properties of null (reading glTexture)' page errors under extreme load (a WebGL context loss?); QA-05 perf should check context-loss handling.
 
 ## Blockers
 
