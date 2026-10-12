@@ -941,15 +941,17 @@ const SCREENS = [
   },
   { id: 'first-run-skip', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'resume' }), await wait(p, 500), await call(p, 'FirstRun', 's.confirmSkip(); return 1;'), wait(p, 400)) },
   // tutorial steps: [screen, steps already learned (a resumed run starts at the first one not learned), start the battle]
+  // (TUT-02: Undo comes back with the drag it takes back, Then… with its move; the later steps are in scripts/tutorial-smoke.mjs)
   ...[
     ['tutorial-intro', [], false],
     ['tutorial-select', ['intro'], false],
     ['tutorial-pan', ['intro', 'select'], false],
     ['tutorial-sling', ['intro', 'select', 'pan', 'zoom'], false],
-    ['tutorial-fight', ['intro', 'select', 'pan', 'zoom', 'sling'], false],
-    ['tutorial-move', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight'], true],
-    ['tutorial-wall', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight', 'move'], true],
-    ['tutorial-loose', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight', 'move', 'wall'], true],
+    ['tutorial-fight', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo'], false],
+    ['tutorial-loose', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo', 'fight'], true],
+    ['tutorial-focus', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo', 'fight', 'loose'], true],
+    ['tutorial-play', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo', 'fight', 'loose', 'focus'], true],
+    ['tutorial-move', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo', 'fight', 'loose', 'focus', 'play'], true],
   ].map(([id, done, fight]) => ({
     id,
     owner: 'F',
