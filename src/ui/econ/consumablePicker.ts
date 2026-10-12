@@ -21,7 +21,7 @@ import Phaser from 'phaser';
 import type { UiScene } from '../widgets';
 import { uiId } from '../layout';
 import { LINE_H, measureText } from '../textfit';
-import { ScrollArea } from '../kit';
+import { ScrollArea, addIcon, scaleIcon } from '../kit';
 import { addScrollHint } from '../widgets';
 import { MOSAIC } from '../tokens';
 import { addRowFace, mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H, wrapWords, type MButtonOpts } from '../mosaic';
@@ -60,6 +60,8 @@ export async function pickBattleConsumable(scene: UiScene, o: PickOpts = {}): Pr
 const PAD = 8;
 const ICON = 18;
 const DESC = 6.5;
+/** Room at the row's right for the pick mark (a ring, or a check in a bronze disc). */
+const MARK = 14;
 /** Height of `n` lines of text at `size`. */
 const linesH = (n: number, size = 7) => Math.ceil((n * LINE_H * size) / 7);
 
@@ -67,7 +69,7 @@ const linesH = (n: number, size = 7) => Math.ceil((n * LINE_H * size) / 7);
 function rowText(id: ConsumableId, qty: number, w: number): { name: string[]; qty: string; desc: string[]; h: number } {
   const d = CONSUMABLES[id];
   const q = `×${fmtCount(qty)}`;
-  const tx = w - PAD * 2 - ICON - PAD;
+  const tx = w - PAD * 2 - ICON - PAD - MARK;
   const name = wrapWords(tOr(`consumable.${id}.name`, d.name), tx, (s) => mw(s, 'rInk', 7));
   const desc = wrapWords(tOr(`consumable.${id}.desc`, d.desc), tx, (s) => mw(s, 'pSec', DESC));
   return { name, qty: q, desc, h: Math.max(30, 6 + linesH(name.length) + 1 + linesH(desc.length, DESC) + 5) };
@@ -138,6 +140,19 @@ function openPicker(scene: UiScene, held: ConsumableId[], inv: Partial<Record<st
       const tx = PAD + ICON + PAD;
       r.add(mtext(scene, tx, 6, rt.name.join('\n'), 'rInk', { size: 7 }));
       r.add(mtext(scene, tx, 7 + linesH(rt.name.length), rt.desc.join('\n'), 'pSec', { size: DESC }));
+      // the pick reads by shape, not colour alone (G13): a check in a bronze disc and an inked rim, else an empty ring
+      const g = scene.add.graphics();
+      const mx = inner - PAD - 5;
+      if (on) {
+        g.lineStyle(1.5, MOSAIC.parchEdge, 1).strokeRect(0.75, 0.75, inner - 1.5, rt.h - 1.5);
+        g.fillStyle(MOSAIC.meanderLo, 1).fillCircle(mx, 11, 6);
+      } else g.lineStyle(1, MOSAIC.parchEdge, 0.8).strokeCircle(mx, 11, 5.5);
+      r.add(g);
+      if (on) {
+        const ck = scaleIcon(addIcon(scene, 0, 0, 'check', 'L'), 0.67);
+        ck.setPosition(Math.round(mx - ck.displayWidth / 2), Math.round(11 - ck.displayHeight / 2));
+        r.add(ck);
+      }
       makePressable(r, {
         w: inner,
         h: rt.h,
