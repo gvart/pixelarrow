@@ -104,12 +104,12 @@ export const CHAPTER_DOCTRINE: readonly DoctrineId[] = ['steady', 'swarm', 'rush
  * chapter doctrine outside that band against its own steady mirror, so it got
  * the closest doctrine that stays inside it, or steady when none did
  * (400 seeds, docs/v5/balance/AI-03.md; re-measured for AB-02 in AB-02.md
- * and for EC-05 in EC-05.md).
- * Re-measure after any sim change.
+ * and for EC-05 in EC-05.md; floor 21 by BAL-02 in FINAL.md).
+ * Re-measure after any sim change: `npm run balance:ladder` (src/dev/ladderParity.ts).
  */
 const FLOOR_DOCTRINE: Readonly<Record<number, DoctrineId>> = {
   12: 'fury', 14: 'steady', 15: 'fury', 17: 'steady', 18: 'fury', 19: 'rush',
-  24: 'swarm', 25: 'hammer', 26: 'swarm', 29: 'steady',
+  21: 'hammer', 24: 'swarm', 25: 'hammer', 26: 'swarm', 29: 'steady',
   31: 'swarm', 34: 'swarm', 35: 'steady', 36: 'fury', 38: 'rush', 39: 'rush',
   41: 'steady', 42: 'steady', 44: 'hammer', 45: 'steady', 46: 'steady', 47: 'rush', 48: 'steady', 49: 'hammer',
 };

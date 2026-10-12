@@ -12,11 +12,11 @@ describe('ladder doctrines (AI-03)', () => {
     // chapter 1 is all steady; every later chapter keeps its doctrine on some floors
     expect(got.slice(0, 10).every((d) => d === 'steady')).toBe(true);
     for (let c = 2; c <= 5; c++) expect(got.slice((c - 1) * 10, c * 10 - 1), `chapter ${c}`).toContain(CHAPTER_DOCTRINE[c - 1]);
-    // the table as measured (docs/v5/balance/AI-03.md, re-measured in AB-02.md and EC-05.md)
+    // the table as measured (docs/v5/balance/AI-03.md, re-measured in AB-02.md and EC-05.md, floor 21 in FINAL.md BAL-02)
     expect(got.join(' ')).toBe(
       'steady steady steady steady steady steady steady steady steady steady ' +
         'swarm fury swarm steady fury swarm steady fury rush steady ' +
-        'rush rush rush swarm hammer swarm rush rush steady steady ' +
+        'hammer rush rush swarm hammer swarm rush rush steady steady ' +
         'swarm hammer hammer swarm steady fury hammer rush rush steady ' +
         'steady steady fury hammer steady steady rush steady hammer steady',
     );
