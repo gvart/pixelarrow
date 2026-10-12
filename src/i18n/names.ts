@@ -6,7 +6,8 @@
  * know (a player's own, a clan's) is shown as it is.
  */
 import { CLASSES } from '../data/classes';
-import { dataTable, lang, type Lang } from './index';
+import { dataTable, lang, t, tOr, type Lang, type TKey } from './index';
+import { placeName } from './places';
 
 /**
  * Every name of src/data/names.ts NAMES (tests/heroNames.test.ts holds the
@@ -48,7 +49,7 @@ export const NAMES_RU: Readonly<Record<string, string>> = {
 export const DEMO_NAMES_RU: Readonly<Record<string, string>> = {
   Ana: 'Ана', Lysander: 'Лисандр', Phormio: 'Формион', Phormion: 'Формион', Myronides: 'Миронид', Iphicrates: 'Ификрат',
   Demosthenes: 'Демосфен', Chabrias: 'Хабрий', Pelopidas: 'Пелопид', Xanthippos: 'Ксантипп', Agesilaos: 'Агесилай',
-  Hektor: 'Гектор', Timoleon: 'Тимолеонт', Myrto: 'Мирто', Tanaquil: 'Танаквиль', Lysandra: 'Лисандра',
+  'Kites of Pella': 'Коршуны Пеллы', 'Sons of Argos': 'Сыны Аргоса', Hektor: 'Гектор', Timoleon: 'Тимолеонт', Myrto: 'Мирто', Tanaquil: 'Танаквиль', Lysandra: 'Лисандра',
 };
 
 /** Names given in code rather than drawn from the lists. */
@@ -95,4 +96,28 @@ export function demoName(name: string, l: Lang = lang()): string {
  */
 export function namesIn(text: string, l: Lang = lang()): string {
   return l === 'en' ? text : text.replace(/[A-Za-z]+(?: [A-Za-z]+)*/g, (run) => heroName(run, l));
+}
+
+/** The bands the campaign map names in English (src/world/world.ts BAND_NAMES, the Tyrant's host). */
+const BAND_KEYS: Readonly<Record<string, TKey>> = {
+  Bandits: 'wld.band.bandits', 'Galatae raiders': 'wld.band.raiders', Mercenaries: 'wld.band.mercs', Pirates: 'wld.band.pirates', "The Tyrant's host": 'wld.band.host',
+};
+
+/** A band's name (a lair garrison keeps its lair's proper name). */
+export const bandName = (name: string): string => (BAND_KEYS[name] ? t(BAND_KEYS[name]) : name);
+
+/** A lair's name (src/world/map.ts names lairs in English). */
+export const lairName = (name: string): string => tOr(`arc.lairName.${name}`, name);
+
+/**
+ * Whom a battle is against, from the label a campaign battle stores (a band,
+ * a lair, a place or a hero) as the language writes it.
+ */
+export function foeName(label: string): string {
+  const band = bandName(label);
+  if (band !== label) return band;
+  const lair = lairName(label);
+  if (lair !== label) return lair;
+  const place = placeName(label);
+  return place !== label ? place : heroName(label);
 }

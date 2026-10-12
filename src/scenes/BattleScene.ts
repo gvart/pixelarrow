@@ -59,7 +59,8 @@ import { campaignSetup, markBattle, playerWorks, settleBattle } from '../game/ca
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
 import { t, tOr, type TKey } from '../i18n';
-import { heroName, namesIn } from '../i18n/names';
+import { foeName, heroName, namesIn } from '../i18n/names';
+import { placeName } from '../i18n/places';
 import { fmtClock } from '../util/format';
 import { BattleTutorial, type TutorialEvent, type TutorialHost, type TutorialStart } from '../ui/tutorial/battleTutorial';
 import { tutorialBattle } from '../game/tutorial';
@@ -654,7 +655,7 @@ export class BattleScene extends BaseScene {
       this.tutorial = new BattleTutorial(this.tutorialHost(), this.tutorialData);
       return;
     }
-    const where = terrain.name ? ` - ${terrain.name}` : '';
+    const where = terrain.name ? ` – ${placeName(terrain.name)}` : '';
     // before the start, say whether this battle can pause (A11Y-18; controls.md R10)
     const pace = this.realtimeLocked ? t('pace.locked') : this.pace === 'ladder' ? t('pace.ladder', { m: LADDER.ticketMin }) : '';
     this.showBanner(`${t('battle.banner.deploy', { vs: this.vsLabel() })}${where}${pace ? `\n${pace}` : ''}`, pace ? 4500 : 3000, pace ? 4 : 2);
@@ -3663,7 +3664,7 @@ export class BattleScene extends BaseScene {
     c.add(shade);
     c.add(mosaicImage(this, x, y, w, h, 'sheet'));
     const numeral = this.cards.find((k) => k.gid === sel.id)?.numeral ?? '';
-    c.add(mtext(this, x + 6, y + 5, t('battle.shape.title', { numeral, name: sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : groupName(sel.name) }).toUpperCase().replace(/ +/g, '  '), 'rInk', { size: 7.5, maxW: w - 12 }));
+    c.add(mtext(this, x + 6, y + 5, t('battle.shape.title', { numeral, name: sel.individual ? heroName(this.sim.members(sel.id)[0]?.name ?? '') : groupName(sel.name) }).toUpperCase().replace(/ +/g, '  '), 'rInk', { size: 7.5, maxW: w - 12 }));
     let ry = y + 16;
     for (const [type, key, icon] of shapes) {
       const wallOff =
@@ -4575,7 +4576,7 @@ export class BattleScene extends BaseScene {
     if (this.src) return this.src.label;
     if (this.tutorialData) return t('battle.vs', { name: t('tut.vs') });
     const p = state.pending!;
-    return t('battle.vs', { name: p.label ?? CULTURE_LABEL[p.enemy.culture] });
+    return t('battle.vs', { name: p.label ? foeName(p.label) : tOr(`culture.${p.enemy.culture}`, CULTURE_LABEL[p.enemy.culture]) });
   }
 
   /** Live duel: start on go, show the opponent's readiness and stalls, end on desync / opponent gone. */
@@ -4638,7 +4639,7 @@ export class BattleScene extends BaseScene {
         row.add(mosaicImage(this, 0, 0, rw, rowH, 'parchment'));
         row.add(addPortrait(this, dollFromHero(hero), 3, 2));
         const tw = rw - 32;
-        row.add(addText(this, 29, 4, ellipsize(hero.name, tw), 'pBad'));
+        row.add(addText(this, 29, 4, ellipsize(heroName(hero.name), tw), 'pBad'));
         row.add(addText(this, 29, 14, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), tw), 'pSec'));
         const n = sideGroups.length;
         const cw = Math.floor((rw - 4 - SIZE.gap * (n - 1)) / n);

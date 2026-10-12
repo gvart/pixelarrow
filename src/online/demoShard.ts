@@ -185,7 +185,7 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
     formations: ['line', 'skirmish', 'line', 'column'],
     heroes: heroes.map((hero, i) => ({ hero, garrison: i >= heroes.length - 1 ? me : null, woundedUntil: 0, busy: false, reserve: false })),
     stash: [],
-    clan: { id: DEMO.clan, name: 'Kites of Pella', tag: 'KIT', role: 'officer' },
+    clan: { id: DEMO.clan, name: demoName('Kites of Pella'), tag: 'KIT', role: 'officer' },
     battles: 14,
     wins: 11,
     income: { pending: R(46, 18, 12, 3, 0.4), regions: mine.length },
@@ -198,7 +198,7 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
     regions,
     armies,
     players: { [DEMO.me]: demoName('Ana'), [DEMO.mate]: demoName('Brasidas'), [DEMO.rival]: demoName('Kleon'), [DEMO.raider]: demoName('Phormion') },
-    clans: { [DEMO.clan]: { name: 'Kites of Pella', tag: 'KIT' }, [DEMO.rivalClan]: { name: 'Sons of Argos', tag: 'ARG' } },
+    clans: { [DEMO.clan]: { name: demoName('Kites of Pella'), tag: 'KIT' }, [DEMO.rivalClan]: { name: demoName('Sons of Argos'), tag: 'ARG' } },
   };
   const markers = (tNow: number): CampMarker[] =>
     camps
@@ -231,8 +231,8 @@ export function demoShard(now = Date.UTC(2026, 9, 20, 18, 0, 0), mapId = DEFAULT
         { player: DEMO.raider, name: demoName('Phormion'), clan: null, damage: 410, raids: 2 },
       ],
       clans: [
-        { clan: DEMO.clan, tag: 'KIT', name: 'Kites of Pella', damage: 3120 },
-        { clan: DEMO.rivalClan, tag: 'ARG', name: 'Sons of Argos', damage: 1630 },
+        { clan: DEMO.clan, tag: 'KIT', name: demoName('Kites of Pella'), damage: 3120 },
+        { clan: DEMO.rivalClan, tag: 'ARG', name: demoName('Sons of Argos'), damage: 1630 },
       ],
       you: { damage: 980, raids: 3, loot: null },
     };

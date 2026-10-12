@@ -13,6 +13,7 @@ import { RS } from '../platform/renderScale';
 import { toast } from '../ui/widgets';
 import { t } from '../i18n';
 import { heroName } from '../i18n/names';
+import { placeName } from '../i18n/places';
 
 const GAP = 4;
 const CTA_H = 30;
@@ -54,7 +55,7 @@ export class MenuScene extends BaseScene {
     const status = hubStatusLine({
       hasSave: state.hasSave,
       day: Math.floor(c.world.time / 24) + 1,
-      place: inside >= 0 ? world.settlement(inside)?.name : undefined,
+      place: inside >= 0 ? placeName(world.settlement(inside)?.name ?? '') || undefined : undefined,
       hurt: c.heroes.filter((h) => (h.wound ?? 0) > 0).length,
       lairsDown: lairs.filter((l) => world.s.lairs?.[l.id]?.fallen).length,
       lairs: lairs.length,

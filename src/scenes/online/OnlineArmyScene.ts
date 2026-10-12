@@ -40,6 +40,7 @@ import { fmtNum } from '../../util/format';
 import { fmtDuration } from '../../util/format';
 import { t } from '../../i18n';
 import { heroName } from '../../i18n/names';
+import { placeName } from '../../i18n/places';
 
 export interface WarArmyData {
   /** Garrison mode: pick who holds this hex (its loc; 0 is a hex like any other, OAR-5). */
@@ -237,7 +238,7 @@ export class OnlineArmyScene extends BaseScene {
   /** A region's name on this season's map. */
   private regionName(loc: number): string {
     const id = this.profile?.shard.map;
-    return id && hasMap(id) && getMap(id).has(loc) ? getMap(id).info(loc).name : `#${loc}`;
+    return id && hasMap(id) && getMap(id).has(loc) ? placeName(getMap(id).info(loc).name) : `#${loc}`;
   }
 
   // ------------------------------------------------------------------ the page

@@ -29,6 +29,7 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'battle.deploy.title': 'Расстановка',
   'battle.deploy.titleOnline': 'Расставьте войско',
   'battle.vs': 'против: {name}',
+  'battle.vsShort': 'против',
   'battle.opponent': 'противник',
   'battle.live': 'Онлайн',
   'battle.clock': 'Время',

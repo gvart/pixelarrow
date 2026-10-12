@@ -31,6 +31,7 @@ import { MActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP,
 import { t, tOr, type TKey } from '../i18n';
 import { heroName } from '../i18n/names';
 import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
+import { placeName } from '../i18n/places';
 
 /** `rest` is Services in a town (V5-029) and Rest in a village. */
 type Tab = 'recruits' | 'market' | 'sell' | 'rest';
@@ -96,7 +97,7 @@ export class SettlementScene extends BaseScene {
     const { VH } = this.m;
     const compact = VH < 300;
 
-    const shell = addSubShell(this, { title: def.name, back: () => this.leave(), id: 'town.topbar', scroll: false });
+    const shell = addSubShell(this, { title: placeName(def.name), back: () => this.leave(), id: 'town.topbar', scroll: false });
     const b = shell.content;
     this.ax = b.x + 4;
     this.aw = b.w - 8;
@@ -107,7 +108,7 @@ export class SettlementScene extends BaseScene {
     const artH = compact ? 38 : VH < 380 ? 58 : 78;
     const vk = vignetteKey(def.kind, def.culture);
     const artY = y;
-    const banner = (art: { image: string } | { pixelKey: string }) => new FrescoBanner(this, this.ax, artY, this.aw, artH, { ...art, label: def.name, id: 'town.art' });
+    const banner = (art: { image: string } | { pixelKey: string }) => new FrescoBanner(this, this.ax, artY, this.aw, artH, { ...art, label: placeName(def.name), id: 'town.art' });
     const first = banner(hasRaster(this, vk) ? { image: vk } : { pixelKey: this.artTexture(def, this.aw - 8, artH - 8) });
     this.ui.add(first);
     // downloaded on the first visit to a place of this kind and people, without holding the page up

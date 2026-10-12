@@ -209,7 +209,10 @@ export class TopBar extends Phaser.GameObjects.Container {
     const rw = measureText(right, false, HUD_TEXT);
     const lt = addText(s, 6, y - 1.5, left, 'light', 0).setFontSize(HUD_TEXT);
     const rt = addText(s, this.w - 6, y - 1.5, right, 'light', 1).setFontSize(HUD_TEXT);
-    const vs = addText(s, this.w / 2, y - 1.5, 'vs', 'gold', 0.5).setFontSize(HUD_TEXT);
+    const word = t('battle.vsShort');
+    const vs = addText(s, this.w / 2, y - 1.5, word, 'gold', 0.5).setFontSize(HUD_TEXT);
+    // the bars stop short of the word ("vs", "против")
+    const half = Math.max(8, Math.ceil(measureText(word, false, HUD_TEXT) / 2) + 4);
     for (const t of [lt, rt, vs]) uiFrame(t, this, this.w, TOP_H);
     const g = s.add.graphics();
     const bar = (x0: number, x1: number, f: number, color: number, fromRight: boolean) => {
@@ -224,8 +227,8 @@ export class TopBar extends Phaser.GameObjects.Container {
         g.fillRoundedRect(fromRight ? x0 + w - 1 - fw : x0 + 1, y + 1, fw, 3, 1);
       }
     };
-    bar(6 + lw + 4, this.w / 2 - 8, r.ours / 100, MOSAIC.bronzeHi, false);
-    bar(this.w / 2 + 8, this.w - 6 - rw - 4, r.theirs / 100, MOSAIC.terraHi, true);
+    bar(6 + lw + 4, this.w / 2 - half, r.ours / 100, MOSAIC.bronzeHi, false);
+    bar(this.w / 2 + half, this.w - 6 - rw - 4, r.theirs / 100, MOSAIC.terraHi, true);
     this.row.add([g, lt, rt, vs]);
     return this;
   }

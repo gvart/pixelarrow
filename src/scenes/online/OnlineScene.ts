@@ -66,6 +66,7 @@ import { encounterName } from '../../ui/beastInfo';
 import type { EncounterId } from '../../data/beasts';
 import { OnlineCoach, coachDue, type CoachHost } from '../../ui/tutorial/onlineCoach';
 import type { CoachId } from '../../game/tutorial';
+import { placeName } from '../../i18n/places';
 
 /** Layout (UI pixels). */
 /** The situation strip: up to three lines of 6.5 (a sentence is never cut, A11Y-10) beside Collect. */
@@ -786,7 +787,7 @@ export class OnlineScene extends BaseScene {
 
   private hexName(h: Pick<RegionView, 'loc' | 'occupant' | 'lair' | 'boss'>): string {
     if (h.boss) return encounterLabel(h.boss);
-    const name = this.world.has(h.loc) ? this.world.info(h.loc).name : t('hex.neutral');
+    const name = this.world.has(h.loc) ? placeName(this.world.info(h.loc).name) : t('hex.neutral');
     if (h.lair) return `${name} · ${encounterLabel(h.lair)}`;
     return name;
   }
@@ -951,7 +952,7 @@ export class OnlineScene extends BaseScene {
     const data: CampSceneData = {
       mode: 'online',
       loc: h,
-      name: info?.name ?? `#${h}`,
+      name: info ? placeName(info.name) : `#${h}`,
       coast: !!info?.coast,
       source: demo ? demoCampSource(demo) : liveCampSource,
       demo: !!demo,

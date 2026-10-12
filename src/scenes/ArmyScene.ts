@@ -22,6 +22,7 @@ import {
 } from '../ui/army';
 import { t, type TKey } from '../i18n';
 import { heroName } from '../i18n/names';
+import { placeName } from '../i18n/places';
 
 export { RARITY_COLOR } from '../ui/theme';
 
@@ -388,7 +389,7 @@ export class ArmyScene extends BaseScene {
       const d = (s.x - w.s.x) ** 2 + (s.y - w.s.y) ** 2;
       if (d < bd) (bd = d), (best = s);
     }
-    return best ? t('army5.emptyHint', { town: best.name }) : t('army5.emptyHintAny');
+    return best ? t('army5.emptyHint', { town: placeName(best.name) }) : t('army5.emptyHintAny');
   }
 
   /** First tap selects, a second tap opens the sheet; in pick mode one tap picks. */

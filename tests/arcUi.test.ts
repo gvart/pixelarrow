@@ -10,12 +10,12 @@ import { setLang, LANGS } from '../src/i18n';
 import { ARC_EN } from '../src/i18n/arc.en';
 import { ARC_RU } from '../src/i18n/arc.ru';
 import { lairOf, startLairAssault } from '../src/game/campaignBattle';
+import { lairName } from '../src/i18n/names';
 
 vi.mock('phaser', () => {
   class C {}
   return { default: { GameObjects: { Container: C, Image: C, Text: C, Graphics: C, Rectangle: C, Zone: C, Sprite: C, Layer: C }, Scene: C, Loader: { Events: {} } } };
 });
-const { lairName } = await import('../src/scenes/WorldScene');
 const { assaultPrimary } = await import('../src/ui/sheets/assault');
 
 describe('the arc reads in both languages', () => {

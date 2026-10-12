@@ -32,7 +32,6 @@ import { addNoteChip } from '../ui/results/chips';
 import { buildArcVictory } from '../ui/results/arcVictory';
 import { CHEST_EMPTY_KEY, LAUREL_KEY, addCutout, cutoutW, preloadResultsArt } from '../ui/results/art';
 import { arcPiece, backAction, companyRoll, isArcVictory, noteChips, pagesFor, spoilSections, vsName, type ResultsPage } from '../ui/results/model';
-import { bandName } from './WorldScene';
 import { COLOR, RARITY_COLOR, RARITY_GLOW, SIZE } from '../ui/theme';
 import { addPortrait } from '../ui/sprites';
 import { dollFromHero } from '../art/paperdoll';
@@ -53,7 +52,7 @@ import { uiCoin, uiLevelUp } from '../audio/hooks';
 import { sfx } from '../audio';
 import { t, tOr, type TKey } from '../i18n';
 import { localDecimals } from '../i18n/numbers';
-import { heroName } from '../i18n/names';
+import { foeName, heroName } from '../i18n/names';
 
 export interface ResultsData {
   /** Online battles bring their own report... */
@@ -278,7 +277,7 @@ export class ResultsScene extends BaseScene {
     if (cache) return cache;
     const r = buildReport({
       result: o.retreated ? 'retreat' : o.victory ? 'victory' : o.draw ? 'draw' : 'defeat',
-      vs: t('battle.vs', { name: vsName(last, bandName) }),
+      vs: t('battle.vs', { name: vsName(last, foeName) }),
       ticks: last.ticks ?? 0,
       side: 0,
       stats,

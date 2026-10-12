@@ -18,7 +18,7 @@ describe('hero names in Russian (LOC-01)', () => {
 
   it('writes only Cyrillic letters the UI fonts carry', () => {
     for (const ru of [...Object.values(NAMES_RU), ...Object.values(DEMO_NAMES_RU)]) {
-      expect(ru).toMatch(/^[А-ЯЁ][а-яё]+$/);
+      expect(ru).toMatch(/^[А-ЯЁ][а-яё]+(?: [А-ЯЁа-яё]+)*$/);
       for (const ch of ru) expect(BODY_METRICS.adv[ch], `${ru} ${ch}`).toBeDefined();
     }
   });

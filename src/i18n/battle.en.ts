@@ -32,6 +32,7 @@ export const BATTLE_EN = {
   'battle.deploy.title': 'Deployment',
   'battle.deploy.titleOnline': 'Deploy now',
   'battle.vs': 'vs {name}',
+  'battle.vsShort': 'vs',
   'battle.opponent': 'your opponent',
   'battle.live': 'Live',
   'battle.clock': 'Time',
