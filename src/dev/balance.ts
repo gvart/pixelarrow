@@ -15,6 +15,7 @@
  *  - sim train 2: doctrines, orders, field works and the campaign arc
  *    (src/dev/doctrineBalance.ts, ordersBalance.ts, worksBalance.ts,
  *    arcBalance.ts). Each prints its section only once its story adds rows.
+ *  - event deck: the EV table and the event economy (src/dev/eventBalance.ts, FL-04).
  */
 import { generateEnemyArmy } from '../game/enemy';
 import { armySpec } from '../game/armySpec';
@@ -34,6 +35,7 @@ import { doctrineRows } from './doctrineBalance';
 import { ordersRows } from './ordersBalance';
 import { worksRows } from './worksBalance';
 import { arcRows } from './arcBalance';
+import { eventRows } from './eventBalance';
 
 /** One row of a sim train 2 harness module: what was measured, against the GDD's target. */
 export interface BalanceRow {
@@ -399,5 +401,6 @@ export function balanceReport(n = 200): string {
   lines.push(...rowSection(`Orders (formations-orders.md), ${n} seeds per row`, ordersRows(n)));
   lines.push(...rowSection(`Field works (field-works.md), ${n} seeds per row`, worksRows(n)));
   lines.push(...rowSection(`Campaign arc (campaign-arc.md), ${n} seeds per row`, arcRows(n)));
+  lines.push(...rowSection(`Event deck (campaign-events.md), ${n} worlds x 40 battles per policy`, eventRows(n)));
   return lines.join('\n');
 }
