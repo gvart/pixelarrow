@@ -27,6 +27,9 @@ import { ellipsize } from './textfit';
 import { tOr } from '../i18n';
 import { TICK_RATE } from '../sim/battle';
 
+/** Left edge of the boss bar (UI px): clear of the zoom key (4 + 22) with a 3 px gap; mirrored on the right for the eye. */
+const BAR_X = 29;
+
 /** What BattleScene keeps per figure (structural: its UnitView). */
 export interface BeastUnitView {
   u: SimUnit;
@@ -424,13 +427,20 @@ export class BeastView {
     return this.sim.units.filter((u) => u.side !== this.me && this.sim.myth!.isBody(u));
   }
 
+  /** A boss bar is on screen (the HUD's banners go under it). */
+  get hasBar(): boolean {
+    return !!this.bar;
+  }
+
   private buildBar(vw: number, top: number): void {
     const bodies = this.bodies();
     if (!bodies.length) return;
     const c = this.scene.add.container(0, 0);
-    const x = 3;
+    // Z2 of the battle HUD (hud.md §C, BTL-01): between the zoom key and the eye, under the top bar;
+    // banners and the Paused pill sit below it, so it never hides (BTL-1)
+    const x = BAR_X;
     const y = top + 3;
-    const w = vw - 3 - 24 - 3 - 6;
+    const w = vw - BAR_X * 2;
     this.barW = w;
     c.add(addPanel(this.scene, x, y, w, 20, 'parch'));
     const id = bodies[0].stats.boss as MythId;
@@ -448,7 +458,7 @@ export class BeastView {
     const c = this.bar;
     const g = this.barG;
     if (!c || !g) return;
-    c.setVisible(!banner);
+    void banner;
     const bodies = this.bodies();
     let hp = 0;
     let max = 0;
@@ -458,7 +468,7 @@ export class BeastView {
     }
     const parts = this.sim.units.filter((u) => u.side !== this.me && isMythId(u.stats.boss) && !this.sim.myth!.isBody(u));
     const flock = bodies.length > 1;
-    const x = 3;
+    const x = BAR_X;
     const y = (c.list[0] as Phaser.GameObjects.GameObject & { y: number }).y;
     const w = this.barW;
     g.clear();

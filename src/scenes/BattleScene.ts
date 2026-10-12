@@ -7,7 +7,7 @@ import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, str
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, type BadgeSpec, type TopBarOpts } from '../ui/battleHud';
+import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
@@ -51,7 +51,8 @@ import { FlankWatch, flankArc, flankThreats, type Vec } from '../ui/flankArc';
 import { BeastView } from '../ui/beastView';
 import { openSettings } from '../ui/settings';
 import { battleAudio, uiError } from '../audio/hooks';
-import { sfx } from '../audio';
+import { audio, sfx } from '../audio';
+import { openBattleMenu, type BattleMenuHandle } from '../ui/sheets/battleMenu';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
 import { isCaptain, rallyRadius } from '../sim/stats';
 import { BOULDER_GEOM, TREE_GEOM, WORK_ART, renderBoulder, renderGlint, renderSparkle, renderTree, workSprites, type WorkSprite } from '../art/terrainArt';
@@ -262,6 +263,8 @@ export class BattleScene extends BaseScene {
   private tagPos = new Map<number, { x: number; y: number }>();
   private top: TopBar | null = null;
   private hintPill: HintPill | null = null;
+  /** The open ⋯ battle menu (BTL-01), if any. */
+  private menu: BattleMenuHandle | null = null;
   private sitKey = '';
   /** What the order row was built for (ordersKey): the HUD is rebuilt when it changes. */
   private ordersBuilt = '';
@@ -2711,7 +2714,7 @@ export class BattleScene extends BaseScene {
     const bw = Math.min(maxW, Math.max(w, subW));
     const h = lines.length * LINE_H + 8 + sub.length * 8;
     const x = Math.round(left + (VW - left - bw) / 2);
-    const y = this.topH() + 4;
+    const y = this.bannerTop();
     c.add(mosaicImage(this, x, y, bw, h, 'parchment'));
     const txt = addText(this, x + bw / 2, y + 4, lines.join('\n'), 'pInk', 0.5);
     txt.setCenterAlign();
@@ -2791,7 +2794,7 @@ export class BattleScene extends BaseScene {
     this.hud.add(this.top);
     // following the fight: a small eye at the field's top right (battle only); left-hand mode mirrors it (A11Y-16)
     const pillW = VW - 2 * 30;
-    if (this.sim.phase === 'battle' && !this.realtimeLocked) {
+    if (this.sim.phase === 'battle') {
       const fb = new KeyButton(this, mirrorX(VW - 26, 22, VW, this.leftHand), this.cornerY(this.leftHand), 22, 22, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), lit: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
       this.hud.add(fb);
       this.followBtn = fb;
@@ -2802,7 +2805,7 @@ export class BattleScene extends BaseScene {
       this.zoomBtn = new KeyButton(this, mirrorX(4, 22, VW, this.leftHand), this.cornerY(!this.leftHand), 22, 22, { label: `${z}×`, tip: t('attn.tip.zoom'), id: 'battle.zoom', variant: 'bronze', plain: true, onClick: () => this.stepZoom() });
       this.hud.add(this.zoomBtn);
     }
-    this.hintPill = new HintPill(this, VW / 2, TOP_H + 4, pillW);
+    this.hintPill = new HintPill(this, VW / 2, this.bannerTop(), pillW);
     this.hud.add(this.hintPill);
     if (this.dclock && this.sim.phase === 'deploy') {
       // the online deployment's draining bar along the top bar's bottom edge
@@ -2813,42 +2816,75 @@ export class BattleScene extends BaseScene {
     }
   }
 
-  /** Top of a field corner key (the eye, the zoom key): a beast battle's boss bar runs across the top left, so a key there sits under it. */
-  private cornerY(left: boolean): number {
-    return TOP_H + 4 + (left && this.beasts ? 24 : 0);
+  /** Top of a field corner key (the eye, the zoom key): Z2 of hud.md §C; a beast battle's boss bar runs between them. */
+  private cornerY(_left: boolean): number {
+    return TOP_H + 4;
+  }
+
+  /** Top of Z3 (banners, the Paused pill, the hint): under the corner keys' row, so never over the boss bar (BTL-1). */
+  private bannerTop(): number {
+    return TOP_H + 4 + (this.beasts?.hasBar ? 24 : 0);
   }
 
   private topOpts(): TopBarOpts {
-    const deploy = this.sim.phase === 'deploy';
     const ended = this.sim.phase === 'ended';
-    if (deploy) {
-      return {
-        left: { icon: 'back', label: t('battle.strip.leave'), tip: t('battle.tip.leave'), id: 'battle.leave', onClick: () => this.confirmLeaveDeploy() },
-        right: { icon: 'people', label: t('battle.strip.men'), tip: t('battle.tip.groups'), id: 'battle.groups', onClick: () => this.openGroups() },
-      };
-    }
-    const flee: StripSlot = { icon: 'flag', label: t('battle.strip.flee'), tip: t('battle.tip.retreat'), id: 'battle.retreat', off: ended ? t('battle.why.over') : undefined, destructive: !ended, onClick: () => this.openRetreat() };
-    if (this.realtimeLocked) {
-      return {
-        left: { icon: 'eye', label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), selected: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() },
-        right: flee,
-      };
-    }
+    // Z1 (hud.md §C): the ⋯ battle menu holds Leave, Reset all, Retreat, Sound and Settings (ELEMENT_MAP E179, E183, E195, E208)
+    const menu: StripSlot = { icon: 'menu', label: t('battle.menu.key'), tip: t('battle.menu.tip'), id: 'battle.menu', onClick: () => this.openMenu() };
+    if (this.sim.phase === 'deploy' || this.realtimeLocked) return { menu, leftHand: this.leftHand };
     return {
-      left: this.paused
+      menu,
+      pause: this.paused
         ? { icon: 'play', label: t('battle.strip.play'), tip: t('battle.tip.pause'), id: 'battle.play', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() }
         : { icon: 'pause', label: t('battle.strip.pause'), tip: t('battle.tip.pause'), id: 'battle.pause', off: ended ? t('battle.why.over') : undefined, onClick: () => this.togglePause() },
-      mid: { icon: 'fast', label: speedLabel(this.speed), selected: this.speed !== 1, tip: t('pace.tip.speed', { list: SPEEDS[this.pace].map(speedLabel).join(', ') }), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
-      right: flee,
+      speed: { icon: 'fast', label: speedLabel(this.speed), selected: this.speed !== 1, tip: t('pace.tip.speed', { list: SPEEDS[this.pace].map(speedLabel).join(', ') }), id: 'battle.speed', off: ended ? t('battle.why.over') : undefined, onClick: () => this.toggleSpeed() },
       // paused, Play is the one thing to do next
-      primary: this.paused && !ended ? 'left' : undefined,
+      primary: this.paused && !ended,
+      leftHand: this.leftHand,
     };
+  }
+
+  /**
+   * The ⋯ battle menu (hud.md §D, BTL-01). Opening it pauses an offline fight;
+   * closing it without a pick lets the fight run on as it was. Under
+   * `realtimeLocked` it never pauses and offers only Retreat and Sound (A11Y-18).
+   */
+  openMenu(): BattleMenuHandle | null {
+    if (this.menu && !this.menu.closed) return this.menu;
+    if (this.overlay) return null;
+    const fighting = this.sim.phase === 'battle';
+    const wasPaused = this.paused;
+    if (fighting && !this.paused && !this.realtimeLocked && !this.tutorial) this.setPaused(true);
+    const restore = () => {
+      if (fighting && !wasPaused && this.paused && this.sim.phase === 'battle') this.setPaused(false);
+    };
+    const st = state.campaign.data.settings;
+    this.menu = openBattleMenu(this, {
+      state: { phase: this.sim.phase === 'deploy' ? 'deploy' : fighting ? 'battle' : 'ended', realtimeLocked: this.realtimeLocked, tutorial: !!this.tutorial, online: !!this.src },
+      soundOn: () => st.sound !== false,
+      toggleSound: () => {
+        st.sound = st.sound === false;
+        audio.refresh();
+        void state.save();
+      },
+      onDismiss: restore,
+      onPick: (item) => {
+        if (item === 'retreat') {
+          // the retreat confirm pauses on its own and resumes on Stay
+          restore();
+          this.openRetreat();
+        } else if (item === 'leave') this.confirmLeaveDeploy();
+        else if (item === 'resetAll') this.resetDeploy();
+        else if (item === 'skip') this.tutorial?.askSkip();
+        // Settings keeps the fight paused while it is open (ELEMENT_MAP E208)
+        else openSettings(this);
+      },
+    });
+    return this.menu;
   }
 
   /** Swap the top bar's actions (pause / play, speed) without rebuilding the HUD. */
   private refreshStrip(): void {
     this.top?.set(this.topOpts());
-    if (this.realtimeLocked && this.top?.buttons.left) this.followBtn = this.top.buttons.left;
   }
 
   /** The sentence, the clock and the strength row for this moment (rebuilt only when they change). */
@@ -2857,7 +2893,7 @@ export class BattleScene extends BaseScene {
     const sim = this.sim;
     const deploy = sim.phase === 'deploy';
     let sentence: string;
-    let urgent = false;
+    let tone: HintTone = 'info';
     const mine = sim.units.filter((u) => u.side === this.me && sim.isAlive(u)).length;
     if (deploy) {
       sentence = this.src?.lockstep ? t('battle.sit.deployDuel') : this.src ? t('battle.sit.deployHidden') : t('battle.sit.deploy');
@@ -2874,11 +2910,11 @@ export class BattleScene extends BaseScene {
       if (sim.phase === 'ended') sentence = t('battle.sit.ended');
       else if (this.paused) {
         sentence = t('battle.sit.paused');
-        urgent = true;
+        tone = 'paused';
       } else if (engaged && ours - theirs > 25) sentence = t('battle.sit.winning');
       else if (engaged && theirs - ours > 25) {
         sentence = t('battle.sit.losing');
-        urgent = true;
+        tone = 'alert';
       } else if (engaged) sentence = t('battle.sit.contact', { ours, theirs });
       else if (sel && !sel.disbanded && sim.activeMembers(sel.id).length > 0) {
         const numeral = this.cards.find((c) => c.gid === sel.id)?.numeral ?? '';
@@ -2892,11 +2928,11 @@ export class BattleScene extends BaseScene {
       else this.top.setTime(fmtClock(Math.floor(sim.tick / TICK_RATE)), this.speed > 1 ? t('battle.num.fast') : this.speed < 1 ? t('pace.slow') : this.realtimeLocked ? t('battle.strip.live') : t('battle.top.time'));
       this.top.setRow({ ours, theirs, you: t('battle.top.you'), foe: t('battle.top.foe') });
     }
-    const key = `${sentence}|${urgent}`;
+    const key = `${sentence}|${tone}`;
     if (key === this.sitKey) return;
     this.sitKey = key;
     // a banner (Paused, a message) sits where the hint goes: the hint waits
-    this.hintPill.setText(this.banner ? '' : sentence, urgent);
+    this.hintPill.setText(this.banner ? '' : sentence, tone);
   }
 
   /**

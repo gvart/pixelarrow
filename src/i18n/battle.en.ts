@@ -5,6 +5,29 @@
  * shared tables stay small.
  */
 export const BATTLE_EN = {
+  // ---- the battle menu (BTL-01; hud.md §D): the ⋯ key in the top bar
+  'battle.menu.key': 'Menu',
+  'battle.menu.tip': 'Battle menu: retreat, sound, settings',
+  'battle.menu.title': 'Battle',
+  'battle.menu.retreat': 'Retreat',
+  'battle.menu.leave': 'Leave the field',
+  'battle.menu.resetAll': 'Reset all',
+  'battle.menu.skip': 'Skip tutorial',
+  'battle.menu.settings': 'Settings',
+  'battle.menu.soundOn': 'Sound: on',
+  'battle.menu.soundOff': 'Sound: off',
+  'battle.menu.continues': 'The battle continues while this is open.',
+  'battle.more.key': 'More',
+  'battle.more.tip': 'The other abilities of this group',
+  'battle.more.title': 'Abilities',
+  // order keys under 360 wide (hud.md §I): icon + a short word, never cut
+  'battle.short.advance': 'Adv.',
+  'battle.short.charge': 'Charge',
+  'battle.short.hold': 'Hold',
+  'battle.short.shoot': 'Shoot',
+  'battle.short.back': 'Back off',
+  'battle.short.feint': 'Feint',
+  'battle.paused.pill': 'Paused',
   // ---- deployment and the top bar
   'battle.deploy.title': 'Deployment',
   'battle.deploy.titleOnline': 'Deploy now',

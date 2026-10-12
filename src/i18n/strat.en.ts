@@ -84,7 +84,7 @@ export const STRAT_EN = {
   'battle.ring.charge': 'Charge',
   'battle.ring.hold': 'Hold',
   'battle.ring.shoot': 'Shoot',
-  'battle.ring.back': 'Back',
+  'battle.ring.back': 'Withdraw',
   'battle.ring.solo': 'Alone',
   'battle.ring.join': 'Rejoin',
   'battle.ring.face': 'face',
