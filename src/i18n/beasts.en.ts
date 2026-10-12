@@ -45,6 +45,9 @@ export const BEASTS_EN = {
   'myth.info.lair': 'Beast lair',
   'myth.info.worldBoss': 'World boss',
   'myth.info.loot': 'Drops rare, epic or legendary gear and a trophy.',
+  // the Codex sheet sits over the practice caption: say where the spoils are won
+  'myth.info.lootLair': 'In the campaign, its lair drops rare, epic or legendary gear and a trophy.',
+  'myth.info.lootWorld': 'In the War, it drops rare, epic or legendary gear and a trophy.',
   'myth.info.respawn': 'Returns {when}',
   'myth.info.terror': 'Men near it lose heart; Will and Steady Presence resist.',
   // ---- the Beast trial (offline)

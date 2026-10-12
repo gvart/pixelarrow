@@ -42,6 +42,8 @@ export const BEASTS_RU: Record<keyof typeof BEASTS_EN, string> = {
   'myth.info.lair': 'Логово зверя',
   'myth.info.worldBoss': 'Мировой босс',
   'myth.info.loot': 'Даёт редкое, эпическое или легендарное снаряжение и трофей.',
+  'myth.info.lootLair': 'В походе его логово даёт редкое, эпическое или легендарное снаряжение и трофей.',
+  'myth.info.lootWorld': 'На Войне он даёт редкое, эпическое или легендарное снаряжение и трофей.',
   'myth.info.respawn': 'Вернётся {when}',
   'myth.info.terror': 'Рядом с ним люди теряют дух; Воля и Стойкость помогают.',
   'menu.trial': 'Звери',

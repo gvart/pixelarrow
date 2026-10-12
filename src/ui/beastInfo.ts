@@ -206,7 +206,7 @@ function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: nu
   const ct = new Label(scene, 0, y, t(`myth.${enc}.counter` as TKey), { maxW: w, maxLines: 5, area, font: ink.good });
   c.add(ct);
   y += ct.h + 5;
-  const loot = new Label(scene, 0, y, t('myth.info.loot'), { maxW: w, maxLines: 4, area, font: ink.dim });
+  const loot = new Label(scene, 0, y, t(world ? 'myth.info.lootWorld' : 'myth.info.lootLair'), { maxW: w, maxLines: 4, area, font: ink.dim });
   c.add(loot);
   y += loot.h + 4;
   area.setContentHeight(y);
