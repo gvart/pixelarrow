@@ -51,6 +51,8 @@ import { demoShard, type DemoShard } from '../../online/demoShard';
 import { ParchmentMapView, clampCenter, otherColor, snapZoom, zoomCycle, zoomLimits, zoomStep, type WorldMapView } from './regionMapView';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
+import { localDecimals } from '../../i18n/numbers';
+import { demoName, heroName } from '../../i18n/names';
 import { fmtDuration, fmtNum } from '../../util/format';
 import { attackReport, duelReport } from '../../online/report';
 import { attackSubmission } from '../../online/battle';
@@ -456,7 +458,7 @@ export class OnlineScene extends BaseScene {
       this.openCamp(demo.camp.spots.home);
     }
     if (k === 'lobby') this.openLobby();
-    if (k === 'challenge') showChallenge(this.game, 'preview', { id: 102, name: 'Brasidas' });
+    if (k === 'challenge') showChallenge(this.game, 'preview', { id: 102, name: demoName('Brasidas') });
     if (k === 'march') void this.march(demo.spots.neutralFar);
     if (k === 'result')
       this.showAttackResult({
@@ -471,7 +473,7 @@ export class OnlineScene extends BaseScene {
         gold: 38,
         plunder: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 },
         loot: [],
-        attacker: { dead: [], wounded: [], heroes: [{ name: 'Leonidas', died: false, xp: 30, levelsGained: 1, wounded: true }] },
+        attacker: { dead: [], wounded: [], heroes: [{ name: demoName('Leonidas'), died: false, xp: 30, levelsGained: 1, wounded: true }] },
         defender: { dead: 7, total: 9 },
       });
   }
@@ -817,7 +819,7 @@ export class OnlineScene extends BaseScene {
       const boss = this.bossAt(h);
       if (boss) rows.push({ text: `${encounterLabel(boss.boss)} · ${t('boss.status', { pct: Math.ceil((100 * boss.hp) / Math.max(1, boss.maxHp)) })}`, font: boss.status === 'dead' ? 'dim' : 'red' });
       if (d.lair && !d.lair.home && d.lair.returnsAt) rows.push({ text: t('hex.lairBack', { t: fmtDuration(d.lair.returnsAt - Date.now()) }), font: 'dim' });
-      if (d.garrison) rows.push({ text: d.garrison.length ? t('hex.garrison', { names: d.garrison.map((g) => g.hero.name).join(', ') }) : t('hex.noGarrison'), font: 'ink' });
+      if (d.garrison) rows.push({ text: d.garrison.length ? t('hex.garrison', { names: d.garrison.map((g) => heroName(g.hero.name)).join(', ') }) : t('hex.noGarrison'), font: 'ink' });
       if (d.income) rows.push({ text: t('hex.waiting', { res: resLine(d.income) }), font: 'good' });
       if (view.post) rows.push({ text: t(`merchant.kind.${view.post}` as TKey), font: 'good' });
     }
@@ -1064,7 +1066,7 @@ export class OnlineScene extends BaseScene {
     c.add(mtext(this, x, y, head, 'pSec', { box }));
     let cx = x + mw(head, 'pSec') + 5;
     for (const k of items) {
-      const v = k === 'recruits' ? `+${Math.round(r[k] * 10) / 10}` : `+${Math.floor(r[k])}`;
+      const v = k === 'recruits' ? localDecimals(`+${Math.round(r[k] * 10) / 10}`) : `+${Math.floor(r[k])}`;
       const need = 13 + mw(v, 'pGood') + 4;
       if (cx + need > x + w) break;
       c.add(addIcon(this, cx, y - 3, RES_ICON[k]));
@@ -1179,10 +1181,10 @@ export class OnlineScene extends BaseScene {
     const out: string[] = [];
     if (r.siege && r.won && !r.captured) out.push(t('result.wave', { wins: r.siege.wins, needed: r.siege.needed }));
     if (r.plunder.gold) out.push(t('result.goldPlunder', { n: r.gold, p: r.plunder.gold }));
-    const fallen = r.attacker.heroes.filter((h) => h.died).map((h) => h.name);
+    const fallen = r.attacker.heroes.filter((h) => h.died).map((h) => heroName(h.name));
     if (fallen.length) out.push(t('result.fallen', { names: fallen.join(', ') }));
     if (wounded && r.loot.length) out.push(t('result.wounded', { n: wounded }));
-    const lv = r.attacker.heroes.filter((h) => h.levelsGained > 0).map((h) => h.name);
+    const lv = r.attacker.heroes.filter((h) => h.levelsGained > 0).map((h) => heroName(h.name));
     if (lv.length) out.push(t('result.levelUp', { names: lv.join(', ') }));
     out.push(t('result.verified'));
     this.infoModal(title, out, tiles.map((o) => ({ ...o, duration: 0 })));
@@ -1247,7 +1249,7 @@ export class OnlineScene extends BaseScene {
 
   /** The lobby players (the demo invents a few). */
   private lobbyPlayers(): PresencePlayer[] {
-    if (this.demo) return [{ id: 102, name: 'Brasidas' }, { id: 201, name: 'Kleon', busy: true }, { id: 203, name: 'Myrto' }];
+    if (this.demo) return [{ id: 102, name: demoName('Brasidas') }, { id: 201, name: demoName('Kleon'), busy: true }, { id: 203, name: demoName('Myrto') }];
     return shardSocket.players.filter((p) => p.id !== shardSocket.me?.id);
   }
 
@@ -1553,7 +1555,7 @@ function hexRect(scene: OnlineScene, h: number): { x: number; y: number; w: numb
 
 /** "G+12 F+6 W+4" (only non-zero, localized initials are not needed: icons carry the meaning elsewhere). */
 function resLine(r: Resources, plus = true): string {
-  const out = RESOURCE_KEYS.filter((k) => r[k] >= (k === 'recruits' ? 0.1 : 1)).map((k) => `${t(`res.${k}` as TKey)} ${plus ? '+' : ''}${k === 'recruits' ? Math.floor(r[k] * 10) / 10 : Math.floor(r[k])}`);
+  const out = RESOURCE_KEYS.filter((k) => r[k] >= (k === 'recruits' ? 0.1 : 1)).map((k) => `${t(`res.${k}` as TKey)} ${plus ? '+' : ''}${k === 'recruits' ? localDecimals(String(Math.floor(r[k] * 10) / 10)) : Math.floor(r[k])}`);
   return out.join(', ') || '0';
 }
 

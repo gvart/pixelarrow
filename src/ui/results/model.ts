@@ -7,6 +7,7 @@
 import { itemDef, normalizeRarity, type Item } from '../../data/items';
 import type { BattleReport, ReportResult } from '../../game/report';
 import { t, tOr } from '../../i18n';
+import { heroName } from '../../i18n/names';
 import { CULTURE_LABEL, type Culture } from '../../data/names';
 
 export type ResultsPage = 'summary' | 'heroes' | 'spoils';
@@ -32,7 +33,7 @@ export function isArcVictory(stage: string | undefined, result: ReportResult): b
 
 /** The company roll of the Victory variant: every survivor by name, then the fallen. */
 export function companyRoll(r: Pick<BattleReport, 'heroes'>): { survivors: string[]; fallen: string[] } {
-  return { survivors: r.heroes.filter((h) => !h.died).map((h) => h.name), fallen: r.heroes.filter((h) => h.died).map((h) => h.name) };
+  return { survivors: r.heroes.filter((h) => !h.died).map((h) => heroName(h.name)), fallen: r.heroes.filter((h) => h.died).map((h) => heroName(h.name)) };
 }
 
 /** The arc's legendary set piece (Campaign.winArc puts it first in the loot); null when the set is already complete. */
@@ -73,7 +74,7 @@ export interface NoteChip {
 export function noteChips(r: Pick<BattleReport, 'heroes' | 'bounty' | 'notes' | 'mvp'>, o: { practice: boolean }): NoteChip[] {
   const out: NoteChip[] = [];
   const ups = r.heroes.filter((h) => h.levelsGained > 0);
-  if (ups.length) out.push({ icon: 'xp', text: `${t('results.levelUp')} ${ups.map((h) => h.name).join(', ')}`, tone: 'badge' });
+  if (ups.length) out.push({ icon: 'xp', text: `${t('results.levelUp')} ${ups.map((h) => heroName(h.name)).join(', ')}`, tone: 'badge' });
   if (r.bounty > 0) out.push({ icon: 'coin', text: t('why.bounty', { n: r.bounty }), tone: 'good' });
   if (o.practice) out.push({ icon: 'info', text: t('results.noSpoilsPractice'), tone: 'plain' });
   for (const n of r.notes) out.push({ icon: 'info', text: n, tone: 'plain' });

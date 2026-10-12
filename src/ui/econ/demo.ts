@@ -8,6 +8,7 @@ import { ApiError, type BuyResult, type ConsumableKey, type EconomyCatalog, type
 import { CONSUMABLES, CONSUMABLE_IDS } from '../../data/consumables';
 import { BASE_ITEMS, RARITIES, itemValue, normalizeRarity, type Item } from '../../data/items';
 import { marketFee } from '../../game/economy';
+import { demoName } from '../../i18n/names';
 import type { ProfileView } from '../../online/client';
 import type { Hero } from '../../data/units';
 import type { ConsumableInfo, EconSource, PackResult } from './source';
@@ -169,7 +170,7 @@ export class DemoEconSource implements EconSource {
   private mk(x: Pick<MarketListing, 'kind' | 'ref' | 'item' | 'rarity' | 'currency' | 'price' | 'qty'>, i: number): MarketListing {
     return {
       id: `l${i}`,
-      seller: { id: 100 + i, name: NAMES[i % NAMES.length] },
+      seller: { id: 100 + i, name: demoName(NAMES[i % NAMES.length]) },
       town: [{ loc: 7, name: 'Oppidum Vetus' }, { loc: 17, name: 'Emporium' }, { loc: 9, name: 'Urbs Media' }][i % 3],
       ...x,
       fee: marketFee(x.price),

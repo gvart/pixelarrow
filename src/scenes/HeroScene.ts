@@ -33,6 +33,8 @@ import {
   type Box, type MButtonOpts, type FramedSubShell,
 } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
+import { heroName } from '../i18n/names';
+import { localDecimals } from '../i18n/numbers';
 
 type Tab = 'stats' | 'gear' | 'perks' | 'skills';
 type C = Phaser.GameObjects.Container;
@@ -208,7 +210,7 @@ export class HeroScene extends BaseScene {
     }
     let top0 = 0;
     if (cut) {
-      const nl = classLines(h.name, this.cw - 4, 8);
+      const nl = classLines(heroName(h.name), this.cw - 4, 8);
       nl.forEach((l, i) => this.head.add(mtext(this, this.ox + this.cw / 2, i * 11, l, 'rInk', { size: 8, align: 0.5, box: { owner: this.head, w: this.tabW, h: 100000 } })));
       top0 = nl.length * 11 + 3;
     }
@@ -249,7 +251,7 @@ export class HeroScene extends BaseScene {
 
   /** Put his name on the top bar's plaque; true when the plaque had to cut it (then it says "Hero" and the head shows the name). */
   private titleName(h: Hero): boolean {
-    this.shell.retitle(h.name);
+    this.shell.retitle(heroName(h.name));
     const cut = (c: C): boolean => c.list.some((o) => (o instanceof Phaser.GameObjects.BitmapText && o.text.endsWith('…')) || (o instanceof Phaser.GameObjects.Container && cut(o)));
     if (!cut(this.shell.top)) return false;
     this.shell.retitle(t('hero.title'));
@@ -505,7 +507,7 @@ export class HeroScene extends BaseScene {
     const dis = this.src.dismiss;
     if (!h || !dis) return;
     confirmDialog(this, {
-      title: t('duels.dismissConfirm', { name: h.name }),
+      title: t('duels.dismissConfirm', { name: heroName(h.name) }),
       body: t('duels.dismissBody'),
       ok: t('duels.dismissOne'),
       cancel: t('common.cancel'),
@@ -513,7 +515,7 @@ export class HeroScene extends BaseScene {
       onOk: () =>
         void dis.run(h.id).then((ok) => {
           if (!ok || !this.sys.isActive()) return;
-          toast(this, t('duels.dismissed', { name: h.name }), 'good');
+          toast(this, t('duels.dismissed', { name: heroName(h.name) }), 'good');
           this.back();
         }),
     });
@@ -612,7 +614,7 @@ export class HeroScene extends BaseScene {
     const nxt = computeStats(next);
     for (const id of sheetStats(cur)) {
       const d = STATS[id];
-      const fmt = (v: number) => fmtStat(id, v);
+      const fmt = (v: number) => localDecimals(fmtStat(id, v));
       const has = pend && Math.abs(d.get(nxt) - d.get(cur)) > 1e-6;
       const better = has && d.get(nxt) > d.get(cur) !== !!d.lowerIsBetter;
       const sb = new MBar(this, 0, y, w, {
@@ -671,7 +673,7 @@ export class HeroScene extends BaseScene {
           tip: t('hero.respecTip'),
           onClick: () =>
             confirmDialog(this, {
-              title: t('hero.respecTitle', { name: h.name }),
+              title: t('hero.respecTitle', { name: heroName(h.name) }),
               body: t('hero.respecBody', { n: price }),
               ok: t('hero.respecOk'),
               cancel: t('common.cancel'),
@@ -735,7 +737,7 @@ export class HeroScene extends BaseScene {
       item: it,
       hero: h,
       equipped: true,
-      notes: [{ text: t('stash.equippedBy', { name: h.name }) }],
+      notes: [{ text: t('stash.equippedBy', { name: heroName(h.name) }) }],
       actions: [
         { label: t('stash.unequip'), icon: 'back', id: 'stash.unequip', onClick: () => this.unequip(slot) },
         // gear that never wears (duels) has no repair button
@@ -1040,7 +1042,7 @@ export class HeroScene extends BaseScene {
     if (!to) return;
     const cost = this.retrainCost(tier);
     const nm = (id: PerkId) => tOr(`perk.${id}.name`, PERKS[id].name);
-    const args = { hero: h.name, from: nm(v.taken), to: nm(to), n: cost.gold, gold: r.gold() };
+    const args = { hero: heroName(h.name), from: nm(v.taken), to: nm(to), n: cost.gold, gold: r.gold() };
     confirmDialog(this, {
       title: t('hero5.retrainTitle', { name: nm(to) }),
       body: cost.free ? t('hero5.retrainBodyFree', args) : t('hero5.retrainBody', args),
@@ -1054,7 +1056,7 @@ export class HeroScene extends BaseScene {
           return;
         }
         hapticNotify('success');
-        toast(this, t('hero5.retrainDone', { name: h.name }), 'good');
+        toast(this, t('hero5.retrainDone', { name: heroName(h.name) }), 'good');
         this.build(true);
       },
     });
@@ -1217,7 +1219,7 @@ function statDelta(h: Hero, v: TierView, id: PerkId): string[] {
   for (const sid of sheetStats(b)) {
     const d = STATS[sid];
     if (Math.abs(d.get(b) - d.get(a)) < 1e-6) continue;
-    out.push(`${t(`stat.${sid}` as TKey)}: ${fmtStat(sid, d.get(a))} > ${fmtStat(sid, d.get(b))}`);
+    out.push(`${t(`stat.${sid}` as TKey)}: ${localDecimals(`${fmtStat(sid, d.get(a))} → ${fmtStat(sid, d.get(b))}`)}`);
   }
   return out;
 }

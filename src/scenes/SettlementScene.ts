@@ -25,10 +25,11 @@ import { uiCoin, uiError } from '../audio/hooks';
 import { forgeCandidates, forgeReroll, itemModLines, type ForgeRefusal, type ForgeResult } from '../game/gear';
 import { FORGE, forgeCost } from '../game/economy';
 import { forgeLineText, openForgeItemSheet, openForgeSheet } from '../ui/sheets/forge';
-import { fmtCount } from '../i18n/numbers';
+import { fmtCount, localDecimals } from '../i18n/numbers';
 import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import { MActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, FrescoBanner, addParchmentEmpty, addSubShell, addPortraitWell, addRowFace, hasRaster, mtext, mw, rarityInk, wrapWords, type MButtonOpts } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
+import { heroName } from '../i18n/names';
 import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
 
 /** `rest` is Services in a town (V5-029) and Rest in a village. */
@@ -324,7 +325,7 @@ export class SettlementScene extends BaseScene {
       img.on('pointerup', () => !this.list?.area.moved && this.openRecruit(r.index));
       const can = camp.data.gold >= r.price && !full;
       const w0 = rw - tx - 5;
-      row.add(mtext(this, tx, 4, `${hero.name} · ${t('hero.level', { n: hero.level })}`, 'rInk', { size: 7, maxW: w0, box }));
+      row.add(mtext(this, tx, 4, `${heroName(hero.name)} · ${t('hero.level', { n: hero.level })}`, 'rInk', { size: 7, maxW: w0, box }));
       row.add(mtext(this, tx, 15, className(hero), 'pSec', { size: TEXT_MIN, maxW: w0, box }));
       row.add(
         new MButton(this, rw - bw - 4, 26, bw, TAP, {
@@ -376,12 +377,12 @@ export class SettlementScene extends BaseScene {
     void state.save();
     this.refresh();
     const receipt = { sid: this.id, index, heroId: h.id, price: offer.price };
-    showUndoToast(this, t('town.hired', { name: h.name }), this.bodyBottom, () => {
+    showUndoToast(this, t('town.hired', { name: heroName(h.name) }), this.bodyBottom, () => {
       if (!undoHire(state.campaign, receipt)) return;
       haptic('light');
       void state.save();
       this.refresh();
-      toast(this, t('set.undone', { name: h.name, n: receipt.price }), 'info');
+      toast(this, t('set.undone', { name: heroName(h.name), n: receipt.price }), 'info');
     });
   }
 
@@ -426,7 +427,7 @@ export class SettlementScene extends BaseScene {
       row.add(mtext(this, tx, 4, itemName(it), rarityInk(this, it.rarity), { size: 7, maxW: tw, box }));
       const def = itemDef(it.def);
       // the slot, then its main stats on their own line (whole; a long one drops before it is cut)
-      const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${m.text}`);
+      const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${localDecimals(m.text)}`);
       const fits = (s: string) => measureText(s, false, TEXT_MIN) <= tw;
       const ml = fits(mods.join(' · ')) ? mods.join(' · ') : (mods[0] ?? '');
       row.add(mtext(this, tx, 16, t(`slot.${def.slot}` as TKey), 'pSec', { size: TEXT_MIN, maxW: tw, box }));
@@ -640,7 +641,7 @@ export class SettlementScene extends BaseScene {
       r.add(addPortrait(this, dollFromHero(hero), 3, 2, { size: rh - 4 }));
       const hrs = t('town.restHours', { h: Math.ceil(hero.wound) });
       r.add(mtext(this, w - 5, Math.round((rh - 7) / 2), hrs, 'pBad', { align: 1, box: rb }));
-      r.add(mtext(this, rh + 3, Math.round((rh - 7) / 2), hero.name, 'rInk', { size: 7, maxW: w - rh - 8 - mw(hrs, 'pBad'), box: rb }));
+      r.add(mtext(this, rh + 3, Math.round((rh - 7) / 2), heroName(hero.name), 'rInk', { size: 7, maxW: w - rh - 8 - mw(hrs, 'pBad'), box: rb }));
       c.add(r);
       cy += rh + GAP;
     });

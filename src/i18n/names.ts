@@ -48,7 +48,7 @@ export const NAMES_RU: Readonly<Record<string, string>> = {
 export const DEMO_NAMES_RU: Readonly<Record<string, string>> = {
   Ana: 'Ана', Lysander: 'Лисандр', Phormio: 'Формион', Phormion: 'Формион', Myronides: 'Миронид', Iphicrates: 'Ификрат',
   Demosthenes: 'Демосфен', Chabrias: 'Хабрий', Pelopidas: 'Пелопид', Xanthippos: 'Ксантипп', Agesilaos: 'Агесилай',
-  Timoleon: 'Тимолеонт', Myrto: 'Мирто', Tanaquil: 'Танаквиль', Lysandra: 'Лисандра',
+  Hektor: 'Гектор', Timoleon: 'Тимолеонт', Myrto: 'Мирто', Tanaquil: 'Танаквиль', Lysandra: 'Лисандра',
 };
 
 /** Names given in code rather than drawn from the lists. */
@@ -85,4 +85,14 @@ export function demoName(name: string, l: Lang = lang()): string {
   const m = /^(.+?)(?: (\d+))?$/.exec(name);
   const ru = DEMO_NAMES_RU[m?.[1] ?? name];
   return ru ? ru + (m?.[2] ? ` ${m[2]}` : '') : heroName(name, l);
+}
+
+/**
+ * The stored names inside a text already put together ("Brasidas fell"):
+ * in Russian every run of Latin letters is a name (the words are Russian),
+ * so each run goes through `heroName`. For the few battle lines (banners,
+ * the hint pill, the group cards) that get a unit's name from the sim.
+ */
+export function namesIn(text: string, l: Lang = lang()): string {
+  return l === 'en' ? text : text.replace(/[A-Za-z]+(?: [A-Za-z]+)*/g, (run) => heroName(run, l));
 }

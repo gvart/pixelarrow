@@ -47,7 +47,7 @@ import {
 } from '../../ui/mosaic';
 import { ARMY_ROW_H, addGroupDisc, addRosterRow, armyPill, armyPillW, pendingPoints, type ArmySource } from '../../ui/army';
 import { FRESCO_H, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from './hubLayout';
-import { fmtCount } from '../../i18n/numbers';
+import { fmtCount, localDecimals } from '../../i18n/numbers';
 import { hapticNotify } from '../../platform/telegram';
 import { RARITY_LABEL, SLOTS, isBound, itemDef, normalizeEquip, normalizeItem, type Item, type Slot } from '../../data/items';
 import type { Hero } from '../../data/units';
@@ -86,6 +86,7 @@ import {
   inlineNumbers, ptext, pw, pwrap, type PFont,
 } from './duelParts';
 import { t, tOr, type TKey } from '../../i18n';
+import { demoName, heroName } from '../../i18n/names';
 import { fmtAgoText, fmtClock, fmtSigned } from '../../util/format';
 
 /** The hub's views: the two game modes and the two places behind the header's buttons. */
@@ -1828,7 +1829,7 @@ export class DuelScene extends BaseScene {
       placements: { played: 10, of: 10 },
       xp: team.map((h, i) => ({ heroId: h.id, name: h.name, kills: i % 3, xp: 24 + (i % 3) * 10, levelsGained: i === 0 ? 1 : 0, levelBefore: h.level, xpBefore: h.xp })),
     };
-    showReport(this.game, rankedReport(report, t('battle.vs', { name: 'Hektor' }), this.src.demo), () => backToDuel(this.game, { tab: 'ranked', arena: 'home', preview: this.src.demo }));
+    showReport(this.game, rankedReport(report, t('battle.vs', { name: demoName('Hektor') }), this.src.demo), () => backToDuel(this.game, { tab: 'ranked', arena: 'home', preview: this.src.demo }));
   }
 
   /** Previews (layout check): the report of a won raid. */
@@ -1844,7 +1845,7 @@ export class DuelScene extends BaseScene {
     ];
     const report: AsyncReport = {
       attack: 'preview',
-      defender: { pid: 901, name: 'Lysander' },
+      defender: { pid: 901, name: demoName('Lysander') },
       winner: 0,
       ticks: 20 * 71,
       verified: true,
@@ -2283,7 +2284,7 @@ export class DuelScene extends BaseScene {
     const budget = DUEL_RULES.budget;
     const over = pts > budget;
     const spend = this.fightingHeroes(p).filter(heroNeedsAttention);
-    const sentence = over ? t('duels.sit.teamOver', { n: pts - budget, b: budget }) : spend.length ? t('duels.sit.teamSpend', { name: spend[0].name }) : '';
+    const sentence = over ? t('duels.sit.teamOver', { n: pts - budget, b: budget }) : spend.length ? t('duels.sit.teamSpend', { name: heroName(spend[0].name) }) : '';
     const { area, c, w } = this.openShell(false, this.viewTitle());
     let y = 2;
     y += this.headerRow(c, y, w, p) + GAP;
@@ -2680,16 +2681,16 @@ export class DuelScene extends BaseScene {
             id: 'duel.dismissOne',
             onClick: () =>
               confirmDialog(this, {
-                title: t('duels.dismissConfirm', { name: h.name }),
+                title: t('duels.dismissConfirm', { name: heroName(h.name) }),
                 body: t('duels.dismissBody'),
                 ok: t('duels.dismissOne'),
                 cancel: t('common.cancel'),
                 destructive: true,
-                onOk: () => (m.close(), void this.act(() => this.src.dismiss(h.id), () => t('duels.dismissed', { name: h.name }))),
+                onOk: () => (m.close(), void this.act(() => this.src.dismiss(h.id), () => t('duels.dismissed', { name: heroName(h.name) }))),
               }),
           }),
         );
-        ptext(this, sa.content, rowH + 2, ry + 5, h.name, 'ink', { maxW: pwid - rowH - bw - 10 });
+        ptext(this, sa.content, rowH + 2, ry + 5, heroName(h.name), 'ink', { maxW: pwid - rowH - bw - 10 });
         ptext(this, sa.content, rowH + 2, ry + 16, `${t('hero.level', { n: h.level })} · ${className(h)}`, 'sec', { maxW: pwid - rowH - bw - 10 });
       });
       sa.setContentHeight(full);
@@ -2766,7 +2767,7 @@ export class DuelScene extends BaseScene {
     const team = this.fightingHeroes(p);
     // what the deltas compare against: the best in the team, or one hero (a tap cycles)
     if (this.compareHero && !team.some((h) => h.id === this.compareHero)) this.compareHero = null;
-    const who = this.compareHero ? team.find((h) => h.id === this.compareHero)!.name : t('dv.compareBest');
+    const who = this.compareHero ? heroName(team.find((h) => h.id === this.compareHero)!.name) : t('dv.compareBest');
     const cmpLabel = `${t('dv.compare')}: ${who}`;
     c.add(new MButton(this, 1, y, w, 22, { label: cmpLabel, icon: 'people', variant: 'neutral', id: 'duel.compare', tip: cmpLabel, onClick: () => this.openCompare(team) }));
     y += 22 + GAP + 1;
@@ -2819,9 +2820,9 @@ export class DuelScene extends BaseScene {
     // what the changes compare against
     const sum = offerSummary(o, team, 3, this.compareHero);
     const vsHero = sum.vsHeroId ? team.find((hh) => hh.id === sum.vsHeroId) : undefined;
-    let vsText = sum.vs && vsHero ? t('dv.vsItem', { name: vsHero.name, item: itemName(sum.vs), rarity: tOr(`rarity.${sum.vs.rarity}`, RARITY_LABEL[sum.vs.rarity]) }) : vsHero ? t('dv.vsNothing', { name: vsHero.name }) : t('dv.vsNone');
+    let vsText = sum.vs && vsHero ? t('dv.vsItem', { name: heroName(vsHero.name), item: itemName(sum.vs), rarity: tOr(`rarity.${sum.vs.rarity}`, RARITY_LABEL[sum.vs.rarity]) }) : vsHero ? t('dv.vsNothing', { name: vsHero.name }) : t('dv.vsNone');
     const picked = sum.pickedCannot ? team.find((hh) => hh.id === this.compareHero) : undefined;
-    if (picked) vsText = `${t('dv.notFor', { name: picked.name })} · ${vsText}`;
+    if (picked) vsText = `${t('dv.notFor', { name: heroName(picked.name) })} · ${vsText}`;
     ptext(this, card, 7, 35, vsText, 'muted', { size: TEXT_MIN, maxW: w - 14 });
     // the stats: name, value, change
     const g = this.add.graphics();
@@ -2837,8 +2838,8 @@ export class DuelScene extends BaseScene {
       const d = deltaParts(l);
       if (!d) return;
       drawArrow(g, dx + 2, ly + 2, d.up, d.better);
-      const note = d.note ? ` ${t(d.note === 'slower' ? 'dv.slower' : 'dv.faster')}` : '';
-      ptext(this, card, dx + 10, ly, `${d.text}${note}`, d.better ? 'good' : 'bad', { maxW: w - 6 - dx - 10 });
+      const note = d.note ? ` ${t('item.sec')} ${t(d.note === 'slower' ? 'dv.slower' : 'dv.faster')}` : '';
+      ptext(this, card, dx + 10, ly, `${localDecimals(d.text)}${note}`, d.better ? 'good' : 'bad', { maxW: w - 6 - dx - 10 });
     });
     card.add(g);
     // Buy, or why not
@@ -2864,7 +2865,7 @@ export class DuelScene extends BaseScene {
     const rowH = 28;
     const rows: { id: string | null; title: string; sub: string }[] = [
       { id: null, title: t('dv.compareBest'), sub: t('dv.compareBestSub') },
-      ...team.map((h) => ({ id: h.id, title: h.name, sub: className(h) })),
+      ...team.map((h) => ({ id: h.id, title: heroName(h.name), sub: className(h) })),
     ];
     const full = rows.length * (rowH + GAP);
     const listH = Math.min(full, this.m.VH - 12 - SHEET_PAD - 4);

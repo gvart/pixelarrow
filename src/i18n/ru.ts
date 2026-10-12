@@ -257,6 +257,8 @@ export const RU: Table = {
   'online.time.ms': '{m} мин {s} с',
   'online.time.hm': '{h} ч {m} мин',
   'online.time.d': '{d} дн. {h} ч',
+  'online.time.h': '{h} ч',
+  'online.time.dd': '{d} дн.',
   'settings.title': 'Настройки',
   'settings.pauseContact': 'Пауза при первом контакте',
   'settings.pauseFlank': 'Пауза при обходе с фланга',

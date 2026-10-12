@@ -30,7 +30,8 @@ import {
   type RarityFilter, type SlotFilter, type StashSort, type StatDelta, type StatId,
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
-import { fmtCount } from '../i18n/numbers';
+import { heroName } from '../i18n/names';
+import { fmtCount, fmtDecimal, localDecimals } from '../i18n/numbers';
 import { ROLE } from './tokens';
 import { arrangeActions } from './mosaic/overlays';
 
@@ -405,10 +406,10 @@ export interface ItemCardOpts {
   worth?: boolean;
 }
 
-/** "+4.5", "-7%", and for the blow time its unit and meaning: "+0.2 s slower". */
+/** "+4.5", "-7%", and for the blow time its unit and meaning: "+0.2 s slower" ("+0,2 с медленнее"). */
 const deltaText = (d: StatDelta): string => {
-  const n = `${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`;
-  return d.id === 'atkTime' ? `${n} s ${t(d.delta > 0 ? 'dv.slower' : 'dv.faster')}` : n;
+  const n = localDecimals(`${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`);
+  return d.id === 'atkTime' ? `${n} ${t('item.sec')} ${t(d.delta > 0 ? 'dv.slower' : 'dv.faster')}` : n;
 };
 
 /** Percent stats in set bonus lines. */
@@ -416,7 +417,7 @@ const PCT_KEYS = new Set<string>(['accuracy', 'block', 'blockPierce', 'armorPier
 
 function modsText(m: StatMods): string {
   return Object.entries(m)
-    .map(([k, v]) => `${v! > 0 ? '+' : ''}${PCT_KEYS.has(k) ? `${Math.round(v! * 100)}%` : `${Math.round(v! * 10) / 10}`} ${tOr(`mod.${k}`, k)}`)
+    .map(([k, v]) => `${v! > 0 ? '+' : ''}${PCT_KEYS.has(k) ? `${Math.round(v! * 100)}%` : `${fmtDecimal(v!, 1)}`} ${tOr(`mod.${k}`, k)}`)
     .join(', ');
 }
 
@@ -483,7 +484,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   // ---- measure the content
   const cmp = o.hero && !o.equipped ? compareItem(o.hero, it) : null;
   const changed = cmp ? cmp.deltas.filter((d) => d.better !== null) : [];
-  const mods = itemModLines(it, o.hero?.attrs);
+  const mods = itemModLines(it, o.hero?.attrs).map((ml) => ({ ...ml, text: localDecimals(ml.text) }));
   const desc = wrapText(tOr(`item.${def.id}.desc`, def.desc), inner - 4, 3);
   const notes = o.notes ?? [];
   const rules = itemRuleLines(it, o.hero, inner - 4);
@@ -521,7 +522,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   if (cmp && o.hero) {
     b.add(mosaicPanelImage(scene, 0, by, inner, cmpH - 4, 'parchmentWell'));
     const eq = cmp.equipped;
-    b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }), inner - 8), 'pMuted'));
+    b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: heroName(o.hero.name) }), inner - 8), 'pMuted'));
     if (eq) {
       b.add(new ItemIcon(scene, 4, by + 12, { item: eq }, { size: 16, tip: false, glow: false }));
       b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq), inner - 27 - 70), rarityInkKey(eq.rarity)));
@@ -535,8 +536,8 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     }
     for (const d of changed) {
       const dt = addText(scene, inner - 4, ry, deltaText(d), d.better ? 'pGood' : 'pBad', 1);
-      const cn = addText(scene, inner - 4 - dt.width - 6, ry, `${fmtStat(d.id, d.cur)} > ${fmtStat(d.id, d.next)}`, 'pSec', 1);
-      // narrow cards: the stat's name and its change matter most, "1.3 > 1.5" goes first
+      const cn = addText(scene, inner - 4 - dt.width - 6, ry, localDecimals(`${fmtStat(d.id, d.cur)} → ${fmtStat(d.id, d.next)}`), 'pSec', 1);
+      // narrow cards: the stat's name and its change matter most, "1.3 → 1.5" goes first
       const fitsBoth = inner - 12 - dt.width - cn.width - 6 >= 44;
       if (!fitsBoth) cn.destroy();
       b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 12 - dt.width - (fitsBoth ? cn.width + 6 : 0)), 'pInk'));
@@ -746,7 +747,7 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
     const v = d.get(s);
     b.add(addText(scene, 0, by, ellipsize(t(`stat.${id}` as TKey), 64), 'pMuted'));
     b.add(new Meter(scene, 66, by + 2, inner - 66 - 30, 4, COLOR.xp).setValue(v, d.max));
-    b.add(addText(scene, inner, by, fmtStat(id, v), 'pInk', 1));
+    b.add(addText(scene, inner, by, localDecimals(fmtStat(id, v)), 'pInk', 1));
     by += 12;
   }
   if (o.price) {

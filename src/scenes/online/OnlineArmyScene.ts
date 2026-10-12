@@ -37,8 +37,9 @@ import { getMap, hasMap } from '../../online/world';
 import { makeHero, type Archetype } from '../../game/heroes';
 import { econState, type EconState } from '../../game/economy';
 import { fmtNum } from '../../util/format';
-import { fmtDuration } from './common';
+import { fmtDuration } from '../../util/format';
 import { t } from '../../i18n';
+import { heroName } from '../../i18n/names';
 
 export interface WarArmyData {
   /** Garrison mode: pick who holds this hex (its loc; 0 is a hex like any other, OAR-5). */
@@ -85,7 +86,7 @@ export function warArmySource(p: ProfileView, o: { regionName: (loc: number) => 
     setGroup(heroId, g) {
       const h = owned(heroId);
       if (!h || h.hero.group === g) return false;
-      o.send(() => onlineApi.army({ [heroId]: g }), t('army.groupSet', { name: h.hero.name, group: groupName(g) }));
+      o.send(() => onlineApi.army({ [heroId]: g }), t('army.groupSet', { name: heroName(h.hero.name), group: groupName(g) }));
       return true;
     },
     // war heroes have no sheet to spend points on from here: no count badge that leads nowhere (G11)
@@ -490,7 +491,7 @@ export class OnlineArmyScene extends BaseScene {
       item: it,
       hero: oh.hero,
       equipped: true,
-      notes: [{ text: t('stash.equippedBy', { name: oh.hero.name }) }],
+      notes: [{ text: t('stash.equippedBy', { name: heroName(oh.hero.name) }) }],
       actions: [{ label: t('stash.unequip'), icon: 'back', id: 'stash.unequip', onClick: () => this.src?.unequip(oh.hero.id, slot) }],
     });
   }

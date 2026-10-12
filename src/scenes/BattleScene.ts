@@ -59,6 +59,7 @@ import { campaignSetup, markBattle, playerWorks, settleBattle } from '../game/ca
 import { HEIGHT_RULES } from '../data/terrain';
 import { hashString } from '../sim/rng';
 import { t, tOr, type TKey } from '../i18n';
+import { heroName, namesIn } from '../i18n/names';
 import { fmtClock } from '../util/format';
 import { BattleTutorial, type TutorialEvent, type TutorialHost, type TutorialStart } from '../ui/tutorial/battleTutorial';
 import { tutorialBattle } from '../game/tutorial';
@@ -2773,7 +2774,7 @@ export class BattleScene extends BaseScene {
     // under the top bar, in the hint's place (the hint hides while a banner shows)
     const left = 0;
     const maxW = VW - 60;
-    const lines = wrapText(msg, maxW - 12, maxLines).lines;
+    const lines = wrapText(namesIn(msg), maxW - 12, maxLines).lines;
     const w = Math.max(60, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
     const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 3, false, 6.5).lines : [];
     const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6.5))) + 14 : 0;
@@ -3167,7 +3168,7 @@ export class BattleScene extends BaseScene {
     let y = this.sheetHeadY();
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
     const numeral = sel ? this.cards.find((c) => c.gid === sel.id)?.numeral ?? '' : '';
-    const selName = sel ? (sel.individual ? this.sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim()) : '';
+    const selName = sel ? (sel.individual ? heroName(this.sim.members(sel.id)[0]?.name ?? '') : `${groupName(sel.name)} ${numeral}`.trim()) : '';
     const chips: { icon: string; label: string; short?: string; tip: string; id: string; selected?: boolean; off?: string; onClick: () => void }[] = [];
     const shapeOf = sel && !sel.disbanded ? sel.formation.type : null;
     const preset = PRESETS.find((p) => p[0] === shapeOf);
@@ -4098,7 +4099,7 @@ export class BattleScene extends BaseScene {
     const colW = Math.max(18, ...(['hp', 'mor', 'sta'] as const).map((k) => measureText(t(`battle.stat.${k}`)) + 2));
     const mx = x + w - 4 - 3 * colW - 4;
     const textW = mx - 4 - (x + 22);
-    c.add(addText(this, x + 22, y + 3, ellipsize(`${u.name} ${t('battle.lv', { n: u.level })}`, textW), 'pBad'));
+    c.add(addText(this, x + 22, y + 3, ellipsize(`${heroName(u.name)} ${t('battle.lv', { n: u.level })}`, textW), 'pBad'));
     c.add(addText(this, x + 22, y + 13, ellipsize((hero.equip.weapon ? itemName(hero.equip.weapon.def) : t('battle.unarmed')), textW), 'pSec'));
     const colors = [P.bad, P.blue, P.good];
     const meters = (['hp', 'mor', 'sta'] as const).map((k, i) => {

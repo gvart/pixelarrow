@@ -21,13 +21,13 @@ export function fmtDuration(ms: number): string {
   return t('online.time.d', { d: Math.floor(h / 24), h: h % 24 });
 }
 
-/** Short time since `at`, for wallet history: "3d", "5h", "0m". */
+/** Short time since `at`, for wallet history: "3d", "5h", "0m" ("3 дн.", "5 ч", "0 мин"). */
 export function fmtAgo(at: number, now: number): string {
   const m = Math.max(0, Math.round((now - at) / 60_000));
-  if (m < 60) return `${m}m`;
+  if (m < 60) return t('online.time.m', { m });
   const h = Math.round(m / 60);
-  if (h < 48) return `${h}h`;
-  return `${Math.round(h / 24)}d`;
+  if (h < 48) return t('online.time.h', { h });
+  return t('online.time.dd', { d: Math.round(h / 24) });
 }
 
 /** "3h ago" of a time `ms` milliseconds in the past (localized, at least one minute). */

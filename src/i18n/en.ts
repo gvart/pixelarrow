@@ -272,6 +272,8 @@ export const EN = {
   'online.time.ms': '{m}m {s}s',
   'online.time.hm': '{h}h {m}m',
   'online.time.d': '{d}d {h}h',
+  'online.time.h': '{h}h',
+  'online.time.dd': '{d}d',
 
   // ---- settings
   'settings.title': 'Settings',

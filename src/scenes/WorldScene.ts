@@ -6,6 +6,7 @@ import { BaseScene } from './BaseScene';
 import { addIcon, addText, scaleIcon } from '../ui/kit';
 import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
+import { localDecimals } from '../i18n/numbers';
 import { LINE_H, wrapText, wrapsWhole } from '../ui/textfit';
 import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import {
@@ -426,7 +427,7 @@ export class WorldScene extends BaseScene {
     for (const id of ds) {
       const s = this.w.settlement(id);
       if (!s) continue;
-      if (s.kind === 'lair') this.showBanner(t('wld.spotted', { name: s.name }));
+      if (s.kind === 'lair') this.showBanner(t('wld.spotted', { name: lairName(s.name) }));
       else this.panQueue.push(id);
     }
     if (!this.cine) this.nextPan();
@@ -966,13 +967,13 @@ export class WorldScene extends BaseScene {
     if (c) {
       const fx = campEffects(this.w.map, c);
       const net = fx.forage * 24 - mouths;
-      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: this.w.healRate().toFixed(1), net: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
+      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: localDecimals(this.w.healRate().toFixed(1)), net: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
     } else if (this.w.starving) {
       hint = t('world.sit.starving');
       urgent = true;
     } else if (s.destParty >= 0) {
       const p = this.w.party(s.destParty);
-      hint = p ? t('world.sit.pursuing', { name: p.name }) : hint;
+      hint = p ? t('world.sit.pursuing', { name: bandName(p.name) }) : hint;
     } else if (s.destSettlement >= 0) hint = t('world.sit.marchingTo', { name: this.w.settlement(s.destSettlement)?.name ?? '' });
     else if (this.w.moving) hint = t('world.sit.marching');
     else if (days < 1.5) {

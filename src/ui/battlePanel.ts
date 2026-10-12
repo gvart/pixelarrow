@@ -29,6 +29,7 @@ import { lighten, P } from '../art/palette';
 import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
 import { uiButton, uiError } from '../audio/hooks';
 import { t } from '../i18n';
+import { heroName, namesIn } from '../i18n/names';
 
 /** A bevelled panel filled with a category colour (selected command / tab), cached per size. */
 export function categoryTexture(scene: Phaser.Scene, w: number, h: number, cat: BattleCategory, down = false): string {
@@ -423,7 +424,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, onTap: () => void, baseTip: () => string) {
     super(scene, Math.round(x), Math.round(y));
     // the long-press explains the glyph and the bars too (R3: no "teal bar?")
-    const tip = () => [baseTip(), ...this.legend()].join('\n');
+    const tip = () => [namesIn(baseTip()), ...this.legend()].join('\n');
     this.w = Math.round(w);
     this.h = Math.round(h);
     this.bars = scene.add.graphics();
@@ -466,6 +467,9 @@ export class GroupCard extends Phaser.GameObjects.Container {
   }
 
   setInfo(i: GroupCardInfo): this {
+    // a lone hero's card carries his stored name (LOC-01)
+    const name = i.name && heroName(i.name);
+    if (name !== i.name) i = { ...i, name };
     this.info = i;
     const key = [i.numeral, i.men, i.orderIcon, i.portrait ? dollKey(i.portrait) : '', i.selected, i.routed, i.name, i.shortName, i.orderWord, i.orderShort, !!i.focus, !!i.far, i.state ?? '', !!i.standard, !!i.flanked].join('|');
     if (key !== this.key) {

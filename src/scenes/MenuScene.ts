@@ -12,6 +12,7 @@ import { TEXT_MIN, lineHeight } from '../ui/tokens';
 import { RS } from '../platform/renderScale';
 import { toast } from '../ui/widgets';
 import { t } from '../i18n';
+import { heroName } from '../i18n/names';
 
 const GAP = 4;
 const CTA_H = 30;
@@ -64,7 +65,7 @@ export class MenuScene extends BaseScene {
         portrait: 'ui_portrait_leader',
         portraitSize: compact ? 24 : w >= 180 ? 40 : 32,
         statsBelow: compact || 'auto',
-        name: state.hasSave && lead ? t('hub.leader', { name: lead.name }) : t('hub.newCampaign'),
+        name: state.hasSave && lead ? t('hub.leader', { name: heroName(lead.name) }) : t('hub.newCampaign'),
         subtitle: status,
         stats: [
           { icon: 'coin', text: t('hub.gold', { n: c.gold }), right: { icon: 'trophy', text: t('hub.trophies', { n: c.won }) } },

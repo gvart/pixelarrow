@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NAMES } from '../src/data/names';
-import { NAMES_RU, DEMO_NAMES_RU, demoName, heroName } from '../src/i18n/names';
+import { NAMES_RU, DEMO_NAMES_RU, demoName, heroName, namesIn } from '../src/i18n/names';
 import { BODY_METRICS } from '../src/art/fontMetrics';
 
 const ALL = Object.values(NAMES).flat();
@@ -51,5 +51,14 @@ describe('hero names in Russian (LOC-01)', () => {
     expect(demoName('Kleon', 'ru')).toBe('Клеон');
     expect(demoName('Lysander 2', 'ru')).toBe('Лисандр 2');
     expect(demoName('Phormion', 'en')).toBe('Phormion');
+  });
+});
+
+describe('namesIn', () => {
+  it('maps the names inside a Russian line and leaves the rest', () => {
+    expect(namesIn('Brasidas II пал', 'ru')).toBe('Брасид II пал');
+    expect(namesIn('The Tyrant: «Натиск»', 'ru')).toBe('Тиран: «Натиск»');
+    expect(namesIn('Wolf 2 атакует Kleon', 'ru')).toBe('Волк 2 атакует Клеон');
+    expect(namesIn('Brasidas fell', 'en')).toBe('Brasidas fell');
   });
 });

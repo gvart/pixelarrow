@@ -21,6 +21,7 @@ import { pulse } from './motion';
 import type { Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import { TICK_RATE } from '../sim/battle';
 import { t } from '../i18n';
+import { namesIn } from '../i18n/names';
 
 /** Height of the top bar (UI px). */
 export const TOP_H = 46;
@@ -250,7 +251,8 @@ export class HintPill extends Phaser.GameObjects.Container {
    * info glyph for a hint, the red "!" only for an alert (the fight is going
    * badly). Red ink only on an alert.
    */
-  setText(sentence: string, tone: HintTone = 'info'): this {
+  setText(text: string, tone: HintTone = 'info'): this {
+    const sentence = namesIn(text); // a lone hero's stored name (LOC-01)
     const key = `${sentence}|${tone}`;
     if (key === this.key) return this;
     this.key = key;

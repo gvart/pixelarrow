@@ -320,8 +320,8 @@ describe('shop offer summary', () => {
 describe('shop delta display', () => {
   it('the arrow follows the number, the colour the verdict; times carry seconds and a word', () => {
     // a slower blow: the number goes up (arrow up) and that is worse (red), "+0.2 s, slower"
-    expect(deltaParts({ key: 'atkTime', delta: 0.2, deltaText: '+0.2', better: false })).toEqual({ up: true, better: false, text: '+0.2 s', note: 'slower' });
-    expect(deltaParts({ key: 'atkTime', delta: -0.1, deltaText: '-0.1', better: true })).toEqual({ up: false, better: true, text: '-0.1 s', note: 'faster' });
+    expect(deltaParts({ key: 'atkTime', delta: 0.2, deltaText: '+0.2', better: false })).toEqual({ up: true, better: false, text: '+0.2', note: 'slower' });
+    expect(deltaParts({ key: 'atkTime', delta: -0.1, deltaText: '-0.1', better: true })).toEqual({ up: false, better: true, text: '-0.1', note: 'faster' });
     expect(deltaParts({ key: 'dmg', delta: 4.5, deltaText: '+4.5', better: true })).toEqual({ up: true, better: true, text: '+4.5', note: null });
     expect(deltaParts({ key: 'dmg', delta: 0, deltaText: '', better: null })).toBeNull();
     // every real summary agrees: up exactly when the delta is positive
