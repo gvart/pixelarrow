@@ -1,0 +1,26 @@
+src/art/overlandMap.ts
+  s_697bdc25a7c420::t_5bb3acf71c3792 68-105
+src/scenes/WorldScene.ts
+  s_697bdc25a7c420::t_133bee50f362fd 1196-1203
+  s_697bdc25a7c420::t_a3035b759c6c76 18
+tests/qafixWorld.test.ts
+  s_697bdc25a7c420::t_9b831381db67ec 255-256
+  s_697bdc25a7c420::t_544575371e004f 13
+  s_697bdc25a7c420::t_b976fcea0eb372 229-254,257-265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "230445bec2a0a0dc5d6797f66aaea3f4ab1171fd",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
