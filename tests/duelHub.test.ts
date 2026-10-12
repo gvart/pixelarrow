@@ -86,7 +86,7 @@ describe('the 30-min ladder ticket on the result (CT-06, Director 2)', () => {
 
   it('a run reported too late says it paid nothing, first, and shows no XP', () => {
     const notes = ladderNotes({ ...run, expired: true });
-    expect(notes[0]).toBe('Finished after 30 min: verified, but it paid nothing');
+    expect(notes[0]).toBe('Your 30 real-time minutes for this floor ran out: verified, but it paid nothing');
     expect(notes.some((n) => n.includes('duel XP'))).toBe(false);
   });
 
@@ -97,7 +97,7 @@ describe('the 30-min ladder ticket on the result (CT-06, Director 2)', () => {
   });
 
   it('the hub toast after an expired run says so', () => {
-    expect(ladderArrival({ floor: 5, won: true, glory: 0, stars: 3, expired: true })).toBe('Floor 5: the 30 min ran out, so it paid nothing');
+    expect(ladderArrival({ floor: 5, won: true, glory: 0, stars: 3, expired: true })).toBe('Floor 5: your 30 real-time minutes ran out, so it paid nothing');
     expect(ladderArrival({ floor: 5, won: true, first: true, glory: 1500, stars: 3 })).toContain('+1,500 Glory');
   });
 });

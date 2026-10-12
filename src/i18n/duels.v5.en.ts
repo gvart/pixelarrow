@@ -15,8 +15,18 @@ export const DUELS_V5_EN = {
   'd5.teamTip': 'Your duel team: presets, heroes, recruits',
   // the ladder ticket (controls.md R10, CT-06)
   'd5.pausable': 'Pausable, at 0.5×, 1× or 2×. Finish within {m} min.',
-  'd5.note.expired': 'Finished after {m} min: verified, but it paid nothing',
-  'd5.backExpired': 'Floor {n}: the {m} min ran out, so it paid nothing',
+  // the ticket's minutes are real time, pauses included, not the battle clock (DUE-02)
+  'd5.note.expired': 'Your {m} real-time minutes for this floor ran out: verified, but it paid nothing',
+  'd5.backExpired': 'Floor {n}: your {m} real-time minutes ran out, so it paid nothing',
+  // DUE-02: Leaderboard, Raid picks, Season rewards (M-5 .. M-7)
+  'd5.board': 'Leaderboard',
+  'd5.boardEmpty': 'No ranked players yet',
+  'd5.boardError': 'The leaderboard did not load.',
+  'd5.board.notLegend': 'Reach the Legend league to appear here',
+  'd5.raidError': 'The defenders did not load.',
+  'd5.seasonOver': 'Season over',
+  'd5.pickShort': 'Choose a piece',
+  'd5.pickSet': 'Set: {set}',
   // Team (M-3)
   'd5.roster': 'Duel army · {n}/{max}',
   'd5.rosterFull': 'The roster is full: dismiss someone from the bench first',
