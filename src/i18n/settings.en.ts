@@ -11,4 +11,7 @@ export const SETTINGS_EN = {
   'settings.sync.offline': 'Offline',
   // BTL-01 (A11Y-16, V5-072): the battle's thumb controls on the left
   'settings.leftHand': 'Left-handed battle controls',
+  // FL-01 (A11Y-13): no camera shake in battle; no flash rings
+  'settings.reduceShake': 'Reduce screen shake',
+  'settings.reduceFlash': 'Reduce flashes',
 } as const;
