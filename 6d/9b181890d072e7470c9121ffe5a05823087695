@@ -1,0 +1,23 @@
+scripts/regression/sheet-layout.mjs
+  s_697bdc25a7c420::t_de4d1da7410d36 1-13,15-25,27-30,32-49,55-103,111-125
+  s_697bdc25a7c420::t_4c12967870a491 14,26,104-110
+  s_697bdc25a7c420::t_21735d1cc8b892 53
+  s_697bdc25a7c420::t_fd319c3f223e84 31
+  s_697bdc25a7c420::t_8bad3f6e147fad 50-52,54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6d9b181890d072e7470c9121ffe5a05823087695",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
