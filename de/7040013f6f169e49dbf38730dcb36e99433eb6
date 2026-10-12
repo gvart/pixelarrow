@@ -1,0 +1,24 @@
+src/audio/mixer.ts
+  s_697bdc25a7c420::t_181c7d0a08e300 1-102
+src/ui/settings.ts
+  s_697bdc25a7c420::t_5b80381fce56b1 223
+src/audio/engine.ts
+  s_697bdc25a7c420::t_7c6a8739a5b683 308-309
+  s_697bdc25a7c420::t_5dc7aa723289c3 2-4,15-17,24,46-47,62,64,73-80,91-93,155-170,173,176-180,206-208,211-215,263-280,295-299,301-303,305-307,310,327,329,331-347,379
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "de7040013f6f169e49dbf38730dcb36e99433eb6",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
