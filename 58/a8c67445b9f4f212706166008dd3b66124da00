@@ -1,0 +1,41 @@
+src/audio/hooks.ts
+  s_697bdc25a7c420::t_e3da612b6d9f10 27-32,39-48
+  s_697bdc25a7c420::t_0b64b850b49a95 49
+tests/audio.test.ts
+  s_697bdc25a7c420::t_003af201af7d30 7
+  s_697bdc25a7c420::t_7fc4838ee88002 16-20
+  s_697bdc25a7c420::t_c19711d9dae05c 661,663
+  s_697bdc25a7c420::t_4139d79009cc6e 605-660,662,664-687
+src/audio/mixer.ts
+  s_697bdc25a7c420::t_a3af48ce7edf51 44
+src/audio/sfx.ts
+  s_697bdc25a7c420::t_a3af48ce7edf51 659-661
+  s_697bdc25a7c420::t_70ebebdf039338 515-534
+src/ui/battlePanel.ts
+  s_697bdc25a7c420::t_e21014ef3a3062 146
+  s_697bdc25a7c420::t_b3d5afe9af78cb 29-30
+src/ui/mosaic/base.ts
+  s_697bdc25a7c420::t_e21014ef3a3062 145
+src/ui/kit.ts
+  s_697bdc25a7c420::t_e21014ef3a3062 17
+  s_697bdc25a7c420::t_20bc9459c795f1 18,451,456,892-893,926-930
+src/ui/widgets.ts
+  s_697bdc25a7c420::t_c253dd452147ae 29
+  s_697bdc25a7c420::t_03574b056d8f75 1296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "58a8c67445b9f4f212706166008dd3b66124da00",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
