@@ -1,0 +1,24 @@
+tests/battleReport.test.ts
+  s_697bdc25a7c420::t_2fcc53f4de8d53 4,343,372,407
+  s_697bdc25a7c420::t_701ca2413ca1bc 383-401
+src/game/report.ts
+  s_697bdc25a7c420::t_ba35d8ad91a24d 348-356,358
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_ba35d8ad91a24d 44,855,863,3255,4213,4358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "27f75bfc5c755f5b985f2a760fd07dd2ed053dda",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
