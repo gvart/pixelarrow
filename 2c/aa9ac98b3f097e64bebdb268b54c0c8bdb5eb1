@@ -1,0 +1,31 @@
+src/ui/tutorial/battleTutorial.ts
+  s_697bdc25a7c420::t_9aaabec0a35efa 56,63,166-167,206-207,212,938-939,952,969-970
+docs/v5/stories/QA-02/NOTES.md
+  s_697bdc25a7c420::t_230294783694e1 21
+tests/regression/SUITE.md
+  s_697bdc25a7c420::t_230294783694e1 38,59-61
+src/ui/settings.ts
+  s_697bdc25a7c420::t_9aaabec0a35efa 236-237
+tests/regression/tutorialExit.test.ts
+  s_697bdc25a7c420::t_4aa36a8aea0d9e 1-25
+src/game/tutorial.ts
+  s_697bdc25a7c420::t_fdbdea5f2e1e16 201-216
+scripts/regression/battle-kinds.mjs
+  s_697bdc25a7c420::t_230294783694e1 14,155-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2caa9ac98b3f097e64bebdb268b54c0c8bdb5eb1",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
