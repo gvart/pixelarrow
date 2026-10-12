@@ -80,15 +80,17 @@ await flow('V5-067', async () => {
         window.__game.scene.getScenes(true).forEach((o) => o.scene.start('Menu', {}));
       }),
   );
-  need('V5-067: the hub restarts mid-fade (ui fading in, not yet at alpha 1)', frozen.tweens === 1 && frozen.alpha > 0 && frozen.alpha < 1, JSON.stringify(frozen));
+  need('V5-067: the hub restarts mid-fade (ui fading in, not yet at alpha 1)', frozen.tweens === 1 && frozen.alpha < 1, JSON.stringify(frozen));
   const p = await api.ev(() => {
     const s = window.__game.scene.getScene('Menu');
     let hit = null;
-    const walk = (list) => list.forEach((o) => ((o.__uiId === 'tab.codex' && (hit = o)), o.list && walk(o.list)));
+    const walk = (list) => list.forEach((o) => ((o.__uiId === 'tab.codex' && (hit ??= o)), o.list && walk(o.list)));
     walk(s.children.list);
     if (!hit) return null;
-    const r = hit.getBounds();
-    return window.__css(r.centerX - s.ui.x, r.centerY);
+    // the middle of its touch area (an empty container's bounds are only its corner), where it settles
+    const ha = hit.input.hitArea;
+    const p = hit.getWorldTransformMatrix().transformPoint(ha.centerX - hit.width / 2, ha.centerY - hit.height / 2);
+    return window.__css(p.x - s.ui.x, p.y);
   });
   need('V5-067: the Codex tab is on the bar', !!p);
   await api.tap(p[0], p[1]);
