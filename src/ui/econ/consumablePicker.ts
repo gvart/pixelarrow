@@ -29,7 +29,7 @@ import { makePressable } from '../mosaic/base';
 import { addGoodsIcon } from './textures';
 import { BATTLE_CONSUMABLES, CONSUMABLES, type ConsumableId } from '../../data/consumables';
 import { econ } from './source';
-import { fmtCount } from '../../scenes/duel/hubLayout';
+import { fmtCount } from '../../i18n/numbers';
 import { hapticSelect } from '../../platform/telegram';
 import { t, tOr } from '../../i18n';
 

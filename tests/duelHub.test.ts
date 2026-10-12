@@ -9,13 +9,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LANGS, setLang } from '../src/i18n';
 import { DUELS_V5_EN } from '../src/i18n/duels.v5.en';
 import { DUELS_V5_RU } from '../src/i18n/duels.v5.ru';
-import { FRESCO_MIN_VH, fmtCount, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from '../src/scenes/duel/hubLayout';
+import { FRESCO_MIN_VH, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from '../src/scenes/duel/hubLayout';
+import { fmtCount } from '../src/i18n/numbers';
 import { DemoDuelSource } from '../src/duel/client';
 import { LADDER_TICKET_TTL_MS } from '../src/duel/ladder';
 
 afterEach(() => setLang('en'));
 
-describe('numbers (Director: Russian groups with spaces, never commas)', () => {
+describe('numbers (Director: Russian groups with no-break spaces, never commas; one formatter, F-07)', () => {
   it('English groups thousands with commas', () => {
     expect(fmtCount(640, 'en')).toBe('640');
     expect(fmtCount(1500, 'en')).toBe('1,500');
@@ -24,17 +25,19 @@ describe('numbers (Director: Russian groups with spaces, never commas)', () => {
     expect(fmtCount(-2500, 'en')).toBe('-2,500');
   });
 
-  it('Russian groups with a space from five digits and never writes a comma', () => {
+  it('Russian groups with a no-break space from five digits and never writes a comma', () => {
     expect(fmtCount(640, 'ru')).toBe('640');
     expect(fmtCount(1500, 'ru')).toBe('1500');
-    expect(fmtCount(12400, 'ru')).toBe('12 400');
-    expect(fmtCount(1234567, 'ru')).toBe('1 234 567');
+    expect(fmtCount(12400, 'ru')).toBe('12\u00a0400');
+    expect(fmtCount(12450, 'ru')).toBe('12\u00a0450');
+    expect(fmtCount(1234567, 'ru')).toBe('1\u00a0234\u00a0567');
+    expect(fmtCount(-12450, 'ru')).toBe('-12\u00a0450');
     for (const n of [999, 1000, 10_000, 123_456, 9_999_999]) expect(fmtCount(n, 'ru')).not.toContain(',');
   });
 
   it('follows the current language by default', () => {
     setLang('ru');
-    expect(fmtCount(25_000)).toBe('25 000');
+    expect(fmtCount(25_000)).toBe('25\u00a0000');
     setLang('en');
     expect(fmtCount(25_000)).toBe('25,000');
   });

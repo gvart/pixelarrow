@@ -1,27 +1,14 @@
 /**
  * The Duels hub's rules as plain functions (no Phaser; tests/duelHub.test.ts):
- * how numbers are written, when the fresco and the chest tip give way on a
+ * when the fresco and the chest tip give way on a
  * short screen, how the header row lays its chips and buttons out, and the
  * notes of a ladder floor's report (design/ux/screens-modes.md M-2 .. M-4,
  * story DUE-01).
  */
-import { lang, t, type Lang } from '../../i18n';
+import { t } from '../../i18n';
+import { fmtCount } from '../../i18n/numbers';
 import { LADDER } from '../../duel/ladder';
 import type { LadderReport } from '../../duel/client';
-
-/**
- * A count with its thousands grouped: "1,500" and "12,400" in English;
- * "1500" and "12 400" in Russian, where the separator is a space (never a
- * comma) and four-digit numbers stay whole (Russian typesetting).
- */
-export function fmtCount(n: number, l: Lang = lang()): string {
-  const v = Math.round(n);
-  const neg = v < 0;
-  const digits = String(Math.abs(v));
-  const sep = l === 'ru' ? ' ' : ',';
-  const grouped = l === 'ru' && digits.length <= 4 ? digits : digits.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-  return neg ? `-${grouped}` : grouped;
-}
 
 /** Below this canvas height (UI px; 700 CSS px at 2x) the hub's fresco is hidden (M-2: "hidden < VH 700"). */
 export const FRESCO_MIN_VH = 350;

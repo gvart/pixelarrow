@@ -23,8 +23,9 @@ import { POWERS, itemAffixes, itemPower, type AffixId } from '../../data/affixes
 import { itemDef, normalizeRarity, type Item } from '../../data/items';
 import type { Hero } from '../../data/units';
 import { affixLineText, forgeDefaultLine, type ForgeCandidate, type ForgeRefusal, type ForgeResult } from '../../game/gear';
-import { forgeCost, groupDigits } from '../../game/economy';
-import { lang, t, tOr, type TKey } from '../../i18n';
+import { forgeCost } from '../../game/economy';
+import { fmtCount } from '../../i18n/numbers';
+import { t, tOr, type TKey } from '../../i18n';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 type C = Phaser.GameObjects.Container;
@@ -39,9 +40,6 @@ export interface ForgeSheetOpts {
 }
 
 const PAD = 8;
-
-/** Gold as the player reads it: thousands grouped ("12 450" in Russian). */
-export const goldText = (n: number): string => groupDigits(n, lang());
 
 /** A line as text: "Damage +1". */
 export function forgeLineText(it: Item, [id, n]: [AffixId, number]): string {
@@ -70,7 +68,7 @@ function fillList(scene: UiScene, c: C, o: ForgeSheetOpts, w: number, onPick: (c
   let y = 0;
   y += para(scene, c, 0, y, t('forge.intro'), 'pInk', w) + 4;
   const gold = o.gold();
-  y += para(scene, c, 0, y, t('forge.gold', { n: goldText(gold) }), 'pSec', w) + 4;
+  y += para(scene, c, 0, y, t('forge.gold', { n: fmtCount(gold) }), 'pSec', w) + 4;
   const list = o.candidates();
   if (!list.length) {
     y += para(scene, c, 0, y, t('forge.none'), 'pBad', w) + 2;
@@ -80,7 +78,7 @@ function fillList(scene: UiScene, c: C, o: ForgeSheetOpts, w: number, onPick: (c
   for (const cand of list) {
     const it = cand.item;
     const cost = forgeCost(it);
-    const price = goldText(cost);
+    const price = fmtCount(cost);
     const pw = Math.ceil(mw(price, 'pInk', TEXT_MIN)) + 14;
     const tx = IS + 8;
     const tw = w - tx - pw - 6;
@@ -192,8 +190,8 @@ function fillItem(scene: UiScene, c: C, o: ForgeItemOpts, w: number, st: ItemSta
   // gold in hand, and why Reforge is grey when it is
   const cost = forgeCost(it);
   const gold = o.gold();
-  if (gold < cost) y += para(scene, c, 0, y + 2, t('forge.poor', { n: goldText(cost), gold: goldText(gold) }), 'pBad', w) + 2;
-  else y += para(scene, c, 0, y + 2, t('forge.gold', { n: goldText(gold) }), 'pSec', w) + 2;
+  if (gold < cost) y += para(scene, c, 0, y + 2, t('forge.poor', { n: fmtCount(cost), gold: fmtCount(gold) }), 'pBad', w) + 2;
+  else y += para(scene, c, 0, y + 2, t('forge.gold', { n: fmtCount(gold) }), 'pSec', w) + 2;
   return y + 4;
 }
 
@@ -204,11 +202,11 @@ export function openForgeItemSheet(scene: UiScene, o: ForgeItemOpts): { close: (
   const iw = w - PAD * 2 - 4;
   const st: ItemState = { sel: forgeDefaultLine(o.item), last: null };
   const cost = forgeCost(o.item);
-  const reason = () => (o.gold() < cost ? t('forge.poor', { n: goldText(cost), gold: goldText(o.gold()) }) : undefined);
+  const reason = () => (o.gold() < cost ? t('forge.poor', { n: fmtCount(cost), gold: fmtCount(o.gold()) }) : undefined);
   const actions: MButtonOpts[] = [
     { label: t('common.close'), variant: 'neutral', id: 'forge.itemClose', onClick: () => s.close() },
     {
-      label: t('forge.act', { n: goldText(cost) }),
+      label: t('forge.act', { n: fmtCount(cost) }),
       icon: 'coin',
       variant: reason() ? 'disabled' : 'primary',
       disabledReason: reason(),

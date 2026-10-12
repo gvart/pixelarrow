@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { itemDef, itemValue, type Item } from '../src/data/items';
 import { AFFIX_STEPS, affixPool, itemAffixes, itemPower, type AffixId } from '../src/data/affixes';
 import { Rng } from '../src/sim/rng';
-import { FORGE, forgeCost, groupDigits } from '../src/game/economy';
+import { FORGE, forgeCost } from '../src/game/economy';
 import { affixLineText, forgeCandidates, forgeDefaultLine, forgePool, forgeReroll, forgeable } from '../src/game/gear';
 import { Campaign } from '../src/game/campaign';
 import { WIN_GOLD } from '../src/game/campaign';
@@ -215,16 +215,5 @@ describe('a line as the sheet shows it', () => {
     expect(affixLineText(item('falcata', 'rare'), 'blockPierce', 1)).toBe('+2%');
     expect(affixLineText(item('linothorax', 'rare'), 'hp', 1)).toBe('+3');
     expect(affixLineText(item('javelins', 'rare'), 'ammo', 2)).toBe('+2');
-  });
-});
-
-describe('gold with thousands separators', () => {
-  it('Russian groups by spaces, English by commas', () => {
-    expect(groupDigits(999, 'ru')).toBe('999');
-    expect(groupDigits(1680, 'ru')).toBe('1 680');
-    expect(groupDigits(12450, 'ru')).toBe('12 450');
-    expect(groupDigits(1234567, 'ru')).toBe('1 234 567');
-    expect(groupDigits(12450, 'en')).toBe('12,450');
-    expect(groupDigits(-1680, 'en')).toBe('-1,680');
   });
 });

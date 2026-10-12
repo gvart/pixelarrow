@@ -24,7 +24,8 @@ import { CULTURE_LABEL } from '../data/names';
 import { uiCoin, uiError } from '../audio/hooks';
 import { forgeCandidates, forgeReroll, itemModLines, type ForgeRefusal, type ForgeResult } from '../game/gear';
 import { FORGE, forgeCost } from '../game/economy';
-import { forgeLineText, goldText, openForgeItemSheet, openForgeSheet } from '../ui/sheets/forge';
+import { forgeLineText, openForgeItemSheet, openForgeSheet } from '../ui/sheets/forge';
+import { fmtCount } from '../i18n/numbers';
 import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import { MActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, FrescoBanner, addParchmentEmpty, addSubShell, addPortraitWell, addRowFace, hasRaster, mtext, mw, rarityInk, wrapWords, type MButtonOpts } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
@@ -595,7 +596,7 @@ export class SettlementScene extends BaseScene {
       row({
         icon: 'anvil',
         title: t('forge.smith'),
-        sub: forgeable.length ? t('forge.rowSub', { n: goldText(from) }) : t('forge.none'),
+        sub: forgeable.length ? t('forge.rowSub', { n: fmtCount(from) }) : t('forge.none'),
         bw: Math.max(50, Math.ceil(mw(pick, 'rInk', 7)) + 22),
         button: {
           label: pick,
