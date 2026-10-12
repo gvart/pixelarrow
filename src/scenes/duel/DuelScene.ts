@@ -1602,7 +1602,8 @@ export class DuelScene extends BaseScene {
     const h = Math.max(26, 6 + LINE_H + ws.lines.length * LINE_H + 4);
     parent.add(mosaicImage(this, x, y, w, h, def ? 'parchmentWell' : 'parchmentSel'));
     parent.add(addIcon(this, x + 5, Math.round(y + (h - 12) / 2), 'shield'));
-    ptext(this, parent, x + 22, y + 5, wl.lines[0] ?? '', def ? 'ink' : 'bad');
+    // no defence yet is a task, not an alert: ink on the lit card (A11Y-05: red only for alerts)
+    ptext(this, parent, x + 22, y + 5, wl.lines[0] ?? '', 'ink');
     ptext(this, parent, x + 22, y + 5 + LINE_H, ws.lines.join('\n'), 'sec');
     parent.add(addIcon(this, x + w - 15, Math.round(y + (h - 12) / 2), 'chevR'));
     const z = this.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
