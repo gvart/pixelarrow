@@ -1,0 +1,29 @@
+src/dev/ladderParity/ai.frozen.ts
+  s_697bdc25a7c420::t_30bbdb7f34d0e7 1,8-1312
+  s_697bdc25a7c420::t_e109ebdeef7586 2-7
+src/dev/ladderParity.ts
+  s_697bdc25a7c420::t_c51d1ba8114756 79-80,83
+  s_697bdc25a7c420::t_60b313242b2f9d 1-78,81-82,84-120
+scripts/dev/ladderParity.mjs
+  s_697bdc25a7c420::t_876a113e93f48a 1-13
+package.json
+  s_697bdc25a7c420::t_d9219424face58 14
+src/dev/ladderParity/floors.frozen.json
+  s_697bdc25a7c420::t_30bbdb7f34d0e7 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b967998cc4fa80fb0a4d68e4455af95ee14f4441",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
