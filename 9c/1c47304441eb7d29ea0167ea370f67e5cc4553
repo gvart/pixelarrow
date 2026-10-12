@@ -1,0 +1,111 @@
+src/ui/sheets/forge.ts
+  s_697bdc25a7c420::t_1738543ad100fa 27,29,47,87,157,164
+src/scenes/online/regionMapView.ts
+  s_697bdc25a7c420::t_1738543ad100fa 21,354,433
+tests/duel.test.ts
+  s_697bdc25a7c420::t_1738543ad100fa 323-324
+tests/numbers.test.ts
+  s_697bdc25a7c420::t_1738543ad100fa 1-54
+src/ui/army/parts.ts
+  s_697bdc25a7c420::t_1738543ad100fa 23,127,233,280
+tests/worldMap.test.ts
+  s_697bdc25a7c420::t_1738543ad100fa 22-23
+src/online/demoShard.ts
+  s_697bdc25a7c420::t_1738543ad100fa 21,188,200-201,228-231,234-235
+src/scenes/SettlementScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 28,32,34,100,111,329,381,386,431,645
+src/ui/econ/demo.ts
+  s_697bdc25a7c420::t_1738543ad100fa 11,173
+src/scenes/online/OnlineScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 54-55,69,462,477,790,823,955,1070,1127-1131,1189,1192,1257,1563
+src/i18n/shop.v5.ru.ts
+  s_697bdc25a7c420::t_1738543ad100fa 11
+src/scenes/duel/DuelScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 50,89,1717,1832,1848,2287,2684,2689,2693,2770,2823,2825,2832,2841-2842,2868
+src/i18n/names.ts
+  s_697bdc25a7c420::t_1738543ad100fa 1-123
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_1738543ad100fa 24,212-215,230-231,257-258
+src/i18n/strat.ru.ts
+  s_697bdc25a7c420::t_1738543ad100fa 108
+src/ui/sheets/encounter.ts
+  s_697bdc25a7c420::t_1738543ad100fa 32,153
+src/i18n/duels.ru.ts
+  s_697bdc25a7c420::t_1738543ad100fa 173,307
+scripts/layout-check.mjs
+  s_697bdc25a7c420::t_1738543ad100fa 128
+src/scenes/ArmyScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 24-25,224,276,296,392,506
+src/world/map.ts
+  s_697bdc25a7c420::t_1738543ad100fa 46-47
+tests/placeNames.test.ts
+  s_697bdc25a7c420::t_1738543ad100fa 1-57
+src/i18n/battle.ru.ts
+  s_697bdc25a7c420::t_1738543ad100fa 32,144
+src/i18n/places.ts
+  s_697bdc25a7c420::t_1738543ad100fa 1-121
+src/ui/battlePanel.ts
+  s_697bdc25a7c420::t_1738543ad100fa 32,427,470-472
+tests/arcUi.test.ts
+  s_697bdc25a7c420::t_1738543ad100fa 13
+src/scenes/ResultsScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 54-55,280,499,537,814,827
+src/scenes/HeroScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 36-37,213,254,510,518,617,676,740,1045,1059,1222
+src/scenes/online/OnlineArmyScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 40,42-43,90,241,495
+src/scenes/WorldScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 9-11,78,322,425,438,965,971-972,1026,1403-1407,1419,1423,1543,1548-1549
+src/duel/rules.ts
+  s_697bdc25a7c420::t_1738543ad100fa 443-445,450
+src/i18n/data.ru.ts
+  s_697bdc25a7c420::t_1738543ad100fa 216-217
+tests/heroNames.test.ts
+  s_697bdc25a7c420::t_1738543ad100fa 1-64
+src/ui/sheet.ts
+  s_697bdc25a7c420::t_1738543ad100fa 33-34,409,411-412,420,487,525,539-540,750
+src/i18n/ru.army.ts
+  s_697bdc25a7c420::t_1738543ad100fa 174,218
+src/scenes/CampScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 32-33,913,970,1324,1500
+src/i18n/en.ts
+  s_697bdc25a7c420::t_1738543ad100fa 275-277
+src/scenes/MarketScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 31,495,877,883
+src/i18n/numbers.ts
+  s_697bdc25a7c420::t_1738543ad100fa 2,4,21-44
+src/ui/sheets/recruit.ts
+  s_697bdc25a7c420::t_1738543ad100fa 28-29,176,201
+src/duel/client.ts
+  s_697bdc25a7c420::t_1738543ad100fa 10,1053,1057,1066,1119,1124-1126
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_1738543ad100fa 260-262
+src/scenes/MenuScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 15-16,58,69
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_1738543ad100fa 62-63,658,2779,3173,3667,4106,4579,4642
+src/i18n/battle.en.ts
+  s_697bdc25a7c420::t_1738543ad100fa 35
+src/ui/results/model.ts
+  s_697bdc25a7c420::t_1738543ad100fa 10,36,77
+src/ui/sheets/assault.ts
+  s_697bdc25a7c420::t_1738543ad100fa 25,138
+src/util/format.ts
+  s_697bdc25a7c420::t_1738543ad100fa 6,25,28,30-31,46-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9c1c47304441eb7d29ea0167ea370f67e5cc4553",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
