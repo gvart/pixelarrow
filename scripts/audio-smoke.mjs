@@ -5,7 +5,8 @@
 //     effects play, Sound off suspends the context and a hidden page suspends it too;
 //     FL-03: the dB buses (music, SFX, UI), the juice tiers' sounds through the real
 //     battle hook, ducking under the army-break horns, and a paused battle that
-//     keeps only UI sounds;
+//     keeps only UI sounds; SND-02: a disabled tap, the deployment Undo and a destructive
+//     confirm play their UI sounds through the real kit taps;
 //  3. the Sound toggle and the Effects volume survive a reload.
 // Usage: node scripts/audio-smoke.mjs [baseUrl]
 import { launch, phoneContext, captureErrors, makePageApi, check, failureCount } from './lib/harness.mjs';
@@ -141,6 +142,33 @@ async function run(label, { noAudio }) {
     await tapLabel('World', 'Attack');
     await wait(1500);
     check(`[${label}] deployment music`, (await dbg()).want === 'deploy', JSON.stringify(await dbg()));
+
+    // SND-02: the UI sounds through the real kit taps (deployment: the Undo chip and the Reset all confirm)
+    const n = async (id) => (await dbg()).byId[id] ?? 0;
+    const tapId = async (id) => {
+      const p = await idPos(ev, 'Battle', id);
+      if (p) await tap(p[0], p[1]);
+      return !!p;
+    };
+    const was0 = { nope: await n('nope'), undo: await n('undo'), destroy: await n('destroy') };
+    // nothing to undo yet: the chip is disabled, and a tap is the soft "no"
+    check(`[${label}] deployment Undo chip present`, await tapId('battle.undo'));
+    check(`[${label}] a disabled tap plays the soft no`, (await n('nope')) === was0.nope + 1, `nope ${was0.nope} -> ${await n('nope')}`);
+    // one deployment step to take back (an empty inverse: the chip's sound is what is checked)
+    await ev(() => {
+      const s = window.__game.scene.getScene('Battle');
+      s.deployUndo.push([], [0], s.chipNow());
+      s.buildHud();
+    });
+    await wait(200);
+    await tapId('battle.undo');
+    check(`[${label}] the deployment Undo plays the reverse swish`, (await n('undo')) === was0.undo + 1, `undo ${was0.undo} -> ${await n('undo')}`);
+    await ev(() => window.__game.scene.getScene('Battle').resetDeploy());
+    await wait(300);
+    check(`[${label}] Reset all confirm opens`, await tapLabel('Battle', 'Reset all'));
+    await wait(200);
+    check(`[${label}] a confirmed destructive action plays the low drum`, (await n('destroy')) === was0.destroy + 1, `destroy ${was0.destroy} -> ${await n('destroy')}`);
+
     await tapLabel('Battle', 'Fight');
     await wait(500);
     check(`[${label}] battle music`, (await dbg()).want === 'battle');

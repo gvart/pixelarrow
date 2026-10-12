@@ -26,8 +26,8 @@ import { ellipsize, measureText } from './textfit';
 import { CATEGORY_COLOR, CATEGORY_DARK, type BattleCategory } from './theme';
 import { Pix } from '../art/pixels';
 import { lighten, P } from '../art/palette';
-import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
-import { uiButton, uiError } from '../audio/hooks';
+import { haptic, hapticSelect } from '../platform/telegram';
+import { uiButton, uiDisabled } from '../audio/hooks';
 import { t } from '../i18n';
 import { heroName, namesIn } from '../i18n/names';
 
@@ -144,8 +144,7 @@ export class PanelButton extends Phaser.GameObjects.Container {
       this.release();
       if (!d || long || Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       if (!this.enabled || this.blocked) {
-        uiError();
-        hapticNotify('warning');
+        uiDisabled();
         longPress.toast?.(scene, this.blocked ?? this.o.disabledReason ?? t('kit.disabled'));
         return;
       }

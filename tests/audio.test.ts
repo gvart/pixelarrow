@@ -4,7 +4,7 @@ import { AudioEngine, volGain } from '../src/audio/engine';
 import { MusicPlayer, TRACKS } from '../src/audio/music';
 import { RECIPES, PRIORITY, type SfxId } from '../src/audio/sfx';
 import { AudioRng } from '../src/audio/rng';
-import { ABILITY_SFX, battleAudio, JUICE_SFX, spot, WORKS_SFX } from '../src/audio/hooks';
+import { ABILITY_SFX, battleAudio, JUICE_SFX, spot, uiButton, uiDestroy, uiDisabled, WORKS_SFX } from '../src/audio/hooks';
 import { busDb, busOf, dbToGain, DUCK, Ducker, gainToDb, STEP_DB, stepDb, TRIM_DB } from '../src/audio/mixer';
 import { HAPTICS, hapticCue } from '../src/audio/haptics';
 import { audio } from '../src/audio';
@@ -13,6 +13,11 @@ import { WORK_TYPES, type SimEvent } from '../src/sim/types';
 import { Battle } from '../src/sim/battle';
 import { drainLogged } from '../src/game/report';
 import { standardSetup } from './helpers';
+import { readText } from './support/nodeIo.js';
+import { haptic } from '../src/platform/telegram';
+
+// the haptic is a spy so the UI sounds' buzz can be checked (Telegram is absent in node anyway)
+vi.mock('../src/platform/telegram', async (orig) => ({ ...(await orig<typeof import('../src/platform/telegram')>()), haptic: vi.fn() }));
 
 // ---------------------------------------------------------------- a minimal Web Audio mock
 
@@ -596,4 +601,87 @@ describe('battleAudio through the real hook (FL-03)', () => {
     expect(audio.stats.played).toBeGreaterThan(played);
     expect(a).toEqual(run(false));
   }, 30_000);
+});
+
+describe('UI sounds: disabled tap, destructive confirm, undo (SND-02)', () => {
+  const count = (id: SfxId) => audio.byId[id] ?? 0;
+  const plays = (id: SfxId, f: () => void) => {
+    const before = count(id);
+    f();
+    return count(id) - before;
+  };
+  const set = (sound: boolean, sfxVol: number) => {
+    audio.configure(() => ({ sound, musicVol: 6, sfxVol }));
+    audio.refresh();
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    (globalThis as { AudioContext?: unknown }).AudioContext = MockContext;
+    set(true, 7);
+    audio.unlock();
+    audio.setPaused(false);
+    vi.mocked(haptic).mockClear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (globalThis as { AudioContext?: unknown }).AudioContext;
+  });
+
+  it('the three sounds are synthesized UI-bus recipes', () => {
+    for (const id of ['nope', 'destroy', 'undo'] as const) {
+      expect(RECIPES[id], id).toBeTypeOf('function');
+      expect(busOf(id), id).toBe('ui');
+      expect(PRIORITY[id], id).toBe(10);
+    }
+  });
+
+  it('a disabled tap plays the soft "no" (not the error buzz) with a light haptic', () => {
+    expect(plays('nope', uiDisabled)).toBe(1);
+    expect(haptic).toHaveBeenCalledWith('light');
+    expect(plays('error', uiDisabled)).toBe(0);
+  });
+
+  it('a confirmed destructive action plays the low drum', () => {
+    expect(plays('destroy', uiDestroy)).toBe(1);
+  });
+
+  it('every Undo button plays the reverse swish; other buttons keep their click and back sounds', () => {
+    // the battle and deployment chip, the hire toast, the hero's points
+    for (const id of ['battle.undo', 'town.undo', 'hero.undo']) expect(plays('undo', () => uiButton('back', id)), id).toBe(1);
+    expect(plays('undo', () => uiButton('back', 'battle.then'))).toBe(0);
+    expect(plays('back', () => uiButton('back'))).toBe(1);
+    expect(plays('click', () => uiButton(undefined, 'battle.works'))).toBe(1);
+  });
+
+  it('they play in a paused battle (UI bus), and respect the Effects volume and mute', () => {
+    audio.setPaused(true);
+    expect(plays('nope', uiDisabled)).toBe(1);
+    audio.setPaused(false);
+    const db = audio.mix().uiDb as number;
+    set(true, 3);
+    expect(audio.mix().uiDb as number).toBeLessThan(db);
+    set(true, 0);
+    expect(plays('destroy', uiDestroy)).toBe(0);
+    set(false, 7);
+    expect(plays('undo', () => uiButton('back', 'battle.undo'))).toBe(0);
+    expect(plays('nope', uiDisabled)).toBe(0);
+  });
+
+  it('the kit wires them: the button bases, makePressable, confirmDialog; the Undo ids still exist', () => {
+    const kit = readText('src/ui/kit.ts');
+    // the parchment Button: a disabled tap is the soft "no"; a tap passes its id (an Undo swishes)
+    expect(kit).toMatch(/if \(!this\.enabled\) \{\s*uiDisabled\(\);/);
+    expect(kit).toContain('uiButton(this.opts.icon, this.opts.id)');
+    // tappable, under every mosaic button: blocked -> the soft "no", else the tap sound by layout id
+    expect(kit).toMatch(/if \(blocked\?\.\(\)\) uiDisabled\(\);/);
+    expect(kit).toContain('uiButton(undefined, (obj as { __uiId?: string }).__uiId)');
+    expect(readText('src/ui/mosaic/base.ts')).toContain('() => o.disabled?.() ?? o.tip, o.disabled);');
+    expect(readText('src/ui/battlePanel.ts')).toMatch(/if \(!this\.enabled \|\| this\.blocked\) \{\s*uiDisabled\(\);/);
+    expect(readText('src/ui/widgets.ts')).toMatch(/m\.close\(\);\s*if \(o\.destructive\) uiDestroy\(\);\s*o\.onOk\(\);/);
+    // the swish is keyed by these layout ids: a rename must fail here, not go silent
+    expect(readText('src/scenes/BattleScene.ts')).toContain("id: 'battle.undo'");
+    expect(readText('src/ui/sheets/recruit.ts')).toContain("id: 'town.undo'");
+    expect(readText('src/scenes/HeroScene.ts')).toContain("id: 'hero.undo'");
+  });
 });

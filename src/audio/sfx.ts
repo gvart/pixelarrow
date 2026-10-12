@@ -512,6 +512,26 @@ export const RECIPES = {
     osc(c, out, t, { f: 120, f1: 60, dur: 0.08, gain: 0.3 });
     return 0.22;
   },
+  /** UI: a disabled control tapped — a soft "uh-uh", two falling felt tones (gentler than `error`). */
+  nope: (c, out, t, r) => {
+    const f = r.jit(330, 0.03);
+    osc(c, out, t, { type: 'triangle', f, f1: f * 0.88, dur: 0.06, gain: 0.16 });
+    osc(c, out, t + 0.08, { type: 'triangle', f: f * 0.8, f1: f * 0.7, dur: 0.09, gain: 0.14 });
+    return 0.2;
+  },
+  /** UI: a destructive action confirmed — a low frame drum under a falling body thump. */
+  destroy: (c, out, t, r) => {
+    frameDrum(c, out, t, r, 0.5);
+    osc(c, out, t, { f: r.jit(70, 0.04), f1: 36, dur: 0.5, gain: 0.45 });
+    noise(c, out, t, { dur: 0.3, gain: 0.25, f: 200, type: 'lowpass', brown: true });
+    return 0.6;
+  },
+  /** UI: undo — a reverse swish (noise swelling up a rising band, cut short by a tick). */
+  undo: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.03, a: 0.14, gain: 0.22, f: r.jit(700, 0.1), f1: 2600, q: 1.4 });
+    noise(c, out, t + 0.16, { dur: 0.012, gain: 0.12, f: 3000, q: 3 });
+    return 0.2;
+  },
   // ---- mythical beasts (src/sim/myth.ts events, src/audio/hooks.ts beastAudio)
   /** A giant's roar: a deep distorted growl swelling and breaking off. */
   roar: (c, out, t, r) => {
@@ -636,6 +656,9 @@ export const PRIORITY: Record<SfxId, number> = {
   back: 10,
   error: 10,
   warning: 10,
+  nope: 10,
+  destroy: 10,
+  undo: 10,
   roar: 9,
   screech: 6,
   boulder: 8,
