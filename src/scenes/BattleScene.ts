@@ -76,7 +76,7 @@ function thenLabel(k: ThenKey): string {
 const CATCH_UP_TURNS = 4;
 const CATCH_UP_STEPS = 120;
 /** FL-01 (R4): the dust of an impact, a kill and a rout, sun-dried soil; the splinters of broken stakes. */
-const DUST = 0xd8bfa4;
+const DUST = 0xf0e2c8;
 const SPLINTER = 0x9a6a3a;
 
 // HUD geometry (UI pixels, docs/UI_KIT.md "Battle HUD"): the top bar, the field, the ability
@@ -1597,7 +1597,7 @@ export class BattleScene extends BaseScene {
           const u = this.sim.units[e.unit];
           this.addBlood(u.x, u.y, true);
           // R4: a kill is the smallest tier, a puff (and its number); no shake
-          if (e.by >= 0) this.feel('kill', [], isoToScreen(u.x, u.y));
+          if (e.by >= 0) this.feel('kill', [], [isoToScreen(u.x, u.y)]);
           if (u.side === this.me) {
             hapticNotify('warning');
             if (st.pauseDeath) this.autoPause(t('battle.banner.fallen', { name: u.name }));
@@ -1611,12 +1611,12 @@ export class BattleScene extends BaseScene {
           if (!u || !by) break;
           const a = isoToScreen(u.x, u.y);
           const b = isoToScreen(by.x, by.y);
-          this.feel('impact', [u.group, by.group], { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+          this.feel('impact', [u.group, by.group], [{ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }]);
           break;
         }
         case 'stakesBreak': {
           const u = this.sim.units[e.unit];
-          this.feel('stakes', u ? [u.group] : [], isoToScreen(e.x, e.y), SPLINTER);
+          this.feel('stakes', u ? [u.group] : [], [isoToScreen(e.x, e.y)], SPLINTER);
           break;
         }
         case 'standardLost': {
@@ -1640,8 +1640,8 @@ export class BattleScene extends BaseScene {
         }
         case 'rout': {
           const g = this.sim.groups[e.group];
-          const c = groupCentre(this.sim, e.group);
-          this.feel('rout', [], c ? isoToScreen(c.x, c.y) : undefined);
+          // the dust kicks up at the feet of the men who run (not at the centre, where the badge would hide it)
+          this.feel('rout', [], this.sim.members(e.group).slice(0, 6).map((m) => isoToScreen(m.x, m.y)));
           if (e.side === this.me) hapticNotify('error');
           // a broken army's routs are told by its army banner
           if (this.sim.isBroken(e.side)) break;
@@ -2976,12 +2976,15 @@ export class BattleScene extends BaseScene {
 
   /**
    * A field event's feel (R4): its shake and hit-stop through the juice
-   * state, and its dust (`dust` particles, `color`) at a world-pixel point.
+   * state, and its dust (`dust` particles, `color`) at world-pixel points,
+   * shared out between them.
    */
-  private feel(kind: JuiceKind, groups: number[], at?: { x: number; y: number }, color = DUST): void {
+  private feel(kind: JuiceKind, groups: number[], at: { x: number; y: number }[] = [], color = DUST): void {
     this.juice.hit(kind, groups);
     const n = JUICE_TIERS[kind].dust;
-    if (at && n) this.fx.burst(at.x, at.y - 2, color, n, { speed: kind === 'rout' ? 26 : 16, up: 8, grav: 30, life: kind === 'rout' ? 0.9 : 0.5, small: kind === 'kill' });
+    const each = at.length ? Math.max(2, Math.round(n / at.length)) : 0;
+    // dust hangs and spreads low (slow, little gravity); a kill's puff is a few grains, the rest pixel clouds and grains
+    for (const p of at) this.fx.burst(p.x, p.y - 3, color, each, { speed: 22, up: 10, grav: 10, life: kind === 'kill' ? 0.45 : kind === 'rout' ? 1 : 0.7, small: kind === 'kill', big: kind !== 'kill', puff: kind !== 'kill' });
   }
 
   /** Settings closed over the battle: Reduce shake and flash apply at once, and a changed Left-hand setting (A11Y-16) moves the HUD. */

@@ -15,6 +15,7 @@ import type { ProcId } from '../sim/powers';
 import { POWER_IDS } from '../data/affixes';
 import type { SimUnit } from '../sim/types';
 import { MOSAIC } from './tokens';
+import { Pix } from '../art/pixels';
 import { arcChevrons, arcPath, type ArcShape } from './flankArc';
 
 const RING_FRAMES = 8;
@@ -87,6 +88,11 @@ export function registerFxTextures(scene: Phaser.Scene): void {
   for (const p of PIP_DEFS) scene.textures.addCanvas(p.key, renderPip(p.kind, p.color).toCanvas());
   scene.textures.addCanvas('fx_dot1', renderDot(1, 0xffffff).toCanvas());
   scene.textures.addCanvas('fx_dot2', renderDot(2, 0xffffff).toCanvas());
+  // a dust puff (FL-01): a small pixel cloud, light on top, tinted per use
+  const puff = new Pix(6, 4);
+  puff.bitmap(0, 0, ['.##...', '####.#', '######', '.####.'], { '#': 0xffffff });
+  puff.bitmap(1, 0, ['##', '#'], { '#': 0xffffff });
+  scene.textures.addCanvas('fx_puff', puff.toCanvas());
   // smooth icons drawn at the screen's density for the closest camera zoom (3x); floatIcon scales them down
   const fxN = FX_ICON_PX * RS * 3;
   for (const id of Object.keys(ABILITIES) as AbilityId[]) {
@@ -123,7 +129,7 @@ export class BattleFx {
   // ------------------------------------------------------------ particles
 
   /** A burst of square particles at a world point (pixels). */
-  burst(x: number, y: number, color: number, n: number, o: { speed?: number; up?: number; grav?: number; life?: number; big?: boolean; small?: boolean } = {}): void {
+  burst(x: number, y: number, color: number, n: number, o: { speed?: number; up?: number; grav?: number; life?: number; big?: boolean; small?: boolean; puff?: boolean } = {}): void {
     const speed = o.speed ?? 40;
     for (let i = 0; i < n; i++) {
       let p = this.parts.find((q) => !q.live);
@@ -144,7 +150,7 @@ export class BattleFx {
       p.max = (o.life ?? 0.6) * (0.7 + Math.random() * 0.5);
       p.life = p.max;
       p.live = true;
-      p.img.setTexture(o.big || (!o.small && Math.random() < 0.3) ? 'fx_dot2' : 'fx_dot1').setTint(color).setVisible(true).setAlpha(1);
+      p.img.setTexture(o.puff && i % 2 === 0 ? 'fx_puff' : o.big || (!o.small && Math.random() < 0.3) ? 'fx_dot2' : 'fx_dot1').setTint(color).setVisible(true).setAlpha(1);
     }
   }
 
@@ -421,15 +427,15 @@ export interface JuiceTier {
 export const JUICE_TIERS: Record<JuiceKind, JuiceTier> = {
   kill: { trauma: 0, stopMs: 0, dust: 3, gapMs: 0 },
   ability: { trauma: 0.15, stopMs: 40, dust: 0, gapMs: 300 },
-  impact: { trauma: 0.2, stopMs: 60, dust: 6, gapMs: 300 },
-  stakes: { trauma: 0.2, stopMs: 60, dust: 8, gapMs: 300 },
+  impact: { trauma: 0.2, stopMs: 60, dust: 5, gapMs: 300 },
+  stakes: { trauma: 0.2, stopMs: 60, dust: 10, gapMs: 300 },
   standard: { trauma: 0.3, stopMs: 0, dust: 0, gapMs: 300 },
-  rout: { trauma: 0.4, stopMs: 0, dust: 14, gapMs: 300 },
+  rout: { trauma: 0.4, stopMs: 0, dust: 18, gapMs: 300 },
   armyBreak: { trauma: 0.5, stopMs: 0, dust: 0, gapMs: 0 },
 };
 
-/** F1: the offset at full trauma, UI px (6 at 390 wide; UI px scale with the width). */
-export const MAX_OFFSET = 6;
+/** F1: the offset at full trauma, UI px (UI px scale with the width). 8, not the GDD default 6: at 6 a lone rout moved the view 1 UI px, too little to read; 8 is inside the R4 knob range (3-10). */
+export const MAX_OFFSET = 8;
 /** F1: trauma lost per real second. */
 export const TRAUMA_DECAY = 1.5;
 /** Hit-stops start at most this often (real ms): at 4× a charge line is one stop, not a stutter. */
