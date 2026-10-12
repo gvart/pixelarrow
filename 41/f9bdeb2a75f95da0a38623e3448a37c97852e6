@@ -1,0 +1,34 @@
+scripts/regression/sheet-layout.mjs
+  s_697bdc25a7c420::t_4e8a5c919bfd8b 32
+tests/regression/SUITE.md
+  s_697bdc25a7c420::t_8e2c3903a3eb64 1-73
+scripts/regression/doors.d.mts
+  s_697bdc25a7c420::t_b647ef97dafd62 1-15
+tests/regression/doors.test.ts
+  s_697bdc25a7c420::t_4f1ba5032f0889 1-46
+package.json
+  s_697bdc25a7c420::t_696e6e37a71901 15-16
+tests/regression/sheetFixtures.test.ts
+  s_697bdc25a7c420::t_2529d9638b96de 1-57
+tests/regression/suite.test.ts
+  s_697bdc25a7c420::t_5ac27b5f7436dd 1-8,11-38
+  s_697bdc25a7c420::t_3170b87dd86d6c 9-10
+scripts/regression/run.mjs
+  s_697bdc25a7c420::t_cb3d6d0fdc5f6d 1-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "41f9bdeb2a75f95da0a38623e3448a37c97852e6",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
