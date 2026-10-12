@@ -139,8 +139,20 @@ await ev(A, () => {
 });
 await until(() => active(A, 'OnlineClan'), 5000);
 await until(async () => (await sceneText(A, 'OnlineClan')).includes('FOUND A CLAN'), 8000);
-await tapBtn(A, 'OnlineClan', 'Found a clan');
-await A.page.waitForSelector('#px-prompt input[name=name]');
+// The no-clan card loads its fresco after the first draw and then redraws it,
+// rebuilding Found a clan (it used to also move it down by the art's height). On
+// a busy machine the jpg landed between locating the button and the tap: the tap
+// missed and the prompt never came. So: the fresco has loaded (or was skipped)
+// and the entry fade is over, then tap, and tap once more if no prompt shows.
+await until(() => ev(A, () => {
+  const s = window.__game.scene.getScene('OnlineClan');
+  return !s.load.isLoading() && s.ui.alpha === 1;
+}), 15000);
+for (let i = 0; i < 2; i++) {
+  await tapBtn(A, 'OnlineClan', 'Found a clan');
+  if (await until(() => ev(A, () => !!document.querySelector('#px-prompt input[name=name]')), 4000)) break;
+}
+await A.page.waitForSelector('#px-prompt input[name=name]', { timeout: 5000 });
 await A.page.fill('#px-prompt input[name=name]', `Lambda ${ids[0] % 1000}`);
 await A.page.fill('#px-prompt input[name=tag]', `L${ids[0] % 1000}`);
 await A.page.click('#px-prompt button[type=submit]');
