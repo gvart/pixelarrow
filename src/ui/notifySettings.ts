@@ -12,7 +12,7 @@
  */
 import Phaser from 'phaser';
 import { Button, addText, type UIMetrics } from './kit';
-import { Toggle } from './v3';
+import { Toggle } from './mosaic/toggles';
 import { ScrollList, type Modal } from './widgets';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { SIZE } from './theme';
@@ -73,7 +73,7 @@ const TITLE_SIZES = [9, 8.5, 8, 7.5, 7, 6.5];
  */
 export function openSettingsPage(scene: UiScene, o: { title: string; h: number; id: string; onClose?: () => void }): Modal {
   const w = settingsSheetW(scene.m.VW);
-  const m = openParchmentSheet(scene, { w, h: o.h, dock: 'bottom', skin: true, closeButton: false, onClose: o.onClose, id: o.id });
+  const m = openParchmentSheet(scene, { w, h: o.h, dock: 'bottom', closeButton: false, onClose: o.onClose, id: o.id });
   const { c, x, y } = m;
   c.add(new MIconButton(scene, x + 3, y + 1, 22, 22, { icon: 'chevL', label: t('common.back'), variant: 'secondary', id: `${o.id}.back`, onClick: () => m.close() }));
   // centred like every sheet title; moved right of the chevron when it would not fit there at a readable size
@@ -107,7 +107,7 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
   const { c, x, y, h } = m;
   const iw = w - 16;
   let note: Phaser.GameObjects.GameObject | null = null;
-  const setNote = (s: string, font: 'dim' | 'red' = 'dim') => {
+  const setNote = (s: string, font: 'pMuted' | 'pBad' = 'pMuted') => {
     note?.destroy();
     note = addText(scene, x + 8, y + 26, wrapText(s, iw, noteLines).lines.join('\n'), font);
     c.add(note);
@@ -124,7 +124,7 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
     render: (i, row, rw) => {
       const r = ROWS[i];
       const label: TKey = r.kind === 'quiet' ? 'notify.quiet' : (`notify.type.${r.type}` as TKey);
-      row.add(addText(scene, 0, 8, ellipsize(t(label), rw - 44), 'ink'));
+      row.add(addText(scene, 0, 8, ellipsize(t(label), rw - 44), 'pInk'));
       const on = isOn(r);
       const id = r.kind === 'quiet' ? 'notify.quiet' : `notify.${r.type}`;
       row.add(new Toggle(scene, rw - 4 - 34, 1, { on, label: t(label), id, disabled: st ? undefined : t('notify.offline'), onChange: () => void toggle(r) }));
@@ -137,9 +137,9 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
     try {
       st = await src.save(r.kind === 'quiet' ? { quiet: !st.quiet } : { on: { [r.type]: !isOn(r) } });
       if (!c.active) return;
-      setNote(st.blocked ? t('notify.blocked') : t('notify.note'), st.blocked ? 'red' : 'dim');
+      setNote(st.blocked ? t('notify.blocked') : t('notify.note'), st.blocked ? 'pBad' : 'pMuted');
     } catch {
-      if (c.active) setNote(t('notify.failed'), 'red');
+      if (c.active) setNote(t('notify.failed'), 'pBad');
     } finally {
       busy = false;
       if (c.active) list?.refresh();
@@ -154,7 +154,7 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
     .then((s) => {
       if (!c.active) return;
       st = s;
-      setNote(s.blocked ? t('notify.blocked') : t('notify.note'), s.blocked ? 'red' : 'dim');
+      setNote(s.blocked ? t('notify.blocked') : t('notify.note'), s.blocked ? 'pBad' : 'pMuted');
       list?.refresh();
     })
     .catch(() => {
@@ -179,7 +179,7 @@ export function openAbout(scene: UiScene, onClose?: () => void): Phaser.GameObje
   const want = 26 + note.lines.length * LINE_H + 8 + PAGES.length * step + 12;
   const m = openSettingsPage(scene, { title: t('about.title'), h: Math.min(want, VH - 12), id: 'about', onClose });
   const { c, x, y } = m;
-  c.add(addText(scene, x + 8, y + 26, note.lines.join('\n'), 'ink'));
+  c.add(addText(scene, x + 8, y + 26, note.lines.join('\n'), 'pInk'));
   let by = y + 26 + note.lines.length * LINE_H + 8;
   for (const p of PAGES) {
     c.add(new Button(scene, x + 8, by, iw, SIZE.btnH, { label: t(p.label), id: `about.${p.page}`, onClick: () => openExternalLink(legalUrl(p.page, lang())) }));

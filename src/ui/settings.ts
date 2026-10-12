@@ -4,9 +4,10 @@
  * pauses), so it fits the smallest phones in both languages.
  */
 import Phaser from 'phaser';
-import { Button, addIcon, addText, panelImage, type UIMetrics } from './kit';
+import { Button, addIcon, addText, mosaicPanelImage, type UIMetrics } from './kit';
 import { ScrollList, Tabs, confirmDialog } from './widgets';
-import { Stepper, Toggle, openSheet } from './v3';
+import { Stepper, Toggle } from './mosaic/toggles';
+import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { SURFACE, TEXT_MIN } from './tokens';
 import { motion, setReducedMotion } from './motion';
 import { ellipsize, measureText, wrapText } from './textfit';
@@ -103,7 +104,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
   const step = rowH + SIZE.gap;
   const w = settingsSheetW(VW);
   const want = 26 + ROWS.length * step + 14;
-  const m = openSheet(scene, { title: t('settings.title'), w, h: Math.min(want, VH - 12), onClose });
+  const m = openParchmentSheet(scene, { title: t('settings.title'), w, h: Math.min(want, VH - 12), dock: 'bottom', onClose });
   const { c, body } = m;
   const listH = body.h;
   let list: ScrollList | null = null;
@@ -115,12 +116,12 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
       if (r.kind === 'section') {
         // a section: its icon and title over a bronze hairline
         row.add(addIcon(scene, 0, 8, SECTION_ICON[r.label] ?? 'gear'));
-        row.add(addText(scene, 16, 10, ellipsize(t(r.label), rw - 16, false, 7, 'head'), 'head'));
+        row.add(addText(scene, 16, 10, ellipsize(t(r.label), rw - 16, false, 7, 'head'), 'hInk'));
         row.add(scene.add.rectangle(0, 21, rw - 4, 1, SURFACE.line).setOrigin(0, 0));
         return;
       }
       // every setting on a faint well, so a section reads as one group
-      if (r.kind !== 'lang') row.add(panelImage(scene, 0, 0, rw - 4, rowH - 1, r.kind === 'newCampaign' ? 'cardLocked' : 'inset'));
+      if (r.kind !== 'lang') row.add(mosaicPanelImage(scene, 0, 0, rw - 4, rowH - 1, 'parchmentWell'));
       if (r.kind === 'lang') {
         const cur = LANGS_SET.indexOf(s.lang ?? 'auto');
         row.add(
@@ -151,14 +152,14 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
       if (r.kind === 'newCampaign' || r.kind === 'sync') {
         // the name, and under it what it does (MENU-7) or the cloud save's state (MENU-4)
         const big = measureText(label) <= room;
-        const name = addText(scene, 6, 2, big ? label : ellipsize(label, room, false, TEXT_MIN), 'ink');
+        const name = addText(scene, 6, 2, big ? label : ellipsize(label, room, false, TEXT_MIN), 'pInk');
         row.add(big ? name : name.setFontSize(TEXT_MIN));
-        sub = addText(scene, 6, 12, t(r.kind === 'sync' ? `settings.sync.${online.status}` : r.sub), 'dim').setFontSize(TEXT_MIN);
+        sub = addText(scene, 6, 12, t(r.kind === 'sync' ? `settings.sync.${online.status}` : r.sub), 'pMuted').setFontSize(TEXT_MIN);
         row.add(sub);
-      } else if (measureText(label) <= room) row.add(addText(scene, 6, 8, label, 'ink'));
+      } else if (measureText(label) <= room) row.add(addText(scene, 6, 8, label, 'pInk'));
       else {
         const lines = wrapText(label, room, 2, false, TEXT_MIN).lines;
-        row.add(addText(scene, 6, lines.length > 1 ? 3 : 8, lines.join('\n'), 'ink').setFontSize(TEXT_MIN).setLineSpacing(-1.5));
+        row.add(addText(scene, 6, lines.length > 1 ? 3 : 8, lines.join('\n'), 'pInk').setFontSize(TEXT_MIN).setLineSpacing(-1.5));
       }
       if (r.kind === 'toggle') {
         const k = r.key;

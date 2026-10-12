@@ -5,10 +5,9 @@
  * `openOverlaySample` is also what the layout check calls (`kit-overlay-<id>`).
  */
 import { t } from '../../i18n';
-import { confirmPurchase, openSheet } from '../../ui/v3';
 import { confirmDialog, openModal, showTooltip, toast } from '../../ui/widgets';
 import { openItemCard } from '../../ui/sheet';
-import { MButton, ParchmentRow, ROW_H, mtext, openParchmentSheet, type ParchmentSheetHandle } from '../../ui/mosaic';
+import { MButton, ParchmentRow, ROW_H, confirmPurchase, mtext, openParchmentSheet, type ParchmentSheetHandle } from '../../ui/mosaic';
 import { G, type Cursor, type KitScene } from './common';
 
 /** Body text in a sheet's body area, wrapped. */
@@ -117,10 +116,9 @@ export const OVERLAY_SAMPLES: readonly OverlaySample[] = [
     icon: 'info',
     open: (s) => {
       const m = openModal(s, { title: 'openModal', h: 100 });
-      body(s, m, 'The same parchment sheet for screens built from legacy parts.');
+      body(s, m, 'The same parchment sheet, for screens built from the widgets.');
     },
   },
-  { id: 'bottom', label: 'Legacy bottom sheet', what: 'openSheet (v3)', icon: 'log', open: (s) => void openSheet(s, { title: 'openSheet', h: 90 }) },
   { id: 'toast', label: 'Toast', what: 'Under the top bar, never over a primary', icon: 'info', open: (s) => void toast(s, 'Saved: the toast sits under the top bar.') },
   { id: 'toast-good', label: 'Toast: a gain', what: 'Gain colour', icon: 'coin', open: (s) => void toast(s, '+40 gold', 'good') },
   { id: 'toast-bad', label: 'Toast: a loss', what: 'Loss colour', icon: 'cross', open: (s) => void toast(s, 'Lykon is wounded', 'bad') },
