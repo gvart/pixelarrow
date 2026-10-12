@@ -22,7 +22,9 @@ import { EV_KEY } from '../data/events';
 import { VOLUNTEER_RULES, WORLD_RULES } from '../world/world';
 import { CULTURE_LABEL } from '../data/names';
 import { uiCoin, uiError } from '../audio/hooks';
-import { itemModLines } from '../game/gear';
+import { forgeCandidates, forgeReroll, itemModLines, type ForgeRefusal, type ForgeResult } from '../game/gear';
+import { FORGE, forgeCost } from '../game/economy';
+import { forgeLineText, goldText, openForgeItemSheet, openForgeSheet } from '../ui/sheets/forge';
 import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import { MActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, FrescoBanner, addParchmentEmpty, addSubShell, addPortraitWell, addRowFace, hasRaster, mtext, mw, rarityInk, wrapWords, type MButtonOpts } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
@@ -586,6 +588,24 @@ export class SettlementScene extends BaseScene {
           onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id, pick: 'retrain' }),
         },
       });
+      // the Smith (EC-01, design/gdd/forge-reroll.md): reforge one random stat for gold
+      const forgeable = forgeCandidates(camp.data.stash, camp.data.heroes);
+      const from = forgeable.length ? Math.min(...forgeable.map((f) => forgeCost(f.item))) : FORGE.base[1];
+      const pick = t('forge.go');
+      row({
+        icon: 'anvil',
+        title: t('forge.smith'),
+        sub: forgeable.length ? t('forge.rowSub', { n: goldText(from) }) : t('forge.none'),
+        bw: Math.max(50, Math.ceil(mw(pick, 'rInk', 7)) + 22),
+        button: {
+          label: pick,
+          variant: forgeable.length ? 'secondary' : 'disabled',
+          disabledReason: t('forge.none'),
+          id: 'town.forge',
+          tip: t('forge.tip'),
+          onClick: () => this.openForge(),
+        },
+      });
     }
     const w0 = camp.world;
     c.add(mtext(this, w / 2, cy + 2, t('town.provisions', { food: Math.floor(w0.food), sup: Math.floor(w0.supplies) }), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: w, box }));
@@ -627,6 +647,46 @@ export class SettlementScene extends BaseScene {
     note.forEach((l, i) => c.add(mtext(this, w / 2, cy + 2 + i * LINE_H, l, 'pMuted', { size: TEXT_MIN, align: 0.5, box })));
     cy += note.length * LINE_H + 6;
     area.setContentHeight(cy + 2);
+  }
+
+  // ------------------------------------------------------------------ the Smith (EC-01)
+
+  private forgeOpts() {
+    const camp = state.campaign;
+    return {
+      candidates: () => forgeCandidates(camp.data.stash, camp.data.heroes),
+      gold: () => camp.data.gold,
+      reforge: (it: Item, line: number) => this.reforge(it, line),
+    };
+  }
+
+  /** The Smith's list (Services › Smith; scripts open it directly). */
+  openForge(): void {
+    openForgeSheet(this, this.forgeOpts());
+  }
+
+  /** One item at the Smith, by uid (scripts and the layout check). */
+  openForgeItem(uid: string): void {
+    const c = this.forgeOpts().candidates().find((x) => x.item.uid === uid);
+    if (c) openForgeItemSheet(this, { ...this.forgeOpts(), item: c.item, hero: c.hero });
+  }
+
+  /** Reforge one line from the world RNG (GDD rule 7), then save at once so it can be neither undone nor rolled again. */
+  private reforge(it: Item, line: number): ForgeResult | ForgeRefusal {
+    const camp = state.campaign;
+    const r = forgeReroll(camp.data, it, line, camp.world.rng);
+    if (typeof r === 'string') {
+      hapticNotify('error');
+      uiError();
+      toast(this, r === 'gold' ? t('stash.noGold') : t('forge.named'), 'bad');
+      return r;
+    }
+    hapticNotify('success');
+    uiCoin();
+    toast(this, t('forge.done', { line: forgeLineText(it, r.after) }), 'good');
+    void state.save();
+    this.refresh();
+    return r;
   }
 
   private rest(hours: number): void {

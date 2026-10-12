@@ -38,6 +38,7 @@ import { RESULTS_RU } from './results.ru';
 import { WORLD_V5_RU } from './world.v5.ru';
 import { CAMP_V5_RU } from './camp.v5.ru';
 import { SETTLEMENT_RU } from './settlement.ru';
+import { FORGE_RU } from './forge.ru';
 import { ARC_RU } from './arc.ru';
 import { WAR_V5_RU } from './war.v5.ru';
 import { DUELS_V5_RU } from './duels.v5.ru';
@@ -340,6 +341,7 @@ export const RU: Table = {
   ...CAMP_V5_RU,
   ...RESULTS_RU,
   ...SETTLEMENT_RU,
+  ...FORGE_RU,
   ...ARC_RU,
   ...WAR_V5_RU,
   ...DUELS_V5_RU,
