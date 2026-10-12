@@ -49,7 +49,7 @@ import { BattleFx, DMG_NUMBER_PX, DMG_NUMBER_S, drawFlankArc, Juice, JUICE_TIERS
 import { FlankWatch, flankArc, flankThreats, type Vec } from '../ui/flankArc';
 import { BeastView } from '../ui/beastView';
 import { openSettings } from '../ui/settings';
-import { battleAudio, uiError } from '../audio/hooks';
+import { battleAudio, battlePaused, uiError, worksPlaced, worksRemoved } from '../audio/hooks';
 import { audio, sfx } from '../audio';
 import { openAbilitySheet, openBattleMenu, type BattleMenuHandle } from '../ui/sheets/battleMenu';
 import { ABILITIES, AURAS, type AbilityId } from '../data/perks';
@@ -2753,6 +2753,7 @@ export class BattleScene extends BaseScene {
     // Play issues the staged plan at the resume tick (controls.md R6.1)
     if (!p && this.paused) this.flushPlan();
     this.paused = p;
+    battlePaused(p);
     this.refreshStrip();
     this.hudDirty = true;
     if (!p && this.banner && this.bannerTimer === null && !this.netBanner) this.hideBanner();
@@ -3836,6 +3837,7 @@ export class BattleScene extends BaseScene {
     this.recordUndo(o, inverseOf(o, this.sim));
     this.afterWorks();
     this.worksGhost = null;
+    worksPlaced(g.type);
     haptic('medium');
     this.showBanner(t('works.banner.placed', { name: t(`works.${g.type}.name` as TKey) }), 1200);
     this.buildHud();
@@ -3853,6 +3855,7 @@ export class BattleScene extends BaseScene {
     this.recordUndo(o, [again]);
     this.afterWorks();
     this.worksSel = -1;
+    worksRemoved();
     haptic('medium');
     this.showBanner(t('works.banner.removed', { name: t(`works.${seg.type}.name` as TKey) }), 1200);
     this.buildHud();
