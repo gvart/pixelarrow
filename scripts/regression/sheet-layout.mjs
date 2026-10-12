@@ -29,8 +29,8 @@ const WORLD = async (api) => {
 
 /** Sheet fixtures: id, the sheet's layout id, the scene it opens on, and how to open it. */
 const FIXTURES = [
+  // (the Journal tab is layout-check's world-journal)
   { id: 'sheet-arc-lairs', sheet: 'arc.sheet', scene: 'World', open: async (api) => (await WORLD(api), api.call('World', "s.openArc('lairs'); return !!s.arcSheet;")) },
-  { id: 'sheet-arc-journal', sheet: 'arc.sheet', scene: 'World', open: async (api) => (await WORLD(api), api.call('World', "s.openArc('journal'); return !!s.arcSheet;")) },
   {
     id: 'sheet-assault',
     sheet: 'assault.sheet',
