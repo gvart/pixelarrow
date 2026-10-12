@@ -2911,7 +2911,7 @@ export class DuelScene extends BaseScene {
       item: it,
       title: t('d5.armouryItem'),
       worth: false,
-      notes: [{ text: bound ? t('duels.salvageFor', { n: fmtCount(price) }) : t('duels.sellFor', { n: fmtCount(price) }), font: 'gold' }],
+      notes: [{ text: bound ? t('duels.salvageFor', { n: fmtCount(price) }) : t('duels.sellFor', { n: fmtCount(price) }), font: 'pGold' }],
       actions: [
         {
           label,

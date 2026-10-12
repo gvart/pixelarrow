@@ -12,7 +12,8 @@ import { uiFrame, uiId } from './layout';
 import { ellipsize, wrapText, LINE_H } from './textfit';
 import { SIZE, COLOR, RARITY_COLOR } from './theme';
 import { addPill } from './mosaic/pill';
-import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
+import { ensureFonts, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
+import { rarityInkKey } from './mosaic/rarityInk';
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
 import { renderStage, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
@@ -430,30 +431,30 @@ export function itemRuleLines(it: Item, hero: Hero | undefined, w: number): { te
   };
   const pow = itemPower(it);
   if (pow) {
-    add(t('item.power', { name: tOr(`power.${pow.id}.name`, POWERS[pow.id].name) }), rarityFont(it.rarity), 1);
-    add(powerText(pow, tOr(`power.${pow.id}.text`, POWERS[pow.id].text), t('item.sec')), 'ink');
+    add(t('item.power', { name: tOr(`power.${pow.id}.name`, POWERS[pow.id].name) }), rarityInkKey(it.rarity), 1);
+    add(powerText(pow, tOr(`power.${pow.id}.text`, POWERS[pow.id].text), t('item.sec')), 'pInk');
   }
   if (def.set && SETS[def.set]) {
     const set = SETS[def.set];
     const pieces = setPieces(set.id);
     const worn = hero ? Object.values(hero.equip).filter((x) => x && itemDef(x.def).set === set.id && shortfall(hero.attrs, x.def, x.rarity) === 0).length : 0;
-    add(t('item.set', { name: tOr(`set.${set.id}.name`, set.name), n: worn, of: pieces.length }), 'ink', 1);
+    add(t('item.set', { name: tOr(`set.${set.id}.name`, set.name), n: worn, of: pieces.length }), 'pInk', 1);
     for (const bn of set.bonuses) {
       const text = bn.special ? tOr(`setsp.${bn.special}`, SET_SPECIAL_TEXT[bn.special]) : modsText(bn.mods ?? {});
-      add(`${bn.pieces}: ${text}`, worn >= bn.pieces ? 'good' : 'dim');
+      add(`${bn.pieces}: ${text}`, worn >= bn.pieces ? 'pGood' : 'pMuted');
     }
   }
   const reqs = requirements(it.def, it.rarity);
   if (reqs.length) {
     const list = reqs.map((q) => `${t(`attr.${q.attr}.short` as TKey)} ${q.n}`).join(' · ');
     const miss = shortfall(hero?.attrs, it.def, it.rarity);
-    add(t('item.needs', { list }), miss > 0 ? 'red' : 'dim', 1);
-    if (miss > 0) add(t('item.short', { n: miss, p: Math.round(gearPenalty(miss) * 100) }), 'red');
+    add(t('item.needs', { list }), miss > 0 ? 'pBad' : 'pMuted', 1);
+    if (miss > 0) add(t('item.short', { n: miss, p: Math.round(gearPenalty(miss) * 100) }), 'pBad');
   }
   if (def.slot === 'weapon' || def.slot === 'shield' || def.slot === 'armor') {
     const blocked = hero ? equipBlocker(hero, it) : null;
-    if (blocked && hero) add(t('item.classBlocked', { cls: className(hero) }), 'red', 1);
-    else if (!hero) add(t('item.for', { list: classesFor(def).map((c) => tOr(`class.${c}.name`, CLASSES[c as ClassId].name)).join(', ') }), 'dim');
+    if (blocked && hero) add(t('item.classBlocked', { cls: className(hero) }), 'pBad', 1);
+    else if (!hero) add(t('item.for', { list: classesFor(def).map((c) => tOr(`class.${c}.name`, CLASSES[c as ClassId].name)).join(', ') }), 'pMuted');
   }
   return out;
 }
@@ -498,13 +499,13 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   c.add(bigItemIcon(scene, bx, cy + 1, it, 34));
   const tx = bx + 38;
   const tw = inner - 38;
-  c.add(addText(scene, tx, cy, ellipsize(itemName(it), tw), rarityFont(rarity)));
-  c.add(addText(scene, tx, cy + 10, ellipsize(`${t(`rarity.${rarity}` as TKey)} · ${t(`slot.${def.slot}` as TKey)}${def.twoHanded ? ` · ${t('stash.twoHanded')}` : ''}`, tw), 'dim'));
+  c.add(addText(scene, tx, cy, ellipsize(itemName(it), tw), rarityInkKey(rarity)));
+  c.add(addText(scene, tx, cy + 10, ellipsize(`${t(`rarity.${rarity}` as TKey)} · ${t(`slot.${def.slot}` as TKey)}${def.twoHanded ? ` · ${t('stash.twoHanded')}` : ''}`, tw), 'pMuted'));
   c.add(new Meter(scene, tx, cy + 22, Math.max(20, tw - 46), 4, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100));
-  c.add(addText(scene, tx + Math.max(20, tw - 46) + 3, cy + 20, `${Math.round(it.cond)}%`, it.cond < 34 ? 'red' : 'ink'));
+  c.add(addText(scene, tx + Math.max(20, tw - 46) + 3, cy + 20, `${Math.round(it.cond)}%`, it.cond < 34 ? 'pBad' : 'pInk'));
   if (o.worth !== false) {
     c.add(scaleIcon(addIcon(scene, tx - 1, cy + 28, 'coin'), 0.75));
-    c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }), tw - 10), 'dim'));
+    c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }), tw - 10), 'pMuted'));
   }
   cy += headH;
   // ---- scrolling body (compare, stats, description, notes)
@@ -515,40 +516,40 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   if (cmp && o.hero) {
     b.add(mosaicPanelImage(scene, 0, by, inner, cmpH - 4, 'parchmentWell'));
     const eq = cmp.equipped;
-    b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }), inner - 8), 'dim'));
+    b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }), inner - 8), 'pMuted'));
     if (eq) {
       b.add(new ItemIcon(scene, 4, by + 12, { item: eq }, { size: 16, tip: false, glow: false }));
-      b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq), inner - 27 - 70), rarityFont(eq.rarity)));
-    } else b.add(addText(scene, 4, by + 16, t('stash.emptySlot'), 'dim'));
+      b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq), inner - 27 - 70), rarityInkKey(eq.rarity)));
+    } else b.add(addText(scene, 4, by + 16, t('stash.emptySlot'), 'pMuted'));
     const dp = cmp.power[1] - cmp.power[0];
-    b.add(addText(scene, inner - 4, by + 16, t('hero.power', { n: `${dp > 0 ? '+' : ''}${dp}` }), dp > 0 ? 'good' : dp < 0 ? 'red' : 'dim', 1));
+    b.add(addText(scene, inner - 4, by + 16, t('hero.power', { n: `${dp > 0 ? '+' : ''}${dp}` }), dp > 0 ? 'pGood' : dp < 0 ? 'pBad' : 'pMuted', 1));
     let ry = by + 30;
     if (!changed.length) {
-      b.add(addText(scene, 4, ry, t('stash.noChange'), 'dim'));
+      b.add(addText(scene, 4, ry, t('stash.noChange'), 'pMuted'));
       ry += 11;
     }
     for (const d of changed) {
-      const dt = addText(scene, inner - 4, ry, deltaText(d), d.better ? 'good' : 'bad', 1);
-      const cn = addText(scene, inner - 4 - dt.width - 6, ry, `${fmtStat(d.id, d.cur)} > ${fmtStat(d.id, d.next)}`, 'sec', 1);
+      const dt = addText(scene, inner - 4, ry, deltaText(d), d.better ? 'pGood' : 'pBad', 1);
+      const cn = addText(scene, inner - 4 - dt.width - 6, ry, `${fmtStat(d.id, d.cur)} > ${fmtStat(d.id, d.next)}`, 'pSec', 1);
       // narrow cards: the stat's name and its change matter most, "1.3 > 1.5" goes first
       const fitsBoth = inner - 12 - dt.width - cn.width - 6 >= 44;
       if (!fitsBoth) cn.destroy();
-      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 12 - dt.width - (fitsBoth ? cn.width + 6 : 0)), 'ink'));
+      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 12 - dt.width - (fitsBoth ? cn.width + 6 : 0)), 'pInk'));
       b.add(fitsBoth ? [cn, dt] : [dt]);
       ry += 11;
     }
-    if (cmp.displaced.length) b.add(addText(scene, 4, ry, ellipsize(t('stash.alsoRemoves', { name: cmp.displaced.map(itemName).join(', ') }), inner - 8), 'red'));
+    if (cmp.displaced.length) b.add(addText(scene, 4, ry, ellipsize(t('stash.alsoRemoves', { name: cmp.displaced.map(itemName).join(', ') }), inner - 8), 'pBad'));
     by += cmpH;
   }
-  b.add(addText(scene, 0, by, t('stash.stats'), 'red'));
+  b.add(addText(scene, 0, by, t('stash.stats'), 'pBad'));
   by += 12;
   const colW = Math.floor(inner / 2);
   mods.forEach((ml, i) => {
     const mx = (i % 2) * colW;
     const my = by + Math.floor(i / 2) * 10;
-    const val = addText(scene, mx + colW - 4, my, ml.text, ml.good ? 'ink' : 'red', 1);
+    const val = addText(scene, mx + colW - 4, my, ml.text, ml.good ? 'pInk' : 'pBad', 1);
     b.add(val);
-    b.add(addText(scene, mx, my, ellipsize(tOr(`mod.${ml.key}`, ml.key), colW - val.width - 8), 'dim'));
+    b.add(addText(scene, mx, my, ellipsize(tOr(`mod.${ml.key}`, ml.key), colW - val.width - 8), 'pMuted'));
   });
   by += Math.ceil(mods.length / 2) * 10 + 4;
   for (const r of rules) {
@@ -557,11 +558,11 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   }
   if (rules.length) by += 4;
   if (desc.lines.length) {
-    b.add(addText(scene, 0, by, desc.lines.join('\n'), 'ink'));
+    b.add(addText(scene, 0, by, desc.lines.join('\n'), 'pInk'));
     by += desc.lines.length * LINE_H + 4;
   }
   for (const n of notes) {
-    b.add(addText(scene, 0, by, ellipsize(n.text, inner - 3), n.font ?? "dim"));
+    b.add(addText(scene, 0, by, ellipsize(n.text, inner - 3), n.font ?? 'pMuted'));
     by += LINE_H;
   }
   area.setContentHeight(by);
@@ -730,23 +731,23 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
   const chipW = addPill(scene, b, 0, by, roleName(cls.role), roleColor(cls.role), inner);
   if (cls.mount) addPill(scene, b, chipW + 4, by, tOr(`mount.${cls.mount}`, cls.mount), 0x8a6a3a, inner - chipW - 4);
   by += 15;
-  b.add(addText(scene, 0, by, desc.lines.join('\n'), 'ink'));
+  b.add(addText(scene, 0, by, desc.lines.join('\n'), 'pInk'));
   by += desc.lines.length * LINE_H + 3;
-  if (rt.good) b.add(addText(scene, 0, by, ellipsize(`+ ${rt.good}`, inner), 'good'));
-  if (rt.bad) b.add(addText(scene, 0, by + 10, ellipsize(`- ${rt.bad}`, inner), 'red'));
+  if (rt.good) b.add(addText(scene, 0, by, ellipsize(`+ ${rt.good}`, inner), 'pGood'));
+  if (rt.bad) b.add(addText(scene, 0, by + 10, ellipsize(`- ${rt.bad}`, inner), 'pBad'));
   by += 23;
   for (const id of stats) {
     const d = STATS[id];
     const v = d.get(s);
-    b.add(addText(scene, 0, by, ellipsize(t(`stat.${id}` as TKey), 64), 'dim'));
+    b.add(addText(scene, 0, by, ellipsize(t(`stat.${id}` as TKey), 64), 'pMuted'));
     b.add(new Meter(scene, 66, by + 2, inner - 66 - 30, 4, COLOR.xp).setValue(v, d.max));
-    b.add(addText(scene, inner, by, fmtStat(id, v), 'ink', 1));
+    b.add(addText(scene, inner, by, fmtStat(id, v), 'pInk', 1));
     by += 12;
   }
   if (o.price) {
     by += 3;
     const pr = wrapText(o.price, inner - 4, 2);
-    b.add(addText(scene, 0, by, pr.lines.join("\n"), "red"));
+    b.add(addText(scene, 0, by, pr.lines.join("\n"), 'pBad'));
     by += (pr.lines.length - 1) * LINE_H;
     by += 10;
   }

@@ -4531,7 +4531,7 @@ export class BattleScene extends BaseScene {
     const md: Modal = openModal(this, { title: t('battle.groups.title'), w: Math.min(VW - 12, 220), h: VH - 16, onClose: () => this.closeGroups(true) });
     this.overlay = md.c;
     const { x, y, w } = md.body;
-    const legend = new Label(this, x + w / 2, y, sideGroups.map((g, i) => `${ROMAN[i]} ${groupName(g.name)}`).join(' · '), { maxW: w, maxLines: 2, font: 'dim', align: 0.5 });
+    const legend = new Label(this, x + w / 2, y, sideGroups.map((g, i) => `${ROMAN[i]} ${groupName(g.name)}`).join(' · '), { maxW: w, maxLines: 2, font: 'pMuted', align: 0.5 });
     md.c.add(legend);
     const top = y + legend.h + 4;
     const doneY = md.y + md.h - 9 - SIZE.btnH;

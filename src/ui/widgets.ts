@@ -10,8 +10,7 @@
  * button taps to the tooltip and toast here.
  */
 import Phaser from 'phaser';
-import { Button, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
-import { fadeTexture, inkFontKey, ownSkin } from './inkSkin';
+import { Button, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelK, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
 import { ACCENT, MOSAIC, MOTION } from './tokens';
 import { tweenTo } from './motion';
 import { uiFrame, uiId, worldRect } from './layout';
@@ -269,9 +268,9 @@ export class StatBar extends Phaser.GameObjects.Container {
     this.w = Math.round(w);
     this.o = o;
     this.g = scene.add.graphics();
-    this.lab = addText(scene, 0, 2, '', 'ink');
-    this.val = addText(scene, this.w, 2, '', 'ink', 1);
-    this.pre = addText(scene, this.w, 2, '', 'good', 1);
+    this.lab = addText(scene, 0, 2, '', 'pInk');
+    this.val = addText(scene, this.w, 2, '', 'pInk', 1);
+    this.pre = addText(scene, this.w, 2, '', 'pGood', 1);
     this.add([this.g, this.lab, this.val, this.pre]);
     if (o.tip) {
       this.setSize(this.w, this.h);
@@ -309,7 +308,7 @@ export class StatBar extends Phaser.GameObjects.Container {
       const hi = Math.round((bw - 2) * f(Math.max(value, preview!)));
       g.fillStyle(better ? COLOR.good : COLOR.bad, 1);
       g.fillRect(1 + fw, by + 1, Math.max(1, hi - fw), 4);
-      this.pre.setFont(better ? 'font_good' : 'font_red');
+      this.pre.setFont(better ? 'font_pGood' : 'font_pBad');
       this.pre.setText(fmt(preview!));
       this.val.setText(`${fmt(value)} >`);
       this.val.x = this.w - this.pre.width - 3;
@@ -359,7 +358,7 @@ export class CountUp extends Phaser.GameObjects.Container {
     }
     const final = `${o.prefix ?? ''}${o.value}${o.suffix ?? ''}`;
     this.big = measureText(final, false, 14) <= this.w - 6 && this.h - 10 - top >= 20;
-    this.num = addText(scene, this.w / 2, top, `${o.prefix ?? ''}0${o.suffix ?? ''}`, inkFontKey(o.font ?? 'ink'), 0.5);
+    this.num = addText(scene, this.w / 2, top, `${o.prefix ?? ''}0${o.suffix ?? ''}`, o.font ?? 'pInk', 0.5);
     if (this.big) this.num.setFontSize(14);
     uiFrame(this.num, this, this.w, this.h);
     this.add(this.num);
@@ -543,8 +542,6 @@ export class Tabs extends Phaser.GameObjects.Container {
     });
     this.style = tabRowStyle(this.items, ['rInk', 'rGold']);
     this.paint();
-    // the switch draws its own dark track: a parchment sheet must not re-ink its labels (gold on the track)
-    ownSkin(this);
     scene.add.existing(this);
   }
 
@@ -604,7 +601,6 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
     this.add(this.bar);
     this.style = tabRowStyle(this.items, ['rCream', 'rGold']);
     this.paint();
-    ownSkin(this);
     scene.add.existing(this);
   }
 
@@ -635,8 +631,45 @@ export class UnderlineTabs extends Phaser.GameObjects.Container {
 
 // ================================================================== scroll hint
 
-/** Colour the edge fades melt into by default (the stone of the pages); v3 screens pass their own. */
+/** Colour the edge fades melt into by default (the stone of the pages), outside a marked surface. */
 export const FADE_DEFAULT = 0x1f1913;
+
+/** Marks `c` as drawn on a surface of `color` (a parchment sheet): scroll hints inside it fade into that colour. */
+export function markSurface(c: Phaser.GameObjects.Container, color: number): void {
+  (c as unknown as { __surface?: number }).__surface = color;
+}
+
+/** The colour of the nearest marked surface `obj` sits in (itself or a parent container), else FADE_DEFAULT. */
+export function surfaceUnder(obj: Phaser.GameObjects.Container): number {
+  for (let o: Phaser.GameObjects.Container | null = obj; o; o = o.parentContainer) {
+    const s = (o as unknown as { __surface?: number }).__surface;
+    if (s !== undefined) return s;
+  }
+  return FADE_DEFAULT;
+}
+
+/** A vertical gradient from `color` (opaque, top) to transparent (bottom), w x h UI px, cached per size (the scroll hint's edge fade). */
+function fadeTexture(scene: Phaser.Scene, w: number, h: number, color: number): string {
+  const K = panelK(scene);
+  const key = `fade_${color.toString(16)}_${Math.round(w)}x${Math.round(h)}@${K}`;
+  if (!scene.textures.exists(key)) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(2, Math.round(w * K));
+    c.height = Math.max(2, Math.round(h * K));
+    const g = c.getContext('2d')!;
+    const r = (color >> 16) & 255;
+    const gg = (color >> 8) & 255;
+    const bb = color & 255;
+    const grad = g.createLinearGradient(0, 0, 0, c.height);
+    grad.addColorStop(0, `rgba(${r},${gg},${bb},1)`);
+    grad.addColorStop(0.45, `rgba(${r},${gg},${bb},0.75)`);
+    grad.addColorStop(1, `rgba(${r},${gg},${bb},0)`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, c.width, c.height);
+    scene.textures.addCanvas(key, c)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  }
+  return key;
+}
 
 /**
  * The scroll hint of long lists (docs/UI_KIT.md "v3 components"): soft fades at the top and
@@ -644,10 +677,10 @@ export const FADE_DEFAULT = 0x1f1913;
  * that shows while the list moves. Nothing sits on the rows (no chevrons), and
  * nothing redraws per frame: everything changes on scroll only.
  */
-export function addScrollHint(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, area: ScrollArea, color: number = FADE_DEFAULT): Phaser.GameObjects.Graphics {
+export function addScrollHint(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, area: ScrollArea, color?: number): Phaser.GameObjects.Graphics {
   const { x, y, w, h } = area.bounds;
   const fh = Math.min(12, Math.round(h / 4));
-  const key = fadeTexture(scene, w, fh, color);
+  const key = fadeTexture(scene, w, fh, color ?? surfaceUnder(parent));
   const K = Math.max(2, Math.ceil(metrics(scene).S));
   const top = scene.add.image(x, y, key).setOrigin(0, 0).setScale(1 / K).setVisible(false);
   const bottom = scene.add.image(x, y + h, key).setOrigin(0, 0).setScale(1 / K, -1 / K).setVisible(false);
@@ -709,7 +742,7 @@ export interface ScrollListOpts {
   overscan?: number;
   /** Draw the scroll hint (edge fades and thumb; default true). */
   hint?: boolean;
-  /** The colour behind the list, that the edge fades melt into (default FADE_DEFAULT). */
+  /** The colour behind the list, that the edge fades melt into (default: the surface it sits on, `surfaceUnder`). */
   fade?: number;
 }
 
@@ -1203,12 +1236,11 @@ export function shadeTap(shade: Phaser.GameObjects.GameObject, rect: { x: number
 /**
  * A parchment modal on a shade that blocks the screen below, registered as a
  * navigation layer (Telegram Back closes it) and as a layout-check layer. A tap
- * on the shade outside the box closes it too, unless `shadeCloses: false`. This
- * is the mosaic parchment sheet (`openParchmentSheet`) for content built from
- * the legacy parts, which is re-inked for the parchment as it arrives.
+ * on the shade outside the box closes it too, unless `shadeCloses: false`. It is
+ * the mosaic parchment sheet (`openParchmentSheet`): fill it with ink on parchment.
  */
 export function openModal(scene: UiScene, o: ModalOpts): Modal {
-  return openParchmentSheet(scene, { ...o, skin: true });
+  return openParchmentSheet(scene, o);
 }
 
 // ================================================================== confirm dialog
@@ -1243,7 +1275,7 @@ export function confirmDialog(scene: UiScene, o: ConfirmDialogOpts): Phaser.Game
   const m = openModal(scene, { title: o.title ?? t('kit.confirm.title'), w, h, shadeCloses: false, kind: 'confirm', onClose: () => !done && o.onCancel?.() });
   const { c, x, y } = m;
   if (wr.lines.length) {
-    const body = addText(scene, VW / 2, y + 26, wr.lines.join('\n'), 'ink', 0.5);
+    const body = addText(scene, VW / 2, y + 26, wr.lines.join('\n'), 'pInk', 0.5);
     body.setCenterAlign();
     c.add(body);
   }

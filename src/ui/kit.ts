@@ -34,7 +34,7 @@ export type FontKey =
   | 'sec' | 'muted' | 'onAccent' | 'reward' | 'glory' | 'premium' | 'bad' | 'xp' | 'power' | 'stars' | 'headL' | 'wargold'
   // v4 Mosaic (MOSAIC in tokens.ts): Inter ink on parchment (p*) and Cinzel caps (r*): ink on parchment, cream on terracotta / bronze / teal / stone, gold on dark stone
   | 'pInk' | 'pSec' | 'pMuted' | 'pOff' | 'pGood' | 'pBad' | 'rInk' | 'rCream' | 'rGold' | 'rOff'
-  // ink forms of the v3 colours, for text on parchment (src/ui/inkSkin.ts maps the light-on-dark keys to these): headings in the head face, reward gold, xp, Drachmae
+  // ink forms of the v3 colours, for text on parchment: headings in the head face, reward gold, xp, Drachmae
   | 'hInk' | 'pGold' | 'pXp' | 'pPremium';
 
 export interface UIMetrics {

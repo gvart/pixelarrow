@@ -288,7 +288,7 @@ export class MerchantScene extends BaseScene {
 
   /** The item card of a piece of gear on offer (stats; gold only). */
   showOffer(o: MerchantOffer): void {
-    const m = openItemCard(this, { item: this.preview(o), notes: [{ text: t('merchant.gearTip'), font: 'dim' }], actions: [{ label: t('common.close'), onClick: () => m.close(), id: 'merchant.cardClose' }] });
+    const m = openItemCard(this, { item: this.preview(o), notes: [{ text: t('merchant.gearTip'), font: 'pMuted' }], actions: [{ label: t('common.close'), onClick: () => m.close(), id: 'merchant.cardClose' }] });
   }
 
   // ------------------------------------------------------------------ buying

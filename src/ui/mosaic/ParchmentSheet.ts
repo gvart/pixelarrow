@@ -16,19 +16,18 @@
  * the first. Back and close always take the top one off and bring back what it
  * covered, so nothing is lost (rules: `visibleOverlays` in overlays.ts).
  *
- * `openModal` (widgets.ts) and `openSheet` (v3.ts) are the same sheet for the
- * screens built from legacy light-on-dark parts: they pass `skin: true`, which
- * re-inks what they put in the sheet (see inkSkin.ts).
+ * What goes in the sheet is drawn for parchment by its caller (ink fonts, the
+ * parchment surfaces). The returned container is marked as parchment, so a
+ * scroll hint inside it fades into the paper (`surfaceUnder`, widgets.ts).
  */
 import Phaser from 'phaser';
 import { addText, type UIMetrics } from '../kit';
 import { navLayer } from '../../platform/nav';
 import { uiBlocker, uiFrame, uiId } from '../layout';
 import { motion, tweenTo } from '../motion';
-import { inkify } from '../inkSkin';
 import { ellipsize, measureText } from '../textfit';
 import { MOSAIC, SPACE } from '../tokens';
-import { shadeTap, type Modal } from '../widgets';
+import { markSurface, shadeTap, type Modal } from '../widgets';
 import { t } from '../../i18n';
 import { GAP, mosaicImage } from './base';
 import { actionRows } from './BottomPanel';
@@ -55,8 +54,6 @@ export interface ParchmentSheetOpts {
   shadeCloses?: boolean;
   /** Draw the X (default: when the shade closes it). */
   closeButton?: boolean;
-  /** The content is built for dark surfaces (legacy parts): re-ink it for the parchment as it arrives. */
-  skin?: boolean;
   /** A sheet (default) or a yes/no confirm: a confirm stays over the sheet under it, a sheet replaces it (V5-029). */
   kind?: OverlayKind;
   onClose?: () => void;
@@ -196,7 +193,7 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   });
   if (shadeCloses) shadeTap(shade, { x, y, w, h }, close);
   navLayer(c, close, scene);
-  if (o.skin) inkify(box);
+  markSurface(box, MOSAIC.parch);
   // one close affordance (G5): once the caller has filled the sheet, a footer Close of its own makes the X redundant
   const xb = head.x;
   if (xb) scene.events.once('prerender', () => xb.scene && !closeAffordance({ closable: true, footerClose: hasFooterClose(box, xb) }).x && xb.destroy());
