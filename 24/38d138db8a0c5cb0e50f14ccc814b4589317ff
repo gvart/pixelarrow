@@ -1,0 +1,23 @@
+tests/duelHub.test.ts
+  s_697bdc25a7c420::t_a537e897d0d754 39-42
+  s_697bdc25a7c420::t_a7b68285880600 14
+  s_697bdc25a7c420::t_4085a2c780f04b 20,29,32-35,45
+src/i18n/numbers.ts
+  s_697bdc25a7c420::t_2f4223ed1b22b5 10-13,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2438d138db8a0c5cb0e50f14ccc814b4589317ff",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
