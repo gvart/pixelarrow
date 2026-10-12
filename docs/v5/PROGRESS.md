@@ -11,8 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | WAR-01 worktree-agent-a2979f46794ce33ff, RD-02 worktree-agent-afd19f71219a848b1, F-05 worktree-agent-a5d1f5af80b986861 | — | integrator | — | merging |
-| due-01 | W18 DUE-01: Duels hub | per card | per card | worktree-agent | running |
+| (merge) | DUE-01 worktree-agent-a79e5ab81715c7b6e | — | integrator | — | merging |
+| btl-01 | W16 BTL-01: battle HUD chrome | per card | per card | worktree-agent | running |
 | ec-01 | W19 EC-01: forge reroll | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
@@ -68,6 +68,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 1b62f48 WAR-02 Clan + Merchant; b323361 WLD-01 World map; 9c8c6c6 FW-03 works tray + assault wiring. Gates: vitest 1255, server 299, layout 0 new (752 known), 5 smokes, online-e2e 34/34; balance 53%, lairs 43/58/53, assault 45%.
 - 0aa9776 CMP-01 Camp; 3f82725 RES-01 Results. Gates: vitest 1276, server 299, layout 0 new (671 known), smokes pass (fullscreen flaked once under load); balance 53%, lairs 43/58/53, assault 45%.
 - 7605ad7 SET-01; 4cadcf1 CT-06; c475df9 WLD-02; 56031f9 allowlist hygiene. Gates: vitest 1300, server 303, layout 0 new (524 distinct), all 5 smokes first-try, replay 13/13 chromium (webkit not installed); balance 53%, lairs 43/58/53. Load avg 27-50: balance 74 min.
+- 676cd87 F-05 Kit; 8f31f7c RD-02 flank arcs/banners; 2e41700 WAR-01 War hub. Gates: vitest 1353, server 303, layout 0 new (493 distinct, 184 screens), smokes pass (main smoke flaked once under load), online-e2e 35 PASS, replay 13/13 chromium; balance 53%, lairs 43/58/53, assault 45%.
 
 ## Queue (next)
 
@@ -131,6 +132,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 33. Follow-ups: the swarm doctrine tell says it retreats (contradicts garrisons holding): fix the doctrine text; hero and captain names in Latin letters in RU; DUE-01 should replace CT-06's ladder lookup with an explicit field and show 'expired' on the ladder report; DUEL_RULES.ticketTtlMs unused; wld.lairTap unused.
 
 34. Follow-ups: RU numbers use commas (WAR-01 boss sheet: 12,202), use spaces; ' - ' should be an en dash in RU boss copy; RU item card cuts 'Темп атаки'/'Прочность' at 320; Camp should pass `back` when opening the War army; feint and queued-step badge markers go to BTL-01; shake and hit-stop go to FL-01; webkit replay leg not runnable locally.
+
+35. Process: agents must stop their own dev servers (15 stale vite/vitest processes from finished agents killed 2026-10-12). Copy: the DUE-01 expired note sits next to the battle clock (1:04); say 'real time' or 'the ladder ticket ran out'. Use fmtCount (DUE-01) for RU numbers everywhere (WAR-01 boss sheet).
 
 ## Blockers
 
