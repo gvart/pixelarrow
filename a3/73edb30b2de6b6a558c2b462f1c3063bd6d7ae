@@ -1,0 +1,21 @@
+tests/audio.test.ts
+  s_697bdc25a7c420::t_6b303183aca2b0 7-15
+  s_697bdc25a7c420::t_1c3b73a5e980e4 363-396,399-599
+  s_697bdc25a7c420::t_0ccf249681a6ba 397-398
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a373edb30b2de6b6a558c2b462f1c3063bd6d7ae",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
