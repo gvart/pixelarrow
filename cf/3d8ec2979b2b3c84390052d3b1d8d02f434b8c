@@ -1,0 +1,24 @@
+src/ui/econ/consumablePicker.ts
+  s_697bdc25a7c420::t_849895402874ee 67,71,73,136,138
+  s_697bdc25a7c420::t_441434630e51e8 23-26,100-103,115-123,128,132,143,151
+src/i18n/gaps.ru.ts
+  s_697bdc25a7c420::t_441434630e51e8 107
+src/i18n/gaps.en.ts
+  s_697bdc25a7c420::t_441434630e51e8 115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cf3d8ec2979b2b3c84390052d3b1d8d02f434b8c",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
