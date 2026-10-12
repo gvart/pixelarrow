@@ -29,7 +29,7 @@ import { perkSlots } from '../data/perks';
 import { dangerAt, isWater, type SettlementDef, type WorldMap } from '../world/map';
 import { siteAt } from '../world/battlefield';
 import { STRUCTURES, campEffects, footprint, type StructureId } from '../world/camp';
-import { THREAT_COLOR, WORLD_RULES, hasCaptain, partyArmy, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
+import { THREAT_COLOR, hasCaptain, partyArmy, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
 import { isCaptain } from '../sim/stats';
 import { confirmDialog, hintStore } from '../ui/widgets';
 import { CampLife } from '../ui/campLife';
@@ -43,7 +43,7 @@ import { SIZE } from '../ui/theme';
 import { ARC_LAIRS } from '../data/arc';
 import { LAIR_HOARD } from '../game/sources';
 import { startLairAssault } from '../game/campaignBattle';
-import { armyLine, encounterCopy } from '../game/encounter';
+import { armyLine, encounterCopy, encounterOffers } from '../game/encounter';
 import { openEncounterSheet, worldGlyph, type EncounterChoice, type EncounterHandle } from '../ui/sheets/encounter';
 
 /** Game hours per real second while travelling / waiting. */
@@ -1504,6 +1504,12 @@ export class WorldScene extends BaseScene {
       this.refreshHud();
       return;
     }
+    // only fit men fight (QAFIX-WORLD S2-2): with none, there is no assault
+    if (k === 'assault' && armyLine(camp).noneFit) {
+      hapticNotify('error');
+      this.showBanner(t('arc.as.noneFit'), true);
+      return;
+    }
     const pending = k === 'assault' ? startLairAssault(camp, lairId, randomSeed()) : null;
     if (!pending) {
       // no garrison left (R2 Edge Cases): the lair falls on contact, without a battle; its hoard goes to the stash
@@ -1645,14 +1651,18 @@ export class WorldScene extends BaseScene {
     if (!p) return;
     this.closeDialog();
     this.info = camp.playerInfo();
-    const ratio = p.power / Math.max(1, this.info.power);
+    // the odds count only the fit men who would take the field (QAFIX-WORLD S2-2)
+    const mine = armyLine(camp);
+    const ratio = p.power / Math.max(1, mine.power);
     const lvl = threatLevel(ratio);
     // the band's army as the battle will build it (a throwaway id source: nothing in the save moves)
     const army = partyArmy(p, { nextId: 1 }, camp.armyClasses());
     const beast = encounterOf(army.heroes);
     const captain = beast ? undefined : army.heroes.find((h) => isCaptain(h));
-    const choices: EncounterChoice[] = [{ key: 'attack', label: t('wld.enc.attack'), icon: 'swords', onPick: () => this.attack(p.id) }];
-    if (camp.canSurrender(p.id) && !failedFlee) {
+    const offer = encounterOffers({ byPlayer, ratio, failedFlee, canRansom: camp.canSurrender(p.id), noneFit: mine.noneFit });
+    const choices: EncounterChoice[] = [];
+    if (offer.attack) choices.push({ key: 'attack', label: t('wld.enc.attack'), icon: 'swords', onPick: () => this.attack(p.id) });
+    if (offer.ransom) {
       choices.push({
         key: 'ransom',
         label: t('wld.enc.ransom'),
@@ -1666,36 +1676,35 @@ export class WorldScene extends BaseScene {
         },
       });
     }
-    if (!failedFlee) {
-      if (byPlayer && ratio < WORLD_RULES.chaseRatio) {
-        choices.push({
-          key: 'letGo',
-          label: t('wld.enc.letGo'),
-          icon: 'back',
-          onPick: () => {
-            p.idle = 1;
-            this.w.s.safeUntil = this.w.s.time + 1;
-          },
-        });
-      } else {
-        choices.push({
-          key: 'flee',
-          label: t('wld.enc.flee', { p: Math.round(camp.fleeChance(p.id) * 100) }),
-          icon: 'fallback',
-          onPick: () => {
-            if (camp.tryFlee(p.id)) {
-              hapticNotify('warning');
-              this.showBanner(t('wld.slipAway'));
-              void state.save();
-            } else {
-              hapticNotify('error');
-              this.openEncounter(p.id, byPlayer, true);
-            }
-          },
-        });
-      }
+    if (offer.letGo) {
+      choices.push({
+        key: 'letGo',
+        label: t('wld.enc.letGo'),
+        icon: 'back',
+        onPick: () => {
+          p.idle = 1;
+          this.w.s.safeUntil = this.w.s.time + 1;
+        },
+      });
     }
-    const copy = encounterCopy({ ratio, byPlayer, inCamp: !!this.w.camp, failedFlee, flee: choices.some((ch) => ch.key === 'flee'), letGo: choices.some((ch) => ch.key === 'letGo') });
+    if (offer.flee) {
+      choices.push({
+        key: 'flee',
+        label: t('wld.enc.flee', { p: Math.round(camp.fleeChance(p.id) * 100) }),
+        icon: 'fallback',
+        onPick: () => {
+          if (camp.tryFlee(p.id)) {
+            hapticNotify('warning');
+            this.showBanner(t('wld.slipAway'));
+            void state.save();
+          } else {
+            hapticNotify('error');
+            this.openEncounter(p.id, byPlayer, true);
+          }
+        },
+      });
+    }
+    const copy = encounterCopy({ ratio, byPlayer, inCamp: !!this.w.camp, failedFlee, flee: offer.flee, letGo: offer.letGo, noneFit: mine.noneFit });
     const handle = openEncounterSheet(
       this,
       {

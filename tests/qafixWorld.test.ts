@@ -7,7 +7,7 @@ import { Campaign } from '../src/game/campaign';
 import { WORLD_RULES, partyArmy, type PartyState } from '../src/world/world';
 import { campBlocker } from '../src/world/camp';
 import type { Outcome } from '../src/game/loot';
-import { armyLine, encounterCopy } from '../src/game/encounter';
+import { armyLine, encounterCopy, encounterOffers } from '../src/game/encounter';
 import { setLang, t, tOr } from '../src/i18n';
 import { generateMap } from '../src/world/map';
 import { SITE_TAP_MARGIN, pickSettlement, renderWorldMap } from '../src/art/overlandMap';
@@ -102,14 +102,20 @@ describe('S2-1: a defeat in camp gives the army a real breather', () => {
   });
 });
 
-describe('S2-2: the encounter sheet counts the army right', () => {
-  it('no man fit: "0 fit, 5 wounded", never more men than the army has, and the sheet says the wounded will fight', () => {
+describe('S2-2: the encounter sheet counts the army right, and only fit men fight', () => {
+  it('no man fit: "no man fit, 5 wounded", the odds count no one, and the only choice is to let them go', () => {
     const c = Campaign.fresh(7);
     c.data.heroes = c.data.heroes.slice(0, 5);
     for (const h of c.data.heroes) h.wound = 30;
     const a = armyLine(c);
-    expect(a).toEqual({ fit: 0, wounded: 5, lastStand: true, key: 'wld.enc.armyLastStand' });
-    expect(t(a.key, { fit: a.fit, w: a.wounded })).toBe('Your army: no man fit, 5 wounded. The wounded will fight.');
+    expect(a).toEqual({ fit: 0, wounded: 5, noneFit: true, power: 0, key: 'wld.enc.armyNoneFit' });
+    expect(t(a.key, { fit: a.fit, w: a.wounded })).toBe('Your army: no man fit, 5 wounded');
+    // nobody fights: no Attack, no ransom, no flight to fail; the band is let go
+    for (const byPlayer of [true, false])
+      expect(encounterOffers({ byPlayer, ratio: 50, failedFlee: false, canRansom: true, noneFit: true })).toEqual({ attack: false, ransom: false, letGo: true, flee: false });
+    const copy = encounterCopy({ ratio: 50, byPlayer: true, inCamp: true, failedFlee: false, flee: false, letGo: true, noneFit: true });
+    expect(copy.advice).toBe('wld.enc.adv.noneFit');
+    expect(t(copy.advice)).toBe('No man is fit to fight. Let them go, and rest.');
   });
 
   it('some wounded: fit + wounded is the army, and the odds count only the fit men who march', () => {
@@ -118,9 +124,13 @@ describe('S2-2: the encounter sheet counts the army right', () => {
     c.data.heroes[0].wound = 30;
     c.data.heroes[1].wound = 30;
     const a = armyLine(c);
-    expect(a).toEqual({ fit: 3, wounded: 2, lastStand: false, key: 'wld.enc.armyWounded' });
+    expect(a).toMatchObject({ fit: 3, wounded: 2, noneFit: false, key: 'wld.enc.armyWounded' });
+    expect(a.power).toBe(c.playerInfo().power);
     expect(c.playerInfo().size).toBe(3);
     expect(c.fitHeroes().every((h) => (h.wound ?? 0) <= 0)).toBe(true);
+    expect(encounterOffers({ byPlayer: false, ratio: 2, failedFlee: false, canRansom: false, noneFit: false })).toEqual({ attack: true, ransom: false, letGo: false, flee: true });
+    expect(encounterOffers({ byPlayer: true, ratio: 0.5, failedFlee: false, canRansom: false, noneFit: false })).toEqual({ attack: true, ransom: false, letGo: true, flee: false });
+    expect(encounterOffers({ byPlayer: false, ratio: 2, failedFlee: true, canRansom: true, noneFit: false })).toEqual({ attack: true, ransom: false, letGo: false, flee: false });
   });
 });
 
@@ -227,39 +237,45 @@ describe('S4: lair names vary within a campaign', () => {
 });
 
 describe('S4: a town is tapped on its picture, not on the open ground beside it', () => {
-  it('only points within SITE_TAP_MARGIN px of the drawn town pick it; the town itself does', () => {
-    const m = generateMap(3);
-    const art = renderWorldMap(m);
+  it('only points within SITE_TAP_MARGIN px of the drawn settlement pick it, and the old area reached past it', () => {
     const all = () => true;
-    let towns = 0;
-    for (const s of m.settlements.filter((q) => q.kind === 'town')) {
-      const site = art.sites.find((q) => q.id === s.id && q.kind !== 'landmark')!;
-      const pix = site.sprite.pix;
-      const opaqueNear = (x: number, y: number, r: number): boolean => {
-        for (let j = -r; j <= r; j++)
-          for (let i = -r; i <= r; i++) {
-            const px = Math.floor(x - site.x) + i;
-            const py = Math.floor(y - site.y) + j;
-            if (pix.inside(px, py) && pix.data[(py * pix.w + px) * 4 + 3] > 0) return true;
+    let open = 0;
+    let places = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const m = generateMap(seed);
+      const art = renderWorldMap(m);
+      for (const s of m.settlements.filter((q) => q.kind !== 'lair')) {
+        const site = art.sites.find((q) => q.id === s.id && q.kind !== 'landmark')!;
+        const pix = site.sprite.pix;
+        const opaqueNear = (x: number, y: number, r: number): boolean => {
+          for (let j = -r; j <= r; j++)
+            for (let i = -r; i <= r; i++) {
+              const px = Math.floor(x - site.x) + i;
+              const py = Math.floor(y - site.y) + j;
+              if (pix.inside(px, py) && pix.data[(py * pix.w + px) * 4 + 3] > 0) return true;
+            }
+          return false;
+        };
+        // the rule before QAFIX-WORLD: 11 px round the tile, or anywhere in the picture's box
+        const oldHit = (x: number, y: number) => Math.hypot(s.x * 8 + 4 - x, s.y * 8 - y) < 11 || (x > site.x + 4 && x < site.x + site.w - 4 && y > site.y + 4 && y < site.y + site.h - 2);
+        for (let y = site.y - 16; y < site.y + site.h + 16; y++)
+          for (let x = site.x - 16; x < site.x + site.w + 16; x++) {
+            const near = opaqueNear(x, y, SITE_TAP_MARGIN);
+            const picked = pickSettlement(m.settlements, art.sites, x, y, all)?.id === s.id;
+            if (picked) expect(near).toBe(true);
+            if (oldHit(x, y) && !near) {
+              open++;
+              expect(picked).toBe(false);
+            }
           }
-        return false;
-      };
-      let hits = 0;
-      for (let y = site.y - 30; y < site.y + site.h + 30; y += 2)
-        for (let x = site.x - 30; x < site.x + site.w + 30; x += 2) {
-          if (pickSettlement(m.settlements, art.sites, x, y, all)?.id !== s.id) continue;
-          hits++;
-          expect(opaqueNear(x, y, SITE_TAP_MARGIN)).toBe(true);
-        }
-      expect(hits).toBeGreaterThan(100);
-      // the town's own tile is on its picture
-      expect(pickSettlement(m.settlements, art.sites, s.x * 8 + 4, s.y * 8 + 4, all)?.id).toBe(s.id);
-      // the old rule took the whole box: its empty corners are open ground now
-      const corner = [site.x + 2, site.y + site.h - 2] as const;
-      if (!opaqueNear(corner[0], corner[1], SITE_TAP_MARGIN)) expect(pickSettlement(m.settlements, art.sites, corner[0], corner[1], all)).toBeNull();
-      towns++;
+        // the settlement's own tile is on its picture
+        expect(pickSettlement(m.settlements, art.sites, s.x * 8 + 4, s.y * 8 + 4, all)?.id).toBe(s.id);
+        places++;
+      }
     }
-    expect(towns).toBeGreaterThan(2);
+    expect(places).toBeGreaterThan(50);
+    // the old tap area reached open ground; that ground is ground now
+    expect(open).toBeGreaterThan(100);
   });
 });
 

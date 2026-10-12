@@ -41,6 +41,7 @@ export const ARC_EN = {
   // the Assault sheet
   'arc.as.level': 'Garrison of {culture}, about level {lv}',
   'arc.as.walls': 'Behind a palisade with two gates. A garrison holds its walls until you close in, and never retreats.',
+  'arc.as.noneFit': 'No man is fit to fight. Rest first.',
   'arc.as.tell': 'Once you reach the wall: {tell}',
   'arc.as.reward': 'Hoard: {n} picks, one epic guaranteed',
   'arc.as.rewardReborn': 'A missing piece of the legendary set, while any is missing',
