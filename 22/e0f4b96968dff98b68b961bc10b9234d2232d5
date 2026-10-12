@@ -1,0 +1,20 @@
+scripts/audio-smoke.mjs
+  s_697bdc25a7c420::t_e6bf12fd2a8799 148-149,165-166,176,188-190
+  s_697bdc25a7c420::t_978e40524bb675 5-9,16-36,72,100-105,147,150-164,167-175,177-187,191-195,218-257,261
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "22e0f4b96968dff98b68b961bc10b9234d2232d5",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
