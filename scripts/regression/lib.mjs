@@ -82,7 +82,13 @@ export async function steadyBtn(api, scene, id, ms = 15000) {
         const walk = (list) => list.forEach((o) => (o.visible && o.__uiId === id && (b = o), o.list && walk(o.list)));
         walk(window.__game.scene.getScene(k).children.list);
         if (!b) return { frame, p: null };
-        const r = b.getBounds();
+        let r = b.getBounds();
+        // a container drawn with Graphics only (the Toggle) has no bounds: its own size through its transform
+        if (!r.width && b.w && b.h) {
+          const m = b.getWorldTransformMatrix();
+          const c = m.transformPoint(b.w / 2, b.h / 2);
+          r = { centerX: c.x, centerY: c.y };
+        }
         // a scroll area's content sits in a container whose first child is the area's drag zone (src/ui/kit.ts ScrollArea)
         let view = true;
         for (let c = b.parentContainer; c; c = c.parentContainer) {
