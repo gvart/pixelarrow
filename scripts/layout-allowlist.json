@@ -12,12 +12,8 @@
   "C": [],
   "F": [
     "kit-overlay-purchase|text-size|*",
-    "tutorial-fight|text-size|*",
     "tutorial-loose|text-size|*",
     "tutorial-move|text-size|*",
-    "tutorial-pan|text-size|*",
-    "tutorial-select|text-size|*",
-    "tutorial-sling|text-size|*",
     "tutorial-wall|text-size|*"
   ],
   "stories": {
@@ -28,12 +24,8 @@
     "duel-season-reward|text-size|*": "DUE-02",
     "duel-shop-sell|text-size|*": "DUE-01",
     "kit-overlay-purchase|text-size|*": "SHP-01",
-    "tutorial-fight|text-size|*": "TUT-02",
     "tutorial-loose|text-size|*": "TUT-02",
     "tutorial-move|text-size|*": "TUT-02",
-    "tutorial-pan|text-size|*": "TUT-02",
-    "tutorial-select|text-size|*": "TUT-02",
-    "tutorial-sling|text-size|*": "TUT-02",
     "tutorial-wall|text-size|*": "TUT-02"
   }
 }
