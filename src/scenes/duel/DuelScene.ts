@@ -1714,7 +1714,7 @@ export class DuelScene extends BaseScene {
         addLeaguePill(this, card, Math.round(sx - lw / 2), 26 + cs, league, label, w / 2 - 8);
       }
     }
-    ptext(this, card, mid, 10 + cs / 2 - 5, t('battle.vsShort'), 'head', { size: 9, align: 0.5 });
+    ptext(this, card, mid, 10 + cs / 2 - 5, t('battle.vsShort'), 'head', { size: 9, align: 0.5, maxW: w / 2 - cs - 4 }); // between the crests ('против' is wide)
     const prep = ptext(this, card, mid, h - 14, t('duel.preparing'), 'sec', { align: 0.5, maxW: w - 12 });
     this.tweens.add({ targets: prep, alpha: { from: 1, to: 0.4 }, duration: 700, yoyo: true, repeat: -1 });
     this.finishPage(8 + h + GAP, 0);
