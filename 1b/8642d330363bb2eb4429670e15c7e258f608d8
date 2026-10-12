@@ -1,0 +1,27 @@
+src/i18n/gaps.ru.ts
+  s_697bdc25a7c420::t_4b7b644645b6f2 1-17,20-109
+  s_697bdc25a7c420::t_ff1ae0cab6167b 18-19
+src/i18n/gaps.en.ts
+  s_697bdc25a7c420::t_e82499ba820c10 1-24,27-117
+  s_697bdc25a7c420::t_ff1ae0cab6167b 25-26
+src/i18n/en.ts
+  s_697bdc25a7c420::t_40dfeb53d8fa66 53,389-390
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_40dfeb53d8fa66 45,349
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1b8642d330363bb2eb4429670e15c7e258f608d8",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
