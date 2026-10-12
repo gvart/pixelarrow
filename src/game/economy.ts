@@ -8,7 +8,6 @@
  */
 import type { ApiError, EconomyCatalog, MarketListing, PassReward, SeasonPassInfo } from '../platform/api';
 import { DEFAULT_FEE_RATE, marketFee, rarityBounds } from './marketRules';
-import { itemDef, normalizeRarity, type Item, type Rarity } from '../data/items';
 
 export { DEFAULT_FEE_RATE, marketFee, rarityBounds };
 
@@ -163,20 +162,8 @@ export const PASS_XP = { attack: 10, attackWin: 15, capture: 25, duel: 10, duelW
 
 // ------------------------------------------------------------------ the forge (EC-01, design/gdd/forge-reroll.md)
 
-/**
- * The town Smith's price for reforging one random stat (rule 6): gold by the base item's tier, times
- * the rarity's factor, rounded to 5. A tier-3 legendary is 240 g, about half a late win's gold.
- */
-export const FORGE = {
-  base: { 1: 20, 2: 40, 3: 80 } as Readonly<Record<number, number>>,
-  rarity: { common: 0, uncommon: 1, rare: 1.5, epic: 2, legendary: 3 } as Readonly<Record<Rarity, number>>,
-} as const;
-
-/** Gold one reforge of `item` costs (0 for a common item: it has no random stat to reforge). */
-export function forgeCost(item: Pick<Item, 'def' | 'rarity'>): number {
-  const tier = Math.max(1, Math.min(3, itemDef(item.def).tier));
-  return Math.round((FORGE.base[tier] * FORGE.rarity[normalizeRarity(item.rarity)]) / 5) * 5;
-}
+/** The Smith's prices live in gear.ts (no client API import there, so the server can typecheck it). */
+export { FORGE, forgeCost } from './gear';
 
 /** A whole number with thousands separators: "12 450" in Russian (a no-break space), "12,450" in English. */
 export function groupDigits(n: number, lang: 'en' | 'ru'): string {

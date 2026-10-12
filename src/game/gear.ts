@@ -12,7 +12,23 @@ import { classGearBlocker, type ClassGearBlock } from '../data/gearRules';
 import { computeStats, heroClass, heroPower, type CombatStats } from '../sim/stats';
 import { AFFIXES, AFFIX_STEPS, affixPool, encodeAffixes, itemAffixes, type AffixId } from '../data/affixes';
 import type { Rng } from '../sim/rng';
-import { forgeCost } from './economy';
+
+// ------------------------------------------------------------------ the forge price (EC-01, design/gdd/forge-reroll.md)
+
+/**
+ * The town Smith's price for reforging one random stat (rule 6): gold by the base item's tier, times
+ * the rarity's factor, rounded to 5. A tier-3 legendary is 240 g, about half a late win's gold.
+ */
+export const FORGE = {
+  base: { 1: 20, 2: 40, 3: 80 } as Readonly<Record<number, number>>,
+  rarity: { common: 0, uncommon: 1, rare: 1.5, epic: 2, legendary: 3 } as Readonly<Record<Rarity, number>>,
+} as const;
+
+/** Gold one reforge of `item` costs (0 for a common item: it has no random stat to reforge). */
+export function forgeCost(item: Pick<Item, 'def' | 'rarity'>): number {
+  const tier = Math.max(1, Math.min(3, itemDef(item.def).tier));
+  return Math.round((FORGE.base[tier] * FORGE.rarity[normalizeRarity(item.rarity)]) / 5) * 5;
+}
 
 // ------------------------------------------------------------------ stats shown on a sheet
 
