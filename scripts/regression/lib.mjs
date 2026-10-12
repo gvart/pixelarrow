@@ -8,7 +8,7 @@
 //     drops a touch on anything inside ui, FIXER-5);
 //   - Back is Telegram's header Back (the fake WebApp's BackButton), the path a
 //     player takes, so the nav stack is tested through its real host.
-import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, until } from '../lib/harness.mjs';
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, until } from '../lib/harness.mjs';
 import { fakeTelegram } from '../lib/fakeTelegram.mjs';
 
 /** The base URL from argv[2] (the runner passes the preview server's), with a trailing slash. */
@@ -63,6 +63,21 @@ export const startScene = (api, key, data = {}) => api.start(key, data);
 
 /** Taps a kit button found by its layout id; false when it is not on screen. */
 export const tapId = (api, scene, id) => api.tapBtn(scene, { id });
+
+/**
+ * A check for a reported, still open game bug (listed in tests/regression/SUITE.md "Known bugs"). It does
+ * not fail the run, but never reads as a pass either: it prints KNOWN with the bug id, and once the bug is
+ * fixed it prints a PASS that asks for the mark to go, so the check becomes a plain one.
+ */
+let knownOpen = 0;
+export function known(bug, name, ok, detail = '') {
+  if (!ok) knownOpen++;
+  if (ok) console.log(`PASS ${name} (known bug ${bug} no longer reproduces: make this a plain check)`);
+  else console.log(`KNOWN ${bug} ${name} ${detail}`);
+}
+
+/** Ends the run (closes the browser, exit 1 on any FAIL); the verdict line names the known bugs still open. */
+export const done = (browser) => finish({ browser, pass: knownOpen ? `ALL PASS except ${knownOpen} KNOWN bug check(s)` : 'ALL PASS' });
 
 /** A named check whose failure stops the steps that build on it (they would fail on in a wrong state). */
 export function need(name, ok, detail = '') {

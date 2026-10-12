@@ -10,8 +10,7 @@
 // a tap swallowed by a hub's entry fade (FIXER-5), the duel hub's Back leaving
 // for the menu from a sub-view, a door that left two scenes running.
 // Usage: node scripts/regression/hub-flows.mjs [baseUrl]   (needs a running preview server)
-import { launch, check, until, baseUrl, openGame, settled, running, pressBack, navState, startScene, tapId, need, flow } from './lib.mjs';
-import { finish } from '../lib/harness.mjs';
+import { launch, check, until, baseUrl, openGame, settled, running, pressBack, navState, startScene, tapId, need, flow, done } from './lib.mjs';
 import { DOORS, TABS } from './doors.mjs';
 
 const base = baseUrl();
@@ -85,4 +84,4 @@ for (const d of DOORS) {
 
 check('no page or console errors', errors.length === 0, errors.join(' | ').slice(0, 2000));
 console.log(`hub-flows: ${((Date.now() - t0) / 1000).toFixed(0)} s`);
-await finish({ browser });
+await done(browser);
