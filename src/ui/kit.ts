@@ -718,11 +718,14 @@ export function clippedOut(obj: unknown, px: number, py: number): boolean {
  * them. Drop hits on rows outside their viewport, once for every scene, so a
  * row scrolled under a tab bar or a button never wins the tap (S1-1).
  */
-const inputProto = Phaser.Input.InputManager.prototype as unknown as {
-  hitTest: (p: Phaser.Input.Pointer, list: Phaser.GameObjects.GameObject[], cam: Phaser.Cameras.Scene2D.Camera, out?: Phaser.GameObjects.GameObject[]) => Phaser.GameObjects.GameObject[];
-  __clipPatched?: boolean;
-};
-if (!inputProto.__clipPatched) {
+// (a unit test's Phaser stub has no input manager: nothing to patch there)
+const inputProto = Phaser.Input?.InputManager?.prototype as unknown as
+  | {
+      hitTest: (p: Phaser.Input.Pointer, list: Phaser.GameObjects.GameObject[], cam: Phaser.Cameras.Scene2D.Camera, out?: Phaser.GameObjects.GameObject[]) => Phaser.GameObjects.GameObject[];
+      __clipPatched?: boolean;
+    }
+  | undefined;
+if (inputProto && !inputProto.__clipPatched) {
   const hitTest = inputProto.hitTest;
   inputProto.hitTest = function (p, list, cam, out) {
     const hits = hitTest.call(this, p, list, cam, out);
