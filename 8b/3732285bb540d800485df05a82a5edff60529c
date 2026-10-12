@@ -1,0 +1,26 @@
+src/world/map.ts
+  s_697bdc25a7c420::t_0f5c93a7c81b96 47-55,244-246,260,264
+src/i18n/arc.en.ts
+  s_697bdc25a7c420::t_0f5c93a7c81b96 11-20
+src/i18n/arc.ru.ts
+  s_697bdc25a7c420::t_0f5c93a7c81b96 11-20
+tests/qafixWorld.test.ts
+  s_697bdc25a7c420::t_2087bbb642949d 205-227
+  s_697bdc25a7c420::t_a3382a220ff3cb 11-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8b3732285bb540d800485df05a82a5edff60529c",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
