@@ -1392,7 +1392,7 @@ export class OnlineScene extends BaseScene {
     return this.board.pick(cam.midPoint.x, cam.midPoint.y) ?? this.profile?.army.loc;
   }
 
-  /** Centre a region in the free map area (between the HUD and the panel). */
+  /** Centre a region in the free map area (between the HUD and the panel, left of the key rail: its name stays clear of the rail). */
   centerOn(h: number, smooth = false): void {
     const cam = this.cameras.main;
     const S = this.m.S;
@@ -1400,7 +1400,10 @@ export class OnlineScene extends BaseScene {
     const { top, bottom } = this.mapArea();
     const wantY = ((top + bottom) / 2) * S;
     const dy = (this.scale.height / 2 - wantY) / cam.zoom;
-    const target = this.clampPoint(c.x, c.y + dy);
+    const right = this.rail ? this.rail.x : this.win.x + this.win.w;
+    const wantX = ((this.win.x + right) / 2) * S;
+    const dx = (this.scale.width / 2 - wantX) / cam.zoom;
+    const target = this.clampPoint(c.x + dx, c.y + dy);
     if (smooth) cam.pan(target.x, target.y, 260, 'Sine.easeInOut');
     else cam.centerOn(target.x, target.y);
   }
