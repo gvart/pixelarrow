@@ -23,7 +23,7 @@ import { dollFrame, ensureDoll, ensureDollRow, queueDollRows } from './sprites';
 import { dollFromHero } from '../art/paperdoll';
 import type { Hero } from '../data/units';
 import { addPanel, addText } from './kit';
-import { ellipsize } from './textfit';
+import { ellipsize, measureText } from './textfit';
 import { tOr } from '../i18n';
 import { TICK_RATE } from '../sim/battle';
 
@@ -432,6 +432,11 @@ export class BeastView {
     return !!this.bar;
   }
 
+  /** The boss bar's container (the scene keeps it over the field's badges, under the HUD). */
+  get barObject(): Phaser.GameObjects.Container | null {
+    return this.bar;
+  }
+
   private buildBar(vw: number, top: number): void {
     const bodies = this.bodies();
     if (!bodies.length) return;
@@ -445,7 +450,11 @@ export class BeastView {
     c.add(addPanel(this.scene, x, y, w, 20, 'parch'));
     const id = bodies[0].stats.boss as MythId;
     const name = bodies.length > 1 ? tOr(`myth.flock.${id}`, `${MYTHS[id].name} flock`) : tOr(`class.${id}.name`, MYTHS[id].name);
-    c.add(addText(this.scene, x + 4, y + 3, ellipsize(name, w - 50), 'red'));
+    // the name in the room the pips leave (heads / arms / flock members, 6 UI px each)
+    const pips = bodies.length > 1 ? bodies.length : this.sim.units.filter((u) => u.side !== this.me && isMythId(u.stats.boss) && !this.sim.myth!.isBody(u)).length;
+    const room = w - 8 - pips * 6 - 2;
+    const size = measureText(name) <= room ? 7 : 6.5;
+    c.add(addText(this.scene, x + 4, y + 3, ellipsize(name, room, false, size), 'red').setFontSize(size));
     const g = this.scene.add.graphics();
     c.add(g);
     this.barG = g;

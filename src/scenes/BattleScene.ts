@@ -416,6 +416,7 @@ export class BattleScene extends BaseScene {
     this.ending = false;
     this.victorySide = -1;
     this.retreatMsg = null;
+    this.menu = null;
     this.overlay = null;
     this.leaveDialog = null;
     this.banner = null;
@@ -611,6 +612,9 @@ export class BattleScene extends BaseScene {
     this.arcG = this.add.graphics();
     this.tags.add(this.arcG);
     this.ui.add(this.hud);
+    // the boss bar is HUD chrome (Z2): over the field badges, under the HUD's sheets
+    const bossBar = this.beasts?.barObject;
+    if (bossBar) this.ui.moveBelow(bossBar, this.hud);
     this.selGroup = this.firstPlayerGroup();
     this.buildHud();
     this.frameArmies();
@@ -2711,17 +2715,17 @@ export class BattleScene extends BaseScene {
     const maxW = VW - 60;
     const lines = wrapText(msg, maxW - 12, maxLines).lines;
     const w = Math.max(60, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
-    const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 2, false, 6).lines : [];
-    const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6))) + 14 : 0;
+    const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 3, false, 6.5).lines : [];
+    const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6.5))) + 14 : 0;
     const bw = Math.min(maxW, Math.max(w, subW));
-    const h = lines.length * LINE_H + 8 + sub.length * 8;
+    const h = lines.length * LINE_H + 8 + Math.ceil((sub.length * LINE_H * 6.5) / 7);
     const x = Math.round(left + (VW - left - bw) / 2);
     const y = this.bannerTop();
     c.add(mosaicImage(this, x, y, bw, h, 'parchment'));
     const txt = addText(this, x + bw / 2, y + 4, lines.join('\n'), 'pInk', 0.5);
     txt.setCenterAlign();
     c.add(txt);
-    if (sub.length) c.add(addText(this, x + bw / 2, y + 4 + lines.length * LINE_H, sub.join('\n'), 'pSec', 0.5).setFontSize(6).setCenterAlign());
+    if (sub.length) c.add(addText(this, x + bw / 2, y + 4 + lines.length * LINE_H, sub.join('\n'), 'pSec', 0.5).setFontSize(6.5).setCenterAlign());
     this.ui.add(c);
     this.banner = c;
     this.hintPill?.setText('');
@@ -3124,13 +3128,13 @@ export class BattleScene extends BaseScene {
     this.hud.add(orderBarPlate(this, 4, y, VW - 8, SHEET_ORDERS_H, groupNumeral(this.sim.groups, sel!.id)));
     // a long word gets a wider key rather than an ellipsis (controls.md R9: "Стрелять" at 360, "Advance" at 320)
     // at the text floor (hud.md §I): the full words when they fit, else the short ones ("Adv.", "Back off")
-    const words = orderLabels(
+    const { words, iconOnly } = orderLabels(
       orders.map((o) => o.label),
       orders.map((o) => o.short),
       VW - 8,
       SIZE.gap,
     );
-    const keyW = orderKeyWidths(words, VW - 8, SIZE.gap);
+    const keyW = iconOnly ? orders.map(() => Math.floor((VW - 8 - SIZE.gap * (orders.length - 1)) / orders.length)) : orderKeyWidths(words, VW - 8, SIZE.gap);
     // one face for the whole row: capitals when every word fits its key as such, else Inter
     const plain = words.some((w, i) => mw(caps(w), 'rCream', 6.5) > keyW[i] - 4);
     let kx = 4;
@@ -3139,6 +3143,7 @@ export class BattleScene extends BaseScene {
       const b = new KeyButton(this, kx, y, bw, SHEET_ORDERS_H, {
         icon: o.icon,
         label: words[i],
+        iconOnly,
         tip: o.tip,
         id: `battle.cmd.${o.key}`,
         variant: 'bronze',
@@ -3820,7 +3825,7 @@ export class BattleScene extends BaseScene {
     });
     const supplies = t('works.supplies', { n: Math.floor(state.campaign.worksLeft(this.sim.works())) });
     const top = this.worksTrayTop();
-    const tray = worksTray(this, 4, top + this.worksTrayH(), this.m.VW - 8, this.compact ? 22 : 24, t('works.title'), supplies, rows, top);
+    const tray = worksTray(this, 4, top + this.worksTrayH(), this.m.VW - 8, this.compact ? 22 : 24, t('works.title'), supplies, rows, top, t('works.chip'));
     this.hud.add(tray.c);
     for (const [id, row] of tray.rows) this.cmdBtns.set(id.slice('battle.'.length), row);
   }

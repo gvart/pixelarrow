@@ -812,6 +812,7 @@ export function worksTray(
   supplies: string,
   rows: WorksTrayRow[],
   minTop: number,
+  shortTitle?: string,
 ): { c: Phaser.GameObjects.Container; top: number; rows: Map<string, PanelRow> } {
   const h = 16 + rows.length * (rowH + TRAY_GAP) - TRAY_GAP + 6;
   const y = Math.max(minTop, bottom - h);
@@ -820,7 +821,13 @@ export function worksTray(
   c.add(uiBlocker(scene.add.rectangle(x, y, w, h, 0x000000, 0.001).setOrigin(0, 0).setInteractive()));
   c.add(mosaicImage(scene, x, y, w, h, 'sheet'));
   const sw = Math.ceil(mw(supplies, 'rInk', 7));
-  c.add(mtext(scene, x + 6, y + 5, caps(title), 'rInk', { size: 7.5, maxW: w - 18 - sw }));
+  // the title whole (BTL-01: never cut): a size down to the text floor, else the short name (the Works key's)
+  const room = w - 18 - sw;
+  const head = (() => {
+    for (const tt of [title, shortTitle ?? title]) for (const z of [7.5, 7, 6.5]) if (mw(caps(tt), 'rInk', z) <= room) return { text: caps(tt), size: z };
+    return { text: caps(shortTitle ?? title), size: 6.5 };
+  })();
+  c.add(mtext(scene, x + 6, y + 5 + (7.5 - head.size) / 2, head.text, 'rInk', { size: head.size, maxW: room }));
   c.add(mtext(scene, x + w - 6, y + 5, supplies, 'rInk', { size: 7, align: 1, maxW: sw + 2 }));
   const out = new Map<string, PanelRow>();
   const keyW = Math.max(22, rowH);

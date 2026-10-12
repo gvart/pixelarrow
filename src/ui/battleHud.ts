@@ -146,8 +146,11 @@ export class TopBar extends Phaser.GameObjects.Container {
       this.buttons[slot === o.pause ? 'pause' : 'speed'] = b;
       this.slots.add(b);
     });
-    const x0 = o.leftHand ? 4 + (controlW ? controlW + 2 : 0) : 4 + kw + 2;
-    const x1 = o.leftHand ? this.w - 4 - kw - 2 : this.w - 4 - (controlW ? controlW + 2 : 0);
+    // the clock in the room between the ends (centred on the bar when only the menu key is there)
+    const lead = kw + 2;
+    const tail = controlW ? controlW + 2 : lead;
+    const x0 = 4 + (o.leftHand ? tail : lead);
+    const x1 = this.w - 4 - (o.leftHand ? lead : tail);
     this.clock = { x0, x1, size: x1 - x0 < 80 ? 10 : 12 };
     const cx = Math.round((x0 + x1) / 2);
     this.timeText.setX(cx);
@@ -166,7 +169,8 @@ export class TopBar extends Phaser.GameObjects.Container {
     const wordY = 4 + (10 * size) / 7;
     const wordSize = HUD_TEXT;
     this.wordText.setY(wordY);
-    const fitted = ellipsize(this.word, x1 - x0, false, wordSize);
+    // never cut (A11Y-10): a word that does not fit the room between the keys is left out, the clock reads alone
+    const fitted = measureText(this.word, false, wordSize) <= x1 - x0 - 2 ? this.word : '';
     if (this.wordText.text !== fitted) this.wordText.setText(fitted);
     this.wordText.setFontSize(wordSize);
   }
@@ -740,9 +744,16 @@ export function orderLabelsFit(labels: readonly string[], total: number, gap: nu
   return labels.reduce((a, l) => a + Math.max(KEY_MIN_W, Math.ceil(measureText(l, true, HUD_TEXT)) + 4), 0) <= room;
 }
 
-/** The order bar's words: the full ones when they fit at the text floor, else the short ones (hud.md §I). */
-export function orderLabels(full: readonly string[], short: readonly string[], total: number, gap: number): string[] {
-  return orderLabelsFit(full, total, gap) ? [...full] : [...short];
+/**
+ * The order bar's words: the full ones when they fit at the text floor, else
+ * the short ones (hud.md §I); on a canvas too narrow even for those (Telegram
+ * full screen at 320x568, about 137 UI px) the keys show their icons alone,
+ * the word as the tip, as the tab bar does there (V5-068): never a word under
+ * the floor and never an ellipsis.
+ */
+export function orderLabels(full: readonly string[], short: readonly string[], total: number, gap: number): { words: string[]; iconOnly: boolean } {
+  if (orderLabelsFit(full, total, gap)) return { words: [...full], iconOnly: false };
+  return { words: [...short], iconOnly: !orderLabelsFit(short, total, gap) };
 }
 
 /**

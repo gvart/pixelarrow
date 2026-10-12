@@ -153,6 +153,14 @@ describe('R3.4: Out of range on the card (B6 complete)', () => {
   });
 });
 
+it('R9: a canvas too narrow for the short words (Telegram full screen at 320x568) shows the keys as icons', () => {
+  setLang('ru');
+  const full = ['battle.ring.advance', 'battle.ring.charge', 'battle.ring.hold', 'battle.ring.shoot', 'battle.ring.back'].map((k) => t(k as TKey));
+  const short = ['battle.short.advance', 'battle.short.charge', 'battle.short.hold', 'battle.short.shoot', 'battle.short.back'].map((k) => t(k as TKey));
+  expect(orderLabels(full, short, 137 - 8, 3).iconOnly).toBe(true);
+  setLang('en');
+});
+
 describe('R9: order key labels are never cut and never under the text floor, in en and ru, at 320, 360 and 390', () => {
   const KEYS: TKey[] = ['battle.ring.advance', 'battle.ring.charge', 'battle.ring.hold', 'battle.ring.shoot', 'battle.ring.back'];
   const SHORT: TKey[] = ['battle.short.advance', 'battle.short.charge', 'battle.short.hold', 'battle.short.shoot', 'battle.short.back'];
@@ -166,7 +174,8 @@ describe('R9: order key labels are never cut and never under the text floor, in 
         for (const fifth of [KEYS[4], FEINT[0]]) {
           const full = [...KEYS.slice(0, 4), fifth].map((k) => t(k));
           const short = [...SHORT.slice(0, 4), fifth === KEYS[4] ? SHORT[4] : FEINT[1]].map((k) => t(k));
-          const labels = orderLabels(full, short, vw - 8, 3);
+          const { words: labels, iconOnly } = orderLabels(full, short, vw - 8, 3);
+          expect(iconOnly).toBe(false);
           const w = orderKeyWidths(labels, vw - 8, 3);
           expect(w.reduce((a, x) => a + x, 0) + 3 * 4).toBeLessThanOrEqual(vw - 8);
           labels.forEach((l, i) => {

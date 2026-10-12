@@ -672,6 +672,14 @@ const SCREENS = [
     },
   })),
   { id: 'battle-retreat', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.startFight(); s.openRetreat(); return 1;`), wait(p, 500)) },
+  // BTL-01: the ⋯ battle menu in deployment, in the fight (it pauses) and in a battle that cannot pause (Retreat and Sound only)
+  { id: 'battle-menu-deploy', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.hideBanner(); s.openMenu(); return 1;`), wait(p, 500)) },
+  { id: 'battle-menu', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.startFight(); s.hideBanner(); s.openMenu(); return 1;`), wait(p, 500)) },
+  {
+    id: 'battle-menu-locked',
+    owner: 'A',
+    run: async (p) => (await battle(p, 'attack'), await call(p, 'Battle', `s.startFight(); s.hideBanner(); s.openMenu(); return 1;`), wait(p, 500)),
+  },
   // ---- field works (FW-03): the tray with a stakes line, a ditch and a laager laid; placing a ghost; a lair assault's walls
   ...[
     ['battle-works', `s.pickWork('stakes'); s.placeWork(); s.pickWork('ditch'); s.worksGhost.x -= 5; s.placeWork(); s.pickWork('laager'); s.worksGhost.x += 5; s.placeWork(); s.hideBanner(); s.buildHud();`],
@@ -764,6 +772,20 @@ const SCREENS = [
       await until(p, activeIs('Battle'));
       await wait(p, 700);
       await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 6 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); s.buildHud(); return 1;`);
+      return wait(p, 600);
+    },
+  },
+  {
+    // BTL-01 (BTL-1): paused with an auto-pause banner up, the boss bar stays in sight above it
+    id: 'battle-beast-paused',
+    owner: 'A',
+    run: async (p) => {
+      await start(p, 'Codex');
+      await wait(p, 600);
+      await call(p, 'Codex', `s.fight('cyclops'); return 1;`);
+      await until(p, activeIs('Battle'));
+      await wait(p, 700);
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 6 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.buildHud(); s.showBanner('Contact!', 0); return 1;`);
       return wait(p, 600);
     },
   },

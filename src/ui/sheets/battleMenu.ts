@@ -85,7 +85,7 @@ export function openBattleMenu(scene: UiScene, o: BattleMenuOpts): BattleMenuHan
   const inner = w - PAD * 2;
   const noteLines = noteKey ? wrapWords(t(noteKey), inner, (s) => mw(s, 'pSec', NOTE)) : [];
   const noteH = noteLines.length ? Math.ceil((noteLines.length * LINE_H * NOTE) / 7) + 6 : 0;
-  const h = SHEET_TITLE_H + PAD + noteH + items.length * (ROW_H + GAP) - GAP + PAD + 4;
+  const h = SHEET_TITLE_H + PAD + noteH + items.length * (ROW_H + GAP) - GAP + PAD;
   let picked = false;
   let closed = false;
   const sheet = openParchmentSheet(scene, {
