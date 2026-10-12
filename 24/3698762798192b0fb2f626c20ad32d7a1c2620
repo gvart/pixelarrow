@@ -1,0 +1,21 @@
+scripts/dev/tut02-shots.mjs
+  s_697bdc25a7c420::t_faf997232f87f2 115
+  s_697bdc25a7c420::t_f77aed8957fd39 12-13,87-94
+  s_697bdc25a7c420::t_6938c32ca6b05d 1-11,14-86,95-114,116-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "243698762798192b0fb2f626c20ad32d7a1c2620",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
