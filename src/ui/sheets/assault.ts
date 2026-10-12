@@ -52,6 +52,8 @@ export interface AssaultModel {
   inReach: boolean;
   fit: number;
   wounded: number;
+  /** No man is fit: the wounded will fight (src/game/encounter.ts armyLine); missing = false. */
+  lastStand?: boolean;
   onPick: (key: AssaultChoiceKey) => void;
 }
 
@@ -148,7 +150,7 @@ function mainPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Ass
   rule(y);
   y += 4;
   // the army, and why the primary choice is "March there"
-  const army = m.wounded ? t('wld.enc.armyWounded', { fit: m.fit, w: m.wounded }) : t('wld.enc.army', { fit: m.fit });
+  const army = t(m.lastStand ? 'wld.enc.armyLastStand' : m.wounded ? 'wld.enc.armyWounded' : 'wld.enc.army', { fit: m.fit, w: m.wounded });
   y += para(scene, c, x0, y, army, 'pSec', w, SMALL) + 1;
   if (m.men > 0 && !m.inReach) y += para(scene, c, x0, y + 1, t('arc.as.far'), 'pInk', w) + 1;
   return y - y0;

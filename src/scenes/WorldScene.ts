@@ -6,7 +6,7 @@ import { BaseScene } from './BaseScene';
 import { addIcon, addText, scaleIcon } from '../ui/kit';
 import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
-import { localDecimals } from '../i18n/numbers';
+import { fmtSigned, localDecimals } from '../i18n/numbers';
 import { bandName, lairName } from '../i18n/names';
 import { placeName } from '../i18n/places';
 import { LINE_H, wrapText, wrapsWhole } from '../ui/textfit';
@@ -43,6 +43,7 @@ import { SIZE } from '../ui/theme';
 import { ARC_LAIRS } from '../data/arc';
 import { LAIR_HOARD } from '../game/sources';
 import { startLairAssault } from '../game/campaignBattle';
+import { armyLine, encounterCopy } from '../game/encounter';
 import { openEncounterSheet, worldGlyph, type EncounterChoice, type EncounterHandle } from '../ui/sheets/encounter';
 
 /** Game hours per real second while travelling / waiting. */
@@ -966,7 +967,7 @@ export class WorldScene extends BaseScene {
     if (c) {
       const fx = campEffects(this.w.map, c);
       const net = fx.forage * 24 - mouths;
-      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: localDecimals(this.w.healRate().toFixed(1)), net: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
+      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: localDecimals(this.w.healRate().toFixed(1)), net: fmtSigned(net) });
     } else if (this.w.starving) {
       hint = t('world.sit.starving');
       urgent = true;
@@ -1475,8 +1476,7 @@ export class WorldScene extends BaseScene {
         total: ARC_LAIRS,
         picks: LAIR_HOARD.picks,
         inReach: Math.hypot(w.s.x - (st.x + 0.5), w.s.y - (st.y + 0.5)) <= ASSAULT_REACH,
-        fit: camp.fitHeroes().length,
-        wounded: camp.wounded().length,
+        ...armyLine(camp),
         onPick: (k) => this.assaultChoice(lairId, k),
       },
       () => {
@@ -1650,8 +1650,6 @@ export class WorldScene extends BaseScene {
     this.info = camp.playerInfo();
     const ratio = p.power / Math.max(1, this.info.power);
     const lvl = threatLevel(ratio);
-    const mood = failedFlee ? 'cutOff' : byPlayer ? (ratio < WORLD_RULES.surrenderRatio ? 'surrender' : 'caught') : this.w.camp ? 'camp' : 'bar';
-    const advice = ratio > 1.15 ? 'hard' : ratio < 0.85 ? 'win' : 'even';
     // the band's army as the battle will build it (a throwaway id source: nothing in the save moves)
     const army = partyArmy(p, { nextId: 1 }, camp.armyClasses());
     const beast = encounterOf(army.heroes);
@@ -1700,6 +1698,7 @@ export class WorldScene extends BaseScene {
         });
       }
     }
+    const copy = encounterCopy({ ratio, byPlayer, inCamp: !!this.w.camp, failedFlee, flee: choices.some((ch) => ch.key === 'flee'), letGo: choices.some((ch) => ch.key === 'letGo') });
     const handle = openEncounterSheet(
       this,
       {
@@ -1710,12 +1709,11 @@ export class WorldScene extends BaseScene {
         men: p.size,
         culture: cap(tOr(`culture.${p.culture}`, CULTURE_LABEL[p.culture])),
         level: p.level,
-        mood: t(`wld.enc.mood.${mood}` as TKey),
-        advice: t(`wld.enc.adv.${advice}` as TKey),
+        mood: t(copy.mood),
+        advice: t(copy.advice),
         doctrine: beast ? null : (army.doctrine ?? 'steady'),
         captain: captain ? { name: captain.name, level: captain.level } : null,
-        fit: camp.fitHeroes().length,
-        wounded: camp.wounded().length,
+        ...armyLine(camp),
         choices,
       },
       () => {

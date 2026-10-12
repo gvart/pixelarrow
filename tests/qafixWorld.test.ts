@@ -7,6 +7,11 @@ import { Campaign } from '../src/game/campaign';
 import { WORLD_RULES, partyArmy, type PartyState } from '../src/world/world';
 import { campBlocker } from '../src/world/camp';
 import type { Outcome } from '../src/game/loot';
+import { armyLine, encounterCopy } from '../src/game/encounter';
+import { setLang, t } from '../src/i18n';
+import { fmtSigned } from '../src/i18n/numbers';
+
+setLang('en');
 
 /** The party on the first tile near the start town where it may camp, camped. */
 function camped(seed: number): Campaign {
@@ -89,5 +94,61 @@ describe('S2-1: a defeat in camp gives the army a real breather', () => {
     p.y = c.world.s.y;
     p.idle = 0;
     expect(rest(c, 2)).toContain(p.id);
+  });
+});
+
+describe('S2-2: the encounter sheet counts the army right', () => {
+  it('no man fit: "0 fit, 5 wounded", never more men than the army has, and the sheet says the wounded will fight', () => {
+    const c = Campaign.fresh(7);
+    c.data.heroes = c.data.heroes.slice(0, 5);
+    for (const h of c.data.heroes) h.wound = 30;
+    const a = armyLine(c);
+    expect(a).toEqual({ fit: 0, wounded: 5, lastStand: true, key: 'wld.enc.armyLastStand' });
+    expect(t(a.key, { fit: a.fit, w: a.wounded })).toBe('Your army: no man fit, 5 wounded. The wounded will fight.');
+  });
+
+  it('some wounded: fit + wounded is the army, and the odds count only the fit men who march', () => {
+    const c = Campaign.fresh(7);
+    c.data.heroes = c.data.heroes.slice(0, 5);
+    c.data.heroes[0].wound = 30;
+    c.data.heroes[1].wound = 30;
+    const a = armyLine(c);
+    expect(a).toEqual({ fit: 3, wounded: 2, lastStand: false, key: 'wld.enc.armyWounded' });
+    expect(c.playerInfo().size).toBe(3);
+    expect(c.fitHeroes().every((h) => (h.wound ?? 0) <= 0)).toBe(true);
+  });
+});
+
+describe('S4: the encounter sheet never contradicts its own choices', () => {
+  const offers = (flee: boolean, letGo: boolean) => ({ flee, letGo });
+  it('a hard fight suggests only what the sheet offers', () => {
+    expect(encounterCopy({ ratio: 2, byPlayer: false, inCamp: false, failedFlee: false, ...offers(true, false) }).advice).toBe('wld.enc.adv.hardFlee');
+    expect(encounterCopy({ ratio: 2, byPlayer: true, inCamp: false, failedFlee: false, ...offers(false, true) }).advice).toBe('wld.enc.adv.hardLetGo');
+    // flight failed: neither flight nor letting them go is on the sheet
+    const cut = encounterCopy({ ratio: 2, byPlayer: false, inCamp: false, failedFlee: true, ...offers(false, false) });
+    expect(cut.advice).toBe('wld.enc.adv.hard');
+    expect(t(cut.advice)).not.toMatch(/flee|rest/i);
+    expect(encounterCopy({ ratio: 1, byPlayer: false, inCamp: false, failedFlee: false, ...offers(true, false) }).advice).toBe('wld.enc.adv.even');
+  });
+
+  it('"You have caught up with them" only when they would let you go', () => {
+    expect(encounterCopy({ ratio: 0.9, byPlayer: true, inCamp: false, failedFlee: false, ...offers(false, true) }).mood).toBe('wld.enc.mood.caught');
+    // the host (or any band at least as strong) turns on you: it won't let you go
+    const host = encounterCopy({ ratio: 1.6, byPlayer: true, inCamp: false, failedFlee: false, ...offers(true, false) });
+    expect(host.mood).toBe('wld.enc.mood.stand');
+    expect(t(host.mood)).not.toMatch(/caught up/i);
+    expect(encounterCopy({ ratio: 0.2, byPlayer: true, inCamp: false, failedFlee: false, ...offers(false, true) }).mood).toBe('wld.enc.mood.surrender');
+    expect(encounterCopy({ ratio: 2, byPlayer: false, inCamp: true, failedFlee: false, ...offers(true, false) }).mood).toBe('wld.enc.mood.camp');
+  });
+});
+
+describe('S4: the camp line never writes "food -0 a day"', () => {
+  it('a signed whole number rounds first, then signs', () => {
+    expect(fmtSigned(-0.3)).toBe('0');
+    expect(fmtSigned(0.4)).toBe('0');
+    expect(fmtSigned(-0)).toBe('0');
+    expect(fmtSigned(2.4)).toBe('+2');
+    expect(fmtSigned(-1.6)).toBe('-2');
+    expect(fmtSigned(1500)).toBe('+1,500');
   });
 });

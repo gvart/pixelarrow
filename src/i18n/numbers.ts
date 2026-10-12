@@ -19,6 +19,12 @@ export function fmtCount(n: number, l: Lang = lang()): string {
   return v < 0 ? `-${grouped}` : grouped;
 }
 
+/** A whole number with its sign: "+2", "-1", and "0" for anything that rounds to zero (never "-0" or "+0"). */
+export function fmtSigned(n: number, l: Lang = lang()): string {
+  const v = Math.round(n);
+  return v > 0 ? `+${fmtCount(v, l)}` : v < 0 ? fmtCount(v, l) : '0';
+}
+
 /**
  * A number with at most `dp` decimals and no trailing zeros: "10.5", "0.05",
  * "8" in English; "10,5", "0,05", "8" in Russian (a decimal comma). Display
