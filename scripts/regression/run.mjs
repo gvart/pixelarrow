@@ -125,5 +125,6 @@ console.log('\n| script | verdict | time |\n| --- | --- | --- |');
 for (const r of results) console.log(`| ${r.job.name} | ${verdict(r)} | ${(r.ms / 1000).toFixed(0)} s |`);
 const failed = results.filter((r) => r.code !== 0 && r.code !== 2).length;
 const unassessed = results.filter((r) => r.code === 2).length;
-console.log(`\nsuite: ${((Date.now() - t0) / 1000).toFixed(0)} s; ${failed ? `FAIL (${failed} script(s))` : unassessed ? `NOT ASSESSED (${unassessed} script(s) could not run)` : 'PASS'}`);
+const known = results.reduce((a, r) => a + r.known, 0);
+console.log(`\nsuite: ${((Date.now() - t0) / 1000).toFixed(0)} s; ${failed ? `FAIL (${failed} script(s))` : unassessed ? `NOT ASSESSED (${unassessed} script(s) could not run)` : known ? `PASS except ${known} KNOWN bug check(s)` : 'PASS'}`);
 process.exit(failed ? 1 : unassessed ? 2 : 0);
