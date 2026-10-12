@@ -14,7 +14,8 @@ import type { RegionKind } from './mapSchema';
 import type { Resources } from './rules';
 import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED, type ClientMsg, type PresencePlayer, type ServerMsg } from './protocol';
 import { SIM_VERSION } from '../sim/version';
-import { t } from '../i18n';
+import { t, type TKey } from '../i18n';
+import { GAPS_EN } from '../i18n/gaps.en';
 import type { BattleSite } from '../world/battlefield';
 import type { MerchantKind, Offer, PostKind, Region } from './merchants';
 import type { CampMarker, CampView } from './camps';
@@ -295,8 +296,8 @@ export const onlineApi = {
 
 /** Can the online mode be used right now? Signs in if needed. */
 export async function checkOnline(): Promise<Availability> {
-  if (!online.available) return { ok: false, reason: 'outside', message: 'Online play runs inside Telegram.' };
-  if (!(await online.signIn())) return { ok: false, reason: 'offline', message: 'Cannot reach the server.' };
+  if (!online.available) return { ok: false, reason: 'outside', message: t('gap.net.outside') };
+  if (!(await online.signIn())) return { ok: false, reason: 'offline', message: t('gap.net.offline') };
   try {
     await onlineApi.status();
     return { ok: true };
@@ -307,18 +308,32 @@ export async function checkOnline(): Promise<Availability> {
 
 export function explain(e: unknown): { reason: 'offline' | 'unconfigured' | 'error'; message: string } {
   if (isApiError(e)) {
-    if (e.status === 503) return { reason: 'unconfigured', message: 'The online realm is not open yet.' };
-    if (e.offline) return { reason: 'offline', message: 'Cannot reach the server.' };
-    return { reason: 'error', message: e.message };
+    if (e.status === 503) return { reason: 'unconfigured', message: t('gap.net.closed') };
+    if (e.offline) return { reason: 'offline', message: t('gap.net.offline') };
+    return { reason: 'error', message: apiErrorText(e.status, e.code, e.message) };
   }
-  return { reason: 'error', message: e instanceof Error ? e.message : 'Something went wrong' };
+  return { reason: 'error', message: apiErrorText(-1, '', e instanceof Error ? e.message : String(e)) };
+}
+
+/**
+ * The player's words for a failed call (G12, DLG-02): by the server's error code when it has
+ * a string, else by HTTP status. The server's own (English) text is never shown; it goes to
+ * the console for debugging.
+ */
+export function apiErrorText(status: number, code: string, raw?: string): string {
+  if (raw) console.debug('[api]', status, code, raw);
+  const byCode = `gap.err.${code}`;
+  if (code && byCode in GAPS_EN) return t(byCode as TKey);
+  if (status === 0 || status >= 500) return t('gap.err.s5xx');
+  const byStatus = `gap.err.s${status}`;
+  return byStatus in GAPS_EN ? t(byStatus as TKey) : t('gap.err.generic');
 }
 
 /** Short user-facing message of a failed call. */
 export function errorText(e: unknown): string {
   if (e instanceof ApiError && e.code === SIM_VERSION_REJECTED) return t('online.reloadForUpdate');
-  if (e instanceof ApiError) return e.status === 0 || e.status >= 500 ? 'The server is unreachable' : e.message;
-  return e instanceof Error ? e.message : 'Something went wrong';
+  if (e instanceof ApiError) return apiErrorText(e.status, e.code, e.message);
+  return apiErrorText(-1, '', e instanceof Error ? e.message : String(e));
 }
 
 export type { PresencePlayer, BattleSite };
