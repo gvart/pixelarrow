@@ -1,0 +1,22 @@
+scripts/tutorial-smoke.mjs
+  s_697bdc25a7c420::t_031e45112a8869 219-221
+  s_697bdc25a7c420::t_58b84f0ca365a6 3-15,19,24,26-59,61-72,74-121,123-146,148-178,180-218,223-272,274-277,291,300-305,330-340,346
+  s_697bdc25a7c420::t_487a0575295557 222
+  s_697bdc25a7c420::t_493b84ee121b3c 122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "390bd2285a89e26ff89a6124e813cb9a2c203808",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
