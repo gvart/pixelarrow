@@ -681,7 +681,9 @@ export class ShopScene extends BaseScene {
       row.add(b);
       return;
     }
-    const noun = r.kind === 'gold' ? t('res.wargold') : r.kind === 'drachmae' ? t('res.drachmae') : r.kind === 'consumable' ? subjectName({ consumable: r.id }) : name;
+    const raw = r.kind === 'gold' ? t('res.wargold') : r.kind === 'drachmae' ? t('res.drachmae') : r.kind === 'consumable' ? subjectName({ consumable: r.id }) : name;
+    // a label starts with a capital, as "War gold" beside it does (an item's name is lower case for use in a sentence)
+    const noun = raw.charAt(0).toUpperCase() + raw.slice(1);
     // the noun (or a look's name) under the icon line, on up to two lines (a third is folded into the second)
     let lines = wrapWords(noun, w - 6, (s) => mw(s, ink, TEXT_MIN));
     if (lines.length > 2) lines = [lines[0], lines.slice(1).join(' ')];

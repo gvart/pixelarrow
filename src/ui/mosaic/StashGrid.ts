@@ -12,7 +12,7 @@ import { t, type TKey } from '../../i18n';
 import type { Hero } from '../../data/units';
 import { ACCENT, MOSAIC } from '../tokens';
 import { GAP, TAP, mosaicImage, mtext } from './base';
-import { MButton } from './controls';
+import { MButton, oneFace } from './controls';
 import { MIconButton } from './iconButton';
 import { addParchmentEmpty } from './EmptyState';
 
@@ -104,8 +104,9 @@ export class MStashGrid {
     const n = twoRows ? 2 : 3;
     const bw = Math.floor((w - (n - 1) * GAP) / n);
     let bx = x;
+    const row: MButton[] = [];
     if (!twoRows) {
-      this.c.add(
+      row.push(
         new MButton(scene, bx, cy, bw, FILTER_H, {
           label: st.slot === 'all' ? t('stash.all') : t(`slot.${st.slot}` as TKey),
           icon: st.slot === 'all' ? undefined : SLOT_ICON[st.slot],
@@ -117,7 +118,7 @@ export class MStashGrid {
       );
       bx += bw + GAP;
     }
-    this.c.add(
+    row.push(
       new MButton(scene, bx, cy, bw, FILTER_H, {
         label: st.rarity === 'all' ? t('stash.anyRarity') : t(`rarity.${st.rarity}` as TKey),
         variant: st.rarity === 'all' ? 'neutral' : 'secondary',
@@ -127,7 +128,9 @@ export class MStashGrid {
       }),
     );
     bx += bw + GAP;
-    this.c.add(new MButton(scene, bx, cy, x + w - bx, FILTER_H, { label: t(`stash.sort.${st.sort}` as TKey), icon: 'scales', variant: 'neutral', id: 'filter:sort', tip: t('stash.sortTip'), onClick: () => this.set({ sort: cycle(STASH_SORTS, st.sort) }) }));
+    row.push(new MButton(scene, bx, cy, x + w - bx, FILTER_H, { label: t(`stash.sort.${st.sort}` as TKey), icon: 'scales', variant: 'neutral', id: 'filter:sort', tip: t('stash.sortTip'), onClick: () => this.set({ sort: cycle(STASH_SORTS, st.sort) }) }));
+    oneFace(row);
+    this.c.add(row);
     cy += FILTER_H + GAP + 1;
     const inline = this.o.inline;
     const gh = inline ? 0 : y + h - cy;

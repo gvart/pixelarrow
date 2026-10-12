@@ -267,6 +267,13 @@ export function fitCinzel(label: string, font: FontKey, room: number, sizes: rea
   return { text: r.text, font: r.inter ? inter : font, size: r.size, truncated: r.truncated };
 }
 
+/** `fitCinzel`'s fallback on its own: the label in the Inter twin of `font` at `size`, cut only when it must. */
+export function fitBody(label: string, font: FontKey, room: number, size: number): FittedLabel {
+  const inter = INTER_OF[font] ?? font;
+  const text = ellipsize(label, room, SHADOW_FONTS.has(inter), size);
+  return { text, font: inter, size, truncated: text !== label };
+}
+
 /**
  * Shortens a one-line text until it fits the width, ending it with "…". The
  * full text stays in the object's data (`fullText`) for a tooltip.
@@ -693,6 +700,45 @@ export function scrollAllAreas(v: number): number {
 /** Height of the scroll cue's shade, UI px. */
 export const SCROLL_CUE_H = 10;
 
+/** Screen-space viewport of a scroll area's content, kept on the content container. */
+type ClipRect = { x: number; y: number; w: number; h: number; at?: () => { x: number; y: number } };
+type Clipped = { __scrollClip?: ClipRect; parentContainer?: Clipped | null };
+
+/** Whether a hit at screen (px, py) falls outside the viewport of any scroll area that holds `obj`. */
+export function clippedOut(obj: unknown, px: number, py: number): boolean {
+  for (let o = obj as Clipped | null | undefined; o; o = o.parentContainer) {
+    const r = o.__scrollClip;
+    if (!r) continue;
+    const d = r.at?.() ?? { x: 0, y: 0 };
+    const x = r.x + d.x;
+    const y = r.y + d.y;
+    if (px < x || px >= x + r.w || py < y || py >= y + r.h) return true;
+  }
+  return false;
+}
+
+/**
+ * The geometry mask only hides a scroll area's rows; Phaser still hit-tests
+ * them. Drop hits on rows outside their viewport, once for every scene, so a
+ * row scrolled under a tab bar or a button never wins the tap (S1-1).
+ */
+// (a unit test's Phaser stub has no input manager: nothing to patch there)
+const inputProto = Phaser.Input?.InputManager?.prototype as unknown as
+  | {
+      hitTest: (p: Phaser.Input.Pointer, list: Phaser.GameObjects.GameObject[], cam: Phaser.Cameras.Scene2D.Camera, out?: Phaser.GameObjects.GameObject[]) => Phaser.GameObjects.GameObject[];
+      __clipPatched?: boolean;
+    }
+  | undefined;
+if (inputProto && !inputProto.__clipPatched) {
+  const hitTest = inputProto.hitTest;
+  inputProto.hitTest = function (p, list, cam, out) {
+    const hits = hitTest.call(this, p, list, cam, out);
+    for (let i = hits.length - 1; i >= 0; i--) if (clippedOut(hits[i], p.x, p.y)) hits.splice(i, 1);
+    return hits;
+  };
+  inputProto.__clipPatched = true;
+}
+
 export class ScrollArea {
   readonly content: Phaser.GameObjects.Container;
   private maskG: Phaser.GameObjects.Graphics;
@@ -727,6 +773,20 @@ export class ScrollArea {
     this.maskG.fillStyle(0xffffff);
     this.maskG.fillRect(x * S, y * S, w * S, h * S);
     this.content.setMask(this.maskG.createGeometryMask());
+    // the window moves with its parent (a list inside a scrolled page or a sliding sheet): the mask and the
+    // tap filter follow the parent's screen origin
+    const tm = new Phaser.GameObjects.Components.TransformMatrix();
+    const pm = new Phaser.GameObjects.Components.TransformMatrix();
+    const origin = () => {
+      const m = parent.getWorldTransformMatrix(tm, pm);
+      return { x: m.tx, y: m.ty };
+    };
+    (this.content as unknown as Clipped).__scrollClip = { x: x * S, y: y * S, w: w * S, h: h * S, at: origin };
+    const follow = () => {
+      if (!parent.scene) return;
+      const o = origin();
+      if (o.x !== this.maskG.x || o.y !== this.maskG.y) this.maskG.setPosition(o.x, o.y);
+    };
     this.zone = scene.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     parent.addAt(this.zone, 0);
     // The layout check clips rows to the viewport and ignores the drag zone itself.
@@ -751,6 +811,7 @@ export class ScrollArea {
     };
     const onWheel = (_p: unknown, _o: unknown, _dx: number, dy: number) => this.setScroll(this.scroll + dy * 0.3);
     const onUpdate = () => {
+      follow();
       if (!this.dragging && Math.abs(this.vel) > 0.1) {
         this.setScroll(this.scroll - this.vel);
         this.vel *= 0.9;

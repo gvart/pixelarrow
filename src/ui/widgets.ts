@@ -91,7 +91,12 @@ export function showTooltip(scene: Phaser.Scene, text: string, anchor: Phaser.Ga
   let y = Math.round(a.y - h - 3);
   if (y < 4) y = Math.round(Math.min(VH - 4 - h, a.y + a.h + 3));
   const c = scene.add.container(x, y);
-  overlayRoot(scene).add(c);
+  const root = overlayRoot(scene);
+  root.add(c);
+  // a page rebuilt after the toast (a tab switch, a hint at open) adds its parts over it: keep the toast on top (S3-7)
+  const keepTop = () => c.parentContainer === root && root.last !== c && root.bringToTop(c);
+  scene.events.on('update', keepTop);
+  c.once('destroy', () => scene.events.off('update', keepTop));
   c.add(mosaicPanelImage(scene, 0, 0, w, h, 'chipStone'));
   const txt = addText(scene, w / 2, 5, wrap.lines.join('\n'), 'light', 0.5);
   txt.setCenterAlign();
@@ -163,7 +168,12 @@ export function toast(scene: Phaser.Scene, text: string, kind: ToastKind = 'info
   const x = Math.round((VW - w) / 2);
   const y = toastY({ h, x, w, at, ...toastRoom(scene, VH) });
   const c = scene.add.container(x, y);
-  overlayRoot(scene).add(c);
+  const root = overlayRoot(scene);
+  root.add(c);
+  // a page rebuilt after the toast (a tab switch, a hint at open) adds its parts over it: keep the toast on top (S3-7)
+  const keepTop = () => c.parentContainer === root && root.last !== c && root.bringToTop(c);
+  scene.events.on('update', keepTop);
+  c.once('destroy', () => scene.events.off('update', keepTop));
   c.add(mosaicPanelImage(scene, 0, 0, w, h, 'chipStone'));
   if (kind !== 'info') c.add(scene.add.rectangle(2, 2, 2, h - 4, kind === 'good' ? COLOR.good : COLOR.bad).setOrigin(0, 0));
   const txt = addText(scene, w / 2, 5, wrap.lines.join('\n'), 'light', 0.5);

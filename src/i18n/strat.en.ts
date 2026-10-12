@@ -110,6 +110,8 @@ export const STRAT_EN = {
   // ---- army
   'army.sit.men': { one: '{n} man in your army.', other: '{n} men in your army.' },
   'army.sit.hurt': { one: '{n} is hurt.', other: '{n} are hurt.' },
+  // one hero: his points, as many as his badge shows (stat and perk points together)
+  'army.sit.pendingOne': { one: '{name} has a point to spend.', other: '{name} has {n} points to spend.' },
   'army.sit.pending': { one: '{name} has a perk point to spend.', other: '{name} and {more} more have points to spend.' },
   'army.sit.stash': { one: '{n} piece of gear in the stash: tap a slot to compare.', other: '{n} pieces of gear in the stash: tap a slot to compare.' },
   'army.sit.empty': 'The stash is empty. Loot comes from battles and markets.',

@@ -9,7 +9,7 @@
  */
 import Phaser from 'phaser';
 import type { MosaicStyle } from '../../art/mosaicUi';
-import { addIcon, fitCinzel, panelK, scaleIcon, ICON_PX } from '../kit';
+import { addIcon, fitBody, fitCinzel, panelK, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
 import { motion, tweenTo } from '../motion';
 import { MOSAIC, MOTION, TEXT_MIN, lineHeight } from '../tokens';
@@ -66,6 +66,9 @@ export class MButton extends Phaser.GameObjects.Container {
   private content!: Phaser.GameObjects.Container;
   private reason: string | undefined;
   private truncated = false;
+  /** The label is in Inter sentence case (it did not fit in capitals, or its row asked for one face). */
+  private bodyFace = false;
+  private forceBody = false;
 
   constructor(scene: Scene, x: number, y: number, w: number, h: number, private o: MButtonOpts) {
     super(scene, Math.round(x), Math.round(y));
@@ -102,6 +105,18 @@ export class MButton extends Phaser.GameObjects.Container {
     if (on === this.enabled) return this;
     this.enabled = on;
     this.variant = on ? this.o.variant && this.o.variant !== 'disabled' ? this.o.variant : 'primary' : 'disabled';
+    this.build();
+    return this;
+  }
+
+  /** Its label is drawn in Inter sentence case, not Cinzel capitals. */
+  get inBody(): boolean {
+    return this.bodyFace;
+  }
+
+  /** Draw the label in Inter sentence case (a row of buttons keeps one face: `oneFace`). */
+  useBody(): this {
+    this.forceBody = true;
     this.build();
     return this;
   }
@@ -146,7 +161,8 @@ export class MButton extends Phaser.GameObjects.Container {
     const icon = off ? 'lock' : this.o.icon;
     const hasIcon = !!icon && sizes.some((s) => mw(label, font, s) <= room - ICON_PX - 3);
     const iconW = hasIcon ? ICON_PX + 3 : 0;
-    const fl = fitCinzel(this.o.label, font, room - iconW, sizes);
+    const fl = this.forceBody ? fitBody(this.o.label, font, room - iconW, sizes[sizes.length - 1]) : fitCinzel(this.o.label, font, room - iconW, sizes);
+    this.bodyFace = fl.font !== font;
     const { size, text } = fl;
     this.truncated = fl.truncated;
     const tw = mw(text, fl.font, size);
@@ -160,6 +176,11 @@ export class MButton extends Phaser.GameObjects.Container {
     const b = this.o.badge;
     if (b !== undefined && b !== 0 && this.enabled) this.face.add(new MBadge(scene, this.w / 2 - 3, -this.h / 2 + 3, b));
   }
+}
+
+/** A row of buttons in one face: when one label has to fall back to Inter, they all do (art bible 7.2: never capitals beside sentence case). */
+export function oneFace(row: readonly MButton[]): void {
+  if (row.some((b) => b.inBody)) row.forEach((b) => b.inBody || b.useBody());
 }
 
 // ================================================================== StoneTile

@@ -232,9 +232,10 @@ export class FirstRunScene extends BaseScene {
     const goldH = 26;
     const itemH = SIZE.cell + 14;
     const need = item ? goldH + 3 + itemH : 0;
+    const first = this.ui.length;
     let y = this.speech(this.area.y + 4, top - 6 - need - 6, item ? t('firstrun.reward') : t('firstrun.rewardSeen'));
     if (!item) return;
-    y = Math.max(y + 2, Math.round((y + top - 6 - need) / 2));
+    y += 6;
     const gold = new ParchmentCard(this, x, y, w, goldH, { id: 'firstrun.gold' });
     this.ui.add(gold);
     gold.add(addIcon(this, 8, Math.round((goldH - 12) / 2), 'coin'));
@@ -273,6 +274,9 @@ export class FirstRunScene extends BaseScene {
     uiFrame(nameText, row, w, itemH);
     row.add(nameText);
     if (nameLines.length < 2) row.add(addText(this, nx, 23, ellipsize(tOr(`rarity.${item.rarity}`, item.rarity), nw), 'pSec'));
+    // the speech and the rewards as one block, centred above the button (no empty band between them)
+    const dy = Math.max(0, Math.floor((top - 6 - (iy + itemH) - 4) / 2));
+    this.ui.list.slice(first).forEach((o) => ((o as unknown as { y: number }).y += dy));
     uiLevelUp();
     hapticNotify('success');
   }

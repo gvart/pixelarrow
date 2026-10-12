@@ -11,6 +11,7 @@
  */
 import { t } from '../../i18n';
 import { navLayer } from '../../platform/nav';
+import { MOSAIC } from '../../ui/tokens';
 
 export interface Field {
   name: string;
@@ -24,27 +25,49 @@ export interface Field {
 const HEAD = "700 15px 'Cinzel','Cormorant SC',serif";
 const BODY = "500 13px 'Inter',system-ui,sans-serif";
 
+/** A kit colour (src/ui/tokens.ts MOSAIC) as CSS. */
+const c = (k: keyof typeof MOSAIC): string => `#${MOSAIC[k].toString(16).padStart(6, '0')}`;
+
+/** The kit's look in CSS, once: the parchment sheet in its stone and bronze frame, a sunken well, bevelled bronze and terracotta keys. */
+function ensureStyle(): void {
+  if (document.getElementById('px-prompt-style')) return;
+  const st = document.createElement('style');
+  st.id = 'px-prompt-style';
+  st.textContent = `
+#px-prompt form{background:radial-gradient(ellipse at 50% 35%,${c('parchHi')} 0%,${c('parch')} 55%,${c('parchLo')} 100%);border:2px solid ${c('stone0')};border-radius:6px;box-shadow:inset 0 0 0 2px ${c('bronzeHi')},inset 0 0 0 3px ${c('parchEdge')},0 4px 0 ${c('stone0')},0 12px 28px rgba(0,0,0,.5)}
+#px-prompt .px-title{font:700 17px 'Cinzel','Cormorant SC',serif;text-transform:uppercase;letter-spacing:.06em;text-align:center;color:${c('ink')};padding:2px 0 9px;margin-bottom:6px;border-bottom:1px solid ${c('parchEdge')};box-shadow:0 1px 0 ${c('parchHi')}}
+#px-prompt input{background:linear-gradient(180deg,${c('wellLo')} 0,${c('well')} 4px,${c('parchHi')} 100%);border:2px solid ${c('parchEdge')};border-radius:4px;color:${c('ink')};outline:none}
+#px-prompt input:focus{border-color:${c('bronze')};box-shadow:0 0 0 2px ${c('bronzeHi')}}
+#px-prompt input::placeholder{color:${c('inkMuted')};opacity:.75}
+#px-prompt button{color:${c('cream')};text-shadow:0 1px 0 rgba(0,0,0,.55);border:2px solid ${c('stone0')};border-radius:5px;cursor:pointer;transition:transform 60ms}
+#px-prompt button.px-primary{background:linear-gradient(180deg,${c('terraHi')},${c('terra')} 60%);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -2px 0 ${c('terraLo')},0 3px 0 ${c('stone0')}}
+#px-prompt button.px-bronze{background:linear-gradient(180deg,${c('bronzeHi')},${c('bronze')} 55%);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -2px 0 ${c('bronzeLo')},0 3px 0 ${c('stone0')}}
+#px-prompt button:active{transform:translateY(2px);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 1px 0 ${c('stone0')}}
+`;
+  document.head.appendChild(st);
+}
+
 export function promptFields(title: string, fields: Field[], okLabel = t('common.ok'), cancelLabel = t('common.cancel')): Promise<Record<string, string> | null> {
+  ensureStyle();
   return new Promise((resolve) => {
     const wrap = document.createElement('div');
     wrap.id = 'px-prompt';
     wrap.style.cssText =
-      'position:fixed;inset:0;background:rgba(22,18,15,.45);display:flex;align-items:flex-start;justify-content:center;z-index:1000;' +
+      'position:fixed;inset:0;background:rgba(22,18,15,.6);display:flex;align-items:flex-start;justify-content:center;z-index:1000;' +
       'padding-top:calc(var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px) + 12vh);box-sizing:border-box';
     const box = document.createElement('form');
     box.style.cssText =
-      'background:#e7d6ad;border:2px solid #5a3d22;border-radius:6px;padding:12px 14px 14px;width:min(320px,calc(100vw - 32px));box-sizing:border-box;color:#3a2414;box-shadow:0 4px 0 #1a1612;font:' +
-      BODY;
+      `padding:14px 16px 16px;width:min(320px,calc(100vw - 32px));box-sizing:border-box;color:${c('ink')};font:` + BODY;
     const h = document.createElement('div');
     h.textContent = title;
-    h.style.cssText = `font:${HEAD};text-transform:uppercase;letter-spacing:.04em;text-align:center;color:#3a2414;padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid rgba(90,61,34,.7)`;
+    h.className = 'px-title';
     box.appendChild(h);
     const inputs: HTMLInputElement[] = [];
     for (const f of fields) {
       const l = document.createElement('label');
       l.textContent = f.label;
       l.htmlFor = `px-prompt-${f.name}`;
-      l.style.cssText = `display:block;font:${BODY};color:#5e4129;margin:8px 0 3px`;
+      l.style.cssText = `display:block;font:${BODY};color:${c('inkSec')};margin:8px 0 3px`;
       const i = document.createElement('input');
       i.id = `px-prompt-${f.name}`;
       i.name = f.name;
@@ -52,8 +75,7 @@ export function promptFields(title: string, fields: Field[], okLabel = t('common
       i.placeholder = f.placeholder ?? '';
       if (f.value) i.value = f.value;
       i.autocomplete = 'off';
-      i.style.cssText =
-        "width:100%;box-sizing:border-box;min-height:44px;padding:8px 10px;font:500 16px 'Inter',system-ui,sans-serif;border:2px solid #5a3d22;border-radius:4px;background:#f0e3c2;color:#3a2414;box-shadow:inset 0 2px 0 #d6be90";
+      i.style.cssText = "width:100%;box-sizing:border-box;min-height:44px;padding:8px 10px;font:500 16px 'Inter',system-ui,sans-serif";
       box.appendChild(l);
       box.appendChild(i);
       inputs.push(i);
@@ -64,7 +86,8 @@ export function promptFields(title: string, fields: Field[], okLabel = t('common
       const b = document.createElement('button');
       b.textContent = text;
       b.type = primary ? 'submit' : 'button';
-      b.style.cssText = `flex:1;min-height:44px;padding:8px 6px;font:${HEAD};font-size:13px;text-transform:uppercase;letter-spacing:.03em;border:2px solid #1a1612;border-radius:5px;background:${primary ? '#a8432c' : '#7d5b30'};color:#fdf3de;box-shadow:inset 0 1px 0 ${primary ? '#c9573a' : '#c9a066'}`;
+      b.className = primary ? 'px-primary' : 'px-bronze';
+      b.style.cssText = `flex:1;min-height:44px;padding:8px 6px;font:${HEAD};font-size:14px;text-transform:uppercase;letter-spacing:.04em`;
       row.appendChild(b);
       return b;
     };

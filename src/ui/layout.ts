@@ -261,8 +261,9 @@ export function collectUi(game: Phaser.Game): UiElement[] {
     const el: UiElement = { id: idOf(it.o), kind: it.kind as 'interactive' | 'text', rect: it.rect, visible, scene: it.scene, path: pathOf(it.o) };
     if (it.clip && !it.world) el.clip = it.clip;
     if (it.world) el.world = true;
-    if (it.kind === 'interactive' && !it.world) {
-      const miss = tapMiss(it.o, it.rect, it.cam);
+    // a control part-scrolled out of its list is tapped where it shows: rows outside a list's window take no taps (S1-1)
+    if (it.kind === 'interactive' && !it.world && visible.w > 0 && visible.h > 0) {
+      const miss = tapMiss(it.o, visible, it.cam);
       if (miss) el.tapMiss = miss;
     }
     if (it.kind === 'text') {
