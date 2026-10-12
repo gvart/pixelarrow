@@ -1,0 +1,28 @@
+scripts/regression/battle-kinds.mjs
+  s_697bdc25a7c420::t_b697b97ec514e6 1-13,15-134,137-141,145-146,151-154,157-222
+  s_697bdc25a7c420::t_c87a0a179c510d 142-144,147-150
+  s_697bdc25a7c420::t_6ccb3afa37c29f 135-136
+  s_697bdc25a7c420::t_691fdede0aff62 14,223
+  s_697bdc25a7c420::t_22fff3b8792e33 155-156
+scripts/regression/lib.mjs
+  s_697bdc25a7c420::t_691fdede0aff62 11,72,74,78-80
+  s_697bdc25a7c420::t_9f637758d22624 67-71,73,75-77,81
+scripts/regression/hub-flows.mjs
+  s_697bdc25a7c420::t_691fdede0aff62 13,87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0c66ebc35f2a44b33111c2978d6ef896ba28afa3",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
