@@ -112,6 +112,7 @@ export const GAPS_EN = {
   'gap.err.unknown_item': 'That is not for sale.',
   'gap.err.world_boss': 'A world boss: raid it instead.',
   // ---- the battle-consumable picker (src/ui/econ/consumablePicker.ts)
+  'gap.cons.titleShort': 'Consumable',
   'gap.cons.pickOne': 'Tap a consumable above to take it.',
   'gap.cons.emptyHint': 'Merchants in towns and trading posts on the war map sell them.',
 } as const;

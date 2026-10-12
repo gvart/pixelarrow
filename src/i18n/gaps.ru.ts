@@ -104,6 +104,7 @@ export const GAPS_RU: Record<keyof typeof GAPS_EN, string> = {
   'gap.err.under_attack': 'На эту область сейчас нападают.',
   'gap.err.unknown_item': 'Этого нет в продаже.',
   'gap.err.world_boss': 'Это мировой босс: идите в набег.',
+  'gap.cons.titleShort': 'Припас',
   'gap.cons.pickOne': 'Нажмите на припас выше, чтобы взять его.',
   'gap.cons.emptyHint': 'Их продают купцы в городах и на торговых постах карты войны.',
 };
