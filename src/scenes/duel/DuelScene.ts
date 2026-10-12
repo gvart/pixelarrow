@@ -2820,7 +2820,7 @@ export class DuelScene extends BaseScene {
     // what the changes compare against
     const sum = offerSummary(o, team, 3, this.compareHero);
     const vsHero = sum.vsHeroId ? team.find((hh) => hh.id === sum.vsHeroId) : undefined;
-    let vsText = sum.vs && vsHero ? t('dv.vsItem', { name: heroName(vsHero.name), item: itemName(sum.vs), rarity: tOr(`rarity.${sum.vs.rarity}`, RARITY_LABEL[sum.vs.rarity]) }) : vsHero ? t('dv.vsNothing', { name: vsHero.name }) : t('dv.vsNone');
+    let vsText = sum.vs && vsHero ? t('dv.vsItem', { name: heroName(vsHero.name), item: itemName(sum.vs), rarity: tOr(`rarity.${sum.vs.rarity}`, RARITY_LABEL[sum.vs.rarity]) }) : vsHero ? t('dv.vsNothing', { name: heroName(vsHero.name) }) : t('dv.vsNone');
     const picked = sum.pickedCannot ? team.find((hh) => hh.id === this.compareHero) : undefined;
     if (picked) vsText = `${t('dv.notFor', { name: heroName(picked.name) })} · ${vsText}`;
     ptext(this, card, 7, 35, vsText, 'muted', { size: TEXT_MIN, maxW: w - 14 });
@@ -2829,7 +2829,7 @@ export class DuelScene extends BaseScene {
     const dx = Math.round(w * 0.56);
     sum.lines.forEach((l, k) => {
       const ly = 46 + k * LINE_H;
-      const vt = ptext(this, card, dx - 6, ly, l.text, 'ink', { align: 1 });
+      const vt = ptext(this, card, dx - 6, ly, localDecimals(l.text), 'ink', { align: 1 });
       ptext(this, card, 7, ly, tOr(`mod.${l.key}`, l.key), 'sec', { maxW: dx - 6 - vt.width - 6 - 7 });
       if (l.isNew && l.deltaText) {
         ptext(this, card, dx + 2, ly, t('dv.new'), 'good');
