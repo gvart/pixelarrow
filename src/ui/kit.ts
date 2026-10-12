@@ -693,6 +693,38 @@ export function scrollAllAreas(v: number): number {
 /** Height of the scroll cue's shade, UI px. */
 export const SCROLL_CUE_H = 10;
 
+/** Screen-space viewport of a scroll area's content, kept on the content container. */
+type ClipRect = { x: number; y: number; w: number; h: number };
+type Clipped = { __scrollClip?: ClipRect; parentContainer?: Clipped | null };
+
+/** Whether a hit at screen (px, py) falls outside the viewport of any scroll area that holds `obj`. */
+export function clippedOut(obj: unknown, px: number, py: number): boolean {
+  for (let o = obj as Clipped | null | undefined; o; o = o.parentContainer) {
+    const r = o.__scrollClip;
+    if (r && (px < r.x || px >= r.x + r.w || py < r.y || py >= r.y + r.h)) return true;
+  }
+  return false;
+}
+
+/**
+ * The geometry mask only hides a scroll area's rows; Phaser still hit-tests
+ * them. Drop hits on rows outside their viewport, once for every scene, so a
+ * row scrolled under a tab bar or a button never wins the tap (S1-1).
+ */
+const inputProto = Phaser.Input.InputManager.prototype as unknown as {
+  hitTest: (p: Phaser.Input.Pointer, list: Phaser.GameObjects.GameObject[], cam: Phaser.Cameras.Scene2D.Camera, out?: Phaser.GameObjects.GameObject[]) => Phaser.GameObjects.GameObject[];
+  __clipPatched?: boolean;
+};
+if (!inputProto.__clipPatched) {
+  const hitTest = inputProto.hitTest;
+  inputProto.hitTest = function (p, list, cam, out) {
+    const hits = hitTest.call(this, p, list, cam, out);
+    for (let i = hits.length - 1; i >= 0; i--) if (clippedOut(hits[i], p.x, p.y)) hits.splice(i, 1);
+    return hits;
+  };
+  inputProto.__clipPatched = true;
+}
+
 export class ScrollArea {
   readonly content: Phaser.GameObjects.Container;
   private maskG: Phaser.GameObjects.Graphics;
@@ -727,6 +759,7 @@ export class ScrollArea {
     this.maskG.fillStyle(0xffffff);
     this.maskG.fillRect(x * S, y * S, w * S, h * S);
     this.content.setMask(this.maskG.createGeometryMask());
+    (this.content as unknown as Clipped).__scrollClip = { x: x * S, y: y * S, w: w * S, h: h * S };
     this.zone = scene.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     parent.addAt(this.zone, 0);
     // The layout check clips rows to the viewport and ignores the drag zone itself.

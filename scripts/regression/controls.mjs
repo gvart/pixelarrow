@@ -8,6 +8,8 @@
 //   2. a sample of each kit control type on a few screens: MButton (Begin the march; the battle menu's Sound),
 //      StoneTile (the hub's Army), MIconButton (a hero's group numeral), the tab bar (Duels), KeyButton (the
 //      battle's zoom key and ⋯).
+//   3. a long scroll list never takes a tab-bar tap (S1-1): the Shop's cosmetics (demo source) scrolled so
+//      masked rows sit under the tab bar; each tab-bar key, tapped, opens its hub.
 // Usage: node scripts/regression/controls.mjs [baseUrl]   (needs a running preview server)
 import { launch, check, until, baseUrl, openGame, settled, running, startScene, steadyBtn, need, flow, done } from './lib.mjs';
 
@@ -150,6 +152,30 @@ await flow('battle', async () => {
   const s0 = await saved();
   need(`${n} MButton Sound tapped`, await tapCtl('Battle', 'battle.menu.sound'));
   check(`${n} MButton Sound switches the sound`, await until(async () => (await saved()).s.sound === !s0.s.sound, 8000, 150), JSON.stringify([s0.s.sound, (await saved()).s.sound]));
+});
+
+// ---------------------------------------------------------------- 3. rows scrolled under the tab bar take no taps
+/** The hub each tab opens (src/ui/mosaic/hub.ts goTab). */
+const TAB_HUB = { campaign: 'Menu', duels: 'Duel', war: 'Online', codex: 'Codex' };
+await flow('scroll-under-tabs', async () => {
+  const n = '[scroll-under-tabs]';
+  for (const [tab, hub] of Object.entries(TAB_HUB)) {
+    await startScene(api, 'Shop', { demo: true });
+    need(`${n} the Shop settles`, await settled(api, 'Shop'));
+    need(`${n} the cosmetics list loads`, await until(() => api.call('Shop', "return s.st === 'ready' && s.areas.some((a) => a.maxScrollY > 0);"), 15000, 200));
+    // scroll part way: rows above and below the window, masked, the lower ones under the tab bar
+    const under = await api.call('Shop', `
+      const a = s.areas.find((a) => a.maxScrollY > 0);
+      a.setScroll(Math.round(a.maxScrollY / 2));
+      const S = s.m.S, b = a.bounds;
+      let n = 0;
+      const walk = (list) => list.forEach((o) => { if (o.input?.enabled && o.getBounds) { const r = o.getBounds(); if (r.bottom > (b.y + b.h) * S) n++; } if (o.list) walk(o.list); });
+      walk(a.content.list);
+      return n;`);
+    need(`${n} ${tab}: interactive rows sit below the list window`, under > 0, String(under));
+    need(`${n} ${tab}: tab tapped`, await tapCtl('Shop', `tab.${tab}`));
+    check(`${n} the ${tab} tab opens ${hub} over scrolled rows`, await settled(api, hub, 20000), JSON.stringify(await running(api)));
+  }
 });
 
 check('no page or console errors', errors.length === 0, errors.join(' | ').slice(0, 600));
