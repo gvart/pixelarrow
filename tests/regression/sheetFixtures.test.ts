@@ -21,8 +21,6 @@ const COVER: Record<string, Cover> = {
   openForgeSheet: { layout: ['town-forge'] },
   openForgeItemSheet: { layout: ['town-forge-item', 'town-forge-poor'] },
   openRecruitSheet: { layout: ['town-recruit-card'] },
-  // WorldScene.openJournal opens the Arc sheet's Journal tab since WLD-02; nothing calls this one
-  openJournalSheet: { none: 'no caller in src/ (dead export: the journal is the Arc sheet tab)' },
 };
 
 const SIZES = ['320x568', '320x640', '360x780', '390x844'];
