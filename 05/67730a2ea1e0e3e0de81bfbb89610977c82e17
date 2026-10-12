@@ -1,0 +1,27 @@
+docs/v5/stories/DUE-02/NOTES.md
+  s_697bdc25a7c420::t_e48aac2f21aa28 53
+src/i18n/duels.v5.ru.ts
+  s_697bdc25a7c420::t_827c0871655f26 21-22
+src/scenes/duel/DuelScene.ts
+  s_697bdc25a7c420::t_4e54f095b82fd8 1596,1911
+src/duel/client.ts
+  s_697bdc25a7c420::t_4e54f095b82fd8 9,521
+src/i18n/duels.v5.en.ts
+  s_697bdc25a7c420::t_ce0c06b7f93941 30-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0567730a2ea1e0e3e0de81bfbb89610977c82e17",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
