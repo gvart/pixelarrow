@@ -1,0 +1,19 @@
+src/scenes/online/textInput.ts
+  s_697bdc25a7c420::t_b2f227c4485e04 14,28-49,51,56,60,63,70,78,89-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b54f5a5e496e655c7796f9b63e8c6f4940d39dee",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
