@@ -5,7 +5,10 @@
  * card. Pure drawing and small widgets; the scene owns the state.
  */
 import Phaser from 'phaser';
-import { addIcon, scaleIcon, type FontKey } from '../../ui/kit';
+import { addIcon, panelK, scaleIcon, type FontKey } from '../../ui/kit';
+import { paintIcon, type IconLook } from '../../art/iconStyle';
+import { UI_ICONS } from '../../art/uiIcons';
+import { VECTOR_ICONS } from '../../art/vectorIcons';
 import { uiId } from '../../ui/layout';
 import { pulse, hop } from '../../ui/motion';
 import { MOSAIC, SPACE, TEXT_MIN } from '../../ui/tokens';
@@ -22,6 +25,8 @@ import { SEASON } from '../../duel/season';
 import type { League, LeagueId } from '../../duel/rating';
 import type { ChestState } from '../../duel/ladder';
 import { heroClass } from '../../sim/stats';
+import { armyPill, armyPillW } from '../../ui/army/parts';
+import { fmtCount } from './hubLayout';
 
 type C = Phaser.GameObjects.Container;
 
@@ -246,6 +251,15 @@ export const LEAGUE_COLOR: Record<LeagueId, number> = {
   legend: MOSAIC.teal,
 };
 
+/**
+ * A league's name on a pill in its colour, cream at 6.5 (A11Y-09; the kit's
+ * `addPill` writes 6). `right`: x is the pill's right edge. Returns its width.
+ */
+export function addLeaguePill(scene: Phaser.Scene, parent: C, x: number, y: number, league: League, label: string, maxW: number, right = false): number {
+  const s = fit(label, 'onAccent', TEXT_MIN, maxW - 8);
+  return armyPill(scene, parent, right ? x - armyPillW(s) : x, y, s, LEAGUE_COLOR[league.id], maxW);
+}
+
 /** A league's crest (the season reward art) in a parchment well, or an hourglass during the placements. */
 export function addCrest(scene: Phaser.Scene, parent: C, x: number, y: number, size: number, league: League | null): void {
   parent.add(mosaicImage(scene, x, y, size, size, 'parchmentWell'));
@@ -362,28 +376,58 @@ export function addLockedCard(scene: Phaser.Scene, parent: C, x: number, y: numb
   return h;
 }
 
-/** Rank medal of a leaderboard row (gold, silver, bronze for the top three; a sunken well below) and its number. */
+/**
+ * The medal of a top-three rank: gold, silver and bronze (DUE-3: third place is
+ * the bronze token, never terracotta, which means "do this"). Cinzel ink on gold
+ * and silver; cream on the dark bronze, as on a bronze button (art bible 4.3).
+ */
+export const RANK_MEDALS: readonly { fill: number; font: FontKey }[] = [
+  { fill: MOSAIC.segDone, font: 'rInk' },
+  { fill: MOSAIC.offText, font: 'rInk' },
+  { fill: MOSAIC.bronze, font: 'rCream' },
+];
+
+/** Rank medal of a leaderboard row (gold, silver, bronze for the top three; a sunken well below) and its number, never under 6.5. */
 export function addRankMedal(scene: Phaser.Scene, parent: C, cx: number, cy: number, rank: number): void {
-  const medal = rank <= 3 ? [MOSAIC.segDone, MOSAIC.offText, MOSAIC.terraHi][rank - 1] : null;
+  const medal = rank <= 3 ? RANK_MEDALS[rank - 1] : null;
+  const label = fmtCount(rank);
   const g = scene.add.graphics();
   if (medal) {
     g.fillStyle(MOSAIC.ink, 1);
     g.fillCircle(cx, cy, 9);
-    g.fillStyle(medal, 1);
+    g.fillStyle(medal.fill, 1);
     g.fillCircle(cx, cy, 8);
     g.lineStyle(1, MOSAIC.cream, 0.5);
     g.beginPath();
     g.arc(cx, cy, 6, Math.PI * 1.05, Math.PI * 1.6);
     g.strokePath();
   } else {
+    // three digits and more: the well widens rather than the number shrinking
+    const hw = label.length > 2 ? 12 : 10;
     g.fillStyle(MOSAIC.well, 1);
-    g.fillRoundedRect(cx - 10, cy - 8, 20, 16, 4);
+    g.fillRoundedRect(cx - hw, cy - 8, hw * 2, 16, 4);
     g.lineStyle(0.7, MOSAIC.parchEdge, 0.6);
-    g.strokeRoundedRect(cx - 10, cy - 8, 20, 16, 4);
+    g.strokeRoundedRect(cx - hw, cy - 8, hw * 2, 16, 4);
   }
   parent.add(g);
-  const rk = mtext(scene, cx, cy - 4, `${rank}`, medal ? 'rInk' : 'pSec', { size: `${rank}`.length > 2 ? 5.5 : 7, align: 0.5 });
+  const size = label.length > 2 ? TEXT_MIN : 7;
+  const rk = mtext(scene, cx, cy - 4, label, medal ? medal.font : 'pSec', { size, align: 0.5 });
   parent.add(rk);
+}
+
+/**
+ * An icon drawn at the size it is shown (DUE-6): a kit icon scaled up from its
+ * 12 UI px texture blurs, so this paints its own texture at `size` UI px times
+ * the screen's density, once per size. The image is centred on (x, y).
+ */
+export function addCrispIcon(scene: Phaser.Scene, x: number, y: number, name: string, size: number, look: IconLook = 'light'): Phaser.GameObjects.Image {
+  const parts = UI_ICONS[name] ?? VECTOR_ICONS[name];
+  const k = panelK(scene);
+  const key = `crisp_${look}_${name}_${size}`;
+  if (parts && !scene.textures.exists(key)) scene.textures.addCanvas(key, paintIcon(name, parts, look, Math.round(size * k)))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  if (!parts) return scaleIcon(addIcon(scene, x, y, name, look === 'light' ? 'L' : look === 'dim' ? 'D' : ''), size / 12).setOrigin(0.5, 0.5);
+  const img = scene.add.image(Math.round(x), Math.round(y), key).setOrigin(0.5, 0.5);
+  return img.setScale(size / img.width);
 }
 
 // ------------------------------------------------------------------ numbers
