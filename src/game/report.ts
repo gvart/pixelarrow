@@ -145,6 +145,10 @@ export interface ReportInput {
   log?: BattleLog | null;
   /** Hero ids of band captains on the field (ai-doctrines.md R6), for the captain rule. */
   captains?: readonly string[];
+  /** The why-line's timeout and lone-beast rules (QAFIX-WORLD S3-4, S4): see WhyOpts. */
+  timedOut?: boolean;
+  walls?: boolean;
+  beast?: boolean;
 }
 
 export function buildReport(i: ReportInput): BattleReport {
@@ -203,7 +207,7 @@ export function buildReport(i: ReportInput): BattleReport {
     notes: i.notes ?? [],
     enemyRetreated: enemyRetreated(i.side, i.retreated),
     bounty: i.bounty ?? 0,
-    why: whyLine(i.log ?? null, i.side, i.result, { enemyRetreated: enemyRetreated(i.side, i.retreated), captains: i.captains }),
+    why: whyLine(i.log ?? null, i.side, i.result, { enemyRetreated: enemyRetreated(i.side, i.retreated), captains: i.captains, timedOut: i.timedOut, walls: i.walls, beast: i.beast }),
   };
 }
 
@@ -445,25 +449,36 @@ function until(log: BattleLog, tick: number): BattleLog {
   return { ...log, ticks: tick, events: log.events.filter((e) => e.tick <= tick), focus: log.focus.filter((f) => f.tick <= tick) };
 }
 
+export interface WhyOpts {
+  enemyRetreated?: boolean;
+  captains?: readonly string[];
+  /** The battle ran out of time with both armies standing (campaignBattle.ts timedOut): a draw says so (QAFIX-WORLD S3-4). */
+  timedOut?: boolean;
+  /** The foe held a palisade (a lair garrison): a timeout says it held its walls. */
+  walls?: boolean;
+  /** The foe was a beast, not a line of men (QAFIX-WORLD S4): the fallback lines speak of the beast. */
+  beast?: boolean;
+}
+
 /**
  * The why-line for `side` (R5). Every defeat and retreat gets one, even with
  * no log (the fallback rule); a draw and a victory get theirs. Empty only for
  * a victory with no log.
  */
-export function whyLine(log: BattleLog | null, side: Side, result: ReportResult, o: { enemyRetreated?: boolean; captains?: readonly string[] } = {}): WhyPart[] {
+export function whyLine(log: BattleLog | null, side: Side, result: ReportResult, o: WhyOpts = {}): WhyPart[] {
   const foe = (1 - side) as Side;
   const caps = o.captains ?? [];
-  if (result === 'draw') return [{ key: 'why.draw', params: {} }];
+  if (result === 'draw') return [{ key: o.timedOut ? (o.walls ? 'why.timeoutWalls' : 'why.timeout') : 'why.draw', params: {} }];
   if (result === 'retreat') {
     const r = log?.events.find((e) => e.type === 'retreat' && e.side === side);
     const at = r ? r.tick : log?.ticks ?? 0;
     const c = log ? cause(until(log, at), side, false, caps) : null;
     return [...(c ? [c] : []), { key: 'why.withdrew', params: { t: clock(at) } }];
   }
-  if (result === 'defeat') return [(log && cause(log, side, false, caps)) || { key: 'why.lost.held', params: {} }];
+  if (result === 'defeat') return [(log && cause(log, side, false, caps)) || { key: o.beast ? 'why.lost.beast' : 'why.lost.held', params: {} }];
   // a victory
   const fled = log?.events.find((e) => e.type === 'retreat' && e.side === foe);
   if (o.enemyRetreated || fled) return [{ key: 'why.won.withdrew', params: { t: clock(fled ? fled.tick : log?.ticks ?? 0) } }];
   if (!log) return [];
-  return [cause(log, foe, true, caps) || { key: 'why.won.held', params: {} }];
+  return [cause(log, foe, true, caps) || { key: o.beast ? 'why.won.beast' : 'why.won.held', params: {} }];
 }

@@ -124,12 +124,24 @@ export function markBattle(camp: Campaign, pending: PendingBattle, heroes: Hero[
   camp.data.battle = JSON.parse(JSON.stringify({ pending, heroIds: heroes.map((h) => h.id), deploy, ...(works ? { works } : {}) })) as BattleMarker;
 }
 
+/**
+ * The battle ended at its time limit with both armies still standing
+ * (QAFIX-WORLD S3-4): the sim's strength tally named a winner, but nobody
+ * broke. A campaign battle the player did not win this way is a draw.
+ */
+export function timedOut(sim: Battle): boolean {
+  if (sim.phase !== 'ended' || sim.tick < sim.timeLimitTicks) return false;
+  const up: [boolean, boolean] = [false, false];
+  for (const u of sim.units) if (u.state === 'ready') up[u.side] = true;
+  return up[0] && up[1];
+}
+
 /** A finished campaign battle changes the campaign: deaths, wounds, XP, gold, the band; clears the marker. */
 export function settleBattle(camp: Campaign, pending: PendingBattle, sim: Battle, enemyHeroes: Hero[], before?: Hero[]): LastBattle {
   const practice = practiceOf(pending);
   if (practice) return settlePractice(camp, pending, practice, sim, enemyHeroes, before);
   const heroes = camp.data.heroes;
-  const { outcome, survivors } = resolveBattle(sim.result(), heroes, enemyHeroes, camp.random());
+  const { outcome, survivors } = resolveBattle(sim.result(), heroes, enemyHeroes, camp.random(), timedOut(sim) && sim.result().winner !== 0);
   camp.beastPity(outcome, enemyHeroes);
   const alive = new Set(survivors.map((h) => h.id));
   const fallen = heroes.filter((h) => !alive.has(h.id));

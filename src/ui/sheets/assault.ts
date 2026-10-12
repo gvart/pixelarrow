@@ -130,7 +130,9 @@ function mainPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Ass
     const tw = w - ROW_ICON - 5 - INFO - 4;
     let ty = y;
     ty += para(scene, c, tx, ty, t('wld.enc.doctrine', { name: doctrineName(d) }), 'rInk', tw);
-    ty += para(scene, c, tx, ty + 1, doctrineTell(d), 'pInk', tw, SMALL) + 1;
+    // a garrison holds its walls until the army closes in (EC-05, V5-073): only then does its doctrine show (QAFIX-WORLD S3-4)
+    const tell = doctrineTell(d);
+    ty += para(scene, c, tx, ty + 1, t('arc.as.tell', { tell: tell.charAt(0).toLowerCase() + tell.slice(1) }), 'pInk', tw, SMALL) + 1;
     if (c) c.add(new MIconButton(scene, x0 + w - INFO, y, INFO, INFO, { icon: 'info', label: t('wld.enc.doctrineInfo'), variant: 'secondary', id: 'assault.doctrine.info', onClick: onInfo }));
     y = Math.max(ty, y + INFO) + 3;
   }

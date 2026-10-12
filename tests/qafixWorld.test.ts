@@ -10,6 +10,9 @@ import type { Outcome } from '../src/game/loot';
 import { armyLine, encounterCopy } from '../src/game/encounter';
 import { setLang, t } from '../src/i18n';
 import { fmtSigned } from '../src/i18n/numbers';
+import { campaignSetup, settleBattle, startLairAssault, timedOut } from '../src/game/campaignBattle';
+import { emptyLog, whyLine } from '../src/game/report';
+import { Battle } from '../src/sim/battle';
 
 setLang('en');
 
@@ -139,6 +142,62 @@ describe('S4: the encounter sheet never contradicts its own choices', () => {
     expect(t(host.mood)).not.toMatch(/caught up/i);
     expect(encounterCopy({ ratio: 0.2, byPlayer: true, inCamp: false, failedFlee: false, ...offers(false, true) }).mood).toBe('wld.enc.mood.surrender');
     expect(encounterCopy({ ratio: 2, byPlayer: false, inCamp: true, failedFlee: false, ...offers(true, false) }).mood).toBe('wld.enc.mood.camp');
+  });
+});
+
+describe('S3-4: a lair assault that runs out of time', () => {
+  /** The first lair's assault fought with no orders: the garrison holds its walls, the army waits outside. */
+  function stalledAssault() {
+    const c = Campaign.fresh(5);
+    const lair = c.world.map.settlements.find((s) => s.kind === 'lair')!;
+    const pending = startLairAssault(c, lair.id, 4242)!;
+    const heroes = c.fitHeroes();
+    const sim = new Battle(campaignSetup(pending, heroes));
+    sim.startBattle();
+    while (sim.phase !== 'ended') sim.step();
+    return { c, pending, sim, heroes };
+  }
+
+  it('is a draw (time ran out), not a defeat, and pays only for the men it killed', () => {
+    const { c, pending, sim } = stalledAssault();
+    expect(sim.tick).toBeGreaterThanOrEqual(sim.timeLimitTicks);
+    expect(timedOut(sim)).toBe(true);
+    const gold0 = c.data.gold;
+    const last = settleBattle(c, pending, sim, pending.enemy.heroes);
+    const o = last.outcome;
+    expect(o.victory).toBe(false);
+    expect(o.draw).toBe(true);
+    expect(o.timedOut).toBe(true);
+    expect(o.picks).toBe(0);
+    // no pay for standing outside the walls: kill gold and kill XP only
+    expect(o.gold).toBeLessThanOrEqual(o.enemyKilled * 12 * 1.5);
+    if (o.enemyKilled === 0) expect(o.gold).toBe(0);
+    expect(c.data.gold - gold0).toBe(o.gold);
+    for (const h of o.heroes) if (h.kills === 0) expect(h.xp).toBe(0);
+  });
+
+  it('the why-line says time ran out; at a lair, that the garrison held its walls', () => {
+    expect(whyLine(emptyLog(), 0, 'draw', { timedOut: true, walls: true })).toEqual([{ key: 'why.timeoutWalls', params: {} }]);
+    expect(whyLine(emptyLog(), 0, 'draw', { timedOut: true })).toEqual([{ key: 'why.timeout', params: {} }]);
+    expect(t('why.timeoutWalls')).toBe('Time ran out. The garrison held its walls.');
+    // a draw that did not run out of time keeps its line
+    expect(whyLine(emptyLog(), 0, 'draw')).toEqual([{ key: 'why.draw', params: {} }]);
+  });
+
+  it('the assault sheet says a garrison holds its walls before it charges', () => {
+    expect(t('arc.as.walls')).toMatch(/holds its walls/);
+    expect(t('arc.as.tell', { tell: 'charges at once.' })).toMatch(/^Once you reach the wall/);
+  });
+});
+
+describe('S4: the why-line against a lone beast', () => {
+  it('speaks of the beast, not of "their line"', () => {
+    const lost = whyLine(emptyLog(), 0, 'defeat', { beast: true });
+    expect(lost).toEqual([{ key: 'why.lost.beast', params: {} }]);
+    expect(t('why.lost.beast')).not.toMatch(/line/i);
+    expect(whyLine(emptyLog(), 0, 'victory', { beast: true })).toEqual([{ key: 'why.won.beast', params: {} }]);
+    // an army keeps its line
+    expect(whyLine(emptyLog(), 0, 'defeat')).toEqual([{ key: 'why.lost.held', params: {} }]);
   });
 });
 
