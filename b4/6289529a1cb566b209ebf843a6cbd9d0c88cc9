@@ -1,0 +1,25 @@
+src/i18n/ru.army.ts
+  s_697bdc25a7c420::t_2dd28cc3079477 174,218
+src/scenes/duel/DuelScene.ts
+  s_697bdc25a7c420::t_6873e2b516ed42 2823,2832
+src/i18n/strat.ru.ts
+  s_697bdc25a7c420::t_2dd28cc3079477 108
+src/i18n/duels.ru.ts
+  s_697bdc25a7c420::t_2dd28cc3079477 173,307
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b46289529a1cb566b209ebf843a6cbd9d0c88cc9",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
