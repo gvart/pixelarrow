@@ -24,13 +24,27 @@ export function sceneTrack(key: string): TrackId | null | undefined {
 
 // ------------------------------------------------------------------ UI
 
-/** Buttons in src/ui/kit: back arrows get the back sound, everything else a click. */
-export function uiButton(icon?: string): void {
-  sfx.play(icon === 'back' ? 'back' : 'click');
+/**
+ * Buttons in src/ui/kit: an Undo (layout id `*.undo`: the battle and deployment chip, the hire toast,
+ * the hero's points) gets the reverse swish, back arrows the back sound, everything else a click.
+ */
+export function uiButton(icon?: string, id?: string): void {
+  sfx.play(id?.endsWith('.undo') ? 'undo' : icon === 'back' ? 'back' : 'click');
 }
 
 export function uiError(): void {
   sfx.play('error');
+}
+
+/** A disabled control tapped (it shows its reason): a soft "no" and a light buzz. */
+export function uiDisabled(): void {
+  sfx.play('nope');
+  haptic('light');
+}
+
+/** A destructive action confirmed (scrap, dismiss, retreat, delete): the low drum. */
+export function uiDestroy(): void {
+  sfx.play('destroy');
 }
 
 export function uiCoin(): void {
