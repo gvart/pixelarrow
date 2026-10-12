@@ -17,11 +17,6 @@
     "battle-works|text-size|*"
   ],
   "B": [
-    "duel-board-live|text-size|*",
-    "duel-board-raids|text-size|*",
-    "duel-found|text-size|*",
-    "duel-season-pick|text-size|*",
-    "duel-season-reward|text-size|*",
     "duel-shop-sell|text-size|*"
   ],
   "C": [],
@@ -50,11 +45,6 @@
     "battle-works-field|text-size|*": "BTL-01",
     "battle-works-place|text-size|*": "BTL-01",
     "battle-works|text-size|*": "BTL-01",
-    "duel-board-live|text-size|*": "DUE-02",
-    "duel-board-raids|text-size|*": "DUE-02",
-    "duel-found|text-size|*": "DUE-02",
-    "duel-season-pick|text-size|*": "DUE-02",
-    "duel-season-reward|text-size|*": "DUE-02",
     "duel-shop-sell|text-size|*": "DUE-01",
     "kit-overlay-purchase|text-size|*": "SHP-01",
     "tutorial-fight|text-size|*": "TUT-02",
