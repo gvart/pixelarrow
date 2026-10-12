@@ -126,3 +126,17 @@ the static game and the API: Hono, zod, D1, hibernating Durable Objects (a
 - Assault time or post-battle rest if attacks feel too cheap (DESIGN_V2.md
   "Online battle rules").
 - Friends lists (and friends leaderboards for duels).
+
+## Next: v6, web and desktop (decided 2026-10-12)
+
+The Telegram Mini App audience may be too small, so after v5 is merged and released, v6 takes the game to the open web on tablets and laptops as well. v6 starts fresh from the released v5; nothing of it is built inside v5 (V5-075).
+
+- **True landscape layouts.** Every screen gets a landscape layout for tablets and laptops, not a letterboxed portrait column. The layout-check matrix grows to cover landscape sizes such as 1024x768, 1280x800, 1440x900 and 1920x1080, plus tablet portrait, alongside the existing phone sizes.
+- **Mouse and keyboard.** Hover states, right-click and wheel zoom on the field. Keyboard focus navigation through menus and sheets. Battle hotkeys (orders, groups, pause, speed, Undo, Then). Rebindable keys with conflict detection, saved per device. Bindings are offered only where a keyboard is present; touch devices keep the touch UI.
+- **Accounts.** Email and password sign-up and log-in, with email verification and password reset sent through Cloudflare's email service. Passwords are hashed on the server (a slow hash suited to Workers), with sessions as secure cookies on the same origin and rate limits on log-in and reset.
+- **Linked accounts.** A Telegram player can add an email and password and then play the same account on the web. A web player can later link Telegram. One player id, several log-in methods.
+- **Open questions for v6 planning:**
+  - Payments on the web: Telegram Stars work only inside Telegram, so web purchases need a different provider or are left out.
+  - Hosting the web build: the same Worker and domain, or a separate route.
+  - Bot protection on sign-up.
+  - A privacy notice and data deletion for email accounts.
