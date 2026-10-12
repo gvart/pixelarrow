@@ -1,0 +1,33 @@
+docs/v5/stories/DUE-02/NOTES.md
+  s_697bdc25a7c420::t_6689443df78762 1-71
+src/duel/client.ts
+  s_697bdc25a7c420::t_3e30ab6dfcae96 9,521
+src/i18n/duels.v5.en.ts
+  s_697bdc25a7c420::t_730b2d20d722bc 18-33
+src/i18n/duels.v5.ru.ts
+  s_697bdc25a7c420::t_4bed9640b99919 11-22
+src/scenes/duel/DuelScene.ts
+  s_697bdc25a7c420::t_7e0d547b9b3bfd 45,84,262-264,518-519,534-535,1283,1290-1293,1299,1306-1320,1322-1346,1412,1448-1449,1596,1640-1641,1655-1658,1671,1684-1685,1711-1712,1911,1917-1920,1925,1927,1942-1945,1948-1950,1965-1970,2096-2097,2113,2115,2118,2120,2122-2125,2129,2132,2137-2144,2151-2153,2155,2157,2163,2165,2181-2182,2189-2211,2213,2215,2224-2225,2229-2230,2233-2234,2236-2237,2255-2259,2261,2263,2267
+src/scenes/duel/duelParts.ts
+  s_697bdc25a7c420::t_cb78fa10f741d5 8-11,28-29,254-262,379-390,392-393,398,405-406,408,410,413-414,418-432
+tests/duelHub.test.ts
+  s_697bdc25a7c420::t_1d8fbbbfc19135 89,100
+tests/duelSubScreens.test.ts
+  s_697bdc25a7c420::t_8ae242529ae38f 1-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "74995a29483fc2df5e0d5895340615f23c2fba00",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
