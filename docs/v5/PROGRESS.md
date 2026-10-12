@@ -11,8 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | DLG-02 worktree-agent-a01dfb5986b393bd0, QA-02 worktree-agent-a7596ee45be4e2d11 | — | integrator | — | merging |
-| fl-01 | W21 FL-01: juice tiers | per card | per card | worktree-agent | running |
+| (merge) | FL-01 worktree-agent-a037d22daf4f1a2a0 | — | integrator | — | merging |
+| f-07 | W22 F-07: retire v3, inkify, cleanup follow-ups | per card | per card | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -72,6 +72,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 06894bc EC-01 forge; e0b79df BTL-01 battle HUD; 22a4dfb forge price moved to gear.ts (server typecheck); ac91a5d allowlist hygiene (tutorial text-size). Gates: vitest 1396, server 303, layout 0 new, smokes all pass, online-e2e 34/34 on rerun (first run timed out at the name prompt, the 3rd batch in a row: fixer-6), replay 13/13; balance 53%.
 - 74995a2 DUE-02 duel sub-screens. Gates: vitest 1402, server 303, layout 0 new (47 known), all smokes and online-e2e first try, replay 13/13; balance 53%.
 - f763d20 TUT-02 tutorial; e5b45ac FIXER-6 clan fresco slot. Gates: vitest 1403, server 303, layout 0 new (46 known, 197 screens), online-e2e first-try PASS, replay 13/13; balance 53%, host 49%. fullscreen-smoke flaked (facing knob, tap-to-move shape), passed on rerun.
+- 637175b DLG-02 dialogs and G12 errors; b7099d2 QA-02 regression suite and tutorial exit; b993953 regression sheet-layout waits 2 frames after a World restart. Gates: vitest 1422, server 303, layout 0 new (45 known), smokes all pass, regression 164 s PASS, online-e2e 34/34, replay 13/13; balance 53%.
 
 ## Queue (next)
 
