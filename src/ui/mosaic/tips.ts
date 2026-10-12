@@ -23,7 +23,7 @@ export interface TipLineOpts {
   tone?: 'info' | 'reward' | 'warn';
   /** Dismissible, remembered under this id (the hint store). */
   dismissId?: string;
-  /** Lines of text at most (default 2; 3 on a card). */
+  /** Lines of text at most (default: as many as the text needs; C1: a tip wraps, never cuts). */
   maxLines?: number;
   /** On a parchment card of its own instead of flat on the page. */
   card?: boolean;
@@ -44,7 +44,7 @@ export function addTipLine(scene: Phaser.Scene, parent: Phaser.GameObjects.Conta
   const font: FontKey = tone === 'warn' ? 'pBad' : tone === 'reward' || card ? 'pInk' : 'pSec';
   const xw = o.dismissId ? TAP + 2 : 0;
   const tx = 18;
-  const wr = wrapText(o.text, w - tx - xw - 2 - (card ? 2 : 0), o.maxLines ?? (card ? 3 : 2));
+  const wr = wrapText(o.text, w - tx - xw - 2 - (card ? 2 : 0), o.maxLines ?? 99);
   const h = Math.max(o.dismissId ? TAP : card ? 18 : 16, wr.lines.length * LINE_H + (card ? 8 : 6));
   const c = scene.add.container(Math.round(x), Math.round(y));
   parent.add(c);
