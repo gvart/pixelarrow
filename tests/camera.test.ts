@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boxOf, centreOf, edgePointer, followCentre, isOnScreen, keepInView, openingFrame, union, type Box } from '../src/ui/battleCamera';
+import { OPEN_ZOOM_MIN, boxOf, centreOf, clearOfBadges, edgePointer, followCentre, isOnScreen, keepInView, openingFrame, union, type Box } from '../src/ui/battleCamera';
 import { isoToScreen } from '../src/art/iso';
 
 const box = (x0: number, y0: number, x1: number, y1: number): Box => ({ x0, y0, x1, y1 });
@@ -10,13 +10,21 @@ describe('opening frame (controls.md R7, F2)', () => {
     expect(f).toEqual({ zoom: 1, fits: true });
   });
 
-  it('F2 with the GDD minimum 0.75: zooms out, snapped down to 0.25, when both armies fit only below 1x', () => {
-    // raw fit = 390 / 480 = 0.81 -> 0.75
-    expect(openingFrame(390, 600, box(0, 0, 480, 300), 0.75)).toEqual({ zoom: 0.75, fits: true });
+  it('zooms out, snapped down to 0.05, when both armies fit only below 1x', () => {
+    // raw fit = 390 / 480 = 0.81 -> 0.8
+    expect(openingFrame(390, 600, box(0, 0, 480, 300), 0.75)).toEqual({ zoom: 0.8, fits: true });
   });
 
-  it('the shipped minimum is 1x (readability): armies that fit only below 1x get the arrow', () => {
-    expect(openingFrame(390, 600, box(0, 0, 480, 300))).toEqual({ zoom: 1, fits: false });
+  it('QA-03 S3-3: the shipped minimum frames both armies of a campaign deployment at every phone size', () => {
+    expect(OPEN_ZOOM_MIN).toBe(0.5);
+    // the armies' box (world px, padded) and the field band (CSS px) measured in the QA build's campaign deployment
+    const armies = boxOf([{ x: -276, y: 163 }, { x: 220, y: 423 }], 10, 44, 4)!;
+    for (const [w, band] of [[390, 494], [360, 430], [320, 290], [320, 218]]) {
+      const f = openingFrame(w, band, armies);
+      expect(f.fits, `${w}x${band}`).toBe(true);
+      expect(armies.x1 - armies.x0).toBeLessThanOrEqual(w / f.zoom);
+      expect(armies.y1 - armies.y0).toBeLessThanOrEqual(band / f.zoom);
+    }
   });
 
   it('never zooms closer than 1x, however small the armies', () => {
@@ -131,5 +139,26 @@ describe('edge pointer (controls.md R8.2)', () => {
     const p = edgePointer({ x: 200, y: 5000 }, rect, 20)!;
     expect(p.y).toBe(580);
     expect(p.angle).toBeCloseTo(Math.PI / 2);
+  });
+});
+
+describe('edge pointer clear of the badges (QA-03 S3-3)', () => {
+  const rect = box(0, 46, 195, 360);
+  it('stays where it is when no badge is under it', () => {
+    expect(clearOfBadges({ x: 173, y: 200 }, [box(100, 100, 130, 113)], rect, 22, 12)).toEqual({ x: 173, y: 200 });
+  });
+  it('slides along a side edge, the least it takes, off a badge', () => {
+    const badge = box(150, 195, 190, 208);
+    const q = clearOfBadges({ x: 173, y: 200 }, [badge], rect, 22, 12);
+    expect(q.x).toBe(173);
+    // clear: the disc's box no longer meets the badge
+    expect(q.y + 12 <= badge.y0 || q.y - 12 >= badge.y1).toBe(true);
+    expect(Math.abs(q.y - 200)).toBeLessThanOrEqual(22);
+  });
+  it('slides sideways on the top or bottom edge, never out of the band', () => {
+    const q = clearOfBadges({ x: 60, y: 338 }, [box(40, 330, 80, 343)], rect, 22, 12);
+    expect(q.y).toBe(338);
+    expect(q.x >= 22 && q.x <= 173).toBe(true);
+    expect(q.x + 12 <= 40 || q.x - 12 >= 80).toBe(true);
   });
 });

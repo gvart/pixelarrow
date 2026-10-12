@@ -488,6 +488,11 @@ export const VECTOR_ICONS: Record<string, IconPart[]> = {
   more: [
     { d: 'M8 3.5L16.5 12L8 20.5L5.2 17.7L10.9 12L5.2 6.3Z', tone: 'cream' },
   ],
+  // the battle's zoom key (QA-03 S4: not to be read as the speed key): a magnifier, a ring lens and its handle
+  zoom: [
+    { d: 'M10 2.5A7.5 7.5 0 1 1 10 17.5A7.5 7.5 0 1 1 10 2.5Z M10 5.2A4.8 4.8 0 1 0 10 14.8A4.8 4.8 0 1 0 10 5.2Z', tone: 'cream' },
+    { d: 'M14.6 16.5L16.5 14.6L22 20.1L20.1 22Z', tone: 'cream' },
+  ],
 };
 
 /**
@@ -496,7 +501,7 @@ export const VECTOR_ICONS: Record<string, IconPart[]> = {
  * atlas test fails if one appears. The battle HUD tints the morale glyphs by state; the
  * markers (crest, Standard, disordered) keep their colours (RD-01).
  */
-export const VECTOR_GLYPHS: readonly string[] = ['morale_steady', 'morale_wavering', 'morale_routing', 'marker_crest', 'marker_standard', 'marker_disordered', 'marker_feint', 'marker_queued', 'menu', 'sound', 'more'];
+export const VECTOR_GLYPHS: readonly string[] = ['morale_steady', 'morale_wavering', 'morale_routing', 'marker_crest', 'marker_standard', 'marker_disordered', 'marker_feint', 'marker_queued', 'menu', 'sound', 'more', 'zoom'];
 
 /** Camp building icons, keyed like CAMP_ICONS in src/art/campArt.ts (same box and rules). */
 export const VECTOR_CAMP_ICONS: Record<string, IconPart[]> = {

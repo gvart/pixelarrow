@@ -20,15 +20,9 @@ export const BATTLE_EN = {
   'battle.more.key': 'More',
   'battle.more.tip': 'The other abilities of this group',
   'battle.more.title': 'Abilities',
-  // order keys under 360 wide (hud.md §I): icon + a short word, never cut
-  'battle.short.advance': 'Adv.',
-  'battle.short.charge': 'Charge',
-  'battle.short.hold': 'Hold',
-  'battle.short.shoot': 'Shoot',
-  'battle.short.back': 'Back off',
-  'battle.short.feint': 'Feint',
   'battle.paused.pill': 'Paused',
   // ---- deployment and the top bar
+  'battle.deploy.noRoom': 'No room there: another group stands in the way.',
   'battle.deploy.title': 'Deployment',
   'battle.deploy.titleOnline': 'Deploy now',
   'battle.vs': 'vs {name}',
@@ -51,16 +45,6 @@ export const BATTLE_EN = {
   'battle.groupShort.1': 'Skirm.',
   'battle.groupShort.2': 'Res.',
   'battle.groupShort.3': 'Flank',
-  'battle.orderShort.routed': 'run',
-  'battle.orderShort.hold': 'hold',
-  'battle.orderShort.advance': 'adv.',
-  'battle.orderShort.charge': 'chrg',
-  'battle.orderShort.fallback': 'back',
-  'battle.formationShort.line': 'line',
-  'battle.formationShort.column': 'col.',
-  'battle.formationShort.wedge': 'wedge',
-  'battle.formationShort.skirmish': 'loose',
-  'battle.formationShort.shieldwall': 'wall',
   'battle.men': { one: '{n} man', other: '{n} men' },
   'battle.lv': 'Lv{n}',
   'battle.unarmed': 'Unarmed',
@@ -96,8 +80,8 @@ export const BATTLE_EN = {
   'battle.formation.line': 'line',
   'battle.formation.column': 'column',
   'battle.formation.wedge': 'wedge',
-  'battle.formation.skirmish': 'loose order',
-  'battle.formation.shieldwall': 'shield wall',
+  'battle.formation.skirmish': 'loose',
+  'battle.formation.shieldwall': 'wall',
   'battle.card.tip': '{numeral} {name}: {men}\n{order}, {formation}',
 
   // ---- long-press explanations
@@ -307,5 +291,4 @@ export const BATTLE_EN = {
   'battle.sit.moving': '{group} {order}.',
   // a group card with Shoot on and no enemy in reach (PLAY B6, controls.md R3.4)
   'battle.state.outOfRange': 'Out of range',
-  'battle.stateShort.outOfRange': 'out of range',
 } as const;

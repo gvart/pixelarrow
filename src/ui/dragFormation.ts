@@ -182,3 +182,49 @@ export function dragOrder(plan: DragPlan, phase: Phase): Order {
   if (plan.kind === 'turn' && phase === 'battle') return { kind: 'face', group: -1, fx: plan.fx, fy: plan.fy };
   return { kind: 'form', group: -1, cx: plan.cx, cy: plan.cy, fx: plan.fx, fy: plan.fy, frontage: plan.frontage };
 }
+
+/** In deployment, a man stands at least this far (paces) from every man of another group (QA-03 S3-8). */
+export const DEPLOY_GAP = 1;
+/** A drop onto another group slides at most this far (paces) to the nearest free spot; farther, it is refused. */
+export const MAX_NUDGE = 6;
+
+export interface Spot {
+  x: number;
+  y: number;
+}
+
+/** Where a group's men stand when it forms at anchor (cx, cy) facing (fx, fy): each man's slot (lateral, depth) as the sim lays it (slotPos). */
+export function slotSpots(slots: readonly { lat: number; dep: number }[], cx: number, cy: number, fx: number, fy: number): Spot[] {
+  const l = Math.hypot(fx, fy) || 1;
+  const ux = fx / l;
+  const uy = fy / l;
+  const r = rightOf(ux, uy);
+  return slots.map((s) => ({ x: cx + r.x * s.lat - ux * s.dep, y: cy + r.y * s.lat - uy * s.dep }));
+}
+
+/**
+ * The deployment's overlap guard (QA-03 S3-8: a group dropped onto another
+ * stacked their badges, and the next press grabbed the hidden one): the least
+ * shift of a drop, {0, 0} when it is clear, that keeps every man of `mine`
+ * DEPLOY_GAP from every man of `others`, with the anchor inside `bounds` (the
+ * player's deployment zone); null when no spot within MAX_NUDGE is free.
+ */
+export function nudgeDrop(mine: readonly Spot[], others: readonly Spot[], anchor: Spot, bounds: { x0: number; y0: number; x1: number; y1: number }, gap = DEPLOY_GAP, max = MAX_NUDGE): Spot | null {
+  const clear = (dx: number, dy: number) => {
+    const ax = anchor.x + dx;
+    const ay = anchor.y + dy;
+    if (ax < bounds.x0 || ax > bounds.x1 || ay < bounds.y0 || ay > bounds.y1) return false;
+    return mine.every((m) => others.every((o) => (m.x + dx - o.x) ** 2 + (m.y + dy - o.y) ** 2 >= gap * gap));
+  };
+  if (clear(0, 0)) return { x: 0, y: 0 };
+  for (let r = 0.5; r <= max + 1e-9; r += 0.5) {
+    const n = Math.max(8, Math.round(r * 8));
+    for (let k = 0; k < n; k++) {
+      const a = (2 * Math.PI * k) / n;
+      const dx = Math.round(r * Math.cos(a) * 100) / 100;
+      const dy = Math.round(r * Math.sin(a) * 100) / 100;
+      if (clear(dx, dy)) return { x: dx, y: dy };
+    }
+  }
+  return null;
+}

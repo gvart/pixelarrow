@@ -12,13 +12,11 @@ export const ATTENTION_EN = {
   'battle.shape.orb': 'no flanks; weak head-on',
   'battle.tip.orb': 'A ring facing outward: no flank or rear to hit. Slow, and it loses head-on to a line. Use it against riders and flank attacks.',
   'battle.formation.orb': 'orb',
-  'battle.formationShort.orb': 'orb',
   'attn.orb.why.riders': 'Riders cannot form an orb',
   'attn.orb.warn': 'An orb is weak head-on against a line: use it against riders and flanks.',
   'attn.coach.orb': 'New: Orb. No flanks, weak head-on.',
   // the Feint (formations-orders.md R3)
   'battle.order.feint': 'feinting',
-  'battle.orderShort.feint': 'feint',
   'attn.feint': 'Feint',
   'attn.tip.feint': 'Feigned retreat: run back for 4 s, then turn and charge. Enemies who chase are disordered. Once every 30 s.',
   'attn.tip.backCd': 'Fall back. Feint is ready again in {n} s.',

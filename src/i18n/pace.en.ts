@@ -8,7 +8,7 @@ export const PACE_EN = {
   'pace.slow': 'slow',
   'pace.tip.speed': 'Battle speed: {list}. Only how fast you watch it; the battle itself is the same.',
   'pace.locked': 'Real time: this battle cannot be paused or sped up.',
-  'pace.ladder': 'You can pause this floor. Finish it within {m} min.',
+  'pace.ladder': 'You can pause the fight on this floor. Finish it within {m} min.',
   'pace.left': 'left',
   'pace.soon': '{m} min left to finish this floor. After that it pays nothing.',
   'pace.expired': 'Time is up: this fight still counts, but pays nothing.',

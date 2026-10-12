@@ -164,8 +164,31 @@ const geo = (pts, frame = true) =>
 const orders = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
 let G0 = await geo([]);
 check('a group is selected in deployment', G0.sel >= 0);
-// sprites are drawn at native size: a man is ~34 CSS px tall at zoom 1 (camera zoom RS)
-check('readable default zoom (a man is at least 30 px tall)', (G0.zoom / RS) * 34 >= 30, `zoom ${G0.zoom / RS} (camera ${G0.zoom}, RS ${RS})`);
+// CT-05 AC1 (QA-03 S3-3): the deployment opens with both armies in the field band, between the HUD bars
+const framed = await ev(() => {
+  const s = window.__game.scene.getScene('Battle');
+  const cam = s.cameras.main;
+  const vp = s.fieldViewport();
+  const out = s.sim.units.filter((u) => u.state === 'ready').map((u) => { const p = s.project(u.x, u.y); return [(p.x - cam.worldView.x) * cam.zoom, (p.y - cam.worldView.y) * cam.zoom]; }).filter(([x, y]) => x < 0 || x > s.scale.width || y < vp.top || y > vp.bottom);
+  return { out: out.length, zoom: cam.zoom / window.__rs() };
+});
+check('deployment opens with both armies in view', framed.out === 0, JSON.stringify(framed));
+// the touch checks below measure their gestures in paces at 1x: the zoom key leaves the overview for 1x
+if (framed.zoom < 0.99) {
+  await tapBtn('Battle', { id: 'battle.zoom' });
+  check('the zoom key takes the overview to 1x', await until(() => ev(() => Math.abs(window.__game.scene.getScene('Battle').cameras.main.zoom / window.__rs() - 1) < 0.01), 5000, 100));
+}
+// the opening frames both armies, so the group may sit near the bottom sheet: centre it, so a drag back stays on the field
+await ev(() => { const s = window.__game.scene.getScene('Battle'); const c = s.groupCentre(); if (c) s.centerCam(c.x, c.y); });
+G0 = await geo([]);
+/** Would a deployment drop of the selected group at (cx, cy) land as it is (true), or does the overlap guard slide it off another group (QA-03 S3-8)? */
+const dropsClear = (cx, cy) =>
+  ev(([cx, cy]) => {
+    const s = window.__game.scene.getScene('Battle');
+    const f = s.sim.groups[s.selGroup].formation;
+    const o = s.freeDrop({ kind: 'form', group: -1, cx, cy, fx: f.fx, fy: f.fy, frontage: f.frontage });
+    return !!o && Math.abs(o.cx - cx) < 1e-6 && Math.abs(o.cy - cy) < 1e-6;
+  }, [cx, cy]);
 
 // 1) one-finger drag on empty ground pans, even with a group selected
 const emptyPt = await ev(() => {
@@ -185,12 +208,20 @@ let G1 = await geo([]);
 check('drag on empty ground pans the camera with a group selected', Math.hypot(G1.scroll[0] - G0.scroll[0], G1.scroll[1] - G0.scroll[1]) > 20 && (await orders()) === o0, JSON.stringify([G0.scroll, G1.scroll]));
 check('pan gave no order', G1.f.cx === G0.f.cx && G1.f.cy === G0.f.cy && G1.f.fx === G0.f.fx);
 
-// 2) drag the group: it moves 2 paces forward, facing and shape kept
-const cy0 = G1.f.cy;
-let g = await geo([[0, 0], [0, -2]]);
+// 2) drag the group: it moves 2 paces (forward, else back or aside: where no other group stands), facing and shape kept
+let step = [0, -2];
+for (const [a, b] of [[0, -2], [0, 2], [-2, 0], [2, 0]]) {
+  const f = G1.f;
+  if (await dropsClear(f.cx - f.fy * a - f.fx * b, f.cy + f.fx * a - f.fy * b)) {
+    step = [a, b];
+    break;
+  }
+}
+const want = [G1.f.cx - G1.f.fy * step[0] - G1.f.fx * step[1], G1.f.cy + G1.f.fx * step[0] - G1.f.fy * step[1]];
+let g = await geo([[0, 0], step]);
 await swipe(g.pts);
 let F = (await geo([])).f;
-check('drag: the group stands where it was dragged', Math.abs(F.cx - G1.f.cx) < 0.4 && Math.abs(F.cy - (cy0 - 2)) < 0.4, JSON.stringify([F.cx.toFixed(2), F.cy.toFixed(2)]));
+check('drag: the group stands where it was dragged', Math.abs(F.cx - want[0]) < 0.4 && Math.abs(F.cy - want[1]) < 0.4, JSON.stringify([F.cx.toFixed(2), F.cy.toFixed(2), want, step]));
 check('drag: facing and shape kept', F.fx === G1.f.fx && F.fy === G1.f.fy && F.frontage === G1.f.frontage, JSON.stringify([F.fx, F.fy, F.frontage]));
 
 // 3) drag the facing knob (ahead of the front) round to the right: the men face TOWARD the finger, in place
@@ -267,7 +298,7 @@ for (const d of [3, 4, 5, 6]) {
     // group tags are map markers: a tap near one selects its group
     const offTags = [...s.tagPos.values()].every((t) => Math.hypot(t.x * s.m.S - x, t.y * s.m.S - y) > 26 * rs);
     return clear && offTags && s.input.hitTestPointer({ x, y, camera: null }).length === 0;
-  }, q.pts[0]);
+  }, q.pts[0]) && (await dropsClear(c[0], c[1]));
   if (free || d === 6) {
     dest = c;
     dpt = q;
@@ -288,6 +319,10 @@ check('pinch zoom', z1 > z0, `${z0} -> ${z1}`);
 
 await tapBtn('Battle', { id: 'battle.fight' });
 await need('battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
+// sprites are drawn at native size: a man is ~34 CSS px tall at zoom 1 (camera zoom RS); the fight starts at 1x or closer
+await wait(400);
+const zf = await ev(() => window.__game.scene.getScene('Battle').cameras.main.zoom);
+check('readable fight zoom (a man is at least 30 px tall)', (zf / RS) * 34 >= 30, `zoom ${zf / RS} (camera ${zf}, RS ${RS})`);
 // fast-forward: the band is worn out (test staging), the sim runs to the end.
 // The player's few men are made unbreakable too: they only hold their ground,
 // and a big band could otherwise wear down their nerve (not their hit points)
@@ -432,11 +467,15 @@ await tapBtn('World', { label: 'Attack' });
 await need('second deployment', await until(() => active('Battle'), 30000));
 await tapBtn('Battle', { id: 'battle.fight' });
 await need('second battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
-// run until the shield-basher has a man in front of him, then pause and select him
+// run until the shield-basher has a man in front of him, then pause and select him.
+// The fight must still be on when bash comes ready: as in the first battle's staging, our men never break
+// and the band never quits the field (a swarm band's bot withdraws at its doctrine's retreatAt, and either
+// ended the battle before contact: the flake of "shield basher in contact", then "ability used")
 const ready = await ev((hid) => {
   const s = window.__game.scene.getScene('Battle');
   const u = s.sim.units.find((x) => x.heroId === hid);
-  s.sim.units.filter((x) => x.side === 0).forEach((x) => { x.hp = x.stats.maxHp * 5; });
+  s.sim.units.filter((x) => x.side === 0).forEach((x) => { x.hp = x.stats.maxHp * 5; x.stats.moraleLoss = 0; x.morale = x.stats.morale; });
+  for (const b of s.sim.bots) if (b.side === 1) b.doctrine = { ...b.doctrine, retreatAt: 0 };
   for (const g of s.sim.groups) if (g.side === 0) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' });
   for (let i = 0; i < 20 * 90 && s.sim.phase === 'battle'; i++) {
     s.sim.step();
@@ -447,9 +486,9 @@ const ready = await ev((hid) => {
   s.selGroup = u.group;
   s.selUnit = u.id;
   s.buildHud();
-  return s.sim.abilityReady(u, 'bash');
+  return { ready: s.sim.abilityReady(u, 'bash'), phase: s.sim.phase, t: s.sim.tick / 20 };
 }, hero0.id);
-check('shield basher in contact', ready);
+check('shield basher in contact', ready.ready, JSON.stringify(ready));
 await wait(300);
 await tapBtn('Battle', { id: 'battle.cmd.bash' }); // the ability medallion
 const usedBash = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.some((o) => o.side === 0 && o.order.kind === 'ability' && o.order.ability === 'bash'));
