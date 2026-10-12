@@ -1,0 +1,50 @@
+src/ui/mosaic/rewardFx.ts
+  s_697bdc25a7c420::t_a0cfcc45841223 1-46
+src/ui/mosaic/medallion.ts
+  s_697bdc25a7c420::t_016017d75db9b8 1-35
+src/ui/mosaic/toggles.ts
+  s_697bdc25a7c420::t_654a9dfd27b358 1-133
+src/ui/settings.ts
+  s_697bdc25a7c420::t_77e7dfb7ccf082 7,9-10,107,119,124,155,157,159,162
+src/scenes/KitScene.ts
+  s_697bdc25a7c420::t_c6ee36e174a779 5
+src/scenes/HeroScene.ts
+  s_697bdc25a7c420::t_7f01654352057f 8
+src/scenes/ShopScene.ts
+  s_697bdc25a7c420::t_7f01654352057f 8,82,192
+src/ui/notifySettings.ts
+  s_697bdc25a7c420::t_77e7dfb7ccf082 15,76,110,127,140,142,157,182
+src/ui/mosaic/rarityInk.ts
+  s_697bdc25a7c420::t_c8fc78dbf2775b 4,17-21,25
+src/ui/mosaic/Pager.ts
+  s_697bdc25a7c420::t_72142b924b4640 3,8,39-55
+  s_697bdc25a7c420::t_19ea4f2c8ac7fb 56
+src/ui/mosaic/tips.ts
+  s_697bdc25a7c420::t_72142b924b4640 4,24,33-36
+  s_697bdc25a7c420::t_6084b05b23e85e 37-38
+src/scenes/kit/overlaysPage.ts
+  s_697bdc25a7c420::t_f82c3088dda9a2 10,119
+src/ui/mosaic/index.ts
+  s_697bdc25a7c420::t_dac1b83912c20b 20
+  s_697bdc25a7c420::t_72142b924b4640 32-36
+src/scenes/kit/mosaicParts.ts
+  s_697bdc25a7c420::t_f82c3088dda9a2 165,167
+src/ui/mosaic/purchase.ts
+  s_697bdc25a7c420::t_ba8ac7568fd629 1-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ea1685c09f4afb07fe351f1bb6f5fb461dcb088d",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
