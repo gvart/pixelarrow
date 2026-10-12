@@ -286,7 +286,9 @@ export class WorldScene extends BaseScene {
     this.ui.add(this.night);
     this.hud = this.add.container(0, 0);
     this.ui.add(this.hud);
-    if (this.w.camp) this.waiting = true;
+    // after a battle the army did not win, the rest stays stopped until the player picks it again (QAFIX-WORLD S2-1)
+    const halted = camp.takeRestHalt();
+    if (this.w.camp && !halted) this.waiting = true;
     this.buildHud();
 
     this.input.on('pointerdown', this.onDown, this);
@@ -460,6 +462,8 @@ export class WorldScene extends BaseScene {
       const hours = Math.min(0.25, delta / 1000) * rate;
       const r = this.w.advance(hours, this.info, this.waiting);
       camp.tickWorld(r.hours);
+      // men heal as time passes: the bands see who is fit now (QAFIX-WORLD S2-1)
+      this.info = camp.playerInfo();
       this.saveTimer += delta;
       if (this.saveTimer > 8000) {
         this.saveTimer = 0;

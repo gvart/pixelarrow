@@ -1,0 +1,93 @@
+/**
+ * QA-03 world and campaign fixes (docs/v5/qa/PLAYTHROUGH.md S2-1, S2-2, S3-4, S4;
+ * the rules are in docs/v5/stories/QAFIX-WORLD/NOTES.md).
+ */
+import { describe, expect, it } from 'vitest';
+import { Campaign } from '../src/game/campaign';
+import { WORLD_RULES, partyArmy, type PartyState } from '../src/world/world';
+import { campBlocker } from '../src/world/camp';
+import type { Outcome } from '../src/game/loot';
+
+/** The party on the first tile near the start town where it may camp, camped. */
+function camped(seed: number): Campaign {
+  const c = Campaign.fresh(seed);
+  const w = c.world;
+  const m = w.map;
+  const st = m.settlements[m.start];
+  let best: { x: number; y: number; d: number } | null = null;
+  for (let y = 0; y < m.h; y++) {
+    for (let x = 0; x < m.w; x++) {
+      if (campBlocker(m, x, y)) continue;
+      const d = Math.hypot(x - st.x, y - st.y);
+      if (!best || d < best.d) best = { x, y, d };
+    }
+  }
+  w.s.x = best!.x + 0.5;
+  w.s.y = best!.y + 0.5;
+  expect(w.makeCamp()).toBeNull();
+  return c;
+}
+
+/** A strong band right on top of the camp, and no other band on the map. */
+function bandOnCamp(c: Campaign): PartyState {
+  const w = c.world;
+  const p = w.spawnParty('lair')!;
+  w.s.parties = [p];
+  p.x = w.s.x + 0.3;
+  p.y = w.s.y;
+  p.idle = 0;
+  p.power = Math.max(partyArmy(p, { nextId: 1 }).power, c.playerInfo().power * 3);
+  w.s.safeUntil = 0;
+  return p;
+}
+
+/** Rest in camp for `hours` as the World scene does; the encounters that opened. */
+function rest(c: Campaign, hours: number): number[] {
+  const met: number[] = [];
+  for (let h = 0; h < hours; h += 0.25) {
+    delete c.world.s.pendingEvent;
+    const r = c.world.advance(0.25, c.playerInfo(), true);
+    c.tickWorld(r.hours);
+    for (const e of r.events) if (e.type === 'encounter') met.push(e.party);
+  }
+  return met;
+}
+
+const lost = (over: Partial<Outcome> = {}): Outcome => ({ victory: false, draw: false, gold: 20, picks: 0, loot: [], heroes: [], enemyKilled: 0, enemyTotal: 6, lost: 0, ...over });
+
+describe('S2-1: a defeat in camp gives the army a real breather', () => {
+  it('the band that won leaves the army alone for WORLD_RULES.defeatRespiteH game hours of rest', () => {
+    const c = camped(7);
+    const p = bandOnCamp(c);
+    // control: without the defeat the band falls on the camp at once
+    expect(rest(c, 1)).toContain(p.id);
+    c.afterPartyBattle(p.id, lost());
+    expect(WORLD_RULES.defeatRespiteH).toBeGreaterThanOrEqual(12);
+    expect(rest(c, WORLD_RULES.defeatRespiteH - 0.5)).not.toContain(p.id);
+  });
+
+  it('the map comes back with the rest stopped after a defeat (once), not after a win', () => {
+    const c = camped(7);
+    const p = bandOnCamp(c);
+    c.afterPartyBattle(p.id, lost());
+    expect(c.takeRestHalt()).toBe(true);
+    expect(c.takeRestHalt()).toBe(false);
+    const q = bandOnCamp(c);
+    c.afterPartyBattle(q.id, lost({ victory: true, enemyKilled: 6 }));
+    expect(c.takeRestHalt()).toBe(false);
+  });
+
+  it('no band falls on an army with no fit man', () => {
+    const c = camped(9);
+    const p = bandOnCamp(c);
+    for (const h of c.data.heroes) h.wound = 200;
+    expect(c.playerInfo().fit).toBe(0);
+    expect(rest(c, 6)).not.toContain(p.id);
+    // one man back on his feet: the band comes
+    c.data.heroes[0].wound = 0;
+    p.x = c.world.s.x + 0.3;
+    p.y = c.world.s.y;
+    p.idle = 0;
+    expect(rest(c, 2)).toContain(p.id);
+  });
+});
