@@ -8,7 +8,8 @@ import { WORLD_RULES, partyArmy, type PartyState } from '../src/world/world';
 import { campBlocker } from '../src/world/camp';
 import type { Outcome } from '../src/game/loot';
 import { armyLine, encounterCopy } from '../src/game/encounter';
-import { setLang, t } from '../src/i18n';
+import { setLang, t, tOr } from '../src/i18n';
+import { generateMap } from '../src/world/map';
 import { fmtSigned } from '../src/i18n/numbers';
 import { campaignSetup, settleBattle, startLairAssault, timedOut } from '../src/game/campaignBattle';
 import { emptyLog, whyLine } from '../src/game/report';
@@ -198,6 +199,29 @@ describe('S4: the why-line against a lone beast', () => {
     expect(whyLine(emptyLog(), 0, 'victory', { beast: true })).toEqual([{ key: 'why.won.beast', params: {} }]);
     // an army keeps its line
     expect(whyLine(emptyLog(), 0, 'defeat')).toEqual([{ key: 'why.lost.held', params: {} }]);
+  });
+});
+
+describe('S4: lair names vary within a campaign', () => {
+  it('no two Galatae or bandit lairs of one map share a name, the names are the same for the same seed, and each has en and ru', () => {
+    let galatae = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const lairs = generateMap(seed).settlements.filter((s) => s.kind === 'lair');
+      const named = lairs.filter((s) => s.name !== 'Pirate cove').map((s) => s.name);
+      expect(new Set(named).size).toBe(named.length);
+      expect(generateMap(seed).settlements.filter((s) => s.kind === 'lair').map((s) => s.name)).toEqual(lairs.map((s) => s.name));
+      for (const s of lairs) {
+        // the map art keys its look off the name (overlandMap.ts lairProp)
+        expect(/Galatae/.test(s.name)).toBe(s.band === 'raiders');
+        if (/Galatae/.test(s.name)) galatae++;
+        for (const l of ['en', 'ru'] as const) {
+          setLang(l);
+          expect(tOr(`arc.lairName.${s.name}`, '')).not.toBe('');
+        }
+        setLang('en');
+      }
+    }
+    expect(galatae).toBeGreaterThan(40);
   });
 });
 
