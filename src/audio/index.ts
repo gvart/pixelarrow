@@ -12,7 +12,7 @@ import { onAppActive } from '../platform/telegram';
 import { AudioEngine, type AudioSettings, type PlayOpts } from './engine';
 import type { StingerId, TrackId } from './music';
 import type { SfxId } from './sfx';
-import { sceneTrack } from './hooks';
+import { battleAudio, sceneTrack } from './hooks';
 
 export const audio = new AudioEngine();
 
@@ -52,8 +52,11 @@ export function installAudio(game: Phaser.Game, settings: () => Partial<AudioSet
   const hook = (): void => {
     for (const s of game.scene.scenes) {
       const key = s.sys.settings.key;
+      // a battle left (or restarted) while paused must not keep the pause gate shut
+      if (key === 'Battle') s.sys.events.on('shutdown', () => audio.setPaused(false));
       s.sys.events.on('start', () => {
         audio.refresh();
+        if (key === 'Battle') audio.setPaused(false);
         const t = sceneTrack(key);
         if (t !== undefined) music.set(t, key === 'Results' ? 3 : 1.5);
       });
@@ -61,7 +64,8 @@ export function installAudio(game: Phaser.Game, settings: () => Partial<AudioSet
   };
   if (game.scene.isBooted) hook();
   else game.events.once('ready', hook);
-  Object.assign(window, { __audio: audio });
+  // the debug handle; `__audioBattle` lets scripts/audio-smoke.mjs feed battle events through the real hook
+  Object.assign(window, { __audio: audio, __audioBattle: battleAudio });
 }
 
 export type { SfxId, TrackId, StingerId, PlayOpts, AudioSettings };

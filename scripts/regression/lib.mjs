@@ -4,8 +4,10 @@
 // on a loaded machine where the game draws a few frames a second.
 //   - a scene is "settled" when it is active and running, its loader is idle
 //     (late art such as the clan fresco has landed) and its entry motion is over
-//     (BaseScene.enterMotion: ui.alpha 0 -> 1 and ui.x -> 0; until then Phaser
-//     drops a touch on anything inside ui, FIXER-5);
+//     (BaseScene.enterMotion: ui.alpha ENTRY_ALPHA -> 1 and ui.x -> 0, or a
+//     camera fade through parchment into and out of a field). Taps land during
+//     the entry (V5-067, the 'V5-067' flow in hub-flows.mjs); the wait keeps
+//     positions and screenshots steady;
 //   - Back is Telegram's header Back (the fake WebApp's BackButton), the path a
 //     player takes, so the nav stack is tested through its real host.
 import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, until } from '../lib/harness.mjs';
@@ -42,6 +44,7 @@ export function settled(api, key, ms = 20000) {
         // isActive: the scene's status is RUNNING (not starting or shutting down)
         if (!s || !s.sys.isActive()) return false;
         if (s.load.isLoading()) return false;
+        if (s.cameras.cameras.some((c) => c.fadeEffect.isRunning)) return false;
         return !s.ui || (s.ui.alpha === 1 && s.ui.x === 0);
       }, key),
     ms,

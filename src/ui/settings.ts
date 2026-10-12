@@ -221,7 +221,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
             onChange: (v) => {
               s[k] = v;
               audio.refresh();
-              if (k === 'sfxVol') audio.play('block');
+              if (k === 'sfxVol') audio.play('block', { bus: 'ui' });
               void state.save();
             },
           }),

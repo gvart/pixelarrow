@@ -35,6 +35,8 @@ export function tweenTo(scene: Phaser.Scene, targets: object | object[], props: 
     if (o.onComplete) scene.time.delayedCall(0, o.onComplete);
     return null;
   }
+  // an entry fade from alpha 0 starts at ENTRY_ALPHA, so its first frame takes taps (a sheet sliding in, V5-067)
+  if ((props.alpha ?? 0) > 0) for (const t of Array.isArray(targets) ? targets : [targets]) if ((t as { alpha?: number }).alpha === 0) (t as { alpha: number }).alpha = ENTRY_ALPHA;
   return scene.tweens.add({ targets, ...props, duration, delay: o.delay ?? 0, ease: o.ease ?? 'Cubic.easeOut', onComplete: o.onComplete, onUpdate: o.onUpdate });
 }
 

@@ -311,6 +311,128 @@ export const RECIPES = {
     [62, 65, 69, 74].forEach((m, i) => pluck(c, out, t + 0.15 + i * 0.035, midiHz(m), 0.22, 1.3, 0.7));
     return 1.4;
   },
+  // ---- FL-03: the juice tiers (src/ui/battleFx.ts JUICE_TIERS), one sound per tier on top of the per-man sounds
+  /** Impact tier: the weight of a whole line landing, a deep body thud under the per-man impacts. */
+  thud: (c, out, t, r) => {
+    const g = grit(c, out, 2);
+    osc(c, g, t, { f: r.jit(56, 0.06), f1: 27, dur: 0.38, gain: 0.85 });
+    noise(c, g, t, { dur: 0.3, gain: 0.5, f: r.jit(180, 0.15), type: 'lowpass', brown: true });
+    noise(c, out, t + 0.01, { dur: 0.12, gain: 0.18, f: r.jit(900, 0.2), q: 1.2 });
+    return 0.48;
+  },
+  /** Stakes tier: a charge breaking on sharpened stakes, wood cracking and splitting. */
+  splinter: (c, out, t, r) => {
+    const g = grit(c, out, 3);
+    for (let i = 0; i < 7; i++) noise(c, g, t + r.range(0, 0.18), { dur: r.range(0.01, 0.03), gain: r.range(0.25, 0.5), f: r.jit(1700, 0.35), q: 5 });
+    osc(c, g, t, { f: r.jit(160, 0.1), f1: 70, dur: 0.12, gain: 0.45 });
+    noise(c, out, t + 0.04, { dur: 0.3, gain: 0.2, f: 2400, f1: 900, q: 2 });
+    return 0.45;
+  },
+  /** Standard tier: a standard falls, cloth flapping down and the pole striking earth, a low drum. */
+  standardFall: (c, out, t, r) => {
+    const am = c.createGain();
+    am.gain.value = 0.5;
+    const lfo = c.createOscillator();
+    lfo.frequency.setValueAtTime(r.jit(11, 0.1), t);
+    lfo.frequency.linearRampToValueAtTime(5, t + 0.45);
+    const lg = c.createGain();
+    lg.gain.value = 0.5;
+    lfo.connect(lg).connect(am.gain);
+    am.connect(out);
+    noise(c, am, t, { dur: 0.45, gain: 0.45, f: r.jit(700, 0.15), f1: 300, type: 'lowpass', a: 0.05 });
+    lfo.start(t);
+    lfo.stop(t + 0.55);
+    const hit = t + 0.48;
+    osc(c, out, hit, { f: r.jit(110, 0.08), f1: 50, dur: 0.16, gain: 0.5 });
+    noise(c, out, hit, { dur: 0.1, gain: 0.35, f: 1200, q: 3 });
+    frameDrum(c, out, hit + 0.12, r, 0.45);
+    return 1.0;
+  },
+  /** Rout tier: the crowd groan of a breaking line, low and falling, under the rout's cries. */
+  groan: (c, out, t, r) => {
+    crowd(c, out, t, r, 1.7, 0.4, 6, 0.62);
+    noise(c, out, t + 0.2, { dur: 1.2, gain: 0.18, f: 420, f1: 220, q: 2, a: 0.3 });
+    return 1.75;
+  },
+  /** Army-break tier: two horns a fifth apart, falling together, and two drum strokes. Ducks the music. */
+  hornChord: (c, out, t, r) => {
+    const a = horn(c, out, t, r, 98, [[1.5, 0.5], [1, 1.1]], 0.3);
+    const b = horn(c, out, t + 0.03, r, 146.8, [[1.5, 0.5], [1, 1.1]], 0.22);
+    frameDrum(c, out, t, r, 0.6);
+    frameDrum(c, out, t + 0.5, r, 0.5);
+    return Math.max(a, b + 0.03);
+  },
+  // ---- FL-03: the signature actives (AB-02) get their own sounds
+  /** Push: a grunting heave, shields grinding forward. */
+  shove: (c, out, t, r) => {
+    grunt(c, out, t, r, 0.3, 0.4, 0.85);
+    const g = grit(c, out, 2.5);
+    osc(c, g, t + 0.05, { f: r.jit(70, 0.08), f1: 40, dur: 0.3, gain: 0.6 });
+    noise(c, g, t + 0.05, { dur: 0.35, gain: 0.4, f: 380, f1: 600, q: 1.5, a: 0.06 });
+    metal(c, out, t + 0.08, r.jit(620, 0.1), SHIELD, 0.25, 0.06);
+    return 0.5;
+  },
+  /** Bond: brothers close up, a low lyre fifth over a soft drum. */
+  bond: (c, out, t, r) => {
+    frameDrum(c, out, t, r, 0.4);
+    pluck(c, out, t + 0.05, midiHz(50), 0.3, 1.4, 0.6);
+    pluck(c, out, t + 0.12, midiHz(57), 0.26, 1.3, 0.6);
+    return 1.5;
+  },
+  /** Sunder: an axe biting through bronze, a cracked ring. */
+  sunder: (c, out, t, r) => {
+    const g = grit(c, out, 4);
+    noise(c, g, t, { dur: 0.05, gain: 0.6, f: r.jit(2800, 0.15), type: 'highpass' });
+    metal(c, out, t, r.jit(780, 0.1), [1, 1.37, 2.21, 2.93], 0.45, 0.14);
+    osc(c, g, t, { f: r.jit(110, 0.1), f1: 45, dur: 0.15, gain: 0.5 });
+    return 0.5;
+  },
+  /** Aimed shot: a bow drawn to the ear (creak), one hard release and a whistle. */
+  aimed: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.35, gain: 0.25, f: 500, f1: 1300, q: 8, a: 0.25 });
+    const go = t + 0.4;
+    pluck(c, out, go, r.jit(92, 0.04), 0.45, 0.4, 0.95);
+    noise(c, out, go + 0.02, { dur: 0.3, gain: 0.45, f: r.jit(3400, 0.1), f1: 1000, q: 5, a: 0.04 });
+    return 0.75;
+  },
+  /** Scythe: a wide blade swung low, a whoosh and a thin ring. */
+  scythe: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.35, gain: 0.6, f: r.jit(600, 0.1), f1: 2400, q: 1.5, a: 0.12 });
+    metal(c, out, t + 0.3, r.jit(2100, 0.08), [1, 1.71, 2.6], 0.4, 0.07);
+    return 0.7;
+  },
+  // ---- FL-03: field works in deployment (BattleScene placeWork / removeWork)
+  /** Stakes: a mallet driving stakes, three knocks on wood. */
+  worksStakes: (c, out, t, r) => {
+    for (let i = 0; i < 3; i++) {
+      const at = t + i * r.jit(0.13, 0.08);
+      osc(c, out, at, { f: r.jit(240, 0.1), f1: 130, dur: 0.05, gain: 0.4 });
+      noise(c, out, at, { dur: 0.03, gain: 0.35, f: r.jit(1300, 0.15), q: 4 });
+    }
+    return 0.45;
+  },
+  /** Ditch: two spadefuls of earth thrown. */
+  worksDig: (c, out, t, r) => {
+    for (const at of [0, r.jit(0.24, 0.1)]) {
+      noise(c, out, t + at, { dur: 0.05, gain: 0.3, f: r.jit(2600, 0.15), type: 'highpass' });
+      noise(c, out, t + at + 0.04, { dur: 0.16, gain: 0.5, f: r.jit(380, 0.15), type: 'lowpass', brown: true });
+    }
+    return 0.5;
+  },
+  /** Laager: a wagon rolled into line, a wheel creak and a wooden clunk. */
+  worksLaager: (c, out, t, r) => {
+    osc(c, out, t, { type: 'sawtooth', f: r.jit(520, 0.1), f1: 380, dur: 0.3, gain: 0.05, vib: [18, 60], a: 0.05 });
+    noise(c, out, t, { dur: 0.3, gain: 0.2, f: 900, q: 6, a: 0.05 });
+    osc(c, out, t + 0.32, { f: r.jit(150, 0.1), f1: 80, dur: 0.1, gain: 0.5 });
+    noise(c, out, t + 0.32, { dur: 0.06, gain: 0.35, f: 800, q: 2 });
+    return 0.5;
+  },
+  /** A work taken up: a pull and a soft knock. */
+  worksLift: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.15, gain: 0.3, f: 400, f1: 1400, q: 2, a: 0.04 });
+    osc(c, out, t + 0.16, { f: r.jit(200, 0.1), f1: 120, dur: 0.05, gain: 0.3 });
+    return 0.25;
+  },
   /** Level up: a rising Dorian lyre arpeggio and a bronze bell. */
   levelUp: (c, out, t, r) => {
     [62, 65, 69, 74, 77].forEach((m, i) => pluck(c, out, t + i * 0.075, midiHz(m), 0.3, 1.2, 0.75));
@@ -493,6 +615,20 @@ export const PRIORITY: Record<SfxId, number> = {
   volley: 9,
   berserk: 9,
   rallyCry: 9,
+  thud: 7,
+  splinter: 7,
+  standardFall: 8,
+  groan: 8,
+  hornChord: 10,
+  shove: 9,
+  bond: 9,
+  sunder: 9,
+  aimed: 9,
+  scythe: 9,
+  worksStakes: 9,
+  worksDig: 9,
+  worksLaager: 9,
+  worksLift: 9,
   levelUp: 10,
   coin: 9,
   click: 10,

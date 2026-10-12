@@ -23,6 +23,8 @@ type C = Phaser.GameObjects.Container;
 export const TAP = 22;
 /** Gap between neighbouring touch targets in UI px (the layout check wants 4 pt). */
 export const GAP = 3;
+/** Alpha factor of a held button that has no other pressed look. */
+const PRESS_DIM = 0.8;
 
 const ROMAN_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['rInk', 'rCream', 'rGold', 'rOff']);
 
@@ -119,6 +121,9 @@ export function makePressable(obj: C, o: PressOpts): void {
   // Phaser offsets a container's hit area by half its size
   obj.setInteractive(new Phaser.Geom.Rectangle(hit.x + o.w / 2, hit.y + o.h / 2, hit.w, hit.h), Phaser.Geom.Rectangle.Contains);
   const scene = obj.scene;
+  // every button answers a press on the same frame (FL-02): the face shrinks; with no face to shrink (or under
+  // Reduce motion) and no pressed look of its own, the button dims while held
+  let dimmed = false;
   const press = (on: boolean) => {
     if (!obj.scene) return;
     const blocked = o.disabled?.();
@@ -126,6 +131,9 @@ export function makePressable(obj: C, o: PressOpts): void {
     if (on) o.down?.();
     else o.up?.();
     o.face?.setScale(on && !motion.reduced ? 0.97 : 1);
+    const dim = on && !o.down && (!o.face || motion.reduced);
+    if (dim !== dimmed) obj.setAlpha(obj.alpha * (dim ? PRESS_DIM : 1 / PRESS_DIM));
+    dimmed = dim;
   };
   obj.on('pointerdown', () => press(true));
   obj.on('pointerup', () => press(false));

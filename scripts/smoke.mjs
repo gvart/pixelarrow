@@ -27,11 +27,9 @@ await ev(() => localStorage.clear());
 await page.goto(base);
 // boot is slow under load: wait for the game object and its menu (a fixed 2.5 s sleep failed, unnamed, on window.__rs())
 await need('menu active', await until(() => ev(() => !!window.__game?.scene.isActive('Menu')), 60000));
-// The menu enters with a fade (BaseScene.enterMotion: ui.alpha 0 -> 1, 200 ms). Until its first tween
-// step the ui container has alpha 0, and Phaser drops a touch on anything inside it (InputManager
-// inputCandidate: the parent does not render), so "Begin the march" tapped right as the scene became
-// active did nothing and "world map via Begin the march" timed out. Slow frames under load widen
-// that window: wait until the menu is fully in before tapping.
+// The menu enters with a slide and fade (BaseScene.enterMotion). Since FL-02 a tap lands during it (V5-067,
+// checked by scripts/regression/hub-flows.mjs), but the slide moves the buttons: wait until the menu is fully in
+// so the taps below hit where they aim.
 await need('menu entered', await until(() => ev(() => { const ui = window.__game.scene.getScene('Menu').ui; return ui.alpha === 1 && ui.x === 0; }), 15000, 100));
 const RS = await ev(() => window.__rs());
 // The event deck is on (EV-03): a card (after a battle, on arrival, on the march) waits for an answer and

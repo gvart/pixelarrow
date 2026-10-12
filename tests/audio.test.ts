@@ -4,7 +4,15 @@ import { AudioEngine, volGain } from '../src/audio/engine';
 import { MusicPlayer, TRACKS } from '../src/audio/music';
 import { RECIPES, PRIORITY, type SfxId } from '../src/audio/sfx';
 import { AudioRng } from '../src/audio/rng';
-import { spot } from '../src/audio/hooks';
+import { ABILITY_SFX, battleAudio, JUICE_SFX, spot, WORKS_SFX } from '../src/audio/hooks';
+import { busDb, busOf, dbToGain, DUCK, Ducker, gainToDb, STEP_DB, stepDb, TRIM_DB } from '../src/audio/mixer';
+import { HAPTICS, hapticCue } from '../src/audio/haptics';
+import { audio } from '../src/audio';
+import { ABILITY_IDS } from '../src/data/perks';
+import { WORK_TYPES, type SimEvent } from '../src/sim/types';
+import { Battle } from '../src/sim/battle';
+import { drainLogged } from '../src/game/report';
+import { standardSetup } from './helpers';
 
 // ---------------------------------------------------------------- a minimal Web Audio mock
 
@@ -351,4 +359,241 @@ describe('spatial mapping', () => {
   it('is louder zoomed in', () => {
     expect(spot(scene(3, -100), 0, 0).vol!).toBeGreaterThan(spot(scene(1, -200), 0, 0).vol!);
   });
+});
+
+// ---------------------------------------------------------------- FL-03: mixer, ducking, pause, juice tiers
+
+describe('mixer (dB)', () => {
+  it('volume steps are 2 dB apart, 10 is 0 dB and 0 is off', () => {
+    expect(stepDb(10)).toBe(-0);
+    expect(stepDb(9)).toBe(-STEP_DB);
+    expect(stepDb(1)).toBe(-18);
+    expect(stepDb(0)).toBe(-Infinity);
+    expect(stepDb(NaN)).toBe(-Infinity);
+    expect(stepDb(99)).toBe(-0);
+    expect(dbToGain(0)).toBe(1);
+    expect(dbToGain(-6)).toBeCloseTo(0.501, 2);
+    expect(dbToGain(-Infinity)).toBe(0);
+    expect(gainToDb(dbToGain(-12))).toBeCloseTo(-12);
+  });
+
+  it('Effects drives the SFX and UI buses; each bus has its trim', () => {
+    const b = busDb({ sound: true, musicVol: 10, sfxVol: 5 });
+    expect(b.music).toBe(TRIM_DB.music);
+    expect(b.sfx).toBe(-10 + TRIM_DB.sfx);
+    expect(b.ui).toBe(-10 + TRIM_DB.ui);
+    expect(busDb({ sound: true, musicVol: 0, sfxVol: 0 }).ui).toBe(-Infinity);
+  });
+
+  it('clicks, coins and the narrator are UI; battle sounds are SFX', () => {
+    for (const id of ['click', 'tap', 'back', 'error', 'coin', 'narrate', 'quill', 'chime', 'levelUp', 'warning'] as const) expect(busOf(id), id).toBe('ui');
+    for (const id of ['clash', 'horn', 'thud', 'hornChord', 'worksStakes'] as const) expect(busOf(id), id).toBe('sfx');
+  });
+
+  it('the deepest duck wins and each ends with its sound', () => {
+    const d = new Ducker();
+    d.add({ music: -7 }, 0, 1);
+    expect(d.depth('music', 0.2)).toBe(-7);
+    expect(d.depth('sfx', 0.2)).toBe(0);
+    d.add({ music: -10, sfx: -4 }, 0.5, 1);
+    expect(d.depth('music', 0.7)).toBe(-10);
+    expect(d.depth('sfx', 0.7)).toBe(-4);
+    expect(d.depth('music', 1.2)).toBe(-10);
+    expect(d.depth('music', 1.6)).toBe(0);
+    expect(d.depth('sfx', 1.6)).toBe(0);
+  });
+
+  it('horns duck the music', () => {
+    for (const id of ['horn', 'hornLow', 'hornChord'] as const) expect(DUCK[id]!.music, id).toBeLessThan(-5);
+  });
+});
+
+describe('AudioEngine buses (FL-03)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const make = () => {
+    const e = new AudioEngine(mockFactory);
+    e.configure(() => undefined);
+    e.unlock();
+    return { e, ctx: e.ctx as unknown as MockContext };
+  };
+
+  it('a horn ducks the music at once and the music comes back after it', () => {
+    const { e, ctx } = make();
+    expect(e.mix().liveMusicDuck).toBe(1);
+    expect(e.play('horn')).toBe(true);
+    expect(e.mix().duckMusicDb).toBe(DUCK.horn!.music);
+    expect(e.mix().liveMusicDuck as number).toBeCloseTo(dbToGain(DUCK.horn!.music));
+    ctx.currentTime += 5;
+    vi.advanceTimersByTime(100);
+    expect(e.mix().duckMusicDb).toBe(0);
+    expect(e.mix().liveMusicDuck).toBe(1);
+  });
+
+  it('a clash does not duck anything', () => {
+    const { e } = make();
+    e.play('clash');
+    expect(e.mix().duckMusicDb).toBe(0);
+    expect(e.mix().duckSfxDb).toBe(0);
+  });
+
+  it('paused: field sounds are refused and the world gate closes; UI sounds still play', () => {
+    const { e } = make();
+    e.setPaused(true);
+    expect(e.mix().paused).toBe(true);
+    expect(e.mix().liveWorld).toBe(0);
+    expect(e.play('clash')).toBe(false);
+    expect(e.play('horn')).toBe(false);
+    expect(e.stats.gated).toBe(2);
+    expect(e.play('click')).toBe(true);
+    // the Effects preview in Settings sounds on the UI bus even over a paused battle
+    expect(e.play('block', { bus: 'ui' })).toBe(true);
+    e.setPaused(false);
+    expect(e.mix().liveWorld).toBe(1);
+    expect(e.play('clash')).toBe(true);
+  });
+
+  it('a pause set before the context exists holds once it is built', () => {
+    const e = new AudioEngine(mockFactory);
+    e.configure(() => undefined);
+    e.setPaused(true);
+    e.unlock();
+    expect(e.mix().liveWorld).toBe(0);
+    expect(e.play('clash')).toBe(false);
+  });
+
+  it('counts what played, per id', () => {
+    const { e, ctx } = make();
+    e.play('thud');
+    ctx.currentTime += 1;
+    e.play('thud');
+    e.play('click');
+    expect(e.byId.thud).toBe(2);
+    expect(e.debug().byId).toEqual({ thud: 2, click: 1 });
+  });
+});
+
+describe('juice tiers and abilities have their sounds (FL-03)', () => {
+  it('every tier from the impact up lands with its own sound, higher in priority as the tier grows', () => {
+    const order = ['impact', 'stakes', 'standard', 'rout', 'armyBreak'] as const;
+    let prev = -1;
+    for (const k of order) {
+      const id = JUICE_SFX[k];
+      expect(id, k).toBeTruthy();
+      expect(RECIPES[id!], k).toBeTypeOf('function');
+      expect(PRIORITY[id!], k).toBeGreaterThanOrEqual(prev);
+      prev = PRIORITY[id!];
+    }
+    // a kill and an ability are their per-man sounds (death, ABILITY_SFX)
+    expect(JUICE_SFX.kill).toBeNull();
+    expect(JUICE_SFX.ability).toBeNull();
+  });
+
+  it('every ability has a sound, and the signature actives no longer borrow', () => {
+    for (const a of ABILITY_IDS) expect(RECIPES[ABILITY_SFX[a]], a).toBeTypeOf('function');
+    expect(ABILITY_SFX.push).toBe('shove');
+    expect(ABILITY_SFX.sunder).toBe('sunder');
+    expect(ABILITY_SFX.aimed).toBe('aimed');
+    expect(ABILITY_SFX.scythe).toBe('scythe');
+    expect(ABILITY_SFX.bond).toBe('bond');
+  });
+
+  it('every field work has a sound', () => {
+    for (const w of WORK_TYPES) expect(RECIPES[WORKS_SFX[w]], w).toBeTypeOf('function');
+  });
+
+  it('the haptics map: a row buzzes from the scene or from audio, never both', () => {
+    expect(hapticCue('impact', true)).toEqual({ kind: 'impact', style: 'medium' });
+    expect(hapticCue('impact', false)).toBeNull();
+    expect(hapticCue('armyBreak', false)).toEqual({ kind: 'notify', style: 'success' });
+    // scene rows (BattleScene fires them) are not fired again by audio
+    for (const k of ['kill', 'ability', 'rout'] as const) {
+      expect(HAPTICS[k].by).toBe('scene');
+      expect(hapticCue(k, true)).toBeNull();
+    }
+  });
+});
+
+describe('battleAudio through the real hook (FL-03)', () => {
+  const fakeScene = (now: number) => ({ time: { now }, cameras: { main: { zoom: 1, worldView: { x: 0, y: 0 } } }, scale: { width: 390, height: 844 } }) as never;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    (globalThis as { AudioContext?: unknown }).AudioContext = MockContext;
+    audio.configure(() => ({ sound: true, musicVol: 6, sfxVol: 7 }));
+    audio.unlock();
+    audio.setPaused(false);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (globalThis as { AudioContext?: unknown }).AudioContext;
+  });
+
+  it('each juice event plays its tier sound, once per gap, and the army break ducks the music', () => {
+    const b = new Battle(standardSetup(41, true).setup);
+    b.startBattle();
+    const ctx = audio.ctx as unknown as MockContext;
+    const count = (id: SfxId) => audio.byId[id] ?? 0;
+    const before = { thud: count('thud'), groan: count('groan'), hornChord: count('hornChord'), splinter: count('splinter'), standardFall: count('standardFall') };
+    const g = b.groups[0];
+    const u = b.units.find((x) => x.group === g.id)!;
+    const foe = b.units.find((x) => x.side !== u.side)!;
+    const ev = [
+      { type: 'impact', tick: 1, unit: u.id, by: foe.id },
+      { type: 'impact', tick: 1, unit: u.id, by: foe.id },
+      { type: 'stakesBreak', tick: 1, unit: foe.id, x: u.x, y: u.y },
+      { type: 'standardLost', tick: 1, side: u.side, unit: u.id },
+      { type: 'rout', tick: 1, side: g.side, group: g.id },
+      { type: 'armyBreak', tick: 1, side: g.side },
+    ] as SimEvent[];
+    const hash = b.hash();
+    battleAudio(fakeScene(1000), b, ev, 0);
+    expect(count('thud') - before.thud).toBe(1);
+    expect(count('splinter') - before.splinter).toBe(1);
+    expect(count('standardFall') - before.standardFall).toBe(1);
+    expect(count('groan') - before.groan).toBe(1);
+    expect(count('hornChord') - before.hornChord).toBe(1);
+    expect(audio.mix().duckMusicDb).toBe(DUCK.hornChord!.music);
+    // within the gap the tier sound does not repeat; after it, it does
+    ctx.currentTime += 0.5;
+    battleAudio(fakeScene(1100), b, [ev[0]], 0);
+    expect(count('thud') - before.thud).toBe(1);
+    ctx.currentTime += 0.5;
+    battleAudio(fakeScene(1500), b, [ev[0]], 0);
+    expect(count('thud') - before.thud).toBe(2);
+    // audio only reads the sim
+    expect(b.hash()).toBe(hash);
+  });
+
+  it('paused, the hook plays no field sound', () => {
+    const b = new Battle(standardSetup(41, true).setup);
+    b.startBattle();
+    const ctx = audio.ctx as unknown as MockContext;
+    ctx.currentTime += 10;
+    const played = audio.stats.played;
+    audio.setPaused(true);
+    battleAudio(fakeScene(9000), b, [{ type: 'armyBreak', tick: 1, side: 1 }] as SimEvent[], 0);
+    expect(audio.stats.played).toBe(played);
+    audio.setPaused(false);
+  });
+
+  it('audio never moves the sim: a battle with the hook equals one without', () => {
+    const run = (withAudio: boolean) => {
+      const b = new Battle(standardSetup(41, true).setup);
+      b.startBattle();
+      let now = 0;
+      for (let i = 0; i < 2400 && b.phase === 'battle'; i++) {
+        b.step();
+        const ev = drainLogged(b);
+        now += 50;
+        if (withAudio) battleAudio(fakeScene(now), b, ev, 0);
+      }
+      return { tick: b.tick, hash: b.hash() };
+    };
+    const played = audio.stats.played;
+    const a = run(true);
+    expect(audio.stats.played).toBeGreaterThan(played);
+    expect(a).toEqual(run(false));
+  }, 30_000);
 });
