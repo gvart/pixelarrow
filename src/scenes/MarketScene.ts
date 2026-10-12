@@ -8,7 +8,7 @@ import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import { makePressable } from '../ui/mosaic/base';
 import { ensureFonts } from '../ui/fonts';
 import {
-  GAP, addParchmentEmpty, fit, MButton, MChip, MIconButton, SHEET_ACTION_H, SHEET_TITLE_H, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, openParchmentSheet, rarityInk, sheetActionsH, wrapWords,
+  GAP, addParchmentEmpty, fit, MButton, oneFace, MChip, MIconButton, SHEET_ACTION_H, SHEET_TITLE_H, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, openParchmentSheet, rarityInk, sheetActionsH, wrapWords,
   type Box, type MButtonOpts,
 } from '../ui/mosaic';
 import { bigItemIcon, itemName, openItemCard } from '../ui/sheet';
@@ -309,10 +309,12 @@ export class MarketScene extends BaseScene {
       { id: 'cur', label: t(`market.cur.${this.q.cur}` as TKey), icon: this.q.cur === 'all' ? 'coin' : currencyIcon(this.q.cur), tip: t('market.curTip') },
       { id: 'sort', label: t(`market.sort.${this.q.sort}` as TKey), icon: 'log', tip: t('market.sortTip') },
     ];
-    filters.forEach((f, i) => {
+    const row = filters.map((f, i) => {
       const fx = x0 + i * (bw + GAP);
-      this.page.add(new MButton(this, fx, y, i === n - 1 ? x0 + w - fx : bw, FILTER_H, { variant: 'secondary', label: f.label, icon: f.icon, id: `market.${f.id}`, tip: f.tip, onClick: () => this.openFilter(f.id) }));
+      return new MButton(this, fx, y, i === n - 1 ? x0 + w - fx : bw, FILTER_H, { variant: 'secondary', label: f.label, icon: f.icon, id: `market.${f.id}`, tip: f.tip, onClick: () => this.openFilter(f.id) });
     });
+    oneFace(row);
+    this.page.add(row);
     y += FILTER_H + GAP;
     const refName = this.q.ref ? this.refLabel(this.q.ref) : t('market.anyItem');
     const findW = this.q.ref ? w - FILTER_H - GAP : w;

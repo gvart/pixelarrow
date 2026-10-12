@@ -267,6 +267,13 @@ export function fitCinzel(label: string, font: FontKey, room: number, sizes: rea
   return { text: r.text, font: r.inter ? inter : font, size: r.size, truncated: r.truncated };
 }
 
+/** `fitCinzel`'s fallback on its own: the label in the Inter twin of `font` at `size`, cut only when it must. */
+export function fitBody(label: string, font: FontKey, room: number, size: number): FittedLabel {
+  const inter = INTER_OF[font] ?? font;
+  const text = ellipsize(label, room, SHADOW_FONTS.has(inter), size);
+  return { text, font: inter, size, truncated: text !== label };
+}
+
 /**
  * Shortens a one-line text until it fits the width, ending it with "…". The
  * full text stays in the object's data (`fullText`) for a tooltip.
