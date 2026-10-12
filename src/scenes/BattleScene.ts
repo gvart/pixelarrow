@@ -25,7 +25,6 @@ import { SPACING, formationSlots, presetFrontage, rightOf, type FormationType } 
 import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import { grabAt, hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
 import { SPEEDS, nextSpeed, paceMode, realtimeLocked, speedLabel, startSpeed, type PaceMode } from '../ui/input/pace';
-import { ladderDeadline } from '../duel/client';
 import { LADDER, ticketClock } from '../duel/ladder';
 import { battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind, type Unlocks } from '../ui/input/attention';
 import { FACING_DIRS, mirrorX, nextZoom, pipSlot } from '../ui/input/singleTap';
@@ -452,7 +451,7 @@ export class BattleScene extends BaseScene {
     this.lastTickSound = -1;
     this.src = data?.source ?? null;
     this.tutorialData = !this.src && data?.tutorial ? data.tutorial : null;
-    this.ladderEnd = this.src ? ladderDeadline(this.src.setup) : null;
+    this.ladderEnd = this.src?.ladder?.deadline ?? null;
     this.pace = paceMode(!!this.src, this.ladderEnd !== null);
     // the saved battle speed (A11Y-21), within what this battle offers; the scripted tutorial runs at 1×
     this.speed = this.tutorialData ? 1 : startSpeed(this.pace, state.campaign.data.settings.battleSpeed);

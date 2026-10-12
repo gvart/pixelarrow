@@ -176,6 +176,12 @@ export interface LadderTicket {
   /** The server's clock when it answered (the ticket's countdown runs on the device's clock from it). */
   now?: number;
   expiresAt: number;
+  /**
+   * When the ticket runs out on THIS device's clock (Date.now() ms): expiresAt
+   * moved by the server's `now`, so a skewed phone clock cannot shorten it.
+   * Set by ladderStart; the ladder's BattleSource passes it on (`ladder`).
+   */
+  deadline: number;
   setup: BattleSetup;
   team: Hero[];
   enemies: Hero[];
@@ -301,23 +307,9 @@ export interface DuelSource {
 
 const outside = () => new ApiError(0, 'outside', 'Available in Telegram');
 
-/**
- * Ladder battles may pause and speed up (controls.md R10, V5-021): the battle
- * scene asks `ladderDeadline(source.setup)` whether its battle is a ladder
- * floor and when its ticket runs out. ladderStart registers the ticket's
- * setup object (the ladder's BattleSource passes it on as is) with the
- * deadline on this device's clock, so a skewed phone clock cannot shorten it.
- */
-const ladderDeadlines = new WeakMap<BattleSetup, number>();
-
-function registerLadder<T extends LadderTicket>(tk: T, serverNow: number): T {
-  if (tk?.setup && typeof tk.setup === 'object') ladderDeadlines.set(tk.setup, Date.now() + (tk.expiresAt - serverNow));
-  return tk;
-}
-
-/** When the ladder ticket of this battle setup runs out (Date.now() ms), or null: not a ladder battle. */
-export function ladderDeadline(setup: BattleSetup): number | null {
-  return ladderDeadlines.get(setup) ?? null;
+/** The ticket's deadline on this device's clock (`LadderTicket.deadline`), from the server's answer. */
+function withDeadline<T extends Omit<LadderTicket, 'deadline'>>(tk: T, serverNow: number): T & { deadline: number } {
+  return Object.assign(tk, { deadline: Date.now() + (tk.expiresAt - serverNow) });
 }
 
 /** After Cancel, how long the queue socket waits for a match the server was already making. */
@@ -364,8 +356,8 @@ export class ApiDuelSource implements DuelSource {
     return this.req<WithProfile<{ glory: number }>>('POST', '/shop/salvage', { uid, requestId: newRequestId() });
   }
   async ladderStart(floor: number) {
-    const tk = await this.req<LadderTicket>('POST', '/ladder/start', { floor, simVersion: SIM_VERSION });
-    return registerLadder(tk, tk?.now ?? Date.now());
+    const tk = await this.req<Omit<LadderTicket, 'deadline'>>('POST', '/ladder/start', { floor, simVersion: SIM_VERSION });
+    return withDeadline(tk, tk.now ?? Date.now());
   }
   ladderSubmit(ticket: string, sub: LadderSubmission) {
     return this.req<LadderReport>('POST', '/ladder/submit', { ticket, ...sub, simVersion: SIM_VERSION });
@@ -750,7 +742,7 @@ export class DemoDuelSource implements DuelSource {
     if (problem === 'over_budget') throw err('over_budget', `Your team is over this floor's ${floor.budget}-point budget`);
     if (problem === 'too_many') throw err('team_too_big', `At most ${DUEL_RULES.teamMax} heroes`);
     const seed = this.rng.int(1, 0x7fffffff);
-    const tk: LadderTicket = {
+    const tk = withDeadline({
       ticket: `demo${seed.toString(16).padStart(28, '0')}`,
       floor: floor.floor,
       boss: floor.boss,
@@ -759,9 +751,9 @@ export class DemoDuelSource implements DuelSource {
       setup: ladderSetup(seed, JSON.parse(JSON.stringify(team)) as Hero[], this.preset(this.p.use.ladder).formations, floor),
       team: JSON.parse(JSON.stringify(team)) as Hero[],
       enemies: floor.heroes,
-    };
+    }, this.clock());
     this.tickets.set(tk.ticket, tk);
-    return registerLadder(tk, tk.now!);
+    return tk;
   }
 
   async ladderSubmit(ticket: string, _sub: LadderSubmission, result: BattleResult) {

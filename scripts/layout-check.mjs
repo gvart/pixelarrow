@@ -247,6 +247,10 @@ const SCREENS = [
     ['duel-team-delete', { tab: 'team' }, 's.deletePreset(s.profile.loadout);'],
     ['duel-recruit', { tab: 'team' }, 's.openRecruit();'],
     ['duel-dismiss', { tab: 'team' }, 's.openDismiss();'],
+    // DUE-01: the Preset sheet behind the edited preset, the roster symbols, the duel level sheet
+    ['duel-preset', { tab: 'team' }, 's.openPresetSheet(s.profile.loadout);'],
+    ['duel-symbols', { tab: 'team' }, 's.openSymbols();'],
+    ['duel-level', { tab: 'ladder' }, 's.openLevel();'],
     ['duel-shop-offers', { tab: 'shop', shop: 'offers' }, ''],
     ['duel-shop-gear', { tab: 'shop', shop: 'gear' }, ''],
     ['duel-shop-sell', { tab: 'shop', shop: 'sell' }, ''],
@@ -299,6 +303,19 @@ const SCREENS = [
       await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
       await wait(p, 600);
       await call(p, 'Duel', 's.previewRaidResult(); return 1;');
+      await until(p, () => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 8000);
+      return wait(p, 3000);
+    },
+  },
+  {
+    // DUE-01: the report of a ladder floor reported after its 30-minute ticket (verified, paid nothing)
+    id: 'duel-ladder-expired',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Duel', { tab: 'ladder', preview: true, demoXp: 560 });
+      await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
+      await wait(p, 600);
+      await call(p, 'Duel', 's.previewLadderResult(true); return 1;');
       await until(p, () => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 8000);
       return wait(p, 3000);
     },

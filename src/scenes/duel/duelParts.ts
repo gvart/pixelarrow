@@ -8,7 +8,7 @@ import Phaser from 'phaser';
 import { addIcon, scaleIcon, type FontKey } from '../../ui/kit';
 import { uiId } from '../../ui/layout';
 import { pulse, hop } from '../../ui/motion';
-import { MOSAIC, SPACE } from '../../ui/tokens';
+import { MOSAIC, SPACE, TEXT_MIN } from '../../ui/tokens';
 import { LINE_H, wrapText } from '../../ui/textfit';
 import { addChestSprite } from '../../art/menuSprites';
 import { addCosmetic } from '../../ui/econ/textures';
@@ -130,16 +130,16 @@ export interface FloorTileOpts {
   state: 'cleared' | 'next' | 'locked';
   boss: boolean;
   stars: number;
-  /** What a replay pays ("+13"); null: not shown (a narrow tile or no farm Glory left). */
-  farm: number | null;
-  farmOn: boolean;
   onClick: () => void;
   id: string;
 }
 
 export const FLOOR_H = 29;
 
-/** One floor of a chapter: its number, the Glory a replay pays and its stars; the next floor is terracotta, locked ones are grey stone with a padlock. */
+/**
+ * One floor of a chapter: its number, a glyph for its state (▸ next, ✓ cleared) and its stars; the next floor is
+ * terracotta on a glow, locked ones are grey stone with a padlock. What a replay pays is on the floor's sheet.
+ */
 export class FloorTile extends Phaser.GameObjects.Container {
   readonly w: number;
   readonly h = FLOOR_H;
@@ -163,17 +163,21 @@ export class FloorTile extends Phaser.GameObjects.Container {
     const iconW = o.boss ? 11 : 0;
     const lw = mw(label, font, size);
     const mid = this.w / 2;
-    if (o.farm !== null && !o.boss) {
-      P(mtext(scene, 4, 4, label, font, { size, box: frame }));
-      P(mtext(scene, this.w - 3, 5, `+${o.farm}`, o.farmOn ? 'glory' : 'muted', { size: 6, align: 1, box: frame }));
-    } else {
-      const x0 = Math.round(mid - (iconW + lw) / 2);
-      if (o.boss) {
-        const sk = scaleIcon(addIcon(scene, 0, 0, 'skull', locked ? 'D' : 'L'), 0.9);
-        sk.setPosition(x0, 3);
-        P(sk);
-      }
-      P(mtext(scene, x0 + iconW, 4, label, font, { size, box: frame }));
+    // the state in a glyph, not colour alone (G13): "next" a chevron, "cleared" a check (the padlock marks a locked one)
+    const glyph = next ? 'chevR' : o.state === 'cleared' ? 'check' : null;
+    const GW = 8;
+    const withGlyph = !!glyph && 4 + iconW + lw + 2 + GW + 3 <= this.w;
+    const x0 = withGlyph ? 4 : Math.round(mid - (iconW + lw) / 2);
+    if (o.boss) {
+      const sk = scaleIcon(addIcon(scene, 0, 0, 'skull', locked ? 'D' : 'L'), 0.9);
+      sk.setPosition(x0, 3);
+      P(sk);
+    }
+    P(mtext(scene, x0 + iconW, 4, label, font, { size, box: frame }));
+    if (withGlyph) {
+      const gl = scaleIcon(addIcon(scene, 0, 0, glyph!, 'L'), GW / 12);
+      gl.setPosition(this.w - GW - 3, 5);
+      P(gl);
     }
     const g = scene.add.graphics();
     if (locked) {
@@ -223,7 +227,7 @@ export class ChestSlot extends Phaser.GameObjects.Container {
       const ck = scaleIcon(addIcon(scene, 0, 0, 'check', 'L'), 0.67);
       ck.setPosition(Math.round(this.w / 2 - ck.displayWidth / 2), this.h - 10);
       P(ck);
-    } else P(mtext(scene, this.w / 2, this.h - 10, `${o.need}`, o.state === 'ready' ? 'rGold' : 'rOff', { size: 6, align: 0.5, box: frame }));
+    } else P(mtext(scene, this.w / 2, this.h - 10, `${o.need}`, o.state === 'ready' ? 'rGold' : 'rOff', { size: TEXT_MIN, align: 0.5, box: frame }));
     makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick, tip: o.tip });
     uiId(this, o.id);
     scene.add.existing(this);
@@ -274,6 +278,8 @@ export interface PresetChipOpts {
   /** The "+" chip of a new preset (an icon instead of a label). */
   plus?: boolean;
   selected?: boolean;
+  /** The edited preset: a pen in its corner says a tap opens its tools (the Preset sheet). */
+  tools?: boolean;
   onClick: () => void;
   tip?: string;
   id: string;
@@ -301,7 +307,13 @@ export class PresetChip extends Phaser.GameObjects.Container {
       ic.setPosition(Math.round((this.w - ic.displayWidth) / 2), Math.round((this.h - ic.displayHeight) / 2));
       P(ic);
     } else {
-      P(mtext(scene, this.w / 2, 4, fit(o.label ?? '', 'pInk', 7, this.w - 6), o.selected ? 'rInk' : 'pInk', { size: 7, align: 0.5, box: frame }));
+      const pen = o.tools ? 10 : 0;
+      P(mtext(scene, (this.w - pen) / 2, 4, fit(o.label ?? '', 'pInk', 7, this.w - 6 - pen), o.selected ? 'rInk' : 'pInk', { size: 7, align: 0.5, box: frame }));
+      if (pen) {
+        const ic = scaleIcon(addIcon(scene, 0, 0, 'pen'), 8 / 12);
+        ic.setPosition(this.w - 11, 4);
+        P(ic);
+      }
       const uses = o.uses ?? [];
       const iw = 8;
       let ix = Math.round(this.w / 2 - (uses.length * (iw + 2) - 2) / 2);

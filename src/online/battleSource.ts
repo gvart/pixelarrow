@@ -40,8 +40,15 @@ export interface BattleSource {
   label: string;
   /** Live duel: the other player's name. */
   opponent?: string;
-  /** Live duel: orders through the relay. (Every online battle has no pause and no speed-up.) */
+  /** Live duel: orders through the relay. (Real-time: no pause and no speed-up.) */
   lockstep?: LockstepDriver;
+  /**
+   * A duel ladder floor (a bot, verified by replay after): it may pause and run
+   * at 0.5x-2x (controls.md R10). `deadline`: when its ticket runs out on this
+   * device's clock (Date.now() ms); the battle counts it down from 5 min left.
+   * Absent on every other online battle.
+   */
+  ladder?: { deadline: number };
   /** The battle ended (or was aborted): the source takes over (submit, show the result...). */
   onFinish(sim: Battle, deployOrders: number): void;
   /** Back button during deployment. */

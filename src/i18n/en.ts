@@ -48,6 +48,7 @@ import { CAMP_V5_EN } from './camp.v5.en';
 import { SETTLEMENT_EN } from './settlement.en';
 import { ARC_EN } from './arc.en';
 import { WAR_V5_EN } from './war.v5.en';
+import { DUELS_V5_EN } from './duels.v5.en';
 
 export const EN = {
   // ---- shared words
@@ -379,4 +380,6 @@ export const EN = {
   ...ARC_EN,
   // ---- the v5 War hub and War army (war.v5.en.ts)
   ...WAR_V5_EN,
+  // ---- the v5 Duels hub (duels.v5.en.ts)
+  ...DUELS_V5_EN,
 } as const;

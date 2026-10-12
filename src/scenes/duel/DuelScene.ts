@@ -30,29 +30,30 @@
 import { SETS, setPieces } from '../../data/sets';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { ScrollArea, addIcon, scaleIcon, tappable } from '../../ui/kit';
+import { ScrollArea, addIcon, fitCinzel, scaleIcon, tappable } from '../../ui/kit';
 import { addModeBanner } from '../../ui/modeArt';
-import { DragDrop, addGroupBadge, addStars, className, defaultStashState, itemName, openClassCard, openItemCard, roleColor, roleName, type StashState } from '../../ui/sheet';
-import { ItemIcon, confirmDialog, showTooltip, toast, Badge } from '../../ui/widgets';
+import { DragDrop, className, defaultStashState, itemName, openClassCard, openItemCard, roleName, type StashState } from '../../ui/sheet';
+import { ItemIcon, confirmDialog, showTooltip, toast } from '../../ui/widgets';
 import { LINE_H, ellipsize, measureText, wrapText } from '../../ui/textfit';
 import { uiId } from '../../ui/layout';
 import { ensureFonts } from '../../ui/fonts';
-import { openLegend } from '../../ui/v3';
-import { MODE_ICON, MOSAIC, RESOURCES, ROLE, SPACE } from '../../ui/tokens';
+import { MODE_ICON, MOSAIC, RESOURCES, SPACE, TEXT_MIN } from '../../ui/tokens';
 import { uiCoin } from '../../audio/hooks';
 import { motion } from '../../ui/motion';
 import { addChestSprite } from '../../art/menuSprites';
 import {
   MBar, MButton, MIconButton, MStashGrid, FrescoBanner, addPill, addRarityPill, rarityInk, ParchmentCard, SECTION_TITLE_H, SectionTitle, SegmentedSwitch, MChip, addHubShell, addSubShell, addTipLine, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H,
-  MBadge, type MButtonOpts,
+  MBadge, TAP, buttonLabelSizes, type MButtonOpts,
 } from '../../ui/mosaic';
+import { ARMY_ROW_H, addGroupDisc, addRosterRow, armyPill, armyPillW, pendingPoints, type ArmySource } from '../../ui/army';
+import { FRESCO_H, fmtCount, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from './hubLayout';
 import { hapticNotify } from '../../platform/telegram';
 import { RARITY_LABEL, SLOTS, isBound, itemDef, normalizeEquip, normalizeItem, type Item, type Slot } from '../../data/items';
 import type { Hero } from '../../data/units';
 import { CLASSES } from '../../data/classes';
 import { heroClass } from '../../sim/stats';
 import { econState, type EconState } from '../../game/economy';
-import { heroNeedsAttention, heroStars } from '../../game/gear';
+import { heroNeedsAttention } from '../../game/gear';
 import { lastBattle, type BattleReport } from '../../game/report';
 import type { BattleSource } from '../../online/battleSource';
 import type { Battle } from '../../sim/battle';
@@ -61,7 +62,7 @@ import {
   DUEL_CLASSES, DUEL_RULES, catalogue, classPoints, cleanPresetName, dailyOffers, deltaParts, duelRecruit, heroPoints, levelProgress, offerSummary, recruitPrice, sellPrice, teamPoints, teamProblem,
   type ShopOffer,
 } from '../../duel/rules';
-import { CHAPTERS, CHEST_TIERS, LADDER, chapterFloors, chapterMaxStars, chapterOf, chapterStars, chestReward, chestState, floorReward, isBoss, ladderFloor, type ChestState } from '../../duel/ladder';
+import { CHAPTERS, CHEST_TIERS, LADDER, chapterFloors, chapterMaxStars, chapterOf, chapterStars, chestReward, chestState, isBoss, ladderFloor, type ChestState } from '../../duel/ladder';
 import {
   DemoDuelSource, LOADOUT_USES, duelSource, type AsyncTicket, type AsyncView, type AsyncLogEntry, type Board, type ChestClaim, type DemoMatch, type DuelProfileView, type DuelSource,
   type LadderReport, type LadderTicket, type LeaderboardView, type Loadout, type LoadoutUse, type QueueEvent, type RankedView, type SeasonRewardView, type SeasonView,
@@ -113,7 +114,7 @@ export interface DuelSceneData {
    * floor, `first`: its first clear, `stars` / `newBest`: the stars it earned
    * and whether they beat the floor's best).
    */
-  result?: { glory: number; won: boolean; draw?: boolean; floor?: number; first?: boolean; stars?: number; newBest?: boolean };
+  result?: { glory: number; won: boolean; draw?: boolean; floor?: number; first?: boolean; stars?: number; newBest?: boolean; expired?: boolean };
   /** Boot after a reload: go straight back into this live match (or show its report). */
   rejoin?: { id: string; mode: DuelMode };
 }
@@ -173,6 +174,29 @@ function matchResult(glory: number, winner: number, side: number, draw = false):
 /** "Team 2" or the name a preset was given. */
 export function presetLabel(l: Pick<Loadout, 'slot' | 'name'>): string {
   return l.name?.trim() || t('duels.loadout', { n: l.slot });
+}
+
+/**
+ * The duel army as the Army template's source (src/ui/army, D6), for its roster rows: the heroes, their points to
+ * spend, their cost in team points (on the status line), no purse. Gear, perks and respec go through the Hero sheet's DuelHeroSource (server calls),
+ * so the template's synchronous changes are refused here.
+ */
+function duelArmy(p: DuelProfileView): ArmySource {
+  return {
+    kind: 'duel',
+    heroes: () => p.heroes,
+    stash: () => p.stash,
+    maxArmy: () => DUEL_RULES.rosterMax,
+    gold: () => null,
+    repairCost: () => 0,
+    equip: () => false,
+    unequip: () => false,
+    repair: () => false,
+    setGroup: () => false,
+    pending: pendingPoints,
+    // in the duel what a hero costs matters more than his rank: his points take the stars' place on the row
+    status: (h) => ({ text: t('duels.pts', { n: heroPoints(h) }), bad: false }),
+  };
 }
 
 /** The one fixed action of a view. */
@@ -486,7 +510,7 @@ export class DuelScene extends BaseScene {
   /** The title of the view on its top bar (a sub-screen). */
   private viewTitle(): string {
     if (this.tab === 'team') return t('duels.view.team');
-    if (this.tab === 'shop') return t('duels.view.shop');
+    if (this.tab === 'shop') return t('d5.armoury');
     if (this.tab === 'ranked' && this.arenaTab === 'raid') return t('duels.card.raids');
     if (this.tab === 'ranked' && this.arenaTab === 'board') return t(`duels.view.board.${this.board === 'async' ? 'async' : 'live'}` as TKey);
     if (this.found) return t(`duels.searchMode.${this.found.mode}` as TKey);
@@ -620,63 +644,66 @@ export class DuelScene extends BaseScene {
   // ------------------------------------------------------------------ header
 
   /**
-   * Glory, the duel level with its XP line (a tap explains it) and the Team and
-   * Shop buttons (Team badged when a fighting hero has points or a perk to
-   * spend); on a narrow page the buttons take a row of their own. Returns the
+   * Glory, the duel level with its XP line (a tap explains it) and, on the
+   * hub, the Team and Armoury buttons: all on ONE row (M-2, DUE-4). Team is
+   * badged when a fighting hero has points or a perk to spend. A button whose
+   * label does not fit its share is icon-only (its name in its tip). The Team
+   * and Armoury views show the chips alone: no cross-links (D11). Returns the
    * height.
    */
-  private headerRow(c: Phaser.GameObjects.Container, y: number, w: number, p: DuelProfileView, o: { team?: boolean; shop?: boolean }): number {
+  private headerRow(c: Phaser.GameObjects.Container, y: number, w: number, p: DuelProfileView, o: { links?: boolean } = {}): number {
     const lp = levelProgress(p.xp);
     const shown = this.heldGlory ?? this.shownGlory ?? p.glory;
     const lv = t('dv.lvShort', { n: lp.level });
-    const gw = MChip.width({ icon: 'laurel', value: Math.max(shown, p.glory), tall: true }, 36);
-    const lw = MChip.width({ icon: 'xp', value: lv, tall: true }, 40);
-    const buttons: { label: string; icon?: string; id: string; tip: string; badge?: string; go: 'team' | 'shop' }[] = [];
-    if (o.team) buttons.push({ label: t('dv.team'), id: 'duel.team', tip: t('dv.teamTip'), badge: this.fightingHeroes(p).some(heroNeedsAttention) ? '!' : undefined, go: 'team' });
-    if (o.shop) buttons.push({ label: t('dv.shop'), id: 'duel.shop', tip: t('dv.shopTip'), go: 'shop' });
-    // the buttons keep their label at full size; a row that cannot hold everything puts them under the chips
-    const need = buttons.map((b) => Math.ceil(mw(b.label.toUpperCase(), 'rCream', 7)) + 14);
-    const G = 2;
-    const natural = [gw, lw, ...need];
-    const oneRow = natural.reduce((a, n) => a + n, 0) + G * (natural.length - 1) <= w;
-    /** Lays boxes of the given widths from x0, sharing what is left of `room` among those from `share` on. */
-    const lay = (x0: number, widths: number[], room: number, share: number, make: (i: number, x: number, bw: number) => void): void => {
-      const spare = Math.max(0, room - widths.reduce((a, n) => a + n, 0) - G * (widths.length - 1));
-      const n = widths.length - share;
-      let x = x0;
-      widths.forEach((w0, i) => {
-        const extra = i < share ? 0 : Math.floor(spare / n) + (i === widths.length - 1 ? spare - Math.floor(spare / n) * n : 0);
-        make(i, x, w0 + extra);
-        x += w0 + extra + G;
-      });
-    };
-    const chip = (i: number, x: number, bw: number, ry: number): void => {
-      if (i === 0) {
-        const gc = new MChip(this, x, ry, { w: bw, tall: true, surface: 'stone', icon: 'laurel', value: shown, id: 'duel.glory', tip: t('res.glory') });
-        c.add(gc);
-        this.gloryChip = gc;
-      } else c.add(new MChip(this, x, ry, { w: bw, tall: true, surface: 'stone', icon: 'xp', value: lv, progress: lp.need ? lp.into / lp.need : 1, progressColor: RESOURCES.xp.color, onClick: () => this.openLevel(), tip: t('dv.lvTitle', { n: lp.level }), id: 'duel.level' }));
-    };
-    const button = (i: number, x: number, bw: number, ry: number): void => {
+    const buttons: { label: string; icon: string; id: string; tip: string; badge?: string; go: 'team' | 'shop' }[] = o.links
+      ? [
+          { label: t('dv.team'), icon: 'people', id: 'duel.team', tip: t('d5.teamTip'), badge: this.fightingHeroes(p).some(heroNeedsAttention) ? '!' : undefined, go: 'team' },
+          { label: t('d5.armoury'), icon: 'helmet', id: 'duel.shop', tip: t('d5.armouryTip'), go: 'shop' },
+        ]
+      : [];
+    // without the buttons the two chips share the row
+    const gw = o.links ? MChip.width({ icon: 'laurel', value: fmtCount(Math.max(shown, p.glory)), tall: true }, 36) : Math.floor((w - 2) / 2);
+    const lw = o.links ? MChip.width({ icon: 'xp', value: lv, tall: true }, 40) : w - gw - 2;
+    const sizes = buttonLabelSizes(TAP);
+    // a button keeps its label while it fits at 6.5 or more (the icon goes first, inside MButton)
+    const fits = (i: number, bw: number) => !fitCinzel(buttons[i].label, 'rCream', bw - 14, sizes).truncated;
+    const lay = headerLayout(w, [gw, lw], buttons.length, fits);
+    const [gBox, lBox] = lay.chips;
+    const gc = new MChip(this, 1 + gBox.x, y, { w: gBox.w, tall: true, pad: lay.tight ? 6 : undefined, surface: 'stone', icon: 'laurel', value: fmtCount(shown), id: 'duel.glory', tip: t('res.glory') });
+    c.add(gc);
+    this.gloryChip = gc;
+    c.add(new MChip(this, 1 + lBox.x, y, { w: lBox.w, tall: true, pad: lay.tight ? 6 : undefined, surface: 'stone', icon: 'xp', value: lv, progress: lp.need ? lp.into / lp.need : 1, progressColor: RESOURCES.xp.color, onClick: () => this.openLevel(), tip: t('dv.lvTitle', { n: lp.level }), id: 'duel.level' }));
+    // the narrowest screens (320x568 in Telegram) put the buttons on a row of their own
+    const by = lay.rows === 2 ? y + TAP + GAP : y;
+    lay.buttons.forEach((box, i) => {
       const bt = buttons[i];
-      c.add(new MButton(this, x, ry, bw, 22, { label: bt.label, variant: 'secondary', badge: bt.badge, tip: bt.tip, id: bt.id, onClick: () => this.openView(bt.go) }));
-    };
-    let h = 22;
-    if (oneRow) {
-      lay(1, natural, w, buttons.length ? 2 : 0, (i, x, bw) => (i < 2 ? chip(i, x, bw, y) : button(i - 2, x, bw, y)));
-    } else {
-      lay(1, [gw, lw], w, 0, (i, x, bw) => chip(i, x, bw, y));
-      if (buttons.length) {
-        lay(1, buttons.map(() => 0), w, 0, (i, x, bw) => button(i, x, bw, y + 22 + GAP));
-        h = 22 + GAP + 22;
-      }
-    }
-    // Glory counts to its new value after a change
+      const go = () => this.openView(bt.go);
+      c.add(
+        box.label
+          ? new MButton(this, 1 + box.x, by, box.w, TAP, { label: bt.label, icon: bt.icon, variant: 'secondary', badge: bt.badge, tip: bt.tip, id: bt.id, onClick: go })
+          : new MIconButton(this, 1 + box.x, by, box.w, TAP, { icon: bt.icon, label: bt.label, tip: `${bt.label}: ${bt.tip}`, badge: bt.badge, id: bt.id, onClick: go }),
+      );
+    });
+    // Glory counts to its new value after a change (the chip's count writes plain digits: only below 1000)
     if (this.heldGlory === null) {
-      if (this.gloryChip && this.shownGlory !== null && this.shownGlory !== p.glory) this.gloryChip.setValue(p.glory);
+      if (this.shownGlory !== null && this.shownGlory !== p.glory) {
+        if (Math.max(this.shownGlory, p.glory) < 1000) gc.setValue(p.glory);
+        else this.redrawGlory(p.glory);
+      }
       this.shownGlory = p.glory;
     }
-    return h;
+    return lay.rows === 2 ? TAP + GAP + TAP : TAP;
+  }
+
+  /** The Glory chip shows `v` at once, grouped ("12 400"): the chip's own count-up writes plain digits. */
+  private redrawGlory(v: number): void {
+    const chip = this.gloryChip;
+    const parent = chip?.parentContainer;
+    if (!chip?.active || !parent) return;
+    const n = new MChip(this, chip.x, chip.y, { w: chip.w, tall: true, surface: 'stone', icon: 'laurel', value: fmtCount(v), id: 'duel.glory', tip: t('res.glory') });
+    parent.addAt(n, parent.getIndex(chip));
+    chip.destroy();
+    this.gloryChip = n;
   }
 
   /** The duel level: XP to the next one, where duel XP comes from, what the next levels open. */
@@ -701,18 +728,18 @@ export class DuelScene extends BaseScene {
     const m = openParchmentSheet(this, { title: t('dv.lvTitle', { n: lp.level }), w, h: SHEET_PAD + bodyH, id: 'duel.levelSheet' });
     const { c, body: b } = m;
     let y = b.y;
-    c.add(new MBar(this, b.x, y, b.w, { value: lp.need ? lp.into : 1, max: lp.need || 1, color: RESOURCES.xp.color, label: lp.need ? t('dv.lvXp', { a: lp.into, b: lp.need, n: lp.level + 1 }) : t('dv.lvMax'), h: 5 }));
+    c.add(new MBar(this, b.x, y, b.w, { value: lp.need ? lp.into : 1, max: lp.need || 1, color: RESOURCES.xp.color, label: lp.need ? t('dv.lvXp', { a: fmtCount(lp.into), b: fmtCount(lp.need), n: lp.level + 1 }) : t('dv.lvMax'), h: 5 }));
     y += 20 + 6;
     ptext(this, c, b.x, y, wHow.lines.join('\n'), 'ink');
     y += wHow.lines.length * LINE_H + 5;
     ptext(this, c, b.x, y, wNext.lines.join('\n'), 'sec');
   }
 
-  /** The hub's top: the title, the header row, the mode's pixel banner and the Ladder | Arena switch. Returns the y below. */
+  /** The hub's top: the title, the one header row, the mode's fresco (tall screens only) and the Ladder | Arena switch. Returns the y below. */
   private hubTop(c: Phaser.GameObjects.Container, y: number, w: number, p: DuelProfileView, art: 'ladder' | 'arena'): number {
     c.add(new SectionTitle(this, 1, y, w, t('dv.title')));
     if (this.src.demo) {
-      const note = ptext(this, c, w, y + 2, t('dv.demo'), 'muted', { size: 6, align: 1 });
+      const note = ptext(this, c, w, y + 2, t('dv.demo'), 'muted', { size: TEXT_MIN, align: 1 });
       const zw = Math.max(22, Math.ceil(note.width) + 8);
       const z = this.add.zone(w + 1 - zw, y - 2, zw, 22).setOrigin(0, 0).setInteractive();
       uiId(z, 'duel.demo');
@@ -720,11 +747,11 @@ export class DuelScene extends BaseScene {
       c.add(z);
     }
     y += SECTION_TITLE_H + (this.src.demo ? 6 : 2);
-    y += this.headerRow(c, y, w, p, { team: true, shop: true }) + GAP;
-    // the mode's illustrated banner: where you are, at a glance
-    if (this.m.VH >= 330) {
-      c.add(new FrescoBanner(this, 1, y, w, 36, { label: art, id: `duel.banner.${art}`, art: (parent, ax, ay, aw, ah) => addModeBanner(this, parent, ax, ay, aw, ah, art) }));
-      y += 36 + GAP;
+    y += this.headerRow(c, y, w, p, { links: true }) + GAP;
+    // the mode's illustrated banner, small and only on a tall screen: the floors come first (M-2, DUE-1)
+    if (showFresco(this.m.VH)) {
+      c.add(new FrescoBanner(this, 1, y, w, FRESCO_H, { label: art, id: `duel.banner.${art}`, art: (parent, ax, ay, aw, ah) => addModeBanner(this, parent, ax, ay, aw, ah, art) }));
+      y += FRESCO_H + GAP;
     }
     c.add(
       new SegmentedSwitch(this, 1, y, w, {
@@ -743,9 +770,7 @@ export class DuelScene extends BaseScene {
     this.arrival = null;
     if (!a || !this.profile || this.st !== 'ready') return;
     if (a.floor) {
-      let text = !a.won ? t('duels.backLost', { n: a.floor }) : a.first ? t('duels.backWon', { n: a.floor, g: a.glory }) : t('duels.backReplay', { n: a.floor, g: a.glory });
-      if (a.won && a.stars) text += ` · ${a.newBest && !a.first ? t('duels.backBest', { s: a.stars }) : t('duels.backStars', { s: a.stars })}`;
-      toast(this, text, a.won ? 'good' : 'info', 3200, 'bottom');
+      toast(this, ladderArrival({ ...a, floor: a.floor }), a.won && !a.expired ? 'good' : 'info', a.expired ? 4200 : 3200, 'bottom');
       const c = this.nextCard;
       if (a.won && a.first && this.tab === 'ladder' && c) {
         const ring = addFocusRing(this, c.parent, c.x, c.y, c.w, c.h);
@@ -753,7 +778,8 @@ export class DuelScene extends BaseScene {
       }
       return;
     }
-    const text = a.draw ? t('duels.backMatchDraw', { g: a.glory }) : a.won ? t('duels.backMatchWon', { g: a.glory }) : t('duels.backMatchLost', { g: a.glory });
+    const g = fmtCount(a.glory);
+    const text = a.draw ? t('duels.backMatchDraw', { g }) : a.won ? t('duels.backMatchWon', { g }) : t('duels.backMatchLost', { g });
     toast(this, text, a.won && !a.draw ? 'good' : 'info', 2800, 'bottom');
   }
 
@@ -783,11 +809,13 @@ export class DuelScene extends BaseScene {
     const why = problem ? t(`duels.why.${problem}` as TKey, { n: f.budget }) : undefined;
     const capped = p.ladder.farmLeft <= 0;
     const chest = this.readyChest(p);
-    // a tip only when there is something to do about it: a team problem, a chest to claim
-    const sentence = problem === 'over_budget' ? t('duels.sit.ladderOver', { n, b: f.budget }) : (why ?? (chest ? t('duels.sit.chestReady', { n: chest.ch }) : ''));
-    const { area, c, w } = this.openShell(true, '', done ? null : { label: t('duels.fightFloor', { n }), icon: 'swords', id: 'duel.fightNext', off: why, onClick: () => void this.fight(n) });
+    // a tip only when there is something to do about it: a team problem (always), a chest to claim (where it leaves the floors in view)
+    const chestTip = !!chest && showChestTip(this.m.VH);
+    const sentence = problem === 'over_budget' ? t('duels.sit.ladderOver', { n, b: f.budget }) : (why ?? (chestTip ? t('duels.sit.chestReady', { n: chest!.ch }) : ''));
+    // Fight sits in the flow under the next floor, so nothing hides under it (M-2, DUE-1)
+    const { area, c, w } = this.openShell(true, '');
     let y = this.hubTop(c, 2, w, p, 'ladder');
-    if (sentence && (problem || chest)) y += addTipLine(this, c, 1, y, w, { text: sentence, tone: problem ? 'warn' : 'reward', id: 'duel.tip' }) + GAP;
+    if (sentence) y += addTipLine(this, c, 1, y, w, { text: sentence, tone: problem ? 'warn' : 'reward', id: 'duel.tip' }) + GAP;
     const top = y;
     if (done) {
       const card = new ParchmentCard(this, 1, y, w, 44, { id: 'duel.ladderDone' });
@@ -800,14 +828,23 @@ export class DuelScene extends BaseScene {
       y += 44 + GAP;
     } else {
       y += this.buildNextFloor(c, p, f, 1, y, w) + GAP;
+      const fight = new MButton(this, 1, y, w, MAIN_H, { label: t('duels.fightFloor', { n }), icon: 'swords', variant: 'primaryHero', id: 'duel.fightNext', disabledReason: why, onClick: () => void this.fight(n) });
+      if (why) fight.setEnabled(false, why);
+      if (this.busy) fight.setEnabled(false, t('duels.why.busy'));
+      c.add(fight);
+      this.mainBtn = fight;
+      this.mainSpec = { label: fight.opts.label, id: 'duel.fightNext', off: why, onClick: () => void this.fight(n) };
+      y += MAIN_H + GAP + 1;
     }
-    // farm Glory left today, as a bar over the chapters
-    c.add(new MBar(this, 3, y, w - 4, { label: capped ? t('duels.farmUsed') : t('dv.farmBar'), right: `${p.ladder.farmLeft} / ${p.ladder.farmCap}`, value: p.ladder.farmLeft, max: p.ladder.farmCap, color: RESOURCES.glory.color, h: 4, quiet: capped, id: 'duel.farm' }));
-    y += 15 + GAP + 3;
     let headY = y;
     for (let ch = 1; ch <= CHAPTERS; ch++) {
       if (ch === this.currentChapter(p)) headY = y;
       y += this.chapterBlock(c, p, ch, y, w, area);
+      // farm Glory left today, under the chapter of the next floor (the replays it pays for)
+      if (ch === this.currentChapter(p)) {
+        c.add(new MBar(this, 3, y, w - 4, { label: capped ? t('duels.farmUsed') : t('dv.farmBar'), right: `${fmtCount(p.ladder.farmLeft)} / ${fmtCount(p.ladder.farmCap)}`, value: p.ladder.farmLeft, max: p.ladder.farmCap, color: RESOURCES.glory.color, h: 4, quiet: capped, id: 'duel.farm' }));
+        y += 15 + GAP + 3;
+      }
     }
     // a first look starts at the next floor when the current chapter is a later one
     this.finishPage(y, keep >= 0 ? keep : this.currentChapter(p) > 1 && headY > area.viewHeight - 90 ? top : 0);
@@ -837,10 +874,12 @@ export class DuelScene extends BaseScene {
     } else card.add(mtext(this, 5 + ms / 2, 5 + Math.round((ms - 12) / 2), `${f.floor}`, 'rCream', { size: 11, align: 0.5 }));
     const tx = 5 + ms + 7;
     const tw = w - 18 - tx;
-    const title = t('duels.nextFloor', { n: f.floor });
-    const glory = `+${f.reward.firstGlory}`;
+    const glory = `+${fmtCount(f.reward.firstGlory)}`;
     const gw = pw(glory) + 16;
-    const head = ptext(this, card, tx, 7, f.boss ? `${title} · ${t('duels.boss')}` : title, 'head', { size: 8, maxW: tw - gw });
+    // "Next: floor 5 · Boss", shorter forms where it does not fit: the floor's number is never cut (G14)
+    const forms = [t('duels.nextFloor', { n: f.floor }), t('duels.floor', { n: f.floor })].flatMap((x) => (f.boss ? [`${x} · ${t('duels.boss')}`, x] : [x]));
+    const title = forms.find((x) => pw(x, 'head', 8) <= tw - gw) ?? forms[forms.length - 1];
+    const head = ptext(this, card, tx, 7, title, 'head', { size: 8, maxW: tw - gw });
     const gx = tx + Math.ceil(head.width) + 5;
     const ic = addIcon(this, gx, 6, 'laurel');
     card.add(ic);
@@ -848,7 +887,8 @@ export class DuelScene extends BaseScene {
     // your team against this floor's cap: a tick when it fits, a cross when over
     const cap = this.teamVsCap(p, f.budget, 'floor', 'ladder');
     const mine = teamPoints(this.teamHeroes(p, 'ladder'));
-    const capText = measureText(cap.text) <= tw - 14 ? cap.text : t('dv.teamCapShort', { n: mine, cap: f.budget });
+    // the whole line where it fits, then shorter forms: the numbers are never cut (G14)
+    const capText = [cap.text, t('dv.teamCapShort', { n: mine, cap: f.budget }), t('d5.capTiny', { n: mine, cap: f.budget })].find((s) => measureText(s) <= tw - 14) ?? t('d5.capTiny', { n: mine, cap: f.budget });
     card.add(addIcon(this, tx - 1, 21, cap.over ? 'close' : 'check'));
     ptext(this, card, tx + 13, 23, capText, cap.over ? 'bad' : 'good', { maxW: tw - 13 });
     const chev = scaleIcon(addIcon(this, 0, 0, 'chevR'), 0.9);
@@ -869,9 +909,10 @@ export class DuelScene extends BaseScene {
     const open = this.chapterOpen(p, ch);
     const stars = chapterStars(p.ladder.stars, ch);
     const max = chapterMaxStars(ch);
-    const narrow = w < 160;
     const chests = reached;
     const chestsW = CHEST_TIERS * CHEST_W + (CHEST_TIERS - 1) * GAP;
+    // the chests share the heading's row while the title keeps 56 px beside them (at 320 too: the floors stay in view, DUE-1)
+    const narrow = w - chestsW - 8 < 56;
     const h = !chests ? 31 : narrow ? 8 + 22 + GAP + CHEST_H + 5 : CHEST_H + 8;
     const card = new ParchmentCard(this, 1, y, w, h, { id: `duel.chapterCard.${ch}` });
     c.add(card);
@@ -907,13 +948,16 @@ export class DuelScene extends BaseScene {
     } else for (let tier = 1; tier <= CHEST_TIERS; tier++) slot(tier, w - chestsW - 4 + (tier - 1) * (CHEST_W + GAP), Math.round((h - CHEST_H) / 2), CHEST_W);
     let used = h + GAP;
     if (!open) return used;
-    const tw = Math.floor((w - 4 * GAP) / 5);
+    // five tiles a row, each a touch target (22 UI px) 2 px apart; the narrowest screens (320x568 in Telegram) take four
+    const per = w >= 5 * TAP + 4 * 2 ? 5 : 4;
+    const tg = Math.max(2, Math.min(GAP, Math.floor((w - per * TAP) / (per - 1))));
+    const tw = Math.floor((w - (per - 1) * tg) / per);
     const [a, b] = chapterFloors(ch);
-    for (let from = a; from <= b; from += 5) {
-      for (let i = 0; i < 5 && from + i <= LADDER.floors; i++) {
+    for (let from = a; from <= b; from += per) {
+      for (let i = 0; i < per && from + i <= b; i++) {
         const n = from + i;
-        const x = 1 + i * (tw + GAP);
-        const tileW = i === 4 ? w - i * (tw + GAP) : tw;
+        const x = 1 + i * (tw + tg);
+        const tileW = i === per - 1 ? w - i * (tw + tg) : tw;
         const cleared = n <= p.ladder.cleared;
         const next = n === p.ladder.cleared + 1;
         const boss = isBoss(n);
@@ -923,8 +967,6 @@ export class DuelScene extends BaseScene {
             state: next ? 'next' : cleared ? 'cleared' : 'locked',
             boss,
             stars: p.ladder.stars[n - 1] ?? 0,
-            farm: cleared && !boss && tileW >= 30 ? floorReward(n).farmGlory : null,
-            farmOn: p.ladder.farmLeft > 0,
             id: next ? 'duel.floorNext' : cleared ? 'duel.floorDone' : 'duel.floorLocked',
             onClick: () => !area.moved && this.tapFloor(n),
           }),
@@ -966,16 +1008,16 @@ export class DuelScene extends BaseScene {
     const r = chestReward(ch, tier);
     const need = LADDER.chestStars[tier - 1];
     const have = chapterStars(p.ladder.stars, ch);
-    const w = Math.min(this.m.VW - 12, 230);
+    const w = Math.min(this.m.VW - 4, 230);
     const bodyH = 36 + (st === 'locked' ? 18 + 4 + LINE_H : LINE_H);
-    const m = openParchmentSheet(this, { title: t('dv.chestTitle', { ch, n: need }), w, h: SHEET_PAD + bodyH, id: 'duel.chestSheet' });
+    const m = openParchmentSheet(this, { title: this.sheetTitle(t('dv.chestTitle', { ch, n: need }), t('duels.chapter', { n: ch }), w), w, h: SHEET_PAD + bodyH, id: 'duel.chestSheet' });
     const { c, body: b } = m;
     let y = b.y;
     c.add(mosaicImage(this, b.x, y, 36, 30, 'parchmentWell'));
     c.add(addChestSprite(this, b.x + 2, y + 2, st === 'claimed' ? 'claimed' : 'locked', 2));
     const tx = b.x + 44;
     c.add(addIcon(this, tx, y + 1, 'laurel'));
-    ptext(this, c, tx + 15, y + 3, `+${r.glory} ${t('res.glory')}`, 'ink');
+    ptext(this, c, tx + 15, y + 3, `+${fmtCount(r.glory)} ${t('res.glory')}`, 'ink');
     if (r.item) ptext(this, c, tx, y + 17, t('dv.chestItem'), 'sec', { maxW: b.x + b.w - tx });
     y += 38;
     if (st === 'locked') {
@@ -983,6 +1025,12 @@ export class DuelScene extends BaseScene {
       y += 15 + 4;
       ptext(this, c, b.x, y, t('dv.chestHow', { n: need - have }), 'sec', { maxW: b.w });
     } else ptext(this, c, b.x, y, t('duels.chest.claimed'), 'muted', { maxW: b.w });
+  }
+
+  /** A sheet's title, or its short form where the long one would drop under 6.5 on a `w`-wide sheet (the X and margins take 52). */
+  private sheetTitle(full: string, short: string, w: number): string {
+    const room = Math.min(w, this.m.VW - 16) - 52;
+    return measureText(full, false, TEXT_MIN, 'roman') <= room ? full : short;
   }
 
   /** Claims a ready chest: the reward popup once the server answers. */
@@ -1025,12 +1073,12 @@ export class DuelScene extends BaseScene {
   /** What a chest held: its Glory and (the 30-star chest) an item; a tap on the item opens its card. */
   openChestReward(r: ChestClaim): void {
     const { VW } = this.m;
-    const w = Math.min(VW - 12, 210);
+    const w = Math.min(VW - 4, 210);
     const art = 3;
     const ah = 13 * art;
     let chestAt = { x: VW / 2, y: this.m.VH / 2 };
     const actions: MButtonOpts[] = [{ label: t('duels.reward.ok'), variant: 'primary', id: 'duel.chest.ok', onClick: () => m.close() }];
-    const m = openParchmentSheet(this, { title: t('duels.chest.title', { n: r.chapter }), w, h: SHEET_PAD + 8 + ah + 8 + 22 + (r.item ? 38 : 0) + sheetActionsH(actions, w), actions, id: 'duel.rewardSheet', onClose: () => this.releaseGlory(chestAt) });
+    const m = openParchmentSheet(this, { title: this.sheetTitle(t('duels.chest.title', { n: r.chapter }), t('duels.chapter', { n: r.chapter }), w), w, h: SHEET_PAD + 8 + ah + 8 + 22 + (r.item ? 38 : 0) + sheetActionsH(actions, w), actions, id: 'duel.rewardSheet', onClose: () => this.releaseGlory(chestAt) });
     const { c, body: b } = m;
     let y = b.y + 8;
     // the chest: closed, it shakes, it opens on its gold (instantly under reduced motion)
@@ -1045,10 +1093,10 @@ export class DuelScene extends BaseScene {
       return sq;
     });
     y += ah + 8;
-    const gw = 24 + 4 + measureText(`+${r.glory}`) * 1.5;
+    const gw = 24 + 4 + measureText(`+${fmtCount(r.glory)}`) * 1.5;
     const gx = Math.round(m.x + w / 2 - gw / 2);
     c.add(scaleIcon(addIcon(this, gx, y, 'laurel'), 2));
-    const gt = ptext(this, c, gx + 28, y + 6, `+${r.glory}`, 'ink').setScale(1.5);
+    const gt = ptext(this, c, gx + 28, y + 6, `+${fmtCount(r.glory)}`, 'ink').setScale(1.5);
     const reveal = () => {
       if (!closed.active) return;
       closed.setVisible(false);
@@ -1061,7 +1109,7 @@ export class DuelScene extends BaseScene {
         this.tweens.add({ targets: sq, x: sq.x + Math.cos(a) * 26, y: sq.y + Math.sin(a) * 18 - 8, alpha: 0, duration: 520, ease: 'Cubic.easeOut' });
       });
       const n = { v: 0 };
-      this.tweens.add({ targets: n, v: r.glory, duration: 600, ease: 'Cubic.easeOut', onUpdate: () => gt.active && gt.setText(`+${Math.round(n.v)}`) });
+      this.tweens.add({ targets: n, v: r.glory, duration: 600, ease: 'Cubic.easeOut', onUpdate: () => gt.active && gt.setText(`+${fmtCount(n.v)}`) });
       this.tweens.add({ targets: open, y: { from: open.y - 3, to: open.y }, duration: 220, ease: 'Bounce.easeOut' });
     };
     if (motion.reduced) reveal();
@@ -1085,41 +1133,48 @@ export class DuelScene extends BaseScene {
   }
 
   /**
-   * A floor's sheet: the reward, your team's points against the enemy's and
-   * the floor's cap (so the player can judge the fight), the best stars and
-   * the whole stars rule, the enemy army with role pills; Fight (or Farm).
+   * A floor's sheet, docked full width to the lower edge (DUE-12): the reward,
+   * your team's points against the enemy's and the floor's cap (so the player
+   * can judge the fight), that the fight can pause (controls.md R10), the best
+   * stars and the whole stars rule, the enemy army with earth role pills (G4);
+   * Fight (or Farm).
    */
   openFloor(p: DuelProfileView, n: number): void {
-    const { VH } = this.m;
+    const { VW, VH } = this.m;
     const f = ladderFloor(n);
-    const w = Math.min(this.m.VW - 12, 250);
-    const inner = w - (SPACE.lg + 2) * 2;
+    const w = VW;
+    // the sheet's body: a docked sheet keeps 4 px off each side, its body 8 more (ParchmentSheet)
+    const inner = VW - 8 - 16;
     const rowH = 28;
     const gap = 3;
     const next = n > p.ladder.cleared;
     const team = this.teamHeroes(p, 'ladder');
     const mine = teamPoints(team);
     const over = mine > f.budget;
-    const rule = wrapText(t('dv.starsRule'), inner - 32, 3);
-    const farm = next ? '' : p.ladder.farmLeft > 0 ? t('duels.farmToday', { n: p.ladder.farmLeft, max: p.ladder.farmCap }) : t('duels.replayCapped');
+    const rule = wrapText(t('dv.starsRule'), inner - 32, 4);
+    const pause = wrapText(t('d5.pausable', { m: LADDER.ticketMin }), inner - 16, 3);
+    const farm = next ? null : wrapText(p.ladder.farmLeft > 0 ? t('duels.farmToday', { n: fmtCount(p.ladder.farmLeft), max: fmtCount(p.ladder.farmCap) }) : t('duels.replayCapped'), inner, 2);
     const overLine = over ? wrapText(t('dv.overCap', { n: mine - f.budget, cap: f.budget }), inner - 4, 2) : null;
     const ruleH = Math.max(14, rule.lines.length * LINE_H) + 6;
+    const pauseH = pause.lines.length * LINE_H + 6;
+    const farmH = farm ? farm.lines.length * LINE_H + 4 : 0;
     const locked = n > p.ladder.cleared + 1;
     const problem = teamProblem(team, f.budget);
     const why = locked ? t('duels.floorLocked', { n: n - 1 }) : problem ? t(`duels.why.${problem}` as TKey, { n: f.budget }) : undefined;
     const actions: MButtonOpts[] = [{ label: next ? t('duels.fight') : t('duels.farm'), icon: 'swords', variant: 'primary', id: 'duel.floorFight', disabledReason: why, onClick: () => (m.close(), void this.fight(n)) }];
-    // fixed parts, top to bottom: title, reward, numbers, (over the cap), stars rule, (farm), enemy heading, the list, the action
-    const fixed = SHEET_PAD + 16 + 34 + 6 + (overLine ? overLine.lines.length * LINE_H + 6 : 0) + ruleH + (farm ? 12 : 0) + 16 + 6 + sheetActionsH(actions, w);
-    // the enemy list takes the room left (short screens: as many rows as fit; it scrolls)
+    // fixed: the title, the reward, the numbers, (over the cap) and the action; under them one scroll (short screens):
+    // pausable, the stars rule, (farm), the enemy heading and the list
+    const fixed = SHEET_PAD + 16 + 34 + 6 + (overLine ? overLine.lines.length * LINE_H + 6 : 0) + sheetActionsH(actions, w);
     const full = f.heroes.length * (rowH + gap) - gap;
-    const listH = Math.max(rowH, Math.min(full, VH - 12 - fixed));
-    const m = openParchmentSheet(this, { title: f.boss ? t('duels.floorBoss', { n }) : t('duels.floor', { n }), w, h: fixed + listH, actions, id: 'duel.floorSheet' });
+    const contentH = pauseH + ruleH + farmH + 16 + 6 + full;
+    const listH = Math.max(rowH, Math.min(contentH, VH - 12 - fixed));
+    const m = openParchmentSheet(this, { title: f.boss ? t('duels.floorBoss', { n }) : t('duels.floor', { n }), w, h: fixed + listH, actions, dock: 'bottom', id: 'duel.floorSheet' });
     if (why) m.buttons[0].setEnabled(false, why);
     const { c, body: b } = m;
     let y = b.y;
     // what it pays (a replay: the farm Glory)
     c.add(addIcon(this, b.x, y - 2, 'laurel'));
-    const g = ptext(this, c, b.x + 15, y, `+${next ? f.reward.firstGlory : f.reward.farmGlory} ${t('res.glory')}`, 'ink');
+    const g = ptext(this, c, b.x + 15, y, `+${fmtCount(next ? f.reward.firstGlory : f.reward.farmGlory)} ${t('res.glory')}`, 'ink');
     ptext(this, c, b.x + 15 + g.width + 8, y, next ? t('duels.firstDrop') : t('dv.replay'), 'sec', { maxW: inner - 23 - g.width });
     y += 16;
     // your team (a tick within the cap, a cross over it), the enemy, the cap
@@ -1132,45 +1187,52 @@ export class DuelScene extends BaseScene {
     cols.forEach(([label, v, font], i) => {
       const x = b.x + i * (cw3 + 4);
       c.add(mosaicImage(this, x, y, cw3, 30, 'parchmentWell'));
-      const num = ptext(this, c, x + cw3 / 2, y + 3, `${v}`, font, { size: 10, align: 0.5 });
+      const num = ptext(this, c, x + cw3 / 2, y + 3, fmtCount(v), font, { size: 10, align: 0.5 });
       if (i === 0) c.add(addIcon(this, Math.round(x + cw3 / 2 + num.displayWidth / 2 + 2), y + 3, over ? 'close' : 'check'));
-      ptext(this, c, x + cw3 / 2, y + 19, label, 'sec', { size: 6, align: 0.5, maxW: cw3 - 6 });
+      ptext(this, c, x + cw3 / 2, y + 19, label, 'sec', { size: TEXT_MIN, align: 0.5, maxW: cw3 - 6 });
     });
     y += 34 + 6;
     if (overLine) {
       ptext(this, c, b.x + 2, y, overLine.lines.join('\n'), 'bad');
       y += overLine.lines.length * LINE_H + 6;
     }
-    // the stars: the best so far, and the whole rule (never cut)
-    const best = p.ladder.stars[n - 1] ?? 0;
-    c.add(mosaicImage(this, b.x, y - 2, 28, 12, 'parchmentWell'));
-    const sg = this.add.graphics();
-    drawStars(sg, b.x + 14, y + 1, best);
-    c.add(sg);
-    ptext(this, c, b.x + 32, y, rule.lines.join('\n'), 'sec');
-    y += ruleH;
-    if (farm) {
-      ptext(this, c, b.x, y, farm, p.ladder.farmLeft > 0 ? 'sec' : 'muted', { maxW: inner });
-      y += 12;
-    }
-    // the enemy army: a heading and a hairline, then the list
-    ptext(this, c, b.x, y, t('dv.enemyArmy', { n: f.heroes.length }), 'head', { size: 7.5, maxW: inner });
-    c.add(this.add.rectangle(b.x, y + 12, inner, 1, MOSAIC.parchEdge, 0.5).setOrigin(0, 0));
-    y += 16 + 6;
     const sa = new ScrollArea(this, c, b.x, y, inner, listH, this.m.S);
     c.once('destroy', () => sa.destroy());
+    const k = sa.content;
+    let ky = 1;
+    // a ladder fight may pause and change speed, within its ticket's time (controls.md R10)
+    k.add(scaleIcon(addIcon(this, 0, ky - 1, 'pause'), 0.9));
+    ptext(this, k, 16, ky, pause.lines.join('\n'), 'ink');
+    ky += pauseH;
+    // the stars: the best so far, and the whole rule (never cut)
+    const best = p.ladder.stars[n - 1] ?? 0;
+    k.add(mosaicImage(this, 0, ky - 1, 28, 12, 'parchmentWell'));
+    const sg = this.add.graphics();
+    drawStars(sg, 14, ky + 2, best);
+    k.add(sg);
+    ptext(this, k, 32, ky, rule.lines.join('\n'), 'sec');
+    ky += ruleH;
+    if (farm) {
+      ptext(this, k, 0, ky, farm.lines.join('\n'), p.ladder.farmLeft > 0 ? 'sec' : 'muted');
+      ky += farmH;
+    }
+    // the enemy army: a heading and a hairline, then the list
+    ptext(this, k, 0, ky, t('dv.enemyArmy', { n: f.heroes.length }), 'head', { size: 7.5, maxW: inner });
+    k.add(this.add.rectangle(0, ky + 12, inner - 3, 1, MOSAIC.parchEdge, 0.5).setOrigin(0, 0));
+    ky += 16 + 6;
     f.heroes.forEach((e, i) => {
       const cls = heroClass(e);
-      const ry = i * (rowH + gap);
+      const ry = ky + i * (rowH + gap);
       const ww = inner - 3;
-      sa.content.add(new ParchmentCard(this, 0, ry, ww, rowH));
-      addFace(this, sa.content, 3, ry + 3, rowH - 6, e);
+      k.add(new ParchmentCard(this, 0, ry, ww, rowH));
+      addFace(this, k, 3, ry + 3, rowH - 6, e);
       const tx = rowH + 2;
-      const lv = ptext(this, sa.content, ww - 6, ry + 4, t('duels.lvPts', { l: e.level, p: heroPoints(e) }), 'sec', { align: 1 });
-      ptext(this, sa.content, tx, ry + 4, className(e), 'ink', { maxW: ww - 6 - lv.width - 6 - tx });
-      addPill(this, sa.content, tx, ry + 15, roleName(cls.role), roleColor(cls.role), ww - tx - 6);
+      const lv = ptext(this, k, ww - 6, ry + 4, t('duels.lvPts', { l: e.level, p: heroPoints(e) }), 'sec', { align: 1 });
+      ptext(this, k, tx, ry + 4, className(e), 'ink', { maxW: ww - 6 - lv.width - 6 - tx });
+      // the role in an earth pill: blue is for money only (G4)
+      armyPill(this, k, tx, ry + 14, roleName(cls.role), MOSAIC.bronze, ww - tx - 6);
     });
-    sa.setContentHeight(full);
+    sa.setContentHeight(contentH + 1);
   }
 
   private async fight(n: number): Promise<void> {
@@ -1280,7 +1342,7 @@ export class DuelScene extends BaseScene {
   /** "October · 24d 5h left" and the best league of the season; returns the y below. */
   private buildSeasonLine(c: Phaser.GameObjects.Container, x: number, y: number, w: number): number {
     const s = this.season;
-    c.add(addIcon(this, x + 1, y - 2, 'clock', 'D'));
+    c.add(addIcon(this, x + 1, y - 2, 'hourglass'));
     if (!s) {
       ptext(this, c, x + 16, y, '...', 'muted');
       return y + 14;
@@ -1298,7 +1360,7 @@ export class DuelScene extends BaseScene {
   /** "Gold II", "Legend · 2104" or "Placements 3/10". */
   private standing(v: { league: League | null; rating: number | null; placements: { played: number; of: number } }): string {
     const l = v.league;
-    return l ? (l.id === 'legend' && v.rating !== null ? t('duels.legendRating', { n: v.rating }) : leagueName(l)) : t('duels.placements', { n: v.placements.played, max: v.placements.of });
+    return l ? (l.id === 'legend' && v.rating !== null ? t('duels.legendRating', { n: fmtCount(v.rating) }) : leagueName(l)) : t('duels.placements', { n: v.placements.played, max: v.placements.of });
   }
 
   /** A card of the Arena: `build` lays its content into a container (card coordinates) and returns the height; the card is made to fit. */
@@ -1742,6 +1804,27 @@ export class DuelScene extends BaseScene {
     showReport(this.game, raidReport(report, this.src.demo), () => backToDuel(this.game, { tab: 'ranked', arena: 'raid', preview: this.src.demo }));
   }
 
+  /** Previews: the report of a won ladder floor (`expired`: reported after the 30-minute ticket, so it paid nothing), then the hub's toast. */
+  previewLadderResult(expired = true): void {
+    const p = this.profile;
+    if (!p) return;
+    const team = this.teamHeroes(p, 'ladder');
+    const n = Math.min(LADDER.floors, p.ladder.cleared + 1);
+    lastBattle.heroes = team.map((h) => JSON.parse(JSON.stringify(h)) as Hero);
+    lastBattle.side = 0;
+    lastBattle.stats = team.map((h, i) => ({ heroId: h.id, side: 0 as const, kills: i % 2, dmg: 18 + i * 7, dead: false, ko: false, killedBy: -1 }));
+    const f = ladderFloor(n);
+    const r: LadderReport = {
+      floor: n, boss: f.boss, won: true, firstClear: !expired, winner: 0, ticks: 20 * 64,
+      glory: expired ? 0 : f.reward.firstGlory, capped: 0, accountXp: expired ? 0 : f.reward.xp,
+      xp: team.map((h) => ({ heroId: h.id, name: h.name, kills: 0, xp: expired ? 0 : 20, levelsGained: 0, levelBefore: h.level, xpBefore: h.xp })),
+      drop: null, enemies: { dead: f.heroes.length, total: f.heroes.length }, stars: expired ? 0 : 3, lost: 0.1,
+      prevStars: 0, bestStars: expired ? 0 : 3, newBest: !expired, expired, profile: p,
+    };
+    const label = t('battle.vs', { name: f.boss ? t('duels.floorBoss', { n }) : t('duels.floor', { n }) });
+    showReport(this.game, ladderReport(r, label, this.src.demo), () => backToDuel(this.game, { tab: 'ladder', preview: this.src.demo, result: { glory: r.glory, won: r.won, floor: r.floor, first: r.firstClear, stars: r.stars, newBest: r.newBest, expired } }));
+  }
+
   // ------------------------------------------------------------------ raids (async defence ladder)
 
   /** The raid picks: raids left, the defence team, the three defenders (the fixed action raids the picked one). */
@@ -2063,7 +2146,7 @@ export class DuelScene extends BaseScene {
       const tw = b.x + inner - tx - 6;
       ptext(this, c, tx, y + 5, t('duels.reward.line', { ladder: t(`duels.board.${r.ladder}` as TKey), league: leagueTitle(r.league) }), 'head', { size: 7.5, maxW: tw });
       c.add(addIcon(this, tx, y + 15, 'laurel'));
-      ptext(this, c, tx + 15, y + 17, t('duels.note.glory', { n: r.glory }), 'ink', { maxW: tw - 15 });
+      ptext(this, c, tx + 15, y + 17, t('duels.note.glory', { n: fmtCount(r.glory) }), 'ink', { maxW: tw - 15 });
       ptext(this, c, tx, y + 29, tOr(`cosmetic.${r.cosmetic}`, r.cosmetic), 'sec', { maxW: tw });
       y += rowH + GAP;
     }
@@ -2097,6 +2180,13 @@ export class DuelScene extends BaseScene {
 
   // ------------------------------------------------------------------ team
 
+  /**
+   * Team (M-3, S13) on the Army template's rows (D6): the chips, a tip, the
+   * duel army card (its symbols behind an (i)), Recruit in the flow (DUE-5),
+   * the presets (a tap on the edited one opens its Preset sheet: rename,
+   * duplicate, delete, where it fights), the points bar, the team's rows,
+   * then the bench with its Dismiss door (N10, DUE-13).
+   */
   private buildTeam(p: DuelProfileView, keep: number): void {
     const team = this.teamHeroes(p);
     const pts = teamPoints(team);
@@ -2104,68 +2194,101 @@ export class DuelScene extends BaseScene {
     const over = pts > budget;
     const spend = this.fightingHeroes(p).filter(heroNeedsAttention);
     const sentence = over ? t('duels.sit.teamOver', { n: pts - budget, b: budget }) : spend.length ? t('duels.sit.teamSpend', { name: spend[0].name }) : '';
-    const { area, c, w } = this.openShell(false, this.viewTitle(), { label: t('duels.recruit'), icon: 'plus', id: 'duel.recruit', onClick: () => this.openRecruit() });
+    const { area, c, w } = this.openShell(false, this.viewTitle());
     let y = 2;
-    y += this.headerRow(c, y, w, p, { shop: true }) + GAP;
+    y += this.headerRow(c, y, w, p) + GAP;
     if (sentence) y += addTipLine(this, c, 1, y, w, { text: sentence, tone: over ? 'warn' : 'info', id: 'duel.tip' }) + GAP;
     // whose heroes these are: the duel army, not the campaign warband
     y += this.rosterRow(c, p, y, w, area) + GAP;
+    // Recruit, the view's primary, in the flow: never over a row (DUE-5)
+    const full = p.heroes.length >= DUEL_RULES.rosterMax;
+    const rec = new MButton(this, 1, y, w, 26, { label: t('duels.recruit'), icon: 'plus', variant: 'primary', id: 'duel.recruit', disabledReason: full ? t('d5.rosterFull') : undefined, onClick: () => this.openRecruit() });
+    if (full) rec.setEnabled(false, t('d5.rosterFull'));
+    c.add(rec);
+    y += 26 + GAP + 2;
     if (!p.heroes.length) {
       ptext(this, c, 3, y + 4, t('duels.recruitHint'), 'muted', { maxW: w - 6 });
       this.finishPage(y + 20, keep);
       return;
     }
     y += this.presetChips(c, p, y, w, area) + GAP;
-    y += this.presetName(c, p, y, w) + GAP;
-    y += this.presetUses(c, p, y, w) + GAP + 2;
     y += this.presetPoints(c, p, y, w) + GAP + 2;
+    const src = duelArmy(p);
     for (const h of team) {
-      this.heroRow(c, p, h, y, w, area);
-      y += 29 + GAP;
+      this.heroRow(c, p, src, h, y, w, area);
+      y += ARMY_ROW_H + GAP;
     }
     const bench = p.heroes.filter((x) => !p.team.includes(x.id));
     if (bench.length) {
       y += 3;
-      ptext(this, c, 3, y, t('duels.benchHead', { n: bench.length }), 'head', { size: 7.5, maxW: w - 6 });
-      c.add(this.add.rectangle(3, y + 12, w - 6, 1, MOSAIC.parchEdge, 0.5).setOrigin(0, 0));
-      y += 17;
+      // the bench's heading, with the door to Dismiss (bench heroes only)
+      const label = t('d5.benchDismiss');
+      const bw = Math.max(56, Math.ceil(mw(label.toUpperCase(), 'rCream', 7)) + 30);
+      c.add(new MButton(this, 1 + w - bw, y, bw, TAP, { label, icon: 'skull', variant: 'neutral', id: 'duel.benchDismiss', tip: t('d5.benchDismissTip'), onClick: () => this.openDismiss() }));
+      ptext(this, c, 3, y + 7, t('duels.benchHead', { n: bench.length }), 'head', { size: 7.5, maxW: w - bw - 10 });
+      y += TAP + 2;
+      c.add(this.add.rectangle(3, y, w - 6, 1, MOSAIC.parchEdge, 0.5).setOrigin(0, 0));
+      y += 4;
       for (const h of bench) {
-        this.heroRow(c, p, h, y, w, area);
-        y += 29 + GAP;
+        this.heroRow(c, p, src, h, y, w, area);
+        y += ARMY_ROW_H + GAP;
       }
     }
     this.finishPage(y, keep);
   }
 
-  /** Whose heroes these are: the duel army, not the campaign warband (Home counts that one). */
+  /** Whose heroes these are: the duel army, not the campaign warband; its symbols behind an (i). */
   private rosterRow(c: Phaser.GameObjects.Container, p: DuelProfileView, y: number, w: number, area: ScrollArea): number {
-    const h = 30;
-    const label = t('dv.symbols');
-    const bw = 22;
+    const bw = TAP;
+    const tw = w - 23 - bw - 10;
+    const sub = wrapText(t('dv.rosterSub'), tw, 4, false, TEXT_MIN);
+    const h = Math.max(30, 6 + 11 + sub.lines.length * LINE_H + 4);
     const card = new ParchmentCard(this, 1, y, w, h, { id: 'duel.rosterCard' });
     c.add(card);
-    card.add(addIcon(this, 6, 9, 'people'));
-    ptext(this, card, 23, 5, t('dv.rosterHead', { n: p.heroes.length }), 'head', { size: 7.5, maxW: w - 23 - bw - 10 });
-    ptext(this, card, 23, 17, t('dv.rosterSub'), 'muted', { size: 6, maxW: w - 23 - bw - 10 });
+    card.add(addIcon(this, 6, Math.round((h - 12) / 2), 'people'));
+    ptext(this, card, 23, 5, t('d5.roster', { n: p.heroes.length, max: DUEL_RULES.rosterMax }), 'head', { size: 7.5, maxW: tw });
+    ptext(this, card, 23, 17, sub.lines.join('\n'), 'muted', { size: TEXT_MIN });
     const z = this.add.zone(0, 0, w - bw - 10, h).setOrigin(0, 0).setInteractive();
     uiId(z, 'duel.roster');
     tappable(z, null, () => !area.moved && showTooltip(this, t('dv.rosterTip'), z));
     card.add(z);
-    card.add(new MIconButton(this, w - bw - 4, 4, bw, 22, { label, icon: 'info', variant: 'neutral', id: 'duel.symbols', onClick: () => this.openSymbols() }));
+    card.add(new MIconButton(this, w - bw - 4, Math.round((h - TAP) / 2), bw, TAP, { label: t('dv.symbols'), icon: 'info', variant: 'neutral', id: 'duel.symbols', onClick: () => this.openSymbols() }));
     return h;
   }
 
-  /** What the roster's symbols mean: group numerals, rank diamonds, the "!" and the role stripe. */
+  /** What a roster row's symbols mean (the Army template's): the group disc, the rank stars, the count badge, Power, the lit row. */
   openSymbols(): void {
-    openLegend(this, t('dv.symbolsTitle'), [
-      { draw: (c, x, y) => addGroupBadge(this, c, x + 6, y + 1, 1), title: t('legend.group.title'), text: t('legend.group.text') },
-      { draw: (c, x, y) => void addStars(this, c, x + 1, y + 3, 2, 3), title: t('legend.rank.title'), text: t('legend.rank.text') },
-      { draw: (c, x, y) => c.add(new Badge(this, x + 12, y + 7, '!')), title: t('legend.attn.title'), text: t('legend.attn.text') },
-      { draw: (c, x, y) => c.add(this.add.rectangle(x + 2, y + 5, 20, 3, ROLE.heavy).setOrigin(0, 0)), title: t('legend.role.title'), text: t('legend.role.text') },
-    ]);
+    const w = Math.min(this.m.VW - 12, 240);
+    const inner = w - 16;
+    const tx = 30;
+    const rows: { draw: (k: Phaser.GameObjects.Container, x: number, y: number) => void; text: string }[] = [
+      { draw: (k, x, y) => addGroupDisc(this, k, x + 4, y, 0), text: t('d5.symbols.group') },
+      { draw: (k, x, y) => void ptext(this, k, x, y + 2, t('duels.pts', { n: 11 }), 'sec', { size: TEXT_MIN }), text: t('d5.symbols.pts') },
+      { draw: (k, x, y) => k.add(new MBadge(this, x + 11, y + 7, 2)), text: t('d5.symbols.badge') },
+      { draw: (k, x, y) => void ptext(this, k, x + 22, y + 2, '128', 'head', { size: 7, align: 1 }), text: t('d5.symbols.power') },
+      { draw: (k, x, y) => k.add(addIcon(this, x + 4, y + 1, 'check')), text: t('d5.symbols.team') },
+    ];
+    const wrapped = rows.map((r) => wrapText(r.text, inner - tx, 4, false, TEXT_MIN));
+    const bodyH = wrapped.reduce((a, wr) => a + Math.max(16, wr.lines.length * LINE_H) + 6, 0);
+    // a short screen scrolls the rows under the title
+    const viewH = Math.min(bodyH, this.m.VH - 12 - SHEET_PAD - 2);
+    const m = openParchmentSheet(this, { title: t('d5.symbolsTitle'), w, h: SHEET_PAD + viewH + 2, id: 'duel.symbolsSheet' });
+    const { c, body: b } = m;
+    const sa = new ScrollArea(this, c, b.x, b.y, inner, viewH, this.m.S);
+    c.once('destroy', () => sa.destroy());
+    let y = 0;
+    rows.forEach((r, i) => {
+      r.draw(sa.content, 0, y);
+      ptext(this, sa.content, tx, y + 2, wrapped[i].lines.join('\n'), 'ink', { size: TEXT_MIN });
+      y += Math.max(16, wrapped[i].lines.length * LINE_H) + 6;
+    });
+    sa.setContentHeight(bodyH);
   }
 
-  /** The presets: one chip each (the edited one lit; icons for what it fights on), then "+" while there is room. Returns the height. */
+  /**
+   * The presets: one chip each (the edited one lit, with a pen: a tap on it opens its Preset sheet; icons for what
+   * it fights on), then "+" while there is room. Returns the height.
+   */
   private presetChips(c: Phaser.GameObjects.Container, p: DuelProfileView, y: number, w: number, area: ScrollArea): number {
     const ls = p.loadouts;
     const plus = ls.length < DUEL_RULES.presetsMax;
@@ -2181,15 +2304,19 @@ export class DuelScene extends BaseScene {
     ls.forEach((l, i) => {
       const name = presetLabel(l);
       const { x, cw, y: cy } = at(i);
-      const label = pw(name) <= cw - 6 ? name : cw >= 40 ? ellipsize(name, cw - 6) : `${l.slot}`;
+      const edited = l.slot === p.loadout;
+      const room = cw - 6 - (edited ? 10 : 0);
+      // a name that does not fit: a given name is shortened, a default one ("Team 2") becomes its number
+      const label = pw(name) <= room ? name : l.name?.trim() && cw >= 40 ? ellipsize(name, room) : `${l.slot}`;
       c.add(
         new PresetChip(this, x, cy, cw, {
           label,
           uses: LOADOUT_USES.filter((u) => p.use[u] === l.slot).map((u) => USE_ICONS[u]),
-          selected: l.slot === p.loadout,
-          tip: name,
+          selected: edited,
+          tools: edited,
+          tip: edited ? t('d5.presetTip', { team: name }) : name,
           id: `duel.preset.${l.slot}`,
-          onClick: () => !area.moved && this.selectPreset(l.slot),
+          onClick: () => !area.moved && (edited ? this.openPresetSheet(l.slot) : this.selectPreset(l.slot)),
         }),
       );
     });
@@ -2200,52 +2327,58 @@ export class DuelScene extends BaseScene {
     return rowsN * PRESET_H + (rowsN - 1) * GAP;
   }
 
-  /** The edited preset's name, with rename, duplicate and delete. */
-  private presetName(c: Phaser.GameObjects.Container, p: DuelProfileView, y: number, w: number): number {
-    const slot = p.loadout;
-    const bw = 22;
+  /**
+   * The Preset sheet (DUE-5, ELEMENT_MAP E320): where the team fights (one labelled button per use; the one in force
+   * lit with a check, G13), then Rename and Duplicate, and Delete apart from them (P4).
+   */
+  openPresetSheet(slot: number): void {
+    const p = this.profile;
+    const l = p && this.preset(p, slot);
+    if (!p || !l) return;
+    const w = Math.min(this.m.VW - 12, 240);
+    const inner = w - 16;
+    const heroes = this.heroesOf(p, l.team);
+    const pts = teamPoints(heroes);
+    const line = t('duels.teamLine', { n: heroes.length, max: DUEL_RULES.teamMax, pts: fmtCount(pts) });
+    const used = LOADOUT_USES.filter((u) => p.use[u] === slot);
+    const BH = 24;
+    const bodyH = 12 + 14 + 3 * (BH + GAP) + 10 + BH + 12 + BH;
+    const m = openParchmentSheet(this, { title: t('d5.presetSheet', { team: presetLabel(l) }), w, h: SHEET_PAD + bodyH + 4, id: 'duel.presetSheet' });
+    const { c, body: b } = m;
+    let y = b.y;
+    ptext(this, c, b.x, y, line, 'sec', { maxW: inner });
+    y += 12;
+    ptext(this, c, b.x, y, used.length ? t('d5.fightsOn') : t('d5.fightsOnNone'), 'head', { size: 7.5, maxW: inner });
+    y += 14;
+    LOADOUT_USES.forEach((u) => {
+      const on = p.use[u] === slot;
+      const label = t(`duels.use.${u}` as TKey);
+      const problem = u === 'defence' ? teamProblem(heroes, DUEL_RULES.budget) : heroes.length ? null : 'empty';
+      const b2 = new MButton(this, b.x, y, inner, BH, {
+        label: on ? `${label} · ${t('d5.useOnShort')}` : label,
+        icon: on ? 'check' : USE_ICONS[u],
+        variant: on ? 'lit' : 'secondary',
+        id: `duel.use.${u}`,
+        tip: on ? t('duels.useOn', { use: label }) : t('duels.useTip', { use: label }),
+        onClick: () => (on ? toast(this, t('duels.useOn', { use: label }), 'info', 3000) : (m.close(), this.assignUse(u))),
+      });
+      if (!on && problem) b2.setEnabled(false, t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }));
+      c.add(b2);
+      y += BH + GAP;
+    });
+    y += 10 - GAP;
     const full = p.loadouts.length >= DUEL_RULES.presetsMax;
     const last = p.loadouts.length <= 1;
-    const bx = 1 + w - 3 * bw - 2 * GAP;
-    ptext(this, c, 4, y + 7, this.loadoutName(p, slot), 'head', { size: 8.5, maxW: bx - 10 });
-    const mk = (i: number, icon: string, label: string, id: string, onClick: () => void, off?: string) => {
-      const b = new MIconButton(this, bx + i * (bw + GAP), y, bw, bw, { icon, label, id, onClick });
-      if (off) b.setEnabled(false, off);
-      c.add(b);
-    };
-    mk(0, 'pen', t('duels.preset.rename'), 'duel.preset.rename', () => void this.renamePreset(slot));
-    mk(1, 'copy', t('duels.preset.duplicate'), 'duel.preset.duplicate', () => this.duplicatePreset(slot), full ? t('duels.preset.full', { n: DUEL_RULES.presetsMax }) : undefined);
-    mk(2, 'bin', t('duels.preset.delete'), 'duel.preset.delete', () => this.deletePreset(slot), last ? t('duels.preset.lastOne') : undefined);
-    return bw;
-  }
-
-  /** "Use for: Ladder Arena Defence": toggles that make the edited preset the one fighting there. */
-  private presetUses(c: Phaser.GameObjects.Container, p: DuelProfileView, y: number, w: number): number {
-    const head = t('duels.useFor');
-    const hw = pw(head, 'sec') + 6;
-    const labels = LOADOUT_USES.map((u) => t(`duels.use.${u}` as TKey));
-    // the "Use for" word only while the buttons keep their words whole
-    const fits = (room: number) => labels.every((l) => Math.ceil(mw(l.toUpperCase(), 'rCream', 7)) + 26 <= Math.floor((room - 2 * GAP) / 3));
-    const withHead = fits(w - hw);
-    const x0 = withHead ? hw : 0;
-    const bw = Math.floor((w - x0 - 2 * GAP) / 3);
-    if (withHead) ptext(this, c, 4, y + 8, head, 'sec');
-    const heroes = this.teamHeroes(p);
-    LOADOUT_USES.forEach((u, i) => {
-      const on = p.use[u] === p.loadout;
-      const problem = u === 'defence' ? teamProblem(heroes, DUEL_RULES.budget) : heroes.length ? null : 'empty';
-      const b = new MButton(this, 1 + x0 + i * (bw + GAP), y, i === 2 ? w - x0 - 2 * (bw + GAP) : bw, 22, {
-        label: labels[i],
-        icon: USE_ICONS[u],
-        variant: on ? 'secondary' : 'neutral',
-        id: `duel.use.${u}`,
-        tip: on ? t('duels.useOn', { use: labels[i] }) : t('duels.useTip', { use: labels[i] }),
-        onClick: () => (on ? toast(this, t('duels.useOn', { use: labels[i] }), 'info', 3000) : this.assignUse(u)),
-      });
-      if (!on && problem) b.setEnabled(false, t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }));
-      c.add(b);
-    });
-    return 22;
+    const hw = Math.floor((inner - GAP) / 2);
+    c.add(new MButton(this, b.x, y, hw, BH, { label: t('duels.preset.rename'), icon: 'pen', variant: 'secondary', id: 'duel.preset.rename', onClick: () => (m.close(), void this.renamePreset(slot)) }));
+    const dup = new MButton(this, b.x + hw + GAP, y, inner - hw - GAP, BH, { label: t('duels.preset.duplicate'), icon: 'copy', variant: 'secondary', id: 'duel.preset.duplicate', onClick: () => (m.close(), this.duplicatePreset(slot)) });
+    if (full) dup.setEnabled(false, t('duels.preset.full', { n: DUEL_RULES.presetsMax }));
+    c.add(dup);
+    // the destructive action on its own row, 12 px from the others (P4)
+    y += BH + 12;
+    const del = new MButton(this, b.x, y, inner, BH, { label: t('duels.preset.delete'), icon: 'bin', variant: 'neutral', id: 'duel.preset.delete', onClick: () => (m.close(), this.deletePreset(slot)) });
+    if (last) del.setEnabled(false, t('duels.preset.lastOne'));
+    c.add(del);
   }
 
   /** "In the team · 6 of 10" and the points against the budget, with its bar. */
@@ -2255,51 +2388,37 @@ export class DuelScene extends BaseScene {
     const budget = DUEL_RULES.budget;
     const over = pts > budget;
     // the team's points against the Arena's cap (ladder floors set their own, shown on each floor)
-    const bar = new MBar(this, 3, y, w - 4, { value: Math.min(pts, budget), max: budget, label: t('duels.inTeam', { n: team.length, max: DUEL_RULES.teamMax }), right: t('duels.points', { n: pts, max: budget }), color: over ? MOSAIC.terraHi : MOSAIC.gold, h: 5, id: 'duel.points' });
+    const bar = new MBar(this, 3, y, w - 4, { value: Math.min(pts, budget), max: budget, label: t('duels.inTeam', { n: team.length, max: DUEL_RULES.teamMax }), right: t('duels.points', { n: fmtCount(pts), max: fmtCount(budget) }), color: over ? MOSAIC.terraHi : MOSAIC.gold, h: 5, id: 'duel.points' });
     c.add(bar);
-    // the whole note where it fits, else the short one (never cut mid-sentence)
-    const note = t('dv.capNote', { cap: budget });
-    const fits = measureText(note, false, 6) <= w - 6;
-    ptext(this, c, 3, y + bar.h + 4, fits ? note : t('dv.capNoteShort', { cap: budget }), over ? 'bad' : 'muted', { size: 6, maxW: w - 6 });
-    return bar.h + 4 + 8;
+    // the whole note, wrapped (never cut mid-sentence)
+    const note = wrapText(t('dv.capNote', { cap: budget }), w - 6, 2, false, TEXT_MIN);
+    ptext(this, c, 3, y + bar.h + 4, note.lines.join('\n'), over ? 'bad' : 'muted', { size: TEXT_MIN });
+    return bar.h + 4 + note.lines.length * LINE_H;
   }
 
-  private heroRow(c: Phaser.GameObjects.Container, p: DuelProfileView, h: Hero, y: number, rw: number, area: ScrollArea): void {
-    const w = rw;
+  /**
+   * A hero of the duel army on the Army template's roster row (D6): portrait, name and count badge, Lv and class,
+   * rank stars, group disc and Power; lit when in the edited team. A tap opens the Hero sheet; the button on the right
+   * benches him (a check: in the team) or adds him (+).
+   */
+  private heroRow(c: Phaser.GameObjects.Container, p: DuelProfileView, src: ArmySource, h: Hero, y: number, w: number, area: ScrollArea): void {
     const inTeam = p.team.includes(h.id);
-    const row = new ParchmentCard(this, 1, y, w, 29, { selected: inTeam, id: `duel.hero.${h.id}` });
+    const bw = TAP;
+    const rw = w - bw - GAP;
+    const row = this.add.container(1, y);
+    addRosterRow(this, row, rw, ARMY_ROW_H, h, src, inTeam);
     c.add(row);
-    addFace(this, row, 3, 3, 23, h);
-    // narrow rows (landscape phones): a slimmer toggle, the points under the name
-    const narrow = w < 160;
-    const bw = 22;
-    const tog = new MIconButton(this, w - bw - 3, 3, bw, 23, {
+    uiId(row, `duel.hero.${h.id}`);
+    this.rowTap(row, () => area, rw, ARMY_ROW_H, 'duel.heroRow', () => this.openHero(h.id));
+    const tog = new MIconButton(this, 1 + rw + GAP, y, bw, ARMY_ROW_H, {
       icon: inTeam ? 'check' : 'plus',
       label: inTeam ? t('duels.bench') : t('duels.toTeam'),
-      variant: inTeam ? 'selected' : 'secondary',
+      variant: inTeam ? 'lit' : 'secondary',
       id: inTeam ? 'duel.bench' : 'duel.addToTeam',
       onClick: () => this.toggleTeam(p, h),
     });
     if (!inTeam && p.team.length >= DUEL_RULES.teamMax) tog.setEnabled(false, t('duels.why.too_many'));
-    this.rowTap(row, () => area, w - bw - 8, 29, 'duel.heroRow', () => this.openHero(h.id));
-    row.add(tog);
-    const right = w - bw - 8;
-    const x = 31;
-    // points or a perk to spend: a red "!" after the name (the hero sheet badges the tab)
-    const attention = heroNeedsAttention(h) ? 14 : 0;
-    const ptsText = t('duels.pts', { n: heroPoints(h) });
-    let ptsW = 0;
-    if (!narrow) {
-      const pt = ptext(this, row, right, 5, ptsText, 'ink', { align: 1 });
-      addGroupBadge(this, row, right - pt.width - 16, 3, h.group);
-      ptsW = pt.width + 20;
-    }
-    const name = ptext(this, row, x, 5, h.name, 'ink', { maxW: right - ptsW - x - attention });
-    if (attention) row.add(new MBadge(this, x + name.width + 8, 9, '!'));
-    const stars = w >= 220;
-    const sub = narrow ? `${ptsText} · ${t('hero.level', { n: h.level })}` : `${t('hero.level', { n: h.level })} · ${className(h)}`;
-    ptext(this, row, x, 17, sub, 'sec', { maxW: right - x - (stars ? 43 : 0) });
-    if (stars) addStars(this, row, right - 39, 19, heroStars(h));
+    c.add(tog);
   }
 
   private selectPreset(slot: number): void {
@@ -2390,7 +2509,7 @@ export class DuelScene extends BaseScene {
     const listH = Math.min(full, VH - 12 - SHEET_PAD - 16 - 4);
     const m = openParchmentSheet(this, { title: t('duels.recruitTitle'), w, h: SHEET_PAD + 16 + listH + 4, id: 'duel.recruitSheet' });
     const { c, body: b } = m;
-    ptext(this, c, b.x, b.y, t('duels.recruitInfo', { n: p.glory, have: p.heroes.length, max: DUEL_RULES.rosterMax }), 'sec', { maxW: b.w });
+    ptext(this, c, b.x, b.y, t('duels.recruitInfo', { n: fmtCount(p.glory), have: p.heroes.length, max: DUEL_RULES.rosterMax }), 'sec', { maxW: b.w });
     const isFull = p.heroes.length >= DUEL_RULES.rosterMax;
     const sa = new ScrollArea(this, c, b.x, b.y + 16, b.w, listH, this.m.S);
     c.once('destroy', () => sa.destroy());
@@ -2416,11 +2535,11 @@ export class DuelScene extends BaseScene {
         return;
       }
       const btn = new MButton(this, narrow ? tx : pwid - bw - 4, ry + (narrow ? 25 : 5), bw, 22, {
-        label: `${price}`,
+        label: fmtCount(price),
         icon: 'laurel',
         variant: 'secondary',
         id: 'duel.hire',
-        tip: t('duels.hireTip', { name: className(sample), n: price }),
+        tip: t('duels.hireTip', { name: className(sample), n: fmtCount(price) }),
         onClick: () => (m.close(), void this.act(() => this.src.recruit(id), () => t('town.hired', { name: className(sample) }))),
       });
       if (why) btn.setEnabled(false, why);
@@ -2435,7 +2554,7 @@ export class DuelScene extends BaseScene {
       // the full class name on top; its points and role under it
       ptext(this, k, tx, ry + 5, className(sample), 'ink', { maxW: tw });
       const ptsT = ptext(this, k, tx, ry + 19, t('duels.pts', { n: classPoints(id) }), 'sec');
-      addPill(this, k, tx + ptsT.width + 4, ry + 17, roleName(cls.role), roleColor(cls.role), Math.max(20, tw - ptsT.width - 4));
+      armyPill(this, k, tx + ptsT.width + 4, ry + 17, roleName(cls.role), MOSAIC.bronze, Math.max(20, tw - ptsT.width - 4));
     });
     sa.setContentHeight(full);
   }
@@ -2493,7 +2612,7 @@ export class DuelScene extends BaseScene {
     const { area, c, w } = this.openShell(false, this.viewTitle());
     const cols = w >= 2 * 176 + GAP ? 2 : 1;
     let y = 2;
-    y += this.headerRow(c, y, w, p, { team: true }) + GAP;
+    y += this.headerRow(c, y, w, p) + GAP;
     // the page's hint is a tip the player can hide for good
     const tip = addTipLine(this, c, 1, y, w, { text: t(`duels.sit.${this.shopTab}` as TKey), tone: 'info', dismissId: `duel.shop.${this.shopTab}`, id: 'duel.tip' });
     y += tip + (tip ? GAP : 0);
@@ -2520,8 +2639,8 @@ export class DuelScene extends BaseScene {
         items: () => p.stash,
         state: this.stashState,
         onTap: (it) => this.openSell(it),
-        price: (it) => ({ text: `+${sellPrice(it)}`, font: 'glory' }),
-        empty: { title: t('stash.emptyTitle'), hint: t('duels.sellEmpty') },
+        price: (it) => ({ text: `+${fmtCount(sellPrice(it))}`, font: 'glory' }),
+        empty: { title: t('stash.emptyTitle'), hint: t('d5.sellEmpty') },
       });
       return;
     }
@@ -2529,7 +2648,7 @@ export class DuelScene extends BaseScene {
     if (this.shopTab === 'offers') {
       offers = dailyOffers(p.day);
       const day = 86_400_000;
-      c.add(addIcon(this, 2, y - 2, 'clock', 'D'));
+      c.add(addIcon(this, 2, y - 2, 'hourglass'));
       ptext(this, c, 17, y, t('duels.offersIn', { t: leftText(day - (Date.now() % day)) }), 'sec', { maxW: w - 20 });
       y += 14;
     } else {
@@ -2591,12 +2710,12 @@ export class DuelScene extends BaseScene {
     card.add(mosaicImage(this, 4, 4, 28, 28, 'parchmentWell'));
     card.add(new ItemIcon(this, 6, 6, { item: it }, { size: 24, tip: false }));
     // the price, top right (today's: the list price struck through before it)
-    const pt = ptext(this, card, w - 7, 7, `${o.price}`, sold ? 'off' : afford ? 'ink' : 'sec', { align: 1 });
+    const pt = ptext(this, card, w - 7, 7, fmtCount(o.price), sold ? 'off' : afford ? 'ink' : 'sec', { align: 1 });
     card.add(addIcon(this, w - 7 - pt.width - 14, 5, 'laurel', sold || !afford ? 'D' : ''));
     let priceW = pt.width + 20;
     if (daily && !sold) {
       const full = Math.round(o.price / 0.8);
-      const ot = ptext(this, card, w - 7 - priceW - 2, 7, `${full}`, 'muted', { align: 1 });
+      const ot = ptext(this, card, w - 7 - priceW - 2, 7, fmtCount(full), 'muted', { align: 1 });
       card.add(this.add.rectangle(ot.x - ot.width - 1, 11.5, ot.width + 2, 1, MOSAIC.inkMuted).setOrigin(0, 0));
       priceW += ot.width + 6;
     }
@@ -2606,14 +2725,14 @@ export class DuelScene extends BaseScene {
     const room = w - 8 - tx - (daily && !sold ? 34 : 0);
     const pwd = addRarityPill(this, card, tx, 17, o.rarity, tOr(`rarity.${o.rarity}`, RARITY_LABEL[o.rarity]), Math.min(room, 80));
     if (room - pwd - 5 >= 24) ptext(this, card, tx + pwd + 5, 18, t(`slot.${itemDef(o.def).slot}` as TKey), 'sec', { maxW: room - pwd - 5 });
-    if (daily && !sold) addPill(this, card, w - 7, 17, '-20%', MOSAIC.inkGood, 30, true);
+    if (daily && !sold) armyPill(this, card, w - 7 - armyPillW('-20%'), 17, '-20%', MOSAIC.inkGood, 34);
     // what the changes compare against
     const sum = offerSummary(o, team, 3, this.compareHero);
     const vsHero = sum.vsHeroId ? team.find((hh) => hh.id === sum.vsHeroId) : undefined;
     let vsText = sum.vs && vsHero ? t('dv.vsItem', { name: vsHero.name, item: itemName(sum.vs), rarity: tOr(`rarity.${sum.vs.rarity}`, RARITY_LABEL[sum.vs.rarity]) }) : vsHero ? t('dv.vsNothing', { name: vsHero.name }) : t('dv.vsNone');
     const picked = sum.pickedCannot ? team.find((hh) => hh.id === this.compareHero) : undefined;
     if (picked) vsText = `${t('dv.notFor', { name: picked.name })} · ${vsText}`;
-    ptext(this, card, 7, 35, vsText, 'muted', { size: 6, maxW: w - 14 });
+    ptext(this, card, 7, 35, vsText, 'muted', { size: TEXT_MIN, maxW: w - 14 });
     // the stats: name, value, change
     const g = this.add.graphics();
     const dx = Math.round(w * 0.56);
@@ -2638,7 +2757,7 @@ export class DuelScene extends BaseScene {
     const buy = new MButton(this, w - bw - 6, by, bw, 22, { label: sold ? t('duels.soldOut') : t('duels.buy'), icon: sold ? undefined : 'laurel', variant: 'secondary', id: 'duel.buy', tip: t('duels.buyTip', { name: itemName(it), n: o.price }), onClick: () => this.buy(o) });
     if (sold) buy.setEnabled(false, t('duels.soldOut'));
     else if (!afford) {
-      const need = t('dv.needGlory', { n: o.price - p.glory });
+      const need = t('dv.needGlory', { n: fmtCount(o.price - p.glory) });
       buy.setEnabled(false, need);
       ptext(this, card, 7, by + 7, need, 'muted', { maxW: w - bw - 20 });
     }
@@ -2670,7 +2789,7 @@ export class DuelScene extends BaseScene {
       sa.content.add(new ParchmentCard(this, 0, ry, pwid, rowH, { selected: on }));
       sa.content.add(addIcon(this, 6, ry + (rowH - 12) / 2, on ? 'check' : 'people', on ? '' : 'D'));
       ptext(this, sa.content, 22, ry + 5, r.title, on ? 'head' : 'ink', { maxW: pwid - 30 });
-      ptext(this, sa.content, 22, ry + 16, r.sub, 'sec', { size: 6, maxW: pwid - 30 });
+      ptext(this, sa.content, 22, ry + 16, r.sub, 'sec', { size: TEXT_MIN, maxW: pwid - 30 });
       this.rowTap(sa.content, () => sa, pwid, rowH, 'duel.compare.row', () => {
         this.compareHero = r.id;
         m.close();
@@ -2684,9 +2803,9 @@ export class DuelScene extends BaseScene {
     const sold = p.bought.includes(o.id);
     openItemCard(this, {
       item: sample(o),
-      title: t('duels.shopItem'),
+      title: t('d5.armouryItem'),
       worth: false,
-      actions: [{ label: sold ? t('duels.soldOut') : t('duels.buyFor', { n: o.price }), icon: 'laurel', variant: 'primary', id: 'duel.buyCard', disabled: sold ? t('duels.soldOut') : p.glory < o.price ? t('duels.noGlory') : undefined, onClick: () => this.buy(o) }],
+      actions: [{ label: sold ? t('duels.soldOut') : t('duels.buyFor', { n: fmtCount(o.price) }), icon: 'laurel', variant: 'primary', id: 'duel.buyCard', disabled: sold ? t('duels.soldOut') : p.glory < o.price ? t('duels.noGlory') : undefined, onClick: () => this.buy(o) }],
     });
   }
 
@@ -2698,12 +2817,12 @@ export class DuelScene extends BaseScene {
   private openSell(it: Item): void {
     const price = sellPrice(it);
     const bound = isBound(it);
-    const label = t(bound ? 'duels.salvage' : 'duels.sell', { n: price });
+    const label = t(bound ? 'duels.salvage' : 'duels.sell', { n: fmtCount(price) });
     openItemCard(this, {
       item: it,
-      title: t('duels.shopItem'),
+      title: t('d5.armouryItem'),
       worth: false,
-      notes: [{ text: bound ? t('duels.salvageFor', { n: price }) : t('duels.sellFor', { n: price }), font: 'gold' }],
+      notes: [{ text: bound ? t('duels.salvageFor', { n: fmtCount(price) }) : t('duels.sellFor', { n: fmtCount(price) }), font: 'gold' }],
       actions: [
         {
           label,
@@ -2712,10 +2831,10 @@ export class DuelScene extends BaseScene {
           onClick: () =>
             confirmDialog(this, {
               title: t(bound ? 'duels.salvageTitle' : 'duels.sellTitle', { name: itemName(it) }),
-              body: t(bound ? 'duels.salvageBody' : 'duels.sellBody', { n: price }),
+              body: bound ? t('duels.salvageBody', { n: fmtCount(price) }) : t('d5.sellBody', { n: fmtCount(price) }),
               ok: label,
               cancel: t('common.cancel'),
-              onOk: () => void this.act(() => (bound ? this.src.salvage(it.uid) : this.src.sell(it.uid)), () => t('duels.sold', { n: price })),
+              onOk: () => void this.act(() => (bound ? this.src.salvage(it.uid) : this.src.sell(it.uid)), () => t('duels.sold', { n: fmtCount(price) })),
             }),
         },
       ],
@@ -2774,11 +2893,13 @@ export function ladderSource(game: Phaser.Game, src: DuelSource, tk: LadderTicke
     heroes: [...tk.team, ...tk.enemies],
     side: 0,
     label: t('battle.vs', { name: label }),
+    // a ladder floor, said outright: it may pause, and its ticket's deadline on this device (controls.md R10)
+    ladder: { deadline: tk.deadline },
     onFinish(sim: Battle, deployOrders: number) {
       const sub = attackSubmission(sim, deployOrders);
       src
         .ladderSubmit(tk.ticket, sub, sim.result())
-        .then((r) => reportThenHub(game, () => ladderReport(r, this.label, src.demo), { tab: 'ladder', preview: src.demo, result: { glory: r.glory, won: r.won, floor: r.floor, first: r.firstClear, stars: r.stars, newBest: r.newBest } }))
+        .then((r) => reportThenHub(game, () => ladderReport(r, this.label, src.demo), { tab: 'ladder', preview: src.demo, result: { glory: r.glory, won: r.won, floor: r.floor, first: r.firstClear, stars: r.stars, newBest: r.newBest, expired: r.expired } }))
         .catch((e) => backToDuel(game, { tab: 'ladder', preview: src.demo, error: errorText(e) }));
     },
     onLeave() {
@@ -2788,14 +2909,9 @@ export function ladderSource(game: Phaser.Game, src: DuelSource, tk: LadderTicke
   };
 }
 
-/** The post-battle report of a ladder floor (Glory and account XP as notes; no deaths in duels). */
+/** The post-battle report of a ladder floor (Glory and account XP as notes, or that the ticket ran out; no deaths in duels). */
 export function ladderReport(r: LadderReport, label: string, demo = false): BattleReport {
-  const notes: string[] = [];
-  if (r.firstClear) notes.push(t('duels.note.first', { n: r.floor }));
-  if (r.won && r.stars) notes.push(r.newBest && !r.firstClear ? t('duels.note.starsBest', { s: r.stars }) : t('duels.note.stars', { s: r.stars }));
-  if (r.capped > 0) notes.push(t('duels.note.capped'));
-  notes.push(t('duels.note.xp', { n: r.accountXp }));
-  if (demo) notes.push(t('duels.note.demo'));
+  const notes = ladderNotes(r, demo);
   return buildReport({
     result: resultFor(r.winner, 0),
     vs: label,
