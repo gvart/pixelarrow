@@ -20,7 +20,7 @@ import { frameScrollTexts, openItemCard } from '../../ui/sheet';
 import { addEconState, currencyIcon, ensureEconIcons, priceText } from '../../ui/econ/widgets';
 import { econState, type EconState } from '../../game/economy';
 import { isApiError, newRequestId, type Currency } from '../../platform/api';
-import { onlineApi, type MerchantBuyResult, type MerchantOffer, type MerchantView } from '../../online/client';
+import { errorText, onlineApi, type MerchantBuyResult, type MerchantOffer, type MerchantView } from '../../online/client';
 import { demoShard } from '../../online/demoShard';
 import { capKey } from '../../online/merchants';
 import { CONSUMABLES, type ConsumableId } from '../../data/consumables';
@@ -288,7 +288,7 @@ export class MerchantScene extends BaseScene {
 
   /** The item card of a piece of gear on offer (stats; gold only). */
   showOffer(o: MerchantOffer): void {
-    const m = openItemCard(this, { item: this.preview(o), notes: [{ text: t('merchant.gearTip'), font: 'dim' }], actions: [{ label: t('common.close'), onClick: () => m.close(), id: 'merchant.cardClose' }] });
+    const m = openItemCard(this, { item: this.preview(o), notes: [{ text: t('merchant.gearTip'), font: 'pMuted' }], actions: [{ label: t('common.close'), onClick: () => m.close(), id: 'merchant.cardClose' }] });
   }
 
   // ------------------------------------------------------------------ buying
@@ -338,7 +338,7 @@ export class MerchantScene extends BaseScene {
               : isApiError(e) && e.offline
                 ? t('econ.offline')
                 : isApiError(e)
-                  ? e.message
+                  ? errorText(e)
                   : t('econ.error');
       toast(this, msg, 'bad');
       return false;

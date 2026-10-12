@@ -5,7 +5,7 @@ import { scaleIcon, ScrollArea, addIcon, addText, tappable } from '../ui/kit';
 import { ItemIcon, addScrollHint, confirmDialog, showTooltip, subjectName, toast } from '../ui/widgets';
 import { uiId } from '../ui/layout';
 import { wrapText, LINE_H } from '../ui/textfit';
-import { InfoChip, confirmPurchase, flyReward, addClaimGlow } from '../ui/v3';
+import { confirmPurchase, flyReward, addClaimGlow, type FlyTarget } from '../ui/mosaic';
 import { MODE_ICON, MOSAIC, TEXT_MIN, lineHeight } from '../ui/tokens';
 import { fadeIn } from '../ui/motion';
 import { walletOverdrawn } from '../game/economy';
@@ -79,7 +79,7 @@ export class ShopScene extends BaseScene {
   private box!: Box;
   private gen = 0;
   /** The Drachmae chip (counts to the new balance after a purchase). */
-  private drChip: InfoChip | null = null;
+  private drChip: FlyTarget | null = null;
 
   constructor() {
     super('Shop');
@@ -189,7 +189,7 @@ export class ShopScene extends BaseScene {
     const dr = this.loaded?.wallet.drachmae;
     const chip = new MChip(this, x, y, { icon: 'drachma', value: dr === undefined || dr === null ? '…' : `${dr} ${t('econ.drachmae')}`, onClick: () => this.switchTab('wallet'), tip: t('econ.purseTip'), id: 'shop.drachmae' });
     // flyReward lands on the chip; the head is rebuilt with the new balance right after
-    this.drChip = Object.assign(chip, { setValue: () => undefined }) as unknown as InfoChip;
+    this.drChip = Object.assign(chip, { setValue: () => undefined }) as unknown as FlyTarget;
     return chip;
   }
 

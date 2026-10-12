@@ -26,7 +26,7 @@ import type { League, LeagueId } from '../../duel/rating';
 import type { ChestState } from '../../duel/ladder';
 import { heroClass } from '../../sim/stats';
 import { armyPill, armyPillW } from '../../ui/army/parts';
-import { fmtCount } from './hubLayout';
+import { fmtCount } from '../../i18n/numbers';
 
 type C = Phaser.GameObjects.Container;
 

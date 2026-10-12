@@ -34,7 +34,6 @@ export const KIT_PAGES: readonly KitPage[] = [
   { id: 'controls', tab: 0, name: 'Controls' },
   { id: 'items', tab: 1, name: 'Items' },
   { id: 'lists', tab: 2, name: 'Lists' },
-  { id: 'v3', tab: 3, name: 'V3' },
 ];
 
 /** The sub-screen shell demo: a whole screen of its own (no pager), opened from the Parts page. */

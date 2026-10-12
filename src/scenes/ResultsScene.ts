@@ -805,13 +805,13 @@ export class ResultsScene extends BaseScene {
       md.c.add(nl);
       ly += nl.h;
     }
-    md.c.add(addText(this, x + 30, ly + 2, ellipsize(`${t(`rarity.${rar}` as TKey)} ${t(`slot.${def.slot}` as TKey)}`, tw), 'ink'));
-    md.c.add(addText(this, x + 30, ly + 13, ellipsize(t('results.inspect.cond', { n: Math.round(it.cond) }), tw), 'dim'));
+    md.c.add(addText(this, x + 30, ly + 2, ellipsize(`${t(`rarity.${rar}` as TKey)} ${t(`slot.${def.slot}` as TKey)}`, tw), 'pInk'));
+    md.c.add(addText(this, x + 30, ly + 13, ellipsize(t('results.inspect.cond', { n: Math.round(it.cond) }), tw), 'pMuted'));
     let cy = Math.max(y + 28, ly + 26);
     // compare with the best item in that slot among the army
     const mine = this.bestEquipped(def.slot);
     const vsText = mine ? t('results.inspect.vs', { name: `${mine.hero.name}: ${subjectName({ item: mine.item })}` }) : t('results.inspect.none', { slot: t(`slot.${def.slot}` as TKey).toLowerCase() });
-    const vs = new Label(this, x, cy, vsText, { maxW: w, maxLines: 2, font: 'dim' });
+    const vs = new Label(this, x, cy, vsText, { maxW: w, maxLines: 2, font: 'pMuted' });
     md.c.add(vs);
     cy += vs.h + 4;
     const btnY = md.y + md.h - 9 - SIZE.btnH;

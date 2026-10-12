@@ -8,7 +8,6 @@ import Phaser from 'phaser';
 import { addText, type ScrollArea } from '../../ui/kit';
 import { toast } from '../../ui/widgets';
 import { openModal } from '../../ui/widgets';
-import { openSheet } from '../../ui/v3';
 import { addEconState } from '../../ui/econ/widgets';
 import {
   ChipRow, GAP, GearSlot, KeyButton, MActionBar, MBar, MButton, MChip, MIconButton, MPager, MStashGrid, OfferCard, ParchmentCard, RoundButton, SECTION_TITLE_H, SectionTitle, SituationLine, StatTile, TAP,
@@ -163,10 +162,9 @@ export function buildParts(scene: Scene, area: ScrollArea, w: number, openShell:
   add(new MButton(scene, bw + G, y, w - bw - G, 24, { label: 'Docked', variant: 'secondary', onClick: () => openParchmentSheet(scene, { title: 'Docked sheet', h: 80, dock: 'bottom' }) }));
   y += 24 + G;
   add(new MButton(scene, 0, y, bw, 24, { label: 'Decision', variant: 'neutral', onClick: () => openParchmentSheet(scene, { title: 'No X, no shade tap', h: 70, shadeCloses: false, actions: [{ label: 'Close', variant: 'primary', onClick: undefined }] }) }));
-  add(new MButton(scene, bw + G, y, w - bw - G, 24, { label: 'openModal', variant: 'neutral', onClick: () => { const m = openModal(scene, { title: 'Legacy modal', h: 80 }); m.c.add(addText(scene, m.body.x, m.body.y, 'Re-inked content', 'ink')); } }));
+  add(new MButton(scene, bw + G, y, w - bw - G, 24, { label: 'openModal', variant: 'neutral', onClick: () => { const m = openModal(scene, { title: 'Legacy modal', h: 80 }); m.c.add(addText(scene, m.body.x, m.body.y, 'Ink on parchment', 'pInk')); } }));
   y += 24 + G;
-  add(new MButton(scene, 0, y, bw, 24, { label: 'openSheet', variant: 'neutral', onClick: () => openSheet(scene, { title: 'Bottom sheet', h: 80 }) }));
-  add(new MButton(scene, bw + G, y, w - bw - G, 24, { label: 'Sub-shell', variant: 'primary', onClick: openShell }));
+  add(new MButton(scene, 0, y, w, 24, { label: 'Sub-shell', variant: 'primary', onClick: openShell }));
   y += 24 + G;
   return y + 4;
 }

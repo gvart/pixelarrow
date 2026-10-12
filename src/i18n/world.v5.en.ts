@@ -29,7 +29,6 @@ export const WORLD_V5_EN = {
   'wld.campHere': 'Your camp. Tap Camp below to build in it.',
   'wld.structInfo': '{name}: {desc}',
   'wld.bandTap': '{name}: {men}, {threat}',
-  'wld.lairTap': '{name}: bands gather here',
   'wld.noWay': 'No way there',
   'wld.ransomPaid': 'They pay {n} gold and scatter',
   'wld.slipAway': 'You slip away!',

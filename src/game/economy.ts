@@ -165,9 +165,3 @@ export const PASS_XP = { attack: 10, attackWin: 15, capture: 25, duel: 10, duelW
 /** The Smith's prices live in gear.ts (no client API import there, so the server can typecheck it). */
 export { FORGE, forgeCost } from './gear';
 
-/** A whole number with thousands separators: "12 450" in Russian (a no-break space), "12,450" in English. */
-export function groupDigits(n: number, lang: 'en' | 'ru'): string {
-  const v = Math.round(n);
-  const s = `${Math.abs(v)}`.replace(/\B(?=(\d{3})+(?!\d))/g, lang === 'ru' ? ' ' : ',');
-  return v < 0 ? `-${s}` : s;
-}

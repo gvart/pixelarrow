@@ -506,7 +506,7 @@ export class MarketScene extends BaseScene {
             : [];
       // the item card's text column (sheet.ts openItemCard: min(VW - 12, 210) less its padding)
       const noteW = Math.min(this.m.VW - 12, 210) - 16 - 3;
-      openItemCard(this, { item: s.item, hero: b.profile?.heroes[0]?.hero, title: this.listingName(l), notes: notes.flatMap((n) => wrapText(n.text, noteW, 3).lines.map((text) => ({ text, font: n.font }))), actions });
+      openItemCard(this, { item: s.item, hero: b.profile?.heroes[0]?.hero, title: this.listingName(l), notes: notes.flatMap((n) => wrapText(n.text, noteW, 3).lines.map((text) => ({ text, font: n.font === 'red' ? ('pBad' as const) : undefined }))), actions });
       return;
     }
     const actions: MButtonOpts[] =

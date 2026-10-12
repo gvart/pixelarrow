@@ -47,7 +47,7 @@ export function ensureFonts(scene: Phaser.Scene): void {
     register(scene, `rarL_${r}`, LIGHT[r], 0x1d140f);
   }
   for (const [k, [c, s]] of Object.entries(EXTRA)) register(scene, k, c, s);
-  // ink forms for parchment (src/ui/inkSkin.ts maps rar_ and rarL_ to these)
+  // the rarity ink forms for parchment (mosaic/rarityInk.ts)
   ensureRarityInk(scene);
 }
 

@@ -9,13 +9,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LANGS, setLang } from '../src/i18n';
 import { DUELS_V5_EN } from '../src/i18n/duels.v5.en';
 import { DUELS_V5_RU } from '../src/i18n/duels.v5.ru';
-import { FRESCO_MIN_VH, fmtCount, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from '../src/scenes/duel/hubLayout';
+import { FRESCO_MIN_VH, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from '../src/scenes/duel/hubLayout';
+import { fmtCount } from '../src/i18n/numbers';
+import { BODY_METRICS } from '../src/art/fontMetrics';
 import { DemoDuelSource } from '../src/duel/client';
 import { LADDER_TICKET_TTL_MS } from '../src/duel/ladder';
 
 afterEach(() => setLang('en'));
 
-describe('numbers (Director: Russian groups with spaces, never commas)', () => {
+describe('numbers (Director: Russian groups with spaces, never commas; one formatter, F-07)', () => {
   it('English groups thousands with commas', () => {
     expect(fmtCount(640, 'en')).toBe('640');
     expect(fmtCount(1500, 'en')).toBe('1,500');
@@ -28,8 +30,14 @@ describe('numbers (Director: Russian groups with spaces, never commas)', () => {
     expect(fmtCount(640, 'ru')).toBe('640');
     expect(fmtCount(1500, 'ru')).toBe('1500');
     expect(fmtCount(12400, 'ru')).toBe('12 400');
+    expect(fmtCount(12450, 'ru')).toBe('12 450');
     expect(fmtCount(1234567, 'ru')).toBe('1 234 567');
+    expect(fmtCount(-12450, 'ru')).toBe('-12 450');
     for (const n of [999, 1000, 10_000, 123_456, 9_999_999]) expect(fmtCount(n, 'ru')).not.toContain(',');
+  });
+
+  it('writes only characters the UI fonts draw (a no-break space drew as nothing, F-07)', () => {
+    for (const l of ['en', 'ru'] as const) for (const ch of fmtCount(-1_234_567, l)) expect(BODY_METRICS.adv[ch], `${l} ${JSON.stringify(ch)}`).toBeDefined();
   });
 
   it('follows the current language by default', () => {

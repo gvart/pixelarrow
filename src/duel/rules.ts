@@ -33,8 +33,6 @@ export const DUEL_RULES = {
   startGlory: 200,
   /** Glory from ladder replays (farming) per UTC day; first clears and XP are not capped. */
   farmGloryPerDay: 300,
-  /** A ladder ticket must be submitted within this time. */
-  ticketTtlMs: 10 * 60_000,
   battleTimeLimit: 300,
   /** Duel account level gating ranked play (docs/DUELS.md "Unlock"). */
   rankedLevel: 5,

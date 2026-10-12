@@ -27,7 +27,6 @@ export const WORLD_V5_RU: Record<keyof typeof WORLD_V5_EN, Entry> = {
   'wld.campHere': 'Ваш лагерь. Нажмите «Лагерь» внизу, чтобы строить.',
   'wld.structInfo': '{name}: {desc}',
   'wld.bandTap': '{name}: {men}, {threat}',
-  'wld.lairTap': '{name}: здесь собираются отряды',
   'wld.noWay': 'Туда не пройти',
   'wld.ransomPaid': 'Они платят {n} золота и разбегаются',
   'wld.slipAway': 'Вы ускользнули!',

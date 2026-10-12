@@ -5,7 +5,7 @@ import { addScrollHint, confirmDialog, firstTimeHint, toast } from '../ui/widget
 import { uiClip, uiId, uiIgnore } from '../ui/layout';
 import { wrapText } from '../ui/textfit';
 import { COLOR } from '../ui/theme';
-import { addMedallion, addSwipe } from '../ui/v3';
+import { addMedallion, addSwipe } from '../ui/mosaic';
 import { ACCENT, MOSAIC, MOTION, RESOURCES, TEXT_MIN } from '../ui/tokens';
 import { fadeIn, pulse } from '../ui/motion';
 import { ensureFonts } from '../ui/fonts';

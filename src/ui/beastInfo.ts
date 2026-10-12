@@ -1,5 +1,5 @@
 /**
- * The beast info panel: a modal with the beast on a lit stage, how it fights
+ * The beast sheet: a parchment sheet with the beast on a lit stage, how it fights
  * (mechanic hints), what beats it, its loot and (world bosses) the raid
  * status. Opened from the Codex (the beast sheet, with the Trial fight) and
  * from a lair or world boss hex on the war-table map.
@@ -10,12 +10,10 @@
  * without one shows its pixel figure, never a broken image.
  */
 import Phaser from 'phaser';
-import { Button, ScrollArea, addPanel, addText, type FontKey } from './kit';
-import { Label, addScrollHint, openModal, type Modal } from './widgets';
-import { SIZE } from './theme';
+import { ScrollArea, type FontKey } from './kit';
+import { Label, addScrollHint } from './widgets';
 import { MOSAIC, TEXT_MIN } from './tokens';
 import { SHEET_TITLE_H, addCover, hasRaster, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, type MButtonOpts } from './mosaic';
-import { ellipsize } from './textfit';
 import { ensureDoll, dollFrame, dollOrigin } from './sprites';
 import { renderStage } from '../art/sheetArt';
 import { renderFrame } from '../art/paperdoll';
@@ -137,44 +135,26 @@ export interface BeastInfoOpts {
   onClose?: () => void;
 }
 
-/** Fonts a beast panel is written in (a dark v3 modal or the parchment sheet). */
-interface BeastInk {
-  body: FontKey;
-  dim: FontKey;
-  good: FontKey;
-  /** The mark before each line of How it fights. */
-  bullet: string;
-  /** A section heading. */
-  heading: (scene: Phaser.Scene, x: number, y: number, str: string, maxW: number) => Phaser.GameObjects.BitmapText;
-}
-
-const V3_INK: BeastInk = {
-  body: 'ink',
-  dim: 'dim',
-  good: 'good',
-  bullet: '-',
-  heading: (scene, x, y, str, maxW) => addText(scene, x, y, ellipsize(str, maxW, false, 7, 'head'), 'head'),
-};
-
-const PARCHMENT_INK: BeastInk = {
+/** Fonts the beast sheet is written in (ink on the parchment sheet). */
+const ink: { body: FontKey; dim: FontKey; good: FontKey; bullet: string; heading: (scene: Phaser.Scene, x: number, y: number, str: string, maxW: number) => Phaser.GameObjects.BitmapText } = {
   body: 'pInk',
   dim: 'pSec',
   good: 'pGood',
+  /** The mark before each line of How it fights. */
   bullet: '•',
-  // one space between words (caps() doubles them for the wide-tracked plaques)
+  // a section heading: one space between words (caps() doubles them for the wide-tracked plaques)
   heading: (scene, x, y, str, maxW) => mtext(scene, x, y, str.toUpperCase(), 'rInk', { size: 7, maxW }),
 };
 
 /** The scrolled content of a beast panel into the area (width `w`). */
-function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: number, o: BeastInfoOpts, ink: BeastInk, wellStyle: 'inset' | 'flat'): void {
+function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: number, o: BeastInfoOpts): void {
   const c = area.content;
   const world = WORLD_BOSSES.includes(enc);
-  const sheet = ink === PARCHMENT_INK;
   let y = 0;
   // a short sheet gives the stage less room so the words show
-  const stageH = sheet ? Math.max(44, Math.min(74, Math.round(area.bounds.h * 0.4))) : 74;
+  const stageH = Math.max(44, Math.min(74, Math.round(area.bounds.h * 0.4)));
   // the sheet: the painted plate (what it is) beside the figure on its stage (how it looks in battle)
-  const plate = sheet ? beastPlate(scene, enc) : null;
+  const plate = beastPlate(scene, enc);
   let sx = 0;
   if (plate) {
     c.add(mosaicImage(scene, 0, y, stageH, stageH, 'parchmentWell'));
@@ -183,7 +163,7 @@ function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: nu
   }
   beastStage(scene, c, enc, sx, y, w - sx, stageH);
   y += stageH + 4;
-  const sub = `${world ? t('myth.info.worldBoss') : t('myth.info.lair')}${o.level ? `${sheet ? ' · ' : ' - '}${t('myth.info.level', { n: o.level })}` : ''}`;
+  const sub = `${world ? t('myth.info.worldBoss') : t('myth.info.lair')}${o.level ? ` · ${t('myth.info.level', { n: o.level })}` : ''}`;
   const subLabel = new Label(scene, 0, y, sub, { maxW: w, maxLines: 2, font: ink.dim, area });
   c.add(subLabel);
   y += subLabel.h + 3;
@@ -214,44 +194,22 @@ function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: nu
   c.add(ink.heading(scene, 0, y, t('myth.info.mechanics'), w));
   y += 11;
   for (let i = 1; i <= ENCOUNTERS[enc].hints; i++) {
-    const l = new Label(scene, 0, y, `${ink.bullet} ${t(`myth.${enc}.hint${i}` as TKey)}`, { maxW: w, maxLines: sheet ? 5 : 3, font: ink.body, area });
+    const l = new Label(scene, 0, y, `${ink.bullet} ${t(`myth.${enc}.hint${i}` as TKey)}`, { maxW: w, maxLines: 5, font: ink.body, area });
     c.add(l);
     y += l.h + 2;
   }
-  const terror = new Label(scene, 0, y, `${ink.bullet} ${t('myth.info.terror')}`, { maxW: w, maxLines: sheet ? 4 : 2, font: ink.body, area });
+  const terror = new Label(scene, 0, y, `${ink.bullet} ${t('myth.info.terror')}`, { maxW: w, maxLines: 4, font: ink.body, area });
   c.add(terror);
   y += terror.h + 5;
   c.add(ink.heading(scene, 0, y, t('myth.info.counters'), w));
   y += 11;
-  const ct = new Label(scene, 0, y, t(`myth.${enc}.counter` as TKey), { maxW: w, maxLines: sheet ? 5 : 3, area, font: ink.good });
+  const ct = new Label(scene, 0, y, t(`myth.${enc}.counter` as TKey), { maxW: w, maxLines: 5, area, font: ink.good });
   c.add(ct);
   y += ct.h + 5;
-  const loot = new Label(scene, 0, y, t('myth.info.loot'), { maxW: w, maxLines: sheet ? 4 : 2, area, font: ink.dim });
+  const loot = new Label(scene, 0, y, t('myth.info.loot'), { maxW: w, maxLines: 4, area, font: ink.dim });
   c.add(loot);
   y += loot.h + 4;
-  // a backdrop under the scrolled content (the War panel's dark inset); the parchment sheet stays flat (TRL-2)
-  if (wellStyle === 'inset') c.addAt(addPanel(scene, -2, -2, w + 4, y + 2, 'inset'), 0);
   area.setContentHeight(y);
-}
-
-export function openBeastInfo(scene: UiScene, enc: EncounterId, o: BeastInfoOpts = {}): Modal {
-  const { VH } = scene.m;
-  const modal = openModal(scene, { title: encounterName(enc), w: 220, h: Math.min(VH - 16, 330), onClose: o.onClose });
-  const b = modal.body;
-  const btnY = b.y + b.h - SIZE.btnH;
-  const area = new ScrollArea(scene, modal.c, b.x, b.y, b.w, btnY - 6 - b.y, scene.m.S);
-  fillBeastInfo(scene, area, enc, b.w - 4, o, V3_INK, 'inset');
-  addScrollHint(scene, modal.c, area);
-  const half = Math.floor((b.w - SIZE.gap) / 2);
-  modal.c.add(new Button(scene, b.x, btnY, o.action ? half : b.w, SIZE.btnH, { label: t('common.close'), icon: 'back', onClick: () => modal.close() }));
-  if (o.action) {
-    const a = o.action;
-    const btn = new Button(scene, b.x + half + SIZE.gap, btnY, b.w - half - SIZE.gap, SIZE.btnH, { label: a.label, icon: a.icon ?? 'swords', variant: 'primary', disabledReason: a.disabled, onClick: () => a.run() });
-    if (a.disabled) btn.setEnabled(false, a.disabled);
-    modal.c.add(btn);
-  }
-  modal.c.once('destroy', () => area.destroy());
-  return modal;
 }
 
 /**
@@ -276,7 +234,7 @@ export function openBeastSheet(scene: UiScene, enc: EncounterId, o: BeastInfoOpt
   // as tall as its content (measured once off screen), at most the screen
   const probe = scene.add.container(0, 0);
   const pa = new ScrollArea(scene, probe, 0, 0, bw, 1000, scene.m.S);
-  fillBeastInfo(scene, pa, enc, bw - 4, o, PARCHMENT_INK, 'flat');
+  fillBeastInfo(scene, pa, enc, bw - 4, o);
   const contentH = pa.contentHeight;
   pa.destroy();
   probe.destroy();
@@ -285,7 +243,7 @@ export function openBeastSheet(scene: UiScene, enc: EncounterId, o: BeastInfoOpt
   const b = s.body;
   if (capLines.length) s.c.add(mtext(scene, b.x + b.w / 2, b.y + b.h - capH + 2, capLines.join('\n'), capFont, { size: capSize, align: 0.5 }).setCenterAlign());
   const area = new ScrollArea(scene, s.c, b.x, b.y, b.w, b.h - capH - 2, scene.m.S);
-  fillBeastInfo(scene, area, enc, b.w - 4, o, PARCHMENT_INK, 'flat');
+  fillBeastInfo(scene, area, enc, b.w - 4, o);
   addScrollHint(scene, s.c, area, MOSAIC.parch);
   s.c.once('destroy', () => area.destroy());
   return { close: s.close };
