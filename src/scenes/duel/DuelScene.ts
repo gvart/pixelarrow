@@ -1923,9 +1923,8 @@ export class DuelScene extends BaseScene {
       this.finishPage(y, 0);
       return;
     }
-    // what the page says now (a problem, or the raids left)
-    const warn = a.unlocked && !a.defence;
-    y += addTipLine(this, c, 1, y, w, { text: sentence, tone: warn ? 'warn' : 'info', id: 'duel.tip', maxLines: 3 }) + GAP;
+    // what the page says now (no defence yet, or the raids left): a task, not an alert, so never red (A11Y-05)
+    y += addTipLine(this, c, 1, y, w, { text: sentence, tone: 'info', id: 'duel.tip', maxLines: 3 }) + GAP;
     // raids left and the raid league on one line
     const left = t('duels.raid.leftLong', { n: fmtCount(a.attacks.left), max: fmtCount(a.attacks.cap) });
     const lt = ptext(this, c, w - 1, y, left, a.attacks.left > 0 ? 'ink' : 'bad', { align: 1 });
