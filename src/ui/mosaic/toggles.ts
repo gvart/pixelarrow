@@ -38,6 +38,7 @@ export class Toggle extends Phaser.GameObjects.Container {
     this.add(this.g);
     this.draw();
     this.setSize(this.w, this.h);
+    this.setInteractive(new Phaser.Geom.Rectangle(this.displayOriginX, this.displayOriginY, this.w, this.h), Phaser.Geom.Rectangle.Contains);
     uiId(this, o.id ?? `toggle:${o.label}`);
     if (o.disabled) this.setAlpha(0.45);
     tappable(this, null, () => {
