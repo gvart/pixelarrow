@@ -24,7 +24,7 @@ import { online } from '../platform/cloud';
 import { analyticsToggled } from '../platform/monitoring';
 import { SPEEDS, speedLabel, startSpeed } from './input/pace';
 
-type ToggleKey = { [K in keyof Settings]-?: Settings[K] extends boolean ? K : never }[keyof Settings];
+type ToggleKey = { [K in keyof Settings]-?: NonNullable<Settings[K]> extends boolean ? K : never }[keyof Settings];
 type Volume = 'musicVol' | 'sfxVol';
 type Row =
   | { kind: 'section'; label: TKey }
@@ -45,9 +45,10 @@ interface UiScene extends Phaser.Scene {
 
 /**
  * Grouped: Audio, Language, Battle pauses, Accessibility, Account (M-15).
- * A setting gets a row only once the game honours it: Reduce shake, Reduce
- * flash and Left-hand are saved (save v6) but wait for the stories that read
- * them (FL-01, BTL-01). The battle speed (CT-06) is the speed battles open at.
+ * A setting gets a row only once the game honours it: Reduce shake and Reduce
+ * flash are saved (save v6) but wait for FL-01. Left-hand (BTL-01) mirrors the
+ * battle's medallion rail, eye and top bar. The battle speed (CT-06) is the
+ * speed battles open at.
  */
 export const ROWS: readonly Row[] = [
   { kind: 'section', label: 'settings.sec.audio' },
@@ -66,6 +67,7 @@ export const ROWS: readonly Row[] = [
   { kind: 'section', label: 'settings.sec.access' },
   { kind: 'motion', label: 'settings.reduceMotion' },
   { kind: 'toggle', key: 'haptics', label: 'settings.haptics' },
+  { kind: 'toggle', key: 'leftHand', label: 'settings.leftHand' },
   { kind: 'section', label: 'settings.sec.account' },
   { kind: 'sync', label: 'menu.cloudSave' },
   { kind: 'tutorial', label: 'settings.tutorial' },

@@ -9,4 +9,6 @@ export const SETTINGS_EN = {
   'settings.sync.syncing': 'Saving…',
   'settings.sync.synced': 'Saved',
   'settings.sync.offline': 'Offline',
+  // BTL-01 (A11Y-16, V5-072): the battle's thumb controls on the left
+  'settings.leftHand': 'Left-handed battle controls',
 } as const;

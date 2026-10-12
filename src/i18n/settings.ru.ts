@@ -7,4 +7,6 @@ export const SETTINGS_RU: Record<keyof typeof SETTINGS_EN, string> = {
   'settings.sync.syncing': 'Сохраняю…',
   'settings.sync.synced': 'Сохранено',
   'settings.sync.offline': 'Офлайн',
+  // BTL-01 (A11Y-16, V5-072): кнопки боя под левую руку
+  'settings.leftHand': 'Управление боем под левую руку',
 };

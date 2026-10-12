@@ -614,7 +614,7 @@ export class BattleScene extends BaseScene {
     this.ui.add(this.hud);
     // the boss bar is HUD chrome (Z2): over the field badges, under the HUD's sheets
     const bossBar = this.beasts?.barObject;
-    if (bossBar) this.ui.moveBelow(bossBar, this.hud);
+    if (bossBar) this.ui.moveAbove(bossBar, this.tags);
     this.selGroup = this.firstPlayerGroup();
     this.buildHud();
     this.frameArmies();
@@ -633,7 +633,7 @@ export class BattleScene extends BaseScene {
       confirmClose: true,
       settings: () => {
         if (this.sim.phase === 'battle' && !this.paused && !this.realtimeLocked) this.setPaused(true);
-        openSettings(this);
+        openSettings(this, () => this.settingsClosed());
       },
     });
     if (this.tutorialData) {
@@ -2882,10 +2882,19 @@ export class BattleScene extends BaseScene {
         else if (item === 'resetAll') this.resetDeploy();
         else if (item === 'skip') this.tutorial?.askSkip();
         // Settings keeps the fight paused while it is open (ELEMENT_MAP E208)
-        else openSettings(this);
+        else openSettings(this, () => this.settingsClosed());
       },
     });
     return this.menu;
+  }
+
+  /** Settings closed over the battle: a changed Left-hand setting (A11Y-16) moves the HUD at once. */
+  private settingsClosed(): void {
+    if (!this.scene.isActive()) return;
+    const left = !!state.campaign.data.settings.leftHand;
+    if (left === this.leftHand) return;
+    this.leftHand = left;
+    this.buildHud();
   }
 
   /** Swap the top bar's actions (pause / play, speed) without rebuilding the HUD. */

@@ -672,6 +672,18 @@ const SCREENS = [
     },
   })),
   { id: 'battle-retreat', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.startFight(); s.openRetreat(); return 1;`), wait(p, 500)) },
+  {
+    // BTL-01 (A11Y-16): Left-hand mirrors the medallion rail, the eye and the top bar's ends
+    id: 'battle-lefthand',
+    owner: 'A',
+    run: async (p) => {
+      await ev(p, () => (window.__state.campaign.data.settings.leftHand = true));
+      await battle(p);
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 2; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); const u = s.sim.units.find((x) => x.side === 0 && x.abil.length > 0) || s.sim.units.find((x) => x.side === 0); s.selGroup = u.group; s.selUnit = -1; s.buildHud(); return 1;`);
+      await wait(p, 500);
+      await ev(p, () => delete window.__state.campaign.data.settings.leftHand);
+    },
+  },
   // BTL-01: the ⋯ battle menu in deployment, in the fight (it pauses) and in a battle that cannot pause (Retreat and Sound only)
   { id: 'battle-menu-deploy', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.hideBanner(); s.openMenu(); return 1;`), wait(p, 500)) },
   { id: 'battle-menu', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.startFight(); s.hideBanner(); s.openMenu(); return 1;`), wait(p, 500)) },

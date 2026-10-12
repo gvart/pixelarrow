@@ -66,6 +66,19 @@ const SHOTS = {
     await api.call('Battle', `s.startFight(); s.command({kind:'order', group:-1, order:'advance'}); for (let i = 0; i < 20 * 8 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.hideBanner(); s.setPaused(true); s.buildHud(); return 1;`);
     await page.waitForTimeout(600);
   },
+  // the medallion rail capped at 3 (2 on a short field) with the More key: the horn and four abilities on group I
+  rail: async ({ api, page }) => {
+    await battle(api, page);
+    await api.call(
+      'Battle',
+      `s.startFight(); for (let i = 0; i < 20 * 2; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); }
+       const g = s.sim.groups.find((x) => x.side === s.me && !x.disbanded && s.sim.members(x.id).length > 0);
+       const mem = s.sim.members(g.id);
+       mem[0].abil = ['bash', 'volley']; mem[1].abil = ['berserk', 'rally'];
+       s.selGroup = g.id; s.selUnit = -1; s.hideBanner(); s.setPaused(true); s.buildHud(); return 1;`,
+    );
+    await page.waitForTimeout(600);
+  },
   menu: async ({ api, page }) => {
     await battle(api, page);
     await api.call('Battle', `s.startFight(); s.hideBanner(); s.openMenu(); return 1;`);
