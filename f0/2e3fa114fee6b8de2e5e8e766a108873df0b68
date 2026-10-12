@@ -1,0 +1,26 @@
+src/game/save.ts
+  s_697bdc25a7c420::t_af0ade88bb0272 45,48
+src/ui/settings.ts
+  s_697bdc25a7c420::t_af0ade88bb0272 11,33,49-50,70-71,195-206
+  s_697bdc25a7c420::t_9e313ed673b8f5 207-209
+src/i18n/settings.en.ts
+  s_697bdc25a7c420::t_af0ade88bb0272 14-16
+src/i18n/settings.ru.ts
+  s_697bdc25a7c420::t_af0ade88bb0272 12-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f02e3fa114fee6b8de2e5e8e766a108873df0b68",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
