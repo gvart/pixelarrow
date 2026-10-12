@@ -41,7 +41,7 @@ export function stepDb(step: number): number {
 }
 
 /** Which bus a sound plays on. Everything not listed is a field sound (SFX). */
-const UI_SOUNDS: ReadonlySet<SfxId> = new Set<SfxId>(['click', 'tap', 'back', 'error', 'warning', 'coin', 'levelUp', 'chime', 'narrate', 'quill']);
+const UI_SOUNDS: ReadonlySet<SfxId> = new Set<SfxId>(['click', 'tap', 'back', 'error', 'warning', 'coin', 'levelUp', 'chime', 'narrate', 'quill', 'nope', 'destroy', 'undo']);
 
 export function busOf(id: SfxId): Bus {
   return UI_SOUNDS.has(id) ? 'ui' : 'sfx';

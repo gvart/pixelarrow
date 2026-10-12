@@ -26,6 +26,7 @@ import { toastY, type OverlayKind, type Rect } from './mosaic/overlays';
 import { badgeText, switchLabelStyle } from './mosaic/policy';
 import { haptic } from '../platform/telegram';
 import { sfx } from '../audio';
+import { uiDestroy } from '../audio/hooks';
 import { t, tOr } from '../i18n';
 
 /** A scene with a scaled UI root (BaseScene and friends). */
@@ -1292,6 +1293,7 @@ export function confirmDialog(scene: UiScene, o: ConfirmDialogOpts): Phaser.Game
       onClick: () => {
         done = true;
         m.close();
+        if (o.destructive) uiDestroy();
         o.onOk();
       },
     }),

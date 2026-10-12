@@ -131,6 +131,8 @@ interface UnitView {
   /** Men: weapon class (which attack / aim animation), the facing row's texture, and rarity effects. */
   wc: WeaponClass;
   rowKey: string;
+  /** The frame of the facing row shown now (showFrame). */
+  shown?: number;
   fx: DollFx | null;
   /** Epic+ outline ring and rare+ glint sweep overlays (men with such gear only). */
   fxRing: Phaser.GameObjects.Sprite | null;
@@ -963,9 +965,23 @@ export class BattleScene extends BaseScene {
 
   /** Show a frame from the figure's facing row (drawn into the atlases on demand). */
   private showFrame(v: UnitView, frame: number): void {
+    v.shown = frame;
     const f = battleFrame(v.rowKey, frame);
     if (v.spr.texture.key !== f.key) v.spr.setTexture(f.key, f.frame);
     else if (v.spr.frame.name !== f.frame) v.spr.setFrame(f.frame);
+  }
+
+  /**
+   * A held pose (hit-stop) still asks for its frame: a frame nobody asks for expires and may be redrawn
+   * under a new name (sprites.ts sweepFrames), and a hold lasts while the fight is paused or over. A held
+   * man (or his gear overlay) kept a dropped frame, and render threw on it for good.
+   */
+  private keepFrame(v: UnitView): void {
+    if (v.shown === undefined) return;
+    this.showFrame(v, v.shown);
+    const f = battleFrame(v.rowKey, v.shown);
+    if (v.fxRing && f.ring && v.fxRing.frame.name !== f.ring) v.fxRing.setTexture(f.key, f.ring);
+    if (v.fxGlint && f.glint && v.fxGlint.frame.name !== f.glint) v.fxGlint.setTexture(f.key, f.glint);
   }
 
   /** Epic+ gear: the outline ring pulses; rare+: a highlight sweeps across the metal now and then. */
@@ -1036,7 +1052,10 @@ export class BattleScene extends BaseScene {
       }
       v.spr.setVisible(true);
       // hit-stop (R4): the pose of a held group or man stays as it was drawn; the sim runs on underneath
-      if (this.juice.holds(u)) continue;
+      if (this.juice.holds(u)) {
+        this.keepFrame(v);
+        continue;
+      }
       const ix = Phaser.Math.Linear(v.px, u.x, alpha);
       const iy = Phaser.Math.Linear(v.py, u.y, alpha);
       const sp = isoToScreen(ix, iy);

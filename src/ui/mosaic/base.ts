@@ -142,7 +142,7 @@ export function makePressable(obj: C, o: PressOpts): void {
     const why = o.disabled?.();
     if (why) showTooltip(scene, why, obj);
     else o.onTap();
-  }, () => o.disabled?.() ?? o.tip);
+  }, () => o.disabled?.() ?? o.tip, o.disabled);
 }
 
 /**

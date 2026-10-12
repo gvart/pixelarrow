@@ -14,8 +14,8 @@ import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
 import { renderIcon } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { renderMosaic, type MosaicStyle } from '../art/mosaicUi';
-import { haptic, hapticNotify } from '../platform/telegram';
-import { uiButton, uiError } from '../audio/hooks';
+import { haptic } from '../platform/telegram';
+import { uiButton, uiDisabled } from '../audio/hooks';
 import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
 import { ellipsize, fitCinzelLabel, measureText, LINE_H } from './textfit';
@@ -448,13 +448,12 @@ export class Button extends Phaser.GameObjects.Container {
       if (!d || long) return;
       if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       if (!this.enabled) {
-        uiError();
-        hapticNotify('warning');
+        uiDisabled();
         longPress.toast?.(scene, this.opts.disabledReason ?? t('kit.disabled'));
         return;
       }
       haptic('light');
-      uiButton(this.opts.icon);
+      uiButton(this.opts.icon, this.opts.id);
       // Crash-report breadcrumb: the button's id or icon only (labels may hold player names).
       breadcrumb('ui', `tap ${this.opts.id ?? this.opts.icon ?? '?'}`);
       this.opts.onClick?.();
@@ -890,7 +889,8 @@ export class ScrollArea {
  * A list row that only fires on taps (not drags) inside a ScrollArea, with
  * the click sound and a haptic. `tip`: long-press text (tooltip).
  */
-export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | null, onTap: () => void, tip?: string | (() => string | undefined)): void {
+/** `blocked`: when it says why, the tap is a disabled tap (the soft "no") instead of a click. */
+export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | null, onTap: () => void, tip?: string | (() => string | undefined), blocked?: () => string | undefined): void {
   let down: { x: number; y: number } | null = null;
   let timer: HoldTimer | null = null;
   let long = false;
@@ -923,8 +923,11 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
     const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
     down = null;
     if (d > 14 * RS || (area && area.moved)) return;
-    haptic('light');
-    uiButton();
+    if (blocked?.()) uiDisabled();
+    else {
+      haptic('light');
+      uiButton(undefined, (obj as { __uiId?: string }).__uiId);
+    }
     onTap();
   });
   obj.once('destroy', stop);
