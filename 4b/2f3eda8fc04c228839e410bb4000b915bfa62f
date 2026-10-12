@@ -1,0 +1,34 @@
+tests/forge.test.ts
+  s_697bdc25a7c420::t_6d7931f25c05fb 10
+src/i18n/numbers.ts
+  s_697bdc25a7c420::t_85fdef3d1052ed 1-21
+tests/duelHub.test.ts
+  s_697bdc25a7c420::t_c49be78b99e03d 12-13,19,28,31-34,40
+src/ui/econ/consumablePicker.ts
+  s_697bdc25a7c420::t_18cbb9a4709207 32
+src/scenes/duel/hubLayout.ts
+  s_697bdc25a7c420::t_18cbb9a4709207 3,8-9
+src/scenes/SettlementScene.ts
+  s_697bdc25a7c420::t_18cbb9a4709207 27-28,599
+src/scenes/duel/duelParts.ts
+  s_697bdc25a7c420::t_18cbb9a4709207 29
+src/ui/sheets/forge.ts
+  s_697bdc25a7c420::t_cfb76610a126bd 28
+  s_697bdc25a7c420::t_18cbb9a4709207 26-27,71,81,193-194,205,209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4b2f3eda8fc04c228839e410bb4000b915bfa62f",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
