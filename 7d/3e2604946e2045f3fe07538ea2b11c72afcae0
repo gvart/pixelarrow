@@ -1,0 +1,43 @@
+scripts/layout-check.mjs
+  s_697bdc25a7c420::t_b7a2e5a0db928a 778-791
+  s_697bdc25a7c420::t_43715a29f5af64 675-682
+tests/targeting.test.ts
+  s_697bdc25a7c420::t_10efbbcacb00ac 156-163,177-178
+scripts/dev/btl01-shots.mjs
+  s_697bdc25a7c420::t_2518ab4f1cb033 1-114
+src/ui/beastView.ts
+  s_697bdc25a7c420::t_5ec6ee8e504967 26,435-439,453-457
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_27cd315b0a56f4 2721
+  s_697bdc25a7c420::t_5cd55403f4377b 2718-2719,2728
+  s_697bdc25a7c420::t_10efbbcacb00ac 3131,3137,3146
+  s_697bdc25a7c420::t_a3daefe58fcc27 3828
+  s_697bdc25a7c420::t_5ec6ee8e504967 615-617
+  s_697bdc25a7c420::t_34d9c92e983f64 419
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_144119a8d47ea7 149-153
+  s_697bdc25a7c420::t_10efbbcacb00ac 747-756
+  s_697bdc25a7c420::t_007dd858a5b284 172-173
+scripts/layout-allowlist.json
+  s_697bdc25a7c420::t_a65dc3ed6a1315 3
+src/ui/sheets/battleMenu.ts
+  s_697bdc25a7c420::t_34d9c92e983f64 88
+src/ui/battlePanel.ts
+  s_697bdc25a7c420::t_a3daefe58fcc27 815,824-830
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7d3e2604946e2045f3fe07538ea2b11c72afcae0",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
