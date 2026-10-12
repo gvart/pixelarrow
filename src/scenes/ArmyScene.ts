@@ -221,7 +221,8 @@ export class ArmyScene extends BaseScene {
     } else if (this.tab === 'stash') parts.push(this.src.stash().length ? t('army.sit.stash', { n: this.src.stash().length }) : t('army.sit.empty'));
     else {
       // what needs doing first: points to spend, then wounds, then the count
-      if (pend.length) parts.push(t('army.sit.pending', { n: pend.length, name: heroName(pend[0].name), more: pend.length - 1 }));
+      if (pend.length === 1) parts.push(t('army.sit.pendingOne', { n: this.src.pending(pend[0]), name: heroName(pend[0].name) }));
+      else if (pend.length) parts.push(t('army.sit.pending', { n: pend.length, name: heroName(pend[0].name), more: pend.length - 1 }));
       if (hurt.length) parts.push(t('army.sit.hurt', { n: hurt.length }));
       if (!pend.length || !hurt.length) parts.push(t('army.sit.men', { n: heroes.length }));
       urgent = pend.length > 0;
