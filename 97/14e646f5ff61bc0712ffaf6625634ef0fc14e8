@@ -1,0 +1,83 @@
+src/ui/dragFormation.ts
+  s_697bdc25a7c420::t_2759080fb7848c 185-230
+src/ui/battlePanel.ts
+  s_697bdc25a7c420::t_457f0c80a0093f 525
+src/i18n/battle.ru.ts
+  s_697bdc25a7c420::t_f00c21ad17ee7e 80
+  s_697bdc25a7c420::t_2759080fb7848c 22
+tests/camera.test.ts
+  s_697bdc25a7c420::t_2b2ba2fff65273 2,13-15,18-27,144-163
+  s_697bdc25a7c420::t_2865e2597142ee 164
+src/i18n/pace.en.ts
+  s_697bdc25a7c420::t_0fa45e69119f16 11
+scripts/smoke.mjs
+  s_697bdc25a7c420::t_37de924c142bcf 175-180
+  s_697bdc25a7c420::t_c190d3dcd6130e 166-174,181-188,208-218,221,298,319-322
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_2759080fb7848c 25,2488-2497,2532-2539
+  s_697bdc25a7c420::t_87c00c902cc182 34,2936-2937
+  s_697bdc25a7c420::t_64da8f17525c95 4366-4367
+  s_697bdc25a7c420::t_09a7f651577bd9 4186-4200
+  s_697bdc25a7c420::t_fd6baee151ad00 2049-2056
+  s_697bdc25a7c420::t_368319a121093f 3312
+  s_697bdc25a7c420::t_2b677ede7521a9 4351-4356
+  s_697bdc25a7c420::t_57c3e258c91526 4213-4214,4224-4225
+  s_697bdc25a7c420::t_9c78d2b94fe3e4 339-340,697-699,714-716,1951,1958,2031,2035-2036,2039-2044,2935,4585-4586
+  s_697bdc25a7c420::t_da6c3d7dcf028d 2046-2048
+  s_697bdc25a7c420::t_230a6a7a3d129b 862-865
+  s_697bdc25a7c420::t_bd9c73b6289f88 3313,3565-3566,3568-3571
+  s_697bdc25a7c420::t_44db11d915c27a 242,440,1610-1611
+  s_697bdc25a7c420::t_558ba34491306a 10,4267-4268,4304-4312,4316
+  s_697bdc25a7c420::t_82371fccffe4c3 2867-2868
+  s_697bdc25a7c420::t_90e25e13854104 2540-2541
+src/art/vectorIcons.ts
+  s_697bdc25a7c420::t_a7f4827f03a39a 491-495,504
+src/ui/tutorial/battleTutorial.ts
+  s_697bdc25a7c420::t_5e99467ab25867 964-965
+src/ui/battleCamera.ts
+  s_697bdc25a7c420::t_df6243e953c002 23-27,29,32-35,89-90,92,101,151-173
+  s_697bdc25a7c420::t_2b2ba2fff65273 91
+  s_697bdc25a7c420::t_da6c3d7dcf028d 36-46,174
+src/i18n/tutorial.ru.ts
+  s_697bdc25a7c420::t_5e99467ab25867 26
+src/i18n/strat.ru.ts
+  s_697bdc25a7c420::t_6a01c9112a7cda 81
+tests/targeting.test.ts
+  s_697bdc25a7c420::t_5b79f443dd0265 156,159,163,171,173-176,185-186
+tests/battleQaFixes.test.ts
+  s_697bdc25a7c420::t_17da30c473ccea 118
+  s_697bdc25a7c420::t_da0aac2973bce3 1-117,119-177
+src/i18n/pace.ru.ts
+  s_697bdc25a7c420::t_0fa45e69119f16 8
+src/i18n/tutorial.en.ts
+  s_697bdc25a7c420::t_fdbf1a5bd41fff 25
+scripts/fullscreen-smoke.mjs
+  s_697bdc25a7c420::t_cd877f4a6d86fa 277-281,286-295,298-299
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_d9517be83438d1 792-808
+  s_697bdc25a7c420::t_388598de354d27 785-787
+  s_697bdc25a7c420::t_2740184c85eff1 980-981,992,999
+  s_697bdc25a7c420::t_ab42c28d376e77 1102-1121
+  s_697bdc25a7c420::t_7d3e2d622b3eb1 967-979,982-991,995-996,998,1000-1012
+  s_697bdc25a7c420::t_bd9c73b6289f88 753-757,759-760
+  s_697bdc25a7c420::t_70b1803dd6f68d 993-994,997
+src/i18n/battle.en.ts
+  s_697bdc25a7c420::t_2759080fb7848c 25
+  s_697bdc25a7c420::t_f00c21ad17ee7e 83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9714e646f5ff61bc0712ffaf6625634ef0fc14e8",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
