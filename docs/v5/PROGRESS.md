@@ -11,8 +11,9 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | EC-01 worktree-agent-a1ba9efa7af058119, BTL-01 worktree-agent-afb5d69338e60b31d | — | integrator | — | merging |
-| due-02 | W19 DUE-02: duel sub-screens | per card | per card | worktree-agent | running |
+| (merge) | DUE-02 worktree-agent-ad030dc731301c99e | — | integrator | — | merging |
+| tut-02 | W20 TUT-02: tutorial refresh | per card | per card | worktree-agent | running |
+| fixer-6 | online-e2e name-prompt wait | scripts/online-e2e.mjs | — | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -69,6 +70,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 7605ad7 SET-01; 4cadcf1 CT-06; c475df9 WLD-02; 56031f9 allowlist hygiene. Gates: vitest 1300, server 303, layout 0 new (524 distinct), all 5 smokes first-try, replay 13/13 chromium (webkit not installed); balance 53%, lairs 43/58/53. Load avg 27-50: balance 74 min.
 - 676cd87 F-05 Kit; 8f31f7c RD-02 flank arcs/banners; 2e41700 WAR-01 War hub. Gates: vitest 1353, server 303, layout 0 new (493 distinct, 184 screens), smokes pass (main smoke flaked once under load), online-e2e 35 PASS, replay 13/13 chromium; balance 53%, lairs 43/58/53, assault 45%.
 - 6848e5a DUE-01 Duels hub; dfb61e4 allowlist hygiene. Gates: vitest 1366, server 303, layout 0 new (382), smokes all pass, online-e2e 34/34 alone (timed out once under load), replay 13/13; balance 53%.
+- 06894bc EC-01 forge; e0b79df BTL-01 battle HUD; 22a4dfb forge price moved to gear.ts (server typecheck); ac91a5d allowlist hygiene (tutorial text-size). Gates: vitest 1396, server 303, layout 0 new, smokes all pass, online-e2e 34/34 on rerun (first run timed out at the name prompt, the 3rd batch in a row: fixer-6), replay 13/13; balance 53%.
 
 ## Queue (next)
 
