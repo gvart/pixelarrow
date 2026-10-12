@@ -23,6 +23,9 @@ const LANGS = opt('langs', 'en,ru').split(',');
 /** A World with the party at home and no card or coach in the way. */
 const WORLD = async (api) => {
   await api.start('World', {});
+  // scene.start is queued to the next step: a World still running from the last fixture would read
+  // as settled at once, and its restart would then drop the sheet the fixture opens
+  await api.ev(() => new Promise((r) => { let n = 0; const f = () => (++n < 2 ? window.__game.events.once('postrender', f) : r(1)); window.__game.events.once('postrender', f); }));
   await settled(api, 'World');
   await api.call('World', 'const w = s.w; w.stop(); w.s.safeUntil = 1e9; w.s.pendingEvent = null; s.eventCard?.close(); return 1;');
 };
