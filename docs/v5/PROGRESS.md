@@ -11,9 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | LOC-01 worktree-agent-a268fa717621cf55b | — | integrator | — | merging |
-| fixer-7 | flaky smokes + toggle regression | scripts, tests | — | worktree-agent | running |
-| snd-02 | missing UI sounds (disabled, destructive, undo) | mosaic buttons, confirm, undo | — | worktree-agent | running |
+| (merge) | SND-02 worktree-agent-a4b8c97603fb3abed, FIXER-7 worktree-agent-a27fba672040f93fb | — | integrator | — | merging |
+| bal-02 | balance leftovers on top of FL-04 (war beasts, 8-man opening, D2 residuals, ladder harness) | src/data, balance | — | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -77,6 +76,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 58dbd77 FL-01 juice tiers. Gates: vitest 1439, server 303, layout 0 new (45 known; run 1 had glTexture-null page errors on 4 en-tg configs at load ~115, clean alone), smokes and regression pass, online-e2e 35, replay 13/13; balance 53%.
 - c87bb5e F-07 retire v3 and inkify (+622/-1587), one fmtCount. Gates: vitest 1439, server 303, layout 0 new (45 known), regression 193 s PASS, online-e2e 35, replay 13/13; balance 53%. smoke (no 'Begin the march') and fullscreen-smoke (facing knob, tap-to-move) flaked at load 38, passed alone.
 - f7c8170 FL-02 transitions; 5edd0a1 FL-03 audio; 7575ce6 Settings toggles tappable again (F-07 dropped the Toggle hit box; caught by audio-smoke). Gates: vitest 1461, server 303, layout 0 new, all 6 smokes, regression 298/0, online-e2e 34, replay 13/13; balance 53%. Bundle main 3.51 MB (1.07 MB gzip) for QA-05. The app crashed mid-gates once and the gates were re-run.
+- 9c1c473 LOC-01 Russian polish. Gates: vitest 1483, server 303, layout 0 new (45 known; the en-plain-360 glTexture flake is the FIXER-7 hit-stop frame bug), all 6 smokes first try, regression 214 s, online-e2e 35, replay 13/13; balance 53%. FL-04 (no data change, FINAL.md, event rows in balance) is carried by BAL-02's branch.
 
 ## Queue (next)
 
