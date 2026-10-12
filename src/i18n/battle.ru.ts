@@ -20,8 +20,8 @@ export const BATTLE_RU: Record<keyof typeof BATTLE_EN, Entry> = {
   'battle.more.title': 'Умения',
   // кнопки приказов уже 360 (hud.md §I): значок и короткое слово, без обрезки
   'battle.short.advance': 'Впер.',
-  'battle.short.charge': 'Натиск',
-  'battle.short.hold': 'Стоять',
+  'battle.short.charge': 'Атака',
+  'battle.short.hold': 'Стой',
   'battle.short.shoot': 'Огонь',
   'battle.short.back': 'Отход',
   'battle.short.feint': 'Финт',

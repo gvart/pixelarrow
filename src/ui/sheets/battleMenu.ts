@@ -148,3 +148,60 @@ export function openBattleMenu(scene: UiScene, o: BattleMenuOpts): BattleMenuHan
     sheet,
   };
 }
+
+export interface AbilitySheetItem {
+  key: string;
+  icon: string;
+  label: string;
+  /** What it does, one short line. */
+  sub: string;
+}
+
+/**
+ * The medallion rail's "more" sheet (hud.md Z5, abilities.md R4): the
+ * abilities that did not fit the rail, one row each (its name; what it does
+ * under it). A pick closes the sheet, then uses the ability.
+ */
+export function openAbilitySheet(scene: UiScene, o: { items: AbilitySheetItem[]; onPick: (key: string) => void; onDismiss?: () => void }): ParchmentSheetHandle {
+  const { VW } = scene.m;
+  const w = Math.min(240, VW - 8);
+  const inner = w - PAD * 2;
+  const subs = o.items.map((it) => (it.sub ? wrapWords(it.sub, inner, (s) => mw(s, 'pSec', NOTE)) : []));
+  const subH = (n: number) => (n ? Math.ceil((n * LINE_H * NOTE) / 7) + 2 : 0);
+  const h = SHEET_TITLE_H + PAD + o.items.reduce((a, _it, i) => a + ROW_H + subH(subs[i].length) + GAP, 0) - GAP + PAD + 4;
+  let picked = false;
+  const sheet = openParchmentSheet(scene, {
+    title: t('battle.more.title'),
+    w,
+    h,
+    dock: 'bottom',
+    id: 'battle.moreSheet',
+    onClose: () => {
+      if (!picked) o.onDismiss?.();
+    },
+  });
+  const { c, body } = sheet;
+  let y = body.y;
+  o.items.forEach((it, i) => {
+    c.add(
+      new MButton(scene, body.x, y, body.w, ROW_H, {
+        label: it.label,
+        icon: it.icon,
+        variant: 'secondary',
+        id: `battle.more.${it.key}`,
+        onClick: () => {
+          picked = true;
+          sheet.close();
+          o.onPick(it.key);
+        },
+      }),
+    );
+    y += ROW_H;
+    if (subs[i].length) {
+      c.add(mtext(scene, body.x + 2, y + 1, subs[i].join('\n'), 'pSec', { size: NOTE }));
+      y += subH(subs[i].length);
+    }
+    y += GAP;
+  });
+  return sheet;
+}

@@ -85,7 +85,7 @@ export interface TopBarOpts {
 
 /** Width of a top bar key (UI px) for a bar `w` wide: a little slimmer on a narrow phone. */
 export function topKeyW(w: number): number {
-  return w < 170 ? 28 : 32;
+  return w < 170 ? 30 : 32;
 }
 
 export class TopBar extends Phaser.GameObjects.Container {
@@ -430,6 +430,26 @@ export class Medallion extends Phaser.GameObjects.Container {
   }
 }
 
+/** The rail holds at most this many medallions (hud.md Z5; BTL-01 AC 4). */
+export const RAIL_MAX = 3;
+/** Under this field height (UI px, 420 pt) the rail holds 2 (hud.md §C Z5). */
+export const RAIL_SHORT_FIELD = 210;
+/** Height of the rail's "more" key (UI px, a 44 pt target). */
+export const MORE_H = 24;
+
+/**
+ * How many medallions the rail shows and whether the "more" key follows
+ * (hud.md Z5): at most RAIL_MAX, 2 on a short field, and only as many as fit
+ * `room` (UI px) together with the more key; the rest open from "more".
+ */
+export function railLayout(n: number, fieldH: number, room: number): { shown: number; more: boolean } {
+  const cap = fieldH < RAIL_SHORT_FIELD ? 2 : RAIL_MAX;
+  let shown = Math.min(n, cap);
+  const fits = (k: number) => k * (MED_H + 4) + (k < n ? MORE_H + 4 : 0) <= room;
+  while (shown > 0 && !fits(shown)) shown--;
+  return { shown, more: shown < n };
+}
+
 /** A facing pip's touch target (UI px): 44 pt (A11Y-06). Its disc is smaller. */
 export const PIP_D = 22;
 
@@ -695,27 +715,34 @@ export const KEY_MIN_W = 22;
 
 /**
  * Widths of the order bar's keys (controls.md R9: labels are never
- * ellipsized). At the largest of KeyButton's label sizes where the words
- * fit: equal when every label fits an equal share; else each key gets its
- * label's width and the rest is shared out, so a long word ("Стрелять" at
- * 360, "Advance" at 320) keeps its room and the row keeps one type size.
+ * ellipsized), at the text floor (6.5 UI px, A11Y-09): equal when every
+ * label fits an equal share; else each key gets its label's width and the
+ * rest is shared out, so a long word keeps its room. Labels that do not fit
+ * even so get equal keys (orderLabels picks the short words before that).
  */
 export function orderKeyWidths(labels: readonly string[], total: number, gap: number): number[] {
   const n = labels.length;
   if (!n) return [];
   const room = total - gap * (n - 1);
   const even = Math.floor(room / n);
-  for (const size of [6.5, 6, 5.5]) {
-    const need = labels.map((l) => Math.max(KEY_MIN_W, measureText(l, true, size) + 4));
-    if (need.every((w) => w <= even)) return labels.map(() => even);
-    const spare = room - need.reduce((a, w) => a + w, 0);
-    if (spare < 0) continue;
-    const each = Math.floor(spare / n);
-    let rest = spare - each * n;
-    return need.map((w) => w + each + (rest-- > 0 ? 1 : 0));
-  }
-  // not even the bare widths fit the bar: equal keys, and KeyButton shortens
-  return labels.map(() => even);
+  const need = labels.map((l) => Math.max(KEY_MIN_W, Math.ceil(measureText(l, true, HUD_TEXT)) + 4));
+  if (need.every((w) => w <= even)) return labels.map(() => even);
+  const spare = room - need.reduce((a, w) => a + w, 0);
+  if (spare < 0) return labels.map(() => even);
+  const each = Math.floor(spare / n);
+  let rest = spare - each * n;
+  return need.map((w) => w + each + (rest-- > 0 ? 1 : 0));
+}
+
+/** Do `labels` fit an order bar `total` wide at the text floor? */
+export function orderLabelsFit(labels: readonly string[], total: number, gap: number): boolean {
+  const room = total - gap * (labels.length - 1);
+  return labels.reduce((a, l) => a + Math.max(KEY_MIN_W, Math.ceil(measureText(l, true, HUD_TEXT)) + 4), 0) <= room;
+}
+
+/** The order bar's words: the full ones when they fit at the text floor, else the short ones (hud.md §I). */
+export function orderLabels(full: readonly string[], short: readonly string[], total: number, gap: number): string[] {
+  return orderLabelsFit(full, total, gap) ? [...full] : [...short];
 }
 
 /**
