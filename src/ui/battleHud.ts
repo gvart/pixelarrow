@@ -876,8 +876,8 @@ export function moraleGlyph(scene: Phaser.Scene, cx: number, cy: number, size: n
   return img;
 }
 
-/** A badge marker (R2: the crest, the Standard, disordered) centred on (cx, cy), in its own colours. */
-export function markerGlyph(scene: Phaser.Scene, cx: number, cy: number, size: number, name: 'crest' | 'standard' | 'disordered'): Phaser.GameObjects.Image {
+/** A badge marker (R2: the crest, the Standard, disordered, feinting, a queued step) centred on (cx, cy), in its own colours. */
+export function markerGlyph(scene: Phaser.Scene, cx: number, cy: number, size: number, name: 'crest' | 'standard' | 'disordered' | 'feint' | 'queued'): Phaser.GameObjects.Image {
   return scene.add.image(cx, cy, `icon_marker_${name}`).setDisplaySize(size, size);
 }
 
@@ -890,12 +890,39 @@ export interface BadgeSpec {
   readout: GroupReadout;
   /** One of our missile groups focuses on it: the reticle (formations-orders.md R4). */
   focused?: boolean;
+  /** Ours, feinting (formations-orders.md R3): the U-turn marker (BTL-01). */
+  feinting?: boolean;
+  /** Ours, with a Then… step queued (controls.md R6.2): the dotted-arrow marker (BTL-01). */
+  queued?: boolean;
+}
+
+/** A field badge's markers, in hud.md §G priority order (the flank arc is drawn round the badge, not on it). */
+export type BadgeMarker = 'reticle' | 'crest' | 'standard' | 'disordered' | 'feint' | 'queued';
+
+/** At most this many markers on a badge besides the numeral and the glyph (hud.md §G visual budget). */
+export const BADGE_MARKERS_MAX = 2;
+
+/**
+ * The markers a badge shows (hud.md §G): by priority reticle, the
+ * captain's crest or the Standard, disordered, feinting, queued step; at
+ * most BADGE_MARKERS_MAX, so the badge stays small and readable at 320.
+ */
+export function badgeMarkers(b: BadgeSpec): BadgeMarker[] {
+  const r = b.readout;
+  const all: BadgeMarker[] = [];
+  if (b.focused) all.push('reticle');
+  if (r.captain) all.push('crest');
+  else if (r.standard) all.push('standard');
+  if (r.disordered) all.push('disordered');
+  if (b.feinting) all.push('feint');
+  if (b.queued) all.push('queued');
+  return all.slice(0, BADGE_MARKERS_MAX);
 }
 
 /** The badge's cache key: rebuild only when what it shows changes. */
 export function badgeKey(b: BadgeSpec): string {
   const r = b.readout;
-  return [b.numeral, b.mine, b.selected, r.state ?? '', r.standard, r.captain, r.disordered, !!b.focused].join('|');
+  return [b.numeral, b.mine, b.selected, r.state ?? '', badgeMarkers(b).join(',')].join('|');
 }
 
 /** The badge's plate height (UI px). */
@@ -923,15 +950,14 @@ export function fieldBadge(scene: Phaser.Scene, b: BadgeSpec): Phaser.GameObject
     push(w, (x) => addText(scene, x + w / 2, -3.4, b.numeral, b.selected ? 'rInk' : 'rCream', 0.5).setFontSize(6.5));
   }
   if (r.state) push(BADGE_GLYPH, (x) => moraleGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH, r.state!));
-  if (r.captain) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'crest'));
-  else if (r.standard) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'standard'));
-  if (r.disordered) push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, 'disordered'));
-  if (b.focused) {
-    push(BADGE_GLYPH, (x) => {
-      const g = scene.add.graphics();
-      strokeBadgeReticle(g, x + BADGE_GLYPH / 2, 0.5, 3.4);
-      return g;
-    });
+  for (const m of badgeMarkers(b)) {
+    if (m === 'reticle')
+      push(BADGE_GLYPH, (x) => {
+        const g = scene.add.graphics();
+        strokeBadgeReticle(g, x + BADGE_GLYPH / 2, 0.5, 3.4);
+        return g;
+      });
+    else push(BADGE_GLYPH, (x) => markerGlyph(scene, x + BADGE_GLYPH / 2, 0.5, BADGE_GLYPH + 1, m));
   }
   if (!parts.length) return null;
   const gap = 1.5;

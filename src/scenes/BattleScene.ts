@@ -3,9 +3,9 @@ import { BaseScene } from './BaseScene';
 import { ICON_PX, Meter, addIcon, addText, holdTimer, longPress, scaleIcon, uiMetrics, type HoldTimer } from '../ui/kit';
 import { RS, camZoom, px, zoomUnits } from '../platform/renderScale';
 import { ScrollList, confirmDialog, hintStore, openModal, toast, Label, type Modal } from '../ui/widgets';
-import { GroupCard, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, strokeReticle, worksTray } from '../ui/battlePanel';
+import { GroupCard, PanelRow, numeralBadge, numeralColour, orderBadgeW, orderBarPlate, strokeReticle, worksTray } from '../ui/battlePanel';
 import type { StripSlot } from '../ui/battleHud';
-import { KeyButton, MButton, caps, ParchmentRow, mosaicImage, mtext, mw } from '../ui/mosaic';
+import { KeyButton, MButton, caps, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
 import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
@@ -3550,11 +3550,12 @@ export class BattleScene extends BaseScene {
           : type === 'orb' && !this.sim.canOrb(sel.id)
             ? t('attn.orb.why.riders')
             : undefined;
-      const row = new ParchmentRow(
+      const row = new PanelRow(
         this,
         x + 4,
         ry,
         w - 8,
+        rowH,
         {
           icon,
           title: t(`battle.cmd.${key}` as TKey),
@@ -3572,7 +3573,6 @@ export class BattleScene extends BaseScene {
             if (warn) this.showBanner(t('attn.orb.warn'), 2600, 4);
           },
         },
-        rowH,
       );
       c.add(row);
       this.cmdBtns.set(`form_${type}`, row);
@@ -4080,7 +4080,7 @@ export class BattleScene extends BaseScene {
       const sy = (top - 46 - cam.worldView.y) * cam.zoom;
       let tag = this.tagMap.get(g.id);
       const sel = this.selGroup === g.id;
-      const spec: BadgeSpec = { numeral: label, mine, selected: sel, readout: groupReadout(this.sim, g.id, (u) => isCaptain(this.views[u.id].hero)), focused: !mine && focused.has(g.id) };
+      const spec: BadgeSpec = { numeral: label, mine, selected: sel, readout: groupReadout(this.sim, g.id, (u) => isCaptain(this.views[u.id].hero)), focused: !mine && focused.has(g.id), feinting: mine && g.order === 'feint' && !g.routed, queued: mine && this.thenQ.get(g.id) !== null };
       if (!tag || tag.getData('key') !== badgeKey(spec)) {
         tag?.destroy();
         const made = fieldBadge(this, spec);
