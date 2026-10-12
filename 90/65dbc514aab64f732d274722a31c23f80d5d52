@@ -1,0 +1,26 @@
+scripts/regression/lib.mjs
+  s_697bdc25a7c420::t_7b7f7c07406385 1-41,44-93
+  s_697bdc25a7c420::t_526d12d7c7687b 42-43
+scripts/regression/doors.mjs
+  s_697bdc25a7c420::t_90b295cadfca0f 9,28-36,46-48
+  s_697bdc25a7c420::t_0c49dad43eb0ca 1-8,10-27,37-45,49-76
+scripts/regression/hub-flows.mjs
+  s_697bdc25a7c420::t_1c3c2bee084a77 1-36,39-72,74-88
+  s_697bdc25a7c420::t_cf9bc689c2eaa3 37-38,73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9065dbc514aab64f732d274722a31c23f80d5d52",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
