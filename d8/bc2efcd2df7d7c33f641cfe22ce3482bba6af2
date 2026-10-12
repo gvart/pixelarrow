@@ -1,0 +1,20 @@
+src/ui/econ/consumablePicker.ts
+  s_697bdc25a7c420::t_553d867335d7e6 63-64,72,143-155
+  s_697bdc25a7c420::t_48fae1a0cc6a1a 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d8bc2efcd2df7d7c33f641cfe22ce3482bba6af2",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
