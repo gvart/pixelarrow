@@ -38,6 +38,8 @@ export interface Outcome {
   enemyKilled: number;
   enemyTotal: number;
   lost: number;
+  /** Time ran out with both armies standing and the player had not won (QAFIX-WORLD S3-4): a draw that pays only for kills. Missing = false. */
+  timedOut?: boolean;
 }
 
 /**
@@ -98,14 +100,17 @@ export function lootPool(result: BattleResult, enemies: Hero[]): Item[] {
 /**
  * Apply a finished battle to the player's roster (mutates heroes):
  * dead heroes are removed (permadeath), survivors gain XP, and their gear wears.
+ * `stalemate`: time ran out and the player had not won (QAFIX-WORLD S3-4): a
+ * draw whatever the sim's tally, with no pay for taking the field (no base
+ * gold or XP, no draw bonus, no loot): only the men he killed pay.
  */
-export function resolveBattle(result: BattleResult, player: Hero[], enemies: Hero[], rng: Rng): { outcome: Outcome; survivors: Hero[] } {
+export function resolveBattle(result: BattleResult, player: Hero[], enemies: Hero[], rng: Rng, stalemate = false): { outcome: Outcome; survivors: Hero[] } {
   const units = new Map<string, UnitResult>();
   for (const u of result.units) if (u.side === 0) units.set(u.heroId, u);
   const enemyUnits = result.units.filter((u) => u.side === 1);
   const enemyKilled = enemyUnits.filter((u) => u.state === 'dead' && u.killedBy === 0).length;
-  const victory = result.winner === 0;
-  const draw = result.winner === -1;
+  const victory = result.winner === 0 && !stalemate;
+  const draw = result.winner === -1 || stalemate;
   const retreated = result.retreated === 0;
   const outcomes: HeroOutcome[] = [];
   const survivors: Hero[] = [];
@@ -131,7 +136,8 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
     goldBonus += gearTotal(h, 'goldBonus');
     // Men who ran off the field lose a little XP; an ordered retreat is no disgrace.
     const wounded = u.state === 'dead' && u.ko;
-    const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' && !retreated ? -6 : 0)) * (1 + xpBonus) * (wounded ? 0.5 : 1) * lateXpMult(h.level));
+    const base = stalemate ? 0 : 12 + (u.state === 'fled' && !retreated ? -6 : 0);
+    const xp = Math.round((base + u.kills * 10 + (victory ? 12 : 0)) * (1 + xpBonus) * (wounded ? 0.5 : 1) * lateXpMult(h.level));
     h.kills += u.kills;
     h.battles++;
     const levelBefore = h.level;
@@ -143,11 +149,11 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
   }
   // A retreat earns only the bounty for enemies already slain: no field to strip.
   // Gilded gear of the survivors adds to the battle's gold (at most +50%).
-  const gold = Math.round(((retreated ? 0 : 20) + enemyKilled * 12 + (victory ? 60 : draw ? 20 : 0)) * (1 + Math.min(0.5, goldBonus)));
-  const picks = retreated ? 0 : lootPicks(result.winner, player.length, lost);
+  const gold = Math.round(((retreated || stalemate ? 0 : 20) + enemyKilled * 12 + (victory ? 60 : draw && !stalemate ? 20 : 0)) * (1 + Math.min(0.5, goldBonus)));
+  const picks = retreated || stalemate ? 0 : lootPicks(result.winner, player.length, lost);
   const loot = picks > 0 ? lootPool(result, enemies) : [];
   return {
-    outcome: { victory, draw, retreated, gold, picks: Math.min(picks, loot.length), loot, heroes: outcomes, enemyKilled, enemyTotal: enemyUnits.length, lost },
+    outcome: { victory, draw, retreated, gold, picks: Math.min(picks, loot.length), loot, heroes: outcomes, enemyKilled, enemyTotal: enemyUnits.length, lost, ...(stalemate ? { timedOut: true } : {}) },
     survivors,
   };
 }

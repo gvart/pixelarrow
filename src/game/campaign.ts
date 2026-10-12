@@ -233,7 +233,7 @@ export class Campaign {
 
   playerInfo(): PlayerInfo {
     const fit = this.fitHeroes();
-    return { power: armyPower(fit), size: fit.length, mouths: this.data.heroes.length, gold: this.data.gold };
+    return { power: armyPower(fit), size: fit.length, mouths: this.data.heroes.length, gold: this.data.gold, fit: fit.filter((h) => (h.wound ?? 0) <= 0).length };
   }
 
   // ------------------------------------------------------------- time & healing
@@ -597,6 +597,19 @@ export class Campaign {
    * A `partyId` with no band on the map (a lair's garrison, afterLairAssault)
    * settles all of this but the band itself.
    */
+  /**
+   * After a battle the army did not win, the map comes back with the rest
+   * stopped (QAFIX-WORLD S2-1): true once, then false. Not saved; the band's
+   * respite (PartyState.spareUntil) is.
+   */
+  takeRestHalt(): boolean {
+    const was = this.restHalt;
+    this.restHalt = false;
+    return was;
+  }
+
+  private restHalt = false;
+
   afterPartyBattle(partyId: number, outcome: Outcome, result?: BattleResult, enemies: readonly Hero[] = []): PartySpoils {
     const w = this.world;
     const p: PartyState | undefined = w.party(partyId);
@@ -643,6 +656,12 @@ export class Campaign {
       } else w.weakenParty(partyId, outcome.enemyKilled, 3);
     }
     w.s.safeUntil = w.s.time + (outcome.victory ? 0.5 : 3);
+    if (!outcome.victory) {
+      // QAFIX-WORLD S2-1: the map comes back with the rest stopped, and the band that kept the field leaves the army alone a while
+      this.restHalt = true;
+      const left = w.party(partyId);
+      if (left) left.spareUntil = w.s.time + WORLD_RULES.defeatRespiteH;
+    }
     // A destroyed army: five volunteers find the commander at the starting town (R1.4): three spearmen in I, two skirmishers in II.
     if (this.data.heroes.length === 0) {
       for (let i = 0; i < VOLUNTEER_RULES.destroyed; i++) this.data.heroes.push(makeHero(this.rng, this.data, 'greek', 'raw', 1, 1, i < 3 ? 0 : 1, this.data.heroes));

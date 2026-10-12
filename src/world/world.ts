@@ -61,6 +61,11 @@ export interface PartyState {
   ty: number;
   /** Hours it stays put / leaves the player alone (after a fight or an escape). */
   idle: number;
+  /**
+   * Game hour until which it leaves the player alone: a band that beat the
+   * army goes off with its plunder (QAFIX-WORLD S2-1); missing = 0.
+   */
+  spareUntil?: number;
   /** Times it retreated from a battle with the player (ai-doctrines.md R8), at most CAPTAIN_RULES.escapeCap; missing = 0. */
   escaped?: number;
   /** Its captain was killed or captured (ai-doctrines.md); missing = false. */
@@ -175,6 +180,8 @@ export interface PlayerInfo {
   mouths?: number;
   /** The purse, for event conditions (`minGold`); missing = 0. */
   gold?: number;
+  /** Men fit to fight (not wounded); missing = size. No band falls on an army with none (QAFIX-WORLD S2-1). */
+  fit?: number;
 }
 
 export const WORLD_RULES = {
@@ -185,6 +192,8 @@ export const WORLD_RULES = {
   contact: 0.8,
   chaseRatio: 1.1,
   fleeRatio: 0.8,
+  /** Game hours a band that beat the army leaves it alone (QAFIX-WORLD S2-1): long enough to heal a little, break camp or march off. */
+  defeatRespiteH: 12,
   surrenderRatio: 0.35,
   maxParties: 16,
   spawnEvery: 10,
@@ -734,7 +743,7 @@ export class World {
     }
   }
 
-  private checkContact(_player: PlayerInfo, events: WorldEvent[]): void {
+  private checkContact(player: PlayerInfo, events: WorldEvent[]): void {
     if (this.s.inside >= 0) return;
     for (const p of this.s.parties) {
       const d = Math.sqrt((p.x - this.s.x) ** 2 + (p.y - this.s.y) ** 2);
@@ -744,6 +753,8 @@ export class World {
       if (!byPlayer && this.camp && campEffects(this.map, this.camp).fortified) continue;
       // Bands keep their distance for a while after a fight or an escape (unless the player hunts them).
       if (!byPlayer && (p.idle > 0 || this.s.time < this.s.safeUntil)) continue;
+      // A band that beat the army is off with its plunder, and nobody falls on an army with no man fit to fight (S2-1).
+      if (!byPlayer && this.spares(p, player)) continue;
       this.stop();
       events.push({ type: 'encounter', party: p.id, byPlayer });
       return;
@@ -765,6 +776,11 @@ export class World {
     }
   }
 
+  /** Band `p` leaves the player alone for now: it beat him lately, or he has no man fit to fight (S2-1). */
+  private spares(p: PartyState, player: PlayerInfo): boolean {
+    return (p.spareUntil ?? 0) > this.s.time || player.fit === 0;
+  }
+
   private thinkParty(p: PartyState, player: PlayerInfo): void {
     if (p.kind === 'host') return this.thinkHost(p);
     const d = Math.sqrt((p.x - this.s.x) ** 2 + (p.y - this.s.y) ** 2);
@@ -773,10 +789,11 @@ export class World {
     const visible = d < WORLD_RULES.vision && this.s.inside < 0 && this.s.time >= this.s.safeUntil && !walled;
     // An event's hunters (campaign-events.md R2) chase whatever the power ratio, from farther off.
     const hunting = !!p.hunts && d < WORLD_RULES.vision * 2 && this.s.inside < 0 && this.s.time >= this.s.safeUntil && !walled;
+    const spared = this.spares(p, player);
     let mode: PartyMode = 'wander';
-    if ((visible && ratio >= WORLD_RULES.chaseRatio) || hunting) mode = 'chase';
+    if (!spared && ((visible && ratio >= WORLD_RULES.chaseRatio) || hunting)) mode = 'chase';
     else if (visible && ratio < WORLD_RULES.fleeRatio) mode = 'flee';
-    else if (p.mode !== 'wander' && d < WORLD_RULES.vision + 2 && this.s.inside < 0 && this.s.time >= this.s.safeUntil) mode = p.mode;
+    else if (p.mode !== 'wander' && !(spared && p.mode === 'chase') && d < WORLD_RULES.vision + 2 && this.s.inside < 0 && this.s.time >= this.s.safeUntil) mode = p.mode;
     if (mode === 'chase') {
       p.mode = 'chase';
       const t = this.tileOf(this.s.x, this.s.y);

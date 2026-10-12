@@ -59,12 +59,13 @@ const findTarget = () => ev(() => {
   const s = window.__game.scene.getScene('World');
   const w = s.w;
   w.s.safeUntil = w.s.time + 1000; // no ambush during this leg
-  // a tap on a town's picture enters it (WorldScene.tapWorld): march to open ground clear of every site
+  // a tap on a town's picture (give or take SITE_TAP_MARGIN) or its name plate enters it (WorldScene.tapWorld):
+  // march to open ground clear of every site
   const onSite = (px, py) =>
     w.map.settlements.some((st) => {
       if (Math.hypot(st.x * 8 + 4 - px, st.y * 8 - py) < 11) return true;
       const site = s.siteOf(st.id);
-      return !!site && px > site.x && px < site.x + site.w && py > site.y && py < site.y + site.h;
+      return !!site && px > site.x - 6 && px < site.x + site.w + 6 && py > site.y - 6 && py < Math.max(site.y + site.h, site.ly + 12) + 6;
     });
   const cam = s.cameras.main;
   const view = cam.worldView;
