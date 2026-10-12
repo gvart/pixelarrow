@@ -50,9 +50,10 @@ export function chipText(val: string, room: number, big: number, width: (s: stri
   const fitAt = (str: string) => sizes.find((z) => width(str, z) <= room);
   const z = fitAt(val);
   if (z !== undefined) return { text: val, size: z };
-  if (/^\d+$/.test(val)) {
-    // a number is never cut: written short from 1000 up, else whole at the smallest size
-    const short = Number(val) >= 1000 ? fmtNum(Number(val)) : val;
+  const digits = val.replace(/[,\s]/g, '');
+  if (/^\d+$/.test(digits)) {
+    // a number (grouped or not) is never cut: written short from 1000 up, else whole at the smallest size
+    const short = Number(digits) >= 1000 ? fmtNum(Number(digits)) : val;
     return { text: short, size: fitAt(short) ?? TEXT_MIN };
   }
   let s = val;

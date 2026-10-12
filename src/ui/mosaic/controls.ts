@@ -13,6 +13,7 @@ import { addIcon, fitCinzel, panelK, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
 import { motion, tweenTo } from '../motion';
 import { MOSAIC, MOTION, TEXT_MIN, lineHeight } from '../tokens';
+import { fmtCount } from '../../i18n/numbers';
 import { buttonLabelSizes, chipText, switchLabelStyle, switchLayout } from './policy';
 import { MBadge, TAP, centeredFace, fit, wrapWords, makePressable, midY, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
 
@@ -259,6 +260,9 @@ export interface MChipOpts {
 
 const CHIP_H = 18;
 
+/** What a chip writes for `value`: a count (a number, or a string of digits) with its thousands grouped (fmtCount), anything else as it is. */
+const chipValue = (value: string | number): string => (typeof value === 'number' ? fmtCount(value) : /^-?\d+$/.test(value) ? fmtCount(Number(value)) : value);
+
 /** A small pill: an icon and a number (Inter, tabular). 22 tall when tappable or `tall`; the number can count to a new value (`setValue`). */
 export class MChip extends Phaser.GameObjects.Container {
   readonly w: number;
@@ -274,7 +278,7 @@ export class MChip extends Phaser.GameObjects.Container {
     // a chip that acts is a touch target: >= 22 UI px (44 pt) both ways (A11Y-06)
     this.w = tapable ? Math.max(TAP, o.w ?? MChip.width(o)) : o.w ?? MChip.width(o);
     const stone = o.surface === 'stone';
-    const val = String(o.value);
+    const val = chipValue(o.value);
     this.opts = { label: val, icon: o.icon };
     const face = centeredFace(scene, this.w, this.h);
     this.add(face);
@@ -300,7 +304,7 @@ export class MChip extends Phaser.GameObjects.Container {
       put(face, this.w, this.h, g);
     }
     if (tapable) makePressable(this, { face, w: this.w, h: this.h, onTap: o.onClick!, tip: o.tip });
-    uiId(this, o.id ?? `chip:${o.icon ?? ''}:${val}`);
+    uiId(this, o.id ?? `chip:${o.icon ?? ''}:${o.value}`);
     scene.add.existing(this);
   }
 
@@ -308,18 +312,18 @@ export class MChip extends Phaser.GameObjects.Container {
   setValue(v: number): this {
     const from = Number(this.num.text.replace(/\D/g, '')) || 0;
     if (motion.reduced || from === v) {
-      this.num.setText(`${v}`);
+      this.num.setText(fmtCount(v));
       return this;
     }
     this.counter.v = from;
-    this.scene.tweens.add({ targets: this.counter, v, duration: MOTION.countUp, ease: 'Cubic.easeOut', onUpdate: () => this.num.active && this.num.setText(`${Math.round(this.counter.v)}`) });
+    this.scene.tweens.add({ targets: this.counter, v, duration: MOTION.countUp, ease: 'Cubic.easeOut', onUpdate: () => this.num.active && this.num.setText(fmtCount(this.counter.v)) });
     return this;
   }
 
   /** Natural width of a chip. */
   static width(o: Pick<MChipOpts, 'icon' | 'value' | 'surface' | 'tall'>, min = 0): number {
     const size = o.tall ? 8 : 7;
-    return Math.max(min, Math.ceil(mw(String(o.value), o.surface === 'stone' || (o.tall && o.surface !== 'parchment') ? 'ink' : 'pInk', size) + (o.icon ? ICON_PX + 3 : 0) + (o.tall ? 11 : 12)));
+    return Math.max(min, Math.ceil(mw(chipValue(o.value), o.surface === 'stone' || (o.tall && o.surface !== 'parchment') ? 'ink' : 'pInk', size) + (o.icon ? ICON_PX + 3 : 0) + (o.tall ? 11 : 12)));
   }
 }
 

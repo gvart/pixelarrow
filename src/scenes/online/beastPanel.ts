@@ -17,6 +17,7 @@ import { backToOnline } from './OnlineScene';
 import { beastThumb, encounterName } from '../../ui/beastInfo';
 import type { EncounterId } from '../../data/beasts';
 import { t, type TKey } from '../../i18n';
+import { fmtCount } from '../../i18n/numbers';
 import { ScrollArea, type UIMetrics } from '../../ui/kit';
 import { addScrollHint, type Modal } from '../../ui/widgets';
 import { itemName } from '../../ui/sheet';
@@ -26,7 +27,7 @@ import { MOSAIC, TEXT_MIN, lineHeight } from '../../ui/tokens';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
-const num = (n: number) => Math.round(n).toLocaleString('en-US');
+const num = (n: number) => fmtCount(n);
 const LH = Math.ceil(lineHeight(TEXT_MIN));
 
 /** One row of the boss's damage table. */

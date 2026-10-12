@@ -9,7 +9,7 @@ import Phaser from 'phaser';
 import { scaleIcon, Button, Meter, ScrollArea, addIcon, addText, mosaicPanelImage, tappable, type FontKey } from './kit';
 import { Badge, ItemIcon, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
 import { uiFrame, uiId } from './layout';
-import { ellipsize, wrapText, LINE_H } from './textfit';
+import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { SIZE, COLOR, RARITY_COLOR } from './theme';
 import { addPill } from './mosaic/pill';
 import { ensureFonts, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
@@ -30,6 +30,7 @@ import {
   type RarityFilter, type SlotFilter, type StashSort, type StatDelta, type StatId,
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
+import { fmtCount } from '../i18n/numbers';
 import { ROLE } from './tokens';
 import { arrangeActions } from './mosaic/overlays';
 
@@ -48,10 +49,11 @@ export const itemName = (it: Item): string => subjectName({ item: it });
 /** A campaign stash item's sale at a town market: its value, or for a bound item a salvage at a quarter of it (docs/ITEMS.md "Bound items"). */
 export function saleText(it: Item): { bound: boolean; value: number; label: string; title: string; body: string; done: string } {
   const bound = isBound(it);
-  const n = bound ? salvageValue(it) : itemValue(it);
+  const value = bound ? salvageValue(it) : itemValue(it);
+  const n = fmtCount(value);
   return bound
-    ? { bound, value: n, label: t('stash.salvage', { n }), title: t('stash.salvageTitle', { name: itemName(it) }), body: t('stash.salvageBody', { n }), done: t('stash.salvaged', { n }) }
-    : { bound, value: n, label: t('stash.sell', { n }), title: t('stash.sellTitle', { name: itemName(it) }), body: t('stash.sellBody', { n }), done: t('stash.sold', { n }) };
+    ? { bound, value, label: t('stash.salvage', { n }), title: t('stash.salvageTitle', { name: itemName(it) }), body: t('stash.salvageBody', { n }), done: t('stash.salvaged', { n }) }
+    : { bound, value, label: t('stash.sell', { n }), title: t('stash.sellTitle', { name: itemName(it) }), body: t('stash.sellBody', { n }), done: t('stash.sold', { n }) };
 }
 export const groupName = (g: number): string => tOr(`group.${g}`, ROMAN[g] ?? '');
 
@@ -487,7 +489,10 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   const rules = itemRuleLines(it, o.hero, inner - 4);
   const headH = 40;
   const cmpH = cmp ? 30 + Math.max(1, changed.length) * 11 + (cmp.displaced.length ? 10 : 0) + 4 : 0;
-  const modsH = 12 + Math.ceil(mods.length / 2) * 10 + 4;
+  // the stats in two columns while every name fits beside its value; else one column (a name is never cut: "Темп атаки" at 320)
+  const modName = (key: string) => tOr(`mod.${key}`, key);
+  const modCols = mods.every((ml) => measureText(modName(ml.key)) + measureText(ml.text) + 12 <= Math.floor(inner / 2)) ? 2 : 1;
+  const modsH = 12 + Math.ceil(mods.length / modCols) * 10 + 4;
   const bodyH = cmpH + modsH + rules.length * LINE_H + (rules.length ? 4 : 0) + desc.lines.length * LINE_H + 4 + notes.length * LINE_H;
   const footH = o.actions.length ? SIZE.btnH + 10 : 0;
   const want = 26 + headH + bodyH + footH + 8;
@@ -505,7 +510,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   c.add(addText(scene, tx + Math.max(20, tw - 46) + 3, cy + 20, `${Math.round(it.cond)}%`, it.cond < 34 ? 'pBad' : 'pInk'));
   if (o.worth !== false) {
     c.add(scaleIcon(addIcon(scene, tx - 1, cy + 28, 'coin'), 0.75));
-    c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }), tw - 10), 'pMuted'));
+    c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: fmtCount(itemValue(it)) }), tw - 10), 'pMuted'));
   }
   cy += headH;
   // ---- scrolling body (compare, stats, description, notes)
@@ -543,15 +548,15 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   }
   b.add(addText(scene, 0, by, t('stash.stats'), 'pBad'));
   by += 12;
-  const colW = Math.floor(inner / 2);
+  const colW = Math.floor(inner / modCols);
   mods.forEach((ml, i) => {
-    const mx = (i % 2) * colW;
-    const my = by + Math.floor(i / 2) * 10;
+    const mx = (i % modCols) * colW;
+    const my = by + Math.floor(i / modCols) * 10;
     const val = addText(scene, mx + colW - 4, my, ml.text, ml.good ? 'pInk' : 'pBad', 1);
     b.add(val);
-    b.add(addText(scene, mx, my, ellipsize(tOr(`mod.${ml.key}`, ml.key), colW - val.width - 8), 'pMuted'));
+    b.add(addText(scene, mx, my, ellipsize(modName(ml.key), colW - val.width - 8), 'pMuted'));
   });
-  by += Math.ceil(mods.length / 2) * 10 + 4;
+  by += Math.ceil(mods.length / modCols) * 10 + 4;
   for (const r of rules) {
     b.add(addText(scene, 0, by, r.text, r.font));
     by += LINE_H;

@@ -72,5 +72,5 @@ export const BEASTS_RU: Record<keyof typeof BEASTS_EN, string> = {
   'hex.beastTip': 'Как сражается этот зверь и что против него.',
   'hex.lairLine': '{name}, уровень {n}',
   'hex.lairBack': 'Повержен. Вернётся через {t}.',
-  'boss.segment': 'Каждый набег - бой на {s} с против его нынешних ран.',
+  'boss.segment': 'Каждый набег – бой на {s} с против его нынешних ран.',
 };
