@@ -20,8 +20,6 @@
     "duel-board-live|text-size|*",
     "duel-board-raids|text-size|*",
     "duel-found|text-size|*",
-    "duel-ranked-locked|text-size|*",
-    "duel-ranked|text-size|*",
     "duel-season-pick|text-size|*",
     "duel-season-reward|text-size|*",
     "duel-shop-sell|text-size|*"
@@ -55,8 +53,6 @@
     "duel-board-live|text-size|*": "DUE-02",
     "duel-board-raids|text-size|*": "DUE-02",
     "duel-found|text-size|*": "DUE-02",
-    "duel-ranked-locked|text-size|*": "DUE-02",
-    "duel-ranked|text-size|*": "DUE-02",
     "duel-season-pick|text-size|*": "DUE-02",
     "duel-season-reward|text-size|*": "DUE-02",
     "duel-shop-sell|text-size|*": "DUE-01",
