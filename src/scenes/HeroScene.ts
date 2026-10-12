@@ -43,6 +43,8 @@ const TABS: Tab[] = ['stats', 'gear', 'perks', 'skills'];
 const TAB_ICON: Record<Tab, string> = { stats: 'plus', gear: 'shield', perks: 'aura', skills: 'bash' };
 /** Line pitch of 6.5 text (A11Y-09: no meaningful text under 6.5 UI px = 13 CSS px). */
 const LH = ARMY_LH;
+/** How much of a tab's page stays in view when a tab opens: its lead line, a tier heading and a row of cards (UI px). */
+const PAGE_PEEK = 110;
 
 interface HeroData {
   heroId?: string;
@@ -170,7 +172,14 @@ export class HeroScene extends BaseScene {
   private build(keepScroll = false): void {
     const keep = keepScroll ? this.outer?.scrollY ?? 0 : 0;
     this.layout();
-    this.outer?.setScroll(keep);
+    // a caller that opens another tab wants its page, not the head (on a short screen the head fills it)
+    this.outer?.setScroll(keepScroll || this.tab === 'stats' ? keep : this.pageInView(keep));
+  }
+
+  /** The scroll that keeps the page's first card in view under the tabs (S3-6: the head fills a 320x640 screen). */
+  private pageInView(scroll: number): number {
+    const view = this.outer?.viewHeight ?? 0;
+    return Math.max(scroll, Math.min(this.tabsY, this.pageTop + PAGE_PEEK - view));
   }
 
   private layout(): void {
@@ -532,7 +541,7 @@ export class HeroScene extends BaseScene {
     // the new tab starts at the top of its page: under the pinned tabs when the head had scrolled away
     const keep = Math.min(this.outer?.scrollY ?? 0, this.tabsY);
     this.layout();
-    this.outer?.setScroll(keep);
+    this.outer?.setScroll(this.pageInView(keep));
     fadeIn(this, this.page);
   }
 
