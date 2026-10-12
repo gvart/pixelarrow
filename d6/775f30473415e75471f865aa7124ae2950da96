@@ -1,0 +1,21 @@
+docs/v5/qa/PLAYTHROUGH.md
+  s_697bdc25a7c420::t_cd8f33675e9dc1 108
+  s_697bdc25a7c420::t_0d3d434d2eb0be 1-40,42-107,109-238
+  s_697bdc25a7c420::t_23858ff93a2bf9 41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d6775f30473415e75471f865aa7124ae2950da96",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
