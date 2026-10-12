@@ -60,6 +60,8 @@ export interface EncounterModel {
   captain: { name: string; level: number } | null;
   fit: number;
   wounded: number;
+  /** No man is fit to fight (src/game/encounter.ts armyLine); missing = false. */
+  noneFit?: boolean;
   choices: EncounterChoice[];
 }
 
@@ -155,7 +157,7 @@ function mainPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Enc
   rule(y);
   y += 4;
   // the army and the advice (ink, never red text: WLD-2, WLD-3)
-  const army = m.wounded ? t('wld.enc.armyWounded', { fit: m.fit, w: m.wounded }) : t('wld.enc.army', { fit: m.fit });
+  const army = t(m.noneFit ? 'wld.enc.armyNoneFit' : m.wounded ? 'wld.enc.armyWounded' : 'wld.enc.army', { fit: m.fit, w: m.wounded });
   y += para(scene, c, x0, y, army, 'pSec', w, SMALL) + 1;
   y += para(scene, c, x0, y, m.advice, 'pInk', w);
   if (!m.choices.some((ch) => ch.key === 'letGo')) y += 2 + para(scene, c, x0, y + 2, t('wld.enc.noLetGo'), 'pBad', w, SMALL);

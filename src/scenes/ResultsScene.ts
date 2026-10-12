@@ -45,6 +45,7 @@ import { fmtClock } from '../util/format';
 import { buildReport, lastBattle, whyLine, WHY_MAX_LINES, type BattleReport, type HeroLine, type UnitStat, type WhyPart } from '../game/report';
 import { TICK_RATE } from '../sim/battle';
 import { isCaptain } from '../sim/stats';
+import { encounterOf } from '../data/beasts';
 import { heroClass } from '../sim/stats';
 import type { LastBattle } from '../state';
 import { haptic, hapticNotify } from '../platform/telegram';
@@ -291,6 +292,10 @@ export class ResultsScene extends BaseScene {
       captains: last.enemy.heroes.filter(isCaptain).map((h) => h.id),
       // the captain's bounty, already in the gold (settleBattle carries it, ai-doctrines.md R6.4)
       bounty: last.bounty ?? 0,
+      // the why-line's timeout and lone-beast rules (QAFIX-WORLD S3-4, S4); a lair garrison holds the field behind its palisade
+      timedOut: !!o.timedOut,
+      walls: !!last.enemy.holdField,
+      beast: !!encounterOf(last.enemy.heroes),
     });
     (r as BattleReport & { src?: unknown }).src = last;
     return r;

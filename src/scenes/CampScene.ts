@@ -29,7 +29,7 @@ import { motion } from '../ui/motion';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
-import { localDecimals } from '../i18n/numbers';
+import { fmtSigned, localDecimals } from '../i18n/numbers';
 import { heroName } from '../i18n/names';
 import { Pix } from '../art/pixels';
 import * as Iso from '../art/campIso';
@@ -910,7 +910,7 @@ export class CampScene extends BaseScene {
       } else if (c) {
         const fx = campEffects(w.map, c);
         const net = fx.forage * 24 - state.campaign.data.heroes.length;
-        const p = { heal: localDecimals(w.healRate().toFixed(1)), food: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` };
+        const p = { heal: localDecimals(w.healRate().toFixed(1)), food: fmtSigned(net) };
         tries.push(`${where} ${t('cmp.line', p)} ${t('cmp.hint')}`, `${where} ${t('cmp.line', p)}`, `${where} ${t('cmp.lineShort', p)}`, t('cmp.lineShort', p));
       }
       this.setSituation(tries, this.fieldChips());

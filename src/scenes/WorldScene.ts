@@ -6,7 +6,7 @@ import { BaseScene } from './BaseScene';
 import { addIcon, addText, scaleIcon } from '../ui/kit';
 import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
-import { localDecimals } from '../i18n/numbers';
+import { fmtSigned, localDecimals } from '../i18n/numbers';
 import { bandName, lairName } from '../i18n/names';
 import { placeName } from '../i18n/places';
 import { LINE_H, wrapText, wrapsWhole } from '../ui/textfit';
@@ -15,7 +15,7 @@ import {
   BAND_COLORS, MAPC, PARTY_FH, PARTY_FOOT, PARTY_FRAMES, PARTY_FW, STRUCT_FRAMES, STRUCT_FX, STRUCT_LIFT, STRUCT_PAD, WTILE, renderBoat, renderCampZone,
   renderDust, renderMarker, renderNamePlate, renderPartyFigure, renderStructure,
 } from '../art/worldArt';
-import { renderWorldMap, type SiteArt, type WorldMapArt } from '../art/overlandMap';
+import { pickSettlement, renderWorldMap, type SiteArt, type WorldMapArt } from '../art/overlandMap';
 import { OverlandLife } from '../ui/overlandLife';
 import { FOG_CHUNK, FogPainter } from '../art/fogArt';
 import { P } from '../art/palette';
@@ -29,7 +29,7 @@ import { perkSlots } from '../data/perks';
 import { dangerAt, isWater, type SettlementDef, type WorldMap } from '../world/map';
 import { siteAt } from '../world/battlefield';
 import { STRUCTURES, campEffects, footprint, type StructureId } from '../world/camp';
-import { THREAT_COLOR, WORLD_RULES, hasCaptain, partyArmy, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
+import { THREAT_COLOR, hasCaptain, partyArmy, threatLevel, type PartyState, type PlayerInfo, type World } from '../world/world';
 import { isCaptain } from '../sim/stats';
 import { confirmDialog, hintStore } from '../ui/widgets';
 import { CampLife } from '../ui/campLife';
@@ -43,6 +43,7 @@ import { SIZE } from '../ui/theme';
 import { ARC_LAIRS } from '../data/arc';
 import { LAIR_HOARD } from '../game/sources';
 import { startLairAssault } from '../game/campaignBattle';
+import { armyLine, encounterCopy, encounterOffers } from '../game/encounter';
 import { openEncounterSheet, worldGlyph, type EncounterChoice, type EncounterHandle } from '../ui/sheets/encounter';
 
 /** Game hours per real second while travelling / waiting. */
@@ -286,7 +287,9 @@ export class WorldScene extends BaseScene {
     this.ui.add(this.night);
     this.hud = this.add.container(0, 0);
     this.ui.add(this.hud);
-    if (this.w.camp) this.waiting = true;
+    // after a battle the army did not win, the rest stays stopped until the player picks it again (QAFIX-WORLD S2-1)
+    const halted = camp.takeRestHalt();
+    if (this.w.camp && !halted) this.waiting = true;
     this.buildHud();
 
     this.input.on('pointerdown', this.onDown, this);
@@ -460,6 +463,8 @@ export class WorldScene extends BaseScene {
       const hours = Math.min(0.25, delta / 1000) * rate;
       const r = this.w.advance(hours, this.info, this.waiting);
       camp.tickWorld(r.hours);
+      // men heal as time passes: the bands see who is fit now (QAFIX-WORLD S2-1)
+      this.info = camp.playerInfo();
       this.saveTimer += delta;
       if (this.saveTimer > 8000) {
         this.saveTimer = 0;
@@ -962,7 +967,7 @@ export class WorldScene extends BaseScene {
     if (c) {
       const fx = campEffects(this.w.map, c);
       const net = fx.forage * 24 - mouths;
-      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: localDecimals(this.w.healRate().toFixed(1)), net: `${net >= 0 ? '+' : ''}${net.toFixed(0)}` });
+      hint = t(this.waiting ? 'world.sit.resting' : 'world.sit.camp', { heal: localDecimals(this.w.healRate().toFixed(1)), net: fmtSigned(net) });
     } else if (this.w.starving) {
       hint = t('world.sit.starving');
       urgent = true;
@@ -1188,17 +1193,14 @@ export class WorldScene extends BaseScene {
       this.refreshHud();
       return;
     }
-    let set: SettlementDef | null = null;
-    let sd = 11;
-    for (const s of this.w.map.settlements) {
-      if (!this.w.isExplored(s.x, s.y)) continue;
-      let d = Math.hypot(s.x * WTILE + 4 - x, s.y * WTILE - y);
-      // anywhere on the town's (or village's) picture counts too
-      const site = this.siteOf(s.id);
-      if (site && x > site.x + 4 && x < site.x + site.w - 4 && y > site.y + 4 && y < site.y + site.h - 2) d = Math.min(d, 10);
-      if (d < sd) {
-        sd = d;
-        set = s;
+    // the town's (or village's) drawn picture or its name plate; the open ground beside it is ground (QAFIX-WORLD S4)
+    const visible = (s: SettlementDef) => this.w.isExplored(s.x, s.y);
+    let set = pickSettlement(this.w.map.settlements, this.sites, x, y, visible);
+    if (!set) {
+      for (const [id, objs] of this.settlementObjs) {
+        const s = this.w.map.settlements[id];
+        const plate = objs[0] as Phaser.GameObjects.Image | undefined;
+        if (s && visible(s) && plate?.getBounds().contains(x, y)) set = s;
       }
     }
     this.setWaiting(false);
@@ -1471,8 +1473,7 @@ export class WorldScene extends BaseScene {
         total: ARC_LAIRS,
         picks: LAIR_HOARD.picks,
         inReach: Math.hypot(w.s.x - (st.x + 0.5), w.s.y - (st.y + 0.5)) <= ASSAULT_REACH,
-        fit: camp.fitHeroes().length,
-        wounded: camp.wounded().length,
+        ...armyLine(camp),
         onPick: (k) => this.assaultChoice(lairId, k),
       },
       () => {
@@ -1501,6 +1502,12 @@ export class WorldScene extends BaseScene {
       haptic('light');
       if (!this.follow) this.toggleFollow();
       this.refreshHud();
+      return;
+    }
+    // only fit men fight (QAFIX-WORLD S2-2): with none, there is no assault
+    if (k === 'assault' && armyLine(camp).noneFit) {
+      hapticNotify('error');
+      this.showBanner(t('arc.as.noneFit'), true);
       return;
     }
     const pending = k === 'assault' ? startLairAssault(camp, lairId, randomSeed()) : null;
@@ -1644,16 +1651,18 @@ export class WorldScene extends BaseScene {
     if (!p) return;
     this.closeDialog();
     this.info = camp.playerInfo();
-    const ratio = p.power / Math.max(1, this.info.power);
+    // the odds count only the fit men who would take the field (QAFIX-WORLD S2-2)
+    const mine = armyLine(camp);
+    const ratio = p.power / Math.max(1, mine.power);
     const lvl = threatLevel(ratio);
-    const mood = failedFlee ? 'cutOff' : byPlayer ? (ratio < WORLD_RULES.surrenderRatio ? 'surrender' : 'caught') : this.w.camp ? 'camp' : 'bar';
-    const advice = ratio > 1.15 ? 'hard' : ratio < 0.85 ? 'win' : 'even';
     // the band's army as the battle will build it (a throwaway id source: nothing in the save moves)
     const army = partyArmy(p, { nextId: 1 }, camp.armyClasses());
     const beast = encounterOf(army.heroes);
     const captain = beast ? undefined : army.heroes.find((h) => isCaptain(h));
-    const choices: EncounterChoice[] = [{ key: 'attack', label: t('wld.enc.attack'), icon: 'swords', onPick: () => this.attack(p.id) }];
-    if (camp.canSurrender(p.id) && !failedFlee) {
+    const offer = encounterOffers({ byPlayer, ratio, failedFlee, canRansom: camp.canSurrender(p.id), noneFit: mine.noneFit });
+    const choices: EncounterChoice[] = [];
+    if (offer.attack) choices.push({ key: 'attack', label: t('wld.enc.attack'), icon: 'swords', onPick: () => this.attack(p.id) });
+    if (offer.ransom) {
       choices.push({
         key: 'ransom',
         label: t('wld.enc.ransom'),
@@ -1667,35 +1676,35 @@ export class WorldScene extends BaseScene {
         },
       });
     }
-    if (!failedFlee) {
-      if (byPlayer && ratio < WORLD_RULES.chaseRatio) {
-        choices.push({
-          key: 'letGo',
-          label: t('wld.enc.letGo'),
-          icon: 'back',
-          onPick: () => {
-            p.idle = 1;
-            this.w.s.safeUntil = this.w.s.time + 1;
-          },
-        });
-      } else {
-        choices.push({
-          key: 'flee',
-          label: t('wld.enc.flee', { p: Math.round(camp.fleeChance(p.id) * 100) }),
-          icon: 'fallback',
-          onPick: () => {
-            if (camp.tryFlee(p.id)) {
-              hapticNotify('warning');
-              this.showBanner(t('wld.slipAway'));
-              void state.save();
-            } else {
-              hapticNotify('error');
-              this.openEncounter(p.id, byPlayer, true);
-            }
-          },
-        });
-      }
+    if (offer.letGo) {
+      choices.push({
+        key: 'letGo',
+        label: t('wld.enc.letGo'),
+        icon: 'back',
+        onPick: () => {
+          p.idle = 1;
+          this.w.s.safeUntil = this.w.s.time + 1;
+        },
+      });
     }
+    if (offer.flee) {
+      choices.push({
+        key: 'flee',
+        label: t('wld.enc.flee', { p: Math.round(camp.fleeChance(p.id) * 100) }),
+        icon: 'fallback',
+        onPick: () => {
+          if (camp.tryFlee(p.id)) {
+            hapticNotify('warning');
+            this.showBanner(t('wld.slipAway'));
+            void state.save();
+          } else {
+            hapticNotify('error');
+            this.openEncounter(p.id, byPlayer, true);
+          }
+        },
+      });
+    }
+    const copy = encounterCopy({ ratio, byPlayer, inCamp: !!this.w.camp, failedFlee, flee: offer.flee, letGo: offer.letGo, noneFit: mine.noneFit });
     const handle = openEncounterSheet(
       this,
       {
@@ -1706,12 +1715,11 @@ export class WorldScene extends BaseScene {
         men: p.size,
         culture: cap(tOr(`culture.${p.culture}`, CULTURE_LABEL[p.culture])),
         level: p.level,
-        mood: t(`wld.enc.mood.${mood}` as TKey),
-        advice: t(`wld.enc.adv.${advice}` as TKey),
+        mood: t(copy.mood),
+        advice: t(copy.advice),
         doctrine: beast ? null : (army.doctrine ?? 'steady'),
         captain: captain ? { name: captain.name, level: captain.level } : null,
-        fit: camp.fitHeroes().length,
-        wounded: camp.wounded().length,
+        ...armyLine(camp),
         choices,
       },
       () => {
