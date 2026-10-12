@@ -1,0 +1,48 @@
+src/scenes/duel/DuelScene.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 33,35-36,40,46,48-49,56,65,117,179-201,513,647-651,654,658-678,680-687,689-692,695-706,731,738,742,750-754,773,781-782,812-816,818,831-837,843-847,877,879-882,890-891,914-915,951-954,956-957,959-960,1011,1013,1020,1030-1035,1076,1081,1096,1099,1112,1136-1140,1143,1145-1147,1154-1156,1159-1160,1165-1167,1169-1171,1177,1190,1192,1199-1206,1209,1211-1214,1216-1217,1220-1222,1225,1227-1228,1230-1233,1235,1345,1363,1807-1827,2149,2183-2189,2197,2199,2203-2208,2216,2218-2219,2224-2231,2233-2234,2240,2242-2245,2248-2250,2255,2259,2261-2285,2288-2291,2307-2310,2315-2317,2319,2330-2355,2357-2360,2362-2363,2365-2367,2369-2381,2391,2393-2396,2399-2404,2406-2409,2411-2413,2416,2421,2512,2538,2542,2557,2615,2642-2643,2651,2713,2718,2728,2735,2760,2792,2806,2808,2820,2823,2825,2834,2837,2896-2897,2902,2912,2914
+tests/duelHub.test.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 1-126
+src/i18n/ru.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 43,345
+src/scenes/duel/duelParts.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 11,139-142,166-180,230,281-282,310-316
+docs/v5/stories/DUE-01/NOTES.md
+  s_697bdc25a7c420::t_d67ba70aafe7c0 1-99
+src/i18n/duels.v5.ru.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 1-29
+scripts/layout-allowlist.json
+  s_697bdc25a7c420::t_e620430f3b4241 27
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 454
+src/online/battleSource.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 43,45-51
+src/i18n/duels.v5.en.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 1-37
+scripts/layout-check.mjs
+  s_697bdc25a7c420::t_d67ba70aafe7c0 250-253,310-318
+  s_697bdc25a7c420::t_baaf4ada811699 319-322
+src/scenes/duel/hubLayout.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 1-111
+tests/ladderPause.test.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 3,61,66-67
+src/duel/client.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 179-184,310-312,359-360,745,754,756
+src/i18n/en.ts
+  s_697bdc25a7c420::t_d67ba70aafe7c0 51,383-384
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6848e5a3e2f737b963ebe3c60b8c3154bb2f2fba",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
