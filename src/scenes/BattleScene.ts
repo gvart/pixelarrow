@@ -41,7 +41,7 @@ import type { BattleSource } from '../online/battleSource';
 import { createDeployClock, foeIsReady, markStarted, pressReady, secondsLeft, tickDeploy, urgent, type DeployAction, type DeployClock } from '../online/deployClock';
 import { reportBattle, snapshotSetup } from '../platform/verify';
 import { generateEnemyArmy } from '../game/enemy';
-import { lastBattle, unitStats } from '../game/report';
+import { drainLogged, lastBattle, unitStats } from '../game/report';
 import { GROUP_NAMES, type Hero } from '../data/units';
 import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
@@ -852,7 +852,7 @@ export class BattleScene extends BaseScene {
         }
         ls?.beforeStep();
         this.sim.step();
-        this.handleEvents(this.sim.drainEvents());
+        this.handleEvents(drainLogged(this.sim));
         this.acc -= DT;
         steps++;
       }
@@ -860,7 +860,7 @@ export class BattleScene extends BaseScene {
       this.hudDirty = true;
       this.fireThen();
     } else if (this.sim.phase === 'ended') {
-      this.handleEvents(this.sim.drainEvents());
+      this.handleEvents(drainLogged(this.sim));
     }
     const alpha = this.sim.phase === 'battle' && !this.paused ? Math.min(1, this.acc / DT) : 1;
     this.fitBounds();
@@ -3252,7 +3252,7 @@ export class BattleScene extends BaseScene {
     this.order({ kind: 'ability', unit: b.id, ability: RAISE_STANDARD as AbilityId });
     haptic('heavy');
     this.showBanner(r.note ? `${t('attn.std.banner', { name: b.name })} ${t(r.note)}` : t('attn.std.banner', { name: b.name }), 1600, 4);
-    this.handleEvents(this.sim.drainEvents());
+    this.handleEvents(drainLogged(this.sim));
     this.hudDirty = true;
   }
 
@@ -4210,7 +4210,7 @@ export class BattleScene extends BaseScene {
       users = [ready.slice().sort((a, b) => score(b) - score(a))[0]];
     }
     for (const u of users) this.order({ kind: 'ability', unit: u.id, ability: id });
-    this.handleEvents(this.sim.drainEvents());
+    this.handleEvents(drainLogged(this.sim));
     this.hudDirty = true;
     this.tutorialEvent({ kind: 'ability' });
   }
@@ -4355,7 +4355,7 @@ export class BattleScene extends BaseScene {
         this.overlay = null;
         if (!this.realtimeLocked) this.setPaused(false);
         this.order({ kind: 'retreat' });
-        this.handleEvents(this.sim.drainEvents());
+        this.handleEvents(drainLogged(this.sim));
         this.buildHud();
       },
       onCancel: () => {

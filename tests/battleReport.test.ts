@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createDeployClock, DEPLOY_MS, foeIsReady, markStarted, pressReady, secondsLeft, tickDeploy, urgent } from '../src/online/deployClock';
 import { fmtClock } from '../src/util/format';
-import { buildReport, emptyLog, lastBattle, pickMvp, resultFor, unitStats, whyLine, WHY_MAX_LINES, type BattleLog, type HeroLine, type LogEvent, type UnitStat, type WhyPart } from '../src/game/report';
+import { buildReport, drainLogged, emptyLog, lastBattle, pickMvp, resultFor, unitStats, whyLine, WHY_MAX_LINES, type BattleLog, type HeroLine, type LogEvent, type UnitStat, type WhyPart } from '../src/game/report';
 import { resolveBattle } from '../src/game/loot';
 import { Battle, TICK_RATE } from '../src/sim/battle';
 import { Rng } from '../src/sim/rng';
@@ -340,7 +340,7 @@ describe('why-line from real battles', () => {
       b.startBattle();
       for (let i = 0; i < 20 * 400 && b.phase !== 'ended'; i++) {
         b.step();
-        b.drainEvents();
+        drainLogged(b);
       }
       const stats = unitStats(b);
       const log = lastBattle.log!;
@@ -369,7 +369,7 @@ describe('why-line from real battles', () => {
       b.startBattle();
       for (let i = 0; i < 20 * 400 && b.phase !== 'ended'; i++) {
         b.step();
-        if (drain) b.drainEvents();
+        if (drain) drainLogged(b);
       }
       unitStats(b);
       return lastBattle.log!;
@@ -380,12 +380,31 @@ describe('why-line from real battles', () => {
     expect(whyLine(fought, 0, 'defeat')).toEqual(whyLine({ ...drained, shootTicks: [0, 0], outTicks: [0, 0] }, 0, 'defeat'));
   }, 30_000);
 
+  it('only drainLogged logs: the sim\'s own drainEvents is not patched (BTL-01)', () => {
+    const b = new Battle(standardSetup(41, true).setup);
+    b.startBattle();
+    for (let i = 0; i < 20 * 60 && b.phase !== 'ended'; i++) {
+      b.step();
+      b.drainEvents();
+    }
+    unitStats(b);
+    expect(lastBattle.log!.events.length).toBe(0);
+    const c = new Battle(standardSetup(41, true).setup);
+    c.startBattle();
+    for (let i = 0; i < 20 * 60 && c.phase !== 'ended'; i++) {
+      c.step();
+      drainLogged(c);
+    }
+    unitStats(c);
+    expect(lastBattle.log!.events.length).toBeGreaterThan(0);
+  }, 30_000);
+
   it('a drain after the battle closed its log does not count the same events twice', () => {
     const b = new Battle(standardSetup(9, true).setup);
     runToEnd(b);
     unitStats(b);
     const n = lastBattle.log!.events.length;
-    b.drainEvents();
+    drainLogged(b);
     expect(lastBattle.log!.events.length).toBe(n);
   }, 30_000);
 });
