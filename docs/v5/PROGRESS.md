@@ -11,8 +11,8 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| (merge) | SND-02 worktree-agent-a4b8c97603fb3abed, FIXER-7 worktree-agent-a27fba672040f93fb | — | integrator | — | merging |
-| bal-02 | balance leftovers on top of FL-04 (war beasts, 8-man opening, D2 residuals, ladder harness) | src/data, balance | — | worktree-agent | running |
+| (merge) | BAL-02 (+FL-04) worktree-agent-a23967b200dd1ca18 | — | integrator | — | merging |
+| fixer-8 | online-smoke aborted-duel wait | scripts/online-smoke.mjs | — | worktree-agent | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -77,6 +77,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - c87bb5e F-07 retire v3 and inkify (+622/-1587), one fmtCount. Gates: vitest 1439, server 303, layout 0 new (45 known), regression 193 s PASS, online-e2e 35, replay 13/13; balance 53%. smoke (no 'Begin the march') and fullscreen-smoke (facing knob, tap-to-move) flaked at load 38, passed alone.
 - f7c8170 FL-02 transitions; 5edd0a1 FL-03 audio; 7575ce6 Settings toggles tappable again (F-07 dropped the Toggle hit box; caught by audio-smoke). Gates: vitest 1461, server 303, layout 0 new, all 6 smokes, regression 298/0, online-e2e 34, replay 13/13; balance 53%. Bundle main 3.51 MB (1.07 MB gzip) for QA-05. The app crashed mid-gates once and the gates were re-run.
 - 9c1c473 LOC-01 Russian polish. Gates: vitest 1483, server 303, layout 0 new (45 known; the en-plain-360 glTexture flake is the FIXER-7 hit-stop frame bug), all 6 smokes first try, regression 214 s, online-e2e 35, replay 13/13; balance 53%. FL-04 (no data change, FINAL.md, event rows in balance) is carried by BAL-02's branch.
+- 5af94e0 SND-02 UI sounds; 240fb61 FIXER-7 hit-stop freeze fix, 3 flakes at the root, a controls tap check in regression. Gates: vitest 1489, server 303, layout 0 new (71 distinct), no glTexture errors, regression 234 s incl. controls, online-e2e 34, replay 13/13; balance 53%. online-smoke '[duel] aborted duel leaves the battle' flaked 2 of 3 (fixed 5 s wait): fixer-8. WebKit replay works with PW_WEBKIT_PATH pointing at ~/Library/Caches/ms-playwright/webkit-2242.
 
 ## Queue (next)
 
