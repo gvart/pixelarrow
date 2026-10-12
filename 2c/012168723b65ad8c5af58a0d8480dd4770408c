@@ -1,0 +1,21 @@
+src/ui/battleHud.ts
+  s_697bdc25a7c420::t_6ebd7633f045c4 265
+docs/v5/stories/BTL-01/NOTES.md
+  s_697bdc25a7c420::t_333aeb87b3d498 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2c012168723b65ad8c5af58a0d8480dd4770408c",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
