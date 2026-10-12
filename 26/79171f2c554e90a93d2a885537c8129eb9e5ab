@@ -1,0 +1,33 @@
+scripts/layout-check.mjs
+  s_697bdc25a7c420::t_814e250fefd821 675-686
+src/i18n/settings.ru.ts
+  s_697bdc25a7c420::t_8ecab172e78f03 10-11
+src/ui/settings.ts
+  s_697bdc25a7c420::t_8ecab172e78f03 70
+  s_697bdc25a7c420::t_1f8946e1d1e73b 48-51
+  s_697bdc25a7c420::t_a888707cf24734 27
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_1f8946e1d1e73b 636,2885,2891-2897
+  s_697bdc25a7c420::t_a27913a99dcc45 617
+  s_697bdc25a7c420::t_1bf8b67c3496d9 2898-2899
+scripts/dev/btl01-shots.mjs
+  s_697bdc25a7c420::t_e44f840b65f157 69-81
+src/i18n/settings.en.ts
+  s_697bdc25a7c420::t_ac137671d4770a 12-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2679171f2c554e90a93d2a885537c8129eb9e5ab",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
