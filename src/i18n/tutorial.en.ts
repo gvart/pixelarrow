@@ -22,7 +22,7 @@ export const TUTORIAL_EN = {
   'tut.step.focus': 'Now tap the javelin-men: the slingers aim at them first.',
   'tut.step.play': 'Your plan is drawn. Tap {play}: it all goes out at once.',
   'tut.step.move': 'Tap the ground ahead: your hoplites march there.',
-  'tut.step.then': 'Tap {then}, then {charge}: they charge the moment they arrive.',
+  'tut.step.then': 'Tap {then} to queue their next order, and pick {charge}: they attack the moment they arrive.',
   'tut.step.ability': 'Locked in battle! Tap {ability}: stun the man in front.',
   'tut.step.morale': 'See their badge? A cracked shield: they waver. A flag: they run.',
   'tut.step.flank': 'Raiders on your flank: see the arcs by IV? Pick IV, drag its round knob toward them.',

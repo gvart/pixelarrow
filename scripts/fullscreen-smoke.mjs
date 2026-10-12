@@ -274,14 +274,29 @@ const around = (b0, b1, step, as) => {
   for (let b = b0; Math.abs(b - b0) <= Math.abs(b1 - b0) + 1e-9; b += step) for (const a of as) out.push([a, +b.toFixed(2)]);
   return out;
 };
+// the deployment opens on both armies (QA-03 S3-3), under 1x on a small screen: the gestures below are measured in paces at 1x
+if ((await call('Battle', 'return s.cameras.main.zoom / window.__rs();')) < 0.99) {
+  await api.tapBtn('Battle', { id: 'battle.zoom' });
+  check('battle: the zoom key takes the overview to 1x', await api.until(() => call('Battle', 'return Math.abs(s.cameras.main.zoom / window.__rs() - 1) < 0.01;'), 5000, 100));
+}
 const b0 = await bgeo([]);
 await swipe([b0.empty, [b0.empty[0] + 50, b0.empty[1] - 40]]);
 let b1 = await bgeo([]);
 check('battle: drag on empty ground pans (group selected), no order', Math.hypot(b1.scroll[0] - b0.scroll[0], b1.scroll[1] - b0.scroll[1]) > 15 && b1.orders === b0.orders, JSON.stringify([b0.scroll, b1.scroll]));
-b1 = await bgeo([[0, 0], [0, -2]]);
+// 2 paces forward, else back or aside: where no other group stands (the deployment's overlap guard, QA-03 S3-8, would slide it)
+let step = [0, -2];
+for (const [a, b] of [[0, -2], [0, 2], [-2, 0], [2, 0]]) {
+  const clear = await call('Battle', `const f = s.sim.groups[s.selGroup].formation; const cx = f.cx - f.fy * ${a} - f.fx * ${b}; const cy = f.cy + f.fx * ${a} - f.fy * ${b}; const o = s.freeDrop({ kind: 'form', group: -1, cx, cy, fx: f.fx, fy: f.fy, frontage: f.frontage }); return !!o && Math.abs(o.cx - cx) < 1e-6 && Math.abs(o.cy - cy) < 1e-6;`);
+  if (clear) {
+    step = [a, b];
+    break;
+  }
+}
+b1 = await bgeo([[0, 0], step]);
 await swipe(b1.pts);
 const b2 = await bgeo([]);
-check('battle: dragging the group moves it forward', Math.hypot(b2.f.cx - (b1.f.cx + b1.f.fx * 2), b2.f.cy - (b1.f.cy + b1.f.fy * 2)) < 0.5 && b2.orders > b1.orders, JSON.stringify([b2.f.cx.toFixed(2), b2.f.cy.toFixed(2)]));
+const want = [b1.f.cx - b1.f.fy * step[0] - b1.f.fx * step[1], b1.f.cy + b1.f.fx * step[0] - b1.f.fy * step[1]];
+check('battle: dragging the group moves it there', Math.hypot(b2.f.cx - want[0], b2.f.cy - want[1]) < 0.5 && b2.orders > b1.orders, JSON.stringify([b2.f.cx.toFixed(2), b2.f.cy.toFixed(2), step]));
 check('battle: the move keeps facing and shape', b2.f.fx === b1.f.fx && b2.f.fy === b1.f.fy && b2.f.frontage === b1.f.frontage);
 // the facing knob is KNOB_PACES ahead of the front: swing it to the group's right. The move above shoved
 // a man of the next group toward the knob; once the field is still, press where the knob takes the press

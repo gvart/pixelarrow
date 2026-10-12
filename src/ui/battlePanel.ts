@@ -522,7 +522,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
       // short cards (compact screens): numeral and men on one line, the order under them
       const tw = this.w - 6;
       text(3, 3, firstFit([`${i.numeral} ${i.men}`, i.numeral], tw, false, 'roman'), fontA, 0, tw);
-      const ot = addText(s, 3, 13, ellipsize(i.orderShort ?? '', tw, light), 'pSec', 0);
+      const ot = addText(s, 3, 13, measureText(i.orderShort ?? '', light, 7) <= tw ? i.orderShort ?? '' : '', 'pSec', 0);
       uiFrame(ot, this, this.w, this.h);
       this.add(ot);
       this.addBarRow(3, this.w - 3, this.h - BAR_H - 2.5, true);

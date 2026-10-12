@@ -961,6 +961,8 @@ export class BattleTutorial {
     const f = finishTutorial(this.progress);
     track('tutorial_complete', { ms: tutorialStartedAt ? Date.now() - tutorialStartedAt : 0 });
     data.settings.tutorial = f.progress;
+    // the tutorial taught every gesture: the generic "Orders by touch" hint is not shown again on the next deployment (QA-03 S4)
+    data.settings.seenGestureHint = true;
     let reward = null;
     if (f.reward) reward = grantReward(data, state.campaign.random());
     // the campaign exists now: Continue works from the menu

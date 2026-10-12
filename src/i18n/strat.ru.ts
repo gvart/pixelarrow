@@ -78,7 +78,7 @@ export const STRAT_RU = {
   'battle.ring.advance': 'Вперёд',
   'battle.ring.charge': 'В атаку',
   'battle.ring.hold': 'Стоять',
-  'battle.ring.shoot': 'Стрелять',
+  'battle.ring.shoot': 'Огонь',
   'battle.ring.back': 'Отход',
   'battle.ring.solo': 'Один',
   'battle.ring.join': 'В строй',

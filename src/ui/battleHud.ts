@@ -750,15 +750,14 @@ export function orderLabelsFit(labels: readonly string[], total: number, gap: nu
 }
 
 /**
- * The order bar's words: the full ones when they fit at the text floor, else
- * the short ones (hud.md §I); on a canvas too narrow even for those (Telegram
- * full screen at 320x568, about 137 UI px) the keys show their icons alone,
- * the word as the tip, as the tab bar does there (V5-068): never a word under
- * the floor and never an ellipsis.
+ * The order bar's words: the full ones when they fit at the text floor; on a
+ * canvas too narrow for them (320 wide and under) the keys show their icons
+ * alone, the word as the tip, as the tab bar does there (V5-068). A key keeps
+ * one name at every width (V5-063, QA-03 S4: no "Adv." or "Back off"): never a
+ * shorter word, never a word under the floor, never an ellipsis.
  */
-export function orderLabels(full: readonly string[], short: readonly string[], total: number, gap: number): { words: string[]; iconOnly: boolean } {
-  if (orderLabelsFit(full, total, gap)) return { words: [...full], iconOnly: false };
-  return { words: [...short], iconOnly: !orderLabelsFit(short, total, gap) };
+export function orderLabels(full: readonly string[], total: number, gap: number): { words: string[]; iconOnly: boolean } {
+  return { words: [...full], iconOnly: !orderLabelsFit(full, total, gap) };
 }
 
 /**
@@ -783,9 +782,28 @@ export function groupNumeral(groups: readonly SimGroup[], gid: number): string {
  * ('*'); at most four.
  */
 export function cardGroups(sim: HudSim, side: number, deploy: boolean): { gid: number; numeral: string }[] {
-  const groups = sim.groups.filter((g) => g.side === side && !g.disbanded && (sim.members(g.id).length > 0 || deploy) && !g.individual);
+  // a wiped group (every man dead, fled or down) loses its card (controls.md R1.4, CT-01 AC3); a routing one keeps it
+  const standing = (gid: number) => sim.members(gid).some((u) => u.state === 'ready' || u.state === 'routing');
+  const groups = sim.groups.filter((g) => g.side === side && !g.disbanded && (standing(g.id) || deploy) && !g.individual);
   const indiv = sim.groups.filter((g) => g.side === side && g.individual && !g.disbanded && sim.activeMembers(g.id).length > 0);
   return [...groups, ...indiv].slice(0, 4).map((g) => ({ gid: g.id, numeral: groupNumeral(sim.groups, g.id) }));
+}
+
+/**
+ * Where the selection goes when the cards change (a group wiped out): it stays
+ * on a group that still has a card, else moves to the next card after it in the
+ * old order (wrapping), else to the first card; -1 with no card left.
+ */
+export function nextSelection(cards: readonly number[], before: readonly number[], sel: number): number {
+  if (sel < 0 || cards.includes(sel)) return sel;
+  const at = before.indexOf(sel);
+  if (at >= 0) {
+    for (let k = 1; k < before.length; k++) {
+      const gid = before[(at + k) % before.length];
+      if (cards.includes(gid)) return gid;
+    }
+  }
+  return cards[0] ?? -1;
 }
 
 // ---- morale glyph and badge markers (RD-01, battle-readability.md R1-R3)
@@ -946,6 +964,52 @@ export const BADGE_H = 13;
 /** Glyphs on a badge (UI px). */
 const BADGE_GLYPH = 9;
 
+/** A field badge to place: its group, its wanted centre (UI px; the plate runs from y - 6 for BADGE_H) and width, and its rank (higher keeps its place). */
+export interface BadgeSlot {
+  id: number;
+  x: number;
+  y: number;
+  w: number;
+  rank: number;
+}
+
+/**
+ * Field badges never stack (QA-03 S3-10: at 8 v 8 our I, II, IV and the
+ * enemy's merged into one cluster, and a tap took whichever lay on top). In
+ * rank order (the selected group, then ours, then the enemy's), each badge
+ * keeps its spot if it is free; else it climbs one plate, or steps aside (the
+ * nearer side first), or climbs two or three, or drops one: the first free spot wins. Badges keep
+ * their full size, so they stay readable at 320. Returns each badge's centre.
+ */
+export function declutterBadges(slots: readonly BadgeSlot[], gap = 1): Map<number, { x: number; y: number }> {
+  const out = new Map<number, { x: number; y: number }>();
+  const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
+  const step = BADGE_H + gap;
+  const boxAt = (s: BadgeSlot, x: number, y: number) => ({ x0: x - s.w / 2, y0: y - 6, x1: x + s.w / 2, y1: y - 6 + BADGE_H });
+  const free = (b: { x0: number; y0: number; x1: number; y1: number }) => placed.every((p) => b.x1 + gap <= p.x0 || b.x0 >= p.x1 + gap || b.y1 + gap <= p.y0 || b.y0 >= p.y1 + gap);
+  const order = slots.map((s, i) => ({ s, i })).sort((a, b) => b.s.rank - a.s.rank || a.i - b.i);
+  for (const { s } of order) {
+    const tries: [number, number][] = [[0, 0], [0, -step]];
+    // aside: just clear of a plate it meets at its own height, the nearer side first
+    const aside: [number, number][] = [];
+    for (const p of placed) {
+      if (p.y1 + gap <= s.y - 6 || p.y0 >= s.y - 6 + BADGE_H + gap) continue;
+      aside.push([p.x0 - gap - s.w / 2 - s.x, 0], [p.x1 + gap + s.w / 2 - s.x, 0]);
+    }
+    tries.push(...aside.sort((a, b) => Math.abs(a[0]) - Math.abs(b[0])), [0, -2 * step], [0, -3 * step], [0, step]);
+    let at = { x: s.x, y: s.y - step };
+    for (const [dx, dy] of tries) {
+      if (free(boxAt(s, s.x + dx, s.y + dy))) {
+        at = { x: s.x + dx, y: s.y + dy };
+        break;
+      }
+    }
+    placed.push(boxAt(s, at.x, at.y));
+    out.set(s.id, at);
+  }
+  return out;
+}
+
 /**
  * A group's field badge (R2), centred on its origin: on a bronze plate (ours;
  * lit when selected) or a dark stone one (the enemy's), the numeral, the
@@ -1033,6 +1097,26 @@ export class BannerLife {
 export interface PauseReason {
   text: string;
   live?: () => boolean;
+}
+
+/**
+ * The "First contact!" auto-pause (QA-03 S3-9): once, at the first enemy blow
+ * on our men (a missile, a rider, a spear: hit, block or kill) or at the sim's
+ * melee `contact` for our side, whichever comes first. The sim's own `contact`
+ * fires only when a group closes to melee, so skirmishers and riders could wipe
+ * a group out before it.
+ */
+export class FirstContact {
+  private seen = false;
+
+  check(e: SimEvent, me: number, units: readonly { side: number }[]): boolean {
+    if (this.seen) return false;
+    let hit = false;
+    if (e.type === 'contact') hit = e.side === me;
+    else if (e.type === 'hit' || e.type === 'block' || e.type === 'death') hit = e.by >= 0 && units[e.unit]?.side === me && units[e.by]?.side !== undefined && units[e.by].side !== me;
+    if (hit) this.seen = true;
+    return hit;
+  }
 }
 
 /** Auto-pauses within AUTOPAUSE_MERGE_S merge: one pause, one banner listing the reasons. */
