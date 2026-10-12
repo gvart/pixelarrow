@@ -701,14 +701,18 @@ export function scrollAllAreas(v: number): number {
 export const SCROLL_CUE_H = 10;
 
 /** Screen-space viewport of a scroll area's content, kept on the content container. */
-type ClipRect = { x: number; y: number; w: number; h: number };
+type ClipRect = { x: number; y: number; w: number; h: number; at?: () => { x: number; y: number } };
 type Clipped = { __scrollClip?: ClipRect; parentContainer?: Clipped | null };
 
 /** Whether a hit at screen (px, py) falls outside the viewport of any scroll area that holds `obj`. */
 export function clippedOut(obj: unknown, px: number, py: number): boolean {
   for (let o = obj as Clipped | null | undefined; o; o = o.parentContainer) {
     const r = o.__scrollClip;
-    if (r && (px < r.x || px >= r.x + r.w || py < r.y || py >= r.y + r.h)) return true;
+    if (!r) continue;
+    const d = r.at?.() ?? { x: 0, y: 0 };
+    const x = r.x + d.x;
+    const y = r.y + d.y;
+    if (px < x || px >= x + r.w || py < y || py >= y + r.h) return true;
   }
   return false;
 }
@@ -769,7 +773,20 @@ export class ScrollArea {
     this.maskG.fillStyle(0xffffff);
     this.maskG.fillRect(x * S, y * S, w * S, h * S);
     this.content.setMask(this.maskG.createGeometryMask());
-    (this.content as unknown as Clipped).__scrollClip = { x: x * S, y: y * S, w: w * S, h: h * S };
+    // the window moves with its parent (a list inside a scrolled page or a sliding sheet): the mask and the
+    // tap filter follow the parent's screen origin
+    const tm = new Phaser.GameObjects.Components.TransformMatrix();
+    const pm = new Phaser.GameObjects.Components.TransformMatrix();
+    const origin = () => {
+      const m = parent.getWorldTransformMatrix(tm, pm);
+      return { x: m.tx, y: m.ty };
+    };
+    (this.content as unknown as Clipped).__scrollClip = { x: x * S, y: y * S, w: w * S, h: h * S, at: origin };
+    const follow = () => {
+      if (!parent.scene) return;
+      const o = origin();
+      if (o.x !== this.maskG.x || o.y !== this.maskG.y) this.maskG.setPosition(o.x, o.y);
+    };
     this.zone = scene.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     parent.addAt(this.zone, 0);
     // The layout check clips rows to the viewport and ignores the drag zone itself.
@@ -794,6 +811,7 @@ export class ScrollArea {
     };
     const onWheel = (_p: unknown, _o: unknown, _dx: number, dy: number) => this.setScroll(this.scroll + dy * 0.3);
     const onUpdate = () => {
+      follow();
       if (!this.dragging && Math.abs(this.vel) > 0.1) {
         this.setScroll(this.scroll - this.vel);
         this.vel *= 0.9;
