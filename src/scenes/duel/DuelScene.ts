@@ -2188,12 +2188,14 @@ export class DuelScene extends BaseScene {
     ];
     // nothing on the sheet is cut (G14, DUE-10): the cosmetic's name and the title line wrap, and a row grows with its name
     const tw = inner - 42;
+    // every row's heading in one face and size: Cinzel at the largest size all of them fit, else all in Inter
+    const lineOf = (r: SeasonRewardView) => t('duels.reward.line', { ladder: t(`duels.board.${r.ladder}` as TKey), league: leagueTitle(r.league) });
+    const size = [7.5, 7, TEXT_MIN].find((z) => v.rewards.every((r) => pw(lineOf(r), 'head', z) <= tw));
     const rowsOf = (cosLines: number) =>
       v.rewards.map((r) => {
-        const line = t('duels.reward.line', { ladder: t(`duels.board.${r.ladder}` as TKey), league: leagueTitle(r.league) });
-        const size = [7.5, 7, TEXT_MIN].find((z) => pw(line, 'head', z) <= tw);
+        const line = lineOf(r);
         const cos = wrapText(tOr(`cosmetic.${r.cosmetic}`, r.cosmetic), tw, cosLines).lines;
-        return { r, line, size, cos, h: rowH + (cos.length - 1) * LINE_H };
+        return { r, line, cos, h: rowH + (cos.length - 1) * LINE_H };
       });
     const pickH = pickLine ? wrapText(pickLine, inner, 2).lines.length * LINE_H + 4 : 0;
     const fixedH = SHEET_PAD + 14 + pickH + sheetActionsH(actions, w);
@@ -2219,7 +2221,7 @@ export class DuelScene extends BaseScene {
     let y = b.y;
     ptext(this, c, m.x + w / 2, y, seasonName(v.rewards[0].season), 'ink', { align: 0.5, maxW: inner });
     y += 14;
-    for (const { r, line, size, cos, h } of rows) {
+    for (const { r, line, cos, h } of rows) {
       c.add(new ParchmentCard(this, b.x, y, inner, h));
       c.add(mosaicImage(this, b.x + 3, y + 7, 28, 28, 'parchmentWell'));
       c.add(addCosmetic(this, b.x + 4, y + 8, r.cosmetic, r.cosmetic.startsWith('duel_banner') ? 'banner' : 'emblem', 26));

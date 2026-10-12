@@ -13,7 +13,7 @@ export const DUELS_V5_RU = {
   'd5.board': 'Рейтинг',
   'd5.boardEmpty': 'Пока в рейтинге никого',
   'd5.boardError': 'Рейтинг не загрузился.',
-  'd5.board.notLegend': 'Дойдите до лиги Легенд, чтобы попасть сюда',
+  'd5.board.notLegend': 'Здесь только лига Легенд',
   'd5.raidError': 'Защитники не загрузились.',
   'd5.seasonOver': 'Сезон окончен',
   'd5.pickShort': 'Выбор предмета',

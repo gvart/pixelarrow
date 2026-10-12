@@ -22,7 +22,7 @@ export const DUELS_V5_EN = {
   'd5.board': 'Leaderboard',
   'd5.boardEmpty': 'No ranked players yet',
   'd5.boardError': 'The leaderboard did not load.',
-  'd5.board.notLegend': 'Reach the Legend league to appear here',
+  'd5.board.notLegend': 'Only Legend players are listed here',
   'd5.raidError': 'The defenders did not load.',
   'd5.seasonOver': 'Season over',
   'd5.pickShort': 'Choose a piece',
