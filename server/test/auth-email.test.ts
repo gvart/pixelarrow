@@ -50,9 +50,18 @@ async function settledMail(to: string): Promise<Mail[]> {
 }
 const linkToken = (m: Mail) => /#t=([A-Za-z0-9_-]{43})/.exec(m.text)?.[1] ?? null;
 
-/** The web game posts these forms from its own origin. */
-const post = (path: string, json: unknown, init: { cookie?: string; headers?: Record<string, string> } = {}) =>
-  api(path, { method: 'POST', json, ...init, headers: { origin: GAME_ORIGIN, ...init.headers } });
+/** The forms that carry a Turnstile token (ADR-0008 §6). */
+const HUMAN_CHECKED = new Set(['/api/auth/signup', '/api/auth/login', '/api/auth/reset/request', '/api/auth/verify/resend']);
+let ipN = 0;
+/**
+ * The web game posts these forms from its own origin, with a passing Turnstile
+ * token unless the body names one. Each call comes from a fresh client IP, so
+ * the per-IP limit (auth-gates.test.ts) stays out of the way of these flows.
+ */
+const post = (path: string, json: unknown, init: { cookie?: string; headers?: Record<string, string> } = {}) => {
+  const body = HUMAN_CHECKED.has(path) && json !== null && typeof json === 'object' && !('turnstile' in json) ? { ...json, turnstile: 'XXXX.DUMMY.TOKEN.XXXX' } : json;
+  return api(path, { method: 'POST', json: body, ...init, headers: { origin: GAME_ORIGIN, 'cf-connecting-ip': `198.18.${Math.floor(++ipN / 250)}.${ipN % 250}`, ...init.headers } });
+};
 const sidOf = (res: Response) => /__Host-pa_sid=(pa2_[A-Za-z0-9_-]{43})/.exec(res.headers.get('set-cookie') ?? '')?.[1] ?? null;
 
 /** A verified account with password PW; returns its address and the cookie token from the verification. */

@@ -1,5 +1,6 @@
 /**
- * Best-effort fixed-window rate limiter kept in isolate memory. Each Worker
+ * Best-effort fixed-window rate limiter kept in isolate memory, for gameplay
+ * buckets only (never /api/auth/*: see requireLimit below). Each Worker
  * isolate has its own map, so the effective limit is per isolate (a soft guard
  * against hammering /api/auth, not a hard quota). Swap for the Workers Rate
  * Limiting binding or a Durable Object when it matters.
@@ -33,4 +34,17 @@ export function overLimit(key: string, limit: number, windowMs: number, now = Da
 
 export function resetRateLimits(): void {
   windows.clear();
+}
+
+/**
+ * The durable gate (ADR-0008 §5): counts a hit on `key` in a Workers Rate
+ * Limiting binding and throws 429 `rate_limited` over its limit. Enforced per
+ * Cloudflare location and shared by every isolate there; used on /api/auth/*
+ * and renames instead of the in-isolate map above (N-AF-1). A missing binding
+ * fails closed (503). https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+ */
+export async function requireLimit(binding: RateLimit | undefined, key: string, message = 'Too many requests, slow down'): Promise<void> {
+  if (!binding) throw new ApiError(503, 'rate_limit_unavailable', 'Rate limiting is not configured');
+  const { success } = await binding.limit({ key });
+  if (!success) throw new ApiError(429, 'rate_limited', message);
 }

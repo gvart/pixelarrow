@@ -3,6 +3,7 @@
  */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import { COMMON_PASSWORDS } from '../src/auth/common-passwords';
 import { checkPasswordPolicy, hashPassword, PBKDF2_ITERATIONS, peppersFromEnv, verifyPassword } from '../src/auth/password';
 
 const peppers = peppersFromEnv(env);
@@ -102,6 +103,14 @@ describe('password policy (NIST SP 800-63B, M-PW-3)', () => {
     for (const pw of ['password123', 'Password123', 'qwertyuiop', '1234567890', '1q2w3e4r5t', 'iloveyou123', 'zzzzzzzzzzzz', 'abcdefghijkl', '9876543210', 'abcabcabcabc', 'pixelarrow123']) {
       expect(checkPasswordPolicy(pw, email), pw).toBe('common');
     }
+  });
+  it('rejects the 10,000 most common passwords the length rule would let through (SecLists xato list, V6-ACCT-04)', () => {
+    expect(COMMON_PASSWORDS.size).toBeGreaterThanOrEqual(10_000);
+    // From deep in the bundled list, not the hand-curated head (the 300-entry list missed them all).
+    for (const pw of ['manchester', 'Manchester', '4815162342', 'charlie123', 'basketball', 'liverpool1']) {
+      expect(checkPasswordPolicy(pw, email), pw).toBe('common');
+    }
+    expect(checkPasswordPolicy('battle-standard-42', email)).toBe('ok');
   });
   it('rejects the email and its local part', () => {
     expect(checkPasswordPolicy('alice.smith@example.com', email)).toBe('matches_email');

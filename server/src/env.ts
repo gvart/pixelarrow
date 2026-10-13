@@ -52,6 +52,16 @@ export interface Env {
   PASSWORD_PEPPER_PREVIOUS?: string;
   /** "1" only in local .dev.vars and tests: emails go to the dev_outbox table instead of being sent. */
   DEV_EMAIL?: string;
+  /** Email Service `send_email` binding (wrangler.jsonc, ADR-0008 §4); only MAIL_FROM may send. */
+  EMAIL?: SendEmail;
+  /** The sender of account emails, noreply@pixelarrow.app (wrangler.jsonc vars). */
+  MAIL_FROM?: string;
+  /** Turnstile secret (secret, ADR-0008 §6). Without it the anonymous auth forms answer 503 (fail closed). */
+  TURNSTILE_SECRET?: string;
+  /** Rate Limiting binding, 10 / 60 s: `<route>:<ip>` on the email auth forms, `rename:<pid>` (ADR-0008 §5). */
+  RL_AUTH_IP?: RateLimit;
+  /** Rate Limiting binding, 30 / 60 s: `tg:<ip>` on /api/auth/telegram (ADR-0008 §5). */
+  RL_TG_AUTH_IP?: RateLimit;
   /** Pins the map new online shards get (src/online/maps id; tests use 'test30'). Default: the season map. */
   ONLINE_MAP?: string;
 }
