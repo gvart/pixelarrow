@@ -25,7 +25,7 @@ Every requirement has an ID and a binary check. "Auto" means a script or test in
 
 | ID | Requirement | How to verify |
 | --- | --- | --- |
-| A11Y-06 | Every interactive element has a hit area of at least **44x44 pt** (art may be smaller: the turn knob is 20 pt art in a 44 pt hit area). | Auto: `node scripts/layout-check.mjs <url>` reports no target under 44 pt that is not in `scripts/layout-allowlist.json`. |
+| A11Y-06 | Every interactive element has a hit area of at least **44x44 pt** (art may be smaller: the turn knob is 20 pt art in a 44 pt hit area). | Auto: `node scripts/layout-check.mjs <url>` reports no target under 44 pt that is not in `scripts/layout-allowlist/<story>.json`. |
 | A11Y-07 | Neighbouring targets are at least **8 pt** apart; **4 pt** in the battle order bar and the tab bar. | Auto: layout-check fails below 4 pt. Manual: the 8 pt rule outside the battle order bar and tab bar is checked in UI review. |
 | A11Y-08 | A destructive action is never next to the screen's primary action and always confirms (e.g. Reset all lives in the ⋯ battle menu, away from FIGHT!). | Manual: on deployment, Settlement Sell, Clan Leave and Army Dismiss, the destructive control is not adjacent to the primary and opens a confirm. |
 

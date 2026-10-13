@@ -75,7 +75,7 @@ node scripts/audio-smoke.mjs http://localhost:4173/       # with and without Web
 
 The layout check is a CI gate; it fails on overlapping or too-small touch
 targets, overflowing text and anything outside the safe area, except the
-known violations in `scripts/layout-allowlist.json` (docs/UI_KIT.md "Layout
+known violations in `scripts/layout-allowlist/<story>.json` (docs/UI_KIT.md "Layout
 check"). Other scripts set `window.__noFirstRun` so onboarding never gets in
 their way.
 
