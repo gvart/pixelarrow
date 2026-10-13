@@ -1,7 +1,7 @@
 # ADR-0010: The public stats API for the landing page
 
 ## Status
-Proposed
+Accepted (Director, 2026-10-13, V6-014)
 
 ## Date
 2026-10-13

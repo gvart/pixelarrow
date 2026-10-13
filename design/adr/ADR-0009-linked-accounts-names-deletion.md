@@ -1,7 +1,7 @@
 # ADR-0009: Linked accounts, display names and account deletion
 
 ## Status
-Proposed
+Accepted (Director, 2026-10-13, V6-014)
 
 ## Date
 2026-10-13
