@@ -10,6 +10,7 @@ import {
 } from '../src/data/perks';
 import { CLASSES, SOLDIER_CLASSES, type ClassId } from '../src/data/classes';
 import { autoDevelop, makeHero, setBotLevel } from '../src/game/heroes';
+import { WIN_GOLD } from '../src/game/campaign';
 import { developHero } from '../src/duel/rules';
 import { migrate } from '../src/game/save';
 import { computeStats } from '../src/sim/stats';
@@ -212,6 +213,16 @@ describe('retrain (R7, F3)', () => {
   it('costs RETRAIN_COST x tier: 40..200 gold', () => {
     expect(RETRAIN_COST).toBe(40);
     expect([1, 2, 3, 4, 5].map(retrainCost)).toEqual([40, 80, 120, 160, 200]);
+  });
+
+  it('EC-03: stays a forgiveness price, not a wall (kept at 40 x tier)', () => {
+    // the GDD knob range for RETRAIN_COST (abilities.md, Tuning Knobs)
+    expect(RETRAIN_COST).toBeGreaterThanOrEqual(20);
+    expect(RETRAIN_COST).toBeLessThanOrEqual(80);
+    // tier 1 opens at level 2, after about 1.5 battles: one plain win (20 + WIN_GOLD, no kills) pays for it
+    expect(retrainCost(1)).toBeLessThanOrEqual(20 + WIN_GOLD);
+    // tier 5 opens at level 10, deep in tier 3: one win's pay (213 g, FINAL.md section 8) covers it
+    expect(retrainCost(PERK_LEVELS.length)).toBeLessThanOrEqual(213);
   });
 
   it('swaps one tier to its other option and keeps every other perk in place', () => {
