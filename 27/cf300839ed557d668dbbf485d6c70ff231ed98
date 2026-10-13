@@ -1,0 +1,27 @@
+scripts/art/landing/units.ts
+  s_0d98fe904b2e82::t_120b111845a0fe 1
+  s_0d98fe904b2e82::t_98b448b734bee8 2-63
+scripts/art/landing/diorama.mjs
+  s_0d98fe904b2e82::t_7a2a56e4bc29da 1-32
+scripts/art/landing/slab.ts
+  s_0d98fe904b2e82::t_5b5b37c1ec2f1e 1-2
+  s_0d98fe904b2e82::t_98b448b734bee8 3-80
+scripts/art/landing/units.json
+  s_0d98fe904b2e82::t_98b448b734bee8 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "27cf300839ed557d668dbbf485d6c70ff231ed98",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
