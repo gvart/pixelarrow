@@ -26,7 +26,7 @@ import { haptic, hapticNotify } from '../platform/haptics';
 import { legalUrl } from '../ui/legal';
 import { uiCoin } from '../audio/hooks';
 import { state } from '../state';
-import { MButton, MBadge, MChip, FrescoBanner, ParchmentCard, SectionTitle, SECTION_TITLE_H, SegmentedSwitch, SWITCH_H, addTipLine, GAP, addHubShell, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H, type Box, type MButtonOpts } from '../ui/mosaic';
+import { MButton, MBadge, MChip, FrescoBanner, ParchmentCard, SectionTitle, SECTION_TITLE_H, SegmentedSwitch, SWITCH_H, addTipLine, GAP, addHubShell, addParchmentEmpty, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H, type Box, type MButtonOpts } from '../ui/mosaic';
 import { wrapWords } from '../ui/mosaic/base';
 import { lang, t, tOr, type TKey } from '../i18n';
 
@@ -109,8 +109,11 @@ export class ShopScene extends BaseScene {
     this.page = this.add.container(0, 0);
     this.ui.add([this.head, this.page]);
     this.events.once('shutdown', () => this.clearPage());
+    // signed out: decided here, since fetchAll's catch can't report it from inside create(), where
+    // sys.isActive() is still false (GATE02-B1)
+    if (!econ().available()) this.st = 'outside';
     this.render();
-    void this.fetchAll();
+    if (this.st === 'loading') void this.fetchAll();
   }
 
   async fetchAll(): Promise<void> {
@@ -225,6 +228,12 @@ export class ShopScene extends BaseScene {
     if (this.st === 'loading') {
       // a skeleton of the cards to come (SHP-4)
       addShopSkeleton(this, this.page, this.box.x + 4, top, this.box.w - 8, this.pageBottom() - top, t('shop.v5.loading'));
+      return;
+    }
+    if (this.st === 'outside') {
+      // AU-01 Sign in to play online (design/ux/accounts-v6.md §4.4)
+      const [x, w, h] = [this.box.x + 4, this.box.w - 8, this.pageBottom() - top];
+      this.page.add([mosaicImage(this, x, top, w, h, 'parchmentWell'), addParchmentEmpty(this, x + 2, top + 2, w - 4, h - 4, { icon: 'flag', title: t('auth.gate.title'), hint: t('auth.gate.shop') })]);
       return;
     }
     if (this.st !== 'ready' || !this.loaded) {

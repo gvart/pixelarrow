@@ -10,4 +10,7 @@ export const SHOP_V5_EN = {
   'shop.v5.loading': 'Opening the shop...',
   'shop.v5.bonus': '+{n}% bonus',
   'shop.v5.xpHow': 'How to earn XP',
+  // AU-01, signed out (design/ux/accounts-v6.md)
+  'auth.gate.title': 'Sign in to play online',
+  'auth.gate.shop': 'The shop, the season pass and your Drachmae are kept with your account.',
 };

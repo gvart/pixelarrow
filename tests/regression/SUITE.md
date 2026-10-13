@@ -63,9 +63,9 @@ the summary and never counted as a pass.
 
 | ID | Check | Repro | Owner |
 | --- | --- | --- | --- |
-| GATE02-B1 | `scripts/online-smoke.mjs` web: the shop says "available in Telegram" | Signed out on the web (no Telegram), open the Shop: it stays on "Opening the shop...". `ShopScene.fetchAll` throws `outside` synchronously from `create()`, where `sys.isActive()` is still false, so the catch returns before setting `st` | Shop / PLAT-02 (web shop state) |
+| (none open) | | | |
 
-Fixed: QA02-B1 (a Settings replay skipped or finished went to FirstRun, not the screen Settings was opened from; now `TutorialStart.back`, routed by `tutorialExit`). Its battle-kinds check is a plain assertion.
+Fixed: QA02-B1 (a Settings replay skipped or finished went to FirstRun, not the screen Settings was opened from; now `TutorialStart.back`, routed by `tutorialExit`). Its battle-kinds check is a plain assertion. GATE02-B1 (signed out on the web the Shop stayed on "Opening the shop...": `fetchAll` threw from `create()`, where `sys.isActive()` is still false, so the catch never set the state; now it sets `outside` before any await and shows AU-01 "Sign in to play online"). Its online-smoke web check is a plain assertion.
 
 ## Known gaps
 

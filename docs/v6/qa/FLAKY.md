@@ -39,7 +39,7 @@ None.
   The fake WebApp signs the online layer in, and the preview server's `/api` proxy answered 502. This was
   deterministic, not flaky. Both now stub the API as down (503), as the other smokes do.
 - `online-smoke.mjs` in web mode: the shop never leaves "Opening the shop..." while signed out. This is a
-  game bug that reproduces every time, not a flake: KNOWN **GATE02-B1** in `tests/regression/SUITE.md`.
+  game bug that reproduced every time, not a flake: **GATE02-B1**, now fixed (see `tests/regression/SUITE.md`).
 
 ## Watch list (fixed sleeps still in place, not yet seen to flake)
 
