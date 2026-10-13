@@ -125,6 +125,29 @@ describe('NavStack', () => {
     expect(h.fb).toBe(1);
   });
 
+  it('subscribe hears every change of the top (V6-INP-02: the key contexts follow it), and topOwner names it', () => {
+    const { n } = make();
+    const seen: [object | null, number][] = [];
+    const off = n.subscribe(() => seen.push([n.topOwner(), n.layers()]));
+    const menu = {};
+    const battle = {};
+    n.register(menu, { back: null });
+    n.register(battle, { back: () => {} });
+    const close = n.pushLayer(() => {});
+    close();
+    n.unregister(battle);
+    off();
+    n.unregister(menu);
+    expect(seen).toEqual([
+      [menu, 0],
+      [battle, 0],
+      [battle, 1],
+      [battle, 0],
+      [menu, 0],
+    ]);
+    expect(n.topOwner()).toBeNull();
+  });
+
   it('layers close before the screen goes back, top first', () => {
     const { h, n } = make();
     const goBack = vi.fn();

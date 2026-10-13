@@ -24,7 +24,12 @@ import { Rng } from '../sim/rng';
 import { SPACING, formationSlots, presetFrontage, rightOf, type FormationType } from '../sim/formation';
 import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, nudgeDrop, slotSpots, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import { grabAt, hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
-import { SPEEDS, nextSpeed, paceMode, realtimeLocked, speedLabel, startSpeed, type PaceMode } from '../ui/input/pace';
+import { SPEEDS, nextSpeed, paceMode, realtimeLocked, speedLabel, startSpeed, stepSpeed, type PaceMode } from '../ui/input/pace';
+import type { ActionId, Context } from '../ui/input/actions';
+import { KeyPan, PRESS_ACTIONS, battleKeyTarget, turned } from '../ui/input/battleKeys';
+import { keys, screenKeys } from '../ui/input/keys';
+import { findUi, flashControl, tapControl } from '../ui/hotkeyPress';
+import { nav } from '../platform/nav';
 import { LADDER, ticketClock } from '../duel/ladder';
 import { battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind, type Unlocks } from '../ui/input/attention';
 import { FACING_DIRS, mirrorX, nextZoom, pipSlot } from '../ui/input/singleTap';
@@ -335,6 +340,10 @@ export class BattleScene extends BaseScene {
   /** The facing pips are open round this group (A11Y-14), or null. */
   private pips: { gid: number; btns: { pip: FacingPip; dir: Pt }[] } | null = null;
   private zoomBtn: KeyButton | null = null;
+  /** The medallions' ids, top to bottom (the ability hotkeys Z, X, C press them). */
+  private medalIds: string[] = [];
+  /** The arrow keys' pan (input-v6.md §3.5). */
+  private keyPan = new KeyPan();
   /** The zoom (whole units) the camera is settling at: what the zoom key says (0: read the camera). */
   private zoomTo = 0;
   /** The deployment's opening zoom (zoom units, 1 or less): the zoom key and the pinch reach it while deploying. */
@@ -412,6 +421,7 @@ export class BattleScene extends BaseScene {
     this.speed = 1;
     this.juice = new Juice();
     this.shook = { x: 0, y: 0 };
+    this.keyPan = new KeyPan();
     this.acc = 0;
     this.selGroup = -1;
     this.selUnit = -1;
@@ -647,10 +657,7 @@ export class BattleScene extends BaseScene {
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
-    this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => {
-      this.setZoom(Math.round(zoomUnits(cam.zoom)) + (dy > 0 ? -1 : 1));
-      this.tutorialEvent({ kind: 'zoom' });
-    });
+    this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => this.zoomStep(dy > 0 ? -1 : 1));
     // Back never leaves silently: deployment asks first, in battle it offers the retreat (pausing offline).
     this.screen({
       back: () => (this.tutorial ? this.tutorial.askSkip() : this.sim.phase === 'deploy' ? this.confirmLeaveDeploy() : this.openRetreat()),
@@ -660,6 +667,7 @@ export class BattleScene extends BaseScene {
         openSettings(this, () => this.settingsClosed());
       },
     });
+    this.bindKeys();
     if (this.tutorialData) {
       this.tutorial = new BattleTutorial(this.tutorialHost(), this.tutorialData);
       return;
@@ -904,6 +912,7 @@ export class BattleScene extends BaseScene {
     }
     const alpha = this.sim.phase === 'battle' && !this.paused ? Math.min(1, this.acc / DT) : 1;
     this.fitBounds();
+    this.panByKeys(delta);
     this.updateCamera(delta);
     this.juice.frame(delta, this.sim.phase === 'battle' && !this.paused);
     this.applyShake();
@@ -2045,6 +2054,12 @@ export class BattleScene extends BaseScene {
     if (this.zoomBtn && this.zoomBtn.opts.label !== zoomLabel(this.zoomTo)) this.buildHud();
   }
 
+  /** One whole zoom step in (1) or out (-1): a wheel notch, or the = and - keys. */
+  private zoomStep(dir: 1 | -1): void {
+    this.setZoom(Math.round(zoomUnits(this.cameras.main.zoom)) + dir);
+    this.tutorialEvent({ kind: 'zoom' });
+  }
+
   /** The farthest zoom out (zoom units): the opening overview while deploying, else 1x (the readability floor). */
   private minZoom(): number {
     return this.sim.phase === 'deploy' ? Math.min(1, this.openZoom) : 1;
@@ -2838,6 +2853,90 @@ export class BattleScene extends BaseScene {
     if (play) this.tutorialEvent({ kind: 'play' });
   }
 
+  // ---- hotkeys (ADR-0012 Decision 3, input-v6.md §1.1, §3): each presses the control that does the same thing
+
+  /** The battle's key contexts while it is the top screen; none while a dialog of its own is up. */
+  private keyContexts(): Context[] {
+    if (this.overlay || this.ending) return [];
+    if (this.sim.phase === 'deploy') return ['battle.deploy', 'battle', 'camera'];
+    return this.sim.phase === 'battle' ? ['battle.fight', 'battle', 'camera'] : ['battle'];
+  }
+
+  private bindKeys(): void {
+    screenKeys(this, () => this.keyContexts());
+    const ev = this.events;
+    for (const a of PRESS_ACTIONS) keys.on(a, () => this.hotkey(a), ev);
+    // Esc in the field opens the ⋯ menu (§3.1); with a sheet or dialog open it is the global Back that closes it
+    keys.on('back', () => (nav.topOwner() === this && nav.layers() === 0 && !this.overlay ? this.pressHud('battle.menu') : false), ev);
+    keys.on('time.faster', () => this.speedKey(1), ev);
+    keys.on('time.slower', () => this.speedKey(-1), ev);
+    keys.on('turn.left', () => this.turnKey(-1), ev);
+    keys.on('turn.right', () => this.turnKey(1), ev);
+    keys.on('cam.zoom.in', () => this.zoomStep(1), ev);
+    keys.on('cam.zoom.out', () => this.zoomStep(-1), ev);
+    const pans: [ActionId, number, number][] = [['cam.pan.up', 0, -1], ['cam.pan.down', 0, 1], ['cam.pan.left', -1, 0], ['cam.pan.right', 1, 0]];
+    for (const [a, x, y] of pans) keys.on(a, () => this.keyPan.press({ x, y }), ev);
+  }
+
+  /** A hotkey that presses a HUD control, or says why there is none. */
+  private hotkey(a: ActionId): void {
+    // the number of the selected group centres the camera on it (R8.2's double tap, without its timing)
+    const sel = this.cards.find((c) => c.gid === this.selGroup);
+    if (sel && this.selUnit < 0 && a === `group.${ROMAN.indexOf(sel.numeral) + 1}`) {
+      this.recentre('group');
+      this.flashHud(`battle.group.${sel.numeral}`);
+      return;
+    }
+    const target = battleKeyTarget(a, { has: (id) => !!findUi(this.hud, id), medallions: this.medalIds, numerals: ROMAN });
+    if (!target) return;
+    if ('press' in target) this.pressHud(target.press);
+    else this.showBanner(t(target.why, { n: target.n ?? '' }), 1200);
+  }
+
+  /** Press the HUD control `id` as a tap would, then flash it (rebuilt by the tap, it is found again). */
+  private pressHud(id: string): void {
+    const c = findUi(this.hud, id);
+    if (!c) return;
+    tapControl(c);
+    this.flashHud(id);
+  }
+
+  private flashHud(id: string): void {
+    const c = findUi(this.hud, id);
+    if (c) flashControl(this, c);
+  }
+
+  /** ] and [: one speed up or down, stopping at this battle's ends (the speed key only cycles forward). */
+  private speedKey(dir: 1 | -1): void {
+    if (this.sim.phase !== 'battle') return;
+    if (this.realtimeLocked) return this.showBanner(t('pace.locked'), 1400);
+    const s = stepSpeed(this.pace, this.speed, dir);
+    if (s === null) return this.showBanner(t(dir > 0 ? 'input.why.fastest' : 'input.why.slowest'), 1200);
+    this.setSpeed(s);
+    this.flashHud('battle.speed');
+  }
+
+  /** , and .: turn the selected group 45°, sent as the knob's pip would (`face` in battle, `form` in deployment). */
+  private turnKey(dir: 1 | -1): void {
+    const fr = this.selectedFrame();
+    if (!fr || !this.canCommand()) return this.showBanner(t('battle.why.noGroup'), 1200);
+    // the pip's turn, aimed from the group's pivot so it lands on the direction exactly
+    const d = turned({ x: fr.fx, y: fr.fy }, dir);
+    this.pickFacing({ x: d.x + (fr.px - fr.cx) / KNOB_PACES, y: d.y + (fr.py - fr.cy) / KNOB_PACES });
+  }
+
+  /** Each frame: the held arrow keys pan the field (screen space, UI px), turning Follow off as a finger pan does. */
+  private panByKeys(delta: number): void {
+    const held = (a: ActionId) => (keys.held(a) ? 1 : 0);
+    const d = this.keyPan.frame({ x: held('cam.pan.right') - held('cam.pan.left'), y: held('cam.pan.down') - held('cam.pan.up') }, delta);
+    if (!d.dx && !d.dy) return;
+    const cam = this.cameras.main;
+    this.setFollow(false);
+    cam.panEffect.reset();
+    cam.scrollX += (d.dx * this.m.S) / cam.zoom;
+    cam.scrollY += (d.dy * this.m.S) / cam.zoom;
+  }
+
   /** A message under the top bar (ms = 0: stays until replaced or hidden); it wraps to `maxLines` (A11Y-10: never cut). */
   showBanner(msg: string, ms: number, maxLines = 2): void {
     this.hideBanner();
@@ -2886,6 +2985,7 @@ export class BattleScene extends BaseScene {
     this.thenLive = this.thenChipLive();
     this.cards = [];
     this.abilityBtns = [];
+    this.medalIds = [];
     this.followBtn = null;
     this.cmdBtns.clear();
     this.feintBar = null;
@@ -3520,6 +3620,7 @@ export class BattleScene extends BaseScene {
       const m = new Medallion(this, x, y, { icon: d.icon, label: d.label, sub: d.sub, tip: d.tip, id: `battle.cmd.${d.key}`, onClick: d.run });
       this.hud.add(m);
       this.cmdBtns.set(d.key, m);
+      this.medalIds.push(`battle.cmd.${d.key}`);
       if (d.ability) this.abilityBtns.push({ id: d.ability, btn: m });
       if (d.key === 'standard') this.stdBtn = m;
       y += MED_H + 4;
@@ -4520,7 +4621,11 @@ export class BattleScene extends BaseScene {
   /** The speed key: the next speed this battle offers (pace.ts); the choice is the next battle's too (A11Y-21). */
   private toggleSpeed(): void {
     if (this.realtimeLocked) return;
-    this.speed = nextSpeed(this.pace, this.speed);
+    this.setSpeed(nextSpeed(this.pace, this.speed));
+  }
+
+  private setSpeed(s: number): void {
+    this.speed = s;
     this.juice.speed = this.speed;
     if (!this.tutorialData) {
       state.campaign.data.settings.battleSpeed = this.speed;

@@ -57,4 +57,8 @@ export const INPUT_RU: Record<keyof typeof INPUT_EN, string> = {
   'input.action.deploy.leave': 'Покинуть расстановку',
   'input.action.battle.retreat': 'Отступить',
   'input.action.hero.dismiss': 'Отпустить',
+  'input.why.then': '«Затем…» следует за приказом двигаться',
+  'input.why.noGroup': 'Нет отряда {n}',
+  'input.why.fastest': 'Быстрее в этом бою нельзя',
+  'input.why.slowest': 'Медленнее в этом бою нельзя',
 };
