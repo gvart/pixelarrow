@@ -479,10 +479,22 @@ World (WorldScene)     map shell (top bar strip) · SituationLine (sentence + ch
 ## Layout check
 
 `node scripts/layout-check.mjs <url>` (needs `npm run build` and
-`npx vite preview`, or the dev server) visits every screen at 320x568,
-375x667, 390x844, 430x932 and 360x780, plain and inside a fake full-screen
-Telegram (insets top 59 + 46, bottom 34), in English and Russian, scrolls every
-list to its end and checks again. It fails on:
+`npx vite preview`, or the dev server) visits every screen across the v6
+screen matrix, in English and Russian, scrolls every list to its end and
+checks again. The sizes live in `scripts/lib/layoutMatrix.mjs`, by group
+(`--matrix`, comma-separated; default `all`):
+
+| Group | Sizes |
+| --- | --- |
+| `phone` | 390x844 (design size), 360x780, 320x693 |
+| `landscape` | 844x390 (phone landscape), 1024x768, 1280x800, 1440x900, 1920x1080 |
+| `tablet` | 768x1024, 820x1180 |
+| `all` | the ten above |
+| `v5` | 320x568, 375x667, 430x932, 320x640: the v5 phone sizes, outside the matrix; CI still runs them |
+
+At phone sizes it also runs inside a fake full-screen Telegram: insets top
+59 + 46 and bottom 34 in portrait; sides 59, top 46 and bottom 21 at 844x390.
+Tablets and laptops run plain only. It fails on:
 
 - `overlap` / `spacing`: interactive elements overlapping or closer than 4 pt;
 - `text-overflow`: text outside its box (its button / panel, or wider than
@@ -494,11 +506,15 @@ list to its end and checks again. It fails on:
 - `touch-size`: an interactive element under 44 pt.
 
 Screenshots: `shots/layout/<lang>-<plain|tg>/<W>x<H>/<screen>.png`
-(git-ignored; CI uploads them as artifacts), summary in
-`shots/layout/index.md`. Options: `--screens`, `--sizes`,
-`--langs`, `--insets`, `--verbose`, `--update-allowlist`, `--shard i/n` (every
-n-th configuration; CI runs 10 shards in parallel) and `--split k` (each
-configuration's screens in k contexts, run in parallel by `--jobs`).
+(git-ignored; `$SHOTS` moves them; CI uploads them as artifacts), summary in
+`shots/layout/index.md`: a per-size table (screens clean, with only
+allowlisted violations, or failed, and the browser time) and the violations
+per screen. The console prints the same per-size table. Options: `--matrix`,
+`--screens`, `--sizes` (wins over `--matrix`), `--langs`, `--insets`,
+`--no-shots`, `--verbose`, `--update-allowlist`, `--shard i/n` (every n-th
+configuration) and `--split k` (each configuration's screens in k contexts,
+run in parallel by `--jobs`). CI runs one job per size and language
+(`--sizes WxH --langs xx`).
 
 **Registering:** nothing to do for kit components and plain Phaser objects:
 the registry walks the display list (interactive objects and bitmap texts;
@@ -523,9 +539,19 @@ content: clipped to the view, never compared with the UI drawn over them.
 **New screens** go into the `SCREENS` table of `scripts/layout-check.mjs`
 with an owner and a staging function (start the scene, open the dialog).
 
-**Allowlist:** `scripts/layout-allowlist.json` lists known violations by
-owner. Keys are `screen|check|element ids`. CI fails on anything not listed.
-Fix your entries and delete them; the list must end up empty. Never add
-entries for new work (`--update-allowlist` rewrites the file from the current
-state: review the diff, it should only shrink). The foundation screens (menu,
-settings, kit gallery) are never allowlisted.
+**Allowlist:** `scripts/layout-allowlist/<story>.json` lists known
+violations, one file per owner story (the V6-RSCR story of the screen's
+family, `STORY_OF` in `scripts/lib/layoutMatrix.mjs`), so stories working in
+parallel never edit the same file. Each file is `{ "_doc", "entries" }`.
+Keys are `screen|check|element ids`, or `screen|check|*` for the whole screen
+(the text-size floor only); a trailing `@WxH` scopes an entry to one size, and
+an unscoped entry holds at every size. A violation not listed at the size it
+shows at fails the run (after a second look, see `--no-retry`). Fix your
+entries and delete them; delete your file when it is empty: the lists only
+shrink. Never add entries for new work (`--update-allowlist` rewrites the
+files from the current state, adding new violations scoped to their size:
+review the diff, it should only shrink; run it on the whole matrix, since an
+unscoped entry only counts as fixed after a run of every matrix size). The
+foundation screens (menu, settings, kit gallery) are never allowlisted at the
+phone portrait sizes, apart from the text-size floor; their findings at the
+other matrix sizes belong to their family's story (V6-RSCR-01, -10, -11).
