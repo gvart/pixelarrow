@@ -1,0 +1,67 @@
+landing/src/components/Nav.astro
+  s_0d98fe904b2e82::t_54b7845cb6bcfd 171-174,179-181
+  s_0d98fe904b2e82::t_1bf478a2f17dc6 1-170,175-178,182-198
+landing/src/site.ts
+  s_0d98fe904b2e82::t_1c31b2a465351f 1-29
+landing/src/pages/index.astro
+  s_0d98fe904b2e82::t_a0e48c3c26cb8b 2-13,15-29
+landing/astro.config.mjs
+  s_0d98fe904b2e82::t_5c72bae33de018 8-9
+landing/src/components/sections/Stats.astro
+  s_0d98fe904b2e82::t_7c7bf704298061 1-12
+landing/src/components/Footer.astro
+  s_0d98fe904b2e82::t_44880e0c0f8ace 1-79
+landing/src/styles/tokens.css
+  s_0d98fe904b2e82::t_42b0e825c0e858 1-114
+landing/src/components/sections/Features.astro
+  s_0d98fe904b2e82::t_5198ed33bb1240 1-11
+landing/src/components/sections/Modes.astro
+  s_0d98fe904b2e82::t_6d985e3827b001 1-11
+landing/src/components/sections/Faq.astro
+  s_0d98fe904b2e82::t_231b161ddda829 1-10
+landing/src/components/sections/ClosingCta.astro
+  s_0d98fe904b2e82::t_71f220750768fa 1-28
+landing/public/manifest.webmanifest
+  s_0d98fe904b2e82::t_17986193f2a6e3 1-13
+landing/src/pages/sitemap.xml.ts
+  s_0d98fe904b2e82::t_856b23c1ccbe70 1-12
+landing/src/components/sections/Classes.astro
+  s_0d98fe904b2e82::t_a8768600cacf68 1-11
+landing/src/components/Seo.astro
+  s_0d98fe904b2e82::t_399b6ca1e3836c 1-74
+  s_0d98fe904b2e82::t_b85f5e87deb1dd 75
+landing/src/components/sections/Clips.astro
+  s_0d98fe904b2e82::t_2d5ddbbc21bbc3 1-11
+landing/src/components/SkipLink.astro
+  s_0d98fe904b2e82::t_bdf98d1afe9d8e 1-23
+landing/src/components/sections/Hero.astro
+  s_0d98fe904b2e82::t_9d4ee1a544a7a4 1-81,85-96,98-108,110-161,177-211,213-226,231-256,259-266
+  s_0d98fe904b2e82::t_bc009d8c93954e 97
+  s_0d98fe904b2e82::t_3d7e2ba2fb80ec 229
+  s_0d98fe904b2e82::t_d74b4e5e1463c1 162-176
+  s_0d98fe904b2e82::t_86c84e4957cae5 82-84,109,212,227-228,230,257-258
+landing/src/styles/global.css
+  s_0d98fe904b2e82::t_e77982311305b6 178-182
+  s_0d98fe904b2e82::t_2aec6453ea20ca 1-177
+landing/src/layouts/Base.astro
+  s_0d98fe904b2e82::t_bf24ba27507c11 1-22,25-39
+  s_0d98fe904b2e82::t_bec20f97595858 23-24
+landing/public/robots.txt
+  s_0d98fe904b2e82::t_99eac7041b4491 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9960f0676892a1c8d1fbd2d290dcd75f9340356c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
