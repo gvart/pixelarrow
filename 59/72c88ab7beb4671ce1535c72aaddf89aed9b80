@@ -1,0 +1,27 @@
+docs/v6/ASSET_LOG.md
+  s_0d98fe904b2e82::t_c8e765421248c8 66,127-178
+docs/v6/DECISIONS.md
+  s_0d98fe904b2e82::t_c52a5adfba1e12 33
+scripts/landing/encode-clips.sh
+  s_0d98fe904b2e82::t_b4b14039201513 1-86
+scripts/landing/record-clips.mjs
+  s_0d98fe904b2e82::t_61ab1e979a6542 1-594
+scripts/landing/vite.record.config.mjs
+  s_0d98fe904b2e82::t_6f0e6a560af313 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5972c88ab7beb4671ce1535c72aaddf89aed9b80",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
