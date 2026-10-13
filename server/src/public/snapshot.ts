@@ -6,7 +6,9 @@
  * as is, so nothing here ever runs per request.
  */
 import type { Env } from '../env';
-import { BODY_MAX_BYTES, PublicSummaryV1 } from './schema';
+import { seasonEnd, seasonId } from '../../../src/duel/season';
+import { BOARD_MAX, BOARD_MIN, BODY_MAX_BYTES, PublicSummaryV1 } from './schema';
+import { publicDuelTop, publicNamesReady } from './duelTop';
 
 const DAY = 86_400_000;
 
@@ -16,11 +18,17 @@ export type { PublicSummaryV1 } from './schema';
 export async function buildPublicSnapshot(env: Env, now: number): Promise<PublicSummaryV1> {
   const db = env.DB;
   if (!db) throw new Error('public snapshot: no DB binding');
+  const names = await publicNamesReady(db);
+  const duelSeason = seasonId(now);
   const snap: PublicSummaryV1 = {
     v: 1,
     generatedAt: now,
-    totals: await totals(db, now),
-    duels: { season: null, live: [], async: [] },
+    totals: await totals(db, now, names.deletedAt),
+    duels: {
+      season: { id: duelSeason, endsAt: seasonEnd(duelSeason) },
+      live: names.ready ? board(await publicDuelTop(db, 'live', duelSeason, BOARD_MAX)) : [],
+      async: names.ready ? board(await publicDuelTop(db, 'async', duelSeason, BOARD_MAX)) : [],
+    },
     war: { season: null, players: [], clans: [] },
     champions: { war: [], duel: [] },
     bossSlayers: [],
@@ -34,11 +42,16 @@ export async function buildPublicSnapshot(env: Env, now: number): Promise<Public
   return snap;
 }
 
-async function totals(db: D1Database, now: number): Promise<PublicSummaryV1['totals']> {
+/** Fewer than BOARD_MIN eligible rows: no board (it would single people out). */
+function board<T>(rows: T[]): T[] {
+  return rows.length < BOARD_MIN ? [] : rows.slice(0, BOARD_MAX);
+}
+
+async function totals(db: D1Database, now: number, deletedAt: boolean): Promise<PublicSummaryV1['totals']> {
   const war = await advanceCounter(db, COUNTERS.war, now);
   const duels = (await advanceCounter(db, COUNTERS.duelMatches, now)) + (await advanceCounter(db, COUNTERS.duelAttacks, now));
   const p = await db
-    .prepare('SELECT COUNT(*) AS players, SUM(last_seen_at >= ?1) AS active FROM players WHERE banned_at IS NULL')
+    .prepare(`SELECT COUNT(*) AS players, SUM(last_seen_at >= ?1) AS active FROM players WHERE banned_at IS NULL${deletedAt ? ' AND deleted_at IS NULL' : ''}`)
     .bind(now - 7 * DAY)
     .first<{ players: number; active: number | null }>();
   return {
