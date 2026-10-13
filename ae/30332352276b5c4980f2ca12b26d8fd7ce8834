@@ -1,0 +1,40 @@
+server/test/deletion-map.test.ts
+  s_0d98fe904b2e82::t_8a2863672069ff 1-49,51-52,54-67
+  s_0d98fe904b2e82::t_d124b9ffd698be 50,53
+server/src/duel/duelDO.ts
+  s_0d98fe904b2e82::t_4146b8edfcb4f5 135-146
+server/src/region.ts
+  s_0d98fe904b2e82::t_4146b8edfcb4f5 325-337
+server/src/duel/matchmaker.ts
+  s_0d98fe904b2e82::t_4146b8edfcb4f5 59-73
+server/test/deletion.test.ts
+  s_0d98fe904b2e82::t_388c6b0b469890 153-154,315-317
+  s_0d98fe904b2e82::t_9ecfa761464ee5 132
+  s_0d98fe904b2e82::t_28688cfafa9aea 241-242,245
+  s_0d98fe904b2e82::t_8c2f6e6d22edae 148-149,234-240,243-244,246-298
+  s_0d98fe904b2e82::t_eb58c931d90369 1-131,133-147,150-152,155-233,299-314,318-341
+server/src/account/deletionMap.ts
+  s_0d98fe904b2e82::t_609176fd4c6be6 132
+  s_0d98fe904b2e82::t_ac1279152d752c 1-131,133-156
+server/src/account/delete.ts
+  s_0d98fe904b2e82::t_388c6b0b469890 234-239,243,288
+  s_0d98fe904b2e82::t_ca27ea3360957b 1-233,240-242,244-287,289-294
+server/src/account/banTombstone.ts
+  s_0d98fe904b2e82::t_a429dfef14b2dd 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ae30332352276b5c4980f2ca12b26d8fd7ce8834",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
