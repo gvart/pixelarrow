@@ -1,0 +1,24 @@
+src/sim/replay.ts
+  s_697bdc25a7c420::t_b2cfbfac04699e 1-87
+tests/ladderPause.test.ts
+  s_697bdc25a7c420::t_b2cfbfac04699e 8
+server/src/battle.ts
+  s_697bdc25a7c420::t_7cf4f52594d72d 11-12,15
+  s_697bdc25a7c420::t_b2cfbfac04699e 18-19,22-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a586bc884e350e2212d70e3b264a4b669d5de021",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
