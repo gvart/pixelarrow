@@ -1,0 +1,34 @@
+scripts/lib/fakeTelegram.mjs
+  s_0d98fe904b2e82::t_ce936a7ef0cf74 7,27,111,147
+scripts/lib/layoutMatrix.mjs
+  s_0d98fe904b2e82::t_a1f48ef485cb3d 71-72,74-76,80-90
+  s_0d98fe904b2e82::t_791c4688c23e86 30-55
+  s_0d98fe904b2e82::t_f24bf6528e8d4b 149-150
+  s_0d98fe904b2e82::t_f2bac5e241af0e 98-148,151-189
+  s_0d98fe904b2e82::t_08ef5d62f38ead 56-70,73,77-79,91-97
+  s_0d98fe904b2e82::t_871425aba28b43 1-3,6-29
+  s_0d98fe904b2e82::t_a2295a2bc0e956 4-5
+tests/layoutMatrix.test.ts
+  s_0d98fe904b2e82::t_adc64b38d31b21 1-2,4-23,57-58
+  s_0d98fe904b2e82::t_c2f928ef19696a 34-38,40-46,48-55
+  s_0d98fe904b2e82::t_2e1521025ae0e4 24-33
+  s_0d98fe904b2e82::t_f70006bc8d9479 3,39,47,56
+  s_0d98fe904b2e82::t_e3a509a75d11cc 117-122
+  s_0d98fe904b2e82::t_8ef0c4fc379564 59-116,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "061e4879b643db37761b520774d7d00c734db9b6",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
