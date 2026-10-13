@@ -1,7 +1,7 @@
 # ADR-0012: Input v6: action map, keyboard, mouse and focus
 
 ## Status
-Proposed (P2-UX-INPUT, 2026-10-13). Amends ADR-0004.
+Accepted (Director, 2026-10-13, V6-016)
 
 ## Date
 2026-10-13
