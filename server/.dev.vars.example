@@ -7,3 +7,6 @@ TELEGRAM_WEBHOOK_SECRET=replace-with-a-long-random-string
 SESSION_SECRET=replace-with-another-long-random-string
 # Accept { "dev": { "id": 1, "first_name": "Dev" } } logins without Telegram. Local only!
 DEV_AUTH=1
+# Local origins the Worker accepts for CORS and the cookie Origin check (ADR-0007).
+# Comma-separated; local only, never set in production.
+DEV_ORIGINS=http://localhost:8787,http://localhost:5173
