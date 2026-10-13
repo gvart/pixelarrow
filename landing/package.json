@@ -8,6 +8,7 @@
     "build": "astro build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.worker.json",
+    "test:hero": "node scripts/hero-overlap.mjs",
     "dry-run": "../server/node_modules/.bin/wrangler deploy --dry-run --config wrangler.jsonc --outdir .wrangler/dry-run"
   },
   "dependencies": {

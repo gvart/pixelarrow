@@ -3,7 +3,7 @@
 // living canvas, the war-table foreground), measured where each layer paints. It also checks the living layer's gates: the canvas runs
 // from 768 px, never below, and under reduced motion the hero is the static poster with no animation.
 //
-// Usage (in landing/, after `npm run build`): node scripts/hero-overlap.mjs
+// Usage (in landing/, after `npm run build`): npm run test:hero (HERO_TEST_PORT picks the port)
 // Serves dist/ itself on HERO_TEST_PORT (default 6141, V6-002 slot 4) and fails if the port is taken.
 // Playwright comes from the repository root's node_modules.
 import { createServer } from 'node:http';
