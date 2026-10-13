@@ -4,7 +4,11 @@ One Cloudflare Worker, `pixelarrow`, serves **both** the static game (the root
 `dist/` build, on https://play.pixelarrow.app) **and** this API. `wrangler.jsonc`
 (repo root) sets `assets.run_worker_first: ["/api/*", "/ws/*"]`, so only those
 paths run Worker code; everything else is plain static hosting with the SPA
-fallback.
+fallback. The landing page on https://pixelarrow.app (and www) is a separate
+Worker, `pixelarrow-landing` (`landing/wrangler.jsonc`, ADR-0007): static
+pages and the legal pages, plus a cached proxy that reaches this Worker's
+`PublicApi` entrypoint through a service binding. It has no D1, no Durable
+Objects and no secrets.
 
 - **Routing:** [Hono](https://hono.dev). **Validation:** zod. **Storage:** D1
   (`DB`, database `pixelarrow`). **Realtime:** SQLite-backed Durable Objects
@@ -800,6 +804,15 @@ typecheck, tests, build → `server/` `npm ci`, typecheck, tests →
 It also writes `wrangler.deploy.noae.json` (no Analytics Engine datasets): the
 deploy falls back to it if the account cannot bind Analytics Engine yet. The
 Actions variable `ANALYTICS_ENGINE=off` drops the datasets on purpose.
+The workflow deploys the game Worker only when the game changed (a `changes`
+job filters by path; a manual run picks `target: both | game | landing`).
+A landing-only change runs `landing-build`, `landing-test` and
+`landing-deploy` (`wrangler deploy --config ../landing/wrangler.jsonc` with
+this folder's pinned wrangler) and never touches this Worker, D1 or the
+Durable Objects. When both changed, the game deploys first and the landing
+right after. The go-live order for the two hosts is in
+docs/v6/OWNER_ACTIONS.md.
+
 `.github/workflows/backup.yml` exports the database daily (docs/OPS.md
 "Backups"); `server/scripts/d1-restore.mjs` is the point-in-time restore.
 

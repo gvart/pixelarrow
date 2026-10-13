@@ -1,6 +1,7 @@
 # Operations: monitoring, analytics, backups, admin panel
 
-How to watch the production game at https://play.pixelarrow.app, read its funnel
+How to watch the production game at https://play.pixelarrow.app (the landing
+page at https://pixelarrow.app is a separate static Worker, see "Deploy"), read its funnel
 and retention numbers, restore the database, and run the admin panel. Code:
 `server/src/telemetry/`, `server/src/admin/`, `server/src/ban.ts`,
 `src/platform/{telemetry,analytics,analyticsSchema,monitoring}.ts`,
@@ -468,7 +469,17 @@ submitted by a stale bundle gets 426 and stays open until it expires.
 ### Deploy
 
 Everything is done by `.github/workflows/deploy.yml` on a push to `main`
-(or *Actions → Deploy → Run workflow*). Nobody deploys by hand.
+(or *Actions → Deploy → Run workflow*, with `target` `both`, `game` or
+`landing`). Nobody deploys by hand.
+
+There are two Workers (ADR-0007): `pixelarrow`, the game and API on
+https://play.pixelarrow.app, and `pixelarrow-landing`, the landing and legal
+pages on https://pixelarrow.app and www. A `changes` job runs only the jobs of
+the site a push touched. A **landing-only** change runs `landing-build`,
+`landing-test` and `landing-deploy`: no migrations, no game deploy, and live
+duels keep running. A **game** change runs the steps below. When **both**
+changed, the game deploy waits for the landing checks too, and the landing
+deploys right after the game. The steps below are the game's.
 
 1. **Gates** (CI): client typecheck, vitest (includes
    `tests/trainReplay.test.ts`, the v2 fixtures in Node), build, the Worker
@@ -489,6 +500,9 @@ Everything is done by `.github/workflows/deploy.yml` on a push to `main`
 `npx wrangler rollback` (or re-running the deploy of the previous `main`
 commit) puts the previous Worker and client back together. Migrations stay;
 they are additive.
+The landing rolls back on its own: from `server/`,
+`npx wrangler rollback --config ../landing/wrangler.jsonc`. It holds no data,
+so this never touches the game.
 
 ### The next rules change
 

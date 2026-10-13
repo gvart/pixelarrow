@@ -19,15 +19,18 @@ GAMEPLAY.md, DESIGN_V2.md, DUELS.md and server/README.md.
 
 ## Agreed architecture
 
-One Worker in `server/` (see [server/README.md](../server/README.md)) serves
-the static game and the API: Hono, zod, D1, hibernating Durable Objects (a
-`RegionDO` per shard, `MatchmakerDO` and `DuelDO` for duels), Telegram
-`initData` auth, Stars payments, and battle verification that replays
-`src/sim`.
+Two hosts, two Workers (ADR-0007). The game Worker in `server/` (see
+[server/README.md](../server/README.md)) serves the static game and the API
+on **https://play.pixelarrow.app**, for the web and Telegram: Hono, zod, D1,
+hibernating Durable Objects (a `RegionDO` per shard, `MatchmakerDO` and
+`DuelDO` for duels), Telegram `initData` auth, Stars payments, and battle
+verification that replays `src/sim`. A separate static Worker in `landing/`
+serves the landing page and the legal pages on **https://pixelarrow.app**
+(and www). Each builds and deploys on its own (`.github/workflows/deploy.yml`).
 
 | Concern | Choice |
 | --- | --- |
-| Static game files | Served by the game Worker (static assets) on **https://play.pixelarrow.app** for the web and Telegram (`wrangler.jsonc`, `.github/workflows/deploy.yml`). The API lives on the same origin (`/api/*`, `/ws/*`), so the game needs no CORS. The landing site and the legal pages are a separate Worker on **https://pixelarrow.app** (`landing/`, ADR-0007). |
+| Static game files | Served by the game Worker (static assets) on **https://play.pixelarrow.app** for the web and Telegram (`wrangler.jsonc`, `.github/workflows/deploy.yml`). The API lives on the same origin (`/api/*`, `/ws/*`), so the game needs no CORS. The landing site and the legal pages are a separate Worker on **https://pixelarrow.app** (`landing/`, `landing/wrangler.jsonc`, ADR-0007); a landing deploy never restarts the game's Durable Objects. |
 | Real-time server | **Cloudflare Workers + Durable Objects**: `RegionDO` per shard (presence, live armies, region locks, friendly duels), `MatchmakerDO` (the global duel queue), `DuelDO` per live match (lockstep relay and validation). WebSockets use the **hibernation API** so idle connections cost nothing. |
 | Persistence | **D1 (SQLite)**: accounts, heroes, items, territories, clans, purchases, battle records. DOs hold hot state and flush to D1. |
 | Shared game logic | **TypeScript shared with the client**: `src/sim` (battle), `src/online` (world graph, rules), `src/duel`, `src/game` (heroes, loot, enemy generation) run unchanged in the Worker. The server **re-runs every battle from its seed and order log** and only accepts the result it computes itself. |
