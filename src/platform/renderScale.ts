@@ -12,10 +12,27 @@
  */
 import Phaser from 'phaser';
 
-const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+/**
+ * Device pixels per CSS pixel for a screen of `dpr`: quarter steps, at most 3x (fill rate), and at most 2x
+ * on a phone or tablet. Every procedural texture (fonts, icons, panels) is drawn at this scale, so texture
+ * memory grows with its square: about 285 MB of canvases by the Army screen at 3x against 140 MB at 2x.
+ * Inside Telegram on iOS the first is past the WebView's budget: WebKit kills the page, reloads it once
+ * (the app comes back on the menu) and leaves a second crash within 30 s on a black screen.
+ */
+export function renderScaleFor(dpr: number, mobile: boolean): number {
+  return Math.max(1, Math.min(mobile ? 2 : 3, Math.round((dpr || 1) * 4) / 4));
+}
 
-/** Device pixels per CSS pixel the canvas is drawn at (capped: 3x is plenty, and fill rate matters). */
-export const RS = Math.max(1, Math.min(3, Math.round(dpr * 4) / 4));
+/** A phone or tablet (iPadOS reports a Mac with touch). */
+export function isMobileDevice(ua: string, maxTouchPoints = 0): boolean {
+  return /iPhone|iPad|iPod|Android/i.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1);
+}
+
+const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+const mobile = typeof navigator !== 'undefined' && isMobileDevice(navigator.userAgent ?? '', navigator.maxTouchPoints ?? 0);
+
+/** Device pixels per CSS pixel the canvas is drawn at (renderScaleFor). */
+export const RS = renderScaleFor(dpr, mobile);
 
 /** A screen-pixel distance given in CSS px, in canvas px. */
 export const px = (cssPx: number): number => cssPx * RS;
