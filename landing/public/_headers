@@ -10,3 +10,9 @@
 # Hero layers keep their names across art re-renders, so they revalidate after a day.
 /hero/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+# Clips, posters and class busts keep their names across re-encodes, so they revalidate after a day.
+/video/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/classes/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
