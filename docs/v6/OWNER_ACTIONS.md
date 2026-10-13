@@ -50,9 +50,9 @@ The two hosts (ADR-0007): the game and its API on `https://play.pixelarrow.app`
       to the Worker in step 4.4. Its site key is public: set it where the
       client build reads it (the web sign-in client, V6-ACCT-05; if that is not
       wired yet, give the site key to the next run).
-   3. Confirm the Rate Limiting namespace ids `6001` (`RL_AUTH_IP`) and `6002`
-      (`RL_TG_AUTH_IP`) in `wrangler.jsonc` are not used by another Worker in
-      the account. If one is taken, tell the next run to pick free ids.
+   3. Confirm the Rate Limiting namespace ids `6001` (`RL_AUTH_IP`), `6002`
+      (`RL_TG_AUTH_IP`) and `6003` (`RL_PUBLIC_IP`) in `wrangler.jsonc` are not
+      used by another Worker in the account. If one is taken, tell the next run to pick free ids.
    4. Set the game Worker secrets, from `server/`:
       `npx wrangler secret put <NAME> --config ../wrangler.jsonc` for
       `TURNSTILE_SECRET` (that is,
