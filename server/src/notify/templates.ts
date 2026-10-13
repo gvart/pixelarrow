@@ -224,3 +224,35 @@ export function buttonUrl(gameUrl: string, route: StartRoute): string {
   const base = gameUrl.replace(/\/+$/, '');
   return `${base}/?startapp=${startParamOf(route)}`;
 }
+
+/**
+ * Account notices by bot (V6-LINK-02; ADR-0009 §2.4, §4, M-LK-4): one message
+ * per identity change. They are security notices, so they skip the outbox's
+ * opt-outs, quiet hours and coalescing (account/notices.ts sends them at once).
+ */
+export type AccountNotice = 'email_added' | 'email_changed' | 'email_removed' | 'telegram_removed' | 'account_deleted';
+
+const ACCOUNT_NOTICE: Record<Lang, Record<AccountNotice, string>> = {
+  en: {
+    email_added: '🔐 An email and password were added to your Pixelarrow account, so it can also be played in a browser. Not you? Open Settings → Account.',
+    email_changed: '🔐 The email of your Pixelarrow account was changed. Not you? Open Settings → Account.',
+    email_removed: '🔐 The email was removed from your Pixelarrow account, and browser sessions were signed out. Not you? Open Settings → Account.',
+    telegram_removed: '🔐 This Telegram account was unlinked from your Pixelarrow account. The bot will stop messaging you. Opening the game here again starts a new, empty account.',
+    account_deleted: '🗑 Your Pixelarrow account was deleted. Opening the game again starts a new, empty account.',
+  },
+  ru: {
+    email_added: '🔐 К вашему аккаунту Pixelarrow добавлены почта и пароль: теперь в него можно играть и в браузере. Это были не вы? Откройте Настройки → Аккаунт.',
+    email_changed: '🔐 Почта вашего аккаунта Pixelarrow изменена. Это были не вы? Откройте Настройки → Аккаунт.',
+    email_removed: '🔐 Почта удалена из вашего аккаунта Pixelarrow, в браузерах выполнен выход. Это были не вы? Откройте Настройки → Аккаунт.',
+    telegram_removed: '🔐 Этот Telegram отвязан от вашего аккаунта Pixelarrow. Бот больше не будет вам писать. Если открыть игру здесь снова, начнётся новый, пустой аккаунт.',
+    account_deleted: '🗑 Ваш аккаунт Pixelarrow удалён. Если открыть игру снова, начнётся новый, пустой аккаунт.',
+  },
+};
+
+const ACCOUNT_BUTTON: Record<Lang, string> = { en: '⚙ Settings', ru: '⚙ Настройки' };
+
+/** The bot text of an account notice; a Settings button only while the chat still belongs to the account. */
+export function renderAccountNotice(lang: Lang, kind: AccountNotice): { text: string; button: string | null } {
+  const linked = kind === 'email_added' || kind === 'email_changed' || kind === 'email_removed';
+  return { text: ACCOUNT_NOTICE[lang][kind], button: linked ? ACCOUNT_BUTTON[lang] : null };
+}
