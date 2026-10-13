@@ -63,6 +63,7 @@ Specs: `docs/v6/landing/ART_DIRECTION.md` §8. Owner of the Chrome tab: the `ass
 
 Pick and review: `docs/v6/landing/DIRECTION_PICK.md`.
 
+<<<<<<< HEAD
 ### P5-LAND-ART: hero layers, OG image, favicon set (2026-10-13)
 
 Spec of every final (size, format, weight, target path): `docs/v6/landing/ASSET_SPEC.md`.
@@ -123,3 +124,55 @@ the still diorama at its native 2x placed at (300, -150), the beam at 0.5 with `
 `#100d0b` scrim (92% → 0 by 55% width), then "PIXELARROW" (Cinzel 700, 30 px, `#c9b896`), "HOLD THE LINE"
 (Cinzel 700, 84 px, `#f0e3c2`), "Pixel-art formation battles. Free in your browser and in Telegram." (Inter 24 px)
 and "pixelarrow.app" (Inter 20 px). Exported PNG → JPEG q55 (143 kB; q70 was 206 kB, q62 173 kB).
+=======
+## Clips
+
+### P5-VIDEO: gameplay clips for the landing (2026-10-13)
+
+LND-06. Every clip is the **real game** (Phaser 3.90, dev server from this branch), driven by
+`scripts/landing/record-clips.mjs` and encoded by `scripts/landing/encode-clips.sh`. Finals:
+`landing/assets-staging/video/` (`<id>.webm` VP9, `<id>.mp4` H.264 High, `<id>-poster.avif`,
+`<id>-poster.webp`; the hero also has `H1-av1.webm`). Raw PNG takes lived in the session scratch
+directory and were deleted after encoding.
+
+**How it is recorded.** Playwright's fake clock (`page.clock`) drives the game's
+requestAnimationFrame, Date and performance.now, so the game advances exactly 1/30 s between two
+screenshots: no dropped frames, and a seeded scenario repeats exactly. Frames are taken at the clip's
+final size (DSF 1) with the game's own integer camera zoom (x2 to x4) and the camera on whole world
+pixels, so the pixel art is never rescaled. The portrait column (`#game`, 0.64 × height) is widened by
+an injected style and the game re-lays itself out (Phaser RESIZE). Staging goes only through the debug
+handles (`__game`, `__state`), as `scripts/dev/screenshots.mjs` does: a seeded army (never over the
+field cap of 12), auto-pause off, the HUD camera hidden on field shots. Nothing is drawn that the game
+does not draw. **Loop:** each take is 0.5 s longer than the clip; its last 0.5 s cross-fades into its
+first 0.5 s (checked: the last frame leads into the first). **Encode:** VP9 two-pass and H.264 at a
+quality CRF, capped by a bitrate from the ADR-0011 byte budget; AVIF poster at the lowest CRF that fits
+40 kB. 30 fps, no audio.
+
+Re-run: `npx vite --config scripts/landing/vite.record.config.mjs --port <p> --strictPort`, then
+`node scripts/landing/record-clips.mjs http://localhost:<p>/ [--only H1,G1]`, then
+`bash scripts/landing/encode-clips.sh` (raw frames default to the git-ignored `shots/landing-clips/`).
+
+| ID | Size, length | What the take is | WebM | MP4 | Poster AVIF / WebP |
+| --- | --- | --- | --- | --- | --- |
+| H1 | 1280x720, 8 s | Battle seed 101, plain: 9 hoplites + 3 peltasts vs 10 Celtic swordsmen + 4 javelineers; both lines advance and clash, javelins in the air, the player's cyan lattice under the phalanx. Zoom x2, HUD hidden, the player's own "Reduce shake" on (a calm ambient loop); the camera rides between the lines with a slow drift. | 1,124 kB (AV1: 1,046 kB) | 1,521 kB | 38.5 / 182 kB (t 4.0 s) |
+| M1 | 960x540, 6 s | Overland map, campaign seed 20261006: the party leaves Rhegion along the road, passes a raider band (strength plate "15") and reaches Pylos. Route set with `setDestination`, ground on the road revealed, ambushes held off (`safeUntil`), map zoom x3, HUD hidden, camera eased on the party. | 523 kB | 518 kB | 28.2 / 66 kB |
+| M2 | 960x540, 6 s | A ranked duel vs the demo opponent "Hektor" (the in-memory duel source the layout check uses): the demo duel army gets three Glory recruits, Find match, then both duel armies close and meet. Zoom x2, HUD hidden. | 762 kB | 864 kB | 33.4 / 101 kB |
+| M3 | 960x540, 6 s | War map on the local demo shard (`Online` `{ preview: 'map' }`): a slow pan from home (Cavarian Meadows) south over the regions toward a rival army's march. Map zoom x2, the map's UI camera hidden. | 584 kB | 759 kB | 39.7 / 90 kB |
+| M4 | 720x720, 5 s | Rhegion › Services › Smith: a legendary falcata (seeded into the stash, as the layout check does), the Aim line picked and Reforge pressed twice by real mouse clicks: "Durability +30%, was Aim +2%", then "Shield pierce +4%", gold 1,240 → 760. Full UI. | 155 kB | 116 kB | 26.9 / 45 kB |
+| G1 | 960x540, 8 s | Battle seed 207: 7 hoplites, 2 archers, 3 Companions vs 10 Celtic swordsmen (level 2) + 3 javelineers. Scripted by tick: the line advances; once it is engaged the Companions swing to a point off the Celts' flank and charge (tick 318); the Celts' main group routs at tick 503. Played at the game's x2 speed, zoom x3, HUD hidden, the camera on the melee. A dry run of the same seed finds the ticks. | 747 kB | 1,062 kB | 38.1 / 114 kB (t 5.6 s) |
+| G2 | 960x540, 8 s | War map as M3, zoom x1: a longer pass over the rival army, home and the march, towns (Entremont, Massalia, Avenio), rivers, mountains and the sea. One untimed pass first so the map's ground chunks are drawn. | 784 kB | 998 kB | 31.1 / 136 kB |
+| G3 | 960x540, 8 s | The same duel as M2, 3 s on: the phalanx, set to the shield wall on deployment, holds as the duel armies clash. Zoom x3, HUD hidden. | 747 kB | 1,057 kB | 37.8 / 105 kB |
+| G4 | 960x540, 5 s | As M4 at 16:9, the item card in full. | 153 kB | 114 kB | 25.6 / 43 kB |
+| B1 | 360x360, 3 s | Battle seed 311: four Spartan hoplites on their base plate, braced and thrusting in a melee with Celtic swordsmen. Zoom x4, HUD hidden. | 190 kB | 114 kB | 11.1 / 17 kB |
+
+All within ADR-0011: clips WebM ≤ 800 kB and MP4 ≤ 1.1 MB, the hero WebM ≤ 1.2 MB and MP4 ≤ 1.6 MB,
+posters AVIF ≤ 40 kB. OG (the 11th item) is a still, made in LND-05, not here.
+
+**Notes for the build.**
+- The game has no landscape layout yet (v6 goal 3), so its HUD fills two thirds of a 960x540 frame; the
+  field and map clips hide it, the forge clips keep the full UI. Re-record M4/G4 (and, if wanted, a HUD
+  version of a battle) once the landscape layouts merge: the script is ready for it.
+- Duels are small battles by design (a 10-man duel cap; the demo opponent fields 6), so M2 and G3 read
+  smaller than the campaign battles.
+- G3 is the shield wall holding a clash, not a deployment drag: the deployment is a few seconds before.
+>>>>>>> worktree-agent-a530cc609c007f586
