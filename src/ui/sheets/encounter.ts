@@ -96,7 +96,7 @@ export function worldGlyph(scene: Phaser.Scene, what: number | 'crest'): string 
 }
 
 /** Wrapped text into `c` (null = measure only); returns its height. */
-function para(scene: Phaser.Scene, c: Phaser.GameObjects.Container | null, x: number, y: number, str: string, font: FontKey, w: number, size = BODY): number {
+export function para(scene: Phaser.Scene, c: Phaser.GameObjects.Container | null, x: number, y: number, str: string, font: FontKey, w: number, size = BODY): number {
   const ls = wrapWords(str, w, (s) => mw(s, font, size));
   if (c) c.add(mtext(scene, x, y, ls.join('\n'), font, { size }));
   return Math.ceil(ls.length * lh(size));
@@ -165,7 +165,7 @@ function mainPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Enc
 }
 
 /** The doctrine's Codex text (as the Codex sheet has it) into `c`, `w` wide; returns its height. */
-function doctrineText(scene: Phaser.Scene, c: Phaser.GameObjects.Container | null, d: DoctrineId, w: number): number {
+export function doctrineText(scene: Phaser.Scene, c: Phaser.GameObjects.Container | null, d: DoctrineId, w: number): number {
   let y = 0;
   const parts: [TKey, TKey, FontKey][] = [
     ['codex.doc.tell', `doctrine.${d}.tell` as TKey, 'pInk'],
