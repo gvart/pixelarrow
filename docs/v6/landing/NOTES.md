@@ -67,7 +67,6 @@ once from `Base.astro` so it is inlined rather than costing a request before LCP
 **Headroom warning for LAND-04/05:** mobile LCP has about 30 ms left under 2.0 s, and most of the
 growth over v6 came from HTML weight (7.2 → 11.8 kB on the wire). Keep new section markup lean.
 
-<<<<<<< HEAD
 ## V6-LAND-02b: the phone hero and the line stagger (V6-029)
 
 **Phones (< 768 px)** now play a lighter cut of the hero battle instead of only the poster. Everything
@@ -95,7 +94,7 @@ and no module or sprite request under reduced motion, data saver or deviceMemory
 
 Mobile total bytes grow from 177 kB to 426 kB, all after LCP (terrain 49 kB, sprite sheet 199 kB, module
 8 kB). The hero starter is 1.3 kB gzip (critical JS ≈ 3.3 kB in total); the lazy module 7.6 kB gzip.
-=======
+
 ## V6-LAND-05: clips, FAQ and closing (truth check)
 
 ### Clips (`#clips`)
@@ -144,4 +143,3 @@ finding: **any request for the section CSS before LCP**, even one sent on the lo
 - **Warning for LAND-04 and LAND-06:** the body is about 20 bytes under the last good measurement.
   New sections must move their own CSS into the late stylesheet (or a twin) and keep markup tiny; past
   ≈ 14.2 kB gzip, mobile LCP jumps by ≈ 100 ms.
->>>>>>> worktree-agent-a468db3ae96ea6c1e
