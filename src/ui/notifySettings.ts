@@ -22,7 +22,8 @@ import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { MIconButton } from './mosaic/iconButton';
 import { online } from '../platform/cloud';
 import { NOTIFY_TYPES, type NotifySettings, type NotifyType } from '../platform/api';
-import { haptic, openExternalLink } from '../platform/telegram';
+import { openExternalLink } from '../platform/telegram';
+import { haptic } from '../platform/haptics';
 import { lang, t, type TKey } from '../i18n';
 import { legalUrl, type LegalPage } from './legal';
 

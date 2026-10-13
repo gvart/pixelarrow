@@ -48,7 +48,7 @@ import { isCaptain } from '../sim/stats';
 import { encounterOf } from '../data/beasts';
 import { heroClass } from '../sim/stats';
 import type { LastBattle } from '../state';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { uiCoin, uiLevelUp } from '../audio/hooks';
 import { sfx } from '../audio';
 import { t, tOr, type TKey } from '../i18n';

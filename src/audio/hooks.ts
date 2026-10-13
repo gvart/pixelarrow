@@ -8,7 +8,7 @@ import type { SimEvent, WorkType } from '../sim/types';
 import type { AbilityId } from '../data/perks';
 import { isoToScreen } from '../art/iso';
 import type { JuiceKind } from '../ui/battleFx';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { audio, music, sfx } from './index';
 import { HAPTIC_GAP_MS, hapticCue, type Cue } from './haptics';
 import type { TrackId } from './music';

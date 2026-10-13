@@ -14,7 +14,7 @@ import { dollFromHero } from '../art/paperdoll';
 import { renderGround } from '../art/ground';
 import { renderSettlement } from '../art/worldArt';
 import { state } from '../state';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { itemDef, type Item } from '../data/items';
 import { MAX_ARMY } from '../data/units';
 import { RETRAIN_COST } from '../data/perks';

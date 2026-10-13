@@ -21,7 +21,8 @@ import { LookCard, MarketCard, addPackCard, addShopSkeleton, packLayout, type Lo
 import { PASS_XP, claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
-import { haptic, hapticNotify, openExternalLink } from '../platform/telegram';
+import { openExternalLink } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { legalUrl } from '../ui/legal';
 import { uiCoin } from '../audio/hooks';
 import { state } from '../state';

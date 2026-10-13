@@ -18,7 +18,7 @@ vi.mock('../src/platform/storage', () => ({
 vi.mock('../src/platform/cloud', () => ({
   online: { available: false, loadCachedEntitlements: async () => undefined, pullOnLoad: async () => null, abandonPull: () => undefined, queuePush: () => undefined },
 }));
-vi.mock('../src/platform/telegram', () => ({ setHaptics: () => undefined }));
+vi.mock('../src/platform/haptics', async (orig) => ({ ...(await orig<typeof import('../src/platform/haptics')>()), setHaptics: () => undefined }));
 
 import { state } from '../src/state';
 import { Campaign } from '../src/game/campaign';

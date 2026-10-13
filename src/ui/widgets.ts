@@ -24,7 +24,7 @@ import { ensureItemIcon, fitItemIcon } from './sprites';
 import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { toastY, type OverlayKind, type Rect } from './mosaic/overlays';
 import { badgeText, switchLabelStyle } from './mosaic/policy';
-import { haptic } from '../platform/telegram';
+import { haptic } from '../platform/haptics';
 import { sfx } from '../audio';
 import { uiDestroy } from '../audio/hooks';
 import { t, tOr } from '../i18n';

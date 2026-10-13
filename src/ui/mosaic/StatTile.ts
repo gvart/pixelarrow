@@ -7,7 +7,7 @@ import Phaser from 'phaser';
 import { addIcon } from '../kit';
 import { uiId } from '../layout';
 import { sfx } from '../../audio';
-import { haptic } from '../../platform/telegram';
+import { haptic } from '../../platform/haptics';
 import { mosaicImage, mtext, mw } from './base';
 
 export type StatTone = 'ink' | 'good' | 'bad';

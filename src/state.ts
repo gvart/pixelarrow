@@ -7,7 +7,7 @@ import type { EnemyArmy } from './game/enemy';
 import type { Hero } from './data/units';
 import type { BattleSite } from './world/battlefield';
 import { gameKV } from './platform/storage';
-import { setHaptics } from './platform/telegram';
+import { setHaptics } from './platform/haptics';
 import { online } from './platform/cloud';
 import { newProgress } from './game/tutorial';
 import { setReducedMotion } from './ui/motion';

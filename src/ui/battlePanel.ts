@@ -20,7 +20,7 @@ import { uiBlocker, uiFrame, uiId } from './layout';
 import { addPortrait } from './sprites';
 import { dollKey, type DollSpec } from '../art/paperdoll';
 import { ellipsize, measureText } from './textfit';
-import { haptic, hapticSelect } from '../platform/telegram';
+import { haptic, hapticSelect } from '../platform/haptics';
 import { uiButton } from '../audio/hooks';
 import { t } from '../i18n';
 import { heroName, namesIn } from '../i18n/names';

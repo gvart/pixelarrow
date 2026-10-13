@@ -14,7 +14,7 @@ import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
 import { renderIcon } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { renderMosaic, type MosaicStyle } from '../art/mosaicUi';
-import { haptic } from '../platform/telegram';
+import { haptic } from '../platform/haptics';
 import { uiButton, uiDisabled } from '../audio/hooks';
 import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';

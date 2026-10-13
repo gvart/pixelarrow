@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FakePlatform } from './fakes/platform';
+import { fakeEnv } from './platform/env';
 
 // telegram.ts touches `window` only when attaching; give node a minimal one.
 const win = { innerWidth: 390, innerHeight: 844, addEventListener: () => {} };
@@ -8,6 +10,8 @@ const { NavStack, nav, registerScreen, navLayer, showInGameBack, TAB_ROOTS, BACK
 const { MODE_TABS } = await import('../src/ui/mosaic/tabLayout');
 const tg = await import('../src/platform/telegram');
 const { trackSafeArea } = await import('../src/platform/safeArea');
+const { platform, setPlatformForTests } = await import('../src/platform/index');
+const { createWebPlatform } = await import('../src/platform/web/index');
 
 /** A fake Telegram.WebApp that records what the game does with it. */
 function fakeWebApp(version = '8.0', platform = 'ios') {
@@ -193,6 +197,67 @@ describe('NavStack', () => {
     expect(s).toHaveBeenCalledOnce();
     n.register({}, { back: null });
     expect(h.settings).toBeNull();
+  });
+});
+
+describe('Back on platform.back (ADR-0006 M3)', () => {
+  const before = platform;
+  afterEach(() => setPlatformForTests(before));
+
+  it('drives platform.back and plays platform.haptics.select on Back', async () => {
+    const fake = new FakePlatform();
+    setPlatformForTests(fake);
+    const army = new FakeScene();
+    const toMap = vi.fn();
+    registerScreen(army, { back: toMap, confirmClose: true });
+    expect(fake.backCb).toBeTypeOf('function');
+    expect(fake.closingConfirmation).toBe(true);
+    fake.backCb!();
+    expect(toMap).toHaveBeenCalledOnce();
+    expect(fake.cues).toEqual(['select']);
+    army.shutdown();
+    await Promise.resolve();
+    expect(fake.backCb).toBeNull();
+    expect(fake.closingConfirmation).toBe(false);
+  });
+
+  it('draws the in-game back arrow exactly when the platform has no native Back', () => {
+    const fake = new FakePlatform();
+    setPlatformForTests(fake);
+    expect(showInGameBack()).toBe(true);
+    fake.back.native = true;
+    expect(showInGameBack()).toBe(false);
+  });
+
+  it('on the web, browser Back (popstate) closes the top sheet, then the screen', async () => {
+    const f = fakeEnv();
+    setPlatformForTests(createWebPlatform(f.env));
+    const army = new FakeScene();
+    const toMap = vi.fn();
+    registerScreen(army, { back: toMap });
+    const sheet = new FakeContainer();
+    const close = vi.fn(() => sheet.destroy());
+    navLayer(sheet, close, army);
+    f.win.fire('popstate');
+    expect(close).toHaveBeenCalledOnce();
+    expect(toMap).not.toHaveBeenCalled();
+    expect(nav.layers()).toBe(0);
+    f.win.fire('popstate');
+    expect(toMap).toHaveBeenCalledOnce();
+    army.shutdown();
+    await Promise.resolve();
+    expect(nav.depth()).toBe(0);
+  });
+
+  it('on the web, leaving mid-battle asks first (beforeunload), and stops asking after the battle', async () => {
+    const f = fakeEnv();
+    setPlatformForTests(createWebPlatform(f.env));
+    const battle = new FakeScene();
+    registerScreen(battle, { back: () => {}, confirmClose: true });
+    expect(f.win.fire('beforeunload').defaultPrevented).toBe(true);
+    battle.shutdown();
+    await Promise.resolve();
+    expect(f.win.fire('beforeunload').defaultPrevented).toBe(false);
   });
 });
 

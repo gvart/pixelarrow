@@ -30,7 +30,7 @@ import { addGoodsIcon } from './textures';
 import { BATTLE_CONSUMABLES, CONSUMABLES, type ConsumableId } from '../../data/consumables';
 import { econ } from './source';
 import { fmtCount } from '../../i18n/numbers';
-import { hapticSelect } from '../../platform/telegram';
+import { hapticSelect } from '../../platform/haptics';
 import { t, tOr } from '../../i18n';
 
 export interface PickOpts {

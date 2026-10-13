@@ -27,7 +27,7 @@ import { track } from '../platform/analytics';
 import { itemDef, type Item } from '../data/items';
 import { uiLevelUp } from '../audio/hooks';
 import { sfx } from '../audio';
-import { hapticNotify } from '../platform/telegram';
+import { hapticNotify } from '../platform/haptics';
 import { t, tOr, type TKey } from '../i18n';
 
 export type FirstRunMode = 'offer' | 'resume' | 'reward' | 'modes';

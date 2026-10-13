@@ -115,7 +115,7 @@ export class Online {
       try {
         const init = this.d.initData();
         const r = init ? await this.d.api.authTelegram(init) : await this.d.api.authDev(this.d.devUser?.id, this.d.devUser?.name);
-        this.playerName = r.player?.firstName ?? r.player?.username ?? null;
+        this.playerName = r.player?.firstName ?? r.player?.username ?? r.player?.displayName ?? null;
         this.playerId = typeof r.player?.id === 'number' ? r.player.id : null;
         this.authFails = 0;
         void this.refreshEntitlements();

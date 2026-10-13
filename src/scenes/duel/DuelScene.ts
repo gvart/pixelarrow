@@ -48,7 +48,7 @@ import {
 import { ARMY_ROW_H, addGroupDisc, addRosterRow, armyPill, armyPillW, pendingPoints, type ArmySource } from '../../ui/army';
 import { FRESCO_H, headerLayout, ladderArrival, ladderNotes, showChestTip, showFresco } from './hubLayout';
 import { fmtCount, localDecimals } from '../../i18n/numbers';
-import { hapticNotify } from '../../platform/telegram';
+import { hapticNotify } from '../../platform/haptics';
 import { RARITY_LABEL, SLOTS, isBound, itemDef, normalizeEquip, normalizeItem, type Item, type Slot } from '../../data/items';
 import type { Hero } from '../../data/units';
 import { CLASSES } from '../../data/classes';

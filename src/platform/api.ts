@@ -9,10 +9,15 @@
  */
 import type { CampsView } from '../online/camps';
 import type { CampBuildingId } from '../online/rules';
+import type { Auth } from './core/auth';
+import { platform } from './index';
 
 export interface PlayerInfo {
   id: number;
-  telegramId?: number;
+  /** The unique public name (every player has one, ACCT-02). */
+  displayName?: string | null;
+  /** Null for a player with no Telegram identity. */
+  telegramId?: number | null;
   username?: string | null;
   firstName?: string | null;
   [k: string]: unknown;
@@ -20,6 +25,7 @@ export interface PlayerInfo {
 
 export interface AuthResponse {
   token: string;
+  /** Epoch ms. */
   expiresAt: number;
   player: PlayerInfo;
 }
@@ -254,6 +260,8 @@ export interface ApiOptions {
    * (or null). The request is retried once with it.
    */
   reauth?: () => Promise<string | null>;
+  /** How requests authenticate; read per request. Default: the selected platform's. */
+  transport?: () => Auth['transport'];
 }
 
 interface RequestOpts {
@@ -277,6 +285,7 @@ export class ApiClient {
   readonly base: string;
   private readonly fetchFn: FetchLike;
   private readonly timeoutMs: number;
+  private readonly transportOf: () => Auth['transport'];
   reauth?: () => Promise<string | null>;
   /** Extra headers on every request (src/platform/monitoring.ts: app version, platform, analytics opt-out). */
   extraHeaders?: () => Record<string, string>;
@@ -287,6 +296,12 @@ export class ApiClient {
     this.fetchFn = f ?? (() => Promise.reject(new TypeError('fetch unavailable')));
     this.timeoutMs = opts.timeoutMs ?? 8000;
     this.reauth = opts.reauth;
+    this.transportOf = opts.transport ?? (() => platform.auth.transport);
+  }
+
+  /** 'bearer': the token goes in a header and no cookies are sent (Telegram); 'cookie': the same-origin session cookie (web). */
+  get transport(): Auth['transport'] {
+    return this.transportOf();
   }
 
   async request<T>(method: string, path: string, opts: RequestOpts = {}): Promise<T> {
@@ -312,10 +327,9 @@ export class ApiClient {
       /* headers are best effort */
     }
     if (opts.body !== undefined) headers['content-type'] = 'application/json';
-    if (opts.auth) {
-      if (!this.token) throw new ApiError(401, 'unauthorized', 'Not signed in');
-      headers.authorization = `Bearer ${this.token}`;
-    }
+    const transport = this.transport;
+    if (opts.auth && this.token) headers.authorization = `Bearer ${this.token}`;
+    else if (opts.auth && transport === 'bearer') throw new ApiError(401, 'unauthorized', 'Not signed in');
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
     let timedOut = false;
     const ms = opts.timeoutMs ?? this.timeoutMs;
@@ -335,7 +349,7 @@ export class ApiClient {
           headers,
           body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
           signal: ctl?.signal,
-          credentials: 'omit',
+          credentials: transport === 'cookie' ? 'same-origin' : 'omit',
         }),
         timeout,
       ]);

@@ -29,7 +29,7 @@ vi.mock('../src/platform/cloud', () => ({
     queuePush: (d: SaveData) => void pushed.push(d),
   },
 }));
-vi.mock('../src/platform/telegram', () => ({ setHaptics: () => undefined }));
+vi.mock('../src/platform/haptics', async (orig) => ({ ...(await orig<typeof import('../src/platform/haptics')>()), setHaptics: () => undefined }));
 
 import { state } from '../src/state';
 import { Campaign } from '../src/game/campaign';

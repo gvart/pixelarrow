@@ -124,7 +124,7 @@ export function normalizeEvent(event: string, props: unknown, from: 'client' | '
 export function scrubText(s: string, max = 1000): string {
   return s
     .replace(/((?:token|initdata|init_data|hash|auth\w*|signature|password|secret|bearer)[=:\s"]+)[^\s&"',;)]+/gi, '$1<redacted>')
-    .replace(/\b(?:pa1\.)?[A-Za-z0-9_-]{32,}(?:\.[A-Za-z0-9_-]{16,})*\b/g, '<redacted>')
+    .replace(/\b[A-Za-z0-9_-]{32,}(?:\.[A-Za-z0-9_-]{16,})*\b/g, '<redacted>')
     .replace(/(https?:\/\/[^\s?#)'"]*)[?#][^\s)'"]*/g, '$1')
     .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '<email>')
     .slice(0, max);
