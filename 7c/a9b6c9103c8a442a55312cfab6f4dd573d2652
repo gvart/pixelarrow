@@ -1,0 +1,27 @@
+docs/telegram/README.md
+  s_697bdc25a7c420::t_ba747cd5762fe0 1-43
+scripts/art/appicons.mjs
+  s_697bdc25a7c420::t_91196e248b8a79 97
+  s_697bdc25a7c420::t_943426c1624a14 23,93,96
+  s_697bdc25a7c420::t_87754492cc19b1 1-22,24-92,94-95,98-102
+public/manifest.webmanifest
+  s_697bdc25a7c420::t_6723f24110b213 1-15
+index.html
+  s_697bdc25a7c420::t_d504dbed48a9c6 8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7ca9b6c9103c8a442a55312cfab6f4dd573d2652",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
