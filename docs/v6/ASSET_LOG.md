@@ -66,7 +66,7 @@ Pick and review: `docs/v6/landing/DIRECTION_PICK.md`.
 ### P5-LAND-ART: hero layers, OG image, favicon set (2026-10-13)
 
 Spec of every final (size, format, weight, target path): `docs/v6/landing/ASSET_SPEC.md`.
-Staged finals: `landing/assets-staging/` (hero/, og/, favicon/). Composite check at 1920x1080:
+Finals (moved out of staging by V6-LAND-01): `landing/public/hero/` (hero layers), `landing/public/og.jpg`, and the favicon set in `landing/public/`. Composite check at 1920x1080:
 `docs/v6/art/P5-LAND-hero-preview.jpg`.
 
 **Queue status:** LND-01 done (engine render, see below); LND-02 done (painted beam layer plus the CSS glow);
