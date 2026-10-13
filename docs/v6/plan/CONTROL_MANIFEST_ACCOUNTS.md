@@ -20,7 +20,7 @@ Status: ADR-0008, 0009 and 0010 are **Accepted** (V6-014). If an ADR changes, up
 ## Passwords
 
 **Must**
-- M-PW-1: hash with PBKDF2-HMAC-SHA256 at the iteration count measured by the V6-ACCT-01 spike (V6-014: the highest safe value, target ≥ 310,000, floor 100,000; the spike writes the number here), a 16-byte salt and a 32-byte output, over `HMAC-SHA256(PASSWORD_PEPPER, password)`. Store it as `pbkdf2-sha256$<iter>$<pepperId>$<salt>$<dk>`.
+- M-PW-1: hash with PBKDF2-HMAC-SHA256 at **310,000 iterations** (measured by the V6-ACCT-01 spike, `docs/v6/qa/PBKDF2_SPIKE.md`; V6-014 floor 100,000), exported as `PBKDF2_ITERATIONS` from `server/src/auth/password.ts` and held to the measured range [100,000, 310,000] by `server/test/pbkdf2-spike.test.ts`. It needs Workers Paid (Free's 10 ms CPU fits no count at or above 100,000); production `cpu_ms` and the absence of a 100,000 cap are an owner check before the first real sign-up. Use a 16-byte salt and a 32-byte output, over `HMAC-SHA256(PASSWORD_PEPPER, password)`. Store it as `pbkdf2-sha256$<iter>$<pepperId>$<salt>$<dk>` and verify with the stored parameters. Rehash parameters for M-PW-2 (ADR-0008 §2): rehash when the tag is not `pbkdf2-sha256`, `<iter> ≠ PBKDF2_ITERATIONS` (either direction) or `<pepperId> ≠ PASSWORD_PEPPER_ID`, with a fresh salt; a failed rehash write never fails the log-in.
 - M-PW-2: rehash on successful log-in when the stored parameters or pepper id are out of date.
 - M-PW-3: enforce 10–128 characters, no composition rules, and reject the bundled common-password list and passwords equal to the email or its local part.
 - M-PW-4: compare in constant time, and verify against a dummy hash when the email is unknown.

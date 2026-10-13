@@ -1,0 +1,12 @@
+// Probe Worker for the PBKDF2 spike (V6-ACCT-01). Run it locally only (from server/):
+//   npx wrangler dev --config scripts/pbkdf2-probe/wrangler.jsonc --ip 127.0.0.1 --port 6140 --inspector-port 6141
+//   node scripts/pbkdf2-probe/measure.mjs http://127.0.0.1:6140 <workerd pid>
+// This run never deploys it. The owner's confirmation step (docs/v6/OWNER_ACTIONS.md) deploys it
+// to a throwaway Worker, reads cpu_ms, and deletes it.
+{
+  "name": "pixelarrow-pbkdf2-probe",
+  "main": "worker.ts",
+  "compatibility_date": "2026-08-15",
+  "workers_dev": true,
+  "observability": { "enabled": true }
+}
