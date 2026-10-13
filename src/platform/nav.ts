@@ -12,7 +12,8 @@
  * via `this.screen({...})`) and `navLayer(container, close)` for each modal.
  * Both clean up on scene shutdown / container destroy.
  */
-import { hapticSelect, hasNativeBack, setBackButton, setClosingConfirmation, setSettingsButton } from './telegram';
+import type { BackButton } from './core/back';
+import { platform } from './index';
 import type { TabId } from '../ui/mosaic/tabLayout';
 
 export interface ScreenOpts {
@@ -24,11 +25,8 @@ export interface ScreenOpts {
   settings?: (() => void) | null;
 }
 
-/** What the stack drives; Telegram in the game, a mock in tests. */
-export interface NavHost {
-  setBack(cb: (() => void) | null): void;
-  setSettings(cb: (() => void) | null): void;
-  setClosingConfirmation(on: boolean): void;
+/** What the stack drives: the platform's Back control plus a feedback cue; a mock in tests. */
+export interface NavHost extends Omit<BackButton, 'native'> {
   feedback(): void;
 }
 
@@ -154,12 +152,12 @@ export class NavStack {
   }
 }
 
-/** The game's navigation, wired to Telegram (no-ops outside it). */
+/** The game's navigation, wired to `platform.back` (read per call: the platform is selected after this module loads). */
 export const nav = new NavStack({
-  setBack: setBackButton,
-  setSettings: setSettingsButton,
-  setClosingConfirmation,
-  feedback: hapticSelect,
+  setBack: (cb) => platform.back.setBack(cb),
+  setSettings: (cb) => platform.back.setSettings(cb),
+  setClosingConfirmation: (on) => platform.back.setClosingConfirmation(on),
+  feedback: () => platform.haptics.select(),
 });
 
 interface SceneLike {
@@ -189,11 +187,11 @@ export function navLayer(container: { once(ev: 'destroy', fn: () => void): unkno
 }
 
 /**
- * Whether scenes should draw their own back arrow: not when Telegram's header
- * Back button does the job (avoids two back buttons).
+ * Whether scenes should draw their own back arrow: not when the platform's own
+ * Back control (Telegram's header button) does the job (avoids two back buttons).
  */
 export function showInGameBack(): boolean {
-  return !hasNativeBack();
+  return !platform.back.native;
 }
 
 // ------------------------------------------------------------------ the Back contract (HUB-01, ia.md §2 §6, screen-flow.md §3)

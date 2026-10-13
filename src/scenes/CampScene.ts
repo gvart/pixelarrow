@@ -26,7 +26,7 @@ import { ensureFonts } from '../ui/fonts';
 import { uiId, uiIgnore } from '../ui/layout';
 import { TEXT_MIN, lineHeight } from '../ui/tokens';
 import { motion } from '../ui/motion';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
 import { fmtSigned, localDecimals } from '../i18n/numbers';

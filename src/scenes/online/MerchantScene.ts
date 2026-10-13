@@ -25,7 +25,7 @@ import { demoShard } from '../../online/demoShard';
 import { capKey } from '../../online/merchants';
 import { CONSUMABLES, type ConsumableId } from '../../data/consumables';
 import { ITEMS, type Item } from '../../data/items';
-import { hapticNotify } from '../../platform/telegram';
+import { hapticNotify } from '../../platform/haptics';
 import { uiCoin } from '../../audio/hooks';
 import { t, tOr, type TKey } from '../../i18n';
 import { fmtDuration } from '../../util/format';

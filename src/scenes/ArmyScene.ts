@@ -11,7 +11,7 @@ import { scrapValue } from '../game/campaign';
 import { itemDef, type Item, type Slot } from '../data/items';
 import type { Hero } from '../data/units';
 import { heroClass } from '../sim/stats';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { addSyncBadge } from '../ui/online';
 import { uiCoin } from '../audio/hooks';
 import { MOSAIC, TEXT_MIN } from '../ui/tokens';

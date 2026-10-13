@@ -23,7 +23,7 @@ import { uiId } from '../layout';
 import { motion } from '../motion';
 import { MIconButton, addNiche, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
 import { navLayer } from '../../platform/nav';
-import { hapticNotify } from '../../platform/telegram';
+import { hapticNotify } from '../../platform/haptics';
 import { doctrineIcon, doctrineName, doctrineTell, noteDoctrine } from './doctrine';
 import { renderCrest, renderThreatGlyph } from '../../art/worldArt';
 import { P } from '../../art/palette';

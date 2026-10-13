@@ -65,7 +65,7 @@ import {
 } from '../../game/tutorial';
 import { tutorialStep } from '../../audio/hooks';
 import { track } from '../../platform/analytics';
-import { haptic, hapticNotify } from '../../platform/telegram';
+import { haptic, hapticNotify } from '../../platform/haptics';
 import { t, tOr, type TKey } from '../../i18n';
 
 /** Analytics (docs/OPS.md): when this tutorial run began, and a step's stable number. */

@@ -44,7 +44,7 @@ import { drainLogged, lastBattle, unitStats } from '../game/report';
 import { GROUP_NAMES, type Hero } from '../data/units';
 import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
-import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
+import { haptic, hapticNotify, hapticSelect } from '../platform/haptics';
 import { BattleFx, DMG_NUMBER_PX, DMG_NUMBER_S, drawFlankArc, Juice, JUICE_TIERS, type JuiceKind } from '../ui/battleFx';
 import { FlankWatch, flankArc, flankThreats, type Vec } from '../ui/flankArc';
 import { BeastView } from '../ui/beastView';

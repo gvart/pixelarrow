@@ -22,7 +22,7 @@ import { isApiError, type Currency, type EconomyCatalog, type MarketListing, typ
 import type { ProfileView } from '../online/client';
 import { ITEM_LIST, isBound, itemValue, normalizeItem, type Item } from '../data/items';
 import { CONSUMABLES, CONSUMABLE_IDS, type ConsumableId } from '../data/consumables';
-import { hapticNotify } from '../platform/telegram';
+import { hapticNotify } from '../platform/haptics';
 import { resolveBack } from '../platform/nav';
 import { fmtDuration } from '../util/format';
 import { uiCoin } from '../audio/hooks';

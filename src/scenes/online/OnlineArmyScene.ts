@@ -25,7 +25,7 @@ import { equipRefusal, DragDrop, className, defaultStashState, groupName, itemNa
 import { addEconState } from '../../ui/econ/widgets';
 import { addPortrait } from '../../ui/sprites';
 import { dollFromHero } from '../../art/paperdoll';
-import { haptic, hapticNotify } from '../../platform/telegram';
+import { haptic, hapticNotify } from '../../platform/haptics';
 import { resolveBack, type BackTarget } from '../../platform/nav';
 import { isBound, itemDef, normalizeEquip, normalizeItem, salvageValue, type Item, type Slot } from '../../data/items';
 import type { Hero } from '../../data/units';

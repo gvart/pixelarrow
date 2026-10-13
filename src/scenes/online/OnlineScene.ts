@@ -23,7 +23,7 @@ import { openSettings } from '../../ui/settings';
 import { SHEET_TITLE_H, openParchmentSheet } from '../../ui/mosaic';
 import { LINE_H } from '../../ui/textfit';
 import { uiId, worldRect } from '../../ui/layout';
-import { haptic, hapticNotify } from '../../platform/telegram';
+import { haptic, hapticNotify } from '../../platform/haptics';
 import { getMap, hasMap, type WorldGraph } from '../../online/world';
 import {
   checkOnline,

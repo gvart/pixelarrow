@@ -5,7 +5,7 @@
 import Phaser from 'phaser';
 import { GAP, TAP, midY, mtext } from './base';
 import { MIconButton } from './iconButton';
-import { haptic } from '../../platform/telegram';
+import { haptic } from '../../platform/haptics';
 
 export interface PagerOpts {
   index: number;

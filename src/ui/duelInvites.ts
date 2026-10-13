@@ -12,7 +12,7 @@ import type { DuelStart, PresencePlayer } from '../online/protocol';
 import { toast, type UiScene } from './widgets';
 import { LINE_H } from './textfit';
 import { mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H, wrapWords, type MButtonOpts, type ParchmentSheetHandle } from './mosaic';
-import { hapticNotify } from '../platform/telegram';
+import { hapticNotify } from '../platform/haptics';
 import { t } from '../i18n';
 import type { DuelOutcome } from '../online/duelDriver';
 

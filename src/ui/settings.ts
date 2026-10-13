@@ -13,7 +13,7 @@ import { flashReduced, motion, setReducedMotion, shakeReduced } from './motion';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { SIZE } from './theme';
 import { state } from '../state';
-import { haptic, setHaptics } from '../platform/telegram';
+import { haptic, setHaptics } from '../platform/haptics';
 import type { Settings } from '../game/save';
 import { audio } from '../audio';
 import { t, type LangSetting, type TKey } from '../i18n';

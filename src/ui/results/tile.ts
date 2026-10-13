@@ -10,7 +10,7 @@ import { uiId } from '../layout';
 import { mosaicImage, mtext, mw } from '../mosaic';
 import { TEXT_MIN } from '../tokens';
 import { sfx } from '../../audio';
-import { haptic } from '../../platform/telegram';
+import { haptic } from '../../platform/haptics';
 
 export interface ResultTileOpts {
   icon: string;

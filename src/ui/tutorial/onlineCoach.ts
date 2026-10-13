@@ -20,7 +20,7 @@ import { Spotlight, type Rect } from './spotlight';
 import { ONLINE_COACH, nextCoach, type CoachId } from '../../game/tutorial';
 import { state } from '../../state';
 import { tutorialStep } from '../../audio/hooks';
-import { haptic } from '../../platform/telegram';
+import { haptic } from '../../platform/haptics';
 import { t, type TKey } from '../../i18n';
 import type { UiScene } from '../widgets';
 

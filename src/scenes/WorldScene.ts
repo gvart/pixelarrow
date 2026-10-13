@@ -20,7 +20,7 @@ import { OverlandLife } from '../ui/overlandLife';
 import { FOG_CHUNK, FogPainter } from '../art/fogArt';
 import { P } from '../art/palette';
 import { state, randomSeed } from '../state';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { CULTURE_LABEL } from '../data/names';
 import { addSyncBadge, playerPartyTexture } from '../ui/online';
 import { online } from '../platform/cloud';

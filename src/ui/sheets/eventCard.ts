@@ -23,7 +23,7 @@ import { addScrollHint, confirmDialog } from '../widgets';
 import { MOSAIC } from '../tokens';
 import { uiId } from '../layout';
 import { MButton, addNiche, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
-import { hapticNotify } from '../../platform/telegram';
+import { hapticNotify } from '../../platform/haptics';
 import { navLayer } from '../../platform/nav';
 import { state } from '../../state';
 import { t, tOr, type TKey } from '../../i18n';

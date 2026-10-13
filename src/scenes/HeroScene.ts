@@ -17,7 +17,7 @@ import {
 } from '../ui/sheet';
 import { ARMY_LH, SLOT_ORDER, armyPill, armyPillW } from '../ui/army';
 import { campaignHeroes, heroTiers, type HeroSource, type PerkTier } from './heroSource';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { MAX_LEVEL, xpToNext, type Hero } from '../data/units';
 import { TRAITS } from '../data/traits';
 import { itemDef, type Item, type Slot } from '../data/items';

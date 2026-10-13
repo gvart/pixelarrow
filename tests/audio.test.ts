@@ -14,10 +14,10 @@ import { Battle } from '../src/sim/battle';
 import { drainLogged } from '../src/game/report';
 import { standardSetup } from './helpers';
 import { readText } from './support/nodeIo.js';
-import { haptic } from '../src/platform/telegram';
+import { haptic } from '../src/platform/haptics';
 
-// the haptic is a spy so the UI sounds' buzz can be checked (Telegram is absent in node anyway)
-vi.mock('../src/platform/telegram', async (orig) => ({ ...(await orig<typeof import('../src/platform/telegram')>()), haptic: vi.fn() }));
+// the haptic is a spy so the UI sounds' buzz can be checked (no platform haptics in node anyway)
+vi.mock('../src/platform/haptics', async (orig) => ({ ...(await orig<typeof import('../src/platform/haptics')>()), haptic: vi.fn() }));
 
 // ---------------------------------------------------------------- a minimal Web Audio mock
 
