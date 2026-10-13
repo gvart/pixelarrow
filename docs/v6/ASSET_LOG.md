@@ -63,7 +63,6 @@ Specs: `docs/v6/landing/ART_DIRECTION.md` §8. Owner of the Chrome tab: the `ass
 
 Pick and review: `docs/v6/landing/DIRECTION_PICK.md`.
 
-<<<<<<< HEAD
 ### P5-LAND-ART: hero layers, OG image, favicon set (2026-10-13)
 
 Spec of every final (size, format, weight, target path): `docs/v6/landing/ASSET_SPEC.md`.
@@ -124,7 +123,7 @@ the still diorama at its native 2x placed at (300, -150), the beam at 0.5 with `
 `#100d0b` scrim (92% → 0 by 55% width), then "PIXELARROW" (Cinzel 700, 30 px, `#c9b896`), "HOLD THE LINE"
 (Cinzel 700, 84 px, `#f0e3c2`), "Pixel-art formation battles. Free in your browser and in Telegram." (Inter 24 px)
 and "pixelarrow.app" (Inter 20 px). Exported PNG → JPEG q55 (143 kB; q70 was 206 kB, q62 173 kB).
-=======
+
 ## Clips
 
 ### P5-VIDEO: gameplay clips for the landing (2026-10-13)
@@ -175,4 +174,3 @@ posters AVIF ≤ 40 kB. OG (the 11th item) is a still, made in LND-05, not here.
 - Duels are small battles by design (a 10-man duel cap; the demo opponent fields 6), so M2 and G3 read
   smaller than the campaign battles.
 - G3 is the shield wall holding a clash, not a deployment drag: the deployment is a few seconds before.
->>>>>>> worktree-agent-a530cc609c007f586
