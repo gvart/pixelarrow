@@ -9,22 +9,26 @@
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
-| setup-adopt | S0-ADOPT: /adopt and /project-stage-detect, written to docs/v6/ADOPT.md | none | adopt, project-stage-detect, router |
-| audit-ui (respawned as general-purpose, V6-004) | A1-UI: screenshots of every scene and the Kit across the screen matrix, written to docs/v6/audit/UI.md | 1 | game-ui-ux, ux-review |
-| audit-platform | A1-PLAT: Telegram touchpoints, server map, public stats data and hosting, written to docs/v6/audit/PLATFORM.md, SERVER.md and HOSTING.md | 2 | improve-codebase-architecture, security-audit, router |
+| audit-ui | A1-UI: screenshots across the screen matrix, written to docs/v6/audit/UI.md | 1 | game-ui-ux, ux-review |
+| arch-platform | P2-ARCH-PLAT: ADR-0006 (platform layer), ADR-0007 (hosting), CONTROL_MANIFEST_PLATFORM | none | architecture-decision, create-control-manifest, improve-codebase-architecture |
+| arch-accounts | P2-ARCH-ACCT: ADR-0008 (accounts and sessions), ADR-0009 (linking, nicknames, deletion), ADR-0010 (public stats API), CONTROL_MANIFEST_ACCOUNTS | none | architecture-decision, security-audit, save-systems |
+| landing-direction | P2-LAND: ADR-0011 (landing stack and budget), landing ART_DIRECTION and STRUCTURE, 2–3 Gemini mockups and a pick. Owns Chrome. | none | art-bible, create-game-assets, ux-review, design-principles, frontend-design |
+| docs-refresh | P2-DOCS: systems index and GDD statuses, v6 systems, ROADMAP v6 section | none | map-systems, reverse-document, consistency-check |
+
+Five agents are running, one more than the cap, because audit-ui is close to finishing.
 
 ## Merged
 
-(none)
+- S0-ADOPT (81bc945)
+- A1-PLAT (e6725f3)
 
 ## Queue
 
-1. Combine the audit files into docs/v6/AUDIT.md.
-2. Phase 2 ADRs (platform layer, hosting, auth, linking, stats API, landing stack and budget).
-3. UX specs (landscape rules, input scheme, account flows).
-4. Landing direction: art bible addendum and 2–3 Gemini mockups (`assets` agent).
-5. Phase 3 plan: epics, stories, sprints.
+1. Merge A1-UI, then write UX specs: landscape layout rules per screen family, the input scheme and default hotkeys, the account and linking flows (`/ux-design`).
+2. Combine docs/v6/audit/* into AUDIT.md.
+3. Phase 3: /create-epics, /create-stories, /sprint-plan after the ADRs and UX specs, then /architecture-review.
+4. Phase 4 foundation, once the plan exists.
 
 ## Next tick
 
-Collect the 3 reports, merge them through an integrator, combine AUDIT.md, then dispatch the Phase 2 ADR, UX and landing-direction agents (at most 4).
+Collect the reports. Docs-only merges are done by the Director (V6-010). After A1-UI lands, start the UX specs agent. When all of Phase 2 is merged, start Phase 3 planning.
