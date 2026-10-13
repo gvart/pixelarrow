@@ -91,6 +91,11 @@ No still art. Each mode tile uses its clip poster (`video` agent: M1 Campaign, M
 
 ## Regenerating
 
+- Living hero sprites (V6-LAND-02): `node scripts/art/landing/sprites.mjs` draws the same men as the formation
+  layers (units.json seeds) in the battle's walk, run, attack, hit, die, rout and win frames at the 2x battle
+  render and writes `landing/public/hero/landing_hero_sprites_2x.webp` (1024x1243, lossless, 199 kB; six men per
+  side, 373 frames) and the frame table `landing/src/scripts/hero/atlas.json` (3.6 kB gzip, bundled into the lazy
+  module). Loaded only by the lazy hero module, after load and idle, at >= 768 px; never above the fold.
 - Pixel layers: `node scripts/art/landing/diorama.mjs` (formation layout in `scripts/art/landing/units.json`). The
   still is ground + props + enemy + player stacked in that order.
 - Painted layers: the raws in `docs/v6/gemini/P5/` cropped and encoded as listed above (cover crop, area-average

@@ -7,6 +7,13 @@
 // the diorama starts to the right of the copy column and is cropped by the viewport instead of scaled;
 // below that the copy stacks above it. The diorama is shown at 1296, 648 or 432 CSS px wide: whole
 // multiples of the game's pixels on the screens that use each size (ART_DIRECTION L3).
+//
+// The living diorama (V6-LAND-02, V6-015): four depth planes (sky, lamp beam, diorama, war table)
+// move with the scroll on a CSS view timeline, and the camera dives into the board as the hero
+// leaves; only transform and opacity animate, inside no-preference reduced motion and
+// @supports (animation-timeline), so Firefox and reduced motion get the finished static hero.
+// After load and idle, at >= 768 px without reduced motion or data saver, the lazy module
+// (scripts/hero/diorama.ts) draws the battle over the poster and moves the lamp with the pointer.
 import { PLAY_URL, TELEGRAM_URL } from '../../site';
 
 const H = '/hero/';
@@ -47,6 +54,7 @@ const H = '/hero/';
     </div>
 
     <div class="hero__stage">
+      <div class="hero__diorama-wrap">
       <picture class="hero__diorama">
         <source type="image/webp" srcset={`${H}landing_hero_diorama_still_2x.webp`} />
         <img
@@ -59,11 +67,31 @@ const H = '/hero/';
           decoding="async"
         />
       </picture>
+      </div>
     </div>
   </div>
 
+  <div class="hero__lamp" aria-hidden="true"></div>
   <div class="hero__table" aria-hidden="true"></div>
 </section>
+
+<script>
+  // The lazy hero module (ADR-0011 amendment 3): after load (the LCP poster is in) and idle, only
+  // where it is wanted. Everything else keeps the static poster.
+  type Conn = { saveData?: boolean; effectiveType?: string };
+  const hero = document.getElementById('top');
+  const conn = (navigator as Navigator & { connection?: Conn }).connection;
+  const wanted = () =>
+    matchMedia('(min-width: 768px) and (prefers-reduced-motion: no-preference)').matches &&
+    !conn?.saveData &&
+    !/2g$/.test(conn?.effectiveType ?? '');
+  const go = () => {
+    if (hero && wanted()) import('../../scripts/hero/diorama').then((m) => m.start(hero), () => {});
+  };
+  const idle = () => ('requestIdleCallback' in window ? requestIdleCallback(go, { timeout: 3000 }) : setTimeout(go, 1500));
+  if (document.readyState === 'complete') idle();
+  else addEventListener('load', idle, { once: true });
+</script>
 
 <style>
   .hero {
@@ -226,6 +254,11 @@ const H = '/hero/';
       --diorama-w: 1296px;
       --diorama-h: 852px;
       --copy-w: 31rem;
+      /* Narrower laptops crop the slab's empty left corner (L3: crop, never scale) so the battle,
+         not the trees, sits in view; the cut fades out over --crop-fade. 1100 px: 320, 1280: 288,
+         1440: 144, 1600 and up: none. */
+      --crop: clamp(0px, (1600px - 100vw) * 0.9, 320px);
+      --crop-fade: min(var(--crop), 120px);
       /* The table sinks 10vw below the fold so the helmet frames the slab's corner instead of
          standing in front of the formations; this is what stays visible of it. */
       --table-sink: calc(10vw + max(0px, (960px - 100svh) * 0.4)); /* deeper on short screens */
@@ -263,6 +296,155 @@ const H = '/hero/';
       margin: 0;
       padding: 0;
       overflow: visible;
+    }
+  }
+
+  /* The living layer: the lazy module's canvas sits exactly on the poster (same box, same pixels at
+     its first frame) and fades in over it. The poster stays underneath. */
+  .hero__diorama-wrap {
+    --crop: 0px;
+    position: relative;
+    width: calc(var(--diorama-w) - var(--crop));
+    height: var(--diorama-h);
+  }
+  .hero__diorama {
+    margin-left: calc(-1 * var(--crop));
+  }
+  @media (min-width: 1100px) {
+    .hero__diorama-wrap {
+      --crop: inherit;
+      /* the box clips the cropped corner; the extra bottom room keeps the slab's shadow */
+      padding-bottom: 96px;
+      margin-bottom: -96px;
+      height: auto;
+      mask-image: linear-gradient(90deg, transparent, #000 var(--crop-fade));
+    }
+  }
+  .hero__diorama-wrap :global(.hero__live) {
+    position: absolute;
+    top: 0;
+    left: calc(-1 * var(--crop));
+    width: var(--diorama-w);
+    height: var(--diorama-h);
+    opacity: 0;
+    transition: opacity 600ms cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .hero:global(.is-live) :global(.hero__live) {
+    opacity: 1;
+  }
+
+  /* The lamp: a warm pool of light the module moves with a fine pointer (transform only). It is
+     decoration over the art, below the copy; nothing is shown only on hover. */
+  .hero__lamp {
+    position: absolute;
+    top: -28rem;
+    left: -28rem;
+    z-index: 1;
+    width: 56rem;
+    height: 56rem;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(var(--lamp) / 0.34), rgb(var(--lamp) / 0.12) 38%, rgb(var(--lamp) / 0.03) 70%, rgb(var(--lamp) / 0));
+    mix-blend-mode: screen;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 900ms ease-out;
+  }
+  .hero:global(.is-lit) .hero__lamp {
+    opacity: 1;
+  }
+
+  /* Scroll: four depth planes at four speeds, and the camera dives into the board while the hero
+     leaves (ART_DIRECTION §2, the one orchestrated moment). Only where motion is welcome and the
+     engine has scroll timelines; elsewhere this block does not exist and the hero is complete. */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .hero {
+        view-timeline: --hero block;
+        /* The clash point of the two lines inside the diorama box: the dive's focus. */
+        --dive-origin: 41% 64%;
+        --dive-x: 0%;
+      }
+      .hero__sky,
+      .hero__beam,
+      .hero__diorama-wrap,
+      .hero__table,
+      .hero__copy {
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: --hero;
+        animation-range: exit 0% exit 100%;
+      }
+      .hero__sky {
+        animation-name: hero-sky;
+      }
+      @media (min-width: 768px) {
+        .hero {
+          --dive-scale: 2.1;
+        }
+        /* Phones keep the diorama still: it sits at the hero's lower edge, so a dive would only crop it. */
+        .hero__diorama-wrap {
+          animation-name: hero-dive;
+          transform-origin: var(--dive-origin);
+        }
+        .hero__beam {
+          animation-name: hero-beam;
+          transform-origin: 0 0;
+        }
+        .hero__table {
+          animation-name: hero-table;
+        }
+      }
+      @media (min-width: 1100px) {
+        .hero {
+          --dive-x: -20%;
+          --dive-origin: calc(531px - var(--crop)) 64%;
+        }
+        .hero__copy {
+          animation-name: hero-copy;
+        }
+      }
+    }
+  }
+  @keyframes hero-sky {
+    to {
+      transform: translate3d(0, 38%, 0) scale(1.08);
+    }
+  }
+  @keyframes hero-beam {
+    to {
+      transform: translate3d(0, 30%, 0) scale(0.7, 1);
+      opacity: 0.4;
+    }
+  }
+  @keyframes hero-dive {
+    0% {
+      transform: none;
+    }
+    /* ease into the dive: the copy leaves first, then the camera swings onto the clash */
+    35% {
+      transform: translate3d(calc(var(--dive-x) * 0.25), 8%, 0) scale(calc(1 + (var(--dive-scale) - 1) * 0.3));
+    }
+    75% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate3d(var(--dive-x), 34%, 0) scale(var(--dive-scale));
+      opacity: 0;
+    }
+  }
+  @keyframes hero-table {
+    to {
+      transform: translate3d(0, -36%, 0) scale(1.25);
+      opacity: 0;
+    }
+  }
+  @keyframes hero-copy {
+    5% {
+      opacity: 1;
+    }
+    30%,
+    100% {
+      opacity: 0;
     }
   }
 </style>
