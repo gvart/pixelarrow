@@ -1,0 +1,77 @@
+---
+// A class card that tilts toward a fine pointer and catches the lamp (V6-015 (2)). The tilt runs only
+// under (hover: hover) and (pointer: fine) with no reduced-motion preference (ADR-0011: no hover lifts
+// under reduced motion); touch and keyboard users get the same card, still. Game-feel rule: the card
+// eases back to rest when the pointer leaves, and the motion is small (≤ 6°) because it is ambient.
+interface Props {
+  as?: 'li' | 'div';
+  class?: string;
+}
+const { as: Tag = 'li', class: extra } = Astro.props;
+---
+<Tag class:list={['tilt', extra]} data-tilt>
+  <slot />
+</Tag>
+
+<style>
+  .tilt {
+    --rx: 0deg;
+    --ry: 0deg;
+    --lx: 30%;
+    --ly: 20%;
+    position: relative;
+  }
+  .tilt::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0;
+    background: radial-gradient(circle at var(--lx) var(--ly), rgb(var(--lamp) / 0.16), transparent 55%);
+  }
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .tilt {
+      transform: perspective(800px) rotateX(var(--rx)) rotateY(var(--ry));
+      transition: transform 400ms var(--ease-out);
+    }
+    .tilt::after {
+      transition: opacity 400ms var(--ease-out);
+    }
+    .tilt:global(.is-tilting) {
+      transition: transform 80ms linear;
+    }
+    .tilt:global(.is-tilting)::after {
+      opacity: 1;
+    }
+  }
+</style>
+
+<script>
+  // One delegated listener per card; writes only CSS variables (compositor-only transform).
+  const fine = matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
+  const MAX = 6;
+  for (const card of document.querySelectorAll<HTMLElement>('[data-tilt]')) {
+    let frame = 0;
+    card.addEventListener('pointermove', (e) => {
+      if (!fine.matches || e.pointerType !== 'mouse') return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width;
+        const y = (e.clientY - r.top) / r.height;
+        card.classList.add('is-tilting');
+        card.style.setProperty('--ry', `${((x - 0.5) * 2 * MAX).toFixed(2)}deg`);
+        card.style.setProperty('--rx', `${((0.5 - y) * 2 * MAX).toFixed(2)}deg`);
+        card.style.setProperty('--lx', `${(x * 100).toFixed(1)}%`);
+        card.style.setProperty('--ly', `${(y * 100).toFixed(1)}%`);
+      });
+    });
+    card.addEventListener('pointerleave', () => {
+      cancelAnimationFrame(frame);
+      card.classList.remove('is-tilting');
+      card.style.setProperty('--rx', '0deg');
+      card.style.setProperty('--ry', '0deg');
+    });
+  }
+</script>
