@@ -51,6 +51,19 @@ describe('a save that cannot be loaded is reported, not mistaken for no save', (
     expect(await readSave(kv)).toBeNull();
   });
 
+  it('a damaged meta keeps both slots in the raw text for the backup (QA-04)', async () => {
+    const kv = memKV();
+    const a = serialize(Campaign.fresh(1).sync());
+    const b = serialize(Campaign.fresh(2).sync());
+    chunk(a).forEach((p, i) => kv.store.set(`px_part_${i}`, p));
+    chunk(b).forEach((p, i) => kv.store.set(`px_part1_${i}`, p));
+    kv.store.set('px_meta', '{"v":6,"n"');
+    const r = await readSaveResult(kv);
+    expect(r.kind).toBe('bad');
+    const kept = JSON.parse(r.kind === 'bad' ? r.raw! : '') as { meta: string; slots: string[] };
+    expect(kept).toEqual({ meta: '{"v":6,"n"', slots: [a, b] });
+  });
+
   it('a save from a newer version is reported as newer', async () => {
     const d = { ...Campaign.fresh(7).sync(), v: SAVE_VERSION + 1 };
     const kv = memKV();
@@ -128,5 +141,16 @@ describe('writes are crash-safe and keep the last good save as a backup', () => 
     expect(r.kind).toBe('ok');
     expect(r.kind === 'ok' && r.data.gold).toBe(100);
     expect(r.kind === 'ok' && r.fromBackup).toBe(true);
+  });
+});
+
+describe('repair keeps a save with a damaged band entry (QA-04)', () => {
+  it('drops a null party instead of refusing the save', () => {
+    const d = Campaign.fresh(9).sync();
+    const n = d.world!.parties.length;
+    (d.world!.parties as unknown[]).push(null);
+    const out = migrate(JSON.parse(JSON.stringify(d)));
+    expect(out).not.toBeNull();
+    expect(out!.world!.parties.length).toBe(n);
   });
 });

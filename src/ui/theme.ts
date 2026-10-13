@@ -36,12 +36,6 @@ export const CATEGORY_COLOR: Record<BattleCategory, number> = {
   formation: 0x4a6b9a,
   abilities: 0xe0b860,
 };
-export const CATEGORY_DARK: Record<BattleCategory, number> = {
-  movement: 0x6e4f22,
-  attack: 0x6e2219,
-  formation: 0x2c4060,
-  abilities: 0x8a6a28,
-};
 
 // ------------------------------------------------------------ meaning colours
 

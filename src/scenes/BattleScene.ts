@@ -435,6 +435,8 @@ export class BattleScene extends BaseScene {
     this.overlay = null;
     this.leaveDialog = null;
     this.banner = null;
+    this.bannerTimer = null;
+    this.groupList = null;
     this.bannerLife = null;
     this.pauseMerge = new AutoPauseMerge();
     this.firstContact = new FirstContact();
@@ -1060,7 +1062,8 @@ export class BattleScene extends BaseScene {
       }
       v.spr.setVisible(true);
       // hit-stop (R4): the pose of a held group or man stays as it was drawn; the sim runs on underneath
-      if (this.juice.holds(u)) {
+      // (only while the fight runs: the Juice clock stops when it ends, so a hold would never expire)
+      if (this.sim.phase === 'battle' && this.juice.holds(u)) {
         this.keepFrame(v);
         continue;
       }
@@ -1832,7 +1835,7 @@ export class BattleScene extends BaseScene {
 
   private confirmLeaveDeploy(): void {
     if (this.tutorial) return this.tutorial.askSkip();
-    if (this.overlay) return;
+    if (this.overlay || this.sim.phase !== 'deploy') return;
     const c = confirmDialog(this, {
       title: t('battle.leave.title'),
       body: this.online ? t('battle.leave.online') : state.pending?.partyId !== undefined ? t('battle.leave.band') : t('battle.leave.skirmish'),
@@ -4580,6 +4583,8 @@ export class BattleScene extends BaseScene {
     // a "leave the deployment?" dialog still open no longer applies (its Leave would quit the battle)
     this.leaveDialog?.destroy();
     this.leaveDialog = null;
+    // so is a ⋯ menu opened in the deployment: its Leave is a deploy-only item (QA-04)
+    if (this.menu && !this.menu.closed) this.menu.close();
     if (this.dclock) markStarted(this.dclock);
     this.deployUndo.clear();
     this.shapeOpen = false;

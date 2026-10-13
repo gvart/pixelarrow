@@ -8,6 +8,12 @@ import { gearTotal } from './gear';
 import { grantXp } from './heroes';
 import { NEXT_BATTLE } from '../data/events';
 
+/** Battle gold (resolveBattle): the field, each enemy slain, and the win or draw bonus. */
+export const FIELD_GOLD = 20;
+export const KILL_GOLD = 12;
+export const WIN_GOLD = 60;
+const DRAW_GOLD = 20;
+
 export interface HeroOutcome {
   heroId: string;
   name: string;
@@ -149,7 +155,7 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
   }
   // A retreat earns only the bounty for enemies already slain: no field to strip.
   // Gilded gear of the survivors adds to the battle's gold (at most +50%).
-  const gold = Math.round(((retreated || stalemate ? 0 : 20) + enemyKilled * 12 + (victory ? 60 : draw && !stalemate ? 20 : 0)) * (1 + Math.min(0.5, goldBonus)));
+  const gold = Math.round(((retreated || stalemate ? 0 : FIELD_GOLD) + enemyKilled * KILL_GOLD + (victory ? WIN_GOLD : draw && !stalemate ? DRAW_GOLD : 0)) * (1 + Math.min(0.5, goldBonus)));
   const picks = retreated || stalemate ? 0 : lootPicks(result.winner, player.length, lost);
   const loot = picks > 0 ? lootPool(result, enemies) : [];
   return {

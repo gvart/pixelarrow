@@ -10,15 +10,14 @@
  * does nothing (a decision). The sheet owns no state: the World scene builds the model and the actions.
  */
 import Phaser from 'phaser';
-import { ScrollArea, addIcon, scaleIcon, type FontKey, type UIMetrics } from '../kit';
+import { ScrollArea, addIcon, scaleIcon, type UIMetrics } from '../kit';
 import { addScrollHint } from '../widgets';
 import { MOSAIC } from '../tokens';
-import { LINE_H } from '../textfit';
 import { uiId } from '../layout';
-import { MIconButton, addNiche, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
+import { MIconButton, addNiche, mtext, openParchmentSheet, sheetActionsH, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
 import { navLayer } from '../../platform/nav';
 import { doctrineIcon, doctrineName, doctrineTell, noteDoctrine } from './doctrine';
-import { worldGlyph } from './encounter';
+import { doctrineText, para, worldGlyph } from './encounter';
 import { P } from '../../art/palette';
 import type { DoctrineId } from '../../sim/types';
 import { t, type TKey } from '../../i18n';
@@ -78,14 +77,6 @@ const NICHE_H = 40;
 const CHIP = 11;
 const ROW_ICON = 14;
 const INFO = 22;
-
-const lh = (size: number): number => (LINE_H * size) / 7;
-
-function para(scene: Phaser.Scene, c: Phaser.GameObjects.Container | null, x: number, y: number, str: string, font: FontKey, w: number, size = BODY): number {
-  const ls = wrapWords(str, w, (s) => mw(s, font, size));
-  if (c) c.add(mtext(scene, x, y, ls.join('\n'), font, { size }));
-  return Math.ceil(ls.length * lh(size));
-}
 
 /** The primary choice: burn an empty lair, strike one in reach, else march there. */
 export function assaultPrimary(m: Pick<AssaultModel, 'men' | 'inReach'>): AssaultChoiceKey {
@@ -156,22 +147,6 @@ function mainPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Ass
   y += para(scene, c, x0, y, army, 'pSec', w, SMALL) + 1;
   if (m.men > 0 && !m.inReach) y += para(scene, c, x0, y + 1, t('arc.as.far'), 'pInk', w) + 1;
   return y - y0;
-}
-
-/** The doctrine's Codex text (as the Codex sheet and the encounter sheet have it) into `c`; returns its height. */
-function doctrineText(scene: Phaser.Scene, c: Phaser.GameObjects.Container | null, d: DoctrineId, w: number): number {
-  let y = 0;
-  const parts: [TKey, TKey, FontKey][] = [
-    ['codex.doc.tell', `doctrine.${d}.tell` as TKey, 'pInk'],
-    ['codex.doc.how', `doctrine.${d}.how` as TKey, 'pInk'],
-    ['codex.doc.counter', `doctrine.${d}.counter` as TKey, 'pGood'],
-    ['codex.doc.who', `doctrine.${d}.who` as TKey, 'pSec'],
-  ];
-  for (const [head, body, font] of parts) {
-    y += para(scene, c, 0, y, t(head).toUpperCase(), 'rInk', w, SMALL) + 1;
-    y += para(scene, c, 0, y, t(body), font, w) + 6;
-  }
-  return y;
 }
 
 export function openAssaultSheet(scene: UiScene, m: AssaultModel, onClosed?: () => void): AssaultHandle {

@@ -217,6 +217,7 @@ function repairV6World(w: WorldSave): void {
   const e = w.pendingEvent as unknown;
   if (e !== undefined && !(isObj(e) && typeof e.id === 'string' && isNum(e.seed))) delete w.pendingEvent;
   w.journal = (Array.isArray(w.journal) ? w.journal : []).filter((j): j is string => typeof j === 'string').slice(-JOURNAL_CAP);
+  w.parties = w.parties.filter(isObj) as unknown as WorldSave['parties'];
   for (const p of w.parties) {
     if (p.escaped !== undefined && !(isNum(p.escaped) && p.escaped >= 0)) delete p.escaped;
     if (p.captainDead !== undefined && typeof p.captainDead !== 'boolean') delete p.captainDead;
@@ -328,6 +329,16 @@ async function readSlot(kv: KV, slot: number, n: number): Promise<{ text: string
   }
 }
 
+/** Every part stored in a slot, joined, read until the first missing part (no meta to bound it). */
+async function slotText(kv: KV, slot: number): Promise<string> {
+  let text = '';
+  for (let i = 0; ; i++) {
+    const p = await kv.get(PART(slot, i));
+    if (p === null || p === undefined) return text;
+    text += p;
+  }
+}
+
 /**
  * Reads the save: the current slot, else (if it is damaged) the backup slot.
  * A save from a newer build is reported as such and never falls back: the
@@ -337,7 +348,9 @@ export async function readSaveResult(kv: KV): Promise<ReadResult> {
   const metaText = await kv.get(META);
   if (!metaText) return { kind: 'empty' };
   const meta = parseMeta(metaText);
-  if (!meta) return { kind: 'bad', reason: 'corrupt', raw: metaText };
+  // The meta is damaged, but the parts may not be: keep them all for the backup,
+  // or the fresh campaign's first save overwrites them (QA-04).
+  if (!meta) return { kind: 'bad', reason: 'corrupt', raw: JSON.stringify({ meta: metaText, slots: [await slotText(kv, 0), await slotText(kv, 1)] }) };
   const slot = meta.s ?? 0;
   const cur = await readSlot(kv, slot, meta.n);
   if (cur.r.ok) return { kind: 'ok', data: cur.r.data };

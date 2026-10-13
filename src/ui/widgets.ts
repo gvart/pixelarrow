@@ -730,6 +730,8 @@ export function addScrollHint(scene: Phaser.Scene, parent: Phaser.GameObjects.Co
     top.destroy();
     bottom.destroy();
   });
+  // the hint goes with its area (callers that rebuild the area drop the returned graphics)
+  area.content.once('destroy', () => g.destroy());
   draw();
   return g;
 }

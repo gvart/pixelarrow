@@ -155,6 +155,8 @@ export class CampScene extends BaseScene {
     this.gesture = null;
     this.animTimer = null;
     this.lastStages = '';
+    this.fetching = false;
+    this.lastError = '';
     this.bar = null;
     this.sit = null;
     this.initUi();
@@ -1563,11 +1565,22 @@ export class CampScene extends BaseScene {
     return Date.now() + this.skew;
   }
 
+  /** One request at a time; a failure repeated by the per-second retry is toasted once (QA-04). */
+  private fetching = false;
+  private lastError = '';
+
   private async fetch(): Promise<void> {
+    if (this.fetching) return;
+    this.fetching = true;
     try {
       this.apply(await this.d.source!.camps());
+      this.lastError = '';
     } catch (e) {
-      if (this.sys.isActive()) toast(this, errorText(e), 'bad');
+      const msg = errorText(e);
+      if (this.sys.isActive() && msg !== this.lastError) toast(this, msg, 'bad');
+      this.lastError = msg;
+    } finally {
+      this.fetching = false;
     }
   }
 

@@ -295,13 +295,16 @@ export function activeReport(n: number, k: number): string {
 
 /**
  * Intended counters: [winner, loser] pairs where the winner is meant to beat
- * the loser clearly at equal cost (rock-paper-scissors).
+ * the loser clearly at equal cost (rock-paper-scissors), as GAMEPLAY.md states
+ * them. Missiles are not a counter to the hoplite (the hoplon and shield wall
+ * are its identity); they counter unshielded foot, and horse archers bleed slow
+ * heavy foot (QA-04, BAL-02 D14).
  */
 export const INTENDED_COUNTERS: [ClassId, ClassId][] = [
   ['hoplite', 'companion'], ['hoplite', 'thessalian'], ['hoplite', 'chariot'], ['royal_guard', 'companion'], ['sacred_band', 'companion'],
   ['companion', 'archer'], ['companion', 'slinger'], ['companion', 'javelineer'], ['thessalian', 'archer'], ['thessalian', 'slinger'],
-  ['peltast', 'archer'], ['peltast', 'slinger'], ['archer', 'hoplite'], ['slinger', 'hoplite'], ['horse_archer', 'hoplite'],
-  ['rhomphaia', 'hoplite'], ['falx', 'thureophoros'],
+  ['peltast', 'archer'], ['peltast', 'slinger'], ['archer', 'rhomphaia'], ['slinger', 'rhomphaia'], ['horse_archer', 'celt_sword'],
+  ['horse_archer', 'thureophoros'], ['rhomphaia', 'hoplite'], ['falx', 'thureophoros'],
 ];
 
 /** The shock infantry of the elite-trap check (BASELINE R1): the classes the elites lost 92-100% to. */
