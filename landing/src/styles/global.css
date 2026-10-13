@@ -161,6 +161,11 @@ picture {
 .divider {
   position: relative;
   height: 1px;
+}
+.divider::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   background: linear-gradient(90deg, transparent, var(--lattice-line) 12%, var(--lattice-line) 88%, transparent);
 }
 .divider::after {
@@ -174,6 +179,54 @@ picture {
   background: var(--night);
   opacity: 0.7;
   transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* The dividers draw themselves (V6-015 (2)): the line grows out from the centre node as it scrolls
+   into view, then the node settles. Scroll-driven, compositor-only, and only where both the timeline
+   and motion are allowed; everywhere else the divider is simply there (ADR-0011 Decision 2). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .divider {
+      view-timeline: --divider block;
+    }
+    .divider::before {
+      /* longhands: the minifier would fold a shorthand together with the timeline, which Chromium drops */
+      animation-name: divider-draw;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: --divider;
+      animation-range: entry 10% cover 40%;
+    }
+    .divider::after {
+      animation-name: divider-node;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: --divider;
+      animation-range: entry 0% cover 30%;
+    }
+  }
+}
+@keyframes divider-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes divider-node {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(45deg) scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(45deg) scale(1.25);
+  }
+  to {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) rotate(45deg) scale(1);
+  }
 }
 
 /* The skip link's target takes focus without drawing a ring around the whole page. */

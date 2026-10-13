@@ -35,5 +35,10 @@ const props = Astro.props;
       <slot />
     </main>
     <Footer />
+    {/* Below-the-fold stills ([data-src]) load as they near the viewport. One page-level importer, so
+        the module is inlined instead of costing a request before LCP (scripts/lazy.ts). */}
+    <script>
+      import '../scripts/lazy';
+    </script>
   </body>
 </html>

@@ -1,11 +1,149 @@
 ---
-// Features (#features), STRUCTURE.md §2. Stub from V6-LAND-01; V6-LAND-03 builds the four items.
+// Features (#features), STRUCTURE.md §2. Four things that make battles different, each checked
+// against docs/GAMEPLAY.md (list in docs/v6/landing/NOTES.md). Icons are code-drawn 1.5 px bronze
+// line art in the game's engraved style (ART_DIRECTION §7): a shield, a wedge of diamonds, a cracked
+// shield, a helmet. No badges or numbers on them.
+const FEATURES = [
+  {
+    title: 'Real-time battles you can pause',
+    line: 'Battles run live. In the campaign, pause any time and give orders while the clock is stopped.',
+    icon: 'pause',
+  },
+  {
+    title: 'Formations you shape',
+    line: 'Line, column, wedge, loose order and shield wall. Drag a group to move it, turn it by its knob.',
+    icon: 'wedge',
+  },
+  {
+    title: 'Morale breaks lines',
+    line: 'Flank a line and it wavers. Hit it from behind and it runs.',
+    icon: 'cracked',
+  },
+  {
+    title: 'Every soldier has a name',
+    line: 'Each man has a name, a class, gear and perks. Lose him in battle and he is gone.',
+    icon: 'helmet',
+  },
+] as const;
 ---
-<section class="section section--night" id="features" aria-labelledby="features-title">
+<section class="section section--night features" id="features" aria-labelledby="features-title">
   <div class="container">
-    <header class="section__head">
-      <h2 id="features-title" class="visually-hidden">Features</h2>
-      <p class="section__lead">Real-time battles you can pause, formations you shape by hand, morale that breaks lines, and soldiers with names.</p>
-    </header>
+    <h2 id="features-title" class="visually-hidden">Features</h2>
+    <ul class="features__list" role="list">
+      {FEATURES.map((f) => (
+        <li class="feature">
+          <svg class="feature__icon" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false">
+            {f.icon === 'pause' && (
+              <g>
+                <path d="M24 5 40 11v12c0 10-7 17-16 20C15 40 8 33 8 23V11Z" />
+                <path d="M19.5 17v13M28.5 17v13" />
+              </g>
+            )}
+            {f.icon === 'wedge' && (
+              <g>
+                <path d="M24 6l6 6-6 6-6-6Z" />
+                <path d="M14 20l6 6-6 6-6-6Z" />
+                <path d="M34 20l6 6-6 6-6-6Z" />
+                <path d="M24 34l6 6-6 6-6-6Z" opacity=".45" />
+              </g>
+            )}
+            {f.icon === 'cracked' && (
+              <g>
+                <circle cx="24" cy="24" r="17" />
+                <circle cx="24" cy="24" r="5" />
+                <path d="M26 7l-4 8 5 4-3 6M24 29l3 6-4 6" />
+              </g>
+            )}
+            {f.icon === 'helmet' && (
+              <g>
+                <path d="M13 40V22c0-9 5-15 11-15s11 6 11 15v18h-7V29l-4-3-4 3v11Z" />
+                <path d="M24 7c3-3 8-3 11-1M20 21h8" />
+              </g>
+            )}
+          </svg>
+          <h3 class="feature__title">{f.title}</h3>
+          <p class="feature__line">{f.line}</p>
+        </li>
+      ))}
+    </ul>
   </div>
 </section>
+
+<style>
+  .features__list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .feature {
+    display: grid;
+    align-content: start;
+    gap: var(--s3);
+    padding: var(--s4) var(--s8);
+    border-left: 1px solid var(--stone-edge);
+  }
+  .feature:first-child {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .feature:last-child {
+    padding-right: 0;
+  }
+  .feature__icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: var(--s2);
+    fill: none;
+    stroke: var(--bronze);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .feature__title {
+    font-size: 1.125rem;
+    letter-spacing: 0.06em;
+  }
+  .feature__line {
+    max-width: 30ch;
+    color: var(--cream-sec);
+  }
+
+  @media (max-width: 1099px) {
+    .features__list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      row-gap: var(--s12);
+    }
+    .feature:nth-child(odd) {
+      border-left: 0;
+      padding-left: 0;
+    }
+    .feature:nth-child(even) {
+      padding-right: 0;
+    }
+  }
+  @media (max-width: 599px) {
+    .features__list {
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: 0;
+    }
+    .feature,
+    .feature:nth-child(odd),
+    .feature:nth-child(even) {
+      grid-template-columns: 48px minmax(0, 1fr);
+      column-gap: var(--s4);
+      padding: var(--s6) 0;
+      border-left: 0;
+      border-top: 1px solid var(--stone-edge);
+    }
+    .feature:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+    .feature__icon {
+      grid-row: span 2;
+      margin: 0;
+    }
+  }
+</style>
