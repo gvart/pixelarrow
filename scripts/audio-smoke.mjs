@@ -216,7 +216,12 @@ async function run(label, { noAudio }) {
     await wait(3000);
     mix = (await dbg()).mix;
     check(`[${label}] the music comes back after the horns`, mix.duckMusicDb === 0 && mix.liveMusicDuck > 0.85, JSON.stringify(mix));
-    await ev(() => window.__game.scene.getScene('Battle').setPaused(false));
+    // the first enemy blow auto-pauses once (QA-03 S3-9): spend it here, so it does not close the gate checked below
+    await ev(() => {
+      const s = window.__game.scene.getScene('Battle');
+      s.firstContact.seen = true;
+      s.setPaused(false);
+    });
     await wait(600);
     mix = (await dbg()).mix;
     check(`[${label}] play: the world gate opens again`, mix.paused === false && mix.liveWorld > 0.9, JSON.stringify(mix));
