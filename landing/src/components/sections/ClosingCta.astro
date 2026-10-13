@@ -1,10 +1,14 @@
 ---
-// Closing call to action, STRUCTURE.md §8. Stub from V6-LAND-01; V6-LAND-05 finishes it.
+// Closing call to action, STRUCTURE.md §8: one band, no new information, both ways in. The lamp from
+// the hero glows once more over the line. While this band is in view the nav's small "Play" drops to
+// the outline style, so "Play in browser" is the only terracotta button on screen (ART_DIRECTION §4,
+// V6-025). The nav's own scroll animation ends on the button's underlying colours, so changing those
+// is enough, and it works in browsers without scroll timelines too.
 import { PLAY_URL, TELEGRAM_URL } from '../../site';
 ---
 <section class="section section--night closing" aria-labelledby="closing-title">
   <div class="container closing__inner">
-    <h2 id="closing-title" class="section__title">Your phalanx is waiting</h2>
+    <h2 id="closing-title" class="section__title closing__title">Your phalanx is waiting</h2>
     <div class="closing__ctas">
       <a class="btn btn--primary" href={PLAY_URL}>Play in browser</a>
       <a class="btn btn--secondary" href={TELEGRAM_URL}>Open in Telegram</a>
@@ -12,20 +16,54 @@ import { PLAY_URL, TELEGRAM_URL } from '../../site';
   </div>
 </section>
 
+<script>
+  const band = document.querySelector('.closing');
+  if (band) {
+    new IntersectionObserver(([e]) => {
+      document.documentElement.toggleAttribute('data-closing', e.isIntersecting);
+    }).observe(band);
+  }
+</script>
+
 <style>
+  .closing {
+    overflow: hidden;
+    isolation: isolate;
+  }
+  /* The lamp: a warm pool of light over the line, the only gradient on the band (0-18% lamp). */
+  .closing::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: -1;
+    width: min(64rem, 140%);
+    aspect-ratio: 2 / 1;
+    background: radial-gradient(closest-side, rgb(var(--lamp) / 0.16), rgb(var(--lamp) / 0.05) 55%, transparent);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
   .closing__inner {
     display: grid;
     justify-items: center;
     gap: var(--s8);
     text-align: center;
   }
+  .closing__title {
+    font-size: clamp(2rem, 5.5vw, 4rem);
+  }
   .closing__ctas {
     display: flex;
+    width: 100%;
     flex-wrap: wrap;
     justify-content: center;
     gap: var(--s3);
   }
   .closing__ctas .btn {
     min-width: min(100%, 17rem);
+  }
+  :global(html[data-closing] .nav__play) {
+    background-color: rgb(16 13 11 / 0.35);
+    border-color: rgb(240 227 194 / 0.75);
   }
 </style>
