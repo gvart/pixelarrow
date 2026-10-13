@@ -10,7 +10,7 @@
 //  3. the Sound toggle and the Effects volume survive a reload.
 // Platform modes (scripts/lib/platform.mjs): telegram (fake WebApp) and web (no request to telegram.org).
 // Usage: node scripts/audio-smoke.mjs <baseUrl> [--platform telegram|web|both]
-import { launch, phoneContext, captureErrors, makePageApi, check, failureCount } from './lib/harness.mjs';
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, failureCount } from './lib/harness.mjs';
 import { cliArgs, platformMode, applyPlatform, launchUrl, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
 const cli = cliArgs(process.argv.slice(2), 'scripts/audio-smoke.mjs');
@@ -51,7 +51,10 @@ async function run(label, { noAudio }) {
     });
   }
   const page = await ctx.newPage();
-  const errors = captureErrors(page);
+  // the API down (503): in Telegram the online layer signs in, and no step may depend on a backend (the
+  // preview server's /api proxy answered 502); the browser's own "Failed to load resource" lines are expected
+  const errors = captureErrors(page, { ignoreNetwork: true });
+  await apiDown(page);
   // taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
   const { ev, wait, tap, tapLabel } = makePageApi(page, { tapWait: 300 });
   const dbg = () => ev(() => window.__audio.debug());
@@ -261,7 +264,10 @@ async function persist() {
   const ctx = await phoneContext(browser);
   plats.push(await applyPlatform(ctx, mode, { languageCode: 'en' }));
   const page = await ctx.newPage();
-  const errors = captureErrors(page);
+  // the API down (503): in Telegram the online layer signs in, and no step may depend on a backend (the
+  // preview server's /api proxy answered 502); the browser's own "Failed to load resource" lines are expected
+  const errors = captureErrors(page, { ignoreNetwork: true });
+  await apiDown(page);
   const { ev, wait, tap, tapLabel } = makePageApi(page, { tapWait: 300 });
   const dbg = () => ev(() => window.__audio.debug());
   await page.goto(base);

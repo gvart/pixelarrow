@@ -6,7 +6,7 @@
 //
 // The base URL is required: a positional http(s) URL, `--base <url>` or $BASE_URL.
 // There is no default port (each agent and CI job serves the game on its own).
-// The mode: `--platform`, else $PLATFORM, else `both`. With `both` the script runs
+// The mode: `--platform`, else $SMOKE_PLATFORM (CI) or $PLATFORM, else `both`. With `both` the script runs
 // itself once per mode, as a child process, and exits with the worse result, so a
 // failure in one mode is never hidden by the other (and there are no retries).
 //
@@ -31,7 +31,7 @@ export const MODES = ['telegram', 'web'];
 export function cliArgs(argv = process.argv.slice(2), usage = '') {
   const args = [];
   let base = process.env.BASE_URL || null;
-  let platform = process.env.PLATFORM || 'both';
+  let platform = process.env.SMOKE_PLATFORM || process.env.PLATFORM || 'both';
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--platform') platform = argv[++i];

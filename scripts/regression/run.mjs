@@ -31,7 +31,7 @@ if (!given && !PORT) {
   console.log('NOT RUN: give the URL of a running server or --port <port> to serve dist on (no default port, V6-035)');
   process.exit(2);
 }
-const PLATFORM = opt('platform', process.env.PLATFORM || 'both');
+const PLATFORM = opt('platform', process.env.SMOKE_PLATFORM || process.env.PLATFORM || 'both');
 if (!['telegram', 'web', 'both'].includes(PLATFORM)) {
   console.log(`NOT RUN: --platform must be telegram, web or both (got ${PLATFORM})`);
   process.exit(2);

@@ -63,7 +63,7 @@ the summary and never counted as a pass.
 
 | ID | Check | Repro | Owner |
 | --- | --- | --- | --- |
-| (none open) | | | |
+| GATE02-B1 | `scripts/online-smoke.mjs` web: the shop says "available in Telegram" | Signed out on the web (no Telegram), open the Shop: it stays on "Opening the shop...". `ShopScene.fetchAll` throws `outside` synchronously from `create()`, where `sys.isActive()` is still false, so the catch returns before setting `st` | Shop / PLAT-02 (web shop state) |
 
 Fixed: QA02-B1 (a Settings replay skipped or finished went to FirstRun, not the screen Settings was opened from; now `TutorialStart.back`, routed by `tutorialExit`). Its battle-kinds check is a plain assertion.
 
