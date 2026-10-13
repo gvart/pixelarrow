@@ -1,11 +1,10 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import type { AppEnv, Env } from './env';
-import { assertNotBanned } from './ban';
 import { ApiError, notConfigured, unauthorized } from './errors';
-import { verifySession, type Session } from './session';
-import { gameOrigins } from './urls';
+import { readSessionCookie } from './auth/cookies';
+import { lookupSession, type Session, type Transport } from './auth/sessions';
 
-type SecretName = 'TELEGRAM_BOT_TOKEN' | 'TELEGRAM_WEBHOOK_SECRET' | 'SESSION_SECRET';
+type SecretName = 'TELEGRAM_BOT_TOKEN' | 'TELEGRAM_WEBHOOK_SECRET';
 
 /** A secret's value, or a 503 "<NAME> not configured". */
 export function secret(env: Env, name: SecretName): string {
@@ -25,45 +24,58 @@ export function clientIp(c: Context): string {
   return c.req.header('cf-connecting-ip') ?? 'unknown';
 }
 
-/** Session token from `Authorization: Bearer <token>`. */
+/** The token from `Authorization: Bearer <token>` (sessions and the admin token). */
 export function bearer(c: Context): string | null {
   const h = c.req.header('authorization');
   const m = h ? /^Bearer\s+(\S+)$/i.exec(h) : null;
   return m ? m[1] : null;
 }
 
-export async function sessionFromToken(env: Env, token: string | null): Promise<Session> {
-  const sessionSecret = secret(env, 'SESSION_SECRET');
-  if (!token) throw unauthorized();
-  const s = await verifySession(token, sessionSecret);
+/**
+ * The session token and how it arrived (ADR-0008 §3): the `__Host-pa_sid`
+ * cookie, or a bearer token (the `Authorization` header; sockets pass it in
+ * `Sec-WebSocket-Protocol`). One transport per request: both is 400
+ * `two_transports`. A token in the URL (`?token=`) is never read and is
+ * refused with 400 `token_in_url`, because URLs end up in logs. Null when the
+ * request carries neither.
+ */
+export function credentials(c: Context, bearerToken: string | null = bearer(c)): { token: string; transport: Transport } | null {
+  if (c.req.query('token') !== undefined) throw new ApiError(400, 'token_in_url', 'Session tokens are never accepted in the URL');
+  const cookie = readSessionCookie(c.req.header('cookie'));
+  if (cookie !== null && (bearerToken !== null || c.req.header('authorization') !== undefined)) {
+    throw new ApiError(400, 'two_transports', 'Send the session cookie or a bearer token, not both');
+  }
+  if (cookie !== null) return { token: cookie, transport: 'cookie' };
+  if (bearerToken !== null) return { token: bearerToken, transport: 'bearer' };
+  return null;
+}
+
+/** The request's live session, else 401 (403 `banned` for a banned player). */
+export async function sessionOf(c: Context<AppEnv>, bearerToken: string | null = bearer(c)): Promise<Session> {
+  const cred = credentials(c, bearerToken);
+  if (!cred) throw unauthorized();
+  const s = await lookupSession(db(c.env), cred.token, cred.transport);
   if (!s) throw unauthorized();
-  await assertNotBanned(env.DB, s.pid);
   return s;
 }
 
-/** Requires a valid session; exposes it as c.get('session'). */
-export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
-  c.set('session', await sessionFromToken(c.env, bearer(c)));
+/**
+ * 403 `not_playable` unless the player has a log-in identity (ADR-0008 §7).
+ * Bans (403) and deleted players (401) are already refused by the lookup.
+ */
+export function assertPlayable(s: Session): Session {
+  if (!s.hasIdentity) throw new ApiError(403, 'not_playable', 'This account cannot play online');
+  return s;
+}
+
+/** Any valid session (`/api/me`, `/api/save`, `/api/account/*`, `/api/auth/*`); exposes it as c.get('session'). */
+export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
+  c.set('session', await sessionOf(c));
   await next();
 };
 
-/** The web session cookie (ADR-0007, ADR-0008): host-only on play. */
-export const SESSION_COOKIE = '__Host-pa_sid';
-const HAS_SESSION_COOKIE = new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=`);
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-/**
- * CSRF guard (ADR-0007, ADR-0008): a request that carries the session cookie
- * and changes state (an unsafe method or a WebSocket upgrade) must come from
- * the game's origin or a dev origin, else 403. Requests without the cookie
- * (bearer tokens, anonymous) are exempt. Scaffold: cookie sessions arrive in
- * V6-ACCT-02, which finishes this check.
- */
-export const originCheck: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const upgrade = c.req.header('upgrade')?.toLowerCase() === 'websocket';
-  const cookie = HAS_SESSION_COOKIE.test(c.req.header('cookie') ?? '');
-  if (cookie && (upgrade || !SAFE_METHODS.has(c.req.method)) && !gameOrigins(c.env).includes(c.req.header('origin') ?? '')) {
-    throw new ApiError(403, 'bad_origin', 'Cross-origin request refused');
-  }
+/** A valid session whose player may play online: every online route and socket (M-OG-1). */
+export const requirePlayable: MiddlewareHandler<AppEnv> = async (c, next) => {
+  c.set('session', assertPlayable(await sessionOf(c)));
   await next();
 };

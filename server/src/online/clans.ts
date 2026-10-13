@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv, Env } from '../env';
 import { ApiError } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import { gameUrl } from '../urls';
 import { callBot } from '../telegramApi';
 import { canInvite, canKick, canPromote, clanInviteLink, ONLINE_RULES, type ClanRole } from '../../../src/online/rules';
@@ -20,7 +20,7 @@ import { ensureProfile, getProfile, membership, playerNames, randomCode } from '
 import { ev, later, notify } from '../notify/outbox';
 
 export const clans = new Hono<AppEnv>();
-clans.use('*', requireAuth);
+clans.use('*', requirePlayable);
 
 let botUsername: { name: string | null; at: number } | null = null;
 

@@ -253,7 +253,7 @@ describe('event triggers', () => {
     expect(t.status).toBe(200);
     expect(t.body.defenderKind).toBe('militia');
     const start = await waitForEvent(owner.playerId, 'attack_start');
-    expect(JSON.parse(start.data)).toMatchObject({ loc: h, place: w.info(h).name, by: 'Raider' });
+    expect(JSON.parse(start.data)).toMatchObject({ loc: h, place: w.info(h).name, by: att.name });
     await vi.waitFor(() => expect(sends(calls, 77101)).toHaveLength(1), { timeout: 30_000, interval: 50 });
     expect(button(sends(calls, 77101)[0])[0][0].web_app!.url).toBe(`https://play.pixelarrow.app/?startapp=loc_${h}`);
     const run = play(t.body.setup);
@@ -298,7 +298,7 @@ describe('event triggers', () => {
     wa.send({ type: 'challenge', to: b.playerId });
     expect(await wa.next('error')).toMatchObject({ code: 'unavailable' });
     const row = await waitForEvent(b.playerId, 'duel_challenge');
-    expect(JSON.parse(row.data)).toEqual({ by: 'Challenger' });
+    expect(JSON.parse(row.data)).toEqual({ by: a.name });
     await vi.waitFor(() => expect(sends(calls, 77302)).toHaveLength(1), { timeout: 30_000, interval: 50 });
     expect(button(sends(calls, 77302)[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=duel');
     wa.ws.close(1000);
@@ -312,7 +312,7 @@ describe('event triggers', () => {
     const m = await join(77402, 'Newbie');
     await sameShard(lead, m);
     expect((await post('/api/online/clans/join', m.token, { code: inv.body.code })).status).toBe(200);
-    expect(JSON.parse((await waitForEvent(lead.playerId, 'clan_joined')).data)).toEqual({ name: 'Newbie', clan: '[RVN] Ravens' });
+    expect(JSON.parse((await waitForEvent(lead.playerId, 'clan_joined')).data)).toEqual({ name: m.name, clan: '[RVN] Ravens' });
     expect((await post('/api/online/clans/promote', lead.token, { playerId: m.playerId, role: 'officer' })).status).toBe(200);
     expect(JSON.parse((await waitForEvent(m.playerId, 'clan_role')).data)).toEqual({ clan: '[RVN] Ravens', role: 'officer' });
     expect((await post('/api/online/clans/kick', lead.token, { playerId: m.playerId })).status).toBe(200);

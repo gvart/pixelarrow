@@ -26,7 +26,7 @@ import { battleTicketView, closeBattleTicket, loadOwnTicket, requireOpenTicket, 
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import type { Hero } from '../../../src/data/units';
 import type { Item } from '../../../src/data/items';
 import { DEFAULT_DOCTRINE, type BattleSetup } from '../../../src/sim/types';
@@ -44,7 +44,7 @@ import { pickConsumable, withConsumables } from './attack';
 import { armyState, clanTags, energyNow, fieldReady, formationsOf, heroPrefix, loadHeroes, playerNames, randomToken, randomU32, staticRegion, type OwnedHero } from './store';
 
 export const bosses = new Hono<AppEnv>();
-bosses.use('*', requireAuth);
+bosses.use('*', requirePlayable);
 
 interface BossRow {
   season_id: number;

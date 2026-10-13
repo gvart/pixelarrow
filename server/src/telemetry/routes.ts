@@ -18,7 +18,7 @@ import { readJson } from '../body';
 import { bytesToHex, utf8 } from '../crypto';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { bearer, clientIp, db, requireAuth, sessionFromToken } from '../middleware';
+import { bearer, clientIp, db, requireSession, sessionOf } from '../middleware';
 import { requireRate } from '../rateLimit';
 import { scrubText } from '../../../src/platform/analyticsSchema';
 import { milestone, optedOut, requestCtx, safeTag, writeEvent, writePoint } from './analytics';
@@ -72,12 +72,13 @@ export const EventsBody = z.object({
 
 export const telemetry = new Hono<AppEnv>();
 
-/** The player id of a valid session (header or body token), else 0. Never throws. */
+/**
+ * The player id of a valid session (the cookie, or a bearer token in the header
+ * or the body: sendBeacon cannot set headers), else 0. Never throws.
+ */
 async function optionalPid(c: Context<AppEnv>, bodyToken?: string): Promise<number> {
-  const token = bearer(c) ?? bodyToken ?? null;
-  if (!token || !c.env.SESSION_SECRET) return 0;
   try {
-    return (await sessionFromToken(c.env, token)).pid;
+    return (await sessionOf(c, bearer(c) ?? bodyToken ?? null)).pid;
   } catch {
     return 0;
   }
@@ -180,7 +181,7 @@ telemetry.post('/events', async (c) => {
   return c.json({ accepted, rejected });
 });
 
-telemetry.post('/consent', requireAuth, async (c) => {
+telemetry.post('/consent', requireSession, async (c) => {
   const body = await readJson(c, z.object({ analytics: z.boolean() }), 256);
   await db(c.env).prepare('UPDATE players SET analytics_opt_out = ?2 WHERE id = ?1').bind(c.get('session').pid, body.analytics ? 0 : 1).run();
   return c.json({ analytics: body.analytics });

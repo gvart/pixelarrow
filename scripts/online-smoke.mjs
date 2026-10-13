@@ -100,7 +100,7 @@ const s = await session('ok', async (route) => {
   const json = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   switch (`${req.method()} ${url.pathname}`) {
     case 'POST /api/auth/telegram':
-      return json(200, { token: 'pa1.test', expiresAt: 0, player: { id: 1, firstName: 'Ana' } });
+      return json(200, { token: 'pa2_test', expiresAt: 0, player: { id: 1, firstName: 'Ana' } });
     case 'GET /api/save':
       return json(200, { revision: saveRev, version: null, data: null, updatedAt: null });
     case 'PUT /api/save':

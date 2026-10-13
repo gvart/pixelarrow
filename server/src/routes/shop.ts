@@ -4,7 +4,7 @@ import { readJson } from '../body';
 import { randomNonce } from '../crypto';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { db, requireAuth, secret } from '../middleware';
+import { db, requireSession, secret } from '../middleware';
 import { getProduct, makePayload, PRODUCTS } from '../products';
 import { callBot } from '../telegramApi';
 
@@ -32,7 +32,7 @@ shop.get('/products', (c) =>
  * Telegram.WebApp.openInvoice(link, cb); the purchase is granted when the bot
  * webhook receives `successful_payment`.
  */
-shop.post('/invoice', requireAuth, async (c) => {
+shop.post('/invoice', requireSession, async (c) => {
   const { productId } = await readJson(c, InvoiceBody, 1024);
   const product = getProduct(productId);
   if (!product) throw new ApiError(404, 'unknown_product', `No product "${productId}"`);
@@ -57,7 +57,7 @@ shop.post('/invoice', requireAuth, async (c) => {
 });
 
 export const entitlements = new Hono<AppEnv>();
-entitlements.use('*', requireAuth);
+entitlements.use('*', requireSession);
 
 entitlements.get('/', async (c) => {
   const d = db(c.env);

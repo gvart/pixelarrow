@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import { isBound, itemDef, salvageValue, SLOTS, type Item, type Slot } from '../../../src/data/items';
 import { equipBlocker, equipBlockerText, equipInto, unequipInto } from '../../../src/game/gear';
 import { FORMATION_TYPES, type FormationType } from '../../../src/sim/formation';
@@ -69,7 +69,7 @@ import {
 } from './store';
 
 export const online = new Hono<AppEnv>();
-online.use('*', requireAuth);
+online.use('*', requirePlayable);
 
 const Formations = z.array(z.enum(FORMATION_TYPES as [string, ...string[]])).length(4);
 const HeroId = z.string().min(1).max(80);
