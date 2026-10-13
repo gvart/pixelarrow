@@ -29,6 +29,9 @@ import { installRenderScale, RS } from './platform/renderScale';
 import { installFastArcs } from './platform/fastArcs';
 import { installStaticCanvases } from './platform/staticCanvas';
 import { selectPlatform } from './platform';
+import { installKeySource } from './ui/input/keySource';
+import { activeContexts, keys, screenContexts } from './ui/input/keys';
+import { loadBindings } from './ui/input/bindingStore';
 
 // Telegram or the plain web, decided once from the launch hints (ADR-0006).
 selectPlatform();
@@ -50,7 +53,8 @@ const game = new Phaser.Game({
     width: window.innerWidth * RS,
     height: window.innerHeight * RS,
   },
-  input: { activePointers: 3 },
+  // keys come from one window listener and the KeyRouter (ADR-0012 Decision 3), not Phaser's per-scene KeyboardPlugin
+  input: { activePointers: 3, keyboard: false },
   audio: { noAudio: true }, // all sound is our own Web Audio (src/audio)
   // the first screens; the rest (online, duels, shop, camp, ...) come in a second chunk (scenes/lazy.ts)
   scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, FirstRunScene],
@@ -75,6 +79,13 @@ trackSafeArea(() => {
 installAudio(game, () => state.campaign?.data.settings);
 // Duel challenges pop up on every online screen (map, army, clan).
 installDuelInvites(game);
+// The keyboard (ADR-0012): one window listener feeding the router, with the contexts of the top screen and
+// its layers; Esc is Back (a screen may take it first: the battle opens its menu); this device's bindings.
+const keyContexts = () => activeContexts(screenContexts(nav.topOwner()), nav.layers());
+installKeySource(window, keys, keyContexts);
+nav.subscribe(() => keys.setContexts(keyContexts()));
+keys.on('back', () => nav.back());
+void loadBindings().then((m) => keys.setBindings(m));
 // Ask before closing while a save is still uploading.
 online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
 

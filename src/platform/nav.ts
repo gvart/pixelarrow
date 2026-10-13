@@ -48,6 +48,7 @@ export const navMotion = { back: false };
 export class NavStack {
   private entries: Entry[] = [];
   private unsaved = false;
+  private readonly subs = new Set<() => void>();
   private readonly dispatch = (): void => {
     this.host.feedback();
     this.back();
@@ -140,12 +141,24 @@ export class NavStack {
     return this.top()?.layers.length ?? 0;
   }
 
+  /** The owner of the top screen (a scene), or null with none. */
+  topOwner(): object | null {
+    return this.top()?.owner ?? null;
+  }
+
+  /** Called after every change of the stack (a screen or a layer came or went); returns an unsubscribe. */
+  subscribe(cb: () => void): () => void {
+    this.subs.add(cb);
+    return () => this.subs.delete(cb);
+  }
+
   private top(): Entry | undefined {
     return this.entries[this.entries.length - 1];
   }
 
   private sync(): void {
     const e = this.top();
+    this.subs.forEach((cb) => cb());
     this.host.setBack(this.canGoBack() ? this.dispatch : null);
     this.host.setSettings(e?.opts.settings ? this.openSettings : null);
     this.host.setClosingConfirmation(this.unsaved || !!e?.opts.confirmClose);
