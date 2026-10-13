@@ -5,19 +5,22 @@
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
-## Running (Phase 4, sprint 1: code)
+## Running (sprint 1 finishing, sprint 2 started)
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
-| plat-01 | V6-PLAT-01: platform core (ADR-0006 M1) | 1 (6110–6119) | dev-story, phaser-core, tdd, improve-codebase-architecture |
-| gate-01 | V6-GATE-01: ten-size layout matrix, allowlist split per owner | 5 (6150–6159) | dev-story, regression-suite, game-ui-ux, tdd |
-| host-01 | V6-HOST-01: landing scaffold, its Worker, dry-run | 3 (6130–6139) | dev-story, tdd, performance-optimization |
-| acct-01 | V6-ACCT-01: PBKDF2 spike | 4 (6140–6149) | security-audit, perf-profile, tdd |
-| video | P5-VIDEO: 11 landing clips | 2 (6120–6129) | create-game-assets, performance-optimization |
+| plat-01 | V6-PLAT-01: platform core | 1 (6110–6119) | dev-story, phaser-core, tdd, improve-codebase-architecture |
+| gate-01 | V6-GATE-01: ten-size layout matrix | 5 (6150–6159) | dev-story, regression-suite, game-ui-ux, tdd |
+| video | P5-VIDEO: landing clips | 2 (6120–6129) | create-game-assets, performance-optimization |
+| land-01 | V6-LAND-01: landing chrome, tokens, SEO, assets moved in | 4 (6140–6149) | frontend-design, design-principles, game-ui-ux, seo-audit, schema-markup, performance-optimization |
+| host-02 | V6-HOST-02: game Worker on play, CORS, framing, Origin scaffold, play links | 6 (6160–6169) | dev-story, security-audit, tdd |
 
-Five agents are running, one over the cap, because video is asset work and shares no files.
+**Integrators run one at a time** (they share the v6 worktree). Use slot 9 (6190–6199) for integrators.
+Still to start in sprint 2: RFND-01 (needs GATE-01) and INP-01 (needs PLAT-01).
 
 ## Merged
+
+- Sprint 1: V6-ACCT-01 (V6-022, ac5eb98), V6-HOST-01 (V6-023, 49515b1)
 
 - Phase 0–3 is complete: S0-ADOPT, A1-PLAT, A1-UI, P2 ×7 (V6-012..020), P5-LAND-ART (V6-019), P3-PLAN (V6-021)
 
