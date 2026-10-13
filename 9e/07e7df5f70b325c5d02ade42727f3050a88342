@@ -1,0 +1,20 @@
+docs/v6/audit/UI.md
+  s_0d98fe904b2e82::t_6892a37b526922 1-659
+  s_0d98fe904b2e82::t_e09dee77c24365 660-663
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9e07e7df5f70b325c5d02ade42727f3050a88342",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
