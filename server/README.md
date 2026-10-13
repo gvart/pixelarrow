@@ -1,7 +1,7 @@
 # Pixelarrow backend
 
 One Cloudflare Worker, `pixelarrow`, serves **both** the static game (the root
-`dist/` build, on https://pixelarrow.app) **and** this API. `wrangler.jsonc`
+`dist/` build, on https://play.pixelarrow.app) **and** this API. `wrangler.jsonc`
 (repo root) sets `assets.run_worker_first: ["/api/*", "/ws/*"]`, so only those
 paths run Worker code; everything else is plain static hosting with the SPA
 fallback.
@@ -19,8 +19,9 @@ fallback.
 ```
 server/
   src/
-    index.ts          Worker entry: Hono app, CORS, error handler, /ws upgrades; exports RegionDO, MatchmakerDO, DuelDO
+    index.ts          Worker entry: Hono app, CORS (play, web.telegram.org, DEV_ORIGINS), frame-ancestors, error handler, /ws upgrades; exports RegionDO, MatchmakerDO, DuelDO
     env.ts            bindings / secrets types
+    urls.ts           GAME_URL (play) and LANDING_URL (apex, legal links) with their defaults; dev origins
     routes/auth.ts    POST /api/auth/telegram
     routes/save.ts    GET/PUT /api/save
     routes/shop.ts    GET /api/shop/products, POST /api/shop/invoice, GET /api/entitlements
@@ -174,7 +175,7 @@ raids. Sockets (`/ws/*`) take `?sim=`.
 TELEGRAM_WEBHOOK_SECRET` (constant-time compare), otherwise 401.
 
 - `/start` → replies with an inline **web_app** button opening `GAME_URL`
-  (https://pixelarrow.app); it also re-enables notifications for a player
+  (https://play.pixelarrow.app); it also re-enables notifications for a player
   whose bot was blocked.
 - `/settings`, `/paysupport`, `/terms`, `/delete_my_data` and the `/settings`
   buttons (`callback_query`): see "Bot notifications" and "Payment support
@@ -199,7 +200,7 @@ created with `createInvoiceLink`, currency `XTR`, empty `provider_token`.
 
 ### Region WebSocket (`RegionDO`)
 
-`wss://pixelarrow.app/ws/region/<id>` with the session token either as
+`wss://play.pixelarrow.app/ws/region/<id>` with the session token either as
 `?token=<token>` or as the second WebSocket subprotocol:
 `new WebSocket(url, ['pixelarrow.v1', token])` (the server answers with
 `pixelarrow.v1`). One DO per region id (`[a-z0-9_-]{1,40}`).
@@ -690,7 +691,7 @@ Rows are claimed (`pending → sending`) before the send, so two concurrent
 flushes never double-send; a 429, 5xx or network error puts them back for
 the next run. Messages are EN or RU by the player's Telegram `language_code`,
 end with "Turn these off: /settings" and carry one inline **web_app** button
-`https://pixelarrow.app/?startapp=<route>`; `BootScene` routes it
+`https://play.pixelarrow.app/?startapp=<route>`; `BootScene` routes it
 (`parseStartParam` / `sceneForRoute` in `src/online/deeplink.ts`): `loc_<id>`
 and `boss_<id>` centre the war map on the region and select it, `duel` opens the
 lobby, `market` the marketplace, `myclan` the clan, `settings` the menu with
@@ -812,18 +813,18 @@ Actions variable `ANALYTICS_ENGINE=off` drops the datasets on purpose.
    ```
    Keep the webhook secret value handy for step 5 (or set it from a variable).
    For the admin panel also set `ADMIN_TOKEN` (docs/OPS.md "Operator setup").
-   Check with `curl https://pixelarrow.app/api/health`.
+   Check with `curl https://play.pixelarrow.app/api/health`.
 5. **Register the webhook** (also enables payment updates):
    ```bash
    curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
      -H 'content-type: application/json' \
-     -d "{\"url\":\"https://pixelarrow.app/api/telegram/webhook\",
+     -d "{\"url\":\"https://play.pixelarrow.app/api/telegram/webhook\",
           \"secret_token\":\"$TELEGRAM_WEBHOOK_SECRET\",
           \"allowed_updates\":[\"message\",\"pre_checkout_query\",\"callback_query\"],
           \"drop_pending_updates\":true}"
    curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
    ```
-6. In @BotFather point the Mini App / menu button URL at `https://pixelarrow.app`.
+6. In @BotFather point the Mini App / menu button URL at `https://play.pixelarrow.app`.
    Stars payments need no provider setup.
 7. Clan invite links are `https://t.me/<bot>/<app>?startapp=clan_<code>`. The
    bot username comes from `getMe` (or set the var `TELEGRAM_BOT_USERNAME`);

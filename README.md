@@ -10,7 +10,7 @@ any browser). The icons are drawn art, shipped as two atlases in `public/icons`.
 All other art and all sound are generated in code; there are no other image or
 audio files.
 
-**Play:** https://pixelarrow.app
+**Play:** https://play.pixelarrow.app (web and Telegram) · **Site:** https://pixelarrow.app
 
 | | | |
 | --- | --- | --- |
@@ -118,7 +118,7 @@ The gates run in parallel: **build** (type-check, unit tests, `vite build`),
 **server** (type-check, tests), **layout** (the layout check in 10 shards)
 and **smoke** (one job per smoke script). When all pass, **deploy** applies
 the D1 migrations and `wrangler deploy` publishes `dist/` as static assets of
-the Worker (`wrangler.jsonc`) on https://pixelarrow.app. It needs the
+the Worker (`wrangler.jsonc`) on https://play.pixelarrow.app. It needs the
 repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the
 backend setup is in server/README.md "One-time setup checklist". The build
 uses a relative `base` (`./`), so it also works under a sub-path.
@@ -166,7 +166,7 @@ docs/         design and operations docs (see "Docs")
 
 ## Telegram Mini App setup
 
-1. **Deploy the build** (above) to https://pixelarrow.app, or upload `dist/`
+1. **Deploy the build** (above) to https://play.pixelarrow.app, or upload `dist/`
    to any HTTPS static host (relative paths, so a sub-folder works). For
    local testing expose the dev server with a tunnel, e.g.
    `cloudflared tunnel --url http://localhost:5173`.

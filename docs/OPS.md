@@ -1,6 +1,6 @@
 # Operations: monitoring, analytics, backups, admin panel
 
-How to watch the production game at https://pixelarrow.app, read its funnel
+How to watch the production game at https://play.pixelarrow.app, read its funnel
 and retention numbers, restore the database, and run the admin panel. Code:
 `server/src/telemetry/`, `server/src/admin/`, `server/src/ban.ts`,
 `src/platform/{telemetry,analytics,analyticsSchema,monitoring}.ts`,
@@ -26,7 +26,7 @@ Run from `server/` with a logged-in wrangler (`npx wrangler login`) or with
    ```
    Keep the printed value in a password manager. Tokens shorter than 32
    characters are ignored. Rotate by running the same command again (the old
-   token stops working at once). `curl https://pixelarrow.app/api/health`
+   token stops working at once). `curl https://play.pixelarrow.app/api/health`
    shows `"adminToken": true` once set.
 2. **Analytics Engine:** Cloudflare dashboard → *Storage & Databases* →
    *Analytics Engine* → enable it if the page asks (some accounts must do this
@@ -342,7 +342,7 @@ database name.
    ```
    It writes `d1-undo-<time>.json` with the bookmark from before the restore.
    Undo with `node server/scripts/d1-restore.mjs --bookmark <undoBookmark> --apply`.
-6. **After:** `curl https://pixelarrow.app/api/health`; open the admin panel
+6. **After:** `curl https://play.pixelarrow.app/api/health`; open the admin panel
    (players, season); note it in the audit trail of your incident notes.
    Everything written after the target moment is gone: Stars payments
    recorded in that window must be re-applied. Telegram retries a webhook only
@@ -387,7 +387,7 @@ number) was drilled locally with `wrangler d1 ... --local`.
 
 ## Admin panel
 
-**URL:** https://pixelarrow.app/admin (served by the Worker, not part of the
+**URL:** https://play.pixelarrow.app/admin (served by the Worker, not part of the
 game bundle; `wrangler.jsonc` routes `/admin` and `/admin/*` to the Worker).
 
 **Auth:** the `ADMIN_TOKEN` secret, pasted into the page and kept in the tab's
@@ -445,8 +445,8 @@ The admin API (`/api/admin/*`, `Authorization: Bearer <ADMIN_TOKEN>`) can be
 scripted the same way:
 
 ```bash
-curl -s https://pixelarrow.app/api/admin/players?q=alice -H "authorization: Bearer $ADMIN_TOKEN"
-curl -s https://pixelarrow.app/api/admin/players/42/adjust -H "authorization: Bearer $ADMIN_TOKEN" \
+curl -s https://play.pixelarrow.app/api/admin/players?q=alice -H "authorization: Bearer $ADMIN_TOKEN"
+curl -s https://play.pixelarrow.app/api/admin/players/42/adjust -H "authorization: Bearer $ADMIN_TOKEN" \
   -H 'content-type: application/json' \
   -d '{"requestId":"comp-2026-10-07-42","currency":"drachmae","delta":100,"reason":"outage compensation"}'
 ```
