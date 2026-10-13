@@ -1,0 +1,27 @@
+server/test/deletion-bot.test.ts
+  s_0d98fe904b2e82::t_fcd614b24ee135 1-71
+server/test/deletion.test.ts
+  s_0d98fe904b2e82::t_c1e256853c674a 339-406
+server/src/bot/handlers.ts
+  s_0d98fe904b2e82::t_67dd125371b9fb 11-14,19,73-86,102-115,165-176,188,216,220-245,249-250
+server/src/routes/auth.ts
+  s_0d98fe904b2e82::t_7471ee5b1c342c 9,88-90
+server/src/auth/flows.ts
+  s_0d98fe904b2e82::t_7471ee5b1c342c 27,168-169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fc390a6086c8d45ff337d8ec9da8d45003670bd0",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
