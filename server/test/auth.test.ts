@@ -109,8 +109,10 @@ describe('missing configuration', () => {
 });
 
 describe('entry module', () => {
-  it('exports only handlers and Durable Object classes (workerd rejects anything else)', async () => {
+  it('exports only handlers, Durable Object classes and entrypoints (workerd rejects anything else)', async () => {
     const mod = await import('../src/index');
-    expect(Object.keys(mod).sort()).toEqual(['DuelDO', 'MatchmakerDO', 'RegionDO', 'default']);
+    expect(Object.keys(mod).sort()).toEqual(['DuelDO', 'MatchmakerDO', 'PublicApi', 'RegionDO', 'default']);
+    const { WorkerEntrypoint } = await import('cloudflare:workers');
+    expect(mod.PublicApi.prototype).toBeInstanceOf(WorkerEntrypoint);
   });
 });

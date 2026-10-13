@@ -62,6 +62,8 @@ export interface Env {
   RL_AUTH_IP?: RateLimit;
   /** Rate Limiting binding, 30 / 60 s: `tg:<ip>` on /api/auth/telegram (ADR-0008 §5). */
   RL_TG_AUTH_IP?: RateLimit;
+  /** Rate Limiting binding, 60 / 60 s: `public:<ip>` on GET/HEAD /api/public/v1/summary (ADR-0010 §4). */
+  RL_PUBLIC_IP?: RateLimit;
   /** Pins the map new online shards get (src/online/maps id; tests use 'test30'). Default: the season map. */
   ONLINE_MAP?: string;
 }
