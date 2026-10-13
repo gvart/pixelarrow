@@ -1,7 +1,10 @@
 /**
  * Back on the web: the browser's (and Android's) Back pops a guard history
  * entry, which runs the game's back callback instead of leaving the page.
- * One guard entry is kept while a callback is set. Escape is not handled here:
+ * A guard entry is pushed when a callback is set and none is in place. It is
+ * never removed with history.back(): that call is asynchronous and races the
+ * next pushState, which could leave the page. So after the last layer closes
+ * one Back press may do nothing; the next leaves. Escape is not handled here:
  * it belongs to the input layer, which calls nav.back().
  */
 import type { BackButton } from '../core/back';
@@ -10,7 +13,6 @@ import type { PlatformEnv } from '../core/env';
 export function createWebBack(env: PlatformEnv): BackButton {
   let handler: (() => void) | null = null;
   let guarded = false;
-  let skipPop = 0; // popstates caused by our own history.back()
   let listening = false;
   let confirming = false;
 
@@ -20,10 +22,6 @@ export function createWebBack(env: PlatformEnv): BackButton {
     guarded = true;
   };
   const onPop = (): void => {
-    if (skipPop > 0) {
-      skipPop--;
-      return;
-    }
     guarded = false;
     handler?.();
     guard(); // still a layer to close: keep the next Back in the game
@@ -43,12 +41,7 @@ export function createWebBack(env: PlatformEnv): BackButton {
         env.window.addEventListener('popstate', onPop);
         listening = true;
       }
-      if (cb) guard();
-      else if (guarded && env.window?.history) {
-        guarded = false;
-        skipPop++;
-        env.window.history.back();
-      }
+      guard();
     },
     setSettings() {
       /* no ⋯ menu on the web */

@@ -29,16 +29,20 @@ describe('web adapter: Back', () => {
     expect(f.history).toEqual(['push', 'push']);
   });
 
-  it('clearing the callback removes the guard entry without running anything', () => {
+  it('clearing the callback keeps the guard entry (no racing history.back()); a Back with nothing open runs nothing', () => {
     const f = fakeEnv();
     const p = createWebPlatform(f.env);
     const cb = vi.fn();
     p.back.setBack(cb);
     p.back.setBack(null);
-    expect(f.history).toEqual(['push', 'back']);
-    f.win.fire('popstate'); // the history.back() above
+    p.back.setBack(cb); // the entry is still there: nothing pushed
+    p.back.setBack(null);
+    expect(f.history).toEqual(['push']);
+    f.win.fire('popstate');
     expect(cb).not.toHaveBeenCalled();
-    expect(f.history).toEqual(['push', 'back']);
+    expect(f.history).toEqual(['push']);
+    p.back.setBack(cb); // the next layer gets a fresh guard
+    expect(f.history).toEqual(['push', 'push']);
   });
 
   it('a callback that clears itself leaves no guard entry behind', () => {
