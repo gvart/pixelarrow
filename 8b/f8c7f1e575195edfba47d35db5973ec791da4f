@@ -1,0 +1,79 @@
+server/test/turnstile.test.ts
+  s_0d98fe904b2e82::t_739cdbba714c24 1-127
+server/vitest.config.ts
+  s_0d98fe904b2e82::t_e0aafe18b56a0a 24-26
+server/test/email-sender.test.ts
+  s_0d98fe904b2e82::t_3a8a89ef46e747 10-11
+  s_0d98fe904b2e82::t_6ffea334249cc8 24-37
+server/src/auth/common-passwords-list.ts
+  s_0d98fe904b2e82::t_617007dc1e5297 1-4
+server/src/email/sender.ts
+  s_0d98fe904b2e82::t_a4dde7dc6ca670 6-9,31,35-44
+  s_0d98fe904b2e82::t_6f8ac1130c9982 45-46
+server/test/password.test.ts
+  s_0d98fe904b2e82::t_fbf0a8dad57195 6,107-113
+  s_0d98fe904b2e82::t_08381df59e2b67 114
+server/src/auth/flows.ts
+  s_0d98fe904b2e82::t_1d8cf439e0b91c 86-88
+server/src/routes/auth.ts
+  s_0d98fe904b2e82::t_2b3d62e9a42e4a 19-20,49-50,130-133,139,172-174,190,197,204,206,213,221,223,230
+  s_0d98fe904b2e82::t_87ea5a8c43f92c 188,215
+server/test/auth-email.test.ts
+  s_0d98fe904b2e82::t_02b3338b4223ed 53-64
+server/scripts/deploy-config.mjs
+  s_0d98fe904b2e82::t_1faf829da46c12 62-69
+  s_0d98fe904b2e82::t_311356820c4c67 22
+  s_0d98fe904b2e82::t_ae3578489d5b29 15-16
+server/src/env.ts
+  s_0d98fe904b2e82::t_c752e8e84a80ac 55-64
+server/scripts/deploy-guard.mjs
+  s_0d98fe904b2e82::t_dac4a661b18368 1-30
+server/test/setup.ts
+  s_0d98fe904b2e82::t_837291c3a06a46 5,9-11
+  s_0d98fe904b2e82::t_4d610ba6b42a9e 12
+server/test/deploy-guard.test.ts
+  s_0d98fe904b2e82::t_8f7988b183f4ff 1-23
+server/.dev.vars.example
+  s_0d98fe904b2e82::t_d54c6c4044bf94 17-18,20-25
+  s_0d98fe904b2e82::t_0821703f91afdd 7-8
+server/scripts/common-passwords.mjs
+  s_0d98fe904b2e82::t_fecb26d28438ce 1-50
+wrangler.jsonc
+  s_0d98fe904b2e82::t_ca86a54bc48ce8 51-54,56
+  s_0d98fe904b2e82::t_9ca2a05af60f00 29-36,38-50,55,57
+server/src/auth/turnstile.ts
+  s_0d98fe904b2e82::t_1e68b12987ac55 1-112
+server/src/rateLimit.ts
+  s_0d98fe904b2e82::t_9aaeafc181dd3a 2-3
+  s_0d98fe904b2e82::t_71784c38296fe0 38-50
+server/test/siteverify.ts
+  s_0d98fe904b2e82::t_5388574c2ff320 1-37
+server/test/auth-gates.test.ts
+  s_0d98fe904b2e82::t_45094a6f1bab09 1-9,11-23,25-100,102-125,128,131-133
+  s_0d98fe904b2e82::t_cedb4064d51ad5 10,24,101
+  s_0d98fe904b2e82::t_e48b2b16ebab31 126-127,129-130
+server/src/account/routes.ts
+  s_0d98fe904b2e82::t_a39f03e80c80e9 18,41-42
+server/test/auth.test.ts
+  s_0d98fe904b2e82::t_a8a8094fb1d647 79,82,86
+server/scripts/deploy-guard.d.mts
+  s_0d98fe904b2e82::t_8b32ae04de47cd 1-2
+server/src/auth/common-passwords.ts
+  s_0d98fe904b2e82::t_dc99720f9fad7d 7-15,17-18,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8bf8c7f1e575195edfba47d35db5973ec791da4f",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
