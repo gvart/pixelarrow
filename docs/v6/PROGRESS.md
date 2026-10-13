@@ -9,10 +9,9 @@
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
-| land-05 | V6-LAND-05: clips grid, FAQ, closing call to action | 4 (6140–6149) | frontend-design, design-principles, performance-optimization, schema-markup |
 | integrator-plat-01 | merges PLAT-01, full gates, recheck ru 375x667 | 9 (6190–6199) | n/a |
 
-**Integration queue (in order):** PLAT-01 (running) → ACCT-02 (worktree-agent-ae2ee72c9e3552df0; check whether the online-e2e duel-step failure was already there on base) → LAND-02b (worktree-agent-a53d46dde96001b69) → GATE-01 (worktree-agent-aa79f1267b9ef0092; rerun the full vitest; matrix: phone sizes plus 1280x800 only, per V6-030; CI covers the rest).
+**Integration queue (in order):** PLAT-01 (running) → ACCT-02 (worktree-agent-ae2ee72c9e3552df0; check whether the online-e2e duel-step failure was already there on base) → LAND-02b (worktree-agent-a53d46dde96001b69) → LAND-05 (worktree-agent-a468db3ae96ea6c1e; mobile LCP has a cliff at about 14.2 kB of gzipped HTML, so below-the-fold CSS is lazy; three FAQ answers describe unmerged v6 features, rechecked in LAND-06) → GATE-01 (worktree-agent-aa79f1267b9ef0092; rerun the full vitest; matrix: phone sizes plus 1280x800 only, per V6-030; CI covers the rest).
 Integrators run one at a time in slot 9. Director merges check the exit code (V6-028).
 
 **Unblocked once PLAT-01 merges:** INP-01 (action map), PLAT-02 (haptics codemod and Back), PAY-01 needs PLAT-04. RFND-01 waits for GATE-01.
