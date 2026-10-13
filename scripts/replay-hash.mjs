@@ -10,11 +10,18 @@
  *   node scripts/replay-hash.mjs chromium        # one engine
  *   PW_WEBKIT_PATH=/path/to/pw_run.sh node scripts/replay-hash.mjs webkit
  *
+ * WebKit: PW_WEBKIT_PATH when set; else the revision this Playwright expects; else
+ * the newest webkit-* build installed in the Playwright cache (PLAYWRIGHT_BROWSERS_PATH,
+ * ~/Library/Caches/ms-playwright or ~/.cache/ms-playwright), so a cache that holds a
+ * different revision still runs WebKit without an env var.
+ *
  * An engine that cannot launch is reported as NOT RUN (exit code 2 when no
  * engine ran at all); any hash difference names the battle and the first
  * checkpoint that differs (exit code 1).
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { chromium, webkit } from 'playwright';
@@ -62,6 +69,21 @@ function compare(rec, got) {
 }
 
 const engines = { chromium, webkit };
+
+/** Launch paths to try for an engine, in order (undefined: Playwright's own revision). */
+function candidates(name) {
+  const env = name === 'webkit' ? process.env.PW_WEBKIT_PATH : process.env.PW_CHROMIUM_PATH;
+  if (env) return [env];
+  if (name !== 'webkit' || existsSync(webkit.executablePath())) return [undefined];
+  const dirs = [process.env.PLAYWRIGHT_BROWSERS_PATH, join(homedir(), 'Library/Caches/ms-playwright'), join(homedir(), '.cache/ms-playwright')].filter((d) => d && existsSync(d));
+  const found = dirs.flatMap((d) =>
+    readdirSync(d)
+      .filter((n) => /^webkit-\d+$/.test(n) && existsSync(join(d, n, 'pw_run.sh')))
+      .map((n) => ({ rev: Number(n.slice(7)), path: join(d, n, 'pw_run.sh') })),
+  );
+  found.sort((a, b) => b.rev - a.rev);
+  return found.length ? found.map((f) => f.path) : [undefined];
+}
 const wanted = process.argv.slice(2).filter((a) => a in engines);
 const battles = FIXTURES.flatMap((f) => JSON.parse(readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')).battles);
 const code = await bundle();
@@ -70,11 +92,17 @@ let ran = 0;
 let failed = 0;
 for (const name of wanted.length ? wanted : Object.keys(engines)) {
   let browser;
-  try {
-    const executablePath = name === 'webkit' ? process.env.PW_WEBKIT_PATH : process.env.PW_CHROMIUM_PATH;
-    browser = await engines[name].launch(executablePath ? { executablePath } : {});
-  } catch (e) {
-    console.log(`${name}: NOT RUN (${String(e.message).split('\n')[0]})`);
+  let error = '';
+  for (const executablePath of candidates(name)) {
+    try {
+      browser = await engines[name].launch(executablePath ? { executablePath } : {});
+      break;
+    } catch (e) {
+      error ||= String(e.message).split('\n')[0];
+    }
+  }
+  if (!browser) {
+    console.log(`${name}: NOT RUN (${error})`);
     continue;
   }
   try {
