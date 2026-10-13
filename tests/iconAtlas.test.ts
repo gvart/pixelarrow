@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readText, removeDir, runNode, sameFile, sha256, sourceFiles, tempDir } from './support/nodeIo.js';
+import { readText, removeDir, runNode, samePixels, sha256, sourceFiles, tempDir } from './support/nodeIo.js';
 import webpLock from '../scripts/art/webp-lock.json';
 import manifestJson from '../docs/v5/art/asset-manifest.json?raw';
 import uiJson from '../public/icons/ui.json?raw';
@@ -141,11 +141,12 @@ describe('WebP twins of the atlases (QA-05)', () => {
 describe('scripts/art/atlas.mjs', () => {
   const run = (out: string, ...extra: string[]) => runNode('scripts/art/atlas.mjs', ['icons_ui', '--src', MASTERS, '--out', out, ...extra]);
 
-  it('rebuilds the shipped ui atlas from its masters byte for byte (same input, same bytes)', () => {
+  // pixels, not file bytes: the PNG's deflate stream differs between zlib builds (macOS vs CI Linux)
+  it('rebuilds the shipped ui atlas from its masters pixel for pixel (same input, same RGBA and same JSON)', () => {
     const out = tempDir();
     try {
       expect(run(out).status).toBe(0);
-      expect(sameFile(`${out}/ui.png`, 'public/icons/ui.png')).toBe(true);
+      expect(samePixels(`${out}/ui.png`, 'public/icons/ui.png')).toBe(true);
       expect(readText(`${out}/ui.json`)).toBe(uiJson);
     } finally {
       removeDir(out);

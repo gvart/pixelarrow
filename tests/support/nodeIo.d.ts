@@ -1,6 +1,6 @@
 export const ROOT: string;
 export function readText(path: string): string;
-export function sameFile(a: string, b: string): boolean;
+export function samePixels(a: string, b: string): boolean;
 export function sha256(path: string): string;
 export function sourceFiles(dir: string): { path: string; text: string }[];
 export function tempDir(): string;
