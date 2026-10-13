@@ -7,13 +7,19 @@
  * It may only shrink: the test fails when a listed file stops breaking a listed
  * rule, so the entry must be removed in the same change. M10 empties and deletes it.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+
+// The client tsconfig has no Node types: reach node:fs untyped (as tests/trainReplay.test.ts does).
+const fs = (await import('node:fs' as string)) as {
+  readdirSync(p: string): string[];
+  readFileSync(p: string, enc: 'utf8'): string;
+  statSync(p: string): { isDirectory(): boolean };
+};
 
 type Rule = 1 | 2 | 3 | 4 | 5;
 
-const ROOT = join(__dirname, '..');
+/** vitest runs from the repo root. */
+const ROOT = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
 const ADAPTERS = /^src\/platform\/(telegram|web|steam|mobile)\//;
 
 /** Files not yet moved off the old seams (today's importers of the telegram.ts shim and online.available). */
@@ -62,10 +68,11 @@ const ALLOWLIST: Record<string, Rule[]> = {
   'src/platform/telegram.ts': [4],
 };
 
+/** Repo-relative paths of the .ts files under dir. */
 function walk(dir: string): string[] {
-  return readdirSync(dir).flatMap((n) => {
-    const p = join(dir, n);
-    return statSync(p).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
+  return fs.readdirSync(`${ROOT}/${dir}`).flatMap((n) => {
+    const p = `${dir}/${n}`;
+    return fs.statSync(`${ROOT}/${p}`).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
   });
 }
 
@@ -86,12 +93,11 @@ const ADAPTER_REACHES_GAME = /^\s*import\s+(?!type\b)[^;]*from\s+['"][^'"]*\/(?:
 /** Every (file, rule, line) that breaks the platform rule. */
 function violations(): { file: string; rule: Rule; line: number; text: string }[] {
   const out: { file: string; rule: Rule; line: number; text: string }[] = [];
-  for (const abs of walk(join(ROOT, 'src'))) {
-    const file = relative(ROOT, abs).split('\\').join('/');
+  for (const file of walk('src')) {
     const inPlatform = file.startsWith('src/platform/');
     const inTelegramAdapter = file.startsWith('src/platform/telegram/');
     const isAdapter = ADAPTERS.test(file);
-    codeLines(readFileSync(abs, 'utf8')).forEach((text, i) => {
+    codeLines(fs.readFileSync(`${ROOT}/${file}`, 'utf8')).forEach((text, i) => {
       const hit = (rule: Rule) => out.push({ file, rule, line: i + 1, text: text.trim() });
       if (!inPlatform && IMPORT_ADAPTER.test(text)) hit(1);
       if (!inTelegramAdapter && TELEGRAM_GLOBALS.test(text)) hit(2);
