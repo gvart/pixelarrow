@@ -1,0 +1,21 @@
+landing/package.json
+  s_0d98fe904b2e82::t_31f8d8287e352c 11
+landing/scripts/hero-overlap.mjs
+  s_0d98fe904b2e82::t_10f93e15a52d1f 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "84cf888f4cf32e02fb0bd746f936d1f38e6e326d",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
