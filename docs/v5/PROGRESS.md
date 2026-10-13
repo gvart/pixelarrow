@@ -11,9 +11,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| qa-04 | W25 QA-04: code review, simplify, tech-debt | docs/v5/qa/CODE_REVIEW.md + findings | — | worktree-agent | running |
-| ec-03 | W25 EC-03: perk cost revisit | src/data/perks.ts | — | worktree-agent | running |
-| as-07 | art finish: 14 staged icons, busts, Nikias | public assets, ASSET_LOG | — | assets agent (Chrome) | running |
+| (merge) | AS-07 worktree-agent-ac47a9bddf6be9af4, EC-03 worktree-agent-a8a400fdd9e34f987 | — | integrator | — | merging |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -81,6 +79,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - 5af94e0 SND-02 UI sounds; 240fb61 FIXER-7 hit-stop freeze fix, 3 flakes at the root, a controls tap check in regression. Gates: vitest 1489, server 303, layout 0 new (71 distinct), no glTexture errors, regression 234 s incl. controls, online-e2e 34, replay 13/13; balance 53%. online-smoke '[duel] aborted duel leaves the battle' flaked 2 of 3 (fixed 5 s wait): fixer-8. WebKit replay works with PW_WEBKIT_PATH pointing at ~/Library/Caches/ms-playwright/webkit-2242.
 - b4fab98 BAL-02 with FL-04: final balance (beasts 58/60, the opening 69%, ladder 49/50 with floor 28 at +7, a balance:ladder harness, FINAL.md D1–D14). Gates: vitest 1489, server 303, layout 0 new (46), all 6 smokes first try, regression 223 s, online-e2e 34 (needs VITE_DEV_AUTH=1 on vite), replay 13/13 in Chromium AND WebKit 26 (PW_WEBKIT_PATH=~/Library/Caches/ms-playwright/webkit-2242/pw_run.sh). 1857f4f FIXER-8 online-smoke waits for the real abort hand-over.
 - a61affd QA-03 playthrough (NOT APPROVED: 1 S1, 2 S2, 12 S3). Fixes: 984eecf QAFIX-WORLD, 6eafb43 QAFIX-BATTLE, 1a37f84 QAFIX-UI, a11a1e2 audio-smoke staging. Gates: vitest 1524, server 303, layout 0 new (49), all smokes, regression 378/0, online-e2e 34, replay 13/13 Chromium + WebKit; balance 53%, ladder 49/50. DOC-01 playbook merged (docs/playbook/).
+- 2aa8e3f QA-04 code review (S1 save backup keeps both slots, S2 paused rest holds, −840/+396). Gates first-try: vitest 1529, server 303, layout 0 new (48), all 6 smokes, regression 228 s, online-e2e 34, replay 13/13 Chromium + WebKit; balance 53%, ladder 49/50. Main chunk 3,541 kB (1,087 kB gzip).
 
 ## Queue (next)
 
@@ -158,6 +157,9 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 40. Flakes for fixer-7 (after FL-02 merges): fullscreen-smoke facing knob and tap-to-move shape (3rd time); smoke 'Begin the march' missing once; regression battle-kinds [tutorial] Settings → Replay tutorial tap fails 4/6 even on v5. Audio follow-ups: disabled-tap, destructive and undo UI sounds (callers outside src/audio); a real-phone listen (user).
 
 41. Lesson: a refactor can drop interactivity that pixel diffs and layout checks don't see. Every toggle, switch and button needs a tap check in regression (fixer-7).
+
+42. QA-05 inputs: ui.png 623→1,123 KB (AS-07's painted 160 px cells); the main chunk 3.5 MB; the smoke 'shield basher in contact' flake is still alive after 6eafb43; replay-hash defaults to webkit-2215 (make it find the installed build); the glTexture/context-loss handling check.
+43. Blocked on the owner: the Nikias portraits need Claude in Chrome connected.
 
 ## Blockers
 
