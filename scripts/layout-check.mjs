@@ -24,39 +24,77 @@
 // in shots/layout/index.md (git-ignored; CI uploads shots/layout as an artifact).
 //
 // Usage: node scripts/layout-check.mjs [baseUrl] [options]   (needs a running dev/preview server)
+//   --quick [base]       story default (V6-030): the screens the branch's changes can affect (--changed)
+//                        at every matrix size, plus a smoke subset (QUICK in scripts/lib/layoutScenes.mjs)
+//                        at 390x844 and 1280x800
+//   --changed [base]     only the screens the files changed since the merge base with `base` (default v6,
+//                        else main; uncommitted and untracked files count) can affect; conservative
+//   --scenes a,kit-*     only these screens (ids or globs; opt-in screens only when a glob names no other)
+//   --screens a,b        the same (the older name)
 //   --update-allowlist   write the current violations into the allowlist (owners from the screen table)
-//   --screens a,b        only these screens          --sizes 390x844,320x568   only these sizes (wins over --matrix)
+//   --sizes 390x844,320x568   only these sizes (wins over --matrix)
 //   --matrix phone|tablet|landscape|all|v5   size groups, comma-separated (default all: the ten
 //                        matrix sizes; v5 = the v5 phone sizes outside the matrix, run by CI too)
 //   --langs en           only these languages        --insets plain|tg          only one safe-area variant
-//   --jobs 4             parallel browser contexts   --no-shots                 skip screenshots
+//   --jobs 4             parallel browser contexts (default: half the CPUs, 2 to 6)
+//   --no-shots           skip screenshots
 //   --shard 3/10         only every 10th configuration, starting with the 3rd (CI shards by --sizes instead)
 //   --split 2            split each configuration's screens into 2 contiguous runs (each in its own context, in parallel)
 //   --dpr 3              device pixel ratio of the screenshots (default 1)
+//   --fixed-waits        sleep the full staging waits instead of waiting for the game to be quiet (scripts/lib/settle.mjs)
+//   --list               print the screens each size would visit and stop (no browser)
+//   --timing             print where the time went (browser, boot, staging, waits, check, shots, scroll)
 //   --verbose            print every violation with its detail
 //   --no-retry           do not re-run screens with new violations (by default a new violation must show twice)
-import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
+// Besides index.md it writes shots/layout/found.json: every violation key with the configurations it showed in.
+import { mkdirSync, writeFileSync, existsSync, unlinkSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { join, relative } from 'node:path';
 import { ROOT as root, launch, captureErrors, apiDown, makePageApi, shotsDir } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
 import { KNOWN_CRASHES, MATRIX, TG, allows, configsFor, loadAllowlist, rewriteAllowlist, sizesFor, splitEntry, staleEntries, storyOf } from './lib/layoutMatrix.mjs';
+import { QUICK, matchScreens, sceneKeysOf, screensForChanges } from './lib/layoutScenes.mjs';
+import { installSettle, settle } from './lib/settle.mjs';
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
 const opt = (n, d) => {
   const i = args.indexOf(`--${n}`);
   return i >= 0 && args[i + 1] ? args[i + 1] : d;
 };
+/** A flag with an optional value (`--changed`, `--changed main`): undefined when absent, '' when bare. */
+const optional = (n) => {
+  const i = args.indexOf(`--${n}`);
+  if (i < 0) return undefined;
+  const v = args[i + 1];
+  return v && !v.startsWith('--') && !/^https?:/.test(v) ? v : '';
+};
 const base = args.find((a) => /^https?:/.test(a)) ?? 'http://localhost:5173/';
 const outDir = shotsDir('layout');
 const allowDir = join(root, 'scripts/layout-allowlist');
 
+const QUICK_MODE = optional('quick') !== undefined;
+const CHANGED = QUICK_MODE ? (optional('quick') || optional('changed') || '') : optional('changed');
 const SIZES = sizesFor(opt('matrix', 'all'), opt('sizes', ''));
 const LANGS = opt('langs', 'en,ru').split(',');
 const INSETS = opt('insets', 'plain,tg').split(',');
-const JOBS = Number(opt('jobs', '4'));
+const JOBS = Number(opt('jobs', String(Math.min(6, Math.max(2, Math.floor(availableParallelism() / 2))))));
 const DPR = Number(opt('dpr', '1'));
 const [SHARD, SHARDS] = opt('shard', '1/1').split('/').map(Number);
 const SPLIT = Math.max(1, Number(opt('split', '1')));
+const FIXED_WAITS = flag('fixed-waits');
+
+// ------------------------------------------------------------------ timing (--timing)
+/** Milliseconds spent per phase, summed over every context. */
+const T = { browser: 0, load: 0, boot: 0, stage: 0, staging: 0, waits: 0, settle: 0, check: 0, shots: 0, scroll: 0 };
+const timed = async (phase, fn) => {
+  const t = Date.now();
+  try {
+    return await fn();
+  } finally {
+    T[phase] += Date.now() - t;
+  }
+};
 
 // ------------------------------------------------------------------ screens
 // owner: F = UI foundation (must stay clean), A = battle + results, B = army /
@@ -64,7 +102,8 @@ const SPLIT = Math.max(1, Number(opt('split', '1')));
 const ev = (page, fn, arg) => page.evaluate(fn, arg);
 const start = (page, key, data) => makePageApi(page).start(key, data);
 const call = (page, key, body) => makePageApi(page).call(key, body);
-const wait = (page, ms) => page.waitForTimeout(ms);
+/** A staging wait: up to `ms`, over as soon as the game is quiet (scripts/lib/settle.mjs) unless --fixed-waits. */
+const wait = (page, ms) => timed('waits', () => (FIXED_WAITS ? page.waitForTimeout(ms) : settle(page, ms)));
 const until = (page, fn, ms = 8000) => makePageApi(page).untilPage(fn, ms, 150);
 const activeIs = (k) => new Function(`return window.__game.scene.isActive(${JSON.stringify(k)})`);
 
@@ -998,21 +1037,25 @@ function seededRandom() {
 
 async function runConfig(browser, cfg, screens) {
   const [W, H] = cfg.size;
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true });
-  await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
-  await ctx.addInitScript(seededRandom);
-  // a full-screen Telegram with the insets already reported
-  if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, { insets: cfg.tg, fullscreen: 'launch', languageCode: 'en' });
-  const page = await ctx.newPage();
-  const errors = captureErrors(page, { ignoreNetwork: true });
-  await apiDown(page);
-  await page.route('**/telegram.org/**', (r) => r.abort());
+  const { ctx, page, errors } = await timed('browser', async () => {
+    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true });
+    await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+    await ctx.addInitScript(seededRandom);
+    if (!FIXED_WAITS) await installSettle(ctx);
+    // a full-screen Telegram with the insets already reported
+    if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, { insets: cfg.tg, fullscreen: 'launch', languageCode: 'en' });
+    const page = await ctx.newPage();
+    const errors = captureErrors(page, { ignoreNetwork: true });
+    await apiDown(page);
+    await page.route('**/telegram.org/**', (r) => r.abort());
+    return { ctx, page, errors };
+  });
   const url = `${base}${base.includes('?') ? '&' : '?'}lang=${cfg.lang}${cfg.insets === 'tg' ? '#tgWebAppVersion=8.0&tgWebAppPlatform=ios' : ''}`;
   // a busy machine can be slow to serve the first load: one more try
-  await page.goto(url, { timeout: 60000 }).catch(() => page.goto(url, { timeout: 60000 }));
-  await until(page, () => !!window.__game && window.__game.scene.isActive('Menu'), 15000);
+  await timed('load', () => page.goto(url, { timeout: 60000 }).catch(() => page.goto(url, { timeout: 60000 })));
+  await timed('boot', () => until(page, () => !!window.__game && window.__game.scene.isActive('Menu'), 15000));
   // A fixed campaign, staged like the screenshot tour: more heroes, gold, perks; no one-time hints.
-  await ev(page, async () => {
+  await timed('stage', () => ev(page, async () => {
     const st = window.__state;
     st.campaign = st.campaign.constructor.fresh(20261006);
     st.hasSave = true;
@@ -1031,7 +1074,7 @@ async function runConfig(browser, cfg, screens) {
     const rar = ['legendary', 'epic', 'rare', 'uncommon', 'common'];
     c.data.stash = defs.map((def, i) => ({ uid: `lc${i}`, def, rarity: rar[i % 5], cond: 100 - ((i * 17) % 60) }));
     await st.save();
-  });
+  }));
   const results = [];
   for (const sc of screens) {
     let violations = [];
@@ -1039,77 +1082,152 @@ async function runConfig(browser, cfg, screens) {
     let error = null;
     try {
       await ev(page, (n) => window.__reseed(n), [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
-      await sc.run(page);
+      const w0 = T.waits;
+      await timed('staging', () => sc.run(page));
+      T.staging -= T.waits - w0; // staging is the screen's own work, its waits are counted apart
       // let finite tweens end (a sheet sliding in, a fade): on a slow software renderer they can
       // outlast the screen's fixed wait, and a half-open sheet reads as "outside the safe area"
-      await until(page, () => window.__game.scene.getScenes(true).every((s) => s.tweens.getTweens().every((t) => !t.isPlaying() || t.loop === -1 || t.data.some((d) => d.repeat === -1))), 3000);
+      await timed('settle', () => until(page, () => window.__game.scene.getScenes(true).every((s) => s.tweens.getTweens().every((t) => !t.isPlaying() || t.loop === -1 || t.data.some((d) => d.repeat === -1))), 3000));
       // let tooltips / toasts from staging fade, then measure
-      const r = await ev(page, () => {
+      const r = await timed('check', () => ev(page, () => {
         const x = window.__layout.check();
         return { violations: x.violations, elements: x.elements.length, scenes: window.__game.scene.getScenes(true).map((s) => s.scene.key) };
-      });
+      }));
       violations = r.violations;
       elements = r.elements;
       const dir = join(outDir, `${cfg.lang}-${cfg.insets}`, `${W}x${H}`);
-      if (!flag('no-shots')) {
-        mkdirSync(dir, { recursive: true });
-        await page.screenshot({ path: join(dir, `${sc.id}.png`) });
-      }
+      if (!flag('no-shots'))
+        await timed('shots', () => {
+          mkdirSync(dir, { recursive: true });
+          return page.screenshot({ path: join(dir, `${sc.id}.png`) });
+        });
       // Scroll every list to its end and check the rest of the content too.
-      if (await ev(page, () => window.__layout.scrollAll(1e6))) {
-        await wait(page, 250);
+      await timed('scroll', async () => {
+        if (!(await ev(page, () => window.__layout.scrollAll(1e6)))) return;
+        await (FIXED_WAITS ? page.waitForTimeout(250) : settle(page, 250));
         const r2 = await ev(page, () => window.__layout.check().violations);
         const seen = new Set(violations.map((v) => [v.check, ...v.ids].join('|')));
         for (const v of r2) if (!seen.has([v.check, ...v.ids].join('|'))) violations.push(v);
         if (!flag('no-shots')) await page.screenshot({ path: join(dir, `${sc.id}-end.png`) });
         await ev(page, () => window.__layout.scrollAll(0));
-      }
+      });
     } catch (e) {
       error = String(e && e.message ? e.message : e).split('\n')[0];
     }
     results.push({ screen: sc.id, owner: sc.owner, violations, elements, error });
   }
-  await ctx.close();
+  await timed('browser', () => ctx.close());
   return { cfg, results, errors };
 }
 
-// ------------------------------------------------------------------ run
+// ------------------------------------------------------------------ which screens
 
-const onlyScreens = opt('screens', '');
+const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8', maxBuffer: 64 << 20 });
+/** Files changed since the merge base with `ref` (default v6, else main), uncommitted and untracked ones included, with their diffs. */
+function changedFiles(ref) {
+  const refs = ref ? [ref] : ['v6', 'main'];
+  const found = refs.find((r) => {
+    try {
+      git('rev-parse', '--verify', '--quiet', `${r}^{commit}`);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!found) throw new Error(`--changed: no ref ${refs.join(' or ')}`);
+  const mb = git('merge-base', 'HEAD', found).trim();
+  const paths = [...new Set([...git('diff', '--name-only', mb).split('\n'), ...git('ls-files', '--others', '--exclude-standard').split('\n')].filter(Boolean))];
+  return { ref: found, files: paths.map((path) => ({ path, diff: path.startsWith('scripts/layout-allowlist/') ? git('diff', mb, '--', path) : '' })) };
+}
+/** Every src/ file's text, by repository-relative path. */
+function sourceTexts() {
+  const out = new Map();
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(ts|tsx|js|mjs)$/.test(name)) out.set(relative(root, p).split('\\').join('/'), readFileSync(p, 'utf8'));
+    }
+  };
+  walk(join(root, 'src'));
+  return out;
+}
+
 // opt-in screens (art previews) run only when named
 const DEFAULT_SCREENS = SCREENS.filter((s) => !s.optIn);
-const screens = onlyScreens ? SCREENS.filter((s) => onlyScreens.split(',').includes(s.id)) : DEFAULT_SCREENS;
-const configs = configsFor(SIZES, LANGS, INSETS);
+const byId = new Map(SCREENS.map((s) => [s.id, s]));
+const pick = (ids) => ids.map((id) => byId.get(id));
+for (const id of QUICK.smoke) if (!byId.has(id)) throw new Error(`QUICK.smoke names ${id}, which is not a screen`);
+const onlyScreens = opt('scenes', opt('screens', ''));
+let screens = onlyScreens ? pick(matchScreens(DEFAULT_SCREENS.map((s) => s.id), onlyScreens, SCREENS.filter((s) => s.optIn).map((s) => s.id))) : DEFAULT_SCREENS;
+/** Per size, extra screens to run there only (--quick's smoke subset). */
+const extraAt = new Map();
+if (CHANGED !== undefined) {
+  const { ref, files } = changedFiles(CHANGED);
+  const sources = sourceTexts();
+  const known = [...new Set([...sources.values()].map((t) => /\bsuper\(\s*'([A-Z]\w*)'\s*\)/.exec(t)?.[1]).filter(Boolean))];
+  const helpers = { battle: battle.toString(), results: results.toString(), codexMet: codexMet.toString() };
+  const hit = screensForChanges(files, sources, screens.map((s) => ({ id: s.id, keys: sceneKeysOf(s.run.toString(), helpers, known) })));
+  console.log(`--changed: ${files.length} files changed since the merge base with ${ref}; ${hit.all ? `every screen (${hit.why})` : `${hit.ids.length} screens${hit.ids.length ? `: ${hit.ids.join(', ')}` : ''}`}`);
+  screens = pick(hit.ids);
+  if (QUICK_MODE) for (const size of QUICK.sizes) extraAt.set(size, pick(QUICK.smoke.filter((id) => !hit.ids.includes(id))));
+}
+const screensAt = (size) => [...screens, ...(extraAt.get(size) ?? [])];
+
+// ------------------------------------------------------------------ run
+
+const configs = configsFor(SIZES, LANGS, INSETS).filter((c) => screensAt(c.size.join('x')).length);
 if (SHARDS > 1) configs.splice(0, configs.length, ...configs.filter((_, k) => k % SHARDS === SHARD - 1));
+if (!configs.length) {
+  console.log('No screens to check.\nLAYOUT CHECK PASSED');
+  process.exit(0);
+}
+if (flag('list')) {
+  for (const size of [...new Set(configs.map((c) => c.size.join('x')))]) console.log(`${size} (${configs.filter((c) => c.size.join('x') === size).length} configs): ${screensAt(size).map((s) => s.id).join(', ')}`);
+  console.log(`${configs.length} configs, ${configs.reduce((a, c) => a + screensAt(c.size.join('x')).length, 0)} screen visits`);
+  process.exit(0);
+}
 // work units: a configuration and a contiguous run of screens (each unit is a fresh context)
 const units = [];
 const skipped = [];
 for (const cfg of configs) {
   const crash = (s) => KNOWN_CRASHES[`${s.id}@${cfg.size.join('x')}/${cfg.insets}`];
-  for (const s of screens.filter(crash)) skipped.push(`${cfg.lang}-${cfg.insets}-${cfg.size.join('x')} ${s.id}: ${crash(s)}`);
-  const list = screens.filter((s) => !crash(s));
+  const here = screensAt(cfg.size.join('x'));
+  for (const s of here.filter(crash)) skipped.push(`${cfg.lang}-${cfg.insets}-${cfg.size.join('x')} ${s.id}: ${crash(s)}`);
+  const list = here.filter((s) => !crash(s));
   const per = Math.ceil(list.length / SPLIT);
   for (let c = 0; c < SPLIT; c++) if (c * per < list.length) units.push({ cfg, screens: list.slice(c * per, (c + 1) * per), part: c });
 }
 
-const browser = await launch();
-const runs = [];
-let next = 0;
+/** Runs the units on one browser, JOBS contexts at a time; `log` prints each unit's line. */
+async function runAll(list, log = true) {
+  const browser = await launch();
+  const out = [];
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(JOBS, list.length) }, async () => {
+      while (next < list.length) {
+        const u = list[next++];
+        const t = Date.now();
+        const r = await runConfig(browser, u.cfg, u.screens);
+        r.ms = Date.now() - t;
+        out.push(r);
+        const n = r.results.reduce((a, x) => a + x.violations.length, 0);
+        if (log) console.log(`${u.cfg.lang} ${u.cfg.insets} ${u.cfg.size.join('x')}${SPLIT > 1 ? ` part ${u.part + 1}/${SPLIT}` : ''}: ${u.screens.length} screens, ${n} violations${r.errors.length ? `, ${r.errors.length} page errors` : ''}`);
+      }
+    }),
+  );
+  await browser.close();
+  return out;
+}
+
 const t0 = Date.now();
-await Promise.all(
-  Array.from({ length: Math.min(JOBS, units.length) }, async () => {
-    while (next < units.length) {
-      const u = units[next++];
-      const t = Date.now();
-      const r = await runConfig(browser, u.cfg, u.screens);
-      r.ms = Date.now() - t;
-      runs.push(r);
-      const n = r.results.reduce((a, x) => a + x.violations.length, 0);
-      console.log(`${u.cfg.lang} ${u.cfg.insets} ${u.cfg.size.join('x')}${SPLIT > 1 ? ` part ${u.part + 1}/${SPLIT}` : ''}: ${n} violations${r.errors.length ? `, ${r.errors.length} page errors` : ''}`);
-    }
-  }),
-);
-await browser.close();
+const runs = await runAll(units);
+if (flag('timing')) {
+  const total = Object.values(T).reduce((a, b) => a + b, 0);
+  console.log(`\nWhere the time went (context seconds, summed over ${units.length} contexts; wall ${Math.round((Date.now() - t0) / 1000)} s, ${FIXED_WAITS ? 'fixed waits' : 'state waits'}):`);
+  for (const [k, ms] of Object.entries(T)) console.log(`  ${k.padEnd(8)} ${String(Math.round(ms / 1000)).padStart(6)} s  ${String(Math.round((100 * ms) / total)).padStart(3)} %`);
+}
 
 // ------------------------------------------------------------------ compare with the allowlist
 
@@ -1132,6 +1250,8 @@ for (const r of runs) {
     }
   }
 }
+// every violation with the configurations it showed in: two runs compare with a plain diff
+writeFileSync(join(outDir, 'found.json'), JSON.stringify(Object.fromEntries([...found].sort().map(([k, x]) => [k, x.configs.sort()])), null, 1) + '\n');
 const allowed = loadAllowlist(allowDir);
 /** New violations: `key@WxH` for every size a key shows at without an allowlist entry. */
 let fresh = [...found].flatMap(([k, x]) => [...x.sizes].filter((size) => !allows(allowed, k, size)).map((size) => `${k}@${size}`)).sort();
@@ -1147,17 +1267,17 @@ if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
       redo.get(tag).ids.add(found.get(key).screen);
     }
   }
-  const b2 = await launch();
   const again = new Set();
-  for (const { cfg, ids } of redo.values()) {
-    const r = await runConfig(b2, cfg, SCREENS.filter((s) => ids.has(s.id)));
-    for (const x of r.results) for (const v of x.violations) again.add(`${keyOf(x.screen, v)}@${sizeOf(cfg)}`);
-  }
-  await b2.close();
+  for (const r of await runAll([...redo.values()].map(({ cfg, ids }) => ({ cfg, screens: SCREENS.filter((s) => ids.has(s.id)) })), false))
+    for (const x of r.results) for (const v of x.violations) again.add(`${keyOf(x.screen, v)}@${sizeOf(r.cfg)}`);
   flaky.push(...fresh.filter((e) => !again.has(e)));
   fresh = fresh.filter((e) => again.has(e));
 }
-const ran = { screens: new Set(screens.map((s) => s.id)), sizes: new Set(configs.map(sizeOf)) };
+const ran = {
+  screens: new Set(configs.flatMap((c) => screensAt(sizeOf(c)).map((s) => s.id))),
+  sizes: new Set(configs.map(sizeOf)),
+  pairs: new Set(configs.flatMap((c) => screensAt(sizeOf(c)).map((s) => `${s.id}@${sizeOf(c)}`))),
+};
 const stale = staleEntries(allowed, found, ran);
 
 if (flag('update-allowlist')) {
@@ -1280,7 +1400,7 @@ for (const size of SIZE_LIST) {
   const r = perSize[size];
   console.log(`  ${size.padEnd(9)} ${groupOf(size).padEnd(9)} ${String(r.clean).padStart(4)} / ${String(r.known).padStart(4)} / ${String(r.failed).padStart(4)}   ${Math.round(r.s)} s`);
 }
-console.log(`\n${configs.length} configs${SHARDS > 1 ? ` (shard ${SHARD}/${SHARDS})` : ''} x ${screens.length} screens in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new.`);
+console.log(`\n${configs.length} configs${SHARDS > 1 ? ` (shard ${SHARD}/${SHARDS})` : ''} x ${screens.length} screens${extraAt.size ? ` (+ the smoke subset at ${QUICK.sizes.join(', ')})` : ''} in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new.`);
 const failed = failNew || pageErrors.length > 0 || screenErrors.length > 0;
 console.log(failed ? 'LAYOUT CHECK FAILED' : 'LAYOUT CHECK PASSED');
 process.exit(failed ? 1 : 0);

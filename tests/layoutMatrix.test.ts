@@ -128,4 +128,17 @@ describe('layout allowlist: owners and rewriting', () => {
     expect(staleEntries(allowed, found([]), ran)).toEqual([]);
     expect(staleEntries(allowed, found([]), { screens: ran.screens, sizes: new Set(sizesFor()) })).toEqual(['army|text-size|*']);
   });
+
+  it('judges a run that visited different screens at different sizes (--quick) by the screen@size pairs it ran', () => {
+    // --quick: army at 390x844 only (the smoke subset), menu at every size
+    const pairs = new Set(['army@390x844', ...sizesFor().map((s: string) => `menu@${s}`)]);
+    const quick = { screens: ran.screens, sizes: new Set(sizesFor()), pairs };
+    const allowed = new Map([
+      ['army|overlap|gone@844x390', 'V6-RSCR-05'],
+      ['army|overlap|gone@390x844', 'V6-RSCR-05'],
+      ['army|text-size|*', 'V6-RSCR-05'],
+      ['menu|text-size|*', 'V6-RSCR-01'],
+    ]);
+    expect(staleEntries(allowed, found([]), quick)).toEqual(['army|overlap|gone@390x844', 'menu|text-size|*']);
+  });
 });

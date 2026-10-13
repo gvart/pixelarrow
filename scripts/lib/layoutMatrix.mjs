@@ -155,8 +155,15 @@ function shows(found, key, size) {
   return false;
 }
 
-/** Whether this run visited what an entry covers: its screen, at its size (scoped) or at every matrix size (unscoped). */
-const covered = (ran, key, size) => ran.screens.has(key.split('|')[0]) && (size ? ran.sizes.has(size) : MATRIX.all.every((s) => ran.sizes.has(s)));
+/**
+ * Whether this run visited what an entry covers: its screen, at its size (scoped) or at every matrix size
+ * (unscoped). `ran.pairs` (screen@size), when given, is what ran where (--quick runs screens at some sizes only).
+ */
+const covered = (ran, key, size) => {
+  const screen = key.split('|')[0];
+  const at = ran.pairs ? (s) => ran.pairs.has(`${screen}@${s}`) : (s) => ran.screens.has(screen) && ran.sizes.has(s);
+  return size ? at(size) : MATRIX.all.every(at);
+};
 
 /**
  * The allowlist rewritten from a run (`--update-allowlist`), as story -> sorted entries.
