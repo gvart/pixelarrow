@@ -1,0 +1,29 @@
+README.md
+  s_0d98fe904b2e82::t_0969ecefc8e26a 13,121,169
+src/online/deeplink.ts
+  s_0d98fe904b2e82::t_0969ecefc8e26a 3
+docs/OPS.md
+  s_0d98fe904b2e82::t_0969ecefc8e26a 3,29,345,390,448-449
+server/README.md
+  s_0d98fe904b2e82::t_0969ecefc8e26a 4,22,24,178,203,694,816,821,827
+docs/ROADMAP.md
+  s_0d98fe904b2e82::t_0969ecefc8e26a 30
+.github/workflows/deploy.yml
+  s_0d98fe904b2e82::t_0969ecefc8e26a 108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b570dabb33f856f3e03b81079b60340b112b5761",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
