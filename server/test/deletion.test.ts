@@ -336,6 +336,74 @@ describe('resumable deletion jobs', () => {
   });
 });
 
+describe('ban tombstones (ADR-0009 §7.7)', () => {
+  const ORIGIN = { origin: new URL(env.GAME_URL ?? 'https://play.pixelarrow.app').origin };
+  const signup = async (email: string) => {
+    expect((await api('/api/auth/signup', { method: 'POST', json: { email, password: 'a-long-enough-pass-1', turnstile: 'XXXX.DUMMY.TOKEN.XXXX' }, headers: ORIGIN })).status).toBe(202);
+    for (let i = 0; i < 100; i++) {
+      const m = await DB().prepare('SELECT text FROM dev_outbox WHERE to_addr = ?1 ORDER BY id DESC').bind(email).first<{ text: string }>();
+      const t = m && /#t=([A-Za-z0-9_-]{43})/.exec(m.text)?.[1];
+      if (t) return api('/api/auth/verify', { method: 'POST', json: { token: t }, headers: ORIGIN });
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    throw new Error('no verify mail');
+  };
+
+  async function bannedWithEmail() {
+    const me = await devLogin(++tg);
+    const email = `banned${tg}@example.com`;
+    const now = Date.now();
+    await DB().batch([
+      DB().prepare(`INSERT INTO auth_identities (player_id, kind, subject, email, verified_at, created_at) VALUES (?1, 'password', ?2, ?2, ?3, ?3)`).bind(me.playerId, email, now),
+      DB().prepare("UPDATE players SET banned_at = ?2, ban_reason = 'cheating' WHERE id = ?1").bind(me.playerId, now - DAY),
+    ]);
+    return { ...me, tg, email, now };
+  }
+
+  it('keeps only peppered hashes of a deleted banned player’s identities, for 180 days', async () => {
+    const b = await bannedWithEmail();
+    expect(await deleteAccount(env, b.playerId, 'admin', b.now)).toBe('done');
+    const pepper = peppersFromEnv(env).current;
+    const rows = (await DB().prepare('SELECT identity_hash, banned_at, expires_at FROM ban_tombstones WHERE identity_hash IN (?1, ?2)').bind(
+      await banIdentityHash(pepper, 'telegram', String(b.tg)),
+      await banIdentityHash(pepper, 'password', b.email),
+    ).all<{ banned_at: number; expires_at: number }>()).results;
+    expect(rows).toHaveLength(2);
+    for (const r of rows) expect(r).toMatchObject({ banned_at: b.now - DAY, expires_at: b.now + 180 * DAY });
+    // Nothing else of the identities survives anywhere.
+    expect(await count('auth_identities WHERE subject IN (?1, ?2)', String(b.tg), b.email)).toBe(0);
+    expect(await DB().prepare('SELECT ban_reason, banned_at FROM players WHERE id = ?1').bind(b.playerId).first()).toEqual({ ban_reason: null, banned_at: b.now - DAY });
+  });
+
+  it('blocks Telegram log-in and sign-up with the same identities', async () => {
+    const b = await bannedWithEmail();
+    expect(await deleteAccount(env, b.playerId, 'admin', b.now)).toBe('done');
+    const tgLogin = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: b.tg, first_name: 'Again' } }, headers: { 'cf-connecting-ip': '10.9.9.9' } });
+    expect(tgLogin.status).toBe(403);
+    expect((await tgLogin.json<{ error: { code: string } }>()).error.code).toBe('banned');
+    const verify = await signup(b.email);
+    expect(verify.status).toBe(403);
+    expect(await count('auth_identities WHERE subject IN (?1, ?2)', String(b.tg), b.email)).toBe(0);
+  });
+
+  it('lets the identities of a deleted player who was not banned sign up again', async () => {
+    const me = await devLogin(++tg);
+    const email = `fine${tg}@example.com`;
+    await DB().prepare(`INSERT INTO auth_identities (player_id, kind, subject, email, verified_at, created_at) VALUES (?1, 'password', ?2, ?2, 1, 1)`).bind(me.playerId, email).run();
+    expect(await deleteAccount(env, me.playerId, 'self')).toBe('done');
+    expect((await signup(email)).status).toBe(200);
+    expect((await devLogin(tg)).playerId).not.toBe(me.playerId);
+  });
+
+  it('expire after 180 days (the cron prunes them)', async () => {
+    const b = await bannedWithEmail();
+    expect(await deleteAccount(env, b.playerId, 'admin', b.now)).toBe('done');
+    await finishDeletions(env, b.now + 181 * DAY);
+    const h = await banIdentityHash(peppersFromEnv(env).current, 'telegram', String(b.tg));
+    expect(await count('ban_tombstones WHERE identity_hash = ?1', h)).toBe(0);
+  });
+});
+
 function s0<T>(xs: T[] | undefined): T {
   return xs![0];
 }
