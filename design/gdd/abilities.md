@@ -1,7 +1,7 @@
 # Perk Paths, Signature Actives and the Standard
 
 > **Type**: Addition (quick-design) to systems #7 Orders and abilities, #16 Heroes and progression and #3 Unit stat derivation
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Vision rank**: 3 of 6
 > **Pillars**: P4 Every man has a name, P1 The line decides, P3 Command from the thumb (medallion budget)
 > **Fixes**: MECH H1, H2, H3, H4 (partly), M2; BASELINE "Abilities worth 0–5 points", R1 and R3 (partly)

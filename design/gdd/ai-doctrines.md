@@ -1,7 +1,7 @@
 # AI Doctrines and Band Captains
 
 > **Type**: Addition (quick-design) to systems #10 Bot AI and #11 Enemy army generation
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Vision rank**: 1 of 6
 > **Pillars**: P1 The line decides, P2 Read it at a glance, P5 One sim
 > **Fixes**: MECH A1, A2, A3 (partly), PLAY P1, BASELINE "Ridge 74%"

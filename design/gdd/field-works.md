@@ -1,7 +1,7 @@
 # Field Works
 
 > **Type**: Addition (quick-design) to system #5 Battle terrain, linking #21 Field camp to battles
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Vision rank**: 6 of 6
 > **Pillars**: P1 The line decides (where the line can hold), P2 Read it at a glance
 > **Fixes**: MECH F1 (a flank answer), R3 (a cavalry answer for foot that isn't massed militia), "nothing links the camp to battles" (§2.3.1)

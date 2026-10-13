@@ -1,6 +1,7 @@
 # Quick Design Spec: Practice fight (the Beast Trial without spoils)
 
 **Type**: Tweak (a behavioural change to an existing system; no new state, no save field)
+**Status**: Implemented
 **System**: Offline campaign battle, Beast Trial entry (`src/scenes/BeastTrialScene.ts`, `src/game/campaignBattle.ts`)
 **GDD Reference**: no GDD covered the Beast Trial. Sources used instead: `docs/v5/audit/MECHANICS.md` I1, `docs/v5/balance/BASELINE.md` "Degenerate: the Beast Trial farm", `docs/v5/DECISIONS.md` V5-011 and V5-029, `design/ux/ia.md` §4, story LF-02 in `docs/v5/plan/STORIES.md`.
 **Date**: 2026-10-10

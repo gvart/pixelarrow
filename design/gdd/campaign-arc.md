@@ -1,7 +1,7 @@
 # Campaign Arc: the Opening, Lair Assaults and the Final Host
 
 > **Type**: New system on top of #19 Overland campaign world. Classified **too large for quick-design** (`[F]`), but kept at quick-design depth per the brief. **Run `/design-system campaign-arc` before its epic starts.**
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Vision rank**: 4 of 6
 > **Pillars**: P4 Every man has a name, P1 The line decides
 > **Fixes**: PLAY O1 (structural), O4; MECH C2, C3, C6 (partly), I2; BASELINE "Unreachable sets offline"
