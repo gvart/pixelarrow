@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import layoutCheck from '../../scripts/layout-check.mjs?raw';
 import sheetLayout from '../../scripts/regression/sheet-layout.mjs?raw';
 import { sourceFiles } from '../support/nodeIo.js';
+// @ts-expect-error plain .mjs module without types
+import { MATRIX } from '../../scripts/lib/layoutMatrix.mjs';
 
 // QA-02 acceptance 2: every new (v5) sheet has a layout fixture at 320x568, 320x640, 360x780 and 390x844,
 // in en and ru. The sheets are derived: every `open…` function exported from src/ui/sheets/**. Each must
@@ -47,9 +49,11 @@ describe('sheet layout fixtures (QA-02)', () => {
   });
 
   it('runs every fixture at the four sizes in en and ru by default', () => {
-    for (const [name, src] of [['layout-check', layoutCheck], ['sheet-layout', sheetLayout]] as const) {
-      expect(defaults(src, 'sizes'), name).toEqual(expect.arrayContaining(SIZES));
+    // sheet-layout by its defaults; layout-check by its matrix groups, the ten matrix sizes plus `v5`, which CI runs
+    // (tests/layoutCheckConfig.test.ts checks the CI job's sizes)
+    expect(defaults(sheetLayout, 'sizes'), 'sheet-layout').toEqual(expect.arrayContaining(SIZES));
+    expect([...MATRIX.all, ...MATRIX.v5], 'layout-check').toEqual(expect.arrayContaining(SIZES));
+    for (const [name, src] of [['layout-check', layoutCheck], ['sheet-layout', sheetLayout]] as const)
       expect(defaults(src, 'langs'), name).toEqual(expect.arrayContaining(['en', 'ru']));
-    }
   });
 });
