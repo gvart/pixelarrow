@@ -49,7 +49,7 @@ function check(raw: string, min: number, max: number): NameCheck {
   if (LATIN.test(name) && CYRILLIC.test(name)) return { ok: false, reason: 'mixed_script' };
   const key = nameKey(name);
   if (RESERVED_KEYS.some((r) => (r.anywhere ? key.includes(r.key) : key === r.key))) return { ok: false, reason: 'reserved' };
-  if (BLOCKED_KEYS.some((b) => key.includes(b))) return { ok: false, reason: 'blocked' };
+  if (isBlocked(name)) return { ok: false, reason: 'blocked' };
   return { ok: true, name, key };
 }
 
@@ -61,4 +61,10 @@ export function validateDisplayName(raw: string): NameCheck {
 /** A clan name (public on the war board): the same rules with 3–20 characters. */
 export function validateClanName(raw: string): NameCheck {
   return check(raw, 3, 20);
+}
+
+/** True when a short label (a clan tag) contains a blocklisted word. */
+export function isBlocked(raw: string): boolean {
+  const key = nameKey(raw);
+  return BLOCKED_KEYS.some((b) => key.includes(b));
 }

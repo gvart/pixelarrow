@@ -60,12 +60,13 @@ export const CLAN_EN = {
   'clan.join.ok': 'Join',
   // ---- found a clan (the text form)
   'clan.form.title': 'Found a clan',
-  'clan.form.name': 'Name (3-24)',
+  'clan.form.name': 'Name (3-20)',
   'clan.form.namePh': 'Sons of Lambda',
   'clan.form.tag': 'Tag (2-5 letters)',
   'clan.form.tagPh': 'LMB',
   'clan.form.ok': 'Found',
-  'clan.form.badName': 'A name has 3 to 24 letters, digits, spaces, apostrophes or hyphens.',
+  'clan.form.badName': 'A name has 3 to 20 letters, digits, single spaces, _ or -, in Latin or Cyrillic, not both.',
+  'clan.form.notAllowed': "This name isn't allowed.",
   'clan.form.badTag': 'A tag has 2 to 5 Latin letters or digits.',
   // ---- server errors by code (server/src/online/clans.ts)
   'clan.err.in_clan': 'Leave your clan first.',
@@ -79,5 +80,7 @@ export const CLAN_EN = {
   'clan.err.not_found': 'Not a member of your clan.',
   'clan.err.rate_limited': 'Too many tries: wait a minute.',
   'clan.err.bad_request': 'Check the name and the tag.',
+  'clan.err.invalid_name': "This name isn't allowed.",
+  'clan.err.invalid_tag': "This tag isn't allowed.",
   'clan.err.generic': 'That did not work. Try again.',
 };

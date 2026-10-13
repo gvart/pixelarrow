@@ -226,14 +226,14 @@ describe('async defence ladder', () => {
     // the defence log on both sides, and the replay anyone can fetch
     const logD = await getJson<{ entries: { id: string; role: string; name: string; delta: number; score: number }[] }>('/api/duel/async/log', def.token);
     expect(logD.body.entries).toHaveLength(1);
-    expect(logD.body.entries[0]).toMatchObject({ id: tk2.body.ticket, role: 'defence', name: 'D9412', score: 1 - score });
+    expect(logD.body.entries[0]).toMatchObject({ id: tk2.body.ticket, role: 'defence', name: att.name, score: 1 - score });
     const logA = await getJson<{ entries: { role: string }[] }>('/api/duel/async/log', att.token);
     expect(logA.body.entries[0].role).toBe('attack');
     const other = await duellist(9413);
     const rp = await getJson<{ setup: BattleSetup; orders: unknown[]; winner: number; names: string[] }>(`/api/duel/async/replay/${tk2.body.ticket}`, other.token);
     expect(rp.status).toBe(200);
     expect(rp.body.orders).toHaveLength(s2.orders.length);
-    expect(rp.body.names).toEqual(['D9412', 'D9411']);
+    expect(rp.body.names).toEqual([att.name, def.name]); // display names, never the Telegram name
     expect(rp.body.winner).toBe(rep.winner);
 
     // 24 hours: the same defender is neither offered nor attackable
@@ -359,22 +359,22 @@ describe('leaderboards', () => {
     const live = await getJson<Board>('/api/duel/leaderboard?board=live', ps[1].token);
     // (earlier tests of this file left other players on the board, below these)
     expect(live.body.rows.slice(0, 3).map((r) => [r.rank, r.name, r.league.id, r.rating])).toEqual([
-      [1, 'D9441', 'legend', 2150],
-      [2, 'D9443', 'strategos', null],
-      [3, 'D9442', 'hoplite', null],
+      [1, ps[0].name, 'legend', 2150],
+      [2, ps[2].name, 'strategos', null],
+      [3, ps[1].name, 'hoplite', null],
     ]);
-    expect(live.body.rows.some((r) => r.name === 'D9444')).toBe(false);
+    expect(live.body.rows.some((r) => r.name === ps[3].name)).toBe(false);
     expect(live.body.me).toMatchObject({ rank: 3, rating: null });
     const legend = await getJson<Board>('/api/duel/leaderboard?board=legend', ps[0].token);
-    expect(legend.body.rows.map((r) => r.name)).toEqual(['D9441']);
+    expect(legend.body.rows.map((r) => r.name)).toEqual([ps[0].name]);
     expect(legend.body.me).toMatchObject({ rank: 1, rating: 2150 });
     const asyncBoard = await getJson<Board>('/api/duel/leaderboard?board=async', ps[0].token);
     expect(asyncBoard.body.me).toBeNull();
-    expect(asyncBoard.body.rows.some((r) => r.name === 'D9441')).toBe(false);
+    expect(asyncBoard.body.rows.some((r) => r.name === ps[0].name)).toBe(false);
     // coming back rolls the row into this season (soft reset): now on the board
     const back = await getJson<Board>('/api/duel/leaderboard?board=live', ps[3].token);
     expect(back.body.me?.rank).toBeGreaterThan(3);
-    expect(back.body.rows.some((r) => r.name === 'D9444')).toBe(true);
+    expect(back.body.rows.some((r) => r.name === ps[3].name)).toBe(true);
     expect((await getJson('/api/duel/leaderboard?board=nope', ps[0].token)).status).toBe(400);
   });
 });

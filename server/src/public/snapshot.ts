@@ -8,7 +8,8 @@
 import type { Env } from '../env';
 import { seasonEnd, seasonId } from '../../../src/duel/season';
 import { BOARD_MAX, BOARD_MIN, BODY_MAX_BYTES, CHAMPIONS_MAX, PublicSummaryV1 } from './schema';
-import { ELIGIBLE, publicDuelTop, publicNamesReady } from './duelTop';
+import { ELIGIBLE, publicDuelTop } from './duelTop';
+import { validateClanName } from '../names/validate';
 import { standings } from '../online/store';
 
 const DAY = 86_400_000;
@@ -17,9 +18,9 @@ export type { PublicSummaryV1 } from './schema';
 
 export interface SnapshotOptions {
   /**
-   * May this clan name be public? ADR-0009's shared name validator (V6-LINK-01)
-   * goes here. Until it exists no clan name is public: the clan board stays
-   * empty and war rows carry `clan: null`.
+   * May this clan name be public? By default ADR-0009's shared validator
+   * (names/validate.ts): a clan whose name fails it stays off the clan board
+   * and war rows show `clan: null`.
    */
   clanName?: (name: string) => boolean;
 }
@@ -28,25 +29,24 @@ export interface SnapshotOptions {
 export async function buildPublicSnapshot(env: Env, now: number, opts: SnapshotOptions = {}): Promise<PublicSummaryV1> {
   const db = env.DB;
   if (!db) throw new Error('public snapshot: no DB binding');
-  const clanOk = opts.clanName ?? (() => false);
-  const names = await publicNamesReady(db);
+  const clanOk = opts.clanName ?? ((name: string) => validateClanName(name).ok);
   const duelSeason = seasonId(now);
   const warSeason = await db.prepare("SELECT id, ends_at FROM online_seasons WHERE status = 'active' ORDER BY id DESC LIMIT 1").first<{ id: number; ends_at: number }>();
   const snap: PublicSummaryV1 = {
     v: 1,
     generatedAt: now,
-    totals: await totals(db, now, names.deletedAt, warSeason?.id ?? null),
+    totals: await totals(db, now, warSeason?.id ?? null),
     duels: {
       season: { id: duelSeason, endsAt: seasonEnd(duelSeason) },
-      live: names.ready ? board(await publicDuelTop(db, 'live', duelSeason, BOARD_MAX)) : [],
-      async: names.ready ? board(await publicDuelTop(db, 'async', duelSeason, BOARD_MAX)) : [],
+      live: board(await publicDuelTop(db, 'live', duelSeason, BOARD_MAX)),
+      async: board(await publicDuelTop(db, 'async', duelSeason, BOARD_MAX)),
     },
     war: {
       season: warSeason ? { id: warSeason.id, endsAt: warSeason.ends_at } : null,
-      ...(names.ready && warSeason ? await warBoards(db, warSeason.id, clanOk) : { players: [], clans: [] }),
+      ...(warSeason ? await warBoards(db, warSeason.id, clanOk) : { players: [], clans: [] }),
     },
-    champions: names.ready ? await champions(db, duelSeason) : { war: [], duel: [] },
-    bossSlayers: names.ready ? board(await bossSlayers(db)) : [],
+    champions: await champions(db, duelSeason),
+    bossSlayers: board(await bossSlayers(db)),
   };
   const body = JSON.stringify(PublicSummaryV1.parse(snap));
   if (new TextEncoder().encode(body).length > BODY_MAX_BYTES) throw new Error('public snapshot: body over 32 KB');
@@ -62,11 +62,11 @@ function board<T>(rows: T[]): T[] {
   return rows.length < BOARD_MIN ? [] : rows.slice(0, BOARD_MAX);
 }
 
-async function totals(db: D1Database, now: number, deletedAt: boolean, warSeason: number | null): Promise<PublicSummaryV1['totals']> {
+async function totals(db: D1Database, now: number, warSeason: number | null): Promise<PublicSummaryV1['totals']> {
   const war = await advanceCounter(db, COUNTERS.war, now);
   const duels = (await advanceCounter(db, COUNTERS.duelMatches, now)) + (await advanceCounter(db, COUNTERS.duelAttacks, now));
   const p = await db
-    .prepare(`SELECT COUNT(*) AS players, SUM(last_seen_at >= ?1) AS active FROM players WHERE banned_at IS NULL${deletedAt ? ' AND deleted_at IS NULL' : ''}`)
+    .prepare(`SELECT COUNT(*) AS players, SUM(last_seen_at >= ?1) AS active FROM players WHERE banned_at IS NULL AND deleted_at IS NULL`)
     .bind(now - 7 * DAY)
     .first<{ players: number; active: number | null }>();
   return {

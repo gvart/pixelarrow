@@ -65,19 +65,23 @@ describe('clan errors', () => {
 });
 
 describe('found a clan form', () => {
-  it('accepts what the server accepts', () => {
+  it('accepts what the server accepts (the shared validator, server/src/names/validate.ts)', () => {
     expect(clanFormError('Sons of Lambda', 'LMB')).toBeNull();
-    expect(clanFormError("Hoplites d'Argos-2", 'AB12')).toBeNull();
+    expect(clanFormError('Hoplites of Argos-2', 'AB12')).toBeNull();
     expect(clanFormError('Сыны Лямбды', 'SL')).toBeNull();
   });
 
   it('refuses a bad name or tag before sending', () => {
     expect(clanFormError('Ab', 'LMB')).toBe(CLAN_EN['clan.form.badName']);
-    expect(clanFormError('x'.repeat(25), 'LMB')).toBe(CLAN_EN['clan.form.badName']);
+    expect(clanFormError('x'.repeat(21), 'LMB')).toBe(CLAN_EN['clan.form.badName']);
     expect(clanFormError('Sons!', 'LMB')).toBe(CLAN_EN['clan.form.badName']);
+    expect(clanFormError("Hoplites d'Argos", 'LMB')).toBe(CLAN_EN['clan.form.badName']);
+    expect(clanFormError('Sons of Лямбда', 'LMB')).toBe(CLAN_EN['clan.form.badName']); // mixed scripts
+    expect(clanFormError('Admin Guild', 'LMB')).toBe(CLAN_EN['clan.form.notAllowed']);
     expect(clanFormError('Sons of Lambda', 'L')).toBe(CLAN_EN['clan.form.badTag']);
     expect(clanFormError('Sons of Lambda', 'ΛΜΒ')).toBe(CLAN_EN['clan.form.badTag']);
     expect(clanFormError('Sons of Lambda', 'TOOLONG')).toBe(CLAN_EN['clan.form.badTag']);
+    expect(clanFormError('Sons of Lambda', 'FUCK')).toBe(CLAN_EN['clan.form.notAllowed']);
   });
 });
 

@@ -125,7 +125,7 @@ describe('live army movement over the shard socket', () => {
     const seen = full.map((x, i) => ({ x, i })).filter(({ x }) => w.hops(watch, x) <= SIGHT);
 
     const mb = await wb.next('army_march');
-    expect(mb).toMatchObject({ player: a.playerId, name: 'Mover', clan: expect.any(Number) });
+    expect(mb).toMatchObject({ player: a.playerId, name: a.name, clan: expect.any(Number) });
     expect(mb.path).toEqual(seen.map(({ x }) => x));
     expect(mb.at).toEqual(seen.map(({ i }) => m.body.at[i]));
     expect((mb.path as unknown[]).length).toBeLessThan(full.length); // the destination stays in the fog
