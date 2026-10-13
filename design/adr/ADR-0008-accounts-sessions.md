@@ -24,7 +24,7 @@ Today a player is a Telegram user: `players.telegram_id` is `NOT NULL UNIQUE`, a
 | **Knowledge Risk** | MEDIUM. Cloudflare Email Service sending is **Beta** and needs Workers Paid. The Rate Limiting binding needs Wrangler 4.36 or later. The PBKDF2 iteration ceiling in workerd is community-reported, not documented by Cloudflare. |
 | **References Consulted** | developers.cloudflare.com: Email Service overview and "Send emails" (the `send_email` binding, `"remote": true`, onboarding the domain adds SPF, DKIM and DMARC on `cf-bounce`); Turnstile "Server-side validation" (siteverify, 300 s single-use tokens, `hostname` and `action` checks, `idempotency_key`) and "Testing" (test keys, dummy token); Workers "Rate Limiting binding" (`ratelimits`, `simple.limit`, `period` 10 or 60, per location, eventually consistent). Repo: `server/src/session.ts`, `middleware.ts`, `players.ts`, `routes/auth.ts`, `rateLimit.ts`, `telegramAuth.ts`, migrations 0001–0016, `docs/v6/audit/SERVER.md`, `HOSTING.md`, `PLATFORM.md`. |
 | **Post-Cutoff APIs Used** | `send_email` binding `env.EMAIL.send({ to, from, subject, html, text })` (Email Service, Beta). `ratelimits` binding `env.X.limit({ key })`. |
-| **Verification Required** | (1) A spike on a deployed preview Worker: PBKDF2-SHA256 at 100,000 iterations runs, measured CPU time is under 60 ms, and 100,001 iterations is refused (this confirms the ceiling). (2) `env.EMAIL.send` delivers to an outside mailbox from `noreply@pixelarrow.app` and passes SPF, DKIM and DMARC. (3) Turnstile's test secret `2x…AA` and `3x…AA` paths are rejected in the workerd tests. (4) `__Host-pa_sid` is never sent to `pixelarrow.app` (ADR-0007). |
+| **Verification Required** | (1) PBKDF2-SHA256 cost and ceiling. Done locally (V6-ACCT-01, `docs/v6/qa/PBKDF2_SPIKE.md`): 310,000 iterations takes about 25 ms CPU, and local workerd refuses no count up to 1,000,000. Still pending: the production check on a deployed throwaway Worker (`docs/v6/OWNER_ACTIONS.md` item 7) that 310,000 runs under 60 ms CPU and is not capped; otherwise fall back toward the 100,000 floor. Needs Workers Paid. (2) `env.EMAIL.send` delivers to an outside mailbox from `noreply@pixelarrow.app` and passes SPF, DKIM and DMARC. (3) Turnstile's test secret `2x…AA` and `3x…AA` paths are rejected in the workerd tests. (4) `__Host-pa_sid` is never sent to `pixelarrow.app` (ADR-0007). |
 
 ## ADR Dependencies
 
@@ -340,13 +340,13 @@ export interface EmailSender { send(msg: { to: string; subject: string; text: st
 
 ### Negative
 - One D1 read per authenticated request (cache: 30 s). A revocation can lag 30 s in other isolates.
-- PBKDF2 at 100,000 iterations is below OWASP's PBKDF2-SHA256 guidance. The pepper and lockout compensate, but if the pepper leaks together with D1, the margin is thinner than argon2 would give.
+- PBKDF2 at 310,000 iterations (floor 100,000) is below OWASP's current 600,000 for PBKDF2-SHA256, and needs Workers Paid because 100,000 alone takes about 8 ms of Free's 10 ms CPU. The pepper and lockout compensate, but if the pepper leaks together with D1, the margin is thinner than argon2 would give.
 - Email Service is in Beta and needs Workers Paid.
 - Sign-up needs a click in the mailbox before the first online session.
 
 ## Risks
 - **Email Service Beta changes or deliverability is poor.** Mitigation: the `EmailSender` interface allows swapping in the REST API or another provider without touching the flows. Monitor bounces through the `cf-bounce` records.
-- **The PBKDF2 ceiling is lower or higher than 100,000.** Mitigation: the spike before acceptance; the parameter lives in the hash string, and rehash-on-login upgrades accounts.
+- **Production caps PBKDF2 below 310,000 or runs it over 60 ms CPU.** Local workerd showed no cap; production is unconfirmed until owner action 7. Mitigation: lower `PBKDF2_ITERATIONS` to the highest passing count (floor 100,000); the parameter lives in the hash string, and rehash-on-login converges accounts.
 - **The pepper is lost.** Every password becomes unverifiable. Mitigation: the owner stores it in a password manager. Recovery is a forced reset through email, which still works.
 - **The 30 s session cache serves a revoked session.** Accepted: it is bounded and documented. Deletion and bans also check `deleted_at` and `banned_at` from the same joined row.
 - **The Rate Limiting binding works per location.** A distributed attacker gets the limit at each location. Mitigation: the per-account D1 lockout is global, and Turnstile raises the cost per attempt.
@@ -364,7 +364,7 @@ export interface EmailSender { send(msg: { to: string; subject: string; text: st
 GDD sync: NOT ASSESSED. No GDD exists yet for accounts (the account and linking UX spec is a separate Phase 2 story); this ADR is the source it must follow.
 
 ## Performance Implications
-- **CPU:** about 30–60 ms per password hash (log-in, sign-up, reset, change only). The session lookup is a SHA-256 of 32 bytes, which is negligible.
+- **CPU:** about 25 ms per password hash at 310,000 iterations measured locally (about 52 ms if production is 2× slower; ceiling 60 ms; production pending owner action 7), only on log-in, sign-up, reset and change. Requires Workers Paid. The session lookup is a SHA-256 of 32 bytes, which is negligible.
 - **Memory:** a 30 s session cache per isolate, capped at 5,000 entries.
 - **Load Time:** none for the game. The web log-in screen loads the Turnstile script (about 50 KB) on the auth forms only.
 - **Network:** one D1 read per uncached authenticated request; one siteverify call per anonymous form submit; one email send per mail flow.
