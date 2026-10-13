@@ -1,0 +1,21 @@
+docs/UI_KIT.md
+  s_0d98fe904b2e82::t_6e6228aed36dbe 482-497
+  s_0d98fe904b2e82::t_663c8d096c9c67 509-517
+  s_0d98fe904b2e82::t_62e37e97cf9232 542-557
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1c5370e9aecfe302a0e76a6a6b1d2abdd604a5f1",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
