@@ -1,0 +1,24 @@
+tests/support/nodeIo.d.ts
+  s_697bdc25a7c420::t_61dba949105e4f 3
+tests/iconAtlas.test.ts
+  s_697bdc25a7c420::t_61dba949105e4f 2,144-145,149
+tests/support/nodeIo.js
+  s_697bdc25a7c420::t_e63417b0fa7fe3 16
+  s_697bdc25a7c420::t_61dba949105e4f 9,17-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "62010956dc7e3d591a16f19efcbc326eac88d076",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
