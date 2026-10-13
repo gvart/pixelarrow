@@ -36,9 +36,14 @@ import { lang, setLang, type Lang } from './i18n';
 import { installMonitoring } from './platform/monitoring';
 import type { GameLike } from './platform/telemetry';
 import { installRenderScale, RS } from './platform/renderScale';
+import { installFastArcs } from './platform/fastArcs';
+import { installStaticCanvases } from './platform/staticCanvas';
 
 installWidgets();
 installRenderScale();
+// engine costs measured in QA-05 (docs/v5/qa/PERF.md): arcs as few chords as they need, no canvas readback
+installFastArcs(Phaser.GameObjects.Graphics);
+installStaticCanvases({ TextureManager: Phaser.Textures.TextureManager, CanvasPool: Phaser.Display.Canvas.CanvasPool as never, Texture: Phaser.Textures.Texture, Events: Phaser.Textures.Events });
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
