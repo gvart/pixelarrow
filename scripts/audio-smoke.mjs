@@ -175,12 +175,14 @@ async function run(label, { noAudio }) {
     check(`[${label}] battle music`, fought && battleMusic, JSON.stringify({ fought, ...(await dbg()) }));
 
     // FL-03 (first, while the fight is fresh and running): every juice tier through the real hook (battleAudio, as drainLogged feeds it)
-    await ev(() => window.__game.scene.getScene('Battle').setPaused(false));
     const tiers = ['thud', 'splinter', 'standardFall', 'groan', 'hornChord'];
     const was = (await dbg()).byId;
     await ev(() => {
       const s = window.__game.scene.getScene('Battle');
       const sim = s.sim;
+      // play in this same call: the battle runs in real time, so an auto-pause (first contact, a death) can land
+      // on any frame between two calls and close the world gate before the events go in
+      s.setPaused(false);
       const g = sim.groups.find((x) => !x.disbanded) ?? sim.groups[0];
       const u = sim.units.find((x) => x.group === g.id) ?? sim.units[0];
       const foe = sim.units.find((x) => x.side !== u.side) ?? u;
