@@ -570,16 +570,17 @@ export async function membership(db: D1Database, season: number, pid: number): P
   return r ? { clanId: r.clan_id, role: r.role } : null;
 }
 
+/** Public names by player id: display_name only, never Telegram data (ADR-0009 §6, N-DN-1). */
 export async function playerNames(db: D1Database, ids: number[]): Promise<Map<number, string>> {
   const out = new Map<number, string>();
   const uniq = [...new Set(ids.filter((x) => Number.isSafeInteger(x)))];
   for (let i = 0; i < uniq.length; i += 90) {
     const part = uniq.slice(i, i + 90);
     const r = await db
-      .prepare(`SELECT id, first_name, username, telegram_id FROM players WHERE id IN (${part.map((_, j) => `?${j + 1}`).join(',')})`)
+      .prepare(`SELECT id, display_name FROM players WHERE id IN (${part.map((_, j) => `?${j + 1}`).join(',')})`)
       .bind(...part)
-      .all<{ id: number; first_name: string | null; username: string | null; telegram_id: number }>();
-    for (const p of r.results) out.set(p.id, (p.first_name || p.username || `Player ${p.telegram_id}`).slice(0, 64));
+      .all<{ id: number; display_name: string }>();
+    for (const p of r.results) out.set(p.id, p.display_name);
   }
   return out;
 }

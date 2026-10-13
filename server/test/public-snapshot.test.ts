@@ -2,7 +2,7 @@ import { createExecutionContext, createScheduledController, env, waitOnExecution
 import { describe, expect, it, vi } from 'vitest';
 import { buildPublicSnapshot } from '../src/public/snapshot';
 import { BODY_MAX_BYTES, PublicSummaryV1 } from '../src/public/schema';
-import { publicDuelTop, publicNamesReady } from '../src/public/duelTop';
+import { publicDuelTop } from '../src/public/duelTop';
 import { seasonId } from '../../src/duel/season';
 import { RANKED } from '../../src/duel/rating';
 import { standings } from '../src/online/store';
@@ -14,7 +14,11 @@ const db = env.DB!;
 const NOW = Date.UTC(2026, 9, 13, 12, 0, 0);
 const DAY = 86_400_000;
 
-/** Seeded players get large, distinctive ids and Telegram ids, so a scan of the snapshot can find any leak. */
+/**
+ * Seeded players get large, distinctive ids and Telegram ids, so a scan of the
+ * snapshot can find any leak. They start opted out of public boards
+ * (`public_boards = 0`); `named()` opts players in.
+ */
 let seq = 0;
 async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Promise<{ id: number; tg: number; first: string; user: string }> {
   seq++;
@@ -25,7 +29,7 @@ async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Prom
   const user = `user_${seq}_tg`;
   await db
     .prepare(
-      "INSERT INTO players (id, telegram_id, username, first_name, display_name, display_name_key, created_at, last_seen_at, banned_at) VALUES (?1, ?2, ?3, ?4, 'Seed' || ?1, 'seed' || ?1, ?5, ?6, ?7)",
+      "INSERT INTO players (id, telegram_id, username, first_name, display_name, display_name_key, created_at, last_seen_at, banned_at, public_boards) VALUES (?1, ?2, ?3, ?4, 'Seed' || ?1, 'seed' || ?1, ?5, ?6, ?7, 0)",
     )
     .bind(id, tg, user, first, NOW - 30 * DAY, o.lastSeen ?? NOW - DAY, o.banned ? NOW - DAY : null)
     .run();
@@ -82,22 +86,6 @@ async function rate(pid: number, ladder: 'live' | 'async', rating: number, games
     .prepare('INSERT INTO duel_ratings (player_id, ladder, rating, games, season, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
     .bind(pid, ladder, rating, games, season, NOW)
     .run();
-}
-
-/**
- * The ADR-0009 public-name columns that 0017 (V6-ACCT-02) does not add: added
- * here only until V6-LINK-01's 0018 lands. Every player has a display name
- * since 0017, so this stand-in defaults `public_boards` to 0 (0018: 1): only
- * the players `named()` opts in are public, and seeded ones stay off boards.
- */
-async function ensureNameColumns(): Promise<void> {
-  const cols = new Set((await db.prepare("SELECT name FROM pragma_table_info('players')").all<{ name: string }>()).results.map((r) => r.name));
-  const add: [string, string][] = [
-    ['display_name', 'TEXT'],
-    ['public_boards', 'INTEGER NOT NULL DEFAULT 0'],
-    ['deleted_at', 'INTEGER'],
-  ];
-  for (const [c, type] of add) if (!cols.has(c)) await db.prepare(`ALTER TABLE players ADD COLUMN ${c} ${type}`).run();
 }
 
 /** A seeded player with a public display name (and the given privacy state). */
@@ -171,16 +159,7 @@ describe('public snapshot (ADR-0010 §2)', () => {
     await duelMatch(a.id, b.id, 'done');
     expect((await buildPublicSnapshot(env, NOW)).totals.duelsFought - base.duelsFought).toBe(1);
   });
-  it('serves no board before the display-name columns exist, whatever the data (ADR-0010 ordering note)', async () => {
-    if ((await publicNamesReady(db)).ready) return; // V6-LINK-01 has landed: nothing to check
-    for (let i = 0; i < 4; i++) await rate((await seedPlayer()).id, 'live', 1600 + i);
-    const snap = await buildPublicSnapshot(env, NOW);
-    expect(snap.duels.live).toEqual([]);
-    expect(snap.duels.season).toEqual({ id: DUEL_SEASON, endsAt: expect.any(Number) });
-  });
-
   it('duel boards: placed, eligible players by rating; banned, deleted and opted-out players absent but counted', async () => {
-    await ensureNameColumns();
     const before = (await buildPublicSnapshot(env, NOW)).totals.players;
     const top = await named();
     const second = await named();
@@ -211,7 +190,6 @@ describe('public snapshot (ADR-0010 §2)', () => {
   });
 
   it('a board with fewer than 3 eligible rows is empty', async () => {
-    await ensureNameColumns();
     await rate((await named()).id, 'async', 1500);
     await rate((await named()).id, 'async', 1450);
     await rate((await named({ optedOut: true })).id, 'async', 1400);
@@ -219,8 +197,7 @@ describe('public snapshot (ADR-0010 §2)', () => {
     await rate((await named()).id, 'async', 1300);
     expect((await buildPublicSnapshot(env, NOW)).duels.async).toHaveLength(3);
   });
-  it('war boards: eligible players by held-region score; clans only once their names pass the validator', async () => {
-    await ensureNameColumns();
+  it('war boards: eligible players by held-region score; clans only when their names pass the shared validator', async () => {
     fresh();
     const ps: Player[] = [];
     for (let i = 1; i <= 5; i++) ps.push(await join(8_800_000 + i));
@@ -234,34 +211,28 @@ describe('public snapshot (ADR-0010 §2)', () => {
       for (const m of members) await db.prepare("INSERT INTO clan_members (season_id, player_id, clan_id, role, joined_at) VALUES (?1, ?2, ?3, 'member', ?4)").bind(season, m.playerId, c!.id, NOW).run();
     };
     await clan('Iron Wolves', [ps[0], ps[1]]);
-    await clan('Sea Hawks', [ps[2]]);
+    await clan('Admin Hawks', [ps[2]]); // reserved: fails the validator
     await clan('Bronze Oaks', [ps[4]]);
     await clan('Stone Owls', [ps[3]]);
     const st = (await standings(db, season)).filter((s) => ps.some((p) => p.playerId === s.playerId));
     expect(st.every((s) => s.score > 0)).toBe(true);
 
-    // Default: no clan name is public before the shared validator (V6-LINK-01).
-    let snap = await buildPublicSnapshot(env, NOW);
+    // The shared validator (names/validate.ts) decides which clan names are public.
+    const snap = await buildPublicSnapshot(env, NOW);
     expect(snap.war.season).toEqual({ id: season, endsAt: expect.any(Number) });
     expect(snap.totals.clans).toBeGreaterThanOrEqual(3);
-    expect(snap.war.clans).toEqual([]);
-    expect(snap.war.players.every((r) => r.clan === null)).toBe(true);
     const names = snap.war.players.map((r) => r.name);
     expect(names).toEqual(expect.arrayContaining(['Warrior0', 'Warrior1', 'Warrior2', 'Warrior3']));
     expect(names).not.toContain('Warrior4'); // opted out
     expect(snap.war.players.map((r) => r.rank)).toEqual(snap.war.players.map((_, i) => i + 1));
-
-    // With a validator: names that pass are public, the rest are not.
-    snap = await buildPublicSnapshot(env, NOW, { clanName: (n) => n !== 'Sea Hawks' });
     const wolves = snap.war.clans.find((c) => c.name === 'Iron Wolves');
     expect(wolves?.members).toBe(2);
-    expect(snap.war.clans.map((c) => c.name)).not.toContain('Sea Hawks');
+    expect(snap.war.clans.map((c) => c.name)).not.toContain('Admin Hawks');
     expect(snap.war.players.find((r) => r.name === 'Warrior0')?.clan).toBe('Iron Wolves');
     expect(snap.war.players.find((r) => r.name === 'Warrior2')?.clan).toBeNull();
   });
 
   it('champions and boss slayers: eligible players only, newest seasons first', async () => {
-    await ensureNameColumns();
     const [a, b, c] = [await named(), await named(), await named()];
     const gone = await named({ deleted: true });
     const reward = (season: number, pid: number, score: number, title: string) =>
@@ -303,7 +274,6 @@ describe('public snapshot (ADR-0010 §2)', () => {
     expect(snap.totals.bossesSlain).toBeGreaterThanOrEqual(6);
   });
   it('publicDuelTop performs no writes, and the build writes only public_snapshot and stats_counters (D1 spy)', async () => {
-    await ensureNameColumns();
     const top = spyDb();
     await publicDuelTop(top.db, 'live', DUEL_SEASON, 10);
     expect(top.sql.length).toBeGreaterThan(0);
@@ -317,7 +287,6 @@ describe('public snapshot (ADR-0010 §2)', () => {
   });
 
   it('a recursive scan of the snapshot finds no seeded id, Telegram id, Telegram name or email', async () => {
-    await ensureNameColumns();
     const snap = await buildPublicSnapshot(env, NOW, { clanName: () => true });
     expect(snap.duels.live.length + snap.war.players.length + snap.bossSlayers.length).toBeGreaterThan(0); // the scan sees real rows
     const ids = new Set(seeded.flatMap((p) => [p.id, p.tg]));

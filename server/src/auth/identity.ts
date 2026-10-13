@@ -6,7 +6,8 @@
  */
 import type { PlayerRow } from '../players';
 import type { TelegramUser } from '../telegramAuth';
-import { generateDisplayName, nameKey } from '../names/generate';
+import { generateDisplayName } from '../names/generate';
+import { nameKey } from '../names/validate';
 
 const clip = (s: unknown, n: number): string | null => (typeof s === 'string' && s.length > 0 ? s.slice(0, n) : null);
 /** Attempts at a fresh generated name before giving up (the key space is ~5M names). */

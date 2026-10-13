@@ -27,14 +27,14 @@ import { SIM_VERSION_REJECTED } from '../../online/protocol';
 import { online } from '../../platform/cloud';
 import { t, tOr, type TKey } from '../../i18n';
 import { promptFields } from './textInput';
+import { isBlocked, validateClanName } from '../../../server/src/names/validate';
 
 /** The war fresco (FirstRunScene loads the same key) over the no-clan card. */
 const ART = { key: 'ui_fresco_war', file: 'ui/fresco_war.jpg' };
 /** Line pitch of 6.5 UI px text (TEXT_MIN, A11Y-09). */
 const LH = Math.ceil(lineHeight(TEXT_MIN));
 const ROW_H = 30;
-/** Server rules for a new clan (server/src/online/clans.ts CreateBody). */
-const NAME_RE = /^[\p{L}\p{N} '-]{3,24}$/u;
+/** Server rules for a new clan tag (server/src/online/clans.ts CreateBody); names use the shared validator. */
 const TAG_RE = /^[A-Za-z0-9]{2,5}$/;
 
 /** The chip colour of each rank (never grey: grey means disabled). */
@@ -54,8 +54,10 @@ export function clanError(e: unknown): string {
 
 /** Why a new clan's name or tag would be refused, or null. */
 export function clanFormError(name: string, tag: string): string | null {
-  if (!NAME_RE.test(name)) return t('clan.form.badName');
+  const v = validateClanName(name);
+  if (!v.ok) return v.reason === 'reserved' || v.reason === 'blocked' ? t('clan.form.notAllowed') : t('clan.form.badName');
   if (!TAG_RE.test(tag)) return t('clan.form.badTag');
+  if (isBlocked(tag)) return t('clan.form.notAllowed');
   return null;
 }
 
@@ -310,7 +312,7 @@ export class ClanScene extends BaseScene {
     const v = await promptFields(
       t('clan.form.title'),
       [
-        { name: 'name', label: t('clan.form.name'), placeholder: t('clan.form.namePh'), maxLength: 24, value: prev?.name },
+        { name: 'name', label: t('clan.form.name'), placeholder: t('clan.form.namePh'), maxLength: 20, value: prev?.name },
         { name: 'tag', label: t('clan.form.tag'), placeholder: t('clan.form.tagPh'), maxLength: 5, value: prev?.tag },
       ],
       t('clan.form.ok'),
