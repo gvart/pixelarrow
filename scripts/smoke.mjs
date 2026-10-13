@@ -467,20 +467,22 @@ await tapBtn('World', { label: 'Attack' });
 await need('second deployment', await until(() => active('Battle'), 30000));
 await tapBtn('Battle', { id: 'battle.fight' });
 await need('second battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
-// run until the shield-basher has a man in front of him, then pause and select him.
-// The fight must still be on when bash comes ready: as in the first battle's staging, our men never break
-// and the band never quits the field (a swarm band's bot withdraws at its doctrine's retreatAt, and either
-// ended the battle before contact: the flake of "shield basher in contact", then "ability used")
+// stage a man in front of the shield-basher, then pause and select him.
+// Contact is staged, not waited for (QA-05): a charge run until bash came ready failed whenever the AI
+// never brought a foe into his front arc before the fight ended. The same staging run off the browser over
+// 120 raider bands failed 37 times: the band's men routed one by one (their own
+// morale: retreatAt only stops the bot's withdrawal) and the field emptied, or the basher stood behind
+// his own front rank for the whole 90 s. Now nobody on either side falls, breaks or withdraws, and the
+// nearest standing foe is put one pace ahead of him, inside bash range and his facing arc.
 const ready = await ev((hid) => {
   const s = window.__game.scene.getScene('Battle');
   const u = s.sim.units.find((x) => x.heroId === hid);
-  s.sim.units.filter((x) => x.side === 0).forEach((x) => { x.hp = x.stats.maxHp * 5; x.stats.moraleLoss = 0; x.morale = x.stats.morale; });
+  s.sim.units.forEach((x) => { x.hp = x.stats.maxHp * 5; x.stats.moraleLoss = 0; x.morale = x.stats.morale; });
   for (const b of s.sim.bots) if (b.side === 1) b.doctrine = { ...b.doctrine, retreatAt: 0 };
-  for (const g of s.sim.groups) if (g.side === 0) s.sim.issue(0, { kind: 'order', group: g.id, order: 'charge' });
-  for (let i = 0; i < 20 * 90 && s.sim.phase === 'battle'; i++) {
-    s.sim.step();
-    if (s.sim.abilityReady(u, 'bash')) break;
-  }
+  const d2 = (e) => (e.x - u.x) ** 2 + (e.y - u.y) ** 2;
+  const foe = s.sim.units.filter((x) => x.side !== 0 && x.state === 'ready').sort((a, b) => d2(a) - d2(b))[0];
+  if (foe) (foe.x = u.x + u.fx), (foe.y = u.y + u.fy);
+  for (let i = 0; i < 20 * 10 && s.sim.phase === 'battle' && !s.sim.abilityReady(u, 'bash'); i++) s.sim.step();
   s.handleEvents(s.sim.drainEvents());
   s.setPaused(true);
   s.selGroup = u.group;

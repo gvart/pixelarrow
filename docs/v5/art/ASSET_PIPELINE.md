@@ -98,6 +98,8 @@ It rebuilds the atlas from the **current** `public/icons/ui.{png,json}` frames, 
 
 The output goes to `docs/v5/art/staging/atlas/`. A frame that is not staged keeps its old cell, and the script says so.
 
+**WebP twins (QA-05).** The game loads `public/icons/<ui|items>.webp` and falls back on the PNG only when the WebP fails to load or decode. When `atlas.mjs --out public/icons --looked` ships an atlas, it runs `scripts/art/webp.mjs` (cwebp, near-lossless 60: every channel within 2/255) and records the PNG's sha256 in `scripts/art/webp-lock.json`; `tests/iconAtlas.test.ts` fails when a shipped PNG has no matching WebP. Without libwebp installed the ship step fails: install it and run `node scripts/art/webp.mjs ui`. `preview.mjs` serves the staged PNG for both image URLs.
+
 ## 6. In the real game: `preview.mjs`
 
 ```
@@ -106,7 +108,7 @@ node scripts/art/preview.mjs ART-013 http://localhost:<port>/
 ```
 
 How it works:
-- `scripts/art/lib/override-hook.mjs` is preloaded into `scripts/layout-check.mjs` (`node --import`). It wraps Playwright so every browser context answers the game's own request for the asset (the manifest's `preview.url`, for example `ui/banner_campaign.jpg`, or `icons/ui.png` + `.json` for atlas frames) with the **staged** file.
+- `scripts/art/lib/override-hook.mjs` is preloaded into `scripts/layout-check.mjs` (`node --import`). It wraps Playwright so every browser context answers the game's own request for the asset (the manifest's `preview.url`, for example `ui/banner_campaign.jpg`, or `icons/ui.webp`, `icons/ui.png` + `.json` for atlas frames) with the **staged** file.
 - The real game then renders the candidate in the real slots, through the layout check's real fixtures (campaign save, heroes, stash). Nothing under `public/` changes.
 
 It makes two runs:

@@ -70,8 +70,10 @@ if (drift.length) {
 if (!ids.length) {
   const shippedFiles = new Set(m.assets.filter((a) => !a.atlas).map((a) => a.dest.replace(/\/$/, '') + '/' + a.file));
   const legacy = new Set(m.legacy ?? []);
-  for (const f of existsSync(join(ROOT, 'public/ui')) ? readdirSync(join(ROOT, 'public/ui')) : []) {
-    const p = `public/ui/${f}`;
+  // files in subfolders too (public/ui/busts, public/ui/beasts): a folder is not an asset
+  const files = existsSync(join(ROOT, 'public/ui')) ? readdirSync(join(ROOT, 'public/ui'), { recursive: true, withFileTypes: true }).filter((d) => d.isFile()) : [];
+  for (const d of files) {
+    const p = join(d.parentPath ?? d.path, d.name).slice(ROOT.length + 1);
     if (!shippedFiles.has(p) && !legacy.has(p)) console.log(`WARN         orphan ${p}: no manifest entry ships it`);
   }
 }

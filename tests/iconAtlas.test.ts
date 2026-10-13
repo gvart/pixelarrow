@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readText, removeDir, runNode, sameFile, sourceFiles, tempDir } from './support/nodeIo.js';
+import { readText, removeDir, runNode, sameFile, sha256, sourceFiles, tempDir } from './support/nodeIo.js';
+import webpLock from '../scripts/art/webp-lock.json';
 import manifestJson from '../docs/v5/art/asset-manifest.json?raw';
 import uiJson from '../public/icons/ui.json?raw';
 import itemsJson from '../public/icons/items.json?raw';
@@ -9,7 +10,7 @@ import { ICONS } from '../src/art/icons';
 import { ITEM_LIST } from '../src/data/items';
 import { POWER_IDS } from '../src/data/affixes';
 import { CONSUMABLE_ICON_IDS, RESOURCE_ICON_IDS } from '../src/art/goodsIcons';
-import { ICON_BACKING, STAGED_ICONS, V5_ICON_FALLBACK, downscaleSteps, iconBackingDisc, registerIconFrames, resolveIconId } from '../src/art/iconBitmaps';
+import { ICON_BACKING, STAGED_ICONS, V5_ICON_FALLBACK, downscaleSteps, iconBackingDisc, lookColour, recolourLut, registerIconFrames, resolveIconId } from '../src/art/iconBitmaps';
 
 /** The art bible's icon outline (section 7.4) and the dark stone of the top and tab bars (palette.json stone2). */
 const ICON_OUTLINE = '#2a1a12';
@@ -110,6 +111,30 @@ describe('drawn icon atlases (public/icons)', () => {
       expect(ui[`ui:${g}`], g).toBeUndefined();
       expect(UI_FRAMES.map((a) => a.frame), g).not.toContain(`ui:${g}`);
     }
+  });
+});
+
+describe('the light and dim recolour table (QA-05)', () => {
+  it.each(['light', 'dim'] as const)('%s: every pixel brightness gets the exact ramp colour within one level', (look) => {
+    const lut = recolourLut(look);
+    let worst = 0;
+    // every brightness 0.3 r + 0.59 g + 0.11 b can take, on a fine grid
+    for (let v = 0; v <= 255; v += 0.05) {
+      const exact = lookColour(look, v / 255);
+      const j = Math.round(v * (4096 / 255)) * 3;
+      for (let c = 0; c < 3; c++) worst = Math.max(worst, Math.abs(Math.round(exact[c]) - lut[j + c]));
+    }
+    expect(worst).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('WebP twins of the atlases (QA-05)', () => {
+  // BootScene loads icons/<name>.webp first: a PNG rebuilt without `node scripts/art/webp.mjs`
+  // would ship a stale WebP whose cells no longer match the JSON
+  it.each(['ui', 'items'])('%s.webp was made from the shipped %s.png', (n) => {
+    expect((webpLock as Record<string, string>)[`${n}.png`], `run node scripts/art/webp.mjs ${n}`).toBe(sha256(`public/icons/${n}.png`));
+    const head = readText(`public/icons/${n}.webp`).slice(0, 12);
+    expect(head.slice(0, 4) + head.slice(8, 12)).toBe('RIFFWEBP');
   });
 });
 

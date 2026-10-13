@@ -21,6 +21,7 @@ import { join, resolve } from 'node:path';
 import { readImage, writeImage } from './lib/png.mjs';
 import { crop, blank } from './lib/ops.mjs';
 import { loadManifest, STAGING, ROOT } from './lib/manifest.mjs';
+import { encodeWebp } from './webp.mjs';
 
 const args = process.argv.slice(2);
 const opt = (k) => (args.includes(k) ? args[args.indexOf(k) + 1] : undefined);
@@ -96,3 +97,5 @@ function blit(dst, src, x, y) {
 }
 
 console.log(`${name}: ${frames.size} frames (${refreshed} from masters, ${added} added, ${missing} without a master, ${staged} staged out), ${width}x${height} -> ${rel}/${stem}.{png,json}`);
+// the game loads the WebP twin first (scripts/art/webp.mjs): a shipped PNG never goes out without it
+if (shipping && !encodeWebp(file)) process.exit(1);

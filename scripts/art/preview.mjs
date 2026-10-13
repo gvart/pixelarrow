@@ -36,8 +36,13 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 // atlas frames are previewed through their rebuilt atlas (scripts/art/atlas.mjs)
 const overrides = a.atlas
-  ? // the game loads icons/ui.{png,json} for the icons_ui atlas (iconBitmaps ICON_ATLASES)
-    { [`icons/${a.atlas.replace(/^icons_/, '')}.png`]: join(STAGING, 'atlas', `${a.atlas}.png`), [`icons/${a.atlas.replace(/^icons_/, '')}.json`]: join(STAGING, 'atlas', `${a.atlas}.json`) }
+  ? // the game loads icons/ui.{webp,json} for the icons_ui atlas, icons/ui.png when the WebP fails
+    // (iconBitmaps ICON_ATLASES): the staged PNG answers both image URLs
+    {
+      [`icons/${a.atlas.replace(/^icons_/, '')}.webp`]: join(STAGING, 'atlas', `${a.atlas}.png`),
+      [`icons/${a.atlas.replace(/^icons_/, '')}.png`]: join(STAGING, 'atlas', `${a.atlas}.png`),
+      [`icons/${a.atlas.replace(/^icons_/, '')}.json`]: join(STAGING, 'atlas', `${a.atlas}.json`),
+    }
   : { [a.preview.url]: staged };
 for (const f of Object.values(overrides)) if (!existsSync(f)) {
   console.log(`NOT ASSESSED ${a.id}: ${f.replace(ROOT + '/', '')} is missing (run scripts/art/atlas.mjs ${a.atlas})`);

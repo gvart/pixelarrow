@@ -10,23 +10,13 @@ import { ResultsScene } from './scenes/ResultsScene';
 import { WorldScene } from './scenes/WorldScene';
 import { SettlementScene } from './scenes/SettlementScene';
 import { HeroScene } from './scenes/HeroScene';
-import { OnlineScene } from './scenes/online/OnlineScene';
-import { OnlineArmyScene } from './scenes/online/OnlineArmyScene';
-import { ClanScene } from './scenes/online/ClanScene';
 import { state } from './state';
 import { online } from './platform/cloud';
 import { trackSafeArea } from './platform/safeArea';
 import { nav } from './platform/nav';
 import { installAudio } from './audio';
-import { KitScene } from './scenes/KitScene';
-import { ShopScene } from './scenes/ShopScene';
-import { MarketScene } from './scenes/MarketScene';
-import { MerchantScene } from './scenes/online/MerchantScene';
-import { BeastTrialScene } from './scenes/BeastTrialScene';
 import { FirstRunScene } from './scenes/FirstRunScene';
-import { DuelScene } from './scenes/duel/DuelScene';
-import { CampScene } from './scenes/CampScene';
-import { CodexScene } from './scenes/CodexScene';
+import { loadLazyScenes } from './scenes/lazy';
 import { installWidgets } from './ui/widgets';
 import { installDuelInvites } from './ui/duelInvites';
 import { checkUi, collectUi } from './ui/layout';
@@ -36,9 +26,14 @@ import { lang, setLang, type Lang } from './i18n';
 import { installMonitoring } from './platform/monitoring';
 import type { GameLike } from './platform/telemetry';
 import { installRenderScale, RS } from './platform/renderScale';
+import { installFastArcs } from './platform/fastArcs';
+import { installStaticCanvases } from './platform/staticCanvas';
 
 installWidgets();
 installRenderScale();
+// engine costs measured in QA-05 (docs/v5/qa/PERF.md): arcs as few chords as they need, no canvas readback
+installFastArcs(Phaser.GameObjects.Graphics);
+installStaticCanvases({ TextureManager: Phaser.Textures.TextureManager, CanvasPool: Phaser.Display.Canvas.CanvasPool as never, Texture: Phaser.Textures.Texture, Events: Phaser.Textures.Events });
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -54,8 +49,11 @@ const game = new Phaser.Game({
   },
   input: { activePointers: 3 },
   audio: { noAudio: true }, // all sound is our own Web Audio (src/audio)
-  scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, OnlineScene, OnlineArmyScene, ClanScene, KitScene, ShopScene, MarketScene, MerchantScene, BeastTrialScene, FirstRunScene, DuelScene, CampScene, CodexScene],
+  // the first screens; the rest (online, duels, shop, camp, ...) come in a second chunk (scenes/lazy.ts)
+  scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, FirstRunScene],
 });
+// download the second chunk while Boot draws; Boot waits for it (and shows Retry if it fails)
+loadLazyScenes(game).catch(() => {});
 
 // Crash reports and product analytics (docs/OPS.md); analytics honours the Settings toggle.
 installMonitoring(game as unknown as GameLike, { analyticsEnabled: () => state.campaign?.data.settings.analytics !== false, lang: () => lang() });

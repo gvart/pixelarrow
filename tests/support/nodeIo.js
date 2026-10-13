@@ -1,6 +1,7 @@
 // File and process helpers for tests that check repo files and node scripts. Plain JS beside a
 // .d.ts because the project's tsconfig has no Node types (types: vite/client only).
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -10,6 +11,7 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const abs = (p) => (isAbsolute(p) ? p : join(ROOT, p));
 
 export const readText = (p) => readFileSync(abs(p), 'utf8');
+export const sha256 = (p) => createHash('sha256').update(readFileSync(abs(p))).digest('hex');
 export const sameFile = (a, b) => readFileSync(abs(a)).equals(readFileSync(abs(b)));
 
 /** Every `.ts` file under `dir` (relative to the repo), with its text. */
