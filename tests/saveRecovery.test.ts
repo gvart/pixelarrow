@@ -143,3 +143,14 @@ describe('writes are crash-safe and keep the last good save as a backup', () => 
     expect(r.kind === 'ok' && r.fromBackup).toBe(true);
   });
 });
+
+describe('repair keeps a save with a damaged band entry (QA-04)', () => {
+  it('drops a null party instead of refusing the save', () => {
+    const d = Campaign.fresh(9).sync();
+    const n = d.world!.parties.length;
+    (d.world!.parties as unknown[]).push(null);
+    const out = migrate(JSON.parse(JSON.stringify(d)));
+    expect(out).not.toBeNull();
+    expect(out!.world!.parties.length).toBe(n);
+  });
+});

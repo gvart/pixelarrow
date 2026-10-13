@@ -217,6 +217,7 @@ function repairV6World(w: WorldSave): void {
   const e = w.pendingEvent as unknown;
   if (e !== undefined && !(isObj(e) && typeof e.id === 'string' && isNum(e.seed))) delete w.pendingEvent;
   w.journal = (Array.isArray(w.journal) ? w.journal : []).filter((j): j is string => typeof j === 'string').slice(-JOURNAL_CAP);
+  w.parties = w.parties.filter(isObj) as unknown as WorldSave['parties'];
   for (const p of w.parties) {
     if (p.escaped !== undefined && !(isNum(p.escaped) && p.escaped >= 0)) delete p.escaped;
     if (p.captainDead !== undefined && typeof p.captainDead !== 'boolean') delete p.captainDead;
