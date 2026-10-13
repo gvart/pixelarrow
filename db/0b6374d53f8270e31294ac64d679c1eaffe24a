@@ -1,0 +1,44 @@
+server/test/account-telegram-link.test.ts
+  s_0d98fe904b2e82::t_8ed445d09c32cd 125-131,293,331-332,334,336,341-345,349,354,357-366,368-414,417-423,425,434-437,440,449-527,535-536,551-553,572-589,605,622-626,628
+server/src/account/delete.ts
+  s_0d98fe904b2e82::t_34868e1bf8e037 28
+  s_0d98fe904b2e82::t_a4a85387760996 101-115
+server/src/account/conflicts.ts
+  s_0d98fe904b2e82::t_782444f72f93f9 362
+  s_0d98fe904b2e82::t_580adcb7655920 2-5,7-15,21-25,31-33,39-41,45-47,51,71,82,101,107-108,120-121,143,151-153,162,165,177,185,192,196-200,212-220,222-225,236,251-256,259-261,270,272-277,280-294,300-306,309,311-323,329-334,336-339,344,349,351-361,364-365,369-481,490-491,506-507,510,512
+server/src/account/link.ts
+  s_0d98fe904b2e82::t_54464bc033628c 31,70-71,79,123-124,134,143,146-149,172,177-178,184,195
+  s_0d98fe904b2e82::t_6aeec8ef031064 12-14
+server/src/account/routes.ts
+  s_0d98fe904b2e82::t_103661cbb3228d 27,228-251,255,260-264,270-271
+  s_0d98fe904b2e82::t_64707b8468cc5f 25-26,28-29,51,279
+docs/v6/plan/CONTROL_MANIFEST_ACCOUNTS.md
+  s_0d98fe904b2e82::t_f175b6a7f88f75 75,77-79,85
+design/adr/ADR-0009-linked-accounts-names-deletion.md
+  s_0d98fe904b2e82::t_f175b6a7f88f75 113,213-217,238
+  s_0d98fe904b2e82::t_38ce7f9c5a7996 83-84,105,110
+server/migrations/0020_link_two_sided.sql
+  s_0d98fe904b2e82::t_8af05f9fff1d35 1-19
+server/src/email/templates.ts
+  s_0d98fe904b2e82::t_60ec550f126865 26-29,111-120,199-208
+server/src/notify/templates.ts
+  s_0d98fe904b2e82::t_2b5c731db20eb8 233,243-244,253-254,262
+server/src/routes/auth.ts
+  s_0d98fe904b2e82::t_91eda7a002c55f 14,172-179,181,246-247
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "db0b6374d53f8270e31294ac64d679c1eaffe24a",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
