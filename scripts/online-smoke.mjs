@@ -4,8 +4,8 @@
 // shots/20-shop.png, git-ignored) and buys a consumable from a map merchant
 // against mocked routes.
 // Platform modes (scripts/lib/platform.mjs): `telegram` is all of the above (the fake WebApp signs in);
-// `web` is a plain web page, signed out: the campaign plays offline and saves locally, the shop says it is
-// available in Telegram, online mode says unavailable, and nothing is requested from telegram.org.
+// `web` is a plain web page, signed out: the campaign plays offline and saves locally, the shop says
+// "Sign in to play online" (AU-01), online mode says unavailable, and nothing is requested from telegram.org.
 // Usage: node scripts/online-smoke.mjs <baseUrl> [outDir] [--platform telegram|web|both]   (needs a running dev/preview server)
 import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir, until } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
@@ -35,13 +35,9 @@ async function webRun() {
   const on = await ev(() => ({ status: window.__online.status, id: window.__online.playerId }));
   check('[web] signed out: no player, the save stays local', on.id === null && on.status === 'local', JSON.stringify(on));
   await ev(() => window.__game.scene.getScene('Menu').openShop());
-  // KNOWN GATE02-B1 (tests/regression/SUITE.md "Known bugs"): signed out on the web the shop stays on
-  // "Opening the shop..." for good. ShopScene.fetchAll throws 'outside' synchronously from create(), where
-  // sys.isActive() is still false, so its catch returns before setting st. Not a pass, not a failure:
-  // printed as KNOWN until fixed, then it asks to become a plain check.
-  const outside = await until(() => ev(() => window.__game.scene.isActive('Shop') && window.__game.scene.getScene('Shop').st === 'outside'), 15000);
-  if (outside) console.log('PASS [web] the shop says "available in Telegram" (known bug GATE02-B1 no longer reproduces: make this a plain check)');
-  else console.log(`KNOWN GATE02-B1 [web] the shop says "available in Telegram" ${(await sceneText('Shop').catch(() => '')).slice(-40)}`);
+  // GATE02-B1 (fixed): the shop used to stay on "Opening the shop..." here; signed out it shows AU-01
+  const gate = await until(async () => (await ev(() => window.__game.scene.isActive('Shop') && window.__game.scene.getScene('Shop').st === 'outside')) && /sign in to play online/i.test(await sceneText('Shop')), 15000);
+  check('[web] the shop says "Sign in to play online"', gate, (await sceneText('Shop').catch(() => '')).slice(-60));
   await startAll('Menu');
   await until(() => active('Menu'), 15000);
   await ev(() => window.__game.scene.getScene('Menu').continueCampaign());
