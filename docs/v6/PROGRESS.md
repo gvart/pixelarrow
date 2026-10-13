@@ -13,13 +13,13 @@
 | gate-01 | V6-GATE-01: ten-size layout matrix | 5 (6150–6159) | dev-story, regression-suite, game-ui-ux, tdd |
 | video | P5-VIDEO: landing clips | 2 (6120–6129) | create-game-assets, performance-optimization |
 | land-01 | V6-LAND-01: landing chrome, tokens, SEO, assets moved in | 4 (6140–6149) | frontend-design, design-principles, game-ui-ux, seo-audit, schema-markup, performance-optimization |
-| host-02 | V6-HOST-02: game Worker on play, CORS, framing, Origin scaffold, play links | 6 (6160–6169) | dev-story, security-audit, tdd |
 
 **Integrators run one at a time** (they share the v6 worktree). Use slot 9 (6190–6199) for integrators.
 Still to start in sprint 2: RFND-01 (needs GATE-01) and INP-01 (needs PLAT-01).
 
 ## Merged
 
+- Sprint 2: V6-HOST-02 (V6-024, 05b7d86)
 - Sprint 1: V6-ACCT-01 (V6-022, ac5eb98), V6-HOST-01 (V6-023, 49515b1)
 
 - Phase 0–3 is complete: S0-ADOPT, A1-PLAT, A1-UI, P2 ×7 (V6-012..020), P5-LAND-ART (V6-019), P3-PLAN (V6-021)
