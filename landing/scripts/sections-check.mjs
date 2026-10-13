@@ -10,7 +10,8 @@
 //  7. Clips, FAQ and closing (V6-LAND-05): the clip tiles are G1-G4 with one VideoObject each; the FAQ
 //     asks the six STRUCTURE.md §7 questions and says web purchases are not available yet; the clips
 //     are a 2x2 grid from 768 px and a snap reel on phones (one playing at a time); in the closing band
-//     "Play in browser" is the only terracotta button in view.
+//     "Play in browser" is the only terracotta button in view; their stylesheet is not fetched on the
+//     first view (it would cost mobile LCP), only as the clips come near or on a deep link.
 // With SHOTS_DIR set, it also saves screenshots of the sections at the six widths.
 //
 // Usage (in landing/, after `npm run build`): npm run test:sections (SECTIONS_TEST_PORT picks the port,
@@ -191,6 +192,12 @@ try {
   {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(URL_, { waitUntil: 'load' });
+    await page.waitForTimeout(1000);
+    const belowEarly = await page.evaluate(() => performance.getEntriesByType('resource').filter((e) => /\/below\.[^/]*\.css$/.test(e.name)).length);
+    check(belowEarly === 0, `the clips, FAQ and closing stylesheet is not fetched on the first view (${belowEarly})`);
+    await scrollTo(page, '#modes');
+    const belowNear = await page.evaluate(() => [...document.styleSheets].some((s) => /\/below\.[^/]*\.css$/.test(s.href ?? '')));
+    check(belowNear, 'the stylesheet arrives as the clips come near');
     const takes = await page.$$eval('#clips .clip', (els) => els.map((e) => e.dataset.webm));
     check(takes.join() === '/video/G1.webm,/video/G2.webm,/video/G3.webm,/video/G4.webm', `clip tiles are G1-G4 (got ${takes.join()})`);
     const ld = await page.$$eval('#clips script[type="application/ld+json"]', (els) => els.map((e) => JSON.parse(e.textContent)));
@@ -198,7 +205,7 @@ try {
     check(videos.length === 4, `one VideoObject per clip (got ${videos.length})`);
     const titles = await page.$$eval('#clips .take__title', (els) => els.map((e) => e.textContent.trim()));
     for (const [i, v] of videos.entries()) {
-      check(v.name === titles[i] && v.uploadDate && /^PT\d+S$/.test(v.duration) && v.description, `VideoObject ${i + 1} names its tile and has a date, duration and description`);
+      check(v.name === titles[i] && /^\d{4}-\d\d-\d\d$/.test(v.uploadDate) && /^PT\d+S$/.test(v.duration), `VideoObject ${i + 1} names its tile and has an upload date and a duration`);
       for (const key of ['thumbnailUrl', 'contentUrl']) {
         const local = v[key].replace('https://pixelarrow.app', '');
         const ok = v[key].startsWith('https://pixelarrow.app/video/') && (await readFile(join(DIST, local)).then(() => true, () => false));
@@ -229,9 +236,9 @@ try {
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.goto(URL_, { waitUntil: 'load' });
+    await scrollTo(page, '#clips .clips__reel');
     const reel = await page.$eval('#clips .clips__reel', (e) => ({ snap: getComputedStyle(e).scrollSnapType, over: e.scrollWidth > e.clientWidth }));
     check(reel.over && reel.snap.startsWith('x'), `phone: clips are a horizontal snap reel (${reel.snap})`);
-    await scrollTo(page, '#clips .clips__reel');
     let max = 0;
     for (let i = 1; i <= 4; i++) {
       await page.$eval(`#clips .take:nth-child(${i})`, (e) => e.parentElement.scrollTo({ left: e.offsetLeft - parseFloat(getComputedStyle(e.parentElement).scrollPaddingLeft), behavior: 'instant' }));
@@ -241,6 +248,15 @@ try {
       check(s[3 + i].playing, `phone: clip G${i} plays when it is snapped into view`);
     }
     check(max === 1, `phone: one clip at a time in the reel (max ${max})`);
+    await page.close();
+  }
+  {
+    // a deep link styles the FAQ at once
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`${URL_}#faq`, { waitUntil: 'load' });
+    await page.waitForTimeout(500);
+    const bg = await page.$eval('#faq .faq__a', (e) => getComputedStyle(e).backgroundColor);
+    check(bg === 'rgb(231, 214, 173)', `#faq deep link: answers are on parchment at once (${bg})`);
     await page.close();
   }
 } finally {

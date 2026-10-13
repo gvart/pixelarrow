@@ -3,7 +3,7 @@
 // the hero glows once more over the line. While this band is in view the nav's small "Play" drops to
 // the outline style, so "Play in browser" is the only terracotta button on screen (ART_DIRECTION §4,
 // V6-025). The nav's own scroll animation ends on the button's underlying colours, so changing those
-// is enough, and it works in browsers without scroll timelines too.
+// is enough, and it works in browsers without scroll timelines too. Styles: styles/below.css.
 import { PLAY_URL, TELEGRAM_URL } from '../../site';
 ---
 <section class="section section--night closing" aria-labelledby="closing-title">
@@ -24,46 +24,3 @@ import { PLAY_URL, TELEGRAM_URL } from '../../site';
     }).observe(band);
   }
 </script>
-
-<style>
-  .closing {
-    overflow: hidden;
-    isolation: isolate;
-  }
-  /* The lamp: a warm pool of light over the line, the only gradient on the band (0-18% lamp). */
-  .closing::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    z-index: -1;
-    width: min(64rem, 140%);
-    aspect-ratio: 2 / 1;
-    background: radial-gradient(closest-side, rgb(var(--lamp) / 0.16), rgb(var(--lamp) / 0.05) 55%, transparent);
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-  }
-  .closing__inner {
-    display: grid;
-    justify-items: center;
-    gap: var(--s8);
-    text-align: center;
-  }
-  .closing__title {
-    font-size: clamp(2rem, 5.5vw, 4rem);
-  }
-  .closing__ctas {
-    display: flex;
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--s3);
-  }
-  .closing__ctas .btn {
-    min-width: min(100%, 17rem);
-  }
-  :global(html[data-closing] .nav__play) {
-    background-color: rgb(16 13 11 / 0.35);
-    border-color: rgb(240 227 194 / 0.75);
-  }
-</style>

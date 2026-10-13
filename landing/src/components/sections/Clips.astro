@@ -6,31 +6,34 @@
 // describes a clip the page does not show.
 import Clip from '../Clip.astro';
 import { SITE_URL } from '../../site';
+// The styles of the clips, FAQ and closing sections load late (scripts/below-css.ts); this is the
+// no-JS fallback's URL.
+import belowCss from '../../styles/below.css?url';
 
 const CLIPS = [
   {
     id: 'G1', seconds: 8,
     title: 'A formation breaks',
-    line: 'Companion cavalry rides round the Celts’ flank and charges. Their line wavers, then runs.',
-    label: 'A battle: Companion cavalry charges the flank of a Celtic line, which breaks and routs.',
+    line: 'Cavalry rides round the Celts’ flank and charges. Their line breaks and runs.',
+    label: 'Cavalry charges a Celtic flank and the line routs',
   },
   {
     id: 'G2', seconds: 8,
     title: 'The war map',
     line: 'The shared seasonal map: towns, rivers and a rival army on the march.',
-    label: 'The war map: a pass over towns, rivers and mountains toward a rival army on the march.',
+    label: 'A pass over the war map to a rival army',
   },
   {
     id: 'G3', seconds: 8,
     title: 'A ranked duel',
-    line: 'A phalanx set to the shield wall holds as the two duel armies clash.',
-    label: 'A ranked duel: a phalanx in shield wall holds as two duel armies clash.',
+    line: 'A phalanx in shield wall holds as two duel armies clash.',
+    label: 'A shield wall holds in a ranked duel',
   },
   {
     id: 'G4', seconds: 5,
     title: 'At the forge',
-    line: 'At a town’s smith, one stat line of an item is reforged.',
-    label: 'The smith in a town’s services: an item’s stat line is reforged, with its card in full.',
+    line: 'One stat line of an item, reforged at a town’s smith.',
+    label: 'An item’s stat line reforged at the smith',
   },
 ];
 
@@ -39,22 +42,21 @@ const jsonLd = {
   '@graph': CLIPS.map((c) => ({
     '@type': 'VideoObject',
     name: c.title,
-    description: c.line,
     thumbnailUrl: `${SITE_URL}/video/${c.id}-poster.webp`,
     contentUrl: `${SITE_URL}/video/${c.id}.webm`,
     uploadDate: '2026-10-13',
     duration: `PT${c.seconds}S`,
-    isPartOf: { '@id': `${SITE_URL}/#game` },
   })),
 };
 ---
+<noscript><link rel="stylesheet" href={belowCss} /></noscript>
 <section class="section section--night clips" id="clips" aria-labelledby="clips-title">
   <div class="container">
     <header class="section__head">
       <h2 id="clips-title" class="section__title">See it move</h2>
       <p class="section__lead">Recorded from the game.</p>
     </header>
-    <ul class="clips__reel" role="list" aria-label="Gameplay clips">
+    <ul class="clips__reel" role="list">
       {CLIPS.map((c) => (
         <li class="take">
           <Clip id={c.id} width={960} height={540} label={c.label} />
@@ -67,53 +69,7 @@ const jsonLd = {
   <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 </section>
 
-<style>
-  .clips__reel {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--s12) var(--s8);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .take {
-    display: grid;
-    align-content: start;
-    gap: var(--s2);
-  }
-  .take :global(.clip) {
-    margin-bottom: var(--s2);
-    border: 1px solid var(--stone-edge);
-    border-bottom: 3px solid #0c0a08;
-    border-radius: var(--radius);
-  }
-  .take__title {
-    font-size: 1.25rem;
-  }
-  .take__line {
-    max-width: 46ch;
-    color: var(--cream-muted);
-  }
-
-  /* Phones: a reel that bleeds to the screen edges and snaps one take at a time, with the next one
-     peeking in so it reads as scrollable. Only the take in view is half visible, so only it plays. */
-  @media (max-width: 767px) {
-    .clips__reel {
-      grid-template-columns: none;
-      grid-auto-flow: column;
-      grid-auto-columns: 86%;
-      gap: var(--s4);
-      margin-inline: calc(-1 * var(--gutter));
-      padding: 0 var(--gutter) var(--s4);
-      overflow-x: auto;
-      overscroll-behavior-x: contain;
-      scroll-snap-type: x mandatory;
-      scroll-padding-inline: var(--gutter);
-      scrollbar-width: thin;
-      scrollbar-color: var(--stone-edge) transparent;
-    }
-    .take {
-      scroll-snap-align: start;
-    }
-  }
-</style>
+<script>
+  import { loadBelowCss } from '../../scripts/below-css';
+  loadBelowCss();
+</script>

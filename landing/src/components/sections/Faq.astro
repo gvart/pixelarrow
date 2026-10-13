@@ -2,130 +2,39 @@
 // FAQ (#faq), STRUCTURE.md §7. Native <details>, so it works without JS and every row can be open at
 // once. Answers sit on parchment (V6-015). Every claim is checked in docs/v6/landing/NOTES.md
 // ("V6-LAND-05"); the ones that depend on v6 stories still in flight are listed there for LAND-06 to
-// re-check before the page ships. No FAQPage JSON-LD: Google no longer shows FAQ results for sites
-// like this one, and mobile LCP has no bytes to spare (V6-032).
+// re-check before the page ships. Styles: styles/below.css. No FAQPage JSON-LD: Google no longer
+// shows FAQ results for sites like this one, and mobile LCP has no bytes to spare (V6-032).
 ---
 <section class="section faq" id="faq" aria-labelledby="faq-title">
-  <div class="container faq__inner">
+  <div class="container">
     <header class="section__head">
       <h2 id="faq-title" class="section__title">Questions</h2>
     </header>
     <div class="faq__list">
       <details>
         <summary>Is it free to play?</summary>
-        <div class="faq__a">
-          <p>Yes. In Telegram you can buy Drachmae with Telegram Stars for cosmetics, the season pass and shortcuts. Gear and heroes are never sold. Purchases are not available on the web yet.</p>
-        </div>
+        <p class="faq__a">Yes. In Telegram, Stars buy Drachmae for cosmetics, the season pass and shortcuts; gear and heroes are never sold. Purchases are not available on the web yet.</p>
       </details>
       <details>
         <summary>Do I need Telegram?</summary>
-        <div class="faq__a">
-          <p>No. Play in your browser straight away, no account needed. Sign in with email to play duels and the war online. You can link Telegram and email to one account and keep your progress on both.</p>
-        </div>
+        <p class="faq__a">No. Play in your browser with no account. Sign in with email to fight duels and the war online, and link Telegram to keep one progress on both.</p>
       </details>
       <details>
         <summary>Can I play on a laptop or tablet?</summary>
-        <div class="faq__a">
-          <p>Yes. Phones, tablets and laptops, by touch or with mouse and keyboard, with battle hotkeys you can rebind.</p>
-        </div>
+        <p class="faq__a">Yes: phones, tablets and laptops, by touch or by mouse and keyboard with battle hotkeys you can rebind.</p>
       </details>
       <details>
         <summary>Is my progress saved?</summary>
-        <div class="faq__a">
-          <p>Your campaign saves on your device as you play, and syncs to the cloud when you are signed in. Duels and the war live on the server.</p>
-        </div>
+        <p class="faq__a">Your campaign saves on your device and syncs to the cloud when you are signed in. Duels and the war live on the server.</p>
       </details>
       <details>
         <summary>Which languages?</summary>
-        <div class="faq__a">
-          <p>The game is in English and Russian.</p>
-        </div>
+        <p class="faq__a">English and Russian.</p>
       </details>
       <details>
         <summary>What happens to my data?</summary>
-        <div class="faq__a">
-          <p>We keep only what the game needs. Read the <a href="/privacy">privacy notice</a>, and delete your account from Settings at any time.</p>
-        </div>
+        <p class="faq__a">Only what the game needs. Read the <a href="/privacy">privacy notice</a>; you can delete your account from Settings at any time.</p>
       </details>
     </div>
   </div>
 </section>
-
-<style>
-  .faq__list {
-    max-width: 48rem;
-    margin-inline: auto;
-    border-top: 1px solid var(--stone-edge);
-  }
-  details {
-    border-bottom: 1px solid var(--stone-edge);
-  }
-  summary {
-    display: flex;
-    align-items: center;
-    gap: var(--s4);
-    min-height: 64px;
-    padding: var(--s4) 0;
-    color: var(--cream);
-    font-size: 1.125rem;
-    font-weight: 600;
-    list-style: none;
-    cursor: pointer;
-  }
-  summary::-webkit-details-marker {
-    display: none;
-  }
-  /* The marker is the divider's lattice node: an outlined diamond that fills when its row is open. */
-  summary::before {
-    content: '';
-    flex: none;
-    width: 9px;
-    height: 9px;
-    margin-inline: 4px;
-    border: 1px solid var(--lattice);
-    transform: rotate(45deg);
-    transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-enter) var(--ease-out);
-  }
-  details[open] > summary::before {
-    background: var(--lattice);
-    transform: rotate(45deg) scale(1.15);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    summary::before {
-      transition: none;
-    }
-  }
-  @media (hover: hover) and (pointer: fine) {
-    summary:hover::before {
-      background: var(--lattice-line);
-    }
-  }
-
-  /* The answer is a parchment slip, indented to the question's text. */
-  .faq__a {
-    margin: 0 0 var(--s6) calc(17px + var(--s4));
-    padding: var(--s4) var(--s6);
-    border-radius: var(--radius);
-    background: var(--parch);
-    color: var(--ink);
-    box-shadow: inset 0 -2px 0 rgb(58 36 20 / 0.18);
-  }
-  .faq__a p {
-    max-width: 62ch;
-  }
-  .faq__a a {
-    color: var(--ink);
-    font-weight: 600;
-    text-decoration-color: rgb(58 36 20 / 0.5);
-  }
-  .faq__a a:focus-visible {
-    outline-color: var(--ink);
-    box-shadow: none;
-  }
-  @media (max-width: 479px) {
-    .faq__a {
-      margin-left: 0;
-      padding: var(--s4);
-    }
-  }
-</style>

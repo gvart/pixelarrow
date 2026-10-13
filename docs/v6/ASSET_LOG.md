@@ -174,3 +174,14 @@ posters AVIF ≤ 40 kB. OG (the 11th item) is a still, made in LND-05, not here.
 - Duels are small battles by design (a 10-man duel cap; the demo opponent fields 6), so M2 and G3 read
   smaller than the campaign battles.
 - G3 is the shield wall holding a clash, not a deployment drag: the deployment is a few seconds before.
+
+## V6-LAND-05: clips G1–G4 placed, H1 and B1 dropped (2026-10-13)
+
+- G1–G4 (`.webm`, `.mp4`, `-poster.avif`, `-poster.webp`) moved unchanged from
+  `landing/assets-staging/video/` to `landing/public/video/` (V6-027); the clips section uses them.
+- **H1 dropped:** the living hero canvas replaced the ambient hero loop (V6-029), so nothing plays it.
+- **B1 dropped:** the optional class loop; no story uses it (the classes section shows busts, LAND-03).
+  Both can be re-made with `scripts/landing/record-clips.mjs --only H1,B1` if a story needs them.
+- `landing/assets-staging/` is now empty and gone. `scripts/landing/encode-clips.sh`,
+  `record-clips.mjs` and `scripts/art/landing/diorama.mjs` still default their output there; it is a
+  staging folder they recreate, and finals are moved into `landing/public/` by hand.
