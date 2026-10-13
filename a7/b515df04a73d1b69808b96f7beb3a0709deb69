@@ -1,0 +1,57 @@
+server/src/auth/throttle.ts
+  s_0d98fe904b2e82::t_3eb662a4655275 1-90
+server/src/auth/common-passwords.ts
+  s_0d98fe904b2e82::t_69422f42aca2fd 1-42
+server/src/auth/flows.ts
+  s_0d98fe904b2e82::t_826b3dcf0fb896 1-8,12-77,84,86-90,96-122,125-126,128-147,153-225,231-301
+  s_0d98fe904b2e82::t_a1c885d2dcf330 9-11,78-83,85,91-95,123-124,127,148-152,226-230
+server/test/auth-email.test.ts
+  s_0d98fe904b2e82::t_6080a7ff33f2b8 10,53-55,333-346
+  s_0d98fe904b2e82::t_1e46f65346e949 1-9,11-52,56-332,347-375
+server/src/email/templates.ts
+  s_0d98fe904b2e82::t_9e59d604165e2b 1-95
+server/.dev.vars.example
+  s_0d98fe904b2e82::t_a32e172583e28d 12-17
+server/src/env.ts
+  s_0d98fe904b2e82::t_3843ef23f9f932 43-54
+server/src/email/sender.ts
+  s_0d98fe904b2e82::t_aa6c752dd2fb74 37,44
+  s_0d98fe904b2e82::t_4842e80bac2edc 1-36,38-43,45-46
+server/src/auth/identity.ts
+  s_0d98fe904b2e82::t_ce7b6efe3cbbb8 66-98
+server/src/auth/password.ts
+  s_0d98fe904b2e82::t_dc74a11e0fd6f4 1-145
+server/src/routes/auth.ts
+  s_0d98fe904b2e82::t_7683f0306a381d 16-17,172-182,184,192,199,207,214,222
+  s_0d98fe904b2e82::t_344dd223efb9f7 9-15,129-171,183,185-191,193-198,200-206,208-213,215-221,223-232,234
+  s_0d98fe904b2e82::t_3e8c98713551be 233,235
+server/test/password.test.ts
+  s_0d98fe904b2e82::t_01aaa5c1a08006 97-99
+  s_0d98fe904b2e82::t_919dc7e693c00a 90
+  s_0d98fe904b2e82::t_e3165310aa7ec2 73-76
+  s_0d98fe904b2e82::t_77d57af58614b5 1-72,77-89,91-96,100-111
+server/test/throttle.test.ts
+  s_0d98fe904b2e82::t_ddbf4cf5a68eb0 1-85
+server/test/email-sender.test.ts
+  s_0d98fe904b2e82::t_dee36727275a45 1-80
+server/vitest.config.ts
+  s_0d98fe904b2e82::t_a5be6d8710ae9a 19-23
+server/src/email/log.ts
+  s_0d98fe904b2e82::t_5b748a2b4d6b54 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a7b515df04a73d1b69808b96f7beb3a0709deb69",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
