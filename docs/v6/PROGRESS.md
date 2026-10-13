@@ -9,11 +9,10 @@
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
-| gate-01 | V6-GATE-01: ten-size layout matrix (very long matrix run) | 5 (6150–6159) | dev-story, regression-suite, game-ui-ux, tdd |
-| acct-02 | V6-ACCT-02: identity and sessions core, migration 0017 | 6 (6160–6169) | dev-story, security-audit, save-systems, tdd |
-| land-02b | V6-LAND-02b: phone hero animation, line stagger (V6-029) | 4 (6140–6149) | game-feel, performance-optimization |
+| land-05 | V6-LAND-05: clips grid, FAQ, closing call to action | 4 (6140–6149) | frontend-design, design-principles, performance-optimization, schema-markup |
 | integrator-plat-01 | merges PLAT-01, full gates, recheck ru 375x667 | 9 (6190–6199) | n/a |
 
+**Integration queue (in order):** PLAT-01 (running) → ACCT-02 (worktree-agent-ae2ee72c9e3552df0; check whether the online-e2e duel-step failure was already there on base) → LAND-02b (worktree-agent-a53d46dde96001b69) → GATE-01 (worktree-agent-aa79f1267b9ef0092; rerun the full vitest; matrix: phone sizes plus 1280x800 only, per V6-030; CI covers the rest).
 Integrators run one at a time in slot 9. Director merges check the exit code (V6-028).
 
 **Unblocked once PLAT-01 merges:** INP-01 (action map), PLAT-02 (haptics codemod and Back), PAY-01 needs PLAT-04. RFND-01 waits for GATE-01.
