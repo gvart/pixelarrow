@@ -1,0 +1,7 @@
+{
+  "h1": 426,
+  "layers": {
+    "player": [{ "culture": "greek", "cls": "hoplite", "cx": 10, "cy": 15.4, "cols": 10, "ranks": 3, "gap": 0.75, "row": 1, "seed": 7 }],
+    "enemy": [{ "culture": "celtic", "cls": "celt_sword", "cx": 10.5, "cy": 10.7, "cols": 9, "ranks": 3, "gap": 0.85, "row": 2, "seed": 9 }]
+  }
+}
