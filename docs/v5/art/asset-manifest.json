@@ -709,7 +709,14 @@
   {
    "id": "ART-033",
    "status": "needed",
-   "preview": null,
+   "preview": {
+    "url": "ui/portrait_nikias.jpg",
+    "screens": [
+     "first-run-offer",
+     "first-run-resume",
+     "tutorial-intro"
+    ]
+   },
    "file": "portrait_nikias.jpg",
    "cat": "portrait",
    "kind": "painted",
@@ -730,7 +737,14 @@
   {
    "id": "ART-034",
    "status": "needed",
-   "preview": null,
+   "preview": {
+    "url": "ui/portrait_nikias_talk.jpg",
+    "screens": [
+     "first-run-offer",
+     "first-run-resume",
+     "tutorial-intro"
+    ]
+   },
    "file": "portrait_nikias_talk.jpg",
    "cat": "portrait",
    "kind": "painted",
@@ -751,7 +765,14 @@
   {
    "id": "ART-035",
    "status": "needed",
-   "preview": null,
+   "preview": {
+    "url": "ui/portrait_nikias_blink.jpg",
+    "screens": [
+     "first-run-offer",
+     "first-run-resume",
+     "tutorial-intro"
+    ]
+   },
    "file": "portrait_nikias_blink.jpg",
    "cat": "portrait",
    "kind": "painted",

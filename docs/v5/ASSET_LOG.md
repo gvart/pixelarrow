@@ -4,29 +4,50 @@ Owner: the `assets` agent (the only agent that touches Chrome). Other stories ad
 
 ## Queue
 
-**AS-07: the Nikias portraits ART-033..035 (blocked 2026-10-13).** Not generated: Claude in Chrome was not connected (four tries over the run, "extension isn't reachable"), and the brief says to stop rather than work around it. To resume: Chrome running with the Claude extension signed in, then run the three prompts below in one chat, in order, with `docs/v5/gemini/AS-02/ART-013_bust_hoplite_1.jpg` (its 1024 px copy) attached to the first and the approved frame 1 attached to the edits. Raws go to `docs/v5/gemini/AS-07/ART-03N_portrait_nikias[_talk|_blink]_<n>.jpg`. None of these was sent yet.
+Empty. The AS-07 Nikias prompts were sent in AS-08 (below).
 
-- **ART-033 `portrait_nikias`** (opening line for family members + T-STYLE + T-BUST, SUBJECT from the manifest row word for word):
+## Done
+
+### AS-08 The Nikias portraits ART-033..035 and the app icon set (2026-10-13)
+
+**Tool.** gemini.google.com, "Gemini 3.1 Pro", in Claude in Chrome, one new tab, two chats (Nikias, then the icon), typed prompts, no tool picker. References attached through the page's hidden `image/*` input. Every output was a 2048x2048 JPEG. Downloads were moved by the AS-02 safe mover (one new `Gemini_Generated_Image_*` newer than the start, else refuse); `~/Downloads` matched its start listing at the end. No CAPTCHA, quota message or download block. The tab was closed. **Raws:** `docs/v5/gemini/AS-08/` in the main checkout (gitignored). **Processed:** `docs/v5/gemini/AS-08/processed/portrait_nikias[_talk|_blink].png`. **Contact sheet:** `docs/v5/art/AS-08-contact.jpg` (the three frames at 384, the in-game card with frames 0/1/2 at 390, 360 and 320 DPR 3, the icon set at real size and zoomed, the maskable safe circle, the Telegram circle crop, the 640x360 image).
+
+**Prompts, word for word, with their outcome:**
+
+- **#1 ART-033** (the queued AS-07 prompt; `seed_hoplite.jpg`, the 1024 px copy of `AS-02/ART-013_bust_hoplite_1.jpg`, attached). Raw `ART-033_portrait_nikias_1.jpg`. **Rejected:** the helmet is worn down over the face (nose guard and cheek pieces closed), not pushed up, and a bronze shield rim was added; it reads as the hoplite class bust, not as the narrator (art bible §5.1: Nikias has the helmet pushed up). No text, no extra limbs.
 
   ```
   Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white. Light from the upper left, shadows to the lower right. Clear value contrast on the subject so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render, not glossy digital art, not anime, not comic ink. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads. ROLE: a character portrait for a small round or square portrait frame in a mobile strategy game; it must be recognisable at 40 pixels. SUBJECT: Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; mouth closed, eyes open. FRAMING: head and shoulders, front three-quarter view, the figure turned slightly to the viewer's left, eyes on the upper third of the image, the top of the head or crest 6 to 10 percent below the top edge, chin at about 60 percent of the height, shoulders cut by the bottom edge; the whole face and headgear inside the central circle of the image. The headgear silhouette and the one listed prop are the clearest, most contrasting shapes. BACKGROUND: plain dark warm umber (#26211b to #342d25), a soft lighter glow behind the head, no scenery. EXPRESSION: composed, alert, mouth closed. ASPECT: square 1:1, highest resolution available.
   ```
 
-- **ART-034 `portrait_nikias_talk`** (edit of the approved ART-033):
+- **#2 ART-033** (same chat, follow-up; the seed still in the chat). Raw `ART-033_portrait_nikias_2.jpg`. **Accepted (frame 1):** helmet high on the crown, eye holes empty above the brow, whole face and white beard visible, red crest, red cloak with a bronze brooch, no shield, umber ground with the glow; the crest tip is about 3% below the top edge (asked 6–10%), not cut. No text.
+
+  ```
+  Create a NEW image with the same prompt, but fix the helmet: the bronze Corinthian helmet is PUSHED UP and tilted back on top of his head, resting high on the crown like a cap, so his WHOLE face is uncovered: forehead, eyes, cheeks, white hair at the temples and the full white beard are all visible; the helmet's empty eye holes and cheek guards sit above his forehead. No shield: only the red cloak, pinned at the shoulder. Keep everything else from the first prompt: the fresco style matching the attached reference, the framing, the plain dark warm umber background with its soft glow, mouth closed, eyes open. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image, a shield. ASPECT: square 1:1, highest resolution available.
+  ```
+
+- **#3 ART-034** (edit; the approved frame 1 as a 1024 px JPEG attached). Raw `ART-034_portrait_nikias_talk_1.jpg`. **Accepted:** mouth open mid-word, teeth just showing. Geometry held: the mean per-channel difference to frame 1 on a 4x4 grid of the 384 px file is 1.3–4.1 everywhere except the mouth cell (10.0), so the head does not jump when the frames swap.
 
   ```
   Edit the attached Nikias portrait. Change only: his mouth, now open mid-word as if speaking, the lower teeth just hidden by the beard. Keep everything else identical: the same face, white beard, bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
   ```
 
-- **ART-035 `portrait_nikias_blink`** (edit of the approved ART-033):
+- **#4 ART-035** (edit; frame 1 attached). Raw `ART-035_portrait_nikias_blink_1.jpg`. **Accepted:** eyes closed, lids relaxed, mouth closed; grid difference 1.5–4.2, highest at the eyes. OI-7 (drift) did not happen; the three painted frames ship.
 
   ```
   Edit the attached Nikias portrait. Change only: his eyes, now closed in a blink, the eyelids relaxed. Keep everything else identical: the same face, white beard, closed mouth, bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
   ```
 
-  Wiring once approved (ASSET_LIST: FirstRunScene speech card, 64 UI px, and the tutorial narrator, 32 UI px): `src/ui/tutorial/narrator.ts` `ensureNarratorTextures` builds `narrator_0..2` from the three painted files when all three load (else the pixel bust), and the two callers scale the image to the slot instead of `setScale(1 | 2)`. Open issue OI-7 stands: if the edits drift, ship frame 1 alone with a code-driven blink.
+- **#5 App mark** (new family T-MARK, new chat, no reference). Raw `app_mark_1.jpg`. **Accepted:** one bronze Corinthian helmet in profile facing left, red crest, dark umber disc, terracotta and cream Greek-key ring, flat magenta outside, no text, no face. The ring came out about 14% of the diameter (asked 8%), so the helmet fills about half the disc; that is why the favicon sizes use the inner disc only (below).
 
-## Done
+  ```
+  Create an image. ROLE: the app icon and browser favicon of a mobile strategy game set in the ancient Mediterranean; it must read as one bold shape at 16 pixels and still look rich at 512 pixels. SUBJECT: a single bronze Corinthian hoplite helmet in side profile, facing the viewer's left, with a tall arched red horsehair crest; the eye opening is one clear dark almond shape; the helmet and crest together fill about 70 percent of the disc and are centred in it. DISC: a perfect circle of dark black-glaze umber (#2a1a12 to #3a2418), like the ground of a red-figure Greek vase, edged by a ring of terracotta (#a8432c) carrying a simple bold Greek key meander band in terracotta and warm cream (#e7d6ad), the band about 8 percent of the diameter wide; the helmet sits inside the ring and does not touch it. STYLE: painted like a red-figure Greek vase but with soft painted shading on the bronze: flat bold shapes, a heavy dark-brown outline (#2a1a12) of even weight around the helmet and crest, light from the upper left, bronze #b08a3a with warm highlights, warm earth colours, no pure black and no pure white, very few internal details; hand-painted, not a photo, not a 3D render, not glossy digital art, not anime. COMPOSITION: the disc centred, seen flat from the front, filling 94 percent of the square, nothing outside the disc. BACKGROUND: a perfectly flat solid #FF00FF magenta background outside the disc, edge to edge, with no shadow, no gradient and no glow; no magenta anywhere inside the disc. EXCLUDE: any text, letters, numbers, signatures, watermarks, a face or a person inside the helmet, spears, more than one object, tiny details, perspective, a drop shadow. ASPECT: square 1:1, highest resolution available.
+  ```
+
+**Nikias, pipeline (D-9).** `process.mjs` (painted, anchor 0.5/0.25) → 384x384; `check.mjs` PASS ×3. Slot wired as ASSET_LIST says (FirstRunScene speech card and the tutorial narrator; replaces the procedural bust): `src/ui/tutorial/narrator.ts` `preloadNarrator` (FirstRunScene.preload, and BattleScene.preload only for the tutorial battle) and `setNarratorFrame(img, frame, size)`, which shows the painted frame cover-drawn at the slot size (`raster.ts coverTexture`) when **all three** files loaded, else the pixel `narrator_0..2`. Manifest `preview`: `first-run-offer`, `first-run-resume`, `tutorial-intro`. `preview.mjs` exit 0 for each (layout check 0 new at 390x844, 360x780, 320x640), with temporary copies of the other two files in `public/ui/` (the slot needs all three); `promote.mjs --looked` shipped each over its copy (same bytes, md5 checked). Sheets read: slot filled, sharp at DPR 3, helmet, crest and beard whole in the 32 UI px well on the offer and resume cards and in the tutorial bubble (at 320 the tutorial leaves the portrait out by design, `PORTRAIT_MIN_VW`). Frames 1 and 2 were looked at in the game too (a scratch Playwright run that put each frame in the FirstRun well at the three sizes): the open mouth and the closed eyes read, nothing else moves. `check --shipped` PASS: 31.0, 31.2, 31.3 KB (budget 40).
+
+**App icon set (no manifest row: not a game slot).** `scripts/art/appicons.mjs <raw>`: key the magenta, trim, a clean round alpha, then: `public/favicon.ico` (16, 32, 48, PNG entries) and `public/favicon-32.png` from the inner 75% of the disc (the helmet and a terracotta rim, no meander; at 16 px the full disc was a brown dot with an orange ring); `public/apple-touch-icon.png` 180 (disc at 90% on `#14100c`); `public/icon-192.png`, `icon-512.png` (disc, transparent); `public/icon-maskable-512.png` (disc at 80%, inside the W3C maskable safe circle, on `#14100c`); `docs/telegram/bot_userpic_640.png` (disc at 86% on `#14100c`, inside Telegram's circle crop) and `docs/telegram/miniapp_cover_640x360.jpg` (the campaign fresco cover-cropped, the mark at 150 px in the sky). Wired: `index.html` links the two favicons, the touch icon and `public/manifest.webmanifest` (name, standalone, portrait, the three PWA icons; theme and background `#14100c`, the `bg` token, already the page's `theme-color`). Checked at 16 px by zooming the rendered 16 px entry on the dark and the parchment ground: the red crest and the bronze helmet with its dark eye read; in greyscale it is a lighter helmet on a dark disc. The Telegram circle crop leaves the whole ring visible. Telegram sizes and the owner's BotFather steps: `docs/telegram/README.md`.
+
 
 ### AS-07 The v5 art left undone: 14 staged icons and 17 class busts promoted (2026-10-13)
 
@@ -586,3 +607,18 @@ EXCLUDE: text, a picture in the centre, perspective.
 ```
 
 Processing: `process.mjs` (kind `frame`), then `nineslice.mjs` with the manifest's `slice` insets.
+
+### T-MARK (app icon and favicon mark, AS-08)
+
+```
+ROLE: the app icon and browser favicon of a mobile strategy game set in the ancient Mediterranean; it must read as one bold shape at 16 pixels and still look rich at 512 pixels.
+SUBJECT: {SUBJECT: one object in side profile, e.g. a bronze Corinthian hoplite helmet facing the viewer's left with a tall arched red horsehair crest}; its one dark opening (eye hole) a single clear shape; the object fills about 70 percent of the disc and is centred in it.
+DISC: a perfect circle of dark black-glaze umber (#2a1a12 to #3a2418), like the ground of a red-figure Greek vase, edged by a ring of terracotta (#a8432c) carrying a simple bold Greek key meander band in terracotta and warm cream (#e7d6ad), the band about 8 percent of the diameter wide; the object sits inside the ring and does not touch it.
+STYLE: painted like a red-figure Greek vase but with soft painted shading on the bronze: flat bold shapes, a heavy dark-brown outline (#2a1a12) of even weight around the object, light from the upper left, bronze #b08a3a with warm highlights, warm earth colours, no pure black and no pure white, very few internal details; hand-painted, not a photo, not a 3D render, not glossy digital art, not anime.
+COMPOSITION: the disc centred, seen flat from the front, filling 94 percent of the square, nothing outside the disc.
+BACKGROUND: a perfectly flat solid #FF00FF magenta background outside the disc, edge to edge, with no shadow, no gradient and no glow; no magenta anywhere inside the disc.
+EXCLUDE: any text, letters, numbers, signatures, watermarks, a face or a person, more than one object, tiny details, perspective, a drop shadow.
+ASPECT: square 1:1, highest resolution available.
+```
+
+Opening line `Create an image.` (first of its family, no reference). Processing: `node scripts/art/appicons.mjs <raw>` (key, trim, round alpha, every web and Telegram size; the favicon sizes use the inner disc).

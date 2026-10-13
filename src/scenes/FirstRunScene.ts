@@ -19,7 +19,7 @@ import { MOSAIC } from '../ui/tokens';
 import { uiFrame, uiId } from '../ui/layout';
 import { FrescoBanner, MButton, MODE_TABS, ParchmentCard, ScreenFrame, TopBar, goTab, mosaicImage, mtext, type Box, type TabId } from '../ui/mosaic';
 import { makePressable } from '../ui/mosaic/base';
-import { ensureNarratorTextures } from '../ui/tutorial/narrator';
+import { ensureNarratorTextures, preloadNarrator, setNarratorFrame } from '../ui/tutorial/narrator';
 import { NARRATOR_SIZE } from '../art/narrator';
 import { state } from '../state';
 import { progressOf, skipTutorial, TUTORIAL_REWARD } from '../game/tutorial';
@@ -72,6 +72,7 @@ export class FirstRunScene extends BaseScene {
     const mode = (this.sys.settings.data as FirstRunData | undefined)?.mode ?? 'offer';
     const art = mode === 'offer' || mode === 'resume' ? [{ art: SPLASH, file: 'ui/splash_keyart.jpg' }] : mode === 'modes' ? MODES : [];
     for (const a of art) if (!this.textures.exists(a.art)) this.load.image(a.art, a.file);
+    preloadNarrator(this);
   }
 
   create(data: FirstRunData): void {
@@ -99,7 +100,7 @@ export class FirstRunScene extends BaseScene {
   update(time: number): void {
     if (!this.portrait) return;
     const blink = time % 3100 < 130;
-    this.portrait.setTexture(`narrator_${blink ? 2 : 0}`);
+    setNarratorFrame(this.portrait, blink ? 2 : 0, this.portrait.displayWidth);
   }
 
   /** Height of the compact speech card (portrait beside the words) for `text`. */
@@ -111,8 +112,8 @@ export class FirstRunScene extends BaseScene {
   }
 
   /**
-   * Nikias and his line on a parchment card: the pixel mentor in a bronze-framed square (a painted
-   * portrait comes later), his name in Cinzel and the speech. A tall screen stacks them, a short one
+   * Nikias and his line on a parchment card: the painted mentor (the pixel bust if it failed to load)
+   * in a bronze-framed square, his name in Cinzel and the speech. A tall screen stacks them, a short one
    * (or `compact`) puts the portrait beside the words.
    */
   private speech(y: number, bottom: number, text: string, compact = false): number {
@@ -131,7 +132,8 @@ export class FirstRunScene extends BaseScene {
       g.lineStyle(0.6, MOSAIC.parchEdge, 1);
       g.strokeRect(px - 1.5, py - 1.5, ps + 3, ps + 3);
       card.add(g);
-      this.portrait = this.add.image(card.x + px + 2, card.y + py + 2, 'narrator_0').setOrigin(0, 0).setScale(scale);
+      this.portrait = this.add.image(card.x + px + 2, card.y + py + 2, 'narrator_0').setOrigin(0, 0);
+      setNarratorFrame(this.portrait, 0, NARRATOR_SIZE * scale);
       this.ui.add(this.portrait);
     };
     if (big) {

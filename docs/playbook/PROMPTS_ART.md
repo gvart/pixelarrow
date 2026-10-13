@@ -1,6 +1,6 @@
 # Art prompt library
 
-Every Gemini prompt used in v5, grouped by asset type, quoted word for word from
+Every Gemini prompt used in v5 (AS-08 included), grouped by asset type, quoted word for word from
 [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) and [docs/v5/ux/HUB_DIRECTIONS.md](../v5/ux/HUB_DIRECTIONS.md).
 Where the log kept only a short form of a prompt, this file says so and quotes the short form; nothing here was
 reconstructed or invented. How to run a job: [ART.md](ART.md).
@@ -15,12 +15,13 @@ reconstructed or invented. How to run a job: [ART.md](ART.md).
 | AS-04 | Frescoes, vignettes, splash | 14 | 1 (the seed) | 13 (family F/G verbatim, SUBJECT short) |
 | AS-05 | Beast plates, chests, laurel | 12 | 1 (the seed) | 11 (family F/G verbatim, SUBJECT short; cutouts described in prose) |
 | AS-06 | World pixel sprites | 14 | 1 (the seed) | 13 (follow-up pattern verbatim, specifics quoted in short) |
-| **Total** | | **77** | **36** | **41** |
+| AS-08 | Nikias portraits, app icon mark | 5 | 5 | 0 |
+| **Total** | | **82** | **41** | **41** |
 
 **Missing.** No v5 render is unrecorded. Not recorded anywhere: the prompts for art that predates v5 and still
 ships or exists (`public/ui/banner_campaign.jpg`, `public/ui/portrait_leader.jpg`, the 101 legacy icons in
 `public/icons/ui.png` and the 189 in `items.png`). The v4 brief that preceded them is quoted in §11; whether it
-produced those files is not recorded. The Nikias portraits (ART-033..035) were planned but not generated; their AS-07 prompts are written and queued (§10), not sent.
+produced those files is not recorded. The Nikias portraits (ART-033..035), queued in AS-07, were sent and shipped in AS-08 (§10).
 
 **Gemini settings.** gemini.google.com, "Pro" mode ("Gemini 3.1 Pro"), typed prompts, no tool picker after
 AS-01 (AS-01 used the *Create image* tool with aspect 9:16). Outputs were 2048x2048 (square), 3168x1344
@@ -41,6 +42,7 @@ suffix + ASPECT**.
 | First asset of a new family, with a reference from another family | `Create a NEW image, not an edit of the reference. The attached portrait is from the same mobile strategy game: match its painting style, palette, brushwork and lighting exactly, but this is a wide landscape scene, not a portrait.` |
 | Later members of a family (seed attached) | `Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject.` |
 | Variant of an approved image | `Edit the attached chest image. Change only: {what}. Keep everything else identical: …` |
+| Follow-up in the same chat, fixing one thing (AS-08) | `Create a NEW image with the same prompt, but fix {what}: … Keep everything else from the first prompt: …` |
 | Follow-up in the same chat (pixel sets) | `Next sprite of the same set, same big cells (one flat colour each), same palette and light from the upper left, flat #FF00FF magenta background` |
 
 ### Reusable suffixes
@@ -178,6 +180,19 @@ BACKGROUND: the centre and the outside are a perfectly flat solid #FF00FF magent
 LIGHT: from the upper left: lit top-left bevels, shaded bottom-right bevels.
 ASPECT: square 1:1, highest resolution available.
 EXCLUDE: text, a picture in the centre, perspective.
+```
+
+**T-MARK** (the app icon and favicon mark; AS-08, §12)
+
+```
+ROLE: the app icon and browser favicon of a mobile strategy game set in the ancient Mediterranean; it must read as one bold shape at 16 pixels and still look rich at 512 pixels.
+SUBJECT: {SUBJECT: one object in side profile, e.g. a bronze Corinthian hoplite helmet facing the viewer's left with a tall arched red horsehair crest}; its one dark opening (eye hole) a single clear shape; the object fills about 70 percent of the disc and is centred in it.
+DISC: a perfect circle of dark black-glaze umber (#2a1a12 to #3a2418), like the ground of a red-figure Greek vase, edged by a ring of terracotta (#a8432c) carrying a simple bold Greek key meander band in terracotta and warm cream (#e7d6ad), the band about 8 percent of the diameter wide; the object sits inside the ring and does not touch it.
+STYLE: painted like a red-figure Greek vase but with soft painted shading on the bronze: flat bold shapes, a heavy dark-brown outline (#2a1a12) of even weight around the object, light from the upper left, bronze #b08a3a with warm highlights, warm earth colours, no pure black and no pure white, very few internal details; hand-painted, not a photo, not a 3D render, not glossy digital art, not anime.
+COMPOSITION: the disc centred, seen flat from the front, filling 94 percent of the square, nothing outside the disc.
+BACKGROUND: a perfectly flat solid #FF00FF magenta background outside the disc, edge to edge, with no shadow, no gradient and no glow; no magenta anywhere inside the disc.
+EXCLUDE: any text, letters, numbers, signatures, watermarks, a face or a person, more than one object, tiny details, perspective, a drop shadow.
+ASPECT: square 1:1, highest resolution available.
 ```
 
 ---
@@ -504,7 +519,7 @@ under ~16 art px is faster to draw in code.
 No raster frame was generated in v5: the chrome stayed procedural (art bible §7.1). The T-FRAME template above
 and `nineslice.mjs` are ready if a later story needs one. The v4 brief's frame and button specs are in §11.
 
-## 10. Planned, not generated yet: Nikias (ART-033..035)
+## 10. Nikias (ART-033..035): queued in AS-07, sent in AS-08
 
 Subjects from the manifest (T-BUST; frames 2 and 3 are edits of frame 1, only the mouth or eyes change):
 
@@ -514,14 +529,28 @@ Subjects from the manifest (T-BUST; frames 2 and 3 are edits of frame 1, only th
 | 034 | portrait_nikias_talk.jpg | … mouth open mid-word |
 | 035 | portrait_nikias_blink.jpg | … eyes closed |
 
-Open issue OI-7: painted edits may drift; the fallback is one bust plus a code-driven blink.
+**AS-07 (2026-10-13):** written and queued, not sent (Chrome was not connected). **AS-08 (2026-10-13):** sent in one
+chat, `seed_hoplite.jpg` (the 1024 px `bust_hoplite` raw) attached to #1, the approved frame 1 attached to the two
+edits. Four renders, three shipped; OI-7 (edit drift) did not happen. Details in
+[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › AS-08.
 
-**AS-07 (2026-10-13): prompts written, not sent.** Chrome was not connected, so these three are queued in
-[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › Queue, word for word. Frame 1 = the family opening line + T-STYLE
-+ T-BUST with the manifest SUBJECT and `bust_hoplite` attached; frames 2 and 3 are edits of the approved frame 1:
+| # | Prompt | Outcome |
+| --- | --- | --- |
+| 1 | family opening line + T-STYLE + T-BUST, the manifest SUBJECT (block 1) | **Rejected:** the helmet was worn down over the face and a shield rim added; it read as the hoplite class bust |
+| 2 | same-chat fix (block 2) | **Accepted**, frame 1 (`portrait_nikias`) |
+| 3 | edit of frame 1, the mouth (block 3) | **Accepted** (`portrait_nikias_talk`); only the mouth changed |
+| 4 | edit of frame 1, the eyes (block 4) | **Accepted** (`portrait_nikias_blink`); only the eyes changed |
+
+**Lesson:** "helmet pushed up on the head" alone is read as a helmet worn normally. Say what shows: "resting high on
+the crown like a cap, the whole face uncovered, the empty eye holes above the forehead". A prop not asked for (the
+shield) came from the hoplite seed; exclude it by name.
 
 ```
 Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white. Light from the upper left, shadows to the lower right. Clear value contrast on the subject so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render, not glossy digital art, not anime, not comic ink. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads. ROLE: a character portrait for a small round or square portrait frame in a mobile strategy game; it must be recognisable at 40 pixels. SUBJECT: Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; mouth closed, eyes open. FRAMING: head and shoulders, front three-quarter view, the figure turned slightly to the viewer's left, eyes on the upper third of the image, the top of the head or crest 6 to 10 percent below the top edge, chin at about 60 percent of the height, shoulders cut by the bottom edge; the whole face and headgear inside the central circle of the image. The headgear silhouette and the one listed prop are the clearest, most contrasting shapes. BACKGROUND: plain dark warm umber (#26211b to #342d25), a soft lighter glow behind the head, no scenery. EXPRESSION: composed, alert, mouth closed. ASPECT: square 1:1, highest resolution available.
+```
+
+```
+Create a NEW image with the same prompt, but fix the helmet: the bronze Corinthian helmet is PUSHED UP and tilted back on top of his head, resting high on the crown like a cap, so his WHOLE face is uncovered: forehead, eyes, cheeks, white hair at the temples and the full white beard are all visible; the helmet's empty eye holes and cheek guards sit above his forehead. No shield: only the red cloak, pinned at the shoulder. Keep everything else from the first prompt: the fresco style matching the attached reference, the framing, the plain dark warm umber background with its soft glow, mouth closed, eyes open. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image, a shield. ASPECT: square 1:1, highest resolution available.
 ```
 
 ```
@@ -544,3 +573,18 @@ Nikias, tab bar, selected tab, raised War tab), with the rule "no text, no lette
 wherever transparency is needed; front view, even lighting from the top-left; exact size". Results of that brief
 were not logged. An early Campaign hub render of that period invented a "Quests" tile (the owner's memory note);
 v5 replaced open-ended mockup prompts with allowlist prompts (§2).
+
+## 12. App icon and mark (AS-08)
+
+A new family, **T-MARK** (§1): one object in profile on a round red-figure disc with a Greek-key ring, on #FF00FF.
+It is the app's own mark (browser tab, home screen, Telegram bot picture), not an in-game icon: it is not in the
+atlas and does not take a `RESERVED_ICONS` meaning. `node scripts/art/appicons.mjs <raw>` builds every size from
+the one render; the favicon sizes (16, 32, 48) use only the inner disc so the helmet still reads.
+
+| # | Prompt | Outcome |
+| --- | --- | --- |
+| 5 | `Create an image.` + T-MARK with the helmet SUBJECT (below) | **Accepted** (`docs/v5/gemini/AS-08/app_mark_1.jpg`). The meander ring came out about 14% of the diameter, not 8%; harmless at 180 px and up, and the favicons crop it away |
+
+```
+Create an image. ROLE: the app icon and browser favicon of a mobile strategy game set in the ancient Mediterranean; it must read as one bold shape at 16 pixels and still look rich at 512 pixels. SUBJECT: a single bronze Corinthian hoplite helmet in side profile, facing the viewer's left, with a tall arched red horsehair crest; the eye opening is one clear dark almond shape; the helmet and crest together fill about 70 percent of the disc and are centred in it. DISC: a perfect circle of dark black-glaze umber (#2a1a12 to #3a2418), like the ground of a red-figure Greek vase, edged by a ring of terracotta (#a8432c) carrying a simple bold Greek key meander band in terracotta and warm cream (#e7d6ad), the band about 8 percent of the diameter wide; the helmet sits inside the ring and does not touch it. STYLE: painted like a red-figure Greek vase but with soft painted shading on the bronze: flat bold shapes, a heavy dark-brown outline (#2a1a12) of even weight around the helmet and crest, light from the upper left, bronze #b08a3a with warm highlights, warm earth colours, no pure black and no pure white, very few internal details; hand-painted, not a photo, not a 3D render, not glossy digital art, not anime. COMPOSITION: the disc centred, seen flat from the front, filling 94 percent of the square, nothing outside the disc. BACKGROUND: a perfectly flat solid #FF00FF magenta background outside the disc, edge to edge, with no shadow, no gradient and no glow; no magenta anywhere inside the disc. EXCLUDE: any text, letters, numbers, signatures, watermarks, a face or a person inside the helmet, spears, more than one object, tiny details, perspective, a drop shadow. ASPECT: square 1:1, highest resolution available.
+```

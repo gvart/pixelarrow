@@ -63,6 +63,7 @@ import { foeName, heroName, namesIn } from '../i18n/names';
 import { placeName } from '../i18n/places';
 import { fmtClock } from '../util/format';
 import { BattleTutorial, type TutorialEvent, type TutorialHost, type TutorialStart } from '../ui/tutorial/battleTutorial';
+import { preloadNarrator } from '../ui/tutorial/narrator';
 import { tutorialBattle } from '../game/tutorial';
 
 // World pixels come from the 2:1 isometric projection in src/art/iso.ts.
@@ -396,6 +397,8 @@ export class BattleScene extends BaseScene {
   /** The works' pixel sprites (AS-06), once: a file that fails to load leaves its works drawn by the ghost outline only. */
   preload(): void {
     for (const a of Object.values(WORK_ART)) if (!this.textures.exists(a.key)) this.load.image(a.key, a.url);
+    // the tutorial's narrator: the painted Nikias (only the tutorial battle downloads it)
+    if ((this.sys.settings.data as { tutorial?: TutorialStart } | undefined)?.tutorial) preloadNarrator(this);
   }
 
   create(data: { fresh?: boolean; source?: BattleSource; tutorial?: TutorialStart }): void {
