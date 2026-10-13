@@ -10,15 +10,17 @@
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
 | rfnd-01 | V6-RFND-01: scale policy, ADR-0013, size classes, legacy column | 1 (6110–6119) | game-ui-ux, architecture-decision, phaser-core, tdd |
-| fix-shop | FIX-SHOP-01: the signed-out web Shop stuck (GATE02-B1) | 5 (6150–6159) | tdd, phaser-core |
-| link-04 | V6-LINK-04: account deletion engine | (none) | security-audit, save-systems, tdd |
+| gate-01b | GATE-01b: fast layout-check mode (V6-030) | 5 (6150–6159) | performance-optimization, regression-suite, tdd |
+| inp-02 | V6-INP-02: KeyRouter, Esc, battle hotkeys | 5 (6150–6159, shared; checked with lsof) | input-systems, phaser-core, tdd |
+| stats-03 | V6-STATS-03: landing proxy on the real PublicApi entrypoint, two-Worker e2e | 3 (6130–6139) | security-audit, tdd, dev-story |
+| link-02 | V6-LINK-02: re-auth, add or change email, unlink, the delete route, notices | 6 (6160–6169) | security-audit, dev-story, tdd |
 
-**Integration queue:** ACCT-04 (branch v6-acct-04; raise the regression CI timeout-minutes from 20 to 45; add owner actions for the Turnstile secret and the ratelimit namespace ids 6001/6002) → RFND-01 → FIX-SHOP-01 → LINK-04.
-Integrators run one at a time in slot 9. No Director commits while a merge is open (V6-037).
-
-**Next ready after merges:** STATS-02 (after ACCT-04), RFND-02 and RFND-03 (after RFND-01), ACCT-05 (needs PLAT-04), PLAT-03, INP-02, LINK-02 (after LINK-04), GATE-01b (fast layout mode, V6-030).
+**Integration queue:** RFND-01 next, then whatever finishes.
+**Next ready:** PLAT-03 (after RFND-01, because of the safe area), RFND-02/03 (after RFND-01), LAND-04 (after STATS-03), LINK-03 (after LINK-02), INP-03 (after INP-02).
 
 ## Merged
+
+- ACCT-04 (V6-045), FIX-SHOP-01 (V6-046), STATS-02 (V6-047), LINK-04 (V6-048)
 
 - INP-01 (V6-038), GATE-01 (V6-039), PLAT-02 (V6-040), LINK-01 (V6-041), ACCT-03 (V6-042), HOST-03 (V6-043), GATE-02 (V6-044) + CI wiring 8c48f356
 
