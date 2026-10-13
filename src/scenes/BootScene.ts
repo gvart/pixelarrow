@@ -3,7 +3,8 @@ import { registerUiAssets, addText, uiMetrics } from '../ui/kit';
 import { registerMisc } from '../ui/sprites';
 import { loadUiFonts } from '../art/vectorFont';
 import { ICON_ATLASES, registerIconFrames } from '../art/iconBitmaps';
-import { initTelegram, startParam } from '../platform/telegram';
+import { startParam } from '../platform/telegram';
+import { platform } from '../platform';
 import { parseStartParam, sceneForRoute } from '../online/deeplink';
 import { setPendingInvite } from '../online/client';
 import { state } from '../state';
@@ -83,7 +84,7 @@ export class BootScene extends Phaser.Scene {
   private async route(): Promise<void> {
     // Test scripts force the error screen with window.__bootFail (as they skip first run with __noFirstRun).
     if ((window as { __bootFail?: boolean }).__bootFail) throw new Error('boot: forced failure (test)');
-    await initTelegram();
+    await platform.init();
     await state.load();
     // every scene key exists before the first screen (the second chunk: scenes/lazy.ts)
     await loadLazyScenes(this.game);

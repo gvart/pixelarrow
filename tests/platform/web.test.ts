@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createWebPlatform } from '../../src/platform/web/index';
+import { platformContract } from './contract';
 import { fakeEnv } from './env';
+
+platformContract('web adapter', async () => {
+  const f = fakeEnv();
+  const p = createWebPlatform(f.env);
+  await p.init();
+  return { p, pressBack: () => void f.win.fire('popstate'), changeInsets: () => {} };
+});
 
 describe('web adapter: Back', () => {
   it('has no native Back, so the game draws its own arrow', () => {

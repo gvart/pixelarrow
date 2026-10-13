@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTelegramPlatform } from '../../src/platform/telegram/index';
+import { platformContract } from './contract';
 import { fakeEnv } from './env';
 
 /** A fake Telegram.WebApp that records what the adapter does with it. */
@@ -82,6 +83,11 @@ async function launched(wa = fakeWebApp(), extra: Parameters<typeof fakeEnv>[0] 
   await p.init();
   return { p, f, wa };
 }
+
+platformContract('Telegram adapter', async () => {
+  const { p, wa } = await launched();
+  return { p, pressBack: () => [...wa.BackButton.handlers].forEach((h) => h()), changeInsets: () => wa.emit('safeAreaChanged') };
+});
 
 describe('Telegram adapter: start-up and version gates', () => {
   it('goes full screen and locks portrait on a Bot API 8.0 phone', async () => {
