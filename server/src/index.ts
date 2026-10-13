@@ -25,6 +25,7 @@ import { requireDuelProfile } from './duel/store';
 import { currentSeason, requireProfile, shardDoName } from './online/store';
 import { notifyRoutes } from './notify/routes';
 import { runScheduled } from './notify/jobs';
+import { buildPublicSnapshot } from './public/snapshot';
 import { pruneClientErrors, telemetry } from './telemetry/routes';
 import { logError, log } from './telemetry/log';
 import { admin } from './admin/routes';
@@ -250,14 +251,28 @@ async function housekeeping(env: AppEnv['Bindings']): Promise<void> {
   }
 }
 
+/** The landing page's stats snapshot (ADR-0010 §2), every 5 minutes. A failed run keeps the last good snapshot. */
+async function publicSnapshot(env: AppEnv['Bindings'], now: number): Promise<void> {
+  if (!env.DB) return;
+  try {
+    await buildPublicSnapshot(env, now);
+  } catch (e) {
+    logError('cron', e, { step: 'public snapshot' });
+  }
+}
+
 export default {
   fetch: app.fetch,
   /**
    * Cron (wrangler.jsonc triggers): every 5 minutes bot notifications that
-   * wait, season and income notices, bot setup; daily housekeeping.
+   * wait, season and income notices, bot setup, the public stats snapshot;
+   * daily housekeeping.
    */
   scheduled(controller, env, ctx) {
     if (controller.cron === HOUSEKEEPING_CRON) ctx.waitUntil(housekeeping(env));
-    else ctx.waitUntil(runScheduled(env, controller.scheduledTime));
+    else {
+      ctx.waitUntil(runScheduled(env, controller.scheduledTime));
+      ctx.waitUntil(publicSnapshot(env, controller.scheduledTime));
+    }
   },
 } satisfies ExportedHandler<AppEnv['Bindings']>;

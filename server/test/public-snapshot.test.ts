@@ -1,12 +1,14 @@
-import { env } from 'cloudflare:test';
-import { describe, expect, it } from 'vitest';
+import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from 'cloudflare:test';
+import { describe, expect, it, vi } from 'vitest';
 import { buildPublicSnapshot } from '../src/public/snapshot';
-import { PublicSummaryV1 } from '../src/public/schema';
-import { publicNamesReady } from '../src/public/duelTop';
+import { BODY_MAX_BYTES, PublicSummaryV1 } from '../src/public/schema';
+import { publicDuelTop, publicNamesReady } from '../src/public/duelTop';
 import { seasonId } from '../../src/duel/season';
 import { RANKED } from '../../src/duel/rating';
 import { standings } from '../src/online/store';
-import { fresh, join } from './onlineHelpers';
+import { fresh, join, type Player } from './onlineHelpers';
+import { mockTelegram } from './helpers';
+import worker from '../src/index';
 
 const db = env.DB!;
 const NOW = Date.UTC(2026, 9, 13, 12, 0, 0);
@@ -25,7 +27,25 @@ async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Prom
     .prepare('INSERT INTO players (id, telegram_id, username, first_name, created_at, last_seen_at, banned_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)')
     .bind(id, tg, user, first, NOW - 30 * DAY, o.lastSeen ?? NOW - DAY, o.banned ? NOW - DAY : null)
     .run();
+  seeded.push({ id, tg, first, user });
   return { id, tg, first, user };
+}
+
+/** Everything seeded that must never reach the snapshot: player ids, Telegram ids, first names, usernames. */
+const seeded: { id: number; tg: number; first: string; user: string }[] = [];
+
+/** Wraps the D1 binding and records every SQL statement prepared through it. */
+function spyDb(): { db: D1Database; sql: string[] } {
+  const sql: string[] = [];
+  const spy = new Proxy(db, {
+    get(target, prop) {
+      if (prop === 'prepare') return (q: string) => (sql.push(q.trim()), target.prepare(q));
+      if (prop === 'batch' || prop === 'exec') return () => Promise.reject(new Error(`unexpected ${String(prop)}`));
+      const v = Reflect.get(target, prop);
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  });
+  return { db: spy, sql };
 }
 
 let rowSeq = 0;
@@ -198,7 +218,7 @@ describe('public snapshot (ADR-0010 §2)', () => {
   it('war boards: eligible players by held-region score; clans only once their names pass the validator', async () => {
     await ensureNameColumns();
     fresh();
-    const ps = [];
+    const ps: Player[] = [];
     for (let i = 1; i <= 5; i++) ps.push(await join(8_800_000 + i));
     const season = ps[0].profile.season.id;
     for (const [i, p] of ps.entries()) await db.prepare('UPDATE players SET display_name = ?2, public_boards = ?3 WHERE id = ?1').bind(p.playerId, `Warrior${i}`, i === 4 ? 0 : 1).run();
@@ -277,5 +297,86 @@ describe('public snapshot (ADR-0010 §2)', () => {
       { rank: 3, name: c.name, kills: 1 },
     ]);
     expect(snap.totals.bossesSlain).toBeGreaterThanOrEqual(6);
+  });
+  it('publicDuelTop performs no writes, and the build writes only public_snapshot and stats_counters (D1 spy)', async () => {
+    await ensureNameColumns();
+    const top = spyDb();
+    await publicDuelTop(top.db, 'live', DUEL_SEASON, 10);
+    expect(top.sql.length).toBeGreaterThan(0);
+    for (const q of top.sql) expect(q).toMatch(/^SELECT\b/i);
+
+    const build = spyDb();
+    await buildPublicSnapshot({ ...env, DB: build.db }, NOW);
+    const writes = build.sql.filter((q) => !/^(SELECT|WITH)\b/i.test(q));
+    expect(writes.length).toBeGreaterThan(0);
+    for (const q of writes) expect(q).toMatch(/^INSERT INTO (public_snapshot|stats_counters) /);
+  });
+
+  it('a recursive scan of the snapshot finds no seeded id, Telegram id, Telegram name or email', async () => {
+    await ensureNameColumns();
+    const snap = await buildPublicSnapshot(env, NOW, { clanName: () => true });
+    expect(snap.duels.live.length + snap.war.players.length + snap.bossSlayers.length).toBeGreaterThan(0); // the scan sees real rows
+    const ids = new Set(seeded.flatMap((p) => [p.id, p.tg]));
+    const texts = seeded.flatMap((p) => [p.first, p.user, String(p.tg), String(p.id)]);
+    const tgPlayers = (await db.prepare('SELECT id, telegram_id, first_name, username FROM players').all<{ id: number; telegram_id: number; first_name: string | null; username: string | null }>()).results;
+    for (const p of tgPlayers) {
+      if (p.id > 1000) ids.add(p.id); // small ids would collide with counts and ranks; the seeded ones are large
+      ids.add(p.telegram_id);
+      if (p.first_name) texts.push(p.first_name);
+      if (p.username) texts.push(p.username);
+    }
+    const BAD_KEYS = /^(id|pid|playerId|player_id|telegram.*|tg.*|username|first_?name|email|clanId|code|rd|vol|lastSeen.*)$/i;
+    const walk = (v: unknown, path: string): void => {
+      if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${path}[${i}]`));
+      if (v && typeof v === 'object') {
+        for (const [k, x] of Object.entries(v)) {
+          if (!(k === 'id' && path.endsWith('.season'))) expect(k, path).not.toMatch(BAD_KEYS); // a season's own number is public
+          walk(x, `${path}.${k}`);
+        }
+        return;
+      }
+      if (typeof v === 'number') expect(ids.has(v), `${path} = ${v}`).toBe(false);
+      if (typeof v === 'string') {
+        expect(v, path).not.toContain('@');
+        for (const t of texts) expect(v.includes(t), `${path} contains "${t}"`).toBe(false);
+      }
+    };
+    walk(snap, 'snap');
+    walk(JSON.parse((await stored())!.body), 'body');
+  });
+
+  it('the strict schema rejects unknown keys and oversized boards; a full snapshot stays under 32 KB', async () => {
+    const snap = await buildPublicSnapshot(env, NOW);
+    expect(PublicSummaryV1.safeParse({ ...snap, extra: 1 }).success).toBe(false);
+    expect(PublicSummaryV1.safeParse({ ...snap, totals: { ...snap.totals, revenue: 1 } }).success).toBe(false);
+    const name = 'N'.repeat(32);
+    const duel = (i: number) => ({ rank: i + 1, name, league: 'legend', rating: 9999, games: 9999 });
+    const ten = <T>(f: (i: number) => T) => Array.from({ length: 10 }, (_, i) => f(i));
+    expect(PublicSummaryV1.safeParse({ ...snap, duels: { ...snap.duels, live: [{ ...duel(0), pid: 7 }] } }).success).toBe(false);
+    expect(PublicSummaryV1.safeParse({ ...snap, duels: { ...snap.duels, live: [...ten(duel), duel(0)] } }).success).toBe(false);
+    const full = PublicSummaryV1.parse({
+      ...snap,
+      duels: { season: { id: 1, endsAt: NOW }, live: ten(duel), async: ten(duel) },
+      war: { season: { id: 1, endsAt: NOW }, players: ten((i) => ({ rank: i + 1, name, clan: name, score: 1e9 })), clans: ten((i) => ({ rank: i + 1, name, score: 1e9, members: 999 })) },
+      champions: {
+        war: Array.from({ length: 5 }, () => ({ season: 999, name, title: name })),
+        duel: Array.from({ length: 5 }, () => ({ season: 999, ladder: 'async' as const, name })),
+      },
+      bossSlayers: ten((i) => ({ rank: i + 1, name, kills: 9999 })),
+    });
+    expect(new TextEncoder().encode(JSON.stringify(full)).length).toBeLessThanOrEqual(BODY_MAX_BYTES);
+  });
+  it('the 5-minute cron builds the snapshot; the daily housekeeping cron does not', async () => {
+    mockTelegram({ getMe: { username: 'pixelarrow_bot' } });
+    const run = async (cron: string, scheduledTime: number) => {
+      const ctx = createExecutionContext();
+      worker.scheduled(createScheduledController({ cron, scheduledTime }), env, ctx);
+      await waitOnExecutionContext(ctx);
+    };
+    await run('17 3 * * *', NOW + 1);
+    expect((await stored())?.generated_at).not.toBe(NOW + 1);
+    await run('*/5 * * * *', NOW + 2);
+    expect((await stored())?.generated_at).toBe(NOW + 2);
+    vi.restoreAllMocks();
   });
 });
