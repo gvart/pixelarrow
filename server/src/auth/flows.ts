@@ -24,6 +24,7 @@ import { renderEmail, type Lang, type Template } from '../email/templates';
 import { checkPasswordPolicy, hashPassword, verifyPassword, type PepperSet } from './password';
 import { clearLoginFailures, loginLockedFor, mailAllowed, recordLoginFailure } from './throttle';
 import { createPasswordPlayer } from './identity';
+import { isBanTombstoned } from '../account/banTombstone';
 import { forgetSessions, hashToken, type Session } from './sessions';
 
 const MIN = 60_000;
@@ -166,6 +167,8 @@ export async function verifySignup(d: FlowDeps, token: string): Promise<PlayerRo
     .bind(await hashToken(token), d.now)
     .first<{ email_norm: string; email: string; pending_hash: string | null }>();
   if (!row?.pending_hash) throw invalidToken();
+  // A deleted banned player's address stays refused for 180 days (ADR-0009 §7.7).
+  if (await isBanTombstoned(d.db, () => d.peppers, 'password', row.email_norm, d.now)) throw bannedError();
   const player = await createPasswordPlayer(d.db, row.email_norm, row.email, row.pending_hash, d.now);
   if (player === 'taken') throw new ApiError(409, 'email_taken', 'This email was confirmed for another account in the meantime');
   // The other pending links for this address are dead now.

@@ -6,6 +6,7 @@ import { clientIp, db, requireSession, secret } from '../middleware';
 import { bannedError } from '../ban';
 import { publicPlayer, type PlayerRow } from '../players';
 import { playerByTelegramIdentity, upsertTelegramPlayer } from '../auth/identity';
+import { isBanTombstoned } from '../account/banTombstone';
 import { clearSessionCookie, sessionCookie } from '../auth/cookies';
 import { createSession, deviceLabel, listSessions, revokeAll, revokeSession, type Method } from '../auth/sessions';
 import { changePassword, confirmReset, login, requestReset, resendSignup, signup, verifySignup, type FlowDeps } from '../auth/flows';
@@ -82,8 +83,10 @@ auth.post('/telegram', async (c) => {
   }
 
   const d = db(c.env);
-  if ((await playerByTelegramIdentity(d, user.id))?.banned_at) throw bannedError();
   const now = Date.now();
+  if ((await playerByTelegramIdentity(d, user.id))?.banned_at) throw bannedError();
+  // A deleted banned player's Telegram id stays refused for 180 days (ADR-0009 §7.7).
+  if (await isBanTombstoned(d, () => peppersFromEnv(c.env), 'telegram', String(user.id), now)) throw bannedError();
   const { prev, player } = await upsertTelegramPlayer(d, user, now);
   if (!optedOut(c) && !prev?.analytics_opt_out) {
     for (const event of retentionEvents(prev, now)) writeEvent(c.env, requestCtx(c, player.id, 'server', daysSince(player.created_at, now)), event, {});

@@ -26,6 +26,7 @@ import { ADMIN_NAME_LOCK_MS, setDisplayName } from '../players';
 import { currentSeason, endSeason, forgetSeasonCache, randomToken, shardDoName } from '../online/store';
 import { log } from '../telemetry/log';
 import { requireAdmin } from './auth';
+import { deleteAccount } from '../account/delete';
 
 export const admin = new Hono<AppEnv>();
 admin.use('*', requireAdmin);
@@ -318,6 +319,20 @@ admin.post('/players/:id/unban', async (c) => {
     return { banned: false, changed: r.meta.changes === 1 };
   });
   forgetBans();
+  return c.json(out);
+});
+
+/**
+ * Account deletion by the operator (ADR-0009 §7, reason 'admin'): for players
+ * who can't delete in the game or the bot, e.g. a banned email-only player who
+ * asked support. `result` is 'busy' while the player is in a battle (retry
+ * with a new request id) and 'resumable' when the cron will finish it.
+ */
+admin.post('/players/:id/delete', async (c) => {
+  const id = pidParam(c);
+  const body = await readJson(c, BanBody, 2048);
+  await playerOr404(db(c.env), id);
+  const out = await audited(c, 'delete', id, body.requestId, { reason: body.reason }, async () => ({ result: await deleteAccount(c.env, id, 'admin') }));
   return c.json(out);
 });
 

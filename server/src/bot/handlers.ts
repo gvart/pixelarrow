@@ -8,12 +8,15 @@
  *                    message, is logged to support_requests (with the player's
  *                    last Stars purchases) and acknowledged
  *   /terms           links to the terms, privacy policy and refund policy
- *   /delete_my_data  logs a data deletion request (support_requests, kind
- *                    'deletion') for the operator and acknowledges it
+ *   /delete_my_data  a button opening Settings → Account, where deletion
+ *                    needs re-auth (ADR-0009 §7). A banned player can't open
+ *                    the game, so the bot deletes that account itself after a
+ *                    confirmation (callback_query `del:go`, `del:yes`, `del:no`)
  *
  * Replies are in Russian for ru/uk/be/kk Telegram languages, else English.
  */
 import type { Env } from '../env';
+import { deleteAccount } from '../account/delete';
 import { getPlayerByTelegramId } from '../players';
 import { tryBot } from '../telegramApi';
 import type { TelegramUser } from '../telegramAuth';
@@ -67,8 +70,20 @@ const TXT = {
     supportAck: (id: number) => `Thank you! Your request #${id} has been logged. We will get back to you here in Telegram. Please do not dispute the payment with Telegram before we have answered.`,
     supportLimit: 'You have already sent several requests today. We will answer them as soon as we can.',
     terms: (u: ReturnType<typeof legalUrls>) => `Pixelarrow legal pages:\n\n📜 Terms of Service: ${u.terms}\n🔒 Privacy Policy: ${u.privacy}\n💫 Refunds: ${u.refunds}\n\nHelp with a purchase: /paysupport`,
-    deleteAck: (id: number) =>
-      `Your data deletion request #${id} has been logged. We will delete your account data (game progress, profile and settings) and confirm here in Telegram. Records of Stars payments may be kept as long as the law requires. Details: /terms`,
+    deleteNoAccount: 'There is no Pixelarrow account for this Telegram account, so there is nothing to delete.',
+    deleteOpen:
+      'To delete your account and all its data, open Settings → Account in the game and choose Delete account. It happens at once and cannot be undone. Records of Stars payments are kept as long as the law requires. Details: /terms',
+    deleteOpenButton: '⚙ Open Settings',
+    deleteBanned:
+      'This account is banned, so it cannot be opened in the game. You can still delete it and all its data here. It happens at once and cannot be undone. Records of Stars payments are kept as long as the law requires. Details: /terms',
+    deleteButton: '🗑 Delete my account',
+    deleteConfirm: 'Delete your account for good? Your progress, items and settings are erased now. This cannot be undone.',
+    deleteYes: 'Yes, delete it',
+    deleteNo: 'Cancel',
+    deleteDone: 'Your account and its data have been deleted.',
+    deleteCancelled: 'Cancelled. Nothing was deleted.',
+    deleteBusy: 'Your account is in a battle or a duel right now. Try again in a few minutes.',
+    deleteLater: 'Your account is being deleted. It finishes within a day.',
   },
   ru: {
     needGame: 'Сначала откройте игру, и здесь появятся настройки уведомлений.',
@@ -84,8 +99,20 @@ const TXT = {
     supportAck: (id: number) => `Спасибо! Ваше обращение №${id} зарегистрировано. Мы ответим здесь, в Telegram. Пожалуйста, не оспаривайте платёж в Telegram, пока мы не ответили.`,
     supportLimit: 'Сегодня вы уже отправили несколько обращений. Мы ответим на них как можно скорее.',
     terms: (u: ReturnType<typeof legalUrls>) => `Документы Pixelarrow:\n\n📜 Условия использования: ${u.terms}\n🔒 Политика конфиденциальности: ${u.privacy}\n💫 Возвраты: ${u.refunds}\n\nПомощь с покупкой: /paysupport`,
-    deleteAck: (id: number) =>
-      `Ваш запрос на удаление данных №${id} зарегистрирован. Мы удалим данные вашего аккаунта (игровой прогресс, профиль и настройки) и подтвердим здесь, в Telegram. Записи о платежах Stars могут храниться столько, сколько требует закон. Подробнее: /terms`,
+    deleteNoAccount: 'Для этого аккаунта Telegram нет аккаунта Pixelarrow, удалять нечего.',
+    deleteOpen:
+      'Чтобы удалить аккаунт и все его данные, откройте в игре Настройки → Аккаунт и выберите «Удалить аккаунт». Удаление происходит сразу, отменить его нельзя. Записи о платежах Stars хранятся столько, сколько требует закон. Подробнее: /terms',
+    deleteOpenButton: '⚙ Открыть настройки',
+    deleteBanned:
+      'Этот аккаунт заблокирован, поэтому открыть его в игре нельзя. Но удалить его и все его данные можно здесь. Удаление происходит сразу, отменить его нельзя. Записи о платежах Stars хранятся столько, сколько требует закон. Подробнее: /terms',
+    deleteButton: '🗑 Удалить мой аккаунт',
+    deleteConfirm: 'Удалить аккаунт навсегда? Прогресс, предметы и настройки будут стёрты сейчас же. Отменить это нельзя.',
+    deleteYes: 'Да, удалить',
+    deleteNo: 'Отмена',
+    deleteDone: 'Ваш аккаунт и его данные удалены.',
+    deleteCancelled: 'Отменено. Ничего не удалено.',
+    deleteBusy: 'Ваш аккаунт сейчас в бою или на дуэли. Попробуйте через несколько минут.',
+    deleteLater: 'Ваш аккаунт удаляется. Это завершится в течение суток.',
   },
 };
 
@@ -135,7 +162,18 @@ export async function handleCommand(env: Env, db: D1Database, msg: BotMessage, g
     await send(env, { chat_id: msg.chat.id, text: t.supportAsk, reply_markup: { force_reply: true, input_field_placeholder: lang === 'ru' ? 'Опишите проблему' : 'Describe the problem' } });
     return true;
   }
-  if (name === 'delete_my_data') return logSupport(env, db, msg, 'deletion', arg || '(deletion requested via /delete_my_data)', now);
+  if (name === 'delete_my_data') {
+    const player = await getPlayerByTelegramId(db, from.id);
+    if (!player) await send(env, { chat_id: msg.chat.id, text: t.deleteNoAccount });
+    else if (player.banned_at) await send(env, { chat_id: msg.chat.id, text: t.deleteBanned, reply_markup: { inline_keyboard: [[{ text: t.deleteButton, callback_data: 'del:go' }]] } });
+    else
+      await send(env, {
+        chat_id: msg.chat.id,
+        text: t.deleteOpen,
+        reply_markup: { inline_keyboard: [[{ text: t.deleteOpenButton, web_app: { url: buttonUrl(gameUrl, { kind: 'settings' }) } }]] },
+      });
+    return true;
+  }
   if (cmd) {
     // any other command ends a pending /paysupport conversation
     await db.prepare('DELETE FROM bot_state WHERE telegram_id = ?1').bind(from.id).run();
@@ -147,7 +185,7 @@ export async function handleCommand(env: Env, db: D1Database, msg: BotMessage, g
   return false;
 }
 
-async function logSupport(env: Env, db: D1Database, msg: BotMessage, kind: 'payment' | 'deletion', text: string, now: number): Promise<boolean> {
+async function logSupport(env: Env, db: D1Database, msg: BotMessage, kind: 'payment', text: string, now: number): Promise<boolean> {
   const from = msg.from!;
   const lang = langOf(from.language_code);
   const t = TXT[lang];
@@ -175,14 +213,41 @@ async function logSupport(env: Env, db: D1Database, msg: BotMessage, kind: 'paym
     .first<{ id: number }>();
   const id = row?.id ?? 0;
   console.log(`support request #${id} (${kind}) from telegram user ${from.id}`);
-  await send(env, { chat_id: msg.chat.id, text: kind === 'deletion' ? t.deleteAck(id) : t.supportAck(id) });
+  await send(env, { chat_id: msg.chat.id, text: t.supportAck(id) });
   return true;
 }
 
-/** /settings buttons: toggles one type (or quiet hours) and redraws the keyboard. */
+/**
+ * A banned player's deletion from the bot (/delete_my_data). The account is
+ * always the presser's own (`from.id`, set by Telegram on a webhook that
+ * carries our secret), never one named in the callback data.
+ */
+async function handleDeleteCallback(env: Env, db: D1Database, q: CallbackQuery, step: string, now: number): Promise<void> {
+  const token = env.TELEGRAM_BOT_TOKEN!;
+  const t = TXT[langOf(q.from.language_code)];
+  const player = await getPlayerByTelegramId(db, q.from.id);
+  const edit = (text: string, keyboard?: unknown[][]) =>
+    q.message ? tryBot(token, 'editMessageText', { chat_id: q.message.chat.id, message_id: q.message.message_id, text, ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}) }) : null;
+  if (!player || player.deleted_at || !player.banned_at) {
+    // Players who can open the game delete there, with re-auth.
+    await tryBot(token, 'answerCallbackQuery', { callback_query_id: q.id, text: player && !player.banned_at ? t.deleteOpenButton : t.deleteNoAccount });
+    return;
+  }
+  if (step === 'go') await edit(t.deleteConfirm, [[{ text: t.deleteYes, callback_data: 'del:yes' }, { text: t.deleteNo, callback_data: 'del:no' }]]);
+  else if (step === 'no') await edit(t.deleteCancelled);
+  else if (step === 'yes') {
+    const r = await deleteAccount(env, player.id, 'self', now);
+    await edit(r === 'done' ? t.deleteDone : r === 'busy' ? t.deleteBusy : t.deleteLater);
+  }
+  await tryBot(token, 'answerCallbackQuery', { callback_query_id: q.id });
+}
+
+/** /settings buttons: toggles one type (or quiet hours) and redraws the keyboard; `del:*` is /delete_my_data. */
 export async function handleCallback(env: Env, db: D1Database, q: CallbackQuery, gameUrl: string, now = Date.now()): Promise<void> {
   const token = env.TELEGRAM_BOT_TOKEN!;
   const lang = langOf(q.from.language_code);
+  const del = /^del:(go|yes|no)$/.exec(q.data ?? '');
+  if (del) return handleDeleteCallback(env, db, q, del[1], now);
   const m = /^ns:([a-z]+)$/.exec(q.data ?? '');
   const player = m ? await getPlayerByTelegramId(db, q.from.id) : null;
   if (!m || !player) {

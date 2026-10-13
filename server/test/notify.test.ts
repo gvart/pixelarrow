@@ -434,13 +434,6 @@ describe('bot commands', () => {
     expect((await DB().prepare('SELECT COUNT(*) AS n FROM support_requests WHERE telegram_id = 77802').first<{ n: number }>())!.n).toBe(2);
   });
 
-  it('/delete_my_data logs a deletion request', async () => {
-    const calls = mockTelegram();
-    await webhook(msg(77803, '/delete_my_data'));
-    expect(sends(calls, 77803)[0].params.text).toMatch(/deletion request #\d+ has been logged/);
-    expect(await DB().prepare("SELECT kind FROM support_requests WHERE telegram_id = 77803").first()).toEqual({ kind: 'deletion' });
-  });
-
   it('/settings shows the switches; a button toggles a type', async () => {
     const p = await join(77804);
     const calls = mockTelegram();

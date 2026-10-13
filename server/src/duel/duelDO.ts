@@ -132,6 +132,18 @@ export class DuelDO extends DurableObject<Env> {
 
   // ------------------------------------------------------------------ sockets
 
+  /** Account deletion (server/src/account/delete.ts): closes the player's sockets; the match runs on as if they left. */
+  async kick(pid: number): Promise<void> {
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) {
+      await this.leave(ws);
+      try {
+        ws.close(4403, 'account deleted');
+      } catch {
+        // already closed
+      }
+    }
+  }
+
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected WebSocket upgrade', { status: 426 });
     const id = Number(request.headers.get('x-player-id'));
