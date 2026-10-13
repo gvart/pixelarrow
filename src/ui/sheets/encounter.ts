@@ -147,11 +147,11 @@ function mainPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Enc
     }
     y = Math.max(ty, y + INFO) + 3;
   }
-  // the captain row: crest, name, level
+  // the captain row: the captain's crest icon (ui:captain, AS-07), name, level
   if (m.captain) {
     if (!m.doctrine) rule(y);
     y += m.doctrine ? 0 : 4;
-    if (c) c.add(scene.add.image(x0 + 3, y + 1, worldGlyph(scene, 'crest')).setOrigin(0, 0).setScale(1.2));
+    if (c) c.add(scaleIcon(addIcon(scene, x0, y, 'captain'), ROW_ICON / 12));
     y += para(scene, c, x0 + ROW_ICON + 5, y, t('wld.enc.captain', { name: heroName(m.captain.name), lv: m.captain.level }), 'pInk', w - ROW_ICON - 5) + 3;
   }
   rule(y);

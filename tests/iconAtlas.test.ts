@@ -156,9 +156,10 @@ describe('icon bitmap lookup (src/art/iconBitmaps.ts)', () => {
     expect(downscaleSteps(96, 12)).toEqual([48, 24, 12]);
   });
 
-  it('resolves a staged key to its stand-in until its own frame ships', () => {
+  it('resolves a shipped v5 key to its own frame, never to its stand-in (nothing is staged since AS-07)', () => {
+    expect(STAGED_ICONS).toEqual([]);
     registerIconFrames({} as CanvasImageSource, { 'ui:log': { x: 0, y: 0, w: 64, h: 64 } });
-    expect(resolveIconId('ui:book')).toBe('ui:log');
+    expect(resolveIconId('ui:book')).toBeNull();
     registerIconFrames({} as CanvasImageSource, { 'ui:book': { x: 0, y: 0, w: 160, h: 160 } });
     expect(resolveIconId('ui:book')).toBe('ui:book');
     expect(resolveIconId('ui:no_such_icon')).toBeNull();

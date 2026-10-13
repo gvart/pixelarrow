@@ -310,7 +310,7 @@
   {
    "id": "ART-014",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_thureophoros.jpg", "screens": ["army-bust-thureophoros"]},
    "file": "bust_thureophoros.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -331,7 +331,7 @@
   {
    "id": "ART-015",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_celt_sword.jpg", "screens": ["army-bust-celt_sword"]},
    "file": "bust_celt_sword.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -352,7 +352,7 @@
   {
    "id": "ART-016",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_rhomphaia.jpg", "screens": ["army-bust-rhomphaia"]},
    "file": "bust_rhomphaia.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -373,7 +373,7 @@
   {
    "id": "ART-017",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_archer.jpg", "screens": ["army-bust-archer"]},
    "file": "bust_archer.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -415,7 +415,7 @@
   {
    "id": "ART-019",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_javelineer.jpg", "screens": ["army-bust-javelineer"]},
    "file": "bust_javelineer.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -436,7 +436,7 @@
   {
    "id": "ART-020",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_horse_archer.jpg", "screens": ["army-bust-horse_archer"]},
    "file": "bust_horse_archer.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -478,7 +478,7 @@
   {
    "id": "ART-022",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_falx.jpg", "screens": ["army-bust-falx"]},
    "file": "bust_falx.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -499,7 +499,7 @@
   {
    "id": "ART-023",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_gallic.jpg", "screens": ["army-bust-gallic"]},
    "file": "bust_gallic.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -520,7 +520,7 @@
   {
    "id": "ART-024",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_fanatic.jpg", "screens": ["army-bust-fanatic"]},
    "file": "bust_fanatic.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -541,7 +541,7 @@
   {
    "id": "ART-025",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_companion.jpg", "screens": ["army-bust-companion"]},
    "file": "bust_companion.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -562,7 +562,7 @@
   {
    "id": "ART-026",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_thessalian.jpg", "screens": ["army-bust-thessalian"]},
    "file": "bust_thessalian.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -583,7 +583,7 @@
   {
    "id": "ART-027",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_chariot.jpg", "screens": ["army-bust-chariot"]},
    "file": "bust_chariot.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -604,7 +604,7 @@
   {
    "id": "ART-028",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_royal_guard.jpg", "screens": ["army-bust-royal_guard"]},
    "file": "bust_royal_guard.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -625,7 +625,7 @@
   {
    "id": "ART-029",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_sacred_band.jpg", "screens": ["army-bust-sacred_band"]},
    "file": "bust_sacred_band.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -646,7 +646,7 @@
   {
    "id": "ART-030",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_wolf.jpg", "screens": ["army-bust-wolf"]},
    "file": "bust_wolf.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -667,7 +667,7 @@
   {
    "id": "ART-031",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_boar.jpg", "screens": ["army-bust-boar"]},
    "file": "bust_boar.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -688,7 +688,7 @@
   {
    "id": "ART-032",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "ui/busts/bust_bear.jpg", "screens": ["army-bust-bear"]},
    "file": "bust_bear.jpg",
    "cat": "bust",
    "kind": "painted",
@@ -940,7 +940,7 @@
   {
    "id": "ART-044",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["menu", "kit-icons"]},
    "file": "icon_book.png",
    "cat": "icon",
    "kind": "icon",
@@ -963,7 +963,7 @@
   {
    "id": "ART-045",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["menu", "kit-icons"]},
    "file": "icon_banner.png",
    "cat": "icon",
    "kind": "icon",
@@ -986,7 +986,7 @@
   {
    "id": "ART-046",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["menu", "kit-icons"]},
    "file": "icon_war.png",
    "cat": "icon",
    "kind": "icon",
@@ -1009,7 +1009,7 @@
   {
    "id": "ART-047",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["duel-ranked", "kit-icons"]},
    "file": "icon_season.png",
    "cat": "icon",
    "kind": "icon",
@@ -1372,7 +1372,7 @@
   {
    "id": "ART-062",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
    "file": "icon_active_push.png",
    "cat": "icon",
    "kind": "icon",
@@ -1395,7 +1395,7 @@
   {
    "id": "ART-063",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
    "file": "icon_active_bond.png",
    "cat": "icon",
    "kind": "icon",
@@ -1418,7 +1418,7 @@
   {
    "id": "ART-064",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
    "file": "icon_active_warcry.png",
    "cat": "icon",
    "kind": "icon",
@@ -1441,7 +1441,7 @@
   {
    "id": "ART-065",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
    "file": "icon_active_sunder.png",
    "cat": "icon",
    "kind": "icon",
@@ -1464,7 +1464,7 @@
   {
    "id": "ART-066",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
    "file": "icon_active_aimed.png",
    "cat": "icon",
    "kind": "icon",
@@ -1487,7 +1487,7 @@
   {
    "id": "ART-067",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
    "file": "icon_active_recharge.png",
    "cat": "icon",
    "kind": "icon",
@@ -1510,7 +1510,7 @@
   {
    "id": "ART-068",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
    "file": "icon_active_scythe.png",
    "cat": "icon",
    "kind": "icon",
@@ -1533,7 +1533,7 @@
   {
    "id": "ART-069",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
    "file": "icon_standard.png",
    "cat": "icon",
    "kind": "icon",
@@ -1556,7 +1556,7 @@
   {
    "id": "ART-070",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["battle-works", "kit-icons"]},
    "file": "icon_works.png",
    "cat": "icon",
    "kind": "icon",
@@ -1579,7 +1579,7 @@
   {
    "id": "ART-071",
    "status": "needed",
-   "preview": null,
+   "preview": {"url": "icons/ui.png", "screens": ["world-encounter", "kit-icons"]},
    "file": "icon_captain.png",
    "cat": "icon",
    "kind": "icon",

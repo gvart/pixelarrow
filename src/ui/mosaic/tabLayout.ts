@@ -16,16 +16,16 @@
  */
 
 import type { TKey } from '../../i18n';
-import { DISPLAY_MIN, MODE_ICON, TEXT_MIN } from '../tokens';
+import { DISPLAY_MIN, TEXT_MIN } from '../tokens';
 
 export type TabId = 'campaign' | 'duels' | 'war' | 'codex' | 'shop';
 
-/** The five mode tabs in order: their icon and the i18n key of the label. Campaign wears its MODE_ICON, Codex (the beasts) the beasts' one; War is the medallion (no icon), so no mode icon is borrowed. */
+/** The five mode tabs in order: their icon and the i18n key of the label. Campaign wears the war banner, Codex the book (audit MENU-3, AS-07); War is the medallion (its engraved ui:war glyph, MENU-2), so no mode icon is borrowed. */
 export const MODE_TABS: readonly { id: TabId; icon: string; key: TKey }[] = [
-  { id: 'campaign', icon: MODE_ICON.campaign, key: 'tab.campaign' },
+  { id: 'campaign', icon: 'banner', key: 'tab.campaign' },
   { id: 'duels', icon: 'swords', key: 'tab.duels' },
   { id: 'war', icon: 'shield', key: 'tab.war' },
-  { id: 'codex', icon: MODE_ICON.beasts, key: 'tab.codex' },
+  { id: 'codex', icon: 'book', key: 'tab.codex' },
   { id: 'shop', icon: 'shop', key: 'tab.shop' },
 ];
 

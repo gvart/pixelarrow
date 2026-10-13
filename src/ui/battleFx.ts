@@ -8,6 +8,7 @@ import { uiIgnore } from './layout';
 import Phaser from 'phaser';
 import { FX_ICON_PX, renderAuraRing, renderDot, renderFxIcon, renderPip, renderStar, isoEllipse } from '../art/fx';
 import { VECTOR_ICONS } from '../art/vectorIcons';
+import { UI_ICONS } from '../art/uiIcons';
 import { RS } from '../platform/renderScale';
 import { ABILITIES, AURAS, AURA_IDS, type AbilityId, type AuraId } from '../data/perks';
 import { willRadius } from '../sim/stats';
@@ -97,7 +98,7 @@ export function registerFxTextures(scene: Phaser.Scene): void {
   const fxN = FX_ICON_PX * RS * 3;
   for (const id of Object.keys(ABILITIES) as AbilityId[]) {
     const def = ABILITIES[id];
-    scene.textures.addCanvas(`fxicon_${id}`, renderFxIcon(VECTOR_ICONS[def.icon] ?? VECTOR_ICONS.star, fxN, def.icon))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    scene.textures.addCanvas(`fxicon_${id}`, renderFxIcon(VECTOR_ICONS[def.icon] ?? UI_ICONS[def.icon] ?? VECTOR_ICONS.star, fxN, def.icon))!.setFilter(Phaser.Textures.FilterMode.LINEAR);
   }
   for (const [id, icon] of Object.entries(PROC_ICON)) {
     // a power's own drawn icon (power:<id>); set specials keep their stand-in UI icon

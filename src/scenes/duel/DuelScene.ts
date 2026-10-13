@@ -1393,7 +1393,7 @@ export class DuelScene extends BaseScene {
   /** "October · 24d 5h left" and the best league of the season; returns the y below. */
   private buildSeasonLine(c: Phaser.GameObjects.Container, x: number, y: number, w: number): number {
     const s = this.season;
-    c.add(addIcon(this, x + 1, y - 2, 'hourglass'));
+    c.add(addIcon(this, x + 1, y - 2, 'season'));
     if (!s) {
       ptext(this, c, x + 16, y, '...', 'muted');
       return y + 14;
