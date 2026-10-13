@@ -1,0 +1,22 @@
+landing/scripts/sections-check.mjs
+  s_0d98fe904b2e82::t_b2936bbd91bcc0 71-72
+  s_0d98fe904b2e82::t_a0e41c31c47b20 1-70,73-180
+landing/package.json
+  s_0d98fe904b2e82::t_0d596f42e210d6 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "999aeb1ff809da6aa5bd88b98992535e8f5e2624",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
