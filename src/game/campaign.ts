@@ -15,7 +15,7 @@ import { dedupeNames } from '../data/names';
 import { DEFAULT_SETTINGS, SAVE_VERSION, type SaveData } from './save';
 import { armyPower, garrisonWorks, type EnemyArmy } from './enemy';
 import { siteAt, type BattleSite } from '../world/battlefield';
-import { applyBattleBonus, type BattleBonus, type Outcome } from './loot';
+import { applyBattleBonus, FIELD_GOLD, KILL_GOLD, WIN_GOLD, type BattleBonus, type Outcome } from './loot';
 import { CAPTAIN_RULES, VOLUNTEER_RULES, World, WORLD_RULES, bountyMultOf, partyArmy, type PartyState, type PlayerInfo } from '../world/world';
 import { BASE_ITEMS } from '../data/items';
 import { armyPick } from './sources';
@@ -36,8 +36,8 @@ export const START_GOLD = 60;
 
 /** A captain's bounty (ai-doctrines.md F3): BOUNTY_BASE + BOUNTY_PER_LV x his level. */
 export const BOUNTY = { base: 15, perLevel: 5 };
-/** The victory bonus src/game/loot.ts resolveBattle pays; a band that retreats does not pay it (R8). */
-export const WIN_GOLD = 60;
+/** The victory bonus resolveBattle pays; a band that retreats does not pay it (R8). */
+export { WIN_GOLD };
 
 /** Gold for a captain of `level` killed or captured; `mult` is a band's bountyMult (campaign-events.md, 1..3). */
 export function captainBounty(level: number, mult = 1): number {
@@ -622,7 +622,7 @@ export class Campaign {
     let bounty = 0;
     if (enemyRetreated) {
       // the win bonus goes, kill gold stays (scaled by the gilded-gear bonus like the rest)
-      const base = 20 + outcome.enemyKilled * 12;
+      const base = FIELD_GOLD + outcome.enemyKilled * KILL_GOLD;
       const cut = outcome.gold - Math.round((outcome.gold * base) / (base + WIN_GOLD));
       outcome.gold -= cut;
       this.data.gold -= cut;
