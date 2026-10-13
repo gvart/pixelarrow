@@ -1,0 +1,19 @@
+tests/platformBoundary.test.ts
+  s_0d98fe904b2e82::t_74148b410c7793 12-18,21-22,71,73-75,96,100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1ae14c286469ac0070a962d0fa1ae1e09d43644e",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
