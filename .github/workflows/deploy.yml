@@ -26,7 +26,8 @@ concurrency:
 # `target`); only that site's jobs run:
 #   game:    build (types, unit tests, dist/ as an artifact)
 #              -> server (types, tests in workerd; wrangler.jsonc's assets need dist/)
-#              -> layout (one job per size and language) + smoke (one job per script)
+#              -> layout (one job per size and language) + smoke (one job per script
+#                 and platform mode) + regression (both platform modes)
 #              -> deploy (D1 migrations, game Worker)
 #   landing: landing-build (types, Worker tests in workerd, astro build, landing-dist)
 #              -> landing-test (hero and sections checks in Chromium)
@@ -169,20 +170,32 @@ jobs:
       fail-fast: false
       matrix:
         script: [smoke, online-smoke, fullscreen-smoke, audio-smoke, tutorial-smoke, duel-smoke]
+        platform: [telegram, web]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/browser-setup
       # GATE-02 interface: base URL as argv[2]; the platform mode
-      # (telegram | web | both) from SMOKE_PLATFORM.
+      # (telegram | web) from SMOKE_PLATFORM, one job per mode.
       - run: node scripts/${{ matrix.script }}.mjs http://localhost:4173/
         env:
-          SMOKE_PLATFORM: both
+          SMOKE_PLATFORM: ${{ matrix.platform }}
+
+  # ---- regression suite (tests/regression/SUITE.md), both platform modes
+  regression:
+    needs: [changes, build]
+    if: needs.changes.outputs.game == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/browser-setup
+      - run: node scripts/regression/run.mjs http://localhost:4173/
 
   deploy:
     # The game gates must pass. If the landing changed too, its gates must
     # pass as well, so the two sites go live together or not at all (V6-023).
-    needs: [changes, build, server, layout, smoke, landing-build, landing-test]
+    needs: [changes, build, server, layout, smoke, regression, landing-build, landing-test]
     if: >-
       always() &&
       github.ref == 'refs/heads/main' &&
@@ -191,6 +204,7 @@ jobs:
       needs.server.result == 'success' &&
       needs.layout.result == 'success' &&
       needs.smoke.result == 'success' &&
+      needs.regression.result == 'success' &&
       (needs.changes.outputs.landing != 'true' ||
         (needs.landing-build.result == 'success' && needs.landing-test.result == 'success'))
     runs-on: ubuntu-latest
