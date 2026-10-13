@@ -1,0 +1,87 @@
+server/test/onlineHelpers.ts
+  s_0d98fe904b2e82::t_ecf8bb96e4495d 233-234,238,241
+  s_0d98fe904b2e82::t_cb7a3ef126a1f5 23-24,80-81,91,112,115
+  s_0d98fe904b2e82::t_56f06682534635 10
+server/src/routes/save.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 15,32
+server/test/auth.test.ts
+  s_0d98fe904b2e82::t_c6142f5ef32ecf 71,94,107
+server/src/players.ts
+  s_0d98fe904b2e82::t_4744f32137a45e 3-4,9-11,18,25,33
+server/test/ops.test.ts
+  s_0d98fe904b2e82::t_412230d1328484 107
+server/src/payments.ts
+  s_0d98fe904b2e82::t_c4d882b603497b 2-3,56
+scripts/online-smoke.mjs
+  s_0d98fe904b2e82::t_412230d1328484 103
+server/test/public-snapshot.test.ts
+  s_0d98fe904b2e82::t_3e3698ae264398 27-29
+  s_0d98fe904b2e82::t_71b7a72454d409 88-91,97
+server/src/online/attack.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 24,61
+server/src/online/consumables.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 13,20
+server/src/online/bosses.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 29,47
+server/test/online-social.test.ts
+  s_0d98fe904b2e82::t_ecf8bb96e4495d 391
+server/test/helpers.ts
+  s_0d98fe904b2e82::t_56f06682534635 6-7,12-13,16-19,32,39-40
+server/src/online/routes.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 14,72
+server/src/ban.ts
+  s_0d98fe904b2e82::t_dba94e1374b483 2-5,8,10,12
+server/src/online/clans.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 14,23
+server/src/online/merchant.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 28,42
+server/src/economy/routes.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 15,29
+server/src/middleware.ts
+  s_0d98fe904b2e82::t_36e7c47ce3e04f 4-5,7,27,34-57,62-73,77-79
+server/src/telemetry/routes.ts
+  s_0d98fe904b2e82::t_07d0e7baaf5c12 75-78,81
+  s_0d98fe904b2e82::t_f9ad514133c87f 21
+  s_0d98fe904b2e82::t_738fc20722eb1a 184
+server/src/online/camps.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 19,27
+server/src/routes/shop.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 7,35,60
+server/test/region.test.ts
+  s_0d98fe904b2e82::t_ecf8bb96e4495d 6-9,16,26,28,31,42
+server/test/ranked.test.ts
+  s_0d98fe904b2e82::t_cb7a3ef126a1f5 31,36-37,145
+server/src/duel/routes.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 18,52
+server/src/online/market.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 26,38
+server/src/index.ts
+  s_0d98fe904b2e82::t_3140ae82f49c5a 10-13,102,105,123,155-159,164-169,173,179,249,256
+server/src/notify/routes.ts
+  s_0d98fe904b2e82::t_738fc20722eb1a 12,18
+server/src/routes/auth.ts
+  s_0d98fe904b2e82::t_96a53bdbf36301 5,7-10,79,81,85-119
+server/README.md
+  s_0d98fe904b2e82::t_fdc9666a7a0db7 51-53,56,112-123
+  s_0d98fe904b2e82::t_eee6764f2d8809 62-63
+server/test/notify.test.ts
+  s_0d98fe904b2e82::t_cb7a3ef126a1f5 256,301,315
+server/src/env.ts
+  s_0d98fe904b2e82::t_107d95595516e9 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5269701ae90135bae84cc889d3b1c5e37664f39e",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
