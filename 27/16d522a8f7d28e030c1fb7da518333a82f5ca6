@@ -1,0 +1,41 @@
+tests/platform/contract.ts
+  s_0d98fe904b2e82::t_db514ac83bb8b6 1-91
+tests/platform/telegram.test.ts
+  s_0d98fe904b2e82::t_382a80c0122f36 3,87-90
+  s_0d98fe904b2e82::t_7f264ff112500a 91
+src/main.ts
+  s_0d98fe904b2e82::t_16491e2a8b66d5 31,33-34
+tests/platform/facade.test.ts
+  s_0d98fe904b2e82::t_fd362da2442d74 1-51
+src/platform/index.ts
+  s_0d98fe904b2e82::t_af85305c23b271 1-57
+tests/fakes/platform.ts
+  s_0d98fe904b2e82::t_6e58b87d335270 1-24,26-58,60-72,74,76-132
+  s_0d98fe904b2e82::t_4c449b907da593 25,59,73,75
+src/scenes/BootScene.ts
+  s_0d98fe904b2e82::t_16491e2a8b66d5 6-7,87
+tests/platform/web.test.ts
+  s_0d98fe904b2e82::t_382a80c0122f36 3,6-11
+  s_0d98fe904b2e82::t_985a968db9ca2d 12
+src/platform/telegram.ts
+  s_0d98fe904b2e82::t_822290acaf42a6 2-5,7-9,11-13,15-17,20,22,25,27,30,32,41,45,49,52,54-55,60,64,68,72-73,76,78,81-82,86,89,91-92,101
+  s_0d98fe904b2e82::t_dd10d47dc4e7b4 35-37
+src/platform/haptics.ts
+  s_0d98fe904b2e82::t_8fa859eb2722a4 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2716d522a8f7d28e030c1fb7da518333a82f5ca6",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
