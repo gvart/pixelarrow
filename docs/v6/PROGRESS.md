@@ -10,7 +10,7 @@
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
 | setup-adopt | S0-ADOPT: /adopt and /project-stage-detect, written to docs/v6/ADOPT.md | none | adopt, project-stage-detect, router |
-| audit-ui | A1-UI: screenshots of every scene and the Kit across the screen matrix, written to docs/v6/audit/UI.md | 1 | game-ui-ux, ux-review |
+| audit-ui (respawned as general-purpose, V6-004) | A1-UI: screenshots of every scene and the Kit across the screen matrix, written to docs/v6/audit/UI.md | 1 | game-ui-ux, ux-review |
 | audit-platform | A1-PLAT: Telegram touchpoints, server map, public stats data and hosting, written to docs/v6/audit/PLATFORM.md, SERVER.md and HOSTING.md | 2 | improve-codebase-architecture, security-audit, router |
 
 ## Merged
