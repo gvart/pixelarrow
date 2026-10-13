@@ -1,6 +1,6 @@
 ---
 // Hero (#top), the static version (V6-LAND-01). The diorama still is the poster that V6-LAND-02's
-// living diorama replaces after LCP; it is also the reduced-motion, no-JS and phone hero
+// living diorama replaces after LCP; it is also the reduced-motion, data-saver and no-JS hero
 // (ASSET_SPEC "Hero"). Layers, back to front: sky, lamp beam, diorama still, war-table foreground.
 //
 // Text column rule (V6-019): the headline, sub-line and buttons never sit under the art. From 1100 px
@@ -12,8 +12,9 @@
 // move with the scroll on a CSS view timeline, and the camera dives into the board as the hero
 // leaves; only transform and opacity animate, inside no-preference reduced motion and
 // @supports (animation-timeline), so Firefox and reduced motion get the finished static hero.
-// After load and idle, at >= 768 px without reduced motion or data saver, the lazy module
-// (scripts/hero/diorama.ts) draws the battle over the poster and moves the lamp with the pointer.
+// After load and idle, without reduced motion, data saver or a low-memory device, the lazy module
+// (scripts/hero/diorama.ts) draws the battle over the poster and moves the lamp with the pointer;
+// phones get its lighter cut (V6-LAND-02b).
 import { PLAY_URL, TELEGRAM_URL } from '../../site';
 
 const H = '/hero/';
@@ -76,21 +77,38 @@ const H = '/hero/';
 </section>
 
 <script>
-  // The lazy hero module (ADR-0011 amendment 3): after load (the LCP poster is in) and idle, only
-  // where it is wanted. Everything else keeps the static poster.
+  // The lazy hero module (ADR-0011 amendment 3): after load, after the poster's LCP entry (so not
+  // even the module request lands before LCP, V6-LAND-02b) and idle, only where it is wanted.
+  // Everything else keeps the static poster. Phones get the module's lighter cut; a low-memory
+  // device keeps the poster.
   type Conn = { saveData?: boolean; effectiveType?: string };
   const hero = document.getElementById('top');
-  const conn = (navigator as Navigator & { connection?: Conn }).connection;
+  const nav = navigator as Navigator & { connection?: Conn; deviceMemory?: number };
+  const conn = nav.connection;
   const wanted = () =>
-    matchMedia('(min-width: 768px) and (prefers-reduced-motion: no-preference)').matches &&
+    matchMedia('(prefers-reduced-motion: no-preference)').matches &&
     !conn?.saveData &&
-    !/2g$/.test(conn?.effectiveType ?? '');
+    !/2g$/.test(conn?.effectiveType ?? '') &&
+    !(nav.deviceMemory! <= 2);
   const go = () => {
     if (hero && wanted()) import('../../scripts/hero/diorama').then((m) => m.start(hero), () => {});
   };
   const idle = () => ('requestIdleCallback' in window ? requestIdleCallback(go, { timeout: 3000 }) : setTimeout(go, 1500));
-  if (document.readyState === 'complete') idle();
-  else addEventListener('load', idle, { once: true });
+  const poster = hero?.querySelector('.hero__diorama img');
+  const afterLcp = () => {
+    let done = false;
+    const next = () => { if (!done) { done = true; lcp?.disconnect(); idle(); } };
+    const lcp = PerformanceObserver.supportedEntryTypes?.includes('largest-contentful-paint')
+      ? new PerformanceObserver((l) => { if (l.getEntries().some((e) => (e as PerformanceEntry & { element?: Element }).element === poster)) next(); })
+      : null;
+    if (!lcp) return next();
+    lcp.observe({ type: 'largest-contentful-paint', buffered: true });
+    setTimeout(next, 3000);
+  };
+  if (wanted()) {
+    if (document.readyState === 'complete') afterLcp();
+    else addEventListener('load', afterLcp, { once: true });
+  }
 </script>
 
 <style>

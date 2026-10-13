@@ -8,8 +8,17 @@
 // value noise; a 60 ms hit-stop on impact; cream dust). Plain 2D canvas, no library: the figures
 // are pre-rendered, so the module is only choreography and blits.
 //
-// Loaded by Hero.astro after load and idle, only at >= 768 px, without reduced motion or data
-// saver. The poster stays underneath; the canvas fades in once its first frame matches it.
+// Loaded by Hero.astro after load, the poster's LCP entry and idle, without reduced motion, data
+// saver or a low-memory device. The poster stays underneath; the canvas fades in over it.
+//
+// Phones (< 768 px, V6-LAND-02b) play a lighter cut of the same battle: the back rank of each side
+// stays out (38 men, not 57), the canvas is 1x (648x426, a quarter of the pixels), it draws at most
+// 30 times a second, and it fetches nothing until the diorama is on screen (mobile LCP has ~30 ms
+// of headroom, V6-032).
+//
+// At contact the front ranks stand LINE_GAP apart and the Celts' files close to sit half a file off
+// the hoplites', so each Celt shows in the gap between two hoplites and the two formations read as
+// two lines, not one crowd of tall sprites (V6-029).
 import atlas from './atlas.json';
 
 type Anim = 'idle' | 'walk' | 'run' | 'attack' | 'hit' | 'die' | 'dieB' | 'rout' | 'win';
@@ -18,8 +27,9 @@ const SIDES = atlas.sides as unknown as Record<'player' | 'enemy', Side>;
 const FR = atlas.frames as number[][];
 
 // Field geometry (src/art/iso.ts, scripts/art/landing/units.ts): 18x18 field, 2x canvas, 64 px of sky.
-const HW = 18, HH = 9, F = 18, TOP = 64, K = 2;
-const W = 2 * F * HW * K, H = 426 * K;
+// K is canvas px per game px: 2 on tablets and up, 1 on phones (set by build()).
+const HW = 18, HH = 9, F = 18, TOP = 64;
+let K = 2, W = 2 * F * HW * K, H = 426 * K;
 const sx = (x: number, y: number) => ((x - y) * HW + F * HW) * K;
 const sy = (x: number, y: number) => ((x + y) * HH + TOP) * K;
 
@@ -30,6 +40,9 @@ const DUST = '#f0e2c8';
 
 // The script, in seconds of battle time. One loop is LOOP seconds; the units fade out and back in.
 const MARCH = 1.6, CHARGE = 3.9, CONTACT = 4.7, BREAK = 9.4, PURSUE_END = 10.9, FADE_OUT = 13.4, LOOP = 14.1;
+// Contact spacing in field cells: the gap between the front ranks, and the Celts' files, which close
+// to the hoplites' file interval with a half-file offset (hoplite files: x = 6.635 + 0.75 * col).
+const LINE_GAP = 2.25, FILE = 0.75, E_FILE0 = 6.635 + FILE / 2;
 const E_DEATHS = [5.25, 5.8, 6.35, 6.8, 7.3, 7.75, 8.2, 8.6, 9.0];
 const P_DEATHS = [6.1, 7.95];
 
@@ -59,16 +72,29 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const smooth = (a: number, b: number, t: number) => { const u = clamp01((t - a) / (b - a)); return u * u * (3 - 2 * u); };
 
 interface Man {
-  side: 0 | 1; v: number; x: number; y: number; hx: number; hy: number; col: number; rank: number;
+  side: 0 | 1; v: number; x: number; y: number; hx: number; hy: number; cx: number; col: number; rank: number;
   anim: Anim; at: number; odo: number; delay: number; alive: boolean; diedAt: number; dieAnim: 'die' | 'dieB';
   nextAtk: number; hitAt: number; vx: number; alpha: number;
 }
 interface Mote { x: number; y: number; vx: number; vy: number; ph: number }
 interface Grain { x: number; y: number; vx: number; vy: number; g: number; life: number; max: number; s: number }
 
+/** Hero.astro calls this after load, the poster's LCP entry and idle. */
 export function start(hero: HTMLElement): void {
   const wrap = hero.querySelector<HTMLElement>('.hero__diorama-wrap');
   if (!wrap) return;
+  if (!matchMedia('(max-width: 767px)').matches) return build(hero, wrap, false);
+  // phones fetch nothing until the diorama is on screen (a page opened past the hero stays light)
+  const o = new IntersectionObserver((es) => {
+    if (es.some((e) => e.isIntersecting)) { o.disconnect(); build(hero, wrap, true); }
+  });
+  o.observe(wrap);
+}
+
+function build(hero: HTMLElement, wrap: HTMLElement, phone: boolean): void {
+  K = phone ? 1 : 2;
+  W = 2 * F * HW * K;
+  H = 426 * K;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -87,17 +113,18 @@ export function start(hero: HTMLElement): void {
   });
 
   Promise.all([load('/hero/landing_hero_terrain_1x.webp'), load('/hero/landing_hero_sprites_2x.webp')]).then(([ground, sheet]) => {
-    run(hero, wrap, canvas, ctx, ground, sheet);
+    run(hero, wrap, canvas, ctx, ground, sheet, phone);
   }, () => { /* the poster stays: nothing to undo */ });
 }
 
-function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, ground: HTMLImageElement, sheet: HTMLImageElement): void {
+function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, ground: HTMLImageElement, sheet: HTMLImageElement, phone: boolean): void {
   const R = rng(20261013);
-  const men: Man[] = (atlas.men as number[][]).map(([side, v, x, y, rank, col]) => ({
-    side: side as 0 | 1, v, x, y, hx: x, hy: y, col, rank, anim: 'idle', at: -R() * 2, odo: R() * 4, delay: R() * 0.3,
+  // phones: the third rank of each side stays out (38 men); the battle script is the same
+  const men: Man[] = (atlas.men as number[][]).filter((m) => !phone || m[4] < 2).map(([side, v, x, y, rank, col]) => ({
+    side: side as 0 | 1, v, x, y, hx: x, hy: y, cx: side === 1 ? E_FILE0 + FILE * col : x, col, rank, anim: 'idle', at: -R() * 2, odo: R() * 4, delay: R() * 0.3,
     alive: true, diedAt: 0, dieAnim: 'die', nextAtk: 0, hitAt: 0, vx: 0, alpha: 1,
   }));
-  const motes: Mote[] = Array.from({ length: 34 }, () => ({ x: R() * W, y: R() * H, vx: 4 + R() * 6, vy: -3 - R() * 5, ph: R() * 6.28 }));
+  const motes: Mote[] = Array.from({ length: phone ? 16 : 34 }, () => ({ x: R() * W, y: R() * H, vx: 4 + R() * 6, vy: -3 - R() * 5, ph: R() * 6.28 }));
   const grains: Grain[] = [];
   const kills: { t: number; side: 0 | 1; done: boolean }[] = [];
   let t = 0, stop = 0, trauma = 0, real = 0, fade = 1, broken = false, looped = false;
@@ -113,7 +140,7 @@ function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ct
   reset();
 
   const dust = (x: number, y: number, n: number, life: number, big: boolean) => {
-    for (let i = 0; i < n && grains.length < 240; i++) {
+    for (let i = 0; i < n && grains.length < (phone ? 120 : 240); i++) {
       const a = (i / n) * Math.PI * 2 + R() * 0.6;
       const v = 22 * (0.5 + R() * 0.6);
       const max = life * (0.7 + R() * 0.5);
@@ -127,9 +154,9 @@ function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ct
     const march = 11.55 + 0.4 * smooth(MARCH, CHARGE, tt);
     if (tt < CHARGE) return march;
     // the charge: the last stretch at a run, eased in so the line accelerates into the spears
-    if (tt < CONTACT) return march + (pFront(CONTACT) - 1.15 - 11.95) * ((tt - CHARGE) / (CONTACT - CHARGE)) ** 1.6;
+    if (tt < CONTACT) return march + (pFront(CONTACT) - LINE_GAP - 11.95) * ((tt - CHARGE) / (CONTACT - CHARGE)) ** 1.6;
     // pushed back by the hoplites, with a knock-back on impact
-    return pFront(tt) - 1.15 - 0.09 * Math.exp(-(tt - CONTACT) * 9);
+    return pFront(tt) - LINE_GAP - 0.09 * Math.exp(-(tt - CONTACT) * 9);
   };
   const front = (m: Man) => (m.side === 0 ? pFront(t - m.delay) : eFront(t - m.delay));
   /** Rank behind the living front, so a fallen man's file steps up. */
@@ -173,7 +200,7 @@ function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ct
     if (t >= CONTACT && t - dt < CONTACT) {
       trauma = Math.min(1, trauma + TRAUMA.impact);
       stop = HITSTOP;
-      for (const m of men) if (m.side === 1 && effRank(m) === 0) dust(sx(m.x, m.y + 0.55), sy(m.x, m.y + 0.55), 4, 0.8, true);
+      for (const m of men) if (m.side === 1 && effRank(m) === 0) dust(sx(m.x, m.y + LINE_GAP / 2), sy(m.x, m.y + LINE_GAP / 2), 4, 0.8, true);
     }
     for (const m of men) {
       if (!m.alive) continue;
@@ -186,6 +213,8 @@ function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ct
         continue;
       }
       const ty = front(m) + effRank(m) * (m.side === 0 ? 0.75 : -0.85);
+      // the Celts close their files onto the half-file stagger as they march and charge
+      if (m.side === 1) m.x = m.hx + (m.cx - m.hx) * smooth(MARCH, CONTACT, t - m.delay);
       const dy = ty - m.y;
       const charging = m.side === 1 && t > CHARGE && t < CONTACT + 0.2;
       const vmax = (charging ? 1.9 : 0.75) * dt;
@@ -234,8 +263,9 @@ function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ct
   };
 
   const blit = (f: number, x: number, y: number) => {
-    const r = FR[f];
-    ctx.drawImage(sheet, r[0], r[1], r[2], r[3], x + r[4], y + r[5], r[2], r[3]);
+    // the sheet is 2x: drawn 1:1 at K = 2, halved (nearest) at K = 1
+    const r = FR[f], s = K / 2;
+    ctx.drawImage(sheet, r[0], r[1], r[2], r[3], Math.round(x + r[4] * s), Math.round(y + r[5] * s), r[2] * s, r[3] * s);
   };
 
   const lattice = (a: number) => {
@@ -307,9 +337,12 @@ function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ct
     }, { passive: true });
   }
 
+  // phones draw at most 30 times a second (the 4 ms tolerance lands on every 2nd vsync at 60 Hz, 4th at 120 Hz)
+  const minGap = phone ? 1000 / 30 - 4 : 0;
   let visible = true, raf = 0, prev = 0, shown = false;
   const frame = (now: number) => {
     raf = 0;
+    if (minGap && prev && now - prev < minGap) { if (visible && !document.hidden) raf = requestAnimationFrame(frame); return; }
     const dt = prev ? Math.min(0.05, (now - prev) / 1000) : 0;
     prev = now;
     real += dt;

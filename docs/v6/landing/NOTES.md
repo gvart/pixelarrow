@@ -66,3 +66,31 @@ once from `Base.astro` so it is inlined rather than costing a request before LCP
 
 **Headroom warning for LAND-04/05:** mobile LCP has about 30 ms left under 2.0 s, and most of the
 growth over v6 came from HTML weight (7.2 → 11.8 kB on the wire). Keep new section markup lean.
+
+## V6-LAND-02b: the phone hero and the line stagger (V6-029)
+
+**Phones (< 768 px)** now play a lighter cut of the hero battle instead of only the poster. Everything
+phone-specific is in the lazy module (`landing/src/scripts/hero/diorama.ts`): the back rank of each side
+stays out (38 men, not 57), the canvas is 1x (648x426 instead of 1296x852, drawn from the 2x sheet at half
+size, nearest), at most 30 draws a second, 16 motes and 120 dust grains, and no fetch until the diorama is
+on screen. The starter in `Hero.astro` (generic, every width) now waits for load, then the poster's LCP
+entry, then idle, so not even the module request lands before LCP; it keeps the poster under reduced
+motion, data saver, 2g, or `navigator.deviceMemory <= 2`. The canvas pauses offscreen and in hidden tabs.
+
+**Line stagger:** at contact the front ranks stand 2.25 cells apart (was 1.15) and the Celts' files close
+onto the hoplites' file interval with a half-file offset, so each Celt shows between two hoplites and
+the levelled spears bridge the gap. Same script and timings at every size.
+
+**Tests:** `npm run test:hero` (`landing/scripts/hero-overlap.mjs`) now expects the canvas at every width
+without reduced motion (1296x852 from 768 px, 648x426 below), and at 390x844 checks: ≤ 30 draws a second,
+no draws offscreen and a resume when back, no canvas or sprite fetch while the page opens past the hero,
+and no module or sprite request under reduced motion, data saver or deviceMemory 2.
+
+| Lighthouse 12.8.2, 3 runs | Mobile | Desktop |
+|---|---|---|
+| Performance / A11y / BP / SEO | 99–100 / 100 / 100 / 100 | 100 / 100 / 100 / 100 |
+| LCP | 1.88, 1.96, 1.96 s (phones gated off on the same machine: 1.88, 1.96, 1.96 s) | 0.47–0.51 s |
+| CLS / TBT | 0 / 0 ms | 0 / 0 ms |
+
+Mobile total bytes grow from 177 kB to 426 kB, all after LCP (terrain 49 kB, sprite sheet 199 kB, module
+8 kB). The hero starter is 1.3 kB gzip (critical JS ≈ 3.3 kB in total); the lazy module 7.6 kB gzip.
