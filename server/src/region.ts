@@ -322,6 +322,19 @@ export class RegionDO extends DurableObject<Env> {
 
   // ------------------------------------------------------------------ sockets
 
+  /** Account deletion (server/src/account/delete.ts): closes the player's sockets here. */
+  async kick(pid: number): Promise<void> {
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) {
+      this.leave(ws);
+      try {
+        ws.close(4403, 'account deleted');
+      } catch {
+        // already closed
+      }
+    }
+    await this.saveHub();
+  }
+
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
       return new Response('Expected WebSocket upgrade', { status: 426 });

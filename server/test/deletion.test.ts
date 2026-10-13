@@ -1,0 +1,341 @@
+/**
+ * V6-LINK-04: the account deletion engine (ADR-0009 §7, control manifest M-DL).
+ * The seeder walks the migrated schema: every table with a player column gets
+ * a row for the player (and one for a bystander), so a new player table is
+ * seeded, and checked, without touching this file.
+ */
+import { env } from 'cloudflare:test';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { DELETED_NAME, DELETION_STEPS, deleteAccount, finishDeletions } from '../src/account/delete';
+import { DELETION_MAP, playerColumnsOf, type SchemaColumn } from '../src/account/deletionMap';
+import { banIdentityHash } from '../src/account/banTombstone';
+import { peppersFromEnv } from '../src/auth/password';
+import { emailKeyHash } from '../src/auth/throttle';
+import { nameKeyHeld } from '../src/players';
+import { playerNames } from '../src/online/store';
+import { resetRateLimits } from '../src/rateLimit';
+import { api, devLogin } from './helpers';
+
+const DB = () => env.DB!;
+const DAY = 86_400_000;
+
+let tg = 7_400_000;
+let uniq = 1_000_000;
+beforeEach(() => resetRateLimits());
+
+interface Col extends SchemaColumn {
+  type: string;
+  notnull: number;
+  dflt: string | null;
+  pk: number;
+  to: string | null;
+}
+
+async function schemaCols(): Promise<Col[]> {
+  const r = await DB()
+    .prepare(
+      `SELECT m.name AS "table", p.name AS "column", p.type, p."notnull", p.dflt_value AS dflt, p.pk, f."table" AS "references", f."to" AS "to"
+       FROM sqlite_master m JOIN pragma_table_info(m.name) p LEFT JOIN pragma_foreign_key_list(m.name) f ON f."from" = p.name
+       WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT LIKE '_cf_%' AND m.name != 'd1_migrations'
+       ORDER BY m.name, p.cid`,
+    )
+    .all<Col>();
+  return r.results;
+}
+
+/** Values the seeder can't guess: CHECK constraints, and states that are history rather than in-flight. */
+const OVERRIDE: Record<string, (s: Seeded) => Record<string, unknown>> = {
+  auth_identities: (s) => ({ kind: 'password', subject: s.email, email: s.email.toUpperCase() }),
+  sessions: () => ({ transport: 'cookie', method: 'password' }),
+  email_tokens: (s) => ({ purpose: 'reset', email_norm: s.email, player_id: null }),
+  battle_tickets: () => ({ status: 'used' }),
+  duel_tickets: () => ({ status: 'used' }),
+  duel_attacks: () => ({ status: 'used' }),
+  duel_matches: () => ({ status: 'done' }),
+  market_listings: () => ({ status: 'sold' }),
+  clan_members: () => ({ role: 'member' }),
+  online_regions: () => ({ occupant: 'player', home: 1 }),
+};
+/** Created by the deletion itself, or seeded by hand below. */
+const NOT_SEEDED = new Set(['players', 'deletion_jobs', 'ban_tombstones']);
+
+interface Seeded {
+  pid: number;
+  tg: number;
+  email: string;
+  token: string;
+  /** table -> the rowids seeded for this player. */
+  rows: Map<string, number[]>;
+}
+
+/** A player with a telegram and a password identity and a row in every table that references players. */
+async function seedEverywhere(): Promise<Seeded> {
+  const me = await devLogin(++tg);
+  const s: Seeded = { pid: me.playerId, tg, email: `gone${tg}@example.com`, token: me.token, rows: new Map() };
+  const cols = await schemaCols();
+  const byTable = new Map<string, Col[]>();
+  for (const c of cols) byTable.set(c.table, [...(byTable.get(c.table) ?? []), c]);
+  const playerTables = [...new Set(playerColumnsOf(cols).map((c) => c.table))].filter((t) => !NOT_SEEDED.has(t));
+  // Parents first: a table whose foreign key points at another seeded table waits for it.
+  const order: string[] = [];
+  const visit = (t: string) => {
+    if (order.includes(t)) return;
+    for (const c of byTable.get(t)!) if (c.references && c.references !== 'players' && playerTables.includes(c.references)) visit(c.references);
+    order.push(t);
+  };
+  playerTables.forEach(visit);
+  for (const table of order) {
+    const rule = DELETION_MAP[table];
+    const pidCols = new Set([...(rule.pid ?? []), ...(rule.kept ?? [])]);
+    const tgCols = new Set(rule.tg ?? []);
+    const over = OVERRIDE[table]?.(s) ?? {};
+    const values: Record<string, unknown> = {};
+    for (const c of byTable.get(table)!) {
+      if (c.column in over) values[c.column] = over[c.column];
+      else if (pidCols.has(c.column) || c.references === 'players') values[c.column] = s.pid;
+      else if (tgCols.has(c.column)) values[c.column] = s.tg;
+      else if (c.references) {
+        const parent = await DB().prepare(`SELECT ${c.to ?? 'rowid'} AS v FROM ${c.references} WHERE rowid = ?1`).bind(s.rows.get(c.references)![0]).first<{ v: unknown }>();
+        values[c.column] = parent!.v;
+      } else if ((c.notnull && c.dflt === null) || c.pk) {
+        if (c.pk === 1 && /^INTEGER$/i.test(c.type) && !byTable.get(table)!.some((o) => o.pk > 1)) continue; // rowid alias
+        values[c.column] = /INT/i.test(c.type) ? ++uniq : /REAL/i.test(c.type) ? 1.5 : `v${++uniq}`;
+      }
+    }
+    const names = Object.keys(values);
+    const r = await DB()
+      .prepare(`INSERT INTO ${table} (${names.join(', ')}) VALUES (${names.map((_, i) => `?${i + 1}`).join(', ')}) RETURNING rowid AS id`)
+      .bind(...names.map((n) => values[n]))
+      .first<{ id: number }>();
+    s.rows.set(table, [r!.id]);
+  }
+  // Rows keyed other than by a player column.
+  const ident = await DB().prepare("SELECT id FROM auth_identities WHERE player_id = ?1 AND kind = 'password'").bind(s.pid).first<{ id: number }>();
+  const camp = await DB().prepare('SELECT season_id, shard_id, loc FROM online_camps WHERE player_id = ?1').bind(s.pid).first<{ season_id: number; shard_id: number; loc: number }>();
+  const h = await emailKeyHash(s.email);
+  await DB().batch([
+    DB().prepare("INSERT INTO password_hashes (identity_id, hash, updated_at) VALUES (?1, 'x', 1)").bind(ident!.id),
+    DB().prepare("INSERT INTO online_camp_buildings (season_id, shard_id, loc, slot, kind, level, done_at, updated_at) VALUES (?1, ?2, ?3, 0, 'farm', 1, 1, 1)").bind(camp!.season_id, camp!.shard_id, camp!.loc),
+    DB().prepare('INSERT INTO auth_throttle (key, window_start, count) VALUES (?1, 1, 1), (?2, 1, 1)').bind(`login:${h}`, `mail:h:${h}`),
+    DB().prepare("INSERT INTO email_tokens (token_hash, purpose, email_norm, email, created_at, expires_at) VALUES (?1, 'signup', ?2, ?2, 1, ?3)").bind(`t${++uniq}`, s.email, Date.now() + DAY),
+  ]);
+  return s;
+}
+
+const count = async (sql: string, ...binds: unknown[]) => (await DB().prepare(`SELECT COUNT(*) AS n FROM ${sql}`).bind(...binds).first<{ n: number }>())!.n;
+
+/** Rows of `s` per table, by the columns DELETION_MAP names. */
+async function rowsOf(s: Seeded): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const [table, rule] of Object.entries(DELETION_MAP)) {
+    const conds = [...(rule.pid ?? []), ...(rule.kept ?? [])].map((c) => `${c} = ?1`).concat((rule.tg ?? []).map((c) => `${c} = ?2`));
+    if (conds.length) out[table] = await count(`${table} WHERE ${conds.join(' OR ')}`, ...(rule.tg?.length ? [s.pid, s.tg] : [s.pid]));
+  }
+  return out;
+}
+
+describe('deleteAccount (ADR-0009 §7)', () => {
+  it('leaves no personal row, keeps the records against the tombstone and touches no one else', async () => {
+    const victim = await seedEverywhere();
+    const bystander = await seedEverywhere();
+    const before = await rowsOf(bystander);
+    const now = Date.now();
+
+    expect(await deleteAccount(env, victim.pid, 'self', now)).toBe('done');
+
+    const after = await rowsOf(victim);
+    for (const [table, rule] of Object.entries(DELETION_MAP)) {
+      // The name history keeps one row (below); the seeded clan had only the victim, so it is disbanded (see the clan test).
+      if (!(table in after) || table === 'display_name_history' || table === 'clans') continue;
+      if (rule.rule === 'delete' || rule.rule === 'release') expect(after[table], `${table} still has the player`).toBe(0);
+      else expect(after[table], `${table} lost its kept rows`).toBeGreaterThan(0);
+    }
+    // Only the row that holds the freed name is left of the name history.
+    expect((await DB().prepare('SELECT new FROM display_name_history WHERE player_id = ?1').bind(victim.pid).all()).results).toEqual([{ new: DELETED_NAME }]);
+    expect(await count('password_hashes WHERE identity_id = (SELECT id FROM auth_identities WHERE player_id = ?1)', victim.pid)).toBe(0);
+    expect(await count('online_camp_buildings b JOIN online_camps c USING (season_id, shard_id, loc) WHERE c.player_id = ?1', victim.pid)).toBe(0);
+    const h = await emailKeyHash(victim.email);
+    expect(await count('auth_throttle WHERE key IN (?1, ?2)', `login:${h}`, `mail:h:${h}`)).toBe(0);
+    expect(await count('email_tokens WHERE email_norm = ?1', victim.email)).toBe(0);
+    // Released, not removed: the regions are neutral now.
+    const regions = s0(victim.rows.get('online_regions'));
+    expect(await DB().prepare('SELECT occupant, owner_id, home FROM online_regions WHERE rowid = ?1').bind(regions).first()).toEqual({ occupant: 'npc', owner_id: null, home: 0 });
+
+    // The tombstone: no personal field, hidden from public boards.
+    const p = await DB().prepare('SELECT * FROM players WHERE id = ?1').bind(victim.pid).first<Record<string, unknown>>();
+    expect(p).toMatchObject({
+      display_name: DELETED_NAME,
+      display_name_key: `deleted:${victim.pid}`,
+      telegram_id: null,
+      username: null,
+      first_name: null,
+      language_code: null,
+      is_premium: 0,
+      public_boards: 0,
+      deleted_at: now,
+    });
+    expect(await DB().prepare('SELECT step, finished_at FROM deletion_jobs WHERE player_id = ?1').bind(victim.pid).first()).toEqual({ step: DELETION_STEPS.length, finished_at: now });
+
+    // The bystander lost nothing.
+    expect(await rowsOf(bystander)).toEqual(before);
+  });
+
+  it('shows the player as "Deleted player" to others and holds the freed name for 30 days', async () => {
+    const victim = await devLogin(++tg);
+    const other = await devLogin(++tg);
+    const key = (await DB().prepare('SELECT display_name_key AS k FROM players WHERE id = ?1').bind(victim.playerId).first<{ k: string }>())!.k;
+    const now = Date.now();
+    expect(await deleteAccount(env, victim.playerId, 'self', now)).toBe('done');
+    expect((await playerNames(DB(), [victim.playerId])).get(victim.playerId)).toBe(DELETED_NAME);
+    expect(await nameKeyHeld(DB(), key, other.playerId, now + 29 * DAY)).toBe(true);
+    expect(await nameKeyHeld(DB(), key, other.playerId, now + 31 * DAY)).toBe(false);
+  });
+
+  it('ends every session at once, and the Telegram user who comes back gets a new, empty player', async () => {
+    const me = await devLogin(++tg);
+    expect((await api('/api/me', { token: me.token })).status).toBe(200);
+    expect(await deleteAccount(env, me.playerId, 'self')).toBe('done');
+    expect((await api('/api/me', { token: me.token })).status).toBe(401);
+    const again = await devLogin(tg);
+    expect(again.playerId).not.toBe(me.playerId);
+  });
+
+  it('is idempotent: a second call does nothing and still answers done', async () => {
+    const s = await seedEverywhere();
+    expect(await deleteAccount(env, s.pid, 'self')).toBe('done');
+    expect(await deleteAccount(env, s.pid, 'self')).toBe('done');
+  });
+
+  it('refuses a busy player and changes nothing', async () => {
+    const me = await devLogin(++tg);
+    const other = await devLogin(++tg);
+    const now = Date.now();
+    await DB()
+      .prepare(`INSERT INTO duel_matches (id, mode, seed, player_a, player_b, setup, teams, status, created_at) VALUES (?1, 'ranked', 1, ?2, ?3, '{}', '[]', 'live', ?4)`)
+      .bind(`m${++uniq}`, me.playerId, other.playerId, now)
+      .run();
+    expect(await deleteAccount(env, me.playerId, 'self', now)).toBe('busy');
+    expect(await DB().prepare('SELECT deleted_at FROM players WHERE id = ?1').bind(me.playerId).first()).toEqual({ deleted_at: null });
+    expect(await count('deletion_jobs WHERE player_id = ?1', me.playerId)).toBe(0);
+    expect((await api('/api/me', { token: me.token })).status).toBe(200);
+  });
+
+  it('refuses a player with an open battle ticket', async () => {
+    const me = await devLogin(++tg);
+    const now = Date.now();
+    await DB()
+      .prepare(
+        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, region_version, created_at, expires_at)
+         VALUES (?1, 1, 1, ?2, 1, 1, '{}', '[]', '[]', 'npc', 0, ?3, ?4)`,
+      )
+      .bind(`b${++uniq}`, me.playerId, now, now + 60_000)
+      .run();
+    expect(await deleteAccount(env, me.playerId, 'self', now)).toBe('busy');
+  });
+});
+
+describe('leaving shared structures', () => {
+  const SEASON = 990_001;
+  async function clanOf(members: { pid: number; role: string; joined: number }[]): Promise<number> {
+    const clan = await DB()
+      .prepare(`INSERT INTO clans (season_id, shard_id, name, tag, created_by, created_at) VALUES (?1, 1, ?2, ?4, ?3, 1) RETURNING id`)
+      .bind(SEASON, `Clan${++uniq}`, members[0].pid, `T${uniq % 10000}`)
+      .first<{ id: number }>();
+    for (const m of members)
+      await DB().prepare('INSERT INTO clan_members (season_id, player_id, clan_id, role, joined_at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(SEASON, m.pid, clan!.id, m.role, m.joined).run();
+    return clan!.id;
+  }
+
+  it('a leader hands the clan to the longest-serving officer; an empty clan is disbanded with its invites', async () => {
+    const [leader, member, officer, loner] = await Promise.all([devLogin(++tg), devLogin(++tg), devLogin(++tg), devLogin(++tg)]);
+    const clan = await clanOf([
+      { pid: leader.playerId, role: 'leader', joined: 1 },
+      { pid: member.playerId, role: 'member', joined: 2 },
+      { pid: officer.playerId, role: 'officer', joined: 3 },
+    ]);
+    const solo = await clanOf([{ pid: loner.playerId, role: 'leader', joined: 1 }]);
+    await DB().prepare("INSERT INTO clan_invites (code, clan_id, created_by, created_at, expires_at, max_uses) VALUES (?1, ?2, ?3, 1, 9e15, 5)").bind(`c${++uniq}`, solo, loner.playerId).run();
+
+    expect(await deleteAccount(env, leader.playerId, 'self')).toBe('done');
+    expect(await deleteAccount(env, loner.playerId, 'self')).toBe('done');
+
+    const roles = (await DB().prepare('SELECT player_id, role FROM clan_members WHERE clan_id = ?1 ORDER BY player_id').bind(clan).all()).results;
+    expect(roles).toEqual(
+      [
+        { player_id: member.playerId, role: 'member' },
+        { player_id: officer.playerId, role: 'leader' },
+      ].sort((a, b) => a.player_id - b.player_id),
+    );
+    expect(await count('clans WHERE id = ?1', clan)).toBe(1);
+    expect(await count('clans WHERE id = ?1', solo)).toBe(0);
+    expect(await count('clan_invites WHERE clan_id = ?1', solo)).toBe(0);
+  });
+
+  it('cancels open market listings, frees owned regions and sends guards home', async () => {
+    const [seller, guard] = await Promise.all([devLogin(++tg), devLogin(++tg)]);
+    const now = Date.now();
+    await DB().batch([
+      DB()
+        .prepare(
+          `INSERT INTO market_listings (id, season_id, shard_id, seller_id, town_loc, kind, ref, item, qty, rarity, currency, price, created_at, expires_at)
+           VALUES (?1, 1, 1, ?2, 1, 'item', 'x', '{"secret":1}', 1, 'common', 'gold', 10, ?3, ?4)`,
+        )
+        .bind(`l${++uniq}`, seller.playerId, now, now + DAY),
+      DB().prepare("INSERT INTO online_regions (season_id, shard_id, loc, occupant, owner_id, home, version) VALUES (1, 1, ?1, 'player', ?2, 0, 3)").bind(++uniq, seller.playerId),
+      DB().prepare("INSERT INTO online_heroes (id, season_id, player_id, data, created_at, updated_at) VALUES (?1, 1, ?2, '{}', 1, 1)").bind(`h${uniq}`, guard.playerId),
+      DB().prepare('INSERT INTO online_garrisons (hero_id, season_id, shard_id, loc, player_id, placed_at) VALUES (?1, 1, 1, ?2, ?3, 1)').bind(`h${uniq}`, uniq, guard.playerId),
+    ]);
+    const loc = uniq;
+    expect(await deleteAccount(env, seller.playerId, 'self', now)).toBe('done');
+    expect(await DB().prepare('SELECT status, item FROM market_listings WHERE seller_id = ?1').bind(seller.playerId).first()).toEqual({ status: 'cancelled', item: null });
+    expect(await DB().prepare('SELECT occupant, owner_id, version FROM online_regions WHERE season_id = 1 AND shard_id = 1 AND loc = ?1').bind(loc).first()).toEqual({
+      occupant: 'npc',
+      owner_id: null,
+      version: 4,
+    });
+    // The other player's hero left the freed region but is still theirs.
+    expect(await count('online_garrisons WHERE hero_id = ?1', `h${loc}`)).toBe(0);
+    expect(await count('online_heroes WHERE id = ?1', `h${loc}`)).toBe(1);
+  });
+});
+
+describe('resumable deletion jobs', () => {
+  for (let k = 1; k < DELETION_STEPS.length; k++) {
+    it(`a run interrupted after ${k} step(s) is finished by the cron`, async () => {
+      const s = await seedEverywhere();
+      const now = Date.now();
+      expect(await deleteAccount(env, s.pid, 'self', now, { maxSteps: k })).toBe('resumable');
+      // Gone for the player at once: no session, no way to log in with the old identities.
+      expect((await api('/api/me', { token: s.token })).status).toBe(401);
+      expect(await DB().prepare('SELECT step, finished_at FROM deletion_jobs WHERE player_id = ?1').bind(s.pid).first()).toEqual({ step: k, finished_at: null });
+
+      const r = await finishDeletions(env, now + DAY);
+      expect(r.finished).toBeGreaterThanOrEqual(1);
+      const after = await rowsOf(s);
+      for (const [table, rule] of Object.entries(DELETION_MAP))
+        if (table in after && table !== 'display_name_history' && (rule.rule === 'delete' || rule.rule === 'release')) expect(after[table], table).toBe(0);
+      expect((await DB().prepare('SELECT new FROM display_name_history WHERE player_id = ?1').bind(s.pid).all()).results).toEqual([{ new: DELETED_NAME }]);
+      expect(await DB().prepare('SELECT display_name FROM players WHERE id = ?1').bind(s.pid).first()).toEqual({ display_name: DELETED_NAME });
+    });
+  }
+
+  it('a request on a started job resumes it instead of starting over', async () => {
+    const me = await devLogin(++tg);
+    expect(await deleteAccount(env, me.playerId, 'conflict', Date.now(), { maxSteps: 2 })).toBe('resumable');
+    expect(await deleteAccount(env, me.playerId, 'self')).toBe('done');
+    expect(await DB().prepare('SELECT reason FROM deletion_jobs WHERE player_id = ?1').bind(me.playerId).first()).toEqual({ reason: 'conflict' });
+  });
+
+  it('the cron sweeps rows written for a player after the deletion finished (a match settling late)', async () => {
+    const me = await devLogin(++tg);
+    const now = Date.now();
+    expect(await deleteAccount(env, me.playerId, 'self', now)).toBe('done');
+    await DB().prepare("INSERT INTO duel_ratings (player_id, ladder, updated_at) VALUES (?1, 'live', ?2)").bind(me.playerId, now).run();
+    await finishDeletions(env, now + 60_000);
+    expect(await count('duel_ratings WHERE player_id = ?1', me.playerId)).toBe(0);
+  });
+});
+
+function s0<T>(xs: T[] | undefined): T {
+  return xs![0];
+}

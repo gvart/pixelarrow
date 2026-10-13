@@ -56,6 +56,21 @@ export class MatchmakerDO extends DurableObject<Env> {
     return this.queue.map((w) => ({ ...w }));
   }
 
+  /** Account deletion (server/src/account/delete.ts): drops the player from the queue and closes their sockets. */
+  async remove(pid: number): Promise<void> {
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) {
+      ws.serializeAttachment(null);
+      try {
+        ws.close(4403, 'account deleted');
+      } catch {
+        // already closed
+      }
+    }
+    const had = this.queue.length;
+    this.queue = this.queue.filter((w) => w.pid !== pid);
+    if (this.queue.length !== had) await this.save();
+  }
+
   private async save(): Promise<void> {
     await this.ctx.storage.put('queue', this.queue);
     if (this.queue.length) await this.ctx.storage.setAlarm(Date.now() + PAIR_EVERY_MS);
