@@ -1,0 +1,138 @@
+---
+// One gameplay clip (ADR-0011 clip rules; ART_DIRECTION §7 video tiles). The poster is a real frame of
+// the clip (AVIF, WebP fallback) with intrinsic size, so nothing shifts. The <video> has no source in
+// the markup: src/scripts/clips.ts sets it only when the clip comes near the viewport, plays it muted
+// while it is visible and pauses it when it is not. Under reduced motion or data saver the poster stays
+// and the clip plays only when pressed. Without JS, a native player with controls sits on the poster.
+// Shared by Modes (M1-M4) and Clips (G1-G4, V6-LAND-05), unchanged.
+interface Props {
+  /** File stem in landing/public/video/, for example "M1". */
+  id: string;
+  width: number;
+  height: number;
+  /** What the clip shows, for the poster's alt text and the button labels. */
+  label: string;
+  /** "contain" letterboxes a clip whose aspect differs from its frame (the square forge clip). */
+  fit?: 'cover' | 'contain';
+}
+const { id, width, height, label, fit = 'cover' } = Astro.props;
+const base = `/video/${id}`;
+---
+<div class:list={['clip', `clip--${fit}`]} data-clip data-webm={`${base}.webm`} data-mp4={`${base}.mp4`} data-label={label} style={`--clip-ar: ${width} / ${height}`}>
+  <picture class="clip__poster">
+    <source type="image/avif" srcset={`${base}-poster.avif`} />
+    <img src={`${base}-poster.webp`} width={width} height={height} alt={label} loading="lazy" decoding="async" />
+  </picture>
+  <video class="clip__video" width={width} height={height} muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"></video>
+  <button class="clip__toggle" type="button" hidden aria-label={`Play: ${label}`}>
+    <svg class="clip__glyph clip__glyph--play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6.5v11l9-5.5Z" /></svg>
+    <svg class="clip__glyph clip__glyph--pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6h3v12H8zM13 6h3v12h-3z" /></svg>
+  </button>
+  <noscript>
+    <video class="clip__fallback" width={width} height={height} controls muted loop playsinline preload="none" poster={`${base}-poster.webp`}>
+      <source src={`${base}.webm`} type="video/webm" />
+      <source src={`${base}.mp4`} type="video/mp4" />
+    </video>
+  </noscript>
+</div>
+
+<style>
+  /* The frame keeps the clip's own aspect unless a parent sets --frame-ar (one frame for a grid). */
+  .clip {
+    position: relative;
+    aspect-ratio: var(--frame-ar, var(--clip-ar));
+    overflow: hidden;
+    background: #0c0a08;
+  }
+  .clip__poster,
+  .clip__poster img,
+  .clip__video,
+  .clip__fallback {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .clip--contain .clip__poster img,
+  .clip--contain .clip__video,
+  .clip--contain .clip__fallback {
+    object-fit: contain;
+  }
+  /* The video stays invisible until a frame is painted, so the poster never blinks. */
+  .clip__video {
+    opacity: 0;
+    transition: opacity var(--dur-enter) var(--ease-out);
+  }
+  .clip:global(.is-shown) .clip__video {
+    opacity: 1;
+  }
+
+  /* Paused: a round terracotta play glyph in the middle (ART_DIRECTION §7). Playing: a small pause
+     control in the corner that stays reachable by keyboard and shows on hover or focus. */
+  .clip__toggle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border: 1px solid #c25a3a;
+    border-radius: 50%;
+    background: var(--terra);
+    color: var(--cream);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    transition: background-color var(--dur-micro) var(--ease-out), opacity var(--dur-enter) var(--ease-out);
+  }
+  .clip__glyph {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+  }
+  .clip__glyph--pause {
+    display: none;
+  }
+  .clip:global(.is-playing) .clip__toggle {
+    left: auto;
+    top: auto;
+    right: var(--s3);
+    bottom: var(--s3);
+    width: 40px;
+    height: 40px;
+    border-color: rgb(240 227 194 / 0.5);
+    background: rgb(16 13 11 / 0.7);
+    transform: none;
+    opacity: 0;
+  }
+  .clip:global(.is-playing) .clip__glyph--play {
+    display: none;
+  }
+  .clip:global(.is-playing) .clip__glyph--pause {
+    display: block;
+    width: 18px;
+    height: 18px;
+  }
+  .clip:global(.is-playing):hover .clip__toggle,
+  .clip:global(.is-playing) .clip__toggle:focus-visible {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .clip:global(.is-playing) .clip__toggle {
+      opacity: 0.8;
+    }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .clip__toggle:hover {
+      background: var(--terra-hi);
+    }
+  }
+</style>
+
+<script>
+  import { initClips } from '../scripts/clips';
+  initClips();
+</script>

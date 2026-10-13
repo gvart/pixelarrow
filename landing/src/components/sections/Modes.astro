@@ -1,11 +1,95 @@
 ---
-// Modes (#modes), STRUCTURE.md §4. Stub from V6-LAND-01; V6-LAND-03 builds the four clip tiles.
+// Modes (#modes), STRUCTURE.md §4. Each tile is a real recording of that mode (clips M1-M4 by the
+// video agent, docs/v6/ASSET_LOG.md; V6-019 A4: no new art). Copy checked against GAMEPLAY.md
+// (campaign), DUELS.md (duels), DESIGN_V2.md (war) and ITEMS.md (reforging at the smith).
+import Clip from '../Clip.astro';
+
+const MODES = [
+  {
+    name: 'Campaign',
+    line: 'March across an overland map, hunt or flee bands, recruit in villages and towns. Time passes only while you march or camp.',
+    clip: { id: 'M1', width: 960, height: 540, label: 'The overland map: the party marches from Rhegion toward Pylos, past a band of fifteen.' },
+  },
+  {
+    name: 'Duels',
+    line: 'Ranked 1v1, live or against another player’s saved defence. A separate duel army, no losses, and Glory to spend in the duel shop.',
+    clip: { id: 'M2', width: 960, height: 540, label: 'A ranked duel: two duel armies close and meet.' },
+  },
+  {
+    name: 'War',
+    line: 'A shared seasonal map of the western Mediterranean. Take regions, garrison them, join a clan, hunt mythical beasts in their lairs.',
+    clip: { id: 'M3', width: 960, height: 540, label: 'The war map: a pan over the regions toward a rival army on the march.' },
+  },
+  {
+    name: 'Forge',
+    line: 'At a town’s smith, reforge one stat line of an item. The campaign’s endgame.',
+    clip: { id: 'M4', width: 720, height: 720, label: 'The smith in a town’s services: a legendary falcata’s stat line is reforged.', fit: 'contain' as const },
+  },
+];
 ---
-<section class="section section--night" id="modes" aria-labelledby="modes-title">
+<section class="section section--night modes" id="modes" aria-labelledby="modes-title">
   <div class="container">
     <header class="section__head">
       <h2 id="modes-title" class="section__title">Four ways to fight</h2>
-      <p class="section__lead">Campaign, ranked duels, a seasonal war and the forge.</p>
+      <p class="section__lead">Every tile is recorded from the game.</p>
     </header>
+    <ul class="modes__grid" role="list">
+      {MODES.map((m) => (
+        <li class="mode">
+          <Clip {...m.clip} />
+          <div class="mode__text">
+            <h3 class="mode__name">{m.name}</h3>
+            <p class="mode__line">{m.line}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
   </div>
 </section>
+
+<style>
+  .modes__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s12) var(--s8);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* One frame for every tile; the square forge clip is letterboxed inside it. */
+  .mode {
+    --frame-ar: 16 / 9;
+    display: grid;
+    align-content: start;
+    gap: var(--s4);
+  }
+  .mode :global(.clip) {
+    border: 1px solid var(--stone-edge);
+    border-bottom: 3px solid #0c0a08;
+    border-radius: var(--radius);
+  }
+  .mode__text {
+    display: grid;
+    grid-template-columns: 10rem minmax(0, 1fr);
+    gap: var(--s4);
+    align-items: baseline;
+  }
+  .mode__name {
+    font-size: 1.5rem;
+  }
+  .mode__line {
+    max-width: 46ch;
+  }
+  @media (max-width: 1279px) {
+    .mode__text {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s2);
+    }
+  }
+  @media (max-width: 899px) {
+    .modes__grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s12);
+    }
+  }
+</style>
