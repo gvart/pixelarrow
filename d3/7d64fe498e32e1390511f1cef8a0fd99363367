@@ -1,0 +1,32 @@
+src/ui/tutorial/battleTutorial.ts
+  s_697bdc25a7c420::t_2b5e32f5b23a31 26,420-421,629-631,649-657,663-679
+  s_697bdc25a7c420::t_569d694c39f192 658-662
+  s_697bdc25a7c420::t_65f1ee1de9ebe7 680-681
+scripts/tutorial-smoke.mjs
+  s_697bdc25a7c420::t_7293a29e95e987 226-227,233
+  s_697bdc25a7c420::t_693b2a2b07cb87 228-232
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_25f0e9dd83fffb 4585-4587
+  s_697bdc25a7c420::t_0c69ce73ca8b19 900,904-905
+  s_697bdc25a7c420::t_d7d5b94a2b706f 883-885
+  s_697bdc25a7c420::t_569d694c39f192 898-899
+scripts/audio-smoke.mjs
+  s_697bdc25a7c420::t_68e257fd794e73 50
+  s_697bdc25a7c420::t_d96e83d98a87fb 172-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d37d64fe498e32e1390511f1cef8a0fd99363367",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
