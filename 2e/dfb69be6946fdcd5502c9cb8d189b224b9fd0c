@@ -1,0 +1,24 @@
+design/ux/accounts-v6.md
+  s_0d98fe904b2e82::t_d2bd535d2ee47c 777
+  s_0d98fe904b2e82::t_61d0176d80b2d0 808
+  s_0d98fe904b2e82::t_63f300733f54e1 1-83,85-198
+  s_0d98fe904b2e82::t_2260a24305204b 199-612
+  s_0d98fe904b2e82::t_e7ddc6bd6cd3cf 84
+  s_0d98fe904b2e82::t_6980c0f4dd1bc6 613-776,778-807,809-1324
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2edfb69be6946fdcd5502c9cb8d189b224b9fd0c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
