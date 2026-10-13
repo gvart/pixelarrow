@@ -20,6 +20,7 @@ import { KeyButton, MIconButton, mosaicImage, mtext, mw } from '../mosaic';
 import { MOSAIC, TEXT_MIN } from '../tokens';
 import { uiBlocker, uiColumn, uiFrame, uiId } from '../layout';
 import { measureText, LINE_H } from '../textfit';
+import { coverTexture, hasRaster } from '../mosaic/raster';
 import { NARRATOR_SIZE, renderNarrator } from '../../art/narrator';
 import { narratorType } from '../../audio/hooks';
 import { t } from '../../i18n';
@@ -41,6 +42,26 @@ export function ensureNarratorTextures(scene: Phaser.Scene): void {
     const key = `narrator_${f}`;
     if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderNarrator(f).toCanvas());
   }
+}
+
+/** The painted Nikias (AS-08, ART-033..035): mouth shut, talking, blinking; texture key -> file under public/. */
+const PAINTED: readonly (readonly [string, string])[] = [
+  ['ui_portrait_nikias', 'ui/portrait_nikias.jpg'],
+  ['ui_portrait_nikias_talk', 'ui/portrait_nikias_talk.jpg'],
+  ['ui_portrait_nikias_blink', 'ui/portrait_nikias_blink.jpg'],
+];
+
+/** Queue the painted portraits (a scene's preload); a file that fails to load leaves the pixel bust. */
+export function preloadNarrator(scene: Phaser.Scene): void {
+  for (const [key, url] of PAINTED) if (!scene.textures.exists(key)) scene.load.image(key, url);
+}
+
+/** Show frame `f` on `img` at `size` x `size` UI px: the painted portrait when all three frames loaded, else the pixel bust. */
+export function setNarratorFrame(img: Phaser.GameObjects.Image, f: 0 | 1 | 2, size: number): void {
+  const s = img.scene;
+  const painted = PAINTED.every(([key]) => hasRaster(s, key)) ? coverTexture(s, PAINTED[f][0], size, size) : null;
+  img.setTexture(painted ?? `narrator_${f}`);
+  img.setDisplaySize(size, size);
 }
 
 /** Greedy word wrap where each line has its own width (the first lines beside the keys are shorter). */
@@ -178,9 +199,10 @@ export class Narrator {
     this.c.add(swallow);
     this.c.add(mosaicImage(s, x, y, w, h, 'parchment'));
     if (L.portrait) {
-      // the mentor in a bronze-framed square (a painted portrait comes later)
+      // the mentor in a bronze-framed square
       this.c.add(mosaicImage(s, x + 3, y + 3, PORTRAIT + 2, PORTRAIT + 2, 'parchmentWell'));
       this.portrait = s.add.image(x + 4, y + 4, 'narrator_0').setOrigin(0, 0);
+      setNarratorFrame(this.portrait, 0, NARRATOR_SIZE);
       this.c.add(this.portrait);
       const frame = s.add.graphics();
       frame.lineStyle(1.4, MOSAIC.bronze, 1);
@@ -283,7 +305,7 @@ export class Narrator {
         this.nextBlink = time + 2200 + ((time * 7) % 1900);
       }
       const f = time < this.blinkUntil ? 2 : talking && Math.floor(time / 110) % 2 === 0 ? 1 : 0;
-      this.portrait.setTexture(`narrator_${f}`);
+      setNarratorFrame(this.portrait, f, NARRATOR_SIZE);
     }
     if (this.arrow) {
       this.arrow.setVisible(!talking);
