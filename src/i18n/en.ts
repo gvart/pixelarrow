@@ -1,6 +1,6 @@
 /**
  * English strings: the source table. Every key here must exist in every other
- * language (tests/i18n.test.ts checks keys, parameters and font coverage).
+ * language (the i18n block of tests/ui.test.ts checks keys, parameters and font coverage).
  *
  * - `{name}` is replaced by the parameter `name`.
  * - A plural entry is an object of CLDR forms (`one`, `few`, `many`, `other`);
