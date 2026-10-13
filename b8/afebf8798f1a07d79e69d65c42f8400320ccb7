@@ -1,0 +1,21 @@
+design/adr/ADR-0011-landing-stack-and-budget.md
+  s_0d98fe904b2e82::t_92b92b07f89c3d 4
+docs/v6/DECISIONS.md
+  s_0d98fe904b2e82::t_5d53f260c15441 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b8afebf8798f1a07d79e69d65c42f8400320ccb7",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
