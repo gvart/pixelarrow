@@ -149,6 +149,9 @@ async function results(p) {
   return wait(p, 3000);
 }
 
+/** Every class with a painted bust (src/ui/army/layout.ts SHIPPED_BUSTS): the opt-in army-bust-<class> screens. */
+const BUST_CLASSES = ['militia', 'hoplite', 'thureophoros', 'celt_sword', 'rhomphaia', 'archer', 'slinger', 'javelineer', 'horse_archer', 'peltast', 'falx', 'gallic', 'fanatic', 'companion', 'thessalian', 'chariot', 'royal_guard', 'sacred_band', 'wolf', 'boar', 'bear'];
+
 const SCREENS = [
   { id: 'menu', owner: 'F', run: async (p) => (await start(p, 'Menu'), wait(p, 700)) },
   { id: 'menu-settings', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openSettings(); return 1;'), wait(p, 400)) },
@@ -525,9 +528,12 @@ const SCREENS = [
     ['army-wounded', 'Menu', 8, (c) => (c.data.heroes[8].wound = 14)],
     ['army-pick', 'Settlement', 6, null],
     ['army-empty', 'World', -1, (c) => (c.data.heroes.length = 0)],
+    // opt-in (run by name only): the hero card's class bust for every class (AS-07, scripts/art/preview.mjs)
+    ...BUST_CLASSES.map((cls) => [`army-bust-${cls}`, 'World', 0, `(c) => (c.data.heroes[0].cls = '${cls}')`]),
   ].map(([id, from, sel, prep]) => ({
     id,
     owner: 'B',
+    ...(id.startsWith('army-bust-') ? { optIn: true } : {}),
     run: async (p) => {
       await ev(
         p,
@@ -1112,7 +1118,9 @@ async function runConfig(browser, cfg, screens) {
 // ------------------------------------------------------------------ run
 
 const onlyScreens = opt('screens', '');
-const screens = onlyScreens ? SCREENS.filter((s) => onlyScreens.split(',').includes(s.id)) : SCREENS;
+// opt-in screens (art previews) run only when named
+const DEFAULT_SCREENS = SCREENS.filter((s) => !s.optIn);
+const screens = onlyScreens ? SCREENS.filter((s) => onlyScreens.split(',').includes(s.id)) : DEFAULT_SCREENS;
 const configs = [];
 for (const lang of LANGS) for (const insets of INSETS) for (const size of SIZES) configs.push({ lang, insets, size });
 const allConfigs = configs.length;
@@ -1186,7 +1194,7 @@ if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   flaky.push(...fresh.filter((k) => !again.has(k)));
   fresh = fresh.filter((k) => again.has(k));
 }
-const partial = configs.length < allConfigs || allConfigs < 20 || screens.length < SCREENS.length;
+const partial = configs.length < allConfigs || allConfigs < 20 || screens.length < DEFAULT_SCREENS.length;
 const foundWild = new Set([...found.keys()].map(wildOf));
 const stale = [...allowed.keys()].filter((k) => !(k.endsWith('|*') ? foundWild.has(k) : found.has(k)) && screens.some((s) => k.startsWith(s.id + '|'))).sort();
 

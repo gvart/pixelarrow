@@ -25,6 +25,8 @@ export interface TabBarOpts {
 }
 
 const ICON_K = 1.5;
+/** The War glyph's size as a fraction of the medallion's diameter (inside its dished face). */
+const WAR_GLYPH = 0.62;
 
 export { MODE_TABS, type TabId };
 
@@ -104,6 +106,10 @@ export class TabBar extends Phaser.GameObjects.Container {
         const med = mosaicImage(scene, lay.medallionX - glow, -MEDALLION_RISE - glow, dd, dd, sel ? 'medallionSel' : 'medallion');
         c.add(med);
         if (sel) pulse(scene, med, 'alpha', 0.82, 1, 1400);
+        // the engraved War glyph on the dished face (ui:war, MENU-2, AS-07)
+        const glyph = scaleIcon(addIcon(scene, 0, 0, 'war'), (d * WAR_GLYPH) / 12);
+        glyph.setPosition(Math.round(lay.medallionX + (d - glyph.displayWidth) / 2), Math.round(-MEDALLION_RISE + (d - glyph.displayHeight) / 2));
+        c.add(glyph);
       } else {
         const icon = scaleIcon(addIcon(scene, 0, 0, tab.icon, sel ? '' : ''), ICON_K);
         icon.setPosition(Math.round(cx - icon.displayWidth / 2), showLabel ? 6 : Math.round((TAB_H - icon.displayHeight) / 2));

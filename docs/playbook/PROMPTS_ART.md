@@ -20,7 +20,7 @@ reconstructed or invented. How to run a job: [ART.md](ART.md).
 **Missing.** No v5 render is unrecorded. Not recorded anywhere: the prompts for art that predates v5 and still
 ships or exists (`public/ui/banner_campaign.jpg`, `public/ui/portrait_leader.jpg`, the 101 legacy icons in
 `public/icons/ui.png` and the 189 in `items.png`). The v4 brief that preceded them is quoted in §11; whether it
-produced those files is not recorded. The Nikias portraits (ART-033..035) were planned but never generated.
+produced those files is not recorded. The Nikias portraits (ART-033..035) were planned but not generated; their AS-07 prompts are written and queued (§10), not sent.
 
 **Gemini settings.** gemini.google.com, "Pro" mode ("Gemini 3.1 Pro"), typed prompts, no tool picker after
 AS-01 (AS-01 used the *Create image* tool with aspect 9:16). Outputs were 2048x2048 (square), 3168x1344
@@ -263,27 +263,27 @@ Create a NEW image, not an edit of the reference. Match the attached reference e
 | --- | --- | --- | --- | --- | --- |
 | 1 | 013 | bust_hoplite | T-STYLE + T-BUST: a Spartan hoplite, bronze Corinthian helmet with a tall red transverse horsehair crest, red cloak, the bronze rim of a round aspis shield at the shoulder | Seed; **promoted** (ARM-01) | Crest reads red at 21 px |
 | 2 | 012 | bust_militia | a Greek levy militiaman, a farmer-soldier: a brown felt cap (pilos), plain undyed ochre wool tunic, no armour, a short wooden spear with an iron head held upright at his shoulder | **Promoted** (ARM-01) | |
-| 3 | 014 | bust_thureophoros | a Hellenistic thureophoros: plain conical bronze pilos helmet with no crest, dark hair, blue-grey linen tunic, the upper edge of a tall OVAL thureos shield, cream with a red pattern and a vertical spine | Kept, staged | Matches the sprite |
-| 4 | 015 | bust_celt_sword | a Celtic swordsman: iron Montefortino helmet with a top knob and cheek guards, long drooping moustache, bronze torc, green checked cloak over mail, hilt and upper blade of a long sword | Kept, staged | Small unhistorical nasal |
-| 5 | 016 | bust_rhomphaia | a Thracian rhomphaia warrior: tall bronze Phrygian-style helmet curving forward, cheek guards, brown fox-fur cloak, ochre tunic, the long curved blade of a two-handed rhomphaia over the shoulder; no shield | Kept, staged | |
-| 6 | 017 | bust_archer | a Cretan archer: bare head, short dark curly hair, cream linen tunic, leather quiver strap, fletchings and the bow tip above the shoulder | Kept, staged | |
+| 3 | 014 | bust_thureophoros | a Hellenistic thureophoros: plain conical bronze pilos helmet with no crest, dark hair, blue-grey linen tunic, the upper edge of a tall OVAL thureos shield, cream with a red pattern and a vertical spine | **Promoted** (AS-07) | Matches the sprite |
+| 4 | 015 | bust_celt_sword | a Celtic swordsman: iron Montefortino helmet with a top knob and cheek guards, long drooping moustache, bronze torc, green checked cloak over mail, hilt and upper blade of a long sword | **Promoted** (AS-07) | Small unhistorical nasal |
+| 5 | 016 | bust_rhomphaia | a Thracian rhomphaia warrior: tall bronze Phrygian-style helmet curving forward, cheek guards, brown fox-fur cloak, ochre tunic, the long curved blade of a two-handed rhomphaia over the shoulder; no shield | **Promoted** (AS-07) | |
+| 6 | 017 | bust_archer | a Cretan archer: bare head, short dark curly hair, cream linen tunic, leather quiver strap, fletchings and the bow tip above the shoulder | **Promoted** (AS-07) | |
 | 7 | 018 | bust_slinger | a Rhodian slinger: bare head, short straight brown hair, short beard, white tunic, pouch of stones on a strap, a braided sling wound round his raised wrist | **Promoted** (ARM-01) | |
-| 8 | 019 | bust_javelineer | a Thracian javelineer: grey wolfskin cap (alopekis) with the animal's ears, light green tunic, exactly two javelins over the shoulder | Kept, staged | |
-| 9 | 020 | bust_horse_archer | a Scythian horse archer: tall pointed felt hood with ear flaps tied under the chin, red embroidered kaftan, gorytos bow case with a short recurved bow | Kept, staged | |
+| 8 | 019 | bust_javelineer | a Thracian javelineer: grey wolfskin cap (alopekis) with the animal's ears, light green tunic, exactly two javelins over the shoulder | **Promoted** (AS-07) | |
+| 9 | 020 | bust_horse_archer | a Scythian horse archer: tall pointed felt hood with ear flaps tied under the chin, red embroidered kaftan, gorytos bow case with a short recurved bow | **Promoted** (AS-07) | |
 | 10 | 021 | bust_peltast (1) | a Thracian peltast: open-faced bronze Thracian helmet, forward-curving crown, short peak, cheek guards, brown cloak, crescent wicker pelte | **Rejected** | Same headgear silhouette as the rhomphaia (bible §3) |
 | 11 | 021 | bust_peltast (2) | as #10 but: a LOW, ROUNDED open-faced bronze helmet hugging the skull, short brim-like peak, long cheek guards; NO tall crown, NO curving tip, NO crest; the crescent pelte is the main prop | **Promoted** (ARM-01) | |
-| 12 | 022 | bust_falx | a Thracian falx warrior: bare head, long dark hair, full beard, brown wool cloak over a red tunic, the inward-curved blade of a two-handed falx over his shoulder | Kept, staged | |
-| 13 | 023 | bust_gallic | a Gallic warband warrior: limed pale spiky hair, long moustache, bare chest with blue woad swirls, bronze torc, the upper edge of a long oval shield with an iron boss | Kept, staged | |
+| 12 | 022 | bust_falx | a Thracian falx warrior: bare head, long dark hair, full beard, brown wool cloak over a red tunic, the inward-curved blade of a two-handed falx over his shoulder | **Promoted** (AS-07) | |
+| 13 | 023 | bust_gallic | a Gallic warband warrior: limed pale spiky hair, long moustache, bare chest with blue woad swirls, bronze torc, the upper edge of a long oval shield with an iron boss | **Promoted** (AS-07) | |
 | 14 | 024 | bust_fanatic (run 1) | a cult fanatic: shaved head, grey ash on face and scalp, fierce stare, torn white tunic, black cloak, a short curved bronze knife raised; expression: intense, mouth closed (the bible's one grimace exception); EXCLUDE adds blood | Not saved | Chrome blocked the download |
-| 15 | 024 | bust_fanatic | a cult fanatic: shaved head, grey ash on face and scalp, fierce stare, torn white tunic, black cloak, a short curved bronze knife raised | Kept, staged | |
-| 16 | 025 | bust_companion | a Macedonian Companion cavalryman: bronze Boeotian helmet (an open face, a wide flaring brim all round like a hat, no crest, no plume), short dark beard, a deep purple cloak with a broad ochre-gold border pinned at the shoulder over a bronze muscled cuirass, the long wooden shaft and iron head of a cavalry lance (xyston) held upright beside his shoulder; no shield | Kept, staged | |
-| 17 | 026 | bust_thessalian | a Thessalian light horseman: a pale cream FELT petasos sun hat with a very FLAT, very WIDE round brim and a LOW shallow crown, tied with a cord under the chin (cloth, not metal), young clean-shaven face, a short Egyptian-blue chlamys cloak pinned at the shoulder over a white tunic, exactly two light javelins held upright beside his shoulder | Kept, staged | Distinct from the companion at 21 px |
-| 18 | 027 | bust_chariot | a Persian-style scythed-chariot driver: a soft cream-and-ochre felt Persian tiara cap, LOW and ROUNDED, its top bending forward, with a cloth band round the brow and long side flaps hanging loose at the cheeks (NOT tall, NOT pointed, NOT tied under the chin), black curled beard, red tunic under a shirt of overlapping bronze SCALE armour, one raised fist gripping the leather reins, the reins running out of the frame | Kept, staged | Cap taller than asked, still distinct |
-| 19 | 028 | bust_royal_guard | a Macedonian royal guardsman (a silver-shield man): a GILDED Attic helmet with the face open, a short brow peak, hinged cheek pieces, a low red horsehair crest running front to back and two upright white feather plumes, one at each side of the helmet; short grey-flecked beard; bronze muscled cuirass, a purple cloak; the polished SILVER rim and face of a round shield at his shoulder, the brightest cool shape in the image | Kept, staged | |
-| 20 | 029 | bust_sacred_band | a Theban Sacred Band hoplite: the same kind of bronze Corinthian helmet as the reference but with a tall DARK charcoal-black horsehair crest; a dark Egyptian-blue cloak, white linen corselet; at his shoulder the round bronze-rimmed shield, its face painted dark blue with one large golden Herakles CLUB emblem (a single knobbly wooden club, drawn as a picture, not a letter), the club clearly visible. NO red anywhere | Kept, staged | Told apart from the hoplite (V5-050) |
-| 21 | 030 | bust_wolf | a grey wolf: grey and tawny fur with a pale muzzle and throat, ears pricked up, amber eyes, mouth closed | Kept, staged | |
-| 22 | 031 | bust_boar | a wild boar: dark brown-grey coarse coat, a bristling dark mane standing up along the neck and back, small dark eye, long snout, two curved pale ivory tusks curling up from the lower jaw, clearly visible | Kept, staged | |
-| 23 | 032 | bust_bear | a huge brown bear: thick reddish-brown fur, a heavy brow ridge, small round ears, mouth open in a low roar showing teeth and fangs, a massive hump of shoulder | Kept, staged | |
+| 15 | 024 | bust_fanatic | a cult fanatic: shaved head, grey ash on face and scalp, fierce stare, torn white tunic, black cloak, a short curved bronze knife raised | **Promoted** (AS-07) | |
+| 16 | 025 | bust_companion | a Macedonian Companion cavalryman: bronze Boeotian helmet (an open face, a wide flaring brim all round like a hat, no crest, no plume), short dark beard, a deep purple cloak with a broad ochre-gold border pinned at the shoulder over a bronze muscled cuirass, the long wooden shaft and iron head of a cavalry lance (xyston) held upright beside his shoulder; no shield | **Promoted** (AS-07) | |
+| 17 | 026 | bust_thessalian | a Thessalian light horseman: a pale cream FELT petasos sun hat with a very FLAT, very WIDE round brim and a LOW shallow crown, tied with a cord under the chin (cloth, not metal), young clean-shaven face, a short Egyptian-blue chlamys cloak pinned at the shoulder over a white tunic, exactly two light javelins held upright beside his shoulder | **Promoted** (AS-07) | Distinct from the companion at 21 px |
+| 18 | 027 | bust_chariot | a Persian-style scythed-chariot driver: a soft cream-and-ochre felt Persian tiara cap, LOW and ROUNDED, its top bending forward, with a cloth band round the brow and long side flaps hanging loose at the cheeks (NOT tall, NOT pointed, NOT tied under the chin), black curled beard, red tunic under a shirt of overlapping bronze SCALE armour, one raised fist gripping the leather reins, the reins running out of the frame | **Promoted** (AS-07) | Cap taller than asked, still distinct |
+| 19 | 028 | bust_royal_guard | a Macedonian royal guardsman (a silver-shield man): a GILDED Attic helmet with the face open, a short brow peak, hinged cheek pieces, a low red horsehair crest running front to back and two upright white feather plumes, one at each side of the helmet; short grey-flecked beard; bronze muscled cuirass, a purple cloak; the polished SILVER rim and face of a round shield at his shoulder, the brightest cool shape in the image | **Promoted** (AS-07) | |
+| 20 | 029 | bust_sacred_band | a Theban Sacred Band hoplite: the same kind of bronze Corinthian helmet as the reference but with a tall DARK charcoal-black horsehair crest; a dark Egyptian-blue cloak, white linen corselet; at his shoulder the round bronze-rimmed shield, its face painted dark blue with one large golden Herakles CLUB emblem (a single knobbly wooden club, drawn as a picture, not a letter), the club clearly visible. NO red anywhere | **Promoted** (AS-07) | Told apart from the hoplite (V5-050) |
+| 21 | 030 | bust_wolf | a grey wolf: grey and tawny fur with a pale muzzle and throat, ears pricked up, amber eyes, mouth closed | **Promoted** (AS-07) | |
+| 22 | 031 | bust_boar | a wild boar: dark brown-grey coarse coat, a bristling dark mane standing up along the neck and back, small dark eye, long snout, two curved pale ivory tusks curling up from the lower jaw, clearly visible | **Promoted** (AS-07) | |
+| 23 | 032 | bust_bear | a huge brown bear: thick reddish-brown fur, a heavy brow ridge, small round ears, mouth open in a low roar showing teeth and fangs, a massive hump of shoulder | **Promoted** (AS-07) | |
 
 **Lessons:** spell out the silhouette in capitals when two classes could look alike ("LOW, ROUNDED … NO tall
 crown"); name a colour rule to separate look-alikes ("NO red anywhere"); follow the game kit over the bible.
@@ -316,28 +316,28 @@ soldiers)"; grid 6 "(ancient Mediterranean, 4th century BC)".
 | 1 | TR | 050 | `ui:chest` | a closed wooden chest with bronze bands | Promoted (in `ui.png`) |
 | 1 | BL | 051 | `ui:tent` | a canvas army tent with a small pennant on its pole | Promoted (in `ui.png`) |
 | 1 | BR | 048 | `ui:arena` | a round stone arena seen from outside, tiers of arches, two small pennants on top | Promoted (in `ui.png`) |
-| 2 | TL | 044 | `ui:book` | a closed thick leather-bound book (a codex), dark red-brown leather cover, bronze corner caps and a bronze clasp | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 2 | TR | 045 | `ui:banner` | a red cloth war banner hanging from a short crossbar on a wooden pole, a round bronze disc on top of the pole | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 2 | BL | 046 | `ui:war` | two crossed spears behind a crested Corinthian helmet, all in one engraved bronze relief, monochrome bronze, no red | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 2 | BR | 047 | `ui:season` | an hourglass with a bronze frame and golden sand, wreathed by a green laurel wreath | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
+| 2 | TL | 044 | `ui:book` | a closed thick leather-bound book (a codex), dark red-brown leather cover, bronze corner caps and a bronze clasp | **Promoted** (AS-07) |
+| 2 | TR | 045 | `ui:banner` | a red cloth war banner hanging from a short crossbar on a wooden pole, a round bronze disc on top of the pole | **Promoted** (AS-07) |
+| 2 | BL | 046 | `ui:war` | two crossed spears behind a crested Corinthian helmet, all in one engraved bronze relief, monochrome bronze, no red | **Promoted** (AS-07) |
+| 2 | BR | 047 | `ui:season` | an hourglass with a bronze frame and golden sand, wreathed by a green laurel wreath | **Promoted** (AS-07) |
 | 3 | TL | 057 | `ui:doctrine_steady` | a tortoise with a high domed shell plated like bronze scales, walking steadily, head forward | Promoted (CDX-01) |
 | 3 | TR | 058 | `ui:doctrine_rush` | a ram's head with heavy curled horns, lowered as if to butt | Promoted (CDX-01) |
 | 3 | BL | 059 | `ui:doctrine_hammer` | a heavy war hammer with a long wooden haft, a leather-wrapped grip and a blunt bronze head with a spike on the back, shown diagonally | Promoted (CDX-01) |
 | 3 | BR | 060 | `ui:doctrine_swarm` | a single large striped hornet in amber and dark brown with spread translucent wings and a visible sting | Promoted (CDX-01) |
 | 4 | TL | 061 | `ui:doctrine_fury` | a roaring lion's head, mouth wide open with fangs, a wild mane of flame-like red and gold locks | Promoted (CDX-01) |
-| 4 | TR | 069 | `ui:standard` | an ancient army standard: a vertical wooden pole with a short bronze crossbar near the top, topped by a large bronze sixteen-ray sunburst disc, two short purple ribbons, NO cloth flag | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
+| 4 | TR | 069 | `ui:standard` | an ancient army standard: a vertical wooden pole with a short bronze crossbar near the top, topped by a large bronze sixteen-ray sunburst disc, two short purple ribbons, NO cloth flag | **Promoted** (AS-07) |
 | 4 | BL | 070 | `ui:works` | an iron-shod wooden digging spade crossed in an X with a sharpened wooden stake | **Rejected**: modern D-grip and steel shaft |
-| 4 | BR | 071 | `ui:captain` | a tall curved transverse horsehair helmet crest, bright red, on its curved bronze crest holder, the crest alone with NO helmet | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 5 | TL | 062 | `ui:push` | the iron heads of two long pikes held level side by side, driving into the bronze rim of a round enemy shield that tilts backwards | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 5 | TR | 063 | `ui:bond` | two muscular forearms in bronze bracers, hands firmly clasped at the wrist | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 5 | BL | 064 | `ui:warcry` | the head of a bearded Celtic warrior in side profile with pale limed spiky hair, mouth wide open shouting, three curved bronze sound strokes | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 5 | BR | 065 | `ui:sunder` | a long inward-curved iron falx blade with a wooden grip, splitting a round wooden shield that cracks in two | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 6 | TL | 066 | `ui:aimed` | a short recurved composite bow drawn taut, with three arrows nocked together on the string, pointing to the upper right | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 6 | TR | 067 | `ui:recharge` | the head and neck of a brown war horse with a bronze forehead plate, turning sharply, encircled by a thick curved bronze U-turn arrow | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 6 | BL | 068 | `ui:scythe` | a spoked wooden chariot wheel with a bronze rim and a long curved iron scythe blade sticking out from its hub | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
-| 6 | BR | 070 | `ui:works` | a simple ancient wooden spade with a plain straight wooden handle (no D-grip, no metal handle) and a flat iron-edged blade, crossed in an X with a sharpened wooden stake | Kept, staged (`STAGED_ICONS`; the slot draws a stand-in) |
+| 4 | BR | 071 | `ui:captain` | a tall curved transverse horsehair helmet crest, bright red, on its curved bronze crest holder, the crest alone with NO helmet | **Promoted** (AS-07) |
+| 5 | TL | 062 | `ui:push` | the iron heads of two long pikes held level side by side, driving into the bronze rim of a round enemy shield that tilts backwards | **Promoted** (AS-07) |
+| 5 | TR | 063 | `ui:bond` | two muscular forearms in bronze bracers, hands firmly clasped at the wrist | **Promoted** (AS-07) |
+| 5 | BL | 064 | `ui:warcry` | the head of a bearded Celtic warrior in side profile with pale limed spiky hair, mouth wide open shouting, three curved bronze sound strokes | **Promoted** (AS-07) |
+| 5 | BR | 065 | `ui:sunder` | a long inward-curved iron falx blade with a wooden grip, splitting a round wooden shield that cracks in two | **Promoted** (AS-07) |
+| 6 | TL | 066 | `ui:aimed` | a short recurved composite bow drawn taut, with three arrows nocked together on the string, pointing to the upper right | **Promoted** (AS-07) |
+| 6 | TR | 067 | `ui:recharge` | the head and neck of a brown war horse with a bronze forehead plate, turning sharply, encircled by a thick curved bronze U-turn arrow | **Promoted** (AS-07) |
+| 6 | BL | 068 | `ui:scythe` | a spoked wooden chariot wheel with a bronze rim and a long curved iron scythe blade sticking out from its hub | **Promoted** (AS-07) |
+| 6 | BR | 070 | `ui:works` | a simple ancient wooden spade with a plain straight wooden handle (no D-grip, no metal handle) and a flat iron-edged blade, crossed in an X with a sharpened wooden stake | **Promoted** (AS-07) |
 
-Staged icons are drawn with a stand-in frame until a story ships them (`src/art/iconBitmaps.ts` `STAGED_ICONS`).
+All 14 staged icons shipped in AS-07 (reused, not regenerated; `STAGED_ICONS` is empty).
 **Lessons:** check every new subject against the existing atlas so no glyph repeats a reserved meaning (the bull
 head, Gorgon, red roaring face, horn, stake fence and sun disc were avoided). Dark-outlined icons vanish on
 dark stone (2–53% of pixels at 3:1 on `stone2`): the chrome must give them a light ground.
@@ -504,7 +504,7 @@ under ~16 art px is faster to draw in code.
 No raster frame was generated in v5: the chrome stayed procedural (art bible §7.1). The T-FRAME template above
 and `nineslice.mjs` are ready if a later story needs one. The v4 brief's frame and button specs are in §11.
 
-## 10. Planned, never generated: Nikias (ART-033..035)
+## 10. Planned, not generated yet: Nikias (ART-033..035)
 
 Subjects from the manifest (T-BUST; frames 2 and 3 are edits of frame 1, only the mouth or eyes change):
 
@@ -515,6 +515,22 @@ Subjects from the manifest (T-BUST; frames 2 and 3 are edits of frame 1, only th
 | 035 | portrait_nikias_blink.jpg | … eyes closed |
 
 Open issue OI-7: painted edits may drift; the fallback is one bust plus a code-driven blink.
+
+**AS-07 (2026-10-13): prompts written, not sent.** Chrome was not connected, so these three are queued in
+[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › Queue, word for word. Frame 1 = the family opening line + T-STYLE
++ T-BUST with the manifest SUBJECT and `bust_hoplite` attached; frames 2 and 3 are edits of the approved frame 1:
+
+```
+Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white. Light from the upper left, shadows to the lower right. Clear value contrast on the subject so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render, not glossy digital art, not anime, not comic ink. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads. ROLE: a character portrait for a small round or square portrait frame in a mobile strategy game; it must be recognisable at 40 pixels. SUBJECT: Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; mouth closed, eyes open. FRAMING: head and shoulders, front three-quarter view, the figure turned slightly to the viewer's left, eyes on the upper third of the image, the top of the head or crest 6 to 10 percent below the top edge, chin at about 60 percent of the height, shoulders cut by the bottom edge; the whole face and headgear inside the central circle of the image. The headgear silhouette and the one listed prop are the clearest, most contrasting shapes. BACKGROUND: plain dark warm umber (#26211b to #342d25), a soft lighter glow behind the head, no scenery. EXPRESSION: composed, alert, mouth closed. ASPECT: square 1:1, highest resolution available.
+```
+
+```
+Edit the attached Nikias portrait. Change only: his mouth, now open mid-word as if speaking, the lower teeth just hidden by the beard. Keep everything else identical: the same face, white beard, bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
+```
+
+```
+Edit the attached Nikias portrait. Change only: his eyes, now closed in a blink, the eyelids relaxed. Keep everything else identical: the same face, white beard, closed mouth, bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
+```
 
 ## 11. Before v5: the v4 brief
 

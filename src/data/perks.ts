@@ -99,31 +99,31 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
   },
   // signature actives (abilities.md R3): every cooldown is at least 12 s (anti-pillar)
   push: {
-    id: 'push', name: 'Push of Pike', short: 'Push', icon: 'shield', cooldown: 16, color: 0xc8b48a, groupMode: 'all',
+    id: 'push', name: 'Push of Pike', short: 'Push', icon: 'push', cooldown: 16, color: 0xc8b48a, groupMode: 'all',
     desc: 'Shove the foe in front back half a pace: staggered 1 s (no blow, half block), and shaken. No effect on a braced shield wall or a horse.',
   },
   bond: {
-    id: 'bond', name: 'Sacred Bond', short: 'Bond', icon: 'people', cooldown: 40, color: 0xd8a0e0, groupMode: 'one',
+    id: 'bond', name: 'Sacred Bond', short: 'Bond', icon: 'bond', cooldown: 40, color: 0xd8a0e0, groupMode: 'one',
     desc: 'For 10 s bonded men within 4 paces share every blow to their nerve, and none breaks while the bond holds.',
   },
   warcry: {
-    id: 'warcry', name: 'War-cry', short: 'Cry', icon: 'horn', cooldown: 40, color: 0xe07040, groupMode: 'one',
+    id: 'warcry', name: 'War-cry', short: 'Cry', icon: 'warcry', cooldown: 40, color: 0xe07040, groupMode: 'one',
     desc: 'Enemies within 5 paces in front lose heart (more if not in a shield wall); allies within 4 hit with more shock for 6 s.',
   },
   sunder: {
-    id: 'sunder', name: 'Sunder', short: 'Sunder', icon: 'bolt', cooldown: 30, color: 0xb0b8c0, groupMode: 'all',
+    id: 'sunder', name: 'Sunder', short: 'Sunder', icon: 'sunder', cooldown: 30, color: 0xb0b8c0, groupMode: 'all',
     desc: 'Hew through the guard of the man in front: for 3.6 s he cannot block and his armour is 2 lighter.',
   },
   aimed: {
-    id: 'aimed', name: 'Aimed Volley', short: 'Aimed', icon: 'eye', cooldown: 20, color: 0x80c8a0, groupMode: 'one',
+    id: 'aimed', name: 'Aimed Volley', short: 'Aimed', icon: 'aimed', cooldown: 20, color: 0x80c8a0, groupMode: 'one',
     desc: 'Every shooter of the group in range of the focused group looses one careful shot at it: +25% accuracy, +20% damage.',
   },
   recharge: {
-    id: 'recharge', name: 'Wheel and Re-charge', short: 'Wheel', icon: 'charge', cooldown: 25, color: 0xe8d090, groupMode: 'one',
+    id: 'recharge', name: 'Wheel and Re-charge', short: 'Wheel', icon: 'recharge', cooldown: 25, color: 0xe8d090, groupMode: 'one',
     desc: 'The riders break off at once, with no free blows at them, and regroup for 2 s; their next charge has +0.4 charge impact.',
   },
   scythe: {
-    id: 'scythe', name: 'Scythe Run', short: 'Scythe', icon: 'swords', cooldown: 30, color: 0xd05050, groupMode: 'all',
+    id: 'scythe', name: 'Scythe Run', short: 'Scythe', icon: 'scythe', cooldown: 30, color: 0xd05050, groupMode: 'all',
     desc: 'Drive 6 paces straight on: every enemy beside the path is cut and shaken. Braced spears stop the run.',
   },
 };

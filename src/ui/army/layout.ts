@@ -53,7 +53,10 @@ export function groupNameBeside(room: number, nameW: number): boolean {
 }
 
 /** Class ids whose painted bust is shipped under public/ui/busts/ (tests/armyTemplate.test.ts checks the files). */
-export const SHIPPED_BUSTS: ReadonlySet<string> = new Set(['hoplite', 'militia', 'peltast', 'slinger']);
+export const SHIPPED_BUSTS: ReadonlySet<string> = new Set([
+  'militia', 'hoplite', 'thureophoros', 'celt_sword', 'rhomphaia', 'archer', 'slinger', 'javelineer', 'horse_archer', 'peltast', 'falx',
+  'gallic', 'fanatic', 'companion', 'thessalian', 'chariot', 'royal_guard', 'sacred_band', 'wolf', 'boar', 'bear',
+]);
 
 export const bustKey = (cls: string): string => `bust_${cls}`;
 export const bustUrl = (cls: string): string => `ui/busts/bust_${cls}.jpg`;

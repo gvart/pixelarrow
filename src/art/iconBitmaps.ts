@@ -42,17 +42,11 @@ export function registerIconFrames(src: CanvasImageSource, frames: Record<string
  * slot shows them yet: each slot's story wires its key, previews the staged atlas in the
  * real game (scripts/art/preview.mjs) and ships it, then removes the key here. Meanwhile a
  * staged key draws its stand-in (V5_ICON_FALLBACK), the icon the slot shows today.
- *  - book: Codex tab (MENU-3); banner: Campaign tab (MENU-3); war: War medallion (MENU-2);
- *    season: Duels Arena season line (DUE-7);
- *  (doctrine_*: shipped by CDX-01, seen in the Codex doctrine rows and sheet)
- *  - push .. scythe: ability medallion and Perks card (AB-02); standard (AB-03); works (FW-03);
- *    captain: encounter captain row and band plate (AI-02, WLD-01).
+ * Empty since AS-07: doctrine_* shipped by CDX-01; book (Codex tab), banner (Campaign tab),
+ * war (War medallion), season (Arena season line), push .. scythe (ability icons), standard,
+ * works and captain (encounter captain row) shipped by AS-07.
  */
-export const STAGED_ICONS: readonly string[] = [
-  'book', 'banner', 'war', 'season',
-  'push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe',
-  'standard', 'works', 'captain',
-];
+export const STAGED_ICONS: readonly string[] = [];
 
 /**
  * The v5 icon keys (art bible 7.4, AS-03) and their stand-in: the icon the slot showed before
