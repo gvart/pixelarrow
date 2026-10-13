@@ -9,27 +9,27 @@
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
-| audit-ui | A1-UI: screenshots across the screen matrix, written to docs/v6/audit/UI.md | 1 | game-ui-ux, ux-review |
-| ux-input | P2-UX-INPUT: design/ux/input-v6.md, ADR-0012 (input) | none | input-systems, ux-design, game-ui-ux, camera-systems |
-| ux-accounts | P2-UX-ACCT: design/ux/accounts-v6.md | none | ux-design, game-ui-ux, ux-review |
 | assets | P5-LAND-ART: hero parallax layers, OG image, favicon, ASSET_SPEC, into landing/assets-staging. Owns Chrome. | none | create-game-assets, asset-spec, asset-audit, chrome-browser |
+| video | P5-VIDEO: 11 landing clips, landing/assets-staging/video | 2 (6120–6129) | create-game-assets, performance-optimization |
+| planner | P3-PLAN: epics, stories, ARCH_REVIEW, SPRINTS (told to fill the responsive epics after A1-UI) | none | create-epics, create-stories, sprint-plan, architecture-review, estimate |
+| ux-landscape | P2-UX-LAND: design/ux/landscape-v6.md | none | game-ui-ux, ux-design, camera-systems, ux-review, design-principles |
 
 ## Merged
 
-- S0-ADOPT (81bc945)
-- A1-PLAT (e6725f3)
-- P2-ARCH-PLAT (ac39d51): ADR-0006 and ADR-0007, accepted (V6-012)
-- P2-DOCS: systems index and ROADMAP (V6-013)
-- P2-ARCH-ACCT: ADR-0008, 0009 and 0010, accepted with the PBKDF2 spike condition (V6-014)
-- P2-LAND: direction B and ADR-0011, accepted with the wow amendments (V6-015)
+- S0-ADOPT, A1-PLAT, A1-UI (V6-018)
+- P2-ARCH-PLAT (V6-012), P2-DOCS (V6-013), P2-ARCH-ACCT (V6-014), P2-LAND (V6-015), P2-UX-INPUT (V6-016), P2-UX-ACCT (V6-017)
+
+## Housekeeping
+
+- The worktree agent-a37963953686eb60b was locked by the harness at merge time; remove it and its branch later.
+- `.claude/worktrees/v6-shots/` holds 850 MB of audit screenshots. Keep them until ux-landscape is merged, then prune.
 
 ## Queue
 
-1. Merge A1-UI, then write the landscape layout-rules UX spec per screen family (`/ux-design`, needs UI.md), and combine docs/v6/audit/* into AUDIT.md.
-2. `video` agent: the 11 clips from docs/v6/landing/STRUCTURE.md (port slot 2). It can start once a slot is free.
-3. Phase 3: /create-epics, /create-stories, /sprint-plan once the UX specs are in, then /architecture-review across ADR-0006..0012.
-4. Phase 4 foundation: the platform layer migration (ADR-0006), the layout primitives and Kit, the input layer, the layout-check matrix, the hosting split and the landing package scaffold.
+1. Merge ux-landscape and planner. Make sure the sprint plan's sprint 1 is file-disjoint.
+2. Sprint 1 (code begins; every code merge goes through an integrator with all the gates): platform core, layout-check matrix and responsive foundation, the landing scaffold (moving assets-staging in), the PBKDF2 spike.
+3. Combine docs/v6/audit/* into AUDIT.md (small docs task; can ride along with the integrator).
 
 ## Next tick
 
-Collect the reports. Docs-only merges are done by the Director (V6-010). After A1-UI lands, start the UX specs agent. When all of Phase 2 is merged, start Phase 3 planning.
+Collect the reports from planner, ux-landscape, assets and video. Merge the docs. Then dispatch sprint 1 from docs/v6/plan/SPRINTS.md (at most 4 agents, each with its port slot and skill paths, asking for concrete "Skills applied" guidance).
