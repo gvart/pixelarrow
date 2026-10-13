@@ -7,7 +7,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p worker",
+    "typecheck": "tsc --noEmit -p tsconfig.worker.json",
     "dry-run": "../server/node_modules/.bin/wrangler deploy --dry-run --config wrangler.jsonc --outdir .wrangler/dry-run"
   },
   "dependencies": {
