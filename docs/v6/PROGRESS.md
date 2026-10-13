@@ -10,24 +10,25 @@
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
 | audit-ui | A1-UI: screenshots across the screen matrix, written to docs/v6/audit/UI.md | 1 | game-ui-ux, ux-review |
-| arch-platform | P2-ARCH-PLAT: ADR-0006 (platform layer), ADR-0007 (hosting), CONTROL_MANIFEST_PLATFORM | none | architecture-decision, create-control-manifest, improve-codebase-architecture |
-| arch-accounts | P2-ARCH-ACCT: ADR-0008 (accounts and sessions), ADR-0009 (linking, nicknames, deletion), ADR-0010 (public stats API), CONTROL_MANIFEST_ACCOUNTS | none | architecture-decision, security-audit, save-systems |
-| landing-direction | P2-LAND: ADR-0011 (landing stack and budget), landing ART_DIRECTION and STRUCTURE, 2–3 Gemini mockups and a pick. Owns Chrome. | none | art-bible, create-game-assets, ux-review, design-principles, frontend-design |
-| docs-refresh | P2-DOCS: systems index and GDD statuses, v6 systems, ROADMAP v6 section | none | map-systems, reverse-document, consistency-check |
-
-Five agents are running, one more than the cap, because audit-ui is close to finishing.
+| ux-input | P2-UX-INPUT: design/ux/input-v6.md, ADR-0012 (input) | none | input-systems, ux-design, game-ui-ux, camera-systems |
+| ux-accounts | P2-UX-ACCT: design/ux/accounts-v6.md | none | ux-design, game-ui-ux, ux-review |
+| assets | P5-LAND-ART: hero parallax layers, OG image, favicon, ASSET_SPEC, into landing/assets-staging. Owns Chrome. | none | create-game-assets, asset-spec, asset-audit, chrome-browser |
 
 ## Merged
 
 - S0-ADOPT (81bc945)
 - A1-PLAT (e6725f3)
+- P2-ARCH-PLAT (ac39d51): ADR-0006 and ADR-0007, accepted (V6-012)
+- P2-DOCS: systems index and ROADMAP (V6-013)
+- P2-ARCH-ACCT: ADR-0008, 0009 and 0010, accepted with the PBKDF2 spike condition (V6-014)
+- P2-LAND: direction B and ADR-0011, accepted with the wow amendments (V6-015)
 
 ## Queue
 
-1. Merge A1-UI, then write UX specs: landscape layout rules per screen family, the input scheme and default hotkeys, the account and linking flows (`/ux-design`).
-2. Combine docs/v6/audit/* into AUDIT.md.
-3. Phase 3: /create-epics, /create-stories, /sprint-plan after the ADRs and UX specs, then /architecture-review.
-4. Phase 4 foundation, once the plan exists.
+1. Merge A1-UI, then write the landscape layout-rules UX spec per screen family (`/ux-design`, needs UI.md), and combine docs/v6/audit/* into AUDIT.md.
+2. `video` agent: the 11 clips from docs/v6/landing/STRUCTURE.md (port slot 2). It can start once a slot is free.
+3. Phase 3: /create-epics, /create-stories, /sprint-plan once the UX specs are in, then /architecture-review across ADR-0006..0012.
+4. Phase 4 foundation: the platform layer migration (ADR-0006), the layout primitives and Kit, the input layer, the layout-check matrix, the hosting split and the landing package scaffold.
 
 ## Next tick
 
