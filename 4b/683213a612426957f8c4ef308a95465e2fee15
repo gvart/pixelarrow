@@ -1,0 +1,46 @@
+server/src/online/clans.ts
+  s_0d98fe904b2e82::t_a49fa93f2572be 19,97,105-108,114
+server/test/public-names.test.ts
+  s_0d98fe904b2e82::t_4ec4a0a0ed8642 83-95
+  s_0d98fe904b2e82::t_22ad3070c06530 1-82,96
+server/test/async.test.ts
+  s_0d98fe904b2e82::t_44e6d35606cab0 229,236,362-364,366,369,373,377
+server/test/public-snapshot.test.ts
+  s_0d98fe904b2e82::t_d12f5bc9e74335 200,214,220-221,230
+  s_0d98fe904b2e82::t_f184ec6640c861 5,17-21,32
+src/scenes/online/ClanScene.ts
+  s_0d98fe904b2e82::t_4b73312f87e818 29,36,56-57,59,314
+server/test/online-live.test.ts
+  s_0d98fe904b2e82::t_44e6d35606cab0 128
+server/src/online/store.ts
+  s_0d98fe904b2e82::t_4b56c623202cb5 573,580,582-583
+src/i18n/clan.ru.ts
+  s_0d98fe904b2e82::t_4b73312f87e818 55,60-61,74-75
+server/src/public/snapshot.ts
+  s_0d98fe904b2e82::t_6d50c2cf3f5eb7 11-12,21-23,32,38,41-42,46,48-49,65,69
+server/src/names/validate.ts
+  s_0d98fe904b2e82::t_a49fa93f2572be 52,65-69
+  s_0d98fe904b2e82::t_dfe74d60801d82 70
+tests/clan.test.ts
+  s_0d98fe904b2e82::t_1b48ae7aefd0d0 68,70,76,78-80,84
+src/i18n/clan.en.ts
+  s_0d98fe904b2e82::t_4b73312f87e818 63,68-69,83-84
+server/src/public/duelTop.ts
+  s_0d98fe904b2e82::t_6d50c2cf3f5eb7 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4b683213a612426957f8c4ef308a95465e2fee15",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
