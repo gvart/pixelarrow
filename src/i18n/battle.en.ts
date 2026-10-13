@@ -5,10 +5,28 @@
  * shared tables stay small.
  */
 export const BATTLE_EN = {
+  // ---- the battle menu (BTL-01; hud.md §D): the ⋯ key in the top bar
+  'battle.menu.key': 'Menu',
+  'battle.menu.tip': 'Battle menu: retreat, sound, settings',
+  'battle.menu.title': 'Battle',
+  'battle.menu.retreat': 'Retreat',
+  'battle.menu.leave': 'Leave the field',
+  'battle.menu.resetAll': 'Reset all',
+  'battle.menu.skip': 'Skip tutorial',
+  'battle.menu.settings': 'Settings',
+  'battle.menu.soundOn': 'Sound: on',
+  'battle.menu.soundOff': 'Sound: off',
+  'battle.menu.continues': 'The battle continues while this is open.',
+  'battle.more.key': 'More',
+  'battle.more.tip': 'The other abilities of this group',
+  'battle.more.title': 'Abilities',
+  'battle.paused.pill': 'Paused',
   // ---- deployment and the top bar
+  'battle.deploy.noRoom': 'No room there: another group stands in the way.',
   'battle.deploy.title': 'Deployment',
   'battle.deploy.titleOnline': 'Deploy now',
   'battle.vs': 'vs {name}',
+  'battle.vsShort': 'vs',
   'battle.opponent': 'your opponent',
   'battle.live': 'Live',
   'battle.clock': 'Time',
@@ -27,16 +45,6 @@ export const BATTLE_EN = {
   'battle.groupShort.1': 'Skirm.',
   'battle.groupShort.2': 'Res.',
   'battle.groupShort.3': 'Flank',
-  'battle.orderShort.routed': 'run',
-  'battle.orderShort.hold': 'hold',
-  'battle.orderShort.advance': 'adv.',
-  'battle.orderShort.charge': 'chrg',
-  'battle.orderShort.fallback': 'back',
-  'battle.formationShort.line': 'line',
-  'battle.formationShort.column': 'col.',
-  'battle.formationShort.wedge': 'wedge',
-  'battle.formationShort.skirmish': 'loose',
-  'battle.formationShort.shieldwall': 'wall',
   'battle.men': { one: '{n} man', other: '{n} men' },
   'battle.lv': 'Lv{n}',
   'battle.unarmed': 'Unarmed',
@@ -72,8 +80,8 @@ export const BATTLE_EN = {
   'battle.formation.line': 'line',
   'battle.formation.column': 'column',
   'battle.formation.wedge': 'wedge',
-  'battle.formation.skirmish': 'loose order',
-  'battle.formation.shieldwall': 'shield wall',
+  'battle.formation.skirmish': 'loose',
+  'battle.formation.shieldwall': 'wall',
   'battle.card.tip': '{numeral} {name}: {men}\n{order}, {formation}',
 
   // ---- long-press explanations
@@ -95,7 +103,6 @@ export const BATTLE_EN = {
   'battle.tip.loose': 'Loose order: fewer losses to missiles, weak in melee.',
   'battle.tip.wall': 'Lock shields: hard to break, slow to move.',
   'battle.tip.pause': 'Pause: give orders while time stands still',
-  'battle.tip.speed': 'Battle speed: 1x, 2x or 3x',
   'battle.tip.retreat': 'Sound the retreat: lose the battle, save the army',
   'battle.tip.follow': 'Camera follows the fighting',
   'battle.tip.strength': 'Strength of both armies: yours (blue) and the enemy\'s (red)',
@@ -237,7 +244,7 @@ export const BATTLE_EN = {
   'results.siege': 'Siege {wins}/{needed}: they send another wave',
   'results.tip.time': 'How long the battle lasted',
   'results.tip.kills': 'Enemies your army slew',
-  'results.tip.losses': 'Heroes who died for good',
+  'results.tip.losses': 'Your men struck down in the battle (the list shows who died for good)',
   'results.tip.gold': 'Gold earned',
   'results.tip.glory': 'Glory earned: the duel currency',
   'results.tip.xp': 'Experience shared by the survivors',
@@ -278,4 +285,10 @@ export const BATTLE_EN = {
   'battle.orders.none': 'Tap a group to give it orders',
   'battle.ready.short': 'Ready',
   'battle.left.short': '{n} left',
+  // replaces battle.sit.quiet (strat.en.ts), which still named the removed radial ring (BTL-10, IN-01)
+  'battle.sit.idle': 'Tap a group, then an order below.',
+  // battle.sit.marching without "Contact soon": that part shows only with an enemy near, for 6 s (PLAY B5, LF-01)
+  'battle.sit.moving': '{group} {order}.',
+  // a group card with Shoot on and no enemy in reach (PLAY B6, controls.md R3.4)
+  'battle.state.outOfRange': 'Out of range',
 } as const;

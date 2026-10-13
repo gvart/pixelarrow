@@ -14,15 +14,19 @@ import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
 import { renderIcon } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { renderMosaic, type MosaicStyle } from '../art/mosaicUi';
-import { haptic, hapticNotify } from '../platform/telegram';
-import { uiButton, uiError } from '../audio/hooks';
+import { haptic } from '../platform/telegram';
+import { uiButton, uiDisabled } from '../audio/hooks';
 import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
 import { ellipsize, fitCinzelLabel, measureText, LINE_H } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
 import { RS } from '../platform/renderScale';
-import { ACCENT, MOSAIC, RESOURCES, TEXT } from './tokens';
+import { ACCENT, MOSAIC, RESOURCES, TEXT, TEXT_MIN } from './tokens';
+import { scrollCue } from './mosaic/policy';
 import { motion } from './motion';
+import { hoverTip } from './hover';
+
+export { scrollCue };
 
 export type FontKey =
   | 'ink' | 'light' | 'red' | 'gold' | 'dim' | 'title' | 'good' | 'head'
@@ -30,7 +34,7 @@ export type FontKey =
   | 'sec' | 'muted' | 'onAccent' | 'reward' | 'glory' | 'premium' | 'bad' | 'xp' | 'power' | 'stars' | 'headL' | 'wargold'
   // v4 Mosaic (MOSAIC in tokens.ts): Inter ink on parchment (p*) and Cinzel caps (r*): ink on parchment, cream on terracotta / bronze / teal / stone, gold on dark stone
   | 'pInk' | 'pSec' | 'pMuted' | 'pOff' | 'pGood' | 'pBad' | 'rInk' | 'rCream' | 'rGold' | 'rOff'
-  // ink forms of the v3 colours, for text on parchment (src/ui/inkSkin.ts maps the light-on-dark keys to these): headings in the head face, reward gold, xp, Drachmae
+  // ink forms of the v3 colours, for text on parchment: headings in the head face, reward gold, xp, Drachmae
   | 'hInk' | 'pGold' | 'pXp' | 'pPremium';
 
 export interface UIMetrics {
@@ -263,6 +267,13 @@ export function fitCinzel(label: string, font: FontKey, room: number, sizes: rea
   return { text: r.text, font: r.inter ? inter : font, size: r.size, truncated: r.truncated };
 }
 
+/** `fitCinzel`'s fallback on its own: the label in the Inter twin of `font` at `size`, cut only when it must. */
+export function fitBody(label: string, font: FontKey, room: number, size: number): FittedLabel {
+  const inter = INTER_OF[font] ?? font;
+  const text = ellipsize(label, room, SHADOW_FONTS.has(inter), size);
+  return { text, font: inter, size, truncated: text !== label };
+}
+
 /**
  * Shortens a one-line text until it fits the width, ending it with "…". The
  * full text stays in the object's data (`fullText`) for a tooltip.
@@ -332,7 +343,8 @@ export interface ButtonOpts {
 /** Long-press and feedback hooks; widgets.ts installs the tooltip and toast. */
 export const longPress = {
   ms: 450,
-  show: null as null | ((scene: Phaser.Scene, text: string, anchor: Phaser.GameObjects.GameObject) => void),
+  /** Shows a tip; may return the tooltip object (hover closes it when the mouse leaves). */
+  show: null as null | ((scene: Phaser.Scene, text: string, anchor: Phaser.GameObjects.GameObject) => unknown),
   toast: null as null | ((scene: Phaser.Scene, text: string) => void),
 };
 
@@ -443,18 +455,19 @@ export class Button extends Phaser.GameObjects.Container {
       if (!d || long) return;
       if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
       if (!this.enabled) {
-        uiError();
-        hapticNotify('warning');
+        uiDisabled();
         longPress.toast?.(scene, this.opts.disabledReason ?? t('kit.disabled'));
         return;
       }
       haptic('light');
-      uiButton(this.opts.icon);
+      uiButton(this.opts.icon, this.opts.id);
       // Crash-report breadcrumb: the button's id or icon only (labels may hold player names).
       breadcrumb('ui', `tap ${this.opts.id ?? this.opts.icon ?? '?'}`);
       this.opts.onClick?.();
     });
     this.once('destroy', () => this.pressTimer?.remove());
+    // a mouse resting on the button shows the long-press tip (A11Y-15)
+    hoverTip(this, () => this.tipText(), (text) => longPress.show?.(scene, text, this));
     scene.add.existing(this);
   }
 
@@ -476,7 +489,7 @@ export class Button extends Phaser.GameObjects.Container {
     return undefined;
   }
 
-  /** v4 looks: primary = terracotta, selected = lit bronze, destructive = dark wine, ghost = grey stone, else bronze; disabled = flat grey stone. */
+  /** v4 looks: primary = terracotta, selected = lit bronze, destructive = dark wine, ghost = dark bronze (never grey: grey means disabled), else bronze; disabled = flat grey stone with a lock. */
   private baseStyle(): MosaicStyle {
     if (!this.enabled) return 'btnStone';
     if (this.opts.variant === 'purchase') return 'btnBuy';
@@ -507,11 +520,14 @@ export class Button extends Phaser.GameObjects.Container {
     // the Telegram star keeps its own colours on the purchase blue; the lit bronze keeps the bronze icons
     const variant = !this.enabled ? 'D' : b === 'btnBuy' || b === 'btnBronzeOn' ? '' : 'L';
     const font = this.labelFont();
-    const hasIcon = !!this.opts.icon;
     const hasLabel = !!this.opts.label;
+    const hasIcon = !!this.opts.icon;
+    // a disabled button with words draws a lock in its icon's place: its state is not grey alone (art bible 7.3, G13)
+    const iconName = !this.enabled && hasLabel && !this.opts.iconOnly ? 'lock' : this.opts.icon;
     const stacked = hasIcon && hasLabel && this.h >= 26 && !this.opts.inline && !this.opts.iconOnly;
-    // words under an icon, and small buttons, use the smaller text size; Cinzel caps are wide, so a label steps down to 5.5 before it is cut
-    const size0 = stacked || this.opts.small ? 6 : 7;
+    // words under an icon, and small buttons, use the smaller text size (never under TEXT_MIN, A11Y-09); Cinzel caps are wide, so a
+    // label steps down to TEXT_MIN, then is written in Inter, before it is cut
+    const size0 = stacked || this.opts.small ? TEXT_MIN : 7;
     let size = size0;
     const caps = hasLabel ? this.opts.label!.toUpperCase() : '';
     // the font the label is drawn in: Cinzel, or its Inter twin once the capitals do not fit at the smallest size
@@ -519,7 +535,7 @@ export class Button extends Phaser.GameObjects.Container {
     const wide = (str: string, sz: number) => measureText(str, SHADOW_FONTS.has(df), sz, df === font ? 'roman' : 'body');
     this.truncated = false;
     const fit = (maxW: number) => {
-      const sizes = [size0, size0 - 0.5, size0 - 1, 5.5].filter((s, i, a) => s >= 5.5 && a.indexOf(s) === i);
+      const sizes = [size0, size0 - 0.5, TEXT_MIN].filter((s, i, a) => s >= TEXT_MIN && a.indexOf(s) === i);
       const fl = fitCinzel(this.opts.label!, font, maxW, sizes);
       size = fl.size;
       df = fl.font;
@@ -529,7 +545,7 @@ export class Button extends Phaser.GameObjects.Container {
     const lineH = () => (LINE_H * size) / 7;
     const ty = () => Math.round((this.h - 1 - lineH()) / 2);
     const iconCentered = () => {
-      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
+      this.iconImg = addIcon(scene, (this.w - 12) / 2, (this.h - 12) / 2 - 1, iconName!, variant);
       this.content.add(this.iconImg);
     };
     if (hasIcon && (!hasLabel || this.opts.iconOnly)) {
@@ -539,7 +555,7 @@ export class Button extends Phaser.GameObjects.Container {
       const x0 = 5;
       const tx = x0 + 15;
       const room = this.w - tx - 4;
-      this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
+      this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, iconName!, variant);
       const label = fit(room);
       this.labelText = addText(scene, tx, Math.round((this.h - 16) / 2) - 1, label, df, 0).setFontSize(size);
       const subFont: FontKey = !this.enabled ? 'rOff' : font === 'rInk' ? 'pSec' : 'rCream';
@@ -548,7 +564,7 @@ export class Button extends Phaser.GameObjects.Container {
       this.content.add([this.iconImg, this.labelText, sub]);
     } else if (hasIcon && hasLabel && this.h >= 26 && !this.opts.inline) {
       // icon above label
-      this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, this.opts.icon!, variant);
+      this.iconImg = addIcon(scene, (this.w - 12) / 2, 3, iconName!, variant);
       const label = fit(this.w - 4);
       this.labelText = addText(scene, this.w / 2, this.h - 11, label, df, 0.5).setFontSize(size);
       this.content.add([this.iconImg, this.labelText]);
@@ -565,7 +581,7 @@ export class Button extends Phaser.GameObjects.Container {
         this.labelText = addText(scene, 0, 0, label, df, 0).setFontSize(size);
         const total = 12 + 3 + wide(label, size);
         const x0 = Math.round((this.w - total) / 2);
-        this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, this.opts.icon!, variant);
+        this.iconImg = addIcon(scene, x0, (this.h - 12) / 2 - 1, iconName!, variant);
         this.labelText.setPosition(x0 + 15, ty());
         this.content.add([this.iconImg, this.labelText]);
       }
@@ -681,9 +697,53 @@ export function scrollAllAreas(v: number): number {
   return n;
 }
 
+/** Height of the scroll cue's shade, UI px. */
+export const SCROLL_CUE_H = 10;
+
+/** Screen-space viewport of a scroll area's content, kept on the content container. */
+type ClipRect = { x: number; y: number; w: number; h: number; at?: () => { x: number; y: number } };
+type Clipped = { __scrollClip?: ClipRect; parentContainer?: Clipped | null };
+
+/** Whether a hit at screen (px, py) falls outside the viewport of any scroll area that holds `obj`. */
+export function clippedOut(obj: unknown, px: number, py: number): boolean {
+  for (let o = obj as Clipped | null | undefined; o; o = o.parentContainer) {
+    const r = o.__scrollClip;
+    if (!r) continue;
+    const d = r.at?.() ?? { x: 0, y: 0 };
+    const x = r.x + d.x;
+    const y = r.y + d.y;
+    if (px < x || px >= x + r.w || py < y || py >= y + r.h) return true;
+  }
+  return false;
+}
+
+/**
+ * The geometry mask only hides a scroll area's rows; Phaser still hit-tests
+ * them. Drop hits on rows outside their viewport, once for every scene, so a
+ * row scrolled under a tab bar or a button never wins the tap (S1-1).
+ */
+// (a unit test's Phaser stub has no input manager: nothing to patch there)
+const inputProto = Phaser.Input?.InputManager?.prototype as unknown as
+  | {
+      hitTest: (p: Phaser.Input.Pointer, list: Phaser.GameObjects.GameObject[], cam: Phaser.Cameras.Scene2D.Camera, out?: Phaser.GameObjects.GameObject[]) => Phaser.GameObjects.GameObject[];
+      __clipPatched?: boolean;
+    }
+  | undefined;
+if (inputProto && !inputProto.__clipPatched) {
+  const hitTest = inputProto.hitTest;
+  inputProto.hitTest = function (p, list, cam, out) {
+    const hits = hitTest.call(this, p, list, cam, out);
+    for (let i = hits.length - 1; i >= 0; i--) if (clippedOut(hits[i], p.x, p.y)) hits.splice(i, 1);
+    return hits;
+  };
+  inputProto.__clipPatched = true;
+}
+
 export class ScrollArea {
   readonly content: Phaser.GameObjects.Container;
   private maskG: Phaser.GameObjects.Graphics;
+  /** The scroll cue: a shade at a clipped edge and a chevron (drawn over the content, never taking taps). */
+  private cue: Phaser.GameObjects.Graphics | null = null;
   private scroll = 0;
   private maxScroll = 0;
   private vel = 0;
@@ -701,13 +761,32 @@ export class ScrollArea {
     private w: number,
     private h: number,
     S: number,
+    opts: { cue?: boolean } = {},
   ) {
     this.content = scene.add.container(x, y);
     parent.add(this.content);
+    if (opts.cue !== false) {
+      this.cue = scene.add.graphics();
+      parent.add(this.cue);
+    }
     this.maskG = scene.make.graphics({}, false);
     this.maskG.fillStyle(0xffffff);
     this.maskG.fillRect(x * S, y * S, w * S, h * S);
     this.content.setMask(this.maskG.createGeometryMask());
+    // the window moves with its parent (a list inside a scrolled page or a sliding sheet): the mask and the
+    // tap filter follow the parent's screen origin
+    const tm = new Phaser.GameObjects.Components.TransformMatrix();
+    const pm = new Phaser.GameObjects.Components.TransformMatrix();
+    const origin = () => {
+      const m = parent.getWorldTransformMatrix(tm, pm);
+      return { x: m.tx, y: m.ty };
+    };
+    (this.content as unknown as Clipped).__scrollClip = { x: x * S, y: y * S, w: w * S, h: h * S, at: origin };
+    const follow = () => {
+      if (!parent.scene) return;
+      const o = origin();
+      if (o.x !== this.maskG.x || o.y !== this.maskG.y) this.maskG.setPosition(o.x, o.y);
+    };
     this.zone = scene.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
     parent.addAt(this.zone, 0);
     // The layout check clips rows to the viewport and ignores the drag zone itself.
@@ -732,6 +811,7 @@ export class ScrollArea {
     };
     const onWheel = (_p: unknown, _o: unknown, _dx: number, dy: number) => this.setScroll(this.scroll + dy * 0.3);
     const onUpdate = () => {
+      follow();
       if (!this.dragging && Math.abs(this.vel) > 0.1) {
         this.setScroll(this.scroll - this.vel);
         this.vel *= 0.9;
@@ -817,7 +897,37 @@ export class ScrollArea {
     if (next === this.scroll && !force) return;
     this.scroll = next;
     this.content.y = Math.round(this.y - this.scroll);
+    this.drawCue();
     for (const cb of this.listeners) cb(this.scroll, this.maxScroll);
+  }
+
+  /** Shade the edge that hides content, with a chevron at the bottom one (G9: a clipped list says there is more). */
+  private drawCue(): void {
+    const g = this.cue;
+    if (!g || !g.scene) return;
+    g.clear();
+    const { above, below } = scrollCue(this.scroll, this.maxScroll);
+    const bands = 5;
+    const step = SCROLL_CUE_H / bands;
+    for (let i = 0; i < bands; i++) {
+      const a = 0.035 * (bands - i);
+      g.fillStyle(0x1a0d06, a);
+      if (above) g.fillRect(this.x, this.y + i * step, this.w, step);
+      if (below) g.fillRect(this.x, this.y + this.h - (i + 1) * step, this.w, step);
+    }
+    if (below) {
+      // a chevron in a dark disc at the bottom right (where the eye looks for a scroll bar; clear of centred text)
+      const cx = this.x + this.w - 6;
+      const cy = this.y + this.h - 6;
+      g.fillStyle(0x1a0d06, 0.75);
+      g.fillCircle(cx, cy, 4.5);
+      g.lineStyle(1.1, MOSAIC.cream, 1);
+      g.beginPath();
+      g.moveTo(cx - 2.3, cy - 1);
+      g.lineTo(cx, cy + 1.3);
+      g.lineTo(cx + 2.3, cy - 1);
+      g.strokePath();
+    }
   }
 
   get scrollY(): number {
@@ -832,6 +942,10 @@ export class ScrollArea {
     liveAreas.delete(this);
     this.cleanup();
     this.maskG.destroy();
+    this.cue?.destroy();
+    // the drag zone and the content live in the parent: a rebuilt area must not leave them behind (QA-04)
+    this.zone.destroy();
+    this.content.destroy();
   }
 }
 
@@ -839,7 +953,8 @@ export class ScrollArea {
  * A list row that only fires on taps (not drags) inside a ScrollArea, with
  * the click sound and a haptic. `tip`: long-press text (tooltip).
  */
-export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | null, onTap: () => void, tip?: string | (() => string | undefined)): void {
+/** `blocked`: when it says why, the tap is a disabled tap (the soft "no") instead of a click. */
+export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | null, onTap: () => void, tip?: string | (() => string | undefined), blocked?: () => string | undefined): void {
   let down: { x: number; y: number } | null = null;
   let timer: HoldTimer | null = null;
   let long = false;
@@ -872,9 +987,14 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
     const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
     down = null;
     if (d > 14 * RS || (area && area.moved)) return;
-    haptic('light');
-    uiButton();
+    if (blocked?.()) uiDisabled();
+    else {
+      haptic('light');
+      uiButton(undefined, (obj as { __uiId?: string }).__uiId);
+    }
     onTap();
   });
   obj.once('destroy', stop);
+  // a mouse resting on it shows the same tip (A11Y-15)
+  if (tip) hoverTip(obj, tip, (text) => longPress.show?.(scene, text, obj));
 }

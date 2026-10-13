@@ -7,6 +7,7 @@ import Phaser from 'phaser';
 import { uiId } from '../layout';
 import { wrapText, LINE_H } from '../textfit';
 import { ICON_PX } from '../kit';
+import { TEXT_MIN } from '../tokens';
 import { mosaicImage, mtext, mw } from './base';
 import { MChip, type MChipOpts } from './controls';
 
@@ -30,17 +31,22 @@ export class ChipRow extends Phaser.GameObjects.Container {
     const font = surface === 'stone' ? 'ink' : 'pInk';
     const room = this.w - GAP * (chips.length - 1);
     let pad = 6;
-    const nat = (cs: SituationChip[]) => cs.map((c) => (c.icon ? ICON_PX + 1 : 0) + mw(String(c.value), font) + pad);
+    let size = 7;
+    // the same measure as MChip (icon + 3, the side padding), so a chip given its natural width never cuts its number (G14)
+    const nat = (cs: SituationChip[]) => cs.map((c) => (c.icon ? ICON_PX + 3 : 0) + mw(String(c.value), font, size) + pad);
     const total = (cs: SituationChip[]) => nat(cs).reduce((a, n) => a + n, 0);
-    // too wide: the short values, then tighter padding
+    // too wide: the short values, then tighter padding, then the smallest meaningful size
     if (total(chips) > room) chips = chips.map((c) => (c.short !== undefined ? { ...c, value: c.short } : c));
     if (total(chips) > room) pad = 2;
-    const ns = nat(chips);
+    if (total(chips) > room) size = TEXT_MIN;
+    // still too wide (a very narrow window): every chip gives up the same share of its width
+    const squeeze = Math.min(1, room / total(chips));
+    const ns = nat(chips).map((n) => Math.floor(n * squeeze));
     const share = Math.max(0, Math.floor((room - ns.reduce((a, n) => a + n, 0)) / Math.max(1, chips.length)));
     let cx = 0;
     for (let i = 0; i < chips.length; i++) {
       const cw = ns[i] + share;
-      this.add(new MChip(scene, cx, 0, { ...chips[i], surface, w: cw, pad: 4 }));
+      this.add(new MChip(scene, cx, 0, { ...chips[i], surface, w: cw, pad }));
       cx += cw + GAP;
     }
     scene.add.existing(this);

@@ -104,7 +104,7 @@ the static game and the API: Hono, zod, D1, hibernating Durable Objects (a
   the army.
 - Battle report Summary tab: fill the space under the MVP card.
 - Hero stash: one rarity filter plus a labelled Sort control (`StashGrid`).
-- Ability cooldown numbers can overlap their icon (`PanelButton` badge).
+- Ability cooldown numbers can overlap their icon (the ability card badge).
 - `scripts/smoke.mjs` has been flaky in the "shield basher in contact" and
   "ability used from the battle bar" checks; wait on state rather than a
   fast-forward loop if it recurs.
@@ -126,3 +126,17 @@ the static game and the API: Hono, zod, D1, hibernating Durable Objects (a
 - Assault time or post-battle rest if attacks feel too cheap (DESIGN_V2.md
   "Online battle rules").
 - Friends lists (and friends leaderboards for duels).
+
+## Next: v6, web and desktop (decided 2026-10-12)
+
+The Telegram Mini App audience may be too small, so after v5 is merged and released, v6 takes the game to the open web on tablets and laptops as well. v6 starts fresh from the released v5; nothing of it is built inside v5 (V5-075).
+
+- **True landscape layouts.** Every screen gets a landscape layout for tablets and laptops, not a letterboxed portrait column. The layout-check matrix grows to cover landscape sizes such as 1024x768, 1280x800, 1440x900 and 1920x1080, plus tablet portrait, alongside the existing phone sizes.
+- **Mouse and keyboard.** Hover states, right-click and wheel zoom on the field. Keyboard focus navigation through menus and sheets. Battle hotkeys (orders, groups, pause, speed, Undo, Then). Rebindable keys with conflict detection, saved per device. Bindings are offered only where a keyboard is present; touch devices keep the touch UI.
+- **Accounts.** Email and password sign-up and log-in, with email verification and password reset sent through Cloudflare's email service. Passwords are hashed on the server (a slow hash suited to Workers), with sessions as secure cookies on the same origin and rate limits on log-in and reset.
+- **Linked accounts.** A Telegram player can add an email and password and then play the same account on the web. A web player can later link Telegram. One player id, several log-in methods.
+- **Platform layer, the rule for all of v6 and later.** The game is built so that more platforms can be added (Steam, native mobile) without spreading `if (telegram)` checks through the code. Shared logic lives in one platform-neutral core, and each platform gets its own adapter folder (e.g. `src/platform/core/` for interfaces, `src/platform/telegram/`, `src/platform/web/`, and later `src/platform/steam/` and `src/platform/mobile/`). The platform is detected once at startup and the matching adapter is chosen; game code only talks to the interfaces. Each feature that behaves differently per platform gets its own interface: auth, payments, storage, haptics, back button, share and invite, the safe area, input hints and notifications. Each adapter is tested on its own.
+- **Payments.** Kept. A `Payments` interface with a Telegram Stars adapter (today's behaviour) and a web adapter that is a placeholder: the shop shows purchases as 'coming soon' on the web, with a reason. When the legal side is settled, a real provider plugs into the web adapter without touching the shop or the server's grant logic.
+- **Hosting.** The same Worker and domain (pixelarrow.app) serves Telegram and the web; the client detects the platform at runtime (Telegram `initData` present or not). A separate domain only if that turns out to be impossible.
+- **Bot protection on sign-up and log-in.** Cloudflare Turnstile (a free, usually invisible check that the visitor is a person), plus per-IP and per-account rate limits and email verification before an account can play online.
+- **Privacy.** A privacy notice and in-app account deletion (deletes the email login and personal data; linked Telegram progress handled as the notice says). Linked from sign-up and Settings.

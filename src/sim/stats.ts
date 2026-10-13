@@ -76,7 +76,36 @@ export interface CombatStats {
   missileWard?: number;
   /** Accuracy enemy missiles lose against the wearer (the Helm of Hades). */
   shroud?: number;
+  /**
+   * May carry the army's standard (abilities.md R5): the `standard_bearer`
+   * perk, or a band captain (ai-doctrines.md R6). The battle picks one bearer
+   * per side. Missing = no.
+   */
+  standard?: boolean;
 }
+
+/**
+ * A band captain (design/gdd/ai-doctrines.md R6). The band builder marks the
+ * enemy hero (src/world/world.ts bandCaptain); the mark travels with the hero
+ * into the battle marker, so the derived stats below are the same on every
+ * replay of the battle.
+ */
+export type CaptainMark = { captain?: boolean };
+
+/** Whether a hero is a band captain. */
+export function isCaptain(hero: object): boolean {
+  return (hero as CaptainMark).captain === true;
+}
+
+/**
+ * What a captain gets on top of his level and gear (world.ts bandCaptain):
+ * the nerve of the man who holds the band together. He also carries the
+ * band's standard (`CombatStats.standard`; the aura, Raise and banner loss of
+ * abilities.md R5 are sim rules in src/sim/battle.ts). Steady Presence as a stand-in was tried and
+ * made a captain worth +23 points against the +5..+10 target
+ * (docs/v5/balance/AI-02.md).
+ */
+export const CAPTAIN_STATS = { morale: 10 };
 
 /** Radius bonus from Will for auras and shouts. */
 export function willRadius(s: { will: number }): number {
@@ -257,11 +286,14 @@ export function computeStats(hero: Hero): CombatStats {
   let scythe = 0;
   // Perks: stat mods like traits, plus abilities, auras and hooks.
   let ammoMult = 1;
+  // A perk's extra range needs a missile weapon: path B can put Longshot on a
+  // peltast with a spear, who must stay a melee man (abilities.md R1).
+  const missile = s.range > 0;
   for (const id of hero.perks ?? []) {
     const p = PERKS[id];
     if (!p) continue;
     if (p.mods) {
-      addCommon(s, p.mods);
+      addCommon(s, missile || !p.mods.range ? p.mods : { ...p.mods, range: 0 });
       s.dmg += p.mods.dmg ?? 0;
       s.reach += p.mods.reach ?? 0;
       speedMod += p.mods.speed ?? 0;
@@ -274,9 +306,14 @@ export function computeStats(hero: Hero): CombatStats {
     if (p.bloodlust) s.bloodlust = true;
     if (p.pursuit) pursuit += p.pursuit;
     if (p.scythe) scythe += p.scythe;
+    if (p.standard || id === 'standard_bearer') s.standard = true;
   }
   if (pursuit) s.pursuit = pursuit;
   if (scythe) s.scythe = scythe;
+  if (isCaptain(hero)) {
+    s.morale += CAPTAIN_STATS.morale;
+    s.standard = true;
+  }
   // Attributes: each point away from ATTR_BASE shifts the derived stats.
   const a = hero.attrs ?? defaultAttrs();
   const E = ATTR_EFFECT;

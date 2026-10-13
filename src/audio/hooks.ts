@@ -4,10 +4,13 @@
  */
 import type Phaser from 'phaser';
 import type { Battle } from '../sim/battle';
-import type { SimEvent } from '../sim/types';
+import type { SimEvent, WorkType } from '../sim/types';
 import type { AbilityId } from '../data/perks';
 import { isoToScreen } from '../art/iso';
-import { music, sfx } from './index';
+import type { JuiceKind } from '../ui/battleFx';
+import { haptic, hapticNotify } from '../platform/telegram';
+import { audio, music, sfx } from './index';
+import { HAPTIC_GAP_MS, hapticCue, type Cue } from './haptics';
 import type { TrackId } from './music';
 import type { PlayOpts } from './engine';
 import type { SfxId } from './sfx';
@@ -21,13 +24,27 @@ export function sceneTrack(key: string): TrackId | null | undefined {
 
 // ------------------------------------------------------------------ UI
 
-/** Buttons in src/ui/kit: back arrows get the back sound, everything else a click. */
-export function uiButton(icon?: string): void {
-  sfx.play(icon === 'back' ? 'back' : 'click');
+/**
+ * Buttons in src/ui/kit: an Undo (layout id `*.undo`: the battle and deployment chip, the hire toast,
+ * the hero's points) gets the reverse swish, back arrows the back sound, everything else a click.
+ */
+export function uiButton(icon?: string, id?: string): void {
+  sfx.play(id?.endsWith('.undo') ? 'undo' : icon === 'back' ? 'back' : 'click');
 }
 
 export function uiError(): void {
   sfx.play('error');
+}
+
+/** A disabled control tapped (it shows its reason): a soft "no" and a light buzz. */
+export function uiDisabled(): void {
+  sfx.play('nope');
+  haptic('light');
+}
+
+/** A destructive action confirmed (scrap, dismiss, retreat, delete): the low drum. */
+export function uiDestroy(): void {
+  sfx.play('destroy');
 }
 
 export function uiCoin(): void {
@@ -61,10 +78,49 @@ interface BattleState {
   heat: number;
   last: number;
   ended: boolean;
+  /** When each juice tier last sounded (real ms). */
+  tierAt: Map<JuiceKind, number>;
 }
 const battles = new WeakMap<Battle, BattleState>();
 
-const ABILITY_SFX: Record<AbilityId, SfxId> = { bash: 'bash', volley: 'volley', berserk: 'berserk', rally: 'rallyCry' };
+export const ABILITY_SFX: Record<AbilityId, SfxId> = {
+  bash: 'bash', volley: 'volley', berserk: 'berserk', rally: 'rallyCry',
+  // the signature actives (AB-02); a war cry is the battle cry, a re-charge the hooves
+  push: 'shove', bond: 'bond', warcry: 'battlecry', sunder: 'sunder', aimed: 'aimed', recharge: 'hooves', scythe: 'scythe',
+};
+
+/**
+ * The juice tiers (FL-01 JUICE_TIERS) -> the one tier sound each lands with,
+ * on top of the per-man sounds (a kill is its death cry, an ability its own
+ * sound). Played at most once per HAPTIC_GAP_MS of real time, like the shake.
+ */
+export const JUICE_SFX: Record<JuiceKind, SfxId | null> = {
+  kill: null,
+  ability: null,
+  impact: 'thud',
+  stakes: 'splinter',
+  standard: 'standardFall',
+  rout: 'groan',
+  armyBreak: 'hornChord',
+};
+
+/** Field works laid in deployment (BattleScene.placeWork) -> their sound. */
+export const WORKS_SFX: Record<WorkType, SfxId> = { stakes: 'worksStakes', ditch: 'worksDig', laager: 'worksLaager' };
+
+/** A work segment laid in deployment. */
+export function worksPlaced(type: WorkType): void {
+  sfx.play(WORKS_SFX[type] ?? 'worksStakes');
+}
+
+/** A work segment taken up. */
+export function worksRemoved(): void {
+  sfx.play('worksLift');
+}
+
+/** The battle paused (true) or runs again: music and field sounds go quiet, UI sounds stay (FL-03). */
+export function battlePaused(p: boolean): void {
+  audio.setPaused(p);
+}
 const MISSILE_SFX: Record<string, SfxId> = { arrow: 'arrow', javelin: 'javelin', stone: 'sling' };
 
 /**
@@ -105,11 +161,23 @@ function groupCenter(sim: Battle, gid: number): { x: number; y: number } | null 
 /** Battle events -> sounds and music intensity. Called with every drained batch (also empty ones). */
 export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly SimEvent[], me: number): void {
   let st = battles.get(sim);
-  if (!st) battles.set(sim, (st = { phase: 'deploy', orders: new Map(), contact: new Set(), heat: 0, last: scene.time?.now ?? 0, ended: false }));
+  const now = scene.time?.now ?? 0;
+  if (!st) battles.set(sim, (st = { phase: 'deploy', orders: new Map(), contact: new Set(), heat: 0, last: now, ended: false, tierAt: new Map() }));
+  const state = st;
   const at = (x: number, y: number, extra?: PlayOpts): PlayOpts => ({ ...spot(scene, x, y), ...extra });
   const unitAt = (id: number, extra?: PlayOpts): PlayOpts => {
     const u = sim.units[id];
     return u ? at(u.x, u.y, extra) : (extra ?? {});
+  };
+  const mineUnit = (id: number): boolean => sim.units[id]?.side === me;
+  // a juice tier lands (FL-01 R4): its one tier sound and its haptic, at most once per gap
+  const tier = (kind: JuiceKind, o: PlayOpts, mine: boolean): void => {
+    const last = state.tierAt.get(kind);
+    if (last !== undefined && now - last < HAPTIC_GAP_MS) return;
+    state.tierAt.set(kind, now);
+    const id = JUICE_SFX[kind];
+    if (id) sfx.play(id, o);
+    buzz(hapticCue(kind, mine));
   };
 
   if (st.phase === 'deploy' && sim.phase === 'battle') {
@@ -154,6 +222,19 @@ export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly S
       case 'impact':
         heat += 0.1;
         sfx.play('impact', unitAt(e.unit));
+        tier('impact', unitAt(e.unit, { pri: 1 }), mineUnit(e.unit) || mineUnit(e.by));
+        break;
+      case 'stakesBreak':
+        heat += 0.1;
+        tier('stakes', at(e.x, e.y, { pri: 1 }), mineUnit(e.unit));
+        break;
+      case 'standardLost':
+        heat += 0.1;
+        tier('standard', unitAt(e.unit, { pri: 2 }), e.side === me);
+        break;
+      case 'armyBreak':
+        heat += 0.3;
+        tier('armyBreak', { pri: 3 }, e.side === me);
         break;
       case 'death':
         heat += 0.08;
@@ -182,6 +263,7 @@ export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly S
         heat += 0.15;
         const c = groupCenter(sim, e.group);
         sfx.play('rout', c ? at(c.x, c.y, { pri: 2 }) : {});
+        tier('rout', c ? at(c.x, c.y, { pri: 1 }) : {}, e.side === me);
         if (e.side === me) sfx.play('hornLow', { vol: 0.6 });
         break;
       }
@@ -211,11 +293,16 @@ export function battleAudio(scene: Phaser.Scene, sim: Battle, events: readonly S
   }
 
   // Music intensity: recent fighting, decaying over a few seconds.
-  const now = scene.time?.now ?? 0;
   const dt = Math.max(0, now - st.last) / 1000;
   st.last = now;
   st.heat = Math.min(1.2, st.heat * Math.exp(-dt / 5) + heat);
   if (sim.phase === 'battle') music.heat(Math.min(1, st.heat));
+}
+
+function buzz(c: Cue): void {
+  if (!c) return;
+  if (c.kind === 'impact') haptic(c.style);
+  else hapticNotify(c.style);
 }
 
 // ------------------------------------------------------------------ mythical beasts

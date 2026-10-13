@@ -426,7 +426,82 @@ export const VECTOR_ICONS: Record<string, IconPart[]> = {
     { d: 'M4.3 12A7.7 7.7 0 1 1 19.7 12A7.7 7.7 0 1 1 4.3 12Z', tone: 'silver' },
     { d: 'M12 6L17.4 16.4L6.6 16.4ZM9.4 14.4L14.6 14.4L12 9.9Z', tone: 'ink', detail: true, fill: true },
   ],
+  // morale state glyphs (battle-readability.md R1): shapes that read without colour; drawn
+  // light so the caller's tint (ink, amber, red by state) carries the colour
+  morale_steady: [
+    { d: 'M12 2.2l8.4 3v6.4c0 5.1-3.5 8.9-8.4 10.4C7.1 20.5 3.6 16.7 3.6 11.6V5.2z', tone: 'cream' },
+    { d: 'M12 8.4A2.6 2.6 0 1 1 12 13.6A2.6 2.6 0 1 1 12 8.4Z', tone: 'stone', detail: true, fill: true },
+    { d: 'M6.2 6.6L8.4 5.8', tone: 'gleam', detail: true, w: 1 },
+  ],
+  // the same shield split by a zigzag crack (a hole through it)
+  morale_wavering: [
+    { d: 'M12 2.2l8.4 3v6.4c0 5.1-3.5 8.9-8.4 10.4C7.1 20.5 3.6 16.7 3.6 11.6V5.2zM12.9 2.7L10.7 8.2L13.7 11.2L11 15.8L12.6 21.2L10.9 21.3L9.3 15.8L11.7 11.2L8.7 8.2L11.1 2.6Z', tone: 'cream' },
+    { d: 'M6.2 6.6L8.4 5.8', tone: 'gleam', detail: true, w: 1 },
+  ],
+  // a falling standard, its torn pennant streaming back: the group is fleeing
+  morale_routing: [
+    { d: 'M4 21L5.4 21.6L16.2 3.4L14.8 2.8Z', tone: 'stone' },
+    { d: 'M15.5 3.1L3 4.2L6.4 6.8L2.6 9.6L11.4 10Z', tone: 'cream' },
+    { d: 'M13.4 4.6L6.2 5.2', tone: 'ink', detail: true, w: 0.8 },
+  ],
+  // badge markers (battle-readability.md R2), code-drawn per V5-066: the captain's crest, a
+  // Corinthian helmet under a red horsehair plume
+  marker_crest: [
+    { d: 'M5 21.6V13.4C5 8.9 8.1 6.4 12 6.4C15.9 6.4 19 8.9 19 13.4V21.6H15.4V16.4H8.6V21.6Z', tone: 'bronze' },
+    { d: 'M2.6 9.6C3.6 4 7.6 1.8 12 1.8C16.4 1.8 20.4 4 21.4 9.6C19 7.2 15.8 5.8 12 5.8C8.2 5.8 5 7.2 2.6 9.6Z', tone: 'red' },
+    { d: 'M8.6 13.4H15.4', tone: 'ink', detail: true, w: 1.4 },
+    { d: 'M12 13.4V16.2', tone: 'ink', detail: true, w: 1.2 },
+    { d: 'M7 11L9 8.8', tone: 'gleam', detail: true, w: 1 },
+  ],
+  // the Standard (abilities.md R5): a square red cloth with a bronze sun disc on a pole
+  marker_standard: [
+    { d: 'M4.4 3H6.6V22.4H4.4Z', tone: 'wood' },
+    { d: 'M6.6 4H20.4V16H6.6Z', tone: 'red' },
+    { d: 'M10.5 10A3 3 0 1 1 16.5 10A3 3 0 1 1 10.5 10Z', tone: 'gold' },
+    { d: 'M3.9 2.6A1.6 1.6 0 1 1 7.1 2.6A1.6 1.6 0 1 1 3.9 2.6Z', tone: 'gold' },
+  ],
+  // disordered (formations-orders.md R3): a ragged, broken line
+  marker_disordered: [
+    { d: 'M1.8 13.6L6 7.6L10 14.6L14 6.8L18 13.6L22.2 8.6V12.8L18 18.2L14 11.4L10 19.2L6 12.2L1.8 18Z', tone: 'clay' },
+  ],
+  // feinting (formations-orders.md R3; BTL-01): a U-turn arrow, the line falls back to turn again
+  marker_feint: [
+    { d: 'M19 21.5V10.5C19 6.4 15.9 3.5 12 3.5C8.1 3.5 5 6.4 5 10.5V13H1.5L7 20L12.5 13H9V10.5C9 8.6 10.3 7.5 12 7.5C13.7 7.5 15 8.6 15 10.5V21.5Z', tone: 'cream' },
+    { d: 'M17.4 10.2C17.2 7.4 15.1 5.3 12 5.1', tone: 'ink', detail: true, w: 0.9 },
+  ],
+  // a queued step (controls.md R6, "Then..."; BTL-01): a dotted path ending in an arrowhead
+  marker_queued: [
+    { d: 'M2 10.2H5.6V13.8H2Z M8 10.2H11.6V13.8H8Z', tone: 'cream' },
+    { d: 'M13.6 4.5L22.4 12L13.6 19.5Z', tone: 'cream' },
+  ],
+  // the battle menu key (hud.md Z1): three dots on a line
+  menu: [
+    { d: 'M2.6 12A2.6 2.6 0 1 1 7.8 12A2.6 2.6 0 1 1 2.6 12Z M9.4 12A2.6 2.6 0 1 1 14.6 12A2.6 2.6 0 1 1 9.4 12Z M16.2 12A2.6 2.6 0 1 1 21.4 12A2.6 2.6 0 1 1 16.2 12Z', tone: 'cream' },
+  ],
+  // Sound on/off (the battle menu, A11Y-18): a horn mouth and two sound waves
+  sound: [
+    { d: 'M2.5 8.5H7L13 3.5V20.5L7 15.5H2.5Z', tone: 'cream' },
+    { d: 'M15.6 8.4C16.7 9.3 17.3 10.6 17.3 12C17.3 13.4 16.7 14.7 15.6 15.6L16.9 17C18.4 15.7 19.3 13.9 19.3 12C19.3 10.1 18.4 8.3 16.9 7Z', tone: 'cream' },
+    { d: 'M18.4 5.2C20.3 6.9 21.5 9.3 21.5 12C21.5 14.7 20.3 17.1 18.4 18.8L19.7 20.2C22 18.2 23.5 15.3 23.5 12C23.5 8.7 22 5.8 19.7 3.8Z', tone: 'cream' },
+  ],
+  // "more" (the medallion rail's overflow, hud.md Z5): a chevron
+  more: [
+    { d: 'M8 3.5L16.5 12L8 20.5L5.2 17.7L10.9 12L5.2 6.3Z', tone: 'cream' },
+  ],
+  // the battle's zoom key (QA-03 S4: not to be read as the speed key): a magnifier, a ring lens and its handle
+  zoom: [
+    { d: 'M10 2.5A7.5 7.5 0 1 1 10 17.5A7.5 7.5 0 1 1 10 2.5Z M10 5.2A4.8 4.8 0 1 0 10 14.8A4.8 4.8 0 1 0 10 5.2Z', tone: 'cream' },
+    { d: 'M14.6 16.5L16.5 14.6L22 20.1L20.1 22Z', tone: 'cream' },
+  ],
 };
+
+/**
+ * Simple geometric glyphs that stay vector (art bible 7.4, create-game-assets: "prefer
+ * vector for simple geometric symbols"): no atlas frame is ever made for them, and the
+ * atlas test fails if one appears. The battle HUD tints the morale glyphs by state; the
+ * markers (crest, Standard, disordered) keep their colours (RD-01).
+ */
+export const VECTOR_GLYPHS: readonly string[] = ['morale_steady', 'morale_wavering', 'morale_routing', 'marker_crest', 'marker_standard', 'marker_disordered', 'marker_feint', 'marker_queued', 'menu', 'sound', 'more', 'zoom'];
 
 /** Camp building icons, keyed like CAMP_ICONS in src/art/campArt.ts (same box and rules). */
 export const VECTOR_CAMP_ICONS: Record<string, IconPart[]> = {

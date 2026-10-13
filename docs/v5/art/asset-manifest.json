@@ -1,0 +1,1764 @@
+{
+ "$doc": "v5 menu-art manifest: one entry per asset (docs/v5/art/ASSET_LIST.md is generated from it by scripts/art/list.mjs). size = shipped px; kind picks the scripts/art/process.mjs recipe; preview = the URL the game loads today and the layout-check screens that show it (null = slot not wired yet: preview is NOT ASSESSED and promote refuses).",
+ "legacy": [
+  "public/ui/banner_campaign.jpg",
+  "public/ui/portrait_leader.jpg"
+ ],
+ "assets": [
+  {
+   "id": "ART-001",
+   "status": "needed",
+   "preview": {
+    "url": "ui/banner_campaign.jpg",
+    "screens": [
+     "menu"
+    ]
+   },
+   "file": "fresco_campaign.jpg",
+   "cat": "fresco",
+   "kind": "painted",
+   "size": [
+    1080,
+    480
+   ],
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 160,
+   "template": "T-FRESCO",
+   "subject": "hoplite column marching along a beach at dawn, ships beached behind, hills",
+   "slot": "MenuScene.ts:79 FrescoBanner: content width ~176 x (w/3.4..w/2.2) UI px, cover-cropped; keep the subject inside the central 3.4:1 band",
+   "replaces": "public/ui/banner_campaign.jpg (placeholder crop of mockup A1)"
+  },
+  {
+   "id": "ART-002",
+   "status": "needed",
+   "preview": null,
+   "file": "fresco_ladder.jpg",
+   "cat": "fresco",
+   "kind": "painted",
+   "size": [
+    1032,
+    168
+   ],
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 90,
+   "template": "T-FRESCO",
+   "subject": "a stepped stone tower of trials with torches on each terrace, warriors climbing",
+   "slot": "DuelScene.ts:726 mode banner (Ladder tab): inner (w-8) x 28 UI px, ~6:1; replaces procedural modeArt \"ladder\""
+  },
+  {
+   "id": "ART-003",
+   "status": "needed",
+   "preview": {
+    "url": "ui/fresco_arena.jpg",
+    "screens": [
+     "first-run-modes"
+    ]
+   },
+   "file": "fresco_arena.jpg",
+   "cat": "fresco",
+   "kind": "painted",
+   "size": [
+    1032,
+    168
+   ],
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 90,
+   "template": "T-FRESCO",
+   "subject": "a stone arena with pennants, two champions facing each other, crowd on the tiers",
+   "slot": "DuelScene.ts:726 mode banner (Arena tab): inner (w-8) x 28 UI px, ~6:1; replaces procedural modeArt \"arena\""
+  },
+  {
+   "id": "ART-004",
+   "status": "needed",
+   "preview": {
+    "url": "ui/fresco_shop.jpg",
+    "screens": [
+     "shop-shop",
+     "shop-pass",
+     "shop-wallet"
+    ]
+   },
+   "file": "fresco_shop.jpg",
+   "cat": "fresco",
+   "kind": "painted",
+   "size": [
+    1032,
+    132
+   ],
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 80,
+   "template": "T-FRESCO",
+   "subject": "an agora market stall under a striped awning, amphorae, bronze goods, a merchant",
+   "slot": "ShopScene.ts:161 mode banner: inner (w-8) x 22 UI px, ~7.6:1; replaces procedural modeArt \"shop\""
+  },
+  {
+   "id": "ART-005",
+   "status": "needed",
+   "preview": {
+    "url": "ui/fresco_war.jpg",
+    "screens": [
+     "first-run-modes"
+    ]
+   },
+   "file": "fresco_war.jpg",
+   "cat": "fresco",
+   "kind": "painted",
+   "size": [
+    1032,
+    432
+   ],
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 140,
+   "template": "T-FRESCO",
+   "subject": "rival armies encamped around a walled hill town, banners, smoke of camp fires",
+   "slot": "FirstRunScene.ts:73 \"Online war\" mode card (today icon only; card art to be wired, audit FR-3), 2.4:1"
+  },
+  {
+   "id": "ART-006",
+   "status": "needed",
+   "preview": {"url": "ui/vignette_town_greek.jpg", "screens": ["town-recruits", "town-rest"]},
+   "file": "vignette_town_greek.jpg",
+   "cat": "vignette",
+   "kind": "painted",
+   "size": [
+    1032,
+    420
+   ],
+   "anchor": [
+    0.5,
+    0.6
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 130,
+   "quality": 76,
+   "template": "T-VIGNETTE",
+   "subject": "a walled town, Hellenic: whitewashed walls, terracotta roofs, a small Doric temple, olive trees",
+   "slot": "SettlementScene.ts:81 FrescoBanner (kind town, culture greek): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
+  },
+  {
+   "id": "ART-007",
+   "status": "needed",
+   "preview": {"url": "ui/vignette_town_phoenician.jpg", "screens": ["town-recruits", "town-rest"]},
+   "file": "vignette_town_phoenician.jpg",
+   "cat": "vignette",
+   "kind": "painted",
+   "size": [
+    1032,
+    420
+   ],
+   "anchor": [
+    0.5,
+    0.6
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 130,
+   "quality": 76,
+   "template": "T-VIGNETTE",
+   "subject": "a walled town, Carthaginian: flat-roofed ochre mudbrick, palm trees, a harbour with purple awnings",
+   "slot": "SettlementScene.ts:81 FrescoBanner (kind town, culture phoenician): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
+  },
+  {
+   "id": "ART-008",
+   "status": "needed",
+   "preview": {"url": "ui/vignette_town_celtic.jpg", "screens": ["town-recruits", "town-rest"]},
+   "file": "vignette_town_celtic.jpg",
+   "cat": "vignette",
+   "kind": "painted",
+   "size": [
+    1032,
+    420
+   ],
+   "anchor": [
+    0.5,
+    0.6
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 130,
+   "quality": 70,
+   "template": "T-VIGNETTE",
+   "subject": "a walled town, Galatian: round thatched houses, a timber palisade, oak woods",
+   "slot": "SettlementScene.ts:81 FrescoBanner (kind town, culture celtic): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
+  },
+  {
+   "id": "ART-009",
+   "status": "needed",
+   "preview": {"url": "ui/vignette_village_greek.jpg", "screens": ["village"]},
+   "file": "vignette_village_greek.jpg",
+   "cat": "vignette",
+   "kind": "painted",
+   "size": [
+    1032,
+    420
+   ],
+   "anchor": [
+    0.5,
+    0.6
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 130,
+   "quality": 76,
+   "template": "T-VIGNETTE",
+   "subject": "a small farming village, Hellenic: whitewashed walls, terracotta roofs, a small Doric temple, olive trees",
+   "slot": "SettlementScene.ts:81 FrescoBanner (kind village, culture greek): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
+  },
+  {
+   "id": "ART-010",
+   "status": "needed",
+   "preview": {"url": "ui/vignette_village_phoenician.jpg", "screens": ["village"]},
+   "file": "vignette_village_phoenician.jpg",
+   "cat": "vignette",
+   "kind": "painted",
+   "size": [
+    1032,
+    420
+   ],
+   "anchor": [
+    0.5,
+    0.6
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 130,
+   "quality": 70,
+   "template": "T-VIGNETTE",
+   "subject": "a small farming village, Carthaginian: flat-roofed ochre mudbrick, palm trees, a harbour with purple awnings",
+   "slot": "SettlementScene.ts:81 FrescoBanner (kind village, culture phoenician): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
+  },
+  {
+   "id": "ART-011",
+   "status": "needed",
+   "preview": {"url": "ui/vignette_village_celtic.jpg", "screens": ["village"]},
+   "file": "vignette_village_celtic.jpg",
+   "cat": "vignette",
+   "kind": "painted",
+   "size": [
+    1032,
+    420
+   ],
+   "anchor": [
+    0.5,
+    0.6
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 130,
+   "quality": 70,
+   "template": "T-VIGNETTE",
+   "subject": "a small farming village, Galatian: round thatched houses, a timber palisade, oak woods",
+   "slot": "SettlementScene.ts:81 FrescoBanner (kind village, culture celtic): inner (aw-8) x 70 UI px (~2.4:1), x 30 on short screens (cover-crop keeps the central band); replaces the upscaled map tile (audit SET-1)"
+  },
+  {
+   "id": "ART-012",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_militia.jpg", "screens": ["army-wounded"]},
+   "file": "bust_militia.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a levy farmer-soldier, felt cap, plain tunic, short spear, no armour",
+   "slot": "every portrait well of a militia hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-013",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_hoplite.jpg", "screens": ["army", "army-stash"]},
+   "file": "bust_hoplite.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Spartan hoplite, bronze Corinthian helmet with a red transverse crest, red cloak, bronze aspis rim at the shoulder",
+   "slot": "every portrait well of a hoplite hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-014",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_thureophoros.jpg", "screens": ["army-bust-thureophoros"]},
+   "file": "bust_thureophoros.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a thureophoros, bronze Boeotian helmet, linen tunic, oval thureos shield edge at the shoulder",
+   "slot": "every portrait well of a thureophoros hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-015",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_celt_sword.jpg", "screens": ["army-bust-celt_sword"]},
+   "file": "bust_celt_sword.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Celtic swordsman, long moustache, bronze torc, checked cloak, iron Montefortino helmet",
+   "slot": "every portrait well of a celt_sword hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-016",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_rhomphaia.jpg", "screens": ["army-bust-rhomphaia"]},
+   "file": "bust_rhomphaia.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Thracian rhomphaia warrior, tall Phrygian helmet, fox-fur cloak, long curved blade over the shoulder",
+   "slot": "every portrait well of a rhomphaia hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-017",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_archer.jpg", "screens": ["army-bust-archer"]},
+   "file": "bust_archer.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Cretan archer, bare head with short curly hair, leather quiver strap, light tunic",
+   "slot": "every portrait well of a archer hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-018",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_slinger.jpg", "screens": ["army-full"]},
+   "file": "bust_slinger.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Rhodian slinger, bare head, sling cord wound round the wrist, pouch of stones, plain tunic",
+   "slot": "every portrait well of a slinger hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-019",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_javelineer.jpg", "screens": ["army-bust-javelineer"]},
+   "file": "bust_javelineer.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a peltast javelineer, Thracian cap, two javelins over the shoulder, crescent pelte",
+   "slot": "every portrait well of a javelineer hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-020",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_horse_archer.jpg", "screens": ["army-bust-horse_archer"]},
+   "file": "bust_horse_archer.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Scythian horse archer, pointed felt hood, patterned kaftan, gorytos bow case",
+   "slot": "every portrait well of a horse_archer hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-021",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_peltast.jpg", "screens": ["army-pick"]},
+   "file": "bust_peltast.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a peltast, Thracian helmet, crescent wicker pelte shield, light tunic",
+   "slot": "every portrait well of a peltast hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-022",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_falx.jpg", "screens": ["army-bust-falx"]},
+   "file": "bust_falx.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Dacian falx warrior, bare head, long hair, wool cloak, two-handed curved falx over the shoulder",
+   "slot": "every portrait well of a falx hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-023",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_gallic.jpg", "screens": ["army-bust-gallic"]},
+   "file": "bust_gallic.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Gallic warband warrior, limed spiky hair, bare chest, blue woad marks, long oval shield edge",
+   "slot": "every portrait well of a gallic hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-024",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_fanatic.jpg", "screens": ["army-bust-fanatic"]},
+   "file": "bust_fanatic.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a wild-eyed fanatic, shaved head, ash smeared on the face, torn tunic, raised knife",
+   "slot": "every portrait well of a fanatic hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-025",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_companion.jpg", "screens": ["army-bust-companion"]},
+   "file": "bust_companion.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Macedonian Companion cavalryman, bronze Boeotian helmet, purple-bordered cloak, muscled cuirass",
+   "slot": "every portrait well of a companion hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-026",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_thessalian.jpg", "screens": ["army-bust-thessalian"]},
+   "file": "bust_thessalian.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Thessalian horseman, wide-brimmed petasos hat over a bronze helmet, short chlamys cloak pinned at the shoulder",
+   "slot": "every portrait well of a thessalian hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-027",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_chariot.jpg", "screens": ["army-bust-chariot"]},
+   "file": "bust_chariot.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a scythed-chariot driver, Persian tiara cap, scale armour, reins in hand",
+   "slot": "every portrait well of a chariot hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-028",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_royal_guard.jpg", "screens": ["army-bust-royal_guard"]},
+   "file": "bust_royal_guard.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a royal guardsman, gilded Thracian helmet with white plumes, silver-faced aspis rim, scale cuirass",
+   "slot": "every portrait well of a royal_guard hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-029",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_sacred_band.jpg", "screens": ["army-bust-sacred_band"]},
+   "file": "bust_sacred_band.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST",
+   "subject": "a Theban Sacred Band hoplite, Boeotian helmet, club emblem on the shield rim, linothorax",
+   "slot": "every portrait well of a sacred_band hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-030",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_wolf.jpg", "screens": ["army-bust-wolf"]},
+   "file": "bust_wolf.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST-BEAST",
+   "subject": "a grey wolf, head and shoulders, ears up, amber eyes",
+   "slot": "every portrait well of a wolf hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-031",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_boar.jpg", "screens": ["army-bust-boar"]},
+   "file": "bust_boar.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST-BEAST",
+   "subject": "a wild boar, head and shoulders, bristling dark mane, curved tusks",
+   "slot": "every portrait well of a boar hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-032",
+   "status": "needed",
+   "preview": {"url": "ui/busts/bust_bear.jpg", "screens": ["army-bust-bear"]},
+   "file": "bust_bear.jpg",
+   "cat": "bust",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/busts/",
+   "budgetKB": 30,
+   "template": "T-BUST-BEAST",
+   "subject": "a brown bear, head and shoulders, heavy brow, open mouth",
+   "slot": "every portrait well of a bear hero (addPortrait callers: profile card 40, recruit 30, roster 26, MVP 46, duel rows 21-26 UI px); also replaces portrait_leader.jpg on the profile card"
+  },
+  {
+   "id": "ART-033",
+   "status": "needed",
+   "preview": {
+    "url": "ui/portrait_nikias.jpg",
+    "screens": [
+     "first-run-offer",
+     "first-run-resume",
+     "tutorial-intro"
+    ]
+   },
+   "file": "portrait_nikias.jpg",
+   "cat": "portrait",
+   "kind": "painted",
+   "size": [
+    384,
+    384
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 40,
+   "template": "T-BUST",
+   "subject": "Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; mouth closed, eyes open",
+   "slot": "FirstRunScene.ts:100 (64 UI px) and tutorial narrator (32 UI px); replaces procedural renderNarrator. Frames 2 and 3 are EDITS of frame 1 (only the mouth or eyes change)"
+  },
+  {
+   "id": "ART-034",
+   "status": "needed",
+   "preview": {
+    "url": "ui/portrait_nikias_talk.jpg",
+    "screens": [
+     "first-run-offer",
+     "first-run-resume",
+     "tutorial-intro"
+    ]
+   },
+   "file": "portrait_nikias_talk.jpg",
+   "cat": "portrait",
+   "kind": "painted",
+   "size": [
+    384,
+    384
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 40,
+   "template": "T-BUST",
+   "subject": "Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; mouth open mid-word",
+   "slot": "FirstRunScene.ts:100 (64 UI px) and tutorial narrator (32 UI px); replaces procedural renderNarrator. Frames 2 and 3 are EDITS of frame 1 (only the mouth or eyes change)"
+  },
+  {
+   "id": "ART-035",
+   "status": "needed",
+   "preview": {
+    "url": "ui/portrait_nikias_blink.jpg",
+    "screens": [
+     "first-run-offer",
+     "first-run-resume",
+     "tutorial-intro"
+    ]
+   },
+   "file": "portrait_nikias_blink.jpg",
+   "cat": "portrait",
+   "kind": "painted",
+   "size": [
+    384,
+    384
+   ],
+   "anchor": [
+    0.5,
+    0.25
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 40,
+   "template": "T-BUST",
+   "subject": "Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; eyes closed",
+   "slot": "FirstRunScene.ts:100 (64 UI px) and tutorial narrator (32 UI px); replaces procedural renderNarrator. Frames 2 and 3 are EDITS of frame 1 (only the mouth or eyes change)"
+  },
+  {
+   "id": "ART-036",
+   "status": "needed",
+   "preview": {"url": "ui/beasts/plate_hydra.jpg", "screens": ["codex", "codex-beast"]},
+   "file": "plate_hydra.jpg",
+   "cat": "plate",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.4
+   ],
+   "dest": "public/ui/beasts/",
+   "budgetKB": 35,
+   "template": "T-PLATE",
+   "subject": "the Lernaean Hydra, many serpent heads on long necks rising from a swamp",
+   "slot": "CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter hydra)"
+  },
+  {
+   "id": "ART-037",
+   "status": "needed",
+   "preview": {"url": "ui/beasts/plate_cyclops.jpg", "screens": ["codex"]},
+   "file": "plate_cyclops.jpg",
+   "cat": "plate",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.4
+   ],
+   "dest": "public/ui/beasts/",
+   "budgetKB": 35,
+   "template": "T-PLATE",
+   "subject": "a one-eyed Cyclops giant lifting a boulder",
+   "slot": "CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter cyclops)"
+  },
+  {
+   "id": "ART-038",
+   "status": "needed",
+   "preview": {"url": "ui/beasts/plate_harpies.jpg", "screens": ["codex"]},
+   "file": "plate_harpies.jpg",
+   "cat": "plate",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.4
+   ],
+   "dest": "public/ui/beasts/",
+   "budgetKB": 35,
+   "template": "T-PLATE",
+   "subject": "three harpies diving, woman-headed birds with bronze talons",
+   "slot": "CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter harpies)"
+  },
+  {
+   "id": "ART-039",
+   "status": "needed",
+   "preview": {"url": "ui/beasts/plate_nemean_lion.jpg", "screens": ["codex"]},
+   "file": "plate_nemean_lion.jpg",
+   "cat": "plate",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.4
+   ],
+   "dest": "public/ui/beasts/",
+   "budgetKB": 35,
+   "template": "T-PLATE",
+   "subject": "the Nemean Lion, golden hide, massive mane, crouched to pounce",
+   "slot": "CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter nemean_lion)"
+  },
+  {
+   "id": "ART-040",
+   "status": "needed",
+   "preview": {"url": "ui/beasts/plate_minotaur.jpg", "screens": ["codex"]},
+   "file": "plate_minotaur.jpg",
+   "cat": "plate",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.4
+   ],
+   "dest": "public/ui/beasts/",
+   "budgetKB": 35,
+   "template": "T-PLATE",
+   "subject": "the Minotaur, bull-headed giant with a double axe, charging",
+   "slot": "CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter minotaur)"
+  },
+  {
+   "id": "ART-041",
+   "status": "needed",
+   "preview": {"url": "ui/beasts/plate_chimera.jpg", "screens": ["codex"]},
+   "file": "plate_chimera.jpg",
+   "cat": "plate",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.4
+   ],
+   "dest": "public/ui/beasts/",
+   "budgetKB": 35,
+   "template": "T-PLATE",
+   "subject": "the Chimera, lion body, goat head on the back, serpent tail, breathing fire",
+   "slot": "CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter chimera)"
+  },
+  {
+   "id": "ART-042",
+   "status": "needed",
+   "preview": {"url": "ui/beasts/plate_kraken.jpg", "screens": ["codex"]},
+   "file": "plate_kraken.jpg",
+   "cat": "plate",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.4
+   ],
+   "dest": "public/ui/beasts/",
+   "budgetKB": 35,
+   "template": "T-PLATE",
+   "subject": "the Kraken, giant tentacles rising from a stormy sea around a beach",
+   "slot": "CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter kraken)"
+  },
+  {
+   "id": "ART-043",
+   "status": "needed",
+   "preview": {"url": "ui/beasts/plate_titan.jpg", "screens": ["codex"]},
+   "file": "plate_titan.jpg",
+   "cat": "plate",
+   "kind": "painted",
+   "size": [
+    288,
+    288
+   ],
+   "anchor": [
+    0.5,
+    0.4
+   ],
+   "dest": "public/ui/beasts/",
+   "budgetKB": 35,
+   "template": "T-PLATE",
+   "subject": "a Titan, a giant of the old gods made of stone and bronze, hurling two boulders",
+   "slot": "CodexScene.ts:35 / BeastTrialScene.ts:64 row thumbnail (16 UI px today, 32 after audit CDX-2) and the trial sheet header (encounter titan)"
+  },
+  {
+   "id": "ART-044",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["menu", "kit-icons"]},
+   "file": "icon_book.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:book",
+   "template": "T-ICON",
+   "subject": "a closed leather-bound codex with bronze corners and clasp",
+   "slot": "TabBar Codex tab (18 UI px); replaces the paw ui:beast on the tab (audit MENU-3)"
+  },
+  {
+   "id": "ART-045",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["menu", "kit-icons"]},
+   "file": "icon_banner.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:banner",
+   "template": "T-ICON",
+   "subject": "a red cloth war banner with a bronze disc on a pole",
+   "slot": "TabBar Campaign tab (18 UI px); replaces the signpost ui:march on the tab (audit MENU-3)"
+  },
+  {
+   "id": "ART-046",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["menu", "kit-icons"]},
+   "file": "icon_war.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:war",
+   "template": "T-ICON",
+   "subject": "two crossed spears behind a crested helmet, engraved bronze relief",
+   "slot": "War medallion glyph on the TabBar (audit MENU-2)"
+  },
+  {
+   "id": "ART-047",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["duel-ranked", "kit-icons"]},
+   "file": "icon_season.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:season",
+   "template": "T-ICON",
+   "subject": "an hourglass wreathed in laurel",
+   "slot": "Duels Arena season line (audit DUE-7: grey placeholder disc today)"
+  },
+  {
+   "id": "ART-048",
+   "status": "needed",
+   "preview": {
+    "url": "icons/ui.png",
+    "screens": [
+     "duel-ranked",
+     "duel-searching"
+    ]
+   },
+   "file": "icon_arena.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:arena",
+   "template": "T-ICON",
+   "subject": "a stone arena seen from outside, arches and pennants",
+   "slot": "Duels search and Arena tab (audit DUE-6: blurry upscale today)"
+  },
+  {
+   "id": "ART-049",
+   "status": "needed",
+   "preview": {
+    "url": "icons/ui.png",
+    "screens": [
+     "menu"
+    ]
+   },
+   "file": "icon_helmet.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:helmet",
+   "template": "T-ICON",
+   "subject": "a bronze Corinthian helmet with a red crest",
+   "slot": "Campaign hub Army tile (26.4 UI px: the 64 px cell blurs)"
+  },
+  {
+   "id": "ART-050",
+   "status": "needed",
+   "preview": {
+    "url": "icons/ui.png",
+    "screens": [
+     "menu"
+    ]
+   },
+   "file": "icon_chest.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:chest",
+   "template": "T-ICON",
+   "subject": "a wooden chest with bronze bands, closed",
+   "slot": "Campaign hub Stash tile (26.4 UI px)"
+  },
+  {
+   "id": "ART-051",
+   "status": "needed",
+   "preview": {
+    "url": "icons/ui.png",
+    "screens": [
+     "menu"
+    ]
+   },
+   "file": "icon_tent.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:tent",
+   "template": "T-ICON",
+   "subject": "a canvas army tent with a pennant",
+   "slot": "Campaign hub Camp tile (26.4 UI px)"
+  },
+  {
+   "id": "ART-052",
+   "status": "needed",
+   "preview": null,
+   "file": "chest_closed.png",
+   "cat": "chest",
+   "kind": "cutout",
+   "size": [
+    288,
+    272
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 90,
+   "template": "T-CUTOUT",
+   "subject": "a closed wooden treasure chest with bronze bands and a lion-head lock, three-quarter front view",
+   "slot": "duelParts.ts:218 ChestSlot (16x13 UI), DuelScene.ts:975 (x2), :1039 opening (x3, 48 UI px); replaces CHEST_CLOSED pixel sprite (audit DUE-11)"
+  },
+  {
+   "id": "ART-053",
+   "status": "needed",
+   "preview": {"url": "ui/chest_open_empty.png", "screens": ["results-empty"]},
+   "file": "chest_open_empty.png",
+   "cat": "chest",
+   "kind": "cutout",
+   "size": [
+    288,
+    272
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 90,
+   "template": "T-CUTOUT",
+   "subject": "the same chest, lid open, empty inside (EDIT of chest_closed)",
+   "slot": "ChestSlot claimed state; Results spoils empty state (audit RES-4)"
+  },
+  {
+   "id": "ART-054",
+   "status": "needed",
+   "preview": null,
+   "file": "chest_open_full.png",
+   "cat": "chest",
+   "kind": "cutout",
+   "size": [
+    288,
+    272
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 100,
+   "template": "T-CUTOUT",
+   "subject": "the same chest, lid open, heaped with gold coins (EDIT of chest_closed)",
+   "slot": "ChestSlot ready state; DuelScene.ts:1040 opening"
+  },
+  {
+   "id": "ART-055",
+   "status": "needed",
+   "preview": {"url": "ui/laurel_branch.png", "screens": ["results", "results-arc"]},
+   "file": "laurel_branch.png",
+   "cat": "laurel",
+   "kind": "cutout",
+   "size": [
+    160,
+    216
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 50,
+   "template": "T-CUTOUT",
+   "subject": "a single gilded laurel branch curving upward, leaves in pairs (the left branch; the right is mirrored in code)",
+   "slot": "ResultsScene.ts:201 laurels beside the banner plaque (26x36 UI px max); replaces the pixel LAUREL grid (audit RES-2)"
+  },
+  {
+   "id": "ART-056",
+   "status": "needed",
+   "preview": {
+    "url": "ui/splash_keyart.jpg",
+    "screens": [
+     "first-run-offer",
+     "first-run-resume"
+    ]
+   },
+   "file": "splash_keyart.jpg",
+   "quality": 62,
+   "cat": "splash",
+   "kind": "painted",
+   "size": [
+    780,
+    1688
+   ],
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/ui/",
+   "budgetKB": 220,
+   "template": "T-SPLASH",
+   "subject": "a hoplite phalanx with locked shields on a beach at dawn, seen from low, ships and a temple on the headland behind; empty sky in the top third for the logo",
+   "slot": "BootScene (audit BOOT-1) and FirstRun offer background (audit FR-1); full-bleed cover, 9:19.5, keep the subject in the central 320x568-CSS safe area. Exception to the x6 rule: x2 CSS (soft painting, full screen)"
+  },
+  {
+   "id": "ART-057",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
+   "file": "icon_doctrine_steady.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_steady",
+   "template": "T-ICON",
+   "subject": "a tortoise with a domed bronze-plated shell, walking steadily, head forward",
+   "slot": "Doctrine steady (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-058",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
+   "file": "icon_doctrine_rush.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_rush",
+   "template": "T-ICON",
+   "subject": "a ram's head with heavy curled horns, lowered to butt",
+   "slot": "Doctrine rush (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-059",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
+   "file": "icon_doctrine_hammer.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_hammer",
+   "template": "T-ICON",
+   "subject": "a heavy war hammer with a long wooden haft and a spiked bronze head",
+   "slot": "Doctrine hammer (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-060",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
+   "file": "icon_doctrine_swarm.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_swarm",
+   "template": "T-ICON",
+   "subject": "a single striped hornet with spread wings and a sting",
+   "slot": "Doctrine swarm (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-061",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["codex-doctrines", "codex-doctrine"]},
+   "file": "icon_doctrine_fury.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:doctrine_fury",
+   "template": "T-ICON",
+   "subject": "a roaring lion's head with a flaming red-gold mane",
+   "slot": "Doctrine fury (ai-doctrines.md R2): encounter sheet doctrine row and battle top-bar doctrine chip (AI-01, WLD-01)"
+  },
+  {
+   "id": "ART-062",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
+   "file": "icon_active_push.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:push",
+   "template": "T-ICON",
+   "subject": "two level pike heads driving into an enemy round shield that tilts back",
+   "slot": "Signature active push, Push of Pike (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-063",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
+   "file": "icon_active_bond.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:bond",
+   "template": "T-ICON",
+   "subject": "two forearms in bronze bracers, hands clasped at the wrist",
+   "slot": "Signature active bond, Sacred Bond (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-064",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
+   "file": "icon_active_warcry.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:warcry",
+   "template": "T-ICON",
+   "subject": "a bearded warrior's head in side profile, shouting, with curved sound strokes from the open mouth",
+   "slot": "Signature active warcry, War-cry (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-065",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
+   "file": "icon_active_sunder.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:sunder",
+   "template": "T-ICON",
+   "subject": "a curved falx blade splitting a round wooden shield",
+   "slot": "Signature active sunder, Sunder (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-066",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
+   "file": "icon_active_aimed.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:aimed",
+   "template": "T-ICON",
+   "subject": "a drawn recurved bow with three arrows nocked together",
+   "slot": "Signature active aimed, Aimed Volley (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-067",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
+   "file": "icon_active_recharge.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:recharge",
+   "template": "T-ICON",
+   "subject": "a horse's head turning, circled by a curved U-turn arrow",
+   "slot": "Signature active recharge, Wheel and Re-charge (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-068",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
+   "file": "icon_active_scythe.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:scythe",
+   "template": "T-ICON",
+   "subject": "a spoked chariot wheel with a long curved scythe blade on its hub",
+   "slot": "Signature active scythe, Scythe Run (abilities.md R3): ability medallion and Perks tab card (AB-02, F-04)"
+  },
+  {
+   "id": "ART-069",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["hero-perks", "kit-icons"]},
+   "file": "icon_standard.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:standard",
+   "template": "T-ICON",
+   "subject": "an army standard: a pole with a crossbar, topped by a bronze sixteen-ray sun disc, two ribbons",
+   "slot": "The Standard (abilities.md R5): Raise the standard medallion, standard_bearer perk card, bearer badge (AB-03, F-04)"
+  },
+  {
+   "id": "ART-070",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["battle-works", "kit-icons"]},
+   "file": "icon_works.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:works",
+   "template": "T-ICON",
+   "subject": "an iron-shod digging spade crossed with a sharpened wooden stake",
+   "slot": "Field works (field-works.md): the Works button and tray in deployment (FW-03)"
+  },
+  {
+   "id": "ART-071",
+   "status": "needed",
+   "preview": {"url": "icons/ui.png", "screens": ["world-encounter", "kit-icons"]},
+   "file": "icon_captain.png",
+   "cat": "icon",
+   "kind": "icon",
+   "size": [
+    160,
+    160
+   ],
+   "fill": 0.88,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "dest": "public/icons/",
+   "atlas": "icons_ui",
+   "frame": "ui:captain",
+   "template": "T-ICON",
+   "subject": "a tall transverse red horsehair crest on its curved bronze holder, no helmet",
+   "slot": "Band captain (ai-doctrines.md R6): captain row of the encounter sheet and band plate crest (AI-02, WLD-01)"
+  },
+  {
+   "id": "ART-072",
+   "status": "needed",
+   "preview": {"url": "world/tile_stakes.png", "screens": ["battle-works-field"]},
+   "file": "tile_stakes.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    36,
+    24
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "a row of four sharpened pale-wood stakes slanting toward the enemy, on a strip of turned earth, along the iso diagonal",
+   "slot": "stakes cell (works kind x): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-073",
+   "status": "needed",
+   "preview": {"url": "world/tile_ditch.png", "screens": ["battle-works-field"]},
+   "file": "tile_ditch.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    36,
+    20
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "a flat iso diamond of trampled earth cut by a dark trench along its long axis, a lit spoil lip on the far side",
+   "slot": "ditch cell (works kind d), a ground decal under the men: field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-074",
+   "status": "needed",
+   "preview": {"url": "world/tile_laager.png", "screens": ["battle-works-field"]},
+   "file": "tile_laager.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    72,
+    52
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "one heavy two-axle plank wagon with disc wheels and a rolled hide on top, its long side along the iso diagonal",
+   "slot": "laager segment (works kind L, one wagon per 2-cell segment): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-075",
+   "status": "needed",
+   "preview": {"url": "world/tile_palisade.png", "screens": ["battle-assault"]},
+   "file": "tile_palisade.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    36,
+    48
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "six sharpened upright logs lashed by a rope band, stepping down along the iso diagonal",
+   "slot": "palisade cell (kind P, lair assaults, campaign-arc.md R2): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-076",
+   "status": "needed",
+   "preview": {"url": "world/tile_rampart.png", "screens": ["battle-assault"]},
+   "file": "tile_rampart.png",
+   "cat": "tile",
+   "kind": "pixel",
+   "size": [
+    36,
+    24
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "a raised iso block of packed earth with dry turf tufts on top, lit and shaded side faces",
+   "slot": "rampart cell (kind p, behind the palisade, campaign-arc.md R2): field-works.md R5: one sprite per work cell, depth-sorted like trees and boulders; flipX for a line on the other iso diagonal (to be wired by FW-03, src/art/terrainArt.ts)"
+  },
+  {
+   "id": "ART-077",
+   "status": "code-drawn",
+   "preview": null,
+   "file": "crest_captain.png",
+   "cat": "crest",
+   "kind": "pixel",
+   "size": [
+    10,
+    10
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "a red transverse horsehair crest on a curved bronze holder (the 10 px captain glyph)",
+   "slot": "captain crest over an enemy captain (ai-doctrines.md R6, battle-readability.md R2); CODE-DRAWN: Gemini cannot hold a 10x10 grid (AS-06)"
+  },
+  {
+   "id": "ART-078",
+   "status": "code-drawn",
+   "preview": null,
+   "file": "crest_standard.png",
+   "cat": "crest",
+   "kind": "pixel",
+   "size": [
+    16,
+    44
+   ],
+   "anchor": [
+    0.5,
+    1
+   ],
+   "dest": "public/world/",
+   "template": "T-PIXEL",
+   "subject": "the army Standard: pole and crossbar, bronze sun disc on top, a red square banner with a cream stripe and a fringe, two ribbons",
+   "slot": "banner over the Standard bearer (abilities.md R5.5, battle-readability.md R2), beside the 13x44 group standards of ground.ts renderStandard; CODE-DRAWN: Gemini overshot the 44 px grid 2.6x (AS-06)"
+  }
+ ]
+}

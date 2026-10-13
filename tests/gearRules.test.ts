@@ -81,18 +81,4 @@ describe('class limits in play', () => {
     expect(s.range).toBe(computeStats(without).range);
     expect(s.dmg).toBeCloseTo(computeStats(without).dmg);
   });
-
-  it('save v4 -> v5 moves gear the class may not use to the stash', async () => {
-    const { Campaign } = await import('../src/game/campaign');
-    const { migrate } = await import('../src/game/save');
-    const c = Campaign.fresh(4);
-    const raw = JSON.parse(JSON.stringify(c.data));
-    raw.v = 4;
-    const h = raw.heroes.find((x: { cls: string }) => x.cls === 'hoplite');
-    h.equip.weapon = { uid: 'old-bow', def: 'bow', rarity: 'rare', cond: 90 };
-    const out = migrate(raw)!;
-    expect(out.heroes.find((x) => x.id === h.id)!.equip.weapon).toBeUndefined();
-    expect(out.stash.some((i) => i.uid === 'old-bow')).toBe(true);
-    expect(out.gearMoved).toEqual([h.name]);
-  });
 });

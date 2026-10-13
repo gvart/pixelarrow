@@ -35,14 +35,39 @@ export function tweenTo(scene: Phaser.Scene, targets: object | object[], props: 
     if (o.onComplete) scene.time.delayedCall(0, o.onComplete);
     return null;
   }
+  // an entry fade from alpha 0 starts at ENTRY_ALPHA, so its first frame takes taps (a sheet sliding in, V5-067)
+  if ((props.alpha ?? 0) > 0) for (const t of Array.isArray(targets) ? targets : [targets]) if ((t as { alpha?: number }).alpha === 0) (t as { alpha: number }).alpha = ENTRY_ALPHA;
   return scene.tweens.add({ targets, ...props, duration, delay: o.delay ?? 0, ease: o.ease ?? 'Cubic.easeOut', onComplete: o.onComplete, onUpdate: o.onUpdate });
 }
+
+/**
+ * Where an entry fade starts. Not 0: Phaser skips input on a container (and
+ * its children) at alpha 0, so a tap in the fade's first frame was lost
+ * (V5-067). 0.01 looks the same and takes the tap.
+ */
+export const ENTRY_ALPHA = 0.01;
 
 /** A page that just replaced another (a tab switch) fades in: a crossfade, 180 ms. */
 export function fadeIn(scene: Phaser.Scene, target: { alpha: number }, duration = 180): void {
   if (motion.reduced) return;
-  target.alpha = 0;
+  target.alpha = ENTRY_ALPHA;
   scene.tweens.add({ targets: target, alpha: 1, duration, ease: 'Cubic.easeOut' });
+}
+
+/** The two battle feel settings (controls.md R11, A11Y-13); missing = follow Reduce motion. */
+interface FeelSettings {
+  reduceShake?: boolean;
+  reduceFlash?: boolean;
+}
+
+/** Reduce shake: every camera shake ×0. */
+export function shakeReduced(s: FeelSettings): boolean {
+  return s.reduceShake ?? motion.reduced;
+}
+
+/** Reduce flash: no flash rings. */
+export function flashReduced(s: FeelSettings): boolean {
+  return s.reduceFlash ?? motion.reduced;
 }
 
 /** A gentle endless pulse of `prop` between `from` and `to` (claimable rewards, the current floor). Off under reduced motion. */

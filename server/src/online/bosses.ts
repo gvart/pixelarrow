@@ -21,6 +21,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { LIMITS, replayBattle } from '../battle';
 import { SubmitBody, verifyBattle } from '../duel/verify';
+import { checkSimVersion, SIM_VERSION, SimVersionField } from '../simVersion';
 import { battleTicketView, closeBattleTicket, loadOwnTicket, requireOpenTicket, ticketPreamble, type TicketStatus } from '../tickets';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
@@ -28,13 +29,14 @@ import { ApiError } from '../errors';
 import { requireAuth } from '../middleware';
 import type { Hero } from '../../../src/data/units';
 import type { Item } from '../../../src/data/items';
-import type { BattleSetup } from '../../../src/sim/types';
+import { DEFAULT_DOCTRINE, type BattleSetup } from '../../../src/sim/types';
 import { ENCOUNTERS, trophyId, type EncounterId } from '../../../src/data/beasts';
 import { SOURCES, armyClasses } from '../../../src/game/sources';
 import { getPity, pityStmt } from '../loot';
 import { BEAST_RULES, applyBossState, bossChest, bossDefenders, bossLoot, bossMaxHp, segmentOutcome, worldBossSites, type BossSite } from '../../../src/online/lairs';
 import { DEFAULT_FORMATIONS, ONLINE_RULES } from '../../../src/online/rules';
 import { onlineBattleSetup, resolveAttack } from '../../../src/online/battle';
+import { withDoctrine } from '../../../src/online/neutralDoctrine';
 import { CONSUMABLES } from '../../../src/data/consumables';
 import { limit, player, type PlayerCtx } from './context';
 import { ev, later, notify, type NotifyEvent } from '../notify/outbox';
@@ -232,6 +234,8 @@ const StartBody = z.object({
   heroIds: z.array(z.string().max(80)).max(ONLINE_RULES.maxArmy).optional(),
   consumable: z.string().max(40).nullable().optional(),
   consumables: z.array(z.string().max(40)).max(10).optional(),
+  /** The client's SIM_VERSION; anything else is 426. */
+  simVersion: SimVersionField,
 });
 
 function ticketView(t: TicketRow, boss: EncounterId, extra: Record<string, unknown> = {}) {
@@ -242,6 +246,7 @@ bosses.post('/start', async (c) => {
   limit(c, 'raid', 12);
   const pc = await player(c);
   const body = await readJson(c, StartBody, 8 * 1024);
+  checkSimVersion(body.simVersion);
   const consumable = pickConsumable(body.consumable, body.consumables);
   const site = siteOf(pc, body.boss);
   const now = pc.now;
@@ -277,7 +282,11 @@ bosses.post('/start', async (c) => {
   const info = staticRegion(pc.shard, site.loc);
   const setup = withConsumables(
     applyBossState(
-      onlineBattleSetup(seed, { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false }, { heroes: defenders, formations: [...DEFAULT_FORMATIONS], bot: true }, info.site),
+      // a world boss is a beast: its doctrine is the default one (ai-doctrines.md R2, beasts unchanged)
+      withDoctrine(
+        onlineBattleSetup(seed, { heroes: attackers.map((a) => a.hero), formations: formationsOf(pc.profile.formations), bot: false }, { heroes: defenders, formations: [...DEFAULT_FORMATIONS], bot: true }, info.site),
+        DEFAULT_DOCTRINE,
+      ),
       hp0,
       ENCOUNTERS[site.boss].segment ?? 120,
     ),
@@ -291,12 +300,12 @@ bosses.post('/start', async (c) => {
   const res = await pc.db.batch([
     pc.db
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, defender_id, region_version, created_at, expires_at, consumable)
-         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'boss', NULL, ?10, ?11, ?12, ?13
-         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 14}`).join(',')}) AND busy_until > ?11)
+        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, defender_id, region_version, created_at, expires_at, consumable, sim_version)
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'boss', NULL, ?10, ?11, ?12, ?13, ?14
+         WHERE NOT EXISTS (SELECT 1 FROM online_heroes WHERE id IN (${busy.map((_, i) => `?${i + 15}`).join(',')}) AND busy_until > ?11)
            AND (?13 IS NULL OR EXISTS (SELECT 1 FROM online_consumables WHERE season_id = ?2 AND player_id = ?4 AND consumable_id = ?13 AND qty >= 1))`,
       )
-      .bind(id, pc.season.id, pc.shard.id, pc.pid, site.loc, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), row.version, now, expiresAt, consumable, ...busy),
+      .bind(id, pc.season.id, pc.shard.id, pc.pid, site.loc, seed, JSON.stringify(setup), JSON.stringify(attackers.map((a) => a.hero)), JSON.stringify(defenders), row.version, now, expiresAt, consumable, SIM_VERSION, ...busy),
     pc.db.prepare(`UPDATE online_heroes SET busy_ticket = ?1, busy_until = ?2 WHERE id IN (${ph}) AND ${g}`).bind(id, expiresAt, ...busy),
     pc.db.prepare(`UPDATE online_profiles SET energy = ?3, energy_at = ?4, rev = rev + 1 WHERE season_id = ?1 AND player_id = ?2 AND ${g}`).bind(pc.season.id, pc.pid, energy - BEAST_RULES.raidEnergy, now),
     ...(consumable

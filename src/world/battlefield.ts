@@ -12,6 +12,8 @@ import { TERRAIN, HEIGHT_RULES, type TerrainKind } from '../data/terrain';
 import type { TerrainGrid } from '../sim/terrain';
 import { T, inMap, isWater, type WorldMap } from './map';
 import { fbm, valueNoise2 } from './noise';
+import { ASSAULT } from '../data/arc';
+import { WORKS_OUT } from '../sim/ai';
 
 export type SiteBase = 'plain' | 'scrub' | 'forest' | 'hills' | 'beach';
 export const SITE_BASES: SiteBase[] = ['plain', 'scrub', 'forest', 'hills', 'beach'];
@@ -27,6 +29,8 @@ export interface BattleSite {
   rocky: boolean;
   /** Share of forest around the spot, 0..1 (adds copses). */
   woods: number;
+  /** A lair assault (campaign-arc.md R2.3): the defender holds a palisade with gates. Missing = a field battle. */
+  assault?: boolean;
 }
 
 export const SITE_NAMES: Record<SiteBase, string> = {
@@ -195,8 +199,8 @@ export function generateBattlefield(seed: number, site: BattleSite, w = 24, h = 
     }
   }
 
-  // ---- river with a ford, across the field between the armies
-  if (site.river) {
+  // ---- river with a ford, across the field between the armies (an assault's obstacle is its palisade instead)
+  if (site.river && !site.assault) {
     const ry = h / 2 + rng.range(-2.5, 2.5);
     const width = rng.chance(0.3) ? 3 : 2;
     const fordW = rng.int(3, 4);
@@ -241,6 +245,8 @@ export function generateBattlefield(seed: number, site: BattleSite, w = 24, h = 
   // Never block the middle of either deployment front.
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (nearAnchor(x, y, 3) && kind[idx(x, y)] === 'rocks') kind[idx(x, y)] = 'rough';
 
+  if (site.assault) fortify(kind, height, w, h, seed);
+
   let cells = '';
   let hs = '';
   for (let i = 0; i < n; i++) {
@@ -248,4 +254,54 @@ export function generateBattlefield(seed: number, site: BattleSite, w = 24, h = 
     hs += String(height[i]);
   }
   return { w, h, cells, height: hs, name: siteName(site) };
+}
+
+/** Ground a garrison's stakes may go on (field-works.md R3); anything else in a gate's path is cleared to open. */
+const STAKES_GROUND: readonly TerrainKind[] = ['open', 'scrub', 'sand', 'rough'];
+
+/**
+ * A lair's defences (campaign-arc.md R2.3, field-works.md R1): a palisade row
+ * across the defender's (side 1, the top) deployment front, with
+ * ASSAULT.gates gaps of ASSAULT.gateW cells at seeded places, one in each
+ * equal stretch of its dry land, and ASSAULT.rampartRows rows of rampart
+ * behind it. The row stands WORKS_OUT and a half paces inside the deployment
+ * zone's edge (0.38 of the field, src/sim/battle.ts deployZone), so the
+ * garrison's stakes (src/sim/ai.ts placeWorks) go WORKS_OUT paces in front of
+ * each gate. The gates and the ground in front of them are cleared to open,
+ * and the strip between the palisade and the zone's edge is no higher than
+ * the rampart, so the garrison's line has no high ground to take outside its
+ * walls. Draws from its own Rng, after the rest of the field.
+ */
+function fortify(kind: TerrainKind[], height: Uint8Array, w: number, h: number, seed: number): void {
+  const rng = new Rng((seed ^ 0x2f6b1d3a) >>> 0 || 1);
+  const idx = (x: number, y: number) => y * w + x;
+  const row = Math.floor(h * 0.38 - WORKS_OUT - 0.5);
+  const edge = Math.ceil(h * 0.38);
+  const dry = (x: number) => kind[idx(x, row)] !== 'sea';
+  let lo = 0;
+  while (lo < w - 1 && !dry(lo)) lo++;
+  let hi = w - 1;
+  while (hi > lo && !dry(hi)) hi--;
+  const G = ASSAULT.gateW;
+  const n = Math.max(1, ASSAULT.gates);
+  const span = (hi - lo + 1) / n;
+  const gates: number[] = [];
+  for (let k = 0; k < n; k++) {
+    // at least one cell of wall on either side of a gate, inside its stretch
+    const a = Math.ceil(lo + k * span) + 1;
+    const b = Math.floor(lo + (k + 1) * span) - G - 1;
+    gates.push(rng.int(a, Math.max(a, b)));
+  }
+  const inGate = (x: number) => gates.some((g) => x >= g && x < g + G);
+  for (let x = lo; x <= hi; x++) {
+    if (!dry(x)) continue;
+    kind[idx(x, row)] = inGate(x) ? 'open' : 'palisade';
+    for (let r = 1; r <= ASSAULT.rampartRows && row - r >= 0; r++) if (kind[idx(x, row - r)] !== 'sea') kind[idx(x, row - r)] = 'rampart';
+    const top = height[idx(x, Math.max(0, row - 1))];
+    for (let y = row; y < Math.min(h, edge + 1); y++) {
+      const i = idx(x, y);
+      height[i] = Math.min(height[i], top);
+      if (y > row && inGate(x) && kind[i] !== 'sea' && !STAKES_GROUND.includes(kind[i])) kind[i] = 'open';
+    }
+  }
 }

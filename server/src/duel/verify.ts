@@ -7,9 +7,12 @@
 import { z } from 'zod';
 import { LIMITS, LoggedOrderSchema, replayBattle } from '../battle';
 import { ApiError } from '../errors';
+import { checkSimVersion, SimVersionField } from '../simVersion';
 import type { BattleSetup, LoggedOrder } from '../../../src/sim/types';
 
 export const SubmitBody = z.object({
+  /** The client's SIM_VERSION; anything else is 426. */
+  simVersion: SimVersionField,
   ticket: z.string().regex(/^[0-9a-f]{32}$/),
   orders: z.array(LoggedOrderSchema).max(LIMITS.maxOrders),
   deployOrders: z.number().int().min(0).max(LIMITS.maxOrders).optional(),
@@ -19,9 +22,13 @@ export type Submission = z.infer<typeof SubmitBody>;
 export type Replayed = ReturnType<typeof replayBattle>;
 
 /**
- * Replays a submission. On a rejection `reject(claim, result)` closes the
- * ticket first, then the ApiError is thrown (422 `sim_rejected` or
- * `replay_mismatch` with `mismatchMessage`).
+ * Replays a submission against the setup its ticket fixed. A client that does
+ * not run SIM_VERSION gets 426 `sim_version_unsupported` and the ticket stays
+ * open. Callers pass only tickets that exist and are open (unexpired, except
+ * a late ladder run, which is verified but pays nothing: ticketPreamble).
+ * On a rejection `reject(claim, result)` closes the ticket first, then the
+ * ApiError is thrown (422 `sim_rejected`, or `replay_mismatch` with
+ * `mismatchMessage`).
  */
 export async function verifyBattle(
   setup: BattleSetup,
@@ -29,6 +36,7 @@ export async function verifyBattle(
   reject: (claim: string, result?: string) => Promise<void>,
   mismatchMessage = 'The battle did not replay as reported; it does not count',
 ): Promise<Replayed> {
+  checkSimVersion(body.simVersion);
   const claimJson = JSON.stringify(body.claim);
   let out: Replayed;
   try {

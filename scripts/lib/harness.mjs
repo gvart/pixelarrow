@@ -89,16 +89,18 @@ export const apiDown = (page, body = '{"error":{"code":"not_configured","message
 // ------------------------------------------------------------------ results
 
 let failures = 0;
+const failedNames = [];
 /** Logs PASS/FAIL; a FAIL makes finish() exit 1. */
 export function check(name, ok, detail = '') {
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${detail}`);
-  if (!ok) failures++;
+  if (!ok) { failures++; failedNames.push(name); }
 }
 export const failureCount = () => failures;
 /** Closes the browser (if given), prints the verdict and exits 1 on any failure. */
 export async function finish({ browser, pass = 'ALL PASS', fail = (n) => `${n} FAILED` } = {}) {
   if (browser) await browser.close();
   console.log(failures ? fail(failures) : pass);
+  if (failures) console.log(`failed checks: ${failedNames.join(', ')}`);
   process.exit(failures ? 1 : 0);
 }
 

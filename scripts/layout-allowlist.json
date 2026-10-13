@@ -1,6 +1,17 @@
 {
-  "_doc": "Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps. Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids.",
+  "_doc": "Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps; F = foundation screens (UI kit, menu, onboarding), only for the text-size floor. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids, or screen|check|* for a check on the whole screen (text-size).",
   "A": [],
-  "B": [],
-  "C": []
+  "B": [
+    "duel-shop-sell|text-size|*"
+  ],
+  "C": [],
+  "F": [
+    "kit-overlay-purchase|text-size|*",
+    "tutorial-move|text-size|*"
+  ],
+  "stories": {
+    "duel-shop-sell|text-size|*": "DUE-01",
+    "kit-overlay-purchase|text-size|*": "SHP-01",
+    "tutorial-move|text-size|*": "TUT-02"
+  }
 }

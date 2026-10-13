@@ -7,6 +7,7 @@ import { onlineBattleSetup } from '../../src/online/battle';
 import { starterOnlineArmy, DEFAULT_FORMATIONS } from '../../src/online/rules';
 import { api, mockTelegram, webhook } from './helpers';
 import { DB, fresh, getJson, join, post, sameShard, wsOnline, type Profile } from './onlineHelpers';
+import { SIM_VERSION } from '../../src/sim/version';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -387,7 +388,7 @@ describe('live duel over WebSocket', () => {
     expect((await SELF.fetch(`${BASE}/ws/online`, { headers: { upgrade: 'websocket' } })).status).toBe(401);
     const { devLogin } = await import('./helpers');
     const n = await devLogin(8199);
-    expect((await SELF.fetch(`${BASE}/ws/online?token=${encodeURIComponent(n.token)}`, { headers: { upgrade: 'websocket' } })).status).toBe(409);
+    expect((await SELF.fetch(`${BASE}/ws/online?token=${encodeURIComponent(n.token)}&sim=${SIM_VERSION}`, { headers: { upgrade: 'websocket' } })).status).toBe(409);
     expect((await api('/api/online/status', { token: n.token })).status).toBe(200);
   });
 });

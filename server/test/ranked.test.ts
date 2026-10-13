@@ -17,6 +17,7 @@ import type { DuelDO } from '../src/duel/duelDO';
 import type { MatchmakerDO } from '../src/duel/matchmaker';
 import { settleMatch, type MatchInit, type MatchOutcome } from '../src/duel/live';
 import { DB, fresh, getJson, openDuellist, wsPath, type WsClient } from './onlineHelpers';
+import { SIM_VERSION } from '../../src/sim/version';
 
 beforeEach(fresh);
 
@@ -284,7 +285,7 @@ describe('a ranked match (DuelDO)', () => {
     const b = await duellist(980402, { level5: true });
     const c = await duellist(980403);
     const match = await matched(a, b);
-    const res = await (await import('cloudflare:test')).SELF.fetch(`https://test.pixelarrow.local/ws/duel/${match}`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${c.token}` } });
+    const res = await (await import('cloudflare:test')).SELF.fetch(`https://test.pixelarrow.local/ws/duel/${match}?sim=${SIM_VERSION}`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${c.token}` } });
     expect(res.status).toBe(403);
     // neither connects: past the join window the match is void, both abandoned, nobody rated
     await runInDurableObject(duelStub(match), (i: DuelDO) => {

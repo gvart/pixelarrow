@@ -9,10 +9,11 @@ import Phaser from 'phaser';
 import { scaleIcon, Button, Meter, ScrollArea, addIcon, addText, mosaicPanelImage, tappable, type FontKey } from './kit';
 import { Badge, ItemIcon, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
 import { uiFrame, uiId } from './layout';
-import { ellipsize, wrapText, LINE_H } from './textfit';
+import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { SIZE, COLOR, RARITY_COLOR } from './theme';
 import { addPill } from './mosaic/pill';
-import { ensureFonts, rarityFont, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
+import { ensureFonts, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
+import { rarityInkKey } from './mosaic/rarityInk';
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
 import { renderStage, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
@@ -29,7 +30,10 @@ import {
   type RarityFilter, type SlotFilter, type StashSort, type StatDelta, type StatId,
 } from '../game/gear';
 import { t, tOr, type TKey } from '../i18n';
+import { heroName } from '../i18n/names';
+import { fmtCount, fmtDecimal, localDecimals } from '../i18n/numbers';
 import { ROLE } from './tokens';
+import { arrangeActions } from './mosaic/overlays';
 
 export const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
 export const ROMAN = ['I', 'II', 'III', 'IV'];
@@ -46,10 +50,11 @@ export const itemName = (it: Item): string => subjectName({ item: it });
 /** A campaign stash item's sale at a town market: its value, or for a bound item a salvage at a quarter of it (docs/ITEMS.md "Bound items"). */
 export function saleText(it: Item): { bound: boolean; value: number; label: string; title: string; body: string; done: string } {
   const bound = isBound(it);
-  const n = bound ? salvageValue(it) : itemValue(it);
+  const value = bound ? salvageValue(it) : itemValue(it);
+  const n = fmtCount(value);
   return bound
-    ? { bound, value: n, label: t('stash.salvage', { n }), title: t('stash.salvageTitle', { name: itemName(it) }), body: t('stash.salvageBody', { n }), done: t('stash.salvaged', { n }) }
-    : { bound, value: n, label: t('stash.sell', { n }), title: t('stash.sellTitle', { name: itemName(it) }), body: t('stash.sellBody', { n }), done: t('stash.sold', { n }) };
+    ? { bound, value, label: t('stash.salvage', { n }), title: t('stash.salvageTitle', { name: itemName(it) }), body: t('stash.salvageBody', { n }), done: t('stash.salvaged', { n }) }
+    : { bound, value, label: t('stash.sell', { n }), title: t('stash.sellTitle', { name: itemName(it) }), body: t('stash.sellBody', { n }), done: t('stash.sold', { n }) };
 }
 export const groupName = (g: number): string => tOr(`group.${g}`, ROMAN[g] ?? '');
 
@@ -401,10 +406,10 @@ export interface ItemCardOpts {
   worth?: boolean;
 }
 
-/** "+4.5", "-7%", and for the blow time its unit and meaning: "+0.2 s slower". */
+/** "+4.5", "-7%", and for the blow time its unit and meaning: "+0.2 s slower" ("+0,2 с медленнее"). */
 const deltaText = (d: StatDelta): string => {
-  const n = `${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`;
-  return d.id === 'atkTime' ? `${n} s ${t(d.delta > 0 ? 'dv.slower' : 'dv.faster')}` : n;
+  const n = localDecimals(`${d.delta > 0 ? '+' : ''}${fmtStat(d.id, d.delta)}`);
+  return d.id === 'atkTime' ? `${n} ${t('item.sec')} ${t(d.delta > 0 ? 'dv.slower' : 'dv.faster')}` : n;
 };
 
 /** Percent stats in set bonus lines. */
@@ -412,7 +417,7 @@ const PCT_KEYS = new Set<string>(['accuracy', 'block', 'blockPierce', 'armorPier
 
 function modsText(m: StatMods): string {
   return Object.entries(m)
-    .map(([k, v]) => `${v! > 0 ? '+' : ''}${PCT_KEYS.has(k) ? `${Math.round(v! * 100)}%` : `${Math.round(v! * 10) / 10}`} ${tOr(`mod.${k}`, k)}`)
+    .map(([k, v]) => `${v! > 0 ? '+' : ''}${PCT_KEYS.has(k) ? `${Math.round(v! * 100)}%` : `${fmtDecimal(v!, 1)}`} ${tOr(`mod.${k}`, k)}`)
     .join(', ');
 }
 
@@ -429,30 +434,30 @@ export function itemRuleLines(it: Item, hero: Hero | undefined, w: number): { te
   };
   const pow = itemPower(it);
   if (pow) {
-    add(t('item.power', { name: tOr(`power.${pow.id}.name`, POWERS[pow.id].name) }), rarityFont(it.rarity), 1);
-    add(powerText(pow, tOr(`power.${pow.id}.text`, POWERS[pow.id].text), t('item.sec')), 'ink');
+    add(t('item.power', { name: tOr(`power.${pow.id}.name`, POWERS[pow.id].name) }), rarityInkKey(it.rarity), 1);
+    add(powerText(pow, tOr(`power.${pow.id}.text`, POWERS[pow.id].text), t('item.sec')), 'pInk');
   }
   if (def.set && SETS[def.set]) {
     const set = SETS[def.set];
     const pieces = setPieces(set.id);
     const worn = hero ? Object.values(hero.equip).filter((x) => x && itemDef(x.def).set === set.id && shortfall(hero.attrs, x.def, x.rarity) === 0).length : 0;
-    add(t('item.set', { name: tOr(`set.${set.id}.name`, set.name), n: worn, of: pieces.length }), 'ink', 1);
+    add(t('item.set', { name: tOr(`set.${set.id}.name`, set.name), n: worn, of: pieces.length }), 'pInk', 1);
     for (const bn of set.bonuses) {
       const text = bn.special ? tOr(`setsp.${bn.special}`, SET_SPECIAL_TEXT[bn.special]) : modsText(bn.mods ?? {});
-      add(`${bn.pieces}: ${text}`, worn >= bn.pieces ? 'good' : 'dim');
+      add(`${bn.pieces}: ${text}`, worn >= bn.pieces ? 'pGood' : 'pMuted');
     }
   }
   const reqs = requirements(it.def, it.rarity);
   if (reqs.length) {
     const list = reqs.map((q) => `${t(`attr.${q.attr}.short` as TKey)} ${q.n}`).join(' · ');
     const miss = shortfall(hero?.attrs, it.def, it.rarity);
-    add(t('item.needs', { list }), miss > 0 ? 'red' : 'dim', 1);
-    if (miss > 0) add(t('item.short', { n: miss, p: Math.round(gearPenalty(miss) * 100) }), 'red');
+    add(t('item.needs', { list }), miss > 0 ? 'pBad' : 'pMuted', 1);
+    if (miss > 0) add(t('item.short', { n: miss, p: Math.round(gearPenalty(miss) * 100) }), 'pBad');
   }
   if (def.slot === 'weapon' || def.slot === 'shield' || def.slot === 'armor') {
     const blocked = hero ? equipBlocker(hero, it) : null;
-    if (blocked && hero) add(t('item.classBlocked', { cls: className(hero) }), 'red', 1);
-    else if (!hero) add(t('item.for', { list: classesFor(def).map((c) => tOr(`class.${c}.name`, CLASSES[c as ClassId].name)).join(', ') }), 'dim');
+    if (blocked && hero) add(t('item.classBlocked', { cls: className(hero) }), 'pBad', 1);
+    else if (!hero) add(t('item.for', { list: classesFor(def).map((c) => tOr(`class.${c}.name`, CLASSES[c as ClassId].name)).join(', ') }), 'pMuted');
   }
   return out;
 }
@@ -479,13 +484,16 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   // ---- measure the content
   const cmp = o.hero && !o.equipped ? compareItem(o.hero, it) : null;
   const changed = cmp ? cmp.deltas.filter((d) => d.better !== null) : [];
-  const mods = itemModLines(it, o.hero?.attrs);
+  const mods = itemModLines(it, o.hero?.attrs).map((ml) => ({ ...ml, text: localDecimals(ml.text) }));
   const desc = wrapText(tOr(`item.${def.id}.desc`, def.desc), inner - 4, 3);
   const notes = o.notes ?? [];
   const rules = itemRuleLines(it, o.hero, inner - 4);
   const headH = 40;
   const cmpH = cmp ? 30 + Math.max(1, changed.length) * 11 + (cmp.displaced.length ? 10 : 0) + 4 : 0;
-  const modsH = 12 + Math.ceil(mods.length / 2) * 10 + 4;
+  // the stats in two columns while every name fits beside its value; else one column (a name is never cut: "Темп атаки" at 320)
+  const modName = (key: string) => tOr(`mod.${key}`, key);
+  const modCols = mods.every((ml) => measureText(modName(ml.key)) + measureText(ml.text) + 12 <= Math.floor(inner / 2)) ? 2 : 1;
+  const modsH = 12 + Math.ceil(mods.length / modCols) * 10 + 4;
   const bodyH = cmpH + modsH + rules.length * LINE_H + (rules.length ? 4 : 0) + desc.lines.length * LINE_H + 4 + notes.length * LINE_H;
   const footH = o.actions.length ? SIZE.btnH + 10 : 0;
   const want = 26 + headH + bodyH + footH + 8;
@@ -497,13 +505,13 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   c.add(bigItemIcon(scene, bx, cy + 1, it, 34));
   const tx = bx + 38;
   const tw = inner - 38;
-  c.add(addText(scene, tx, cy, ellipsize(itemName(it), tw), rarityFont(rarity)));
-  c.add(addText(scene, tx, cy + 10, ellipsize(`${t(`rarity.${rarity}` as TKey)} · ${t(`slot.${def.slot}` as TKey)}${def.twoHanded ? ` · ${t('stash.twoHanded')}` : ''}`, tw), 'dim'));
+  c.add(addText(scene, tx, cy, ellipsize(itemName(it), tw), rarityInkKey(rarity)));
+  c.add(addText(scene, tx, cy + 10, ellipsize(`${t(`rarity.${rarity}` as TKey)} · ${t(`slot.${def.slot}` as TKey)}${def.twoHanded ? ` · ${t('stash.twoHanded')}` : ''}`, tw), 'pMuted'));
   c.add(new Meter(scene, tx, cy + 22, Math.max(20, tw - 46), 4, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100));
-  c.add(addText(scene, tx + Math.max(20, tw - 46) + 3, cy + 20, `${Math.round(it.cond)}%`, it.cond < 34 ? 'red' : 'ink'));
+  c.add(addText(scene, tx + Math.max(20, tw - 46) + 3, cy + 20, `${Math.round(it.cond)}%`, it.cond < 34 ? 'pBad' : 'pInk'));
   if (o.worth !== false) {
     c.add(scaleIcon(addIcon(scene, tx - 1, cy + 28, 'coin'), 0.75));
-    c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: itemValue(it) }), tw - 10), 'dim'));
+    c.add(addText(scene, tx + 10, cy + 30, ellipsize(t('stash.worth', { n: fmtCount(itemValue(it)) }), tw - 10), 'pMuted'));
   }
   cy += headH;
   // ---- scrolling body (compare, stats, description, notes)
@@ -514,63 +522,67 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   if (cmp && o.hero) {
     b.add(mosaicPanelImage(scene, 0, by, inner, cmpH - 4, 'parchmentWell'));
     const eq = cmp.equipped;
-    b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: o.hero.name }), inner - 8), 'dim'));
+    b.add(addText(scene, 4, by + 4, ellipsize(t('stash.vsEquipped', { name: heroName(o.hero.name) }), inner - 8), 'pMuted'));
     if (eq) {
       b.add(new ItemIcon(scene, 4, by + 12, { item: eq }, { size: 16, tip: false, glow: false }));
-      b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq), inner - 27 - 70), rarityFont(eq.rarity)));
-    } else b.add(addText(scene, 4, by + 16, t('stash.emptySlot'), 'dim'));
+      b.add(addText(scene, 23, by + 16, ellipsize(itemName(eq), inner - 27 - 70), rarityInkKey(eq.rarity)));
+    } else b.add(addText(scene, 4, by + 16, t('stash.emptySlot'), 'pMuted'));
     const dp = cmp.power[1] - cmp.power[0];
-    b.add(addText(scene, inner - 4, by + 16, t('hero.power', { n: `${dp > 0 ? '+' : ''}${dp}` }), dp > 0 ? 'good' : dp < 0 ? 'red' : 'dim', 1));
+    b.add(addText(scene, inner - 4, by + 16, t('hero.power', { n: `${dp > 0 ? '+' : ''}${dp}` }), dp > 0 ? 'pGood' : dp < 0 ? 'pBad' : 'pMuted', 1));
     let ry = by + 30;
     if (!changed.length) {
-      b.add(addText(scene, 4, ry, t('stash.noChange'), 'dim'));
+      b.add(addText(scene, 4, ry, t('stash.noChange'), 'pMuted'));
       ry += 11;
     }
     for (const d of changed) {
-      const dt = addText(scene, inner - 4, ry, deltaText(d), d.better ? 'good' : 'bad', 1);
-      const cn = addText(scene, inner - 4 - dt.width - 6, ry, `${fmtStat(d.id, d.cur)} > ${fmtStat(d.id, d.next)}`, 'sec', 1);
-      // narrow cards: the stat's name and its change matter most, "1.3 > 1.5" goes first
+      const dt = addText(scene, inner - 4, ry, deltaText(d), d.better ? 'pGood' : 'pBad', 1);
+      const cn = addText(scene, inner - 4 - dt.width - 6, ry, localDecimals(`${fmtStat(d.id, d.cur)} → ${fmtStat(d.id, d.next)}`), 'pSec', 1);
+      // narrow cards: the stat's name and its change matter most, "1.3 → 1.5" goes first
       const fitsBoth = inner - 12 - dt.width - cn.width - 6 >= 44;
       if (!fitsBoth) cn.destroy();
-      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 12 - dt.width - (fitsBoth ? cn.width + 6 : 0)), 'ink'));
+      b.add(addText(scene, 4, ry, ellipsize(t(`stat.${d.id}` as TKey), inner - 12 - dt.width - (fitsBoth ? cn.width + 6 : 0)), 'pInk'));
       b.add(fitsBoth ? [cn, dt] : [dt]);
       ry += 11;
     }
-    if (cmp.displaced.length) b.add(addText(scene, 4, ry, ellipsize(t('stash.alsoRemoves', { name: cmp.displaced.map(itemName).join(', ') }), inner - 8), 'red'));
+    if (cmp.displaced.length) b.add(addText(scene, 4, ry, ellipsize(t('stash.alsoRemoves', { name: cmp.displaced.map(itemName).join(', ') }), inner - 8), 'pBad'));
     by += cmpH;
   }
-  b.add(addText(scene, 0, by, t('stash.stats'), 'red'));
+  b.add(addText(scene, 0, by, t('stash.stats'), 'pBad'));
   by += 12;
-  const colW = Math.floor(inner / 2);
+  const colW = Math.floor(inner / modCols);
   mods.forEach((ml, i) => {
-    const mx = (i % 2) * colW;
-    const my = by + Math.floor(i / 2) * 10;
-    const val = addText(scene, mx + colW - 4, my, ml.text, ml.good ? 'ink' : 'red', 1);
+    const mx = (i % modCols) * colW;
+    const my = by + Math.floor(i / modCols) * 10;
+    const val = addText(scene, mx + colW - 4, my, ml.text, ml.good ? 'pInk' : 'pBad', 1);
     b.add(val);
-    b.add(addText(scene, mx, my, ellipsize(tOr(`mod.${ml.key}`, ml.key), colW - val.width - 8), 'dim'));
+    b.add(addText(scene, mx, my, ellipsize(modName(ml.key), colW - val.width - 8), 'pMuted'));
   });
-  by += Math.ceil(mods.length / 2) * 10 + 4;
+  by += Math.ceil(mods.length / modCols) * 10 + 4;
   for (const r of rules) {
     b.add(addText(scene, 0, by, r.text, r.font));
     by += LINE_H;
   }
   if (rules.length) by += 4;
   if (desc.lines.length) {
-    b.add(addText(scene, 0, by, desc.lines.join('\n'), 'ink'));
+    b.add(addText(scene, 0, by, desc.lines.join('\n'), 'pInk'));
     by += desc.lines.length * LINE_H + 4;
   }
   for (const n of notes) {
-    b.add(addText(scene, 0, by, ellipsize(n.text, inner - 3), n.font ?? "dim"));
+    b.add(addText(scene, 0, by, ellipsize(n.text, inner - 3), n.font ?? 'pMuted'));
     by += LINE_H;
   }
   area.setContentHeight(by);
-  // ---- actions (primary on the right, under the thumb)
+  // ---- actions: primary on the right, under the thumb; a destructive one never beside it (A11Y-08)
   if (o.actions.length) {
     const n = o.actions.length;
     const fy = y + h - 8 - SIZE.btnH;
-    const bw = Math.floor((inner - (n - 1) * SIZE.gap) / n);
-    o.actions.forEach((a, i) => {
-      const btn = new Button(scene, bx + i * (bw + SIZE.gap), fy, i === n - 1 ? inner - i * (bw + SIZE.gap) : bw, SIZE.btnH, {
+    const { order, gaps } = arrangeActions(o.actions.map((a) => (a.variant === 'primary' || a.variant === 'destructive' ? a.variant : 'other')), SIZE.gap);
+    const bw = Math.floor((inner - gaps.reduce((s, g) => s + g, 0)) / n);
+    let ax = bx;
+    order.forEach((ai, i) => {
+      const a = o.actions[ai];
+      if (i > 0) ax += bw + gaps[i - 1];
+      const btn = new Button(scene, ax, fy, i === n - 1 ? bx + inner - ax : bw, SIZE.btnH, {
         label: a.label,
         icon: a.icon,
         variant: a.variant ?? 'secondary',
@@ -725,34 +737,33 @@ export function openClassCard(scene: UiScene, o: ClassCardOpts): Modal {
   const chipW = addPill(scene, b, 0, by, roleName(cls.role), roleColor(cls.role), inner);
   if (cls.mount) addPill(scene, b, chipW + 4, by, tOr(`mount.${cls.mount}`, cls.mount), 0x8a6a3a, inner - chipW - 4);
   by += 15;
-  b.add(addText(scene, 0, by, desc.lines.join('\n'), 'ink'));
+  b.add(addText(scene, 0, by, desc.lines.join('\n'), 'pInk'));
   by += desc.lines.length * LINE_H + 3;
-  if (rt.good) b.add(addText(scene, 0, by, ellipsize(`+ ${rt.good}`, inner), 'good'));
-  if (rt.bad) b.add(addText(scene, 0, by + 10, ellipsize(`- ${rt.bad}`, inner), 'red'));
+  if (rt.good) b.add(addText(scene, 0, by, ellipsize(`+ ${rt.good}`, inner), 'pGood'));
+  if (rt.bad) b.add(addText(scene, 0, by + 10, ellipsize(`- ${rt.bad}`, inner), 'pBad'));
   by += 23;
   for (const id of stats) {
     const d = STATS[id];
     const v = d.get(s);
-    b.add(addText(scene, 0, by, ellipsize(t(`stat.${id}` as TKey), 64), 'dim'));
+    b.add(addText(scene, 0, by, ellipsize(t(`stat.${id}` as TKey), 64), 'pMuted'));
     b.add(new Meter(scene, 66, by + 2, inner - 66 - 30, 4, COLOR.xp).setValue(v, d.max));
-    b.add(addText(scene, inner, by, fmtStat(id, v), 'ink', 1));
+    b.add(addText(scene, inner, by, localDecimals(fmtStat(id, v)), 'pInk', 1));
     by += 12;
   }
   if (o.price) {
     by += 3;
     const pr = wrapText(o.price, inner - 4, 2);
-    b.add(addText(scene, 0, by, pr.lines.join("\n"), "red"));
+    b.add(addText(scene, 0, by, pr.lines.join("\n"), 'pBad'));
     by += (pr.lines.length - 1) * LINE_H;
     by += 10;
   }
   area.setContentHeight(by);
   frameScrollTexts(area, inner);
+  // the hire action alone in the footer: the X, Back and a tap outside close the card (one close affordance, G5)
   if (o.action) {
     const a = o.action;
     const fy = y + m.h - 8 - SIZE.btnH;
-    const bw = Math.floor((inner - SIZE.gap) / 2);
-    c.add(new Button(scene, bx, fy, bw, SIZE.btnH, { label: t('common.close'), onClick: () => m.close() }));
-    const btn = new Button(scene, bx + bw + SIZE.gap, fy, inner - bw - SIZE.gap, SIZE.btnH, {
+    const btn = new Button(scene, bx, fy, inner, SIZE.btnH, {
       label: a.label,
       icon: a.icon,
       variant: a.variant ?? 'primary',

@@ -9,7 +9,9 @@
 import { Rng } from './rng';
 import {
   assignSlots,
+  FORMATION_TYPES,
   formationSlots,
+  orbRings,
   presetFrontage,
   rightOf,
   type Formation,
@@ -28,13 +30,18 @@ import type {
   SimEvent,
   SimGroup,
   SimUnit,
+  WorkType,
 } from './types';
+import { WORK_TYPES, WORKS_MAX } from './types';
 import { BotAI } from './ai';
 import { ABILITIES, ABILITY_RULES, AURAS, AURA_IDS, AURA_RULES, type AbilityId } from '../data/perks';
+
+/** The seven signature actives (abilities.md R3, AB-02): their state is hashed only in battles that have one. */
+const SIGNATURE: readonly AbilityId[] = ['push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe'];
 import { rallyRadius, willRadius, type CombatStats } from './stats';
-import { Terrain, cellHash } from './terrain';
-import { HEIGHT_RULES, TERRAIN, type TerrainDef } from '../data/terrain';
-import { MOUNTS, type MountDef } from '../data/classes';
+import { Terrain, cellHash, flatGrid } from './terrain';
+import { HEIGHT_RULES, TERRAIN, WORKS, type TerrainDef, type TerrainKind } from '../data/terrain';
+import { CLASSES, MOUNTS, type MountDef } from '../data/classes';
 import { MythSystem, hasMyth } from './myth';
 import { PowerSystem, hasPowers } from './powers';
 import { HORN_RULES } from '../data/beasts';
@@ -82,7 +89,64 @@ export const RULES = {
   retreatRoutDeath: 0.6,
   retreatContactDeath: 0.35,
   retreatWoundedExtra: 0.15,
+  /**
+   * formations-orders.md R1 (FO-01): a `form` whose centre moves at least this
+   * far (paces) is a new position and resets the order to hold; a smaller
+   * move keeps it.
+   */
+  formResetDist: 2,
+  /** formations-orders.md R1: most a moving group's facing turns, in degrees per second (a group with a rider turns at the horse rate). */
+  turnRateFoot: 90,
+  turnRateHorse: 60,
+  /** formations-orders.md R2 (FO-02): the orb's costs. Riders cannot form it; bracing still works. */
+  orbSpeed: 0.4,
+  orbAccuracy: 0.7,
+  /** formations-orders.md R3 (FO-02): a feint runs back for feintS, then turns and charges; one per feintCdS per group. */
+  feintS: 4,
+  feintCdS: 30,
+  /** The feint's run back, as a multiple of the group's walk (men run, as when catching up their slots). */
+  feintPace: 1.4,
+  /** Extra damage of each man's first blow after the turn-about (+0.3 charge bonus). */
+  feintBlow: 0.3,
+  /** A group counts as pursuing once it has moved this far (paces) toward the feinting group. */
+  feintPursuit: 3,
+  /** A pursuer is disordered for disorderS: its block falls by disorderBlock and its men stand off their slots by up to disorderScatter. */
+  disorderS: 3,
+  disorderBlock: 0.15,
+  disorderScatter: 0.3,
+  /**
+   * formations-orders.md R5, F3 (FO-03): when a group's routed flag rises, its
+   * standing men lose cohesionSelf morale and every standing man of its side
+   * whose group centre is within cohesionRadius paces loses cohesionNear. One
+   * shock per group per cohesionCooldownS.
+   */
+  cohesionSelf: 10,
+  cohesionNear: 5,
+  cohesionRadius: 6,
+  cohesionCooldownS: 10,
+  /**
+   * formations-orders.md R6, F2 (FO-03): checked once a second after the first
+   * contact. A side breaks when its active men are at most armyBreakShare of
+   * its men at the start and the enemy has at least armyBreakRatio times as
+   * many; its active men then lose armyBreakDrain morale a second and cannot rally.
+   */
+  armyBreakShare: 0.25,
+  armyBreakRatio: 3,
+  armyBreakDrain: 4,
 };
+
+/**
+ * cos and sin of a small angle in degrees, from their Taylor series: plain
+ * arithmetic, so client and server get the same bits (no Math.cos).
+ */
+function smallTurn(deg: number): { c: number; s: number } {
+  const r = (deg * Math.PI) / 180;
+  const r2 = r * r;
+  return { c: 1 - (r2 / 2) * (1 - (r2 / 12) * (1 - r2 / 30)), s: r * (1 - (r2 / 6) * (1 - (r2 / 20) * (1 - r2 / 42))) };
+}
+/** One tick's turn at each rate (RULES.turnRateFoot / turnRateHorse). */
+const TURN_FOOT = smallTurn(RULES.turnRateFoot / TICK_RATE);
+const TURN_HORSE = smallTurn(RULES.turnRateHorse / TICK_RATE);
 
 /**
  * Riders, chariots and animals (unit classes). Only units with a `mount` or
@@ -132,7 +196,57 @@ export const MOUNTED_RULES = {
   chariotWeight: 0.15,
 };
 
+/**
+ * The Standard (design/gdd/abilities.md R5, F2; AB-03; sim train 2). One per
+ * army: a band's captain (UnitSpec.captain), else the highest-level hero with
+ * `standard_bearer` (ties to the lower unit id). Only battles with a bearer
+ * use these rules, so every other battle plays and hashes as before.
+ */
+export const STANDARD_RULES = {
+  /** STD_RADIUS, plus the bearer's Will radius bonus. */
+  radius: 4,
+  /** Morale damage taken inside the aura (R_std 0.15); Steady Presence's 0.8 wins where both apply (F2). */
+  moraleLoss: 0.85,
+  /** Morale a second regained inside the aura while not in melee. */
+  regen: 0.5,
+  /** Cohesion shocks inside the aura (formations-orders.md F3; V5-024). */
+  shock: 0.5,
+  /** Raise the standard, once per battle: allies within raiseRadius regain raiseMorale of their max morale; routers at or above raiseTurn of it turn back. */
+  raiseRadius: 6,
+  raiseMorale: 0.2,
+  raiseTurn: 0.3,
+  /** The bot raises it once this many allies within raiseRadius are routing (R6). */
+  raiseRouting: 3,
+  /** Banner loss: BANNER_LOSS_RADIUS, BANNER_LOSS_SELF, BANNER_LOSS_ENEMY. */
+  lossRadius: 6,
+  lossSelf: 12,
+  lossEnemy: 5,
+  /**
+   * The bearer's slot priority in his group (slotPriority: 0 spear wall, 1-2
+   * blades and javelins, 3 bows): behind the front rank, ahead of the
+   * missile men. In the front rank he fell in 37% of the reference mirrors and
+   * the standard was worth -1 pt; here 9% and +4 (docs/v5/balance/AB-03.md).
+   */
+  rank: 2.5,
+};
+
+/** The `ability` order id of Raise the standard (abilities.md R5.3). It is no AbilityId: the bearer is derived, not a perk's active. */
+export const RAISE_STANDARD = 'standard';
+
 export type Phase = 'deploy' | 'battle' | 'ended';
+
+/** Cell kinds placed by the `work` order (field-works.md R3). */
+const WORK_KINDS: readonly TerrainKind[] = WORK_TYPES;
+/** Grid codes of the works with special rules (stakes, ditch): a grid holding one runs the works rules from the start. */
+const RULED_CODES = [TERRAIN.stakes.code, TERRAIN.ditch.code];
+
+/** A placed work segment (field-works.md R3): its cells and the ground each one covered. */
+interface WorkSeg {
+  side: Side;
+  type: WorkType;
+  cells: number[];
+  under: TerrainKind[];
+}
 
 export class Battle {
   readonly width: number;
@@ -155,6 +269,45 @@ export class Battle {
   private nextProjId = 1;
   private bots: BotAI[] = [];
   private firstContact: [boolean, boolean] = [false, false];
+  /** A `face` still turning a moving group, by group id (formations-orders.md R1). */
+  private faceTo: ({ fx: number; fy: number } | undefined)[] = [];
+  /** Per tick, per group: 1 = has a man who can shoot, 2 = an enemy in range, 4 = a focused enemy in range. */
+  private shotScan: number[] = [];
+  /** The orb's outer ring radius by group id, set when its slots are assigned (formations-orders.md R2). */
+  private orbR: number[] = [];
+  /** A running feint by group id: the turn-about tick and, per enemy group, where it stood and whether it pursued (R3). */
+  private feints: ({ turnAt: number; watch: Map<number, { x: number; y: number; on: boolean }> } | undefined)[] = [];
+  /** The tick each group may feint again (R3.4). */
+  private feintCd: number[] = [];
+  /** Disorder by group id: [from tick, until tick) (R3.3). */
+  private disorder: ({ from: number; until: number } | undefined)[] = [];
+  /** Men whose first blow after a feint's turn-about lands harder (R3.2). */
+  private feintBlow = new Set<number>();
+  /** Orb groups that lost a man this tick: the ring contracts at the end of the tick (V5-041). */
+  private orbLoss = new Set<number>();
+  /** The tick each group may next give a cohesion shock (R5). */
+  private shockAt: number[] = [];
+  /** Men (not beasts) on each side at the start, for the army-break test (R6). */
+  private startMen: [number, number] = [0, 0];
+  /** Each side's army-break state at the last one-second check, and whether its event went out (R6). */
+  private broken: [boolean, boolean] = [false, false];
+  private brokeOnce: [boolean, boolean] = [false, false];
+  /**
+   * Signature actives (abilities.md R3, AB-02), by unit id: the tick each timed
+   * effect ends. stagger: Push of Pike; sunder: Sunder; shock: a War-cry's
+   * allies; bond: Sacred Bond; charge: a Re-charge's bonus. Missing = none.
+   */
+  private stagger: number[] = [];
+  private sunderT: number[] = [];
+  private shockT: number[] = [];
+  private bondT: number[] = [];
+  private chargeT: number[] = [];
+  /** Wheel and Re-charge by group id: the tick the regrouped riders charge again. */
+  private regroupAt: number[] = [];
+  /** A chariot's Scythe Run by unit id: paces left and the enemies already cut. */
+  private runs: ({ left: number; hit: Set<number> } | undefined)[] = [];
+  /** Some unit holds a signature active (their state then joins the hash). */
+  private readonly actives: boolean;
   /** Some unit is not a man-sized disc (riders, chariots, bears): per-unit radii apply. */
   readonly big: boolean;
   /** Riders or animals take part (the bot then uses its cavalry / beast tactics). */
@@ -166,6 +319,31 @@ export class Battle {
   /** War horns left per side (a battle consumable); [0, 0] for setups without. */
   horns: [number, number] = [0, 0];
   private readonly hornSetup: boolean;
+  /** Each side's standard bearer (a unit id), -1 = none (abilities.md R5). */
+  private readonly bearers: [number, number] = [-1, -1];
+  /** Some side has a standard: its rules run and its state joins the hash. */
+  private readonly std: boolean;
+  /** Raise the standard used, and the standard lost, per side. */
+  private raised: [boolean, boolean] = [false, false];
+  private stdLost: [boolean, boolean] = [false, false];
+  /** By unit id: 1 = inside his side's standing standard aura (as of the last aura update). */
+  private stdIn: number[] = [];
+  /** The sides a bot plays (it raises the standard by R6). */
+  private readonly botSide: [boolean, boolean] = [false, false];
+  /** Field works (field-works.md, FW-01): each side's allowance in segments (ArmySpec.works; missing = none). */
+  private readonly worksAllow: [Record<WorkType, number>, Record<WorkType, number>];
+  /** Work segments placed in deployment, in order. */
+  private segs: WorkSeg[] = [];
+  /**
+   * Stakes or a ditch are on the field (placed, or in the setup's grid): their
+   * rules run and the works state joins the hash. False in every other battle,
+   * so those play and hash exactly as before.
+   */
+  private worksOn = false;
+  /** By unit id: 1 = in a stakes cell at the end of the last tick (entering one starts a crossing, R2.2). */
+  private stakeIn: number[] = [];
+  /** Refused `work` / `unwork` orders and why (output only, not hashed; R3 "ignored and logged"). */
+  worksLog: { tick: number; side: Side; kind: 'work' | 'unwork'; reason: string }[] = [];
 
   constructor(setup: BattleSetup) {
     this.seed = setup.seed >>> 0;
@@ -174,12 +352,21 @@ export class Battle {
     this.height = setup.height ?? 36;
     this.timeLimitTicks = (setup.timeLimit ?? 300) * TICK_RATE;
     this.terrain = setup.terrain && typeof setup.terrain.cells === 'string' ? new Terrain(setup.terrain, this.width, this.height) : null;
+    this.worksOn = !!this.terrain && RULED_CODES.some((c) => setup.terrain!.cells.includes(c));
+    const allow = (side: Side): Record<WorkType, number> => {
+      const w = setup.armies[side].works;
+      const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(WORKS_MAX, Math.floor(v))) : 0);
+      return { stakes: n(w?.stakes), ditch: n(w?.ditch), laager: n(w?.laager) };
+    };
+    this.worksAllow = [allow(0), allow(1)];
     const allStats = setup.armies.flatMap((a) => a.units.map((u) => u.stats));
     this.special = allStats.some((st) => (st.mount !== undefined && st.mount in MOUNTS) || st.kind === 'animal');
     const mythic = hasMyth(allStats);
     this.big = mythic || allStats.some((st) => typeof st.radius === 'number' && st.radius !== UNIT_RADIUS && st.radius > 0.05 && st.radius < 2);
     this.horns = [Math.max(0, Math.min(3, setup.armies[0].horn ?? 0)) | 0, Math.max(0, Math.min(3, setup.armies[1].horn ?? 0)) | 0];
     this.hornSetup = setup.armies[0].horn !== undefined || setup.armies[1].horn !== undefined;
+    /** Candidates for each side's standard, by unit id: 2 = a captain, 1 = a `standard_bearer`. */
+    const carries: number[] = [];
 
     setup.armies.forEach((army, sideIdx) => {
       const side = sideIdx as Side;
@@ -218,6 +405,7 @@ export class Battle {
         // Unknown mounts or animal kinds (newer clients) fall back to a man on foot.
         if (s.mount !== undefined && !(s.mount in MOUNTS)) delete s.mount;
         if (s.kind !== undefined && s.kind !== 'animal') delete s.kind;
+        carries[this.units.length] = spec.captain === true ? 2 : s.standard === true ? 1 : 0;
         this.units.push({
           id: this.units.length,
           heroId: spec.heroId,
@@ -267,6 +455,8 @@ export class Battle {
       // Javelin groups keep their throws until ordered; pure missile groups loose at will.
       for (const g of this.groups) {
         if (g.side !== side) continue;
+        // A shape the sim has no slots for, or riders in an orb (R2.4), stands in a line.
+        if (!FORMATION_TYPES.includes(g.formation.type) || (g.formation.type === 'orb' && !this.canOrb(g.id))) g.formation.type = 'line';
         const mem = this.members(g.id);
         const hybrids = mem.filter((u) => u.stats.role === 'hybrid').length;
         const ranged = mem.filter((u) => u.stats.role === 'ranged').length;
@@ -278,11 +468,22 @@ export class Battle {
       this.autoDeploy(side);
       if (mythic && sideIdx === 1 && !this.myth) (this as { myth: MythSystem | null }).myth = new MythSystem(this);
       if (army.bot) {
-        const bot = new BotAI(side, this.seed ^ (0x5bd1e995 * (side + 1)));
+        this.botSide[side] = true;
+        const bot = new BotAI(side, this.seed ^ (0x5bd1e995 * (side + 1)), army.doctrine, army.holdField === true);
         this.bots.push(bot);
         bot.deploy(this);
       }
     });
+    for (const u of this.units) if (!this.beast(u)) this.startMen[u.side]++;
+    // one standard per army (R5.1): the captain, else the highest-level bearer, ties to the lower id
+    for (const u of this.units) {
+      const c = carries[u.id];
+      if (!c || this.beast(u)) continue;
+      const cur = this.bearers[u.side] >= 0 ? this.units[this.bearers[u.side]] : null;
+      if (!cur || c > carries[cur.id] || (c === carries[cur.id] && u.level > cur.level)) this.bearers[u.side] = u.id;
+    }
+    this.std = this.bearers[0] >= 0 || this.bearers[1] >= 0;
+    this.actives = this.units.some((u) => u.abil.some((a) => SIGNATURE.includes(a)));
     if (hasPowers(allStats)) this.pw = new PowerSystem(this);
   }
 
@@ -326,8 +527,9 @@ export class Battle {
   /** Movement multiplier of the ground a unit stands on (horses and chariots suffer more in rough ground). */
   private groundSpeed(u: SimUnit): number {
     if (!this.terrain) return 1;
-    const d = this.terrain.at(u.x, u.y);
+    let d = this.terrain.at(u.x, u.y);
     if (d.blocked) return 1;
+    if (this.worksOn && d.kind === 'stakes' && this.beast(u)) d = TERRAIN.rough; // beasts treat stakes as rough (field-works.md)
     if (u.stats.mount) return u.stats.mount === 'chariot' ? d.chariotSpeed : d.cavSpeed;
     return d.speed;
   }
@@ -405,7 +607,7 @@ export class Battle {
     }
     const tryAt = (mx: number, my: number): boolean => {
       if (mx === 0 && my === 0) return false;
-      if (t.blocked(u.x + mx, u.y + my)) return false;
+      if (t.blocked(u.x + mx, u.y + my) && !this.passesWork(u, u.x + mx, u.y + my)) return false;
       u.x += mx;
       u.y += my;
       u.vx = mx;
@@ -437,6 +639,12 @@ export class Battle {
     const r = rightOf(f.fx, f.fy);
     let x = f.cx + r.x * u.slotLat - f.fx * u.slotDep;
     let y = f.cy + r.y * u.slotLat - f.fy * u.slotDep;
+    const dis = this.disorder[u.group];
+    if (dis !== undefined && this.tick < dis.until) {
+      // A disordered group's men stand off their slots (R3.3).
+      x += (cellHash(u.id, dis.from) - 0.5) * 2 * RULES.disorderScatter;
+      y += (cellHash(dis.from, u.id + 7919) - 0.5) * 2 * RULES.disorderScatter;
+    }
     const t = this.terrain;
     if (t) {
       // Trees, water and stones break up the ranks: each man finds his own footing.
@@ -486,6 +694,8 @@ export class Battle {
     if (this.phase !== 'deploy') return;
     this.phase = 'battle';
     for (const g of this.groups) this.reassign(g.id);
+    // a man deployed in stakes has not crossed them (R2.2)
+    if (this.worksOn) for (const u of this.units) this.stakeIn[u.id] = this.terrain!.at(u.x, u.y).kind === 'stakes' ? 1 : 0;
   }
 
   private applyOrder(side: Side, o: Order): void {
@@ -504,7 +714,8 @@ export class Battle {
           fx /= len;
           fy /= len;
         }
-        const type = o.type ?? g.formation.type;
+        // An unknown shape, or an orb for riders (R2.4), keeps the current shape.
+        const type = o.type && FORMATION_TYPES.includes(o.type) && (o.type !== 'orb' || this.canOrb(g.id)) ? o.type : g.formation.type;
         const n = Math.max(1, this.activeMembers(g.id).length);
         const prevF = g.formation;
         g.formation = {
@@ -519,19 +730,25 @@ export class Battle {
           g.formation.fs = prevF.fs;
           g.formation.rs = prevF.rs;
         }
-        if (o.type) g.shieldWall = o.type === 'shieldwall';
+        if (o.type) g.shieldWall = type === 'shieldwall';
         if (this.phase === 'deploy') {
           const z = this.deployZone(side);
           g.formation.cy = clamp(g.formation.cy, z.y0, z.y1);
         }
-        if (g.order !== 'hold') g.order = 'hold';
-        g.fallbackLeft = 0;
+        // A big move is a new position (hold); a nudge keeps the order (formations-orders.md R1.2).
+        const moved = Math.sqrt((g.formation.cx - prevF.cx) ** 2 + (g.formation.cy - prevF.cy) ** 2);
+        if (g.order !== 'hold' && moved >= RULES.formResetDist) {
+          g.order = 'hold';
+          g.fallbackLeft = 0;
+        }
+        this.faceTo[g.id] = undefined;
         this.reassign(g.id);
         if (this.phase === 'deploy') this.snapToSlots(g.id);
         return;
       }
       case 'preset': {
-        if (!groupOk(o.group)) return;
+        if (!groupOk(o.group) || !FORMATION_TYPES.includes(o.type)) return;
+        if (o.type === 'orb' && !this.canOrb(o.group)) return;
         const g = this.groups[o.group];
         const n = Math.max(1, this.activeMembers(g.id).length);
         g.formation = { ...g.formation, type: o.type, frontage: presetFrontage(o.type, n) };
@@ -546,19 +763,45 @@ export class Battle {
       case 'order': {
         if (!groupOk(o.group)) return;
         const g = this.groups[o.group];
-        g.order = o.order;
-        if (o.order === 'fallback') g.fallbackLeft = 5;
-        if (o.order === 'charge' || o.order === 'fallback') g.shieldWall = false;
-        if (o.order === 'charge') {
-          // Charging javelin-men throw on the way in.
-          for (const u of this.activeMembers(g.id)) if (u.stats.role === 'hybrid' && u.ammo > 0) g.fireAtWill = true;
+        if (o.order === 'feint') {
+          this.startFeint(g);
+          return;
         }
+        this.setOrder(g, o.order);
+        return;
+      }
+      case 'face': {
+        // Turn the group and keep its order (formations-orders.md R1.1). A holding
+        // group turns at once; a moving one wheels at the turn rate (updateGroups).
+        if (!groupOk(o.group)) return;
+        const g = this.groups[o.group];
+        const len = Math.sqrt(o.fx * o.fx + o.fy * o.fy);
+        if (g.routed || !(len > 1e-6) || !Number.isFinite(len)) return;
+        // The orb has no front to wheel (R1): it turns on the spot.
+        if (this.phase === 'battle' && g.order !== 'hold' && g.formation.type !== 'orb') {
+          this.faceTo[g.id] = { fx: o.fx / len, fy: o.fy / len };
+          return;
+        }
+        this.faceTo[g.id] = undefined;
+        g.formation.fx = o.fx / len;
+        g.formation.fy = o.fy / len;
+        this.reassign(g.id);
+        if (this.phase === 'deploy') this.snapToSlots(g.id);
+        return;
+      }
+      case 'focus': {
+        // Missile men shoot at this enemy group first; -1 clears (formations-orders.md R4).
+        if (!groupOk(o.group)) return;
+        const g = this.groups[o.group];
+        const t = this.groups[o.target];
+        if (o.target === -1) g.focus = -1;
+        else if (t && t.side !== side && !t.disbanded) g.focus = o.target;
         return;
       }
       case 'shieldwall': {
         if (!groupOk(o.group)) return;
         const g = this.groups[o.group];
-        g.shieldWall = o.on ?? !g.shieldWall;
+        g.shieldWall = (o.on ?? !g.shieldWall) && g.formation.type !== 'orb'; // the orb has no shield-wall bonus (R2.3)
         if (g.shieldWall && g.order === 'charge') g.order = 'hold';
         return;
       }
@@ -616,12 +859,30 @@ export class Battle {
       case 'ability': {
         const u = this.units[o.unit];
         if (!u || u.side !== side) return;
+        if ((o.ability as string) === RAISE_STANDARD) {
+          if (u.id === this.bearers[side]) this.raiseStandard(side);
+          return;
+        }
         const i = u.abil.indexOf(o.ability);
         if (i < 0 || !this.abilityReady(u, o.ability)) return;
         if (!this.useAbility(u, o.ability)) return;
         u.abilCd[i] = Math.round(ABILITIES[o.ability].cooldown * TICK_RATE * u.stats.cdMult);
+        if (ABILITIES[o.ability].groupMode === 'one' && SIGNATURE.includes(o.ability)) {
+          // a group-wide signature active does not stack (groupMode 'one'): every holder of the group waits out the
+          // cooldown. Volley and Rally Cry keep their per-man cooldown: the beast fights are tuned on stacked volleys (AB-02)
+          for (const a of this.units) {
+            const k = a.group === u.group && a !== u ? a.abil.indexOf(o.ability) : -1;
+            if (k >= 0) a.abilCd[k] = Math.max(a.abilCd[k], Math.round(ABILITIES[o.ability].cooldown * TICK_RATE * a.stats.cdMult));
+          }
+        }
         return;
       }
+      case 'work':
+        this.placeWork(side, o);
+        return;
+      case 'unwork':
+        this.removeWork(side, o.x, o.y);
+        return;
       case 'assign': {
         if (this.phase !== 'deploy') return;
         const u = this.units[o.unit];
@@ -632,6 +893,7 @@ export class Battle {
         for (const gid of [old, o.group]) {
           const g = this.groups[gid];
           const n = Math.max(1, this.activeMembers(gid).length);
+          if (g.formation.type === 'orb' && !this.canOrb(gid)) g.formation.type = 'line'; // a rider joined (R2.4)
           g.formation.frontage = presetFrontage(g.formation.type, n);
           this.reassign(gid);
           this.snapToSlots(gid);
@@ -639,6 +901,334 @@ export class Battle {
         return;
       }
     }
+  }
+
+  /** Set a group order (the `order` order, and a feint's turn-about). */
+  private setOrder(g: SimGroup, order: SimGroup['order']): void {
+    g.order = order;
+    if (order === 'fallback') g.fallbackLeft = 5;
+    if (order === 'charge' || order === 'fallback') g.shieldWall = false;
+    if (order === 'charge') {
+      // The orb cannot charge: it opens into a line at its facing first (R2.3).
+      if (g.formation.type === 'orb') {
+        g.formation.type = 'line';
+        g.formation.frontage = presetFrontage('line', Math.max(1, this.activeMembers(g.id).length));
+        this.reassign(g.id);
+      }
+      // Charging javelin-men throw on the way in.
+      for (const u of this.activeMembers(g.id)) if (u.stats.role === 'hybrid' && u.ammo > 0) g.fireAtWill = true;
+    }
+  }
+
+  // ------------------------------------------------------------- field works
+
+  /**
+   * The cells of a work segment (field-works.md R3): centred on the cell
+   * under (x, y), laid across the facing (fx, fy), one cell per step. The
+   * facing snaps to the nearest of the 8 grid directions. With no grid yet,
+   * the field's own grid (one cell per pace) is used. null = off the grid.
+   */
+  private segmentCells(type: WorkType, x: number, y: number, fx: number, fy: number): number[] | null {
+    const t = this.terrain;
+    const gw = t ? t.w : Math.max(1, Math.round(this.width));
+    const gh = t ? t.h : Math.max(1, Math.round(this.height));
+    const len = Math.sqrt(fx * fx + fy * fy);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !(len > 1e-6) || !Number.isFinite(len)) return null;
+    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return null;
+    const r = rightOf(fx / len, fy / len);
+    const snap = (v: number) => (v >= SIN22 ? 1 : v <= -SIN22 ? -1 : 0);
+    const sx = snap(r.x);
+    const sy = snap(r.y);
+    const cx = Math.floor((x * gw) / this.width);
+    const cy = Math.floor((y * gh) / this.height);
+    const n = WORKS.length[type];
+    const out: number[] = [];
+    for (let k = -Math.floor((n - 1) / 2); out.length < n; k++) {
+      const ix = cx + sx * k;
+      const iy = cy + sy * k;
+      if (ix < 0 || iy < 0 || ix >= gw || iy >= gh) return null;
+      out.push(iy * gw + ix);
+    }
+    return out;
+  }
+
+  /** Why a `work` order would be refused now, or null if it is valid (R3). Public for the deployment ghost. */
+  workRefusal(side: Side, o: { type: WorkType; x: number; y: number; fx: number; fy: number }): string | null {
+    if (this.phase !== 'deploy') return 'phase';
+    if (!WORK_TYPES.includes(o.type)) return 'type';
+    let mine = 0;
+    let same = 0;
+    for (const g of this.segs) {
+      if (g.side !== side) continue;
+      mine++;
+      if (g.type === o.type) same++;
+    }
+    if (same >= this.worksAllow[side][o.type] || mine >= WORKS.max) return 'allowance';
+    const cells = this.segmentCells(o.type, o.x, o.y, o.fx, o.fy);
+    if (!cells) return 'bounds';
+    const z = this.deployZone(side);
+    const gw = this.terrain ? this.terrain.w : Math.max(1, Math.round(this.width));
+    const gh = this.terrain ? this.terrain.h : Math.max(1, Math.round(this.height));
+    for (const i of cells) {
+      const cy = (Math.floor(i / gw) + 0.5) * (this.height / gh);
+      if (cy < z.y0 || cy > z.y1) return 'zone';
+      const kind = this.terrain ? this.terrain.cellDef(i).kind : 'open';
+      if (WORK_KINDS.includes(kind)) return 'occupied';
+      if (!WORKS.ground.includes(kind)) return 'ground';
+    }
+    return null;
+  }
+
+  /** The `work` order: place a segment in deployment, or refuse and log it (R3). */
+  private placeWork(side: Side, o: { type: WorkType; x: number; y: number; fx: number; fy: number }): void {
+    const why = this.workRefusal(side, o);
+    if (why) {
+      this.worksLog.push({ tick: this.tick, side, kind: 'work', reason: why });
+      return;
+    }
+    // A field without a grid gets an open, flat one (one cell per pace) to hold the work.
+    if (!this.terrain) (this as { terrain: Terrain | null }).terrain = new Terrain(flatGrid(Math.max(1, Math.round(this.width)), Math.max(1, Math.round(this.height))), this.width, this.height);
+    const t = this.terrain!;
+    const cells = this.segmentCells(o.type, o.x, o.y, o.fx, o.fy)!;
+    const under = cells.map((i) => t.cellDef(i).kind);
+    for (const i of cells) t.setCell(i, o.type);
+    this.segs.push({ side, type: o.type, cells, under });
+    this.worksOn = true;
+    this.resnap();
+  }
+
+  /** The `unwork` order: remove this side's segment covering the cell under (x, y), in deployment (R3). */
+  private removeWork(side: Side, x: number, y: number): void {
+    const t = this.terrain;
+    const i = t && Number.isFinite(x) && Number.isFinite(y) ? t.index(x, y) : -1;
+    const k = this.phase !== 'deploy' ? -1 : this.segs.findIndex((g) => g.side === side && g.cells.includes(i));
+    if (k < 0) {
+      this.worksLog.push({ tick: this.tick, side, kind: 'unwork', reason: this.phase !== 'deploy' ? 'phase' : 'none' });
+      return;
+    }
+    const g = this.segs[k];
+    g.cells.forEach((c, j) => t!.setCell(c, g.under[j]));
+    this.segs.splice(k, 1);
+    this.resnap();
+  }
+
+  /** Men stand in their slots again after the ground changed under them (deployment). */
+  private resnap(): void {
+    for (const g of this.groups) if (!g.disbanded) this.snapToSlots(g.id);
+  }
+
+  /** Work segments on the field: side, type and cells (grid indices), for the renderer and the deployment tools. */
+  works(): readonly { side: Side; type: WorkType; cells: readonly number[] }[] {
+    return this.segs;
+  }
+
+  /** A myth boss walks through works (field-works.md "Beasts": its own movement rules). */
+  private passesWork(u: SimUnit, x: number, y: number): boolean {
+    return this.worksOn && u.stats.boss !== undefined && WORK_KINDS.includes(this.terrain!.at(x, y).kind);
+  }
+
+  /** A man standing in a ditch (the ditch factor, F1). */
+  private inDitch(u: SimUnit): boolean {
+    return this.terrain!.at(u.x, u.y).kind === 'ditch';
+  }
+
+  /**
+   * Stakes (R2.2, F2), once a tick after movement: a man who enters a stakes
+   * cell loses his charge momentum, and keeps none while he stands in it; a
+   * charge broken this way sends one `stakesBreak` per crossing. A rider who
+   * enters is impaled for IMPALE_MULT of his own charge blow and slowed to
+   * the horse's pace in stakes. Beasts and myth bosses ignore stakes.
+   */
+  private crossStakes(): void {
+    const t = this.terrain!;
+    for (const u of this.units) {
+      const i = t.index(u.x, u.y);
+      if (!this.isAlive(u) || t.cellDef(i).kind !== 'stakes') {
+        this.stakeIn[u.id] = 0;
+        continue;
+      }
+      const enter = this.stakeIn[u.id] !== 1;
+      this.stakeIn[u.id] = 1;
+      if (this.beast(u)) continue;
+      if (enter && u.momentum >= RULES.chargeMomentumTicks) {
+        const c = t.cellCenter(i);
+        this.events.push({ type: 'stakesBreak', tick: this.tick, unit: u.id, x: c.x, y: c.y });
+      }
+      u.momentum = 0;
+      const m = this.mountOf(u);
+      if (!m) continue;
+      const topOpen = u.stats.speed * m.gallop;
+      if (enter) {
+        // F2: half the blow this rider's charge would strike (x1.4+ impact at his speed)
+        const sr = clamp(u.spd / Math.max(0.1, topOpen), 0.4, 1.15);
+        const blow = u.stats.dmg * (RULES.chargeImpact + u.stats.chargeBonus * 0.6 * sr);
+        this.impale(u, blow * WORKS.impaleMult);
+      }
+      const pace = topOpen * (m.id === 'chariot' ? TERRAIN.stakes.chariotSpeed : TERRAIN.stakes.cavSpeed);
+      if (u.spd > pace) u.spd = pace;
+    }
+  }
+
+  /** A rider run onto the stakes: a hit through his armour that nobody is credited with (like a chariot crash). */
+  private impale(u: SimUnit, raw: number): void {
+    if (u.state !== 'ready' && u.state !== 'routing') return;
+    const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + u.stats.armor));
+    u.hp -= dmg;
+    u.lastHitTick = this.tick;
+    u.wear.armor += 0.5;
+    if (u.state === 'ready') u.morale -= dmg * RULES.moraleFromDamage * this.ml(u);
+    if (u.hp <= 0) this.crash(u);
+  }
+
+  // ------------------------------------------------------- the orb and the feint
+
+  /** Riders cannot form an orb (formations-orders.md R2.4). */
+  canOrb(groupId: number): boolean {
+    return !this.units.some((u) => u.group === groupId && u.stats.mount !== undefined);
+  }
+
+  /**
+   * Whether a group may feint (R3.1): every man standing is light infantry, a
+   * missile man or a rider, by his class (`ClassDef.role` light or ranged, or a
+   * mount). A man without a known class counts by his stats: a rider or a
+   * missile or javelin man.
+   */
+  canFeint(groupId: number): boolean {
+    const mem = this.activeMembers(groupId);
+    if (mem.length === 0) return false;
+    return mem.every((u) => {
+      if (u.stats.mount !== undefined) return true;
+      const cls = u.stats.cls;
+      if (cls !== undefined && Object.prototype.hasOwnProperty.call(CLASSES, cls)) {
+        const c = CLASSES[cls as keyof typeof CLASSES];
+        return c.role === 'light' || c.role === 'ranged' || c.mount !== undefined;
+      }
+      return u.stats.kind === undefined && u.stats.role !== 'melee';
+    });
+  }
+
+  /** Whether a feint order would be obeyed now: in battle, eligible, not routed, off cooldown. */
+  feintReady(groupId: number): boolean {
+    const g = this.groups[groupId];
+    return !!g && this.phase === 'battle' && !g.routed && !g.disbanded && this.tick >= (this.feintCd[groupId] ?? 0) && this.canFeint(groupId);
+  }
+
+  /**
+   * The feint (R3.2): run back for feintS at full speed, then turn about and
+   * charge. An ineligible, routed or cooling-down group ignores it; the order
+   * stays in orderLog, which is the log the server replays and stores.
+   */
+  private startFeint(g: SimGroup): void {
+    if (!this.feintReady(g.id)) return;
+    g.order = 'feint';
+    g.fallbackLeft = 0;
+    g.shieldWall = false;
+    this.faceTo[g.id] = undefined;
+    this.feintCd[g.id] = this.tick + RULES.feintCdS * TICK_RATE;
+    const watch = new Map<number, { x: number; y: number; on: boolean }>();
+    for (const e of this.groups) {
+      if (e.side === g.side || e.disbanded) continue;
+      const c = this.centroid(e.id);
+      if (c) watch.set(e.id, { x: c.x, y: c.y, on: false });
+    }
+    this.feints[g.id] = { turnAt: this.tick + RULES.feintS * TICK_RATE, watch };
+  }
+
+  /** Mean position of a group's men standing, or null. */
+  private centroid(groupId: number): { x: number; y: number } | null {
+    let x = 0;
+    let y = 0;
+    let n = 0;
+    for (const u of this.units) {
+      if (u.group !== groupId || u.state !== 'ready') continue;
+      x += u.x;
+      y += u.y;
+      n++;
+    }
+    return n === 0 ? null : { x: x / n, y: y / n };
+  }
+
+  /** The enemy group whose men stand nearest, centre to centre, to (x, y); ties go to the lower id. */
+  private nearestEnemyGroup(side: Side, x: number, y: number, cent: ({ x: number; y: number } | null)[]): number {
+    let best = -1;
+    let bestD = Infinity;
+    for (const e of this.groups) {
+      if (e.side === side || e.disbanded) continue;
+      const c = cent[e.id];
+      if (!c) continue;
+      const d = (c.x - x) ** 2 + (c.y - y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = e.id;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * One tick of a running feint (R3.2, R3.3). An enemy group pursues if it has
+   * an advance or charge order, the feinting group is its nearest enemy group,
+   * and it has moved more than feintPursuit paces toward it. At the turn-about
+   * the group charges, each man's first blow lands harder, and every pursuer is
+   * disordered for disorderS (one `disordered` event each).
+   */
+  private updateFeint(g: SimGroup, cent: ({ x: number; y: number } | null)[]): void {
+    const ft = this.feints[g.id];
+    if (!ft) return;
+    if (g.order !== 'feint') {
+      this.feints[g.id] = undefined; // another order cancelled it
+      return;
+    }
+    const me = cent[g.id];
+    if (me) {
+      for (const [id, w] of ft.watch) {
+        const e = this.groups[id];
+        if (w.on || (e.order !== 'advance' && e.order !== 'charge')) continue;
+        const c = cent[id];
+        if (!c || this.nearestEnemyGroup(e.side, c.x, c.y, cent) !== g.id) continue;
+        const tx = me.x - w.x;
+        const ty = me.y - w.y;
+        const tl = Math.sqrt(tx * tx + ty * ty);
+        if (tl > 1e-6 && ((c.x - w.x) * tx + (c.y - w.y) * ty) / tl > RULES.feintPursuit) w.on = true;
+      }
+    }
+    if (this.tick < ft.turnAt) return;
+    this.feints[g.id] = undefined;
+    this.setOrder(g, 'charge');
+    for (const u of this.activeMembers(g.id)) this.feintBlow.add(u.id);
+    const until = this.tick + RULES.disorderS * TICK_RATE;
+    for (const [id, w] of ft.watch) {
+      if (!w.on || this.groups[id].disbanded) continue;
+      this.disorder[id] = { from: this.tick, until };
+      this.events.push({ type: 'disordered', tick: this.tick, group: id, untilTick: until });
+    }
+  }
+
+  /** Whether a group is disordered now (R3.3). */
+  disordered(groupId: number): boolean {
+    const d = this.disorder[groupId];
+    return d !== undefined && this.tick < d.until;
+  }
+
+  /** Note an orb man falling or breaking (V5-041). */
+  private orbLost(u: SimUnit): void {
+    if (u.state === 'ready' && this.groups[u.group].formation.type === 'orb') this.orbLoss.add(u.group);
+  }
+
+  /**
+   * The ring contracts (V5-041): an orb that lost a man re-slots its men at
+   * once on a smaller ring, so the men round the ring close the gap in the
+   * threatened arc instead of leaving it open until the next re-slot.
+   */
+  private contractOrbs(): void {
+    if (this.orbLoss.size === 0) return;
+    for (const id of [...this.orbLoss].sort((a, b) => a - b)) if (this.groups[id].formation.type === 'orb') this.reassign(id);
+    this.orbLoss.clear();
+  }
+
+  /** Bracing works in the orb as in a shield wall (R2.4). */
+  private braces(g: SimGroup): boolean {
+    return g.shieldWall || g.formation.type === 'orb';
   }
 
   // ---------------------------------------------------------------- the war horn
@@ -650,7 +1240,10 @@ export class Battle {
     const targets: number[] = [];
     for (const a of this.units) {
       if (a.side !== side || !this.isAlive(a)) continue;
-      if (a.state === 'routing') {
+      if (a.state === 'routing' && !this.canRally(a)) {
+        // a broken army's horn restores heart but turns no routers back (R6)
+        a.morale = Math.max(a.morale, a.stats.morale * HORN_RULES.rallyTo);
+      } else if (a.state === 'routing') {
         a.state = 'ready';
         a.momentum = 0;
         a.morale = Math.max(a.morale, a.stats.morale * HORN_RULES.rallyTo);
@@ -661,6 +1254,95 @@ export class Battle {
     }
     for (const g of this.groups) if (g.side === side && !g.disbanded) this.reassign(g.id);
     this.events.push({ type: 'horn', tick: this.tick, side, targets });
+  }
+
+  // ---------------------------------------------------------------- the standard
+
+  /** A side's standard bearer while the standard stands (alive, not lost), else null (abilities.md R5). */
+  standardBearer(side: Side): SimUnit | null {
+    const id = this.bearers[side];
+    return id >= 0 && !this.stdLost[side] ? this.units[id] : null;
+  }
+
+  /** Whether the side may still Raise the standard: once per battle, by a bearer standing in the fight. */
+  canRaise(side: Side): boolean {
+    const b = this.standardBearer(side);
+    return this.phase === 'battle' && !this.raised[side] && !!b && b.state === 'ready' && b.stun <= 0;
+  }
+
+  /** Whether the side has raised its standard this battle. */
+  standardRaised(side: Side): boolean {
+    return this.raised[side];
+  }
+
+  /** Whether a man stands inside his side's standard aura (as of the last aura update). */
+  inStandard(u: SimUnit): boolean {
+    return this.std && this.stdIn[u.id] === 1;
+  }
+
+  /**
+   * Raise the standard (R5.3), once per battle: allies within raiseRadius of
+   * the bearer regain raiseMorale of their max morale, and routers left at or
+   * above raiseTurn of it turn back. A broken army's routers stay routed:
+   * army break wins (formations-orders.md R6).
+   */
+  private raiseStandard(side: Side): boolean {
+    if (!this.canRaise(side)) return false;
+    const b = this.units[this.bearers[side]];
+    this.raised[side] = true;
+    const R = STANDARD_RULES;
+    const r2 = R.raiseRadius * R.raiseRadius;
+    const regroup = new Set<number>();
+    for (const a of this.units) {
+      if (a.side !== side || !this.isAlive(a) || this.beast(a)) continue;
+      if ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 > r2) continue;
+      a.morale = Math.max(a.morale, Math.min(a.stats.morale, a.morale + a.stats.morale * R.raiseMorale));
+      if (a.state === 'routing' && this.canRally(a) && a.morale >= a.stats.morale * R.raiseTurn) {
+        a.state = 'ready';
+        a.momentum = 0;
+        this.events.push({ type: 'rally', tick: this.tick, unit: a.id });
+        regroup.add(a.group);
+      }
+    }
+    for (const g of regroup) this.reassign(g);
+    return true;
+  }
+
+  /** The bot raises its standard once raiseRouting allies near the bearer are routing (abilities.md R6). */
+  private botRaise(): void {
+    for (const side of [0, 1] as Side[]) {
+      if (!this.botSide[side] || !this.canRaise(side)) continue;
+      const b = this.units[this.bearers[side]];
+      const r2 = STANDARD_RULES.raiseRadius * STANDARD_RULES.raiseRadius;
+      let routing = 0;
+      for (const a of this.units) {
+        if (a.side === side && a.state === 'routing' && !this.beast(a) && (a.x - b.x) ** 2 + (a.y - b.y) ** 2 <= r2) routing++;
+      }
+      if (routing >= STANDARD_RULES.raiseRouting) this.raiseStandard(side);
+    }
+  }
+
+  /**
+   * Banner loss (R5.4), once per side: the bearer died or was knocked out.
+   * His own men within lossRadius lose lossSelf morale, the enemy's gain
+   * lossEnemy, and the standard is gone for the battle (it passes to nobody).
+   */
+  private checkBanner(): void {
+    for (const side of [0, 1] as Side[]) {
+      const id = this.bearers[side];
+      if (id < 0 || this.stdLost[side] || this.units[id].state !== 'dead') continue;
+      const b = this.units[id];
+      this.stdLost[side] = true;
+      const R = STANDARD_RULES;
+      const r2 = R.lossRadius * R.lossRadius;
+      for (const o of this.units) {
+        if (o.side === side) this.stdIn[o.id] = 0;
+        if (o.state !== 'ready' || this.beast(o) || (o.x - b.x) ** 2 + (o.y - b.y) ** 2 > r2) continue;
+        if (o.side === side) o.morale -= R.lossSelf;
+        else o.morale = Math.max(o.morale, Math.min(o.stats.morale, o.morale + R.lossEnemy));
+      }
+      this.events.push({ type: 'standardLost', tick: this.tick, side, unit: id });
+    }
   }
 
   // ---------------------------------------------------------------- abilities
@@ -685,7 +1367,123 @@ export class Battle {
         return u.berserk <= 0;
       case 'rally':
         return true;
+      case 'push':
+        return u.engaged && this.frontFoe(u, true) !== null;
+      case 'sunder':
+        return this.frontFoe(u, false) !== null;
+      case 'bond':
+        return this.bondMates(u).length >= 2;
+      case 'warcry':
+        return this.warcryTargets(u).length > 0;
+      case 'aimed':
+        return this.aimedShooters(u).length > 0;
+      case 'recharge':
+        return u.stats.mount !== undefined && !this.regrouping(u.group) && (u.engaged || this.nearestEnemyDist(u.side, u.x, u.y) <= ABILITY_RULES.rechargeRange);
+      case 'scythe':
+        return u.stats.mount === 'chariot' && this.runs[u.id] === undefined && this.scythePathClear(u);
     }
+    return false;
+  }
+
+  /** Whether a timed active effect (stagger, sunder, ...) is on for unit id. */
+  private on(ends: number[], id: number): boolean {
+    return (ends[id] ?? 0) > this.tick;
+  }
+
+  /**
+   * The ready enemy man in front within reach that Push of Pike or Sunder
+   * would strike (abilities.md R3). For a push he may not stand braced in a
+   * shield wall facing the pusher, nor be a rider or a chariot (a man cannot
+   * shove a horse back); a myth beast is staggered but not moved.
+   */
+  frontFoe(u: SimUnit, push: boolean): SimUnit | null {
+    const reach = Math.max(ABILITY_RULES.pushRange, u.stats.reach);
+    let best: SimUnit | null = null;
+    let bestScore = -Infinity;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      const d = Math.sqrt((e.x - u.x) ** 2 + (e.y - u.y) ** 2);
+      if (d > reach + u.rad + e.rad) continue;
+      const front = this.facingDot(u, e);
+      if (front < 0.3) continue;
+      if (push && (e.stats.mount !== undefined || (this.braces(this.groups[e.group]) && e.stats.canShieldWall && this.facingDot(e, u) > 0.3))) continue;
+      const score = front - d + (e.id === u.targetId ? 0.5 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /** Sacred Bond holders standing within bondRadius of u, u included (abilities.md R3). */
+  bondMates(u: SimUnit): SimUnit[] {
+    const r2 = ABILITY_RULES.bondRadius ** 2;
+    return this.units.filter((a) => a.side === u.side && a.state === 'ready' && a.abil.includes('bond') && (a.x - u.x) ** 2 + (a.y - u.y) ** 2 <= r2);
+  }
+
+  /** Enemies a War-cry would shake: ready men within warcryRadius in front of u. */
+  warcryTargets(u: SimUnit): SimUnit[] {
+    const r2 = ABILITY_RULES.warcryRadius ** 2;
+    return this.units.filter((e) => e.side !== u.side && e.state === 'ready' && (e.x - u.x) ** 2 + (e.y - u.y) ** 2 <= r2 && this.facingDot(u, e) > 0);
+  }
+
+  /**
+   * Shooters of u's group who would loose in an Aimed Volley, each with the
+   * nearest ready man of the target group in range (abilities.md R3). The
+   * target group is the group's focus (formations-orders.md R4) unless one is
+   * given (the bot weighs a group before it focuses it).
+   */
+  aimedShooters(u: SimUnit, target = this.groups[u.group].focus ?? -1): { s: SimUnit; t: SimUnit }[] {
+    const out: { s: SimUnit; t: SimUnit }[] = [];
+    if (target < 0) return out;
+    for (const s of this.units) {
+      if (s.group !== u.group || s.state !== 'ready' || s.ammo <= 0 || s.stats.range <= 0 || s.stun > 0) continue;
+      let t: SimUnit | null = null;
+      let td = Infinity;
+      for (const e of this.units) {
+        if (e.group !== target || e.state !== 'ready') continue;
+        const d = Math.sqrt((e.x - s.x) ** 2 + (e.y - s.y) ** 2);
+        if (d <= s.stats.range + this.rangeBonus(s, e) && d > 1.4 && d < td) {
+          td = d;
+          t = e;
+        }
+      }
+      if (t) out.push({ s, t });
+    }
+    return out;
+  }
+
+  /** Riders of this group are regrouping for a Re-charge. */
+  regrouping(groupId: number): boolean {
+    return (this.regroupAt[groupId] ?? 0) > this.tick;
+  }
+
+  /** A Scythe Run's 6 paces ahead stay on the field and clear of rocks and sea (abilities.md R3). */
+  private scythePathClear(u: SimUnit): boolean {
+    for (let d = 0.5; d <= ABILITY_RULES.scytheRun + 1e-9; d += 0.5) {
+      const x = u.x + u.fx * d;
+      const y = u.y + u.fy * d;
+      if (x < u.rad || y < u.rad || x > this.width - u.rad || y > this.height - u.rad) return false;
+      if (this.terrain && this.terrain.blocked(x, y)) return false;
+    }
+    return true;
+  }
+
+  /** Ready enemies within scytheWidth of a Scythe Run's path ahead of u (the bot runs at 3 or more). */
+  scytheVictims(u: SimUnit): number {
+    const L = ABILITY_RULES.scytheRun;
+    let n = 0;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      const dx = e.x - u.x;
+      const dy = e.y - u.y;
+      const along = dx * u.fx + dy * u.fy;
+      if (along < 0 || along > L) continue;
+      const across = Math.abs(dx * u.fy - dy * u.fx);
+      if (across <= ABILITY_RULES.scytheWidth + e.rad) n++;
+    }
+    return n;
   }
 
   /** The enemy a shield bash would hit: a ready man close in front. */
@@ -784,7 +1582,10 @@ export class Battle {
         for (const a of this.units) {
           if (a.side !== u.side || !this.isAlive(a)) continue;
           if ((a.x - u.x) ** 2 + (a.y - u.y) ** 2 > r2) continue;
-          if (a.state === 'routing') {
+          if (a.state === 'routing' && !this.canRally(a)) {
+            // a broken army: the rally restores heart but turns no routers back (R6)
+            a.morale = Math.max(a.morale, a.stats.morale * (RULES.rallyFraction + 0.1));
+          } else if (a.state === 'routing') {
             a.state = 'ready';
             a.momentum = 0;
             a.morale = Math.max(a.morale, a.stats.morale * (RULES.rallyFraction + 0.1));
@@ -798,9 +1599,174 @@ export class Battle {
         }
         break;
       }
+      case 'push': {
+        // Push of Pike: the foe is shoved back and staggered (no blow, half block), and shaken.
+        const t = this.frontFoe(u, true);
+        if (!t) return false;
+        u.lastAttackTick = this.tick;
+        if (t.stats.boss === undefined) this.shove(t, u, R.pushShove); // a myth beast is staggered, not moved
+        this.stagger[t.id] = this.tick + R.pushStagger;
+        t.cooldown = Math.max(t.cooldown, R.pushStagger);
+        t.momentum = 0;
+        t.morale -= R.pushMorale * this.ml(t);
+        this.contactEvent(this.groups[u.group]);
+        targets.push(t.id);
+        break;
+      }
+      case 'sunder': {
+        // Sunder: the man in front loses his block and some armour for a while.
+        const t = this.frontFoe(u, false);
+        if (!t) return false;
+        u.lastAttackTick = this.tick;
+        this.sunderT[t.id] = this.tick + R.sunderTicks;
+        this.contactEvent(this.groups[u.group]);
+        targets.push(t.id);
+        break;
+      }
+      case 'bond': {
+        // Sacred Bond: every holder within bondRadius is bonded (the group's holders then wait out the cooldown).
+        const mates = this.bondMates(u);
+        if (mates.length < 2) return false;
+        for (const a of mates) {
+          this.bondT[a.id] = this.tick + R.bondTicks;
+          targets.push(a.id);
+        }
+        break;
+      }
+      case 'warcry': {
+        // War-cry: the enemy in front loses heart (more out of a shield wall); allies close by hit with more shock.
+        const foes = this.warcryTargets(u);
+        if (foes.length === 0) return false;
+        for (const e of foes) {
+          const wall = this.groups[e.group].shieldWall && e.stats.canShieldWall;
+          e.morale -= R.warcryMorale * (wall ? 1 : R.warcryOpen) * this.ml(e);
+          targets.push(e.id);
+        }
+        const r2 = R.warcryAllyRadius ** 2;
+        for (const a of this.units) {
+          if (a.side === u.side && a.state === 'ready' && (a.x - u.x) ** 2 + (a.y - u.y) ** 2 <= r2) this.shockT[a.id] = this.tick + R.warcryTicks;
+        }
+        break;
+      }
+      case 'aimed': {
+        // Aimed Volley: each shooter of the group in range looses aimedShots careful shots at the focused group, from a reserve sheaf.
+        const shooters = this.aimedShooters(u);
+        if (shooters.length === 0) return false;
+        for (const { s, t } of shooters) {
+          for (let k = 0; k < R.aimedShots; k++) {
+            this.shoot(s, t, R.aimedDamage, R.aimedAccuracy);
+            s.ammo++;
+          }
+          targets.push(s.id);
+        }
+        break;
+      }
+      case 'recharge': {
+        // Wheel and Re-charge: the riders break off at once and ride back to regroup; their next charge lands harder.
+        const g = this.groups[u.group];
+        const riders = this.activeMembers(g.id).filter((a) => a.stats.mount !== undefined);
+        const c = this.centroid(g.id);
+        if (riders.length === 0 || !c) return false;
+        let foe: SimUnit | null = null;
+        let fd = Infinity;
+        for (const e of this.units) {
+          if (e.side === u.side || e.state !== 'ready') continue;
+          const d = (e.x - c.x) ** 2 + (e.y - c.y) ** 2;
+          if (d < fd) {
+            fd = d;
+            foe = e;
+          }
+        }
+        let ax = foe ? c.x - foe.x : -g.formation.fx;
+        let ay = foe ? c.y - foe.y : -g.formation.fy;
+        const al = Math.sqrt(ax * ax + ay * ay);
+        if (al < 1e-6) {
+          ax = -g.formation.fx;
+          ay = -g.formation.fy;
+        } else {
+          ax /= al;
+          ay /= al;
+        }
+        const f = g.formation;
+        f.cx = clamp(c.x + ax * R.rechargeBack, 1, this.width - 1);
+        f.cy = clamp(c.y + ay * R.rechargeBack, 1, this.height - 1);
+        f.fx = -ax;
+        f.fy = -ay;
+        g.shieldWall = false;
+        g.order = 'fallback';
+        g.fallbackLeft = R.rechargeBack;
+        this.faceTo[g.id] = undefined;
+        this.regroupAt[g.id] = this.tick + R.rechargeRegroup;
+        this.reassign(g.id);
+        for (const a of riders) {
+          a.engaged = false;
+          a.targetId = -1;
+          a.momentum = 0;
+          this.chargeT[a.id] = this.tick + R.rechargeTicks;
+          targets.push(a.id);
+        }
+        break;
+      }
+      case 'scythe':
+        // Scythe Run: the chariot drives scytheRun paces along its facing (runScythe, each tick).
+        if (this.runs[u.id] !== undefined) return false;
+        this.runs[u.id] = { left: R.scytheRun, hit: new Set() };
+        targets.push(u.id);
+        break;
     }
     this.events.push({ type: 'ability', tick: this.tick, unit: u.id, ability: id, targets });
     return true;
+  }
+
+  /**
+   * One tick of a Scythe Run (abilities.md R3): the chariot drives on at the
+   * gallop along its facing; every enemy within scytheWidth of its path is cut
+   * once (base damage x scytheDamage) and shaken (not a beast). Braced spears
+   * in front stop the run with a balk.
+   */
+  private runScythe(u: SimUnit): void {
+    const R = ABILITY_RULES;
+    const run = this.runs[u.id]!;
+    const m = MOUNTS[u.stats.mount!];
+    const top = u.stats.speed * m.gallop;
+    for (const e of this.units) {
+      if (e.side === u.side || e.state !== 'ready') continue;
+      const r = u.rad + e.rad + 0.15;
+      if ((e.x - u.x) ** 2 + (e.y - u.y) ** 2 > r * r || this.facingDot(u, e) < 0.3) continue;
+      if (e.stats.weapon === 'spear' && e.stats.canShieldWall && this.braces(this.groups[e.group]) && this.facingDot(e, u) > 0.3) {
+        this.runs[u.id] = undefined;
+        u.stun = MOUNTED_RULES.balkStun;
+        u.spd = 0;
+        u.momentum = 0;
+        u.morale -= MOUNTED_RULES.balkMorale * this.ml(u);
+        this.events.push({ type: 'impact', tick: this.tick, unit: u.id, by: e.id });
+        return;
+      }
+    }
+    const step = Math.min(run.left, top * DT * (this.terrain ? this.groundSpeed(u) : 1));
+    const x0 = u.x;
+    const y0 = u.y;
+    this.moveUnit(u, u.fx * step, u.fy * step);
+    u.x = clamp(u.x, u.rad, this.width - u.rad);
+    u.y = clamp(u.y, u.rad, this.height - u.rad);
+    u.vx = u.x - x0;
+    u.vy = u.y - y0;
+    u.spd = top;
+    u.momentum = RULES.chargeMomentumTicks;
+    u.engaged = false;
+    const moved = Math.sqrt(u.vx * u.vx + u.vy * u.vy);
+    run.left -= step;
+    for (const e of this.units) {
+      if (e.side === u.side || !this.isAlive(e) || run.hit.has(e.id)) continue;
+      const w = R.scytheWidth + e.rad;
+      if ((e.x - u.x) ** 2 + (e.y - u.y) ** 2 > w * w) continue;
+      run.hit.add(e.id);
+      if (!this.beast(e)) e.morale -= R.scytheMorale * this.ml(e);
+      this.contactEvent(this.groups[u.group]);
+      this.applyDamage(e, u, u.stats.dmg * R.scytheDamage * this.rng.range(0.8, 1.2), this.hitDirection(e, u.x, u.y), false, 1);
+    }
+    if (m.scythe > 0) this.scythes(u, m, top);
+    if (run.left <= 1e-6 || moved < step * 0.25) this.runs[u.id] = undefined;
   }
 
   /** Recompute which auras touch which units (every half second). */
@@ -818,11 +1784,57 @@ export class Battle {
         }
       }
     }
+    if (this.std) this.updateStandardAura();
   }
 
-  /** Morale damage multiplier for a unit (traits, perks, Will, Steady Presence). */
+  /** R5.2: the standard aura around a standing bearer (suspended while he routs; it follows him when detached). */
+  private updateStandardAura(): void {
+    for (const u of this.units) this.stdIn[u.id] = 0;
+    for (const side of [0, 1] as Side[]) {
+      const b = this.standardBearer(side);
+      if (!b || b.state !== 'ready') continue;
+      const r2 = (STANDARD_RULES.radius + willRadius(b.stats)) ** 2;
+      for (const a of this.units) {
+        if (a.side !== side || a.state !== 'ready') continue;
+        if ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 <= r2) this.stdIn[a.id] = 1;
+      }
+    }
+  }
+
+  /** Bonded men (Sacred Bond on) within bondRadius of t, t included. */
+  private bonded(t: SimUnit): SimUnit[] {
+    const r2 = ABILITY_RULES.bondRadius ** 2;
+    return this.units.filter((a) => a.side === t.side && a.state === 'ready' && this.on(this.bondT, a.id) && (a.x - t.x) ** 2 + (a.y - t.y) ** 2 <= r2);
+  }
+
+  /** F1: morale damage to a bonded man is split equally among the bonded men in range (the total is kept). */
+  private bondShare(t: SimUnit, md: number): void {
+    const mates = this.bonded(t);
+    const share = md / Math.max(1, mates.length);
+    for (const a of mates) a.morale -= share;
+  }
+
+  /** A bonded man does not break while the bonded men around him still average above their rout line (abilities.md R3). */
+  private bondHolds(u: SimUnit): boolean {
+    const mates = this.bonded(u);
+    if (mates.length < 2) return false;
+    let m = 0;
+    let r = 0;
+    for (const a of mates) {
+      m += a.morale;
+      r += a.stats.morale * (a.stats.routAt ?? RULES.routFraction);
+    }
+    return m > r;
+  }
+
+  /**
+   * Morale damage multiplier for a unit (traits, perks, Will, Steady Presence,
+   * the standard). F2: Steady Presence and the standard do not stack; the
+   * larger reduction (Steady's) applies.
+   */
   ml(u: SimUnit): number {
-    return u.stats.moraleLoss * (u.aura & AURAS.steady.bit ? AURA_RULES.steadyMoraleLoss : 1) * (this.pw ? this.pw.ml(u) : 1);
+    const aura = u.aura & AURAS.steady.bit ? AURA_RULES.steadyMoraleLoss : this.std && this.stdIn[u.id] === 1 ? STANDARD_RULES.moraleLoss : 1;
+    return u.stats.moraleLoss * aura * (this.pw ? this.pw.ml(u) : 1);
   }
 
   /**
@@ -904,8 +1916,9 @@ export class Battle {
     const mem = this.activeMembers(groupId);
     if (mem.length === 0) return;
     const f = g.formation;
+    if (f.type === 'orb') this.orbR[groupId] = orbRings(mem.length).r;
     const slots = formationSlots(f, mem.length);
-    const cands = mem.map((u) => ({ id: u.id, x: u.x, y: u.y, priority: slotPriority(u) }));
+    const cands = mem.map((u) => ({ id: u.id, x: u.x, y: u.y, priority: this.std && u.id === this.bearers[u.side] ? STANDARD_RULES.rank : slotPriority(u) }));
     const map = assignSlots(f, cands, slots);
     const r = rightOf(f.fx, f.fy);
     for (const u of mem) {
@@ -924,8 +1937,9 @@ export class Battle {
       const p = this.slotPos(u);
       u.x = clamp(p.x, 0.3, this.width - 0.3);
       u.y = clamp(p.y, 0.3, this.height - 0.3);
-      u.fx = g.formation.fx;
-      u.fy = g.formation.fy;
+      const o = this.outward(u, g);
+      u.fx = o ? o.x : g.formation.fx;
+      u.fy = o ? o.y : g.formation.fy;
     }
     this.myth?.arrange();
   }
@@ -981,6 +1995,7 @@ export class Battle {
     this.tick++;
 
     for (const bot of this.bots) bot.think(this);
+    if (this.std && this.tick % 10 === 0) this.botRaise();
     if (this.tick % 10 === 1) this.updateAuras();
     this.pw?.tick();
 
@@ -988,23 +2003,33 @@ export class Battle {
       for (const g of this.groups) if (!g.disbanded && !g.individual) this.reassign(g.id);
     }
     this.updateGroups();
+    this.shotScan = this.groups.map(() => 0);
     for (const u of this.units) this.updateUnit(u);
+    this.updateFocus();
     this.separate();
+    if (this.worksOn) this.crossStakes();
     this.myth?.afterMove();
     this.updateProjectiles();
+    this.contractOrbs();
+    if (this.std) this.checkBanner();
     this.updateGroupStates();
+    if (this.tick % TICK_RATE === 0) this.updateArmyBreak();
     this.checkEnd();
   }
 
   private updateGroups(): void {
+    const cent = this.feints.some((f) => f !== undefined) ? this.groups.map((g) => this.centroid(g.id)) : [];
     for (const g of this.groups) {
       if (g.disbanded) continue;
+      if (this.feints[g.id]) this.updateFeint(g, cent);
       const mem = this.activeMembers(g.id);
       if (mem.length === 0) continue;
       const f = g.formation;
       let pace = Infinity;
       for (const u of mem) pace = Math.min(pace, this.walkSpeed(u, g));
       g.contact = mem.some((u) => u.engaged);
+      const want = this.faceTo[g.id];
+      if (want) this.wheel(g, mem, want);
       if (g.order === 'advance' || g.order === 'charge') {
         if (!g.contact) {
           // Stop the formation anchor when the front is close to the enemy.
@@ -1021,8 +2046,41 @@ export class Battle {
         f.cy = clamp(f.cy - f.fy * step, 0.5, this.height - 0.5);
         g.fallbackLeft -= step;
         if (g.fallbackLeft <= 0) g.order = 'hold';
+      } else if (g.order === 'feint') {
+        // Run back at full speed, clamped to the field (R3.2; the turn-about is in updateFeint).
+        const step = pace * RULES.feintPace * DT;
+        f.cx = clamp(f.cx - f.fx * step, 0.5, this.width - 0.5);
+        f.cy = clamp(f.cy - f.fy * step, 0.5, this.height - 0.5);
       }
     }
+  }
+
+  /**
+   * One tick of a `face` on a moving group (formations-orders.md R1.4): the
+   * formation pivots on its centre at the turn rate. A group in melee does not
+   * turn (its men keep facing their foes); a group that has stopped finishes
+   * the turn at once, as a `face` on a holding group does.
+   */
+  private wheel(g: SimGroup, mem: SimUnit[], want: { fx: number; fy: number }): void {
+    const f = g.formation;
+    const moving = g.order !== 'hold';
+    if (moving && g.contact) return;
+    const turn = mem.some((u) => u.stats.mount !== undefined) ? TURN_HORSE : TURN_FOOT;
+    const dot = f.fx * want.fx + f.fy * want.fy;
+    if (!moving || dot >= turn.c) {
+      f.fx = want.fx;
+      f.fy = want.fy;
+      this.faceTo[g.id] = undefined;
+      this.reassign(g.id);
+      return;
+    }
+    // Turn the short way round (a half turn goes clockwise).
+    const s = f.fx * want.fy - f.fy * want.fx >= 0 ? turn.s : -turn.s;
+    const nx = f.fx * turn.c - f.fy * s;
+    const ny = f.fx * s + f.fy * turn.c;
+    const l = Math.sqrt(nx * nx + ny * ny);
+    f.fx = nx / l;
+    f.fy = ny / l;
   }
 
   private nearestEnemyDist(side: Side, x: number, y: number): number {
@@ -1039,9 +2097,21 @@ export class Battle {
     return u.stamina < RULES.lowStamina ? 0.75 : 1;
   }
 
+  /** In an orb a man faces away from its centre (R2.1); null in any other shape. */
+  private outward(u: SimUnit, g: SimGroup): { x: number; y: number } | null {
+    const f = g.formation;
+    if (f.type !== 'orb') return null;
+    const r = rightOf(f.fx, f.fy);
+    const x = r.x * u.slotLat - f.fx * u.slotDep;
+    const y = r.y * u.slotLat - f.fy * u.slotDep;
+    const l = Math.sqrt(x * x + y * y);
+    return l > 1e-6 ? { x: x / l, y: y / l } : null;
+  }
+
   private walkSpeed(u: SimUnit, g: SimGroup): number {
     let s = u.stats.speed * this.fatigue(u);
     if (g.shieldWall && u.stats.canShieldWall) s *= RULES.shieldWallSpeed;
+    if (g.formation.type === 'orb') s *= RULES.orbSpeed;
     if (u.berserk > 0) s *= 1.1;
     if (this.terrain) s *= this.groundSpeed(u);
     return s;
@@ -1069,7 +2139,13 @@ export class Battle {
       return;
     }
     if (u.state === 'routing') {
+      if (this.actives) this.runs[u.id] = undefined;
       this.updateRouting(u);
+      return;
+    }
+    if (this.actives && this.runs[u.id] !== undefined) {
+      this.runScythe(u);
+      this.updateMorale(u, 0);
       return;
     }
 
@@ -1078,6 +2154,10 @@ export class Battle {
     let nearestD = Infinity;
     let melee: SimUnit | null = null;
     let meleeScore = -Infinity;
+    // Focus fire (formations-orders.md R4): the closest ready man of the focused group.
+    const focusG = g.focus ?? -1;
+    let focusT: SimUnit | null = null;
+    let focusD = Infinity;
     const reach0 = u.stats.reach + UNIT_RADIUS * 2;
     const myth = this.myth;
     for (const e of this.units) {
@@ -1091,6 +2171,10 @@ export class Battle {
       if (e.state === 'ready' && d < nearestD) {
         nearestD = d;
         nearest = e;
+      }
+      if (e.group === focusG && e.state === 'ready' && d < focusD) {
+        focusD = d;
+        focusT = e;
       }
       if (vis === 2 && d <= (this.big ? u.stats.reach + u.rad + e.rad : reach0)) {
         // Prefer enemies in front of us, then the closest; ready over routing.
@@ -1111,21 +2195,32 @@ export class Battle {
       return;
     }
     const mount = this.mountOf(u);
+    // Who is in range this tick (the shot below, and the group's HUD states).
+    let nearIn = false;
+    let focusIn = false;
+    if (u.ammo > 0 && u.stats.range > 0) {
+      nearIn = nearest !== null && nearestD <= u.stats.range + (this.terrain ? this.rangeBonus(u, nearest) : 0);
+      focusIn = focusT !== null && focusD <= u.stats.range + (this.terrain ? this.rangeBonus(u, focusT) : 0);
+      this.shotScan[g.id] |= 1 | (nearIn ? 2 : 0) | (focusIn ? 4 : 0);
+    }
 
     const slot = this.slotPos(u);
     let moveX = 0;
     let moveY = 0;
     let speed = this.walkSpeed(u, g);
-    let faceX = g.formation.fx;
-    let faceY = g.formation.fy;
+    const out = this.outward(u, g);
+    let faceX = out ? out.x : g.formation.fx;
+    let faceY = out ? out.y : g.formation.fy;
     let running = false;
+    // Falling back or feinting: men leave the melee and do not stop to shoot or turn (R3.2).
+    const back = g.order === 'fallback' || g.order === 'feint';
 
     // A chariot at speed does not stop to fight: it drives on through (scythes, a blow in passing).
     // So does a rider at the gallop among men with no shield wall to stop him: he rides them down and wheels back.
     const driveThrough =
       mount !== null && g.order === 'charge' && (mount.id === 'chariot' || u.spd > 1.5) && (mount.id === 'chariot' || (melee !== null && melee.stats.kind !== 'animal' && !melee.stats.mount && (melee.stats.shield === 'none' || melee.stats.role !== 'melee')));
     if (driveThrough && melee && u.cooldown <= 0 && this.facingDot(u, melee) > -0.2) this.meleeAttack(u, melee);
-    if (melee && g.order !== 'fallback' && !driveThrough) {
+    if (melee && !back && !driveThrough) {
       u.targetId = melee.id;
       faceX = melee.x - u.x;
       faceY = melee.y - u.y;
@@ -1149,9 +2244,9 @@ export class Battle {
       let shootTarget: SimUnit | null = null;
       // Riders shoot (or throw) on the move, and even while falling back.
       const mobile = mount !== null && u.stats.range > 0;
-      if (canShoot && nearest && (g.order !== 'fallback' || mobile) && (slotD < 0.8 || g.role === 'skirmish' || g.order === 'charge' || mobile)) {
-        const range = u.stats.range + (this.terrain ? this.rangeBonus(u, nearest) : 0);
-        if (nearestD <= range && nearestD > 1.4) shootTarget = nearest;
+      if (canShoot && nearest && (!back || mobile) && (slotD < 0.8 || g.role === 'skirmish' || g.order === 'charge' || mobile)) {
+        if (focusIn && focusD > 1.4) shootTarget = focusT;
+        else if (nearIn && nearestD > 1.4) shootTarget = nearest;
       }
       if (shootTarget && mobile) {
         // A Parthian shot: no need to face the target or to stop.
@@ -1193,6 +2288,12 @@ export class Battle {
         moveY = slotDy;
         if (g.order === 'fallback') {
           speed *= 0.6; // walk backwards, keep facing
+        } else if (g.order === 'feint') {
+          // The feint: turn and run (the turn-about faces the enemy again).
+          speed = u.stats.speed * this.fatigue(u) * RULES.feintPace;
+          if (this.terrain) speed *= this.groundSpeed(u);
+          faceX = slotDx;
+          faceY = slotDy;
         } else if (slotD > 2.5 && g.order !== 'hold') {
           speed = u.stats.speed * this.fatigue(u) * 1.4;
           if (this.terrain) speed *= this.groundSpeed(u);
@@ -1200,12 +2301,12 @@ export class Battle {
         } else if (slotD > 1.5) {
           speed *= 1.25;
         }
-        if (g.order !== 'fallback' && slotD > 1.2) {
+        if (!back && slotD > 1.2) {
           faceX = slotDx;
           faceY = slotDy;
         }
         // Wheel to face a close threat
-        if (nearest && nearestD < 3 && g.order !== 'fallback') {
+        if (nearest && nearestD < 3 && !back) {
           faceX = nearest.x - u.x;
           faceY = nearest.y - u.y;
         }
@@ -1542,7 +2643,7 @@ export class Battle {
       u.engaged = false;
       return;
     }
-    if (u.morale >= u.stats.morale * RULES.rallyFraction && nearD > 5 && u.stats.kind !== 'animal') {
+    if (u.morale >= u.stats.morale * RULES.rallyFraction && nearD > 5 && u.stats.kind !== 'animal' && this.canRally(u)) {
       u.state = 'ready';
       u.momentum = 0;
       this.events.push({ type: 'rally', tick: this.tick, unit: u.id });
@@ -1557,6 +2658,9 @@ export class Battle {
     }
     if (u.aura & AURAS.steady.bit && u.morale < u.stats.morale) {
       u.morale = Math.min(u.stats.morale, u.morale + AURA_RULES.steadyRegen * DT);
+    }
+    if (this.std && this.stdIn[u.id] === 1 && !u.engaged && u.morale < u.stats.morale) {
+      u.morale = Math.min(u.stats.morale, u.morale + STANDARD_RULES.regen * DT);
     }
     if (u.engaged && this.tick % 10 === 0) {
       let allies = 0;
@@ -1577,7 +2681,7 @@ export class Battle {
     if (this.special && this.tick % 10 === 0 && u.stats.kind !== 'animal' && !u.stats.mount) {
       // Men on foot dread horses close by, unless they stand in a wall of spears.
       const g = this.groups[u.group];
-      if (!(g.shieldWall && u.stats.weapon === 'spear' && u.stats.canShieldWall)) {
+      if (!(this.braces(g) && u.stats.weapon === 'spear' && u.stats.canShieldWall)) {
         let horses = 0;
         for (const e of this.units) {
           if (e.side === u.side || e.state !== 'ready' || !e.stats.mount) continue;
@@ -1601,10 +2705,11 @@ export class Battle {
       }
       routAt -= r.bonus;
     }
-    if (u.morale < routAt && u.state === 'ready') this.rout(u);
+    if (u.morale < routAt && u.state === 'ready' && !(this.actives && this.on(this.bondT, u.id) && this.bondHolds(u))) this.rout(u);
   }
 
   private rout(u: SimUnit): void {
+    this.orbLost(u);
     u.state = 'routing';
     u.engaged = false;
     u.momentum = 0;
@@ -1651,6 +2756,12 @@ export class Battle {
 
   /** Direction an attack from (ax, ay) lands on target t, judged by t's facing. */
   hitDirection(t: SimUnit, ax: number, ay: number): HitDir {
+    // The orb has no flanks (R2.2): any blow from outside the ring lands on its front; a breach uses the normal rule.
+    const tg = this.groups[t.group];
+    if (tg.formation.type === 'orb' && t.state === 'ready' && !tg.individual) {
+      const f = tg.formation;
+      if ((ax - f.cx) ** 2 + (ay - f.cy) ** 2 > (this.orbR[tg.id] ?? 0) ** 2) return 'front';
+    }
     const dx = ax - t.x;
     const dy = ay - t.y;
     const d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1663,6 +2774,7 @@ export class Battle {
   /** Probability that target t blocks an attack from the given direction. */
   blockChance(t: SimUnit, dir: HitDir, pierce: number, missile: boolean): number {
     if (t.stats.shield === 'none' || t.state !== 'ready' || dir === 'rear' || t.daze > 0) return 0;
+    if (this.actives && this.on(this.sunderT, t.id)) return 0; // Sundered: his guard is broken
     const g = this.groups[t.group];
     let b = t.stats.block;
     if (dir === 'side') b *= RULES.sideBlockFactor;
@@ -1673,9 +2785,11 @@ export class Battle {
       if (d.noWall) wall = false;
     }
     if (wall) b += RULES.shieldWallBlock;
+    if (this.disordered(t.group)) b -= RULES.disorderBlock;
     if (missile) b *= RULES.missileBlockFactor;
     b *= this.fatigue(t);
     if (t.berserk > 0) b *= ABILITY_RULES.berserkBlock;
+    if (this.actives && this.on(this.stagger, t.id)) b *= ABILITY_RULES.pushBlock; // staggered by a Push of Pike
     if (this.pw) b += this.pw.blockBonus(t);
     b -= pierce;
     return clamp(b, 0, 0.85);
@@ -1690,6 +2804,8 @@ export class Battle {
     u.lastAttackTick = this.tick;
     u.stamina = Math.max(0, u.stamina - 3);
     u.wear.weapon += 0.12;
+    // A Wheel and Re-charge: the riders break away with no free hits against them while they regroup (abilities.md R3).
+    if (this.actives && t.stats.mount !== undefined && this.regrouping(t.group)) return;
     const dir = this.hitDirection(t, u.x, u.y);
     this.contactEvent(g);
     this.contactEvent(tg);
@@ -1697,7 +2813,7 @@ export class Battle {
     const impact = u.momentum >= RULES.chargeMomentumTicks;
     const rider = u.stats.mount ? MOUNTS[u.stats.mount] : null;
     // A horse shies from the points of a braced spear wall in front of it.
-    const shy = rider !== null && !impact && t.stats.weapon === 'spear' && tg.shieldWall && t.stats.canShieldWall && dir === 'front';
+    const shy = rider !== null && !impact && t.stats.weapon === 'spear' && this.braces(tg) && t.stats.canShieldWall && dir === 'front';
     if (!this.rng.chance(RULES.meleeHit + (t.stamina < RULES.lowStamina ? 0.08 : 0) + (rider && impact ? 0.15 : 0) - (shy ? MOUNTED_RULES.shyHit : 0))) {
       u.momentum = 0;
       if (rider) u.spd *= MOUNTED_RULES.impactKeep + 0.3;
@@ -1705,7 +2821,7 @@ export class Battle {
     }
     // Trees and water break up a braced wall: its men cannot set their spears together.
     const tGround = this.terrain ? this.terrain.at(t.x, t.y) : TERRAIN.open;
-    const braced = tg.shieldWall && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3 && !tGround.noWall && tGround.braceMult >= 0.5;    if (impact && braced) {
+    const braced = this.braces(tg) && t.stats.canShieldWall && dir === 'front' && this.facingDot(t, u) > 0.3 && !tGround.noWall && tGround.braceMult >= 0.5;    if (impact && braced) {
       // The charge breaks on a braced wall: the attacker is checked and winded.
       u.stun = RULES.bracedBounceStun;
       u.stamina = Math.max(0, u.stamina - 8);
@@ -1738,14 +2854,19 @@ export class Battle {
       return;
     }
     let dmg = u.stats.dmg * this.rng.range(0.8, 1.2) * RULES.dirDamage[dir];
+    if (this.feintBlow.delete(u.id)) dmg *= 1 + RULES.feintBlow; // the first blow after a feint's turn-about
     if (fury) dmg *= ABILITY_RULES.berserkDamage;
     if (u.aura & AURAS.warlord.bit) dmg *= AURA_RULES.warlordDamage;
     if (t.daze > 0) dmg *= ABILITY_RULES.dazeDamage;
     // High ground: blows from above land harder, blows from below weaker.
     const hd = this.terrain ? this.heightDiff(u.x, u.y, t.x, t.y) : 0;
-    if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.meleeDown;
+    if (this.worksOn && this.inDitch(t) && !this.inDitch(u)) {
+      // F1: a blow from the lip on a man in a ditch; the larger of it and the height factor applies
+      dmg *= Math.max(hd > 0 ? 1 + hd * HEIGHT_RULES.meleeDown : hd < 0 ? 1 + hd * HEIGHT_RULES.meleeUp : 1, WORKS.ditchMult);
+    } else if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.meleeDown;
     else if (hd < 0) dmg *= 1 + hd * HEIGHT_RULES.meleeUp;
     let moraleMult = 1 + u.stats.moraleShock + (fury ? ABILITY_RULES.berserkShock : 0);
+    if (this.actives && this.on(this.shockT, u.id)) moraleMult += ABILITY_RULES.warcryShock; // a War-cry's allies
     // Momentum, Unshaken and War Cry's shock bend a charge's impact
     const ch = impact && this.pw ? this.pw.charge(u, t) : null;
     if (ch) {
@@ -1755,7 +2876,10 @@ export class Battle {
     if (impact && rider) {
       // A mounted charge: the faster the horse, the harder the blow.
       const sr = clamp(u.spd / Math.max(0.1, this.gallopSpeed(u)), 0.4, 1.15);
-      dmg *= RULES.chargeImpact + u.stats.chargeBonus * 0.6 * sr;
+      // a Wheel and Re-charge: the first charge after the regroup lands harder
+      const re = this.actives && this.on(this.chargeT, u.id) ? ABILITY_RULES.rechargeBonus : 0;
+      if (re > 0) this.chargeT[u.id] = 0;
+      dmg *= RULES.chargeImpact + (u.stats.chargeBonus + re) * 0.6 * sr;
       if (this.terrain) dmg *= this.terrain.at(u.x, u.y).cavCharge;
       if (hd > 0) dmg *= 1 + hd * HEIGHT_RULES.chargeDown;
       moraleMult += 0.8;
@@ -1853,6 +2977,7 @@ export class Battle {
       raw = this.pw.dmgIn(t, raw, dir);
       armor = Math.max(0, armor - this.pw.rended(t));
     }
+    if (this.actives && this.on(this.sunderT, t.id)) armor = Math.max(0, armor - ABILITY_RULES.sunderArmor);
     if (ap) armor *= 1 - ap;
     const dmg = Math.max(0.5, (raw * RULES.damageScale * RULES.armorK) / (RULES.armorK + armor));
     t.hp -= dmg;
@@ -1860,7 +2985,9 @@ export class Battle {
     t.wear.armor += 0.5;
     t.wear.helmet += 0.3;
     by.dmgDealt += dmg;
-    t.morale -= dmg * RULES.moraleFromDamage * RULES.dirMorale[dir] * this.ml(t) * moraleMult * (ranged ? 0.8 : 1) * (t.stats.kind === 'animal' ? MOUNTED_RULES.beastPain : 1);
+    const md = dmg * RULES.moraleFromDamage * RULES.dirMorale[dir] * this.ml(t) * moraleMult * (ranged ? 0.8 : 1) * (t.stats.kind === 'animal' ? MOUNTED_RULES.beastPain : 1);
+    if (this.actives && t.state === 'ready' && this.on(this.bondT, t.id)) this.bondShare(t, md);
+    else t.morale -= md;
     this.events.push({ type: 'hit', tick: this.tick, unit: t.id, by: by.id, dmg, dir, ranged });
     if (dir !== 'front' && t.state === 'ready') {
       const g = this.groups[t.group];
@@ -1877,6 +3004,7 @@ export class Battle {
   /** @internal also used by src/sim/powers.ts (Retribution) */
   kill(t: SimUnit, by: SimUnit): void {
     if (this.myth && t.state === 'dead') return;
+    this.orbLost(t);
     t.hp = 0;
     t.state = 'dead';
     t.engaged = false;
@@ -1922,6 +3050,7 @@ export class Battle {
     const lead = dur * 0.6;
     const eagle = (u.aura & AURAS.eagle.bit) !== 0;
     let acc = Math.min(0.97, u.stats.accuracy + accBonus + (eagle ? AURA_RULES.eagleAccuracy : 0));
+    if (this.groups[u.group].formation.type === 'orb') acc *= RULES.orbAccuracy;
     if (this.pw) acc = Math.max(0.1, acc - this.pw.shroud(t));
     let spread = (1 - acc) * (0.35 + d * 0.09);
     if (u.stats.mount && u.spd > 1) spread *= MOUNTED_RULES.movingScatter;
@@ -2073,6 +3202,25 @@ export class Battle {
     }
   }
 
+  /**
+   * Focus upkeep and the two HUD states (formations-orders.md R4.3, R4.5):
+   * focus clears once the focused group has no man left standing;
+   * focusOutOfRange = focus set and no shooter of the group has a focused man
+   * in range; noTargetS = seconds with shooting on and no enemy in range.
+   */
+  private updateFocus(): void {
+    const ready = this.groups.map(() => 0);
+    for (const u of this.units) if (u.state === 'ready') ready[u.group]++;
+    for (const g of this.groups) {
+      if (g.disbanded) continue;
+      if (g.focus !== undefined && g.focus >= 0 && ready[g.focus] === 0) g.focus = -1;
+      const s = this.shotScan[g.id];
+      const shooters = (s & 1) !== 0;
+      g.focusOutOfRange = (g.focus ?? -1) >= 0 && shooters && (s & 4) === 0;
+      g.noTargetS = g.fireAtWill && shooters && (s & 2) === 0 ? (g.noTargetS ?? 0) + DT : 0;
+    }
+  }
+
   private updateGroupStates(): void {
     for (const g of this.groups) {
       if (g.disbanded) continue;
@@ -2087,9 +3235,97 @@ export class Battle {
       if (!g.routed && routing > 0 && gone / mem.length >= 0.5) {
         g.routed = true;
         this.events.push({ type: 'rout', tick: this.tick, side: g.side, group: g.id });
+        // Not against a myth beast: those fights keep their own fear rules (FO-03 decision; see docs/v5/balance/FO-03.md).
+        if (!this.myth && this.tick >= (this.shockAt[g.id] ?? 0)) this.cohesionShock(g);
       } else if (g.routed && gone / mem.length < 0.5) {
         g.routed = false;
       }
+    }
+  }
+
+  /**
+   * The standard-aura hook of the cohesion shock (formations-orders.md F3,
+   * V5-024): STANDARD_RULES.shock (0.5) for a man inside his side's standard
+   * aura, else 1. abilities.md R5.2 owns the halving; nothing else grants it.
+   * Pure: no state changes.
+   */
+  shockFactor(u: SimUnit): number {
+    return this.std && this.stdIn[u.id] === 1 ? STANDARD_RULES.shock : 1;
+  }
+
+  /** The centre of a group's living men (standing or running), or null. */
+  private groupCentre(groupId: number): { x: number; y: number } | null {
+    let x = 0;
+    let y = 0;
+    let n = 0;
+    for (const u of this.units) {
+      if (u.group !== groupId || !this.isAlive(u)) continue;
+      x += u.x;
+      y += u.y;
+      n++;
+    }
+    return n === 0 ? null : { x: x / n, y: y / n };
+  }
+
+  /** formations-orders.md R5: a group just routed; shake its standing men and the groups near it. */
+  private cohesionShock(g: SimGroup): void {
+    this.shockAt[g.id] = this.tick + RULES.cohesionCooldownS * TICK_RATE;
+    const c = this.groupCentre(g.id);
+    const near: boolean[] = [];
+    if (c) {
+      const r2 = RULES.cohesionRadius * RULES.cohesionRadius;
+      for (const o of this.groups) {
+        if (o.side !== g.side || o.id === g.id || o.disbanded) continue;
+        const oc = this.groupCentre(o.id);
+        near[o.id] = !!oc && (oc.x - c.x) ** 2 + (oc.y - c.y) ** 2 <= r2;
+      }
+    }
+    const targets: number[] = [];
+    for (const u of this.units) {
+      if (u.side !== g.side || u.state !== 'ready') continue;
+      const base = u.group === g.id ? RULES.cohesionSelf : near[u.group] ? RULES.cohesionNear : 0;
+      if (base <= 0) continue;
+      u.morale -= base * this.shockFactor(u);
+      targets.push(u.id);
+    }
+    this.events.push({ type: 'cohesion', tick: this.tick, side: g.side, group: g.id, targets });
+  }
+
+  /** Beasts (animals, myth bosses) keep their own morale rules: they never break (R6). */
+  private beast(u: SimUnit): boolean {
+    return u.stats.kind === 'animal' || u.stats.boss !== undefined;
+  }
+
+  /** Whether a side's army is broken (formations-orders.md R6), as of the last one-second check. */
+  isBroken(side: Side): boolean {
+    return this.broken[side];
+  }
+
+  /** A routing man may turn back: not while his army is broken (R6). */
+  private canRally(u: SimUnit): boolean {
+    return !this.broken[u.side] || this.beast(u);
+  }
+
+  /** formations-orders.md R6, F2: the once-a-second army-break test and its morale drain. */
+  private updateArmyBreak(): void {
+    const contact = this.firstContact[0] || this.firstContact[1];
+    const men: [number, number] = [0, 0];
+    const all: [number, number] = [0, 0];
+    for (const u of this.units) {
+      if (u.state !== 'ready') continue;
+      all[u.side]++;
+      if (!this.beast(u)) men[u.side]++;
+    }
+    for (const side of [0, 1] as Side[]) {
+      const a = men[side];
+      this.broken[side] =
+        contact && a > 0 && a <= RULES.armyBreakShare * this.startMen[side] && a * RULES.armyBreakRatio <= all[1 - side];
+      if (!this.broken[side]) continue;
+      if (!this.brokeOnce[side]) {
+        this.brokeOnce[side] = true;
+        this.events.push({ type: 'armyBreak', tick: this.tick, side });
+      }
+      for (const u of this.units) if (u.side === side && u.state === 'ready' && !this.beast(u)) u.morale -= RULES.armyBreakDrain;
     }
   }
 
@@ -2164,10 +3400,34 @@ export class Battle {
       mix(u.daze);
       for (const c of u.abilCd) mix(c);
       if (u.stats.mount) mix(u.spd);
+      if (this.actives) {
+        // signature actives (AB-02): the timed effects still running, and a Scythe Run's paces left
+        for (const ends of [this.stagger, this.sunderT, this.shockT, this.bondT, this.chargeT]) mix(Math.max(0, (ends[u.id] ?? 0) - this.tick));
+        mix(this.runs[u.id]?.left ?? -1);
+      }
     }
+    if (this.actives) for (const g of this.groups) mix(Math.max(0, (this.regroupAt[g.id] ?? 0) - this.tick));
     if (this.hornSetup) {
       mix(this.horns[0]);
       mix(this.horns[1]);
+    }
+    if (this.std) {
+      // the standard (AB-03): who carries it, whether it was raised or lost, and who stands in its aura
+      for (const side of [0, 1] as Side[]) {
+        mix(this.bearers[side]);
+        mix(this.raised[side] ? 1 : 0);
+        mix(this.stdLost[side] ? 1 : 0);
+      }
+      for (const u of this.units) mix(this.stdIn[u.id] ?? 0);
+    }
+    if (this.worksOn) {
+      // field works (FW-01): the segments placed and who stands in stakes
+      for (const g of this.segs) {
+        mix(g.side);
+        mix(WORK_TYPES.indexOf(g.type));
+        for (const c of g.cells) mix(c);
+      }
+      for (const u of this.units) mix(this.stakeIn[u.id] ?? 0);
     }
     this.myth?.hash(mix);
     this.pw?.hash(mix);
@@ -2180,6 +3440,8 @@ export class Battle {
 }
 
 const SIN60 = 0.8660254037844386;
+/** sin 22.5 degrees: a facing snaps to the nearest of the 8 grid directions (work segments). */
+const SIN22 = 0.3826834323650898;
 const DIAG = Math.SQRT1_2;
 /** Search directions for freePoint, in a fixed order (deterministic). */
 const DIRS8: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0], [DIAG, DIAG], [-DIAG, DIAG], [DIAG, -DIAG], [-DIAG, -DIAG]];

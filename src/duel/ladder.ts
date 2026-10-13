@@ -19,7 +19,7 @@ import { grantXp, makeItem, rollBeastRarity, rollRarity, setBotLevel, type IdSou
 import { randomSite, type BattleSite } from '../world/battlefield';
 import { DEFAULT_FORMATIONS, scopeHero } from '../online/rules';
 import { onlineBattleSetup } from '../online/battle';
-import type { BattleSetup } from '../sim/types';
+import { DEFAULT_DOCTRINE, type BattleSetup, type DoctrineId } from '../sim/types';
 import { DUEL_RULES, heroPoints, teamPoints } from './rules';
 import { SETS } from '../data/sets';
 import { CHAPTER_SET, LADDER_NAMED, SOURCES, armyPick, legendaryHoard, pieceDefs, pityChest } from '../game/sources';
@@ -49,7 +49,29 @@ export const LADDER = {
   ] as readonly { base: number; perChapter: number }[],
   /** The tier whose chest also holds a piece of the chapter's set (src/game/sources.ts CHAPTER_SET). */
   chestItemTier: 3,
+  /**
+   * Minutes a ladder ticket stays open (controls.md R10 LADDER_TICKET_MIN,
+   * V5-021): a ladder battle may pause, so it gets longer than the 10 min of
+   * the other tickets. A run submitted later is still verified but pays nothing.
+   */
+  ticketMin: 30,
+  /** The battle shows the ticket's time left from this many minutes out (controls.md R10). */
+  countdownMin: 5,
 };
+
+/** How long a ladder ticket stays open, in ms (server and demo). */
+export const LADDER_TICKET_TTL_MS = LADDER.ticketMin * 60_000;
+
+/**
+ * A ladder ticket's clock at `now` (both in ms on the same clock): seconds
+ * left (0 once past), whether the battle shows the countdown (the last
+ * `countdownMin` minutes) and whether the ticket has expired (a run reported
+ * then is verified but pays nothing).
+ */
+export function ticketClock(expiresAt: number, now: number): { secs: number; show: boolean; expired: boolean } {
+  const ms = expiresAt - now;
+  return { secs: Math.max(0, Math.ceil(ms / 1000)), show: ms <= LADDER.countdownMin * 60_000, expired: ms < 0 };
+}
 
 const MIXES: ArmyMix[] = ['bandits', 'line', 'raiders', 'hill_tribe', 'mercs', 'pirates', 'deserters', 'cultists', 'line', 'garrison'];
 
@@ -66,6 +88,49 @@ export interface Floor {
   /** Points of the enemy army (shown to the player). */
   points: number;
   reward: { firstGlory: number; farmGlory: number; xp: number };
+  /** How the floor's bot fights (floorDoctrine); missing (old data) = steady. */
+  doctrine: DoctrineId;
+}
+
+/**
+ * The doctrine of each ladder chapter (design/gdd/ai-doctrines.md R4): the
+ * enemy's play gets harder to read as the player climbs.
+ */
+export const CHAPTER_DOCTRINE: readonly DoctrineId[] = ['steady', 'swarm', 'rush', 'hammer', 'fury'];
+
+/**
+ * Floors that do not fight their chapter's doctrine (V5-052: no floor may get
+ * more than 5 pts easier or harder than before doctrines). Each one fought its
+ * chapter doctrine outside that band against its own steady mirror, so it got
+ * the closest doctrine that stays inside it, or steady when none did
+ * (400 seeds, docs/v5/balance/AI-03.md; re-measured for AB-02 in AB-02.md
+ * and for EC-05 in EC-05.md; floor 21 by BAL-02 in FINAL.md).
+ * Re-measure after any sim change: `npm run balance:ladder` (src/dev/ladderParity.ts).
+ */
+const FLOOR_DOCTRINE: Readonly<Record<number, DoctrineId>> = {
+  12: 'fury', 14: 'steady', 15: 'fury', 17: 'steady', 18: 'fury', 19: 'rush',
+  21: 'hammer', 24: 'swarm', 25: 'hammer', 26: 'swarm', 29: 'steady',
+  31: 'swarm', 34: 'swarm', 35: 'steady', 36: 'fury', 38: 'rush', 39: 'rush',
+  41: 'steady', 42: 'steady', 44: 'hammer', 45: 'steady', 46: 'steady', 47: 'rush', 48: 'steady', 49: 'hammer',
+};
+
+/**
+ * Levels a floor's men may rise above the floor's own level while its army
+ * is under its point target (default 2). EC-05: floors 18 and 31 field tier-2
+ * militia, who lost half their spears for clubs and javelins; one more level
+ * of room lets them reach their target (strength within about ±5 pts, V5-052).
+ */
+const FLOOR_LEVEL_ROOM: Readonly<Record<number, number>> = { 18: 3, 31: 3 };
+
+/**
+ * A floor's doctrine (ai-doctrines.md R4): its chapter's doctrine unless
+ * FLOOR_DOCTRINE says otherwise. Boss floors fight steady, not the GDD's
+ * culture rule: a celtic (rush) boss on floor 10 fell from 29% to 15% against
+ * its mirror, outside V5-052's ±5 pts.
+ */
+export function floorDoctrine(floor: number): DoctrineId {
+  if (isBoss(floor)) return DEFAULT_DOCTRINE;
+  return FLOOR_DOCTRINE[floor] ?? CHAPTER_DOCTRINE[chapterOf(floor) - 1] ?? DEFAULT_DOCTRINE;
 }
 
 export function isBoss(floor: number): boolean {
@@ -115,7 +180,7 @@ export function ladderFloor(floor: number): Floor {
       }
     } else if (pts < target - 3) {
       const h = heroes.reduce((x, y) => (y.level < x.level ? y : x));
-      if (h.level >= Math.min(10, level + 2)) break;
+      if (h.level >= Math.min(10, level + (FLOOR_LEVEL_ROOM[f] ?? 2))) break;
       setBotLevel(h, h.level + 1);
     } else break;
   }
@@ -133,12 +198,22 @@ export function ladderFloor(floor: number): Floor {
     site: randomSite(rng),
     points: teamPoints(heroes),
     reward: floorReward(f),
+    doctrine: floorDoctrine(f),
   };
 }
 
-/** The battle of a ladder ticket: the player's team (side 0) against the floor's bots (side 1) on its field. */
+/**
+ * The battle of a ladder ticket: the player's team (side 0) against the
+ * floor's bots (side 1, under the floor's doctrine) on its field. Built by the
+ * server and stored in the ticket, so an old ticket keeps the setup it was
+ * issued with (ADR-0001).
+ */
 export function ladderSetup(seed: number, team: Hero[], formations: FormationType[], floor: Floor): BattleSetup {
-  return onlineBattleSetup(seed, { heroes: team, formations, bot: false }, { heroes: floor.heroes, formations: floor.formations, bot: true }, floor.site);
+  const setup = onlineBattleSetup(seed, { heroes: team, formations, bot: false }, { heroes: floor.heroes, formations: floor.formations, bot: true }, floor.site);
+  setup.armies[1].doctrine = floor.doctrine ?? DEFAULT_DOCTRINE;
+  // A ladder floor is a fight to the end: its bot never retreats (V5-052).
+  setup.armies[1].holdField = true;
+  return setup;
 }
 
 /** The floors a player may fight: every cleared floor and the next one. */

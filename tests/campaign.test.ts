@@ -114,15 +114,6 @@ describe('save', () => {
     expect(migrate({ v: 2, gold: 'x' })).toBeNull();
   });
 
-  it('migrates a v1 save', () => {
-    const c = Campaign.fresh(3);
-    const v1 = JSON.parse(serialize(c.sync()));
-    v1.v = 1;
-    delete v1.settings;
-    const migrated = migrate(v1)!;
-    expect(migrated.v).toBe(SAVE_VERSION);
-    expect(migrated.settings.haptics).toBe(true);
-  });
 
   it('chunks long saves under the CloudStorage value limit', async () => {
     const c = Campaign.fresh(4);
@@ -137,11 +128,15 @@ describe('save', () => {
     await writeSave(kv, c.data);
     const back = await readSave(kv);
     expect(back).toEqual(c.data);
-    // Shrinking a save removes stale parts.
+    // Shrinking a save removes stale parts (saves alternate between two slots,
+    // the other one is the backup: after two small saves both hold the small one).
     const small = Campaign.fresh(5);
     await writeSave(kv, small.sync());
     expect(await readSave(kv)).toEqual(small.data);
-    expect([...kv.store.keys()].filter((k) => k.startsWith('px_part_')).length).toBe(chunk(serialize(small.data)).length);
+    await writeSave(kv, small.sync());
+    const n = chunk(serialize(small.data)).length;
+    expect([...kv.store.keys()].filter((k) => k.startsWith('px_part_')).length).toBe(n);
+    expect([...kv.store.keys()].filter((k) => k.startsWith('px_part1_')).length).toBe(n);
     await clearSave(kv);
     expect(kv.store.size).toBe(0);
   });

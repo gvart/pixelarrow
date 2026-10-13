@@ -15,7 +15,7 @@ import { Rng } from '../src/sim/rng';
 import {
   BEAST_NAMED, BOSS_SET, CHAPTER_SET, HOARD_SETS, LADDER_NAMED, SOURCES, armyClasses, armyPick, bandSetPieces, fitsArmy, legendaryHoard, pityChest,
 } from '../src/game/sources';
-import { hoardItem } from '../src/game/beasts';
+import { bandBeast, hoardItem } from '../src/game/beasts';
 import { makeHero } from '../src/game/heroes';
 import { buildArmy } from '../src/game/enemy';
 import { Campaign } from '../src/game/campaign';
@@ -25,6 +25,11 @@ import { chestItem, chestReward, ladderFloor, ladderPayout } from '../src/duel/l
 import { DemoDuelSource } from '../src/duel/client';
 import { NAMED_POINTS, RARITY_POINTS, SPOILS, duelSpoils, heroPoints, itemPoints, sellPrice, setLines } from '../src/duel/rules';
 import { seasonReward } from '../src/duel/season';
+import { BAND_CAPS, TIER3_RULES, World, lairTier, partyArmy, tier3Band, type PartyState } from '../src/world/world';
+import { dangerAt } from '../src/world/map';
+import { deserialize, type SaveData } from '../src/game/save';
+import { LAIR_HOARD, LAIR_SET, arcSet, arcSetPiece, lairHoard } from '../src/game/sources';
+import { LATE_XP, resolveBattle } from '../src/game/loot';
 
 const WSA = new Set(['weapon', 'shield', 'armor']);
 const fits = (id: string, classes: string[]) => classes.some((c) => classGearBlocker(c, ITEMS[id]) === null);
@@ -404,5 +409,200 @@ describe('every lair beast has its named items', () => {
       expect(BEAST_NAMED[enc].length, enc).toBeGreaterThan(0);
       for (const id of BEAST_NAMED[enc]) expect(ITEMS[id].named, id).toBe(true);
     }
+  });
+});
+
+// ------------------------------------------------------------------ AR-03: tier 3, arc sources, level pacing (campaign-arc.md R3, R6, R7)
+
+const FIXTURES = import.meta.glob<string>('./fixtures/saves/*.json', { eager: true, query: '?raw', import: 'default' });
+
+const fallLairs = (w: World, n: number) => {
+  for (const st of w.map.settlements.filter((s) => s.kind === 'lair').slice(0, n)) w.s.lairs[st.id] = { fallen: true, lost: 0, lostAt: 0 };
+};
+const spawnAt = (seed: number, day: number, fallen = 0, n = 30): PartyState[] => {
+  const w = new World(World.fresh(seed));
+  fallLairs(w, fallen);
+  w.s.time = day * 24;
+  const out: PartyState[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = w.spawnParty(i % 4 === 3 ? 'town' : 'lair');
+    if (p) out.push(p);
+  }
+  return out;
+};
+
+describe('tier 3 and late scaling (R3)', () => {
+  it('the lair tier is 2 until day 50 or 2 lairs fallen, then 3', () => {
+    expect(TIER3_RULES).toEqual({ day: 50, lairs: 2, danger: 0.85 });
+    expect(lairTier(0, 0)).toBe(2);
+    expect(lairTier(49.9, 1)).toBe(2);
+    expect(lairTier(50, 0)).toBe(3);
+    expect(lairTier(3, 2)).toBe(3);
+    const w = new World(World.fresh(5));
+    expect(w.lairTier).toBe(2);
+    fallLairs(w, 2);
+    expect(w.lairsFallen).toBe(2);
+    expect(w.lairTier).toBe(3);
+  });
+
+  it('no band forms at tier 3 before day 50 with fewer than 2 lairs fallen', () => {
+    for (let seed = 1; seed <= 8; seed++) for (const p of spawnAt(seed, 49.5, 1)) expect(p.tier).toBeLessThan(3);
+  });
+
+  it('from day 50 a band forming where danger > 0.85 is tier 3; the others keep the old rule', () => {
+    let t3 = 0;
+    for (let seed = 1; seed <= 8; seed++) {
+      const w = new World(World.fresh(seed));
+      for (const p of spawnAt(seed, 50)) {
+        const home = w.map.settlements[p.home];
+        const hot = dangerAt(w.map, home.x, home.y) > TIER3_RULES.danger;
+        expect(p.tier === 3, `${p.kind} at ${home.name}`).toBe(hot);
+        if (hot) t3++;
+      }
+    }
+    expect(t3).toBeGreaterThan(50);
+  });
+
+  it('once 2 lairs have fallen, raiders and mercenaries are always tier 3; bandits only where danger > 0.85', () => {
+    let seen = 0;
+    for (let seed = 1; seed <= 8; seed++) {
+      for (const p of spawnAt(seed, 10, 2)) {
+        if (p.kind === 'raiders' || p.kind === 'mercs') {
+          seen++;
+          expect(p.tier).toBe(3);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(20);
+    expect(tier3Band('mercs', 0.2, 10, 2)).toBe(true);
+    expect(tier3Band('raiders', 0.2, 10, 2)).toBe(true);
+    expect(tier3Band('bandits', 0.2, 10, 2)).toBe(false);
+    expect(tier3Band('bandits', 0.9, 10, 2)).toBe(true);
+    expect(tier3Band('mercs', 0.2, 60, 1)).toBe(false);
+  });
+
+  it('the tier-3 rule draws nothing: the same world spawns the same bands (men, seeds) before and after day 50', () => {
+    for (const seed of [3, 17]) {
+      const a = spawnAt(seed, 49.99);
+      const b = spawnAt(seed, 50);
+      expect(b.map((p) => [p.kind, p.home, p.size, p.seed, p.x, p.y])).toEqual(a.map((p) => [p.kind, p.home, p.size, p.seed, p.x, p.y]));
+      expect(spawnAt(seed, 50)).toEqual(b);
+    }
+  });
+
+  it('band caps rise to 22 men and level 10', () => {
+    expect(BAND_CAPS).toEqual({ size: 22, level: 10 });
+    const late = spawnAt(4, 400);
+    expect(Math.max(...late.map((p) => p.level))).toBe(10);
+    for (const p of late) expect(p.size).toBeLessThanOrEqual(22);
+  });
+
+  it('rare set pieces drop offline: tier-3 bands of the map (men, not beasts) carry Agoge, Peltast and Cretan pieces, lower tiers none', () => {
+    const found = new Set<string>();
+    let bands = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      for (const p of spawnAt(seed, 60, 2, 16).filter((q) => !bandBeast(q.seed))) {
+        if (p.tier === 3) bands++;
+        for (const h of partyArmy(p, { nextId: 1 }).heroes) {
+          for (const it of Object.values(h.equip)) {
+            if (!it || !ITEMS[it.def].set) continue;
+            expect(p.tier).toBe(3);
+            found.add(ITEMS[it.def].set!);
+          }
+        }
+      }
+    }
+    expect(bands).toBeGreaterThan(200);
+    expect([...found].sort()).toEqual(['agoge', 'cretan', 'peltast']);
+  });
+
+  it('an old save loads with its bands untouched and no lair fallen', () => {
+    const raw = Object.entries(FIXTURES).find(([f]) => f.includes('v6-'))![1];
+    const before = JSON.parse(raw) as SaveData;
+    const c = new Campaign(deserialize(raw)!);
+    expect(c.world.s.parties).toEqual(before.world!.parties);
+    expect(c.world.lairsFallen).toBe(0);
+    expect(c.world.lairTier).toBe(c.world.days >= 50 ? 3 : 2);
+  });
+});
+
+describe('arc item sources (R6)', () => {
+  it('a lair hoard: 3 pieces, the first a sure epic, a piece of the culture epic set 25% of the time', () => {
+    const cultures = ['greek', 'phoenician', 'celtic'] as const;
+    let sets = 0;
+    const rar: Record<string, number> = {};
+    const N = 1200;
+    for (let i = 0; i < N; i++) {
+      const culture = cultures[i % 3];
+      const items = lairHoard(`w${i}`, culture, { nextId: 1 });
+      expect(items).toHaveLength(LAIR_HOARD.picks);
+      expect(items[0].rarity).toBe('epic');
+      const set = ITEMS[items[0].def].set;
+      if (set) {
+        sets++;
+        expect(set).toBe(LAIR_SET[culture]);
+      }
+      for (const it of items.slice(1)) {
+        rar[it.rarity] = (rar[it.rarity] ?? 0) + 1;
+        expect(ITEMS[it.def].set).toBeFalsy();
+        expect(ITEMS[it.def].tier).toBeGreaterThanOrEqual(2);
+      }
+    }
+    expect(sets / N).toBeGreaterThan(0.21);
+    expect(sets / N).toBeLessThan(0.29);
+    // rollRarity(tier 3): 30 / 40 / 25 / 5
+    expect(rar.rare / (2 * N)).toBeGreaterThan(0.21);
+    expect(rar.rare / (2 * N)).toBeLessThan(0.29);
+    expect(rar.legendary ?? 0).toBe(0);
+    expect(lairHoard('w7', 'greek', { nextId: 1 })).toEqual(lairHoard('w7', 'greek', { nextId: 1 }));
+  });
+
+  it('the campaign: a fallen lair hoard is the same for the same world and lair and counts on pity', () => {
+    const a = Campaign.fresh(21);
+    const b = Campaign.fresh(21);
+    const lair = a.world.map.settlements.find((s) => s.kind === 'lair')!;
+    a.data.pity = 3;
+    b.data.pity = 3;
+    const ha = a.lairHoard(lair.id);
+    expect(ha).toEqual(b.lairHoard(lair.id));
+    expect(a.data.pity).toBe(4);
+    a.data.pity = 8;
+    const due = a.lairHoard(lair.id);
+    expect(due[0].rarity).toBe('legendary');
+    expect(a.data.pity).toBe(0);
+  });
+
+  it("the arc's legendary set is Achilles or Alexander, about half each, fixed per campaign; pieces only while one is missing", () => {
+    let achilles = 0;
+    for (let s = 1; s <= 400; s++) if (arcSet(s) === 'achilles') achilles++;
+    expect(achilles).toBeGreaterThan(160);
+    expect(achilles).toBeLessThan(240);
+    expect(arcSet(99)).toBe(arcSet(99));
+    const owned = new Set<string>();
+    for (let i = 0; i < 5; i++) {
+      const id = arcSetPiece('alexander', owned, `s${i}`)!;
+      expect(ITEMS[id].set).toBe('alexander');
+      expect(owned.has(id)).toBe(false);
+      owned.add(id);
+    }
+    expect(arcSetPiece('alexander', owned, 's9')).toBeNull();
+  });
+});
+
+describe('level pacing (R7)', () => {
+  const won = (heroes: Hero[]): BattleResult => ({
+    winner: 0,
+    ticks: 100,
+    units: heroes.map((h) => ({ heroId: h.id, side: 0 as const, state: 'ready' as const, kills: 0, killedBy: -1, ko: false, hp: 10, maxHp: 10, wear: { weapon: 0, shield: 0, helmet: 0, armor: 0 } })),
+  });
+
+  it('heroes of level 6 and up gain 1.25x battle XP (the 32·L curve), lower levels as before', () => {
+    expect(LATE_XP).toEqual({ from: 6, mult: 1.25 });
+    const rng = new Rng(1);
+    const ids = { nextId: 1 };
+    const heroes = [5, 6, 9].map((lv) => makeHero(rng, ids, 'greek', 'hoplite', lv, 1));
+    for (const h of heroes) h.traits = [];
+    const { outcome } = resolveBattle(won(heroes), heroes, [], new Rng(2));
+    expect(outcome.heroes.map((o) => o.xp)).toEqual([24, 30, 30]);
   });
 });

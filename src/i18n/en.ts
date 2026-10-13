@@ -1,6 +1,6 @@
 /**
  * English strings: the source table. Every key here must exist in every other
- * language (tests/i18n.test.ts checks keys, parameters and font coverage).
+ * language (the i18n block of tests/ui.test.ts checks keys, parameters and font coverage).
  *
  * - `{name}` is replaced by the parameter `name`.
  * - A plural entry is an object of CLDR forms (`one`, `few`, `many`, `other`);
@@ -14,6 +14,7 @@ import { EN_ARMY } from './en.army';
 import { BEASTS_EN } from './beasts.en';
 import { DUELS_EN } from './duels.en';
 import { MERCHANT_EN } from './merchant.en';
+import { CLAN_EN } from './clan.en';
 import { FIELDCAMP_EN } from './fieldcamp.en';
 import { OCAMP_EN } from './camp.en';
 import { STRAT_EN } from './strat.en';
@@ -23,6 +24,33 @@ import { V4_EN } from './v4.en';
 import { MOSAIC_EN } from './mosaic.en';
 import { MOSAIC_CMAP_EN } from './mosaic.campaignmap.en';
 import { MOSAIC_WAR_EN } from './mosaic.war.en';
+import { TARGETING_EN } from './targeting.en';
+import { UNDO_EN } from './undo.en';
+import { WORKS_EN } from './works.en';
+import { READOUT_EN } from './readout.en';
+import { QUEUE_EN } from './queue.en';
+import { ATTENTION_EN } from './attention.en';
+import { HUB_EN } from './hub.en';
+import { FIRSTRUN_EN } from './firstrun.en';
+import { ARMY_V5_EN } from './army.v5.en';
+import { HERO_EN } from './hero.en';
+import { SETTINGS_EN } from './settings.en';
+import { CODEX_EN } from './codex.en';
+import { WHY_EN } from './why.en';
+import { PACE_EN } from './pace.en';
+import { EVENTS_EN } from './events.en';
+import { EVENTCARD_EN } from './eventcard.en';
+import { SHOP_V5_EN } from './shop.v5.en';
+import { MARKET_EN } from './market.en';
+import { RESULTS_EN } from './results.en';
+import { WORLD_V5_EN } from './world.v5.en';
+import { CAMP_V5_EN } from './camp.v5.en';
+import { SETTLEMENT_EN } from './settlement.en';
+import { FORGE_EN } from './forge.en';
+import { ARC_EN } from './arc.en';
+import { WAR_V5_EN } from './war.v5.en';
+import { DUELS_V5_EN } from './duels.v5.en';
+import { GAPS_EN } from './gaps.en';
 
 export const EN = {
   // ---- shared words
@@ -95,6 +123,9 @@ export const EN = {
   'menu.resetBody': 'Your army, stash and map will be lost forever.',
   'menu.resetOk': 'Begin',
   'menu.noSave': 'No campaign saved yet: start a new one.',
+  'save.corrupt': 'Your save could not be read. A copy of it was kept, and a new campaign has begun.',
+  'save.newer': 'Your save is from a newer version of the game. Close and reopen the game to update it. Until then, nothing is saved.',
+  'battle.abandoned': 'The game closed during a battle, so the battle was fought out with the orders you gave before it began.',
   'menu.tip.gold': 'Campaign gold in your treasury',
   'menu.tip.army': 'Heroes in your army',
   'menu.warband': 'Warband',
@@ -107,6 +138,7 @@ export const EN = {
   'online.reaching': 'Reaching the realm...',
   'online.raising': 'Raising your army...',
   'online.unavailable': 'Online unavailable',
+  'online.reloadForUpdate': 'A new version of the game is out. Please reload the game to keep playing online.',
   'online.offlineStill': 'The campaign is still yours to play offline.',
   'online.backToMenu': 'Back to menu',
   'online.join': 'Join',
@@ -240,6 +272,9 @@ export const EN = {
   'online.time.ms': '{m}m {s}s',
   'online.time.hm': '{h}h {m}m',
   'online.time.d': '{d}d {h}h',
+  'online.time.h': '{h}h',
+  'num.k': '{n}K',
+  'online.time.dd': '{d}d',
 
   // ---- settings
   'settings.title': 'Settings',
@@ -294,6 +329,7 @@ export const EN = {
   ...BEASTS_EN,
   ...DUELS_EN,
   ...MERCHANT_EN,
+  ...CLAN_EN,
   ...FIELDCAMP_EN,
   ...OCAMP_EN,
   ...CAMPSCENE_EN,
@@ -306,4 +342,53 @@ export const EN = {
   ...MOSAIC_EN,
   ...MOSAIC_CMAP_EN,
   ...MOSAIC_WAR_EN,
+  // ---- battle targeting: focus fire, Advance to range (targeting.en.ts)
+  ...TARGETING_EN,
+  // ---- undo: the battle chip, deployment undo, the Reset-all confirm (undo.en.ts)
+  ...UNDO_EN,
+  // ---- field works: the Works tray and placement (works.en.ts)
+  ...WORKS_EN,
+  // ---- the battle readout: morale glyph, bar labels, Flanked! (readout.en.ts)
+  ...READOUT_EN,
+  // ---- the order queue: Then…, paused staging (queue.en.ts)
+  ...QUEUE_EN,
+  // ---- the attention budget: Orb, Feint, Raise the standard, zoom key, facing pips (attention.en.ts)
+  ...ATTENTION_EN,
+  ...HUB_EN,
+  // ---- Boot and the first-run screens (firstrun.en.ts)
+  ...FIRSTRUN_EN,
+  // ---- the v5 Army screen (army.v5.en.ts)
+  ...ARMY_V5_EN,
+  // ---- the v5 Hero screen (hero.en.ts)
+  ...HERO_EN,
+  ...SETTINGS_EN,
+  // ---- the v5 Codex: beasts and doctrines (codex.en.ts)
+  ...CODEX_EN,
+  // ---- the Results why-line (why.en.ts)
+  ...WHY_EN,
+  // ---- pause and speed, the ladder ticket's countdown (pace.en.ts)
+  ...PACE_EN,
+  // ---- overland events: the deck's text (events.en.ts) and the event card and journal (eventcard.en.ts)
+  ...EVENTS_EN,
+  ...EVENTCARD_EN,
+  // ---- the v5 Shop hub (shop.v5.en.ts)
+  ...SHOP_V5_EN,
+  // ---- the v5 Market (market.en.ts)
+  ...MARKET_EN,
+  ...WORLD_V5_EN,
+  ...CAMP_V5_EN,
+  // ---- the v5 Results (results.en.ts)
+  ...RESULTS_EN,
+  // ---- the v5 Settlement (settlement.en.ts)
+  ...SETTLEMENT_EN,
+  // ---- the town Smith's forge reroll (forge.en.ts)
+  ...FORGE_EN,
+  // ---- the campaign arc on the world map (arc.en.ts)
+  ...ARC_EN,
+  // ---- the v5 War hub and War army (war.v5.en.ts)
+  ...WAR_V5_EN,
+  // ---- the v5 Duels hub (duels.v5.en.ts)
+  ...DUELS_V5_EN,
+  // ---- strings that lived outside i18n: online errors, the last kit sheets (gaps.en.ts, G12)
+  ...GAPS_EN,
 } as const;

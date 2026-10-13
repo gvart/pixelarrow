@@ -23,9 +23,12 @@ import { dollFrame, ensureDoll, ensureDollRow, queueDollRows } from './sprites';
 import { dollFromHero } from '../art/paperdoll';
 import type { Hero } from '../data/units';
 import { addPanel, addText } from './kit';
-import { ellipsize } from './textfit';
+import { ellipsize, measureText } from './textfit';
 import { tOr } from '../i18n';
 import { TICK_RATE } from '../sim/battle';
+
+/** Left edge of the boss bar (UI px): clear of the zoom key (4 + 22) with a 3 px gap; mirrored on the right for the eye. */
+const BAR_X = 29;
 
 /** What BattleScene keeps per figure (structural: its UnitView). */
 export interface BeastUnitView {
@@ -276,11 +279,13 @@ export class BeastView {
       v.spr.setAlpha(Math.max(0.35, 1 - dead * 0.2));
     }
     if (u.state !== 'dead') v.spr.setAlpha(1);
-    const frame = Number(v.spr.frame.name);
+    // Off a signature move the scene has already shown the battle frame (BattleScene.showFrame,
+    // from the shared atlases). v.key is a figure id, not a texture: setting it showed Phaser's
+    // missing-texture square in place of the beast (UI audit BTL-2).
     if (sp >= 0) {
       ensureDollRow(this.scene, p.sp, v.dir);
-      if (v.spr.texture.key !== p.sp || frame !== dollFrame(v.dir, sp)) v.spr.setTexture(p.sp, dollFrame(v.dir, sp));
-    } else if (v.spr.texture.key !== v.key) v.spr.setTexture(v.key, frame);
+      if (v.spr.texture.key !== p.sp || Number(v.spr.frame.name) !== dollFrame(v.dir, sp)) v.spr.setTexture(p.sp, dollFrame(v.dir, sp));
+    }
     if (lift) {
       v.spr.setY(v.spr.y - Math.round(lift));
       v.spr.setDepth(v.spr.depth + 2000);
@@ -422,18 +427,34 @@ export class BeastView {
     return this.sim.units.filter((u) => u.side !== this.me && this.sim.myth!.isBody(u));
   }
 
+  /** A boss bar is on screen (the HUD's banners go under it). */
+  get hasBar(): boolean {
+    return !!this.bar;
+  }
+
+  /** The boss bar's container (the scene keeps it over the field's badges, under the HUD). */
+  get barObject(): Phaser.GameObjects.Container | null {
+    return this.bar;
+  }
+
   private buildBar(vw: number, top: number): void {
     const bodies = this.bodies();
     if (!bodies.length) return;
     const c = this.scene.add.container(0, 0);
-    const x = 3;
+    // Z2 of the battle HUD (hud.md §C, BTL-01): between the zoom key and the eye, under the top bar;
+    // banners and the Paused pill sit below it, so it never hides (BTL-1)
+    const x = BAR_X;
     const y = top + 3;
-    const w = vw - 3 - 24 - 3 - 6;
+    const w = vw - BAR_X * 2;
     this.barW = w;
     c.add(addPanel(this.scene, x, y, w, 20, 'parch'));
     const id = bodies[0].stats.boss as MythId;
     const name = bodies.length > 1 ? tOr(`myth.flock.${id}`, `${MYTHS[id].name} flock`) : tOr(`class.${id}.name`, MYTHS[id].name);
-    c.add(addText(this.scene, x + 4, y + 3, ellipsize(name, w - 50), 'red'));
+    // the name in the room the pips leave (heads / arms / flock members, 6 UI px each)
+    const pips = bodies.length > 1 ? bodies.length : this.sim.units.filter((u) => u.side !== this.me && isMythId(u.stats.boss) && !this.sim.myth!.isBody(u)).length;
+    const room = w - 8 - pips * 6 - 2;
+    const size = measureText(name) <= room ? 7 : 6.5;
+    c.add(addText(this.scene, x + 4, y + 3, ellipsize(name, room, false, size), 'red').setFontSize(size));
     const g = this.scene.add.graphics();
     c.add(g);
     this.barG = g;
@@ -446,7 +467,7 @@ export class BeastView {
     const c = this.bar;
     const g = this.barG;
     if (!c || !g) return;
-    c.setVisible(!banner);
+    void banner;
     const bodies = this.bodies();
     let hp = 0;
     let max = 0;
@@ -456,7 +477,7 @@ export class BeastView {
     }
     const parts = this.sim.units.filter((u) => u.side !== this.me && isMythId(u.stats.boss) && !this.sim.myth!.isBody(u));
     const flock = bodies.length > 1;
-    const x = 3;
+    const x = BAR_X;
     const y = (c.list[0] as Phaser.GameObjects.GameObject & { y: number }).y;
     const w = this.barW;
     g.clear();

@@ -5,6 +5,10 @@
  * this on every screen, size, safe-area variant and language.
  */
 import { TOUCH_GAP_PT, TOUCH_PT } from './theme';
+import { TEXT_MIN } from './tokens';
+
+/** Smallest text that carries meaning, in CSS px (A11Y-09: 6.5 UI px; a UI px is 2 CSS px on every phone). */
+export const TEXT_MIN_PT = TEXT_MIN * 2;
 
 export interface Rect {
   x: number;
@@ -38,9 +42,13 @@ export interface UiElement {
   text?: string;
   /** Map content under a scrolling world camera: the UI is drawn over it, so they never collide. */
   world?: boolean;
+  /** Text: the font size in CSS px (A11Y-09). */
+  size?: number;
+  /** Interactive: where a tap inside its drawn box misses its hit area (IN-02 tap probe), if anywhere. */
+  tapMiss?: string;
 }
 
-export type CheckKind = 'overlap' | 'spacing' | 'text-overflow' | 'text-column' | 'text-overlap' | 'outside-safe-area' | 'touch-size' | 'clipped';
+export type CheckKind = 'overlap' | 'spacing' | 'text-overflow' | 'text-column' | 'text-overlap' | 'outside-safe-area' | 'touch-size' | 'clipped' | 'text-size' | 'tap';
 
 export interface Violation {
   check: CheckKind;
@@ -54,6 +62,8 @@ export interface CheckOpts {
   height: number;
   touchPt?: number;
   gapPt?: number;
+  /** Smallest meaningful text in CSS px (default TEXT_MIN_PT). */
+  textPt?: number;
   /** Tolerance in CSS px for rounding. */
   eps?: number;
 }
@@ -92,6 +102,7 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
   const eps = o.eps ?? 0.75;
   const touch = o.touchPt ?? TOUCH_PT;
   const gap = o.gapPt ?? TOUCH_GAP_PT;
+  const textPt = o.textPt ?? TEXT_MIN_PT;
   const screen: Rect = { x: 0, y: 0, w: o.width, h: o.height };
   const out: Violation[] = [];
   const shown = els.filter((e) => e.visible.w > 0.5 && e.visible.h > 0.5);
@@ -107,6 +118,8 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
   }
   for (const e of inter) {
     if (Math.min(e.rect.w, e.rect.h) < touch - eps) out.push({ check: 'touch-size', ids: [e.id], detail: `${fmt(e.rect)} < ${touch}pt` });
+    // the hit area must cover what is drawn (the v3 container-origin quirk, MECH §3)
+    if (e.tapMiss) out.push({ check: 'tap', ids: [e.id], detail: `a tap at ${e.tapMiss} of ${fmt(e.rect)} misses it` });
   }
   for (let i = 0; i < inter.length; i++) {
     for (let j = i + 1; j < inter.length; j++) {
@@ -121,6 +134,11 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
       const g = facingGap(a.visible, b.visible);
       if (g < gap - eps) out.push({ check: 'spacing', ids: [a.id, b.id].sort(), detail: `gap ${g.toFixed(1)}pt < ${gap}pt` });
     }
+  }
+  for (const e of texts) {
+    // Map labels scale with the player's zoom; an empty line shows nothing.
+    if (e.size === undefined || e.world || !e.text?.trim()) continue;
+    if (e.size < textPt - 0.25) out.push({ check: 'text-size', ids: [e.id], detail: `text ${e.size.toFixed(1)}px < ${textPt}px` });
   }
   for (const e of texts) {
     // A scroll viewport cutting a line at its top or bottom edge is scrolling, not overflow (see

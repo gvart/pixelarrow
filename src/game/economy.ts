@@ -3,6 +3,7 @@
  * server/README.md "Economy"): pass tier states and progress, the market fee
  * the seller sees, daily caps, price bounds, and how an API failure is shown.
  * The server stays the authority; these only decide what the UI says.
+ * Also the campaign Smith's forge prices (EC-01) and gold with thousands separators.
  * Unit-tested in tests/economy.test.ts.
  */
 import type { ApiError, EconomyCatalog, MarketListing, PassReward, SeasonPassInfo } from '../platform/api';
@@ -158,3 +159,9 @@ export function walletOverdrawn(w: { drachmae: number }): boolean {
  * tests/economy.test.ts keeps the two equal): shown when the player taps the XP bar.
  */
 export const PASS_XP = { attack: 10, attackWin: 15, capture: 25, duel: 10, duelWin: 10, perTier: 100 } as const;
+
+// ------------------------------------------------------------------ the forge (EC-01, design/gdd/forge-reroll.md)
+
+/** The Smith's prices live in gear.ts (no client API import there, so the server can typecheck it). */
+export { FORGE, forgeCost } from './gear';
+

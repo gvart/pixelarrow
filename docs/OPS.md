@@ -450,3 +450,53 @@ curl -s https://pixelarrow.app/api/admin/players/42/adjust -H "authorization: Be
   -H 'content-type: application/json' \
   -d '{"requestId":"comp-2026-10-07-42","currency":"drachmae","delta":100,"reason":"outage compensation"}'
 ```
+
+## Sim train releases (SIM_VERSION)
+
+Contract: `design/adr/ADR-0001-determinism-replay.md`. The server runs one
+sim and takes only the client's `SIM_VERSION` (`server/src/simVersion.ts`):
+another version, or none, gets **426 `sim_version_unsupported`** (sockets:
+an error frame and close 4426), and the client asks the player to reload.
+Train 2 (v5) is rules version 2; what changed is in
+`docs/v5/balance/TRAIN2.md`.
+
+The app has no players yet (V5-074), so there is no cutover: no grace
+window, no frozen older sim, no in-flight ticket path and no channel notice.
+A deploy that bumps `SIM_VERSION` voids battles in flight; a ticket
+submitted by a stale bundle gets 426 and stays open until it expires.
+
+### Deploy
+
+Everything is done by `.github/workflows/deploy.yml` on a push to `main`
+(or *Actions → Deploy → Run workflow*). Nobody deploys by hand.
+
+1. **Gates** (CI): client typecheck, vitest (includes
+   `tests/trainReplay.test.ts`, the v2 fixtures in Node), build, the Worker
+   tests in workerd (includes `server/test/trainReplay.test.ts` and
+   `simVersion.test.ts`), the layout check and the smokes. Before merging to
+   `main`, also run the cross-engine check locally:
+   `node scripts/replay-hash.mjs` (Chromium and WebKit; a NOT RUN engine is
+   not a pass). Every engine must print `13/13 battles match`.
+2. **D1 migrations**, including `0016_sim_version.sql` (additive
+   `sim_version` columns; the Worker stamps every ticket and match with
+   `SIM_VERSION`).
+3. **Worker and assets together** (`wrangler deploy`): the client bundle is
+   the Worker's static assets, so client and server go live in one step.
+4. **Durable Objects** restart with the new code. Live duels in flight end.
+
+### Rollback
+
+`npx wrangler rollback` (or re-running the deploy of the previous `main`
+commit) puts the previous Worker and client back together. Migrations stay;
+they are additive.
+
+### The next rules change
+
+Any change that can alter a replay (ADR-0001 "What needs a SIM_VERSION
+bump": `src/sim/**`, the data it reads, stat derivation, setup building,
+order kinds) either stays inside train 2 before release, with the v2
+fixtures re-recorded on purpose
+(`RECORD_REPLAY_V2=1 npx vitest run tests/trainReplay.test.ts`) and the diff
+reviewed, or bumps `SIM_VERSION` and records new fixtures. Once there are
+players, revisit V5-074 before a bump: keeping in-flight battles alive would
+again need an older sim on the server.

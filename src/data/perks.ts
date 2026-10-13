@@ -54,8 +54,12 @@ export function defaultAttrs(): Attrs {
 
 // ---------------------------------------------------------------- abilities
 
-export type AbilityId = 'bash' | 'volley' | 'berserk' | 'rally';
-export const ABILITY_IDS: AbilityId[] = ['bash', 'volley', 'berserk', 'rally'];
+/**
+ * The four original actives, then the seven signature actives of the class
+ * families (design/gdd/abilities.md R3; sim train 2, AB-02).
+ */
+export type AbilityId = 'bash' | 'volley' | 'berserk' | 'rally' | 'push' | 'bond' | 'warcry' | 'sunder' | 'aimed' | 'recharge' | 'scythe';
+export const ABILITY_IDS: AbilityId[] = ['bash', 'volley', 'berserk', 'rally', 'push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe'];
 
 export interface AbilityDef {
   id: AbilityId;
@@ -79,7 +83,7 @@ export interface AbilityDef {
 export const ABILITIES: Record<AbilityId, AbilityDef> = {
   bash: {
     id: 'bash', name: 'Shield Bash', short: 'Bash', icon: 'bash', cooldown: 12, color: 0xf6ecd8, groupMode: 'all',
-    desc: 'Slam the shield into the man in front: stunned 1.5 s, then dazed (no block, +20% damage taken) for 2 s.',
+    desc: 'Slam the shield into the man in front: stunned 1.5 s, then dazed (no block, +25% damage taken) for 2.5 s.',
   },
   volley: {
     id: 'volley', name: 'Volley', short: 'Volley', icon: 'volley', cooldown: 20, color: 0x9ad0e8, groupMode: 'one',
@@ -93,6 +97,35 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
     id: 'rally', name: 'Rally Cry', short: 'Rally', icon: 'rally', cooldown: 45, color: 0xe0b860, groupMode: 'one',
     desc: 'Restores morale to every ally within 4 paces and turns routing men back to the fight.',
   },
+  // signature actives (abilities.md R3): every cooldown is at least 12 s (anti-pillar)
+  push: {
+    id: 'push', name: 'Push of Pike', short: 'Push', icon: 'push', cooldown: 16, color: 0xc8b48a, groupMode: 'all',
+    desc: 'Shove the foe in front back half a pace: staggered 1 s (no blow, half block), and shaken. No effect on a braced shield wall or a horse.',
+  },
+  bond: {
+    id: 'bond', name: 'Sacred Bond', short: 'Bond', icon: 'bond', cooldown: 40, color: 0xd8a0e0, groupMode: 'one',
+    desc: 'For 10 s bonded men within 4 paces share every blow to their nerve, and none breaks while the bond holds.',
+  },
+  warcry: {
+    id: 'warcry', name: 'War-cry', short: 'Cry', icon: 'warcry', cooldown: 40, color: 0xe07040, groupMode: 'one',
+    desc: 'Enemies within 5 paces in front lose heart (more if not in a shield wall); allies within 4 hit with more shock for 6 s.',
+  },
+  sunder: {
+    id: 'sunder', name: 'Sunder', short: 'Sunder', icon: 'sunder', cooldown: 30, color: 0xb0b8c0, groupMode: 'all',
+    desc: 'Hew through the guard of the man in front: for 3.6 s he cannot block and his armour is 2 lighter.',
+  },
+  aimed: {
+    id: 'aimed', name: 'Aimed Volley', short: 'Aimed', icon: 'aimed', cooldown: 20, color: 0x80c8a0, groupMode: 'one',
+    desc: 'Every shooter of the group in range of the focused group looses one careful shot at it: +25% accuracy, +20% damage.',
+  },
+  recharge: {
+    id: 'recharge', name: 'Wheel and Re-charge', short: 'Wheel', icon: 'recharge', cooldown: 25, color: 0xe8d090, groupMode: 'one',
+    desc: 'The riders break off at once, with no free blows at them, and regroup for 2 s; their next charge has +0.4 charge impact.',
+  },
+  scythe: {
+    id: 'scythe', name: 'Scythe Run', short: 'Scythe', icon: 'scythe', cooldown: 30, color: 0xd05050, groupMode: 'all',
+    desc: 'Drive 6 paces straight on: every enemy beside the path is cut and shaken. Braced spears stop the run.',
+  },
 };
 
 /** Ability tuning, used by the simulation. */
@@ -100,8 +133,8 @@ export const ABILITY_RULES = {
   bashRange: 1.25,
   bashStun: 30, // ticks
   /** After a bash the man is dazed: he cannot block and takes extra damage. */
-  bashDaze: 40,
-  dazeDamage: 1.2,
+  bashDaze: 50,
+  dazeDamage: 1.25,
   bashDamage: 3,
   bashMorale: 6,
   volleyRadius: 6,
@@ -116,8 +149,63 @@ export const ABILITY_RULES = {
   berserkShock: 0.5,
   berserkWinded: 15,
   rallyRadius: 4,
-  rallyMorale: 0.35, // fraction of max morale restored
+  rallyMorale: 0.4, // fraction of max morale restored
+  // Push of Pike: the foe in front (within reach) is shoved and staggered
+  pushRange: 1.25,
+  pushShove: 0.56,
+  pushStagger: 20, // ticks: no blow, block x pushBlock
+  pushBlock: 0.5,
+  pushMorale: 5.2,
+  // Sacred Bond (F1: morale damage split among the bonded men in range)
+  bondRadius: 4,
+  bondTicks: 200,
+  // War-cry: enemies in front lose morale (x warcryOpen outside a shield wall); allies gain shock
+  warcryRadius: 5,
+  warcryMorale: 3,
+  warcryOpen: 1.5,
+  warcryAllyRadius: 4,
+  warcryShock: 0.2,
+  warcryTicks: 120,
+  // Sunder: no block and lighter armour for a while
+  sunderTicks: 72,
+  sunderArmor: 2,
+  // Aimed Volley: free shots per shooter at the focused group
+  aimedShots: 1,
+  aimedAccuracy: 0.25,
+  aimedDamage: 1.2,
+  // Wheel and Re-charge: break off, regroup, then charge with a bonus
+  rechargeRange: 6,
+  rechargeBack: 6, // paces the riders ride back
+  rechargeRegroup: 40, // ticks the riders ride back and regroup
+  rechargeBonus: 0.4, // charge bonus of the next charge
+  rechargeTicks: 400, // the bonus lapses unused after this long
+  // Scythe Run: a straight drive along the facing
+  scytheRun: 6,
+  scytheWidth: 0.8,
+  scytheDamage: 0.8, // x base melee damage
+  scytheMorale: 12, // BAL-02: was 8; chariots vs militia 25% -> 33% (target >= 30%)
 };
+
+/** At most this many ability medallions show for a selection; the rest go behind a "more" chevron (abilities.md R4). */
+export const MAX_MEDALLIONS = 3;
+
+/** A selection's ability for the medallion rail: whether a holder can use it now, and how many hold it. */
+export interface MedallionEntry {
+  id: AbilityId;
+  ready: boolean;
+  holders: number;
+}
+
+/**
+ * The medallion order (abilities.md R4): ready first, then the most holders,
+ * then the shortest cooldown; ties keep ABILITY_IDS order. The first
+ * MAX_MEDALLIONS show on the rail.
+ */
+export function rankMedallions(entries: readonly MedallionEntry[]): AbilityId[] {
+  return [...entries]
+    .sort((a, b) => Number(b.ready) - Number(a.ready) || b.holders - a.holders || ABILITIES[a.id].cooldown - ABILITIES[b.id].cooldown || ABILITY_IDS.indexOf(a.id) - ABILITY_IDS.indexOf(b.id))
+    .map((e) => e.id);
+}
 
 // ---------------------------------------------------------------- auras
 
@@ -137,16 +225,16 @@ export interface AuraDef {
 
 export const AURAS: Record<AuraId, AuraDef> = {
   steady: { id: 'steady', name: 'Steady Presence', desc: 'Allies within 3.5 paces take 20% less morale damage and recover morale even in the fight.', radius: 3.5, color: 0xe8c860, bit: 1 },
-  eagle: { id: 'eagle', name: 'Eagle Eye', desc: 'Allies within 5 paces aim better and their missiles hit 15% harder.', radius: 5, color: 0x70d0b0, bit: 2 },
-  warlord: { id: 'warlord', name: 'Warlord', desc: 'Allies within 3 paces strike 12% harder in melee.', radius: 3, color: 0xe86048, bit: 4 },
+  eagle: { id: 'eagle', name: 'Eagle Eye', desc: 'Allies within 6 paces aim better and their missiles hit 30% harder.', radius: 6, color: 0x70d0b0, bit: 2 },
+  warlord: { id: 'warlord', name: 'Warlord', desc: 'Allies within 3 paces strike 15% harder in melee.', radius: 3, color: 0xe86048, bit: 4 },
 };
 
 export const AURA_RULES = {
   steadyMoraleLoss: 0.8,
   steadyRegen: 1.0, // morale per second, even when engaged
-  eagleAccuracy: 0.12,
-  eagleDamage: 1.15,
-  warlordDamage: 1.12,
+  eagleAccuracy: 0.15,
+  eagleDamage: 1.3,
+  warlordDamage: 1.15,
 };
 
 // ---------------------------------------------------------------- perks
@@ -173,7 +261,10 @@ export type PerkId =
   | 'brawler' | 'berserk' | 'bloodlust' | 'rally_cry' | 'warlord'
   // class perks (only in class trees)
   | 'drilled' | 'iron_discipline' | 'shield_breaker' | 'reaping_blow' | 'longshot' | 'lead_bullets'
-  | 'zealot' | 'horsemanship' | 'parthian_shot' | 'lance_charge' | 'ride_down' | 'scythe_master';
+  | 'zealot' | 'horsemanship' | 'parthian_shot' | 'lance_charge' | 'ride_down' | 'scythe_master'
+  // path B options new in v5 (design/gdd/abilities.md R1): the seven signature
+  // actives (their effects land in AB-02) and the Standard (AB-03)
+  | 'push' | 'bond' | 'warcry' | 'sunder' | 'aimed' | 'recharge' | 'scythe' | 'standard_bearer';
 
 export interface PerkDef {
   id: PerkId;
@@ -199,6 +290,8 @@ export interface PerkDef {
   scythe?: number;
   /** Only found in class trees (not part of the three legacy trees). */
   classOnly?: boolean;
+  /** Carries the army's standard (abilities.md R5; the sim reads it from AB-03 on). */
+  standard?: boolean;
 }
 
 const perkList: PerkDef[] = [
@@ -221,7 +314,7 @@ const perkList: PerkDef[] = [
   { id: 'rally_cry', tree: 'warrior', tier: 3, name: 'Rally Cry', desc: 'Ability: a shout that steadies and rallies.', ability: 'rally' },
   { id: 'warlord', tree: 'warrior', tier: 4, name: 'Warlord', desc: 'Aura: nearby allies strike harder.', aura: 'warlord' },
   // Class perks (their tier is the usual one; the class tree decides the order)
-  { id: 'drilled', tree: 'hoplite', tier: 0, classOnly: true, name: 'Drilled', desc: '+5 morale, +4% block.', mods: { morale: 5, block: 0.04 } },
+  { id: 'drilled', tree: 'hoplite', tier: 0, classOnly: true, name: 'Drilled', desc: '+9 morale, +6% block.', mods: { morale: 9, block: 0.06 } },
   { id: 'iron_discipline', tree: 'hoplite', tier: 2, classOnly: true, name: 'Iron Discipline', desc: '+6 morale, 20% less morale damage.', mods: { morale: 6 }, moraleLoss: 0.8 },
   { id: 'shield_breaker', tree: 'warrior', tier: 0, classOnly: true, name: 'Shield Breaker', desc: '+10% shield pierce, +1 damage.', mods: { blockPierce: 0.1, dmg: 1 } },
   { id: 'reaping_blow', tree: 'warrior', tier: 2, classOnly: true, name: 'Reaping Blow', desc: '+2.5 damage, +0.15 morale shock.', mods: { dmg: 2.5, moraleShock: 0.15 } },
@@ -233,6 +326,16 @@ const perkList: PerkDef[] = [
   { id: 'lance_charge', tree: 'rider', tier: 1, classOnly: true, name: 'Lance Charge', desc: '+0.3 charge impact, +1.5 damage.', mods: { chargeBonus: 0.3, dmg: 1.5 } },
   { id: 'ride_down', tree: 'rider', tier: 2, classOnly: true, name: 'Ride Down', desc: '+50% damage to routing men, +0.2 morale shock.', mods: { moraleShock: 0.2 }, pursuit: 0.5 },
   { id: 'scythe_master', tree: 'rider', tier: 2, classOnly: true, name: 'Scythe Master', desc: 'Scythed wheels cut 40% deeper.', scythe: 0.4 },
+  // Path B options new in v5 (abilities.md R1, R3, R5): the seven signature
+  // actives (AB-02) and the Standard (AB-03 makes it work).
+  { id: 'push', tree: 'hoplite', tier: 1, classOnly: true, name: 'Push of Pike', desc: 'Ability: the front rank shoves its foes back and staggers them.', ability: 'push' },
+  { id: 'bond', tree: 'hoplite', tier: 1, classOnly: true, name: 'Sacred Bond', desc: 'Ability: bonded men share the blows to their nerve.', ability: 'bond' },
+  { id: 'warcry', tree: 'warrior', tier: 1, classOnly: true, name: 'War-cry', desc: 'Ability: a cry that shakes the enemy in front.', ability: 'warcry' },
+  { id: 'sunder', tree: 'warrior', tier: 1, classOnly: true, name: 'Sunder', desc: 'Ability: break the guard and armour of the man in front.', ability: 'sunder' },
+  { id: 'aimed', tree: 'skirmisher', tier: 1, classOnly: true, name: 'Aimed Volley', desc: 'Ability: every shooter in reach looses one careful shot at the focused group.', ability: 'aimed' },
+  { id: 'recharge', tree: 'rider', tier: 1, classOnly: true, name: 'Wheel and Re-charge', desc: 'Ability: the riders break off, regroup and charge again harder.', ability: 'recharge' },
+  { id: 'scythe', tree: 'rider', tier: 1, classOnly: true, name: 'Scythe Run', desc: 'Ability: the chariot drives through the enemy ranks.', ability: 'scythe' },
+  { id: 'standard_bearer', tree: 'hoplite', tier: 3, classOnly: true, name: 'Standard Bearer', desc: "Carries the army's standard: nearby allies hold their nerve." },
 ];
 
 export const PERKS: Record<PerkId, PerkDef> = Object.fromEntries(perkList.map((p) => [p.id, p])) as Record<PerkId, PerkDef>;
@@ -243,21 +346,48 @@ export function treePerks(tree: TreeId): PerkDef[] {
   return perkList.filter((p) => p.tree === tree && !p.classOnly).sort((a, b) => a.tier - b.tier);
 }
 
+/** One tier of a class's perk paths: [A, B]. A is the perk of the old linear chain. */
+export type PerkPath = readonly [PerkId, PerkId];
+
 /**
- * Class trees are registered by src/data/classes.ts (kept out of this module
- * to avoid an import cycle): class id -> five perk ids, tier 0..4.
+ * Class paths are registered by src/data/classes.ts (kept out of this module
+ * to avoid an import cycle): class id -> five [A, B] tiers, tier 0..4.
  */
-const classTrees = new Map<string, readonly PerkId[]>();
-export function registerClassTree(cls: string, tree: readonly PerkId[]): void {
+const classTrees = new Map<string, readonly PerkPath[]>();
+export function registerClassTree(cls: string, tree: readonly PerkPath[]): void {
   classTrees.set(cls, tree);
 }
 
-/** The perk tree a hero follows: his class tree, or the perk's legacy tree. */
-export function heroTree(h: { cls?: string }, id?: PerkId): readonly PerkId[] {
+/**
+ * The options a hero chooses from at each tier: his class's [A, B] pairs, or,
+ * for a hero without a class (old saves), the one perk per tier of the legacy
+ * tree the perk belongs to (those heroes keep the old linear rule).
+ */
+export function heroPaths(h: { cls?: string }, id?: PerkId): readonly (readonly PerkId[])[] {
   const t = h.cls ? classTrees.get(h.cls) : undefined;
   if (t) return t;
   const p = id ? PERKS[id] : undefined;
-  return p ? treePerks(p.tree).map((q) => q.id) : [];
+  return p ? treePerks(p.tree).map((q) => [q.id]) : [];
+}
+
+/**
+ * Path A of the hero's tree, tier 0..4: the old linear chain. The hero sheet
+ * lists it until HERO-01 draws both options per tier.
+ */
+export function heroTree(h: { cls?: string }, id?: PerkId): readonly PerkId[] {
+  return heroPaths(h, id).map((t) => t[0]);
+}
+
+/** The tier (0..4) of a perk in the hero's tree, or -1. */
+export function perkTier(h: { cls?: string }, id: PerkId): number {
+  return heroPaths(h, id).findIndex((t) => t.includes(id));
+}
+
+/** Which option of a tier (0..4) the hero took: 'A', 'B', or null (none taken, or no class paths). */
+export function perkPath(h: { perks: readonly PerkId[]; cls?: string }, tier: number): 'A' | 'B' | null {
+  const t = h.cls ? classTrees.get(h.cls)?.[tier] : undefined;
+  if (!t) return null;
+  return h.perks.includes(t[0]) ? 'A' : h.perks.includes(t[1]) ? 'B' : null;
 }
 
 /** Perk points a hero of this level has earned in total. */
@@ -265,15 +395,45 @@ export function perkSlots(level: number): number {
   return PERK_LEVELS.filter((l) => l <= level).length;
 }
 
-/** Why a hero cannot take a perk, or null if he can. */
+/**
+ * Why a hero cannot take a perk, or null if he can. The one rule for the
+ * campaign, the duel client and the duel server (src/duel/rules.ts
+ * developHero): one option per tier ("Path chosen"), the tier's level, any
+ * perk of the tier before, and a free perk point.
+ */
 export function perkBlocker(h: { level: number; perks: readonly PerkId[]; cls?: string }, id: PerkId): string | null {
   if (h.perks.includes(id)) return 'Known';
-  const tree = heroTree(h, id);
-  const tier = tree.indexOf(id);
+  const tiers = heroPaths(h, id);
+  const tier = tiers.findIndex((t) => t.includes(id));
   if (tier < 0) return 'Another class';
-  // the most lasting reason first: a perk of a later level says when it opens, not that no point is free today
+  // the most lasting reason first: a chosen path stays chosen (until a retrain);
+  // a perk of a later level says when it opens, not that no point is free today
+  if (tiers[tier].some((p) => p !== id && h.perks.includes(p))) return 'Path chosen';
   if (h.level < PERK_LEVELS[tier]) return `Needs Lv ${PERK_LEVELS[tier]}`;
-  if (tier > 0 && !h.perks.includes(tree[tier - 1])) return `Needs ${PERKS[tree[tier - 1]].name}`;
+  if (tier > 0 && !tiers[tier - 1].some((p) => h.perks.includes(p))) return `Needs ${tiers[tier - 1].map((p) => PERKS[p].name).join(' or ')}`;
   if (h.perks.length >= perkSlots(h.level)) return 'No perk point';
   return null;
+}
+
+// ---------------------------------------------------------------- retrain
+
+/** Gold per tier to retrain one tier's choice at a town drillmaster (abilities.md R7, F3). */
+export const RETRAIN_COST = 40;
+
+/** F3: the price of retraining tier `tier` (1..5): 40..200 gold. */
+export function retrainCost(tier: number): number {
+  return RETRAIN_COST * tier;
+}
+
+/**
+ * The hero's perks with tier `tier` (0..4) switched to its other option, kept
+ * in the same place in the list; null when he has not chosen that tier or has
+ * no class paths. The caller charges retrainCost(tier + 1).
+ */
+export function retrainPerks(h: { perks: readonly PerkId[]; cls?: string }, tier: number): PerkId[] | null {
+  const t = h.cls ? classTrees.get(h.cls)?.[tier] : undefined;
+  const side = perkPath(h, tier);
+  if (!t || !side) return null;
+  const [from, to] = side === 'A' ? t : [t[1], t[0]];
+  return h.perks.map((p) => (p === from ? to : p));
 }

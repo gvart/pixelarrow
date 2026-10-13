@@ -6,6 +6,7 @@ import { RU_ARMY } from './ru.army';
 import { BEASTS_RU } from './beasts.ru';
 import { DUELS_RU } from './duels.ru';
 import { MERCHANT_RU } from './merchant.ru';
+import { CLAN_RU } from './clan.ru';
 import { FIELDCAMP_RU } from './fieldcamp.ru';
 import { OCAMP_RU } from './camp.ru';
 import { STRAT_RU } from './strat.ru';
@@ -15,6 +16,33 @@ import { V4_RU } from './v4.ru';
 import { MOSAIC_RU } from './mosaic.ru';
 import { MOSAIC_CMAP_RU } from './mosaic.campaignmap.ru';
 import { MOSAIC_WAR_RU } from './mosaic.war.ru';
+import { TARGETING_RU } from './targeting.ru';
+import { UNDO_RU } from './undo.ru';
+import { WORKS_RU } from './works.ru';
+import { READOUT_RU } from './readout.ru';
+import { QUEUE_RU } from './queue.ru';
+import { ATTENTION_RU } from './attention.ru';
+import { HUB_RU } from './hub.ru';
+import { FIRSTRUN_RU } from './firstrun.ru';
+import { ARMY_V5_RU } from './army.v5.ru';
+import { HERO_RU } from './hero.ru';
+import { SETTINGS_RU } from './settings.ru';
+import { CODEX_RU } from './codex.ru';
+import { WHY_RU } from './why.ru';
+import { PACE_RU } from './pace.ru';
+import { EVENTS_RU } from './events.ru';
+import { EVENTCARD_RU } from './eventcard.ru';
+import { SHOP_V5_RU } from './shop.v5.ru';
+import { MARKET_RU } from './market.ru';
+import { RESULTS_RU } from './results.ru';
+import { WORLD_V5_RU } from './world.v5.ru';
+import { CAMP_V5_RU } from './camp.v5.ru';
+import { SETTLEMENT_RU } from './settlement.ru';
+import { FORGE_RU } from './forge.ru';
+import { ARC_RU } from './arc.ru';
+import { WAR_V5_RU } from './war.v5.ru';
+import { DUELS_V5_RU } from './duels.v5.ru';
+import { GAPS_RU } from './gaps.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -81,6 +109,9 @@ export const RU: Table = {
   'menu.resetBody': 'Ваше войско, склад и карта будут потеряны навсегда.',
   'menu.resetOk': 'Начать',
   'menu.noSave': 'Сохранённого похода нет: начните новый.',
+  'save.corrupt': 'Сохранение не удалось прочитать. Его копия сохранена, начат новый поход.',
+  'save.newer': 'Сохранение сделано более новой версией игры. Закройте и откройте игру, чтобы обновить её. До тех пор ничего не сохраняется.',
+  'battle.abandoned': 'Игра закрылась во время битвы, и битва доиграна с приказами, отданными до её начала.',
   'menu.tip.gold': 'Золото похода в казне',
   'menu.tip.army': 'Герои в войске',
   'menu.warband': 'Войско',
@@ -92,6 +123,7 @@ export const RU: Table = {
   'online.reaching': 'Связь с царством...',
   'online.raising': 'Собираем войско...',
   'online.unavailable': 'Сеть недоступна',
+  'online.reloadForUpdate': 'Вышла новая версия игры. Перезапустите игру, чтобы играть по сети.',
   'online.offlineStill': 'Кампания доступна и без сети.',
   'online.backToMenu': 'В меню',
   'online.join': 'Вступить',
@@ -225,6 +257,9 @@ export const RU: Table = {
   'online.time.ms': '{m} мин {s} с',
   'online.time.hm': '{h} ч {m} мин',
   'online.time.d': '{d} дн. {h} ч',
+  'online.time.h': '{h} ч',
+  'num.k': '{n}К',
+  'online.time.dd': '{d} дн.',
   'settings.title': 'Настройки',
   'settings.pauseContact': 'Пауза при первом контакте',
   'settings.pauseFlank': 'Пауза при обходе с фланга',
@@ -275,6 +310,7 @@ export const RU: Table = {
   ...BEASTS_RU,
   ...DUELS_RU,
   ...MERCHANT_RU,
+  ...CLAN_RU,
   ...FIELDCAMP_RU,
   ...OCAMP_RU,
   ...CAMPSCENE_RU,
@@ -285,4 +321,33 @@ export const RU: Table = {
   ...MOSAIC_RU,
   ...MOSAIC_CMAP_RU,
   ...MOSAIC_WAR_RU,
+  ...TARGETING_RU,
+  ...UNDO_RU,
+  ...WORKS_RU,
+  // ---- the battle readout: morale glyph, bar labels, Flanked! (readout.ru.ts)
+  ...READOUT_RU,
+  ...QUEUE_RU,
+  ...ATTENTION_RU,
+  ...HUB_RU,
+  ...FIRSTRUN_RU,
+  ...ARMY_V5_RU,
+  ...HERO_RU,
+  ...SETTINGS_RU,
+  ...CODEX_RU,
+  ...WHY_RU,
+  ...PACE_RU,
+  // ---- overland events: the deck's text (events.ru.ts) and the event card and journal (eventcard.ru.ts)
+  ...EVENTS_RU,
+  ...EVENTCARD_RU,
+  ...SHOP_V5_RU,
+  ...MARKET_RU,
+  ...WORLD_V5_RU,
+  ...CAMP_V5_RU,
+  ...RESULTS_RU,
+  ...SETTLEMENT_RU,
+  ...FORGE_RU,
+  ...ARC_RU,
+  ...WAR_V5_RU,
+  ...DUELS_V5_RU,
+  ...GAPS_RU,
 };

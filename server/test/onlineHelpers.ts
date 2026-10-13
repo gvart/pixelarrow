@@ -8,6 +8,7 @@ import { resetRateLimits } from '../src/rateLimit';
 import { currentSeason, forgetSeasonCache, getShard, type Shard } from '../src/online/store';
 import { seasonId } from '../../src/duel/season';
 import { api, BASE, devLogin } from './helpers';
+import { SIM_VERSION } from '../../src/sim/version';
 
 export const DB = () => env.DB!;
 
@@ -228,12 +229,15 @@ export function wsOnline(token: string): Promise<WsClient> {
  * A socket on any /ws/* path (a region, the shard, the duel queue, a duel
  * match). The session token goes in the Sec-WebSocket-Protocol header
  * (`auth: 'protocol'`, the default) or in `?token=` (`auth: 'query'`).
+ * Like today's client it adds `?sim=SIM_VERSION` unless the path names `sim=`
+ * or `legacy` is set (a client from before versioning, which sends none).
  */
-export async function wsPath(token: string, path: string, opts: { auth?: 'protocol' | 'query' } = {}): Promise<WsClient> {
+export async function wsPath(token: string, path: string, opts: { auth?: 'protocol' | 'query'; legacy?: boolean } = {}): Promise<WsClient> {
   const headers: Record<string, string> = { upgrade: 'websocket' };
   let url = `${BASE}${path}`;
   if (opts.auth === 'query') url += `${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
   else headers['sec-websocket-protocol'] = `pixelarrow.v1, ${token}`;
+  if (!opts.legacy && !/[?&]sim=/.test(path)) url += `${url.includes('?') ? '&' : '?'}sim=${SIM_VERSION}`;
   const res = await SELF.fetch(url, { headers });
   expect(res.status).toBe(101);
   const ws = res.webSocket!;

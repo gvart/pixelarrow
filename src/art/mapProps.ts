@@ -349,6 +349,13 @@ export interface PropSprite {
   flags: (Pt & { c: number })[];
   /** Fires that flicker (lighthouse beacons, Etna's crater). */
   fires: Pt[];
+  /**
+   * Per pixel, 1 where something stands on the ground: buildings, walls,
+   * fields, paving; 0 for the plain ground the settlement is drawn on, and
+   * where nothing is drawn. The tap area (QAFIX-WORLD S4). Missing = every
+   * drawn pixel.
+   */
+  body?: Uint8Array;
 }
 
 /**
@@ -367,6 +374,8 @@ class Cv {
   readonly flags: (Pt & { c: number })[] = [];
   readonly fires: Pt[] = [];
   readonly r: () => number;
+  /** The colour ground() laid on each pixel (-1: none), for the sprite's body. */
+  private groundCol: Int32Array | null = null;
 
   constructor(w: number, h: number, seed: number) {
     this.p = new Pix(w, h);
@@ -374,7 +383,15 @@ class Cv {
   }
 
   done(ax: number, ay: number): PropSprite {
-    return { pix: this.p, ax, ay, smoke: this.smoke, flags: this.flags, fires: this.fires };
+    const d = this.p.data;
+    const g = this.groundCol;
+    const body = new Uint8Array(this.p.w * this.p.h);
+    for (let i = 0; i < body.length; i++) {
+      if (d[i * 4 + 3] === 0) continue;
+      const rgb = (d[i * 4] << 16) | (d[i * 4 + 1] << 8) | d[i * 4 + 2];
+      body[i] = g && g[i] === rgb ? 0 : 1;
+    }
+    return { pix: this.p, ax, ay, smoke: this.smoke, flags: this.flags, fires: this.fires, body };
   }
 
   shadow(x: number, y: number, w: number, h: number, a = 70): void {
@@ -397,7 +414,11 @@ class Cv {
         const edge = 0.7 + valueNoise(x + i, y + j, 9, 913) * 0.4;
         if (d > edge) continue;
         const h2 = hash2(x + i, y + j, 912);
-        this.p.set(x + i, y + j, h2 < 0.08 ? mix(c, MP.grassDk, 0.4) : h2 > 0.95 ? MP.paveDot : d > edge - 0.12 && ((x + i + y + j) & 1) ? mix(c, MP.grass, 0.5) : c);
+        const col = h2 < 0.08 ? mix(c, MP.grassDk, 0.4) : h2 > 0.95 ? MP.paveDot : d > edge - 0.12 && ((x + i + y + j) & 1) ? mix(c, MP.grass, 0.5) : c;
+        this.p.set(x + i, y + j, col);
+        if (!this.p.inside(x + i, y + j)) continue;
+        this.groundCol ??= new Int32Array(this.p.w * this.p.h).fill(-1);
+        this.groundCol[(y + j) * this.p.w + x + i] = col & 0xffffff;
       }
   }
 

@@ -6,6 +6,8 @@
  * API cannot be used; the screens turn that into a state (econState).
  */
 import { online } from '../platform/cloud';
+import { t } from '../i18n';
+import { demoName } from '../i18n/names';
 import { ApiError, newRequestId } from '../platform/api';
 import type { Hero } from '../data/units';
 import { isBound, itemDef, type Item, type Slot } from '../data/items';
@@ -16,12 +18,13 @@ import type { ClassId } from '../data/classes';
 import type { FormationType } from '../sim/formation';
 import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../sim/types';
 import { Rng } from '../sim/rng';
+import { SIM_VERSION } from '../sim/version';
 import { DEFAULT_FORMATIONS } from '../online/rules';
 import {
   DUEL_RULES, accountLevel, cleanPresetName, classUnlockLevel, developHero, duelRecruit, findOffer, recruitPrice, respecHero, respecPrice, sellPrice, shopItem,
   starterDuelRoster, teamPoints, teamProblem, utcDay,
 } from './rules';
-import { canFight, chestItem, chestReward, chestState, duelHeroXp, ladderFloor, ladderPayout, ladderSetup, starsByFloor, validChest, type HeroXp } from './ladder';
+import { canFight, chestItem, chestReward, chestState, duelHeroXp, ladderFloor, ladderPayout, ladderSetup, lostShare, starsByFloor, ticketClock, validChest, LADDER_TICKET_TTL_MS, type HeroXp } from './ladder';
 import { RANKED, glicko2, leagueOf, matchPay, placed, scoreOf, type DuelMode, type League, type LeagueId, type Rating, type Score } from './rating';
 import type { AsyncReport, LiveMatchRef, MatchReport, MatchmakerClientMsg, MatchmakerServerMsg } from './protocol';
 import { ASYNC, SEASON, asyncSetup, attackPay, defenceRating, pickCandidates, seasonEnd, seasonId, seasonStart, type Ladder } from './season';
@@ -172,7 +175,15 @@ export interface LadderTicket {
   ticket: string;
   floor: number;
   boss: boolean;
+  /** The server's clock when it answered (the ticket's countdown runs on the device's clock from it). */
+  now?: number;
   expiresAt: number;
+  /**
+   * When the ticket runs out on THIS device's clock (Date.now() ms): expiresAt
+   * moved by the server's `now`, so a skewed phone clock cannot shorten it.
+   * Set by ladderStart; the ladder's BattleSource passes it on (`ladder`).
+   */
+  deadline: number;
   setup: BattleSetup;
   team: Hero[];
   enemies: Hero[];
@@ -206,6 +217,8 @@ export interface LadderReport {
   bestStars: number;
   /** This battle raised the floor's best. */
   newBest: boolean;
+  /** Reported after the ticket's LADDER.ticketMin minutes: verified, but it paid nothing (controls.md R10). */
+  expired?: boolean;
   replayed?: boolean;
   profile: DuelProfileView;
 }
@@ -296,6 +309,11 @@ export interface DuelSource {
 
 const outside = () => new ApiError(0, 'outside', 'Available in Telegram');
 
+/** The ticket's deadline on this device's clock (`LadderTicket.deadline`), from the server's answer. */
+function withDeadline<T extends Omit<LadderTicket, 'deadline'>>(tk: T, serverNow: number): T & { deadline: number } {
+  return Object.assign(tk, { deadline: Date.now() + (tk.expiresAt - serverNow) });
+}
+
 /** After Cancel, how long the queue socket waits for a match the server was already making. */
 const CANCEL_WAIT_MS = 5000;
 
@@ -339,11 +357,12 @@ export class ApiDuelSource implements DuelSource {
   salvage(uid: string) {
     return this.req<WithProfile<{ glory: number }>>('POST', '/shop/salvage', { uid, requestId: newRequestId() });
   }
-  ladderStart(floor: number) {
-    return this.req<LadderTicket>('POST', '/ladder/start', { floor });
+  async ladderStart(floor: number) {
+    const tk = await this.req<Omit<LadderTicket, 'deadline'>>('POST', '/ladder/start', { floor, simVersion: SIM_VERSION });
+    return withDeadline(tk, tk.now ?? Date.now());
   }
   ladderSubmit(ticket: string, sub: LadderSubmission) {
-    return this.req<LadderReport>('POST', '/ladder/submit', { ticket, ...sub });
+    return this.req<LadderReport>('POST', '/ladder/submit', { ticket, ...sub, simVersion: SIM_VERSION });
   }
   ladderAbandon(ticket: string) {
     return this.req('POST', '/ladder/abandon', { ticket });
@@ -370,10 +389,10 @@ export class ApiDuelSource implements DuelSource {
     return this.req<AsyncView>('GET', '/async');
   }
   asyncStart(defender: number) {
-    return this.req<AsyncTicket>('POST', '/async/start', { defender });
+    return this.req<AsyncTicket>('POST', '/async/start', { defender, simVersion: SIM_VERSION });
   }
   asyncSubmit(ticket: string, sub: LadderSubmission) {
-    return this.req<WithProfile<{ report: AsyncReport; replayed?: boolean }>>('POST', '/async/submit', { ticket, ...sub });
+    return this.req<WithProfile<{ report: AsyncReport; replayed?: boolean }>>('POST', '/async/submit', { ticket, ...sub, simVersion: SIM_VERSION });
   }
   asyncAbandon(ticket: string) {
     return this.req('POST', '/async/abandon', { ticket });
@@ -428,8 +447,8 @@ export class ApiDuelSource implements DuelSource {
       if (m.type === 'match_found' || (m.type === 'unqueued' && m.reason !== 'cancelled')) stop();
     });
     void (async () => {
-      if (!online.available) return on({ type: 'error', message: 'Available in Telegram', code: 'outside' });
-      if (!(await online.signIn())) return on({ type: 'error', message: 'The server is unreachable', code: 'network' });
+      if (!online.available) return on({ type: 'error', message: t('gap.err.outside'), code: 'outside' });
+      if (!(await online.signIn())) return on({ type: 'error', message: t('gap.err.network'), code: 'network' });
       if (!over) sock.open();
     })();
     return () => {
@@ -500,7 +519,7 @@ export class DemoDuelSource implements DuelSource {
       bought: [],
       loadouts: [
         { slot: 1, name: null, team: heroes.slice(0, 6).map((h) => h.id), formations: [...DEFAULT_FORMATIONS] },
-        ...(opts.fresh ? [] : [{ slot: 2, name: 'Wall', team: [heroes[0].id, heroes[1].id, heroes[6].id], formations: [...DEFAULT_FORMATIONS] }]),
+        ...(opts.fresh ? [] : [{ slot: 2, name: t('d5.demoWall'), team: [heroes[0].id, heroes[1].id, heroes[6].id], formations: [...DEFAULT_FORMATIONS] }]),
       ],
       loadout: 1,
       use: { ladder: 1, arena: 1, defence: opts.fresh ? 1 : 2 },
@@ -725,15 +744,16 @@ export class DemoDuelSource implements DuelSource {
     if (problem === 'over_budget') throw err('over_budget', `Your team is over this floor's ${floor.budget}-point budget`);
     if (problem === 'too_many') throw err('team_too_big', `At most ${DUEL_RULES.teamMax} heroes`);
     const seed = this.rng.int(1, 0x7fffffff);
-    const tk: LadderTicket = {
+    const tk = withDeadline({
       ticket: `demo${seed.toString(16).padStart(28, '0')}`,
       floor: floor.floor,
       boss: floor.boss,
-      expiresAt: this.clock() + DUEL_RULES.ticketTtlMs,
+      now: this.clock(),
+      expiresAt: this.clock() + LADDER_TICKET_TTL_MS,
       setup: ladderSetup(seed, JSON.parse(JSON.stringify(team)) as Hero[], this.preset(this.p.use.ladder).formations, floor),
       team: JSON.parse(JSON.stringify(team)) as Hero[],
       enemies: floor.heroes,
-    };
+    }, this.clock());
     this.tickets.set(tk.ticket, tk);
     return tk;
   }
@@ -743,6 +763,31 @@ export class DemoDuelSource implements DuelSource {
     if (!tk) throw new ApiError(404, 'not_found', 'No such ticket');
     this.tickets.delete(ticket);
     const floor = ladderFloor(tk.floor);
+    if (ticketClock(tk.expiresAt, this.clock()).expired) {
+      // like the server: reported too late, the battle counts for nothing (controls.md R10)
+      const prev = this.p.ladder.stars[floor.floor - 1] ?? 0;
+      return {
+        floor: floor.floor,
+        boss: floor.boss,
+        won: result.winner === 0,
+        firstClear: false,
+        winner: result.winner,
+        ticks: result.ticks,
+        glory: 0,
+        capped: 0,
+        accountXp: 0,
+        xp: [],
+        drop: null,
+        enemies: { dead: result.units.filter((u) => u.side === 1 && u.state === 'dead').length, total: floor.heroes.length },
+        stars: 0,
+        lost: Math.round(lostShare(result, tk.team) * 1000) / 1000,
+        prevStars: prev,
+        bestStars: prev,
+        newBest: false,
+        expired: true,
+        profile: this.view(),
+      };
+    }
     const pay = ladderPayout(floor, result, tk.team, this.p.ladder.cleared, this.p.ladder.farmLeft, tk.setup.seed, this.ids, 'demo_');
     this.p.glory += pay.glory;
     this.p.xp += pay.accountXp;
@@ -1005,11 +1050,11 @@ export class DemoDuelSource implements DuelSource {
     const rows: BoardRow[] = Array.from({ length: n }, (_, i) => {
       const rating = base - i * (board === 'legend' ? 60 : 38);
       const league = leagueOf(rating);
-      return { rank: i + 1, pid: 1000 + i, name: DEMO_NAMES[i % DEMO_NAMES.length] + (i >= DEMO_NAMES.length ? ` ${Math.floor(i / DEMO_NAMES.length) + 1}` : ''), league, rating: league.id === 'legend' ? rating : null, games: 30 + i };
+      return { rank: i + 1, pid: 1000 + i, name: demoName(DEMO_NAMES[i % DEMO_NAMES.length] + (i >= DEMO_NAMES.length ? ` ${Math.floor(i / DEMO_NAMES.length) + 1}` : '')), league, rating: league.id === 'legend' ? rating : null, games: 30 + i };
     });
     const mine = board === 'async' ? this.async.rating : this.rating;
     const league = leagueOf(mine.rating);
-    const me: BoardRow | null = board === 'legend' && league.id !== 'legend' ? null : { rank: board === 'async' ? 61 : 143, pid: 1, name: 'You', league, rating: league.id === 'legend' ? Math.round(mine.rating) : null, games: mine.games };
+    const me: BoardRow | null = board === 'legend' && league.id !== 'legend' ? null : { rank: board === 'async' ? 61 : 143, pid: 1, name: t('duels.board.you'), league, rating: league.id === 'legend' ? Math.round(mine.rating) : null, games: mine.games };
     return { board, season: { id, end: seasonEnd(id) }, rows, me };
   }
 
@@ -1018,7 +1063,7 @@ export class DemoDuelSource implements DuelSource {
     const foes = starterDuelRoster(seed, { nextId: 1 }, 'demo_foe_');
     const mine = JSON.parse(JSON.stringify(team)) as Hero[];
     const setup = onlineBattleSetup(seed, { heroes: mine, formations: this.preset(this.p.use.arena).formations, bot: false }, { heroes: foes, formations: [...DEFAULT_FORMATIONS], bot: true }, randomSite(new Rng(seed ^ 0x2f6b9e1d)));
-    const m: DemoMatch = { id: `demo${seed.toString(16)}`, mode, seed, setup, heroes: [mine, foes], names: ['You', 'Hektor'] };
+    const m: DemoMatch = { id: `demo${seed.toString(16)}`, mode, seed, setup, heroes: [mine, foes], names: [t('duels.board.you'), demoName('Hektor')] };
     this.matches.set(m.id, m);
     return m;
   }
@@ -1071,14 +1116,14 @@ class DemoAsync {
   log: AsyncLogEntry[] = [];
   /** Previews: an unseen season reward (the popup). */
   rewards: SeasonRewardView[] = [];
-  defenders = DEMO_NAMES.slice(0, 8).map((name, i) => ({ pid: 900 + i, name, rating: 1300 + i * 45, games: i === 0 ? 4 : 20 }));
+  defenders = DEMO_NAMES.slice(0, 8).map((name, i) => ({ pid: 900 + i, name: demoName(name), rating: 1300 + i * 45, games: i === 0 ? 4 : 20 }));
 
   constructor(now: number) {
     const H = 3_600_000;
     this.log = [
-      { id: 'd'.repeat(32), at: now - 2 * H, role: 'defence', pid: 901, name: 'Lysander', score: 1, delta: 4, glory: ASYNC.defence.glory.win },
-      { id: 'e'.repeat(32), at: now - 5 * H, role: 'attack', pid: 903, name: 'Kleon', score: 1, delta: 14, glory: ASYNC.glory.win },
-      { id: 'f'.repeat(32), at: now - 26 * H, role: 'defence', pid: 905, name: 'Iphicrates', score: 0, delta: -6, glory: 0 },
+      { id: 'd'.repeat(32), at: now - 2 * H, role: 'defence', pid: 901, name: demoName('Lysander'), score: 1, delta: 4, glory: ASYNC.defence.glory.win },
+      { id: 'e'.repeat(32), at: now - 5 * H, role: 'attack', pid: 903, name: demoName('Kleon'), score: 1, delta: 14, glory: ASYNC.glory.win },
+      { id: 'f'.repeat(32), at: now - 26 * H, role: 'defence', pid: 905, name: demoName('Iphicrates'), score: 0, delta: -6, glory: 0 },
     ];
   }
 }

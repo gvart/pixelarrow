@@ -9,11 +9,9 @@ import Phaser from 'phaser';
 import { shardSocket } from '../online/client';
 import { duelSource } from '../online/duelDriver';
 import type { DuelStart, PresencePlayer } from '../online/protocol';
-import { Button } from './kit';
-import { openModal, toast, type Modal, type UiScene } from './widgets';
-import { SIZE } from './theme';
-import { LINE_H, wrapText } from './textfit';
-import { addText } from './kit';
+import { toast, type UiScene } from './widgets';
+import { LINE_H } from './textfit';
+import { mtext, mw, openParchmentSheet, sheetActionsH, SHEET_TITLE_H, wrapWords, type MButtonOpts, type ParchmentSheetHandle } from './mosaic';
 import { hapticNotify } from '../platform/telegram';
 import { t } from '../i18n';
 import type { DuelOutcome } from '../online/duelDriver';
@@ -23,7 +21,7 @@ export const duelReturn: { to: ((game: Phaser.Game, outcome: DuelOutcome | null)
 
 const BUSY_SCENES = new Set(['Battle', 'Results', 'Boot']);
 
-let popup: { id: string; modal: Modal } | null = null;
+let popup: { id: string; modal: ParchmentSheetHandle } | null = null;
 let installed = false;
 
 /** The online screen on top that can show a dialog, 'busy' in a battle, or null outside the online mode. */
@@ -52,46 +50,34 @@ export function showChallenge(game: Phaser.Game, id: string, from: PresencePlaye
   }
   closePopup();
   const { VW } = host.m;
-  const w = Math.min(VW - 16, 200);
-  const wr = wrapText(t('duel.challengesYou', { name: from.name }), w - 20, 4);
-  const h = 30 + wr.lines.length * LINE_H + 10 + SIZE.btnH + 12;
-  // it pops up unasked: a stray tap outside must not decline the challenge
-  const modal = openModal(host, { title: t('duel.challenged'), w, h, shadeCloses: false, onClose: () => {
-    if (popup?.id === id) {
-      popup = null;
-      shardSocket.send({ type: 'challenge_reply', id, accept: false });
-    }
-  } });
-  const body = addText(host, VW / 2, modal.y + 28, wr.lines.join('\n'), 'ink', 0.5);
+  // a kit decision sheet (DLG-02): the challenger's words, then Decline | Fight. No X and no
+  // shade tap (it pops up unasked: a stray tap must not answer it); Decline and Back are the way out.
+  const w = Math.min(VW - 16, 240);
+  const pad = 8;
+  const lines = wrapWords(t('duel.challengesYou', { name: from.name }), w - pad * 2 - 4, (x) => mw(x, 'pInk', 7));
+  const reply = (accept: boolean) => {
+    popup = null;
+    shardSocket.send({ type: 'challenge_reply', id, accept });
+  };
+  const actions: MButtonOpts[] = [
+    { label: t('duel.decline'), icon: 'close', variant: 'secondary', id: 'duel.challenge.decline', onClick: () => (reply(false), modal.close()) },
+    { label: t('duel.fight'), icon: 'swords', variant: 'primary', id: 'duel.challenge.fight', onClick: () => (reply(true), modal.close(), toast(host, t('duel.preparing'))) },
+  ];
+  const h = SHEET_TITLE_H + lines.length * LINE_H + pad * 2 + sheetActionsH(actions, w);
+  const modal = openParchmentSheet(host, {
+    title: t('duel.challenged'),
+    w,
+    h,
+    actions,
+    shadeCloses: false,
+    closeButton: false,
+    id: 'duel.challenge',
+    // Back (Telegram or browser) declines; a close after an answer does nothing more
+    onClose: () => popup?.id === id && reply(false),
+  });
+  const body = mtext(host, VW / 2, modal.body.y + pad - 2, lines.join('\n'), 'pInk', { size: 7, align: 0.5 });
   body.setCenterAlign();
   modal.c.add(body);
-  const bw = Math.floor((w - 12 - SIZE.gap) / 2);
-  const by = modal.y + h - SIZE.btnH - 9;
-  modal.c.add(
-    new Button(host, modal.x + 6, by, bw, SIZE.btnH, {
-      label: t('duel.decline'),
-      icon: 'close',
-      variant: 'secondary',
-      onClick: () => {
-        popup = null;
-        shardSocket.send({ type: 'challenge_reply', id, accept: false });
-        modal.close();
-      },
-    }),
-  );
-  modal.c.add(
-    new Button(host, modal.x + w - 6 - bw, by, bw, SIZE.btnH, {
-      label: t('duel.fight'),
-      icon: 'swords',
-      variant: 'primary',
-      onClick: () => {
-        popup = null;
-        shardSocket.send({ type: 'challenge_reply', id, accept: true });
-        modal.close();
-        toast(host, t('duel.preparing'));
-      },
-    }),
-  );
   popup = { id, modal };
   hapticNotify('warning');
 }

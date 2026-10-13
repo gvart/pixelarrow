@@ -126,6 +126,16 @@ invariants in [ROADMAP.md](ROADMAP.md).
   (`src/sim/stats.ts`). Hit points refill between battles; knock-outs leave wounds (above).
 - **Permadeath:** heroes killed in battle are removed with their gear.
   Recruits are hired in villages and towns (see above).
+- **Abandoned battles** (V5-011, `src/game/campaignBattle.ts`): a campaign
+  battle (a band or a skirmish; not a Beast Trial, online duels or war) stands
+  from the moment you press Fight. The save records it then (the enemy, the
+  field, the men who marched in and the deployment orders). If the app closes
+  before the battle ends, the next launch fights it out with the orders you
+  gave before it began and nothing after, then applies the result like any
+  other: deaths, wounds, XP, gold and the band, and opens its report. It is
+  deterministic, so reopening cannot reroll it, and it can never be better
+  than playing the battle out without touching anything. Leaving during
+  deployment is still free.
 - **Traits** (`src/data/traits.ts`): Veteran, Steady, Swift, Brute, Keen-eyed,
   Stalwart, Tough and the negative Skittish. Heroes may gain a trait at levels
   3, 5 and 8 (Skittish turns into Steady).
@@ -145,26 +155,26 @@ thureophoros or Celtic swordsman by culture, animals by kind).
 
 | Class | Role | Cost | Cultures | Kit (recruit) | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Militia | levy | 60 | all | dory / club / javelins / sling | cheap, brittle; village recruits |
+| Militia | levy | 64 | all | dory / club / javelins / sling | cheap, brittle; village recruits |
 | Spartan hoplite | heavy | 100 | Greek | dory, hoplon, Corinthian | braced spear wall, the anti-cavalry line |
 | Thureophoros | heavy | 85 | Greek, Punic | xiphos or longche, thureos | flexible medium foot |
 | Celtic swordsman | heavy | 80 | Celtic | longsword, thureos, mail later | shock infantry |
 | Thracian rhomphaia | heavy | 85 | Greek | two-handed rhomphaia, no shield | shield breaker, weak to missiles |
-| Cretan archer | ranged | 50 | Greek, Punic | bow → Cretan bow | longest range, armour piercing |
-| Rhodian slinger | ranged | 50 | all | sling → Rhodian sling | most ammunition |
+| Cretan archer | ranged | 47 | Greek, Punic | bow → Cretan bow | longest range, armour piercing |
+| Rhodian slinger | ranged | 47 | all | sling → Rhodian sling | most ammunition |
 | Peltast javelineer | ranged | 45 | all | javelins, pelte | heavy short-range volleys |
 | Scythian horse archer | ranged (mounted) | 75 | Punic, Celtic | Scythian bow, hood | shoots on the move, kites |
 | Peltast | light | 65 | Greek, Celtic | javelins + longche, pelte | throws then closes; hunts archers |
 | Thracian falx | light | 75 | Greek, Celtic | falx | fast, hits hard, no shield |
 | Gallic warband | light | 70 | Celtic | axe / longsword, thureos | cheap fierce charge |
 | Fanatic | light | 70 | any (bands) | club / axe / kopis, buckler | hardly breaks (morale loss ×0.65) |
-| Companion cavalry | cavalry | 160 | Greek | xyston lance, Boeotian helmet | shock riders: flank and rear charges |
+| Companion cavalry | cavalry | 155 | Greek | xyston lance, Boeotian helmet | shock riders: flank and rear charges |
 | Thessalian horse | cavalry | 115 | Greek, Punic | javelins, buckler | lighter riders, throw then charge |
-| Scythed chariot | cavalry | 260 | Punic | kopis; scythed wheels | breaks loose foot, dies in rough ground |
-| Royal guard | elite | 130 | Greek | bronze dory, silver argyraspis, Attic | elite line |
-| Sacred Band | elite | 125 | Greek | bronze dory, aspis, Corinthian | elite line |
-| Wolf | beast | 50 | — | — | packs, flank, bolt when hurt |
-| Wild boar | beast | 100 | — | — | armoured charge |
+| Scythed chariot | cavalry | 255 | Punic | kopis; scythed wheels | breaks loose foot, dies in rough ground |
+| Royal guard | elite | 125 | Greek | bronze dory, silver argyraspis, Attic | elite line |
+| Sacred Band | elite | 115 | Greek | bronze dory, aspis, Corinthian | elite line |
+| Wolf | beast | 53 | — | — | packs, flank, bolt when hurt |
+| Wild boar | beast | 107 | — | — | armoured charge |
 | Brown bear | beast | 250 | — | — | cleaves and knocks men down |
 
 **Perk trees** — each class has its own five perks (tiers at levels 2, 4,
@@ -235,12 +245,10 @@ shield wall, no shield bash from the saddle).
 - Footprints: separation, reach and "outnumbered" counts use each unit's
   radius (a horse is worth ½ of a man in the outnumbered count, an animal
   ⅓).
-- **Determinism and old replays.** All of this is gated on `stats.mount` /
-  `stats.kind`: battles without mounts or animals run the exact old float
-  operations. `tests/legacy.test.ts` replays five battles recorded before
-  classes existed (`tests/fixtures/legacy-battles.json`) and checks their
-  mid-battle and final hashes. The server schema (`server/src/battle.ts`)
-  accepts the new optional stats.
+- **Determinism.** All of this is gated on `stats.mount` / `stats.kind`.
+  The sim train 2 replay fixtures (`tests/fixtures/replay-v2*.json`) pin
+  the hashes (ADR-0001). The server schema (`server/src/battle.ts`)
+  accepts the optional stats.
 
 ### Bot AI for classes (`src/sim/ai.ts`)
 
@@ -480,14 +488,20 @@ should be; symmetric fields stay even, and broken ground makes battles longer:
 | Companions vs archers | 81% |
 | Horse archers vs hoplites / vs Celtic swordsmen | 52% / 100% |
 | Scythed chariots vs militia (spears) | 0% |
-| Wolves / boars / a bear vs militia (budgets 600 and 900) | 54% / 54% / 50% |
+| Wolves / boars / a bear vs militia (budgets 600 and 900) | 56% / 52% / 62% |
 
 Class costs were fitted (`npm run balance`'s round robin, budgets 700 and
 900 so that rounding the head count does not decide a matchup) until every
-class's mean win rate against all others lies between 34% and 64%: Levy 54,
-hoplite 50, thureophoros 50, Celt 64, rhomphaia 50, archer 34, slinger 43,
-javelineer 64, horse archer 54, peltast 58, falx 40, Gaul 59, fanatic 46,
-Companion 43, Thessalian 51, chariot 41, royal guard 47, Sacred Band 52.
+class's mean win rate against all others lies between 34% and 64%. EC-04
+re-costed them (docs/v5/balance/EC-04.md); at 40 seeds per pair the means
+are Levy 48, hoplite 51, thureophoros 42, Celt 53, rhomphaia 50, archer 48,
+slinger 48, javelineer 45, horse archer 53, peltast 56, falx 40, Gaul 61,
+fanatic 51, Companion 52, Thessalian 52, chariot 53, royal guard 47, Sacred
+Band 50. A class's duel points are a tenth of its cost, rounded, and the
+re-cost stayed inside each rounding band except the Sacred Band (13 → 12
+points), so stored duel teams and ladder floors kept their points. Two
+pure-class results don't move with cost: the elite line still loses 80–100%
+to equal-cost shock infantry, and militia still beat every cavalry class.
 The intended counters hold: spears beat riders head on (hoplites over
 Companions / Thessalians / chariots 92–100%), riders beat missile men
 (Companions over archers / slingers / javelineers 69–92%), peltasts beat
@@ -565,6 +579,32 @@ knocked-out heroes get half. The results screen animates every survivor's XP
 bar; a level-up flashes the bar, pops the level and a "Level up!" stamp and
 throws confetti.
 
+## Beast Trial (practice)
+
+`src/scenes/BeastTrialScene.ts`, `src/game/campaignBattle.ts` (`trialBattle`),
+design: `design/gdd/practice-fight.md` (LF-02, V5-011). From the Codex, tap a
+beast, then *Fight it*: the campaign army fights that beast at the level the
+Codex shows (the army's average +1, a world boss +3), on the beast's own
+field (the Kraken on a beach, the Cyclops and the Titan in hills), with a
+fresh seed each time.
+
+A Trial fight is **practice**: it changes nothing in the campaign.
+
+- No spoils: the beast carries no hoard, so there is nothing to loot; no gold;
+  the beast hoard pity counter does not move.
+- No losses: nobody dies or is wounded, nobody gains XP or levels, gear does
+  not wear; the battle and win counters do not move.
+- It is never saved as a battle in progress: closing the app mid-fight just
+  ends it.
+- Results show the fight as it went (time, kills, who fell) under
+  "Practice: no spoils", with 0 gold and 0 XP; *Onward* returns to the beast's
+  sheet.
+
+Beast hoards (rare, epic and legendary gear, the named items and pity) come
+only from real fights: overland beast bands and online lairs and world bosses.
+Before v5 the Trial paid them out with no cost or risk (35 legendaries per 100
+won Trials; `docs/v5/balance/LF-02.md`).
+
 ## Saves
 
 `src/game/save.ts` holds a versioned schema (`SAVE_VERSION`, a migration
@@ -576,6 +616,25 @@ split into ≤3800-character chunks (`px_part_N` + `px_meta`) because Telegram
 CloudStorage values are limited to 4096 chars. Inside Telegram the save goes
 to CloudStorage and is mirrored to localStorage; in a normal browser
 localStorage is used.
+
+**Crash safety and failed loads (V5-011).** Saves alternate between two part
+slots (`px_part_N`, `px_part1_N`); `px_meta` `{v, n, s, pn}` is written last
+and points at the current slot, so a kill mid-write leaves a complete save, and
+the other slot is the last good save, used when the current one is damaged. A
+save that still cannot be loaded is never silently replaced:
+
+- its raw text is first kept under `px_corrupt` / `px_corrupt_N` (the first
+  such backup is kept; `readBackup` in save.ts reads it back);
+- a save from a **newer** build (a higher version, or items this build does not
+  know) makes the session read-only: nothing is written locally or uploaded,
+  and the menu asks the player to reopen the game to update. A server copy from
+  a newer build is held, never pushed over (`saveSync.ts` `hold`);
+- a **corrupt** save with no usable backup, mirror or cloud copy starts a new
+  campaign, and the menu says the old save was kept.
+
+Removing an item def therefore needs a migration that drops or replaces it;
+otherwise saves holding it load as "newer". The `battle` field is the
+battle-in-progress marker (see "Abandoned battles").
 
 ## Cloud save (`src/platform`)
 

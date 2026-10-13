@@ -5,8 +5,8 @@ import { NAMES, freeName, type Culture } from '../data/names';
 import { POSITIVE_TRAITS, type TraitId } from '../data/traits';
 import { MAX_LEVEL, TUNIC_COLORS, xpToNext, type Hero, type Look } from '../data/units';
 import {
-  ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, heroTree, perkBlocker, perkSlots,
-  type AttrId, type Attrs,
+  ATTR_IDS, ATTR_MAX, PERKS, POINTS_PER_LEVEL, heroPaths, perkBlocker, perkSlots,
+  type AttrId, type Attrs, type PerkId,
 } from '../data/perks';
 import { CLASSES, LEGACY_ARCH, classOfHero, isClassId, type ClassDef, type ClassId } from '../data/classes';
 import { Rng } from '../sim/rng';
@@ -115,8 +115,14 @@ export function rollAttrs(rng: Rng, arch: Archetype): Attrs {
   return a;
 }
 
+/** What autoDevelop needs to know about the hero's army. */
+export interface DevelopContext {
+  /** The army already has a standard bearer: take path A at the standard_bearer tier. */
+  standard?: boolean;
+}
+
 /** Spend unspent points and free perk slots the way the hero's class would. */
-export function autoDevelop(h: Hero): void {
+export function autoDevelop(h: Hero, ctx: DevelopContext = {}): void {
   const c = heroCls(h);
   const order: AttrId[] = c.growth.length ? c.growth : ['end', 'str', 'agi', 'wil'];
   // first what the gear asks for (docs/ITEMS.md "Attribute requirements"), then the class's way
@@ -137,25 +143,41 @@ export function autoDevelop(h: Hero): void {
     h.attrs[k]++;
     h.points--;
   }
-  pickPerks(h);
+  pickPerks(h, ctx);
 }
 
-/** Take the next perks down the hero's class tree. */
-function pickPerks(h: Hero): void {
+/**
+ * The option a bot takes at a tier, with no RNG so ladder floors stay pure
+ * functions: path A, the pre-AB-02 chain (V5-056: the tier-2 signature
+ * actives stay with players' heroes for now; bot and lair armies taking them
+ * broke the beast lairs and the ladder floors). B only when it carries the
+ * standard and the army has none (AB-03). A hero whose B pick is already
+ * made keeps it: pickPerks fills open tiers only, so a bot still uses the
+ * actives it holds (R6).
+ */
+export function botPathChoice(tier: readonly PerkId[], _index: number, ctx: DevelopContext = {}): PerkId {
+  const b = tier[1] ? PERKS[tier[1]] : undefined;
+  if (b?.standard && !ctx.standard) return b.id;
+  return tier[0];
+}
+
+/** Take one option per open tier down the hero's class paths. */
+function pickPerks(h: Hero, ctx: DevelopContext): void {
   const cls = heroCls(h).id;
-  for (const id of heroTree({ cls })) {
-    if (h.perks.length >= perkSlots(h.level)) break;
+  heroPaths({ cls }).forEach((tier, i) => {
+    if (h.perks.length >= perkSlots(h.level) || tier.some((p) => h.perks.includes(p))) return;
+    const id = botPathChoice(tier, i, ctx);
     if (perkBlocker({ level: h.level, perks: h.perks, cls }, id) === null) h.perks.push(id);
-  }
+  });
 }
 
 /** Bot heroes: attributes and perks follow from class and level alone. */
-export function setBotLevel(h: Hero, level: number): void {
+export function setBotLevel(h: Hero, level: number, ctx: DevelopContext = {}): void {
   h.level = Math.max(1, Math.min(MAX_LEVEL, level));
   h.attrs = { ...heroCls(h).attrs };
   h.points = (h.level - 1) * POINTS_PER_LEVEL;
   h.perks = [];
-  autoDevelop(h);
+  autoDevelop(h, ctx);
 }
 
 export function rollRarity(rng: Rng, tier: number): Rarity {
@@ -178,7 +200,7 @@ export function rollBeastRarity(rng: Rng): Rarity {
  * already in the same army: the new hero's name will differ from all of
  * theirs. `group` defaults to the class's battle group.
  */
-export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: Archetype, level: number, tier: number, group?: number, roster: readonly { name: string }[] = []): Hero {
+export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: Archetype, level: number, tier: number, group?: number, roster: readonly { name: string; perks?: readonly PerkId[] }[] = []): Hero {
   const clsId = toClass(archetype);
   const cls = CLASSES[clsId];
   const beast = cls.kind === 'animal';
@@ -215,7 +237,8 @@ export function makeHero(rng: Rng, ids: IdSource, culture: Culture, archetype: A
     cls: clsId,
   };
   hero.points = (hero.level - 1) * POINTS_PER_LEVEL;
-  if (hero.level > 1) autoDevelop(hero);
+  // one standard per army (abilities.md R5): the roster says whether it already has a bearer
+  if (hero.level > 1) autoDevelop(hero, { standard: roster.some((r) => r.perks?.some((p) => PERKS[p]?.standard)) });
   if (beast) return hero;
   const t = Math.max(1, Math.min(3, tier));
   const levy = clsId === 'militia';
@@ -274,7 +297,28 @@ export function standardArmy(rng: Rng, ids: IdSource): Hero[] {
   return heroes;
 }
 
-/** A new campaign: a veteran hoplite, a young hoplite and a peltast. */
+/**
+ * A new campaign (design/gdd/campaign-arc.md R1, V5-020): eight men at the
+ * tutorial's scale. Four hoplites in group I (the first a level-2 veteran),
+ * two slingers in II and two peltasts in IV; III Reserve stays empty.
+ */
+export function openingParty(rng: Rng, ids: IdSource): Hero[] {
+  const heroes: Hero[] = [];
+  for (let i = 0; i < 4; i++) heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0, heroes));
+  for (let i = 0; i < 2; i++) heroes.push(makeHero(rng, ids, 'greek', 'slinger', 1, 1, 1, heroes));
+  for (let i = 0; i < 2; i++) heroes.push(makeHero(rng, ids, 'greek', 'peltast', 1, 1, 3, heroes));
+  paintPhalanx(rng, heroes);
+  heroes[0].traits = ['veteran'];
+  heroes[0].level = 2;
+  heroes[0].points = 2;
+  return heroes;
+}
+
+/**
+ * The old three-man start (a veteran hoplite, a young hoplite and a peltast):
+ * the base of the online starter army (src/online/rules.ts starterOnlineArmy).
+ * A new campaign starts with `openingParty`.
+ */
 export function starterParty(rng: Rng, ids: IdSource): Hero[] {
   const heroes: Hero[] = [];
   heroes.push(makeHero(rng, ids, 'greek', 'hoplite', 1, 1, 0, heroes));

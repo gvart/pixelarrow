@@ -156,6 +156,36 @@ interface Walked {
   /** World content (a scrolling map camera): cut by the camera's view, not a layout fault. */
   world: boolean;
   project: (r: Rect) => Rect;
+  cam: Phaser.Cameras.Scene2D.Camera;
+}
+
+/** Where in the drawn box (as fractions of it) the tap probe presses: the centre and towards each corner. */
+const TAP_PROBES: [string, number, number][] = [
+  ['centre', 0.5, 0.5],
+  ['top-left', 0.25, 0.25],
+  ['top-right', 0.75, 0.25],
+  ['bottom-left', 0.25, 0.75],
+  ['bottom-right', 0.75, 0.75],
+];
+
+/**
+ * Taps `o` where it is drawn (`rect`, canvas px) through Phaser's own hit test and returns the first
+ * probe that misses it: a hit area offset from its art (the container-origin quirk, MECH §3) shows here.
+ */
+function tapMiss(o: GO, rect: Rect, cam: Phaser.Cameras.Scene2D.Camera): string | undefined {
+  const mgr = o.scene?.input?.manager;
+  if (!mgr) return undefined;
+  for (const [name, fx, fy] of TAP_PROBES) {
+    const p = { x: rect.x + rect.w * fx, y: rect.y + rect.h * fy, worldX: 0, worldY: 0 } as unknown as Phaser.Input.Pointer;
+    if (!mgr.hitTest(p, [o], cam, []).length) return name;
+  }
+  return undefined;
+}
+
+/** A text's font size in canvas px (its own and its parents' scale, and the camera's zoom). */
+function fontPx(o: GO, cam: Phaser.Cameras.Scene2D.Camera): number | undefined {
+  if (!(o instanceof Phaser.GameObjects.BitmapText)) return undefined;
+  return o.fontSize * Math.abs(o.getWorldTransformMatrix().scaleY) * cam.zoom;
 }
 
 /** Collect the UI elements of every visible scene (top layer only), in canvas CSS px. */
@@ -213,7 +243,7 @@ export function collectUi(game: Phaser.Game): UiElement[] {
               items = items.filter((it) => !(intersect(it.rect, rect)));
             } else {
               const kind = isText ? 'text' : interactive ? 'interactive' : 'panel';
-              items.push({ o, rect, clip: c, kind, scene: scene.sys.settings.key, world: r.world, project: r.project });
+              items.push({ o, rect, clip: c, kind, scene: scene.sys.settings.key, world: r.world, project: r.project, cam: r.cam });
             }
           }
         }
@@ -231,7 +261,14 @@ export function collectUi(game: Phaser.Game): UiElement[] {
     const el: UiElement = { id: idOf(it.o), kind: it.kind as 'interactive' | 'text', rect: it.rect, visible, scene: it.scene, path: pathOf(it.o) };
     if (it.clip && !it.world) el.clip = it.clip;
     if (it.world) el.world = true;
+    // a control part-scrolled out of its list is tapped where it shows: rows outside a list's window take no taps (S1-1)
+    if (it.kind === 'interactive' && !it.world && visible.w > 0 && visible.h > 0) {
+      const miss = tapMiss(it.o, visible, it.cam);
+      if (miss) el.tapMiss = miss;
+    }
     if (it.kind === 'text') {
+      const size = fontPx(it.o, it.cam);
+      if (size !== undefined) el.size = size;
       el.text = (it.o as unknown as { text: string }).text;
       const sx = (it.o as unknown as Phaser.GameObjects.Components.Transform).getWorldTransformMatrix?.().scaleX ?? 1;
       if (it.o.__uiMaxW !== undefined) el.maxW = it.o.__uiMaxW * sx;
@@ -287,6 +324,7 @@ function toCss(el: UiElement): UiElement {
   if (el.frame) o.frame = r(el.frame);
   if (el.column) o.column = { x0: el.column.x0 / RS, x1: el.column.x1 / RS };
   if (el.maxW !== undefined) o.maxW = el.maxW / RS;
+  if (el.size !== undefined) o.size = el.size / RS;
   return o;
 }
 

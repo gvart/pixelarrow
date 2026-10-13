@@ -4,7 +4,7 @@
 // shots/20-shop.png, git-ignored) and buys a consumable from a map merchant
 // against mocked routes.
 // Usage: node scripts/online-smoke.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
-import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir } from './lib/harness.mjs';
+import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir, until } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
@@ -185,7 +185,7 @@ await ev(page, () => {
   for (const sc of g.scene.getScenes(true)) g.scene.stop(sc.scene.key);
   g.scene.start('Battle', { fresh: true });
 });
-await page.waitForTimeout(1500);
+await until(() => active(page, 'Battle'), 30000);
 await ev(page, () => {
   const g = window.__game;
   const b = g.scene.getScene('Battle');
@@ -207,19 +207,26 @@ await ev(page, () => {
   for (const sc of g.scene.getScenes(true)) g.scene.stop(sc.scene.key);
   g.scene.start('Battle', { source });
 });
-await page.waitForTimeout(1500);
+const duelUp = await until(() => ev(page, () => window.__game.scene.isActive('Battle') && !!window.__game.scene.getScene('Battle').src?.lockstep), 30000);
 await ev(page, () => {
   const b = window.__game.scene.getScene('Battle');
   b.selGroup = b.sim.groups.find((x) => x.side === b.me).id;
   window.__duelGone();
 });
-check('[duel] aborted duel leaves the battle', await (async () => {
-  for (let i = 0; i < 20; i++) {
-    if (await active(page, 'Menu')) return true;
-    await page.waitForTimeout(250);
-  }
-  return false;
-})());
+// The battle shows why it ends, then its own timer (2.2 s of Phaser time) hands over. That timer
+// counts smoothed frame deltas: on a starved machine (frames over 200 ms) Phaser substitutes the
+// last sane delta, so the wait stretches well past 2.2 s of wall time. Wait on the real steps.
+const banner = await until(async () => (await sceneText(page, 'Battle')).includes('OPPONENT_LEFT'), 15000);
+const handedOver = await until(
+  () =>
+    ev(page, () => {
+      const g = window.__game;
+      const m = g.scene.getScene('Menu');
+      return !g.scene.isActive('Battle') && m.sys.isActive() && !m.cameras.cameras.some((c) => c.fadeEffect.isRunning);
+    }),
+  60000,
+);
+check('[duel] aborted duel leaves the battle', duelUp && banner && handedOver, `duel up ${duelUp}, banner ${banner}, menu ${handedOver}`);
 await page.waitForTimeout(500);
 check('[duel] no page errors after the hand-over', s.errors.length === 0, s.errors.join(' | '));
 await finish({ browser: s.browser });

@@ -38,6 +38,7 @@ as are the 16 powers. With them the game has **178 items**.
 | Trading | named legendaries and legendary set pieces are **bound**: never on the marketplace |
 | Requirements | every item needs attribute points (STR, AGI, END, WIL) by tier and rarity; short of them it still works, weaker (soft penalty) |
 | Class limits | each class can use only its weapon families, shield types and armour weight (hard rule) |
+| Reforging | campaign only: a town's Smith redraws one chosen random stat for gold (20–240 g by tier and rarity); never above a drop's roll |
 
 ## Anatomy of an item
 
@@ -325,8 +326,8 @@ Source: trading posts of Crete, Phoenicia and Scythia (epic slot); beast hoards 
 
 | Pieces worn | Bonus |
 | --- | --- |
-| 2 | +5% accuracy |
-| 3 | +4 ammo |
+| 2 | +2% accuracy (was +5%, EC-02) |
+| 3 | +2 ammo (was +4, EC-02) |
 | 4 | Rain of Arrows: every 5th shot looses 2 extra arrows |
 
 | Piece | Slot | Built on | Looks like |
@@ -342,9 +343,9 @@ Source: trading posts of Attica and Thessaly (epic slot); beast hoards (epic dro
 
 | Pieces worn | Bonus |
 | --- | --- |
-| 2 | +8 morale |
-| 3 | +1.5 armour |
-| 4 | Bond of the Band: every other set wearer within 3 units gives +4% damage and +3% block (up to 4) |
+| 2 | +2 morale (was +8, EC-02) |
+| 3 | +0.25 armour (was +1.5, EC-02) |
+| 4 | Bond of the Band: every other set wearer within 3 units gives +2% damage and +1% block (up to 4; was +4% / +3%, EC-02) |
 
 | Piece | Slot | Built on | Looks like |
 | --- | --- | --- | --- |
@@ -359,9 +360,9 @@ Source: world boss: the Kraken (40% of the chests of its contributors with at le
 
 | Pieces worn | Bonus |
 | --- | --- |
-| 2 | +10 HP |
-| 3 | +1.2 melee damage |
-| 4 | +3 armour |
+| 2 | +3 HP (was +10, EC-02) |
+| 3 | +0.4 melee damage (was +1.2, EC-02) |
+| 4 | +1 armour (was +3, EC-02) |
 | 5 | Heel of Achilles: -50% damage from front and side hits; rear hits deal +50% |
 
 | Piece | Slot | Built on | Looks like |
@@ -394,24 +395,26 @@ Source: world boss: the Titan (40% of the chests of its contributors with at lea
 ## Named legendaries
 
 Twelve fixed items, each from one boss. Always legendary, fixed stats (their
-base item at ×1.08, four fixed random stats picked to fit the story, plus the
-extra effect below) and a fixed grade II power. They are rare enough that
+base item at ×1.08, up to four fixed random stats picked to fit the story, plus the
+extra effect below) and a fixed grade II power. Eight of them were trimmed
+under the item power cap (EC-02, see "Item power cap" below); the Extra
+column shows today's numbers. They are rare enough that
 copies are not limited in an army; world bosses give at most one copy of
 their named item per player per season (see Sources).
 
 | Item | Slot | Built on | Power (II) | Extra | Source | Story |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Club of Herakles** (`herakles_club`) | Weapon | Club | Terror | +10% morale shock | Nemean Lion | Wild olive, torn from the ground at Nemea. |
-| **Nemean lion pelt** (`nemean_pelt`) | Armour | Hide jerkin | Unshaken | -40% missile damage taken | Nemean Lion | No arrow ever pierced it. |
+| **Nemean lion pelt** (`nemean_pelt`) | Armour | Hide jerkin | Unshaken | -40% missile damage taken (fixed stats 10 → 5 steps) | Nemean Lion | No arrow ever pierced it. |
 | **Bow of Philoctetes** (`philoctetes_bow`) | Weapon | Composite bow | Sunder | +0.5 range | Hydra | Herakles' bow; the arrows still carry the Hydra's venom. |
-| **Horn of the Minotaur** (`minotaur_horn`) | Trinket | Boar tusk | Momentum | +6 HP | Minotaur | Cut from the bull of the labyrinth. |
+| **Horn of the Minotaur** (`minotaur_horn`) | Trinket | Boar tusk | Momentum | +6 HP (fixed stats 10 → 6 steps) | Minotaur | Cut from the bull of the labyrinth. |
 | **Hammer of the Cyclopes** (`cyclops_hammer`) | Weapon | Bronze mace | Rend Armour | +1 melee damage | Cyclops | Struck the thunderbolts of Zeus. |
-| **Harpy-wing helm** (`harpy_helm`) | Helmet | Chalcidian helm | Battle Frenzy | +3% move speed | Harpies | Feathers that fell like knives. |
-| **Chimera-hide cuirass** (`chimera_cuirass`) | Armour | Horn scale | Retribution | +1 armour | Chimera | Lion, goat and serpent; it still smells of fire. |
-| **Trident of Poseidon** (`poseidon_trident`) | Weapon | Hasta | Executioner | +0.04 charge bonus | Kraken | Fished from the beast's jaws. |
-| **Aegis of Zeus** (`aegis_of_zeus`) | Shield | Silver aspis | Aegis | +5 morale | Titan | Goatskin of Amaltheia with the Gorgon's head. |
-| **Golden Fleece** (`golden_fleece`) | Trinket | Gold stag plaque | Second Wind | +10% bonus XP | duel ladder floor 50 boss | Taken from Colchis by Jason. |
-| **Helm of Hades** (`helm_of_hades`) | Helmet | Iron Boeotian helm | Steadfast | enemy missiles -30% accuracy against the wearer | duel ladder floor 40 boss | The Cap of Darkness. |
+| **Harpy-wing helm** (`harpy_helm`) | Helmet | Chalcidian helm | Battle Frenzy | +3% move speed (fixed stats 10 → 3 steps) | Harpies | Feathers that fell like knives. |
+| **Chimera-hide cuirass** (`chimera_cuirass`) | Armour | Horn scale | Retribution | none (armour 5.5 → 4.5, the base's; fixed stats 10 → 2 steps) | Chimera | Lion, goat and serpent; it still smells of fire. |
+| **Trident of Poseidon** (`poseidon_trident`) | Weapon | Hasta | Executioner | a heavier haft: attack 1.25 s (the hasta's 1.15 s), charge bonus 0.35; fixed stats 9 → 1 step | Kraken | Fished from the beast's jaws. |
+| **Aegis of Zeus** (`aegis_of_zeus`) | Shield | Silver aspis | Aegis | none: hoplon block 0.45 and armour 1, +2 morale (was the silver aspis +5 morale); fixed stats 10 → 1 step | Titan | Goatskin of Amaltheia with the Gorgon's head. |
+| **Golden Fleece** (`golden_fleece`) | Trinket | Gold stag plaque | Second Wind | +10% bonus XP (base cut to +1 morale, +0.05 charge, no HP; fixed stats 10 → 4 steps) | duel ladder floor 50 boss | Taken from Colchis by Jason. |
+| **Helm of Hades** (`helm_of_hades`) | Helmet | Iron Boeotian helm | Steadfast | enemy missiles -30% accuracy against the wearer (armour 4 → 3; fixed stats 10 → 1 step) | duel ladder floor 40 boss | The Cap of Darkness. |
 | **Harpe of Perseus** (`harpe_of_perseus`) | Weapon | Sica | Blood Price | +5% attack speed | duel ladder floor 30 boss | The sickle that took the Gorgon's head. |
 
 In battle the two extras that are not plain stats are `ItemDef.missileWard`
@@ -428,7 +431,9 @@ start within 4 units" would never reach anyone.
 
 | Source | Common | Uncommon | Rare | Epic | Legendary | Sets | Named |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Campaign battles (enemy gear, `rollRarity` by band tier) | yes | yes | yes | tier 2-3 | - | rare set pieces: 4% of the rare pieces tier-3 bands carry (Greek bands Agoge, javelin men Peltast, archers Cretan) | - |
+| Campaign battles (enemy gear, `rollRarity` by band tier; tier 3 from day 50 or 2 fallen lairs) | yes | yes | yes | tier 2-3 | - | rare set pieces: 4% of the rare pieces tier-3 bands carry (Greek bands Agoge, javelin men Peltast, archers Cretan) | - |
+| Campaign lair hoards (a fallen lair, once each) | yes | yes | yes | 1 sure | pity only | epic set pieces: 25% of the sure epic (the lair culture's set) | - |
+| Campaign arc: the host, then reborn lairs | - | - | - | - | - | one missing piece of the campaign's legendary set (Achilles or Alexander) | - |
 | Campaign and war-map beasts (`rollBeastRarity`: rare 50 / epic 35 / legendary 15) | - | - | yes | yes | yes | epic set pieces: 25% of epic drops | 20% of legendary drops are the beast's named item |
 | World bosses (Kraken, Titan) | - | - | - | yes | yes | legendary set pieces (below) | Kraken: Trident; Titan: Aegis |
 | War-map merchants, towns | basic | regional | 1 a day | - | - | - | - |
@@ -457,9 +462,25 @@ Details (numbers in `SOURCES`, `src/game/sources.ts`, and `SPOILS`,
   the time, swapped for its set's piece of that slot that the hero's class
   can use (`bandSetPieces`, seeded by the band): archers carry Cretan pieces,
   javelineers and peltasts Peltast pieces, the rest of a Greek band Agoge
-  pieces. Celtic and Phoenician line troops carry none.
-- **Beast hoards** (campaign bands, the Beast trial, war-map lairs:
-  `hoardItem`). 25% of epic drops are a piece of an epic set (Brennus,
+  pieces. Celtic and Phoenician line troops carry none. Tier-3 bands appear
+  offline from day 50 or once 2 lairs have fallen (`lairTier`, campaign-arc.md
+  R3): a new band forming where danger is over 0.85 is tier 3, and after 2
+  fallen lairs every raider and mercenary band too. About 0.08 rare set pieces
+  per tier-3 band of men, so about one in 12 tier-3 wins
+  (docs/v5/balance/AR-03.md).
+- **The campaign arc** (campaign-arc.md R6, `src/game/sources.ts`). A fallen
+  lair's hoard (`lairHoard`, `Campaign.lairHoard`) is a chest of 3 pieces of
+  tier-2-and-up gear, seeded by the world and the lair and following the
+  army: the first a sure epic, 25% of the time a piece of the lair culture's
+  epic set (Greek Sacred Band, Phoenician Immortals, Celtic Brennus); the
+  others `rollRarity(tier 3)`. It counts on the campaign pity counter. The
+  host and, after it, each reborn lair drop one piece of the campaign's
+  legendary set (`arcSet`: Achilles or Alexander, fixed per world) that the
+  player does not own yet (`arcSetPiece`), nothing once all five are owned.
+  These are the offline routes to set pieces now that the Beast Trial is
+  practice (V5-039).
+- **Beast hoards** (campaign beast bands, war-map lairs: `hoardItem`; the
+  Beast Trial is practice and drops nothing, V5-039). 25% of epic drops are a piece of an epic set (Brennus,
   Immortals, Sacred Band), 20% of legendary drops the beast's named item
   (into a free slot of its kind).
 - **Per-duel spoils.** A won unranked duel drops an item 8% of the time, a
@@ -485,8 +506,8 @@ Details (numbers in `SOURCES`, `src/game/sources.ts`, and `SPOILS`,
   legendary (its best piece turns legendary, the beast's named item 20% of
   the time; a world-boss chest gives a missing set piece, else the named
   item, else a legendary piece) and the counter resets; any legendary resets
-  it. The chests: a won beast battle's loot in the campaign (`pity` in the
-  save), a slain lair beast's hoard and a world-boss chest on the war map
+  it. The chests: a won beast battle's loot and a fallen lair's hoard in the
+  campaign (`pity` in the save), a slain lair beast's hoard and a world-boss chest on the war map
   (`loot_pity` track `war`, kept across war seasons), a ladder boss floor's
   first-clear drop in duels (track `duel`).
 - **Bound items.** Named legendaries and legendary set pieces (`bound: true`)
@@ -535,6 +556,83 @@ level 5 / level 10; "Now" at 400 seeds per cell, the first two columns at 120):
 
 Without their powers the epic kit now wins 67 / 66% and the legendary kit
 78 / 77%: a full set of powers is worth about 10 points.
+
+## Item power cap
+
+GDD_REVIEW N16 (EC-02): gear must not drift toward "stats decide". **No
+single item may add more than 10 win-rate points.**
+
+How it is measured (`itemCapReport` in `src/dev/rarityBalance.ts`, printed
+under the rarity mirror by `npm run balance`): the reference army of the rarity
+mirror (six hoplites, a swordsman, two peltasts, a slinger, all common, level 5
+and level 10). Side 0 fits the item to every man whose class may use it; side 1
+is the same army without it. An item no man of that army can use (a bow, a
+Sacred Band piece) replaces the last four men with the class that wears it
+most, so the wearers stay part of a mixed army. A set is judged by its bonus
+lines: both sides wear the pieces, side 1 with the bonus switched off. The
+delta is the win rate minus 50. A row is OVER when it is more than one
+standard error (50/√n points) above the cap.
+
+| Rule | Value |
+| --- | --- |
+| Cap | +10 points at level 5 and level 10 |
+| Cases | a plain legendary in each slot (rolls vary by seed), each named legendary, each set's bonus |
+| Judged at | 400 seeds (1 SE 2.5 points); `npm run balance` prints 120 seeds (1 SE 4.6) |
+
+**Live items.** Item instances store only id, rarity, condition and rolls
+(steps); their stats are computed from this data whenever they are used. The
+re-tune therefore changes owned items at use time, on client and server alike,
+with no save or server change; nothing is deleted or rerolled. Players are told
+in the release notes (docs/v5/PROPOSALS.md, R-1).
+
+What changed (before → after, 400 seeds, level 5 / level 10):
+
+| Item | Before | After | Change |
+| --- | --- | --- | --- |
+| Trident of Poseidon | +24 / +26 | +9 / +10 | attack 1.15 → 1.25 s, charge 0.39 → 0.35, fixed {dmg 3, atkSpeed 2, accuracy 2, moraleShock 2} → {accuracy 1} |
+| Aegis of Zeus | +5 / +32 | -6 / +11 | block 0.54 → 0.45, armour 2 → 1, morale 11 → 2, fixed {block 3, armour 3, hp 2, morale 2} → {hp 1} |
+| Golden Fleece | +11 / +21 | +1 / +10 | morale 5 → 1, charge 0.15 → 0.05, HP 4 → 0, fixed {hp 3, morale 3, …} → {stamina 2, xp 2} |
+| Helm of Hades | +21 / +19 | +10 / +7 | armour 4 → 3, fixed {hp 3, armour 2, morale 3, steady 2} → {steady 1} |
+| Chimera-hide cuirass | +9 / +16 | +4 / +10 | armour 5.5 → 4.5, fixed {hp 3, armour 3, stamina 2, steady 2} → {stamina 2} |
+| Harpy-wing helm | +16 / +15 | +10 / +8 | fixed {hp 3, armour 2, morale 3, steady 2} → {hp 1, morale 1, steady 1} |
+| Horn of the Minotaur | +16 / +15 | +9 / +9 | fixed {hp 3, morale 3, …} → {hp 1, morale 1, stamina 2, xp 2} |
+| Nemean lion pelt | +15 / +11 | +10 / +6 | fixed {hp 3, armour 3, stamina 2, steady 2} → {hp 1, armour 1, stamina 2, steady 1} |
+| Sacred Band set | +3 / +26 | +3 / +9 | 2: morale 8 → 2; 3: armour 1.5 → 0.25; Bond +4% dmg / +3% block → +2% / +1% per ally |
+| Arms of Achilles set | +0 / +26 | +0 / +9 | 2: HP 10 → 3; 3: dmg 1.2 → 0.4; 4: armour 3 → 1 |
+| Immortals set | +1 / +13 | +1 / +9 | 2: accuracy 5% → 2%; 3: ammo 4 → 2 |
+
+Powers, random-stat steps and `RARITY_MULT` are unchanged, so plain items and
+the rarity mirror do not move. Two plain rows sit just above the cap: a
+legendary **weapon** (+13 / +9 at 400 seeds; +11.7 at level 5 over 1,200 seeds)
+and **shield** (+10 / +12; +11.3 at level 5 over 1,200 seeds). They are the
+reference the cap is set against, the legendary kit is on its 85% target, and
+trimming them would weaken every legendary weapon and shield players own for
+about 1.5 points, so they are accepted and logged (EC-02.md).
+
+## Reforging at the Smith
+
+The campaign's endgame gold sink (EC-01, `design/gdd/forge-reroll.md`).
+
+- **Where**: the Smith row of every town's Services tab; open when the market
+  is shut or sacked. Campaign only: no Smith online, in duels or on the war map.
+- **What**: any worn or stashed item with a random stat (uncommon and finer,
+  set pieces included). Named legendaries keep their fixed stats.
+- **How**: the player picks one line. It is drawn again from the item's
+  normal pool (weights as at a drop) minus its other lines, with the rarity's
+  normal steps (1–2). The line's own stat can come back. The other lines (in
+  their order), the power, rarity, condition and value stay. The result is
+  stored in `aff`, so no save field is new.
+- **Price**: `round5(base[tier] × rarity)`, base 20 / 40 / 80 for tiers 1–3,
+  rarity ×1 / 1.5 / 2 / 3 for uncommon to legendary: 20 g for a tier-1
+  uncommon, 240 g for a tier-3 legendary. Flat, no cap, no refund.
+- **Determinism**: the world RNG draws (`World.rng`), and the game saves at
+  once, so an app kill can neither undo nor repeat a reforge.
+- **Power**: never above what a drop can roll. A full legendary kit with every
+  line at 2 steps beats the natural legendary kit 62 / 60% (L5 / L10), with the
+  best stats of each pool 69 / 66%: about 3.5 points an item, under the
+  10-point cap. Campaign gear never enters duels.
+- **Sink**: perfecting one line of a tier-3 legendary costs about 960 g or
+  more, 4+ wins of battle pay (`docs/v5/balance/EC-01.md`).
 
 ## Code changes (built)
 
@@ -588,7 +686,7 @@ Without their powers the epic kit now wins 67 / 66% and the legendary kit
 
 ## Open questions
 
-1. Rerolling: a forge that rerolls one random stat for gold (campaign / war)
-   or Glory (duels)? Not in this design; easy to add on top of steps.
+1. ~~Rerolling~~: answered by EC-01 for the campaign ("Reforging at the
+   Smith"). A war-map or duel variant (Glory) stays open; it needs the server.
 2. Should the war-map season reset take legendary set pieces with it (season
    items) or keep them like the duel army keeps its gear?

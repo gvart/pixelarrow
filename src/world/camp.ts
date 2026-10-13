@@ -89,7 +89,10 @@ export const FOOD_RULES = {
   starveHeal: 0.25,
   cap: 240,
   supplyCap: 120,
+  /** Rations for a save from before provisions (World repairs it with this; old saves keep it). */
   startFood: 24,
+  /** Rations of a new campaign: 5 days for the 8-man opening (campaign-arc.md R1.2). */
+  openingFood: 40,
   startSupplies: 12,
   /** Gold per 10 rations / 10 supplies (village, town). */
   foodPrice: { village: 5, town: 6 },

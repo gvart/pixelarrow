@@ -1,15 +1,22 @@
 // Layout check (docs/DESIGN_V2.md "UX principles", docs/UI_KIT.md "Layout check").
 //
-// Visits every screen at 320x568, 375x667, 390x844, 430x932 and 360x780, in a
+// Visits every screen at 320x568, 375x667, 390x844, 430x932, 360x780 and 320x640, in a
 // plain browser and inside a fake full-screen Telegram (safe-area insets: top
 // 59 + 46, bottom 34), in English and Russian, and fails when
 //   - interactive elements overlap (or sit closer than 4 pt),
 //   - text overflows its box or overlaps other text, or is cut at the side of a scroll area,
 //   - an element falls outside the safe area (the canvas),
-//   - a touch target is smaller than 44 pt.
+//   - a touch target is smaller than 44 pt (A11Y-06),
+//   - text that carries meaning is under 13 CSS px = 6.5 UI px (A11Y-09; map labels are exempt),
+//   - a tap where a control is drawn misses its hit area (the tap probe: every interactive
+//     element, v3 buttons included, is pressed at its centre and towards each corner through
+//     Phaser's own hit test; MECH §3).
+// The rules are src/ui/layoutCheck.ts (unit-tested in tests/ui.test.ts, tests/inputContract.test.ts).
 // Element bounds come from the game's debug UI registry (window.__layout,
 // src/ui/layout.ts). Known violations are listed with an owner in
-// scripts/layout-allowlist.json; anything not listed fails the run.
+// scripts/layout-allowlist.json; anything not listed fails the run. An entry
+// `screen|check|*` allows that check on the whole screen (used for the text-size floor,
+// which arrived after the screens: one entry per screen, owned by the screen's story).
 // Screenshots: shots/layout/<lang>-<plain|tg>/<WxH>/<screen>.png and a summary
 // in shots/layout/index.md (git-ignored; CI uploads shots/layout as an artifact).
 //
@@ -36,8 +43,55 @@ const opt = (n, d) => {
 const base = args.find((a) => /^https?:/.test(a)) ?? 'http://localhost:5173/';
 const outDir = shotsDir('layout');
 const allowPath = join(root, 'scripts/layout-allowlist.json');
+/** Allowlist groups: A, B, C by screen owner; F only for checks added after the foundation screens (text-size). */
+const GROUPS = ['A', 'B', 'C', 'F'];
+/** Checks allowlisted per screen (`screen|check|*`) rather than per element. */
+const PER_SCREEN = new Set(['text-size']);
+/** The story that owns a screen's fixes (docs/v5/plan/STORIES.md), for new allowlist entries: first matching prefix. */
+const STORY_OF = [
+  ['kit-', 'F-05'],
+  ['menu-settings', 'DLG-01'],
+  ['menu-reset', 'DLG-01'],
+  ['menu-shop', 'SHP-01'],
+  ['shop', 'SHP-01'],
+  ['consumable-picker', 'SHP-01'],
+  ['menu', 'HUB-02'],
+  ['codex', 'CDX-01'],
+  ['online-army', 'WAR-01'],
+  ['online-clan', 'WAR-02'],
+  ['merchant-', 'WAR-02'],
+  ['online', 'WAR-01'],
+  ['duel-board', 'DUE-02'],
+  ['duel-raid', 'DUE-02'],
+  ['duel-defence', 'DUE-02'],
+  ['duel-search', 'DUE-02'],
+  ['duel-found', 'DUE-02'],
+  ['duel-ranked', 'DUE-02'],
+  ['duel-season', 'DUE-02'],
+  ['duel-', 'DUE-01'],
+  ['market-', 'MKT-01'],
+  ['world-event', 'EV-03'],
+  ['world-journal', 'EV-03'],
+  ['world', 'WLD-01'],
+  ['camp', 'CMP-01'],
+  ['fire', 'CMP-01'],
+  ['army', 'ARM-01'],
+  ['stash-', 'ARM-01'],
+  ['hero', 'HERO-01'],
+  ['village', 'SET-01'],
+  ['town-', 'SET-01'],
+  ['recruits', 'SET-01'],
+  ['results', 'RES-01'],
+  ['inspect', 'RES-01'],
+  ['battle-works', 'FW-03'],
+  ['battle-assault', 'FW-03'],
+  ['battle-', 'BTL-01'],
+  ['tutorial-', 'TUT-02'],
+  ['first-run', 'TUT-01'],
+];
+const storyOf = (key) => STORY_OF.find(([p]) => key.startsWith(p))?.[1];
 
-const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780').split(',').map((s) => s.split('x').map(Number));
+const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780,320x640').split(',').map((s) => s.split('x').map(Number));
 const LANGS = opt('langs', 'en,ru').split(',');
 const INSETS = opt('insets', 'plain,tg').split(',');
 const JOBS = Number(opt('jobs', '4'));
@@ -71,13 +125,16 @@ async function battle(p, online) {
   if (!online) return;
   await ev(p, (mode) => {
     const s = window.__game.scene.getScene('Battle');
-    const source = { setup: s.verifySetup, heroes: s.views.map((v) => v.hero), side: 0, label: 'vs Brigands', opponent: 'Hektor', onFinish() {}, onLeave() {} };
+    const source = { setup: s.verifySetup, heroes: s.views.map((v) => v.hero), side: 0, label: new URL(location.href).searchParams.get('lang') === 'ru' ? 'против: Разбойники' : 'vs Brigands', opponent: 'Hektor', onFinish() {}, onLeave() {} };
     if (mode === 'duel')
       source.lockstep = { attach() {}, issue() {}, ready() {}, canStep: () => false, beforeStep() {}, status: () => null, aborted: () => null, opponentReady: () => true };
     s.scene.restart({ source });
   }, online);
   await wait(p, 600);
 }
+
+/** The doctrines the Codex has met (src/ui/sheets/doctrine.ts keeps them in local storage). */
+const codexMet = (p, ids) => ev(p, (ids) => localStorage.setItem('pixelarrow:codex.doctrines', JSON.stringify(ids)), ids);
 
 /** A won skirmish, run to the end: the report. */
 async function results(p) {
@@ -92,6 +149,9 @@ async function results(p) {
   return wait(p, 3000);
 }
 
+/** Every class with a painted bust (src/ui/army/layout.ts SHIPPED_BUSTS): the opt-in army-bust-<class> screens. */
+const BUST_CLASSES = ['militia', 'hoplite', 'thureophoros', 'celt_sword', 'rhomphaia', 'archer', 'slinger', 'javelineer', 'horse_archer', 'peltast', 'falx', 'gallic', 'fanatic', 'companion', 'thessalian', 'chariot', 'royal_guard', 'sacred_band', 'wolf', 'boar', 'bear'];
+
 const SCREENS = [
   { id: 'menu', owner: 'F', run: async (p) => (await start(p, 'Menu'), wait(p, 700)) },
   { id: 'menu-settings', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openSettings(); return 1;'), wait(p, 400)) },
@@ -99,14 +159,31 @@ const SCREENS = [
   { id: 'menu-settings-notify', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openNotifications(true); return 1;'), wait(p, 500)) },
   { id: 'menu-settings-about', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openAboutPage(); return 1;'), wait(p, 400)) },
   { id: 'menu-reset', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.confirmReset(); return 1;'), wait(p, 400)) },
-  { id: 'codex', owner: 'F', run: async (p) => (await start(p, 'Codex'), wait(p, 700)) },
+  { id: 'codex', owner: 'F', run: async (p) => (await codexMet(p, []), await start(p, 'Codex'), wait(p, 900)) },
+  // the Codex (CDX-01): a beast sheet with the Trial fight, the Doctrines segment (four met, one locked), a doctrine sheet
+  { id: 'codex-beast', owner: 'F', run: async (p) => (await start(p, 'Codex', { open: 'hydra' }), wait(p, 900)) },
+  { id: 'codex-doctrines', owner: 'F', run: async (p) => (await codexMet(p, ['steady', 'rush', 'hammer', 'swarm']), await start(p, 'Codex', { seg: 'doctrines' }), wait(p, 900)) },
+  { id: 'codex-doctrine', owner: 'F', run: async (p) => (await codexMet(p, ['steady', 'rush', 'hammer', 'swarm', 'fury']), await start(p, 'Codex', { doctrine: 'fury' }), wait(p, 900)) },
   { id: 'kit-controls', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 0 }), wait(p, 1500)) },
   { id: 'kit-items', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 1 }), wait(p, 700)) },
   { id: 'kit-lists', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 2 }), wait(p, 700)) },
-  { id: 'kit-v3', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 3 }), wait(p, 700)) },
   { id: 'kit-mosaic', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 4 }), wait(p, 900)) },
   { id: 'kit-parts', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 5 }), wait(p, 1200)) },
   { id: 'kit-shell', owner: 'F', run: async (p) => (await start(p, 'Kit', { tab: 6 }), wait(p, 700)) },
+  // F-05: the v5 design-system pages (src/scenes/kit/catalog.ts KIT_PAGES) and overlay samples opened from the Kit
+  { id: 'kit-tokens', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'tokens' }), wait(p, 1200)) },
+  { id: 'kit-type', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'type' }), wait(p, 900)) },
+  { id: 'kit-states', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'states' }), wait(p, 1200)) },
+  { id: 'kit-overlays', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'overlays' }), wait(p, 900)) },
+  { id: 'kit-icons', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'icons' }), wait(p, 1200)) },
+  { id: 'kit-army', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'army' }), wait(p, 1500)) },
+  // 'confirm-over' then 'destructive': a destructive confirm over the sheet that asked (one sheet plus one confirm)
+  ...[['sheet'], ['sheet-actions'], ['decision'], ['footer-close'], ['confirm-over', 'destructive'], ['item'], ['purchase']].map((samples) => ({
+    id: `kit-overlay-${samples[0]}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Kit', { page: 'overlays' }), await wait(p, 600), await call(p, 'Kit', `${samples.map((x) => `s.openSample(${JSON.stringify(x)});`).join(' ')} return 1;`), wait(p, 700)),
+  })),
+  { id: 'kit-pages', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'tokens' }), await wait(p, 600), await call(p, 'Kit', 's.pageList(); return 1;'), wait(p, 500)) },
   // the shop with the API down (503): the "closed" state
   { id: 'menu-shop', owner: 'B', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openShop(); return 1;'), wait(p, 1200)) },
   // economy screens on the in-memory demo economy (src/ui/econ/demo.ts)
@@ -132,13 +209,13 @@ const SCREENS = [
     id,
     owner: 'B',
     run: async (p) => {
-      await start(p, 'OnlineArmy', id === 'online-army-garrison' ? { garrison: { q: 1, r: 0 } } : { tab });
+      await start(p, 'OnlineArmy', id === 'online-army-garrison' ? { garrison: 1 } : { tab });
       await wait(p, 600);
       await call(
         p,
         'OnlineArmy',
         `const c = window.__state.campaign.data; const now = Date.now();
-         const heroes = c.heroes.slice(0, 8).map((h, i) => ({ hero: h, garrison: i === 3 ? { q: 1, r: 0 } : null, woundedUntil: i === 5 ? now + 3600e3 : 0, busy: i === 6 }));
+         const heroes = c.heroes.slice(0, 8).map((h, i) => ({ hero: h, garrison: i === 3 ? 1 : null, woundedUntil: i === 5 ? now + 3600e3 : 0, busy: i === 6 }));
          s.fetchData({ season: { id: 3, startedAt: now, endsAt: now + 864e5 }, shard: { id: 1, radius: 34 }, now, resources: { gold: 1240, food: 380, wood: 210, bronze: 95, recruits: 3 }, energy: 72, energyMax: 100, home: { q: 0, r: 0 }, army: { q: 0, r: 0, marching: false, dest: null, arriveAt: null }, formations: [], heroes, stash: c.stash, clan: null, battles: 4, wins: 3, income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, hexes: 3 } });
          ${after} return 1;`,
       );
@@ -172,6 +249,10 @@ const SCREENS = [
     ['duel-team-delete', { tab: 'team' }, 's.deletePreset(s.profile.loadout);'],
     ['duel-recruit', { tab: 'team' }, 's.openRecruit();'],
     ['duel-dismiss', { tab: 'team' }, 's.openDismiss();'],
+    // DUE-01: the Preset sheet behind the edited preset, the roster symbols, the duel level sheet
+    ['duel-preset', { tab: 'team' }, 's.openPresetSheet(s.profile.loadout);'],
+    ['duel-symbols', { tab: 'team' }, 's.openSymbols();'],
+    ['duel-level', { tab: 'ladder' }, 's.openLevel();'],
     ['duel-shop-offers', { tab: 'shop', shop: 'offers' }, ''],
     ['duel-shop-gear', { tab: 'shop', shop: 'gear' }, ''],
     ['duel-shop-sell', { tab: 'shop', shop: 'sell' }, ''],
@@ -229,6 +310,19 @@ const SCREENS = [
     },
   },
   {
+    // DUE-01: the report of a ladder floor reported after its 30-minute ticket (verified, paid nothing)
+    id: 'duel-ladder-expired',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Duel', { tab: 'ladder', preview: true, demoXp: 560 });
+      await until(p, () => !!window.__game.scene.getScene('Duel').profile, 4000);
+      await wait(p, 600);
+      await call(p, 'Duel', 's.previewLadderResult(true); return 1;');
+      await until(p, () => window.__game.scene.isActive('Results') && !!window.__game.scene.getScene('Results').report, 8000);
+      return wait(p, 3000);
+    },
+  },
+  {
     // the report of a ranked match (rating change, promotion) on the demo
     id: 'duel-ranked-result',
     owner: 'B',
@@ -272,7 +366,73 @@ const SCREENS = [
       return wait(p, 400);
     },
   },
+  // MKT-01: the goods form (quantity row), a filter's option sheet and the numeric price entry
+  {
+    id: 'market-goods-form',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'sell' });
+      await wait(p, 1000);
+      await call(p, 'Market', `s.openSellForm(s.base, { kind: 'resource', id: 'wood', have: 340 }); return 1;`);
+      return wait(p, 400);
+    },
+  },
+  {
+    id: 'market-filter',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'browse' });
+      await wait(p, 900);
+      await call(p, 'Market', `s.openFilter('sort'); return 1;`);
+      return wait(p, 400);
+    },
+  },
+  {
+    id: 'market-price',
+    owner: 'B',
+    run: async (p) => {
+      await start(p, 'Market', { demo: true, tab: 'sell' });
+      await wait(p, 1000);
+      await call(p, 'Market', `s.openNumberSheet({ title: 'Price', value: 21, min: 2, max: 5000, icon: 'wargold', presets: [1, 2, 5].map((n) => ({ label: 'x' + n, tip: 'x' + n, value: 21 * n })), info: (v) => 'You get ' + v, id: 'market.priceSheet', onDone: () => {} }); return 1;`);
+      return wait(p, 400);
+    },
+  },
   { id: 'world', owner: 'C', run: async (p) => (await start(p, 'World'), wait(p, 1500)) },
+  // the event card (EV-03, campaign-events.md R4): the longest body with a gamble, and three choices with costs; the journal full
+  ...[
+    ['world-event', 'deserters'],
+    ['world-event-costs', 'plague_town'],
+  ].map(([id, evId]) => ({
+    id,
+    owner: 'C',
+    run: async (p) => {
+      await ev(p, (e) => {
+        const w = window.__state.campaign.world;
+        w.stop();
+        w.s.safeUntil = 1e9;
+        w.s.pendingEvent = { id: e, seed: 7 };
+      }, evId);
+      await start(p, 'World');
+      await until(p, () => !!window.__game.scene.getScene('World').eventCard, 8000);
+      return wait(p, 600);
+    },
+  })),
+  {
+    id: 'world-journal',
+    owner: 'C',
+    run: async (p) => {
+      await ev(p, () => {
+        const w = window.__state.campaign.world;
+        delete w.s.pendingEvent; // the card fixtures above leave one pending
+        const lines = ['deserters:take', 'shrine_ares:offer', 'plague_town:help:fail', 'caravan:escort', 'rival_challenge:refuse'];
+        for (let i = 0; i < 20; i++) w.logJournal(lines[i % lines.length]);
+      });
+      await start(p, 'World');
+      await wait(p, 1200);
+      await call(p, 'World', 's.openJournal(); return 1;');
+      return wait(p, 500);
+    },
+  },
   {
     id: 'world-encounter',
     owner: 'C',
@@ -302,6 +462,8 @@ const SCREENS = [
     ['camp-place', "s.startPlacing('tent');"],
     ['camp-muster', 's.openMuster();'],
     ['camp-temper', 's.openTemper();'],
+    ['camp-build', 's.openBuild();'],
+    ['camp-supplies', 's.openSupplies();'],
   ].map(([id, after]) => ({
     id,
     owner: 'C',
@@ -341,8 +503,55 @@ const SCREENS = [
       return wait(p, 500);
     },
   })),
+  // the War camp's Buildings list (CMP-01) on the demo shard's camp preview
+  {
+    id: 'camp-war-build',
+    owner: 'C',
+    run: async (p) => {
+      await start(p, 'Online', { preview: 'camp' });
+      await until(p, activeIs('Camp'), 25000);
+      await until(p, () => !!window.__game.scene.getScene('Camp').layout, 10000);
+      await call(p, 'Camp', 's.openBuild(); return 1;');
+      return wait(p, 600);
+    },
+  },
   { id: 'army', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World' }), wait(p, 900)) },
   { id: 'army-stash', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World', tab: 'stash' }), wait(p, 900)) },
+  // the Army template's states (ARM-01): a full roster of 20 with a slinger selected, a wounded militiaman,
+  // the Drillmaster's pick mode (a peltast), and an army with no one left
+  ...[
+    ['army-full', 'World', 4, (c) => {
+      c.data.gold = 9999;
+      for (let i = 0; i < 40 && c.data.heroes.length < 20; i++) c.recruit();
+      c.data.heroes.forEach((h, i) => (h.group = i % 4));
+    }],
+    ['army-wounded', 'Menu', 8, (c) => (c.data.heroes[8].wound = 14)],
+    ['army-pick', 'Settlement', 6, null],
+    ['army-empty', 'World', -1, (c) => (c.data.heroes.length = 0)],
+    // opt-in (run by name only): the hero card's class bust for every class (AS-07, scripts/art/preview.mjs)
+    ...BUST_CLASSES.map((cls) => [`army-bust-${cls}`, 'World', 0, `(c) => (c.data.heroes[0].cls = '${cls}')`]),
+  ].map(([id, from, sel, prep]) => ({
+    id,
+    owner: 'B',
+    ...(id.startsWith('army-bust-') ? { optIn: true } : {}),
+    run: async (p) => {
+      await ev(
+        p,
+        ([f, s, pick, body]) => {
+          const c = window.__state.campaign;
+          // the staged campaign serves the screens after this one: put the army back when the Army closes
+          const snap = JSON.stringify({ heroes: c.data.heroes, gold: c.data.gold });
+          window.__armyRestore = () => Object.assign(c.data, JSON.parse(snap));
+          if (body) new Function('c', body)(c);
+          const data = { from: f, heroId: c.data.heroes[s]?.id, ...(f === 'Settlement' ? { id: c.world.map.start } : {}), ...(pick ? { pick: 'retrain' } : {}) };
+          window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start('Army', data));
+        },
+        [from, sel, id === 'army-pick', prep ? `(${prep})(c)` : null],
+      );
+      await wait(p, 900);
+      return ev(p, () => void window.__game.scene.getScene('Army').events.once('shutdown', window.__armyRestore));
+    },
+  })),
   {
     // the stash in a town: compare with sell, repair and equip
     id: 'army-town-item',
@@ -452,6 +661,29 @@ const SCREENS = [
       return wait(p, 500);
     },
   },
+  // the Smith's forge (EC-01): the item list, one item, and one the purse cannot pay for
+  ...[
+    ['town-forge', 1240, ''],
+    ['town-forge-item', 1240, 's.openForgeItem("lc-forge-1");'],
+    ['town-forge-poor', 100, 's.openForgeItem("lc-forge-1");'],
+  ].map(([id, gold, open]) => ({
+    id,
+    owner: 'B',
+    run: async (p) => {
+      await ev(p, (g) => {
+        const c = window.__state.campaign;
+        c.data.gold = g;
+        if (!c.data.stash.some((i) => i.uid === 'lc-forge-1')) {
+          c.data.stash.push({ uid: 'lc-forge-1', def: 'falcata', rarity: 'legendary', cond: 90 }, { uid: 'lc-forge-2', def: 'linothorax', rarity: 'rare', cond: 100 });
+          c.data.heroes[0].equip.helmet = { uid: 'lc-forge-3', def: c.data.heroes[0].equip.helmet?.def ?? 'pilos', rarity: 'epic', cond: 100 };
+        }
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Settlement', { id: c.world.map.start, tab: 'rest' }));
+      }, gold);
+      await wait(p, 800);
+      await call(p, 'Settlement', `s.openForge(); ${open} return 1;`);
+      return wait(p, 500);
+    },
+  })),
   // ---- battle (owner A): deployment, the command panel, group assignment, retreat, online rules, the report
   { id: 'battle-deploy', owner: 'A', run: async (p) => (await battle(p), wait(p, 700)) },
   {
@@ -485,6 +717,64 @@ const SCREENS = [
     },
   })),
   { id: 'battle-retreat', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.startFight(); s.openRetreat(); return 1;`), wait(p, 500)) },
+  {
+    // BTL-01 (A11Y-16): Left-hand mirrors the medallion rail, the eye and the top bar's ends
+    id: 'battle-lefthand',
+    owner: 'A',
+    run: async (p) => {
+      await ev(p, () => (window.__state.campaign.data.settings.leftHand = true));
+      await battle(p);
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 2; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); const u = s.sim.units.find((x) => x.side === 0 && x.abil.length > 0) || s.sim.units.find((x) => x.side === 0); s.selGroup = u.group; s.selUnit = -1; s.buildHud(); return 1;`);
+      await wait(p, 500);
+      await ev(p, () => delete window.__state.campaign.data.settings.leftHand);
+    },
+  },
+  // BTL-01: the ⋯ battle menu in deployment, in the fight (it pauses) and in a battle that cannot pause (Retreat and Sound only)
+  { id: 'battle-menu-deploy', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.hideBanner(); s.openMenu(); return 1;`), wait(p, 500)) },
+  { id: 'battle-menu', owner: 'A', run: async (p) => (await battle(p), await call(p, 'Battle', `s.startFight(); s.hideBanner(); s.openMenu(); return 1;`), wait(p, 500)) },
+  {
+    id: 'battle-menu-locked',
+    owner: 'A',
+    run: async (p) => (await battle(p, 'attack'), await call(p, 'Battle', `s.startFight(); s.hideBanner(); s.openMenu(); return 1;`), wait(p, 500)),
+  },
+  // ---- field works (FW-03): the tray with a stakes line, a ditch and a laager laid; placing a ghost; a lair assault's walls
+  ...[
+    ['battle-works', `s.pickWork('stakes'); s.placeWork(); s.pickWork('ditch'); s.worksGhost.x -= 5; s.placeWork(); s.pickWork('laager'); s.worksGhost.x += 5; s.placeWork(); s.hideBanner(); s.buildHud();`],
+    ['battle-works-place', `s.pickWork('stakes'); s.worksGhost.x -= 3; s.hideBanner(); s.buildHud();`],
+    // the same works on the open field, tray closed (the works art preview, ASSET_PIPELINE step 6)
+    ['battle-works-field', `s.pickWork('stakes'); s.placeWork(); s.pickWork('ditch'); s.worksGhost.x -= 5; s.placeWork(); s.pickWork('laager'); s.worksGhost.x += 5; s.placeWork(); s.openWorks(false); s.hideBanner(); s.buildHud();`],
+  ].map(([id, body]) => ({
+    id,
+    owner: 'A',
+    run: async (p) => {
+      await ev(p, () => {
+        const w = window.__state.campaign.world;
+        w.s.supplies = 40;
+        w.setFlag('@works', 1);
+      });
+      await battle(p);
+      await call(p, 'Battle', `s.openWorks(true); ${body} return 1;`);
+      return wait(p, 500);
+    },
+  })),
+  {
+    id: 'battle-assault',
+    owner: 'A',
+    run: async (p) => {
+      // a lair assault as campaignBattle.startLairAssault builds it (the map's Assault sheet is WLD-02's)
+      await ev(p, () => {
+        const st = window.__state;
+        const c = st.campaign;
+        const lair = c.world.map.settlements.find((x) => x.kind === 'lair');
+        st.pending = { enemy: c.garrisonEnemy(lair.id), seed: 4242, label: lair.name, site: c.assaultSite(lair.id), lairId: lair.id, byPlayer: true };
+        window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Battle', {}));
+      });
+      await until(p, activeIs('Battle'));
+      await wait(p, 600);
+      await call(p, 'Battle', `s.hideBanner(); s.recentre('foe'); return 1;`);
+      return wait(p, 700);
+    },
+  },
   { id: 'battle-online-deploy', owner: 'A', run: async (p) => (await battle(p, 'attack'), wait(p, 900)) },
   { id: 'battle-duel-deploy', owner: 'A', run: async (p) => (await battle(p, 'duel'), await call(p, 'Battle', 's.startFight(); return 1;'), wait(p, 900)) },
   {
@@ -499,6 +789,20 @@ const SCREENS = [
   { id: 'results', owner: 'A', run: async (p) => (await results(p), wait(p, 300)) },
   { id: 'results-heroes', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('heroes'); return 1;`), wait(p, 2500)) },
   { id: 'results-spoils', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('spoils'); return 1;`), wait(p, 3500)) },
+  // RES-01: the Spoils empty state (painted chest) and the arc's Victory variant (company roll, set piece)
+  { id: 'results-empty', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.report.loot.length = 0; s.report.picks = 0; s.showPage('spoils'); return 1;`), wait(p, 600)) },
+  {
+    id: 'results-arc',
+    owner: 'A',
+    run: async (p) => {
+      await results(p);
+      await call(p, 'Results', `const st = window.__state; window.__arcWas = st.campaign.world.s.arc; st.campaign.world.s.arc = { stage: 'won' }; st.last.partyId = 1; s.report.loot.unshift({ uid: 'arc1', def: 'achilles_helm', rarity: 'legendary', cond: 100 }); s.scene.restart({}); return 1;`);
+      await wait(p, 1500);
+      // the variant is on show: put the arc back so the later screens see the fixture's campaign
+      await call(p, 'Results', `window.__state.campaign.world.s.arc = window.__arcWas; return 1;`);
+      return wait(p, 200);
+    },
+  },
   {
     id: 'results-inspect',
     owner: 'A',
@@ -514,19 +818,31 @@ const SCREENS = [
       return wait(p, 3500);
     },
   },
-  // ---- mythical beasts (owner A): the Beast trial list, a beast's info panel, a beast battle with the boss bar
-  { id: 'trial', owner: 'A', run: async (p) => (await start(p, 'BeastTrial'), wait(p, 900)) },
-  { id: 'trial-info', owner: 'A', run: async (p) => (await start(p, 'BeastTrial'), await wait(p, 700), await call(p, 'BeastTrial', `s.open('hydra'); return 1;`), wait(p, 500)) },
+  // ---- mythical beasts (owner A): a beast battle with the boss bar, its Trial fight started from the Codex beast sheet
   {
     id: 'battle-beast',
     owner: 'A',
     run: async (p) => {
-      await start(p, 'BeastTrial');
+      await start(p, 'Codex');
       await wait(p, 600);
-      await call(p, 'BeastTrial', `s.fight('cyclops'); return 1;`);
+      await call(p, 'Codex', `s.fight('cyclops'); return 1;`);
       await until(p, activeIs('Battle'));
       await wait(p, 700);
       await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 6 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); s.buildHud(); return 1;`);
+      return wait(p, 600);
+    },
+  },
+  {
+    // BTL-01 (BTL-1): paused with an auto-pause banner up, the boss bar stays in sight above it
+    id: 'battle-beast-paused',
+    owner: 'A',
+    run: async (p) => {
+      await start(p, 'Codex');
+      await wait(p, 600);
+      await call(p, 'Codex', `s.fight('cyclops'); return 1;`);
+      await until(p, activeIs('Battle'));
+      await wait(p, 700);
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 6 && s.sim.phase === 'battle'; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.buildHud(); s.showBanner('Contact!', 0); return 1;`);
       return wait(p, 600);
     },
   },
@@ -630,15 +946,17 @@ const SCREENS = [
   },
   { id: 'first-run-skip', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'resume' }), await wait(p, 500), await call(p, 'FirstRun', 's.confirmSkip(); return 1;'), wait(p, 400)) },
   // tutorial steps: [screen, steps already learned (a resumed run starts at the first one not learned), start the battle]
+  // (TUT-02: Undo comes back with the drag it takes back, Then… with its move; the later steps are in scripts/tutorial-smoke.mjs)
   ...[
     ['tutorial-intro', [], false],
     ['tutorial-select', ['intro'], false],
     ['tutorial-pan', ['intro', 'select'], false],
     ['tutorial-sling', ['intro', 'select', 'pan', 'zoom'], false],
-    ['tutorial-fight', ['intro', 'select', 'pan', 'zoom', 'sling'], false],
-    ['tutorial-move', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight'], true],
-    ['tutorial-wall', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight', 'move'], true],
-    ['tutorial-loose', ['intro', 'select', 'pan', 'zoom', 'sling', 'fight', 'move', 'wall'], true],
+    ['tutorial-fight', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo'], false],
+    ['tutorial-loose', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo', 'fight'], true],
+    ['tutorial-focus', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo', 'fight', 'loose'], true],
+    ['tutorial-play', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo', 'fight', 'loose', 'focus'], true],
+    ['tutorial-move', ['intro', 'select', 'pan', 'zoom', 'sling', 'undo', 'fight', 'loose', 'focus', 'play'], true],
   ].map(([id, done, fight]) => ({
     id,
     owner: 'F',
@@ -764,6 +1082,9 @@ async function runConfig(browser, cfg, screens) {
     try {
       await ev(page, (n) => window.__reseed(n), [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
       await sc.run(page);
+      // let finite tweens end (a sheet sliding in, a fade): on a slow software renderer they can
+      // outlast the screen's fixed wait, and a half-open sheet reads as "outside the safe area"
+      await until(page, () => window.__game.scene.getScenes(true).every((s) => s.tweens.getTweens().every((t) => !t.isPlaying() || t.loop === -1 || t.data.some((d) => d.repeat === -1))), 3000);
       // let tooltips / toasts from staging fade, then measure
       const r = await ev(page, () => {
         const x = window.__layout.check();
@@ -797,7 +1118,9 @@ async function runConfig(browser, cfg, screens) {
 // ------------------------------------------------------------------ run
 
 const onlyScreens = opt('screens', '');
-const screens = onlyScreens ? SCREENS.filter((s) => onlyScreens.split(',').includes(s.id)) : SCREENS;
+// opt-in screens (art previews) run only when named
+const DEFAULT_SCREENS = SCREENS.filter((s) => !s.optIn);
+const screens = onlyScreens ? SCREENS.filter((s) => onlyScreens.split(',').includes(s.id)) : DEFAULT_SCREENS;
 const configs = [];
 for (const lang of LANGS) for (const insets of INSETS) for (const size of SIZES) configs.push({ lang, insets, size });
 const allConfigs = configs.length;
@@ -844,8 +1167,11 @@ for (const r of runs) {
 }
 const allow = existsSync(allowPath) ? JSON.parse(readFileSync(allowPath, 'utf8')) : {};
 const allowed = new Map();
-for (const owner of ['A', 'B', 'C']) for (const k of allow[owner] ?? []) allowed.set(k, owner);
-let fresh = [...found.keys()].filter((k) => !allowed.has(k)).sort();
+for (const owner of GROUPS) for (const k of allow[owner] ?? []) allowed.set(k, owner);
+/** `screen|check|*` of a key. */
+const wildOf = (k) => k.split('|').slice(0, 2).join('|') + '|*';
+const isAllowed = (k) => allowed.has(k) || allowed.has(wildOf(k));
+let fresh = [...found.keys()].filter((k) => !isAllowed(k)).sort();
 const flaky = [];
 if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   // Timing differs on slow machines (CI): a new violation only counts when the
@@ -868,25 +1194,32 @@ if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   flaky.push(...fresh.filter((k) => !again.has(k)));
   fresh = fresh.filter((k) => again.has(k));
 }
-const partial = configs.length < allConfigs || allConfigs < 20 || screens.length < SCREENS.length;
-const stale = [...allowed.keys()].filter((k) => !found.has(k) && screens.some((s) => k.startsWith(s.id + '|'))).sort();
+const partial = configs.length < allConfigs || allConfigs < 20 || screens.length < DEFAULT_SCREENS.length;
+const foundWild = new Set([...found.keys()].map(wildOf));
+const stale = [...allowed.keys()].filter((k) => !(k.endsWith('|*') ? foundWild.has(k) : found.has(k)) && screens.some((s) => k.startsWith(s.id + '|'))).sort();
 
 if (flag('update-allowlist')) {
   const out = {
-    _doc: 'Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps. Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids.',
+    _doc: 'Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps; F = foundation screens (UI kit, menu, onboarding), only for the text-size floor. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids, or screen|check|* for a check on the whole screen (text-size).',
     A: [],
     B: [],
     C: [],
+    F: [],
   };
   for (const [k, f] of found) {
-    if (f.owner === 'F') continue; // the foundation screens must stay clean
-    out[f.owner].push(k);
+    const check = k.split('|')[1];
+    // the foundation screens must stay clean, apart from checks added after them
+    if (f.owner === 'F' && !PER_SCREEN.has(check)) continue;
+    out[f.owner].push(PER_SCREEN.has(check) ? wildOf(k) : k);
   }
   // keep entries of screens not run this time
   for (const [k, owner] of allowed) if (!found.has(k) && !screens.some((s) => k.startsWith(s.id + '|'))) out[owner].push(k);
-  for (const o of ['A', 'B', 'C']) out[o] = [...new Set(out[o])].sort();
+  for (const o of GROUPS) out[o] = [...new Set(out[o])].sort();
+  // the story that owns each entry's fix: kept for entries still listed, new ones from the screen
+  const kept = [...out.A, ...out.B, ...out.C, ...out.F];
+  out.stories = Object.fromEntries(kept.map((k) => [k, allow.stories?.[k] ?? storyOf(k)]).filter(([, s]) => s));
   writeFileSync(allowPath, JSON.stringify(out, null, 2) + '\n');
-  console.log(`allowlist written: A ${out.A.length}, B ${out.B.length}, C ${out.C.length}`);
+  console.log(`allowlist written: A ${out.A.length}, B ${out.B.length}, C ${out.C.length}, F ${out.F.length}`);
 }
 
 // ------------------------------------------------------------------ index
@@ -913,7 +1246,7 @@ const md = [
   `| --- | --- | ${variants.map(() => '---').join(' | ')} |`,
   ...SCREENS.filter((s) => counts[s.id]).map((s) => `| ${s.id} | ${s.owner} | ${variants.map((v) => counts[s.id][v] ?? '-').join(' | ')} |`),
   '',
-  `Distinct violations: ${found.size} (allowlisted ${[...found.keys()].filter((k) => allowed.has(k)).length}, new ${fresh.length}).`,
+  `Distinct violations: ${found.size} (allowlisted ${[...found.keys()].filter(isAllowed).length}, new ${fresh.length}).`,
   '',
 ];
 if (!partial) writeFileSync(join(outDir, 'index.md'), md.join('\n'));

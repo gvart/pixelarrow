@@ -45,7 +45,7 @@ check('[demo] starter roster and team', before.heroes >= 6 && before.team === 6,
 await call('Duel', "void s.act(() => s.src.recruit('archer')); return 1;");
 await until(() => window.__game.scene.getScene('Duel').profile.heroes.length === 8);
 const rec = await call('Duel', 'return { heroes: s.profile.heroes.length, glory: s.profile.glory };');
-check('[team] recruit joins for Glory', rec.heroes === before.heroes + 1 && rec.glory === before.glory - 50, JSON.stringify(rec));
+check('[team] recruit joins for Glory', rec.heroes === before.heroes + 1 && rec.glory === before.glory - 47 /* archer cost, src/data/classes.ts */, JSON.stringify(rec));
 await call('Duel', 'const id = s.profile.heroes[s.profile.heroes.length - 1].id; s.toggleTeam(s.profile, s.profile.heroes.find((h) => h.id === id)); return 1;');
 check('[team] the recruit is in the team', await until(() => window.__game.scene.getScene('Duel').profile.team.length === 7));
 

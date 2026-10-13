@@ -33,8 +33,6 @@ export const DUEL_RULES = {
   startGlory: 200,
   /** Glory from ladder replays (farming) per UTC day; first clears and XP are not capped. */
   farmGloryPerDay: 300,
-  /** A ladder ticket must be submitted within this time. */
-  ticketTtlMs: 10 * 60_000,
   battleTimeLimit: 300,
   /** Duel account level gating ranked play (docs/DUELS.md "Unlock"). */
   rankedLevel: 5,
@@ -442,11 +440,12 @@ const TIME_MODS: (keyof StatMods)[] = ['atkTime', 'shotTime'];
 /**
  * How a compare line is drawn (docs/UI_KIT.md "Stat deltas"): the arrow follows
  * the number (up when it grows), the colour follows the verdict (better /
- * worse), the text carries its unit ("+0.2 s") and, for times, the word that
- * says what it means ("slower"). Null when nothing changes.
+ * worse), and for times the note says what it means ("slower"); the screen adds
+ * the unit of seconds in the player's language ("+0.2 s", "+0,2 с"). Null when
+ * nothing changes.
  */
 export function deltaParts(l: Pick<OfferStatLine, 'key' | 'delta' | 'deltaText' | 'better'>): { up: boolean; better: boolean; text: string; note: 'slower' | 'faster' | null } | null {
   if (!l.deltaText || l.better === null) return null;
   const time = TIME_MODS.includes(l.key);
-  return { up: l.delta > 0, better: l.better, text: time ? `${l.deltaText} s` : l.deltaText, note: time ? (l.delta > 0 ? 'slower' : 'faster') : null };
+  return { up: l.delta > 0, better: l.better, text: l.deltaText, note: time ? (l.delta > 0 ? 'slower' : 'faster') : null };
 }

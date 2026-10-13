@@ -1,6 +1,6 @@
 /** Global game state shared between scenes (no Phaser imports). */
 import { Campaign } from './game/campaign';
-import { carrySettings, readSave, writeSave, clearSave, type SaveData } from './game/save';
+import { backupRaw, carrySettings, readSaveResult, writeSave, clearSave, type LoadFailure, type SaveData } from './game/save';
 import type { Outcome } from './game/loot';
 import type { UnitStat } from './game/report';
 import type { EnemyArmy } from './game/enemy';
@@ -11,6 +11,7 @@ import { setHaptics } from './platform/telegram';
 import { online } from './platform/cloud';
 import { newProgress } from './game/tutorial';
 import { setReducedMotion } from './ui/motion';
+import { resolveAbandoned } from './game/campaignBattle';
 
 /** Longest the boot screen waits for the cloud save before starting with the local one. */
 const PULL_WAIT_MS = 6000;
@@ -36,6 +37,9 @@ export interface LastBattle {
   ticks?: number;
   stats?: UnitStat[];
   before?: Hero[];
+  /** Gold for a band captain (part of the outcome's gold) and the lair hoard's pieces (first in the loot), for Results. */
+  bounty?: number;
+  hoard?: number;
 }
 
 class GameState {
@@ -45,29 +49,59 @@ class GameState {
   cloud = false;
   /** A campaign was loaded from storage (the menu offers Continue). */
   hasSave = false;
+  /** The stored save is from a newer build: nothing is written this session (V5-011). */
+  readOnly = false;
+  /** A one-time message for the player about the save (an i18n key), shown and cleared by the next screen. */
+  notice: 'save.corrupt' | 'save.newer' | 'battle.abandoned' | null = null;
   private saving: Promise<void> = Promise.resolve();
   private dirty = false;
 
   async load(): Promise<void> {
     const kv = gameKV();
     this.cloud = kv.cloud;
-    let data: SaveData | null = await readSave(kv.primary);
-    if (!data && kv.mirror) data = await readSave(kv.mirror);
-    // Cloud save (server): never wait more than a few seconds for it.
+    this.readOnly = false;
+    const prim = await readSaveResult(kv.primary);
+    const mirr = prim.kind !== 'ok' && kv.mirror ? await readSaveResult(kv.mirror) : null;
+    let data: SaveData | null = prim.kind === 'ok' ? prim.data : mirr?.kind === 'ok' ? mirr.data : null;
+    // A save that cannot be loaded is kept, raw, before anything else is written (V5-011).
+    let failure: LoadFailure | null = null;
+    for (const [r, store] of [[prim, kv.primary], [mirr, kv.mirror]] as const) {
+      if (r?.kind !== 'bad' || !store) continue;
+      if (r.raw) await backupRaw(store, r.raw, r.reason);
+      if (failure !== 'newer') failure = r.reason;
+    }
     await online.loadCachedEntitlements();
+    if (failure === 'newer') {
+      // Written by a newer build: this one must not save over it, here or in the
+      // cloud. Play goes on in a campaign that is never saved; updating the app loads it.
+      this.readOnly = true;
+      this.notice = 'save.newer';
+      online.abandonPull();
+      this.hasSave = false;
+      this.campaign = Campaign.fresh(randomSeed());
+      setHaptics(this.campaign.data.settings.haptics);
+      setReducedMotion(this.campaign.data.settings.reduceMotion);
+      return;
+    }
+    // Cloud save (server): never wait more than a few seconds for it.
     const remote = await Promise.race([online.pullOnLoad(data), new Promise<null>((r) => setTimeout(() => r(null), PULL_WAIT_MS))]);
     if (!remote) online.abandonPull();
     if (remote) {
       data = remote;
       await this.writeLocal(remote);
     }
+    // Unreadable and nothing to restore it from: a new campaign, and the player is told (the raw save is kept).
+    if (!data && failure) this.notice = 'save.corrupt';
     this.hasSave = !!data;
     this.campaign = data ? new Campaign(data) : Campaign.fresh(randomSeed());
     // A first launch: the guided tutorial is offered (src/scenes/FirstRunScene.ts).
-    if (!data) this.campaign.data.settings.tutorial = newProgress();
+    if (!data && !failure) this.campaign.data.settings.tutorial = newProgress();
     setHaptics(this.campaign.data.settings.haptics);
     setReducedMotion(this.campaign.data.settings.reduceMotion);
-    if (!data) await this.save();
+    // The app was closed during a campaign battle: it is fought out now, and stands (V5-011).
+    this.last = resolveAbandoned(this.campaign);
+    if (this.last) this.notice = 'battle.abandoned';
+    if (!data || this.last) await this.save();
   }
 
   private async writeLocal(data: SaveData): Promise<void> {
@@ -78,6 +112,7 @@ class GameState {
 
   /** Persist (serialised so writes never interleave): locally first, then the cloud (debounced). */
   save(): Promise<void> {
+    if (this.readOnly) return this.saving;
     this.dirty = true;
     this.saving = this.saving.then(async () => {
       if (!this.dirty) return;
@@ -104,6 +139,7 @@ class GameState {
   }
 
   async reset(): Promise<void> {
+    if (this.readOnly) return;
     const kv = gameKV();
     const seq = this.campaign?.data.seq ?? 0;
     const prev = this.campaign?.data.settings;

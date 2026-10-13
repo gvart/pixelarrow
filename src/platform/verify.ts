@@ -4,6 +4,7 @@
  */
 import type { Battle } from '../sim/battle';
 import type { BattleSetup } from '../sim/types';
+import { SIM_VERSION } from '../sim/version';
 import { online } from './cloud';
 import { track } from './analytics';
 
@@ -18,6 +19,7 @@ export function reportBattle(setup: BattleSetup | null, sim: Battle, deployOrder
   if (!setup || !online.signedIn) return;
   try {
     online.verifyBattle({
+      simVersion: SIM_VERSION,
       setup,
       orders: sim.orderLog.map((o) => ({ tick: o.tick, side: o.side, order: o.order })),
       deployOrders,

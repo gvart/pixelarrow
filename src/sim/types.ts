@@ -6,9 +6,28 @@ import type { ProcId } from './powers';
 
 export type Side = 0 | 1;
 export type UnitState = 'ready' | 'routing' | 'dead' | 'fled';
-export type GroupOrder = 'hold' | 'advance' | 'charge' | 'fallback';
+/**
+ * Group orders. `feint` is sim train 2 (formations-orders.md R3, FO-02): an
+ * ineligible group ignores it.
+ */
+export const GROUP_ORDERS = ['hold', 'advance', 'charge', 'fallback', 'feint'] as const;
+export type GroupOrder = (typeof GROUP_ORDERS)[number];
 export type GroupRole = 'main' | 'skirmish' | 'reserve' | 'flank';
 export type HitDir = 'front' | 'side' | 'rear';
+
+/** Bot doctrines (ai-doctrines.md R1); `steady` plays like today's AI. The records live in src/data/doctrines.ts (AI-01). */
+export const DOCTRINE_IDS = ['steady', 'rush', 'hammer', 'swarm', 'fury'] as const;
+export type DoctrineId = (typeof DOCTRINE_IDS)[number];
+/** A setup without a doctrine plays the steady one. */
+export const DEFAULT_DOCTRINE: DoctrineId = 'steady';
+
+/** Field works placed in deployment with the `work` order (field-works.md R3). */
+export const WORK_TYPES = ['stakes', 'ditch', 'laager'] as const;
+export type WorkType = (typeof WORK_TYPES)[number];
+/** Most segments of one work type an army may carry (field-works.md R4, WORKS_MAX). */
+export const WORKS_MAX = 3;
+/** A side's works allowance, in segments. Missing = none. */
+export type WorksAllowance = Record<WorkType, number>;
 
 /** What the campaign layer hands the simulation for each soldier. */
 export interface UnitSpec {
@@ -19,6 +38,8 @@ export interface UnitSpec {
   stats: CombatStats;
   /** Starting HP when not full (world bosses carry their wounds between clan attacks; 0 = a severed head). Missing = full. */
   hp0?: number;
+  /** The band's captain: a standard bearer (ai-doctrines.md R6, abilities.md R5). Missing = false. */
+  captain?: boolean;
 }
 
 export interface GroupSpec {
@@ -33,6 +54,12 @@ export interface ArmySpec {
   bot: boolean;
   /** War horns (a battle consumable): each sounds one army-wide rally. Missing = none. */
   horn?: number;
+  /** The bot's doctrine (ai-doctrines.md). Missing = DEFAULT_DOCTRINE. */
+  doctrine?: DoctrineId;
+  /** The bot fights to the end: its doctrine's retreatAt is treated as 0 (ladder floors, V5-052). Missing = false. */
+  holdField?: boolean;
+  /** Field works this side may place in deployment (field-works.md R3). Missing = none. */
+  works?: WorksAllowance;
 }
 
 export interface BattleSetup {
@@ -123,6 +150,12 @@ export interface SimGroup {
   routed: boolean;
   individual: boolean;
   disbanded: boolean;
+  /** Focused enemy group id, -1 or missing = none (formations-orders.md R4; FO-01). */
+  focus?: number;
+  /** HUD state: focus set but no man of the group has a focused target in range (FO-01). */
+  focusOutOfRange?: boolean;
+  /** HUD state: seconds with shooting on and no enemy in range (FO-01). */
+  noTargetS?: number;
 }
 
 export type ProjectileKind = 'javelin' | 'arrow' | 'stone';
@@ -175,6 +208,17 @@ export type SimEvent =
   | { type: 'proc'; tick: number; unit: number; power: ProcId; targets: number[] }
   /** The war horn: the whole army rallies. */
   | { type: 'horn'; tick: number; side: Side; targets: number[] }
+  /** Sim train 2 events (output only, never hashed). */
+  /** A group's rout shook its own men and the units near it (formations-orders.md R5). */
+  | { type: 'cohesion'; tick: number; side: Side; group: number; targets: number[] }
+  /** A group drawn by a feint is disordered until untilTick (formations-orders.md R3). */
+  | { type: 'disordered'; tick: number; group: number; untilTick: number }
+  /** A side's army broke (formations-orders.md R6). */
+  | { type: 'armyBreak'; tick: number; side: Side }
+  /** A charge broke on a stakes cell at (x, y) (field-works.md R2). */
+  | { type: 'stakesBreak'; tick: number; unit: number; x: number; y: number }
+  /** A side's standard bearer fell (abilities.md R5). */
+  | { type: 'standardLost'; tick: number; side: Side; unit: number }
   | { type: 'end'; tick: number; winner: Side | -1 };
 
 export type Order =
@@ -191,7 +235,19 @@ export type Order =
   /** The whole side quits the field: the battle ends as its defeat (see Battle.retreat). */
   | { kind: 'retreat' }
   /** Sound the war horn (if the army carries one): every man rallies at once. */
-  | { kind: 'horn' };
+  | { kind: 'horn' }
+  /*
+   * Sim train 2 orders. Until each feature lands the sim has no case for it:
+   * the order is logged (orderLog) and otherwise ignored, so hashes are unchanged.
+   */
+  /** Turn a group to (fx, fy) and keep its order (formations-orders.md R1; FO-01). */
+  | { kind: 'face'; group: number; fx: number; fy: number }
+  /** Missile men fire at enemy group `target` first; -1 clears (formations-orders.md R4; FO-01). */
+  | { kind: 'focus'; group: number; target: number }
+  /** Place a work segment at cell (x, y), across (fx, fy); deployment only (field-works.md R3). */
+  | { kind: 'work'; type: WorkType; x: number; y: number; fx: number; fy: number }
+  /** Remove the segment at cell (x, y); deployment only (field-works.md R3). */
+  | { kind: 'unwork'; x: number; y: number };
 
 export interface LoggedOrder {
   tick: number;

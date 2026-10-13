@@ -62,7 +62,10 @@ save.put('/', async (c) => {
           .run();
 
   if (res.meta.changes !== 1) {
-    const cur = await d.prepare('SELECT revision, updated_at FROM saves WHERE player_id = ?1').bind(pid).first<{ revision: number; updated_at: number }>();
+    const cur = await d
+      .prepare('SELECT revision, updated_at FROM saves WHERE player_id = ?1')
+      .bind(pid)
+      .first<{ revision: number; updated_at: number }>();
     throw new ApiError(409, 'save_conflict', 'The save was changed elsewhere; fetch it and merge or overwrite', {
       revision: cur?.revision ?? 0,
       updatedAt: cur?.updated_at ?? null,

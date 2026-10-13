@@ -151,6 +151,23 @@ cap on what is verified. Limits: 64 units and 16 groups per side, 20k orders,
 600 s time limit, 1 MB body. Only `server/src/battle.ts` knows the sim's API —
 update it if `BattleSetup`/`Order` change.
 
+### Sim version
+
+Contract: `design/adr/ADR-0001-determinism-replay.md`. Every battle call
+takes `simVersion` (`src/sim/version.ts` `SIM_VERSION`): `/api/battle/verify`,
+and the start and submit calls of attacks, boss raids, ladder floors and async
+raids. Sockets (`/ws/*`) take `?sim=`.
+
+- The server runs one sim and takes exactly `SIM_VERSION`
+  (`server/src/simVersion.ts`). Anything else, or nothing, gets **426
+  `sim_version_unsupported`** (`{simVersion, expected}`), and the client asks
+  the player to reload. A socket gets an `error` frame with that code and is
+  closed with code 4426. A refused submission leaves its ticket open.
+- Tickets (`battle_tickets`, `duel_tickets`, `duel_attacks`) and `duel_matches`
+  record the `sim_version` they were played under (migration 0016).
+- There is no older sim and no grace window (V5-074): a version bump voids
+  battles in flight.
+
 ### Telegram bot webhook & Stars payments
 
 `POST /api/telegram/webhook` requires `X-Telegram-Bot-Api-Secret-Token ==

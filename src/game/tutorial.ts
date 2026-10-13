@@ -8,9 +8,10 @@
  * - Progress kept in the settings (synced with the save): offered on a first
  *   launch, active (resumable: steps already learned are skipped next time,
  *   except those the battle needs), done or skipped; the one-time reward.
- * - The scripted scenario: a fixed seed, six hoplites and two slingers
- *   against a raider band, javelin-men ahead of it and a second wave that
- *   swings round the right flank, plus the enemy's scripted orders.
+ * - The scripted scenario: a fixed seed, a new campaign's eight men (four
+ *   hoplites, two slingers, two peltasts in reserve) against a raider band,
+ *   javelin-men ahead of it and a second wave that strikes the reserve's
+ *   right flank, plus the enemy's scripted orders.
  * - The coach marks of the first visit to the online map.
  */
 import type { Battle } from '../sim/battle';
@@ -25,7 +26,24 @@ import { generateBattlefield } from '../world/battlefield';
 
 // ------------------------------------------------------------------ steps
 
-export type TutStepId = 'intro' | 'select' | 'pan' | 'zoom' | 'sling' | 'fight' | 'move' | 'wall' | 'loose' | 'charge' | 'ability' | 'flank' | 'win' | 'victory';
+export type TutStepId =
+  | 'intro'
+  | 'select'
+  | 'pan'
+  | 'zoom'
+  | 'sling'
+  | 'undo'
+  | 'fight'
+  | 'loose'
+  | 'focus'
+  | 'play'
+  | 'move'
+  | 'then'
+  | 'ability'
+  | 'morale'
+  | 'flank'
+  | 'win'
+  | 'victory';
 
 export interface TutStepDef {
   id: TutStepId;
@@ -37,20 +55,34 @@ export interface TutStepDef {
   kind: 'info' | 'action' | 'watch';
   /** Runs again on a resumed tutorial even when learned (the battle cannot go on without it). */
   required?: boolean;
+  /** Paused, orders wait as a plan for Play (controls.md R6.1): the steps that teach planning. */
+  plan?: boolean;
+  /** The step this one cannot run without (planned with it on a resume): Undo takes back the drag, Then… follows a move. */
+  needs?: TutStepId;
 }
 
+/**
+ * The lesson (TUT-02, ANSWERS A-42): placing, Undo and starting in
+ * deployment; then planning while paused (Shoot and focus fire, then Play), a
+ * move with a queued Then… charge, an ability, the morale glyph, and the
+ * facing knob on the unengaged reserve when its flank is threatened (the
+ * arcs). Feint, Orb and Works stay gated (controls.md R10b).
+ */
 export const TUT_STEPS: readonly TutStepDef[] = [
   { id: 'intro', phase: 'deploy', kind: 'info' },
   { id: 'select', phase: 'deploy', kind: 'action' },
   { id: 'pan', phase: 'deploy', kind: 'action' },
   { id: 'zoom', phase: 'deploy', kind: 'action' },
   { id: 'sling', phase: 'deploy', kind: 'action' },
+  { id: 'undo', phase: 'deploy', kind: 'action', needs: 'sling' },
   { id: 'fight', phase: 'deploy', kind: 'action', required: true },
+  { id: 'loose', phase: 'battle', kind: 'action', plan: true },
+  { id: 'focus', phase: 'battle', kind: 'action', plan: true },
+  { id: 'play', phase: 'battle', kind: 'action', plan: true },
   { id: 'move', phase: 'battle', kind: 'action' },
-  { id: 'wall', phase: 'battle', kind: 'action' },
-  { id: 'loose', phase: 'battle', kind: 'action' },
-  { id: 'charge', phase: 'battle', kind: 'action' },
+  { id: 'then', phase: 'battle', kind: 'action', needs: 'move' },
   { id: 'ability', phase: 'battle', kind: 'action' },
+  { id: 'morale', phase: 'battle', kind: 'info' },
   { id: 'flank', phase: 'battle', kind: 'action' },
   { id: 'win', phase: 'battle', kind: 'watch', required: true },
   { id: 'victory', phase: 'battle', kind: 'info', required: true },
@@ -64,23 +96,33 @@ export function stepDef(id: TutStepId): TutStepDef {
 export interface TutObs {
   phase: 'deploy' | 'battle' | 'ended';
   selGroup: number;
-  /** The player's hoplite and slinger groups. */
+  /** The player's hoplite, slinger and peltast (the reserve, group IV) groups. */
   hop: number;
   sling: number;
+  pelt: number;
   /** Screen pixels panned with one finger on empty ground. */
   panPx: number;
-  /** The camera was zoomed (pinch or wheel). */
+  /** The camera was zoomed (pinch, wheel or the zoom key). */
   zoomed: boolean;
   /** The last formation drag: carried somewhere (a move) or aimed (a turn by the knob), its facing and group. */
   lastSling: { carried: boolean; aimed: boolean; fx: number; fy: number; group: number } | null;
   /** Tap-to-move orders. */
   tapMoves: number;
-  hopFormation: string;
-  hopOrder: string;
+  /** The slingers shoot at will, and their focus target (-1: none), in the sim. */
   slingFire: boolean;
+  slingFocus: number;
+  /** The same in the paused plan (staged, not given yet): Shoot turned on, a focus target set. */
+  planLoose: boolean;
+  planFocus: boolean;
+  /** Play pressed (the plan went out). */
+  played: number;
+  /** The hoplites' queued Then… step (null: none). */
+  hopQueued: string | null;
+  /** Undo used. */
+  undos: number;
   /** Abilities used by the player. */
   abilities: number;
-  /** From the hoplites toward the flanking wave (unit vector), when it is on the field. */
+  /** From the reserve (IV) toward the flanking wave (unit vector), when it is on the field. */
   flankDir: { x: number; y: number } | null;
   winner: number | null;
 }
@@ -101,19 +143,23 @@ export function checkStep(id: TutStepId, o: TutObs): boolean {
       return !!o.lastSling && o.lastSling.carried && o.lastSling.group === o.hop;
     case 'fight':
       return o.phase !== 'deploy';
+    case 'loose':
+      return o.planLoose || o.slingFire;
+    case 'focus':
+      return o.planFocus || o.slingFocus >= 0;
+    case 'play':
+      return o.played > 0;
     case 'move':
       return o.tapMoves > 0;
-    case 'wall':
-      return o.hopFormation === 'shieldwall';
-    case 'loose':
-      return o.slingFire;
-    case 'charge':
-      return o.hopOrder === 'charge';
+    case 'then':
+      return o.hopQueued !== null;
+    case 'undo':
+      return o.undos > 0;
     case 'ability':
       return o.abilities > 0;
     case 'flank': {
       const s = o.lastSling;
-      if (!s || !s.aimed || s.group !== o.hop || !o.flankDir) return false;
+      if (!s || !s.aimed || s.group !== o.pelt || !o.flankDir) return false;
       return s.fx * o.flankDir.x + s.fy * o.flankDir.y > 0.5;
     }
     case 'win':
@@ -152,6 +198,22 @@ export function beginTutorial(p: TutorialProgress, replay = false): TutorialProg
   return { ...p, status: 'active', done: replay ? [] : [...p.done] };
 }
 
+/** A screen to go to: its scene key and start data. */
+export interface TutorialExit {
+  scene: string;
+  data: object;
+}
+
+/**
+ * Where the guided battle goes when it is skipped or finished (screen-flow §3 S09). A first item earned
+ * shows its reward screen; otherwise a replay started from Settings returns to `back`, the screen Settings
+ * was opened from, and a first-run tutorial goes on to the mode cards.
+ */
+export function tutorialExit(back: TutorialExit | undefined, reward?: Item | null): TutorialExit {
+  if (reward) return { scene: 'FirstRun', data: { mode: 'reward', item: reward } };
+  return back ?? { scene: 'FirstRun', data: { mode: 'modes' } };
+}
+
 export function markStep(p: TutorialProgress, id: TutStepId): TutorialProgress {
   return p.done.includes(id) ? p : { ...p, done: [...p.done, id] };
 }
@@ -166,9 +228,18 @@ export function finishTutorial(p: TutorialProgress): { progress: TutorialProgres
   return { progress: { ...p, status: 'done', done: TUT_STEPS.map((s) => s.id), rewarded: true }, reward };
 }
 
-/** The steps a run goes through: everything not learned yet, plus the ones the battle needs. */
+/**
+ * The steps a run goes through: everything not learned yet, the ones the
+ * battle needs, and what a planned step needs (Undo takes back a Then… step,
+ * which follows a move).
+ */
 export function planSteps(p: TutorialProgress): TutStepId[] {
-  return TUT_STEPS.filter((s) => s.required || !p.done.includes(s.id)).map((s) => s.id);
+  const want = new Set(TUT_STEPS.filter((s) => s.required || !p.done.includes(s.id)).map((s) => s.id));
+  for (let i = TUT_STEPS.length - 1; i >= 0; i--) {
+    const s = TUT_STEPS[i];
+    if (want.has(s.id) && s.needs) want.add(s.needs);
+  }
+  return TUT_STEPS.filter((s) => want.has(s.id)).map((s) => s.id);
 }
 
 /** Interrupted part-way (the app closed): offer to resume. */
@@ -193,8 +264,8 @@ export function grantReward(data: { gold: number; stash: Item[] } & IdSource, rn
 export const TUTORIAL_SEED = 0x7e7041a1;
 export const TUT_FIELD = { w: 20, h: 28 } as const;
 
-/** Group ids in the scenario's sim (side 0 has four groups, then side 1's four). */
-export const TUT_GROUPS = { hop: 0, sling: 1, foeMain: 4, foeSkirm: 5, foeWave: 7 } as const;
+/** Group ids in the scenario's sim (side 0 has four groups, then side 1's four): I, II and IV are ours, as a new campaign's. */
+export const TUT_GROUPS = { hop: 0, sling: 1, pelt: 3, foeMain: 4, foeSkirm: 5, foeWave: 7 } as const;
 
 export interface TutorialBattle {
   setup: BattleSetup;
@@ -207,12 +278,16 @@ function equip(h: Hero, rng: Rng, ids: IdSource, slot: 'weapon' | 'shield' | 'he
   else h.equip[slot] = makeItem(rng, ids, def, 'common', cond, h.culture);
 }
 
-/** The tutorial battle: always the same men on the same small plain. */
+/**
+ * The tutorial battle: always the same men on the same small plain. Eight men
+ * as a new campaign starts (campaign-arc.md R1): four hoplites in I (one a
+ * veteran), two slingers in II and two peltasts in IV, the reserve.
+ */
 export function tutorialBattle(): TutorialBattle {
   const rng = new Rng(TUTORIAL_SEED);
   const ids: IdSource = { nextId: 1 };
   const heroes: Hero[] = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     const h = makeHero(rng, ids, 'greek', 'hoplite', 2, 1, 0, heroes);
     h.perks = ['shield_bash' as PerkId];
     h.points = 0;
@@ -227,6 +302,11 @@ export function tutorialBattle(): TutorialBattle {
     equip(h, rng, ids, 'weapon', 'sling', 90);
     heroes.push(h);
   }
+  for (let i = 0; i < 2; i++) {
+    const h = makeHero(rng, ids, 'greek', 'peltast', 2, 1, 3, heroes);
+    h.perks = [];
+    heroes.push(h);
+  }
   const foes: Hero[] = [];
   const raider = (group: number) => {
     const h = makeHero(rng, ids, 'celtic', 'militia', 1, 1, group, foes);
@@ -238,7 +318,7 @@ export function tutorialBattle(): TutorialBattle {
     equip(h, rng, ids, 'armor', null);
     foes.push(h);
   };
-  for (let i = 0; i < 5; i++) raider(0);
+  for (let i = 0; i < 4; i++) raider(0);
   for (let i = 0; i < 2; i++) {
     const h = makeHero(rng, ids, 'celtic', 'javelineer', 1, 1, 1, foes);
     h.perks = [];
@@ -246,7 +326,7 @@ export function tutorialBattle(): TutorialBattle {
     equip(h, rng, ids, 'helmet', null);
     foes.push(h);
   }
-  for (let i = 0; i < 4; i++) raider(3);
+  for (let i = 0; i < 3; i++) raider(3);
   const terrain = generateBattlefield(TUTORIAL_SEED, { base: 'plain', river: false, coast: false, rocky: false, woods: 0.08 }, TUT_FIELD.w, TUT_FIELD.h);
   const setup: BattleSetup = {
     seed: TUTORIAL_SEED,
@@ -268,22 +348,35 @@ export function groupCentre(sim: Battle, gid: number): { x: number; y: number } 
 
 type Issue = (side: Side, o: Order) => void;
 
+/** Where the reserve (IV) stands in deployment: right of the hoplites, with room on its right for the wave's approach. */
+export const TUT_RESERVE = { x: 13.5, y: 22.5 } as const;
+
 /**
- * Deployment staging: the slingers hold their stones until told, the second
- * wave waits in the far right corner.
+ * Deployment staging: the slingers hold their stones until told, the reserve
+ * (IV) stands right of the hoplites, the second wave waits in the far right
+ * corner.
  */
 export function stageTutorial(sim: Battle, issue: Issue = (s, o) => sim.issue(s, o)): void {
   const G = TUT_GROUPS;
   issue(0, { kind: 'loose', group: G.sling, on: false });
+  issue(0, { kind: 'form', group: G.pelt, cx: TUT_RESERVE.x, cy: TUT_RESERVE.y, fx: 0, fy: -1, frontage: 2 });
   issue(1, { kind: 'form', group: G.foeWave, cx: sim.width - 1.5, cy: 1.5, fx: 0, fy: 1, frontage: 2 });
+}
+
+/** Where the second wave gathers before it strikes: level with the reserve, at the field's right edge (its flank). */
+export function wavePost(sim: Battle): { x: number; y: number } {
+  const iv = groupCentre(sim, TUT_GROUPS.pelt) ?? TUT_RESERVE;
+  return { x: sim.width - 0.8, y: iv.y };
 }
 
 export type EnemyCue = 'battle' | 'charge' | 'flank' | 'win';
 
 /**
  * The enemy's script (they have no bot): javelin-men come forward when the
- * battle starts, the band attacks when the player charges, the second wave
- * swings onto the hoplites' right flank, and at the end everyone attacks.
+ * battle starts; when the player charges, the band comes on and the second
+ * wave slips down the right edge to gather on the reserve's flank, still
+ * unengaged; on 'flank' it strikes the reserve's side; at the end everyone
+ * attacks.
  */
 export function enemyCue(sim: Battle, cue: EnemyCue, issue: Issue = (s, o) => sim.issue(s, o)): void {
   const G = TUT_GROUPS;
@@ -292,38 +385,49 @@ export function enemyCue(sim: Battle, cue: EnemyCue, issue: Issue = (s, o) => si
     if (alive(G.foeSkirm)) issue(1, { kind: 'order', group: G.foeSkirm, order: 'advance' });
   } else if (cue === 'charge') {
     if (alive(G.foeMain)) issue(1, { kind: 'order', group: G.foeMain, order: 'advance' });
+    const p = wavePost(sim);
+    if (alive(G.foeWave)) issue(1, { kind: 'form', group: G.foeWave, cx: p.x, cy: p.y, fx: -1, fy: 0, frontage: 2 });
   } else if (cue === 'flank') {
-    const hop = groupCentre(sim, G.hop) ?? { x: sim.width / 2, y: sim.height * 0.7 };
-    if (alive(G.foeWave)) {
-      issue(1, { kind: 'form', group: G.foeWave, cx: Math.min(sim.width - 1, hop.x + 5), cy: hop.y, fx: -1, fy: 0, frontage: 2 });
-      issue(1, { kind: 'order', group: G.foeWave, order: 'charge' });
-    }
+    if (alive(G.foeWave)) issue(1, { kind: 'order', group: G.foeWave, order: 'charge' });
   } else {
-    for (const g of [G.foeMain, G.foeSkirm, G.foeWave]) if (alive(g)) issue(1, { kind: 'order', group: g, order: 'charge' });
+    // everyone attacks, each group turned toward our nearest men first (a charge runs along its facing: aimed
+    // anywhere else it would walk to the edge and the fight would stall); repeated, it re-aims those out of contact
+    const ours = [G.hop, G.sling, G.pelt].map((g) => groupCentre(sim, g)).filter((c): c is { x: number; y: number } => !!c);
+    for (const g of [G.foeMain, G.foeSkirm, G.foeWave]) {
+      if (!alive(g) || sim.groups[g].contact) continue;
+      const c = groupCentre(sim, g);
+      const to = c && ours.length ? ours.reduce((a, b) => (Math.hypot(b.x - c.x, b.y - c.y) < Math.hypot(a.x - c.x, a.y - c.y) ? b : a)) : null;
+      if (c && to && Math.hypot(to.x - c.x, to.y - c.y) > 1e-3) issue(1, { kind: 'form', group: g, cx: c.x, cy: c.y, fx: to.x - c.x, fy: to.y - c.y, frontage: sim.groups[g].formation.frontage });
+      issue(1, { kind: 'order', group: g, order: 'charge' });
+    }
   }
 }
 
-/** The second wave is close to the hoplites (the flank step starts). */
-export function waveClose(sim: Battle, dist = 7): boolean {
-  const hop = sim.activeMembers(TUT_GROUPS.hop);
+/** Seconds between the finale's re-aims of the enemy groups out of contact (enemyCue 'win'). */
+export const WIN_REAIM_S = 5;
+
+/** The second wave is within `dist` paces of group `gid` (man to man). */
+export function waveClose(sim: Battle, dist = 7, gid: number = TUT_GROUPS.pelt): boolean {
+  const ours = sim.activeMembers(gid);
   const wave = sim.activeMembers(TUT_GROUPS.foeWave);
-  if (!hop.length || !wave.length) return false;
-  return wave.some((w) => hop.some((h) => Math.hypot(w.x - h.x, w.y - h.y) < dist));
+  if (!ours.length || !wave.length) return false;
+  return wave.some((w) => ours.some((h) => Math.hypot(w.x - h.x, w.y - h.y) < dist));
 }
 
-/** From the hoplites toward the second wave (unit vector), or null. */
-export function flankDir(sim: Battle): { x: number; y: number } | null {
-  const a = groupCentre(sim, TUT_GROUPS.hop);
+/** The second wave has gathered at its post (wavePost), or near enough. */
+export function waveAtPost(sim: Battle, dist = 1.5): boolean {
+  const c = groupCentre(sim, TUT_GROUPS.foeWave);
+  const p = wavePost(sim);
+  return !!c && Math.hypot(c.x - p.x, c.y - p.y) <= dist;
+}
+
+/** From group `gid` (the reserve) toward the second wave (unit vector), or null. */
+export function flankDir(sim: Battle, gid: number = TUT_GROUPS.pelt): { x: number; y: number } | null {
+  const a = groupCentre(sim, gid);
   const b = groupCentre(sim, TUT_GROUPS.foeWave);
   if (!a || !b) return null;
   const d = Math.hypot(b.x - a.x, b.y - a.y);
   return d > 1e-6 ? { x: (b.x - a.x) / d, y: (b.y - a.y) / d } : null;
-}
-
-/** The first band is beaten (or nearly): time for the second wave. */
-export function bandBroken(sim: Battle): boolean {
-  const left = sim.activeMembers(TUT_GROUPS.foeMain).filter((u) => u.state === 'ready').length;
-  return left <= 1;
 }
 
 // ------------------------------------------------------------------ online coach marks

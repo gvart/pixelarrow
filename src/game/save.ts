@@ -1,17 +1,20 @@
 /**
- * Versioned save schema, migrations and chunking for key/value backends with
+ * Versioned save schema, validation and chunking for key/value backends with
  * small value limits (Telegram CloudStorage allows 4096 chars per key).
  */
 import { ITEMS, normalizeRarity, RARITIES, type Item } from '../data/items';
-import { classGearBlocker } from '../data/gearRules';
-import { classOfHero } from '../data/classes';
 import type { LangSetting } from '../i18n';
 import type { Hero } from '../data/units';
-import { defaultAttrs, PERKS, POINTS_PER_LEVEL } from '../data/perks';
-import { World, type WorldSave } from '../world/world';
+import { defaultAttrs, PERKS } from '../data/perks';
+import { ARC_STAGES, FLAGS_CAP, JOURNAL_CAP, World, type ArcState, type LairState, type WorldSave } from '../world/world';
 import type { TutorialProgress } from './tutorial';
+import { validMarker, type BattleMarker } from './campaignBattle';
 
-export const SAVE_VERSION = 5;
+/**
+ * v6 is the one v5-train bump (ST-02, design/adr/ADR-0002-save-migration.md):
+ * every field the train needs is declared now, and feature stories add none.
+ */
+export const SAVE_VERSION = 6;
 
 export interface Settings {
   pauseContact: boolean;
@@ -39,6 +42,13 @@ export interface Settings {
   analytics: boolean;
   /** Reduce motion (src/ui/motion.ts); missing = follow the system's prefers-reduced-motion. */
   reduceMotion?: boolean;
+  /** Accessibility (controls.md R11, A11Y-13): no battle shake, no flash rings; missing = follow Reduce motion (src/ui/motion.ts). */
+  reduceShake?: boolean;
+  reduceFlash?: boolean;
+  /** Mirrored battle controls (A11Y-16); missing = off. */
+  leftHand?: boolean;
+  /** The last offline battle speed (0.5..3); missing = 1. */
+  battleSpeed?: number;
 }
 
 /**
@@ -86,89 +96,62 @@ export interface SaveData {
    */
   seq?: number;
   savedAt?: number;
-  /** Heroes whose gear their class may no longer use was moved to the stash (v5 class limits): shown once, then cleared. */
-  gearMoved?: string[];
   /** Beast chests in a row without a legendary (bad-luck protection, src/game/sources.ts pityChest); missing = 0. */
   pity?: number;
+  /**
+   * A campaign battle that has begun and not yet been applied (V5-011, no
+   * version bump: optional). The next boot fights it out (src/game/campaignBattle.ts).
+   */
+  battle?: BattleMarker;
 }
 
-type Migration = (d: Record<string, unknown>) => Record<string, unknown>;
-
-/** migrations[n] upgrades a version-n save to version n+1. */
-const migrations: Record<number, Migration> = {
-  // v1 had no settings block and stored battle groups only implicitly.
-  1: (d) => ({ ...d, v: 2, settings: { ...DEFAULT_SETTINGS }, heroes: ((d.heroes as Hero[]) ?? []).map((h) => ({ ...h, group: h.group ?? 0 })) }),
-  // v2 had no attributes, perks, wounds or world map: heroes get neutral attributes and
-  // the points they would have earned; the army sets out on a freshly generated map.
-  2: (d) => ({
-    ...d,
-    v: 3,
-    heroes: ((d.heroes as Hero[]) ?? []).map((h) => ({
-      ...h,
-      attrs: defaultAttrs(),
-      points: Math.max(0, ((h.level ?? 1) - 1) * POINTS_PER_LEVEL),
-      perks: [],
-      wound: 0,
-    })),
-    world: World.fresh(((d.rng as number) ^ 0x7f4a7c15) >>> 0 || 1),
-  }),
-  // v3 had four rarity tiers: fine -> uncommon, heroic -> epic (same stat multipliers).
-  3: (d) => {
-    const fix = (it: unknown) => {
-      if (it && typeof it === 'object' && 'rarity' in it) (it as { rarity: unknown }).rarity = normalizeRarity((it as { rarity: unknown }).rarity);
-    };
-    for (const h of (d.heroes as Hero[]) ?? []) for (const it of Object.values(h?.equip ?? {})) fix(it);
-    for (const it of (d.stash as unknown[]) ?? []) fix(it);
-    return { ...d, v: 4 };
-  },
-  // v4 let any hero wear anything; v5 limits weapons, shields and armour by class
-  // (docs/ITEMS.md "Class limits"): what a hero's class may not use goes to the stash.
-  4: (d) => {
-    const stash = [...((d.stash as Item[]) ?? [])];
-    const moved: string[] = [];
-    for (const h of (d.heroes as Hero[]) ?? []) {
-      if (!h?.equip) continue;
-      const cls = classOfHero({ cls: h.cls, arch: h.arch, culture: h.culture, weaponDef: h.equip.weapon?.def });
-      for (const slot of Object.keys(h.equip) as (keyof Hero['equip'])[]) {
-        const it = h.equip[slot];
-        if (!it || !ITEMS[it.def] || !classGearBlocker(cls, ITEMS[it.def])) continue;
-        stash.push(it);
-        delete h.equip[slot];
-        if (!moved.includes(h.name)) moved.push(h.name);
-      }
-    }
-    return { ...d, v: 5, stash, ...(moved.length ? { gearMoved: moved } : {}) };
-  },
-};
+/**
+ * Why a save could not be loaded: `corrupt` (unreadable or invalid) or `newer`
+ * (written by a newer build: a higher version, or items this build does not
+ * know). A `newer` save must never be overwritten by this build.
+ */
+export type LoadFailure = 'corrupt' | 'newer';
 
 export function migrate(raw: unknown): SaveData | null {
-  if (!raw || typeof raw !== 'object') return null;
-  let d = raw as Record<string, unknown>;
-  let v = typeof d.v === 'number' ? d.v : 0;
-  if (v < 1 || v > SAVE_VERSION) return null;
-  while (v < SAVE_VERSION) {
-    const m = migrations[v];
-    if (!m) return null;
-    d = m(d);
-    v = d.v as number;
-  }
-  return validate(d) ? (d as unknown as SaveData) : null;
+  const r = migrateResult(raw);
+  return r.ok ? r.data : null;
 }
 
-function validItem(i: unknown): i is Item {
-  if (!i || typeof i !== 'object') return false;
+/**
+ * Reads a stored save. v6 is the baseline (V5-074): there are no migrations,
+ * so any other version below SAVE_VERSION is `corrupt` and takes the
+ * corrupt-save backup path. A future bump adds its migration here.
+ */
+export function migrateResult(raw: unknown): { ok: true; data: SaveData } | { ok: false; reason: LoadFailure } {
+  if (!raw || typeof raw !== 'object') return { ok: false, reason: 'corrupt' };
+  const d = raw as Record<string, unknown>;
+  const v = typeof d.v === 'number' ? d.v : 0;
+  if (v > SAVE_VERSION) return { ok: false, reason: 'newer' };
+  if (v !== SAVE_VERSION) return { ok: false, reason: 'corrupt' };
+  const bad = validate(d);
+  return bad ? { ok: false, reason: bad } : { ok: true, data: d as unknown as SaveData };
+}
+
+/** Why an item is unusable: null if fine, `newer` for a def this build does not know. */
+function itemProblem(i: unknown): LoadFailure | null {
+  if (!i || typeof i !== 'object') return 'corrupt';
   const it = i as Item;
   // Legacy tier names (synced from an older client or server) are mapped, not rejected.
   if (typeof it.rarity === 'string' && !RARITIES.includes(it.rarity)) it.rarity = normalizeRarity(it.rarity);
-  return typeof it.uid === 'string' && typeof it.def === 'string' && !!ITEMS[it.def] && RARITIES.includes(it.rarity) && typeof it.cond === 'number';
+  if (typeof it.uid !== 'string' || typeof it.def !== 'string' || !RARITIES.includes(it.rarity) || typeof it.cond !== 'number') return 'corrupt';
+  return ITEMS[it.def] ? null : 'newer';
 }
 
-function validate(d: Record<string, unknown>): boolean {
-  if (typeof d.gold !== 'number' || !Array.isArray(d.heroes) || !Array.isArray(d.stash)) return false;
-  if (typeof d.nextId !== 'number' || typeof d.rng !== 'number') return false;
+/** Checks and repairs a migrated save in place; returns why it is unusable, or null. */
+function validate(d: Record<string, unknown>): LoadFailure | null {
+  if (typeof d.gold !== 'number' || !Array.isArray(d.heroes) || !Array.isArray(d.stash)) return 'corrupt';
+  if (typeof d.nextId !== 'number' || typeof d.rng !== 'number') return 'corrupt';
   for (const h of d.heroes as Hero[]) {
-    if (!h || typeof h.id !== 'string' || typeof h.level !== 'number' || !h.equip || !h.look) return false;
-    for (const it of Object.values(h.equip)) if (it && !validItem(it)) return false;
+    if (!h || typeof h.id !== 'string' || typeof h.level !== 'number' || !h.equip || !h.look) return 'corrupt';
+    for (const it of Object.values(h.equip)) {
+      const bad = it ? itemProblem(it) : null;
+      if (bad) return bad;
+    }
     // Tolerate partial progression data rather than losing the save.
     if (!h.attrs || typeof h.attrs.str !== 'number') h.attrs = defaultAttrs();
     if (typeof h.points !== 'number') h.points = 0;
@@ -179,13 +162,73 @@ function validate(d: Record<string, unknown>): boolean {
   if (!w || typeof w.seed !== 'number' || typeof w.time !== 'number' || !Array.isArray(w.parties) || !Array.isArray(w.places)) {
     d.world = World.fresh(((d.rng as number) ^ 0x7f4a7c15) >>> 0 || 1);
   }
-  for (const it of d.stash as unknown[]) if (!validItem(it)) return false;
+  repairV6World(d.world as WorldSave);
+  for (const it of d.stash as unknown[]) {
+    const bad = itemProblem(it);
+    if (bad) return bad;
+  }
   d.settings = { ...DEFAULT_SETTINGS, ...((d.settings as object) ?? {}) };
+  repairV6Settings(d.settings as Settings);
   d.won = typeof d.won === 'number' ? d.won : 0;
   d.fought = typeof d.fought === 'number' ? d.fought : 0;
   if (typeof d.seq !== 'number' || !Number.isFinite(d.seq)) delete d.seq;
   if (typeof d.savedAt !== 'number' || !Number.isFinite(d.savedAt)) delete d.savedAt;
-  return true;
+  if (d.battle !== undefined && !validMarker(d.battle)) delete d.battle;
+  return null;
+}
+
+const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
+
+/** Numeric entries of a string -> number map, the first `cap` kept. */
+function numberMap(x: unknown, cap = Infinity): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!isObj(x)) return out;
+  for (const [k, v] of Object.entries(x)) {
+    if (Object.keys(out).length >= cap) break;
+    if (isNum(v)) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * The v6 world fields (ADR-0002): a missing or malformed value takes its
+ * default, and a malformed entry is dropped, rather than losing the save.
+ */
+function repairV6World(w: WorldSave): void {
+  const lairs: Record<number, LairState> = {};
+  if (isObj(w.lairs)) {
+    for (const [k, v] of Object.entries(w.lairs)) {
+      if (isObj(v) && typeof v.fallen === 'boolean' && isNum(v.lost) && isNum(v.lostAt)) lairs[Number(k)] = { fallen: v.fallen, lost: v.lost, lostAt: v.lostAt };
+    }
+  }
+  w.lairs = lairs;
+  const a = w.arc as Partial<ArcState> | undefined;
+  const arc: ArcState = { stage: a && ARC_STAGES.includes(a.stage!) ? a.stage! : 'lairs' };
+  if (a && arc.stage === a.stage) {
+    if (isNum(a.hostParty)) arc.hostParty = a.hostParty;
+    if (isNum(a.sackedUntil)) arc.sackedUntil = a.sackedUntil;
+  }
+  w.arc = arc;
+  w.flags = numberMap(w.flags, FLAGS_CAP);
+  w.eventCd = numberMap(w.eventCd);
+  const t = w.eventsToday as unknown;
+  w.eventsToday = Array.isArray(t) && t.length === 2 && isNum(t[0]) && isNum(t[1]) ? [t[0], t[1]] : [0, 0];
+  const e = w.pendingEvent as unknown;
+  if (e !== undefined && !(isObj(e) && typeof e.id === 'string' && isNum(e.seed))) delete w.pendingEvent;
+  w.journal = (Array.isArray(w.journal) ? w.journal : []).filter((j): j is string => typeof j === 'string').slice(-JOURNAL_CAP);
+  w.parties = w.parties.filter(isObj) as unknown as WorldSave['parties'];
+  for (const p of w.parties) {
+    if (p.escaped !== undefined && !(isNum(p.escaped) && p.escaped >= 0)) delete p.escaped;
+    if (p.captainDead !== undefined && typeof p.captainDead !== 'boolean') delete p.captainDead;
+  }
+  for (const s of w.places) if (s && s.reborn !== undefined && typeof s.reborn !== 'boolean') delete s.reborn;
+}
+
+/** The v6 settings (controls.md): optional, dropped when malformed so the default applies. */
+function repairV6Settings(s: Settings): void {
+  for (const k of ['reduceShake', 'reduceFlash', 'leftHand'] as const) if (s[k] !== undefined && typeof s[k] !== 'boolean') delete s[k];
+  if (s.battleSpeed !== undefined && !(isNum(s.battleSpeed) && s.battleSpeed >= 0.5 && s.battleSpeed <= 3)) delete s.battleSpeed;
 }
 
 export function serialize(s: SaveData): string {
@@ -222,47 +265,141 @@ export interface KV {
   remove(key: string): Promise<void>;
 }
 
+/*
+ * Storage layout (V5-011). Two slots of parts, `px_part_N` (slot 0, also the
+ * layout before V5-011) and `px_part1_N` (slot 1), and a meta record
+ * `px_meta` {v, n, s, pn} that points at the current slot `s` (n parts) and
+ * remembers the previous slot's part count `pn`. A save writes the *other*
+ * slot, then flips the meta: killed at any point, the meta still points at a
+ * complete save, and the slot it does not point at is the last good save
+ * (the backup a damaged current slot falls back to).
+ */
 const META = 'px_meta';
-const PART = (i: number) => `px_part_${i}`;
+const PART = (slot: number, i: number) => (slot ? `px_part1_${i}` : `px_part_${i}`);
+/** Where a save that could not be loaded is kept, raw, before anything else is written. */
+const CORRUPT_META = 'px_corrupt';
+const CORRUPT_PART = (i: number) => `px_corrupt_${i}`;
 
-export async function writeSave(kv: KV, s: SaveData): Promise<void> {
-  const parts = chunk(serialize(s));
-  const oldMeta = await kv.get(META);
-  // Write parts first, then the meta record that points at them.
-  for (let i = 0; i < parts.length; i++) await kv.set(PART(i), parts[i]);
-  await kv.set(META, JSON.stringify({ v: s.v, n: parts.length }));
-  if (oldMeta) {
-    try {
-      const old = JSON.parse(oldMeta) as { n: number };
-      for (let i = parts.length; i < old.n; i++) await kv.remove(PART(i));
-    } catch {
-      /* ignore */
-    }
-  }
+interface Meta {
+  v: number;
+  n: number;
+  /** Current slot (missing: 0, the single-slot layout). */
+  s?: number;
+  /** Parts in the other slot (missing: no backup). */
+  pn?: number;
 }
 
-export async function readSave(kv: KV): Promise<SaveData | null> {
-  const metaText = await kv.get(META);
-  if (!metaText) return null;
+function parseMeta(text: string | null): Meta | null {
+  if (!text) return null;
   try {
-    const meta = JSON.parse(metaText) as { n: number };
-    const parts: (string | null)[] = [];
-    for (let i = 0; i < meta.n; i++) parts.push(await kv.get(PART(i)));
-    return deserialize(unchunk(parts));
+    const m = JSON.parse(text) as Meta;
+    return m && typeof m.n === 'number' && m.n >= 0 ? m : null;
   } catch {
     return null;
   }
 }
 
-export async function clearSave(kv: KV): Promise<void> {
+export async function writeSave(kv: KV, s: SaveData): Promise<void> {
+  const parts = chunk(serialize(s));
+  const old = parseMeta(await kv.get(META));
+  // The slot the meta does not point at: overwriting it leaves the current save intact.
+  const slot = old ? 1 - (old.s ?? 0) : 0;
+  for (let i = 0; i < parts.length; i++) await kv.set(PART(slot, i), parts[i]);
+  await kv.set(META, JSON.stringify({ v: s.v, n: parts.length, s: slot, ...(old ? { pn: old.n } : {}) }));
+  // Parts left over in this slot from a longer save.
+  for (let i = parts.length; i < (old?.pn ?? 0); i++) await kv.remove(PART(slot, i));
+}
+
+export type ReadResult =
+  | { kind: 'ok'; data: SaveData; fromBackup?: boolean }
+  | { kind: 'empty' }
+  /** `raw` is what was stored (null when not even that could be read), kept for the backup. */
+  | { kind: 'bad'; reason: LoadFailure; raw: string | null };
+
+async function readSlot(kv: KV, slot: number, n: number): Promise<{ text: string; r: ReturnType<typeof migrateResult> }> {
+  const parts: (string | null)[] = [];
+  for (let i = 0; i < n; i++) parts.push(await kv.get(PART(slot, i)));
+  const text = parts.map((p) => p ?? '').join('');
+  const whole = unchunk(parts);
+  if (whole === null) return { text, r: { ok: false, reason: 'corrupt' } };
+  try {
+    return { text, r: migrateResult(JSON.parse(whole)) };
+  } catch {
+    return { text, r: { ok: false, reason: 'corrupt' } };
+  }
+}
+
+/** Every part stored in a slot, joined, read until the first missing part (no meta to bound it). */
+async function slotText(kv: KV, slot: number): Promise<string> {
+  let text = '';
+  for (let i = 0; ; i++) {
+    const p = await kv.get(PART(slot, i));
+    if (p === null || p === undefined) return text;
+    text += p;
+  }
+}
+
+/**
+ * Reads the save: the current slot, else (if it is damaged) the backup slot.
+ * A save from a newer build is reported as such and never falls back: the
+ * older backup would then be saved over it.
+ */
+export async function readSaveResult(kv: KV): Promise<ReadResult> {
   const metaText = await kv.get(META);
-  if (metaText) {
-    try {
-      const meta = JSON.parse(metaText) as { n: number };
-      for (let i = 0; i < meta.n; i++) await kv.remove(PART(i));
-    } catch {
-      /* ignore */
-    }
+  if (!metaText) return { kind: 'empty' };
+  const meta = parseMeta(metaText);
+  // The meta is damaged, but the parts may not be: keep them all for the backup,
+  // or the fresh campaign's first save overwrites them (QA-04).
+  if (!meta) return { kind: 'bad', reason: 'corrupt', raw: JSON.stringify({ meta: metaText, slots: [await slotText(kv, 0), await slotText(kv, 1)] }) };
+  const slot = meta.s ?? 0;
+  const cur = await readSlot(kv, slot, meta.n);
+  if (cur.r.ok) return { kind: 'ok', data: cur.r.data };
+  if (cur.r.reason === 'corrupt' && meta.pn) {
+    const prev = await readSlot(kv, 1 - slot, meta.pn);
+    if (prev.r.ok) return { kind: 'ok', data: prev.r.data, fromBackup: true };
+  }
+  return { kind: 'bad', reason: cur.r.reason, raw: cur.text };
+}
+
+export async function readSave(kv: KV): Promise<SaveData | null> {
+  const r = await readSaveResult(kv);
+  return r.kind === 'ok' ? r.data : null;
+}
+
+/** The raw save kept by backupRaw (null if none). */
+export async function readBackup(kv: KV): Promise<{ at: number; reason: LoadFailure; raw: string } | null> {
+  const meta = await kv.get(CORRUPT_META);
+  if (!meta) return null;
+  try {
+    const m = JSON.parse(meta) as { n: number; at: number; reason: LoadFailure };
+    const parts: (string | null)[] = [];
+    for (let i = 0; i < m.n; i++) parts.push(await kv.get(CORRUPT_PART(i)));
+    const raw = unchunk(parts);
+    return raw === null ? null : { at: m.at, reason: m.reason, raw };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keeps a save that could not be loaded, raw, under its own keys, before the
+ * game writes anything. One backup: the first is kept (the oldest progress);
+ * a later failure does not replace it.
+ */
+export async function backupRaw(kv: KV, raw: string, reason: LoadFailure, at = Date.now()): Promise<boolean> {
+  if (await kv.get(CORRUPT_META)) return false;
+  const parts = chunk(raw);
+  for (let i = 0; i < parts.length; i++) await kv.set(CORRUPT_PART(i), parts[i]);
+  await kv.set(CORRUPT_META, JSON.stringify({ n: parts.length, at, reason }));
+  return true;
+}
+
+export async function clearSave(kv: KV): Promise<void> {
+  const meta = parseMeta(await kv.get(META));
+  if (meta) {
+    const slot = meta.s ?? 0;
+    for (let i = 0; i < meta.n; i++) await kv.remove(PART(slot, i));
+    for (let i = 0; i < (meta.pn ?? 0); i++) await kv.remove(PART(1 - slot, i));
   }
   await kv.remove(META);
 }

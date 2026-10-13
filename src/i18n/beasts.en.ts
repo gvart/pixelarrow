@@ -45,15 +45,20 @@ export const BEASTS_EN = {
   'myth.info.lair': 'Beast lair',
   'myth.info.worldBoss': 'World boss',
   'myth.info.loot': 'Drops rare, epic or legendary gear and a trophy.',
+  // the Codex sheet sits over the practice caption: say where the spoils are won
+  'myth.info.lootLair': 'In the campaign, its lair drops rare, epic or legendary gear and a trophy.',
+  'myth.info.lootWorld': 'In the War, it drops rare, epic or legendary gear and a trophy.',
   'myth.info.respawn': 'Returns {when}',
   'myth.info.terror': 'Men near it lose heart; Will and Steady Presence resist.',
   // ---- the Beast trial (offline)
   'menu.trial': 'Beasts',
   'trial.title': 'Beast trial',
-  'trial.sub': 'Fight any beast with your army',
+  'trial.sub': 'Practice against any beast with your army: no spoils, no losses.',
   'trial.fight': 'Fight it',
   'trial.empty': 'Your army has no fit men. Rest them in a town first.',
   'trial.tip': 'Tap a beast to see how it fights and what beats it.',
+  'results.practice': 'Practice: no spoils',
+  'results.noSpoilsPractice': 'Practice gives no spoils and costs no men: whoever fell in practice is back with the army.',
   // ---- the war horn in battle
   'battle.horn': 'Horn',
   'battle.horn.tip': 'War horn: the whole army rallies at once, even men already running. Once per horn.',

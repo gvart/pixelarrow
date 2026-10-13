@@ -18,7 +18,9 @@
 import { z } from 'zod';
 import { Battle, TICK_RATE } from '../../src/sim/battle';
 import { FORMATION_TYPES } from '../../src/sim/formation';
+import { DEFAULT_DOCTRINE, DOCTRINE_IDS, GROUP_ORDERS, WORK_TYPES, WORKS_MAX } from '../../src/sim/types';
 import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../../src/sim/types';
+import { checkSimVersion, SIM_VERSION, SimVersionField } from './simVersion';
 
 export const LIMITS = {
   maxUnitsPerSide: 64,
@@ -31,7 +33,14 @@ export const LIMITS = {
 
 const num = z.number().finite().min(-1e7).max(1e7);
 const int = z.number().int().min(-1).max(1e6);
+/**
+ * The sim's own list, so a shape enters the schema only with its rules: `orb`
+ * (formations-orders.md R2) arrived with FO-02.
+ */
 const formationType = z.enum(FORMATION_TYPES as [string, ...string[]]);
+const groupOrder = z.enum(GROUP_ORDERS);
+const workType = z.enum(WORK_TYPES);
+const worksCount = z.number().int().min(0).max(WORKS_MAX);
 
 /** CombatStats: required numeric core; extra/new fields pass through untouched. */
 const CombatStats = z.looseObject({
@@ -89,6 +98,8 @@ const Army = z.object({
         stats: CombatStats,
         /** World bosses carry their wounds between clan attacks (absent = full HP). */
         hp0: num.min(0).optional(),
+        /** The band's captain, a standard bearer (ai-doctrines.md R6). */
+        captain: z.boolean().default(false),
       }),
     )
     .min(1)
@@ -100,6 +111,12 @@ const Army = z.object({
   bot: z.boolean(),
   /** War horns carried (a battle consumable): each is one army-wide rally (the `horn` order). */
   horn: z.number().int().min(0).max(3).optional(),
+  /** The bot's doctrine (ai-doctrines.md); absent = steady, today's AI. */
+  doctrine: z.enum(DOCTRINE_IDS).default(DEFAULT_DOCTRINE),
+  /** The bot never retreats (ladder floors, V5-052); absent = false. */
+  holdField: z.boolean().optional(),
+  /** Field works allowance in segments (field-works.md R3); absent = none. */
+  works: z.object({ stakes: worksCount, ditch: worksCount, laager: worksCount }).optional(),
 });
 
 const Setup = z.object({
@@ -123,7 +140,7 @@ const Setup = z.object({
 export const OrderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('form'), group: int, cx: num, cy: num, fx: num, fy: num, frontage: num, type: formationType.optional() }),
   z.object({ kind: z.literal('preset'), group: int, type: formationType }),
-  z.object({ kind: z.literal('order'), group: int, order: z.enum(['hold', 'advance', 'charge', 'fallback']) }),
+  z.object({ kind: z.literal('order'), group: int, order: groupOrder }),
   z.object({ kind: z.literal('shieldwall'), group: int, on: z.boolean().optional() }),
   z.object({ kind: z.literal('loose'), group: int, on: z.boolean().optional() }),
   z.object({ kind: z.literal('detach'), unit: int }),
@@ -132,6 +149,11 @@ export const OrderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ability'), unit: int, ability: z.string().max(32) }),
   z.object({ kind: z.literal('retreat') }),
   z.object({ kind: z.literal('horn') }),
+  // Sim train 2 (src/sim/types.ts Order): facing, focus fire and field works.
+  z.object({ kind: z.literal('face'), group: int, fx: num, fy: num }),
+  z.object({ kind: z.literal('focus'), group: int, target: int }),
+  z.object({ kind: z.literal('work'), type: workType, x: num, y: num, fx: num, fy: num }),
+  z.object({ kind: z.literal('unwork'), x: num, y: num }),
 ]);
 
 export const LoggedOrderSchema = z.object({
@@ -141,6 +163,8 @@ export const LoggedOrderSchema = z.object({
 });
 
 export const VerifyBody = z.object({
+  /** The client's src/sim/version.ts SIM_VERSION; anything else is 426. */
+  simVersion: SimVersionField,
   setup: Setup,
   orders: z.array(LoggedOrderSchema).max(LIMITS.maxOrders),
   /** How many leading log entries were issued during deployment (before startBattle). */
@@ -194,7 +218,7 @@ function summarize(b: Battle): ReplayOutcome {
   };
 }
 
-/** Re-runs a battle headless. Throws if the sim rejects the setup. */
+/** Re-runs a battle headless with today's sim. Throws if the sim rejects the setup. */
 export function replayBattle(setup: BattleSetup, log: LoggedOrder[], deployOrders?: number): ReplayOutcome {
   const b = new Battle(setup);
   const human = (side: Side) => !setup.armies[side].bot;
@@ -230,6 +254,8 @@ function leadingTickZero(log: LoggedOrder[]): number {
 
 export interface VerifyResponse {
   match: boolean;
+  /** The sim version the server replayed with. */
+  simVersion: number;
   mismatches: string[];
   server: BattleSummary;
   /** Simulation steps run. */
@@ -241,7 +267,9 @@ export interface VerifyResponse {
   elapsedMs: number;
 }
 
+/** Throws 426 `sim_version_unsupported` unless the client runs SIM_VERSION (before any replay). */
 export function verifyBattle(req: VerifyRequest): VerifyResponse {
+  checkSimVersion(req.simVersion);
   const t0 = performance.now();
   // The schema checks shape and ranges; the sim's own types are the source of truth.
   const out = replayBattle(req.setup as unknown as BattleSetup, req.orders as LoggedOrder[], req.deployOrders);
@@ -254,5 +282,5 @@ export function verifyBattle(req: VerifyRequest): VerifyResponse {
     mismatches.push(`retreated: claimed ${req.claim.retreated}, server ${s.retreated}`);
   }
   if (req.claim.hash !== undefined && req.claim.hash !== s.hash) mismatches.push(`hash: claimed ${req.claim.hash}, server ${s.hash}`);
-  return { match: mismatches.length === 0, mismatches, server: s, ticksSimulated: s.ticks, elapsedMs };
+  return { match: mismatches.length === 0, simVersion: SIM_VERSION, mismatches, server: s, ticksSimulated: s.ticks, elapsedMs };
 }

@@ -13,6 +13,7 @@
  * Both clean up on scene shutdown / container destroy.
  */
 import { hapticSelect, hasNativeBack, setBackButton, setClosingConfirmation, setSettingsButton } from './telegram';
+import type { TabId } from '../ui/mosaic/tabLayout';
 
 export interface ScreenOpts {
   /** Go back one level. Omitted / null: root screen (Telegram shows Close). */
@@ -193,4 +194,95 @@ export function navLayer(container: { once(ev: 'destroy', fn: () => void): unkno
  */
 export function showInGameBack(): boolean {
   return !hasNativeBack();
+}
+
+// ------------------------------------------------------------------ the Back contract (HUB-01, ia.md §2 §6, screen-flow.md §3)
+
+/** The five tab roots (ia.md §2): the hub scene of each mode tab. */
+export const TAB_ROOTS: Readonly<Record<string, TabId>> = { Menu: 'campaign', Duel: 'duels', Online: 'war', Codex: 'codex', Shop: 'shop' };
+
+/** The tab whose hub `sceneKey` is, or null for any other screen. */
+export function tabOfScene(sceneKey: string): TabId | null {
+  return Object.prototype.hasOwnProperty.call(TAB_ROOTS, sceneKey) ? TAB_ROOTS[sceneKey] : null;
+}
+
+/** Where a door came from: the screen Back returns to on a multi-door screen (`back: { scene, data }`). */
+export interface BackTarget {
+  scene: string;
+  data?: object;
+}
+
+/**
+ * What Back does on each screen (screen-flow.md §3):
+ * - `root`: a tab hub. No back, ever, even when a door switched to it; Telegram shows Close. Back only closes what is open on it.
+ * - `parent`: a single-parent screen. Back goes to `to`.
+ * - `origin`: a multi-door screen. Back goes to the screen that opened it, else `fallback`.
+ * - `battle`: Back opens the battle menu (⋯).
+ * - `none`: nothing to go back to (Boot).
+ */
+export type BackRule = { kind: 'root' } | { kind: 'parent'; to: string } | { kind: 'origin'; fallback: string } | { kind: 'battle' } | { kind: 'none' };
+
+/** The Back rule of every screen, by scene key. Camp is the field camp's (`parent` World); the War camp is `origin` (screen-flow S05). */
+export const BACK_RULES: Readonly<Record<string, BackRule>> = {
+  Boot: { kind: 'none' },
+  // the offer and resume steps are roots; reward and modes go to the Campaign hub
+  FirstRun: { kind: 'parent', to: 'Menu' },
+  Menu: { kind: 'root' },
+  World: { kind: 'parent', to: 'Menu' },
+  Camp: { kind: 'parent', to: 'World' },
+  Settlement: { kind: 'parent', to: 'World' },
+  Army: { kind: 'origin', fallback: 'World' },
+  Hero: { kind: 'origin', fallback: 'Army' },
+  Battle: { kind: 'battle' },
+  Results: { kind: 'origin', fallback: 'World' },
+  Codex: { kind: 'root' },
+  // the Duels hub views (Ladder, Arena) are the root; its sub-views (Team, Armoury, Board, Raids) go back to the hub view (`hubView`)
+  Duel: { kind: 'root' },
+  Online: { kind: 'root' },
+  OnlineArmy: { kind: 'origin', fallback: 'Online' },
+  OnlineClan: { kind: 'parent', to: 'Online' },
+  // single-parent (ia.md §1.3); the War hub reopens on the merchant's hex ({ focus, select }), which the scene passes
+  Merchant: { kind: 'parent', to: 'Online' },
+  Market: { kind: 'origin', fallback: 'Shop' },
+  Shop: { kind: 'root' },
+  Kit: { kind: 'parent', to: 'Menu' },
+  // retired by CDX-01 (merged into the Codex); until then it returns to the Codex that opened it
+  BeastTrial: { kind: 'origin', fallback: 'Codex' },
+};
+
+/**
+ * Where Back goes from `sceneKey` opened through `origin`: the origin on a multi-door screen (the fallback
+ * when none was passed or it is the screen itself), the parent on a single-parent screen. Null where Back
+ * leaves no screen (a hub, Battle, Boot).
+ */
+export function resolveBack(sceneKey: string, origin?: BackTarget | null): BackTarget | null {
+  const rule = BACK_RULES[sceneKey];
+  if (!rule) return null;
+  if (rule.kind === 'parent') return { scene: rule.to, data: {} };
+  if (rule.kind !== 'origin') return null;
+  if (origin?.scene && origin.scene !== sceneKey) return { scene: origin.scene, data: origin.data ?? {} };
+  return { scene: rule.fallback, data: {} };
+}
+
+/**
+ * The options a scene registers with: a tab hub is a root whatever it asks for (ia.md §1.2: a door into a hub
+ * switches tabs and never pushes it, so its Back would only lead to another tab, D12). What is open on the
+ * hub (a sheet, the hex panel) still closes with Back: those are layers.
+ */
+export function screenOpts(sceneKey: string, opts: ScreenOpts): ScreenOpts {
+  return tabOfScene(sceneKey) ? { ...opts, back: null } : opts;
+}
+
+interface KeyedScene {
+  sys: { settings: { key: string } };
+}
+
+/**
+ * A hub scene that shows sub-views in place (Duels: Team, Armoury, Board, Raid picks) declares each view as
+ * it builds it: `back` for a sub-view (Back returns to the hub view), null for a hub view (a root again).
+ * The shells call it (addSubShell, the TabBar); other scenes are untouched.
+ */
+export function hubView(scene: KeyedScene, back: (() => void) | null): void {
+  if (!tabOfScene(scene.sys.settings.key)) return;
+  nav.update(scene, { back });
 }

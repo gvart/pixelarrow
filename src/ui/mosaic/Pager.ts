@@ -1,10 +1,11 @@
 /**
  * MPager: the two arrows and "3 / 9" between them, for walking through the
- * heroes.
+ * heroes; `addSwipe` walks them with a horizontal swipe.
  */
 import Phaser from 'phaser';
 import { GAP, TAP, midY, mtext } from './base';
 import { MIconButton } from './iconButton';
+import { haptic } from '../../platform/telegram';
 
 export interface PagerOpts {
   index: number;
@@ -34,4 +35,22 @@ export class MPager extends Phaser.GameObjects.Container {
     mk(PAGER_W - TAP, 'chevR', o.nextTip, 'hero.next', o.onNext);
     scene.add.existing(this);
   }
+}
+
+/** Horizontal swipes on `zone` (an interactive object): left = next, right = previous. */
+export function addSwipe(zone: Phaser.GameObjects.GameObject, onLeft: () => void, onRight: () => void, minPx = 40): void {
+  let start: { x: number; y: number; t: number } | null = null;
+  zone.on('pointerdown', (p: Phaser.Input.Pointer) => (start = { x: p.x, y: p.y, t: p.downTime }));
+  zone.on('pointerup', (p: Phaser.Input.Pointer) => {
+    const s = start;
+    start = null;
+    if (!s) return;
+    const dx = p.x - s.x;
+    const dy = p.y - s.y;
+    const scale = (zone.scene?.game.scale.width ?? 1) / Math.max(1, window.innerWidth || 1);
+    if (Math.abs(dx) < minPx * scale || Math.abs(dx) < Math.abs(dy) * 1.5 || p.upTime - s.t > 700) return;
+    haptic('light');
+    if (dx < 0) onLeft();
+    else onRight();
+  });
 }

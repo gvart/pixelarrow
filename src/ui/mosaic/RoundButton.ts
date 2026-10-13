@@ -6,7 +6,7 @@
 import Phaser from 'phaser';
 import { addIcon, panelK, scaleIcon } from '../kit';
 import { uiId } from '../layout';
-import { MOSAIC } from '../tokens';
+import { MOSAIC, TEXT_MIN } from '../tokens';
 import { MBadge, TAP, centeredFace, fit, makePressable, mtext, mw, put } from './base';
 
 export interface RoundButtonOpts {
@@ -22,8 +22,9 @@ export interface RoundButtonOpts {
   id?: string;
 }
 
-const LABEL_SIZE = 5.5;
-const LABEL_LINE = 8;
+/** The smallest meaningful size (A11Y-09; it was 5.5, audit G10). */
+const LABEL_SIZE = TEXT_MIN;
+const LABEL_LINE = 9;
 
 /** The label as at most two lines that fit `w` (a split at a space, else shortened). */
 function labelLines(label: string, w: number): string[] {

@@ -10,7 +10,7 @@
 import Phaser from 'phaser';
 import { ScrollArea, type UIMetrics } from '../kit';
 import { openSettings } from '../settings';
-import { showInGameBack } from '../../platform/nav';
+import { hubView, showInGameBack } from '../../platform/nav';
 import { t } from '../../i18n';
 import { MOSAIC } from '../tokens';
 import { mosaicImage } from './base';
@@ -90,6 +90,8 @@ export function addSubShell(scene: UiScene, o: SubShellOpts & { scroll: false })
 export function addSubShell(scene: UiScene, o: SubShellOpts): FramedSubShell & { area: ScrollArea };
 export function addSubShell(scene: UiScene, o: SubShellOpts): SubShell {
   const id = o.id ?? 'sub.topbar';
+  // a sub-view of a hub scene (Duels Team, Armoury...): Back (and Telegram's button) goes where its arrow does
+  if (o.back) hubView(scene, o.back);
   if (o.map) {
     const { VW, VH } = scene.m;
     const parent = o.parent ?? scene.ui;

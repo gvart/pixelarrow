@@ -43,8 +43,17 @@ export interface WorldMap {
   start: number;
 }
 
-const TOWN_NAMES = ['Neapolis', 'Taras', 'Kroton', 'Syrakousai', 'Akragas', 'Massalia', 'Rhegion', 'Kyme', 'Elea', 'Selinous', 'Himera', 'Gela', 'Lokroi', 'Sybaris'];
-const VILLAGE_NAMES = ['Pylos', 'Assos', 'Aigai', 'Elatea', 'Kirrha', 'Oinoe', 'Halai', 'Phyle', 'Anthele', 'Dion', 'Skolos', 'Tanagra', 'Abai', 'Kalydon', 'Pheia', 'Krisa', 'Opous', 'Thisbe'];
+export const TOWN_NAMES = ['Neapolis', 'Taras', 'Kroton', 'Syrakousai', 'Akragas', 'Massalia', 'Rhegion', 'Kyme', 'Elea', 'Selinous', 'Himera', 'Gela', 'Lokroi', 'Sybaris'];
+/**
+ * Lair names by kind (QAFIX-WORLD S4: five lairs of one map were all "Galatae camp").
+ * A map takes them in turn from a seed-given start, so lairs of one kind differ.
+ * Every Galatae name says "Galatae" (overlandMap.ts lairProp draws by it); no other does.
+ */
+export const LAIR_NAMES = {
+  raiders: ['Galatae camp', 'Galatae hillfort', 'Galatae war camp', 'Galatae stockade', 'Galatae holdfast', 'Galatae steading'],
+  bandits: ['Bandit camp', "Robbers' den", "Brigands' hold", 'Outlaw stockade', "Cutthroats' roost", "Thieves' hollow"],
+} as const;
+export const VILLAGE_NAMES = ['Pylos', 'Assos', 'Aigai', 'Elatea', 'Kirrha', 'Oinoe', 'Halai', 'Phyle', 'Anthele', 'Dion', 'Skolos', 'Tanagra', 'Abai', 'Kalydon', 'Pheia', 'Krisa', 'Opous', 'Thisbe'];
 
 export function isWater(t: number): boolean {
   return t === T.deep || t === T.sea;
@@ -232,6 +241,9 @@ export function generateMap(seed: number): WorldMap {
   const villageNames = rng.shuffle([...VILLAGE_NAMES]);
   let ti = 0;
   let vi = 0;
+  // no RNG draw: the rest of the map stays as it was for every seed
+  let gi = seed % LAIR_NAMES.raiders.length;
+  let bi = seed % LAIR_NAMES.bandits.length;
   for (const s of settlements) {
     const t = terrain[s.y * w + s.x];
     if (s.kind === 'town') {
@@ -245,11 +257,11 @@ export function generateMap(seed: number): WorldMap {
       s.band = 'bandits';
       s.culture = rng.pick(['phoenician', 'greek'] as const);
     } else if (t === T.hills || rng.chance(0.4)) {
-      s.name = 'Galatae camp';
+      s.name = LAIR_NAMES.raiders[gi++ % LAIR_NAMES.raiders.length];
       s.band = 'raiders';
       s.culture = 'celtic';
     } else {
-      s.name = 'Bandit camp';
+      s.name = LAIR_NAMES.bandits[bi++ % LAIR_NAMES.bandits.length];
       s.band = 'bandits';
       s.culture = rng.pick(['greek', 'phoenician', 'celtic'] as const);
     }
@@ -346,6 +358,13 @@ export function dangerAt(m: WorldMap, x: number, y: number): number {
   for (const l of m.settlements) if (l.kind === 'lair') dLair = Math.min(dLair, Math.sqrt((x - l.x) ** 2 + (y - l.y) ** 2));
   const lair = Math.max(0, 1 - dLair / 16);
   return Math.max(0.05, Math.min(1, dStart * 0.75 + lair * 0.35));
+}
+
+/** The towns other than the starting town, farthest from it first (campaign-arc.md R5: the host musters at the first it can march from). */
+export function townsFarthestFirst(m: WorldMap): SettlementDef[] {
+  const s = m.settlements[m.start];
+  const d = (t: SettlementDef) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2;
+  return m.settlements.filter((t) => t.kind === 'town' && t.id !== m.start).sort((a, b) => d(b) - d(a) || a.id - b.id);
 }
 
 export function regionName(m: WorldMap, x: number, y: number): string {

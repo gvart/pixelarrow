@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
 import { sweepPanels, uiMetrics, type UIMetrics } from '../ui/kit';
-import { registerScreen, navLayer, navMotion, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
-import { motion } from '../ui/motion';
-import { MOTION } from '../ui/tokens';
+import { registerScreen, navLayer, navMotion, screenOpts, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
+import { ENTRY_ALPHA, motion } from '../ui/motion';
+import { MOSAIC, MOTION } from '../ui/tokens';
 import { openSettings } from '../ui/settings';
 import { renderGround } from '../art/ground';
+
+/** The screen before this one showed a field (map or battle): the next one enters through parchment too (R6). */
+let leftField = false;
 
 /**
  * Common scaffolding: a UI root container scaled to integer pixels, resize
@@ -46,19 +49,38 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   /**
-   * The screen enters: a short slide (from the right when drilling down, from
-   * the left after Back) with a fade, 200 ms ease-out. A relayout (new screen
-   * size) and reduced motion enter at once.
+   * The screen enters (F3, battle-readability.md R6):
+   * - between UI screens, a short slide (from the right when drilling down,
+   *   from the left after Back) with a fade, 220 ms ease-out;
+   * - into or out of a field (the map, a battle: a scene with its own world
+   *   camera), a 180 ms fade through parchment on every camera.
+   * Reduce motion and a relayout (new screen size) enter at once. Nothing
+   * here blocks input: the ui starts at ENTRY_ALPHA, not 0 (Phaser skips
+   * input under an alpha-0 container, V5-067), and a camera fade is drawn
+   * over the scene without touching its hit tests.
    */
   private enterMotion(): void {
     const back = navMotion.back;
     navMotion.back = false;
-    if (motion.reduced || this.relayingOut) return;
+    const instant = motion.reduced || this.relayingOut;
     const ui = this.ui;
-    const dx = (back ? -6 : 6) * this.m.S;
-    ui.x = dx;
-    ui.alpha = 0;
-    this.tweens.add({ targets: ui, x: 0, alpha: 1, duration: MOTION.slide, ease: 'Cubic.easeOut' });
+    let slide: Phaser.Tweens.Tween | null = null;
+    if (!instant) {
+      ui.x = (back ? -6 : 6) * this.m.S;
+      ui.alpha = ENTRY_ALPHA;
+      slide = this.tweens.add({ targets: ui, x: 0, alpha: 1, duration: MOTION.slide, ease: 'Cubic.easeOut' });
+    }
+    // the cameras exist once create() has run (the world camera is added after initUi)
+    this.events.once('create', () => {
+      const field = this.cameras.cameras.length > 1;
+      const through = field || leftField;
+      leftField = field;
+      if (instant || !through) return;
+      slide?.remove();
+      ui.setPosition(0, ui.y).setAlpha(1);
+      const c = Phaser.Display.Color.IntegerToColor(MOSAIC.parch);
+      for (const cam of this.cameras.cameras) cam.fadeIn(MOTION.fade, c.red, c.green, c.blue);
+    });
   }
 
   /** Set while the scene restarts for a new screen size (no entry motion then). */
@@ -73,11 +95,13 @@ export abstract class BaseScene extends Phaser.Scene {
 
   /**
    * Register this scene as a navigation screen. `back` goes back one level
-   * (omit / null on a root screen: Telegram then shows Close). Telegram's ⋯ →
-   * Settings opens the settings modal unless `settings` overrides it.
+   * (omit / null on a root screen: Telegram then shows Close). A tab hub is
+   * always a root (`screenOpts`, ia.md §6): its sub-views declare their own
+   * Back through the shells (`hubView`). Telegram's ⋯ → Settings opens the
+   * settings modal unless `settings` overrides it.
    */
   protected screen(opts: ScreenOpts): void {
-    registerScreen(this, { settings: () => openSettings(this), ...opts });
+    registerScreen(this, screenOpts(this.scene.key, { settings: () => openSettings(this), ...opts }));
   }
 
   /** @deprecated use screen({ back }). */

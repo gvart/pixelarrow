@@ -6,6 +6,13 @@ import { Rng } from '../sim/rng';
 import type { BattleResult, UnitResult, Wear } from '../sim/types';
 import { gearTotal } from './gear';
 import { grantXp } from './heroes';
+import { NEXT_BATTLE } from '../data/events';
+
+/** Battle gold (resolveBattle): the field, each enemy slain, and the win or draw bonus. */
+export const FIELD_GOLD = 20;
+export const KILL_GOLD = 12;
+export const WIN_GOLD = 60;
+const DRAW_GOLD = 20;
 
 export interface HeroOutcome {
   heroId: string;
@@ -37,6 +44,21 @@ export interface Outcome {
   enemyKilled: number;
   enemyTotal: number;
   lost: number;
+  /** Time ran out with both armies standing and the player had not won (QAFIX-WORLD S3-4): a draw that pays only for kills. Missing = false. */
+  timedOut?: boolean;
+}
+
+/**
+ * Level pacing (campaign-arc.md R7, XP_CURVE_L6PLUS): a hero of level
+ * `from` and up gains `mult` times the battle XP, which is the GDD's 32·L
+ * curve from level 6 on the shared 40·L one (40 / 32 = 1.25). Levels 6-10 take
+ * about 37 campaign battles instead of 46 (docs/v5/balance/AR-03.md).
+ */
+export const LATE_XP = { from: 6, mult: 1.25 };
+
+/** The XP multiplier of a hero at `level` (LATE_XP). */
+export function lateXpMult(level: number): number {
+  return level >= LATE_XP.from ? LATE_XP.mult : 1;
 }
 
 /** How many loot items the player may take. Better victories give more picks. */
@@ -84,14 +106,17 @@ export function lootPool(result: BattleResult, enemies: Hero[]): Item[] {
 /**
  * Apply a finished battle to the player's roster (mutates heroes):
  * dead heroes are removed (permadeath), survivors gain XP, and their gear wears.
+ * `stalemate`: time ran out and the player had not won (QAFIX-WORLD S3-4): a
+ * draw whatever the sim's tally, with no pay for taking the field (no base
+ * gold or XP, no draw bonus, no loot): only the men he killed pay.
  */
-export function resolveBattle(result: BattleResult, player: Hero[], enemies: Hero[], rng: Rng): { outcome: Outcome; survivors: Hero[] } {
+export function resolveBattle(result: BattleResult, player: Hero[], enemies: Hero[], rng: Rng, stalemate = false): { outcome: Outcome; survivors: Hero[] } {
   const units = new Map<string, UnitResult>();
   for (const u of result.units) if (u.side === 0) units.set(u.heroId, u);
   const enemyUnits = result.units.filter((u) => u.side === 1);
   const enemyKilled = enemyUnits.filter((u) => u.state === 'dead' && u.killedBy === 0).length;
-  const victory = result.winner === 0;
-  const draw = result.winner === -1;
+  const victory = result.winner === 0 && !stalemate;
+  const draw = result.winner === -1 || stalemate;
   const retreated = result.retreated === 0;
   const outcomes: HeroOutcome[] = [];
   const survivors: Hero[] = [];
@@ -117,7 +142,8 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
     goldBonus += gearTotal(h, 'goldBonus');
     // Men who ran off the field lose a little XP; an ordered retreat is no disgrace.
     const wounded = u.state === 'dead' && u.ko;
-    const xp = Math.round((12 + u.kills * 10 + (victory ? 12 : 0) + (u.state === 'fled' && !retreated ? -6 : 0)) * (1 + xpBonus) * (wounded ? 0.5 : 1));
+    const base = stalemate ? 0 : 12 + (u.state === 'fled' && !retreated ? -6 : 0);
+    const xp = Math.round((base + u.kills * 10 + (victory ? 12 : 0)) * (1 + xpBonus) * (wounded ? 0.5 : 1) * lateXpMult(h.level));
     h.kills += u.kills;
     h.battles++;
     const levelBefore = h.level;
@@ -129,13 +155,46 @@ export function resolveBattle(result: BattleResult, player: Hero[], enemies: Her
   }
   // A retreat earns only the bounty for enemies already slain: no field to strip.
   // Gilded gear of the survivors adds to the battle's gold (at most +50%).
-  const gold = Math.round(((retreated ? 0 : 20) + enemyKilled * 12 + (victory ? 60 : draw ? 20 : 0)) * (1 + Math.min(0.5, goldBonus)));
-  const picks = retreated ? 0 : lootPicks(result.winner, player.length, lost);
+  const gold = Math.round(((retreated || stalemate ? 0 : FIELD_GOLD) + enemyKilled * KILL_GOLD + (victory ? WIN_GOLD : draw && !stalemate ? DRAW_GOLD : 0)) * (1 + Math.min(0.5, goldBonus)));
+  const picks = retreated || stalemate ? 0 : lootPicks(result.winner, player.length, lost);
   const loot = picks > 0 ? lootPool(result, enemies) : [];
   return {
-    outcome: { victory, draw, retreated, gold, picks: Math.min(picks, loot.length), loot, heroes: outcomes, enemyKilled, enemyTotal: enemyUnits.length, lost },
+    outcome: { victory, draw, retreated, gold, picks: Math.min(picks, loot.length), loot, heroes: outcomes, enemyKilled, enemyTotal: enemyUnits.length, lost, ...(stalemate ? { timedOut: true } : {}) },
     survivors,
   };
+}
+
+/** The `nextBattle` bonuses an event left for the next battle (campaign-events.md R2). */
+export interface BattleBonus {
+  pick?: boolean;
+  xp?: boolean;
+  gold?: boolean;
+}
+
+/**
+ * Apply `nextBattle` bonuses to a settled outcome (post-battle rewards only,
+ * never sim inputs): +1 loot pick (up to the pool), +50% XP to each survivor,
+ * +50% gold. The gold bonus is on the battle's gold as resolveBattle paid it,
+ * so after the goldBonus cap, and the caller applies it before any bounty.
+ * Mutates the outcome and the heroes; returns the extra gold for the purse.
+ */
+export function applyBattleBonus(outcome: Outcome, heroes: readonly Hero[], bonus: BattleBonus, rng: Rng): number {
+  let extra = 0;
+  if (bonus.gold) {
+    extra = Math.round(outcome.gold * NEXT_BATTLE.gold);
+    outcome.gold += extra;
+  }
+  if (bonus.pick) outcome.picks = Math.min(outcome.picks + NEXT_BATTLE.picks, outcome.loot.length);
+  if (bonus.xp) {
+    for (const o of outcome.heroes) {
+      const h = o.died ? undefined : heroes.find((x) => x.id === o.heroId);
+      const add = Math.round(o.xp * NEXT_BATTLE.xp);
+      if (!h || add <= 0) continue;
+      o.levelsGained += grantXp(h, add, rng);
+      o.xp += add;
+    }
+  }
+  return extra;
 }
 
 /** Validate and apply a loot selection. Returns the chosen items (at most `picks`). */

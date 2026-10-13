@@ -9,18 +9,27 @@
 import { bandBeast, beastEnemy } from '../game/beasts';
 import { Rng, hashString } from '../sim/rng';
 import type { Culture } from '../data/names';
-import { BASE_ITEMS, itemValue, type Item, type ItemDef } from '../data/items';
+import { BASE_ITEMS, RARITIES, itemValue, rarityRank, type Item, type ItemDef } from '../data/items';
 import { RECRUIT_COST, type Hero } from '../data/units';
 import { buildArmy, type ArmyMix, type EnemyArmy } from '../game/enemy';
-import { makeHero, makeItem, rollRarity, type IdSource } from '../game/heroes';
-import { armyPick, bandSetPieces } from '../game/sources';
+import { makeHero, makeItem, rollRarity, setBotLevel, type IdSource } from '../game/heroes';
+import { dedupeNames } from '../data/names';
+import { heroPower, type CaptainMark } from '../sim/stats';
+import { arcSet, armyPick, bandSetPieces } from '../game/sources';
 import { CLASSES, townClasses, type ClassId } from '../data/classes';
 import {
-  MIN_TRAVEL_COST, dangerAt, generateMap, passable, travelCost,
+  MIN_TRAVEL_COST, dangerAt, generateMap, passable, townsFarthestFirst, travelCost,
   type BandKind, type SettlementDef, type WorldMap,
 } from './map';
 import { findPath, type Tile } from './path';
+import {
+  EVENT_RULES, EV_KEY, eligibleEvents, pickEvent,
+  type BandMods, type EventBandKind, type EventCtx, type EventDef, type EventTrigger,
+} from '../data/events';
+import { DOCTRINE_IDS, type DoctrineId } from '../sim/types';
 import { hash3 } from './noise';
+import { liveDeck } from '../data/eventDeck';
+import { GARRISON, HOST, POST_GAME, SACK_DAYS } from '../data/arc';
 import {
   CAMP_RULES, FOOD_RULES, STRUCTURES, campBlocker, campEffects, campRefund, campZone, countBuilt, placeCheck,
   type CampState, type StructureId,
@@ -28,9 +37,12 @@ import {
 
 export type PartyMode = 'wander' | 'chase' | 'flee';
 
+/** A roaming band's kind: the map's band kinds, plus the endgame host (campaign-arc.md). */
+export type PartyKind = BandKind | 'host';
+
 export interface PartyState {
   id: number;
-  kind: BandKind;
+  kind: PartyKind;
   name: string;
   culture: Culture;
   x: number;
@@ -49,6 +61,21 @@ export interface PartyState {
   ty: number;
   /** Hours it stays put / leaves the player alone (after a fight or an escape). */
   idle: number;
+  /**
+   * Game hour until which it leaves the player alone: a band that beat the
+   * army goes off with its plunder (QAFIX-WORLD S2-1); missing = 0.
+   */
+  spareUntil?: number;
+  /** Times it retreated from a battle with the player (ai-doctrines.md R8), at most CAPTAIN_RULES.escapeCap; missing = 0. */
+  escaped?: number;
+  /** Its captain was killed or captured (ai-doctrines.md); missing = false. */
+  captainDead?: boolean;
+  /** Spawned by an event to hunt the player whatever the power ratio (campaign-events.md R2); missing = false. */
+  hunts?: boolean;
+  /** Multiplies its captain's bounty (campaign-events.md R2, 1..3); missing = 1. Read with bountyMultOf. */
+  bountyMult?: number;
+  /** A doctrine an event forced on it; missing = the one its mix and culture give. */
+  doctrine?: DoctrineId;
 }
 
 /** Per-settlement state: which recruits / wares of the current stock epoch are gone. */
@@ -56,7 +83,39 @@ export interface SettlementState {
   epoch: number;
   bought: number[];
   sold: number[];
+  /** A sacked settlement that has been rebuilt (campaign-arc.md); missing = false. */
+  reborn?: boolean;
 }
+
+/** A lair's assault state (campaign-arc.md), keyed by settlement id. */
+export interface LairState {
+  fallen: boolean;
+  /** Garrison men lost to assaults, and when (hours) the last one was lost. */
+  lost: number;
+  lostAt: number;
+}
+
+export type ArcStage = 'lairs' | 'host' | 'won' | 'post';
+export const ARC_STAGES: readonly ArcStage[] = ['lairs', 'host', 'won', 'post'];
+
+/** Where the campaign arc stands (campaign-arc.md). */
+export interface ArcState {
+  stage: ArcStage;
+  /** The host's party id while it marches. */
+  hostParty?: number;
+  /** The start town is sacked until this time (hours). */
+  sackedUntil?: number;
+}
+
+/** A campaign event drawn and saved before it is shown (campaign-events.md). */
+export interface PendingEvent {
+  id: string;
+  seed: number;
+}
+
+/** Save size caps (campaign-events.md "Size"): flag keys, and journal entries (the most recent kept). */
+export const FLAGS_CAP = 64;
+export const JOURNAL_CAP = 20;
 
 export interface WorldSave {
   seed: number;
@@ -88,17 +147,41 @@ export interface WorldSave {
   supplies?: number;
   /** The field camp the party has pitched, if any. */
   camp?: CampState | null;
+  // ---- v6 (ST-02, ADR-0002): declared for the v5 train, filled with defaults by the save migration
+  /** Lairs assaulted so far, by settlement id. */
+  lairs: Record<number, LairState>;
+  arc: ArcState;
+  /** Event flags (campaign-events.md), at most FLAGS_CAP keys. */
+  flags: Record<string, number>;
+  /** Event id -> the day it may next be drawn. */
+  eventCd: Record<string, number>;
+  /** [day, events drawn that day]. */
+  eventsToday: [number, number];
+  pendingEvent?: PendingEvent;
+  /** Event ids and choice keys, the last JOURNAL_CAP. */
+  journal: string[];
+}
+
+/** The v6 world fields of a campaign that has not touched them (new campaigns and migrated saves). */
+export function v6WorldDefaults(): Pick<WorldSave, 'lairs' | 'arc' | 'flags' | 'eventCd' | 'eventsToday' | 'journal'> {
+  return { lairs: {}, arc: { stage: 'lairs' }, flags: {}, eventCd: {}, eventsToday: [0, 0], journal: [] };
 }
 
 export type WorldEvent =
   | { type: 'encounter'; party: number; byPlayer: boolean }
-  | { type: 'arrive'; settlement: number };
+  | { type: 'arrive'; settlement: number }
+  /** A campaign event was drawn and is pending (campaign-events.md R4): the map stays paused until it is resolved. */
+  | { type: 'event'; id: string };
 
 export interface PlayerInfo {
   power: number;
   size: number;
   /** Heroes who eat (the whole roster, wounded too); defaults to size. */
   mouths?: number;
+  /** The purse, for event conditions (`minGold`); missing = 0. */
+  gold?: number;
+  /** Men fit to fight (not wounded); missing = size. No band falls on an army with none (QAFIX-WORLD S2-1). */
+  fit?: number;
 }
 
 export const WORLD_RULES = {
@@ -109,6 +192,8 @@ export const WORLD_RULES = {
   contact: 0.8,
   chaseRatio: 1.1,
   fleeRatio: 0.8,
+  /** Game hours a band that beat the army leaves it alone (QAFIX-WORLD S2-1): long enough to heal a little, break camp or march off. */
+  defeatRespiteH: 12,
   surrenderRatio: 0.35,
   maxParties: 16,
   spawnEvery: 10,
@@ -124,8 +209,107 @@ export const WORLD_RULES = {
   healGoldPerHour: 1,
 };
 
+/**
+ * The base of a bandit band's size (campaign-arc.md R1.3; GDD default 5, range 3-6).
+ * Kept at 3: bandits spawn at their lair, where danger is 0.35 at least (0.66-1.0
+ * on real maps), so every new bandit band already has 5 men or more, and a
+ * bigger base only makes the opening's first fights worse (docs/v5/balance/AR-01.md).
+ */
+export const BANDIT_MIN = 3;
+
+/**
+ * The starter zone (V5-054, campaign-arc.md R1.3): `count` bandit bands of
+ * danger `danger`, `ring` tiles from the starting town, sized
+ * `min + round(danger x 5) + int(0..2)` (the GDD's BANDIT_MIN 5) at level
+ * 1 + round(danger x 2). Gear `tier` 2 (so a captain); tier 1 was 91%
+ * (docs/v5/balance/AR-01.md). Danger is drawn from the top of the GDD's
+ * 0.1-0.3 band (BAL-02): about 60% of the bands are level 2, which puts the
+ * 8-man opening at about 67% (it was 72-75% from 0.1).
+ */
+export const STARTER_BANDS = { count: [2, 3] as [number, number], ring: [5, 11] as [number, number], danger: [0.22, 0.3] as [number, number], min: 5, tier: 2 };
+
+/**
+ * Volunteers (campaign-arc.md R1.4, R1.5). A destroyed army gets `destroyed`
+ * raw men at the starting town. While the army has fewer than `floor` men,
+ * the starting town and every village offer `floorOffer` raw volunteers at
+ * `floorCost` on top of their stock (recruit indices from `floorIndex`).
+ */
+export const VOLUNTEER_RULES = { destroyed: 5, floor: 5, floorOffer: 3, floorCost: 20, floorIndex: 100 };
+
+/** Band captains and escapes (design/gdd/ai-doctrines.md R6, R8 and Tuning Knobs). */
+export const CAPTAIN_RULES = {
+  /** Bands of this gear tier and up have a captain (CAPTAIN_MIN_TIER). */
+  minTier: 2,
+  /** His level over the band's, capped at MAX_LEVEL (CAPTAIN_LEVEL_BONUS). */
+  levelBonus: 0,
+  /** Hours a band that retreated stays away (ESCAPE_IDLE_H). */
+  escapeIdleH: 3,
+  /** `escaped` stops counting here (ESCAPE_CAP). */
+  escapeCap: 3,
+};
+
+/** The largest and most seasoned a roaming band gets (campaign-arc.md R3; 18 / 8 before the arc). */
+export const BAND_CAPS = { size: 22, level: 10 };
+
+/**
+ * Tier 3 and late scaling (campaign-arc.md R3, TIER3_DAY / TIER3_LAIRS). The
+ * world's lair tier is 2 until `lairs` lairs have fallen or day `day`. From
+ * then on a new band forms at gear tier 3 where danger is over `danger`, and,
+ * once `lairs` lairs have fallen, whenever it is raiders or mercenaries.
+ */
+export const TIER3_RULES = { day: 50, lairs: 2, danger: 0.85 };
+
+/** The world's lair tier (R3): 3 once TIER3_RULES.lairs lairs have fallen or from day TIER3_RULES.day, else 2. */
+export function lairTier(days: number, lairsFallen: number): 2 | 3 {
+  return lairsFallen >= TIER3_RULES.lairs || days >= TIER3_RULES.day ? 3 : 2;
+}
+
+/** Does a new band of `kind` forming at `danger` get gear tier 3 (R3)? Never while the lair tier is 2. */
+export function tier3Band(kind: BandKind, danger: number, days: number, lairsFallen: number): boolean {
+  if (lairTier(days, lairsFallen) < 3) return false;
+  return danger > TIER3_RULES.danger || (lairsFallen >= TIER3_RULES.lairs && (kind === 'raiders' || kind === 'mercs'));
+}
+
+/**
+ * A new band's men, level and gear tier by kind, the danger where it forms,
+ * the date and the lairs fallen (draws from `r`; the tier-3 rule draws
+ * nothing, so the world's random sequence is what it was before R3).
+ */
+function bandShape(kind: BandKind, danger: number, days: number, lairsFallen: number, r: Rng): { size: number; level: number; tier: number } {
+  const shape =
+    kind === 'bandits'
+      ? { size: BANDIT_MIN + Math.round(danger * 5) + r.int(0, 2), level: 1 + Math.round(danger * 2 + days * 0.04), tier: danger > 0.7 ? 2 : 1 }
+      : kind === 'raiders'
+        ? { size: 5 + Math.round(danger * 7) + r.int(0, 3), level: 1 + Math.round(danger * 3 + days * 0.05), tier: danger > 0.5 ? 2 : 1 }
+        : { size: 6 + Math.round(danger * 6) + r.int(0, 4), level: 2 + Math.round(danger * 2 + days * 0.05), tier: 2 };
+  if (tier3Band(kind, danger, days, lairsFallen)) shape.tier = 3;
+  return shape;
+}
+
+/** The roll rate of each trigger (R3); a due flag event always fires. */
+function eventRate(t: EventTrigger): number {
+  const r = EVENT_RULES.rate;
+  return t === 'march' ? r.march : t === 'camp' ? r.camp : t === 'after_battle' ? r.afterBattle : t === 'flag' ? 1 : r.arrive;
+}
+
+function clampBountyMult(m: number): number {
+  return Number.isFinite(m) ? Math.max(1, Math.min(3, m)) : 1;
+}
+
+/** A band's bounty multiplier (campaign-events.md R2), 1 unless an event set one; a malformed save value reads as 1. */
+export function bountyMultOf(p: Pick<PartyState, 'bountyMult'>): number {
+  return typeof p.bountyMult === 'number' ? clampBountyMult(p.bountyMult) : 1;
+}
+
+/** The band's main-line class, which its captain fights as. */
+function captainClass(p: PartyState): ClassId {
+  if (p.kind === 'bandits') return 'thureophoros';
+  return p.culture === 'celtic' ? 'celt_sword' : 'hoplite';
+}
+
 const BAND_NAMES: Record<BandKind, string> = { bandits: 'Bandits', raiders: 'Galatae raiders', mercs: 'Mercenaries' };
-const BAND_MIX: Record<BandKind, ArmyMix> = { bandits: 'bandits', raiders: 'raiders', mercs: 'mercs' };
+// The host's army is hostArmy's (partyArmy never reads its entry here).
+const BAND_MIX: Record<PartyKind, ArmyMix> = { bandits: 'bandits', raiders: 'raiders', mercs: 'mercs', host: 'mercs' };
 
 export function partySpeed(size: number): number {
   return WORLD_RULES.speed * Math.max(0.7, 1 - WORLD_RULES.sizeSlow * size);
@@ -151,6 +335,8 @@ export class World {
   route: { x: number; y: number }[] = [];
   private aiRoutes = new Map<number, { x: number; y: number }[]>();
   private aiThink = new Map<number, number>();
+  /** The event deck draws come from (campaign-events.md): the live starter deck (EV-03); tests swap in their own. */
+  deck: readonly EventDef[] = liveDeck();
 
   /** Explored tiles (1 = no fog). */
   readonly explored: Uint8Array;
@@ -306,8 +492,12 @@ export class World {
     return null;
   }
 
-  /** A new world: the party stands in the starting town; a few bands roam. */
-  static fresh(seed: number): WorldSave {
+  /**
+   * A new world: the party stands in the starting town; a few bands roam.
+   * `starters` adds the starter zone (STARTER_BANDS): only a new campaign
+   * asks for it, never a migrated save.
+   */
+  static fresh(seed: number, starters = false): WorldSave {
     const map = generateMap(seed);
     const st = map.settlements[map.start];
     const s: WorldSave = {
@@ -325,9 +515,11 @@ export class World {
       rng: (seed ^ 0x51ed270b) >>> 0 || 1,
       lastSpawn: 0,
       safeUntil: 0,
+      ...v6WorldDefaults(),
     };
     const w = new World(s, map);
     for (let i = 0; i < 9; i++) w.spawnParty(i % 4 === 3 ? 'town' : 'lair');
+    if (starters) w.spawnStarterBands();
     w.sync();
     return s;
   }
@@ -343,6 +535,16 @@ export class World {
 
   get days(): number {
     return this.s.time / 24;
+  }
+
+  /** Lairs the player has destroyed (campaign-arc.md R2). */
+  get lairsFallen(): number {
+    return Object.values(this.s.lairs).filter((l) => l.fallen).length;
+  }
+
+  /** The world's lair tier now (campaign-arc.md R3). */
+  get lairTier(): 2 | 3 {
+    return lairTier(this.days, this.lairsFallen);
   }
 
   /** Hour of the day, 0..24. */
@@ -460,17 +662,27 @@ export class World {
    */
   advance(hours: number, player: PlayerInfo, waiting = false): { events: WorldEvent[]; hours: number } {
     const events: WorldEvent[] = [];
+    // An event card is open (R4.2): no time passes until it is resolved.
+    if (this.s.pendingEvent) return { events: [{ type: 'event', id: this.s.pendingEvent.id }], hours: 0 };
     let done = 0;
     const STEP = 0.05;
     while (done < hours - 1e-9 && events.length === 0) {
       const h = Math.min(STEP, hours - done);
       done += h;
+      const t0 = this.s.time;
       this.s.time += h;
+      const marching = !waiting && this.route.length > 0;
       if (!waiting) this.movePlayer(h, player, events);
       this.eat(h, player);
-      if (events.length) break;
+      if (events.length) {
+        const a = events[0];
+        if (a.type === 'arrive') this.arrivalEvent(a.settlement, player, events);
+        break;
+      }
       this.updateParties(h, player);
       this.checkContact(player, events);
+      if (events.length === 0) this.timedEvents(t0, marching, waiting, player, events);
+      this.riseReborn();
       if (this.s.time - this.s.lastSpawn >= WORLD_RULES.spawnEvery) {
         this.s.lastSpawn = this.s.time;
         if (this.s.parties.length < Math.min(WORLD_RULES.maxParties, 9 + Math.floor(this.days / 2))) this.spawnParty(this.rng.chance(0.25) ? 'town' : 'lair');
@@ -531,7 +743,7 @@ export class World {
     }
   }
 
-  private checkContact(_player: PlayerInfo, events: WorldEvent[]): void {
+  private checkContact(player: PlayerInfo, events: WorldEvent[]): void {
     if (this.s.inside >= 0) return;
     for (const p of this.s.parties) {
       const d = Math.sqrt((p.x - this.s.x) ** 2 + (p.y - this.s.y) ** 2);
@@ -541,6 +753,8 @@ export class World {
       if (!byPlayer && this.camp && campEffects(this.map, this.camp).fortified) continue;
       // Bands keep their distance for a while after a fight or an escape (unless the player hunts them).
       if (!byPlayer && (p.idle > 0 || this.s.time < this.s.safeUntil)) continue;
+      // A band that beat the army is off with its plunder, and nobody falls on an army with no man fit to fight (S2-1).
+      if (!byPlayer && this.spares(p, player)) continue;
       this.stop();
       events.push({ type: 'encounter', party: p.id, byPlayer });
       return;
@@ -562,15 +776,24 @@ export class World {
     }
   }
 
+  /** Band `p` leaves the player alone for now: it beat him lately, or he has no man fit to fight (S2-1). */
+  private spares(p: PartyState, player: PlayerInfo): boolean {
+    return (p.spareUntil ?? 0) > this.s.time || player.fit === 0;
+  }
+
   private thinkParty(p: PartyState, player: PlayerInfo): void {
+    if (p.kind === 'host') return this.thinkHost(p);
     const d = Math.sqrt((p.x - this.s.x) ** 2 + (p.y - this.s.y) ** 2);
     const ratio = p.power / Math.max(1, player.power);
     const walled = !!this.camp && campEffects(this.map, this.camp).fortified;
     const visible = d < WORLD_RULES.vision && this.s.inside < 0 && this.s.time >= this.s.safeUntil && !walled;
+    // An event's hunters (campaign-events.md R2) chase whatever the power ratio, from farther off.
+    const hunting = !!p.hunts && d < WORLD_RULES.vision * 2 && this.s.inside < 0 && this.s.time >= this.s.safeUntil && !walled;
+    const spared = this.spares(p, player);
     let mode: PartyMode = 'wander';
-    if (visible && ratio >= WORLD_RULES.chaseRatio) mode = 'chase';
+    if (!spared && ((visible && ratio >= WORLD_RULES.chaseRatio) || hunting)) mode = 'chase';
     else if (visible && ratio < WORLD_RULES.fleeRatio) mode = 'flee';
-    else if (p.mode !== 'wander' && d < WORLD_RULES.vision + 2 && this.s.inside < 0 && this.s.time >= this.s.safeUntil) mode = p.mode;
+    else if (p.mode !== 'wander' && !(spared && p.mode === 'chase') && d < WORLD_RULES.vision + 2 && this.s.inside < 0 && this.s.time >= this.s.safeUntil) mode = p.mode;
     if (mode === 'chase') {
       p.mode = 'chase';
       const t = this.tileOf(this.s.x, this.s.y);
@@ -600,7 +823,10 @@ export class World {
     // Pick a new place to go: around home for bands, between towns for mercenaries.
     const home = this.map.settlements[p.home];
     let goal: Tile | null = null;
-    if (p.kind === 'mercs' && this.rng.chance(0.6)) {
+    if (p.hunts) {
+      // out of range, a hunter still heads for where the party is
+      goal = this.nearestPassable(Math.floor(this.s.x) + this.rng.int(-3, 3), Math.floor(this.s.y) + this.rng.int(-3, 3), 3);
+    } else if (p.kind === 'mercs' && this.rng.chance(0.6)) {
       const towns = this.map.settlements.filter((s) => s.kind !== 'lair');
       const t = this.rng.pick(towns);
       goal = this.nearestPassable(t.x + this.rng.int(-2, 2), t.y + this.rng.int(-2, 2), 3);
@@ -620,7 +846,8 @@ export class World {
   private moveParty(p: PartyState, h: number): void {
     const route = this.aiRoutes.get(p.id);
     if (!route || route.length === 0) return;
-    const mult = p.mode === 'chase' ? 1.05 : p.mode === 'flee' ? 1.0 : 0.75;
+    // the host marches at HOST.speed x a band's roaming pace (0.75)
+    const mult = p.kind === 'host' ? 0.75 * HOST.speed : p.mode === 'chase' ? 1.05 : p.mode === 'flee' ? 1.0 : 0.75;
     let budget = h * partySpeed(p.size) * mult * (p.kind === 'raiders' ? 1.05 : 1);
     while (budget > 0 && route.length > 0) {
       const wp = route[0];
@@ -644,33 +871,17 @@ export class World {
     }
   }
 
-  /** A lair (or a town, for mercenaries) sends out a new band, sized by local danger and the date. */
+  /** A standing lair (or a town, for mercenaries) sends out a new band, sized by local danger and the date. A fallen lair sends none (campaign-arc.md R2.4). */
   spawnParty(from: 'lair' | 'town'): PartyState | null {
-    const homes = this.map.settlements.filter((s) => (from === 'lair' ? s.kind === 'lair' : s.kind === 'town' && s.id !== this.map.start));
+    const homes = this.map.settlements.filter((s) => (from === 'lair' ? s.kind === 'lair' && !this.lairFallen(s.id) : s.kind === 'town' && s.id !== this.map.start));
     if (homes.length === 0) return null;
     const home = this.rng.pick(homes);
     const kind: BandKind = from === 'town' ? 'mercs' : home.band ?? 'bandits';
     const at = this.nearestPassable(home.x + this.rng.int(-2, 2), home.y + this.rng.int(-2, 2), 4);
     if (!at) return null;
-    const danger = dangerAt(this.map, home.x, home.y);
-    const days = this.days;
+    const danger = this.danger(home.x, home.y);
     const r = this.rng;
-    let size: number;
-    let level: number;
-    let tier: number;
-    if (kind === 'bandits') {
-      size = 3 + Math.round(danger * 5) + r.int(0, 2);
-      level = 1 + Math.round(danger * 2 + days * 0.04);
-      tier = danger > 0.7 ? 2 : 1;
-    } else if (kind === 'raiders') {
-      size = 5 + Math.round(danger * 7) + r.int(0, 3);
-      level = 1 + Math.round(danger * 3 + days * 0.05);
-      tier = danger > 0.5 ? 2 : 1;
-    } else {
-      size = 6 + Math.round(danger * 6) + r.int(0, 4);
-      level = 2 + Math.round(danger * 2 + days * 0.05);
-      tier = 2;
-    }
+    const { size, level, tier } = bandShape(kind, danger, this.days, this.lairsFallen, r);
     const p: PartyState = {
       id: this.s.nextParty++,
       kind,
@@ -678,9 +889,9 @@ export class World {
       culture: kind === 'raiders' ? 'celtic' : kind === 'mercs' ? r.pick(['greek', 'phoenician', 'celtic'] as const) : home.culture,
       x: at.x + 0.5,
       y: at.y + 0.5,
-      size: Math.min(18, size),
+      size: Math.min(BAND_CAPS.size, size),
       power: 0,
-      level: Math.min(8, level),
+      level: Math.min(BAND_CAPS.level, level),
       tier,
       seed: (r.next() * 4294967296) >>> 0 || 1,
       home: home.id,
@@ -694,6 +905,52 @@ export class World {
     return p;
   }
 
+  /**
+   * The starter zone (V5-054): small bandit bands of the GDD's danger 0.1-0.3
+   * (campaign-arc.md R1.3) a few tiles from the starting town, independent of
+   * the lairs. Their own seeded Rng, so the world's other bands are unchanged.
+   * They roam around the starting town (home) and never respawn.
+   */
+  spawnStarterBands(): void {
+    const B = STARTER_BANDS;
+    const r = new Rng((this.s.seed ^ 0x3c6ef372) >>> 0 || 1);
+    const home = this.map.settlements[this.map.start];
+    const from = { x: home.x, y: home.y };
+    const count = r.int(B.count[0], B.count[1]);
+    for (let n = 0, tries = 0; n < count && tries < 60; tries++) {
+      const a = r.range(0, Math.PI * 2);
+      const d = r.range(B.ring[0], B.ring[1]);
+      const at = this.nearestPassable(Math.floor(home.x + Math.cos(a) * d), Math.floor(home.y + Math.sin(a) * d), 2);
+      if (!at || Math.max(Math.abs(at.x - home.x), Math.abs(at.y - home.y)) < B.ring[0]) continue;
+      if (this.s.parties.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < 4)) continue;
+      if (!this.path(from, at, 4000)) continue;
+      const danger = r.range(B.danger[0], B.danger[1]);
+      let seed = (r.next() * 4294967296) >>> 0 || 1;
+      while (bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
+      const p: PartyState = {
+        id: this.s.nextParty++,
+        kind: 'bandits',
+        name: BAND_NAMES.bandits,
+        culture: home.culture,
+        x: at.x + 0.5,
+        y: at.y + 0.5,
+        size: B.min + Math.round(danger * 5) + r.int(0, 2),
+        power: 0,
+        level: 1 + Math.round(danger * 2),
+        tier: B.tier,
+        seed,
+        home: home.id,
+        mode: 'wander',
+        tx: at.x,
+        ty: at.y,
+        idle: r.range(0, 1),
+      };
+      p.power = partyArmy(p, { nextId: 1 }).power;
+      this.s.parties.push(p);
+      n++;
+    }
+  }
+
   removeParty(id: number): void {
     this.s.parties = this.s.parties.filter((p) => p.id !== id);
     this.aiRoutes.delete(id);
@@ -701,7 +958,11 @@ export class World {
     if (this.s.destParty === id) this.stop();
   }
 
-  /** A band that lost men in a fight it won: smaller, and it rests a while. */
+  /**
+   * A band that lost men but kept the field (or got away): smaller, and it
+   * rests a while. It stays the same band (MECH C4): same seed, so the same
+   * beast or the same men, and the same captain while he lives.
+   */
   weakenParty(id: number, lost: number, idleHours: number): void {
     const p = this.party(id);
     if (!p) return;
@@ -710,10 +971,491 @@ export class World {
       this.removeParty(id);
       return;
     }
-    p.seed = (p.seed * 1664525 + 1013904223) >>> 0 || 1;
     p.power = partyArmy(p, { nextId: 1 }).power;
     p.idle = idleHours;
     this.aiRoutes.delete(id);
+  }
+
+  // ---------------------------------------------------------------- events (campaign-events.md)
+
+  /** Whole game days since the campaign began (day 0 is the first). */
+  get today(): number {
+    return Math.floor(this.s.time / 24);
+  }
+
+  /** What event conditions are checked against. */
+  eventCtx(player: PlayerInfo): EventCtx {
+    let escaped = 0;
+    for (const p of this.s.parties) escaped = Math.max(escaped, p.escaped ?? 0);
+    return {
+      day: this.today,
+      danger: this.danger(this.s.x, this.s.y),
+      flags: this.s.flags,
+      men: player.mouths ?? player.size,
+      gold: player.gold ?? 0,
+      arcStage: this.s.arc.stage,
+      escaped,
+    };
+  }
+
+  /**
+   * Check `trigger` (R3): within the pacing cap, a roll at the trigger's rate,
+   * then a weighted pick among the eligible events. A hit is written to
+   * `pendingEvent` at once, so the caller's next save holds it before the card
+   * shows (R4.1). The roll is seeded by the world seed, the trigger and `key`
+   * (where and when the check happens), not by frame timing: the same save and
+   * the same actions draw the same events. Returns the event id or null.
+   */
+  tryEvent(trigger: EventTrigger, key: string, player: PlayerInfo): string | null {
+    const s = this.s;
+    if (s.pendingEvent || this.deck.length === 0) return null;
+    const day = this.today;
+    const drawn = s.eventsToday[0] === day ? s.eventsToday[1] : 0;
+    if (drawn >= EVENT_RULES.perDay) return null;
+    if (trigger !== 'flag' && (s.eventCd[EV_KEY.gap] ?? -Infinity) > s.time / 24) return null;
+    const rng = new Rng(hashString(`${s.seed}:ev:${trigger}:${key}`));
+    if (!rng.chance(eventRate(trigger))) return null;
+    const def = pickEvent(eligibleEvents(this.deck, trigger, this.eventCtx(player), s.eventCd, s.seed), rng);
+    if (!def) return null;
+    s.pendingEvent = { id: def.id, seed: (rng.next() * 4294967296) >>> 0 || 1 };
+    s.eventCd[def.id] = def.unique ? EVENT_RULES.usedDay : day + def.cooldownDays;
+    s.eventsToday = [day, drawn + 1];
+    s.eventCd[EV_KEY.gap] = (s.time + EVENT_RULES.minGapH) / 24;
+    this.pruneCooldowns();
+    return def.id;
+  }
+
+  /** Arriving at a village or town (R3): at most one arrival event per settlement per EVENT_RULES.arriveCdDays. */
+  private arrivalEvent(sid: number, player: PlayerInfo, events: WorldEvent[]): void {
+    const def = this.map.settlements[sid];
+    if (!def || def.kind === 'lair' || this.deck.length === 0) return;
+    const k = EV_KEY.arrive(sid);
+    if ((this.s.eventCd[k] ?? -Infinity) > this.today) return;
+    const id = this.tryEvent(def.kind === 'town' ? 'arrive_town' : 'arrive_village', `${sid}:${Math.round(this.s.time * 20)}`, player);
+    if (!id) return;
+    this.s.eventCd[k] = this.today + EVENT_RULES.arriveCdDays;
+    events.push({ type: 'event', id });
+  }
+
+  /**
+   * The checks of a step on the map (R3): a due flag event; a march check each
+   * time the clock passes a multiple of EVENT_RULES.marchEveryH while the party
+   * travels; a camp check each midnight spent in camp. Inside a settlement
+   * nothing fires (only arrivals do).
+   */
+  private timedEvents(t0: number, marching: boolean, waiting: boolean, player: PlayerInfo, events: WorldEvent[]): void {
+    if (this.deck.length === 0 || this.s.inside >= 0 || this.s.pendingEvent) return;
+    const t1 = this.s.time;
+    const crossed = (every: number) => Math.floor(t1 / every) > Math.floor(t0 / every);
+    const flags = this.s.flags;
+    let id: string | null = null;
+    if (this.deck.some((d) => d.trigger === 'flag' && d.after && d.after.flag in flags)) id = this.tryEvent('flag', `d${this.today}`, player);
+    if (!id && marching && !this.camp && crossed(EVENT_RULES.marchEveryH)) id = this.tryEvent('march', `m${Math.floor(t1 / EVENT_RULES.marchEveryH)}`, player);
+    if (!id && waiting && this.camp && crossed(24)) id = this.tryEvent('camp', `c${this.today}`, player);
+    if (id) events.push({ type: 'event', id });
+  }
+
+  /** Drop cooldowns that have run out (and the price changes that went with them), to keep the save small. */
+  private pruneCooldowns(): void {
+    const cd = this.s.eventCd;
+    for (const [k, until] of Object.entries(cd)) {
+      if (until > this.s.time / 24) continue;
+      delete cd[k];
+      if (k.startsWith('@price:')) delete this.s.flags[k];
+    }
+  }
+
+  /** The event is resolved (or dropped): the map runs again. */
+  clearPendingEvent(): void {
+    delete this.s.pendingEvent;
+  }
+
+  /** Add a journal line (event id and choice key), keeping the last JOURNAL_CAP. */
+  logJournal(line: string): void {
+    this.s.journal.push(line);
+    if (this.s.journal.length > JOURNAL_CAP) this.s.journal.splice(0, this.s.journal.length - JOURNAL_CAP);
+  }
+
+  hasFlag(name: string): boolean {
+    return name in this.s.flags;
+  }
+
+  /**
+   * Set a world flag (default value: today, which `flag` events count their
+   * delay from). The arc sets `host_musters` this way (campaign-arc.md R5).
+   * A new key past FLAGS_CAP is refused (false).
+   */
+  setFlag(name: string, value = this.today): boolean {
+    const f = this.s.flags;
+    if (!(name in f) && Object.keys(f).length >= FLAGS_CAP) return false;
+    f[name] = value;
+    return true;
+  }
+
+  clearFlag(name: string): void {
+    delete this.s.flags[name];
+  }
+
+  /** The price factor an event put on a settlement's recruits and wares (priceMod); 1 when none. */
+  priceMult(sid: number): number {
+    const k = EV_KEY.price(sid);
+    if ((this.s.eventCd[k] ?? -Infinity) <= this.s.time / 24) return 1;
+    return Math.max(0, 1 + (this.s.flags[k] ?? 0) / 100);
+  }
+
+  /** Put a price change of `pct` % on a settlement for `days` (priceMod). */
+  setPriceMod(sid: number, pct: number, days: number): void {
+    const k = EV_KEY.price(sid);
+    if (!this.setFlag(k, pct)) return;
+    this.s.eventCd[k] = this.s.time / 24 + days;
+  }
+
+  /** A settlement an event closed (closeSettlement): no recruits, no market. */
+  isClosed(sid: number): boolean {
+    return (this.s.eventCd[EV_KEY.closed(sid)] ?? -Infinity) > this.s.time / 24 || this.isSacked(sid);
+  }
+
+  closeSettlement(sid: number, days: number): void {
+    this.s.eventCd[EV_KEY.closed(sid)] = this.s.time / 24 + days;
+  }
+
+  /** The nearest lair to the party: `standing` skips fallen ones, `unknown` prefers one still in the fog. */
+  nearestLair(opts: { standing?: boolean; unknown?: boolean } = {}): SettlementDef | null {
+    const lairs = this.map.settlements.filter((st) => st.kind === 'lair' && !(opts.standing && this.s.lairs[st.id]?.fallen));
+    const fogged = opts.unknown ? lairs.filter((st) => !this.s.found!.includes(st.id)) : [];
+    let best: SettlementDef | null = null;
+    let bd = Infinity;
+    for (const st of fogged.length ? fogged : lairs) {
+      const d = Math.hypot(st.x + 0.5 - this.s.x, st.y + 0.5 - this.s.y);
+      if (d < bd) {
+        bd = d;
+        best = st;
+      }
+    }
+    return best;
+  }
+
+  /** A lair's garrison loses `n` men (weakenGarrison, campaign-arc.md R2): they count as lost now. */
+  weakenGarrison(lairId: number, n: number): void {
+    this.loseGarrison(lairId, n);
+  }
+
+  // ---------------------------------------------------------------- lair garrisons (campaign-arc.md R2, F1, F3)
+
+  /** Whether lair `id` has fallen to an assault (R2.4). */
+  lairFallen(id: number): boolean {
+    return !!this.s.lairs[id]?.fallen;
+  }
+
+  /** The full strength of lair `id`'s garrison (F1): GARRISON.base + round(danger x GARRISON.danger). */
+  garrisonFull(id: number): number {
+    const st = this.map.settlements[id];
+    return GARRISON.base + Math.round(this.danger(st.x, st.y) * GARRISON.danger);
+  }
+
+  /** Men the garrison has lost and not yet regrown (F3): one comes back every GARRISON.regrowH hours since the last loss. */
+  private garrisonLost(id: number): number {
+    const l = this.s.lairs[id];
+    if (!l) return 0;
+    return Math.max(0, l.lost - Math.floor(Math.max(0, this.s.time - l.lostAt) / GARRISON.regrowH));
+  }
+
+  /** Men in lair `id`'s garrison now (F3); 0 for a fallen lair or a settlement that is not a lair. */
+  garrisonSize(id: number): number {
+    const st = this.map.settlements[id];
+    if (!st || st.kind !== 'lair' || this.lairFallen(id)) return 0;
+    return Math.max(0, this.garrisonFull(id) - this.garrisonLost(id));
+  }
+
+  /**
+   * Lair `id`'s garrison loses `n` men (an assault's dead, or an event's
+   * weakenGarrison; R2.5): what has regrown so far is kept, and the regrowth
+   * clock restarts now. A new clock also re-rolls the garrison's men from a
+   * new seed (garrison), so a captain who fell has been replaced by another.
+   */
+  loseGarrison(id: number, n: number): void {
+    const st = this.map.settlements[id];
+    if (!st || st.kind !== 'lair' || this.lairFallen(id) || !(n > 0)) return;
+    this.s.lairs[id] = { fallen: false, lost: Math.min(this.garrisonFull(id), this.garrisonLost(id) + n), lostAt: this.s.time };
+  }
+
+  /** Lair `id` falls (R2.4): it sends out no more bands. Its bands already out stay on the map. */
+  razeLair(id: number): void {
+    const st = this.map.settlements[id];
+    if (!st || st.kind !== 'lair') return;
+    this.s.lairs[id] = { fallen: true, lost: this.garrisonFull(id), lostAt: this.s.time };
+  }
+
+  /**
+   * Lair `id`'s garrison as a band (R2.1, F1, F3), for its power plate and its
+   * army (partyArmy): the men it has now, at level GARRISON.level +
+   * round(danger x levelDanger + days x levelDays), gear at the lair tier, so
+   * it always has a captain. The lair's band kind and culture give its mix and
+   * doctrine: bandit camps and pirate coves swarm, Galatae camps rush (R4).
+   * It is never a beast. Its id is -1 - lair id (it isn't a party on the
+   * map); its men come from the world seed, the lair and the time of its
+   * last loss. Null for a fallen lair, a settlement that is not a lair, or
+   * a garrison with no men left (it falls without a battle: razeLair).
+   */
+  garrison(id: number): PartyState | null {
+    const st = this.map.settlements[id];
+    const size = this.garrisonSize(id);
+    if (!st || size <= 0) return null;
+    const danger = this.danger(st.x, st.y);
+    let seed = hashString(`${this.s.seed}:garrison:${id}:${this.s.lairs[id]?.lostAt ?? 0}`) || 1;
+    while (bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
+    const p: PartyState = {
+      id: -1 - id,
+      kind: st.band ?? 'bandits',
+      name: st.name,
+      culture: st.culture,
+      x: st.x + 0.5,
+      y: st.y + 0.5,
+      size,
+      power: 0,
+      level: Math.min(BAND_CAPS.level, GARRISON.level + Math.round(danger * GARRISON.levelDanger + this.days * GARRISON.levelDays)),
+      tier: this.lairTier,
+      seed,
+      home: id,
+      mode: 'wander',
+      tx: st.x,
+      ty: st.y,
+      idle: 0,
+    };
+    p.power = partyArmy(p, { nextId: 1 }).power * GARRISON.plate;
+    return p;
+  }
+
+  // ---------------------------------------------------------------- the host and the end state (campaign-arc.md R5)
+
+  /** The campaign is won (R5.4): the host has fallen, the world goes on. */
+  get postGame(): boolean {
+    return this.s.arc.stage === 'won' || this.s.arc.stage === 'post';
+  }
+
+  /** Danger at (x, y): the map's, plus POST_GAME.danger once the campaign is won (R5.4), at most 1. */
+  danger(x: number, y: number): number {
+    const d = dangerAt(this.map, x, y);
+    return this.postGame ? Math.min(1, d + POST_GAME.danger) : d;
+  }
+
+  /** The Tyrant's host on the map, or null (none has mustered, or it has fallen). */
+  get host(): PartyState | null {
+    const id = this.s.arc.hostParty;
+    return this.s.parties.find((p) => p.kind === 'host' && (id === undefined || p.id === id)) ?? this.s.parties.find((p) => p.kind === 'host') ?? null;
+  }
+
+  /**
+   * The host musters (R5.1, R5.2, F2): `min(HOST.cap, ceil(HOST.mult x R))`
+   * men, R the fit `roster` now, at the town farthest from the start that
+   * can march on it (preferring one HOST.minDist tiles from the party), and
+   * it marches on the starting town. The arc stage becomes 'host' and the
+   * `host_musters` flag is set, which makes its narrative card due. Its men,
+   * level and seed come from the world seed alone. Null if no town is left
+   * to muster at (the arc is unchanged).
+   */
+  musterHost(roster: number): PartyState | null {
+    const m = this.map;
+    const start = m.settlements[m.start];
+    const goal = this.nearestPassable(start.x, start.y, 4);
+    const towns = townsFarthestFirst(m);
+    let home: SettlementDef | null = null;
+    let at: Tile | null = null;
+    for (const near of [false, true]) {
+      for (const t of towns) {
+        if (!near && Math.hypot(t.x + 0.5 - this.s.x, t.y + 0.5 - this.s.y) < HOST.minDist) continue;
+        const a = this.nearestPassable(t.x, t.y, 4);
+        if (a && goal && this.path(a, goal)) {
+          home = t;
+          at = a;
+          break;
+        }
+      }
+      if (home) break;
+    }
+    if (!home || !at) {
+      home = towns[0] ?? null;
+      at = home ? this.nearestPassable(home.x, home.y, 4) : null;
+    }
+    if (!home || !at) return null;
+    const rng = new Rng(hashString(`${this.s.seed}:host`) || 1);
+    let seed = (rng.next() * 4294967296) >>> 0 || 1;
+    while (bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
+    const p: PartyState = {
+      id: this.s.nextParty++,
+      kind: 'host',
+      name: "The Tyrant's host",
+      culture: arcSet(this.s.seed) === 'achilles' ? 'greek' : 'phoenician',
+      x: at.x + 0.5,
+      y: at.y + 0.5,
+      size: hostSize(roster),
+      power: 0,
+      level: rng.int(HOST.level[0], HOST.level[1]),
+      tier: HOST.tier,
+      seed,
+      home: home.id,
+      mode: 'wander',
+      tx: start.x,
+      ty: start.y,
+      idle: 0,
+      doctrine: 'hammer',
+    };
+    p.power = partyArmy(p, { nextId: 1 }).power;
+    for (const q of this.s.parties.filter((q) => q.kind === 'host')) this.removeParty(q.id);
+    this.s.parties.push(p);
+    this.s.arc = { stage: 'host', hostParty: p.id };
+    this.setFlag('host_musters');
+    return p;
+  }
+
+  /**
+   * The host marches (R5.2, R5.3): to the starting town, which it sacks on
+   * arrival, then back to its own town, then on the starting town again. Its
+   * goal tile is kept in tx / ty, so a reload resumes the same march.
+   */
+  private thinkHost(p: PartyState): void {
+    const m = this.map;
+    const start = m.settlements[m.start];
+    const home = m.settlements[p.home] ?? start;
+    const near = (st: SettlementDef) => Math.hypot(p.x - (st.x + 0.5), p.y - (st.y + 0.5)) < 1.6;
+    const toStart = p.tx === start.x && p.ty === start.y;
+    if (toStart && near(start)) {
+      this.sackStart();
+      p.tx = home.x;
+      p.ty = home.y;
+      this.aiRoutes.delete(p.id);
+    } else if (!toStart && near(home)) {
+      p.tx = start.x;
+      p.ty = start.y;
+      this.aiRoutes.delete(p.id);
+    }
+    const route = this.aiRoutes.get(p.id);
+    if (route && route.length > 0) return;
+    const goal = this.nearestPassable(p.tx, p.ty, 4) ?? { x: p.tx, y: p.ty };
+    const r = this.path(this.tileOf(p.x, p.y), goal);
+    // no road there: it marches straight at it
+    this.aiRoutes.set(p.id, r && r.length > 1 ? r.slice(1) : [{ x: goal.x + 0.5, y: goal.y + 0.5 }]);
+  }
+
+  /**
+   * The host sacks the starting town (R5.3): its recruits and market close
+   * for SACK_DAYS. A town still burning isn't sacked again, so it reopens
+   * SACK_DAYS after each sack (Edge Cases).
+   */
+  sackStart(): void {
+    if (!this.isSacked(this.map.start)) this.s.arc.sackedUntil = this.s.time + SACK_DAYS * 24;
+  }
+
+  /** Whether settlement `sid` is the sacked starting town (R5.3). */
+  isSacked(sid: number): boolean {
+    return sid === this.map.start && (this.s.arc.sackedUntil ?? -Infinity) > this.s.time;
+  }
+
+  /**
+   * The host has fallen (R5.4): the arc is 'won', and the post-game begins.
+   * The reborn lairs' clocks start now, so they rise POST_GAME.rebornDays
+   * from today. The caller drops the set piece.
+   */
+  winArc(): void {
+    const h = this.host;
+    if (h) this.removeParty(h.id);
+    this.s.arc = { stage: 'won' };
+    for (const id of this.rebornSpots()) {
+      const l = this.s.lairs[id];
+      if (l?.fallen) l.lostAt = this.s.time;
+    }
+  }
+
+  /** The victory screen has been seen (R5.4): 'won' becomes 'post'. Both are the post-game. */
+  continueArc(): void {
+    if (this.s.arc.stage === 'won') this.s.arc = { ...this.s.arc, stage: 'post' };
+  }
+
+  /** The lairs that are reborn in the post-game (R5.4): POST_GAME.reborn of the map's lairs, picked by the world seed. */
+  rebornSpots(): number[] {
+    const lairs = this.map.settlements.filter((st) => st.kind === 'lair').map((st) => st.id);
+    const rng = new Rng(hashString(`${this.s.seed}:reborn`) || 1);
+    for (let i = lairs.length - 1; i > 0; i--) {
+      const j = rng.int(0, i);
+      [lairs[i], lairs[j]] = [lairs[j], lairs[i]];
+    }
+    return lairs.slice(0, POST_GAME.reborn).sort((a, b) => a - b);
+  }
+
+  /** Whether lair `id` is a reborn lair of the post-game (R5.4, R6: it drops only a missing set piece). */
+  isReborn(id: number): boolean {
+    return !!this.s.places[id]?.reborn;
+  }
+
+  /**
+   * In the post-game a reborn spot that has lain burnt POST_GAME.rebornDays
+   * rises again (R5.4, R6): a standing lair at full strength that sends out
+   * bands. Razing it again restarts the cooldown.
+   */
+  private riseReborn(): void {
+    if (!this.postGame) return;
+    for (const id of this.rebornSpots()) {
+      const l = this.s.lairs[id];
+      if (!l?.fallen || this.s.time < l.lostAt + POST_GAME.rebornDays * 24) continue;
+      this.s.lairs[id] = { fallen: false, lost: 0, lostAt: this.s.time };
+      const place = (this.s.places[id] ??= { epoch: -1, bought: [], sold: [] });
+      place.reborn = true;
+    }
+  }
+
+  /** Lift the fog over a settlement and its surroundings. */
+  revealSettlement(sid: number): void {
+    const st = this.map.settlements[sid];
+    if (st) this.reveal(st.x + 0.5, st.y + 0.5, 3.5);
+  }
+
+  /**
+   * A band an event sends (spawnBand, R2): 5-8 tiles from the party on a
+   * reachable tile (else at the nearest lair or town), sized like a band of its
+   * kind there, then scaled by `mods`. A hunting band chases the party
+   * whatever the power ratio. Positions and men come from `rng` (the event's).
+   */
+  spawnEventBand(kind: EventBandKind, mods: BandMods, rng: Rng): PartyState | null {
+    const me = this.tileOf(this.s.x, this.s.y);
+    let at: Tile | null = null;
+    for (let i = 0; i < 12 && !at; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const d = rng.range(5, 8);
+      const t = this.nearestPassable(Math.floor(this.s.x + Math.cos(a) * d), Math.floor(this.s.y + Math.sin(a) * d), 2);
+      if (t && this.path(me, t, 4000)) at = t;
+    }
+    const homes = this.map.settlements.filter((st) => st.kind !== 'village');
+    const dist = (st: SettlementDef) => Math.hypot(st.x - me.x, st.y - me.y);
+    const home = homes.reduce((b, st) => (dist(st) < dist(b) ? st : b), homes[0]);
+    if (!at) at = this.nearestPassable(home.x, home.y, 4);
+    if (!at) return null;
+    const shape = bandShape(kind, this.danger(at.x, at.y), this.days, this.lairsFallen, rng);
+    let seed = (rng.next() * 4294967296) >>> 0 || 1;
+    while (mods.captain && kind !== 'mercs' && bandBeast(seed)) seed = (seed * 2654435761 + 1) >>> 0 || 1;
+    const p: PartyState = {
+      id: this.s.nextParty++,
+      kind,
+      name: BAND_NAMES[kind],
+      culture: kind === 'raiders' ? 'celtic' : kind === 'mercs' ? rng.pick(['greek', 'phoenician', 'celtic'] as const) : home.culture,
+      x: at.x + 0.5,
+      y: at.y + 0.5,
+      size: Math.max(1, Math.min(BAND_CAPS.size, Math.round(shape.size * (mods.size ?? 1)))),
+      power: 0,
+      level: Math.max(1, Math.min(BAND_CAPS.level, shape.level + (mods.level ?? 0))),
+      tier: mods.captain ? Math.max(CAPTAIN_RULES.minTier, shape.tier) : shape.tier,
+      seed,
+      home: home.id,
+      mode: mods.hunts ? 'chase' : 'wander',
+      tx: at.x,
+      ty: at.y,
+      idle: 0,
+    };
+    if (mods.hunts) p.hunts = true;
+    if (mods.bountyMult !== undefined) p.bountyMult = clampBountyMult(mods.bountyMult);
+    if (mods.doctrine) p.doctrine = mods.doctrine;
+    p.power = partyArmy(p, { nextId: 1 }).power;
+    this.s.parties.push(p);
+    return p;
   }
 
   // ---------------------------------------------------------------- settlements
@@ -742,7 +1484,7 @@ export class World {
   /** Volunteers on offer (deterministic for the settlement and stock epoch). */
   recruits(id: number, roster: readonly Hero[]): Recruit[] {
     const def = this.map.settlements[id];
-    if (!def || def.kind === 'lair') return [];
+    if (!def || def.kind === 'lair' || this.isClosed(id)) return [];
     const st = this.placeState(id);
     const base = `${this.s.seed}:${id}:${st.epoch}`;
     const count = def.kind === 'village' ? 1 + Math.floor(hashFrac(base + ':n') * 3) : 2 + Math.floor(hashFrac(base + ':n') * 3);
@@ -751,24 +1493,48 @@ export class World {
       if (st.bought.includes(i)) continue;
       out.push({ index: i, ...makeRecruit(def, `${base}:r${i}`, { nextId: 1 }, roster) });
     }
+    if (this.offersFloor(id, roster)) {
+      for (let i = 0; i < VOLUNTEER_RULES.floorOffer; i++) {
+        const index = VOLUNTEER_RULES.floorIndex + i;
+        if (!st.bought.includes(index)) out.push({ index, ...makeFloorVolunteer(def, `${base}:f${i}`, { nextId: 1 }, roster) });
+      }
+    }
+    const m = this.priceMult(id);
+    if (m !== 1) for (const r of out) r.price = Math.round(r.price * m);
     return out;
+  }
+
+  /** The volunteer floor (R1.5): an army under VOLUNTEER_RULES.floor men, at the starting town or a village. */
+  private offersFloor(id: number, roster: readonly Hero[]): boolean {
+    const def = this.map.settlements[id];
+    return roster.length < VOLUNTEER_RULES.floor && (def.kind === 'village' || id === this.map.start);
   }
 
   /** Hire volunteer `index`: returns the hero (with real ids) and its price, or null. */
   hire(id: number, index: number, ids: IdSource, roster: readonly Hero[]): { hero: Hero; price: number } | null {
     const def = this.map.settlements[id];
     const st = this.placeState(id);
-    if (!def || st.bought.includes(index)) return null;
-    const r = makeRecruit(def, `${this.s.seed}:${id}:${st.epoch}:r${index}`, ids, roster);
+    if (!def || st.bought.includes(index) || this.isClosed(id)) return null;
+    const key = `${this.s.seed}:${id}:${st.epoch}`;
+    const m = this.priceMult(id);
+    const priced = (r: { hero: Hero; price: number }) => (m === 1 ? r : { hero: r.hero, price: Math.round(r.price * m) });
+    if (index >= VOLUNTEER_RULES.floorIndex) {
+      const i = index - VOLUNTEER_RULES.floorIndex;
+      if (i >= VOLUNTEER_RULES.floorOffer || !this.offersFloor(id, roster)) return null;
+      st.bought.push(index);
+      return priced(makeFloorVolunteer(def, `${key}:f${i}`, ids, roster));
+    }
+    const r = makeRecruit(def, `${key}:r${index}`, ids, roster);
     st.bought.push(index);
-    return r;
+    return priced(r);
   }
 
   /** Market wares in a town (deterministic per stock epoch and army: weapons, shields and armour follow its `classes`). */
   wares(id: number, classes: readonly string[] = []): Ware[] {
     const def = this.map.settlements[id];
-    if (!def || def.kind !== 'town') return [];
+    if (!def || def.kind !== 'town' || this.isClosed(id)) return [];
     const st = this.placeState(id);
+    const m = this.priceMult(id);
     const rng = new Rng(hashString(`${this.s.seed}:${id}:${st.epoch}:market`));
     const pool = marketPool(rng);
     const out: Ware[] = [];
@@ -778,7 +1544,7 @@ export class World {
       const item = makeItem(rng, ids, d.id, rollRarity(rng, 2), rng.range(70, 100), def.culture);
       item.uid = `w${id}_${st.epoch}_${i}`;
       if (st.sold.includes(i)) continue;
-      out.push({ index: i, item, price: Math.round(itemValue(item) * 1.5) });
+      out.push({ index: i, item, price: Math.round(itemValue(item) * 1.5 * m) });
     }
     return out;
   }
@@ -831,17 +1597,101 @@ function makeRecruit(def: SettlementDef, key: string, ids: IdSource, roster: rea
   return { hero, price: CLASSES[cls].cost - 40 + 35 * (level - 1) + Math.round(gear / 3) };
 }
 
+/** A raw volunteer of the floor (R1.5): a level-1 levy of the place's people at VOLUNTEER_RULES.floorCost. */
+function makeFloorVolunteer(def: SettlementDef, key: string, ids: IdSource, roster: readonly Hero[]): { hero: Hero; price: number } {
+  return { hero: makeHero(new Rng(hashString(key)), ids, def.culture, 'raw', 1, 1, undefined, roster), price: VOLUNTEER_RULES.floorCost };
+}
+
+/** Whether the band fields a captain (ai-doctrines.md R6): tier 2 and up, a band of men, and he still lives. */
+export function hasCaptain(p: PartyState): boolean {
+  return p.tier >= CAPTAIN_RULES.minTier && !p.captainDead && !(p.kind !== 'mercs' && bandBeast(p.seed));
+}
+
+/**
+ * The band's captain (ai-doctrines.md R6), or null when it has none. He comes
+ * from the band's seed alone, apart from the rank and file, so he is the same
+ * man however many of his band have fallen: a band that retreats comes back
+ * with the same captain. He fights in the main line at the band's level (+ levelBonus),
+ * with no item below uncommon (rare from tier 3), and carries the captain's
+ * mark (src/sim/stats.ts CAPTAIN_STATS).
+ */
+export function bandCaptain(p: PartyState, ids: IdSource): Hero | null {
+  if (!hasCaptain(p)) return null;
+  const rng = new Rng((p.seed ^ 0x6a09e667) >>> 0 || 1);
+  const h = makeHero(rng, ids, p.culture, captainClass(p), 1, p.tier, 0);
+  setBotLevel(h, p.level + CAPTAIN_RULES.levelBonus);
+  const floor = p.tier >= 3 ? 2 : 1;
+  for (const it of Object.values(h.equip)) if (it && rarityRank(it.rarity) < floor) it.rarity = RARITIES[floor];
+  (h as Hero & CaptainMark).captain = true;
+  return h;
+}
+
+/** The host's size for a fit roster of `roster` men (F2): min(HOST.cap, ceil(HOST.mult x R)), R at least 1. */
+export function hostSize(roster: number): number {
+  return Math.min(HOST.cap, Math.ceil(HOST.mult * Math.max(1, Math.floor(roster) || 1)));
+}
+
+/**
+ * The Tyrant (R4, R5.2): the host's captain, a standard bearer of its
+ * leaning culture, level HOST.tyrantLevel, nothing below rare and a
+ * legendary weapon. From the host's seed alone, like a band's captain.
+ */
+function tyrant(p: PartyState, ids: IdSource): Hero {
+  const rng = new Rng((p.seed ^ 0x6a09e667) >>> 0 || 1);
+  const h = makeHero(rng, ids, p.culture, 'hoplite', 1, HOST.tier, 0);
+  setBotLevel(h, HOST.tyrantLevel);
+  for (const it of Object.values(h.equip)) if (it && rarityRank(it.rarity) < 2) it.rarity = RARITIES[2];
+  if (h.equip.weapon) h.equip.weapon.rarity = 'legendary';
+  h.name = 'The Tyrant';
+  (h as Hero & CaptainMark).captain = true;
+  return h;
+}
+
+/**
+ * The Tyrant's host (R5.2): the Tyrant while he lives, then its men, from
+ * its seed. HOST.leanShare of them are of its leaning culture and the rest
+ * of the other (Greek or Phoenician), each a mercenary line at the host's
+ * level and tier, so Phoenician cavalry rides with a Greek host. It fights
+ * `hammer` and holds the field (R4).
+ */
+function hostArmy(p: PartyState, ids: IdSource): EnemyArmy {
+  const lead = hasCaptain(p) ? tyrant(p, ids) : null;
+  const men = Math.max(0, p.size - (lead ? 1 : 0));
+  const lean = Math.min(20, Math.ceil(men * HOST.leanShare));
+  const other: Culture = p.culture === 'greek' ? 'phoenician' : 'greek';
+  const rng = new Rng(p.seed);
+  const req = { level: p.level, tier: p.tier, targetPower: 0, mix: 'mercs', tune: false, doctrine: 'hammer' } as const;
+  const heroes: Hero[] = [];
+  if (lean > 0) heroes.push(...buildArmy(rng, ids, { ...req, culture: p.culture, count: lean }).heroes);
+  if (men - lean > 0) heroes.push(...buildArmy(rng, ids, { ...req, culture: other, count: men - lean }).heroes);
+  if (lead) heroes.unshift(lead);
+  dedupeNames(heroes);
+  const power = heroes.reduce((a, h) => a + heroPower(h), 0);
+  return { culture: p.culture, heroes, power, targetPower: power, doctrine: 'hammer', holdField: true };
+}
+
 /**
  * The band's army, generated from its seed (identical at every call for the
  * same army `classes`, which a beast's hoard follows). Tier-3 bands now and
- * then carry a rare set piece (src/game/sources.ts bandSetPieces).
+ * then carry a rare set piece (src/game/sources.ts bandSetPieces). A band with
+ * a captain is the captain plus `size - 1` men.
  */
 export function partyArmy(p: PartyState, ids: IdSource, classes: readonly string[] = []): EnemyArmy {
+  if (p.kind === 'host') return hostArmy(p, ids);
   // Now and then a lair's band is a mythical beast (src/game/beasts.ts): a rare encounter.
   const beast = p.kind !== 'mercs' ? bandBeast(p.seed) : null;
   if (beast) return beastEnemy(beast, Math.max(2, p.level + 1), p.seed, ids, classes);
-  const army = buildArmy(new Rng(p.seed), ids, { culture: p.culture, count: p.size, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false });
+  const captain = bandCaptain(p, ids);
+  const forced = p.doctrine && (DOCTRINE_IDS as readonly string[]).includes(p.doctrine) ? { doctrine: p.doctrine } : {};
+  const req = { culture: p.culture, level: p.level, tier: p.tier, targetPower: 0, mix: BAND_MIX[p.kind], tune: false, ...forced } as const;
+  const count = p.size - (captain ? 1 : 0);
+  const army = count > 0 ? buildArmy(new Rng(p.seed), ids, { ...req, count }) : { ...buildArmy(new Rng(p.seed), ids, { ...req, count: 1 }), heroes: [] };
   bandSetPieces(army.heroes, army.culture, p.tier, p.seed);
+  if (!captain) return army;
+  army.heroes.unshift(captain);
+  // he keeps his name; a rank-and-file man who shares it takes another
+  dedupeNames(army.heroes);
+  army.power = army.targetPower = army.heroes.reduce((a, h) => a + heroPower(h), 0);
   return army;
 }
 

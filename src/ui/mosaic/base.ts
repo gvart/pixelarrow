@@ -10,9 +10,12 @@ import { LINE_H } from '../../art/vectorFont';
 import { SHADOW_FONTS, addText, fitCinzel, panelK, tappable, type FontKey } from '../kit';
 import { uiFrame } from '../layout';
 import { motion } from '../motion';
-import { MOSAIC, ACCENT } from '../tokens';
+import { MOSAIC, TEXT_MIN } from '../tokens';
 import { ellipsize, measureText } from '../textfit';
 import { showTooltip } from '../widgets';
+import { badgeText, wrapWords } from './policy';
+
+export { badgeText, wrapWords };
 
 type C = Phaser.GameObjects.Container;
 
@@ -20,6 +23,8 @@ type C = Phaser.GameObjects.Container;
 export const TAP = 22;
 /** Gap between neighbouring touch targets in UI px (the layout check wants 4 pt). */
 export const GAP = 3;
+/** Alpha factor of a held button that has no other pressed look. */
+const PRESS_DIM = 0.8;
 
 const ROMAN_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['rInk', 'rCream', 'rGold', 'rOff']);
 
@@ -46,8 +51,10 @@ export function midY(h: number, size = 7): number {
 export interface TextOpts {
   size?: number;
   align?: 0 | 0.5 | 1;
-  /** Shorten with "…" to this width. */
+  /** Shorten with "…" to this width (or, with `wrap`, the line width). */
   maxW?: number;
+  /** A must-show fact (audit G14): wrap onto more lines at `maxW`, never shorten with "…". */
+  wrap?: boolean;
   /** The component the text must stay inside (layout check): box `w` x `h`. */
   box?: { owner: C; w: number; h: number };
 }
@@ -57,11 +64,12 @@ export function mtext(scene: Phaser.Scene, x: number, y: number, str: string, fo
   let size = o.size ?? 7;
   let face = font;
   let s = str;
-  if (o.maxW !== undefined) {
+  if (o.maxW !== undefined && o.wrap) s = wrapWords(str, o.maxW, (x) => mw(x, font, size)).join('\n');
+  else if (o.maxW !== undefined) {
     if (ROMAN_FONTS.has(font)) {
-      // a Cinzel text that does not fit: smaller first (down to 5.5), then the same words in Inter, then cut
+      // a Cinzel text that does not fit: smaller first (down to 6.5, A11Y-09), then the same words in Inter, then cut
       const sizes: number[] = [];
-      for (let z = size; z >= 5.5; z -= 0.5) sizes.push(z);
+      for (let z = size; z >= TEXT_MIN; z -= 0.5) sizes.push(z);
       const fl = fitCinzel(str, font, o.maxW, sizes.length ? sizes : [size], (x) => x);
       ({ text: s, font: face, size } = fl);
     } else s = fit(str, font, size, o.maxW);
@@ -113,6 +121,9 @@ export function makePressable(obj: C, o: PressOpts): void {
   // Phaser offsets a container's hit area by half its size
   obj.setInteractive(new Phaser.Geom.Rectangle(hit.x + o.w / 2, hit.y + o.h / 2, hit.w, hit.h), Phaser.Geom.Rectangle.Contains);
   const scene = obj.scene;
+  // every button answers a press on the same frame (FL-02): the face shrinks; with no face to shrink (or under
+  // Reduce motion) and no pressed look of its own, the button dims while held
+  let dimmed = false;
   const press = (on: boolean) => {
     if (!obj.scene) return;
     const blocked = o.disabled?.();
@@ -120,6 +131,9 @@ export function makePressable(obj: C, o: PressOpts): void {
     if (on) o.down?.();
     else o.up?.();
     o.face?.setScale(on && !motion.reduced ? 0.97 : 1);
+    const dim = on && !o.down && (!o.face || motion.reduced);
+    if (dim !== dimmed) obj.setAlpha(obj.alpha * (dim ? PRESS_DIM : 1 / PRESS_DIM));
+    dimmed = dim;
   };
   obj.on('pointerdown', () => press(true));
   obj.on('pointerup', () => press(false));
@@ -128,26 +142,47 @@ export function makePressable(obj: C, o: PressOpts): void {
     const why = o.disabled?.();
     if (why) showTooltip(scene, why, obj);
     else o.onTap();
-  }, () => o.disabled?.() ?? o.tip);
+  }, () => o.disabled?.() ?? o.tip, o.disabled);
 }
 
-/** A small red count bubble (alerts and counts only; red means "look here"). */
+/**
+ * The count badge: an alert-red disc with a cream count and a cream ring (red alone on stone is 2.08:1, art
+ * bible 4.3). Counts of actionable things only (`badgeText`); a non-number is a small dot. Draws nothing for 0.
+ */
 export class MBadge extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, n: number | string) {
     super(scene, Math.round(x), Math.round(y));
-    const s = typeof n === 'number' ? (n > 99 ? '99+' : `${n}`) : n;
-    const w = Math.max(10, mw(s, 'onAccent', 6) + 6);
+    const s = badgeText(n);
     const g = scene.add.graphics();
-    g.fillStyle(0x1a0d06, 1);
-    g.fillRoundedRect(-w / 2 - 1, -6.5, w + 2, 13, 3);
-    g.fillStyle(ACCENT.dangerFill, 1);
-    g.fillRoundedRect(-w / 2, -5.5, w, 11, 2.4);
-    g.lineStyle(0.6, MOSAIC.goldHi, 0.8);
-    g.strokeRoundedRect(-w / 2, -5.5, w, 11, 2.4);
-    const txt = addText(scene, 0, -3.6, s, 'onAccent', 0.5).setFontSize(6);
-    uiFrame(txt, this, 40, 14, -20, -7);
-    this.add([g, txt]);
+    this.add(g);
     scene.add.existing(this);
+    if (s === null) {
+      // nothing to act on: draw nothing (a clear 1 px box keeps the parent's bounds right)
+      this.add(scene.add.rectangle(0, 0, 1, 1, 0, 0));
+      return;
+    }
+    if (s === '') {
+      // a dot: ring, then the disc
+      g.fillStyle(0x1a0d06, 0.9);
+      g.fillCircle(0, 0, 4.6);
+      g.fillStyle(MOSAIC.cream, 1);
+      g.fillCircle(0, 0, 3.8);
+      g.fillStyle(MOSAIC.alert, 1);
+      g.fillCircle(0, 0, 2.9);
+      // Graphics have no bounds: a clear box of the dot's size keeps the parent's getBounds() right (scripts tap by it)
+      this.add(scene.add.rectangle(0, 0, 9, 9, 0, 0));
+      return;
+    }
+    const w = Math.max(11, mw(s, 'onAccent', TEXT_MIN) + 6);
+    g.fillStyle(0x1a0d06, 1);
+    g.fillRoundedRect(-w / 2 - 1.5, -7, w + 3, 14, 4);
+    g.fillStyle(MOSAIC.cream, 1);
+    g.fillRoundedRect(-w / 2 - 0.8, -6.3, w + 1.6, 12.6, 3.4);
+    g.fillStyle(MOSAIC.alert, 1);
+    g.fillRoundedRect(-w / 2, -5.5, w, 11, 2.8);
+    const txt = addText(scene, 0, -3.9, s, 'onAccent', 0.5).setFontSize(TEXT_MIN);
+    uiFrame(txt, this, 40, 14, -20, -7);
+    this.add(txt);
   }
 }
 

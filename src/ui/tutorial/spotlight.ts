@@ -2,8 +2,10 @@
  * Tutorial spotlight: dims the screen around a hole, draws a pulsing ring
  * round the highlighted element and blocks input outside the hole where the
  * step needs it (four tap catchers around the hole; the hole itself passes
- * touches through to what is under it). With no hole and `block`, one
- * full-screen catcher takes every tap (an info step: tap to go on).
+ * touches through to what is under it, so the lit control always gets its
+ * tap). With no hole and `block`, one full-screen catcher takes every tap (an
+ * info step: tap to go on); `block: 'all'` catches the hole's taps too (a
+ * readout lit to look at).
  */
 import Phaser from 'phaser';
 import { uiBlocker, uiId, uiIgnore } from '../layout';
@@ -23,8 +25,8 @@ export interface SpotOpts {
   dim: number;
   /** A pulsing ring round the hole (or round this rectangle). */
   ring?: boolean | Rect;
-  /** Block taps outside the hole (everywhere when there is no hole). */
-  block?: boolean;
+  /** Block taps outside the hole (everywhere when there is no hole); 'all': the hole too (a readout to look at, not to tap). */
+  block?: boolean | 'all';
   /** A tap on the blocked part (info steps go on with it). */
   onTap?: () => void;
 }
@@ -56,7 +58,7 @@ export class Spotlight {
   /** Light a hole (or clear with null). Cheap when nothing changed. */
   show(o: SpotOpts | null): void {
     const prev = this.cur;
-    if (prev && o && same(prev.hole, o.hole) && prev.dim === o.dim && !!prev.ring === !!o.ring && !!prev.block === !!o.block && (typeof o.ring !== 'object' || (typeof prev.ring === 'object' && same(prev.ring, o.ring)))) {
+    if (prev && o && same(prev.hole, o.hole) && prev.dim === o.dim && !!prev.ring === !!o.ring && prev.block === o.block && (typeof o.ring !== 'object' || (typeof prev.ring === 'object' && same(prev.ring, o.ring)))) {
       this.cur = o;
       return;
     }
@@ -85,7 +87,8 @@ export class Spotlight {
       }
     }
     if (o.block) {
-      for (const r of parts) {
+      const catchers = h && o.block === 'all' ? [...parts, h] : parts;
+      for (const r of catchers) {
         const z = this.scene.add.zone(r.x, r.y, r.w, r.h).setOrigin(0, 0).setInteractive();
         // input catchers, not UI: only a full-screen one (an info step) hides what is under it
         if (h) uiIgnore(z);

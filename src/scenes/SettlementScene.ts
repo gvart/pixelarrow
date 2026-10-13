@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { ScrollArea, panelK } from '../ui/kit';
+import { ScrollArea, addIcon, panelK } from '../ui/kit';
 import { ScrollList, ItemIcon, addScrollHint, confirmDialog, toast } from '../ui/widgets';
 import { uiId } from '../ui/layout';
-import { measureText, wrapText } from '../ui/textfit';
+import { measureText, wrapText, LINE_H } from '../ui/textfit';
 import { ensureFonts } from '../ui/fonts';
-import { className, defaultStashState, itemName, openClassCard, openItemCard, saleText, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
+import { className, defaultStashState, itemName, openItemCard, saleText, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
 import { addPortrait } from '../ui/sprites';
+import { ARMY_LH, armyPill, armyPillW } from '../ui/army/parts';
+import { canRetrainAny, openRecruitSheet, showUndoToast, undoHire } from '../ui/sheets/recruit';
 import { heroClass } from '../sim/stats';
 import { dollFromHero } from '../art/paperdoll';
 import { renderGround } from '../art/ground';
@@ -15,20 +17,42 @@ import { state } from '../state';
 import { haptic, hapticNotify } from '../platform/telegram';
 import { itemDef, type Item } from '../data/items';
 import { MAX_ARMY } from '../data/units';
-import { WORLD_RULES } from '../world/world';
+import { RETRAIN_COST } from '../data/perks';
+import { EV_KEY } from '../data/events';
+import { VOLUNTEER_RULES, WORLD_RULES } from '../world/world';
 import { CULTURE_LABEL } from '../data/names';
 import { uiCoin, uiError } from '../audio/hooks';
-import { itemModLines } from '../game/gear';
-import { MOSAIC } from '../ui/tokens';
-import { MActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, FrescoBanner, addParchmentEmpty, addSubShell, addPill, addPortraitWell, addRowFace, mtext, mw, rarityInk, type MButtonOpts } from '../ui/mosaic';
+import { forgeCandidates, forgeReroll, itemModLines, type ForgeRefusal, type ForgeResult } from '../game/gear';
+import { FORGE, forgeCost } from '../game/economy';
+import { forgeLineText, openForgeItemSheet, openForgeSheet } from '../ui/sheets/forge';
+import { fmtCount, localDecimals } from '../i18n/numbers';
+import { MOSAIC, TEXT_MIN } from '../ui/tokens';
+import { MActionBar, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, GAP, FrescoBanner, addParchmentEmpty, addSubShell, addPortraitWell, addRowFace, hasRaster, mtext, mw, rarityInk, wrapWords, type MButtonOpts } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
+import { heroName } from '../i18n/names';
+import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
+import { placeName } from '../i18n/places';
 
+/** `rest` is Services in a town (V5-029) and Rest in a village. */
 type Tab = 'recruits' | 'market' | 'sell' | 'rest';
 
 const TAB_ICON: Record<Tab, string> = { recruits: 'plus', market: 'shop', sell: 'amphora', rest: 'tent' };
 const TAB_KEY: Record<Tab, TKey> = { recruits: 'town.tab.hire', market: 'town.tab.buy', sell: 'town.tab.sell', rest: 'town.tab.rest' };
 
-/** Village / town screen: hire volunteers (class cards), buy and sell gear, rest and heal. */
+type Kind = 'village' | 'town';
+type Culture = keyof typeof CULTURE_LABEL;
+
+/** The painted vignette of a settlement kind and culture (AS-04, ART-006..011; audit SET-1). */
+const vignetteKey = (kind: Kind, culture: Culture): string => `ui_vignette_${kind}_${culture}`;
+const vignetteUrl = (kind: Kind, culture: Culture): string => `ui/vignette_${kind}_${culture}.jpg`;
+
+/** Vignettes asked for (a file that failed to load is not asked for again). */
+const askedVignettes = new Set<string>();
+
+/** The last tab of the settlement page, so the Drillmaster's Army round trip lands back on Services. */
+let lastTab: { id: number; tab: Tab } | null = null;
+
+/** Village / town screen (screens-campaign.md C-6): hire volunteers, buy and sell gear, services (rest, provisions, physician, drillmaster). */
 export class SettlementScene extends BaseScene {
   private id = 0;
   private tab: Tab = 'recruits';
@@ -45,6 +69,7 @@ export class SettlementScene extends BaseScene {
   private bodyBottom = 0;
   private chipsY = 0;
   private restArea: ScrollArea | null = null;
+  private eventCard: EventCardHandle | null = null;
 
   constructor() {
     super('Settlement');
@@ -58,40 +83,59 @@ export class SettlementScene extends BaseScene {
     this.id = data?.id ?? w.s.inside;
     const def = w.settlement(this.id);
     if (!def || def.kind === 'lair') {
-      this.scene.start('World');
+      this.scene.start('World', {});
       return;
     }
     w.s.inside = this.id;
     this.tabList = def.kind === 'town' ? ['recruits', 'market', 'sell', 'rest'] : ['recruits', 'rest'];
-    this.tab = data?.tab && this.tabList.includes(data.tab) ? data.tab : 'recruits';
+    const back = lastTab?.id === this.id ? lastTab.tab : undefined;
+    const want = data?.tab ?? back;
+    this.tab = want && this.tabList.includes(want) ? want : 'recruits';
     this.list = null;
     this.stash = null;
     this.screen({ back: () => this.leave() });
     const { VH } = this.m;
     const compact = VH < 300;
 
-    const shell = addSubShell(this, { title: def.name, back: () => this.leave(), id: 'town.topbar', scroll: false });
+    const shell = addSubShell(this, { title: placeName(def.name), back: () => this.leave(), id: 'town.topbar', scroll: false });
     const b = shell.content;
     this.ax = b.x + 4;
     this.aw = b.w - 8;
     let y = b.y + 4;
 
-    // the settlement, drawn large, in the fresco frame
-    const artH = compact ? 38 : 78;
-    this.ui.add(new FrescoBanner(this, this.ax, y, this.aw, artH, { pixelKey: this.artTexture(def, this.aw - 8, artH - 8), label: def.name, id: 'town.art' }));
+    // the settlement's painted vignette in the fresco frame (the map tile drawn large until it has loaded)
+    // shorter on a short screen, so the tab's first rows (the Drillmaster in Services) stay in view
+    const artH = compact ? 38 : VH < 380 ? 58 : 78;
+    const vk = vignetteKey(def.kind, def.culture);
+    const artY = y;
+    const banner = (art: { image: string } | { pixelKey: string }) => new FrescoBanner(this, this.ax, artY, this.aw, artH, { ...art, label: placeName(def.name), id: 'town.art' });
+    const first = banner(hasRaster(this, vk) ? { image: vk } : { pixelKey: this.artTexture(def, this.aw - 8, artH - 8) });
+    this.ui.add(first);
+    // downloaded on the first visit to a place of this kind and people, without holding the page up
+    if (!hasRaster(this, vk) && !askedVignettes.has(vk)) {
+      askedVignettes.add(vk);
+      this.load.image(vk, vignetteUrl(def.kind, def.culture));
+      this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+        if (!this.sys.isActive() || !first.scene || !hasRaster(this, vk)) return;
+        this.ui.addAt(banner({ image: vk }), this.ui.getIndex(first));
+        first.destroy();
+      });
+      this.load.start();
+    }
     y += artH + 3;
     const people = tOr(`culture.${def.culture}`, CULTURE_LABEL[def.culture]);
-    this.ui.add(mtext(this, b.x + b.w / 2, y + 1, t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), 'pSec', { size: 6.5, align: 0.5, maxW: this.aw, box: { owner: this.ui, w: this.m.VW, h: VH } }));
+    this.ui.add(mtext(this, b.x + b.w / 2, y + 1, t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: this.aw, box: { owner: this.ui, w: this.m.VW, h: VH } }));
     y += 11;
 
     // gold, men, wounded
     this.chipsY = y;
     y += 18 + 3;
 
-    // tabs
+    // tabs: Hire / Buy / Sell / Services in a town, Hire / Rest in a village (V5-029)
+    const town = def.kind === 'town';
     this.ui.add(
       new SegmentedSwitch(this, this.ax, y, this.aw, {
-        options: this.tabList.map((k) => ({ id: k, label: t(TAB_KEY[k]), icon: TAB_ICON[k] })),
+        options: this.tabList.map((k) => ({ id: k, label: t(k === 'rest' && town ? 'set.tab.services' : TAB_KEY[k]), icon: TAB_ICON[k] })),
         selected: this.tab,
         onChange: (id) => this.setTab(id as Tab),
         id: 'town.tab',
@@ -106,18 +150,35 @@ export class SettlementScene extends BaseScene {
     this.status = this.add.container(0, 0);
     this.ui.add(this.status);
 
+    // Leave is bronze (SET-3): the page's primary is per tab (Hire, Buy, Sell, Rest 8 hours)
     const actions: MButtonOpts[] = [
       { label: t('town.party'), icon: 'people', variant: 'secondary', id: 'town.party', onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id }) },
-      { label: t('town.leave'), icon: 'map', variant: 'primary', id: 'town.leave', onClick: () => this.leave() },
+      { label: t('town.leave'), icon: 'map', variant: 'secondary', id: 'town.leave', onClick: () => this.leave() },
     ];
     const bar = new MActionBar(this, b.w, b.y + b.h, { surface: 'parchment', x: b.x }).set(actions);
     this.ui.add(bar);
     this.bodyBottom = bar.top - 3;
     this.events.once('shutdown', () => this.clearBody());
     this.refresh();
+    // an arrival event (campaign-events.md R3) is answered before the page is used (screens-campaign.md C-6)
+    this.eventCard = null;
+    this.openEvent();
   }
 
-  /** The settlement over the plain, at the frame's inside size and the screen's pixel density. */
+  /** The pending event's card over the page; it comes back until the event is answered (no soft-lock). */
+  private openEvent(): void {
+    if (this.eventCard) return;
+    this.eventCard = openEventCard(this, {
+      onDone: () => {
+        this.eventCard = null;
+        if (!this.scene.isActive()) return;
+        this.refresh();
+        if (state.campaign.world.s.pendingEvent) this.time.delayedCall(0, () => this.openEvent());
+      },
+    });
+  }
+
+  /** The settlement over the plain, at the frame's inside size and the screen's pixel density (until its vignette loads). */
   private artTexture(def: { kind: 'village' | 'town' | 'lair'; id: number; coastal: boolean }, w: number, h: number): string {
     const K = panelK(this);
     const key = `set_art_${def.kind}_${def.id % 2}_${def.coastal ? 1 : 0}_${w}x${h}@${K}`;
@@ -140,15 +201,17 @@ export class SettlementScene extends BaseScene {
 
   private setTab(tab: Tab): void {
     this.tab = tab;
+    lastTab = { id: this.id, tab };
     this.refresh();
   }
 
   private leave(): void {
     const w = state.campaign.world;
+    lastTab = null;
     w.s.inside = -1;
     w.s.safeUntil = Math.max(w.s.safeUntil, w.s.time + 0.5);
     void state.save();
-    this.scene.start('World');
+    this.scene.start('World', {});
   }
 
   private refresh(): void {
@@ -188,26 +251,44 @@ export class SettlementScene extends BaseScene {
   }
 
   private buildBody(): void {
-    const keep = this.list?.area.scrollY ?? 0;
+    const keep = this.list?.area.scrollY ?? this.restArea?.scrollY ?? 0;
     this.clearBody();
     const y = this.bodyTop;
     const h = this.bodyBottom - y;
     if (this.tab === 'recruits') this.buildRecruits(y, h);
     else if (this.tab === 'market') this.buildMarket(y, h);
     else if (this.tab === 'sell') this.buildSell(y, h);
-    else this.buildRest(y, h);
+    else this.buildServices(y, h);
     this.list?.area.setScroll(keep);
+    this.restArea?.setScroll(keep);
   }
 
   private newList(y: number, h: number, count: number, rowH: number, render: ConstructorParameters<typeof ScrollList>[6]['render']): ScrollList {
     return new ScrollList(this, this.body, this.ax, y, this.aw, h, { count, rowH, render, fade: MOSAIC.parch });
   }
 
-  // ------------------------------------------------------------------ hire: class cards
+  /**
+   * A sacked or event-closed settlement (campaign-arc.md R5.3, campaign-events closeSettlement): Hire
+   * and Buy say why and when they reopen; Services stay. True when it drew that state.
+   */
+  private closedState(y: number, h: number, icon: string): boolean {
+    const w = state.campaign.world;
+    if (!w.isClosed(this.id)) return false;
+    const sacked = w.isSacked(this.id);
+    const until = sacked ? (w.s.arc.sackedUntil ?? w.s.time) / 24 : w.s.eventCd[EV_KEY.closed(this.id)] ?? w.s.time / 24;
+    const n = Math.max(1, Math.ceil(until - w.s.time / 24));
+    const hint = `${t('set.reopens', { n })}. ${t('set.servicesStay')}`;
+    this.body.add(addParchmentEmpty(this, this.ax, y, this.aw, h, { icon, title: t(sacked ? 'set.sacked' : 'set.closed'), hint }));
+    uiId(this.body.list[this.body.list.length - 1], sacked ? 'town.sacked' : 'town.closed');
+    return true;
+  }
+
+  // ------------------------------------------------------------------ hire
 
   private buildRecruits(y: number, h: number): void {
     const camp = state.campaign;
     const w = camp.world;
+    if (this.closedState(y, h, 'fire')) return;
     const pool = w.recruits(this.id, camp.data.heroes);
     const refresh = Math.ceil(w.refreshIn(this.id));
     if (!pool.length) {
@@ -215,29 +296,40 @@ export class SettlementScene extends BaseScene {
       return;
     }
     const full = camp.data.heroes.length >= MAX_ARMY;
-    const rowH = 46;
+    // name and class across the row; the role pill beside the price; the trait whole under them (SET-2)
+    const ps = this.aw < 150 ? 30 : 40;
+    const tx = 5 + ps + 6;
+    const fw = this.aw - 3 - tx - 5;
+    const trait = (cls: string) => wrapWords(`+${roleTraits(cls).good}`, fw, (s) => mw(s, 'pGood', TEXT_MIN)).slice(0, 2);
+    const lines = Math.max(1, ...pool.map((r) => trait(heroClass(r.hero).role).length));
+    // the pills beside the price when they fit there, else on a line of their own under it (narrow screens)
+    const bw = 50;
+    const pillsW = (r: (typeof pool)[number]) => armyPillW(roleName(heroClass(r.hero).role)) + (r.index >= VOLUNTEER_RULES.floorIndex ? armyPillW(t('set.volunteer')) + 3 : 0);
+    const below = (r: (typeof pool)[number]) => pillsW(r) > fw - bw - 4;
+    const extra = pool.some(below) ? 16 : 0;
+    const rowH = 51 + extra + lines * ARMY_LH + 3;
     this.list = this.newList(y, h, pool.length + 1, rowH, (i, row, rw) => {
       const box = { owner: row, w: rw, h: rowH };
       if (i === pool.length) {
-        row.add(mtext(this, rw / 2, 8, t('town.newVolunteers', { h: refresh }), 'pMuted', { size: 6, align: 0.5, maxW: rw - 4, box }));
+        row.add(mtext(this, rw / 2, 8, t('town.newVolunteers', { h: refresh }), 'pMuted', { size: TEXT_MIN, align: 0.5, maxW: rw - 4, box }));
         return;
       }
       const r = pool[i];
       const hero = r.hero;
       const cls = heroClass(hero);
       addRowFace(this, row, rw, rowH);
-      // portrait in its role colour: tap for the class card
-      const ps = 30;
-      const py = Math.round((rowH - ps) / 2);
-      addPortraitWell(this, row, 5, py, ps, roleColor(cls.role));
-      const img = addPortrait(this, dollFromHero(hero), 5, py, { size: ps }).setInteractive();
+      // his own portrait in his role colour: tap for the recruit sheet
+      addPortraitWell(this, row, 5, 5, ps, roleColor(cls.role));
+      const img = addPortrait(this, dollFromHero(hero), 5, 5, { size: ps }).setInteractive();
       uiId(img, 'recruit.card');
       row.add(img);
       img.on('pointerup', () => !this.list?.area.moved && this.openRecruit(r.index));
       const can = camp.data.gold >= r.price && !full;
-      const bw = 50;
+      const w0 = rw - tx - 5;
+      row.add(mtext(this, tx, 4, `${heroName(hero.name)} · ${t('hero.level', { n: hero.level })}`, 'rInk', { size: 7, maxW: w0, box }));
+      row.add(mtext(this, tx, 15, className(hero), 'pSec', { size: TEXT_MIN, maxW: w0, box }));
       row.add(
-        new MButton(this, rw - bw - 4, Math.round((rowH - TAP) / 2), bw, TAP, {
+        new MButton(this, rw - bw - 4, 26, bw, TAP, {
           label: `${r.price}`,
           icon: 'coin',
           variant: can ? 'secondary' : 'disabled',
@@ -247,13 +339,14 @@ export class SettlementScene extends BaseScene {
           onClick: () => this.hire(r.index),
         }),
       );
-      const tx = 5 + ps + 6;
-      const tw = rw - tx - bw - 8;
-      row.add(mtext(this, tx, 4, `${hero.name} · ${t('hero.level', { n: hero.level })}`, 'rInk', { size: 6.5, maxW: tw, box }));
-      row.add(mtext(this, tx, 14, className(hero), 'pSec', { size: 6, maxW: tw, box }));
-      addPill(this, row, tx, 24, roleName(cls.role), roleColor(cls.role), tw);
-      const good = `+${roleTraits(cls.role).good}`;
-      row.add(mtext(this, tx, 37, good, 'pGood', { size: 6, maxW: tw, box }));
+      // the role pill (earth tone, G4); a volunteer of the floor says so (campaign-arc.md R1.5)
+      const low = below(r);
+      const py = low ? 50 : 27;
+      const pr = low ? w0 : w0 - bw - 4;
+      const vol = r.index >= VOLUNTEER_RULES.floorIndex;
+      const pw = armyPill(this, row, tx, py, roleName(cls.role), roleColor(cls.role), pr);
+      if (vol) armyPill(this, row, tx + pw + 3, py, t('set.volunteer'), MOSAIC.bronze, pr - pw - 3);
+      trait(cls.role).forEach((l, k) => row.add(mtext(this, tx, 51 + (low ? extra : 0) + k * ARMY_LH, l, 'pGood', { size: TEXT_MIN, maxW: w0, box })));
     });
   }
 
@@ -262,26 +355,36 @@ export class SettlementScene extends BaseScene {
     const r = camp.world.recruits(this.id, camp.data.heroes).find((x) => x.index === index);
     if (!r) return;
     const full = camp.data.heroes.length >= MAX_ARMY;
-    const a = r.hero.attrs;
-    openClassCard(this, {
+    openRecruitSheet(this, {
       hero: r.hero,
-      title: r.hero.name,
-      price: `${t('attr.str.short')} ${a.str} · ${t('attr.agi.short')} ${a.agi} · ${t('attr.end.short')} ${a.end} · ${t('attr.wil.short')} ${a.wil}`,
-      action: { label: `${t('town.hire')} ${r.price}`, icon: 'coin', id: 'town.hireCard', disabled: full ? t('town.armyFull') : camp.data.gold < r.price ? t('stash.noGold') : undefined, onClick: () => this.hire(index) },
+      price: r.price,
+      volunteer: r.index >= VOLUNTEER_RULES.floorIndex,
+      blocked: full ? t('town.armyFull') : camp.data.gold < r.price ? t('stash.noGold') : undefined,
+      onHire: () => this.hire(index),
     });
   }
 
+  /** Hire at once (no confirm) with a 4 s Undo toast (controls.md R4.3). */
   private hire(index: number): void {
-    const h = state.campaign.hire(this.id, index);
-    if (!h) {
+    const camp = state.campaign;
+    const offer = camp.world.recruits(this.id, camp.data.heroes).find((x) => x.index === index);
+    const h = offer ? camp.hire(this.id, index) : null;
+    if (!offer || !h) {
       hapticNotify('error');
       return;
     }
     hapticNotify('success');
     uiCoin();
-    toast(this, t('town.hired', { name: h.name }), 'good');
     void state.save();
     this.refresh();
+    const receipt = { sid: this.id, index, heroId: h.id, price: offer.price };
+    showUndoToast(this, t('town.hired', { name: heroName(h.name) }), this.bodyBottom, () => {
+      if (!undoHire(state.campaign, receipt)) return;
+      haptic('light');
+      void state.save();
+      this.refresh();
+      toast(this, t('set.undone', { name: heroName(h.name), n: receipt.price }), 'info');
+    });
   }
 
   // ------------------------------------------------------------------ buy
@@ -289,17 +392,18 @@ export class SettlementScene extends BaseScene {
   private buildMarket(y: number, h: number): void {
     const camp = state.campaign;
     const w = camp.world;
+    if (this.closedState(y, h, 'fire')) return;
     const wares = w.wares(this.id, camp.armyClasses());
     const refresh = Math.ceil(w.refreshIn(this.id));
     if (!wares.length) {
       this.body.add(addParchmentEmpty(this, this.ax, y, this.aw, h, { icon: 'coin', title: t('town.soldOut'), hint: t('town.newWares', { h: refresh }) }));
       return;
     }
-    const rowH = 40;
+    const rowH = 42;
     this.list = this.newList(y, h, wares.length + 1, rowH, (i, row, rw, rh, area) => {
       const box = { owner: row, w: rw, h: rh };
       if (i === wares.length) {
-        row.add(mtext(this, rw / 2, 8, t('town.newWares', { h: refresh }), 'pMuted', { size: 6, align: 0.5, maxW: rw - 4, box }));
+        row.add(mtext(this, rw / 2, 8, t('town.newWares', { h: refresh }), 'pMuted', { size: TEXT_MIN, align: 0.5, maxW: rw - 4, box }));
         return;
       }
       const ware = wares[i];
@@ -316,18 +420,19 @@ export class SettlementScene extends BaseScene {
           variant: can ? 'secondary' : 'disabled',
           disabledReason: t('stash.noGold'),
           id: 'town.buy',
-          onClick: () => this.buy(ware.index),
+          onClick: () => this.askBuy(ware.index),
         }),
       );
       const tx = 5 + isz + 6;
       const tw = rw - tx - bw - 8;
-      row.add(mtext(this, tx, 5, itemName(it), rarityInk(this, it.rarity), { size: 6.5, maxW: tw, box }));
+      row.add(mtext(this, tx, 4, itemName(it), rarityInk(this, it.rarity), { size: 7, maxW: tw, box }));
       const def = itemDef(it.def);
       // the slot, then its main stats on their own line (whole; a long one drops before it is cut)
-      const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${m.text}`);
-      const ml = measureText(mods.join(' · ')) <= tw ? mods.join(' · ') : (mods[0] ?? '');
-      row.add(mtext(this, tx, 16, t(`slot.${def.slot}` as TKey), 'pSec', { size: 6, maxW: tw, box }));
-      row.add(mtext(this, tx, 26, ml, 'pMuted', { size: 6, maxW: tw, box }));
+      const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${localDecimals(m.text)}`);
+      const fits = (s: string) => measureText(s, false, TEXT_MIN) <= tw;
+      const ml = fits(mods.join(' · ')) ? mods.join(' · ') : (mods[0] ?? '');
+      row.add(mtext(this, tx, 16, t(`slot.${def.slot}` as TKey), 'pSec', { size: TEXT_MIN, maxW: tw, box }));
+      row.add(mtext(this, tx, 27, ml, 'pMuted', { size: TEXT_MIN, maxW: tw, box }));
     });
   }
 
@@ -340,7 +445,22 @@ export class SettlementScene extends BaseScene {
       item: ware.item,
       hero,
       title: t('town.buyTitle', { name: itemName(ware.item) }),
-      actions: [{ label: `${ware.price}`, icon: 'coin', variant: 'primary', id: 'town.buyCard', disabled: camp.data.gold < ware.price ? t('stash.noGold') : undefined, onClick: () => this.buy(index) }],
+      actions: [{ label: `${ware.price}`, icon: 'coin', variant: 'primary', id: 'town.buyCard', disabled: camp.data.gold < ware.price ? t('stash.noGold') : undefined, onClick: () => this.askBuy(index) }],
+    });
+  }
+
+  /** Buying confirms (C-6 AC: Sell and Buy confirm): name, price and the gold left to judge by. */
+  private askBuy(index: number): void {
+    const camp = state.campaign;
+    const ware = camp.world.wares(this.id, camp.armyClasses()).find((x) => x.index === index);
+    if (!ware) return;
+    const name = itemName(ware.item);
+    confirmDialog(this, {
+      title: t('town.buyTitle', { name }),
+      body: t('set.buyBody', { name, n: ware.price, gold: camp.data.gold }),
+      ok: `${t('town.tab.buy')} ${ware.price}`,
+      cancel: t('common.cancel'),
+      onOk: () => this.buy(index),
     });
   }
 
@@ -396,163 +516,180 @@ export class SettlementScene extends BaseScene {
     this.refresh();
   }
 
-  // ------------------------------------------------------------------ rest
+  // ------------------------------------------------------------------ services (towns) / rest (villages)
 
-  private buildRest(y: number, h: number): void {
-    const camp = state.campaign;
-    const def = camp.world.settlement(this.id)!;
-    const rate = def.kind === 'town' ? WORLD_RULES.healTown : WORLD_RULES.healVillage;
-    const wounded = camp.wounded();
-    const w = this.aw;
-    const x0 = this.ax;
-    const cx = x0 + w / 2;
-    const town = def.kind === 'town';
-    const BH = TAP + 2;
-    const box = { owner: this.body, w: this.m.VW, h: this.m.VH };
-    // On a short screen Rest and Physician share a row, and then the headline
-    // goes (the top bar already counts the hurt): the actions always fit.
-    const rowsH = (rows: number) => (BH + GAP) * rows + 4 + 12;
-    // not even the two rows of actions fit: the whole tab scrolls
-    if (h < 12 + rowsH(town ? 2 : 2) + 20) {
-      this.buildRestScroll(y, h);
-      return;
-    }
-    const pair = town && h < 12 + rowsH(3);
-    const actionsH = rowsH(town && !pair ? 3 : 2);
-    const showHead = h >= 12 + actionsH;
-    let cy = y;
-    const head = wounded.length ? `${t('town.wounded')}: ${wounded.length}` : t('town.allFit');
-    if (showHead) {
-      this.body.add(mtext(this, cx, cy + 1, head, wounded.length ? 'pBad' : 'pGood', { size: 7, align: 0.5, maxW: w, box }));
-      cy += 12;
-    }
-    // the wounded list, the healing rate under it when there is room
-    const room = y + h - actionsH - cy;
-    const noteLines = wrapText(t('town.restRate', { n: rate }), w - 8, 3, false, 6);
-    const noteH = noteLines.lines.length * 8 + 4;
-    const listH = wounded.length ? Math.floor((room - (room - noteH >= 52 ? noteH : 0)) / 29) * 29 - 3 : 0;
-    if (wounded.length && listH >= 26) {
-      this.list = this.newList(cy, listH, wounded.length, 26, (i, row, rw, rh) => {
-        const hero = wounded[i];
-        const rb = { owner: row, w: rw, h: rh };
-        addRowFace(this, row, rw, rh);
-        addPortraitWell(this, row, 3, 2, rh - 4, roleColor(heroClass(hero).role));
-        row.add(addPortrait(this, dollFromHero(hero), 3, 2, { size: rh - 4 }));
-        const hrs = t('town.restHours', { h: Math.ceil(hero.wound) });
-        row.add(mtext(this, rw - 5, Math.round((rh - 7) / 2), hrs, 'pBad', { align: 1, box: rb }));
-        row.add(mtext(this, rh + 3, Math.round((rh - 7) / 2), hero.name, 'rInk', { size: 6.5, maxW: rw - rh - 8 - mw(hrs, 'pBad'), box: rb }));
-      });
-      cy += listH + 3;
-    }
-    if (y + h - actionsH - cy >= noteH) noteLines.lines.forEach((l, i) => this.body.add(mtext(this, cx, cy + 2 + i * 8, l, 'pMuted', { size: 6, align: 0.5, box })));
-    let by = y + h - actionsH + 4;
-    // provisions: rations for the march, supplies for the field camp
-    const w0 = camp.world;
-    this.body.add(mtext(this, cx, by, t('town.provisions', { food: Math.floor(w0.food), sup: Math.floor(w0.supplies) }), 'pSec', { size: 6, align: 0.5, maxW: w, box }));
-    by += 12;
-    const half = Math.floor((w - GAP) / 2);
-    (['food', 'supplies'] as const).forEach((kind, i) => {
-      const price = camp.provisionPrice(kind, this.id);
-      this.body.add(
-        new MButton(this, x0 + i * (half + GAP), by, i === 0 ? half : w - half - GAP, BH, {
-          label: `${t(kind === 'food' ? 'town.buyFood' : 'town.buySupplies')} ${price}`,
-          icon: kind === 'food' ? 'food' : 'wood',
-          variant: camp.data.gold >= price ? 'secondary' : 'disabled',
-          disabledReason: t('stash.noGold'),
-          id: `town.buy.${kind}`,
-          tip: t(kind === 'food' ? 'town.foodTip' : 'town.supplyTip'),
-          onClick: () => this.provision(kind),
-        }),
-      );
-    });
-    by += BH + GAP;
-    this.body.add(new MButton(this, x0, by, pair ? half : w, BH, { label: t('town.rest8'), icon: 'tent', variant: 'secondary', id: 'town.rest', onClick: () => this.rest(8) }));
-    if (!pair) by += BH + GAP;
-    if (town) {
-      const cost = camp.healCost();
-      const label = cost > 0 ? t('town.physician', { n: cost }) : t('town.noPatients');
-      const can = cost > 0 && camp.data.gold >= cost;
-      this.body.add(
-        new MButton(this, pair ? x0 + half + GAP : x0, by, pair ? w - half - GAP : w, BH, {
-          label,
-          tip: pair ? label : undefined,
-          icon: 'cross',
-          variant: can ? 'secondary' : 'disabled',
-          disabledReason: cost > 0 ? t('stash.noGold') : t('town.allFit'),
-          id: 'town.physician',
-          onClick: () => this.physician(),
-        }),
-      );
-    }
-  }
-
-  /** The rest tab as one scrolling page (a short screen): headline, the wounded, the note, provisions and the actions in a column. */
-  private buildRestScroll(y: number, h: number): void {
+  /**
+   * One scrolling page (SET-4): how many are hurt; in a town the Physician and the Drillmaster
+   * (abilities.md R7); provisions with Food +10 and Supplies +10; then every wounded man and the healing
+   * rate. Each service is a row with a coin price button. Rest 8 hours is the tab's primary, pinned under it.
+   */
+  private buildServices(y: number, h: number): void {
     const camp = state.campaign;
     const def = camp.world.settlement(this.id)!;
     const town = def.kind === 'town';
     const rate = town ? WORLD_RULES.healTown : WORLD_RULES.healVillage;
     const wounded = camp.wounded();
-    const area = new ScrollArea(this, this.body, this.ax, y, this.aw, h, this.m.S);
+    const BH = TAP + 2;
+    // the primary, pinned at the foot of the tab
+    this.body.add(new MButton(this, this.ax, y + h - BH, this.aw, BH, { label: t('town.rest8'), icon: 'tent', variant: 'primary', id: 'town.rest', onClick: () => this.rest(8) }));
+    const area = new ScrollArea(this, this.body, this.ax, y, this.aw, h - BH - GAP, this.m.S);
     this.restArea = area;
     addScrollHint(this, this.body, area, MOSAIC.parch);
     const c = area.content;
     const w = this.aw - 3;
     const box = { owner: c, w: this.aw, h: 100000 };
-    const BH = TAP + 2;
-    let cy = 0;
-    c.add(mtext(this, w / 2, cy + 1, wounded.length ? `${t('town.wounded')}: ${wounded.length}` : t('town.allFit'), wounded.length ? 'pBad' : 'pGood', { size: 7, align: 0.5, maxW: w, box }));
-    cy += 12;
-    wounded.forEach((hero) => {
-      const rh = 26;
-      const row = this.add.container(0, cy);
-      const rb = { owner: row, w, h: rh };
-      addRowFace(this, row, w, rh);
-      addPortraitWell(this, row, 3, 2, rh - 4, roleColor(heroClass(hero).role));
-      row.add(addPortrait(this, dollFromHero(hero), 3, 2, { size: rh - 4 }));
-      const hrs = t('town.restHours', { h: Math.ceil(hero.wound) });
-      row.add(mtext(this, w - 5, Math.round((rh - 7) / 2), hrs, 'pBad', { align: 1, box: rb }));
-      row.add(mtext(this, rh + 3, Math.round((rh - 7) / 2), hero.name, 'rInk', { size: 6.5, maxW: w - rh - 8 - mw(hrs, 'pBad'), box: rb }));
-      c.add(row);
+    let cy = 2;
+    const head = wounded.length ? `${t('town.wounded')}: ${wounded.length}` : t('town.allFit');
+    const row = (o: { icon: string; title: string; sub: string; button: MButtonOpts; bw?: number }) => {
+      const bw = o.bw ?? 50;
+      const tx = 24;
+      const tw = w - tx - bw - 8;
+      // the line under the title wraps rather than cut (A11Y-10)
+      const sub = wrapWords(o.sub, tw, (z) => mw(z, 'pSec', TEXT_MIN)).slice(0, 3);
+      const rh = Math.max(36, 18 + sub.length * ARMY_LH + 5);
+      const r = this.add.container(0, cy);
+      const rb = { owner: r, w, h: rh };
+      addRowFace(this, r, w, rh);
+      r.add(addIcon(this, 6, Math.round((rh - 12) / 2), o.icon));
+      r.add(mtext(this, tx, 5, o.title, 'rInk', { size: 7, maxW: tw, box: rb }));
+      sub.forEach((l, i) => r.add(mtext(this, tx, 17 + i * ARMY_LH, l, 'pSec', { size: TEXT_MIN, maxW: tw, box: rb })));
+      r.add(new MButton(this, w - bw - 4, Math.round((rh - TAP) / 2), bw, TAP, o.button));
+      c.add(r);
       cy += rh + GAP;
-    });
-    wrapText(t('town.restRate', { n: rate }), w - 8, 3, false, 6).lines.forEach((l, i) => c.add(mtext(this, w / 2, cy + 2 + i * 8, l, 'pMuted', { size: 6, align: 0.5, box })));
-    cy += wrapText(t('town.restRate', { n: rate }), w - 8, 3, false, 6).lines.length * 8 + 6;
-    c.add(mtext(this, w / 2, cy, t('town.provisions', { food: Math.floor(camp.world.food), sup: Math.floor(camp.world.supplies) }), 'pSec', { size: 6, align: 0.5, maxW: w, box }));
-    cy += 12;
+    };
+    // the town's services first (the Drillmaster in view, C-6 acceptance), then provisions, then who is hurt
+    if (town) {
+      const cost = camp.healCost();
+      row({
+        icon: 'cross',
+        title: t('set.physician'),
+        sub: cost > 0 ? t('set.physicianSub', { n: wounded.length }) : t('set.noPatients'),
+        button: {
+          label: cost > 0 ? `${cost}` : '-',
+          icon: cost > 0 ? 'coin' : undefined,
+          variant: cost > 0 && camp.data.gold >= cost ? 'secondary' : 'disabled',
+          disabledReason: cost > 0 ? t('stash.noGold') : t('town.allFit'),
+          id: 'town.physician',
+          tip: cost > 0 ? t('town.physician', { n: cost }) : t('town.noPatients'),
+          onClick: () => this.physician(),
+        },
+      });
+      // the Drillmaster (abilities.md R7): Army in pick mode, then the man's perks in retrain mode
+      const free = camp.freeRetrains();
+      const go = t('set.drillGo');
+      row({
+        icon: 'swords',
+        title: t('set.drill'),
+        sub: free > 0 ? t('set.drillFree', { n: free }) : t('set.drillSub', { n: RETRAIN_COST }),
+        bw: Math.max(50, Math.ceil(mw(go, 'rInk', 7)) + 22),
+        button: {
+          label: go,
+          variant: canRetrainAny(camp.data.heroes) ? 'secondary' : 'disabled',
+          disabledReason: t('set.drillNone'),
+          id: 'town.drill',
+          tip: t('set.drillTip'),
+          onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id, pick: 'retrain' }),
+        },
+      });
+      // the Smith (EC-01, design/gdd/forge-reroll.md): reforge one random stat for gold
+      const forgeable = forgeCandidates(camp.data.stash, camp.data.heroes);
+      const from = forgeable.length ? Math.min(...forgeable.map((f) => forgeCost(f.item))) : FORGE.base[1];
+      const pick = t('forge.go');
+      row({
+        icon: 'anvil',
+        title: t('forge.smith'),
+        sub: forgeable.length ? t('forge.rowSub', { n: fmtCount(from) }) : t('forge.none'),
+        bw: Math.max(50, Math.ceil(mw(pick, 'rInk', 7)) + 22),
+        button: {
+          label: pick,
+          variant: forgeable.length ? 'secondary' : 'disabled',
+          disabledReason: t('forge.none'),
+          id: 'town.forge',
+          tip: t('forge.tip'),
+          onClick: () => this.openForge(),
+        },
+      });
+    }
+    const w0 = camp.world;
+    c.add(mtext(this, w / 2, cy + 2, t('town.provisions', { food: Math.floor(w0.food), sup: Math.floor(w0.supplies) }), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: w, box }));
+    cy += 13;
     (['food', 'supplies'] as const).forEach((kind) => {
       const price = camp.provisionPrice(kind, this.id);
-      c.add(
-        new MButton(this, 0, cy, w, BH, {
-          label: `${t(kind === 'food' ? 'town.buyFood' : 'town.buySupplies')} ${price}`,
-          icon: kind === 'food' ? 'food' : 'wood',
+      row({
+        icon: kind === 'food' ? 'food' : 'wood',
+        title: t(kind === 'food' ? 'town.buyFood' : 'town.buySupplies'),
+        sub: t(kind === 'food' ? 'set.foodHave' : 'set.supHave', { n: Math.floor(kind === 'food' ? w0.food : w0.supplies) }),
+        button: {
+          label: `${price}`,
+          icon: 'coin',
           variant: camp.data.gold >= price ? 'secondary' : 'disabled',
           disabledReason: t('stash.noGold'),
           id: `town.buy.${kind}`,
           tip: t(kind === 'food' ? 'town.foodTip' : 'town.supplyTip'),
           onClick: () => this.provision(kind),
-        }),
-      );
-      cy += BH + GAP;
+        },
+      });
     });
-    c.add(new MButton(this, 0, cy, w, BH, { label: t('town.rest8'), icon: 'tent', variant: 'secondary', id: 'town.rest', onClick: () => this.rest(8) }));
-    cy += BH + GAP;
-    if (town) {
-      const cost = camp.healCost();
-      const label = cost > 0 ? t('town.physician', { n: cost }) : t('town.noPatients');
-      c.add(
-        new MButton(this, 0, cy, w, BH, {
-          label,
-          icon: 'cross',
-          variant: cost > 0 && camp.data.gold >= cost ? 'secondary' : 'disabled',
-          disabledReason: cost > 0 ? t('stash.noGold') : t('town.allFit'),
-          id: 'town.physician',
-          onClick: () => this.physician(),
-        }),
-      );
-      cy += BH + GAP;
-    }
+    // the wounded, every one (the list is as long as they are, SET-4), and how fast rest heals here
+    c.add(mtext(this, w / 2, cy + 2, head, wounded.length ? 'pBad' : 'pGood', { size: 7, align: 0.5, maxW: w, box }));
+    cy += 14;
+    wounded.forEach((hero) => {
+      const rh = 26;
+      const r = this.add.container(0, cy);
+      const rb = { owner: r, w, h: rh };
+      addRowFace(this, r, w, rh);
+      addPortraitWell(this, r, 3, 2, rh - 4, roleColor(heroClass(hero).role));
+      r.add(addPortrait(this, dollFromHero(hero), 3, 2, { size: rh - 4 }));
+      const hrs = t('town.restHours', { h: Math.ceil(hero.wound) });
+      r.add(mtext(this, w - 5, Math.round((rh - 7) / 2), hrs, 'pBad', { align: 1, box: rb }));
+      r.add(mtext(this, rh + 3, Math.round((rh - 7) / 2), heroName(hero.name), 'rInk', { size: 7, maxW: w - rh - 8 - mw(hrs, 'pBad'), box: rb }));
+      c.add(r);
+      cy += rh + GAP;
+    });
+    const note = wrapText(t('town.restRate', { n: rate }), w - 8, 3, false, TEXT_MIN).lines;
+    note.forEach((l, i) => c.add(mtext(this, w / 2, cy + 2 + i * LINE_H, l, 'pMuted', { size: TEXT_MIN, align: 0.5, box })));
+    cy += note.length * LINE_H + 6;
     area.setContentHeight(cy + 2);
+  }
+
+  // ------------------------------------------------------------------ the Smith (EC-01)
+
+  private forgeOpts() {
+    const camp = state.campaign;
+    return {
+      candidates: () => forgeCandidates(camp.data.stash, camp.data.heroes),
+      gold: () => camp.data.gold,
+      reforge: (it: Item, line: number) => this.reforge(it, line),
+    };
+  }
+
+  /** The Smith's list (Services › Smith; scripts open it directly). */
+  openForge(): void {
+    openForgeSheet(this, this.forgeOpts());
+  }
+
+  /** One item at the Smith, by uid (scripts and the layout check). */
+  openForgeItem(uid: string): void {
+    const c = this.forgeOpts().candidates().find((x) => x.item.uid === uid);
+    if (c) openForgeItemSheet(this, { ...this.forgeOpts(), item: c.item, hero: c.hero });
+  }
+
+  /** Reforge one line from the world RNG (GDD rule 7), then save at once so it can be neither undone nor rolled again. */
+  private reforge(it: Item, line: number): ForgeResult | ForgeRefusal {
+    const camp = state.campaign;
+    const r = forgeReroll(camp.data, it, line, camp.world.rng);
+    if (typeof r === 'string') {
+      hapticNotify('error');
+      uiError();
+      toast(this, r === 'gold' ? t('stash.noGold') : t('forge.named'), 'bad');
+      return r;
+    }
+    hapticNotify('success');
+    uiCoin();
+    toast(this, t('forge.done', { line: forgeLineText(it, r.after) }), 'good');
+    void state.save();
+    this.refresh();
+    return r;
   }
 
   private rest(hours: number): void {

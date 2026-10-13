@@ -1,7 +1,8 @@
 /**
  * KeyButton: the compact command button of the v4 battle HUD (and any dense
  * toolbar): a Cinzel label with its icon above it (tall) or beside it (short)
- * on terracotta (the one primary), aged bronze or grey stone; `lit` marks the
+ * on terracotta (the one primary), aged bronze or dark bronze (`stone`, the quiet
+ * action: never grey, which means disabled only); `lit` marks the
  * one in force (a bright gold face with ink text). Same state API as the kit
  * Button the battle scene drove (setSelected / setEnabled / opts.label), so
  * scripts and the tutorial find it the same way.
