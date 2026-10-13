@@ -1,7 +1,7 @@
 # ADR-0011: The landing site's tech stack and performance budget
 
 ## Status
-Proposed (v6 story P2-LAND). Becomes Accepted when the landing build story starts on it.
+Accepted with amendments (Director, 2026-10-13, V6-015)
 
 ## Date
 2026-10-13
