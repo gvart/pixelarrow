@@ -5,19 +5,23 @@
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
-## Running (sprint 1 finishing, sprint 2 started)
+## Running
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
 | plat-01 | V6-PLAT-01: platform core | 1 (6110–6119) | dev-story, phaser-core, tdd, improve-codebase-architecture |
-| gate-01 | V6-GATE-01: ten-size layout matrix | 5 (6150–6159) | dev-story, regression-suite, game-ui-ux, tdd |
-| video | P5-VIDEO: landing clips | 2 (6120–6129) | create-game-assets, performance-optimization |
-| land-01 | V6-LAND-01: landing chrome, tokens, SEO, assets moved in | 4 (6140–6149) | frontend-design, design-principles, game-ui-ux, seo-audit, schema-markup, performance-optimization |
+| gate-01 | V6-GATE-01: ten-size layout matrix (long matrix run) | 5 (6150–6159) | dev-story, regression-suite, game-ui-ux, tdd |
+| land-03 | V6-LAND-03: features, classes and modes sections, clips M1–M4 moved to landing/public/video | 4 (6140–6149) | frontend-design, design-principles, game-feel, performance-optimization |
+| stats-01 | V6-STATS-01: public stats snapshot, migration, cron | 6 (6160–6169) | dev-story, security-audit, tdd |
 
-**Integrators run one at a time** (they share the v6 worktree). Use slot 9 (6190–6199) for integrators.
-Still to start in sprint 2: RFND-01 (needs GATE-01) and INP-01 (needs PLAT-01).
+Integrators run one at a time and use slot 9 (6190–6199). Director merges check `git merge` succeeded (V6-028).
+
+**Waiting on PLAT-01/GATE-01:** RFND-01, INP-01 and every sprint 3+ story that touches src/.
+**Queued landing work:** LAND-02b (phone hero animation and line stagger, V6-029), LAND-04 (needs STATS-02), LAND-05, LAND-06.
 
 ## Merged
+
+- Landing: LAND-01 (V6-025/026), LAND-02 (V6-029), P5-VIDEO (V6-027/028)
 
 - Sprint 2: V6-HOST-02 (V6-024, 05b7d86)
 - Sprint 1: V6-ACCT-01 (V6-022, ac5eb98), V6-HOST-01 (V6-023, 49515b1)
