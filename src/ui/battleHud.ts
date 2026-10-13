@@ -1071,6 +1071,22 @@ export function badgeAlpha(zoom: number): number {
   return zoom >= 2 ? 0.6 : 1;
 }
 
+// ---- the battle clock
+
+/** The most battle time one frame may owe the sim (s): a stalled frame does not leap the fight ahead. */
+export const MAX_FRAME_S = 0.25;
+
+/**
+ * The battle time a frame owes the sim (s): the real time since the last frame
+ * (Phaser's `loop.rawDelta`), at most MAX_FRAME_S, times the speed. Not the
+ * smoothed `delta` Phaser hands update(): below 5 fps (and for 120 frames after
+ * a focus change) that one drops to 16.7 ms a frame, and the battle, with the
+ * tutorial's script that counts its steps, crawled at a fraction of real time.
+ */
+export function frameBattleSeconds(rawDeltaMs: number, speed: number): number {
+  return Math.min(MAX_FRAME_S, Math.max(0, rawDeltaMs) / 1000) * speed;
+}
+
 // ---- field banners, auto-pauses and damage numbers (RD-02, battle-readability.md R4)
 
 /** A field banner expires after this long (s), or earlier when its condition is false (R4, PLAY R4/B5). */
