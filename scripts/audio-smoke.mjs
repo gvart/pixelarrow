@@ -8,11 +8,16 @@
 //     keeps only UI sounds; SND-02: a disabled tap, the deployment Undo and a destructive
 //     confirm play their UI sounds through the real kit taps;
 //  3. the Sound toggle and the Effects volume survive a reload.
-// Usage: node scripts/audio-smoke.mjs [baseUrl]
-import { launch, phoneContext, captureErrors, makePageApi, check, failureCount } from './lib/harness.mjs';
+// Platform modes (scripts/lib/platform.mjs): telegram (fake WebApp) and web (no request to telegram.org).
+// Usage: node scripts/audio-smoke.mjs <baseUrl> [--platform telegram|web|both]
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, failureCount } from './lib/harness.mjs';
+import { cliArgs, platformMode, applyPlatform, launchUrl, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
-const base = process.argv[2] ?? 'http://localhost:5173/';
+const cli = cliArgs(process.argv.slice(2), 'scripts/audio-smoke.mjs');
+const mode = await platformMode(import.meta.url, cli);
+const base = launchUrl(cli.base, mode);
 const browser = await launch();
+const plats = [];
 
 /** The page CSS centre of the object with layout id `id` in scene `key` (null if absent). */
 const idPos = (ev, key, id) =>
@@ -37,6 +42,7 @@ const idPos = (ev, key, id) =>
 
 async function run(label, { noAudio }) {
   const ctx = await phoneContext(browser);
+  plats.push(await applyPlatform(ctx, mode, { languageCode: 'en' }));
   if (noAudio) {
     await ctx.addInitScript(() => {
       delete window.AudioContext;
@@ -45,7 +51,10 @@ async function run(label, { noAudio }) {
     });
   }
   const page = await ctx.newPage();
-  const errors = captureErrors(page);
+  // the API down (503): in Telegram the online layer signs in, and no step may depend on a backend (the
+  // preview server's /api proxy answered 502); the browser's own "Failed to load resource" lines are expected
+  const errors = captureErrors(page, { ignoreNetwork: true });
+  await apiDown(page);
   // taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
   const { ev, wait, tap, tapLabel } = makePageApi(page, { tapWait: 300 });
   const dbg = () => ev(() => window.__audio.debug());
@@ -55,6 +64,7 @@ async function run(label, { noAudio }) {
   await page.goto(base);
   await wait(2500);
   check(`[${label}] menu active`, await ev(() => window.__game.scene.isActive('Menu')));
+  if (!noAudio) await checkPlatform(page, mode, `[${label}] `);
   check(`[${label}] no context before a gesture`, (await dbg()).state === 'none');
   await tap(195, 40);
   const d = await dbg();
@@ -252,8 +262,12 @@ async function run(label, { noAudio }) {
 async function persist() {
   const label = 'persist';
   const ctx = await phoneContext(browser);
+  plats.push(await applyPlatform(ctx, mode, { languageCode: 'en' }));
   const page = await ctx.newPage();
-  const errors = captureErrors(page);
+  // the API down (503): in Telegram the online layer signs in, and no step may depend on a backend (the
+  // preview server's /api proxy answered 502); the browser's own "Failed to load resource" lines are expected
+  const errors = captureErrors(page, { ignoreNetwork: true });
+  await apiDown(page);
   const { ev, wait, tap, tapLabel } = makePageApi(page, { tapWait: 300 });
   const dbg = () => ev(() => window.__audio.debug());
   await page.goto(base);
@@ -292,6 +306,7 @@ try {
   await run('no Web Audio', { noAudio: true });
   await run('Web Audio', { noAudio: false });
   await persist();
+  for (const p of plats) noTelegramRequests(p);
 } finally {
   await browser.close();
 }

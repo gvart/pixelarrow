@@ -1,10 +1,16 @@
 // The regression suite runner (QA-02; manifest: tests/regression/SUITE.md).
 //
-//   npm run regression                    # builds dist if missing, serves it with vite preview on :8047
-//   npm run regression -- --port 8051     # another port (each agent its own, V5-004)
-//   npm run regression -- http://127.0.0.1:8047/   # against a server already running
-//   npm run regression -- --all           # also the browser smokes (smoke-check scope)
-//   npm run regression -- --only hub-flows,battle-kinds
+//   npm run regression -- --port 6150     # builds dist if missing, serves it with vite preview on that port
+//   npm run regression -- http://127.0.0.1:6150/   # against a server already running
+//   npm run regression -- <url> --platform web     # one platform mode (default both: telegram, then web)
+//   npm run regression -- <url> --all     # also the browser smokes (smoke-check scope)
+//   npm run regression -- <url> --only hub-flows,battle-kinds
+//
+// A URL or --port is required: there is no default port (each agent and CI job its own, V6-035).
+// Platform modes (V6-GATE-02, scripts/lib/platform.mjs): every browser script runs once per mode, as a
+// Telegram Mini App (fake WebApp) and as a plain web page; the summary has one row per script and mode.
+// A failure is never retried: a script that fails in one run is reported FAIL with both modes' rows, and a
+// suspected flake goes into docs/v6/qa/FLAKY.md (re-run it and record every result, never hide it).
 //
 // Runs each script in turn with a time limit (a hung script is killed and fails), prints a
 // summary with times, stops the preview server it started, and exits
@@ -19,13 +25,26 @@ import { ROOT } from '../lib/harness.mjs';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : d);
-const PORT = Number(opt('port', '8047'));
-const given = args.find((a) => /^https?:/.test(a));
+const given = args.find((a) => /^https?:/.test(a)) ?? process.env.BASE_URL;
+const PORT = Number(opt('port', '0'));
+if (!given && !PORT) {
+  console.log('NOT RUN: give the URL of a running server or --port <port> to serve dist on (no default port, V6-035)');
+  process.exit(2);
+}
+const PLATFORM = opt('platform', process.env.SMOKE_PLATFORM || process.env.PLATFORM || 'both');
+if (!['telegram', 'web', 'both'].includes(PLATFORM)) {
+  console.log(`NOT RUN: --platform must be telegram, web or both (got ${PLATFORM})`);
+  process.exit(2);
+}
+const MODES = PLATFORM === 'both' ? ['telegram', 'web'] : [PLATFORM];
 const only = opt('only', '')
   .split(',')
   .filter(Boolean);
 
-/** The suite: name, script, its arguments (BASE = the server URL), time limit in minutes. */
+/**
+ * The suite: name, script, its arguments (BASE = the server URL), time limit in minutes. A script with
+ * BASE runs in the browser and once per platform mode; one without (replay-hash) runs once.
+ */
 const SUITE = [
   { name: 'hub-flows', script: 'scripts/regression/hub-flows.mjs', args: ['BASE'], min: 10 },
   { name: 'battle-kinds', script: 'scripts/regression/battle-kinds.mjs', args: ['BASE'], min: 12 },
@@ -41,8 +60,11 @@ const SMOKES = [
   { name: 'duel-smoke', script: 'scripts/duel-smoke.mjs', args: ['BASE'], min: 10 },
   { name: 'online-smoke', script: 'scripts/online-smoke.mjs', args: ['BASE'], min: 10 },
   { name: 'fullscreen-smoke', script: 'scripts/fullscreen-smoke.mjs', args: ['BASE'], min: 10 },
+  { name: 'audio-smoke', script: 'scripts/audio-smoke.mjs', args: ['BASE'], min: 10 },
 ];
-const jobs = [...SUITE, ...(args.includes('--all') ? SMOKES : [])].filter((j) => !only.length || only.includes(j.name));
+const jobs = [...SUITE, ...(args.includes('--all') ? SMOKES : [])]
+  .filter((j) => !only.length || only.includes(j.name))
+  .flatMap((j) => (j.args.includes('BASE') ? MODES.map((mode) => ({ ...j, mode, args: [...j.args, '--platform', mode] })) : [j]));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const vite = join(ROOT, 'node_modules', '.bin', 'vite');
@@ -74,13 +96,14 @@ function run(job, base) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     const child = spawn(process.execPath, [join(ROOT, job.script), ...job.args.map((a) => (a === 'BASE' ? base : a))], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+    const tag = job.mode ? `${job.name} ${job.mode}` : job.name;
     let known = 0;
     let last = '';
     let buf = '';
     const line = (l) => {
       if (/^KNOWN /.test(l)) known++;
       if (l.trim()) last = l.trim();
-      console.log(`[${job.name}] ${l}`);
+      console.log(`[${tag}] ${l}`);
     };
     const feed = (d) => {
       buf += d;
@@ -91,7 +114,7 @@ function run(job, base) {
     child.stdout.on('data', feed);
     child.stderr.on('data', feed);
     const timer = setTimeout(() => {
-      console.log(`[${job.name}] TIMEOUT after ${job.min} min: killed`);
+      console.log(`[${tag}] TIMEOUT after ${job.min} min: killed`);
       child.kill('SIGKILL');
     }, job.min * 60_000);
     child.on('close', (code, signal) => {
@@ -112,7 +135,7 @@ const results = [];
 try {
   if (!given) server = await serve();
   const base = given ?? server.url;
-  console.log(`regression suite against ${base}: ${jobs.map((j) => j.name).join(', ')}`);
+  console.log(`regression suite against ${base} (platform ${PLATFORM}): ${jobs.map((j) => (j.mode ? `${j.name} ${j.mode}` : j.name)).join(', ')}`);
   for (const job of jobs) results.push({ job, ...(await run(job, base)) });
 } catch (e) {
   console.log(`SUITE ERROR ${e.message}`);
@@ -122,8 +145,8 @@ try {
 }
 
 const verdict = (r) => (r.code === 0 ? (r.known ? `PASS, ${r.known} KNOWN` : 'PASS') : r.code === 2 ? 'NOT ASSESSED' : r.code === 'timeout' ? 'FAIL (timeout)' : 'FAIL');
-console.log('\n| script | verdict | time |\n| --- | --- | --- |');
-for (const r of results) console.log(`| ${r.job.name} | ${verdict(r)} | ${(r.ms / 1000).toFixed(0)} s |`);
+console.log('\n| script | platform | verdict | time |\n| --- | --- | --- | --- |');
+for (const r of results) console.log(`| ${r.job.name} | ${r.job.mode ?? 'any'} | ${verdict(r)} | ${(r.ms / 1000).toFixed(0)} s |`);
 const failed = results.filter((r) => r.code !== 0 && r.code !== 2).length;
 const unassessed = results.filter((r) => r.code === 2).length;
 const known = results.reduce((a, r) => a + r.known, 0);

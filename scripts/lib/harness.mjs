@@ -116,6 +116,28 @@ export async function until(fn, ms = 15000, step = 250) {
   return false;
 }
 
+/**
+ * True once `key` is the scene in front and has settled: active and running, its loader idle (late art
+ * landed), no camera fade, its entry motion over (BaseScene.enterMotion: ui.alpha 1, ui.x 0). Polls up to
+ * `ms`. (scripts/regression/lib.mjs re-exports it.)
+ */
+export function settled(api, key, ms = 20000) {
+  return until(
+    () =>
+      api.ev((k) => {
+        const g = window.__game;
+        const s = g?.scene.getScene(k);
+        // isActive: the scene's status is RUNNING (not starting or shutting down)
+        if (!s || !s.sys.isActive()) return false;
+        if (s.load.isLoading()) return false;
+        if (s.cameras.cameras.some((c) => c.fadeEffect.isRunning)) return false;
+        return !s.ui || (s.ui.alpha === 1 && s.ui.x === 0);
+      }, key),
+    ms,
+    150,
+  );
+}
+
 // ------------------------------------------------------------------ page API
 
 /**
