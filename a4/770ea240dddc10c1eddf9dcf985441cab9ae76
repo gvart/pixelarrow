@@ -1,0 +1,25 @@
+landing/src/components/sections/ClosingCta.astro
+  s_0d98fe904b2e82::t_a662378b7e88e8 28-30
+landing/public/_headers
+  s_0d98fe904b2e82::t_501ceff70bd636 5-12
+landing/src/components/sections/Hero.astro
+  s_0d98fe904b2e82::t_d2ed39aa99ec1a 29
+  s_0d98fe904b2e82::t_ce5584153aeea9 16-18,20
+  s_0d98fe904b2e82::t_9bdea3d8c269e0 197,215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a4770ea240dddc10c1eddf9dcf985441cab9ae76",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
