@@ -15,3 +15,4 @@ Steps only the owner can do. Each one has exact instructions.
    4. `npx wrangler delete --config scripts/pbkdf2-probe/wrangler.jsonc` to remove the Worker.
    5. If step 2 refused 310,000 or step 3 exceeded 60 ms, tell the next run: it lowers `PBKDF2_ITERATIONS` and `PBKDF2_SAFE_MAX` (server/scripts/pbkdf2-probe/limits.ts) to the highest passing count, at least 100,000, and updates ADR-0008 §2 and M-PW-1.
 8. Cutover order: deploy the landing Worker (pixelarrow.app) before or together with the game Worker move, otherwise the legal pages return 404 (V6-023).
+9. Telegram: add the play.pixelarrow.app custom domain to the game Worker; in BotFather, point the Mini App and menu URL at https://play.pixelarrow.app; then re-run setWebhook to https://play.pixelarrow.app/api/telegram/webhook (V6-024).
