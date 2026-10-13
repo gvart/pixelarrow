@@ -33,10 +33,11 @@ const BEASTS = [
       <p class="section__lead">Twenty-one classes across three cultures, from village levies to the Sacred Band, plus wolves, boars and bears.</p>
     </header>
 
-    <ul class="roster" role="list" tabindex="0" aria-label="Twelve of the eighteen soldier classes">
+    <ul class="roster" data-lazy-group role="list" tabindex="0" aria-label="Twelve of the eighteen soldier classes">
       {CLASSES.map((c) => (
         <TiltCard class="plate">
-          <img class="plate__bust" src={`/classes/bust_${c.id}.jpg`} width="288" height="288" alt="" loading="lazy" decoding="async" />
+          <img class="plate__bust" data-src={`/classes/bust_${c.id}.jpg`} width="288" height="288" alt="" decoding="async" />
+          <noscript><img class="plate__bust" src={`/classes/bust_${c.id}.jpg`} width="288" height="288" alt="" /></noscript>
           <div class="plate__text">
             <h3 class="plate__name">{c.name}</h3>
             <p class="plate__role">{c.role}</p>
@@ -53,10 +54,11 @@ const BEASTS = [
         <h3 class="beasts__title">Beasts</h3>
         <p>Wolves, boars and bears fight on the field. Mythical beasts hold lairs on the war map: the hydra, the cyclops, harpies, the Nemean lion, the minotaur and the chimera.</p>
       </div>
-      <ul class="beasts__list" role="list">
+      <ul class="beasts__list" data-lazy-group role="list">
         {BEASTS.map((b) => (
           <TiltCard class="plate plate--beast">
-            <img class="plate__bust" src={`/classes/bust_${b.id}.jpg`} width="288" height="288" alt="" loading="lazy" decoding="async" />
+            <img class="plate__bust" data-src={`/classes/bust_${b.id}.jpg`} width="288" height="288" alt="" decoding="async" />
+            <noscript><img class="plate__bust" src={`/classes/bust_${b.id}.jpg`} width="288" height="288" alt="" /></noscript>
             <div class="plate__text">
               <h4 class="plate__name">{b.name}</h4>
               <p class="plate__line">{b.line}</p>
@@ -94,6 +96,12 @@ const BEASTS = [
     border-bottom: 1px solid var(--bronze);
     box-shadow: inset 0 0 0 1px rgb(176 138 58 / 0.6);
     background: var(--basalt);
+  }
+  /* Without JS the <noscript> twin shows instead (scripts/lazy.ts). */
+  @media (scripting: none) {
+    .plate__bust[data-src] {
+      display: none;
+    }
   }
   .plate__text {
     display: grid;

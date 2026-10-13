@@ -20,8 +20,8 @@ const base = `/video/${id}`;
 ---
 <div class:list={['clip', `clip--${fit}`]} data-clip data-webm={`${base}.webm`} data-mp4={`${base}.mp4`} data-label={label} style={`--clip-ar: ${width} / ${height}`}>
   <picture class="clip__poster">
-    <source type="image/avif" srcset={`${base}-poster.avif`} />
-    <img src={`${base}-poster.webp`} width={width} height={height} alt={label} loading="lazy" decoding="async" />
+    <source type="image/avif" data-srcset={`${base}-poster.avif`} />
+    <img data-src={`${base}-poster.webp`} width={width} height={height} alt={label} decoding="async" />
   </picture>
   <video class="clip__video" width={width} height={height} muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"></video>
   <button class="clip__toggle" type="button" hidden aria-label={`Play: ${label}`}>
@@ -58,6 +58,12 @@ const base = `/video/${id}`;
   .clip--contain .clip__video,
   .clip--contain .clip__fallback {
     object-fit: contain;
+  }
+  /* Without JS the native player (with its own poster) stands in for the lazy poster. */
+  @media (scripting: none) {
+    .clip__poster {
+      display: none;
+    }
   }
   /* The video stays invisible until a frame is painted, so the poster never blinks. */
   .clip__video {

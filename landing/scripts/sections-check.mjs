@@ -4,7 +4,8 @@
 //  2. Layout: no horizontal overflow at 320, 390, 768, 1280, 1440 and 1920.
 //  3. Tilt: a card tilts under a fine pointer, never on a touch device or under reduced motion.
 //  4. Dividers: draw on view only with no reduced-motion preference.
-//  5. Clips: no source before the clip is near; muted autoplay when visible, paused when not; at most
+//  5. Lazy stills: no bust or poster loads on the first view; they arrive as their section nears.
+//  6. Clips: no source before the clip is near; muted autoplay when visible, paused when not; at most
 //     one playing on a phone and two on desktop; reduced motion keeps the poster until pressed.
 // With SHOTS_DIR set, it also saves screenshots of the three sections at the six widths.
 //
@@ -61,7 +62,7 @@ try {
       for (const n of names) check(gameNames.has(n), `"${n}" is a class in src/data/classes.ts`);
       const modes = await page.$$eval('#modes .mode__name', (els) => els.map((e) => e.textContent.trim()));
       check(modes.join() === 'Campaign,Duels,War,Forge', `modes are Campaign, Duels, War, Forge (got ${modes.join()})`);
-      const posters = await page.$$eval('#modes .clip__poster img', (els) => els.map((e) => e.getAttribute('src')));
+      const posters = await page.$$eval('#modes .clip__poster img', (els) => els.map((e) => e.getAttribute('src') ?? e.dataset.src));
       check(posters.every((p, i) => p === `/video/M${i + 1}-poster.webp`), 'mode tiles use the M1-M4 clip posters');
     }
     const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -120,7 +121,20 @@ try {
     await page.close();
   }
 
-  // 5. Clips
+  // 5. Lazy stills
+  for (const [width, height] of [[412, 823], [1440, 900]]) {
+    const page = await browser.newPage({ viewport: { width, height } });
+    await page.goto(URL_, { waitUntil: 'load' });
+    await page.waitForTimeout(1500);
+    const early = await page.evaluate(() => performance.getEntriesByType('resource').filter((e) => /\/(classes|video)\//.test(e.name)).length);
+    check(early === 0, `${width}px: no bust or poster on the first view (${early})`);
+    await scrollTo(page, '#classes');
+    const busts = await page.$$eval('#classes .plate__bust:not(noscript *)', (els) => els.filter((e) => e.complete && e.naturalWidth > 0).length);
+    check(busts === 15, `${width}px: all 15 busts load once the classes are near (${busts})`);
+    await page.close();
+  }
+
+  // 6. Clips
   {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(URL_, { waitUntil: 'load' });
