@@ -3,11 +3,10 @@
  * transport can change (Email Service binding, REST API, another provider)
  * without touching them.
  *
- * Seam for V6-ACCT-04: `emailSenderFor` returns the dev outbox when
- * DEV_EMAIL=1 and otherwise null (the mail flows then answer 503
- * `email_unavailable`). ACCT-04 adds the `send_email` binding `EMAIL` to Env and
- * wrangler.jsonc and returns a binding-backed sender here, e.g.
- * `env.EMAIL.send({ to, from: env.MAIL_FROM, subject, html, text })`.
+ * `emailSenderFor` picks the dev outbox when DEV_EMAIL=1 (local and tests;
+ * the deploy config refuses DEV_EMAIL), else the Email Service `send_email`
+ * binding `EMAIL` from MAIL_FROM, else null (the mail flows then answer 503
+ * `email_unavailable`).
  */
 import type { Env } from '../env';
 import { LogEmailSender } from './log';
@@ -29,7 +28,20 @@ export const SEND_TIMEOUT_MS = 5_000;
 /** The configured sender, or null when email is not set up. */
 export function emailSenderFor(env: Env): EmailSender | null {
   if (env.DEV_EMAIL === '1' && env.DB) return new LogEmailSender(env.DB);
+  if (env.EMAIL && env.MAIL_FROM) return new BindingEmailSender(env.EMAIL, env.MAIL_FROM);
   return null;
+}
+
+/** Sends through the `send_email` binding; a failure rejects with the binding's error (its `code`, never the address). */
+export class BindingEmailSender implements EmailSender {
+  constructor(
+    private readonly binding: SendEmail,
+    private readonly from: string,
+  ) {}
+
+  async send(msg: EmailMessage): Promise<void> {
+    await this.binding.send({ to: msg.to, from: this.from, subject: msg.subject, text: msg.text, html: msg.html });
+  }
 }
 
 /** Sends with a timeout; rejects on failure or timeout. */

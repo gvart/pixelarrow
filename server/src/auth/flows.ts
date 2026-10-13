@@ -83,7 +83,9 @@ const newToken = () => b64urlEncode(crypto.getRandomValues(new Uint8Array(32)));
 function later(d: FlowDeps, template: Template, work: () => Promise<void>): void {
   d.defer(
     work().catch((e: unknown) => {
-      log('warn', 'email_send_failed', { template, error: e instanceof Error ? e.name : 'non-error' });
+      // `code` is the Email Service error code (E_SENDER_NOT_VERIFIED, E_RATE_LIMIT_EXCEEDED, ...); it never holds the address.
+      const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code.slice(0, 64) : undefined;
+      log('warn', 'email_send_failed', { template, error: e instanceof Error ? e.name : 'non-error', code });
     }),
   );
 }

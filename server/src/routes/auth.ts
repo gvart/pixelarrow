@@ -16,13 +16,11 @@ import { readJson } from '../body';
 import { gameOrigins, gameUrl } from '../urls';
 import type { Context, MiddlewareHandler } from 'hono';
 import { optedOut, requestCtx, writeEvent } from '../telemetry/analytics';
-import { requireRate } from '../rateLimit';
+import { requireLimit } from '../rateLimit';
+import { requireTurnstile } from '../auth/turnstile';
 import { validateInitData, type TelegramUser } from '../telegramAuth';
 
 const MAX_BODY = 8 * 1024;
-/** Per-IP, per-isolate: at most AUTH_LIMIT logins per AUTH_WINDOW_MS. */
-export const AUTH_LIMIT = 20;
-const AUTH_WINDOW_MS = 60_000;
 
 const Body = z.union([
   z.object({ initData: z.string().min(1).max(MAX_BODY) }),
@@ -48,7 +46,8 @@ function devAuthAllowed(env: Env): boolean {
 export const auth = new Hono<AppEnv>();
 
 auth.post('/telegram', async (c) => {
-  requireRate(`auth:${clientIp(c)}`, AUTH_LIMIT, AUTH_WINDOW_MS, 'Too many login attempts, slow down');
+  // Per IP only (ADR-0008 §5.3): initData is HMAC-signed, and Turnstile can't run in the Telegram iframe (N-AF-3).
+  await requireLimit(c.env.RL_TG_AUTH_IP, `tg:${clientIp(c)}`, 'Too many login attempts, slow down');
 
   // Accept either JSON { initData } or the raw initData string as the body.
   let body: z.infer<typeof Body>;
@@ -128,15 +127,16 @@ auth.delete('/sessions/:handle', requireSession, async (c) => {
 
 // ---- Email and password (V6-ACCT-03; ADR-0008 §4) ----
 //
-// Gate order (M-AF-1): Rate Limiting binding per IP → Turnstile → D1 throttle
-// → work. The flows (auth/flows.ts) run the D1 throttle before any hash. The
-// per-IP binding and Turnstile are V6-ACCT-04: each anonymous form below marks
-// where they go. Until then `turnstile` is accepted and ignored.
+// Gate order (M-AF-1, ADR-0008 §2): Origin → Rate Limiting binding per IP
+// (RL_AUTH_IP, `<route>:<ip>`) → Turnstile (forms without a link token) → D1
+// throttle and lockout (auth/flows.ts) → the password hash. Each gate is
+// cheaper than the next, so a flood never reaches the hash or D1.
 
 const AUTH_BODY = 8 * 1024;
 const Email = z.string().max(320);
 /** Long enough that the policy (not zod) answers too_long; never truncated. */
 const Password = z.string().max(4096);
+/** Required: a missing token is `400 turnstile_failed` from requireTurnstile, like a bad one. 2048 is Turnstile's maximum. */
 const Turnstile = z.string().max(2048).optional();
 const Token = z.string().max(128);
 
@@ -169,6 +169,9 @@ async function cookieSession(c: Context<AppEnv>, player: PlayerRow, method: Meth
 
 const CHECK_EMAIL = { status: 'check_email' } as const;
 
+/** The per-IP gate for the email forms (ADR-0008 §5.1). */
+const ipGate = (c: Context<AppEnv>, route: string) => requireLimit(c.env.RL_AUTH_IP, `${route}:${clientIp(c)}`, 'Too many attempts, try again in a minute');
+
 /**
  * The email forms are posted only by the web game, from its own origin. A
  * foreign or missing Origin is 403 `bad_origin` even without a cookie: it
@@ -182,45 +185,49 @@ const fromGame: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 /** Always 202 for a well-formed request, whether or not the address has an account (M-AF-3). */
 auth.post('/signup', fromGame, async (c) => {
-  // V6-ACCT-04: RL_AUTH_IP `signup:<ip>`, then Turnstile action 'signup'.
+  await ipGate(c, 'signup');
   const body = await readJson(c, SignupBody, AUTH_BODY);
+  await requireTurnstile(c.env, body.turnstile, 'signup', clientIp(c));
   await signup(flowDeps(c), body.email, body.password);
   return c.json(CHECK_EMAIL, 202);
 });
 
 /** Opens a sign-up link: creates the account and signs this browser in. */
 auth.post('/verify', fromGame, async (c) => {
-  // V6-ACCT-04: RL_AUTH_IP `verify:<ip>` (no Turnstile: the token is the proof).
+  await ipGate(c, 'verify'); // no Turnstile: the link token is the proof
   const body = await readJson(c, TokenBody, AUTH_BODY);
   const player = await verifySignup(flowDeps(c), body.token);
   return cookieSession(c, player, 'email_link');
 });
 
 auth.post('/verify/resend', fromGame, async (c) => {
-  // V6-ACCT-04: RL_AUTH_IP `resend:<ip>`, then Turnstile action 'resend'.
+  await ipGate(c, 'resend');
   const body = await readJson(c, EmailBody, AUTH_BODY);
+  await requireTurnstile(c.env, body.turnstile, 'resend', clientIp(c));
   await resendSignup(flowDeps(c), body.email);
   return c.json(CHECK_EMAIL, 202);
 });
 
 /** One `401 invalid_credentials` for an unknown email, a wrong password and a locked address. */
 auth.post('/login', fromGame, async (c) => {
-  // V6-ACCT-04: RL_AUTH_IP `login:<ip>`, then Turnstile action 'login'.
+  await ipGate(c, 'login');
   const body = await readJson(c, LoginBody, AUTH_BODY);
+  await requireTurnstile(c.env, body.turnstile, 'login', clientIp(c));
   const player = await login(flowDeps(c), body.email, body.password);
   return cookieSession(c, player, 'password');
 });
 
 auth.post('/reset/request', fromGame, async (c) => {
-  // V6-ACCT-04: RL_AUTH_IP `reset:<ip>`, then Turnstile action 'reset'.
+  await ipGate(c, 'reset');
   const body = await readJson(c, EmailBody, AUTH_BODY);
+  await requireTurnstile(c.env, body.turnstile, 'reset', clientIp(c));
   await requestReset(flowDeps(c), body.email);
   return c.json(CHECK_EMAIL, 202);
 });
 
 /** Sets the new password, signs out everywhere, and signs this browser in. */
 auth.post('/reset/confirm', fromGame, async (c) => {
-  // V6-ACCT-04: RL_AUTH_IP `reset:<ip>` (no Turnstile: the token is the proof).
+  await ipGate(c, 'reset'); // no Turnstile: the link token is the proof
   const body = await readJson(c, ResetConfirmBody, AUTH_BODY);
   const player = await confirmReset(flowDeps(c), body.token, body.password);
   return cookieSession(c, player, 'email_link');

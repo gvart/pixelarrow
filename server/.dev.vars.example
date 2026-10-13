@@ -4,7 +4,8 @@
 # Production values are Worker secrets: npx wrangler secret put <NAME>
 TELEGRAM_BOT_TOKEN=123456:replace-with-a-test-bot-token
 TELEGRAM_WEBHOOK_SECRET=replace-with-a-long-random-string
-# Accept { "dev": { "id": 1, "first_name": "Dev" } } logins without Telegram. Local only!
+# Accept { "dev": { "id": 1, "first_name": "Dev" } } logins without Telegram, and Turnstile results
+# from localhost or a testing key. Local only! deploy-config.mjs refuses it in vars.
 DEV_AUTH=1
 # Local origins the Worker accepts for CORS and the cookie Origin check (ADR-0007).
 # Comma-separated; local only, never set in production.
@@ -13,5 +14,12 @@ DEV_ORIGINS=http://localhost:8787,http://localhost:5173
 # Local value only; production uses wrangler secret put PASSWORD_PEPPER / PASSWORD_PEPPER_ID.
 PASSWORD_PEPPER=replace-with-openssl-rand-base64-32
 PASSWORD_PEPPER_ID=1
-# Emails go to the dev_outbox D1 table instead of being sent. Local only, never in production!
+# Emails go to the dev_outbox D1 table instead of being sent (not through the EMAIL binding).
+# Local only, never in production! deploy-config.mjs refuses it in vars.
 DEV_EMAIL=1
+# Turnstile (ADR-0008 §6): Cloudflare's published ALWAYS-PASS testing secret. It accepts only the
+# dummy token XXXX.DUMMY.TOKEN.XXXX, which the testing site key 1x00000000000000000000AA hands out
+# (https://developers.cloudflare.com/turnstile/troubleshooting/testing/). 2x0000000000000000000000000000000AA
+# always fails; 3x0000000000000000000000000000000AA answers timeout-or-duplicate. A testing-key pass
+# counts only while DEV_AUTH=1. Production: wrangler secret put TURNSTILE_SECRET (the widget's secret).
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA

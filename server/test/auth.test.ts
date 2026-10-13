@@ -76,14 +76,14 @@ describe('POST /api/auth/telegram', () => {
     expect((await api('/api/me', { token })).status).toBe(200);
   });
 
-  it('rate-limits logins per IP', async () => {
+  it('rate-limits logins per IP through the RL_TG_AUTH_IP binding (30 / 60 s)', async () => {
     const headers = { 'cf-connecting-ip': '203.0.113.9' };
     const statuses: number[] = [];
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 32; i++) {
       const r = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: 5000 + i } }, headers });
       statuses.push(r.status);
     }
-    expect(statuses.slice(0, 20).every((s) => s === 200)).toBe(true);
+    expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
   });
 });

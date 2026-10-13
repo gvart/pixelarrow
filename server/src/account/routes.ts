@@ -15,7 +15,7 @@ import { db, requireSession } from '../middleware';
 import { forgetSessions } from '../auth/sessions';
 import { validateDisplayName } from '../names/validate';
 import { getPlayer, nameKeyHeld, setDisplayName, type PlayerRow } from '../players';
-import { requireRate } from '../rateLimit';
+import { requireLimit } from '../rateLimit';
 import { accountSummary, nameStatus } from './summary';
 
 export const account = new Hono<AppEnv>();
@@ -38,7 +38,8 @@ const NameBody = z.object({ name: z.string().max(64) });
 account.put('/name', async (c) => {
   const pid = c.get('session').pid;
   // Each try reveals whether a name is taken or allowed: keep probing slow.
-  requireRate(`rename:${pid}`, 10, 60_000);
+  // RL_AUTH_IP (10 / 60 s), shared by every isolate in the location, not the per-isolate map (V6-041).
+  await requireLimit(c.env.RL_AUTH_IP, `rename:${pid}`);
   const body = await readJson(c, NameBody, 1024);
   const v = validateDisplayName(body.name);
   // One message for every reason: the client words each reason itself, and the blocklist is never shown.

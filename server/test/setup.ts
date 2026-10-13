@@ -2,8 +2,13 @@ import { applyD1Migrations, env } from 'cloudflare:test';
 import { beforeEach } from 'vitest';
 import { hashString } from '../../src/sim/rng';
 import { setRandomSource } from '../src/online/store';
+import { withFakeSiteverify } from './siteverify';
 
 await applyD1Migrations(env.DB!, env.TEST_MIGRATIONS);
+
+// Turnstile siteverify answers from a local fake (test/siteverify.ts). A test's
+// vi.spyOn(globalThis, 'fetch') wraps it, and restoring the spy returns here.
+globalThis.fetch = withFakeSiteverify(globalThis.fetch.bind(globalThis));
 
 // Server randomness (shard seeds, home plots, battle/duel seeds, recruits) is
 // drawn from a stream seeded by the test's file and name, so every run of a

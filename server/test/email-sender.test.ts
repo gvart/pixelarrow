@@ -7,7 +7,8 @@ import { env } from 'cloudflare:test';
 import { describe, expect, it, vi } from 'vitest';
 import { requestReset, signup, type FlowDeps } from '../src/auth/flows';
 import { peppersFromEnv } from '../src/auth/password';
-import { emailSenderFor, sendWithTimeout, type EmailMessage, type EmailSender } from '../src/email/sender';
+import { BindingEmailSender, emailSenderFor, sendWithTimeout, type EmailMessage, type EmailSender } from '../src/email/sender';
+import { LogEmailSender } from '../src/email/log';
 import { pickLang, renderEmail } from '../src/email/templates';
 import { ApiError } from '../src/errors';
 
@@ -20,9 +21,20 @@ function deps(mail: EmailSender | null): FlowDeps & { pending: Promise<unknown>[
 }
 
 describe('EmailSender', () => {
-  it('uses the dev outbox only when DEV_EMAIL=1, else none (ACCT-04 adds the binding)', () => {
-    expect(emailSenderFor(env)).not.toBeNull();
-    expect(emailSenderFor({ ...env, DEV_EMAIL: undefined })).toBeNull();
+  it('uses the dev outbox when DEV_EMAIL=1, else the send_email binding from MAIL_FROM, else none', () => {
+    expect(emailSenderFor(env)).toBeInstanceOf(LogEmailSender);
+    expect(env.MAIL_FROM).toBe('noreply@pixelarrow.app');
+    expect(emailSenderFor({ ...env, DEV_EMAIL: undefined })).toBeInstanceOf(BindingEmailSender);
+    expect(emailSenderFor({ ...env, DEV_EMAIL: undefined, EMAIL: undefined })).toBeNull();
+    expect(emailSenderFor({ ...env, DEV_EMAIL: undefined, MAIL_FROM: undefined })).toBeNull();
+  });
+
+  it('sends through the binding from MAIL_FROM, with text and html', async () => {
+    const sent: unknown[] = [];
+    const binding = { send: async (m: unknown) => (sent.push(m), { messageId: 'm1' }) } as unknown as SendEmail;
+    const sender = emailSenderFor({ ...env, DEV_EMAIL: undefined, EMAIL: binding })!;
+    await sender.send({ to: 'a@example.com', subject: 'Hi', text: 't', html: '<p>h</p>' });
+    expect(sent).toEqual([{ to: 'a@example.com', from: 'noreply@pixelarrow.app', subject: 'Hi', text: 't', html: '<p>h</p>' }]);
   });
 
   it('answers 503 email_unavailable when email is not configured, the same for any address', async () => {
