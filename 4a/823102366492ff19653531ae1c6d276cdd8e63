@@ -1,0 +1,23 @@
+landing/src/components/sections/Hero.astro
+  s_0d98fe904b2e82::t_4631ec0820e8f3 257-261,305,307,310-322,325-328,399-400
+landing/scripts/hero-overlap.mjs
+  s_0d98fe904b2e82::t_1b9f3a92d16d30 3,49-54
+landing/src/scripts/hero/diorama.ts
+  s_0d98fe904b2e82::t_941bfb252c65d2 176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4a823102366492ff19653531ae1c6d276cdd8e63",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
