@@ -77,10 +77,7 @@ export async function deleteAccount(env: Env, pid: number, reason: DeletionReaso
   if (!job) {
     if (!(await db.prepare('SELECT 1 FROM players WHERE id = ?1').bind(pid).first())) throw new Error(`no player ${pid}`);
     if (await isBusy(env, db, pid, now)) return 'busy';
-    await db.batch([
-      db.prepare('INSERT INTO deletion_jobs (player_id, reason, step, started_at) VALUES (?1, ?2, 0, ?3) ON CONFLICT (player_id) DO NOTHING').bind(pid, reason, now),
-      db.prepare('UPDATE players SET deleted_at = COALESCE(deleted_at, ?2) WHERE id = ?1').bind(pid, now),
-    ]);
+    await db.batch(startDeletion(db, pid, reason, now));
     forgetSessions(pid);
     log('info', 'account_deletion', { pid, reason });
     job = (await getJob(db, pid))!;
@@ -88,8 +85,21 @@ export async function deleteAccount(env: Env, pid: number, reason: DeletionReaso
   return runJob({ env, db, pid, now, opts }, job.step);
 }
 
+/**
+ * The statements that start a deletion: the job row and `deleted_at` (no
+ * session works from then on). `guard` (an SQL condition) lets a caller start
+ * it inside its own batch only when that batch's precondition holds (V6-LINK-03
+ * conflicts); deleteAccount then resumes the started job.
+ */
+export function startDeletion(db: D1Database, pid: number, reason: DeletionReason, now: number, guard = '1'): D1PreparedStatement[] {
+  return [
+    db.prepare(`INSERT INTO deletion_jobs (player_id, reason, step, started_at) SELECT ?1, ?2, 0, ?3 WHERE ${guard} ON CONFLICT (player_id) DO NOTHING`).bind(pid, reason, now),
+    db.prepare(`UPDATE players SET deleted_at = COALESCE(deleted_at, ?2) WHERE id = ?1 AND ${guard}`).bind(pid, now),
+  ];
+}
+
 /** Busy (ADR-0009 §5.4): a live duel match, the duel queue, an open battle, duel or arena ticket. */
-async function isBusy(env: Env, db: D1Database, pid: number, now: number): Promise<boolean> {
+export async function isBusy(env: Env, db: D1Database, pid: number, now: number): Promise<boolean> {
   if (await liveMatchOf(db, pid, now)) return true;
   const open = await db
     .prepare(

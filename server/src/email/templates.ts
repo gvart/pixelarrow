@@ -21,7 +21,9 @@ export type Template =
   | 'email_changed'
   | 'email_removed'
   | 'telegram_removed'
-  | 'account_deleted';
+  | 'account_deleted'
+  // V6-LINK-03 (ADR-0009 §3.5): Telegram linked from the web, or by a conflict choice.
+  | 'telegram_linked';
 
 /** Russian when the hint (a language_code or an Accept-Language header) starts with "ru", else English. */
 export function pickLang(...hints: (string | null | undefined)[]): Lang {
@@ -103,6 +105,11 @@ const COPY: Record<Lang, Record<Template, Copy>> = {
       lines: ['This email was removed from your Pixelarrow account. You can no longer log in with it, and your browser sessions were signed out.', 'You can still play in Telegram.'],
       after: ["If this wasn't you, contact support right away."],
     },
+    telegram_linked: {
+      subject: 'Telegram linked to your Pixelarrow account',
+      lines: ['A Telegram account was linked to your Pixelarrow account. You can now play it in Telegram too, and the bot can message you there.'],
+      after: ["If this wasn't you, change your password now, remove Telegram in Settings → Account, and contact support."],
+    },
     telegram_removed: {
       subject: 'Telegram removed from your Pixelarrow account',
       lines: ['Telegram was removed from your Pixelarrow account. The bot will stop messaging you, and the game in Telegram was signed out.', 'You can still log in with this email in a browser.'],
@@ -175,6 +182,11 @@ const COPY: Record<Lang, Record<Template, Copy>> = {
       subject: 'Почта удалена из аккаунта Pixelarrow',
       lines: ['Эта почта удалена из вашего аккаунта Pixelarrow. Войти с ней больше нельзя, а в браузерах выполнен выход.', 'Играть в Telegram можно по-прежнему.'],
       after: ['Если это были не вы, сразу напишите в поддержку.'],
+    },
+    telegram_linked: {
+      subject: 'Telegram привязан к аккаунту Pixelarrow',
+      lines: ['К вашему аккаунту Pixelarrow привязан аккаунт Telegram. Теперь в него можно играть и в Telegram, а бот сможет писать вам там.'],
+      after: ['Если это были не вы, сразу смените пароль, отвяжите Telegram в Настройках → Аккаунт и напишите в поддержку.'],
     },
     telegram_removed: {
       subject: 'Telegram отвязан от аккаунта Pixelarrow',

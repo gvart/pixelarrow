@@ -26,7 +26,7 @@ clans.use('*', requirePlayable);
 let botUsername: { name: string | null; at: number } | null = null;
 
 /** Bot username for invite links: TELEGRAM_BOT_USERNAME, else getMe (cached per isolate). */
-async function resolveBot(env: Env): Promise<string | null> {
+export async function resolveBot(env: Env): Promise<string | null> {
   if (env.TELEGRAM_BOT_USERNAME) return env.TELEGRAM_BOT_USERNAME.replace(/^@/, '');
   if (botUsername && Date.now() - botUsername.at < 3_600_000) return botUsername.name;
   let name: string | null = null;

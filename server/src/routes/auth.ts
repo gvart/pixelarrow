@@ -11,6 +11,7 @@ import { clearSessionCookie, sessionCookie } from '../auth/cookies';
 import { createSession, deviceLabel, listSessions, revokeAll, revokeSession, type Method } from '../auth/sessions';
 import { changePassword, confirmReset, login, requestReset, resendSignup, signup, tokenPurpose, verifySignup, type EmailPurpose, type FlowDeps } from '../auth/flows';
 import { verifyAddEmail, verifyChangeEmail } from '../account/email';
+import { proveEmailConflict } from '../account/conflicts';
 import { notifierFor, type Notifier } from '../account/notices';
 import { peppersFromEnv } from '../auth/password';
 import { emailSenderFor } from '../email/sender';
@@ -168,11 +169,11 @@ export function flowDeps(c: Context<AppEnv>): FlowDeps {
 }
 
 /** A fresh cookie session for the web (rotation on every log-in, ADR-0008 §3). */
-async function cookieSession(c: Context<AppEnv>, player: PlayerRow, method: Method, purpose?: EmailPurpose) {
+async function cookieSession(c: Context<AppEnv>, player: PlayerRow, method: Method, purpose?: EmailPurpose, extra: Record<string, unknown> = {}) {
   const { token, session } = await createSession(db(c.env), player.id, 'cookie', method, deviceLabel(c.req.header('user-agent')));
   c.header('set-cookie', sessionCookie(token));
   c.header('cache-control', 'no-store');
-  return c.json({ ...(purpose ? { purpose } : {}), player: publicPlayer(player), expiresAt: session.expiresAt });
+  return c.json({ ...(purpose ? { purpose } : {}), ...extra, player: publicPlayer(player), expiresAt: session.expiresAt });
 }
 
 /** The email and bot notices of identity changes (account/notices.ts), sent after the response. */
@@ -219,6 +220,22 @@ auth.post('/verify', fromGame, async (c) => {
   if (purpose === 'change_email') return cookieSession(c, await verifyChangeEmail(d, notifier(c, d), body.token), 'email_link', purpose);
   // Sign-up, and everything else (a reset token, an unknown or spent one) answers as an invalid sign-up link.
   return cookieSession(c, await verifySignup(d, body.token), 'email_link', 'signup');
+});
+
+const ConflictProofBody = z.object({ token: Token, password: Password });
+
+/**
+ * V6-LINK-03 (ADR-0009 §5.2): an add_email link that answered 409
+ * email_conflict, plus the password of the address's own account. Signs this
+ * browser in to the Telegram player that asked, with `{conflict}` to choose
+ * from, or `{removedEmpty}` when the other account was empty and is gone.
+ */
+auth.post('/verify/conflict', fromGame, async (c) => {
+  await ipGate(c, 'verify');
+  const body = await readJson(c, ConflictProofBody, AUTH_BODY);
+  const d = flowDeps(c);
+  const { player, ...extra } = await proveEmailConflict(c.env, d, notifier(c, d), body.token, body.password);
+  return cookieSession(c, player, 'email_link', 'add_email', extra);
 });
 
 auth.post('/verify/resend', fromGame, async (c) => {
