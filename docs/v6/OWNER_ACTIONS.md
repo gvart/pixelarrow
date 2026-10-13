@@ -7,3 +7,4 @@ Steps only the owner can do. Each one has exact instructions.
 3. Authorise Context7 (/mcp) if you want later runs to check library and Cloudflare docs live.
 4. Accounts (ADR-0008): upgrade to Workers Paid if the Rate Limiting binding or the CPU limits need it. Onboard pixelarrow.app in Cloudflare Email Service (beta) and check SPF, DKIM and DMARC. Create a Turnstile widget for play.pixelarrow.app and set TURNSTILE_SITE_KEY and TURNSTILE_SECRET. Set PASSWORD_PEPPER and PASSWORD_PEPPER_ID as Worker secrets.
 5. Legal: sign off the privacy notice text and the retention periods for purchase records and backups (ADR-0009).
+6. Privacy: decide the minimum player age and how long purchase records are kept (accounts UX Q8, ADR-0009).
