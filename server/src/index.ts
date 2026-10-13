@@ -8,7 +8,8 @@ import { readJson } from './body';
 import { LIMITS, verifyBattle, VerifyBody } from './battle';
 import type { AppEnv } from './env';
 import { ApiError, errorBody } from './errors';
-import { db, requireAuth, sessionFromToken } from './middleware';
+import { db, originCheck, requireAuth, sessionFromToken } from './middleware';
+import { gameOrigins } from './urls';
 import { getPlayer, publicPlayer } from './players';
 import { auth } from './routes/auth';
 import { save } from './routes/save';
@@ -36,11 +37,27 @@ export { DuelDO } from './duel/duelDO';
 
 const app = new Hono<AppEnv>();
 
-// The Mini App is same-origin; this only matters for local tooling and Telegram web clients.
-const ALLOWED_ORIGINS = new Set(['https://pixelarrow.app', 'https://web.telegram.org']);
+/**
+ * Play may be framed by itself and by Telegram Web, which shows the Mini App
+ * in an iframe (ADR-0007); never X-Frame-Options. Responses that set their own
+ * policy (the admin page: frame-ancestors 'none') keep it. The game's static
+ * HTML gets the same header from public/_headers.
+ */
+const FRAMING = "frame-ancestors 'self' https://web.telegram.org";
+app.use('*', async (c, next) => {
+  await next();
+  if (c.res.status === 101 || c.res.headers.has('content-security-policy')) return; // 101: rebuilding would drop the socket
+  c.res = new Response(c.res.body, c.res); // asset responses have immutable headers
+  c.res.headers.set('content-security-policy', FRAMING);
+});
+
+// The game and its API are same-origin on play (ADR-0007); this only matters for
+// Telegram web clients and local tooling. Never the apex, never credentials.
+const TELEGRAM_WEB = 'https://web.telegram.org';
 app.use('/api/*', async (c, next) => {
   const origin = c.req.header('origin');
-  if (origin && ALLOWED_ORIGINS.has(origin) && c.req.method === 'OPTIONS') {
+  const allowed = !!origin && (origin === TELEGRAM_WEB || gameOrigins(c.env).includes(origin));
+  if (allowed && c.req.method === 'OPTIONS') {
     c.res = new Response(null, {
       status: 204,
       headers: {
@@ -54,12 +71,14 @@ app.use('/api/*', async (c, next) => {
     return;
   }
   await next();
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
+  if (allowed) {
     c.res.headers.set('access-control-allow-origin', origin);
     c.res.headers.append('vary', 'origin');
   }
   c.res.headers.set('cache-control', 'no-store');
 });
+app.use('/api/*', originCheck);
+app.use('/ws/*', originCheck);
 
 app.get('/api/health', (c) =>
   c.json({

@@ -5,7 +5,7 @@
  * the webhook):
  *   - setMyCommands in English (default) and Russian
  *   - with TELEGRAM_WEBHOOK_SECRET also set: setWebhook to
- *     https://pixelarrow.app/api/telegram/webhook (or WEBHOOK_URL) with the
+ *     https://play.pixelarrow.app/api/telegram/webhook (or WEBHOOK_URL) with the
  *     allowed updates the bot needs (message, pre_checkout_query, callback_query)
  *
  * Usage: TELEGRAM_BOT_TOKEN=... [TELEGRAM_WEBHOOK_SECRET=...] node server/scripts/bot-setup.mjs
@@ -51,7 +51,7 @@ async function main() {
   console.log('commands set (en, ru)');
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (secret) {
-    const url = process.env.WEBHOOK_URL || 'https://pixelarrow.app/api/telegram/webhook';
+    const url = process.env.WEBHOOK_URL || 'https://play.pixelarrow.app/api/telegram/webhook';
     await call(token, 'setWebhook', { url, secret_token: secret, allowed_updates: ALLOWED_UPDATES });
     console.log('webhook set:', url, ALLOWED_UPDATES.join(', '));
   }

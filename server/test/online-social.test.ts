@@ -75,7 +75,7 @@ describe('clans', () => {
   it('the bot /start clan_<code> payload opens the game with the invite', async () => {
     const calls = mockTelegram();
     await webhook({ update_id: 30, message: { message_id: 1, chat: { id: 9, type: 'private' }, from: { id: 9 }, text: '/start clan_Abc123xyz' } });
-    expect(calls[0].params).toMatchObject({ reply_markup: { inline_keyboard: [[{ web_app: { url: 'https://pixelarrow.app?startapp=clan_Abc123xyz' } }]] } });
+    expect(calls[0].params).toMatchObject({ reply_markup: { inline_keyboard: [[{ web_app: { url: 'https://play.pixelarrow.app?startapp=clan_Abc123xyz' } }]] } });
   });
 
   it('a new player joining by invite is placed in the clan shard', async () => {

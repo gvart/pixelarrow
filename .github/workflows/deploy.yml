@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://pixelarrow.app
+      url: https://play.pixelarrow.app
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/server-setup

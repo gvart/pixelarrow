@@ -103,8 +103,8 @@ describe('notification texts and deep links', () => {
     ];
     for (const [type, e, param] of cases) {
       const r = render('en', type, [e]);
-      const url = buttonUrl('https://pixelarrow.app', r.route);
-      expect(url).toBe(`https://pixelarrow.app/?startapp=${param}`);
+      const url = buttonUrl('https://play.pixelarrow.app', r.route);
+      expect(url).toBe(`https://play.pixelarrow.app/?startapp=${param}`);
       expect(parseStartParam(new URL(url).searchParams.get('startapp'))).toEqual(r.route);
     }
   });
@@ -130,7 +130,7 @@ describe('delivery rules', () => {
     const sent = sends(calls, 77001);
     expect(sent).toHaveLength(1);
     expect(sent[0].params.text).toContain('Your army has arrived at Saguntum');
-    expect(button(sent[0])[0][0].web_app!.url).toBe('https://pixelarrow.app/?startapp=loc_21');
+    expect(button(sent[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=loc_21');
     expect((await outbox(p.playerId)).map((r) => r.status)).toEqual(['sent']);
   });
 
@@ -255,7 +255,7 @@ describe('event triggers', () => {
     const start = await waitForEvent(owner.playerId, 'attack_start');
     expect(JSON.parse(start.data)).toMatchObject({ loc: h, place: w.info(h).name, by: 'Raider' });
     await vi.waitFor(() => expect(sends(calls, 77101)).toHaveLength(1), { timeout: 30_000, interval: 50 });
-    expect(button(sends(calls, 77101)[0])[0][0].web_app!.url).toBe(`https://pixelarrow.app/?startapp=loc_${h}`);
+    expect(button(sends(calls, 77101)[0])[0][0].web_app!.url).toBe(`https://play.pixelarrow.app/?startapp=loc_${h}`);
     const run = play(t.body.setup);
     const sub = await post<{ captured: boolean; won: boolean }>('/api/online/attack/submit', att.token, { ticket: t.body.ticket, ...run });
     expect(sub.status).toBe(200);
@@ -300,7 +300,7 @@ describe('event triggers', () => {
     const row = await waitForEvent(b.playerId, 'duel_challenge');
     expect(JSON.parse(row.data)).toEqual({ by: 'Challenger' });
     await vi.waitFor(() => expect(sends(calls, 77302)).toHaveLength(1), { timeout: 30_000, interval: 50 });
-    expect(button(sends(calls, 77302)[0])[0][0].web_app!.url).toBe('https://pixelarrow.app/?startapp=duel');
+    expect(button(sends(calls, 77302)[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=duel');
     wa.ws.close(1000);
   });
 
@@ -404,6 +404,8 @@ describe('bot commands', () => {
     expect(en).toContain('https://pixelarrow.app/privacy');
     expect(en).toContain('https://pixelarrow.app/refunds');
     expect(ru).toContain('https://pixelarrow.app/ru/terms');
+    // Legal pages live on the landing (LANDING_URL), never on the game host (ADR-0007).
+    expect(`${en}${ru}`).not.toContain('play.pixelarrow.app');
     expect(ru).toContain('Политика конфиденциальности');
   });
 
@@ -445,7 +447,7 @@ describe('bot commands', () => {
     await webhook(msg(77804, '/settings'));
     const kb = button(sends(calls, 77804)[0]);
     expect(kb[0][0]).toMatchObject({ text: '✅ Attacks on your land', callback_data: 'ns:attack' });
-    expect(kb.at(-1)![0].web_app!.url).toBe('https://pixelarrow.app/?startapp=settings');
+    expect(kb.at(-1)![0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=settings');
     await webhook({ update_id: 2, callback_query: { id: 'cb1', from: { id: 77804 }, message: { message_id: 9, chat: { id: 77804 } }, data: 'ns:attack' } });
     const edit = calls.find((c) => c.method === 'editMessageText')!;
     expect((edit.params.reply_markup as { inline_keyboard: { text: string }[][] }).inline_keyboard[0][0].text).toBe('❌ Attacks on your land');
@@ -454,12 +456,12 @@ describe('bot commands', () => {
     expect(view.body.types.find((t) => t.type === 'attack')!.on).toBe(false);
     // someone who never played gets a Play button
     await webhook(msg(77899, '/settings'));
-    expect(button(sends(calls, 77899)[0])[0][0].web_app!.url).toBe('https://pixelarrow.app');
+    expect(button(sends(calls, 77899)[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app');
   });
 
   it('registers the command menu in English and Russian once per version', async () => {
     await DB().prepare("DELETE FROM bot_meta WHERE key = 'commands_version'").run();
-    const calls = mockTelegram({ getWebhookInfo: { url: 'https://pixelarrow.app/api/telegram/webhook', allowed_updates: ['message', 'pre_checkout_query'] } });
+    const calls = mockTelegram({ getWebhookInfo: { url: 'https://play.pixelarrow.app/api/telegram/webhook', allowed_updates: ['message', 'pre_checkout_query'] } });
     expect(await ensureBotSetup(env)).toBe(true);
     expect(await ensureBotSetup(env)).toBe(false);
     const set = calls.filter((c) => c.method === 'setMyCommands');

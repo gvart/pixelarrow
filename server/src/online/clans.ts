@@ -12,6 +12,7 @@ import { readJson } from '../body';
 import type { AppEnv, Env } from '../env';
 import { ApiError } from '../errors';
 import { requireAuth } from '../middleware';
+import { gameUrl } from '../urls';
 import { callBot } from '../telegramApi';
 import { canInvite, canKick, canPromote, clanInviteLink, ONLINE_RULES, type ClanRole } from '../../../src/online/rules';
 import { base, limit, player, type PlayerCtx } from './context';
@@ -141,7 +142,7 @@ clans.post('/invite', async (c) => {
     .bind(code, pc.clan.clanId, pc.pid, pc.now, expiresAt, ONLINE_RULES.inviteMaxUses)
     .run();
   const bot = await resolveBot(c.env);
-  const link = clanInviteLink(bot, code, c.env.TELEGRAM_APP_NAME || 'play', `${(c.env.GAME_URL || 'https://pixelarrow.app').replace(/\/+$/, '')}/`);
+  const link = clanInviteLink(bot, code, c.env.TELEGRAM_APP_NAME || 'play', `${gameUrl(c.env).replace(/\/+$/, '')}/`);
   return c.json({ code, link, expiresAt, maxUses: ONLINE_RULES.inviteMaxUses });
 });
 

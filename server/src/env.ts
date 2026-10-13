@@ -13,7 +13,12 @@ export interface Env {
   /** One object per live ranked or unranked match (named by the match id). */
   DUEL: DurableObjectNamespace<DuelDO>;
   ASSETS?: Fetcher;
+  /** The game's URL, play.pixelarrow.app (wrangler.jsonc vars; server/src/urls.ts). */
   GAME_URL?: string;
+  /** The landing site, pixelarrow.app: legal links in bot texts (wrangler.jsonc vars). */
+  LANDING_URL?: string;
+  /** Local only (.dev.vars): comma-separated dev origins for CORS and the Origin check. */
+  DEV_ORIGINS?: string;
   /** Bot username for clan invite links (t.me/<bot>/<app>); looked up with getMe when unset. */
   TELEGRAM_BOT_USERNAME?: string;
   /** Mini App short name in BotFather (default "play"). */

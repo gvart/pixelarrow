@@ -1,6 +1,6 @@
 /**
  * Launch deep links: the `startapp` parameter of a bot notification button
- * (`https://pixelarrow.app/?startapp=loc_42`) or of a t.me link
+ * (`https://play.pixelarrow.app/?startapp=loc_42`) or of a t.me link
  * (`https://t.me/<bot>/<app>?startapp=duel`). Shared by the Worker (which
  * builds them, server/src/notify) and the client (BootScene routes them).
  *

@@ -23,7 +23,7 @@ describe('telegram webhook', () => {
     expect(calls[0].method).toBe('sendMessage');
     expect(calls[0].params).toMatchObject({
       chat_id: 555,
-      reply_markup: { inline_keyboard: [[{ web_app: { url: 'https://pixelarrow.app' } }]] },
+      reply_markup: { inline_keyboard: [[{ web_app: { url: 'https://play.pixelarrow.app' } }]] },
     });
   });
 });

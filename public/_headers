@@ -1,0 +1,6 @@
+# Headers for the game's static files on play.pixelarrow.app (Workers static
+# assets; the Worker's own responses set theirs in server/src/index.ts).
+# Telegram Web shows the Mini App in an iframe, so play may be framed by itself
+# and web.telegram.org only (ADR-0007). Never add X-Frame-Options here.
+/*
+  Content-Security-Policy: frame-ancestors 'self' https://web.telegram.org
