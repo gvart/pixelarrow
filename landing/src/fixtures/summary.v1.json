@@ -1,0 +1,225 @@
+{
+  "v": 1,
+  "generatedAt": 1791933974996,
+  "totals": {
+    "players": 12,
+    "activePlayers7d": 12,
+    "onlineBattles": 10,
+    "duelsFought": 4,
+    "warBattles": 6,
+    "bossesSlain": 4,
+    "clans": 3
+  },
+  "duels": {
+    "season": {
+      "id": 681,
+      "endsAt": 1793491200000
+    },
+    "live": [
+      {
+        "rank": 1,
+        "name": "FixtureHoplite",
+        "league": "legend",
+        "rating": 2140,
+        "games": 40
+      },
+      {
+        "rank": 2,
+        "name": "FixtureArcher",
+        "league": "strategos",
+        "rating": null,
+        "games": 36
+      },
+      {
+        "rank": 3,
+        "name": "FixturePeltast",
+        "league": "hoplite",
+        "rating": null,
+        "games": 32
+      },
+      {
+        "rank": 4,
+        "name": "FixtureCavalry",
+        "league": "hoplite",
+        "rating": null,
+        "games": 28
+      },
+      {
+        "rank": 5,
+        "name": "FixtureSlinger",
+        "league": "gold",
+        "rating": null,
+        "games": 24
+      },
+      {
+        "rank": 6,
+        "name": "FixtureMarine",
+        "league": "silver",
+        "rating": null,
+        "games": 20
+      },
+      {
+        "rank": 7,
+        "name": "FixtureScout",
+        "league": "silver",
+        "rating": null,
+        "games": 16
+      }
+    ],
+    "async": [
+      {
+        "rank": 1,
+        "name": "FixtureMarine",
+        "league": "hoplite",
+        "rating": null,
+        "games": 30
+      },
+      {
+        "rank": 2,
+        "name": "FixtureScout",
+        "league": "gold",
+        "rating": null,
+        "games": 25
+      },
+      {
+        "rank": 3,
+        "name": "FixtureMedic",
+        "league": "gold",
+        "rating": null,
+        "games": 20
+      },
+      {
+        "rank": 4,
+        "name": "FixtureEngineer",
+        "league": "silver",
+        "rating": null,
+        "games": 15
+      }
+    ]
+  },
+  "war": {
+    "season": {
+      "id": 1,
+      "endsAt": 1799709969315
+    },
+    "players": [
+      {
+        "rank": 1,
+        "name": "FixtureHoplite",
+        "clan": "Fixture Wolves",
+        "score": 1
+      },
+      {
+        "rank": 2,
+        "name": "FixtureArcher",
+        "clan": "Fixture Ravens",
+        "score": 1
+      },
+      {
+        "rank": 3,
+        "name": "FixturePeltast",
+        "clan": "Fixture Lions",
+        "score": 1
+      },
+      {
+        "rank": 4,
+        "name": "FixtureCavalry",
+        "clan": null,
+        "score": 1
+      },
+      {
+        "rank": 5,
+        "name": "FixtureSlinger",
+        "clan": null,
+        "score": 1
+      },
+      {
+        "rank": 6,
+        "name": "FixtureMarine",
+        "clan": null,
+        "score": 1
+      },
+      {
+        "rank": 7,
+        "name": "FixtureScout",
+        "clan": null,
+        "score": 1
+      },
+      {
+        "rank": 8,
+        "name": "FixtureMedic",
+        "clan": null,
+        "score": 1
+      },
+      {
+        "rank": 9,
+        "name": "FixtureEngineer",
+        "clan": null,
+        "score": 1
+      }
+    ],
+    "clans": [
+      {
+        "rank": 1,
+        "name": "Fixture Lions",
+        "score": 1,
+        "members": 1
+      },
+      {
+        "rank": 2,
+        "name": "Fixture Ravens",
+        "score": 1,
+        "members": 1
+      },
+      {
+        "rank": 3,
+        "name": "Fixture Wolves",
+        "score": 1,
+        "members": 1
+      }
+    ]
+  },
+  "champions": {
+    "war": [
+      {
+        "season": 0,
+        "name": "FixturePeltast",
+        "title": "Basileus"
+      }
+    ],
+    "duel": [
+      {
+        "season": 680,
+        "ladder": "live",
+        "name": "FixtureHoplite"
+      },
+      {
+        "season": 680,
+        "ladder": "async",
+        "name": "FixtureScout"
+      },
+      {
+        "season": 679,
+        "ladder": "live",
+        "name": "FixtureCavalry"
+      }
+    ]
+  },
+  "bossSlayers": [
+    {
+      "rank": 1,
+      "name": "FixtureArcher",
+      "kills": 2
+    },
+    {
+      "rank": 2,
+      "name": "FixtureSlinger",
+      "kills": 1
+    },
+    {
+      "rank": 3,
+      "name": "FixtureMedic",
+      "kills": 1
+    }
+  ]
+}
