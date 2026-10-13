@@ -67,6 +67,7 @@ once from `Base.astro` so it is inlined rather than costing a request before LCP
 **Headroom warning for LAND-04/05:** mobile LCP has about 30 ms left under 2.0 s, and most of the
 growth over v6 came from HTML weight (7.2 → 11.8 kB on the wire). Keep new section markup lean.
 
+<<<<<<< HEAD
 ## V6-LAND-02b: the phone hero and the line stagger (V6-029)
 
 **Phones (< 768 px)** now play a lighter cut of the hero battle instead of only the poster. Everything
@@ -94,3 +95,53 @@ and no module or sprite request under reduced motion, data saver or deviceMemory
 
 Mobile total bytes grow from 177 kB to 426 kB, all after LCP (terrain 49 kB, sprite sheet 199 kB, module
 8 kB). The hero starter is 1.3 kB gzip (critical JS ≈ 3.3 kB in total); the lazy module 7.6 kB gzip.
+=======
+## V6-LAND-05: clips, FAQ and closing (truth check)
+
+### Clips (`#clips`)
+
+G1–G4 from `landing/public/video/` (moved from staging, V6-027). Captions say only what each take
+shows (ASSET_LOG › P5-VIDEO): G1 the Companions' flank charge and the Celts' rout (seed 207); G2 a pass
+over the war map (towns, rivers, a rival army on the march; no fog or lair is in the take, so none is
+claimed); G3 the shield wall holding in a duel (not a deployment drag); G4 a reforge at the smith.
+Posters AVIF 25.6–38.1 kB (≤ 40 kB). One `VideoObject` per clip in the section (name, thumbnailUrl,
+contentUrl, uploadDate 2026-10-13, duration); `description` left out for bytes (recommended, not
+required). 2x2 from 768 px; a snap reel under 768 px, so only one take is half in view and plays.
+
+### FAQ (`#faq`)
+
+| Answer | Source | Status |
+|---|---|---|
+| Stars buy Drachmae for cosmetics, the season pass and shortcuts; gear and heroes never sold; no purchases on the web yet | DESIGN_V2 › Monetization; ROADMAP v6 Payments ("coming soon" on the web) | true today in Telegram; web placeholder is v6 goal 7 |
+| Browser with no account; email sign-in for duels and the war; link Telegram | V6-017 (guest play, "Sign in to play online"); ROADMAP v6 Accounts, Linked accounts | **v6, re-check in LAND-06** (ACCT stories) |
+| Phones, tablets, laptops; touch or mouse and keyboard; rebindable battle hotkeys | ROADMAP v6 Mouse and keyboard | **v6, re-check in LAND-06** (input stories) |
+| Campaign saves on the device, syncs to the cloud when signed in; duels and war on the server | GAMEPLAY › Saves, Cloud save; V6-017 (guest save uploads on sign-up) | true today (Telegram); web accounts v6 |
+| English and Russian | brief (game UI is EN and RU) | true today |
+| Privacy notice; delete the account from Settings | ROADMAP v6 Privacy (goal 9); `/privacy` exists | **deletion is v6, re-check in LAND-06** |
+
+No FAQPage JSON-LD: Google shows FAQ rich results only for government and health sites, and it would
+cost bytes the first flight does not have.
+
+### Closing band
+
+"Your phalanx is waiting" and both buttons. V6-025 fixed: while the band is in view
+(`html[data-closing]`, an IntersectionObserver in ClosingCta.astro) the nav's "Play" takes the outline
+style, so "Play in browser" is the only terracotta button on screen (tested in sections-check).
+
+### Budget: the first-flight cliff (measured, Lighthouse 12.8.2, astro preview, three runs each)
+
+Mobile LCP is not linear in HTML bytes; it is a cliff. Padding the v6 page with incompressible bytes:
+gzip body 12.8 kB → 1.95 s, 13.8 kB → 1.95 s, 14.18 kB → 1.95 s, **14.37 kB → 2.05–2.11 s** (one more
+round trip). With these sections' CSS inline the body was 14.5–15.1 kB and LCP 2.04–2.11 s. A second
+finding: **any request for the section CSS before LCP**, even one sent on the load event (local
+`load` fires before the observed LCP), cost ≈ 75 ms in two of three runs. So:
+
+- The clips, FAQ and closing styles live in `landing/src/styles/below.css` (2.2 kB, 0.96 kB gzip),
+  fetched by `landing/src/scripts/below-css.ts` when `#clips` comes within 1500 px, or at once on a
+  deep link (`#faq`); `<noscript>` link for no-JS. ADR-0011 inlines only critical CSS, so this fits it.
+- Result: HTML 14.16 kB gzip (v6 before: 12.8 kB). Mobile 99/100/100/100, LCP 1.96 s (v6 before:
+  1.95 s), CLS 0, TBT 0. Desktop 100/100/100/100, LCP 0.53 s, CLS 0.00004 (unchanged from v6).
+- **Warning for LAND-04 and LAND-06:** the body is about 20 bytes under the last good measurement.
+  New sections must move their own CSS into the late stylesheet (or a twin) and keep markup tiny; past
+  ≈ 14.2 kB gzip, mobile LCP jumps by ≈ 100 ms.
+>>>>>>> worktree-agent-a468db3ae96ea6c1e

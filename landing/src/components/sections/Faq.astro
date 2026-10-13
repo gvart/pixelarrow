@@ -1,10 +1,40 @@
 ---
-// FAQ (#faq), STRUCTURE.md §7. Stub from V6-LAND-01; V6-LAND-05 writes the questions.
+// FAQ (#faq), STRUCTURE.md §7. Native <details>, so it works without JS and every row can be open at
+// once. Answers sit on parchment (V6-015). Every claim is checked in docs/v6/landing/NOTES.md
+// ("V6-LAND-05"); the ones that depend on v6 stories still in flight are listed there for LAND-06 to
+// re-check before the page ships. Styles: styles/below.css. No FAQPage JSON-LD: Google no longer
+// shows FAQ results for sites like this one, and mobile LCP has no bytes to spare (V6-032).
 ---
-<section class="section" id="faq" aria-labelledby="faq-title">
+<section class="section faq" id="faq" aria-labelledby="faq-title">
   <div class="container">
     <header class="section__head">
       <h2 id="faq-title" class="section__title">Questions</h2>
     </header>
+    <div class="faq__list">
+      <details>
+        <summary>Is it free to play?</summary>
+        <p class="faq__a">Yes. In Telegram, Stars buy Drachmae for cosmetics, the season pass and shortcuts; gear and heroes are never sold. Purchases are not available on the web yet.</p>
+      </details>
+      <details>
+        <summary>Do I need Telegram?</summary>
+        <p class="faq__a">No. Play in your browser with no account. Sign in with email to fight duels and the war online, and link Telegram to keep one progress on both.</p>
+      </details>
+      <details>
+        <summary>Can I play on a laptop or tablet?</summary>
+        <p class="faq__a">Yes: phones, tablets and laptops, by touch or by mouse and keyboard with battle hotkeys you can rebind.</p>
+      </details>
+      <details>
+        <summary>Is my progress saved?</summary>
+        <p class="faq__a">Your campaign saves on your device and syncs to the cloud when you are signed in. Duels and the war live on the server.</p>
+      </details>
+      <details>
+        <summary>Which languages?</summary>
+        <p class="faq__a">English and Russian.</p>
+      </details>
+      <details>
+        <summary>What happens to my data?</summary>
+        <p class="faq__a">Only what the game needs. Read the <a href="/privacy">privacy notice</a>; you can delete your account from Settings at any time.</p>
+      </details>
+    </div>
   </div>
 </section>

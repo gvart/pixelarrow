@@ -1,0 +1,146 @@
+/* Styles for the sections below the fold that V6-LAND-05 owns: clips, FAQ and the closing band.
+   Not critical, so they load as one small stylesheet linked from the clips section instead of inline:
+   the inline HTML must stay inside the first 14 kB round trip or mobile LCP jumps by one RTT
+   (≈ 150 ms, measured; ADR-0011 "critical CSS inlined"). Every class here is a section's own. */
+
+/* Clips (#clips) */
+.clips__reel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s12) var(--s8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.take {
+  display: grid;
+  align-content: start;
+  gap: var(--s2);
+}
+.take .clip {
+  margin-bottom: var(--s2);
+  border: 1px solid var(--stone-edge);
+  border-bottom: 3px solid #0c0a08;
+  border-radius: var(--radius);
+}
+.take__title {
+  font-size: 1.25rem;
+}
+.take__line {
+  max-width: 46ch;
+  color: var(--cream-muted);
+}
+
+/* Phones: a reel that bleeds to the screen edges and snaps one take at a time, with the next one
+   peeking in so it reads as scrollable. Only the take in view is half visible, so only it plays. */
+@media (max-width: 767px) {
+  .clips__reel {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 86%;
+    gap: var(--s4);
+    margin-inline: calc(-1 * var(--gutter));
+    padding: 0 var(--gutter) var(--s4);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: thin;
+    scrollbar-color: var(--stone-edge) transparent;
+  }
+  .take {
+    scroll-snap-align: start;
+  }
+}
+
+/* FAQ (#faq) */
+.faq__list {
+  max-width: 48rem;
+  margin-inline: auto;
+  border-top: 1px solid var(--stone-edge);
+}
+.faq details {
+  border-bottom: 1px solid var(--stone-edge);
+}
+.faq summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  min-height: 64px;
+  padding: var(--s4) 0;
+  color: var(--cream);
+  font-size: 1.125rem;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+/* The marker is the divider's lattice node: an outlined diamond that fills when its row is open. */
+.faq summary::before {
+  content: '';
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-inline: 4px;
+  border: 1px solid var(--lattice);
+  transform: rotate(45deg);
+}
+.faq [open] > summary::before {
+  background: var(--lattice);
+}
+
+/* The answer is a parchment slip, indented to the question's text. */
+.faq__a {
+  margin: 0 0 var(--s6) calc(17px + var(--s4));
+  padding: var(--s4) var(--s6);
+  border-radius: var(--radius);
+  background: var(--parch);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 rgb(58 36 20 / 0.18);
+}
+.faq__a a {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration-color: rgb(58 36 20 / 0.5);
+}
+.faq__a a:focus-visible {
+  outline-color: var(--ink);
+  box-shadow: none;
+}
+@media (max-width: 479px) {
+  .faq__a {
+    margin-left: 0;
+    padding: var(--s4);
+  }
+}
+
+/* Closing call to action */
+/* The lamp: a warm pool of light over the line, the band's only gradient (0-16% lamp). */
+.closing.section--night {
+  background: radial-gradient(32rem 16rem at 50% 50%, rgb(var(--lamp) / 0.16), rgb(var(--lamp) / 0.05) 55%, transparent), var(--night);
+}
+.closing__inner {
+  display: grid;
+  justify-items: center;
+  gap: var(--s8);
+  text-align: center;
+}
+.closing__title {
+  font-size: clamp(2rem, 5.5vw, 4rem);
+}
+.closing__ctas {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s3);
+}
+.closing__ctas .btn {
+  min-width: min(100%, 17rem);
+}
+html[data-closing] .nav__play {
+  background-color: rgb(16 13 11 / 0.35);
+  border-color: rgb(240 227 194 / 0.75);
+}

@@ -1,4 +1,4 @@
-// Features, classes and modes check (V6-LAND-03). Serves dist/ itself and asserts, in Chromium:
+// Sections check (V6-LAND-03, extended by V6-LAND-05). Serves dist/ itself and asserts, in Chromium:
 //  1. Truth: every class and beast card names a class in src/data/classes.ts; the mode tiles are
 //     exactly Campaign, Duels, War, Forge; every mode poster is a real clip poster in /video/.
 //  2. Layout: no horizontal overflow at 320, 390, 768, 1280, 1440 and 1920.
@@ -7,7 +7,12 @@
 //  5. Lazy stills: no bust or poster loads on the first view; they arrive as their section nears.
 //  6. Clips: no source before the clip is near; muted autoplay when visible, paused when not; at most
 //     one playing on a phone and two on desktop; reduced motion keeps the poster until pressed.
-// With SHOTS_DIR set, it also saves screenshots of the three sections at the six widths.
+//  7. Clips, FAQ and closing (V6-LAND-05): the clip tiles are G1-G4 with one VideoObject each; the FAQ
+//     asks the six STRUCTURE.md §7 questions and says web purchases are not available yet; the clips
+//     are a 2x2 grid from 768 px and a snap reel on phones (one playing at a time); in the closing band
+//     "Play in browser" is the only terracotta button in view; their stylesheet is not fetched on the
+//     first view (it would cost mobile LCP), only as the clips come near or on a deep link.
+// With SHOTS_DIR set, it also saves screenshots of the sections at the six widths.
 //
 // Usage (in landing/, after `npm run build`): npm run test:sections (SECTIONS_TEST_PORT picks the port,
 // default 6143). Playwright comes from the repository root's node_modules.
@@ -71,11 +76,12 @@ try {
       await mkdir(SHOTS, { recursive: true });
       // fixed chrome repeats over a tall element capture; hide it for the section shots only
       await page.addStyleTag({ content: '.nav, .skip { visibility: hidden !important; }' });
-      for (const id of ['features', 'classes', 'modes']) {
+      for (const [id, sel] of [['features', '#features'], ['classes', '#classes'], ['modes', '#modes'], ['clips', '#clips'], ['faq', '#faq'], ['closing', '.closing']]) {
         // let lazy images and the near-viewport clip loading settle; clips are paused for a stable frame
-        await scrollTo(page, `#${id}`);
+        await scrollTo(page, sel);
+        if (id === 'faq') await page.$eval('#faq details', (d) => { d.open = true; });
         await page.$$eval('[data-clip] video', (vs) => vs.forEach((v) => v.pause()));
-        await page.locator(`#${id}`).screenshot({ path: join(SHOTS, `${id}-${width}.png`) });
+        await page.locator(sel).screenshot({ path: join(SHOTS, `${id}-${width}.png`) });
       }
     }
     await page.close();
@@ -180,6 +186,77 @@ try {
     await page.waitForTimeout(300);
     s = await clipState(page);
     check(!s[0].playing, 'the same button pauses it');
+    await page.close();
+  }
+  // 7. Clips, FAQ and closing (V6-LAND-05)
+  {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(URL_, { waitUntil: 'load' });
+    await page.waitForTimeout(1000);
+    const belowEarly = await page.evaluate(() => performance.getEntriesByType('resource').filter((e) => /\/below\.[^/]*\.css$/.test(e.name)).length);
+    check(belowEarly === 0, `the clips, FAQ and closing stylesheet is not fetched on the first view (${belowEarly})`);
+    await scrollTo(page, '#modes');
+    const belowNear = await page.evaluate(() => [...document.styleSheets].some((s) => /\/below\.[^/]*\.css$/.test(s.href ?? '')));
+    check(belowNear, 'the stylesheet arrives as the clips come near');
+    const takes = await page.$$eval('#clips .clip', (els) => els.map((e) => e.dataset.webm));
+    check(takes.join() === '/video/G1.webm,/video/G2.webm,/video/G3.webm,/video/G4.webm', `clip tiles are G1-G4 (got ${takes.join()})`);
+    const ld = await page.$$eval('#clips script[type="application/ld+json"]', (els) => els.map((e) => JSON.parse(e.textContent)));
+    const videos = ld.flatMap((j) => j['@graph'] ?? [j]).filter((n) => n['@type'] === 'VideoObject');
+    check(videos.length === 4, `one VideoObject per clip (got ${videos.length})`);
+    const titles = await page.$$eval('#clips .take__title', (els) => els.map((e) => e.textContent.trim()));
+    for (const [i, v] of videos.entries()) {
+      check(v.name === titles[i] && /^\d{4}-\d\d-\d\d$/.test(v.uploadDate) && /^PT\d+S$/.test(v.duration), `VideoObject ${i + 1} names its tile and has an upload date and a duration`);
+      for (const key of ['thumbnailUrl', 'contentUrl']) {
+        const local = v[key].replace('https://pixelarrow.app', '');
+        const ok = v[key].startsWith('https://pixelarrow.app/video/') && (await readFile(join(DIST, local)).then(() => true, () => false));
+        check(ok, `VideoObject ${i + 1} ${key} is an absolute URL to a shipped file (${v[key]})`);
+      }
+    }
+    const qs = await page.$$eval('#faq summary', (els) => els.map((e) => e.textContent.trim()));
+    const want = ['Is it free to play?', 'Do I need Telegram?', 'Can I play on a laptop or tablet?', 'Is my progress saved?', 'Which languages?', 'What happens to my data?'];
+    check(qs.join('|') === want.join('|'), `FAQ asks the six STRUCTURE.md questions (got ${qs.length})`);
+    const faqText = await page.$eval('#faq', (e) => e.textContent);
+    check(/Purchases are not available on the web yet/.test(faqText), 'FAQ: web purchases are "not available yet"');
+    check(await page.$('#faq a[href="/privacy"]') !== null, 'FAQ links the privacy notice');
+    // 2x2 from 768 px: the first two tiles share a row, the third starts the next one
+    const tops = await page.$$eval('#clips .take', (els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+    check(tops[0] === tops[1] && tops[2] > tops[0] && tops[2] === tops[3], `desktop: clips are a 2x2 grid (${tops.join()})`);
+    // closing band: one terracotta button in view
+    await scrollTo(page, '.closing');
+    const terra = await page.evaluate(() => [...document.querySelectorAll('a.btn, button')].filter((b) => {
+      const r = b.getBoundingClientRect();
+      return r.bottom > 0 && r.top < innerHeight && getComputedStyle(b).backgroundColor === 'rgb(168, 67, 44)';
+    }).map((b) => b.textContent.trim()));
+    check(terra.length === 1 && terra[0] === 'Play in browser', `closing: only "Play in browser" is terracotta in view (${terra.join(', ')})`);
+    await scrollTo(page, '#modes');
+    const navPlay = await page.$eval('.nav__play', (b) => getComputedStyle(b).backgroundColor);
+    check(navPlay === 'rgb(168, 67, 44)', `away from the hero and the closing band the nav "Play" is terracotta again (${navPlay})`);
+    await page.close();
+  }
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(URL_, { waitUntil: 'load' });
+    await scrollTo(page, '#clips .clips__reel');
+    const reel = await page.$eval('#clips .clips__reel', (e) => ({ snap: getComputedStyle(e).scrollSnapType, over: e.scrollWidth > e.clientWidth }));
+    check(reel.over && reel.snap.startsWith('x'), `phone: clips are a horizontal snap reel (${reel.snap})`);
+    let max = 0;
+    for (let i = 1; i <= 4; i++) {
+      await page.$eval(`#clips .take:nth-child(${i})`, (e) => e.parentElement.scrollTo({ left: e.offsetLeft - parseFloat(getComputedStyle(e.parentElement).scrollPaddingLeft), behavior: 'instant' }));
+      await page.waitForTimeout(1000);
+      const s = await clipState(page);
+      max = Math.max(max, s.filter((c) => c.playing).length);
+      check(s[3 + i].playing, `phone: clip G${i} plays when it is snapped into view`);
+    }
+    check(max === 1, `phone: one clip at a time in the reel (max ${max})`);
+    await page.close();
+  }
+  {
+    // a deep link styles the FAQ at once
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`${URL_}#faq`, { waitUntil: 'load' });
+    await page.waitForTimeout(500);
+    const bg = await page.$eval('#faq .faq__a', (e) => getComputedStyle(e).backgroundColor);
+    check(bg === 'rgb(231, 214, 173)', `#faq deep link: answers are on parchment at once (${bg})`);
     await page.close();
   }
 } finally {
