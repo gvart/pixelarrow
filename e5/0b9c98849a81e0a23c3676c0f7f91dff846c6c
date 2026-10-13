@@ -1,0 +1,43 @@
+src/online/rules.ts
+  s_0d98fe904b2e82::t_66de711d2fe7d8 167
+server/test/online-social.test.ts
+  s_0d98fe904b2e82::t_c3560e50266243 78
+server/src/notify/outbox.ts
+  s_0d98fe904b2e82::t_66de711d2fe7d8 185
+  s_0d98fe904b2e82::t_7c08e94ff85a0f 25
+server/src/routes/webhook.ts
+  s_0d98fe904b2e82::t_66de711d2fe7d8 57
+  s_0d98fe904b2e82::t_5980fc139d4f69 28
+server/src/bot/handlers.ts
+  s_0d98fe904b2e82::t_1f47eb5e0d31cd 23,44-46,126
+server/test/payments.test.ts
+  s_0d98fe904b2e82::t_c3560e50266243 26
+server/src/online/clans.ts
+  s_0d98fe904b2e82::t_66de711d2fe7d8 145
+  s_0d98fe904b2e82::t_a9a848f30d22e1 15
+wrangler.jsonc
+  s_0d98fe904b2e82::t_848596a14519c6 1-7,24,27-29
+server/scripts/bot-setup.mjs
+  s_0d98fe904b2e82::t_f3d38137f407d4 8,54
+tests/onlineMode.test.ts
+  s_0d98fe904b2e82::t_3a227a1542eff2 63
+server/test/notify.test.ts
+  s_0d98fe904b2e82::t_649477ba0fc6c2 407-408
+  s_0d98fe904b2e82::t_c3560e50266243 106-107,133,258,303,450,459,464
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e50b9c98849a81e0a23c3676c0f7f91dff846c6c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
