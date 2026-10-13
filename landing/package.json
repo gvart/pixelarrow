@@ -1,0 +1,22 @@
+{
+  "name": "pixelarrow-landing",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.worker.json",
+    "dry-run": "../server/node_modules/.bin/wrangler deploy --dry-run --config wrangler.jsonc --outdir .wrangler/dry-run"
+  },
+  "dependencies": {
+    "astro": "7.3.5"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/workers-types": "5.20260928.1",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

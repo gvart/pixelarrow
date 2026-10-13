@@ -1,0 +1,26 @@
+---
+// Placeholder until the LAND stories build the page (ADR-0011, docs/v6/landing/STRUCTURE.md).
+const PLAY_URL = 'https://play.pixelarrow.app/';
+// The inline script first in <head>: Telegram puts launch data in the hash, which never reaches the
+// Worker, so a Mini App that still points at the apex is sent on to play with it (ADR-0007).
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script is:inline>if(location.hash.indexOf('tgWebApp')!==-1)location.replace('https://play.pixelarrow.app/'+location.search+location.hash)</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixelarrow</title>
+  </head>
+  <body>
+    <main>
+      <h1>Pixelarrow</h1>
+      <p><a href={PLAY_URL}>Play</a></p>
+      <nav aria-label="Legal pages">
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/refunds">Refunds</a>
+      </nav>
+    </main>
+  </body>
+</html>
