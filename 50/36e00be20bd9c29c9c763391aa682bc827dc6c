@@ -1,0 +1,21 @@
+landing/src/fonts/OFL-Cinzel.txt
+  s_0d98fe904b2e82::t_470f09517cddb2 1-93
+landing/src/fonts/OFL-Inter.txt
+  s_0d98fe904b2e82::t_27db2abcdfa540 1-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5036e00be20bd9c29c9c763391aa682bc827dc6c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
