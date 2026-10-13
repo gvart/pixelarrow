@@ -1,0 +1,35 @@
+docs/v6/ASSET_LOG.md
+  s_0d98fe904b2e82::t_4bec7406316ee9 177-187
+docs/v6/PROGRESS.md
+  s_0d98fe904b2e82::t_03bfbfbf3a26ba 12,17
+docs/v6/landing/NOTES.md
+  s_0d98fe904b2e82::t_07a52f16b495f9 70,98-147
+landing/scripts/sections-check.mjs
+  s_0d98fe904b2e82::t_ccf2f8d6938405 1,10-15,79,81-82,84,191-261
+landing/src/components/sections/Clips.astro
+  s_0d98fe904b2e82::t_231c9d591610b5 2-50,52-53,59-67,69,71-75
+landing/src/components/sections/ClosingCta.astro
+  s_0d98fe904b2e82::t_300dbbcc1579e2 2-6,11,19-24,26
+landing/src/components/sections/Faq.astro
+  s_0d98fe904b2e82::t_8dbe247eb48c2d 2-6,8,13-38
+landing/src/scripts/below-css.ts
+  s_0d98fe904b2e82::t_7a94f524ee732c 1-24
+landing/src/styles/below.css
+  s_0d98fe904b2e82::t_7fee2637b27e23 1-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "81fce20b93db1dc54abc236f1961965a848cb022",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
