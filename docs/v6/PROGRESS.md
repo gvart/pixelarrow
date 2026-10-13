@@ -9,9 +9,10 @@
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
-| integrator-plat-01 | merges PLAT-01, full gates, recheck ru 375x667 | 9 (6190–6199) | n/a |
+| integrator-acct-02 | merges ACCT-02, gates, checks whether the online-e2e duel step was already failing | 9 (6190–6199) | n/a |
+| inp-01 | V6-INP-01: action map, bindings, per-device storage | 1 (6110–6119) | input-systems, dev-story, tdd |
 
-**Integration queue (in order):** PLAT-01 (running) → ACCT-02 (worktree-agent-ae2ee72c9e3552df0; check whether the online-e2e duel-step failure was already there on base) → LAND-02b (worktree-agent-a53d46dde96001b69) → LAND-05 (worktree-agent-a468db3ae96ea6c1e; mobile LCP has a cliff at about 14.2 kB of gzipped HTML, so below-the-fold CSS is lazy; three FAQ answers describe unmerged v6 features, rechecked in LAND-06) → GATE-01 (worktree-agent-aa79f1267b9ef0092; rerun the full vitest; matrix: phone sizes plus 1280x800 only, per V6-030; CI covers the rest).
+**Integration queue (in order):** ACCT-02 (running) (worktree-agent-ae2ee72c9e3552df0; check whether the online-e2e duel-step failure was already there on base) → LAND-02b (worktree-agent-a53d46dde96001b69) → LAND-05 (worktree-agent-a468db3ae96ea6c1e; mobile LCP has a cliff at about 14.2 kB of gzipped HTML, so below-the-fold CSS is lazy; three FAQ answers describe unmerged v6 features, rechecked in LAND-06) → GATE-01 (worktree-agent-aa79f1267b9ef0092; rerun the full vitest; matrix: phone sizes plus 1280x800 only, per V6-030; CI covers the rest).
 Integrators run one at a time in slot 9. Director merges check the exit code (V6-028).
 
 **Unblocked once PLAT-01 merges:** INP-01 (action map), PLAT-02 (haptics codemod and Back), PAY-01 needs PLAT-04. RFND-01 waits for GATE-01.
@@ -19,6 +20,8 @@ Integrators run one at a time in slot 9. Director merges check the exit code (V6
 **Tech debt:** a flaky root vitest test (seen once in 1540); the integrator records it in docs/v6/qa/FLAKY.md. Migrate @cloudflare/vitest-pool-workers to @cloudflare/vitest-plugin.
 
 ## Merged
+
+- PLAT-01 (V6-033, ea62934e)
 
 - STATS-01 (V6-031), LAND-03 (V6-032)
 
