@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 # Gates run in parallel; every one of them must pass before the deploy job:
-#   build (types, unit tests, dist/ as an artifact) -> layout (10 shards) + smoke (5 scripts)
+#   build (types, unit tests, dist/ as an artifact) -> layout (one job per size and language) + smoke (5 scripts)
 #   build -> server (types, tests in workerd; wrangler.jsonc's assets need dist/)
 jobs:
   build:
@@ -60,29 +60,33 @@ jobs:
       - run: npx vitest run
         working-directory: server
 
-  # ---- layout check (docs/UI_KIT.md "Layout check"): every screen at five
-  # phone sizes, with and without Telegram's safe-area insets, in English and
-  # Russian: 20 configurations, two per shard, each split in two contexts.
-  # Known violations are allowlisted with an owner in
-  # scripts/layout-allowlist.json; anything else fails the deploy.
+  # ---- layout check (docs/UI_KIT.md "Layout check"): every screen across the
+  # v6 screen matrix (the ten sizes of `--matrix all`) plus the v5 phone sizes
+  # (`--matrix v5`: 320x568, 375x667, 430x932, 320x640), in English and
+  # Russian, with Telegram's safe-area insets too at phone sizes. One job per
+  # size and language (one or two configurations, each split in two contexts).
+  # Known violations are allowlisted per owner story in
+  # scripts/layout-allowlist/<story>.json (`@WxH` scopes an entry to a size);
+  # anything else fails the deploy.
   layout:
     needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        size: [390x844, 360x780, 320x693, 844x390, 768x1024, 820x1180, 1024x768, 1280x800, 1440x900, 1920x1080, 320x568, 375x667, 430x932, 320x640]
+        lang: [en, ru]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/browser-setup
-      - name: Layout check (shard ${{ matrix.shard }}/10)
-        run: node scripts/layout-check.mjs http://localhost:4173/ --shard ${{ matrix.shard }}/10 --split 2 --jobs 4
+      - name: Layout check (${{ matrix.size }}, ${{ matrix.lang }})
+        run: node scripts/layout-check.mjs http://localhost:4173/ --sizes ${{ matrix.size }} --langs ${{ matrix.lang }} --split 2 --jobs 4
       - name: Upload layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: layout-screenshots-${{ matrix.shard }}
+          name: layout-${{ matrix.size }}-${{ matrix.lang }}
           path: shots/layout
           retention-days: 14
 
