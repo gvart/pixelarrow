@@ -388,7 +388,7 @@ describe('live duel over WebSocket', () => {
     expect((await SELF.fetch(`${BASE}/ws/online`, { headers: { upgrade: 'websocket' } })).status).toBe(401);
     const { devLogin } = await import('./helpers');
     const n = await devLogin(8199);
-    expect((await SELF.fetch(`${BASE}/ws/online?token=${encodeURIComponent(n.token)}&sim=${SIM_VERSION}`, { headers: { upgrade: 'websocket' } })).status).toBe(409);
+    expect((await SELF.fetch(`${BASE}/ws/online?sim=${SIM_VERSION}`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${n.token}` } })).status).toBe(409);
     expect((await api('/api/online/status', { token: n.token })).status).toBe(200);
   });
 });

@@ -48,16 +48,19 @@ server/
                       async.ts (raids, seasons, boards routes), season.ts (rollover, leaderboards),
                       verify.ts (the replay check shared by the ladder and raids)
     telegramAuth.ts   initData validation (HMAC-SHA256, constant-time, 24 h max age)
-    session.ts        stateless signed session tokens
+    auth/             sessions.ts (pa2 server-side sessions, 30 s cache, prune), identity.ts (telegram
+                      identity + players.telegram_id mirror), cookies.ts (__Host-pa_sid), origin.ts (CSRF)
+    names/            generate.ts (generated display names and their uniqueness key)
     payments.ts       pre-checkout checks, idempotent payment/refund recording
     products.ts       shop catalogue (Stars prices) and invoice payload format
-    middleware.ts     requireAuth, db()/secret() -> 503 when not configured
+    middleware.ts     requireSession, requirePlayable, db()/secret() -> 503 when not configured
     crypto.ts, body.ts, errors.ts, players.ts, rateLimit.ts, telegramApi.ts
   migrations/                D1 schema, applied in order by CI: 0001 players, saves, purchases,
                              entitlements; 0002 online mode; 0003 economy; 0004 beasts and world
                              bosses; 0005 notifications and support; 0006 ops (docs/OPS.md);
                              0007-0010 and 0014 duels; 0009 merchants; 0011 camps; 0012 the switch
-                             to region maps; 0013 the muster reserve flag
+                             to region maps; 0013 the muster reserve flag; 0017 accounts and
+                             sessions (ADR-0008)
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   scripts/bot-setup.mjs      one-off: setMyCommands (EN/RU) and setWebhook with the allowed updates
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
@@ -106,12 +109,18 @@ configured`; a missing secret → 503 `<NAME> not configured`.
 `initData` is validated per the Telegram spec: `secret = HMAC_SHA256("WebAppData",
 bot_token)`, `hash = hex(HMAC_SHA256(secret, data_check_string))`, compared in
 constant time (`crypto.subtle.verify`); `auth_date` older than 24 h (or > 5 min
-in the future) is rejected. The player row is upserted (telegram id, username,
-first name, language, premium, created/last seen).
+in the future) is rejected. The telegram identity (`auth_identities`) and its
+`players.telegram_id` mirror are written in one batch; a new player gets a
+generated display name, never the Telegram name.
 
-Session tokens are stateless: `pa1.<base64url(json)>.<base64url(HMAC-SHA256)>`
-signed with `SESSION_SECRET` (rotating it logs everyone out). There is no
-sessions table.
+Sessions (ADR-0008 §3) live in D1: a token is `pa2_` + 32 random bytes and only
+its SHA-256 is stored. Telegram gets a 24 h bearer token; the web gets the
+`__Host-pa_sid` cookie (30 days, 7 days idle). One transport per request (both
+is 400), a token is never read from the URL (`?token=` is 400), and a cookie
+request that changes state must carry the game's `Origin`. Sockets use the
+cookie or `Sec-WebSocket-Protocol: pixelarrow.v1, <token>`. `POST
+/api/auth/logout`, `/logout-all`, `GET /api/auth/sessions` and `DELETE
+/api/auth/sessions/:handle` end and list sessions; the daily cron prunes them.
 
 **Rate limit:** 20 logins per minute per IP, kept in isolate memory, so it is a
 per-isolate soft guard, not a global quota. Move to the Workers Rate Limiting
@@ -809,7 +818,6 @@ Actions variable `ANALYTICS_ENGINE=off` drops the datasets on purpose.
    cd server
    npx wrangler secret put TELEGRAM_BOT_TOKEN --config ../wrangler.jsonc       # from @BotFather
    openssl rand -hex 32 | npx wrangler secret put TELEGRAM_WEBHOOK_SECRET --config ../wrangler.jsonc
-   openssl rand -hex 32 | npx wrangler secret put SESSION_SECRET --config ../wrangler.jsonc
    ```
    Keep the webhook secret value handy for step 5 (or set it from a variable).
    For the admin panel also set `ADMIN_TOKEN` (docs/OPS.md "Operator setup").

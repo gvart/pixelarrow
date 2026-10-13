@@ -1,7 +1,7 @@
 import type { RegionDO } from './region';
 import type { MatchmakerDO } from './duel/matchmaker';
 import type { DuelDO } from './duel/duelDO';
-import type { Session } from './session';
+import type { Session } from './auth/sessions';
 
 /** Worker bindings, vars and secrets (see wrangler.jsonc and server/.dev.vars.example). */
 export interface Env {
@@ -26,7 +26,6 @@ export interface Env {
   // Secrets (wrangler secret put ...). Missing ones make the routes that need them answer 503.
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
-  SESSION_SECRET?: string;
   /**
    * Workers Analytics Engine datasets (docs/OPS.md). Absent when the deploy
    * dropped them (server/scripts/deploy-config.mjs): events are then skipped.

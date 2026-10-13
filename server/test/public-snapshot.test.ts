@@ -24,7 +24,9 @@ async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Prom
   const first = `Firstname${seq}x`;
   const user = `user_${seq}_tg`;
   await db
-    .prepare('INSERT INTO players (id, telegram_id, username, first_name, created_at, last_seen_at, banned_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)')
+    .prepare(
+      "INSERT INTO players (id, telegram_id, username, first_name, display_name, display_name_key, created_at, last_seen_at, banned_at) VALUES (?1, ?2, ?3, ?4, 'Seed' || ?1, 'seed' || ?1, ?5, ?6, ?7)",
+    )
     .bind(id, tg, user, first, NOW - 30 * DAY, o.lastSeen ?? NOW - DAY, o.banned ? NOW - DAY : null)
     .run();
   seeded.push({ id, tg, first, user });
@@ -83,14 +85,16 @@ async function rate(pid: number, ladder: 'live' | 'async', rating: number, games
 }
 
 /**
- * The ADR-0009 public-name columns, as V6-ACCT-02 / V6-LINK-01 will add them
- * (added here only while those migrations have not landed).
+ * The ADR-0009 public-name columns that 0017 (V6-ACCT-02) does not add: added
+ * here only until V6-LINK-01's 0018 lands. Every player has a display name
+ * since 0017, so this stand-in defaults `public_boards` to 0 (0018: 1): only
+ * the players `named()` opts in are public, and seeded ones stay off boards.
  */
 async function ensureNameColumns(): Promise<void> {
   const cols = new Set((await db.prepare("SELECT name FROM pragma_table_info('players')").all<{ name: string }>()).results.map((r) => r.name));
   const add: [string, string][] = [
     ['display_name', 'TEXT'],
-    ['public_boards', 'INTEGER NOT NULL DEFAULT 1'],
+    ['public_boards', 'INTEGER NOT NULL DEFAULT 0'],
     ['deleted_at', 'INTEGER'],
   ];
   for (const [c, type] of add) if (!cols.has(c)) await db.prepare(`ALTER TABLE players ADD COLUMN ${c} ${type}`).run();

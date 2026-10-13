@@ -25,7 +25,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import { capKey, holderCut, merchantAt, merchantDay, merchantStock, MERCHANT, nextReset, offerPrice, regionOf, type Offer } from '../../../src/online/merchants';
 import { makeItem } from '../../../src/game/heroes';
 import { freezeRolls } from '../../../src/data/affixes';
@@ -39,7 +39,7 @@ import { visibility } from './routes';
 import { getProfile, heroPrefix, playerNames, randomToken, regionRow, type RegionRow } from './store';
 
 export const merchant = new Hono<AppEnv>();
-merchant.use('*', requireAuth);
+merchant.use('*', requirePlayable);
 
 const LocParam = z.coerce.number().int().min(1).max(1_000_000);
 

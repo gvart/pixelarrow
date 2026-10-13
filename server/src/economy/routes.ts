@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { db, requireAuth } from '../middleware';
+import { db, requirePlayable } from '../middleware';
 import { requireRate } from '../rateLimit';
 import { currentSeason, getProfile, randomToken } from '../online/store';
 import { isConsumableId } from '../../../src/data/consumables';
@@ -26,7 +26,7 @@ export const economy = new Hono<AppEnv>();
 /** Public catalogue: packs (Stars), cosmetics and the pass (Drachmae), consumables (gold or Drachmae), market rules. */
 economy.get('/catalog', (c) => c.json({ packs: DRACHMAE_PACKS, ...catalogView() }));
 
-economy.use('/*', requireAuth);
+economy.use('/*', requirePlayable);
 
 function limit(c: Context<AppEnv>, bucket: string, n: number): void {
   requireRate(`economy:${bucket}:${c.get('session').pid}`, n, 60_000);

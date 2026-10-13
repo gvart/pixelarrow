@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { db, requireAuth } from '../middleware';
+import { db, requireSession } from '../middleware';
 
 export const MAX_SAVE_BYTES = 512 * 1024;
 
@@ -29,7 +29,7 @@ interface SaveRow {
 }
 
 export const save = new Hono<AppEnv>();
-save.use('*', requireAuth);
+save.use('*', requireSession);
 
 save.get('/', async (c) => {
   const row = await db(c.env)

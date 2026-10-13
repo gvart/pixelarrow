@@ -15,7 +15,6 @@ export default defineConfig({
         bindings: {
           TELEGRAM_BOT_TOKEN: '123456:TEST-TOKEN',
           TELEGRAM_WEBHOOK_SECRET: 'test-webhook-secret',
-          SESSION_SECRET: 'test-session-secret-0123456789abcdef',
           DEV_AUTH: '1',
           DEV_ORIGINS: 'http://localhost:6160',
           ONLINE_MAP: 'test30',

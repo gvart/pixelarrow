@@ -15,7 +15,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { db, requireAuth } from '../middleware';
+import { db, requirePlayable } from '../middleware';
 import { LIMITS } from '../battle';
 import { SubmitBody, verifyBattle } from './verify';
 import { checkSimVersion, SIM_VERSION, SimVersionField } from '../simVersion';
@@ -49,7 +49,7 @@ import { rollRatings } from './season';
 import { duelSeason } from './async';
 
 export const duel = new Hono<AppEnv>();
-duel.use('*', requireAuth);
+duel.use('*', requirePlayable);
 // async attacks, the defence log, seasons and leaderboards (server/src/duel/async.ts)
 duel.route('/', duelSeason);
 

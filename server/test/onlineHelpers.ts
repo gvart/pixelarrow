@@ -7,7 +7,7 @@ import { rleEncode } from '../../src/online/mapSchema';
 import { resetRateLimits } from '../src/rateLimit';
 import { currentSeason, forgetSeasonCache, getShard, type Shard } from '../src/online/store';
 import { seasonId } from '../../src/duel/season';
-import { api, BASE, devLogin } from './helpers';
+import { api, BASE, devLogin, GAME_ORIGIN } from './helpers';
 import { SIM_VERSION } from '../../src/sim/version';
 
 export const DB = () => env.DB!;
@@ -20,6 +20,8 @@ export function fresh(): void {
 export interface Player {
   token: string;
   playerId: number;
+  /** The generated display name (presence, events), never the Telegram name. */
+  name: string;
   profile: Profile;
 }
 
@@ -75,8 +77,8 @@ export async function setPurse(p: Player, gold: number, wood = 0): Promise<void>
  * `level5` gives the XP of duel level 5 (ranked); `rating` seeds a live
  * rating with 20 games in the current season.
  */
-export async function openDuellist<P = unknown>(tg: number, opts: { name?: string; level5?: boolean; rating?: number } = {}): Promise<{ token: string; pid: number; profile: P }> {
-  const { token, playerId } = await devLogin(tg, opts.name);
+export async function openDuellist<P = unknown>(tg: number, opts: { name?: string; level5?: boolean; rating?: number } = {}): Promise<{ token: string; pid: number; name: string; profile: P }> {
+  const { token, playerId, name } = await devLogin(tg, opts.name);
   const r = await post<P>('/api/duel/profile', token);
   expect(r.status).toBe(200);
   if (opts.level5) await DB().prepare('UPDATE duel_profiles SET xp = 500 WHERE player_id = ?1').bind(playerId).run();
@@ -86,7 +88,7 @@ export async function openDuellist<P = unknown>(tg: number, opts: { name?: strin
       .bind(playerId, opts.rating, seasonId(Date.now()), Date.now())
       .run();
   }
-  return { token, pid: playerId, profile: r.body };
+  return { token, pid: playerId, name, profile: r.body };
 }
 
 /**
@@ -107,10 +109,10 @@ export async function placeArmy(p: Player, loc: number, shard = p.profile.shard.
 }
 
 export async function join(id: number, name = `P${id}`): Promise<Player> {
-  const { token, playerId } = await devLogin(id, name);
+  const { token, playerId, name: displayName } = await devLogin(id, name);
   const res = await api('/api/online/profile', { method: 'POST', token });
   expect(res.status).toBe(200);
-  return { token, playerId, profile: await res.json<Profile>() };
+  return { token, playerId, name: displayName, profile: await res.json<Profile>() };
 }
 
 export async function getJson<T>(path: string, token: string): Promise<{ status: number; body: T }> {
@@ -228,14 +230,15 @@ export function wsOnline(token: string): Promise<WsClient> {
 /**
  * A socket on any /ws/* path (a region, the shard, the duel queue, a duel
  * match). The session token goes in the Sec-WebSocket-Protocol header
- * (`auth: 'protocol'`, the default) or in `?token=` (`auth: 'query'`).
+ * (`auth: 'protocol'`, the default: Telegram's bearer) or in the session
+ * cookie from the game's origin (`auth: 'cookie'`: the web).
  * Like today's client it adds `?sim=SIM_VERSION` unless the path names `sim=`
  * or `legacy` is set (a client from before versioning, which sends none).
  */
-export async function wsPath(token: string, path: string, opts: { auth?: 'protocol' | 'query'; legacy?: boolean } = {}): Promise<WsClient> {
+export async function wsPath(token: string, path: string, opts: { auth?: 'protocol' | 'cookie'; legacy?: boolean } = {}): Promise<WsClient> {
   const headers: Record<string, string> = { upgrade: 'websocket' };
   let url = `${BASE}${path}`;
-  if (opts.auth === 'query') url += `${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+  if (opts.auth === 'cookie') Object.assign(headers, { cookie: `__Host-pa_sid=${token}`, origin: GAME_ORIGIN, 'sec-websocket-protocol': 'pixelarrow.v1' });
   else headers['sec-websocket-protocol'] = `pixelarrow.v1, ${token}`;
   if (!opts.legacy && !/[?&]sim=/.test(path)) url += `${url.includes('?') ? '&' : '?'}sim=${SIM_VERSION}`;
   const res = await SELF.fetch(url, { headers });

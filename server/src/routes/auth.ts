@@ -2,12 +2,14 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppEnv, Env } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { clientIp, db, secret } from '../middleware';
+import { clientIp, db, requireSession, secret } from '../middleware';
 import { bannedError } from '../ban';
-import { displayName, getPlayerByTelegramId, publicPlayer, upsertPlayer, type PlayerRow } from '../players';
+import { publicPlayer, type PlayerRow } from '../players';
+import { playerByTelegramIdentity, upsertTelegramPlayer } from '../auth/identity';
+import { clearSessionCookie } from '../auth/cookies';
+import { createSession, deviceLabel, listSessions, revokeAll, revokeSession } from '../auth/sessions';
 import { optedOut, requestCtx, writeEvent } from '../telemetry/analytics';
 import { requireRate } from '../rateLimit';
-import { signSession } from '../session';
 import { validateInitData, type TelegramUser } from '../telegramAuth';
 
 const MAX_BODY = 8 * 1024;
@@ -40,7 +42,6 @@ export const auth = new Hono<AppEnv>();
 
 auth.post('/telegram', async (c) => {
   requireRate(`auth:${clientIp(c)}`, AUTH_LIMIT, AUTH_WINDOW_MS, 'Too many login attempts, slow down');
-  const sessionSecret = secret(c.env, 'SESSION_SECRET');
 
   // Accept either JSON { initData } or the raw initData string as the body.
   let body: z.infer<typeof Body>;
@@ -75,15 +76,47 @@ auth.post('/telegram', async (c) => {
   }
 
   const d = db(c.env);
-  const prev = await getPlayerByTelegramId(d, user.id);
-  if (prev?.banned_at) throw bannedError();
+  if ((await playerByTelegramIdentity(d, user.id))?.banned_at) throw bannedError();
   const now = Date.now();
-  const player = await upsertPlayer(d, user, now);
+  const { prev, player } = await upsertTelegramPlayer(d, user, now);
   if (!optedOut(c) && !prev?.analytics_opt_out) {
     for (const event of retentionEvents(prev, now)) writeEvent(c.env, requestCtx(c, player.id, 'server', daysSince(player.created_at, now)), event, {});
   }
-  const { token, session } = await signSession({ pid: player.id, tg: player.telegram_id, name: displayName(player) }, sessionSecret);
-  return c.json({ token, expiresAt: session.exp, player: publicPlayer(player) });
+  // Telegram always gets a bearer session (ADR-0008 §3): cookies are blocked in its iframe.
+  const { token, session } = await createSession(d, player.id, 'bearer', 'telegram', deviceLabel(c.req.header('user-agent')), now);
+  return c.json({ token, expiresAt: session.expiresAt, player: publicPlayer(player) });
+});
+
+/** Ends this session; a cookie session also gets its cookie cleared. */
+auth.post('/logout', requireSession, async (c) => {
+  const s = c.get('session');
+  await revokeSession(db(c.env), s.pid, s.sid);
+  if (s.transport === 'cookie') c.header('set-cookie', clearSessionCookie());
+  return c.json({ ok: true });
+});
+
+/** Ends every session of the player, this one included. */
+auth.post('/logout-all', requireSession, async (c) => {
+  const s = c.get('session');
+  await revokeAll(db(c.env), s.pid);
+  if (s.transport === 'cookie') c.header('set-cookie', clearSessionCookie());
+  return c.json({ ok: true });
+});
+
+/** The player's signed-in devices: a 12-character handle each, never the token or its hash. */
+auth.get('/sessions', requireSession, async (c) => {
+  const s = c.get('session');
+  return c.json({ sessions: await listSessions(db(c.env), s.pid, s.sid) });
+});
+
+/** Ends one of the player's sessions by its handle. */
+auth.delete('/sessions/:handle', requireSession, async (c) => {
+  const s = c.get('session');
+  const handle = c.req.param('handle');
+  if (!/^[A-Za-z0-9_-]{12}$/.test(handle)) throw badRequest('Bad session handle');
+  if (!(await revokeSession(db(c.env), s.pid, handle))) throw new ApiError(404, 'not_found', 'No such session');
+  if (s.transport === 'cookie' && s.sid.startsWith(handle)) c.header('set-cookie', clearSessionCookie());
+  return c.json({ ok: true });
 });
 
 const DAY_MS = 86_400_000;

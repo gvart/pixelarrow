@@ -7,8 +7,10 @@ import { Hono, type Context } from 'hono';
 import { readJson } from './body';
 import { LIMITS, verifyBattle, VerifyBody } from './battle';
 import type { AppEnv } from './env';
-import { ApiError, errorBody } from './errors';
-import { db, originCheck, requireAuth, sessionFromToken } from './middleware';
+import { ApiError, errorBody, unauthorized } from './errors';
+import { assertPlayable, credentials, db, requirePlayable, requireSession } from './middleware';
+import { originCheck } from './auth/origin';
+import { lookupSession, pruneAuth } from './auth/sessions';
 import { gameOrigins } from './urls';
 import { getPlayer, publicPlayer } from './players';
 import { auth } from './routes/auth';
@@ -89,7 +91,6 @@ app.get('/api/health', (c) =>
     secrets: {
       telegramBotToken: !!c.env.TELEGRAM_BOT_TOKEN,
       telegramWebhookSecret: !!c.env.TELEGRAM_WEBHOOK_SECRET,
-      sessionSecret: !!c.env.SESSION_SECRET,
       adminToken: !!c.env.ADMIN_TOKEN,
     },
     analyticsEngine: !!c.env.ANALYTICS,
@@ -98,10 +99,10 @@ app.get('/api/health', (c) =>
 
 app.route('/api/auth', auth);
 
-app.get('/api/me', requireAuth, async (c) => {
+app.get('/api/me', requireSession, async (c) => {
   const player = await getPlayer(db(c.env), c.get('session').pid);
   if (!player) throw new ApiError(404, 'not_found', 'Player not found');
-  return c.json({ player: publicPlayer(player), session: { expiresAt: c.get('session').exp } });
+  return c.json({ player: publicPlayer(player), session: { expiresAt: c.get('session').expiresAt, transport: c.get('session').transport } });
 });
 
 app.route('/api/save', save);
@@ -119,7 +120,7 @@ app.route('/api/economy', economy);
 app.route('/api/duel', duel);
 app.route('/api/notify', notifyRoutes);
 
-app.post('/api/battle/verify', requireAuth, async (c) => {
+app.post('/api/battle/verify', requirePlayable, async (c) => {
   const req = await readJson(c, VerifyBody, LIMITS.maxBodyBytes);
   try {
     return c.json(verifyBattle(req));
@@ -151,24 +152,31 @@ function refuseSocket(r: SocketRefused): Response {
 }
 
 /**
- * Session token from ?token=... or Sec-WebSocket-Protocol: pixelarrow.v1, <token>.
- * `?sim=` must be SIM_VERSION, else the socket is refused.
+ * The socket's session (ADR-0008 §3): the web's cookie (the same-origin upgrade
+ * sends it; originCheck has already matched the Origin), or Telegram's bearer
+ * token in `Sec-WebSocket-Protocol: pixelarrow.v1, <token>`. Never `?token=`.
+ * The player must be playable (M-OG-1). `?sim=` must be SIM_VERSION, else the
+ * socket is refused.
  */
 async function wsSession(c: Context<AppEnv>) {
   if (c.req.header('upgrade')?.toLowerCase() !== 'websocket') throw new ApiError(426, 'upgrade_required', 'Expected a WebSocket upgrade');
   const protocols = (c.req.header('sec-websocket-protocol') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const fromProtocol = protocols.includes(WS_PROTOCOL) ? protocols.find((p) => p !== WS_PROTOCOL) : undefined;
-  const session = await sessionFromToken(c.env, fromProtocol ?? c.req.query('token') ?? null);
+  const offered = protocols.includes(WS_PROTOCOL);
+  const cred = credentials(c, (offered ? protocols.find((p) => p !== WS_PROTOCOL) : undefined) ?? null);
+  if (!cred) throw unauthorized();
+  const session = await lookupSession(db(c.env), cred.token, cred.transport);
+  if (!session) throw unauthorized();
+  assertPlayable(session);
   try {
     checkSocketSimVersion(c.req.query('sim'));
   } catch (e) {
-    if (e instanceof ApiError && e.code === SIM_VERSION_REJECTED) throw new SocketRefused(e, fromProtocol ? WS_PROTOCOL : null);
+    if (e instanceof ApiError && e.code === SIM_VERSION_REJECTED) throw new SocketRefused(e, offered ? WS_PROTOCOL : null);
     throw e;
   }
   const headers = new Headers(c.req.raw.headers);
   headers.set('x-player-id', String(session.pid));
   headers.set('x-player-name', session.name);
-  if (fromProtocol) headers.set('x-ws-protocol', WS_PROTOCOL);
+  if (offered) headers.set('x-ws-protocol', WS_PROTOCOL);
   else headers.delete('x-ws-protocol');
   return { session, headers };
 }
@@ -238,13 +246,14 @@ app.onError((err, c) => {
   return c.json(errorBody('internal', 'Internal error'), 500);
 });
 
-/** Daily housekeeping (cron HOUSEKEEPING_CRON): client error reports past their retention. */
+/** Daily housekeeping (cron HOUSEKEEPING_CRON): client error reports past their retention; expired sessions, email tokens and idle throttle rows. */
 const HOUSEKEEPING_CRON = '17 3 * * *';
 async function housekeeping(env: AppEnv['Bindings']): Promise<void> {
   if (!env.DB) return;
   try {
     const pruned = await pruneClientErrors(env.DB);
     log('info', 'cron_pruned', { table: 'client_errors', rows: pruned });
+    log('info', 'cron_pruned', { table: 'auth', ...(await pruneAuth(env.DB)) });
   } catch (e) {
     logError('cron', e);
     throw e;
