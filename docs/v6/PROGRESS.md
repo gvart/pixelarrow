@@ -9,19 +9,18 @@
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
-| link-01 | V6-LINK-01: nicknames, migration 0018, public surfaces, GET /api/account | 1 (6110–6119) | security-audit, dev-story, tdd |
-| plat-02 | V6-PLAT-02: haptics codemod, Back on platform.back, plus the V6-034 client items | 5 (6150–6159) | dev-story, phaser-core, tdd, improve-codebase-architecture |
-| acct-03 | V6-ACCT-03: passwords and email flows (server) | 6 (6160–6169) | security-audit, dev-story, tdd |
-| integrator-land-02b | merges LAND-02b, then LAND-05 | 9 (6190–6199) | n/a |
+| rfnd-01 | V6-RFND-01: scale policy, ADR-0013, size classes, legacy column | 1 (6110–6119) | game-ui-ux, architecture-decision, phaser-core, tdd |
+| fix-shop | FIX-SHOP-01: the signed-out web Shop stuck (GATE02-B1) | 5 (6150–6159) | tdd, phaser-core |
+| link-04 | V6-LINK-04: account deletion engine | (none) | security-audit, save-systems, tdd |
 
-**Integration queue after that:** INP-01 (worktree-agent-a16c01b5e13ffec42; 42 new tests; ADR-0012 deviations: focus and camera contexts, 4 split scroll actions, 4 unbound actions, chord defaults) → GATE-01 (worktree-agent-aa79f1267b9ef0092; rerun the full vitest; matrix: phone sizes plus 1280x800 only, per V6-030).
-Integrators run one at a time in slot 9. Director merges check the exit code (V6-028). Agents keep logs in v6-shots/<agent>/ (V6-035).
+**Integration queue:** ACCT-04 (branch v6-acct-04; raise the regression CI timeout-minutes from 20 to 45; add owner actions for the Turnstile secret and the ratelimit namespace ids 6001/6002) → RFND-01 → FIX-SHOP-01 → LINK-04.
+Integrators run one at a time in slot 9. No Director commits while a merge is open (V6-037).
 
-**Unblocked once PLAT-01 merges:** INP-01 (action map), PLAT-02 (haptics codemod and Back), PAY-01 needs PLAT-04. RFND-01 waits for GATE-01.
-**Queued landing work:** LAND-04 (needs STATS-02, which needs ACCT-04), LAND-05, LAND-06.
-**Tech debt:** a flaky root vitest test (seen once in 1540); the integrator records it in docs/v6/qa/FLAKY.md. Migrate @cloudflare/vitest-pool-workers to @cloudflare/vitest-plugin.
+**Next ready after merges:** STATS-02 (after ACCT-04), RFND-02 and RFND-03 (after RFND-01), ACCT-05 (needs PLAT-04), PLAT-03, INP-02, LINK-02 (after LINK-04), GATE-01b (fast layout mode, V6-030).
 
 ## Merged
+
+- INP-01 (V6-038), GATE-01 (V6-039), PLAT-02 (V6-040), LINK-01 (V6-041), ACCT-03 (V6-042), HOST-03 (V6-043), GATE-02 (V6-044) + CI wiring 8c48f356
 
 - ACCT-02 (V6-034, 46c654fe)
 
