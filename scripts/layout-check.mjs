@@ -1159,7 +1159,8 @@ const byId = new Map(SCREENS.map((s) => [s.id, s]));
 const pick = (ids) => ids.map((id) => byId.get(id));
 for (const id of QUICK.smoke) if (!byId.has(id)) throw new Error(`QUICK.smoke names ${id}, which is not a screen`);
 const onlyScreens = opt('scenes', opt('screens', ''));
-let screens = onlyScreens ? pick(matchScreens(DEFAULT_SCREENS.map((s) => s.id), onlyScreens, SCREENS.filter((s) => s.optIn).map((s) => s.id))) : DEFAULT_SCREENS;
+const named = onlyScreens ? matchScreens(DEFAULT_SCREENS.map((s) => s.id), onlyScreens, SCREENS.filter((s) => s.optIn).map((s) => s.id)) : null;
+let screens = named ? pick(named) : DEFAULT_SCREENS;
 /** Per size, extra screens to run there only (--quick's smoke subset). */
 const extraAt = new Map();
 if (CHANGED !== undefined) {
@@ -1167,10 +1168,18 @@ if (CHANGED !== undefined) {
   const sources = sourceTexts();
   const known = [...new Set([...sources.values()].map((t) => /\bsuper\(\s*'([A-Z]\w*)'\s*\)/.exec(t)?.[1]).filter(Boolean))];
   const helpers = { battle: battle.toString(), results: results.toString(), codexMet: codexMet.toString() };
-  const hit = screensForChanges(files, sources, screens.map((s) => ({ id: s.id, keys: sceneKeysOf(s.run.toString(), helpers, known) })));
+  // --changed alone narrows --scenes; --quick adds the named screens to the changed ones
+  const pool = QUICK_MODE ? DEFAULT_SCREENS : screens;
+  const hit = screensForChanges(files, sources, pool.map((s) => ({ id: s.id, keys: sceneKeysOf(s.run.toString(), helpers, known) })));
   console.log(`--changed: ${files.length} files changed since the merge base with ${ref}; ${hit.all ? `every screen (${hit.why})` : `${hit.ids.length} screens${hit.ids.length ? `: ${hit.ids.join(', ')}` : ''}`}`);
-  screens = pick(hit.ids);
-  if (QUICK_MODE) for (const size of QUICK.sizes) extraAt.set(size, pick(QUICK.smoke.filter((id) => !hit.ids.includes(id))));
+  if (!QUICK_MODE) screens = pick(hit.ids);
+  else {
+    // a change that reaches every screen: the smoke subset at every size instead (the full matrix is the integrator's)
+    const ids = new Set([...(hit.all ? QUICK.smoke : hit.ids), ...(named ?? [])]);
+    if (hit.all) console.log(`--quick: the change reaches every screen, so this runs the smoke subset at every size${named ? ' plus --scenes' : ''}; name the screens you changed with --scenes, and the integrator runs the full matrix`);
+    screens = SCREENS.filter((s) => ids.has(s.id));
+    for (const size of QUICK.sizes) extraAt.set(size, pick(QUICK.smoke.filter((id) => !ids.has(id))));
+  }
 }
 const screensAt = (size) => [...screens, ...(extraAt.get(size) ?? [])];
 

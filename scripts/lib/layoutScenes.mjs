@@ -52,8 +52,35 @@ export function sceneKeysOf(source, helpers, known) {
 const EVERYTHING = [/^scripts\/layout-check\.mjs$/, /^scripts\/lib\/(layoutMatrix|layoutScenes|harness|fakeTelegram)\.mjs$/, /^public\//, /^index\.html$/, /^package(-lock)?\.json$/, /^vite\.config\./, /^tsconfig/];
 /** Files that register scenes: a scene's walk up the importers stops there. */
 const REGISTRY = new Set(['src/main.ts', 'src/scenes/lazy.ts', 'src/scenes/lazyScenes.ts']);
-/** Scenes every screen passes through. */
-const GLOBAL_SCENES = new Set(['Boot']);
+/** What every screen passes through: the entry point, the Boot scene (textures, fonts, the first route) and every scene's base class. */
+const ROOTS = new Set(['src/main.ts', 'src/scenes/BootScene.ts', 'src/scenes/BaseScene.ts']);
+/**
+ * Imports of the roots that draw nothing on the checked screens: state, cloud saves, navigation,
+ * monitoring, audio, routing (lazy scenes, deep links, the duel resume), Boot's retry button, the
+ * settings sheet BaseScene opens on demand (the screens that show it import it themselves), and two
+ * installers whose hooks never fire in the check (installWidgets: the long-press tooltip and toast;
+ * installDuelInvites: challenges over the shard socket, and the API is down). Reaching one is not "every
+ * screen": the scenes importing the change still count. Every other root import (the kit, layout,
+ * language, safe area, render scale, icon atlases...) acts on every screen, and so does a new one.
+ */
+const SERVICES = new Set([
+  'src/state.ts',
+  'src/platform/cloud.ts',
+  'src/platform/nav.ts',
+  'src/platform/monitoring.ts',
+  'src/platform/telemetry.ts',
+  'src/platform/telegram.ts',
+  'src/audio/index.ts',
+  'src/scenes/lazy.ts',
+  'src/scenes/bootRoute.ts',
+  'src/online/deeplink.ts',
+  'src/online/client.ts',
+  'src/duel/match.ts',
+  'src/ui/mosaic/index.ts',
+  'src/ui/settings.ts',
+  'src/ui/widgets.ts',
+  'src/ui/duelInvites.ts',
+]);
 
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"](\.{1,2}\/[^'"?]+)(?:\?[^'"]*)?['"]/g;
 const SCENE_KEY = /\bsuper\(\s*'([A-Z]\w*)'\s*\)/;
@@ -118,6 +145,9 @@ export function screensForChanges(changed, sources, screens) {
     const m = SCENE_KEY.exec(text);
     if (m && /\bextends\b/.test(text)) sceneOf.set(file, m[1]);
   }
+  // the roots' own imports act on every screen (canvas size, safe area, the kit, textures), bar the services
+  const globals = new Set();
+  for (const [f, by] of rev) if ([...ROOTS].some((r) => by.has(r)) && !sceneOf.has(f) && !SERVICES.has(f)) globals.add(f);
   const staged = new Set(screens.flatMap((s) => s.keys));
   const keys = new Set();
   const named = new Set();
@@ -136,26 +166,34 @@ export function screensForChanges(changed, sources, screens) {
       if (d?.why) return everything(d.why);
       if (d) starts = d.users;
     }
-    // walk up the importers: a scene adds its key (and goes on: scenes import scenes), main.ts means every screen
+    // walk up the importers: a scene adds its key (and goes on: scenes import scenes); a global module means every screen
     const seen = new Set(starts);
     const todo = [...starts];
+    let root = null;
+    let scene = false;
     while (todo.length) {
       const f = todo.pop();
+      if (globals.has(f)) return everything(f === path ? `${f} acts on every screen` : `${path} reaches ${f}, which acts on every screen`);
+      if (ROOTS.has(f)) {
+        root = f;
+        continue;
+      }
       const key = sceneOf.get(f);
       if (key) {
-        if (GLOBAL_SCENES.has(key)) return everything(`${path} reaches the ${key} scene`);
         if (!staged.has(key)) return everything(`${path} reaches the ${key} scene, which no screen stages`);
         keys.add(key);
+        scene = true;
       }
       const up = [...(rev.get(f) ?? [])].filter((i) => !(key && REGISTRY.has(i)));
       if (!up.length && !key) {
         if (!sources.has(f)) return everything(`${f} is not in src/ (deleted or renamed)`);
-        if (f === 'src/main.ts') return everything(`${path} reaches src/main.ts other than through a scene`);
         // a changed file the game never loads cannot be placed; an importer the game never loads (a dev tool) is a dead end
         if (starts.includes(f)) return everything(`${f}: nothing imports it`);
       }
       for (const i of up) if (!seen.has(i)) (seen.add(i), todo.push(i));
     }
+    // a root loads it but no scene does: it acts on the whole game
+    if (root && !scene) return everything(`${path} reaches ${root} but no scene`);
   }
   const ids = screens.filter((s) => named.has(s.id) || s.keys.some((k) => keys.has(k)) || (src && !s.keys.length)).map((s) => s.id);
   return { ids, all: false, why: '' };
