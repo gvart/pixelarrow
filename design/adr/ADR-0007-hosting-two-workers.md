@@ -85,7 +85,7 @@ Today one Worker, `pixelarrow`, serves the game's static build and the API on `p
 
 ### Sessions: cookies for the web, tokens for Telegram
 - **Telegram** (`Auth.transport = 'bearer'`, ADR-0006): initData → `POST /api/auth/telegram` → a token kept in memory, sent as `Authorization: Bearer`, `credentials: 'omit'`, and in `Sec-WebSocket-Protocol` for sockets. Exactly as today.
-- **Web** (`Auth.transport = 'cookie'`): the session is a cookie set by play.pixelarrow.app, named `__Host-pa_session`, with `Secure; HttpOnly; Path=/; SameSite=Lax` and **no `Domain`** attribute (the `__Host-` prefix makes the browser enforce that). It is first-party on play and never sent to the apex. Lifetime, rotation and storage belong to ADR-0008.
+- **Web** (`Auth.transport = 'cookie'`): the session is a cookie set by play.pixelarrow.app, named `__Host-pa_sid`, with `Secure; HttpOnly; Path=/; SameSite=Lax` and **no `Domain`** attribute (the `__Host-` prefix makes the browser enforce that). It is first-party on play and never sent to the apex. Lifetime, rotation and storage belong to ADR-0008.
 - The server accepts either: an `Authorization: Bearer` header first, then the cookie. Both resolve to the same player id (linking, ADR-0009).
 - **CSRF**: a cookie-authenticated request that changes state (anything but GET, HEAD, OPTIONS), and every WebSocket upgrade that relies on the cookie, must carry `Origin: https://play.pixelarrow.app` (or a dev origin from `.dev.vars`), else 403. Bearer requests are exempt because the header is not ambient.
 - **Framing**: play must stay embeddable by Telegram Web. Its responses send `Content-Security-Policy: frame-ancestors 'self' https://web.telegram.org` and no `X-Frame-Options`. The landing sends `frame-ancestors 'none'`.
@@ -133,7 +133,7 @@ Today one Worker, `pixelarrow`, serves the game's static build and the API on `p
                      │                                            │ service binding GAME
                      ▼                                            ▼   (no cookies, GET only)
  browser / Telegram ─▶ play.pixelarrow.app ──▶ pixelarrow Worker (game assets, /api, /ws, /admin,
-   web: cookie __Host-pa_session (host-only)        webhook, /api/public/*, D1, DOs, crons)
+   web: cookie __Host-pa_sid (host-only)        webhook, /api/public/*, D1, DOs, crons)
    Telegram: Authorization: Bearer (iframe-safe)
 ```
 
@@ -141,7 +141,7 @@ Today one Worker, `pixelarrow`, serves the game's static build and the API on `p
 1. Legal pages move into the landing build at unchanged paths (V6-009 listed them only as served by the landing).
 2. `www` is redirected by a zone rule, not by Worker code.
 3. The landing Worker also runs first for `/` to redirect `?startapp=`, and the landing page carries the hash redirect for Telegram launches.
-4. The web session cookie is `__Host-pa_session`, host-only on play, with an `Origin` check for CSRF and WebSocket upgrades.
+4. The web session cookie is `__Host-pa_sid`, host-only on play, with an `Origin` check for CSRF and WebSocket upgrades.
 5. Play sends `frame-ancestors 'self' https://web.telegram.org` so Telegram Web can keep embedding it.
 
 ## Alternatives Considered
@@ -201,7 +201,7 @@ Today one Worker, `pixelarrow`, serves the game's static build and the API on `p
 |------------|-------------|--------------------------|
 | v6 brief Goal 1 | pixelarrow.app = landing; play.pixelarrow.app = game for web and Telegram, detected at runtime | Two Workers, routes above; detection is ADR-0006 |
 | v6 brief Goal 2 | Live stats from a public, read-only, cached, rate-limited API; landing separate from the game bundle | The `/api/public/*` proxy; `landing/` package |
-| v6 brief Goal 5 | Sessions as secure cookies | `__Host-pa_session`, details in ADR-0008 |
+| v6 brief Goal 5 | Sessions as secure cookies | `__Host-pa_sid`, details in ADR-0008 |
 | Hard constraints | Never deploy; owner-only steps listed | Described changes; "Cutover" for `OWNER_ACTIONS.md` |
 
 GDD sync: NOT ASSESSED. Hosting has no GDD; the brief and V6-009 are the requirements.
@@ -220,7 +220,7 @@ GDD sync: NOT ASSESSED. Hosting has no GDD; the brief and V6-009 are the require
 ## Validation Criteria
 - A commit that touches only `landing/` runs only the landing jobs.
 - `wrangler deploy --dry-run` passes for both configs.
-- Locally, requests to the landing host never carry `__Host-pa_session`, `/api/public/*` on the landing returns the game's JSON with a cache hit on the second call, and `/?startapp=clan_x` answers 302 to play.
+- Locally, requests to the landing host never carry `__Host-pa_sid`, `/api/public/*` on the landing returns the game's JSON with a cache hit on the second call, and `/?startapp=clan_x` answers 302 to play.
 - The game in a Telegram-emulated iframe signs in with a bearer token; the web game signs in with the cookie and a cross-origin POST with that cookie is refused.
 
 ## Related

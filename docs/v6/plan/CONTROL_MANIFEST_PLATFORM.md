@@ -65,7 +65,7 @@ Stories embed the `Manifest Version` above. Each rule names its source; the reas
 - Keep the landing a separate package in `landing/` that shares no code with the game bundle. — ADR-0007
 - Reach the stats from the landing only through its `/api/public/*` proxy: GET only, rate-limited per `CF-Connecting-IP`, `caches.default` first, the `GAME` service binding on a miss with no forwarded cookies or auth, a stale copy or `503 {"state":"unavailable"}` on failure. — ADR-0007
 - Redirect `/?startapp=` and `/?tgWebAppStartParam=` on the apex with a 302 to play (query kept), and keep the inline hash redirect for `tgWebApp` launches in the landing `index.html`. — ADR-0007
-- Name the web session cookie `__Host-pa_session`: `Secure; HttpOnly; Path=/; SameSite=Lax`, no `Domain`. — ADR-0007
+- Name the web session cookie `__Host-pa_sid`: `Secure; HttpOnly; Path=/; SameSite=Lax`, no `Domain`. — ADR-0007
 - Accept `Authorization: Bearer` first, then the cookie, both resolving to the same player id. — ADR-0007
 - Require `Origin: https://play.pixelarrow.app` (or a `.dev.vars` dev origin) on cookie-authenticated state-changing requests and on cookie-authenticated WebSocket upgrades; answer 403 otherwise. — ADR-0007
 - Send `Content-Security-Policy: frame-ancestors 'self' https://web.telegram.org` on play's responses, with a server test; send `frame-ancestors 'none'` on the landing. — ADR-0007
