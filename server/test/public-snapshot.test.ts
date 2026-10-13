@@ -5,6 +5,8 @@ import { PublicSummaryV1 } from '../src/public/schema';
 import { publicNamesReady } from '../src/public/duelTop';
 import { seasonId } from '../../src/duel/season';
 import { RANKED } from '../../src/duel/rating';
+import { standings } from '../src/online/store';
+import { fresh, join } from './onlineHelpers';
 
 const db = env.DB!;
 const NOW = Date.UTC(2026, 9, 13, 12, 0, 0);
@@ -14,7 +16,8 @@ const DAY = 86_400_000;
 let seq = 0;
 async function seedPlayer(o: { banned?: boolean; lastSeen?: number } = {}): Promise<{ id: number; tg: number; first: string; user: string }> {
   seq++;
-  const id = 9_100_000 + seq;
+  const max = (await db.prepare('SELECT MAX(id) AS m FROM players').first<{ m: number | null }>())?.m ?? 0;
+  const id = Math.max(9_100_000, max) + 7;
   const tg = 7_700_000_000 + seq;
   const first = `Firstname${seq}x`;
   const user = `user_${seq}_tg`;
@@ -191,5 +194,88 @@ describe('public snapshot (ADR-0010 §2)', () => {
     expect((await buildPublicSnapshot(env, NOW)).duels.async).toEqual([]);
     await rate((await named()).id, 'async', 1300);
     expect((await buildPublicSnapshot(env, NOW)).duels.async).toHaveLength(3);
+  });
+  it('war boards: eligible players by held-region score; clans only once their names pass the validator', async () => {
+    await ensureNameColumns();
+    fresh();
+    const ps = [];
+    for (let i = 1; i <= 5; i++) ps.push(await join(8_800_000 + i));
+    const season = ps[0].profile.season.id;
+    for (const [i, p] of ps.entries()) await db.prepare('UPDATE players SET display_name = ?2, public_boards = ?3 WHERE id = ?1').bind(p.playerId, `Warrior${i}`, i === 4 ? 0 : 1).run();
+    const clan = async (name: string, members: typeof ps) => {
+      const c = await db
+        .prepare('INSERT INTO clans (season_id, shard_id, name, tag, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id')
+        .bind(season, members[0].profile.shard.id, name, name.slice(0, 3).toUpperCase(), members[0].playerId, NOW)
+        .first<{ id: number }>();
+      for (const m of members) await db.prepare("INSERT INTO clan_members (season_id, player_id, clan_id, role, joined_at) VALUES (?1, ?2, ?3, 'member', ?4)").bind(season, m.playerId, c!.id, NOW).run();
+    };
+    await clan('Iron Wolves', [ps[0], ps[1]]);
+    await clan('Sea Hawks', [ps[2]]);
+    await clan('Bronze Oaks', [ps[4]]);
+    await clan('Stone Owls', [ps[3]]);
+    const st = (await standings(db, season)).filter((s) => ps.some((p) => p.playerId === s.playerId));
+    expect(st.every((s) => s.score > 0)).toBe(true);
+
+    // Default: no clan name is public before the shared validator (V6-LINK-01).
+    let snap = await buildPublicSnapshot(env, NOW);
+    expect(snap.war.season).toEqual({ id: season, endsAt: expect.any(Number) });
+    expect(snap.totals.clans).toBeGreaterThanOrEqual(3);
+    expect(snap.war.clans).toEqual([]);
+    expect(snap.war.players.every((r) => r.clan === null)).toBe(true);
+    const names = snap.war.players.map((r) => r.name);
+    expect(names).toEqual(expect.arrayContaining(['Warrior0', 'Warrior1', 'Warrior2', 'Warrior3']));
+    expect(names).not.toContain('Warrior4'); // opted out
+    expect(snap.war.players.map((r) => r.rank)).toEqual(snap.war.players.map((_, i) => i + 1));
+
+    // With a validator: names that pass are public, the rest are not.
+    snap = await buildPublicSnapshot(env, NOW, { clanName: (n) => n !== 'Sea Hawks' });
+    const wolves = snap.war.clans.find((c) => c.name === 'Iron Wolves');
+    expect(wolves?.members).toBe(2);
+    expect(snap.war.clans.map((c) => c.name)).not.toContain('Sea Hawks');
+    expect(snap.war.players.find((r) => r.name === 'Warrior0')?.clan).toBe('Iron Wolves');
+    expect(snap.war.players.find((r) => r.name === 'Warrior2')?.clan).toBeNull();
+  });
+
+  it('champions and boss slayers: eligible players only, newest seasons first', async () => {
+    await ensureNameColumns();
+    const [a, b, c] = [await named(), await named(), await named()];
+    const gone = await named({ deleted: true });
+    const reward = (season: number, pid: number, score: number, title: string) =>
+      db.prepare('INSERT INTO season_rewards (season_id, player_id, shard_id, rank, score, title, created_at) VALUES (?1, ?2, 1, 1, ?3, ?4, ?5)').bind(season, pid, score, title, NOW).run();
+    await reward(901, a.id, 50, 'Basileus');
+    await reward(901, b.id, 80, 'Archon'); // the best shard winner of season 901
+    await reward(902, gone.id, 90, 'Archon'); // deleted: season 902 is left out
+    const duelReward = (season: number, ladder: string, pid: number, peak: number) =>
+      db
+        .prepare("INSERT INTO duel_season_rewards (player_id, season, ladder, league, peak, glory, cosmetic, created_at) VALUES (?1, ?2, ?3, 'gold', ?4, 0, 'x', ?5)")
+        .bind(pid, season, ladder, peak, NOW)
+        .run();
+    await duelReward(DUEL_SEASON - 1, 'live', a.id, 1800);
+    await duelReward(DUEL_SEASON - 1, 'live', c.id, 1900);
+    await duelReward(DUEL_SEASON - 1, 'async', b.id, 1700);
+    await duelReward(DUEL_SEASON, 'live', b.id, 2500); // the running season: not a champion yet
+    const kill = (boss: string, pid: number, at: number) =>
+      db
+        .prepare("INSERT INTO world_bosses (season_id, shard_id, boss, loc, level, hp, max_hp, parts, status, killed_at, killed_by, created_at) VALUES (77, ?1, ?2, 1, 1, 0, 10, '[]', 'dead', ?3, ?4, ?3)")
+        .bind(at, boss, at, pid)
+        .run();
+    await kill('kraken', a.id, 1);
+    await kill('titan', a.id, 2);
+    await kill('kraken', b.id, 3);
+    await kill('titan', b.id, 4);
+    await kill('kraken', c.id, 5);
+    await kill('titan', gone.id, 6);
+    const snap = await buildPublicSnapshot(env, NOW);
+    expect(snap.champions.war).toEqual([{ season: 901, name: b.name, title: 'Archon' }]);
+    expect(snap.champions.duel).toEqual([
+      { season: DUEL_SEASON - 1, ladder: 'live', name: c.name },
+      { season: DUEL_SEASON - 1, ladder: 'async', name: b.name },
+    ]);
+    expect(snap.bossSlayers).toEqual([
+      { rank: 1, name: a.name, kills: 2 },
+      { rank: 2, name: b.name, kills: 2 },
+      { rank: 3, name: c.name, kills: 1 },
+    ]);
+    expect(snap.totals.bossesSlain).toBeGreaterThanOrEqual(6);
   });
 });
