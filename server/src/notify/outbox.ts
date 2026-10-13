@@ -22,6 +22,7 @@
 import type { Context } from 'hono';
 import type { AppEnv, Env } from '../env';
 import { isUnreachable, tryBot } from '../telegramApi';
+import { gameUrl as gameUrlOf } from '../urls';
 import { buttonUrl, EVENT_TYPE, langOf, NOTIFY_TYPES, render, type EventData, type EventId, type NotifyType, type PendingEvent } from './templates';
 
 const MIN = 60_000;
@@ -181,7 +182,7 @@ export async function flushPlayer(env: Env, pid: number, now = Date.now()): Prom
   const groups = new Map<NotifyType, OutboxRow[]>();
   for (const r of live) groups.set(r.type, [...(groups.get(r.type) ?? []), r]);
   const lang = langOf(player.language_code);
-  const gameUrl = env.GAME_URL || 'https://pixelarrow.app';
+  const gameUrl = gameUrlOf(env);
 
   for (const [type, group] of groups) {
     if (budget <= 0) break;

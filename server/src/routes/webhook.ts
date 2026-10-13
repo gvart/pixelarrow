@@ -25,6 +25,7 @@ import type { TelegramUser } from '../telegramAuth';
 import { CLAN_INVITE_PREFIX, inviteCodeFrom } from '../../../src/online/rules';
 import { handleCallback, handleCommand, type BotMessage, type CallbackQuery } from '../bot/handlers';
 import { clearBlocked } from '../notify/outbox';
+import { gameUrl as gameUrlOf } from '../urls';
 
 interface Message extends BotMessage {
   from?: TelegramUser;
@@ -53,7 +54,7 @@ webhook.post('/webhook', async (c) => {
   } catch {
     throw badRequest('Body is not valid JSON');
   }
-  const gameUrl = c.env.GAME_URL || 'https://pixelarrow.app';
+  const gameUrl = gameUrlOf(c.env);
 
   if (update.pre_checkout_query) {
     const q = update.pre_checkout_query;

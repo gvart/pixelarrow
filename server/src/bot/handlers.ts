@@ -20,6 +20,7 @@ import type { TelegramUser } from '../telegramAuth';
 import { disabledSet, getSettings, type NotifySettingsRow } from '../notify/outbox';
 import { saveSettings } from '../notify/routes';
 import { buttonUrl, langOf, NOTIFY_TYPES, type Lang, type NotifyType } from '../notify/templates';
+import { landingUrl as landingUrlOf } from '../urls';
 
 export interface BotMessage {
   message_id: number;
@@ -40,9 +41,9 @@ const TYPE_LABEL: Record<Lang, Record<NotifyType, string>> = {
   ru: { attack: 'Атаки на ваши земли', march: 'Войско прибыло', income: 'Казна полна', duel: 'Вызовы на дуэль', clan: 'Новости клана', boss: 'Добыча с боссов', season: 'Конец сезона', market: 'Продажи на рынке' },
 };
 
-/** The legal pages (static assets in public/, served by the Worker's assets). */
-export function legalUrls(gameUrl: string, lang: Lang) {
-  const base = `${gameUrl.replace(/\/+$/, '')}${lang === 'ru' ? '/ru' : ''}`;
+/** The legal pages (static assets of the landing Worker on LANDING_URL, ADR-0007). */
+export function legalUrls(landingUrl: string, lang: Lang) {
+  const base = `${landingUrl.replace(/\/+$/, '')}${lang === 'ru' ? '/ru' : ''}`;
   return { terms: `${base}/terms`, privacy: `${base}/privacy`, refunds: `${base}/refunds` };
 }
 
@@ -122,7 +123,7 @@ export async function handleCommand(env: Env, db: D1Database, msg: BotMessage, g
     return true;
   }
   if (name === 'terms') {
-    await send(env, { chat_id: msg.chat.id, text: t.terms(legalUrls(gameUrl, lang)) });
+    await send(env, { chat_id: msg.chat.id, text: t.terms(legalUrls(landingUrlOf(env), lang)) });
     return true;
   }
   if (name === 'paysupport') {

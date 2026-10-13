@@ -1,8 +1,10 @@
-// One Cloudflare Worker serves the built game (dist/) as static assets on the
-// pixelarrow.app custom domain AND the backend API (server/, see
-// server/README.md). Only /api/* and /ws/* reach the Worker code; everything
-// else is plain static hosting with the SPA fallback. Deployed by
-// .github/workflows/deploy.yml after tests pass.
+// The game Worker (ADR-0007): serves the built game (dist/) as static assets on
+// the play.pixelarrow.app custom domain AND the backend API (server/, see
+// server/README.md), for the web and the Telegram Mini App. Only /api/*, /ws/*
+// and /admin reach the Worker code; everything else is plain static hosting
+// with the SPA fallback (headers from public/_headers). The landing site on
+// pixelarrow.app and www is a separate Worker (landing/wrangler.jsonc).
+// Deployed by .github/workflows/deploy.yml after tests pass.
 //
 // The D1 database id below is a placeholder: CI generates wrangler.deploy.json
 // from this file (server/scripts/deploy-config.mjs), filling in the
@@ -19,10 +21,12 @@
     "run_worker_first": ["/api/*", "/ws/*", "/admin", "/admin/*"]
   },
   "routes": [
-    { "pattern": "pixelarrow.app", "custom_domain": true }
+    { "pattern": "play.pixelarrow.app", "custom_domain": true }
   ],
   "vars": {
-    "GAME_URL": "https://pixelarrow.app"
+    "GAME_URL": "https://play.pixelarrow.app",
+    // The landing, which serves the legal pages linked from bot texts.
+    "LANDING_URL": "https://pixelarrow.app"
   },
   "d1_databases": [
     {

@@ -164,7 +164,7 @@ export function canPromote(actor: ClanRole, target: ClanRole, to: ClanRole): boo
 export const CLAN_INVITE_PREFIX = 'clan_';
 
 /** Telegram deep link that opens the Mini App with start_param clan_<code>. */
-export function clanInviteLink(botUsername: string | null, code: string, appName = 'play', fallbackUrl = 'https://pixelarrow.app/'): string {
+export function clanInviteLink(botUsername: string | null, code: string, appName = 'play', fallbackUrl = 'https://play.pixelarrow.app/'): string {
   if (botUsername) return `https://t.me/${botUsername}/${appName}?startapp=${CLAN_INVITE_PREFIX}${code}`;
   return `${fallbackUrl}?startapp=${CLAN_INVITE_PREFIX}${code}`;
 }
