@@ -23,7 +23,10 @@ export type Template =
   | 'telegram_removed'
   | 'account_deleted'
   // V6-LINK-03 (ADR-0009 §3.5): Telegram linked from the web, or by a conflict choice.
-  | 'telegram_linked';
+  | 'telegram_linked'
+  // V6-053: the Telegram owner is asked to choose, or cancelled the link in the Mini App.
+  | 'link_conflict'
+  | 'link_cancelled';
 
 /** Russian when the hint (a language_code or an Accept-Language header) starts with "ru", else English. */
 export function pickLang(...hints: (string | null | undefined)[]): Lang {
@@ -105,6 +108,16 @@ const COPY: Record<Lang, Record<Template, Copy>> = {
       lines: ['This email was removed from your Pixelarrow account. You can no longer log in with it, and your browser sessions were signed out.', 'You can still play in Telegram.'],
       after: ["If this wasn't you, contact support right away."],
     },
+    link_conflict: {
+      subject: 'Choose which Pixelarrow account to keep',
+      lines: ['A link between two Pixelarrow accounts is waiting for your choice. Open Pixelarrow in Telegram to decide which account to keep.'],
+      after: ["If you didn't start this, tap \"Not me\" there: nothing changes."],
+    },
+    link_cancelled: {
+      subject: 'Telegram link cancelled',
+      lines: ['The Telegram account you tried to link to your Pixelarrow account said "Not me", so nothing was linked.'],
+      after: ["If you didn't start this link, someone may know your password: change it now."],
+    },
     telegram_linked: {
       subject: 'Telegram linked to your Pixelarrow account',
       lines: ['A Telegram account was linked to your Pixelarrow account. You can now play it in Telegram too, and the bot can message you there.'],
@@ -182,6 +195,16 @@ const COPY: Record<Lang, Record<Template, Copy>> = {
       subject: 'Почта удалена из аккаунта Pixelarrow',
       lines: ['Эта почта удалена из вашего аккаунта Pixelarrow. Войти с ней больше нельзя, а в браузерах выполнен выход.', 'Играть в Telegram можно по-прежнему.'],
       after: ['Если это были не вы, сразу напишите в поддержку.'],
+    },
+    link_conflict: {
+      subject: 'Выберите, какой аккаунт Pixelarrow оставить',
+      lines: ['Связывание двух аккаунтов Pixelarrow ждёт вашего выбора. Откройте Pixelarrow в Telegram и решите, какой аккаунт оставить.'],
+      after: ['Если это были не вы, нажмите там «Это не я»: ничего не изменится.'],
+    },
+    link_cancelled: {
+      subject: 'Привязка Telegram отменена',
+      lines: ['Аккаунт Telegram, который вы пытались привязать к аккаунту Pixelarrow, ответил «Это не я», поэтому ничего не привязано.'],
+      after: ['Если это были не вы, возможно, кто-то знает ваш пароль: смените его.'],
     },
     telegram_linked: {
       subject: 'Telegram привязан к аккаунту Pixelarrow',

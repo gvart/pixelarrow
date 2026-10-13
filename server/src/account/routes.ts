@@ -22,8 +22,11 @@
  *   POST   /link/telegram/complete   (Mini App) {initData}  → {status: 'awaiting_web'}
  *   GET    /link/telegram/status     (creating session)     → {status, expiresAt?, telegram?, conflict?}
  *   POST   /link/telegram/confirm  * (creating session)     → {linked, removedEmpty?} | {conflict}
- *   GET    /conflict/:id           *                      → {kind, this, other, forced?, reason?, expiresAt}
- *   POST   /conflict/:id/resolve   * {keep, confirm}        → {kept, switched}
+ *   POST   /link/telegram/cancel     (Mini App) {initData}  → {cancelled}  ("Not me", any time; V6-053)
+ *   GET    /conflict/:id           * (bound web session)    → {kind, this, other, forced?, reason?, choices, expiresAt}
+ *   POST   /conflict/:id/resolve   * {keep, confirm}        → 202 {status: 'waiting_telegram'} | {status: 'resolved', kept, switched}
+ *   POST   /conflict/telegram        (Mini App) {initData}  → {conflicts: [...]}
+ *   POST   /conflict/:id/telegram    (Mini App) {initData, keep: 'telegram' | 'web'} → {status: 'waiting_web'}
  */
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
@@ -45,7 +48,7 @@ import { getPlayer, nameKeyHeld, setDisplayName, type PlayerRow } from '../playe
 import { requireLimit } from '../rateLimit';
 import { accountSummary, nameStatus } from './summary';
 import { cancelLink, completeLinkCode, confirmLink, createLinkCode, deepLinkFor, linkStatus, peekLinkCode } from './link';
-import { conflictView, resolveConflict } from './conflicts';
+import { cancelFromTelegram, chooseFromTelegram, conflictView, resolveConflict, telegramConflicts } from './conflicts';
 import { resolveBot } from '../online/clans';
 
 export const account = new Hono<AppEnv>();
@@ -222,21 +225,50 @@ account.get('/link/telegram/:code', async (c) => {
   return c.json(await peekLinkCode(db(c.env), c.get('session'), c.req.param('code'), Date.now()));
 });
 
+/** Mini App "Not me", at any point (V6-053): cancels the code and this Telegram user's conflicts. */
+account.post('/link/telegram/cancel', async (c) => {
+  await linkGate(c);
+  const body = await readJson(c, CompleteBody, 10 * 1024);
+  const d = flowDeps(c);
+  return c.json(await cancelFromTelegram(d.db, secret(c.env, 'TELEGRAM_BOT_TOKEN'), notifier(c, d), body.initData, d.now));
+});
+
+/** Mini App: the conflicts this Telegram user must decide (initData in the body, never the URL). */
+account.post('/conflict/telegram', async (c) => {
+  await linkGate(c);
+  const body = await readJson(c, CompleteBody, 10 * 1024);
+  return c.json(await telegramConflicts(db(c.env), secret(c.env, 'TELEGRAM_BOT_TOKEN'), body.initData, Date.now()));
+});
+
+const TelegramChoiceBody = z.object({ initData: z.string().min(1).max(8 * 1024), keep: z.enum(['telegram', 'web']) });
+
+/** Mini App: the Telegram owner's choice; never resolves alone (V6-053). */
+account.post('/conflict/:id/telegram', async (c) => {
+  await linkGate(c);
+  const body = await readJson(c, TelegramChoiceBody, 10 * 1024);
+  return c.json(await chooseFromTelegram(db(c.env), secret(c.env, 'TELEGRAM_BOT_TOKEN'), c.req.param('id'), body.initData, body.keep, Date.now()));
+});
+
 account.get('/conflict/:id', async (c) => {
   const s = c.get('session');
   requireReauth(s);
-  return c.json(await conflictView(db(c.env), s.pid, c.req.param('id'), Date.now()));
+  return c.json(await conflictView(db(c.env), s, c.req.param('id'), Date.now()));
 });
 
 const ResolveBody = z.object({ keep: z.enum(['this', 'other']), confirm: z.string().max(64) });
 
-/** Keeps one account (ADR-0009 §5.2); when the kept one isn't this session's, a cookie session for it replaces this one. */
+/**
+ * The web side's choice (ADR-0009 §5.2, V6-053): 202 waiting_telegram until
+ * the Mini App agrees; then (re-posted) it resolves. When the kept account
+ * isn't this session's, a cookie session for it replaces this one.
+ */
 account.post('/conflict/:id/resolve', async (c) => {
   const s = c.get('session');
   requireReauth(s);
   const body = await readJson(c, ResolveBody, 1024);
   const d = flowDeps(c);
-  const out = await resolveConflict(c.env, notifier(c, d), s.pid, c.req.param('id'), body.keep, body.confirm, d.now);
+  const out = await resolveConflict(c.env, notifier(c, d), s, c.req.param('id'), body.keep, body.confirm, d.now);
+  if (out.status === 'waiting_telegram') return c.json(out, 202);
   const switched = out.survivor !== s.pid;
   if (switched && s.transport === 'cookie') {
     // This session's player was just deleted; the person proved both accounts. The new session carries no fresh re-auth.
@@ -244,5 +276,5 @@ account.post('/conflict/:id/resolve', async (c) => {
     c.header('set-cookie', sessionCookie(token));
     c.header('cache-control', 'no-store');
   }
-  return c.json({ kept: out.kept, switched });
+  return c.json({ status: out.status, kept: out.kept, switched });
 });

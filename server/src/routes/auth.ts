@@ -11,7 +11,7 @@ import { clearSessionCookie, sessionCookie } from '../auth/cookies';
 import { createSession, deviceLabel, listSessions, revokeAll, revokeSession, type Method } from '../auth/sessions';
 import { changePassword, confirmReset, login, requestReset, resendSignup, signup, tokenPurpose, verifySignup, type EmailPurpose, type FlowDeps } from '../auth/flows';
 import { verifyAddEmail, verifyChangeEmail } from '../account/email';
-import { proveEmailConflict } from '../account/conflicts';
+import { bindWebSession, proveEmailConflict } from '../account/conflicts';
 import { notifierFor, type Notifier } from '../account/notices';
 import { peppersFromEnv } from '../auth/password';
 import { emailSenderFor } from '../email/sender';
@@ -169,8 +169,16 @@ export function flowDeps(c: Context<AppEnv>): FlowDeps {
 }
 
 /** A fresh cookie session for the web (rotation on every log-in, ADR-0008 §3). */
-async function cookieSession(c: Context<AppEnv>, player: PlayerRow, method: Method, purpose?: EmailPurpose, extra: Record<string, unknown> = {}) {
+async function cookieSession(
+  c: Context<AppEnv>,
+  player: PlayerRow,
+  method: Method,
+  purpose?: EmailPurpose,
+  extra: Record<string, unknown> = {},
+  bind?: (sid: string) => Promise<void>,
+) {
   const { token, session } = await createSession(db(c.env), player.id, 'cookie', method, deviceLabel(c.req.header('user-agent')));
+  if (bind) await bind(session.sid);
   c.header('set-cookie', sessionCookie(token));
   c.header('cache-control', 'no-store');
   return c.json({ ...(purpose ? { purpose } : {}), ...extra, player: publicPlayer(player), expiresAt: session.expiresAt });
@@ -235,7 +243,8 @@ auth.post('/verify/conflict', fromGame, async (c) => {
   const body = await readJson(c, ConflictProofBody, AUTH_BODY);
   const d = flowDeps(c);
   const { player, ...extra } = await proveEmailConflict(c.env, d, notifier(c, d), body.token, body.password);
-  return cookieSession(c, player, 'email_link', 'add_email', extra);
+  // The conflict's web side is this browser's new session (V6-053); the Telegram owner chooses in the Mini App.
+  return cookieSession(c, player, 'email_link', 'add_email', extra, extra.conflict ? (sid) => bindWebSession(d.db, extra.conflict!, sid) : undefined);
 });
 
 auth.post('/verify/resend', fromGame, async (c) => {

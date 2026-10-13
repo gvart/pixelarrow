@@ -122,6 +122,13 @@ const status = (a: Auth) => api('/api/account/link/telegram/status', a);
 const confirm = (a: Auth) => api('/api/account/link/telegram/confirm', { method: 'POST', ...a, json: {} });
 const conflictOf = (a: Auth, id: string) => api(`/api/account/conflict/${id}`, a);
 const resolve = (a: Auth, id: string, keep: 'this' | 'other', name: string) => api(`/api/account/conflict/${id}/resolve`, { method: 'POST', ...a, json: { keep, confirm: name } });
+/** The Mini App side (V6-053): each call carries a fresh initData from a new launch (no start_param). */
+const tgConflicts = async (t: { token: string; tgId: number }) =>
+  api('/api/account/conflict/telegram', { method: 'POST', token: t.token, json: { initData: await initDataFor(t.tgId, null) }, headers: { 'cf-connecting-ip': ip() } });
+const tgChoose = async (t: { token: string; tgId: number }, id: string, keep: 'telegram' | 'web') =>
+  api(`/api/account/conflict/${id}/telegram`, { method: 'POST', token: t.token, json: { initData: await initDataFor(t.tgId, null), keep }, headers: { 'cf-connecting-ip': ip() } });
+const tgCancel = async (t: { token: string; tgId: number }, startParam: string | null = null) =>
+  api('/api/account/link/telegram/cancel', { method: 'POST', token: t.token, json: { initData: await initDataFor(t.tgId, startParam) }, headers: { 'cf-connecting-ip': ip() } });
 
 /** Web player W starts a link and the Telegram player T completes it in the Mini App. */
 async function linkUpTo(w: { cookie: string }, t: { token: string; tgId: number }): Promise<string> {
@@ -283,7 +290,7 @@ describe('link codes (ADR-0009 §3, M-LK-2)', () => {
   });
 });
 
-describe('conflicts (ADR-0009 §5; M-LK-5..7, N-LK-1)', () => {
+describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-4)', () => {
   it('an empty other account is deleted automatically and the link completes', async () => {
     const w = await webAccount();
     await giveProgress(w.pid);
@@ -321,65 +328,203 @@ describe('conflicts (ADR-0009 §5; M-LK-5..7, N-LK-1)', () => {
     expect(await (await status({ cookie: w.cookie })).json()).toMatchObject({ status: 'awaiting_web' });
   });
 
-  it('both with progress: the player picks after typing the loser name; keep this moves Telegram and deletes the other', async () => {
+  /** Web player W (progress) and Telegram player T (progress) up to an open conflict. */
+  async function openConflict(wWon = 9, tWon = 4): Promise<{ w: Awaited<ReturnType<typeof webAccount>>; t: Awaited<ReturnType<typeof tgAccount>>; conflict: string }> {
     const w = await webAccount();
-    await giveProgress(w.pid, 9);
+    await giveProgress(w.pid, wWon);
     const t = await tgAccount();
-    await giveProgress(t.pid, 4);
+    await giveProgress(t.pid, tWon);
     await linkUpTo(w, t);
     const r = await confirm({ cookie: w.cookie });
     expect(r.status).toBe(200);
     const { conflict } = await r.json<{ conflict: string }>();
+    return { w, t, conflict };
+  }
+
+  it('both with progress: the conflict shows both sides and the bot asks the Telegram owner; nothing is linked yet', async () => {
+    const { w, t, conflict } = await openConflict();
     expect(conflict).toMatch(/^[A-Za-z0-9_-]{22}$/);
-    // The code is spent; nothing is linked yet.
     expect(await (await status({ cookie: w.cookie })).json()).toEqual({ status: 'conflict', conflict });
     expect(await telegramOf(w.pid)).toBeNull();
-    const view = await conflictOf({ cookie: w.cookie }, conflict);
-    expect(view.status).toBe(200);
-    const v = await view.json<Record<string, unknown>>();
+    const v = await (await conflictOf({ cookie: w.cookie }, conflict)).json<Record<string, unknown>>();
     expect(v).toMatchObject({
       kind: 'telegram',
       this: { displayName: w.name, signIn: ['password'], campaignDay: 7, heroes: 3, duelRating: null, war: null, purchases: false },
       other: { displayName: t.name, signIn: ['telegram'], purchases: false },
+      choices: { web: null, telegram: null },
     });
     expect(v.forced).toBeUndefined();
-    // Another player can't see it.
+    // The Mini App side sees which web account asks and both summaries.
+    const mini = await tgConflicts(t);
+    expect(mini.status).toBe(200);
+    expect(await mini.json()).toMatchObject({
+      conflicts: [{ id: conflict, kind: 'telegram', telegram: { displayName: t.name }, web: { displayName: w.name, emailMasked: expect.stringMatching(/^w\*\*\*@/) } }],
+    });
+    expect(String((await botTo(t.tgId))[0].params.text)).toMatch(/choose/i);
+    // Another session of W, or another player, can't see it.
+    const other = sidOf(await form('/api/auth/login', { email: w.email, password: PW }))!;
+    expect((await conflictOf({ cookie: other }, conflict)).status).toBe(404);
     expect((await conflictOf({ cookie: (await webAccount()).cookie }, conflict)).status).toBe(404);
+  });
+
+  it("(a) an attacker's code plus the victim's one tap on complete: the attacker can't resolve from the web alone", async () => {
+    // The attacker's web account, the victim's Telegram account with progress.
+    const { w: attacker, t: victim, conflict } = await openConflict(2, 40);
+    for (const keep of ['other', 'this'] as const) {
+      const name = keep === 'this' ? victim.name : attacker.name;
+      const r = await resolve({ cookie: attacker.cookie }, conflict, keep, name);
+      if (keep === 'other') expect(r.status).toBe(202);
+      else expect(await errorOf(r)).toBe('already_chosen');
+    }
+    expect(await (await resolve({ cookie: attacker.cookie }, conflict, 'other', attacker.name)).json()).toEqual({ status: 'waiting_telegram' });
+    // The initData of the victim's tap on complete is refused as a choice (replay), and so is the attacker's own Telegram.
+    const code = (await DB().prepare('SELECT init_hash FROM link_codes WHERE player_id = ?1').bind(attacker.pid).first<{ init_hash: string }>())!.init_hash;
+    expect(code).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const own = await tgAccount();
+    expect(await errorOf(await tgChoose(own, conflict, 'web'))).toBe('wrong_account');
+    // Nothing deleted, nothing attached: the attacker's email is not on the victim's account (N-LK-4).
+    expect(await deletedAt(victim.pid)).toBeNull();
+    expect(await deletedAt(attacker.pid)).toBeNull();
+    expect(await count(`auth_identities WHERE player_id = ?1 AND kind = 'password'`, victim.pid)).toBe(0);
+    expect(await telegramOf(attacker.pid)).toBeNull();
+    // The victim says "Not me": the conflict ends and the attacker is told.
+    expect((await tgCancel(victim)).status).toBe(200);
+    expect(await errorOf(await resolve({ cookie: attacker.cookie }, conflict, 'other', attacker.name))).toBe('link_cancelled');
+    expect(await (await status({ cookie: attacker.cookie })).json()).toEqual({ status: 'cancelled' });
+    expect(await count(`auth_identities WHERE player_id = ?1 AND kind = 'password'`, victim.pid)).toBe(0);
+  });
+
+  it("the initData that completed the code can't be replayed as the Telegram choice", async () => {
+    const w = await webAccount();
+    await giveProgress(w.pid);
+    const t = await tgAccount();
+    await giveProgress(t.pid);
+    const { code } = await (await startLink({ cookie: w.cookie })).json<{ code: string }>();
+    const tap = await initDataFor(t.tgId, `link_${code}`);
+    expect((await complete({ token: t.token }, tap)).status).toBe(200);
+    const { conflict } = await (await confirm({ cookie: w.cookie })).json<{ conflict: string }>();
+    const r = await api(`/api/account/conflict/${conflict}/telegram`, { method: 'POST', token: t.token, json: { initData: tap, keep: 'web' }, headers: { 'cf-connecting-ip': ip() } });
+    expect(r.status).toBe(401);
+    expect(await errorOf(r)).toBe('init_data_reused');
+    const stale = await api(`/api/account/conflict/${conflict}/telegram`, { method: 'POST', token: t.token, json: { initData: await initDataFor(t.tgId, null, 11 * 60), keep: 'web' }, headers: { 'cf-connecting-ip': ip() } });
+    expect(await errorOf(stale)).toBe('init_data_expired');
+  });
+
+  it('(b) both sides choose to keep the web account: Telegram moves to it and the other is deleted', async () => {
+    const { w, t, conflict } = await openConflict();
     const wrong = await resolve({ cookie: w.cookie }, conflict, 'this', 'Somebody');
-    expect(wrong.status).toBe(400);
     expect(await errorOf(wrong)).toBe('confirm_mismatch');
-    const ok = await resolve({ cookie: w.cookie }, conflict, 'this', `  ${t.name.toUpperCase()} `);
+    expect((await resolve({ cookie: w.cookie }, conflict, 'this', `  ${t.name.toUpperCase()} `)).status).toBe(202);
+    expect(await telegramOf(w.pid)).toBeNull();
+    expect(await (await tgChoose(t, conflict, 'web')).json()).toEqual({ status: 'waiting_web' });
+    // Still nothing until the web completes the agreed choice.
+    expect(await deletedAt(t.pid)).toBeNull();
+    expect(await (await conflictOf({ cookie: w.cookie }, conflict)).json()).toMatchObject({ choices: { web: 'this', telegram: 'this' } });
+    const ok = await resolve({ cookie: w.cookie }, conflict, 'this', t.name);
     expect(ok.status).toBe(200);
-    expect(await ok.json()).toEqual({ kept: 'this', switched: false });
+    expect(await ok.json()).toEqual({ status: 'resolved', kept: 'this', switched: false });
     expect(await telegramOf(w.pid)).toBe(String(t.tgId));
     expect(await deletedAt(t.pid)).not.toBeNull();
     expect(await count('saves WHERE player_id = ?1', t.pid)).toBe(0);
     expect(await count('saves WHERE player_id = ?1', w.pid)).toBe(1);
-    // Single use.
     expect((await resolve({ cookie: w.cookie }, conflict, 'this', t.name)).status).toBe(404);
     expect((await devLogin(t.tgId)).playerId).toBe(w.pid);
   });
 
-  it('keep other: the email moves to the Telegram account, the web account is deleted, and this browser is switched', async () => {
-    const w = await webAccount();
-    await giveProgress(w.pid, 2);
-    const t = await tgAccount();
-    await giveProgress(t.pid, 30);
-    await linkUpTo(w, t);
-    const { conflict } = await (await confirm({ cookie: w.cookie })).json<{ conflict: string }>();
+  it('(b) the Telegram owner chooses first to keep the Telegram account: the email moves to it only then, and this browser is switched', async () => {
+    const { w, t, conflict } = await openConflict(2, 30);
+    expect((await tgChoose(t, conflict, 'telegram')).status).toBe(200);
+    expect(await count(`auth_identities WHERE player_id = ?1 AND kind = 'password'`, t.pid)).toBe(0);
     const ok = await resolve({ cookie: w.cookie }, conflict, 'other', w.name);
     expect(ok.status).toBe(200);
-    expect(await ok.json()).toEqual({ kept: 'other', switched: true });
+    expect(await ok.json()).toEqual({ status: 'resolved', kept: 'other', switched: true });
     const cookie = sidOf(ok)!;
     expect(await (await api('/api/account', { cookie })).json()).toMatchObject({ displayName: t.name });
     expect(await deletedAt(w.pid)).not.toBeNull();
     const login = await form('/api/auth/login', { email: w.email, password: PW });
-    expect(login.status).toBe(200);
     expect((await login.json<{ player: { id: number } }>()).player.id).toBe(t.pid);
     expect(await telegramOf(t.pid)).toBe(String(t.tgId));
   });
 
-  it('purchases force the survivor; both with purchases is 409 contact_support', async () => {
+  it('(c) the two sides disagree: nothing happens and the conflict ends', async () => {
+    const { w, t, conflict } = await openConflict();
+    expect((await resolve({ cookie: w.cookie }, conflict, 'this', t.name)).status).toBe(202);
+    const r = await tgChoose(t, conflict, 'telegram');
+    expect(r.status).toBe(409);
+    expect(await errorOf(r)).toBe('choices_differ');
+    expect(await errorOf(await resolve({ cookie: w.cookie }, conflict, 'this', t.name))).toBe('conflict_expired');
+    expect(await deletedAt(w.pid)).toBeNull();
+    expect(await deletedAt(t.pid)).toBeNull();
+    expect(await telegramOf(w.pid)).toBeNull();
+    expect(await count(`auth_identities WHERE player_id = ?1 AND kind = 'password'`, t.pid)).toBe(0);
+  });
+
+  it('(d) the Mini App cancel works before complete, after complete and during a conflict; the owner is told and it counts toward the code limit', async () => {
+    const throttle = async (pid: number) =>
+      (await DB().prepare('SELECT count FROM auth_throttle WHERE key = ?1').bind(`linkcode:${pid}`).first<{ count: number }>())?.count ?? 0;
+    // Before complete: whoever holds the code can cancel it.
+    const w = await webAccount();
+    const t = await tgAccount();
+    const { code } = await (await startLink({ cookie: w.cookie })).json<{ code: string }>();
+    const before = await throttle(w.pid);
+    expect(await (await tgCancel(t, `link_${code}`)).json()).toEqual({ cancelled: 1 });
+    expect(await throttle(w.pid)).toBe(before + 1);
+    expect(await (await status({ cookie: w.cookie })).json()).toEqual({ status: 'cancelled' });
+    expect((await complete({ token: t.token }, await initDataFor(t.tgId, `link_${code}`))).status).toBe(410);
+    expect((await mailTo(w.email, 2))[1].subject).toMatch(/cancelled/i);
+    // After complete.
+    const w2 = await webAccount();
+    await linkUpTo(w2, t);
+    expect(await (await tgCancel(t)).json()).toEqual({ cancelled: 1 });
+    expect((await confirm({ cookie: w2.cookie })).status).toBe(410);
+    // During a conflict.
+    const { w: w3, t: t3, conflict } = await openConflict();
+    expect((await resolve({ cookie: w3.cookie }, conflict, 'this', t3.name)).status).toBe(202);
+    expect(await (await tgCancel(t3)).json()).toEqual({ cancelled: 1 });
+    expect(await errorOf(await tgChoose(t3, conflict, 'web'))).toBe('link_cancelled');
+    expect(await deletedAt(t3.pid)).toBeNull();
+    expect(await telegramOf(w3.pid)).toBeNull();
+  });
+
+  it('(e) the empty-player check: every kind of progress makes it a conflict', async () => {
+    const now = Date.now();
+    const kinds: Record<string, (pid: number) => Promise<unknown>> = {
+      'a cloud save (even the first battle)': (pid) => giveProgress(pid, 0),
+      'a purchase': givePurchase,
+      'an entitlement': (pid) => DB().prepare(`INSERT INTO entitlements (player_id, product_id, granted_at) VALUES (?1, 'founder', ?2)`).bind(pid, now).run(),
+      'a duel profile': (pid) => DB().prepare(`INSERT INTO duel_profiles (player_id, glory, next_id, team, formations, created_at, updated_at) VALUES (?1, 0, 1, '[]', '[]', ?2, ?2)`).bind(pid, now).run(),
+      'a duel rating': (pid) => DB().prepare(`INSERT INTO duel_ratings (player_id, updated_at) VALUES (?1, ?2)`).bind(pid, now).run(),
+      'a war profile': (pid) =>
+        DB()
+          .prepare(
+            `INSERT INTO online_profiles (season_id, player_id, shard_id, gold, food, wood, bronze, recruits, energy, energy_at, next_id, formations, home_loc, army_loc, created_at, updated_at)
+             VALUES (9999, ?1, 1, 0, 0, 0, 0, 0, 0, ?2, 1, '[]', 1, 1, ?2, ?2)`,
+          )
+          .bind(pid, now)
+          .run(),
+      'a clan': async (pid) => {
+        const clan = await DB().prepare(`INSERT INTO clans (season_id, shard_id, name, tag, created_by, created_at) VALUES (9999, 1, ?1, ?2, ?3, ?4) RETURNING id`).bind(`L3 Clan ${pid}`, `T${pid}`.slice(0, 6), pid, now).first<{ id: number }>();
+        await DB().prepare(`INSERT INTO clan_members (season_id, player_id, clan_id, role, joined_at) VALUES (9999, ?1, ?2, 'leader', ?3)`).bind(pid, clan!.id, now).run();
+      },
+      'Drachmae': (pid) =>
+        DB().batch([
+          DB().prepare('INSERT INTO wallets (player_id, drachmae, updated_at) VALUES (?1, 5, ?2)').bind(pid, now),
+          DB().prepare(`INSERT INTO drachmae_ledger (player_id, delta, kind, ref, created_at) VALUES (?1, 5, 'admin', 'l3', ?2)`).bind(pid, now),
+        ]),
+    };
+    for (const [what, give] of Object.entries(kinds)) {
+      const w = await webAccount();
+      const t = await tgAccount();
+      await give(t.pid);
+      await linkUpTo(w, t);
+      const r = await confirm({ cookie: w.cookie });
+      expect(r.status, what).toBe(200);
+      expect(Object.keys(await r.json<object>()), what).toEqual(['conflict']);
+      expect(await deletedAt(t.pid), what).toBeNull();
+    }
+  });
+
+  it('purchases force the survivor on both sides; both with purchases is 409 contact_support', async () => {
     const w = await webAccount();
     await giveProgress(w.pid);
     const t = await tgAccount();
@@ -387,9 +532,8 @@ describe('conflicts (ADR-0009 §5; M-LK-5..7, N-LK-1)', () => {
     await linkUpTo(w, t);
     const { conflict } = await (await confirm({ cookie: w.cookie })).json<{ conflict: string }>();
     expect(await (await conflictOf({ cookie: w.cookie }, conflict)).json()).toMatchObject({ forced: 'other', reason: 'purchases' });
-    const refused = await resolve({ cookie: w.cookie }, conflict, 'this', t.name);
-    expect(refused.status).toBe(409);
-    expect(await errorOf(refused)).toBe('forced_survivor');
+    expect(await errorOf(await resolve({ cookie: w.cookie }, conflict, 'this', t.name))).toBe('forced_survivor');
+    expect(await errorOf(await tgChoose(t, conflict, 'web'))).toBe('forced_survivor');
     expect(await deletedAt(t.pid)).toBeNull();
 
     const w2 = await webAccount();
@@ -404,13 +548,9 @@ describe('conflicts (ADR-0009 §5; M-LK-5..7, N-LK-1)', () => {
     expect(await deletedAt(t2.pid)).toBeNull();
   });
 
-  it('resolve needs a fresh re-auth, refuses a busy loser, and a conflict expires after 15 minutes', async () => {
-    const w = await webAccount();
-    await giveProgress(w.pid);
-    const t = await tgAccount();
-    await giveProgress(t.pid);
-    await linkUpTo(w, t);
-    const { conflict } = await (await confirm({ cookie: w.cookie })).json<{ conflict: string }>();
+  it('resolve needs a fresh re-auth, refuses a busy loser inside the batch, and a conflict expires after 15 minutes', async () => {
+    const { w, t, conflict } = await openConflict();
+    expect((await tgChoose(t, conflict, 'web')).status).toBe(200);
     const now = Date.now();
     await DB()
       .prepare(
@@ -429,9 +569,24 @@ describe('conflicts (ADR-0009 §5; M-LK-5..7, N-LK-1)', () => {
     await DB().prepare('UPDATE sessions SET reauth_at = ?2 WHERE player_id = ?1').bind(w.pid, Date.now()).run();
     forgetSessions(w.pid);
     await DB().prepare('UPDATE link_conflicts SET expires_at = ?2 WHERE id = ?1').bind(conflict, Date.now() - 1).run();
-    const gone = await resolve({ cookie: w.cookie }, conflict, 'this', t.name);
-    expect(gone.status).toBe(410);
-    expect(await errorOf(gone)).toBe('conflict_expired');
+    expect(await errorOf(await resolve({ cookie: w.cookie }, conflict, 'this', t.name))).toBe('conflict_expired');
+  });
+
+  it('the busy guard is part of the batch: a ticket opened after the check still stops the transfer', async () => {
+    const { notBusySql } = await import('../src/account/delete');
+    const { w, t } = await openConflict();
+    const now = Date.now();
+    const free = await DB().prepare(`SELECT ${notBusySql(t.pid, now)} AS ok`).first<{ ok: number }>();
+    expect(free!.ok).toBe(1);
+    await DB()
+      .prepare(
+        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, region_version, created_at, expires_at)
+         VALUES (?1, 1, 1, ?2, 1, 1, '{}', '[]', '[]', 'npc', 0, ?3, ?4)`,
+      )
+      .bind(`l3race${t.pid}`, t.pid, now, now + 60_000)
+      .run();
+    expect((await DB().prepare(`SELECT ${notBusySql(t.pid, now)} AS ok`).first<{ ok: number }>())!.ok).toBe(0);
+    expect(await deletedAt(w.pid)).toBeNull();
   });
 });
 
@@ -447,7 +602,7 @@ describe('email conflicts (ADR-0009 §5.2: the live email_conflict link plus the
     return linkToken(mails[1])!;
   }
 
-  it('the email link plus the other account password opens a conflict for the Telegram account, signed in on this browser', async () => {
+  it('the email link plus the other password opens a conflict; it resolves only when the Telegram owner agrees in the Mini App', async () => {
     const w = await webAccount();
     await giveProgress(w.pid, 3);
     const t = await tgAccount();
@@ -461,18 +616,19 @@ describe('email conflicts (ADR-0009 §5.2: the live email_conflict link plus the
     const body = await r.json<{ conflict: string; player: { id: number } }>();
     expect(body.player.id).toBe(t.pid);
     const cookie = sidOf(r)!;
-    // The link is spent.
     expect((await proveOther(token, PW)).status).toBe(400);
     const v = await (await conflictOf({ cookie }, body.conflict)).json<Record<string, unknown>>();
     expect(v).toMatchObject({ kind: 'email', this: { displayName: t.name, signIn: ['telegram'] }, other: { displayName: w.name, signIn: ['password'] } });
+    // The Telegram player's own Mini App session is not the bound web side.
+    expect((await conflictOf({ token: t.token }, body.conflict)).status).toBe(404);
+    expect((await resolve({ cookie }, body.conflict, 'this', w.name)).status).toBe(202);
+    expect(await deletedAt(w.pid)).toBeNull();
+    expect(await (await tgChoose(t, body.conflict, 'telegram')).json()).toEqual({ status: 'waiting_web' });
     const ok = await resolve({ cookie }, body.conflict, 'this', w.name);
-    expect(ok.status).toBe(200);
-    expect(await ok.json()).toEqual({ kept: 'this', switched: false });
+    expect(await ok.json()).toEqual({ status: 'resolved', kept: 'this', switched: false });
     expect(await deletedAt(w.pid)).not.toBeNull();
-    // The email (with the password just proven) now signs in to the Telegram account.
     const login = await form('/api/auth/login', { email: w.email, password: PW });
     expect((await login.json<{ player: { id: number } }>()).player.id).toBe(t.pid);
-    expect(String((await botTo(t.tgId))[0].params.text)).toMatch(/email/i);
   });
 
   it('an empty email account is removed automatically', async () => {
