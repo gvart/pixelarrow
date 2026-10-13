@@ -9,3 +9,9 @@ DEV_AUTH=1
 # Local origins the Worker accepts for CORS and the cookie Origin check (ADR-0007).
 # Comma-separated; local only, never set in production.
 DEV_ORIGINS=http://localhost:8787,http://localhost:5173
+# Password pepper (ADR-0008 §2): 32 random bytes, base64 (openssl rand -base64 32), and its id.
+# Local value only; production uses wrangler secret put PASSWORD_PEPPER / PASSWORD_PEPPER_ID.
+PASSWORD_PEPPER=replace-with-openssl-rand-base64-32
+PASSWORD_PEPPER_ID=1
+# Emails go to the dev_outbox D1 table instead of being sent. Local only, never in production!
+DEV_EMAIL=1

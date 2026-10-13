@@ -63,3 +63,36 @@ export async function upsertTelegramPlayer(db: D1Database, user: TelegramUser, n
     }
   }
 }
+
+/**
+ * A verified sign-up (ADR-0008 §1, M-ID-2): creates the player with a
+ * generated display name, its password identity and the hash in one D1 batch.
+ * 'taken' when the address became a password identity in the meantime
+ * (`UNIQUE(kind, subject)` is checked only now, at proof time).
+ */
+export async function createPasswordPlayer(db: D1Database, emailNorm: string, email: string, hash: string, now = Date.now()): Promise<PlayerRow | 'taken'> {
+  for (let attempt = 0; ; attempt++) {
+    const name = generateDisplayName();
+    const key = nameKey(name);
+    try {
+      const [created] = await db.batch([
+        db.prepare('INSERT INTO players (display_name, display_name_key, created_at, last_seen_at) VALUES (?1, ?2, ?3, ?3) RETURNING *').bind(name, key, now),
+        db
+          .prepare(
+            `INSERT INTO auth_identities (player_id, kind, subject, email, verified_at, created_at, last_login_at)
+             SELECT id, 'password', ?1, ?2, ?3, ?3, NULL FROM players WHERE display_name_key = ?4`,
+          )
+          .bind(emailNorm, email, now, key),
+        db
+          .prepare(`INSERT INTO password_hashes (identity_id, hash, updated_at) SELECT id, ?2, ?3 FROM auth_identities WHERE kind = 'password' AND subject = ?1`)
+          .bind(emailNorm, hash, now),
+      ]);
+      return created.results[0] as PlayerRow;
+    } catch (e) {
+      const msg = String((e as Error).message);
+      if (/UNIQUE/i.test(msg) && /auth_identities/i.test(msg)) return 'taken';
+      // A generated-name collision: try another name.
+      if (attempt + 1 >= NAME_ATTEMPTS || !/UNIQUE/i.test(msg)) throw e;
+    }
+  }
+}
