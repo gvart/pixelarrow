@@ -1,0 +1,39 @@
+tests/iconAtlas.test.ts
+  s_697bdc25a7c420::t_b36d42d4a3b722 2-3,128-139
+  s_697bdc25a7c420::t_795f962ba6bf4f 13,117-127
+  s_697bdc25a7c420::t_1af20db1a1f199 140
+scripts/art/webp.mjs
+  s_697bdc25a7c420::t_b5dd8bb6972fd0 1-16,18-40
+  s_697bdc25a7c420::t_a1a54cf5bf6cc0 17
+scripts/art/webp-lock.json
+  s_697bdc25a7c420::t_a1a54cf5bf6cc0 1-4
+src/art/iconBitmaps.ts
+  s_697bdc25a7c420::t_795f962ba6bf4f 246-250,256,267
+  s_697bdc25a7c420::t_ac9b35b4eb1f54 29-33,35-36
+  s_697bdc25a7c420::t_a8b7a410f13b8f 194-195,220,224,242-245,251-255,257-260,265-266,270-273
+tests/support/nodeIo.js
+  s_697bdc25a7c420::t_b36d42d4a3b722 4,14
+scripts/art/atlas.mjs
+  s_697bdc25a7c420::t_b36d42d4a3b722 24,100-101
+src/scenes/BootScene.ts
+  s_697bdc25a7c420::t_ac9b35b4eb1f54 32
+  s_697bdc25a7c420::t_77da0541ebb73f 30-31,37-48
+tests/support/nodeIo.d.ts
+  s_697bdc25a7c420::t_b36d42d4a3b722 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5bdab67ffc36c7d82815b64835d0c6ae3dab1bca",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
