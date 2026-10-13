@@ -54,6 +54,13 @@ export function nextSpeed(mode: PaceMode, cur: number): number {
   return i < 0 ? list[0] : list[i];
 }
 
+/** The speed keys ] and [ (input-v6.md §3.5): one step up or down, or null at that end of this battle's speeds. */
+export function stepSpeed(mode: PaceMode, cur: number, dir: 1 | -1): number | null {
+  const list = SPEEDS[mode];
+  const i = list.indexOf(cur) + dir;
+  return list.includes(cur) && i >= 0 && i < list.length ? list[i] : null;
+}
+
 /** "0.5×", "2×". */
 export function speedLabel(s: number): string {
   return `${s}×`;
