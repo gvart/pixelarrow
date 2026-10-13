@@ -4,7 +4,7 @@
  * Phaser 3's addCanvas wraps the canvas in a CanvasTexture, whose constructor reads the whole
  * canvas back (`getImageData`) and keeps typed views of it for getPixel/putData. Every
  * procedural texture of the game goes through addCanvas (fonts, every icon in three looks,
- * panels, sprites: about 1,000 at boot) and none of them is ever read or redrawn through the
+ * panels, sprites: 433 by the time the hub shows) and none of them is ever read or redrawn through the
  * CanvasTexture API: live atlases are made with `createCanvas` (src/ui/sprites.ts), which keeps
  * the CanvasTexture. The readback was the largest single cost of the boot (about 0.7 s of
  * registerUiAssets at 4x CPU throttle).
