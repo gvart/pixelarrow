@@ -1,0 +1,266 @@
+---
+// Hero (#top), the static version (V6-LAND-01). The diorama still is the poster that V6-LAND-02's
+// living diorama replaces after LCP; it is also the reduced-motion, no-JS and phone hero
+// (ASSET_SPEC "Hero"). Layers, back to front: sky, lamp beam, diorama still, war-table foreground.
+//
+// Text column rule (V6-019): the headline, sub-line and buttons never sit under the art. From 1100 px
+// the diorama starts to the right of the copy column and is cropped by the viewport instead of scaled;
+// below that the copy stacks above it. The diorama is shown at 1296, 648 or 432 CSS px wide: whole
+// multiples of the game's pixels on the screens that use each size (ART_DIRECTION L3).
+import { PLAY_URL, TELEGRAM_URL } from '../../site';
+
+const H = '/hero/';
+---
+<section class="hero" id="top" aria-labelledby="hero-title">
+  <div class="hero__backdrop" aria-hidden="true">
+    <picture>
+      <source media="(max-width: 767px)" type="image/avif" srcset={`${H}landing_hero_sky_m780.avif`} />
+      <source media="(max-width: 767px)" type="image/webp" srcset={`${H}landing_hero_sky_m780.webp`} />
+      <source type="image/avif" srcset={`${H}landing_hero_sky_1280.avif 1280w, ${H}landing_hero_sky_1920.avif 1920w`} sizes="100vw" />
+      <img
+        class="hero__sky"
+        src={`${H}landing_hero_sky_1280.webp`}
+        srcset={`${H}landing_hero_sky_1280.webp 1280w, ${H}landing_hero_sky_1920.webp 1920w`}
+        sizes="100vw"
+        width="1920"
+        height="1080"
+        alt=""
+        decoding="async"
+      />
+    </picture>
+    <div class="hero__beam"></div>
+  </div>
+
+  <div class="hero__inner container">
+    <div class="hero__copy">
+      <h1 id="hero-title" class="hero__title">Hold the line</h1>
+      <p class="hero__sub">
+        Command pixel phalanxes in real-time battles across the ancient Mediterranean. Free in your browser and in Telegram.
+      </p>
+      <div class="hero__ctas">
+        <a class="btn btn--primary" href={PLAY_URL}>Play in browser</a>
+        <a class="btn btn--secondary" href={TELEGRAM_URL}>Open in Telegram</a>
+      </div>
+      <p class="hero__note">No download. Phones, tablets and laptops.</p>
+    </div>
+
+    <div class="hero__stage">
+      <picture class="hero__diorama">
+        <source type="image/webp" srcset={`${H}landing_hero_diorama_still_2x.webp`} />
+        <img
+          class="pixel"
+          src={`${H}landing_hero_diorama_still_2x.png`}
+          width="1296"
+          height="852"
+          alt="Two pixel-art formations face each other across a river on a battlefield diorama, as drawn by the game."
+          fetchpriority="high"
+          decoding="async"
+        />
+      </picture>
+    </div>
+  </div>
+
+  <div class="hero__table" aria-hidden="true"></div>
+</section>
+
+<style>
+  .hero {
+    --diorama-w: 432px;
+    --diorama-h: 284px;
+    position: relative;
+    isolation: isolate;
+    overflow: clip;
+    background: var(--night);
+  }
+
+  /* Sky and beam fill the hero; the sky fades into the page ground at the bottom. */
+  .hero__backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+  }
+  .hero__backdrop picture {
+    height: 100%;
+  }
+  .hero__sky {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 20% 30%;
+  }
+  .hero__backdrop::after {
+    /* The lamp (CSS glow, ART_DIRECTION §4) plus the fall-off to the page ground. */
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgb(16 13 11 / 0.6), rgb(16 13 11 / 0) calc(var(--nav-h) * 2)),
+      radial-gradient(70% 55% at 12% 8%, rgb(var(--lamp) / 0.16), rgb(var(--lamp) / 0) 70%),
+      linear-gradient(180deg, rgb(16 13 11 / 0) 55%, var(--night) 100%);
+  }
+  .hero__beam {
+    display: none;
+  }
+
+  /* Phones: copy, then the diorama at 432 px (1:1 device pixels at DPR 3), cropped by the edges. */
+  .hero__inner {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s8);
+    padding-top: calc(var(--nav-h) + var(--s12));
+  }
+  .hero__copy {
+    position: relative;
+    z-index: 2;
+    max-width: 34rem;
+  }
+  .hero__title {
+    font-size: var(--fs-hero);
+    line-height: 1.02;
+    letter-spacing: 0.02em;
+    max-width: 8.5ch;
+    text-shadow: 0 2px 24px rgb(16 13 11 / 0.6);
+  }
+  .hero__sub {
+    margin-top: var(--s6);
+    max-width: 30rem;
+    color: var(--cream);
+    font-size: var(--fs-lead);
+    line-height: 1.5;
+    text-shadow: 0 1px 12px rgb(16 13 11 / 0.8);
+  }
+  .hero__ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s3);
+    margin-top: var(--s8);
+  }
+  .hero__note {
+    margin-top: var(--s4);
+    color: var(--cream-sec);
+    font-size: var(--fs-caption);
+  }
+  .hero__stage {
+    display: grid;
+    justify-items: center;
+    margin-inline: calc(-1 * var(--gutter));
+    overflow: clip;
+  }
+  .hero__diorama,
+  .hero__diorama img {
+    width: var(--diorama-w);
+    max-width: none;
+    height: var(--diorama-h);
+  }
+  .hero__diorama {
+    filter: drop-shadow(0 30px 40px rgb(0 0 0 / 0.55));
+  }
+  .hero__table {
+    display: none;
+  }
+  .hero::after {
+    /* The hero's lower edge dissolves into the page ground instead of ending on a hard line. */
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    z-index: 4;
+    height: var(--s16);
+    background: linear-gradient(180deg, rgb(16 13 11 / 0), var(--night));
+    pointer-events: none;
+  }
+  @media (max-width: 1099px) {
+    .hero__inner {
+      padding-bottom: var(--s12);
+    }
+  }
+
+  @media (max-width: 399px) {
+    .hero__ctas .btn {
+      flex: 1 1 100%;
+    }
+  }
+
+  /* Tablets and small laptops: the same stack, the diorama at 1 CSS px per game pixel, the lamp beam
+     and the war table join. */
+  @media (min-width: 768px) {
+    .hero {
+      --diorama-w: 648px;
+      --diorama-h: 426px;
+    }
+    .hero__beam {
+      display: block;
+      position: absolute;
+      inset: 0;
+      background: image-set(url('/hero/landing_hero_beam_1920.avif') type('image/avif'), url('/hero/landing_hero_beam_1920.webp') type('image/webp')) 0 0 / cover no-repeat;
+      mix-blend-mode: screen;
+      opacity: 0.42;
+    }
+    .hero__inner {
+      padding-top: calc(var(--nav-h) + var(--s16));
+    }
+    .hero__stage {
+      margin-inline: 0;
+      padding-bottom: 12vw;
+    }
+    .hero__table {
+      display: block;
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 3;
+      height: calc(100vw * 459 / 1920);
+      margin-bottom: calc(-1 * var(--table-sink, 6.25vw));
+      background: image-set(url('/hero/landing_hero_fg_1920.webp') type('image/webp')) center bottom / 100% auto no-repeat;
+      filter: brightness(0.7);
+      pointer-events: none;
+    }
+  }
+
+  /* Laptops and up: copy left, the diorama at its 2x file size to the right of the copy column,
+     cropped by the right edge. The copy column ends 48 px before the diorama begins, so the trees
+     can never reach the text (V6-019). */
+  @media (min-width: 1100px) {
+    .hero {
+      --diorama-w: 1296px;
+      --diorama-h: 852px;
+      --copy-w: 31rem;
+      /* The table sinks 10vw below the fold so the helmet frames the slab's corner instead of
+         standing in front of the formations; this is what stays visible of it. */
+      --table-sink: calc(10vw + max(0px, (960px - 100svh) * 0.4)); /* deeper on short screens */
+      --table-h: calc(100vw * 459 / 1920 - var(--table-sink));
+      min-height: max(100svh, 720px);
+      display: grid;
+    }
+    .hero__inner {
+      position: static;
+      display: flex;
+      align-items: center;
+      min-height: inherit;
+      padding-top: var(--nav-h);
+      padding-bottom: var(--table-h);
+    }
+    .hero__copy {
+      width: var(--copy-w);
+    }
+    .hero__copy::before {
+      /* L4: the copy sits on its own dark scrim, not straight on the lamp beam. */
+      content: '';
+      position: absolute;
+      inset: -18% -30% -22% -40%;
+      z-index: -1;
+      background: radial-gradient(closest-side, rgb(16 13 11 / 0.55), rgb(16 13 11 / 0));
+      pointer-events: none;
+    }
+    .hero__stage {
+      position: absolute;
+      z-index: 1;
+      /* The box has 50 px of empty sky above the tree tops, so it may tuck under the nav. */
+      top: max(calc(var(--nav-h) - 40px), calc(50% - var(--diorama-h) / 2 - 40px));
+      left: calc(max(var(--gutter), (100% - var(--page-max)) / 2 + var(--gutter)) + var(--copy-w) + var(--s12));
+      display: block;
+      margin: 0;
+      padding: 0;
+      overflow: visible;
+    }
+  }
+</style>

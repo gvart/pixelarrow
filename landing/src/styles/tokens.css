@@ -1,0 +1,114 @@
+/* Design tokens for pixelarrow.app: docs/v6/landing/ART_DIRECTION.md §4 and §7, with V6-015 (warm
+   basalt ground, parchment panels, thin cyan dividers). The page is dark only: it is a lamp held over
+   a tabletop, so there is no light theme to switch to. */
+
+/* Fonts (ADR-0011 Decision 4): self-hosted latin subsets, swap, metric-matched fallbacks so the swap
+   does not move a line. Overrides measured with @capsizecss/unpack against the fallback's own metrics
+   (Georgia Bold for Cinzel 700, Arial for Inter). */
+@font-face {
+  font-family: 'Cinzel';
+  src: url('../fonts/cinzel-700-latin.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../fonts/inter-var-latin.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Cinzel fallback';
+  src: local('Georgia Bold'), local('Georgia-Bold'), local('Times New Roman Bold');
+  font-weight: 700;
+  size-adjust: 109.34%;
+  ascent-override: 89.26%;
+  descent-override: 34.02%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Inter fallback';
+  src: local('Arial'), local('ArialMT'), local('Helvetica');
+  size-adjust: 107.12%;
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Ground, from darkest to lightest. */
+  --night: #100d0b;      /* page ground at the edges and below the fold */
+  --basalt: #16120f;     /* section ground (the game's page colour) */
+  --stone: #26211b;      /* cards and tiles */
+  --stone-edge: #463d33; /* 1 px card outlines */
+
+  /* Text on dark: four steps, primary to faint. */
+  --cream: #f0e3c2;
+  --cream-sec: #c9b896;
+  --cream-muted: #a39373; /* 5.9:1 on basalt: captions and footer links */
+  --cream-faint: #6f6450; /* decoration only, never text */
+
+  /* Parchment panels (leaderboards, FAQ answers). */
+  --parch: #e7d6ad;
+  --ink: #3a2414;
+
+  /* Light and accents. */
+  --lamp: 242 200 121;   /* #f2c879 as channels: the glow is always a gradient at 0-18% */
+  --terra: #a8432c;      /* the one primary action per viewport */
+  --terra-hi: #b9502f;   /* hover: one step warmer */
+  --bronze: #b08a3a;     /* frame edges, icon strokes */
+  --lattice: #7fd0e0;    /* the formation lattice and the focus ring; never text, never buttons */
+  --lattice-line: rgb(127 208 224 / 0.25);
+  --alert: #b3261e;
+
+  /* Type (ART_DIRECTION §7). */
+  --font-display: 'Cinzel', 'Cinzel fallback', Georgia, 'Times New Roman', serif;
+  --font-text: 'Inter', 'Inter fallback', Arial, Helvetica, sans-serif;
+  --fs-hero: clamp(2.75rem, 7vw, 6rem);
+  --fs-title: clamp(1.75rem, 4vw, 2.75rem);
+  --fs-lead: 1.25rem;
+  --fs-body: 1.0625rem;
+  --fs-caption: 0.875rem;
+  --track-display: 0.04em;
+
+  /* Space on a 4 px grid. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s6: 24px;
+  --s8: 32px;
+  --s12: 48px;
+  --s16: 64px;
+  --s24: 96px;
+  --s32: 128px;
+
+  /* Layout. */
+  --page-max: 1440px;
+  --gutter: clamp(16px, 4vw, 64px);
+  --measure: 34rem;      /* about 65 characters of body text */
+  --nav-h: 64px;
+  --section-pad: clamp(var(--s16), 10vw, var(--s32));
+
+  /* Shape: the game's 2 px radius; buttons are the only exception (ART_DIRECTION §3). */
+  --radius: 2px;
+  --btn-h: 48px;
+
+  /* Motion (compositor-only; every moving rule also sits behind prefers-reduced-motion). */
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --dur-micro: 150ms;
+  --dur-enter: 250ms;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --nav-h: 56px;
+    --fs-lead: 1.125rem;
+  }
+}
