@@ -1,0 +1,25 @@
+design/adr/ADR-0004-input-layer.md
+  s_0d98fe904b2e82::t_3486cf5d574f77 4,140
+design/ux/input-v6.md
+  s_0d98fe904b2e82::t_f6b3b11257d056 1-76,78-98,100-300,302-407
+  s_0d98fe904b2e82::t_8c63c471f835ac 77,99,301
+design/adr/ADR-0012-input-v6.md
+  s_0d98fe904b2e82::t_6d52c5d989dc0d 1-93,95-269
+  s_0d98fe904b2e82::t_495fd6b549fb6b 94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2d958fe8ee31b5d628cd221d99bf2933cae70efe",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
