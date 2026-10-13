@@ -108,11 +108,11 @@ Its clip is a recording of that real screen, never a smithy scene.
 Title: **THE WAR RIGHT NOW**. Data: `/api/public/*` (public stats API ADR; HOSTING.md option B proxy),
 fetched after load, cached at the edge.
 
-- Counters: "Players", "Battles fought" (and, if the API ADR provides them, "Clans", "Regions held
-  this season"). Values appear only from real data.
+- Counters, from `PublicSummaryV1.totals` (ADR-0010): "Players", "Online battles" (the API counts only
+  online battles; campaign battles are not on the server), and "Clans". Values appear only from real data.
 - Table "Top duelists": rank, player display name (V6-011 nickname, never a Telegram name or id),
-  league. Top 10.
-- Table "War standings": rank, clan, regions held, for the current season. Top 10.
+  league (and the rating for Legend only, as in the game). Top 10.
+- Table "War standings": rank, clan, score, members, for the current season (`war.clans`). Top 10.
 - Footnote: "Updated every few minutes." with the time of the data ("as of 14:05 UTC").
 - **Empty state** (below a threshold set in the API ADR, or on error): the counters show "—" and the
   tables are replaced by one line, "The first season is just starting. Your name could be the first

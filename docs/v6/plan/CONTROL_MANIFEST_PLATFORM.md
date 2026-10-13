@@ -4,8 +4,8 @@
 > **Last Updated**: 2026-10-13
 > **Manifest Version**: 2026-10-13
 > **ADRs Covered**: ADR-0006 (platform layer), ADR-0007 (hosting)
-> **ADRs Excluded**: ADR-0001..0005 (v5, covered by their own docs; not in this platform slice). ADR-0008..0011 (not written yet).
-> **Status**: Active. Built from **Proposed** ADRs (autonomous run: logged, not asked). Regenerate when ADR-0006 or 0007 changes, or when ADR-0008..0011 are written; the full v6 manifest goes to `docs/v6/CONTROL_MANIFEST.md`.
+> **ADRs Excluded**: ADR-0001..0005 (v5, covered by their own docs; not in this platform slice). ADR-0008..0010 are in `CONTROL_MANIFEST_ACCOUNTS.md`; ADR-0011 (landing) and ADR-0012 (input) rules are embedded in their epics (`production/epics/v6-landing`, `v6-input`).
+> **Status**: Active. ADR-0006 and ADR-0007 are **Accepted** (V6-012). Updated 2026-10-13 by the architecture review (`docs/v6/plan/ARCH_REVIEW.md`): the stats proxy rule now follows ADR-0010, and the migration order is clarified. Regenerate when ADR-0006 or 0007 changes.
 
 Stories embed the `Manifest Version` above. Each rule names its source; the reasons are in the ADR. TD-MANIFEST was skipped (review mode `lean`).
 
@@ -19,7 +19,7 @@ Stories embed the `Manifest Version` above. Each rule names its source; the reas
 - Keep `KV` in `src/platform/core/storage.ts` (re-exported by `src/game/save.ts`). Save data goes through `platform.storage.save()`, device-only data through `platform.storage.device()`. — ADR-0006
 - Install `FakePlatform` with `setPlatformForTests()` in any test that touches platform behaviour. — ADR-0006
 - Keep `tests/platformBoundary.test.ts` green. Its migration allowlist may only shrink, and it is deleted at M10. — ADR-0006
-- Land migration steps M1 to M10 in order, one commit each, each passing tsc, vitest and the smoke scripts in Telegram emulation. — ADR-0006
+- Land migration steps one commit each, each passing tsc, vitest and the smoke scripts in Telegram emulation: M1 to M5 in sequence, then M8; M6, M7 and M9 with their paired accounts, payments and sign-in stories (M6 first); M10 last. — ADR-0006
 
 ### Never
 - Never import `src/platform/{telegram,web,steam,mobile}/**` or `src/platform/detect.ts` from outside `src/platform/`. — ADR-0006
@@ -63,7 +63,7 @@ Stories embed the `Manifest Version` above. Each rule names its source; the reas
 - Serve the game, `/api/*`, `/ws/*`, `/admin*` and the Telegram webhook only from `play.pixelarrow.app` (Worker `pixelarrow`, `wrangler.jsonc`). — ADR-0007
 - Serve the landing, its media, SEO files and the legal pages (`/terms`, `/privacy`, `/refunds`, `/ru/*`, same paths as today) from `pixelarrow.app` (Worker `pixelarrow-landing`, `landing/wrangler.jsonc`, `landing/dist`). — ADR-0007
 - Keep the landing a separate package in `landing/` that shares no code with the game bundle. — ADR-0007
-- Reach the stats from the landing only through its `/api/public/*` proxy: GET only, rate-limited per `CF-Connecting-IP`, `caches.default` first, the `GAME` service binding on a miss with no forwarded cookies or auth, a stale copy or `503 {"state":"unavailable"}` on failure. — ADR-0007
+- Reach the stats from the landing only through its `/api/public/v1/summary` proxy: GET only, `caches.default` first, then (on a miss) the `RL_LANDING_PUBLIC` limit per `CF-Connecting-IP` and the `PublicApi` RPC entrypoint over the `GAME` service binding (3 s timeout, nothing forwarded), the 24 h last-good copy with `X-Stale: 1` or `503` on failure. — ADR-0007, ADR-0010
 - Redirect `/?startapp=` and `/?tgWebAppStartParam=` on the apex with a 302 to play (query kept), and keep the inline hash redirect for `tgWebApp` launches in the landing `index.html`. — ADR-0007
 - Name the web session cookie `__Host-pa_sid`: `Secure; HttpOnly; Path=/; SameSite=Lax`, no `Domain`. — ADR-0007
 - Accept `Authorization: Bearer` first, then the cookie, both resolving to the same player id. — ADR-0007
@@ -87,7 +87,7 @@ Stories embed the `Manifest Version` above. Each rule names its source; the reas
 
 ## Performance guardrails
 - The landing Worker runs only for `/` and `/api/public/*`; all other landing paths are static. — ADR-0007
-- Stats responses are edge-cached (default `s-maxage=60`, final TTL in ADR-0010). — ADR-0007
+- Stats responses are edge-cached with `s-maxage=300` (ADR-0010). — ADR-0007, ADR-0010
 - The web game never requests `telegram.org`. — ADR-0006
 
 ## Cross-cutting

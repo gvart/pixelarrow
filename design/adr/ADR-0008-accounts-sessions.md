@@ -30,7 +30,7 @@ Today a player is a Telegram user: `players.telegram_id` is `NOT NULL UNIQUE`, a
 
 | Field | Value |
 |-------|-------|
-| **Depends On** | ADR-0006 (platform layer: the `Auth` interface and its `transport(): 'bearer' \| 'cookie'`). ADR-0007 (hosting: game and API same-origin on `play.pixelarrow.app`; the landing has no cookies). Both are being written in parallel. |
+| **Depends On** | ADR-0006 (platform layer: the `Auth` interface and its `readonly transport: 'bearer' \| 'cookie'`). ADR-0007 (hosting: game and API same-origin on `play.pixelarrow.app`; the landing has no cookies). Both Accepted (V6-012). |
 | **Enables** | ADR-0009 (linked accounts, display names, deletion), ADR-0010 (public stats need `display_name`). The stories for accounts, verification, reset, Turnstile, rate limits and sessions. |
 | **Blocks** | Every v6 account, linking and deletion story; the web adapter's `Auth` implementation. |
 | **Ordering Note** | Migration 0017 (this ADR) and 0018 (ADR-0009) can ship in one story. The session swap (`pa1` → `pa2`) is one atomic change for server and client; there are no old clients (V5-074). |
@@ -141,6 +141,7 @@ CREATE TABLE auth_throttle (
 ### 2. Password hashing
 
 - **Algorithm:** PBKDF2-HMAC-SHA256 through `crypto.subtle.deriveBits`, **100,000 iterations**, a 16-byte random salt and a 32-byte output.
+- **Acceptance condition (V6-014):** the 100,000 figure in this section is the floor, not the decision. Story V6-ACCT-01 (the spike) measures the highest iteration count workerd accepts and that fits the CPU budget, and the accounts stories use the highest safe value (target ≥ 310,000; floor 100,000). The spike writes the measured value and its evidence into this section and into `CONTROL_MANIFEST_ACCOUNTS.md` M-PW-1.
 - **Pepper:** the PBKDF2 input key is `HMAC-SHA256(PASSWORD_PEPPER, utf8(password))`, not the raw password. `PASSWORD_PEPPER` is a Worker secret (32 random bytes, base64) and is never in D1. A D1 dump or backup alone can't be cracked offline. The pepper id is stored in the hash string, so the pepper can be rotated (rehash on next log-in, then force a reset for the rest).
 - **Why 100,000:** workerd refuses PBKDF2 above 100,000 iterations (reported by Workers users; the spike in Verification Required must confirm it). OWASP asks for 600,000 for PBKDF2-SHA256 alone. The pepper, the durable per-account lockout and Turnstile make up the gap. The parameter lives in the hash string: **on every successful log-in, a hash whose parameters are below the current ones is recomputed and replaced.** If Cloudflare lifts the cap or adds a native memory-hard KDF, raising the parameter is a one-line change.
 - **Password policy (NIST SP 800-63B):** 10 to 128 characters (after NFKC), any characters, no composition rules. Reject a password equal to the email or its local part, and reject one of the 10,000 most common passwords (a bundled list, checked after normalisation). Never truncate the password.

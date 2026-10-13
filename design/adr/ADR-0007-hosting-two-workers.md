@@ -96,6 +96,8 @@ Today one Worker, `pixelarrow`, serves the game's static build and the API on `p
 - The landing reads stats from its own origin (the proxy), so `/api/public/*` needs no CORS either.
 
 ### The landing Worker
+> **Superseded in detail by ADR-0010 §3–§4** (accepted later, V6-014): the proxy serves only `/api/public/v1/summary`; on a cache miss it calls the `PublicApi` RPC entrypoint (`env.GAME.summary()`, service binding with `"entrypoint": "PublicApi"`) with a 3 s timeout instead of `env.GAME.fetch(...)`; the rate limit `RL_LANDING_PUBLIC` applies on a cache miss only; the edge TTL is `s-maxage=300`; the last-good copy lives 24 h and is served with `X-Stale: 1`; with no copy the answer is `503`. Where the steps below differ, ADR-0010 wins.
+
 1. **`/api/public/*`, GET only** (other methods 405):
    - Rate limit per `CF-Connecting-IP` with the rate-limit binding (limits in ADR-0010); over the limit: 429.
    - Look up `caches.default` by the URL. On a hit, return it.
@@ -226,5 +228,5 @@ GDD sync: NOT ASSESSED. Hosting has no GDD; the brief and V6-009 are the require
 ## Related
 - `docs/v6/DECISIONS.md` V6-009 (confirmed and amended here), V6-002 (ports), V6-011 (public names)
 - `docs/v6/audit/HOSTING.md` (option analysis), `docs/v6/audit/PLATFORM.md`
-- ADR-0006 (platform layer), ADR-0008 (auth and sessions, planned), ADR-0009 (linking, planned), ADR-0010 (public stats API, planned), ADR-0011 (landing stack and budget, planned)
+- ADR-0006 (platform layer), ADR-0008 (auth and sessions), ADR-0009 (linking), ADR-0010 (public stats API; refines the landing proxy), ADR-0011 (landing stack and budget)
 - `docs/v6/plan/CONTROL_MANIFEST_PLATFORM.md`

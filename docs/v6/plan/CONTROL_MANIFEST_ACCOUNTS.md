@@ -2,7 +2,7 @@
 
 Flat rules, taken from ADR-0008 (accounts and sessions), ADR-0009 (linked accounts, display names, deletion) and ADR-0010 (public stats API). The ADRs explain why; this sheet is what reviewers check. Any story touching `server/src/auth/`, `account/`, `names/`, `public/`, `session*`, `middleware.ts`, or migrations 0017–0019 must pass every rule here, have workerd tests, and get a `/security-audit` before merge.
 
-Status: derived from **Proposed** ADRs. If an ADR changes when it is accepted, update this sheet in the same commit.
+Status: ADR-0008, 0009 and 0010 are **Accepted** (V6-014). If an ADR changes, update this sheet in the same commit.
 
 ## Identity and schema
 
@@ -20,7 +20,7 @@ Status: derived from **Proposed** ADRs. If an ADR changes when it is accepted, u
 ## Passwords
 
 **Must**
-- M-PW-1: hash with PBKDF2-HMAC-SHA256 at 100,000 iterations (the workerd ceiling), a 16-byte salt and a 32-byte output, over `HMAC-SHA256(PASSWORD_PEPPER, password)`. Store it as `pbkdf2-sha256$<iter>$<pepperId>$<salt>$<dk>`.
+- M-PW-1: hash with PBKDF2-HMAC-SHA256 at the iteration count measured by the V6-ACCT-01 spike (V6-014: the highest safe value, target ≥ 310,000, floor 100,000; the spike writes the number here), a 16-byte salt and a 32-byte output, over `HMAC-SHA256(PASSWORD_PEPPER, password)`. Store it as `pbkdf2-sha256$<iter>$<pepperId>$<salt>$<dk>`.
 - M-PW-2: rehash on successful log-in when the stored parameters or pepper id are out of date.
 - M-PW-3: enforce 10–128 characters, no composition rules, and reject the bundled common-password list and passwords equal to the email or its local part.
 - M-PW-4: compare in constant time, and verify against a dummy hash when the email is unknown.

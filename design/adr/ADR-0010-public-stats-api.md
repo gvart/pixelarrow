@@ -154,7 +154,7 @@ GET|HEAD /api/public/v1/summary  → 200 PublicSummaryV1 | 304 | 429 | 503
 // server/src/index.ts
 export class PublicApi extends WorkerEntrypoint<Env> { summary(): Promise<{ body: string; generatedAt: number } | null> } // same snapshot row
 
-// landing/src/worker.ts (ADR-0007)
+// landing/worker/index.ts (ADR-0007)
 GET /api/public/v1/summary → cache → GAME.summary() (RPC entrypoint PublicApi) → last-good
 ```
 

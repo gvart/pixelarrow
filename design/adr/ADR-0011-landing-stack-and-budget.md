@@ -17,7 +17,7 @@ the v6 brief ("The tech is your call (log it). Keep it light and separate from t
 pixelarrow.app is a static, English-only marketing page with heavy visuals and almost no logic. It is
 built with **Astro (static output, no UI framework, no client runtime)** in its own `landing/` package,
 animated with **CSS scroll-driven animations** plus one small vanilla module, and served by the
-assets-only landing Worker from HOSTING.md option B. No GSAP, no Lenis, no React. A hard budget
+landing Worker of ADR-0007 (static assets; Worker code only for `/` and `/api/public/*`). No GSAP, no Lenis, no React. A hard budget
 (below) is checked by Lighthouse in QA at 320, 390, 768, 1280, 1440 and 1920 widths.
 
 ## Engine Compatibility
@@ -35,7 +35,7 @@ assets-only landing Worker from HOSTING.md option B. No GSAP, no Lenis, no React
 
 | Field | Value |
 |-------|-------|
-| **Depends On** | The hosting ADR for pixelarrow.app / play.pixelarrow.app (V6-009, HOSTING.md option B: a separate assets-only landing Worker). The public stats API ADR (the shape of `/api/public/*`). |
+| **Depends On** | ADR-0007 (hosting: the separate landing Worker, which serves static assets and runs first only for `/` and `/api/public/*`). ADR-0010 (public stats API: `GET /api/public/v1/summary`, schema `PublicSummaryV1`). |
 | **Enables** | The landing build stories (section by section), the gameplay clip encode spec for the `video` agent, the landing key-art jobs in `docs/v6/ASSET_LOG.md`. |
 | **Blocks** | Any landing code. |
 | **Ordering Note** | Package versions are pinned exactly when `landing/package.json` is created, choosing releases at least two weeks old. |
@@ -69,7 +69,7 @@ motion, gameplay video) and still be fast on a phone over mobile data, with no l
 ## Decision
 
 1. **Astro, static output, in `landing/`.** Its own `package.json`, `astro.config.mjs` and
-   `wrangler.jsonc` (the assets-only landing Worker of option B). Pages are `.astro` components with
+   `wrangler.jsonc` (the landing Worker of ADR-0007). Pages are `.astro` components with
    no UI framework integration. `@astrojs/sitemap` writes the sitemap. `astro:assets` `<Picture>`
    writes AVIF + WebP with `width`/`height` for every raster. Astro was at 7.3.8 and
    `@astrojs/sitemap` at 3.7.4 on 2026-10-13; pin the newest release that is at least two weeks old.
@@ -83,7 +83,7 @@ motion, gameplay video) and still be fast on a phone over mobile data, with no l
    - Hover micro-interactions only under `@media (hover: hover) and (pointer: fine)`.
    - One orchestrated moment, not effects everywhere (ART_DIRECTION.md §2): the hero's scroll-out.
 3. **One small vanilla module** (`landing/src/scripts/page.ts`, bundled by Astro):
-   - fetch `/api/public/stats` and `/api/public/leaderboards` after `load`, fill fixed-size slots,
+   - fetch `/api/public/v1/summary` (ADR-0010, one request) after `load`, fill fixed-size slots,
      keep the empty state on any error;
    - an `IntersectionObserver` that plays a clip when it is in view and pauses it when it is not,
      and that only sets `src`/`preload` when a clip first comes near the viewport;
@@ -141,6 +141,23 @@ are soft, so this is acceptable; pixel stills keep integer scaling instead).
 | `navigator.connection.saveData` or `effectiveType` of `2g`/`slow-2g` (where the browser exposes them) | As reduced motion for video: posters only, play on press. |
 | JS disabled or failed | Everything but live numbers works: the stats area shows its empty state text, clips show posters with native `controls`. |
 | `(hover: none)` | No hover-only information; everything shown by hover is also visible or reachable by tap. |
+
+### Amendments on acceptance (V6-015)
+
+The Director accepted this ADR with four amendments (`docs/v6/DECISIONS.md` V6-015). They override the
+text above where they differ:
+
+1. **The hero is a living diorama:** at least 4 parallax depth layers (sky and stars, the lamp beam with
+   dust motes, the tabletop terrain, foreground props); real game sprites animated on the tabletop (two
+   formations march, clash, and one breaks); a lamp light that follows the pointer on desktop.
+2. **Scroll moments:** the camera dives into the board; the section dividers draw themselves; class
+   cards tilt on hover; the stats count up when they come into view; clips autoplay muted when visible.
+3. **Budget change:** the critical-path first-party JS stays ≤ 15 kB gzip and the LCP and CLS targets
+   are unchanged, but **one lazy hero-animation module (canvas, or PixiJS v8 if justified) of ≤ 80 kB
+   gzip may load after LCP and idle**. It is not counted in the 15 kB / 30 kB rows above. A static
+   poster stands in until it loads, and it never loads under reduced motion or data saver.
+4. **A `/ux-review` and an owner-eyes pass at 1440 and 390** must answer "would a stranger want to click
+   Play?". If not, iterate before QA.
 
 ## Alternatives Considered
 

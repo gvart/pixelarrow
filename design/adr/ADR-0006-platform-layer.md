@@ -171,8 +171,9 @@ export interface SafeArea {
 // core/input.ts: new; consumed by the keyboard and mouse work (ADR-0004 amendment)
 export interface InputHints {
   keyboard(): boolean;                             // a physical keyboard is likely or has been used
-  finePointer(): boolean;
+  finePointer(): boolean;                          // matchMedia('(any-pointer: fine)'), per ADR-0012 Decision 6
   onChange(cb: () => void): () => void;
+  keyLabels(): Promise<ReadonlyMap<string, string> | null>;  // added by ADR-0012 (V6-016); null where no layout map exists
 }
 
 // core/notifications.ts
@@ -191,7 +192,7 @@ Behaviour per adapter:
 | BackButton | native `BackButton`, `SettingsButton`, closing confirmation | `native: false`; `popstate` (browser and Android back) calls the back callback; `beforeunload` guards battles; Escape belongs to the input layer, which calls `nav.back()` |
 | Share | `openTelegramLink(t.me/share/url…)` | `navigator.share`, else clipboard |
 | SafeArea | `safeAreaInset` / `contentSafeAreaInset` + events | `env(safe-area-inset-*)` read through CSS, content insets zero |
-| InputHints | `telegramClient().platform` in `tdesktop`, `macos`, `weba` hints a keyboard; plus first `keydown` | `matchMedia('(hover: hover) and (pointer: fine)')` plus first `keydown` |
+| InputHints | `telegramClient().platform` in `tdesktop`, `macos`, `weba` hints a keyboard; plus first non-editable `keydown` | `matchMedia('(any-pointer: fine)')` plus first non-editable `keydown` (ADR-0012 Decision 6) |
 | Notifications | `['telegram_bot']` | `[]`; Settings explains there is no channel yet |
 
 ### Architecture Diagram
@@ -322,6 +323,8 @@ Each step is one commit on its own, keeps the Telegram game identical, and passe
 
 M1 to M5 and M8 are mechanical and can be one story. M6 and M7 change behaviour on the web only and pair with the accounts and payments stories. M9 goes with the sign-in UI.
 
+**Order (clarified by the v6 architecture review, `docs/v6/plan/ARCH_REVIEW.md`):** M1 to M5 land in sequence, then M8. M6, M7 and M9 land with the stories they pair with, in that relative order (M6 before M7 and M9). M10 is always last. Every step stays one behaviour-preserving commit.
+
 ## Validation Criteria
 - `tests/platformBoundary.test.ts` passes with no allowlist.
 - `grep -rn "platform/telegram" src --include='*.ts'` finds nothing outside `src/platform/`.
@@ -332,5 +335,5 @@ M1 to M5 and M8 are mechanical and can be one story. M6 and M7 change behaviour 
 ## Related
 - `docs/v5/DECISIONS.md` V5-076; `docs/v6/DECISIONS.md` V6-009
 - `docs/v6/audit/PLATFORM.md` (touchpoints), `docs/v6/audit/HOSTING.md`
-- ADR-0002 (save KV), ADR-0004 (input layer; its keyboard amendment consumes `InputHints`), ADR-0007 (hosting: transport and cookies), ADR-0008 (auth and sessions, planned), ADR-0009 (account linking, planned)
+- ADR-0002 (save KV), ADR-0004 (input layer; its keyboard amendment consumes `InputHints`), ADR-0007 (hosting: transport and cookies), ADR-0008 (auth and sessions), ADR-0009 (account linking), ADR-0012 (input v6: adds `InputHints.keyLabels()`)
 - `docs/v6/plan/CONTROL_MANIFEST_PLATFORM.md`
