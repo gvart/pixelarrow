@@ -254,6 +254,11 @@ const H = '/hero/';
       --diorama-w: 1296px;
       --diorama-h: 852px;
       --copy-w: 31rem;
+      /* Narrower laptops crop the slab's empty left corner (L3: crop, never scale) so the battle,
+         not the trees, sits in view; the cut fades out over --crop-fade. 1100 px: 320, 1280: 288,
+         1440: 144, 1600 and up: none. */
+      --crop: clamp(0px, (1600px - 100vw) * 0.9, 320px);
+      --crop-fade: min(var(--crop), 120px);
       /* The table sinks 10vw below the fold so the helmet frames the slab's corner instead of
          standing in front of the formations; this is what stays visible of it. */
       --table-sink: calc(10vw + max(0px, (960px - 100svh) * 0.4)); /* deeper on short screens */
@@ -297,15 +302,30 @@ const H = '/hero/';
   /* The living layer: the lazy module's canvas sits exactly on the poster (same box, same pixels at
      its first frame) and fades in over it. The poster stays underneath. */
   .hero__diorama-wrap {
+    --crop: 0px;
     position: relative;
-    width: var(--diorama-w);
+    width: calc(var(--diorama-w) - var(--crop));
     height: var(--diorama-h);
+  }
+  .hero__diorama {
+    margin-left: calc(-1 * var(--crop));
+  }
+  @media (min-width: 1100px) {
+    .hero__diorama-wrap {
+      --crop: inherit;
+      /* the box clips the cropped corner; the extra bottom room keeps the slab's shadow */
+      padding-bottom: 96px;
+      margin-bottom: -96px;
+      height: auto;
+      mask-image: linear-gradient(90deg, transparent, #000 var(--crop-fade));
+    }
   }
   .hero__diorama-wrap :global(.hero__live) {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    top: 0;
+    left: calc(-1 * var(--crop));
+    width: var(--diorama-w);
+    height: var(--diorama-h);
     opacity: 0;
     transition: opacity 600ms cubic-bezier(0.25, 1, 0.5, 1);
   }
@@ -376,7 +396,8 @@ const H = '/hero/';
       }
       @media (min-width: 1100px) {
         .hero {
-          --dive-x: -24%;
+          --dive-x: -20%;
+          --dive-origin: calc(531px - var(--crop)) 64%;
         }
         .hero__copy {
           animation-name: hero-copy;

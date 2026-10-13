@@ -173,7 +173,7 @@ function run(hero: HTMLElement, wrap: HTMLElement, canvas: HTMLCanvasElement, ct
     if (t >= CONTACT && t - dt < CONTACT) {
       trauma = Math.min(1, trauma + TRAUMA.impact);
       stop = HITSTOP;
-      for (const m of men) if (m.side === 1 && effRank(m) === 0 && m.col % 2 === 0) dust(sx(m.x, m.y + 0.3), sy(m.x, m.y + 0.3), 2, 0.7, true);
+      for (const m of men) if (m.side === 1 && effRank(m) === 0) dust(sx(m.x, m.y + 0.55), sy(m.x, m.y + 0.55), 4, 0.8, true);
     }
     for (const m of men) {
       if (!m.alive) continue;

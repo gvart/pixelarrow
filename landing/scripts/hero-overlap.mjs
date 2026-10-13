@@ -1,6 +1,6 @@
 // Hero text-column test (V6-019, V6-026): at 320, 390, 768, 1280, 1440 and 1920 px the headline, the
 // sub-line, both calls to action and the note never overlap a diorama layer (the poster still, the
-// living canvas, the war-table foreground). It also checks the living layer's gates: the canvas runs
+// living canvas, the war-table foreground), measured where each layer paints. It also checks the living layer's gates: the canvas runs
 // from 768 px, never below, and under reduced motion the hero is the static poster with no animation.
 //
 // Usage (in landing/, after `npm run build`): node scripts/hero-overlap.mjs
@@ -46,7 +46,12 @@ try {
       await page.waitForTimeout(700); // the canvas fade-in
       const tag = `${width}x${height}${reduce ? ' reduced motion' : ''}`;
       const boxes = await page.evaluate(([text, art]) => {
-        const box = (s) => [...document.querySelectorAll(s)].map((e) => { const r = e.getBoundingClientRect(); return { s, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; });
+        // the poster and the canvas paint only inside .hero__diorama-wrap (it clips and masks the cropped corner)
+        const box = (s) => [...document.querySelectorAll(s)].map((e) => {
+          const r = e.getBoundingClientRect();
+          const w = e.closest('.hero__diorama-wrap')?.getBoundingClientRect();
+          return w ? { s, x0: Math.max(r.left, w.left), y0: Math.max(r.top, w.top), x1: Math.min(r.right, w.right), y1: Math.min(r.bottom, w.bottom) } : { s, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom };
+        });
         return { text: text.flatMap(box), art: art.flatMap(box) };
       }, [TEXT, ART]);
       check(boxes.text.length === TEXT.length, `${tag}: all four text blocks present`);
