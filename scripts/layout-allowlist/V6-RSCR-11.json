@@ -1,0 +1,12 @@
+{
+  "_doc": "Known layout violations owned by V6-RSCR-11 (scripts/layout-check.mjs, docs/UI_KIT.md \"Layout check\"). Fix them and remove the entries; delete this file when it is empty. Keys: screen|check|element ids, or screen|check|* for the whole screen (text-size only); a trailing @WxH scopes an entry to one size.",
+  "entries": [
+    "kit-mosaic|touch-size|tab.campaign@844x390",
+    "kit-mosaic|touch-size|tab.codex@844x390",
+    "kit-mosaic|touch-size|tab.duels@844x390",
+    "kit-mosaic|touch-size|tab.shop@844x390",
+    "kit-pages|outside-safe-area|LISTS@844x390",
+    "kit-pages|outside-safe-area|kit.page.lists@844x390",
+    "kit-states|outside-safe-area|LATER@844x390"
+  ]
+}
