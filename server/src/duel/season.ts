@@ -176,6 +176,8 @@ export interface LeaderboardView {
 }
 
 export const BOARD_SIZE = 50;
+/** On `players p`: banned and deleted players are never on a board (ADR-0009 §7, N-DL-2). */
+const ON_BOARD = 'p.deleted_at IS NULL AND p.banned_at IS NULL';
 
 /** Top players of the running season: live, async, or Legend (live) only. */
 export async function leaderboard(db: D1Database, board: Board, pid: number, now: number): Promise<LeaderboardView> {
@@ -185,7 +187,11 @@ export async function leaderboard(db: D1Database, board: Board, pid: number, now
   const min = board === 'legend' ? RANKED.leagues[RANKED.leagues.length - 1].min : -1e9;
   const rows = (
     await db
-      .prepare('SELECT player_id, rating, games FROM duel_ratings WHERE ladder = ?1 AND season = ?2 AND games >= ?3 AND rating >= ?4 ORDER BY rating DESC, player_id LIMIT ?5')
+      .prepare(
+        `SELECT d.player_id, d.rating, d.games FROM duel_ratings d JOIN players p ON p.id = d.player_id
+         WHERE d.ladder = ?1 AND d.season = ?2 AND d.games >= ?3 AND d.rating >= ?4 AND ${ON_BOARD}
+         ORDER BY d.rating DESC, d.player_id LIMIT ?5`,
+      )
       .bind(ladder, id, RANKED.placements, min, BOARD_SIZE)
       .all<{ player_id: number; rating: number; games: number }>()
   ).results;
@@ -198,7 +204,10 @@ export async function leaderboard(db: D1Database, board: Board, pid: number, now
   let me: BoardRow | null = null;
   if (mine && placed(mine.games) && mine.rating >= min) {
     const above = await db
-      .prepare('SELECT COUNT(*) AS n FROM duel_ratings WHERE ladder = ?1 AND season = ?2 AND games >= ?3 AND (rating > ?4 OR (rating = ?4 AND player_id < ?5))')
+      .prepare(
+        `SELECT COUNT(*) AS n FROM duel_ratings d JOIN players p ON p.id = d.player_id
+         WHERE d.ladder = ?1 AND d.season = ?2 AND d.games >= ?3 AND (d.rating > ?4 OR (d.rating = ?4 AND d.player_id < ?5)) AND ${ON_BOARD}`,
+      )
       .bind(ladder, id, RANKED.placements, mine.rating, pid)
       .first<{ n: number }>();
     me = view((above?.n ?? 0) + 1, pid, mine.rating, mine.games);

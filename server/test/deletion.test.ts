@@ -4,7 +4,8 @@
  * a row for the player (and one for a bystander), so a new player table is
  * seeded, and checked, without touching this file.
  */
-import { env } from 'cloudflare:test';
+import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from 'cloudflare:test';
+import worker from '../src/index';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DELETED_NAME, DELETION_STEPS, deleteAccount, finishDeletions } from '../src/account/delete';
 import { DELETION_MAP, playerColumnsOf, type SchemaColumn } from '../src/account/deletionMap';
@@ -13,8 +14,11 @@ import { peppersFromEnv } from '../src/auth/password';
 import { emailKeyHash } from '../src/auth/throttle';
 import { nameKeyHeld } from '../src/players';
 import { playerNames } from '../src/online/store';
+import { leaderboard } from '../src/duel/season';
+import { seasonId } from '../../src/duel/season';
 import { resetRateLimits } from '../src/rateLimit';
 import { api, devLogin } from './helpers';
+import { join, openDuellist, wsOnline, wsPath } from './onlineHelpers';
 
 const DB = () => env.DB!;
 const DAY = 86_400_000;
@@ -299,6 +303,29 @@ describe('leaving shared structures', () => {
   });
 });
 
+describe('live connections', () => {
+  it('closes the player’s shard socket', async () => {
+    const p = await join(++tg);
+    const sock = await wsOnline(p.token);
+    await sock.next('welcome');
+    const closed = new Promise<number>((resolve) => sock.ws.addEventListener('close', (e) => resolve(e.code)));
+    expect(await deleteAccount(env, p.playerId, 'self')).toBe('done');
+    expect(await closed).toBe(4403);
+  });
+
+  it('a player waiting in the duel queue is busy', async () => {
+    const d = await openDuellist(++tg, { level5: true });
+    const mm = await wsPath(d.token, '/ws/duel');
+    await mm.next('mm_welcome');
+    mm.send({ type: 'queue', mode: 'unranked' });
+    await mm.next('queued');
+    expect(await deleteAccount(env, d.pid, 'self')).toBe('busy');
+    mm.send({ type: 'cancel' });
+    await mm.next('unqueued');
+    expect(await deleteAccount(env, d.pid, 'self')).toBe('done');
+  });
+});
+
 describe('resumable deletion jobs', () => {
   for (let k = 1; k < DELETION_STEPS.length; k++) {
     it(`a run interrupted after ${k} step(s) is finished by the cron`, async () => {
@@ -318,6 +345,15 @@ describe('resumable deletion jobs', () => {
       expect(await DB().prepare('SELECT display_name FROM players WHERE id = ?1').bind(s.pid).first()).toEqual({ display_name: DELETED_NAME });
     });
   }
+
+  it('the daily housekeeping cron finishes interrupted runs', async () => {
+    const me = await devLogin(++tg);
+    expect(await deleteAccount(env, me.playerId, 'self', Date.now(), { maxSteps: 1 })).toBe('resumable');
+    const ctx = createExecutionContext();
+    worker.scheduled(createScheduledController({ cron: '17 3 * * *', scheduledTime: Date.now() }), env, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(await DB().prepare('SELECT finished_at IS NOT NULL AS done FROM deletion_jobs WHERE player_id = ?1').bind(me.playerId).first()).toEqual({ done: 1 });
+  });
 
   it('a request on a started job resumes it instead of starting over', async () => {
     const me = await devLogin(++tg);
@@ -401,6 +437,50 @@ describe('ban tombstones (ADR-0009 §7.7)', () => {
     await finishDeletions(env, b.now + 181 * DAY);
     const h = await banIdentityHash(peppersFromEnv(env).current, 'telegram', String(b.tg));
     expect(await count('ban_tombstones WHERE identity_hash = ?1', h)).toBe(0);
+  });
+});
+
+describe('admin deletion', () => {
+  const ADMIN = 'test-admin-token-0123456789abcdef0123456789';
+  const del = (pid: number, requestId = `req_${crypto.randomUUID().replace(/-/g, '')}`) =>
+    api(`/api/admin/players/${pid}/delete`, { method: 'POST', token: ADMIN, json: { requestId, reason: 'deletion requested by email' } });
+
+  it('deletes a player (e.g. a banned email-only player who asked support) and audits it', async () => {
+    const me = await devLogin(++tg);
+    await DB().prepare('UPDATE players SET banned_at = ?2 WHERE id = ?1').bind(me.playerId, Date.now()).run();
+    const r = await del(me.playerId);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ result: 'done', replayed: false });
+    expect(await DB().prepare('SELECT reason FROM deletion_jobs WHERE player_id = ?1').bind(me.playerId).first()).toEqual({ reason: 'admin' });
+    expect(await count("admin_audit WHERE player_id = ?1 AND action = 'delete'", me.playerId)).toBe(1);
+  });
+
+  it('needs the admin token', async () => {
+    const me = await devLogin(++tg);
+    expect((await api(`/api/admin/players/${me.playerId}/delete`, { method: 'POST', token: me.token, json: { requestId: 'req_abcdefgh', reason: 'nope' } })).status).toBe(401);
+    expect(await count('deletion_jobs WHERE player_id = ?1', me.playerId)).toBe(0);
+  });
+});
+
+describe('in-game duel boards (V6-041)', () => {
+  it('leave out banned and deleted players, in the rows and in the player’s own rank', async () => {
+    const [banned, deleting, me] = await Promise.all([devLogin(++tg), devLogin(++tg), devLogin(++tg)]);
+    const now = Date.now();
+    const cur = seasonId(now);
+    // Far above anyone else in this file, so they would rank first and second.
+    for (const [pid, rating] of [[banned.playerId, 9100], [deleting.playerId, 9000], [me.playerId, 8900]])
+      await DB()
+        .prepare("INSERT INTO duel_ratings (player_id, ladder, rating, rd, vol, games, updated_at, season, played_at) VALUES (?1, 'live', ?2, 60, 0.06, 20, 0, ?3, 0)")
+        .bind(pid, rating, cur)
+        .run();
+    await DB().batch([
+      DB().prepare('UPDATE players SET banned_at = ?2 WHERE id = ?1').bind(banned.playerId, now),
+      DB().prepare('UPDATE players SET deleted_at = ?2 WHERE id = ?1').bind(deleting.playerId, now),
+    ]);
+    const board = await leaderboard(DB(), 'live', me.playerId, now);
+    expect(board.rows[0].pid).toBe(me.playerId);
+    expect(board.rows.some((r) => r.pid === banned.playerId || r.pid === deleting.playerId)).toBe(false);
+    expect(board.me?.rank).toBe(1);
   });
 });
 

@@ -11,6 +11,7 @@ import { ApiError, errorBody, unauthorized } from './errors';
 import { assertPlayable, credentials, db, requirePlayable, requireSession } from './middleware';
 import { originCheck } from './auth/origin';
 import { lookupSession, pruneAuth } from './auth/sessions';
+import { finishDeletions } from './account/delete';
 import { gameOrigins } from './urls';
 import { getPlayer, publicPlayer } from './players';
 import { auth } from './routes/auth';
@@ -248,7 +249,7 @@ app.onError((err, c) => {
   return c.json(errorBody('internal', 'Internal error'), 500);
 });
 
-/** Daily housekeeping (cron HOUSEKEEPING_CRON): client error reports past their retention; expired sessions, email tokens and idle throttle rows. */
+/** Daily housekeeping (cron HOUSEKEEPING_CRON): client error reports past their retention; expired sessions, email tokens and idle throttle rows; interrupted account deletions (ADR-0009 §7). */
 const HOUSEKEEPING_CRON = '17 3 * * *';
 async function housekeeping(env: AppEnv['Bindings']): Promise<void> {
   if (!env.DB) return;
@@ -256,6 +257,7 @@ async function housekeeping(env: AppEnv['Bindings']): Promise<void> {
     const pruned = await pruneClientErrors(env.DB);
     log('info', 'cron_pruned', { table: 'client_errors', rows: pruned });
     log('info', 'cron_pruned', { table: 'auth', ...(await pruneAuth(env.DB)) });
+    log('info', 'cron_deletions', await finishDeletions(env));
   } catch (e) {
     logError('cron', e);
     throw e;
