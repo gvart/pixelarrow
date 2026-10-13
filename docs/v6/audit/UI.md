@@ -40,6 +40,33 @@ Measured with Playwright at each size (`#game` CSS box → S, VW × VH):
 | 1440x900 | 576×900 | 2 | 288×450 | 40% | portrait column |
 | 1920x1080 | 691×1080 | 2 | 345×540 | 36% | portrait column; S stays at 2, so the UI looks small at desk distance |
 
+### Layout-check results across the matrix
+
+`node scripts/layout-check.mjs --langs en --insets plain` over all 10 sizes ran 196 screens per
+size, 2,881 screenshots in total.
+
+- **Every size except 844x390 shows the same 4 findings, the ones v5 already had at 390x844:**
+  - `duel-shop-sell|text-size|+#`
+  - `tutorial-move|text-size` (two entries)
+  - each in fewer than 20 configs
+  - So the letterboxed column is "clean" at 1024 to 1920 wide. **The gate cannot see the
+    letterbox** (gap 10 in §5).
+- **844x390 has 266 violations across 89 of the 196 screens:**
+
+| Check | Count |
+| --- | --- |
+| touch-size | 106 |
+| text-overflow | 69 |
+| text-overlap | 24 |
+| text-size | 18 |
+| spacing | 11 |
+| overlap | 10 |
+| clipped | 9 |
+| outside-safe-area | 8 |
+
+  - Examples: `army*|clipped|legend.rank` and `battle-*|text-overflow|battle.groupShort.*`.
+  - This confirms the S1 rating for phone landscape on nearly half the screens.
+
 What follows from this:
 
 - **Laptops and desktops (1024–1920 wide) are letterboxed.** Every screen is a 492–691 CSS-px
