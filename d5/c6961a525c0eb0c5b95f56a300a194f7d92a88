@@ -1,0 +1,20 @@
+scripts/smoke.mjs
+  s_697bdc25a7c420::t_652956cc140ad4 472-473
+  s_697bdc25a7c420::t_62087c2b37e53b 470-471,474-476,480,482-485
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d5c6961a525c0eb0c5b95f56a300a194f7d92a88",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
