@@ -93,7 +93,17 @@ describe('landing Worker: /api/public/v1/summary proxy', () => {
     const res = await call(summaryUrl(), env);
     expect(res.status).toBe(503);
     expect(res.headers.get('cache-control')).toBe('no-store');
-    expect(await res.json()).toEqual({ state: 'unavailable' });
+    expect(res.headers.get('retry-after')).toBe('60');
+    expect(await res.json()).toEqual({ status: 'unavailable' });
+  });
+
+  it('answers 503 warming, like the game, before the game has its first snapshot', async () => {
+    const env = { ...stubEnv(), GAME: game(async () => null) as unknown as Env['GAME'] };
+    const res = await call(summaryUrl(), env);
+    expect(res.status).toBe(503);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('retry-after')).toBe('60');
+    expect(await res.json()).toEqual({ status: 'warming' });
   });
 
   it('answers 429 on a cache miss over the per-IP limit, and never asks the limiter on a hit', async () => {
@@ -123,12 +133,76 @@ describe('landing Worker: /api/public/v1/summary proxy', () => {
     expect(keys).toHaveLength(2);
   });
 
-  it('answers 405 to anything but GET', async () => {
-    for (const method of ['POST', 'PUT', 'DELETE', 'HEAD']) {
+  it('answers 405 to anything but GET and HEAD, as the game does', async () => {
+    for (const method of ['POST', 'PUT', 'DELETE', 'PATCH']) {
       const res = await call(summaryUrl(), stubEnv(), { method });
       expect(res.status).toBe(405);
-      expect(res.headers.get('allow')).toBe('GET');
+      expect(res.headers.get('allow')).toBe('GET, HEAD');
     }
+  });
+
+  it('answers HEAD with the GET headers and no body, from the same cache', async () => {
+    const g = game(ok);
+    const env = { ...stubEnv(), GAME: g as unknown as Env['GAME'] };
+    const url = summaryUrl();
+
+    const head = await call(url, env, { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(head.headers.get('content-type')).toContain('application/json');
+    expect(await head.text()).toBe('');
+
+    const get = await call(url, env);
+    expect(await get.json()).toEqual(SNAPSHOT);
+    expect(g.calls).toBe(1);
+  });
+
+  it('tags the snapshot with the game\'s ETag and answers 304 to a matching If-None-Match', async () => {
+    const g = game(ok);
+    const env = { ...stubEnv(), GAME: g as unknown as Env['GAME'] };
+    const url = summaryUrl();
+    const etag = `"s1-${SNAPSHOT.generatedAt.toString(36)}"`; // the format of server/src/public/routes.ts
+
+    const miss = await call(url, env, { headers: { 'if-none-match': etag } });
+    expect(miss.status).toBe(304);
+    expect(miss.headers.get('etag')).toBe(etag);
+    expect(await miss.text()).toBe('');
+
+    const hit = await call(url, env);
+    expect(hit.status).toBe(200);
+    expect(hit.headers.get('etag')).toBe(etag);
+
+    for (const inm of [`W/${etag}`, `"other", ${etag}`, '*']) {
+      const res = await call(url, env, { headers: { 'if-none-match': inm } });
+      expect(res.status).toBe(304);
+    }
+    expect((await call(url, env, { headers: { 'if-none-match': '"s1-old"' } })).status).toBe(200);
+    expect(g.calls).toBe(1);
+  });
+
+  it('keeps cookies apart: nothing from the visitor reaches the game, and no answer sets or varies on a cookie', async () => {
+    const args: unknown[][] = [];
+    const g = { summary: async (...a: unknown[]) => { args.push(a); return ok(); } };
+    const env = { ...stubEnv(), GAME: g as unknown as Env['GAME'] };
+    const url = summaryUrl();
+    // A play.pixelarrow.app session cookie a browser would never send here, sent anyway.
+    const headers = { cookie: '__Host-pa_sid=s3cr3t; other=1', authorization: 'Bearer t0k3n' };
+
+    const answers = [
+      await call(url, env, { headers }),
+      await call(url, env, { headers, method: 'HEAD' }),
+      await call(url, env, { headers: { cookie: '__Host-pa_sid=another' } }),
+      await call(url, env, { headers, method: 'POST' }),
+      await call('https://pixelarrow.app/?startapp=clan_x', env, { headers }),
+      await call('https://pixelarrow.app/', env, { headers }),
+      await call('https://pixelarrow.app/api/public/v1/players', env, { headers }),
+    ];
+    expect(args).toEqual([[]]); // one RPC call, with no arguments: no cookie, header or URL is forwarded
+    for (const res of answers) {
+      expect(res.headers.get('set-cookie')).toBeNull();
+      expect(res.headers.get('vary') ?? '').not.toMatch(/cookie|authorization/i);
+    }
+    expect(answers[0].status).toBe(200);
+    expect(answers[2].status).toBe(200); // another visitor's cookie gets the same cached copy
   });
 
   it('answers 404 for any other /api/public/ path', async () => {
