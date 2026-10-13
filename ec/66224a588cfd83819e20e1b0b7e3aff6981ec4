@@ -1,0 +1,26 @@
+design/ux/landscape-v6.md
+  s_0d98fe904b2e82::t_391ccbede0d5e7 1-2,4-282,286-298,300-306,318-324,326-332,338-342,344-411,413-418,420,422-435,448,450-451,453-457,461-463,465,467,469-475,478-843
+  s_0d98fe904b2e82::t_5f8524d58c20e9 412
+  s_0d98fe904b2e82::t_bd8b6dc69d4384 307-317,436-447,449,458-460,464,466,468,476-477
+  s_0d98fe904b2e82::t_c9199fabfda320 3,283-285,299,419,421
+  s_0d98fe904b2e82::t_023558f2ed5ddb 325
+  s_0d98fe904b2e82::t_8a4d2a4b56d79a 452
+  s_0d98fe904b2e82::t_a71f24b4d3ec68 343
+  s_0d98fe904b2e82::t_f61d8acc86b729 333-337
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ec66224a588cfd83819e20e1b0b7e3aff6981ec4",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
