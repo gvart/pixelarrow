@@ -588,3 +588,19 @@ the one render; the favicon sizes (16, 32, 48) use only the inner disc so the he
 ```
 Create an image. ROLE: the app icon and browser favicon of a mobile strategy game set in the ancient Mediterranean; it must read as one bold shape at 16 pixels and still look rich at 512 pixels. SUBJECT: a single bronze Corinthian hoplite helmet in side profile, facing the viewer's left, with a tall arched red horsehair crest; the eye opening is one clear dark almond shape; the helmet and crest together fill about 70 percent of the disc and are centred in it. DISC: a perfect circle of dark black-glaze umber (#2a1a12 to #3a2418), like the ground of a red-figure Greek vase, edged by a ring of terracotta (#a8432c) carrying a simple bold Greek key meander band in terracotta and warm cream (#e7d6ad), the band about 8 percent of the diameter wide; the helmet sits inside the ring and does not touch it. STYLE: painted like a red-figure Greek vase but with soft painted shading on the bronze: flat bold shapes, a heavy dark-brown outline (#2a1a12) of even weight around the helmet and crest, light from the upper left, bronze #b08a3a with warm highlights, warm earth colours, no pure black and no pure white, very few internal details; hand-painted, not a photo, not a 3D render, not glossy digital art, not anime. COMPOSITION: the disc centred, seen flat from the front, filling 94 percent of the square, nothing outside the disc. BACKGROUND: a perfectly flat solid #FF00FF magenta background outside the disc, edge to edge, with no shadow, no gradient and no glow; no magenta anywhere inside the disc. EXCLUDE: any text, letters, numbers, signatures, watermarks, a face or a person inside the helmet, spears, more than one object, tiny details, perspective, a drop shadow. ASPECT: square 1:1, highest resolution available.
 ```
+
+## 13. Landing page mockups (v6 P2-LAND)
+
+Three full-page desktop landing directions (A "Lamplit Chronicle", B "Night Tabletop", C "Wine-dark Dusk") and
+one fix edit. The full prompts are in [docs/v6/ASSET_LOG.md](../v6/ASSET_LOG.md) › P2-LAND, word for word: a shared
+page block (an allowlist of every section and string, ending in "Nothing else on the page: …") plus one
+direction block. Seeds: `splash_keyart.jpg` (painted style) and a real battle screenshot (pixel style).
+Outputs were 1024x4128 or 1088x3904 JPEG, one very tall image per page.
+
+**Lessons:**
+- Name what each gameplay still shows. Left open, Gemini invented a pixel smithy for "Forge" (the real forge is a
+  menu row) and used the battlefield for "Campaign" (the real overland map is top-down).
+- Say "plain icon (no badges, no numbers on icons)": a feature icon came back with a round "8", which reads as a
+  level.
+- Edits keep the layout but can garble small text; the copy is set in code, so judge the direction, not the letters.
+- Ask for counters as "—" so no invented numbers appear; tables still get placeholder digits, so note them.
