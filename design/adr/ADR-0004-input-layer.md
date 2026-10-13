@@ -1,7 +1,7 @@
 # ADR-0004: Battle input layer
 
 ## Status
-Accepted
+Accepted. Amended by ADR-0012 (v6: mouse buttons in the recogniser, keyboard, focus and rebinding; touch unchanged).
 
 ## Date
 2026-10-10
@@ -137,6 +137,7 @@ Rejected: it was never shown in v4, it bent `onDown` around a ring that did not 
 | UI.md BTL-10 | Dead ring copy | `battle.sit.idle` |
 
 ## Related
+- ADR-0012 (amendment: input v6), `design/ux/input-v6.md`
 - `design/gdd/controls.md`, `docs/v5/DECISIONS.md` V5-023
 - `src/ui/input/hitTest.ts`, `src/ui/input/gestures.ts`, `src/ui/dragFormation.ts`
 - `tests/input.test.ts`, `tests/drag.test.ts`
