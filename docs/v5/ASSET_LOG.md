@@ -4,9 +4,41 @@ Owner: the `assets` agent (the only agent that touches Chrome). Other stories ad
 
 ## Queue
 
-Empty. (The AS-02 remainder, ART-024 to ART-032, was made on 2026-10-10 and moved to Done.)
+**AS-07: the Nikias portraits ART-033..035 (blocked 2026-10-13).** Not generated: Claude in Chrome was not connected (four tries over the run, "extension isn't reachable"), and the brief says to stop rather than work around it. To resume: Chrome running with the Claude extension signed in, then run the three prompts below in one chat, in order, with `docs/v5/gemini/AS-02/ART-013_bust_hoplite_1.jpg` (its 1024 px copy) attached to the first and the approved frame 1 attached to the edits. Raws go to `docs/v5/gemini/AS-07/ART-03N_portrait_nikias[_talk|_blink]_<n>.jpg`. None of these was sent yet.
+
+- **ART-033 `portrait_nikias`** (opening line for family members + T-STYLE + T-BUST, SUBJECT from the manifest row word for word):
+
+  ```
+  Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white. Light from the upper left, shadows to the lower right. Clear value contrast on the subject so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render, not glossy digital art, not anime, not comic ink. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads. ROLE: a character portrait for a small round or square portrait frame in a mobile strategy game; it must be recognisable at 40 pixels. SUBJECT: Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; mouth closed, eyes open. FRAMING: head and shoulders, front three-quarter view, the figure turned slightly to the viewer's left, eyes on the upper third of the image, the top of the head or crest 6 to 10 percent below the top edge, chin at about 60 percent of the height, shoulders cut by the bottom edge; the whole face and headgear inside the central circle of the image. The headgear silhouette and the one listed prop are the clearest, most contrasting shapes. BACKGROUND: plain dark warm umber (#26211b to #342d25), a soft lighter glow behind the head, no scenery. EXPRESSION: composed, alert, mouth closed. ASPECT: square 1:1, highest resolution available.
+  ```
+
+- **ART-034 `portrait_nikias_talk`** (edit of the approved ART-033):
+
+  ```
+  Edit the attached Nikias portrait. Change only: his mouth, now open mid-word as if speaking, the lower teeth just hidden by the beard. Keep everything else identical: the same face, white beard, bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
+  ```
+
+- **ART-035 `portrait_nikias_blink`** (edit of the approved ART-033):
+
+  ```
+  Edit the attached Nikias portrait. Change only: his eyes, now closed in a blink, the eyelids relaxed. Keep everything else identical: the same face, white beard, closed mouth, bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
+  ```
+
+  Wiring once approved (ASSET_LIST: FirstRunScene speech card, 64 UI px, and the tutorial narrator, 32 UI px): `src/ui/tutorial/narrator.ts` `ensureNarratorTextures` builds `narrator_0..2` from the three painted files when all three load (else the pixel bust), and the two callers scale the image to the slot instead of `setScale(1 | 2)`. Open issue OI-7 stands: if the edits drift, ship frame 1 alone with a code-driven blink.
 
 ## Done
+
+### AS-07 The v5 art left undone: 14 staged icons and 17 class busts promoted (2026-10-13)
+
+**Decision: reuse, not regenerate (Director, 2026-10-13).** The 14 staged icons (AS-03) and the 17 unpromoted busts (AS-02) all had approved renders made with the family templates; they had waited only for a wired slot and an in-game look. They were **not** regenerated: the exact files in `docs/v5/gemini/AS-03/processed/` and `AS-02/processed/` were staged and previewed. The rule was to regenerate one only if it looked wrong in the game (contrast, legibility at size, style); none did, so **no Gemini prompt was sent in AS-07**. The Nikias portraits are in the Queue above (Chrome not connected).
+
+**Icon slots wired** (each its ASSET_LIST slot, nothing invented): `ui:banner` and `ui:book` on the Campaign and Codex tabs (`MODE_TABS`, audit MENU-3); `ui:war` engraved on the War medallion's face at 0.62 of its diameter (`TabBar`, MENU-2); `ui:season` on the Arena season line (`DuelScene.buildSeasonLine`, DUE-7); `ui:push`, `bond`, `warcry`, `sunder`, `aimed`, `recharge`, `scythe` as the seven signature abilities' icons (`ABILITIES[*].icon`, so the battle bar, the Perks cards and the hero sheet use them; the battle fx icon falls back to the stand-in's vector shape through `UI_ICONS`); `ui:captain` for the captain row of the encounter sheet (`encounter.ts`, replacing the pixel crest; the world band plate keeps its code-drawn pixel crest, art bible §8.6). `ui:standard` and `ui:works` were already asked for by their slots (World host chip, Raise the standard, Standard Bearer perk card; the Works chip and camp drawer). `STAGED_ICONS` is now empty.
+
+**Bust slot.** The Army hero card's class medallion and the recruit sheet's corner (`addClassBust`) already take any class: `SHIPPED_BUSTS` now lists all 21. To see each class in the game, `scripts/layout-check.mjs` gained 21 opt-in screens `army-bust-<class>` (the Army from the World with hero 0 set to that class; run only when named with `--screens`, so the default run and the allowlist are unchanged). No bust lacked a slot.
+
+**Pipeline (D-9).** `check.mjs` PASS for all 31 staged files. Icons: `atlas.mjs icons_ui --add` (the 14 keys) into staging, then `preview.mjs` for each icon (exit 0 at 390x844, 360x780, 320x640) on `menu` (book, banner, war), `duel-ranked` (season), `hero-perks` (abilities, standard), `battle-works` (works), `world-encounter` (captain) and `kit-icons` (all 14 at 12 UI px). The `world-encounter` fixture did not open the sheet in the DPR 3 run, so the captain row was also looked at with a scratch Playwright run (World, `openEncounter` on a Galatae band) at 390x844 and 320x640, DPR 3: the red crest sits beside "Captain …, level 3" like the doctrine's ram above it. Sheets read: the banner reads on the selected parchment tab, the book on the teal stone, the war glyph (helmet and crossed spears) on the bronze medallion at 46 UI px, the hourglass and laurel on parchment at 12 px, Push of Pike on its (locked, dimmed) perk disc, the spade and stake as the Works chip's ink silhouette. The atlas was shipped with `atlas.mjs … --out public/icons --looked`; it is byte-identical to the previewed staged atlas. Busts: `preview.mjs` exit 0 for ART-014..017, 019, 020, 022..032 on their `army-bust-<class>` screen; a crop of the hero niche from every DPR 3 shot at 390 and 320 was read: slot filled, sharp, heads and headgear whole, one family; `promote.mjs --looked`, `check --shipped` PASS (19 to 25 KB each, budget 30).
+
+**Size.** 17 busts: 382 KB in `public/ui/busts/`, loaded per class on first use. `public/icons/ui.png` 623 KB to 1,123 KB (+500 KB; 14 cells of 160 px painted art, 128 frames, 2044x586). An adaptive-filter re-encode was tried and came out larger (1,287 KB); an RGB step-4 quantization saved only 11% (1,000 KB), so the lossless file shipped. JS bundle: see the AS-07 report.
 
 ### RES-01 promotion: the laurel branch ART-055 and the open empty chest ART-053 (2026-10-11)
 
