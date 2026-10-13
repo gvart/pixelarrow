@@ -31,12 +31,13 @@ export function nameKey(name: string): string {
     .replace(/[013457iавеёкмнорстухіјѕ]/g, (ch) => FOLD[ch]);
 }
 
-const LETTER = 'A-Za-z\\u0400-\\u04FF';
+/** ASCII Latin and Cyrillic letters: U+0482-U+0489 (a sign and combining marks) are left out. */
+const LETTER = 'A-Za-z\\u0400-\\u0481\\u048A-\\u04FF';
 /** Letters and digits in runs joined by one space, `_` or `-`. */
 const SHAPE = new RegExp(`^[${LETTER}0-9]+(?:[ _-][${LETTER}0-9]+)*$`);
 const HAS_LETTER = new RegExp(`[${LETTER}]`);
 const LATIN = /[A-Za-z]/;
-const CYRILLIC = /[\u0400-\u04FF]/;
+const CYRILLIC = /[\u0400-\u0481\u048A-\u04FF]/;
 
 const RESERVED_KEYS = RESERVED.map((w) => ({ key: nameKey(w), anywhere: [...w].length >= 5 }));
 const BLOCKED_KEYS = BLOCKLIST.map(nameKey);

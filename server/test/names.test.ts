@@ -23,6 +23,9 @@ describe('validateDisplayName (ADR-0009 §6)', () => {
   });
 
   it('character set: letters, digits, single separators inside, at least one letter', () => {
+    // Cyrillic combining marks (U+0483-U+0489) and the thousands sign (U+0482) are not letters.
+    for (const bad of ['Ива\u0483н', 'Ива\u0489н', '\u0482Иван'])
+      expect(reason(bad), JSON.stringify(bad)).toBe('chars');
     for (const bad of ['john@mail', 'site.com', 'a/b/c', 'Ölaf', 'name!', '_name', 'name-', 'a__b', 'a -b', '12345', 'a​bc'])
       expect(reason(bad), bad).toBe('chars');
     for (const good of ['a_b-c d', 'Hero 42', 'Ёжик'])
