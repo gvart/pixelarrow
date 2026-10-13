@@ -1,0 +1,20 @@
+landing/src/components/sections/Faq.astro
+  s_0d98fe904b2e82::t_9db44dbab8f104 99-100
+  s_0d98fe904b2e82::t_9ed89cd2e7c839 2-6,8-9,13-50,53-98,101-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "20dce8dc86829103cb243c06b39ff4c4520f9876",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
