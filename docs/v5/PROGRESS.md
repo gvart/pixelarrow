@@ -11,7 +11,6 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 
 | Name | Story | Skills | Agents | Branch | Status |
 | --- | --- | --- | --- | --- | --- |
-| as-08 | Nikias portraits, favicon and web icons, Telegram bot and Mini App images | public icons, docs/telegram, ASSET_LOG, playbook | — | assets agent (Chrome) | running |
 | f-04 | W5 F-04: icon atlas pipeline (AS-03 icons, light disc on stone) | per card | per card | worktree-agent | running |
 
 ## Merged into v5
@@ -81,6 +80,7 @@ Chrome and Gemini were checked on 2026-10-10: the user is logged in. Downloads i
 - a61affd QA-03 playthrough (NOT APPROVED: 1 S1, 2 S2, 12 S3). Fixes: 984eecf QAFIX-WORLD, 6eafb43 QAFIX-BATTLE, 1a37f84 QAFIX-UI, a11a1e2 audio-smoke staging. Gates: vitest 1524, server 303, layout 0 new (49), all smokes, regression 378/0, online-e2e 34, replay 13/13 Chromium + WebKit; balance 53%, ladder 49/50. DOC-01 playbook merged (docs/playbook/).
 - 2aa8e3f QA-04 code review (S1 save backup keeps both slots, S2 paused rest holds, −840/+396). Gates first-try: vitest 1529, server 303, layout 0 new (48), all 6 smokes, regression 228 s, online-e2e 34, replay 13/13 Chromium + WebKit; balance 53%, ladder 49/50. Main chunk 3,541 kB (1,087 kB gzip).
 - 76cf8df EC-03; e3a5132 AS-07; ba49555 QA-05 performance (60 fps under 6x throttle, main 2.74 MB / 831 kB gzip, WebP icons, context loss survived). Gates: vitest 1538, server 303, layout 0 new, six smokes, regression 5/5, online-e2e 34 (needs `npm run migrate:local` on a fresh D1), replay 13/13 Chromium + WebKit (auto-found); balance 53%, ladder 49/50. Open: software-GL battle FPS 18 vs P4 24; boot waits for lazyScenes, so the split doesn't speed up first paint yet.
+- 8f46243 AS-08 (Nikias, the helmet mark, favicon, PWA and Telegram icons); 5588fbc GATE.md; 5e6bf64 REPORT.md. Final gate, all green first run: vitest 1538, server 303, layout 0 new at all 24 configs, six smokes, regression 5/5, online-e2e 34, replay 13/13 Chromium + WebKit, balance 53%, ladder 49/50. Gate check: CONCERNS (no security audit, loc QA report or release checklist); milestone review: CONDITIONAL GO. **v5 complete; waiting on the owner's release decision.**
 
 ## Queue (next)
 
