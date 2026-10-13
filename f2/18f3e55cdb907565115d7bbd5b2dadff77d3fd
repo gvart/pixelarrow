@@ -1,0 +1,27 @@
+src/scenes/FirstRunScene.ts
+  s_697bdc25a7c420::t_ac67526c34bf77 22,75,103,115-116,135-136
+src/ui/tutorial/narrator.ts
+  s_697bdc25a7c420::t_ac67526c34bf77 23,47-66,202,205,308
+docs/v5/art/ASSET_LIST.md
+  s_697bdc25a7c420::t_3bc855529576e7 97-99
+docs/v5/art/asset-manifest.json
+  s_697bdc25a7c420::t_e999acf90069f7 712-719,740-747,768-775
+src/scenes/BattleScene.ts
+  s_697bdc25a7c420::t_a37de9eca8fd40 66,400-401
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f218f3e55cdb907565115d7bbd5b2dadff77d3fd",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
