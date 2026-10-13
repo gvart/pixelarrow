@@ -104,7 +104,7 @@ the static game and the API: Hono, zod, D1, hibernating Durable Objects (a
   the army.
 - Battle report Summary tab: fill the space under the MVP card.
 - Hero stash: one rarity filter plus a labelled Sort control (`StashGrid`).
-- Ability cooldown numbers can overlap their icon (`PanelButton` badge).
+- Ability cooldown numbers can overlap their icon (the ability card badge).
 - `scripts/smoke.mjs` has been flaky in the "shield basher in contact" and
   "ability used from the battle bar" checks; wait on state rather than a
   fast-forward loop if it recurs.

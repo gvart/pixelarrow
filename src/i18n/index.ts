@@ -11,7 +11,7 @@
  * after `setLang` (see `applyLangChange` in src/ui/settings.ts).
  *
  * Strings live in en.ts (the source, typed) and ru.ts (must have every key:
- * tests/i18n.test.ts). Data names (items, classes, perks) are translated with
+ * the i18n block of tests/ui.test.ts). Data names (items, classes, perks) are translated with
  * `tOr('item.<id>.name', def.name)`: an English fallback until a key exists.
  */
 import { EN } from './en';

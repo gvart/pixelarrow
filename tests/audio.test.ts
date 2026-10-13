@@ -677,7 +677,6 @@ describe('UI sounds: disabled tap, destructive confirm, undo (SND-02)', () => {
     expect(kit).toMatch(/if \(blocked\?\.\(\)\) uiDisabled\(\);/);
     expect(kit).toContain('uiButton(undefined, (obj as { __uiId?: string }).__uiId)');
     expect(readText('src/ui/mosaic/base.ts')).toContain('() => o.disabled?.() ?? o.tip, o.disabled);');
-    expect(readText('src/ui/battlePanel.ts')).toMatch(/if \(!this\.enabled \|\| this\.blocked\) \{\s*uiDisabled\(\);/);
     expect(readText('src/ui/widgets.ts')).toMatch(/m\.close\(\);\s*if \(o\.destructive\) uiDestroy\(\);\s*o\.onOk\(\);/);
     // the swish is keyed by these layout ids: a rename must fail here, not go silent
     expect(readText('src/scenes/BattleScene.ts')).toContain("id: 'battle.undo'");

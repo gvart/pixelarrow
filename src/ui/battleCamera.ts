@@ -5,6 +5,7 @@
  * (zoom, centre, the edge pointers). Pinch, pan, the wheel and the eye stay
  * in BattleScene, unchanged.
  */
+import { localDecimals } from '../i18n/numbers';
 
 export interface Pt {
   x: number;
@@ -33,9 +34,9 @@ export const OPEN_ZOOM_MAX = 1;
 export const OPEN_ZOOM_STEP = 0.05;
 /** The fight starts at least this close (zoom units): a man is ~34 px tall. */
 export const OPEN_FIGHT_ZOOM = 1;
-/** The zoom key's word: whole steps as "2×", the deployment's overview to a tenth ("0.6×"). */
+/** The zoom key's word: whole steps as "2×", the deployment's overview to a tenth ("0.6×", ru "0,6×"). */
 export function zoomLabel(z: number): string {
-  return z >= 0.995 ? `${Math.round(z)}×` : `${Math.floor(z * 10 + 1e-6) / 10}×`;
+  return z >= 0.995 ? `${Math.round(z)}×` : `${localDecimals(String(Math.floor(z * 10 + 1e-6) / 10))}×`;
 }
 
 /** Where a pinch settles (zoom units): whole steps from 1x up; under 1x the overview `lo` or 1x, whichever is nearer. */

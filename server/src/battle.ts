@@ -149,7 +149,7 @@ export const OrderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ability'), unit: int, ability: z.string().max(32) }),
   z.object({ kind: z.literal('retreat') }),
   z.object({ kind: z.literal('horn') }),
-  // Sim train 2 (src/sim/types.ts Order): logged and ignored until each feature lands.
+  // Sim train 2 (src/sim/types.ts Order): facing, focus fire and field works.
   z.object({ kind: z.literal('face'), group: int, fx: num, fy: num }),
   z.object({ kind: z.literal('focus'), group: int, target: int }),
   z.object({ kind: z.literal('work'), type: workType, x: num, y: num, fx: num, fy: num }),
