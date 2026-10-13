@@ -9,7 +9,9 @@ import { playerByTelegramIdentity, upsertTelegramPlayer } from '../auth/identity
 import { isBanTombstoned } from '../account/banTombstone';
 import { clearSessionCookie, sessionCookie } from '../auth/cookies';
 import { createSession, deviceLabel, listSessions, revokeAll, revokeSession, type Method } from '../auth/sessions';
-import { changePassword, confirmReset, login, requestReset, resendSignup, signup, verifySignup, type FlowDeps } from '../auth/flows';
+import { changePassword, confirmReset, login, requestReset, resendSignup, signup, tokenPurpose, verifySignup, type EmailPurpose, type FlowDeps } from '../auth/flows';
+import { verifyAddEmail, verifyChangeEmail } from '../account/email';
+import { notifierFor, type Notifier } from '../account/notices';
 import { peppersFromEnv } from '../auth/password';
 import { emailSenderFor } from '../email/sender';
 import { pickLang } from '../email/templates';
@@ -72,6 +74,9 @@ auth.post('/telegram', async (c) => {
   }
 
   let user: TelegramUser;
+  const now = Date.now();
+  // The session's re-auth proof is as fresh as the initData (ADR-0009 §1): a day-old initData signs in but isn't a fresh proof.
+  let reauthAt = now;
   if ('dev' in body) {
     if (!devAuthAllowed(c.env)) throw new ApiError(403, 'forbidden', 'Dev auth is disabled');
     user = body.dev;
@@ -80,10 +85,10 @@ auth.post('/telegram', async (c) => {
     const result = await validateInitData(body.initData, botToken);
     if (!result.ok) throw new ApiError(401, 'invalid_init_data', `initData rejected: ${result.reason}`);
     user = result.user;
+    reauthAt = Math.min(now, result.authDate * 1000);
   }
 
   const d = db(c.env);
-  const now = Date.now();
   if ((await playerByTelegramIdentity(d, user.id))?.banned_at) throw bannedError();
   // A deleted banned player's Telegram id stays refused for 180 days (ADR-0009 §7.7).
   if (await isBanTombstoned(d, () => peppersFromEnv(c.env), 'telegram', String(user.id), now)) throw bannedError();
@@ -92,7 +97,7 @@ auth.post('/telegram', async (c) => {
     for (const event of retentionEvents(prev, now)) writeEvent(c.env, requestCtx(c, player.id, 'server', daysSince(player.created_at, now)), event, {});
   }
   // Telegram always gets a bearer session (ADR-0008 §3): cookies are blocked in its iframe.
-  const { token, session } = await createSession(d, player.id, 'bearer', 'telegram', deviceLabel(c.req.header('user-agent')), now);
+  const { token, session } = await createSession(d, player.id, 'bearer', 'telegram', deviceLabel(c.req.header('user-agent')), now, reauthAt);
   return c.json({ token, expiresAt: session.expiresAt, player: publicPlayer(player) });
 });
 
@@ -150,7 +155,7 @@ const TokenBody = z.object({ token: Token });
 const ResetConfirmBody = z.object({ token: Token, password: Password });
 const ChangeBody = z.object({ current: Password, next: Password });
 
-function flowDeps(c: Context<AppEnv>): FlowDeps {
+export function flowDeps(c: Context<AppEnv>): FlowDeps {
   return {
     db: db(c.env),
     peppers: peppersFromEnv(c.env),
@@ -163,11 +168,16 @@ function flowDeps(c: Context<AppEnv>): FlowDeps {
 }
 
 /** A fresh cookie session for the web (rotation on every log-in, ADR-0008 §3). */
-async function cookieSession(c: Context<AppEnv>, player: PlayerRow, method: Method) {
+async function cookieSession(c: Context<AppEnv>, player: PlayerRow, method: Method, purpose?: EmailPurpose) {
   const { token, session } = await createSession(db(c.env), player.id, 'cookie', method, deviceLabel(c.req.header('user-agent')));
   c.header('set-cookie', sessionCookie(token));
   c.header('cache-control', 'no-store');
-  return c.json({ player: publicPlayer(player), expiresAt: session.expiresAt });
+  return c.json({ ...(purpose ? { purpose } : {}), player: publicPlayer(player), expiresAt: session.expiresAt });
+}
+
+/** The email and bot notices of identity changes (account/notices.ts), sent after the response. */
+export function notifier(c: Context<AppEnv>, d: FlowDeps): Notifier {
+  return notifierFor(c.env, d.mail, d.defer, c.req.header('accept-language'));
 }
 
 const CHECK_EMAIL = { status: 'check_email' } as const;
@@ -195,12 +205,20 @@ auth.post('/signup', fromGame, async (c) => {
   return c.json(CHECK_EMAIL, 202);
 });
 
-/** Opens a sign-up link: creates the account and signs this browser in. */
+/**
+ * Opens an email link and signs this browser in: a sign-up creates the
+ * account; add_email and change_email (V6-LINK-02, ADR-0009 §2, §4) change
+ * the identities of an existing one. The reply names the purpose.
+ */
 auth.post('/verify', fromGame, async (c) => {
   await ipGate(c, 'verify'); // no Turnstile: the link token is the proof
   const body = await readJson(c, TokenBody, AUTH_BODY);
-  const player = await verifySignup(flowDeps(c), body.token);
-  return cookieSession(c, player, 'email_link');
+  const d = flowDeps(c);
+  const purpose = await tokenPurpose(d, body.token);
+  if (purpose === 'add_email') return cookieSession(c, await verifyAddEmail(d, notifier(c, d), body.token), 'email_link', purpose);
+  if (purpose === 'change_email') return cookieSession(c, await verifyChangeEmail(d, notifier(c, d), body.token), 'email_link', purpose);
+  // Sign-up, and everything else (a reset token, an unknown or spent one) answers as an invalid sign-up link.
+  return cookieSession(c, await verifySignup(d, body.token), 'email_link', 'signup');
 });
 
 auth.post('/verify/resend', fromGame, async (c) => {

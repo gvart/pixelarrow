@@ -79,6 +79,8 @@ export async function createSession(
   method: Method,
   device: string | null,
   now = Date.now(),
+  /** The last fresh proof (ADR-0009 §1): now by default; a Telegram log-in passes initData's auth_date. */
+  reauthAt: number | null = now,
 ): Promise<{ token: string; session: Session }> {
   const token = PREFIX + b64urlEncode(crypto.getRandomValues(new Uint8Array(32)));
   const sid = await hashToken(token);
@@ -86,14 +88,14 @@ export async function createSession(
   const row = await db
     .prepare(
       `INSERT INTO sessions (id_hash, player_id, transport, method, created_at, last_seen_at, idle_expires_at, expires_at, reauth_at, device)
-       SELECT ?1, p.id, ?3, ?4, ?5, ?5, ?6, ?7, ?5, ?8 FROM players p WHERE p.id = ?2 AND p.deleted_at IS NULL
+       SELECT ?1, p.id, ?3, ?4, ?5, ?5, ?6, ?7, ?9, ?8 FROM players p WHERE p.id = ?2 AND p.deleted_at IS NULL
        RETURNING (SELECT display_name FROM players WHERE id = ?2) AS name,
                  EXISTS (SELECT 1 FROM auth_identities WHERE player_id = ?2) AS has_identity`,
     )
-    .bind(sid, pid, transport, method, now, now + Math.min(life.idle, life.absolute), now + life.absolute, device?.slice(0, 64) ?? null)
+    .bind(sid, pid, transport, method, now, now + Math.min(life.idle, life.absolute), now + life.absolute, device?.slice(0, 64) ?? null, reauthAt)
     .first<{ name: string; has_identity: number }>();
   if (!row) throw new Error(`no player ${pid} to start a session for`);
-  return { token, session: { pid, sid, transport, method, name: row.name, reauthAt: now, expiresAt: now + life.absolute, hasIdentity: !!row.has_identity } };
+  return { token, session: { pid, sid, transport, method, name: row.name, reauthAt, expiresAt: now + life.absolute, hasIdentity: !!row.has_identity } };
 }
 
 interface LookupRow {

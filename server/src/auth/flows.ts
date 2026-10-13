@@ -32,7 +32,9 @@ const MIN = 60_000;
 export const SIGNUP_TOKEN_TTL_MS = 24 * 60 * MIN;
 export const RESET_TOKEN_TTL_MS = 30 * MIN;
 const EMAIL_MAX = 254;
-const TOKEN = /^[A-Za-z0-9_-]{43}$/;
+/** An email-link token as it arrives: 32 bytes in base64url. */
+export const EMAIL_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+const TOKEN = EMAIL_TOKEN;
 
 export interface FlowDeps {
   db: D1Database;
@@ -47,8 +49,8 @@ export interface FlowDeps {
 }
 
 export const invalidCredentials = () => new ApiError(401, 'invalid_credentials', 'Wrong email or password');
-const invalidToken = () => new ApiError(400, 'invalid_token', 'This link has expired or was already used');
-const invalidEmail = () => new ApiError(400, 'invalid_email', 'Enter a valid email address');
+export const invalidToken = () => new ApiError(400, 'invalid_token', 'This link has expired or was already used');
+export const invalidEmail = () => new ApiError(400, 'invalid_email', 'Enter a valid email address');
 
 /**
  * ADR-0008 §1 / M-ID-4: trim, NFKC, lower-case; at most 254 characters, one
@@ -64,17 +66,17 @@ export function normalizeEmail(raw: string): { norm: string; display: string } |
   return { norm, display };
 }
 
-function requirePolicy(pw: string, emailNorm: string): void {
+export function requirePolicy(pw: string, emailNorm: string): void {
   const r = checkPasswordPolicy(pw, emailNorm);
   if (r !== 'ok') throw new ApiError(400, r, 'The password does not meet the policy');
 }
 
-function requireMail(d: FlowDeps): EmailSender {
+export function requireMail(d: FlowDeps): EmailSender {
   if (!d.mail) throw new ApiError(503, 'email_unavailable', 'Email is not available right now');
   return d.mail;
 }
 
-const newToken = () => b64urlEncode(crypto.getRandomValues(new Uint8Array(32)));
+export const newToken = () => b64urlEncode(crypto.getRandomValues(new Uint8Array(32)));
 
 /**
  * Runs `work` after the response (token issue and send), so the reply's
@@ -92,7 +94,7 @@ function later(d: FlowDeps, template: Template, work: () => Promise<void>): void
 }
 
 /** Queues one email after the response. */
-function queue(d: FlowDeps, sender: EmailSender, template: Template, to: string, lang: Lang, link?: string): void {
+export function queue(d: FlowDeps, sender: EmailSender, template: Template, to: string, lang: Lang, link?: string): void {
   later(d, template, () => sendWithTimeout(sender, renderEmail(template, lang, to, link)));
 }
 
@@ -153,6 +155,22 @@ export async function resendSignup(d: FlowDeps, rawEmail: string): Promise<void>
     const token = await issueToken(d, 'signup', e.norm, email, SIGNUP_TOKEN_TTL_MS, null, pending_hash);
     await sendWithTimeout(sender, renderEmail('verify', d.lang, email, `${d.gameUrl}/auth/signup#t=${token}`));
   });
+}
+
+export type EmailPurpose = 'signup' | 'add_email' | 'change_email' | 'reset';
+
+/**
+ * POST /api/auth/verify serves every link purpose but reset (V6-LINK-02): the
+ * purpose of a live token, or null (unknown, malformed, used or expired). The
+ * handler of that purpose re-checks everything itself when it spends the token.
+ */
+export async function tokenPurpose(d: Pick<FlowDeps, 'db' | 'now'>, token: string): Promise<EmailPurpose | null> {
+  if (!TOKEN.test(token)) return null;
+  const row = await d.db
+    .prepare('SELECT purpose FROM email_tokens WHERE token_hash = ?1 AND used_at IS NULL AND expires_at > ?2')
+    .bind(await hashToken(token), d.now)
+    .first<{ purpose: EmailPurpose }>();
+  return row?.purpose ?? null;
 }
 
 /** POST /api/auth/verify (purpose signup): single use; creates the player, identity and hash. */
