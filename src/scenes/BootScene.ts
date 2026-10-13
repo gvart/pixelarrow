@@ -15,6 +15,7 @@ import { preloadRasters } from '../ui/mosaic/raster';
 import { MButton } from '../ui/mosaic';
 import { t } from '../i18n';
 import { firstRunEntry } from './bootRoute';
+import { loadLazyScenes } from './lazy';
 
 export class BootScene extends Phaser.Scene {
   /** The loading line (replaced by the error and Retry on a failure). */
@@ -84,6 +85,8 @@ export class BootScene extends Phaser.Scene {
     if ((window as { __bootFail?: boolean }).__bootFail) throw new Error('boot: forced failure (test)');
     await initTelegram();
     await state.load();
+    // every scene key exists before the first screen (the second chunk: scenes/lazy.ts)
+    await loadLazyScenes(this.game);
     refreshLang();
     hintStore.seen = () => state.campaign.data.settings.seenHints ?? [];
     hintStore.mark = (id) => {
