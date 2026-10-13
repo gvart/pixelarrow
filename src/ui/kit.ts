@@ -20,7 +20,8 @@ import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
 import { ellipsize, fitCinzelLabel, measureText, LINE_H } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
-import { RS } from '../platform/renderScale';
+import { RS, legacyColumn } from '../platform/renderScale';
+import { metricsFor, type UIMetrics } from './sizeClass';
 import { ACCENT, MOSAIC, RESOURCES, TEXT, TEXT_MIN } from './tokens';
 import { scrollCue } from './mosaic/policy';
 import { motion } from './motion';
@@ -37,18 +38,15 @@ export type FontKey =
   // ink forms of the v3 colours, for text on parchment: headings in the head face, reward gold, xp, Drachmae
   | 'hInk' | 'pGold' | 'pXp' | 'pPremium';
 
-export interface UIMetrics {
-  S: number;
-  VW: number;
-  VH: number;
-}
+export type { SizeClass, UIMetrics } from './sizeClass';
 
+/**
+ * The scene's UI metrics (ADR-0013, src/ui/sizeClass.ts): the size class, a
+ * whole-number S (canvas px per UI px, RS included) and VW × VH in UI px of the
+ * game box. A scene that has not migrated sees the v5 column (`legacy`).
+ */
 export function uiMetrics(scene: Phaser.Scene): UIMetrics {
-  const W = scene.scale.width;
-  const H = scene.scale.height;
-  // whole UI px per CSS px, chosen on the CSS size; the canvas is RS x denser (src/platform/renderScale.ts)
-  const S = Math.max(2, Math.min(4, Math.floor(Math.min(W / RS / 190, H / RS / 400)))) * RS;
-  return { S, VW: Math.floor(W / S), VH: Math.floor(H / S) };
+  return metricsFor(scene.scale.width, scene.scale.height, RS, legacyColumn());
 }
 
 /** Text colours on the Bronze & Stone surfaces (src/art/smoothUi.ts): light ink on dark stone. */
