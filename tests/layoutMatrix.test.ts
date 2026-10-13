@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs module without types
-import { allows, configsFor, mergeAllowlist, rewriteAllowlist, sizesFor, staleEntries, storyOf } from '../scripts/lib/layoutMatrix.mjs';
+import { KNOWN_CRASHES, allows, configsFor, mergeAllowlist, rewriteAllowlist, sizesFor, staleEntries, storyOf } from '../scripts/lib/layoutMatrix.mjs';
 
 // The v6 screen matrix (brief "Hard constraints: screen matrix", V6-GATE-01).
 describe('layout-check matrix', () => {
@@ -113,6 +113,14 @@ describe('layout allowlist: owners and rewriting', () => {
       ['army|text-size|*', 'V6-RSCR-05'],
     ]);
     expect(staleEntries(allowed, found([['army|text-size|t1', ['390x844']]]), ran)).toEqual(['army|overlap|gone@844x390']);
+  });
+
+  it('names the owner story of every known crash, keyed screen@WxH/insets', () => {
+    for (const [k, why] of Object.entries(KNOWN_CRASHES as Record<string, string>)) {
+      expect(k).toMatch(/^[a-z0-9-]+@\d+x\d+\/(plain|tg)$/);
+      expect(why).toMatch(/^V6-RSCR-\d{2}: /);
+      expect(storyOf(k.split('@')[0])).toBe(why.slice(0, 10));
+    }
   });
 
   it('treats an unscoped entry as fixed only after a run of the whole matrix', () => {

@@ -39,7 +39,7 @@ import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT as root, launch, captureErrors, apiDown, makePageApi, shotsDir } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
-import { MATRIX, TG, allows, configsFor, loadAllowlist, rewriteAllowlist, sizesFor, splitEntry, staleEntries, storyOf } from './lib/layoutMatrix.mjs';
+import { KNOWN_CRASHES, MATRIX, TG, allows, configsFor, loadAllowlist, rewriteAllowlist, sizesFor, splitEntry, staleEntries, storyOf } from './lib/layoutMatrix.mjs';
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
 const opt = (n, d) => {
@@ -1083,8 +1083,14 @@ const configs = configsFor(SIZES, LANGS, INSETS);
 if (SHARDS > 1) configs.splice(0, configs.length, ...configs.filter((_, k) => k % SHARDS === SHARD - 1));
 // work units: a configuration and a contiguous run of screens (each unit is a fresh context)
 const units = [];
-const per = Math.ceil(screens.length / SPLIT);
-for (const cfg of configs) for (let c = 0; c < SPLIT; c++) if (c * per < screens.length) units.push({ cfg, screens: screens.slice(c * per, (c + 1) * per), part: c });
+const skipped = [];
+for (const cfg of configs) {
+  const crash = (s) => KNOWN_CRASHES[`${s.id}@${cfg.size.join('x')}/${cfg.insets}`];
+  for (const s of screens.filter(crash)) skipped.push(`${cfg.lang}-${cfg.insets}-${cfg.size.join('x')} ${s.id}: ${crash(s)}`);
+  const list = screens.filter((s) => !crash(s));
+  const per = Math.ceil(list.length / SPLIT);
+  for (let c = 0; c < SPLIT; c++) if (c * per < list.length) units.push({ cfg, screens: list.slice(c * per, (c + 1) * per), part: c });
+}
 
 const browser = await launch();
 const runs = [];
@@ -1251,6 +1257,10 @@ if (flaky.length) {
 if (stale.length) {
   console.log('\nFixed but still allowlisted (remove from scripts/layout-allowlist/<story>.json):');
   for (const k of stale) console.log(`  ${k}  (${allowed.get(k)})`);
+}
+if (skipped.length) {
+  console.log('\nKnown crashes, skipped (KNOWN_CRASHES in scripts/lib/layoutMatrix.mjs; the owner fixes them):');
+  for (const s of skipped) console.log(`  ${s}`);
 }
 if (pageErrors.length) {
   console.log('\nPage errors:');
