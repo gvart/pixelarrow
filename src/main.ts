@@ -28,7 +28,10 @@ import type { GameLike } from './platform/telemetry';
 import { installRenderScale, RS } from './platform/renderScale';
 import { installFastArcs } from './platform/fastArcs';
 import { installStaticCanvases } from './platform/staticCanvas';
+import { selectPlatform } from './platform';
 
+// Telegram or the plain web, decided once from the launch hints (ADR-0006).
+selectPlatform();
 installWidgets();
 installRenderScale();
 // engine costs measured in QA-05 (docs/v5/qa/PERF.md): arcs as few chords as they need, no canvas readback
