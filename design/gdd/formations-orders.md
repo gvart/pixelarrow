@@ -1,7 +1,7 @@
 # Formations and Orders
 
 > **Type**: Addition (quick-design) to systems #4 Formations, #6 Battle simulation core and #7 Orders and abilities
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Vision rank**: 2 of 6
 > **Pillars**: P1 The line decides, P2 Read it at a glance, P5 One sim
 > **Fixes**: MECH B2, B3, F1, J2; PLAY P2 (dead endings), C4 (with controls.md)

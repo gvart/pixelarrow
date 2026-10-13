@@ -1,7 +1,7 @@
 # Battle Readability and Feel
 
 > **Type**: Addition (quick-design) to system #24 Battle presentation and #27 Audio. Presentation only, so it needs **no sim version**.
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Pillars**: P2 Read it at a glance, P4 Every man has a name (explained losses)
 > **Fixes**: PLAY R1, R2, R3, R4/B5, F1, F3, O5; UI BTL-1, BTL-4, BTL-11, G3, G13
 > **Legacy reference**: docs/UI_KIT.md "Battle HUD"; PLAY.md "Battle readability", "Game feel"

@@ -1,7 +1,7 @@
 # Battle Controls (touch-first)
 
 > **Type**: Rework of system #23 Battle input and controls. Classified **too large for quick-design** (`[F]`), but kept at quick-design depth per the brief. **Run `/design-system controls` (with `/ux-design`) before its epic.**
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Pillars**: P3 Command from the thumb, P2 Read it at a glance
 > **Fixes**: PLAY C1–C8, K1, K2, P2 (ladder pause); UI BTL-3, BTL-5, BTL-8, G10, G13, G15; MECH B2 (with formations-orders.md)
 > **Legacy reference**: docs/GAMEPLAY.md "Controls", DESIGN_V2.md "Controls" and "Online battle rules"
