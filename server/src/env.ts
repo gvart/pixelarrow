@@ -40,6 +40,18 @@ export interface Env {
   ADMIN_TOKEN?: string;
   /** "1" only in local .dev.vars: accept a fake Telegram user in /api/auth/telegram. */
   DEV_AUTH?: string;
+  /**
+   * Password pepper (secret, ADR-0008 §2): 32 random bytes, base64. The PBKDF2
+   * input is HMAC-SHA256(pepper, password). Never in D1, the repo or a log.
+   * Without it the password flows answer 503.
+   */
+  PASSWORD_PEPPER?: string;
+  /** The current pepper's id (secret, e.g. "1"); stored in each hash string. */
+  PASSWORD_PEPPER_ID?: string;
+  /** Optional, during a pepper rotation only: the old pepper as `<id>:<base64>`, so its hashes still verify and get rehashed. */
+  PASSWORD_PEPPER_PREVIOUS?: string;
+  /** "1" only in local .dev.vars and tests: emails go to the dev_outbox table instead of being sent. */
+  DEV_EMAIL?: string;
   /** Pins the map new online shards get (src/online/maps id; tests use 'test30'). Default: the season map. */
   ONLINE_MAP?: string;
 }

@@ -16,6 +16,11 @@ export default defineConfig({
           TELEGRAM_BOT_TOKEN: '123456:TEST-TOKEN',
           TELEGRAM_WEBHOOK_SECRET: 'test-webhook-secret',
           DEV_AUTH: '1',
+          // Test-only pepper values (ADR-0008 §2); production peppers are Worker secrets.
+          PASSWORD_PEPPER: btoa('test-pepper-0123456789abcdefghij'),
+          PASSWORD_PEPPER_ID: '2',
+          PASSWORD_PEPPER_PREVIOUS: `1:${btoa('old-test-pepper-0123456789abcdef')}`,
+          DEV_EMAIL: '1',
           DEV_ORIGINS: 'http://localhost:6160',
           ONLINE_MAP: 'test30',
           ADMIN_TOKEN: 'ops:test-admin-token-0123456789abcdef0123456789, short:tooshort',

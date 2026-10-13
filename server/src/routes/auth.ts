@@ -6,8 +6,15 @@ import { clientIp, db, requireSession, secret } from '../middleware';
 import { bannedError } from '../ban';
 import { publicPlayer, type PlayerRow } from '../players';
 import { playerByTelegramIdentity, upsertTelegramPlayer } from '../auth/identity';
-import { clearSessionCookie } from '../auth/cookies';
-import { createSession, deviceLabel, listSessions, revokeAll, revokeSession } from '../auth/sessions';
+import { clearSessionCookie, sessionCookie } from '../auth/cookies';
+import { createSession, deviceLabel, listSessions, revokeAll, revokeSession, type Method } from '../auth/sessions';
+import { changePassword, confirmReset, login, requestReset, resendSignup, signup, verifySignup, type FlowDeps } from '../auth/flows';
+import { peppersFromEnv } from '../auth/password';
+import { emailSenderFor } from '../email/sender';
+import { pickLang } from '../email/templates';
+import { readJson } from '../body';
+import { gameOrigins, gameUrl } from '../urls';
+import type { Context, MiddlewareHandler } from 'hono';
 import { optedOut, requestCtx, writeEvent } from '../telemetry/analytics';
 import { requireRate } from '../rateLimit';
 import { validateInitData, type TelegramUser } from '../telegramAuth';
@@ -116,6 +123,113 @@ auth.delete('/sessions/:handle', requireSession, async (c) => {
   if (!/^[A-Za-z0-9_-]{12}$/.test(handle)) throw badRequest('Bad session handle');
   if (!(await revokeSession(db(c.env), s.pid, handle))) throw new ApiError(404, 'not_found', 'No such session');
   if (s.transport === 'cookie' && s.sid.startsWith(handle)) c.header('set-cookie', clearSessionCookie());
+  return c.json({ ok: true });
+});
+
+// ---- Email and password (V6-ACCT-03; ADR-0008 §4) ----
+//
+// Gate order (M-AF-1): Rate Limiting binding per IP → Turnstile → D1 throttle
+// → work. The flows (auth/flows.ts) run the D1 throttle before any hash. The
+// per-IP binding and Turnstile are V6-ACCT-04: each anonymous form below marks
+// where they go. Until then `turnstile` is accepted and ignored.
+
+const AUTH_BODY = 8 * 1024;
+const Email = z.string().max(320);
+/** Long enough that the policy (not zod) answers too_long; never truncated. */
+const Password = z.string().max(4096);
+const Turnstile = z.string().max(2048).optional();
+const Token = z.string().max(128);
+
+const SignupBody = z.object({ email: Email, password: Password, turnstile: Turnstile });
+const EmailBody = z.object({ email: Email, turnstile: Turnstile });
+const LoginBody = z.object({ email: Email, password: Password, turnstile: Turnstile });
+const TokenBody = z.object({ token: Token });
+const ResetConfirmBody = z.object({ token: Token, password: Password });
+const ChangeBody = z.object({ current: Password, next: Password });
+
+function flowDeps(c: Context<AppEnv>): FlowDeps {
+  return {
+    db: db(c.env),
+    peppers: peppersFromEnv(c.env),
+    mail: emailSenderFor(c.env),
+    gameUrl: gameUrl(c.env),
+    lang: pickLang(c.req.header('accept-language')),
+    defer: (p) => c.executionCtx.waitUntil(p),
+    now: Date.now(),
+  };
+}
+
+/** A fresh cookie session for the web (rotation on every log-in, ADR-0008 §3). */
+async function cookieSession(c: Context<AppEnv>, player: PlayerRow, method: Method) {
+  const { token, session } = await createSession(db(c.env), player.id, 'cookie', method, deviceLabel(c.req.header('user-agent')));
+  c.header('set-cookie', sessionCookie(token));
+  c.header('cache-control', 'no-store');
+  return c.json({ player: publicPlayer(player), expiresAt: session.expiresAt });
+}
+
+const CHECK_EMAIL = { status: 'check_email' } as const;
+
+/**
+ * The email forms are posted only by the web game, from its own origin. A
+ * foreign or missing Origin is 403 `bad_origin` even without a cookie: it
+ * stops login CSRF (a cross-site form signing the victim into the attacker's
+ * account through login, verify or reset/confirm, which set the cookie).
+ */
+const fromGame: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (!gameOrigins(c.env).includes(c.req.header('origin') ?? '')) throw new ApiError(403, 'bad_origin', 'Cross-origin request refused');
+  await next();
+};
+
+/** Always 202 for a well-formed request, whether or not the address has an account (M-AF-3). */
+auth.post('/signup', fromGame, async (c) => {
+  // V6-ACCT-04: RL_AUTH_IP `signup:<ip>`, then Turnstile action 'signup'.
+  const body = await readJson(c, SignupBody, AUTH_BODY);
+  await signup(flowDeps(c), body.email, body.password);
+  return c.json(CHECK_EMAIL, 202);
+});
+
+/** Opens a sign-up link: creates the account and signs this browser in. */
+auth.post('/verify', fromGame, async (c) => {
+  // V6-ACCT-04: RL_AUTH_IP `verify:<ip>` (no Turnstile: the token is the proof).
+  const body = await readJson(c, TokenBody, AUTH_BODY);
+  const player = await verifySignup(flowDeps(c), body.token);
+  return cookieSession(c, player, 'email_link');
+});
+
+auth.post('/verify/resend', fromGame, async (c) => {
+  // V6-ACCT-04: RL_AUTH_IP `resend:<ip>`, then Turnstile action 'resend'.
+  const body = await readJson(c, EmailBody, AUTH_BODY);
+  await resendSignup(flowDeps(c), body.email);
+  return c.json(CHECK_EMAIL, 202);
+});
+
+/** One `401 invalid_credentials` for an unknown email, a wrong password and a locked address. */
+auth.post('/login', fromGame, async (c) => {
+  // V6-ACCT-04: RL_AUTH_IP `login:<ip>`, then Turnstile action 'login'.
+  const body = await readJson(c, LoginBody, AUTH_BODY);
+  const player = await login(flowDeps(c), body.email, body.password);
+  return cookieSession(c, player, 'password');
+});
+
+auth.post('/reset/request', fromGame, async (c) => {
+  // V6-ACCT-04: RL_AUTH_IP `reset:<ip>`, then Turnstile action 'reset'.
+  const body = await readJson(c, EmailBody, AUTH_BODY);
+  await requestReset(flowDeps(c), body.email);
+  return c.json(CHECK_EMAIL, 202);
+});
+
+/** Sets the new password, signs out everywhere, and signs this browser in. */
+auth.post('/reset/confirm', fromGame, async (c) => {
+  // V6-ACCT-04: RL_AUTH_IP `reset:<ip>` (no Turnstile: the token is the proof).
+  const body = await readJson(c, ResetConfirmBody, AUTH_BODY);
+  const player = await confirmReset(flowDeps(c), body.token, body.password);
+  return cookieSession(c, player, 'email_link');
+});
+
+/** Changes the password of a signed-in player; every other session ends. */
+auth.post('/password', requireSession, async (c) => {
+  const body = await readJson(c, ChangeBody, AUTH_BODY);
+  await changePassword(flowDeps(c), c.get('session'), body.current, body.next);
   return c.json({ ok: true });
 });
 
