@@ -1,0 +1,25 @@
+landing/src/components/TiltCard.astro
+  s_0d98fe904b2e82::t_994cc13a679d5f 1-77
+landing/src/components/sections/Classes.astro
+  s_0d98fe904b2e82::t_d28e5a5ee44bdb 213,216-219,221-223
+  s_0d98fe904b2e82::t_1e67ffc387b968 105
+  s_0d98fe904b2e82::t_8bd7165f87d6dd 42-43,106-109,117-118,133,149
+  s_0d98fe904b2e82::t_5536dd1e0ff0c9 36
+  s_0d98fe904b2e82::t_216c4ed556f93c 2-27,29,35,37-41,44-67,70-104,110-116,119-132,134-148,150-212,214-215,220,224-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a5bffaf1758b98d63a113ae9991391e16f99aac8",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
