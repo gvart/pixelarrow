@@ -449,13 +449,14 @@ export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> 
     this.wanted = true;
     this.startBeat();
     if (this.ws) return;
+    // bearer (Telegram) needs the token; a cookie session (web) rides on the same-origin cookie
     const token = online.api.token;
-    if (!token) return;
+    if (!token && online.api.transport !== 'cookie') return;
     const base = online.api.base || location.origin;
     const url = base.replace(/^http/, 'ws') + simSocketPath(this.path);
     let ws: WebSocket;
     try {
-      ws = new WebSocket(url, ['pixelarrow.v1', token]);
+      ws = new WebSocket(url, token ? ['pixelarrow.v1', token] : ['pixelarrow.v1']);
     } catch {
       this.schedule();
       return;
