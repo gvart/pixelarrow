@@ -32,3 +32,22 @@ Source of truth for stories: `docs/v5/plan/STORIES.md` (one row per story). Wave
 | Feel and audio (EP-23) | Polish | feel-audio | design/gdd/battle-readability.md | 4 stories | Ready |
 | Economy and balance deferred items (EP-24) | Feature | economy-balance | docs/v5/vision/GDD_REVIEW.md | 4 stories | Ready |
 | Final QA (EP-25) | Polish | final-qa | docs/v5 | 6 stories | Ready |
+
+## v6 epics (P3-PLAN, 2026-10-13)
+
+Source of truth for v6 stories: each `production/epics/v6-*/EPIC.md` (stories V6-<EPIC>-NN with goal, files, dependencies, acceptance criteria, skills, agent, port slot and estimate; V6-005). Sprints: `docs/v6/plan/SPRINTS.md`. Architecture review: `docs/v6/plan/ARCH_REVIEW.md`. Progress: `docs/v6/PROGRESS.md`. Engine: Phaser 3.90 + TypeScript + Vite; Cloudflare Workers; Astro (landing).
+
+| Epic | Layer | System | GDD | Stories | Status |
+|------|-------|--------|-----|---------|--------|
+| Platform layer migration (ADR-0006) (v6-platform-layer) | Foundation | v6-platform-layer | design/gdd/systems-index.md #42 Platform layer | 7 stories | Ready |
+| Hosting split and landing package scaffold (ADR-0007, ADR-0011) (v6-hosting) | Foundation | v6-hosting | design/gdd/systems-index.md #51 Landing site (hosting part) | 3 stories | Ready |
+| Layout-check matrix and gates extension (v6-gates) | Foundation | v6-gates | Brief "Hard constraints: screen matrix" and "Verification" | 3 stories | Ready |
+| Responsive foundation: scale policy, size classes, layout primitives, layout-check rules, wheel (v6-responsive-foundation) | Foundation | v6-responsive-foundation | design/ux/landscape-v6.md §1–§5, §14, §16 (accepted, V6-020) | 4 stories | Ready |
+| Responsive screens: every screen family in landscape and tablet (v6-responsive-screens) | Presentation | v6-responsive-screens | design/ux/landscape-v6.md §6–§16 (accepted, V6-020) | 11 stories | Ready |
+| Input layer: action map, keyboard, mouse, focus and rebinding (ADR-0012) (v6-input) | Foundation | v6-input | design/ux/input-v6.md | 6 stories | Ready |
+| Accounts, sessions and bot protection (ADR-0008), starting with the PBKDF2 spike (v6-accounts) | Core | v6-accounts | design/ux/accounts-v6.md flows 1–4 | 7 stories | Ready |
+| Linked accounts, nicknames, deletion and privacy (ADR-0009) (v6-linking-privacy) | Core | v6-linking-privacy | design/ux/accounts-v6.md flows 5–8 | 7 stories | Ready |
+| Payments interface and the web "coming soon" placeholder (v6-payments) | Feature | v6-payments | design/gdd/systems-index.md #47 | 2 stories | Ready |
+| Public stats API (ADR-0010) (v6-public-stats) | Feature | v6-public-stats | design/gdd/systems-index.md #50 | 3 stories | Ready |
+| Landing site build (pixelarrow.app, with the V6-015 wow amendments) (v6-landing) | Presentation | v6-landing | docs/v6/landing/{STRUCTURE,ART_DIRECTION,DIRECTION_PICK}.md | 6 stories | Ready |
+| QA and release (Phase 8) (v6-qa-release) | Release | v6-qa-release | Brief Phase 8 and "Done means" | 5 stories | Ready |

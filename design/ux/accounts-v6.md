@@ -1248,7 +1248,7 @@ Forms fade in with the scrim in 180 ms and the card rises 12 px; out in 120 ms. 
 
 - **Touch:** every control ≥ 44 pt, 8 pt apart; the eye toggle and inline links have 44 pt hit boxes; no gesture-only action.
 - **Mouse:** hover states on every canvas button and row (the input layer's hover rule); links underline on hover; the QR code shows on mouse devices by default.
-- **Keyboard:** forms use native Tab order (§1.2); Enter submits; Escape cancels the top form; the canvas parts (AU-09, AU-13, AU-16, AU-19, AU-20) follow the focus-navigation rules of the input layer (ADR-0004 amendment): the first actionable row is focused on open, arrows/Tab move, Enter activates, Escape is Back. In AU-16 the two cards are a radio group (arrows switch, Space picks).
+- **Keyboard:** forms use native Tab order (§1.2); Enter submits; Escape cancels the top form; the canvas parts (AU-09, AU-13, AU-16, AU-19, AU-20) follow the focus-navigation rules of the input layer (ADR-0012, which amends ADR-0004): the first actionable row is focused on open, arrows/Tab move, Enter activates, Escape is Back. In AU-16 the two cards are a radio group (arrows switch, Space picks).
 - **Gamepad:** not a v6 target (brief goal 3 names mouse and keyboard); nothing here blocks it.
 - Telegram's BackButton closes the top form or nested page, as everywhere.
 
