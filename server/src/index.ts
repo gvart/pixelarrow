@@ -4,6 +4,7 @@
  * A daily cron (wrangler.jsonc triggers) prunes old client error reports.
  */
 import { Hono, type Context } from 'hono';
+import { WorkerEntrypoint } from 'cloudflare:workers';
 import { readJson } from './body';
 import { LIMITS, verifyBattle, VerifyBody } from './battle';
 import type { AppEnv } from './env';
@@ -29,15 +30,28 @@ import { currentSeason, requireProfile, shardDoName } from './online/store';
 import { notifyRoutes } from './notify/routes';
 import { runScheduled } from './notify/jobs';
 import { buildPublicSnapshot } from './public/snapshot';
+import { PUBLIC_PREFIX, publicRoute, readSnapshot, type SnapshotRow } from './public/routes';
 import { pruneClientErrors, telemetry } from './telemetry/routes';
 import { logError, log } from './telemetry/log';
 import { admin } from './admin/routes';
 import { adminPage } from './admin/page';
 
-// Only handlers and Durable Object classes may be exported from the entry module.
+// Only handlers, Durable Object classes and entrypoints may be exported from the entry module.
 export { RegionDO } from './region';
 export { MatchmakerDO } from './duel/matchmaker';
 export { DuelDO } from './duel/duelDO';
+
+/**
+ * The landing Worker's way in (ADR-0010 §4): its GAME service binding names
+ * this entrypoint, so the call never crosses the internet and needs no IP
+ * limit. Same row as GET /api/public/v1/summary; null before the first
+ * snapshot (or without D1), which the landing treats as unavailable.
+ */
+export class PublicApi extends WorkerEntrypoint<AppEnv['Bindings']> {
+  async summary(): Promise<SnapshotRow | null> {
+    return this.env.DB ? readSnapshot(this.env.DB) : null;
+  }
+}
 
 const app = new Hono<AppEnv>();
 
@@ -273,7 +287,11 @@ async function publicSnapshot(env: AppEnv['Bindings'], now: number): Promise<voi
 }
 
 export default {
-  fetch: app.fetch,
+  // /api/public/* never enters the Hono app: no session, CORS or Origin middleware (ADR-0010 §1, §5).
+  fetch(request, env, ctx) {
+    if (new URL(request.url).pathname.startsWith(PUBLIC_PREFIX)) return publicRoute(request, env);
+    return app.fetch(request, env, ctx);
+  },
   /**
    * Cron (wrangler.jsonc triggers): every 5 minutes bot notifications that
    * wait, season and income notices, bot setup, the public stats snapshot;
