@@ -1,0 +1,54 @@
+server/src/admin/routes.ts
+  s_0d98fe904b2e82::t_5f4835f79606b7 9-10,22-25,153-155,324-348
+  s_0d98fe904b2e82::t_26c558b230a61b 349-351
+server/src/account/routes.ts
+  s_0d98fe904b2e82::t_e8d636c40aeefd 1-62,68-76
+  s_0d98fe904b2e82::t_f7d78c4af225a0 63-67
+server/migrations/0018_names_deletion.sql
+  s_0d98fe904b2e82::t_8c12d2b69c3888 1-65
+server/test/sessions.test.ts
+  s_0d98fe904b2e82::t_80500e0b4cba7c 10-11
+server/src/auth/identity.ts
+  s_0d98fe904b2e82::t_809edb37d8cce2 9-10
+server/src/names/blocklist.ts
+  s_0d98fe904b2e82::t_1b2487f378ecb2 1-10,12-16
+  s_0d98fe904b2e82::t_02d11de36aded6 11
+server/src/admin/page.ts
+  s_0d98fe904b2e82::t_284eba67ba7667 152,154,195,201
+server/src/players.ts
+  s_0d98fe904b2e82::t_4bfd848bc0034c 19-22,25-32,55-89
+server/src/names/generate.ts
+  s_0d98fe904b2e82::t_809edb37d8cce2 3,5,16,19-23
+server/src/names/validate.ts
+  s_0d98fe904b2e82::t_e59f1f441c939f 1-11,16,19-22,24-30,32-38,40-64
+  s_0d98fe904b2e82::t_80500e0b4cba7c 12-15,17-18,23,31
+  s_0d98fe904b2e82::t_3a29e73a30162f 39
+server/src/account/summary.ts
+  s_0d98fe904b2e82::t_ed6dc7762d0705 1-73
+server/test/account.test.ts
+  s_0d98fe904b2e82::t_9d175afa46f164 1-184
+server/src/index.ts
+  s_0d98fe904b2e82::t_f7d78c4af225a0 17,109
+server/test/names.test.ts
+  s_0d98fe904b2e82::t_3a29e73a30162f 12,52
+  s_0d98fe904b2e82::t_809edb37d8cce2 26
+  s_0d98fe904b2e82::t_d08d32d3acc6a7 1-11,13-25,27-51,53-73
+server/src/names/reserved.ts
+  s_0d98fe904b2e82::t_7e4ca20192d6ea 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9892a0348a5adda27ee19b21317842d436b85457",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
