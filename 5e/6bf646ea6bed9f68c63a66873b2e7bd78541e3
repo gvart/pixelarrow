@@ -1,0 +1,22 @@
+docs/v5/REPORT.md
+  s_697bdc25a7c420::t_613b02a0d0ca9f 3,22,24,26,104,115,139,148,192,308-309,331,337
+  s_697bdc25a7c420::t_4b93d62607c08e 5,108
+  s_697bdc25a7c420::t_e7355842c4ecce 106,109-114,117
+  s_697bdc25a7c420::t_a32606f1943e1d 1-2,4,6-21,23,25,27-103,105,107,116,118-138,140-147,149-191,193-307,310-330,332-336,338-365
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5e6bf646ea6bed9f68c63a66873b2e7bd78541e3",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
