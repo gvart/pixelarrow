@@ -58,6 +58,8 @@ const D_GHOST = D_FOG + 5;
 const campZoneAt = new Map<string, { x: number; y: number }>();
 /** Fog dissolve duration per tile (ms). */
 const FOG_FADE = 650;
+/** The player paused the camp's rest: it stays paused when the map comes back (QA-04). Cleared when rest starts. */
+let restPaused = false;
 
 /** world/map.ts TERRAIN_NAMES, in words of the current language. */
 const TERRAIN_KEYS = ['deepSea', 'sea', 'shore', 'plain', 'scrub', 'forest', 'hills', 'mountains'] as const;
@@ -289,7 +291,7 @@ export class WorldScene extends BaseScene {
     this.ui.add(this.hud);
     // after a battle the army did not win, the rest stays stopped until the player picks it again (QAFIX-WORLD S2-1)
     const halted = camp.takeRestHalt();
-    if (this.w.camp && !halted) this.waiting = true;
+    if (this.w.camp && !halted && !restPaused) this.waiting = true;
     this.buildHud();
 
     this.input.on('pointerdown', this.onDown, this);
@@ -928,7 +930,7 @@ export class WorldScene extends BaseScene {
       return [
         { label: t('world.strip.camp'), icon: 'tent', primary: true, tip: t('world.strip.enterTip'), id: 'world.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) },
         this.waiting
-          ? { label: t('battle.strip.pause'), icon: 'pause', selected: true, tip: t('world.strip.restTip'), id: 'world.rest', onClick: () => this.setWaiting(false) }
+          ? { label: t('battle.strip.pause'), icon: 'pause', selected: true, tip: t('world.strip.restTip'), id: 'world.rest', onClick: () => this.pauseRest() }
           : { label: t('world.strip.rest'), icon: 'hourglass', tip: t('world.strip.restTip'), id: 'world.rest', onClick: () => this.setWaiting(true) },
         party,
       ];
@@ -1033,8 +1035,14 @@ export class WorldScene extends BaseScene {
 
   private setWaiting(on: boolean): void {
     this.waiting = on;
+    if (on) restPaused = false;
     if (on) this.w.stop();
     this.refreshHud();
+  }
+
+  private pauseRest(): void {
+    this.setWaiting(false);
+    restPaused = true;
   }
 
   private stopTravel(): void {
