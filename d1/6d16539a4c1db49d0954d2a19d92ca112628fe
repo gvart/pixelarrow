@@ -1,0 +1,23 @@
+server/src/public/snapshot.ts
+  s_0d98fe904b2e82::t_a60daaf975a7a9 9-11,21-22,26-31,45-50,54
+server/src/public/duelTop.ts
+  s_0d98fe904b2e82::t_0f527619ac7384 1-48
+server/test/public-snapshot.test.ts
+  s_0d98fe904b2e82::t_264c12995bf72d 5-7,52-86,147-194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d16d16539a4c1db49d0954d2a19d92ca112628fe",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
