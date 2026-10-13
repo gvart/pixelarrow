@@ -14,6 +14,7 @@ import { lookupSession, pruneAuth } from './auth/sessions';
 import { gameOrigins } from './urls';
 import { getPlayer, publicPlayer } from './players';
 import { auth } from './routes/auth';
+import { account } from './account/routes';
 import { save } from './routes/save';
 import { entitlements, shop } from './routes/shop';
 import { webhook } from './routes/webhook';
@@ -105,6 +106,7 @@ app.get('/api/me', requireSession, async (c) => {
   return c.json({ player: publicPlayer(player), session: { expiresAt: c.get('session').expiresAt, transport: c.get('session').transport } });
 });
 
+app.route('/api/account', account);
 app.route('/api/save', save);
 app.route('/api/shop', shop);
 app.route('/api/entitlements', entitlements);

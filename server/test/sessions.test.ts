@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { CACHE_TTL_MS, createSession, forgetSessions, hashToken, LIFETIME, lookupSession, pruneAuth, TOUCH_EVERY_MS } from '../src/auth/sessions';
 import { sessionCookie, clearSessionCookie } from '../src/auth/cookies';
 import { recordPayment } from '../src/payments';
-import { generateDisplayName, nameKey } from '../src/names/generate';
+import { generateDisplayName } from '../src/names/generate';
+import { nameKey } from '../src/names/validate';
 import { api, BASE, devLogin, GAME_ORIGIN } from './helpers';
 import { SIM_VERSION } from '../../src/sim/version';
 

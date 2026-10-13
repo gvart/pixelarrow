@@ -6,8 +6,8 @@
  *
  * Reads: overview metrics, player search and detail, client errors, the
  * audit log, seasons and shards, /paysupport tickets (when that table exists).
- * Actions: ban / unban, adjust Drachmae or season gold, refund a Stars
- * purchase, end / start a season.
+ * Actions: ban / unban, rename (moderation), adjust Drachmae or season gold,
+ * refund a Stars purchase, end / start a season.
  */
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
@@ -19,6 +19,10 @@ import { db, secret } from '../middleware';
 import { recordRefund } from '../payments';
 import { callBot } from '../telegramApi';
 import { creditOnce } from '../economy/wallet';
+import { forgetSessions } from '../auth/sessions';
+import { generateDisplayName } from '../names/generate';
+import { nameKey } from '../names/validate';
+import { ADMIN_NAME_LOCK_MS, setDisplayName } from '../players';
 import { currentSeason, endSeason, forgetSeasonCache, randomToken, shardDoName } from '../online/store';
 import { log } from '../telemetry/log';
 import { requireAdmin } from './auth';
@@ -146,7 +150,9 @@ admin.get('/players', async (c) => {
   } else {
     const like = `${q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
     rows = await d
-      .prepare("SELECT * FROM players WHERE username LIKE ?1 ESCAPE '\\' OR first_name LIKE ?1 ESCAPE '\\' ORDER BY last_seen_at DESC LIMIT 50")
+      .prepare(
+        "SELECT * FROM players WHERE username LIKE ?1 ESCAPE '\\' OR first_name LIKE ?1 ESCAPE '\\' OR display_name LIKE ?1 ESCAPE '\\' ORDER BY last_seen_at DESC LIMIT 50",
+      )
       .bind(like)
       .all();
   }
@@ -312,6 +318,34 @@ admin.post('/players/:id/unban', async (c) => {
     return { banned: false, changed: r.meta.changes === 1 };
   });
   forgetBans();
+  return c.json(out);
+});
+
+/**
+ * Moderation (ADR-0009 §6): reset the player to a fresh generated name and
+ * lock renames for ADMIN_NAME_LOCK_MS. The old name stays held for 30 days
+ * through display_name_history.
+ */
+admin.post('/players/:id/rename', async (c) => {
+  const id = pidParam(c);
+  const body = await readJson(c, BanBody, 2048);
+  const d = db(c.env);
+  const p = await playerOr404(d, id);
+  if (p.deleted_at !== null) throw new ApiError(409, 'deleted', 'This player was deleted');
+  const out = await audited(c, 'rename', id, body.requestId, { reason: body.reason, old: p.display_name }, async () => {
+    const now = Date.now();
+    const lockedUntil = now + ADMIN_NAME_LOCK_MS;
+    for (let attempt = 0; ; attempt++) {
+      const name = generateDisplayName();
+      try {
+        await setDisplayName(d, id, name, nameKey(name), now, { admin: true, lockedUntil });
+        return { displayName: name, lockedUntil };
+      } catch (e) {
+        if (attempt >= 4 || !/UNIQUE/i.test(String((e as Error).message))) throw e;
+      }
+    }
+  });
+  forgetSessions(id);
   return c.json(out);
 });
 
