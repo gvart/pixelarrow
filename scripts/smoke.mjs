@@ -2,14 +2,23 @@
 // Covers the campaign loop: new campaign -> march on the map -> encounter ->
 // battle -> back to the map -> recruit in a village -> spend a stat point and
 // take perks -> equip from the stash -> use an ability in battle; plus the touch controls (pan vs order, drag to move, the facing knob to turn, tap to move) and pinch zoom.
-// Usage: node scripts/smoke.mjs [baseUrl]
-import { launch, phoneContext, captureErrors, makePageApi, check, finish } from './lib/harness.mjs';
+// Runs as a Telegram Mini App (fake WebApp) and as a plain web page (the offline campaign, signed out,
+// no request to telegram.org): scripts/lib/platform.mjs.
+// Usage: node scripts/smoke.mjs <baseUrl> [--platform telegram|web|both]
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish } from './lib/harness.mjs';
+import { cliArgs, platformMode, applyPlatform, launchUrl, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
-const base = process.argv[2] ?? 'http://localhost:5173/';
+const cli = cliArgs(process.argv.slice(2), 'scripts/smoke.mjs');
+const mode = await platformMode(import.meta.url, cli);
+const base = cli.base;
 const browser = await launch();
 const ctx = await phoneContext(browser);
+const plat = await applyPlatform(ctx, mode, { languageCode: 'en' });
 const page = await ctx.newPage();
-const errors = captureErrors(page);
+// the API down (503): in Telegram the online layer signs in, and no step may depend on a backend (the preview
+// server's /api proxy answered 502); the browser's own "Failed to load resource" lines are expected then
+const errors = captureErrors(page, { ignoreNetwork: true });
+await apiDown(page);
 // taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
 // Under load (many agents, CI) the game runs at a few frames a second: every step waits on a state
 // with a generous deadline, never on a fixed sleep (a screen still building, a scene not started yet).
@@ -25,13 +34,16 @@ async function need(name, ok, detail = '') {
 // A fresh context starts with empty storage: one load. (It loaded, cleared localStorage and loaded again, but
 // a first launch writes its fresh campaign (GameState.load) once boot gets there; under load that write
 // landed after the clear, the reload found a save, and the menu offered Continue, not Begin the march.)
-await page.goto(base);
+await page.goto(launchUrl(base, mode));
 // boot is slow under load: wait for the game object and its menu (a fixed 2.5 s sleep failed, unnamed, on window.__rs())
 await need('menu active', await until(() => ev(() => !!window.__game?.scene.isActive('Menu')), 60000));
 // The menu enters with a slide and fade (BaseScene.enterMotion). Since FL-02 a tap lands during it (V5-067,
 // checked by scripts/regression/hub-flows.mjs), but the slide moves the buttons: wait until the menu is fully in
 // so the taps below hit where they aim.
 await need('menu entered', await until(() => ev(() => { const ui = window.__game.scene.getScene('Menu').ui; return ui.alpha === 1 && ui.x === 0; }), 15000, 100));
+await checkPlatform(page, mode);
+// web: nobody is signed in, and the campaign runs offline (local save, no sync)
+if (mode === 'web') check('[web] signed out: the online layer stays local', await ev(() => window.__online?.status === 'local' && !window.__online.playerId), JSON.stringify(await ev(() => ({ status: window.__online?.status, id: window.__online?.playerId }))));
 const RS = await ev(() => window.__rs());
 // The event deck is on (EV-03): a card (after a battle, on arrival, on the march) waits for an answer and
 // pauses the map. Answer any card with its free choice and close the result, as a player would; the
@@ -384,10 +396,17 @@ const village = await ev(() => {
   s.follow = false;
   return { id: v.id };
 });
-await wait(200);
-// discovering a settlement plays a short camera cut that ignores taps (WorldScene.cine): let it finish
-await until(() => ev(() => !window.__game.scene.getScene('World').cine), 20000, 100);
-await wait(300);
+// Discovering a settlement plays a short camera cut that ignores taps (WorldScene.cine) and moves the camera.
+// The reveal above only queues the discovery: WorldScene.update drains it on its next frame and starts the cut
+// then. This waited 200 ms and then for !cine: on a loaded machine (a few frames a second) no frame had run
+// yet, so !cine held at once, the cut started after the village's position was read, the tap was swallowed
+// or missed, and "entered the village" failed now and then (V6-GATE-02, docs/v6/qa/FLAKY.md). Wait on the
+// state instead: no discovery queued, no cut running or pending, the camera's pan over, two frames drawn.
+const frameAt = await ev(() => window.__game.loop.frame);
+check('the village cut is over, the camera still', await until(() => ev((f0) => {
+  const s = window.__game.scene.getScene('World');
+  return window.__game.loop.frame >= f0 + 2 && !s.w.discoveries.length && !s.panQueue.length && !s.cine && !s.cameras.main.panEffect.isRunning;
+}, frameAt), 30000, 100));
 const vpos = await ev((id) => {
   const s = window.__game.scene.getScene('World');
   const v = s.w.map.settlements[id];
@@ -454,10 +473,14 @@ check('equipped a helmet from the stash', helm.on === 'smoke_helm' && !helm.inSt
 
 // ---- use the ability in battle
 await ev(() => window.__game.scene.getScene('Hero').back());
-await wait(400);
-// the Army has no footer back (N3, ARM-01): its top-bar back returns to the town that opened it
-await tapBtn('Army', { id: 'army.topbar.back' });
-await wait(400);
+await need('back on the army screen', await until(() => active('Army'), 15000));
+// the Army has no footer back (N3, ARM-01): its top-bar back returns to the town that opened it. In Telegram
+// the header's Back replaces the arrow-only back button (scripts/fullscreen-smoke.mjs noArrow): press that.
+if (mode === 'telegram') await ev(() => window.__tg.pressBack());
+else await tapBtn('Army', { id: 'army.topbar.back' });
+await need('back in the village from the army', await until(() => active('Settlement'), 15000));
+// its entry slide moves the buttons: wait until it is in (as for the menu above), not a fixed 400 ms
+await until(() => ev(() => { const ui = window.__game.scene.getScene('Settlement').ui; return !ui || (ui.alpha === 1 && ui.x === 0); }), 15000, 100);
 await tapBtn('Settlement', { label: 'Leave' });
 await need('left the village', await until(() => active('World'), 15000));
 await need('second encounter', await ambush(true));
@@ -500,4 +523,5 @@ check('ability used from the battle bar', used.includes('bash'), JSON.stringify(
 await tapBtn('Battle', { id: 'battle.play' }); // unpause
 await wait(1500);
 check('no console errors', errors.length === 0, errors.join(' | '));
+noTelegramRequests(plat);
 await finish({ browser });

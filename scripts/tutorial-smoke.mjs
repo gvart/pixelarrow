@@ -5,35 +5,40 @@
 // move with a queued Then… Charge, Shield Bash, the morale glyph, and the reserve
 // (IV) turned by its knob to the wave on its flank; then the reward (gold + a common
 // item) and the modes screen. The guided battle is played twice: on a 390x844 phone
-// and in Telegram full screen at 320x568 (the narrator must leave every lit control
-// clear and in reach there too).
+// and at 320x568 (in Telegram mode: Telegram full screen, the narrator must leave
+// every lit control clear and in reach there too).
+// Platform modes (scripts/lib/platform.mjs): `telegram` runs every page in the fake
+// Telegram WebApp, `web` as a plain web page (no request to telegram.org).
 // At every step: the lit control is never under the narrator (TUT-1), and the step
 // is done by a tap or a drag on what is lit (nothing swallows it). Also: ✕ only hides
 // the bubble (its "Nikias" key brings it back) and "Skip" asks first (TUT-2); an
 // interrupted tutorial is offered again (resume), skip sticks, and a finished
 // tutorial is not offered again; the online coach marks.
-// Saves shots/42-tutorial-narrator.png, 43-tutorial-gesture.png, 44-first-run*.png
+// Saves shots/<mode>/42-tutorial-narrator.png, 43-tutorial-gesture.png, 44-first-run*.png
 // (git-ignored; $SHOTS overrides the folder).
-// Usage: node scripts/tutorial-smoke.mjs [baseUrl]
+// Usage: node scripts/tutorial-smoke.mjs <baseUrl> [--platform telegram|web|both]
 import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, shotsDir, until as untilNode } from './lib/harness.mjs';
-import { fakeTelegram } from './lib/fakeTelegram.mjs';
+import { cliArgs, platformMode, applyPlatform, launchUrl, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
-const base = process.argv[2] ?? 'http://localhost:5173/';
-const shots = shotsDir();
+const cli = cliArgs(process.argv.slice(2), 'scripts/tutorial-smoke.mjs');
+const mode = await platformMode(import.meta.url, cli);
+const base = cli.base;
+const shots = shotsDir(mode);
 const browser = await launch();
 const errors = [];
+/** Every context's platform probe: web mode checks none of them asked telegram.org for anything. */
+const plats = [];
 
 /**
  * The guided battle, start to reward. `tag` names the run in the checks; `main`
  * also takes the screenshots and checks the reward and what follows it.
  */
-async function guided(tag, ctxOpts, tg, main) {
+async function guided(tag, ctxOpts, fake, main) {
   const ctx = await phoneContext(browser, { noFirstRun: false, ...ctxOpts });
-  if (tg) await ctx.addInitScript(fakeTelegram, { insets: { safeTop: 59, contentTop: 46, safeBottom: 34 }, fullscreen: 'launch', languageCode: 'en' });
+  plats.push(await applyPlatform(ctx, mode, fake));
   const page = await ctx.newPage();
   captureErrors(page, { into: errors, ignoreNetwork: true, echo: true });
   await apiDown(page);
-  await page.route('**/telegram.org/**', (r) => r.abort());
   // taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
   const { ev, wait, tap, swipe: swipe0, pinch, until, active, tapLabel: tapBtn } = makePageApi(page, { tapWait: 250, step: 200 });
   /** One finger along a polyline of screen points. */
@@ -106,9 +111,10 @@ async function guided(tag, ctxOpts, tg, main) {
   };
 
   // ---------------------------------------------------------------- first launch
-  await page.goto(`${base}${tg ? '#tgWebAppVersion=8.0&tgWebAppPlatform=ios' : ''}`);
+  await page.goto(launchUrl(base, mode));
   await ev(() => localStorage.clear());
   await page.reload();
+  if (main) await checkPlatform(page, mode);
   c('first launch: the tutorial is offered', await until(() => active('FirstRun'), 15000));
   c('offer screen', await ev(() => window.__game.scene.getScene('FirstRun').mode === 'offer'));
   await wait(500);
@@ -154,7 +160,7 @@ async function guided(tag, ctxOpts, tg, main) {
   // pinch zoom, in the lit field
   c('zoom step', await talkingAt('zoom', 8000));
   const hz = (await tut()).hole;
-  await pinch(hz.x + hz.w / 2 - 20, hz.x + hz.w / 2 + 20, hz.y + hz.h / 2, tg ? 30 : 60);
+  await pinch(hz.x + hz.w / 2 - 20, hz.x + hz.w / 2 + 20, hz.y + hz.h / 2, (ctxOpts.viewport?.width ?? 390) < 390 ? 30 : 60);
   if (!(await doneWith('zoom', 1500))) await ev(() => window.__game.scene.getScene('Battle').stepZoom()); // the zoom key, the single-tap way (A11Y-14)
   c('zoom done', await doneWith('zoom'));
 
@@ -272,7 +278,7 @@ async function guided(tag, ctxOpts, tg, main) {
   return { ctx, page, ev, wait, tap, until, tapBtn };
 }
 
-const run = await guided('390', {}, false, true);
+const run = await guided('390', {}, { languageCode: 'en' }, true);
 const { ev, wait, tap, until } = run;
 const page = run.page;
 
@@ -301,19 +307,21 @@ await run.ctx.close();
 
 // ------------------------------------------------------------------ Telegram full screen at 320x568: the whole lesson again
 
-const small = await guided('320 TG', { viewport: { width: 320, height: 568 } }, true, false);
+// Telegram mode: in Telegram full screen (status bar and Telegram's pills over the top, the home indicator below)
+const small = await guided(mode === 'telegram' ? '320 TG' : '320 web', { viewport: { width: 320, height: 568 } }, { insets: { safeTop: 59, contentTop: 46, safeBottom: 34 }, fullscreen: 'launch', languageCode: 'en' }, false);
 await small.ctx.close();
 
 // ------------------------------------------------------------------ resume and skip
 
 const ctx2 = await phoneContext(browser, { noFirstRun: false, viewport: { width: 375, height: 667 } });
+plats.push(await applyPlatform(ctx2, mode, { languageCode: 'en' }));
 const p2 = await ctx2.newPage();
 captureErrors(p2, { into: errors, console: false });
 await apiDown(p2, '{}');
 const api2 = makePageApi(p2, { tapWait: 0 });
 const ev2 = api2.ev;
 const until2 = (fn, ms = 15000) => untilNode(() => ev2(fn), ms, 200);
-await p2.goto(base);
+await p2.goto(launchUrl(base, mode));
 await until2(() => window.__game?.scene.isActive('FirstRun'));
 await ev2(() => window.__game.scene.getScene('FirstRun').startTutorial());
 await until2(() => window.__game.scene.getScene('Battle')?.tutorial?.step === 'intro');
@@ -356,4 +364,5 @@ check('skipped: not offered again', await until2(() => window.__game?.scene.isAc
 await ctx2.close();
 
 check('no page errors', errors.length === 0, errors.slice(0, 5).join(' | '));
+for (const p of plats) noTelegramRequests(p);
 await finish({ browser, pass: 'TUTORIAL SMOKE PASSED', fail: (n) => `TUTORIAL SMOKE FAILED (${n})` });

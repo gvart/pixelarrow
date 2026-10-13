@@ -8,58 +8,85 @@
 //     camera fade through parchment into and out of a field). Taps land during
 //     the entry (V5-067, the 'V5-067' flow in hub-flows.mjs); the wait keeps
 //     positions and screenshots steady;
-//   - Back is Telegram's header Back (the fake WebApp's BackButton), the path a
-//     player takes, so the nav stack is tested through its real host.
-import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, until } from '../lib/harness.mjs';
-import { fakeTelegram } from '../lib/fakeTelegram.mjs';
+//   - Back is the host's Back, the path a player takes, so the nav stack is
+//     tested through its real host: in Telegram mode the header Back (the fake
+//     WebApp's BackButton), on the web the browser's Back (history.back() on the
+//     guard entry of src/platform/web/back.ts).
+//
+// Platform modes (scripts/lib/platform.mjs): every script takes
+// `<baseUrl> [--platform telegram|web|both]`; with `both` it runs itself once
+// per mode. `platform()` is this process's mode.
+import { pathToFileURL } from 'node:url';
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, until, settled } from '../lib/harness.mjs';
+import { cliArgs, platformMode, applyPlatform, launchUrl, noTelegramRequests } from '../lib/platform.mjs';
 
-/** The base URL from argv[2] (the runner passes the preview server's), with a trailing slash. */
-export const baseUrl = () => (process.argv[2] ?? 'http://localhost:8047/').replace(/\/?$/, '/');
+const cli = cliArgs(process.argv.slice(2), 'scripts/regression/<script>.mjs');
+// with `both`, the script that was run (argv[1]) runs again once per mode
+const mode = await platformMode(pathToFileURL(process.argv[1]).href, cli);
+/** This run's platform mode: 'telegram' or 'web'. */
+export const platform = () => mode;
+/** The script's own arguments (argv without the base URL and --platform). */
+export const scriptArgs = () => cli.args;
+/** The base URL (required: the runner passes its preview server's), with a trailing slash. */
+export const baseUrl = () => cli.base;
+/** Every context this run opened: web mode checks none of them asked telegram.org for anything (done()). */
+const plats = [];
+/** Puts a context in this run's platform mode (Telegram: the fake WebApp with `fake` options). */
+export async function usePlatform(ctx, fake = {}) {
+  const p = await applyPlatform(ctx, mode, fake);
+  plats.push(p);
+  return p;
+}
+/** The URL a launch opens in this mode (Telegram adds its launch hash). */
+export const entryUrl = (base, path = '') => launchUrl(base, mode, path);
 
 /**
- * A fresh phone page on `base`: fake Telegram (Back and Settings through its
- * buttons), the API down (503, so no step depends on a backend), first run
- * skipped. Waits until the Campaign hub has settled.
+ * A fresh phone page on `base` in this run's mode (Telegram: the fake WebApp,
+ * Back and Settings through its buttons; web: a plain page), the API down (503,
+ * so no step depends on a backend), first run skipped. Waits until the
+ * Campaign hub has settled.
  */
 export async function openGame(browser, base, { lang = 'en', viewport } = {}) {
   const ctx = await phoneContext(browser, viewport ? { viewport } : {});
-  await ctx.addInitScript(fakeTelegram, { languageCode: lang });
+  await usePlatform(ctx, { languageCode: lang });
   const page = await ctx.newPage();
   const errors = captureErrors(page, { ignoreNetwork: true, stack: true });
   await apiDown(page);
-  await page.route('**/telegram.org/**', (r) => r.abort());
   const api = makePageApi(page, { tapWait: 150, step: 200, btnWaitMs: 15000 });
-  await page.goto(base, { timeout: 60000 });
+  await page.goto(mode === 'web' && lang !== 'en' ? `${base}?lang=${lang}` : entryUrl(base), { timeout: 60000 });
   const ok = await until(() => api.ev(() => !!window.__game?.scene.isActive('Menu')), 60000, 250);
   return { ctx, page, errors, api, ok: ok && (await settled(api, 'Menu')) };
-}
-
-/** True once `key` is the scene in front and has settled (see the header); polls up to `ms`. */
-export function settled(api, key, ms = 20000) {
-  return until(
-    () =>
-      api.ev((k) => {
-        const g = window.__game;
-        const s = g?.scene.getScene(k);
-        // isActive: the scene's status is RUNNING (not starting or shutting down)
-        if (!s || !s.sys.isActive()) return false;
-        if (s.load.isLoading()) return false;
-        if (s.cameras.cameras.some((c) => c.fadeEffect.isRunning)) return false;
-        return !s.ui || (s.ui.alpha === 1 && s.ui.x === 0);
-      }, key),
-    ms,
-    150,
-  );
 }
 
 /** The keys of the running scenes, in order. */
 export const running = (api) => api.ev(() => window.__game.scene.getScenes(true).map((s) => s.scene.key));
 
-/** Telegram's header Back (the fake WebApp's BackButton). */
-export const pressBack = (api) => api.ev(() => window.__tg.pressBack());
+/**
+ * The host's Back. Telegram: its header Back (the fake WebApp's BackButton). Web: the browser's Back, which
+ * pops the guard entry the web adapter keeps while the game has somewhere to go back to; at a root there is
+ * none and the browser would leave the page (by design, V6-033), so nothing is pressed there.
+ */
+export const pressBack = (api) =>
+  mode === 'telegram'
+    ? api.ev(() => window.__tg.pressBack())
+    : api.ev(() => {
+        if (!window.__nav.canGoBack() && !window.__nav.layers()) return false;
+        return new Promise((done) => {
+          addEventListener('popstate', () => done(true), { once: true });
+          history.back();
+          setTimeout(() => done(false), 5000);
+        });
+      });
 
-/** What the nav stack offers now: Back shown, open layers. */
-export const navState = (api) => api.ev(() => ({ back: window.__nav.canGoBack(), layers: window.__nav.layers(), tgBack: window.Telegram.WebApp.BackButton.isVisible }));
+/** The host's Settings entry: Telegram's ⋯ menu item, on the web the Campaign hub's Settings button. */
+export const openSettings = (api) => (mode === 'telegram' ? api.ev(() => (window.__tg.pressSettings(), true)) : api.tapLabel('Menu', 'Settings'));
+
+/**
+ * What the nav stack offers now: Back shown, open layers, and `tgBack`, the host's Back armed (Telegram:
+ * its header BackButton shown; web: the game has somewhere to go back to, so the browser's Back stays in it).
+ */
+export const navState = (api) =>
+  api.ev((web) => ({ back: window.__nav.canGoBack(), layers: window.__nav.layers(), tgBack: web ? window.__nav.canGoBack() || window.__nav.layers() > 0 : window.Telegram.WebApp.BackButton.isVisible }), mode === 'web');
 
 /** Starts scene `key` with `data` in place of every running scene (a door the script cannot reach by a tap). */
 export const startScene = (api, key, data = {}) => api.start(key, data);
@@ -127,7 +154,7 @@ export function known(bug, name, ok, detail = '') {
 }
 
 /** Ends the run (closes the browser, exit 1 on any FAIL); the verdict line names the known bugs still open. */
-export const done = (browser) => finish({ browser, pass: knownOpen ? `ALL PASS except ${knownOpen} KNOWN bug check(s)` : 'ALL PASS' });
+export const done = (browser) => (plats.forEach((p) => noTelegramRequests(p)), finish({ browser, pass: knownOpen ? `ALL PASS except ${knownOpen} KNOWN bug check(s)` : 'ALL PASS' }));
 
 /** A named check whose failure stops the steps that build on it (they would fail on in a wrong state). */
 export function need(name, ok, detail = '') {
@@ -155,4 +182,4 @@ export async function flow(name, fn) {
   console.log(`  (${name}: ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 
-export { launch, check, until };
+export { launch, check, until, settled };

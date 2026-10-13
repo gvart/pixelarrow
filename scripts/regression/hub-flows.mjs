@@ -1,5 +1,6 @@
 // Regression: one flow per hub (QA-02; production/qa/qa-plan-v5.md §5.3 hub-flows).
-// In fake Telegram (Back is its header button), with the API down:
+// In either platform mode (fake Telegram, Back its header button; or the plain web, Back the browser's:
+// scripts/regression/lib.mjs), with the API down:
 //   1. the tab bar, tapped like a finger, reaches every hub; a hub is a root
 //      (Telegram shows Close, Back leaves it where it is) and is not left with
 //      a stale screen under it;
@@ -9,7 +10,7 @@
 // Regression classes from this run: Army/Hero Back to the wrong origin (N2/N3),
 // a tap swallowed by a hub's entry fade (FIXER-5), the duel hub's Back leaving
 // for the menu from a sub-view, a door that left two scenes running.
-// Usage: node scripts/regression/hub-flows.mjs [baseUrl]   (needs a running preview server)
+// Usage: node scripts/regression/hub-flows.mjs <baseUrl> [--platform telegram|web|both]   (needs a running preview server)
 import { launch, check, until, baseUrl, openGame, settled, running, pressBack, navState, startScene, tapId, need, flow, done } from './lib.mjs';
 import { DOORS, TABS } from './doors.mjs';
 
@@ -57,7 +58,7 @@ await flow('tabs', async () => {
     need(`tab ${tab}: ${hub} settles`, await ready(hub), JSON.stringify(await running(api)));
     check(`tab ${tab}: ${hub} runs alone`, await alone(hub), JSON.stringify(await running(api)));
     const nav = await navState(api);
-    check(`tab ${tab}: a root (Telegram Close, no Back)`, !nav.back && !nav.tgBack && nav.layers === 0, JSON.stringify(nav));
+    check(`tab ${tab}: a root (no Back; Telegram shows Close)`, !nav.back && !nav.tgBack && nav.layers === 0, JSON.stringify(nav));
     await pressBack(api);
     check(`tab ${tab}: Back on the root stays on ${hub}`, (await settled(api, hub, 3000)) && (await alone(hub)), JSON.stringify(await running(api)));
     at = hub;
@@ -110,7 +111,7 @@ for (const d of DOORS) {
     else if (d.via.start) await startScene(api, d.via.start[0], await resolve(d.via.start[1]));
     else await api.call(d.from[0], `${d.via.call} return 1;`);
     need(`${d.name}: ${d.at} opens`, (await ready(d.at)) && (await alone(d.at)), JSON.stringify(await running(api)));
-    if (d.at !== d.back) check(`${d.name}: Telegram shows Back`, (await navState(api)).tgBack);
+    if (d.at !== d.back) check(`${d.name}: the host shows Back`, (await navState(api)).tgBack);
     else need(`${d.name}: the sub-view shows Back`, await until(async () => (await navState(api)).back, 5000, 150));
     await pressBack(api);
     const landed = (await ready(d.back)) && (await alone(d.back)) && (!d.state || (await until(() => api.call(d.back, d.state), 5000, 150)));

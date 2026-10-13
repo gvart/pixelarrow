@@ -1,5 +1,5 @@
 // Regression: one battle of each kind (QA-02; production/qa/qa-plan-v5.md §5.3 battle-kinds).
-// For each kind, through the real battle scene, in fake Telegram with the API down:
+// For each kind, through the real battle scene, in either platform mode (scripts/regression/lib.mjs) with the API down:
 //   - it opens on its own data (PLAY B1/B2: a battle never replays the last one's data);
 //   - pace (src/ui/input/pace.ts, controls.md R10, A11Y-17/18): campaign, tutorial and
 //     practice pause and offer 0.5x-3x; the duel ladder pauses at 0.5x-2x; live duels,
@@ -10,7 +10,7 @@
 // Regression classes from this run: the ⋯ menu handle kept from a battle that ended with
 // the menu open (7d3e260; the raid ends with its menu up, the next battle must open its own),
 // a replayed last-battle setup (B1/B2), Back from a duel report leaving the hub.
-// Usage: node scripts/regression/battle-kinds.mjs [baseUrl]   (needs a running preview server)
+// Usage: node scripts/regression/battle-kinds.mjs <baseUrl> [--platform telegram|web|both]   (needs a running preview server)
 import { launch, check, until, baseUrl, openGame, settled, running, pressBack, startScene, tapId, steadyBtn, need, flow, done } from './lib.mjs';
 
 const base = baseUrl();

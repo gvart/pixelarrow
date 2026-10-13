@@ -6,23 +6,55 @@
 // Back / Settings / closing confirmation follow the screens, and saves
 // shots/29-fullscreen-safe-area.png (git-ignored; menu, map, army, battle with
 // the fake overlays drawn on top).
-// Usage: node scripts/fullscreen-smoke.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
-import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir } from './lib/harness.mjs';
-import { fakeTelegram } from './lib/fakeTelegram.mjs';
-import { settled } from './regression/lib.mjs';
+// Platform modes (scripts/lib/platform.mjs): `telegram` is all of the above; `web` is the plain web page's
+// counterpart: the canvas fills the viewport, there is no Telegram object and no request to telegram.org,
+// and the browser's Back (a history entry the web adapter guards) closes a layer instead of leaving.
+// Usage: node scripts/fullscreen-smoke.mjs <baseUrl> [outDir] [--platform telegram|web|both]   (needs a running dev/preview server)
+import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir, apiDown, settled } from './lib/harness.mjs';
+import { cliArgs, platformMode, applyPlatform, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
-const base = process.argv[2] ?? 'http://localhost:5173/';
-const out = shotsDir('', process.argv[3]);
+const cli = cliArgs(process.argv.slice(2), 'scripts/fullscreen-smoke.mjs');
+const mode = await platformMode(import.meta.url, cli);
+const base = cli.base;
+const out = shotsDir('', cli.args.find((a) => !a.startsWith('--')));
 const W = 390;
 const H = 844;
 const INSETS = { safeTop: 59, contentTop: 46, safeBottom: 34 };
 
 const browser = await launch();
+if (mode === 'web') await webRun();
+
+/** The web counterpart (see the header); ends the process. */
+async function webRun() {
+  const wctx = await phoneContext(browser, { viewport: { width: W, height: H } });
+  const plat = await applyPlatform(wctx, 'web');
+  const page = await wctx.newPage();
+  const errors = captureErrors(page, { ignoreNetwork: true });
+  await apiDown(page);
+  await page.goto(base, { timeout: 60000 });
+  const api = makePageApi(page, { btnWaitMs: 15000 });
+  check('[web] menu settles', await settled(api, 'Menu', 60000));
+  await checkPlatform(page, 'web');
+  const r = await api.ev(() => { const c = document.querySelector('#game canvas').getBoundingClientRect(); return { top: c.top, bottom: innerHeight - c.bottom, left: c.left, right: innerWidth - c.right }; });
+  check('[web] the canvas fills the viewport (no insets on the web)', Math.abs(r.top) < 1 && Math.abs(r.bottom) < 1 && Math.abs(r.left) < 1 && Math.abs(r.right) < 1, JSON.stringify(r));
+  const nav = () => api.ev(() => ({ layers: window.__nav.layers(), back: window.__nav.canGoBack(), href: location.href, menu: window.__game.scene.isActive('Menu') }));
+  const n0 = await nav();
+  check('[web] the menu is a root: nothing to go back to', n0.layers === 0 && !n0.back, JSON.stringify(n0));
+  check('[web] Settings opens', await api.tapLabel('Menu', 'Settings'));
+  check('[web] Settings is a layer that Back closes', await api.until(async () => { const n = await nav(); return n.layers === 1 && n.back; }, 10000, 150), JSON.stringify(await nav()));
+  // the browser's Back: a popstate on the guard entry the web adapter pushed (src/platform/web/back.ts)
+  const popped = await api.ev(() => new Promise((done) => { addEventListener('popstate', () => done(true), { once: true }); history.back(); setTimeout(() => done(false), 5000); }));
+  check('[web] the browser Back pops the guard entry', popped);
+  check('[web] Back closes Settings and stays in the game', await api.until(async () => { const n = await nav(); return n.layers === 0 && n.menu && n.href.startsWith(base); }, 10000, 150), JSON.stringify(await nav()));
+  check('[web] no page errors', errors.length === 0, errors.join(' | '));
+  noTelegramRequests(plat);
+  await finish({ browser });
+}
 const ctx = await phoneContext(browser, { viewport: { width: W, height: H } });
+await applyPlatform(ctx, 'telegram', { insets: INSETS, fullscreen: 'request', relayout: true, overlays: true });
 const page = await ctx.newPage();
 const errors = captureErrors(page, { ignoreNetwork: true });
-// a phone in Telegram: full screen on request, the insets late, header changes re-report the viewport
-await ctx.addInitScript(fakeTelegram, { insets: INSETS, fullscreen: 'request', relayout: true, overlays: true });
+// (above) a phone in Telegram: full screen on request, the insets late, header changes re-report the viewport
 await page.route('**/api/**', (r) => r.fulfill({ status: 503, body: '{"error":"down"}', contentType: 'application/json' }));
 await page.goto(base + '#tgWebAppVersion=8.0&tgWebAppPlatform=ios');
 await page.waitForTimeout(3000);
