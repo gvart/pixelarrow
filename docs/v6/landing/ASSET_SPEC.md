@@ -4,7 +4,7 @@
 > amendments). **Budget**: `design/adr/ADR-0011-landing-stack-and-budget.md`. **Prompts and verdicts**:
 > `docs/v6/ASSET_LOG.md` › P5-LAND-ART. Written with `/asset-spec` (solo review: autonomous run).
 > **Location**: V6-LAND-01 moved every final out of `landing/assets-staging/` (now gone) to
-> its target path below and wires it. Weights are measured on disk (`stat`), not estimated.
+> its target path below; V6-LAND-01 wires the still, sky, beam and foreground. Weights are measured on disk (`stat`), not estimated.
 
 ## Decisions
 
