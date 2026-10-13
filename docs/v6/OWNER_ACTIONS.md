@@ -43,13 +43,21 @@ The two hosts (ADR-0007): the game and its API on `https://play.pixelarrow.app`
       (server/scripts/pbkdf2-probe/limits.ts) to the highest passing count, at
       least 100,000, and updates ADR-0008 §2 and M-PW-1.
 4. **Accounts setup** (was item 4; ADR-0008).
-   1. Onboard pixelarrow.app in Cloudflare Email Service (beta) and check SPF,
-      DKIM and DMARC.
-   2. Create a Turnstile widget for `play.pixelarrow.app`.
-   3. Set the game Worker secrets, from `server/`:
+   1. Onboard pixelarrow.app in Cloudflare Email Service (beta) with the sender
+      `noreply@pixelarrow.app` (the `EMAIL` binding only allows that address;
+      V6-045), and check SPF, DKIM and DMARC.
+   2. Create a Turnstile widget for `play.pixelarrow.app`. Its secret key goes
+      to the Worker in step 4.4. Its site key is public: set it where the
+      client build reads it (the web sign-in client, V6-ACCT-05; if that is not
+      wired yet, give the site key to the next run).
+   3. Confirm the Rate Limiting namespace ids `6001` (`RL_AUTH_IP`) and `6002`
+      (`RL_TG_AUTH_IP`) in `wrangler.jsonc` are not used by another Worker in
+      the account. If one is taken, tell the next run to pick free ids.
+   4. Set the game Worker secrets, from `server/`:
       `npx wrangler secret put <NAME> --config ../wrangler.jsonc` for
-      `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`, `PASSWORD_PEPPER` and
-      `PASSWORD_PEPPER_ID`.
+      `TURNSTILE_SECRET` (that is,
+      `npx wrangler secret put TURNSTILE_SECRET --config ../wrangler.jsonc`),
+      `PASSWORD_PEPPER` and `PASSWORD_PEPPER_ID`.
 5. **GitHub setup for the landing deploy** (was item 10; V6-025).
    1. Settings → Environments → **New environment** `production-landing` (the
       `landing-deploy` job uses it; add the same protection rules as
