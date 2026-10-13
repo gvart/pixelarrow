@@ -1,0 +1,34 @@
+scripts/dev/context-loss.mjs
+  s_697bdc25a7c420::t_fbdda982d38ef1 111-120
+  s_697bdc25a7c420::t_d2e9a15db72692 1-110,121-132,164-171
+  s_697bdc25a7c420::t_eaf90d7bcc7ff7 133-163
+scripts/dev/bundle-stats.mjs
+  s_697bdc25a7c420::t_f15b62ca99a9bf 42
+  s_697bdc25a7c420::t_5ac5662383efa7 1-36,38-41,43-45
+  s_697bdc25a7c420::t_6960d3f9063168 37
+docs/v5/qa/PERF.md
+  s_697bdc25a7c420::t_825a39c8ba7aa0 1-171
+  s_697bdc25a7c420::t_5c9cddb306cb78 172-176
+src/platform/staticCanvas.ts
+  s_697bdc25a7c420::t_b475255d034142 7
+scripts/dev/perf-bench.mjs
+  s_697bdc25a7c420::t_ca3f7f2a93d616 8,18,23,47-52,55,58
+  s_697bdc25a7c420::t_fbdda982d38ef1 7,103,110-111,113
+  s_697bdc25a7c420::t_37ed3c3df3f941 1-6,9-17,19-22,24-46,53-54,56-57,59-102,104-109,112,114-170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "23483972c0d8723fd3a4a107d63991b20a559505",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
