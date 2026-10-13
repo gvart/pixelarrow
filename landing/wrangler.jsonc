@@ -1,0 +1,28 @@
+// The landing Worker (ADR-0007): pixelarrow.app and www.pixelarrow.app. It serves the Astro build
+// (landing/dist: the landing page, its media and the legal pages) as static assets, and runs its
+// code first only for "/" (the old ?startapp= link redirect to play) and /api/public/* (the cached,
+// rate-limited stats proxy to the game Worker's PublicApi entrypoint, ADR-0010). The game lives on
+// play.pixelarrow.app (../wrangler.jsonc). No D1, no Durable Objects, no secrets.
+// Deployed on its own by .github/workflows/deploy.yml; never from an agent run.
+{
+  "name": "pixelarrow-landing",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/public/*", "/"]
+  },
+  "routes": [
+    { "pattern": "pixelarrow.app", "custom_domain": true },
+    { "pattern": "www.pixelarrow.app", "custom_domain": true }
+  ],
+  "services": [
+    { "binding": "GAME", "service": "pixelarrow", "entrypoint": "PublicApi" }
+  ],
+  "ratelimits": [
+    { "name": "RL_LANDING_PUBLIC", "namespace_id": "6004", "simple": { "limit": 60, "period": 60 } }
+  ],
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}
