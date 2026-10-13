@@ -26,10 +26,14 @@ interface Frame {
 
 const FRAMES = new Map<string, Frame>();
 
-/** Atlas files, relative to the page (Vite base './'). */
+/**
+ * Atlas files, relative to the page (Vite base './'). BootScene loads the WebP (near-lossless,
+ * about half the bytes of the painted 160 px cells: scripts/art/webp.mjs) and falls back on the
+ * PNG when the browser cannot decode it.
+ */
 export const ICON_ATLASES = [
-  { key: 'icons_ui', png: 'icons/ui.png', json: 'icons/ui.json' },
-  { key: 'icons_items', png: 'icons/items.png', json: 'icons/items.json' },
+  { key: 'icons_ui', webp: 'icons/ui.webp', png: 'icons/ui.png', json: 'icons/ui.json' },
+  { key: 'icons_items', webp: 'icons/items.webp', png: 'icons/items.png', json: 'icons/items.json' },
 ] as const;
 
 /** Register an atlas's frames (id -> rectangle in `src`). */
@@ -187,7 +191,8 @@ export function drawIconBitmap(id: string, n: number, o: BitmapOpts = {}): HTMLC
   const W = Math.max(1, Math.round(o.w ?? n));
   const H = Math.max(1, Math.round(o.h ?? n));
   const look = o.look ?? 'full';
-  const canvas = newCanvas(W, H);
+  // a recoloured look is read back once: a CPU-backed canvas skips the GPU readback
+  const canvas = newCanvas(W, H, look !== 'full');
   const ctx = canvas.getContext('2d')!;
   const fill = o.fill ?? (o.backing ? BACKED_FILL : 0.92);
   const k = Math.min((W * fill) / f.w, (H * fill) / f.h);
@@ -212,11 +217,11 @@ export function drawIconBitmap(id: string, n: number, o: BitmapOpts = {}): HTMLC
   return out;
 }
 
-function newCanvas(w: number, h: number): HTMLCanvasElement {
+function newCanvas(w: number, h: number, willReadFrequently = false): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  const ctx = c.getContext('2d')!;
+  const ctx = c.getContext('2d', { willReadFrequently })!;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   return c;
@@ -234,18 +239,38 @@ function stepDown(f: Frame, dw: number): { src: CanvasImageSource; x: number; y:
   return cur;
 }
 
+/** Steps of the brightness table: within a fifth of a colour level of the exact ramp. */
+const LUT_N = 4096;
+const LUTS = new Map<'light' | 'dim', Uint8ClampedArray>();
+
+/** The exact colour of brightness `lum` (0..1) in a look. */
+export function lookColour(look: 'light' | 'dim', lum: number): [number, number, number] {
+  return ramp(look === 'light' ? LIGHT_RAMP : DIM_RAMP, look === 'light' ? Math.pow(lum, 0.7) : 0.15 + lum * 0.85);
+}
+
+/** The look's colour for brightness i / LUT_N, as r, g, b at 3 i (computed once per look; QA-05). */
+export function recolourLut(look: 'light' | 'dim'): Uint8ClampedArray {
+  let lut = LUTS.get(look);
+  if (lut) return lut;
+  lut = new Uint8ClampedArray((LUT_N + 1) * 3);
+  for (let i = 0; i <= LUT_N; i++) lut.set(lookColour(look, i / LUT_N), i * 3);
+  LUTS.set(look, lut);
+  return lut;
+}
+
 /** Recolour by brightness: the shadow (drawn with the icon) stays dark under the light look. */
 function recolour(ctx: CanvasRenderingContext2D, W: number, H: number, look: 'light' | 'dim'): void {
   const img = ctx.getImageData(0, 0, W, H);
   const p = img.data;
-  const stops = look === 'light' ? LIGHT_RAMP : DIM_RAMP;
+  const lut = recolourLut(look);
+  const k = LUT_N / 255;
+  // the brightness's nearest table step (recolourLut)
   for (let i = 0; i < p.length; i += 4) {
     if (p[i + 3] === 0) continue;
-    const lum = (0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2]) / 255;
-    const [r, g, b] = ramp(stops, look === 'light' ? Math.pow(lum, 0.7) : 0.15 + lum * 0.85);
-    p[i] = r;
-    p[i + 1] = g;
-    p[i + 2] = b;
+    const j = Math.round((0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2]) * k) * 3;
+    p[i] = lut[j];
+    p[i + 1] = lut[j + 1];
+    p[i + 2] = lut[j + 2];
   }
   ctx.putImageData(img, 0, 0);
 }

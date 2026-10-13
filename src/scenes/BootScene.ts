@@ -27,13 +27,25 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     preloadRasters(this);
-    // the drawn icons (src/art/iconBitmaps.ts); a failed load leaves the vector icons in place
-    for (const a of ICON_ATLASES) this.load.atlas(a.key, a.png, a.json);
+    // the drawn icons (src/art/iconBitmaps.ts): the WebP, else the PNG (pngFallback); a failed
+    // load of both leaves the vector icons in place
+    for (const a of ICON_ATLASES) this.load.atlas(a.key, a.webp, a.json);
   }
 
   create(): void {
     // canvas text does not wait for web fonts: the atlases need the bundled faces loaded first
-    void loadUiFonts().finally(() => this.start());
+    void Promise.all([loadUiFonts(), this.pngFallback()]).finally(() => this.start());
+  }
+
+  /** Icon atlases whose WebP did not load or decode (a browser without WebP): load their PNG. */
+  private pngFallback(): Promise<void> {
+    const missing = ICON_ATLASES.filter((a) => !this.textures.exists(a.key));
+    if (!missing.length) return Promise.resolve();
+    return new Promise((done) => {
+      for (const a of missing) this.load.atlas(a.key, a.png, a.json);
+      this.load.once(Phaser.Loader.Events.COMPLETE, () => done());
+      this.load.start();
+    });
   }
 
   /** Hand the loaded icon atlases' frames to the icon painters. */
