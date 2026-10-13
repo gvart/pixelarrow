@@ -943,6 +943,9 @@ export class ScrollArea {
     this.cleanup();
     this.maskG.destroy();
     this.cue?.destroy();
+    // the drag zone and the content live in the parent: a rebuilt area must not leave them behind (QA-04)
+    this.zone.destroy();
+    this.content.destroy();
   }
 }
 
