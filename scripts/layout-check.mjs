@@ -1,8 +1,10 @@
 // Layout check (docs/DESIGN_V2.md "UX principles", docs/UI_KIT.md "Layout check").
 //
-// Visits every screen at 320x568, 375x667, 390x844, 430x932, 360x780 and 320x640, in a
-// plain browser and inside a fake full-screen Telegram (safe-area insets: top
-// 59 + 46, bottom 34), in English and Russian, and fails when
+// Visits every screen across the v6 screen matrix (scripts/lib/layoutMatrix.mjs: phone
+// 390x844, 360x780, 320x693; landscape 844x390, 1024x768, 1280x800, 1440x900, 1920x1080;
+// tablet 768x1024, 820x1180), in a plain browser and, at phone sizes, inside a fake
+// full-screen Telegram (safe-area insets: portrait top 59 + 46, bottom 34; at 844x390
+// sides 59, top 46, bottom 21), in English and Russian, and fails when
 //   - interactive elements overlap (or sit closer than 4 pt),
 //   - text overflows its box or overlaps other text, or is cut at the side of a scroll area,
 //   - an element falls outside the safe area (the canvas),
@@ -13,27 +15,31 @@
 //     Phaser's own hit test; MECH §3).
 // The rules are src/ui/layoutCheck.ts (unit-tested in tests/ui.test.ts, tests/inputContract.test.ts).
 // Element bounds come from the game's debug UI registry (window.__layout,
-// src/ui/layout.ts). Known violations are listed with an owner in
-// scripts/layout-allowlist.json; anything not listed fails the run. An entry
+// src/ui/layout.ts). Known violations are listed in scripts/layout-allowlist/<story>.json,
+// one file per owner story; anything not listed fails the run. An entry
 // `screen|check|*` allows that check on the whole screen (used for the text-size floor,
-// which arrived after the screens: one entry per screen, owned by the screen's story).
+// which arrived after the screens: one entry per screen, owned by the screen's story);
+// a trailing `@WxH` scopes an entry to one size.
 // Screenshots: shots/layout/<lang>-<plain|tg>/<WxH>/<screen>.png and a summary
 // in shots/layout/index.md (git-ignored; CI uploads shots/layout as an artifact).
 //
 // Usage: node scripts/layout-check.mjs [baseUrl] [options]   (needs a running dev/preview server)
 //   --update-allowlist   write the current violations into the allowlist (owners from the screen table)
-//   --screens a,b        only these screens          --sizes 390x844,320x568   only these sizes
+//   --screens a,b        only these screens          --sizes 390x844,320x568   only these sizes (wins over --matrix)
+//   --matrix phone|tablet|landscape|all|v5   size groups, comma-separated (default all: the ten
+//                        matrix sizes; v5 = the v5 phone sizes outside the matrix, run by CI too)
 //   --langs en           only these languages        --insets plain|tg          only one safe-area variant
 //   --jobs 4             parallel browser contexts   --no-shots                 skip screenshots
-//   --shard 3/10         only every 10th configuration, starting with the 3rd (CI runs 10 shards in parallel)
+//   --shard 3/10         only every 10th configuration, starting with the 3rd (CI shards by --sizes instead)
 //   --split 2            split each configuration's screens into 2 contiguous runs (each in its own context, in parallel)
 //   --dpr 3              device pixel ratio of the screenshots (default 1)
 //   --verbose            print every violation with its detail
 //   --no-retry           do not re-run screens with new violations (by default a new violation must show twice)
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT as root, launch, captureErrors, apiDown, makePageApi, shotsDir } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
+import { KNOWN_CRASHES, MATRIX, TG, allows, configsFor, loadAllowlist, rewriteAllowlist, sizesFor, splitEntry, staleEntries, storyOf } from './lib/layoutMatrix.mjs';
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
 const opt = (n, d) => {
@@ -42,63 +48,15 @@ const opt = (n, d) => {
 };
 const base = args.find((a) => /^https?:/.test(a)) ?? 'http://localhost:5173/';
 const outDir = shotsDir('layout');
-const allowPath = join(root, 'scripts/layout-allowlist.json');
-/** Allowlist groups: A, B, C by screen owner; F only for checks added after the foundation screens (text-size). */
-const GROUPS = ['A', 'B', 'C', 'F'];
-/** Checks allowlisted per screen (`screen|check|*`) rather than per element. */
-const PER_SCREEN = new Set(['text-size']);
-/** The story that owns a screen's fixes (docs/v5/plan/STORIES.md), for new allowlist entries: first matching prefix. */
-const STORY_OF = [
-  ['kit-', 'F-05'],
-  ['menu-settings', 'DLG-01'],
-  ['menu-reset', 'DLG-01'],
-  ['menu-shop', 'SHP-01'],
-  ['shop', 'SHP-01'],
-  ['consumable-picker', 'SHP-01'],
-  ['menu', 'HUB-02'],
-  ['codex', 'CDX-01'],
-  ['online-army', 'WAR-01'],
-  ['online-clan', 'WAR-02'],
-  ['merchant-', 'WAR-02'],
-  ['online', 'WAR-01'],
-  ['duel-board', 'DUE-02'],
-  ['duel-raid', 'DUE-02'],
-  ['duel-defence', 'DUE-02'],
-  ['duel-search', 'DUE-02'],
-  ['duel-found', 'DUE-02'],
-  ['duel-ranked', 'DUE-02'],
-  ['duel-season', 'DUE-02'],
-  ['duel-', 'DUE-01'],
-  ['market-', 'MKT-01'],
-  ['world-event', 'EV-03'],
-  ['world-journal', 'EV-03'],
-  ['world', 'WLD-01'],
-  ['camp', 'CMP-01'],
-  ['fire', 'CMP-01'],
-  ['army', 'ARM-01'],
-  ['stash-', 'ARM-01'],
-  ['hero', 'HERO-01'],
-  ['village', 'SET-01'],
-  ['town-', 'SET-01'],
-  ['recruits', 'SET-01'],
-  ['results', 'RES-01'],
-  ['inspect', 'RES-01'],
-  ['battle-works', 'FW-03'],
-  ['battle-assault', 'FW-03'],
-  ['battle-', 'BTL-01'],
-  ['tutorial-', 'TUT-02'],
-  ['first-run', 'TUT-01'],
-];
-const storyOf = (key) => STORY_OF.find(([p]) => key.startsWith(p))?.[1];
+const allowDir = join(root, 'scripts/layout-allowlist');
 
-const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780,320x640').split(',').map((s) => s.split('x').map(Number));
+const SIZES = sizesFor(opt('matrix', 'all'), opt('sizes', ''));
 const LANGS = opt('langs', 'en,ru').split(',');
 const INSETS = opt('insets', 'plain,tg').split(',');
 const JOBS = Number(opt('jobs', '4'));
 const DPR = Number(opt('dpr', '1'));
 const [SHARD, SHARDS] = opt('shard', '1/1').split('/').map(Number);
 const SPLIT = Math.max(1, Number(opt('split', '1')));
-const TG = { safeTop: 59, contentTop: 46, safeBottom: 34 };
 
 // ------------------------------------------------------------------ screens
 // owner: F = UI foundation (must stay clean), A = battle + results, B = army /
@@ -1044,7 +1002,7 @@ async function runConfig(browser, cfg, screens) {
   await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
   await ctx.addInitScript(seededRandom);
   // a full-screen Telegram with the insets already reported
-  if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, { insets: TG, fullscreen: 'launch', languageCode: 'en' });
+  if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, { insets: cfg.tg, fullscreen: 'launch', languageCode: 'en' });
   const page = await ctx.newPage();
   const errors = captureErrors(page, { ignoreNetwork: true });
   await apiDown(page);
@@ -1121,14 +1079,18 @@ const onlyScreens = opt('screens', '');
 // opt-in screens (art previews) run only when named
 const DEFAULT_SCREENS = SCREENS.filter((s) => !s.optIn);
 const screens = onlyScreens ? SCREENS.filter((s) => onlyScreens.split(',').includes(s.id)) : DEFAULT_SCREENS;
-const configs = [];
-for (const lang of LANGS) for (const insets of INSETS) for (const size of SIZES) configs.push({ lang, insets, size });
-const allConfigs = configs.length;
+const configs = configsFor(SIZES, LANGS, INSETS);
 if (SHARDS > 1) configs.splice(0, configs.length, ...configs.filter((_, k) => k % SHARDS === SHARD - 1));
 // work units: a configuration and a contiguous run of screens (each unit is a fresh context)
 const units = [];
-const per = Math.ceil(screens.length / SPLIT);
-for (const cfg of configs) for (let c = 0; c < SPLIT; c++) if (c * per < screens.length) units.push({ cfg, screens: screens.slice(c * per, (c + 1) * per), part: c });
+const skipped = [];
+for (const cfg of configs) {
+  const crash = (s) => KNOWN_CRASHES[`${s.id}@${cfg.size.join('x')}/${cfg.insets}`];
+  for (const s of screens.filter(crash)) skipped.push(`${cfg.lang}-${cfg.insets}-${cfg.size.join('x')} ${s.id}: ${crash(s)}`);
+  const list = screens.filter((s) => !crash(s));
+  const per = Math.ceil(list.length / SPLIT);
+  for (let c = 0; c < SPLIT; c++) if (c * per < list.length) units.push({ cfg, screens: list.slice(c * per, (c + 1) * per), part: c });
+}
 
 const browser = await launch();
 const runs = [];
@@ -1138,7 +1100,9 @@ await Promise.all(
   Array.from({ length: Math.min(JOBS, units.length) }, async () => {
     while (next < units.length) {
       const u = units[next++];
+      const t = Date.now();
       const r = await runConfig(browser, u.cfg, u.screens);
+      r.ms = Date.now() - t;
       runs.push(r);
       const n = r.results.reduce((a, x) => a + x.violations.length, 0);
       console.log(`${u.cfg.lang} ${u.cfg.insets} ${u.cfg.size.join('x')}${SPLIT > 1 ? ` part ${u.part + 1}/${SPLIT}` : ''}: ${n} violations${r.errors.length ? `, ${r.errors.length} page errors` : ''}`);
@@ -1150,77 +1114,88 @@ await browser.close();
 // ------------------------------------------------------------------ compare with the allowlist
 
 const keyOf = (screen, v) => [screen, v.check, ...v.ids].join('|');
-const found = new Map(); // key -> { owner, configs: [], detail }
+const sizeOf = (cfg) => cfg.size.join('x');
+const tagOf = (cfg) => `${cfg.lang}-${cfg.insets}-${sizeOf(cfg)}`;
+const found = new Map(); // key -> { owner, screen, configs: [], sizes: Set, detail }
 const pageErrors = [];
 const screenErrors = [];
 for (const r of runs) {
-  const tag = `${r.cfg.lang}-${r.cfg.insets}-${r.cfg.size.join('x')}`;
+  const tag = tagOf(r.cfg);
   for (const e of r.errors) pageErrors.push(`${tag}: ${e}`);
   for (const x of r.results) {
     if (x.error) screenErrors.push(`${tag} ${x.screen}: ${x.error}`);
     for (const v of x.violations) {
       const k = keyOf(x.screen, v);
-      if (!found.has(k)) found.set(k, { owner: x.owner, screen: x.screen, configs: [], detail: v.detail });
+      if (!found.has(k)) found.set(k, { owner: x.owner, screen: x.screen, configs: [], sizes: new Set(), detail: v.detail });
       found.get(k).configs.push(tag);
+      found.get(k).sizes.add(sizeOf(r.cfg));
     }
   }
 }
-const allow = existsSync(allowPath) ? JSON.parse(readFileSync(allowPath, 'utf8')) : {};
-const allowed = new Map();
-for (const owner of GROUPS) for (const k of allow[owner] ?? []) allowed.set(k, owner);
-/** `screen|check|*` of a key. */
-const wildOf = (k) => k.split('|').slice(0, 2).join('|') + '|*';
-const isAllowed = (k) => allowed.has(k) || allowed.has(wildOf(k));
-let fresh = [...found.keys()].filter((k) => !isAllowed(k)).sort();
+const allowed = loadAllowlist(allowDir);
+/** New violations: `key@WxH` for every size a key shows at without an allowlist entry. */
+let fresh = [...found].flatMap(([k, x]) => [...x.sizes].filter((size) => !allows(allowed, k, size)).map((size) => `${k}@${size}`)).sort();
 const flaky = [];
 if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   // Timing differs on slow machines (CI): a new violation only counts when the
   // same screen in the same configuration shows it again on a second run.
-  const tagOf = (c) => `${c.lang}-${c.insets}-${c.size.join('x')}`;
   const redo = new Map();
-  for (const k of fresh)
-    for (const tag of found.get(k).configs) {
-      const cfg = configs.find((c) => tagOf(c) === tag);
-      if (!redo.has(tag)) redo.set(tag, { cfg, ids: new Set() });
-      redo.get(tag).ids.add(found.get(k).screen);
+  for (const e of fresh) {
+    const { key, size } = splitEntry(e);
+    for (const tag of found.get(key).configs.filter((t) => t.endsWith(`-${size}`))) {
+      if (!redo.has(tag)) redo.set(tag, { cfg: configs.find((c) => tagOf(c) === tag), ids: new Set() });
+      redo.get(tag).ids.add(found.get(key).screen);
     }
+  }
   const b2 = await launch();
   const again = new Set();
   for (const { cfg, ids } of redo.values()) {
     const r = await runConfig(b2, cfg, SCREENS.filter((s) => ids.has(s.id)));
-    for (const x of r.results) for (const v of x.violations) again.add(keyOf(x.screen, v));
+    for (const x of r.results) for (const v of x.violations) again.add(`${keyOf(x.screen, v)}@${sizeOf(cfg)}`);
   }
   await b2.close();
-  flaky.push(...fresh.filter((k) => !again.has(k)));
-  fresh = fresh.filter((k) => again.has(k));
+  flaky.push(...fresh.filter((e) => !again.has(e)));
+  fresh = fresh.filter((e) => again.has(e));
 }
-const partial = configs.length < allConfigs || allConfigs < 20 || screens.length < DEFAULT_SCREENS.length;
-const foundWild = new Set([...found.keys()].map(wildOf));
-const stale = [...allowed.keys()].filter((k) => !(k.endsWith('|*') ? foundWild.has(k) : found.has(k)) && screens.some((s) => k.startsWith(s.id + '|'))).sort();
+const ran = { screens: new Set(screens.map((s) => s.id)), sizes: new Set(configs.map(sizeOf)) };
+const stale = staleEntries(allowed, found, ran);
 
 if (flag('update-allowlist')) {
-  const out = {
-    _doc: 'Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps; F = foundation screens (UI kit, menu, onboarding), only for the text-size floor. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids, or screen|check|* for a check on the whole screen (text-size).',
-    A: [],
-    B: [],
-    C: [],
-    F: [],
-  };
-  for (const [k, f] of found) {
-    const check = k.split('|')[1];
-    // the foundation screens must stay clean, apart from checks added after them
-    if (f.owner === 'F' && !PER_SCREEN.has(check)) continue;
-    out[f.owner].push(PER_SCREEN.has(check) ? wildOf(k) : k);
+  const owners = Object.fromEntries(SCREENS.map((s) => [s.id, s.owner]));
+  const out = rewriteAllowlist(allowed, found, ran, owners);
+  mkdirSync(allowDir, { recursive: true });
+  for (const story of [...new Set([...allowed.values(), ...Object.keys(out)])].sort()) {
+    const file = join(allowDir, `${story}.json`);
+    const entries = out[story] ?? [];
+    // a story's file goes when its list is empty: the lists only shrink
+    if (!entries.length) {
+      if (existsSync(file)) unlinkSync(file);
+      continue;
+    }
+    const doc = `Known layout violations owned by ${story} (scripts/layout-check.mjs, docs/UI_KIT.md "Layout check"). Fix them and remove the entries; delete this file when it is empty. Keys: screen|check|element ids, or screen|check|* for the whole screen (text-size only); a trailing @WxH scopes an entry to one size.`;
+    writeFileSync(file, JSON.stringify({ _doc: doc, entries }, null, 2) + '\n');
   }
-  // keep entries of screens not run this time
-  for (const [k, owner] of allowed) if (!found.has(k) && !screens.some((s) => k.startsWith(s.id + '|'))) out[owner].push(k);
-  for (const o of GROUPS) out[o] = [...new Set(out[o])].sort();
-  // the story that owns each entry's fix: kept for entries still listed, new ones from the screen
-  const kept = [...out.A, ...out.B, ...out.C, ...out.F];
-  out.stories = Object.fromEntries(kept.map((k) => [k, allow.stories?.[k] ?? storyOf(k)]).filter(([, s]) => s));
-  writeFileSync(allowPath, JSON.stringify(out, null, 2) + '\n');
-  console.log(`allowlist written: A ${out.A.length}, B ${out.B.length}, C ${out.C.length}, F ${out.F.length}`);
+  console.log(`allowlist written: ${Object.entries(out).map(([st, e]) => `${st} ${e.length}`).join(', ') || 'empty'}`);
 }
+
+// ------------------------------------------------------------------ per-size summary
+
+const SIZE_LIST = [...ran.sizes];
+const freshSet = new Set(fresh);
+/** Per size: screens (summed over configurations) clean, with only allowlisted violations (known), or failed; context seconds. */
+const perSize = Object.fromEntries(SIZE_LIST.map((size) => [size, { configs: configs.filter((c) => sizeOf(c) === size).length, s: 0, clean: 0, known: 0, failed: 0 }]));
+for (const r of runs) {
+  const size = sizeOf(r.cfg);
+  const row = perSize[size];
+  row.s += r.ms / 1000;
+  for (const x of r.results) {
+    const keys = x.violations.map((v) => `${keyOf(x.screen, v)}@${size}`);
+    if (x.error || keys.some((k) => freshSet.has(k))) row.failed++;
+    else if (keys.length) row.known++;
+    else row.clean++;
+  }
+}
+const groupOf = (size) => Object.keys(MATRIX).find((g) => g !== 'all' && MATRIX[g].includes(size)) ?? '-';
 
 // ------------------------------------------------------------------ index
 
@@ -1236,27 +1211,40 @@ const md = [
   '# Layout check',
   '',
   'Generated by `node scripts/layout-check.mjs` (see docs/UI_KIT.md). Screenshots are written next to this file',
-  '(`<lang>-<plain|tg>/<W>x<H>/<screen>.png`; CI uploads them as the `layout-screenshots-<shard>` artifacts).',
+  '(`<lang>-<plain|tg>/<W>x<H>/<screen>.png`; CI uploads them as the `layout-<size>` artifacts).',
   '',
-  `Sizes: ${SIZES.map((s) => s.join('x')).join(', ')}. Telegram insets: top ${TG.safeTop} + ${TG.contentTop}, bottom ${TG.safeBottom}.`,
+  `Sizes: ${SIZE_LIST.join(', ')}. Telegram insets (phones only): portrait top ${TG.safeTop} + ${TG.contentTop}, bottom ${TG.safeBottom}; 844x390 sides 59, top 46, bottom 21.`,
+  '',
+  '## Per size',
+  '',
+  'Screens summed over languages and safe-area variants: clean, only allowlisted violations (known), failed (a new violation or a staging error). Seconds are browser-context time.',
+  '',
+  '| Size | Group | Configs | Clean | Known | Failed | Seconds |',
+  '| --- | --- | --- | --- | --- | --- | --- |',
+  ...SIZE_LIST.map((size) => {
+    const r = perSize[size];
+    return `| ${size} | ${groupOf(size)} | ${r.configs} | ${r.clean} | ${r.known} | ${r.failed} | ${Math.round(r.s)} |`;
+  }),
   '',
   '## Violations per screen (all sizes)',
   '',
   `| Screen | Owner | ${variants.join(' | ')} |`,
   `| --- | --- | ${variants.map(() => '---').join(' | ')} |`,
-  ...SCREENS.filter((s) => counts[s.id]).map((s) => `| ${s.id} | ${s.owner} | ${variants.map((v) => counts[s.id][v] ?? '-').join(' | ')} |`),
+  ...SCREENS.filter((s) => counts[s.id]).map((s) => `| ${s.id} | ${storyOf(s.id) ?? s.owner} | ${variants.map((v) => counts[s.id][v] ?? '-').join(' | ')} |`),
   '',
-  `Distinct violations: ${found.size} (allowlisted ${[...found.keys()].filter(isAllowed).length}, new ${fresh.length}).`,
+  `Distinct violations: ${found.size}; new (key@size): ${fresh.length}.`,
   '',
 ];
-if (!partial) writeFileSync(join(outDir, 'index.md'), md.join('\n'));
+writeFileSync(join(outDir, 'index.md'), md.join('\n'));
 
 // ------------------------------------------------------------------ report
 
 const verbose = flag('verbose');
-const show = (k) => {
-  const f = found.get(k);
-  return `  ${k}  [${f.configs.length} configs, e.g. ${f.configs[0]}]${verbose ? `\n      ${f.detail}` : ''}`;
+const show = (e) => {
+  const { key, size } = splitEntry(e);
+  const f = found.get(key);
+  const cfgs = size ? f.configs.filter((t) => t.endsWith(`-${size}`)) : f.configs;
+  return `  ${e}  [${cfgs.length} configs, e.g. ${cfgs[0]}]${verbose ? `\n      ${f.detail}` : ''}`;
 };
 if (verbose) {
   console.log('\nAll violations:');
@@ -1267,8 +1255,12 @@ if (flaky.length) {
   for (const k of flaky) console.log(show(k));
 }
 if (stale.length) {
-  console.log(`\nFixed but still allowlisted (remove from ${allowPath.replace(root + '/', '')}):`);
-  for (const k of stale) console.log(`  ${k}`);
+  console.log('\nFixed but still allowlisted (remove from scripts/layout-allowlist/<story>.json):');
+  for (const k of stale) console.log(`  ${k}  (${allowed.get(k)})`);
+}
+if (skipped.length) {
+  console.log('\nKnown crashes, skipped (KNOWN_CRASHES in scripts/lib/layoutMatrix.mjs; the owner fixes them):');
+  for (const s of skipped) console.log(`  ${s}`);
 }
 if (pageErrors.length) {
   console.log('\nPage errors:');
@@ -1282,6 +1274,11 @@ const failNew = fresh.length > 0 && !flag('update-allowlist');
 if (failNew) {
   console.log(`\nNEW layout violations (not in the allowlist): ${fresh.length}`);
   for (const k of fresh) console.log(show(k));
+}
+console.log('\nPer size (screens: clean / known / failed; context seconds):');
+for (const size of SIZE_LIST) {
+  const r = perSize[size];
+  console.log(`  ${size.padEnd(9)} ${groupOf(size).padEnd(9)} ${String(r.clean).padStart(4)} / ${String(r.known).padStart(4)} / ${String(r.failed).padStart(4)}   ${Math.round(r.s)} s`);
 }
 console.log(`\n${configs.length} configs${SHARDS > 1 ? ` (shard ${SHARD}/${SHARDS})` : ''} x ${screens.length} screens in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new.`);
 const failed = failNew || pageErrors.length > 0 || screenErrors.length > 0;

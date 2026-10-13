@@ -4,7 +4,7 @@
 // closures over module scope): addInitScript serializes the function source.
 //
 // Options (all optional):
-//   insets      { safeTop, contentTop, safeBottom } in CSS px (default all 0)
+//   insets      { safeTop, contentTop, safeBottom, safeLeft, safeRight } in CSS px (default all 0)
 //   fullscreen  'request'  requestFullscreen() works like a phone: full screen
 //                          first, the insets a moment later and in pieces
 //               'launch'   already full screen with the insets reported at launch
@@ -24,7 +24,7 @@
 // backHandlers(), relayoutBurst().
 export function fakeTelegram(opts) {
   const o = opts || {};
-  const ins = Object.assign({ safeTop: 0, contentTop: 0, safeBottom: 0 }, o.insets);
+  const ins = Object.assign({ safeTop: 0, contentTop: 0, safeBottom: 0, safeLeft: 0, safeRight: 0 }, o.insets);
   const mode = o.fullscreen || 'none';
   const store = new Map();
   const log = [];
@@ -108,7 +108,7 @@ export function fakeTelegram(opts) {
     isFullscreen: atLaunch,
     isExpanded: atLaunch,
     isClosingConfirmationEnabled: false,
-    safeAreaInset: atLaunch ? { top: ins.safeTop, bottom: ins.safeBottom, left: 0, right: 0 } : { ...zero },
+    safeAreaInset: atLaunch ? { top: ins.safeTop, bottom: ins.safeBottom, left: ins.safeLeft, right: ins.safeRight } : { ...zero },
     contentSafeAreaInset: atLaunch ? { top: ins.contentTop, bottom: 0, left: 0, right: 0 } : { ...zero },
     isVersionAtLeast: (v) => parseFloat(v) <= 8.0,
     ready() { log.push('ready'); },
@@ -144,7 +144,7 @@ export function fakeTelegram(opts) {
         emit('viewportChanged', { isStateStable: false });
       }, 50);
       setTimeout(() => {
-        wa.safeAreaInset = { top: ins.safeTop, bottom: ins.safeBottom, left: 0, right: 0 };
+        wa.safeAreaInset = { top: ins.safeTop, bottom: ins.safeBottom, left: ins.safeLeft, right: ins.safeRight };
         emit('safeAreaChanged');
         emit('viewportChanged', { isStateStable: false });
       }, 250);
