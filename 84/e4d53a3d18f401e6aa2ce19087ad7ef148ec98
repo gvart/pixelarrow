@@ -1,0 +1,89 @@
+src/ui/battlePanel.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 23
+src/ui/results/tile.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 13
+src/state.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 10
+src/ui/sheets/eventCard.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 26
+src/scenes/online/MerchantScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 28
+src/scenes/WorldScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 23
+src/platform/nav.ts
+  s_0d98fe904b2e82::t_40755864834d0d 15-16,28-29,155,157-160,190-191,194
+src/ui/notifySettings.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 25-26
+src/scenes/ArmyScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 14
+src/ui/mosaic/StatTile.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 10
+src/ui/tutorial/battleTutorial.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 68
+src/scenes/CampScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 29
+src/audio/hooks.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 11
+src/scenes/online/ClanScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 21-22
+src/ui/econ/consumablePicker.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 33
+src/scenes/HeroScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 20
+src/scenes/ResultsScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 51
+src/scenes/duel/DuelScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 51
+src/scenes/SettlementScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 17
+src/ui/mosaic/Pager.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 8
+src/scenes/MarketScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 25
+src/ui/sheets/encounter.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 26
+tests/nav.test.ts
+  s_0d98fe904b2e82::t_49f7bf8371b8f6 13-14
+  s_0d98fe904b2e82::t_cf14126a3344b0 1-3
+  s_0d98fe904b2e82::t_787cacac3db1e4 203-263
+src/scenes/online/OnlineArmyScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 28
+src/ui/tutorial/onlineCoach.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 23
+src/scenes/ShopScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 24-25
+src/scenes/FirstRunScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 30
+src/ui/duelInvites.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 15
+src/ui/kit.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 17
+src/scenes/online/OnlineScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 26
+tests/platformBoundary.test.ts
+  s_0d98fe904b2e82::t_20dd1cceffafbe 27
+src/ui/results/arcVictory.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 21
+src/ui/widgets.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 27
+src/scenes/BattleScene.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 47
+src/ui/settings.ts
+  s_0d98fe904b2e82::t_c06a4d29e60c1d 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "84e4d53a3d18f401e6aa2ce19087ad7ef148ec98",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
