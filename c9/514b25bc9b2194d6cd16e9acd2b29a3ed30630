@@ -1,0 +1,25 @@
+server/README.md
+  s_0d98fe904b2e82::t_aa7371f0f2ca1a 7-11,807-815
+README.md
+  s_0d98fe904b2e82::t_a844af119384b0 116-137,139-140,178
+docs/OPS.md
+  s_0d98fe904b2e82::t_32ef49f24ecea8 3-4,472-482,503-505
+docs/ROADMAP.md
+  s_0d98fe904b2e82::t_d6b8dff7eedd09 22-29,33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c9514b25bc9b2194d6cd16e9acd2b29a3ed30630",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
