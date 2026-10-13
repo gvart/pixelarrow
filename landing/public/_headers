@@ -1,0 +1,4 @@
+# Static responses of the landing (ADR-0007): never framed. The Worker sets the same on its own responses.
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
