@@ -13,10 +13,11 @@ const H = '/hero/';
 ---
 <section class="hero" id="top" aria-labelledby="hero-title">
   <div class="hero__backdrop" aria-hidden="true">
+    {/* WebP only: the P5 WebP skies weigh a third of the AVIFs (10.7 against 33.9 kB on phones,
+        18.6 against 50.1 kB at 1920), and every byte here competes with the diorama, the LCP image.
+        For the same reason the sky never outranks it (fetchpriority low). */}
     <picture>
-      <source media="(max-width: 767px)" type="image/avif" srcset={`${H}landing_hero_sky_m780.avif`} />
-      <source media="(max-width: 767px)" type="image/webp" srcset={`${H}landing_hero_sky_m780.webp`} />
-      <source type="image/avif" srcset={`${H}landing_hero_sky_1280.avif 1280w, ${H}landing_hero_sky_1920.avif 1920w`} sizes="100vw" />
+      <source media="(max-width: 767px)" srcset={`${H}landing_hero_sky_m780.webp`} width="780" height="1388" />
       <img
         class="hero__sky"
         src={`${H}landing_hero_sky_1280.webp`}
@@ -25,6 +26,7 @@ const H = '/hero/';
         width="1920"
         height="1080"
         alt=""
+        fetchpriority="low"
         decoding="async"
       />
     </picture>
@@ -192,7 +194,7 @@ const H = '/hero/';
       display: block;
       position: absolute;
       inset: 0;
-      background: image-set(url('/hero/landing_hero_beam_1920.avif') type('image/avif'), url('/hero/landing_hero_beam_1920.webp') type('image/webp')) 0 0 / cover no-repeat;
+      background: url('/hero/landing_hero_beam_1920.webp') 0 0 / cover no-repeat; /* WebP 11.9 kB < AVIF 13.7 kB */
       mix-blend-mode: screen;
       opacity: 0.42;
     }
@@ -210,7 +212,7 @@ const H = '/hero/';
       z-index: 3;
       height: calc(100vw * 459 / 1920);
       margin-bottom: calc(-1 * var(--table-sink, 6.25vw));
-      background: image-set(url('/hero/landing_hero_fg_1920.webp') type('image/webp')) center bottom / 100% auto no-repeat;
+      background: url('/hero/landing_hero_fg_1920.webp') center bottom / 100% auto no-repeat;
       filter: brightness(0.7);
       pointer-events: none;
     }
