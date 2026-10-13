@@ -1,0 +1,28 @@
+docs/v5/ASSET_LOG.md
+  s_697bdc25a7c420::t_56488184e30a9f 39
+  s_697bdc25a7c420::t_4ae52577ceccac 7-27,31-38,40-41
+  s_697bdc25a7c420::t_44800927958caf 42
+docs/playbook/PROMPTS_ART.md
+  s_697bdc25a7c420::t_9898d408f64522 23,266-269,271-272,275-276,278-286,319-322,328,330-340,507,519-533
+  s_697bdc25a7c420::t_83deec76c684bb 534
+docs/playbook/ART.md
+  s_697bdc25a7c420::t_0729d0fa11d485 157-161
+docs/v5/art/ASSET_LIST.md
+  s_697bdc25a7c420::t_f840e42d048ab5 53,60-65,71-91,105-112,118-121,126-140,147,154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "80572b6c00e455debec9742449baa9237bcab61d",
+  "prompts": {},
+  "sessions": {
+    "s_697bdc25a7c420": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59d45f55-a48d-45cb-8938-4bc3e5cdb190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
