@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OPEN_ZOOM_MIN, boxOf, centreOf, clearOfBadges, edgePointer, followCentre, isOnScreen, keepInView, openingFrame, union, type Box } from '../src/ui/battleCamera';
+import { OPEN_ZOOM_MIN, boxOf, centreOf, clearOfBadges, edgePointer, followCentre, isOnScreen, keepInView, openingFrame, union, zoomLabel, type Box } from '../src/ui/battleCamera';
 import { isoToScreen } from '../src/art/iso';
 
 const box = (x0: number, y0: number, x1: number, y1: number): Box => ({ x0, y0, x1, y1 });
@@ -160,5 +160,17 @@ describe('edge pointer clear of the badges (QA-03 S3-3)', () => {
     expect(q.y).toBe(338);
     expect(q.x >= 22 && q.x <= 173).toBe(true);
     expect(q.x + 12 <= 40 || q.x - 12 >= 80).toBe(true);
+  });
+});
+
+describe('zoom key label (QA-04)', () => {
+  it('writes the overview tenth with the language decimal mark', async () => {
+    const { setLang } = await import('../src/i18n');
+    setLang('en');
+    expect(zoomLabel(0.6)).toBe('0.6×');
+    expect(zoomLabel(2)).toBe('2×');
+    setLang('ru');
+    expect(zoomLabel(0.6)).toBe('0,6×');
+    setLang('en');
   });
 });
