@@ -1,7 +1,7 @@
 # ADR-0007: Hosting: two Workers for pixelarrow.app and play.pixelarrow.app
 
 ## Status
-Proposed
+Accepted (Director, 2026-10-13, V6-012)
 
 ## Date
 2026-10-13

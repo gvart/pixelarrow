@@ -1,7 +1,7 @@
 # ADR-0006: The platform layer
 
 ## Status
-Proposed
+Accepted (Director, 2026-10-13, V6-012)
 
 ## Date
 2026-10-13
