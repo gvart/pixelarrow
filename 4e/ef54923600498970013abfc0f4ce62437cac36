@@ -1,0 +1,56 @@
+design/gdd/campaign-arc.md
+  s_0d98fe904b2e82::t_608d1df9b61709 4
+design/gdd/formations-orders.md
+  s_0d98fe904b2e82::t_608d1df9b61709 4
+design/gdd/field-works.md
+  s_0d98fe904b2e82::t_608d1df9b61709 4
+design/gdd/ai-doctrines.md
+  s_0d98fe904b2e82::t_608d1df9b61709 4
+design/gdd/forge-reroll.md
+  s_0d98fe904b2e82::t_22fedef3a23bfe 4
+docs/ROADMAP.md
+  s_0d98fe904b2e82::t_3621fbc6c5f71f 130,136,138,141-142,144
+design/gdd/abilities.md
+  s_0d98fe904b2e82::t_608d1df9b61709 4
+design/gdd/systems-index.md
+  s_0d98fe904b2e82::t_25b67b0d36d46d 179-189
+  s_0d98fe904b2e82::t_0b3d0d5e4f66d2 5-6
+  s_0d98fe904b2e82::t_1ace06db60a79e 234-241
+  s_0d98fe904b2e82::t_e2ed8d35960ef9 358-359
+  s_0d98fe904b2e82::t_1766c43ad15e5b 212
+  s_0d98fe904b2e82::t_bfd49075327dc8 267-269
+  s_0d98fe904b2e82::t_681d5cec40bc45 27-30,33,35,37,45-48,53,59,354
+  s_0d98fe904b2e82::t_d94c022a6cf9dc 16
+  s_0d98fe904b2e82::t_62620580384863 65-89
+  s_0d98fe904b2e82::t_8ab4bfa0dd5cc7 155-156,158,160,163-164
+  s_0d98fe904b2e82::t_089d0a9f62a9b1 250-251
+  s_0d98fe904b2e82::t_080ecd8813510a 312-330
+  s_0d98fe904b2e82::t_f3d6fdaa4df1bf 344-345,356,361-364,374-380,386-391
+  s_0d98fe904b2e82::t_40c84f7d0e7dc1 259,261
+  s_0d98fe904b2e82::t_42c6ddecc6db64 14
+  s_0d98fe904b2e82::t_737e78f123363d 64,97-147
+design/gdd/controls.md
+  s_0d98fe904b2e82::t_608d1df9b61709 4
+design/gdd/practice-fight.md
+  s_0d98fe904b2e82::t_c980eab24101a6 4
+design/gdd/campaign-events.md
+  s_0d98fe904b2e82::t_608d1df9b61709 4
+design/gdd/battle-readability.md
+  s_0d98fe904b2e82::t_608d1df9b61709 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4eef54923600498970013abfc0f4ce62437cac36",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
