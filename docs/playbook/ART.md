@@ -155,7 +155,7 @@ Names: `<category>_<subject>[_<variant>].<ext>`, lowercase snake case, no size s
 - Landscape layouts will need wider frescoes and vignettes: re-run the tier rule (slot × 6) for the widest
   landscape slot before generating, and check the crop at both the narrowest phone and the widest desktop.
 - Open items at the end of v5 (from `public/` on `v5`): all 21 busts and all 23 v5 icons promoted (AS-07);
-  `fresco_ladder`, `chest_closed` and `chest_open_full` staged, not promoted; the Nikias frames ART-033..035 not
-  generated (AS-07 prompts queued in the asset log, Chrome was not connected); OI-3 (regenerate the 101 legacy
+  `fresco_ladder`, `chest_closed` and `chest_open_full` staged, not promoted; the Nikias frames ART-033..035
+  shipped in AS-08 (with the app icon set, `scripts/art/appicons.mjs`); OI-3 (regenerate the 101 legacy
   64 px icons at 160 px).
 - To preview a class bust in the game, run `preview.mjs` on its opt-in `army-bust-<class>` screen (AS-07).
