@@ -51,6 +51,19 @@ describe('a save that cannot be loaded is reported, not mistaken for no save', (
     expect(await readSave(kv)).toBeNull();
   });
 
+  it('a damaged meta keeps both slots in the raw text for the backup (QA-04)', async () => {
+    const kv = memKV();
+    const a = serialize(Campaign.fresh(1).sync());
+    const b = serialize(Campaign.fresh(2).sync());
+    chunk(a).forEach((p, i) => kv.store.set(`px_part_${i}`, p));
+    chunk(b).forEach((p, i) => kv.store.set(`px_part1_${i}`, p));
+    kv.store.set('px_meta', '{"v":6,"n"');
+    const r = await readSaveResult(kv);
+    expect(r.kind).toBe('bad');
+    const kept = JSON.parse(r.kind === 'bad' ? r.raw! : '') as { meta: string; slots: string[] };
+    expect(kept).toEqual({ meta: '{"v":6,"n"', slots: [a, b] });
+  });
+
   it('a save from a newer version is reported as newer', async () => {
     const d = { ...Campaign.fresh(7).sync(), v: SAVE_VERSION + 1 };
     const kv = memKV();
