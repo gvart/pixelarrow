@@ -5,7 +5,7 @@ import { SPEEDS, nextSpeed, paceMode, realtimeLocked, startSpeed } from '../src/
 import { StagedPlan } from '../src/ui/orderQueue';
 import { Battle, DT, TICK_RATE } from '../src/sim/battle';
 import type { BattleSetup, Order } from '../src/sim/types';
-import { replayBattle } from '../server/src/battle';
+import { replayBattle } from '../src/sim/replay';
 
 // CT-06 (design/gdd/controls.md R10, R11; V5-021): who may pause, the speeds, the 30-minute ladder ticket.
 
