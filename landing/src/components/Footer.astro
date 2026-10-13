@@ -1,0 +1,79 @@
+---
+// Footer (STRUCTURE.md §9): wordmark, the legal pages, Telegram, the Russian legal pages, copyright.
+// No social icons for channels we do not run.
+import { TELEGRAM_URL } from '../site';
+---
+<footer class="footer">
+  <div class="divider" aria-hidden="true"></div>
+  <div class="footer__inner container">
+    <a class="footer__mark" href="#top">Pixelarrow</a>
+    <nav class="footer__links" aria-label="Site">
+      <ul>
+        <li><a href="/privacy">Privacy</a></li>
+        <li><a href="/terms">Terms</a></li>
+        <li><a href="/refunds">Refunds</a></li>
+        <li><a href={TELEGRAM_URL}>Telegram</a></li>
+        <li><a href="/ru/privacy" hreflang="ru" lang="ru">Русский</a></li>
+      </ul>
+    </nav>
+    <p class="footer__copy">© 2026 Pixelarrow</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: var(--night);
+    padding-bottom: max(var(--s12), env(safe-area-inset-bottom));
+  }
+  .footer__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s4) var(--s8);
+    padding-top: var(--s12);
+  }
+  .footer__mark {
+    color: var(--cream);
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+  .footer__links {
+    margin-left: auto;
+  }
+  .footer__links ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--s2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .footer__links a {
+    display: inline-block;
+    padding: var(--s3) var(--s2);
+    color: var(--cream-sec);
+    font-size: 0.9375rem;
+    text-decoration: none;
+  }
+  .footer__copy {
+    flex-basis: 100%;
+    color: var(--cream-muted);
+    font-size: var(--fs-caption);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .footer__links a:hover {
+      color: var(--cream);
+      text-decoration: underline;
+    }
+  }
+  @media (max-width: 599px) {
+    .footer__links {
+      margin-left: calc(-1 * var(--s2));
+      flex-basis: 100%;
+    }
+  }
+</style>

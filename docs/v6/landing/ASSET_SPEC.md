@@ -3,8 +3,8 @@
 > **Art direction**: `docs/v6/landing/ART_DIRECTION.md` (B "Night Tabletop", amended) and V6-015 (the wow
 > amendments). **Budget**: `design/adr/ADR-0011-landing-stack-and-budget.md`. **Prompts and verdicts**:
 > `docs/v6/ASSET_LOG.md` › P5-LAND-ART. Written with `/asset-spec` (solo review: autonomous run).
-> **Staging**: every final is in `landing/assets-staging/` on this branch; the build story moves each file to
-> its target path below and wires it. Weights are measured on disk (`stat`), not estimated.
+> **Location**: V6-LAND-01 moved every final out of `landing/assets-staging/` (now gone) to
+> its target path below; V6-LAND-01 wires the still, sky, beam and foreground. Weights are measured on disk (`stat`), not estimated.
 
 ## Decisions
 
@@ -23,7 +23,7 @@
 
 At most 4 depth planes (ADR-0011). Plane 3 is one plane made of three stacked files of the same canvas.
 
-| Plane | File(s) in `landing/assets-staging/hero/` | Size | Format | Weight | Target path | Use |
+| Plane | File(s) (in `landing/public/hero/`) | Size | Format | Weight | Target path | Use |
 |---|---|---|---|---|---|---|
 | 1 Sky and stars | `landing_hero_sky_1920.avif` / `.webp`; `landing_hero_sky_1280.avif` / `.webp` | 1920x1080; 1280x720 | AVIF q75, WebP q60, opaque | 50.1 / 18.6 kB; 22.0 / 10.1 kB | `landing/public/hero/` | Full-bleed `object-fit: cover`, slowest parallax. The left third is the warm lamp side: text sits there (on its own dark scrim, L4). |
 | 2 Lamp beam and dust | `landing_hero_beam_1920.avif` / `.webp`; `landing_hero_beam_960.avif` / `.webp` | 1920x1080; 960x540 | opaque on black | 13.7 / 11.9 kB; 5.1 / 4.7 kB | `landing/public/hero/` | `mix-blend-mode: screen`, opacity about 0.5. The pointer-follow lamp (V6-015 (1)) moves this layer a few px; never over the headline at full strength. |
@@ -56,11 +56,11 @@ ADR-0011: two layers, no beam image, no foreground, no hero video.
 
 | File | Size | Format | Weight | Target | Notes |
 |---|---|---|---|---|---|
-| `landing/assets-staging/og/landing_og_1200x630.jpg` | 1200x630 | JPEG q55 | 143.3 kB (budget ≤ 150 kB) | `landing/public/og.jpg`; `og:image`, `twitter:image` (`summary_large_image`), absolute URL `https://pixelarrow.app/og.jpg`, `og:image:width` 1200, `og:image:height` 630, `og:image:alt` "Two pixel-art formations face each other on a battlefield diorama: Pixelarrow, Hold the line." | Left: "PIXELARROW", "HOLD THE LINE", "Pixel-art formation battles. Free in your browser and in Telegram.", "pixelarrow.app" in Cinzel 700 / Inter on a dark scrim. Right: the still diorama at its native 2x (integer), cropped by the frame. Sky and beam behind. Rendered from an HTML composite in headless Chromium (recipe in ASSET_LOG). |
+| `landing_og_1200x630.jpg` (now `landing/public/og.jpg`) | 1200x630 | JPEG q55 | 143.3 kB (budget ≤ 150 kB) | `landing/public/og.jpg`; `og:image`, `twitter:image` (`summary_large_image`), absolute URL `https://pixelarrow.app/og.jpg`, `og:image:width` 1200, `og:image:height` 630, `og:image:alt` "Two pixel-art formations face each other on a battlefield diorama: Pixelarrow, Hold the line." | Left: "PIXELARROW", "HOLD THE LINE", "Pixel-art formation battles. Free in your browser and in Telegram.", "pixelarrow.app" in Cinzel 700 / Inter on a dark scrim. Right: the still diorama at its native 2x (integer), cropped by the frame. Sky and beam behind. Rendered from an HTML composite in headless Chromium (recipe in ASSET_LOG). |
 
 ## Favicon set
 
-Copied unchanged from the game's `public/` (AS-08, `scripts/art/appicons.mjs`), into `landing/assets-staging/favicon/`.
+Copied unchanged from the game's `public/` (AS-08, `scripts/art/appicons.mjs`), now in `landing/public/` (moved by V6-LAND-01).
 Target: `landing/public/` at the same names, plus a `manifest.webmanifest` written by the build story.
 
 | File | Size | Weight |

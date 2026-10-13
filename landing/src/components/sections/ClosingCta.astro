@@ -1,0 +1,31 @@
+---
+// Closing call to action, STRUCTURE.md §8. Stub from V6-LAND-01; V6-LAND-05 finishes it.
+import { PLAY_URL, TELEGRAM_URL } from '../../site';
+---
+<section class="section section--night closing" aria-labelledby="closing-title">
+  <div class="container closing__inner">
+    <h2 id="closing-title" class="section__title">Your phalanx is waiting</h2>
+    <div class="closing__ctas">
+      <a class="btn btn--primary" href={PLAY_URL}>Play in browser</a>
+      <a class="btn btn--secondary" href={TELEGRAM_URL}>Open in Telegram</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .closing__inner {
+    display: grid;
+    justify-items: center;
+    gap: var(--s8);
+    text-align: center;
+  }
+  .closing__ctas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s3);
+  }
+  .closing__ctas .btn {
+    min-width: min(100%, 17rem);
+  }
+</style>

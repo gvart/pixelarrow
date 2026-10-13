@@ -1,26 +1,29 @@
 ---
-// Placeholder until the LAND stories build the page (ADR-0011, docs/v6/landing/STRUCTURE.md).
-const PLAY_URL = 'https://play.pixelarrow.app/';
-// The inline script first in <head>: Telegram puts launch data in the hash, which never reaches the
-// Worker, so a Mini App that still points at the apex is sent on to play with it (ADR-0007).
+// pixelarrow.app: the sections in STRUCTURE.md order. V6-LAND-01 composes them; later LAND stories
+// fill the section components and never edit this file. The .divider lines between sections are
+// static here; V6-LAND-03 makes them draw themselves (style the class, no markup change needed).
+import Base from '../layouts/Base.astro';
+import Classes from '../components/sections/Classes.astro';
+import Clips from '../components/sections/Clips.astro';
+import ClosingCta from '../components/sections/ClosingCta.astro';
+import Faq from '../components/sections/Faq.astro';
+import Features from '../components/sections/Features.astro';
+import Hero from '../components/sections/Hero.astro';
+import Modes from '../components/sections/Modes.astro';
+import Stats from '../components/sections/Stats.astro';
 ---
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <script is:inline>if(location.hash.indexOf('tgWebApp')!==-1)location.replace('https://play.pixelarrow.app/'+location.search+location.hash)</script>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pixelarrow</title>
-  </head>
-  <body>
-    <main>
-      <h1>Pixelarrow</h1>
-      <p><a href={PLAY_URL}>Play</a></p>
-      <nav aria-label="Legal pages">
-        <a href="/terms">Terms</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/refunds">Refunds</a>
-      </nav>
-    </main>
-  </body>
-</html>
+<Base>
+  <Hero />
+  <Features />
+  <div class="divider" aria-hidden="true"></div>
+  <Classes />
+  <div class="divider" aria-hidden="true"></div>
+  <Modes />
+  <div class="divider" aria-hidden="true"></div>
+  <Stats />
+  <div class="divider" aria-hidden="true"></div>
+  <Clips />
+  <div class="divider" aria-hidden="true"></div>
+  <Faq />
+  <ClosingCta />
+</Base>
