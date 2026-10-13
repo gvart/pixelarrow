@@ -223,8 +223,14 @@ async function guided(tag, ctxOpts, tg, main) {
     c('Shield Bash used from the More sheet', (await tapObj(name)) && (await doneWith('ability')));
   }
 
-  // the morale glyph: lit on the enemy badge, a tap goes on
-  if (await talkingAt('morale', 40000)) {
+  // the morale glyph: lit on the enemy badge, a tap goes on. The step waits on the battle (up to 45 s of
+  // battle time, then on without it), not on the clock: wait until it talks or moves on, however slow the frames
+  await until(() => ev(() => {
+    const t = window.__game.scene.getScene('Battle')?.tutorial;
+    if (!t || !t.step) return true;
+    return t.step === 'morale' ? t.phase === 'talk' : t.plan.indexOf(t.step) > t.plan.indexOf('morale');
+  }), 300000);
+  if (await talkingAt('morale', 1000)) {
     await clear('morale');
     const nm = (await tut()).narrator;
     await tap(nm.x + nm.w / 2, nm.y + nm.h - 6);

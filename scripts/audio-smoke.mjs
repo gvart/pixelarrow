@@ -47,7 +47,7 @@ async function run(label, { noAudio }) {
   const page = await ctx.newPage();
   const errors = captureErrors(page);
   // taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
-  const { ev, wait, tap, tapLabel } = makePageApi(page, { tapWait: 300 });
+  const { ev, wait, tap, tapLabel, until } = makePageApi(page, { tapWait: 300 });
   const dbg = () => ev(() => window.__audio.debug());
 
   await page.goto(base);
@@ -169,9 +169,10 @@ async function run(label, { noAudio }) {
     await wait(200);
     check(`[${label}] a confirmed destructive action plays the low drum`, (await n('destroy')) === was0.destroy + 1, `destroy ${was0.destroy} -> ${await n('destroy')}`);
 
-    await tapLabel('Battle', 'Fight');
-    await wait(500);
-    check(`[${label}] battle music`, (await dbg()).want === 'battle');
+    const fought = await tapLabel('Battle', 'Fight');
+    // the track switches with the press (BattleScene.onBattleStarted); the tap itself lands on a game frame
+    const battleMusic = await until(async () => (await dbg()).want === 'battle', 5000);
+    check(`[${label}] battle music`, fought && battleMusic, JSON.stringify({ fought, ...(await dbg()) }));
 
     // FL-03 (first, while the fight is fresh and running): every juice tier through the real hook (battleAudio, as drainLogged feeds it)
     await ev(() => window.__game.scene.getScene('Battle').setPaused(false));

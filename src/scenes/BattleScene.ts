@@ -880,7 +880,9 @@ export class BattleScene extends BaseScene {
       const catchUp = (ls?.backlog?.() ?? 0) > CATCH_UP_TURNS;
       if (catchUp) this.acc = Math.max(this.acc, DT * CATCH_UP_STEPS);
       const maxSteps = catchUp ? CATCH_UP_STEPS : 10;
-      while (this.acc >= DT && steps < maxSteps && this.sim.phase === 'battle') {
+      // a step that pauses (an auto-pause, the tutorial's next line) stops the frame's stepping there:
+      // on a slow frame the battle no longer runs on for up to 10 more steps past the moment it paused for
+      while (this.acc >= DT && steps < maxSteps && this.sim.phase === 'battle' && !this.paused) {
         // Live duel: never run ahead of the turns the server sealed.
         if (ls && !ls.canStep()) {
           this.acc = Math.min(this.acc, DT);
@@ -893,12 +895,16 @@ export class BattleScene extends BaseScene {
         ls?.beforeStep();
         this.sim.step();
         this.handleEvents(drainLogged(this.sim));
+        // a queued Then… step fires on the tick its group arrives, whatever the frame rate
+        this.fireThen();
+        this.tutorial?.afterStep();
         this.acc -= DT;
         steps++;
       }
+      // paused by a step: the rest of this frame's time is not owed to the battle after Play
+      if (this.paused) this.acc = 0;
       if (catchUp) this.acc = Math.min(this.acc, DT);
       this.hudDirty = true;
-      this.fireThen();
     } else if (this.sim.phase === 'ended') {
       this.handleEvents(drainLogged(this.sim));
     }
@@ -4576,6 +4582,9 @@ export class BattleScene extends BaseScene {
 
   private onBattleStarted(): void {
     if (this.sim.phase === 'deploy') this.sim.startBattle();
+    // the battle track and the horn with the press, not with the first sim step: a slow first frame,
+    // a pause or a live duel waiting for its first sealed turn would hold the deployment music on
+    battleAudio(this, this.sim, [], this.me);
     // A campaign battle stands once it begins: closing the app now does not void it (V5-011).
     if (!this.src && !this.tutorialData && state.pending) {
       // field works are paid now, for the segments on the field only: an undone one cost nothing (field-works.md R4.3)
