@@ -72,6 +72,8 @@ export function openPanel(scene: UiScene, o: PanelOpts): PanelHandle {
       w: rect.w,
       h: rect.h,
       dock: presentation === 'bottom' ? 'bottom' : 'center',
+      // already placed for the variant: the sheet must not place it again
+      presentation,
       kind: o.kind === 'decision' ? 'confirm' : 'sheet',
       shadeCloses: o.kind !== 'decision',
       actions: o.actions,
