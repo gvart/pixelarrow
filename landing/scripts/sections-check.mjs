@@ -12,6 +12,9 @@
 //     are a 2x2 grid from 768 px and a snap reel on phones (one playing at a time); in the closing band
 //     "Play in browser" is the only terracotta button in view; their stylesheet is not fetched on the
 //     first view (it would cost mobile LCP), only as the clips come near or on a deep link.
+//  8. Stats (V6-LAND-04): its module is not fetched on the first view; near the section it draws the
+//     counters and, with no API behind this static server (404), the empty state. The 200, 503 and
+//     empty-board cases are in scripts/stats-check.mjs (npm run test:stats).
 // With SHOTS_DIR set, it also saves screenshots of the sections at the six widths.
 //
 // Usage (in landing/, after `npm run build`): npm run test:sections (SECTIONS_TEST_PORT picks the port,
@@ -76,7 +79,7 @@ try {
       await mkdir(SHOTS, { recursive: true });
       // fixed chrome repeats over a tall element capture; hide it for the section shots only
       await page.addStyleTag({ content: '.nav, .skip { visibility: hidden !important; }' });
-      for (const [id, sel] of [['features', '#features'], ['classes', '#classes'], ['modes', '#modes'], ['clips', '#clips'], ['faq', '#faq'], ['closing', '.closing']]) {
+      for (const [id, sel] of [['features', '#features'], ['classes', '#classes'], ['modes', '#modes'], ['stats', '#leaderboards'], ['clips', '#clips'], ['faq', '#faq'], ['closing', '.closing']]) {
         // let lazy images and the near-viewport clip loading settle; clips are paused for a stable frame
         await scrollTo(page, sel);
         if (id === 'faq') await page.$eval('#faq details', (d) => { d.open = true; });
@@ -257,6 +260,21 @@ try {
     await page.waitForTimeout(500);
     const bg = await page.$eval('#faq .faq__a', (e) => getComputedStyle(e).backgroundColor);
     check(bg === 'rgb(231, 214, 173)', `#faq deep link: answers are on parchment at once (${bg})`);
+    await page.close();
+  }
+  // 8. Stats (V6-LAND-04)
+  for (const [width, height] of [[390, 844], [1440, 900]]) {
+    const page = await browser.newPage({ viewport: { width, height } });
+    await page.goto(URL_, { waitUntil: 'load' });
+    await page.waitForTimeout(1000);
+    const early = await page.evaluate(() => performance.getEntriesByType('resource').filter((e) => /\/_astro\/stats-|\/api\/public\//.test(e.name)).length);
+    check(early === 0, `${width}px: no stats module or summary request on the first view (${early})`);
+    await scrollTo(page, '#leaderboards');
+    const state = await page.evaluate(() => ({
+      tally: [...document.querySelectorAll('#leaderboards .tally__n')].map((e) => e.textContent).join(),
+      empty: document.querySelector('#leaderboards .stats__empty')?.textContent ?? '',
+    }));
+    check(state.tally === '—,—,—' && state.empty.includes('The war is just beginning'), `${width}px: without the API the section shows its empty state (${state.tally})`);
     await page.close();
   }
 } finally {

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.worker.json",
     "test:hero": "node scripts/hero-overlap.mjs",
     "test:sections": "node scripts/sections-check.mjs",
+    "test:stats": "node scripts/stats-check.mjs",
     "test:proxy": "node scripts/proxy-e2e.mjs",
     "dry-run": "../server/node_modules/.bin/wrangler deploy --dry-run --config wrangler.jsonc --outdir .wrangler/dry-run"
   },
