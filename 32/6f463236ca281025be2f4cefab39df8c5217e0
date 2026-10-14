@@ -1,0 +1,23 @@
+src/scenes/online/OnlineArmyScene.ts
+  s_0d98fe904b2e82::t_eee45b5acf0116 17-20,130-133,137-143,145-148,196,200,278-279,308-312,316,362-381,383-394,397-409,411-414,546,729-733
+  s_0d98fe904b2e82::t_278f5189c088f6 382,395-396,410,465,474-478
+  s_0d98fe904b2e82::t_bea58fd5961666 134-136,593,595-596
+  s_0d98fe904b2e82::t_cd7bc6cb959998 544-545,547
+  s_0d98fe904b2e82::t_7e458dbd8c6bae 415-419
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "326f463236ca281025be2f4cefab39df8c5217e0",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
