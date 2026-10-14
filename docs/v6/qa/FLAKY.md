@@ -26,6 +26,13 @@ With fewer than 3 runs a case is only **suspected**.
 - **Seen:** both failed once during the INP-03 integration with the machine heavily loaded (load average ≈ 20), then passed 3 reruns with no code change. One failure, so **suspected**.
 - **Cause:** suspected load-sensitive (timing/async): the steps still lean on time-based waits that run out when frames are slow.
 - **Fix:** none yet. A QA hardening story should replace the remaining time-based waits in `smoke.mjs` and `audio-smoke.mjs` with state waits (`settled()` in `scripts/lib/harness.mjs`). Record each further run here.
+- **Recurred:** failed once more during V6-067's integration (FIX-KIT-WIDE, full matrix). Still **suspected**, load-sensitive.
+
+### F5 · layout check `battle-menu-locked|text-overlap|battle.menu.note|СОШЛ…@844x390`, ru-tg (suspected, timing)
+
+- **Seen:** failed once in the full layout matrix during V6-067's integration (FIX-KIT-WIDE), then passed 2 standalone reruns with no code change. One failure, so **suspected**.
+- **Cause:** suspected timing/async: the check measured a text that had not yet settled (wrapped or faded in).
+- **Fix:** none yet. Record each further run here.
 
 ## Fixed
 
