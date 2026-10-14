@@ -2,6 +2,7 @@ import { encounterOf } from '../data/beasts';
 import { encounterName } from '../ui/beastInfo';
 import Phaser from 'phaser';
 import { RS, camZoom, zoomUnits } from '../platform/renderScale';
+import { mapWheel, zoomCamAt } from '../ui/input/zoomAt';
 import { BaseScene } from './BaseScene';
 import { addIcon, addText, scaleIcon } from '../ui/kit';
 import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
@@ -298,7 +299,15 @@ export class WorldScene extends BaseScene {
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
-    this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => this.setZoom(Math.round(zoomUnits(cam.zoom)) + (dy > 0 ? -1 : 1)));
+    // the wheel zooms one step at the cursor (accumulated for trackpads), shift or deltaX pans; not over the HUD or a sheet
+    mapWheel(this, {
+      blocked: (_p, over) => over.length > 0 || !!(this.cine || this.encounter || this.eventCard || this.assaultSheet || this.arcSheet || this.coach),
+      zoom: (dir, sx, sy) => this.setZoom(Math.round(zoomUnits(cam.zoom)) + dir, { x: sx, y: sy }),
+      pan: (dx) => {
+        if (this.follow) this.toggleFollow();
+        cam.scrollX += dx / cam.zoom;
+      },
+    });
     this.screen({ back: () => this.leaveToMenu() });
     this.events.once('shutdown', () => void state.save());
 
@@ -1150,8 +1159,16 @@ export class WorldScene extends BaseScene {
     this.tapWorld(wp.x, wp.y);
   }
 
-  private setZoom(z: number): void {
-    this.tweens.add({ targets: this.cameras.main, zoom: camZoom(Phaser.Math.Clamp(z, 1, 4)), duration: 120 });
+  /** Ease to zoom z (units 1-4); with `at`, about that screen point (the wheel), which stops the follow so the point holds. */
+  private setZoom(z: number, at?: { x: number; y: number }): void {
+    const target = camZoom(Phaser.Math.Clamp(z, 1, 4));
+    if (!at) {
+      this.tweens.add({ targets: this.cameras.main, zoom: target, duration: 120 });
+      return;
+    }
+    if (target === this.cameras.main.zoom) return;
+    if (this.follow) this.toggleFollow();
+    zoomCamAt(this, this.cameras.main, target, at.x, at.y, 120);
   }
 
   /** Tap at world pixel (x, y): a band, a settlement, or a spot to march to. */

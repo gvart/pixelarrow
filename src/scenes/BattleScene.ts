@@ -34,6 +34,7 @@ import { LADDER, ticketClock } from '../duel/ladder';
 import { battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind, type Unlocks } from '../ui/input/attention';
 import { FACING_DIRS, mirrorX, nextZoom, pipSlot } from '../ui/input/singleTap';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
+import { mapWheel, zoomCamAt } from '../ui/input/zoomAt';
 import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf, type UndoStep } from '../ui/input/undo';
 import { StagedPlan, TAP_GHOST_MS, THEN_CHIP_S, ThenQueue, type ThenKey } from '../ui/orderQueue';
 import { CARD_DOUBLE_TAP_MS, FOLLOW_MARGIN, POINTER_INSET, RECENTRE_MS, FOLLOW_CATCH_UP, boxOf, centreOf, edgePointer, followCentre, keepInView, openingFrame, OPEN_ZOOM_MIN, OPEN_FIGHT_ZOOM, clearOfBadges, snapZoom, zoomLabel, type Box } from '../ui/battleCamera';
@@ -657,7 +658,15 @@ export class BattleScene extends BaseScene {
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
-    this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => this.zoomStep(dy > 0 ? -1 : 1));
+    // the wheel zooms one step at the cursor (accumulated for trackpads) and shift or deltaX pans; never over the HUD or a dialog
+    mapWheel(this, {
+      blocked: (_p, over) => over.length > 0 || !!this.overlay,
+      zoom: (dir, sx, sy) => this.zoomStep(dir, { x: sx, y: sy }),
+      pan: (dx) => {
+        this.setFollow(false);
+        this.cameras.main.scrollX += dx / this.cameras.main.zoom;
+      },
+    });
     // Back never leaves silently: deployment asks first, in battle it offers the retreat (pausing offline).
     this.screen({
       back: () => (this.tutorial ? this.tutorial.askSkip() : this.sim.phase === 'deploy' ? this.confirmLeaveDeploy() : this.openRetreat()),
@@ -2044,19 +2053,21 @@ export class BattleScene extends BaseScene {
     }
   }
 
-  private setZoom(z: number): void {
+  private setZoom(z: number, at?: { x: number; y: number }): void {
     const cam = this.cameras.main;
     const target = camZoom(Phaser.Math.Clamp(z, this.minZoom(), 3));
     if (target !== cam.zoom) this.setFollow(false);
-    this.tweens.add({ targets: cam, zoom: target, duration: 120 });
+    // the wheel holds the point under the cursor; the keys zoom about the centre
+    if (at) zoomCamAt(this, cam, target, at.x, at.y, 120);
+    else this.tweens.add({ targets: cam, zoom: target, duration: 120 });
     // the zoom key says the zoom it settles at
     this.zoomTo = zoomUnits(target);
     if (this.zoomBtn && this.zoomBtn.opts.label !== zoomLabel(this.zoomTo)) this.buildHud();
   }
 
-  /** One whole zoom step in (1) or out (-1): a wheel notch, or the = and - keys. */
-  private zoomStep(dir: 1 | -1): void {
-    this.setZoom(Math.round(zoomUnits(this.cameras.main.zoom)) + dir);
+  /** One whole zoom step in (1) or out (-1): a wheel notch (about the cursor `at`), or the = and - keys. */
+  private zoomStep(dir: 1 | -1, at?: { x: number; y: number }): void {
+    this.setZoom(Math.round(zoomUnits(this.cameras.main.zoom)) + dir, at);
     this.tutorialEvent({ kind: 'zoom' });
   }
 
