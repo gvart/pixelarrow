@@ -25,6 +25,16 @@ const get = (init: RequestInit = {}, path = PATH) => {
   if (!headers.has('cf-connecting-ip')) headers.set('cf-connecting-ip', freshIp());
   return api(path, { ...init, headers });
 };
+/**
+ * Miniflare's rate limiter counts in 60 s windows aligned to the wall clock (epoch = floor(now / 60 s)), so
+ * every bucket empties at the top of each minute. A test that spends a bucket and expects the 61st call to be
+ * refused starts with at least 30 s of its window left (waiting for the next window if not), so its calls can't
+ * straddle a rollover however slow a loaded machine makes them (FLAKY.md F2).
+ */
+async function freshWindow(): Promise<void> {
+  const left = 60_000 - (Date.now() % 60_000);
+  if (left < 30_000) await new Promise((r) => setTimeout(r, left + 50));
+}
 const noCors = (res: Response) => {
   for (const [k] of res.headers) expect(k).not.toMatch(/^access-control-/);
 };
@@ -150,6 +160,7 @@ describe('errors', () => {
   });
 
   it('the 61st call from one IP in a minute is 429 with Retry-After; another IP still gets through', async () => {
+    await freshWindow();
     const ip = freshIp();
     for (let i = 0; i < 60; i++) expect((await get({ headers: { 'cf-connecting-ip': ip } })).status).toBe(200);
     const res = await get({ headers: { 'cf-connecting-ip': ip } });
@@ -161,6 +172,7 @@ describe('errors', () => {
   });
 
   it('keys the limit on cf-connecting-ip only; forwarded headers change nothing (N-PS-4)', async () => {
+    await freshWindow();
     const ip = freshIp();
     for (let i = 0; i < 60; i++) await get({ headers: { 'cf-connecting-ip': ip, 'x-forwarded-for': `203.0.113.${i}`, 'x-real-ip': `203.0.113.${i}` } });
     expect((await get({ headers: { 'cf-connecting-ip': ip, 'x-forwarded-for': '203.0.113.250', 'true-client-ip': '203.0.113.251' } })).status).toBe(429);
@@ -192,9 +204,12 @@ describe('the request path (N-PS-1)', () => {
     spy.sql.length = 0;
     expect((await callWorker(new Request(`${BASE}${PATH}`, { method: 'POST' }), e)).status).toBe(405);
     expect((await callWorker(new Request(`${BASE}/api/public/v1/other`), e)).status).toBe(404);
-    const ip = freshIp();
-    for (let i = 0; i < 60; i++) await get({ headers: { 'cf-connecting-ip': ip } });
-    expect((await callWorker(new Request(`${BASE}${PATH}`, { headers: { 'cf-connecting-ip': ip } }), e)).status).toBe(429);
+    // The 429 comes from a limiter that refuses (FLAKY.md F2): this test is about what runs on a refusal, not
+    // the limiter's count, which the 'errors' tests above cover. Spending a real bucket with 60 calls raced
+    // Miniflare's wall-clock-aligned 60 s window: under load the calls straddled the minute and the 61st was a
+    // 200 that ran the SELECT.
+    const refuse = { limit: async () => ({ success: false }) } as unknown as RateLimit;
+    expect((await callWorker(new Request(`${BASE}${PATH}`, { headers: { 'cf-connecting-ip': freshIp() } }), { ...e, RL_PUBLIC_IP: refuse })).status).toBe(429);
     expect(spy.sql).toEqual([]);
   });
 });
