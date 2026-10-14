@@ -314,7 +314,8 @@ export class CodexScene extends BaseScene {
 
   /** A card's icon (a doctrine's, or the lock) centred in the well. */
   private cardIcon(box: Phaser.GameObjects.Container, w: number, h: number, icon: string): void {
-    const ic = scaleIcon(addIcon(this, 0, 0, icon), 2);
+    // the 12-px icon at a whole scale that fills the well's height (3 in a 48 well), as the row's fills its well
+    const ic = scaleIcon(addIcon(this, 0, 0, icon), Math.floor((h - 8) / 12));
     ic.setPosition(Math.round((w - ic.displayWidth) / 2), Math.round((h - ic.displayHeight) / 2));
     box.add(ic);
   }
