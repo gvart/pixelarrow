@@ -311,6 +311,15 @@ await run.ctx.close();
 const small = await guided(mode === 'telegram' ? '320 TG' : '320 web', { viewport: { width: 320, height: 568 } }, { insets: { safeTop: 59, contentTop: 46, safeBottom: 34 }, fullscreen: 'launch', languageCode: 'en' }, false);
 await small.ctx.close();
 
+// ------------------------------------------------------------------ phone landscape, laptop and full HD: the whole lesson again
+
+// landscape-v6.md §13.1 (V6-RSCR-08): the HUD moved (thumb rail, bottom-centre orders), the narrator docks
+// top-left of the field, and every lit control must still be clear of it and in reach
+for (const [w, h] of [[844, 390], [1280, 800], [1920, 1080]]) {
+  const wide = await guided(`${w}x${h}`, { viewport: { width: w, height: h } }, { languageCode: 'en' }, false);
+  await wide.ctx.close();
+}
+
 // ------------------------------------------------------------------ resume and skip
 
 const ctx2 = await phoneContext(browser, { noFirstRun: false, viewport: { width: 375, height: 667 } });
