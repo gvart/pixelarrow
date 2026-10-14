@@ -22,7 +22,7 @@ import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { MIconButton } from './mosaic/iconButton';
 import { online } from '../platform/cloud';
 import { NOTIFY_TYPES, type NotifySettings, type NotifyType } from '../platform/api';
-import { openExternalLink } from '../platform/telegram';
+import { platform } from '../platform';
 import { haptic } from '../platform/haptics';
 import { lang, t, type TKey } from '../i18n';
 import { legalUrl, type LegalPage } from './legal';
@@ -183,7 +183,7 @@ export function openAbout(scene: UiScene, onClose?: () => void): Phaser.GameObje
   c.add(addText(scene, x + 8, y + 26, note.lines.join('\n'), 'pInk'));
   let by = y + 26 + note.lines.length * LINE_H + 8;
   for (const p of PAGES) {
-    c.add(new Button(scene, x + 8, by, iw, SIZE.btnH, { label: t(p.label), id: `about.${p.page}`, onClick: () => openExternalLink(legalUrl(p.page, lang())) }));
+    c.add(new Button(scene, x + 8, by, iw, SIZE.btnH, { label: t(p.label), id: `about.${p.page}`, onClick: () => platform.share.openExternal(legalUrl(p.page, lang())) }));
     by += step;
   }
   return c;

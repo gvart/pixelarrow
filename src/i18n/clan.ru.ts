@@ -40,7 +40,7 @@ export const CLAN_RU: Record<keyof typeof CLAN_EN, Entry> = {
   'clan.done.founded': 'Клан основан!',
   'clan.done.joined': 'Добро пожаловать в [{tag}]!',
   'clan.link.title': 'Ссылка-приглашение',
-  'clan.link.sent': 'Отправлено в меню «Поделиться» Telegram.',
+  'clan.link.sent': 'Отправлено в меню «Поделиться».',
   'clan.link.copied': 'Ссылка скопирована:',
   'clan.link.code': 'Код {code} · действует {days} дн.',
   'clan.link.share': 'Поделиться',
