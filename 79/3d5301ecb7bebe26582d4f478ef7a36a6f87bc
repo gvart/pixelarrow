@@ -1,0 +1,28 @@
+src/ui/input/focus.ts
+  s_0d98fe904b2e82::t_2000079a9f4fa4 68
+  s_0d98fe904b2e82::t_606932aafc9719 51-52
+  s_0d98fe904b2e82::t_14d93bd1c0d44b 69
+  s_0d98fe904b2e82::t_5506f793698eb7 49-50
+src/ui/focusRing.ts
+  s_0d98fe904b2e82::t_fa68249870f2ea 213-218
+  s_0d98fe904b2e82::t_a1f2c4f2773392 207-212
+tests/focus.test.ts
+  s_0d98fe904b2e82::t_6305a5a7db74b6 84-90
+  s_0d98fe904b2e82::t_b5459195050156 75-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "793d5301ecb7bebe26582d4f478ef7a36a6f87bc",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
