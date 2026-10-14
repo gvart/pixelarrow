@@ -1,0 +1,22 @@
+docs/v6/stories/V6-RSCR-09/NOTES.md
+  s_0d98fe904b2e82::t_8b05594f2484f8 17-18,29,46
+  s_0d98fe904b2e82::t_d6dd5551b44177 52-78
+docs/v6/shots/V6-RSCR-09/keyboard-mouse.txt
+  s_0d98fe904b2e82::t_ed4e18f4fd76bb 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "09c8b929b3aa9b3e6df35e969300fa6c93111e55",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
