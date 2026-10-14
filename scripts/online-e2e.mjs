@@ -180,14 +180,19 @@ for (const p of [A, B]) {
     for (const s of g.scene.getScenes(true)) g.scene.stop(s.scene.key);
     g.scene.start('Online', {});
   });
-  await until(() => ev(p, () => !!window.__game.scene.getScene('Online').map), 10000);
+  // The scene object keeps `map` from the earlier visit, so wait for this visit's hub instead:
+  // the map view is up and its rail (Army, Clan, Lobby...) is built.
+  check(`[${p.devuser}] back on the war map`, await until(() => ev(p, () => {
+    const s = window.__game.scene.getScene('Online');
+    return s.sys.isActive() && s.view?.kind === 'map' && !!s.rail;
+  }), 15000));
 }
 check('both online in the shard', await until(() => ev(A, () => (window.__shard?.players?.length ?? 0) >= 2), 8000));
 await A.page.waitForTimeout(2000);
 // the Lobby button at the map's right edge (the tab bar has a Duels tab too, so not by label)
-await A.api.tapBtn('Online', { id: 'online.bar.duels' });
+await A.api.tapBtn('Online', { id: 'online.bar.duels' }, { waitMs: 5000 });
 await A.page.waitForTimeout(600);
-await tapBtn(A, 'Online', 'Challenge');
+await A.api.tapBtn('Online', { label: 'Challenge' }, { waitMs: 5000 });
 check('challenge delivered', await until(async () => (await sceneText(B, 'Online')).includes('CHALLENGES YOU'), 8000));
 await tapBtn(B, 'Online', 'Fight');
 check('both in the duel deployment', await until(async () => (await active(A, 'Battle')) && (await active(B, 'Battle')), 10000));
