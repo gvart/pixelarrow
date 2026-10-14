@@ -472,9 +472,12 @@ const SCREENS = [
         party.y = t.y + 0.5;
         party.idle = 0;
         party.power = s.info.power * 1.05;
-        s.setWaiting(true);
+        // open the sheet for that band now, as the world's encounter event does (PARITY-STABLE, V6-076): resting
+        // until it walks over takes world time, and under load the 6 s ran out at some sizes, so parity compared
+        // a sheet with no sheet
+        s.openEncounter(party.id, false);
       });
-      await until(p, () => !!window.__game.scene.getScene('World').dialog, 6000);
+      if (!(await until(p, () => !!window.__game.scene.getScene('World').dialog, 6000))) throw new Error('the encounter sheet did not open');
       return wait(p, 400);
     },
   },
