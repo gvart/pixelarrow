@@ -161,7 +161,7 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'devices.everywhereBody': 'На всех устройствах с этим аккаунтом, включая это, нужно будет войти снова. Кампания останется на этом устройстве.',
   'devices.onlyThis': 'Вход выполнен только на этом устройстве.',
   // V6-LINK-05: sign-in method actions, AU-10 Confirm it's you, AU-11, AU-12, AU-15 (§8.2–§8.4, §8.8, §8.10)
-  'account.emailPending': 'Ждём подтверждения: {email}',
+  'account.emailPending': 'Не подтверждена: {email}',
   'account.add': 'Добавить',
   'account.remove': 'Отвязать',
   'account.remove.last': 'Это ваш единственный способ входа. Сначала добавьте другой.',

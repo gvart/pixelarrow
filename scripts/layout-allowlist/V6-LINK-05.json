@@ -1,0 +1,9 @@
+{
+  "_doc": "Known layout violations owned by V6-LINK-05 (scripts/layout-check.mjs, docs/UI_KIT.md \"Layout check\"). The Kit's letterboxed phone column at 844x390 inside Telegram is shorter than the game's own landscape side panel: Check your email (add / change variants, longer lead text) scrolls its words above the buttons with a scroll hint, and the title shrinks, as kit-forms-check does (V6-RSCR-11). Fix them and remove the entries; delete this file when it is empty.",
+  "entries": [
+    "kit-forms-check-add|clipped|WE SENT A LINK TO ANA@EXAMPLE.C…@844x390",
+    "kit-forms-check-add|clipped|МЫ ОТПРАВИЛИ ССЫЛКУ НА ANA@EXAM…@844x390",
+    "kit-forms-check-add|text-size|*@844x390",
+    "kit-forms-check-change|text-size|*@844x390"
+  ]
+}
