@@ -9,6 +9,7 @@ import { defaultAttrs, PERKS } from '../data/perks';
 import { ARC_STAGES, FLAGS_CAP, JOURNAL_CAP, World, type ArcState, type LairState, type WorldSave } from '../world/world';
 import type { TutorialProgress } from './tutorial';
 import { validMarker, type BattleMarker } from './campaignBattle';
+import type { KV } from '../platform/core/storage';
 
 /**
  * v6 is the one v5-train bump (ST-02, design/adr/ADR-0002-save-migration.md):
@@ -258,12 +259,8 @@ export function unchunk(parts: (string | null | undefined)[]): string | null {
   return parts.join('');
 }
 
-/** Async key/value backend (Telegram CloudStorage or localStorage). */
-export interface KV {
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<void>;
-  remove(key: string): Promise<void>;
-}
+/** Async key/value backend; it lives with the platform storage interface (ADR-0006 M4). */
+export type { KV };
 
 /*
  * Storage layout (V5-011). Two slots of parts, `px_part_N` (slot 0, also the

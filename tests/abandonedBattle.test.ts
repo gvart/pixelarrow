@@ -15,11 +15,6 @@ function memKV(s: Map<string, string>): KV {
     remove: async (k) => void s.delete(k),
   };
 }
-vi.mock('../src/platform/storage', () => ({
-  gameKV: () => ({ primary: memKV(store), mirror: null, cloud: false }),
-  localKV: () => memKV(new Map()),
-  safeLocalStorage: () => null,
-}));
 vi.mock('../src/platform/cloud', () => ({
   online: {
     available: false,
@@ -38,6 +33,12 @@ import { campaignSetup, markBattle } from '../src/game/campaignBattle';
 import { migrate, readSave, serialize, writeSave } from '../src/game/save';
 import { Battle } from '../src/sim/battle';
 import { Rng } from '../src/sim/rng';
+import { setPlatformForTests } from '../src/platform';
+import { FakePlatform } from './fakes/platform';
+
+const fake = new FakePlatform();
+fake.saveStore = () => memKV(store);
+setPlatformForTests(fake);
 
 /** A campaign that has just pressed Fight against a much stronger skirmish army. */
 async function startedBattle(seed: number): Promise<{ camp: Campaign; pending: PendingBattle }> {

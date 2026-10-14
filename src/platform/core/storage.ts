@@ -1,8 +1,11 @@
 /** Key/value storage for the save and for device-only data. */
-// KV moves here from src/game/save.ts at M4 (ADR-0006); until then it is re-exported from there.
-import type { KV } from '../../game/save';
 
-export type { KV };
+/** Async key/value backend (Telegram CloudStorage, localStorage, ...). src/game/save.ts re-exports it. */
+export interface KV {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  remove(key: string): Promise<void>;
+}
 
 export interface Storage {
   /** The save: Telegram CloudStorage with a localStorage mirror, or localStorage. */

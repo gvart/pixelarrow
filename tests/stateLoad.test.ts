@@ -15,11 +15,6 @@ function memKV(store: Map<string, string>): KV {
 }
 const pushed: SaveData[] = [];
 
-vi.mock('../src/platform/storage', () => ({
-  gameKV: () => ({ primary: memKV(stores.primary), mirror: stores.mirror ? memKV(stores.mirror) : null, cloud: !!stores.mirror }),
-  localKV: () => memKV(new Map()),
-  safeLocalStorage: () => null,
-}));
 vi.mock('../src/platform/cloud', () => ({
   online: {
     available: false,
@@ -34,6 +29,14 @@ vi.mock('../src/platform/haptics', async (orig) => ({ ...(await orig<typeof impo
 import { state } from '../src/state';
 import { Campaign } from '../src/game/campaign';
 import { readBackup, readSave, serialize, writeSave, SAVE_VERSION } from '../src/game/save';
+import { setPlatformForTests } from '../src/platform';
+import { FakePlatform } from './fakes/platform';
+
+// the save store is `primary`; the device keeps its own copy in `mirror` when there is one (Telegram)
+const fake = new FakePlatform();
+fake.saveStore = () => memKV(stores.primary);
+fake.deviceStore = () => memKV(stores.mirror ?? new Map());
+setPlatformForTests(fake);
 
 function putRaw(store: Map<string, string>, text: string, v = SAVE_VERSION): void {
   store.set('px_part_0', text);
