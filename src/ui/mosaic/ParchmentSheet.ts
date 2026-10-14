@@ -118,6 +118,14 @@ function placeSheet(scene: UiScene, o: ParchmentSheetOpts): { presentation: Pane
   return { presentation: p, x: Math.round((VW - w) / 2), y: p === 'bottom' ? VH - h : Math.round((VH - h) / 2), w, h };
 }
 
+/**
+ * The width a sheet asking for `o` gets on this screen (v5's in compact portrait, the §3.4 caps elsewhere), so a
+ * caller can lay its content out for the box it will be given before opening it.
+ */
+export function sheetWidth(scene: UiScene, o: Omit<ParchmentSheetOpts, 'h'>): number {
+  return placeSheet(scene, { ...o, h: 0 }).w;
+}
+
 export interface ParchmentSheetHandle extends Modal {
   buttons: MButton[];
 }
