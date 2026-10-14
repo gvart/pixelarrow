@@ -60,7 +60,7 @@ Header (icon, name, rarity and slot, condition, worth), the compare block (again
 ## What changed
 
 - **Army** (`ArmyScene.ts`): `responsive = true`. Compact portrait is the v5 page (code path untouched). Elsewhere `refreshSplit`: `masterDetail` panes inside a `CONTENT_MAX` region; the master scrolls on its own (sentence, chips, switch, filter and sort, rows or stash grid); the detail holds the card and the footer as one group centred in the pane's height when they fit, else the footer sits on the pane's floor and the card scrolls. On the Stash tab the detail scrolls to the slots (the drop targets). Tab order: top bar, master, detail, footer (`focusPane`).
-- **Hero** (`HeroScene.ts`): `responsive = true`. Compact portrait: v5. Medium portrait: the v5 stack, head and page at most 360 wide, the action bar at the right. Compact landscape and expanded (`layoutSplit`): the paper doll in its own scroll pane on the left (168 / 240), the XP line and tabs fixed on the right, the page scrolling under them (≤ 360, centred), the action bar bottom right.
+- **Hero** (`HeroScene.ts`): `responsive = true`. Compact portrait: v5. Medium portrait: the v5 stack, head and page at most 360 UI px wide, the action bar at the right. Compact landscape and expanded (`layoutSplit`): the paper doll in its own scroll pane on the left (168 / 240), the XP line and tabs fixed on the right, the page scrolling under them (≤ 360, centred), the action bar bottom right.
 - **Sheets**: `sheetBox` (ParchmentSheet, additive export) gives the box a sheet would get; `openItemCard` and the perk tier sheet lay out from it, so their content fills the side panel. `openOptionSheet` (filter, sort) becomes a task panel outside compact portrait (`openParchmentSheet`), one or two columns by the panel's width; compact portrait keeps the v5 sheet.
 - **Drag** (`DragDrop` in sheet.ts, `src/ui/army/drop.ts`): a mouse over a stash item shows `grab`; while dragging, slots that take the item get a bronze dashed outline (full under the cursor, 50% elsewhere), refusing slots none; the cursor is `grabbing`, or `not-allowed` over a refusing slot (§4). Pure rule in `dropView`, tested in `tests/armyDrop.test.ts`.
 - **Shared, additive**: `HEAD_NICHE` (parts.ts), `MStashGridOpts.fill`/`hint` (StashGrid.ts), `sheetBox` (ParchmentSheet.ts). None changes a caller that does not pass the new option.
@@ -70,3 +70,15 @@ Header (icon, name, rarity and slot, condition, worth), the compare block (again
 - Medium landscape (near-square windows) uses the split Hero layout, like expanded; it is not in the matrix.
 - Expanded Army keeps the master at `masterDetail`'s 40% (251 at 1280) rather than a fixed 260.
 - The pick-mode Perks button and the tappable figure are additions (both repeat an existing action).
+
+## Verification (after merging v6 at cd5a0e1f)
+
+- **Layout check**, family scenes (`--scenes 'army*,hero*,stash*'`), all ten sizes, en and ru, plain and tg: 28 configs x 13 screens, 0 distinct violations, 0 new, 0 pending: PASSED. The four Hero element-parity failures at 768x1024 and 820x1180 (`hero.pinTab.*` collapsed in medium portrait) are gone: medium portrait keeps the v5 pinned tabs.
+- **Portrait pixel compare** (`.rscr05/portrait.mjs`, a fake clock and a fixed campaign, against v6 cd5a0e1f) at 390x844, 360x780 and 320x693, en and ru, 13 screens each: 78 compared, 0 different (0 px).
+- **Keyboard and mouse at 1280x800**: `docs/v6/shots/V6-RSCR-05/keyboard-mouse-1280x800.txt` (Tab order top bar, master, detail, footer; Enter and Esc; grab, grabbing and not-allowed cursors; drop equips).
+- **Gates**: tsc 0 errors; vitest 156 files, 1952 tests passed; vite build OK; regression `--all` (telegram and web): 21 of 21 rows PASS, suite 1991 s. The World test that timed out under load earlier (FLAKY F7) did not recur.
+- **Screenshots**: `docs/v6/shots/V6-RSCR-05/after/` has every family screen at 1280x800, 1920x1080, 844x390 and 768x1024 (en), plus Army, Hero, Hero gear and the compare card in ru at the same sizes; all opened and checked. The other sizes and tg variants come from the layout check's shots (git-ignored).
+
+## Open items
+
+- `scripts/layout-allowlist/V6-RSCR-04.json` still lists 7 stale duel-hero entries for these screens; RSCR-04 owns that file and removes them.
