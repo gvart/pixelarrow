@@ -1,0 +1,36 @@
+src/ui/mosaic/layout/RotateCard.ts
+  s_0d98fe904b2e82::t_b2a15647d0d934 11,40-44,47
+scripts/lib/layoutMatrix.mjs
+  s_0d98fe904b2e82::t_a0d31374e67c66 30-31
+  s_0d98fe904b2e82::t_4af14b363b8710 32
+src/ui/mosaic/layout/SidePanel.ts
+  s_0d98fe904b2e82::t_b2a15647d0d934 15,81-82,104
+tests/layoutWide.test.ts
+  s_0d98fe904b2e82::t_827f6e7acf5497 191-192,199,214-261,268,277,282,287,294-295
+  s_0d98fe904b2e82::t_08bbf6087ab506 3,50
+  s_0d98fe904b2e82::t_10bdccab9a58a4 2,185,188-190,193-198,201-202,262-267,269-276,278-281,283-286,288-293,296-300
+src/ui/layout.ts
+  s_0d98fe904b2e82::t_5ce724aab49113 38-39,136-156,261-262,273-276,287-295,328,346-354,367-370,372,376-380,388,390-397
+  s_0d98fe904b2e82::t_48863e824f6f99 22,398-408,413-414,419,481,546-548
+src/ui/layoutCheck.ts
+  s_0d98fe904b2e82::t_a0d31374e67c66 24,51-54,192-201,223-224,255-259,320-334,337-339,341-343,350,363-369,393
+  s_0d98fe904b2e82::t_adf32a752cea59 370-371,394,396
+src/ui/widgets.ts
+  s_0d98fe904b2e82::t_218323b5bf375d 16,785-786
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a231312afb7563a88eb698928a2c6e4853bd8a8b",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
