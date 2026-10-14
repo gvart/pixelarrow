@@ -5,6 +5,25 @@
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
+## PAUSED AGAIN (2026-10-14, at the owner's request)
+
+**To resume:** start the same `/loop /orchestrate …` prompt. Then:
+1. **RSCR-02 is merged** (d696167d; v6 HEAD 9b8404b3), but its integrator skipped the layout gate: run `layout-check --scenes 'battle*,results*,tutorial*'` at all sizes plus `--quick` on v6 first.
+2. **Screenshot cap (V6-076) isn't met yet:** RSCR-02 is still 10.5 MB as JPEG (cap 5 MB). Decision for resume: keep ≤ 10 key shots per story in docs/ (the 4 report shots plus the most telling states) and move the rest to v6-shots/; the PNG originals are in v6-shots/integrator-rscr-02/png-originals/.
+3. **PAY-01 is complete** (branch worktree-agent-a003341de6e3c3eea), ready for an integrator. Decision text for it: the shop pays via platform.payments; the Telegram adapter is unchanged; the web adapter is always coming_soon; the server's POST /api/shop/invoice answers 403 payments_unavailable unless the session is a Telegram bearer session; the boundary allowlist is down to 1 (telegram.ts rule 4, M10); PAY-02 must update the shopParity fixture or disable the web pack buttons, and build the coming-soon card and the AU-20 strings.
+4. The paused agents below each continue from their branch.
+
+**Paused agents** (see "Pause reports 2"):
+- acct-05 (V6-ACCT-05 web sign-in client)
+- fix-e2e (the online-e2e duel-step regression)
+- parity-stable (PARITY-STABLE, deterministic element parity)
+
+**Queue after them:** ACCT-06/07, LINK-05/06/07 (after ACCT-05), PAY-02 (after PAY-01), RSCR-03, 04, 06, 08, 09, 10 (after PARITY-STABLE ideally), RSCR-11 last, INP-06, then QA-final (Phase 8), which includes rewriting the landing FAQ.
+
+## Pause reports 2
+
+(filled in as the agents report)
+
 ## RESUMED (2026-10-14), after a pause at the owner's request
 
 Resumed: integrator-plat-05 is merging PLAT-05; rscr-02b, rscr-05b and rscr-07b continue in the existing worktrees of rscr-02, rscr-05 and rscr-07.
@@ -35,6 +54,8 @@ The run is paused cleanly. **To resume:** start the same `/loop /orchestrate …
 - **rscr-02** (V6-RSCR-02): branch `worktree-agent-a1c9a07a75e7920bc`, last commit a71c8917 (wip). Done: the battle HUD per size class (portrait unchanged, 3 cards per row on tablet, right thumb rail at 844x390, bottom-centre orders on laptops), the camera framing rect follows and recentres, Results in two panes, Inspect as a side panel, the allowlist file deleted; vitest 1968/1968; replay-hash 13/13; portrait 0 px; 28/28 play checks. Left: the tutorial narrator panel is 376 wide at medium (over 320); 12 undiagnosed violations at 844x390; rerun `layout-check --scenes 'battle*,results*,tutorial*' --verbose`, then regression --all; commit the screenshots and finish the notes.
 
 ## Merged
+
+- PLAT-05 (V6-071), RSCR-05 (V6-072), PLAT-04 (V6-073), RSCR-07 (V6-074), RSCR-02 (V6-075/076). 49 of 64 stories merged.
 
 - RSCR-01 (V6-068), INP-05 (V6-069), QA-HARDEN (V6-070), FIX-KIT-WIDE (V6-067). 44 of 64 stories merged; v6 HEAD 803fde39 or later.
 
