@@ -1,0 +1,46 @@
+tests/layoutWide.test.ts
+  s_0d98fe904b2e82::t_827f6e7acf5497 202-249
+  s_0d98fe904b2e82::t_08bbf6087ab506 3,50
+scripts/lib/layoutMatrix.mjs
+  s_0d98fe904b2e82::t_a0d31374e67c66 30-31
+src/ui/mosaic/layout/SidePanel.ts
+  s_0d98fe904b2e82::t_b2a15647d0d934 15,81-82,104
+src/ui/mosaic/layout/RotateCard.ts
+  s_0d98fe904b2e82::t_b2a15647d0d934 11,40-44,47
+src/scenes/kit/layoutsPage.ts
+  s_0d98fe904b2e82::t_88851b10207220 218
+  s_0d98fe904b2e82::t_6b0c0125db0737 7-8,10-15
+  s_0d98fe904b2e82::t_5b1912218ec608 303-310
+  s_0d98fe904b2e82::t_388e6490ddbb90 363-365
+  s_0d98fe904b2e82::t_0d1a66ccbd195e 163,167-170,173-176,179,182-183,185-199
+  s_0d98fe904b2e82::t_b136c61ebb810d 321
+  s_0d98fe904b2e82::t_2c6652f3bfab1a 27
+  s_0d98fe904b2e82::t_4fc8e486fcb301 229-230
+  s_0d98fe904b2e82::t_7224654846d97b 247-248,257-274
+  s_0d98fe904b2e82::t_41174623e25a45 164-165
+  s_0d98fe904b2e82::t_b58e9d145a1874 366
+  s_0d98fe904b2e82::t_283c01778e3a0e 279
+  s_0d98fe904b2e82::t_3583c9a695150c 54-94,97-101
+  s_0d98fe904b2e82::t_abaadb0a55adcc 336-339
+  s_0d98fe904b2e82::t_74b0cb5392a36f 172
+src/ui/layoutCheck.ts
+  s_0d98fe904b2e82::t_a0d31374e67c66 24,51-54,213-214,245-249,310-324,327-329,331-333,340,353-359
+src/ui/layout.ts
+  s_0d98fe904b2e82::t_5ce724aab49113 38,135-146,251-252,263-264,275-281,314,332-339,352,355,359-363,371,373-386,391-392,397,459,524
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a26290e59646da59574f39426ff3ce8163d2e2c8",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
