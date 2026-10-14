@@ -108,6 +108,10 @@ jobs:
       - run: npx vitest run
       # vite build only: the type-check above is what `npm run build` adds
       - run: npx vite build
+        env:
+          # Telegram invite links t.me/<bot>/<app>?startapp=... (owner action; the play URL until set)
+          VITE_TELEGRAM_BOT: ${{ vars.TELEGRAM_BOT_USERNAME }}
+          VITE_TELEGRAM_APP: ${{ vars.TELEGRAM_APP_NAME }}
       - uses: actions/upload-artifact@v4
         with:
           name: dist

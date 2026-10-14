@@ -5,7 +5,7 @@
  */
 import type { PlatformEnv } from './core/env';
 import type { Platform } from './core/platform';
-import { createPlatform, detectPlatformId, readLaunchHints } from './detect';
+import { createPlatform, detectPlatformId, readLaunchHints, telegramLinkOptions } from './detect';
 
 export type * from './core/index';
 
@@ -47,7 +47,8 @@ export function selectPlatform(): Platform {
   if (selected) return platform;
   selected = true;
   const env = browserEnv();
-  platform = createPlatform(detectPlatformId(readLaunchHints(env, { build: import.meta.env.VITE_PLATFORM, dev: !!import.meta.env.DEV })), env);
+  const id = detectPlatformId(readLaunchHints(env, { build: import.meta.env.VITE_PLATFORM, dev: !!import.meta.env.DEV }));
+  platform = createPlatform(id, env, telegramLinkOptions({ VITE_TELEGRAM_BOT: import.meta.env.VITE_TELEGRAM_BOT, VITE_TELEGRAM_APP: import.meta.env.VITE_TELEGRAM_APP }));
   return platform;
 }
 
