@@ -46,10 +46,12 @@ The two hosts (ADR-0007): the game and its API on `https://play.pixelarrow.app`
    1. Onboard pixelarrow.app in Cloudflare Email Service (beta) with the sender
       `noreply@pixelarrow.app` (the `EMAIL` binding only allows that address;
       V6-045), and check SPF, DKIM and DMARC.
-   2. Create a Turnstile widget for `play.pixelarrow.app`. Its secret key goes
-      to the Worker in step 4.4. Its site key is public: set it where the
-      client build reads it (the web sign-in client, V6-ACCT-05; if that is not
-      wired yet, give the site key to the next run).
+   2. Create a Turnstile widget for `play.pixelarrow.app` (mode Managed). Its
+      secret key goes to the Worker in step 4.4. Its site key is public: set it
+      as the GitHub Actions repository variable `TURNSTILE_SITE_KEY` (Settings →
+      Secrets and variables → Actions → Variables). The deploy workflow passes it
+      to the client build as `VITE_TURNSTILE_SITE_KEY` (V6-ACCT-05). Without it a
+      production build shows "The security check didn't load" on the web forms.
    3. Confirm the Rate Limiting namespace ids `6001` (`RL_AUTH_IP`), `6002`
       (`RL_TG_AUTH_IP`) and `6003` (`RL_PUBLIC_IP`) in `wrangler.jsonc` are not
       used by another Worker in the account. If one is taken, tell the next run to pick free ids.
